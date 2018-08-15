@@ -22,7 +22,7 @@ import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 
 import           Pos.Core ()
-import           Test.Pos.Core.Arbitrary.Txp ()
+import           Test.Pos.Chain.Txp.Arbitrary ()
 import           Test.QuickCheck (Arbitrary (..), arbitrary, generate, oneof)
 
 

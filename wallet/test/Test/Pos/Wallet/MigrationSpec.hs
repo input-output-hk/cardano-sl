@@ -31,8 +31,8 @@ import           Pos.Wallet.Web.State.Acidic (openState)
 import           Pos.Wallet.Web.State.State (askWalletSnapshot)
 import           Pos.Wallet.Web.State.Storage
 
+import           Test.Pos.Chain.Txp.Arbitrary ()
 import           Test.Pos.Core.Arbitrary ()
-import           Test.Pos.Core.Arbitrary.Txp ()
 
 --------------------------------------------------------------------------------
 -- Reverse migrations

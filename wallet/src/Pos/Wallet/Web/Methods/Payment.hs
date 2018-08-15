@@ -21,7 +21,8 @@ import           Formatting (build, sformat, (%))
 import           Servant.Server (err403, err405, errReasonPhrase)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Chain.Txp (TxFee (..), TxpConfiguration, Utxo)
+import           Pos.Chain.Txp (TxAux (..), TxFee (..), TxOut (..),
+                     TxpConfiguration, Utxo, _txOutputs)
 import           Pos.Client.KeyStorage (getSecretKeys)
 import           Pos.Client.Txp.Addresses (MonadAddresses)
 import           Pos.Client.Txp.Balances (MonadBalances (..))
@@ -34,7 +35,6 @@ import           Pos.Core as Core (Address, Coin, Config (..), HasConfiguration,
                      getCurrentTimestamp)
 import           Pos.Core.Conc (concurrently, delay)
 import           Pos.Core.Genesis (GenesisData)
-import           Pos.Core.Txp (TxAux (..), TxOut (..), _txOutputs)
 import           Pos.Crypto (PassPhrase, SafeSigner, ShouldCheckPassphrase (..),
                      checkPassMatches, hash, withSafeSignerUnsafe)
 import           Pos.DB (MonadGState)

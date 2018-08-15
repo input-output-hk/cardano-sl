@@ -17,9 +17,9 @@ import           Formatting (build, sformat, (%))
 import           Node.Message.Class (Message)
 import           Universum
 
-import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Chain.Txp (TxAux (..), TxId, TxMsgContents (..),
+                     TxpConfiguration)
 import           Pos.Core as Core (Config)
-import           Pos.Core.Txp (TxAux (..), TxId, TxMsgContents (..))
 import           Pos.Crypto (hash)
 import           Pos.DB.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem,
                      txpProcessTx)

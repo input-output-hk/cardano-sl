@@ -14,8 +14,8 @@ import           Universum
 import           Control.Lens (makeLenses)
 import           Data.Default (Default, def)
 
+import           Pos.Chain.Txp (TxId)
 import           Pos.Core (Address, Coin)
-import           Pos.Core.Txp (TxId)
 import           Pos.Explorer.Core (AddrHistory, TxExtra)
 import qualified Pos.Util.Modifier as MM
 

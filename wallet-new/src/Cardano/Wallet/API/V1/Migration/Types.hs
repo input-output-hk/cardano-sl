@@ -33,11 +33,11 @@ import           Cardano.Wallet.API.V1.Generic (jsendErrorGenericParseJSON,
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Pos.Chain.Txp as V0
+import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Client.Txp.Util as V0
 import           Pos.Core (addressF)
 import qualified Pos.Core.Common as Core
 import qualified Pos.Core.Slotting as Core
-import qualified Pos.Core.Txp as Txp
 import           Pos.Crypto (decodeHash)
 import           Pos.Util.Mnemonic (Mnemonic)
 import qualified Pos.Util.Servant as V0

@@ -22,9 +22,9 @@ import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Chain.Block.Slog.Types (SlogUndo (..), buildSlogUndo)
 import           Pos.Chain.Block.Union (Block, BlockHeader, HasHeaderHash (..))
 import           Pos.Chain.Delegation (DlgUndo)
+import           Pos.Chain.Txp (TxpUndo)
 import           Pos.Chain.Update (USUndo)
 import           Pos.Core (HasDifficulty (..), SlotCount)
-import           Pos.Core.Txp (TxpUndo)
 import           Pos.Util.Util (HasLens (..))
 
 -- | Structure for undo block during rollback

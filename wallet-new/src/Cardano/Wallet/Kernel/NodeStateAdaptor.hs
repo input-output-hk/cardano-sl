@@ -63,6 +63,7 @@ import qualified Cardano.Wallet.API.V1.Types as V1
 import           Pos.Chain.Block (Block, HeaderHash, LastKnownHeader,
                      LastKnownHeaderTag, MainBlock, blockHeader, headerHash,
                      mainBlockSlot, prevBlockL)
+import           Pos.Chain.Txp (TxIn, TxOutAux)
 import           Pos.Chain.Update (ConfirmedProposalState,
                      HasUpdateConfiguration, SoftwareVersion, bvdMaxTxSize,
                      bvdTxFeePolicy)
@@ -75,7 +76,6 @@ import           Pos.Core as Core (BlockCount, Config (..), GenesisHash (..),
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Slotting (EpochIndex (..), HasSlottingVar (..),
                      LocalSlotIndex (..), MonadSlots (..), SlotId (..))
-import           Pos.Core.Txp (TxIn, TxOutAux)
 import qualified Pos.DB.Block as DB
 import           Pos.DB.BlockIndex (getTipHeader)
 import           Pos.DB.Class (MonadDBRead (..), getBlock)

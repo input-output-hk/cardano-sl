@@ -15,7 +15,7 @@ import qualified Data.Map as Map
 import           Formatting (build, int, sformat, stext, (%))
 import qualified Text.JSON.Canonical as CanonicalJSON
 
-import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Chain.Txp (TxOut (..), TxpConfiguration)
 import           Pos.Chain.Update (BlockVersionModifier (..))
 import           Pos.Client.KeyStorage (addSecretKey, getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
@@ -27,7 +27,6 @@ import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                      makeAddress)
 import           Pos.Core.Delegation (HeavyDlgIndex (..))
 import           Pos.Core.Genesis (gsSecretKeys)
-import           Pos.Core.Txp (TxOut (..))
 import           Pos.Core.Update (SoftwareVersion (..))
 import           Pos.Crypto (PublicKey, emptyPassphrase, encToPublic,
                      fullPublicKeyF, hashHexF, noPassEncrypt, safeCreatePsk,

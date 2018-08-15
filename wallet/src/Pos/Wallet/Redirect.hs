@@ -27,12 +27,12 @@ import           Data.Time.Units (Millisecond)
 
 import           Pos.Chain.Block (BlockHeader, LastKnownHeaderTag,
                      MonadLastKnownHeader)
-import           Pos.Chain.Txp (ToilVerFailure, TxpConfiguration)
+import           Pos.Chain.Txp (ToilVerFailure, Tx, TxAux (..), TxId, TxUndo,
+                     TxpConfiguration)
 import           Pos.Chain.Update (ConfirmedProposalState)
 import qualified Pos.Context as PC
 import           Pos.Core as Core (ChainDifficulty, Config, HasConfiguration,
                      Timestamp, difficultyL, getCurrentTimestamp)
-import           Pos.Core.Txp (Tx, TxAux (..), TxId, TxUndo)
 import           Pos.Crypto (WithHash (..))
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)

@@ -6,12 +6,11 @@ import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat)
 import           Servant
 
-import           Pos.Chain.Txp (TxId, TxpConfiguration)
+import           Pos.Chain.Txp (TxAux, TxId, TxpConfiguration)
 import           Pos.Client.Txp.Util (defaultInputSelectionPolicy)
 import qualified Pos.Client.Txp.Util as V0
 import           Pos.Core as Core (Config (..))
 import qualified Pos.Core as Core
-import           Pos.Core.Txp (TxAux)
 import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.WalletMode as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0

@@ -59,8 +59,8 @@ import           Serokell.Util.Text (listBuilderJSON, listJsonIndent,
                      mapBuilder)
 import           Test.QuickCheck (Arbitrary (..), Gen, suchThat)
 
+import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Core as Core
-import qualified Pos.Core.Txp as Txp
 
 import           Test.Pos.Core.Arbitrary ()
 

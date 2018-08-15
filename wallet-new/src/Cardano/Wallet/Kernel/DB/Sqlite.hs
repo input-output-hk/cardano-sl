@@ -75,8 +75,8 @@ import           Cardano.Wallet.Kernel.DB.TxMeta.Types (AccountFops (..),
 import qualified Cardano.Wallet.Kernel.DB.TxMeta.Types as Kernel
 import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
 
+import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Core as Core
-import qualified Pos.Core.Txp as Txp
 import           Pos.Crypto.Hashing (decodeAbstractHash, hashHexF)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}

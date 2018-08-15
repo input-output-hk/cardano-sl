@@ -36,11 +36,11 @@ import           Universum
 import           Control.Lens (makePrisms)
 import           Data.Scientific (Scientific)
 
+import           Pos.Chain.Txp (TxOut)
 import           Pos.Chain.Update (BlockVersionData, BlockVersionModifier,
                      SystemTag)
 import           Pos.Core (AddrStakeDistribution, Address, CoinPortion,
                      StakeholderId)
-import           Pos.Core.Txp (TxOut)
 import           Pos.Core.Update (BlockVersion, SoftwareVersion)
 import           Pos.Crypto (AHash, PublicKey)
 

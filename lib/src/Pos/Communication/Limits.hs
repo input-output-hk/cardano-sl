@@ -64,12 +64,12 @@ import           Pos.Chain.Block (Block, BlockHeader (..), GenesisBlock,
                      GenesisBlockHeader, MainBlock, MainBlockHeader)
 import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..))
+import           Pos.Chain.Txp (TxAux, TxMsgContents (..))
 import           Pos.Core (BlockCount, EpochIndex, StakeholderId,
                      coinPortionToDouble)
 import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
 import           Pos.Core.Ssc (Commitment (..), InnerSharesMap, Opening (..),
                      SignedCommitment, VssCertificate)
-import           Pos.Core.Txp (TxAux, TxMsgContents (..))
 import           Pos.Core.Update (BlockVersionData (..), UpId,
                      UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto (ProxyCert (..), ProxySecretKey (..),

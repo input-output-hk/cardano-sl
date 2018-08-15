@@ -15,7 +15,7 @@ import           Data.Time.Units (Microsecond, Second, convertUnit)
 import           Formatting (build, sformat, (%))
 import           Serokell.Util (enumerate, listJson)
 
-import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Chain.Txp (TxAux, TxpConfiguration)
 import           Pos.Client.Txp.Addresses (MonadAddresses)
 import           Pos.Client.Txp.Network (TxMode)
 import           Pos.Configuration (HasNodeConfiguration,
@@ -25,7 +25,6 @@ import           Pos.Core as Core (ChainDifficulty (..), Config (..),
 import           Pos.Core.Chrono (getOldestFirst)
 import           Pos.Core.Conc (delay, forConcurrently)
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Txp (TxAux)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)

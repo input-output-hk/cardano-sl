@@ -13,7 +13,7 @@ import           Formatting (bprint, build, formatToString, (%))
 import qualified Formatting.Buildable
 import           Serokell.Util (mapJson)
 
-import           Pos.Core.Txp (TxId)
+import           Pos.Chain.Txp (TxId)
 
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import qualified Cardano.Wallet.Kernel.DB.Read as DB

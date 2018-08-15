@@ -32,6 +32,10 @@ import           Pos.Chain.Txp.Toil.Types (TxFee (..))
 import           Pos.Chain.Txp.Toil.Utxo (VerifyTxUtxoRes (..))
 import qualified Pos.Chain.Txp.Toil.Utxo as Utxo
 import           Pos.Chain.Txp.Topsort (topsortTxs)
+import           Pos.Chain.Txp.Tx (Tx (..), TxId, TxOut (..), txOutAddress)
+import           Pos.Chain.Txp.TxAux (TxAux (..), checkTxAux)
+import           Pos.Chain.Txp.TxOutAux (toaOut)
+import           Pos.Chain.Txp.Undo (TxUndo, TxpUndo)
 import           Pos.Core (AddrAttributes (..), AddrStakeDistribution (..),
                      Address, EpochIndex, addrAttributesUnwrapped,
                      isRedeemAddress)
@@ -39,8 +43,6 @@ import           Pos.Core.Common (integerToCoin)
 import qualified Pos.Core.Common as Fee (TxFeePolicy (..),
                      calculateTxSizeLinear)
 import           Pos.Core.Genesis (GenesisWStakeholders)
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxOut (..), TxUndo,
-                     TxpUndo, checkTxAux, toaOut, txOutAddress)
 import           Pos.Core.Update (BlockVersionData (..), isBootstrapEraBVD)
 import           Pos.Crypto (ProtocolMagic, WithHash (..), hash)
 import           Pos.Util (liftEither)

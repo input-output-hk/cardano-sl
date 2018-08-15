@@ -22,8 +22,8 @@ import           Universum
 import           Cardano.Wallet.API.V1.Types
 import qualified Data.Text as T
 import           GHC.TypeLits
+import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Core as Core
-import qualified Pos.Core.Txp as Txp
 import           Pos.Crypto (decodeHash)
 
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (HasPrimKey (..),

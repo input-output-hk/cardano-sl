@@ -36,6 +36,7 @@ import           Pos.Chain.Block (Block, BlockHeader, HeaderHash,
                      MainBlockHeader)
 import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..))
+import           Pos.Chain.Txp (TxAux)
 import           Pos.Communication (EnqueueMsg, HandlerSpecs, InSpecs (..),
                      InvOrDataTK, Listener, MkListeners (..), Msg,
                      MsgSubscribe, MsgSubscribe1, NodeId, OutSpecs (..),
@@ -48,7 +49,6 @@ import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Metrics.Constants (withCardanoNamespace)
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
                      VssCertificate)
-import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (BlockVersion, BlockVersionData (..), UpId,
                      UpdateProposal, UpdateVote)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))

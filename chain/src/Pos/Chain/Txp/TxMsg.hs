@@ -1,4 +1,4 @@
-module Pos.Core.Txp.TxMsg
+module Pos.Chain.Txp.TxMsg
        ( TxMsgContents (..)
        ) where
 
@@ -7,7 +7,7 @@ import           Universum
 import           Formatting (bprint, (%))
 import           Formatting.Buildable (Buildable (..))
 
-import           Pos.Core.Txp.TxAux (TxAux (..), txaF)
+import           Pos.Chain.Txp.TxAux (TxAux (..), txaF)
 
 -- | Data message. Can be used to send one transaction per message.
 -- Transaction is sent with auxilary data.

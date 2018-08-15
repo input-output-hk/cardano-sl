@@ -25,13 +25,13 @@ import qualified Data.Vector as V
 import           Formatting (bprint, (%))
 import qualified Formatting as F
 import           Formatting.Buildable (build)
+import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Core as Core
 import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
-import qualified Pos.Core.Txp as Txp
 import           Pos.Crypto.Hashing (hash)
 import           Pos.Crypto.Signing.Safe (safeDeterministicKeyGen)
 import           Serokell.Util.Text (listJsonIndent)
-import qualified Test.Pos.Core.Arbitrary.Txp as Txp
+import qualified Test.Pos.Chain.Txp.Arbitrary as Txp
 
 import           Cardano.Wallet.Kernel.Util (disjoint)
 import           Test.QuickCheck (Gen, Property, arbitrary, choose, conjoin,

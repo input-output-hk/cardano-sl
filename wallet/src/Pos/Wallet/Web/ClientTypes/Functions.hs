@@ -17,13 +17,13 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Text (Text)
 import           Formatting (build, sformat)
 
+import           Pos.Chain.Txp (Tx (..), TxOut (..), txOutAddress, txOutValue)
 import           Pos.Chain.Update (ConfirmedProposalState (..),
                      StakeholderVotes, isPositiveVote)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Core (Address, ChainDifficulty, decodeTextAddress,
                      makePubKeyAddressBoot, sumCoins, unsafeAddCoin,
                      unsafeIntegerToCoin)
-import           Pos.Core.Txp (Tx (..), TxOut (..), txOutAddress, txOutValue)
 import           Pos.Core.Update (BlockVersionData (..),
                      BlockVersionModifier (..), UpdateProposal (..))
 import           Pos.Crypto (EncryptedSecretKey, encToPublic)

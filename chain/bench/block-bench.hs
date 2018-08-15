@@ -15,9 +15,9 @@ import           Pos.Chain.Block (Body, BodyProof, ConsensusData, ExtraBodyData,
                      MainBlockchain, _gbBody, _gbExtra, _gbHeader,
                      _gbhBodyProof, _gbhConsensus, _gbhExtra, _mbDlgPayload,
                      _mbSscPayload, _mbTxPayload, _mbUpdatePayload)
+import           Pos.Chain.Txp (TxPayload (..))
 import           Pos.Core.Delegation (DlgPayload)
 import           Pos.Core.Ssc (SscPayload)
-import           Pos.Core.Txp (TxPayload (..))
 import           Pos.Core.Update (UpdatePayload)
 import           Pos.Crypto (ProtocolMagic (..))
 

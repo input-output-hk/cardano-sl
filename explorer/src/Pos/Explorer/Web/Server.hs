@@ -59,7 +59,9 @@ import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (Block, Blund, HeaderHash, MainBlock, Undo,
                      gbHeader, gbhConsensus, mainBlockSlot, mainBlockTxPayload,
                      mcdSlot)
-import           Pos.Chain.Txp (TxMap, mpLocalTxs, topsortTxs)
+import           Pos.Chain.Txp (Tx (..), TxAux, TxId, TxIn (..), TxMap,
+                     TxOutAux (..), mpLocalTxs, taTx, topsortTxs, txOutAddress,
+                     txOutValue, txpTxs, _txOutputs)
 import           Pos.Core as Core (AddrType (..), Address (..), Coin,
                      Config (..), EpochIndex, GenesisHash, SlotCount,
                      Timestamp, coinToInteger, configEpochSlots, difficultyL,
@@ -68,8 +70,6 @@ import           Pos.Core as Core (AddrType (..), Address (..), Coin,
                      timestampToPosix, unsafeAddCoin, unsafeIntegerToCoin,
                      unsafeSubCoin)
 import           Pos.Core.Chrono (NewestFirst (..))
-import           Pos.Core.Txp (Tx (..), TxAux, TxId, TxIn (..), TxOutAux (..),
-                     taTx, txOutAddress, txOutValue, txpTxs, _txOutputs)
 import           Pos.DB.Txp (MonadTxpMem, getFilteredUtxo, getLocalTxs,
                      getMemPool, withTxpLocalData)
 import           Pos.Infra.Slotting (MonadSlots (..), getSlotStart)

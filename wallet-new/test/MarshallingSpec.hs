@@ -27,11 +27,11 @@ import qualified Test.QuickCheck.Property as Property
 
 import qualified Cardano.Crypto.Wallet as CCW
 import qualified Pos.Chain.Block as Core
+import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Core as Core
 import qualified Pos.Core.Attributes as Core
 import qualified Pos.Core.Delegation as Core
 import qualified Pos.Core.Ssc as Ssc
-import qualified Pos.Core.Txp as Txp
 import qualified Pos.Core.Update as Core
 import qualified Pos.Crypto as Core
 

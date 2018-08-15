@@ -48,11 +48,11 @@ import           Cardano.Wallet.Kernel.Wallets (createWalletHdRnd)
 
 import           Pos.Chain.Block (Block, Blund, HeaderHash, MainBlock, Undo,
                      headerHash, mainBlockSlot)
-import           Pos.Chain.Txp (Utxo, genesisUtxo)
+import           Pos.Chain.Txp (TxIn (..), TxOut (..), TxOutAux (..), Utxo,
+                     genesisUtxo)
 import           Pos.Core as Core (BlockCount (..), Coin, Config (..),
                      GenesisHash, SlotId, flattenSlotId, mkCoin,
                      unsafeIntegerToCoin)
-import           Pos.Core.Txp (TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.DB.Block (getFirstGenesisBlockHash, getUndo,
                      resolveForwardLink)

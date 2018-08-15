@@ -36,8 +36,8 @@ import           Universum
 import           Control.Exception (Exception (..))
 import           Servant.Client (GenResponse (..), Response, ServantError (..))
 
+import qualified Pos.Chain.Txp as Core
 import qualified Pos.Core as Core
-import qualified Pos.Core.Txp as Core
 
 import           Cardano.Wallet.API.Request.Filter
 import           Cardano.Wallet.API.Request.Pagination

@@ -83,7 +83,6 @@ import qualified Language.Haskell.TH as TH
 
 import           Pos.Core (Timestamp)
 import           Pos.Core.Common (Address, Coin)
-import           Pos.Core.Txp (TxId)
 import           Pos.Crypto (PassPhrase)
 import           Pos.Util.Wlog (CanLog (..), HasLoggerName (..),
                      LogHandlerTag (HandlerFilelike), Severity (..), logMCond)
@@ -351,9 +350,6 @@ instance Buildable (SecureLog Address) where
 
 instance Buildable (SecureLog Word32) where
     build _ = "<bytes>"
-
-instance Buildable (SecureLog TxId) where
-    build _ = "<txid>"
 
 instance Buildable (SecureLog Timestamp) where
     build _ = "<timestamp>"

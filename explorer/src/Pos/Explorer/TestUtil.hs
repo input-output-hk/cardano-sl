@@ -37,6 +37,7 @@ import           Pos.Chain.Block (Block, BlockHeader, Blund, GenesisBlock,
 import           Pos.Chain.Delegation (DlgPayload, DlgUndo (..),
                      ProxySKBlockInfo)
 import           Pos.Chain.Ssc (defaultSscPayload)
+import           Pos.Chain.Txp (TxAux)
 import           Pos.Chain.Update (HasUpdateConfiguration)
 import qualified Pos.Communication ()
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
@@ -44,7 +45,6 @@ import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
                      SlotLeaders, StakeholderId, difficultyL,
                      makePubKeyAddressBoot)
 import           Pos.Core.Ssc (SscPayload)
-import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpdatePayload (..))
 import           Pos.Crypto (SecretKey, toPublic)
 import           Pos.DB.Block (RawPayload (..), createMainBlockPure)

@@ -8,8 +8,8 @@ import           Universum
 
 import           Data.Time.Units (Second)
 
+import           Pos.Chain.Txp (Tx)
 import           Pos.Core (Address, Coin, TxFeePolicy)
-import           Pos.Core.Txp (Tx)
 import           Pos.Crypto (PassPhrase)
 
 import           Cardano.Wallet.API.V1.Types (unV1)

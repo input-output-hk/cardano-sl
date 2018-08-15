@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | The main goal of this module is to encapsulate recovery mechanism
 -- and provide helpers related to it.
 

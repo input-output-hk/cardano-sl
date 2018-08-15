@@ -174,7 +174,7 @@ Binary/Helpers.hs|SizeTestConfig|Same module|
 |Txp/Tx.hs|UnsafeTx|Same module
 |Txp/Tx.hs|TxOut |Same module
 |Common/Script.hs|Script | Same module
-|Common/TxFeePolicy.hs|TxFeePolicyUnknown {}|Same module
+|Common/TxFeePolicy.hs|TxFeePolicyUnknown |Same module
 |Common/AddrAttributes.hs|AddrAttributes |Same module
 |Slotting/TimeDiff.hs|TimeDiff|Same module
 |Slotting/SlotId.hs|SlotId |Same module
@@ -268,11 +268,54 @@ Binary/Helpers.hs|SizeTestConfig|Same module|
 |Lrc/Context.hs|LrcSyncData | Same module|
 |BatchOp.hs|DB |db/src/Pos/DB/Rocks/Types.hs|
 
+## `infra` package
+### File path prefix: src/Pos/Infra/
 
-
+| File | Types | Type Definition Location |
+| --- | --- | ---|
+|Reporting/Ekg.hs|EkgParams |src/Pos/Infra/Statistics/Ekg.hs|
+|Reporting/Statsd.hs|StatsdParams |src/Pos/Infra/Statistics/Statsd.hs|
+|Reporting/Http.hs|RCustomReport|cardano-report-server/src/Pos/ReportServer/Report.hs|
+|Recovery/Info.hs|SSInFuture|src/Pos/Infra/Recovery/Info.hs|
+|Diffusion/Subscription/Dns.hs|DnsDomains |infra/src/Pos/Infra/Network/DnsDomains.hs|
+|Diffusion/Types.hs|Diffusion m|infra/src/Pos/Infra/Diffusion/Types.hs|
+|Network/Types.hs|NetworkConfig |infra/src/Pos/Infra/Network/Types.hs|
+|Network/Types.hs|ShowableNetworkConfig |infra/src/Pos/Infra/Network/Types.hs|
+|Network/Types.hs|TopologyCore|infra/src/Pos/Infra/Network/Types.hs|
+|Network/Types.hs|TopologyRelay|infra/src/Pos/Infra/Network/Types.hs|
+|Network/Types.hs|TopologyBehindNAT|infra/src/Pos/Infra/Network/Types.hs|
+|Network/Types.hs|TopologyP2P|infra/src/Pos/Infra/Network/Types.hs|
+|Network/Types.hs|TopologyTraditional|infra/src/Pos/Infra/Network/Types.hs|
+|Network/Types.hs|TopologyAuxx|infra/src/Pos/Infra/Network/Types.hs|
+|Network/Types.hs|NetworkConfig|infra/src/Pos/Infra/Network/Types.hs|
+|DHT/Workers.hs|KademliaDHTInstance |infra/src/Pos/Infra/DHT/Real/Types.hs|
+|Network/Yaml.hs|KademliaParams |Same module|
+|Network/Yaml.hs|KademliaAddress |Same module|
+|Network/Yaml.hs|NodeMetadata|Same module|
+|Network/Yaml.hs|StaticPolicies |Same module|
+|Network/Yaml.hs|SendOrForward |Same module|
+|Network/Yaml.hs|Dequeue |networking/src/Network/Broadcast/OutboundQueue.hs|
+|Slotting/Impl/Util.hs|EpochSlottingData |core/src/Pos/Core/Slotting/Types.hs|
+|DHT/Real/Real.hs|KademliaDHTInstance |infra/src/Pos/Infra/DHT/Real/Types.hs|
+|DHT/Real/Real.hs|KademliaParams |src/Pos/Infra/Network/Yaml.hs|
+|DHT/Real/Real.hs|Peer|kademlia|
+|Network/CLI.hs|NetworkConfigOpts|dame module|
+|Network/CLI.hs|TopologyCore |infra/src/Pos/Infra/Network/Types.hs|
+|Network/CLI.hs|TopologyRelay |infra/src/Pos/Infra/Network/Types.hs|
+|Network/CLI.hs|TopologyBehindNAT|infra/src/Pos/Infra/Network/Types.hs|
+|Network/CLI.hs|TopologyP2P|infra/src/Pos/Infra/Network/Types.hs|
+|Network/CLI.hs|TopologyTraditional|infra/src/Pos/Infra/Network/Types.hs|
+|Slotting/Util.hs|SlotId |src/Pos/Core/Slotting/SlotId.hs|
+|Communication/Types/Relay.hs|ResMsg |Same module|
+|Communication/Relay/Logic.hs|DataMsg|infra/src/Pos/Infra/Communication/Types/Relay.hs|
+|Communication/Relay/Logic.hs|InvReqDataParams|infra/src/Pos/Infra/Communication/Relay/Class.hs|
+|Communication/Relay/Logic.hs|DataParams|infra/src/Pos/Infra/Communication/Relay/Class.hs|
+|Communication/Relay/Logic.hs|InvMsg|infra/src/Pos/Infra/Communication/Types/Relay.hs|
+|Communication/Types/Protocol.hs|VerInfo |Same module|
 
 ## `networking` package
 ### File path prefix: src/Network/
+
 | File | Types | Type Definition Location |
 | --- | --- | ---|
 |QDisc/Fair.hs|FairQDisc|Same module|

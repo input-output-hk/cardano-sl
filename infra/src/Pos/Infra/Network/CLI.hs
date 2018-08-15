@@ -1,6 +1,7 @@
-{-# LANGUAGE ApplicativeDo  #-}
-{-# LANGUAGE CPP            #-}
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE ApplicativeDo   #-}
+{-# LANGUAGE CPP             #-}
+{-# LANGUAGE NamedFieldPuns  #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- following Pos.Util.UserSecret
 #if !defined(mingw32_HOST_OS)

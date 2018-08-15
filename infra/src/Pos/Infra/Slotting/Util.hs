@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Slotting utilities.
 
 module Pos.Infra.Slotting.Util

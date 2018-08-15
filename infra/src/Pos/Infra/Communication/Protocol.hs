@@ -141,14 +141,14 @@ data SpecError
 instance Exception SpecError
 
 instance Buildable SpecError where
-    build (OutSpecNotReported outSpecs spec) =
+    build (OutSpecNotReported outSpecs' spec) =
         bprint
           ("Sending "%build%": endpoint not reported to be used for sending. Our out specs: "%build)
-          spec outSpecs
-    build (PeerInSpecNotReported inSpecs nodeId spec) =
+          spec outSpecs'
+    build (PeerInSpecNotReported inSpecs' nodeId spec) =
         bprint
           ("Attempting to send to "%build%": endpoint unsupported by peer "%build%". In specs: "%build)
-          spec nodeId inSpecs
+          spec nodeId inSpecs'
 
 data MismatchedProtocolMagic
     = MismatchedProtocolMagic Int32 Int32

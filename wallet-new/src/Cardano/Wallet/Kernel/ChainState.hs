@@ -129,28 +129,26 @@ getChainBrief :: HasCallStack
               => NodeStateAdaptor IO
               -> LockContext
               -> IO (Maybe ChainBrief)
-getChainBrief node lc = do
-    (tip, (bv, bvd), sv, genHash) <- withNodeState node $ \withLock ->
-      withLock lc $ \tip ->
-            (tip,,,)
+getChainBrief node lc = withNodeState node $ \withLock -> do
+    (tip, (bv, bvd), sv) <- withLock lc $ \tip ->
+            (tip,,)
         <$> getAdoptedBVFull
         <*> getVersionOrThrow
-        <*> pure genesisHash -- while we are in scope
 
-    mMainBlock <- mostRecentMainBlock node tip
+    mMainBlock <- mostRecentMainBlock tip
     case mMainBlock of
       Nothing ->
         return Nothing
       Just mainBlock -> do
         let slotId = mainBlock ^. mainBlockSlot
             hdr    = mainBlock ^. gbHeader
-        mPrevMain <- mostRecentMainBlock node (hdr ^. prevBlockL)
+        mPrevMain <- mostRecentMainBlock (hdr ^. prevBlockL)
         return $ Just ChainBrief {
             cbSlotId   = slotId
           , cbTip      = headerHash hdr
           , cbPrevMain = case mPrevMain of
                            Just prevMain -> headerHash prevMain
-                           Nothing       -> genHash
+                           Nothing       -> genesisHash
           , cbState    = ChainState {
                 csBlockVersion    = bv
               , csScriptVersion   = bvdScriptVersion bvd

@@ -20,6 +20,7 @@ module Cardano.Wallet.Kernel.NodeStateAdaptor (
   , getTipSlotId
   , getSecurityParameter
   , getMaxTxSize
+  , getSlotCount
     -- * Support for tests
   , NodeStateUnavailable(..)
   , nodeStateUnavailable
@@ -36,7 +37,7 @@ import           Pos.Chain.Block (Block, BlockHeader, HeaderHash, MainBlock,
                      blockHeader, headerHash, mainBlockSlot, prevBlockL)
 import           Pos.Chain.Update (HasUpdateConfiguration, bvdMaxTxSize)
 import           Pos.Context (NodeContext (..))
-import           Pos.Core (ProtocolConstants (pcK))
+import           Pos.Core (ProtocolConstants (pcK), SlotCount, pcEpochSlots)
 import           Pos.Core.Configuration (HasConfiguration, HasProtocolConstants,
                      genesisHash, protocolConstants)
 import           Pos.Core.Slotting (EpochIndex (..), HasSlottingVar (..),
@@ -295,6 +296,18 @@ getSecurityParameter node = withNodeState node $ \_lock ->
 getMaxTxSize :: (MonadIO m, MonadCatch m) => NodeStateAdaptor m -> m Byte
 getMaxTxSize node =
     fmap bvdMaxTxSize $ withNodeState node $ \_lock -> getAdoptedBVData
+
+-- | Get number of slots per epoch
+--
+-- This can be used as an input to 'flattenSlotIdExplicit'.
+--
+-- NOTE: If this constant ever changes, then we'd have to return something more
+-- detailed here ("slot count was X between epoch A and B, and Y thereafter").
+-- However, the same change will have to be made to 'flattenSlotIdExplicit'
+-- in core as well as, probably, a ton of other places.
+getSlotCount :: Monad m => NodeStateAdaptor m -> m SlotCount
+getSlotCount node = withNodeState node $ \_lock ->
+    return $ pcEpochSlots protocolConstants
 
 -- | Thrown if we cannot find a previous block
 --

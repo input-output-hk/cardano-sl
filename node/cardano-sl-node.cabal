@@ -71,6 +71,7 @@ test-suite property-tests
 
                        Chain.Abstract
                        Chain.Abstract.Translate.FromUTxO
+                       Chain.Abstract.Translate.Policies
                        Chain.Policy
                        Chain.Validation
                        Chain.Validation.Parameters
@@ -87,6 +88,7 @@ test-suite property-tests
                      , cardano-sl-networking
                      , cardano-sl-util
                      , cardano-sl
+                     , hashable
                      , hspec
                      , lens
                      , mtl

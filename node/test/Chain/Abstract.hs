@@ -5,13 +5,14 @@
 
 module Chain.Abstract where
 
-import Pos.Core.Chrono
-import qualified UTxO.DSL as DSL
-import Universum
-import qualified Data.Set as Set
-import qualified Data.Map.Strict as Map
 import qualified Data.Foldable (fold, foldMap)
-import Data.Monoid (Sum(..))
+import           Data.Hashable (hash)
+import qualified Data.Map.Strict as Map
+import           Data.Monoid (Sum (..))
+import qualified Data.Set as Set
+import           Pos.Core.Chrono
+import           Universum
+import qualified UTxO.DSL as DSL
 
 -- | In the abstract DSL, we identify transactions with integers.
 newtype Addr = Addr Int
@@ -19,6 +20,14 @@ newtype Addr = Addr Int
 
 -- | Block hash
 newtype BlockHash = BlockHash Int
+
+-- | Hash of the genesis block
+genesisBlockHash :: BlockHash
+genesisBlockHash = BlockHash 0
+
+-- | Invalid block hash
+invalidBlockHash :: BlockHash
+invalidBlockHash = BlockHash $ Data.Hashable.hash @String "invalid"
 
 -- | Function with finite support. Note that the paper defines these as taking
 --   values in a Semiring, but there's nothing intrinsic to that constraint and
@@ -54,8 +63,8 @@ nextSlot :: SlotId -> SlotId
 nextSlot (SlotId i) = SlotId $ i + 1
 
 data Output (h :: * -> *) a = Output
-  { outAddr :: a
-  , outVal :: DSL.Value
+  { outAddr        :: a
+  , outVal         :: DSL.Value
     -- | Repartitioning of the stake associated with this transaction's inputs.
   , outRepartition :: Repartition a
   }
@@ -68,18 +77,18 @@ outDSL o = DSL.Output
   }
 
 data Transaction h a = Transaction
-  { trFresh :: DSL.Value
+  { trFresh   :: DSL.Value
   -- ^ The money that is created by this transaction. This money
   -- implicitly comes from the treasury.
-  , trIns   :: NE (DSL.Input h a)
+  , trIns     :: NE (DSL.Input h a)
   -- ^ The set of input transactions that feed this transaction.
-  , trOuts  :: NE (Output h a)
+  , trOuts    :: NE (Output h a)
   -- ^ The list of outputs for this transaction.
-  , trFee   :: DSL.Value
+  , trFee     :: DSL.Value
   -- ^ The fee charged to this transaction.
-  , trHash  :: Int
+  , trHash    :: Int
   -- ^ The hash of this transaction. Must be unique in the entire chain.
-  , trExtra :: [Text]
+  , trExtra   :: [Text]
   -- ^ Free-form comments, used for debugging
   , trWitness :: NE a
   -- ^ Transaction witnesses. There should be one witness per transaction input.
@@ -104,13 +113,13 @@ trDSL t = DSL.Transaction
 
 data Block h a = Block
   { -- | Previous block hash
-    blockPred :: BlockHash
+    blockPred         :: BlockHash
     -- | Slot occupied by this block
-  , blockSlot:: SlotId
+  , blockSlot         :: SlotId
     -- | The address issuing this block.
-  , blockIssuer :: a
+  , blockIssuer       :: a
   , blockTransactions :: OldestFirst [] (Transaction h a)
-  , blockDlg :: [Delegation h a]
+  , blockDlg          :: [Delegation h a]
   }
 
 type Chain h a = OldestFirst [] (Block h a)

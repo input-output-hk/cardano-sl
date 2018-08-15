@@ -3,16 +3,16 @@
 -- | Translation of UTxO DSL into an abstract chain.
 module Chain.Abstract.Translate.FromUTxO where
 
-import Chain.Abstract
-import Chain.Policy
-import Control.Lens ((%=), ix)
-import Control.Lens.TH (makeLenses)
-import Control.Monad.Except
-import Data.Map.Strict (Map)
+import           Chain.Abstract
+import           Chain.Policy
+import           Control.Lens (ix, (%=))
+import           Control.Lens.TH (makeLenses)
+import           Control.Monad.Except
+import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Universum
-import qualified UTxO.DSL as DSL
 import qualified Data.Set as Set
+import           Universum
+import qualified UTxO.DSL as DSL
 
 {-------------------------------------------------------------------------------
   Translation context
@@ -29,22 +29,22 @@ makeLenses ''TransCtxt
 -- | Checkpoint (we create one for each block we translate)
 data IntCheckpoint = IntCheckpoint {
       -- | Slot number of this checkpoint
-      icSlotId        :: !SlotId
+      icSlotId    :: !SlotId
 
       -- | Hash of the current block
-    , icBlockHash     :: !BlockHash
+    , icBlockHash :: !BlockHash
 
       -- | Running stakes
-    , icStakes        :: !(StakeDistribution Addr)
+    , icStakes    :: !(StakeDistribution Addr)
 
       -- | Delegation graph. This is instantiated to the identify function.
-    , icDlg           :: Addr -> Addr
+    , icDlg       :: Addr -> Addr
     }
 
 -- | Translation state
 data TransState h = TransState {
       -- | Transaction map
-      _tsTx      :: !(Map (h (DSL.Transaction h Addr)) (Transaction h Addr))
+      _tsTx          :: !(Map (h (DSL.Transaction h Addr)) (Transaction h Addr))
 
       -- | Checkpoints
     , _tsCheckpoints :: !(NonEmpty IntCheckpoint)
@@ -85,6 +85,8 @@ newtype TranslateT h e m a = TranslateT {
            , MonadState (TransState h)
            )
 
+instance MonadTrans (TranslateT h e) where
+    lift = TranslateT . lift . lift . lift
 -- | Run a translation given a context and initial state.
 runTranslateT :: TransCtxt
               -> TransState h
@@ -152,7 +154,7 @@ translate addrs chain blockMods = runExceptT . fmap fst $ runTranslateT initCtx 
         }
     initCheckpoint = IntCheckpoint
         { icSlotId = SlotId 0
-        , icBlockHash = BlockHash 0
+        , icBlockHash = genesisBlockHash
         , icStakes = StakeDistribution $ Map.fromList (toList addrs `zip` (repeat 1))
         , icDlg = id
         }
@@ -192,5 +194,5 @@ translate addrs chain blockMods = runExceptT . fmap fst $ runTranslateT initCtx 
         , blockDlg = []
         }
     nonEmptyEx :: IntException -> [a] -> TranslateT h e m (NonEmpty a)
-    nonEmptyEx ex [] = throwError $ Left $ ex
+    nonEmptyEx ex []    = throwError $ Left $ ex
     nonEmptyEx _ (x:xs) = return $ x :| xs

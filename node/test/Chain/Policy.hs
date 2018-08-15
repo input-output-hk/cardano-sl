@@ -2,21 +2,21 @@
 --   both validating and non-validating chains.
 module Chain.Policy where
 
-import Chain.Abstract
-import Chain.Validation
+import           Chain.Abstract
+import           Chain.Validation
+import           Universum
 import qualified UTxO.DSL as DSL
-import Universum
 
 -- | A block modifier.
 newtype BlockModifier genM h a = BlockModifier
-  { modifyBlock :: Chain h a -> Block h a -> genM (Block h a) }
+  { modifyBlock :: Block h a -> genM (Block h a) }
 
 instance Monad genM => Semigroup (BlockModifier genM h a) where
-  (BlockModifier f1) <> (BlockModifier f2) = BlockModifier $ \ch bl ->
-      f1 ch bl >>= f2 ch
+  (BlockModifier f1) <> (BlockModifier f2) = BlockModifier $ \bl ->
+      f1 bl >>= f2
 
 instance Monad genM => Monoid (BlockModifier genM h a) where
-  mempty = BlockModifier $ const return
+  mempty = BlockModifier return
   mappend = (<>)
 
 -- | A 'Policy' should correspond to a particular aspect of the system we want
@@ -24,7 +24,7 @@ instance Monad genM => Monoid (BlockModifier genM h a) where
 -- policy, and to generate valid or valid blocks.
 data Policy genM valE = Policy
   { polValidation :: Chain DSL.IdentityAsHash Addr -> Validation valE ()
-  , polGenerator :: BlockModifier genM DSL.IdentityAsHash Addr
+  , polGenerator  :: BlockModifier genM DSL.IdentityAsHash Addr
   }
 
 data BlockModifierException = BlockModifierException deriving Show

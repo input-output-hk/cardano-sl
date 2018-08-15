@@ -19,7 +19,12 @@ data ValidationState = ValidationState
 -- | Encapsulate access to chain parameters.
 newtype WithChainParameters a = WithChainParameters
   { runWithChainParameters :: Reader (Parameters ValidationState DSL.IdentityAsHash Addr) a }
+  deriving (Functor, Applicative, Monad)
 
 
 newtype Validation e a = Validation
   { runValidation :: StateT ValidationState (ExceptT e WithChainParameters) a}
+
+deriving instance Functor (Validation e)
+deriving instance Applicative (Validation e)
+deriving instance Monad (Validation e)

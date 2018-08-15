@@ -43,7 +43,6 @@ getTransactions wallet mbWalletId mbAccountIndex mbAddress params fop sop = lift
     accountFops <- castAccountFiltering mbWalletId mbAccountIndex
     mbSorting <- castSorting sop
     db <- liftIO $ Kernel.getWalletSnapshot wallet
-    k <- liftIO $ Node.getSecurityParameter (wallet ^. Kernel.walletNode)
     sc <- liftIO $ Node.getSlotCount (wallet ^. Kernel.walletNode)
     currentSlot <- liftIO $ Node.getTipSlotId (wallet ^. Kernel.walletNode)
     (meta, mbTotalEntries) <- liftIO $ TxMeta.getTxMetas
@@ -55,7 +54,7 @@ getTransactions wallet mbWalletId mbAccountIndex mbAddress params fop sop = lift
         (castFiltering $ mapIx unV1 <$> F.findMatchingFilterOp fop)
         (castFiltering $ mapIx unV1 <$> F.findMatchingFilterOp fop)
         mbSorting
-    let txs = map (metaToTx db sc k currentSlot) meta
+    let txs = map (metaToTx db sc currentSlot) meta
     return $ respond params txs mbTotalEntries
 
 toTransaction :: MonadIO m
@@ -64,10 +63,9 @@ toTransaction :: MonadIO m
               -> m V1.Transaction
 toTransaction wallet meta = liftIO $ do
     db <- liftIO $ Kernel.getWalletSnapshot wallet
-    k <- liftIO $ Node.getSecurityParameter (wallet ^. Kernel.walletNode)
     sc <- liftIO $ Node.getSlotCount (wallet ^. Kernel.walletNode)
     currentSlot <- Node.getTipSlotId (wallet ^. Kernel.walletNode)
-    return $ metaToTx db sc k currentSlot meta
+    return $ metaToTx db sc currentSlot meta
 
 -- | Type Casting for Account filtering from V1 to MetaData Types.
 castAccountFiltering :: Monad m => Maybe V1.WalletId -> Maybe V1.AccountIndex -> ExceptT GetTxError m TxMeta.AccountFops
@@ -111,8 +109,8 @@ castFilterOrd pr = case pr of
     F.LesserThan       -> TxMeta.LesserThan
     F.LesserThanEqual  -> TxMeta.LesserThanEqual
 
-metaToTx :: Kernel.DB -> SlotCount -> Int -> SlotId -> TxMeta -> V1.Transaction
-metaToTx db slotCount k current TxMeta{..} =
+metaToTx :: Kernel.DB -> SlotCount -> SlotId -> TxMeta -> V1.Transaction
+metaToTx db slotCount current TxMeta{..} =
     V1.Transaction {
         txId = V1 _txMetaId,
         txConfirmations = fromIntegral confirmations,
@@ -126,8 +124,8 @@ metaToTx db slotCount k current TxMeta{..} =
     }
 
         where
-            hdAccountId = HD.HdAccountId (HD.HdRootId $ InDb _txMetaWalletId)
-                                        (HD.HdAccountIx _txMetaAccountIx)
+            hdRootId    = HD.HdRootId $ InDb _txMetaWalletId
+            hdAccountId = HD.HdAccountId hdRootId (HD.HdAccountIx _txMetaAccountIx)
 
             inputsToPayDistr :: (Address, Coin, a , b) -> V1.PaymentDistribution
             inputsToPayDistr (addr, c, _, _) = V1.PaymentDistribution (V1 addr) (V1 c)
@@ -138,10 +136,11 @@ metaToTx db slotCount k current TxMeta{..} =
             mSlot = Kernel.accountTxSlot db hdAccountId _txMetaId
             isPending = Kernel.accountIsTxPending db hdAccountId _txMetaId
 
-            (status, confirmations) = buildDynamicTxMeta slotCount mSlot k current isPending
+            assuranceLevel = Kernel.walletAssuranceLevel db hdRootId
+            (status, confirmations) = buildDynamicTxMeta assuranceLevel slotCount mSlot current isPending
 
-buildDynamicTxMeta :: SlotCount -> Maybe SlotId -> Int -> SlotId -> Bool -> (V1.TransactionStatus, Word64)
-buildDynamicTxMeta slotCount mSlot k currentSlot isPending = case isPending of
+buildDynamicTxMeta :: HD.AssuranceLevel -> SlotCount -> Maybe SlotId -> SlotId -> Bool -> (V1.TransactionStatus, Word64)
+buildDynamicTxMeta assuranceLevel slotCount mSlot currentSlot isPending = case isPending of
     True  -> (V1.Applying, 0)
     False ->
         case mSlot of
@@ -150,7 +149,7 @@ buildDynamicTxMeta slotCount mSlot k currentSlot isPending = case isPending of
             let currentSlot'  = flattenSlotIdExplicit slotCount currentSlot
                 confirmedIn'  = flattenSlotIdExplicit slotCount confirmedIn
                 confirmations = currentSlot' - confirmedIn'
-            in case (confirmations < fromIntegral k) of
+            in case (confirmations < getBlockCount (HD.assuredBlockDepth assuranceLevel)) of
                True  -> (V1.InNewestBlocks, confirmations)
                False -> (V1.Persisted, confirmations)
 

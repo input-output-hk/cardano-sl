@@ -38,7 +38,7 @@ import qualified Cardano.Wallet.API.V1.Types as V1
 
 import           Pos.Core as Core
 -- import           Pos.Core.Txp
-import           Pos.Crypto.Hashing
+-- import           Pos.Crypto.Hashing
 import qualified Test.Spec.Addresses as Addresses hiding (spec)
 -- import qualified Test.Spec.Fixture as Fixture
 import           Test.Spec.CoinSelection.Generators (InitialBalance (..),
@@ -100,9 +100,8 @@ spec =
                                 Left l -> expectationFailure $ "returned " <> show l
                                 Right resp -> check resp
 
-        prop "scenario: Layer.pay -> TxMeta.putTxMeta -> Layer.getTransactions works properly. Tx status should be Applying " $ withMaxSuccess 50 $
+        prop "scenario: Layer.pay -> Layer.getTransactions works properly. Tx status should be Applying " $ withMaxSuccess 50 $
             monadicIO $ do
-                testMetaSTB <- pick genMeta
                 NewPayment.withFixture @IO (InitialADA 10000) (PayLovelace 10) $ \keystore activeLayer aw NewPayment.Fixture{..} -> do
                     liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore
                     let (AccountIdHdRnd hdAccountId)  = fixtureAccountId
@@ -113,7 +112,7 @@ spec =
                             fmap (\(addr, coin) -> V1.PaymentDistribution (V1.V1 addr) (V1.V1 coin)
                                 ) fixturePayees
                     let newPayment = V1.Payment {
-                                    pmtSource           = V1.PaymentSource sourceWallet accountIndex
+                                    pmtSource          = V1.PaymentSource sourceWallet accountIndex
                                 , pmtDestinations     = destinations
                                 , pmtGroupingPolicy   = Nothing
                                 , pmtSpendingPassword = Nothing
@@ -125,53 +124,46 @@ spec =
                                   )
                     case res of
                         Left _   -> expectationFailure "Kernel.newTransaction failed"
-                        Right tx -> do
-                            let txid = hash tx
+                        Right (_, meta) -> do
+                            let txid = _txMetaId meta
                                 pw = Kernel.walletPassive aw
                                 layer = walletPassiveLayer activeLayer
                                 (HdRootId hdRoot) = fixtureHdRootId
                                 wId = sformat build (view fromDb hdRoot)
                                 accIdx = hdAccountId ^. hdAccountIdIx . to getHdAccountIx
---                                hdAccountId = HD.HdAccountId fixtureHdRootId  (myAccountId ^. hdAccountIdIx)
                                 hdl = (pw ^. Kernel.walletMeta)
-                                testMeta = unSTB testMetaSTB
                             db <- Kernel.getWalletSnapshot pw
                             let isPending = Kernel.accountIsTxPending db hdAccountId txid
                             _ <- case isPending of
                                 False -> expectationFailure "txid not found in Acid State from Kernel"
                                 True -> pure ()
-                            case decodeTextAddress wId of
-                                Left _         -> expectationFailure "decodeTextAddress failed"
-                                Right rootAddr -> do
-                                    let meta = testMeta {_txMetaId = txid, _txMetaWalletId = rootAddr, _txMetaAccountIx = accIdx}
-                                    _ <- liftIO ((WalletLayer._pwlCreateAddress layer) (V1.NewAddress Nothing accIdx (V1.WalletId wId)))
-                                    -- TODO: In the future WalletLayer.pay will use putTxMeta internally.
-                                    -- When this happens, we should delete it from here and rework this test.
-                                    putTxMeta (pw ^. Kernel.walletMeta) meta
-                                    (result, mbCount) <- (getTxMetas hdl) (Offset 0) (Limit 10) Everything Nothing NoFilterOp NoFilterOp Nothing
-                                    map Isomorphic result `shouldMatchList` [Isomorphic meta]
-                                    let check WalletResponse{..} = do
-                                            let PaginationMetadata{..} = metaPagination wrMeta
-                                            wrStatus `shouldBe` SuccessStatus
-                                            length wrData `shouldBe` 1
-                                            metaTotalPages `shouldBe` 1
-                                            metaTotalEntries `shouldBe` 1
-                                            metaPage `shouldBe` (Page 1)
-                                            metaPerPage `shouldBe` (PerPage 10)
-                                            case wrData of
-                                                [tx1] -> V1.txStatus tx1 `shouldBe` V1.Applying
-                                                ls   -> expectationFailure $ "Tx list returned has wrong size "
-                                                    <> show (length ls) <> "instead of 1: ls = " <> show ls
+                            _ <- liftIO ((WalletLayer._pwlCreateAddress layer) (V1.NewAddress Nothing accIdx (V1.WalletId wId)))
+                            (result, mbCount) <- (getTxMetas hdl) (Offset 0) (Limit 10) Everything Nothing NoFilterOp NoFilterOp Nothing
+                            map Isomorphic result `shouldMatchList` [Isomorphic meta]
+                            let check WalletResponse{..} = do
+                                    let PaginationMetadata{..} = metaPagination wrMeta
+                                    wrStatus `shouldBe` SuccessStatus
+                                    length wrData `shouldBe` 1
+                                    metaTotalPages `shouldBe` 1
+                                    metaTotalEntries `shouldBe` 1
+                                    metaPage `shouldBe` (Page 1)
+                                    metaPerPage `shouldBe` (PerPage 10)
+                                    case wrData of
+                                        [tx1] -> V1.txStatus tx1 `shouldBe` V1.Applying
+                                        ls   -> expectationFailure $ "Tx list returned has wrong size "
+                                            <> show (length ls) <> "instead of 1: ls = " <> show ls
 
-                                    eiResp <- WalletLayer._pwlGetTransactions
-                                            layer
-                                            Nothing
-                                            Nothing
-                                            Nothing
-                                            (RequestParams $ PaginationParams (Page 1) (PerPage 10))
-                                            NoFilters
-                                            NoSorts
-                                    mbCount `shouldBe` (Just 1)
-                                    case eiResp of
-                                        Left l -> expectationFailure $ "returned " <> show l
-                                        Right resp -> check resp
+                            eiResp <- WalletLayer._pwlGetTransactions
+                                    layer
+                                    Nothing
+                                    Nothing
+                                    Nothing
+                                    (RequestParams $ PaginationParams (Page 1) (PerPage 10))
+                                    NoFilters
+                                    NoSorts
+                            mbCount `shouldBe` (Just 1)
+                            case eiResp of
+                                Left l -> expectationFailure $ "returned " <> show l
+                                Right resp -> check resp
+
+

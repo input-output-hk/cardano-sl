@@ -245,7 +245,9 @@ equivalentT activeWallet esk = \mkWallet w ->
                       -> RawResolvedTx
                       -> TranslateT EquivalenceViolation m ()
     walletNewPendingT ctxt accountId tx = do
-        _ <- liftIO $ Kernel.newPending activeWallet accountId (rawResolvedTx tx)
+        -- meta <- liftIO $ Kernel.toMeta accountId tx
+        -- TODO: should meta history be tested here?
+        _ <- liftIO $ Kernel.newPending activeWallet accountId (rawResolvedTx tx) Nothing
         checkWalletState ctxt accountId
 
     walletRollbackT :: InductiveCtxt h

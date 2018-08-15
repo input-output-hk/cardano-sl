@@ -14,21 +14,21 @@
 module ConsumerProtocol where
 
 -- import           Data.Word
-import           Control.Applicative
-import           Control.Concurrent.STM (STM, retry)
-import           Control.Exception (assert)
+-- import           Control.Applicative
+-- import           Control.Concurrent.STM (STM, retry)
+-- import           Control.Exception (assert)
 import           Control.Monad
-import           Control.Monad.ST.Lazy
+-- import           Control.Monad.ST.Lazy
 import           Control.Monad.Free (Free (..))
 import           Control.Monad.Free as Free
-import           Data.STRef.Lazy
-import           System.Random (StdGen, mkStdGen, randomR)
+-- import           Data.STRef.Lazy
+-- import           System.Random (StdGen, mkStdGen, randomR)
 
-import           Test.QuickCheck
+-- import           Test.QuickCheck
 
 import           ChainExperiment2
 import           MonadClass
-import           Sim (SimChan (..), SimM, flipSimChan)
+import           Sim (SimChan (..), SimF, flipSimChan)
 
 --
 -- IPC based protocol
@@ -97,7 +97,8 @@ consumerSideProtocol1 ConsumerHandlers{..} chan = do
       say ("ap blocks from point X to point Y")
       return ()
 
-    handleChainUpdate (MsgRollBackward p) = do
+    handleChainUpdate (MsgRollBackward _) = do
+      -- TODO: finish
       say ("rolling back N blocks from point X to point Y")
       return ()
 
@@ -245,9 +246,10 @@ exampleConsumer chainvar = ConsumerHandlers {..}
 -- | Given two sides of a protocol, ...
 --
 simulateWire
-  :: (SimChan s p c -> SimM s ())
-  -> (SimChan s c p -> SimM s ())
-  -> SimM s ()
+  :: forall p c s .
+     (SimChan s p c -> Free (SimF s) ())
+  -> (SimChan s c p -> Free (SimF s) ())
+  -> Free (SimF s) ()
 simulateWire protocolSideA protocolSideB = do
     chan <- newChan
     fork $ protocolSideA chan

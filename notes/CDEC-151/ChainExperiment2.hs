@@ -1,5 +1,5 @@
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE BangPatterns    #-}
+{-# LANGUAGE NamedFieldPuns  #-}
 {-# LANGUAGE RecordWildCards #-}
 module ChainExperiment2 where
 
@@ -8,9 +8,9 @@ import           Data.List (find, foldl', intersect, tails)
 import           Data.Map (Map)
 import qualified Data.Map as Map
 import           Data.Maybe (fromMaybe)
-import           Data.Word
+-- import           Data.Word
 
-import           Control.Applicative
+-- import           Control.Applicative
 import           Control.Exception (assert)
 
 import           Test.QuickCheck
@@ -274,8 +274,8 @@ invChainBackwardFrom blocks =
     all (\bid -> go (chainBackwardsFrom blocks bid)) (Map.keys blocks)
     where
     go :: [Block] -> Bool
-    go []  = True
-    go [_] = True
+    go []           = True
+    go [_]          = True
     go (x : y : ys) = prevBlockId x == blockId y && go (y : ys)
 
 chainBackwardsFromTo
@@ -323,8 +323,8 @@ invChainForwardForm
     -> Bool
 invChainForwardForm blocks = all (\blockId -> go $ chainForwardFrom blocks blockId) (Map.keys blocks)
     where
-    go []  = True
-    go [_] = True
+    go []           = True
+    go [_]          = True
     go (x : y : ys) = blockId x == prevBlockId y && go (y : ys)
 
 --
@@ -375,7 +375,7 @@ addBlockVolatile b' (Volatile blocks (Just tip))
   where
     tip'    = blockId b'
     blocks' = Map.insert tip' (b', Nothing)
-            . Map.adjust (\(b, Nothing) -> (b, Just tip')) tip
+            . Map.adjust (\(b, _) -> (b, Just tip')) tip
             $ blocks
 
 -- | For building a chain from empty using the 'addBlock', at each step
@@ -686,7 +686,7 @@ normalizeChainProducerState
             }
 
 applyChainProducerUpdate :: ChainUpdate -> ChainProducerState -> ChainProducerState
-applyChainProducerUpdate cu (cps@ChainProducerState {chainState, chainReaders})
+applyChainProducerUpdate cu (cps@ChainProducerState {chainState})
     = (normalizeChainProducerState cu cps) { chainState = applyChainStateUpdate cu chainState }
 
 invApplyChainProducerUpdate :: ChainUpdate -> ChainProducerState ->  Bool

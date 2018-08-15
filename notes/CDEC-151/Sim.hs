@@ -3,6 +3,7 @@
              NamedFieldPuns, GeneralizedNewtypeDeriving,
              FlexibleInstances #-}
 module Sim (
+  SimF,
   SimM,
   SimProbe,
   SimChan (..),
@@ -15,7 +16,7 @@ module Sim (
 import           Data.PriorityQueue.FingerTree (PQueue)
 import qualified Data.PriorityQueue.FingerTree as PQueue
 
-import Control.Applicative
+-- import Control.Applicative
 import Control.Monad
 import Control.Exception (assert)
 import Control.Monad.ST.Lazy

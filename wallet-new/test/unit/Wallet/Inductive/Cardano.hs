@@ -36,7 +36,7 @@ import           Cardano.Wallet.Kernel.Types
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 
 import           Util.Buildable
-import           Util.Validated
+import           Data.Validated
 import           UTxO.Context (Addr)
 import           UTxO.DSL (Hash)
 import qualified UTxO.DSL as DSL

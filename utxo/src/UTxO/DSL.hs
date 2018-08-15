@@ -85,6 +85,7 @@ import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import           Data.Set (Set)
 import qualified Data.Set as Set
+import           Data.Validated
 import           Formatting (bprint, build, sformat, (%))
 import qualified Formatting.Buildable
 import           Pos.Core.Chrono (NewestFirst (NewestFirst),
@@ -94,7 +95,6 @@ import           Serokell.Util (listJson, mapJson)
 import           Universum hiding (Foldable, foldr, sum, tail, toList)
 
 import           Cardano.Wallet.Kernel.Util (at, restrictKeys, withoutKeys)
-import           Util.Validated
 
 {-------------------------------------------------------------------------------
   Parameters

@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE PatternSynonyms            #-}
 -- | Monad for validation
-module Util.Validated (
+module Data.Validated (
     Validated(..)
   , validatedFromExceptT
   , validatedFromEither

@@ -4,9 +4,10 @@
 module ChainExperiment2 where
 
 import           Data.Hashable
-import           Data.List (find, foldl', tails)
+import           Data.List (find, foldl', intersect, tails)
 import           Data.Map (Map)
 import qualified Data.Map as Map
+import           Data.Maybe (fromMaybe)
 import           Data.Word
 
 import           Control.Applicative
@@ -707,11 +708,65 @@ invApplyChainProducerUpdate cu cps = case applyChainProducerUpdate cu cps of
 data ConsumeChain block = RollForward  block
                         | RollBackward Point
 
+-- It does not validate if the new reader state is an improvment over the old
+-- one.  If a node (an attacker) will force us to use older intersection point,
+-- he will get longer instruction sets, so it's in its interest to send honest
+-- information.
+--
+-- Assumptions:
+--  * each reader is placed only once in `chainReaders` list (we update only the
+--    first one in the list)
 improveReaderState :: ChainProducerState
                    -> ReaderId
-                   -> [Point]
+                   -> [Point] -- newest first
                    -> ChainProducerState
-improveReaderState cps rid = undefined
+improveReaderState cps _ []  = cps
+improveReaderState
+    (cps@ChainProducerState
+        { chainState = ChainState (Volatile _ Nothing)
+        })
+    _ _ = cps
+improveReaderState
+    (cps@ChainProducerState
+        { chainState   = ChainState (Volatile blocks (Just tip))
+        , chainReaders = rs
+        })
+    rid ps = cps { chainReaders = updateReader rs }
+    where
+    updateReader :: [ReaderState] -> [ReaderState]
+    updateReader [] = []
+    updateReader (r : rs) =
+        if readerId r == rid
+            then go Nothing ps r : rs
+            else r : updateReader rs
+
+    go :: Maybe Point -> [Point] -> ReaderState -> ReaderState
+    go _ []                  rs = rs
+    go readerHead (point@(_, blockId) : ps') rs =
+        let -- check if point is a new readerHead
+            readerHead' = case readerHead of
+                Just _  -> readerHead
+                Nothing -> if Map.member blockId blocks
+                            then Just point
+                            else Nothing
+        in case chainBackwardsFrom blocks blockId of
+            []          -> go readerHead' ps' rs -- ^ blockId is not in volatile chain
+            readersTine -> case chainBackwardsFrom blocks tip of
+                []            -> go readerHead' ps' rs
+                producersTine -> case readersTine `intersect_` producersTine of
+                    Nothing                 -> go readerHead' ps' rs
+                    Just readerIntersection -> ReaderState
+                        { readerIntersection
+                        , readerHead = fromMaybe point readerHead'
+                        , readerId   = rid
+                        }
+
+    -- intersect two tines
+    intersect_ :: [Block] -> [Block] -> Maybe Point
+    intersect_ bs bs' =
+        case map blockPoint bs `intersect` map blockPoint bs' of
+            p : _ -> Just p
+            []    -> Nothing
 
 findIntersection :: ChainProducerState -> Point -> [Point] -> Maybe (Point, Point)
 findIntersection (ChainProducerState cs rs) hpoint points =

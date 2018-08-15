@@ -19,6 +19,7 @@ import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (CoinSelectionOptions (..), ExpenseRegulation,
                      InputGrouping, newOptions)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
+import           Cardano.Wallet.Kernel.DB.TxMeta.Types
 import qualified Cardano.Wallet.Kernel.Transactions as Kernel
 import           Cardano.Wallet.WalletLayer (EstimateFeesError (..),
                      NewPaymentError (..), RedeemAdaError (..))
@@ -33,7 +34,7 @@ pay :: MonadIO m
     -> InputGrouping
     -> ExpenseRegulation
     -> V1.Payment
-    -> m (Either NewPaymentError Tx)
+    -> m (Either NewPaymentError (Tx, TxMeta))
 pay activeWallet pw grouping regulation payment = liftIO $
     limitExecutionTimeTo (60 :: Second) NewPaymentTimeLimitReached $
       runExceptT $ do

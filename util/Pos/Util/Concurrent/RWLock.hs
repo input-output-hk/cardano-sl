@@ -7,6 +7,7 @@ module Pos.Util.Concurrent.RWLock
        , releaseRead
        , acquireWrite
        , releaseWrite
+       , whenAcquireWrite
        , withRead
        , withWrite
        ) where
@@ -43,3 +44,13 @@ withRead l = bracket_ (acquireRead l) (releaseRead l)
 -- | Allows to perform action under exclusive lock on 'RWLock'.
 withWrite :: (MonadIO m, MonadMask m) => RWLock -> m a -> m a
 withWrite l = bracket_ (acquireWrite l) (releaseWrite l)
+
+-- | If the write lock can be acquired, perform the requested action
+-- and then release the lock. If the lock cannot be acquired, no
+-- action is performed.
+whenAcquireWrite :: (MonadIO m, MonadMask m) => RWLock -> m a -> m (Maybe a)
+whenAcquireWrite l action =
+    bracket
+        (liftIO $ RWL.tryAcquireWrite l)
+        (\haveLock -> when haveLock $ releaseWrite l)
+        (\haveLock -> if haveLock then Just <$> action else pure Nothing)

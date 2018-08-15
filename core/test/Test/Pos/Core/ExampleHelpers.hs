@@ -3,6 +3,10 @@ module Test.Pos.Core.ExampleHelpers
 
           exampleAddrSpendingData_PubKey
         , exampleAddress
+        , exampleAddress1
+        , exampleAddress2
+        , exampleAddress3
+        , exampleAddress4
         , exampleBlockVersion
         , exampleBlockVersionData
         , exampleBlockVersionModifier
@@ -83,6 +87,7 @@ import           Data.Fixed (Fixed (..))
 import qualified Data.HashMap.Strict as HM
 import           Data.List (zipWith4, (!!))
 import           Data.List.NonEmpty (fromList)
+import qualified Data.Map as M
 import           Data.Maybe (fromJust)
 import qualified Data.Text as T
 import           Data.Time.Units (Millisecond)
@@ -99,8 +104,8 @@ import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                      CoinPortion (..), IsBootstrapEraAddr (..), Script (..),
                      ScriptVersion, SharedSeed (..), SlotLeaders,
                      StakeholderId, StakesList, TxFeePolicy (..),
-                     TxSizeLinear (..), addressHash, makeAddress,
-                     makePubKeyAddress)
+                     TxSizeLinear (..), addressHash, coinPortionDenominator,
+                     makeAddress, makePubKeyAddress, mkMultiKeyDistr)
 import           Pos.Core.Configuration
 import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..),
                      ProxySKBlockInfo, ProxySKHeavy)
@@ -563,6 +568,50 @@ exampleAddress = makeAddress exampleAddrSpendingData_PubKey attrs
   where
     attrs = AddrAttributes hap BootstrapEraDistr
     hap = Just (HDAddressPayload (getBytes 32 32))
+
+exampleAddress1 :: Address
+exampleAddress1 = makeAddress easd attrs
+  where
+    easd = PubKeyASD pk
+    [pk] = examplePublicKeys 24 1
+    attrs = AddrAttributes hap BootstrapEraDistr
+    hap = Nothing
+
+exampleAddress2 :: Address
+exampleAddress2 = makeAddress easd attrs
+  where
+    easd = RedeemASD exampleRedeemPublicKey
+    attrs = AddrAttributes hap asd
+    hap = Just (HDAddressPayload (getBytes 15 32))
+    asd = SingleKeyDistr exampleStakeholderId
+
+exampleAddress3 :: Address
+exampleAddress3 = makeAddress easd attrs
+  where
+    easd = ScriptASD exampleScript
+    attrs = AddrAttributes hap exampleMultiKeyDistr
+    hap = Just (HDAddressPayload (getBytes 17 32))
+
+exampleAddress4 :: Address
+exampleAddress4 = makeAddress easd attrs
+  where
+    easd = UnknownASD 7 "test value"
+    attrs = AddrAttributes Nothing (SingleKeyDistr sId)
+    [sId] = exampleStakeholderIds 7 1
+
+exampleMultiKeyDistr :: AddrStakeDistribution
+exampleMultiKeyDistr = case mkMultiKeyDistr (M.fromList pairs) of
+    Left err -> error $
+        "exampleMultiKeyDistr: improperly constructed stake map: " <> show err
+    Right asd -> asd
+  where
+    pairs = zip stakeIds (map CoinPortion (remainderCP : coinPortions))
+    stakeIds = map abstractHash (examplePublicKeys 7 4)
+    coinPortions = [ (10 :: Word64) ^ (12 :: Word64)
+                   , ( 7 :: Word64) ^ (11 :: Word64)
+                   , ( 6 :: Word64) ^ (14 :: Word64)
+                   ]
+    remainderCP = coinPortionDenominator - sum coinPortions
 
 exampleGenesisConfiguration_GCSrc :: GenesisConfiguration
 exampleGenesisConfiguration_GCSrc =

@@ -5,11 +5,12 @@ import qualified Hedgehog as H
 
 import           Pos.Core.JsonLog.LogEvents (InvReqDataFlowLog (..))
 
-import           Test.Pos.Core.ExampleHelpers
-                     (exampleGenesisConfiguration_GCSpec,
+import           Test.Pos.Core.ExampleHelpers (exampleAddress, exampleAddress1,
+                     exampleAddress2, exampleAddress3, exampleAddress4,
+                     exampleGenesisConfiguration_GCSpec,
                      exampleGenesisConfiguration_GCSrc, feedPM)
-import           Test.Pos.Core.Gen (genBlockVersionData, genByte, genCoin,
-                     genCoinPortion, genEpochIndex, genFlatSlotId,
+import           Test.Pos.Core.Gen (genAddress, genBlockVersionData, genByte,
+                     genCoin, genCoinPortion, genEpochIndex, genFlatSlotId,
                      genGenesisAvvmBalances, genGenesisConfiguration,
                      genGenesisDelegation, genGenesisInitializer,
                      genGenesisProtocolConstants, genInvReqDataFlowLog,
@@ -22,7 +23,49 @@ import           Test.Pos.Util.Tripping (discoverRoundTrip,
 import           Universum
 
 --------------------------------------------------------------------------------
--- GensisConfiguration
+-- Address
+--------------------------------------------------------------------------------
+
+golden_Address0 :: Property
+golden_Address0 =
+    goldenTestJSON
+        exampleAddress
+        "test/golden/json/Address0"
+
+golden_Address1 :: Property
+golden_Address1 =
+    goldenTestJSON
+        exampleAddress1
+        "test/golden/json/Address1"
+
+golden_Address2 :: Property
+golden_Address2 =
+    goldenTestJSON
+        exampleAddress2
+        "test/golden/json/Address2"
+
+golden_Address3 :: Property
+golden_Address3 =
+    goldenTestJSON
+        exampleAddress3
+        "test/golden/json/Address3"
+
+golden_Address4 :: Property
+golden_Address4 =
+    goldenTestJSON
+        exampleAddress4
+        "test/golden/json/Address4"
+
+roundTripAddressShow :: Property
+roundTripAddressShow =
+    eachOf 100 genAddress roundTripsAesonShow
+
+roundTripAddressBuildable :: Property
+roundTripAddressBuildable =
+    eachOf 100 genAddress roundTripsAesonBuildable
+
+--------------------------------------------------------------------------------
+-- GenesisConfiguration
 --------------------------------------------------------------------------------
 
 golden_GenesisConfiguration_GCSpec :: Property

@@ -54,8 +54,9 @@ import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Read as Getters
 import           Cardano.Wallet.Kernel.DB.TxMeta.Types
 import           Cardano.Wallet.Kernel.Internal (ActiveWallet (..),
-                     walletKeystore)
+                     walletKeystore, walletNode)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
+import           Cardano.Wallet.Kernel.NodeStateAdaptor (getMaxTxSize)
 import           Cardano.Wallet.Kernel.Pending (newPending)
 import           Cardano.Wallet.Kernel.Read (getWalletSnapshot)
 import           Cardano.Wallet.Kernel.Types (AccountId (..),
@@ -153,11 +154,8 @@ newTransaction :: ActiveWallet
                -- ^ The payees
                -> IO (Either NewTransactionError (TxAux, TxMeta), Utxo)
 newTransaction ActiveWallet{..} spendingPassword options accountId payees = do
-
-    -- | NOTE(mn) 65536 is the current maximum transaction size, but this can change
-    --   over time. @newTransaction@ should be parameterized over this value, perhaps
-    --   adding it to @CoinSelectionOptions@.
-    let maxInputs = estimateMaxTxInputs dummyAddrAttrSize dummyTxAttrSize 65536
+    maxTxSize <- getMaxTxSize (walletPassive ^. walletNode)
+    let maxInputs = estimateMaxTxInputs dummyAddrAttrSize dummyTxAttrSize maxTxSize
 
     snapshot <- getWalletSnapshot walletPassive
     let availableUtxo = accountAvailableUtxo snapshot accountId

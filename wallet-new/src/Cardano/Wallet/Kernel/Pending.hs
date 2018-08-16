@@ -21,7 +21,7 @@ import           Cardano.Wallet.Kernel.DB.AcidState (CancelPending (..),
                      NewForeign (..), NewForeignError (..), NewPending (..),
                      NewPendingError (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet
-import           Cardano.Wallet.Kernel.DB.HdWallet.Create(initHdAddress)
+import           Cardano.Wallet.Kernel.DB.HdWallet.Create (initHdAddress)
 import           Cardano.Wallet.Kernel.DB.InDb
 import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
 import           Cardano.Wallet.Kernel.DB.TxMeta (TxMeta, putTxMeta)

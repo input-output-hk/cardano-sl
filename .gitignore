@@ -207,3 +207,11 @@ venv.bak/
 .mypy_cache/
 
 # End of https://www.gitignore.io/api/python
+*.aux
+/docs/on-the-wire/binary.toc
+/docs/on-the-wire/binary.synctex.gz
+/docs/on-the-wire/binary.pdf
+/docs/on-the-wire/binary.log
+/docs/on-the-wire/binary.fls
+/docs/on-the-wire/binary.fdb_latexmk
+/docs/on-the-wire/binary.dvi

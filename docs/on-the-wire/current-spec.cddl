@@ -1,0 +1,207 @@
+block = [0, ebblock]
+      / [1, mainblock]
+
+mainblock = [ "header" : blockhead
+            , "body" : blockbody
+            , "extra" : [attributes]
+            ]
+
+ebblock = [ "header" : ebbhead
+          , "body" : [+ stakeholderid]
+          , extra : [attributes]
+          ]
+
+u8 = uint .lt 256
+u16 = uint .lt 65536
+u32 = uint
+u64 = uint
+
+; Basic Cardano Types
+
+blake2b-256 = bytes .size 32
+
+txid = blake2b-256
+blockid = blake2b-256
+updid = blake2b-256
+hash = blake2b-256
+
+blake2b-224 = bytes .size 28
+
+addressid = blake2b-224
+stakeholderid = blake2b-224
+
+epochid = u64
+slotid = [ epoch: epochid, slot : u64 ]
+
+pubkey = bytes
+signature = bytes
+
+; Attributes - at the moment we do not bother deserialising these, since they
+; don't contain anything
+
+attributes = {* any => any}
+
+; Addresses
+
+addrdistr = [1] / [0, stakeholderid]
+
+addrtype = &("PubKey" : 0, "Script" : 1, "Redeem" : 2) / (u64 .gt 2)
+addrattr = { ? 0 : addrdistr
+           , ? 1 : bytes}
+address = [ #6.24(bytes .cbor ([addressid, addrattr, addrtype])), u64 ]
+
+; Transactions
+
+txin = [0, #6.24(bytes .cbor ([txid, u32]))] / [u8 .ne 0, encoded-cbor]
+txout = [address, u64]
+
+tx = [[+ txin], [+ txout], attributes]
+
+txproof = [u32, hash, hash]
+
+twit = [0, #6.24(bytes .cbor ([pubkey, signature]))]
+     / [1, #6.24(bytes .cbor ([[u16, bytes], [u16, bytes]]))]
+     / [2, #6.24(bytes .cbor ([pubkey, signature]))]
+     / [u8 .gt 2, encoded-cbor]
+
+; Shared Seed Computation
+
+vsspubkey = bytes ; This is encoded using the 'Binary' instance
+                  ; for Scrape.PublicKey
+vsssec = bytes ; This is encoded using the 'Binary' instance
+               ; for Scrape.Secret.
+vssenc = [bytes] ; This is encoded using the 'Binary' instance
+                 ; for Scrape.EncryptedSi.
+                 ; TODO work out why this seems to be in a length 1 array
+vssdec = bytes ; This is encoded using the 'Binary' instance
+               ; for Scrape.DecryptedShare
+vssproof = [bytes, bytes, bytes, [* bytes]] ; This is encoded using the
+                                            ; 'Binary' instance for Scrape.Proof
+
+ssccomm = [pubkey, [{vsspubkey => vssenc},vssproof], signature]
+ssccomms = #6.258([* ssccomm])
+
+sscopens = {stakeholderid => vsssec}
+
+sscshares = {addressid => [addressid, [* vssdec]]}
+
+ssccert = [vsspubkey, pubkey, epochid, signature]
+ssccerts = #6.258([* ssccert])
+
+ssc = [0, ssccomms, ssccerts]
+    / [1, sscopens, ssccerts]
+    / [2, sscshares, ssccerts]
+    / [3, ssccerts]
+
+sscproof = [0, hash, hash]
+         / [1, hash, hash]
+         / [2, hash, hash]
+         / [3, hash]
+
+; Delegation
+
+dlg = [ epoch : epochid
+      , issuer : pubkey
+      , delegate : pubkey
+      , certificate : signature
+      ]
+
+dlgsig = [dlg, signature]
+
+lwdlg = [ epochRange : [epochid, epochid]
+        , issuer : pubkey
+        , delegate : pubkey
+        , certificate : signature
+        ]
+
+lwdlgsig = [lwdlg, signature]
+
+; Updates
+
+bver = [u16, u16, u8]
+
+txfeepol = [0, #6.24(bytes .cbor ([bigint, bigint]))]
+         / [u8 .gt 0, encoded-cbor]
+
+bvermod = [ scriptVersion : [? u16]
+          , slotDuration : [? bigint]
+          , maxBlockSize : [? bigint]
+          , maxHeaderSize  : [? bigint]
+          , maxTxSize : [? bigint]
+          , maxProposalSize : [? bigint]
+          , mpcThd : [? u64]
+          , heavyDelThd : [? u64]
+          , updateVoteThd : [? u64]
+          , updateProposalThd : [? u64]
+          , updateImplicit : [? u64]
+          , softForkRule : [? [u64, u64, u64]]
+          , txFeePolicy : [? txfeepol]
+          , unlockStakeEpoch : [? epochid]
+          ]
+
+updata = [ hash, hash, hash, hash ]
+
+upprop = [ "blockVersion" : bver
+         , "blockVersionMod" : bvermod
+         , "softwareVersion" : [ text, u32 ]
+         , "data" : #6.258([text, updata])
+         , "attributes" : attributes
+         , "from" : pubkey
+         , "signature" : signature
+         ]
+
+upvote = [ "voter" : pubkey
+         , "proposalId" : updid
+         , "vote" : bool
+         , "signature" : signature
+         ]
+
+up = [ "proposal" :  [? upprop]
+     , votes : [* upvote]
+     ]
+
+; Blocks
+
+difficulty = [u64]
+
+blocksig = [0, signature]
+         / [1, lwdlgsig]
+         / [2, dlgsig]
+
+blockcons = [slotid, pubkey, difficulty, blocksig]
+
+blockheadex = [ "blockVersion" : bver
+              , "softwareVersion" : [ text, u32 ]
+              , "attributes" : attributes
+              , "extraProof" : hash
+              ]
+
+blockproof = [ "txProof" : txproof
+             , "sscProof" : sscproof
+             , "dlgProof" : hash
+             , "updProof" : hash
+             ]
+
+blockhead = [ "protocolMagic" : u32
+            , "prevBlock" : blockid
+            , "bodyProof" : blockproof
+            , "consensusData" : blockcons
+            , "extraData" : blockheadex
+            ]
+
+blockbody = [ "txPayload" : [* [tx, [* twit]]]
+            , "sscPayload" : ssc
+            , "dlgPayload" : [* dlg]
+            , "updPayload" : up
+            ]
+
+; Epoch Boundary Blocks
+
+ebbcons = [ epochid, difficulty ]
+
+ebbhead = [ "protocolMagic" : u32
+          , "prevBlock" : blockid
+          , "bodyProof" : hash
+          , "consensusData" : ebbcons
+          , "extraData" : [attributes]
+          ]

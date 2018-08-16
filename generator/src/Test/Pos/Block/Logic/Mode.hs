@@ -62,7 +62,8 @@ import           Pos.AllSecrets (AllSecrets (..), HasAllSecrets (..),
 import           Pos.Chain.Block (HasSlogGState (..))
 import           Pos.Chain.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Chain.Ssc (SscMemTag, SscState)
-import           Pos.Chain.Txp (TxpConfiguration (..))
+import           Pos.Chain.Txp (RequiresNetworkMagic (..),
+                     TxpConfiguration (..))
 import           Pos.Core (CoreConfiguration (..), GenesisConfiguration (..),
                      HasConfiguration, HasProtocolConstants, SlotId,
                      Timestamp (..), epochSlots, genesisSecretKeys,
@@ -156,7 +157,7 @@ instance Arbitrary TestParams where
     arbitrary = do
         let _tpStartTime = Timestamp (fromMicroseconds 0)
         let _tpBlockVersionData = defaultTestBlockVersionData
-        let _tpTxpConfiguration = TxpConfiguration 200 Set.empty
+        let _tpTxpConfiguration = TxpConfiguration 200 Set.empty NMMustBeNothing
         _tpGenesisInitializer <-
             withGenesisBlockVersionData
                 _tpBlockVersionData

@@ -24,7 +24,8 @@ import           Test.QuickCheck.Monadic (pick, run)
 import           Pos.Binary.Class (serialize')
 import           Pos.Chain.Block (mainBlockTxPayload)
 import qualified Pos.Chain.Lrc as Lrc
-import           Pos.Chain.Txp (TxpConfiguration (..))
+import           Pos.Chain.Txp (RequiresNetworkMagic (..),
+                     TxpConfiguration (..))
 import           Pos.Core (Coin, EpochIndex, StakeholderId, addressHash,
                      blkSecurityParam, coinF, epochSlots, genesisData,
                      genesisSecretKeysPoor, genesisSecretKeysRich)
@@ -83,7 +84,7 @@ genTestParams :: Gen TestParams
 genTestParams = do
     let _tpStartTime = 0
     let _tpBlockVersionData = defaultTestBlockVersionData
-    let _tpTxpConfiguration = TxpConfiguration 200 Set.empty
+    let _tpTxpConfiguration = TxpConfiguration 200 Set.empty NMMustBeNothing
     _tpGenesisInitializer <- genGenesisInitializer
     return TestParams {..}
 

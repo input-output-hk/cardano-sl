@@ -12,7 +12,8 @@ import           Test.QuickCheck.Monadic (assert)
 
 import           Pos.Binary.Class (decodeFull, serialize')
 import           Pos.Binary.Communication (serializeMsgSerializedBlock)
-import           Pos.Chain.Txp (TxpConfiguration (..))
+import           Pos.Chain.Txp (RequiresNetworkMagic (..),
+                     TxpConfiguration (..))
 import           Pos.DB.Class (Serialized (..))
 import           Pos.Network.Block.Types (MsgBlock (..),
                      MsgSerializedBlock (..))
@@ -32,7 +33,8 @@ serializeMsgSerializedBlockSpec
     :: (HasStaticConfigurations) => Spec
 serializeMsgSerializedBlockSpec = do
     prop desc $ blockPropertyTestable $ do
-        (block, _) <- bpGenBlock dummyProtocolMagic (TxpConfiguration 200 Set.empty) (EnableTxPayload True) (InplaceDB True)
+        (block, _) <- bpGenBlock dummyProtocolMagic (TxpConfiguration 200 Set.empty NMMustBeNothing)
+                                 (EnableTxPayload True) (InplaceDB True)
         let sb = Serialized $ serialize' block
         assert $ serializeMsgSerializedBlock (MsgSerializedBlock sb) == serialize' (MsgBlock block)
     prop descNoBlock $ blockPropertyTestable $ do
@@ -53,7 +55,8 @@ deserializeSerilizedMsgSerializedBlockSpec
     :: (HasStaticConfigurations) => Spec
 deserializeSerilizedMsgSerializedBlockSpec = do
     prop desc $ blockPropertyTestable $ do
-        (block, _) <- bpGenBlock dummyProtocolMagic (TxpConfiguration 200 Set.empty) (EnableTxPayload True) (InplaceDB True)
+        (block, _) <- bpGenBlock dummyProtocolMagic (TxpConfiguration 200 Set.empty NMMustBeNothing)
+                                 (EnableTxPayload True) (InplaceDB True)
         let sb = Serialized $ serialize' block
         let msg :: Either Text MsgBlock
             msg = decodeFull . BSL.fromStrict . serializeMsgSerializedBlock $ MsgSerializedBlock sb

@@ -9,9 +9,9 @@ module Pos.Chain.Txp.Configuration
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON,
-                     genericToJSON)
-import           Data.Aeson.Options (defaultOptions)
+import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..), object,
+                     (.:), (.=))
+import           Data.Aeson.Types (typeMismatch)
 import           Pos.Core (Address)
 
 -- | Delegation configruation part.
@@ -26,10 +26,17 @@ data TxpConfiguration = TxpConfiguration
     } deriving (Eq,Show,Generic)
 
 instance ToJSON TxpConfiguration where
-    toJSON = genericToJSON defaultOptions
+    toJSON tc = object
+        [ "memPoolLimitTx"       .= (ccMemPoolLimitTx tc)
+        , "assetLockedSrcAddrs"  .= (tcAssetLockedSrcAddrs tc)
+        ]
 
 instance FromJSON TxpConfiguration where
-    parseJSON = genericParseJSON defaultOptions
+    parseJSON (Object o) = do
+        mplt <- o .: "memPoolLimitTx"
+        asla <- o .: "assetLockedSrcAddrs"
+        pure (TxpConfiguration mplt asla)
+    parseJSON invalid = typeMismatch "TxpConfiguration" invalid
 
 ----------------------------------------------------------------------------
 -- Constants

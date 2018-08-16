@@ -208,6 +208,8 @@ test-suite test
                        Test.Pos.Chain.Ssc.Json
                        Test.Pos.Chain.Ssc.Arbitrary
                        Test.Pos.Chain.Txp.CoreSpec
+                       Test.Pos.Chain.Txp.Gen
+                       Test.Pos.Chain.Txp.Json
                        Test.Pos.Chain.Txp.Toil.UtxoSpec
                        Test.Pos.Chain.Update.Arbitrary
                        Test.Pos.Chain.Update.Arbitrary.Core

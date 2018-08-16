@@ -21,6 +21,8 @@ library
                        Test.Pos.Chain.Ssc.Arbitrary
                        Test.Pos.Chain.Ssc.Gen
                        Test.Pos.Chain.Ssc.Json
+                       Test.Pos.Chain.Txp.Gen
+                       Test.Pos.Chain.Txp.Json
                        Test.Pos.Chain.Update.Arbitrary
 
   other-modules:       Test.Pos.Chain.Update.Arbitrary.Core
@@ -36,6 +38,7 @@ library
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
                      , cardano-sl-util-test
+                     , containers
                      , formatting
                      , generic-arbitrary
                      , hedgehog

@@ -537,7 +537,11 @@ Stake pool Registration Certificate
 
     - the public key of the pool, $vks_\text{pool}$
     - the public stake key hash of the pool owner/operator,
-      $\mathcal{H}(vks_\text{owner})$
+      $\mathcal{H}(vks_\text{owner})$, or a list of such public stake
+      key hashes. Funds contained in addresses controlled by these
+      staking keys are counted towards the owner's pledge to the
+      pool. In particular, any delegation certificates from those keys
+      are invalid.
     - the parameters that specify the reward sharing function of the
       stake pool (the cost and margin of the pool)[^incentives]
     - optionally, a stake pool registration can specify an alternative
@@ -547,7 +551,8 @@ Stake pool Registration Certificate
       for regulatory or tax reasons) to have their stake pool's rewards
       benefit some other party such as a charity.
 
-    The certificate must be signed by $sks_\text{owner}$.
+    The certificate must be signed by all $sks_\text{owner}$, as well
+    as by $sks_\text{pool}$.
 
     Additional, personal, information on the stake pool operator will
     be hosted separately from the blockchain, see \ref{stakepool-registration}.
@@ -595,6 +600,10 @@ Heavyweight Delegation Certificates
     $vks_\text{pool}$
 
     It must be signed by $sks_\text{source}$.
+
+    If any valid stake pool registration certificate has
+    $\mathcal{H}(vks_\text{source})$ as an owner's public staking key
+    hash, the certificate is invalid.
 
 Note that there is no corresponding delegation revocation certificate.
 If a user wishes to change their delegation choice to a different stake
@@ -730,7 +739,7 @@ TODO: state this formally as well.
 ### Stake Key Delegation Relation
 
 The stake key delegation relation is a relation between stake keys and stake
-pools, or more specifically stake keys hashes and stake pool key hashes.
+pools, or more specifically stake key hashes and stake pool key hashes.
 
 The relation is defined by the active set of heavyweight delegation
 certificates, filtered by the set of active stake pools. The active heavyweight

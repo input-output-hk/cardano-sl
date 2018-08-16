@@ -57,6 +57,12 @@ data GenesisValues h a = GenesisValues {
       -- | Address of poor actor 0
     , p0         :: Addr
 
+      -- | 2nd Address of poor actor 0
+    , p0b        :: Addr
+
+      -- | 3rd Address of poor actor 0
+    , p0c        :: Addr
+
       -- | Address of poor actor 1
     , p1         :: Addr
 
@@ -84,11 +90,13 @@ genesisValues txSizeLinear boot = GenesisValues{..}
     initBalP0 = outVal . snd $ initUtxoP0
     initBalP1 = outVal . snd $ initUtxoP1
 
-    r0 = Addr (IxRich 0) 0
-    r1 = Addr (IxRich 1) 0
-    r2 = Addr (IxRich 2) 0
-    p0 = Addr (IxPoor 0) 0
-    p1 = Addr (IxPoor 1) 0
+    r0  = Addr (IxRich 0) 0
+    r1  = Addr (IxRich 1) 0
+    r2  = Addr (IxRich 2) 0
+    p0  = Addr (IxPoor 0) 0
+    p0b = Addr (IxPoor 0) 1
+    p0c = Addr (IxPoor 0) 2
+    p1  = Addr (IxPoor 1) 0
 
     txFee = estimateCardanoFee  txSizeLinear
 

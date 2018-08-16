@@ -36,21 +36,18 @@ import           Pos.Core (TxSizeLinear)
 --  derive all of these arguments. See 'simpleModel' and 'cardanoModel'.
 data GeneratorModel h a = GeneratorModel {
       -- | Bootstrap transaction
-      gmBoot          :: Transaction h a
+      gmBoot         :: Transaction h a
 
       -- | Addresses to work with
       --
       -- These will be the addresses we can transfers funds from and to
-    , gmAllAddresses  :: [a]
+    , gmAllAddresses :: [a]
 
      -- | Which subset of 'gmAllAddresses' can we choose from for @ours@?
-    , gmPotentialOurs :: a -> Bool
-
-      -- | Maximum number of addresses to use for @ours@
-    , gmMaxNumOurs    :: Int
+    , gmOurs         :: Set a
 
       -- | Estimate fees
-    , gmEstimateFee   :: Int -> [Value] -> Value
+    , gmEstimateFee  :: Int -> [Value] -> Value
     }
 
 genChainUsingModel :: (Hash h a, Ord a) => GeneratorModel h a -> Gen (Chain h a)
@@ -64,20 +61,17 @@ genChainUsingModel GeneratorModel{..} =
 genInductiveUsingModel :: (Hash h a, Ord a)
                        => GeneratorModel h a -> Gen (Inductive h a)
 genInductiveUsingModel GeneratorModel{..} = do
-    numOurs <- choose (1, min (length potentialOurs) gmMaxNumOurs)
-    addrs'  <- shuffle potentialOurs
-    let ours = Set.fromList (take numOurs addrs')
-    events  <- evalStateT (genWalletEvents (params ours)) initState
+    events <- evalStateT (genWalletEvents (params gmOurs)) initState
     return Inductive {
         inductiveBoot   = gmBoot
-      , inductiveOurs   = ours
+      , inductiveOurs   = gmOurs
       , inductiveEvents = events
       }
   where
-    potentialOurs = filter gmPotentialOurs gmAllAddresses
-    params ours   = defEventsParams gmEstimateFee gmAllAddresses ours initUtxo
-    initUtxo      = utxoRestrictToAddr (`elem` gmAllAddresses) $ trUtxo gmBoot
-    initState     = initEventsGlobalState 1
+    initUtxo  = utxoRestrictToAddr (`elem` gmAllAddresses) $ trUtxo gmBoot
+    initState = initEventsGlobalState 1
+
+    params ours'  = defEventsParams gmEstimateFee gmAllAddresses ours' initUtxo
 
 {-------------------------------------------------------------------------------
   Simple model
@@ -89,9 +83,8 @@ genInductiveUsingModel GeneratorModel{..} = do
 simpleModel :: GeneratorModel GivenHash Char
 simpleModel = GeneratorModel {
       gmAllAddresses  = addrs
-    , gmPotentialOurs = \_ -> True
+    , gmOurs          = Set.fromList addrs
     , gmEstimateFee   = \_ _ -> 0
-    , gmMaxNumOurs    = 3
     , gmBoot          = Transaction {
                             trFresh = fromIntegral (length addrs) * initBal
                           , trIns   = Set.empty
@@ -119,19 +112,19 @@ simpleModel = GeneratorModel {
 -- actors, large values, etc., and so is a bit difficult to debug when
 -- looking at values manually.
 cardanoModel :: TxSizeLinear
-             -> Transaction GivenHash Addr -> GeneratorModel GivenHash Addr
-cardanoModel linearFeePolicy boot = GeneratorModel {
+             -> Int    -- ^ "our" actor, the owner of all "our" addresses
+             -> [Addr] -- ^ list of all addresses (including "ours")
+             -> Transaction GivenHash Addr
+             -> GeneratorModel GivenHash Addr
+cardanoModel linearFeePolicy ourActor allAddrs boot =
+    GeneratorModel {
       gmBoot          = boot
-    , gmAllAddresses  = filter (not . isAvvmAddr) $ addrsInBoot boot
-    , gmPotentialOurs = \_ -> True
+    , gmAllAddresses  = allAddrs
+    , gmOurs          = Set.fromList ourAddrs
     , gmEstimateFee   = estimateCardanoFee linearFeePolicy
-    , gmMaxNumOurs    = 5
     }
+    where
+        ours (Addr (IxPoor actor) _) = (ourActor == actor)
+        ours _                       = False
 
-
-{-------------------------------------------------------------------------------
-  Auxiliary
--------------------------------------------------------------------------------}
-
-addrsInBoot :: Transaction GivenHash a -> [a]
-addrsInBoot = map outAddr . trOuts
+        ourAddrs = filter ours allAddrs

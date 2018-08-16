@@ -12,9 +12,6 @@ import           Universum hiding (State)
 
 import           Data.Acid.Advanced (update')
 import qualified Data.Map.Strict as Map
-import           Formatting (sformat, (%))
-import           Serokell.Util (listJson)
-import           System.Wlog (Severity (..))
 
 import           Pos.Core (SlotId)
 import           Pos.Core.Chrono (OldestFirst)
@@ -25,13 +22,11 @@ import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..),
                      RollbackDuringRestoration, SwitchToFork (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.InDb
-import           Cardano.Wallet.Kernel.DB.Read as Getters
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock, rbSlotId)
 import           Cardano.Wallet.Kernel.Internal
-import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..),
                      prefilterBlock)
-import           Cardano.Wallet.Kernel.Read (getWalletSnapshot)
+import           Cardano.Wallet.Kernel.Read (getWalletCredentials)
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
 
 {-------------------------------------------------------------------------------
@@ -91,31 +86,3 @@ observableRollbackUseInTestsOnly :: PassiveWallet
                                  -> IO (Either RollbackDuringRestoration ())
 observableRollbackUseInTestsOnly PassiveWallet{..} =
     update' _wallets $ ObservableRollbackUseInTestsOnly
-
-{-------------------------------------------------------------------------------
-  Internal auxiliary
--------------------------------------------------------------------------------}
-
--- | Get wallet credentials
---
--- For wallets without a corresponding secret key we log an error. This
--- indicates a bug somewhere, but there is not much we can do about it here,
--- since this runs in the context of applying a block.
-getWalletCredentials :: PassiveWallet
-                     -> IO [(WalletId, EncryptedSecretKey)]
-getWalletCredentials pw = do
-    snapshot         <- getWalletSnapshot pw
-    (creds, missing) <- fmap partitionEithers $
-      forM (walletIds snapshot) $ \walletId ->
-        aux walletId <$> Keystore.lookup walletId (pw ^. walletKeystore)
-    unless (null missing) $ (pw ^. walletLogMessage) Error (errMissing missing)
-    return creds
-  where
-    aux :: WalletId
-        -> Maybe EncryptedSecretKey
-        -> Either (WalletId, EncryptedSecretKey) WalletId
-    aux walletId Nothing    = Right walletId
-    aux walletId (Just esk) = Left (walletId, esk)
-
-    errMissing :: [WalletId] -> Text
-    errMissing = sformat ("Root key missing for " % listJson)

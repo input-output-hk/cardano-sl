@@ -361,7 +361,7 @@ data HdAccountWithinK = HdAccountWithinK {
       -- | Historical full checkpoints
       --
       -- Meanwhile, we asynchronously construct full checkpoints, starting
-      -- from genesis. One this gets to within k slots of the tip, we start
+      -- from genesis. Once this gets to within k slots of the tip, we start
       -- keeping all of these.
     , _hdWithinKHistorical :: !(NewestFirst NonEmpty Checkpoint)
     }

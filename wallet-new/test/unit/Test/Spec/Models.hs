@@ -9,9 +9,12 @@ import qualified Data.Set as Set
 import           Test.Infrastructure.Generator
 import           Util.Buildable.Hspec
 import           Util.Buildable.QuickCheck
+
 import           UTxO.Bootstrap
+import           UTxO.Context
 import           UTxO.DSL
 import           UTxO.Translate
+
 import           Wallet.Abstract
 import           Wallet.Inductive
 import           Wallet.Inductive.Invariants
@@ -36,8 +39,12 @@ spec = do
       it "Using simple model" $
         forAll (genInductiveUsingModel simpleModel) $ testPureWalletWith
       it "Using Cardano model" $
-        forAll (genInductiveUsingModel (cardanoModel linearFeePolicy boot)) $ testPureWalletWith
+        forAll (genInductiveUsingModel (cardanoModel linearFeePolicy ourActorIx allAddrs boot)) $
+            testPureWalletWith
   where
+    ourActorIx   = 0
+    allAddrs     = transCtxtAddrs transCtxt
+
     transCtxt = runTranslateNoErrors ask
     boot      = bootstrapTransaction transCtxt
     linearFeePolicy = TxSizeLinear (Coeff 155381) (Coeff 43.946)

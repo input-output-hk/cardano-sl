@@ -2,6 +2,7 @@
 {-# LANGUAGE ImplicitParams             #-}
 {-# LANGUAGE InstanceSigs               #-}
 {-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
 -- | Interpreter from the DSL to Cardano types
@@ -20,6 +21,8 @@ module UTxO.Interpreter (
     -- * Interpreter proper
   , Interpret(..)
   , IntRollback(..)
+    -- * DSL BlockMeta'
+  , BlockMeta'(..)
   ) where
 
 import           Universum hiding (id)
@@ -37,6 +40,8 @@ import qualified Formatting.Buildable
 import           Prelude (Show (..))
 import           Serokell.Util (listJson, mapJson)
 
+import           Cardano.Wallet.Kernel.DB.BlockMeta (AddressMeta,
+                     BlockMeta (..))
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Resolved
 import           Cardano.Wallet.Kernel.Types
@@ -517,6 +522,53 @@ instance DSL.Hash h Addr => Interpret h (DSL.Utxo h Addr) where
           ((_key, inp'), _) <- int inp
           out'              <- int out
           return (inp', out')
+
+{-------------------------------------------------------------------------------
+  (included in "Instances that read, but not update, the state")
+
+  Block metadata: defines a DSL `BlockMeta'` analogy to the Cardano `BlockMeta`
+  along with an interpreter instance to translate `BlockMeta'` to `BlockMeta`
+-------------------------------------------------------------------------------}
+
+-- | Block metadata
+--
+-- Models the Cardano BlockMeta, replacing the map key types:
+-- * replace Cardano\TxId with DSL\TxId
+-- * replace Cardano\Address with DSL\Addr
+data BlockMeta' h = BlockMeta' {
+      -- | SlotIds for all confirmed transactions
+      _blockMetaSlotId'      :: Map (h (DSL.Transaction h Addr)) SlotId
+
+    , -- | Address metadata using the DSL `Addr` and the Cardano `AddressMeta`
+      _blockMetaAddressMeta' :: Map Addr AddressMeta
+    }
+
+-- | Interpretation of block metadata
+--
+-- NOTE: BlockMeta' has a mix of DSL and Cardano values, only the DSL values are translated
+instance DSL.Hash h Addr => Interpret h (BlockMeta' h) where
+  type Interpreted (BlockMeta' h) = BlockMeta
+
+  int :: forall e m. Monad m
+      => BlockMeta' h -> IntT h e m BlockMeta
+  int (BlockMeta' txs' addrMeta') = do
+      _blockMetaSlotId      <- intTxIds txs'
+      _blockMetaAddressMeta <- intAddrMetas addrMeta'
+      return $ BlockMeta {..}
+      where
+          intAddrMetas :: Map Addr AddressMeta -> IntT h e m (InDb (Map Address AddressMeta))
+          intAddrMetas addrMetas= InDb . Map.fromList <$> mapM intAddrMeta (Map.toList addrMetas)
+
+          -- Interpret only the key, leaving the indexed value AddressMeta unchanged
+          intAddrMeta :: (Addr,AddressMeta) -> IntT h e m (Address,AddressMeta)
+          intAddrMeta (addr,addrMeta) = (,addrMeta) . addrInfoCardano <$> int addr
+
+          intTxIds :: Map (h (DSL.Transaction h Addr)) SlotId -> IntT h e m (InDb (Map TxId SlotId))
+          intTxIds txIds = InDb . Map.fromList <$> mapM intTxId (Map.toList txIds)
+
+          -- Interpret only the key, leaving the indexed value SlotId unchanged
+          intTxId :: (h (DSL.Transaction h Addr),SlotId) -> IntT h e m (TxId, SlotId)
+          intTxId (txId,slotId) = (,slotId) <$> intHash txId
 
 {-------------------------------------------------------------------------------
   Instances that change the state

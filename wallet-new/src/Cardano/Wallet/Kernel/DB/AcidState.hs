@@ -123,21 +123,40 @@ deriveSafeCopy 1 'base ''RollbackDuringRestoration
   Wrap wallet spec
 -------------------------------------------------------------------------------}
 
+
+-- | Create a new pending transaction
+--
+--  NOTE: also creates all "our" addresses that appear in the transaction outputs,
+--        by adding them to the HdAddresses they will be henceforth recognised as "ours"
 newPending :: HdAccountId
            -> InDb Txp.TxAux
+           -> [HdAddress] -- ^ "our" addresses that appear in the transaction outputs
            -> Update DB (Either NewPendingError ())
-newPending accountId tx = runUpdateDiscardSnapshot . zoom dbHdWallets $
+newPending accountId tx ourAddrs = runUpdateDiscardSnapshot . zoom dbHdWallets $ do
     zoomHdAccountId NewPendingUnknown accountId $
-    zoomHdAccountCheckpoints $
-      mapUpdateErrors NewPendingFailed $ Spec.newPending tx
+        zoomHdAccountCheckpoints $
+            mapUpdateErrors NewPendingFailed $ Spec.newPending tx
+
+    mapM_ ensureExistsHdAddress ourAddrs
 
 newForeign :: HdAccountId
            -> InDb Txp.TxAux
+           -> [HdAddress] -- ^ "our" addresses that appear in the transaction outputs
            -> Update DB (Either NewForeignError ())
-newForeign accountId tx = runUpdateDiscardSnapshot . zoom dbHdWallets $
+newForeign accountId tx ourAddrs = runUpdateDiscardSnapshot . zoom dbHdWallets $ do
     zoomHdAccountId NewForeignUnknown accountId $
-    zoomHdAccountCheckpoints $
-      mapUpdateErrors NewForeignFailed $ Spec.newForeign tx
+        zoomHdAccountCheckpoints $
+            mapUpdateErrors NewForeignFailed $ Spec.newForeign tx
+
+    mapM_ ensureExistsHdAddress ourAddrs
+
+ensureExistsHdAddress :: HdAddress -> Update' HdWallets e ()
+ensureExistsHdAddress newAddress = do
+    zoomOrCreateHdAddress
+        assumeHdAccountExists
+        newAddress
+        (newAddress ^. hdAddressId)
+        (return ())
 
 -- | Cancels the input transactions from the 'Checkpoints' of each of
 -- the accounts cointained in the 'Cancelled' map.

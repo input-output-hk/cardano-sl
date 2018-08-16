@@ -12,11 +12,13 @@ module Wallet.Inductive.Cardano (
   , equivalentT
   ) where
 
+import qualified Prelude (show)
 import           Universum
 
-import qualified Data.List as List
+import           Cardano.Wallet.Kernel.Types
+import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import qualified Data.Map.Strict as Map
-import           Formatting (bprint, build, (%))
+import           Formatting (bprint, build, formatToString, (%))
 import qualified Formatting.Buildable
 
 import           Pos.Chain.Txp (Utxo, formatUtxo)
@@ -24,7 +26,6 @@ import           Pos.Core (HasConfiguration)
 import           Pos.Core.Chrono
 import           Pos.Crypto (EncryptedSecretKey)
 
-import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.BListener as Kernel
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import qualified Cardano.Wallet.Kernel.Internal as Internal
@@ -32,8 +33,6 @@ import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import qualified Cardano.Wallet.Kernel.Pending as Kernel
 import           Cardano.Wallet.Kernel.PrefilterTx (prefilterUtxo)
 import qualified Cardano.Wallet.Kernel.Read as Kernel
-import           Cardano.Wallet.Kernel.Types
-import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 
 import           Util.Buildable
 import           Util.Validated
@@ -172,17 +171,17 @@ interpretT injIntEx mkWallet EventCallbacks{..} Inductive{..} =
 -------------------------------------------------------------------------------}
 
 equivalentT :: forall h e m. (Hash h Addr, MonadIO m, MonadFail m)
-            => Kernel.ActiveWallet
+            => Internal.ActiveWallet
             -> EncryptedSecretKey
             -> (DSL.Transaction h Addr -> Wallet h Addr)
             -> Inductive h Addr
-            -> TranslateT e m (Validated EquivalenceViolation ())
+            -> TranslateT e m (Validated EquivalenceViolation (Wallet h Addr, IntCtxt h))
 equivalentT activeWallet esk = \mkWallet w ->
-    fmap (void . validatedFromEither)
+    fmap validatedFromEither
       $ catchTranslateErrors
       $ interpretT notChecked mkWallet EventCallbacks{..} w
   where
-    passiveWallet = Kernel.walletPassive activeWallet
+    passiveWallet = Internal.walletPassive activeWallet
 
     notChecked :: History -> IntException -> EquivalenceViolation
     notChecked history ex = EquivalenceNotChecked {
@@ -229,10 +228,10 @@ equivalentT activeWallet esk = \mkWallet w ->
             -- Here, we safely extract the AccountId.
             pickSingletonAccountId :: [HD.HdAccountId] -> HD.HdAccountId
             pickSingletonAccountId accountIds' =
-                case length accountIds' of
-                    1 -> List.head accountIds'
-                    0 -> error "ERROR: no accountIds generated for the given Utxo"
-                    _ -> error "ERROR: multiple AccountIds, only one expected"
+                case accountIds' of
+                    [accId] -> accId
+                    []      -> error "ERROR: no accountIds generated for the given Utxo"
+                    _       -> error "ERROR: multiple accountIds generated, only one expected"
 
     walletApplyBlockT :: InductiveCtxt h
                       -> HD.HdAccountId
@@ -303,6 +302,7 @@ equivalentT activeWallet esk = \mkWallet w ->
               $ EquivalenceNotChecked fld err inductiveCtxtEvents
           Right (a', _ic') -> return a'
 
+
 data EquivalenceViolation =
     -- | Cardano wallet and pure wallet are not equivalent
     EquivalenceViolation {
@@ -336,6 +336,11 @@ data EquivalenceViolationEvidence =
       , notEquivalentTranslated :: Interpreted a
       , notEquivalentKernel     :: Interpreted a
       }
+
+instance Show EquivalenceViolation where
+    show = formatToString build
+
+instance Exception EquivalenceViolation
 
 {-------------------------------------------------------------------------------
   Pretty-printing

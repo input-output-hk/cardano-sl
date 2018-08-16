@@ -73,7 +73,7 @@ data BlockMeta = BlockMeta {
       _blockMetaSlotId      :: InDb (Map Txp.TxId Core.SlotId)
       -- | Address metadata
     , _blockMetaAddressMeta :: InDb (Map Core.Address AddressMeta)
-    }
+    } deriving Eq
 
 makeLenses ''BlockMeta
 

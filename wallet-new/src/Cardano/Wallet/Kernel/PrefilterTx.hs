@@ -8,6 +8,7 @@ module Cardano.Wallet.Kernel.PrefilterTx
        , AddrWithId
        , prefilterBlock
        , prefilterUtxo
+       , filterOurs
        ) where
 
 import           Universum
@@ -184,7 +185,7 @@ prefilterResolvedTxPairs wKey mergeF pairs
     where
         selectAddr = txOutAddress . toaOut . snd
 
-        prefTxPairs = prefilter wKey selectAddr pairs
+        prefTxPairs = filterOurs wKey selectAddr pairs
         -- | if prefiltering excluded nothing, then all the pairs are "ours"
         onlyOurs = (length prefTxPairs == length pairs)
 
@@ -196,11 +197,11 @@ prefilterResolvedTxPairs wKey mergeF pairs
 -- the AccountId from the Tx Attributes. This is not sufficient since it
 -- doesn't actually _verify_ that the Tx belongs to the AccountId.
 -- We need to add verification (see `deriveLvl2KeyPair`).
-prefilter :: WalletKey
-     -> (a -> Address)      -- ^ address getter
-     -> [a]                 -- ^ list to filter
-     -> [(a, HdAddressId)]  -- ^ matching items
-prefilter (wid,wdc) selectAddr rtxs
+filterOurs :: WalletKey
+           -> (a -> Address)      -- ^ address getter
+           -> [a]                 -- ^ list to filter
+           -> [(a, HdAddressId)]  -- ^ matching items
+filterOurs (wid,wdc) selectAddr rtxs
     = map f $ selectOwnAddresses wdc selectAddr rtxs
     where f (addr,meta) = (addr, toAddressId wid meta)
 
@@ -334,9 +335,8 @@ mkAddressMeta addrs
 --   NOTE: Since there will be at least one AddressSummary per Address,
 --   we can safely use NE.fromList.
 indexByAddr :: [AddressSummary] -> Map Address (NE.NonEmpty AddressSummary)
-indexByAddr addrs
-    -- TODO @uroboros/ryan construct NE lists and use NE.concat (would need NE.concat)
-    = Map.map NE.fromList (Map.fromListWith (++) addrs')
+indexByAddr addrs =
+    Map.map NE.fromList (Map.fromListWith (++) addrs')
     where
         fromAddrSummary addrSummary = (addrSummaryAddr addrSummary, [addrSummary])
         addrs' = map fromAddrSummary addrs

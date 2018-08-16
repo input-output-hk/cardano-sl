@@ -152,7 +152,8 @@ pay activeWallet spendingPassword opts accountId payees = do
         shouldRetry _ (Left (PaymentNewTransactionError _)) = return False
         shouldRetry _ _                                     = return True
 
--- | Creates a new 'TxAux' without submitting it to the network.
+-- | Creates a new 'TxAux' and corresponding 'TxMeta',
+-- without submitting it to the network.
 --
 -- For testing purposes, if successful this additionally returns the utxo
 -- that coin selection was run against.

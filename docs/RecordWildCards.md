@@ -121,6 +121,37 @@ Binary/Helpers.hs|SizeTestConfig|Same module|
 |Txp/Toil/UtxoSpec.hs|TxOutAux|core/src/Pos/Core/Txp/TxOutAux.hs|
 |Txp/Toil/UtxoSpec.hs|ToilVerFailure (ToilWitnessDoesntMatch)|chain/src/Pos/Chain/Txp/Toil/Failure.hs|
 
+## `client` package
+### File path prefix: src/Pos/Client/
+
+| File | Types | Type Definition Location |
+| --- | --- | ---|
+|Txp/Network.hs|TxAux |core/src/Pos/Core/Txp/TxAux.hs|
+|Txp/History.hs|UnsafeTx |core/src/Pos/Core/Txp/TxPayload.hs|
+|Txp/History.hs|TxHistoryEntry (THEntry) | Same module|
+|Txp/Util.hs|WalletError (NotEnoughMoney)|wallet-new/src/Cardano/Wallet/API/V1/Errors.hs|
+|Txp/Util.hs|TxError(NotEnoughAllowedMoney| Same module|
+|Txp/Util.hs|TxError (FailedToStabilize)||
+|Txp/Util.hs|WalletError (OutputIsRedeem)|wallet-new/src/Cardano/Wallet/API/V1/Errors.hs|
+|Txp/Util.hs|TxError (RedemptionDepleted)|Same module|
+|Txp/Util.hs|TxError(SafeSignerNotFound|Same module|
+|Txp/Util.hs|TxError (SignedTxNotBase16Format)| Same module|
+|Txp/Util.hs|TxError (SignedTxUnableToDecode)| Same module|
+|Txp/Util.hs|TxError (SignedTxSignatureNotBase16Format)|Same module|
+|Txp/Util.hs|TxError (SignedTxInvalidSignature)|Same module|
+|Txp/Util.hs|TxError (GeneralTxError)|Same module|
+|Txp/Util.hs|TxCreatorData|Same module|
+|Txp/Util.hs|TxOut |core/src/Pos/Core/Txp/TxOutAux.hs|
+|Txp/Util.hs|UtxoGroup |Same module|
+|Txp/Util.hs|TxRaw | Same module|
+
+### File path prefix: test/Test/Pos/Core/
+
+| File | Types | Type Definition Location |
+| --- | --- | ---|
+Client/Txp/UtilSpec.hs|CreateMTxParams|Same module|
+Client/Txp/UtilSpec.hs|CreateRedemptionTxParams|Same module|
+
 ## `core` package
 ### File path prefix: src/Pos/Core/
 

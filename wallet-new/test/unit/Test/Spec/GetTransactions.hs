@@ -126,10 +126,11 @@ spec =
                                 accIdx = hdAccountId ^. hdAccountIdIx . to getHdAccountIx
                                 hdl = (pw ^. Kernel.walletMeta)
                             db <- Kernel.getWalletSnapshot pw
-                            let isPending = Kernel.accountIsTxPending db hdAccountId txid
+                            let isPending = Kernel.currentTxIsPending db txid hdAccountId
                             _ <- case isPending of
-                                False -> expectationFailure "txid not found in Acid State from Kernel"
-                                True -> pure ()
+                                Left _err -> expectationFailure "hdAccountId not found in Acid State from Kernel"
+                                Right False -> expectationFailure "txid not found in Acid State from Kernel"
+                                Right True -> pure ()
                             _ <- liftIO ((WalletLayer._pwlCreateAddress layer) (V1.NewAddress Nothing accIdx (V1.WalletId wId)))
                             (result, mbCount) <- (getTxMetas hdl) (Offset 0) (Limit 10) Everything Nothing NoFilterOp NoFilterOp Nothing
                             map Isomorphic result `shouldMatchList` [Isomorphic meta]

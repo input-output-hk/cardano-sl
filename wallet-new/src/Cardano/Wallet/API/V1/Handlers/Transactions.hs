@@ -26,10 +26,12 @@ import qualified Cardano.Wallet.API.V1.Transactions as Transactions
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (ExpenseRegulation (..), InputGrouping (..))
+import           Cardano.Wallet.Kernel.DB.HdWallet (UnknownHdAccount)
+import           Cardano.Wallet.Kernel.DB.TxMeta (TxMeta)
 import           Cardano.Wallet.Kernel.Util.Core (getCurrentTimestamp,
                      paymentAmount)
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer,
-                     PassiveWalletLayer)
+                     NewPaymentError (..), PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
 
 handlers :: ActiveWalletLayer IO -> ServerT Transactions.API Handler
@@ -60,8 +62,19 @@ newTransaction aw payment@Payment{..} = liftIO $ do
                                          SenderPaysFee
                                          payment
     case res of
-         Left err -> throwM err
-         Right (_, meta) -> single <$> WalletLayer.getTxFromMeta (WalletLayer.walletPassiveLayer aw) meta
+         Left err        -> throwM err
+         Right (_, meta) -> txFromMeta aw NewPaymentUnknownAccountId meta
+
+txFromMeta :: Exception e
+           => ActiveWalletLayer IO
+           -> (UnknownHdAccount -> e)
+           -> TxMeta
+           -> IO (WalletResponse Transaction)
+txFromMeta aw embedErr meta = do
+    mTx <- WalletLayer.getTxFromMeta (WalletLayer.walletPassiveLayer aw) meta
+    case mTx of
+      Left err -> throwM (embedErr err)
+      Right tx -> return $ single tx
 
 getTransactionsHistory :: PassiveWalletLayer IO
                        -> Maybe WalletId

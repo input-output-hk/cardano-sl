@@ -18,8 +18,6 @@ import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
-import           Cardano.Wallet.Kernel.DB.HdWallet.Read (readAccountsByRootId,
-                     readHdAccount)
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import qualified Cardano.Wallet.Kernel.Internal as Kernel
@@ -79,11 +77,10 @@ getAccounts :: V1.WalletId
 getAccounts wId snapshot = runExcept $ do
     rootId <- withExceptT GetAccountsWalletIdDecodingFailed $ fromRootId wId
     fmap conv $
-      withExceptT GetAccountsError $ exceptT $
-        readAccountsByRootId rootId wallets
+      withExceptT GetAccountsError $ exceptT $ do
+        _rootExists <- Kernel.lookupHdRootId snapshot rootId
+        return $ Kernel.accountsByRootId snapshot rootId
   where
-    wallets = Kernel.hdWallets snapshot
-
     -- NOTE(adn) [CBR-347] This has currently terrible performance due to the
     -- fact we still have to unify the 'IxSet' with the 'IxSet'. Not only that,
     -- but due to the fact we cannot map directly on an 'IxSet' (neither the
@@ -112,9 +109,7 @@ getAccount wId accIx snapshot = runExcept $ do
                fromAccountId wId accIx
     fmap (toAccount snapshot) $
       withExceptT (GetAccountError . V1) $ exceptT $
-        readHdAccount accId wallets
-  where
-    wallets = Kernel.hdWallets snapshot
+        Kernel.lookupHdAccountId snapshot accId
 
 deleteAccount :: MonadIO m
               => Kernel.PassiveWallet

@@ -1,15 +1,13 @@
--- | READ-only operations on the wallet-spec state
+-- | Functions on checkpoints
 module Cardano.Wallet.Kernel.DB.Spec.Read (
-    -- * Queries
-    queryAccountTotalBalance
-  , queryAccountUtxo
-  , queryAccountAvailableUtxo
-  , queryAccountAvailableBalance
     -- * Pure functions on checkpoints
-  , cpAvailableUtxo
+    cpAvailableUtxo
   , cpAvailableBalance
-  , Availability(..)
   , cpCheckAvailable
+  , cpChange
+  , cpTotalBalance
+  , cpTxSlotId
+  , cpTxIsPending
   ) where
 
 import           Universum
@@ -20,9 +18,10 @@ import qualified Data.Set as Set
 import qualified Pos.Chain.Txp as Core
 import qualified Pos.Core as Core
 
+import           Cardano.Wallet.Kernel.DB.BlockMeta (blockMetaSlotId,
+                     localBlockMeta)
 import           Cardano.Wallet.Kernel.DB.HdWallet
-import qualified Cardano.Wallet.Kernel.DB.HdWallet.Read as HD
-import           Cardano.Wallet.Kernel.DB.InDb
+import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
 import           Cardano.Wallet.Kernel.DB.Spec
 import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (Indexed, IxSet)
@@ -42,8 +41,6 @@ cpAvailableUtxo c =
     Core.utxoRemoveInputs (c ^. cpUtxo) pendingIns
   where
     pendingIns = Pending.txIns (c ^. cpPending)
-
-data Availability = AllAvailable | Unavailable (Set Core.TxIn)
 
 -- | Returns the sets of available and unavailable inputs
 cpCheckAvailable :: IsCheckpoint c
@@ -83,32 +80,13 @@ cpTotalBalance ours c =
     availableBalance = cpAvailableBalance c
     changeBalance    = Core.utxoBalance (cpChange ours c)
 
-{-------------------------------------------------------------------------------
-  Public queries on an account, as defined in the Wallet Spec
--------------------------------------------------------------------------------}
-
-queryAccountTotalBalance :: HdAccountId -> HD.HdQueryErr UnknownHdAccount Core.Coin
-queryAccountTotalBalance accountId db =
-    cpTotalBalance <$> ourAddrs <*> checkpoint
+-- | SlotId a transaction got confirmed in
+cpTxSlotId :: IsCheckpoint c => Core.TxId -> c -> Maybe Core.SlotId
+cpTxSlotId txId c = Map.lookup txId slots
   where
-    checkpoint = HD.readHdAccountCurrentCheckpoint accountId db
-    ourAddrs   = HD.readAddressesByAccountId       accountId db
+    blockMeta = localBlockMeta (c ^. cpBlockMeta)
+    slots     = view (blockMetaSlotId . fromDb) blockMeta
 
-queryAccountUtxo :: HdAccountId -> HD.HdQueryErr UnknownHdAccount Core.Utxo
-queryAccountUtxo accountId db =
-    view (pcheckpointUtxo . fromDb) <$> checkpoint
-  where
-    checkpoint = HD.readHdAccountCurrentCheckpoint accountId db
-
-queryAccountAvailableUtxo :: HdAccountId -> HD.HdQueryErr UnknownHdAccount Core.Utxo
-queryAccountAvailableUtxo accountId db =
-    cpAvailableUtxo <$> checkpoint
-  where
-    checkpoint = HD.readHdAccountCurrentCheckpoint accountId db
-
-queryAccountAvailableBalance :: HdAccountId
-                             -> HD.HdQueryErr UnknownHdAccount Core.Coin
-queryAccountAvailableBalance accountId db =
-    cpAvailableBalance <$> checkpoint
-  where
-    checkpoint = HD.readHdAccountCurrentCheckpoint accountId db
+-- | Check if a transaction is pending
+cpTxIsPending :: IsCheckpoint c => Core.TxId -> c -> Bool
+cpTxIsPending txId c = Pending.member txId (c ^. cpPending)

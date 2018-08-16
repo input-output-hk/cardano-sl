@@ -331,6 +331,7 @@ data GetTxError =
       GetTxMissingWalletIdError
     | GetTxAddressDecodingFailed Text
     | GetTxInvalidSortingOperaration String
+    | GetTxUnknownHdAccount Kernel.UnknownHdAccount
 
 instance Show GetTxError where
     show = formatToString build
@@ -342,12 +343,15 @@ instance Buildable GetTxError where
         bprint ("GetTxAddressDecodingFailed " % build) txt
     build (GetTxInvalidSortingOperaration txt) =
         bprint ("GetTxInvalidSortingOperaration " % build) txt
+    build (GetTxUnknownHdAccount err) =
+        bprint ("GetTxUnknownHdAccount " % build) err
 
 
 instance Arbitrary GetTxError where
     arbitrary = oneof [ pure GetTxMissingWalletIdError
                       , pure (GetTxAddressDecodingFailed "by_amount")
                       , pure (GetTxInvalidSortingOperaration "123")
+                      , GetTxUnknownHdAccount <$> arbitrary
                       ]
 
 instance Exception GetTxError
@@ -396,7 +400,7 @@ data PassiveWalletLayer m = PassiveWalletLayer
     -- * transactions
     , _pwlGetTransactions      :: Maybe WalletId -> Maybe AccountIndex -> Maybe (V1 Address)
         -> RequestParams -> FilterOperations Transaction -> SortOperations Transaction -> m (Either GetTxError (WalletResponse [Transaction]))
-    , _pwlGetTxFromMeta        :: TxMeta -> m Transaction
+    , _pwlGetTxFromMeta        :: TxMeta -> m (Either Kernel.UnknownHdAccount Transaction)
 
     -- * core API
     , _pwlApplyBlocks          :: OldestFirst NE Blund -> m ()
@@ -489,7 +493,7 @@ getTransactions :: forall m. PassiveWalletLayer m -> Maybe WalletId -> Maybe Acc
     -> Maybe (V1 Address) -> RequestParams -> FilterOperations Transaction -> SortOperations Transaction -> m (Either GetTxError (WalletResponse [Transaction]))
 getTransactions pwl = pwl ^. pwlGetTransactions
 
-getTxFromMeta :: forall m. PassiveWalletLayer m -> TxMeta -> m Transaction
+getTxFromMeta :: forall m. PassiveWalletLayer m -> TxMeta -> m (Either Kernel.UnknownHdAccount Transaction)
 getTxFromMeta pwl = pwl ^. pwlGetTxFromMeta
 
 applyBlocks :: forall m. PassiveWalletLayer m -> OldestFirst NE Blund -> m ()
@@ -541,6 +545,7 @@ data NewPaymentError =
       NewPaymentError Kernel.PaymentError
     | NewPaymentTimeLimitReached TimeExecutionLimit
     | NewPaymentWalletIdDecodingFailed Text
+    | NewPaymentUnknownAccountId Kernel.UnknownHdAccount
 
 -- | Unsound show instance needed for the 'Exception' instance.
 instance Show NewPaymentError where
@@ -555,6 +560,8 @@ instance Buildable NewPaymentError where
         bprint ("NewPaymentTimeLimitReached " % build) ter
     build (NewPaymentWalletIdDecodingFailed txt) =
         bprint ("NewPaymentWalletIdDecodingFailed " % build) txt
+    build (NewPaymentUnknownAccountId err) =
+        bprint ("NewPaymentUnknownAccountId " % build) err
 
 
 data EstimateFeesError =

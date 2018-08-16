@@ -16,6 +16,7 @@ module Cardano.Wallet.Kernel.DB.Util.AcidState (
   , runQuery'
   , runQueryNoErrors
   , mapQueryErrors
+  , localQuery
     -- * Generalize over updates and queries
   , CanZoom(..)
     -- * Zooming
@@ -36,6 +37,7 @@ import qualified Data.Map.Strict as Map
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (HasPrimKey, Indexable,
                      IxSet, PrimKey)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
+import           Cardano.Wallet.Kernel.Util (mustBeRight)
 import           Cardano.Wallet.Kernel.Util.StrictStateT
 
 {-------------------------------------------------------------------------------
@@ -111,7 +113,14 @@ runQueryNoErrors :: Query' st Void a -> st -> a
 runQueryNoErrors qry = mustBeRight . runQuery' qry
 
 mapQueryErrors :: (e -> e') -> Query' st e a -> Query' st e' a
-mapQueryErrors f (Query' qry) = Query' $ ReaderT $ withExcept f . runReaderT qry
+mapQueryErrors f (Query' qry) = Query' $
+    ReaderT $ withExcept f . runReaderT qry
+
+-- | Generalization of 'local'
+localQuery :: Query' st e st' -> Query' st' e a -> Query' st e a
+localQuery (Query' getSmall) (Query' qry) = Query' $ ReaderT $ \large -> do
+    small <- runReaderT getSmall large
+    runReaderT qry small
 
 {-------------------------------------------------------------------------------
   Zooming
@@ -219,11 +228,3 @@ zoomAll l (Update' upd) = Update' $ strictStateT $ \large -> do
     let update (ixset', bs) = (Map.fromList bs, large & l .~ ixset')
         ixset               = large ^. l
     update <$> IxSet.otraverseCollect (fmap swap . runStrictStateT upd) ixset
-
-{-------------------------------------------------------------------------------
-  Auxiliary
--------------------------------------------------------------------------------}
-
-mustBeRight :: Either Void b -> b
-mustBeRight (Left  a) = absurd a
-mustBeRight (Right b) = b

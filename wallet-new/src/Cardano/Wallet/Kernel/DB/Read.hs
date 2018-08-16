@@ -1,177 +1,125 @@
 module Cardano.Wallet.Kernel.DB.Read (
-    -- * Read-only, pure getters
-    accountUtxo
-  , accountAvailableUtxo
-  , accountAvailableBalance
-  , accountTotalBalance
-  , accountAddresses
-  , accountIsTxPending
-  , accountTxSlot
-  , readAddressMeta
-  , hdWallets
-  , walletIds
-  , walletAccounts
-  , walletTotalBalance
-  , walletAssuranceLevel
+    -- | Getters across the entire kernel
+    walletIds
+    -- | Summarize
+  , accountsByRootId
+  , addressesByRootId
+  , addressesByAccountId
+    -- | Lookups
+  , lookupHdRootId
+  , lookupHdAccountId
+  , lookupHdAddressId
+  , lookupCardanoAddress
+    -- | Properties of an entire root
+  , rootAssuranceLevel
+  , rootTotalBalance
+    -- | Queries on an account's current checkpoint
+  , currentUtxo
+  , currentAvailableUtxo
+  , currentTotalBalance
+  , currentAvailableBalance
+  , currentAddressMeta
+  , currentTxSlotId
+  , currentTxIsPending
   ) where
 
 import           Universum
 
-import qualified Data.Map.Strict as Map
-import           Formatting (build, sformat)
-import           Formatting.Buildable (Buildable)
-
 import           Pos.Chain.Txp (TxId, Utxo)
-import           Pos.Core (Address, Coin, SlotId, mkCoin, unsafeAddCoin)
+import           Pos.Core (Address, Coin, SlotId)
 
 import           Cardano.Wallet.Kernel.DB.AcidState (DB, dbHdWallets)
-import           Cardano.Wallet.Kernel.DB.BlockMeta (AddressMeta,
-                     blockMetaSlotId, localBlockMeta)
-import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel, HdAccount,
-                     HdAccountId, HdAddress, HdRootId, HdWallets,
-                     UnknownHdAccount, UnknownHdRoot, hdAccountId,
-                     hdRootAssurance, hdRootId, hdWalletsRoots)
-import           Cardano.Wallet.Kernel.DB.HdWallet.Read (HdQueryErr,
-                     readAccountsByRootId, readAddressesByAccountId,
-                     readHdAccountCurrentCheckpoint, readHdRoot)
-import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
-import           Cardano.Wallet.Kernel.DB.Spec (IsCheckpoint, cpAddressMeta,
-                     cpBlockMeta, cpPending)
-import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
-import qualified Cardano.Wallet.Kernel.DB.Spec.Read as Spec
-import           Cardano.Wallet.Kernel.DB.Util.IxSet (Indexed, IxSet)
+import           Cardano.Wallet.Kernel.DB.BlockMeta (AddressMeta)
+import           Cardano.Wallet.Kernel.DB.HdWallet
+import qualified Cardano.Wallet.Kernel.DB.HdWallet.Read as HD
+import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet, Indexed)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
+import           Cardano.Wallet.Kernel.DB.Util.AcidState
 
 {-------------------------------------------------------------------------------
-                              Wallet getters
-
-  The @only@ effectful function we expose is 'getWalletSnapshot', which reads
-  the full DB 'Snapshot' and returns it.
-  All the other getters are completely pure and take the 'Snapshot' as input,
-  so that users of the wallet are forced to re-use the same 'Snapshot' in case
-  they want to read the state of the wallet multiple times within the same
-  code block / handler.
-
+  Getters across the entire kernel
 -------------------------------------------------------------------------------}
 
--- | Run a query, throwing any errors as pure exceptions
---
--- TODO: It would be much better if we didn't introduce pure exceptions here..
-walletQuery' :: forall e a. (Buildable e)
-             => DB
-             -> HdQueryErr e a
-             -> a
-walletQuery' snapshot qry= do
-    let res = qry (snapshot ^. dbHdWallets)
-    either err identity res
-    where
-        err = error . sformat build
-
-{-------------------------------------------------------------------------------
-  Pure getters on the 'DbSnapshot'.
--------------------------------------------------------------------------------}
-
--- | Returns the Utxo for the input 'HdAccountId'.
-accountUtxo :: DB -> HdAccountId -> Utxo
-accountUtxo snapshot accountId
-    = walletQuery' snapshot (Spec.queryAccountUtxo accountId)
-
--- | Returns the available Utxo for the input 'HdAccountId'.
-accountAvailableUtxo :: DB -> HdAccountId -> Utxo
-accountAvailableUtxo snapshot accountId
-    = walletQuery' snapshot (Spec.queryAccountAvailableUtxo accountId)
-
--- | Returns the available balance for the input 'HdAccountId'.
-accountAvailableBalance :: DB -> HdAccountId -> Coin
-accountAvailableBalance snapshot accountId
-    = walletQuery' snapshot (Spec.queryAccountAvailableBalance accountId)
-
--- | Returns the total balance for this 'HdAccountId'.
-accountTotalBalance :: DB -> HdAccountId -> Coin
-accountTotalBalance snapshot accountId
-    = walletQuery' snapshot (Spec.queryAccountTotalBalance accountId)
-
--- | Returns the total balance for this 'HdAccountId'.
-accountAddresses :: DB -> HdAccountId -> IxSet (Indexed HdAddress)
-accountAddresses snapshot accountId
-    = walletQuery' snapshot (readAddressesByAccountId accountId)
-
--- | Reads the given 'Address' in the 'HdAccount' current checkpoint.
-readAddressMeta :: DB -> HdAccountId -> Address -> AddressMeta
-readAddressMeta snapshot accountId cardanoAddress
-    = view (cpAddressMeta cardanoAddress) (walletQuery' snapshot checkpoint)
-    where
-        checkpoint = readHdAccountCurrentCheckpoint accountId
-
--- | All HdWallets
-hdWallets :: DB -> HdWallets
-hdWallets snapshot = snapshot ^. dbHdWallets
-
--- | All 'WalletId'
 walletIds :: DB -> [WalletId]
 walletIds db = map (WalletIdHdRnd . view hdRootId)
              $ IxSet.toList
              $ db ^. dbHdWallets . hdWalletsRoots
 
--- | All the accounts for a 'HdRoot', given its 'HdRootId'.
-walletAccounts :: DB -> HdRootId -> IxSet HdAccount
-walletAccounts snapshot rootId
-    = walletQuery' snapshot (readAccountsByRootId rootId)
-
--- | Computes the total balance for this wallet, given its 'HdRootId'.
-walletTotalBalance :: DB -> HdRootId -> Coin
-walletTotalBalance db rootId =
-    IxSet.foldl' (\total account ->
-                      total `unsafeAddCoin`
-                      accountTotalBalance db (account ^. hdAccountId)
-                 )
-                 (mkCoin 0)
-                 (walletAccounts db rootId)
-
--- | Assurance level of the given root ID
-walletAssuranceLevel :: DB -> HdRootId -> AssuranceLevel
-walletAssuranceLevel snapshot rootId =
-    walletQuery' snapshot (queryAssuranceLevel rootId)
-
--- | Reads the current slot of a Tx in the 'HdAccount' current checkpoint.
-accountTxSlot :: DB -> HdAccountId -> TxId -> Maybe SlotId
-accountTxSlot snapshot accountId txId
-    = walletQuery' snapshot (queryTxSlotId txId accountId)
-
--- | Checks wherher a Tx is pending in the 'HdAccount' current checkpoint.
-accountIsTxPending :: DB -> HdAccountId -> TxId -> Bool
-accountIsTxPending snapshot accountId txId
-    = walletQuery' snapshot (queryTxIsPending txId accountId)
-
 {-------------------------------------------------------------------------------
-  Pure functions that support read-only operations on an account Checkpoint.
+  Lift functions from "Cardano.Wallet.Kernel.DB.Spec.Read"
+
+  NOTE: Right now this may seem pretty pointless. The idea is that in the
+  future we might have other kinds of wallets; the various submodules of
+  ("Cardano.Wallet.Kernel.DB.SomeWalletType.Read") should then be unified
+  here. Right now we just wrap and make no effort to unify the types.
 -------------------------------------------------------------------------------}
 
-txSlot :: IsCheckpoint c => TxId -> c -> (Maybe SlotId)
-txSlot txId c = Map.lookup txId slots
-  where
-    blockMeta = localBlockMeta (c ^. cpBlockMeta)
-    slots = view (blockMetaSlotId . fromDb) blockMeta
+accountsByRootId :: DB -> HdRootId -> IxSet HdAccount
+accountsByRootId = liftNoErrorsHd1 HD.accountsByRootId
 
-isTxPending :: IsCheckpoint c => TxId -> c -> Bool
-isTxPending txId c = Pending.member txId (c ^. cpPending)
+-- | All addresses in the given wallet
+addressesByRootId :: DB -> HdRootId -> IxSet (Indexed HdAddress)
+addressesByRootId = liftNoErrorsHd1 HD.addressesByRootId
+
+-- | All addresses in the given account
+addressesByAccountId :: DB -> HdAccountId -> IxSet (Indexed HdAddress)
+addressesByAccountId = liftNoErrorsHd1 HD.addressesByAccountId
+
+lookupHdRootId :: DB -> HdRootId -> Either UnknownHdRoot HdRoot
+lookupHdRootId = liftHd1 HD.lookupHdRootId
+
+lookupHdAccountId :: DB -> HdAccountId -> Either UnknownHdAccount HdAccount
+lookupHdAccountId = liftHd1 HD.lookupHdAccountId
+
+lookupHdAddressId :: DB -> HdAddressId -> Either UnknownHdAddress HdAddress
+lookupHdAddressId = liftHd1 HD.lookupHdAddressId
+
+lookupCardanoAddress :: DB -> Address -> Either UnknownHdAddress HdAddress
+lookupCardanoAddress = liftHd1 HD.lookupCardanoAddress
+
+rootAssuranceLevel :: DB -> HdRootId -> Either UnknownHdRoot AssuranceLevel
+rootAssuranceLevel = liftHd1 HD.rootAssuranceLevel
+
+rootTotalBalance :: DB -> HdRootId -> Coin
+rootTotalBalance = liftNoErrorsHd1 HD.rootTotalBalance
+
+currentUtxo :: DB -> HdAccountId -> Either UnknownHdAccount Utxo
+currentUtxo = liftHd1 HD.currentUtxo
+
+currentAvailableUtxo :: DB -> HdAccountId -> Either UnknownHdAccount Utxo
+currentAvailableUtxo = liftHd1 HD.currentAvailableUtxo
+
+currentTotalBalance :: DB -> HdAccountId -> Either UnknownHdAccount Coin
+currentTotalBalance = liftHd1 HD.currentTotalBalance
+
+currentAvailableBalance :: DB -> HdAccountId -> Either UnknownHdAccount Coin
+currentAvailableBalance = liftHd1 HD.currentAvailableBalance
+
+currentAddressMeta :: DB -> HdAddress -> Either UnknownHdAccount AddressMeta
+currentAddressMeta = liftHd1 HD.currentAddressMeta
+
+currentTxSlotId :: DB -> TxId -> HdAccountId -> Either UnknownHdAccount (Maybe SlotId)
+currentTxSlotId = liftHd2 HD.currentTxSlotId
+
+currentTxIsPending :: DB -> TxId -> HdAccountId -> Either UnknownHdAccount Bool
+currentTxIsPending = liftHd2 HD.currentTxIsPending
 
 {-------------------------------------------------------------------------------
-  Public queries on an account.
+  Internal auxiliary
 -------------------------------------------------------------------------------}
 
-queryAssuranceLevel :: HdRootId -> HdQueryErr UnknownHdRoot AssuranceLevel
-queryAssuranceLevel rootId = fmap (view hdRootAssurance) <$> readHdRoot rootId
+liftHd0 :: Query' HdWallets err z -> DB -> Either err z
+liftHd0 f = runQuery' f . view dbHdWallets
 
-queryTxSlotId :: TxId -> HdAccountId -> HdQueryErr UnknownHdAccount (Maybe SlotId)
-queryTxSlotId txId accountId db
-    = txSlot txId <$> checkpoint
-    where
-        checkpoint = readHdAccountCurrentCheckpoint accountId db
+liftHd1 :: (a -> Query' HdWallets err z) -> DB -> a -> Either err z
+liftHd1 f db a = liftHd0 (f a) db
 
-queryTxIsPending :: TxId -> HdAccountId -> HdQueryErr UnknownHdAccount Bool
-queryTxIsPending txId accountId db
-    = isTxPending txId <$> checkpoint
-    where
-        checkpoint = readHdAccountCurrentCheckpoint accountId db
+liftHd2 :: (a -> b -> Query' HdWallets err z) -> DB -> a -> b -> Either err z
+liftHd2 f db a b = liftHd0 (f a b) db
+
+liftNoErrorsHd0 :: Query' HdWallets Void z -> DB -> z
+liftNoErrorsHd0 f = runQueryNoErrors f . view dbHdWallets
+
+liftNoErrorsHd1 :: (a -> Query' HdWallets Void z) -> DB -> a -> z
+liftNoErrorsHd1 f db a = liftNoErrorsHd0 (f a) db

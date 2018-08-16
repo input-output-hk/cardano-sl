@@ -25,6 +25,7 @@ import qualified Cardano.Wallet.Kernel.DB.TxMeta as TxMeta
 import qualified Cardano.Wallet.Kernel.Internal as Kernel
 import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as Node
 import qualified Cardano.Wallet.Kernel.Read as Kernel
+import           Cardano.Wallet.Kernel.Util (exceptT)
 import           Cardano.Wallet.WalletLayer (GetTxError (..))
 
 getTransactions :: MonadIO m
@@ -54,18 +55,19 @@ getTransactions wallet mbWalletId mbAccountIndex mbAddress params fop sop = lift
         (castFiltering $ mapIx unV1 <$> F.findMatchingFilterOp fop)
         (castFiltering $ mapIx unV1 <$> F.findMatchingFilterOp fop)
         mbSorting
-    let txs = map (metaToTx db sc currentSlot) meta
+    txs <- withExceptT GetTxUnknownHdAccount $
+             mapM (metaToTx db sc currentSlot) meta
     return $ respond params txs mbTotalEntries
 
 toTransaction :: MonadIO m
               => Kernel.PassiveWallet
               -> TxMeta
-              -> m V1.Transaction
+              -> m (Either HD.UnknownHdAccount V1.Transaction)
 toTransaction wallet meta = liftIO $ do
     db <- liftIO $ Kernel.getWalletSnapshot wallet
     sc <- liftIO $ Node.getSlotCount (wallet ^. Kernel.walletNode)
     currentSlot <- Node.getTipSlotId (wallet ^. Kernel.walletNode)
-    return $ metaToTx db sc currentSlot meta
+    return $ runExcept $ metaToTx db sc currentSlot meta
 
 -- | Type Casting for Account filtering from V1 to MetaData Types.
 castAccountFiltering :: Monad m => Maybe V1.WalletId -> Maybe V1.AccountIndex -> ExceptT GetTxError m TxMeta.AccountFops
@@ -109,9 +111,16 @@ castFilterOrd pr = case pr of
     F.LesserThan       -> TxMeta.LesserThan
     F.LesserThanEqual  -> TxMeta.LesserThanEqual
 
-metaToTx :: Kernel.DB -> SlotCount -> SlotId -> TxMeta -> V1.Transaction
-metaToTx db slotCount current TxMeta{..} =
-    V1.Transaction {
+metaToTx :: Monad m => Kernel.DB -> SlotCount -> SlotId -> TxMeta -> ExceptT HD.UnknownHdAccount m V1.Transaction
+metaToTx db slotCount current TxMeta{..} = do
+    mSlot          <- withExceptT identity $ exceptT $
+                        Kernel.currentTxSlotId db _txMetaId hdAccountId
+    isPending      <- withExceptT identity $ exceptT $
+                        Kernel.currentTxIsPending db _txMetaId hdAccountId
+    assuranceLevel <- withExceptT HD.embedUnknownHdRoot $ exceptT $
+                        Kernel.rootAssuranceLevel db hdRootId
+    let (status, confirmations) = buildDynamicTxMeta assuranceLevel slotCount mSlot current isPending
+    return V1.Transaction {
         txId = V1 _txMetaId,
         txConfirmations = fromIntegral confirmations,
         txAmount = V1 _txMetaAmount,
@@ -122,7 +131,6 @@ metaToTx db slotCount current TxMeta{..} =
         txCreationTime = V1 _txMetaCreationAt,
         txStatus = status
     }
-
         where
             hdRootId    = HD.HdRootId $ InDb _txMetaWalletId
             hdAccountId = HD.HdAccountId hdRootId (HD.HdAccountIx _txMetaAccountIx)
@@ -132,12 +140,6 @@ metaToTx db slotCount current TxMeta{..} =
 
             outputsToPayDistr :: (Address, Coin) -> V1.PaymentDistribution
             outputsToPayDistr (addr, c) = V1.PaymentDistribution (V1 addr) (V1 c)
-
-            mSlot = Kernel.accountTxSlot db hdAccountId _txMetaId
-            isPending = Kernel.accountIsTxPending db hdAccountId _txMetaId
-
-            assuranceLevel = Kernel.walletAssuranceLevel db hdRootId
-            (status, confirmations) = buildDynamicTxMeta assuranceLevel slotCount mSlot current isPending
 
 buildDynamicTxMeta :: HD.AssuranceLevel -> SlotCount -> Maybe SlotId -> SlotId -> Bool -> (V1.TransactionStatus, Word64)
 buildDynamicTxMeta assuranceLevel slotCount mSlot currentSlot isPending = case isPending of

@@ -47,11 +47,9 @@ import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
 import qualified Cardano.Wallet.Kernel.CoinSelection.FromGeneric as CoinSelection
 import           Cardano.Wallet.Kernel.CoinSelection.Generic
                      (CoinSelHardErr (..))
-import           Cardano.Wallet.Kernel.DB.AcidState (NewPendingError)
+import           Cardano.Wallet.Kernel.DB.AcidState (DB, NewPendingError)
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
-import           Cardano.Wallet.Kernel.DB.HdWallet.Read
-                     (readHdAddressByCardanoAddress)
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Read as Getters
 import           Cardano.Wallet.Kernel.DB.TxMeta.Types
@@ -65,18 +63,22 @@ import           Cardano.Wallet.Kernel.Types (AccountId (..),
                      RawResolvedTx (..), WalletId (..))
 import           Cardano.Wallet.Kernel.Util.Core (paymentAmount, utxoBalance,
                      utxoRestrictToInputs)
+import           Cardano.Wallet.WalletLayer.Kernel.Conv (exceptT)
 
 {-------------------------------------------------------------------------------
   Generating payments and estimating fees
 -------------------------------------------------------------------------------}
 
 data NewTransactionError =
-    NewTransactionErrorCoinSelectionFailed CoinSelHardErr
+    NewTransactionUnknownAccount UnknownHdAccount
+  | NewTransactionErrorCoinSelectionFailed CoinSelHardErr
   | NewTransactionErrorCreateAddressFailed Kernel.CreateAddressError
   | NewTransactionErrorSignTxFailed SignTransactionError
   | NewTransactionInvalidTxIn
 
 instance Buildable NewTransactionError where
+    build (NewTransactionUnknownAccount err) =
+        bprint ("NewTransactionUnknownAccount " % build) err
     build (NewTransactionErrorCoinSelectionFailed err) =
         bprint ("NewTransactionErrorCoinSelectionFailed " % build) err
     build (NewTransactionErrorCreateAddressFailed err) =
@@ -88,7 +90,8 @@ instance Buildable NewTransactionError where
 
 instance Arbitrary NewTransactionError where
     arbitrary = oneof [
-        NewTransactionErrorCoinSelectionFailed <$> arbitrary
+        NewTransactionUnknownAccount <$> arbitrary
+      , NewTransactionErrorCoinSelectionFailed <$> arbitrary
       , NewTransactionErrorCreateAddressFailed <$> arbitrary
       , NewTransactionErrorSignTxFailed <$> arbitrary
       , pure NewTransactionInvalidTxIn
@@ -173,8 +176,9 @@ newTransaction ActiveWallet{..} spendingPassword options accountId payees = runE
     let maxInputs = estimateMaxTxInputs dummyAddrAttrSize dummyTxAttrSize maxTxSize
 
     -- STEP 0: Get available UTxO
-    snapshot <- liftIO $ getWalletSnapshot walletPassive
-    let availableUtxo = accountAvailableUtxo snapshot accountId
+    snapshot      <- liftIO $ getWalletSnapshot walletPassive
+    availableUtxo <- withExceptT NewTransactionUnknownAccount $ exceptT $
+                       currentAvailableUtxo snapshot accountId
 
     -- STEP 1: Run coin selection.
     CoinSelFinalResult inputs outputs coins <-
@@ -193,8 +197,7 @@ newTransaction ActiveWallet{..} spendingPassword options accountId payees = runE
     mbEsk <- liftIO $ Keystore.lookup
                (WalletIdHdRnd $ accountId ^. hdAccountIdParent)
                (walletPassive ^. walletKeystore)
-    let allWallets  = hdWallets snapshot
-        signAddress = mkSigner spendingPassword mbEsk allWallets
+    let signAddress = mkSigner spendingPassword mbEsk snapshot
         mkTx        = mkStdTx walletProtocolMagic signAddress
 
     txAux <- withExceptT NewTransactionErrorSignTxFailed $ ExceptT $
@@ -367,22 +370,14 @@ instance Buildable SignTransactionError where
 instance Arbitrary SignTransactionError where
     arbitrary = oneof []
 
--- NOTE(adn) At the moment we are passing
--- the full set of Hd wallets as input, which means our lookup function
--- for an 'HdAddress' can span across the whole wallets and can be very
--- costly. However, in the way the 'DB' is modelled at the moment, we
--- store the addresses in a \"flat\" representation (i.e. in an 'IxSet'),
--- so indexing directly by 'Core.Address' might not be any less efficient
--- than performing two lookups, one on 'HdAccountId' followed by one on
--- 'Core.Address'.
 mkSigner :: PassPhrase
          -> Maybe EncryptedSecretKey
-         -> HD.HdWallets
+         -> DB
          -> Address
          -> Either SignTransactionError SafeSigner
 mkSigner _ Nothing _ addr = Left (SignTransactionMissingKey addr)
-mkSigner spendingPassword (Just esk) allWallets addr =
-    case readHdAddressByCardanoAddress addr allWallets of
+mkSigner spendingPassword (Just esk) snapshot addr =
+    case Getters.lookupCardanoAddress snapshot addr of
         Left _ -> Left (SignTransactionErrorUnknownAddress addr)
         Right hdAddr ->
             let addressIndex = hdAddr ^. HD.hdAddressId

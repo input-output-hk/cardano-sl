@@ -27,6 +27,7 @@ module Cardano.Wallet.API.V1.Types (
   , NewAccount (..)
   , Update
   , New
+  , ForceNtpCheck (..)
   -- * Domain-specific types
   -- * Wallets
   , Wallet (..)
@@ -152,6 +153,7 @@ import           Pos.Infra.Diffusion.Subscription.Status
 import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
                      buildSafe, buildSafeList, buildSafeMaybe,
                      deriveSafeBuildable, plainOrSecureF)
+import           Pos.Util.Servant (Flaggable (..))
 import qualified Pos.Wallet.Web.State.Storage as OldStorage
 
 import           Test.Pos.Core.Arbitrary ()
@@ -1758,7 +1760,7 @@ instance ToSchema TimeInfo where
     declareNamedSchema = genericSchemaDroppingPrefix "time" $ \(--^) p -> p &
         "differenceFromNtpServer"
         --^ ("The difference in microseconds between the node time and the NTP "
-          <> "server. This value will be null if the NTP server is pending or "
+          <> "server. This value will be null if the NTP server is "
           <> "unavailable.")
 
 instance Arbitrary TimeInfo where
@@ -1942,6 +1944,25 @@ instance ToSchema Redemption where
 
 instance Arbitrary Redemption where
     arbitrary = Redemption <$> arbitrary <*> arbitrary <*> arbitrary
+
+data ForceNtpCheck
+    = ForceNtpCheck
+    | NoNtpCheck
+    deriving (Eq, Show, Enum, Bounded)
+
+instance Flaggable ForceNtpCheck where
+    toBool ForceNtpCheck = True
+    toBool NoNtpCheck    = False
+    fromBool True  = ForceNtpCheck
+    fromBool False = NoNtpCheck
+
+deriveSafeBuildable ''ForceNtpCheck
+instance BuildableSafeGen ForceNtpCheck where
+    buildSafeGen _ ForceNtpCheck = "force ntp check"
+    buildSafeGen _ NoNtpCheck    = "no ntp check"
+
+instance Arbitrary ForceNtpCheck where
+    arbitrary = elements [minBound .. maxBound]
 
 --
 -- POST/PUT requests isomorphisms

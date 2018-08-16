@@ -172,6 +172,7 @@ library
                       , http-client
                       , http-client-tls
                       , http-conduit
+                      , http-types
                       , lens
                       , log-warper >= 1.1.1
                       , memory

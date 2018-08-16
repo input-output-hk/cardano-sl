@@ -10,6 +10,7 @@ import           Data.Typeable (typeRep)
 import qualified Pos.Chain.Txp as V0
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import qualified Pos.Crypto as Crypto
+import           Pos.Util.Servant (Flaggable (..))
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import           Test.Hspec
 import           Test.Hspec.QuickCheck
@@ -73,6 +74,10 @@ spec = parallel $ describe "Marshalling & Unmarshalling" $ do
         migrateRoundtripProp @PaymentDistribution @(V0.CId V0.Addr, Core.Coin) Proxy Proxy
         migrateRoundtripProp @EstimatedFees @V0.TxFee Proxy Proxy
 
+        -- Flaggable roundtrips
+        flaggableRoundtripProp @Bool Proxy
+        flaggableRoundtripProp @ForceNtpCheck Proxy
+
         -- Other roundtrips
         generalRoundtripProp "UTC time" Util.showApiUtcTime Util.parseApiUtcTime
 
@@ -128,6 +133,16 @@ spec = parallel $ describe "Marshalling & Unmarshalling" $ do
                             ^. from Core.timestampSeconds . to V1
                             )
 
+
+flaggableRoundtrip :: (Arbitrary a, Flaggable a, Eq a, Show a) => proxy a -> Property
+flaggableRoundtrip (_ :: proxy a) = forAll arbitrary $ \(s :: a) -> do
+    fromBool (toBool s) === s
+
+flaggableRoundtripProp
+    :: (Arbitrary a, Flaggable a, Eq a, Show a, Typeable a)
+    => proxy a -> Spec
+flaggableRoundtripProp proxy =
+    prop ("Flaggable " <> show (typeRep proxy) <> " roundtrips") (flaggableRoundtrip proxy)
 
 migrateRoundtrip :: (Arbitrary from, Migrate from to, Migrate to from, Eq from, Show from) => proxy from -> proxy to -> Property
 migrateRoundtrip (_ :: proxy from) (_ :: proxy to) = forAll arbitrary $ \(arbitraryFrom :: from) -> do

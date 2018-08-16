@@ -14746,6 +14746,7 @@ license = stdenv.lib.licenses.bsd3;
 , http-client
 , http-client-tls
 , http-conduit
+, http-types
 , lens
 , log-warper
 , memory
@@ -14841,6 +14842,7 @@ hspec
 http-client
 http-client-tls
 http-conduit
+http-types
 lens
 log-warper
 memory

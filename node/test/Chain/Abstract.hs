@@ -16,7 +16,7 @@ import qualified UTxO.DSL as DSL
 
 -- | In the abstract DSL, we identify transactions with integers.
 newtype Addr = Addr Int
-  deriving (Eq, Ord, Show)
+  deriving (Buildable, Eq, Ord, Show)
 
 -- | Block hash
 newtype BlockHash = BlockHash Int

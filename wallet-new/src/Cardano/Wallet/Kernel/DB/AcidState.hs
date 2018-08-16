@@ -50,7 +50,7 @@ import           Test.QuickCheck (Arbitrary (..), oneof)
 import           Pos.Chain.Txp (Utxo)
 import           Pos.Core (SlotId)
 import           Pos.Core.Chrono (OldestFirst (..))
-import qualified Pos.Core.Txp as Txp
+import           Pos.Core.Txp (TxAux, TxId)
 
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
@@ -58,6 +58,7 @@ import qualified Cardano.Wallet.Kernel.DB.HdWallet.Delete as HD
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Update as HD
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec
+import           Cardano.Wallet.Kernel.DB.Spec.Pending (Pending)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Update as Spec
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
@@ -129,7 +130,7 @@ deriveSafeCopy 1 'base ''RollbackDuringRestoration
 --  NOTE: also creates all "our" addresses that appear in the transaction outputs,
 --        by adding them to the HdAddresses they will be henceforth recognised as "ours"
 newPending :: HdAccountId
-           -> InDb Txp.TxAux
+           -> InDb TxAux
            -> [HdAddress] -- ^ "our" addresses that appear in the transaction outputs
            -> Update DB (Either NewPendingError ())
 newPending accountId tx ourAddrs = runUpdateDiscardSnapshot . zoom dbHdWallets $ do
@@ -140,7 +141,7 @@ newPending accountId tx ourAddrs = runUpdateDiscardSnapshot . zoom dbHdWallets $
     mapM_ ensureExistsHdAddress ourAddrs
 
 newForeign :: HdAccountId
-           -> InDb Txp.TxAux
+           -> InDb TxAux
            -> [HdAddress] -- ^ "our" addresses that appear in the transaction outputs
            -> Update DB (Either NewForeignError ())
 newForeign accountId tx ourAddrs = runUpdateDiscardSnapshot . zoom dbHdWallets $ do
@@ -165,7 +166,7 @@ ensureExistsHdAddress newAddress = do
 -- is because the submission layer doesn't have the notion of \"which HdWallet
 -- is this transaction associated with?\", but it merely dispatch and cancels
 -- transactions for all the wallets managed by this edge node.
-cancelPending :: Map HdAccountId (InDb (Set Txp.TxId)) -> Update DB ()
+cancelPending :: Map HdAccountId (InDb (Set TxId)) -> Update DB ()
 cancelPending cancelled = void . runUpdate' . zoom dbHdWallets $
     forM_ (Map.toList cancelled) $ \(accountId, InDb txids) ->
         -- Here we are deliberately swallowing the possible exception
@@ -176,7 +177,7 @@ cancelPending cancelled = void . runUpdate' . zoom dbHdWallets $
         handleError (\(_e :: UnknownHdAccount) -> return ()) $
             zoomHdAccountId identity accountId $ do
               zoomHdAccountCheckpoints $
-                modify' $ Spec.cancelPending txids
+                modify $ Spec.cancelPending txids
     where
         handleError :: MonadError e m => (e -> m a) -> m a -> m a
         handleError = flip catchError
@@ -188,6 +189,8 @@ cancelPending cancelled = void . runUpdate' . zoom dbHdWallets $
 -- HdAccountId embeds HdRootId, it unambiguously places an Account in the
 -- Wallet/Account hierarchy. The AccountIds here could therefor refer to an
 -- Account in /any/ Wallet (not only sibling accounts in a single wallet).
+--
+-- Returns the set of transaction IDs that got removed from pending.
 --
 -- NOTE:
 --
@@ -207,16 +210,16 @@ cancelPending cancelled = void . runUpdate' . zoom dbHdWallets $
 --   need to push a new checkpoint.
 applyBlock :: InDb SlotId
            -> Map HdAccountId PrefilteredBlock
-           -> Update DB ()
-applyBlock (InDb slotId) blocksByAccount = runUpdateNoErrors $ zoom dbHdWallets $
+           -> Update DB (Map HdAccountId (Set TxId))
+applyBlock (InDb slotId) blocks = runUpdateNoErrors $ zoom dbHdWallets $
     updateAccounts =<< mkUpdates <$> use hdWalletsAccounts
   where
-    mkUpdates :: IxSet HdAccount -> [AccountUpdate Void]
+    mkUpdates :: IxSet HdAccount -> [AccountUpdate Void (Set TxId)]
     mkUpdates existingAccounts =
           map mkUpdate
         . Map.toList
         . markMissingMapEntries (IxSet.toMap existingAccounts)
-        $ blocksByAccount
+        $ blocks
 
     -- The account update
     --
@@ -227,15 +230,16 @@ applyBlock (InDb slotId) blocksByAccount = runUpdateNoErrors $ zoom dbHdWallets 
     -- have seen it (the genesis UTxO is static, after all). Hence we use empty
     -- initial utxo for accounts discovered during 'applyBlock' (and
     -- 'switchToFork')
-    mkUpdate :: (HdAccountId, Maybe PrefilteredBlock) -> AccountUpdate Void
+    mkUpdate :: (HdAccountId, Maybe PrefilteredBlock)
+             -> AccountUpdate Void (Set TxId)
     mkUpdate (accId, mPB) = AccountUpdate {
           accountUpdateId    = accId
         , accountUpdateAddrs = pfbAddrs pb
         , accountUpdateNew   = AccountUpdateNew Map.empty
         , accountUpdate      =
             matchHdAccountCheckpoints
-              (modify $ Spec.applyBlock        slotId pb)
-              (modify $ Spec.applyBlockPartial slotId pb)
+              (state $ swap . Spec.applyBlock        slotId pb)
+              (state $ swap . Spec.applyBlockPartial slotId pb)
         }
       where
         pb :: PrefilteredBlock
@@ -245,15 +249,21 @@ applyBlock (InDb slotId) blocksByAccount = runUpdateNoErrors $ zoom dbHdWallets 
 --
 -- See comments about prefiltering for 'applyBlock'.
 --
+-- Returns the set of transactions that were reintroduced into pending by the
+-- rollback and the transactions that were removed from pending by the new
+-- blocks.
+--
 -- TODO: We use a plain list here rather than 'OldestFirst' since the latter
 -- does not have a 'SafeCopy' instance.
 switchToFork :: Int
              -> [(SlotId, Map HdAccountId PrefilteredBlock)]
-             -> Update DB (Either RollbackDuringRestoration ())
+             -> Update DB (Either RollbackDuringRestoration
+                                  (Map HdAccountId (Pending, Set TxId)))
 switchToFork n blocks = runUpdateDiscardSnapshot $ zoom dbHdWallets $
     updateAccounts =<< mkUpdates <$> use hdWalletsAccounts
   where
-    mkUpdates :: IxSet HdAccount -> [AccountUpdate RollbackDuringRestoration]
+    mkUpdates :: IxSet HdAccount
+              -> [AccountUpdate RollbackDuringRestoration (Pending, Set TxId)]
     mkUpdates existingAccounts =
           map mkUpdate
         . Map.toList
@@ -262,14 +272,14 @@ switchToFork n blocks = runUpdateDiscardSnapshot $ zoom dbHdWallets $
         $ blocks
 
     mkUpdate :: (HdAccountId, [(SlotId, Maybe PrefilteredBlock)])
-             -> AccountUpdate RollbackDuringRestoration
+             -> AccountUpdate RollbackDuringRestoration (Pending, Set TxId)
     mkUpdate (accId, mPBs) = AccountUpdate {
           accountUpdateId    = accId
         , accountUpdateAddrs = concatMap (pfbAddrs . snd) pbs
         , accountUpdateNew   = AccountUpdateNew Map.empty
         , accountUpdate      =
             matchHdAccountCheckpoints
-              (modify $ Spec.switchToFork n (OldestFirst pbs))
+              (state $ swap . Spec.switchToFork n (OldestFirst pbs))
               (throwError RollbackDuringRestoration)
         }
       where
@@ -291,12 +301,15 @@ switchToFork n blocks = runUpdateDiscardSnapshot $ zoom dbHdWallets $
 
 -- | Observable rollback, used for tests only
 --
+-- Returns the set of pending transactions that have become pending again,
+-- for each account.
 -- See 'switchToFork' for use in real code.
-observableRollbackUseInTestsOnly :: Update DB (Either RollbackDuringRestoration ())
+observableRollbackUseInTestsOnly :: Update DB (Either RollbackDuringRestoration
+                                                      (Map HdAccountId Pending))
 observableRollbackUseInTestsOnly = runUpdateDiscardSnapshot $
     zoomAll (dbHdWallets . hdWalletsAccounts) $
       matchHdAccountCheckpoints
-        (modify' Spec.observableRollbackUseInTestsOnly)
+        (state $ swap . Spec.observableRollbackUseInTestsOnly)
         (throwError RollbackDuringRestoration)
 
 {-------------------------------------------------------------------------------
@@ -316,10 +329,10 @@ createHdWallet :: HdRoot
 createHdWallet newRoot utxoByAccount =
     runUpdateDiscardSnapshot . zoom dbHdWallets $ do
       HD.createHdRoot newRoot
-      updateAccounts $ map mkUpdate (Map.toList utxoByAccount)
+      updateAccounts_ $ map mkUpdate (Map.toList utxoByAccount)
   where
     mkUpdate :: (HdAccountId, (Utxo, [AddrWithId]))
-             -> AccountUpdate HD.CreateHdRootError
+             -> AccountUpdate HD.CreateHdRootError ()
     mkUpdate (accId, (utxo, addrs)) = AccountUpdate {
           accountUpdateId    = accId
         , accountUpdateNew   = AccountUpdateNew utxo
@@ -334,7 +347,7 @@ createHdWallet newRoot utxoByAccount =
 -- | All the information we need to update an account
 --
 -- See 'updateAccount' or 'updateAccounts'.
-data AccountUpdate e = AccountUpdate {
+data AccountUpdate e a = AccountUpdate {
       -- | Account to update
       accountUpdateId    :: !HdAccountId
 
@@ -351,7 +364,7 @@ data AccountUpdate e = AccountUpdate {
     , accountUpdateAddrs :: ![AddrWithId]
 
       -- | The update to run
-    , accountUpdate      :: !(Update' HdAccount e ())
+    , accountUpdate      :: !(Update' HdAccount e a)
     }
 
 -- | Information we need to create new accounts
@@ -373,14 +386,15 @@ accountUpdateCreate accId AccountUpdateNew{..} =
     firstCheckpoint :: Checkpoint
     firstCheckpoint = initCheckpoint accountUpdateUtxo
 
-updateAccount :: AccountUpdate e -> Update' HdWallets e ()
+updateAccount :: AccountUpdate e a -> Update' HdWallets e (HdAccountId, a)
 updateAccount AccountUpdate{..} = do
-    zoomOrCreateHdAccount
-        assumeHdRootExists
-        (accountUpdateCreate accountUpdateId accountUpdateNew)
-        accountUpdateId
-        accountUpdate
+    res <- zoomOrCreateHdAccount
+             assumeHdRootExists
+             (accountUpdateCreate accountUpdateId accountUpdateNew)
+             accountUpdateId
+             ((accountUpdateId, ) <$> accountUpdate)
     mapM_ createAddress accountUpdateAddrs
+    return res
   where
     -- Create address (if needed)
     createAddress :: AddrWithId -> Update' HdWallets e ()
@@ -391,8 +405,11 @@ updateAccount AccountUpdate{..} = do
             addressId
             (return ())
 
-updateAccounts :: [AccountUpdate e] -> Update' HdWallets e ()
-updateAccounts = mapM_ updateAccount
+updateAccounts :: [AccountUpdate e a] -> Update' HdWallets e (Map HdAccountId a)
+updateAccounts = fmap Map.fromList . mapM updateAccount
+
+updateAccounts_ :: [AccountUpdate e ()] -> Update' HdWallets e ()
+updateAccounts_ = mapM_ updateAccount
 
 {-------------------------------------------------------------------------------
   Wrap HD C(R)UD operations

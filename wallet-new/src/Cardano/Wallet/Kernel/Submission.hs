@@ -7,6 +7,7 @@ module Cardano.Wallet.Kernel.Submission (
     -- * Public API
       newWalletSubmission
     , addPending
+    , addPendings
     , remPending
     , remPendingById
     , tick
@@ -295,6 +296,10 @@ addPending accId newPending ws =
     let ws' = ws & over (pendingByAccId accId)
                         (Pending.union newPending)
     in schedulePending accId newPending ws'
+
+-- | Variant on 'addPending' which accepts transactions from multiple accounts
+addPendings :: Map HdAccountId Pending -> WalletSubmission -> WalletSubmission
+addPendings ps ws = foldl' (flip (uncurry addPending)) ws (M.toList ps)
 
 -- | Removes the input set of 'Txp.TxId' from the local 'WalletSubmission' pending set.
 remPending :: Map HdAccountId (Set Txp.TxId)

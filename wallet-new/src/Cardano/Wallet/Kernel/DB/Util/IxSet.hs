@@ -31,6 +31,7 @@ module Cardano.Wallet.Kernel.DB.Util.IxSet (
   , singleton
   , omap
   , otraverse
+  , otraverseCollect
   , foldl'
   , emptyIxSet
     -- * Destruction
@@ -50,7 +51,6 @@ import           Data.SafeCopy (SafeCopy (..), base, deriveSafeCopy)
 import qualified Data.Set as Set
 import qualified Data.Traversable
 
--- Imports needed for the various instances
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 import           Pos.Core.Util.LogSafe (BuildableSafe, SecureLog, buildSafeList,
@@ -58,7 +58,7 @@ import           Pos.Core.Util.LogSafe (BuildableSafe, SecureLog, buildSafeList,
 import           Serokell.Util (listJsonIndent)
 import           Test.QuickCheck (Arbitrary (..))
 
-{-# ANN module ("HLint: ignore Unnecessary hiding" :: Text) #-}
+import           Cardano.Wallet.Kernel.Util (Collect (..))
 
 {-------------------------------------------------------------------------------
   Primary keys
@@ -262,6 +262,17 @@ otraverse :: (Applicative f, Indexable a)
           => (a -> f a) -> IxSet a -> f (IxSet a)
 otraverse f = fmap fromList . Data.Traversable.traverse f . toList
 
+-- | Generalization of 'otraverse' that allows to collect additional values
+--
+-- NOTE: Like 'otraverse', this rebuilds the entire 'IxSet'.
+otraverseCollect :: forall f a b. (Applicative f, Indexable a, HasPrimKey a)
+                 => (a -> f (a, b)) -> IxSet a -> f (IxSet a, [(PrimKey a, b)])
+otraverseCollect f =
+   fmap (first fromList) . runCollect . Data.Traversable.traverse f' . toList
+  where
+    f' :: a -> Collect [(PrimKey a, b)] f a
+    f' = Collect . fmap (\(a, b) -> (a, [(primKey a, b)])) . f
+
 emptyIxSet :: forall a.
               Indexable a
            => IxSet a
@@ -314,5 +325,3 @@ instance Buildable a => Buildable (IxSet a) where
 
 instance BuildableSafe a => Buildable (SecureLog (IxSet a)) where
     build = bprint (buildSafeList secure) . toList . getSecureLog
-
-

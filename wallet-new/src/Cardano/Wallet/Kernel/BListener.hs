@@ -10,6 +10,7 @@ module Cardano.Wallet.Kernel.BListener (
 
 import           Universum hiding (State)
 
+import           Control.Concurrent.MVar (modifyMVar_)
 import           Data.Acid.Advanced (update')
 import qualified Data.Map.Strict as Map
 
@@ -27,6 +28,7 @@ import           Cardano.Wallet.Kernel.Internal
 import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..),
                      prefilterBlock)
 import           Cardano.Wallet.Kernel.Read (getWalletCredentials)
+import qualified Cardano.Wallet.Kernel.Submission as Submission
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
 
 {-------------------------------------------------------------------------------
@@ -53,11 +55,11 @@ prefilterBlock' pw b = do
 applyBlock :: PassiveWallet
            -> ResolvedBlock
            -> IO ()
-applyBlock pw@PassiveWallet{..} b
-    = do
-        (slotId, blocksByAccount) <- prefilterBlock' pw b
-        -- apply block to all Accounts in all Wallets
-        update' _wallets $ ApplyBlock (InDb slotId) blocksByAccount
+applyBlock pw@PassiveWallet{..} b = do
+    (slotId, blocksByAccount) <- prefilterBlock' pw b
+    -- apply block to all Accounts in all Wallets
+    confirmed <- update' _wallets $ ApplyBlock (InDb slotId) blocksByAccount
+    modifyMVar_ _walletSubmission $ return . Submission.remPending confirmed
 
 -- | Apply multiple blocks, one at a time, to all wallets in the PassiveWallet
 --
@@ -77,12 +79,24 @@ switchToFork :: PassiveWallet
              -> IO (Either RollbackDuringRestoration ())
 switchToFork pw@PassiveWallet{..} n bs = do
     blockssByAccount <- mapM (prefilterBlock' pw) bs
-    update' _wallets $ SwitchToFork n blockssByAccount
+    res <- update' _wallets $ SwitchToFork n blockssByAccount
+    case res of
+      Left  err     -> return $ Left err
+      Right changes -> do modifyMVar_ _walletSubmission $
+                            return . Submission.addPendings (fst <$> changes)
+                          modifyMVar_ _walletSubmission $
+                            return . Submission.remPending (snd <$> changes)
+                          return $ Right ()
 
 -- | Observable rollback
 --
 -- Only used for tests. See 'switchToFork'.
 observableRollbackUseInTestsOnly :: PassiveWallet
                                  -> IO (Either RollbackDuringRestoration ())
-observableRollbackUseInTestsOnly PassiveWallet{..} =
-    update' _wallets $ ObservableRollbackUseInTestsOnly
+observableRollbackUseInTestsOnly PassiveWallet{..} = do
+    res <- update' _wallets $ ObservableRollbackUseInTestsOnly
+    case res of
+      Left err           -> return $ Left err
+      Right reintroduced -> do modifyMVar_ _walletSubmission $
+                                 return . Submission.addPendings reintroduced
+                               return $ Right ()

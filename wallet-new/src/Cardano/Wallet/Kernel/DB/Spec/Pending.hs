@@ -17,8 +17,10 @@ module Cardano.Wallet.Kernel.DB.Spec.Pending (
   , insert
   , delete
   , union
+  , unions
   , isSubsetOf
   , disjoint
+  , (\\)
     -- * Conversions
   , fromTransactions
   , toList
@@ -95,12 +97,18 @@ delete ids = liftMap (`Util.withoutKeys` ids)
 union :: Pending -> Pending -> Pending
 union = liftMap2 Map.union
 
+unions :: [Pending] -> Pending
+unions = fromMap . Map.unions . map toMap
+
 isSubsetOf :: Pending -> Pending -> Bool
 (toMap -> a) `isSubsetOf` (toMap -> b) = a `Map.isSubmapOf` b
 
 disjoint :: Pending -> Pending -> Bool
 disjoint (toMap -> a) (toMap -> b) =
     Util.disjoint (Map.keysSet a) (Map.keysSet b)
+
+(\\) :: Pending -> Pending -> Pending
+(toMap -> a) \\ (toMap -> b) = fromMap $ a `Util.withoutKeys` Map.keysSet b
 
 {-------------------------------------------------------------------------------
   Conversions
@@ -151,12 +159,20 @@ change p = Map.filter p' . txOuts
 
 -- | Remove any transactions that have any of the specified inputs
 --
--- Do not confuse with 'delete'
-removeInputs :: Set Core.TxIn -> Pending -> Pending
-removeInputs ins = liftMap $ Map.filter aux
+-- Returns the set of transactions that were removed from the pending set.
+--
+-- Do not confuse with 'delete'.
+--
+-- NOTE: If we want to distinguish between transactions that got evicted because
+-- they were confirmed from transactions that got evicted because they were
+-- invalid, we would need to return more detailed info here (CBR-367).
+removeInputs :: Set Core.TxIn -> Pending -> (Pending, Set Core.TxId)
+removeInputs usedInputs (toMap -> p) =
+    let (pToKeep, pToEvict) = Map.partition shouldKeep p
+    in (fromMap pToKeep, Map.keysSet pToEvict)
   where
-    aux :: Core.TxAux -> Bool
-    aux tx = Util.disjoint (Core.txIns tx) ins
+    shouldKeep :: Core.TxAux -> Bool
+    shouldKeep tx = Util.disjoint (Core.txIns tx) usedInputs
 
 {-------------------------------------------------------------------------------
   Internal auxiliary

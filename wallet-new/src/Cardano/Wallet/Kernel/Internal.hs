@@ -9,21 +9,24 @@
 module Cardano.Wallet.Kernel.Internal (
     -- * Passive wallet
     PassiveWallet(..)
-  , ActiveWallet(..)
+    -- ** Lenses
   , walletKeystore
   , walletMeta
   , wallets
   , walletLogMessage
   , walletNode
+  , walletSubmission
+    -- * Active wallet
+  , ActiveWallet(..)
   ) where
 
 import           Universum hiding (State)
 
 import           Control.Lens.TH
-
+import           Data.Acid (AcidState)
 import           System.Wlog (Severity (..))
 
-import           Data.Acid (AcidState)
+import           Pos.Core (ProtocolMagic)
 
 import           Cardano.Wallet.Kernel.DB.AcidState (DB)
 import           Cardano.Wallet.Kernel.DB.TxMeta
@@ -31,10 +34,6 @@ import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (NodeStateAdaptor)
 import           Cardano.Wallet.Kernel.Submission (WalletSubmission)
-
--- Handy re-export of the pure getters
-
-import           Pos.Core (ProtocolMagic)
 
 {-------------------------------------------------------------------------------
   Passive wallet
@@ -70,6 +69,21 @@ data PassiveWallet = PassiveWallet {
       -- The primary function of this is wallet restoration, where the wallet's
       -- own DB /cannot/ be consulted.
     , _walletNode       :: NodeStateAdaptor IO
+
+      -- | The wallet submission layer
+      --
+      -- NOTE: Although the passive wallet cannot send transactions, it is
+      -- important that the wallet submission layer itself lives in the
+      -- passive wallet: in the 'BListener' interface, we need to be able to
+      -- tell the submission layer when transactions got confirmed (when
+      -- applying blocks) or need to reintroduced (due to rollback).
+      --
+      -- In a way, the submission layer needs the separate active/passive split:
+      -- the passive part just registers and deregisters transactions, while
+      -- the active part actually sends stuff across the network. Fortunately,
+      -- we already have this split: the submission layer itself is just a
+      -- pure data structure, and the sending happens in a separate thread.
+    , _walletSubmission :: MVar WalletSubmission
     }
 
 makeLenses ''PassiveWallet
@@ -88,8 +102,6 @@ data ActiveWallet = ActiveWallet {
       walletPassive       :: PassiveWallet
       -- | The wallet diffusion layer
     , walletDiffusion     :: WalletDiffusion
-      -- | The wallet submission layer
-    , walletSubmission    :: MVar WalletSubmission
       -- | The protocol magic used to make transactions.
     , walletProtocolMagic :: ProtocolMagic
     }

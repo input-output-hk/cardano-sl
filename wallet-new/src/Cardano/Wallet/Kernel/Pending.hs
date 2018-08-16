@@ -89,7 +89,7 @@ newTx ActiveWallet{..} accountId tx mbMeta upd = do
         Right () -> do
             -- process transaction on success
             putTxMeta' mbMeta
-            submitTx accountId tx
+            submitTx
             return (Right ())
     where
         addrs = NE.toList $ map txOutAddress (_txOutputs . taTx $ tx)
@@ -101,21 +101,19 @@ newTx ActiveWallet{..} accountId tx mbMeta upd = do
         allOurs = concatMap (ourAddrs . snd)
 
         ourAddrs :: EncryptedSecretKey -> [HdAddress]
-        ourAddrs esk' =
+        ourAddrs esk =
             map f $ filterOurs wKey identity addrs
             where
                 f (address,addressId) = initHdAddress addressId (InDb address)
-                wKey = (wid, eskToWalletDecrCredentials esk')
+                wKey = (wid, eskToWalletDecrCredentials esk)
 
         putTxMeta' :: Maybe TxMeta -> IO ()
-        putTxMeta' mbMeta' =
-            case mbMeta' of
-                Just meta -> putTxMeta (walletPassive ^. walletMeta) meta
-                Nothing   -> pure ()
+        putTxMeta' (Just meta) = putTxMeta (walletPassive ^. walletMeta) meta
+        putTxMeta' Nothing     = pure ()
 
-        submitTx :: HdAccountId -> TxAux -> IO ()
-        submitTx accountId' tx' = do
-            modifyMVar_ walletSubmission (return . addPending accountId' (Pending.singleton tx'))
+        submitTx :: IO ()
+        submitTx = modifyMVar_ (walletPassive ^. walletSubmission) $
+                    return . addPending accountId (Pending.singleton tx)
 
 -- | Cancel a pending transaction
 --

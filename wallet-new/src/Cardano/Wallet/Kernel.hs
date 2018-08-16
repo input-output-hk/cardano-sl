@@ -91,7 +91,17 @@ initPassiveWallet :: (Severity -> Text -> IO ())
                   -> NodeStateAdaptor IO
                   -> IO PassiveWallet
 initPassiveWallet logMessage keystore Handles{..} node = do
-    return $ PassiveWallet logMessage keystore hAcid hMeta node
+    submission <- newMVar (newWalletSubmission rho)
+    return PassiveWallet {
+          _walletLogMessage = logMessage
+        , _walletKeystore   = keystore
+        , _wallets          = hAcid
+        , _walletMeta       = hMeta
+        , _walletNode       = node
+        , _walletSubmission = submission
+        }
+  where
+    rho = defaultResubmitFunction (exponentialBackoff 255 1.25)
 
 -- | Initialize the Passive wallet (specified by the ESK) with the given Utxo
 --
@@ -111,13 +121,14 @@ bracketActiveWallet :: (MonadMask m, MonadIO m)
                     -> PassiveWallet
                     -> WalletDiffusion
                     -> (ActiveWallet -> m a) -> m a
-bracketActiveWallet walletProtocolMagic walletPassive walletDiffusion runActiveWallet = do
-    let logMsg = _walletLogMessage walletPassive
-    let rho = defaultResubmitFunction (exponentialBackoff 255 1.25)
-    walletSubmission <- newMVar (newWalletSubmission rho)
-    submissionLayerTicker <-
-        liftIO $ async
-               $ tickSubmissionLayer logMsg (tickFunction walletSubmission)
+bracketActiveWallet walletProtocolMagic
+                    walletPassive
+                    walletDiffusion
+                    runActiveWallet = do
+    submissionLayerTicker <- liftIO $ async $
+      tickSubmissionLayer
+        (walletPassive ^. walletLogMessage)
+        (tickFunction (walletPassive ^. walletSubmission))
     bracket
       (return ActiveWallet{..})
       (\_ -> liftIO $ do

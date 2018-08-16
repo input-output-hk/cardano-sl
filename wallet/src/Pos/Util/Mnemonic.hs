@@ -105,7 +105,7 @@ mkEntropy
 mkEntropy = toEntropy
 
 
--- | Generate Entropy of a given size using a random Seed.
+-- | Generate Entropy of a given size using a random seed.
 --
 -- Example:
 --     do

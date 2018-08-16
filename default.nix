@@ -277,7 +277,8 @@ let
           cardano-sl-db         = forceCheck (doTemplateHaskell super.cardano-sl-db);
           cardano-sl-db-test    = forceCheck (doTemplateHaskell super.cardano-sl-db-test);
           cardano-sl-infra      = forceCheck (doTemplateHaskell super.cardano-sl-infra);
-          cardano-sl            = forceCheck (doTemplateHaskell super.cardano-sl);
+          # don't force-check cardano-sl; it's broken with iserv; see above.
+          cardano-sl            = doTemplateHaskell super.cardano-sl;
 
           fclabels              = doTemplateHaskell super.fclabels;
           servant-docs          = doTemplateHaskell super.servant-docs;

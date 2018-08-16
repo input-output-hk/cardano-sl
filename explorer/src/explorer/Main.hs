@@ -23,7 +23,7 @@ import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..),
                      getNodeParams)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (NodeContext (..))
-import           Pos.Core (epochSlots)
+import           Pos.Core (Config (..), configGeneratedSecretsThrow, epochSlots)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Explorer.DB (explorerInitDB)
 import           Pos.Explorer.ExtraContext (makeExtraCtx)
@@ -59,11 +59,12 @@ main = do
 
 action :: ExplorerNodeArgs -> IO ()
 action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
-    withConfigurations blPath conf $ \pm txpConfig ntpConfig ->
+    withConfigurations blPath conf $ \coreConfig txpConfig ntpConfig ->
     withCompileInfo $ do
         CLI.printInfoOnStart cArgs ntpConfig txpConfig
         logInfo $ "Explorer is enabled!"
-        currentParams <- getNodeParams loggerName cArgs nodeArgs
+        generatedSecrets <- configGeneratedSecretsThrow coreConfig
+        currentParams <- getNodeParams loggerName cArgs nodeArgs generatedSecrets
 
         let vssSK = fromJust $ npUserSecret currentParams ^. usVss
         let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
@@ -74,6 +75,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
                 , notifierPlugin NotifierSettings{ nsPort = notifierPort }
                 , updateTriggerWorker
                 ]
+        let pm = configProtocolMagic coreConfig
         bracketNodeResources currentParams sscParams
             (explorerTxpGlobalSettings pm txpConfig)
             (explorerInitDB pm epochSlots) $ \nr@NodeResources {..} ->

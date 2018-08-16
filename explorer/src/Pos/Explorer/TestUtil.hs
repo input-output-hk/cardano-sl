@@ -40,9 +40,9 @@ import           Pos.Chain.Ssc (defaultSscPayload)
 import           Pos.Chain.Update (HasUpdateConfiguration)
 import qualified Pos.Communication ()
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
-                     EpochIndex (..), GenesisHash (..), HasConfiguration,
-                     LocalSlotIndex (..), SlotId (..), SlotLeaders,
-                     StakeholderId, difficultyL, genesisHash,
+                     Config (..), EpochIndex (..), GenesisHash (..),
+                     HasConfiguration, LocalSlotIndex (..), SlotId (..),
+                     SlotLeaders, StakeholderId, difficultyL, genesisHash,
                      makePubKeyAddressBoot)
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (TxAux)
@@ -89,10 +89,14 @@ generateValidExplorerMockableMode blocksNumber slotsPerEpoch = do
         produceBlocksByBlockNumberAndSlots blocksNumber slotsPerEpoch slotLeaders secretKeys
 
     let tipBlock         = Prelude.last blocks
-    let pagedHHs         = withDefConfigurations $ \pm _ _ -> createMapPageHHs blocks pm
-    let hHsBlunds        = withDefConfigurations $ \pm _ _ -> createMapHHsBlund blocks pm
-    let epochPageHHs     = withDefConfigurations $ \pm _ _ -> createMapEpochPageHHs blocks slotsPerEpoch pm
-    let mapEpochMaxPages = withDefConfigurations $ \pm _ _ -> createMapEpochMaxPages (keys epochPageHHs) pm
+    let pagedHHs         = withDefConfigurations $ \coreConfig _ _ ->
+            createMapPageHHs blocks $ configProtocolMagic coreConfig
+    let hHsBlunds        = withDefConfigurations $ \coreConfig _ _ ->
+            createMapHHsBlund blocks $ configProtocolMagic coreConfig
+    let epochPageHHs     = withDefConfigurations $ \coreConfig _ _ ->
+            createMapEpochPageHHs blocks slotsPerEpoch $ configProtocolMagic coreConfig
+    let mapEpochMaxPages = withDefConfigurations $ \coreConfig _ _ ->
+            createMapEpochMaxPages (keys epochPageHHs) $ configProtocolMagic coreConfig
 
     pure $ ExplorerMockableMode
         { emmGetTipBlock          = pure tipBlock

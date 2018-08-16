@@ -102,13 +102,13 @@ instance Monad m => MonadGState (TranslateT e m) where
 -- pure exceptions.
 runTranslateT :: Monad m => Exception e => TranslateT e m a -> m a
 runTranslateT (TranslateT ta) =
-    withDefConfiguration $ \pm ->
+    withDefConfiguration $ \coreConfig ->
     withDefUpdateConfiguration $
       let env :: TranslateEnv
           env = TranslateEnv {
-                    teContext       = initContext (initCardanoContext pm)
-                  , teConfig        = Dict
-                  , teUpdate        = Dict
+                    teContext = initContext (initCardanoContext coreConfig)
+                  , teConfig  = Dict
+                  , teUpdate  = Dict
                   }
       in do ma <- runReaderT (runExceptT ta) env
             case ma of

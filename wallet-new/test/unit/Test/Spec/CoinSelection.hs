@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans       #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ViewPatterns  #-}
+
 module Test.Spec.CoinSelection (
     spec
   ) where
@@ -25,7 +26,8 @@ import qualified Text.Tabl as Tabl
 
 import           Pos.Binary.Class (Bi (encode), toLazyByteString)
 import qualified Pos.Chain.Txp as Core
-import           Pos.Core (Coeff (..), TxSizeLinear (..), unsafeIntegerToCoin)
+import           Pos.Core as Core (Coeff (..), Config (..), TxSizeLinear (..),
+                     unsafeIntegerToCoin)
 import qualified Pos.Core as Core
 import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Crypto (SecretKey)
@@ -417,10 +419,13 @@ genMaxInputTx estimator = do
     -- Now build the transaction, attempting to make the encoded size of the transaction
     -- as large as possible.
     bimap pretty ((,maxTxSize) . encodedSize) <$> (
-        withDefConfiguration $ \pm -> do
+        withDefConfiguration $ \coreConfig -> do
             key    <- arbitrary
             inputs <- replicateM maxInputs ((,) <$> genIn <*> genOutAux)
-            mkTx pm key (NE.fromList inputs) (NE.fromList [output]) [])
+            mkTx (configProtocolMagic coreConfig)
+                 key
+                 (NE.fromList inputs)
+                 (NE.fromList [output]) [])
 
 genMaxTxSize :: Gen Byte
 genMaxTxSize = fromBytes <$> choose (4000, 100000)
@@ -488,7 +493,7 @@ payRestrictInputsTo :: Word64
                     -> Policy
                     -> Gen RunResult
 payRestrictInputsTo maxInputs genU genP feeFunction adjustOptions bal amount policy =
-    withDefConfiguration $ \pm -> do
+    withDefConfiguration $ \coreConfig -> do
         utxo  <- genU bal
         payee <- genP utxo amount
         key   <- arbitrary
@@ -501,7 +506,11 @@ payRestrictInputsTo maxInputs genU genP feeFunction adjustOptions bal amount pol
              Left e -> return (utxo, payee, Left (STB e))
              Right (CoinSelFinalResult inputs outputs coins) -> do
                     change <- genChange utxo payee coins
-                    txAux  <- mkTx pm key inputs outputs change
+                    txAux  <- mkTx (configProtocolMagic coreConfig)
+                                   key
+                                   inputs
+                                   outputs
+                                   change
                     return (utxo, payee, bimap STB identity txAux)
 
 pay :: (InitialBalance -> Gen Core.Utxo)

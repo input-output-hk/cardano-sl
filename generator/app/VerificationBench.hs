@@ -22,14 +22,16 @@ import           Pos.Binary.Class (decodeFull, serialize)
 import           Pos.Chain.Block (ApplyBlocksException, Block,
                      VerifyBlocksException)
 import           Pos.Chain.Txp (TxpConfiguration (..))
+import           Pos.Core (Config (..), configGeneratedSecretsThrow)
 import           Pos.Core.Chrono (NE, OldestFirst (..), nonEmptyNewestFirst)
 import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)
 import           Pos.Core.Configuration (genesisBlockVersionData, genesisData,
-                     genesisSecretKeys, slotSecurityParam)
+                     slotSecurityParam)
 import           Pos.Core.Genesis (FakeAvvmOptions (..), GenesisData (..),
                      GenesisInitializer (..), GenesisProtocolConstants (..),
-                     TestnetBalanceOptions (..))
+                     TestnetBalanceOptions (..), gsSecretKeys)
 import           Pos.Core.Slotting (Timestamp (..))
+import           Pos.Crypto (SecretKey)
 import           Pos.Crypto.Configuration (ProtocolMagic)
 import           Pos.DB.Block (getVerifyBlocksContext', rollbackBlocks,
                      verifyAndApplyBlocks, verifyBlocksPrefix)
@@ -70,16 +72,12 @@ balance = TestnetBalanceOptions
 
 generateBlocks :: HasConfigurations
                => ProtocolMagic
+               -> [SecretKey]
                -> TxpConfiguration
                -> BlockCount
                -> BlockTestMode (OldestFirst NE Block)
-generateBlocks pm txpConfig bCount = do
+generateBlocks pm secretKeys txpConfig bCount = do
     g <- liftIO $ newStdGen
-    let secretKeys =
-            case genesisSecretKeys of
-                Nothing ->
-                    error "generateBlocks: no genesisSecretKeys"
-                Just ks -> ks
     bs <- flip evalRandT g $ genBlocks pm txpConfig
             (BlockGenParams
                 { _bgpSecrets = mkAllSecretsSimple secretKeys
@@ -200,21 +198,23 @@ main = do
         fn :: GenesisData -> GenesisData
         fn gd = gd { gdProtocolConsts = (gdProtocolConsts gd) { gpcK = baK args } }
     withCompileInfo $
-        withConfigurationsM (LoggerName "verification-bench") Nothing cfo fn $ \ !pm !txpConfig !_ ->
+        withConfigurationsM (LoggerName "verification-bench") Nothing cfo fn $ \ !coreConfig !txpConfig !_ -> do
             let tp = TestParams
                     { _tpStartTime = Timestamp (convertUnit startTime)
                     , _tpBlockVersionData = genesisBlockVersionData
                     , _tpGenesisInitializer = genesisInitializer
                     , _tpTxpConfiguration = TxpConfiguration 200 Set.empty
                     }
-            in runBlockTestMode tp $ do
+                pm = configProtocolMagic coreConfig
+            secretKeys <- gsSecretKeys <$> configGeneratedSecretsThrow coreConfig
+            runBlockTestMode tp secretKeys $ do
                 -- initialize databasea
                 initNodeDBs pm slotSecurityParam
                 bs <- case baBlockCache args of
                     Nothing -> do
                         -- generate blocks and evaluate them to normal form
                         logInfo "Generating blocks"
-                        generateBlocks pm txpConfig (baBlockCount args)
+                        generateBlocks pm secretKeys txpConfig (baBlockCount args)
                     Just path -> do
                         fileExists <- liftIO $ doesFileExist path
                         mbs <- if fileExists
@@ -224,7 +224,7 @@ main = do
                             Nothing -> do
                                 -- generate blocks and evaluate them to normal form
                                 logInfo "Generating blocks"
-                                bs <- generateBlocks pm txpConfig (baBlockCount args)
+                                bs <- generateBlocks pm secretKeys txpConfig (baBlockCount args)
                                 liftIO $ writeBlocks path bs
                                 return bs
                             Just bs -> return bs

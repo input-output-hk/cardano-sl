@@ -27,6 +27,8 @@ import           Ntp.Client (NtpStatus)
 
 import           Cardano.NodeIPC (startNodeJsIPC)
 import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Core as Core (Config (..), configGeneratedSecretsThrow)
+import           Pos.Core.Genesis (gsPoorSecrets)
 import           Pos.Core.NetworkAddress (NetworkAddress)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
@@ -71,7 +73,7 @@ walletServeWebFull
     :: ( HasConfigurations
        , HasCompileInfo
        )
-    => ProtocolMagic
+    => Core.Config
     -> TxpConfiguration
     -> Diffusion WalletWebMode
     -> TVar NtpStatus
@@ -79,7 +81,7 @@ walletServeWebFull
     -> NetworkAddress          -- ^ IP and Port to listen
     -> Maybe TlsParams
     -> WalletWebMode ()
-walletServeWebFull pm txpConfig diffusion ntpStatus debug address mTlsParams = do
+walletServeWebFull coreConfig txpConfig diffusion ntpStatus debug address mTlsParams = do
     ctx <- view shutdownContext
     let
       portCallback :: Word16 -> IO ()
@@ -89,11 +91,18 @@ walletServeWebFull pm txpConfig diffusion ntpStatus debug address mTlsParams = d
     action :: WalletWebMode Application
     action = do
         logInfo "Wallet Web API has STARTED!"
-        when debug $ addInitialRichAccount 0
+        when debug $ do
+          generatedSecrets <- gsPoorSecrets
+              <$> configGeneratedSecretsThrow coreConfig
+          addInitialRichAccount 0 generatedSecrets
 
         wwmc <- walletWebModeContext
-        walletApplication $
-            walletServer @WalletWebModeContext @WalletWebMode pm txpConfig diffusion ntpStatus (convertHandler wwmc)
+        walletApplication $ walletServer @WalletWebModeContext @WalletWebMode
+            (configProtocolMagic coreConfig)
+            txpConfig
+            diffusion
+            ntpStatus
+            (convertHandler wwmc)
 
 walletWebModeContext :: WalletWebMode WalletWebModeContext
 walletWebModeContext = view (lensOf @WalletWebModeContextTag)

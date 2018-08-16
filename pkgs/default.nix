@@ -17655,6 +17655,7 @@ cardano-sl
 cardano-sl-chain
 cardano-sl-client
 cardano-sl-core
+cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-db
 cardano-sl-generator

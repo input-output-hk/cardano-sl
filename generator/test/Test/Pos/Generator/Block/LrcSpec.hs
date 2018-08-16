@@ -26,11 +26,12 @@ import           Pos.Binary.Class (serialize')
 import           Pos.Chain.Block (mainBlockTxPayload)
 import qualified Pos.Chain.Lrc as Lrc
 import           Pos.Chain.Txp (TxpConfiguration (..))
-import           Pos.Core (Coin, EpochIndex, StakeholderId, addressHash,
-                     blkSecurityParam, coinF, epochSlots, genesisData,
-                     genesisSecretKeysPoor, genesisSecretKeysRich)
-import           Pos.Core.Genesis (GenesisData (..), GenesisInitializer (..),
-                     TestnetBalanceOptions (..))
+import           Pos.Core as Core (Coin, Config (..), EpochIndex, StakeholderId,
+                     addressHash, blkSecurityParam, coinF,
+                     configGeneratedSecretsThrow, epochSlots, genesisData)
+import           Pos.Core.Genesis (GeneratedSecrets, GenesisData (..),
+                     GenesisInitializer (..), TestnetBalanceOptions (..),
+                     gsSecretKeysPoor, gsSecretKeysRich)
 import           Pos.Core.Txp (TxAux, mkTxPayload)
 import           Pos.Crypto (SecretKey, toPublic)
 import           Pos.DB.Block (ShouldCallBListener (..), applyBlocksUnsafe)
@@ -65,7 +66,7 @@ spec = withStaticConfigurations $ \txpConfig _ ->
                 blockPropertyToProperty genTestParams (lrcCorrectnessProp txpConfig)
             -- This test is relatively slow, hence we launch it only 15 times.
             modifyMaxSuccess (const 15) $ blockPropertySpec lessThanKAfterCrucialDesc
-                (lessThanKAfterCrucialProp txpConfig)
+                (const $ lessThanKAfterCrucialProp txpConfig)
   where
     lrcCorrectnessDesc =
         "Computes richmen correctly according to the stake distribution " <>
@@ -126,8 +127,9 @@ genGenesisInitializer = do
 
 lrcCorrectnessProp :: HasConfigurations
                    => TxpConfiguration
+                   -> Core.Config
                    -> BlockProperty ()
-lrcCorrectnessProp txpConfig = do
+lrcCorrectnessProp txpConfig coreConfig = do
     let k = blkSecurityParam
     -- This value is how many blocks we need to generate first. We
     -- want to generate blocks for all slots which will be considered
@@ -177,21 +179,21 @@ lrcCorrectnessProp txpConfig = do
                                 ", computed leaders: "%listJson)
            expectedLeadersStakes leaders1
 
-    checkRichmen
+    generatedSecrets <- configGeneratedSecretsThrow coreConfig
+    checkRichmen generatedSecrets
 
-checkRichmen :: HasConfigurations => BlockProperty ()
-checkRichmen = do
+checkRichmen :: HasConfigurations => GeneratedSecrets -> BlockProperty ()
+checkRichmen generatedSecrets = do
     checkRichmenStakes =<< getRichmen (lift . LrcDB.tryGetSscRichmen)
     checkRichmenFull =<< getRichmen (lift . LrcDB.tryGetUSRichmen)
     checkRichmenSet =<< getRichmen (lift . LrcDB.tryGetDlgRichmen)
   where
-    toStakeholders :: Maybe [SecretKey] -> [StakeholderId]
-    toStakeholders = map (addressHash . toPublic) . fromMaybe
-        (error "genesis secrets are unknown in tests")
+    toStakeholders :: [SecretKey] -> [StakeholderId]
+    toStakeholders = map (addressHash . toPublic)
     poorStakeholders :: [StakeholderId]
-    poorStakeholders = toStakeholders genesisSecretKeysPoor
+    poorStakeholders = toStakeholders $ gsSecretKeysPoor generatedSecrets
     richStakeholders :: [StakeholderId]
-    richStakeholders = toStakeholders genesisSecretKeysRich
+    richStakeholders = toStakeholders $ gsSecretKeysRich generatedSecrets
 
     getRichmen ::
            (EpochIndex -> BlockProperty (Maybe richmen))

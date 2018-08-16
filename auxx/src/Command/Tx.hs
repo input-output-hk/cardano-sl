@@ -43,14 +43,13 @@ import           Pos.Core (IsBootstrapEraAddr (..), Timestamp (..),
                      deriveFirstHDAddress, makePubKeyAddress, mkCoin)
 import           Pos.Core.Conc (concurrently, currentTime, delay,
                      forConcurrently, modifySharedAtomic, newSharedAtomic)
-import           Pos.Core.Configuration (genesisBlockVersionData,
-                     genesisSecretKeys)
+import           Pos.Core.Configuration (genesisBlockVersionData)
 import           Pos.Core.Txp (TxAux (..), TxIn (TxInUtxo), TxOut (..),
                      TxOutAux (..), txaF)
 import           Pos.Core.Update (BlockVersionData (..))
-import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic, emptyPassphrase,
-                     encToPublic, fakeSigner, hash, safeToPublic, toPublic,
-                     withSafeSigners)
+import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic, SecretKey,
+                     emptyPassphrase, encToPublic, fakeSigner, hash,
+                     safeToPublic, toPublic, withSafeSigners)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Util.UserSecret (usWallet, userSecret, wusRootKey)
 import           Pos.Util.Util (maybeThrow)
@@ -87,12 +86,12 @@ addTxSubmit =
 sendToAllGenesis
     :: forall m. MonadAuxxMode m
     => ProtocolMagic
+    -> [SecretKey]
     -> Diffusion m
     -> SendToAllGenesisParams
     -> m ()
-sendToAllGenesis pm diffusion (SendToAllGenesisParams genesisTxsPerThread txsPerThread conc delay_ tpsSentFile) = do
+sendToAllGenesis pm keysToSend diffusion (SendToAllGenesisParams genesisTxsPerThread txsPerThread conc delay_ tpsSentFile) = do
     let genesisSlotDuration = fromIntegral (toMicroseconds $ bvdSlotDuration genesisBlockVersionData) `div` 1000000 :: Int
-        keysToSend  = fromMaybe (error "Genesis secret keys are unknown") genesisSecretKeys
     tpsMVar <- newSharedAtomic $ TxCount 0 conc
     startTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
     bracket (openFile tpsSentFile WriteMode) (liftIO . hClose) $ \h -> do

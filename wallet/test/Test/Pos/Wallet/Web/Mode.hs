@@ -120,6 +120,7 @@ import           Test.Pos.Block.Logic.Mode (BlockTestContext (..),
                      getCurrentSlotBlockingTestDefault,
                      getCurrentSlotInaccurateTestDefault,
                      getCurrentSlotTestDefault, initBlockTestContext)
+import           Test.Pos.Core.Dummy (dummyGenesisSecretKeys)
 
 ----------------------------------------------------------------------------
 -- Parameters
@@ -198,25 +199,28 @@ initWalletTestContext ::
     -> (WalletTestContext -> Emulation a)
     -> Emulation a
 initWalletTestContext WalletTestParams {..} callback =
-    initBlockTestContext _wtpBlockTestParams $ \wtcBlockTestContext -> do
-        wtc <- liftIO $ do
-            wtcWalletState <- openMemState
-            wtcUserPublic <- STM.newTVarIO def
-            wtcUserSecret <- STM.newTVarIO def
-            wtcRecoveryHeader <- STM.newEmptyTMVarIO
-            -- some kind of kostil to get tip
-            tip <- readTVarIO $ txpTip $ btcTxpMem wtcBlockTestContext
-            wtcStateLock <- newStateLock tip
-            store <- liftIO $ Metrics.newStore
-            wtcStateLockMetrics <- liftIO $ recordTxpMetrics store (txpMemPool $ btcTxpMem wtcBlockTestContext)
-            wtcShutdownContext <- ShutdownContext <$> STM.newTVarIO False
-            wtcConnectedPeers <- ConnectedPeers <$> STM.newTVarIO mempty
-            wtcLastKnownHeader <- STM.newTVarIO Nothing
-            wtcSentTxs <- STM.newTVarIO mempty
-            wtcSyncQueue <- STM.newTQueueIO
-            wtcSlottingStateVar <- mkSimpleSlottingStateVar
-            pure WalletTestContext {..}
-        callback wtc
+    initBlockTestContext _wtpBlockTestParams dummyGenesisSecretKeys
+        $ \wtcBlockTestContext -> do
+            wtc <- liftIO $ do
+                wtcWalletState <- openMemState
+                wtcUserPublic <- STM.newTVarIO def
+                wtcUserSecret <- STM.newTVarIO def
+                wtcRecoveryHeader <- STM.newEmptyTMVarIO
+                -- some kind of kostil to get tip
+                tip <- readTVarIO $ txpTip $ btcTxpMem wtcBlockTestContext
+                wtcStateLock <- newStateLock tip
+                store <- liftIO $ Metrics.newStore
+                wtcStateLockMetrics <- liftIO $ recordTxpMetrics
+                    store
+                    (txpMemPool $ btcTxpMem wtcBlockTestContext)
+                wtcShutdownContext <- ShutdownContext <$> STM.newTVarIO False
+                wtcConnectedPeers <- ConnectedPeers <$> STM.newTVarIO mempty
+                wtcLastKnownHeader <- STM.newTVarIO Nothing
+                wtcSentTxs <- STM.newTVarIO mempty
+                wtcSyncQueue <- STM.newTQueueIO
+                wtcSlottingStateVar <- mkSimpleSlottingStateVar
+                pure WalletTestContext {..}
+            callback wtc
 
 runWalletTestMode ::
        ( HasConfiguration

@@ -16,6 +16,8 @@ import           Universum
 
 import           System.Wlog (Severity)
 
+import           Pos.Core (Config (..))
+
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.QuickCheck (arbitrary, frequency)
 import           Test.QuickCheck.Monadic (PropertyM, pick)
@@ -67,10 +69,15 @@ withActiveWalletFixture prepareFixtures cc = do
     generateFixtures <- prepareFixtures
     liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
         WalletLayer.Kernel.bracketPassiveWallet devNull keystore mockNodeStateDef $ \passiveLayer passiveWallet -> do
-            withDefConfiguration $ \pm -> do
-                WalletLayer.Kernel.bracketActiveWallet pm passiveLayer passiveWallet diffusion $ \activeLayer activeWallet -> do
-                    fixtures <- generateFixtures keystore activeWallet
-                    cc keystore activeLayer activeWallet fixtures
+            withDefConfiguration $ \coreConfig -> do
+                WalletLayer.Kernel.bracketActiveWallet
+                        (configProtocolMagic coreConfig)
+                        passiveLayer
+                        passiveWallet
+                        diffusion
+                    $ \activeLayer activeWallet -> do
+                        fixtures <- generateFixtures keystore activeWallet
+                        cc keystore activeLayer activeWallet fixtures
     where
         diffusion :: Kernel.WalletDiffusion
         diffusion = Kernel.WalletDiffusion {

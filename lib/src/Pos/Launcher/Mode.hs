@@ -31,7 +31,8 @@ import           Pos.Core (HasConfiguration, Timestamp)
 import           Pos.Core.Slotting (MonadSlotsData)
 import           Pos.DB (NodeDBs)
 import           Pos.DB.Block (dbGetSerBlockRealDefault,
-                     dbGetSerUndoRealDefault, dbPutSerBlundsRealDefault)
+                     dbGetSerBlundRealDefault, dbGetSerUndoRealDefault,
+                     dbPutSerBlundsRealDefault)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Lrc (LrcContext)
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault,
@@ -79,6 +80,7 @@ instance HasConfiguration => MonadDBRead InitMode where
     dbIterSource = dbIterSourceDefault
     dbGetSerBlock = dbGetSerBlockRealDefault
     dbGetSerUndo = dbGetSerUndoRealDefault
+    dbGetSerBlund = dbGetSerBlundRealDefault
 
 instance HasConfiguration => MonadDB InitMode where
     dbPut = dbPutDefault

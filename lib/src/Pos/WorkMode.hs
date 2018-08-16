@@ -31,8 +31,9 @@ import           Pos.Core.Reporting (HasMisbehaviorMetrics (..))
 import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
 import           Pos.DB (MonadGState (..), NodeDBs)
 import           Pos.DB.Block (MonadBListener (..), dbGetSerBlockRealDefault,
-                     dbGetSerUndoRealDefault, dbPutSerBlundsRealDefault,
-                     onApplyBlocksStub, onRollbackBlocksStub)
+                     dbGetSerBlundRealDefault, dbGetSerUndoRealDefault,
+                     dbPutSerBlundsRealDefault, onApplyBlocksStub,
+                     onRollbackBlocksStub)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault,
@@ -163,6 +164,7 @@ instance HasConfiguration => MonadDBRead (RealMode ext) where
     dbIterSource = dbIterSourceDefault
     dbGetSerBlock = dbGetSerBlockRealDefault
     dbGetSerUndo = dbGetSerUndoRealDefault
+    dbGetSerBlund = dbGetSerBlundRealDefault
 
 instance HasConfiguration => MonadDB (RealMode ext) where
     dbPut = dbPutDefault

@@ -188,6 +188,7 @@ instance HasConfiguration => MonadDBRead AuxxMode where
         transPipe (transResourceT realModeToAuxx) (dbIterSource tag p)
     dbGetSerBlock = realModeToAuxx ... dbGetSerBlock
     dbGetSerUndo = realModeToAuxx ... dbGetSerUndo
+    dbGetSerBlund = realModeToAuxx ... dbGetSerBlund
 
 instance HasConfiguration => MonadDB AuxxMode where
     dbPut = realModeToAuxx ... dbPut

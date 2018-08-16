@@ -338,6 +338,7 @@ instance HasConfiguration => MonadDBRead WalletTestMode where
     dbIterSource = DB.dbIterSourcePureDefault
     dbGetSerBlock = DB.dbGetSerBlockPureDefault
     dbGetSerUndo = DB.dbGetSerUndoPureDefault
+    dbGetSerBlund = DB.dbGetSerBlundPureDefault
 
 instance HasConfiguration => MonadDB WalletTestMode where
     dbPut = DB.dbPutPureDefault

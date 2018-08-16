@@ -44,8 +44,7 @@ import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
 import           Pos.Crypto (SecretKey)
 import           Pos.DB (DBSum, MonadDB, MonadDBRead)
 import qualified Pos.DB as DB
-import           Pos.DB.Block (MonadBListener (..), dbGetSerBlockSumDefault,
-                     dbGetSerUndoSumDefault, dbPutSerBlundsSumDefault)
+import           Pos.DB.Block (MonadBListener (..))
 import qualified Pos.DB.Block as DB
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
 import           Pos.DB.Delegation (mkDelegationVar)
@@ -206,14 +205,15 @@ instance HasSlottingVar InitBlockGenContext where
 instance MonadBlockGenBase m => MonadDBRead (InitBlockGenMode ext m) where
     dbGet = DB.dbGetSumDefault
     dbIterSource = DB.dbIterSourceSumDefault
-    dbGetSerBlock = dbGetSerBlockSumDefault
-    dbGetSerUndo = dbGetSerUndoSumDefault
+    dbGetSerBlock = DB.dbGetSerBlockSumDefault
+    dbGetSerUndo = DB.dbGetSerUndoSumDefault
+    dbGetSerBlund = DB.dbGetSerBlundSumDefault
 
 instance MonadBlockGenBase m => MonadDB (InitBlockGenMode ext m) where
     dbPut = DB.dbPutSumDefault
     dbWriteBatch = DB.dbWriteBatchSumDefault
     dbDelete = DB.dbDeleteSumDefault
-    dbPutSerBlunds = dbPutSerBlundsSumDefault
+    dbPutSerBlunds = DB.dbPutSerBlundsSumDefault
 
 instance (MonadBlockGenBase m, MonadSlotsData ctx (InitBlockGenMode ext m))
       => MonadSlots ctx (InitBlockGenMode ext m)
@@ -298,6 +298,7 @@ instance MonadBlockGenBase m => MonadDBRead (BlockGenMode ext m) where
     dbIterSource = DB.dbIterSourceSumDefault
     dbGetSerBlock = DB.dbGetSerBlockSumDefault
     dbGetSerUndo = DB.dbGetSerUndoSumDefault
+    dbGetSerBlund = DB.dbGetSerBlundSumDefault
 
 instance MonadBlockGenBase m => MonadDB (BlockGenMode ext m) where
     dbPut = DB.dbPutSumDefault

@@ -376,6 +376,7 @@ instance HasConfiguration => MonadDBRead TestInitMode where
     dbIterSource = DB.dbIterSourcePureDefault
     dbGetSerBlock = DB.dbGetSerBlockPureDefault
     dbGetSerUndo = DB.dbGetSerUndoPureDefault
+    dbGetSerBlund = DB.dbGetSerBlundPureDefault
 
 instance HasConfiguration => MonadDB TestInitMode where
     dbPut = DB.dbPutPureDefault
@@ -508,6 +509,7 @@ instance HasConfiguration => MonadDBRead BlockTestMode where
     dbIterSource = DB.dbIterSourcePureDefault
     dbGetSerBlock = DB.dbGetSerBlockPureDefault
     dbGetSerUndo = DB.dbGetSerUndoPureDefault
+    dbGetSerBlund = DB.dbGetSerBlundPureDefault
 
 instance HasConfiguration => MonadDB BlockTestMode where
     dbPut = DB.dbPutPureDefault

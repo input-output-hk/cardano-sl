@@ -13,16 +13,19 @@ module Pos.DB.Block
        -- * Pure implementation
        , dbGetSerBlockPureDefault
        , dbGetSerUndoPureDefault
+       , dbGetSerBlundPureDefault
        , dbPutSerBlundsPureDefault
 
        -- * Rocks implementation
        , dbGetSerBlockRealDefault
        , dbGetSerUndoRealDefault
+       , dbGetSerBlundRealDefault
        , dbPutSerBlundsRealDefault
 
        -- * DBSum implementation
        , dbGetSerBlockSumDefault
        , dbGetSerUndoSumDefault
+       , dbGetSerBlundSumDefault
        , dbPutSerBlundsSumDefault
 
        , module X
@@ -32,7 +35,7 @@ import           Universum
 
 import           Control.Exception.Safe (handle)
 import           Control.Lens (at)
-import qualified Data.ByteString as BS (hPut, readFile)
+import qualified Data.ByteString as BS
 import           Data.Default (Default (def))
 import           Formatting (formatToString)
 import           System.Directory (createDirectoryIfMissing, doesFileExist,
@@ -77,23 +80,23 @@ import           Pos.DB.Block.Slog.Logic as X
 
 -- Get serialization of a block with given hash from Block DB.
 getSerializedBlock
-    :: forall ctx m. (MonadRealDB ctx m)
-    => HeaderHash -> m (Maybe ByteString)
-getSerializedBlock hh = do
-    bsp <- flip getAllPaths hh . view blockDataDir <$> getNodeDBs
-    blundExists <- liftIO $ doesFileExist (bspBlund bsp)
-    if blundExists
-    then do
-      mbs <- getRawData $ bspBlund bsp
-      case mbs of
-        Nothing -> pure Nothing
-        Just ser -> eitherToThrow $ bimap DBMalformed (Just . fst)
-                    $ decodeFull' @(ByteString, ByteString) ser
-    else fmap fst <$> consolidateBlund hh
+    :: MonadRealDB ctx m
+    => HeaderHash -> m (Maybe SerializedBlock)
+getSerializedBlock hh =
+    Serialized . fst <<$>> getSerializedBlund hh
 
 -- Get serialization of an undo data for block with given hash from Block DB.
-getSerializedUndo :: MonadRealDB ctx m => HeaderHash -> m (Maybe ByteString)
-getSerializedUndo  hh = do
+getSerializedUndo
+    :: MonadRealDB ctx m
+    => HeaderHash -> m (Maybe SerializedUndo)
+getSerializedUndo hh =
+    Serialized . snd <<$>> getSerializedBlund hh
+
+-- Get serialization of a block with given hash from Block DB.
+getSerializedBlund
+    :: MonadRealDB ctx m
+    => HeaderHash -> m (Maybe (ByteString, ByteString))
+getSerializedBlund hh = do
     bsp <- flip getAllPaths hh . view blockDataDir <$> getNodeDBs
     blundExists <- liftIO $ doesFileExist (bspBlund bsp)
     if blundExists
@@ -101,9 +104,9 @@ getSerializedUndo  hh = do
       mbs <- getRawData $ bspBlund bsp
       case mbs of
         Nothing -> pure Nothing
-        Just ser -> eitherToThrow $ bimap DBMalformed (Just . snd)
+        Just ser -> eitherToThrow . bimap DBMalformed Just
                     $ decodeFull' @(ByteString, ByteString) ser
-    else fmap snd <$> consolidateBlund hh
+    else consolidateBlund hh
 
 -- | Read independent block and undo data and consolidate them into a single
 -- blund file.
@@ -201,6 +204,18 @@ dbGetSerUndoPureDefault h =  do
         Just (Left e)  -> throwM (DBMalformed e)
         Just (Right v) -> pure . Just . Serialized $ snd v
 
+dbGetSerBlundPureDefault
+    :: forall ctx m. (MonadPureDB ctx m)
+    => HeaderHash
+    -> m (Maybe SerializedBlund)
+dbGetSerBlundPureDefault h =  do
+    (serblund :: Maybe ByteString) <-
+        view (pureBlocksStorage . at h) <$> (view (lensOf @DBPureVar) >>= readIORef)
+    case decodeFull' @(ByteString, ByteString) <$> serblund of
+        Nothing        -> pure Nothing
+        Just (Left e)  -> throwM (DBMalformed e)
+        Just (Right v) -> pure . Just . Serialized $ uncurry BS.append v
+
 dbPutSerBlundsPureDefault ::
        forall ctx m. (MonadPureDB ctx m, MonadDB m)
     => NonEmpty (CB.BlockHeader, SerializedBlund)
@@ -227,13 +242,20 @@ dbGetSerBlockRealDefault ::
        forall ctx m. (BlockDBGenericEnv ctx m)
     => HeaderHash
     -> m (Maybe SerializedBlock)
-dbGetSerBlockRealDefault x = Serialized <<$>> getSerializedBlock x
+dbGetSerBlockRealDefault = getSerializedBlock
 
 dbGetSerUndoRealDefault ::
        forall ctx m. BlockDBGenericEnv ctx m
     => HeaderHash
     -> m (Maybe SerializedUndo)
-dbGetSerUndoRealDefault x = Serialized <<$>> getSerializedUndo x
+dbGetSerUndoRealDefault = getSerializedUndo
+
+dbGetSerBlundRealDefault ::
+       forall ctx m. (BlockDBGenericEnv ctx m)
+    => HeaderHash
+    -> m (Maybe SerializedBlund)
+dbGetSerBlundRealDefault hh =
+    Serialized . uncurry BS.append <<$>> getSerializedBlund hh
 
 dbPutSerBlundsRealDefault ::
        (MonadDB m, MonadRealDB ctx m)
@@ -260,6 +282,12 @@ dbGetSerUndoSumDefault
     => HeaderHash -> m (Maybe SerializedUndo)
 dbGetSerUndoSumDefault hh =
     eitherDB (dbGetSerUndoRealDefault hh) (dbGetSerUndoPureDefault hh)
+
+dbGetSerBlundSumDefault
+    :: forall ctx m. DBSumEnv ctx m
+    => HeaderHash -> m (Maybe SerializedBlund)
+dbGetSerBlundSumDefault hh =
+    eitherDB (dbGetSerBlundRealDefault hh) (dbGetSerBlundPureDefault hh)
 
 dbPutSerBlundsSumDefault
     :: forall ctx m. (DBSumEnv ctx m)

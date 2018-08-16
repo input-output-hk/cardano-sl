@@ -204,6 +204,7 @@ test-suite test
                      , cardano-sl-core
                      , cardano-sl-core-test
                      , cardano-sl-db
+                     , cardano-sl-util-test
                      , filepath
                      , hedgehog
                      , temporary

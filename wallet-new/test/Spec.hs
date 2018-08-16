@@ -8,7 +8,7 @@ import           Universum
 import           Data.Typeable (typeRep)
 import           Test.Hspec
 import           Test.Hspec.QuickCheck
-import           Test.Pos.Binary.Helpers (runTests)
+import           Test.Pos.Util.Tripping (runTests)
 import           Test.QuickCheck
 
 import           Cardano.Wallet.API.V1.Types

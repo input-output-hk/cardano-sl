@@ -6,7 +6,7 @@ import           Spec (spec)
 
 import qualified Test.Pos.Binary.BiSerialize
 import qualified Test.Pos.Binary.BiSizeBounds
-import           Test.Pos.Binary.Helpers (runTests)
+import           Test.Pos.Util.Tripping (runTests)
 
 main :: IO ()
 main = do

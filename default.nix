@@ -71,7 +71,7 @@ let
             # case sensitivity issue?
             rocksdb-haskell-ng = dontCheck super.rocksdb-haskell-ng;
             megaparsec = dontCheck super.megaparsec;
-            
+
             Cabal = appendPatches super.Cabal
               [ # allow a script/application be specified that wraps the test executable that's run.
                 ./Cabal2201-allow-test-wrapper.patch
@@ -85,7 +85,7 @@ let
 
             # requires phantomJS
             wai-cors = dontCheck super.wai-cors;
-            
+
             # These are missing `doctest`
             network = dontCheck super.network;
             distributive = dontCheck super.distributive;
@@ -121,11 +121,11 @@ let
             # due to some object-file reloading issue
             # in iserv.
             vector = dontCheck super.vector;
-            
+
             hspec-discover        = dontCheck super.hspec-discover;
             hspec-core            = dontCheck super.hspec-core;
             # most of these fail due to depending on hspec-discover
-            # at test-build time.          
+            # at test-build time.
             base-orphans          = addBuildTools super.base-orphans          [ self.buildPackages.hspec-discover ];
             safe-exceptions       = addBuildTools super.safe-exceptions       [ self.buildPackages.hspec-discover ];
             wai                   = addBuildTools super.wai                   [ self.buildPackages.hspec-discover ];
@@ -175,7 +175,7 @@ let
 
             # test/sample/bar\baz: openBinaryFile: does not exist (No such file or directory)
             file-embed = dontCheck super.file-embed;
-          
+
             stm-delay = dontCheck super.stm-delay; # https://hydra.iohk.io/build/193506/nixlog/14
             hspec-expectations-pretty-diff = dontCheck super.hspec-expectations-pretty-diff; # https://hydra.iohk.io/build/193533/nixlog/1
             simple-sendfile       = dontCheck super.simple-sendfile; # the test depends on `unix` and thus fails to test on windows.
@@ -195,7 +195,7 @@ let
   # of all haskell packages.
   spaces = let repeat = n: c: c + (if n == 0 then "" else repeat (n - 1) c); in repeat n " ";
   spacedConfig = config spaces;
-  
+
   # Combine the Overlay, and Config to produce
   # our package set.
   pkgs = import localLib.fetchNixPkgs ({
@@ -213,7 +213,7 @@ let
   maybeViaWine = if pkgs.stdenv.hostPlatform.isWindows then ''WINEPREFIX=$TMP ${pkgs.buildPackages.winePackages.minimal}/bin/wine64'' else "";
 
 in with pkgs.haskellPackages;
-let iohkPkgs = 
+let iohkPkgs =
 let
   # note: we want `haskellPackages` here, as that is the one
   #       we provide in the overlay(!)
@@ -230,9 +230,9 @@ let
   cardanoPkgs = (with pkgs.haskell.lib;
         pkgs.haskellPackages.override (old:
         let new_overrides = self: super: rec {
-        
+
           inherit (import ./lib-mingw32.nix { inherit pkgs self; }) doTemplateHaskell appendPatchMingw forceCheck;
-      
+
           # TODO: Why is `network` not properly propagated from `libiserv`?
           remote-iserv = with pkgs.haskell.lib; let pkg = addExtraLibrary super.remote-iserv self.network; in
             overrideCabal (addBuildDepends pkg [ pkgs.windows.mingw_w64_pthreads ]) (drv: {
@@ -246,12 +246,12 @@ let
           # Undo configuration-nix.nix change to hardcode security binary on darwin
           # This is needed for macOS binary not to fail during update system (using http-client-tls)
           # Instead, now the binary is just looked up in $PATH as it should be installed on any macOS
-      
+
           x509-system           = appendPatchMingw super.x509-system        ./x509-system-1.6.6.patch;#) (drv: { postPatch = ":"; });
           conduit               = appendPatchMingw super.conduit            ./conduit-1.3.0.2.patch;
           double-conversion     = appendPatchMingw super.double-conversion  ./double-conversion-2.0.2.0.patch;
           file-embed-lzma       = doTemplateHaskell (appendPatchMingw super.file-embed-lzma    ./file-embed-lzma-0.patch);
-          
+
           ether                 = doTemplateHaskell super.ether;
           generics-sop          = doTemplateHaskell (dontCheck super.generics-sop);
           th-lift-instances     = doTemplateHaskell super.th-lift-instances;
@@ -262,7 +262,7 @@ let
           th-orphans            = doTemplateHaskell super.th-orphans;
           wai-app-static        = doTemplateHaskell super.wai-app-static;
           purescript-bridge     = doTemplateHaskell super.purescript-bridge;
-      
+
           cardano-sl-util       = forceCheck (doTemplateHaskell super.cardano-sl-util);
           cardano-sl-auxx       = forceCheck (doTemplateHaskell super.cardano-sl-auxx);
           cardano-sl-crypto     = forceCheck (doTemplateHaskell super.cardano-sl-crypto);
@@ -273,12 +273,12 @@ let
 
           cardano-sl-chain      = forceCheck (doTemplateHaskell super.cardano-sl-chain);
           cardano-sl-chain-test = forceCheck (doTemplateHaskell super.cardano-sl-chain-test);
-          
+
           cardano-sl-db         = forceCheck (doTemplateHaskell super.cardano-sl-db);
           cardano-sl-db-test    = forceCheck (doTemplateHaskell super.cardano-sl-db-test);
           cardano-sl-infra      = forceCheck (doTemplateHaskell super.cardano-sl-infra);
           cardano-sl            = forceCheck (doTemplateHaskell super.cardano-sl);
-      
+
           fclabels              = doTemplateHaskell super.fclabels;
           servant-docs          = doTemplateHaskell super.servant-docs;
           wai-websockets        = doTemplateHaskell super.wai-websockets;
@@ -287,12 +287,12 @@ let
           cardano-sl-client     = forceCheck (doTemplateHaskell super.cardano-sl-client);
           cardano-sl-generator  = forceCheck (doTemplateHaskell super.cardano-sl-generator);
           cardano-sl-wallet     = forceCheck (doTemplateHaskell super.cardano-sl-wallet);
-      
+
           cardano-sl-wallet-new = (doTemplateHaskell super.cardano-sl-wallet-new).overrideAttrs( old: { NIX_DEBUG = 1; });
           cardano-sl-infra-test = forceCheck (doTemplateHaskell super.cardano-sl-infra-test);
           cardano-sl-explorer   = forceCheck (doTemplateHaskell super.cardano-sl-explorer);
           cardano-sl-binary     = forceCheck (doTemplateHaskell super.cardano-sl-binary);
-      
+
           trifecta              = doTemplateHaskell super.trifecta;
           cardano-sl-tools      = doTemplateHaskell super.cardano-sl-tools;
           hedgehog              = doTemplateHaskell super.hedgehog;
@@ -302,7 +302,7 @@ let
           QuickCheck            = doTemplateHaskell (dontCheck super.QuickCheck);
           optparse-applicative  = doTemplateHaskell super.optparse-applicative;
           quickcheck-text       = doTemplateHaskell super.quickcheck-text;
-          
+
           th-reify-many         = doTemplateHaskell super.th-reify-many;
           vector                = doTemplateHaskell super.vector;
           tasty-th              = doTemplateHaskell super.tasty-th;
@@ -330,14 +330,14 @@ let
 
           cassava               = super.cassava.override            { flags = { bytestring--lt-0_10_4 = false; }; };
           time-locale-compat    = super.time-locale-compat.override { flags = { old-locale = false; }; };
-      
+
           # TODO: Why is this not propagated properly? Only into the buildHasekllPackages?
           libiserv              = super.libiserv.override           { flags = { network = true; }; };
-      
+
           # This should be stubbed out in <stackage/package-set.nix>; however lts-12 fails to list Win32
           # as one of the windows packages as such just fails.
           Win32 = null;
-      
+
           cardano-sl-node-static = justStaticExecutablesGitRev self.cardano-sl-node;
           cardano-sl-explorer-static = justStaticExecutablesGitRev self.cardano-sl-explorer;
           cardano-report-server-static = justStaticExecutablesGitRev self.cardano-report-server;

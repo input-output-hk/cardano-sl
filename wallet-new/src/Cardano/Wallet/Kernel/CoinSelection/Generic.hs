@@ -308,13 +308,6 @@ data CoinSelHardErr =
     -- | UTxO depleted using input selection
   | CoinSelHardErrUtxoDepleted
 
-    -- | This wallet does not \"own\" the input address
-  | forall dom. HasAddress dom =>
-      CoinSelHardErrAddressNotOwned (Proxy dom) (Address dom)
-      -- ^ We need a proxy here due to the fact that 'Address' is not
-      -- injective.
-
-
 instance Arbitrary CoinSelHardErr where
     arbitrary = pure CoinSelHardErrUtxoDepleted
 
@@ -650,8 +643,6 @@ instance Buildable CoinSelHardErr where
     val
   build (CoinSelHardErrUtxoDepleted) = bprint
     ( "CoinSelHardErrUtxoDepleted" )
-  build (CoinSelHardErrAddressNotOwned _ addr) = bprint
-    ( "CoinSelHardErrAddressNotOwned { address: " % build % " } ") addr
 
 instance CoinSelDom dom => Buildable (Fee dom) where
   build = bprint build . getFee

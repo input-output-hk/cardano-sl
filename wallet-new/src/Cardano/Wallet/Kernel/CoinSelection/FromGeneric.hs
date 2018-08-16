@@ -185,14 +185,14 @@ feeOptions CoinSelectionOptions{..} = FeeOptions{
 -- multisignature transactions, etc.
 mkStdTx :: Monad m
         => Core.ProtocolMagic
-        -> (Core.Address -> Either CoinSelHardErr Core.SafeSigner)
+        -> (Core.Address -> Either e Core.SafeSigner)
         -> NonEmpty (Core.TxIn, Core.TxOutAux)
         -- ^ Selected inputs
         -> NonEmpty Core.TxOutAux
         -- ^ Selected outputs
         -> [Core.TxOutAux]
         -- ^ A list of change addresess, in the form of 'TxOutAux'(s).
-        -> m (Either CoinSelHardErr Core.TxAux)
+        -> m (Either e Core.TxAux)
 mkStdTx pm hdwSigners inps outs change = do
     let allOuts = foldl' (flip NE.cons) outs change
     return $ Core.makeMPubKeyTxAddrs pm hdwSigners (fmap repack inps) allOuts

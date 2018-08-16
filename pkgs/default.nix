@@ -15516,6 +15516,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto
 , cardano-sl-crypto-test
 , cardano-sl-util-test
+, containers
 , formatting
 , generic-arbitrary
 , hedgehog
@@ -15548,6 +15549,7 @@ cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-util-test
+containers
 formatting
 generic-arbitrary
 hedgehog

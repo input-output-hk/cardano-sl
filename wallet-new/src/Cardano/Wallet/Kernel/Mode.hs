@@ -169,6 +169,7 @@ instance HasConfiguration => MonadDBRead WalletMode where
   dbIterSource  = dbIterSourceDefault
   dbGetSerBlock = dbGetSerBlockRealDefault
   dbGetSerUndo  = dbGetSerUndoRealDefault
+  dbGetSerBlund  = dbGetSerBlundRealDefault
 
 instance HasConfiguration => MonadDB WalletMode where
   dbPut         = dbPutDefault

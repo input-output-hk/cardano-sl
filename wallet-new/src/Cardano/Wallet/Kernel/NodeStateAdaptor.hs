@@ -234,6 +234,7 @@ instance ( NodeConstraints
   dbIterSource  = dbIterSourceDefault
   dbGetSerBlock = DB.dbGetSerBlockRealDefault
   dbGetSerUndo  = DB.dbGetSerUndoRealDefault
+  dbGetSerBlund  = DB.dbGetSerBlundRealDefault
 
 instance (NodeConstraints, MonadIO m) => MonadSlots Res (WithNodeState m) where
   getCurrentSlot           = S.getCurrentSlotSimple

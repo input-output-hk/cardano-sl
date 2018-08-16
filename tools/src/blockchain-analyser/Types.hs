@@ -59,6 +59,7 @@ instance HasConfiguration => MonadDBRead BlockchainInspector where
     dbIterSource = DB.dbIterSourceDefault
     dbGetSerBlock = BDB.dbGetSerBlockRealDefault
     dbGetSerUndo = BDB.dbGetSerUndoRealDefault
+    dbGetSerBlund = BDB.dbGetSerBlundRealDefault
 
 prevBlock :: Block -> HeaderHash
 prevBlock = view prevBlockL

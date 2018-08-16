@@ -53,7 +53,8 @@ import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Crypto (PassPhrase)
 import           Pos.DB (MonadGState (..))
 import           Pos.DB.Block (dbGetSerBlockRealDefault,
-                     dbGetSerUndoRealDefault, dbPutSerBlundsRealDefault)
+                     dbGetSerBlundRealDefault, dbGetSerUndoRealDefault,
+                     dbPutSerBlundsRealDefault)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault,
@@ -258,6 +259,7 @@ instance HasConfiguration => MonadDBRead WalletWebMode where
     dbIterSource = dbIterSourceDefault
     dbGetSerBlock = dbGetSerBlockRealDefault
     dbGetSerUndo = dbGetSerUndoRealDefault
+    dbGetSerBlund = dbGetSerBlundRealDefault
 
 instance HasConfiguration => MonadDB WalletWebMode where
     dbPut = dbPutDefault

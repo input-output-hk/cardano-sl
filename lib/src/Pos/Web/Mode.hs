@@ -16,7 +16,8 @@ import           Pos.Context (HasPrimaryKey (..), HasSscContext (..),
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.DB (NodeDBs)
 import           Pos.DB.Block (dbGetSerBlockRealDefault,
-                     dbGetSerUndoRealDefault, dbPutSerBlundsRealDefault)
+                     dbGetSerBlundRealDefault, dbGetSerUndoRealDefault,
+                     dbPutSerBlundsRealDefault)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault,
                      dbIterSourceDefault, dbPutDefault, dbWriteBatchDefault)
@@ -57,6 +58,7 @@ instance HasConfiguration => MonadDBRead (WebMode ext) where
     dbIterSource = dbIterSourceDefault
     dbGetSerBlock = dbGetSerBlockRealDefault
     dbGetSerUndo = dbGetSerUndoRealDefault
+    dbGetSerBlund = dbGetSerBlundRealDefault
 
 instance HasConfiguration => MonadDB (WebMode ext) where
     dbPut = dbPutDefault

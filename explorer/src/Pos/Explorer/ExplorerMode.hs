@@ -190,6 +190,7 @@ instance HasConfigurations => DB.MonadDBRead ExplorerTestInitMode where
     dbIterSource = DB.dbIterSourcePureDefault
     dbGetSerBlock = DB.dbGetSerBlockPureDefault
     dbGetSerUndo = DB.dbGetSerUndoPureDefault
+    dbGetSerBlund = DB.dbGetSerBlundPureDefault
 
 instance HasConfigurations => DB.MonadDB ExplorerTestInitMode where
     dbPut = DB.dbPutPureDefault
@@ -262,6 +263,7 @@ instance HasConfigurations => DB.MonadDBRead ExplorerTestMode where
     dbIterSource = DB.dbIterSourcePureDefault
     dbGetSerBlock = DB.dbGetSerBlockPureDefault
     dbGetSerUndo = DB.dbGetSerUndoPureDefault
+    dbGetSerBlund = DB.dbGetSerBlundPureDefault
 
 instance HasConfigurations => DB.MonadDB ExplorerTestMode where
     dbPut = DB.dbPutPureDefault

@@ -94,6 +94,7 @@ import           Data.Time.Units (Millisecond)
 import qualified Data.Vector as V
 import qualified Hedgehog as H
 import           Serokell.Data.Memory.Units (Byte)
+import qualified Serokell.Util.Base16 as B16
 
 import qualified Cardano.Crypto.Wallet as CC
 import           Pos.Binary.Class (Raw (..), asBinary)
@@ -636,31 +637,43 @@ exampleGenesisAvvmBalances =
                      ,Coin {getCoin = 37343863242999412})
                      ]) }
   where
-    fstRedKey = "\254\156\235\217{]\130W\183LfJ\240"
-    sndRedKey =
-        "\254\156\235\217{]\130W\183LfJ\240\RS\224"
+    fstRedKey = hexToBS "e2a1773a2a82d10c30890cbf84eccbdc1aaaee9204\
+                        \96424d36e868039d9cb519"
+    sndRedKey = hexToBS "9cdabcec332abbc6fdf883ca5bf3a8afddca69bfea\
+                        \c14c013304da88ac032fe6"
 
 exampleSharedSeed :: SharedSeed
 exampleSharedSeed = SharedSeed (getBytes 8 32)
 
 exampleGenesisDelegation :: GenesisDelegation
 exampleGenesisDelegation = UnsafeGenesisDelegation (HM.fromList
-    [(abstractHash (PublicKey (CC.XPub {CC.xpubPublicKey = pubKey1
-    , CC.xpubChaincode = CC.ChainCode "Test"}))
-    , UnsafeProxySecretKey {pskOmega = HeavyDlgIndex $ EpochIndex 68300481033
-    , pskIssuerPk = PublicKey (CC.XPub {CC.xpubPublicKey = pskPubKey
-    , CC.xpubChaincode = CC.ChainCode "Test"})
-    , pskDelegatePk = PublicKey (CC.XPub {CC.xpubPublicKey = pskDelPubKey
-    , CC.xpubChaincode = CC.ChainCode "Test"})
-    , pskCert = ProxyCert (fromRight (error "Something went wrong") $ sig)})])
+    [( addressHash issuePubKey
+     , UnsafeProxySecretKey
+         { pskOmega =
+             HeavyDlgIndex $ EpochIndex 68300481033
+         , pskIssuerPk = issuePubKey
+         , pskDelegatePk =
+             PublicKey (CC.XPub { CC.xpubPublicKey = pskDelPubKey
+                                , CC.xpubChaincode = pskDelChainCode})
+         , pskCert =
+             ProxyCert (fromRight (error "Something went wrong") $ sig)
+         }
+      )]
+    )
   where
-    sig = CC.xsignature "\186\229B*\245@^8\ETX\NAKJJ\217\134\218]\DC4\207\
-                        \bMg\SOH\197\199\138y\236sw\DELt\225\&9s\175\131\
-                        \u!\DC4\217\241\129f\bY\151\252\129\228\&\
-                        \2\202\183\254\233\154']\139\241\&8\173\EOT\225\ETX"
-    pubKey1 = "\145\&3\131kUF\226\131\253M\174\157;w>\156k"
-    pskPubKey = "\DC1\RS\145\&3\131kUF\226\131\253M\174\157;w>\156k"
-    pskDelPubKey = "\132\248\DC1\RS\145\&3\131kUF\226\131\253M\174\157;w>\156k"
+    issuePubKey = PublicKey (CC.XPub { CC.xpubPublicKey = pskPubKey
+                                     , CC.xpubChaincode = pskChainCode})
+    sig = CC.xsignature (hexToBS "bae5422af5405e3803154a4ad986da5d14cf624d670\
+                                 \1c5c78a79ec73777f74e13973af83752114d9f18166\
+                                 \085997fc81e432cab7fee99a275d8bf138ad04e103")
+    pskPubKey = hexToBS "e2a1773a2a82d10c30890cbf84eccbdc1aaaee920496424d36e8\
+                        \68039d9cb519"
+    pskChainCode = CC.ChainCode (hexToBS "21b25efe033d9b00d4f02ccd9cdabcec332\
+                                         \abbc6fdf883ca5bf3a8aff4aac27e")
+    pskDelPubKey = hexToBS "ddca69bfeac14c013304da88ac032ee63281ab036c1b1b918\
+                           \8e4b174b303f43e"
+    pskDelChainCode = CC.ChainCode (hexToBS "55163b178e999b9fd50637b2edab8c85\
+                                            \8a879ac3c4bd3e610095419a19696573")
 
 exampleProtocolConstants :: GenesisProtocolConstants
 exampleProtocolConstants = GenesisProtocolConstants
@@ -684,3 +697,8 @@ exampleGenesisInitializer = GenesisInitializer
                  {getCoinPortion = 366832547637728}
                  , giUseHeavyDlg = False
                  , giSeed = 0}
+
+hexToBS :: Text -> ByteString
+hexToBS ts = case B16.decode ts of
+    Left err -> error $ "decode failed: " <> show err
+    Right bs -> bs

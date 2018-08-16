@@ -88,7 +88,7 @@ data MnemonicException csz = UnexpectedEntropyError (EntropyError csz)
 data MnemonicError csz
     = ErrMnemonicWords MnemonicWordsError
     | ErrEntropy (EntropyError csz)
-    | ErrDictionnary DictionaryError
+    | ErrDictionary DictionaryError
     | ErrForbidden
     deriving (Show)
 
@@ -135,7 +135,7 @@ mkMnemonic wordsm = do
     phrase <- left ErrMnemonicWords
         $ mnemonicPhrase @mw (toUtf8String <$> wordsm)
 
-    sentence <- left ErrDictionnary
+    sentence <- left ErrDictionary
         $ mnemonicPhraseToMnemonicSentence Dictionary.english phrase
 
     entropy <- left ErrEntropy
@@ -299,7 +299,7 @@ instance Buildable (MnemonicError csz) where
     build = \case
         ErrMnemonicWords (ErrWrongNumberOfWords a e) ->
             bprint ("Invalid number of mnemonic words: got "%build%" words, expected "%build%" words") a e
-        ErrDictionnary (ErrInvalidDictionaryWord w) ->
+        ErrDictionary (ErrInvalidDictionaryWord w) ->
             bprint ("Invalid dictionary word: "%build%"") (fromUtf8String w)
         ErrEntropy (ErrInvalidEntropyLength a e) ->
             bprint ("Invalid entropy length: got "%build%" bits, expected "%build%" bits") a e

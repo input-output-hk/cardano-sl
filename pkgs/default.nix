@@ -17053,7 +17053,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto
 , cardano-sl-infra
 , cardano-sl-networking
-, cardano-sl-ssc
 , cardano-sl-util
 , cpphs
 , log-warper
@@ -17086,16 +17085,6 @@ universum
 ];
 executableToolDepends = [
 cpphs
-];
-testHaskellDepends = [
-base
-cardano-sl
-cardano-sl-crypto
-cardano-sl-infra
-cardano-sl-networking
-cardano-sl-ssc
-cardano-sl-util
-universum
 ];
 doHaddock = false;
 description = "Cardano SL simple node executable";

@@ -1,4 +1,5 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE RankNTypes   #-}
 
 -- | UPDATE operations on the wallet-spec state
 module Cardano.Wallet.Kernel.DB.Spec.Update (
@@ -141,48 +142,54 @@ cancelPending :: forall c. IsCheckpoint c
 cancelPending txids = map (cpPending %~ Pending.delete txids)
 
 -- | Apply the prefiltered block to the specified wallet
+--
+-- Additionally returns the set of transactions removed from pending.
 applyBlock :: SlotId
            -> PrefilteredBlock
            -> NewestFirst NonEmpty Checkpoint
-           -> NewestFirst NonEmpty Checkpoint
-applyBlock slotId pb checkpoints = NewestFirst $ Checkpoint {
-      _checkpointUtxo        = InDb utxo'
-    , _checkpointUtxoBalance = InDb balance'
-    , _checkpointPending     = pending'
-    , _checkpointBlockMeta   = blockMeta'
-    , _checkpointSlotId      = InDb slotId
-    , _checkpointForeign     = foreign'
-    } NE.<| getNewestFirst checkpoints
+           -> (NewestFirst NonEmpty Checkpoint, Set Txp.TxId)
+applyBlock slotId pb checkpoints = (NewestFirst $ Checkpoint {
+        _checkpointUtxo        = InDb utxo'
+      , _checkpointUtxoBalance = InDb balance'
+      , _checkpointPending     = pending'
+      , _checkpointBlockMeta   = blockMeta'
+      , _checkpointSlotId      = InDb slotId
+      , _checkpointForeign     = foreign'
+      } NE.<| getNewestFirst checkpoints
+    , Set.unions [rem1, rem2]
+    )
   where
     current           = checkpoints ^. currentCheckpoint
     utxo              = current ^. checkpointUtxo        . fromDb
     balance           = current ^. checkpointUtxoBalance . fromDb
     (utxo', balance') = updateUtxo      pb (utxo, balance)
-    pending'          = updatePending   pb (current ^. checkpointPending)
+    (pending', rem1)  = updatePending   pb (current ^. checkpointPending)
     blockMeta'        = updateBlockMeta pb (current ^. checkpointBlockMeta)
-    foreign'          = updatePending   pb (current ^. checkpointForeign)
+    (foreign', rem2)  = updatePending   pb (current ^. checkpointForeign)
 
 -- | Like 'applyBlock', but to a list of partial checkpoints instead
 applyBlockPartial :: SlotId
                   -> PrefilteredBlock
                   -> NewestFirst NonEmpty PartialCheckpoint
-                  -> NewestFirst NonEmpty PartialCheckpoint
-applyBlockPartial slotId pb checkpoints = NewestFirst $ PartialCheckpoint {
-      _pcheckpointUtxo        = InDb utxo'
-    , _pcheckpointUtxoBalance = InDb balance'
-    , _pcheckpointPending     = pending'
-    , _pcheckpointBlockMeta   = blockMeta'
-    , _pcheckpointSlotId      = InDb slotId
-    , _pcheckpointForeign     = foreign'
-    } NE.<| getNewestFirst checkpoints
+                  -> (NewestFirst NonEmpty PartialCheckpoint, Set Txp.TxId)
+applyBlockPartial slotId pb checkpoints = (NewestFirst $ PartialCheckpoint {
+        _pcheckpointUtxo        = InDb utxo'
+      , _pcheckpointUtxoBalance = InDb balance'
+      , _pcheckpointPending     = pending'
+      , _pcheckpointBlockMeta   = blockMeta'
+      , _pcheckpointSlotId      = InDb slotId
+      , _pcheckpointForeign     = foreign'
+      } NE.<| getNewestFirst checkpoints
+    , Set.unions [rem1, rem2]
+    )
   where
     current           = checkpoints ^. currentCheckpoint
     utxo              = current ^. pcheckpointUtxo        . fromDb
     balance           = current ^. pcheckpointUtxoBalance . fromDb
     (utxo', balance') = updateUtxo           pb (utxo, balance)
-    pending'          = updatePending        pb (current ^. pcheckpointPending)
+    (pending', rem1)  = updatePending        pb (current ^. pcheckpointPending)
     blockMeta'        = updateLocalBlockMeta pb (current ^. pcheckpointBlockMeta)
-    foreign'          = updatePending        pb (current ^. pcheckpointForeign)
+    (foreign', rem2)  = updatePending        pb (current ^. pcheckpointForeign)
 
 -- | Rollback
 --
@@ -192,48 +199,79 @@ applyBlockPartial slotId pb checkpoints = NewestFirst $ PartialCheckpoint {
 -- NOTE: Rollback is currently only supported for wallets that are fully up
 -- to date. Hence, we only support full checkpoints here.
 --
+-- Additionally returns the set of pending transactions that got reintroduced,
+-- so that the submission layer can start sending those out again.
+--
 -- This is an internal function only, and not exported. See 'switchToFork'.
-rollback :: NewestFirst NonEmpty Checkpoint -> NewestFirst NonEmpty Checkpoint
-rollback (NewestFirst (c :| []))      = NewestFirst $ c :| []
-rollback (NewestFirst (c :| c' : cs)) = NewestFirst $ Checkpoint {
-      _checkpointUtxo        = c' ^. checkpointUtxo
-    , _checkpointUtxoBalance = c' ^. checkpointUtxoBalance
-    , _checkpointBlockMeta   = c' ^. checkpointBlockMeta
-    , _checkpointSlotId      = c' ^. checkpointSlotId
-    , _checkpointPending     = Pending.union (c  ^. checkpointPending)
-                                             (c' ^. checkpointPending)
-    , _checkpointForeign     = Pending.union (c  ^. checkpointForeign)
-                                             (c' ^. checkpointForeign)
-    } :| cs
+rollback :: NewestFirst NonEmpty Checkpoint
+         -> (NewestFirst NonEmpty Checkpoint, Pending)
+rollback (NewestFirst (c :| []))      = (NewestFirst $ c :| [], Pending.empty)
+rollback (NewestFirst (c :| c' : cs)) = (NewestFirst $ Checkpoint {
+        _checkpointUtxo        = c' ^. checkpointUtxo
+      , _checkpointUtxoBalance = c' ^. checkpointUtxoBalance
+      , _checkpointBlockMeta   = c' ^. checkpointBlockMeta
+      , _checkpointSlotId      = c' ^. checkpointSlotId
+      , _checkpointPending     = Pending.union (c  ^. checkpointPending)
+                                               (c' ^. checkpointPending)
+      , _checkpointForeign     = Pending.union (c  ^. checkpointForeign)
+                                               (c' ^. checkpointForeign)
+      } :| cs
+    , Pending.union
+        ((c' ^. checkpointPending) Pending.\\ (c ^. checkpointPending))
+        ((c' ^. checkpointForeign) Pending.\\ (c ^. checkpointForeign))
+    )
 
 -- | Observable rollback, used in testing only
 --
 -- See 'switchToFork' for production use.
 observableRollbackUseInTestsOnly :: NewestFirst NonEmpty Checkpoint
-                                 -> NewestFirst NonEmpty Checkpoint
+                                 -> (NewestFirst NonEmpty Checkpoint, Pending)
 observableRollbackUseInTestsOnly = rollback
 
 -- | Switch to a fork
 --
 -- Since rollback is only supported on wallets that are up to date wrt to
 -- the underlying node, the same goes for 'switchToFork'.
+--
+-- Additionally returns the set of transactions that got introduced reintroduced
+-- (to the rollback) and the transactions that got removed from pending
+-- (since they are new confirmed).
 switchToFork :: Int  -- ^ Number of blocks to rollback
              -> OldestFirst [] (SlotId, PrefilteredBlock) -- ^ Blocks to apply
              -> NewestFirst NonEmpty Checkpoint
-             -> NewestFirst NonEmpty Checkpoint
-switchToFork = \n bs -> applyBlocks (getOldestFirst bs) . rollbacks n
+             -> (NewestFirst NonEmpty Checkpoint, (Pending, Set Txp.TxId))
+switchToFork numRollbacks blocksToApply = \cps ->
+    rollbacks Pending.empty numRollbacks cps
   where
-    applyBlocks :: [(SlotId, PrefilteredBlock)]
-                -> NewestFirst NonEmpty Checkpoint
-                -> NewestFirst NonEmpty Checkpoint
-    applyBlocks []               = identity
-    applyBlocks ((slotId, b):bs) = applyBlocks bs . applyBlock slotId b
+    rollbacks :: Pending -- Accumulator: reintroduced pending transactions
+              -> Int
+              -> NewestFirst NonEmpty Checkpoint
+              -> (NewestFirst NonEmpty Checkpoint, (Pending, Set Txp.TxId))
+    rollbacks !accNew 0 cps =
+        applyBlocks
+          accNew
+          Set.empty
+          (getOldestFirst blocksToApply)
+          cps
+    rollbacks !accNew n cps =
+        rollbacks (Pending.union accNew reintroduced) (n - 1) cps'
+      where
+        (cps', reintroduced) = rollback cps
 
-    rollbacks :: Int
-              -> NewestFirst NonEmpty Checkpoint
-              -> NewestFirst NonEmpty Checkpoint
-    rollbacks 0 = identity
-    rollbacks n = rollbacks (n - 1) . rollback
+    applyBlocks :: Pending -- Accumulator: reintroduced pending transactions
+                -> Set Txp.TxId -- Accumulator: removed pending transactions
+                -> [(SlotId, PrefilteredBlock)]
+                -> NewestFirst NonEmpty Checkpoint
+                -> (NewestFirst NonEmpty Checkpoint, (Pending, Set Txp.TxId))
+    applyBlocks !accNew !accRem []               cps = (cps, (accNew, accRem))
+    applyBlocks !accNew !accRem ((slotId, b):bs) cps =
+        applyBlocks
+          (Pending.delete removed accNew)
+          (Set.union      removed accRem)
+          bs
+          cps'
+      where
+       (cps', removed) = applyBlock slotId b cps
 
 {-------------------------------------------------------------------------------
   Internal auxiliary
@@ -262,5 +300,7 @@ updateUtxo PrefilteredBlock{..} (utxo, balance) =
                   Core.subCoin withNew (Core.utxoBalance utxoMin)
 
 -- | Update the pending transactions with the given prefiltered block
-updatePending :: PrefilteredBlock -> Pending -> Pending
+--
+-- Returns the set of transactions that got removed from the pending set.
+updatePending :: PrefilteredBlock -> Pending -> (Pending, Set Txp.TxId)
 updatePending PrefilteredBlock{..} = Pending.removeInputs pfbInputs

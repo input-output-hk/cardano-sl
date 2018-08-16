@@ -112,6 +112,7 @@ import           Cardano.Wallet.Kernel.DB.Spec
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
 import           Cardano.Wallet.Kernel.DB.Util.IxSet
 import           Cardano.Wallet.Kernel.Util (modifyAndGetOld, neHead)
+import           Cardano.Wallet.Kernel.Util.StrictStateT
 
 {-------------------------------------------------------------------------------
   Supporting types
@@ -647,17 +648,17 @@ matchHdAccountState :: Update' HdAccountUpToDate e a
                     -> Update' HdAccountWithinK  e a
                     -> Update' HdAccountOutsideK e a
                     -> Update' HdAccount         e a
-matchHdAccountState updUpToDate updWithinK updOutsideK = StateT $ \acc ->
+matchHdAccountState updUpToDate updWithinK updOutsideK = strictStateT $ \acc ->
     case acc ^. hdAccountState of
       HdAccountStateUpToDate st ->
             second (\st' -> acc & hdAccountState .~ HdAccountStateUpToDate st')
-        <$> runStateT updUpToDate st
+        <$> runStrictStateT updUpToDate st
       HdAccountStateWithinK  st ->
             second (\st' -> acc & hdAccountState .~ HdAccountStateWithinK st')
-        <$> runStateT updWithinK st
+        <$> runStrictStateT updWithinK st
       HdAccountStateOutsideK st ->
             second (\st' -> acc & hdAccountState .~ HdAccountStateOutsideK st')
-        <$> runStateT updOutsideK st
+        <$> runStrictStateT updOutsideK st
 
 -- | Zoom to the current checkpoints of the wallet
 zoomHdAccountCheckpoints :: (   forall c. IsCheckpoint c

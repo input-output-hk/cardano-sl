@@ -6,6 +6,7 @@ module Cardano.Wallet.Kernel.Util.StrictStateT (
     StrictStateT -- opaque
   , runStrictStateT
   , evalStrictStateT
+  , execStrictStateT
   , strictStateT
     -- * Conduit support
   , strictStateC
@@ -46,6 +47,9 @@ runStrictStateT = runStateT . unStrictStateT
 
 evalStrictStateT :: Monad m => StrictStateT s m a -> s -> m a
 evalStrictStateT = evalStateT . unStrictStateT
+
+execStrictStateT :: Monad m => StrictStateT s m a -> s -> m s
+execStrictStateT = execStateT . unStrictStateT
 
 strictStateT :: forall s m a. Monad m => (s -> m (a, s)) -> StrictStateT s m a
 strictStateT f = StrictStateT $ StateT f'

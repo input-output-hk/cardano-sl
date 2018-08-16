@@ -1,3 +1,6 @@
+{-# LANGUAGE BangPatterns       #-}
+{-# LANGUAGE StandaloneDeriving #-}
+
 -- | General purpose utility functions
 module Cardano.Wallet.Kernel.Util (
     -- * Lists
@@ -19,6 +22,9 @@ module Cardano.Wallet.Kernel.Util (
     -- * MonadState utilities
   , modifyAndGetOld
   , modifyAndGetNew
+    -- * Spaceleak free version of WriterT
+  , Collect(..)
+  , traverseCollect
   ) where
 
 import           Universum
@@ -104,7 +110,7 @@ toss 1 = return True
 toss p = (< p) <$> QC.choose (0, 1)
 
 {-------------------------------------------------------------------------------
-  Access and return the state
+  MonadState util
 -------------------------------------------------------------------------------}
 
 -- | Modify the state and return the new state
@@ -114,3 +120,32 @@ modifyAndGetNew f = state $ \old -> let new = f old in (new, new)
 -- | Modify the state and return the old state
 modifyAndGetOld :: MonadState s m => (s -> s) -> m s
 modifyAndGetOld f = state $ \old -> let new = f old in (old, new)
+
+{-------------------------------------------------------------------------------
+  Spaceleak free version of WriterT
+-------------------------------------------------------------------------------}
+
+-- | Applicative-only, strict, spaceleak-free version of 'WriterT'
+newtype Collect w f a = Collect { runCollect :: f (a, w) }
+
+deriving instance Show (f (a, w)) => Show (Collect w f a)
+
+instance Functor f => Functor (Collect w f) where
+  fmap f (Collect bcs) = Collect (fmap (first f) bcs)
+
+instance (Applicative f, Monoid w) => Applicative (Collect w f) where
+  pure x = Collect (pure (x, mempty))
+  Collect fcs <*> Collect bcs = Collect (aux <$> fcs <*> bcs)
+    where
+      -- We force the evaluation of both logs, and tie the evaluation of their
+      -- concatenation of the pair also, just to be sure to be sure
+      aux :: (a -> b, w) -> (a, w) -> (b, w)
+      aux (f, !w) (a, !w') = let !w'' = mappend w w' in (f a, w'')
+
+-- | Walk over a traversable data structure, collecting additional results
+traverseCollect :: forall t f a b c. (Traversable t, Applicative f)
+                => (a -> f (b, c)) -> t a -> f (t b, [c])
+traverseCollect f = runCollect . traverse f'
+  where
+    f' :: a -> Collect [c] f b
+    f' = Collect . fmap (second (:[])) . f

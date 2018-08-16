@@ -74,13 +74,9 @@ spaces:
           ];
           postPatch = (drv.postPath or "") + ''
           autoreconf
-          ''; 
+          '';
         });
-        packages.ghc843 = let winTestWrapper = ps.writeScriptBin "test-wrapper" ''
-        #!${ps.stdenv.shell}
-        set -euxo pipefail
-        WINEDEBUG=-all WINEPREFIX=$TMP ${pkgs.buildPackages.winePackages.minimal}/bin/wine64 $@*
-        ''; in (ps.haskell.packages.ghc843.override {
+        packages.ghc843 = ps.haskell.packages.ghc843.override {
           overrides = self: super: rec {
             mkDerivation = drv: super.mkDerivation (drv // {
               # # fast builds -- the logic is as follows:
@@ -95,27 +91,39 @@ spaces:
               # enableExecutableProfiling = false;
               doHaddock = false;
               doHoogle = false;
-              doCheck = true; #false;
+              doCheck = true;
               configureFlags = (drv.configureFlags or []) ++ [ spaces ];
-            } // lib.optionalAttrs ps.stdenv.hostPlatform.isWindows {
+            } // lib.optionalAttrs ps.stdenv.hostPlatform.isWindows (
+              let wineTestWrapper = ps.writeScriptBin "test-wrapper" ''
+                #!${ps.stdenv.shell}
+                set -euo pipefail
+                WINEDLLOVERRIDES="winemac.drv=d" WINEDEBUG=-all+error LC_ALL=en_US.UTF-8 WINEPREFIX=$TMP ${pkgs.buildPackages.winePackages.minimal}/bin/wine64 $@*
+              ''; in {
               preCheck = ''
               echo "================================================================================"
-              echo "RUNNING TESTS for ${drv.pname}"
+              echo "RUNNING TESTS for ${drv.pname} via wine64"
               echo "================================================================================"
+              # copy all .dlls into the local directory.
+              # we ask ghc-pkg for *all* dynamic-library-dirs and then iterate over the unique set
+              # to copy over dlls as needed.
+              for libdir in $(ghc-pkg --package-db=$packageConfDir field "*" dynamic-library-dirs --simple-output|xargs|sed 's/ /\n/g'|sort -u); do
+                if [ -d "$libdir" ]; then
+                  for lib in "$libdir"/*.{DLL,dll}; do
+                    cp "$lib" .
+                  done
+                fi
+              done
               '';
               postCheck = ''
-              for log in dist/test/*.log; do
-                echo $a
-                cat "$log"
-              done
               echo "================================================================================"
               echo "END RUNNING TESTS for ${drv.pname}"
               echo "================================================================================"
               '';
-              testTarget =  "--verbose --test-wrapper ${winTestWrapper}/bin/test-wrapper";
-            });
-          };
-        });
+              testTarget = "--test-wrapper ${wineTestWrapper}/bin/test-wrapper";
+            })
+          );
+        };
       };
     };
-  }
+  };
+}

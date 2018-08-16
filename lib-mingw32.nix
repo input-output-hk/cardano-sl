@@ -21,7 +21,7 @@ let buildHaskellPackages = pkgs.buildPackages.haskellPackages; in rec
       unset configureFlags
       PORT=$((5000 + $RANDOM % 5000))
       echo "---> Starting remote-iserv on port $PORT"
-      WINEDEBUG=-all WINEPREFIX=$TMP wine64 ${self.remote-iserv}/bin/remote-iserv.exe tmp $PORT &
+      WINEDLLOVERRIDES="winemac.drv=d" WINEDEBUG=-all+error WINEPREFIX=$TMP wine64 ${self.remote-iserv}/bin/remote-iserv.exe tmp $PORT &
       echo "---| remote-iserv should have started on $PORT"
       RISERV_PID=$!
     '';

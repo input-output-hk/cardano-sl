@@ -12,6 +12,8 @@ import           Hedgehog.Internal.TH (TExpQ)
 import qualified Prelude
 import           Text.Show.Pretty (Value (..), parseValue)
 
+import           System.IO (hSetEncoding, stderr, stdout, utf8)
+
 import           Universum
 
 discoverRoundTrip :: TExpQ Group
@@ -28,6 +30,10 @@ roundTripsAesonBuildable a = trippingBuildable a encode decode
 
 runTests :: [IO Bool] -> IO ()
 runTests tests' = do
+    -- ensure UTF-8. As that's what hedgehog needs.
+    hSetEncoding stdout utf8
+    hSetEncoding stderr utf8
+
     result <- and <$> sequence tests'
     unless result
         exitFailure

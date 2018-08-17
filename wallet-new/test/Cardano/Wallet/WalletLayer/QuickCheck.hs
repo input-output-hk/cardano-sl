@@ -23,8 +23,8 @@ import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import           Pos.Core.Txp (TxIn (..), TxOut, TxOutAux)
 
 import           Pos.Core ()
-import           Test.QuickCheck (Arbitrary (..), Gen, arbitrary, choose,
-                     generate, genericShrink, oneof, scale)
+import           Test.QuickCheck (Arbitrary (..), arbitrary, choose, generate,
+                     genericShrink, oneof, scale)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary)
 
 -- | Initialize the passive wallet.
@@ -145,14 +145,11 @@ instance Arbitrary GetUtxosError where
                       , GetUtxosErrorFromGetAccountsError <$> arbitrary
                       ]
 
-genTxIn :: Gen TxIn
-genTxIn = oneof
-    [ TxInUtxo <$> arbitrary <*> arbitrary
-    , TxInUnknown <$> choose (1, 255) <*> scale (min 150) arbitrary
-    ]
-
 instance Arbitrary TxIn where
-    arbitrary = genTxIn
+    arbitrary = oneof
+        [ TxInUtxo <$> arbitrary <*> arbitrary
+        , TxInUnknown <$> choose (1, 255) <*> scale (min 150) arbitrary
+        ]
     shrink = genericShrink
 
 instance Arbitrary TxOutAux where

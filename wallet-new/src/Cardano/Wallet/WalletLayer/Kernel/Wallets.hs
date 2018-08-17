@@ -41,6 +41,7 @@ import           Cardano.Wallet.WalletLayer.Types (CreateWalletError (..),
                      GetWalletError (..), UpdateWalletError (..),
                      UpdateWalletPasswordError (..))
 
+
 createWallet :: MonadIO m
              => Kernel.PassiveWallet
              -> V1.NewWallet

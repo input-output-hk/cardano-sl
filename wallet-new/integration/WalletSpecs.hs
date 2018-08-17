@@ -9,6 +9,7 @@ import           Cardano.Wallet.API.V1.Errors
                      (WalletError (WalletAlreadyExists))
 import           Cardano.Wallet.Client.Http
 import           Control.Lens
+import qualified Data.List.NonEmpty as NL
 import           Test.Hspec
 
 import           Util
@@ -60,10 +61,10 @@ walletSpecs _ wc = do
 
             eresp <- getUtxoStatistics wc (walId wallet)
             utxoStatistics <- fmap wrData eresp `shouldPrism` _Right
-            let possibleBuckets = fmap show $ ( map (\toPower -> 10^toPower :: Word64) [(1::Word64)..16] ) ++ [45 * (10^(15::Word64))]
-            let histogram = map (\ x -> curry HistogramBarCount x 0) possibleBuckets
+            let possibleBuckets = fmap show $ (generateBounds Log10)
+            let histogram = map (\x -> HistogramBarCount x 0) possibleBuckets
             let allStakes = 0
-            utxoStatistics `shouldBe` UtxoStatistics histogram allStakes
+            utxoStatistics `shouldBe` UtxoStatistics (NL.toList histogram) allStakes
   where
     testWalletAlreadyExists action = do
             newWallet1 <- randomWallet action

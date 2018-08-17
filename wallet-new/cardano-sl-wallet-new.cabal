@@ -42,7 +42,6 @@ library
                        Cardano.Wallet.API.V1.Handlers
                        Cardano.Wallet.API.V1.Handlers.Accounts
                        Cardano.Wallet.API.V1.Handlers.Addresses
-                       Cardano.Wallet.API.V1.Handlers.Internal
                        Cardano.Wallet.API.V1.Handlers.Transactions
                        Cardano.Wallet.API.V1.Handlers.Wallets
                        Cardano.Wallet.API.V1.Info
@@ -119,6 +118,7 @@ library
                        Cardano.Wallet.Server.CLI
                        Cardano.Wallet.Server.Plugins
                        Cardano.Wallet.TypeLits
+                       Cardano.Wallet.Types.UtxoStatistics
                        Cardano.Wallet.Client
                        Cardano.Wallet.Client.Http
 

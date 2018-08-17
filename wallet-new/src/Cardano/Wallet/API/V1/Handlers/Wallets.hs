@@ -4,7 +4,6 @@ import           Universum
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
-import           Cardano.Wallet.API.V1.Handlers.Internal (computeUtxoStatistics)
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 
@@ -103,19 +102,18 @@ updateWallet pwl wid walletUpdateRequest = do
          Left e  -> throwM e
          Right w -> return $ single w
 
-getUtxoStatistics :: PassiveWalletLayer IO
-                  -> WalletId
-                  -> Handler (WalletResponse UtxoStatistics)
+getUtxoStatistics
+    :: PassiveWalletLayer IO
+    -> WalletId
+    -> Handler (WalletResponse UtxoStatistics)
 getUtxoStatistics pwl wid = do
     res <- liftIO $ WalletLayer.getUtxos pwl wid
     case res of
          Left e  -> throwM e
-         Right w ->
-             let
-                 extractValue :: TxOutAux ->  Word64
+         Right w -> do
+             let extractValue :: TxOutAux ->  Word64
                  extractValue = getCoin . txOutValue . toaOut
-                 utxosCoinValuesForAllAccounts :: [(Account, Utxo)] -> [Word64]
+             let utxosCoinValuesForAllAccounts :: [(Account, Utxo)] -> [Word64]
                  utxosCoinValuesForAllAccounts pairs =
                      concatMap (\pair -> map extractValue (M.elems $ snd pair) ) pairs
-             in do
-                 return $ single (computeUtxoStatistics $ utxosCoinValuesForAllAccounts w)
+             return $ single (V1.computeUtxoStatistics $ utxosCoinValuesForAllAccounts w)

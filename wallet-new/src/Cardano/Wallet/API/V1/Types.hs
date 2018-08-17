@@ -37,9 +37,6 @@ module Cardano.Wallet.API.V1.Types (
   , WalletId (..)
   , WalletOperation (..)
   , SpendingPassword
-  , UtxoStatistics (..)
-  , HistogramBar (..)
-  --, AccountUtxo (..)
   -- * Addresses
   , AddressValidity (..)
   -- * Accounts
@@ -90,6 +87,9 @@ module Cardano.Wallet.API.V1.Types (
   , CaptureAccountId
   -- * Core re-exports
   , Core.Address
+
+  , module Cardano.Wallet.Types.UtxoStatistics
+
   ) where
 
 import           Universum
@@ -104,9 +104,7 @@ import           Data.Aeson.TH as A
 import           Data.Aeson.Types (toJSONKeyText, typeMismatch)
 import qualified Data.Char as C
 import           Data.Default (Default (def))
-import qualified Data.HashMap.Strict as HMS
 import qualified Data.IxSet.Typed as IxSet
-import           Data.Scientific (floatingOrInteger)
 import           Data.Swagger hiding (Example, example)
 import qualified Data.Swagger as S
 import           Data.Swagger.Declare (Declare, look)
@@ -134,6 +132,7 @@ import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..),
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (HasPrimKey (..),
                      IndicesOf, OrdByPrimKey, ixFun, ixList)
 import           Cardano.Wallet.Orphans.Aeson ()
+import           Cardano.Wallet.Types.UtxoStatistics
 
 -- V0 logic
 import           Pos.Util.Mnemonic (Mnemonic)
@@ -857,173 +856,6 @@ instance BuildableSafeGen Wallet where
 instance Buildable [Wallet] where
     build = bprint listJson
 
-
-
---------------------------------------------------------------------------------
--- Utxo statistics
---------------------------------------------------------------------------------
-
--- | Utxo statistics for the wallet.
--- | Histogram is composed of bars that represent the bucket. The bucket is tagged by upper bound of a given bucket.
--- | The bar value corresponds to the number of stakes
--- | In the future the bar value could be different things:
--- | (a) sum of stakes in a bucket
--- | (b) avg or std of stake in a bucket
--- | (c) topN buckets
--- | to name a few
-newtype HistogramBar = HistogramBarCount (Text, Word64) deriving (Show, Eq, Ord, Generic)
-
-instance ToSchema HistogramBar where
-  declareNamedSchema = genericDeclareNamedSchema defaultSchemaOptions
-
-instance Arbitrary HistogramBar where
-  arbitrary =
-      let possibleBuckets = fmap show $ (zipWith (\ten toPower -> ten^toPower :: Word64) (repeat (10::Word64)) [(1::Word64)..16]) ++ [45 * (10^(15::Word64))]
-          possibleBars = zipWith (curry HistogramBarCount) possibleBuckets [0..]
-      in elements possibleBars
-
-deriveSafeBuildable ''HistogramBar
-instance BuildableSafeGen HistogramBar where
-    buildSafeGen _ (HistogramBarCount pair) =
-        bprint build pair
-
-
-data UtxoStatistics = UtxoStatistics
-  { theHistogram :: ![HistogramBar]
-  , theAllStakes :: !Word64
-  } deriving (Show, Generic, Ord)
-
-toMap :: [HistogramBar] -> Map Text Word64
-toMap = Map.fromList . map (\(HistogramBarCount (key, val)) -> (key,val))
-
-instance Eq UtxoStatistics where
-    (UtxoStatistics h s) == (UtxoStatistics h' s') = s == s' && toMap h == toMap h'
-
-instance ToJSON UtxoStatistics where
-    toJSON (UtxoStatistics bars allStakes) =
-        let histogramObject = Object . HMS.fromList . map extractBarKey
-            extractBarKey (HistogramBarCount (bound, stake)) = bound .= stake
-        in object [ "histogram" .= histogramObject bars
-                  , "allStakes" .= allStakes ]
-
-instance FromJSON UtxoStatistics where
-    parseJSON (Object v) =
-        let histogramListM = case HMS.lookup "histogram" v of
-                Nothing   -> empty
-                Just (Object bars) -> do
-                    let constructHistogram (key, Number val) =
-                            case floatingOrInteger val of
-                                Left (_ :: Double)        -> HistogramBarCount ("0", 0 :: Word64)
-                                Right integer             -> HistogramBarCount (key, integer)
-                        constructHistogram _ = HistogramBarCount ("0", 0 :: Word64)
-                    return $ map constructHistogram $ HMS.toList bars
-                Just _ -> empty
-        in UtxoStatistics <$> histogramListM
-                          <*> v .: "allStakes"
-    parseJSON _ = empty
-
-instance ToSchema UtxoStatistics where
-    declareNamedSchema _ =
-        pure $ NamedSchema (Just "UtxoStatistics") $ mempty
-            & type_ .~ SwaggerObject
-            & required .~ ["histogram", "allStakes"]
-            & properties .~ (mempty
-                & at "histogram" ?~ Inline (mempty
-                    & type_ .~ SwaggerObject
-                    & properties .~ (mempty
-                                     & at "10" ?~ (Inline $ mempty
-                                                          & type_ .~ SwaggerNumber
-                                                          & minimum_ .~ Just 0
-                                                  )
-                                     & at "100" ?~ (Inline $ mempty
-                                                          & type_ .~ SwaggerNumber
-                                                          & minimum_ .~ Just 0
-                                                  )
-                                     & at "1000" ?~ (Inline $ mempty
-                                                          & type_ .~ SwaggerNumber
-                                                          & minimum_ .~ Just 0
-                                                  )
-                                     & at "10000" ?~ (Inline $ mempty
-                                                          & type_ .~ SwaggerNumber
-                                                          & minimum_ .~ Just 0
-                                                  )
-                                     & at "100000" ?~ (Inline $ mempty
-                                                          & type_ .~ SwaggerNumber
-                                                          & minimum_ .~ Just 0
-                                                  )
-                                     & at "1000000" ?~ (Inline $ mempty
-                                                          & type_ .~ SwaggerNumber
-                                                          & minimum_ .~ Just 0
-                                                  )
-                                     & at "10000000" ?~ (Inline $ mempty
-                                                          & type_ .~ SwaggerNumber
-                                                          & minimum_ .~ Just 0
-                                                  )
-                                     & at "100000000" ?~ (Inline $ mempty
-                                                          & type_ .~ SwaggerNumber
-                                                          & minimum_ .~ Just 0
-                                                  )
-                                     & at "1000000000" ?~ (Inline $ mempty
-                                                          & type_ .~ SwaggerNumber
-                                                          & minimum_ .~ Just 0
-                                                  )
-                                     & at "10000000000" ?~ (Inline $ mempty
-                                                          & type_ .~ SwaggerNumber
-                                                          & minimum_ .~ Just 0
-                                                  )
-                                     & at "100000000000" ?~ (Inline $ mempty
-                                                          & type_ .~ SwaggerNumber
-                                                          & minimum_ .~ Just 0
-                                                  )
-                                     & at "1000000000000" ?~ (Inline $ mempty
-                                                          & type_ .~ SwaggerNumber
-                                                          & minimum_ .~ Just 0
-                                                  )
-                                     & at "10000000000000" ?~ (Inline $ mempty
-                                                          & type_ .~ SwaggerNumber
-                                                          & minimum_ .~ Just 0
-                                                  )
-                                     & at "100000000000000" ?~ (Inline $ mempty
-                                                          & type_ .~ SwaggerNumber
-                                                          & minimum_ .~ Just 0
-                                                  )
-                                     & at "1000000000000000" ?~ (Inline $ mempty
-                                                          & type_ .~ SwaggerNumber
-                                                          & minimum_ .~ Just 0
-                                                  )
-                                     & at "10000000000000000" ?~ (Inline $ mempty
-                                                          & type_ .~ SwaggerNumber
-                                                          & minimum_ .~ Just 0
-                                                  )
-                                     & at "45000000000000000" ?~ (Inline $ mempty
-                                                          & type_ .~ SwaggerNumber
-                                                          & minimum_ .~ Just 0
-                                                  )
-                                    )
-                )
-                & at "allStakes" ?~ (Inline $ mempty
-                    & type_ .~ SwaggerNumber
-                    & minimum_ .~ Just 0
-                )
-            )
-
-instance Arbitrary UtxoStatistics where
-    arbitrary = UtxoStatistics <$> arbitrary
-                               <*> arbitrary
-
-instance Buildable [HistogramBar] where
-    build =
-        bprint listJson
-
-
-deriveSafeBuildable ''UtxoStatistics
-instance BuildableSafeGen UtxoStatistics where
-    buildSafeGen _ UtxoStatistics{..} = bprint ("{"
-        %" histogram="%build
-        %" allStakes="%build
-        %" }")
-        theHistogram
-        theAllStakes
 
 --------------------------------------------------------------------------------
 -- Addresses
@@ -2190,9 +2022,6 @@ instance Example NodeId
 instance Example ShieldedRedemptionCode
 instance Example (V1 Core.PassPhrase)
 instance Example (V1 Core.Coin)
-instance Example HistogramBar
-instance Example UtxoStatistics
---instance Example AccountUtxo
 
 -- | We have a specific 'Example' instance for @'V1' 'Address'@ because we want
 -- to control the length of the examples. It is possible for the encoded length

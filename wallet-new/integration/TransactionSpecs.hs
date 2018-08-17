@@ -8,6 +8,7 @@ import           Universum
 import           Cardano.Wallet.API.V1.Errors hiding (describe)
 import           Cardano.Wallet.Client.Http
 import           Control.Lens
+import qualified Data.List.NonEmpty as NL
 import qualified Pos.Core as Core
 import           Test.Hspec
 
@@ -187,8 +188,8 @@ transactionSpecs wRef wc = do
             etxn <- postTransaction wc payment
 
             void $ etxn `shouldPrism` _Left
-{-- Uncomment when new Client is Handler based rather than LegacyHandler based
-        it "posted transactions gives rise to nonempty Utxo histogram" $ do
+
+        xit "posted transactions gives rise to nonempty Utxo histogram" $ do
             genesis <- genesisWallet wc
             (fromAcct, _) <- firstAccountAndId wc genesis
 
@@ -208,13 +209,18 @@ transactionSpecs wRef wc = do
                     , pmtSpendingPassword = Nothing
                     }
 
+            let possibleBuckets = fmap show $ (generateBounds Log10)
+
+            eresp0 <- getUtxoStatistics wc (walId wallet)
+            utxoStatistics0 <- fmap wrData eresp0 `shouldPrism` _Right
+            let histogram0 = NL.zipWith HistogramBarCount possibleBuckets (NL.repeat 0)
+            let allStakes0 = 0
+            utxoStatistics0 `shouldBe` UtxoStatistics (NL.toList histogram0) allStakes0
+
             void $ postTransaction wc (payment 1)
             threadDelay 120000000
-            eresp1 <- getUtxoStatistics wc (walId wallet)
-            utxoStatistics1 <- fmap wrData eresp1 `shouldPrism` _Right
-            let possibleBuckets = fmap show $ (zipWith (\ten toPower -> ten^toPower :: Word64) (repeat (10::Word64)) [(1::Word64)..16]) ++ [45 * (10^(15::Word64))]
-            let histogram1 = zipWith (\key value -> HistogramBarCount (key, value)) possibleBuckets ([1::Word64] ++ (repeat 0))
-            let allStakes1 = 1
-            utxoStatistics1 `shouldBe` UtxoStatistics histogram1 allStakes1
-
---}
+            eresp <- getUtxoStatistics wc (walId wallet)
+            utxoStatistics <- fmap wrData eresp `shouldPrism` _Right
+            let histogram = NL.zipWith HistogramBarCount  possibleBuckets (NL.cons (1::Word64) (NL.repeat 0) )
+            let allStakes = 1
+            utxoStatistics `shouldBe` UtxoStatistics (NL.toList histogram) allStakes

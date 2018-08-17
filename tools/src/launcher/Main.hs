@@ -666,7 +666,7 @@ runWallet
 runWallet shouldLog nd nLogPath lo = do
     safeMode <- readSafeMode lo
     let wpath = ndPath nd
-        wargs = (ndArgs nd) <> ["--safe-mode" | safeMode ]
+        wargs = (ndArgs nd) <> (if safeMode then [ "--safe-mode", "--disable-gpu", "--disable-d3d11" ] else [])
         mWLogPath = ndLogPath nd
     logNotice "Starting the wallet"
     phvar <- newEmptyMVar

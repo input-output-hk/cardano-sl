@@ -1,5 +1,7 @@
-{-# LANGUAGE BangPatterns  #-}
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE BangPatterns    #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections   #-}
+
 module Main where
 
 import           Universum

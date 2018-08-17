@@ -1,4 +1,5 @@
-{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE QuasiQuotes     #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Main ( module Main ) where
 

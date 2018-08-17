@@ -78,7 +78,6 @@ executable dbgen
                         DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
-                        RecordWildCards
                         TypeApplications
                         TupleSections
                         ViewPatterns
@@ -127,7 +126,6 @@ executable cardano-genupdate
                        NoImplicitPrelude
                        BangPatterns
                        ApplicativeDo
-                       RecordWildCards
                        ScopedTypeVariables
                        MonadFailDesugaring
 
@@ -175,7 +173,6 @@ executable cardano-keygen
                         DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
-                        RecordWildCards
                         TypeApplications
                         TupleSections
                         ViewPatterns
@@ -240,7 +237,6 @@ executable cardano-launcher
     ld-options:        -fuse-ld=gold
 
   default-extensions:  OverloadedStrings
-                       RecordWildCards
                        TupleSections
                        TypeApplications
                        BangPatterns
@@ -284,7 +280,6 @@ executable cardano-addr-convert
                         DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
-                        RecordWildCards
                         TypeApplications
                         TupleSections
                         ViewPatterns
@@ -321,7 +316,6 @@ executable cardano-cli-docs
 
   default-extensions:   NoImplicitPrelude
                         BangPatterns
-                        RecordWildCards
                         OverloadedStrings
                         ApplicativeDo
                         ScopedTypeVariables
@@ -406,7 +400,6 @@ executable cardano-post-mortem
                         DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
-                        RecordWildCards
                         TypeApplications
                         TupleSections
                         ViewPatterns
@@ -455,8 +448,7 @@ executable cardano-blockchain-analyser
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
 
-  default-extensions:   RecordWildCards
-                        NoImplicitPrelude
+  default-extensions:   NoImplicitPrelude
                         OverloadedStrings
                         TypeApplications
                         ScopedTypeVariables
@@ -499,7 +491,6 @@ executable cardano-x509-certificates
   default-extensions:   DeriveGeneric
                         NoImplicitPrelude
                         OverloadedStrings
-                        RecordWildCards
                         TupleSections
                         TypeApplications
 

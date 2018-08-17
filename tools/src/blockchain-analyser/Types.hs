@@ -1,11 +1,10 @@
-{-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
-
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
 
 module Types ( initBlockchainAnalyser
              , DBFolderStat

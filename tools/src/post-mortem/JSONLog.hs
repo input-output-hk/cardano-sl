@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module JSONLog
     ( jsonLogs
     , parseLogP

@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Post-mortem tool main.
 
 import           Universum hiding (last)

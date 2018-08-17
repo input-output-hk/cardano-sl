@@ -36,15 +36,15 @@ import           Universum
 -- What we want, instead, is to always convert from bytes to the requested unit of
 -- measure, like other unix tools do.
 renderBytes :: UOM -> Integer -> Text
-renderBytes uom bytes =
-    case uom of
+renderBytes uom' bytes =
+    case uom' of
         Adaptive -> sformat memory (fromBytes @Byte bytes)
         _        -> let formatPrecision = fixed @Double 3
                         converted       = fromIntegral bytes / fromIntegral formatBytes
                     in sformat formatPrecision converted
     where
       formatBytes :: Int
-      formatBytes = case uom of
+      formatBytes = case uom' of
                         Bytes    -> 1
                         KB       -> 1000
                         MB       -> 1000 * 1000
@@ -52,7 +52,7 @@ renderBytes uom bytes =
                         Adaptive -> 1 -- It shouldn't really matter.
 
 renderUnit :: UOM -> Text
-renderUnit uom = case uom of
+renderUnit uom' = case uom' of
     Bytes    -> "B"
     KB       -> "KB"
     MB       -> "MB"
@@ -60,26 +60,26 @@ renderUnit uom = case uom of
     Adaptive -> "Adaptive"
 
 renderBytesWithUnit :: UOM -> Integer -> Text
-renderBytesWithUnit uom bytes =
-    case uom of
-        Adaptive -> renderBytes uom bytes
-        _        -> renderBytes uom bytes <> " " <> renderUnit uom
+renderBytesWithUnit uom' bytes =
+    case uom' of
+        Adaptive -> renderBytes uom' bytes
+        _        -> renderBytes uom' bytes <> " " <> renderUnit uom'
 
 render :: UOM -> PrintMode -> [DBFolderStat] -> Text
-render uom printMode stats =
-    case printMode of
-        CSV -> renderCSV uom stats
-        _   -> renderAsciiTable uom stats
+render uom' printMode' stats =
+    case printMode' of
+        CSV -> renderCSV uom' stats
+        _   -> renderAsciiTable uom' stats
 
 renderCSV :: UOM -> [DBFolderStat] -> Text
-renderCSV uom stats =
-    let statsHeaders = ["Directory", "Size (" <> renderUnit uom <> ")"]
-        rows   = statsHeaders : map (\(f,sz) -> [f, renderBytes uom sz]) stats
+renderCSV uom' stats =
+    let statsHeaders = ["Directory", "Size (" <> renderUnit uom' <> ")"]
+        rows   = statsHeaders : map (\(f,sz) -> [f, renderBytes uom' sz]) stats
     in unlines $ map (T.intercalate ",") rows
 
 renderAsciiTable :: UOM -> [DBFolderStat] -> Text
-renderAsciiTable uom stats =
-    let rows = ["Directory", "Size"] : map (\(f,sz) -> [f, renderBytesWithUnit uom sz]) stats
+renderAsciiTable uom' stats =
+    let rows = ["Directory", "Size"] : map (\(f,sz) -> [f, renderBytesWithUnit uom' sz]) stats
     in tabl EnvAscii hdecor vdecor aligns rows
   where
     hdecor = DecorUnion [DecorOuter, DecorOnly [1]]
@@ -99,7 +99,7 @@ renderBlockHuman :: Block -> Text
 renderBlockHuman = either pretty pretty
 
 renderBlockCSV :: UOM -> (Block, Maybe Undo) -> Text
-renderBlockCSV uom = T.intercalate "," . (toTableRow uom)
+renderBlockCSV uom' = T.intercalate "," . (toTableRow uom')
 
 defaultHorizontalDecoration :: Decoration
 defaultHorizontalDecoration = DecorUnion [DecorOuter, DecorOnly [1]]
@@ -124,7 +124,7 @@ renderHeader cli = case printMode cli of
     CSV        -> T.intercalate "," (header (uom cli))
 
 header :: UOM -> [T.Text]
-header uom = [
+header uom' = [
            "Block Type"
          , "Epoch"
          , "Slot"
@@ -132,9 +132,9 @@ header uom = [
          , "Block Hash"
          , "Leader"
          , "Tx Count"
-         , "Header Size  (" <> renderUnit uom <> ")"
-         , "Block  Size  (" <> renderUnit uom <> ")"
-         , "Block + Undo (" <> renderUnit uom <> ")"
+         , "Header Size  (" <> renderUnit uom' <> ")"
+         , "Block  Size  (" <> renderUnit uom' <> ")"
+         , "Block + Undo (" <> renderUnit uom' <> ")"
          ]
 
 renderBlocks :: CLIOptions
@@ -176,7 +176,7 @@ getUndoSize = maybe 0 (toBytes . biSize)
 -- | Given a `Block`, returns a table row suitable for being printed
 -- by `tabl`.
 toTableRow :: UOM -> (Block, Maybe Undo) -> [Text]
-toTableRow uom (block, mbUndo) =
+toTableRow uom' (block, mbUndo) =
     let blockHeader   = getBlockHeader block
         previousBlock = pretty (prevBlock block)
         blockHash     = blockHeaderHash blockHeader
@@ -185,7 +185,7 @@ toTableRow uom (block, mbUndo) =
         slot          = maybe mempty (pretty . getSlotIndex . siSlot) (getSlot blockHeader)
         leader        = maybe mempty pretty (getLeader blockHeader)
         txCount       = pretty (length (getTxs block))
-        headerSize    = renderBytesWithUnit uom (getHeaderSize blockHeader)
+        headerSize    = renderBytesWithUnit uom' (getHeaderSize blockHeader)
         blockSize     = getBlockSize block
         undoSize      = getUndoSize  mbUndo
     in [ blockType
@@ -196,6 +196,6 @@ toTableRow uom (block, mbUndo) =
        , leader
        , txCount
        , headerSize
-       , renderBytesWithUnit uom blockSize
-       , renderBytesWithUnit uom (blockSize + undoSize)
+       , renderBytesWithUnit uom' blockSize
+       , renderBytesWithUnit uom' (blockSize + undoSize)
        ]

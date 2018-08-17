@@ -1,6 +1,7 @@
---
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Generate X.509 Certificates for TLS Client/Server authentication
---
+
 module Main where
 
 import           Universum

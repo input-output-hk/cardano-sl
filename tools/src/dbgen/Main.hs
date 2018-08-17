@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeApplications    #-}

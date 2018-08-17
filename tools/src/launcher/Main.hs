@@ -9,6 +9,7 @@
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE QuasiQuotes           #-}
 {-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 

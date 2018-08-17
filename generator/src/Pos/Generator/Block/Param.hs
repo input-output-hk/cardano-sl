@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Parameters used by blockchain generator.
 
 module Pos.Generator.Block.Param

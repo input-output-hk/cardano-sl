@@ -81,7 +81,6 @@ library
                        DefaultSignatures
                        NoImplicitPrelude
                        OverloadedStrings
-                       RecordWildCards
                        TypeApplications
                        TupleSections
                        ViewPatterns
@@ -164,7 +163,6 @@ test-suite cardano-generator-test
                         DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
-                        RecordWildCards
                         TypeApplications
                         TupleSections
                         ViewPatterns
@@ -234,7 +232,6 @@ benchmark cardano-sl-verification-bench
                         DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
-                        RecordWildCards
                         TypeApplications
                         TypeFamilies
                         TupleSections
@@ -308,7 +305,6 @@ executable cardano-sl-verification-bench-exe
                         DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
-                        RecordWildCards
                         TypeApplications
                         TypeFamilies
                         TupleSections

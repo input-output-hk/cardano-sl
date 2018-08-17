@@ -1,4 +1,5 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 -- | Specification of 'Pos.Chain.Block.Lrc' (actually only
 -- 'lrcSingleShotNoLock' which probably shouldn't be there, but it

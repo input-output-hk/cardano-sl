@@ -22,7 +22,6 @@ import           Pos.Generator.Block (BlockGenParams (..), genBlocks,
                      tgpTxCountRange)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Util.CompileInfo (withCompileInfo)
-import           Pos.Util.Trace (noTrace)
 import           Pos.Util.Trace.Named (TraceNamed, logInfo)
 
 import           Lang.Value (GenBlocksParams (..))
@@ -34,7 +33,7 @@ generateBlocks :: MonadAuxxMode m
                -> ProtocolMagic
                -> TxpConfiguration
                -> GenBlocksParams -> m ()                                -- JSON logging Trace
-generateBlocks logTrace pm txpConfig GenBlocksParams{..} = withStateLock noTrace HighPriority ApplyBlock $ \_ -> do
+generateBlocks logTrace pm txpConfig GenBlocksParams{..} = withStateLock HighPriority ApplyBlock $ \_ -> do
     seed <- liftIO $ maybe randomIO pure bgoSeed
     liftIO $ logInfo logTrace $ "Generating with seed " <> show seed
 

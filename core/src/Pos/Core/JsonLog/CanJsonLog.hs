@@ -34,7 +34,6 @@ import qualified Ether
 
 import qualified Pos.Util.Log as Log
 
-
 -- | An instance of class @'CanJsonLog'@ supports the effect of
 -- JSON logging.
 class MonadIO m => CanJsonLog m where

@@ -118,7 +118,7 @@ newRealModeContext logTrace pm txpConfig dbs confOpts publicKeyPath secretKeyPat
                         <*> pure nrSscState
                         <*> pure nrTxpState
                         <*> pure nrDlgState
-                        <*> jsonLogConfigFromHandle stdout
+                        <*> jsonLogConfigFromHandle logTrace stdout
                         <*> pure "dbgen"
                         <*> pure nrContext
                         <*> pure noReporter

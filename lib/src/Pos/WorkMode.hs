@@ -25,7 +25,9 @@ import           Pos.Chain.Ssc (SscMemTag, SscState)
 import           Pos.Context (HasNodeContext (..), HasPrimaryKey (..),
                      HasSscContext (..), NodeContext)
 import           Pos.Core (HasConfiguration)
-import           Pos.Core.JsonLog.LogEvents (JsonLogConfig)
+import           Pos.Core.JsonLog.CanJsonLog (CanJsonLog (..))
+import           Pos.Core.JsonLog.LogEvents (HasJsonLogConfig (..),
+                     JsonLogConfig, jsonLogDefault)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..))
 import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
 import           Pos.DB (MonadGState (..), NodeDBs)
@@ -49,7 +51,7 @@ import           Pos.Infra.Slotting.Impl (currentTimeSlottingSimple,
                      getCurrentSlotInaccurateSimple, getCurrentSlotSimple)
 import           Pos.Util.Lens (postfixLFields)
 import qualified Pos.Util.Log as Log
-import           Pos.Util.Trace (natTrace, noTrace)
+import           Pos.Util.Trace (natTrace)
 import           Pos.Util.UserPublic (HasUserPublic (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.Util.Util (HasLens (..))
@@ -132,14 +134,12 @@ instance HasSlogGState (RealModeContext ext) where
 instance HasNodeContext (RealModeContext ext) where
     nodeContext = rmcNodeContext_L
 
-{- TODO
 instance HasJsonLogConfig (RealModeContext ext) where
     jsonLogConfig = rmcJsonLogConfig_L
--}
-{-
+
 instance {-# OVERLAPPING #-} CanJsonLog (RealMode ext) where
     jsonLog = jsonLogDefault
--}
+
 instance (HasConfiguration, MonadSlotsData ctx (RealMode ext))
       => MonadSlots ctx (RealMode ext)
   where
@@ -172,7 +172,7 @@ type instance MempoolExt (RealMode ext) = ext
 instance (HasConfiguration) =>
          MonadTxpLocal (RealMode ()) where
     txpNormalize = txNormalize
-    txpProcessTx = \logTrace -> txProcessTransaction logTrace noTrace
+    txpProcessTx = \logTrace -> txProcessTransaction logTrace
 
 instance MonadReporting (RealMode ext) where
     report rt = Mtl.ask >>= liftIO . flip runReporter rt . rmcReporter

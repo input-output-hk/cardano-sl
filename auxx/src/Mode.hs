@@ -43,6 +43,8 @@ import           Pos.Core (Address, HasConfiguration, HasPrimaryKey (..),
                      IsBootstrapEraAddr (..), deriveFirstHDAddress,
                      largestPubKeyAddressBoot, largestPubKeyAddressSingleKey,
                      makePubKeyAddress, siEpoch)
+import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Core.JsonLog.LogEvents (HasJsonLogConfig (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MonadReporting (..))
 import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
@@ -154,8 +156,8 @@ instance HasSlogContext AuxxContext where
 instance HasSlogGState AuxxContext where
     slogGState = acRealModeContext_L . slogGState
 
--- instance HasJsonLogConfig AuxxContext where
---     jsonLogConfig = acRealModeContext_L . jsonLogConfig
+instance HasJsonLogConfig AuxxContext where
+    jsonLogConfig = acRealModeContext_L . jsonLogConfig
 
 instance (HasConfiguration, MonadSlotsData ctx AuxxMode)
       => MonadSlots ctx AuxxMode
@@ -164,6 +166,9 @@ instance (HasConfiguration, MonadSlotsData ctx AuxxMode)
     getCurrentSlotBlocking = realModeToAuxx getCurrentSlotBlocking
     getCurrentSlotInaccurate = realModeToAuxx getCurrentSlotInaccurate
     currentTimeSlotting = realModeToAuxx currentTimeSlotting
+
+instance {-# OVERLAPPING #-} CanJsonLog AuxxMode where
+    jsonLog = realModeToAuxx ... jsonLog
 
 instance HasConfiguration => MonadDBRead AuxxMode where
     dbGet = realModeToAuxx ... dbGet
@@ -222,7 +227,7 @@ instance HasConfiguration =>
     txpNormalize _ pm txpConfig = withReaderT acRealModeContext $ txNormalize noTrace pm txpConfig
     --TODO trace on the left side has a different monad from trace on the right side
     --maybe a TraceNamed IO is a good solution
-    txpProcessTx _ pm txpConfig = withReaderT acRealModeContext . txProcessTransaction noTrace noTrace pm txpConfig
+    txpProcessTx _ pm txpConfig = withReaderT acRealModeContext . txProcessTransaction noTrace pm txpConfig
 
 instance HasConfigurations =>
          MonadTxpLocal (BlockGenMode EmptyMempoolExt AuxxMode) where

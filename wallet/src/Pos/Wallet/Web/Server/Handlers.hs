@@ -1,6 +1,8 @@
 {-# LANGUAGE Rank2Types   #-}
 {-# LANGUAGE TypeFamilies #-}
 
+{-# OPTIONS_GHC   -O0     #-}
+
 -- | Wallet endpoints list
 
 module Pos.Wallet.Web.Server.Handlers

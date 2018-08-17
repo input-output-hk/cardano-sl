@@ -26,6 +26,7 @@ import           Pos.Communication (NodeId)
 import           Pos.Core (HasConfiguration, StakeholderId, addressHash)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Delegation (ProxySKHeavy)
+import           Pos.Core.JsonLog.LogEvents (JLEvent)
 import           Pos.Core.Ssc (getCertId, getCommitmentsMap, lookupVss)
 import           Pos.Core.Txp (TxAux (..), TxMsgContents (..))
 import           Pos.Core.Update (BlockVersionData, UpdateProposal (..),
@@ -44,7 +45,6 @@ import           Pos.DB.Update (getLocalProposalNVotes, getLocalVote,
                      isProposalNeeded, isVoteNeeded)
 import           Pos.Infra.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Infra.Slotting (MonadSlots)
-import           Pos.Infra.Util.JsonLog.Events (JLTxR)
 import           Pos.Listener.Delegation (DlgListenerConstraint)
 import qualified Pos.Listener.Delegation as Delegation (handlePsk)
 import           Pos.Listener.Txp (TxpMode)
@@ -55,7 +55,6 @@ import qualified Pos.Network.Block.Logic as Block
 import           Pos.Network.Block.WorkMode (BlockWorkMode)
 import           Pos.Recovery (MonadRecoveryInfo)
 import qualified Pos.Recovery as Recovery
-import           Pos.Util.Trace (Trace)
 import           Pos.Util.Trace.Named (TraceNamed, logDebug)
 import           Pos.Util.Util (HasLens (..))
 
@@ -97,13 +96,13 @@ logicFull
        ( LogicWorkMode ctx m
        )
     => TraceNamed m
-    -> Trace m JLTxR
     -> ProtocolMagic
     -> TxpConfiguration
     -> StakeholderId
     -> SecurityParams
+    -> (JLEvent -> m ()) -- ^ JSON log callback. FIXME replace by structured logging solution
     -> Logic m
-logicFull logTrace jsonLogTx pm txpConfig ourStakeholderId securityParams =
+logicFull logTrace pm txpConfig ourStakeholderId securityParams jsonLogTx =
     let
         getSerializedBlock :: HeaderHash -> m (Maybe SerializedBlock)
         getSerializedBlock = DB.dbGetSerBlock
@@ -155,7 +154,7 @@ logicFull logTrace jsonLogTx pm txpConfig ourStakeholderId securityParams =
             { toKey = pure . Tagged . hash . taTx . getTxMsgContents
             , handleInv = \(Tagged txId) -> not . HM.member txId . _mpLocalTxs <$> withTxpLocalData getMemPool
             , handleReq = \(Tagged txId) -> fmap TxMsgContents . HM.lookup txId . _mpLocalTxs <$> withTxpLocalData getMemPool
-            , handleData = \(TxMsgContents txAux) -> Txp.handleTxDo logTrace jsonLogTx pm txpConfig txAux
+            , handleData = \(TxMsgContents txAux) -> Txp.handleTxDo logTrace pm txpConfig jsonLogTx txAux
             }
 
         postUpdate = KeyVal

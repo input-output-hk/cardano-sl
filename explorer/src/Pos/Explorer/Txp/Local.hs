@@ -15,6 +15,7 @@ import qualified Data.HashMap.Strict as HM
 
 import           Pos.Chain.Txp (ToilVerFailure (..), TxpConfiguration, Utxo)
 import           Pos.Core (EpochIndex, Timestamp)
+import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Txp (TxAux (..), TxId)
 import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (ProtocolMagic)
@@ -47,6 +48,7 @@ eTxProcessTransaction ::
        ( ETxpLocalWorkMode ctx m
        , HasLens' ctx StateLock
        , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
+       , CanJsonLog m
        )
     => TraceNamed m
     -> ProtocolMagic
@@ -54,7 +56,7 @@ eTxProcessTransaction ::
     -> (TxId, TxAux)
     -> m (Either ToilVerFailure ())
 eTxProcessTransaction _ pm txpConfig itw =
-    withStateLock noTrace LowPriority ProcessTransaction $
+    withStateLock LowPriority ProcessTransaction $
         \__tip -> eTxProcessTransactionNoLock noTrace pm txpConfig itw
 
 eTxProcessTransactionNoLock ::

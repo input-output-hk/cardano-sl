@@ -19,13 +19,13 @@ for adding JSON logging to a monad transformer stack.
 -}
 
 module Pos.Core.JsonLog.JsonLogT
-    ( JsonLogT
-    , runWithoutJsonLogT
-    , runJsonLogT
-    , runJsonLogT'
-    , runWithJsonLogT
-    , runWithJsonLogT'
-    , JsonLogConfig(..)
+    ( --JsonLogT
+    --, runWithoutJsonLogT
+    --, runJsonLogT
+    --, runJsonLogT'
+    --, runWithJsonLogT
+    --, runWithJsonLogT'
+      JsonLogConfig(..)
     , jsonLogDefault
     ) where
 
@@ -42,14 +42,17 @@ import           Control.Monad.Trans.Lift.Local (LiftLocal)
 import           Control.Monad.Trans.Reader (ReaderT (..))
 import           Data.Aeson (ToJSON, encode)
 import           Data.ByteString.Lazy.Char8 (hPutStrLn)
+import           Formatting (sformat, shown, (%))
 import           System.IO (Handle, hFlush)
 
 import           Pos.Core.JsonLog.CanJsonLog (CanJsonLog (..))
 import           Pos.Core.JsonLog.Event (JLTimedEvent, timedIO, toEvent)
+--import           Pos.Util.Trace (noTrace)
+import           Pos.Util.Trace.Named (TraceNamed, logWarning, natTrace)
 
 data JsonLogConfig
     = JsonLogDisabled
-    | JsonLogConfig (MVar Handle) (JLTimedEvent -> IO Bool)
+    | JsonLogConfig (TraceNamed IO) (MVar Handle) (JLTimedEvent -> IO Bool)
 
 -- | Monad transformer @'JsonLogT'@ adds support for JSON logging
 -- to a monad transformer stack.
@@ -73,25 +76,28 @@ jsonLogDefault
 jsonLogDefault jlc x =
     case jlc of
         JsonLogDisabled -> return ()
-        JsonLogConfig v decide -> do
-            event <- toEvent <$> timedIO x
-            b     <- liftIO (decide event)
-                `catchAny` \_ -> do
-                    --logWarning logTrace $ sformat ("error in deciding whether to json log: "%shown) e
+        JsonLogConfig logTrace v decide -> do
+            let logTrace' = natTrace liftIO logTrace
+            event     <- toEvent <$> timedIO x
+            isEnabled <- liftIO (decide event)
+                `catchAny` \e -> do
+                    logWarning logTrace' $ sformat ("error in deciding whether to json log: "%shown) e
                     return False
-            when b $ liftIO (withMVar v $ \h -> (hPutStrLn h (encode event) >> hFlush h))
-                `catchAny` \_ -> return ()
-                    --logWarning logTrace $ sformat ("can't write json log: "%shown) e
+            when isEnabled $ liftIO (withMVar v $ \h -> (hPutStrLn h (encode event) >> hFlush h))
+                `catchAny` \e ->
+                    logWarning logTrace' $ sformat ("can't write json log: "%shown) e
 
 instance ( MonadIO m
          , MonadCatch m) => CanJsonLog (JsonLogT m) where
 
-    jsonLog x = JsonLogT (ReaderT $ \jlc -> jsonLogDefault jlc x)   -- TODO
+    jsonLog x = JsonLogT (ReaderT $ \jlc -> jsonLogDefault jlc x)
 
+{-
 -- | This function simply discards all JSON log messages.
 runWithoutJsonLogT :: JsonLogT m a -> m a
 runWithoutJsonLogT (JsonLogT m) = runReaderT m JsonLogDisabled
-
+-}
+{-
 -- | Runs a computation containing JSON log messages,
 -- either discarding all messages or writing
 -- some of them to a handle.
@@ -104,8 +110,9 @@ runJsonLogT :: MonadIO m
 runJsonLogT Nothing            m            = runWithoutJsonLogT m
 runJsonLogT (Just (h, decide)) (JsonLogT m) = do
     v <- newMVar h
-    runReaderT m $ JsonLogConfig v decide
-
+    runReaderT m $ JsonLogConfig noTrace v decide
+-}
+{-
 -- | Runs a computation containing JSON log messages,
 -- either discarding all messages or writing them to a handle.
 runJsonLogT' :: MonadIO m
@@ -114,7 +121,8 @@ runJsonLogT' :: MonadIO m
              -> JsonLogT m a -- ^ A monadic computation containing JSON log messages.
              -> m a
 runJsonLogT' mh = runJsonLogT $ fmap (, const $ return True) mh
-
+-}
+{-
 -- | Runs a computation containing JSON log messages,
 -- writing some of them to a handle.
 runWithJsonLogT :: MonadIO m
@@ -124,7 +132,8 @@ runWithJsonLogT :: MonadIO m
                 -> JsonLogT m a              -- ^ A monadic computation containing JSON log messages.
                 -> m a
 runWithJsonLogT h decide = runJsonLogT $ Just (h, decide)
-
+-}
+{-
 -- | Runs a computation containing JSON log messages,
 -- writing them to a handle.
 runWithJsonLogT' :: MonadIO m
@@ -132,3 +141,4 @@ runWithJsonLogT' :: MonadIO m
                  -> JsonLogT m a -- ^ A monadic computation containing JSON log messages.
                  -> m a
 runWithJsonLogT' = runJsonLogT' . Just
+-}

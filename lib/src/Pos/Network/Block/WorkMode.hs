@@ -16,6 +16,7 @@ import           Pos.Chain.Block (HasBlockConfiguration, HasSlogContext,
                      LastKnownHeader, LastKnownHeaderTag)
 import           Pos.Chain.Security (SecurityParams)
 import           Pos.Core.Context (HasPrimaryKey)
+import           Pos.Core.JsonLog (CanJsonLog)
 import           Pos.DB.Block (LrcModeFull)
 import           Pos.DB.GState.Lock (StateLock, StateLockMetrics)
 import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal,
@@ -70,6 +71,8 @@ type BlockWorkMode ctx m =
     , HasLens' ctx StateLock
     , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
     , HasLens' ctx UpdateContext
+
+    , CanJsonLog m
 
     , HasBlockConfiguration
     )

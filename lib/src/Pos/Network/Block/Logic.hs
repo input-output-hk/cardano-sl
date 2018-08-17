@@ -54,7 +54,6 @@ import           Pos.Network.Block.RetrievalQueue (BlockRetrievalQueue,
 import           Pos.Network.Block.WorkMode (BlockWorkMode)
 import           Pos.Util (buildListBounds, multilineBounds, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Util.Trace (noTrace)
 import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfo,
                      logWarning, natTrace)
 import           Pos.Util.Util (lensOf)
@@ -270,7 +269,7 @@ applyWithoutRollback
 applyWithoutRollback logTrace pm txpConfig diffusion blocks = do
     logInfo logTrace' . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
        . getOldestFirst . map (view blockHeader) $ blocks
-    modifyStateLock noTrace HighPriority ApplyBlock applyWithoutRollbackDo >>= \case
+    modifyStateLock HighPriority ApplyBlock applyWithoutRollbackDo >>= \case
         Left (pretty -> err) ->
             onFailedVerifyBlocks logTrace' (getOldestFirst blocks) err
         Right newTip -> do
@@ -319,7 +318,7 @@ applyWithRollback logTrace pm txpConfig diffusion toApply lca toRollback = do
     logInfo logTrace' . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
        . getOldestFirst . map (view blockHeader) $ toApply
     logInfo logTrace' $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
-    res <- modifyStateLock noTrace HighPriority ApplyBlockWithRollback $ \curTip -> do
+    res <- modifyStateLock HighPriority ApplyBlockWithRollback $ \curTip -> do
         res <- L.applyWithRollback logTrace pm txpConfig toRollback toApplyAfterLca
         pure (either (const curTip) identity res, res)
     case res of

@@ -166,7 +166,7 @@ allocateNodeResources logTrace0 np@NodeParams {..} sscnp txpSettings initDB = do
                     return $ Just h
         jsonLogConfig <- maybe
             (pure JsonLogDisabled)
-            jsonLogConfigFromHandle
+            (jsonLogConfigFromHandle logTrace)
             jsonLogHandle
         lift $ logDebug_ "JSON configuration initialized"
 
@@ -192,10 +192,11 @@ releaseNodeResources ::
 releaseNodeResources NodeResources {..} = do
     case nrJsonLogConfig of
         JsonLogDisabled -> return ()
-        JsonLogConfig mVarHandle _ -> do
+        JsonLogConfig logTrace mVarHandle _ -> do
             h <- takeMVar mVarHandle
             (liftIO . hClose) h
             putMVar mVarHandle h
+            logInfo logTrace "closed JSON log"
     closeNodeDBs nrDBs
     releaseNodeContext nrContext
 

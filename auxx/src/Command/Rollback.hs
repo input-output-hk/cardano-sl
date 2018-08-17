@@ -24,7 +24,6 @@ import qualified Pos.DB.Block as DB
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.GState.Lock (Priority (..), withStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
-import           Pos.Util.Trace (noTrace)
 import           Pos.Util.Trace.Named (TraceNamed, logInfo)
 
 import           Mode (MonadAuxxMode)
@@ -38,7 +37,7 @@ rollbackAndDump
     -> Word
     -> FilePath
     -> m ()                                                       -- JSON logging Trace
-rollbackAndDump logTrace pm numToRollback outFile = withStateLock noTrace HighPriority ApplyBlockWithRollback $ \_ -> do
+rollbackAndDump logTrace pm numToRollback outFile = withStateLock HighPriority ApplyBlockWithRollback $ \_ -> do
     printTipDifficulty
     blundsMaybeEmpty <- modifyBlunds <$>
         DB.loadBlundsFromTipByDepth (fromIntegral numToRollback)

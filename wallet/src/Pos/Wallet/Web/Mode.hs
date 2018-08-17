@@ -45,6 +45,9 @@ import           Pos.Client.Txp.History (MonadTxHistory (..),
 import           Pos.Context (HasNodeContext (..))
 import           Pos.Core (Address, Coin, HasConfiguration, HasPrimaryKey (..),
                      isRedeemAddress, largestHDAddressBoot, mkCoin)
+import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Core.JsonLog.LogEvents (HasJsonLogConfig (..),
+                     jsonLogDefault)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MonadReporting (..), Reporter (..))
 import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
@@ -177,10 +180,9 @@ instance HasSlogContext WalletWebModeContext where
 instance HasSlogGState WalletWebModeContext where
     slogGState = wwmcRealModeContext_L . slogGState
 
-{- TODO
 instance HasJsonLogConfig WalletWebModeContext where
     jsonLogConfig = wwmcRealModeContext_L . jsonLogConfig
--}
+
 instance HasNodeType WalletWebModeContext where
     getNodeType = getNodeType . wwmcRealModeContext
 
@@ -238,6 +240,9 @@ instance (HasConfiguration, MonadSlotsData ctx WalletWebMode)
     getCurrentSlotBlocking = getCurrentSlotBlockingSimple
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple
     currentTimeSlotting = currentTimeSlottingSimple
+
+instance {-# OVERLAPPING #-} CanJsonLog WalletWebMode where
+    jsonLog = jsonLogDefault
 
 instance HasConfiguration => MonadDBRead WalletWebMode where
     dbGet = dbGetDefault

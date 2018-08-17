@@ -238,6 +238,10 @@ executable cardano-launcher
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
 
+  if os(darwin)
+      ghc-options:
+                       -optl-Wl,-dead_strip_dylibs
+
   default-extensions:  OverloadedStrings
                        RecordWildCards
                        TupleSections

@@ -16,6 +16,9 @@ import           Pos.Chain.Txp
 import           Pos.Context
 import           Pos.Core
 import           Pos.Core.Chrono
+import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Core.JsonLog.LogEvents (HasJsonLogConfig (..),
+                     jsonLogDefault)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..))
 import           Pos.DB
 import           Pos.DB.Block hiding (applyBlocks, rollbackBlocks)
@@ -27,10 +30,8 @@ import           Pos.Infra.Network.Types
 import           Pos.Infra.Reporting
 import           Pos.Infra.Shutdown
 import           Pos.Infra.Slotting
---import           Pos.Infra.Util.JsonLog.Events
 import           Pos.Launcher
 import           Pos.Util
-import           Pos.Util.Trace (noTrace)
 import           Pos.Util.Trace.Named (TraceNamed)
 import           Pos.WorkMode
 
@@ -146,10 +147,9 @@ instance HasSlogContext WalletContext where
 instance HasShutdownContext WalletContext where
   shutdownContext   = wcRealModeContext_L . shutdownContext
 
-{-
 instance HasJsonLogConfig WalletContext where
   jsonLogConfig     = wcRealModeContext_L . jsonLogConfig
--}
+
 instance HasSscContext WalletContext where
   sscContext        = wcRealModeContext_L . sscContext
 
@@ -190,7 +190,10 @@ instance ( HasConfiguration
 instance HasConfiguration => MonadGState WalletMode where
   gsAdoptedBVData = gsAdoptedBVDataDefault
 
+instance {-# OVERLAPPING #-} CanJsonLog WalletMode where
+  jsonLog = jsonLogDefault
+
 instance HasConfiguration
       => MonadTxpLocal WalletMode where
   txpNormalize = txNormalize
-  txpProcessTx logTrace = txProcessTransaction logTrace noTrace
+  txpProcessTx = txProcessTransaction

@@ -29,6 +29,7 @@ import           Pos.Context.Context (NodeContext (..))
 import           Pos.Core (StakeholderId, addressHash)
 import           Pos.Core.Configuration (HasProtocolConstants,
                      protocolConstants)
+import           Pos.Core.JsonLog (jsonLog)
 import           Pos.Crypto (ProtocolMagic, toPublic)
 import           Pos.DB.Txp (MonadTxpLocal)
 import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
@@ -50,7 +51,6 @@ import           Pos.Logic.Types (Logic, hoistLogic)
 import           Pos.Reporting.Production (ProductionReporterParams (..),
                      productionReporter)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
-import           Pos.Util.Trace (noTrace)
 import           Pos.Util.Trace.Named (TraceNamed, appendName, natTrace)
 import           Pos.Web.Server (withRoute53HealthCheckApplication)
 import           Pos.WorkMode (RealMode, RealModeContext (..))
@@ -95,7 +95,7 @@ runRealMode logTrace0 pm txpConfig nr@NodeResources {..} act = runServer
     logTrace' :: TraceNamed (RealMode ext)
     logTrace' = natTrace liftIO logTrace
     logic :: Logic (RealMode ext)
-    logic = logicFull logTrace' noTrace pm txpConfig ourStakeholderId securityParams -- TODO jsonLog
+    logic = logicFull logTrace' pm txpConfig ourStakeholderId securityParams jsonLog
     makeLogicIO :: Diffusion IO -> Logic IO
     makeLogicIO diffusion = hoistLogic (elimRealMode logTrace pm nr diffusion) logic
     act' :: Diffusion IO -> IO a

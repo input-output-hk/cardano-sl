@@ -112,7 +112,6 @@ import           Cardano.Wallet.Kernel.DB.Spec
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
 import           Cardano.Wallet.Kernel.DB.Util.IxSet
 import           Cardano.Wallet.Kernel.Util (modifyAndGetOld, neHead)
-import           Cardano.Wallet.Kernel.Util.StrictStateT
 
 {-------------------------------------------------------------------------------
   Supporting types
@@ -605,65 +604,64 @@ initHdWallets = HdWallets emptyIxSet emptyIxSet emptyIxSet
   Zoom to existing parts of a HD wallet
 -------------------------------------------------------------------------------}
 
-zoomHdRootId :: forall e a.
-                (UnknownHdRoot -> e)
+zoomHdRootId :: forall f e a. CanZoom f
+             => (UnknownHdRoot -> e)
              -> HdRootId
-             -> Update' HdRoot e a -> Update' HdWallets e a
+             -> f HdRoot e a -> f HdWallets e a
 zoomHdRootId embedErr rootId =
     zoomDef err (hdWalletsRoots . at rootId)
   where
-    err :: Update' HdWallets e a
-    err = throwError $ embedErr (UnknownHdRoot rootId)
+    err :: f HdWallets e a
+    err = missing $ embedErr (UnknownHdRoot rootId)
 
-zoomHdAccountId :: forall e a.
-                   (UnknownHdAccount -> e)
+zoomHdAccountId :: forall f e a. CanZoom f
+                => (UnknownHdAccount -> e)
                 -> HdAccountId
-                -> Update' HdAccount e a -> Update' HdWallets e a
+                -> f HdAccount e a -> f HdWallets e a
 zoomHdAccountId embedErr accId =
     zoomDef err (hdWalletsAccounts . at accId)
   where
-    err :: Update' HdWallets e a
+    err :: f HdWallets e a
     err = zoomHdRootId embedErr' (accId ^. hdAccountIdParent) $
-            throwError $ embedErr (UnknownHdAccount accId)
+            missing $ embedErr (UnknownHdAccount accId)
 
     embedErr' :: UnknownHdRoot -> e
     embedErr' = embedErr . embedUnknownHdRoot
 
-zoomHdAddressId :: forall e a.
-                   (UnknownHdAddress -> e)
+zoomHdAddressId :: forall f e a. CanZoom f
+                => (UnknownHdAddress -> e)
                 -> HdAddressId
-                -> Update' HdAddress e a -> Update' HdWallets e a
+                -> f HdAddress e a -> f HdWallets e a
 zoomHdAddressId embedErr addrId =
     zoomDef err (hdWalletsAddresses . at addrId) . zoom ixedIndexed
   where
-    err :: Update' HdWallets e a
+    err :: f HdWallets e a
     err = zoomHdAccountId embedErr' (addrId ^. hdAddressIdParent) $
-            throwError $ embedErr (UnknownHdAddress addrId)
+            missing $ embedErr (UnknownHdAddress addrId)
 
     embedErr' :: UnknownHdAccount -> e
     embedErr' = embedErr . embedUnknownHdAccount
 
 -- | Pattern match on the state of the account
-matchHdAccountState :: Update' HdAccountUpToDate e a
-                    -> Update' HdAccountWithinK  e a
-                    -> Update' HdAccountOutsideK e a
-                    -> Update' HdAccount         e a
-matchHdAccountState updUpToDate updWithinK updOutsideK = strictStateT $ \acc ->
+matchHdAccountState :: CanZoom f
+                    => f HdAccountUpToDate e a
+                    -> f HdAccountWithinK  e a
+                    -> f HdAccountOutsideK e a
+                    -> f HdAccount         e a
+matchHdAccountState updUpToDate updWithinK updOutsideK = withZoom $ \acc zoomTo ->
     case acc ^. hdAccountState of
       HdAccountStateUpToDate st ->
-            second (\st' -> acc & hdAccountState .~ HdAccountStateUpToDate st')
-        <$> runStrictStateT updUpToDate st
+        zoomTo st (\st' -> acc & hdAccountState .~ HdAccountStateUpToDate st') updUpToDate
       HdAccountStateWithinK  st ->
-            second (\st' -> acc & hdAccountState .~ HdAccountStateWithinK st')
-        <$> runStrictStateT updWithinK st
+        zoomTo st (\st' -> acc & hdAccountState .~ HdAccountStateWithinK  st') updWithinK
       HdAccountStateOutsideK st ->
-            second (\st' -> acc & hdAccountState .~ HdAccountStateOutsideK st')
-        <$> runStrictStateT updOutsideK st
+        zoomTo st (\st' -> acc & hdAccountState .~ HdAccountStateOutsideK st') updOutsideK
 
 -- | Zoom to the current checkpoints of the wallet
-zoomHdAccountCheckpoints :: (   forall c. IsCheckpoint c
-                             => Update' (NewestFirst NonEmpty c) e a )
-                         -> Update' HdAccount e a
+zoomHdAccountCheckpoints :: CanZoom f
+                         => (   forall c. IsCheckpoint c
+                             => f (NewestFirst NonEmpty c) e a )
+                         -> f HdAccount e a
 zoomHdAccountCheckpoints upd =
     matchHdAccountState
       (zoom hdUpToDateCheckpoints upd)
@@ -673,9 +671,10 @@ zoomHdAccountCheckpoints upd =
 -- | Variant of 'zoomHdAccountCheckpoints' that distinguishes between
 -- full checkpoints (wallet is up to date) and partial checkpoints
 -- (wallet is still recovering historical data)
-matchHdAccountCheckpoints :: Update' (NewestFirst NonEmpty Checkpoint)        e a
-                          -> Update' (NewestFirst NonEmpty PartialCheckpoint) e a
-                          -> Update' HdAccount e a
+matchHdAccountCheckpoints :: CanZoom f
+                          => f (NewestFirst NonEmpty Checkpoint)        e a
+                          -> f (NewestFirst NonEmpty PartialCheckpoint) e a
+                          -> f HdAccount e a
 matchHdAccountCheckpoints updFull updPartial =
     matchHdAccountState
       (zoom hdUpToDateCheckpoints updFull)
@@ -732,8 +731,6 @@ zoomOrCreateHdAddress checkAccountExists newAddress addrId upd = do
                       modifyAndGetOld (hdAccountAutoPkCounter +~ 1)
             return $ Indexed (acc ^. hdAccountAutoPkCounter) newAddress
 
-
-
 -- | Assume that the given HdRoot exists
 --
 -- Helper function which can be used as an argument to 'zoomOrCreateHdAccount'
@@ -745,7 +742,6 @@ assumeHdRootExists _id = return ()
 -- Helper function which can be used as an argument to 'zoomOrCreateHdAddress'
 assumeHdAccountExists :: HdAccountId -> Update' HdWallets e ()
 assumeHdAccountExists _id = return ()
-
 
 {-------------------------------------------------------------------------------
   Pretty printing

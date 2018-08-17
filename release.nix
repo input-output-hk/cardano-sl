@@ -1,7 +1,7 @@
 let
   fixedNixpkgs = (import ./lib.nix).fetchNixPkgs;
 in
-  { supportedSystems ? [ "x86_64-linux" "x86_64-darwin" "win64" ]
+  { supportedSystems ? [ "x86_64-linux" "x86_64-darwin" "x86_64-mingw32" ]
   , targetSystemsNoCross ? [ "x86_64-linux" "x86_64-darwin" ]
   , scrubJobs ? true
   , cardano ? { outPath = ./.; rev = "abcdef"; }
@@ -54,11 +54,11 @@ let
     func = import ./.;
     pkgs_linux = func (nixpkgsArgs // { system = "x86_64-linux"; });
     pkgs_mac = func (nixpkgsArgs // { system = "x86_64-darwin"; });
-    pkgs_win = func (nixpkgsArgs // { target = "win64"; });
+    pkgs_win = func (nixpkgsArgs // { target = "x86_64-mingw32"; });
     f = path: value: let
         maybeLinux = lib.optionalAttrs (builtins.elem "x86_64-linux" value) ({ "x86_64-linux" = lib.getAttrFromPath path pkgs_linux; });
         maybeMac = lib.optionalAttrs (builtins.elem "x86_64-darwin" value) ({ "x86_64-darwin" = lib.getAttrFromPath path pkgs_mac; });
-        maybeWin = lib.optionalAttrs (builtins.elem "win64" value) ({ win64 = lib.getAttrFromPath path pkgs_win; });
+        maybeWin = lib.optionalAttrs (builtins.elem "x86_64-mingw32" value) ({ "x86_64-mingw32" = lib.getAttrFromPath path pkgs_win; });
       in maybeLinux // maybeMac // maybeWin;
   in set: lib.mapAttrsRecursive f set;
   mapped = mapTestOn' platforms;

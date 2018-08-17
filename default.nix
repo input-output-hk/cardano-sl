@@ -203,11 +203,11 @@ let
     overlays = [ jemallocOverlay packageOverlay ];
     config = spacedConfig;
   } // (if target != null
-        then { crossSystem = { win64   = (import localLib.fetchNixPkgs {}).lib.systems.examples.mingwW64;
-                               macOS   = abort "macOS target not available";
-                               rpi     = abort "Raspberry Pi target not available";
-                               ios     = abort "iOS target not available";
-                               android = abort "Android target not available"; }."${target}"; }
+        then { crossSystem = { "x86_64-mingw32" = (import localLib.fetchNixPkgs {}).lib.systems.examples.mingwW64;
+                               macOS            = abort "macOS target not available";
+                               rpi              = abort "Raspberry Pi target not available";
+                               ios              = abort "iOS target not available";
+                               android          = abort "Android target not available"; }."${target}"; }
         else {}));
   binSuffix = if pkgs.stdenv.hostPlatform.isWindows then ".exe" else "";
   maybeViaWine = if pkgs.stdenv.hostPlatform.isWindows then ''WINEPREFIX=$TMP ${pkgs.buildPackages.winePackages.minimal}/bin/wine64'' else "";

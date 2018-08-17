@@ -38,6 +38,16 @@ goldenTestJSON x path = withFrozenCallStack $ do
             Left err -> failWith Nothing $ "could not decode: " <> show err
             Right x' -> x === x'
 
+-- | Only check that the datatype equals the decoding of the file
+goldenTestJSONDec :: (Eq a, FromJSON a, HasCallStack, Show a)
+                  => a -> FilePath -> Property
+goldenTestJSONDec x path = withFrozenCallStack $ do
+    withTests 1 . property $ do
+        bs <- liftIO (LB.readFile path)
+        case eitherDecode bs of
+            Left err -> failWith Nothing $ "could not decode: " <> show err
+            Right x' -> x === x'
+
 makeRelativeToTestDir :: FilePath -> Q FilePath
 makeRelativeToTestDir rel = do
     loc <- qLocation

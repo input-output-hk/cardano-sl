@@ -127,7 +127,7 @@ type family IndexToQueryParam resource ix where
     IndexToQueryParam Transaction (V1 Txp.TxId)      = "id"
     IndexToQueryParam Transaction (V1 Core.Timestamp) = "created_at"
 
-    -- | This is the fallback case. It will trigger a type error if you use
+    -- This is the fallback case. It will trigger a type error if you use
     -- 'IndexToQueryParam'' with a pairing that is invalid. We want this to
     -- trigger early, so that we don't get Weird Errors later on with stuck
     -- types.

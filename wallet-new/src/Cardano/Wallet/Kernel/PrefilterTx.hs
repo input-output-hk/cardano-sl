@@ -118,8 +118,9 @@ type UtxoSummaryRaw = Map TxIn (TxOutAux,AddressSummary)
 --   The output Utxo is extended with address summary information
 prefilterTx :: WalletKey
             -> ResolvedTx
-            -> (Map HdAccountId (Set TxIn)      -- ^ prefiltered inputs
-              , Map HdAccountId UtxoSummaryRaw) -- ^ prefiltered output utxo, extended with address summary
+            -> (Map HdAccountId (Set TxIn)
+              , Map HdAccountId UtxoSummaryRaw)
+            -- ^ prefiltered inputs, prefiltered output utxo, extended with address summary
 prefilterTx wKey tx = (prefInps,prefOuts')
     where
         inps = toList (tx ^. rtxInputs  . fromDb)
@@ -184,7 +185,6 @@ prefilterResolvedTxPairs wKey mergeF pairs
     = (onlyOurs, mergeF prefTxPairs)
     where
         selectAddr = txOutAddress . toaOut . snd
-
         prefTxPairs = filterOurs wKey selectAddr pairs
         -- | if prefiltering excluded nothing, then all the pairs are "ours"
         onlyOurs = (length prefTxPairs == length pairs)

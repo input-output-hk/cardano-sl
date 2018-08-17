@@ -96,9 +96,9 @@ allTransactions mwalletId mAccIdx mAddr requestParams fops sops  =
             -- Create a `[V0.AccountId]` to get txs from it
             let accIds = case mAccIdx of
                     Just accIdx -> migrate (walletId, accIdx)
-                    -- ^ Migrate `V1.AccountId` into `V0.AccountId` and put it into a list
+                    -- Migrate `V1.AccountId` into `V0.AccountId` and put it into a list
                     Nothing     -> V0.getWalletAccountIds ws cIdWallet
-                    -- ^ Or get all `V0.AccountId`s of a wallet
+                    -- Or get all `V0.AccountId`s of a wallet
 
             let v0Addr = case mAddr of
                     Nothing        -> Nothing

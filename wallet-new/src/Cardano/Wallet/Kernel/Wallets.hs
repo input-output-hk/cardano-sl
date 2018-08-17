@@ -137,8 +137,8 @@ createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
                              walletName
                              assuranceLevel
                              esk
-                             mempty -- ^ Brand new wallets have no Utxo.
-                                    --   See the invariant at the top.
+                             mempty -- Brand new wallets have no Utxo.
+                                    -- See the invariant at the top.
     case res of
          Left e   -> return . Left $ CreateWalletFailed e
          Right hdRoot -> do

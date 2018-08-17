@@ -95,6 +95,7 @@ test-suite property-tests
                      , safe-exceptions >= 0.1
                      , universum >= 0.1.11
                      , utxo
+                     , HUnit
   ghc-options:
                        -threaded
                        -rtsopts

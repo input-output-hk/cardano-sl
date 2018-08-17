@@ -17,3 +17,4 @@ import qualified Translation as Tr
 main :: IO ()
 main = hspec $ do
     CE.spec
+    Tr.spec

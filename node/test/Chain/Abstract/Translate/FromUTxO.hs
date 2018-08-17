@@ -64,7 +64,7 @@ data IntException =
   | IntEmptyOutputs
   | IntUnknownHash      Text
   | IntIndexOutOfRange  Text Word32 -- ^ During input resolution (hash and index)
-  deriving (Show)
+  deriving (Show, Eq)
 
 instance Exception IntException
 

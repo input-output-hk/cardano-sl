@@ -19,7 +19,7 @@ newtype Addr = Addr Int
   deriving (Buildable, Eq, Ord, Show)
 
 -- | Block hash
-newtype BlockHash = BlockHash Int
+newtype BlockHash = BlockHash Int deriving (Eq)
 
 -- | Hash of the genesis block
 genesisBlockHash :: BlockHash
@@ -55,9 +55,9 @@ data Repartition a =
 data Delegation (h :: * -> *) a = Delegation
   { delegator :: a
   , delegatee :: a
-  }
+  } deriving (Eq)
 
-newtype SlotId = SlotId Int
+newtype SlotId = SlotId Int deriving (Eq)
 
 nextSlot :: SlotId -> SlotId
 nextSlot (SlotId i) = SlotId $ i + 1
@@ -68,6 +68,12 @@ data Output (h :: * -> *) a = Output
     -- | Repartitioning of the stake associated with this transaction's inputs.
   , outRepartition :: Repartition a
   }
+
+-- TODO(md): This is just a work-around for not being able to define an Eq
+-- instance for Repartition a
+instance Eq a => Eq (Output h a) where
+    (Output {outAddr = a1, outVal = v1, outRepartition = _})
+        == (Output {outAddr = a2, outVal = v2, outRepartition = _}) = a1 == a2 && v1 == v2
 
 -- | Extract the DSL output from the abstract one.
 outDSL :: Output h a -> DSL.Output h a
@@ -92,7 +98,7 @@ data Transaction h a = Transaction
   -- ^ Free-form comments, used for debugging
   , trWitness :: NE a
   -- ^ Transaction witnesses. There should be one witness per transaction input.
-  }
+  } deriving (Eq)
 
 -- | The abstract transaction has the same hash as the underlying DSL transaction.
 hash :: DSL.Hash h a
@@ -120,6 +126,6 @@ data Block h a = Block
   , blockIssuer       :: a
   , blockTransactions :: OldestFirst [] (Transaction h a)
   , blockDlg          :: [Delegation h a]
-  }
+  } deriving (Eq)
 
 type Chain h a = OldestFirst [] (Block h a)

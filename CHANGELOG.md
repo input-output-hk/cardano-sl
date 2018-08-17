@@ -7,6 +7,13 @@
 
 ### Fixes
 
+- #### Make productionReporter more robust
+  Add exception handling code in reporting exception handler, to prevent IOExceptions from killing
+  the main thread. This was noticed when the network connection was interrupted, and the reporter
+  died when it tried to report over the down network. (CDEC-470 / [PR 3365])
+
+[PR 3365]: https://github.com/input-output-hk/cardano-sl/pull/3365
+
 ### Improvements
 
 ### Specifications

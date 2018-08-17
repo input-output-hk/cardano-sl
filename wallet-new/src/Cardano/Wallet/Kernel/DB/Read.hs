@@ -32,10 +32,10 @@ import           Cardano.Wallet.Kernel.DB.AcidState (DB, dbHdWallets)
 import           Cardano.Wallet.Kernel.DB.BlockMeta (AddressMeta)
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Read as HD
-import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet, Indexed)
+import           Cardano.Wallet.Kernel.DB.Util.AcidState
+import           Cardano.Wallet.Kernel.DB.Util.IxSet (Indexed, IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
-import           Cardano.Wallet.Kernel.DB.Util.AcidState
 
 {-------------------------------------------------------------------------------
   Getters across the entire kernel

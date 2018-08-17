@@ -28,7 +28,7 @@ module Cardano.Wallet.Kernel.DB.HdWallet.Read (
   , currentTxIsPending
   ) where
 
-import           Universum hiding (toList)
+import           Universum
 
 import           Pos.Chain.Txp (TxId, Utxo)
 import           Pos.Core (Address, Coin, SlotId, mkCoin, unsafeAddCoin)

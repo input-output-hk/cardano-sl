@@ -156,7 +156,7 @@ takeIndexed db n acc (currentIndex, (a:as))
     toV1 :: HD.HdAccount -> Indexed HD.HdAddress -> V1.WalletAddress
     toV1 hdAccount ixed = toAddress hdAccount (ixed ^. ixedIndexed)
 
-readAddresses :: HasCallStack => Kernel.DB -> HD.HdAccount -> IxSet (Indexed HD.HdAddress)
+readAddresses :: Kernel.DB -> HD.HdAccount -> IxSet (Indexed HD.HdAddress)
 readAddresses db hdAccount = Kernel.addressesByAccountId db (hdAccount ^. HD.hdAccountId)
 
 -- | Validate an address

@@ -259,7 +259,6 @@ executable cardano-launcher
     ld-options:        -fuse-ld=gold
 
   default-extensions:  OverloadedStrings
-                       RecordWildCards
                        TupleSections
                        TypeApplications
                        BangPatterns

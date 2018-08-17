@@ -11,6 +11,7 @@
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE RecordWildCards  #-}
 
 import qualified Prelude (show)
 import           Universum
@@ -286,7 +287,7 @@ main =
     -- Launcher logs should be in public directory
     let launcherLogsPrefix = (</> "pub") <$> loLogsPrefix
     -- Add options specified in loConfiguration but not in loNodeArgs to loNodeArgs.
-    let realNodeArgs = propagateOptions loReportServer loNodeDbPath loLogsPrefix loConfiguration $
+    let realNodeArgs = propagateOptions lo loConfiguration $
             case loNodeLogConfig of
                 Nothing -> loNodeArgs
                 Just lc -> loNodeArgs ++ ["--log-config", toText lc]
@@ -313,12 +314,9 @@ main =
                 serverScenario
                     pm
                     (NodeDbPath loNodeDbPath)
-                    loLogsPrefix
-                    loNodeLogConfig
                     (NodeData loNodePath realNodeArgs loNodeLogPath)
-                    (UpdaterData
-                        loUpdaterPath loUpdaterArgs loUpdateWindowsRunner loUpdateArchive)
-                    loReportServer
+                    (UpdaterData loUpdaterPath loUpdaterArgs loUpdateWindowsRunner loUpdateArchive)
+                    lo
                 logNotice "Finished serverScenario"
             (Just wpath, True) -> do
                 frontendOnlyScenario
@@ -326,7 +324,6 @@ main =
                     (NodeData loNodePath realNodeArgs loNodeLogPath)
                     (NodeData wpath loWalletArgs loWalletLogPath)
                     (UpdaterData loUpdaterPath loUpdaterArgs loUpdateWindowsRunner loUpdateArchive)
-                    loWalletLogging
                     lo
             (Just wpath, False) -> do
                 logNotice "LAUNCHER STARTED"
@@ -334,15 +331,9 @@ main =
                 clientScenario
                     pm
                     (NodeDbPath loNodeDbPath)
-                    loLogsPrefix
-                    loNodeLogConfig
                     (NodeData loNodePath realNodeArgs loNodeLogPath)
                     (NodeData wpath loWalletArgs loWalletLogPath)
-                    (UpdaterData
-                        loUpdaterPath loUpdaterArgs loUpdateWindowsRunner loUpdateArchive)
-                    loNodeTimeoutSec
-                    loReportServer
-                    loWalletLogging
+                    (UpdaterData loUpdaterPath loUpdaterArgs loUpdateWindowsRunner loUpdateArchive)
                     lo
                 logNotice "Finished clientScenario"
   where
@@ -354,15 +345,15 @@ main =
     -- (e. g. `--system-start=10`), but it's better than nothing.
     loggerName = "launcher"
     propagateOptions
-        :: Maybe String -> FilePath -> Maybe FilePath -> ConfigurationOptions -> [Text] -> [Text]
-    propagateOptions maybeReportServer nodeDbPath logPrefix (ConfigurationOptions path key systemStart seed) =
-        addReportServerOption maybeReportServer .
-        addNodeDbPath nodeDbPath .
+        :: LauncherOptions -> ConfigurationOptions -> [Text] -> [Text]
+    propagateOptions lo (ConfigurationOptions path key systemStart seed) =
+        addReportServerOption (loReportServer lo) .
+        addNodeDbPath (loNodeDbPath lo) .
         addConfFileOption path .
         addConfKeyOption key .
         addSystemStartOption systemStart .
         addSeedOption seed .
-        addLogPrefix logPrefix
+        addLogPrefix (loLogsPrefix lo)
 
     addReportServerOption =
         maybe identity (maybeAddOption "--report-server" . toText)
@@ -424,25 +415,23 @@ serverScenario
     :: (HasCompileInfo, HasConfigurations)
     => ProtocolMagic
     -> NodeDbPath
-    -> Maybe FilePath     -- ^ Log prefix
-    -> Maybe FilePath     -- ^ Logger config
     -> NodeData           -- ^ Node, args, log path
     -> UpdaterData        -- ^ Updater, args, updater runner, archive path
-    -> Maybe String       -- ^ Report server
+    -> LauncherOptions
     -> M ()
-serverScenario pm ndbp logPrefix logConf node updater report = do
+serverScenario pm ndbp node updater lo = do
     runUpdater ndbp updater
     -- TODO: the updater, too, should create a log if it fails
     (_, nodeAsync) <- spawnNode node False
     exitCode <- wait nodeAsync
     if exitCode == ExitFailure 20 then do
         logNotice $ sformat ("The node has exited with "%shown) exitCode
-        serverScenario pm ndbp logPrefix logConf node updater report
+        serverScenario pm ndbp node updater lo
     else do
         logWarning $ sformat ("The node has exited with "%shown) exitCode
-        whenJust report $ \repServ -> do
+        whenJust (loReportServer lo) $ \repServ -> do
             logInfo $ sformat ("Sending logs to "%stext) (toText repServ)
-            reportNodeCrash pm exitCode logPrefix logConf repServ
+            reportNodeCrash pm exitCode (loLogsPrefix lo) (loNodeLogConfig lo) repServ
 
 -- | If we are on desktop, we want the following algorithm:
 --
@@ -453,33 +442,28 @@ clientScenario
     :: (HasCompileInfo, HasConfigurations)
     => ProtocolMagic
     -> NodeDbPath
-    -> Maybe FilePath    -- ^ Log prefix
-    -> Maybe FilePath    -- ^ Logger config
     -> NodeData          -- ^ Node, args, node log path
     -> NodeData          -- ^ Wallet, args, wallet log path
     -> UpdaterData       -- ^ Updater, args, updater runner, archive path
-    -> Int               -- ^ Node timeout, in seconds
-    -> Maybe String      -- ^ Report server
-    -> Bool              -- ^ Wallet logging
     -> LauncherOptions   -- ^ Launcher Options
     -> M ()
-clientScenario pm ndbp logPrefix logConf node wallet updater nodeTimeout report walletLog lo = do
+clientScenario pm ndbp node wallet updater lo = do
     runUpdater ndbp updater
-    let doesWalletLogToConsole = isNothing (ndLogPath wallet) && walletLog
+    let doesWalletLogToConsole = isNothing (ndLogPath wallet) && (loWalletLogging lo)
     (nodeHandle, nodeAsync) <- spawnNode node doesWalletLogToConsole
-    walletAsync <- async (runWallet walletLog wallet (ndLogPath node) lo)
+    walletAsync <- async (runWallet wallet (ndLogPath node) lo)
     logInfo "Waiting for wallet or node to finish..."
     (someAsync, exitCode) <- waitAny [nodeAsync, walletAsync]
     logInfo "Wallet or node has finished!"
     let restart
-          = clientScenario pm ndbp logPrefix logConf node wallet updater nodeTimeout report walletLog lo
+          = clientScenario pm ndbp node wallet updater lo
     (walletExitCode, nodeExitCode) <- if
        | someAsync == nodeAsync -> do
              unless (exitCode == ExitFailure 20) $ do
                  logWarning $ sformat ("The node has exited with "%shown) exitCode
-                 whenJust report $ \repServ -> do
+                 whenJust (loReportServer lo) $ \repServ -> do
                      logInfo $ sformat ("Sending logs to "%stext) (toText repServ)
-                     reportNodeCrash pm exitCode logPrefix logConf repServ
+                     reportNodeCrash pm exitCode (loLogsPrefix lo) (loNodeLogConfig lo) repServ
              logInfo "Waiting for the wallet to die"
              walletExitCode <- wait walletAsync
              logInfo $ sformat ("The wallet has exited with "%shown) walletExitCode
@@ -488,8 +472,8 @@ clientScenario pm ndbp logPrefix logConf node wallet updater nodeTimeout report 
              logNotice "The wallet has exited with code 20"
              logInfo $ sformat
                  ("Waiting for the node to shut down or killing it in "%int%" seconds otherwise")
-                 nodeTimeout
-             nodeExitCode <- liftIO $ timeout (fromIntegral nodeTimeout * 1000000) (wait nodeAsync)
+                 (loNodeTimeoutSec lo)
+             nodeExitCode <- liftIO $ timeout (fromIntegral (loNodeTimeoutSec lo) * 1000000) (wait nodeAsync)
              return (exitCode, nodeExitCode)
        | otherwise -> do
              logWarning $ sformat ("The wallet has exited with "%shown) exitCode
@@ -512,19 +496,19 @@ clientScenario pm ndbp logPrefix logConf node wallet updater nodeTimeout report 
         cancel nodeAsync
         -- Give the node some time to die, then complain if it hasn't
         nodeExitCode <- liftIO $
-            timeout (fromIntegral nodeTimeout) $
+            timeout (fromIntegral $ loNodeTimeoutSec lo) $
             Process.waitForProcess nodeHandle
         whenNothing_ nodeExitCode $ do
             logWarning "The node didn't die after 'terminateProcess'"
             maybeTrySIGKILL nodeHandle
 
-frontendOnlyScenario :: HasConfigurations => NodeDbPath -> NodeData -> NodeData -> UpdaterData -> Bool -> LauncherOptions -> M ()
-frontendOnlyScenario ndbp node wallet updater walletLog lo = do
+frontendOnlyScenario :: HasConfigurations => NodeDbPath -> NodeData -> NodeData -> UpdaterData -> LauncherOptions -> M ()
+frontendOnlyScenario ndbp node wallet updater lo = do
     runUpdater ndbp updater
     logInfo "Waiting for wallet to finish..."
-    exitCode <- runWallet walletLog wallet (ndLogPath node) lo
+    exitCode <- runWallet wallet (ndLogPath node) lo
     logInfo "Wallet has finished!"
-    let restart = frontendOnlyScenario ndbp node wallet updater walletLog lo
+    let restart = frontendOnlyScenario ndbp node wallet updater lo
     if exitCode == ExitFailure 20
         then do
             logNotice "The wallet has exited with code 20"
@@ -658,12 +642,11 @@ getSafeModeConfigPath :: LauncherOptions -> FilePath
 getSafeModeConfigPath LO{..} = loStatePath </> "safemode.yaml"
 
 runWallet
-    :: Bool              -- ^ wallet logging
-    -> NodeData          -- ^ Wallet, its args, wallet log file
+    :: NodeData          -- ^ Wallet, its args, wallet log file
     -> Maybe FilePath    -- ^ Node log file
     -> LauncherOptions   -- ^ Launcher Options
     -> M ExitCode
-runWallet shouldLog nd nLogPath lo = do
+runWallet nd nLogPath lo = do
     safeMode <- readSafeMode lo
     let wpath = ndPath nd
         wargs = (ndArgs nd) <> (if safeMode then [ "--safe-mode", "--disable-gpu", "--disable-d3d11" ] else [])
@@ -675,7 +658,7 @@ runWallet shouldLog nd nLogPath lo = do
                 cr <- createLogFileProc wpath wargs lp
                 system' phvar cr mempty EWallet
             Nothing ->
-               let cr = if | not shouldLog -> Process.NoStream
+               let cr = if | not (loWalletLogging lo) -> Process.NoStream
                            -- If node's output is not redirected, we want
                            -- to receive node's output and modify it.
                            | isNothing nLogPath -> Process.CreatePipe
@@ -689,13 +672,13 @@ runWallet shouldLog nd nLogPath lo = do
              logNotice "The wallet has exited with code 21"
              logInfo "Switching Configuration to safe mode"
              saveSafeMode lo True
-             runWallet shouldLog nd nLogPath lo
+             runWallet nd nLogPath lo
 
       ExitFailure 22 -> do
              logNotice "The wallet has exited with code 22"
              logInfo "Switching Configuration to normal mode"
              saveSafeMode lo False
-             runWallet shouldLog nd nLogPath lo
+             runWallet nd nLogPath lo
 
       _ -> pure walletExitStatus
     

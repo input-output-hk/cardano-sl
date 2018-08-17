@@ -186,7 +186,7 @@ equivalentT activeWallet esk = \mkWallet w ->
     notChecked :: History -> IntException -> EquivalenceViolation
     notChecked history ex = EquivalenceNotChecked {
           equivalenceNotCheckedName   = "<error during interpretation>"
-        , equivalenceNotCheckedReason = ex
+        , equivalenceNotCheckedReason = pretty ex
         , equivalenceNotCheckedEvents = history
         }
 
@@ -264,20 +264,26 @@ equivalentT activeWallet esk = \mkWallet w ->
                      -> TranslateT EquivalenceViolation m ()
     checkWalletState ctxt@InductiveCtxt{..} accountId = do
         snapshot <- liftIO (Kernel.getWalletSnapshot passiveWallet)
-        cmp "utxo"          utxo         (snapshot `Kernel.accountUtxo` accountId)
-        cmp "totalBalance"  totalBalance (snapshot `Kernel.accountTotalBalance` accountId)
+        cmp "utxo"          utxo         (Kernel.currentUtxo         snapshot accountId)
+        cmp "totalBalance"  totalBalance (Kernel.currentTotalBalance snapshot accountId)
         -- TODO: check other properties
       where
         cmp :: ( Interpret h a
                , Eq (Interpreted a)
                , Buildable a
                , Buildable (Interpreted a)
+               , Buildable err
                )
             => Text
             -> (Wallet h Addr -> a)
-            -> Interpreted a
+            -> Either err (Interpreted a)
             -> TranslateT EquivalenceViolation m ()
-        cmp fld f kernel = do
+        cmp fld _ (Left err) =
+          throwError $ EquivalenceNotChecked
+            fld
+            (pretty err)
+            inductiveCtxtEvents
+        cmp fld f (Right kernel) = do
           let dsl = f inductiveCtxtWallet
           translated <- toCardano ctxt fld dsl
 
@@ -299,7 +305,7 @@ equivalentT activeWallet esk = \mkWallet w ->
         ma' <- catchTranslateErrors $ runIntT' inductiveCtxtInt $ int a
         case ma' of
           Left err -> throwError
-              $ EquivalenceNotChecked fld err inductiveCtxtEvents
+              $ EquivalenceNotChecked fld (pretty err) inductiveCtxtEvents
           Right (a', _ic') -> return a'
 
 
@@ -324,7 +330,7 @@ data EquivalenceViolation =
         equivalenceNotCheckedName   :: Text
 
         -- | Why did we not check the equivalence
-      , equivalenceNotCheckedReason :: IntException
+      , equivalenceNotCheckedReason :: Text
 
         -- | The events that led to the error
       , equivalenceNotCheckedEvents :: History

@@ -22,13 +22,18 @@ module Cardano.Wallet.Kernel.Util (
     -- * MonadState utilities
   , modifyAndGetOld
   , modifyAndGetNew
+    -- * ExceptT utilities
+  , exceptT
     -- * Spaceleak free version of WriterT
   , Collect(..)
   , traverseCollect
+    -- * Dealing with Void
+  , mustBeRight
   ) where
 
 import           Universum
 
+import           Control.Monad.Except (MonadError (..))
 import qualified Data.Map.Merge.Strict as Map.Merge
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
@@ -122,6 +127,14 @@ modifyAndGetOld :: MonadState s m => (s -> s) -> m s
 modifyAndGetOld f = state $ \old -> let new = f old in (old, new)
 
 {-------------------------------------------------------------------------------
+  ExceptT utilities
+-------------------------------------------------------------------------------}
+
+exceptT :: Monad m => Either e a -> ExceptT e m a
+exceptT (Left  e) = throwError e
+exceptT (Right a) = return a
+
+{-------------------------------------------------------------------------------
   Spaceleak free version of WriterT
 -------------------------------------------------------------------------------}
 
@@ -149,3 +162,11 @@ traverseCollect f = runCollect . traverse f'
   where
     f' :: a -> Collect [c] f b
     f' = Collect . fmap (second (:[])) . f
+
+{-------------------------------------------------------------------------------
+  Dealing with Void
+-------------------------------------------------------------------------------}
+
+mustBeRight :: Either Void b -> b
+mustBeRight (Left  a) = absurd a
+mustBeRight (Right b) = b

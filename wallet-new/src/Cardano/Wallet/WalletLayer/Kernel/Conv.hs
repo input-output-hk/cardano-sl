@@ -32,9 +32,12 @@ import           Cardano.Wallet.Kernel.DB.BlockMeta (addressMetaIsChange,
                      addressMetaIsUsed)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
+import           Cardano.Wallet.Kernel.DB.Spec (cpAddressMeta)
+import           Cardano.Wallet.Kernel.DB.Spec.Read
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (ixedIndexed)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import qualified Cardano.Wallet.Kernel.Read as Kernel
+import           Cardano.Wallet.Kernel.Util (exceptT)
 
 {-------------------------------------------------------------------------------
   From V1 to kernel types
@@ -73,20 +76,21 @@ toRootId :: HD.HdRootId -> V1.WalletId
 toRootId = V1.WalletId . sformat build . _fromDb . HD.getHdRootId
 
 -- | Converts a Kernel 'HdAccount' into a V1 'Account'.
+--
 toAccount :: Kernel.DB -> HD.HdAccount -> V1.Account
 toAccount snapshot account = V1.Account {
       accIndex     = accountIndex
-    , accAddresses = map (toAddress snapshot . view ixedIndexed) addresses
+    , accAddresses = map (toAddress account . view ixedIndexed) addresses
     , accAmount    = V1 accountAvailableBalance
     , accName      = account ^. HD.hdAccountName . to HD.getAccountName
     , accWalletId  = V1.WalletId (sformat build (hdRootId ^. to HD.getHdRootId . fromDb))
     }
   where
     -- NOTE(adn): Perhaps we want the minimum or expected balance here?
-    accountAvailableBalance = Kernel.accountAvailableBalance snapshot hdAccountId
+    accountAvailableBalance = cpAvailableBalance (account ^. HD.hdAccountState . HD.hdAccountStateCurrent)
     hdAccountId  = account ^. HD.hdAccountId
     accountIndex = account ^. HD.hdAccountId . HD.hdAccountIdIx . to HD.getHdAccountIx
-    hdAddresses  = Kernel.accountAddresses snapshot hdAccountId
+    hdAddresses  = Kernel.addressesByAccountId snapshot hdAccountId
     addresses    = IxSet.toList hdAddresses
     hdRootId     = account ^. HD.hdAccountId . HD.hdAccountIdParent
 
@@ -96,7 +100,7 @@ toWallet db hdRoot = V1.Wallet {
       walId                         = (V1.WalletId walletId)
     , walName                       = hdRoot ^. HD.hdRootName
                                               . to HD.getWalletName
-    , walBalance                    = V1 (Kernel.walletTotalBalance db rootId)
+    , walBalance                    = V1 (Kernel.rootTotalBalance db rootId)
     , walHasSpendingPassword        = hasSpendingPassword
     , walSpendingPasswordLastUpdate = V1 lastUpdate
     , walCreatedAt                  = V1 createdAt
@@ -122,20 +126,11 @@ toAssuranceLevel HD.AssuranceLevelNormal = V1.NormalAssurance
 toAssuranceLevel HD.AssuranceLevelStrict = V1.StrictAssurance
 
 -- | Converts a Kernel 'HdAddress' into a V1 'WalletAddress'.
-toAddress :: Kernel.DB -> HD.HdAddress -> V1.WalletAddress
-toAddress db hdAddress =
+toAddress :: HD.HdAccount -> HD.HdAddress -> V1.WalletAddress
+toAddress acc hdAddress =
     V1.WalletAddress (V1 cardanoAddress)
                      (addressMeta ^. addressMetaIsUsed)
                      (addressMeta ^. addressMetaIsChange)
   where
     cardanoAddress = hdAddress ^. HD.hdAddressAddress . fromDb
-    hdAccountId    = hdAddress ^. HD.hdAddressId . HD.hdAddressIdParent
-    addressMeta    = Kernel.readAddressMeta db hdAccountId cardanoAddress
-
-{-------------------------------------------------------------------------------
-  Auxiliary
--------------------------------------------------------------------------------}
-
-exceptT :: Monad m => Either e a -> ExceptT e m a
-exceptT (Left  e) = throwError e
-exceptT (Right a) = return a
+    addressMeta    = acc ^. HD.hdAccountState . HD.hdAccountStateCurrent . cpAddressMeta cardanoAddress

@@ -18,11 +18,9 @@ import           Pos.Crypto.Signing
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
+import           Cardano.Wallet.Kernel.DB.AcidState (dbHdWallets)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
-import           Cardano.Wallet.Kernel.DB.HdWallet.Read (readAllHdRoots,
-                     readHdRoot)
 import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
-import           Cardano.Wallet.Kernel.DB.Read (hdWallets)
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import qualified Cardano.Wallet.Kernel.Internal as Kernel
@@ -140,7 +138,7 @@ getWallet wId db = runExcept $ do
     rootId <- withExceptT GetWalletWalletIdDecodingFailed $ fromRootId wId
     fmap (toWallet db) $
       withExceptT (GetWalletError . V1) $ exceptT $
-        readHdRoot rootId (hdWallets db)
+        Kernel.lookupHdRootId db rootId
 
 -- | Gets all the wallets known to this edge node.
 --
@@ -148,4 +146,4 @@ getWallet wId db = runExcept $ do
 getWallets :: Kernel.DB -> IxSet V1.Wallet
 getWallets db = IxSet.fromList . map (toWallet db) . IxSet.toList $ allRoots
   where
-    allRoots = readAllHdRoots (hdWallets db)
+    allRoots = db ^. dbHdWallets . HD.hdWalletsRoots

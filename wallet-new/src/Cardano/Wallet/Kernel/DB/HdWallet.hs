@@ -77,8 +77,10 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
   , zoomHdRootId
   , zoomHdAccountId
   , zoomHdAddressId
+  , zoomHdCardanoAddress
   , matchHdAccountState
   , zoomHdAccountCheckpoints
+  , zoomHdAccountCurrent
   , matchHdAccountCheckpoints
     -- * Zoom variations that create on request
   , zoomOrCreateHdRoot
@@ -642,6 +644,26 @@ zoomHdAddressId embedErr addrId =
     embedErr' :: UnknownHdAccount -> e
     embedErr' = embedErr . embedUnknownHdAccount
 
+-- | Zoom to the specified Cardano address
+--
+-- This is defined on queries only for now. In principle we could define this
+-- more generally, but that would require somehow taking advantage of the  fact
+-- that there cannot be more than one 'HdAddress' with a given 'Core.Address'.
+zoomHdCardanoAddress :: forall e a.
+                        (UnknownHdAddress -> e)
+                     -> Core.Address
+                     -> Query' HdAddress e a -> Query' HdWallets e a
+zoomHdCardanoAddress embedErr addr =
+    localQuery findAddress
+  where
+    findAddress :: Query' HdWallets e HdAddress
+    findAddress = do
+        addresses <- view hdWalletsAddresses
+        maybe err return $ (fmap _ixedIndexed $ getOne $ getEQ addr addresses)
+
+    err :: Query' HdWallets e x
+    err = missing $ embedErr (UnknownHdCardanoAddress addr)
+
 -- | Pattern match on the state of the account
 matchHdAccountState :: CanZoom f
                     => f HdAccountUpToDate e a
@@ -667,6 +689,17 @@ zoomHdAccountCheckpoints upd =
       (zoom hdUpToDateCheckpoints upd)
       (zoom hdWithinKCurrent      upd)
       (zoom hdOutsideKCurrent     upd)
+
+-- | Zoom to the most recent checkpoint
+zoomHdAccountCurrent :: CanZoom f
+                     => (forall c. IsCheckpoint c => f c e a)
+                     -> f HdAccount e a
+zoomHdAccountCurrent upd =
+    zoomHdAccountCheckpoints $
+      withZoom $ \cps zoomTo -> do
+        let l :: Lens' (NewestFirst NonEmpty c) c
+            l = _Wrapped . neHead
+        zoomTo (cps ^. l) (\cp' -> cps & l .~ cp') upd
 
 -- | Variant of 'zoomHdAccountCheckpoints' that distinguishes between
 -- full checkpoints (wallet is up to date) and partial checkpoints

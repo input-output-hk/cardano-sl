@@ -20,8 +20,7 @@ import           Cardano.Wallet.Kernel.DB.AcidState (DB, dbHdWallets)
 import           Cardano.Wallet.Kernel.DB.BlockMeta (AddressMeta (..),
                      BlockMeta (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountState (..),
-                     hdAccountState, hdUpToDateCheckpoints)
-import           Cardano.Wallet.Kernel.DB.HdWallet.Read (readAllHdAccounts)
+                     hdAccountState, hdUpToDateCheckpoints, hdWalletsAccounts)
 import           Cardano.Wallet.Kernel.DB.Spec (checkpointBlockMeta,
                      currentCheckpoint)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
@@ -54,7 +53,7 @@ actualBlockMeta snapshot' =
             error "actualBlockMeta: Expected HdAccountStateUpToDate"
     where
         getOne' ix = fromMaybe (error "Expected a singleton") (IxSet.getOne ix)
-        theAccount = getOne' (readAllHdAccounts $ snapshot' ^. dbHdWallets)
+        theAccount = getOne' (snapshot' ^. dbHdWallets . hdWalletsAccounts)
 
 -- | A Payment from P0 to P1 with change returned to P0
 paymentWithChangeFromP0ToP1 :: forall h. Hash h Addr

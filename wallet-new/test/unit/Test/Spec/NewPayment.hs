@@ -187,13 +187,13 @@ spec = describe "NewPayment" $ do
                              , csoInputGrouping     = IgnoreGrouping
                              }
                     let (AccountIdHdRnd hdAccountId) = fixtureAccountId
-                    (res, _) <- liftIO (Kernel.newTransaction aw
-                                                              mempty
-                                                              opts
-                                                              hdAccountId
-                                                              fixturePayees
-                                       )
-                    liftIO ((bimap STB STB res) `shouldSatisfy` isRight)
+                    res <- liftIO (Kernel.newTransaction aw
+                                                         mempty
+                                                         opts
+                                                         hdAccountId
+                                                         fixturePayees
+                                  )
+                    liftIO ((bimap STB (const $ STB ()) res) `shouldSatisfy` isRight)
 
         prop "newTransaction works (ReceiverPaysFee)" $ withMaxSuccess 50 $ do
             monadicIO $
@@ -203,13 +203,13 @@ spec = describe "NewPayment" $ do
                              , csoInputGrouping     = IgnoreGrouping
                              }
                     let (AccountIdHdRnd hdAccountId) = fixtureAccountId
-                    (res, _) <- liftIO (Kernel.newTransaction aw
-                                                              mempty
-                                                              opts
-                                                              hdAccountId
-                                                              fixturePayees
-                                       )
-                    liftIO ((bimap STB STB res) `shouldSatisfy` isRight)
+                    res <- liftIO (Kernel.newTransaction aw
+                                                         mempty
+                                                         opts
+                                                         hdAccountId
+                                                         fixturePayees
+                                  )
+                    liftIO ((bimap STB (const $ STB ()) res) `shouldSatisfy` isRight)
 
     describe "Generating a new payment (Servant)" $ do
 

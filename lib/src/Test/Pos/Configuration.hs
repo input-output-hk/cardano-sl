@@ -31,7 +31,8 @@ import           Pos.Chain.Block (HasBlockConfiguration, withBlockConfiguration)
 import           Pos.Chain.Delegation (HasDlgConfiguration,
                      withDlgConfiguration)
 import           Pos.Chain.Ssc (HasSscConfiguration, withSscConfiguration)
-import           Pos.Chain.Txp (TxpConfiguration (..))
+import           Pos.Chain.Txp (RequiresNetworkMagic (..),
+                     TxpConfiguration (..))
 import           Pos.Chain.Update (HasUpdateConfiguration,
                      withUpdateConfiguration)
 import           Pos.Configuration (HasNodeConfiguration, withNodeConfiguration)
@@ -101,7 +102,7 @@ withStaticConfigurations patak =
     withDefUpdateConfiguration $
     withDefBlockConfiguration $
     withDefDlgConfiguration $
-    withDefNtpConfiguration (patak $ TxpConfiguration 200 Set.empty)
+    withDefNtpConfiguration (patak $ TxpConfiguration 200 Set.empty NMMustBeNothing)
 
 withDefConfigurations
     :: (HasConfigurations => ProtocolMagic -> TxpConfiguration -> NtpConfiguration -> r) -> r

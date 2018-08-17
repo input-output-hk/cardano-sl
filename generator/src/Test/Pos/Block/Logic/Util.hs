@@ -25,7 +25,8 @@ import           Test.QuickCheck.Monadic (PropertyM, pick)
 
 import           Pos.AllSecrets (AllSecrets, HasAllSecrets (..), allSecrets)
 import           Pos.Chain.Block (Block, Blund)
-import           Pos.Chain.Txp (TxpConfiguration (..))
+import           Pos.Chain.Txp (RequiresNetworkMagic (..),
+                     TxpConfiguration (..))
 import           Pos.Core (BlockCount, HasGenesisData, HasProtocolConstants,
                      SlotId (..), epochIndexL, genesisData)
 import           Pos.Core.Chrono (NE, OldestFirst (..))
@@ -72,7 +73,8 @@ genBlockGenParams pm blkCnt (EnableTxPayload enableTxPayload) (InplaceDB inplace
                 , _bgpInplaceDB = inplaceDB
                 , _bgpGenStakeholders = genStakeholders
                 , _bgpSkipNoKey = False
-                , _bgpTxpGlobalSettings = txpGlobalSettings pm (TxpConfiguration 200 Set.empty)
+                , _bgpTxpGlobalSettings = txpGlobalSettings pm
+                                              (TxpConfiguration 200 Set.empty NMMustBeNothing)
                 }
     pick $ sized genBlockGenParamsF
 

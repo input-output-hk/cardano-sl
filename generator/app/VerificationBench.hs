@@ -21,7 +21,8 @@ import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Binary.Class (decodeFull, serialize)
 import           Pos.Chain.Block (ApplyBlocksException, Block,
                      VerifyBlocksException)
-import           Pos.Chain.Txp (TxpConfiguration (..))
+import           Pos.Chain.Txp (RequiresNetworkMagic (..),
+                     TxpConfiguration (..))
 import           Pos.Core.Chrono (NE, OldestFirst (..), nonEmptyNewestFirst)
 import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)
 import           Pos.Core.Configuration (genesisBlockVersionData, genesisData,
@@ -91,7 +92,8 @@ generateBlocks pm txpConfig bCount = do
                 , _bgpInplaceDB = False
                 , _bgpSkipNoKey = True
                 , _bgpGenStakeholders = gdBootStakeholders genesisData
-                , _bgpTxpGlobalSettings = txpGlobalSettings pm (TxpConfiguration 200 Set.empty)
+                , _bgpTxpGlobalSettings =
+                      txpGlobalSettings pm (TxpConfiguration 200 Set.empty NMMustBeNothing)
                 })
             (maybeToList . fmap fst)
     return $ OldestFirst $ NE.fromList bs
@@ -205,7 +207,7 @@ main = do
                     { _tpStartTime = Timestamp (convertUnit startTime)
                     , _tpBlockVersionData = genesisBlockVersionData
                     , _tpGenesisInitializer = genesisInitializer
-                    , _tpTxpConfiguration = TxpConfiguration 200 Set.empty
+                    , _tpTxpConfiguration = TxpConfiguration 200 Set.empty NMMustBeNothing
                     }
             in runBlockTestMode tp $ do
                 -- initialize databasea

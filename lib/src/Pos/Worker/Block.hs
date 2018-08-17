@@ -1,5 +1,6 @@
-{-# LANGUAGE CPP        #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE CPP             #-}
+{-# LANGUAGE RankNTypes      #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | Block processing related workers.
 

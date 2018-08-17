@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Specification for submodules of Pos.Chain.Update.MemState
 
 module Test.Pos.Update.MemStateSpec

@@ -1,5 +1,6 @@
-{-# LANGUAGE ApplicativeDo #-}
-{-# LANGUAGE CPP           #-}
+{-# LANGUAGE ApplicativeDo   #-}
+{-# LANGUAGE CPP             #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | Module for command-line options and flags
 

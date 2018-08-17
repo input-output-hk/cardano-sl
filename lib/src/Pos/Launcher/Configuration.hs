@@ -1,5 +1,6 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE Rank2Types    #-}
+{-# LANGUAGE DeriveGeneric   #-}
+{-# LANGUAGE Rank2Types      #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | Configuration for a node: values which are constant for the lifetime of
 -- the running program, not for the lifetime of the executable binary itself.

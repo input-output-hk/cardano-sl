@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Getter params from Args
 
 module Pos.Client.CLI.Params

@@ -1,5 +1,6 @@
-{-# LANGUAGE CPP        #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE CPP             #-}
+{-# LANGUAGE RankNTypes      #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | High-level scenarios which can be launched.
 

@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Functions which iterate over Utxo and search for
 -- addresses which correspond to specified HD passphrases.
 

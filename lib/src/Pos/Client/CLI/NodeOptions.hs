@@ -1,6 +1,7 @@
-{-# LANGUAGE ApplicativeDo #-}
-{-# LANGUAGE CPP           #-}
-{-# LANGUAGE QuasiQuotes   #-}
+{-# LANGUAGE ApplicativeDo   #-}
+{-# LANGUAGE CPP             #-}
+{-# LANGUAGE QuasiQuotes     #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | Command line options of Cardano node.
 

@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Module for command-line utilites, parsers and convenient handlers.
 
 module Pos.Client.CLI.Util

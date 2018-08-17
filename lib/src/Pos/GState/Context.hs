@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Data which is stored in memory and is related to GState.
 
 module Pos.GState.Context

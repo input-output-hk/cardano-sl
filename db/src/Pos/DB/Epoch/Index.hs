@@ -2,7 +2,7 @@
 
 module Pos.DB.Epoch.Index
        ( writeEpochIndex
-       , getEpochBlockOffset
+       , getEpochBlundOffset
        , SlotIndexOffset (..)
        ) where
 
@@ -88,8 +88,8 @@ getSlotIndexOffsetN fpath (UnsafeLocalSlotIndex i) =
         hSeek h AbsoluteSeek (headerLength + fromIntegral i * 8)
         decode <$> LBS.hGet h 8
 
-getEpochBlockOffset :: FilePath -> LocalSlotIndex -> IO (Maybe Word64)
-getEpochBlockOffset fpath lsi = do
+getEpochBlundOffset :: FilePath -> LocalSlotIndex -> IO (Maybe Word64)
+getEpochBlundOffset fpath lsi = do
     off <- getSlotIndexOffsetN fpath lsi
     -- 'maxBound' is the sentinel value which means there is no block
     -- in the epoch file for the specified 'LocalSlotIndex'.

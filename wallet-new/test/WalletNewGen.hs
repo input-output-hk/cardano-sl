@@ -4,13 +4,14 @@ module WalletNewGen
 
 import           Universum
 
-import           Cardano.Wallet.API.V1.Errors (WalletError (..))
-import           Cardano.Wallet.API.V1.Types (SyncProgress (..), V1 (..),
-                     mkEstimatedCompletionTime, mkSyncPercentage,
-                     mkSyncThroughput)
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
+
+import           Cardano.Wallet.API.V1.Types (SyncProgress (..), V1 (..),
+                     WalletError (..), exampleWalletId,
+                     mkEstimatedCompletionTime, mkSyncPercentage,
+                     mkSyncThroughput)
 import           Pos.Core.Common (BlockCount (..))
 
 import           Test.Pos.Core.Gen (genAddress)

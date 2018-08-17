@@ -6,6 +6,7 @@ import           Universum
 
 import           Cardano.Wallet.API.V1.Errors (WalletError (..))
 import           Cardano.Wallet.API.V1.Types (SyncProgress (..), V1 (..),
+                     WalletError (..), exampleWalletId,
                      mkEstimatedCompletionTime, mkSyncPercentage,
                      mkSyncThroughput)
 import           Data.List.NonEmpty (fromList)

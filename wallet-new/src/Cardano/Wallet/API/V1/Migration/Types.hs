@@ -12,40 +12,40 @@ module Cardano.Wallet.API.V1.Migration.Types
 
 import           Universum hiding (elems)
 
-import           Cardano.Wallet.API.V1.Errors (ToServantError (..))
-import           Cardano.Wallet.API.V1.Types (V1 (..))
-import           Data.Aeson (FromJSON (..), ToJSON (..), object, pairs, (.:),
-                     (.=))
-import           Data.Aeson.Types (Value (..), typeMismatch)
+import qualified Control.Lens as Lens
+import qualified Control.Monad.Catch as Catch
+import           Data.Aeson (FromJSON (..), ToJSON (..), object, pairs,
+                     withObject, (.:), (.=))
+import           Data.Aeson.Types (Value (..))
 import           Data.Map (elems)
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Time.Units (fromMicroseconds, toMicroseconds)
 import           Data.Typeable (typeRep)
 import           Formatting (bprint, build, sformat)
+import qualified Formatting.Buildable
 import           Generics.SOP.TH (deriveGeneric)
 import           GHC.Generics (Generic)
-import           Pos.Core (addressF)
-import           Pos.Crypto (decodeHash)
-import           Pos.Util.Mnemonic (Mnemonic)
-import           Pos.Wallet.Web.ClientTypes.Instances ()
-import           Pos.Wallet.Web.Tracking.Sync (calculateEstimatedRemainingTime)
 import           Servant (err422)
 import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Gen (oneof)
 
+import           Cardano.Wallet.API.Response.JSend (ResponseStatus (..))
+import           Cardano.Wallet.API.V1.Errors (ToServantError (..))
+import           Cardano.Wallet.API.V1.Types (V1 (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
-import qualified Control.Lens as Lens
-import qualified Control.Monad.Catch as Catch
-import qualified Data.HashMap.Strict as HMS
-import qualified Formatting.Buildable
 import qualified Pos.Chain.Txp as V0
 import qualified Pos.Client.Txp.Util as V0
+import           Pos.Core (addressF)
 import qualified Pos.Core.Common as Core
 import qualified Pos.Core.Slotting as Core
 import qualified Pos.Core.Txp as Txp
+import           Pos.Crypto (decodeHash)
+import           Pos.Util.Mnemonic (Mnemonic)
 import qualified Pos.Util.Servant as V0
+import           Pos.Wallet.Web.ClientTypes.Instances ()
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.State.Storage as OldStorage
+import           Pos.Wallet.Web.Tracking.Sync (calculateEstimatedRemainingTime)
 
 -- | 'Migrate' encapsulates migration between types, when possible.
 -- NOTE: This has @nothing@ to do with database migrations (see `safecopy`),
@@ -352,26 +352,22 @@ deriveGeneric ''MigrationError
 instance ToJSON MigrationError where
     toEncoding (MigrationFailed weDescription) = pairs $ mconcat
         [ "message"    .= String "MigrationFailed"
-        , "status"     .= String "error"
+        , "status"     .= ErrorStatus
         , "diagnostic" .= object
             [ "description" .= weDescription
             ]
         ]
 
 instance FromJSON MigrationError where
-    parseJSON (Object o)
-        | HMS.member "message" o =
-            case HMS.lookup "message" o of
-                Just "MigrationFailed" ->
-                    MigrationFailed <$> ((o .: "diagnostic") >>= (.: "description"))
-                _ ->
-                    fail "Incorrect JSON encoding for MigrationError"
-
-        | otherwise =
-            fail "Incorrect JSON encoding for MigrationError"
-
-    parseJSON invalid =
-        typeMismatch "MigrationError" invalid
+    parseJSON = withObject "MigrationError" $ \o -> do
+        message <- o .: "message"
+        case message :: Text of
+            "MigrationFailed" -> do
+                diag <- o .: "diagnostic"
+                desc <- diag .: "description"
+                pure $ MigrationFailed desc
+            _ ->
+                fail "Incorrect JSON encoding for MigrationError"
 
 instance Exception MigrationError
 
@@ -381,11 +377,8 @@ instance Arbitrary MigrationError where
         ]
 
 instance Buildable MigrationError where
-    build = \case
-        MigrationFailed _ ->
-             bprint "Error while migrating a legacy type into the current version."
+    build _ =
+        bprint "Error while migrating a legacy type into the current version."
 
 instance ToServantError MigrationError where
-    declareServantError = \case
-        MigrationFailed _ ->
-            err422
+    declareServantError _ = err422

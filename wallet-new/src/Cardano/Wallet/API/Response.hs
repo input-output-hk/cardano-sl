@@ -23,6 +23,25 @@ import           Prelude
 import           Universum (Buildable, Exception, Text, decodeUtf8, toText,
                      (<>))
 
+import           Control.Lens hiding ((.=))
+import           Data.Aeson (FromJSON (..), ToJSON (..), eitherDecode, encode,
+                     object, pairs, withObject, (.:), (.=))
+import           Data.Aeson.Encode.Pretty (encodePretty)
+import qualified Data.Aeson.Options as Serokell
+import           Data.Aeson.TH
+import           Data.Aeson.Types (Value (..))
+import qualified Data.Char as Char
+import           Data.Swagger as S hiding (Example, example)
+import           Data.Typeable
+import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable
+import           Generics.SOP.TH (deriveGeneric)
+import           GHC.Generics (Generic)
+import           Servant (err400)
+import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..),
+                     MimeUnrender (..), OctetStream)
+import           Test.QuickCheck
+
 import           Cardano.Wallet.API.Indices (Indexable', IxSet')
 import           Cardano.Wallet.API.Request (RequestParams (..))
 import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
@@ -35,26 +54,6 @@ import           Cardano.Wallet.API.Response.JSend (ResponseStatus (..))
 import           Cardano.Wallet.API.Response.Sort.IxSet as SortBackend
 import           Cardano.Wallet.API.V1.Errors (ToServantError (..))
 import           Cardano.Wallet.API.V1.Swagger.Example (Example, example)
-import           Control.Lens hiding ((.=))
-import           Data.Aeson (FromJSON (..), ToJSON (..), eitherDecode, encode,
-                     object, pairs, (.:), (.=))
-import           Data.Aeson.Encode.Pretty (encodePretty)
-import           Data.Aeson.TH
-import           Data.Aeson.Types (Value (..), typeMismatch)
-import           Data.Swagger as S hiding (Example, example)
-import           Data.Typeable
-import           Formatting (bprint, build, (%))
-import           Generics.SOP.TH (deriveGeneric)
-import           GHC.Generics (Generic)
-import           Servant (err400)
-import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..),
-                     MimeUnrender (..), OctetStream)
-import           Test.QuickCheck
-
-import qualified Data.Aeson.Options as Serokell
-import qualified Data.Char as Char
-import qualified Data.HashMap.Strict as HMS
-import qualified Formatting.Buildable
 
 -- | Extra information associated with an HTTP response.
 data Metadata = Metadata
@@ -245,26 +244,22 @@ deriveGeneric ''JSONValidationError
 instance ToJSON JSONValidationError where
     toEncoding (JSONValidationFailed weValidationError) = pairs $ mconcat
         [ "message"    .= String "JSONValidationFailed"
-        , "status"     .= String "error"
+        , "status"     .= ErrorStatus
         , "diagnostic" .= object
             [ "validationError" .= weValidationError
             ]
         ]
 
 instance FromJSON JSONValidationError where
-    parseJSON (Object o)
-        | HMS.member "message" o =
-            case HMS.lookup "message" o of
-                Just "JSONValidationFailed" ->
-                    JSONValidationFailed <$> ((o .: "diagnostic") >>= (.: "validationError"))
-                _ ->
-                    fail "Incorrect JSON encoding for JSONValidationError"
-
-        | otherwise =
-            fail "Incorrect JSON encoding for JSONValidationError"
-
-    parseJSON invalid =
-        typeMismatch "JSONValidationError" invalid
+    parseJSON = withObject "JSONValidationError" $ \o -> do
+        message <- o .: "message"
+        case message :: Text of
+            "JSONValidationFailed" -> do
+                diag <- o .: "diagnostic"
+                err <- diag .: "validationError"
+                pure $ JSONValidationFailed err
+            _ ->
+                fail "Incorrect JSON encoding for JSONValidationError"
 
 instance Exception JSONValidationError
 

@@ -96,35 +96,48 @@ module Cardano.Wallet.API.V1.Types (
   , toHttpErrorStatus
   ) where
 
+import qualified Prelude
 import           Universum
 
 import           Control.Lens (At, Index, IxValue, at, ix, makePrisms, to, (?~))
 import           Data.Aeson
 import           Data.Aeson.Encoding (pairStr)
+import qualified Data.Aeson.Options as Serokell
 import           Data.Aeson.TH as A
 import           Data.Aeson.Types (Value (..), toJSONKeyText, typeMismatch)
 import           Data.Bifunctor (first)
+import qualified Data.ByteArray as ByteArray
+import qualified Data.ByteString as BS
+import qualified Data.Char as C
 import           Data.Default (Default (def))
+import qualified Data.HashMap.Strict as HMS
+import qualified Data.IxSet.Typed as IxSet
+import qualified Data.Map.Strict as Map
 import           Data.Semigroup (Semigroup)
 import           Data.Swagger hiding (Example, example)
+import qualified Data.Swagger as S
 import           Data.Swagger.Declare (Declare, look)
 import           Data.Swagger.Internal.Schema (GToSchema)
 import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape,
                      GenericShape)
 import           Data.Text (Text, dropEnd, toLower)
+import qualified Data.Text as T
 import           Data.Version (Version)
 import           Formatting (bprint, build, fconst, int, sformat, (%))
+import qualified Formatting.Buildable
 import           Generics.SOP.TH (deriveGeneric)
 import           GHC.Generics (Generic, Rep)
 import           Network.Transport (EndPointAddress (..))
 import           Node (NodeId (..))
 import           Serokell.Util (listJson)
+import qualified Serokell.Util.Base16 as Base16
 import           Servant
-import           Test.Pos.Core.Arbitrary ()
 import           Test.QuickCheck
 import           Test.QuickCheck.Gen (Gen (..))
 import           Test.QuickCheck.Random (mkQCGen)
 
+
+import           Cardano.Wallet.API.Response.JSend (ResponseStatus (..))
 import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..),
                      UnitOfMeasure (..))
 import           Cardano.Wallet.API.V1.Errors (ToHttpErrorStatus (..),
@@ -134,8 +147,13 @@ import           Cardano.Wallet.Kernel.DB.Util.IxSet (HasPrimKey (..),
                      IndicesOf, OrdByPrimKey, ixFun, ixList)
 import           Cardano.Wallet.Orphans.Aeson ()
 import           Cardano.Wallet.Util (showApiUtcTime)
+import qualified Pos.Client.Txp.Util as Core
 import           Pos.Core (addressF)
+import qualified Pos.Core as Core
+import qualified Pos.Core.Txp as Txp
+import qualified Pos.Core.Update as Core
 import           Pos.Crypto (decodeHash, hashHexF)
+import qualified Pos.Crypto.Signing as Core
 import           Pos.Infra.Communication.Types.Protocol ()
 import           Pos.Infra.Diffusion.Subscription.Status
                      (SubscriptionStatus (..))
@@ -144,25 +162,8 @@ import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
                      deriveSafeBuildable, plainOrSecureF)
 import           Pos.Util.Mnemonic (Mnemonic)
 import           Pos.Wallet.Web.ClientTypes.Instances ()
-
-import qualified Data.Aeson.Options as Serokell
-import qualified Data.ByteArray as ByteArray
-import qualified Data.ByteString as BS
-import qualified Data.Char as C
-import qualified Data.HashMap.Strict as HMS
-import qualified Data.IxSet.Typed as IxSet
-import qualified Data.Map.Strict as Map
-import qualified Data.Swagger as S
-import qualified Data.Text as T
-import qualified Formatting.Buildable
-import qualified Pos.Client.Txp.Util as Core
-import qualified Pos.Core as Core
-import qualified Pos.Core.Txp as Txp
-import qualified Pos.Core.Update as Core
-import qualified Pos.Crypto.Signing as Core
 import qualified Pos.Wallet.Web.State.Storage as OldStorage
-import qualified Prelude
-import qualified Serokell.Util.Base16 as Base16
+import           Test.Pos.Core.Arbitrary ()
 
 
 -- | Declare generic schema, while documenting properties
@@ -2343,71 +2344,71 @@ instance ToHttpErrorStatus WalletError
 
 instance ToJSON WalletError where
     toEncoding (NotEnoughMoney weNeedMore) =
-        pairs $ pairStr "status" (toEncoding $ String "error")
+        pairs $ ("status" .= ErrorStatus)
              <> pairStr "diagnostic"
                  (pairs $ pairStr "needMore" (toEncoding weNeedMore))
              <> "message" .= String "NotEnoughMoney"
     toEncoding (OutputIsRedeem weAddress) =
-        pairs $ pairStr "status" (toEncoding $ String "error")
+        pairs $ "status" .= ErrorStatus
              <> pairStr "diagnostic"
                  (pairs $ pairStr "address" (toEncoding weAddress))
              <> "message" .= String "OutputIsRedeem"
     toEncoding (UnknownError weMsg) =
-        pairs $ pairStr "status" (toEncoding $ String "error")
+        pairs $ "status" .= ErrorStatus
              <> pairStr "diagnostic" (pairs $ pairStr "msg" (toEncoding weMsg))
              <> "message" .= String "UnknownError"
     toEncoding (InvalidAddressFormat weMsg) =
-        pairs $ pairStr "status" (toEncoding $ String "error")
+        pairs $ "status" .= ErrorStatus
              <> pairStr "diagnostic" (pairs $ pairStr "msg" (toEncoding weMsg))
              <> "message" .= String "InvalidAddressFormat"
     toEncoding (WalletNotFound) =
-        pairs $ pairStr "status" (toEncoding $ String "error")
+        pairs $ "status" .= ErrorStatus
              <> pairStr "diagnostic" (pairs $ mempty)
              <> "message" .= String "WalletNotFound"
     toEncoding (WalletAlreadyExists wid) =
-        pairs $ pairStr "status" (toEncoding $ String "error")
+        pairs $ "status" .= ErrorStatus
              <> pairStr "diagnostic" (pairs $ pairStr "walletId" (toEncoding wid))
              <> "message" .= String "WalletAlreadyExists"
     toEncoding (AddressNotFound) =
-        pairs $ pairStr "status" (toEncoding $ String "error")
+        pairs $ "status" .= ErrorStatus
              <> pairStr "diagnostic" (pairs $ mempty)
              <> "message" .= String "AddressNotFound"
     toEncoding (TxFailedToStabilize) =
-        pairs $ pairStr "status" (toEncoding $ String "error")
+        pairs $ "status" .= ErrorStatus
              <> pairStr "diagnostic" (pairs $ mempty)
              <> "message" .= String "TxFailedToStabilize"
     toEncoding (InvalidPublicKey weProblem) =
-        pairs $ pairStr "status" (toEncoding $ String "error")
+        pairs $ "status" .= ErrorStatus
              <> pairStr "diagnostic" (pairs $ pairStr "msg" (toEncoding weProblem))
              <> "message" .= String "InvalidPublicKey"
     toEncoding (UnsignedTxCreationError) =
-        pairs $ pairStr "status" (toEncoding $ String "error")
+        pairs $ "status" .= ErrorStatus
              <> pairStr "diagnostic" (pairs $ mempty)
              <> "message" .= String "UnsignedTxCreationError"
     toEncoding (TooBigTransaction) =
-        pairs $ pairStr "status" (toEncoding $ String "error")
+        pairs $ "status" .= ErrorStatus
              <> pairStr "diagnostic" (pairs $ mempty)
              <> "message" .= String "TooBigTransaction"
     toEncoding (SignedTxSubmitError weProblem) =
-        pairs $ pairStr "status" (toEncoding $ String "error")
+        pairs $ "status" .= ErrorStatus
              <> pairStr "diagnostic" (pairs $ pairStr "msg" (toEncoding weProblem))
              <> "message" .= String "SignedTxSubmitError"
     toEncoding (TxRedemptionDepleted) =
-        pairs $ pairStr "status" (toEncoding $ String "error")
+        pairs $ "status" .= ErrorStatus
              <> pairStr "diagnostic" (pairs $ mempty)
              <> "message" .= String "TxRedemptionDepleted"
     toEncoding (TxSafeSignerNotFound weAddress) =
-        pairs $ pairStr "status" (toEncoding $ String "error")
+        pairs $ "status" .= ErrorStatus
              <> pairStr "diagnostic"
                  (pairs $ pairStr "address" (toEncoding weAddress))
              <> "message" .= String "TxSafeSignerNotFound"
     toEncoding (MissingRequiredParams requiredParams) =
-        pairs $ pairStr "status" (toEncoding $ String "error")
+        pairs $ "status" .= ErrorStatus
              <> pairStr "diagnostic"
                  (pairs $ pairStr "params" (toEncoding requiredParams))
              <> "message" .= String "MissingRequiredParams"
     toEncoding (CannotCreateAddress weProblem) =
-        pairs $ pairStr "status" (toEncoding $ String "error")
+        pairs $ "status" .= ErrorStatus
              <> pairStr "diagnostic" (pairs $ pairStr "msg" (toEncoding weProblem))
              <> "message" .= String "CannotCreateAddress"
     toEncoding (WalletIsNotReadyToProcessPayments weStillRestoring) =

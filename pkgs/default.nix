@@ -16100,6 +16100,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-util
+, cardano-sl-util-test
 , concurrent-extra
 , conduit
 , containers
@@ -16194,6 +16195,7 @@ base
 cardano-sl-binary-test
 cardano-sl-core
 cardano-sl-core-test
+cardano-sl-util-test
 filepath
 hedgehog
 temporary

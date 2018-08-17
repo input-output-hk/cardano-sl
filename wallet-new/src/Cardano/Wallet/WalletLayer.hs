@@ -359,7 +359,7 @@ instance Exception GetTxError
 -- | The passive wallet (data) layer. See @PassiveWallet@.
 data PassiveWalletLayer m = PassiveWalletLayer
     {
-    -- * wallets
+    -- wallets
       _pwlCreateWallet         :: NewWallet -> m (Either CreateWalletError Wallet)
     , _pwlGetWallets           :: m (IxSet Wallet)
     , _pwlGetWallet            :: WalletId -> m (Either GetWalletError Wallet)
@@ -370,7 +370,7 @@ data PassiveWalletLayer m = PassiveWalletLayer
                                -> PasswordUpdate
                                -> m (Either UpdateWalletPasswordError Wallet)
     , _pwlDeleteWallet         :: WalletId -> m (Either DeleteWalletError ())
-    -- * accounts
+    -- accounts
     , _pwlCreateAccount        :: WalletId
                                -> NewAccount
                                -> m (Either CreateAccountError Account)
@@ -386,19 +386,19 @@ data PassiveWalletLayer m = PassiveWalletLayer
     , _pwlDeleteAccount        :: WalletId
                                -> AccountIndex
                                -> m (Either DeleteAccountError ())
-    -- * addresses
+    -- addresses
     , _pwlCreateAddress        :: NewAddress
                                -> m (Either CreateAddressError WalletAddress)
     , _pwlGetAddresses         :: RequestParams -> m (SliceOf WalletAddress)
     , _pwlValidateAddress      :: Text
                                -> m (Either ValidateAddressError WalletAddress)
 
-    -- * transactions
+    -- transactions
     , _pwlGetTransactions      :: Maybe WalletId -> Maybe AccountIndex -> Maybe (V1 Address)
         -> RequestParams -> FilterOperations Transaction -> SortOperations Transaction -> m (Either GetTxError (WalletResponse [Transaction]))
     , _pwlGetTxFromMeta        :: TxMeta -> m Transaction
 
-    -- * core API
+    -- core API
     , _pwlApplyBlocks          :: OldestFirst NE Blund -> m ()
     , _pwlRollbackBlocks       :: NewestFirst NE Blund -> m ()
     }
@@ -509,24 +509,24 @@ data ActiveWalletLayer m = ActiveWalletLayer {
 
       -- | Performs a payment.
     , pay :: PassPhrase
-          -- ^ The \"spending password\" to decrypt the 'EncryptedSecretKey'.
+          -- The \"spending password\" to decrypt the 'EncryptedSecretKey'.
           -> InputGrouping
-          -- ^ An preference on how to group inputs during coin selection.
+          -- An preference on how to group inputs during coin selection.
           -> ExpenseRegulation
-          -- ^ Who pays the fee, if the sender or the receivers.
+          -- Who pays the fee, if the sender or the receivers.
           -> Payment
-          -- ^ The payment we need to perform.
+          -- The payment we need to perform.
           -> m (Either NewPaymentError (Tx, TxMeta))
 
       -- | Estimates the fees for a payment.
     , estimateFees :: PassPhrase
-                   -- ^ The \"spending password\" to decrypt the 'EncryptedSecretKey'.
+                   -- The \"spending password\" to decrypt the 'EncryptedSecretKey'.
                    -> InputGrouping
-                   -- ^ An preference on how to group inputs during coin selection
+                   -- An preference on how to group inputs during coin selection
                    -> ExpenseRegulation
-                   -- ^ Who pays the fee, if the sender or the receivers.
+                   -- Who pays the fee, if the sender or the receivers.
                    -> Payment
-                   -- ^ The payment we need to perform.
+                   -- The payment we need to perform.
                    -> m (Either EstimateFeesError Coin)
 
       -- | Redeem ada

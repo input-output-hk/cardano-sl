@@ -8,7 +8,7 @@ module Pos.Infra.Util.JsonLog.Events
        , JLTimedEvent (..)
        , JsonLogConfig (..)
        , MemPoolModifyReason (..)
-       , appendJL
+       -- , appendJL     -- not used
        , jlAdoptedBlock
        , jlCreatedBlock
        , jsonLogConfigFromHandle

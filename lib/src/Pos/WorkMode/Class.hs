@@ -1,5 +1,5 @@
-{-# LANGUAGE CPP           #-}
-{-# LANGUAGE TypeOperators #-}
+{- # LANGUAGE CPP           # -}
+{- # LANGUAGE TypeOperators # -}
 
 {-| The 'WorkMode' constraint, which is widely used throughout the codebase.
     It is a simple alias for a bunch of other useful constraints.
@@ -26,6 +26,7 @@ import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Context (BlockRetrievalQueue, BlockRetrievalQueueTag,
                      HasSscContext, StartTime, TxpGlobalSettings)
 import           Pos.Core (HasConfiguration, HasPrimaryKey)
+import           Pos.Core.JsonLog (CanJsonLog)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics, MonadReporting)
 import           Pos.DB.Block (MonadBListener)
 import           Pos.DB.Class (MonadDB, MonadGState)
@@ -88,6 +89,7 @@ type WorkMode ctx m
 type MinWorkMode m
     = ( MonadIO m
       , MonadUnliftIO m
+      , CanJsonLog m
       , HasConfiguration
       , HasUpdateConfiguration
       , HasNodeConfiguration

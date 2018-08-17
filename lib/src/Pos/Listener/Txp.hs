@@ -19,12 +19,11 @@ import           Universum
 
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Core.Txp (TxAux (..), TxId, TxMsgContents (..))
+import           Pos.Core.JsonLog.LogEvents (JLEvent (..), JLTxR (..))
 import           Pos.Crypto (ProtocolMagic, hash)
 import           Pos.DB.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem,
                      txpProcessTx)
 import qualified Pos.Infra.Communication.Relay as Relay
-import           Pos.Infra.Util.JsonLog.Events (JLTxR (..))
-import           Pos.Util.Trace (Trace, traceWith)
 import           Pos.Util.Trace.Named (TraceNamed, appendName, logInfo)
 
 -- Real tx processing
@@ -32,17 +31,17 @@ import           Pos.Util.Trace.Named (TraceNamed, appendName, logInfo)
 -- #txProcessTransaction
 handleTxDo
     :: TxpMode ctx m
-    => TraceNamed m     -- ^ How to log transactions
-    -> Trace m JLTxR    -- ^ JSON log
+    => TraceNamed m       -- ^ log messages
     -> ProtocolMagic
     -> TxpConfiguration
-    -> TxAux            -- ^ Incoming transaction to be processed
+    -> (JLEvent -> m ())  -- ^ log transactions (JSON)
+    -> TxAux              -- ^ Incoming transaction to be processed
     -> m Bool
-handleTxDo logTrace0 jsonLogTrace pm txpConfig txAux = do
+handleTxDo logTrace0 pm txpConfig logTx txAux = do
     let logTrace = appendName "handleTxDo" logTrace0
     let txId = hash (taTx txAux)
     res <- txpProcessTx logTrace pm txpConfig (txId, txAux)
-    let json me = traceWith jsonLogTrace $ JLTxR
+    let json me = logTx $ JLTxReceived $ JLTxR
             { jlrTxId     = sformat build txId
             , jlrError    = me
             }

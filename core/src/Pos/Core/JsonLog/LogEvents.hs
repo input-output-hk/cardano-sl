@@ -20,7 +20,6 @@ module Pos.Core.JsonLog.LogEvents
        , JLTimedEvent (..)
        , JsonLogConfig (..)
        , MemPoolModifyReason (..)
-       , appendJL
        , jsonLogConfigFromHandle
        , jsonLogDefault
        , fromJLSlotId
@@ -30,20 +29,21 @@ module Pos.Core.JsonLog.LogEvents
 import           Universum
 
 import           Control.Monad.Except (MonadError)
-import           Data.Aeson (FromJSON, ToJSON, Value (..), encode, parseJSON,
-                     toEncoding, (.:))
+import           Data.Aeson (FromJSON, ToJSON, Value (..), {-encode,-}
+                     parseJSON, toEncoding, (.:))
 import           Data.Aeson.Encoding.Internal (pairStr, pairs)
 import           Data.Aeson.Options (defaultOptions)
 import           Data.Aeson.TH (deriveJSON)
 import           Data.Aeson.Types (typeMismatch)
-import qualified Data.ByteString.Lazy as LBS
+--import qualified Data.ByteString.Lazy as LBS
 import qualified Data.HashMap.Strict as HMS
 
 import           Pos.Core (EpochIndex (..), HasConfiguration, SlotId (..),
                      mkLocalSlotIndex)
 import           Pos.Core.JsonLog.JsonLogT (JsonLogConfig (..))
-import qualified Pos.Core.JsonLog.JsonLogT as JL
-import           Pos.Util.Util (realTime)
+import qualified Pos.Core.JsonLog.JsonLogT as JLT
+--import           Pos.Util.Util (realTime)
+import           Pos.Util.Trace.Named (TraceNamed)
 
 type BlockId = Text
 type TxId = Text
@@ -184,16 +184,18 @@ fromJLSlotIdUnsafe x = case fromJLSlotId x of
     Right y -> y
     Left  _ -> error "illegal slot id"
 
+{-
 -- | Append event into log by given 'FilePath'.
 appendJL :: (MonadIO m) => FilePath -> JLEvent -> m ()
 appendJL path ev = liftIO $ do
   time <- realTime -- TODO: Do we want to mock time in logs?
   LBS.appendFile path . encode $ JLTimedEvent (fromIntegral time) ev
+-}
 
-jsonLogConfigFromHandle :: MonadIO m => Handle -> m JsonLogConfig
-jsonLogConfigFromHandle h = do
+jsonLogConfigFromHandle :: MonadIO m => TraceNamed IO -> Handle -> m JsonLogConfig
+jsonLogConfigFromHandle logTrace h = do
     v <- newMVar h
-    return $ JsonLogConfig v (\_ -> return True)
+    return $ JsonLogConfig logTrace v (\_ -> return True)
 
 class HasJsonLogConfig ctx where
     jsonLogConfig :: Lens' ctx JsonLogConfig
@@ -203,4 +205,4 @@ jsonLogDefault
     => a -> m ()
 jsonLogDefault x = do
     jlc <- view jsonLogConfig
-    JL.jsonLogDefault jlc x
+    JLT.jsonLogDefault jlc x

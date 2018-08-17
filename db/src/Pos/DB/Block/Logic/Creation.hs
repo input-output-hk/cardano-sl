@@ -39,6 +39,7 @@ import           Pos.Core (EpochIndex, EpochOrSlot (..), HasProtocolConstants,
                      epochSlots, flattenSlotId, getEpochOrSlot)
 import           Pos.Core.Context (HasPrimaryKey, getOurSecretKey)
 import           Pos.Core.Exception (assertionFailed, traceFatalError)
+import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.JsonLog.LogEvents (MemPoolModifyReason (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics, reportError)
 import           Pos.Core.Ssc (SscPayload)
@@ -66,7 +67,6 @@ import           Pos.DB.Txp (MempoolExt, MonadTxpLocal (..), MonadTxpMem,
 import           Pos.DB.Update (UpdateContext, clearUSMemPool, getMaxBlockSize,
                      usCanCreateBlock, usPreparePayload)
 import           Pos.Util (_neHead)
-import           Pos.Util.Trace (noTrace)
 import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfoS, natTrace)
 import           Pos.Util.Util (HasLens (..), HasLens')
 
@@ -112,6 +112,7 @@ type MonadCreateBlock ctx m
 createGenesisBlockAndApply ::
        forall ctx m.
        ( MonadCreateBlock ctx m
+       , CanJsonLog m
        , HasLens StateLock ctx StateLock
        , HasLens (StateLockMetrics MemPoolModifyReason) ctx (StateLockMetrics MemPoolModifyReason)
        , HasMisbehaviorMetrics ctx
@@ -129,7 +130,7 @@ createGenesisBlockAndApply logTrace pm txpConfig epoch = do
     -- must be repeated inside the lock
     needGen <- needCreateGenesisBlock (natTrace liftIO logTrace) epoch tipHeader
     if needGen
-        then modifyStateLock noTrace --jsonTrace
+        then modifyStateLock
                  HighPriority
                  ApplyBlock
                  (\_ -> createGenesisBlockDo logTrace pm txpConfig epoch)
@@ -224,6 +225,7 @@ needCreateGenesisBlock logTrace epoch tipHeader = do
 createMainBlockAndApply ::
        forall ctx m.
        ( MonadCreateBlock ctx m
+       , CanJsonLog m
        , HasLens' ctx StateLock
        , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
        )
@@ -234,8 +236,8 @@ createMainBlockAndApply ::
     -> ProxySKBlockInfo
     -> m (Either Text MainBlock)
 createMainBlockAndApply logTrace pm txpConfig sId pske =
-    modifyStateLock noTrace HighPriority ApplyBlock createAndApply
-  where          -- ^^ jsonTrace
+    modifyStateLock HighPriority ApplyBlock createAndApply
+  where
     createAndApply tip =
         createMainBlockInternal (natTrace liftIO logTrace) pm sId pske >>= \case
             Left reason -> pure (tip, Left reason)

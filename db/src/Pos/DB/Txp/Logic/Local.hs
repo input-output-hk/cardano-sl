@@ -22,7 +22,7 @@ import           Universum
 import qualified Control.Concurrent.STM as STM
 import           Control.Monad.Except (mapExceptT, runExceptT, throwError)
 import           Control.Monad.Morph (generalize)
-import           Data.Aeson (Value)
+--import           Data.Aeson (Value)
 import           Data.Default (Default (def))
 import qualified Data.HashMap.Strict as HM
 import           Formatting (build, sformat, (%))
@@ -34,6 +34,7 @@ import           Pos.Chain.Txp (ExtendedLocalToilM, LocalToilState (..),
                      mpLocalTxs, normalizeToil, processTx, topsortTxs,
                      utxoToLookup)
 import           Pos.Core (EpochIndex, ProtocolMagic, siEpoch)
+import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.JsonLog.LogEvents (MemPoolModifyReason (..))
 import           Pos.Core.Reporting (reportError)
 import           Pos.Core.Slotting (MonadSlots (..))
@@ -49,7 +50,6 @@ import           Pos.DB.Txp.MemState (GenericTxpLocalData (..), MempoolExt,
                      MonadTxpMem, TxpLocalWorkMode, getLocalTxsMap,
                      getLocalUndos, getMemPool, getTxpExtra, getUtxoModifier,
                      setTxpLocalData, withTxpLocalData)
-import           Pos.Util.Trace (Trace)
 import           Pos.Util.Trace.Named (TraceNamed, appendName, logDebug,
                      logError, logWarning)
 import           Pos.Util.Util (HasLens')
@@ -59,6 +59,7 @@ type TxpProcessTransactionMode ctx m =
     , HasLens' ctx StateLock
     , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
     , MempoolExt m ~ ()
+    , CanJsonLog m
     )
 
 -- | Process transaction. 'TxId' is expected to be the hash of
@@ -67,12 +68,11 @@ type TxpProcessTransactionMode ctx m =
 txProcessTransaction
     :: (TxpProcessTransactionMode ctx m)
     => TraceNamed m
-    -> Trace m Value -- ^ Json log.
     -> ProtocolMagic
     -> TxpConfiguration
     -> (TxId, TxAux) -> m (Either ToilVerFailure ())
-txProcessTransaction logTrace jsonL pm txpConfig itw = do
-  withStateLock jsonL LowPriority ProcessTransaction $ \__tip -> txProcessTransactionNoLock (appendName "txProc" logTrace) pm txpConfig itw
+txProcessTransaction logTrace pm txpConfig itw = do
+  withStateLock LowPriority ProcessTransaction $ \__tip -> txProcessTransactionNoLock (appendName "txProc" logTrace) pm txpConfig itw
 
 -- | Unsafe version of 'txProcessTransaction' which doesn't take a
 -- lock. Can be used in tests.

@@ -29,7 +29,7 @@ import           Pos.WorkMode (WorkMode)
 
 -- | All, but in reality not all, workers used by full node.
 allWorkers
-    :: forall ext ctx m . WorkMode ctx m
+    :: forall ext ctx m . (WorkMode ctx m)
     => TraceNamed IO
     -> ProtocolMagic
     -> TxpConfiguration

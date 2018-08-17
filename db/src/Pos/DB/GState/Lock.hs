@@ -37,10 +37,10 @@ import           System.Mem (getAllocationCounter)
 
 import           Pos.Chain.Block (HeaderHash)
 import           Pos.Core.Conc (currentTime)
+import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Util.Concurrent (modifyMVar, withMVar)
 import           Pos.Util.Concurrent.PriorityLock (Priority (..), PriorityLock,
                      newPriorityLock, withPriorityLock)
-import           Pos.Util.Trace (Trace, traceWith)
 import           Pos.Util.Util (HasLens', lensOf)
 
 
@@ -101,23 +101,23 @@ type MonadStateLockBase ctx m
 type MonadStateLock ctx slr m
      = ( MonadStateLockBase ctx m
        , HasLens' ctx (StateLockMetrics slr)
+       , CanJsonLog m
        )
 
 -- | Run an action acquiring 'StateLock' lock. Argument of
 -- action is an old tip, result is put as a new tip.
 modifyStateLock :: forall ctx slr m a.
        MonadStateLock ctx slr m
-    => Trace m Value
-    -> Priority
+    => Priority
     -> slr
     -> (HeaderHash -> m (HeaderHash, a))
     -> m a
-modifyStateLock jsonL = stateLockHelper jsonL modifyMVar
+modifyStateLock = stateLockHelper modifyMVar
 
 -- | Run an action acquiring 'StateLock' lock without modifying tip.
 withStateLock ::
-       MonadStateLock ctx slr m => Trace m Value -> Priority -> slr -> (HeaderHash -> m a) -> m a
-withStateLock jsonL = stateLockHelper jsonL withMVar
+       MonadStateLock ctx slr m => Priority -> slr -> (HeaderHash -> m a) -> m a
+withStateLock = stateLockHelper withMVar
 
 -- | Version of 'withStateLock' that does not gather metrics
 withStateLockNoMetrics ::
@@ -128,13 +128,12 @@ withStateLockNoMetrics prio action = do
 
 stateLockHelper :: forall ctx slr m a b.
        MonadStateLock ctx slr m
-    => Trace m Value
-    -> (MVar HeaderHash -> (HeaderHash -> m b) -> m a)
+    => (MVar HeaderHash -> (HeaderHash -> m b) -> m a)
     -> Priority
     -> slr
     -> (HeaderHash -> m b)
     -> m a
-stateLockHelper jsonL doWithMVar prio reason action = do
+stateLockHelper doWithMVar prio reason action = do
     StateLock mvar prioLock <- view (lensOf @StateLock)
     StateLockMetrics {..} <- view (lensOf @(StateLockMetrics slr))
     liftIO $ slmWait reason
@@ -154,5 +153,5 @@ stateLockHelper jsonL doWithMVar prio reason action = do
             (timeEndModify - timeBeginModify)
             -- counter counts "down" memory that has been allocated by the thread
             (memBeginModify - memEndModify)
-        traceWith jsonL json
+        jsonLog json
         pure res

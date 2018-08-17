@@ -14543,8 +14543,8 @@ version = "0.5.10";
 src = fetchgit {
 
 url = "https://github.com/input-output-hk/cardano-report-server.git";
-sha256 = "1gk0wbwl0pkq8xjq6znvc699zpv3xgzgxncsb4wncpjimjlf7dk5";
-rev = "43622ed083887c60609e030cef6eadcd3dbd7b67";
+sha256 = "0hmhdr7mxhkr4mmadrayic0iz5rh5jznirnijnz1wwilw2ah4asi";
+rev = "96b69eaecb203b5c3dcc49359346fca682de791f";
 
 };
 isLibrary = true;

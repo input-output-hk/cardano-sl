@@ -400,8 +400,8 @@ mockNodeState MockNodeStateParams{..} =
       Adaptor {
           withNodeState        = \_ -> throwM $ NodeStateUnavailable callStack
         , getTipSlotId         = return mockNodeStateTipSlotId
+        , getSecurityParameter = return mockNodeStateSecurityParameter
         , getMaxTxSize         = return $ bvdMaxTxSize genesisBlockVersionData
-        , getSecurityParameter = return $ pcK'         protocolConstants
         , getSlotCount         = return $ pcEpochSlots protocolConstants
         , getSlotStart         = return . mockNodeStateSlotStart
         }
@@ -420,18 +420,28 @@ data MockNodeStateParams = NodeConstraints => MockNodeStateParams {
 
         -- | Value for 'getSlotSTart'
       , mockNodeStateSlotStart :: SlotId -> Either UnknownEpoch Timestamp
+
+        -- | Value for 'getSecurityParameter'
+      , mockNodeStateSecurityParameter :: SecurityParameter
       }
 
 -- | Default 'MockNodeStateParams'
 --
--- Warning: the default parameters are all error values and uses
--- 'NodeConstraints' that come from the test configuration
+-- NOTE:
+--
+-- * Most of the default parameters are error values
+-- * The 'NodeConstraints' that come from the test configuration
+-- * However, we set the security parameter to 2160 instead of taking that
+--   from the test configuration, since in the test configuration @k@ is
+--   assigned a really low value, which would cause us to throw away from
+--   checkpoints during testing that we should not throw away.
 defMockNodeStateParams :: MockNodeStateParams
 defMockNodeStateParams =
     withDefConfiguration $ \_pm ->
     withDefUpdateConfiguration $ MockNodeStateParams {
         mockNodeStateTipSlotId = notDefined "mockNodeStateTipSlotId"
       , mockNodeStateSlotStart = notDefined "mockNodeStateSlotStart"
+      , mockNodeStateSecurityParameter = SecurityParameter 2160
       }
   where
     notDefined :: Text -> a

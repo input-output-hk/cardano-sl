@@ -17806,7 +17806,6 @@ license = stdenv.lib.licenses.mit;
 , http-client-tls
 , http-types
 , ixset-typed
-, json-sop
 , lens
 , log-warper
 , memory
@@ -17912,7 +17911,6 @@ http-client
 http-client-tls
 http-types
 ixset-typed
-json-sop
 lens
 log-warper
 memory

@@ -1,1 +1,1 @@
-{"status":"error","diagnostic":{},"message":"WalletAlreadyExists"}
+{"status":"error","diagnostic":{"walletId":"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"},"message":"WalletAlreadyExists"}

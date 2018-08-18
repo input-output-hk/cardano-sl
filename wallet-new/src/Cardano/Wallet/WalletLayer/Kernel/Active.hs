@@ -90,7 +90,7 @@ setupPayment grouping regulation payment = do
                      csoExpenseRegulation = regulation
                    , csoInputGrouping     = grouping
                    }
-        accIx  = HD.HdAccountIx (V1.psAccountIndex . V1.pmtSource $ payment)
+        accIx  = HD.HdAccountIx (V1.getAccIndex . V1.psAccountIndex . V1.pmtSource $ payment)
         accId  = HD.HdAccountId {
                      _hdAccountIdParent = rootId
                    , _hdAccountIdIx     = accIx

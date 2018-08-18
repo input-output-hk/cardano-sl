@@ -17,57 +17,45 @@ import           Cardano.Wallet.API.Request.Pagination
 import           Cardano.Wallet.API.Request.Sort
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.Types
-import qualified Cardano.Wallet.API.V1.Errors as Errors
 import           Cardano.Wallet.API.V1.Generic (gconsName)
+import           Cardano.Wallet.API.V1.Migration.Types (MigrationError (..))
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Swagger.Example
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.TypeLits (KnownSymbols (..))
-import qualified Pos.Core as Core
+
+import           Control.Lens ((?~))
+import           Data.Aeson (encode)
+import           Data.Aeson.Encode.Pretty
+import           Data.Map (Map)
+import           Data.Swagger hiding (Example, Header)
+import           Data.Typeable
+import           Formatting (build, sformat)
+import           NeatInterpolation
 import           Pos.Core.Update (SoftwareVersion)
 import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
 import           Pos.Util.Servant (LoggingApi)
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
-
-import           Control.Lens ((?~))
-import           Data.Aeson (ToJSON (..), encode)
-import           Data.Aeson.Encode.Pretty
-import qualified Data.ByteString.Lazy as BL
-import           Data.Map (Map)
-import qualified Data.Map.Strict as M
-import qualified Data.Set as Set
-import           Data.Swagger hiding (Example, Header, example)
-import           Data.Swagger.Declare
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
-import           Data.Typeable
-import           NeatInterpolation
 import           Servant (Handler, ServantErr (..), Server)
 import           Servant.API.Sub
 import           Servant.Swagger
 import           Servant.Swagger.UI (SwaggerSchemaUI')
 import           Servant.Swagger.UI.Core (swaggerSchemaUIServerImpl)
 import           Servant.Swagger.UI.ReDoc (redocFiles)
-import           Test.QuickCheck
-import           Test.QuickCheck.Gen
-import           Test.QuickCheck.Random
+
+import qualified Data.ByteString.Lazy as BL
+import qualified Data.Map.Strict as M
+import qualified Data.Set as Set
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
+import qualified Pos.Core as Core
+import qualified Pos.Core.Attributes as Core
+import qualified Pos.Crypto.Hashing as Crypto
+
 
 --
 -- Helper functions
 --
-
--- | Generates an example for type `a` with a static seed.
-genExample :: Example a => a
-genExample = (unGen (resize 3 example)) (mkQCGen 42) 42
-
--- | Generates a `NamedSchema` exploiting the `ToJSON` instance in scope,
--- by calling `sketchSchema` under the hood.
-fromExampleJSON :: (ToJSON a, Typeable a, Example a)
-                  => proxy a
-                  -> Declare (Definitions Schema) NamedSchema
-fromExampleJSON (_ :: proxy a) = do
-    let (randomSample :: a) = genExample
-    return $ NamedSchema (Just $ fromString $ show $ typeOf randomSample) (sketchSchema randomSample)
 
 -- | Surround a Text with another
 surroundedBy :: Text -> Text -> Text
@@ -155,7 +143,7 @@ instance
         in swgr & over (operationsOf swgr . parameters) addSortOperation
           where
             addSortOperation :: [Referenced Param] -> [Referenced Param]
-            addSortOperation xs = (Inline newParam) : xs
+            addSortOperation xs = Inline newParam : xs
 
             newParam :: Param
             newParam =
@@ -196,7 +184,6 @@ instance ToParamSchema Core.Address where
 instance ToParamSchema (V1 Core.Address) where
   toParamSchema _ = toParamSchema (Proxy @Core.Address)
 
-
 --
 -- Descriptions
 --
@@ -229,13 +216,50 @@ Error Name / Description | HTTP Error code | Example
 $errors
 |] where
   errors = T.intercalate "\n" rows
-  rows = map (mkRow errToDescription) Errors.sample
+  rows =
+    -- 'WalletError'
+    [ mkRow fmtErr $ NotEnoughMoney 1400
+    , mkRow fmtErr $ OutputIsRedeem sampleAddress
+    , mkRow fmtErr $ UnknownError "Unknown error."
+    , mkRow fmtErr $ InvalidAddressFormat "Invalid Base58 representation."
+    , mkRow fmtErr WalletNotFound
+    , mkRow fmtErr $ WalletAlreadyExists exampleWalletId
+    , mkRow fmtErr AddressNotFound
+    , mkRow fmtErr $ InvalidPublicKey "Invalid root public key for external wallet."
+    , mkRow fmtErr UnsignedTxCreationError
+    , mkRow fmtErr $ SignedTxSubmitError "Cannot submit externally-signed transaction."
+    , mkRow fmtErr TooBigTransaction
+    , mkRow fmtErr TxFailedToStabilize
+    , mkRow fmtErr TxRedemptionDepleted
+    , mkRow fmtErr $ TxSafeSignerNotFound sampleAddress
+    , mkRow fmtErr $ MissingRequiredParams (("wallet_id", "walletId") :| [])
+    , mkRow fmtErr $ WalletIsNotReadyToProcessPayments genExample
+    , mkRow fmtErr $ NodeIsStillSyncing genExample
+    , mkRow fmtErr $ CannotCreateAddress "Cannot create derivation path for new address in external wallet."
+
+    -- 'MigrationError'
+    , mkRow fmtErr $ MigrationFailed "Migration failed."
+
+    -- 'JSONValidationError'
+    , mkRow fmtErr $ JSONValidationFailed "Expected String, found Null."
+
+    -- TODO 'MnemonicError' ?
+    ]
   mkRow fmt err = T.intercalate "|" (fmt err)
-  errToDescription err =
-    [ surroundedBy "`" (gconsName err) <> "<br/>" <> toText (Errors.describe err)
-    , show $ errHTTPCode $ Errors.toServantError err
+  fmtErr err =
+    [ surroundedBy "`" (gconsName err) <> "<br/>" <> toText (sformat build err)
+    , show $ errHTTPCode $ toServantError err
     , inlineCodeBlock (T.decodeUtf8 $ BL.toStrict $ encodePretty err)
     ]
+
+  sampleAddress = V1 Core.Address
+      { Core.addrRoot =
+          Crypto.unsafeAbstractHash ("asdfasdf" :: String)
+      , Core.addrAttributes =
+          Core.mkAttributes $ Core.AddrAttributes Nothing Core.BootstrapEraDistr
+      , Core.addrType =
+          Core.ATPubKey
+      }
 
 
 -- | Shorter version of the doc below, only for Dev & V0 documentations
@@ -874,12 +898,12 @@ api (compileInfo, curSoftwareVersion) walletAPI mkDescription = toSwagger wallet
   & info.title   .~ "Cardano Wallet API"
   & info.version .~ fromString (show curSoftwareVersion)
   & host ?~ "127.0.0.1:8090"
-  & info.description ?~ (mkDescription $ DescriptionEnvironment
-    { deErrorExample          = decodeUtf8 $ encodePretty Errors.WalletNotFound
+  & info.description ?~ mkDescription DescriptionEnvironment
+    { deErrorExample          = decodeUtf8 $ encodePretty WalletNotFound
     , deMnemonicExample       = decodeUtf8 $ encode (genExample @BackupPhrase)
     , deDefaultPerPage        = fromString (show defaultPerPageEntries)
     , deWalletErrorTable      = errorsDescription
     , deGitRevision           = ctiGitRevision compileInfo
     , deSoftwareVersion       = fromString $ show curSoftwareVersion
-    })
+    }
   & info.license ?~ ("MIT" & url ?~ URL "https://raw.githubusercontent.com/input-output-hk/cardano-sl/develop/lib/LICENSE")

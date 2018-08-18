@@ -4,8 +4,10 @@
 
 module Pos.Wallet.Web.Methods.Restore
        ( newWallet
+       , newWalletNoThrow
        , importWallet
        , restoreWalletFromSeed
+       , restoreWalletFromSeedNoThrow
        , restoreWalletFromBackup
        , addInitialRichAccount
 
@@ -18,6 +20,7 @@ import           Universum
 import qualified Control.Exception.Safe as E
 import           Control.Lens (each, ix, traversed)
 import           Data.Default (Default (def))
+import           Data.Traversable (for)
 import           Formatting (build, sformat, (%))
 import           System.IO.Error (isDoesNotExistError)
 import           System.Wlog (logDebug)
@@ -58,47 +61,95 @@ import           UnliftIO (MonadUnliftIO)
 initialAccAddrIdxs :: Word32
 initialAccAddrIdxs = firstHardened
 
+mnemonicExists :: Text
+mnemonicExists = "Wallet with that mnemonics already exists"
+
+-- | Creates a wallet. If the wallet with the given passphrase already exists,
+-- then we return 'Left' of the wallet's ID.
 mkWallet
     :: L.MonadWalletLogic ctx m
-    => PassPhrase -> CWalletInit -> Bool -> m (EncryptedSecretKey, CId Wal)
+    => PassPhrase
+    -> CWalletInit
+    -> Bool
+    -> m (Either (CId Wal) (EncryptedSecretKey, CId Wal))
 mkWallet passphrase CWalletInit {..} isReady = do
     let CWalletMeta {..} = cwInitMeta
 
     skey <- genSaveRootKey passphrase (bpToList cwBackupPhrase)
     let cAddr = encToCId skey
 
-    CWallet{..} <- L.createWalletSafe cAddr cwInitMeta isReady
-    -- can't return this result, since balances can change
+    eresult <- fmap Right (L.createWalletSafe cAddr cwInitMeta isReady)
+        `catch` \(e :: WalletError) ->
+            case e of
+                RequestError msg | msg == mnemonicExists ->
+                    pure (Left cAddr)
+                _ ->
+                    throwM e
 
-    let accMeta = CAccountMeta { caName = "Initial account" }
-        accInit = CAccountInit { caInitWId = cwId, caInitMeta = accMeta }
-    () <$ L.newAccountIncludeUnready True (DeterminedSeed initialAccAddrIdxs) passphrase accInit
+    for eresult $ \CWallet{..} -> do
 
-    return (skey, cAddr)
+        -- can't return this result, since balances can change
+
+        let accMeta = CAccountMeta { caName = "Initial account" }
+            accInit = CAccountInit { caInitWId = cwId, caInitMeta = accMeta }
+        () <$ L.newAccountIncludeUnready True (DeterminedSeed initialAccAddrIdxs) passphrase accInit
+
+        return (skey, cAddr)
+
 
 newWallet :: L.MonadWalletLogic ctx m => PassPhrase -> CWalletInit -> m CWallet
-newWallet passphrase cwInit = do
+newWallet = throwMnemonicExists ... newWalletNoThrow
+
+newWalletNoThrow
+    :: L.MonadWalletLogic ctx m
+    => PassPhrase
+    -> CWalletInit
+    -> m (Either (CId Wal) CWallet)
+newWalletNoThrow passphrase cwInit = do
     db <- askWalletDB
     -- A brand new wallet doesn't need any syncing, so we mark isReady=True
-    (_, wId) <- mkWallet passphrase cwInit True
-    removeHistoryCache db wId
-    -- BListener checks current syncTip before applying update,
-    -- thus setting it up to date manually here
-    withStateLockNoMetrics HighPriority $ \tip -> setWalletSyncTip db wId tip
-    L.getWallet wId
+    eresult <- mkWallet passphrase cwInit True
+    for eresult $ \(_, wId) -> do
+        removeHistoryCache db wId
+        -- BListener checks current syncTip before applying update,
+        -- thus setting it up to date manually here
+        withStateLockNoMetrics HighPriority $ \tip -> setWalletSyncTip db wId tip
+        L.getWallet wId
+
 
 {- | Restores a wallet from a seed. The process is conceptually divided into
 -- two parts:
 -- 1. Recover this wallet balance from the global Utxo (fast, and synchronous);
 -- 2. Recover the full transaction history from the blockchain (slow, asynchronous).
 -}
-restoreWalletFromSeed :: ( L.MonadWalletLogic ctx m
-                         , MonadUnliftIO m
-                         , HasLens SyncQueue ctx SyncQueue
-                         ) => PassPhrase -> CWalletInit -> m CWallet
-restoreWalletFromSeed passphrase cwInit = do
-    (sk, _) <- mkWallet passphrase cwInit False
-    restoreWallet sk
+restoreWalletFromSeed
+    :: ( L.MonadWalletLogic ctx m
+       , MonadUnliftIO m
+       , HasLens SyncQueue ctx SyncQueue
+       )
+    => PassPhrase
+    -> CWalletInit
+    -> m CWallet
+restoreWalletFromSeed = throwMnemonicExists ... restoreWalletFromSeedNoThrow
+
+throwMnemonicExists :: MonadThrow m => m (Either (CId Wal) a) -> m a
+throwMnemonicExists m = m >>= \case
+    Left _ -> throwM (RequestError mnemonicExists)
+    Right a -> pure a
+
+-- | Restores a wallet without throwing an exception if the wallet already
+-- exists.
+restoreWalletFromSeedNoThrow
+    :: ( L.MonadWalletLogic ctx m
+      , MonadUnliftIO m
+      , HasLens SyncQueue ctx SyncQueue
+      )
+    => PassPhrase
+    -> CWalletInit
+    -> m (Either (CId Wal) CWallet)
+restoreWalletFromSeedNoThrow passphrase cwInit = do
+    eresult <- mkWallet passphrase cwInit False
+    for eresult $ \(sk, _) -> restoreWallet sk
 
 restoreWallet :: ( L.MonadWalletLogic ctx m
                  , MonadUnliftIO m

@@ -44,6 +44,7 @@ import           UTxO.Interpreter
 import           UTxO.Translate
 import           Wallet.Abstract
 import           Wallet.Inductive
+import           Wallet.Inductive.ExtWalletEvent
 import           Wallet.Inductive.History
 
 {-------------------------------------------------------------------------------
@@ -60,7 +61,7 @@ data EventCallbacks h m = EventCallbacks {
       -- The callback is given the translated UTxO of the bootstrap
       -- transaction (we cannot give it the translated transaction because
       -- we cannot translate the bootstrap transaction).
-      walletBootT       :: HasConfiguration => InductiveCtxt h -> Utxo -> m HD.HdAccountId
+      walletBootT :: HasConfiguration => InductiveCtxt h -> Utxo -> m HD.HdAccountId
 
       -- | Apply a block
     , walletApplyBlockT :: HasConfiguration => InductiveCtxt h -> HD.HdAccountId -> RawResolvedBlock -> m ()
@@ -73,7 +74,10 @@ data EventCallbacks h m = EventCallbacks {
       -- TODO: Do we want to call 'switch' here? If so, we need some of the logic
       -- from the wallet worker thread to collapse multiple rollbacks and
       -- apply blocks into a single call to switch
-    , walletRollbackT   :: InductiveCtxt h -> HD.HdAccountId -> m ()
+    , walletRollbackT :: InductiveCtxt h -> HD.HdAccountId -> m ()
+
+      -- | Switch to fork
+    , walletSwitchToForkT :: InductiveCtxt h -> HD.HdAccountId -> Int -> OldestFirst [] RawResolvedBlock -> m ()
     }
 
 -- | The context in which a function of 'EventCallbacks' gets called
@@ -94,12 +98,13 @@ data InductiveCtxt h = InductiveCtxt {
 -- Returns the final wallet as well as the "interpretation state checkpoints"
 -- (to support any further rollback).
 interpretT :: forall h e m. (Monad m, Hash h Addr)
-           => (History -> IntException -> e)
+           => UseWalletWorker
+           -> (History -> IntException -> e)
            -> (DSL.Transaction h Addr -> Wallet h Addr)
            -> EventCallbacks h (TranslateT e m)
            -> Inductive h Addr
            -> TranslateT e m (Wallet h Addr, IntCtxt h)
-interpretT injIntEx mkWallet EventCallbacks{..} Inductive{..} =
+interpretT useWW injIntEx mkWallet EventCallbacks{..} Inductive{..} =
     goBoot inductiveBoot
   where
     goBoot :: DSL.Transaction h Addr
@@ -117,47 +122,55 @@ interpretT injIntEx mkWallet EventCallbacks{..} Inductive{..} =
           ic'
           hist
           w'
-          (getOldestFirst inductiveEvents)
+          (getOldestFirst (extWalletEvents useWW inductiveEvents))
 
     goEvents :: HD.HdAccountId
              -> IntCtxt h
              -> History
              -> Wallet h Addr
-             -> [WalletEvent h Addr]
+             -> [ExtWalletEvent h Addr]
              -> TranslateT e m (Wallet h Addr, IntCtxt h)
     goEvents accountId = go
       where
         go :: IntCtxt h
            -> History
            -> Wallet h Addr
-           -> [WalletEvent h Addr]
+           -> [ExtWalletEvent h Addr]
            -> TranslateT e m (Wallet h Addr, IntCtxt h)
         go ctxts _ w [] =
             return (w, ctxts)
-        go ic hist w (ApplyBlock b:es) = do
+        go ic hist w (e@(ExtApplyBlock b):es) = do
             let w'    = applyBlock w b
-                hist' = kernelEvent hist (ApplyBlock b) w'
+                hist' = kernelEvent hist e w'
             ((b', _mEBB), ic') <- int' hist' ic b
             let hist''  = kernelInt hist' ic'
                 indCtxt = InductiveCtxt hist'' ic' w'
             -- TODO: Currently we don't pass the EBB to the wallet. Should we?
             withConfig $ walletApplyBlockT indCtxt accountId b'
             go ic' hist'' w' es
-        go ic hist w (NewPending t:es) = do
+        go ic hist w (e@(ExtNewPending t):es) = do
             let Just w' = newPending w t
-                hist'   = kernelEvent hist (NewPending t) w'
+                hist'   = kernelEvent hist e w'
             (t', ic') <- int' hist' ic t
             let hist''  = kernelInt hist' ic'
                 indCtxt = InductiveCtxt hist'' ic' w'
             withConfig $ walletNewPendingT indCtxt accountId t'
             go ic' hist'' w' es
-        go ic hist w (Rollback:es) = do
+        go ic hist w (e@ExtRollback:es) = do
             let w'      = rollback w
-                hist'   = kernelEvent hist Rollback w'
+                hist'   = kernelEvent hist e w'
             ((), ic') <- int' hist' ic IntRollback
             let hist''  = kernelRollback hist' ic'
                 indCtxt = InductiveCtxt hist'' ic' w'
             withConfig $ walletRollbackT indCtxt accountId
+            go ic' hist'' w' es
+        go ic hist w (e@(ExtSwitchToFork n bs):es) = do
+            let w'      = switchToFork w n bs
+                hist'   = kernelEvent hist e w'
+            (bs', ic') <- int' hist' ic (IntSwitchToFork n bs)
+            let hist''  = kernelRollback hist' ic'
+                indCtxt = InductiveCtxt hist'' ic' w'
+            withConfig $ walletSwitchToForkT indCtxt accountId n bs'
             go ic' hist'' w' es
 
     int' :: Interpret h a
@@ -172,15 +185,16 @@ interpretT injIntEx mkWallet EventCallbacks{..} Inductive{..} =
 -------------------------------------------------------------------------------}
 
 equivalentT :: forall h e m. (Hash h Addr, MonadIO m, MonadFail m)
-            => Internal.ActiveWallet
+            => UseWalletWorker
+            -> Internal.ActiveWallet
             -> EncryptedSecretKey
             -> (DSL.Transaction h Addr -> Wallet h Addr)
             -> Inductive h Addr
             -> TranslateT e m (Validated EquivalenceViolation (Wallet h Addr, IntCtxt h))
-equivalentT activeWallet esk = \mkWallet w ->
+equivalentT useWW activeWallet esk = \mkWallet w ->
     fmap validatedFromEither
       $ catchTranslateErrors
-      $ interpretT notChecked mkWallet EventCallbacks{..} w
+      $ interpretT useWW notChecked mkWallet EventCallbacks{..} w
   where
     passiveWallet = Internal.walletPassive activeWallet
 
@@ -258,6 +272,16 @@ equivalentT activeWallet esk = \mkWallet w ->
     walletRollbackT ctxt accountId = do
         -- We assume the wallet is not in restoration mode
         Right () <- liftIO $ Kernel.observableRollbackUseInTestsOnly passiveWallet
+        checkWalletState ctxt accountId
+
+    walletSwitchToForkT :: InductiveCtxt h
+                        -> HD.HdAccountId
+                        -> Int
+                        -> OldestFirst [] RawResolvedBlock
+                        -> TranslateT EquivalenceViolation m ()
+    walletSwitchToForkT ctxt accountId n bs = do
+        -- We assume the wallet is not in restoration mode
+        Right () <- liftIO $ Kernel.switchToFork passiveWallet n (map fromRawResolvedBlock (toList bs))
         checkWalletState ctxt accountId
 
     checkWalletState :: InductiveCtxt h

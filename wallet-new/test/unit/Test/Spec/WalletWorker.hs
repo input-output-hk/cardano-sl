@@ -7,7 +7,8 @@ import           Universum
 import           Formatting (bprint, shown, (%))
 import qualified Formatting.Buildable
 import           Pos.Core.Chrono
-import           Test.QuickCheck (arbitrary, frequency, listOf, suchThat)
+import           Test.QuickCheck (arbitrary, frequency, getPositive, listOf,
+                     suchThat)
 
 import           Util.Buildable.Hspec
 import           Util.Buildable.QuickCheck
@@ -47,7 +48,7 @@ spec = do
 
       it "Can switch to a new fork" $ do
           let actions = [ Actions.ApplyBlocks    $ OldestFirst $ 1:|[2,3]
-                        , Actions.RollbackBlocks $ NewestFirst $ 3:|[2]
+                        , Actions.RollbackBlocks $ 2
                         , Actions.ApplyBlocks    $ OldestFirst $ 4:|[5,6] ]
               StackResult{..} = runStackWorker actions $ Stack []
           srState `shouldSatisfy` (not . Actions.hasPendingFork)
@@ -55,7 +56,7 @@ spec = do
 
       it "Can switch to a new fork by combining actions" $ do
           let actions = [ Actions.ApplyBlocks    $ OldestFirst $ 1:|[2,3]
-                        , Actions.RollbackBlocks $ NewestFirst $ 3:|[2]
+                        , Actions.RollbackBlocks $ 2
                         , Actions.ApplyBlocks    $ OldestFirst $ 4:|[]
                       , Actions.ApplyBlocks    $ OldestFirst $ 5:|[6] ]
               StackResult{..} = runStackWorker actions $ Stack []
@@ -81,7 +82,7 @@ spec = do
     -- Bias the actions slightly towards increasing the blockchain size
     someAction :: Gen (Actions.WalletAction Int)
     someAction = frequency [ (10, (Actions.ApplyBlocks . OldestFirst)    <$> arbitrary)
-                           , (7,  (Actions.RollbackBlocks . NewestFirst) <$> arbitrary)
+                           , (7,  (Actions.RollbackBlocks . getPositive) <$> arbitrary)
                            , (1,   Actions.LogMessage                    <$> arbitrary)
                            ]
 
@@ -120,7 +121,7 @@ interpStackOp op = modify $ \stk ->
 actionToStackOp :: Actions.WalletAction Int -> State Stack ()
 actionToStackOp = \case
     Actions.ApplyBlocks    bs -> mapM_ push bs
-    Actions.RollbackBlocks bs -> mapM_ (const pop) bs
+    Actions.RollbackBlocks n  -> replicateM_ n pop
     Actions.LogMessage _      -> return ()
   where
     push = interpStackOp . Push

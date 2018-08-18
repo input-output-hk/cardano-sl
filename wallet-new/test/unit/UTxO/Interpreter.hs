@@ -21,6 +21,7 @@ module UTxO.Interpreter (
     -- * Interpreter proper
   , Interpret(..)
   , IntRollback(..)
+  , IntSwitchToFork(..)
     -- * DSL BlockMeta'
   , BlockMeta'(..)
   ) where
@@ -688,6 +689,10 @@ instance DSL.Hash h Addr => Interpret h (DSL.Chain h Addr) where
       flatten (b, Nothing)  = [Right (rawResolvedBlock b)]
       flatten (b, Just ebb) = [Right (rawResolvedBlock b), Left ebb]
 
+{-------------------------------------------------------------------------------
+  Wallet events
+-------------------------------------------------------------------------------}
+
 -- | For convenience, we provide an event that corresponds to rollback
 --
 -- This makes interpreting DSL blocks and these "pseudo-DSL" rollbacks uniform.
@@ -698,6 +703,19 @@ instance Interpret h IntRollback where
 
   int :: Monad m => IntRollback -> IntT h e m ()
   int IntRollback = popIntCheckpoint
+
+-- | Like 'IntRollback', but corresponding to a switch-to-fork event
+data IntSwitchToFork h = IntSwitchToFork Int (DSL.Chain h Addr)
+
+-- | When we interpret 'IntSwitchToFork' we ignore EBBs
+instance DSL.Hash h Addr => Interpret h (IntSwitchToFork h) where
+  type Interpreted (IntSwitchToFork h) = OldestFirst [] RawResolvedBlock
+
+  int (IntSwitchToFork 0 (OldestFirst blocks)) = do
+      OldestFirst . map fst <$> mapM int blocks
+  int (IntSwitchToFork n bs) = do
+      int $ IntRollback
+      int $ IntSwitchToFork (n - 1) bs
 
 {-------------------------------------------------------------------------------
   Auxiliary

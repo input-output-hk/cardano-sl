@@ -10,6 +10,7 @@ module Wallet.Abstract (
   , mkDefaultWallet
   , walletBoot
   , applyBlocks
+  , switchToFork
     -- * Auxiliary operations
   , txIns
   , txOuts
@@ -96,6 +97,11 @@ data Wallet h a = Wallet {
 -- | Apply multiple blocks
 applyBlocks :: Wallet h a -> Chain h a -> Wallet h a
 applyBlocks w0 bs = foldl' applyBlock w0 bs
+
+-- | Switch to a fork
+switchToFork :: Wallet h a -> Int -> OldestFirst [] (Block h a) -> Wallet h a
+switchToFork w 0 bs = applyBlocks w bs
+switchToFork w n bs = switchToFork (rollback w) (n - 1) bs 
 
 -- | Type of a wallet constructor
 --

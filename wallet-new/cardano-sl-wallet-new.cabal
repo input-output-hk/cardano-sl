@@ -439,10 +439,11 @@ test-suite wallet-unit-tests
                       Wallet.Incremental
                       Wallet.Inductive
                       Wallet.Inductive.Cardano
+                      Wallet.Inductive.ExtWalletEvent
                       Wallet.Inductive.Generator
+                      Wallet.Inductive.History
                       Wallet.Inductive.Interpreter
                       Wallet.Inductive.Invariants
-                      Wallet.Inductive.History
                       Wallet.Inductive.Validation
                       Wallet.Prefiltered
                       Wallet.Rollback.Basic

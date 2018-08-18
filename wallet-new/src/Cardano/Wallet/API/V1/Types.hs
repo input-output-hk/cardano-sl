@@ -137,11 +137,14 @@ import           Test.QuickCheck.Gen (Gen (..))
 import qualified Test.QuickCheck.Gen as Gen
 import qualified Test.QuickCheck.Modifiers as Gen
 
-import           Cardano.Wallet.API.Response.JSend (ResponseStatus (..))
+import           Cardano.Wallet.API.Response.JSend (HasDiagnostic (..),
+                     noDiagnosticKey)
 import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..),
                      UnitOfMeasure (..))
 import           Cardano.Wallet.API.V1.Errors (ToHttpErrorStatus (..),
                      ToServantError (..))
+import           Cardano.Wallet.API.V1.Generic (jsendErrorGenericParseJSON,
+                     jsendErrorGenericToJSON)
 import           Cardano.Wallet.API.V1.Swagger.Example (Example, example,
                      genExample)
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (HasPrimKey (..),
@@ -2252,6 +2255,14 @@ deriveGeneric ''WalletError
 
 instance Exception WalletError
 
+instance ToHttpErrorStatus WalletError
+
+instance ToJSON WalletError where
+    toJSON = jsendErrorGenericToJSON
+
+instance FromJSON WalletError where
+    parseJSON = jsendErrorGenericParseJSON
+
 instance Arbitrary WalletError where
     arbitrary = Gen.oneof
         [ NotEnoughMoney <$> Gen.choose (1, 1000)
@@ -2331,7 +2342,6 @@ instance Buildable WalletError where
         CannotCreateAddress _ ->
             bprint "Cannot create derivation path for new address, for external wallet."
 
-
 -- | Convert wallet errors to Servant errors
 instance ToServantError WalletError where
     declareServantError = \case
@@ -2372,159 +2382,42 @@ instance ToServantError WalletError where
         CannotCreateAddress{} ->
             err500
 
-instance ToHttpErrorStatus WalletError
-
-instance ToJSON WalletError where
-    toEncoding err = pairs $ mconcat $ ("status" .= ErrorStatus) : case err of
-        NotEnoughMoney v ->
-            [ "diagnostic"  .= object [ "needMore" .= v ]
-            , "message"     .= String "NotEnoughMoney"
-            ]
-
-        OutputIsRedeem v ->
-            [ "diagnostic"  .= object [ "address" .= v ]
-            , "message"     .= String "OutputIsRedeem"
-            ]
-
-        UnknownError v ->
-            [ "diagnostic"  .= object [ "msg" .= v ]
-            , "message"     .= String "UnknownError"
-            ]
-
-        InvalidAddressFormat v ->
-            [ "diagnostic"  .= object [ "msg" .= v ]
-            , "message"     .= String "InvalidAddressFormat"
-            ]
-
-        WalletNotFound ->
-            [ "diagnostic"  .= object mempty
-            , "message"     .= String "WalletNotFound"
-            ]
-
-        WalletAlreadyExists v ->
-            [ "diagnostic"  .= object [ "walletId" .= v ]
-            , "message"     .= String "WalletAlreadyExists"
-            ]
-
-        AddressNotFound ->
-            [ "diagnostic"  .= object mempty
-            , "message"     .= String "AddressNotFound"
-            ]
-
-        InvalidPublicKey v ->
-            [ "diagnostic"  .= object [ "msg" .= v ]
-            , "message"     .= String "InvalidPublicKey"
-            ]
-
-        TxFailedToStabilize ->
-            [ "diagnostic"  .= object mempty
-            , "message"     .= String "TxFailedToStabilize"
-            ]
-
-        UnsignedTxCreationError ->
-            [ "diagnostic"  .= object mempty
-            , "message"     .= String "UnsignedTxCreationError"
-            ]
-
-        TooBigTransaction ->
-            [ "diagnostic"  .= object mempty
-            , "message"     .= String "TooBigTransaction"
-            ]
-
-        SignedTxSubmitError v ->
-            [ "diagnostic"  .= object [ "msg" .= v ]
-            , "message"     .= String "SignedTxSubmitError"
-            ]
-
-        TxRedemptionDepleted ->
-            [ "diagnostic"  .= object mempty
-            , "message"     .= String "TxRedemptionDepleted"
-            ]
-
-        TxSafeSignerNotFound v ->
-            [ "diagnostic"  .= object [ "address" .= v ]
-            , "message"     .= String "TxSafeSignerNotFound"
-            ]
-
-        MissingRequiredParams v ->
-            [ "diagnostic"  .= object [ "params" .= v ]
-            , "message"     .= String "MissingRequiredParams"
-            ]
-
-        CannotCreateAddress v ->
-            [ "diagnostic"  .= object [ "msg" .= v ]
-            , "message"     .= String "CannotCreateAddress"
-            ]
-
-        WalletIsNotReadyToProcessPayments v ->
-            [ "diagnostic"  .= object [ "stillRestoring" .= v ]
-            , "message"     .= String "WalletIsNotReadyToProcessPayments"
-            ]
-
-        NodeIsStillSyncing v ->
-            [ "diagnostic"  .= object [ "stillSyncing" .= v ]
-            , "message"     .= String "NodeIsStillSyncing"
-            ]
-
-
-instance FromJSON WalletError where
-    parseJSON = withObject "WalletError" $ \o -> do
-        message <- o .: "message"
-        diag    <- o .: "diagnostic"
-        case message :: Text of
-            "NotEnoughMoney" ->
-                NotEnoughMoney <$> (diag .: "needMore")
-
-            "OutputIsRedeem" ->
-                OutputIsRedeem <$> (diag .: "address")
-
-            "UnknownError" ->
-                UnknownError <$> (diag .: "msg")
-
-            "InvalidAddressFormat" ->
-                InvalidAddressFormat <$> (diag .: "msg")
-
-            "WalletNotFound" ->
-                pure WalletNotFound
-
-            "WalletAlreadyExists" ->
-                WalletAlreadyExists <$> (diag .: "walletId")
-
-            "AddressNotFound" ->
-                pure AddressNotFound
-
-            "TxFailedToStabilize" ->
-                pure TxFailedToStabilize
-
-            "TxRedemptionDepleted" ->
-                pure TxRedemptionDepleted
-
-            "TxSafeSignerNotFound" ->
-                TxSafeSignerNotFound <$> (diag .: "address")
-
-            "InvalidPublicKey" ->
-                InvalidPublicKey <$> (diag .: "msg")
-
-            "UnsignedTxCreationError" ->
-                pure UnsignedTxCreationError
-
-            "TooBigTransaction" ->
-                pure TooBigTransaction
-
-            "SignedTxSubmitError" ->
-                SignedTxSubmitError <$> (diag .: "msg")
-
-            "CannotCreateAddress" ->
-                CannotCreateAddress <$> (diag .: "msg")
-
-            "MissingRequiredParams" ->
-                MissingRequiredParams <$> (diag .: "params")
-
-            "WalletIsNotReadyToProcessPayments" ->
-                WalletIsNotReadyToProcessPayments <$> (diag .: "stillRestoring")
-
-            "NodeIsStillSyncing" ->
-                NodeIsStillSyncing <$> (diag .: "stillSyncing")
-
-            _ ->
-                fail "Incorrect JSON encoding for WalletError"
+-- | Declare the key used to wrap the diagnostic payload, if any
+instance HasDiagnostic WalletError where
+    getDiagnosticKey = \case
+        NotEnoughMoney{} ->
+            "needMore"
+        OutputIsRedeem{} ->
+            "address"
+        UnknownError{} ->
+            "msg"
+        WalletNotFound{} ->
+            noDiagnosticKey
+        WalletAlreadyExists{} ->
+            "walletId"
+        InvalidAddressFormat{} ->
+            "msg"
+        AddressNotFound{} ->
+            noDiagnosticKey
+        InvalidPublicKey{} ->
+            "msg"
+        UnsignedTxCreationError{} ->
+            noDiagnosticKey
+        TooBigTransaction{} ->
+            noDiagnosticKey
+        SignedTxSubmitError{} ->
+            "msg"
+        MissingRequiredParams{} ->
+            "params"
+        WalletIsNotReadyToProcessPayments{} ->
+            "stillRestoring"
+        NodeIsStillSyncing{} ->
+            "stillSyncing"
+        TxFailedToStabilize{} ->
+            noDiagnosticKey
+        TxRedemptionDepleted{} ->
+            noDiagnosticKey
+        TxSafeSignerNotFound{} ->
+            "address"
+        CannotCreateAddress{} ->
+            "msg"

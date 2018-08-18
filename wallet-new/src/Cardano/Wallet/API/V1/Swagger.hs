@@ -28,7 +28,7 @@ import           Control.Lens ((?~))
 import           Data.Aeson (encode)
 import           Data.Aeson.Encode.Pretty
 import           Data.Map (Map)
-import           Data.Swagger hiding (Example, Header, example)
+import           Data.Swagger hiding (Example, Header)
 import           Data.Typeable
 import           Formatting (build, sformat)
 import           NeatInterpolation

@@ -23,13 +23,11 @@ import           Prelude
 import           Universum (Buildable, Exception, Text, decodeUtf8, toText,
                      (<>))
 
-import           Control.Lens hiding ((.=))
-import           Data.Aeson (FromJSON (..), ToJSON (..), eitherDecode, encode,
-                     object, pairs, withObject, (.:), (.=))
+import           Control.Lens
+import           Data.Aeson (FromJSON (..), ToJSON (..), eitherDecode, encode)
 import           Data.Aeson.Encode.Pretty (encodePretty)
 import qualified Data.Aeson.Options as Serokell
 import           Data.Aeson.TH
-import           Data.Aeson.Types (Value (..))
 import qualified Data.Char as Char
 import           Data.Swagger as S hiding (Example, example)
 import           Data.Typeable
@@ -50,9 +48,12 @@ import           Cardano.Wallet.API.Request.Pagination (Page (..),
                      PerPage (..))
 import           Cardano.Wallet.API.Request.Sort (SortOperations (..))
 import           Cardano.Wallet.API.Response.Filter.IxSet as FilterBackend
-import           Cardano.Wallet.API.Response.JSend (ResponseStatus (..))
+import           Cardano.Wallet.API.Response.JSend (HasDiagnostic (..),
+                     ResponseStatus (..))
 import           Cardano.Wallet.API.Response.Sort.IxSet as SortBackend
 import           Cardano.Wallet.API.V1.Errors (ToServantError (..))
+import           Cardano.Wallet.API.V1.Generic (jsendErrorGenericParseJSON,
+                     jsendErrorGenericToJSON)
 import           Cardano.Wallet.API.V1.Swagger.Example (Example, example)
 
 -- | Extra information associated with an HTTP response.
@@ -237,43 +238,32 @@ instance ToJSON a => MimeRender ValidJSON a where
 
 newtype JSONValidationError
     = JSONValidationFailed Text
-    deriving (Generic, Show, Eq)
+    deriving (Eq, Show, Generic)
 
 deriveGeneric ''JSONValidationError
 
 instance ToJSON JSONValidationError where
-    toEncoding (JSONValidationFailed weValidationError) = pairs $ mconcat
-        [ "status"     .= ErrorStatus
-        , "diagnostic" .= object
-            [ "validationError" .= weValidationError
-            ]
-        , "message"    .= String "JSONValidationFailed"
-        ]
+    toJSON =
+        jsendErrorGenericToJSON
 
 instance FromJSON JSONValidationError where
-    parseJSON = withObject "JSONValidationError" $ \o -> do
-        message <- o .: "message"
-        case message :: Text of
-            "JSONValidationFailed" -> do
-                diag <- o .: "diagnostic"
-                err <- diag .: "validationError"
-                pure $ JSONValidationFailed err
-            _ ->
-                fail "Incorrect JSON encoding for JSONValidationError"
+    parseJSON =
+        jsendErrorGenericParseJSON
 
 instance Exception JSONValidationError
 
 instance Arbitrary JSONValidationError where
-    arbitrary = oneof
-        [ pure $ JSONValidationFailed "JSON validation failed."
-        ]
+    arbitrary =
+        pure (JSONValidationFailed "JSON validation failed.")
 
 instance Buildable JSONValidationError where
-    build = \case
-        JSONValidationFailed _ ->
-            bprint "Couldn't decode a JSON input."
+    build _ =
+        bprint "Couldn't decode a JSON input."
+
+instance HasDiagnostic JSONValidationError where
+    getDiagnosticKey _ =
+        "validationError"
 
 instance ToServantError JSONValidationError where
-    declareServantError = \case
-        JSONValidationFailed _ ->
-            err400
+    declareServantError _ =
+        err400

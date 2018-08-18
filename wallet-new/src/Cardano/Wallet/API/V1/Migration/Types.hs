@@ -14,9 +14,7 @@ import           Universum hiding (elems)
 
 import qualified Control.Lens as Lens
 import qualified Control.Monad.Catch as Catch
-import           Data.Aeson (FromJSON (..), ToJSON (..), object, pairs,
-                     withObject, (.:), (.=))
-import           Data.Aeson.Types (Value (..))
+import           Data.Aeson (FromJSON (..), ToJSON (..))
 import           Data.Map (elems)
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Time.Units (fromMicroseconds, toMicroseconds)
@@ -27,10 +25,11 @@ import           Generics.SOP.TH (deriveGeneric)
 import           GHC.Generics (Generic)
 import           Servant (err422)
 import           Test.QuickCheck (Arbitrary (..))
-import           Test.QuickCheck.Gen (oneof)
 
-import           Cardano.Wallet.API.Response.JSend (ResponseStatus (..))
+import           Cardano.Wallet.API.Response.JSend (HasDiagnostic (..))
 import           Cardano.Wallet.API.V1.Errors (ToServantError (..))
+import           Cardano.Wallet.API.V1.Generic (jsendErrorGenericParseJSON,
+                     jsendErrorGenericToJSON)
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Pos.Chain.Txp as V0
@@ -350,35 +349,27 @@ newtype MigrationError
 deriveGeneric ''MigrationError
 
 instance ToJSON MigrationError where
-    toEncoding (MigrationFailed weDescription) = pairs $ mconcat
-        [ "status"     .= ErrorStatus
-        , "diagnostic" .= object
-            [ "description" .= weDescription
-            ]
-        , "message"    .= String "MigrationFailed"
-        ]
+    toJSON =
+        jsendErrorGenericToJSON
 
 instance FromJSON MigrationError where
-    parseJSON = withObject "MigrationError" $ \o -> do
-        message <- o .: "message"
-        case message :: Text of
-            "MigrationFailed" -> do
-                diag <- o .: "diagnostic"
-                desc <- diag .: "description"
-                pure $ MigrationFailed desc
-            _ ->
-                fail "Incorrect JSON encoding for MigrationError"
+    parseJSON =
+        jsendErrorGenericParseJSON
 
 instance Exception MigrationError
 
 instance Arbitrary MigrationError where
-    arbitrary = oneof
-        [ pure $ MigrationFailed "Migration failed."
-        ]
+    arbitrary =
+        pure (MigrationFailed "Migration failed.")
 
 instance Buildable MigrationError where
     build _ =
         bprint "Error while migrating a legacy type into the current version."
 
+instance HasDiagnostic MigrationError where
+    getDiagnosticKey _ =
+        "description"
+
 instance ToServantError MigrationError where
-    declareServantError _ = err422
+    declareServantError _ =
+        err422

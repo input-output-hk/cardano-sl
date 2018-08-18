@@ -17,6 +17,13 @@ data ResponseStatus =
 
 deriveJSON defaultOptions { Data.Aeson.TH.constructorTagModifier = map Char.toLower . reverse . drop 6 . reverse } ''ResponseStatus
 
+class HasDiagnostic a where
+    getDiagnosticKey :: a -> Text
+
+noDiagnosticKey :: Text
+noDiagnosticKey =
+    error "Contructor has declared no diagnostic key but apparently requires one! Have a look at HasDiagnostic instances!"
+
 instance Arbitrary ResponseStatus where
     arbitrary = elements [minBound .. maxBound]
 

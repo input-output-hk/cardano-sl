@@ -151,7 +151,7 @@ withPayment initialBalance toPay action = do
         let (AccountIdHdRnd hdAccountId)  = fixtureAccountId
         let (HdRootId (InDb rootAddress)) = fixtureHdRootId
         let sourceWallet = V1.WalletId (sformat build rootAddress)
-        let accountIndex = hdAccountId ^. hdAccountIdIx . to getHdAccountIx
+        let accountIndex = V1.unsafeMkAccountIndex $ hdAccountId ^. hdAccountIdIx . to getHdAccountIx
         let destinations =
                 fmap (\(addr, coin) -> V1.PaymentDistribution (V1.V1 addr) (V1.V1 coin)
                      ) fixturePayees

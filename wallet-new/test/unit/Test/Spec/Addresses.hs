@@ -129,7 +129,8 @@ spec = describe "Addresses" $ do
                         let (HdRootId hdRoot) = fixtureHdRootId
                             (AccountIdHdRnd myAccountId) = fixtureAccountId
                             wId = sformat build (view fromDb hdRoot)
-                            accIdx = myAccountId ^. hdAccountIdIx . to getHdAccountIx
+                            accIdx = V1.unsafeMkAccountIndex $
+                                myAccountId ^. hdAccountIdIx . to getHdAccountIx
                         res <- (WalletLayer._pwlCreateAddress layer) (V1.NewAddress Nothing accIdx (V1.WalletId wId))
                         (bimap STB STB res) `shouldSatisfy` isRight
 
@@ -168,7 +169,8 @@ spec = describe "Addresses" $ do
                         let (HdRootId hdRoot) = fixtureHdRootId
                             (AccountIdHdRnd myAccountId) = fixtureAccountId
                             wId = sformat build (view fromDb hdRoot)
-                            accIdx = myAccountId ^. hdAccountIdIx . to getHdAccountIx
+                            accIdx = V1.unsafeMkAccountIndex $
+                                myAccountId ^. hdAccountIdIx . to getHdAccountIx
                             req = V1.NewAddress Nothing accIdx (V1.WalletId wId)
                         res <- runExceptT . runHandler' $ Handlers.newAddress layer req
                         (bimap identity STB res) `shouldSatisfy` isRight
@@ -184,7 +186,8 @@ spec = describe "Addresses" $ do
                         let (HdRootId hdRoot) = fixtureHdRootId
                             (AccountIdHdRnd myAccountId) = fixtureAccountId
                             wId = sformat build (view fromDb hdRoot)
-                            accIdx = myAccountId ^. hdAccountIdIx . to getHdAccountIx
+                            accIdx = V1.unsafeMkAccountIndex $
+                                myAccountId ^. hdAccountIdIx . to getHdAccountIx
                         (WalletLayer._pwlCreateAddress layer) (V1.NewAddress Nothing accIdx (V1.WalletId wId))
                     case res2 of
                          Left (WalletLayer.CreateAddressError err) ->

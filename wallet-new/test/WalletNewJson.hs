@@ -4,7 +4,8 @@ module WalletNewJson
 
 import           Universum
 
-import           Cardano.Wallet.API.V1.Errors (WalletError (..))
+import           Cardano.Wallet.API.Response (JSONValidationError (..))
+import           Cardano.Wallet.API.V1.Migration.Types (MigrationError (..))
 import           Cardano.Wallet.API.V1.Types (SyncProgress (..), V1 (..),
                      WalletError (..), exampleWalletId,
                      mkEstimatedCompletionTime, mkSyncPercentage,
@@ -74,74 +75,10 @@ golden_WalletError_WalletNotFound =
 golden_WalletError_WalletAlreadyExists :: Property
 golden_WalletError_WalletAlreadyExists =
     goldenTestJSON
-        WalletAlreadyExists
+        (WalletAlreadyExists exampleWalletId)
             "test/golden/WalletError_WalletAlreadyExists"
 
 golden_WalletError_AddressNotFound :: Property
 golden_WalletError_AddressNotFound =
     goldenTestJSON
         AddressNotFound
-            "test/golden/WalletError_AddressNotFound"
-
-golden_WalletError_TxFailedToStabilize :: Property
-golden_WalletError_TxFailedToStabilize =
-    goldenTestJSON
-        TxFailedToStabilize
-            "test/golden/WalletError_TxFailedToStabilize"
-
-golden_WalletError_TxRedemptionDepleted :: Property
-golden_WalletError_TxRedemptionDepleted =
-    goldenTestJSON
-        TxRedemptionDepleted
-            "test/golden/WalletError_TxRedemptionDepleted"
-
-golden_WalletError_TxSafeSignerNotFound :: Property
-golden_WalletError_TxSafeSignerNotFound =
-    goldenTestJSON
-        (TxSafeSignerNotFound exampleAddress)
-            "test/golden/WalletError_TxSafeSignerNotFound"
-
-golden_WalletError_MissingRequiredParams :: Property
-golden_WalletError_MissingRequiredParams =
-    goldenTestJSON
-        (MissingRequiredParams (fromList [("test","test")]))
-            "test/golden/WalletError_MissingRequiredParams"
-
-golden_WalletError_WalletIsNotReadyToProcessPayments :: Property
-golden_WalletError_WalletIsNotReadyToProcessPayments =
-    goldenTestJSON
-        exampleSyncProgress
-            "test/golden/WalletError_WalletIsNotReadyToProcessPayments"
-
-golden_WalletError_NodeIsStillSyncing :: Property
-golden_WalletError_NodeIsStillSyncing =
-    goldenTestJSON
-        (mkSyncPercentage 10)
-            "test/golden/WalletError_NodeIsStillSyncing"
-
---------------------------------------------------------------------------------
--- Example golden datatypes
---------------------------------------------------------------------------------
-
-exampleAddress :: V1 Address
-exampleAddress = V1 $ makeAddress (ScriptASD (Script 0 "bytes")) addrAttrib
-  where
-    addrAttrib =
-        AddrAttributes
-            (Just $ HDAddressPayload "jpzgcjlmlcetfhrrcgwxqzpfveupoyie")
-            BootstrapEraDistr
-
-exampleSyncProgress :: SyncProgress
-exampleSyncProgress =
-    SyncProgress
-            (mkEstimatedCompletionTime 64)
-            (mkSyncThroughput $ BlockCount 64)
-            (mkSyncPercentage 10)
-
------------------------------------------------------------------------
--- Main test export
------------------------------------------------------------------------
-
-tests :: IO Bool
-tests = (&&) <$> H.checkSequential $$discoverGolden
-             <*> H.checkParallel $$discoverRoundTrip

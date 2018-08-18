@@ -21,12 +21,10 @@ genWalletError :: Gen WalletError
 genWalletError = Gen.choice
     [ NotEnoughMoney <$> Gen.int (Range.constant 1 1000)
     , OutputIsRedeem . V1 <$> genAddress
-    , MigrationFailed <$> Gen.text (Range.constant 1 100) Gen.alphaNum
-    , JSONValidationFailed <$> Gen.text (Range.constant 1 100) Gen.alphaNum
     , UnknownError <$> Gen.text (Range.constant 1 100) Gen.alphaNum
     , InvalidAddressFormat <$> Gen.text (Range.constant 1 100) Gen.alphaNum
     , pure WalletNotFound
-    , pure WalletAlreadyExists
+    , pure (WalletAlreadyExists exampleWalletId)
     , pure AddressNotFound
     , pure TxFailedToStabilize
     , pure TxRedemptionDepleted

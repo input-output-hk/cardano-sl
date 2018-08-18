@@ -351,11 +351,11 @@ deriveGeneric ''MigrationError
 
 instance ToJSON MigrationError where
     toEncoding (MigrationFailed weDescription) = pairs $ mconcat
-        [ "message"    .= String "MigrationFailed"
-        , "status"     .= ErrorStatus
+        [ "status"     .= ErrorStatus
         , "diagnostic" .= object
             [ "description" .= weDescription
             ]
+        , "message"    .= String "MigrationFailed"
         ]
 
 instance FromJSON MigrationError where

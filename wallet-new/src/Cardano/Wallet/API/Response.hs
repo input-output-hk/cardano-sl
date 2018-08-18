@@ -243,11 +243,11 @@ deriveGeneric ''JSONValidationError
 
 instance ToJSON JSONValidationError where
     toEncoding (JSONValidationFailed weValidationError) = pairs $ mconcat
-        [ "message"    .= String "JSONValidationFailed"
-        , "status"     .= ErrorStatus
+        [ "status"     .= ErrorStatus
         , "diagnostic" .= object
             [ "validationError" .= weValidationError
             ]
+        , "message"    .= String "JSONValidationFailed"
         ]
 
 instance FromJSON JSONValidationError where

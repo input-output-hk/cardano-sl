@@ -103,7 +103,6 @@ import           Universum
 
 import           Control.Lens (At, Index, IxValue, at, ix, makePrisms, to, (?~))
 import           Data.Aeson
-import           Data.Aeson.Encoding (pairStr)
 import qualified Data.Aeson.Options as Serokell
 import           Data.Aeson.TH as A
 import           Data.Aeson.Types (Value (..), toJSONKeyText, typeMismatch)
@@ -112,7 +111,6 @@ import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
 import qualified Data.Char as C
 import           Data.Default (Default (def))
-import qualified Data.HashMap.Strict as HMS
 import qualified Data.IxSet.Typed as IxSet
 import qualified Data.Map.Strict as Map
 import           Data.Semigroup (Semigroup)
@@ -2377,131 +2375,156 @@ instance ToServantError WalletError where
 instance ToHttpErrorStatus WalletError
 
 instance ToJSON WalletError where
-    toEncoding (NotEnoughMoney weNeedMore) =
-        pairs $ ("status" .= ErrorStatus)
-             <> pairStr "diagnostic"
-                 (pairs $ pairStr "needMore" (toEncoding weNeedMore))
-             <> "message" .= String "NotEnoughMoney"
-    toEncoding (OutputIsRedeem weAddress) =
-        pairs $ "status" .= ErrorStatus
-             <> pairStr "diagnostic"
-                 (pairs $ pairStr "address" (toEncoding weAddress))
-             <> "message" .= String "OutputIsRedeem"
-    toEncoding (UnknownError weMsg) =
-        pairs $ "status" .= ErrorStatus
-             <> pairStr "diagnostic" (pairs $ pairStr "msg" (toEncoding weMsg))
-             <> "message" .= String "UnknownError"
-    toEncoding (InvalidAddressFormat weMsg) =
-        pairs $ "status" .= ErrorStatus
-             <> pairStr "diagnostic" (pairs $ pairStr "msg" (toEncoding weMsg))
-             <> "message" .= String "InvalidAddressFormat"
-    toEncoding (WalletNotFound) =
-        pairs $ "status" .= ErrorStatus
-             <> pairStr "diagnostic" (pairs $ mempty)
-             <> "message" .= String "WalletNotFound"
-    toEncoding (WalletAlreadyExists wid) =
-        pairs $ "status" .= ErrorStatus
-             <> pairStr "diagnostic" (pairs $ pairStr "walletId" (toEncoding wid))
-             <> "message" .= String "WalletAlreadyExists"
-    toEncoding (AddressNotFound) =
-        pairs $ "status" .= ErrorStatus
-             <> pairStr "diagnostic" (pairs $ mempty)
-             <> "message" .= String "AddressNotFound"
-    toEncoding (TxFailedToStabilize) =
-        pairs $ "status" .= ErrorStatus
-             <> pairStr "diagnostic" (pairs $ mempty)
-             <> "message" .= String "TxFailedToStabilize"
-    toEncoding (InvalidPublicKey weProblem) =
-        pairs $ "status" .= ErrorStatus
-             <> pairStr "diagnostic" (pairs $ pairStr "msg" (toEncoding weProblem))
-             <> "message" .= String "InvalidPublicKey"
-    toEncoding (UnsignedTxCreationError) =
-        pairs $ "status" .= ErrorStatus
-             <> pairStr "diagnostic" (pairs $ mempty)
-             <> "message" .= String "UnsignedTxCreationError"
-    toEncoding (TooBigTransaction) =
-        pairs $ "status" .= ErrorStatus
-             <> pairStr "diagnostic" (pairs $ mempty)
-             <> "message" .= String "TooBigTransaction"
-    toEncoding (SignedTxSubmitError weProblem) =
-        pairs $ "status" .= ErrorStatus
-             <> pairStr "diagnostic" (pairs $ pairStr "msg" (toEncoding weProblem))
-             <> "message" .= String "SignedTxSubmitError"
-    toEncoding (TxRedemptionDepleted) =
-        pairs $ "status" .= ErrorStatus
-             <> pairStr "diagnostic" (pairs $ mempty)
-             <> "message" .= String "TxRedemptionDepleted"
-    toEncoding (TxSafeSignerNotFound weAddress) =
-        pairs $ "status" .= ErrorStatus
-             <> pairStr "diagnostic"
-                 (pairs $ pairStr "address" (toEncoding weAddress))
-             <> "message" .= String "TxSafeSignerNotFound"
-    toEncoding (MissingRequiredParams requiredParams) =
-        pairs $ "status" .= ErrorStatus
-             <> pairStr "diagnostic"
-                 (pairs $ pairStr "params" (toEncoding requiredParams))
-             <> "message" .= String "MissingRequiredParams"
-    toEncoding (CannotCreateAddress weProblem) =
-        pairs $ "status" .= ErrorStatus
-             <> pairStr "diagnostic" (pairs $ pairStr "msg" (toEncoding weProblem))
-             <> "message" .= String "CannotCreateAddress"
-    toEncoding (WalletIsNotReadyToProcessPayments weStillRestoring) =
-        toEncoding $ toJSON weStillRestoring
-    toEncoding (NodeIsStillSyncing wenssStillSyncing) =
-        toEncoding $ toJSON wenssStillSyncing
+    toEncoding err = pairs $ mconcat $ ("status" .= ErrorStatus) : case err of
+        NotEnoughMoney v ->
+            [ "diagnostic"  .= object [ "needMore" .= v ]
+            , "message"     .= String "NotEnoughMoney"
+            ]
+
+        OutputIsRedeem v ->
+            [ "diagnostic"  .= object [ "address" .= v ]
+            , "message"     .= String "OutputIsRedeem"
+            ]
+
+        UnknownError v ->
+            [ "diagnostic"  .= object [ "msg" .= v ]
+            , "message"     .= String "UnknownError"
+            ]
+
+        InvalidAddressFormat v ->
+            [ "diagnostic"  .= object [ "msg" .= v ]
+            , "message"     .= String "InvalidAddressFormat"
+            ]
+
+        WalletNotFound ->
+            [ "diagnostic"  .= object mempty
+            , "message"     .= String "WalletNotFound"
+            ]
+
+        WalletAlreadyExists v ->
+            [ "diagnostic"  .= object [ "walletId" .= v ]
+            , "message"     .= String "WalletAlreadyExists"
+            ]
+
+        AddressNotFound ->
+            [ "diagnostic"  .= object mempty
+            , "message"     .= String "AddressNotFound"
+            ]
+
+        InvalidPublicKey v ->
+            [ "diagnostic"  .= object [ "msg" .= v ]
+            , "message"     .= String "InvalidPublicKey"
+            ]
+
+        TxFailedToStabilize ->
+            [ "diagnostic"  .= object mempty
+            , "message"     .= String "TxFailedToStabilize"
+            ]
+
+        UnsignedTxCreationError ->
+            [ "diagnostic"  .= object mempty
+            , "message"     .= String "UnsignedTxCreationError"
+            ]
+
+        TooBigTransaction ->
+            [ "diagnostic"  .= object mempty
+            , "message"     .= String "TooBigTransaction"
+            ]
+
+        SignedTxSubmitError v ->
+            [ "diagnostic"  .= object [ "msg" .= v ]
+            , "message"     .= String "SignedTxSubmitError"
+            ]
+
+        TxRedemptionDepleted ->
+            [ "diagnostic"  .= object mempty
+            , "message"     .= String "TxRedemptionDepleted"
+            ]
+
+        TxSafeSignerNotFound v ->
+            [ "diagnostic"  .= object [ "address" .= v ]
+            , "message"     .= String "TxSafeSignerNotFound"
+            ]
+
+        MissingRequiredParams v ->
+            [ "diagnostic"  .= object [ "params" .= v ]
+            , "message"     .= String "MissingRequiredParams"
+            ]
+
+        CannotCreateAddress v ->
+            [ "diagnostic"  .= object [ "msg" .= v ]
+            , "message"     .= String "CannotCreateAddress"
+            ]
+
+        WalletIsNotReadyToProcessPayments v ->
+            [ "diagnostic"  .= object [ "stillRestoring" .= v ]
+            , "message"     .= String "WalletIsNotReadyToProcessPayments"
+            ]
+
+        NodeIsStillSyncing v ->
+            [ "diagnostic"  .= object [ "stillSyncing" .= v ]
+            , "message"     .= String "NodeIsStillSyncing"
+            ]
+
 
 instance FromJSON WalletError where
-    parseJSON (Object o)
-        | HMS.member "message" o =
-              case HMS.lookup "message" o of
-                Just "NotEnoughMoney"        ->
-                    NotEnoughMoney
-                        <$> ((o .: "diagnostic") >>= (.: "needMore"))
-                Just "OutputIsRedeem"        ->
-                    OutputIsRedeem <$> ((o .: "diagnostic") >>= (.: "address"))
-                Just "UnknownError"          ->
-                    UnknownError <$> ((o .: "diagnostic") >>= (.: "msg"))
-                Just "InvalidAddressFormat"  ->
-                    InvalidAddressFormat
-                        <$> ((o .: "diagnostic") >>= (.: "msg"))
-                Just "WalletNotFound"        -> pure WalletNotFound
-                Just "WalletAlreadyExists"   ->
-                    WalletAlreadyExists <$> ((o .: "diagnostic") >>= (.: "walletId"))
-                Just "AddressNotFound"       -> pure AddressNotFound
-                Just "TxFailedToStabilize"   -> pure TxFailedToStabilize
-                Just "TxRedemptionDepleted"  -> pure TxRedemptionDepleted
-                Just "TxSafeSignerNotFound"  ->
-                    TxSafeSignerNotFound
-                        <$> ((o .: "diagnostic") >>= (.: "address"))
-                Just "InvalidPublicKey"        ->
-                    InvalidPublicKey <$> ((o .: "diagnostic") >>= (.: "msg"))
-                Just "UnsignedTxCreationError" -> pure UnsignedTxCreationError
-                Just "TooBigTransaction"       -> pure TooBigTransaction
-                Just "SignedTxSubmitError"     ->
-                    SignedTxSubmitError <$> ((o .: "diagnostic") >>= (.: "msg"))
-                Just "CannotCreateAddress"   ->
-                    CannotCreateAddress <$> ((o .: "diagnostic") >>= (.: "msg"))
-                Just "MissingRequiredParams" ->
-                    MissingRequiredParams
-                        <$> ((o .: "diagnostic") >>= (.: "params"))
-                Just _                       ->
-                    fail "Incorrect JSON encoding for WalletError"
-                Nothing                      ->
-                    fail "Incorrect JSON encoding for WalletError"
-        -- WalletIsNotReadyToProcessPayments
-        | HMS.member "estimatedCompletionTime" o = do
-            estCompTO <- (o .: "estimatedCompletionTime")
-            sThroughPO <- (o .: "throughput")
-            prctO <- (o .: "percentage")
-            estCompT <- parseJSON estCompTO
-            sThroughP <- parseJSON sThroughPO
-            prct <- parseJSON prctO
-            return . WalletIsNotReadyToProcessPayments
-                $ SyncProgress estCompT sThroughP prct
-        -- NodeIsStillSyncing
-        | HMS.member "quantity" o = do
-            quantityO <-  o .: "quantity"
-            quantity <- parseJSON quantityO
-            return . NodeIsStillSyncing $ mkSyncPercentage quantity
-        | otherwise = fail "Incorrect JSON encoding for WalletError"
-    parseJSON invalid = typeMismatch "WalletError" invalid
+    parseJSON = withObject "WalletError" $ \o -> do
+        message <- o .: "message"
+        diag    <- o .: "diagnostic"
+        case message :: Text of
+            "NotEnoughMoney" ->
+                NotEnoughMoney <$> (diag .: "needMore")
+
+            "OutputIsRedeem" ->
+                OutputIsRedeem <$> (diag .: "address")
+
+            "UnknownError" ->
+                UnknownError <$> (diag .: "msg")
+
+            "InvalidAddressFormat" ->
+                InvalidAddressFormat <$> (diag .: "msg")
+
+            "WalletNotFound" ->
+                pure WalletNotFound
+
+            "WalletAlreadyExists" ->
+                WalletAlreadyExists <$> (diag .: "walletId")
+
+            "AddressNotFound" ->
+                pure AddressNotFound
+
+            "TxFailedToStabilize" ->
+                pure TxFailedToStabilize
+
+            "TxRedemptionDepleted" ->
+                pure TxRedemptionDepleted
+
+            "TxSafeSignerNotFound" ->
+                TxSafeSignerNotFound <$> (diag .: "address")
+
+            "InvalidPublicKey" ->
+                InvalidPublicKey <$> (diag .: "msg")
+
+            "UnsignedTxCreationError" ->
+                pure UnsignedTxCreationError
+
+            "TooBigTransaction" ->
+                pure TooBigTransaction
+
+            "SignedTxSubmitError" ->
+                SignedTxSubmitError <$> (diag .: "msg")
+
+            "CannotCreateAddress" ->
+                CannotCreateAddress <$> (diag .: "msg")
+
+            "MissingRequiredParams" ->
+                MissingRequiredParams <$> (diag .: "params")
+
+            "WalletIsNotReadyToProcessPayments" ->
+                WalletIsNotReadyToProcessPayments <$> (diag .: "stillRestoring")
+
+            "NodeIsStillSyncing" ->
+                NodeIsStillSyncing <$> (diag .: "stillSyncing")
+
+            _ ->
+                fail "Incorrect JSON encoding for WalletError"

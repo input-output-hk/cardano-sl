@@ -1,1 +1,1 @@
-{"message":"JSONValidationFailed","status":"error","diagnostic":{"validationError":"test"}}
+{"status":"error","diagnostic":{"validationError":"test"},"message":"JSONValidationFailed"}

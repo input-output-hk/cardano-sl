@@ -1,1 +1,1 @@
-{"message":"MigrationFailed","status":"error","diagnostic":{"description":"test"}}
+{"status":"error","diagnostic":{"description":"test"},"message":"MigrationFailed"}

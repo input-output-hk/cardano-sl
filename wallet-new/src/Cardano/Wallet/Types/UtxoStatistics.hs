@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE LambdaCase    #-}
 
 module Cardano.Wallet.Types.UtxoStatistics
     ( computeUtxoStatistics
@@ -18,7 +19,7 @@ import           Data.Aeson.Types (Parser)
 import qualified Data.HashMap.Strict as HMS
 import qualified Data.List.NonEmpty as NL
 import qualified Data.Map.Strict as Map
-import           Data.Swagger hiding (Example, example)
+import           Data.Swagger hiding (Example)
 import qualified Data.Text as T
 import           Data.Word (Word64)
 import           Formatting (bprint, build, (%))
@@ -94,10 +95,48 @@ instance ToJSON UtxoStatistics where
 instance FromJSON UtxoStatistics where
     parseJSON = withObject "UtxoStatistics" $ \o -> do
         histo <- o .: "histogram" :: Parser (HashMap Text Word64)
-        let constructHistogram = uncurry HistogramBarCount
-        let histoBars = map constructHistogram $ HMS.toList histo
         stakes <- o .: "allStakes"
-        pure $ UtxoStatistics histoBars stakes
+        case validateUtxoStatistics histo stakes of
+            Right (histogram, allStakes) -> do
+                let constructHistogram = uncurry HistogramBarCount
+                let histoBars = map constructHistogram $ HMS.toList histogram
+                pure $ UtxoStatistics histoBars allStakes
+            Left err -> fail $ "Failed to parse UtxoStatistics: " <> show err
+
+data UtxoStatisticsError
+    = ErrHistogramEmpty
+    | ErrHistogramNamesInvalid
+    | ErrHistogramUpperBoundsNegative
+    | ErrAllStakesNegative
+    deriving (Show)
+
+validateUtxoStatistics :: HashMap Text Word64 -> Word64 -> Either UtxoStatisticsError (HashMap Text Word64, Word64)
+validateUtxoStatistics histogram allStakes
+    | histogramBinNumCond histogram = Left ErrHistogramEmpty
+    | histogramKeysCond histogram = Left ErrHistogramNamesInvalid
+    | histogramValsCond histogram = Left ErrHistogramUpperBoundsNegative
+    | allStakesCond allStakes = Left ErrAllStakesNegative
+    | otherwise = Right (histogram, allStakes)
+    where
+        histogramBinNumCond histo = (length $ HMS.keys histo) <= 0
+        validateKeys = any (\key -> notElem key $  map show (NL.toList $ generateBounds Log10) )
+        histogramKeysCond = validateKeys . HMS.keys
+        validateVals = any (< 0)
+        histogramValsCond = validateVals . HMS.elems
+        allStakesCond = (< 0)
+
+
+instance Buildable UtxoStatisticsError where
+    build = \case
+        ErrHistogramEmpty ->
+            bprint "Utxo statistics histogram cannot be empty of bins"
+        ErrHistogramNamesInvalid ->
+            bprint "All names of Utxo statistics histogram have to be valid"
+        ErrHistogramUpperBoundsNegative ->
+            bprint "All upper bounds of Utxo statistics histogram have to be nonnegative"
+        ErrAllStakesNegative ->
+            bprint "Utxo statistics allStakes has to be nonnegative"
+
 
 instance ToSchema UtxoStatistics where
     declareNamedSchema _ = do

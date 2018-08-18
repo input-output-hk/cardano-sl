@@ -743,6 +743,7 @@ instance Buildable IntCheckpoint where
     ( "Checkpoint {"
     % "  slotId: " % build
     % ", stakes: " % mapJson
+    % "}"
     )
     icSlotId
     icStakes

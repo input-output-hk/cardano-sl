@@ -126,6 +126,11 @@ inductiveIsValid Inductive{..} = do
           , viUtxos  = newCheckpoint               b    viUtxos
           }
     goEvents (Rollback:es) ValidatedInductive{..} = do
+      -- TODO: We don't deal with rollback quite correctly. We assume that
+      -- transactions become available for newPending immediately after a
+      -- rollback, but actually they won't become available until we have
+      -- seen a sufficient number of blocks (i.e., when we switched to the
+      -- new fork).
       let chain' = liftNewestFirst List.tail viChain
       goEvents es ValidatedInductive {
           viBoot   = viBoot

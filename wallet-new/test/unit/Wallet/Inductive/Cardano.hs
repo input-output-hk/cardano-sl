@@ -18,7 +18,7 @@ import           Universum
 import           Cardano.Wallet.Kernel.Types
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import qualified Data.Map.Strict as Map
-import           Formatting (bprint, build, formatToString, (%))
+import           Formatting (bprint, build, formatToString, sformat, (%))
 import qualified Formatting.Buildable
 
 import           Pos.Chain.Txp (Utxo, formatUtxo)
@@ -99,12 +99,12 @@ data InductiveCtxt h = InductiveCtxt {
 -- (to support any further rollback).
 interpretT :: forall h e m. (Monad m, Hash h Addr)
            => UseWalletWorker
-           -> (History -> IntException -> e)
+           -> (History -> Text -> e) -- ^ Inject exceptions into the errors
            -> (DSL.Transaction h Addr -> Wallet h Addr)
            -> EventCallbacks h (TranslateT e m)
            -> Inductive h Addr
            -> TranslateT e m (Wallet h Addr, IntCtxt h)
-interpretT useWW injIntEx mkWallet EventCallbacks{..} Inductive{..} =
+interpretT useWW injErr mkWallet EventCallbacks{..} Inductive{..} =
     goBoot inductiveBoot
   where
     goBoot :: DSL.Transaction h Addr
@@ -149,13 +149,17 @@ interpretT useWW injIntEx mkWallet EventCallbacks{..} Inductive{..} =
             withConfig $ walletApplyBlockT indCtxt accountId b'
             go ic' hist'' w' es
         go ic hist w (e@(ExtNewPending t):es) = do
-            let Just w' = newPending w t
-                hist'   = kernelEvent hist e w'
-            (t', ic') <- int' hist' ic t
-            let hist''  = kernelInt hist' ic'
-                indCtxt = InductiveCtxt hist'' ic' w'
-            withConfig $ walletNewPendingT indCtxt accountId t'
-            go ic' hist'' w' es
+            case newPending w t of
+              Nothing ->
+                throwError . injErr hist $
+                  sformat ("Invalid pending " % build) t
+              Just w' -> do
+                let hist'   = kernelEvent hist e w'
+                (t', ic') <- int' hist' ic t
+                let hist''  = kernelInt hist' ic'
+                    indCtxt = InductiveCtxt hist'' ic' w'
+                withConfig $ walletNewPendingT indCtxt accountId t'
+                go ic' hist'' w' es
         go ic hist w (e@ExtRollback:es) = do
             let w'      = rollback w
                 hist'   = kernelEvent hist e w'
@@ -178,7 +182,8 @@ interpretT useWW injIntEx mkWallet EventCallbacks{..} Inductive{..} =
          -> IntCtxt h
          -> a
          -> TranslateT e m (Interpreted a, IntCtxt h)
-    int' hist ic = mapTranslateErrors (injIntEx hist) . runIntT' ic . int
+    int' hist ic =
+        mapTranslateErrors (injErr hist . pretty) . runIntT' ic . int
 
 {-------------------------------------------------------------------------------
   Equivalence check between the real implementation and (a) pure wallet
@@ -198,10 +203,10 @@ equivalentT useWW activeWallet esk = \mkWallet w ->
   where
     passiveWallet = Internal.walletPassive activeWallet
 
-    notChecked :: History -> IntException -> EquivalenceViolation
+    notChecked :: History -> Text -> EquivalenceViolation
     notChecked history ex = EquivalenceNotChecked {
           equivalenceNotCheckedName   = "<error during interpretation>"
-        , equivalenceNotCheckedReason = pretty ex
+        , equivalenceNotCheckedReason = ex
         , equivalenceNotCheckedEvents = history
         }
 

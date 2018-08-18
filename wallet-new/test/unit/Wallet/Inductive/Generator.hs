@@ -132,11 +132,10 @@ data GenEventsGlobalState h a = GenEventsGlobalState {
       -- transactions once submitted into the system "stay out there".
     , _gegsPending   :: Transactions h a
 
-      -- | Maximum height of any path through the tree generated so far
-    , _gegsMaxLength :: Int
-
-      -- | Number of forks created so far
-    , _gegsNumForks  :: Int
+      -- | Lengths of the forks created previously (not including current)
+      --
+      -- This list should be strictly increasing.
+    , _gegsPrevForks :: [Int]
     }
 
 -- | Branch local state
@@ -174,8 +173,7 @@ initEventsGlobalState :: Int   -- ^ First available hash
 initEventsGlobalState nextHash = GenEventsGlobalState {
       _gegsNextHash  = nextHash
     , _gegsPending   = Map.empty
-    , _gegsMaxLength = 0
-    , _gegsNumForks  = 0
+    , _gegsPrevForks = []
     }
 
 -- | Lens to the system UTxO
@@ -236,8 +234,16 @@ genEventTree GenEventsParams{..} =
   where
     buildTree :: GenSeeds h a (WalletEvent h a)
     buildTree ls = do
+        prevForks <- use gegsPrevForks
+        -- We cannot submit pending transactions until a switch-to-fork is
+        -- complete (a rollback of @N@ blocks and the subsequent @N + 1@
+        -- blocks will happen atomically).
+        let ourLength        = ls ^. gelsLength
+            canSubmitPending = case prevForks of
+                                 []     -> True
+                                 prev:_ -> ourLength > prev
         shouldSubmitPending <- lift $ toss gepPendingProb
-        if shouldSubmitPending
+        if canSubmitPending && shouldSubmitPending
           then submitPending ls
           else generateBlock ls
 
@@ -334,11 +340,12 @@ genEventTree GenEventsParams{..} =
         -- because we only ever switch to a fork when the new fork is longer
         -- than the current
         let ourLength = ls'' ^. gelsLength
-        maxLength <- use gegsMaxLength
-        numForks  <- use gegsNumForks
+        prevForks <- use gegsPrevForks
         let allowedTerminate, allowedFork :: Bool
-            allowedTerminate = ourLength > maxLength
-            allowedFork      = numForks < gepMaxNumForks
+            allowedTerminate = case prevForks of
+                                 []       -> True
+                                 (prev:_) -> ourLength > prev
+            allowedFork      = length prevForks < gepMaxNumForks
 
             -- Is a particular branching factor applicable?
             applicable :: (Int, Int) -> Bool
@@ -352,8 +359,9 @@ genEventTree GenEventsParams{..} =
 
         branchingFactor <- lift $ frequency $ map (second pure) freqs
 
-        gegsMaxLength %= max ourLength
-        gegsNumForks  += if branchingFactor > 1 then 1 else 0
+        -- If we are done with this fork, record our length
+        when (branchingFactor == 0) $
+          gegsPrevForks %= (ourLength :)
 
         return (ev, replicate branchingFactor ls'')
 

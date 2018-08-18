@@ -7,13 +7,13 @@
 if 0 <= builtins.compareVersions builtins.nixVersion "1.12"
 then
   builtins.fetchTarball {
-    url = "https://github.com/NixOS/nixpkgs/archive/${rev}.tar.gz";
+    url = "https://github.com/input-output-hk/nixpkgs/archive/${rev}.tar.gz";
     sha256 = sha256unpacked;
   }
 else
   (rec {
     tarball = import <nix/fetchurl.nix> {
-      url = "https://github.com/NixOS/nixpkgs/archive/${rev}.tar.gz";
+      url = "https://github.com/input-output-hk/nixpkgs/archive/${rev}.tar.gz";
       inherit sha256;
     };
 

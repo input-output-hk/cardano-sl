@@ -98,6 +98,7 @@ library
                        Cardano.Wallet.Kernel.DB.Util.IxSet
                        Cardano.Wallet.Kernel.Diffusion
                        Cardano.Wallet.Kernel.Internal
+                       Cardano.Wallet.Kernel.Invariants
                        Cardano.Wallet.Kernel.Keystore
                        Cardano.Wallet.Kernel.Mode
                        Cardano.Wallet.Kernel.NodeStateAdaptor
@@ -438,10 +439,11 @@ test-suite wallet-unit-tests
                       Wallet.Incremental
                       Wallet.Inductive
                       Wallet.Inductive.Cardano
+                      Wallet.Inductive.ExtWalletEvent
                       Wallet.Inductive.Generator
+                      Wallet.Inductive.History
                       Wallet.Inductive.Interpreter
                       Wallet.Inductive.Invariants
-                      Wallet.Inductive.History
                       Wallet.Inductive.Validation
                       Wallet.Prefiltered
                       Wallet.Rollback.Basic

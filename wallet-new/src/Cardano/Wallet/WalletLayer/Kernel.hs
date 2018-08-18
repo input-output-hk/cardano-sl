@@ -69,7 +69,7 @@ bracketPassiveWallet logFunction keystore rocksDB f =
         , _pwlDeleteAccount        = Accounts.deleteAccount       w
         , _pwlCreateAddress        = Addresses.createAddress      w
         , _pwlApplyBlocks          = invokeIO . Actions.ApplyBlocks
-        , _pwlRollbackBlocks       = invokeIO . Actions.RollbackBlocks
+        , _pwlRollbackBlocks       = invokeIO . Actions.RollbackBlocks . length
           -- Read-only operations
         , _pwlGetWallets           =             ro $ Wallets.getWallets
         , _pwlGetWallet            = \wId     -> ro $ Wallets.getWallet    wId

@@ -13,6 +13,7 @@ module Cardano.Wallet.Kernel.Submission (
     , tick
     , scheduledFor
     , tickSlot
+    , pendingByAccount
 
     -- * Types and lenses
     , Cancelled
@@ -359,6 +360,9 @@ tick ws =
         alterFn :: Txp.TxId -> Maybe (Set Txp.TxId) -> Maybe (Set Txp.TxId)
         alterFn txId Nothing  = Just (Set.singleton txId)
         alterFn txId (Just s) = Just (Set.insert txId s)
+
+pendingByAccount :: WalletSubmission -> Map HdAccountId Pending
+pendingByAccount ws = ws ^. wsState . wssPendingMap
 
 --
 --

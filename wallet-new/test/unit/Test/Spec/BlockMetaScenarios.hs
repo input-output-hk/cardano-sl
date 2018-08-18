@@ -237,6 +237,8 @@ blockMetaScenarioD genVals@GenesisValues{..} =
             , ApplyBlock $ OldestFirst [t0] -- confirms t0 and updates block metadata
             , ApplyBlock $ OldestFirst [t1] -- confirms t1 and updates block metadata
             , Rollback                      -- rolls back t1 and updates block metadata
+            , ApplyBlock $ OldestFirst []
+            , ApplyBlock $ OldestFirst []
             ]
         }
 
@@ -296,6 +298,8 @@ blockMetaScenarioF genVals@GenesisValues{..} =
             , ApplyBlock $ OldestFirst [t0] -- confirms t0 and updates block metadata
             , ApplyBlock $ OldestFirst [t1] -- confirms t1 and updates block metadata
             , Rollback                      -- rolls back t1 and updates block metadata
+            , ApplyBlock $ OldestFirst []
+            , ApplyBlock $ OldestFirst []
             ]
         }
 

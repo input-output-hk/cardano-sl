@@ -122,14 +122,8 @@ import           Cardano.Wallet.Kernel.Util (modifyAndGetOld, neHead)
 -- | Wallet name
 newtype WalletName = WalletName { getWalletName :: Text }
 
-instance Buildable WalletName where
-    build (WalletName wName) = bprint build wName
-
 -- | Account name
 newtype AccountName = AccountName { getAccountName :: Text }
-
-instance Buildable AccountName where
-    build (AccountName txt) = bprint build txt
 
 -- | Account index
 newtype HdAccountIx = HdAccountIx { getHdAccountIx :: Word32 }
@@ -160,10 +154,6 @@ assuredBlockDepth :: AssuranceLevel -> Core.BlockCount
 assuredBlockDepth AssuranceLevelNormal = 9
 assuredBlockDepth AssuranceLevelStrict = 15
 
-instance Buildable AssuranceLevel where
-    build AssuranceLevelNormal = "normal"
-    build AssuranceLevelStrict = "strict"
-
 -- | Does this wallet have a spending password
 data HasSpendingPassword =
     -- | No spending password set
@@ -171,11 +161,6 @@ data HasSpendingPassword =
 
     -- | If there is a spending password, we record when it was last updated.
   | HasSpendingPassword (InDb Core.Timestamp)
-
-instance Buildable HasSpendingPassword where
-    build NoSpendingPassword = "no"
-    build (HasSpendingPassword (InDb lastUpdate)) =
-        bprint ("updated " % build) lastUpdate
 
 deriveSafeCopy 1 'base ''WalletName
 deriveSafeCopy 1 'base ''AccountName
@@ -212,7 +197,7 @@ eskToHdRootId = HdRootId . InDb . Core.makePubKeyAddressBoot . Core.encToPublic
 -- just a Text) it's possible to call 'decodeTextAddress' to grab a valid
 -- 'Core.Address', and then transform this into a 'Kernel.WalletId' type
 -- easily.
-data HdRootId = HdRootId { getHdRootId :: InDb Core.Address }
+newtype HdRootId = HdRootId { getHdRootId :: InDb Core.Address }
   deriving (Eq, Ord)
 
 instance Arbitrary HdRootId where
@@ -268,20 +253,6 @@ data HdRoot = HdRoot {
     , _hdRootCreatedAt   :: InDb Core.Timestamp
     }
 
-instance Buildable HdRoot where
-    build HdRoot{..} =
-        bprint (
-            "HdRoot { id = " % build %
-                 ", name = " % build %
-          ", hasPassword = " % build %
-       ", assuranceLevel = " % build %
-            ", createdAt = " % build
-        ) (_fromDb . getHdRootId $ _hdRootId)
-          _hdRootName
-          _hdRootHasPassword
-          _hdRootAssurance
-          (_fromDb _hdRootCreatedAt)
-
 -- | Account in a HD wallet
 --
 -- Key derivation is cheap
@@ -304,14 +275,6 @@ data HdAccount = HdAccount {
     , _hdAccountAutoPkCounter :: AutoIncrementKey
     }
 
-instance Buildable HdAccount where
-    build HdAccount{..} =
-        bprint ("HdAccount { id = "   % build
-                         % " name = " % build
-                         % " checkpoints = <checkpoints> "
-                         % " }"
-               ) _hdAccountId _hdAccountName
-
 -- | Address in an account of a HD wallet
 data HdAddress = HdAddress {
       -- | Address ID
@@ -320,13 +283,6 @@ data HdAddress = HdAddress {
       -- | The actual address
     , _hdAddressAddress :: InDb Core.Address
     }
-
-instance Buildable HdAddress where
-    build HdAddress{..} =
-        bprint ("HdAddress { id = "   % build
-                         % " address = " % build
-                         % " }"
-               ) _hdAddressId (_hdAddressAddress ^. fromDb)
 
 {-------------------------------------------------------------------------------
   Account state
@@ -780,32 +736,100 @@ assumeHdAccountExists _id = return ()
   Pretty printing
 -------------------------------------------------------------------------------}
 
-instance Buildable HdRootId where
-    build (HdRootId keyInDb)
-        = bprint ("HdRootId: "%build) (_fromDb keyInDb)
+instance Buildable WalletName where
+    build (WalletName wName) = bprint build wName
 
-instance Buildable HdAccountIx where
-    build (HdAccountIx ix)
-        = bprint ("HdAccountIx: "%build) ix
+instance Buildable AccountName where
+    build (AccountName txt) = bprint build txt
+
+instance Buildable AssuranceLevel where
+    build AssuranceLevelNormal = "normal"
+    build AssuranceLevelStrict = "strict"
+
+instance Buildable HasSpendingPassword where
+    build NoSpendingPassword = "no"
+    build (HasSpendingPassword (InDb lastUpdate)) =
+        bprint ("updated " % build) lastUpdate
+
+instance Buildable HdRoot where
+    build HdRoot{..} = bprint
+      ( "HdRoot "
+      % "{ id:          " % build
+      % ", name:        " % build
+      % ", hasPassword: " % build
+      % ", assurance:   " % build
+      % ", createdAt:   " % build
+      % "}"
+      )
+      _hdRootId
+      _hdRootName
+      _hdRootHasPassword
+      _hdRootAssurance
+      (_fromDb _hdRootCreatedAt)
+
+instance Buildable HdAccount where
+    build HdAccount{..} = bprint
+      ( "HdAccount "
+      % "{ id            " % build
+      % ", name          " % build
+      % ", state         " % build
+      % ", autoPkCounter " % build
+      % "}"
+      )
+      _hdAccountId
+      _hdAccountName
+      _hdAccountState
+      _hdAccountAutoPkCounter
+
+instance Buildable HdAccountState where
+    build (HdAccountStateUpToDate _cps) = "HdAccountStateUpToDate <checkpoints>"
+    build (HdAccountStateWithinK  _cps) = "HdAccountStateWithinK <checkpoints>"
+    build (HdAccountStateOutsideK _cps) = "HdAccountStateOutsideK <checkpoints>"
+
+instance Buildable HdAddress where
+    build HdAddress{..} = bprint
+      ( "HdAddress "
+      % "{ id      " % build
+      % ", address " % build
+      % "}"
+      )
+      _hdAddressId
+      (_fromDb _hdAddressAddress)
+
+instance Buildable HdRootId where
+    build (HdRootId addr) = bprint ("HdRootId " % build) (_fromDb addr)
 
 instance Buildable HdAccountId where
-    build (HdAccountId parentId accountIx)
-        = bprint ("HdAccountId: "%build%", "%build) parentId accountIx
-
-instance Buildable HdAddressIx where
-    build (HdAddressIx ix)
-        = bprint ("HdAddressIx: "%build) ix
+    build HdAccountId{..} = bprint
+      ( "HdAccountId "
+      % "{ parent " % build
+      % ", ix     " % build
+      % "}"
+      )
+      _hdAccountIdParent
+      _hdAccountIdIx
 
 instance Buildable HdAddressId where
-    build (HdAddressId parentId addressIx)
-        = bprint ("HdAddressId: "%build%", "%build) parentId addressIx
+    build HdAddressId{..} = bprint
+      ( "HdAddressId "
+      % " parent " % build
+      % " ix     " % build
+      % "}"
+      )
+      _hdAddressIdParent
+      _hdAddressIdIx
+
+instance Buildable HdAccountIx where
+    build (HdAccountIx ix) = bprint ("HdAccountIx " % build) ix
+
+instance Buildable HdAddressIx where
+    build (HdAddressIx ix) = bprint ("HdAddressIx " % build) ix
 
 instance Buildable UnknownHdRoot where
-    build (UnknownHdRoot rootId)
-        = bprint ("UnknownHdRoot: "%build) rootId
+    build (UnknownHdRoot rootId) = bprint ("UnknownHdRoot " % build) rootId
 
 instance Buildable UnknownHdAccount where
-    build (UnknownHdAccountRoot rootId)
-        = bprint ("UnknownHdAccountRoot: "%build) rootId
-    build (UnknownHdAccount accountId)
-        = bprint ("UnknownHdAccount accountId: "%build) accountId
+    build (UnknownHdAccountRoot rootId) =
+      bprint ("UnknownHdAccountRoot " % build) rootId
+    build (UnknownHdAccount accountId) =
+      bprint ("UnknownHdAccount accountId " % build) accountId

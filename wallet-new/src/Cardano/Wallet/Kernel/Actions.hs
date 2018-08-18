@@ -2,11 +2,14 @@
 module Cardano.Wallet.Kernel.Actions
     ( WalletAction(..)
     , WalletActionInterp(..)
+    , WalletInterpAction(..)
     , withWalletWorker
     , WalletWorkerExpiredError(..)
     , interp
     , interpList
+    , interpStep
     , WalletWorkerState
+    , initialWorkerState
     , isInitialState
     , hasPendingFork
     , isValidState
@@ -16,6 +19,7 @@ import qualified Control.Concurrent.Async as Async
 import qualified Control.Concurrent.STM as STM
 import qualified Control.Exception.Safe as Ex
 import           Control.Lens (makeLenses, (%=), (+=), (-=), (.=))
+import           Control.Monad.Writer.Strict (Writer, runWriter, tell)
 import           Formatting (bprint, build, shown, (%))
 import qualified Formatting.Buildable
 import           Universum
@@ -32,7 +36,7 @@ import           Pos.Core.Chrono
 --   batched into a single operation on the actual wallet.
 data WalletAction b
     = ApplyBlocks    (OldestFirst NE b)
-    | RollbackBlocks (NewestFirst NE b)
+    | RollbackBlocks Int
     | LogMessage Text
 
 -- | Interface abstraction for the wallet worker.
@@ -44,6 +48,14 @@ data WalletActionInterp m b = WalletActionInterp
     , switchToFork :: Int -> OldestFirst [] b -> m ()
     , emit         :: Text -> m ()
     }
+
+-- | An interpreted action
+--
+-- Used for 'interpStep'
+data WalletInterpAction b
+    = InterpApplyBlocks (OldestFirst NE b)
+    | InterpSwitchToFork Int (OldestFirst [] b)
+    | InterpLogMessage Text
 
 -- | Internal state of the wallet worker.
 data WalletWorkerState b = WalletWorkerState
@@ -104,15 +116,15 @@ interp walletInterp action = do
       -- If we are in the midst of a fork and have seen some new blocks,
       -- roll back some of those blocks. If there are more rollbacks requested
       -- than the number of new blocks, see the next case below.
-      RollbackBlocks bs | length bs <= numPendingBlocks -> do
-                            lengthPendingBlocks -= length bs
-                            pendingBlocks %= NewestFirst . drop (length bs) . getNewestFirst
+      RollbackBlocks n | n <= numPendingBlocks -> do
+                            lengthPendingBlocks -= n
+                            pendingBlocks %= NewestFirst . drop n . getNewestFirst
 
       -- If we are in the midst of a fork and are asked to rollback more than
       -- the number of new blocks seen so far, clear out the list of new
       -- blocks and add any excess to the number of pending rollback operations.
-      RollbackBlocks bs -> do
-        pendingRollbacks    += length bs - numPendingBlocks
+      RollbackBlocks n -> do
+        pendingRollbacks    += n - numPendingBlocks
         lengthPendingBlocks .= 0
         pendingBlocks       .= NewestFirst []
 
@@ -141,6 +153,23 @@ walletWorker wai getWA = Ex.bracket_
 -- | Connect a wallet action interpreter to a stream of actions.
 interpList :: Monad m => WalletActionInterp m b -> [WalletAction b] -> m (WalletWorkerState b)
 interpList ops actions = execStateT (forM_ actions $ interp ops) initialWorkerState
+
+-- | Step the wallet worker in a pure context
+--
+-- This is useful for testing purposes.
+-- interp :: Monad m => WalletActionInterp m b -> WalletAction b -> StateT (WalletWorkerState b) m ()
+interpStep :: forall b. WalletAction b -> WalletWorkerState b -> (WalletWorkerState b, [WalletInterpAction b])
+interpStep act st = runWriter (execStateT (interp wai act) st)
+  where
+    -- Writer should not be used in production code as it has a memory leak. For
+    -- this use case however it is perfect: we only accumulate a tiny list here,
+    -- and anyway only use this in testing.
+    wai :: WalletActionInterp (Writer [WalletInterpAction b]) b
+    wai = WalletActionInterp {
+          applyBlocks  = \bs   -> tell [InterpApplyBlocks bs]
+        , switchToFork = \n bs -> tell [InterpSwitchToFork n bs]
+        , emit         = \msg  -> tell [InterpLogMessage msg]
+        }
 
 initialWorkerState :: WalletWorkerState b
 initialWorkerState = WalletWorkerState
@@ -281,5 +310,3 @@ readTMQueue (UnsafeTMQueue to tq) = do
      Nothing -> STM.readTVar to >>= \case
         TMQueueOpen -> Just <$> STM.readTQueue tq
         TMQueueNotOpen -> pure Nothing
-
-

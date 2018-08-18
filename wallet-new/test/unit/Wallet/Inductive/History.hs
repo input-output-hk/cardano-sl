@@ -24,6 +24,7 @@ import           UTxO.DSL (Hash)
 import           UTxO.Interpreter (IntCtxt)
 import           Wallet.Abstract
 import           Wallet.Inductive
+import           Wallet.Inductive.ExtWalletEvent
 
 {-------------------------------------------------------------------------------
   History
@@ -75,9 +76,9 @@ kernelInit w ic = History $
 -- We do /not/ record the new interpretation context yet, as this is a separate
 -- step in the history (see 'kernelInt').
 kernelEvent :: Hash h Addr
-            => History            -- ^ Previous history
-            -> WalletEvent h Addr -- ^ Event to append
-            -> Wallet h Addr      -- ^ Pure wallet after the event
+            => History               -- ^ Previous history
+            -> ExtWalletEvent h Addr -- ^ Event to append
+            -> Wallet h Addr         -- ^ Pure wallet after the event
             -> History
 kernelEvent (History events) ev w = History $
     liftNewestFirst (\es -> Event ["state", dumpState w]

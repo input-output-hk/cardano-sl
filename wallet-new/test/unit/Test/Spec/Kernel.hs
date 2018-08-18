@@ -45,7 +45,7 @@ import qualified Wallet.Rollback.Full as Full
   Compare the wallet kernel with the pure model
 -------------------------------------------------------------------------------}
 
-withWithoutWW :: HasCallStack => (UseWalletWorker -> SpecWith a) -> SpecWith a
+withWithoutWW :: (UseWalletWorker -> SpecWith a) -> SpecWith a
 withWithoutWW specWith = do
     describe "without walletworker" $ specWith DontUseWalletWorker
     describe "with walletworker"    $ specWith UseWalletWorker

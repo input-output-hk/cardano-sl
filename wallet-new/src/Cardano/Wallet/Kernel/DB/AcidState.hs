@@ -63,6 +63,7 @@ import qualified Cardano.Wallet.Kernel.DB.Spec.Update as Spec
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
+import           Cardano.Wallet.Kernel.NodeStateAdaptor (SecurityParameter)
 import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId,
                      PrefilteredBlock (..), emptyPrefilteredBlock)
 import           Cardano.Wallet.Kernel.Util (markMissingMapEntries)
@@ -208,10 +209,11 @@ cancelPending cancelled = void . runUpdate' . zoom dbHdWallets $
 -- * 'applyBlock' should be called /even if the map of prefiltered blocks is
 --   empty/. This is important because for blocks that don't change we still
 --   need to push a new checkpoint.
-applyBlock :: InDb SlotId
+applyBlock :: SecurityParameter
+           -> InDb SlotId
            -> Map HdAccountId PrefilteredBlock
            -> Update DB (Map HdAccountId (Set TxId))
-applyBlock (InDb slotId) blocks = runUpdateNoErrors $ zoom dbHdWallets $
+applyBlock k (InDb slotId) blocks = runUpdateNoErrors $ zoom dbHdWallets $
     updateAccounts =<< mkUpdates <$> use hdWalletsAccounts
   where
     mkUpdates :: IxSet HdAccount -> [AccountUpdate Void (Set TxId)]
@@ -238,8 +240,8 @@ applyBlock (InDb slotId) blocks = runUpdateNoErrors $ zoom dbHdWallets $
         , accountUpdateNew   = AccountUpdateNew Map.empty
         , accountUpdate      =
             matchHdAccountCheckpoints
-              (state $ swap . Spec.applyBlock        slotId pb)
-              (state $ swap . Spec.applyBlockPartial slotId pb)
+              (state $ swap . Spec.applyBlock        k slotId pb)
+              (state $ swap . Spec.applyBlockPartial k slotId pb)
         }
       where
         pb :: PrefilteredBlock
@@ -255,11 +257,12 @@ applyBlock (InDb slotId) blocks = runUpdateNoErrors $ zoom dbHdWallets $
 --
 -- TODO: We use a plain list here rather than 'OldestFirst' since the latter
 -- does not have a 'SafeCopy' instance.
-switchToFork :: Int
+switchToFork :: SecurityParameter
+             -> Int
              -> [(SlotId, Map HdAccountId PrefilteredBlock)]
              -> Update DB (Either RollbackDuringRestoration
                                   (Map HdAccountId (Pending, Set TxId)))
-switchToFork n blocks = runUpdateDiscardSnapshot $ zoom dbHdWallets $
+switchToFork k n blocks = runUpdateDiscardSnapshot $ zoom dbHdWallets $
     updateAccounts =<< mkUpdates <$> use hdWalletsAccounts
   where
     mkUpdates :: IxSet HdAccount
@@ -279,7 +282,7 @@ switchToFork n blocks = runUpdateDiscardSnapshot $ zoom dbHdWallets $
         , accountUpdateNew   = AccountUpdateNew Map.empty
         , accountUpdate      =
             matchHdAccountCheckpoints
-              (state $ swap . Spec.switchToFork n (OldestFirst pbs))
+              (state $ swap . Spec.switchToFork k n (OldestFirst pbs))
               (throwError RollbackDuringRestoration)
         }
       where

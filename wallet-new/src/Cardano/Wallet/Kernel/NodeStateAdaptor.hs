@@ -9,6 +9,10 @@ module Cardano.Wallet.Kernel.NodeStateAdaptor (
   , withNodeState
   , newNodeStateAdaptor
   , NodeConstraints
+    -- * Additional types
+  , SecurityParameter(..)
+  , UnknownEpoch(..)
+  , MissingBlock(..)
     -- * Locking
   , Lock
   , LockContext(..)
@@ -32,6 +36,7 @@ import           Universum
 import           Control.Lens (lens)
 import           Control.Monad.IO.Unlift (MonadUnliftIO, UnliftIO (UnliftIO),
                      askUnliftIO, unliftIO, withUnliftIO)
+import           Data.SafeCopy (base, deriveSafeCopy)
 import           Formatting (bprint, build, sformat, shown, (%))
 import qualified Formatting.Buildable
 import           Serokell.Data.Memory.Units (Byte)
@@ -61,6 +66,29 @@ import           Pos.Util.Concurrent.PriorityLock (Priority (..))
 
 import           Test.Pos.Configuration (withDefConfiguration,
                      withDefUpdateConfiguration)
+
+{-------------------------------------------------------------------------------
+  Additional types
+-------------------------------------------------------------------------------}
+
+newtype SecurityParameter = SecurityParameter Int
+
+deriveSafeCopy 1 'base ''SecurityParameter
+
+pcK' :: ProtocolConstants -> SecurityParameter
+pcK' = SecurityParameter . pcK
+
+-- | Returned by 'getSlotStart' when requesting info about an unknown epoch
+data UnknownEpoch = UnknownEpoch SlotId
+
+-- | Thrown if we cannot find a previous block
+--
+-- If this ever happens it indicates a serious problem: the blockchain as
+-- stored in the node is not correct.
+data MissingBlock = MissingBlock CallStack HeaderHash
+  deriving (Show)
+
+instance Exception MissingBlock
 
 {-------------------------------------------------------------------------------
   Locking
@@ -171,7 +199,7 @@ data NodeStateAdaptor m = Adaptor {
     , getMaxTxSize :: m Byte
 
       -- | Get the security parameter (@k@)
-    , getSecurityParameter :: m Int
+    , getSecurityParameter :: m SecurityParameter
 
       -- | Get number of slots per epoch
       --
@@ -266,7 +294,7 @@ newNodeStateAdaptor nr = Adaptor {
     , getTipSlotId         =            run $ \_lock -> defaultGetTipSlotId
     , getMaxTxSize         =            run $ \_lock -> defaultGetMaxTxSize
     , getSlotStart         = \slotId -> run $ \_lock -> defaultGetSlotStart slotId
-    , getSecurityParameter = return $ pcK          protocolConstants
+    , getSecurityParameter = return $ pcK'         protocolConstants
     , getSlotCount         = return $ pcEpochSlots protocolConstants
     }
   where
@@ -350,18 +378,6 @@ mostRecentMainBlock = go
           Nothing    -> throwM $ MissingBlock callStack hdrHash
           Just block -> return block
 
--- | Thrown if we cannot find a previous block
---
--- If this ever happens it indicates a serious problem: the blockchain as
--- stored in the node is not correct.
-data MissingBlock = MissingBlock CallStack HeaderHash
-  deriving (Show)
-
-instance Exception MissingBlock
-
--- | Returned by 'getSlotStart' when requesting info about an unknown epoch
-data UnknownEpoch = UnknownEpoch SlotId
-
 {-------------------------------------------------------------------------------
   Support for tests
 -------------------------------------------------------------------------------}
@@ -385,7 +401,7 @@ mockNodeState MockNodeStateParams{..} =
           withNodeState        = \_ -> throwM $ NodeStateUnavailable callStack
         , getTipSlotId         = return mockNodeStateTipSlotId
         , getMaxTxSize         = return $ bvdMaxTxSize genesisBlockVersionData
-        , getSecurityParameter = return $ pcK          protocolConstants
+        , getSecurityParameter = return $ pcK'         protocolConstants
         , getSlotCount         = return $ pcEpochSlots protocolConstants
         , getSlotStart         = return . mockNodeStateSlotStart
         }

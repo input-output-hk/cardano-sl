@@ -41,6 +41,7 @@ import           Cardano.Wallet.Kernel.DB.Spec.Pending (Pending)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
 import           Cardano.Wallet.Kernel.DB.Spec.Read
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
+import           Cardano.Wallet.Kernel.NodeStateAdaptor (SecurityParameter (..))
 import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..))
 import qualified Cardano.Wallet.Kernel.Util.Core as Core
 
@@ -144,18 +145,20 @@ cancelPending txids = map (cpPending %~ Pending.delete txids)
 -- | Apply the prefiltered block to the specified wallet
 --
 -- Additionally returns the set of transactions removed from pending.
-applyBlock :: SlotId
+applyBlock :: SecurityParameter
+           -> SlotId
            -> PrefilteredBlock
            -> NewestFirst NonEmpty Checkpoint
            -> (NewestFirst NonEmpty Checkpoint, Set Txp.TxId)
-applyBlock slotId pb checkpoints = (NewestFirst $ Checkpoint {
-        _checkpointUtxo        = InDb utxo'
-      , _checkpointUtxoBalance = InDb balance'
-      , _checkpointPending     = pending'
-      , _checkpointBlockMeta   = blockMeta'
-      , _checkpointSlotId      = InDb slotId
-      , _checkpointForeign     = foreign'
-      } NE.<| getNewestFirst checkpoints
+applyBlock (SecurityParameter k) slotId pb checkpoints = (
+      takeNewest k $ NewestFirst $ Checkpoint {
+          _checkpointUtxo        = InDb utxo'
+        , _checkpointUtxoBalance = InDb balance'
+        , _checkpointPending     = pending'
+        , _checkpointBlockMeta   = blockMeta'
+        , _checkpointSlotId      = InDb slotId
+        , _checkpointForeign     = foreign'
+        } NE.<| getNewestFirst checkpoints
     , Set.unions [rem1, rem2]
     )
   where
@@ -168,18 +171,20 @@ applyBlock slotId pb checkpoints = (NewestFirst $ Checkpoint {
     (foreign', rem2)  = updatePending   pb (current ^. checkpointForeign)
 
 -- | Like 'applyBlock', but to a list of partial checkpoints instead
-applyBlockPartial :: SlotId
+applyBlockPartial :: SecurityParameter
+                  -> SlotId
                   -> PrefilteredBlock
                   -> NewestFirst NonEmpty PartialCheckpoint
                   -> (NewestFirst NonEmpty PartialCheckpoint, Set Txp.TxId)
-applyBlockPartial slotId pb checkpoints = (NewestFirst $ PartialCheckpoint {
-        _pcheckpointUtxo        = InDb utxo'
-      , _pcheckpointUtxoBalance = InDb balance'
-      , _pcheckpointPending     = pending'
-      , _pcheckpointBlockMeta   = blockMeta'
-      , _pcheckpointSlotId      = InDb slotId
-      , _pcheckpointForeign     = foreign'
-      } NE.<| getNewestFirst checkpoints
+applyBlockPartial (SecurityParameter k) slotId pb checkpoints = (
+      takeNewest k $ NewestFirst $ PartialCheckpoint {
+          _pcheckpointUtxo        = InDb utxo'
+        , _pcheckpointUtxoBalance = InDb balance'
+        , _pcheckpointPending     = pending'
+        , _pcheckpointBlockMeta   = blockMeta'
+        , _pcheckpointSlotId      = InDb slotId
+        , _pcheckpointForeign     = foreign'
+        } NE.<| getNewestFirst checkpoints
     , Set.unions [rem1, rem2]
     )
   where
@@ -236,11 +241,12 @@ observableRollbackUseInTestsOnly = rollback
 -- Additionally returns the set of transactions that got introduced reintroduced
 -- (to the rollback) and the transactions that got removed from pending
 -- (since they are new confirmed).
-switchToFork :: Int  -- ^ Number of blocks to rollback
+switchToFork :: SecurityParameter
+             -> Int  -- ^ Number of blocks to rollback
              -> OldestFirst [] (SlotId, PrefilteredBlock) -- ^ Blocks to apply
              -> NewestFirst NonEmpty Checkpoint
              -> (NewestFirst NonEmpty Checkpoint, (Pending, Set Txp.TxId))
-switchToFork numRollbacks blocksToApply = \cps ->
+switchToFork k numRollbacks blocksToApply = \cps ->
     rollbacks Pending.empty numRollbacks cps
   where
     rollbacks :: Pending -- Accumulator: reintroduced pending transactions
@@ -271,7 +277,7 @@ switchToFork numRollbacks blocksToApply = \cps ->
           bs
           cps'
       where
-       (cps', removed) = applyBlock slotId b cps
+       (cps', removed) = applyBlock k slotId b cps
 
 {-------------------------------------------------------------------------------
   Internal auxiliary
@@ -304,3 +310,6 @@ updateUtxo PrefilteredBlock{..} (utxo, balance) =
 -- Returns the set of transactions that got removed from the pending set.
 updatePending :: PrefilteredBlock -> Pending -> (Pending, Set Txp.TxId)
 updatePending PrefilteredBlock{..} = Pending.removeInputs pfbInputs
+
+takeNewest :: Int -> NewestFirst NonEmpty a -> NewestFirst NonEmpty a
+takeNewest k (NewestFirst (a :| as)) = NewestFirst (a :| take (k - 1) as)

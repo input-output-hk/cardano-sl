@@ -25,6 +25,7 @@ import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock, rbSlotId)
 import           Cardano.Wallet.Kernel.Internal
+import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as Node
 import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..),
                      prefilterBlock)
 import           Cardano.Wallet.Kernel.Read (getWalletCredentials)
@@ -56,9 +57,10 @@ applyBlock :: PassiveWallet
            -> ResolvedBlock
            -> IO ()
 applyBlock pw@PassiveWallet{..} b = do
+    k <- Node.getSecurityParameter _walletNode
     (slotId, blocksByAccount) <- prefilterBlock' pw b
     -- apply block to all Accounts in all Wallets
-    confirmed <- update' _wallets $ ApplyBlock (InDb slotId) blocksByAccount
+    confirmed <- update' _wallets $ ApplyBlock k (InDb slotId) blocksByAccount
     modifyMVar_ _walletSubmission $ return . Submission.remPending confirmed
 
 -- | Apply multiple blocks, one at a time, to all wallets in the PassiveWallet
@@ -78,8 +80,9 @@ switchToFork :: PassiveWallet
              -> [ResolvedBlock] -- ^ Blocks in the new fork
              -> IO (Either RollbackDuringRestoration ())
 switchToFork pw@PassiveWallet{..} n bs = do
+    k <- Node.getSecurityParameter _walletNode
     blockssByAccount <- mapM (prefilterBlock' pw) bs
-    res <- update' _wallets $ SwitchToFork n blockssByAccount
+    res <- update' _wallets $ SwitchToFork k n blockssByAccount
     case res of
       Left  err     -> return $ Left err
       Right changes -> do modifyMVar_ _walletSubmission $

@@ -4,31 +4,31 @@ module WalletNewJson
 
 import           Universum
 
+import           Hedgehog (Property)
+
 import           Cardano.Wallet.API.Response (JSONValidationError (..))
 import           Cardano.Wallet.API.V1.Migration.Types (MigrationError (..))
-import           Cardano.Wallet.API.V1.Types (SyncProgress (..), V1 (..),
-                     WalletError (..), exampleWalletId,
-                     mkEstimatedCompletionTime, mkSyncPercentage,
-                     mkSyncThroughput)
-import           Data.List.NonEmpty (fromList)
-import           Hedgehog (Property)
-import qualified Hedgehog as H
-import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
-                     AddrStakeDistribution (..), Address (..), BlockCount (..),
-                     Script (..), makeAddress)
-import           Pos.Crypto.HD (HDAddressPayload (..))
-import           WalletNewGen (genWalletError)
+import           Cardano.Wallet.API.V1.Swagger.Example (genExample)
+import           Cardano.Wallet.API.V1.Types (V1 (..), WalletError (..),
+                     exampleWalletId)
 
-import           Test.Pos.Util.Golden (discoverGolden, eachOf, goldenTestJSON)
-import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonShow)
+import           Test.Pos.Core.ExampleHelpers (exampleAddress)
+import           Test.Pos.Util.Golden (discoverGolden, goldenTestJSON)
+
+import qualified Hedgehog as H
+
+-----------------------------------------------------------------------
+-- Main test export
+-----------------------------------------------------------------------
+
+tests :: IO Bool
+tests =
+    H.checkSequential $$discoverGolden
+
 
 -------------------------------------------------------------------------------
 -- WalletError
 -------------------------------------------------------------------------------
-
-roundTripWalletError :: Property
-roundTripWalletError =
-    eachOf 5000 genWalletError roundTripsAesonShow
 
 golden_WalletError_NotEnoughMoney :: Property
 golden_WalletError_NotEnoughMoney =
@@ -39,20 +39,8 @@ golden_WalletError_NotEnoughMoney =
 golden_WalletError_OutputIsRedeem :: Property
 golden_WalletError_OutputIsRedeem =
     goldenTestJSON
-        (OutputIsRedeem exampleAddress)
+        (OutputIsRedeem $ V1 exampleAddress)
             "test/golden/WalletError_OutputIsRedeem"
-
-golden_WalletError_MigrationFailed :: Property
-golden_WalletError_MigrationFailed =
-    goldenTestJSON
-        (MigrationFailed "test")
-            "test/golden/WalletError_MigrationFailed"
-
-golden_WalletError_JSONValidationFailed :: Property
-golden_WalletError_JSONValidationFailed =
-    goldenTestJSON
-        (JSONValidationFailed "test")
-            "test/golden/WalletError_JSONValidationFailed"
 
 golden_WalletError_UnknownError :: Property
 golden_WalletError_UnknownError =
@@ -82,3 +70,91 @@ golden_WalletError_AddressNotFound :: Property
 golden_WalletError_AddressNotFound =
     goldenTestJSON
         AddressNotFound
+            "test/golden/WalletError_AddressNotFound"
+
+golden_WalletError_InvalidPublicKey :: Property
+golden_WalletError_InvalidPublicKey =
+    goldenTestJSON
+        (InvalidPublicKey "test")
+            "test/golden/WalletError_InvalidPublicKey"
+
+golden_WalletError_UnsignedTxCreationError :: Property
+golden_WalletError_UnsignedTxCreationError =
+    goldenTestJSON
+        UnsignedTxCreationError
+            "test/golden/WalletError_UnsignedTxCreationError"
+
+golden_WalletError_SignedTxSubmitError :: Property
+golden_WalletError_SignedTxSubmitError =
+    goldenTestJSON
+        (SignedTxSubmitError "test")
+            "test/golden/WalletError_SignedTxSubmitError"
+
+golden_WalletError_TooBigTransaction :: Property
+golden_WalletError_TooBigTransaction =
+    goldenTestJSON
+        TooBigTransaction
+            "test/golden/WalletError_TooBigTransaction"
+
+golden_WalletError_TxFailedToStabilize :: Property
+golden_WalletError_TxFailedToStabilize =
+    goldenTestJSON
+        TxFailedToStabilize
+            "test/golden/WalletError_TxFailedToStabilize"
+
+golden_WalletError_TxRedemptionDepleted :: Property
+golden_WalletError_TxRedemptionDepleted =
+    goldenTestJSON
+        TxRedemptionDepleted
+            "test/golden/WalletError_TxRedemptionDepleted"
+
+golden_WalletError_TxSafeSignerNotFound :: Property
+golden_WalletError_TxSafeSignerNotFound =
+    goldenTestJSON
+        (TxSafeSignerNotFound $ V1 exampleAddress)
+            "test/golden/WalletError_TxSafeSignerNotFound"
+
+golden_WalletError_MissingRequiredParams :: Property
+golden_WalletError_MissingRequiredParams =
+    goldenTestJSON
+        (MissingRequiredParams (("test", "test") :| []))
+            "test/golden/WalletError_MissingRequiredParams"
+
+golden_WalletError_WalletIsNotReadyToProcessPayments :: Property
+golden_WalletError_WalletIsNotReadyToProcessPayments =
+    goldenTestJSON
+        (WalletIsNotReadyToProcessPayments genExample)
+            "test/golden/WalletError_WalletIsNotReadyToProcessPayments"
+
+golden_WalletError_NodeIsStillSyncing :: Property
+golden_WalletError_NodeIsStillSyncing =
+    goldenTestJSON
+        (NodeIsStillSyncing genExample)
+            "test/golden/WalletError_NodeIsStillSyncing"
+
+golden_WalletError_CannotCreateAddress :: Property
+golden_WalletError_CannotCreateAddress =
+    goldenTestJSON
+        (CannotCreateAddress "test")
+            "test/golden/WalletError_CannotCreateAddress"
+
+
+-------------------------------------------------------------------------------
+-- MigrationError
+-------------------------------------------------------------------------------
+
+golden_MigrationError_MigrationFailed :: Property
+golden_MigrationError_MigrationFailed =
+    goldenTestJSON
+        (MigrationFailed "test")
+            "test/golden/MigrationError_MigrationFailed"
+
+
+-------------------------------------------------------------------------------
+-- JSONValidationError
+-------------------------------------------------------------------------------
+golden_JSONValidationError_JSONValidationFailed :: Property
+golden_JSONValidationError_JSONValidationFailed =
+    goldenTestJSON
+        (JSONValidationFailed "test")
+            "test/golden/JSONValidationError_JSONValidationFailed"

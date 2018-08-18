@@ -25,11 +25,10 @@ import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.TypeLits (KnownSymbols (..))
 
 import           Control.Lens ((?~))
-import           Data.Aeson (ToJSON (..), encode)
+import           Data.Aeson (encode)
 import           Data.Aeson.Encode.Pretty
 import           Data.Map (Map)
 import           Data.Swagger hiding (Example, Header, example)
-import           Data.Swagger.Declare
 import           Data.Typeable
 import           Formatting (build, sformat)
 import           NeatInterpolation
@@ -43,9 +42,6 @@ import           Servant.Swagger
 import           Servant.Swagger.UI (SwaggerSchemaUI')
 import           Servant.Swagger.UI.Core (swaggerSchemaUIServerImpl)
 import           Servant.Swagger.UI.ReDoc (redocFiles)
-import           Test.QuickCheck
-import           Test.QuickCheck.Gen
-import           Test.QuickCheck.Random
 
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Map.Strict as M
@@ -60,19 +56,6 @@ import qualified Pos.Crypto.Hashing as Crypto
 --
 -- Helper functions
 --
-
--- | Generates an example for type `a` with a static seed.
-genExample :: Example a => a
-genExample = unGen (resize 3 example) (mkQCGen 42) 42
-
--- | Generates a `NamedSchema` exploiting the `ToJSON` instance in scope,
--- by calling `sketchSchema` under the hood.
-fromExampleJSON :: (ToJSON a, Typeable a, Example a)
-                  => proxy a
-                  -> Declare (Definitions Schema) NamedSchema
-fromExampleJSON (_ :: proxy a) = do
-    let (randomSample :: a) = genExample
-    return $ NamedSchema (Just $ fromString $ show $ typeOf randomSample) (sketchSchema randomSample)
 
 -- | Surround a Text with another
 surroundedBy :: Text -> Text -> Text
@@ -240,7 +223,7 @@ $errors
     , mkRow fmtErr $ UnknownError "Unknown error."
     , mkRow fmtErr $ InvalidAddressFormat "Invalid Base58 representation."
     , mkRow fmtErr WalletNotFound
-    , mkRow fmtErr $ WalletAlreadyExists sampleWalletId
+    , mkRow fmtErr $ WalletAlreadyExists exampleWalletId
     , mkRow fmtErr AddressNotFound
     , mkRow fmtErr $ InvalidPublicKey "Invalid root public key for external wallet."
     , mkRow fmtErr UnsignedTxCreationError
@@ -250,8 +233,8 @@ $errors
     , mkRow fmtErr TxRedemptionDepleted
     , mkRow fmtErr $ TxSafeSignerNotFound sampleAddress
     , mkRow fmtErr $ MissingRequiredParams (("wallet_id", "walletId") :| [])
-    , mkRow fmtErr $ WalletIsNotReadyToProcessPayments sampleSyncProgress
-    , mkRow fmtErr $ NodeIsStillSyncing (mkSyncPercentage 42)
+    , mkRow fmtErr $ WalletIsNotReadyToProcessPayments genExample
+    , mkRow fmtErr $ NodeIsStillSyncing genExample
     , mkRow fmtErr $ CannotCreateAddress "Cannot create derivation path for new address in external wallet."
 
     -- 'MigrationError'
@@ -269,9 +252,6 @@ $errors
     , inlineCodeBlock (T.decodeUtf8 $ BL.toStrict $ encodePretty err)
     ]
 
-  sampleWalletId =
-    WalletId "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
-
   sampleAddress = V1 Core.Address
       { Core.addrRoot =
           Crypto.unsafeAbstractHash ("asdfasdf" :: String)
@@ -279,12 +259,6 @@ $errors
           Core.mkAttributes $ Core.AddrAttributes Nothing Core.BootstrapEraDistr
       , Core.addrType =
           Core.ATPubKey
-      }
-
-  sampleSyncProgress = SyncProgress
-      { spEstimatedCompletionTime = mkEstimatedCompletionTime 3000
-      , spThroughput              = mkSyncThroughput (Core.BlockCount 400)
-      , spPercentage              = mkSyncPercentage 80
       }
 
 

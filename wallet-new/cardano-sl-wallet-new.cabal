@@ -530,7 +530,6 @@ test-suite wallet-new-specs
                     RequestSpec
                     WalletHandlersSpec
                     WalletNewJson
-                    WalletNewGen
                     Cardano.Wallet.WalletLayer.QuickCheck
 
   default-language: Haskell2010

@@ -1,1 +1,1 @@
-{"quantity":10,"unit":"percent"}
+{"status":"error","diagnostic":{"quantity":14,"unit":"percent"},"message":"NodeIsStillSyncing"}

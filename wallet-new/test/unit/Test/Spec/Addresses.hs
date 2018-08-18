@@ -3,7 +3,6 @@ module Test.Spec.Addresses (spec, withFixture, Fixture(..)) where
 
 import           Universum
 
-import           Control.Lens (to)
 import           Control.Monad.Except (runExceptT)
 import           Data.Acid (update)
 import qualified Data.ByteString as B
@@ -26,7 +25,7 @@ import           Cardano.Wallet.Kernel.DB.AcidState
 import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel (..),
                      HasSpendingPassword (..), HdAccountId (..),
                      HdAccountIx (..), HdRootId (..), WalletName (..),
-                     eskToHdRootId, hdAccountIdIx)
+                     eskToHdRootId)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Create (initHdRoot)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Derivation
                      (HardeningMode (..), deriveIndex)
@@ -40,6 +39,7 @@ import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
 import qualified Cardano.Wallet.WalletLayer.Kernel.Accounts as Accounts
 import qualified Cardano.Wallet.WalletLayer.Kernel.Addresses as Addresses
+import qualified Cardano.Wallet.WalletLayer.Kernel.Conv as Kernel.Conv
 import qualified Cardano.Wallet.WalletLayer.Kernel.Wallets as Wallets
 
 import qualified Test.Spec.Fixture as Fixture
@@ -129,8 +129,7 @@ spec = describe "Addresses" $ do
                         let (HdRootId hdRoot) = fixtureHdRootId
                             (AccountIdHdRnd myAccountId) = fixtureAccountId
                             wId = sformat build (view fromDb hdRoot)
-                            accIdx = V1.unsafeMkAccountIndex $
-                                myAccountId ^. hdAccountIdIx . to getHdAccountIx
+                            accIdx = Kernel.Conv.toAccountId myAccountId
                         res <- (WalletLayer._pwlCreateAddress layer) (V1.NewAddress Nothing accIdx (V1.WalletId wId))
                         (bimap STB STB res) `shouldSatisfy` isRight
 
@@ -169,8 +168,7 @@ spec = describe "Addresses" $ do
                         let (HdRootId hdRoot) = fixtureHdRootId
                             (AccountIdHdRnd myAccountId) = fixtureAccountId
                             wId = sformat build (view fromDb hdRoot)
-                            accIdx = V1.unsafeMkAccountIndex $
-                                myAccountId ^. hdAccountIdIx . to getHdAccountIx
+                            accIdx = Kernel.Conv.toAccountId myAccountId
                             req = V1.NewAddress Nothing accIdx (V1.WalletId wId)
                         res <- runExceptT . runHandler' $ Handlers.newAddress layer req
                         (bimap identity STB res) `shouldSatisfy` isRight
@@ -186,8 +184,7 @@ spec = describe "Addresses" $ do
                         let (HdRootId hdRoot) = fixtureHdRootId
                             (AccountIdHdRnd myAccountId) = fixtureAccountId
                             wId = sformat build (view fromDb hdRoot)
-                            accIdx = V1.unsafeMkAccountIndex $
-                                myAccountId ^. hdAccountIdIx . to getHdAccountIx
+                            accIdx = Kernel.Conv.toAccountId myAccountId
                         (WalletLayer._pwlCreateAddress layer) (V1.NewAddress Nothing accIdx (V1.WalletId wId))
                     case res2 of
                          Left (WalletLayer.CreateAddressError err) ->

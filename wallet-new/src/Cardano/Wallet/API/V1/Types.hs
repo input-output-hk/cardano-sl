@@ -47,6 +47,8 @@ module Cardano.Wallet.API.V1.Types (
   , AccountBalance (..)
   , getAccIndex
   , mkAccountIndex
+  , mkAccountIndexM
+  , unsafeMkAccountIndex
   , AccountIndexError(..)
   -- * Addresses
   , WalletAddress (..)
@@ -134,15 +136,16 @@ import qualified Serokell.Util.Base16 as Base16
 import           Servant
 import           Test.QuickCheck
 import           Test.QuickCheck.Gen (Gen (..))
-import           Test.QuickCheck.Random (mkQCGen)
-
+import qualified Test.QuickCheck.Gen as Gen
+import qualified Test.QuickCheck.Modifiers as Gen
 
 import           Cardano.Wallet.API.Response.JSend (ResponseStatus (..))
 import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..),
                      UnitOfMeasure (..))
 import           Cardano.Wallet.API.V1.Errors (ToHttpErrorStatus (..),
                      ToServantError (..))
-import           Cardano.Wallet.API.V1.Swagger.Example (Example, example)
+import           Cardano.Wallet.API.V1.Swagger.Example (Example, example,
+                     genExample)
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (HasPrimKey (..),
                      IndicesOf, OrdByPrimKey, ixFun, ixList)
 import           Cardano.Wallet.Orphans.Aeson ()
@@ -211,9 +214,6 @@ genericSchemaDroppingPrefix prfx extraDoc proxy = do
       & over schema (over properties (extraDoc (addFieldDescription defs)))
       & schema . S.example ?~ toJSON (genExample :: a)
   where
-    genExample =
-      unGen (resize 3 example) (mkQCGen 42) 42
-
     addFieldDescription defs field desc =
       over (at field) (addDescription defs field desc)
 
@@ -592,6 +592,10 @@ instance Ord SyncPercentage where
 instance Arbitrary SyncPercentage where
     arbitrary = mkSyncPercentage <$> choose (0, 100)
 
+instance Example SyncPercentage where
+    example =
+        pure (mkSyncPercentage 14)
+
 instance ToJSON SyncPercentage where
     toJSON (SyncPercentage (MeasuredIn w)) =
         object [ "quantity" .= toJSON w
@@ -749,6 +753,14 @@ instance BuildableSafeGen SyncProgress where
         spPercentage
 
 instance Example SyncProgress where
+    example = do
+        exPercentage <- example
+        pure $ SyncProgress
+            { spEstimatedCompletionTime = mkEstimatedCompletionTime 3000
+            , spThroughput              = mkSyncThroughput (Core.BlockCount 400)
+            , spPercentage              = exPercentage
+            }
+
 instance Arbitrary SyncProgress where
   arbitrary = SyncProgress <$> arbitrary
                            <*> arbitrary
@@ -951,6 +963,14 @@ mkAccountIndex index
     | index >= getAccIndex minBound = Right $ AccountIndex index
     | otherwise = Left $ AccountIndexError index
 
+mkAccountIndexM :: MonadFail m => Word32 -> m AccountIndex
+mkAccountIndexM =
+    either (fail . toString . sformat build) pure . mkAccountIndex
+
+unsafeMkAccountIndex :: Word32 -> AccountIndex
+unsafeMkAccountIndex =
+    either (error . sformat build) identity . mkAccountIndex
+
 instance Bounded AccountIndex where
     -- NOTE: minimum for hardened key. See https://iohk.myjetbrains.com/youtrack/issue/CO-309
     minBound = AccountIndex 2147483648
@@ -961,9 +981,7 @@ instance ToJSON AccountIndex where
 
 instance FromJSON AccountIndex where
     parseJSON =
-        either fmtFail pure . mkAccountIndex <=< parseJSON
-      where
-        fmtFail = fail . toString . sformat build
+        mkAccountIndexM <=< parseJSON
 
 instance Arbitrary AccountIndex where
     arbitrary =
@@ -2075,7 +2093,6 @@ instance Example AccountBalance
 instance Example AccountAddresses
 instance Example WalletId
 instance Example AssuranceLevel
-instance Example SyncPercentage
 instance Example BlockchainHeight
 instance Example LocalTimeDifference
 instance Example PaymentDistribution
@@ -2238,26 +2255,43 @@ deriveGeneric ''WalletError
 instance Exception WalletError
 
 instance Arbitrary WalletError where
-    arbitrary = oneof
-        [ NotEnoughMoney <$> arbitrary
-        , OutputIsRedeem <$> arbitrary
-        , pure (UnknownError "Unknown error.")
-        , pure (InvalidAddressFormat "Invalid Base58 representation.")
+    arbitrary = Gen.oneof
+        [ NotEnoughMoney <$> Gen.choose (1, 1000)
+        , OutputIsRedeem . V1 <$> arbitrary
+        , UnknownError <$> arbitraryText
+        , InvalidAddressFormat <$> arbitraryText
         , pure WalletNotFound
         , WalletAlreadyExists <$> arbitrary
         , pure AddressNotFound
-        , pure (InvalidPublicKey "Invalid root public key for external wallet.")
+        , InvalidPublicKey <$> arbitraryText
         , pure UnsignedTxCreationError
-        , pure (SignedTxSubmitError "Cannot submit externally-signed transaction.")
+        , SignedTxSubmitError <$> arbitraryText
         , pure TooBigTransaction
         , pure TxFailedToStabilize
         , pure TxRedemptionDepleted
-        , TxSafeSignerNotFound <$> arbitrary
-        , pure (MissingRequiredParams (("wallet_id", "walletId") :| []))
+        , TxSafeSignerNotFound . V1 <$> arbitrary
+        , MissingRequiredParams <$> Gen.oneof
+            [ unsafeMkNonEmpty <$> Gen.vectorOf 1 arbitraryParam
+            , unsafeMkNonEmpty <$> Gen.vectorOf 2 arbitraryParam
+            , unsafeMkNonEmpty <$> Gen.vectorOf 3 arbitraryParam
+            ]
         , WalletIsNotReadyToProcessPayments <$> arbitrary
         , NodeIsStillSyncing <$> arbitrary
-        , pure (CannotCreateAddress "Cannot create derivation path for new address in external wallet.")
+        , CannotCreateAddress <$> arbitraryText
         ]
+      where
+        arbitraryText :: Gen Text
+        arbitraryText =
+            toText . Gen.getASCIIString <$> arbitrary
+
+        arbitraryParam :: Gen (Text, Text)
+        arbitraryParam =
+            (,) <$> arbitrary <*> arbitrary
+
+        unsafeMkNonEmpty :: [a] -> NonEmpty a
+        unsafeMkNonEmpty (h:q) = h :| q
+        unsafeMkNonEmpty _     = error "unsafeMkNonEmpty called with empty list"
+
 
 -- | Give a short description of an error
 instance Buildable WalletError where

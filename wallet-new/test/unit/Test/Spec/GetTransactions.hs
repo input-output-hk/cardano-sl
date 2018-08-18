@@ -33,6 +33,7 @@ import qualified Cardano.Wallet.Kernel.Read as Kernel
 import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
 import           Cardano.Wallet.WalletLayer (walletPassiveLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
+import qualified Cardano.Wallet.WalletLayer.Kernel.Conv as Kernel.Conv
 
 import qualified Test.Spec.Addresses as Addresses
 import           Test.Spec.CoinSelection.Generators (InitialBalance (..),
@@ -105,8 +106,7 @@ spec =
                     let (AccountIdHdRnd hdAccountId)  = fixtureAccountId
                     let (HdRootId (InDb rootAddress)) = fixtureHdRootId
                     let sourceWallet = V1.WalletId (sformat build rootAddress)
-                    let accountIndex = V1.unsafeMkAccountIndex $
-                            hdAccountId ^. hdAccountIdIx . to getHdAccountIx
+                    let accountIndex = Kernel.Conv.toAccountId hdAccountId
                     let destinations =
                             fmap (\(addr, coin) -> V1.PaymentDistribution (V1.V1 addr) (V1.V1 coin)
                                 ) fixturePayees
@@ -129,8 +129,7 @@ spec =
                                 layer = walletPassiveLayer activeLayer
                                 (HdRootId hdRoot) = fixtureHdRootId
                                 wId = sformat build (view fromDb hdRoot)
-                                accIdx = V1.unsafeMkAccountIndex $
-                                    hdAccountId ^. hdAccountIdIx . to getHdAccountIx
+                                accIdx = Kernel.Conv.toAccountId hdAccountId
                                 hdl = (pw ^. Kernel.walletMeta)
                             db <- Kernel.getWalletSnapshot pw
                             let isPending = Kernel.currentTxIsPending db txid hdAccountId

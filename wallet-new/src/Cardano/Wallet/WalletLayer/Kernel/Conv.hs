@@ -71,8 +71,7 @@ fromAssuranceLevel V1.StrictAssurance = HD.AssuranceLevelStrict
 
 toAccountId :: HD.HdAccountId -> V1.AccountIndex
 toAccountId =
-    either (error . show) identity -- Invariant: Assuming HD AccountId are valid~
-    . V1.mkAccountIndex
+    V1.unsafeMkAccountIndex -- Invariant: Assuming HD AccountId are valid
     . HD.getHdAccountIx
     . view HD.hdAccountIdIx
 
@@ -94,7 +93,7 @@ toAccount snapshot account = V1.Account {
     accountAvailableBalance = cpAvailableBalance (account ^. HD.hdAccountState . HD.hdAccountStateCurrent)
     hdAccountId  = account ^. HD.hdAccountId
     accountIndex = toAccountId (account ^. HD.hdAccountId)
-    hdAddresses  = Kernel.accountAddresses snapshot hdAccountId
+    hdAddresses  = Kernel.addressesByAccountId snapshot hdAccountId
     addresses    = IxSet.toList hdAddresses
     hdRootId     = account ^. HD.hdAccountId . HD.hdAccountIdParent
 

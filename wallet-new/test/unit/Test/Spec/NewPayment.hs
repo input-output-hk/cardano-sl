@@ -54,6 +54,7 @@ import qualified Cardano.Wallet.Kernel.Transactions as Kernel
 import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
+import qualified Cardano.Wallet.WalletLayer.Kernel.Conv as Kernel.Conv
 
 import qualified Test.Spec.Fixture as Fixture
 import           Util.Buildable (ShowThroughBuild (..))
@@ -151,7 +152,7 @@ withPayment initialBalance toPay action = do
         let (AccountIdHdRnd hdAccountId)  = fixtureAccountId
         let (HdRootId (InDb rootAddress)) = fixtureHdRootId
         let sourceWallet = V1.WalletId (sformat build rootAddress)
-        let accountIndex = V1.unsafeMkAccountIndex $ hdAccountId ^. hdAccountIdIx . to getHdAccountIx
+        let accountIndex = Kernel.Conv.toAccountId hdAccountId
         let destinations =
                 fmap (\(addr, coin) -> V1.PaymentDistribution (V1.V1 addr) (V1.V1 coin)
                      ) fixturePayees

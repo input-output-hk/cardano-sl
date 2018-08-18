@@ -124,7 +124,7 @@ spec = describe "Accounts" $ do
                 wId <- pick arbitrary
                 withLayer $ \layer _ -> do
                     res <- WalletLayer._pwlDeleteAccount layer wId
-                        (V1.unsafeMkAccountIndex 100)
+                        (V1.unsafeMkAccountIndex 2147483648)
                     case res of
                          Left (WalletLayer.DeleteAccountError
                                   (V1 (Kernel.UnknownHdAccountRoot _))) ->
@@ -142,7 +142,7 @@ spec = describe "Accounts" $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
                     res <- WalletLayer._pwlDeleteAccount layer
                         (V1.walId fixtureV1Wallet)
-                        (V1.unsafeMkAccountIndex 100)
+                        (V1.unsafeMkAccountIndex 2147483648)
                     case res of
                          Left (WalletLayer.DeleteAccountError
                                   (V1 (Kernel.UnknownHdAccount _))) ->
@@ -175,7 +175,7 @@ spec = describe "Accounts" $ do
                 withLayer $ \layer _ -> do
                     let delete = Handlers.deleteAccount layer
                             wId
-                            (V1.unsafeMkAccountIndex 100)
+                            (V1.unsafeMkAccountIndex 2147483648)
                     res <- try . runExceptT . runHandler' $ delete
                     case res of
                          Left (_e :: WalletLayer.DeleteAccountError)  -> return ()
@@ -188,7 +188,7 @@ spec = describe "Accounts" $ do
                     let delete =
                             Handlers.deleteAccount layer
                                 (V1.walId fixtureV1Wallet)
-                                (V1.unsafeMkAccountIndex 100)
+                                (V1.unsafeMkAccountIndex 2147483648)
                     res <- try . runExceptT . runHandler' $ delete
                     case res of
                          Left (_e :: WalletLayer.DeleteAccountError)  -> return ()
@@ -217,7 +217,7 @@ spec = describe "Accounts" $ do
                 withLayer $ \layer _ -> do
                     res <- WalletLayer._pwlUpdateAccount layer
                         wId
-                        (V1.unsafeMkAccountIndex 100)
+                        (V1.unsafeMkAccountIndex 2147483648)
                         (V1.AccountUpdate "new account")
                     case res of
                          Left (WalletLayer.UpdateAccountError
@@ -237,7 +237,7 @@ spec = describe "Accounts" $ do
                     let wId = V1.walId fixtureV1Wallet
                     res <- WalletLayer._pwlUpdateAccount layer
                         wId
-                        (V1.unsafeMkAccountIndex 100)
+                        (V1.unsafeMkAccountIndex 2147483648)
                         (V1.AccountUpdate "new account")
                     case res of
                          Left (WalletLayer.UpdateAccountError
@@ -284,7 +284,7 @@ spec = describe "Accounts" $ do
                 withLayer $ \layer _ -> do
                     res <- WalletLayer._pwlGetAccount layer
                         wId
-                        (V1.unsafeMkAccountIndex 100)
+                        (V1.unsafeMkAccountIndex 2147483648)
                     case res of
                          Left (WalletLayer.GetAccountError (V1 (Kernel.UnknownHdAccountRoot _))) ->
                              return ()
@@ -301,7 +301,7 @@ spec = describe "Accounts" $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
                     res <- WalletLayer._pwlGetAccount layer
                         (V1.walId fixtureV1Wallet)
-                        (V1.unsafeMkAccountIndex 100)
+                        (V1.unsafeMkAccountIndex 2147483648)
                     case res of
                          Left (WalletLayer.GetAccountError (V1 (Kernel.UnknownHdAccount _))) ->
                              return ()

@@ -18,9 +18,9 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
 import qualified Test.QuickCheck.Property as Property
 
+import qualified Pos.Core as Core
 import qualified Pos.Core.Txp as Core
 import qualified Pos.Core.Update as Core
-import qualified Pos.Core.Txp as Core
 
 import           Cardano.Wallet.API.Indices
 import           Cardano.Wallet.API.Request.Pagination (Page, PerPage)

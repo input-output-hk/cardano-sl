@@ -17851,6 +17851,7 @@ license = stdenv.lib.licenses.mit;
 , unliftio
 , unliftio-core
 , unordered-containers
+, utxo
 , vector
 , wai
 , wai-cors
@@ -18043,6 +18044,7 @@ text
 time
 universum
 unordered-containers
+utxo
 vector
 ];
 benchmarkHaskellDepends = [
@@ -82740,6 +82742,68 @@ doHaddock = false;
 doCheck = false;
 description = "Various small helper functions for Lists, Maybes, Tuples, Functions";
 license = stdenv.lib.licenses.bsd3;
+
+}) {};
+"utxo" = callPackage
+({
+  mkDerivation
+, base
+, cardano-sl
+, cardano-sl-chain
+, cardano-sl-client
+, cardano-sl-core
+, cardano-sl-crypto
+, cardano-sl-db
+, cardano-sl-util
+, cardano-sl-wallet-new
+, constraints
+, containers
+, data-default
+, formatting
+, lens
+, log-warper
+, mtl
+, QuickCheck
+, reflection
+, safe-exceptions
+, serokell-util
+, stdenv
+, universum
+, unordered-containers
+}:
+mkDerivation {
+
+pname = "utxo";
+version = "0.1.0.0";
+src = ./../utxo;
+libraryHaskellDepends = [
+base
+cardano-sl
+cardano-sl-chain
+cardano-sl-client
+cardano-sl-core
+cardano-sl-crypto
+cardano-sl-db
+cardano-sl-util
+cardano-sl-wallet-new
+constraints
+containers
+data-default
+formatting
+lens
+log-warper
+mtl
+QuickCheck
+reflection
+safe-exceptions
+serokell-util
+universum
+unordered-containers
+];
+doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl/#readme";
+description = "Abstract definitions of UTxO based accounting";
+license = stdenv.lib.licenses.mit;
 
 }) {};
 "uuid" = callPackage

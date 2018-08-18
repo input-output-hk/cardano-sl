@@ -26,6 +26,7 @@ module UTxO.Translate (
 import           Control.Exception (throw)
 import           Control.Monad.Except
 import           Data.Constraint (Dict (..))
+import           Data.Validated
 import           Universum
 
 import           Pos.Chain.Block
@@ -36,7 +37,6 @@ import           Pos.Core.Chrono
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Class (MonadGState (..))
 
-import           Util.Validated
 import           UTxO.Context
 import           UTxO.Verify (Verify)
 import qualified UTxO.Verify as Verify

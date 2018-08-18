@@ -15,11 +15,11 @@ import qualified Pos.Chain.Block as Cardano
 import qualified Pos.Chain.Txp as Cardano
 import           Pos.Core (Coeff (..), TxSizeLinear (..))
 
+import           Data.Validated
 import           Test.Infrastructure.Generator
 import           Test.Infrastructure.Genesis
 import           Util.Buildable.Hspec
 import           Util.Buildable.QuickCheck
-import           Util.Validated
 import           UTxO.Bootstrap
 import           UTxO.Context
 import           UTxO.DSL

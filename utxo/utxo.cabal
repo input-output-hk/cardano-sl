@@ -1,0 +1,68 @@
+name:                utxo
+version:             0.1.0.0
+synopsis:            Abstract definitions of UTxO based accounting
+-- description:
+homepage:            https://github.com/input-output-hk/cardano-sl/#readme
+license:             MIT
+license-file:        LICENSE
+author:              IOHK Engineering Team
+maintainer:          operations@iohk.io
+copyright:           2017-2018 IOHK
+category:            Testing
+build-type:          Simple
+extra-source-files:  ChangeLog.md
+cabal-version:       >=1.10
+
+library
+  exposed-modules:     UTxO.DSL
+                       UTxO.Bootstrap
+                       UTxO.Context
+                       UTxO.Crypto
+                       UTxO.Generator
+                       UTxO.Interpreter
+                       UTxO.Translate
+                       UTxO.Verify
+
+                       Data.Validated
+  -- other-modules:
+  build-depends:       base >=4.10 && <4.11
+                     , QuickCheck
+                     , cardano-sl
+                     , cardano-sl-chain
+                     , cardano-sl-client
+                     , cardano-sl-core
+                     , cardano-sl-crypto
+                     , cardano-sl-db
+                     , cardano-sl-util
+                     , cardano-sl-wallet-new
+                     , constraints
+                     , containers
+                     , data-default >= 0.7
+                     , formatting
+                     , lens
+                     , log-warper >= 1.8
+                     , mtl
+                     , reflection >= 2.1
+                     , safe-exceptions
+                     , serokell-util
+                     , universum
+                     , unordered-containers
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+  default-extensions: BangPatterns
+                      ConstraintKinds
+                      DeriveGeneric
+                      FlexibleContexts
+                      FlexibleInstances
+                      GADTs
+                      InstanceSigs
+                      LambdaCase
+                      MultiParamTypeClasses
+                      MultiWayIf
+                      NoImplicitPrelude
+                      OverloadedStrings
+                      RankNTypes
+                      RecordWildCards
+                      ScopedTypeVariables
+                      StandaloneDeriving
+                      TypeFamilies

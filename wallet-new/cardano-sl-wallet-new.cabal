@@ -424,15 +424,6 @@ test-suite wallet-unit-tests
                       Util.MultiSet
                       Util.QuickCheck
                       Util.Range
-                      Util.Validated
-                      UTxO.Bootstrap
-                      UTxO.Context
-                      UTxO.Crypto
-                      UTxO.DSL
-                      UTxO.Generator
-                      UTxO.Interpreter
-                      UTxO.Translate
-                      UTxO.Verify
                       Wallet.Abstract
                       Wallet.Basic
                       Wallet.Incremental
@@ -504,6 +495,7 @@ test-suite wallet-unit-tests
                     , formatting
                     , universum
                     , unordered-containers
+                    , utxo
                     , vector
                       -- needed only for input selection evaluation
                     , bytestring

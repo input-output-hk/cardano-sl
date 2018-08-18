@@ -25,7 +25,7 @@ import           Serokell.Util (listJson)
 
 import           Cardano.Wallet.Kernel.Util (disjoint)
 
-import           Util.Validated
+import           Data.Validated
 import           UTxO.DSL
 import           Wallet.Abstract
 import           Wallet.Inductive

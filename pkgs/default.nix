@@ -17805,7 +17805,6 @@ license = stdenv.lib.licenses.mit;
 , retry
 , safe-exceptions
 , safecopy
-, scientific
 , serokell-util
 , servant
 , servant-client
@@ -17909,7 +17908,6 @@ resourcet
 retry
 safe-exceptions
 safecopy
-scientific
 serokell-util
 servant
 servant-client

@@ -14,10 +14,10 @@ import           Universum
 import qualified Control.Foldl as L
 import           Control.Lens (at, (?~))
 import           Data.Aeson
+import           Data.Aeson.Types (Parser)
 import qualified Data.HashMap.Strict as HMS
 import qualified Data.List.NonEmpty as NL
 import qualified Data.Map.Strict as Map
-import           Data.Scientific (floatingOrInteger)
 import           Data.Swagger hiding (Example, example)
 import qualified Data.Text as T
 import           Data.Word (Word64)
@@ -56,10 +56,10 @@ generateBounds bType =
         Haphazard -> NL.fromList [10, 100, 1000, 10000]
 
 instance Arbitrary HistogramBar where
-    arbitrary =
-        let possibleBuckets = fmap show (generateBounds Log10)
-            possibleBars = NL.zipWith HistogramBarCount possibleBuckets (NL.fromList [0..])
-        in elements (NL.toList possibleBars)
+    arbitrary = do
+        possiblenames <- elements $ map show (NL.toList $ generateBounds Log10)
+        bound <- arbitrary
+        pure (HistogramBarCount possiblenames bound)
 
 
 deriveSafeBuildable ''HistogramBar
@@ -92,23 +92,12 @@ instance ToJSON UtxoStatistics where
                   , "allStakes" .= allStakes ]
 
 instance FromJSON UtxoStatistics where
-    parseJSON (Object v) =
-        let histogramListM = case HMS.lookup "histogram" v of
-                Nothing   -> empty
-                Just (Object bars) -> do
-                    let constructHistogram (key, Number val) =
-                            case floatingOrInteger val of
-                                Left (_ :: Double)        -> error "UtxoStatistics FromJson not integer"
-                                Right integer             -> if integer >= 0 then
-                                                                 HistogramBarCount key integer
-                                                             else
-                                                                 error "UtxoStatistics FromJson not positive integer"
-                        constructHistogram _ = error "UtxoStatistics FromJson"
-                    return $ map constructHistogram $ HMS.toList bars
-                Just _ -> empty
-        in UtxoStatistics <$> histogramListM
-                          <*> v .: "allStakes"
-    parseJSON _ = empty
+    parseJSON = withObject "UtxoStatistics" $ \o -> do
+        histo <- o .: "histogram" :: Parser (HashMap Text Word64)
+        let constructHistogram = uncurry HistogramBarCount
+        let histoBars = map constructHistogram $ HMS.toList histo
+        stakes <- o .: "allStakes"
+        pure $ UtxoStatistics histoBars stakes
 
 instance ToSchema UtxoStatistics where
     declareNamedSchema _ = do

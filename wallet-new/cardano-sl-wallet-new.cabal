@@ -197,7 +197,6 @@ library
                      , stm
                      , safecopy
                      , safe-exceptions
-                     , scientific
                      , serokell-util
                      , servant
                      , servant-client

@@ -61,7 +61,7 @@ walletSpecs _ wc = do
 
             eresp <- getUtxoStatistics wc (walId wallet)
             utxoStatistics <- fmap wrData eresp `shouldPrism` _Right
-            let possibleBuckets = fmap show $ (generateBounds Log10)
+            let possibleBuckets = show <$> generateBounds Log10
             let histogram = map (\x -> HistogramBarCount x 0) possibleBuckets
             let allStakes = 0
             utxoStatistics `shouldBe` UtxoStatistics (NL.toList histogram) allStakes

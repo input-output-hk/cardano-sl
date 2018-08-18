@@ -20,7 +20,7 @@
 
 - Friendly error mistakes from deserializing invalid addresses instead of brutal 500 (CBR-283)
 
-- Add `walletId` to `WalletAlreadyExists` WalletLayerError (CBR-254)
+- **[API BREAKING CHANGE]** Add `walletId` to `WalletAlreadyExists` WalletLayerError (CBR-254)
 
 - Small refactor of wallet Errors implementation to be more maintainable (CBR-26)
 

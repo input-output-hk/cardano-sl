@@ -186,7 +186,9 @@ eskToHdRootId = HdRootId . InDb . Core.makePubKeyAddressBoot . Core.encToPublic
   HD wallets
 -------------------------------------------------------------------------------}
 
--- | HD wallet root ID. Conceptually, this is just an 'Address' in the form
+-- | HD wallet root ID.
+--
+-- Conceptually, this is just an 'Address' in the form
 -- of 'Ae2tdPwUPEZ18ZjTLnLVr9CEvUEUX4eW1LBHbxxxJgxdAYHrDeSCSbCxrvx', but is,
 -- in a sense, a special breed as it's derived from the 'PublicKey' (derived
 -- from some BIP-39 mnemonics, typically) and which does not depend from any
@@ -197,6 +199,13 @@ eskToHdRootId = HdRootId . InDb . Core.makePubKeyAddressBoot . Core.encToPublic
 -- just a Text) it's possible to call 'decodeTextAddress' to grab a valid
 -- 'Core.Address', and then transform this into a 'Kernel.WalletId' type
 -- easily.
+--
+-- NOTE: Comparing 'HdRootId' is a potentially expensive computation, as it
+-- implies comparing large addresses. Use with care.
+--
+-- TODO: It would be better not to have the address here, and just use an 'Int'
+-- as a primary key. This however is a slightly larger refactoring we don't
+-- currently have time for.
 newtype HdRootId = HdRootId { getHdRootId :: InDb Core.Address }
   deriving (Eq, Ord)
 
@@ -211,7 +220,14 @@ data HdAccountId = HdAccountId {
       _hdAccountIdParent :: HdRootId
     , _hdAccountIdIx     :: HdAccountIx
     }
-  deriving (Eq, Ord)
+  deriving (Eq)
+
+-- | We make sure to compare the account index first to avoid doing an
+-- unnecessary comparison of the root ID
+instance Ord HdAccountId where
+  compare a b =
+       compare (_hdAccountIdIx     a) (_hdAccountIdIx     b)
+    <> compare (_hdAccountIdParent a) (_hdAccountIdParent b)
 
 instance Arbitrary HdAccountId where
   arbitrary = HdAccountId <$> arbitrary <*> arbitrary
@@ -221,7 +237,14 @@ data HdAddressId = HdAddressId {
       _hdAddressIdParent :: HdAccountId
     , _hdAddressIdIx     :: HdAddressIx
     }
-  deriving (Eq, Ord)
+  deriving (Eq)
+
+-- | We make sure to compare the address index first to avoid doing an
+-- unnecessary comparison of the account ID
+instance Ord HdAddressId where
+  compare a b =
+       compare (_hdAddressIdIx     a) (_hdAddressIdIx     b)
+    <> compare (_hdAddressIdParent a) (_hdAddressIdParent b)
 
 instance Arbitrary HdAddressId where
   arbitrary = HdAddressId <$> arbitrary <*> arbitrary

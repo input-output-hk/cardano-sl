@@ -29,6 +29,7 @@ import           Pos.Crypto (EncryptedSecretKey)
 import qualified Cardano.Wallet.Kernel.BListener as Kernel
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import qualified Cardano.Wallet.Kernel.Internal as Internal
+import           Cardano.Wallet.Kernel.Invariants as Kernel
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import qualified Cardano.Wallet.Kernel.Pending as Kernel
 import           Cardano.Wallet.Kernel.PrefilterTx (prefilterUtxo)
@@ -266,6 +267,7 @@ equivalentT activeWallet esk = \mkWallet w ->
         snapshot <- liftIO (Kernel.getWalletSnapshot passiveWallet)
         cmp "utxo"          utxo         (Kernel.currentUtxo         snapshot accountId)
         cmp "totalBalance"  totalBalance (Kernel.currentTotalBalance snapshot accountId)
+        liftIO $ Kernel.checkInvariantSubmission passiveWallet
         -- TODO: check other properties
       where
         cmp :: ( Interpret h a

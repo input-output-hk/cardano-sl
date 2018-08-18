@@ -5,6 +5,7 @@ module Cardano.Wallet.Kernel.DB.Read (
   , accountsByRootId
   , addressesByRootId
   , addressesByAccountId
+  , pendingByAccount
     -- | Lookups
   , lookupHdRootId
   , lookupHdAccountId
@@ -32,6 +33,7 @@ import           Cardano.Wallet.Kernel.DB.AcidState (DB, dbHdWallets)
 import           Cardano.Wallet.Kernel.DB.BlockMeta (AddressMeta)
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Read as HD
+import           Cardano.Wallet.Kernel.DB.Spec.Pending (Pending)
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (Indexed, IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
@@ -65,6 +67,9 @@ addressesByRootId = liftNoErrorsHd1 HD.addressesByRootId
 -- | All addresses in the given account
 addressesByAccountId :: DB -> HdAccountId -> IxSet (Indexed HdAddress)
 addressesByAccountId = liftNoErrorsHd1 HD.addressesByAccountId
+
+pendingByAccount :: DB -> Map HdAccountId Pending
+pendingByAccount = liftNoErrorsHd0 HD.pendingByAccount
 
 lookupHdRootId :: DB -> HdRootId -> Either UnknownHdRoot HdRoot
 lookupHdRootId = liftHd1 HD.lookupHdRootId

@@ -98,6 +98,7 @@ library
                        Cardano.Wallet.Kernel.DB.Util.IxSet
                        Cardano.Wallet.Kernel.Diffusion
                        Cardano.Wallet.Kernel.Internal
+                       Cardano.Wallet.Kernel.Invariants
                        Cardano.Wallet.Kernel.Keystore
                        Cardano.Wallet.Kernel.Mode
                        Cardano.Wallet.Kernel.NodeStateAdaptor

@@ -10,6 +10,7 @@ module Cardano.Wallet.Kernel.DB.HdWallet.Read (
     accountsByRootId
   , addressesByRootId
   , addressesByAccountId
+  , pendingByAccount
     -- | Simple lookups
   , lookupHdRootId
   , lookupHdAccountId
@@ -38,6 +39,7 @@ import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec (IsCheckpoint (..),
                      cpAddressMeta)
+import           Cardano.Wallet.Kernel.DB.Spec.Pending (Pending)
 import           Cardano.Wallet.Kernel.DB.Spec.Read
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (Indexed, IxSet)
@@ -67,6 +69,13 @@ addressesByRootId rootId =
 addressesByAccountId :: HdAccountId -> Query' HdWallets e (IxSet (Indexed HdAddress))
 addressesByAccountId accId =
     asks $ IxSet.getEQ accId . view hdWalletsAddresses
+
+-- | All pending transactions in all accounts
+pendingByAccount :: Query' HdWallets e (Map HdAccountId Pending)
+pendingByAccount = fmap aux . IxSet.toMap <$> view hdWalletsAccounts
+  where
+    aux :: HdAccount -> Pending
+    aux acc = acc ^. hdAccountState . hdAccountStateCurrent . cpPending
 
 {-------------------------------------------------------------------------------
   Simple lookups

@@ -18,6 +18,7 @@ module Cardano.Wallet.Kernel.NodeStateAdaptor (
   , getSecurityParameter
   , getMaxTxSize
   , getSlotCount
+  , getSlotStart
     -- * Support for tests
   , NodeStateUnavailable(..)
   , MockNodeStateParams(..)
@@ -31,14 +32,15 @@ import           Universum
 import           Control.Lens (lens)
 import           Control.Monad.IO.Unlift (MonadUnliftIO, UnliftIO (UnliftIO),
                      askUnliftIO, unliftIO, withUnliftIO)
-import           Formatting (build, sformat, (%))
+import           Formatting (bprint, build, sformat, shown, (%))
+import qualified Formatting.Buildable
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Chain.Block (Block, HeaderHash, MainBlock, blockHeader,
                      headerHash, mainBlockSlot, prevBlockL)
 import           Pos.Chain.Update (HasUpdateConfiguration, bvdMaxTxSize)
 import           Pos.Context (NodeContext (..))
-import           Pos.Core (ProtocolConstants (pcK), SlotCount,
+import           Pos.Core (ProtocolConstants (pcK), SlotCount, Timestamp,
                      genesisBlockVersionData, pcEpochSlots)
 import           Pos.Core.Configuration (HasConfiguration, HasProtocolConstants,
                      genesisHash, protocolConstants)
@@ -52,6 +54,7 @@ import           Pos.DB.Rocks.Functions (dbGetDefault, dbIterSourceDefault)
 import           Pos.DB.Rocks.Types (NodeDBs)
 import           Pos.DB.Update (getAdoptedBVData)
 import qualified Pos.Infra.Slotting.Impl.Simple as S
+import qualified Pos.Infra.Slotting.Util as Slotting
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Util (HasLens (..), lensOf')
 import           Pos.Util.Concurrent.PriorityLock (Priority (..))
@@ -180,6 +183,12 @@ data NodeStateAdaptor m = Adaptor {
       -- 'flattenSlotIdExplicit' in core as well as, probably, a ton of other
       -- places.
     , getSlotCount :: m SlotCount
+
+      -- | Get the start of a slot
+      --
+      -- When looking up data for past of the current epochs, the value should
+      -- be known.
+    , getSlotStart :: SlotId -> m (Either UnknownEpoch Timestamp)
     }
 
 {-------------------------------------------------------------------------------
@@ -253,9 +262,10 @@ instance (NodeConstraints, MonadIO m) => MonadSlots Res (WithNodeState m) where
 newNodeStateAdaptor :: forall m ext. (NodeConstraints, MonadIO m, MonadMask m)
                     => NodeResources ext -> NodeStateAdaptor m
 newNodeStateAdaptor nr = Adaptor {
-      withNodeState        = run
-    , getTipSlotId         = run $ \_lock -> defaultGetTipSlotId
-    , getMaxTxSize         = run $ \_lock -> defaultGetMaxTxSize
+      withNodeState        =            run
+    , getTipSlotId         =            run $ \_lock -> defaultGetTipSlotId
+    , getMaxTxSize         =            run $ \_lock -> defaultGetMaxTxSize
+    , getSlotStart         = \slotId -> run $ \_lock -> defaultGetSlotStart slotId
     , getSecurityParameter = return $ pcK          protocolConstants
     , getSlotCount         = return $ pcEpochSlots protocolConstants
     }
@@ -298,6 +308,12 @@ defaultGetTipSlotId = do
     aux :: Maybe MainBlock -> SlotId
     aux (Just mainBlock) = mainBlock ^. mainBlockSlot
     aux Nothing          = SlotId (EpochIndex 0) (UnsafeLocalSlotIndex 0)
+
+-- | Get the start of the specified slot
+defaultGetSlotStart :: MonadIO m
+                    => SlotId -> WithNodeState m (Either UnknownEpoch Timestamp)
+defaultGetSlotStart slotId =
+    maybe (Left (UnknownEpoch slotId)) Right <$> Slotting.getSlotStart slotId
 
 -- | Get the most recent main block starting at the specified header
 --
@@ -343,6 +359,8 @@ data MissingBlock = MissingBlock CallStack HeaderHash
 
 instance Exception MissingBlock
 
+-- | Returned by 'getSlotStart' when requesting info about an unknown epoch
+data UnknownEpoch = UnknownEpoch SlotId
 
 {-------------------------------------------------------------------------------
   Support for tests
@@ -369,6 +387,7 @@ mockNodeState MockNodeStateParams{..} =
         , getMaxTxSize         = return $ bvdMaxTxSize genesisBlockVersionData
         , getSecurityParameter = return $ pcK          protocolConstants
         , getSlotCount         = return $ pcEpochSlots protocolConstants
+        , getSlotStart         = return . mockNodeStateSlotStart
         }
 
 -- | Variation on 'mockNodeState' that uses the default params
@@ -382,6 +401,9 @@ mockNodeStateDef = mockNodeState defMockNodeStateParams
 data MockNodeStateParams = NodeConstraints => MockNodeStateParams {
         -- | Value for 'getTipSlotId'
         mockNodeStateTipSlotId :: SlotId
+
+        -- | Value for 'getSlotSTart'
+      , mockNodeStateSlotStart :: SlotId -> Either UnknownEpoch Timestamp
       }
 
 -- | Default 'MockNodeStateParams'
@@ -393,8 +415,21 @@ defMockNodeStateParams =
     withDefConfiguration $ \_pm ->
     withDefUpdateConfiguration $ MockNodeStateParams {
         mockNodeStateTipSlotId = notDefined "mockNodeStateTipSlotId"
+      , mockNodeStateSlotStart = notDefined "mockNodeStateSlotStart"
       }
   where
     notDefined :: Text -> a
     notDefined = error
               . sformat ("defMockNodeStateParams: '" % build % "' not defined")
+
+{-------------------------------------------------------------------------------
+  Pretty-printing
+-------------------------------------------------------------------------------}
+
+instance Buildable MissingBlock where
+  build (MissingBlock cs hash) =
+    bprint ("MissingBlock " % build % " at " % shown) hash (prettyCallStack cs)
+
+instance Buildable UnknownEpoch where
+  build (UnknownEpoch slotId) =
+    bprint ("UnknownEpoch " % build) slotId

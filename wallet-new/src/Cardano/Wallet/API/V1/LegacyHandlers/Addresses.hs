@@ -7,7 +7,6 @@ import           Universum
 
 import           Data.Conduit (runConduit, (.|))
 import qualified Data.Conduit.List as CL
-import qualified Data.IxSet.Typed as IxSet
 import qualified Data.List as List
 import           Servant
 
@@ -30,12 +29,13 @@ import qualified Pos.Wallet.Web.State.Storage as V0
 import qualified Pos.Wallet.Web.Tracking as V0 (txMempoolToModifier)
 import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 
-import           Cardano.Wallet.API.Indices (IxSet')
+import           Cardano.Wallet.API.Indices (IxSet)
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import qualified Cardano.Wallet.API.V1.Addresses as Addresses
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 
 handlers
     :: V0.MonadWalletLogic ctx m
@@ -70,7 +70,7 @@ listAddresses params = do
   where
     -- | Should improve performance, stream fusion ultra super nuclear
     -- fission... Insert cool word of coice.
-    runStreamAddresses :: WalletSnapshot -> m (IxSet' WalletAddress)
+    runStreamAddresses :: WalletSnapshot -> m (IxSet WalletAddress)
     runStreamAddresses ws =
         runConduit   $ CL.sourceList (getWalletAddresses ws)
                     .| CL.map Just

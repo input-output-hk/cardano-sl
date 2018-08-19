@@ -97,7 +97,7 @@ import           Universum
 import           Control.Lens (at, (+~), _Wrapped)
 import           Control.Lens.TH (makeLenses)
 import qualified Data.ByteString as BS
-import qualified Data.IxSet.Typed as IxSet
+import qualified Data.IxSet.Typed as IxSet (Indexable (..))
 import           Data.SafeCopy (SafeCopy (..), base, deriveSafeCopy)
 
 import           Test.QuickCheck (Arbitrary (..), oneof, vectorOf)
@@ -113,6 +113,7 @@ import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
 import           Cardano.Wallet.Kernel.DB.Util.IxSet
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet hiding (Indexable)
 import           Cardano.Wallet.Kernel.Util (modifyAndGetOld, neHead)
 
 {-------------------------------------------------------------------------------
@@ -579,7 +580,7 @@ deriveSafeCopy 1 'base ''HdWallets
 makeLenses ''HdWallets
 
 initHdWallets :: HdWallets
-initHdWallets = HdWallets emptyIxSet emptyIxSet emptyIxSet
+initHdWallets = HdWallets IxSet.empty IxSet.empty IxSet.empty
 
 {-------------------------------------------------------------------------------
   Zoom to existing parts of a HD wallet

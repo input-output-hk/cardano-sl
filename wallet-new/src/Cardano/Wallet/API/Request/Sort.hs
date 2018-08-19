@@ -158,7 +158,7 @@ findMatchingSortOp (SortOp (sop :: SortOperation ix a) rest) =
 class ToSortOperations (ixs :: [*]) a where
   toSortOperations :: Request -> proxy ixs -> SortOperations a
 
-instance Indexable' a => ToSortOperations ('[]) a where
+instance Indexable a => ToSortOperations ('[]) a where
   toSortOperations _ _ = NoSorts
 
 instance ( IndexRelation a ix

@@ -111,7 +111,6 @@ import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
 import qualified Data.Char as C
 import           Data.Default (Default (def))
-import qualified Data.IxSet.Typed as IxSet
 import qualified Data.Map.Strict as Map
 import           Data.Semigroup (Semigroup)
 import           Data.Swagger hiding (Example, example)
@@ -147,8 +146,6 @@ import           Cardano.Wallet.API.V1.Generic (jsendErrorGenericParseJSON,
                      jsendErrorGenericToJSON)
 import           Cardano.Wallet.API.V1.Swagger.Example (Example, example,
                      genExample)
-import           Cardano.Wallet.Kernel.DB.Util.IxSet (HasPrimKey (..),
-                     IndicesOf, OrdByPrimKey, ixFun, ixList)
 import           Cardano.Wallet.Orphans.Aeson ()
 import           Cardano.Wallet.Util (showApiUtcTime)
 import qualified Pos.Client.Txp.Util as Core
@@ -831,24 +828,8 @@ data Wallet = Wallet {
 -- IxSet indices
 --
 
--- FIXME(adn) Currently these indices are a necessary evil but in the future
--- we won't even need to define them on V1 data types, as that would mean we
--- will have to reconstructs all the indices when we convert from Kernel types
--- to V1 types, which is computationally not efficient. See [CBR-356] for a
--- broader discussion of the topic and for a proper design.
-instance HasPrimKey Wallet where
-    type PrimKey Wallet = WalletId
-    primKey = walId
 
-type SecondaryWalletIxs = '[Core.Coin, V1 Core.Timestamp]
 
-type instance IndicesOf Wallet = SecondaryWalletIxs
-
-instance IxSet.Indexable (WalletId ': SecondaryWalletIxs)
-                         (OrdByPrimKey Wallet) where
-    indices = ixList
-                (ixFun ((:[]) . unV1 . walBalance))
-                (ixFun ((:[]) . walCreatedAt))
 
 
 deriveJSON Serokell.defaultOptions ''Wallet
@@ -1027,17 +1008,9 @@ data Account = Account
 -- IxSet indices
 --
 
-instance HasPrimKey Account where
-    type PrimKey Account = AccountIndex
-    primKey = accIndex
 
-type SecondaryAccountIxs = '[]
 
-type instance IndicesOf Account = SecondaryAccountIxs
 
-instance IxSet.Indexable (AccountIndex ': SecondaryAccountIxs)
-                         (OrdByPrimKey Account) where
-    indices = ixList
 
 -- | Datatype wrapping addresses for per-field endpoint
 newtype AccountAddresses = AccountAddresses

@@ -7,13 +7,10 @@ import           Universum
 
 import           Servant
 
-import qualified Data.IxSet.Typed as IxSet
-
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import qualified Cardano.Wallet.API.V1.Accounts as Accounts
 import           Cardano.Wallet.API.V1.Types
-import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as KernelIxSet
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
 
@@ -59,10 +56,7 @@ listAccounts layer wId params = do
             respondWith params
                 (NoFilters :: FilterOperations Account)
                 (NoSorts :: SortOperations Account)
-                -- FIXME(adn) [CBR-347] We need to unify these two IxSet
-                -- wrappers, but for now let's pay the full conversion price
-                -- to get the feature shipped.
-                (pure $ IxSet.fromList . KernelIxSet.toList $ accounts)
+                (pure accounts)
 
 newAccount :: PassiveWalletLayer IO
            -> WalletId

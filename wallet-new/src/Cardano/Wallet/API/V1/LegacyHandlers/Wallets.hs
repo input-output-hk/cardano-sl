@@ -19,7 +19,7 @@ import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
-import qualified Data.IxSet.Typed as IxSet
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Pos.Chain.Update ()
 import qualified Pos.Core as Core
 

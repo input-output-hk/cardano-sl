@@ -7,7 +7,15 @@
 
 {-# OPTIONS_GHC -fno-warn-orphans      #-}
 
-module Cardano.Wallet.API.Indices where
+module Cardano.Wallet.API.Indices (
+    module Cardano.Wallet.API.Indices
+    -- * Re-exports from IxSet for convenience
+    -- (these were previously /defined/ in this module)
+  , IndicesOf
+  , IxSet
+  , Indexable
+  , IsIndexOf
+  ) where
 
 import           Universum
 
@@ -18,8 +26,10 @@ import qualified Pos.Core as Core
 import qualified Pos.Core.Txp as Txp
 import           Pos.Crypto (decodeHash)
 
-import           Data.IxSet.Typed (Indexable (..), IsIndexOf, IxSet, ixFun,
-                     ixList)
+import           Cardano.Wallet.Kernel.DB.Util.IxSet (HasPrimKey (..),
+                     Indexable, IndicesOf, IsIndexOf, IxSet, OrdByPrimKey,
+                     ixFun, ixList)
+import qualified Data.IxSet.Typed as IxSet
 
 -- | 'ToIndex' represents the witness that we can build an index 'ix' for a resource 'a'
 -- from an input 'Text'.
@@ -56,26 +66,10 @@ instance ToIndex WalletAddress (V1 Core.Address) where
     toIndex _ = fmap V1 . either (const Nothing) Just . Core.decodeTextAddress
     accessIx WalletAddress{..} = addrId
 
--- | A type family mapping a resource 'a' to all its indices.
-type family IndicesOf a :: [*] where
-    IndicesOf Wallet        = WalletIxs
-    IndicesOf Transaction   = TransactionIxs
-    IndicesOf Account       = AccountIxs
-    IndicesOf WalletAddress = WalletAddressIxs
-
--- | A variant of an 'IxSet' where the indexes are determined statically by the resource type.
-type IxSet' a        = IxSet (IndicesOf a) a
-
--- | A variant of the 'Indexable' constraint where the indexes are determined statically by the resource type.
-type Indexable' a    = Indexable (IndicesOf a) a
-
--- | A variant of the 'IsIndexOf' constraint where the indexes are determined statically by the resource type.
-type IsIndexOf' a ix = IsIndexOf ix (IndicesOf a)
-
 -- | This constraint expresses that @ix@ is a valid index of @a@.
 type IndexRelation a ix =
-    ( Indexable' a
-    , IsIndexOf' a ix
+    ( Indexable a
+    , IsIndexOf ix a
     , ToIndex a ix
     , Typeable ix
     , KnownSymbol (IndexToQueryParam a ix)
@@ -84,27 +78,63 @@ type IndexRelation a ix =
 --
 -- Indices for all the major resources
 --
+-- TODO [CBR-356]: These should not exist. We should not construct 'IxSet' of V1
+-- types, as this implies constructing, at runtime, IxSet of V1 types with
+-- associated indices. Instead we should only have 'IxSet' of the kernel's
+-- internal types, and modify the wallet layer so that it doesn't return 'IxSet'
+-- but rather already-sorted already-paginated lists. For now we still leave
+-- these instances. Crucially, however, we do /not/ give an instance for
+-- 'WalletAddress'. This is the only datatype for which this is really
+-- important: on some nodes we might have a /lot/ of addresses, and constructing
+-- an 'IxSet' for those on the fly, with associated indices, would be a very
+-- expensive operation. The wallet layer already treats this case special.
+--
 
--- | The indices for each major resource.
-type WalletIxs        = '[WalletId, Core.Coin, V1 Core.Timestamp]
-type TransactionIxs   = '[V1 Txp.TxId, V1 Core.Timestamp]
-type AccountIxs       = '[AccountIndex]
-type WalletAddressIxs = '[V1 Core.Address]
+instance HasPrimKey Wallet where
+    type PrimKey Wallet = WalletId
+    primKey = walId
 
-instance Indexable WalletIxs Wallet where
-  indices = ixList (ixFun (\Wallet{..} -> [walId]))
-                   (ixFun (\Wallet{..} -> let (V1 balance) = walBalance in [balance]))
-                   (ixFun (\Wallet{..} -> [walCreatedAt]))
+instance HasPrimKey Account where
+    type PrimKey Account = AccountIndex
+    primKey = accIndex
 
-instance Indexable TransactionIxs Transaction where
-  indices = ixList (ixFun (\Transaction{..} -> [txId]))
-                   (ixFun (\Transaction{..} -> [txCreationTime]))
+instance HasPrimKey Transaction where
+    type PrimKey Transaction = V1 Txp.TxId
+    primKey = txId
 
-instance Indexable AccountIxs Account where
-  indices = ixList (ixFun (\Account{..} -> [accIndex]))
+-- TODO [CBR-356]: This instance should not exist! We should /definitely/ not
+-- create an IxSet of V1 addresses, as there might be a /lot/ of them.
+instance HasPrimKey WalletAddress where
+    type PrimKey WalletAddress = V1 Core.Address
+    primKey = addrId
 
-instance Indexable WalletAddressIxs WalletAddress where
-  indices = ixList (ixFun (\WalletAddress{..} -> [addrId]))
+-- | The secondary indices for each major resource.
+type SecondaryWalletIxs        = '[Core.Coin, V1 Core.Timestamp]
+type SecondaryTransactionIxs   = '[V1 Core.Timestamp]
+type SecondaryAccountIxs       = '[]
+type SecondaryWalletAddressIxs = '[]
+
+type instance IndicesOf Wallet        = SecondaryWalletIxs
+type instance IndicesOf Account       = SecondaryAccountIxs
+type instance IndicesOf Transaction   = SecondaryTransactionIxs
+type instance IndicesOf WalletAddress = SecondaryWalletAddressIxs
+
+instance IxSet.Indexable (WalletId ': SecondaryWalletIxs)
+                         (OrdByPrimKey Wallet) where
+    indices = ixList (ixFun ((:[]) . unV1 . walBalance))
+                     (ixFun ((:[]) . walCreatedAt))
+
+instance IxSet.Indexable (V1 Txp.TxId ': SecondaryTransactionIxs)
+                         (OrdByPrimKey Transaction) where
+    indices = ixList (ixFun (\Transaction{..} -> [txCreationTime]))
+
+instance IxSet.Indexable (AccountIndex ': SecondaryAccountIxs)
+                         (OrdByPrimKey Account) where
+    indices = ixList
+
+instance IxSet.Indexable (V1 Core.Address ': SecondaryWalletAddressIxs)
+                         (OrdByPrimKey WalletAddress) where
+    indices = ixList
 
 -- | Extract the parameter names from a type leve list with the shape
 type family ParamNames res xs where

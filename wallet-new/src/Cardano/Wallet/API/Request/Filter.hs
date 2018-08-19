@@ -221,7 +221,7 @@ type family FilterParams (syms :: [Symbol]) (r :: *) :: [*] where
 class ToFilterOperations (ixs :: [*]) a where
   toFilterOperations :: [(Text, Maybe Text)] -> proxy ixs -> FilterOperations a
 
-instance Indexable' a => ToFilterOperations ('[]) a where
+instance Indexable a => ToFilterOperations ('[]) a where
   toFilterOperations _ _ = NoFilters
 
 instance ( IndexRelation a ix

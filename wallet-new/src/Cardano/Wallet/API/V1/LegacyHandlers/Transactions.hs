@@ -2,7 +2,6 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Transactions where
 
 import           Universum
 
-import qualified Data.IxSet.Typed as IxSet
 import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat)
 import           Servant
@@ -30,6 +29,7 @@ import           Cardano.Wallet.API.V1.Migration (HasConfigurations, MonadV1,
                      migrate)
 import qualified Cardano.Wallet.API.V1.Transactions as Transactions
 import           Cardano.Wallet.API.V1.Types
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 
 
 convertTxError :: V0.TxError -> WalletError

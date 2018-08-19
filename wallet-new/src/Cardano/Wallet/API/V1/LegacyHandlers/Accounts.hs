@@ -14,6 +14,7 @@ import qualified Pos.Wallet.Web.Methods.Logic as V0
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import qualified Cardano.Wallet.API.V1.Accounts as Accounts
+import           Cardano.Wallet.API.V1.LegacyHandlers.Instances ()
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
@@ -50,7 +51,7 @@ listAccounts wId params = do
     oldAccounts <- V0.getAccounts (Just wid')
     newAccounts <- migrate @[V0.CAccount] @[Account] oldAccounts
     respondWith params
-        (NoFilters :: FilterOperations Account)
+        (NoFilters :: FilterOperations '[] Account)
         (NoSorts :: SortOperations Account)
         (IxSet.fromList <$> pure newAccounts)
 
@@ -77,7 +78,7 @@ getAccountAddresses
     => WalletId
     -> AccountIndex
     -> RequestParams
-    -> FilterOperations WalletAddress
+    -> FilterOperations '[V1 Address] WalletAddress
     -> m (WalletResponse AccountAddresses)
 getAccountAddresses wId accIdx pagination filters = do
     resp <- respondWith pagination filters NoSorts (getAddresses <$> getAccount wId accIdx)

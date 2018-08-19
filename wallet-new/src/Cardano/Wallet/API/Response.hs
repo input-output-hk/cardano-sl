@@ -9,6 +9,7 @@ module Cardano.Wallet.API.Response (
   , JSONValidationError(..)
   -- * Generating responses for collections
   , respondWith
+  , sliceList
   , fromSlice
   -- * Generating responses for single resources
   , single
@@ -162,7 +163,7 @@ instance Example a => Example (WalletResponse a) where
 --
 respondWith :: (Monad m, Indexable a)
             => RequestParams
-            -> FilterOperations a
+            -> FilterOperations ixs a
             -- ^ Filtering operations to perform on the data.
             -> SortOperations a
             -- ^ Sorting operations to perform on the data.
@@ -197,6 +198,15 @@ paginationParamsToMeta PaginationParams{..} totalEntries =
     , metaPerPage = perPage
     , metaTotalEntries = totalEntries
     }
+
+sliceList :: PaginationParams -> [a] -> SliceOf a
+sliceList pp xs = SliceOf {
+      paginatedSlice = take perPage . drop (perPage * (currentPage - 1)) $ xs
+    , paginatedTotal = length xs
+    }
+  where
+    Page currentPage = ppPage    pp
+    PerPage perPage  = ppPerPage pp
 
 fromSlice :: PaginationParams -> SliceOf a -> WalletResponse [a]
 fromSlice params (SliceOf theData totalEntries) = WalletResponse {

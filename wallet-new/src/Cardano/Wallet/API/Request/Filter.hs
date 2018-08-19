@@ -39,25 +39,27 @@ import           Cardano.Wallet.API.V1.Types
 
 -- | A "bag" of filter operations, where the index constraint are captured in
 -- the inner closure of 'FilterOp'.
-data FilterOperations a where
-    NoFilters  :: FilterOperations a
-    FilterOp   :: ( IndexRelation a ix
-                  , KnownSymbol (IndexToQueryParam a ix)
+data FilterOperations ixs a where
+    NoFilters  :: FilterOperations ixs a
+    FilterNop  :: FilterOperations ixs a
+               -> FilterOperations (ix ': ixs) a
+    FilterOp   :: ( IsIndexOf ix a
+                  , Typeable ix
                   , BuildableSafe ix
                   , FromHttpApiData ix
                   , ToHttpApiData ix
                   , Eq ix
                   )
                => FilterOperation ix a
-               -> FilterOperations a
-               -> FilterOperations a
+               -> FilterOperations ixs a
+               -> FilterOperations (ix ': ixs) a
 
 infixr 6 `FilterOp`
 
-instance Show (FilterOperations a) where
+instance SOP.All (KnownQueryParam a) ixs => Show (FilterOperations ixs a) where
     show = formatToString build
 
-instance Eq (FilterOperations a) where
+instance Eq (FilterOperations ixs a) where
     NoFilters == NoFilters =
         True
     FilterOp (f0 :: FilterOperation ix0 a) rest0 == FilterOp (f1 :: FilterOperation ix1 a) rest1 =
@@ -66,21 +68,25 @@ instance Eq (FilterOperations a) where
                 False
             Just Refl ->
                 f0 == f1 && rest0 == rest1
+    FilterNop rest0 == FilterNop rest1 =
+        rest0 == rest1
     _ == _ =
         False
 
-instance BuildableSafeGen (FilterOperations a) where
+instance SOP.All (KnownQueryParam a) ixs => BuildableSafeGen (FilterOperations ixs a) where
     buildSafeGen _ NoFilters =
         "-"
+    buildSafeGen sl (FilterNop rest) =
+        buildSafeGen sl rest
     buildSafeGen sl (FilterOp op NoFilters) =
         bprint (buildSafe sl) op
     buildSafeGen sl (FilterOp op rest) =
         bprint (buildSafe sl) op <> ", " <> bprint (buildSafe sl) rest
 
-instance Buildable (FilterOperations a) where
+instance SOP.All (KnownQueryParam a) ixs => Buildable (FilterOperations ixs a) where
     build = buildSafeGen unsecure
 
-instance Buildable (SecureLog (FilterOperations a)) where
+instance SOP.All (KnownQueryParam a) ixs => Buildable (SecureLog (FilterOperations ixs a)) where
     build = buildSafeGen secure . getSecureLog
 
 
@@ -117,28 +123,28 @@ data FilterOperation ix a =
     | FilterIn [ix]
     deriving Eq
 
-instance (BuildableSafe ix, sym ~ IndexToQueryParam a ix, KnownSymbol sym) => Show (FilterOperation ix a) where
+instance (BuildableSafe ix, KnownQueryParam a ix) => Show (FilterOperation ix a) where
     show = formatToString build
 
 instance ToHttpApiData ix => ToHttpApiData (FilterOperation ix a) where
     toQueryParam = renderFilterOperation
 
-instance (BuildableSafe ix, sym ~ IndexToQueryParam a ix, KnownSymbol sym) =>
-    BuildableSafeGen (FilterOperation ix a) where
+instance (BuildableSafe ix, KnownQueryParam a ix) => BuildableSafeGen (FilterOperation ix a) where
     buildSafeGen sl (FilterByIndex ix) =
-        bprint (build%"="%buildSafe sl) (symbolVal (Proxy @sym)) ix
+        bprint (build%"="%buildSafe sl) (symbolVal (Proxy @(IndexToQueryParam a ix))) ix
     buildSafeGen sl (FilterByPredicate o ix) =
-        bprint (build%"="%build%"["%buildSafe sl%"]") (symbolVal (Proxy @sym)) o ix
+        bprint (build%"="%build%"["%buildSafe sl%"]") (symbolVal (Proxy @(IndexToQueryParam a ix))) o ix
     buildSafeGen sl (FilterByRange lo hi) =
-        bprint (build%"=RANGE["%buildSafe sl%","%buildSafe sl%"]") (symbolVal (Proxy @sym)) lo hi
+        bprint (build%"=RANGE["%buildSafe sl%","%buildSafe sl%"]") (symbolVal (Proxy @(IndexToQueryParam a ix))) lo hi
     buildSafeGen sl (FilterIn ixs) =
         bprint (build % "=IN[" % build % "]")
-            (symbolVal (Proxy @sym))
+            (symbolVal (Proxy @(IndexToQueryParam a ix)))
             bps
       where
         bps = mconcat
             . List.intersperse ","
             $ map (bprint (buildSafe sl)) ixs
+
 
 
 
@@ -160,14 +166,16 @@ instance (BuildableSafeGen (FilterOperation ix a)) => Buildable (SecureLog (Filt
     build = buildSafeGen secure . getSecureLog
 
 findMatchingFilterOp
-    :: forall needle a
-    . Typeable needle
-    => FilterOperations a
+    :: forall needle a ixs.
+       Typeable needle
+    => FilterOperations ixs a
     -> Maybe (FilterOperation needle a)
 findMatchingFilterOp filters =
     case filters of
         NoFilters ->
             Nothing
+        FilterNop rest ->
+            findMatchingFilterOp rest
         FilterOp (fop :: FilterOperation ix a) rest ->
             case eqT @ix @needle of
                 Just Refl ->
@@ -219,26 +227,31 @@ type family FilterParams (syms :: [Symbol]) (r :: *) :: [*] where
     FilterParams '[Param.Id, Param.CreatedAt] Transaction = IndicesOf Transaction
 
 class ToFilterOperations (ixs :: [*]) a where
-  toFilterOperations :: [(Text, Maybe Text)] -> proxy ixs -> FilterOperations a
+  toFilterOperations :: [(Text, Maybe Text)] -> proxy ixs -> FilterOperations ixs a
 
-instance Indexable a => ToFilterOperations ('[]) a where
+instance ToFilterOperations ('[]) a where
   toFilterOperations _ _ = NoFilters
 
-instance ( IndexRelation a ix
+instance ( IsIndexOf ix a
+         , ToIndex a ix
+         , Typeable ix
          , ToHttpApiData ix
          , FromHttpApiData ix
          , BuildableSafe ix
          , ToFilterOperations ixs a
          , sym ~ IndexToQueryParam a ix
+         , KnownSymbol sym
          )
          => ToFilterOperations (ix ': ixs) a where
     toFilterOperations params _ =
-        fromMaybe rest $ do
+        fromMaybe (FilterNop rest) $ do
             v <- join $ List.lookup x params
             op <- rightToMaybe $ parseFilterOperation (Proxy @a) (Proxy @ix) v
             pure (FilterOp op rest)
       where
+        rest :: FilterOperations ixs a
         rest = toFilterOperations params (Proxy @ ixs)
+
         x = toText $ symbolVal (Proxy @sym)
 
 instance ( HasServer subApi ctx
@@ -246,7 +259,7 @@ instance ( HasServer subApi ctx
          , SOP.All (ToIndex res) params
          ) => HasServer (FilterBy params res :> subApi) ctx where
 
-    type ServerT (FilterBy params res :> subApi) m = FilterOperations res -> ServerT subApi m
+    type ServerT (FilterBy params res :> subApi) m = FilterOperations params res -> ServerT subApi m
     hoistServerWithContext _ ct hoist' s = hoistServerWithContext (Proxy @subApi) ct hoist' . s
 
     route Proxy context subserver =
@@ -256,7 +269,7 @@ instance ( HasServer subApi ctx
 
 -- | Defines name of @FilterBy syms res@
 instance ApiHasArgClass (FilterBy params res) where
-    type ApiArg (FilterBy params res) = FilterOperations res
+    type ApiArg (FilterBy params res) = FilterOperations params res
     apiArgName _ = "filter_by"
 
 -- | Defines how 'FilterBy' is logged by just refering to instance Buildable FilterOperations.
@@ -310,18 +323,20 @@ parseFilterOperation p Proxy txt = case parsePredicateQuery <|> parseIndexQuery 
 instance
     ( HasClient m next
     , SOP.All (ToIndex res) params
+    , SOP.All (KnownQueryParam res) params
     )
     => HasClient m (FilterBy params res :> next) where
     type Client m (FilterBy params res :> next) =
-        FilterOperations res -> Client m next
+        FilterOperations params res -> Client m next
     clientWithRoute pm _ req fs =
         clientWithRoute pm (Proxy @next) (incorporate fs)
       where
         incorporate =
             foldr (uncurry appendToQueryString) req . toQueryString
 
-toQueryString :: FilterOperations a -> [(Text, Maybe Text)]
+toQueryString :: SOP.All (KnownQueryParam a) ixs => FilterOperations ixs a -> [(Text, Maybe Text)]
 toQueryString NoFilters = []
+toQueryString (FilterNop rest) = toQueryString rest
 toQueryString (FilterOp (fop :: FilterOperation ix a) rest) =
     ( toText (symbolVal (Proxy @(IndexToQueryParam a ix)))
     , Just (toQueryParam fop)

@@ -26,7 +26,6 @@ library
                        Cardano.Wallet.API.Request.Sort
                        Cardano.Wallet.API.Response
                        Cardano.Wallet.API.Response.Filter.IxSet
-                       Cardano.Wallet.API.Response.Filter.Legacy
                        Cardano.Wallet.API.Response.JSend
                        Cardano.Wallet.API.Response.Sort.IxSet
                        Cardano.Wallet.API.Types
@@ -50,6 +49,7 @@ library
                        Cardano.Wallet.API.V1.LegacyHandlers.Accounts
                        Cardano.Wallet.API.V1.LegacyHandlers.Addresses
                        Cardano.Wallet.API.V1.LegacyHandlers.Info
+                       Cardano.Wallet.API.V1.LegacyHandlers.Instances
                        Cardano.Wallet.API.V1.LegacyHandlers.Settings
                        Cardano.Wallet.API.V1.LegacyHandlers.Transactions
                        Cardano.Wallet.API.V1.LegacyHandlers.Wallets

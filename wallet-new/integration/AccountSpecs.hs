@@ -44,7 +44,7 @@ accountSpecs _ wc =
                 eresp <- getAccountAddresses wc walId accIndex page perPage filters
                 expectations . acaAddresses . wrData =<< eresp `shouldPrism` _Right
   where
-    filterByAddress :: WalletAddress -> FilterOperations WalletAddress
+    filterByAddress :: WalletAddress -> FilterOperations '[V1 Address] WalletAddress
     filterByAddress addr =
         FilterOp (FilterByIndex $ accessIx @_ @(V1 Core.Address) addr) NoFilters
 

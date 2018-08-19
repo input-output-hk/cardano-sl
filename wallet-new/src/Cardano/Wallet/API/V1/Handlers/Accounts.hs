@@ -54,7 +54,7 @@ listAccounts layer wId params = do
          Left e         -> throwM e
          Right accounts ->
             respondWith params
-                (NoFilters :: FilterOperations Account)
+                (NoFilters :: FilterOperations '[] Account)
                 (NoSorts :: SortOperations Account)
                 (pure accounts)
 
@@ -85,15 +85,21 @@ getAccountAddresses
     -> WalletId
     -> AccountIndex
     -> RequestParams
-    -> FilterOperations WalletAddress
+    -> FilterOperations '[V1 Address] WalletAddress
     -> Handler (WalletResponse AccountAddresses)
-getAccountAddresses _layer _wId _accIdx _pagination _filters =
-    error "unimplemented, see [CBR-366]"
+getAccountAddresses layer wId accIdx pagination filters = do
+    res <- liftIO $ WalletLayer.getAccountAddresses layer wId accIdx pagination filters
+    case res of
+         Left e      -> throwM e
+         Right addrs -> return $ AccountAddresses <$> addrs
 
 getAccountBalance
     :: PassiveWalletLayer IO
     -> WalletId
     -> AccountIndex
     -> Handler (WalletResponse AccountBalance)
-getAccountBalance _layer _wId _accIdx =
-    error "unimplemented, see [CBR-366]"
+getAccountBalance layer wId accIdx = do
+    res <- liftIO $ WalletLayer.getAccountBalance layer wId accIdx
+    case res of
+        Left e        -> throwM e
+        Right balance -> return $ single balance

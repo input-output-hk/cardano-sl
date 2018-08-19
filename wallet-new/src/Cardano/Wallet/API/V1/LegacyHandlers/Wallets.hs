@@ -102,7 +102,7 @@ listWallets :: ( MonadThrow m
                , V0.MonadBlockchainInfo m
                )
             => RequestParams
-            -> FilterOperations Wallet
+            -> FilterOperations '[WalletId, Core.Coin] Wallet
             -> SortOperations Wallet
             -> m (WalletResponse [Wallet])
 listWallets params fops sops = do

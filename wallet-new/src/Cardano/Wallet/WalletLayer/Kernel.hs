@@ -79,12 +79,14 @@ bracketPassiveWallet logFunction keystore rocksDB f = do
         , _pwlApplyBlocks          = invokeIO . Actions.ApplyBlocks
         , _pwlRollbackBlocks       = invokeIO . Actions.RollbackBlocks . length
           -- Read-only operations
-        , _pwlGetWallets           =             ro $ Wallets.getWallets
-        , _pwlGetWallet            = \wId     -> ro $ Wallets.getWallet    wId
-        , _pwlGetAccounts          = \wId     -> ro $ Accounts.getAccounts wId
-        , _pwlGetAccount           = \wId acc -> ro $ Accounts.getAccount  wId acc
-        , _pwlGetAddresses         = \rp      -> ro $ Addresses.getAddresses rp
-        , _pwlValidateAddress      = \txt     -> ro $ Addresses.validateAddress txt
+        , _pwlGetWallets           =                   ro $ Wallets.getWallets
+        , _pwlGetWallet            = \wId           -> ro $ Wallets.getWallet wId
+        , _pwlGetAccounts          = \wId           -> ro $ Accounts.getAccounts         wId
+        , _pwlGetAccount           = \wId acc       -> ro $ Accounts.getAccount          wId acc
+        , _pwlGetAccountBalance    = \wId acc       -> ro $ Accounts.getAccountBalance   wId acc
+        , _pwlGetAccountAddresses  = \wId acc rp fo -> ro $ Accounts.getAccountAddresses wId acc rp fo
+        , _pwlGetAddresses         = \rp            -> ro $ Addresses.getAddresses rp
+        , _pwlValidateAddress      = \txt           -> ro $ Addresses.validateAddress txt
         , _pwlGetTransactions      = Transactions.getTransactions w
         , _pwlGetTxFromMeta        = Transactions.toTransaction w
         }

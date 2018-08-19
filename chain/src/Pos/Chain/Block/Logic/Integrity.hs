@@ -1,4 +1,5 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 -- | Verification of headers and blocks, also chain integrity
 -- checks. Almost pure (requires leaders to be explicitly passed).

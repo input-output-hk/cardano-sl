@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | In-memory state of LRC.
 
 module Pos.DB.Lrc.Context

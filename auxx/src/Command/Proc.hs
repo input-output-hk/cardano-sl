@@ -1,5 +1,6 @@
-{-# LANGUAGE ApplicativeDo  #-}
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE ApplicativeDo   #-}
+{-# LANGUAGE NamedFieldPuns  #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Command.Proc
        ( createCommandProcs

@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Specification for transaction-related core functions
 -- (Pos.Chain.Txp.Core).
 

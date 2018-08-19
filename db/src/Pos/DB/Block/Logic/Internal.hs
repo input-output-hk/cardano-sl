@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE Rank2Types          #-}
+{-# LANGUAGE RecordWildCards     #-}
 
 -- | Unsafe functions for block application/rollback, some constraint sets
 -- and some utilities. Mostly needed for use in 'Pos.Lrc' -- using lrc

@@ -1,4 +1,5 @@
 {-# LANGUAGE RankNTypes         #-}
+{-# LANGUAGE RecordWildCards    #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
 module Pos.Infra.Diffusion.Types

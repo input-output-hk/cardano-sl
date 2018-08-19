@@ -1,4 +1,5 @@
-{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveAnyClass  #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | A wrapper over Plutus (the scripting language used in transactions).
 

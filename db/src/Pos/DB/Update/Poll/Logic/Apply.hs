@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Logic of application and verification of data in Poll.
 
 module Pos.DB.Update.Poll.Logic.Apply

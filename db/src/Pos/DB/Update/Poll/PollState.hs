@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- Types related Poll update system
 
 module Pos.DB.Update.Poll.PollState

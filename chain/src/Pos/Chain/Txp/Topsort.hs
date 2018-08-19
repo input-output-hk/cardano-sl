@@ -1,5 +1,7 @@
 -- | Transaction related functions.
 
+{-# LANGUAGE RecordWildCards #-}
+
 module Pos.Chain.Txp.Topsort
        ( topsortTxs
        , topsortTxAuxes

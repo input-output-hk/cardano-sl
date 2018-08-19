@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Functions which work with MemVar.
 
 module Pos.DB.Update.MemState.Functions

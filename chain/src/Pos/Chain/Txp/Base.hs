@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Helpers for core types.
 
 module Pos.Chain.Txp.Base

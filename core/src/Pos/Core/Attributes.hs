@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Helper data type for block, tx attributes.
 --
 -- Map with integer 1-byte keys, arbitrary-type polymorph values.

@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Types used for block processing: most importantly, 'Undo' and 'Blund'.
 
 module Pos.Chain.Block.Types

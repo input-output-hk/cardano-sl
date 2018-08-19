@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module Pos.Binary.Class.TH
        ( deriveSimpleBi
        , deriveSimpleBiCxt

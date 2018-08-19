@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Utility functions related to core update system types.
 
 module Pos.Core.Update.Util

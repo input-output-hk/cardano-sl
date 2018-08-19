@@ -1,5 +1,6 @@
-{-# LANGUAGE Rank2Types    #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE Rank2Types      #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeOperators   #-}
 
 -- | Version related checks of proposal:
 -- * BlockVersionState

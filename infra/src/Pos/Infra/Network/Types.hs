@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes       #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE RecordWildCards           #-}
 
 module Pos.Infra.Network.Types
        ( -- * Network configuration

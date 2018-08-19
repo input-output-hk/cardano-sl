@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Specification of Pos.Chain.Txp.Utxo
 
 module Test.Pos.Chain.Txp.Toil.UtxoSpec

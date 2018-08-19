@@ -1,4 +1,5 @@
 {-# LANGUAGE Rank2Types      #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies    #-}
 

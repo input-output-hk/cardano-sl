@@ -153,8 +153,8 @@ resolveDnsDomains :: forall a e.
                   -> Word16                      -- ^ Default port
                   -> [NodeAddr a]
                   -> IO [Either e [(ByteString, Word16)]]
-resolveDnsDomains resolve defaultPort dnsDomains =
-    forM dnsDomains resolveOne
+resolveDnsDomains resolve defaultPort dnsDomains' =
+    forM dnsDomains' resolveOne
   where
 
     resolveOne :: NodeAddr a -> IO (Either e [(ByteString, Word16)])

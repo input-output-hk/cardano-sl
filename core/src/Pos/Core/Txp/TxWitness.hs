@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module Pos.Core.Txp.TxWitness
        ( TxWitness
        , TxInWitness (..)

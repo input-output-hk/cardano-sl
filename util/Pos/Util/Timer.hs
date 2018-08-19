@@ -1,4 +1,7 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Restartable, STM-based dynamic timer build on top of `Pos.Util.Timer.Timer`.
+
 module Pos.Util.Timer
   ( Timer
   , newTimer

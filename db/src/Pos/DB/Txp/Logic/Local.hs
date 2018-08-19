@@ -1,5 +1,6 @@
-{-# LANGUAGE RankNTypes   #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE RankNTypes      #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 -- | Logic for local processing of transactions.
 -- Local transaction is a transaction which has not yet been added to the blockchain.

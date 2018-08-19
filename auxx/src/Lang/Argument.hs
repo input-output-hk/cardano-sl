@@ -3,6 +3,7 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE GADTs                     #-}
 {-# LANGUAGE RankNTypes                #-}
+{-# LANGUAGE RecordWildCards           #-}
 
 module Lang.Argument
        ( ArgumentError(..)

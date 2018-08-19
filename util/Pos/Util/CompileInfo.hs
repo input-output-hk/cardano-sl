@@ -1,7 +1,8 @@
-{-# LANGUAGE DeriveLift  #-}
-{-# LANGUAGE LambdaCase  #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE RankNTypes  #-}
+{-# LANGUAGE DeriveLift      #-}
+{-# LANGUAGE LambdaCase      #-}
+{-# LANGUAGE QuasiQuotes     #-}
+{-# LANGUAGE RankNTypes      #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | Provides the git revision which this was compiled from.
 --

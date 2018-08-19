@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | EKG monitoring.
 
 module Pos.Infra.Reporting.Ekg

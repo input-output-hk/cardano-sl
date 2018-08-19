@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | 'SubscriptionTarget' backed by DNS.
 
 module Pos.Infra.Diffusion.Subscription.Dns

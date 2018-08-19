@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Types defining the genesis blockchain.
 
 module Pos.Chain.Block.Genesis.Types

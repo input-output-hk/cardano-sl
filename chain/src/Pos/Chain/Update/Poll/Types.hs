@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Types related to Poll monad.
 
 module Pos.Chain.Update.Poll.Types

@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Utilities used by slotting implementations.
 
 module Pos.Infra.Slotting.Impl.Util

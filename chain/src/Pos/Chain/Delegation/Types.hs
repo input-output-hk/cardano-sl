@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Delegation-related local types.
 
 module Pos.Chain.Delegation.Types

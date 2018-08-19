@@ -1,4 +1,5 @@
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeOperators   #-}
 
 -- | Logic for global processing of transactions.  Global transaction
 -- is a transaction which has already been added to the blockchain.

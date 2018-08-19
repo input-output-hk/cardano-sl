@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module Lang.Lexer
        ( BracketSide(..)
        , _BracketSideOpening

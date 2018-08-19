@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Impure functions which are used by both local and global txp in
 -- explorer.
 

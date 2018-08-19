@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Generation of genesis data for testnet.
 
 module Pos.Core.Genesis.Generate

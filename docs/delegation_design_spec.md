@@ -281,6 +281,20 @@ old blocks. All information neessary for validation can be accumulated
 in a running state, in a `foldl` style. This is a useful design
 property to retain.
 
+## Design Goals
+
+### No Special Wallet for Stake Pool Operators
+
+If possible, we would like to avoid a situation where stake pool
+operators were required from using a special kind of wallet. Apart
+from registering their pool and running their own nodes, they should
+be able to just use the same wallet as anyone else, without any
+additional or restricted features.
+
+We expect that following this design goal will lead to less
+engineering effort, better maintainability, and a better user
+experience for stake pool operators.
+
 # User Stories
 
 ## Basic Delegation User Stories
@@ -535,15 +549,20 @@ Stake pool Registration Certificate
 
 :   The certificate contains the following:
 
-    - the public key of the pool, $vks_\text{pool}$
-    - the public stake key hash of the pool owner/operator,
+    - The public key of the pool, $vks_\text{pool}$.
+    - The public stake key hash of the pool owner/operator,
       $\mathcal{H}(vks_\text{owner})$, or a list of such public stake
-      key hashes. Funds contained in addresses controlled by these
-      staking keys are counted towards the owner's pledge to the
-      pool. In particular, any delegation certificates from those keys
-      are invalid.
-    - the parameters that specify the reward sharing function of the
-      stake pool (the cost and margin of the pool)[^incentives]
+      key hashes. If any of the $vks_\text{owner}$ delegate to this
+      pool, the stake that they delegate will be considered to be a
+      deposit by the operator, see \ref{stakepool-registration},
+      \ref{overview-of-incentives} and \ref{reward-splitting}. Note
+      that adding a key as $vks_\text{owner}$ in itself does not
+      actually delegate the stake controlled by that key to the pool
+      -- an additional delegation certificate is required to do so.
+    - The parameters that specify the reward sharing function of the
+      stake pool: cost, margin, and amount of stake pledged to the
+      pool by the operator, see \ref{stakepool-registration},
+      \ref{reminder-stakepool-registration}.
     - optionally, a stake pool registration can specify an alternative
       stake key reward account to pay all owner rewards into. This is
       specified as the stake key hash $\mathcal{H}(vks_\text{rewards})$.
@@ -556,9 +575,6 @@ Stake pool Registration Certificate
 
     Additional, personal, information on the stake pool operator will
     be hosted separately from the blockchain, see \ref{stakepool-registration}.
-
-[^incentives]: This will be elaborated once this document is merged
-with the incentives design document. TODO: provide the section reference.
 
 If a stakepool can foresee that it will cease operations, it can
 announce this intent by posting a _stakepool retirement certificate_.
@@ -600,10 +616,6 @@ Heavyweight Delegation Certificates
     $vks_\text{pool}$
 
     It must be signed by $sks_\text{source}$.
-
-    If any valid stake pool registration certificate has
-    $\mathcal{H}(vks_\text{source})$ as an owner's public staking key
-    hash, the certificate is invalid.
 
 Note that there is no corresponding delegation revocation certificate.
 If a user wishes to change their delegation choice to a different stake
@@ -1540,8 +1552,9 @@ The second step is essential to establish trust in a stake pool.
 However, storing personal information directly on the blockchain would
 lead to violation of legislation like the GDPR, so instead of
 including it in the certificate, it will be stored on an external
-key-value store, using $\mathcal{H}(vks)$ as key.  The integrity of the
-data can be ensured by requiring it to be signed with $sks$.
+key-value store, using $\mathcal{H}(vks_\text{pool})$ as key.  The
+integrity of the data will be ensured by requiring it to be signed
+with $sks_\text{pool}$.
 
 A stake pool operator can change its costs and margin by replacing the
 registration certificate of the pool with a new one. This allows
@@ -1554,9 +1567,27 @@ The rewards that a stake pool gets depend on a deposit of funds that
 the stake pool operator themself provides. This adds a cost to
 creating a competitive stake pool, and protects against Sybil attacks
 on the stake pool level
-(\ref{sybil-attack-protection-at-stake-pool-level}). All funds in base
-addresses with $vks$ as the staking key are considered to belong to
-this deposit.
+(\ref{sybil-attack-protection-at-stake-pool-level}). In order to
+differentiate between delegated and deposited stake, the stake pool
+operator will include a list[^multiple-owner-keys] of stake key hashes
+$\mathcal{H}(vks_\text{owner})$ in the certificate. Stake delegated
+from any of those keys will be counted towards the stake deposited by
+the operator. Note that the operator still needs to post delegation
+certificates in order to actually make a
+deposit[^no-implicit-deposit].
+
+[^no-implicit-deposit]: We also contemplated _automatically_ counting
+the stake controlled by any $vks_\text{owner}$ towards the deposit,
+but that complicates the design, since we had to forbid any of those
+keys from posting valid delegation certificates to prevent double
+delegation. Imposing a special treatment of those keys would also be a
+violation of the design goal
+\ref{no-special-wallet-for-stake-pool-operators}.
+
+[^multiple-owner-keys]: Allowing a list of owner keys allows for stake
+pool operators to use multiple accounts/wallets for their deposits. It
+also allows a group of people combining their stake to form a
+competitive pool, without losing any control over their funds.
 
 A stake pool operator will pledge to deposit a certain amount of Ada
 to the pool when registering a pool. This pledge is important:

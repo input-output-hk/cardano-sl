@@ -413,6 +413,7 @@ test-suite wallet-unit-tests
                       Test.Spec.NewPayment
                       Test.Spec.Submission
                       Test.Spec.Translation
+                      Test.Spec.TxMetaScenarios
                       Test.Spec.Wallets
                       Test.Spec.WalletWorker
                       TxMetaStorageSpecs

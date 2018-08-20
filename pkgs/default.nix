@@ -17549,21 +17549,17 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-chain
 , cardano-sl-client
 , cardano-sl-core
-, cardano-sl-core-test
 , cardano-sl-crypto
-, cardano-sl-crypto-test
 , cardano-sl-db
 , cardano-sl-generator
 , cardano-sl-infra
 , cardano-sl-networking
 , cardano-sl-node-ipc
 , cardano-sl-util
-, cardano-sl-util-test
 , containers
 , cpphs
 , cryptonite
 , data-default
-, deepseq
 , directory
 , dlist
 , ekg-core
@@ -17577,7 +17573,6 @@ license = stdenv.lib.licenses.mit;
 , log-warper
 , memory
 , monad-control
-, MonadRandom
 , mtl
 , QuickCheck
 , random
@@ -17688,41 +17683,27 @@ libraryToolDepends = [
 cpphs
 ];
 testHaskellDepends = [
-aeson
 base
-bytestring
-cardano-crypto
 cardano-sl
 cardano-sl-chain
 cardano-sl-client
 cardano-sl-core
-cardano-sl-core-test
 cardano-sl-crypto
-cardano-sl-crypto-test
 cardano-sl-db
 cardano-sl-generator
 cardano-sl-infra
 cardano-sl-util
-cardano-sl-util-test
-containers
 data-default
-deepseq
 ekg-core
 ether
 formatting
 hspec
 lens
 log-warper
-MonadRandom
 mtl
 QuickCheck
-safe-exceptions
-safecopy
-serokell-util
-servant-server
 stm
 universum
-unordered-containers
 ];
 testToolDepends = [
 cpphs
@@ -17762,7 +17743,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-util
 , cardano-sl-util-test
 , cardano-sl-wallet
-, cardano-sl-wallet-test
 , cassava
 , conduit
 , connection
@@ -17876,7 +17856,6 @@ cardano-sl-networking
 cardano-sl-node-ipc
 cardano-sl-util
 cardano-sl-wallet
-cardano-sl-wallet-test
 conduit
 connection
 containers
@@ -18003,7 +17982,6 @@ formatting
 generic-arbitrary
 hedgehog
 hspec
-ixset-typed
 lens
 log-warper
 mtl
@@ -18034,7 +18012,6 @@ base
 bytestring
 cardano-sl-client
 cardano-sl-core
-cardano-sl-db
 cardano-sl-wallet
 cassava
 connection

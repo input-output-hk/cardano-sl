@@ -37,8 +37,8 @@ import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock,
                      ResolvedInput, ResolvedTx, rbSlotId, rbTxs, rtxInputs,
-                     rtxOutputs)
-
+                     rtxOutputs, toTxMeta)
+import           Cardano.Wallet.Kernel.DB.TxMeta.Types
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
 
 {-------------------------------------------------------------------------------
@@ -80,6 +80,7 @@ emptyPrefilteredBlock = PrefilteredBlock {
     , pfbOutputs = Map.empty
     , pfbAddrs   = []
     , pfbMeta    = emptyLocalBlockMeta
+
     }
 
 type WalletKey = (WalletId, WalletDecrCredentials)
@@ -116,12 +117,16 @@ type UtxoSummaryRaw = Map TxIn (TxOutAux,AddressSummary)
 -- | Prefilter the inputs and outputs of a resolved transaction.
 --   Prefiltered inputs and outputs are indexed by accountId.
 --   The output Utxo is extended with address summary information
+--   This returns a list of TxMeta, because TxMeta also includes
+--   AccountId information, so the same Tx may belong to multiple
+--   Accounts.
 prefilterTx :: WalletKey
             -> ResolvedTx
-            -> (Map HdAccountId (Set TxIn)
+            -> ((Map HdAccountId (Set TxIn)
               , Map HdAccountId UtxoSummaryRaw)
+              , [TxMeta])
             -- ^ prefiltered inputs, prefiltered output utxo, extended with address summary
-prefilterTx wKey tx = (prefInps,prefOuts')
+prefilterTx wKey tx = ((prefInps,prefOuts'),metas)
     where
         inps = toList (tx ^. rtxInputs  . fromDb)
         outs =         tx ^. rtxOutputs . fromDb
@@ -131,6 +136,10 @@ prefilterTx wKey tx = (prefInps,prefOuts')
 
         prefOuts' = Map.map (extendWithSummary (onlyOurInps,onlyOurOuts))
                             prefOuts
+
+        allAccounts = toList $ Map.keysSet prefInps <> Map.keysSet prefOuts
+
+        metas = map (toTxMeta tx) allAccounts
 
 -- | Prefilter inputs of a transaction
 prefilterInputs :: WalletKey
@@ -236,6 +245,7 @@ extendWithSummary (onlyOurInps,onlyOurOuts) utxoWithAddrId
 
 {-------------------------------------------------------------------------------
  Pre-filter a block of transactions, adorn each prefiltered block with block metadata
+ and Transaction metadata.
 +-------------------------------------------------------------------------------}
 
 -- | Prefilter the transactions of a resolved block for the given wallet.
@@ -244,11 +254,12 @@ extendWithSummary (onlyOurInps,onlyOurOuts) utxoWithAddrId
 prefilterBlock :: ResolvedBlock
                -> WalletId
                -> EncryptedSecretKey
-               -> Map HdAccountId PrefilteredBlock
+               -> (Map HdAccountId PrefilteredBlock, [TxMeta])
 prefilterBlock block wid esk =
-      Map.fromList
+      (Map.fromList
     $ map (mkPrefBlock (block ^. rbSlotId) inpAll outAll)
     $ Set.toList accountIds
+    , metas)
   where
     wdc :: WalletDecrCredentials
     wdc  = eskToWalletDecrCredentials esk
@@ -256,7 +267,9 @@ prefilterBlock block wid esk =
 
     inps :: [Map HdAccountId (Set TxIn)]
     outs :: [Map HdAccountId UtxoSummaryRaw]
-    (inps, outs) = unzip $ map (prefilterTx wKey) (block ^. rbTxs)
+    (ios, conMetas) = unzip $ map (prefilterTx wKey) (block ^. rbTxs)
+    (inps, outs) = unzip ios
+    metas = concat conMetas
 
     inpAll :: Map HdAccountId (Set TxIn)
     outAll :: Map HdAccountId UtxoSummaryRaw

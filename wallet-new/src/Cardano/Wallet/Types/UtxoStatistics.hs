@@ -37,7 +37,7 @@ import           Cardano.Wallet.API.V1.Swagger.Example (Example)
 import           Pos.Chain.Txp (Utxo)
 import           Pos.Core.Common (Coin (..))
 import           Pos.Core.Txp (TxOut (..), TxOutAux (..))
-import           Pos.Infra.Log.LogSafe (BuildableSafeGen (..),
+import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..),
                      deriveSafeBuildable)
 
 import qualified Control.Foldl as L
@@ -187,11 +187,19 @@ log10 = Log10
 {-# INLINE log10 #-}
 
 -- | Compute UtxoStatistics from a bunch of UTXOs
-computeUtxoStatistics :: BoundType -> [Word64] -> UtxoStatistics
-computeUtxoStatistics btype = L.fold $ UtxoStatistics
-    <$> foldBuckets (generateBounds btype)
-    <*> L.sum
+computeUtxoStatistics :: BoundType -> [Utxo] -> UtxoStatistics
+computeUtxoStatistics btype =
+    L.fold foldStatistics . concatMap getCoins
   where
+    getCoins :: Utxo ->  [Word64]
+    getCoins =
+        map (getCoin . txOutValue . toaOut) . Map.elems
+
+    foldStatistics :: L.Fold Word64 UtxoStatistics
+    foldStatistics = UtxoStatistics
+        <$> foldBuckets (generateBounds btype)
+        <*> L.sum
+
     foldBuckets :: NonEmpty Word64 -> L.Fold Word64 [HistogramBar]
     foldBuckets bounds =
         let

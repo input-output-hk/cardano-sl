@@ -16,7 +16,6 @@ import qualified Data.List as List
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Set as Set
 import           Formatting.Buildable (build)
-import qualified Prelude
 
 import qualified Pos.Core as Core
 import           Pos.Core.Txp (TxId)
@@ -25,13 +24,14 @@ import           Formatting (bprint)
 import           Serokell.Util.Text (listJsonIndent, pairF)
 import           Test.Hspec (expectationFailure, shouldContain, shouldThrow)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (Arbitrary, Gen, arbitrary, forAll, vectorOf)
+import           Test.QuickCheck (Arbitrary, Gen, arbitrary, forAll, suchThat,
+                     vectorOf)
 import           Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
 import           Util.Buildable (ShowThroughBuild (..))
 import           Util.Buildable.Hspec
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
-
+{-}
 chunksOf :: Int -> [e] -> [[e]]
 chunksOf i ls = map (take i) (buildCons (splitter ls))
     where
@@ -41,7 +41,7 @@ chunksOf i ls = map (take i) (buildCons (splitter ls))
 
         buildCons :: ((a -> [a] -> [a]) -> [a] -> [a]) -> [a]
         buildCons g = g (:) []
-
+-}
 
 -- | Handy combinator which yields a fresh database to work with on each spec.
 withTemporaryDb :: forall m a. (MonadIO m, MonadMask m) => (MetaDBHandle -> m a) -> m a
@@ -74,8 +74,9 @@ genSimilarTxMetas = do
 -- of 'Eq' would of course declare two tuples equal if their elements are.
 -- However, this is too \"strong\" for our 'uniqueElements' generator.
 
-newtype Input = Input { getInput :: (Core.Address, Core.Coin, TxId, Word32) }
-
+newtype Input = Input { getInput :: (TxId, Word32, Core.Address, Core.Coin) }
+    deriving (Eq, Ord, Show)
+{-}
 -- | Eq is defined on the primary keys of Inputs.
 instance Eq Input where
     (Input (_, _, id1, ix1)) == (Input (_, _, id2, ix2)) = (id1, ix1) == (id2, ix2)
@@ -84,7 +85,7 @@ instance Eq Input where
 -- double spend as they don`t use the same output.
 instance Ord Input where
     compare (Input (_, _, id1, ix1)) (Input (_, _, id2, ix2)) = compare (id1, ix1) (id2, ix2)
-
+-}
 instance Arbitrary Input where
     arbitrary = Input <$> arbitrary
 
@@ -103,32 +104,21 @@ instance Arbitrary Output where
     arbitrary = Output  <$> arbitrary
 
 -- | Handy generator which make sure we are generating 'TxMeta' which all
--- have distinct inputs and outptus.
+-- have distinct txids and valid Inputs.
 genMetas :: Int -> Gen [ShowThroughBuild TxMeta]
 genMetas size = do
-    metas  <- map unSTB <$> vectorOf size genMeta
-    inputs  <- chunksOf 3 . toList <$> uniqueElements (length metas * 3)
-    outputs <- chunksOf 3 . toList <$> vectorOf (length metas * 3) arbitrary
-    return $ map (STB . mkTx) (Prelude.zip3 metas inputs outputs)
+    txids <- uniqueElements size
+    (metas1 :: [TxMeta])  <- map unSTB <$> vectorOf size genMeta
+    let metas = (\(txid, m) -> m{_txMetaId = txid}) <$> zip (NonEmpty.toList txids) metas1
+    return $ map STB metas
 
-    where
-        mkTx :: (TxMeta, [Input], [Output])
-             -> TxMeta
-        mkTx (tMeta, i, o) =
-            case liftM2 (,) (nonEmpty . map getInput $ i) (nonEmpty . map getOutput $ o) of
-                 Nothing -> error "mkTx: the impossible happened, invariant violated."
-                 Just (inputs, outputs) ->
-                     tMeta & over txMetaInputs  (const inputs)
-                           . over txMetaOutputs (const outputs)
-
--- | Generator for an arbitrary 'TxMeta' which uses 'TxEntry' underneath to
--- generate the inputs and the outputs.
+-- | Generator for an arbitrary 'TxMeta' with valid Inputs.
 genMeta :: Gen (ShowThroughBuild TxMeta)
 genMeta = do
     meta <- TxMeta <$> arbitrary
                    <*> arbitrary
                    <*> (fmap getInput  <$> uniqueElements 2)
-                   <*> (fmap getOutput <$> NonEmpty.fromList <$> vectorOf 2 arbitrary)
+                   <*> (fmap getOutput . NonEmpty.fromList <$> vectorOf 2 arbitrary)
                    <*> arbitrary
                    <*> arbitrary
                    <*> arbitrary
@@ -222,14 +212,14 @@ txMetaStorageSpecs = do
             run $ withTemporaryDb $ \hdl -> do
                 let testMeta = unSTB testMetaSTB
                 void $ putTxMeta hdl testMeta
-                mbTx <- getTxMeta hdl (testMeta ^. txMetaId)
+                mbTx <- getTxMeta hdl (testMeta ^. txMetaId) (testMeta ^. txMetaWalletId) (testMeta ^. txMetaAccountIx)
                 Isomorphic <$> mbTx `shouldBe` Just (Isomorphic testMeta)
 
         it "yields Nothing when calling getTxMeta, if a TxMeta is not there" $ monadicIO $ do
             testMetaSTB <- pick genMeta
             run $ withTemporaryDb $ \hdl -> do
                 let testMeta = unSTB testMetaSTB
-                mbTx <- getTxMeta hdl (testMeta ^. txMetaId)
+                mbTx <- getTxMeta hdl (testMeta ^. txMetaId) (testMeta ^. txMetaWalletId) (testMeta ^. txMetaAccountIx)
                 fmap DeepEqual mbTx `shouldBe` Nothing
 
         it "inserting the same tx twice is a no-op" $ monadicIO $ do
@@ -237,18 +227,155 @@ txMetaStorageSpecs = do
             run $ withTemporaryDb $ \hdl -> do
                 let testMeta = unSTB testMetaSTB
 
-                putTxMeta hdl testMeta `shouldReturn` ()
-                putTxMeta hdl testMeta `shouldReturn` ()
+                putTxMetaT hdl testMeta `shouldReturn` Tx
+                putTxMetaT hdl testMeta `shouldReturn` No
 
-        it "inserting two tx with the same TxId, but different content is an error" $ monadicIO $ do
+        it "inserting two tx with the same PrimaryKey, but different content is an no-op" $ monadicIO $ do
+            -- Double insertion may happen in rollback.
+            -- The meta may be different e.g. different timestamps.
+            -- So no errors here.
             testMetaSTB <- pick genMeta
             run $ withTemporaryDb $ \hdl -> do
                 let meta1 = unSTB testMetaSTB
                 let meta2 = set txMetaIsOutgoing (not $ meta1 ^. txMetaIsOutgoing) meta1
 
-                putTxMeta hdl meta1 `shouldReturn` ()
+                putTxMetaT hdl meta1 `shouldReturn` Tx
+                putTxMetaT hdl meta2 `shouldReturn` No
+
+        it "same account can`t insert the same tx with different Inputs" $ monadicIO $ do
+            ins <- map getInput  <$> pick (uniqueElements 4)
+            let in1 : in2 : in3 : in4 : _ = NonEmpty.toList ins
+            let inp1 = NonEmpty.fromList [in1,in2]
+            let inp2 = NonEmpty.fromList [in3,in4]
+            meta <- unSTB <$> pick genMeta
+            run $ withTemporaryDb $ \hdl -> do
+                let meta1 = meta {_txMetaInputs = inp1}
+                let meta2 = meta {_txMetaInputs = inp2}
+                putTxMetaT hdl meta1 `shouldReturn` Tx
+                putTxMetaT hdl meta2 `shouldThrow`
+                    (\(InvariantViolated (TxIdInvariantViolated _)) -> True)
+
+        it "two accounts can`t insert the same tx with different Inputs" $ monadicIO $ do
+            ins <- map getInput  <$> pick (uniqueElements 4)
+            let in1 : in2 : in3 : in4 : _ = NonEmpty.toList ins
+            let inp1 = NonEmpty.fromList [in1,in2]
+            let inp2 = NonEmpty.fromList [in3,in4]
+            meta <- unSTB <$> pick genMeta
+            let accountIx1 = meta ^. txMetaAccountIx
+            accountIx2 <- pick $ suchThat arbitrary (\ix -> ix /= accountIx1)
+            run $ withTemporaryDb $ \hdl -> do
+                let walletId   = meta ^. txMetaWalletId
+                let meta1 = meta {_txMetaInputs = inp1}
+                let meta2 = meta {_txMetaInputs = inp2, _txMetaAccountIx = accountIx2}
+                let txId = (meta ^. txMetaId)
+                putTxMeta hdl meta1
                 putTxMeta hdl meta2 `shouldThrow`
-                    (\(InvariantViolated (DuplicatedTransactionWithDifferentHash _)) -> True)
+                    (\(InvariantViolated (TxIdInvariantViolated _)) -> True)
+                txIdIsomorphic meta1 meta2 `shouldBe` False
+                metaRes1 <- getTxMeta hdl txId walletId accountIx1
+                metaRes2 <- getTxMeta hdl txId walletId accountIx2
+                case (metaRes1, metaRes2) of
+                    (Just m1, Nothing) -> do
+                        Isomorphic m1 `shouldBe` Isomorphic meta1
+                        ([m], count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything Nothing (FilterByIndex txId) NoFilterOp Nothing
+                        Isomorphic m `shouldBe` Isomorphic m1
+                        count `shouldBe` (Just 1)
+                    (_, _) -> expectationFailure "only the first get should succeed"
+
+
+        it "two accounts can`t insert the same tx with different Outputs" $ monadicIO $ do
+            meta <- unSTB <$> pick genMeta
+            let out1 = _txMetaOutputs meta
+            let out2 = NonEmpty.reverse out1
+            let accountIx1 = meta ^. txMetaAccountIx
+            accountIx2 <- pick $ suchThat arbitrary (\ix -> ix /= accountIx1)
+            run $ withTemporaryDb $ \hdl -> do
+                let walletId   = meta ^. txMetaWalletId
+                let meta1 = meta {_txMetaOutputs = out1}
+                let meta2 = meta {_txMetaOutputs = out2, _txMetaAccountIx = accountIx2}
+                let txId = (meta ^. txMetaId)
+                putTxMeta hdl meta1
+                putTxMeta hdl meta2 `shouldThrow`
+                    (\(InvariantViolated (TxIdInvariantViolated _)) -> True)
+                txIdIsomorphic meta1 meta2 `shouldBe` False
+                metaRes1 <- getTxMeta hdl txId walletId accountIx1
+                metaRes2 <- getTxMeta hdl txId walletId accountIx2
+                case (metaRes1, metaRes2) of
+                    (Just m1, Nothing) -> do
+                        Isomorphic m1 `shouldBe` Isomorphic meta1
+                        ([m], count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything Nothing (FilterByIndex txId) NoFilterOp Nothing
+                        Isomorphic m `shouldBe` Isomorphic m1
+                        count `shouldBe` (Just 1)
+                    (_, _) -> expectationFailure "only the first get should succeed"
+
+        it "two accounts can succesfully insert the same tx" $ monadicIO $ do
+            meta1 <- unSTB <$> pick genMeta
+            let accountIx1 = meta1 ^. txMetaAccountIx
+            accountIx2 <- pick $ suchThat arbitrary (\ix -> ix /= accountIx1)
+            run $ withTemporaryDb $ \hdl -> do
+                let walletId   = meta1 ^. txMetaWalletId
+                let meta2 = meta1 {_txMetaAccountIx = accountIx2}
+                let txId = (meta1 ^. txMetaId)
+                putTxMeta hdl meta1
+                putTxMeta hdl meta2
+                txIdIsomorphic meta1 meta2 `shouldBe` True
+                metaRes1 <- getTxMeta hdl txId walletId accountIx1
+                metaRes2 <- getTxMeta hdl txId walletId accountIx2
+                case (metaRes1, metaRes2) of
+                    (Just m1, Just m2) -> do
+                        Isomorphic m1 `shouldBe` Isomorphic meta1
+                        Isomorphic m2 `shouldBe` Isomorphic meta2
+                        (result, count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything Nothing (FilterByIndex txId) NoFilterOp Nothing
+                        map Isomorphic result `shouldContain` [Isomorphic m1]
+                        map Isomorphic result `shouldContain` [Isomorphic m2]
+                        count `shouldBe` (Just 2)
+                    (_, _) -> expectationFailure "can`t retrieve same tx"
+
+        it "two accounts can succesfully insert the same tx, one Incoming the other Outgoing" $ monadicIO $ do
+            meta <- unSTB <$> pick genMeta
+            let accountIx1 = meta ^. txMetaAccountIx
+            accountIx2 <- pick $ suchThat arbitrary (\ix -> ix /= accountIx1)
+            run $ withTemporaryDb $ \hdl -> do
+                let walletId   = meta ^. txMetaWalletId
+                let meta1 = meta  {_txMetaIsOutgoing = True}
+                let meta2 = meta1 {_txMetaAccountIx = accountIx2, _txMetaIsOutgoing = False}
+                let txId = (meta1 ^. txMetaId)
+                putTxMeta hdl meta1
+                putTxMeta hdl meta2
+                txIdIsomorphic meta1 meta2 `shouldBe` True
+                metaRes1 <- getTxMeta hdl txId walletId accountIx1
+                metaRes2 <- getTxMeta hdl txId walletId accountIx2
+                case (metaRes1, metaRes2) of
+                    (Just m1, Just m2) -> do
+                        Isomorphic m1 `shouldBe` Isomorphic meta1
+                        Isomorphic m2 `shouldBe` Isomorphic meta2
+                        (result, count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything Nothing (FilterByIndex txId) NoFilterOp Nothing
+                        map Isomorphic result `shouldContain` [Isomorphic m1]
+                        map Isomorphic result `shouldContain` [Isomorphic m2]
+                        count `shouldBe` (Just 2)
+                    (_, _) -> expectationFailure "can`t retrieve same tx"
+
+        it "one account can succesfully insert two tx" $ monadicIO $ do
+            meta1 <- unSTB <$> pick genMeta
+            let txId1 = meta1 ^. txMetaId
+            txId2 <- pick $ suchThat arbitrary (\ix -> ix /= txId1)
+            run $ withTemporaryDb $ \hdl -> do
+                let walletId   = meta1 ^. txMetaWalletId
+                let accountIx = meta1 ^. txMetaAccountIx
+                let meta2 = meta1 {_txMetaId = txId2}
+                putTxMeta hdl meta1
+                putTxMeta hdl meta2
+                metaRes1 <- getTxMeta hdl txId1 walletId accountIx
+                metaRes2 <- getTxMeta hdl txId2 walletId accountIx
+                case (metaRes1, metaRes2) of
+                    (Just m1, Just m2) -> do
+                        Isomorphic m1 `shouldBe` Isomorphic meta1
+                        Isomorphic m2 `shouldBe` Isomorphic meta2
+                        (result, count) <- (getTxMetas hdl) (Offset 0) (Limit 5) (AccountFops walletId (Just accountIx)) Nothing NoFilterOp NoFilterOp Nothing
+                        map Isomorphic result `shouldContain` [Isomorphic m1]
+                        map Isomorphic result `shouldContain` [Isomorphic m2]
+                        count `shouldBe` (Just 2)
+                    (_, _) -> expectationFailure "can`t retrieve both txs"
 
         it "inserting multiple txs and later retrieving all of them works" $ monadicIO $ do
             testMetasSTB <- pick (genMetas 5)
@@ -515,7 +642,7 @@ getAddress ls = case ls of
     m : _ ->
         Just (addr, m)
           where
-            (addr, _, _, _) = head $ _txMetaInputs m
+            (_, _, addr, _) = head $ _txMetaInputs m
 
 
 -- The address returned is found in the Inputs of the first TxMeta
@@ -528,7 +655,7 @@ getAddressTransform ls = case ls of
 
         Just (rest <> [m2', m1], addr, m1, m2')
             where
-                (addr, coin, _, _) = head $ _txMetaInputs m1
+                (_, _, addr, coin) = head $ _txMetaInputs m1
                 m2' = m2 {_txMetaOutputs = NonEmpty.fromList [(addr, coin)]}
 
 -- The address returned is found in the Inputs of the first TxMeta
@@ -541,5 +668,5 @@ getAddressTransform' ls = case ls of
 
         Just (rest <> [m2', m1], addr, m1, m2')
             where
-                (addr, coin, _, _) = head $ _txMetaInputs m1
+                (_, _, addr, coin) = head $ _txMetaInputs m1
                 m2' = m2 {_txMetaOutputs = NonEmpty.fromList [(addr, coin)], _txMetaInputs = _txMetaInputs m1}

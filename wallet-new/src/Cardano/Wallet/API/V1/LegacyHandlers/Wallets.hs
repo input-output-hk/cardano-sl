@@ -193,5 +193,5 @@ getUtxoStatistics
     :: (MonadWalletLogic ctx m)
     => WalletId
     -> m (WalletResponse UtxoStatistics)
-getUtxoStatistics _ = do
-    return $ single (V1.computeUtxoStatistics [])
+getUtxoStatistics _ =
+    return $ single (V1.computeUtxoStatistics V1.log10 [])

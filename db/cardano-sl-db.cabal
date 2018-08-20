@@ -111,6 +111,7 @@ library
                        Pos.DB.Block.BListener
                        Pos.DB.Block.GState.BlockExtra
                        Pos.DB.Block.GState.SanityCheck
+                       Pos.DB.Block.Internal
                        Pos.DB.Block.Load
                        Pos.DB.Block.Logic.Creation
                        Pos.DB.Block.Logic.Header

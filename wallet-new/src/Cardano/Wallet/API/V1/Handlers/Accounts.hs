@@ -88,6 +88,27 @@ getAccountAddresses
     -> FilterOperations '[V1 Address] WalletAddress
     -> Handler (WalletResponse AccountAddresses)
 getAccountAddresses layer wId accIdx pagination filters = do
+    -- NOTE: Many of the Servant handlers have the following structure:
+    --
+    -- 1. Get some @values :: IxSet KernelType@ from the wallet layer
+    -- 2. Translate that to some @values' :: IxSet SomeV1Type@
+    -- 3. Use @respondWith someFilterParams values'@ to filter it and return it
+    --
+    -- This is an anti-pattern: constructing `theData` would mean constructing a
+    -- /new/ `IxSet` of V1 types from the existing `IxSet` containing kernel
+    -- types, reconstructing any indices etc. Moreover, it would do so on each
+    -- request! Instead we should work only with the /existing/ `IxSet`s and
+    -- only translate to `V1` types at the very end (for the few items that
+    -- we actually return from the handler). I.e., we should
+    --
+    -- 1. Get some @values :: IxSet KernelType@ from the wallet layer
+    -- 2. Use @respondWith someFilterParams values@ to filter it and get a
+    --    handful of values out that we actually return to the user
+    -- 3. Translate those to @V1@ types
+    --
+    -- This is what we do here, but we don't yet do it for the other handlers.
+    -- See <https://iohk.myjetbrains.com/youtrack/issue/CBR-356>
+    -- and <https://iohk.myjetbrains.com/youtrack/issue/CBR-389>.
     res <- liftIO $ WalletLayer.getAccountAddresses layer wId accIdx pagination filters
     case res of
          Left e      -> throwM e

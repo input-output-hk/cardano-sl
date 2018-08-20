@@ -37,12 +37,28 @@ import           Cardano.Wallet.API.V1.Types
 -- Filtering data
 --
 
--- | A "bag" of filter operations, where the index constraint are captured in
--- the inner closure of 'FilterOp'.
+-- | A list of filter operations
+--
+-- The @ixs@ type parameter is a type-level list of types, indicating which
+-- fields we are filtering on; the @a@ type parameter indicates what what we are
+-- filtering.
 data FilterOperations ixs a where
+    -- | Empty list
     NoFilters  :: FilterOperations ixs a
-    FilterNop  :: FilterOperations ixs a
-               -> FilterOperations (ix ': ixs) a
+
+    -- | Skip a filter
+    --
+    -- When we are expecting, say
+    --
+    -- > FilterOperations '[WalletId, Coin] Wallet
+    --
+    -- but the user only provided a filter on 'Coin' the 'FilterNop'
+    -- constructor can be used to inform the type checker that this filter
+    -- is not present. (We can't simply skip the field altogether, because
+    -- that would have type @FilterOperations '[Coin]@ instead).
+    FilterNop  :: FilterOperations ixs a -> FilterOperations (ix ': ixs) a
+
+    -- | Insert a filter into the list
     FilterOp   :: ( IsIndexOf ix a
                   , Typeable ix
                   , BuildableSafe ix

@@ -8,6 +8,7 @@ import           Universum
 import           Cardano.Wallet.Client.Http
 import           Control.Lens
 import qualified Data.List.NonEmpty as NL
+import qualified Data.Map.Strict as Map
 import           Test.Hspec
 
 import           Util
@@ -59,10 +60,11 @@ walletSpecs _ wc = do
 
             eresp <- getUtxoStatistics wc (walId wallet)
             utxoStatistics <- fmap wrData eresp `shouldPrism` _Right
-            let possibleBuckets = show <$> generateBounds Log10
-            let histogram = map (\x -> HistogramBarCount x 0) possibleBuckets
+            let possibleBuckets = NL.toList $ generateBounds Log10
+            let histogram = Map.fromList $ zip possibleBuckets (repeat 0)
             let allStakes = 0
-            utxoStatistics `shouldBe` UtxoStatistics (NL.toList histogram) allStakes
+            utxoStatisticsExpected <- mkUtxoStatistics histogram allStakes `shouldPrism` _Right
+            utxoStatistics `shouldBe` utxoStatisticsExpected
   where
     testWalletAlreadyExists action = do
             newWallet1 <- randomWallet action

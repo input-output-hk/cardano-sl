@@ -1,10 +1,12 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE LambdaCase    #-}
+{-# LANGUAGE ViewPatterns  #-}
+
 
 module Cardano.Wallet.Types.UtxoStatistics
     ( computeUtxoStatistics
-    , UtxoStatistics (..)
-    , HistogramBar (..)
+    , UtxoStatistics
+    , mkUtxoStatistics
     , BoundType (..)
     , generateBounds
     )  where
@@ -20,12 +22,11 @@ import qualified Data.HashMap.Strict as HMS
 import qualified Data.List.NonEmpty as NL
 import qualified Data.Map.Strict as Map
 import           Data.Swagger hiding (Example)
-import qualified Data.Text as T
 import           Data.Word (Word64)
-import           Formatting (bprint, build, (%))
+import           Formatting (bprint, build, formatToString, (%))
 import qualified Formatting.Buildable
 import           Serokell.Util (listJson)
-import           Test.QuickCheck
+import           Test.QuickCheck (Arbitrary (..), arbitrary, elements, suchThat)
 
 import           Cardano.Wallet.API.V1.Swagger.Example (Example)
 import           Pos.Chain.Txp (Utxo)
@@ -44,8 +45,8 @@ import           Pos.Infra.Log.LogSafe (BuildableSafeGen (..),
 --  (c) topN buckets
 --  to name a few
 data HistogramBar = HistogramBarCount
-    { bucketName       :: !Text
-    , bucketUpperBound :: !Word64
+    { bucketUpperBound :: !Word64
+    , bucketCount      :: !Word64
     } deriving (Show, Eq, Ord, Generic)
 
 --  Buckets boundaries can be constructed in different way
@@ -61,8 +62,8 @@ generateBounds bType =
 
 instance Arbitrary HistogramBar where
     arbitrary = do
-        possiblenames <- elements $ map show (NL.toList $ generateBounds Log10)
-        bound <- arbitrary
+        possiblenames <- elements (NL.toList $ generateBounds Log10)
+        bound <- arbitrary `suchThat` (>= 0)
         pure (HistogramBarCount possiblenames bound)
 
 
@@ -70,11 +71,11 @@ deriveSafeBuildable ''HistogramBar
 instance BuildableSafeGen HistogramBar where
     buildSafeGen _ HistogramBarCount{..} =
         bprint ("{"
-                %" name="%build
                 %" upperBound="%build
+                %" count="%build
                 %" }")
-        bucketName
         bucketUpperBound
+        bucketCount
 
 
 data UtxoStatistics = UtxoStatistics
@@ -82,7 +83,39 @@ data UtxoStatistics = UtxoStatistics
     , theAllStakes :: !Word64
     } deriving (Show, Generic, Ord)
 
-toMap :: [HistogramBar] -> Map Text Word64
+
+mkUtxoStatistics
+    :: Map Word64 Word64
+    -> Word64
+    -> Either UtxoStatisticsError UtxoStatistics
+mkUtxoStatistics histogram allStakes = do
+    let (histoKeys, histoElems) = (Map.keys histogram, Map.elems histogram)
+    let acceptedKeys = NL.toList $ generateBounds Log10
+    let (minPossibleValue, maxPossibleValue) = getPossibleBounds histogram
+    let constructHistogram = uncurry HistogramBarCount
+    let histoBars = map constructHistogram $ Map.toList histogram
+
+    when (length histoKeys <= 0) $
+        Left ErrHistogramEmpty
+    when (any (flip notElem acceptedKeys) histoKeys) $
+        Left ErrHistogramNamesInvalid
+    when (any (< 0) histoElems) $
+        Left ErrHistogramUpperBoundsNegative
+    when (allStakes < 0) $
+        Left ErrAllStakesNegative
+    when (allStakes < minPossibleValue && allStakes > maxPossibleValue) $
+        Left ErrAllStakesValueNotCompatibleWithHistogram
+
+    pure UtxoStatistics
+        { theHistogram = histoBars
+        , theAllStakes = allStakes
+        }
+
+eitherToParser :: Buildable a => Either a b -> Parser b
+eitherToParser =
+    either (fail . formatToString build) pure
+
+toMap :: [HistogramBar] -> Map Word64 Word64
 toMap = Map.fromList . map (\(HistogramBarCount key val) -> (key,val))
 
 instance Eq UtxoStatistics where
@@ -91,42 +124,40 @@ instance Eq UtxoStatistics where
 instance ToJSON UtxoStatistics where
     toJSON (UtxoStatistics bars allStakes) =
         let histogramObject = Object . HMS.fromList . map extractBarKey
-            extractBarKey (HistogramBarCount bound stake) = bound .= stake
+            extractBarKey (HistogramBarCount bound stake) = (show bound) .= stake
         in object [ "histogram" .= histogramObject bars
                   , "allStakes" .= allStakes ]
 
 instance FromJSON UtxoStatistics where
     parseJSON = withObject "UtxoStatistics" $ \o -> do
-        histo <- o .: "histogram" :: Parser (HashMap Text Word64)
+        histo <- o .: "histogram" :: Parser (Map Word64 Word64)
         stakes <- o .: "allStakes"
-        case validateUtxoStatistics histo stakes of
-            Right (histogram, allStakes) -> do
-                let constructHistogram = uncurry HistogramBarCount
-                let histoBars = map constructHistogram $ HMS.toList histogram
-                pure $ UtxoStatistics histoBars allStakes
-            Left err -> fail $ "Failed to parse UtxoStatistics: " <> show err
+        eitherToParser $ mkUtxoStatistics histo stakes
+
 
 data UtxoStatisticsError
     = ErrHistogramEmpty
     | ErrHistogramNamesInvalid
     | ErrHistogramUpperBoundsNegative
     | ErrAllStakesNegative
+    | ErrAllStakesValueNotCompatibleWithHistogram
     deriving (Show)
 
-validateUtxoStatistics :: HashMap Text Word64 -> Word64 -> Either UtxoStatisticsError (HashMap Text Word64, Word64)
-validateUtxoStatistics histogram allStakes
-    | histogramBinNumCond histogram = Left ErrHistogramEmpty
-    | histogramKeysCond histogram = Left ErrHistogramNamesInvalid
-    | histogramValsCond histogram = Left ErrHistogramUpperBoundsNegative
-    | allStakesCond allStakes = Left ErrAllStakesNegative
-    | otherwise = Right (histogram, allStakes)
+
+getPossibleBounds :: Map Word64 Word64 -> (Word64, Word64)
+getPossibleBounds histogram =
+    (calculatePossibleBound fst, calculatePossibleBound snd)
     where
-        histogramBinNumCond histo = (length $ HMS.keys histo) <= 0
-        validateKeys = any (\key -> notElem key $  map show (NL.toList $ generateBounds Log10) )
-        histogramKeysCond = validateKeys . HMS.keys
-        validateVals = any (< 0)
-        histogramValsCond = validateVals . HMS.elems
-        allStakesCond = (< 0)
+        createBracketPairs :: Num a => [a] -> [(a,a)]
+        createBracketPairs (reverse -> (x:xs)) = zip (map (+1) $ reverse (xs ++ [0])) (reverse (x:xs))
+        createBracketPairs _ = []
+        matching fromPair (key,value) =
+            map ( (*value) . fromPair ) . filter (\(_,upper) -> key == upper)
+        acceptedKeys = NL.toList $ generateBounds Log10
+        calculatePossibleBound fromPair =
+            sum .
+            concatMap (\pair -> matching fromPair pair $ createBracketPairs acceptedKeys) $
+            Map.toList histogram
 
 
 instance Buildable UtxoStatisticsError where
@@ -139,7 +170,8 @@ instance Buildable UtxoStatisticsError where
             bprint "All upper bounds of Utxo statistics histogram have to be nonnegative"
         ErrAllStakesNegative ->
             bprint "Utxo statistics allStakes has to be nonnegative"
-
+        ErrAllStakesValueNotCompatibleWithHistogram ->
+            bprint "Utxo statistics allStakes has value that is not possible given histogram distribution"
 
 instance ToSchema UtxoStatistics where
     declareNamedSchema _ = do
@@ -179,7 +211,14 @@ instance ToSchema UtxoStatistics where
 instance Arbitrary UtxoStatistics where
     arbitrary = UtxoStatistics <$> arbitrary
                                <*> arbitrary
-
+-- This code goes into nonstoping computation when checking swagger integration of WalletResponse UtxoStatistics
+{--        do
+        histogram <- arbitrary
+        let (minPossibleValue, maxPossibleValue) = getPossibleBounds histogram
+        let histoBars = map (uncurry HistogramBarCount) $ Map.toList histogram
+        allStakes <- arbitrary `suchThat` (\s -> s >= minPossibleValue && s <= maxPossibleValue)
+        return $ UtxoStatistics histoBars allStakes
+--}
 instance Buildable [HistogramBar] where
     build =
         bprint listJson
@@ -199,24 +238,23 @@ instance Example UtxoStatistics
 
 
 computeUtxoStatistics :: [Word64] ->  UtxoStatistics
-computeUtxoStatistics xs = L.fold (summarizeUtxoStatistics $ generateBounds Log10) xs
-
---  Using foldl library enable as to capture a number of aggregations in one pass. This thanks to L.Fold being an Applicative
-summarizeUtxoStatistics :: NonEmpty Word64 -> L.Fold Word64 UtxoStatistics
-summarizeUtxoStatistics bounds =
-    UtxoStatistics
-    <$> populateBuckets bounds
+computeUtxoStatistics = L.fold $ UtxoStatistics
+    <$> foldBuckets (generateBounds Log10)
     <*> L.sum
 
-populateBuckets ::  NonEmpty Word64 ->  L.Fold Word64 [HistogramBar]
-populateBuckets bounds =
-    L.Fold (addCountInBuckets $ head bounds) (initalizeMap bounds)
-    (fmap (\(x1, x2) -> HistogramBarCount (T.pack $ show x1) x2) . Map.toList)
-    where
-        initalizeMap :: NonEmpty Word64 -> Map.Map Word64 Word64
-        initalizeMap b = Map.fromList $ NL.toList  $ NL.zip b (NL.repeat 0)
-        addCountInBuckets :: Word64 -> Map.Map Word64 Word64 -> Word64 -> Map.Map Word64 Word64
-        addCountInBuckets thefirst acc entry =
-            case Map.lookupGE entry acc of
-                Just (k, v) -> Map.insert k (v+1) acc
-                Nothing     -> Map.adjust (+1) thefirst acc
+foldBuckets :: NonEmpty Word64 -> L.Fold Word64 [HistogramBar]
+foldBuckets bounds =
+    let
+        step :: Map Word64 Word64 -> Word64 -> Map Word64 Word64
+        step x a =
+            case Map.lookupGE a x of
+                Just (k, v) -> Map.insert k (v+1) x
+                Nothing     -> Map.adjust (+1) (head bounds) x
+        initial :: Map Word64 Word64
+        initial =
+            Map.fromList $ zip (NL.toList bounds) (repeat 0)
+        extract :: Map Word64 Word64 -> [HistogramBar]
+        extract =
+            map (uncurry HistogramBarCount) . Map.toList
+    in
+        L.Fold step initial extract

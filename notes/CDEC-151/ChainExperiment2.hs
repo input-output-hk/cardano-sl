@@ -2,12 +2,13 @@
 module ChainExperiment2 where
 
 import Data.Word
-import Data.List (tails, foldl')
+import Data.List (tails, foldl', find)
 import Data.Hashable
 import qualified Data.Map as Map
 import           Data.Map (Map)
 
 import Control.Applicative
+import Control.Exception (assert)
 
 import Test.QuickCheck
 
@@ -385,6 +386,25 @@ prop_switchFork (TestChainAndUpdates chain updates) =
     chains  = scanl (flip applyChainUpdate)   chain updates
 
 --
+-- Step 4: switching forks again! Roll back and roll forward.
+--
+
+-- For the chain following protocol we will need to relax the constraint that
+-- we always switch fork all in one go (and to a longer chain), and have to
+-- break it up into a rollback followed by adding more blocks.
+--
+-- Furthermore, it turns out for the chain following protocol that it works
+-- better to specify the rollback in terms of where to roll back to, rather
+-- than on how many blocks to roll back.
+
+--rollBackToVolatile :: Point -> Volatile -> Volatile
+--rollBackToVolatile _ (Volatile _ Nothing) =
+--    error "rollBackToVolatile: precondition violation"
+
+--rollBackToVolatile (slot, bid) (Volatile blocks (Just tip)) =
+    
+
+--
 -- Read pointer operations
 --
 
@@ -471,32 +491,59 @@ initialiseReadPointer checkpoints (ChainState v rs) = do
 
 -}
 
-initialiseReader :: Point
-                      -> Point
-                      -> ChainProducerState
-                      -> Maybe (ChainProducerState, ReaderId)
-initialiseReader pointReader pointIntersection (ChainProducerState cs rs)
-    | not (pointOnChain cs pointIntersection)
-    = Nothing
+-- Given a list of points, find the most recent pair such that older is on the
+-- chain and the newer is not.
+--
+-- > [x, x'] `subseq` xs, not (onChain x), onChain x'
+--
 
-    | otherwise
-    = Just (ChainProducerState cs (r:rs), readerId r)
+
+initialiseReader :: Point
+                 -> Point
+                 -> ChainProducerState
+                 -> (ChainProducerState, ReaderId)
+initialiseReader hpoint ipoint (ChainProducerState cs rs) =
+    assert (pointOnChain cs ipoint) $
+    (ChainProducerState cs (r:rs), readerId r)
   where
     r = ReaderState {
-          readerIntersection = pointIntersection,
-          readerHead         = pointReader,
+          readerIntersection = ipoint,
+          readerHead         = hpoint,
           readerId           = freshReaderId rs
         }
 
 freshReaderId :: ReaderStates -> ReaderId
 freshReaderId rs = 1 + maximum [ readerId | ReaderState{readerId} <- rs ]
 
+updateReader :: ReaderId
+             -> Point
+             -> Maybe Point
+             -> ChainProducerState
+             -> ChainProducerState
+updateReader rid hpoint mipoint (ChainProducerState cs rs) =
+    ChainProducerState cs [ if readerId r == rid then update r else r
+                          | r <- rs ]
+  where
+    update r = case mipoint of
+      Nothing     -> r { readerHead = hpoint }
+      Just ipoint -> assert (pointOnChain cs ipoint) $
+                     r {
+                       readerHead         = hpoint,
+                       readerIntersection = ipoint
+                     }
+
 lookupReader :: ChainProducerState -> ReaderId -> ReaderState
-lookupReader cps rid = undefined
+lookupReader (ChainProducerState _ rs) rid = r
+  where
+    Just r = find (\r -> readerId r == rid) rs
 
 readerInstruction :: ChainProducerState
-                  -> ReaderId -> Maybe (ChainProducerState, ConsumeChain Block)
-readerInstruction cps rid = undefined
+                  -> ReaderId
+                  -> Maybe (ChainProducerState, ConsumeChain Block)
+readerInstruction cps rid =
+    Nothing
+  where
+    r = lookupReader cps rid
 
 data ConsumeChain block = RollForward  block
                         | RollBackward Point
@@ -506,6 +553,15 @@ improveReaderState :: ChainProducerState
                    -> [Point]
                    -> ChainProducerState
 improveReaderState cps rid = undefined
+
+findIntersection :: ChainProducerState -> Point -> [Point] -> Maybe (Point, Point)
+findIntersection (ChainProducerState cs rs) hpoint points =
+    go hpoint (hpoint:points)
+  where
+    go _ []     = Nothing
+    go p (p':ps)
+      | pointOnChain cs p' = Just (p', p)
+      | otherwise          = go p' ps
 
 --
 -- Final simulation property

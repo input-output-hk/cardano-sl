@@ -539,11 +539,11 @@ longest fork the producer could have had is K blocks and so provided the
 consumer was previously following the same producer's chain then the block K
 back is guaranteed to still be on the producer's current chain.
 
-A reasonable choice for a list of points would be the consumer's current chain
-head and then points ${2^n | n \in {1..}, 2^n \leq K}$ earlier. The producer
-can compare these points with its own chain to find the first point that is
-on its chain. This gives a range in which the intersection point is known to
-be. The producer establishes the initial read pointer as follows.
+A reasonable choice for a list of points is be the consumer's current chain
+head and then points $\{2^n ~ | ~ n \in \{1\ldots\},  2^n \leq K\}$ earlier.
+The producer can compare these points with its own chain to find the first
+point that is on its chain. This gives a range in which the intersection point
+is known to be. The producer establishes the initial read pointer as follows.
 \begin{itemize}
 \item If the consumer's chain head block is on the producer's chain then the
       read pointer is established in the normal state, pointing to that block.
@@ -596,8 +596,8 @@ the initial establishing of the session?}
 
 \section{Node-to-node protocol}
 
-The Ouroboros consensus protocol \citep{ouroboros-classic} describes what it
-needs from its network layer. Informally, that:
+The Ouroboros consensus protocol \citep{ouroboros-classic, ouroboros-genesis}
+describes what it needs from its network layer. Informally, that:
 \begin{itemize}
 \item nodes that create a new block in a time slot need to be able to broadcast
       their \emph{entire blockchain} to all other nodes, and;
@@ -657,7 +657,7 @@ The broadcast and chain logic are intertwined in ways that are complex and
 increase latency for relaying blocks, which limits the diameter of the network
 that can be supported for a given slot length.
 
-\subsection{The major challenge}
+\subsection{Broadcast in the context of chain selection}
 
 The major challenge in the design of a practical IPC protocol for Ouroboros is
 to find something that satisfies what Ouroboros specifies but does so in a way
@@ -970,7 +970,7 @@ selection rules.
   the better chain, the honest receiving party will always prefer it to the
   weaker one, so broadcasting or relaying the weaker one would be wasteful.}
 
-\avieth{When a tip-of-chain announcment is received from a peer, and it's valid
+\avieth{When a tip-of-chain announcement is received from a peer, and it's valid
   (signed by the appropriate slot leader) and better (higher block count) than
   the peer's previously announced best tip-of-chain (if any), the receiver
   either:\\}

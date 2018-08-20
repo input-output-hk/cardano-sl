@@ -45,6 +45,8 @@ bracketPassiveWallet =
         , _pwlCreateAccount        = \_ _   -> liftedGen
         , _pwlGetAccounts          = \_     -> liftedGen
         , _pwlGetAccount           = \_ _   -> liftedGen
+        , _pwlGetAccountBalance    = \_ _   -> liftedGen
+        , _pwlGetAccountAddresses  = \_ _ _ _ -> liftedGen
         , _pwlUpdateAccount        = \_ _ _ -> liftedGen
         , _pwlDeleteAccount        = \_ _   -> liftedGen
 

@@ -8,7 +8,9 @@ import           Universum
 import           Control.Monad.Except
 import           GHC.TypeLits (symbolVal)
 
-import           Pos.Core as Core
+import           Pos.Core (Address, Coin, SlotCount, SlotId, Timestamp,
+                     decodeTextAddress, flattenSlotIdExplicit, getBlockCount)
+import           Pos.Core.Txp (TxId)
 
 import           Cardano.Wallet.API.Indices
 import           Cardano.Wallet.API.Request
@@ -34,7 +36,7 @@ getTransactions :: MonadIO m
                 -> Maybe V1.AccountIndex
                 -> Maybe (V1 Address)
                 -> RequestParams
-                -> FilterOperations V1.Transaction
+                -> FilterOperations '[V1 TxId, V1 Timestamp] V1.Transaction
                 -> SortOperations V1.Transaction
                 -> m (Either GetTxError (WalletResponse [V1.Transaction]))
 getTransactions wallet mbWalletId mbAccountIndex mbAddress params fop sop = liftIO $ runExceptT $ do

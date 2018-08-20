@@ -109,6 +109,7 @@ import qualified Pos.Core as Core
 import           Pos.Core.Chrono (NewestFirst (..))
 import qualified Pos.Crypto as Core
 
+import           Cardano.Wallet.API.V1.Types (V1 (..))
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
@@ -520,22 +521,16 @@ instance HasPrimKey HdAccount where
     type PrimKey HdAccount = HdAccountId
     primKey = _hdAccountId
 
-instance HasPrimKey HdAddress where
-    type PrimKey HdAddress = HdAddressId
-    primKey = _hdAddressId
-
 instance HasPrimKey (Indexed HdAddress) where
     type PrimKey (Indexed HdAddress) = HdAddressId
-    primKey = primKey . _ixedIndexed
+    primKey = _hdAddressId . _ixedIndexed
 
 type SecondaryHdRootIxs           = '[]
 type SecondaryHdAccountIxs        = '[HdRootId]
-type SecondaryHdAddressIxs        = '[HdRootId, HdAccountId, Core.Address]
-type SecondaryIndexedHdAddressIxs = '[AutoIncrementKey, HdRootId, HdAccountId, Core.Address]
+type SecondaryIndexedHdAddressIxs = '[AutoIncrementKey, HdRootId, HdAccountId, V1 Core.Address]
 
 type instance IndicesOf HdRoot              = SecondaryHdRootIxs
 type instance IndicesOf HdAccount           = SecondaryHdAccountIxs
-type instance IndicesOf HdAddress           = SecondaryHdAddressIxs
 type instance IndicesOf (Indexed HdAddress) = SecondaryIndexedHdAddressIxs
 
 instance IxSet.Indexable (HdRootId ': SecondaryHdRootIxs)
@@ -547,20 +542,13 @@ instance IxSet.Indexable (HdAccountId ': SecondaryHdAccountIxs)
     indices = ixList
                 (ixFun ((:[]) . view hdAccountRootId))
 
-instance IxSet.Indexable (HdAddressId ': SecondaryHdAddressIxs)
-                         (OrdByPrimKey HdAddress) where
-    indices = ixList
-                (ixFun ((:[]) . view hdAddressRootId))
-                (ixFun ((:[]) . view hdAddressAccountId))
-                (ixFun ((:[]) . view (hdAddressAddress . fromDb)))
-
 instance IxSet.Indexable (HdAddressId ': SecondaryIndexedHdAddressIxs)
                          (OrdByPrimKey (Indexed HdAddress)) where
     indices = ixList
                 (ixFun ((:[]) . view ixedIndex))
                 (ixFun ((:[]) . view (ixedIndexed . hdAddressRootId)))
                 (ixFun ((:[]) . view (ixedIndexed . hdAddressAccountId)))
-                (ixFun ((:[]) . view (ixedIndexed . hdAddressAddress . fromDb)))
+                (ixFun ((:[]) . V1 . view (ixedIndexed . hdAddressAddress . fromDb)))
 
 {-------------------------------------------------------------------------------
   Top-level HD wallet structure
@@ -639,7 +627,7 @@ zoomHdCardanoAddress embedErr addr =
     findAddress :: Query' HdWallets e HdAddress
     findAddress = do
         addresses <- view hdWalletsAddresses
-        maybe err return $ (fmap _ixedIndexed $ getOne $ getEQ addr addresses)
+        maybe err return $ (fmap _ixedIndexed $ getOne $ getEQ (V1 addr) addresses)
 
     err :: Query' HdWallets e x
     err = missing $ embedErr (UnknownHdCardanoAddress addr)

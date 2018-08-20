@@ -162,7 +162,7 @@ instance Example a => Example (WalletResponse a) where
 --
 respondWith :: (Monad m, Indexable a)
             => RequestParams
-            -> FilterOperations a
+            -> FilterOperations ixs a
             -- ^ Filtering operations to perform on the data.
             -> SortOperations a
             -- ^ Sorting operations to perform on the data.

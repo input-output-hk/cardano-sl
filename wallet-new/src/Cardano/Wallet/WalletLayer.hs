@@ -12,6 +12,8 @@ module Cardano.Wallet.WalletLayer
     , createAccount
     , getAccounts
     , getAccount
+    , getAccountBalance
+    , getAccountAddresses
     , updateAccount
     , deleteAccount
 
@@ -52,19 +54,20 @@ import qualified Prelude
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
 import           Pos.Chain.Block (Blund)
-import           Pos.Core (Coin)
+import           Pos.Core (Coin, Timestamp)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.Core.Txp (Tx)
+import           Pos.Core.Txp (Tx, TxId)
 import           Pos.Crypto (PassPhrase)
 
 import           Cardano.Wallet.API.Request (RequestParams (..))
 import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
 import           Cardano.Wallet.API.Request.Sort (SortOperations (..))
 import           Cardano.Wallet.API.Response (SliceOf (..), WalletResponse)
-import           Cardano.Wallet.API.V1.Types (Account, AccountIndex,
-                     AccountUpdate, Address, NewAccount, NewAddress, NewWallet,
-                     PasswordUpdate, Payment, Redemption, Transaction, V1 (..),
-                     Wallet, WalletAddress, WalletId, WalletUpdate)
+import           Cardano.Wallet.API.V1.Types (Account, AccountBalance,
+                     AccountIndex, AccountUpdate, Address, NewAccount,
+                     NewAddress, NewWallet, PasswordUpdate, Payment,
+                     Redemption, Transaction, V1 (..), Wallet, WalletAddress,
+                     WalletId, WalletUpdate)
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
@@ -383,6 +386,14 @@ data PassiveWalletLayer m = PassiveWalletLayer
     , _pwlGetAccount           :: WalletId
                                -> AccountIndex
                                -> m (Either GetAccountError Account)
+    , _pwlGetAccountBalance    :: WalletId
+                               -> AccountIndex
+                               -> m (Either GetAccountError AccountBalance)
+    , _pwlGetAccountAddresses  :: WalletId
+                               -> AccountIndex
+                               -> RequestParams
+                               -> FilterOperations '[V1 Address] WalletAddress
+                               -> m (Either GetAccountError (WalletResponse [WalletAddress]))
     , _pwlUpdateAccount        :: WalletId
                                -> AccountIndex
                                -> AccountUpdate
@@ -399,7 +410,7 @@ data PassiveWalletLayer m = PassiveWalletLayer
 
     -- transactions
     , _pwlGetTransactions      :: Maybe WalletId -> Maybe AccountIndex -> Maybe (V1 Address)
-        -> RequestParams -> FilterOperations Transaction -> SortOperations Transaction -> m (Either GetTxError (WalletResponse [Transaction]))
+        -> RequestParams -> FilterOperations '[V1 TxId, V1 Timestamp] Transaction -> SortOperations Transaction -> m (Either GetTxError (WalletResponse [Transaction]))
     , _pwlGetTxFromMeta        :: TxMeta -> m (Either Kernel.UnknownHdAccount Transaction)
 
     -- core API
@@ -461,6 +472,20 @@ getAccount :: forall m. PassiveWalletLayer m
            -> m (Either GetAccountError Account)
 getAccount pwl = pwl ^. pwlGetAccount
 
+getAccountBalance :: forall m. PassiveWalletLayer m
+                  -> WalletId
+                  -> AccountIndex
+                  -> m (Either GetAccountError AccountBalance)
+getAccountBalance pwl = pwl ^. pwlGetAccountBalance
+
+getAccountAddresses  :: forall m. PassiveWalletLayer m
+                     -> WalletId
+                     -> AccountIndex
+                     -> RequestParams
+                     -> FilterOperations '[V1 Address] WalletAddress
+                     -> m (Either GetAccountError (WalletResponse [WalletAddress]))
+getAccountAddresses pwl = pwl ^. pwlGetAccountAddresses
+
 updateAccount :: forall m. PassiveWalletLayer m
               -> WalletId
               -> AccountIndex
@@ -490,7 +515,7 @@ validateAddress :: forall m. PassiveWalletLayer m
 validateAddress pwl = pwl ^. pwlValidateAddress
 
 getTransactions :: forall m. PassiveWalletLayer m -> Maybe WalletId -> Maybe AccountIndex
-    -> Maybe (V1 Address) -> RequestParams -> FilterOperations Transaction -> SortOperations Transaction -> m (Either GetTxError (WalletResponse [Transaction]))
+    -> Maybe (V1 Address) -> RequestParams -> FilterOperations '[V1 TxId, V1 Timestamp] Transaction -> SortOperations Transaction -> m (Either GetTxError (WalletResponse [Transaction]))
 getTransactions pwl = pwl ^. pwlGetTransactions
 
 getTxFromMeta :: forall m. PassiveWalletLayer m -> TxMeta -> m (Either Kernel.UnknownHdAccount Transaction)

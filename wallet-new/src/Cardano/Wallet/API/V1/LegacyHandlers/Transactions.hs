@@ -6,7 +6,7 @@ import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat)
 import           Servant
 
-import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Chain.Txp (TxId, TxpConfiguration)
 import           Pos.Client.Txp.Util (defaultInputSelectionPolicy)
 import qualified Pos.Client.Txp.Util as V0
 import qualified Pos.Core as Core
@@ -111,7 +111,7 @@ allTransactions
     -> Maybe AccountIndex
     -> Maybe (V1 Core.Address)
     -> RequestParams
-    -> FilterOperations Transaction
+    -> FilterOperations '[V1 TxId, V1 Core.Timestamp] Transaction
     -> SortOperations Transaction
     -> m (WalletResponse [Transaction])
 allTransactions mwalletId mAccIdx mAddr requestParams fops sops  =

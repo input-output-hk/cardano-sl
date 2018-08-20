@@ -2,6 +2,8 @@ module Cardano.Wallet.API.V1.Handlers.Wallets where
 
 import           Universum
 
+import           Pos.Core (Coin)
+
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Types as V1
@@ -42,7 +44,7 @@ newWallet pwl newWalletRequest = do
 -- | Returns the full (paginated) list of wallets.
 listWallets :: PassiveWalletLayer IO
             -> RequestParams
-            -> FilterOperations Wallet
+            -> FilterOperations '[WalletId, Coin] Wallet
             -> SortOperations Wallet
             -> Handler (WalletResponse [Wallet])
 listWallets pwl params fops sops = do

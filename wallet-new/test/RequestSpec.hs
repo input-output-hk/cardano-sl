@@ -85,7 +85,7 @@ filterSpec = do
         let ops = FilterByRange (Core.mkCoin 2345) (Core.mkCoin 2348)
                 `FilterOp` FilterByIndex (WalletId "hello")
                 `FilterOp` NoFilters
-                :: FilterOperations Wallet
+                :: FilterOperations '[Core.Coin, WalletId] Wallet
         it "does what you'd want it to do" $ do
             toQueryString ops
                 `shouldBe`
@@ -99,7 +99,7 @@ filterSpec = do
                 [ ("id",      Just "3")
                 , ("balance", Just "RANGE[10,50]")
                 ]
-            fops :: FilterOperations Wallet
+            fops :: FilterOperations '[WalletId, Core.Coin] Wallet
             fops = FilterByIndex (WalletId "3")
                 `FilterOp` FilterByRange (Core.mkCoin 10) (Core.mkCoin 50)
                 `FilterOp` NoFilters

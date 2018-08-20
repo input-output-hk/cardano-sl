@@ -9,8 +9,9 @@ import           Cardano.Wallet.Kernel.DB.Util.IxSet ((@+), (@<), (@<=), (@=),
                      (@>), (@>=), (@>=<=))
 
 -- | Applies all the input filters to the input 'IxSet''.
-applyFilters :: Indexable a => F.FilterOperations a -> IxSet a -> IxSet a
+applyFilters :: Indexable a => F.FilterOperations ixs a -> IxSet a -> IxSet a
 applyFilters F.NoFilters iset        = iset
+applyFilters (F.FilterNop  fop) iset = applyFilters fop iset
 applyFilters (F.FilterOp f fop) iset = applyFilters fop (applyFilter f iset)
 
 -- | Applies a single 'FilterOperation' on the input 'IxSet'', producing another 'IxSet'' as output.

@@ -13,10 +13,10 @@ import           Test.QuickCheck (arbitrary, generate)
 
 type WalletRef = MVar Wallet
 
-data PaginationTest a = PaginationTest
+data PaginationTest ixs a = PaginationTest
     { page         :: Maybe Page
     , perPage      :: Maybe PerPage
-    , filters      :: FilterOperations a
+    , filters      :: FilterOperations ixs a
     , sorts        :: SortOperations a
     , expectations :: [a] -> IO ()
     }

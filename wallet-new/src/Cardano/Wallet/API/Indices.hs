@@ -66,28 +66,8 @@ instance ToIndex WalletAddress (V1 Core.Address) where
     toIndex _ = fmap V1 . either (const Nothing) Just . Core.decodeTextAddress
     accessIx WalletAddress{..} = addrId
 
--- | This constraint expresses that @ix@ is a valid index of @a@.
-type IndexRelation a ix =
-    ( Indexable a
-    , IsIndexOf ix a
-    , ToIndex a ix
-    , Typeable ix
-    , KnownSymbol (IndexToQueryParam a ix)
-    )
-
 --
--- Indices for all the major resources
---
--- TODO [CBR-356]: These should not exist. We should not construct 'IxSet' of V1
--- types, as this implies constructing, at runtime, IxSet of V1 types with
--- associated indices. Instead we should only have 'IxSet' of the kernel's
--- internal types, and modify the wallet layer so that it doesn't return 'IxSet'
--- but rather already-sorted already-paginated lists. For now we still leave
--- these instances. Crucially, however, we do /not/ give an instance for
--- 'WalletAddress'. This is the only datatype for which this is really
--- important: on some nodes we might have a /lot/ of addresses, and constructing
--- an 'IxSet' for those on the fly, with associated indices, would be a very
--- expensive operation. The wallet layer already treats this case special.
+-- Primary and secondary indices for V1 types
 --
 
 instance HasPrimKey Wallet where
@@ -102,8 +82,6 @@ instance HasPrimKey Transaction where
     type PrimKey Transaction = V1 Txp.TxId
     primKey = txId
 
--- TODO [CBR-356]: This instance should not exist! We should /definitely/ not
--- create an IxSet of V1 addresses, as there might be a /lot/ of them.
 instance HasPrimKey WalletAddress where
     type PrimKey WalletAddress = V1 Core.Address
     primKey = addrId
@@ -119,6 +97,19 @@ type instance IndicesOf Account       = SecondaryAccountIxs
 type instance IndicesOf Transaction   = SecondaryTransactionIxs
 type instance IndicesOf WalletAddress = SecondaryWalletAddressIxs
 
+--
+-- Indexable instances for V1 types
+--
+-- TODO [CBR-356] These should not exist! We should not create 'IxSet's
+-- (with their indices) on the fly. Fortunately, the only one for which this
+-- is /really/ important is addresses, for which we already have special
+-- cases. Nonetheless, the instances below should also go.
+--
+-- Instance for 'WalletAddress' is available only in
+-- "Cardano.Wallet.API.V1.LegacyHandlers.Instances". The same should be done
+-- for the other instances here.
+--
+
 instance IxSet.Indexable (WalletId ': SecondaryWalletIxs)
                          (OrdByPrimKey Wallet) where
     indices = ixList (ixFun ((:[]) . unV1 . walBalance))
@@ -130,10 +121,6 @@ instance IxSet.Indexable (V1 Txp.TxId ': SecondaryTransactionIxs)
 
 instance IxSet.Indexable (AccountIndex ': SecondaryAccountIxs)
                          (OrdByPrimKey Account) where
-    indices = ixList
-
-instance IxSet.Indexable (V1 Core.Address ': SecondaryWalletAddressIxs)
-                         (OrdByPrimKey WalletAddress) where
     indices = ixList
 
 -- | Extract the parameter names from a type leve list with the shape
@@ -162,7 +149,7 @@ type family IndexToQueryParam resource ix where
     -- trigger early, so that we don't get Weird Errors later on with stuck
     -- types.
     IndexToQueryParam res ix = TypeError (
-        'Text "You used `IndextoQueryParam' with the following resource:"
+        'Text "You used `IndexToQueryParam' with the following resource:"
         ':$$: 'Text "    " ':<>: 'ShowType res
         ':$$: 'Text "and index type:"
         ':$$: 'Text "    " ':<>: 'ShowType ix
@@ -170,3 +157,17 @@ type family IndexToQueryParam resource ix where
         ':$$: 'Text "Perhaps you mismatched a resource and an index?"
         ':$$: 'Text "Or, maybe you need to add a type instance to `IndexToQueryParam'."
         )
+
+-- | Type-level composition of 'KnownSymbol' and 'IndexToQueryParam'
+--
+-- TODO: Alternatively, it would be possible to get rid of 'IndexToQueryParam'
+-- completely and just have the 'KnownQueryParam' class.
+class KnownSymbol (IndexToQueryParam resource ix) => KnownQueryParam resource ix
+
+instance KnownQueryParam Account AccountIndex
+instance KnownQueryParam Wallet Core.Coin
+instance KnownQueryParam Wallet WalletId
+instance KnownQueryParam Wallet (V1 Core.Timestamp)
+instance KnownQueryParam WalletAddress (V1 Core.Address)
+instance KnownQueryParam Transaction (V1 Txp.TxId)
+instance KnownQueryParam Transaction (V1 Core.Timestamp)

@@ -33,6 +33,7 @@ import           Cardano.Wallet.API.Indices (IxSet)
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import qualified Cardano.Wallet.API.V1.Addresses as Addresses
+import           Cardano.Wallet.API.V1.LegacyHandlers.Instances ()
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
@@ -64,8 +65,8 @@ listAddresses params = do
 
     let allAddresses = runStreamAddresses ws
 
-    respondWith params (NoFilters :: FilterOperations WalletAddress)
-                       (NoSorts   :: SortOperations   WalletAddress)
+    respondWith params (NoFilters :: FilterOperations '[] WalletAddress)
+                       (NoSorts   :: SortOperations       WalletAddress)
                        allAddresses
   where
     -- | Should improve performance, stream fusion ultra super nuclear

@@ -106,9 +106,6 @@ genWalletSubmission accId maxRetries rho =
   Submission layer tests
 -------------------------------------------------------------------------------}
 
-instance (Buildable a, Buildable b) => Buildable (a,b) where
-    build (a,b) = bprint ("(" % F.build % "," % F.build % ")") a b
-
 instance Buildable [LabelledTxAux] where
     build xs = bprint (listJsonIndent 4) xs
 

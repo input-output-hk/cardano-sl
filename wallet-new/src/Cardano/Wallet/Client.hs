@@ -36,13 +36,15 @@ import           Universum
 import           Control.Exception (Exception (..))
 import           Servant.Client (GenResponse (..), Response, ServantError (..))
 
+import qualified Pos.Core as Core
+import qualified Pos.Core.Txp as Core
+
 import           Cardano.Wallet.API.Request.Filter
 import           Cardano.Wallet.API.Request.Pagination
 import           Cardano.Wallet.API.Request.Sort
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
-import qualified Pos.Core as Core
 
 -- | A representation of a wallet client parameterized over some effect
 -- type @m@.
@@ -76,7 +78,7 @@ data WalletClient m
     , getWalletIndexFilterSorts
          :: Maybe Page
          -> Maybe PerPage
-         -> FilterOperations Wallet
+         -> FilterOperations '[WalletId, Core.Coin] Wallet
          -> SortOperations Wallet
          -> Resp m [Wallet]
     , updateWalletPassword
@@ -103,7 +105,7 @@ data WalletClient m
          -> AccountIndex
          -> Maybe Page
          -> Maybe PerPage
-         -> FilterOperations WalletAddress
+         -> FilterOperations '[V1 Address] WalletAddress
          -> Resp m AccountAddresses
     , getAccountBalance
          :: WalletId -> AccountIndex -> Resp m AccountBalance
@@ -116,7 +118,7 @@ data WalletClient m
          -> Maybe (V1 Core.Address)
          -> Maybe Page
          -> Maybe PerPage
-         -> FilterOperations Transaction
+         -> FilterOperations '[V1 Core.TxId, V1 Core.Timestamp] Transaction
          -> SortOperations Transaction
          -> Resp m [Transaction]
     , getTransactionFee

@@ -106,7 +106,10 @@ instance (BuildableSafeGen (SortOperation ix a)) =>
 -- the inner closure of 'SortOp'.
 data SortOperations a where
     NoSorts  :: SortOperations a
-    SortOp   :: IndexRelation a ix
+    SortOp   :: ( IsIndexOf ix a
+                , Typeable ix
+                , KnownSymbol (IndexToQueryParam a ix)
+                )
              => SortOperation ix a
              -> SortOperations a
              -> SortOperations a
@@ -161,9 +164,11 @@ class ToSortOperations (ixs :: [*]) a where
 instance Indexable a => ToSortOperations ('[]) a where
   toSortOperations _ _ = NoSorts
 
-instance ( IndexRelation a ix
+instance ( IsIndexOf ix a
+         , Typeable ix
          , ToSortOperations ixs a
          , IndexToQueryParam a ix ~ sym
+         , KnownSymbol sym
          )
          => ToSortOperations (ix ': ixs) a where
     toSortOperations req _ =

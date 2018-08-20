@@ -135,8 +135,8 @@ metaToTx db slotCount current TxMeta{..} = do
             hdRootId    = HD.HdRootId $ InDb _txMetaWalletId
             hdAccountId = HD.HdAccountId hdRootId (HD.HdAccountIx _txMetaAccountIx)
 
-            inputsToPayDistr :: (Address, Coin, a , b) -> V1.PaymentDistribution
-            inputsToPayDistr (addr, c, _, _) = V1.PaymentDistribution (V1 addr) (V1 c)
+            inputsToPayDistr :: (a , b, Address, Coin) -> V1.PaymentDistribution
+            inputsToPayDistr (_, _, addr, c) = V1.PaymentDistribution (V1 addr) (V1 c)
 
             outputsToPayDistr :: (Address, Coin) -> V1.PaymentDistribution
             outputsToPayDistr (addr, c) = V1.PaymentDistribution (V1 addr) (V1 c)

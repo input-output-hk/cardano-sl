@@ -21,5 +21,7 @@ openMetaDB fp = do
         , migrateMetaDB = ConcreteStorage.unsafeMigrateMetaDB conn
         , getTxMeta     = ConcreteStorage.getTxMeta conn
         , putTxMeta     = ConcreteStorage.putTxMeta conn
+        , putTxMetaT    = ConcreteStorage.putTxMetaT conn
+        , getAllTxMetas = ConcreteStorage.getAllTxMetas conn
         , getTxMetas    = ConcreteStorage.getTxMetas conn
         }

@@ -54,6 +54,7 @@ import qualified Database.SQLite.SimpleErrors as Sqlite
 import qualified Database.SQLite.SimpleErrors.Types as Sqlite
 
 import           Control.Exception (throwIO, toException)
+import           Control.Monad (void)
 import qualified Data.Foldable as Foldable
 import           Data.List.NonEmpty (NonEmpty (..), nonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
@@ -415,7 +416,7 @@ closeMetaDB :: Sqlite.Connection -> IO ()
 closeMetaDB = Sqlite.close
 
 putTxMeta :: Sqlite.Connection -> Kernel.TxMeta -> IO ()
-putTxMeta conn txMeta = const () <$> putTxMetaT conn txMeta
+putTxMeta conn txMeta = void $ putTxMetaT conn txMeta
 
 -- | Inserts a new 'Kernel.TxMeta' in the database, given its opaque
 -- 'MetaDBHandle'.

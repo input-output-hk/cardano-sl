@@ -154,8 +154,32 @@ $ stack test cardano-sl-wallet-new
 Wallet integration tests can be run using this command (from the project *root* directory):
 
 ```
-$ nix-build release.nix -A tests.walletIntegration --arg useStackBinaries true 
+$ nix-build -A walletIntegrationTests --arg useStackBinaries true 
 ```
+
+> **NOTE**:
+> `nix-build -A walletIntegrationTests` (with or without `useStackBinaries`) runs a
+> local demo cluster, either via stack or nix by default on your local machine
+> that is fully usable by daedalus/curl etc...  and requires port 8090 and
+> ports 3001-3004 and 3101 to be available. This cluster has four core nodes, 1
+> relay, and a single wallet and has full x509 CA cert enabled. It then
+> pre-loads some genesis poor keys for testing and runs the wal-integr-test
+> haskell program, which connects to the running cluster. When it completes, it
+> terminates the demo cluster and wallet. This will fail if ports aren't
+> available to bind (although cardano-node will happily run without crashing,
+> it just will be broken), you try running two of these at once, etc...
+>
+> This is differentiated from `nix-build -A tests.walletIntegration` which **DOES
+> NOT** support `useStackBinaries` and builds/runs the entire cluster in a sandbox
+> isolated from the rest of the system (assuming nix sandboxing is enabled).
+> This is how hydra runs the tests and why hydra is capable or running more
+> than one cluster at the same time. This will use any binaries cached by hydra
+> if you have the IOHK binary cache enabled, or will build everything cleanly
+> in nix if the binaries aren't available in the local nix store. One other
+> thing to note is that tests.walletIntegration will only run once and will
+> cache the results (unless of a failure). If you have a need to rerun the
+> test, you can pass the `--check` flag to force the test to run again. `--check`
+> is used to confirm that results from one test match the results again.
 
 ## Developing
 

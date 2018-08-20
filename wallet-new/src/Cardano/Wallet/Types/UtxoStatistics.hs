@@ -26,7 +26,8 @@ import           Data.Word (Word64)
 import           Formatting (bprint, build, formatToString, (%))
 import qualified Formatting.Buildable
 import           Serokell.Util (listJson)
-import           Test.QuickCheck (Arbitrary (..), arbitrary, elements, suchThat)
+import           Test.QuickCheck (Arbitrary (..), arbitrary, choose, elements,
+                     infiniteListOf, shuffle)
 
 import           Cardano.Wallet.API.V1.Swagger.Example (Example)
 import           Pos.Chain.Txp (Utxo)
@@ -62,9 +63,9 @@ generateBounds bType =
 
 instance Arbitrary HistogramBar where
     arbitrary = do
-        possiblenames <- elements (NL.toList $ generateBounds Log10)
-        bound <- arbitrary `suchThat` (>= 0)
-        pure (HistogramBarCount possiblenames bound)
+        upperBound <- elements (NL.toList $ generateBounds Log10)
+        count <- arbitrary
+        pure (HistogramBarCount upperBound count)
 
 
 deriveSafeBuildable ''HistogramBar
@@ -115,11 +116,11 @@ eitherToParser :: Buildable a => Either a b -> Parser b
 eitherToParser =
     either (fail . formatToString build) pure
 
-toMap :: [HistogramBar] -> Map Word64 Word64
-toMap = Map.fromList . map (\(HistogramBarCount key val) -> (key,val))
+sorted :: [HistogramBar] -> [HistogramBar]
+sorted = sortOn (\(HistogramBarCount key _) -> key)
 
 instance Eq UtxoStatistics where
-    (UtxoStatistics h s) == (UtxoStatistics h' s') = s == s' && toMap h == toMap h'
+    (UtxoStatistics h s) == (UtxoStatistics h' s') = s == s' && sorted h == sorted h'
 
 instance ToJSON UtxoStatistics where
     toJSON (UtxoStatistics bars allStakes) =
@@ -209,16 +210,14 @@ instance ToSchema UtxoStatistics where
             )
 
 instance Arbitrary UtxoStatistics where
-    arbitrary = UtxoStatistics <$> arbitrary
-                               <*> arbitrary
--- This code goes into nonstoping computation when checking swagger integration of WalletResponse UtxoStatistics
-{--        do
-        histogram <- arbitrary
-        let (minPossibleValue, maxPossibleValue) = getPossibleBounds histogram
-        let histoBars = map (uncurry HistogramBarCount) $ Map.toList histogram
-        allStakes <- arbitrary `suchThat` (\s -> s >= minPossibleValue && s <= maxPossibleValue)
+    arbitrary = do
+        upperBounds <- shuffle (NL.toList $ generateBounds Log10)
+        counts <- infiniteListOf arbitrary
+        let histogram = zip upperBounds counts
+        let histoBars = map (uncurry HistogramBarCount) histogram
+        allStakes <- choose (getPossibleBounds $ Map.fromList histogram)
         return $ UtxoStatistics histoBars allStakes
---}
+
 instance Buildable [HistogramBar] where
     build =
         bprint listJson

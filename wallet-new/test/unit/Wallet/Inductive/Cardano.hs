@@ -34,6 +34,8 @@ import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import qualified Cardano.Wallet.Kernel.Pending as Kernel
 import           Cardano.Wallet.Kernel.PrefilterTx (prefilterUtxo)
 import qualified Cardano.Wallet.Kernel.Read as Kernel
+import           Cardano.Wallet.Kernel.Transactions (toMeta)
+import           Cardano.Wallet.Kernel.Util.Core (getSomeTimestamp)
 
 import           Util.Buildable
 import           Util.Validated
@@ -266,9 +268,9 @@ equivalentT useWW activeWallet esk = \mkWallet w ->
                       -> RawResolvedTx
                       -> TranslateT EquivalenceViolation m ()
     walletNewPendingT ctxt accountId tx = do
-        -- meta <- liftIO $ Kernel.toMeta accountId tx
+        meta <- toMeta getSomeTimestamp accountId tx
         -- TODO: should meta history be tested here?
-        _ <- liftIO $ Kernel.newPending activeWallet accountId (rawResolvedTx tx) Nothing
+        _ <- liftIO $ Kernel.newPending activeWallet accountId (rawResolvedTx tx) (rightToMaybe meta)
         checkWalletState ctxt accountId
 
     walletRollbackT :: InductiveCtxt h

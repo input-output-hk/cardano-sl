@@ -47,6 +47,7 @@ import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Resolved
 import           Cardano.Wallet.Kernel.Types
 import           Cardano.Wallet.Kernel.Util (at)
+import           Cardano.Wallet.Kernel.Util.Core
 
 import           Pos.Chain.Block (Block, BlockHeader (..), GenesisBlock,
                      MainBlock, gbHeader, genBlockLeaders, mkGenesisBlock)
@@ -339,7 +340,7 @@ mkCheckpoint :: Monad m
              -> SlotId           -- ^ Slot of the new block just created
              -> RawResolvedBlock -- ^ The block just created
              -> TranslateT IntException m IntCheckpoint
-mkCheckpoint prev slot raw@(UnsafeRawResolvedBlock block _inputs) = do
+mkCheckpoint prev slot raw@(UnsafeRawResolvedBlock block _inputs _) = do
     pc <- asks constants
     gs <- asks weights
     let isCrucial = give pc $ slot == crucialSlot (siEpoch slot)
@@ -361,11 +362,11 @@ updateStakes :: forall m. MonadError IntException m
              => GenesisWStakeholders
              -> ResolvedBlock
              -> StakesMap -> m StakesMap
-updateStakes gs (ResolvedBlock txs _) =
+updateStakes gs (ResolvedBlock txs _ _) =
     foldr (>=>) return $ map go txs
   where
     go :: ResolvedTx -> StakesMap -> m StakesMap
-    go (ResolvedTx ins outs) =
+    go (ResolvedTx ins outs _) =
         subStake >=> addStake
       where
         subStakes, addStakes :: [(StakeholderId, Coin)]
@@ -586,11 +587,12 @@ instance DSL.Hash h Addr => Interpret h (DSL.Transaction h Addr) where
   int :: forall e m. Monad m
       => DSL.Transaction h Addr -> IntT h e m RawResolvedTx
   int t = do
+      let timestamp = getSomeTimestamp
       (trIns', resolvedInputs) <- unzip <$> mapM int (DSL.trIns' t)
       trOuts'                  <-           mapM int (DSL.trOuts t)
       txAux   <- liftTranslateInt $ mkTx trIns' trOuts'
       putTxMeta t $ hash (taTx txAux)
-      return $ mkRawResolvedTx txAux (NE.fromList resolvedInputs)
+      return $ mkRawResolvedTx timestamp txAux (NE.fromList resolvedInputs)
     where
       mkTx :: [TxOwnedInput SomeKeyPair]
            -> [TxOutAux]
@@ -631,7 +633,7 @@ instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
                    (icBlockHeader  prev)
                    slot
                    txs'
-        let raw = mkRawResolvedBlock block resolvedTxInputs
+        let raw = mkRawResolvedBlock block resolvedTxInputs getSomeTimestamp
         checkpoint <- mkCheckpoint prev slot raw
         if isEpochBoundary pc slot
           then second (\ebb -> (raw, Just ebb)) <$> createEpochBoundary checkpoint

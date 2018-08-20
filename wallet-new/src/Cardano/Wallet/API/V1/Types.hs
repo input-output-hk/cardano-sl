@@ -45,8 +45,6 @@ module Cardano.Wallet.API.V1.Types (
   , mkPublicKeyFromBase58
   , NewExternalWallet (..)
   , WalletAndTxHistory (..)
-  , UtxoStatistics (..)
-  , HistogramBar (..)
   -- * Addresses
   , AddressIndex
   , AddressValidity (..)
@@ -146,9 +144,7 @@ import           Data.ByteString.Base58 (bitcoinAlphabet, decodeBase58,
                      encodeBase58)
 import qualified Data.Char as C
 import           Data.Default (Default (def))
-import qualified Data.HashMap.Strict as HMS
 import qualified Data.Map.Strict as Map
-import           Data.Scientific (floatingOrInteger)
 import           Data.Semigroup (Semigroup)
 import           Data.Swagger hiding (Example, example)
 import qualified Data.Swagger as S

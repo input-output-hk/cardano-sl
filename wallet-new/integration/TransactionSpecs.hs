@@ -8,13 +8,15 @@ import           Universum
 import           Cardano.Wallet.Client.Http
 import           Control.Concurrent (threadDelay)
 import           Control.Lens
-import qualified Pos.Core as Core
 import           Test.Hspec
 import           Text.Show.Pretty (ppShow)
 
-import qualified Pos.Core as Core
-
 import           Util
+
+import qualified Data.Map.Strict as Map
+import qualified Pos.Core as Core
+import qualified Pos.Core.Txp as Txp
+
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
@@ -217,7 +219,14 @@ transactionSpecs wRef wc =
             void $ postTransaction wc (payment 1)
             threadDelay 120000000
 
+            let txIn  = Txp.TxInUnknown 0 "test"
+            let txOut = Txp.TxOutAux Txp.TxOut
+                    { Txp.txOutAddress = unV1 (addrId toAddr)
+                    , Txp.txOutValue = Core.mkCoin 1
+                    }
+            let utxos = [Map.fromList [(txIn, txOut)]]
+
             eresp <- getUtxoStatistics wc (walId wallet)
             utxoStatistics <- fmap wrData eresp `shouldPrism` _Right
-            let utxoStatisticsExpected = computeUtxoStatistics log10 [1]
+            let utxoStatisticsExpected = computeUtxoStatistics log10 utxos
             utxoStatistics `shouldBe` utxoStatisticsExpected

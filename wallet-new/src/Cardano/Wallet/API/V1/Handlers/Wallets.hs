@@ -2,6 +2,8 @@ module Cardano.Wallet.API.V1.Handlers.Wallets where
 
 import           Universum
 
+import           Servant
+
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Types as V1
@@ -9,12 +11,8 @@ import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
 
-import           Pos.Chain.Txp (Utxo)
 import           Pos.Core.Common (Coin (..))
-import           Pos.Core.Txp (TxOut (..), TxOutAux (..))
 
-import qualified Data.Map.Strict as M (elems)
-import           Servant
 
 -- | All the @Servant@ handlers for wallet-specific operations.
 handlers :: PassiveWalletLayer IO -> ServerT Wallets.API Handler
@@ -107,13 +105,8 @@ getUtxoStatistics pwl wid = do
     res <- liftIO $ WalletLayer.getUtxos pwl wid
     case res of
          Left e  -> throwM e
-         Right w -> do
-             let extractValue :: TxOutAux ->  Word64
-                 extractValue = getCoin . txOutValue . toaOut
-             let utxosCoinValuesForAllAccounts :: [(Account, Utxo)] -> [Word64]
-                 utxosCoinValuesForAllAccounts =
-                     concatMap (\pair -> map extractValue (M.elems $ snd pair) )
-             return $ single (V1.computeUtxoStatistics V1.log10 $ utxosCoinValuesForAllAccounts w)
+         Right w ->
+            return $ single $ V1.computeUtxoStatistics V1.log10 (map snd w)
 
 checkExternalWallet :: PassiveWalletLayer IO
                     -> PublicKeyAsBase58

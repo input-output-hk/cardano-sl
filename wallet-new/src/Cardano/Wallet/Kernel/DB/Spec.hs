@@ -114,7 +114,8 @@ deriveSafeCopy 1 'base ''Checkpoint
 initCheckpoint :: Core.Utxo -> Checkpoint
 initCheckpoint utxo = Checkpoint {
       _checkpointUtxo        = InDb utxo
-    , _checkpointUtxoBalance = InDb $ Core.utxoBalance utxo
+    , _checkpointUtxoBalance = InDb $ Core.unsafeIntegerToCoin $
+                                        Core.utxoBalance utxo
     , _checkpointPending     = Pending.empty
     , _checkpointForeign     = Pending.empty
     , _checkpointBlockMeta   = emptyBlockMeta

@@ -54,19 +54,16 @@ getSomeTimestamp = Core.Timestamp $ fromMicroseconds 12340000
   UTxO
 -------------------------------------------------------------------------------}
 
--- | Computes the balance for this 'Utxo'. We use 'unsafeAddCoin' as
--- as long as the 'maxCoinVal' stays within the 'Word64' 'maxBound', the
--- circulating supply of coins is finite and as such we should never have
--- to sum an 'Utxo' which would exceed the bounds.
--- If it does, this is clearly a bug and we throw an 'ErrorCall' exception
--- (crf. 'unsafeAddCoin' implementation).
-utxoBalance :: Core.Utxo -> Core.Coin
-utxoBalance = foldl' updateFn (Core.mkCoin 0) . Map.elems
+-- | Computes the balance for this UTxO
+--
+-- This returns an 'Integer' rather than a 'Coin' because the outputs of a
+-- block may sum to more than 'maxCoinVal' (if some outputs of the transactions
+-- in the block are used as inputs by other transactions in that block).
+utxoBalance :: Core.Utxo -> Integer
+utxoBalance = foldl' updateFn 0 . Map.elems
   where
-    updateFn :: Core.Coin -> Core.TxOutAux -> Core.Coin
-    updateFn acc txOutAux =
-      fromMaybe (error "utxoBalance: overflow") $
-         Core.addCoin acc (toCoin txOutAux)
+    updateFn :: Integer -> Core.TxOutAux -> Integer
+    updateFn acc txOut = acc + Core.coinToInteger (toCoin txOut)
 
 -- | Restricts the 'Utxo' to only the selected set of inputs.
 utxoRestrictToInputs :: Core.Utxo -> Set Core.TxIn -> Core.Utxo

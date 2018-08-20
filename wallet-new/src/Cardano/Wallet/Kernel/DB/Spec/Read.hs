@@ -55,10 +55,11 @@ cpAvailableBalance :: IsCheckpoint c => c -> Core.Coin
 cpAvailableBalance c =
     fromMaybe subCoinErr balance'
   where
-    pendingIns = Pending.txIns (c ^. cpPending)
-    spentUtxo  = Core.utxoRestrictToInputs (c ^. cpUtxo) pendingIns
-    balance'   = Core.subCoin (c ^. cpUtxoBalance) (Core.utxoBalance spentUtxo)
-    subCoinErr = error "cpAvailableBalance: spent more than available?"
+    pendingIns   = Pending.txIns (c ^. cpPending)
+    spentUtxo    = Core.utxoRestrictToInputs (c ^. cpUtxo) pendingIns
+    spentBalance = Core.unsafeIntegerToCoin $ Core.utxoBalance spentUtxo
+    balance'     = Core.subCoin (c ^. cpUtxoBalance) spentBalance
+    subCoinErr   = error "cpAvailableBalance: spent more than available?"
 
 -- | Change outputs
 --
@@ -78,7 +79,8 @@ cpTotalBalance ours c =
     Core.unsafeAddCoin availableBalance changeBalance
   where
     availableBalance = cpAvailableBalance c
-    changeBalance    = Core.utxoBalance (cpChange ours c)
+    changeBalance    = Core.unsafeIntegerToCoin $
+                         Core.utxoBalance (cpChange ours c)
 
 -- | SlotId a transaction got confirmed in
 cpTxSlotId :: IsCheckpoint c => Core.TxId -> c -> Maybe Core.SlotId

@@ -32,7 +32,7 @@ import           Formatting (bprint, build, sformat, (%))
 import qualified Formatting.Buildable
 
 import           Pos.Chain.Txp (Utxo)
-import           Pos.Core (Address, Coin, unsafeSubCoin)
+import           Pos.Core (Address, Coin, unsafeIntegerToCoin, unsafeSubCoin)
 import qualified Pos.Core as Core
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxIn (..), TxOut (..),
                      TxOutAux (..))
@@ -342,10 +342,13 @@ estimateFees activeWallet@ActiveWallet{..} spendingPassword options accountId pa
              return $ Right
                     $ sumOfInputs tx originalUtxo `unsafeSubCoin` sumOfOutputs tx
   where
+      -- Unlike a block, a /single transaction/ cannot have inputs that sum to
+      -- more than maxCoinVal
       sumOfInputs :: TxAux -> Utxo -> Coin
       sumOfInputs tx utxo =
           let inputs = Set.fromList $ toList . _txInputs . taTx $ tx
-          in utxoBalance (utxo `utxoRestrictToInputs` inputs)
+          in unsafeIntegerToCoin $
+               utxoBalance (utxo `utxoRestrictToInputs` inputs)
 
       sumOfOutputs :: TxAux -> Coin
       sumOfOutputs tx =

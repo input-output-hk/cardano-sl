@@ -205,7 +205,7 @@ newTransaction ActiveWallet{..} spendingPassword options accountId payees = runE
 
     -- STEP 4: Compute metadata
     let txId = hash . taTx $ txAux
-    txMeta <- toMetaForNewTx accountId txId inputs (toaOut <$> outputs)
+    txMeta <- createNewMeta accountId txId inputs (toaOut <$> outputs)
     return (txAux, txMeta, availableUtxo)
   where
         -- Generate an initial seed for the random generator using the hash of
@@ -246,10 +246,14 @@ newTransaction ActiveWallet{..} spendingPassword options accountId payees = runE
                                  (AccountIdHdRnd accountId)
                                  walletPassive
 
-toMetaForNewTx :: HdAccountId -> TxId -> NonEmpty (TxIn, TxOutAux) -> NonEmpty TxOut -> ExceptT NewTransactionError IO TxMeta
-toMetaForNewTx accountId txId inputs outputs = do
-    inputsForMeta <- forM inputs toInput
+createNewMeta :: HdAccountId -> TxId -> NonEmpty (TxIn, TxOutAux) -> NonEmpty TxOut -> ExceptT NewTransactionError IO TxMeta
+createNewMeta hdId txId inp out = do
     time <- Core.getCurrentTimestamp
+    metaForNewTx time hdId txId inp out
+
+metaForNewTx :: (Monad m) => Core.Timestamp -> HdAccountId -> TxId -> NonEmpty (TxIn, TxOutAux) -> NonEmpty TxOut -> ExceptT NewTransactionError m TxMeta
+metaForNewTx time accountId txId inputs outputs = do
+    inputsForMeta <- forM inputs toInput
     return TxMeta {
                   _txMetaId = txId
                 , _txMetaAmount = minBound -- TODO(kde): find out what this should be. |sum(o) - sum(i)| maybe?
@@ -266,17 +270,17 @@ toMetaForNewTx accountId txId inputs outputs = do
     toInput (txin, txOutAux) = case txin of
         TxInUtxo txid index ->
             let (addr, coins) = aux $ toaOut txOutAux
-            in return (addr, coins, txid, index)
+            in return (txid, index, addr, coins)
         TxInUnknown _ _ -> throwError NewTransactionInvalidTxIn
 
-toMeta :: HdAccountId -> RawResolvedTx -> IO (Either NewTransactionError TxMeta)
-toMeta accountId UnsafeRawResolvedTx{..} = do
+toMeta :: Monad m => Core.Timestamp -> HdAccountId -> RawResolvedTx -> m (Either NewTransactionError TxMeta)
+toMeta time accountId UnsafeRawResolvedTx{..} = do
     let txId = hash . taTx $ rawResolvedTx
         (txIns :: NonEmpty TxIn) = _txInputs $ taTx rawResolvedTx
         (inputsRes :: NonEmpty TxOutAux) = rawResolvedTxInputs
         inputs = NonEmpty.zip txIns inputsRes
         txOuts = _txOutputs $ taTx rawResolvedTx
-    runExceptT $ toMetaForNewTx accountId txId inputs txOuts
+    runExceptT $ metaForNewTx time accountId txId inputs txOuts
 
 -- | Special monad used to process the payments, which randomness is derived
 -- from a fixed seed obtained from hashing the payees. This guarantees that

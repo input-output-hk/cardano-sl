@@ -6,6 +6,10 @@
 module Cardano.Wallet.Kernel.Util.Core (
     -- * General utility functions
     getCurrentTimestamp
+  , derefIn
+  , fromUtxo
+  , toOutPair
+  , getSomeTimestamp
     -- * UTxO
   , utxoBalance
   , utxoRestrictToInputs
@@ -24,6 +28,7 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import           Data.Time.Clock.POSIX (getPOSIXTime)
+import           Data.Time.Units (fromMicroseconds)
 import           Serokell.Util (enumerate)
 
 import qualified Pos.Chain.Txp as Core
@@ -41,6 +46,9 @@ import           Cardano.Wallet.Kernel.Util
 -- NOTE: we are abandoning the 'Mockable time' strategy of core.
 getCurrentTimestamp :: IO Core.Timestamp
 getCurrentTimestamp = Core.Timestamp . round . (* 1000000) <$> getPOSIXTime
+
+getSomeTimestamp :: Core.Timestamp
+getSomeTimestamp = Core.Timestamp $ fromMicroseconds 12340000
 
 {-------------------------------------------------------------------------------
   UTxO
@@ -91,12 +99,31 @@ txAuxId :: Core.TxAux -> Core.TxId
 txAuxId = hash . Core.taTx
 
 {-------------------------------------------------------------------------------
+  External auxiliary
+-------------------------------------------------------------------------------}
+
+toOutPair :: Core.TxOutAux -> (Core.Address, Core.Coin)
+toOutPair txOutAux = (toAddress txOutAux, toCoin txOutAux)
+
+fromUtxo :: Core.Utxo -> Maybe (NE.NonEmpty (Core.Address, Core.Coin))
+fromUtxo utxo = NE.nonEmpty $ toOutPair <$> Map.elems utxo
+
+derefIn :: Core.TxIn -> Maybe (Core.TxId, Word32)
+derefIn txIn = case txIn of
+   Core.TxInUnknown _ _  -> Nothing
+   Core.TxInUtxo txId ix -> Just (txId, ix)
+
+{-------------------------------------------------------------------------------
   Internal auxiliary
 -------------------------------------------------------------------------------}
 
 -- | Gets the underlying value (as a 'Coin') from a 'TxOutAux'.
 toCoin :: Core.TxOutAux -> Core.Coin
 toCoin = Core.txOutValue . Core.toaOut
+
+-- | Gets the underlying address from a 'TxOutAux'.
+toAddress :: Core.TxOutAux -> Core.Address
+toAddress = Core.txOutAddress . Core.toaOut
 
 outs :: Core.Tx -> [(Word32, Core.TxOut)]
 outs tx = enumerate $ toList $ tx ^. Core.txOutputs

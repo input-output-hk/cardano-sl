@@ -12,7 +12,7 @@ import qualified Control.Concurrent.STM as STM
 import           Data.Maybe (fromJust)
 import           System.Wlog (Severity (Debug))
 
-import           Pos.Chain.Block (Blund, Undo (..))
+import           Pos.Chain.Block (Blund, Undo (..), mainBlockSlot)
 import qualified Pos.Core as Core
 import           Pos.Core.Chrono (OldestFirst (..))
 
@@ -22,10 +22,11 @@ import qualified Cardano.Wallet.Kernel.BListener as Kernel
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
-import           Cardano.Wallet.Kernel.NodeStateAdaptor (NodeStateAdaptor)
+import           Cardano.Wallet.Kernel.NodeStateAdaptor
 import qualified Cardano.Wallet.Kernel.Read as Kernel
 import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..),
                      fromRawResolvedBlock)
+import           Cardano.Wallet.Kernel.Util.Core (getCurrentTimestamp)
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),
                      PassiveWalletLayer (..))
 import qualified Cardano.Wallet.WalletLayer.Kernel.Accounts as Accounts
@@ -42,19 +43,26 @@ bracketPassiveWallet
     -> Keystore
     -> NodeStateAdaptor IO
     -> (PassiveWalletLayer n -> Kernel.PassiveWallet -> m a) -> m a
-bracketPassiveWallet logFunction keystore rocksDB f =
+bracketPassiveWallet logFunction keystore rocksDB f = do
     Kernel.bracketPassiveWallet logFunction keystore rocksDB $ \w -> do
       let wai = Actions.WalletActionInterp
-                 { Actions.applyBlocks = \blunds ->
-                     Kernel.applyBlocks w
-                        (OldestFirst (mapMaybe blundToResolvedBlock
-                           (toList (getOldestFirst blunds))))
+                 { Actions.applyBlocks = \blunds -> do
+                    ls <- mapM (blundToResolvedBlock getTime)
+                        (toList (getOldestFirst blunds))
+                    let mp = catMaybes ls
+                    Kernel.applyBlocks w (OldestFirst mp)
                  , Actions.switchToFork = \_ _ ->
                      logFunction Debug "<switchToFork>"
                  , Actions.emit = logFunction Debug }
       Actions.withWalletWorker wai $ \invoke -> do
          f (passiveWalletLayer w invoke) w
   where
+    getTime :: Core.SlotId -> IO Core.Timestamp
+    getTime n = do
+        time <- rightToMaybe <$> getSlotStart rocksDB n
+        defaultTime <- getCurrentTimestamp
+        return $ fromMaybe defaultTime time
+
     passiveWalletLayer :: Kernel.PassiveWallet
                        -> (Actions.WalletAction Blund -> STM ())
                        -> PassiveWalletLayer n
@@ -90,14 +98,17 @@ bracketPassiveWallet logFunction keystore rocksDB f =
 
     -- The use of the unsafe constructor 'UnsafeRawResolvedBlock' is justified
     -- by the invariants established in the 'Blund'.
-    blundToResolvedBlock :: Blund -> Maybe ResolvedBlock
-    blundToResolvedBlock (b,u)
-        = rightToJust b <&> \mainBlock ->
-            fromRawResolvedBlock $
-              UnsafeRawResolvedBlock mainBlock spentOutputs'
+    blundToResolvedBlock :: (Core.SlotId -> IO Core.Timestamp) -> Blund -> IO (Maybe ResolvedBlock)
+    blundToResolvedBlock getTimeBySlot (b,u) = do
+        case b of
+            Left _ ->  return Nothing
+            Right mainBlock ->  do
+                let slot = mainBlock ^. mainBlockSlot
+                time <- getTimeBySlot slot
+                return . Just $ fromRawResolvedBlock
+                    (UnsafeRawResolvedBlock mainBlock spentOutputs' time)
         where
             spentOutputs' = map (map fromJust) $ undoTx u
-            rightToJust   = either (const Nothing) Just
 
 -- | Initialize the active wallet.
 -- The active wallet is allowed to send transactions, as it has the full

@@ -36,10 +36,12 @@ module Cardano.Wallet.Kernel.DB.TxMeta.Types (
   -- * Strict & lenient equalities
   , exactlyEqualTo
   , isomorphicTo
+  , txIdIsomorphic
 
   -- * Internals useful for testing
   , uniqueElements
   , quadF
+  , PutReturn (..)
   ) where
 
 import           Universum
@@ -79,7 +81,7 @@ data TxMeta = TxMeta {
     , _txMetaAmount     :: Core.Coin
 
       -- | Transaction inputs
-    , _txMetaInputs     :: NonEmpty (Core.Address, Core.Coin, Txp.TxId, Word32)
+    , _txMetaInputs     :: NonEmpty (Txp.TxId, Word32, Core.Address, Core.Coin)
 
       -- | Transaction outputs
     , _txMetaOutputs    :: NonEmpty (Core.Address, Core.Coin)
@@ -140,22 +142,31 @@ isomorphicTo t1 t2 =
         , t1 ^. txMetaAccountIx == t2 ^. txMetaAccountIx
         ]
 
+-- This means TxMeta have same Inputs and TxId.
+txIdIsomorphic :: TxMeta -> TxMeta -> Bool
+txIdIsomorphic t1 t2 =
+    and [ t1 ^. txMetaId == t2 ^. txMetaId
+        , NonEmpty.sort (t1 ^. txMetaInputs)  == NonEmpty.sort (t2 ^. txMetaInputs)
+        , t1 ^. txMetaOutputs == t2 ^. txMetaOutputs
+        ]
+
 type AccountIx = Word32
 type WalletId = Core.Address
 -- | Filter Operations on Accounts. This is hiererchical: you can`t have AccountIx without WalletId.
 data AccountFops = Everything | AccountFops WalletId (Maybe AccountIx)
 
 data InvariantViolation =
-        DuplicatedTransactionWithDifferentHash Txp.TxId
-        -- ^ When attempting to insert a new 'MetaTx', the 'Txp.TxId'
+        DuplicatedTransactionWithDifferentValues Txp.TxId Core.Address Word32
+        -- ^ When attempting to insert a new 'MetaTx', the Primary key
         -- identifying this transaction was already present in the storage,
-        -- but when computing the 'Hash' of two 'TxMeta', these values were not
-        -- the same, meaning somebody is trying to re-insert the same 'Tx' in
-        -- the storage with different values (i.e. different inputs/outputs etc)
-        -- and this is effectively an invariant violation.
+        -- but  these values were not the same, meaning somebody is trying to
+        -- re-insert the same 'Tx' in the storage with different values (i.e.
+        -- different inputs/outputs etc) and this is effectively an invariant
+        -- violation.
       | DuplicatedInputIn  Txp.TxId
       | DuplicatedOutputIn Txp.TxId
-      | UndisputableLookupFailed Text Txp.TxId
+      | UndisputableLookupFailed Text
+      | TxIdInvariantViolated Txp.TxId
         -- ^ When looking up a transaction which the storage claims to be
         -- already present as a duplicate, such lookup failed. This is an
         -- invariant violation because a 'TxMeta' storage is append-only,
@@ -265,6 +276,11 @@ data FilterOrdering =
     | LesserThanEqual
     deriving (Show, Eq, Enum, Bounded)
 
+data PutReturn = Tx | Meta | No
+    deriving (Show, Eq, Enum, Bounded)
+
+instance Buildable PutReturn where
+  build ret = bprint shown ret
 
 -- | An opaque handle to the underlying storage, which can be easily instantiated
 -- to a more concrete implementation like a Sqlite database, or even a pure
@@ -272,8 +288,10 @@ data FilterOrdering =
 data MetaDBHandle = MetaDBHandle {
       closeMetaDB   :: IO ()
     , migrateMetaDB :: IO ()
-    , getTxMeta     :: Txp.TxId -> IO (Maybe TxMeta)
+    , getTxMeta     :: Txp.TxId -> Core.Address -> Word32 -> IO (Maybe TxMeta)
     , putTxMeta     :: TxMeta -> IO ()
+    , putTxMetaT    :: TxMeta -> IO PutReturn
+    , getAllTxMetas :: IO [TxMeta]
     , getTxMetas    :: Offset -- Pagination: the starting offset of results.
                     -> Limit  -- An upper limit of the length of [TxMeta] returned.
                     -> AccountFops -- Filters on the Account. This may specidy an Account or a Wallet.

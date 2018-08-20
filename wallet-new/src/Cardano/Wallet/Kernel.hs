@@ -64,17 +64,18 @@ bracketPassiveWallet logMsg keystore node f =
                   (\_ -> return ())
                   f)
 
-
 data WalletHandles = Handles {
     hAcid :: AcidState DB,
     hMeta :: MetaDBHandle
 }
 
+-- TODO(kde): this will be run with asynchronous exceptions masked.
+-- and we should rethink if migrateMetaDB should happen here.
 handlesOpen :: IO WalletHandles
 handlesOpen = do
     db <- openMemoryState defDB
     metadb <- openMetaDB ":memory:" -- TODO: CBR-378
-    migrateMetaDB metadb            -- TODO: this will be run with asynchronous exceptions masked.
+    migrateMetaDB metadb
     return $ Handles db metadb
 
 handlesClose :: WalletHandles -> IO ()

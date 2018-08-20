@@ -9,6 +9,7 @@ import           Cardano.Wallet.Client.Http
 import           Control.Concurrent (threadDelay)
 import           Control.Lens
 import qualified Data.List.NonEmpty as NL
+import qualified Data.Map.Strict as Map
 import qualified Pos.Core as Core
 import           Test.Hspec
 import           Text.Show.Pretty (ppShow)
@@ -210,18 +211,20 @@ transactionSpecs wRef wc = do
                     , pmtSpendingPassword = Nothing
                     }
 
-            let possibleBuckets = fmap show $ (generateBounds Log10)
+            let possibleBuckets = NL.toList $ generateBounds Log10
 
             eresp0 <- getUtxoStatistics wc (walId wallet)
             utxoStatistics0 <- fmap wrData eresp0 `shouldPrism` _Right
-            let histogram0 = NL.zipWith HistogramBarCount possibleBuckets (NL.repeat 0)
+            let histogram0 = Map.fromList $ zip possibleBuckets (repeat 0)
             let allStakes0 = 0
-            utxoStatistics0 `shouldBe` UtxoStatistics (NL.toList histogram0) allStakes0
+            utxoStatistics0Expected <- mkUtxoStatistics histogram0 allStakes0 `shouldPrism` _Right
+            utxoStatistics0 `shouldBe` utxoStatistics0Expected
 
             void $ postTransaction wc (payment 1)
             threadDelay 120000000
             eresp <- getUtxoStatistics wc (walId wallet)
             utxoStatistics <- fmap wrData eresp `shouldPrism` _Right
-            let histogram = NL.zipWith HistogramBarCount  possibleBuckets (NL.cons (1::Word64) (NL.repeat 0) )
+            let histogram = Map.fromList $ zip possibleBuckets (cons (1::Word64) (repeat 0))
             let allStakes = 1
-            utxoStatistics `shouldBe` UtxoStatistics (NL.toList histogram) allStakes
+            utxoStatisticsExpected <- mkUtxoStatistics histogram allStakes `shouldPrism` _Right
+            utxoStatistics `shouldBe` utxoStatisticsExpected

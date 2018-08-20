@@ -1044,6 +1044,17 @@ so we want to make the transition gradual,
 monitoring system performance and being able to temporarily delay or even
 revert decentralization in case of an emergency.
 
+Another consideration is the amount of stake that is necessary to
+mount a 51% attack on the system. Since participating in the PoS
+protocol requires an action on behalf of the stakeholders -- registering
+their stake key and delegating -- it is not unreasonable to expect
+that it will take some time until a significant fraction of the
+overall stake becomes active and starts contributing to the
+protocol. An attacker might use this window of opportunity to attack
+the system. A gradual handover of the protocol from the initial core
+nodes to the actual stakeholders will protect the integrity of the
+blockchain.
+
 ### Proposal
 
 We propose to introduce a new parameter $d\in[0,1]$,
@@ -1079,7 +1090,7 @@ plan we'll be outlining next.
 
 We plan to start with $d=0.9$ and then decrease $d$ by $0.1$ each epoch,
 _provided pool leader block creation is sufficient to guarantee chain growth
-quality_.
+quality, and a sufficient fraction of active stake_.
 
 If block creation is insufficient, we will halt lowering $d$ (or even increase
 $d$ again) until we have reason to believe that the problem has been understood
@@ -1106,6 +1117,16 @@ $b\leq 2160-1261=899$) leads to $P(X\geq 2160)\geq 1-10^{-10}$, so we will
 proceed with $d=0.8$ in the second epoch.
 If however at least 900 slots are missed, we will keep $d$ at $0.9$ for the time
 being.
+
+In addition to monitoring the number of missed blocks, we will also
+look at the fraction of stake that is active (i.e., is stored in
+addresses which belong to a registered staking key that is delegating
+to a stake pool). The lower this ratio, the less stake is required to
+launch a 51% attack on the system. This can be offset by increasing
+$d$. For example, if $d \geq 0.5$, it is impossible to launch a 51%
+attack. We can specify an amuont of stake controlled by an adversary
+that we want the system to be resilient against, and delay reducing
+$d$ in order to meet this level of resistance.
 
 ## Rewards
 

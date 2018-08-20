@@ -777,14 +777,14 @@ key of the previous one.
 
 While the delegation research paper in principle allows a significant
 degree of flexibility with delegation, our chosen design is quite
-restrictive and uses a fixed pattern of delegation. In order, we have:
+restrictive and uses a fixed pattern of delegation.
 
 We will only allow a very simple form of chain delegation, where we
-have zero or one of each of the following certificates, in that order:
+have the following, in order:
 
- 1. a base or pointer address
- 2. a heavyweight delegation certificate
- 3. optionally, a lightweight certificate
+ 1. a base or pointer address;
+ 2. a heavyweight delegation certificate; and
+ 3. optionally, a lightweight certificate.
 
 This restricted pattern of chain delegation allows us to satisfy all
 requirements, but avoids problematic cycles in the graph of delegation

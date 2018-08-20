@@ -11,7 +11,8 @@ import qualified Data.Map.Strict as Map
 import           Data.Monoid (Sum (..))
 import qualified Data.Set as Set
 import           Pos.Core.Chrono
-import           Universum
+import           Universum hiding (Show, show)
+import           Prelude (Show(..))
 import qualified UTxO.DSL as DSL
 
 -- | In the abstract DSL, we identify transactions with integers.
@@ -69,9 +70,9 @@ data Output (h :: * -> *) a = Output
   , outRepartition :: Repartition a
   }
 
--- TODO(md): Have to finish implementing this one
--- instance (Show a) => Show (Output h a) where
---     show o = "Output: outAddr = " ++ outAddr o ++ ", outVal = " ++ outVal o ++ ", outRepartition = /scrambled/"
+instance Show a => Show (Output h a) where
+    show o = "Output: outAddr = " ++ (show $ outAddr o) ++ ", outVal = " ++
+                (show $ outVal o) ++ ", outRepartition = /scrambled/"
 
 -- TODO(md): This is just a work-around for not being able to define an Eq
 -- instance for Repartition a
@@ -102,7 +103,7 @@ data Transaction h a = Transaction
   -- ^ Free-form comments, used for debugging
   , trWitness :: NE a
   -- ^ Transaction witnesses. There should be one witness per transaction input.
-  } deriving (Eq) -- TODO(md): Add the Show class here
+  } deriving (Eq, Show)
 
 -- | The abstract transaction has the same hash as the underlying DSL transaction.
 hash :: DSL.Hash h a

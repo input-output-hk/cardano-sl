@@ -3,18 +3,18 @@ module Cardano.Wallet.API.Response.Filter.IxSet (
       applyFilters
       ) where
 
-import           Cardano.Wallet.API.Indices (Indexable', IsIndexOf', IxSet')
+import           Cardano.Wallet.API.Indices (Indexable, IsIndexOf, IxSet)
 import qualified Cardano.Wallet.API.Request.Filter as F
-import           Data.IxSet.Typed ((@+), (@<), (@<=), (@=), (@>), (@>=),
-                     (@>=<=))
+import           Cardano.Wallet.Kernel.DB.Util.IxSet ((@+), (@<), (@<=), (@=),
+                     (@>), (@>=), (@>=<=))
 
 -- | Applies all the input filters to the input 'IxSet''.
-applyFilters :: Indexable' a => F.FilterOperations a -> IxSet' a -> IxSet' a
+applyFilters :: Indexable a => F.FilterOperations a -> IxSet a -> IxSet a
 applyFilters F.NoFilters iset        = iset
 applyFilters (F.FilterOp f fop) iset = applyFilters fop (applyFilter f iset)
 
 -- | Applies a single 'FilterOperation' on the input 'IxSet'', producing another 'IxSet'' as output.
-applyFilter :: forall ix a. (Indexable' a , IsIndexOf' a ix) => F.FilterOperation ix a -> IxSet' a -> IxSet' a
+applyFilter :: forall ix a. (Indexable a , IsIndexOf ix a) => F.FilterOperation ix a -> IxSet a -> IxSet a
 applyFilter fltr inputData =
     let byPredicate o i = case o of
             F.Equal            -> inputData @= (i :: ix)

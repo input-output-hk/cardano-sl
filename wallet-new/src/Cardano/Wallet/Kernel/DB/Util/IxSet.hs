@@ -11,6 +11,7 @@ module Cardano.Wallet.Kernel.DB.Util.IxSet (
   , IndicesOf
   , IxSet
   , Indexable
+  , IsIndexOf
   , AutoIncrementKey(..)
   , Indexed (..)
   , ixedIndexed
@@ -19,32 +20,65 @@ module Cardano.Wallet.Kernel.DB.Util.IxSet (
   , ixFun
   , ixList
     -- * Queries
-  , getEQ
   , member
   , size
   , null
   , getOne
   , toMap
-  , (@>=<=)
-    -- * Construction
+    -- * Changes to set
+  , change
+  , insert
+  , insertList
+  , delete
+  , updateIx
+  , deleteIx
+    -- * Creation
+  , empty
   , fromList
   , singleton
+    -- * Indexing
+  , (@=)
+  , (@<)
+  , (@>)
+  , (@<=)
+  , (@>=)
+  , (@><)
+  , (@>=<)
+  , (@><=)
+  , (@>=<=)
+  , (@+)
+  , (@*)
+  , getEQ
+  , getLT
+  , getGT
+  , getLTE
+  , getGTE
+  , getRange
+  , groupBy
+  , groupAscBy
+  , groupDescBy
+    -- * Traversal
   , omap
   , otraverse
   , otraverseCollect
   , foldl'
-  , emptyIxSet
     -- * Destruction
   , toList
+  , toAscList
+  , toDescList
+    -- * Re-exports
+  , IndexOp
+  , SetOp
   ) where
 
 import qualified Prelude
-import           Universum hiding (Foldable, foldl', null, toList)
+import           Universum hiding (Foldable, empty, foldl', null, toList)
 
 import qualified Control.Lens as Lens
 import           Data.Coerce (coerce)
 import           Data.Foldable (Foldable)
 import qualified Data.Foldable
+import           Data.IxSet.Typed (IndexOp, SetOp)
 import qualified Data.IxSet.Typed as IxSet
 import qualified Data.Map.Strict as Map
 import           Data.SafeCopy (SafeCopy (..), base, deriveSafeCopy)
@@ -116,7 +150,6 @@ instance Buildable a => Buildable (Indexed a) where
         bprint ("{ k = " % build %
                 ", v = " % build %
                 "}") idx r
-
 
 {-------------------------------------------------------------------------------
   Wrap IxSet
@@ -191,28 +224,148 @@ instance (HasPrimKey a, Indexable a) => Lens.At (IxSet a) where
       upd (Just a) = WrapIxSet $ IxSet.updateIx pk (WrapOrdByPrimKey a) s
 
 {-------------------------------------------------------------------------------
-  Queries
+  Internal: lift operations on the underlying IxSet
 -------------------------------------------------------------------------------}
 
+liftInfix :: (   IxSet.IxSet (PrimKey a : IndicesOf a) (OrdByPrimKey a)
+                -> b
+                -> IxSet.IxSet (PrimKey a : IndicesOf a) (OrdByPrimKey a))
+            -> IxSet a -> b -> IxSet a
+liftInfix = coerce
+
+liftOp :: (   IxSet.IxSet (PrimKey a : IndicesOf a) (OrdByPrimKey a)
+           -> IxSet.IxSet (PrimKey a : IndicesOf a) (OrdByPrimKey a))
+       -> IxSet a -> IxSet a
+liftOp = coerce
+
+liftProj :: (   IxSet.IxSet (PrimKey a : IndicesOf a) (OrdByPrimKey a)
+             -> z)
+         -> IxSet a -> z
+liftProj = coerce
+
+{-------------------------------------------------------------------------------
+  Changes to set
+-------------------------------------------------------------------------------}
+
+change :: Indexable a => SetOp -> IndexOp -> a -> IxSet a -> IxSet a
+change setOp ixOp a = liftOp $ IxSet.change setOp ixOp (coerce a)
+
+insert :: Indexable a => a -> IxSet a -> IxSet a
+insert a = liftOp $ IxSet.insert (coerce a)
+
+insertList :: Indexable a => [a] -> IxSet a -> IxSet a
+insertList as = liftOp $ IxSet.insertList (coerce as)
+
+delete :: Indexable a => a -> IxSet a -> IxSet a
+delete a = liftOp $ IxSet.delete (coerce a)
+
+updateIx :: (Indexable a, IsIndexOf ix a) => ix -> a -> IxSet a -> IxSet a
+updateIx ix a = liftOp $ IxSet.updateIx ix (coerce a)
+
+deleteIx :: (Indexable a, IsIndexOf ix a) => ix -> IxSet a -> IxSet a
+deleteIx ix = liftOp $ IxSet.deleteIx ix
+
+{-------------------------------------------------------------------------------
+  Creation
+-------------------------------------------------------------------------------}
+
+empty :: Indexable a => IxSet a
+empty = coerce IxSet.empty
+
+fromList :: Indexable a => [a] -> IxSet a
+fromList = coerce . IxSet.fromList . coerce
+
+-- | Construct 'IxSet' from a single element
+singleton :: Indexable a => a -> IxSet a
+singleton = fromList . (:[])
+
+{-------------------------------------------------------------------------------
+  Indexing
+-------------------------------------------------------------------------------}
+
+(@=) :: (Indexable a, IsIndexOf ix a) => IxSet a -> ix -> IxSet a
+(@=) = liftInfix (IxSet.@=)
+
+(@<) :: (Indexable a, IsIndexOf ix a) => IxSet a -> ix -> IxSet a
+(@<) = liftInfix (IxSet.@<)
+
+(@>) :: (Indexable a, IsIndexOf ix a) => IxSet a -> ix -> IxSet a
+(@>) = liftInfix (IxSet.@>)
+
+(@<=) :: (Indexable a, IsIndexOf ix a) => IxSet a -> ix -> IxSet a
+(@<=) = liftInfix (IxSet.@<=)
+
+(@>=) :: (Indexable a, IsIndexOf ix a) => IxSet a -> ix -> IxSet a
+(@>=) = liftInfix (IxSet.@>=)
+
+(@><) :: (Indexable a, IsIndexOf ix a) => IxSet a -> (ix, ix) -> IxSet a
+(@><) = liftInfix (IxSet.@><)
+
+(@>=<) :: (Indexable a, IsIndexOf ix a) => IxSet a -> (ix, ix) -> IxSet a
+(@>=<) = liftInfix (IxSet.@>=<)
+
+(@><=) :: (Indexable a, IsIndexOf ix a) => IxSet a -> (ix, ix) -> IxSet a
+(@><=) = liftInfix (IxSet.@><=)
+
+(@>=<=) :: (Indexable a, IsIndexOf ix a) => IxSet a -> (ix, ix) -> IxSet a
+(@>=<=) = liftInfix (IxSet.@>=<=)
+
+(@+) :: (Indexable a, IsIndexOf ix a) => IxSet a -> [ix] -> IxSet a
+(@+) = liftInfix (IxSet.@+)
+
+(@*) :: (Indexable a, IsIndexOf ix a) => IxSet a -> [ix] -> IxSet a
+(@*) = liftInfix (IxSet.@*)
+
 getEQ :: (Indexable a, IsIndexOf ix a) => ix -> IxSet a -> IxSet a
-getEQ ix = WrapIxSet . IxSet.getEQ ix . unwrapIxSet
+getEQ = liftOp . IxSet.getEQ
+
+getLT :: (Indexable a, IsIndexOf ix a) => ix -> IxSet a -> IxSet a
+getLT = liftOp . IxSet.getLT
+
+getGT :: (Indexable a, IsIndexOf ix a) => ix -> IxSet a -> IxSet a
+getGT = liftOp . IxSet.getGT
+
+getLTE :: (Indexable a, IsIndexOf ix a) => ix -> IxSet a -> IxSet a
+getLTE = liftOp . IxSet.getLTE
+
+getGTE :: (Indexable a, IsIndexOf ix a) => ix -> IxSet a -> IxSet a
+getGTE = liftOp . IxSet.getGTE
+
+getRange :: (Indexable a, IsIndexOf ix a) => ix -> ix -> IxSet a -> IxSet a
+getRange lo hi = liftOp $ IxSet.getRange lo hi
+
+groupBy :: forall ix a. IsIndexOf ix a => IxSet a -> [(ix, [a])]
+groupBy = (coerce :: [(ix, [OrdByPrimKey a])] -> [(ix, [a])])
+        . liftProj IxSet.groupBy
+
+groupAscBy :: IsIndexOf ix a => IxSet a -> [(ix, [a])]
+groupAscBy = (coerce :: [(ix, [OrdByPrimKey a])] -> [(ix, [a])])
+           . liftProj IxSet.groupAscBy
+
+groupDescBy :: IsIndexOf ix a => IxSet a -> [(ix, [a])]
+groupDescBy = (coerce :: [(ix, [OrdByPrimKey a])] -> [(ix, [a])])
+            . liftProj IxSet.groupDescBy
+
+{-------------------------------------------------------------------------------
+  Queries
+-------------------------------------------------------------------------------}
 
 member :: (HasPrimKey a, Indexable a) => PrimKey a -> IxSet a -> Bool
 member pk = isJust . view (Lens.at pk)
 
 size :: IxSet a -> Int
-size = IxSet.size . unwrapIxSet
+size = liftProj IxSet.size
 
 -- | Whether or not this 'IxSet' contains no elements.
 null :: IxSet a -> Bool
-null = IxSet.null . unwrapIxSet
+null = liftProj IxSet.null
 
 -- | Safely returns the 'head' of this 'IxSet', but only if it is a singleton
 -- one, i.e. only if it has @exactly@ one element in it. Usually this is
 -- used in tandem with 'getEQ' to witness the existence of exactly one element
 -- in the set indexed by a particular index.
 getOne :: HasPrimKey a => IxSet a -> Maybe a
-getOne = fmap coerce . IxSet.getOne . unwrapIxSet
+getOne = coerce . liftProj IxSet.getOne
 
 -- | Project out the underlying set
 --
@@ -224,24 +377,9 @@ toMap = Map.mapKeysMonotonic (primKey . unwrapOrdByPrimKey)
       . IxSet.toSet
       . unwrapIxSet
 
-(@>=<=) :: (Indexable a, IsIndexOf ix a)
-        => IxSet a
-        -> (ix, ix)
-        -> IxSet a
-(WrapIxSet native) @>=<= interval = WrapIxSet (native IxSet.@>=<= interval)
-
-
 {-------------------------------------------------------------------------------
-  Construction
+  Traversal
 -------------------------------------------------------------------------------}
-
--- | Construct 'IxSet' from a list
-fromList :: Indexable a => [a] -> IxSet a
-fromList = WrapIxSet . IxSet.fromList . coerce
-
--- | Construct 'IxSet' from a single element
-singleton :: Indexable a => a -> IxSet a
-singleton = fromList . (:[])
 
 -- | Monomorphic map over an 'IxSet'
 --
@@ -272,11 +410,6 @@ otraverseCollect f =
   where
     f' :: a -> Collect [(PrimKey a, b)] f a
     f' = Collect . fmap (\(a, b) -> (a, [(primKey a, b)])) . f
-
-emptyIxSet :: forall a.
-              Indexable a
-           => IxSet a
-emptyIxSet = WrapIxSet IxSet.empty
 
 -- | Strict left fold over an 'IxSet'.
 foldl' :: (acc -> a -> acc)
@@ -311,7 +444,13 @@ instance Foldable IxSet where
 -- You probably want to use this function only at application boundaries, i.e.
 -- before the data gets consumed by the web handlers.
 toList :: IxSet a -> [a]
-toList = coerce . IxSet.toList . unwrapIxSet
+toList = coerce . liftProj IxSet.toList
+
+toAscList :: IsIndexOf ix a => proxy ix -> IxSet a -> [a]
+toAscList p = coerce . liftProj (IxSet.toAscList p)
+
+toDescList :: IsIndexOf ix a => proxy ix -> IxSet a -> [a]
+toDescList p = coerce . liftProj (IxSet.toDescList p)
 
 {-------------------------------------------------------------------------------
   Other miscellanea instances for IxSet

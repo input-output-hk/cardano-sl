@@ -10,9 +10,6 @@ import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer (..))
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
 
-import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as KernelIxSet
-import qualified Data.IxSet.Typed as IxSet
-
 import           Servant
 
 -- | All the @Servant@ handlers for wallet-specific operations.
@@ -53,10 +50,7 @@ listWallets pwl params fops sops = do
     respondWith params
         fops
         sops
-        -- FIXME(adn) [CBR-347] We need to unify these two IxSet
-        -- wrappers, but for now let's pay the full conversion price
-        -- to get the feature shipped.
-        (pure $ IxSet.fromList . KernelIxSet.toList $ wallets)
+        (pure wallets)
 
 updatePassword :: PassiveWalletLayer IO
                -> WalletId

@@ -23,7 +23,7 @@ import           Prelude
 import           Universum (Buildable, Exception, Text, decodeUtf8, toText,
                      (<>))
 
-import           Control.Lens
+import           Control.Lens hiding (Indexable)
 import           Data.Aeson (FromJSON (..), ToJSON (..), eitherDecode, encode)
 import           Data.Aeson.Encode.Pretty (encodePretty)
 import qualified Data.Aeson.Options as Serokell
@@ -40,7 +40,7 @@ import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..),
                      MimeUnrender (..), OctetStream)
 import           Test.QuickCheck
 
-import           Cardano.Wallet.API.Indices (Indexable', IxSet')
+import           Cardano.Wallet.API.Indices (Indexable, IxSet)
 import           Cardano.Wallet.API.Request (RequestParams (..))
 import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
 import           Cardano.Wallet.API.Request.Pagination (Page (..),
@@ -160,13 +160,13 @@ instance Example a => Example (WalletResponse a) where
 -- lazyness to avoid work. This might not be optimal in terms of performances and we might need to swap sorting
 -- and pagination.
 --
-respondWith :: (Monad m, Indexable' a)
+respondWith :: (Monad m, Indexable a)
             => RequestParams
             -> FilterOperations a
             -- ^ Filtering operations to perform on the data.
             -> SortOperations a
             -- ^ Sorting operations to perform on the data.
-            -> m (IxSet' a)
+            -> m (IxSet a)
             -- ^ The monadic action which produces the results.
             -> m (WalletResponse [a])
 respondWith RequestParams{..} fops sorts generator = do

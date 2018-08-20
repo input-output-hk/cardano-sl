@@ -7,17 +7,16 @@ import           Universum
 
 import qualified Data.Set as Set
 
-import           Cardano.Wallet.API.Indices (Indexable', IsIndexOf',
-                     ToIndex (..))
+import           Cardano.Wallet.API.Indices (Indexable, IsIndexOf, ToIndex (..))
 import qualified Cardano.Wallet.API.Request.Filter as F
 
 -- | Applies all the input filters to the input list.
-applyFilters :: (MonadPlus m, Indexable' a) => F.FilterOperations a -> m a -> m a
+applyFilters :: (MonadPlus m, Indexable a) => F.FilterOperations a -> m a -> m a
 applyFilters F.NoFilters inputData        = inputData
 applyFilters (F.FilterOp f fop) inputData = applyFilters fop (applyFilter f inputData)
 
 -- | Applies a single 'FilterOperation' on the input data, producing filtered data as output.
-applyFilter :: forall ix a m. (IsIndexOf' a ix, MonadPlus m, ToIndex a ix)
+applyFilter :: forall ix a m. (IsIndexOf ix a, MonadPlus m, ToIndex a ix)
             => F.FilterOperation ix a
             -> m a
             -> m a

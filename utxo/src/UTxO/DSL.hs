@@ -262,7 +262,7 @@ data Output (h :: * -> *) a = Output {
       outAddr :: a
     , outVal  :: Value
     }
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Show)
 
 {-------------------------------------------------------------------------------
   Inputs
@@ -280,6 +280,10 @@ data Input h a = Input
 
 deriving instance Hash h a => Eq  (Input h a)
 deriving instance Hash h a => Ord (Input h a)
+
+-- TODO(md): This should be a temporary instance
+instance Universum.Show (Input h a) where
+    show i = Universum.show $ inpIndex i
 
 -- | Obtain the 'Transaction' to which 'Input' refers.
 --

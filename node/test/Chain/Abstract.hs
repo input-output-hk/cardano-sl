@@ -69,6 +69,10 @@ data Output (h :: * -> *) a = Output
   , outRepartition :: Repartition a
   }
 
+-- TODO(md): Have to finish implementing this one
+-- instance (Show a) => Show (Output h a) where
+--     show o = "Output: outAddr = " ++ outAddr o ++ ", outVal = " ++ outVal o ++ ", outRepartition = /scrambled/"
+
 -- TODO(md): This is just a work-around for not being able to define an Eq
 -- instance for Repartition a
 instance Eq a => Eq (Output h a) where
@@ -98,7 +102,7 @@ data Transaction h a = Transaction
   -- ^ Free-form comments, used for debugging
   , trWitness :: NE a
   -- ^ Transaction witnesses. There should be one witness per transaction input.
-  } deriving (Eq)
+  } deriving (Eq) -- TODO(md): Add the Show class here
 
 -- | The abstract transaction has the same hash as the underlying DSL transaction.
 hash :: DSL.Hash h a

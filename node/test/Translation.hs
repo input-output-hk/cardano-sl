@@ -1,6 +1,18 @@
 -- | Test that we can translate from UTxO to the abstract chain.
 module Translation
     ( spec
+    -- , addrs
+    -- , oDsl0
+    -- , trDsl0
+    -- , inDsl1
+    -- , oDsl1
+    -- , trDsl1
+    -- , blDsl
+    -- , chDsl
+    -- , oAbs
+    -- , trAbs1
+    -- , blAbs
+    -- , chAbs
     ) where
 
 import           Chain.Abstract
@@ -59,7 +71,7 @@ trDsl1 = DSL.Transaction
         , trFee   = 3 :: DSL.Value
         , trHash  = 54209842 :: Int
         , trExtra = [] }
-blDsl = OldestFirst { getOldestFirst = [trDsl0, trDsl1] }
+blDsl = OldestFirst { getOldestFirst = [trDsl1] }
 chDsl = OldestFirst { getOldestFirst = [blDsl] }
 
 oAbs = Abs.Output
@@ -88,12 +100,9 @@ chAbs = OldestFirst { getOldestFirst = [blAbs] }
 spec :: Spec
 spec = do
     describe "Chain translation verification" $ do
-      it "A bootstrap transaction must contain at least one output and no input" $ do
-        -- let addrs = (Addr (IxRich 0) 0) :| [] -- from UTxO.Context
-
+      it "A DSL output should match an abstract output" $ do
         -- TODO(md): see about Show instances for types when using `shouldBe`
         outDSL oAbs `shouldBe` oDsl0
-
+      it "The 'translate' function should convert a DSL chain to an abstract chain" $ do
         -- TODO(md): Finalise this property
-        translate @DSL.GivenHash @Identity @IntException addrs chDsl [] `shouldBe` (return $ Right chAbs)
-        -- pending
+        translate @DSL.GivenHash @Identity @IntException addrs chDsl [] `shouldBe` (Identity $ Right chAbs)

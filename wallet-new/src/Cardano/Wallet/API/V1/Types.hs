@@ -136,7 +136,8 @@ import           Data.Aeson.Types (Value (..), toJSONKeyText, typeMismatch)
 import           Data.Bifunctor (first)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
-import           Data.ByteString.Base58 (bitcoinAlphabet, encodeBase58)
+import           Data.ByteString.Base58 (bitcoinAlphabet, decodeBase58,
+                     encodeBase58)
 import qualified Data.Char as C
 import           Data.Default (Default (def))
 import qualified Data.Map.Strict as Map
@@ -601,6 +602,15 @@ instance BuildableSafeGen PublicKeyAsBase58 where
         %" publicKeyAsBase58="%buildSafe sl
         %" }")
         ewalPublicKeyAsBase58
+
+instance FromHttpApiData PublicKeyAsBase58 where
+    parseQueryParam someText =
+        case decodeBase58 bitcoinAlphabet (encodeUtf8 someText) of
+            Nothing -> Left "Must be extended public key encoded in Base58-format."
+            Just _  -> Right $ PublicKeyAsBase58Unsafe someText
+
+instance ToHttpApiData PublicKeyAsBase58 where
+    toQueryParam (PublicKeyAsBase58Unsafe pk) = pk
 
 -- | Smart constructor for 'PublicKeyAsBase58'.
 mkPublicKeyAsBase58 :: PublicKey -> PublicKeyAsBase58
@@ -2662,7 +2672,6 @@ type family New (original :: *) :: * where
 type CaptureWalletId = Capture "walletId" WalletId
 
 type CaptureAccountId = Capture "accountId" AccountIndex
-
 
 --
 -- Example typeclass instances

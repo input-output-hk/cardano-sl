@@ -87,6 +87,12 @@ data WalletClient m
         :: WalletId -> Resp m Wallet
     , updateWallet
          :: WalletId -> Update Wallet -> Resp m Wallet
+    , postCheckExternalWallet
+         :: PublicKeyAsBase58 -> Resp m WalletAndTxHistory
+    , postExternalWallet
+         :: New ExternalWallet -> Resp m Wallet
+    , deleteExternalWallet
+         :: PublicKeyAsBase58 -> m (Either ClientError ())
     -- account endpoints
     , deleteAccount
          :: WalletId -> AccountIndex -> m (Either ClientError ())
@@ -210,6 +216,12 @@ hoistClient phi wc = WalletClient
         phi . getWallet wc
     , updateWallet =
         \x -> phi . updateWallet wc x
+    , postCheckExternalWallet =
+        phi . postCheckExternalWallet wc
+    , postExternalWallet =
+        phi . postExternalWallet wc
+    , deleteExternalWallet =
+        phi . deleteExternalWallet wc
     , deleteAccount =
         \x -> phi . deleteAccount wc x
     , getAccount =

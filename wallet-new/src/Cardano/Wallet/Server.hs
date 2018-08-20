@@ -7,16 +7,15 @@ import           Universum
 
 import           Servant
 
-import           Cardano.Wallet.API
-import           Cardano.Wallet.API.V1.Swagger (swaggerSchemaUIServer)
-import           Cardano.Wallet.Server.CLI (RunMode (..))
-import           Cardano.Wallet.WalletLayer (ActiveWalletLayer)
 import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 
+import           Cardano.Wallet.API
 import qualified Cardano.Wallet.API.V1.Handlers as V1
+import           Cardano.Wallet.API.V1.Swagger (swaggerSchemaUIServer)
 import qualified Cardano.Wallet.API.V1.Swagger as Swagger
-
+import           Cardano.Wallet.Server.CLI (RunMode (..))
+import           Cardano.Wallet.WalletLayer (ActiveWalletLayer)
 
 -- | Serve the REST interface to the wallet
 --

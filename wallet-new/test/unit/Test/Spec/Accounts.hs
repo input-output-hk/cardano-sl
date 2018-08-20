@@ -76,9 +76,9 @@ spec = describe "Accounts" $ do
         prop "works as expected in the happy path scenario" $ withMaxSuccess 50 $ do
             monadicIO $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
-                    res <- (WalletLayer._pwlCreateAccount layer)
-                           (V1.walId fixtureV1Wallet)
-                           fixtureNewAccountRq
+                    res <- WalletLayer.createAccount layer
+                             (V1.walId fixtureV1Wallet)
+                             fixtureNewAccountRq
                     (bimap STB STB res) `shouldSatisfy` isRight
 
         prop "fails if the parent wallet doesn't exists" $ withMaxSuccess 50 $ do
@@ -87,7 +87,7 @@ spec = describe "Accounts" $ do
                 pwd <- genSpendingPassword
                 request <- genNewAccountRq pwd
                 withLayer $ \layer _ -> do
-                    res <- (WalletLayer._pwlCreateAccount layer) wId request
+                    res <- WalletLayer.createAccount layer wId request
                     case res of
                          Left (WalletLayer.CreateAccountError (CreateAccountKeystoreNotFound _)) ->
                              return ()
@@ -114,17 +114,16 @@ spec = describe "Accounts" $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
                     let wId = V1.walId fixtureV1Wallet
                     (Right V1.Account{..}) <-
-                        (WalletLayer._pwlCreateAccount layer)
-                            wId fixtureNewAccountRq
-                    res <- (WalletLayer._pwlDeleteAccount layer) wId accIndex
+                        WalletLayer.createAccount layer wId fixtureNewAccountRq
+                    res <- WalletLayer.deleteAccount layer wId accIndex
                     (bimap STB STB res) `shouldSatisfy` isRight
 
         prop "fails if the parent wallet doesn't exists" $ withMaxSuccess 50 $ do
             monadicIO $ do
                 wId <- pick arbitrary
                 withLayer $ \layer _ -> do
-                    res <- WalletLayer._pwlDeleteAccount layer wId
-                        (V1.unsafeMkAccountIndex 2147483648)
+                    res <- WalletLayer.deleteAccount layer wId
+                             (V1.unsafeMkAccountIndex 2147483648)
                     case res of
                          Left (WalletLayer.DeleteAccountError
                                   (V1 (Kernel.UnknownHdAccountRoot _))) ->
@@ -140,9 +139,9 @@ spec = describe "Accounts" $ do
         prop "fails if the account doesn't exists" $ withMaxSuccess 50 $ do
             monadicIO $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
-                    res <- WalletLayer._pwlDeleteAccount layer
-                        (V1.walId fixtureV1Wallet)
-                        (V1.unsafeMkAccountIndex 2147483648)
+                    res <- WalletLayer.deleteAccount layer
+                             (V1.walId fixtureV1Wallet)
+                             (V1.unsafeMkAccountIndex 2147483648)
                     case res of
                          Left (WalletLayer.DeleteAccountError
                                   (V1 (Kernel.UnknownHdAccount _))) ->
@@ -202,10 +201,9 @@ spec = describe "Accounts" $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
                     let wId = V1.walId fixtureV1Wallet
                     (Right V1.Account{..}) <-
-                        (WalletLayer._pwlCreateAccount layer)
-                            wId fixtureNewAccountRq
+                        WalletLayer.createAccount layer wId fixtureNewAccountRq
                     let updateAccountRq = V1.AccountUpdate "My nice account"
-                    res <- (WalletLayer._pwlUpdateAccount layer) wId accIndex updateAccountRq
+                    res <- WalletLayer.updateAccount layer wId accIndex updateAccountRq
                     case res of
                          Left e -> fail (show e)
                          Right updatedAccount ->
@@ -215,10 +213,10 @@ spec = describe "Accounts" $ do
             monadicIO $ do
                 wId <- pick arbitrary
                 withLayer $ \layer _ -> do
-                    res <- WalletLayer._pwlUpdateAccount layer
-                        wId
-                        (V1.unsafeMkAccountIndex 2147483648)
-                        (V1.AccountUpdate "new account")
+                    res <- WalletLayer.updateAccount layer
+                             wId
+                             (V1.unsafeMkAccountIndex 2147483648)
+                             (V1.AccountUpdate "new account")
                     case res of
                          Left (WalletLayer.UpdateAccountError
                                 (V1 (Kernel.UnknownHdAccountRoot _))) ->
@@ -235,10 +233,10 @@ spec = describe "Accounts" $ do
             monadicIO $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
                     let wId = V1.walId fixtureV1Wallet
-                    res <- WalletLayer._pwlUpdateAccount layer
-                        wId
-                        (V1.unsafeMkAccountIndex 2147483648)
-                        (V1.AccountUpdate "new account")
+                    res <- WalletLayer.updateAccount layer
+                             wId
+                             (V1.unsafeMkAccountIndex 2147483648)
+                             (V1.AccountUpdate "new account")
                     case res of
                          Left (WalletLayer.UpdateAccountError
                                 (V1 (Kernel.UnknownHdAccount _))) ->
@@ -270,10 +268,10 @@ spec = describe "Accounts" $ do
             monadicIO $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
                     (Right V1.Account{..}) <-
-                        (WalletLayer._pwlCreateAccount layer) (V1.walId fixtureV1Wallet)
-                                                              fixtureNewAccountRq
-                    res <- (WalletLayer._pwlGetAccount layer) (V1.walId fixtureV1Wallet)
-                                                              accIndex
+                        WalletLayer.createAccount layer (V1.walId fixtureV1Wallet)
+                                                        fixtureNewAccountRq
+                    res <- WalletLayer.getAccount layer (V1.walId fixtureV1Wallet)
+                                                        accIndex
                     case res of
                          Left e    -> fail (show e)
                          Right acc -> V1.accIndex acc `shouldBe` accIndex
@@ -282,9 +280,9 @@ spec = describe "Accounts" $ do
             monadicIO $ do
                 wId <- pick arbitrary
                 withLayer $ \layer _ -> do
-                    res <- WalletLayer._pwlGetAccount layer
-                        wId
-                        (V1.unsafeMkAccountIndex 2147483648)
+                    res <- WalletLayer.getAccount layer
+                             wId
+                             (V1.unsafeMkAccountIndex 2147483648)
                     case res of
                          Left (WalletLayer.GetAccountError (V1 (Kernel.UnknownHdAccountRoot _))) ->
                              return ()
@@ -299,9 +297,9 @@ spec = describe "Accounts" $ do
         prop "fails if the account doesn't exists" $ withMaxSuccess 50 $ do
             monadicIO $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
-                    res <- WalletLayer._pwlGetAccount layer
-                        (V1.walId fixtureV1Wallet)
-                        (V1.unsafeMkAccountIndex 2147483648)
+                    res <- WalletLayer.getAccount layer
+                             (V1.walId fixtureV1Wallet)
+                             (V1.unsafeMkAccountIndex 2147483648)
                     case res of
                          Left (WalletLayer.GetAccountError (V1 (Kernel.UnknownHdAccount _))) ->
                              return ()
@@ -333,9 +331,9 @@ spec = describe "Accounts" $ do
                     -- We create 4 accounts, plus one is created automatically
                     -- by the 'createWallet' endpoint, for a total of 5.
                     forM_ [1..4] $ \(_i :: Int) ->
-                        (WalletLayer._pwlCreateAccount layer) (V1.walId fixtureV1Wallet)
-                                                              fixtureNewAccountRq
-                    res <- (WalletLayer._pwlGetAccounts layer) (V1.walId fixtureV1Wallet)
+                        WalletLayer.createAccount layer (V1.walId fixtureV1Wallet)
+                                                        fixtureNewAccountRq
+                    res <- WalletLayer.getAccounts layer (V1.walId fixtureV1Wallet)
                     case res of
                          Left e     -> fail (show e)
                          Right accs -> IxSet.size accs `shouldBe` 5
@@ -344,7 +342,7 @@ spec = describe "Accounts" $ do
             monadicIO $ do
                 wId <- pick arbitrary
                 withLayer $ \layer _ -> do
-                    res <- (WalletLayer._pwlGetAccounts layer) wId
+                    res <- WalletLayer.getAccounts layer wId
                     case res of
                          Left (WalletLayer.GetAccountsError (Kernel.UnknownHdRoot _)) ->
                              return ()

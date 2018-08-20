@@ -35,31 +35,33 @@ bracketPassiveWallet =
   where
     passiveWalletLayer :: PassiveWalletLayer n
     passiveWalletLayer = PassiveWalletLayer
-        { _pwlCreateWallet         = \_     -> liftedGen
-        , _pwlGetWallets           =           liftedGen
-        , _pwlGetWallet            = \_     -> liftedGen
-        , _pwlUpdateWallet         = \_ _   -> liftedGen
-        , _pwlUpdateWalletPassword = \_ _   -> liftedGen
-        , _pwlDeleteWallet         = \_     -> liftedGen
+        { createWallet         = \_     -> liftedGen
+        , getWallets           =           liftedGen
+        , getWallet            = \_     -> liftedGen
+        , updateWallet         = \_ _   -> liftedGen
+        , updateWalletPassword = \_ _   -> liftedGen
+        , deleteWallet         = \_     -> liftedGen
 
-        , _pwlCreateAccount        = \_ _   -> liftedGen
-        , _pwlGetAccounts          = \_     -> liftedGen
-        , _pwlGetAccount           = \_ _   -> liftedGen
-        , _pwlGetAccountBalance    = \_ _   -> liftedGen
-        , _pwlGetAccountAddresses  = \_ _ _ _ -> liftedGen
-        , _pwlUpdateAccount        = \_ _ _ -> liftedGen
-        , _pwlDeleteAccount        = \_ _   -> liftedGen
+        , createAccount        = \_ _   -> liftedGen
+        , getAccounts          = \_     -> liftedGen
+        , getAccount           = \_ _   -> liftedGen
+        , getAccountBalance    = \_ _   -> liftedGen
+        , getAccountAddresses  = \_ _ _ _ -> liftedGen
+        , updateAccount        = \_ _ _ -> liftedGen
+        , deleteAccount        = \_ _   -> liftedGen
 
-        , _pwlCreateAddress        = \_     -> liftedGen
-        , _pwlGetAddresses         = \_     -> liftedGen
-        , _pwlValidateAddress      = \_     -> liftedGen
+        , createAddress        = \_     -> liftedGen
+        , getAddresses         = \_     -> liftedGen
+        , validateAddress      = \_     -> liftedGen
 
-        , _pwlGetTransactions      = \_ _ _ _ _ _ -> liftedGen
-        , _pwlGetTxFromMeta        = \_ -> liftedGen
+        , getTransactions      = \_ _ _ _ _ _ -> liftedGen
+        , getTxFromMeta        = \_ -> liftedGen
 
-        , _pwlApplyBlocks          = \_     -> liftedGen
-        , _pwlRollbackBlocks       = \_     -> liftedGen
-       }
+        , applyBlocks          = \_     -> liftedGen
+        , rollbackBlocks       = \_     -> liftedGen
+
+        , getNodeSettings      = liftedGen
+        }
 
 -- | A utility function.
 liftedGen :: forall b n. (MonadIO n, Arbitrary b) => n b
@@ -83,6 +85,7 @@ bracketActiveWallet walletPassiveLayer _walletDiffusion =
         , pay          = \_ _ _ -> error "unimplemented"
         , estimateFees = \_ _ _ -> error "unimplemented"
         , redeemAda    = \_ -> error "unimplemented"
+        , getNodeInfo  = error "unimplemented"
         }
 
 

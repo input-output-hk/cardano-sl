@@ -6,8 +6,10 @@ module Cardano.Wallet.Kernel.Diffusion (
 
 import           Universum
 
-import           Pos.Core ()
 import           Pos.Core.Txp (TxAux)
+import           Pos.Infra.Communication.Types.Protocol (NodeId)
+import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStatus,
+                     ssMap)
 import           Pos.Infra.Diffusion.Types
 
 -- | Wallet diffusion layer
@@ -24,11 +26,12 @@ import           Pos.Infra.Diffusion.Types
 --
 -- Note that the latter requirement implies avoiding functionality from the full
 -- diffusion layer with negative occurrences of the monad parameter.
---
--- TODO: Right now this just provides means to send transactions; we might
--- also need to add some other functions (like delegation or voting).
 data WalletDiffusion = WalletDiffusion {
-      walletSendTx :: TxAux -> IO Bool
+      -- | Submit a transaction to the network
+      walletSendTx                :: TxAux -> IO Bool
+
+      -- | Get subscription status (needed for the node settings endpoint)
+    , walletGetSubscriptionStatus :: IO (Map NodeId SubscriptionStatus)
     }
 
 -- | Extract necessary functionality from the full diffusion layer
@@ -36,5 +39,6 @@ fromDiffusion :: (forall a. m a -> IO a)
               -> Diffusion m
               -> WalletDiffusion
 fromDiffusion nat d = WalletDiffusion {
-      walletSendTx = nat . sendTx d
+      walletSendTx                = nat . sendTx d
+    , walletGetSubscriptionStatus = readTVarIO $ ssMap (subscriptionStates d)
     }

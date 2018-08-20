@@ -130,7 +130,7 @@ spec = describe "Addresses" $ do
                             (AccountIdHdRnd myAccountId) = fixtureAccountId
                             wId = sformat build (view fromDb hdRoot)
                             accIdx = Kernel.Conv.toAccountId myAccountId
-                        res <- (WalletLayer._pwlCreateAddress layer) (V1.NewAddress Nothing accIdx (V1.WalletId wId))
+                        res <- WalletLayer.createAddress layer (V1.NewAddress Nothing accIdx (V1.WalletId wId))
                         (bimap STB STB res) `shouldSatisfy` isRight
 
         describe "Address creation (kernel)" $ do
@@ -185,7 +185,7 @@ spec = describe "Addresses" $ do
                             (AccountIdHdRnd myAccountId) = fixtureAccountId
                             wId = sformat build (view fromDb hdRoot)
                             accIdx = Kernel.Conv.toAccountId myAccountId
-                        (WalletLayer._pwlCreateAddress layer) (V1.NewAddress Nothing accIdx (V1.WalletId wId))
+                        WalletLayer.createAddress layer (V1.NewAddress Nothing accIdx (V1.WalletId wId))
                     case res2 of
                          Left (WalletLayer.CreateAddressError err) ->
                              return $ (bimap STB STB res1) `shouldBe` (bimap STB STB (Left err))

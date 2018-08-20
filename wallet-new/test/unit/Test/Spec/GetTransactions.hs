@@ -64,7 +64,7 @@ spec =
                         Left _         -> expectationFailure "decodeTextAddress failed"
                         Right rootAddr -> do
                             let meta = testMeta {_txMetaWalletId = rootAddr, _txMetaAccountIx = accIdx}
-                            _ <- liftIO $ WalletLayer._pwlCreateAddress layer
+                            _ <- liftIO $ WalletLayer.createAddress layer
                                     (V1.NewAddress
                                         Nothing
                                         (V1.unsafeMkAccountIndex accIdx)
@@ -86,14 +86,14 @@ spec =
                                         ls   -> expectationFailure $ "Tx list returned has wrong size "
                                             <> show (length ls) <> "instead of 1: ls = " <> show ls
 
-                            eiResp <- WalletLayer._pwlGetTransactions
-                                    layer
-                                    Nothing
-                                    Nothing
-                                    Nothing
-                                    (RequestParams $ PaginationParams (Page 1) (PerPage 10))
-                                    NoFilters
-                                    NoSorts
+                            eiResp <- WalletLayer.getTransactions
+                                        layer
+                                        Nothing
+                                        Nothing
+                                        Nothing
+                                        (RequestParams $ PaginationParams (Page 1) (PerPage 10))
+                                        NoFilters
+                                        NoSorts
                             mbCount `shouldBe` (Just 1)
                             case eiResp of
                                 Left l -> expectationFailure $ "returned " <> show l
@@ -137,7 +137,7 @@ spec =
                                 Left _err -> expectationFailure "hdAccountId not found in Acid State from Kernel"
                                 Right False -> expectationFailure "txid not found in Acid State from Kernel"
                                 Right True -> pure ()
-                            _ <- liftIO ((WalletLayer._pwlCreateAddress layer) (V1.NewAddress Nothing accIdx (V1.WalletId wId)))
+                            _ <- liftIO (WalletLayer.createAddress layer (V1.NewAddress Nothing accIdx (V1.WalletId wId)))
                             (result, mbCount) <- (getTxMetas hdl) (Offset 0) (Limit 10) Everything Nothing NoFilterOp NoFilterOp Nothing
                             map Isomorphic result `shouldMatchList` [Isomorphic meta]
                             let check WalletResponse{..} = do
@@ -153,14 +153,14 @@ spec =
                                         ls   -> expectationFailure $ "Tx list returned has wrong size "
                                             <> show (length ls) <> "instead of 1: ls = " <> show ls
 
-                            eiResp <- WalletLayer._pwlGetTransactions
-                                    layer
-                                    Nothing
-                                    Nothing
-                                    Nothing
-                                    (RequestParams $ PaginationParams (Page 1) (PerPage 10))
-                                    NoFilters
-                                    NoSorts
+                            eiResp <- WalletLayer.getTransactions
+                                        layer
+                                        Nothing
+                                        Nothing
+                                        Nothing
+                                        (RequestParams $ PaginationParams (Page 1) (PerPage 10))
+                                        NoFilters
+                                        NoSorts
                             mbCount `shouldBe` (Just 1)
                             case eiResp of
                                 Left l -> expectationFailure $ "returned " <> show l

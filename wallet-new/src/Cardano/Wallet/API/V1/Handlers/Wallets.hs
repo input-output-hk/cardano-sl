@@ -106,15 +106,14 @@ getUtxoStatistics
 getUtxoStatistics pwl wid = do
     res <- liftIO $ WalletLayer.getUtxos pwl wid
     case res of
-        Left e  -> throwM e
-        Right w -> do
-            let extractValue :: TxOutAux ->  Word64
-                extractValue = getCoin . txOutValue . toaOut
-            let utxosCoinValuesForAllAccounts :: [(Account, Utxo)] -> [Word64]
-                utxosCoinValuesForAllAccounts pairs =
-                    concatMap (\pair -> map extractValue (M.elems $ snd pair) ) pairs
-
-            return $ single (computeUtxoStatistics $ utxosCoinValuesForAllAccounts w)
+         Left e  -> throwM e
+         Right w -> do
+             let extractValue :: TxOutAux ->  Word64
+                 extractValue = getCoin . txOutValue . toaOut
+             let utxosCoinValuesForAllAccounts :: [(Account, Utxo)] -> [Word64]
+                 utxosCoinValuesForAllAccounts =
+                     concatMap (\pair -> map extractValue (M.elems $ snd pair) )
+             return $ single (V1.computeUtxoStatistics V1.log10 $ utxosCoinValuesForAllAccounts w)
 
 checkExternalWallet :: PassiveWalletLayer IO
                     -> PublicKeyAsBase58

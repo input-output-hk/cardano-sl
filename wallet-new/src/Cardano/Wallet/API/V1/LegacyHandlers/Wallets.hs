@@ -195,7 +195,7 @@ getUtxoStatistics
     => WalletId
     -> m (WalletResponse UtxoStatistics)
 getUtxoStatistics _ = do
-    return $ single (V1.computeUtxoStatistics [])
+    return $ single (V1.computeUtxoStatistics V1.log10 [])
 
 -- | Check if external wallet is presented in node's wallet db.
 checkExternalWallet

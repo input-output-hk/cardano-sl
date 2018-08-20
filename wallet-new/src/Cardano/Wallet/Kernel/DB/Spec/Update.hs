@@ -301,9 +301,10 @@ updateUtxo PrefilteredBlock{..} (utxo, balance) =
     utxoUnion = Map.union utxo pfbOutputs
     utxoMin   = utxoUnion `Core.utxoRestrictToInputs` pfbInputs
     utxo'     = utxoUnion `Core.utxoRemoveInputs`     pfbInputs
-    balance'  = fromMaybe (error "updateUtxo: out-of-range impossible") $ do
-                  withNew <- Core.addCoin balance (Core.utxoBalance pfbOutputs)
-                  Core.subCoin withNew (Core.utxoBalance utxoMin)
+    balance'  = Core.unsafeIntegerToCoin $
+                    Core.coinToInteger balance
+                  + Core.utxoBalance pfbOutputs
+                  - Core.utxoBalance utxoMin
 
 -- | Update the pending transactions with the given prefiltered block
 --

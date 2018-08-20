@@ -25,7 +25,7 @@ import qualified Text.Tabl as Tabl
 
 import           Pos.Binary.Class (Bi (encode), toLazyByteString)
 import qualified Pos.Chain.Txp as Core
-import           Pos.Core (Coeff (..), TxSizeLinear (..))
+import           Pos.Core (Coeff (..), TxSizeLinear (..), unsafeIntegerToCoin)
 import qualified Pos.Core as Core
 import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Crypto (SecretKey)
@@ -138,7 +138,7 @@ renderUtxoAndPayees utxo outputs =
                                    (sortedPayees $ toList outputs) <> footer
 
       footer :: [Row]
-      footer = ["Total", "Total"] : [[T.pack . show . Core.getCoin . utxoBalance $ utxo
+      footer = ["Total", "Total"] : [[T.pack . show . utxoBalance $ utxo
                                     , T.pack . show . Core.getCoin . paymentAmount $ outputs
                                     ]]
 
@@ -186,9 +186,9 @@ renderTx payees utxo tx =
           in header : (subTable1 `mergeRows` subTable2) <> footer
 
       footer :: [Row]
-      footer = replicate 4 "Total" : [[T.pack . show . Core.getCoin . utxoBalance $ utxo
+      footer = replicate 4 "Total" : [[T.pack . show . utxoBalance $ utxo
                                      , T.pack . show . Core.getCoin . paymentAmount $ payees
-                                     , T.pack . show . Core.getCoin . utxoBalance $ pickedInputs
+                                     , T.pack . show . utxoBalance $ pickedInputs
                                      , T.pack . show . Core.getCoin . paymentAmount $ txOutputs
                                      ]]
 
@@ -324,7 +324,7 @@ feeWasPayed SenderPaysFee originalUtxo originalOutputs tx =
                     T.unpack (renderTx originalOutputs originalUtxo tx) <>
                     "\n\n"
               )
-              (< utxoBalance originalUtxo)
+              (< unsafeIntegerToCoin (utxoBalance originalUtxo))
               (paymentAmount txOutputs)
 feeWasPayed ReceiverPaysFee _ originalOutputs tx =
     let txOutputs = Core._txOutputs . Core.taTx $ tx

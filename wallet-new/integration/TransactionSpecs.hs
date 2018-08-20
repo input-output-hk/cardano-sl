@@ -8,8 +8,6 @@ import           Universum
 import           Cardano.Wallet.Client.Http
 import           Control.Concurrent (threadDelay)
 import           Control.Lens
-import qualified Data.List.NonEmpty as NL
-import qualified Data.Map.Strict as Map
 import qualified Pos.Core as Core
 import           Test.Hspec
 import           Text.Show.Pretty (ppShow)
@@ -27,7 +25,7 @@ ppShowT :: Show a => a -> Text
 ppShowT = fromString . ppShow
 
 transactionSpecs :: WalletRef -> WalletClient IO -> Spec
-transactionSpecs wRef wc = do
+transactionSpecs wRef wc =
     describe "Transactions" $ do
         it "posted transactions appear in the index" $ do
             genesis <- genesisWallet wc
@@ -211,20 +209,15 @@ transactionSpecs wRef wc = do
                     , pmtSpendingPassword = Nothing
                     }
 
-            let possibleBuckets = NL.toList $ generateBounds Log10
-
             eresp0 <- getUtxoStatistics wc (walId wallet)
             utxoStatistics0 <- fmap wrData eresp0 `shouldPrism` _Right
-            let histogram0 = Map.fromList $ zip possibleBuckets (repeat 0)
-            let allStakes0 = 0
-            utxoStatistics0Expected <- mkUtxoStatistics histogram0 allStakes0 `shouldPrism` _Right
+            let utxoStatistics0Expected = computeUtxoStatistics log10 []
             utxoStatistics0 `shouldBe` utxoStatistics0Expected
 
             void $ postTransaction wc (payment 1)
             threadDelay 120000000
+
             eresp <- getUtxoStatistics wc (walId wallet)
             utxoStatistics <- fmap wrData eresp `shouldPrism` _Right
-            let histogram = Map.fromList $ zip possibleBuckets (cons (1::Word64) (repeat 0))
-            let allStakes = 1
-            utxoStatisticsExpected <- mkUtxoStatistics histogram allStakes `shouldPrism` _Right
+            let utxoStatisticsExpected = computeUtxoStatistics log10 [1]
             utxoStatistics `shouldBe` utxoStatisticsExpected

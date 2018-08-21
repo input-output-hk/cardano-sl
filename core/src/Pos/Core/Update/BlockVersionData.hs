@@ -20,9 +20,9 @@ import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core.Binary ()
 import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy)
-import           Pos.Core.Genesis.Canonical ()
 import           Pos.Core.Slotting (EpochIndex, FlatSlotId, isBootstrapEra)
 import           Pos.Core.Update.SoftforkRule
+import           Pos.Util.Json.Canonical ()
 import           Pos.Util.Orphans ()
 
 -- | Data which is associated with 'BlockVersion'.

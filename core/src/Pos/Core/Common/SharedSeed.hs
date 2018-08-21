@@ -19,7 +19,7 @@ import           Text.JSON.Canonical (FromJSON (..), JSValue (..),
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core.Constants (sharedSeedLength)
-import           Pos.Core.Genesis.Canonical ()
+import           Pos.Util.Json.Canonical ()
 import           Pos.Util.Json.Parse (tryParseString)
 
 -- | This is a shared seed used for follow-the-satoshi. This seed is

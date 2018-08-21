@@ -11,9 +11,9 @@ import           Text.JSON.Canonical (FromObjectKey (..), JSValue (..),
                      ReportSchemaErrors, ToObjectKey (..))
 
 import           Pos.Core.Common.AddressHash
-import           Pos.Core.Genesis.Canonical ()
 import           Pos.Crypto (decodeAbstractHash, hashHexF)
 import           Pos.Crypto.Signing (PublicKey)
+import           Pos.Util.Json.Canonical ()
 import           Pos.Util.Json.Parse (tryParseString)
 
 

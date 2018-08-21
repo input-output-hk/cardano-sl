@@ -12,8 +12,8 @@ import qualified Formatting.Buildable as Buildable
 import           Serokell.Util (mapJson)
 import           Text.JSON.Canonical (ToJSON (..))
 
-import           Pos.Core.Genesis.Canonical ()
 import           Pos.Core.Ssc (VssCertificatesMap, getVssCertificatesMap)
+import           Pos.Util.Json.Canonical ()
 
 -- | Predefined balances of non avvm entries.
 newtype GenesisVssCertificatesMap = GenesisVssCertificatesMap

@@ -31,11 +31,11 @@ import           Text.JSON.Canonical (FromJSON (..), Int54, JSValue (..),
 import           Pos.Binary.Class (AsBinary, Bi (..), encodeListLen,
                      enforceSize)
 import           Pos.Core.Common (StakeholderId, addressHash)
-import           Pos.Core.Genesis.Canonical ()
 import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Crypto (ProtocolMagic, PublicKey, SecretKey,
                      SignTag (SignVssCert), Signature, VssPublicKey, checkSig,
                      sign, toPublic)
+import           Pos.Util.Json.Canonical ()
 
 -- | VssCertificate allows VssPublicKey to participate in MPC. Each
 -- stakeholder should create a Vss keypair, sign VSS public key with signing

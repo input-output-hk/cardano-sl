@@ -13,10 +13,10 @@ import           Data.Aeson.TH (deriveJSON)
 import           Text.JSON.Canonical (FromJSON (..), Int54, JSValue (..),
                      ReportSchemaErrors, ToJSON (..), fromJSField, mkObject)
 
-import           Pos.Core.Genesis.Canonical ()
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
                      VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
+import           Pos.Util.Json.Canonical ()
 
 -- | 'GensisProtocolConstants' are not really part of genesis global state,
 -- but they affect consensus, so they are part of 'GenesisSpec' and

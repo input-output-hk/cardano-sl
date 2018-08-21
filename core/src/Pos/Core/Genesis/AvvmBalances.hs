@@ -9,8 +9,8 @@ import qualified Text.JSON.Canonical as Canonical (FromJSON (..),
                      ReportSchemaErrors, ToJSON (..))
 
 import           Pos.Core.Common (Coin)
-import           Pos.Core.Genesis.Canonical ()
 import           Pos.Crypto.Signing (RedeemPublicKey)
+import           Pos.Util.Json.Canonical ()
 
 -- | Predefined balances of avvm entries.
 newtype GenesisAvvmBalances = GenesisAvvmBalances

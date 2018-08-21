@@ -18,8 +18,8 @@ import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
                      ToJSON (..))
 
 import           Pos.Core.Common (BlockCount (..))
-import           Pos.Core.Genesis.Canonical ()
 import           Pos.Core.Slotting.SlotCount (SlotCount)
+import           Pos.Util.Json.Canonical ()
 
 -- | The 'k' parameter and TTLs for VSS certificates.
 data ProtocolConstants = ProtocolConstants

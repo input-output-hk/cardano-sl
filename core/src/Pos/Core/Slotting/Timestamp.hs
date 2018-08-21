@@ -32,7 +32,7 @@ import           Text.JSON.Canonical (FromJSON (..), Int54, JSValue (..),
 
 import           Pos.Binary.Class (Bi (..))
 import           Pos.Core.Aeson ()
-import           Pos.Core.Genesis.Canonical ()
+import           Pos.Util.Json.Canonical ()
 
 -- | Timestamp is a number which represents some point in time. It is
 -- used in MonadSlots and its meaning is up to implementation of this

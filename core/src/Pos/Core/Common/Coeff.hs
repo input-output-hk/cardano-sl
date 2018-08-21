@@ -12,7 +12,7 @@ import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
                      ToJSON (..))
 
 import           Pos.Binary.Class (Bi (..))
-import           Pos.Core.Genesis.Canonical ()
+import           Pos.Util.Json.Canonical ()
 import           Pos.Util.Util (aesonError)
 
 -- | A fractional coefficient of fixed precision.

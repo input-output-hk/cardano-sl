@@ -12,7 +12,7 @@ import           Test.Hspec (Spec)
 import           Test.QuickCheck (Property, (.&&.), (===))
 import qualified Text.JSON.Canonical as CanonicalJSON
 
-import           Pos.Core.Genesis (SchemaError)
+import           Pos.Util.Json.Canonical (SchemaError)
 
 import           Test.Pos.Binary.Helpers (IdTestingRequiredClassesAlmost,
                      identityTest)

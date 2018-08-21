@@ -36,7 +36,7 @@ import qualified Text.JSON.Canonical as Canonical (FromJSON (..),
                      ReportSchemaErrors, ToJSON (..))
 
 import           Pos.Binary.Class (Bi (..))
-import           Pos.Core.Genesis.Canonical ()
+import           Pos.Util.Json.Canonical ()
 import           Pos.Util.Util (leftToPanic)
 
 -- | Coin is the least possible unit of currency.

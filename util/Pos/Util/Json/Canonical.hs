@@ -1,10 +1,8 @@
-{-# LANGUAGE RecordWildCards #-}
-
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Canonical encoding of 'GenesisData'.
 
-module Pos.Core.Genesis.Canonical
+module Pos.Util.Json.Canonical
        ( SchemaError(..)
        ) where
 
@@ -23,19 +21,15 @@ import           Text.JSON.Canonical (FromJSON (..), FromObjectKey (..),
 
 import           Pos.Util.Json.Parse (tryParseString)
 
-----------------------------------------------------------------------------
--- Primitive standard/3rdparty types
-----------------------------------------------------------------------------
-
 data SchemaError = SchemaError
     { seExpected :: !Text
     , seActual   :: !(Maybe Text)
     } deriving (Show)
 
 instance Buildable SchemaError where
-    build SchemaError{..} = mconcat
-        [ "expected " <> Builder.fromText seExpected
-        , case seActual of
+    build se = mconcat
+        [ "expected " <> Builder.fromText (seExpected se)
+        , case seActual se of
             Nothing     -> mempty
             Just actual -> " but got " <> Builder.fromText actual
         ]
@@ -74,10 +68,6 @@ instance Monad m => ToJSON m Byte where
 
 instance Monad m => ToJSON m Millisecond where
     toJSON = toJSON . toInteger
-
-----------------------------------------------------------------------------
--- External
----------------------------------------------------------------------------
 
 instance (ReportSchemaErrors m) => FromJSON m Int32 where
     fromJSON (JSNum i) = pure . fromIntegral $ i

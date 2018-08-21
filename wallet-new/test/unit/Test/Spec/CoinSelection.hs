@@ -475,7 +475,7 @@ mkTx :: Core.ProtocolMagic
      -> [Core.TxOutAux]
      -- ^ A list of change addresess, in the form of 'TxOutAux'(s).
      -> Gen (Either CoinSelHardErr Core.TxAux)
-mkTx pm key = mkStdTx pm (\_addr -> Right (fakeSigner key))
+mkTx pm key = mkStdTx pm return (\_addr -> Right (fakeSigner key))
 
 
 payRestrictInputsTo :: Word64

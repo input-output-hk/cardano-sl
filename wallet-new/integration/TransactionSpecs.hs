@@ -8,6 +8,8 @@ import           Universum
 import           Cardano.Wallet.Client.Http
 import           Control.Concurrent (threadDelay)
 import           Control.Lens
+import qualified Data.List.NonEmpty as NL
+import qualified Pos.Core as Core
 import           Test.Hspec
 import           Text.Show.Pretty (ppShow)
 
@@ -187,3 +189,39 @@ transactionSpecs wRef wc = do
             etxn <- postTransaction wc payment
 
             void $ etxn `shouldPrism` _Left
+
+        xit "posted transactions gives rise to nonempty Utxo histogram" $ do
+            genesis <- genesisWallet wc
+            (fromAcct, _) <- firstAccountAndId wc genesis
+
+            wallet <- sampleWallet wRef wc
+            (_, toAddr) <- firstAccountAndId wc wallet
+
+            let payment val = Payment
+                    { pmtSource =  PaymentSource
+                        { psWalletId = walId genesis
+                        , psAccountIndex = accIndex fromAcct
+                        }
+                    , pmtDestinations = pure PaymentDistribution
+                        { pdAddress = addrId toAddr
+                        , pdAmount = V1 (Core.mkCoin val)
+                        }
+                    , pmtGroupingPolicy = Nothing
+                    , pmtSpendingPassword = Nothing
+                    }
+
+            let possibleBuckets = fmap show $ (generateBounds Log10)
+
+            eresp0 <- getUtxoStatistics wc (walId wallet)
+            utxoStatistics0 <- fmap wrData eresp0 `shouldPrism` _Right
+            let histogram0 = NL.zipWith HistogramBarCount possibleBuckets (NL.repeat 0)
+            let allStakes0 = 0
+            utxoStatistics0 `shouldBe` UtxoStatistics (NL.toList histogram0) allStakes0
+
+            void $ postTransaction wc (payment 1)
+            threadDelay 120000000
+            eresp <- getUtxoStatistics wc (walId wallet)
+            utxoStatistics <- fmap wrData eresp `shouldPrism` _Right
+            let histogram = NL.zipWith HistogramBarCount  possibleBuckets (NL.cons (1::Word64) (NL.repeat 0) )
+            let allStakes = 1
+            utxoStatistics `shouldBe` UtxoStatistics (NL.toList histogram) allStakes

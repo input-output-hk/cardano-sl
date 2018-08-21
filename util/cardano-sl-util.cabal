@@ -147,6 +147,7 @@ test-suite test
                        Test.Pos.Util.Golden
                        Test.Pos.Util.Modifier
                        Test.Pos.Util.ModifierSpec
+                       Test.Pos.Util.Parallelize
                        Test.Pos.Util.QuickCheck.Property
                        Test.Pos.Util.TimerSpec
                        Test.Pos.Util.LogSpec

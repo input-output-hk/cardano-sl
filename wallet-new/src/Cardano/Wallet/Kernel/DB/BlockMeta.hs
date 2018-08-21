@@ -63,6 +63,15 @@ instance Monoid AddressMeta where
 makeLenses ''AddressMeta
 deriveSafeCopy 1 'base ''AddressMeta
 
+instance SafeCopy (InDb AddressMeta) where
+    getCopy = contain $ do
+        isUsed <- safeGet
+        isChange <- safeGet
+        pure . InDb $ AddressMeta isUsed isChange
+    putCopy (InDb (AddressMeta isUsed isChange)) = contain $ do
+        safePut isUsed
+        safePut isChange
+
 {-------------------------------------------------------------------------------
   Block metadata
 -------------------------------------------------------------------------------}

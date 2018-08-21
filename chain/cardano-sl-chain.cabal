@@ -4,8 +4,8 @@ synopsis:            Cardano SL - transaction processing
 description:         Cardano SL - transaction processing
 license:             MIT
 license-file:        LICENSE
-author:              Serokell
-maintainer:          hi@serokell.io
+author:              IOHK
+maintainer:          support@iohk.io
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
@@ -125,9 +125,11 @@ library
                      , cereal
                      , conduit
                      , containers
+                     , contravariant
                      , cryptonite
                      , data-default
                      , deepseq
+                     , dlist
                      , ekg-core
                      , ether
                      , exceptions
@@ -136,7 +138,6 @@ library
                      , free
                      , hashable
                      , lens
-                     , log-warper
                      , lrucache
                      , memory
                      , mtl

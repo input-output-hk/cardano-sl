@@ -5,7 +5,6 @@ import           Universum
 import           UnliftIO (MonadUnliftIO)
 
 import qualified Data.Map as M
-import           System.Wlog (WithLogger, logInfo, modifyLoggerName)
 
 import           Pos.Chain.Block (headerHash)
 import           Pos.Chain.Txp (genesisUtxo, unGenesisUtxo, utxoToModifier)
@@ -16,6 +15,7 @@ import           Pos.DB.Class (MonadDBRead (..))
 import           Pos.DB.Txp.Utxo (filterUtxo)
 import           Pos.Infra.Slotting (MonadSlotsData)
 import           Pos.Util (HasLens (..))
+import           Pos.Util.Trace.Named (TraceNamed, appendName, logInfo)
 
 import           Pos.Wallet.Web.State (WalletDB, WalletDbReader, askWalletDB,
                      setWalletRestorationSyncTip, updateWalletBalancesAndUtxo)
@@ -32,37 +32,39 @@ import           Pos.Wallet.Web.Tracking.Types (SyncQueue, newRestoreRequest,
 -- set) from the global UTXO, and then asynchronously restoring this wallet transaction history.
 restoreWallet :: ( WalletDbReader ctx m
                  , MonadDBRead m
-                 , WithLogger m
                  , HasLens SyncQueue ctx SyncQueue
                  , MonadSlotsData ctx m
                  , MonadUnliftIO m
-                 ) => WalletDecrCredentials -> m ()
-restoreWallet credentials = do
+                 )
+              => TraceNamed m
+              -> WalletDecrCredentials
+              -> m ()
+restoreWallet logTrace0 credentials = do
     db <- askWalletDB
     let (_, walletId) = credentials
-    modifyLoggerName (const "syncWalletWorker") $ do
-        logInfo "New Restoration request for a wallet..."
-        genesisBlockHeaderE <- firstGenesisHeader
-        case genesisBlockHeaderE of
-            Left syncError -> processSyncError syncError
-            Right genesisBlock -> do
-                restoreGenesisAddresses db credentials
-                restoreWalletBalance db credentials
-                -- At this point, we consider ourselves synced with the UTXO up-to the
-                -- 'RestorationBlockDepth' we compute now. During 'syncWalletWithBlockchain',
-                -- we will restore the wallet history from the beginning of the chain by ignoring
-                -- any Utxo changes, but we will always add transactions to the pool of known ones.
-                -- By doing so, the BListener is free to track new blocks (both in terms of balance update
-                -- & tx tracking), allowing the user to use the wallet even if is technically restoring.
-                restorationBlockDepth <- WS.RestorationBlockDepth . view difficultyL <$> DB.getTipHeader
+    let logTrace = (appendName "syncWalletWorker" logTrace0)
+    logInfo logTrace "New Restoration request for a wallet..."
+    genesisBlockHeaderE <- firstGenesisHeader
+    case genesisBlockHeaderE of
+        Left syncError -> processSyncError logTrace syncError
+        Right genesisBlock -> do
+            restoreGenesisAddresses db credentials
+            restoreWalletBalance db credentials
+            -- At this point, we consider ourselves synced with the UTXO up-to the
+            -- 'RestorationBlockDepth' we compute now. During 'syncWalletWithBlockchain',
+            -- we will restore the wallet history from the beginning of the chain by ignoring
+            -- any Utxo changes, but we will always add transactions to the pool of known ones.
+            -- By doing so, the BListener is free to track new blocks (both in terms of balance update
+            -- & tx tracking), allowing the user to use the wallet even if is technically restoring.
+            restorationBlockDepth <- WS.RestorationBlockDepth . view difficultyL <$> DB.getTipHeader
 
-                -- Mark this wallet as officially in restore. As soon as we will pass the point where
-                -- the 'RestorationBlockDepth' is greater than the current store one, we would flip the
-                -- state of this wallet to a "normal" sync, and the two paths will be reunited once for all.
-                setWalletRestorationSyncTip db walletId restorationBlockDepth (headerHash genesisBlock)
+            -- Mark this wallet as officially in restore. As soon as we will pass the point where
+            -- the 'RestorationBlockDepth' is greater than the current store one, we would flip the
+            -- state of this wallet to a "normal" sync, and the two paths will be reunited once for all.
+            setWalletRestorationSyncTip db walletId restorationBlockDepth (headerHash genesisBlock)
 
-                -- Once we have a consistent update of the model, we submit the request to the worker.
-                submitSyncRequest (newRestoreRequest credentials restorationBlockDepth)
+            -- Once we have a consistent update of the model, we submit the request to the worker.
+            submitSyncRequest (newRestoreRequest credentials restorationBlockDepth)
 
 -- | Restores the wallet balance by looking at the global Utxo and trying to decrypt
 -- each unspent output address. If we get a match, it means it belongs to us.

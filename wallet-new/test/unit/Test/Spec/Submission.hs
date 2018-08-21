@@ -51,8 +51,7 @@ genPending :: Core.ProtocolMagic -> Gen Pending
 genPending pMagic = do
     elems <- listOf (do tx  <- Txp.genTx
                         wit <- (V.fromList <$> listOf (Txp.genTxInWitness pMagic))
-                        aux <- Txp.TxAux <$> pure tx <*> pure wit
-                        pure aux
+                        Txp.TxAux <$> pure tx <*> pure wit
                     )
     return $ Pending.fromTransactions elems
 
@@ -91,7 +90,7 @@ genSchedule maxRetries pending (Slot lowerBound) = do
 genWalletSubmissionState :: HdAccountId -> MaxRetries -> Gen WalletSubmissionState
 genWalletSubmissionState accId maxRetries = do
     pending   <- M.singleton accId <$> genPending (Core.ProtocolMagic 0)
-    let slot  = Slot 0 -- Make the layer always start from 0, to make running the specs predictable.
+    let slot = Slot 0 -- Make the layer always start from 0, to make running the specs predictable.
     scheduler <- genSchedule maxRetries pending slot
     return $ WalletSubmissionState pending scheduler slot
 

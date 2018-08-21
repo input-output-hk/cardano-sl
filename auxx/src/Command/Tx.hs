@@ -31,7 +31,6 @@ import           Data.Time.Units (Microsecond, fromMicroseconds, toMicroseconds)
 import           Formatting (build, int, sformat, shown, stext, (%))
 import           System.Environment (lookupEnv)
 import           System.IO (BufferMode (LineBuffering), hClose, hSetBuffering)
-import           System.Wlog (logError, logInfo)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Txp (topsortTxAuxes)
@@ -52,6 +51,7 @@ import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic, emptyPassphrase,
                      encToPublic, fakeSigner, hash, safeToPublic, toPublic,
                      withSafeSigners)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
+import           Pos.Util.Trace.Named (TraceNamed, logError, logInfo)
 import           Pos.Util.UserSecret (usWallet, userSecret, wusRootKey)
 import           Pos.Util.Util (maybeThrow)
 
@@ -86,11 +86,12 @@ addTxSubmit =
 
 sendToAllGenesis
     :: forall m. MonadAuxxMode m
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> Diffusion m
     -> SendToAllGenesisParams
     -> m ()
-sendToAllGenesis pm diffusion (SendToAllGenesisParams genesisTxsPerThread txsPerThread conc delay_ tpsSentFile) = do
+sendToAllGenesis logTrace pm diffusion (SendToAllGenesisParams genesisTxsPerThread txsPerThread conc delay_ tpsSentFile) = do
     let genesisSlotDuration = fromIntegral (toMicroseconds $ bvdSlotDuration genesisBlockVersionData) `div` 1000000 :: Int
         keysToSend  = fromMaybe (error "Genesis secret keys are unknown") genesisSecretKeys
     tpsMVar <- newSharedAtomic $ TxCount 0 conc
@@ -107,7 +108,7 @@ sendToAllGenesis pm diffusion (SendToAllGenesisParams genesisTxsPerThread txsPer
         -- don't belong in genesis block
         txQueue            <- atomically $ newTQueue
         txPreparationQueue <- atomically $ newTQueue
-        logInfo $ sformat ("Found "%shown%" keys in the genesis block.") (length keysToSend)
+        logInfo logTrace $ sformat ("Found "%shown%" keys in the genesis block.") (length keysToSend)
         startAtTxt <- liftIO $ lookupEnv "AUXX_START_AT"
         let startAt = fromMaybe 0 . readMaybe . fromMaybe "" $ startAtTxt :: Int
         -- construct a transaction, and add it to the queue
@@ -124,7 +125,7 @@ sendToAllGenesis pm diffusion (SendToAllGenesisParams genesisTxsPerThread txsPer
                 utxo <- getOwnUtxoForPk $ safeToPublic signer
                 etx <- createTx pm mempty utxo signer txOuts publicKey
                 case etx of
-                    Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
+                    Left err -> logError logTrace (sformat ("Error: "%build%" while trying to contruct tx") err)
                     Right (tx, _) -> do
                         atomically $ writeTQueue txQueue tx
                         atomically $ writeTQueue txPreparationQueue (tx, txOut1, secretKey)
@@ -146,7 +147,7 @@ sendToAllGenesis pm diffusion (SendToAllGenesisParams genesisTxsPerThread txsPer
                         -- included in the UTxO by the time this transaction will actually be sent.
                         etx' <- createTx pm mempty utxo' (fakeSigner senderKey) txOuts2 (toPublic senderKey)
                         case etx' of
-                            Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
+                            Left err -> logError logTrace (sformat ("Error: "%build%" while trying to contruct tx") err)
                             Right (tx', _) -> do
                                 atomically $ writeTQueue txQueue tx'
                                 -- add to preparation queue one more time data
@@ -155,7 +156,7 @@ sendToAllGenesis pm diffusion (SendToAllGenesisParams genesisTxsPerThread txsPer
                                 when (n > genesisTxs) $
                                     atomically $ writeTQueue txPreparationQueue (tx', txOut1', senderKey)
                         prepareTxs $ n - 1
-                    Nothing -> logInfo "No more txOuts in the queue."
+                    Nothing -> logInfo logTrace "No more txOuts in the queue."
             -- every <slotDuration> seconds, write the number of sent transactions to a CSV file.
         let writeTPS :: m ()
             writeTPS = do
@@ -167,28 +168,28 @@ sendToAllGenesis pm diffusion (SendToAllGenesisParams genesisTxsPerThread txsPer
                     liftIO $ T.hPutStrLn h $ T.intercalate "," [curTime, show $ submitted, "submitted"]
                     return (TxCount 0 sending, sending <= 0)
                 if finished
-                    then logInfo "Finished writing TPS samples."
+                    then logInfo logTrace "Finished writing TPS samples."
                     else writeTPS
             -- Repeatedly take transactions from the queue and send them.
             -- Do this n times.
             sendTxs :: Int -> m ()
             sendTxs n
                 | n <= 0 = do
-                      logInfo "All done sending transactions on this thread."
+                      logInfo logTrace "All done sending transactions on this thread."
                       modifySharedAtomic tpsMVar $ \(TxCount submitted sending) ->
                           return (TxCount submitted (sending - 1), ())
                 | otherwise = (atomically $ tryReadTQueue txQueue) >>= \case
                       Just tx -> do
-                          res <- submitTxRaw diffusion tx
+                          res <- submitTxRaw logTrace diffusion tx
                           addTxSubmit tpsMVar
-                          logInfo $ if res
+                          logInfo logTrace $ if res
                                     then sformat ("Submitted transaction: "%txaF) tx
                                     else sformat ("Applied transaction "%txaF%", however no neighbour applied it") tx
                           delay $ (fromMicroseconds . fromIntegral . (*) 1000 $ delay_ :: Microsecond)
-                          logInfo "Continuing to send transactions."
+                          logInfo logTrace "Continuing to send transactions."
                           sendTxs (n - 1)
                       Nothing -> do
-                          logInfo "No more transactions in the queue."
+                          logInfo logTrace "No more transactions in the queue."
                           sendTxs 0
 
             sendTxsConcurrently n = void $ forConcurrently [1..conc] (const (sendTxs n))
@@ -220,12 +221,13 @@ instance Exception AuxxException
 
 send
     :: forall m. MonadAuxxMode m
-    => ProtocolMagic
+    => TraceNamed m
+    -> ProtocolMagic
     -> Diffusion m
     -> Int
     -> NonEmpty TxOut
     -> m ()
-send pm diffusion idx outputs = do
+send logTrace pm diffusion idx outputs = do
     skey <- takeSecret
     let curPk = encToPublic skey
     let plainAddresses = map (flip makePubKeyAddress curPk . IsBootstrapEraAddr) [False, True]
@@ -239,10 +241,10 @@ send pm diffusion idx outputs = do
         let getSigner addr = HM.lookup addr addrSig
         -- BE CAREFUL: We create remain address using our pk, wallet doesn't show such addresses
         (txAux,_) <- lift $ prepareMTx pm getSigner mempty def (NE.fromList allAddresses) (map TxOutAux outputs) curPk
-        txAux <$ (ExceptT $ try $ submitTxRaw diffusion txAux)
+        txAux <$ (ExceptT $ try $ submitTxRaw logTrace diffusion txAux)
     case etx of
-        Left err -> logError $ sformat ("Error: "%stext) (toText $ displayException err)
-        Right tx -> logInfo $ sformat ("Submitted transaction: "%txaF) tx
+        Left err -> logError logTrace $ sformat ("Error: "%stext) (toText $ displayException err)
+        Right tx -> logInfo logTrace $ sformat ("Submitted transaction: "%txaF) tx
   where
     takeSecret :: m EncryptedSecretKey
     takeSecret
@@ -259,17 +261,18 @@ send pm diffusion idx outputs = do
 -- 'rollbackAndDump') and submit them to the network.
 sendTxsFromFile
     :: forall m. MonadAuxxMode m
-    => Diffusion m
+    => TraceNamed m
+    -> Diffusion m
     -> FilePath
     -> m ()
-sendTxsFromFile diffusion txsFile = do
+sendTxsFromFile logTrace diffusion txsFile = do
     liftIO (BS.readFile txsFile) <&> eitherDecodeStrict >>= \case
         Left err -> throwM (AuxxException $ toText err)
         Right txs -> sendTxs txs
   where
     sendTxs :: [TxAux] -> m ()
     sendTxs txAuxes = do
-        logInfo $
+        logInfo logTrace $
             sformat
                 ("Going to send "%int%" transactions one-by-one")
                 (length txAuxes)
@@ -277,5 +280,5 @@ sendTxsFromFile diffusion txsFile = do
             maybeThrow
                 (AuxxException "txs form a cycle")
                 (topsortTxAuxes txAuxes)
-        let submitOne = submitTxRaw diffusion
+        let submitOne = submitTxRaw logTrace diffusion
         mapM_ submitOne sortedTxAuxes

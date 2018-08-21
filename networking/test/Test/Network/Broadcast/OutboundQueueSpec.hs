@@ -19,7 +19,9 @@ import qualified Data.Set as Set
 import qualified Network.Broadcast.OutboundQueue as OutQ
 import           Network.Broadcast.OutboundQueue.Demo
 import           Network.Broadcast.OutboundQueue.Types
-import           System.Wlog
+import qualified Pos.Util.Log as Log
+import           Pos.Util.LoggerConfig (defaultTestConfiguration)
+import           Pos.Util.Trace.Named (setupLogging)
 import           Test.Hspec (Spec, describe, it)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import           Test.QuickCheck (Gen, Property, choose, forAll, ioProperty,
@@ -80,18 +82,20 @@ arbitraryPeers genNid genNodeType = do
 -- "outbound queue".
 testInFlight :: IO Bool
 testInFlight = do
-    removeAllHandlers
+
+    logTrace <- setupLogging (defaultTestConfiguration Log.Debug) "testInFlight"
+    -- removeAllHandlers   -- TODO
 
     -- Set up some test nodes
     allNodes <- do
-      ns <- forM [1..4] $ \nodeIdx -> newNode (C nodeIdx) NodeCore (CommsDelay 0)
+      ns <- forM [1..4] $ \nodeIdx -> newNode logTrace (C nodeIdx) NodeCore (CommsDelay 0)
       forM_ ns $ \theNode -> setPeers theNode (delete theNode ns)
       return ns
 
     runEnqueue $ do
       -- Send messages asynchronously
       forM_ [1..1000] $ \n -> do
-        send Asynchronous (allNodes !! 0) (MsgTransaction OriginSender) (MsgId n)
+        send logTrace Asynchronous (allNodes !! 0) (MsgTransaction OriginSender) (MsgId n)
       -- Abruptly unsubscribe whilst messages are getting delivered
       forM_ allNodes $ \theNode -> setPeers theNode []
 
@@ -130,7 +134,9 @@ prop_removePeer = forAll (arbitraryPeers arbitraryFiniteInt arbitraryNodeType) $
         in  forAll (QC.choose (0, Set.size (peersRouteSet peers) - 1)) $ \idx ->
             let toRemove = ints !! idx
                 Peers{..} = removePeer toRemove peers
-            in all checkProp [_routesCore peersRoutes, _routesEdge peersRoutes , _routesRelay peersRoutes]
+            in all checkProp [ _routesCore peersRoutes
+                             , _routesEdge peersRoutes
+                             , _routesRelay peersRoutes ]
   where
     checkProp = all (not . null)
 

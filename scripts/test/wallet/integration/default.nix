@@ -31,12 +31,13 @@ in pkgs.writeScript "integration-tests" ''
   export PATH=${pkgs.lib.makeBinPath allDeps}:$PATH
   set -e
   source ${demo-cluster}
-  ${stackExec}wal-integr-test --tls-ca-cert ${stateDir}/tls/client/ca.crt --tls-client-cert ${stateDir}/tls/client/client.pem --tls-key ${stateDir}/tls/client/client.key
+  ${stackExec}wal-integr-test --tls-ca-cert ${stateDir}/tls/client/ca.crt --tls-client-cert ${stateDir}/tls/client/client.pem --tls-key ${stateDir}/tls/client/client.key 2>&1 | tee state-demo/logs/test.output
   EXIT_STATUS=$?
   # Verify we see "transaction list is empty after filtering out asset-locked source addresses" in at least 1 core node log file
   if [[ $EXIT_STATUS -eq 0 ]]
   then
-    grep "transaction list is empty after filtering out asset-locked source addresses" state-demo/logs/core*.json
+    echo "EXIT_STATUS is 0 => verify asset-locked source addresses"
+    grep "transaction list is empty after filtering out asset-locked source addresses" state-demo/logs/core*.log
     EXIT_STATUS=$?
   fi
   stop_cardano

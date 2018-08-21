@@ -79,7 +79,7 @@ import           Formatting (bprint, build, builder, later, shown, (%))
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import           Pos.Core (ChainDifficulty, Coin, ScriptVersion, unsafeGetCoin)
 import           Pos.Core.Update (BlockVersion, SoftwareVersion)
-import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
+import           Pos.Util.Log.LogSafe (BuildableSafeGen (..), SecureLog (..),
                      buildUnsecure, deriveSafeBuildable, secretOnlyF,
                      secureListF)
 import           Pos.Util.Mnemonic (Mnemonic)

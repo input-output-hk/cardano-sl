@@ -16,18 +16,16 @@ module Pos.DB.Txp.Settings
 
 import           Universum
 
-import           System.Wlog (WithLogger)
-
 import           Pos.Chain.Block (ComponentBlock)
 import           Pos.Chain.Txp (ToilVerFailure)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Slotting (MonadSlots)
 import           Pos.Core.Txp (TxPayload, TxpUndo)
 import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp)
+import           Pos.Util.Trace.Named (TraceNamed)
 
 type TxpCommonMode m =
-    ( WithLogger m
-    , MonadDBRead m
+    ( MonadDBRead m
     , MonadGState m
     )
 
@@ -51,13 +49,13 @@ data TxpGlobalSettings = TxpGlobalSettings
       -- First argument determines whether it should be checked that
       -- all data from transactions is known (script versions,
       -- attributes, addresses, witnesses).
-      tgsVerifyBlocks :: forall m. TxpGlobalVerifyMode m =>
-                         Bool -> OldestFirst NE TxpBlock ->
+      tgsVerifyBlocks :: forall m. (MonadIO m, TxpGlobalVerifyMode m) =>
+                         TraceNamed m -> Bool -> OldestFirst NE TxpBlock ->
                          m $ Either ToilVerFailure $ OldestFirst NE TxpUndo
     , -- | Apply chain of /definitely/ valid blocks to Txp's GState.
-      tgsApplyBlocks :: forall ctx m . TxpGlobalApplyMode ctx m =>
-                        OldestFirst NE TxpBlund -> m SomeBatchOp
+      tgsApplyBlocks :: forall ctx m . (MonadIO m, TxpGlobalApplyMode ctx m) =>
+                        TraceNamed m -> OldestFirst NE TxpBlund -> m SomeBatchOp
     , -- | Rollback chain of blocks.
-      tgsRollbackBlocks :: forall m . TxpGlobalRollbackMode m =>
-                           NewestFirst NE TxpBlund -> m SomeBatchOp
+      tgsRollbackBlocks :: forall m . (MonadIO m, TxpGlobalRollbackMode m) =>
+                           TraceNamed m -> NewestFirst NE TxpBlund -> m SomeBatchOp
     }

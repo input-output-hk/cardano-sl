@@ -30,10 +30,9 @@ import           Universum
 
 import           Control.Lens (at, magnify, zoom, (%=), (.=))
 import           Control.Monad.Free.Church (F (..))
-import           Control.Monad.Morph (generalize, hoist)
+import           Control.Monad.Morph (generalize)
 import           Control.Monad.Reader (mapReaderT)
 import           Control.Monad.State.Strict (mapStateT)
-import           System.Wlog (NamedPureLogger)
 
 import           Pos.Chain.Txp (ExtendedGlobalToilM, ExtendedLocalToilM,
                      StakesLookupF)
@@ -52,7 +51,7 @@ import qualified Pos.Util.Modifier as MM
 
 -- | Utility monad which allows to lookup extra values related to txp and modify them.
 type ExplorerExtraM
-     = ReaderT ExplorerExtraLookup (StateT ExplorerExtraModifier (NamedPureLogger Identity))
+ = ReaderT ExplorerExtraLookup (StateT ExplorerExtraModifier Identity)
 
 getTxExtra :: TxId -> ExplorerExtraM (Maybe TxExtra)
 getTxExtra txId = do
@@ -110,5 +109,5 @@ type EGlobalToilM
 explorerExtraMToEGlobalToilM :: ExplorerExtraM ~> EGlobalToilM
 explorerExtraMToEGlobalToilM = mapReaderT (mapStateT f . zoom _2) . magnify _2
   where
-    f :: NamedPureLogger Identity ~> NamedPureLogger (F StakesLookupF)
-    f = hoist generalize
+    f :: Identity ~> F StakesLookupF
+    f = generalize

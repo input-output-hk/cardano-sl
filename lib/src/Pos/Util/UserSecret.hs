@@ -54,10 +54,11 @@ import           System.FileLock (FileLock, SharedExclusive (..), lockFile,
                      unlockFile, withFileLock)
 import           System.FilePath (takeDirectory, takeFileName)
 import           System.IO (hClose, openBinaryTempFile)
+
 #ifdef POSIX
-import           System.Wlog (WithLogger, logInfo, logWarning)
+import           Pos.Util.Trace.Named (TraceNamed, logInfo, logWarning)
 #else
-import           System.Wlog (WithLogger, logInfo)
+import           Pos.Util.Trace.Named (TraceNamed, logDebug, logInfo)
 #endif
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeFull',
@@ -198,13 +199,6 @@ instance Bi UserSecret where
         & usKeys .~ keys
         & usWallet .~ wallet
 
--- | WithLogger is only needed on posix platforms
-#ifdef POSIX
-type MonadMaybeLog m = (MonadIO m, WithLogger m)
-#else
-type MonadMaybeLog m = MonadIO m
-#endif
-
 #ifdef POSIX
 -- | Constant that defines file mode 600 (readable & writable only by owner).
 mode600 :: PSX.FileMode
@@ -221,32 +215,33 @@ setMode600 :: (MonadIO m) => FilePath -> m ()
 setMode600 path = liftIO $ PSX.setFileMode path mode600
 #endif
 
-ensureModeIs600 :: MonadMaybeLog m => FilePath -> m ()
+ensureModeIs600 :: MonadIO m => TraceNamed m -> FilePath -> m ()
 #ifdef POSIX
-ensureModeIs600 path = do
+ensureModeIs600 logTrace path = do
     accessMode <- getAccessMode path
     unless (accessMode == mode600) $ do
-        logWarning $
+        logWarning logTrace $
             sformat ("Key file at "%build%" has access mode "%oct%" instead of 600. Fixing it automatically.")
             path accessMode
         setMode600 path
 #else
-ensureModeIs600 _ = do
+ensureModeIs600 _ _ = do
     pure ()
 #endif
 
 -- | Create user secret file at the given path, but only when one doesn't
 -- already exist.
-initializeUserSecret :: MonadMaybeLog m => FilePath -> m ()
-initializeUserSecret secretPath = do
+initializeUserSecret :: MonadIO m => TraceNamed m -> FilePath -> m ()
+initializeUserSecret logTrace secretPath = do
     exists <- liftIO $ doesFileExist secretPath
 #ifdef POSIX
     if exists
-    then ensureModeIs600 secretPath
+    then ensureModeIs600 logTrace secretPath
     else do
         createEmptyFile secretPath
         setMode600 secretPath
 #else
+    logDebug logTrace "Windows: no permission checking on path"
     unless exists $ createEmptyFile secretPath
 #endif
   where
@@ -255,10 +250,12 @@ initializeUserSecret secretPath = do
 
 -- | Reads user secret from file, assuming that file exists,
 -- and has mode 600, throws exception in other case
-readUserSecret :: MonadMaybeLog m => FilePath -> m UserSecret
-readUserSecret path = do
+readUserSecret :: MonadIO m => TraceNamed m -> FilePath -> m UserSecret
+readUserSecret logTrace path = do
 #ifdef POSIX
-    ensureModeIs600 path
+    ensureModeIs600 logTrace path
+#else
+    logDebug logTrace "Windows: no permission checking on path"
 #endif
     withReadLock path $ do
         content <- either (throwM . UserSecretDecodingError . toText) pure .
@@ -267,19 +264,19 @@ readUserSecret path = do
 
 -- | Reads user secret from the given file.
 -- If the file does not exist/is empty, returns empty user secret
-peekUserSecret :: (MonadIO m, WithLogger m) => FilePath -> m UserSecret
-peekUserSecret path = do
-    logInfo "initalizing user secret"
-    initializeUserSecret path
+peekUserSecret :: MonadIO m => TraceNamed m -> FilePath -> m UserSecret
+peekUserSecret logTrace path = do
+    logInfo logTrace "initalizing user secret"
+    initializeUserSecret logTrace path
     withReadLock path $ do
         econtent <- decodeFull' <$> BS.readFile path
         pure $ either (const def) identity econtent & usPath .~ path
 
 -- | Read user secret putting an exclusive lock on it. To unlock, use
 -- 'writeUserSecretRelease'.
-takeUserSecret :: MonadMaybeLog m => FilePath -> m UserSecret
-takeUserSecret path = do
-    initializeUserSecret path
+takeUserSecret :: MonadIO m => TraceNamed m -> FilePath -> m UserSecret
+takeUserSecret logTrace path = do
+    initializeUserSecret logTrace path
     liftIO $ do
         l <- lockFile (lockFilePath path) Exclusive
         econtent <- decodeFull' <$> BS.readFile path
@@ -288,7 +285,7 @@ takeUserSecret path = do
             & usLock .~ Just l
 
 -- | Writes user secret .
-writeUserSecret :: (MonadIO m) => UserSecret -> m ()
+writeUserSecret :: MonadIO m => UserSecret -> m ()
 writeUserSecret u
     | canWrite u = liftIO $ throwM $ KeyError Secret AlreadyLocked
     | otherwise = liftIO $ withFileLock (lockFilePath $ u ^. usPath) Exclusive $ const $ writeRaw u

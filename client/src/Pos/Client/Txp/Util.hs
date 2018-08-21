@@ -82,7 +82,7 @@ import           Pos.Crypto (ProtocolMagic, RedeemSecretKey, SafeSigner,
                      fakeSigner, hash, redeemSign, redeemToPublic, safeSign,
                      safeToPublic)
 import           Pos.DB (MonadGState, gsAdoptedBVData)
-import           Pos.Infra.Util.LogSafe (SecureLog, buildUnsecure)
+import           Pos.Util.Log.LogSafe (SecureLog, buildUnsecure)
 import           Test.QuickCheck (Arbitrary (..), elements)
 
 import           Data.Semigroup (Semigroup)

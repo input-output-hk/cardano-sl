@@ -37,12 +37,14 @@ import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations,
                      NodeResources (..), bracketNodeResources,
                      defaultConfigurationOptions, npBehaviorConfig,
                      npUserSecret, withConfigurations)
+import           Pos.Util.Log (Severity (Debug), setupLogging)
+import           Pos.Util.LoggerConfig (defaultInteractiveConfiguration)
+import           Pos.Util.Trace.Named (TraceNamed, appendName, namedTrace)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Wallet.Web.Mode (WalletWebModeContext (..))
 import           Pos.Wallet.Web.State.Acidic (closeState, openState)
 import           Pos.Wallet.Web.State.State (WalletDB)
 import           Pos.WorkMode (RealModeContext (..))
-import           System.Wlog (HasLoggerName (..), LoggerName (..))
 
 import           Pos.Tools.Dbgen.CLI (CLI (..))
 import           Pos.Tools.Dbgen.Lib (generateWalletDB, loadGenSpec)
@@ -63,14 +65,15 @@ defaultNetworkConfig ncTopology = NetworkConfig {
 
 newRealModeContext
     :: HasConfigurations
-    => ProtocolMagic
+    => TraceNamed IO
+    -> ProtocolMagic
     -> TxpConfiguration
     -> NodeDBs
     -> ConfigurationOptions
     -> FilePath
     -> FilePath
     -> IO (RealModeContext ())
-newRealModeContext pm txpConfig dbs confOpts publicKeyPath secretKeyPath = do
+newRealModeContext logTrace pm txpConfig dbs confOpts publicKeyPath secretKeyPath = do
     let nodeArgs = NodeArgs {
       behaviorConfigPath = Nothing
     }
@@ -108,17 +111,16 @@ newRealModeContext pm txpConfig dbs confOpts publicKeyPath secretKeyPath = do
          , cnaDumpGenesisDataPath = Nothing
          , cnaDumpConfiguration   = False
          }
-    loggerName <- askLoggerName
-    nodeParams <- getNodeParams loggerName cArgs nodeArgs
+    nodeParams <- getNodeParams "DBGen" cArgs nodeArgs
     let vssSK = fromJust $ npUserSecret nodeParams ^. usVss
     let gtParams = gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
-    bracketNodeResources @() nodeParams gtParams (txpGlobalSettings pm txpConfig) (initNodeDBs pm epochSlots) $ \NodeResources{..} ->
+    bracketNodeResources @() logTrace nodeParams gtParams (txpGlobalSettings pm txpConfig) (initNodeDBs pm epochSlots) $ \NodeResources{..} ->
         RealModeContext <$> pure dbs
                         <*> pure nrSscState
                         <*> pure nrTxpState
                         <*> pure nrDlgState
                         <*> jsonLogConfigFromHandle stdout
-                        <*> pure (LoggerName "dbgen")
+                        <*> pure "dbgen"
                         <*> pure nrContext
                         <*> pure noReporter
                         -- <*> initQueue (defaultNetworkConfig (TopologyAuxx mempty)) Nothing
@@ -126,7 +128,8 @@ newRealModeContext pm txpConfig dbs confOpts publicKeyPath secretKeyPath = do
 
 walletRunner
     :: HasConfigurations
-    => ProtocolMagic
+    => TraceNamed IO
+    -> ProtocolMagic
     -> TxpConfiguration
     -> ConfigurationOptions
     -> NodeDBs
@@ -135,11 +138,11 @@ walletRunner
     -> WalletDB
     -> UberMonad a
     -> IO a
-walletRunner pm txpConfig confOpts dbs publicKeyPath secretKeyPath ws act = do
+walletRunner logTrace pm txpConfig confOpts dbs publicKeyPath secretKeyPath ws act = do
     wwmc <- WalletWebModeContext <$> pure ws
                                  <*> newTVarIO def
                                  <*> liftIO newTQueueIO
-                                 <*> newRealModeContext pm txpConfig dbs confOpts publicKeyPath secretKeyPath
+                                 <*> newRealModeContext logTrace pm txpConfig dbs confOpts publicKeyPath secretKeyPath
     runReaderT act wwmc
 
 newWalletState :: MonadIO m => Bool -> FilePath -> m WalletDB
@@ -162,8 +165,9 @@ main = do
 
     cli@CLI{..} <- getRecord "DBGen"
     let cfg = newConfig cli
-
-    withConfigurations Nothing cfg $ \pm txpConfig _ -> do
+    lh <- setupLogging $ defaultInteractiveConfiguration Debug
+    let logTrace = appendName "DBGen" $ namedTrace lh
+    withConfigurations logTrace Nothing cfg $ \pm txpConfig _ -> do
         when showStats (showStatsAndExit walletPath)
 
         say $ bold "Starting the modification of the wallet..."
@@ -174,8 +178,8 @@ main = do
         spec <- loadGenSpec config
         ws   <- newWalletState (isJust addTo) walletPath -- Recreate or not
 
-        let generatedWallet = generateWalletDB cli spec
-        walletRunner pm txpConfig cfg dbs publicKeyPath secretKeyPath ws generatedWallet
+        let generatedWallet = generateWalletDB logTrace cli spec
+        walletRunner logTrace pm txpConfig cfg dbs publicKeyPath secretKeyPath ws generatedWallet
         closeState ws
 
         showStatsData "after" walletPath

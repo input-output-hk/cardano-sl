@@ -11,7 +11,6 @@ import           Network.Wai.Handler.Warp (Settings, getPort)
 import           Test.Hspec (Spec, describe, it, shouldBe)
 
 import           Pos.Explorer.Socket.App (NotifierSettings (..), toConfig)
-import           Test.Pos.Explorer.MockFactory (testLoggerName)
 
 ----------------------------------------------------------------------------
 -- Spec
@@ -27,7 +26,7 @@ spec =
                 let p = 8080
                     ns = NotifierSettings { nsPort = p }
                     s :: Settings
-                    s = toConfig ns testLoggerName
+                    s = toConfig ns
                 -- currently we test port only,
                 -- which is the only mapped property so far
                 getPort s `shouldBe` fromIntegral p

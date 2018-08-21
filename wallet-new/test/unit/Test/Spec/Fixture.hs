@@ -14,7 +14,7 @@ module Test.Spec.Fixture (
 
 import           Universum
 
-import           System.Wlog (Severity)
+import           Pos.Util.Trace (noTrace)
 
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.QuickCheck (arbitrary, frequency)
@@ -29,10 +29,6 @@ import           Cardano.Wallet.WalletLayer (ActiveWalletLayer,
                      PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer.Kernel as WalletLayer.Kernel
 
--- | Do not pollute the test runner output with logs.
-devNull :: Severity -> Text -> IO ()
-devNull _ _ = return ()
-
 genSpendingPassword :: PropertyM IO (Maybe V1.SpendingPassword)
 genSpendingPassword =
     pick (frequency [(20, pure Nothing), (80, Just <$> arbitrary)])
@@ -41,8 +37,8 @@ withLayer :: MonadIO m
           => (PassiveWalletLayer m -> PassiveWallet -> IO a)
           -> PropertyM IO a
 withLayer cc = do
-    liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
-        WalletLayer.Kernel.bracketPassiveWallet devNull keystore mockNodeStateDef $ \layer wallet -> do
+    liftIO $ Keystore.bracketTestKeystore noTrace $ \keystore -> do
+        WalletLayer.Kernel.bracketPassiveWallet noTrace keystore mockNodeStateDef $ \layer wallet -> do
             cc layer wallet
 
 type GenPassiveWalletFixture x = PropertyM IO (PassiveWallet -> IO x)
@@ -54,8 +50,8 @@ withPassiveWalletFixture :: MonadIO m
                          -> PropertyM IO a
 withPassiveWalletFixture prepareFixtures cc = do
     generateFixtures <- prepareFixtures
-    liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
-        WalletLayer.Kernel.bracketPassiveWallet devNull keystore mockNodeStateDef $ \layer wallet -> do
+    liftIO $ Keystore.bracketTestKeystore noTrace $ \keystore -> do
+        WalletLayer.Kernel.bracketPassiveWallet noTrace keystore mockNodeStateDef $ \layer wallet -> do
             fixtures <- generateFixtures wallet
             cc keystore layer wallet fixtures
 
@@ -65,8 +61,8 @@ withActiveWalletFixture :: MonadIO m
                         -> PropertyM IO a
 withActiveWalletFixture prepareFixtures cc = do
     generateFixtures <- prepareFixtures
-    liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
-        WalletLayer.Kernel.bracketPassiveWallet devNull keystore mockNodeStateDef $ \passiveLayer passiveWallet -> do
+    liftIO $ Keystore.bracketTestKeystore noTrace $ \keystore -> do
+        WalletLayer.Kernel.bracketPassiveWallet noTrace keystore mockNodeStateDef $ \passiveLayer passiveWallet -> do
             withDefConfiguration $ \pm -> do
                 WalletLayer.Kernel.bracketActiveWallet pm passiveLayer passiveWallet diffusion $ \activeLayer activeWallet -> do
                     fixtures <- generateFixtures keystore activeWallet

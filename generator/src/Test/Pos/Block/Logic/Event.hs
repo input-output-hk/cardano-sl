@@ -36,6 +36,7 @@ import           Pos.Generator.BlockEvent (BlockApplyResult (..), BlockEvent,
                      BlockRollbackResult (..), BlockScenario,
                      BlockScenario' (..), SnapshotId, SnapshotOperation (..),
                      beaInput, beaOutValid, berInput, berOutValid)
+import           Pos.Util.Trace (noTrace)
 import           Pos.Util.Util (eitherToThrow, lensOf)
 
 import           Test.Pos.Block.Logic.Mode (BlockTestContext,
@@ -84,7 +85,7 @@ verifyAndApplyBlocks' txpConfig blunds = do
 
     satisfySlotCheck blocks $ do
         _ :: (HeaderHash, NewestFirst [] Blund) <- eitherToThrow =<<
-            verifyAndApplyBlocks dummyProtocolMagic txpConfig ctx True blocks
+            verifyAndApplyBlocks noTrace dummyProtocolMagic txpConfig ctx True blocks
         return ()
   where
     blocks = fst <$> blunds
@@ -110,7 +111,7 @@ runBlockEvent txpConfig (BlkEvApply ev) =
         BlockApplyFailure -> BlockEventFailure (IsExpected True) e
 
 runBlockEvent _ (BlkEvRollback ev) =
-    (onSuccess <$ rollbackBlocks dummyProtocolMagic (ev ^. berInput))
+    (onSuccess <$ rollbackBlocks noTrace dummyProtocolMagic (ev ^. berInput))
        `catch` (return . onFailure)
   where
     onSuccess = case ev ^. berOutValid of

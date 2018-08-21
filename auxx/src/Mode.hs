@@ -26,7 +26,6 @@ import           Control.Lens (lens, makeLensesWith)
 import           Control.Monad.Reader (withReaderT)
 import           Control.Monad.Trans.Resource (transResourceT)
 import           Data.Conduit (transPipe)
-import           System.Wlog (HasLoggerName (..))
 
 import           Pos.Chain.Block (HasSlogContext (..), HasSlogGState (..))
 import           Pos.Chain.Ssc (HasSscContext (..))
@@ -44,7 +43,6 @@ import           Pos.Core (Address, HasConfiguration, HasPrimaryKey (..),
                      IsBootstrapEraAddr (..), deriveFirstHDAddress,
                      largestPubKeyAddressBoot, largestPubKeyAddressSingleKey,
                      makePubKeyAddress, siEpoch)
-import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MonadReporting (..))
 import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
@@ -61,11 +59,10 @@ import           Pos.GState (HasGStateContext (..), getGStateImplicit)
 import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
 import           Pos.Infra.Shutdown (HasShutdownContext (..))
 import           Pos.Infra.Slotting.Class (MonadSlots (..))
-import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Util (HasLens (..), postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
-import           Pos.Util.LoggerName (HasLoggerName' (..))
+import           Pos.Util.Trace (noTrace)
 import           Pos.Util.UserPublic (HasUserPublic (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.WorkMode (EmptyMempoolExt, RealMode, RealModeContext (..))
@@ -151,17 +148,15 @@ instance {-# OVERLAPPABLE #-}
   where
     lensOf = acRealModeContext_L . lensOf @tag
 
-instance HasLoggerName' AuxxContext where
-    loggerName = acRealModeContext_L . loggerName
-
 instance HasSlogContext AuxxContext where
     slogContext = acRealModeContext_L . slogContext
 
 instance HasSlogGState AuxxContext where
     slogGState = acRealModeContext_L . slogGState
 
-instance HasJsonLogConfig AuxxContext where
-    jsonLogConfig = acRealModeContext_L . jsonLogConfig
+-- TODO
+-- instance HasJsonLogConfig AuxxContext where
+--     jsonLogConfig = acRealModeContext_L . jsonLogConfig
 
 instance (HasConfiguration, MonadSlotsData ctx AuxxMode)
       => MonadSlots ctx AuxxMode
@@ -170,17 +165,6 @@ instance (HasConfiguration, MonadSlotsData ctx AuxxMode)
     getCurrentSlotBlocking = realModeToAuxx getCurrentSlotBlocking
     getCurrentSlotInaccurate = realModeToAuxx getCurrentSlotInaccurate
     currentTimeSlotting = realModeToAuxx currentTimeSlotting
-
-instance {-# OVERLAPPING #-} HasLoggerName AuxxMode where
-    askLoggerName = realModeToAuxx askLoggerName
-    modifyLoggerName f action = do
-        auxxCtx <- ask
-        let auxxToRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
-            auxxToRealMode = withReaderT (\realCtx -> set acRealModeContext_L realCtx auxxCtx)
-        realModeToAuxx $ modifyLoggerName f $ auxxToRealMode action
-
-instance {-# OVERLAPPING #-} CanJsonLog AuxxMode where
-    jsonLog = realModeToAuxx ... jsonLog
 
 instance HasConfiguration => MonadDBRead AuxxMode where
     dbGet = realModeToAuxx ... dbGet
@@ -235,8 +219,10 @@ type instance MempoolExt AuxxMode = EmptyMempoolExt
 
 instance HasConfiguration =>
          MonadTxpLocal AuxxMode where
-    txpNormalize pm = withReaderT acRealModeContext . txNormalize pm
-    txpProcessTx pm txpConfig = withReaderT acRealModeContext . txProcessTransaction pm txpConfig
+    txpNormalize _ pm txpConfig = withReaderT acRealModeContext $ txNormalize noTrace pm txpConfig
+    --TODO trace on the left side has a different monad from trace on the right side
+    --maybe a TraceNamed IO is a good solution
+    txpProcessTx _ pm txpConfig = withReaderT acRealModeContext . txProcessTransaction noTrace noTrace pm txpConfig
 
 instance HasConfigurations =>
          MonadTxpLocal (BlockGenMode EmptyMempoolExt AuxxMode) where

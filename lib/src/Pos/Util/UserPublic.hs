@@ -47,6 +47,11 @@ import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeFull',
 import           Pos.Crypto (PublicKey)
 import           Pos.Util.UserKeyError (KeyError (..), UserKeyError (..),
                      UserKeyType (..))
+#ifdef POSIX
+import           Pos.Util.Trace.Named (TraceNamed, logWarning)
+#else
+import           Pos.Util.Trace.Named (TraceNamed, logDebug)
+#endif
 
 import           Test.Pos.Crypto.Arbitrary ()
 
@@ -54,7 +59,6 @@ import           Test.Pos.Crypto.Arbitrary ()
 import           Formatting (oct, sformat)
 import qualified System.Posix.Files as PSX
 import qualified System.Posix.Types as PSX (FileMode)
-import           System.Wlog (WithLogger, logWarning)
 #endif
 
 -- Because of the Formatting import
@@ -135,13 +139,6 @@ instance Bi UserPublic where
         & upKeys   .~ pKeys
         & upWallet .~ wallet
 
--- | WithLogger is only needed on posix platforms
-#ifdef POSIX
-type MonadMaybeLog m = (MonadIO m, WithLogger m)
-#else
-type MonadMaybeLog m = MonadIO m
-#endif
-
 #ifdef POSIX
 -- | Constant that defines file mode 600 (readable & writable only by owner).
 mode600 :: PSX.FileMode
@@ -157,11 +154,11 @@ getAccessMode path = do
 setMode600 :: (MonadIO m) => FilePath -> m ()
 setMode600 path = liftIO $ PSX.setFileMode path mode600
 
-ensureModeIs600 :: MonadMaybeLog m => FilePath -> m ()
-ensureModeIs600 path = do
+ensureModeIs600 :: MonadIO m => TraceNamed m -> FilePath -> m ()
+ensureModeIs600 logTrace path = do
     accessMode <- getAccessMode path
     unless (accessMode == mode600) $ do
-        logWarning $
+        logWarning logTrace $
             sformat ("Key file at "%build%" has access mode "%oct%" instead of 600. Fixing it automatically.")
             path accessMode
         setMode600 path
@@ -169,16 +166,17 @@ ensureModeIs600 path = do
 
 -- | Create user public file at the given path, but only when one doesn't
 -- already exist.
-initializeUserPublic :: MonadMaybeLog m => FilePath -> m ()
-initializeUserPublic publicPath = do
+initializeUserPublic :: MonadIO m => TraceNamed m -> FilePath -> m ()
+initializeUserPublic logTrace publicPath = do
     exists <- liftIO $ doesFileExist publicPath
 #ifdef POSIX
     if exists
-    then ensureModeIs600 publicPath
+    then ensureModeIs600 logTrace publicPath
     else do
         createEmptyFile publicPath
         setMode600 publicPath
 #else
+    logDebug logTrace "Windows: no permission checking on path"
     unless exists $ createEmptyFile publicPath
 #endif
   where
@@ -187,18 +185,18 @@ initializeUserPublic publicPath = do
 
 -- | Reads user public from the given file.
 -- If the file does not exist/is empty, returns empty user public
-peekUserPublic :: MonadMaybeLog m => FilePath -> m UserPublic
-peekUserPublic path = do
-    initializeUserPublic path
+peekUserPublic :: MonadIO m => TraceNamed m -> FilePath -> m UserPublic
+peekUserPublic logTrace path = do
+    initializeUserPublic logTrace path
     withReadLock path $ do
         content <- decodeFull' <$> BS.readFile path
         pure $ either (const def) identity content & upPath .~ path
 
 -- | Read user public putting an exclusive lock on it. To unlock, use
 -- 'writeUserPublicRelease'.
-takeUserPublic :: MonadMaybeLog m => FilePath -> m UserPublic
-takeUserPublic path = do
-    initializeUserPublic path
+takeUserPublic :: MonadIO m => TraceNamed m -> FilePath -> m UserPublic
+takeUserPublic logTrace path = do
+    initializeUserPublic logTrace path
     liftIO $ do
         lock <- lockFile (lockFilePath path) Exclusive
         content <- decodeFull' <$> BS.readFile path

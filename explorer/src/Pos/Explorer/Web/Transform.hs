@@ -31,6 +31,8 @@ import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Reporting (MonadReporting (..))
 import           Pos.Recovery ()
 import           Pos.Util.CompileInfo (HasCompileInfo)
+import           Pos.Util.Trace (noTrace)
+import           Pos.Util.Trace.Named (TraceNamed, natTrace)
 import           Pos.WorkMode (RealMode, RealModeContext (..))
 
 import           Pos.Explorer.BListener (ExplorerBListener,
@@ -60,8 +62,8 @@ instance HasConfiguration =>
 
 instance HasConfiguration =>
          MonadTxpLocal ExplorerProd where
-    txpNormalize pm = lift . lift . txpNormalize pm
-    txpProcessTx pm txpConfig = lift . lift . txpProcessTx pm txpConfig
+    txpNormalize _ pm = lift . lift . txpNormalize noTrace pm
+    txpProcessTx _ pm txpConfig = lift . lift . txpProcessTx noTrace pm txpConfig
 
 -- | Use the 'RealMode' instance.
 -- FIXME instance on a type synonym.
@@ -85,26 +87,29 @@ type HasExplorerConfiguration =
 
 notifierPlugin
     :: HasExplorerConfiguration
-    => NotifierSettings
+    => TraceNamed IO
+    -> NotifierSettings
     -> Diffusion ExplorerProd
     -> ExplorerProd ()
-notifierPlugin settings _ = notifierApp settings
+notifierPlugin logTrace settings _ = notifierApp logTrace settings
 
 explorerPlugin
     :: HasExplorerConfiguration
-    => Word16
+    => TraceNamed IO
+    -> Word16
     -> Diffusion ExplorerProd
     -> ExplorerProd ()
-explorerPlugin = flip explorerServeWebReal
+explorerPlugin logTrace = flip $ explorerServeWebReal logTrace
 
 explorerServeWebReal
     :: HasExplorerConfiguration
-    => Diffusion ExplorerProd
+    => TraceNamed IO
+    -> Diffusion ExplorerProd
     -> Word16
     -> ExplorerProd ()
-explorerServeWebReal diffusion port = do
+explorerServeWebReal logTrace diffusion port = do
     rctx <- ask
-    let handlers = explorerHandlers diffusion
+    let handlers = explorerHandlers (natTrace liftIO logTrace) diffusion
         server = hoistServer explorerApi (convertHandler rctx) handlers
         app = explorerApp (pure server)
     explorerServeImpl app port

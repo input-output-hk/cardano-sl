@@ -14,6 +14,7 @@ import qualified Data.ByteString.Lazy as BSL
 import           Formatting (sformat, stext, (%))
 
 import           Pos.Util (HasLens (..))
+import           Pos.Util.Trace.Named (TraceNamed)
 import           Pos.Wallet.Web.Backup (TotalBackup (..), getWalletBackup)
 import           Pos.Wallet.Web.ClientTypes (CFilePath (..), CId, CWallet, Wal)
 import           Pos.Wallet.Web.Error (WalletError (..))
@@ -29,11 +30,11 @@ type MonadWalletBackup ctx m = ( L.MonadWalletLogic ctx m
                                , HasLens SyncQueue ctx SyncQueue
                                )
 
-importWalletJSON :: MonadWalletBackup ctx m => CFilePath -> m CWallet
-importWalletJSON (CFilePath (toString -> fp)) = do
+importWalletJSON :: MonadWalletBackup ctx m => TraceNamed m -> CFilePath -> m CWallet
+importWalletJSON logTrace (CFilePath (toString -> fp)) = do
     contents <- liftIO $ BSL.readFile fp
     TotalBackup wBackup <- either parseErr pure $ A.eitherDecode contents
-    restoreWalletFromBackup wBackup
+    restoreWalletFromBackup logTrace wBackup
   where
     parseErr err = throwM . RequestError $
         sformat ("Error while reading JSON backup file: "%stext) $

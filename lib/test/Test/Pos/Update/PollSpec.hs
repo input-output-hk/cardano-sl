@@ -27,6 +27,7 @@ import           Pos.Crypto (hash)
 import qualified Pos.DB.Update as Poll
 import           Pos.Infra.Slotting.Types (SlottingData)
 import qualified Pos.Util.Modifier as MM
+import           Pos.Util.Trace (noTrace)
 
 import           Test.Pos.Binary.Helpers ()
 import           Test.Pos.Chain.Update.Arbitrary ()
@@ -102,7 +103,7 @@ instance HasConfiguration => Arbitrary PollAction where
 actionToMonad :: Poll.MonadPoll m => PollAction -> m ()
 actionToMonad (PutBVState bv bvs)        = Poll.putBVState bv bvs
 actionToMonad (DelBVState bv)            = Poll.delBVState bv
-actionToMonad (SetAdoptedBV bv)          = Poll.setAdoptedBV bv
+actionToMonad (SetAdoptedBV bv)          = Poll.setAdoptedBV noTrace bv
 actionToMonad (SetLastConfirmedSV sv)    = Poll.setLastConfirmedSV sv
 actionToMonad (DelConfirmedSV an)        = Poll.delConfirmedSV an
 actionToMonad (AddConfirmedProposal cps) = Poll.addConfirmedProposal cps

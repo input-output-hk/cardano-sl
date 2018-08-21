@@ -12,7 +12,6 @@ module Pos.Launcher.Param
 import           Universum
 
 import           Control.Lens (makeLensesWith)
-import           System.Wlog (LoggerName)
 
 import           Pos.Behavior (BehaviorConfig (..))
 import           Pos.Chain.Security (SecurityParams)
@@ -25,13 +24,14 @@ import           Pos.Infra.DHT.Real.Param (KademliaParams)
 import           Pos.Infra.Network.Types (NetworkConfig)
 import           Pos.Infra.Statistics (EkgParams, StatsdParams)
 import           Pos.Util.Lens (postfixLFields)
+import qualified Pos.Util.Log as Log
 import           Pos.Util.UserPublic (UserPublic)
 import           Pos.Util.UserSecret (UserSecret)
 import           Pos.Util.Util (HasLens (..))
 
 -- | Contains all parameters required for hierarchical logger initialization.
 data LoggingParams = LoggingParams
-    { lpDefaultName   :: !LoggerName
+    { lpDefaultName   :: !Log.LoggerName
     -- ^ Logger name which will be used by default
     , lpHandlerPrefix :: !(Maybe FilePath)
     -- ^ Prefix of path for all logs

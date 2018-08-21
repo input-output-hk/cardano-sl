@@ -35,7 +35,6 @@ import qualified Data.Map.Strict as M (fromList, insert)
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 import           Serokell.Util.Text (listJson)
-import           System.Wlog (WithLogger)
 
 import           Pos.Chain.Block (Block, MainBlock, genesisBlock0, headerHash,
                      mainBlockSlot, mainBlockTxPayload)
@@ -49,19 +48,19 @@ import           Pos.Chain.Txp (ToilVerFailure, Tx (..), TxAux (..), TxId,
 import           Pos.Core (Address, ChainDifficulty, GenesisHash (..),
                      HasConfiguration, Timestamp (..), difficultyL, epochSlots,
                      genesisHash)
-import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Crypto (ProtocolMagic, WithHash (..), withHash)
 import           Pos.DB (MonadDBRead, MonadGState)
 import           Pos.DB.Block (getBlock)
+import           Pos.DB.GState.Lock (StateLock, StateLockMetrics)
 import           Pos.DB.Txp (MempoolExt, MonadTxpLocal, MonadTxpMem, buildUtxo,
                      getLocalTxs, txpProcessTx, withTxpLocalData)
 import qualified Pos.GState as GS
 import           Pos.Infra.Network.Types (HasNodeType)
 import           Pos.Infra.Slotting (MonadSlots, getSlotStartPure,
                      getSystemStartM)
-import           Pos.Infra.StateLock (StateLock, StateLockMetrics)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason)
 import           Pos.Util (eitherToThrow, maybeThrow)
+import           Pos.Util.Trace (noTrace)
 import           Pos.Util.Util (HasLens')
 
 ----------------------------------------------------------------------
@@ -203,14 +202,12 @@ type TxHistoryEnv ctx m =
     , MonadGState m
     , MonadTxpLocal m
     , MonadMask m
-    , WithLogger m
     , MonadSlots ctx m
     , MonadReader ctx m
     , MonadTxpMem (MempoolExt m) ctx m
     , HasLens' ctx StateLock
     , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
     , HasNodeType ctx
-    , CanJsonLog m
     )
 
 getBlockHistoryDefault
@@ -272,7 +269,7 @@ saveTxDefault :: TxHistoryEnv ctx m
               -> TxpConfiguration
               -> (TxId, TxAux) -> m ()
 saveTxDefault pm txpConfig txw = do
-    res <- txpProcessTx pm txpConfig txw
+    res <- txpProcessTx noTrace pm txpConfig txw
     eitherToThrow (first SaveTxToilFailure res)
 
 txHistoryListToMap :: [TxHistoryEntry] -> Map TxId TxHistoryEntry

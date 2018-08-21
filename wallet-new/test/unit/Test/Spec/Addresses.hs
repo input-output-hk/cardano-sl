@@ -216,12 +216,15 @@ spec = describe "Addresses" $ do
                              Left err -> fail $ "Got different error than expected: " <> show err
                              Right _ -> fail "I was expecting a failure, but it didn't happen."
 
-            prop "rejects an address which is not ours" $ withMaxSuccess 1 $ do
+            prop "returns not used/not change for an address which is not ours" $ withMaxSuccess 1 $ do
                 monadicIO $ do
                     (randomAddr :: Address) <- pick arbitrary
+                    let expected :: V1.WalletAddress
+                        expected = V1.WalletAddress {
+                            addrId            = V1.V1 randomAddr
+                          , addrUsed          = False
+                          , addrChangeAddress = False
+                          }
                     withAddressFixture $ \_ layer _ WithAddressFixture{..} -> do
                         res <- WalletLayer.validateAddress layer (sformat build randomAddr)
-                        case res of
-                             Left (WalletLayer.ValidateAddressNotOurs _) -> return ()
-                             Left err -> fail $ "Got different error than expected: " <> show err
-                             Right _ -> fail "I was expecting a failure, but it didn't happen."
+                        bimap STB STB res `shouldBe` bimap STB STB (Right expected)

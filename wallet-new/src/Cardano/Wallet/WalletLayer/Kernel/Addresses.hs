@@ -160,9 +160,6 @@ readAddresses :: Kernel.DB -> HD.HdAccount -> IxSet (Indexed HD.HdAddress)
 readAddresses db hdAccount = Kernel.addressesByAccountId db (hdAccount ^. HD.hdAccountId)
 
 -- | Validate an address
---
--- NOTE: This checks whether the address is currently known to the wallet.
--- It does /NOT/ check if the address can be /derived/ from the wallet's root key.
 validateAddress :: Text
                 -- ^ A raw fragment of 'Text' to validate.
                 -> Kernel.DB
@@ -170,8 +167,25 @@ validateAddress :: Text
 validateAddress rawText db = runExcept $ do
     cardanoAddress <- withExceptT (\_err -> ValidateAddressDecodingFailed rawText) $
                         exceptT $ decodeTextAddress rawText
-    hdAddress      <- withExceptT (\_err -> ValidateAddressNotOurs cardanoAddress) $
-                        exceptT $ Kernel.lookupCardanoAddress db cardanoAddress
-    hdAccount      <- withExceptT (\_err -> ValidateAddressNotOurs cardanoAddress) $
-                        exceptT $ Kernel.lookupHdAccountId db (hdAddress ^. HD.hdAddressId . HD.hdAddressIdParent)
-    return $ toAddress hdAccount hdAddress
+    let mAddr = runExcept $ do
+          addr <- exceptT $
+                    Kernel.lookupCardanoAddress db
+                      cardanoAddress
+          acc  <- withExceptT HD.embedUnknownHdAccount $ exceptT $
+                    Kernel.lookupHdAccountId db
+                      (addr ^. HD.hdAddressId . HD.hdAddressIdParent)
+          return (addr, acc)
+    case mAddr of
+      Right (hdAddress, hdAccount) -> return $ toAddress hdAccount hdAddress
+      Left _unknownHdAddr ->
+        -- If the address is unknown to the wallet, it's possible that it's ours
+        -- but not yet used (at least as far as we know, it may be pending in
+        -- another instance of the same wallet of course), or it may be that
+        -- it's not even ours. In both cases we return that it is "not used"
+        -- (here) and "not a change address" (here). In the future we may want
+        -- to extend this endpoint with an "is ours" field.
+        return V1.WalletAddress {
+            addrId            = V1 cardanoAddress
+          , addrUsed          = False
+          , addrChangeAddress = False
+          }

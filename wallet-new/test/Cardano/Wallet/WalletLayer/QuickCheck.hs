@@ -140,5 +140,4 @@ instance Arbitrary UpdateWalletError where
 
 instance Arbitrary ValidateAddressError where
     arbitrary = oneof [ ValidateAddressDecodingFailed <$> arbitrary
-                      , ValidateAddressNotOurs <$> arbitrary
                       ]

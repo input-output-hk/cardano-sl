@@ -188,9 +188,6 @@ data ValidateAddressError =
     -- 'Address' the decoding failed. Unfortunately we are not able to
     -- provide a more accurate error description as 'decodeTextAddress' doesn't
     -- offer such.
-    | ValidateAddressNotOurs Address
-    -- ^ The input address is a valid 'Cardano' address, but it doesn't
-    -- belong to us.
     deriving Eq
 
 -- | Unsound show instance needed for the 'Exception' instance.
@@ -202,8 +199,6 @@ instance Exception ValidateAddressError
 instance Buildable ValidateAddressError where
     build (ValidateAddressDecodingFailed rawText) =
         bprint ("ValidateAddressDecodingFailed " % build) rawText
-    build (ValidateAddressNotOurs address) =
-        bprint ("ValidateAddressNotOurs " % build) address
 
 ------------------------------------------------------------
 -- Errors when dealing with Accounts

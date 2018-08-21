@@ -138,7 +138,7 @@ data Transaction h a = Transaction {
     -- ^ The hash of this transaction. Must be unique in the entire chain.
     , trExtra :: [Text]
     -- ^ Free-form comments, used for debugging
-    }
+    } deriving (Show)
 
 -- | The inputs as a list
 --

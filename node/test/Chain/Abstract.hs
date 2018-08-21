@@ -20,7 +20,7 @@ newtype Addr = Addr Int
   deriving (Buildable, Eq, Ord, Show)
 
 -- | Block hash
-newtype BlockHash = BlockHash Int deriving (Eq)
+newtype BlockHash = BlockHash Int deriving (Eq, Show)
 
 -- | Hash of the genesis block
 genesisBlockHash :: BlockHash
@@ -58,7 +58,9 @@ data Delegation (h :: * -> *) a = Delegation
   , delegatee :: a
   } deriving (Eq)
 
-newtype SlotId = SlotId Int deriving (Eq)
+deriving instance (Show a) => Show (Delegation h a)
+
+newtype SlotId = SlotId Int deriving (Eq, Show)
 
 nextSlot :: SlotId -> SlotId
 nextSlot (SlotId i) = SlotId $ i + 1
@@ -71,8 +73,8 @@ data Output (h :: * -> *) a = Output
   }
 
 instance Show a => Show (Output h a) where
-    show o = "Output: outAddr = " ++ (show $ outAddr o) ++ ", outVal = " ++
-                (show $ outVal o) ++ ", outRepartition = /scrambled/"
+    show o = "Output {outAddr = " ++ (show $ outAddr o) ++ ", outVal = " ++
+                (show $ outVal o) ++ ", outRepartition = /scrambled/}"
 
 -- TODO(md): This is just a work-around for not being able to define an Eq
 -- instance for Repartition a
@@ -131,6 +133,6 @@ data Block h a = Block
   , blockIssuer       :: a
   , blockTransactions :: OldestFirst [] (Transaction h a)
   , blockDlg          :: [Delegation h a]
-  } deriving (Eq)
+  } deriving (Eq, Show)
 
 type Chain h a = OldestFirst [] (Block h a)

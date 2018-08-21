@@ -50,6 +50,11 @@ oDsl0 = DSL.Output
         { outAddr = head addrs
         , outVal  = 10 :: DSL.Value
         } :: DSL.Output DSL.GivenHash Addr
+oAbs0 = Abs.Output
+        { outAddr        = head addrs
+        , outVal         = 10 :: DSL.Value
+        , outRepartition = Repartition (Map.empty :: Map.Map Addr (Sum Int))
+        }
 trDsl0 = DSL.Transaction
         { trFresh = 2 :: DSL.Value
         , trIns   = Set.empty
@@ -60,6 +65,11 @@ trDsl0 = DSL.Transaction
 inDsl1 = DSL.Input
         { inpTrans = DSL.givenHash trDsl0
         , inpIndex = 0 }
+oAbs1 = Abs.Output
+        { outAddr        = addrs !! 1
+        , outVal         = 5 :: DSL.Value
+        , outRepartition = Repartition (Map.empty :: Map.Map Addr (Sum Int))
+        }
 oDsl1 = DSL.Output
         { outAddr = addrs !! 1
         , outVal  = 5 :: DSL.Value
@@ -71,23 +81,18 @@ trDsl1 = DSL.Transaction
         , trFee   = 3 :: DSL.Value
         , trHash  = 54209842 :: Int
         , trExtra = [] }
-blDsl = OldestFirst { getOldestFirst = [trDsl1] }
-chDsl = OldestFirst { getOldestFirst = [blDsl] }
-
-oAbs = Abs.Output
-        { outAddr        = head addrs
-        , outVal         = 10 :: DSL.Value
-        , outRepartition = Repartition (Map.empty :: Map.Map Addr (Sum Int))
-        }
 trAbs1 = Abs.Transaction
         { trFresh   = 2 :: DSL.Value
         , trIns     = inDsl1 :| []
-        , trOuts    = oAbs :| []
+        , trOuts    = oAbs1 :| []
         , trFee     = 3 :: DSL.Value
         , trHash    = DSL.trHash trDsl1
         , trExtra   = []
-        , trWitness = addrs !! 0 :| []
+        , trWitness = addrs !! 0 :| [addrs !! 1]
         }
+blDsl = OldestFirst { getOldestFirst = [trDsl1] }
+chDsl = OldestFirst { getOldestFirst = [blDsl] }
+
 blAbs = Abs.Block
         { blockPred         = BlockHash 0 -- this is the genesis block so not sure what to put here
         , blockSlot         = SlotId 0
@@ -102,7 +107,6 @@ spec = do
     describe "Chain translation verification" $ do
       it "A DSL output should match an abstract output" $ do
         -- TODO(md): see about Show instances for types when using `shouldBe`
-        outDSL oAbs `shouldBe` oDsl0
+        outDSL oAbs0 `shouldBe` oDsl0
       it "The 'translate' function should convert a DSL chain to an abstract chain" $ do
-        -- TODO(md): Finalise this property
         translate @DSL.GivenHash @Identity @IntException addrs chDsl [] `shouldBe` (Identity $ Right chAbs)

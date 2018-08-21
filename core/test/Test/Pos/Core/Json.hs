@@ -7,17 +7,25 @@ import           Pos.Core.JsonLog.LogEvents (InvReqDataFlowLog (..))
 
 import           Test.Pos.Core.ExampleHelpers (exampleAddress, exampleAddress1,
                      exampleAddress2, exampleAddress3, exampleAddress4,
-                     exampleGenesisConfiguration_GCSpec,
-                     exampleGenesisConfiguration_GCSrc, feedPM)
+                     exampleGenesisConfiguration_GCSpec0,
+                     exampleGenesisConfiguration_GCSpec1,
+                     exampleGenesisConfiguration_GCSpec2,
+                     exampleGenesisConfiguration_GCSrc, exampleGenesisData0, exampleGenesisData1, exampleGenesisData2,
+                     exampleGenesisProtocolConstants0,
+                     exampleGenesisProtocolConstants1,
+                     exampleGenesisProtocolConstants2, feedPM)
 import           Test.Pos.Core.Gen (genAddress, genBlockVersionData, genByte,
                      genCoin, genCoinPortion, genEpochIndex, genFlatSlotId,
                      genGenesisAvvmBalances, genGenesisConfiguration,
-                     genGenesisDelegation, genGenesisInitializer,
-                     genGenesisProtocolConstants, genInvReqDataFlowLog,
-                     genSharedSeed, genSoftforkRule, genTxFeePolicy)
+                      genGenesisDelegation,
+                     genGenesisInitializer, genGenesisProtocolConstants,
+                     genInvReqDataFlowLog, genSharedSeed, genSoftforkRule,
+                     genTxFeePolicy)
 import           Test.Pos.Crypto.Gen (genRedeemPublicKey)
 import           Test.Pos.Util.Gen (genMillisecond)
-import           Test.Pos.Util.Golden (discoverGolden, eachOf, goldenTestJSON)
+import           Test.Pos.Util.Golden (discoverGolden, eachOf,
+                     goldenTestCanonicalJSONDec, goldenTestJSON,
+                     goldenTestJSONDec)
 import           Test.Pos.Util.Tripping (discoverRoundTrip,
                      roundTripsAesonBuildable, roundTripsAesonShow)
 import           Universum
@@ -68,11 +76,28 @@ roundTripAddressBuildable =
 -- GenesisConfiguration
 --------------------------------------------------------------------------------
 
-golden_GenesisConfiguration_GCSpec :: Property
-golden_GenesisConfiguration_GCSpec =
+golden_GenesisConfiguration_GCSpec0 :: Property
+golden_GenesisConfiguration_GCSpec0 =
     goldenTestJSON
-        exampleGenesisConfiguration_GCSpec
-            "test/golden/GenesisConfiguration_GCSpec"
+        exampleGenesisConfiguration_GCSpec0
+            "test/golden/json/GenesisConfiguration_GCSpec0"
+
+-- Test only decoding (for ensuring backwards compatibility with
+-- old GenesisConfiguration format).
+golden_GenesisConfiguration_GCSpec0Dec :: Property
+golden_GenesisConfiguration_GCSpec0Dec =
+    goldenTestJSONDec exampleGenesisConfiguration_GCSpec0
+        "test/golden/json/GenesisConfiguration_GCSpec0_NoNetworkMagic"
+
+golden_GenesisConfiguration_GCSpec1Dec :: Property
+golden_GenesisConfiguration_GCSpec1Dec =
+    goldenTestJSONDec exampleGenesisConfiguration_GCSpec1
+        "test/golden/json/GenesisConfiguration_GCSpec1_NoNetworkMagic"
+
+golden_GenesisConfiguration_GCSpec2Dec :: Property
+golden_GenesisConfiguration_GCSpec2Dec =
+    goldenTestJSONDec exampleGenesisConfiguration_GCSpec2
+        "test/golden/json/GenesisConfiguration_GCSpec2_NoNetworkMagic"
 
 golden_GenesisConfiguration_GCSrc :: Property
 golden_GenesisConfiguration_GCSrc =
@@ -83,6 +108,33 @@ golden_GenesisConfiguration_GCSrc =
 roundTripGenesisConfiguration :: Property
 roundTripGenesisConfiguration =
     eachOf 100 (feedPM genGenesisConfiguration) roundTripsAesonShow
+
+--------------------------------------------------------------------------------
+-- GenesisData (Canonical JSON)
+--------------------------------------------------------------------------------
+
+golden_GenesisDataDec0 :: Property
+golden_GenesisDataDec0 =
+    goldenTestCanonicalJSONDec
+        exampleGenesisData0
+            "test/golden/json/GenesisData0_NoNetworkMagic"
+
+golden_GenesisDataDec1 :: Property
+golden_GenesisDataDec1 =
+    goldenTestCanonicalJSONDec
+        exampleGenesisData1
+            "test/golden/json/GenesisData1_NoNetworkMagic"
+
+golden_GenesisDataDec2 :: Property
+golden_GenesisDataDec2 =
+    goldenTestCanonicalJSONDec
+        exampleGenesisData2
+            "test/golden/json/GenesisData2_NoNetworkMagic"
+
+-- TODO @intricate: roundTripsCanonicalJSONShow
+--roundTripGenesisData :: Property
+--roundTripGenesisData =
+--    eachOf 100 (feedPM genGenesisData) roundTripsCanonicalJSONShow
 
 --------------------------------------------------------------------------------
 -- GenesisAvvmBalances
@@ -180,11 +232,34 @@ roundTripEpochIndex = eachOf 1000 genEpochIndex roundTripsAesonBuildable
 
 
 --------------------------------------------------------------------------------
--- ProtocolConstants
+-- GenesisProtocolConstants
 --------------------------------------------------------------------------------
 
-roundTripProtocolConstants :: Property
-roundTripProtocolConstants =
+golden_GenesisProtocolConstants0 :: Property
+golden_GenesisProtocolConstants0 =
+    goldenTestJSON
+        exampleGenesisProtocolConstants0
+            "test/golden/json/GenesisProtocolConstants0"
+
+-- Test only decoding (for ensuring backwards compatibility with
+-- old GenesisProtocolConstants format).
+golden_GenesisProtocolConstants0Dec :: Property
+golden_GenesisProtocolConstants0Dec =
+    goldenTestJSONDec exampleGenesisProtocolConstants0
+        "test/golden/json/GenesisProtocolConstants0_NoNetworkMagic"
+
+golden_GenesisProtocolConstants1Dec :: Property
+golden_GenesisProtocolConstants1Dec =
+    goldenTestJSONDec exampleGenesisProtocolConstants1
+        "test/golden/json/GenesisProtocolConstants1_NoNetworkMagic"
+
+golden_GenesisProtocolConstants2Dec :: Property
+golden_GenesisProtocolConstants2Dec =
+    goldenTestJSONDec exampleGenesisProtocolConstants2
+        "test/golden/json/GenesisProtocolConstants2_NoNetworkMagic"
+
+roundTripGenesisProtocolConstants :: Property
+roundTripGenesisProtocolConstants =
     eachOf 1000 genGenesisProtocolConstants roundTripsAesonShow
 
 --------------------------------------------------------------------------------

@@ -36,6 +36,7 @@ module Test.Pos.Core.Gen
         -- Pos.Core.Genesis Generators
         , genFakeAvvmOptions
         , genGenesisAvvmBalances
+        , genGenesisData
         , genGenesisDelegation
         , genGenesisInitializer
         , genGenesisProtocolConstants
@@ -164,10 +165,13 @@ import           Pos.Core.Configuration (CoreConfiguration (..),
 import           Pos.Core.Delegation (DlgPayload (..), HeavyDlgIndex (..),
                      LightDlgIndices (..), ProxySKBlockInfo, ProxySKHeavy)
 import           Pos.Core.Genesis (FakeAvvmOptions (..),
-                     GenesisAvvmBalances (..), GenesisDelegation (..),
-                     GenesisInitializer (..), GenesisProtocolConstants (..),
-                     GenesisSpec (..), TestnetBalanceOptions (..),
-                     mkGenesisDelegation, mkGenesisSpec)
+                     GenesisAvvmBalances (..), GenesisData (..),
+                     GenesisDelegation (..), GenesisInitializer (..),
+                     GenesisNonAvvmBalances (..),
+                     GenesisProtocolConstants (..), GenesisSpec (..),
+                     GenesisVssCertificatesMap (..), GenesisWStakeholders (..),
+                     TestnetBalanceOptions (..), mkGenesisDelegation,
+                     mkGenesisSpec)
 import           Pos.Core.JsonLog.LogEvents (InvReqDataFlowLog (..))
 import           Pos.Core.Merkle (MerkleRoot (..), MerkleTree (..),
                      mkMerkleTree, mtRoot)
@@ -406,6 +410,39 @@ genFakeAvvmOptions =
     FakeAvvmOptions
         <$> Gen.word Range.constantBounded
         <*> Gen.word64 Range.constantBounded
+
+genGenesisData :: ProtocolMagic -> Gen GenesisData
+genGenesisData pm =
+    GenesisData
+        <$> genGenesisWStakeholders
+        <*> genGenesisDelegation pm
+        <*> genTimestamp
+        <*> genGenesisVssCertificatesMap pm
+        <*> genGenesisNonAvvmBalances
+        <*> genBlockVersionData
+        <*> genGenesisProtocolConstants
+        <*> genGenesisAvvmBalances
+        <*> genSharedSeed
+
+genGenesisWStakeholders :: Gen GenesisWStakeholders
+genGenesisWStakeholders = do
+    mapSize <- Gen.int $ Range.linear 1 10
+    sids    <- Gen.list (Range.singleton mapSize) genStakeholderId
+    w16s    <- Gen.list (Range.singleton mapSize) genWord16
+    pure $ GenesisWStakeholders $ M.fromList $ zip sids w16s
+
+genGenesisVssCertificatesMap
+    :: ProtocolMagic
+    -> Gen GenesisVssCertificatesMap
+genGenesisVssCertificatesMap pm =
+    GenesisVssCertificatesMap <$> genVssCertificatesMap pm
+
+genGenesisNonAvvmBalances :: Gen GenesisNonAvvmBalances
+genGenesisNonAvvmBalances = do
+    hmSize    <- Gen.int $ Range.linear 1 10
+    addresses <- Gen.list (Range.singleton hmSize) genAddress
+    coins     <- Gen.list (Range.singleton hmSize) genCoin
+    pure $ GenesisNonAvvmBalances $ HM.fromList $ zip addresses coins
 
 genGenesisDelegation :: ProtocolMagic -> Gen (GenesisDelegation)
 genGenesisDelegation pm = do

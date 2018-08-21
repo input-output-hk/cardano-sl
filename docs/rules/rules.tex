@@ -1,0 +1,1706 @@
+% -*- latex -*-
+
+\documentclass{article}
+
+%% packages %%
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage{enumitem}
+\usepackage{unicode-math}
+\usepackage{newunicodechar}
+\usepackage[dvipsnames]{xcolor}
+\usepackage[tikz]{bclogo}
+
+\makeatletter
+\AtBeginDocument{
+  \usepackage
+  [ raiselinks=false
+  , breaklinks=true
+  , colorlinks=true
+  , citecolor=blue
+  , urlcolor=blue
+  , linkcolor=PineGreen
+  %
+  , pdfpagemode=UseOutlines
+  , bookmarksopen=true
+  %
+  , pdftitle={\@title}
+  , pdfauthor={\@author}]
+  {hyperref}
+}
+\makeatother
+
+%% /packages %%
+
+%% Marginal notes %%
+
+\usepackage{xargs}
+\usepackage[colorinlistoftodos,prependcaption,textsize=tiny]{todonotes}
+\newcommandx{\unsure}[2][1=]{\todo[linecolor=red,backgroundcolor=red!25,bordercolor=red,#1]{#2}}
+\newcommandx{\info}[2][1=]{\todo[linecolor=green,backgroundcolor=green!25,bordercolor=green,#1]{#2}}
+\newcommandx{\change}[2][1=]{\todo[linecolor=blue,backgroundcolor=blue!25,bordercolor=blue,#1]{#2}}
+\newcommandx{\inconsistent}[2][1=]{\todo[linecolor=blue,backgroundcolor=blue!25,bordercolor=red,#1]{#2}}
+\newcommandx{\critical}[2][1=]{\todo[linecolor=blue,backgroundcolor=blue!25,bordercolor=red,#1]{#2}}
+\newcommand{\improvement}[1]{\todo[linecolor=pink,backgroundcolor=pink!25,bordercolor=pink]{#1}}
+\newcommandx{\resolved}[2][1=]{\todo[linecolor=OliveGreen,backgroundcolor=OliveGreen!25,bordercolor=OliveGreen,#1]{#2}} % use this to mark a resolved question
+
+%% /Marginal notes %%
+
+%% macros %%
+
+\newenvironment{record}{\begin{description}[font=\it]}{\end{description}}
+\newenvironment{currentvalue}{\begin{bclogo}[noborder=true,
+    logo=\bcinfo, epBarre=3, couleurBarre=YellowOrange]{Value in Cardano}}{\end{bclogo}}
+\newenvironment{implementationhint}{\begin{bclogo}[noborder=true,
+    logo=\bccrayon, epBarre=3, couleurBarre=PineGreen]{Implementation hint}}{\end{bclogo}}
+\newenvironment{treacherous}{\begin{bclogo}[noborder=true,
+    logo=\bcdz, epBarre=3, couleurBarre=Red]{Beware}}{\end{bclogo}}
+
+\newcommand{\powerset}[1]{\mathcal{P}(#1)}
+\newunicodechar{⧵}{\ensuremath{\smallsetminus}}
+
+\newcommand{\lists}[1]{{#1}^*}
+\newcommand{\nelists}[1]{{#1}^+}
+\newcommand{\emptylist}{ε}
+
+\newcommand{\pos}[2]{{#2}_{#1}}
+\newcommand{\length}[1]{|#1|}
+\newcommand{\rem}[2]{\mathrm{rem}_{#1}(#2)}
+\newcommand{\supportsize}[1]{|#1|}
+\newcommand{\extension}[2]{{#1}^*{#2}}
+
+\newcommand{\kronecker}[2]{[#1 = #2]}
+
+\newcommand{\idsof}[1]{\mathcal{I}\!_#1}
+\newcommand{\id}{\mathsf{id}}
+\newcommand{\txs}{\mathcal{T}}
+\newcommand{\txids}{\idsof{\txs}}
+\newcommand{\txinit}{\txs_{\!\mathsf{init}}}
+\newcommand{\blocks}{\mathcal{B}}
+\newcommand{\rblocks}{\mathcal{B}_r}
+\newcommand{\bblocks}{\mathcal{B}_b}
+\newcommand{\blockids}{\idsof{\blocks}}
+\newcommand{\agentids}{\idsof{\mathcal{A}}}
+\newcommand{\bootstrapstakeholders}{\mathcal{A}_{\mathsf{bootstrap}}}
+\newcommand{\slotleader}[3]{\mathsf{sl}(#1,#2,#3)}
+\newcommand{\recipient}[1]{\mathsf{recipient}(#1)}
+\newcommand{\amount}[1]{\mathsf{amount}(#1)}
+\newcommand{\transactions}[1]{\mathsf{transactions}(#1)}
+\newcommand{\inputs}[1]{\mathsf{inputs}(#1)}
+\newcommand{\outputs}[1]{\mathsf{outputs}(#1)}
+\newcommand{\intrans}[1]{\mathsf{trans}(#1)}
+\newcommand{\inindex}[1]{\mathsf{index}(#1)}
+\newcommand{\witnesses}[1]{\mathsf{witnesses}(#1)}
+\newcommand{\minimumfee}[1]{\mathsf{minfee}(#1)}
+\newcommand{\stakedistributions}{\mathcal{D}}
+\newcommand{\seeds}{\mathcal{S}}
+\newcommand{\initialdistribution}{d_{\mathsf{init}}}
+\newcommand{\initialseed}{s_{\mathsf{init}}}
+\newcommand{\initialdelegation}{g_{\mathsf{init}}}
+\newcommand{\transitivefix}[1]{{#1}^ω}
+\newcommand{\delegations}[1]{\mathsf{deleg}(#1)}
+\newcommand{\epoch}[1]{\mathsf{epoch}(#1)}
+\newcommand{\epochslot}[1]{\mathsf{slot}_\mathsf{epoch}(#1)}
+\newcommand{\epochindex}[1]{\mathsf{epoch}_\mathsf{index}(#1)}
+\newcommand{\epochseed}[1]{\mathsf{seed}(#1)}
+\newcommand{\epochdistribution}[1]{\mathsf{distr}(#1)}
+\newcommand{\currentdistribution}[1]{\mathsf{distr}_0(#1)}
+\newcommand{\blocktrees}{\mathcal{G}}
+\newcommand{\blockchains}{\mathcal{D}}
+\newcommand{\maxchains}[1]{\mathcal{M}(#1)}
+\newcommand{\height}[1]{\mathsf{height}(#1)}
+\newcommand{\delegator}[1]{\mathsf{delegator}(#1)}
+\newcommand{\delegatee}[1]{\mathsf{delegatee}(#1)}
+\newcommand{\delegationcertificates}[1]{\mathsf{certificates}_\mathsf{delegation}(#1)}
+\newcommand{\selectrichman}[1]{\mathsf{select}_\mathsf{bootstrap}(#1)}
+\newcommand{\stakerepartitions}{\mathcal{R}}
+\newcommand{\repartition}[1]{\mathsf{repartition}(#1)}
+\newcommand{\bootstraprepartition}{r_\mathsf{bootstrap}}
+\newcommand{\stakeof}[2]{\mathsf{stake}(#1,#2)}
+\newcommand{\maxmempoolsize}{\mathsf{max}_{\mathsf{poolsize}}}
+\newcommand{\quality}[1]{\mathsf{quality}(#1)}
+\newcommand{\commitphase}{\mathsf{phase}_\mathsf{commitment}}
+\newcommand{\openphase}{\mathsf{phase}_\mathsf{open}}
+\newcommand{\recoveryphase}{\mathsf{phase}_\mathsf{recovery}}
+\newcommand{\epochcommitments}[1]{\mathsf{commitments}(#1)}
+\newcommand{\epochopens}[1]{\mathsf{opens}(#1)}
+\newcommand{\epochrecoveries}[1]{\mathsf{recoveries}(#1)}
+\newcommand{\richmen}[2]{\mathsf{richmen}(#1,#2)}
+
+%% /macros %%
+
+\title{Rule-based specification of the blockchain logic}
+\author{Erik de Castro Lopo, Nicholas Clarke \& Arnaud Spiwack}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+
+\section*{Status}
+\label{sec:status}
+
+\begin{description}
+\item[Draft 0, Mar 14, 2018 (Arnaud)] Outline
+\item[Draft 1, Mar 20, 2018 (Arnaud)] First version of the block
+  validation rules
+\item[Draft 2, Mar 28, 2018 (Arnaud)] Slot leader selection rules
+\item[Draft 3, Apr 9, 2018 (Nicholas)] Review by Nicholas Clarke
+\item[Draft 4, Apr 13, 2018 (Arnaud)] Partial specification of stake
+  delegation and longest chain selection
+\item[Draft 5, Apr 17, 2018 (Arnaud)] Specification of delegation
+\item[Draft 6, May 16, 2018 (Arnaud)] Specification of mempool,
+  description of parameter, various accuracy improvement, appendix
+\item[Draft 7, May 31st, 2018 (Arnaud)] Specification of block
+  issuance, specification of secret sharing
+\item[Draft 8, Jun 01, 2018 (Nicholas)] Editing
+\end{description}
+
+\section{Introduction}
+\label{sec:introduction}
+
+This document describes the rules underpinning the blockchain data
+structure of Cardano's settlement layer. These rules are described
+independently of any network or communication mechanism: it is assumed
+that some mechanism provides us with, \emph{e.g.}, blocks, and that
+our task is to assume that they are accepted or not. Notably, we make
+no distinction between rejecting a block and storing it for later use.
+
+A direct consequence of ignoring the communication mechanisms, is that
+we do not have to serialise data, hence data is represented in
+abstract syntax, with no reference to a binary representation.
+
+As a further simplification, we ignore any unknown data, unparsed
+parameters, and versioning issues. This document specifies the system
+as it is.\improvement{We may want to add something about protocol
+  updates, though.}
+
+\section{Terminology \& notations}
+\label{sec:notations}
+
+\begin{description}
+\item[Lists] Given a set $A$, we write $\lists{A}$ for the set of lists of
+  elements of $A$, and $\nelists{A}$ for the set of non-empty lists of elements
+  of $A$. For an element $a∈A$ we write simply $a$ for the singleton list. For
+  two lists $l,r∈\lists{A}$, we write $l,r$ for their concatenation. We write
+  $\emptylist$ for the empty list. For a list $l∈\lists{A}$, we write
+  $\length{l}$ for its length. We write $\pos{i}{l}$ for the $i$-th element of
+  the list (the head of the list is $\pos{1}{l}$). We sometimes abuse notation
+  and write $x∈l$ for $l = l',x,l''$.
+
+\item[Support] Let $f$ be a function $f∈X⟶R$ where $R$ is a
+  commutative monoid (typically the additive monoid of $ℕ$, $ℤ$, $ℚ$,
+  $ℝ$, …), the \emph{support} of $f$ is $\{ x∈X | f(x)≠0 \}$. We say
+  that $f$ has finite support, or that $f$ is a function with finite
+  support, if the support of $f$ is a finite set. If $f$ is a finite
+  support function, we write $\supportsize{f} ∈ ℕ$ for the cardinal of
+  the support of $f$.
+
+  A notable property of finite-support function, is that they can be
+  summed: $∑_{x∈X}f(x)$ is well-defined. Indeed, it suffices to sum
+  over the the (finite!) support of $f$, which, as a finite sum, is
+  defined.
+
+  Additionally, for $f ∈ X ⟶ R$ a finitely supported function and
+  $g ∈ X -> Y$ an arbitrary function, there is a function
+  $\extension{g}{f} ∈ Y ⟶ R$, called the extension of $f$ along $g$,
+  defined as
+  $$
+  \extension{g}{f}(y) = ∑_{g(x)=y} f(x)
+  $$
+  Note that $\extension{g}{f}$ is a total function even is $g$ is partial
+  (see the definition of partial functions below).
+
+  \begin{implementationhint}
+    Finite support function are typically implemented as finite maps
+    (as in Haskell's \verb+Data.Map+ module), where we then interpret
+    absent bindings as mapping to $0$ (\emph{e.g.} using
+    \verb+Map.findWithDefault 0+). There are subtleties if we want to
+    test equality as natively, such data structure distinguishes
+    bindings to $0$ and absence of bindings. One way to solve this is
+    to remove any binding to $0$ from the map.
+  \end{implementationhint}
+
+\item[Partial functions] A partial function $f$ from $A$ to $B$ is a
+  pair of a subset $U∈\powerset{A}$, called the \emph{domain} of $f$,
+  and a function $U⟶B$. The set of partial functions from $A$ to $B$
+  is written $A ⇀ B$. We write $f(a)$ for the image of $a∈U$.
+
+  We write $f⊆g$, for partial functions $f$ and $g$ with respective domains $U$
+  and $V$, if $U ⊆ V$ and $∀a∈U. f(a)=g(a)$. When $f⊆g$, we write
+  $g⧵f$ for the partial function with support $V⧵U $ defined as:
+  $$
+  g⧵f(a) = g(a)
+  $$
+
+  For two partial functions $f$ and $g$ with respective domains $U$
+  and $V$, such that $∀a∈U∩V. f(a)=g(a)$, we write $f⊎g$ for the partial function
+  of domain $U∪V$ defined as:
+  $$
+  f⊎g(a) = \left\{
+    \begin{array}{ll}
+      f(a) & \mbox{if }a∈U\\
+      g(a) & \mbox{if }a∈V
+    \end{array}
+    \right.
+  $$
+  Note that if $U∩V=∅$, the condition $∀a∈U∩V. f(a)=g(a)$ holds
+  vacuously, hence $f⊎g$ is defined.\unsure{Maybe a better symbol for
+    this ``gluing'' union.}
+
+  We say that a partial function has finite domain if its domain is
+  a finite subset.
+
+  \begin{implementationhint}
+    A partial function $A⇀B$ can be implemented as a function
+    \verb+A -> Maybe B+, provided that its domain is decidable. Mostly we are
+    interested in finite domain partial function which are faithfully
+    represented by finite maps (in the sense of \verb+Data.Map+). The $f⊎g$
+    gluing union can be implemented using \verb+Data.Map.Merge.mergeA+.
+  \end{implementationhint}
+
+
+\item[Remainder] For any $a∈ℤ$ and $b∈ℕ$, let us write $\rem{a}{b}$
+  for the unique $0⩽r<b$ such that $a=qb+r$.
+
+\item[Projection] For a cartesian product $X=X_1×…× X_n$ with element $x =
+  (x_1, \dots, x_n)$, we define the \textit{projection onto the $i^{th}$ component}
+  $\pi_i∈X⟶X_i$ as \[\pi_i(x)=x_i,\] for all $i \leq n$.
+\end{description}
+
+\section{Definitions}
+\label{sec:definitions}
+
+\begin{description}
+\item[System of identifiers] A set $A$ is said to \emph{have
+    identifiers} if there is a set, written $\idsof{A}$ and an
+  injective function $\id ∈ A ⟶ \idsof{A}$.
+
+  When an item $a∈A$ such that $\id(a) = h$ is clear from the context,
+  we will often identify $a$ and $h$.
+
+  \begin{implementationhint}
+    In implementations, identifiers are typically realised by
+    cryptographic hash functions, which are injective for all intents
+    and purposes.
+  \end{implementationhint}
+
+\item[Agent id] We assume a set $\agentids$ of identifiers
+  representing the agents interacting on the blockchain. Furthermore
+  $\agentids$ is assumed to come with a total order, which we write as
+  $⩽$.
+  \begin{implementationhint}
+    In a concrete implementation agent ids would be public
+    cryptographic keys and signatures, depending on how what the id is
+    used for. In an executable specification, agent ids can be
+    anything which uniquely identifies an agent; let's call it an
+    \emph{abstract} agent id. When translating from an executable
+    specification to concrete blocks, we need to maintain a mapping of
+    abstract agent ids to public-private key pairs, so that we can
+    sign what needs to be signed.
+  \end{implementationhint}
+  
+  \begin{currentvalue}
+    In Cardano, the total order of $\agentids$ is the lexicographic
+    ordering on the public keys.
+  \end{currentvalue}\unsure{We are actually not completely
+      sure about this. This is tracked by
+      \href{https://iohk.myjetbrains.com/youtrack/issue/CDEC-163}{CDEC-163}.}
+
+\item[Stake distribution] A \emph{stake distribution} is a function
+  $d ∈ \agentids ⟶ ℕ$ with finite support. We write
+  $\stakedistributions$ for the set of stake distributions.
+
+\item[Slot] An integer.
+
+\item[Seeds] We assume a commutative monoid $\seeds$ of \emph{seeds}. The monoid
+  operations are written multiplicatively.
+
+\item[Stake repartition] A stake repartition is a function
+  $r ∈ \stakerepartitions ⊆ \agentids ⟶ \mathbb{Q}$ with finite
+  support, and such that $r(a) ⩾ 0$ for all $a$. And such that
+  $∑_{a∈\agentids} r(a) = 1$.
+
+  Repartition are used as part of transaction output to allocate stake
+  to parties which are not necessarily the recipient of the
+  output. Agent $a$ will receive stake in proportion $r(a)$ (with
+  subtleties due to rounding, see
+  Section~\ref{sec:derived-functions}).
+
+\item[Transaction] Transactions have a system of identifiers
+  $\txids$.
+
+  A transaction $t∈\txs$ consists of
+  \begin{record}
+  \item[Inputs] A non-empty list of pairs in
+    $\nelists{(\txids × ℕ)}$.
+
+    An input $in = (tx, ix) ∈ \txids × ℕ$ should be read as a pointer to an (expectedly unspent)
+    output, addressed by the transaction $tx$ in which it was created, and
+    its index $ix$ in the list of outputs of $tx$. We write
+    \begin{itemize}
+    \item $\intrans{in} = tx$
+    \item $\inindex{in} = ix$
+    \end{itemize}
+
+  \item[Outputs] A non-empty list of triples in
+    $\nelists{(\agentids × ℕ × \stakerepartitions)}$.\improvement{This
+      only embodies pay-to-public-key schemes. For pay-to-script and
+      such, we will need further refinements.}
+
+    For an output $out = (id, q, r)$, we write
+    \begin{itemize}
+    \item $\recipient{out} = id$
+    \item $\amount{out} = q$
+    \item $\repartition{out} = r$
+    \end{itemize}
+
+  \item[Witnesses] A non-empty list $w∈\nelists{\agentids}$ of agent
+    ids. In an implementation these ids would be realised by
+    cryptographic signatures.
+  \end{record}
+
+\item[Delegation graph] A delegation graph is a function $g ∈
+  \agentids ⟶ \agentids$. The initial delegation graph is defined as
+  the identitity function $\initialdelegation(a) = a$.
+
+  Given a delegation graph $g$, we write $\transitivefix{g}$ for the
+  partial function defined as
+  $$
+  \transitivefix{g}(a)=a' \iff ∃n. g^n(a) = a'∧ g(a') = a'
+  $$
+
+\item[Block] Blocks have a system of identifier $\blockids$. There is
+  a distinguished $b_0∈ \blockids$, called the genesis identifier,
+  which is not in the image of $\id∈ \blocks ⟶ \blockids$.
+
+  Block come in two flavours \emph{regular blocks} and \emph{epoch
+    boundary blocks}, defined below.
+
+\item[Regular block]
+  A regular block $b∈\rblocks ⊆ \blocks$
+  consists of
+  \begin{record}
+  \item[predecessor] A block identifier
+  \item[slot number] The slot at which the block has been issued
+  \item[issuer] The identifier of the agent who issued this block. In
+    an implementation, this would be realised by a cryptographic
+    signature.
+  \item[transactions] A list of transactions
+  \item[delegation certificates] A list of pairs in
+    $\lists{(\agentids×\agentids)}$. For a delegation certificate
+    $c = (D,d)∈\agentids×\agentids$, we write
+  \begin{itemize}
+  \item $\delegator{c}=D$
+  \item $\delegatee{c}=d$
+  \end{itemize}
+
+  \begin{implementationhint}
+    In a concrete implementation, these certificates would be
+    cryptographically signed by $D$, to ensure that $D$ is indeed
+    authorising $d$ to sign blocks for them.
+  \end{implementationhint}
+
+  \item[seed computation] Any of the following
+    \begin{description}
+    \item[Nothing] An element of the singleton type $\{⋆\}$.
+    \item[Commitment] A finite-domain partial function $\agentids⇀\seeds×\seeds$.
+      \begin{implementationhint}
+        The idea here is that the first seed is the commitment, in the
+        form of a partial function from agent id to encrypted shares
+        (in the sense of secret sharing), while the second message is
+        a proof that the shares are correct.
+
+        In this specification, we intend the two messages to be equal,
+        but this would be replaced, in the implementation, by the
+        statement that the proof validates the shares.
+      \end{implementationhint}
+    \item[Opening] A finite-domain partial function $\agentids⇀\seeds$.
+    \item[Recovery] A finitely supported function
+      $r∈\agentids→\agentids⇀\seeds$, such that for all $a$ in the
+      domain, $r(a)$ has finite domain (partial functions are a commutative monoid
+      under $⊎$. This monoid is actually partial, but we will ensure
+      that it is only used when defined).
+
+      \begin{implementationhint}
+        We want to understand $r(a)(a')$ as the decryption (by agent $a$) of the
+        share created by agent $a'$ and sent to agent $a$. So $r(a)$ is the set
+        of all the shares that $a$ decrypted.
+
+        In the specification, we, again, implement the decrypted
+        shares as the whole, plain text, seed.
+      \end{implementationhint}
+    \end{description}
+
+  \end{record}
+\item[Epoch boundary blocks] An epoch boundary block
+  $b∈\bblocks⊆\blocks$ consists in
+  \begin{record}
+  \item[predecessor] A block identifier
+  \item[slot number] The slot at which the boundary takes place
+  \end{record}
+
+  \begin{implementationhint}
+    In Cardano, boundary blocks contain a lot more information but (up
+    to the injectivity-of-hashes hypothesis) this information is
+    determined by the above. It will affect however the actual hash of
+    the epoch boundary block, it is therefore infeasible to concretise
+    an epoch boundary block without knowing the blockchain up to the
+    predecessor. The concretisation of epoch boundary block is
+    therefore not a pure function.
+  \end{implementationhint}
+
+\end{description}
+
+\section{Parameters}
+\label{sec:parameters}
+
+\subsection{Validation parameters}
+\label{sec:validation-parameters}
+
+This section lists parameters of the validation rules. The concrete
+instantiation of most of these parameters in Cardano is specified in
+Section~\ref{sec:params}. They are kept abstract in the validation
+rules to highlight that the rules can be stated independently of their
+concrete value, which simplifies the specification.
+
+\begin{description}
+\item[Slot leader] We assume a function
+  $\slotleader{⋅}{⋅}{⋅} ∈ \stakedistributions×\seeds×ℕ ⟶ \agentids$,
+  which, given a stake distribution and a source of randomness, maps
+  each subsequent slot to an agent id. This function is defined in
+  Section~\ref{sec:slot-leader}.
+
+\item[Current slot] The current slot is a parameter of the validation
+  rules desribed in this document (\emph{i.e.} it doesn't make sense
+  in general to ask whether, say, a chain is valid, only that it is
+  valid \emph{at the current slot}).
+
+  This parameter is not instantiated in Section~\ref{sec:params}
+  because it actually varies. In an implementation, the current slot
+  would be a function of the wall-clock time. The role of the current
+  slot is to prevent attacks where a malicious slot leader at slot
+  $i+1$ would try to issue a block without acknowledging the block
+  issued by the slot leader at slot $i$.
+
+\item[Height] We assume a height function
+  $\height{⋅} ∈ \lists{\blocks} ⟶ ℕ$. It is usually necessary, for the
+  sake of good behaviour of the system to assume that
+  $\height{b₁,…,b_n} < \height{b₁,…,b_n,b_{n+1}}$, though it is not
+  necessary for the specification itself. A typical such function is
+  the length of the list, though more refined criterion are usually
+  chosen. This function is defined in Section~\ref{sec:height}.
+
+\item[Chain quality] We assume a function $\quality{⋅} ∈ ℕ ⟶ ℕ$, which
+  maps a number of blocks into a number of blocks. The meaning of the
+  chain qualitity function is that, assuming that a block at depth $k$
+  will never be rolled back (see Section~\ref{sec:conf-param}), then
+  the chain will never roll back more than $\quality{k}$ slots. This
+  function is defined in Section~\ref{sec:chain-quality}.\unsure{I put
+  the chain quality here because it is at a rather prominent place in
+  the code, it is never directly used in the specification, rather the
+  phases below are. So we may skip this and only introduce chain
+  quality in Section~\ref{sec:params}.}
+
+\item[Secret-sharing phases] We assume three subsets of $ℕ$
+  $$
+  \commitphase, \openphase, \recoveryphase ∈ \powerset{ℕ}
+  $$
+  These are intended as subsets of the slots within an epoch. They are
+  expected to be intervals, in that for all $a<b<c$ such that
+  $a∈\commitphase$ and $c∈\commitphase$, we have $b∈\commitphase$
+  (respectively $\openphase$, $\recoveryphase$). It is also expected
+  that for $x ∈ \commitphase$, $y∈\openphase$, and $z∈\recoveryphase$,
+  we have $x<y<z$. These subsets are defined in
+  Section~\ref{sec:vss-phases}.
+
+  \improvement{This paragraph is pretty horrible to read, just because the
+    subscripts are so long.}
+\end{description}
+
+\subsection{Configuration parameters}
+\label{sec:conf-param}
+
+This section document parameters of nodes, which are set via
+configuration arguments.
+
+\begin{description}
+\item[Maximum mempool size] We assume a number $\maxmempoolsize ∈ ℕ$(
+  representing the maximum allowed size for a mempool (see
+  Section~\ref{sec:entering-mempool}).
+  \begin{currentvalue}
+    At time of writing, in the implementation of Cardano, the maximum
+    mempool size is 200.
+  \end{currentvalue}
+\end{description}
+
+\subsection{Chain parameters}
+\label{sec:chain-parameters}
+
+This section lists the parameters of a Cardano block chain. They are
+specified in the initial state and can be further modified by updates.
+
+\begin{description}
+\item[k] This entire specification is parameterised by a natural
+  number $k$. It comes from the Ouroboros paper: it is the depth after
+  which a block is considered stable, and will never rollback under
+  any circumstance.
+
+  \begin{currentvalue}
+    In Cardano, $k=2160$
+  \end{currentvalue}
+
+\item[Initial stake distribution] We assume an \emph{initial stake
+    distribution} $\initialdistribution ∈ \stakedistributions$.
+
+  Addresses in the support of the initial stake distribution are
+  referred to as \emph{redeem address}. These address can't receive
+  new coins in the chain.\info{This is not entirely accurate. In the
+    Cardano data types there are Redeem address which are not in the
+    support of the initial distribution, nothing can be done with
+    them. It may be more accurate to split the type of agent ids in
+    two disjoint subsets.}
+
+\item[Initial seed] A distinguished seed $\initialseed ∈ \seeds$.
+
+\item[Minimum fee] We assume a function $\minimumfee{⋅} ∈ \txs ⟶ ℕ$,
+  called the minimum fee function.\info{It's not clear that the
+    minimum fee, as is currently implemented, is indeed a function of
+    the (abstract represention of) the transaction. This may create
+    mismatches in tests.}
+
+\item[Initial transactions] We assume a finite subset $\txinit ⊆ \txs$
+  of transactions. The intent behind $\txinit$ is that these
+  transactions are present ``in the initial state''. They represent
+  the initial assets in the system. Their inputs are
+  meaningless.\improvement{We may want to compute the initial
+    distribution based on $\txinit$.}
+
+\item[Epoch] We assume a pair or functions $\epoch{⋅}∈ℕ⟶ℕ$ and
+  $\epochslot{⋅}∈ℕ⟶ℕ$, the \emph{epoch decomposition} of a slot, such
+  that~--~writing $(\epoch{⋅}, \epochslot{⋅})$ for the function, in
+  $ℕ⟶ℕ×ℕ$, which maps a slot $s$ to
+  $(\epoch{s}, \epochslot{s})$~--~$(\epoch{⋅}, \epochslot{⋅})$ is a
+  strictly increasing function, from the natural ordering of $ℕ$ to
+  the lexicographic product of the natural ordering of $ℕ$ with
+  itself.\improvement{We may want to additionally impose that the
+    inverse image of $e×ℕ$ is downward closed.}\improvement{Layout is
+    broken in this paragraph.}\improvement{It will probably be clearer
+    to give a name to $(\epoch{⋅}, \epochslot{⋅})$ rather than
+    referring to it symbolically. And define the two projection in
+    terms of this function, like is done in the rest of the text,
+    rather than the other way around.}
+
+  \begin{currentvalue}
+    For reference, $\epoch{s}$ and $\epochslot{s}$, are defined, in
+    the bootstrap era of Cardano, of as the unique numbers such that
+    $s=\epoch{s}\cdot 10k+\epochslot{s}$ and $0⩽ \epochslot{s} < 10k$.
+  \end{currentvalue}
+
+
+\item[Bootstrap stakeholders] We assume a finite set
+  $\bootstrapstakeholders ⊆ \agentids$. The bootstrap stakeholders receive all the
+  stake during the bootstrap era.\unsure{For the sake of simplicity, I
+    assume, for the time being, that the bootstrap stakeholders all
+    get the same share of stake of each output. This is not necessary
+    in cardano, but it is the case in practice. We can refine later if
+    we so wish}
+
+  We assume a stake repartition
+  $\bootstraprepartition ∈ \stakerepartitions$ which allocates stake
+  to each bootstrap stakeholder in equal proportion. That is
+  $$
+  \bootstraprepartition(a) = \left\{
+    \begin{array}{cl}
+      \displaystyle{\frac{1}{\supportsize{r}}}& \mbox{if $a∈\bootstrapstakeholders$}\\
+      0 & \mbox{otherwise}
+    \end{array}\right.
+  $$
+
+  We will also assume a function $\selectrichman{⋅} ∈ ℕ ⟶ \bootstrapstakeholders$
+  which selects one of the bootstrap stakeholder based on the value of an unspent
+  output. In a concrete implementation this function needs to have
+  good randomness properties.
+
+\end{description}
+\section{Extending a chain}
+\label{sec:adding-block}
+
+This section specifies whether a block can extend a given chain. That
+is we have one version of history (forks are handled in
+Section~\ref{sec:chain-selection}), and we are receiving a block. If
+the block passes the validation rules of this section, then the
+history is one block longer.
+
+A sequence $b₁,…,b_n$ is said to be a \emph{valid chain} if
+$b₁,…,b_{n-1}$ is a valid chain,
+and $b_n$ is a \emph{valid extension} of $b₁,…,b_{n-1}$.
+
+\subsection{Boundary block}
+\label{sec:boundary-block}
+
+A boundary block $b∈\bblocks$ is a valid extension of a valid chain
+$b_1,…,b_n$ if all of the following hold
+\begin{description}
+\item[Predecessor] The predecessor of $b$ is $b_n$ or, if $n=0$, the predecessor
+  of $b$ is the genesis identifier $b₀$.
+\item[Not future slot] The slot number is no larger than the current
+  slot.
+\item[Not past slot] The slot number of $b$ is larger than the slot.
+  number of $b_n$
+\item[At boundary] Let $s$ be the slot number of $b$, $\epochslot{s} =
+  0$ (note that it implies, in particular, that $\epoch{b_n}<\epoch{s}$).
+\end{description}
+
+\subsection{Regular block}
+\label{sec:regular-blocks}
+
+A regular block $b∈\rblocks$ is a valid extension of a valid chain
+$b_1,…,b_n$ if all of the following hold
+\begin{description}
+\item[Predecessor] The predecessor of $b$ is $b_n$ or, if $n=0$, the predecessor
+  of $b$ is the genesis identifier $b₀$.
+\item[Not future slot] The slot number is no larger than the current
+  slot.
+\item[Not past slot] The slot number of $b$ is larger than the slot.
+  number of $b_n$
+\item[No boundary-crossing] Let $s_b$ be the slot number of $b$ and
+  $s_n$ be the slot number of $b_n$, then $\epoch{s_b}=\epoch{s_n}$
+  (this condition imposes that epochs be started by epoch boundary blocks).
+\item[Issuer] Let $i$ be the issuer of $b$, and let $l$ be the slot
+  leader at the slot of $b$:
+  $$
+  l = \slotleader{\epochdistribution{b_1,…,b_n}}{\epochseed{b_1,…,b_n}}{\epochslot{slot}}
+  $$
+  See Section~\ref{sec:derived-functions} for the definitions of
+  $\epochdistribution{⋅}$ and $\epochseed{⋅}$.
+  \improvement{this doesn't read too well, improve.}
+
+  Then, $i$ must be transitively authorised by $l$ in that:
+  $$
+  i = \transitivefix{\delegations{b₁,…,b_n}}(l)
+  $$
+  Note that, by definition, there is (at most) a single agent
+  authorised by $l$ (it may be $l$ itself, if no delegation certificate
+  has been issued). See Section~\ref{sec:derived-functions} for the
+  definition of $\delegations{⋅}$.
+\item[Transactions] Each transaction in the block's transactions is
+  validated according to the following rules.
+  \begin{description}
+  \item[Stateless]\hfill
+    \begin{description}
+    \item[Valid outputs] All the outputs of the transaction must have
+      amount $a > 0$.
+    \item[No double-spending] The list of inputs contains no duplicate.
+    \item[No redeem output] For every $out∈\outputs{τ}$,
+      $\initialdistribution(\recipient{out})=0$.
+    \end{description}
+  \item[Stateful] Stateful transaction validation rules for a transaction $τ$
+    are parametrised by a list of transactions $τ_1,…,τ_m$ which we will abridge
+    as $\overline{τ}$.
+
+    Given a valid chain $b₁,…,b_n$ and $b$, the block being validated, such
+    that $\transactions{b}=t₁,…,t_k$. Then, for the purpose of
+    stateful validation of the transaction $t_i$, we set
+    $\overline{τ} = \transactions{b₁},…,\transactions{b_n},t₁,…,t_{i-1}$.
+    \begin{description}
+    \item[Unspent inputs] Each input of the transaction $τ$ is
+      unspent. That is for each $i ∈ \inputs{τ}$
+      \begin{itemize}
+      \item $\intrans{i}∈\overline{τ}$ or $\intrans{i} ∈ \txinit$
+      \item $\inindex{i} ⩽ \length{\outputs{\intrans{i}}}$
+      \item for each $t ∈ \overline{τ}$, $i ∉ \inputs{t}$.
+      \end{itemize}
+
+      In these conditions, we can extend the function $\recipient{⋅}$
+      and $\amount{⋅}$, as well as $\repartition{⋅}$, on the $i$ as
+      \begin{itemize}
+      \item $\recipient{i} = \recipient{\pos{\inindex{i}}{\outputs{\intrans{i}}}}$
+      \item $\amount{i} = \amount{\pos{\inindex{i}}{\outputs{\intrans{i}}}}$
+      \item $\repartition{i} = \repartition{\pos{\inindex{i}}{\outputs{\intrans{i}}}}$
+      \end{itemize}
+      \info{Remark: in all this rule, we use implicitly
+        $\overline{τ}$, to cast $\intrans{i}∈\txids$ to an actual
+        transaction. }
+
+    \item[Conservation of value] The total amount of outputs must not exceed
+      the total amount of inputs. A minimum fee must be paid.
+      $$
+      \minimumfee{τ} + ∑_{o∈\outputs{τ}} \amount{o}⩽ ∑_{i∈\inputs{τ}} \amount{i}
+      $$
+
+      If for every $i∈\inputs{τ}$,
+      $\initialdistribution{\recipient{i}}>0$, that is all the inputs
+      are from redeem addresses, then no fee need be paid, and the
+      rules become:
+      $$
+      ∑_{o∈\outputs{τ}} \amount{o}⩽ ∑_{i∈\inputs{τ}} \amount{i}
+      $$
+    \item[Authorised] The list of witnesses has the same length as the
+      list of inputs
+      $$
+      \length{\witnesses{τ}} = \length{\inputs{τ}}
+      $$
+      and for each input, the corresponding witness is the agent id of
+      the input
+      $$
+      ∀ 0<k⩽\length{\inputs{τ}}. \recipient{\pos{k}{\inputs{τ}}} =
+      \pos{k}{\witnesses{τ}}
+      $$
+    \end{description}
+
+  \item[Bootstrap era] The following conditions must all pass to
+    validate transactions in the bootstrap era. This specification only
+    describes the behaviour during the bootstrap era, hence the
+    following conditions are checked unconditionally.
+    \begin{description}
+    \item[Bootstrap stake delegation] For every output $o∈\outputs{τ}$, the
+      stake is delegated in to the bootstrap stakeholders:
+      $\repartition{o} = \bootstraprepartition$.
+
+      \begin{treacherous}
+        This is slightly imprecise because the bootstrap repartition
+        has two representations in Cardano's blockchain: it has a
+        name (a data constructor), but it can also be represented by a
+        explicit map. Only the former is actually permitted
+      \end{treacherous}
+
+    \end{description}
+  \end{description}
+
+\item[Delegation certificates] Let
+  $\overline{c}=\delegationcertificates{b}$ be the list of delegation
+  certificates of $b$. Then for any two $c₁,c₂∈\overline{c}$, it must
+  hold that $\delegator{c₁}≠\delegator{c₂}$.
+
+  Note that this prevents any agent which has issued a delegation certificate to
+  another party from issuing any block: they \emph{must} be signed by the
+  delegatee (or, transitively, by the agent authorised to sign instead of the
+  delegatee). That is, until the agent issues a new delegation certificate to
+  itself, which, in effect, revokes any previous delegation certificate. See
+  also the definition of $\transitivefix{g}$ in Section~\ref{sec:definitions}.
+
+\item[Seed computation] This rule divides into different cases, depending on the
+  content of the seed computation field of the block $b$ (the functions
+  $\richmen{⋅,⋅}$, $\epochcommitments{⋅}$, $\epochopens{⋅}$, and
+  $\epochrecoveries{⋅}$ are defined in Section~\ref{sec:derived-functions}).
+  \begin{description}
+  \item[Nothing] If there is no message, then no further rule must be
+    enforced.
+  \item[Commitment] If there is a commitment message $c ∈
+    \agentids⇀\seeds×\seeds$ then, and calling its domain $U$,
+    \begin{description}
+    \item[Commitment phase] Let $s$ be the current slot, then we must
+      have $\epochslot{s}∈\commitphase$.
+    \item[Richmen] We must have
+      $U⊆\richmen{\delegations{b_1,…,b_n}}{\currentdistribution{b_1,…,b_n}}$.
+    \item[Valid] For every $a∈U$, let $(m,p) = c(a)$, we must have
+      $m=p$.
+    \item[Fresh] Let $V$ be the domain of $\epochcommitments{b_1,…,b_n}$,
+      we must have $U∩V=∅$.
+    \end{description}
+  \item[Open] If there is an opening message $o ∈
+    \agentids⇀\seeds$ then, calling its domain $U$,
+    \begin{description}
+    \item[Opening phase] Let $s$ be the current slot, then we must
+      have $\epochslot{s}∈\openphase$.
+    \item[Valid] We must have that $o ⊆ π_1 ∘
+      \epochcommitments{b_1,…,b_n}$.
+    \item[Fresh] Let $V$ be the domain of $\epochopens{b_1,…,b_n}$,
+      we must have $U∩V=∅$.
+    \end{description}
+  \item[Recovery] If there is a recovery message $r ∈
+    \agentids⟶\agentids⇀\seeds$ then, calling its support $U$,
+    \begin{description}
+    \item[Recovery phase] Let $s$ be the current slot, then we must
+      have $\epochslot{s}∈\recoveryphase$.
+    \item[Valid] For every $a∈U$, we must have that $r(a) = (π_1 ∘ \epochcommitments{b_1,…,b_n})⧵\epochopens{b_1,…,b_n}$.
+    \item[Fresh] Let $V$ be the domain of $\epochrecoveries{b_1,…,b_n}$,
+      we must have $U∩V=∅$.
+    \end{description}
+
+  \end{description}
+
+
+\end{description}
+
+\section{Derived functions}
+\label{sec:derived-functions}
+
+This section defines functions which are only defined on valid chains,
+per the definition of Section~\ref{sec:adding-block}. The functions
+defined in this sections are also used in
+Section~\ref{sec:adding-block}. Therefore this section and
+Section~\ref{sec:adding-block} are mutually recursive.
+
+Functions which project fields from regular blocks are extended to
+epoch boundary blocks by returning the natural trivial value. For
+instance, for an epoch boundary block $b$,
+$\transactions{b}=\emptylist$
+
+\begin{description}
+\item[Last epoch index] For a valid chain, we write
+  $$
+  \epochindex{b_1,…,b_n} = \max_{\mathclap{\substack{
+      0<i<n\\
+      \epoch{b_i} < \epoch{b_n}
+  }}} i
+  $$
+  for the index in the chain (not the slot) of the last block of the
+  previous epoch (the current epoch is taken to be the epoch of $b_n$,
+  the tip of the chain).
+
+  If there is no complete epoch (in particular if the chain is empty)
+  we set $\epochindex{b_1,…,b_n} = 0$.
+\item[Stake distribution] Let us define
+  $\currentdistribution{τ₁,…,τ_n}$ by induction, for a valid sequence
+  of transactions\improvement{Valid sequence of transaction hasn't
+    properly been defined, but it's implicit in the definition above,
+    it would maybe be worth making more precise.}:
+  \begin{itemize}
+  \item $\currentdistribution{\emptylist} = \initialdistribution$
+  \item Inductively, and writing
+    \begin{itemize}
+    \item $⌊x⌋$ for the integral part (aka floor) of $x$; \emph{i.e.}
+      $⌊x⌋$ is the unique integer such that $⌊x⌋ ⩽ x < ⌊x⌋+1$
+    \item $\kronecker{⋅}{⋅}$ for
+      \href{https://en.wikipedia.org/wiki/Kronecker_delta}{Kronecker's
+        delta} function:
+      $$
+      \kronecker{i}{j} = \left\{
+        \begin{array}{ll}
+          1 & \mbox{if $i=j$}\\
+          0 & \mbox{otherwise}
+        \end{array}
+      \right.
+      $$
+      In particular, $\kronecker{i}{j}q = q$ if $i=j$ and $0$
+      otherwise. Kronecker's delta is used to select summands: it is
+      the arithmetician's \verb+ifThenElse+ combinator.
+    \item $\stakeof{o}{a} = \repartition{o}(a)\cdot\amount{o} ∈ \mathbb{Q}$
+    \item For inputs of $τ_{n+1}$, we extend $\stakeof{⋅}{⋅}$ to
+      inputs using the validity hypothesis to define $\repartition{i}$ and $\amount{i}$
+    \end{itemize}
+    We define
+\newcommand{\stakerepartitionformula}[4]{∑_{#2∈#3} \left(
+            \begin{aligned}
+              &⌊\stakeof{#2}{#1}⌋\\
+              &\qquad+\\
+              &\raisebox{0pt}[0pt][3.5ex]{$\displaystyle{\kronecker{#1}{\selectrichman{\amount{#2}}}\left(\amount{#2} - ∑_{#4∈\agentids}
+            ⌊\stakeof{#2}{#4}⌋\right)}$}
+            \end{aligned}\right)}
+    \begin{align*}
+      \makebox[1em][l]{$\currentdistribution{τ₁,…,τ_n, τ_{n+1}}(a) =$}\\
+      & \phantom{=} \currentdistribution{τ₁,…τ_n}(a)\\
+      & - \stakerepartitionformula{a}{i}{\inputs{τ_{n+1}}}{b}\\
+      & + \stakerepartitionformula{a}{o}{\outputs{τ_{n+1}}}{b}
+    \end{align*}
+
+    That is, the contribution of unspent output $o$ to agent $a$ is
+    the proportion of the value of $o$ specified by the stake
+    repartition of $o$ rounded \emph{down} to the nearest integer. The
+    remaining unallocated stake goes to the bootstrap stakeholder
+    specified by the $\selectrichman{⋅}$ function, applied to the
+    total value of $o$.
+
+    \begin{treacherous}
+      The treatment of remainder as specified here is only valid for
+      the bootstrap era. Outside of the bootstrap era, the remainder
+      may be different, hence we may have to calculate remainder
+      differently for transactions of the bootstrap eras, and
+      transaction posterior to the bootstrap eras. See
+      Appendix~\ref{sec:delegation-shelley}.
+    \end{treacherous}
+  \end{itemize}
+
+  We can then extend $\currentdistribution{⋅}$ on valid chains by defining
+  $$
+  \currentdistribution{b₁,…,b_n} = \currentdistribution{\transactions{b₁},…,\transactions{b_n}}
+  $$
+  Finally we define
+  $$
+  \epochdistribution{b₁,…,b_n} = \currentdistribution{b₁,…,b_{\epochindex{b_1,…,b_n}}}
+  $$
+
+\item[Richmen] For a delegation graph $g$ and a stake distribution
+  $d∈\stakedistributions$, note that $\extension{g}{d}$ is the stake
+  distribution corresponding to $d$ except that all the stake of an
+  agent $a$ has been (transitively) passed to its delegatee.
+
+\newcommand{\threshold}[1]{\mathsf{threshold}(#1)}
+  We define
+  $$
+  \richmen{g}{d} = \{ a ∈ \agentids~|~\extension{g}{d}(a) ⩾
+  \threshold{∑_{b∈\agentids} d(b)} \}
+  $$
+  \improvement{TODO: declare the threshold function as a parameter.}
+
+\item[Seed computation]\hfill
+  \begin{itemize}
+  \item Let $c_1,…,c_k$ be the list of partial functions
+    $\agentids⇀\seeds×\seeds$ extracted from the seed computation
+    field of the blocks in $b_{\epochindex{b_1,…,b_n}+1},…,b_n$ which
+    are commitment messages, then define
+    $$
+    \epochcommitments{b_1,…,b_n} = c_1 ⊎ … ⊎ c_k
+    $$
+  \item Let $o_1,…,o_k$ be the list of partial functions
+    $\agentids⇀\seeds$ extracted from the seed computation
+    field of the blocks in $b_{\epochindex{b_1,…,b_n}+1},…,b_n$ which
+    are opening messages, then define
+    $$
+    \epochopens{b_1,…,b_n} = o_1 ⊎ … ⊎ o_k
+    $$
+  \item Let $r_1,…,r_k$ be the list of partial functions
+    $\agentids⇀\agentids⇀\seeds$ extracted from the seed computation
+    field of the blocks in $b_{\epochindex{b_1,…,b_n}+1},…,b_n$ which
+    are recovery messages, then define
+    $$
+    \epochrecoveries{b_1,…,b_n} = r_1 ⊎ … ⊎ r_k
+    $$
+  \end{itemize}
+\item[Seed] Let $U$ be the domain of the partial function
+  $$
+  r = ⨄_{a∈\agentids}\epochrecoveries{b_1,…,b_{\epochindex{b_1,…,b_n}}}(a)
+  $$
+  and $V$ be the domain of the partial function $\epochopens{b_1,…,b_{\epochindex{b_1,…,b_n}}}$.
+
+  Then define
+  $$
+  \left\{
+  \begin{array}{lcll}
+    \epochseed{b_1,…,b_n}&=& \initialseed & \mbox{if $\epochindex{b_1,…,b_n}=0$}\\
+    \epochseed{b_1,…,b_n}&=&∏_{a∈V}\epochopens{b_1,…,b_{\epochindex{b_1,…,b_n}}}(a) & \mbox{otherwise}\\
+                         &×&∏_{a∈U}r(a)
+  \end{array}
+  \right.
+  $$
+\item[Delegation graph] Let us define $\delegations{c₁,…,c_n}$, for a
+  list of delegation certificates, by induction:
+  \begin{itemize}
+  \item $\delegations{\emptylist} = \initialdelegation$
+  \item $$
+    \delegations{c₁,…,c_n,(D,d)}(a) = \left\{
+      \begin{array}{ll}
+        d & \mbox{if $a=D$}\\
+        \delegations{c₁,…,c_n}(a) & \mbox{otherwise}
+      \end{array}\right.
+      $$
+  \end{itemize}
+
+  We can extend $\delegations{⋅}$ on valid chain by defining
+  $$
+  \delegations{b₁,…,b_n} = \delegations{\delegationcertificates{b₁},…,\delegationcertificates{b₁}}
+  $$
+
+\end{description}
+
+\section{Instantiating parameters}
+\label{sec:params}
+
+\subsection{Height}
+\label{sec:height}
+
+The height of a chain is defined as:
+
+$$
+\height{b₁,…,b_n} = n
+$$
+
+\subsection{Slot leader}
+\label{sec:slot-leader}
+
+A \emph{number generator} is a function $f ∈ ℕ ⟶ S ⟶ ℕ×S$ for some set
+$S$, such that for every $n$ and $s$, $(i,s') = f(n)(s) ⟹ 0 ⩽ i <
+n$. For security, we would need to assume that $f(n)$ has good
+randomness properties, but we can safely ignore this aspect for the
+purpose of this document.
+
+In the rest of the section, we assume given a number generator $f$, a
+seed $s_0∈S$, and a stake distribution $d$. Let $N$, the \emph{total
+  stake}, be $N=∑_{a∈\agentids} d(a)$ (which is defined since $d$ has
+finite support).
+
+Let us define the sequences $(s_n)_{n∈ℕ}$ and $(u_n)_{n>0}$ as
+\begin{itemize}
+\item $s_0$ is as given above
+\item $(u_{n+1}, s_{n+1}) = f(N)(s_n)$
+\end{itemize}
+
+We can then define the slot leader function as
+
+$$
+\slotleader{d}{s_0}{n} = \min_{l∈\agentids} \left( u_n < ∑_{a⩽l} d(a) \right)
+$$
+
+That is, laying the agents in order on a line, and letting each take
+$d(a)$ unit of length. We select the agent whose extent on the line
+contains $u_n$.
+
+\subsection{Number generator}
+\label{sec:number-generator}
+
+A \emph{binary number generator} is a function $g ∈ ℕ ⟶ S ⟶ ℕ×S$ for
+some set $S$, such that for every $n$ and $s$,
+$(i,s') = f(n)(s) ⟹ 0 ⩽ i < 2^{kn}$ for some $k$. A typical example is
+to have $k=8$ for a generator which produces a byte at a time.
+
+Given a binary number generator $g$ such that $g(N)$ is surjective on its first
+component, our goal is to construct a general number generator $f$ as in
+Section~\ref{sec:slot-leader}, such that $f(N)$ must also be surjective on its
+first component.\improvement{I think it's better to just put the surjective
+  requirement in the definition of (binary) random generators.}
+
+Let us fix $N∈ℕ$ and $s₀∈S$. And define $B = \min_{n∈ℕ}N < 2^{kn}$,
+and $(s_n)_{n∈ℕ}$ and $(u_n)_{n>0}$ as\improvement{I could define
+  generators once and for all and these could derive from them. This
+  seems to require a dependent product though. We can work around this
+  defining a family of generators instead.}
+\begin{itemize}
+\item $s_0$ is as given above
+\item $(u_{n+1}, s_{n+1}) = g(B)(s_n)$
+\end{itemize}
+
+Let $n₀ = \min_{n>0} \left(\rem{2^{kB}}{N} ⩽ u_n < 2^{kB}\right)$.
+
+We define
+$$
+f(N)(s₀) = (\rem{u_{n₀}}{N}, s_{n₀})
+$$
+
+Note that, by definition of the remainder,
+$\{ p∈ℕ | \rem{2^{kB}}{N} ⩽ u_n < 2^{kB} \}$ has $qN$ elements for
+some $q$. From which we can deduce that $f(N)$ is surjective on its
+first component (and actually: if the frequency of each $p$ in $u_n$
+is the same, then the same property also holds of $f$).
+
+\subsection{Chain quality}
+\label{sec:chain-quality}
+
+The chain qualitity function is defined as
+$$
+\quality{n} = 2n
+$$
+\subsection{Secret-sharing phases}
+\label{sec:vss-phases}
+
+The secret-sharing phases are defined as:
+\begin{itemize}
+\item $\commitphase = \{ n∈ℕ~|~0 ⩽ n < \quality{k} \}$
+\item $\openphase = \{ n∈ℕ~|~2×\quality{k} ⩽ n < 3×\quality{k} \}$
+\item $\recoveryphase = \{ n∈ℕ~|~4×\quality{k} ⩽ n < 5×\quality{k} \}$
+\end{itemize}
+
+\section{Issuing a block}
+\label{sec:extending-blockchain}
+
+\info{In this section we will specify the rules used by a slot-leader
+  to create a new regular block. The state is a single chain, plus outstanding
+  transactions.}
+
+In this section we are parametrised by the current slot, a valid chain
+$b₁,…,b_n$, as well as the agent id $a$ of the node attempting to issue
+the block (or rather \emph{an} agent id, as it is customary in Cardano
+to have many public keys for a single agent).
+
+In order to issue a new block check that:
+\begin{description}
+\item[Authorised] Let $s$ be the current slot, and $l$ be the slot
+  leader at $s$:
+  $$
+  l = \slotleader{\epochdistribution{b_1,…,b_n}}{\epochseed{b_1,…,b_n}}{\epochslot{s}}
+  $$
+
+  Then, $a$ must be transitively authorised by $l$ in that:
+  $$
+  i = \transitivefix{\delegations{b₁,…,b_n}}(l)
+  $$
+\end{description}
+
+And build the following block:
+\begin{record}
+\item[predecessor] The predecessor is the (block id of) $b_n$
+\item[slot number] The slot number is set to the current slot
+\item[issuer] The block issuer is $a$
+\item[transactions] The list of transactions is set to be the entire
+  transaction mempool (see Section~\ref{sec:entering-mempool})\improvement{In fact this is limited by the block size
+    somehow. See
+    \href{https://iohk.myjetbrains.com/youtrack/issue/CDEC-170}{CDEC-170}.}
+\item[delegation certificates] The list of delegation certificate is
+  set to be the entire delegation mempool (see
+  Section~\ref{sec:entering-mempool}).\unsure{Limited by block size?}
+\item[seed computation] The seed computation message is set
+  to be the content of the seed mempool (see
+  Section~\ref{sec:entering-mempool}).\unsure{Limited by block size?}\unsure{There is probably an issue here where the mempool contains previously correct delegation messages, but the appropriate phase has since passed.}
+\end{record}
+\improvement{TODO: updates and where they come from}
+
+\info{Issuing a block doesn't extend the blockchain. Instead, the
+  issued block is immediately received using the process of
+  Section~\ref{sec:adding-block}. Issued block have the property that
+  they are always valid on top of the current chain, but this
+  simplifies the specification, and gives an opportunity to test the
+  specification itself.}
+
+\section{Entering the mempool}
+\label{sec:entering-mempool}
+
+This section specifies the behaviour of the mempool, which is the
+space in which received transactions are stored before they are
+broadcast to the network, and also where the transactions to issue a
+new block (see Section~\ref{sec:extending-blockchain}) are taken
+from. Many changes are considered to this section, and are discussed
+in Appendix~\ref{sec:appendix-mempool}.
+
+The mempool is only valid relatively to a given selected chain (see
+Section~\ref{sec:chain-selection}). Every time the selected chain
+changes (whenever a block is received), the mempool is emptied.
+
+Let $b₁,…,b_m$ be the selected chain. The mempool is a tuple comprised of:
+\begin{description}
+\item[transaction mempool] a list of transaction
+\item[delegation mempool] a list of delegation certificates
+\item[seed mempool] a seed computation message (either nothing of one
+  of a commitment message, an opening message, or a recovery message)
+\end{description}
+
+\subsection{Transaction mempool}
+\label{sec:transaction-mempool}
+
+We define a \emph{valid} transaction mempool $τ₁,…,τ_n$ by induction:
+\begin{itemize}
+\item The empty mempool $\emptylist$ is valid
+\item $τ₁,…,τ_{n+1}$ is valid if $τ₁,…,τ_n$ is valid, and $τ_{n+1}$ is
+  a \emph{valid extension} of $\transactions{b₁},…,\transactions{b_m}, τ₁,…,τ_n$
+\end{itemize}
+
+A transaction $τ$ is a valid extension of a list $\overline{τ}$ (remember
+that $τ$ contains not only the transaction of the mempool, but also
+those of the selected chain) when
+\begin{description}
+  \item[Stateless]\hfill
+    \begin{description}
+    \item[Mempool size] The addition of the new block mustn't cause
+      the mempool size to increase past its maximum value:
+      $n < \maxmempoolsize$.
+    \item[Valid outputs] All the outputs of the transaction must have
+      amount $a > 0$.
+    \item[No double-spending] The list of inputs contains no duplicate.
+    \item[No redeem output] For every $out∈\outputs{τ}$,
+      $\initialdistribution(\recipient{out})=0$.
+    \end{description}
+  \item[Stateful]\hfill
+    \begin{description}
+    \item[Unspent inputs] Each input of the transaction $τ$ is
+      unspent. That is for each $i ∈ \inputs{τ}$
+      \begin{itemize}
+      \item $\intrans{i}∈\overline{τ}$ or $\intrans{i} ∈ \txinit$
+      \item $\outputs{\intrans{i}}=t₁,…,t_k$, $\inindex{i} ⩽ k$
+      \item for each $t ∈ \overline{τ}$, $i ∉ \inputs{t}$.
+      \end{itemize}
+
+      In these conditions, we can extend the function $\recipient{⋅}$
+      and $\amount{⋅}$, as well as $\repartition{⋅}$, on the $i$ as
+      \begin{itemize}
+      \item $\recipient{i} = \recipient{\pos{\inindex{i}}{\outputs{\intrans{i}}}}$
+      \item $\amount{i} = \amount{\pos{\inindex{i}}{\outputs{\intrans{i}}}}$
+      \item $\repartition{i} = \repartition{\pos{\inindex{i}}{\outputs{\intrans{i}}}}$
+      \end{itemize}
+      \info{Remark: in all this rule, we use implicitly
+        $\overline{τ}$, to cast $\intrans{i}∈\txids$ to an actual
+        transaction. }
+
+    \item[Conservation of value] The total amount of outputs must not exceed
+      the total amount of input. A minimum fee must be paid.
+      $$
+      \minimumfee{τ} + ∑_{o∈\outputs{τ}} \amount{o}⩽ ∑_{i∈\inputs{τ}} \amount{i}
+      $$
+
+      If for every $i∈\inputs{τ}$,
+      $\initialdistribution{\recipient{i}}>0$, that is all the inputs
+      are from redeem addresses, then no fee need be paid, and the
+      rules become:
+      $$
+      ∑_{o∈\outputs{τ}} \amount{o}⩽ ∑_{i∈\inputs{τ}} \amount{i}
+      $$
+    \item[Authorised] The list of witnesses has the same length as the
+      list of inputs
+      $$
+      \length{\witnesses{τ}} = \length{\inputs{τ}}
+      $$
+      and for each input, the corresponding witness is the agent id of
+      the input
+      $$
+      ∀ 0<k⩽\length{\inputs{τ}}. \recipient{\pos{k}{\inputs{τ}}} =
+      \pos{k}{\witnesses{τ}}
+      $$
+    \end{description}
+
+    \item[Bootstrap era] The following conditions must all pass to
+    validate blocks in the bootstrap era. This specification only
+    describes the behaviour during the bootstrap era, hence the
+    following conditions are checked unconditionally.
+    \begin{description}
+    \item[Bootstrap stake delegation] For every output $o∈\outputs{τ}$, the
+      stake is delegated in to the bootstrap stakeholders:
+      $\repartition{o} = \bootstraprepartition$.
+
+      \begin{treacherous}
+        This is slightly imprecise because the bootstrap repartition
+        has two representations in Cardano's block chain: it has a
+        name (a data constructor), but it can also be represented by a
+        explicit map. Only the former is actually permitted
+      \end{treacherous}
+
+    \end{description}
+
+\end{description}
+
+\subsection{Delegation mempool}
+\label{sec:delegation-mempool}
+
+We define a \emph{valid} delegation mempool $c₁,…,c_n$ by induction:
+\begin{itemize}
+\item The empty mempool $\emptylist$ is valid
+\item $c₁,…,c_{n+1}$ is valid if $c₁,…,c_n$ is valid, and $c_{n+1}$ is
+  a \emph{valid extension} of $c₁,…,c_n$
+\end{itemize}
+
+A delegation message $c$ is a valid extension of $c_1,…,c_n$ if
+$∀1⩽i⩽n. \delegator{c}≠\delegator{c_i}$.
+
+\subsection{Seed mempool}
+\label{sec:seed-mempool}
+
+A seed computation message $m$ is a valid extension of a seed mempool $m_0$ if
+\begin{itemize}
+\item $m_0$ is empty, in which case the extended seed mempool is $m$.
+\item $m_0$ is a commitment of domain $U$, and $m$ is a commitment of domain $V$, and
+    \begin{description}
+    \item[Commitment phase] Let $s$ be the current slot, then we must
+      have $\epochslot{s}∈\commitphase$.
+    \item[Richmen] We must have
+      $U⊆\richmen{\delegations{b_1,…,b_n}}{\currentdistribution{b_1,…,b_n}}$.
+    \item[Valid] For every $a∈V$, let $(m,p) = f(a)$, we must have
+      $m=p$.
+    \item[Fresh] Let $W$ be the domain of $\epochcommitments{b_1,…,b_n}$,
+      we must have $U∩V=∅$ and $W∩V=∅$.
+    \end{description}
+    Then the extended pool is $m_0 ⊎ m$.
+\item $m_0$ is an open of support $U$, and $m$ is an open of support $U$, and
+    \begin{description}
+    \item[Opening phase] Let $s$ be the current slot, then we must
+      have $\epochslot{s}∈\openphase$.
+    \item[Valid] We must have that $m ⊆ π_1 ∘
+      \epochcommitments{b_1,…,b_n}$.
+    \item[Fresh] Let $W$ be the domain of $\epochopens{b_1,…,b_n}$,
+      we must have $U∩V=∅$ and $W∩V=∅$.
+    \end{description}
+    Then the extended pool is $m_0 ⊎ m$.
+\item $m_0$ is a recovery of support $U$, and $m$ is a recovery of support V, and
+    \begin{description}
+    \item[Recovery phase] Let $s$ be the current slot, then we must
+      have $\epochslot{s}∈\recoveryphase$.
+    \item[Valid] For every $a∈V$, we must have that $r(a) = (π_1 ∘ \epochcommitments{b_1,…,b_n})⧵(\epochopens{b_1,…,b_n}⊎m_0)$.
+    \item[Fresh] Let $W$ be the domain of $\epochrecoveries{b_1,…,b_n}$,
+      we must have $U∩V=∅$ and $W∩V=∅$.
+    \end{description}
+    Then the extended pool is $m_0 ⊎ m$.
+\end{itemize}
+
+\section{Selecting the longest chain}
+\label{sec:chain-selection}
+
+Let us call a blocktree $\mathfrak{T} ∈
+\blocktrees$\improvement{Clearly, a better notation for the set of
+  blocktrees and the set of blockchains is necessary}{} a finite set of
+valid chains, closed under prefix (\emph{i.e.} if
+$b₁, …, b_{n+1} ∈ \mathfrak{T}$, then
+$b₁, …, b_n ∈ \mathfrak{T}$)
+
+\begin{implementationhint}
+  The definition of blocktree is just a convenient and concise way to
+  say that a blocktree is a tree of blocks ($\mathfrak{T}$ is rooted
+  in the genesis state, each block in $\mathfrak{T}$ has its
+  predecessor in $\mathfrak{T}$) and that the path from the root to
+  any block is a valid chain.
+
+  This would typically be implemented as a set of blocks (in the sense
+  of \verb+Data.Set+). With the invariant that each block has a
+  predecessor (possibly the genesis state).
+\end{implementationhint}
+
+Let us define the maximal chains
+$\maxchains{\mathfrak{T}} ⊆ \mathfrak{T}$ to be the set of chains
+$b₁,…,b_n$ such that for any extension $b₁,…,b_n,b ∉ \mathfrak{T}$.
+
+\begin{implementationhint}
+  Maximal chains are the equivalent, in our presentation of blocktrees
+  to the leaves of the tree. In blockchain terminology, the maximal
+  chains represent the tips of all the possible forks.
+
+  Because it may be slow to retrieve the tip from a set data
+  structures, it can be convenient, even in an executable
+  specification, to keep a reference to these tips.
+\end{implementationhint}\unsure{On the
+    other hand, we don't seem to need the maximal chains in this
+    specification. The only occurrence is to say that the selected
+    chain is a maximal chain, but it is subsumed by the maximal-height
+    condition (provided that height is monotonic). So we may be able
+    to drop the maximal chain story entirely.}
+
+A blockchain datastructure is a pair $(\mathfrak{C},\mathfrak{T}) ∈
+\blockchains ⊆ \lists{\blocks}×\blocktrees$. Such that
+\begin{itemize}
+\item $\mathfrak{C}$ is a maximal chain of $\mathfrak{T}$:
+  $$
+  \mathfrak{C} ∈ \maxchains{\mathfrak{T}}
+  $$
+\item $\mathfrak{C}$ is of maximal height:
+  $$
+  \height{\mathfrak{C}} = \max_{\mathfrak{D}∈\maxchains{\mathfrak{T}}}
+  \left( \height{\mathfrak{D}} \right)
+  $$
+\end{itemize}
+
+We call $\mathfrak{C}$ the \emph{selected chain}. Because a typical
+height function is the length of the chain, $\mathfrak{C}$ is also
+often referred to as the longest chain (despite not necessarily being
+unique at that height).\improvement{In the current state, the block
+  chain should probably also contain the mempool, so that this section
+  can describe the refreshing rules for the mempool}
+
+Rules to add a block $b$ to the blockchain:
+
+\begin{description}
+\item[Predecessor] There must exist $b₁,…,b_n∈ \mathfrak{T}$ such that
+  $b_n$ is the predecessor of $b$.
+\item[Validity] $b₁,…,b_n,b$ must be a valid chain, let $\mathfrak{T}'
+  = \mathfrak{T}∪\{b₁,…,b_n,b\}$
+\item[Young fork] Let $b₁,…,b_i$ the longest prefix of $b₁,…,b_n$
+  which is also a prefix of $\mathfrak{C}$ ($b₁,…,b_i$ is known as the
+  \emph{last common ancestor} of $b₁,…,b_n$ and $\mathfrak{C}$). We
+  must have $\length{\mathfrak{C}} - i ⩽ k$  (that is: the last common
+  ancestor is at most $k$ block deep).
+\item[Longest chain] if $\height{b₁,…,b_n,b} > \height{C}$ (note:
+  larger \emph{and not equal}) then let $\mathfrak{C}'=b₁,…,b_n,b$
+  else let $\mathfrak{C}'=\mathfrak{C}$.
+\item[Update] The new blockchain is $(\mathfrak{C}', \mathfrak{T}')$
+\end{description}
+
+Note that this set of rules work even if $b$ had previously been
+received and added to the blockchain. In this case, the
+\emph{predecessor} and \emph{validity} rules will always pass (and
+$\mathfrak{T}'=\mathfrak{T}$), the \emph{young fork} rule may reject
+the block, in which case, by definition the blockchain stays
+unchanged, the \emph{longest chain} rule will always rule that
+$\mathfrak{C'}=\mathfrak{C}$. In other words, these rules are
+idempotent in that receiving an already accepted block will leave the
+blockchain unchanged.
+
+\appendix
+
+\section{Notes \& further considerations}
+\label{sec:notes}
+
+The purpose of this section is to collect information which does not
+fit the specification proper, but can illuminate it, or describe how
+it can be expanded to meet future requirements.
+
+\subsection{Data validation vs validation rules}
+\label{sec:data-validation-vs}
+
+This is a general consideration for specification and implementation
+design. The input received by a Cardano node is a piece of serialised
+data, that is a string of bits. But validation rules for block are
+done on \textsc{ast}s.
+
+There is necessarily some validation done in the conversion from
+strings of bits to \textsc{ast}: not all strings of bits decode to an
+\textsc{ast}. This document refers to the rules which reject strings
+of bits or make an \textsc{ast} as \emph{data validation}.
+
+The rules to validate data which is already in \textsc{ast} form are
+referred to, by contrast, as \emph{logic validation rules}.
+
+Specification documents (this and any future document) are concerned
+exclusively with logic validation rules. This raises the
+question of what should be data validation rules and what should be
+logic validation rules.
+
+A an example, consider stake repartition as defined in
+Section~\ref{sec:definitions}: a finite-support function $r∈\agentids
+⟶ \mathbb{Q}$ such that $r(a) ⩾ 0$ and $∑_{a∈\agentids} r(a) =
+1$. There are two possibilities:
+\begin{itemize}
+\item Take this as the definition of stake repartition in the
+  \textsc{ast}
+\item Take $r$ to be an arbitrary finite-support function in the
+  \textsc{ast} and verify, as logic validation rules, that the two
+  constraints hold
+\end{itemize}
+In the former case, the properties of $r$ are relegated as data
+validation.
+
+Data validation rules are invisible to specification, making
+specification shorter, clearer, and easier to reason about. One may
+fear that turning logic rules into validation rule may make errors
+harder to spot in testing. But the contrary holds, at least in a typed
+language like Haskell: data validation rules can be enforced by abstract
+data types, which can be tested in isolation.
+
+So, having as many data validation rules and as few logic validation
+rules as possible makes it easier to write property-based tests, is
+more composable, and make specification better. It is therefore
+recommended, for future specification documents to make as many rules
+as possible into data validation.
+
+\subsection{Of forward compatibility}
+\label{sec:forward-comp}
+
+The different sections of this document have varying importance as far
+as compatibility is concerned. Any change to the specification must
+ensure one prime criterion: blocks which are currently stable
+(\emph{i.e.} there is at least one node which has the block at depth
+$k$), must be valid in the new specification.
+
+This means, in particular, that the rules to validate incoming blocks
+(Section~\ref{sec:adding-block}) must be understood scrupulously and
+any evolution of the specification must make sure that any additional
+criterion only affects later blocks.
+
+At the other hand of the spectrum are the rules for the mempool and
+the issuance of new blocks (Sections~\ref{sec:entering-mempool}
+and~\ref{sec:extending-blockchain}) can be changed arbitrarily, as far
+as compatibility is concerned: their state is completely transient,
+and it won't affect how existing blocks are seen.
+
+For example, it is, at the time of writing, the case that a node
+willing to issue a test must list the entirety of transactions in this
+mempool the block. As it happens, when the mempool is large, it has
+proved occasionally to hard a task to perform within the 20s that
+comprise a slot. It would have no effect on compatibility to allow any
+sort of subset of the mempool to be selected to be part a newly issued
+block.
+
+This is also why the rules in Section~\ref{sec:entering-mempool} are
+copies of rules in Section~\ref{sec:adding-block}, rather than try and
+factor them into a common definition: the rules for the mempool are
+likely to change quicker than those for than block validation.
+
+\subsection{Lightweight delegation}
+\label{sec:lightweight-delegation}
+
+Lightweight delegation is an alternative to heavyweight delegation as
+described with the delegation graph and delegation certificates in
+this document.
+
+In lightweight delegation, we use a cryptographic subkey signing
+scheme to authorise other parties to sign in our stead. The subkey
+sharing happens off chain, therefore it is harder to revoke a
+certificate (since we don't benefit from the blockchain as a broadcast
+channel: if we broadcast a revocation message, it can be received only
+partially by the network and new blocks will issued which still accept
+the subkey. The subkey is still technically valid. Plus, the economic
+incentives probably don't apply, and make it costless to ignore a
+revocation).
+
+Lightweight delegation is currently implemented in Cardano, but hasn't
+been deployed yet. Therefore it has not been specified in this
+document yet, as this document is only concerned with the currently
+used features of Cardano.
+
+The main reason to require an off-chain delegation scheme is to be
+able to keep one's private key hidden and sign for oneself using
+subkeys instead. They can be made single use, at very little cost,
+guaranteeing very strong security: even if a private subkey is leaked,
+it is useless, and only the private key which is never used directly
+is.
+
+From the point of view of the specification, the current view is that
+lightweight delegation need not appear at all: we simply assume that
+the cryptography allows an agent $a$ to sign with any subkey of its
+private key, whenever its private key would be allowed. In this sense,
+this document is already ready for lightweight specification. But,
+when time comes, we may come to the conclusion that, in fact, we need
+some mechanism in the specification, to model lightweight delegation
+explicitly.
+
+\subsection{Considerations on the mempool}
+\label{sec:appendix-mempool}
+
+The checks in the mempool are expensive, and may not be the most
+effective way to make the network efficient. It is being considered to
+restrict the mempool to stateless tests (and correspondingly not
+tracking a state of the mempool), or at least less restrictive tests.
+
+This would allow transactions to flow throughout the Cardano network
+It would allow transactions to flow throughout the Cardano network
+more freely. For instance, if the network is split (in that there are
+two different selected chains in the network), the two halves of the
+network are not currently able to exchange transactions, making the
+gossiping protocol less efficient.
+
+Another issue arises due to race conditions. If two transactions $τ_1$ and $τ_2$
+are issued, such that $τ_2$ depends on $τ_1$, and a node, due to a network
+delay, receives $τ_2$ before $τ_1$, it will reject $τ_2$ instead of keeping it
+in the waiting area. The current specification doesn't distinguish rejecting or
+reserving blocks or transactions (maybe it will have to, eventually), but it's
+also how the implementation behaves. This puts some burden on the network, and
+also makes the gossiping protocol less efficient.
+
+On the other hand this makes the work of the block issuer somewhat harder,
+as they have to decide which transactions to include in their new
+block from a soup of transactions rather than a structured list. It
+reduces the overall computation effort (as only the block issuer must
+perform the transaction ordering and stateful checks), however, it may
+cause concerns for latency, as an issuer must build their block in a
+20s time window. Nevertheless it may not be desirable to make all the
+nodes in the network spend computation power which will be only used
+by a single node (the block issuer).
+
+A more flexible mempool implementation would keep a partial ordering
+of transactions (the dependency ordering) rather than the total
+topological ordering of the current mempool (as well as a waiting area
+for reserved transactions which are missing an ancestor). The
+restriction on the block issuer is that the transactions in a block
+must be a downward-closed set of the mempool.
+
+Independently of changing the mempool, this is the only real
+restriction on the issuer. In the current mempool, where the
+transactions in the mempool are totally ordered in a list, it means
+taking a prefix of the list. The current system, specified in this
+document, will add all the transactions from the mempool to a new
+block. This is overly restrictive, and maybe too computationally
+expensive to complete within a slot's time. Especially on low-power
+hardware. Having low-power nodes issuing blocks is, however, a business
+requirement of Cardano. Therefore this constraint should be weakened.
+
+\subsection{Miscelaneous remarks on the current specification}
+\label{sec:misc-remarks}
+\begin{itemize}
+\item As remarked by Manuel Chakravarty and Erik de Castro Lopo, the
+  choice currently made in Cardano, that outputs be necessary
+  non-empty, is dubious. There is no particular reason for it to be:
+  empty output simply means that the transaction is pure
+  fees. Furthermore Bruno Woltzenlogel Paleo's UTxO Chimeric Ledger
+  model allows empty outputs, because it is believed to be essential
+  for coloured coins.
+\end{itemize}
+
+\section{Delegation in Shelley}
+\label{sec:delegation-shelley}
+
+\newcommand{\entrepriseid}{\mathsf{dev}_\mathsf{null}}
+\newcommand{\distributionslot}{\mathsf{s}_\mathsf{d}}
+\newcommand{\initialpoolst}[1]{p_0(#1)}
+\newcommand{\poolst}[1]{\mathsf{state}_\mathsf{pool}(#1)}
+
+This section describes the changes to the spec required to describe
+the delegation starting with the Shelley release\improvement{Some
+  reference to the design document}
+
+\begin{itemize}
+\item A distinguished slot $\distributionslot ∈ ℕ$ is introduced to
+  represent the first slot beyond the bootstrap era.
+
+\item There must be a distinguished agent id to represent enterprise
+  staking (\emph{i.e.} opting out of staking):
+  $\entrepriseid ∈ \agentids$.
+
+\item There must be an extra data type: a mining pool certificate is
+  \begin{record}
+  \item[Staking id] An agent id
+  \item[Cost] a natural number
+  \item[Margin] a real number in $[0,1]$
+  \item[Pledge] \improvement{Exactly how this is represented is not
+      settled yet. In the design spec, at time of writing, the pledge
+      is expressed as a set of addresses. But it is not clear when
+      this is converted to actual Adas. (this latter reflection
+      belongs to the reward calculation) }
+  \item[Reward id] An agent id
+  \item[Destination id] An optional agent id
+  \end{record}
+
+\item Blocks must contain an additional field
+  \begin{record}
+  \item[Pool certificates] A list of pool certificates
+  \end{record}
+
+\item Transaction validation must be modified
+  \begin{description}
+  \item[Bootstrap era] These rules apply only if the slot $s$ is such
+    that $s<\distributionslot$. \emph{the bootstrap era rules are
+      otherwise unchanged}.
+  \item[Distributed era] These rules only apply if the slot $s$ is
+    such that $s > \distributionslot$.
+    \begin{description}
+    \item[Stake delegation] For every output $o ∈ \outputs{τ}$, the
+      stake is delegated to a single agent id: the support of
+      $\repartition{o}$ has cardinality $1$.
+    \end{description}
+  \end{description}
+\item Block validation has an extra condition
+  \begin{description}
+  \item[Pool certificate] \improvement{TODO: validation rules for pool
+      certificate. At least: no two certificate for the same staging
+      id.}
+  \end{description}
+\item A pooling state is defined as a function
+  $\agentids ⟶ ℕ×[0,1]×𝒫×\agentids×(\agentids⊎\{⋆\})$.\improvement{Here
+    $𝒫$ is the set of pledges. TODO: define above, and make a macro}
+
+  The initial pooling state function is defined as
+  $$
+  \initialpoolst{a} = (0,0,…,\entrepriseid,⋆)
+  $$
+  \unsure{I'm abusing $\entrepriseid$ here which is usually meant as a
+    stake identifier, but acts here as a payment id. It would act the
+    same: all rewards to $\entrepriseid$ go to waste. Question: are
+    they destroyed? Or do they join a pool of unusuable Adas, which
+    would still count towards total of Adas in existence?}
+  Given a list of certificates $c₁,…,c_n$ of pool certificates, define
+  the pooling state $\poolst{c₁,…,c_n}$:
+  \begin{itemize}
+  \item $\poolst{\emptylist}(a) = \initialpoolst{a}$
+  \item $\poolst{c₁,…,c_{n+1}}(a)$ is
+    $$
+    \left\{
+      \begin{array}{l@{\qquad}l}
+        \poolst{c₁,…,c_{n}}(a)& \mbox{if $a$ isn't the staking id of $c_{n+1}$.}\\
+        (c,m,p,r,d)& \mbox{if $c_{n+1}=(a,c,m,p,r,d)$}
+      \end{array}
+    \right.
+    $$
+  \end{itemize}
+  This is generalised, the usual way, to the pool state of a list of
+  blocks (cut off at last epoch).
+  \begin{implementationhint}
+    There is no certificate retirement in this spec. To issue a
+    retirement certificate for address $a$ is the same as issuing a
+    certificate with the initial value $\initialpoolst{a}$.
+  \end{implementationhint}
+\end{itemize}
+\improvement{TODO: limit the depth of delegation. How?}
+
+\unsure{I [aspiwack] have currently arranged the spec so that
+  heavyweight delegation certificate don't count towards stake
+  delegation (it didn't as far as I understand in
+  bootstrap). Heavyweight certificates are used by the issuer to sign
+  instead of the block leader (like lightweight certificates do). But
+  it has consequences on the slot leader selection, so it's not a
+  transparent choice (the issuers wouldn't be the same if heavyweight
+  certificates were used to affect the stake distribution).}
+
+\improvement{The formula for reward repartition is in the delegation
+  design document. They can be copied from there when the details of
+  how rewards are collected have been settled.}
+
+\end{document}
+
+%  LocalWords:  combinator summands repartition unallocated mempool
+%  LocalWords:  stateful decrypted monoid Cardano injectivity
+% LocalWords:  cardinality

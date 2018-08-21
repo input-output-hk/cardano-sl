@@ -1,5 +1,6 @@
-{-# LANGUAGE CPP        #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE CPP             #-}
+{-# LANGUAGE RankNTypes      #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- TODO Maybe move it somewhere else.
 -- | Block payload generation.

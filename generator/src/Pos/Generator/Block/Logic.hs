@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE RecordWildCards     #-}
 -- Ignore the Semigroup + Monoid constraints, that ghc8.4 complains about.
 {-# OPTIONS_GHC -Wno-redundant-constraints    #-}
 

@@ -1,5 +1,8 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | A way to customize node's behavior (e.g. change SSC algorithm
 -- parameters).
+
 module Pos.Behavior
        ( BehaviorConfig(..)
        ) where

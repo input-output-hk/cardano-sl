@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Tests for 'VssCertData': certificates with TTL.
 
 module Test.Pos.Ssc.VssCertDataSpec

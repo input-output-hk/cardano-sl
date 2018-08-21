@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE RecordWildCards     #-}
 
 -- | Utilities for block logic testing.
 

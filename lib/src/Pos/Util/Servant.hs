@@ -4,6 +4,7 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE KindSignatures            #-}
 {-# LANGUAGE Rank2Types                #-}
+{-# LANGUAGE RecordWildCards           #-}
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TypeOperators             #-}
 

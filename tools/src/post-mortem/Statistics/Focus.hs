@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module Statistics.Focus
     ( Focus (..)
     , focusF

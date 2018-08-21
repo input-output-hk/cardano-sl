@@ -1,5 +1,6 @@
-{-# LANGUAGE DataKinds    #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DataKinds       #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 -- | Execution mode used by blockchain generator.
 

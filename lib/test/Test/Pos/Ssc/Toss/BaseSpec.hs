@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Specification of Pos.Chain.Ssc
 
 module Test.Pos.Ssc.Toss.BaseSpec

@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Specification for submodules of Pos.Chain.Update
 
 module Test.Pos.Update.PollSpec

@@ -1,5 +1,6 @@
-{-# LANGUAGE ApplicativeDo #-}
-{-# LANGUAGE QuasiQuotes   #-}
+{-# LANGUAGE ApplicativeDo   #-}
+{-# LANGUAGE QuasiQuotes     #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module KeygenOptions
        ( KeygenOptions (..)

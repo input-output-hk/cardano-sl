@@ -1,4 +1,5 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP             #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | Public key file storage and management functions based on file
 -- locking.

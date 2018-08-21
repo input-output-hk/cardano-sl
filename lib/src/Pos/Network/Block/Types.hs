@@ -54,9 +54,9 @@ data MsgGetHeaders = MsgGetHeaders
     } deriving (Generic, Show, Eq)
 
 instance Buildable MsgGetHeaders where
-    build (MsgGetHeaders mghFrom mghTo) =
+    build (MsgGetHeaders mghFrom' mghTo') =
         bprint ("MsgGetHeaders {from = "%listJson%", to = "%build%"}")
-               mghFrom (maybe "<Nothing>" (bprint build) mghTo)
+               mghFrom' (maybe "<Nothing>" (bprint build) mghTo')
 
 instance Message MsgGetHeaders where
     messageCode _ = 4
@@ -75,9 +75,9 @@ data MsgGetBlocks = MsgGetBlocks
     } deriving (Generic, Show, Eq)
 
 instance Buildable MsgGetBlocks where
-    build (MsgGetBlocks mgbFrom mgbTo) =
+    build (MsgGetBlocks mgbFrom' mgbTo') =
         bprint ("MsgGetBlocks {from = "%build%", to = "%build%"}")
-               mgbFrom mgbTo
+               mgbFrom' mgbTo'
 
 instance Message MsgGetBlocks where
     messageCode _ = 6

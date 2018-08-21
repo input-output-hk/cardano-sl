@@ -17549,17 +17549,21 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-chain
 , cardano-sl-client
 , cardano-sl-core
+, cardano-sl-core-test
 , cardano-sl-crypto
+, cardano-sl-crypto-test
 , cardano-sl-db
 , cardano-sl-generator
 , cardano-sl-infra
 , cardano-sl-networking
 , cardano-sl-node-ipc
 , cardano-sl-util
+, cardano-sl-util-test
 , containers
 , cpphs
 , cryptonite
 , data-default
+, deepseq
 , directory
 , dlist
 , ekg-core
@@ -17573,7 +17577,9 @@ license = stdenv.lib.licenses.mit;
 , log-warper
 , memory
 , monad-control
+, MonadRandom
 , mtl
+, pvss
 , QuickCheck
 , random
 , reflection
@@ -17683,27 +17689,43 @@ libraryToolDepends = [
 cpphs
 ];
 testHaskellDepends = [
+aeson
 base
+bytestring
+cardano-crypto
 cardano-sl
 cardano-sl-chain
 cardano-sl-client
 cardano-sl-core
+cardano-sl-core-test
 cardano-sl-crypto
+cardano-sl-crypto-test
 cardano-sl-db
 cardano-sl-generator
 cardano-sl-infra
 cardano-sl-util
+cardano-sl-util-test
+containers
 data-default
+deepseq
 ekg-core
 ether
 formatting
 hspec
 lens
 log-warper
+MonadRandom
 mtl
+pvss
 QuickCheck
+safe-exceptions
+safecopy
+serokell-util
+servant
+servant-server
 stm
 universum
+unordered-containers
 ];
 testToolDepends = [
 cpphs

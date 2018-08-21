@@ -530,7 +530,7 @@ test-suite wallet-unit-tests
                     , time
 
 test-suite wallet-new-specs
-  ghc-options:      -Wall
+  ghc-options:      -Wall -O2 -threaded -rtsopts
   type:             exitcode-stdio-1.0
   main-is:          Spec.hs
   hs-source-dirs:   test test/unit
@@ -574,10 +574,12 @@ test-suite wallet-new-specs
   build-depends:      base
                     , aeson
                     , bytestring
+                    , cardano-crypto
                     , cardano-sl
                     , cardano-sl-binary-test
                     , cardano-sl-client
                     , cardano-sl-client
+                    , cardano-sl-chain-test
                     , cardano-sl-core
                     , cardano-sl-core-test
                     , cardano-sl-crypto
@@ -585,6 +587,7 @@ test-suite wallet-new-specs
                     , cardano-sl-util-test
                     , cardano-sl-wallet
                     , cardano-sl-wallet-new
+                    , cereal
                     , data-default
                     , directory
                     , directory
@@ -594,6 +597,7 @@ test-suite wallet-new-specs
                     , lens
                     , QuickCheck
                     , quickcheck-instances
+                    , safecopy
                     , safe-exceptions
                     , servant
                     , servant-server

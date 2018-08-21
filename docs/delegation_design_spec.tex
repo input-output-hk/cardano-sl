@@ -1,20 +1,20 @@
-\documentclass{article}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.5cm]{geometry}
+%\usepackage[a-1b]{pdfx}
 \usepackage{microtype}
-\usepackage{geometry}
-\usepackage{amsmath, amssymb, stmaryrd, latexsym, amsthm, mathtools}
-\usepackage{mathpazo, times}
+\usepackage{mathpazo} % nice fonts
+\usepackage{amsmath, amssymb, stmaryrd, latexsym, mathtools}
 \usepackage{extarrows}
-\usepackage{float}
-\usepackage{listings}
 \usepackage{natbib}
 \usepackage{todonotes}
-\usepackage{slashed}
-\usepackage{tikz}
 \usepackage{url}
 \usepackage[capitalise,noabbrev,nameinlink]{cleveref}
-\usepackage[utf8]{inputenc}
-\usepackage[unicode=true]{hyperref}
+\usepackage[unicode=true,pdftex,pdfa]{hyperref}
 \hypersetup{
+  pdftitle={Design Specification for Delegation and Incentives in Cardano},
+  pdfauthor={Philipp Kant, Lars Brünjes, Duncan Coutts},
+  breaklinks=true,
+  bookmarks=true,
   colorlinks=true,
   linkcolor={black},
   citecolor={black},
@@ -23,7 +23,6 @@
   citebordercolor={white},
   urlbordercolor={white}
 }
-
 
 \begin{document}
 
@@ -2765,13 +2764,13 @@ values of \(\tilde{\lambda}\), \(\tilde{c}\) and \(r\):
     \end{minipage}
 \end{minipage}
 
-\begin{figure}[htbp]
+\begin{figure}
 \centering
-\includegraphics{rewards.png}
+\includegraphics[width=10cm]{rewards.png}
 \caption{Effect of different choices for \(a_0\)\label{figrewards}}
 \end{figure}
 
-See figure \ref{figrewards} below for the effect of various choices for
+See figure \ref{figrewards} for the effect of various choices for
 \(a_0\) on pool rewards (for \(k=10\)).
 
 \subsubsection{\texorpdfstring{\(\rho\)}{\textbackslash{}rho}}\label{rho}

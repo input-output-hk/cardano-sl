@@ -5,6 +5,7 @@
 \usepackage{mathpazo} % nice fonts
 \usepackage{amsmath, amssymb, stmaryrd, latexsym, mathtools}
 \usepackage{extarrows}
+\usepackage{slashed}
 \usepackage{natbib}
 \usepackage{todonotes}
 \usepackage{url}
@@ -23,6 +24,12 @@
   citebordercolor={white},
   urlbordercolor={white}
 }
+\usepackage{float}
+\floatstyle{boxed}
+\restylefloat{figure}
+
+\DeclareMathOperator{\dom}{dom}
+\DeclareMathOperator{\range}{range}
 
 \begin{document}
 
@@ -3382,5 +3389,258 @@ Disadvantages:
   once -- in other words, we'd have reinvented UTxO entries, and the
   accumulation does not help.
 \end{itemize}
+
+\section{Draft formal specification for delegation}
+\label{formal-specification-for-delegation}
+
+This appendix is intended to be the start of a formal specification of the
+ledger rules for Cardano, with a focus on the rules for delegation in the
+Cardano Shelly release. The purpose is to help clarify the design and to give
+a reasonable starting point for tests and an implementation.
+
+\newcommand{\powerset}[1]{\mathbb{P}(#1)}
+\newcommand{\restrictdom}{\lhd}
+\newcommand{\subtractdom}{\mathbin{\slashed{\restrictdom}}}
+\newcommand{\restrictrange}{\rhd}
+
+\begin{figure}[h]
+
+\emph{Primitive types}
+%
+\begin{equation*}
+\begin{array}{r@{~\in~}lr}
+  txid
+& \mathsf{TxId}
+& \text{transaction id}
+\\
+  ix
+& \mathsf{Ix}
+& \text{index}
+\\
+  addr
+& \mathsf{Addr}
+& \text{address}
+\\
+  c
+& \mathsf{Coin}
+& \text{currency value}
+\end{array}
+\end{equation*}
+%
+\emph{Derived types}
+%
+\begin{equation*}
+\begin{array}{r@{~\in~}l@{\qquad=\qquad}r@{~\in~}lr}
+  tx
+& \mathsf{Tx}
+& (inputs, outputs)
+& \powerset{\mathsf{TxIn}} \times (\mathsf{Ix} \mapsto \mathsf{TxOut})
+& \text{transaction}
+\\
+  txin
+& \mathsf{TxIn}
+& (txid, ix)
+& \mathsf{TxId} \times \mathsf{Ix}
+& \text{transaction input}
+\\
+  txout
+& \mathsf{TxOut}
+& (addr, c)
+& \mathsf{Addr} \times \mathsf{Coin}
+& \text{transaction output}
+\\
+  utxo
+& \mathsf{UTxO}
+& txin \mapsto txout
+& \mathsf{TxIn} \mapsto \mathsf{TxOut}
+& \text{unspent tx outputs}
+\end{array}
+\end{equation*}
+%
+\emph{Functions}
+%
+\begin{equation*}
+\begin{array}{lr}
+  \mathsf{txid} \in \mathsf{Tx} \to \mathsf{TxId}
+& \text{compute transaction id}
+\end{array}
+\end{equation*}
+
+\caption{\label{fig:basic_definitions}Basic Definitions}
+\end{figure}
+
+
+\begin{figure}
+
+\begin{align*}
+& \mathsf{txins} \in \mathsf{Tx} \to \powerset{\mathsf{TxIn}}
+& \text{transaction inputs} \\
+& \mathsf{txins} ~ (\mathit{inputs}, \,\underline{\phantom{a}}\,) = \mathit{inputs}
+\\[1em]
+& \mathsf{txouts} \in \mathsf{Tx} \to \mathsf{UTxO}
+& \text{transaction outputs as UTxO} \\
+& \mathsf{txouts} ~ \mathit{tx} =
+  \left\{ (\mathsf{txid} ~ \mathit{tx}, \mathit{ix}) \mapsto \mathit{txout} ~
+  \middle| \begin{array}{l@{~}c@{~}l}
+             (\,\underline{\phantom{a}}\,,\, \mathit{outputs}) & = & \mathit{tx} \\
+             \mathit{ix} \mapsto \mathit{txout} & \in & \mathit{outputs}
+           \end{array}
+  \right\}
+\\[1em]
+& \mathsf{balance} \in \mathsf{UTxO} \to \mathsf{Coin}
+& \text{UTxO balance} \\
+& \mathsf{balance} ~ utxo = \sum_{(\,\underline{\phantom{a}}\, ~ \mapsto (\,\underline{\phantom{a}}\,, \,c)) \in \mathit{utxo}} c
+\end{align*}
+
+\begin{align*}
+  \mathit{ins} \restrictdom \mathit{utxo}
+& = \{ i \mapsto o \mid i \mapsto o \in \mathit{utxo}, ~ i \in \mathit{ins} \}
+& \text{domain restriction}
+\\
+  \mathit{ins} \subtractdom \mathit{utxo}
+& = \{ i \mapsto o \mid i \mapsto o \in \mathit{utxo}, ~ i \notin \mathit{ins} \}
+& \text{domain exclusion}
+\\
+  \mathit{utxo} \restrictrange \mathit{outs}
+& = \{ i \mapsto o \mid i \mapsto o \in \mathit{utxo}, ~ o \in \mathit{outs} \}
+& \text{range restriction}
+\end{align*}
+
+\caption{\label{fig:auxiliary_ops}Transaction and UTxO operations}
+\end{figure}
+
+
+\begin{figure}
+
+\emph{Key types}
+%
+\begin{equation*}
+\begin{array}{r@{~\in~}lr}
+  sk
+& \mathsf{SKey}
+& \text{signing key}
+\\
+  vk
+& \mathsf{VKey}
+& \text{verification key}
+\\
+  hk
+& \mathsf{Hash}
+& \text{hash of a key}
+\end{array}
+\end{equation*}
+%
+\emph{Functions and relations}
+%
+\begin{equation*}
+\begin{array}{r@{~\in~}lr}
+  \mathsf{hash} & \mathsf{VKey} \to \mathsf{Hash}
+& \text{hashing a key}
+\\
+  \mathsf{sign} & \mathsf{SKey} \times \mathsf{Data} \to \mathsf{Sig}
+& \text{signature}
+\\
+  \mathsf{verify} & \mathsf{VKey} \times \mathsf{Data} \times \mathsf{Sig}
+& \text{verification}
+\end{array}
+\end{equation*}
+%
+\emph{Verification property}
+%
+\begin{align*}
+\forall ~ \text{key pairs} & ~ (sk, vk), m \in \mathsf{Data}, \sigma \in \mathsf{Sig}. \\
+     & \mathsf{verify} (\mathit{vk}, m, \sigma) \\
+\iff & \\
+     & \mathsf{sign} (\mathit{sk}, m) = \sigma
+\end{align*}
+%
+\emph{Notation for serialised, signed and verified data}
+%
+\begin{equation*}
+\begin{array}{lcl}
+  \llbracket x \rrbracket
+& \text{is}
+& \text{the serialised representation of } x
+\\[0.2em]
+  \llbracket x \rrbracket_\sigma
+& \iff
+& \exists \mathit{sk}. ~ \mathsf{sign} (sk, \llbracket x \rrbracket) = \sigma
+\\[0.2em]
+  \mathcal{V}_{\mathit{vk}}\llbracket x \rrbracket_\sigma
+& \iff
+& \mathsf{verify} (\mathit{vk}, \llbracket x \rrbracket, \sigma)
+\end{array}
+\end{equation*}
+
+\caption{\label{fig:crypto}Cryptographic operations for signing and verifying}
+\end{figure}
+
+\begin{figure}
+
+
+\begin{equation*}
+\frac{
+}{
+\mathcal{G}_{\mathsf{utxo}}, \emptyset
+}
+\textsc{genesis}
+\end{equation*}
+
+\begin{equation*}
+\frac{
+\mathsf{txins} ~ \mathit{tx} \subseteq \mathit{utxo} \quad \mathsf{balance}~(\mathsf{txouts}~\mathit{tx}) \leq \mathsf{balance}~(\mathsf{txins} ~ \mathit{tx} \restrictdom \mathit{utxo})
+}{
+\mathit{utxo}, \Lambda \xlongrightarrow[\textsc{transaction}]{\mathit{tx}} (\mathsf{txins} ~ \mathit{tx} \subtractdom \mathit{utxo}) \cup \mathsf{txouts}~\mathit{tx},  \Lambda ; \mathit{tx}
+}
+\end{equation*}
+
+\caption{\label{fig:transaction_transitions}State transitions for transactions}
+\end{figure}
+
+
+\begin{figure}
+
+\begin{equation*}
+\frac{
+  \mathit{vk_{sk}} \notin \mathit{stkeys} \quad
+  \mathcal{V}_{\mathit{vk_{sk}}}\llbracket\mathit{vk_{sk}}\rrbracket_\sigma
+}{
+  \mathit{stkeys}, ~ \mathit{accounts}
+  \xlongrightarrow[\textsc{register stake key}]{\llbracket\mathit{vk_{sk}}\rrbracket_\sigma}
+  \mathit{stkeys} \cup \{\mathit{vk_{sk}}\}, ~
+  \mathit{accounts} \cup \{\mathsf{stAcc}~\mathit{vk_{sk}} \mapsto 0\}
+}
+\end{equation*}
+
+\begin{equation*}
+\frac{
+  \mathit{vk_{sk}} \in \mathit{stkeys} \quad
+  \mathcal{V}_{\mathit{vk_{sk}}}\llbracket\mathit{vk_{sk}}\rrbracket_\sigma
+}{
+  \mathit{stkeys}, ~ \mathit{accounts}
+  \xlongrightarrow[\textsc{deregister stake key}]{\llbracket\mathit{vk_{sk}}\rrbracket_\sigma}
+  \mathit{stkeys} \setminus \{\mathit{vk_{sk}}\},
+  \{\mathsf{skAcc}~\mathit{vk_{sk}}\} \subtractdom \mathit{accounts}
+}
+\end{equation*}
+%
+\\[1em]
+%
+\begin{equation*}
+\frac{
+  \begin{array}{c}
+  \mathit{cert} = (\mathit{vk_{sp}}, \mathit{owners}, (c, m), \mathit{alt}) \quad\quad \mathsf{hash} ~ \mathit{vk_{sp}} \notin \dom \mathit{stpools} \\
+  \mathcal{V}_{\mathit{vk_{sp}}}\llbracket\mathit{cert}\rrbracket_\sigma \quad\quad  \forall \mathit{vk_{sk}} \in \mathit{owners}. ~ \exists \sigma \in \Sigma. ~ \llbracket\mathcal{V}_{\mathit{vk_{sk}}}\mathit{cert}\rrbracket_\sigma
+  \end{array}
+}{
+  \mathit{stpools}, ~ \mathit{accounts}
+  \xlongrightarrow[\textsc{register stake pool}]{\llbracket \mathit{cert} \rrbracket_{\sigma,\Sigma}}
+  \mathit{stkeys} \setminus \{\mathit{sk}\},
+  \{\mathsf{skAcc}~\mathit{sk}\} \subtractdom \mathit{accounts}
+}
+\end{equation*}
+
+\caption{\label{fig:delegation_transitions}State transitions for delegation}
+\end{figure}
 
 \end{document}

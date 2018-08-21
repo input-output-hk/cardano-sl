@@ -17460,6 +17460,7 @@ aeson
 async
 base
 bytestring
+canonical-json
 directory
 file-embed
 filepath

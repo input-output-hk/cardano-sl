@@ -10,14 +10,15 @@ import           Test.Pos.Core.ExampleHelpers (exampleAddress, exampleAddress1,
                      exampleGenesisConfiguration_GCSpec0,
                      exampleGenesisConfiguration_GCSpec1,
                      exampleGenesisConfiguration_GCSpec2,
-                     exampleGenesisConfiguration_GCSrc, exampleGenesisData0, exampleGenesisData1, exampleGenesisData2,
+                     exampleGenesisConfiguration_GCSrc, exampleGenesisData0,
+                     exampleGenesisData1, exampleGenesisData2,
                      exampleGenesisProtocolConstants0,
                      exampleGenesisProtocolConstants1,
                      exampleGenesisProtocolConstants2, feedPM)
 import           Test.Pos.Core.Gen (genAddress, genBlockVersionData, genByte,
                      genCoin, genCoinPortion, genEpochIndex, genFlatSlotId,
                      genGenesisAvvmBalances, genGenesisConfiguration,
-                      genGenesisDelegation,
+                     genGenesisData, genGenesisDelegation,
                      genGenesisInitializer, genGenesisProtocolConstants,
                      genInvReqDataFlowLog, genSharedSeed, genSoftforkRule,
                      genTxFeePolicy)
@@ -27,7 +28,8 @@ import           Test.Pos.Util.Golden (discoverGolden, eachOf,
                      goldenTestCanonicalJSONDec, goldenTestJSON,
                      goldenTestJSONDec)
 import           Test.Pos.Util.Tripping (discoverRoundTrip,
-                     roundTripsAesonBuildable, roundTripsAesonShow)
+                     roundTripsAesonBuildable, roundTripsAesonShow,
+                     roundTripsCanonicalJSONShow)
 import           Universum
 
 --------------------------------------------------------------------------------
@@ -132,9 +134,9 @@ golden_GenesisDataDec2 =
             "test/golden/json/GenesisData2_NoNetworkMagic"
 
 -- TODO @intricate: roundTripsCanonicalJSONShow
---roundTripGenesisData :: Property
---roundTripGenesisData =
---    eachOf 100 (feedPM genGenesisData) roundTripsCanonicalJSONShow
+roundTripGenesisData :: Property
+roundTripGenesisData =
+    eachOf 100 (feedPM genGenesisData) roundTripsCanonicalJSONShow
 
 --------------------------------------------------------------------------------
 -- GenesisAvvmBalances

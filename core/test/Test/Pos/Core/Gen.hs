@@ -416,13 +416,17 @@ genGenesisData pm =
     GenesisData
         <$> genGenesisWStakeholders
         <*> genGenesisDelegation pm
-        <*> genTimestamp
+        <*> genTimestampRoundedToSecond
         <*> genGenesisVssCertificatesMap pm
         <*> genGenesisNonAvvmBalances
-        <*> genBlockVersionData
+        <*> genBlockVersionDataByTxFP genLinearTxFP
         <*> genGenesisProtocolConstants
         <*> genGenesisAvvmBalances
         <*> genSharedSeed
+  where
+    -- @TxFeePolicy@s ToJSON instance crashes if we have a
+    -- TxFeePolicyUnknown value.
+    genLinearTxFP = TxFeePolicyTxSizeLinear <$> genTxSizeLinear
 
 genGenesisWStakeholders :: Gen GenesisWStakeholders
 genGenesisWStakeholders = do
@@ -557,6 +561,12 @@ genTimeDiff = TimeDiff <$> genMicrosecond
 
 genTimestamp :: Gen Timestamp
 genTimestamp = Timestamp <$> genMicrosecond
+
+-- Microseconds are rounded to the nearest second when enc/decoded to/from
+-- JSON. So here we round to the nearest 10^6.
+genTimestampRoundedToSecond :: Gen Timestamp
+genTimestampRoundedToSecond =
+    Timestamp . (* 1000000) . (`rem` 1000000) <$> genMicrosecond
 
 ----------------------------------------------------------------------------
 -- Pos.Core.Ssc Generators
@@ -756,7 +766,10 @@ genBlockVersion =
         <*> Gen.word8 Range.constantBounded
 
 genBlockVersionData :: Gen BlockVersionData
-genBlockVersionData =
+genBlockVersionData = genBlockVersionDataByTxFP genTxFeePolicy
+
+genBlockVersionDataByTxFP :: Gen TxFeePolicy -> Gen BlockVersionData
+genBlockVersionDataByTxFP genTxFP =
     BlockVersionData
         <$> genScriptVersion
         <*> genMillisecond
@@ -770,7 +783,7 @@ genBlockVersionData =
         <*> genCoinPortion
         <*> genFlatSlotId
         <*> genSoftforkRule
-        <*> genTxFeePolicy
+        <*> genTxFP
         <*> genEpochIndex
 
 

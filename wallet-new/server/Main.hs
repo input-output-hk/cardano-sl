@@ -119,16 +119,18 @@ actionWithNewWallet :: (HasConfigurations, HasCompileInfo)
                     -> TxpConfiguration
                     -> SscParams
                     -> NodeParams
+                    -> NtpConfiguration
                     -> NewWalletBackendParams
                     -> IO ()
-actionWithNewWallet pm txpConfig sscParams nodeParams params =
+actionWithNewWallet pm txpConfig sscParams nodeParams ntpConfig params =
     bracketNodeResources
         nodeParams
         sscParams
         (txpGlobalSettings pm txpConfig)
         (initNodeDBs pm epochSlots) $ \nr -> do
+      ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
       userSecret <- readTVarIO (ncUserSecret $ nrContext nr)
-      let nodeState = NodeStateAdaptor.newNodeStateAdaptor nr
+      let nodeState = NodeStateAdaptor.newNodeStateAdaptor nr ntpStatus
       liftIO $ Keystore.bracketLegacyKeystore userSecret $ \keystore -> do
           WalletLayer.Kernel.bracketPassiveWallet logMessage' keystore nodeState $ \walletLayer passiveWallet -> do
             Kernel.init passiveWallet
@@ -178,7 +180,7 @@ startEdgeNode wso =
         WalletLegacy legacyParams ->
           actionWithWallet pm txpConfig sscParams nodeParams ntpConfig legacyParams
         WalletNew newParams ->
-          actionWithNewWallet pm txpConfig sscParams nodeParams newParams
+          actionWithNewWallet pm txpConfig sscParams nodeParams ntpConfig newParams
   where
     getParameters :: HasConfigurations
                   => TxpConfiguration

@@ -9,7 +9,7 @@ import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 
-import           Cardano.Wallet.WalletLayer (PassiveWalletLayer (..))
+import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
 
 import           Servant

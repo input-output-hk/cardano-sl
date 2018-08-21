@@ -73,6 +73,7 @@ withActiveWalletFixture prepareFixtures cc = do
                     cc keystore activeLayer activeWallet fixtures
     where
         diffusion :: Kernel.WalletDiffusion
-        diffusion =  Kernel.WalletDiffusion {
-            walletSendTx = \_tx -> return False
+        diffusion = Kernel.WalletDiffusion {
+            walletSendTx                = \_tx -> return False
+          , walletGetSubscriptionStatus = return mempty
           }

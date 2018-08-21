@@ -23,6 +23,10 @@ module Cardano.Wallet.Kernel.NodeStateAdaptor (
   , getMaxTxSize
   , getSlotCount
   , getSlotStart
+  , getNextEpochSlotDuration
+  , curSoftwareVersion
+  , compileInfo
+  , getNtpStatus
     -- * Support for tests
   , NodeStateUnavailable(..)
   , MockNodeStateParams(..)
@@ -37,18 +41,22 @@ import           Control.Lens (lens)
 import           Control.Monad.IO.Unlift (MonadUnliftIO, UnliftIO (UnliftIO),
                      askUnliftIO, unliftIO, withUnliftIO)
 import           Data.SafeCopy (base, deriveSafeCopy)
+import           Data.Time.Units (Millisecond)
 import           Formatting (bprint, build, sformat, shown, (%))
 import qualified Formatting.Buildable
+import           Ntp.Client (NtpStatus (..))
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Chain.Block (Block, HeaderHash, MainBlock, blockHeader,
                      headerHash, mainBlockSlot, prevBlockL)
-import           Pos.Chain.Update (HasUpdateConfiguration, bvdMaxTxSize)
+import           Pos.Chain.Update (HasUpdateConfiguration, SoftwareVersion,
+                     bvdMaxTxSize)
+import qualified Pos.Chain.Update as Upd
 import           Pos.Context (NodeContext (..))
 import           Pos.Core (ProtocolConstants (pcK), SlotCount, Timestamp,
                      genesisBlockVersionData, pcEpochSlots)
-import           Pos.Core.Configuration (HasConfiguration, HasProtocolConstants,
-                     genesisHash, protocolConstants)
+import           Pos.Core.Configuration (HasConfiguration, genesisHash,
+                     protocolConstants)
 import           Pos.Core.Slotting (EpochIndex (..), HasSlottingVar (..),
                      LocalSlotIndex (..), MonadSlots (..), SlotId (..))
 import qualified Pos.DB.Block as DB
@@ -61,7 +69,9 @@ import           Pos.DB.Update (getAdoptedBVData)
 import qualified Pos.Infra.Slotting.Impl.Simple as S
 import qualified Pos.Infra.Slotting.Util as Slotting
 import           Pos.Launcher.Resource (NodeResources (..))
-import           Pos.Util (HasLens (..), lensOf')
+import           Pos.Util (CompileTimeInfo, HasCompileInfo, HasLens (..),
+                     lensOf', withCompileInfo)
+import qualified Pos.Util as Util
 import           Pos.Util.Concurrent.PriorityLock (Priority (..))
 
 import           Test.Pos.Configuration (withDefConfiguration,
@@ -142,7 +152,7 @@ type Lock m = forall a. LockContext -> (HeaderHash -> m a) -> m a
 type NodeConstraints = (
       HasConfiguration
     , HasUpdateConfiguration
-    , HasProtocolConstants
+    , HasCompileInfo
     )
 
 -- | Internal: node resources and reified type class dictionaries
@@ -217,6 +227,18 @@ data NodeStateAdaptor m = Adaptor {
       -- When looking up data for past of the current epochs, the value should
       -- be known.
     , getSlotStart :: SlotId -> m (Either UnknownEpoch Timestamp)
+
+      -- | Get last known slot duration.
+    , getNextEpochSlotDuration :: m Millisecond
+
+      -- | Version of application (code running)
+    , curSoftwareVersion :: m SoftwareVersion
+
+      -- | Git revision
+    , compileInfo :: m CompileTimeInfo
+
+      -- | Ask the NTP client for the status
+    , getNtpStatus :: m NtpStatus
     }
 
 {-------------------------------------------------------------------------------
@@ -288,14 +310,20 @@ instance (NodeConstraints, MonadIO m) => MonadSlots Res (WithNodeState m) where
 -- NOTE: This captures the node constraints in the closure so that the adaptor
 -- can be used in a place where these constraints is not available.
 newNodeStateAdaptor :: forall m ext. (NodeConstraints, MonadIO m, MonadMask m)
-                    => NodeResources ext -> NodeStateAdaptor m
-newNodeStateAdaptor nr = Adaptor {
-      withNodeState        =            run
-    , getTipSlotId         =            run $ \_lock -> defaultGetTipSlotId
-    , getMaxTxSize         =            run $ \_lock -> defaultGetMaxTxSize
-    , getSlotStart         = \slotId -> run $ \_lock -> defaultGetSlotStart slotId
-    , getSecurityParameter = return $ pcK'         protocolConstants
-    , getSlotCount         = return $ pcEpochSlots protocolConstants
+                    => NodeResources ext
+                    -> TVar NtpStatus
+                    -> NodeStateAdaptor m
+newNodeStateAdaptor nr ntpStatus = Adaptor {
+      withNodeState            =            run
+    , getTipSlotId             =            run $ \_lock -> defaultGetTipSlotId
+    , getMaxTxSize             =            run $ \_lock -> defaultGetMaxTxSize
+    , getSlotStart             = \slotId -> run $ \_lock -> defaultGetSlotStart slotId
+    , getNextEpochSlotDuration =            run $ \_lock -> defaultGetNextEpochSlotDuration
+    , getSecurityParameter     = return $ pcK'         protocolConstants
+    , getSlotCount             = return $ pcEpochSlots protocolConstants
+    , curSoftwareVersion       = return $ Upd.curSoftwareVersion
+    , compileInfo              = return $ Util.compileInfo
+    , getNtpStatus             = liftIO $ readTVarIO ntpStatus
     }
   where
     run :: forall a.
@@ -342,6 +370,9 @@ defaultGetSlotStart :: MonadIO m
                     => SlotId -> WithNodeState m (Either UnknownEpoch Timestamp)
 defaultGetSlotStart slotId =
     maybe (Left (UnknownEpoch slotId)) Right <$> Slotting.getSlotStart slotId
+
+defaultGetNextEpochSlotDuration :: MonadIO m => WithNodeState m Millisecond
+defaultGetNextEpochSlotDuration = Slotting.getNextEpochSlotDuration
 
 -- | Get the most recent main block starting at the specified header
 --
@@ -398,12 +429,16 @@ mockNodeState MockNodeStateParams{..} =
     withDefConfiguration $ \_pm ->
     withDefUpdateConfiguration $
       Adaptor {
-          withNodeState        = \_ -> throwM $ NodeStateUnavailable callStack
-        , getTipSlotId         = return mockNodeStateTipSlotId
-        , getSecurityParameter = return mockNodeStateSecurityParameter
-        , getMaxTxSize         = return $ bvdMaxTxSize genesisBlockVersionData
-        , getSlotCount         = return $ pcEpochSlots protocolConstants
-        , getSlotStart         = return . mockNodeStateSlotStart
+          withNodeState            = \_ -> throwM $ NodeStateUnavailable callStack
+        , getTipSlotId             = return mockNodeStateTipSlotId
+        , getSecurityParameter     = return mockNodeStateSecurityParameter
+        , getNextEpochSlotDuration = return mockNodeStateNextEpochSlotDuration
+        , getNtpStatus             = return mockNodeStateNtpStatus
+        , getSlotStart             = return . mockNodeStateSlotStart
+        , getMaxTxSize             = return $ bvdMaxTxSize genesisBlockVersionData
+        , getSlotCount             = return $ pcEpochSlots protocolConstants
+        , curSoftwareVersion       = return $ Upd.curSoftwareVersion
+        , compileInfo              = return $ Util.compileInfo
         }
 
 -- | Variation on 'mockNodeState' that uses the default params
@@ -423,6 +458,12 @@ data MockNodeStateParams = NodeConstraints => MockNodeStateParams {
 
         -- | Value for 'getSecurityParameter'
       , mockNodeStateSecurityParameter :: SecurityParameter
+
+        -- | Value for 'getNextEpochSlotDuration'
+      , mockNodeStateNextEpochSlotDuration :: Millisecond
+
+        -- | Value for 'getNtpStatus'
+      , mockNodeStateNtpStatus :: NtpStatus
       }
 
 -- | Default 'MockNodeStateParams'
@@ -438,11 +479,15 @@ data MockNodeStateParams = NodeConstraints => MockNodeStateParams {
 defMockNodeStateParams :: MockNodeStateParams
 defMockNodeStateParams =
     withDefConfiguration $ \_pm ->
-    withDefUpdateConfiguration $ MockNodeStateParams {
-        mockNodeStateTipSlotId = notDefined "mockNodeStateTipSlotId"
-      , mockNodeStateSlotStart = notDefined "mockNodeStateSlotStart"
-      , mockNodeStateSecurityParameter = SecurityParameter 2160
-      }
+    withDefUpdateConfiguration $
+    withCompileInfo $
+      MockNodeStateParams {
+          mockNodeStateTipSlotId             = notDefined "mockNodeStateTipSlotId"
+        , mockNodeStateSlotStart             = notDefined "mockNodeStateSlotStart"
+        , mockNodeStateNextEpochSlotDuration = notDefined "mockNodeStateNextEpochSlotDuration"
+        , mockNodeStateSecurityParameter     = SecurityParameter 2160
+        , mockNodeStateNtpStatus             = NtpSyncUnavailable
+        }
   where
     notDefined :: Text -> a
     notDefined = error

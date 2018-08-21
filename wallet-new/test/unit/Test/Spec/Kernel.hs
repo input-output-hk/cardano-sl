@@ -264,5 +264,6 @@ bracketActiveWallet test =
 -- TODO: Decide what we want to do with submitted transactions
 diffusion :: Kernel.WalletDiffusion
 diffusion =  Kernel.WalletDiffusion {
-    walletSendTx = \_tx -> return False
-  }
+      walletSendTx                = \_tx -> return False
+    , walletGetSubscriptionStatus = return mempty
+    }

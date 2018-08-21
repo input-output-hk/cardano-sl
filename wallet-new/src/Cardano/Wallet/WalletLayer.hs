@@ -1,31 +1,6 @@
 module Cardano.Wallet.WalletLayer
     ( PassiveWalletLayer (..)
     , ActiveWalletLayer (..)
-    -- * Getters
-    , createWallet
-    , getWallets
-    , getWallet
-    , updateWallet
-    , updateWalletPassword
-    , deleteWallet
-
-    , createAccount
-    , getAccounts
-    , getAccount
-    , getAccountBalance
-    , getAccountAddresses
-    , updateAccount
-    , deleteAccount
-
-    , createAddress
-    , getAddresses
-    , validateAddress
-
-    , getTransactions
-    , getTxFromMeta
-
-    , applyBlocks
-    , rollbackBlocks
     -- * Errors
     , CreateWalletError(..)
     , GetWalletError(..)
@@ -47,7 +22,6 @@ module Cardano.Wallet.WalletLayer
 
 import           Universum
 
-import           Control.Lens (makeLenses)
 import           Formatting (bprint, build, formatToString, (%))
 import qualified Formatting.Buildable
 import qualified Prelude
@@ -65,9 +39,9 @@ import           Cardano.Wallet.API.Request.Sort (SortOperations (..))
 import           Cardano.Wallet.API.Response (SliceOf (..), WalletResponse)
 import           Cardano.Wallet.API.V1.Types (Account, AccountBalance,
                      AccountIndex, AccountUpdate, Address, NewAccount,
-                     NewAddress, NewWallet, PasswordUpdate, Payment,
-                     Redemption, Transaction, V1 (..), Wallet, WalletAddress,
-                     WalletId, WalletUpdate)
+                     NewAddress, NewWallet, NodeInfo, NodeSettings,
+                     PasswordUpdate, Payment, Redemption, Transaction, V1 (..),
+                     Wallet, WalletAddress, WalletId, WalletUpdate)
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
@@ -367,165 +341,64 @@ instance Exception GetTxError
 data PassiveWalletLayer m = PassiveWalletLayer
     {
     -- wallets
-      _pwlCreateWallet         :: NewWallet -> m (Either CreateWalletError Wallet)
-    , _pwlGetWallets           :: m (IxSet Wallet)
-    , _pwlGetWallet            :: WalletId -> m (Either GetWalletError Wallet)
-    , _pwlUpdateWallet         :: WalletId
-                               -> WalletUpdate
-                               -> m (Either UpdateWalletError Wallet)
-    , _pwlUpdateWalletPassword :: WalletId
-                               -> PasswordUpdate
-                               -> m (Either UpdateWalletPasswordError Wallet)
-    , _pwlDeleteWallet         :: WalletId -> m (Either DeleteWalletError ())
+      createWallet         :: NewWallet -> m (Either CreateWalletError Wallet)
+    , getWallets           :: m (IxSet Wallet)
+    , getWallet            :: WalletId -> m (Either GetWalletError Wallet)
+    , updateWallet         :: WalletId
+                           -> WalletUpdate
+                           -> m (Either UpdateWalletError Wallet)
+    , updateWalletPassword :: WalletId
+                           -> PasswordUpdate
+                           -> m (Either UpdateWalletPasswordError Wallet)
+    , deleteWallet         :: WalletId -> m (Either DeleteWalletError ())
     -- accounts
-    , _pwlCreateAccount        :: WalletId
-                               -> NewAccount
-                               -> m (Either CreateAccountError Account)
-    , _pwlGetAccounts          :: WalletId
-                               -> m (Either GetAccountsError (IxSet Account))
-    , _pwlGetAccount           :: WalletId
-                               -> AccountIndex
-                               -> m (Either GetAccountError Account)
-    , _pwlGetAccountBalance    :: WalletId
-                               -> AccountIndex
-                               -> m (Either GetAccountError AccountBalance)
-    , _pwlGetAccountAddresses  :: WalletId
-                               -> AccountIndex
-                               -> RequestParams
-                               -> FilterOperations '[V1 Address] WalletAddress
-                               -> m (Either GetAccountError (WalletResponse [WalletAddress]))
-    , _pwlUpdateAccount        :: WalletId
-                               -> AccountIndex
-                               -> AccountUpdate
-                               -> m (Either UpdateAccountError Account)
-    , _pwlDeleteAccount        :: WalletId
-                               -> AccountIndex
-                               -> m (Either DeleteAccountError ())
+    , createAccount        :: WalletId
+                           -> NewAccount
+                           -> m (Either CreateAccountError Account)
+    , getAccounts          :: WalletId
+                           -> m (Either GetAccountsError (IxSet Account))
+    , getAccount           :: WalletId
+                           -> AccountIndex
+                           -> m (Either GetAccountError Account)
+    , getAccountBalance    :: WalletId
+                           -> AccountIndex
+                           -> m (Either GetAccountError AccountBalance)
+    , getAccountAddresses  :: WalletId
+                           -> AccountIndex
+                           -> RequestParams
+                           -> FilterOperations '[V1 Address] WalletAddress
+                           -> m (Either GetAccountError (WalletResponse [WalletAddress]))
+    , updateAccount        :: WalletId
+                           -> AccountIndex
+                           -> AccountUpdate
+                           -> m (Either UpdateAccountError Account)
+    , deleteAccount        :: WalletId
+                           -> AccountIndex
+                           -> m (Either DeleteAccountError ())
     -- addresses
-    , _pwlCreateAddress        :: NewAddress
-                               -> m (Either CreateAddressError WalletAddress)
-    , _pwlGetAddresses         :: RequestParams -> m (SliceOf WalletAddress)
-    , _pwlValidateAddress      :: Text
-                               -> m (Either ValidateAddressError WalletAddress)
+    , createAddress        :: NewAddress
+                           -> m (Either CreateAddressError WalletAddress)
+    , getAddresses         :: RequestParams -> m (SliceOf WalletAddress)
+    , validateAddress      :: Text
+                           -> m (Either ValidateAddressError WalletAddress)
 
     -- transactions
-    , _pwlGetTransactions      :: Maybe WalletId -> Maybe AccountIndex -> Maybe (V1 Address)
-        -> RequestParams -> FilterOperations '[V1 TxId, V1 Timestamp] Transaction -> SortOperations Transaction -> m (Either GetTxError (WalletResponse [Transaction]))
-    , _pwlGetTxFromMeta        :: TxMeta -> m (Either Kernel.UnknownHdAccount Transaction)
+    , getTransactions      :: Maybe WalletId
+                           -> Maybe AccountIndex
+                           -> Maybe (V1 Address)
+                           -> RequestParams
+                           -> FilterOperations '[V1 TxId, V1 Timestamp] Transaction
+                           -> SortOperations Transaction
+                           -> m (Either GetTxError (WalletResponse [Transaction]))
+    , getTxFromMeta        :: TxMeta -> m (Either Kernel.UnknownHdAccount Transaction)
 
     -- core API
-    , _pwlApplyBlocks          :: OldestFirst NE Blund -> m ()
-    , _pwlRollbackBlocks       :: NewestFirst NE Blund -> m ()
+    , applyBlocks          :: OldestFirst NE Blund -> m ()
+    , rollbackBlocks       :: NewestFirst NE Blund -> m ()
+
+    -- node settings
+    , getNodeSettings      :: m NodeSettings
     }
-
-makeLenses ''PassiveWalletLayer
-
-------------------------------------------------------------
--- Passive wallet layer getters
-------------------------------------------------------------
-
-createWallet :: forall m. PassiveWalletLayer m
-             -> NewWallet
-             -> m (Either CreateWalletError Wallet)
-createWallet pwl = pwl ^. pwlCreateWallet
-
-getWallets :: forall m. PassiveWalletLayer m -> m (IxSet Wallet)
-getWallets pwl = pwl ^. pwlGetWallets
-
-getWallet :: forall m. PassiveWalletLayer m
-          -> WalletId
-          -> m (Either GetWalletError Wallet)
-getWallet pwl = pwl ^. pwlGetWallet
-
-updateWallet :: forall m. PassiveWalletLayer m
-             -> WalletId
-             -> WalletUpdate
-             -> m (Either UpdateWalletError Wallet)
-updateWallet pwl = pwl ^. pwlUpdateWallet
-
-updateWalletPassword :: forall m. PassiveWalletLayer m
-                     -> WalletId
-                     -> PasswordUpdate
-                     -> m (Either UpdateWalletPasswordError Wallet)
-updateWalletPassword pwl = pwl ^. pwlUpdateWalletPassword
-
-deleteWallet :: forall m. PassiveWalletLayer m
-             -> WalletId
-             -> m (Either DeleteWalletError ())
-deleteWallet pwl = pwl ^. pwlDeleteWallet
-
-
-createAccount :: forall m. PassiveWalletLayer m
-              -> WalletId
-              -> NewAccount
-              -> m (Either CreateAccountError Account)
-createAccount pwl = pwl ^. pwlCreateAccount
-
-getAccounts :: forall m. PassiveWalletLayer m
-            -> WalletId
-            -> m (Either GetAccountsError (IxSet Account))
-getAccounts pwl = pwl ^. pwlGetAccounts
-
-getAccount :: forall m. PassiveWalletLayer m
-           -> WalletId
-           -> AccountIndex
-           -> m (Either GetAccountError Account)
-getAccount pwl = pwl ^. pwlGetAccount
-
-getAccountBalance :: forall m. PassiveWalletLayer m
-                  -> WalletId
-                  -> AccountIndex
-                  -> m (Either GetAccountError AccountBalance)
-getAccountBalance pwl = pwl ^. pwlGetAccountBalance
-
-getAccountAddresses  :: forall m. PassiveWalletLayer m
-                     -> WalletId
-                     -> AccountIndex
-                     -> RequestParams
-                     -> FilterOperations '[V1 Address] WalletAddress
-                     -> m (Either GetAccountError (WalletResponse [WalletAddress]))
-getAccountAddresses pwl = pwl ^. pwlGetAccountAddresses
-
-updateAccount :: forall m. PassiveWalletLayer m
-              -> WalletId
-              -> AccountIndex
-              -> AccountUpdate
-              -> m (Either UpdateAccountError Account)
-updateAccount pwl = pwl ^. pwlUpdateAccount
-
-deleteAccount :: forall m. PassiveWalletLayer m
-              -> WalletId
-              -> AccountIndex
-              -> m (Either DeleteAccountError ())
-deleteAccount pwl = pwl ^. pwlDeleteAccount
-
-createAddress :: forall m. PassiveWalletLayer m
-              -> NewAddress
-              -> m (Either CreateAddressError WalletAddress)
-createAddress pwl = pwl ^. pwlCreateAddress
-
-getAddresses :: forall m. PassiveWalletLayer m
-             -> RequestParams
-             -> m (SliceOf WalletAddress)
-getAddresses pwl = pwl ^. pwlGetAddresses
-
-validateAddress :: forall m. PassiveWalletLayer m
-                -> Text
-                -> m (Either ValidateAddressError WalletAddress)
-validateAddress pwl = pwl ^. pwlValidateAddress
-
-getTransactions :: forall m. PassiveWalletLayer m -> Maybe WalletId -> Maybe AccountIndex
-    -> Maybe (V1 Address) -> RequestParams -> FilterOperations '[V1 TxId, V1 Timestamp] Transaction -> SortOperations Transaction -> m (Either GetTxError (WalletResponse [Transaction]))
-getTransactions pwl = pwl ^. pwlGetTransactions
-
-getTxFromMeta :: forall m. PassiveWalletLayer m -> TxMeta -> m (Either Kernel.UnknownHdAccount Transaction)
-getTxFromMeta pwl = pwl ^. pwlGetTxFromMeta
-
-applyBlocks :: forall m. PassiveWalletLayer m -> OldestFirst NE Blund -> m ()
-applyBlocks pwl = pwl ^. pwlApplyBlocks
-
-rollbackBlocks :: forall m. PassiveWalletLayer m -> NewestFirst NE Blund -> m ()
-rollbackBlocks pwl = pwl ^. pwlRollbackBlocks
 
 ------------------------------------------------------------
 -- Active wallet layer
@@ -560,6 +433,12 @@ data ActiveWalletLayer m = ActiveWalletLayer {
 
       -- | Redeem ada
     , redeemAda :: Redemption -> m (Either RedeemAdaError Tx)
+
+      -- | Node info
+      --
+      -- This lives in the active wallet layer as the node info endpoint returns
+      -- status information about the diffusion layer
+    , getNodeInfo :: m NodeInfo
     }
 
 ------------------------------------------------------------

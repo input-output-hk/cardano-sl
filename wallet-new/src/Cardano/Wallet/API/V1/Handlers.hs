@@ -6,6 +6,8 @@ import           Universum
 import qualified Cardano.Wallet.API.V1 as V1
 import qualified Cardano.Wallet.API.V1.Handlers.Accounts as Accounts
 import qualified Cardano.Wallet.API.V1.Handlers.Addresses as Addresses
+import qualified Cardano.Wallet.API.V1.Handlers.Info as Info
+import qualified Cardano.Wallet.API.V1.Handlers.Settings as Settings
 import qualified Cardano.Wallet.API.V1.Handlers.Transactions as Transactions
 import qualified Cardano.Wallet.API.V1.Handlers.Wallets as Wallets
 
@@ -18,12 +20,7 @@ handlers w =  Addresses.handlers    passiveWallet
          :<|> Wallets.handlers      passiveWallet
          :<|> Accounts.handlers     passiveWallet
          :<|> Transactions.handlers w
-         :<|> settings
-         :<|> info
+         :<|> Settings.handlers     passiveWallet
+         :<|> Info.handlers         w
   where
     passiveWallet = walletPassiveLayer w
-
-    settings = todo
-    info = todo
-
-    todo = error "TODO"

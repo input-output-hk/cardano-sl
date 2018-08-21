@@ -7,7 +7,6 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications    #-}
 
 -- | This module implements functionality of NTP client.
 
@@ -147,7 +146,6 @@ updateStatus cli = updateStatus' cli fn
            , (Wlog.Info, sformat ("Evaluated clock offset "%shown%"mcs") offset)
            )
 
--- |
 -- Every `ntpPollDelay` we send a request to the list of `ntpServers`.  Before
 -- sending a request, we put `NtpSyncPending` to `ncState`.  After sending
 -- all requests we wait until either all servers responded or

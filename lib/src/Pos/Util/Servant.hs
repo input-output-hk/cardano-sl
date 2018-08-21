@@ -2,6 +2,8 @@
 {-# LANGUAGE CPP                       #-}
 {-# LANGUAGE DataKinds                 #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE InstanceSigs              #-}
 {-# LANGUAGE KindSignatures            #-}
 {-# LANGUAGE Rank2Types                #-}
 {-# LANGUAGE RecordWildCards           #-}
@@ -54,6 +56,9 @@ module Pos.Util.Servant
     , DCQueryParam
     , DQueryParam
 
+    , Flaggable (..)
+    , CustomQueryFlag
+
     , serverHandlerL
     , serverHandlerL'
     , inRouteServer
@@ -69,6 +74,7 @@ import           Control.Monad.Except (ExceptT (..), MonadError (..))
 import           Data.Constraint ((\\))
 import           Data.Constraint.Forall (Forall, inst)
 import           Data.Default (Default (..))
+import           Data.List (lookup)
 import           Data.Reflection (Reifies (..), reflect)
 import qualified Data.Text as T
 import           Data.Time.Clock.POSIX (getPOSIXTime)
@@ -76,11 +82,14 @@ import           Formatting (bprint, build, builder, fconst, formatToString,
                      sformat, shown, stext, string, (%))
 import qualified Formatting.Buildable
 import           GHC.IO.Unsafe (unsafePerformIO)
-import           GHC.TypeLits (KnownSymbol, symbolVal)
+import           GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
+import           Network.HTTP.Types (parseQueryText)
+import           Network.Wai (rawQueryString)
 import           Serokell.Util (listJsonIndent)
 import           Serokell.Util.ANSI (Color (..), colorizeDull)
 import           Servant.API ((:<|>) (..), (:>), Capture, Description,
-                     QueryParam, ReflectMethod (..), ReqBody, Summary, Verb)
+                     QueryFlag, QueryParam, ReflectMethod (..), ReqBody,
+                     Summary, Verb)
 import           Servant.Client (Client, HasClient (..))
 import           Servant.Client.Core (RunClient)
 import           Servant.Server (Handler (..), HasServer (..), ServantErr (..),
@@ -89,8 +98,8 @@ import qualified Servant.Server.Internal as SI
 import           Servant.Swagger (HasSwagger (toSwagger))
 import           System.Wlog (LoggerName, LoggerNameBox, usingLoggerName)
 
-import           Pos.Infra.Util.LogSafe (BuildableSafe, SecureLog, SecuredText,
-                     buildSafe, logInfoSP, plainOrSecureF, secretOnlyF)
+import           Pos.Infra.Util.LogSafe (BuildableSafe, SecuredText, buildSafe,
+                     logInfoSP, plainOrSecureF, secretOnlyF)
 
 -------------------------------------------------------------------------
 -- Utility functions
@@ -148,6 +157,13 @@ type ApiHasArg subApi res =
     )
 
 instance KnownSymbol s => ApiHasArgClass (Capture s a)
+
+instance KnownSymbol s => ApiHasArgClass (QueryFlag s) where
+    type ApiArg (QueryFlag s) = Bool
+
+    apiArgName :: Proxy (QueryFlag s) -> String
+    apiArgName _ = formatToString ("'"%string%"' field") $ symbolVal (Proxy @s)
+
 instance KnownSymbol s => ApiHasArgClass (QueryParam s a) where
     type ApiArg (QueryParam s a) = Maybe a
 instance ApiHasArgClass (ReqBody ct a) where
@@ -472,13 +488,13 @@ class ApiHasArgClass subApi =>
         :: BuildableSafe (ApiArgToLog subApi)
         => Proxy subApi -> ApiArg subApi -> SecuredText
     default toLogParamInfo
-        :: ( Buildable (ApiArg subApi)
-           , Buildable (SecureLog (ApiArg subApi))
-           )
+        :: BuildableSafe (ApiArg subApi)
         => Proxy subApi -> ApiArg subApi -> SecuredText
     toLogParamInfo _ param = \sl -> sformat (buildSafe sl) param
 
 instance KnownSymbol s => ApiCanLogArg (Capture s a)
+
+instance KnownSymbol s => ApiCanLogArg (QueryFlag s)
 
 instance ApiCanLogArg (ReqBody ct a)
 
@@ -529,9 +545,8 @@ instance {-# OVERLAPPABLE #-}
          , ApiHasArg subApi (LoggingApiRec config res)
          , ApiCanLogArg subApi
          , BuildableSafe (ApiArgToLog subApi)
-         , subApi ~ apiType a
          ) =>
-         HasLoggingServer config (apiType a :> res) ctx where
+         HasLoggingServer config (subApi :> res) ctx where
     routeWithLog = paramRouteWithLog
 
 instance {-# OVERLAPPING #-}
@@ -699,6 +714,54 @@ instance ReportDecodeError api =>
          ReportDecodeError (LoggingApiRec config api) where
     reportDecodeError _ msg =
         (ApiNoParamsLogInfo msg, reportDecodeError (Proxy @api) msg)
+
+
+-------------------------------------------------------------------------
+-- Custom query flag
+-------------------------------------------------------------------------
+
+-- This type is used as a helper to implement custom query flags.
+-- Instead of using `QueryFlag "some_flag"` which should serialize
+-- into boolean flag now we can say `CustomQueryFlag "some_flag" SomeFlag`
+-- where SomeFlag has instance of Flaggable. This way we won't be using
+-- Boolean type for all flags but we can implement custom type.
+data CustomQueryFlag (sym :: Symbol) flag
+
+class Flaggable flag where
+    toBool :: flag -> Bool
+    fromBool :: Bool -> flag
+
+instance Flaggable Bool where
+    toBool = identity
+    fromBool = identity
+
+-- TODO (akegalj): this instance is almost the same as upstream HasServer instance of QueryFlag. The only difference is addition of `fromBool` function in `route` implementation. Can we somehow reuse `route` implementation of CustomQuery instead of copy-pasting it here with this small `fromBool` addition?
+instance (KnownSymbol sym, HasServer api context, Flaggable flag)
+      => HasServer (CustomQueryFlag sym flag :> api) context where
+
+  type ServerT (CustomQueryFlag sym flag :> api) m =
+    flag -> ServerT api m
+
+  hoistServerWithContext _ pc nt s = hoistServerWithContext (Proxy @api) pc nt . s
+
+  route Proxy context subserver =
+    let querytext r = parseQueryText $ rawQueryString r
+        param r = case lookup paramname (querytext r) of
+          Just Nothing  -> True  -- param is there, with no value
+          Just (Just v) -> examine v -- param with a value
+          Nothing       -> False -- param not in the query string
+    in  route (Proxy @api) context (SI.passToServer subserver $ fromBool . param)
+    where paramname = toText $ symbolVal (Proxy @sym)
+          examine v | v == "true" || v == "1" || v == "" = True
+                    | otherwise = False
+
+instance (KnownSymbol sym, Flaggable flag, HasClient m api) => HasClient m (CustomQueryFlag sym flag :> api) where
+    type Client m (CustomQueryFlag sym flag :> api) = flag -> Client m api
+
+    clientWithRoute p _ req = clientWithRoute p (Proxy @(QueryFlag sym :> api)) req . toBool
+
+instance KnownSymbol s => ApiCanLogArg (CustomQueryFlag s a)
+instance KnownSymbol s => ApiHasArgClass (CustomQueryFlag s a)
 
 -------------------------------------------------------------------------
 -- API construction Helpers

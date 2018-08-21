@@ -2,6 +2,7 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Info where
 
 import           Universum
 
+import           Control.Monad.STM (retry)
 import           System.Wlog (WithLogger)
 
 import           Cardano.Wallet.API.Response (WalletResponse, single)
@@ -9,7 +10,7 @@ import qualified Cardano.Wallet.API.V1.Info as Info
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 
-import           Ntp.Client (NtpStatus)
+import           Ntp.Client (NtpStatus (NtpSyncPending))
 import           Pos.Infra.Diffusion.Subscription.Status (ssMap)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo)
@@ -37,12 +38,22 @@ getInfo :: ( MonadIO m
            )
         => Diffusion MonadV1
         -> TVar NtpStatus
+        -> ForceNtpCheck
         -> m (WalletResponse NodeInfo)
-getInfo Diffusion{..} ntpStatus = do
+getInfo  Diffusion{..} ntpStatus ntpCheck = do
+    timeDifference <- V0.localTimeDifferencePure <$>
+        if ntpCheck == ForceNtpCheck
+            then do
+                atomically $ writeTVar ntpStatus NtpSyncPending
+                atomically $ do
+                    s <- readTVar ntpStatus
+                    case s of
+                        NtpSyncPending -> retry
+                        _              -> pure s
+            else readTVarIO ntpStatus
     subscribers <- readTVarIO (ssMap subscriptionStates)
     spV0 <- V0.syncProgress
     syncProgress   <- migrate spV0
-    timeDifference <- V0.localTimeDifference ntpStatus
     return $ single NodeInfo
         { nfoSyncProgress          = syncProgress
         , nfoSubscriptionStatus    = subscribers

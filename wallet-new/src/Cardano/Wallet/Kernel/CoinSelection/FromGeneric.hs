@@ -185,16 +185,19 @@ feeOptions CoinSelectionOptions{..} = FeeOptions{
 -- multisignature transactions, etc.
 mkStdTx :: Monad m
         => Core.ProtocolMagic
+        -> (forall a. NonEmpty a -> m (NonEmpty a))
+        -- ^ Shuffle function
         -> (Core.Address -> Either e Core.SafeSigner)
+        -- ^ Signer for each input of the transaction
         -> NonEmpty (Core.TxIn, Core.TxOutAux)
         -- ^ Selected inputs
         -> NonEmpty Core.TxOutAux
         -- ^ Selected outputs
         -> [Core.TxOutAux]
-        -- ^ A list of change addresess, in the form of 'TxOutAux'(s).
+        -- ^ Change outputs
         -> m (Either e Core.TxAux)
-mkStdTx pm hdwSigners inps outs change = do
-    let allOuts = foldl' (flip NE.cons) outs change
+mkStdTx pm shuffle hdwSigners inps outs change = do
+    allOuts <- shuffle $ foldl' (flip NE.cons) outs change
     return $ Core.makeMPubKeyTxAddrs pm hdwSigners (fmap repack inps) allOuts
   where
     -- Repack a utxo-derived tuple into a format suitable for
@@ -250,7 +253,6 @@ runCoinSelT opts pickUtxo policy request utxo = do
             originalOuts = case outs of
                                []   -> error "runCoinSelT: empty list of outputs"
                                o:os -> o :| os
-        -- TODO: We should shuffle allOuts CBR-380
         return . Right $ CoinSelFinalResult allInps
                                             originalOuts
                                             (concatMap coinSelChange css)

@@ -6,6 +6,8 @@ module Cardano.Wallet.Kernel.Util (
     -- * Lists
     at
   , neHead
+  , shuffle
+  , shuffleNE
     -- * Maps and sets
   , disjoint
   , withoutKeys
@@ -34,9 +36,14 @@ module Cardano.Wallet.Kernel.Util (
 import           Universum
 
 import           Control.Monad.Except (MonadError (..))
+import           Crypto.Number.Generate (generateBetween)
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Merge.Strict as Map.Merge
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
+import qualified Data.Vector as V
+import           Data.Vector.Mutable (IOVector)
+import qualified Data.Vector.Mutable as MV
 import           Pos.Core.Chrono
 import qualified Test.QuickCheck as QC
 
@@ -52,6 +59,29 @@ at (_:xs) i = at xs (i - 1)
 
 neHead :: Lens' (NonEmpty a) a
 neHead f (x :| xs) = (:| xs) <$> f x
+
+shuffle :: [a] -> IO [a]
+shuffle = modifyInPlace $ \v -> do
+    let (lo, hi) = (0, MV.length v - 1)
+    forM_ [lo .. hi] $ \i -> do
+      j <- fromInteger <$> generateBetween (fromIntegral lo) (fromIntegral hi)
+      swapElems v i j
+  where
+    swapElems :: IOVector a -> Int -> Int -> IO ()
+    swapElems v i j = do
+        x <- MV.read v i
+        y <- MV.read v j
+        MV.write v i y
+        MV.write v j x
+
+shuffleNE :: NonEmpty a -> IO (NonEmpty a)
+shuffleNE = fmap NE.fromList . shuffle . NE.toList
+
+modifyInPlace :: forall a. (IOVector a -> IO ()) -> [a] -> IO [a]
+modifyInPlace f xs = do
+    v' <- V.thaw $ V.fromList xs
+    f v'
+    V.toList <$> V.freeze v'
 
 {-------------------------------------------------------------------------------
   Maps and sets

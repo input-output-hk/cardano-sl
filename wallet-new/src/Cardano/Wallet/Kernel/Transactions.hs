@@ -61,6 +61,7 @@ import           Cardano.Wallet.Kernel.Pending (newPending)
 import           Cardano.Wallet.Kernel.Read (getWalletSnapshot)
 import           Cardano.Wallet.Kernel.Types (AccountId (..),
                      RawResolvedTx (..), WalletId (..))
+import           Cardano.Wallet.Kernel.Util (shuffleNE)
 import           Cardano.Wallet.Kernel.Util.Core (paymentAmount, utxoBalance,
                      utxoRestrictToInputs)
 import           Cardano.Wallet.WalletLayer.Kernel.Conv (exceptT)
@@ -198,7 +199,7 @@ newTransaction ActiveWallet{..} spendingPassword options accountId payees = runE
                (WalletIdHdRnd $ accountId ^. hdAccountIdParent)
                (walletPassive ^. walletKeystore)
     let signAddress = mkSigner spendingPassword mbEsk snapshot
-        mkTx        = mkStdTx walletProtocolMagic signAddress
+        mkTx        = mkStdTx walletProtocolMagic shuffleNE signAddress
 
     txAux <- withExceptT NewTransactionErrorSignTxFailed $ ExceptT $
                mkTx inputs outputs changeAddresses
@@ -208,43 +209,43 @@ newTransaction ActiveWallet{..} spendingPassword options accountId payees = runE
     txMeta <- createNewMeta accountId txId inputs (toaOut <$> outputs)
     return (txAux, txMeta, availableUtxo)
   where
-        -- Generate an initial seed for the random generator using the hash of
-        -- the payees, which ensure that the coin selection (and the fee estimation)
-        -- is \"pseudo deterministic\" and replicable.
-        newEnvironment :: IO Env
-        newEnvironment =
-            let initialSeed = V.fromList . map fromIntegral
-                                         . B.unpack
-                                         . encodeUtf8 @Text @ByteString
-                                         . sformat build
-                                         $ hash payees
-            in Env <$> initialize initialSeed
+    -- Generate an initial seed for the random generator using the hash of
+    -- the payees, which ensure that the coin selection (and the fee estimation)
+    -- is \"pseudo deterministic\" and replicable.
+    newEnvironment :: IO Env
+    newEnvironment =
+        let initialSeed = V.fromList . map fromIntegral
+                                     . B.unpack
+                                     . encodeUtf8 @Text @ByteString
+                                     . sformat build
+                                     $ hash payees
+        in Env <$> initialize initialSeed
 
-        toTxOut :: (Address, Coin) -> TxOutAux
-        toTxOut (a, c) = TxOutAux (TxOut a c)
+    toTxOut :: (Address, Coin) -> TxOutAux
+    toTxOut (a, c) = TxOutAux (TxOut a c)
 
-        -- | Generates the list of change outputs from a list of change coins.
-        genChangeOuts :: MonadIO m
-                      => [Coin]
-                      -> ExceptT Kernel.CreateAddressError m [TxOutAux]
-        genChangeOuts css = forM css $ \change -> do
-            changeAddr <- genChangeAddr
-            return TxOutAux {
-                toaOut = TxOut {
-                    txOutAddress = changeAddr
-                  , txOutValue   = change
-                  }
+    -- | Generates the list of change outputs from a list of change coins.
+    genChangeOuts :: MonadIO m
+                  => [Coin]
+                  -> ExceptT Kernel.CreateAddressError m [TxOutAux]
+    genChangeOuts css = forM css $ \change -> do
+        changeAddr <- genChangeAddr
+        return TxOutAux {
+            toaOut = TxOut {
+                txOutAddress = changeAddr
+              , txOutValue   = change
               }
+          }
 
-        -- | Monadic computation to generate a new change 'Address'. This will
-        -- run after coin selection, when we create the final transaction as
-        -- part of 'mkTx'.
-        genChangeAddr :: MonadIO m
-                      => ExceptT Kernel.CreateAddressError m Address
-        genChangeAddr = ExceptT $ liftIO $
-            Kernel.createAddress spendingPassword
-                                 (AccountIdHdRnd accountId)
-                                 walletPassive
+    -- | Monadic computation to generate a new change 'Address'. This will
+    -- run after coin selection, when we create the final transaction as
+    -- part of 'mkTx'.
+    genChangeAddr :: MonadIO m
+                  => ExceptT Kernel.CreateAddressError m Address
+    genChangeAddr = ExceptT $ liftIO $
+        Kernel.createAddress spendingPassword
+                             (AccountIdHdRnd accountId)
+                             walletPassive
 
 createNewMeta :: HdAccountId -> TxId -> NonEmpty (TxIn, TxOutAux) -> NonEmpty TxOut -> ExceptT NewTransactionError IO TxMeta
 createNewMeta hdId txId inp out = do

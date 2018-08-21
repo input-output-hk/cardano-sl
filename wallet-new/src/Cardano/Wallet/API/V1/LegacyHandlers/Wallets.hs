@@ -39,6 +39,9 @@ handlers = newWallet
     :<|> deleteWallet
     :<|> getWallet
     :<|> updateWallet
+    :<|> checkExternalWallet
+    :<|> newExternalWallet
+    :<|> deleteExternalWallet
 
 
 -- | Pure function which returns whether or not the underlying node is
@@ -179,3 +182,42 @@ updateWallet wid WalletUpdate{..} = do
         -- reacquire the snapshot because we did an update
         ws' <- V0.askWalletSnapshot
         addWalletInfo ws' updated
+
+-- | Check if external wallet is presented in node's wallet db.
+checkExternalWallet
+    :: -- ( V0.MonadWalletLogic ctx m
+       -- , V0.MonadWalletHistory ctx m
+       -- , MonadUnliftIO m
+       -- , HasLens SyncQueue ctx SyncQueue
+       -- )
+       -- =>
+    PublicKeyAsBase58
+    -> m (WalletResponse WalletAndTxHistory)
+checkExternalWallet _encodedRootPK =
+    error "[CHW-54], Cardano Hardware Wallet, check external wallet, legacy handler, unimplemented yet."
+
+-- | Creates a new or restores an existing external @wallet@ given a 'NewExternalWallet' payload.
+-- Returns to the client the representation of the created or restored wallet in the 'Wallet' type.
+newExternalWallet
+    :: -- ( MonadThrow m
+       -- , MonadUnliftIO m
+       -- , HasLens SyncQueue ctx SyncQueue
+       -- , V0.MonadBlockchainInfo m
+       -- , V0.MonadWalletLogic ctx m
+       -- )
+       -- =>
+    NewExternalWallet
+    -> m (WalletResponse Wallet)
+newExternalWallet NewExternalWallet{..} =
+    error "[CHW-80], Cardano Hardware Wallet, new external wallet, legacy handler, unimplemented yet."
+
+-- | On the disk, once imported or created, there's so far not much difference
+-- between a wallet and an external wallet, except one: node stores a public key
+-- for external wallet, there's no secret key.
+deleteExternalWallet
+    :: -- (V0.MonadWalletLogic ctx m)
+       -- =>
+    PublicKeyAsBase58
+    -> m NoContent
+deleteExternalWallet _encodedRootPK =
+    error "[CHW-106], Cardano Hardware Wallet, delete external wallet, legacy handler, unimplemented yet."

@@ -399,7 +399,7 @@ executable wal-integr-test
                       MonadFailDesugaring
 
 test-suite wallet-unit-tests
-  ghc-options:        -Wall -O2
+  ghc-options:        -Wall -O2 -threaded
   type:               exitcode-stdio-1.0
   main-is:            WalletUnitTest.hs
   other-modules:      InputSelection.Evaluation
@@ -499,6 +499,7 @@ test-suite wallet-unit-tests
                     , cardano-sl-db
                     , cardano-sl-networking
                     , cardano-sl-util
+                    , cardano-sl-util-test
                     , cardano-sl-wallet-new
                     , constraints
                     , containers
@@ -586,6 +587,7 @@ test-suite wallet-new-specs
                     , cardano-sl-core-test
                     , cardano-sl-crypto
                     , cardano-sl-chain
+                    , cardano-sl-util
                     , cardano-sl-util-test
                     , cardano-sl-wallet
                     , cardano-sl-wallet-new

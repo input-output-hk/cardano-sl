@@ -804,14 +804,46 @@ certificates, and makes it simple for nodes to track the delegation.
 
 ## State Tracking for delegation
 
-It is not sufficient for certificates to be posted to the blockchain:
-since nodes will need to validate signatures on new blocks in a timely
-manner, they need ready access on all valid certificates without
-resorting to the blockchain itself. Distributing rewards
-(\ref{sharing-rewards}) requires further additional state.
+It is not sufficient for certificates to be posted to the blockchain.
+Nodes need ready access to certain parts of previously posted
+information as part of the protocol execution or ledger validation. For
+example since nodes need to validate signatures on new blocks in a
+timely manner they need ready access to information about the
+registered stake pools (including lightweight certificate validity).
 
-Nodes will have to maintain the following local databases as they
-process blocks:
+One of the design goals is to avoid having to look up old entries on
+the blockchain, since we want to allow implementations that forget old
+blocks. Instead we want a 'foldl' design where nodes keep track -- as
+local state -- of all the information they will later need.
+
+The following sections describe the local state that nodes must
+maintain as they process transactions in blocks.
+
+### Stake Keys
+
+The set of active stake keys must be tracked. This contains the verification
+key $vks$ from each stake key registration certificate. The set is uniquely
+indexed by the key hash $\mathcal{H}(vks)$. It is also uniquely indexed by the
+location on the blockchain of the key registration certificate, using the same
+location type as pointer addresses.
+
+This set is updated when keys are registered and de-registered. This state is
+consulted when validating and applying transactions that withdraw from stake
+accounts, to retrieve the stake key for a stake account address. It is also 
+
+### Stake Accounts
+
+For each stake key there is an associated stake account. The lifetime of these
+accounts follows exactly their associated registered stake key.
+
+The stake accounts are a mapping from a stake key account address to their
+current balance. This address is the unique index for the mapping. The stake
+key account address is a function of the associated  key hash
+$\mathcal{H}(vks)$.
+
+The accounts are updated in bulk following the end of an epoch. They are
+consulted and updated when validating and applying transactions that withdraw
+from stake accounts.
 
 ### Stake Pools
 

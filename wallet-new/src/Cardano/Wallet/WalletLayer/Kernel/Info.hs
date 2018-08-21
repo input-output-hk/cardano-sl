@@ -4,9 +4,6 @@ module Cardano.Wallet.WalletLayer.Kernel.Info (
 
 import           Universum
 
-import           Data.Time.Units (toMicroseconds)
-import           Ntp.Client (NtpStatus (..))
-
 import qualified Cardano.Wallet.API.V1.Types as V1
 import           Cardano.Wallet.Kernel.Diffusion (walletGetSubscriptionStatus)
 import qualified Cardano.Wallet.Kernel.Internal as Kernel
@@ -14,23 +11,14 @@ import           Cardano.Wallet.Kernel.NodeStateAdaptor (NodeStateAdaptor)
 import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as Node
 
 getNodeInfo :: MonadIO m => Kernel.ActiveWallet -> V1.ForceNtpCheck -> m V1.NodeInfo
-getNodeInfo aw _ = liftIO $ do
-    -- TODO Force NtpCheck in new data-layer
+getNodeInfo aw ntpCheckBehavior = liftIO $
     V1.NodeInfo
       <$> (pure $ V1.mkSyncPercentage 100) -- TODO (Restoration [CBR-243])
       <*> (pure $ Nothing)                 -- TODO (Restoration [CBR-243])
       <*> (pure $ V1.mkBlockchainHeight 0) -- TODO (Restoration [CBR-243])
-      <*> (mkTimeInfo <$> Node.getNtpStatus node)
+      <*> (Node.getNtpDrift node ntpCheckBehavior)
       <*> (walletGetSubscriptionStatus (Kernel.walletDiffusion aw))
   where
-    mkTimeInfo :: NtpStatus -> V1.TimeInfo
-    mkTimeInfo = V1.TimeInfo . fmap V1.mkLocalTimeDifference . diff
-
-    diff :: NtpStatus -> Maybe Integer
-    diff (NtpDrift time)    = Just (toMicroseconds time)
-    diff NtpSyncPending     = Nothing
-    diff NtpSyncUnavailable = Nothing
-
     node :: NodeStateAdaptor IO
     node = pw ^. Kernel.walletNode
 

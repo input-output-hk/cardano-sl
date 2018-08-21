@@ -756,7 +756,9 @@ exampleGenesisData0 =
     GenesisData
         { gdBootStakeholders = exampleGenesisWStakeholders
         , gdHeavyDelegation = exampleGenesisDelegation
-        , gdStartTime = Timestamp { getTimestamp = 1337 }
+        -- Timestamps are stored as seconds, so they are rounded to
+        -- the nearest 10^6.
+        , gdStartTime = Timestamp { getTimestamp = 421337000000 }
         , gdVssCerts = exampleGenesisVssCertificatesMap 10 4
         , gdNonAvvmBalances = exampleGenesisNonAvvmBalances0
         , gdBlockVersionData = exampleBlockVersionData0
@@ -770,7 +772,7 @@ exampleGenesisData1 =
     GenesisData
         { gdBootStakeholders = exampleGenesisWStakeholders
         , gdHeavyDelegation = exampleGenesisDelegation
-        , gdStartTime = Timestamp { getTimestamp = 3131961357 }
+        , gdStartTime = Timestamp { getTimestamp = 3131000000 }
         , gdVssCerts = exampleGenesisVssCertificatesMap 0 10
         , gdNonAvvmBalances = exampleGenesisNonAvvmBalances1
         , gdBlockVersionData = exampleBlockVersionData1
@@ -784,7 +786,7 @@ exampleGenesisData2 =
     GenesisData
         { gdBootStakeholders = exampleGenesisWStakeholders
         , gdHeavyDelegation = exampleGenesisDelegation
-        , gdStartTime = Timestamp { getTimestamp = 3735928559 }
+        , gdStartTime = Timestamp { getTimestamp = 3735000000 }
         , gdVssCerts = exampleGenesisVssCertificatesMap 8 5
         , gdNonAvvmBalances = exampleGenesisNonAvvmBalances2
         , gdBlockVersionData = exampleBlockVersionData2

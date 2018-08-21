@@ -857,6 +857,24 @@ curl -X GET 'https://127.0.0.1:8090/api/v1/transactions?wallet_id=Ae2tdPwU...3AV
   --cert ./scripts/tls-files/client.pem
 ```
 
+
+Getting Utxo statistics
+---------------------------------
+
+You can get Utxo statistics of a given wallet using
+ [`GET /api/v1/wallets/{{walletId}}/statistics/utxos`](#tag/Accounts%2Fpaths%2F~1api~1v1~1wallets~1{walletId}~1statistics~1utxos%2Fget)
+```
+curl -X GET \
+  https://127.0.0.1:8090/api/v1/wallets/Ae2tdPwUPE...8V3AVTnqGZ/statistics/utxos \
+  -H 'Accept: application/json;charset=utf-8' \
+  --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem
+```
+
+```json
+$readUtxoStatistics
+```
+
 Make sure to carefully read the section about [Pagination](#section/Pagination) to fully
 leverage the API capabilities.
 |]
@@ -871,7 +889,7 @@ leverage the API capabilities.
     readFees             = decodeUtf8 $ encodePretty $ genExample @(WalletResponse EstimatedFees)
     readNodeInfo         = decodeUtf8 $ encodePretty $ genExample @(WalletResponse NodeInfo)
     readTransactions     = decodeUtf8 $ encodePretty $ genExample @(WalletResponse [Transaction])
-
+    readUtxoStatistics   = decodeUtf8 $ encodePretty $ genExample @(WalletResponse UtxoStatistics)
 
 -- | Provide an alternative UI (ReDoc) for rendering Swagger documentation.
 swaggerSchemaUIServer

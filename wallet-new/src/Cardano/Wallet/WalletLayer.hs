@@ -7,6 +7,7 @@ module Cardano.Wallet.WalletLayer
     , UpdateWalletError(..)
     , UpdateWalletPasswordError(..)
     , DeleteWalletError(..)
+    , GetUtxosError(..)
     , NewPaymentError(..)
     , EstimateFeesError(..)
     , RedeemAdaError(..)
@@ -28,6 +29,7 @@ import qualified Prelude
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
 import           Pos.Chain.Block (Blund)
+import           Pos.Chain.Txp (Utxo)
 import           Pos.Core (Coin, Timestamp)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Txp (Tx, TxId)
@@ -155,6 +157,25 @@ instance Buildable DeleteWalletError where
         bprint ("DeleteWalletWalletIdDecodingFailed " % build) txt
     build (DeleteWalletError kernelError) =
         bprint ("DeleteWalletError " % build) kernelError
+
+data GetUtxosError =
+      GetUtxosWalletIdDecodingFailed Text
+    | GetUtxosErrorFromGetAccountsError GetAccountsError
+    | GetUtxosErrorFromGetAccountError GetAccountError
+    deriving Eq
+
+instance Show GetUtxosError where
+    show = formatToString build
+
+instance Exception GetUtxosError
+
+instance Buildable GetUtxosError where
+    build (GetUtxosErrorFromGetAccountError getAccountError) =
+        bprint build getAccountError
+    build (GetUtxosErrorFromGetAccountsError getAccountsError) =
+        bprint build getAccountsError
+    build (GetUtxosWalletIdDecodingFailed txt) =
+        bprint ("GetWalletUtxosWalletIdDecodingFailed " % build) txt
 
 ------------------------------------------------------------
 -- Errors when dealing with addresses
@@ -347,6 +368,8 @@ data PassiveWalletLayer m = PassiveWalletLayer
                            -> PasswordUpdate
                            -> m (Either UpdateWalletPasswordError Wallet)
     , deleteWallet         :: WalletId -> m (Either DeleteWalletError ())
+    , getUtxos             :: WalletId
+                           -> m (Either GetUtxosError [(Account, Utxo)])
     -- accounts
     , createAccount        :: WalletId
                            -> NewAccount

@@ -7,6 +7,7 @@ import           Universum
 
 import           Cardano.Wallet.Client.Http
 import           Control.Lens
+import qualified Data.List.NonEmpty as NL
 import           Test.Hspec
 
 import           Util
@@ -51,6 +52,17 @@ walletSpecs _ wc = do
                 }
 
             eresp `shouldPrism_` _Right
+
+        it "creating wallet gives rise to an empty Utxo histogram" $ do
+            newWallet <- randomWallet CreateWallet
+            wallet <- createWalletCheck wc newWallet
+
+            eresp <- getUtxoStatistics wc (walId wallet)
+            utxoStatistics <- fmap wrData eresp `shouldPrism` _Right
+            let possibleBuckets = show <$> generateBounds Log10
+            let histogram = map (\x -> HistogramBarCount x 0) possibleBuckets
+            let allStakes = 0
+            utxoStatistics `shouldBe` UtxoStatistics (NL.toList histogram) allStakes
   where
     testWalletAlreadyExists action = do
             newWallet1 <- randomWallet action

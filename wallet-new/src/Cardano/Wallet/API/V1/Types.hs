@@ -44,6 +44,8 @@ module Cardano.Wallet.API.V1.Types (
   , mkPublicKeyAsBase58
   , NewExternalWallet (..)
   , WalletAndTxHistory (..)
+  , UtxoStatistics (..)
+  , HistogramBar (..)
   -- * Addresses
   , AddressIndex
   , AddressValidity (..)
@@ -122,6 +124,8 @@ module Cardano.Wallet.API.V1.Types (
   , WalletError(..)
   , toServantError
   , toHttpErrorStatus
+
+  , module Cardano.Wallet.Types.UtxoStatistics
   ) where
 
 import qualified Prelude
@@ -141,7 +145,9 @@ import           Data.ByteString.Base58 (bitcoinAlphabet, decodeBase58,
                      encodeBase58)
 import qualified Data.Char as C
 import           Data.Default (Default (def))
+import qualified Data.HashMap.Strict as HMS
 import qualified Data.Map.Strict as Map
+import           Data.Scientific (floatingOrInteger)
 import           Data.Semigroup (Semigroup)
 import           Data.Swagger hiding (Example, example)
 import qualified Data.Swagger as S
@@ -177,7 +183,9 @@ import           Cardano.Wallet.API.V1.Generic (jsendErrorGenericParseJSON,
 import           Cardano.Wallet.API.V1.Swagger.Example (Example, example,
                      genExample)
 import           Cardano.Wallet.Orphans.Aeson ()
+import           Cardano.Wallet.Types.UtxoStatistics
 import           Cardano.Wallet.Util (showApiUtcTime)
+
 import qualified Pos.Binary.Class as Bi
 import qualified Pos.Client.Txp.Util as Core
 import           Pos.Core (addressF)

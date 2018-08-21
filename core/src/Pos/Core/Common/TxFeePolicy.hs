@@ -22,7 +22,7 @@ import           Pos.Binary.Class (Bi (..), decodeKnownCborDataItem,
                      decodeUnknownCborDataItem, encodeKnownCborDataItem,
                      encodeListLen, encodeUnknownCborDataItem, enforceSize)
 import           Pos.Core.Common.TxSizeLinear
-import           Pos.Core.Genesis.Canonical ()
+import           Pos.Util.Json.Canonical ()
 import           Pos.Util.Util (aesonError, toAesonError)
 
 -- | Transaction fee policy represents a formula to compute the minimal allowed

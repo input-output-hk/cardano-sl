@@ -14,7 +14,7 @@ import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
                      ToJSON (..))
 
 import           Pos.Core.Common (StakeholderId)
-import           Pos.Core.Genesis.Canonical ()
+import           Pos.Util.Json.Canonical ()
 
 -- | Wrapper around weighted stakeholders map to be used in genesis
 -- core data.

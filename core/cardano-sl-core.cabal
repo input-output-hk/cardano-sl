@@ -111,7 +111,6 @@ library
                        Pos.Core.Delegation.Proof
 
                        -- Genesis
-                       Pos.Core.Genesis.Canonical
                        Pos.Core.Genesis.Generate
                        Pos.Core.Genesis.AvvmBalances
                        Pos.Core.Genesis.Data

@@ -20,7 +20,7 @@ import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
 
 import           Pos.Binary.Class (Bi, decode, encode)
 import           Pos.Core.Common.Coin
-import           Pos.Core.Genesis.Canonical ()
+import           Pos.Util.Json.Canonical ()
 
 -- | CoinPortion is some portion of Coin; it is interpreted as a fraction
 -- with denominator of 'coinPortionDenominator'. The numerator must be in the

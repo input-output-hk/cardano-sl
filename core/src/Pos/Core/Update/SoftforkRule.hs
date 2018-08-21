@@ -19,7 +19,7 @@ import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core.Common (CoinPortion, checkCoinPortion)
-import           Pos.Core.Genesis.Canonical ()
+import           Pos.Util.Json.Canonical ()
 
 -- | Values defining softfork resolution rule.
 -- If a proposal is confirmed at the 's'-th epoch, softfork resolution threshold

@@ -14,12 +14,12 @@ import           Pos.Core.Slotting (Timestamp)
 import           Pos.Core.Update (BlockVersionData)
 
 import           Pos.Core.Genesis.AvvmBalances
-import           Pos.Core.Genesis.Canonical ()
 import           Pos.Core.Genesis.Delegation
 import           Pos.Core.Genesis.NonAvvmBalances
 import           Pos.Core.Genesis.ProtocolConstants
 import           Pos.Core.Genesis.VssCertificatesMap
 import           Pos.Core.Genesis.WStakeholders
+import           Pos.Util.Json.Canonical ()
 
 -- | Genesis data contains all data which determines consensus
 -- rules. It must be same for all nodes. It's used to initialize

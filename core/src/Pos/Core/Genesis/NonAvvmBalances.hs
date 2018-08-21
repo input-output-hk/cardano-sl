@@ -18,7 +18,7 @@ import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
 
 import           Pos.Core.Common (Address, Coin, decodeTextAddress,
                      unsafeAddCoin, unsafeGetCoin, unsafeIntegerToCoin)
-import           Pos.Core.Genesis.Canonical ()
+import           Pos.Util.Json.Canonical ()
 import           Pos.Util.Util (toAesonError)
 
 

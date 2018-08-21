@@ -16,6 +16,7 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
+  hs-source-dirs:      src
   exposed-modules:
                        Pos.Util
 
@@ -144,6 +145,7 @@ test-suite test
                        Test.Pos.Util.LogSpec
                        Test.Pos.Util.Modifier
                        Test.Pos.Util.ModifierSpec
+                       Test.Pos.Util.Parallel.Parallelize
                        Test.Pos.Util.QuickCheck.Property
                        Test.Pos.Util.TimerSpec
                        Test.Pos.Util.Tripping

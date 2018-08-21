@@ -298,13 +298,13 @@ instance Buildable (SecureLog (Mnemonic mw)) where
 instance Buildable (MnemonicError csz) where
     build = \case
         ErrMnemonicWords (ErrWrongNumberOfWords a e) ->
-            bprint ("Invalid number of mnemonic words: got "%build%" words, expected "%build%" words") a e
+            bprint ("MnemonicError: Invalid number of mnemonic words: got "%build%" words, expected "%build%" words") a e
         ErrDictionary (ErrInvalidDictionaryWord w) ->
-            bprint ("Invalid dictionary word: "%build%"") (fromUtf8String w)
+            bprint ("MnemonicError: Invalid dictionary word: "%build%"") (fromUtf8String w)
         ErrEntropy (ErrInvalidEntropyLength a e) ->
-            bprint ("Invalid entropy length: got "%build%" bits, expected "%build%" bits") a e
+            bprint ("MnemonicError: Invalid entropy length: got "%build%" bits, expected "%build%" bits") a e
         ErrEntropy (ErrInvalidEntropyChecksum a e) ->
-            bprint ("Invalid entropy checksum: got "%build%", expected "%build) (show' a) (show' e)
+            bprint ("MnemonicError: Invalid entropy checksum: got "%build%", expected "%build) (show' a) (show' e)
         ErrForbidden ->
             bprint "Forbidden Mnemonic: an example Mnemonic has been submitted. \
             \Please generate a fresh and private Mnemonic from a trusted source"

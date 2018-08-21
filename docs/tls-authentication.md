@@ -108,11 +108,19 @@ $ cardano-node \
 All those options are actually optional. When missing, the node looks for default development
 certificates and key in `<repo-root>/scripts/tls-files/`. 
 
-#### Disable TLS (Not Recommended)
+### Disabling TLS (Not Recommended)
+
+#### Fully Turn Off TLS
 
 If needed, you can disable TLS by providing the `--no-tls` flag to the wallet or by running a
 wallet in debug mode with `--wallet-debug` turned on.
 
+#### Turn Off Client Certificates Verification 
+
+It is possible to lower the TLS requirements down a bit by disabling only client certificates
+verification. The communication will still be done in a TLS tunnel though, the server won't
+require nor verify any client certificate presented to it. To do so, simply provide the
+`--no-client-auth` flag upon starting a wallet node.
 
 ### Contacting Cardano-SL Backend
 

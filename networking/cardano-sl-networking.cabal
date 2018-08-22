@@ -229,6 +229,7 @@ test-suite cardano-sl-networking-test
                      , bytestring >= 0.10.8
                      , cardano-sl-networking
                      , cardano-sl-util
+                     , cardano-sl-util-test
                      , containers >= 0.5.7
                      , hspec >= 2.1.10
                      , hspec-core

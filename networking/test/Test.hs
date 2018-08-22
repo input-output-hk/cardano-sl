@@ -1,5 +1,9 @@
 import           Spec (spec)
-import           Test.Hspec (hspec)
+import           Test.Hspec (hspec, parallel)
+
+import           Test.Pos.Util.Parallel.Parallelize (parallelizeAllCores)
 
 main :: IO ()
-main = hspec spec
+main = do
+    parallelizeAllCores
+    hspec $ parallel spec

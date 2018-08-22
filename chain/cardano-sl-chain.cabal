@@ -264,6 +264,7 @@ test-suite test
                        TemplateHaskell
                        ScopedTypeVariables
                        MonadFailDesugaring
+  ghc-options:         -threaded
 
 benchmark block-bench
   main-is:             block-bench.hs

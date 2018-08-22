@@ -70,6 +70,7 @@ let
   };
 in mapped // {
   inherit tests;
+  inherit (pkgs) cabal2nix;
   nixpkgs = let
     wrapped = pkgs.runCommand "nixpkgs" {} ''
       ln -sv ${fixedNixpkgs} $out

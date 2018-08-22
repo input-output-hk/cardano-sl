@@ -34,6 +34,7 @@ import           Pos.Core (isMoreDifficult)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      _NewestFirst, _OldestFirst)
 import           Pos.Core.Conc (forConcurrently)
+import           Pos.Core.JsonLog (jsonLog)
 import           Pos.Core.Exception (cardanoExceptionFromException,
                      cardanoExceptionToException)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
@@ -48,7 +49,8 @@ import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion
 import           Pos.Infra.Recovery.Info (recoveryInProgress)
-import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
+import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..),
+                     jlAdoptedBlock)
 import           Pos.Network.Block.RetrievalQueue (BlockRetrievalQueue,
                      BlockRetrievalQueueTag, BlockRetrievalTask (..))
 import           Pos.Network.Block.WorkMode (BlockWorkMode)
@@ -288,7 +290,7 @@ applyWithoutRollback logTrace pm txpConfig diffusion blocks = do
                     getOldestFirst prefix <> one (toRelay ^. blockHeader)
             relayBlock logTrace' diffusion toRelay
             logInfo logTrace' $ blocksAppliedMsg applied
-            -- TODO for_ blocks $ jsonLog . jlAdoptedBlock
+            for_ blocks $ jsonLog . jlAdoptedBlock
   where
     logTrace' = natTrace liftIO logTrace
     newestTip = blocks ^. _OldestFirst . _neLast . headerHashG
@@ -331,7 +333,7 @@ applyWithRollback logTrace pm txpConfig diffusion toApply lca toRollback = do
             reportRollback
             logInfo logTrace' $ blocksRolledBackMsg (getNewestFirst toRollback)
             logInfo logTrace' $ blocksAppliedMsg (getOldestFirst toApply)
-            -- TODO for_ (getOldestFirst toApply) $ jsonLog . jlAdoptedBlock
+            for_ (getOldestFirst toApply) $ jsonLog . jlAdoptedBlock
             relayBlock logTrace' diffusion $ toApply ^. _OldestFirst . _neLast
   where
     logTrace' = natTrace liftIO logTrace

@@ -77,7 +77,7 @@ processLogDirOverview logTrace logDir sampleProb = do
                                     <*> txCntInChainF
                                     <*> txFateF
     let total    = M.size rc
-        included = sort $ mapMaybe snd $ M.toList rc
+        included = {-sort $-} mapMaybe snd $ M.toList rc
         lost     = total - length included
     logInfo logTrace $ sformat ("total number of received transactions: " % shown) total
     logInfo logTrace $ sformat ("included in blockchain: " % shown) (length included)

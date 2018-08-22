@@ -1,9 +1,9 @@
 {-# LANGUAGE RecordWildCards #-}
 
 module JSONLog
-    ( jsonLogs
-    , parseLogP
-    , IndexedJLTimedEvent (..)
+    (--  jsonLogs
+    --, parseLogP
+      IndexedJLTimedEvent (..)
     , runParseLogs
     ) where
 

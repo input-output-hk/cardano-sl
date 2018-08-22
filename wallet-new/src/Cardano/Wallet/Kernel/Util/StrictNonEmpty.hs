@@ -13,7 +13,10 @@ module Cardano.Wallet.Kernel.Util.StrictNonEmpty (
 
 import           Universum hiding ((:|), head, take)
 
-import           Data.SafeCopy (base, deriveSafeCopy)
+import           Pos.Core.Chrono
+
+import           Data.SafeCopy (SafeCopy (..), base, contain, deriveSafeCopy,
+                     safeGet, safePut)
 
 import           Cardano.Wallet.Kernel.Util.StrictList (StrictList)
 import qualified Cardano.Wallet.Kernel.Util.StrictList as SL
@@ -21,10 +24,18 @@ import qualified Cardano.Wallet.Kernel.Util.StrictList as SL
 data StrictNonEmpty a = (:|) !a !(StrictList a)
   deriving (Eq, Ord, Show, Functor)
 
-instance Semigroup (StrictNonEmpty a) where
-    (x :| xs) <> (y :| ys) = x :| (xs <> (SL.Cons y ys))
+instance SafeCopy a => SafeCopy (NewestFirst StrictNonEmpty a) where
+    getCopy = contain $ NewestFirst <$> safeGet
+    putCopy (NewestFirst xs) = contain $ safePut xs
+
+instance SafeCopy a => SafeCopy (OldestFirst StrictNonEmpty a) where
+    getCopy = contain $ OldestFirst <$> safeGet
+    putCopy (OldestFirst xs) = contain $ safePut xs
 
 deriveSafeCopy 1 'base ''StrictNonEmpty
+
+instance Semigroup (StrictNonEmpty a) where
+    (x :| xs) <> (y :| ys) = x :| (xs <> (SL.Cons y ys))
 
 singleton :: a -> StrictNonEmpty a
 singleton a = a :| mempty

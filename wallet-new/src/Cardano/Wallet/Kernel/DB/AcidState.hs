@@ -84,7 +84,7 @@ import           Cardano.Wallet.Kernel.Util (markMissingMapEntries)
 --    "Pos.Wallet.Web.State.Storage".
 --  * V1 API defined in "Cardano.Wallet.API.V1.*" (in @src/@)
 data DB = DB {
-      _dbHdWallets :: HdWallets
+      _dbHdWallets :: !HdWallets
     }
 
 makeLenses ''DB

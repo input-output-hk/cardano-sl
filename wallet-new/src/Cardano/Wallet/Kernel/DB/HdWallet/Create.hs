@@ -34,6 +34,7 @@ import           Cardano.Wallet.Kernel.DB.Util.AcidState
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (AutoIncrementKey (..),
                      Indexed (..))
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
+import qualified Cardano.Wallet.Kernel.Util.StrictNonEmpty as SNE
 
 {-------------------------------------------------------------------------------
   Errors
@@ -157,7 +158,7 @@ initHdAccount accountId checkpoint = HdAccount {
     , _hdAccountState = HdAccountStateUpToDate
                       $ HdAccountUpToDate
                       $ NewestFirst
-                      $ checkpoint :| []
+                      $ SNE.singleton checkpoint
     , _hdAccountAutoPkCounter = AutoIncrementKey 0
     }
   where

@@ -35,6 +35,7 @@ import           Pos.Core (ChainDifficulty, FlatSlotId, HasProtocolConstants,
                      getOurPublicKey, getSlotIndex, slotIdF, unflattenSlotId)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Conc (delay)
+import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics, MetricMonitor (..),
                      MetricMonitorState, noReportMonitor, recordValue)
 import           Pos.Core.Update (BlockVersionData (..))
@@ -57,7 +58,7 @@ import           Pos.Infra.Slotting (ActionTerminationPolicy (..),
                      OnNewSlotParams (..), currentTimeSlotting,
                      defaultOnNewSlotParams, getSlotStartEmpatically,
                      onNewSlot)
---import           Pos.Infra.Util.JsonLog.Events (jlCreatedBlock)
+import           Pos.Infra.Util.JsonLog.Events (jlCreatedBlock)
 import           Pos.Infra.Util.TimeLimit (logWarningSWaitLinear)
 import           Pos.Network.Block.Logic (triggerRecovery)
 import           Pos.Network.Block.Retrieval (retrievalWorker)
@@ -151,7 +152,7 @@ blockCreator logTrace0 pm txpConfig (slotId@SlotId {..}) diffusion = do
     mGenBlock <- createGenesisBlockAndApply logTrace0 pm txpConfig siEpoch
     whenJust mGenBlock $ \createdBlk -> do
         logInfo logTrace $ sformat ("Created genesis block:\n" %build) createdBlk
-        -- TODO jsonLog $ jlCreatedBlock (Left createdBlk)
+        jsonLog $ jlCreatedBlock (Left createdBlk)
 
     -- Then we get leaders for current epoch.
     leadersMaybe <- LrcDB.getLeadersForEpoch siEpoch
@@ -244,7 +245,7 @@ onNewSlotWhenLeader logTrace0 pm txpConfig slotId pske diffusion = do
     whenCreated createdBlk = do
             logInfoS logTrace $
                 sformat ("Created a new block:\n" %build) createdBlk
-            -- TODO jsonLog $ jlCreatedBlock (Right createdBlk)
+            jsonLog $ jlCreatedBlock (Right createdBlk)
             void $ Diffusion.announceBlockHeader diffusion $ createdBlk ^. gbHeader
     whenNotCreated = logWarningS logTrace . (mappend "I couldn't create a new block: ")
 

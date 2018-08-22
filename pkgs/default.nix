@@ -17386,11 +17386,13 @@ license = stdenv.lib.licenses.mit;
 , Glob
 , hourglass
 , hspec
+, ip
 , lens
 , lifted-async
 , log-warper
 , mtl
 , neat-interpolation
+, network-transport
 , network-transport-tcp
 , optparse-applicative
 , optparse-generic
@@ -17477,11 +17479,13 @@ filepath
 formatting
 Glob
 hourglass
+ip
 lens
 lifted-async
 log-warper
 mtl
 neat-interpolation
+network-transport
 network-transport-tcp
 optparse-applicative
 optparse-generic
@@ -46469,6 +46473,48 @@ doHaddock = false;
 doCheck = false;
 homepage = "http://snapframework.com/";
 description = "HAProxy protocol 1.5 support for io-streams";
+license = stdenv.lib.licenses.bsd3;
+
+}) {};
+"ip" = callPackage
+({
+  mkDerivation
+, aeson
+, attoparsec
+, base
+, bytestring
+, fetchgit
+, hashable
+, primitive
+, stdenv
+, text
+, vector
+}:
+mkDerivation {
+
+pname = "ip";
+version = "1.3.0";
+src = fetchgit {
+
+url = "https://github.com/andrewthad/haskell-ip";
+sha256 = "199mfpbgca7rvwvwk2zsmcpibc0sk0ni7c5zlf4gk3cps8s85gyr";
+rev = "9bb453139aa82cc973125091800422a523e1eb8f";
+
+};
+libraryHaskellDepends = [
+aeson
+attoparsec
+base
+bytestring
+hashable
+primitive
+text
+vector
+];
+doHaddock = false;
+doCheck = false;
+homepage = "https://github.com/andrewthad/haskell-ip#readme";
+description = "Library for IP and MAC addresses";
 license = stdenv.lib.licenses.bsd3;
 
 }) {};

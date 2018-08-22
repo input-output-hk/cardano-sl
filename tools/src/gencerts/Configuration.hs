@@ -21,13 +21,20 @@ import           Data.X509
 import           Data.X509.Validation (ValidationChecks (..), defaultChecks)
 import           Data.Yaml (decodeFileEither, parseMonad, withObject)
 import           GHC.Generics (Generic)
+import           Net.IP (IP, case_, decode)
+import           Net.IPv4 (IPv4 (..))
+import           Net.IPv6 (IPv6 (..))
+import           Network.Transport.Internal (encodeWord32)
 import           System.IO (FilePath)
 
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
+import qualified Data.ByteString.Builder as BS
+import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Char as Char
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.List.NonEmpty as NonEmpty
+import qualified Data.Text as T
 
 
 -- | Type-alias for signature readability
@@ -225,10 +232,24 @@ usExtensionsV3 purpose subDN issDN =
 svExtensionsV3 :: DistinguishedName -> DistinguishedName -> NonEmpty String -> [ExtensionRaw]
 svExtensionsV3 subDN issDN altNames =
     let
-        subjectAltName = ExtSubjectAltName (AltNameDNS <$> NonEmpty.toList altNames)
+        subjectAltName = ExtSubjectAltName ( parseAltName <$> NonEmpty.toList altNames)
     in
         extensionEncode False subjectAltName : usExtensionsV3 KeyUsagePurpose_ServerAuth subDN issDN
 
+parseAltName :: String -> AltName
+parseAltName name = do
+    let
+        ipv4ToByteString :: IPv4 -> ByteString
+        ipv4ToByteString (IPv4 bytes) = encodeWord32 bytes
+        ipv6ToByteString :: IPv6 -> ByteString
+        ipv6ToByteString ipv6 = LBS.toStrict (BS.toLazyByteString $ ipv6ByteStringBuilder ipv6)
+        ipv6ByteStringBuilder :: IPv6 -> BS.Builder
+        ipv6ByteStringBuilder (IPv6 parta partb) = BS.word64BE parta <> BS.word64BE partb
+
+        go :: Maybe IP -> AltName
+        go (Just address) = AltNameIP $ case_ ipv4ToByteString ipv6ToByteString address
+        go Nothing = AltNameDNS name
+    go $ decode $ T.pack name
 
 clExtensionsV3 :: DistinguishedName -> DistinguishedName -> [ExtensionRaw]
 clExtensionsV3 =

@@ -27,7 +27,7 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import           Test.Pos.Configuration (withDefConfigurations)
 import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
 
-import           Cardano.Wallet.API.Internal.Handlers (resetWalletState)
+import           Cardano.Wallet.API.Internal.LegacyHandlers (resetWalletState)
 import           Cardano.Wallet.Server.CLI (RunMode (..))
 import           Data.Default (def)
 import           Servant

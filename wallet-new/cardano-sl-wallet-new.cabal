@@ -19,6 +19,7 @@ library
                        Cardano.Wallet.API.Indices
                        Cardano.Wallet.API.Internal
                        Cardano.Wallet.API.Internal.Handlers
+                       Cardano.Wallet.API.Internal.LegacyHandlers
                        Cardano.Wallet.API.Request
                        Cardano.Wallet.API.Request.Filter
                        Cardano.Wallet.API.Request.Pagination
@@ -97,6 +98,7 @@ library
                        Cardano.Wallet.Kernel.DB.Sqlite
                        Cardano.Wallet.Kernel.DB.TxMeta
                        Cardano.Wallet.Kernel.DB.TxMeta.Types
+                       Cardano.Wallet.Kernel.DB.Updates
                        Cardano.Wallet.Kernel.DB.Util.AcidState
                        Cardano.Wallet.Kernel.DB.Util.IxSet
                        Cardano.Wallet.Kernel.Diffusion
@@ -139,6 +141,7 @@ library
                        Cardano.Wallet.WalletLayer.Kernel.Addresses
                        Cardano.Wallet.WalletLayer.Kernel.Conv
                        Cardano.Wallet.WalletLayer.Kernel.Info
+                       Cardano.Wallet.WalletLayer.Kernel.Internal
                        Cardano.Wallet.WalletLayer.Kernel.Settings
                        Cardano.Wallet.WalletLayer.Kernel.Transactions
                        Cardano.Wallet.WalletLayer.Kernel.Wallets

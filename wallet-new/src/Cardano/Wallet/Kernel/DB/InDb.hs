@@ -13,6 +13,7 @@ import           Data.SafeCopy (SafeCopy (..))
 import qualified Pos.Chain.Block as Core
 import qualified Pos.Chain.Txp as Core
 import qualified Pos.Core as Core
+import qualified Pos.Core.Update as Core
 import qualified Pos.Crypto as Core
 
 {-------------------------------------------------------------------------------
@@ -103,3 +104,7 @@ instance SafeCopy (InDb a) => SafeCopy (InDb (Set a)) where
 instance SafeCopy (InDb (Map Core.TxId Core.SlotId)) where
     getCopy = error "TODO: getCopy for (InDb (Map Core.TxId Core.SlotId))"
     putCopy = error "TODO: putCopy for (InDb (Map Core.TxId Core.SlotId))"
+
+instance SafeCopy (InDb Core.SoftwareVersion) where
+    getCopy = error "TODO: getCopy for (InDb Core.SoftwareVersion)"
+    putCopy = error "TODO: putCopy for (InDb Core.SoftwareVersion)"

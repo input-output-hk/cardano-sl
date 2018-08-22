@@ -9,8 +9,8 @@
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE TypeFamilies               #-}
 module ConsumerProtocol where
 
 -- import           Data.Word
@@ -26,9 +26,12 @@ import           Control.Monad.Free as Free
 
 -- import           Test.QuickCheck
 
+import           Block (Block, Point, ReaderId, blockPoint)
+import           Chain (ChainFragment (..), absChainFragment, applyChainUpdate, findIntersection)
+import           Chain.Update (ChainUpdate (..))
 import           ChainExperiment2
 import           MonadClass
-import           Sim (SimChan (..), SimF, flipSimChan)
+import           Sim (SimChan (..), SimF, SimMVar (..), flipSimChan)
 
 --
 -- IPC based protocol
@@ -167,15 +170,15 @@ producerSideProtocol1 ProducerHandlers{..} chan =
 
 
 exampleProducer :: forall m. (MonadConc m, MonadSay m)
-                => MVar m (ChainProducerState, MVar m (ChainProducerState))
+                => MVar m (ChainProducerState ChainFragment, MVar m (ChainProducerState ChainFragment))
                 -> ProducerHandlers m ReaderId
 exampleProducer chainvar =
     ProducerHandlers {..}
   where
     findIntersectionRange :: Point -> [Point] -> m (Maybe (Point, Point))
     findIntersectionRange hpoint points = do
-      (cps, _) <- readMVar chainvar
-      return $! findIntersection cps hpoint points
+      (ChainProducerState {chainState}, _) <- readMVar chainvar
+      return $! findIntersection chainState hpoint points
 
     establishReaderState :: Point -> Point -> m ReaderId
     establishReaderState hpoint ipoint =
@@ -187,7 +190,7 @@ exampleProducer chainvar =
     updateReaderState rid hpoint mipoint =
       modifyMVar_ chainvar $ \(cps, mcps) ->
         let !ncps = updateReader rid hpoint mipoint cps
-        in return $! (ncps, mcps)
+        in return (ncps, mcps)
 
     tryReadChainUpdate :: ReaderId -> m (Maybe (ConsumeChain Block))
     tryReadChainUpdate rid =
@@ -209,7 +212,7 @@ exampleProducer chainvar =
           Nothing     -> readChainUpdate rid
 
 exampleConsumer :: forall m. MonadConc m
-                => MVar m (ChainProducerState, MVar m (ChainProducerState))
+                => MVar m (ChainProducerState ChainFragment, MVar m (ChainProducerState ChainFragment))
                 -> ConsumerHandlers m
 exampleConsumer chainvar = ConsumerHandlers {..}
     where
@@ -217,23 +220,23 @@ exampleConsumer chainvar = ConsumerHandlers {..}
     getChainPoints = do
         (ChainProducerState {chainState}, _) <- readMVar chainvar
         -- TODO: bootstraping case (client has no blocks)
-        let (p : ps) = map blockPoint $ absChainState chainState
+        let (p : ps) = map blockPoint $ absChainFragment chainState
         return (p, ps)
 
     addBlock :: Block -> m ()
     addBlock b = void $ modifyMVar_ chainvar $ \(cps@ChainProducerState {chainState}, mcps) -> do
-        let !chainState' = applyChainStateUpdate (AddBlock b) chainState
+        let !chainState' = applyChainUpdate (AddBlock b) chainState
         let !cps' = cps { chainState = chainState' }
-        -- wake up awaiting producers
+        -- wake up awaiting producer
         _ <- tryPutMVar mcps cps'
         mcps' <- newEmptyMVar
         return (cps', mcps')
 
     rollbackTo :: Point -> m ()
     rollbackTo p = void $ modifyMVar_ chainvar $ \(cps@ChainProducerState {chainState}, mcps) -> do
-        let !chainState' = applyChainStateUpdate (RollBack p) chainState
+        let !chainState' = applyChainUpdate (RollBack p) chainState
         let !cps' = cps { chainState = chainState' }
-        -- wake up awaiting producers
+        -- wake up awaiting producer
         _ <- tryPutMVar mcps cps'
         mcps' <- newEmptyMVar
         return (cps', mcps')

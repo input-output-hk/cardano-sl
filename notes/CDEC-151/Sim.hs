@@ -1,29 +1,37 @@
-{-# LANGUAGE TypeFamilies, ScopedTypeVariables, RankNTypes,
-             GADTSyntax, ExistentialQuantification, 
-             NamedFieldPuns, GeneralizedNewtypeDeriving,
-             FlexibleInstances #-}
+{-# LANGUAGE ExistentialQuantification  #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GADTSyntax                 #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE NamedFieldPuns             #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TypeFamilies               #-}
 module Sim (
   SimF,
   SimM,
   SimProbe,
   SimChan (..),
+  SimMVar,
   flipSimChan,
   newProbe,
   runSimM,
   runSimMST,
+
+  example0,
+  example1
   ) where
 
 import           Data.PriorityQueue.FingerTree (PQueue)
 import qualified Data.PriorityQueue.FingerTree as PQueue
 
 -- import Control.Applicative
-import Control.Monad
-import Control.Exception (assert)
-import Control.Monad.ST.Lazy
-import Control.Monad.Free (Free)
-import Control.Monad.Free as Free
-import Data.STRef.Lazy
-import System.Random (StdGen, mkStdGen)
+import           Control.Exception (assert)
+import           Control.Monad
+import           Control.Monad.Free (Free)
+import           Control.Monad.Free as Free
+import           Control.Monad.ST.Lazy
+import           Data.STRef.Lazy
+import           System.Random (StdGen, mkStdGen)
 
 
 import           MonadClass hiding (MVar)
@@ -184,7 +192,7 @@ schedule simstate@SimState {
 
     Free (Fail msg) -> do
       -- stop the whole sim on failure
-      return ((time,tid,EventFail msg):[])
+      return [(time,tid,EventFail msg)]
 
     Free (Say msg k) -> do
       let thread' = Thread tid k

@@ -11,9 +11,12 @@ import           Control.Lens
 import           Test.Hspec
 import           Text.Show.Pretty (ppShow)
 
-import qualified Pos.Core as Core
-
 import           Util
+
+import qualified Data.Map.Strict as Map
+import qualified Pos.Core as Core
+import qualified Pos.Core.Txp as Txp
+
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
@@ -24,7 +27,7 @@ ppShowT :: Show a => a -> Text
 ppShowT = fromString . ppShow
 
 transactionSpecs :: WalletRef -> WalletClient IO -> Spec
-transactionSpecs wRef wc = do
+transactionSpecs wRef wc =
     describe "Transactions" $ do
         it "posted transactions appear in the index" $ do
             genesis <- genesisWallet wc
@@ -187,3 +190,43 @@ transactionSpecs wRef wc = do
             etxn <- postTransaction wc payment
 
             void $ etxn `shouldPrism` _Left
+
+        xit "posted transactions gives rise to nonempty Utxo histogram" $ do
+            genesis <- genesisWallet wc
+            (fromAcct, _) <- firstAccountAndId wc genesis
+
+            wallet <- sampleWallet wRef wc
+            (_, toAddr) <- firstAccountAndId wc wallet
+
+            let payment val = Payment
+                    { pmtSource =  PaymentSource
+                        { psWalletId = walId genesis
+                        , psAccountIndex = accIndex fromAcct
+                        }
+                    , pmtDestinations = pure PaymentDistribution
+                        { pdAddress = addrId toAddr
+                        , pdAmount = V1 (Core.mkCoin val)
+                        }
+                    , pmtGroupingPolicy = Nothing
+                    , pmtSpendingPassword = Nothing
+                    }
+
+            eresp0 <- getUtxoStatistics wc (walId wallet)
+            utxoStatistics0 <- fmap wrData eresp0 `shouldPrism` _Right
+            let utxoStatistics0Expected = computeUtxoStatistics log10 []
+            utxoStatistics0 `shouldBe` utxoStatistics0Expected
+
+            void $ postTransaction wc (payment 1)
+            threadDelay 120000000
+
+            let txIn  = Txp.TxInUnknown 0 "test"
+            let txOut = Txp.TxOutAux Txp.TxOut
+                    { Txp.txOutAddress = unV1 (addrId toAddr)
+                    , Txp.txOutValue = Core.mkCoin 1
+                    }
+            let utxos = [Map.fromList [(txIn, txOut)]]
+
+            eresp <- getUtxoStatistics wc (walId wallet)
+            utxoStatistics <- fmap wrData eresp `shouldPrism` _Right
+            let utxoStatisticsExpected = computeUtxoStatistics log10 utxos
+            utxoStatistics `shouldBe` utxoStatisticsExpected

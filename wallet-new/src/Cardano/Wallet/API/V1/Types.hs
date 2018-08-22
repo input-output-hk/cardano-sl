@@ -123,6 +123,8 @@ module Cardano.Wallet.API.V1.Types (
   , WalletError(..)
   , toServantError
   , toHttpErrorStatus
+
+  , module Cardano.Wallet.Types.UtxoStatistics
   ) where
 
 import qualified Prelude
@@ -178,7 +180,9 @@ import           Cardano.Wallet.API.V1.Generic (jsendErrorGenericParseJSON,
 import           Cardano.Wallet.API.V1.Swagger.Example (Example, example,
                      genExample)
 import           Cardano.Wallet.Orphans.Aeson ()
+import           Cardano.Wallet.Types.UtxoStatistics
 import           Cardano.Wallet.Util (showApiUtcTime)
+
 import qualified Pos.Binary.Class as Bi
 import qualified Pos.Client.Txp.Util as Core
 import           Pos.Core (addressF)

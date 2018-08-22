@@ -13,15 +13,17 @@ import           Cardano.Wallet.Orphans.Arbitrary ()
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),
                      CreateAccountError (..), DeleteAccountError (..),
                      DeleteWalletError (..), GetAccountError (..),
-                     GetAccountsError (..), GetWalletError (..),
-                     PassiveWalletLayer (..), UpdateAccountError (..),
-                     UpdateWalletError (..), UpdateWalletPasswordError (..),
-                     ValidateAddressError (..))
+                     GetAccountsError (..), GetUtxosError (..),
+                     GetWalletError (..), PassiveWalletLayer (..),
+                     UpdateAccountError (..), UpdateWalletError (..),
+                     UpdateWalletPasswordError (..), ValidateAddressError (..))
 
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 
 import           Pos.Core ()
-import           Test.QuickCheck (Arbitrary, arbitrary, generate, oneof)
+import           Test.Pos.Core.Arbitrary.Txp ()
+import           Test.QuickCheck (Arbitrary (..), arbitrary, generate, oneof)
+
 
 -- | Initialize the passive wallet.
 -- The passive wallet cannot send new transactions.
@@ -41,6 +43,7 @@ bracketPassiveWallet =
         , updateWallet         = \_ _   -> liftedGen
         , updateWalletPassword = \_ _   -> liftedGen
         , deleteWallet         = \_     -> liftedGen
+        , getUtxos             = \_     -> liftedGen
 
         , createAccount        = \_ _   -> liftedGen
         , getAccounts          = \_     -> liftedGen
@@ -130,6 +133,12 @@ instance Arbitrary DeleteAccountError where
 instance Arbitrary GetWalletError where
     arbitrary = oneof [ GetWalletWalletIdDecodingFailed <$> arbitrary
                       , GetWalletError . V1 <$> arbitrary
+                      ]
+
+instance Arbitrary GetUtxosError where
+    arbitrary = oneof [ pure (GetUtxosWalletIdDecodingFailed "foobar")
+                      , GetUtxosGetAccountsError <$> arbitrary
+                      , GetUtxosCurrentAvailableUtxoError <$> arbitrary
                       ]
 
 instance Arbitrary UpdateWalletPasswordError where

@@ -1,5 +1,7 @@
-#!/bin/bash -eu
+#!/usr/bin/env bash
 
+set -e
+set -u
 ################################################################################
 # Check deps
 ################################################################################
@@ -60,7 +62,7 @@ done
 # Generate graph
 ################################################################################
 
-tmpdir=$(mktemp -d "${TMPDIR:-/tmp/}$(basename "$0").XXXXXXXXXXXX")
+tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/$(basename "$0").XXXXXXXXXXXX")
 
 # 'tred' and 'dot' are in the 'graphviz' of most Linux distributions.
 

@@ -5,12 +5,14 @@ module Cardano.Wallet.WalletLayer.Kernel.Wallets (
     , deleteWallet
     , getWallet
     , getWallets
+    , getWalletUtxos
     ) where
 
 import           Universum
 
 import           Data.Coerce (coerce)
 
+import           Pos.Chain.Txp (Utxo)
 import           Pos.Core (mkCoin)
 import           Pos.Core.Slotting (Timestamp)
 import           Pos.Crypto.Signing
@@ -29,8 +31,10 @@ import           Cardano.Wallet.Kernel.Types (WalletId (..))
 import           Cardano.Wallet.Kernel.Util.Core (getCurrentTimestamp)
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import           Cardano.Wallet.WalletLayer (CreateWalletError (..),
-                     DeleteWalletError (..), GetWalletError (..),
+                     DeleteWalletError (..), GetAccountError (..),
+                     GetUtxosError (..), GetWalletError (..),
                      UpdateWalletError (..), UpdateWalletPasswordError (..))
+import           Cardano.Wallet.WalletLayer.Kernel.Accounts (getAccounts)
 import           Cardano.Wallet.WalletLayer.Kernel.Conv
 
 createWallet :: MonadIO m
@@ -148,3 +152,21 @@ getWallets :: Kernel.DB -> IxSet V1.Wallet
 getWallets db = IxSet.fromList . map (toWallet db) . IxSet.toList $ allRoots
   where
     allRoots = db ^. dbHdWallets . HD.hdWalletsRoots
+
+-- | Gets Utxos per account of a wallet.
+getWalletUtxos
+    :: V1.WalletId
+    -> Kernel.DB
+    -> Either GetUtxosError [(V1.Account, Utxo)]
+getWalletUtxos wid db = runExcept $ do
+    accounts <- withExceptT GetUtxosErrorFromGetAccountsError $
+        exceptT $ getAccounts wid db
+
+    forM (IxSet.toList accounts) $ \account -> do
+        hdAccId <- withExceptT GetUtxosWalletIdDecodingFailed $
+            fromAccountId wid (V1.accIndex account)
+
+        utxo <- withExceptT (GetUtxosErrorFromGetAccountError . GetAccountError . V1) $
+            exceptT $ Kernel.currentUtxo db hdAccId
+
+        pure (account, utxo)

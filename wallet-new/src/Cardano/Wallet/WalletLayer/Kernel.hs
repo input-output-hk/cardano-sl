@@ -85,9 +85,11 @@ bracketPassiveWallet logFunction keystore rocksDB f = do
         , resetWalletState     = Internal.resetWalletState    w
         , applyBlocks          = invokeIO . Actions.ApplyBlocks
         , rollbackBlocks       = invokeIO . Actions.RollbackBlocks . length
+
           -- Read-only operations
         , getWallets           =                   ro $ Wallets.getWallets
         , getWallet            = \wId           -> ro $ Wallets.getWallet wId
+        , getUtxos             = \wId           -> ro $ Wallets.getWalletUtxos wId
         , getAccounts          = \wId           -> ro $ Accounts.getAccounts         wId
         , getAccount           = \wId acc       -> ro $ Accounts.getAccount          wId acc
         , getAccountBalance    = \wId acc       -> ro $ Accounts.getAccountBalance   wId acc
@@ -105,6 +107,7 @@ bracketPassiveWallet logFunction keystore rocksDB f = do
 
         invokeIO :: forall m'. MonadIO m' => Actions.WalletAction Blund -> m' ()
         invokeIO = liftIO . STM.atomically . invoke
+
 
     -- The use of the unsafe constructor 'UnsafeRawResolvedBlock' is justified
     -- by the invariants established in the 'Blund'.

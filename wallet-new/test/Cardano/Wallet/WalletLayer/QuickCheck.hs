@@ -61,6 +61,11 @@ bracketPassiveWallet =
         , rollbackBlocks       = \_     -> liftedGen
 
         , getNodeSettings      = liftedGen
+
+        , nextUpdate           = liftedGen
+        , applyUpdate          = liftedGen
+        , postponeUpdate       = liftedGen
+        , resetWalletState     = liftedGen
         }
 
 -- | A utility function.

@@ -130,7 +130,7 @@ actionWithNewWallet pm txpConfig sscParams nodeParams ntpConfig params =
         (initNodeDBs pm epochSlots) $ \nr -> do
       ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
       userSecret <- readTVarIO (ncUserSecret $ nrContext nr)
-      let nodeState = NodeStateAdaptor.newNodeStateAdaptor nr ntpStatus
+      let nodeState = NodeStateAdaptor.newNodeStateAdaptor nr logTrace ntpStatus
       liftIO $ Keystore.bracketLegacyKeystore userSecret $ \keystore -> do
           WalletLayer.Kernel.bracketPassiveWallet logMessage' keystore nodeState $ \walletLayer passiveWallet -> do
             Kernel.init passiveWallet

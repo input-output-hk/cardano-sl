@@ -1,5 +1,10 @@
 #!/bin/sh
 
+if [ $# -ne 1 ]; then
+  echo "usage: $0 <number of trx>"
+  exit 1
+fi
+
 # CONC=4 transaction generator spawns 4 threads
 #   all send about 2 transactions per second
 #
@@ -17,7 +22,7 @@
 # node_cmd , bench_cmd defined in scripts/common_functions.sh
 
 # nodes wait for three minutes before creating blocks
-system_start=$(($(date +%s) + 60*3)) RICH_NODES=3 CONC=4 NUM_TXS="$1" CONFIG_KEY="smallbench" scripts/launch/demo.sh 6 "$(dirname "$0")/topology" rich_poor
+system_start=$(($(date +%s) + 60*3)) RICH_NODES=3 CONC=8 NUM_TXS="$1" CONFIG_KEY="smallbench" scripts/launch/demo.sh 6 "$(dirname "$0")/topology" rich_poor
 
 # transaction generator generates file tps-sent.csv
 #

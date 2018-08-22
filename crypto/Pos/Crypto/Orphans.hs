@@ -22,7 +22,8 @@ import           Data.SafeCopy (SafeCopy (..), base, contain,
 import qualified Data.Text as T
 import           Serokell.Util.Base64 (JsonByteString (..))
 
-import           Pos.Binary.Class (Bi (..), decodeBinary, encodeBinary)
+import           Pos.Binary.Class (Bi (..), Size, decodeBinary, encodeBinary,
+                     withWordSize)
 
 
 fromByteStringToBytes :: BS.ByteString -> BA.Bytes
@@ -94,23 +95,29 @@ instance ToJSON Ed25519.Signature where
 
 
 instance Bi Ed25519.PublicKey where
-
+    encodedSizeExpr _ _ = bsSize 32
     encode =  E.encodeBytes . toByteString
     decode = do
         res <- Ed25519.publicKey . fromByteStringToBytes <$> decode
         fromCryptoFailable "decode Ed25519.PublicKey" res
 
 instance Bi Ed25519.SecretKey where
+    encodedSizeExpr _ _ = bsSize 64
     encode sk = E.encodeBytes $ BS.append (toByteString sk) (toByteString $ Ed25519.toPublic sk)
     decode = do
         res <- Ed25519.secretKey . fromByteStringToScrubbedBytes . BS.take Ed25519.secretKeySize <$> decode
         fromCryptoFailable "decode Ed25519.SecretKey" res
 
 instance Bi Ed25519.Signature where
+    encodedSizeExpr _ _ = bsSize 64
     encode =  E.encodeBytes . toByteString
     decode = do
         res <- Ed25519.signature . fromByteStringToBytes <$> decode
         fromCryptoFailable "decode Ed25519.Signature" res
+
+-- Helper for encodedSizeExpr in Bi instances
+bsSize :: Int -> Size
+bsSize x = fromIntegral (x + withWordSize x)
 
 ----------------------------------------------------------------------------
 -- Bi instances for Scrape

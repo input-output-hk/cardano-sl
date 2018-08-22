@@ -114,6 +114,8 @@ library
                        Cardano.Wallet.Kernel.Types
                        Cardano.Wallet.Kernel.Util
                        Cardano.Wallet.Kernel.Util.Core
+                       Cardano.Wallet.Kernel.Util.StrictList
+                       Cardano.Wallet.Kernel.Util.StrictNonEmpty
                        Cardano.Wallet.Kernel.Util.StrictStateT
                        Cardano.Wallet.Kernel.Wallets
                        Cardano.Wallet.LegacyServer

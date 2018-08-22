@@ -70,9 +70,9 @@ deriveSafeCopy 1 'base ''AddressMeta
 -- | Block metadata
 data BlockMeta = BlockMeta {
       -- | Slot each transaction got confirmed in
-      _blockMetaSlotId      :: InDb (Map Txp.TxId Core.SlotId)
+      _blockMetaSlotId      :: !(InDb (Map Txp.TxId Core.SlotId))
       -- | Address metadata
-    , _blockMetaAddressMeta :: InDb (Map Core.Address AddressMeta)
+    , _blockMetaAddressMeta :: !(InDb (Map Core.Address AddressMeta))
     } deriving Eq
 
 makeLenses ''BlockMeta

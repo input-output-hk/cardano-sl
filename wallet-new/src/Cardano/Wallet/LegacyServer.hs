@@ -19,7 +19,7 @@ import           Pos.Util.CompileInfo (compileInfo)
 import           Pos.Util.Trace.Named (TraceNamed)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 
-import qualified Cardano.Wallet.API.Internal.Handlers as Internal
+import qualified Cardano.Wallet.API.Internal.LegacyHandlers as Internal
 import qualified Cardano.Wallet.API.V0.Handlers as V0
 import qualified Cardano.Wallet.API.V1.LegacyHandlers as V1
 import qualified Cardano.Wallet.API.V1.Swagger as Swagger

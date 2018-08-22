@@ -17,7 +17,6 @@ module Cardano.Wallet.Kernel.NodeStateAdaptor (
   , Lock
   , LockContext(..)
     -- * Specific queries
-  , mostRecentMainBlock
   , getTipSlotId
   , getSecurityParameter
   , getMaxTxSize
@@ -27,6 +26,10 @@ module Cardano.Wallet.Kernel.NodeStateAdaptor (
   , curSoftwareVersion
   , compileInfo
   , getNtpStatus
+    -- * Non-mockable
+  , mostRecentMainBlock
+  , triggerShutdown
+  , waitForUpdate
     -- * Support for tests
   , NodeStateUnavailable(..)
   , MockNodeStateParams(..)
@@ -49,8 +52,8 @@ import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Chain.Block (Block, HeaderHash, MainBlock, blockHeader,
                      headerHash, mainBlockSlot, prevBlockL)
-import           Pos.Chain.Update (HasUpdateConfiguration, SoftwareVersion,
-                     bvdMaxTxSize)
+import           Pos.Chain.Update (ConfirmedProposalState,
+                     HasUpdateConfiguration, SoftwareVersion, bvdMaxTxSize)
 import qualified Pos.Chain.Update as Upd
 import           Pos.Context (NodeContext (..))
 import           Pos.Core (ProtocolConstants (pcK), SlotCount, Timestamp,
@@ -65,7 +68,10 @@ import           Pos.DB.Class (MonadDBRead (..), getBlock)
 import           Pos.DB.GState.Lock (StateLock, withStateLockNoMetrics)
 import           Pos.DB.Rocks.Functions (dbGetDefault, dbIterSourceDefault)
 import           Pos.DB.Rocks.Types (NodeDBs)
-import           Pos.DB.Update (getAdoptedBVData)
+import           Pos.DB.Update (UpdateContext, getAdoptedBVData,
+                     ucDownloadedUpdate)
+import           Pos.Infra.Shutdown.Class (HasShutdownContext (..))
+import qualified Pos.Infra.Shutdown.Logic as Shutdown
 import qualified Pos.Infra.Slotting.Impl.Simple as S
 import qualified Pos.Infra.Slotting.Util as Slotting
 import           Pos.Launcher.Resource (NodeResources (..))
@@ -73,6 +79,7 @@ import           Pos.Util (CompileTimeInfo, HasCompileInfo, HasLens (..),
                      lensOf', withCompileInfo)
 import qualified Pos.Util as Util
 import           Pos.Util.Concurrent.PriorityLock (Priority (..))
+import           Pos.Util.Trace.Named (TraceNamed, natTrace)
 
 import           Test.Pos.Configuration (withDefConfiguration,
                      withDefUpdateConfiguration)
@@ -155,8 +162,13 @@ type NodeConstraints = (
     , HasCompileInfo
     )
 
--- | Internal: node resources and reified type class dictionaries
-data Res = forall ext. Res !(NodeResources ext)
+-- | Internal: provide access to the node resources
+data NodeEnv m = forall ext. NEnv {
+      nenvRes :: !(NodeResources ext)
+    , nenvLog :: !(TraceNamed m)
+    }
+
+-- data Res = forall ext. Res !(NodeResources ext)
 
 -- | Monad in which the underlying node state is available
 --
@@ -167,7 +179,7 @@ data Res = forall ext. Res !(NodeResources ext)
 -- NOTE: Although the 'MonadReader' instance is exposed, it should not
 -- be relied on. We expose it because core monad definitions require
 -- that this 'MonadReader' instance is present.
-newtype WithNodeState m a = Wrap {unwrap :: ReaderT Res m a}
+newtype WithNodeState m a = Wrap {unwrap :: ReaderT (NodeEnv m) m a}
   deriving (
       Functor
     , Applicative
@@ -175,9 +187,11 @@ newtype WithNodeState m a = Wrap {unwrap :: ReaderT Res m a}
     , MonadCatch
     , MonadThrow
     , MonadIO
-    , MonadTrans
-    , MonadReader Res
+    , MonadReader (NodeEnv m)
     )
+
+instance MonadTrans WithNodeState where
+    lift = Wrap . lift
 
 -- | The 'NodeStateAdaptor' allows to bring the node state into scope
 -- without polluting all the types in the kernel.
@@ -250,9 +264,9 @@ data NodeStateAdaptor m = Adaptor {
   codebase. A fight for another day.
 -------------------------------------------------------------------------------}
 
-mkResLens :: (forall ext. Lens' (NodeResources ext) a) -> Lens' Res a
-mkResLens l = lens (\(Res nr)   -> nr ^. l)
-                   (\(Res nr) a -> Res (nr & l .~ a))
+mkResLens :: (forall ext. Lens' (NodeResources ext) a) -> Lens' (NodeEnv m) a
+mkResLens l = lens (\(NEnv nr _)        -> nr ^. l)
+                   (\(NEnv nr logMsg) a -> NEnv (nr & l .~ a) logMsg)
 
 nrContextLens :: Lens' (NodeResources ext) NodeContext
 nrContextLens = \f nr -> (\x -> nr {nrContext = x}) <$> f (nrContext nr)
@@ -260,18 +274,24 @@ nrContextLens = \f nr -> (\x -> nr {nrContext = x}) <$> f (nrContext nr)
 nrDBsLens :: Lens' (NodeResources ext) NodeDBs
 nrDBsLens = \f nr -> (\x -> nr {nrDBs = x}) <$> f (nrDBs nr)
 
-instance HasLens NodeDBs Res NodeDBs where
+instance HasLens NodeDBs (NodeEnv m) NodeDBs where
     lensOf = mkResLens nrDBsLens
 
-instance HasLens StateLock Res StateLock where
+instance HasLens StateLock (NodeEnv m) StateLock where
     lensOf = mkResLens (nrContextLens . lensOf')
 
-instance HasLens S.SimpleSlottingStateVar Res S.SimpleSlottingStateVar where
+instance HasLens S.SimpleSlottingStateVar (NodeEnv m) S.SimpleSlottingStateVar where
     lensOf = mkResLens (nrContextLens . lensOf')
 
-instance HasSlottingVar Res where
+instance HasLens UpdateContext (NodeEnv m) UpdateContext where
+    lensOf = mkResLens (nrContextLens . lensOf')
+
+instance HasSlottingVar (NodeEnv m) where
     slottingTimestamp = mkResLens (nrContextLens . slottingTimestamp)
     slottingVar       = mkResLens (nrContextLens . slottingVar)
+
+instance HasShutdownContext (NodeEnv m) where
+    shutdownContext = mkResLens (nrContextLens . shutdownContext)
 
 {-------------------------------------------------------------------------------
   Monad instances
@@ -295,11 +315,14 @@ instance ( NodeConstraints
   dbGetSerUndo  = DB.dbGetSerUndoRealDefault
   dbGetSerBlund  = DB.dbGetSerBlundRealDefault
 
-instance (NodeConstraints, MonadIO m) => MonadSlots Res (WithNodeState m) where
+instance (NodeConstraints, MonadIO m) => MonadSlots (NodeEnv m) (WithNodeState m) where
   getCurrentSlot           = S.getCurrentSlotSimple
   getCurrentSlotBlocking   = S.getCurrentSlotBlockingSimple
   getCurrentSlotInaccurate = S.getCurrentSlotInaccurateSimple
   currentTimeSlotting      = S.currentTimeSlottingSimple
+
+logWithNodeState :: Monad m => NodeEnv m -> TraceNamed (WithNodeState m)
+logWithNodeState = natTrace lift . nenvLog
 
 {-------------------------------------------------------------------------------
   Creating the adaptor
@@ -311,9 +334,10 @@ instance (NodeConstraints, MonadIO m) => MonadSlots Res (WithNodeState m) where
 -- can be used in a place where these constraints is not available.
 newNodeStateAdaptor :: forall m ext. (NodeConstraints, MonadIO m, MonadMask m)
                     => NodeResources ext
+                    -> TraceNamed m
                     -> TVar NtpStatus
                     -> NodeStateAdaptor m
-newNodeStateAdaptor nr ntpStatus = Adaptor {
+newNodeStateAdaptor nr logMsg ntpStatus = Adaptor {
       withNodeState            =            run
     , getTipSlotId             =            run $ \_lock -> defaultGetTipSlotId
     , getMaxTxSize             =            run $ \_lock -> defaultGetMaxTxSize
@@ -332,8 +356,10 @@ newNodeStateAdaptor nr ntpStatus = Adaptor {
              -> WithNodeState m a
            )
         -> m a
-    run act = runReaderT (unwrap $ act withLock) (Res nr)
-
+    run act = runReaderT (unwrap $ act withLock) (NEnv {
+                  nenvRes = nr
+                , nenvLog = logMsg
+                })
 
 -- | Internal wrapper around 'withStateLockNoMetrics'
 --
@@ -373,6 +399,24 @@ defaultGetSlotStart slotId =
 
 defaultGetNextEpochSlotDuration :: MonadIO m => WithNodeState m Millisecond
 defaultGetNextEpochSlotDuration = Slotting.getNextEpochSlotDuration
+
+{-------------------------------------------------------------------------------
+  Non-mockable functinos
+-------------------------------------------------------------------------------}
+
+triggerShutdown :: MonadIO m => WithNodeState m ()
+triggerShutdown = asks logWithNodeState >>= Shutdown.triggerShutdown
+
+-- | Wait for an update
+--
+-- NOTE: This is adopted from 'waitForUpdateWebWallet'. In particular, that
+-- function too uses 'takeMVar'. I guess the assumption is that there is only
+-- one listener on this 'MVar'?
+waitForUpdate :: forall m. MonadIO m => WithNodeState m ConfirmedProposalState
+waitForUpdate = liftIO . takeMVar =<< asks l
+  where
+    l :: NodeEnv m -> MVar ConfirmedProposalState
+    l = ucDownloadedUpdate . view lensOf'
 
 -- | Get the most recent main block starting at the specified header
 --

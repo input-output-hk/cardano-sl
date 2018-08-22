@@ -1,51 +1,34 @@
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE PolyKinds             #-}
-{-# LANGUAGE RankNTypes            #-}
-{-# LANGUAGE TypeFamilies          #-}
-
-module Cardano.Wallet.API.Internal.Handlers where
+module Cardano.Wallet.API.Internal.Handlers (handlers) where
 
 import           Universum
 
-import           Control.Monad.Catch (MonadThrow)
 import           Servant
 
-import           Cardano.Wallet.API.V1.Migration
-import           Cardano.Wallet.Server.CLI (RunMode (..), isDebugMode)
+import           Pos.Core.Update (SoftwareVersion)
 
 import qualified Cardano.Wallet.API.Internal as Internal
-import qualified Pos.Client.KeyStorage as V0
-import           Pos.Util.Trace.Named (TraceNamed)
-import qualified Pos.Wallet.Web.Methods.Misc as V0
-import qualified Pos.Wallet.Web.State as V0
+import           Cardano.Wallet.API.V1.Types (V1)
+import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
+import qualified Cardano.Wallet.WalletLayer as WalletLayer
 
--- | Until we depend from V0 logic to implement the each 'Handler' we
--- still need the natural transformation here.
-handlers
-    :: TraceNamed MonadV1
-    -> (forall a. MonadV1 a -> Handler a)
-    -> RunMode
-    -> Server Internal.API
-handlers logTrace naturalTransformation runMode =
-    let
-        handlers' =
-                 V0.applyUpdate logTrace
-            :<|> V0.postponeUpdate
-            :<|> resetWalletState runMode
-    in
-        hoistServer (Proxy @Internal.API) naturalTransformation handlers'
+handlers :: PassiveWalletLayer IO -> ServerT Internal.API Handler
+handlers w = nextUpdate       w
+        :<|> applyUpdate      w
+        :<|> postponeUpdate   w
+        :<|> resetWalletState w
 
+nextUpdate :: PassiveWalletLayer IO -> Handler (V1 SoftwareVersion)
+nextUpdate w = do
+    mUpd <- liftIO $ WalletLayer.nextUpdate w
+    case mUpd of
+      Just upd -> return upd
+      Nothing  -> throwError err404
 
-resetWalletState
-    :: (V0.WalletDbReader ctx m, V0.MonadKeys m, MonadThrow m, MonadIO m)
-    => RunMode
-    -> m NoContent
-resetWalletState runMode
-    | isDebugMode runMode = do
-        V0.deleteAllSecretKeys
-        void (V0.askWalletDB >>= V0.testReset)
-        return NoContent
-    | otherwise =
-        throwM err403
+applyUpdate :: PassiveWalletLayer IO -> Handler NoContent
+applyUpdate w = liftIO (WalletLayer.applyUpdate w) >> return NoContent
+
+postponeUpdate :: PassiveWalletLayer IO -> Handler NoContent
+postponeUpdate w = liftIO (WalletLayer.postponeUpdate w) >> return NoContent
+
+resetWalletState :: PassiveWalletLayer IO -> Handler NoContent
+resetWalletState w = liftIO (WalletLayer.resetWalletState w) >> return NoContent

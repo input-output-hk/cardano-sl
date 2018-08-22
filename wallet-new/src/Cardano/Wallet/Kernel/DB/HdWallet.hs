@@ -98,7 +98,7 @@ import           Control.Lens (at, (+~), _Wrapped)
 import           Control.Lens.TH (makeLenses)
 import qualified Data.ByteString as BS
 import qualified Data.IxSet.Typed as IxSet (Indexable (..))
-import           Data.SafeCopy (SafeCopy (..), base, deriveSafeCopy)
+import           Data.SafeCopy (base, deriveSafeCopy)
 
 import           Test.QuickCheck (Arbitrary (..), oneof, vectorOf)
 
@@ -415,14 +415,6 @@ deriveSafeCopy 1 'base ''HdAccountState
 deriveSafeCopy 1 'base ''HdAccountUpToDate
 deriveSafeCopy 1 'base ''HdAccountWithinK
 deriveSafeCopy 1 'base ''HdAccountOutsideK
-
-instance SafeCopy (NewestFirst StrictNonEmpty Checkpoint)  where
-    getCopy = error "TODO: getCopy for (NewestFirst NonEmpty Checkpoint)"
-    putCopy = error "TODO: putCopy for (NewestFirst NonEmpty Checkpoint)"
-
-instance SafeCopy (NewestFirst StrictNonEmpty PartialCheckpoint)  where
-    getCopy = error "TODO: getCopy for (NewestFirst NonEmpty Checkpoint)"
-    putCopy = error "TODO: putCopy for (NewestFirst NonEmpty Checkpoint)"
 
 {-------------------------------------------------------------------------------
   Derived lenses

@@ -11,11 +11,12 @@ import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 
 import           Cardano.Wallet.API
+import qualified Cardano.Wallet.API.Internal.Handlers as Internal
 import qualified Cardano.Wallet.API.V1.Handlers as V1
 import           Cardano.Wallet.API.V1.Swagger (swaggerSchemaUIServer)
 import qualified Cardano.Wallet.API.V1.Swagger as Swagger
 import           Cardano.Wallet.Server.CLI (RunMode (..))
-import           Cardano.Wallet.WalletLayer (ActiveWalletLayer)
+import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..))
 
 -- | Serve the REST interface to the wallet
 --
@@ -32,10 +33,10 @@ walletServer w _ =
   where
     -- TODO: It'd be nicer to not throw an exception here, but servant doesn't
     -- make this very easy at the moment.
+    -- We can use https://hackage.haskell.org/package/servant-generate to address this.
     v0Handler       = error "V0 API no longer supported"
     v1Handler       = V1.handlers w
-    internalHandler = error "TODO: Internal API not yet defined (CBR-377)"
-
+    internalHandler = Internal.handlers (walletPassiveLayer w)
 
 walletDocServer :: (HasCompileInfo, HasUpdateConfiguration) => Server WalletDocAPI
 walletDocServer = v0DocHandler :<|> v1DocHandler

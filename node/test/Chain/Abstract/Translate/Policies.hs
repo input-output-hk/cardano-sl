@@ -8,7 +8,6 @@ import           Control.Lens.TH
 import           Test.QuickCheck.Arbitrary
 import           Test.QuickCheck.Gen
 import           Universum
-import qualified UTxO.DSL as DSL
 
 -- | Exception which can be thrown when generating blocks.
 data PolicyGenException = PolicyGenException
@@ -48,10 +47,9 @@ makeFields ''PredecessorConfig
 
 -- | The previous block hash in a new block should point to the last block.
 predecessor :: PredecessorConfig
-            -> Policy (GenM h) PolicyValException
-predecessor conf = Policy pv pg
+            -> Policy (GenM h)
+predecessor conf = Policy pg
     where
-        pv = \_ -> return ()
         pg = BlockModifier mb
         mb block = do
             c :| _ <- use tsCheckpoints
@@ -72,9 +70,8 @@ makeFields ''SlotLeaderConfig
 
 -- | Block must be issued by the slot leader for its slot.
 slotLeader :: SlotLeaderConfig
-           -> Policy (GenM h) PolicyValException
-slotLeader conf = Policy pv pg
+           -> Policy (GenM h)
+slotLeader conf = Policy pg
     where
-        pv = \_ -> return ()
         pg = BlockModifier mb
         mb block = return block

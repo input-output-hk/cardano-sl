@@ -80,8 +80,6 @@ module Test.Pos.Core.ExampleHelpers
 
 import           Universum
 
-import           Crypto.Error (CryptoFailable (..))
-import qualified Crypto.PubKey.Ed25519 as Ed25519
 import qualified Crypto.SCRAPE as Scrape
 import           Data.Coerce (coerce)
 import           Data.Fixed (Fixed (..))
@@ -147,7 +145,7 @@ import           Pos.Crypto (AbstractHash (..), EncShare (..),
                      redeemDeterministicKeyGen, redeemSign, safeCreatePsk,
                      sign, toVssPublicKey)
 import           Pos.Crypto.Signing (ProxyCert (..), ProxySecretKey (..),
-                     PublicKey (..), RedeemPublicKey (..))
+                     PublicKey (..))
 
 import           Test.Pos.Core.Gen (genProtocolConstants)
 import           Test.Pos.Crypto.Bi (getBytes)
@@ -631,19 +629,19 @@ exampleGenesisConfiguration_GCSpec =
 
 exampleGenesisAvvmBalances :: GenesisAvvmBalances
 exampleGenesisAvvmBalances =
-    GenesisAvvmBalances {getGenesisAvvmBalances =
-        HM.fromList [(RedeemPublicKey (unsafePublicKey fstRedKey)
-                     , Coin {getCoin = 36524597913081152})
-                     ,(RedeemPublicKey (unsafePublicKey sndRedKey)
-                     ,Coin {getCoin = 37343863242999412})
-                     ] }
-  where
-    unsafePublicKey :: ByteString -> Ed25519.PublicKey
-    unsafePublicKey bytes = case Ed25519.publicKey bytes of
-        CryptoFailed e -> error (show e)
-        CryptoPassed r -> r
-    fstRedKey = "\254\156\235\217{]\130W\183LfJ\240"
-    sndRedKey = "\254\156\235\217{]\130W\183LfJ\240\RS\224"
+    GenesisAvvmBalances
+        { getGenesisAvvmBalances = HM.fromList
+            [ ( exampleRedeemPublicKey' (0, 32)
+              , Coin {getCoin = 36524597913081152}
+              )
+            , ( exampleRedeemPublicKey' (32, 32)
+              , Coin {getCoin = 37343863242999412}
+              )
+            ]
+        }
+    where
+        exampleRedeemPublicKey' :: (Int, Int) -> RedeemPublicKey
+        exampleRedeemPublicKey' (m, n) = fromJust (fst <$> redeemDeterministicKeyGen (getBytes m n))
 
 exampleSharedSeed :: SharedSeed
 exampleSharedSeed = SharedSeed (getBytes 8 32)

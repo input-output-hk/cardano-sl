@@ -54,8 +54,9 @@ import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec.Pending (Pending)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
-import           Cardano.Wallet.Kernel.Util (neHead)
 import           Cardano.Wallet.Kernel.Util.Core as Core
+import           Cardano.Wallet.Kernel.Util.StrictNonEmpty (StrictNonEmpty (..))
+import qualified Cardano.Wallet.Kernel.Util.StrictNonEmpty as SNE
 
 {-------------------------------------------------------------------------------
   Wallet state as mandated by the spec
@@ -260,16 +261,16 @@ cpAddressMeta addr = cpBlockMeta . _Wrapped . addressMeta addr
   Convenience: lift lenses on single checkpoint to the most recent one
 -------------------------------------------------------------------------------}
 
-currentCheckpoint :: Lens' (NewestFirst NonEmpty c) c
-currentCheckpoint = _Wrapped . neHead
+currentCheckpoint :: Lens' (NewestFirst StrictNonEmpty c) c
+currentCheckpoint = _Wrapped . SNE.head
 
-currentUtxo        :: IsCheckpoint c =>                 Lens' (NewestFirst NonEmpty c) Core.Utxo
-currentUtxoBalance :: IsCheckpoint c =>                 Lens' (NewestFirst NonEmpty c) Core.Coin
-currentPending     :: IsCheckpoint c =>                 Lens' (NewestFirst NonEmpty c) Pending
-currentBlockMeta   :: IsCheckpoint c =>                 Lens' (NewestFirst NonEmpty c) LocalBlockMeta
-currentSlotId      :: IsCheckpoint c =>                 Lens' (NewestFirst NonEmpty c) Core.SlotId
-currentAddressMeta :: IsCheckpoint c => Core.Address -> Lens' (NewestFirst NonEmpty c) AddressMeta
-currentForeign     :: IsCheckpoint c =>                 Lens' (NewestFirst NonEmpty c) Pending
+currentUtxo        :: IsCheckpoint c =>                 Lens' (NewestFirst StrictNonEmpty c) Core.Utxo
+currentUtxoBalance :: IsCheckpoint c =>                 Lens' (NewestFirst StrictNonEmpty c) Core.Coin
+currentPending     :: IsCheckpoint c =>                 Lens' (NewestFirst StrictNonEmpty c) Pending
+currentBlockMeta   :: IsCheckpoint c =>                 Lens' (NewestFirst StrictNonEmpty c) LocalBlockMeta
+currentSlotId      :: IsCheckpoint c =>                 Lens' (NewestFirst StrictNonEmpty c) Core.SlotId
+currentAddressMeta :: IsCheckpoint c => Core.Address -> Lens' (NewestFirst StrictNonEmpty c) AddressMeta
+currentForeign     :: IsCheckpoint c =>                 Lens' (NewestFirst StrictNonEmpty c) Pending
 
 currentUtxo             = currentCheckpoint . cpUtxo
 currentUtxoBalance      = currentCheckpoint . cpUtxoBalance

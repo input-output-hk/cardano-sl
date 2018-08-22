@@ -135,8 +135,8 @@ instance Buildable AutoIncrementKey where
     build (AutoIncrementKey k) = bprint ("AutoIncrementKey " % build) k
 
 data Indexed a = Indexed {
-    _ixedIndex   :: AutoIncrementKey
-  , _ixedIndexed :: a
+    _ixedIndex   :: !AutoIncrementKey
+  , _ixedIndexed :: !a
   }
 
 Lens.makeLenses ''Indexed

@@ -95,6 +95,7 @@ data LauncherOptions = LO
     , loWalletArgs          :: ![Text]
     , loWalletLogging       :: !Bool
     , loWalletLogPath       :: !(Maybe FilePath)
+    , loWorkingDir          :: !FilePath
     , loX509ToolPath        :: !FilePath
     , loUpdaterPath         :: !FilePath
     , loUpdaterArgs         :: ![Text]
@@ -281,6 +282,8 @@ main =
     setEnv "LANG"   "en_GB.UTF-8"
 
     LO {..} <- getLauncherOptions
+
+    Sys.setCurrentDirectory loWorkingDir
 
     -- Launcher logs should be in public directory
     let launcherLogsPrefix = (</> "pub") <$> loLogsPrefix

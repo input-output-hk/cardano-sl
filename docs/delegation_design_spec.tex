@@ -3669,6 +3669,83 @@ a reasonable starting point for tests and an implementation.
 \caption{\label{fig:delegation_transitions}State transitions for delegation}
 \end{figure}
 
+\section{Deposits}
+\label{deposits}
+
+\subsection{Motivation}
+
+One fundamental raison-d'\^{e}tre for transaction fees in Cardano (or any other
+cryptocurrency for that matter) is to compensate node operators for their costs:
+Processing a transaction incurs costs, and the person doing the processing
+should be reiumbursed accordingly.
+
+In reality however, there are more than just one-time processing costs.
+In particular, there are long term \emph{storage} costs whenever a transaction
+forces a node to dedicate local storage for the stake associated with the
+transaction.
+
+The prototypical example for this are \emph{UTxO-entries}: Each additional such entry
+takes up storage on each node running the protocol.
+There are other examples as well, including \emph{stake pool registrations} and
+\emph{delegation certificates}.
+
+We plan to address this issue by requiring a \emph{deposit} to be paid for each
+resource that will incur storage costs.
+
+This deposit must be (partially) \emph{refundable},
+so that the holder of the resource has an incentive to release the resource when
+it is no longer needed. So for example, somebody with a lot of ``dust'' in their
+wallet would have an incentive to remove that dust, thus reclaiming some of the
+deposit paid for UTxO-entries.
+
+On the other hand, refunds should also \emph{decrease over time}, so that
+there is an incentive to release a resource sooner rather than later.
+
+\subsection{Theoretical Proposal}
+
+We propose to introduce the following configurable parameters:
+\begin{enumerate}
+    \item
+        A deposit amount (in ADA) $d_R\in(0,\infty)$ for each type of resource
+        $R$. The value of $d_R$ for a resource type $R$ should roughly reflect
+        the cost to ``rent the resource forever''.
+    \item
+        A factor $d_{\min}\in(0,1)$, which determines the minimal proportion of
+        $d_R$ that will be refunded on resource release. Higher value of
+        $d_{\min}$ mean higher guaranteed refunds.
+    \item
+        A decay constant $\lambda\in(0,\infty)$ determining how refunds decrease
+        over time. Higher values of $\lambda$ correspond to faster decrease of
+        refunds over time.
+\end{enumerate}
+
+Given these parameters, on acquiring a resource of type $R$, one would have to
+pay an amount of $d_R$ ADA\@. When the resource is released after $t\geq 1$ slots,
+the holder of the resource is refunded
+\[
+    r_R(t)=d_R\cdot\left(d_{\min}+(1-d_{\min})\cdot e^{-\lambda t}\right)\in(d_{\min}\cdot d_R,d_R),
+\]
+whereas the difference $d_R-r_R(t)$ is added to the reward pool of that epoch.
+Note that it easily follows from well-known properties of the exponential
+function that
+\[
+    d_r>r_R(t)\stackrel{t\rightarrow\infty}{\xrightarrow{\hspace{10mm}}}d_{\min}\cdot d_R,
+\]
+as desired.
+
+As a fictional example, consider parameter values $d_{\min}=0.25$ and $\lambda=0.0001$
+and a resource of type $R$ with $d_R=2$. A user acquiring such a resource
+will initially include a deposit of $d_R=2$ ADA in the transaction creating that
+resource. This deposit will be held in escrow until the resource gets released.
+If the user releases the resource after 10,000 slots, a refund of
+$r_R(10,000)=1.0518$ ADA will be added to the available input of the associated
+transaction. The difference $d_R-r_R(10,000)=2-1.0518=0.9482$ ADA will be added
+to the rewards pool of that epoch.
+
+If our fictional user held onto the resource for 40,000 slots instead,
+his refund would only be $r_R(40,000)=0.5275$ ADA, and 1.4725 ADA would be added
+to the epoch rewards. In this example, refunds will never drop below
+$d_{\min}\cdot d_R=0.5$ ADA.
 \addcontentsline{toc}{section}{References}
 \bibliographystyle{apalike}
 \bibliography{references}

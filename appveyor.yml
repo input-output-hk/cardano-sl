@@ -104,6 +104,7 @@ test_script:
       --extra-lib-dirs="C:\xz_extracted\bin_x86-64"
       --extra-include-dirs="%WORK_DIR%\rocksdb\include"
       --extra-lib-dirs="%WORK_DIR%"
+  - set PATH=%WORK_DIR%;%PATH%
   - scripts\ci\appveyor-retry call stack --dump-logs test cardano-sl-db
       -j 3
       --no-terminal

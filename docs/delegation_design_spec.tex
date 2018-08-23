@@ -3428,6 +3428,7 @@ a reasonable starting point for tests and an implementation.
 \newcommand{\restrictdom}{\lhd}
 \newcommand{\subtractdom}{\mathbin{\slashed{\restrictdom}}}
 \newcommand{\restrictrange}{\rhd}
+\newcommand{\unionoverride}{\mathbin{\underrightarrow\cup}}
 
 \begin{figure}[h]
 
@@ -3611,12 +3612,23 @@ a reasonable starting point for tests and an implementation.
 }
 \textsc{genesis}
 \end{equation*}
-
+%
+\\[1em]
+%
 \begin{equation*}
 \frac{
-\mathsf{txins} ~ \mathit{tx} \subseteq \mathit{utxo} \quad \mathsf{balance}~(\mathsf{txouts}~\mathit{tx}) \leq \mathsf{balance}~(\mathsf{txins} ~ \mathit{tx} \restrictdom \mathit{utxo})
+  \mathsf{txins} ~ \mathit{tx} \subseteq \mathit{utxo} \quad\quad
+  \mathsf{balance}~(\mathsf{txouts}~\mathit{tx}) \leq \mathsf{balance}~(\mathsf{txins} ~ \mathit{tx} \restrictdom \mathit{utxo})
 }{
-\mathit{utxo}, \Lambda \xlongrightarrow[\textsc{transaction}]{\mathit{tx}} (\mathsf{txins} ~ \mathit{tx} \subtractdom \mathit{utxo}) \cup \mathsf{txouts}~\mathit{tx},  \Lambda ; \mathit{tx}
+  \begin{array}{r}
+    \mathit{utxo} \\
+    \Lambda
+  \end{array}
+  \xlongrightarrow[\textsc{transaction}]{\mathit{tx}}
+  \begin{array}{l}
+  (\mathsf{txins} ~ \mathit{tx} \subtractdom \mathit{utxo}) \cup \mathsf{txouts}~\mathit{tx} \\
+  \Lambda ; \mathit{tx}
+  \end{array}
 }
 \end{equation*}
 
@@ -3628,25 +3640,85 @@ a reasonable starting point for tests and an implementation.
 
 \begin{equation*}
 \frac{
-  \mathit{vk_{sk}} \notin \mathit{stkeys} \quad
+  \mathit{hk_{sk}} = \mathsf{hash} ~ \mathit{vk_{sk}} \quad\quad
+  \mathit{hk_{sk}} \notin \mathit{stkeys} \quad\quad
   \mathcal{V}_{\mathit{vk_{sk}}}\llbracket\mathit{vk_{sk}}\rrbracket_\sigma
 }{
-  \mathit{stkeys}, ~ \mathit{accounts}
-  \xlongrightarrow[\textsc{register stake key}]{\llbracket\mathit{vk_{sk}}\rrbracket_\sigma}
-  \mathit{stkeys} \cup \{\mathit{vk_{sk}}\}, ~
-  \mathit{accounts} \cup \{\mathsf{stAcc}~\mathit{vk_{sk}} \mapsto 0\}
+  \begin{array}{r}
+    \mathit{stkeys} \\
+    \mathit{accounts}
+  \end{array}
+  \xlongrightarrow[\textsc{register stake key}]
+                  {\llbracket\mathit{vk_{sk}}\rrbracket_\sigma}
+  \begin{array}{l}
+    \mathit{stkeys} \cup \{\mathit{hk_{sk}}\} \\
+    \mathit{accounts} \cup \{\mathsf{stAcc}~\mathit{hk_{sk}} \mapsto 0\}
+  \end{array}
+}
+\end{equation*}
+%
+\\[1em]
+%
+\begin{equation*}
+\frac{
+  \mathit{hk_{sk}} = \mathsf{hash} ~ \mathit{vk_{sk}} \quad\quad
+  \mathit{hk_{sk}} \in \mathit{stkeys} \quad\quad
+  \mathcal{V}_{\mathit{vk_{sk}}}\llbracket\mathit{vk_{sk}}\rrbracket_\sigma
+}{
+  \begin{array}{r}
+    \mathit{stkeys} \\ \mathit{accounts} \\ \mathit{delegations}
+  \end{array}
+  \xlongrightarrow[\textsc{deregister stake key}]
+                  {\llbracket\mathit{vk_{sk}}\rrbracket_\sigma}
+  \begin{array}{l}
+  \mathit{stkeys} \setminus \{\mathit{hk_{sk}}\} \\
+  \{\mathsf{skAcc}~\mathit{hk_{sk}}\} \subtractdom \mathit{accounts} \\
+  \{\mathit{hk_{sk}}\} \subtractdom \mathit{delegations}
+  \end{array}
+}
+\end{equation*}
+%
+\\[1em]
+%
+\begin{equation*}
+\frac{
+  \mathit{cert} = (\mathit{vk_{sk}}, \mathit{hk_{sp}}) \quad\quad
+  \mathit{hk_{sk}} = \mathsf{hash} ~ \mathit{vk_{sk}} \quad\quad
+  \mathit{hk_{sk}} \in \mathit{stkeys} \quad\quad
+  \mathcal{V}_{\mathit{vk_{sk}}}\llbracket\mathit{cert}\rrbracket_\sigma
+}{
+  \mathit{stkeys} \vdash \mathit{delegations}
+  \xlongrightarrow[\textsc{delegate}]
+                  {\llbracket\mathit{cert}\rrbracket_\sigma}
+  \mathit{delegations} \unionoverride \{\mathit{hk_{sk}} \mapsto \mathit{hk_{sp}}\}
 }
 \end{equation*}
 
+\caption{\label{fig:delegation_transitions}State transitions for stake keys and delegation}
+\end{figure}
+
+
+\begin{figure}
+
 \begin{equation*}
 \frac{
-  \mathit{vk_{sk}} \in \mathit{stkeys} \quad
-  \mathcal{V}_{\mathit{vk_{sk}}}\llbracket\mathit{vk_{sk}}\rrbracket_\sigma
+  \begin{array}{c}
+    \mathit{cert} = (\mathit{vk_{sp}}, \mathit{pledge}, (c, m), \mathit{alt}) \quad\quad
+    \mathit{hk_{sp}} = \mathsf{hash} ~ \mathit{vk_{sp}}
+    \\[0.3em]
+    \mathcal{V}_{\mathit{vk_{sp}}}\llbracket\mathit{cert}\rrbracket_\sigma \quad\quad  \forall \mathit{vk_{sk}} \in \mathit{pledge}. ~ \exists \sigma \in \Sigma. ~ \mathcal{V}_{\mathit{vk_{sk}}}\llbracket\mathit{cert}\rrbracket_\sigma  \quad\quad
+    \left|\mathit{pledge}\right| = \left|\Sigma\right|
+  \end{array}
 }{
-  \mathit{stkeys}, ~ \mathit{accounts}
-  \xlongrightarrow[\textsc{deregister stake key}]{\llbracket\mathit{vk_{sk}}\rrbracket_\sigma}
-  \mathit{stkeys} \setminus \{\mathit{vk_{sk}}\},
-  \{\mathsf{skAcc}~\mathit{vk_{sk}}\} \subtractdom \mathit{accounts}
+  \begin{array}{r}
+    \mathit{stpools} \\
+    \mathit{retiring}
+  \end{array}
+  \xlongrightarrow[\textsc{register stake pool}]{\llbracket \mathit{cert} \rrbracket_{\sigma,\Sigma}}
+  \begin{array}{l}
+    \mathit{stpools} \unionoverride \{\mathit{hk_{sp}} \mapsto cert\} \\
+    \{\mathit{hk_{sp}}\} \subtractdom \mathit{retiring}
+  \end{array}
 }
 \end{equation*}
 %
@@ -3655,18 +3727,44 @@ a reasonable starting point for tests and an implementation.
 \begin{equation*}
 \frac{
   \begin{array}{c}
-  \mathit{cert} = (\mathit{vk_{sp}}, \mathit{owners}, (c, m), \mathit{alt}) \quad\quad \mathsf{hash} ~ \mathit{vk_{sp}} \notin \dom \mathit{stpools} \\
-  \mathcal{V}_{\mathit{vk_{sp}}}\llbracket\mathit{cert}\rrbracket_\sigma \quad\quad  \forall \mathit{vk_{sk}} \in \mathit{owners}. ~ \exists \sigma \in \Sigma. ~ \llbracket\mathcal{V}_{\mathit{vk_{sk}}}\mathit{cert}\rrbracket_\sigma
+    \mathit{cert} = (\mathit{vk_{sp}}, e) \quad\quad
+    \mathit{hk_{sp}} = \mathsf{hash} ~ \mathit{vk_{sp}}
+    \\[0.3em]
+    \mathit{hk_{sp}} \in \dom \mathit{stpools} \quad\quad
+    \mathit{epoch} < e < \mathit{epoch} + E_\mathit{max} \quad\quad
+    \mathcal{V}_{\mathit{vk_{sp}}}\llbracket\mathit{cert}\rrbracket_\sigma
   \end{array}
 }{
-  \mathit{stpools}, ~ \mathit{accounts}
-  \xlongrightarrow[\textsc{register stake pool}]{\llbracket \mathit{cert} \rrbracket_{\sigma,\Sigma}}
-  \mathit{stkeys} \setminus \{\mathit{sk}\},
-  \{\mathsf{skAcc}~\mathit{sk}\} \subtractdom \mathit{accounts}
+  \begin{array}{r}
+    \mathit{epoch} \\
+    \mathit{stpools}
+  \end{array}
+  \vdash \mathit{retiring}
+  \xlongrightarrow[\textsc{retire stake pool}]{\llbracket \mathit{cert} \rrbracket_\sigma}
+  \mathit{retiring} \unionoverride \{ \mathit{hk_{sp}} \mapsto e \}
+}
+\end{equation*}
+%
+\\[1em]
+%
+\begin{equation*}
+\frac{
+  \mathit{retiring_{now}} = \{ \mathit{hk_{sp}} \mid \mathit{hk_{sp}} \mapsto e \in \mathit{retiring}, ~ e = \mathit{epoch} \}
+}{
+  \mathit{epoch} \vdash
+  \begin{array}{r}
+    \mathit{stpools} \\
+    \mathit{retiring}
+  \end{array}
+  \xlongrightarrow[\textsc{reap stake pools}]{}
+  \begin{array}{l}
+    \mathit{retiring_{now}} \subtractdom \mathit{stpools} \\
+    \mathit{retiring_{now}} \subtractdom \mathit{retiring}
+  \end{array}
 }
 \end{equation*}
 
-\caption{\label{fig:delegation_transitions}State transitions for delegation}
+\caption{\label{fig:delegation_transitions}State transitions for stake pools}
 \end{figure}
 
 \section{Deposits}

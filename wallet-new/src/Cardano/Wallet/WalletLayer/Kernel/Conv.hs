@@ -4,6 +4,8 @@ module Cardano.Wallet.WalletLayer.Kernel.Conv (
     fromRootId
   , fromAccountId
   , fromAssuranceLevel
+  , fromRedemptionCode
+  , fromRedemptionCodePaper
     -- * From kernel types to V1 types
   , toAccountId
   , toRootId
@@ -11,6 +13,8 @@ module Cardano.Wallet.WalletLayer.Kernel.Conv (
   , toWallet
   , toAddress
   , toAssuranceLevel
+    -- * Custom errors
+  , InvalidRedemptionCode(..)
     -- * Convenience re-exports
   , runExcept
   , runExceptT
@@ -20,14 +24,23 @@ module Cardano.Wallet.WalletLayer.Kernel.Conv (
 
 import           Universum
 
+import qualified Prelude
+
 import           Control.Lens (to)
 import           Control.Monad.Except
-import           Formatting (build, sformat)
+import           Crypto.Error (CryptoError)
+import           Data.ByteString.Base58 (bitcoinAlphabet, decodeBase58)
+import           Formatting (bprint, build, formatToString, sformat, shown, (%))
+import qualified Formatting.Buildable
+import qualified Serokell.Util.Base64 as B64
 
 import           Pos.Core (decodeTextAddress)
+import           Pos.Crypto (AesKey, RedeemSecretKey, aesDecrypt,
+                     redeemDeterministicKeyGen)
 
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
+import           Cardano.Wallet.Kernel.BIP39 (mnemonicToAesKey)
 import           Cardano.Wallet.Kernel.DB.BlockMeta (addressMetaIsChange,
                      addressMetaIsUsed)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
@@ -38,6 +51,7 @@ import           Cardano.Wallet.Kernel.DB.Util.IxSet (ixedIndexed)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import qualified Cardano.Wallet.Kernel.Read as Kernel
 import           Cardano.Wallet.Kernel.Util (exceptT)
+-- import           Cardano.Wallet.WalletLayer (InvalidRedemptionCode (..))
 
 {-------------------------------------------------------------------------------
   From V1 to kernel types
@@ -64,6 +78,42 @@ fromAccountId wId accIx =
 fromAssuranceLevel :: V1.AssuranceLevel -> HD.AssuranceLevel
 fromAssuranceLevel V1.NormalAssurance = HD.AssuranceLevelNormal
 fromAssuranceLevel V1.StrictAssurance = HD.AssuranceLevelStrict
+
+-- | Decode redemption key for non-paper wallet
+--
+-- See also comments for 'fromRedemptionCodePaper'.
+fromRedemptionCode :: Monad m
+                   => V1.ShieldedRedemptionCode
+                   -> ExceptT InvalidRedemptionCode m RedeemSecretKey
+fromRedemptionCode (V1.ShieldedRedemptionCode crSeed) = do
+    bs <- withExceptT (const $ InvalidRedemptionCodeInvalidBase64 crSeed) $
+            asum [ exceptT $ B64.decode    crSeed
+                 , exceptT $ B64.decodeUrl crSeed
+                 ]
+    exceptT $ maybe (Left $ InvalidRedemptionCodeNot32Bytes crSeed) (Right . snd) $
+      redeemDeterministicKeyGen bs
+
+-- | Decode redemption key for paper wallet
+--
+-- NOTE: Although both 'fromRedemptionCode' and 'fromRedemptionCodePaper' both
+-- take a 'V1.ShieldedRedemptionCode' as argument, note that for paper wallets
+-- this must be Base58 encoded, whereas for 'fromRedemptionCode' it must be
+-- Base64 encoded.
+fromRedemptionCodePaper :: Monad m
+                        => V1.ShieldedRedemptionCode
+                        -> V1.RedemptionMnemonic
+                        -> ExceptT InvalidRedemptionCode m RedeemSecretKey
+fromRedemptionCodePaper (V1.ShieldedRedemptionCode pvSeed)
+                        (V1.RedemptionMnemonic pvBackupPhrase) = do
+    encBS <- exceptT $ maybe (Left $ InvalidRedemptionCodeInvalidBase58 pvSeed) Right $
+               decodeBase58 bitcoinAlphabet $ encodeUtf8 pvSeed
+    decBS <- withExceptT InvalidRedemptionCodeCryptoError $ exceptT $
+               aesDecrypt encBS aesKey
+    exceptT $ maybe (Left $ InvalidRedemptionCodeNot32Bytes pvSeed) (Right . snd) $
+      redeemDeterministicKeyGen decBS
+  where
+    aesKey :: AesKey
+    aesKey = mnemonicToAesKey pvBackupPhrase
 
 {-------------------------------------------------------------------------------
   From kernel to V1 types
@@ -141,3 +191,36 @@ toAddress acc hdAddress =
   where
     cardanoAddress = hdAddress ^. HD.hdAddressAddress . fromDb
     addressMeta    = acc ^. HD.hdAccountState . HD.hdAccountStateCurrent . cpAddressMeta cardanoAddress
+
+{-------------------------------------------------------------------------------
+  Custom errors
+-------------------------------------------------------------------------------}
+
+data InvalidRedemptionCode =
+    -- | Seed is invalid base64(url) (used for non-paper wallets)
+    InvalidRedemptionCodeInvalidBase64 Text
+
+    -- | Seed is invalid base58 (used for paper wallets)
+  | InvalidRedemptionCodeInvalidBase58 Text
+
+    -- | AES decryption error (for paper wallets)
+  | InvalidRedemptionCodeCryptoError CryptoError
+
+    -- | Seed is not 32-bytes long (for either paper or non-paper wallets)
+    --
+    -- NOTE: For paper wallets the seed is actually AES encrypted so the
+    -- length would be hard to verify simply by inspecting this text.
+  | InvalidRedemptionCodeNot32Bytes Text
+
+instance Buildable InvalidRedemptionCode where
+    build (InvalidRedemptionCodeInvalidBase64 txt) =
+        bprint ("InvalidRedemptionCodeInvalidBase64 " % build) txt
+    build (InvalidRedemptionCodeInvalidBase58 txt) =
+        bprint ("InvalidRedemptionCodeInvalidBase58 " % build) txt
+    build (InvalidRedemptionCodeCryptoError err) =
+        bprint ("InvalidRedemptionCodeCryptoError " % shown) err
+    build (InvalidRedemptionCodeNot32Bytes txt) =
+        bprint ("InvalidRedemptionCodeNot32Bytes " % build) txt
+
+instance Show InvalidRedemptionCode where
+    show = formatToString build

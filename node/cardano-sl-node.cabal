@@ -73,7 +73,6 @@ test-suite property-tests
                        Chain.Abstract.Translate.FromUTxO
                        Chain.Abstract.Translate.Policies
                        Chain.Policy
-                       Chain.Validation.Parameters
                        Infrastructure.Generator
   default-language:    Haskell2010
   type:                exitcode-stdio-1.0

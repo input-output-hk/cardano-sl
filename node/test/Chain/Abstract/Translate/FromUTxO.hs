@@ -18,14 +18,6 @@ import qualified UTxO.DSL as DSL
   Translation context
 -------------------------------------------------------------------------------}
 
--- | Translation context. This the read-only data available to translation.
-data TransCtxt = TransCtxt
-  { -- | All actors in the system.
-    _tcAddresses :: NonEmpty Addr
-  }
-
-makeLenses ''TransCtxt
-
 -- | Checkpoint (we create one for each block we translate)
 data IntCheckpoint = IntCheckpoint {
       -- | Slot number of this checkpoint
@@ -52,6 +44,15 @@ data TransState h = TransState {
 
 makeLenses ''TransState
 
+-- | Translation context. This the read-only data available to translation.
+data TransCtxt h = TransCtxt
+  { -- | All actors in the system.
+    _tcAddresses :: NonEmpty Addr
+  , _parameters  :: Parameters (TransState h) h Addr
+  }
+
+makeLenses ''TransCtxt
+
 {-------------------------------------------------------------------------------
   Errors that may occur during interpretation
 -------------------------------------------------------------------------------}
@@ -74,21 +75,21 @@ instance Exception IntException
 -------------------------------------------------------------------------------}
 
 newtype TranslateT h e m a = TranslateT {
-      unTranslateT :: StateT (TransState h) (ReaderT TransCtxt (ExceptT (Either IntException e) m)) a
+      unTranslateT :: StateT (TransState h) (ReaderT (TransCtxt h) (ExceptT (Either IntException e) m)) a
     }
   deriving ( Functor
            , Applicative
            , Monad
            , MonadError (Either IntException e)
            , MonadIO
-           , MonadReader TransCtxt
+           , MonadReader (TransCtxt h)
            , MonadState (TransState h)
            )
 
 instance MonadTrans (TranslateT h e) where
     lift = TranslateT . lift . lift . lift
 -- | Run a translation given a context and initial state.
-runTranslateT :: TransCtxt
+runTranslateT :: TransCtxt h
               -> TransState h
               -> TranslateT h e m a
               -> ExceptT (Either IntException e) m (a, TransState h)

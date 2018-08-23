@@ -309,7 +309,7 @@ mkBlockMeta slotId addrs_ = LocalBlockMeta BlockMeta{..}
         indexedAddrs = indexByAddr addrs_
 
         _blockMetaSlotId      = InDb . Map.fromList . map (,slotId) $ txIds'
-        _blockMetaAddressMeta = InDb $ Map.map mkAddressMeta indexedAddrs
+        _blockMetaAddressMeta = Map.map mkAddressMeta indexedAddrs
 
 -- | This function is called once for each address found in a particular block of
 --   transactions. The collection of address summaries passed to this function
@@ -347,11 +347,11 @@ mkAddressMeta addrs
 -- | Index the list of address summaries by Address.
 --   NOTE: Since there will be at least one AddressSummary per Address,
 --   we can safely use NE.fromList.
-indexByAddr :: [AddressSummary] -> Map Address (NE.NonEmpty AddressSummary)
+indexByAddr :: [AddressSummary] -> Map (InDb Address) (NE.NonEmpty AddressSummary)
 indexByAddr addrs =
     Map.map NE.fromList (Map.fromListWith (++) addrs')
     where
-        fromAddrSummary addrSummary = (addrSummaryAddr addrSummary, [addrSummary])
+        fromAddrSummary addrSummary = (InDb (addrSummaryAddr addrSummary), [addrSummary])
         addrs' = map fromAddrSummary addrs
 
 fromUtxoSummary :: Map TxIn (TxOutAux,AddressSummary)

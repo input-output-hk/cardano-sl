@@ -24,8 +24,7 @@ import           Universum
 import           Control.Lens (at, non)
 import           Control.Lens.TH (makeLenses, makeWrapped)
 import qualified Data.Map.Strict as Map
-import           Data.SafeCopy (SafeCopy (..), base, contain, deriveSafeCopy,
-                     safeGet, safePut)
+import           Data.SafeCopy (base, deriveSafeCopy)
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 import           Serokell.Util (mapJson)
@@ -63,15 +62,6 @@ instance Monoid AddressMeta where
 makeLenses ''AddressMeta
 deriveSafeCopy 1 'base ''AddressMeta
 
-instance SafeCopy (InDb AddressMeta) where
-    getCopy = contain $ do
-        isUsed <- safeGet
-        isChange <- safeGet
-        pure . InDb $ AddressMeta isUsed isChange
-    putCopy (InDb (AddressMeta isUsed isChange)) = contain $ do
-        safePut isUsed
-        safePut isChange
-
 {-------------------------------------------------------------------------------
   Block metadata
 -------------------------------------------------------------------------------}
@@ -81,7 +71,7 @@ data BlockMeta = BlockMeta {
       -- | Slot each transaction got confirmed in
       _blockMetaSlotId      :: !(InDb (Map Txp.TxId Core.SlotId))
       -- | Address metadata
-    , _blockMetaAddressMeta :: !(InDb (Map Core.Address AddressMeta))
+    , _blockMetaAddressMeta :: !(Map (InDb Core.Address) AddressMeta)
     } deriving Eq
 
 makeLenses ''BlockMeta
@@ -92,12 +82,12 @@ deriveSafeCopy 1 'base ''BlockMeta
 -- When the block metadata does not contain any information about this address,
 -- we assume 'mempty'.
 addressMeta :: Core.Address -> Lens' BlockMeta AddressMeta
-addressMeta addr = blockMetaAddressMeta . fromDb . at addr . non mempty
+addressMeta addr = blockMetaAddressMeta . at (InDb addr) . non mempty
 
 emptyBlockMeta :: BlockMeta
 emptyBlockMeta = BlockMeta {
       _blockMetaSlotId      = InDb Map.empty
-    , _blockMetaAddressMeta = InDb Map.empty
+    , _blockMetaAddressMeta = Map.empty
     }
 
 {-------------------------------------------------------------------------------
@@ -125,7 +115,7 @@ appendBlockMeta :: BlockMeta -> LocalBlockMeta -> BlockMeta
 appendBlockMeta cur (LocalBlockMeta new) = BlockMeta {
         _blockMetaSlotId      = combineUsing (liftA2 Map.union)
                                   _blockMetaSlotId
-      , _blockMetaAddressMeta = combineUsing (liftA2 (Map.unionWith (<>)))
+      , _blockMetaAddressMeta = combineUsing (Map.unionWith (<>))
                                   _blockMetaAddressMeta
       }
   where
@@ -171,4 +161,4 @@ instance Buildable BlockMeta where
         % "}"
         )
         (_fromDb _blockMetaSlotId)
-        (_fromDb _blockMetaAddressMeta)
+        _blockMetaAddressMeta

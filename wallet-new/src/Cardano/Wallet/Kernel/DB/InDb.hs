@@ -1,4 +1,5 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
 
 module Cardano.Wallet.Kernel.DB.InDb
     ( InDb(..)
@@ -24,7 +25,6 @@ import qualified Data.Vector as V
 import           Test.QuickCheck (Arbitrary (..))
 
 import qualified Pos.Chain.Block as Core
-import qualified Pos.Chain.Txp as Core
 import qualified Pos.Core as Core
 import qualified Pos.Core.Attributes as Core
 import qualified Pos.Core.Delegation as Core
@@ -35,13 +35,37 @@ import qualified Pos.Crypto as Core
 
 import qualified Cardano.Crypto.Wallet as CCW
 
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
+
 {-------------------------------------------------------------------------------
   Wrap core types so that we can make independent serialization decisions
 -------------------------------------------------------------------------------}
 
--- | Wrapped type (with potentially different 'SC' instance)
+-- | Wrapped type (with potentially different 'SafeCopy' instance)
+--
+-- NOTE:
+--
+-- 1. We want to be independent from the 'SafeCopy' instances in core. For this
+--    reason, we wrap all core types in 'InDb', and provide explicit 'SafeCopy'
+--    instances for 'InDb SomeCoreType'.
+-- 2. We never use 'InDb' for types that we have control over in the wallet
+--    itself.
+-- 3. To avoid too much code bloat everywhere else, we don't nest 'InDb';
+--    i.e., we don't use @InDb (.... InDb ....)@. Instead, we use 'InDb' only
+--    /around/ (possibly nested) core types; for example, we use
+--    @InDb (Map SomeCoreType SomeOtherCoreType)@. We then translate this to
+--    @Map (InDb SomeCoreType) (InDb SomeOtherCoreType)@ in the 'SafeCopy'
+--    instances themselves, so that in the rest of the code we don't have to
+--    do too much wrapping and unwrapping.
+--
+-- A consequence of these rules is that something like
+--
+-- > safePut (InDb x) = safePut x
+--
+-- is correct /only/ if @x@ has a primitive type (i.e., not one defined in
+-- the Cardano core, but in the Haskell base libraries).
 newtype InDb a = InDb { _fromDb :: a }
-    deriving (Eq, Show, Ord)
+    deriving (Eq, Show, Ord, Buildable)
 
 instance Functor InDb where
     fmap f = InDb . f . _fromDb
@@ -80,7 +104,7 @@ instance SC.SafeCopy (InDb Core.AddrAttributes) where
         pure (InDb (Core.AddrAttributes (fmap _fromDb yiap) ast))
     putCopy (InDb (Core.AddrAttributes yap asr)) = SC.contain $ do
         SC.safePut (fmap InDb yap)
-        SC.safePut asr
+        SC.safePut (InDb asr)
 
 instance SC.SafeCopy (InDb Core.AddrStakeDistribution) where
     getCopy = SC.contain $ fmap InDb $ do
@@ -196,7 +220,9 @@ instance SC.SafeCopy (InDb Txp.TxInWitness) where
             2 -> Txp.RedeemWitness
                 <$> fmap _fromDb SC.safeGet
                 <*> fmap _fromDb SC.safeGet
-            3 -> Txp.RedeemWitness <$> SC.safeGet <*> SC.safeGet
+            3 -> Txp.UnknownWitnessType
+                <$> SC.safeGet
+                <*> SC.safeGet
             (n :: Word8) -> fail
                 $ "Expected 0,1,2,3 for tag of TxInWitness, got: "
                 <> show n
@@ -341,10 +367,14 @@ instance (SC.SafeCopy (InDb a), SC.SafeCopy (InDb b))
         SC.safePut (InDb b)
 
 instance SC.SafeCopy (InDb Txp.TxIn) where
-    getCopy = SC.contain $ fmap InDb $ do
+    getCopy = SC.contain $
         SC.safeGet >>= \case
-            0 -> Txp.TxInUtxo <$> SC.safeGet <*> SC.safeGet
-            1 -> Txp.TxInUnknown <$> SC.safeGet <*> SC.safeGet
+            0 -> do InDb txId <- SC.safeGet
+                    w         <- SC.safeGet
+                    pure (InDb (Txp.TxInUtxo txId w))
+            1 -> do w <- SC.safeGet
+                    b <- SC.safeGet
+                    pure (InDb (Txp.TxInUnknown w b))
             (n :: Word8) -> fail
                 $  "Expected one of 0,1 for TxIn tag, got: "
                 <> show n

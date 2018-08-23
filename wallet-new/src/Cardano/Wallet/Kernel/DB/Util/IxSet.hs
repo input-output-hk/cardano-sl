@@ -140,10 +140,7 @@ data Indexed a = Indexed {
   }
 
 Lens.makeLenses ''Indexed
-
-instance SafeCopy a => SafeCopy (Indexed a) where
-    getCopy = error "TODO"
-    putCopy = error "TODO"
+deriveSafeCopy 1 'base ''Indexed
 
 instance Buildable a => Buildable (Indexed a) where
     build (Indexed (AutoIncrementKey idx) r) =

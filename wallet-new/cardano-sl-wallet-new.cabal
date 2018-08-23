@@ -397,7 +397,7 @@ executable wal-integr-test
                       MonadFailDesugaring
 
 test-suite wallet-unit-tests
-  ghc-options:        -Wall
+  ghc-options:        -Wall -O2
   type:               exitcode-stdio-1.0
   main-is:            WalletUnitTest.hs
   other-modules:      InputSelection.Evaluation

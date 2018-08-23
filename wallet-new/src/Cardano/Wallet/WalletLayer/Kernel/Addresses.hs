@@ -93,16 +93,14 @@ createAddress wallet
 getAddresses :: RequestParams
              -> Kernel.DB
              -> SliceOf V1.WalletAddress
-getAddresses (rpPaginationParams -> PaginationParams{..}) db =
-    let (Page currentPage) = ppPage
-        (PerPage perPage)  = ppPerPage
-        -- The "pointer" where we should start.
-        globalStartAt = (currentPage - 1) * perPage
-        allAddrs      = db ^. dbHdWallets . HD.hdWalletsAddresses
-        totalEntries  = IxSet.size allAddrs
-        sliceOf = findResults db globalStartAt perPage
-        in SliceOf sliceOf totalEntries
-
+getAddresses (RequestParams (PaginationParams (Page p) (PerPage pp))) db =
+   let allAddrs = db ^. dbHdWallets . HD.hdWalletsAddresses
+       slice :: [V1.WalletAddress]
+       slice | p < 1 = []
+             | pp < 1 = []
+             | otherwise = let globalStart = (p - 1) * pp
+                           in findResults db globalStart pp
+   in SliceOf slice (IxSet.size allAddrs)
 
 -- | Finds the results needed by 'getAddresses'.
 findResults :: Kernel.DB

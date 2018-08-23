@@ -200,6 +200,7 @@ test-suite test
   hs-source-dirs:      test
   main-is:             test.hs
   other-modules:       Test.Pos.DB.Epoch.Index
+                     , Test.Pos.DB.Rocks.Functions
   type:                exitcode-stdio-1.0
   build-depends:       base
                      , cardano-sl-binary-test
@@ -207,6 +208,7 @@ test-suite test
                      , cardano-sl-core-test
                      , cardano-sl-db
                      , cardano-sl-util-test
+                     , directory
                      , filepath
                      , hedgehog
                      , temporary

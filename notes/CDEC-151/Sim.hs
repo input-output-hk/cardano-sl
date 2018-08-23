@@ -4,6 +4,7 @@
 module Sim (
   SimM,
   SimProbe,
+  Chan (..),
   flipChan,
   newProbe,
   runSimM,

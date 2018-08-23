@@ -27,7 +27,7 @@ import qualified Pos.Wallet.Web.State.State as V0State
 import           Pos.Wallet.Web.State.Storage (getWalletAddresses)
 import qualified Pos.Wallet.Web.State.Storage as V0
 import qualified Pos.Wallet.Web.Tracking as V0 (txMempoolToModifier)
-import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Decrypt (keyToWalletDecrCredentials)
 
 import           Cardano.Wallet.API.Indices (IxSet)
 import           Cardano.Wallet.API.Request
@@ -126,6 +126,6 @@ getAddress addrText = do
         Just (_walletMeta, V0.AddressInfo{..}) -> do
             let accId = adiWAddressMeta ^. V0.wamAccount
             mps <- V0.withTxpLocalData V0.getMempoolSnapshot
-            accMod <- V0.txMempoolToModifier ws mps . eskToWalletDecrCredentials =<< V0.findKey accId
+            accMod <- V0.txMempoolToModifier ws mps . keyToWalletDecrCredentials =<< V0.findKey accId
             let caddr = V0.getWAddress ws accMod adiWAddressMeta
             single <$> migrate caddr

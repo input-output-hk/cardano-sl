@@ -41,6 +41,7 @@ module Cardano.Wallet.API.V1.Types (
   , ExternalWallet (..)
   , PublicKeyAsBase58
   , mkPublicKeyAsBase58
+  , mkPublicKeyFromBase58
   , NewExternalWallet (..)
   , WalletAndTxHistory (..)
   -- * Addresses
@@ -151,7 +152,7 @@ import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape,
 import           Data.Text (Text, dropEnd, toLower)
 import qualified Data.Text as T
 import           Data.Version (Version)
-import           Formatting (bprint, build, fconst, int, sformat, (%))
+import           Formatting (bprint, build, fconst, int, sformat, stext, (%))
 import qualified Formatting.Buildable
 import           Generics.SOP.TH (deriveGeneric)
 import           GHC.Generics (Generic, Rep)
@@ -617,6 +618,27 @@ mkPublicKeyAsBase58 :: PublicKey -> PublicKeyAsBase58
 mkPublicKeyAsBase58 (PublicKey xPub) = PublicKeyAsBase58Unsafe encodedXPub
   where
     encodedXPub = decodeUtf8 $ encodeBase58 bitcoinAlphabet (CC.unXPub xPub)
+
+-- | Possible problems with Base58-encoded extended public key.
+data Base58PublicKeyError
+    = PublicKeyNotInBase58Form
+    | NotAPublicKey !Text
+    deriving Show
+
+instance Buildable Base58PublicKeyError where
+    build PublicKeyNotInBase58Form =
+        "Extended public key is not in Base58-format."
+    build (NotAPublicKey msg) =
+        bprint ("It is not an extended public key: "%stext) msg
+
+-- | Decoder for 'PublicKey' in Base58-format.
+mkPublicKeyFromBase58 :: PublicKeyAsBase58 -> Either Base58PublicKeyError PublicKey
+mkPublicKeyFromBase58 (PublicKeyAsBase58Unsafe encodedXPub) = do
+    case (decodeBase58 bitcoinAlphabet . encodeUtf8 $ encodedXPub) of
+        Nothing -> Left PublicKeyNotInBase58Form
+        Just rawKey -> case CC.xpub rawKey of
+            Left problem -> Left $ NotAPublicKey (toText problem)
+            Right xPub   -> Right $ PublicKey xPub
 
 -- | Type for representation address in Base58-format.
 -- We use it for external wallets.

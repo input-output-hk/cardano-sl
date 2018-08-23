@@ -27,7 +27,8 @@ import           Pos.DB.Block (rollbackBlocks)
 import           Pos.Launcher (HasConfigurations)
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.State.Storage (WalletStorage (..))
-import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentialsKey (..),
+                     keyToWalletDecrCredentials)
 import           Pos.Wallet.Web.Tracking.Sync (evalChange,
                      syncWalletWithBlockchain)
 import           Pos.Wallet.Web.Tracking.Types (newSyncRequest)
@@ -66,8 +67,9 @@ twoApplyTwoRollbacksSpec = walletPropertySpec twoApplyTwoRollbacksDesc $ do
     -- During these tests we need to manually switch back to the old synchronous
     -- way of restoring.
     void $ importSomeWallets (pure emptyPassphrase)
-    sks <- lift getSecretKeysPlain
-    lift $ forM_ sks $ \s -> syncWalletWithBlockchain (newSyncRequest (eskToWalletDecrCredentials s))
+    secretKeys <- lift getSecretKeysPlain
+    lift $ forM_ secretKeys $ \sk ->
+        syncWalletWithBlockchain . newSyncRequest . keyToWalletDecrCredentials $ KeyForRegular sk
 
     -- Testing starts here
     genesisWalletDB <- lift WS.askWalletSnapshot

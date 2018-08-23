@@ -402,6 +402,8 @@ distribution}\label{cdec-91-optimal-stake-distribution}
 
 \section{Design of Delegation}\label{design-of-delegation}
 
+\newcommand{\hash}[1]{\mathcal{H}(#1)}
+
 \subsection{Overview of Delegation}\label{overview-of-delegation}
 
 Delegation is a separation of the control over the movements of funds
@@ -422,8 +424,8 @@ key. This involves registering a stake key on the chain and using
 addresses that refer to this stake key. Each registered stake key has a
 corresponding \emph{reward account} which is used to collect and claim
 staking rewards. To exercise stake rights associated with a registered
-stake key those rights must be delegated to a registered stake pool.
-This involves posting a delegation certificate on the chain identifing
+stake key, those rights must be \emph{delegated} to a registered stake pool.
+This involves posting a delegation certificate on the chain identifying
 the chosen stake pool. Registered stake pools participate in the Proof
 of Stake protocol using the key for their stake pool to sign blocks.
 Only registered stake pools participate in the PoS protocol, but anyone
@@ -431,7 +433,7 @@ can register a private stake pool for ``self staking''. For each stake
 pool, the set of stake keys that delegate to it are known, and staking
 rewards can be paid into the reward accounts associated with each stake
 key. Rewards can accumulate in reward accounts over multiple epochs and
-can be reclaimed as part of a tranaction using a special input type.
+can be reclaimed as part of a transaction using a special input type.
 
 Thus the overall structure is that addresses with stake rights are
 associated with a stake key, and the stake key delegates to a stake
@@ -444,15 +446,13 @@ using a private stake pool.
 Shelley will introduce three different types of addresses: \emph{base
 addresses}, \emph{pointer addresses}, and \emph{enterprise addresses}.
 Each address has the form
-
 \[
-\mathcal{H}({vkp}) || \beta
+\hash{vkp} \mathbin{||} \beta
 \]
-
-where \(\mathcal{H}({vkp})\) is a cryptographic hash of the public
-spending key, and \(||\) denotes string concatenation. The types of
-addresses differ in the \emph{staking object} \(\beta\), which carries
-the staking information.
+where \(\hash{vkp}\) is a cryptographic hash of the public spending
+key, and \(||\) denotes string concatenation. The types of addresses
+differ in the \emph{staking object} \(\beta\), which carries the
+staking information.
 
 In addition to those new addresses, the system will continue to support
 \emph{bootstrap addresses} and \emph{script addresses} as introduced in
@@ -461,28 +461,43 @@ however.
 
 \subsubsection{Base Address}\label{base-address}
 
-A base address sets the staking rights directly to a staking key
-\((sks, vks)\), and sets \(\beta = \mathcal{H}(vks)\). The staking
-rights associated with funds held in this address may be exercised by
-the owner of \(sks\).
+A base address indirectly specifies the staking key that should
+control the stake for the address. It references a stake key
+\((sks, vks)\) by its verification key hash.
+\[
+\beta = \mathcal{H}(vks)
+\]
+The staking rights associated with funds held in this address may be
+exercised by the owner of \(sks\).
 
 Base addresses can be used in transactions without registering the
-staking key in advance, but the stake rights can only be exercised by
-registering the stake key and delegating to a stake pool.
+staking key in advance. The stake rights can only be exercised by
+registering the stake key and delegating to a stake pool. Once the
+stake key is registered the stake rights can be exercised for base
+addresses used in transactions before or after the key registration.
 
 \subsubsection{Pointer Address}\label{pointer-address}
 
 A pointer address indirectly specifies the staking key that should
-control the stake of the address. It does so by referencing a stake key
-registration that has been published to the blockchain.
+control the stake for the address. It references a stake key by a
+\emph{stake key pointer} which is a location on the blockchain of the
+stake key registration certificate for that key. See section
+\ref{certificates-on-the-blockchain} for details on certificates on the
+blockchain.
 
-Concretely, for a pointer address, \(\beta\) is a \emph{stake key
-pointer}, given by the tuple
-\((N_\text{block}, N_\text{tx}, N_\text{reg})\), where
-\(N_\text{block}\) is the index of a block in the chain, and
-\(N_\text{tx}\) is the index of a transaction within that block. This
-transaction should, as its \(N_\text{reg}\)s metadata, contain a stake
-key registration. (see \ref{certificates-on-the-blockchain} below).
+Concretely, pointer address have as their staking object
+\[
+\beta = (N_\text{block}, N_\text{tx}, N_\text{reg})
+\]
+where \(N_\text{block}\) is the index of a block in the chain,
+\(N_\text{tx}\) is the index of a transaction within that block and
+\(N_\text{reg}\) is the index of the registration certificate within
+the list of  key registration certificates in the transaction. This
+identified transaction should have a certificate at index-\(N_\text{reg}\)
+in its list of stake key registration certificates. The certificate
+specifies a verification key \(vks\). The staking rights associated
+with funds held in this address may be exercised by the owner of the
+corresponding signing key \(sks\).
 
 Pointer addresses can be used in transactions even if their target is
 not an \emph{active} stake key registration. This covers the case that
@@ -493,8 +508,15 @@ currently active stake keys.
 
 In such cases however the stake rights cannot be exercised. To exercise
 the stake rights the stake key must be registered in advance of using
-the pointer address, and the stake key must remain registered while the
-pointer address holds funds.
+the pointer address in the output of a transaction, and the stake key
+must remain registered while the pointer address holds funds. This is a
+difference compared to base addresses where the stake key can be
+registered after the base address is used in a transaction.
+
+The primary advantage of pointer addresses is that they can be
+comparatively short, which is one of our requirements (recall section
+\ref{short-addresses}). The pointer can be considerably shorter than
+the hash used in base addresses.
 
 \subsubsection{Enterprise Address}\label{enterprise-address}
 
@@ -502,17 +524,19 @@ Enterprise addresses carry no stake rights whatsoever and thus using
 them allows completely opting out of participation in the proof of stake
 protocol. Exchanges or other organisations that control large amounts of
 Ada -- but hold it on behalf of other users -- may wish to follow a
-policy of not exercising stake rights. By using enterprise addresses
+policy of not exercising stake rights. By using enterprise addresses,
 exchanges can demonstrate that they follow this policy.
 
-For enterprise addresses, \(\beta\) is set to a fixed constant value,
-making them easily distinguishable from other types of addresses.
-
+The staking object for enterprise addresses is a fixed nullary constant
+\[
+\beta = \epsilon
+\]
 Since enterprise addresses are not associated with any stake key, they
 are automatically excluded from the mechanisms that influence the slot
-leadership schedule. Note however, that using addresses with no stake
-rights effectively decreases the total amount of stake, which plays into
-the hands of the adversary.
+leadership schedule.
+
+Note that using addresses with no stake rights effectively decreases
+the total amount of stake, which plays into the hands of the adversary.
 
 \subsubsection{Bootstrap Address}\label{bootstrap-address}
 
@@ -521,10 +545,10 @@ interpreted as having stake rights but those stake rights were always
 delegated to a fixed set of staking keys specified in the genesis block,
 controlled by the Cardano Foundation, Emurgo, and IOHK.
 
-Bootstrap addresses will continue to exist in Shelley, but their
-interpetation is changed subtly and their use is disincentivised. Their
-interpetation is changed from having stake rights but with forced
-delegation, to having no stake rights whatsoever. Their use is
+Bootstrap addresses continue to exist in Shelley, but their
+interpretation is changed subtly and their use is disincentivised.
+Their interpretation is changed from having stake rights but with
+forced delegation, to having no stake rights whatsoever. Their use is
 disincentivised since owners have the option to move their funds into
 the new base or pointer addresses that have stake rights which can be
 exercised to receive staking rewards.
@@ -554,7 +578,7 @@ the total number of addresses in the blockchain. For details, see
 \subsection{Address Recognition}\label{address-recognition-1}
 
 Wallets will recognise addresses that belong to them just as they would
-without delegation, by looking only at the \(\mathcal{H}({vkp})\) part
+without delegation, by looking only at the \(\hash{vkp}\) part
 of the address.
 
 After a wallet recognises an address for which it controls the payment
@@ -1575,13 +1599,13 @@ have a way of generating the key for an arbitrary range of addresses in
 the wallet, using only the root key as input.
 
 Recall from \ref{address-structure} that the addresses have the form
-\(\mathcal{H}({vkp}) || \beta\), where \(vkp\) is the spending key, and
+\(\hash{vkp} \mathbin{||} \beta\), where \(vkp\) is the spending key, and
 \(\beta\) depends on the delegation for that address. The
-\(\mathcal{H}({vkp})\) part is derivable from the root key (in
+\(\hash{vkp}\) part is derivable from the root key (in
 particular, it does not depend on the delegation preferences of the
 wallet), and is a suitable key for the lookup of addresses\footnote{Depending
   on the serialisation format for addresses, it might be possible to not
-  use a separate index at all: if \(\mathcal{H}({vkp})\) is a prefix of
+  use a separate index at all: if \(\hash{vkp}\) is a prefix of
   the serialised address, we can directly do a prefix query in the
   database.}.
 

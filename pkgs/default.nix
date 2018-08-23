@@ -17778,6 +17778,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-binary
 , cardano-sl-binary-test
 , cardano-sl-chain
+, cardano-sl-chain-test
 , cardano-sl-client
 , cardano-sl-core
 , cardano-sl-core-test
@@ -17791,6 +17792,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-wallet
 , cardano-sl-wallet-test
 , cassava
+, cereal
 , conduit
 , connection
 , constraints
@@ -17799,6 +17801,7 @@ license = stdenv.lib.licenses.mit;
 , data-default
 , data-default-class
 , directory
+, ed25519
 , exceptions
 , filepath
 , formatting
@@ -17901,6 +17904,7 @@ cardano-sl-node-ipc
 cardano-sl-util
 cardano-sl-wallet
 cardano-sl-wallet-test
+cereal
 conduit
 connection
 containers
@@ -17908,6 +17912,7 @@ cryptonite
 data-default
 data-default-class
 directory
+ed25519
 exceptions
 formatting
 generics-sop
@@ -18004,6 +18009,7 @@ cardano-sl
 cardano-sl-binary
 cardano-sl-binary-test
 cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-client
 cardano-sl-core
 cardano-sl-core-test
@@ -18012,6 +18018,7 @@ cardano-sl-db
 cardano-sl-util
 cardano-sl-util-test
 cardano-sl-wallet
+cereal
 conduit
 constraints
 containers
@@ -18032,6 +18039,7 @@ quickcheck-instances
 random
 reflection
 safe-exceptions
+safecopy
 serokell-util
 servant
 servant-server

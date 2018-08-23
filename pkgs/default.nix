@@ -15995,9 +15995,12 @@ license = stdenv.lib.licenses.mit;
 , base
 , bytestring
 , cardano-sl-binary
+, cardano-sl-binary-test
 , cardano-sl-core
+, cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-util
+, cardano-sl-util-test
 , concurrent-extra
 , conduit
 , containers
@@ -16007,6 +16010,7 @@ license = stdenv.lib.licenses.mit;
 , ether
 , filepath
 , formatting
+, hedgehog
 , lens
 , memory
 , mtl
@@ -16014,6 +16018,7 @@ license = stdenv.lib.licenses.mit;
 , rocksdb-haskell-ng
 , serokell-util
 , stdenv
+, temporary
 , text-format
 , transformers
 , universum
@@ -16054,6 +16059,18 @@ universum
 ];
 libraryToolDepends = [
 cpphs
+];
+testHaskellDepends = [
+base
+cardano-sl-binary-test
+cardano-sl-core
+cardano-sl-core-test
+cardano-sl-util-test
+directory
+filepath
+hedgehog
+temporary
+universum
 ];
 doHaddock = false;
 description = "Cardano SL - basic DB interfaces";

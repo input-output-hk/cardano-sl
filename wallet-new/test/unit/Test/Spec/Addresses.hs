@@ -215,7 +215,7 @@ spec = describe "Addresses" $ do
                         res <- runExceptT $ runHandler' $ do
                            Handlers.listAddresses layer (RequestParams pp)
                         case res of
-                           Right wr | wrData wr == [] -> pure ()
+                           Right wr | null (wrData wr) -> pure ()
                            _ -> fail ("Got " ++ show res)
 
             prop "1 addresses, page 0, per page 0" $ do
@@ -225,7 +225,7 @@ spec = describe "Addresses" $ do
                         res <- runExceptT $ runHandler' $ do
                            Handlers.listAddresses layer (RequestParams pp)
                         case res of
-                           Right wr | wrData wr == [] -> pure ()
+                           Right wr | null (wrData wr) -> pure ()
                            _ -> fail ("Got " ++ show res)
 
             prop "3 addresses, page 0, per page 0" $ do
@@ -235,7 +235,7 @@ spec = describe "Addresses" $ do
                         res <- runExceptT $ runHandler' $ do
                            Handlers.listAddresses layer (RequestParams pp)
                         case res of
-                           Right wr | wrData wr == [] -> pure ()
+                           Right wr | null (wrData wr) -> pure ()
                            _ -> fail ("Got " ++ show res)
 
             prop "3 addresses, page 1, per page 0" $ do
@@ -245,7 +245,7 @@ spec = describe "Addresses" $ do
                         res <- runExceptT $ runHandler' $ do
                            Handlers.listAddresses layer (RequestParams pp)
                         case res of
-                           Right wr | wrData wr == [] -> pure ()
+                           Right wr | null (wrData wr) -> pure ()
                            _ -> fail ("Got " ++ show res)
 
             prop "3 addresses, page 1, per page 1" $ do

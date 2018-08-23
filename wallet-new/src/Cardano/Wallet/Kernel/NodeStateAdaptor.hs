@@ -49,6 +49,7 @@ import           Formatting (bprint, build, sformat, shown, (%))
 import qualified Formatting.Buildable
 import           Ntp.Client (NtpStatus (..))
 import           Serokell.Data.Memory.Units (Byte)
+import           System.Wlog (CanLog (..), HasLoggerName (..))
 
 import           Pos.Chain.Block (Block, HeaderHash, MainBlock, blockHeader,
                      headerHash, mainBlockSlot, prevBlockL)
@@ -79,7 +80,6 @@ import           Pos.Util (CompileTimeInfo, HasCompileInfo, HasLens (..),
                      lensOf', withCompileInfo)
 import qualified Pos.Util as Util
 import           Pos.Util.Concurrent.PriorityLock (Priority (..))
-import           Pos.Util.Trace.Named (TraceNamed, natTrace)
 
 import           Test.Pos.Configuration (withDefConfiguration,
                      withDefUpdateConfiguration)
@@ -162,13 +162,8 @@ type NodeConstraints = (
     , HasCompileInfo
     )
 
--- | Internal: provide access to the node resources
-data NodeEnv m = forall ext. NEnv {
-      nenvRes :: !(NodeResources ext)
-    , nenvLog :: !(TraceNamed m)
-    }
-
--- data Res = forall ext. Res !(NodeResources ext)
+-- | Internal: node resources and reified type class dictionaries
+data Res = forall ext. Res !(NodeResources ext)
 
 -- | Monad in which the underlying node state is available
 --
@@ -179,7 +174,7 @@ data NodeEnv m = forall ext. NEnv {
 -- NOTE: Although the 'MonadReader' instance is exposed, it should not
 -- be relied on. We expose it because core monad definitions require
 -- that this 'MonadReader' instance is present.
-newtype WithNodeState m a = Wrap {unwrap :: ReaderT (NodeEnv m) m a}
+newtype WithNodeState m a = Wrap {unwrap :: ReaderT Res m a}
   deriving (
       Functor
     , Applicative
@@ -187,11 +182,20 @@ newtype WithNodeState m a = Wrap {unwrap :: ReaderT (NodeEnv m) m a}
     , MonadCatch
     , MonadThrow
     , MonadIO
-    , MonadReader (NodeEnv m)
+    , MonadTrans
+    , MonadReader Res
     )
 
-instance MonadTrans WithNodeState where
-    lift = Wrap . lift
+-- NOTE type (WithLogger m) = (CanLog m, HasLoggerName m)
+
+instance (MonadIO m) => CanLog (WithNodeState m) where
+    dispatchMessage name severity =
+        liftIO . dispatchMessage name severity
+
+instance (Monad m) => HasLoggerName (WithNodeState m) where
+    askLoggerName    = return "node"
+    modifyLoggerName = flip const
+
 
 -- | The 'NodeStateAdaptor' allows to bring the node state into scope
 -- without polluting all the types in the kernel.
@@ -264,9 +268,9 @@ data NodeStateAdaptor m = Adaptor {
   codebase. A fight for another day.
 -------------------------------------------------------------------------------}
 
-mkResLens :: (forall ext. Lens' (NodeResources ext) a) -> Lens' (NodeEnv m) a
-mkResLens l = lens (\(NEnv nr _)        -> nr ^. l)
-                   (\(NEnv nr logMsg) a -> NEnv (nr & l .~ a) logMsg)
+mkResLens :: (forall ext. Lens' (NodeResources ext) a) -> Lens' Res a
+mkResLens l = lens (\(Res nr)   -> nr ^. l)
+                   (\(Res nr) a -> Res (nr & l .~ a))
 
 nrContextLens :: Lens' (NodeResources ext) NodeContext
 nrContextLens = \f nr -> (\x -> nr {nrContext = x}) <$> f (nrContext nr)
@@ -274,23 +278,23 @@ nrContextLens = \f nr -> (\x -> nr {nrContext = x}) <$> f (nrContext nr)
 nrDBsLens :: Lens' (NodeResources ext) NodeDBs
 nrDBsLens = \f nr -> (\x -> nr {nrDBs = x}) <$> f (nrDBs nr)
 
-instance HasLens NodeDBs (NodeEnv m) NodeDBs where
+instance HasLens NodeDBs Res NodeDBs where
     lensOf = mkResLens nrDBsLens
 
-instance HasLens StateLock (NodeEnv m) StateLock where
+instance HasLens StateLock Res StateLock where
     lensOf = mkResLens (nrContextLens . lensOf')
 
-instance HasLens S.SimpleSlottingStateVar (NodeEnv m) S.SimpleSlottingStateVar where
+instance HasLens S.SimpleSlottingStateVar Res S.SimpleSlottingStateVar where
     lensOf = mkResLens (nrContextLens . lensOf')
 
-instance HasLens UpdateContext (NodeEnv m) UpdateContext where
+instance HasLens UpdateContext Res UpdateContext where
     lensOf = mkResLens (nrContextLens . lensOf')
 
-instance HasSlottingVar (NodeEnv m) where
+instance HasSlottingVar Res where
     slottingTimestamp = mkResLens (nrContextLens . slottingTimestamp)
     slottingVar       = mkResLens (nrContextLens . slottingVar)
 
-instance HasShutdownContext (NodeEnv m) where
+instance HasShutdownContext Res where
     shutdownContext = mkResLens (nrContextLens . shutdownContext)
 
 {-------------------------------------------------------------------------------
@@ -315,14 +319,11 @@ instance ( NodeConstraints
   dbGetSerUndo  = DB.dbGetSerUndoRealDefault
   dbGetSerBlund  = DB.dbGetSerBlundRealDefault
 
-instance (NodeConstraints, MonadIO m) => MonadSlots (NodeEnv m) (WithNodeState m) where
+instance (NodeConstraints, MonadIO m) => MonadSlots Res (WithNodeState m) where
   getCurrentSlot           = S.getCurrentSlotSimple
   getCurrentSlotBlocking   = S.getCurrentSlotBlockingSimple
   getCurrentSlotInaccurate = S.getCurrentSlotInaccurateSimple
   currentTimeSlotting      = S.currentTimeSlottingSimple
-
-logWithNodeState :: Monad m => NodeEnv m -> TraceNamed (WithNodeState m)
-logWithNodeState = natTrace lift . nenvLog
 
 {-------------------------------------------------------------------------------
   Creating the adaptor
@@ -334,10 +335,9 @@ logWithNodeState = natTrace lift . nenvLog
 -- can be used in a place where these constraints is not available.
 newNodeStateAdaptor :: forall m ext. (NodeConstraints, MonadIO m, MonadMask m)
                     => NodeResources ext
-                    -> TraceNamed m
                     -> TVar NtpStatus
                     -> NodeStateAdaptor m
-newNodeStateAdaptor nr logMsg ntpStatus = Adaptor {
+newNodeStateAdaptor nr ntpStatus = Adaptor {
       withNodeState            =            run
     , getTipSlotId             =            run $ \_lock -> defaultGetTipSlotId
     , getMaxTxSize             =            run $ \_lock -> defaultGetMaxTxSize
@@ -356,10 +356,7 @@ newNodeStateAdaptor nr logMsg ntpStatus = Adaptor {
              -> WithNodeState m a
            )
         -> m a
-    run act = runReaderT (unwrap $ act withLock) (NEnv {
-                  nenvRes = nr
-                , nenvLog = logMsg
-                })
+    run act = runReaderT (unwrap $ act withLock) (Res nr)
 
 -- | Internal wrapper around 'withStateLockNoMetrics'
 --
@@ -405,7 +402,7 @@ defaultGetNextEpochSlotDuration = Slotting.getNextEpochSlotDuration
 -------------------------------------------------------------------------------}
 
 triggerShutdown :: MonadIO m => WithNodeState m ()
-triggerShutdown = asks logWithNodeState >>= Shutdown.triggerShutdown
+triggerShutdown = Shutdown.triggerShutdown
 
 -- | Wait for an update
 --
@@ -415,7 +412,7 @@ triggerShutdown = asks logWithNodeState >>= Shutdown.triggerShutdown
 waitForUpdate :: forall m. MonadIO m => WithNodeState m ConfirmedProposalState
 waitForUpdate = liftIO . takeMVar =<< asks l
   where
-    l :: NodeEnv m -> MVar ConfirmedProposalState
+    l :: Res -> MVar ConfirmedProposalState
     l = ucDownloadedUpdate . view lensOf'
 
 -- | Get the most recent main block starting at the specified header

@@ -15,7 +15,6 @@ import           Servant
 
 import qualified Pos.Client.KeyStorage as V0
 import           Pos.Core.Update (SoftwareVersion)
-import           Pos.Util.Trace.Named (TraceNamed)
 import qualified Pos.Wallet.Web.ClientTypes as V0
 import qualified Pos.Wallet.Web.Methods.Misc as V0
 import qualified Pos.Wallet.Web.State as V0
@@ -29,15 +28,14 @@ import           Cardano.Wallet.Server.CLI (RunMode (..), isDebugMode)
 -- still need the natural transformation here.
 handlers
     :: (HasConfiguration, HasUpdateConfiguration)
-    => TraceNamed MonadV1
-    -> (forall a. MonadV1 a -> Handler a)
+    => (forall a. MonadV1 a -> Handler a)
     -> RunMode
     -> Server Internal.API
-handlers logTrace naturalTransformation runMode =
+handlers naturalTransformation runMode =
     let
         handlers' =
                  nextUpdate
-            :<|> V0.applyUpdate logTrace
+            :<|> V0.applyUpdate
             :<|> V0.postponeUpdate
             :<|> resetWalletState runMode
     in

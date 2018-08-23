@@ -3428,7 +3428,16 @@ a reasonable starting point for tests and an implementation.
 \newcommand{\restrictdom}{\lhd}
 \newcommand{\subtractdom}{\mathbin{\slashed{\restrictdom}}}
 \newcommand{\restrictrange}{\rhd}
+\newcommand{\union}{\cup}
 \newcommand{\unionoverride}{\mathbin{\underrightarrow\cup}}
+\newcommand{\var}[1]{\mathit{#1}}
+\newcommand{\fun}[1]{\mathsf{#1}}
+\newcommand{\type}[1]{\mathsf{#1}}
+\newcommand{\serialised}[1]{\llbracket #1 \rrbracket}
+\newcommand{\signed}[2]{\llbracket #1 \rrbracket_{#2}}
+\newcommand{\verified}[3]{\mathcal{V}_{#1}\llbracket #2 \rrbracket_{#3}}
+\newcommand{\size}[1]{\left| #1 \right|}
+\newcommand{\transitionarrow}[2]{\xlongrightarrow[\textsc{#1}]{#2}}
 
 \begin{figure}[h]
 
@@ -3436,20 +3445,20 @@ a reasonable starting point for tests and an implementation.
 %
 \begin{equation*}
 \begin{array}{r@{~\in~}lr}
-  txid
-& \mathsf{TxId}
+  \var{txid}
+& \type{TxId}
 & \text{transaction id}
 \\
   ix
-& \mathsf{Ix}
+& \type{Ix}
 & \text{index}
 \\
-  addr
-& \mathsf{Addr}
+  \var{addr}
+& \type{Addr}
 & \text{address}
 \\
   c
-& \mathsf{Coin}
+& \type{Coin}
 & \text{currency value}
 \end{array}
 \end{equation*}
@@ -3458,28 +3467,28 @@ a reasonable starting point for tests and an implementation.
 %
 \begin{equation*}
 \begin{array}{r@{~\in~}l@{\qquad=\qquad}r@{~\in~}lr}
-  tx
-& \mathsf{Tx}
-& (inputs, outputs)
-& \powerset{\mathsf{TxIn}} \times (\mathsf{Ix} \mapsto \mathsf{TxOut})
+  \var{tx}
+& \type{Tx}
+& (\var{inputs}, \var{outputs})
+& \powerset{\type{TxIn}} \times (\type{Ix} \mapsto \type{TxOut})
 & \text{transaction}
 \\
-  txin
-& \mathsf{TxIn}
-& (txid, ix)
-& \mathsf{TxId} \times \mathsf{Ix}
+  \var{txin}
+& \type{TxIn}
+& (\var{txid}, \var{ix})
+& \type{TxId} \times \type{Ix}
 & \text{transaction input}
 \\
-  txout
-& \mathsf{TxOut}
-& (addr, c)
-& \mathsf{Addr} \times \mathsf{Coin}
+  \var{txout}
+& \type{TxOut}
+& (\var{addr}, c)
+& \type{Addr} \times \type{Coin}
 & \text{transaction output}
 \\
-  utxo
-& \mathsf{UTxO}
-& txin \mapsto txout
-& \mathsf{TxIn} \mapsto \mathsf{TxOut}
+  \var{utxo}
+& \type{UTxO}
+& \var{txin} \mapsto \var{txout}
+& \type{TxIn} \mapsto \type{TxOut}
 & \text{unspent tx outputs}
 \end{array}
 \end{equation*}
@@ -3488,7 +3497,7 @@ a reasonable starting point for tests and an implementation.
 %
 \begin{equation*}
 \begin{array}{lr}
-  \mathsf{txid} \in \mathsf{Tx} \to \mathsf{TxId}
+  \fun{txid} \in \type{Tx} \to \type{TxId}
 & \text{compute transaction id}
 \end{array}
 \end{equation*}
@@ -3500,36 +3509,36 @@ a reasonable starting point for tests and an implementation.
 \begin{figure}
 
 \begin{align*}
-& \mathsf{txins} \in \mathsf{Tx} \to \powerset{\mathsf{TxIn}}
+& \fun{txins} \in \type{Tx} \to \powerset{\type{TxIn}}
 & \text{transaction inputs} \\
-& \mathsf{txins} ~ (\mathit{inputs}, \,\underline{\phantom{a}}\,) = \mathit{inputs}
+& \fun{txins} ~ (\var{inputs}, \,\underline{\phantom{a}}\,) = \var{inputs}
 \\[1em]
-& \mathsf{txouts} \in \mathsf{Tx} \to \mathsf{UTxO}
+& \fun{txouts} \in \type{Tx} \to \type{UTxO}
 & \text{transaction outputs as UTxO} \\
-& \mathsf{txouts} ~ \mathit{tx} =
-  \left\{ (\mathsf{txid} ~ \mathit{tx}, \mathit{ix}) \mapsto \mathit{txout} ~
+& \fun{txouts} ~ \var{tx} =
+  \left\{ (\fun{txid} ~ \var{tx}, \var{ix}) \mapsto \var{txout} ~
   \middle| \begin{array}{l@{~}c@{~}l}
-             (\,\underline{\phantom{a}}\,,\, \mathit{outputs}) & = & \mathit{tx} \\
-             \mathit{ix} \mapsto \mathit{txout} & \in & \mathit{outputs}
+             (\_, \var{outputs}) & = & \var{tx} \\
+             \var{ix} \mapsto \var{txout} & \in & \var{outputs}
            \end{array}
   \right\}
 \\[1em]
-& \mathsf{balance} \in \mathsf{UTxO} \to \mathsf{Coin}
+& \fun{balance} \in \type{UTxO} \to \type{Coin}
 & \text{UTxO balance} \\
-& \mathsf{balance} ~ utxo = \sum_{(\,\underline{\phantom{a}}\, ~ \mapsto (\,\underline{\phantom{a}}\,, \,c)) \in \mathit{utxo}} c
+& \fun{balance} ~ utxo = \sum_{(\,\underline{\phantom{a}}\, ~ \mapsto (\,\underline{\phantom{a}}\,, \,c)) \in \var{utxo}} c
 \end{align*}
 
 \begin{align*}
-  \mathit{ins} \restrictdom \mathit{utxo}
-& = \{ i \mapsto o \mid i \mapsto o \in \mathit{utxo}, ~ i \in \mathit{ins} \}
+  \var{ins} \restrictdom \var{utxo}
+& = \{ i \mapsto o \mid i \mapsto o \in \var{utxo}, ~ i \in \var{ins} \}
 & \text{domain restriction}
 \\
-  \mathit{ins} \subtractdom \mathit{utxo}
-& = \{ i \mapsto o \mid i \mapsto o \in \mathit{utxo}, ~ i \notin \mathit{ins} \}
+  \var{ins} \subtractdom \var{utxo}
+& = \{ i \mapsto o \mid i \mapsto o \in \var{utxo}, ~ i \notin \var{ins} \}
 & \text{domain exclusion}
 \\
-  \mathit{utxo} \restrictrange \mathit{outs}
-& = \{ i \mapsto o \mid i \mapsto o \in \mathit{utxo}, ~ o \in \mathit{outs} \}
+  \var{utxo} \restrictrange \var{outs}
+& = \{ i \mapsto o \mid i \mapsto o \in \var{utxo}, ~ o \in \var{outs} \}
 & \text{range restriction}
 \end{align*}
 
@@ -3544,15 +3553,15 @@ a reasonable starting point for tests and an implementation.
 \begin{equation*}
 \begin{array}{r@{~\in~}lr}
   sk
-& \mathsf{SKey}
+& \type{SKey}
 & \text{signing key}
 \\
   vk
-& \mathsf{VKey}
+& \type{VKey}
 & \text{verification key}
 \\
   hk
-& \mathsf{Hash}
+& \type{Hash}
 & \text{hash of a key}
 \end{array}
 \end{equation*}
@@ -3561,13 +3570,13 @@ a reasonable starting point for tests and an implementation.
 %
 \begin{equation*}
 \begin{array}{r@{~\in~}lr}
-  \mathsf{hash} & \mathsf{VKey} \to \mathsf{Hash}
+  \fun{hash} & \type{VKey} \to \type{Hash}
 & \text{hashing a key}
 \\
-  \mathsf{sign} & \mathsf{SKey} \times \mathsf{Data} \to \mathsf{Sig}
+  \fun{sign} & \type{SKey} \times \type{Data} \to \type{Sig}
 & \text{signature}
 \\
-  \mathsf{verify} & \mathsf{VKey} \times \mathsf{Data} \times \mathsf{Sig}
+  \fun{verify} & \type{VKey} \times \type{Data} \times \type{Sig}
 & \text{verification}
 \end{array}
 \end{equation*}
@@ -3575,27 +3584,27 @@ a reasonable starting point for tests and an implementation.
 \emph{Verification property}
 %
 \begin{align*}
-\forall ~ \text{key pairs} & ~ (sk, vk), m \in \mathsf{Data}, \sigma \in \mathsf{Sig}. \\
-     & \mathsf{verify} (\mathit{vk}, m, \sigma) \\
+\forall ~ \text{key pairs} & ~ (sk, vk), m \in \type{Data}, \sigma \in \type{Sig}. \\
+     & \fun{verify} (\var{vk}, m, \sigma) \\
 \iff & \\
-     & \mathsf{sign} (\mathit{sk}, m) = \sigma
+     & \fun{sign} (\var{sk}, m) = \sigma
 \end{align*}
 %
 \emph{Notation for serialised, signed and verified data}
 %
 \begin{equation*}
 \begin{array}{lcl}
-  \llbracket x \rrbracket
+  \serialised{x}
 & \text{is}
 & \text{the serialised representation of } x
 \\[0.2em]
-  \llbracket x \rrbracket_\sigma
+  \signed{x}{\sigma}
 & \iff
-& \exists \mathit{sk}. ~ \mathsf{sign} (sk, \llbracket x \rrbracket) = \sigma
+& \exists \var{sk}. ~ \fun{sign} (sk, \serialised{x}) = \sigma
 \\[0.2em]
-  \mathcal{V}_{\mathit{vk}}\llbracket x \rrbracket_\sigma
+  \verified{\var{vk}}{x}{\sigma}
 & \iff
-& \mathsf{verify} (\mathit{vk}, \llbracket x \rrbracket, \sigma)
+& \fun{verify} (\var{vk}, \serialised{x}, \sigma)
 \end{array}
 \end{equation*}
 
@@ -3608,7 +3617,7 @@ a reasonable starting point for tests and an implementation.
 \begin{equation*}
 \frac{
 }{
-\mathcal{G}_{\mathsf{utxo}}, \emptyset
+\mathcal{G}_{\fun{utxo}}, \emptyset
 }
 \textsc{genesis}
 \end{equation*}
@@ -3617,17 +3626,17 @@ a reasonable starting point for tests and an implementation.
 %
 \begin{equation*}
 \frac{
-  \mathsf{txins} ~ \mathit{tx} \subseteq \mathit{utxo} \quad\quad
-  \mathsf{balance}~(\mathsf{txouts}~\mathit{tx}) \leq \mathsf{balance}~(\mathsf{txins} ~ \mathit{tx} \restrictdom \mathit{utxo})
+  \fun{txins} ~ \var{tx} \subseteq \var{utxo} \quad\quad
+  \fun{balance}~(\fun{txouts}~\var{tx}) \leq \fun{balance}~(\fun{txins} ~ \var{tx} \restrictdom \var{utxo})
 }{
   \begin{array}{r}
-    \mathit{utxo} \\
+    \var{utxo} \\
     \Lambda
   \end{array}
-  \xlongrightarrow[\textsc{transaction}]{\mathit{tx}}
+  \transitionarrow{transaction}{\var{tx}}
   \begin{array}{l}
-  (\mathsf{txins} ~ \mathit{tx} \subtractdom \mathit{utxo}) \cup \mathsf{txouts}~\mathit{tx} \\
-  \Lambda ; \mathit{tx}
+  (\fun{txins} ~ \var{tx} \subtractdom \var{utxo}) \union \fun{txouts}~\var{tx} \\
+  \Lambda ; \var{tx}
   \end{array}
 }
 \end{equation*}
@@ -3640,19 +3649,19 @@ a reasonable starting point for tests and an implementation.
 
 \begin{equation*}
 \frac{
-  \mathit{hk_{sk}} = \mathsf{hash} ~ \mathit{vk_{sk}} \quad\quad
-  \mathit{hk_{sk}} \notin \mathit{stkeys} \quad\quad
-  \mathcal{V}_{\mathit{vk_{sk}}}\llbracket\mathit{vk_{sk}}\rrbracket_\sigma
+  \var{hk_{sk}} = \fun{hash} ~ \var{vk_{sk}} \quad\quad
+  \var{hk_{sk}} \notin \var{stkeys} \quad\quad
+  \verified{\var{vk_{sk}}}{\var{vk_{sk}}}{\sigma}
 }{
   \begin{array}{r}
-    \mathit{stkeys} \\
-    \mathit{accounts}
+    \var{stkeys} \\
+    \var{accounts}
   \end{array}
-  \xlongrightarrow[\textsc{register stake key}]
-                  {\llbracket\mathit{vk_{sk}}\rrbracket_\sigma}
+  \transitionarrow{register stake key}
+                  {\signed{\var{vk_{sk}}}{\sigma}}
   \begin{array}{l}
-    \mathit{stkeys} \cup \{\mathit{hk_{sk}}\} \\
-    \mathit{accounts} \cup \{\mathsf{stAcc}~\mathit{hk_{sk}} \mapsto 0\}
+    \var{stkeys} \union \{\var{hk_{sk}}\} \\
+    \var{accounts} \union \{\fun{stAcc}~\var{hk_{sk}} \mapsto 0\}
   \end{array}
 }
 \end{equation*}
@@ -3661,19 +3670,19 @@ a reasonable starting point for tests and an implementation.
 %
 \begin{equation*}
 \frac{
-  \mathit{hk_{sk}} = \mathsf{hash} ~ \mathit{vk_{sk}} \quad\quad
-  \mathit{hk_{sk}} \in \mathit{stkeys} \quad\quad
-  \mathcal{V}_{\mathit{vk_{sk}}}\llbracket\mathit{vk_{sk}}\rrbracket_\sigma
+  \var{hk_{sk}} = \fun{hash} ~ \var{vk_{sk}} \quad\quad
+  \var{hk_{sk}} \in \var{stkeys} \quad\quad
+  \verified{\var{vk_{sk}}}{\var{vk_{sk}}}{\sigma}
 }{
   \begin{array}{r}
-    \mathit{stkeys} \\ \mathit{accounts} \\ \mathit{delegations}
+    \var{stkeys} \\ \var{accounts} \\ \var{delegations}
   \end{array}
-  \xlongrightarrow[\textsc{deregister stake key}]
-                  {\llbracket\mathit{vk_{sk}}\rrbracket_\sigma}
+  \transitionarrow{deregister stake key}
+                  {\signed{\var{vk_{sk}}}{\sigma}}
   \begin{array}{l}
-  \mathit{stkeys} \setminus \{\mathit{hk_{sk}}\} \\
-  \{\mathsf{skAcc}~\mathit{hk_{sk}}\} \subtractdom \mathit{accounts} \\
-  \{\mathit{hk_{sk}}\} \subtractdom \mathit{delegations}
+  \var{stkeys} \setminus \{\var{hk_{sk}}\} \\
+  \{\fun{skAcc}~\var{hk_{sk}}\} \subtractdom \var{accounts} \\
+  \{\var{hk_{sk}}\} \subtractdom \var{delegations}
   \end{array}
 }
 \end{equation*}
@@ -3682,15 +3691,15 @@ a reasonable starting point for tests and an implementation.
 %
 \begin{equation*}
 \frac{
-  \mathit{cert} = (\mathit{vk_{sk}}, \mathit{hk_{sp}}) \quad\quad
-  \mathit{hk_{sk}} = \mathsf{hash} ~ \mathit{vk_{sk}} \quad\quad
-  \mathit{hk_{sk}} \in \mathit{stkeys} \quad\quad
-  \mathcal{V}_{\mathit{vk_{sk}}}\llbracket\mathit{cert}\rrbracket_\sigma
+  \var{cert} = (\var{vk_{sk}}, \var{hk_{sp}}) \quad\quad
+  \var{hk_{sk}} = \fun{hash} ~ \var{vk_{sk}} \quad\quad
+  \var{hk_{sk}} \in \var{stkeys} \quad\quad
+  \verified{\var{vk_{sk}}}{\var{cert}}{\sigma}
 }{
-  \mathit{stkeys} \vdash \mathit{delegations}
-  \xlongrightarrow[\textsc{delegate}]
-                  {\llbracket\mathit{cert}\rrbracket_\sigma}
-  \mathit{delegations} \unionoverride \{\mathit{hk_{sk}} \mapsto \mathit{hk_{sp}}\}
+  \var{stkeys} \vdash \var{delegations}
+  \transitionarrow{delegate}
+                  {\signed{\var{cert}}{\sigma}}
+  \var{delegations} \unionoverride \{\var{hk_{sk}} \mapsto \var{hk_{sp}}\}
 }
 \end{equation*}
 
@@ -3703,21 +3712,24 @@ a reasonable starting point for tests and an implementation.
 \begin{equation*}
 \frac{
   \begin{array}{c}
-    \mathit{cert} = (\mathit{vk_{sp}}, \mathit{pledge}, (c, m), \mathit{alt}) \quad\quad
-    \mathit{hk_{sp}} = \mathsf{hash} ~ \mathit{vk_{sp}}
+    \var{cert} = (\var{vk_{sp}}, \var{pledge}, (c, m), \var{alt}) \quad\quad
+    \var{hk_{sp}} = \fun{hash} ~ \var{vk_{sp}}
     \\[0.3em]
-    \mathcal{V}_{\mathit{vk_{sp}}}\llbracket\mathit{cert}\rrbracket_\sigma \quad\quad  \forall \mathit{vk_{sk}} \in \mathit{pledge}. ~ \exists \sigma \in \Sigma. ~ \mathcal{V}_{\mathit{vk_{sk}}}\llbracket\mathit{cert}\rrbracket_\sigma  \quad\quad
-    \left|\mathit{pledge}\right| = \left|\Sigma\right|
+    \verified{\var{vk_{sp}}}{\var{cert}}{\sigma} \quad\quad 
+    \forall \var{vk_{sk}} \in \var{pledge}. ~ \exists \sigma \in \Sigma. ~
+      \verified{\var{vk_{sk}}}{\var{cert}}{\sigma}  \quad\quad
+    \size{\var{pledge}} = \size{\Sigma}
   \end{array}
 }{
   \begin{array}{r}
-    \mathit{stpools} \\
-    \mathit{retiring}
+    \var{stpools} \\
+    \var{retiring}
   \end{array}
-  \xlongrightarrow[\textsc{register stake pool}]{\llbracket \mathit{cert} \rrbracket_{\sigma,\Sigma}}
+  \transitionarrow{register stake pool}
+                  {\signed{\var{cert}}{\sigma,\Sigma}}
   \begin{array}{l}
-    \mathit{stpools} \unionoverride \{\mathit{hk_{sp}} \mapsto cert\} \\
-    \{\mathit{hk_{sp}}\} \subtractdom \mathit{retiring}
+    \var{stpools} \unionoverride \{\var{hk_{sp}} \mapsto cert\} \\
+    \{\var{hk_{sp}}\} \subtractdom \var{retiring}
   \end{array}
 }
 \end{equation*}
@@ -3727,21 +3739,22 @@ a reasonable starting point for tests and an implementation.
 \begin{equation*}
 \frac{
   \begin{array}{c}
-    \mathit{cert} = (\mathit{vk_{sp}}, e) \quad\quad
-    \mathit{hk_{sp}} = \mathsf{hash} ~ \mathit{vk_{sp}}
+    \var{cert} = (\var{vk_{sp}}, e) \quad\quad
+    \var{hk_{sp}} = \fun{hash} ~ \var{vk_{sp}}
     \\[0.3em]
-    \mathit{hk_{sp}} \in \dom \mathit{stpools} \quad\quad
-    \mathit{epoch} < e < \mathit{epoch} + E_\mathit{max} \quad\quad
-    \mathcal{V}_{\mathit{vk_{sp}}}\llbracket\mathit{cert}\rrbracket_\sigma
+    \var{hk_{sp}} \in \dom \var{stpools} \quad\quad
+    \var{epoch} < e < \var{epoch} + E_\var{max} \quad\quad
+    \verified{\var{vk_{sp}}}{\var{cert}}{\sigma}
   \end{array}
 }{
   \begin{array}{r}
-    \mathit{epoch} \\
-    \mathit{stpools}
+    \var{epoch} \\
+    \var{stpools}
   \end{array}
-  \vdash \mathit{retiring}
-  \xlongrightarrow[\textsc{retire stake pool}]{\llbracket \mathit{cert} \rrbracket_\sigma}
-  \mathit{retiring} \unionoverride \{ \mathit{hk_{sp}} \mapsto e \}
+  \vdash \var{retiring}
+  \transitionarrow{retire stake pool}
+                  {\signed{\var{cert}}{\sigma}}
+  \var{retiring} \unionoverride \{ \var{hk_{sp}} \mapsto e \}
 }
 \end{equation*}
 %
@@ -3749,17 +3762,20 @@ a reasonable starting point for tests and an implementation.
 %
 \begin{equation*}
 \frac{
-  \mathit{retiring_{now}} = \{ \mathit{hk_{sp}} \mid \mathit{hk_{sp}} \mapsto e \in \mathit{retiring}, ~ e = \mathit{epoch} \}
+  \var{retiring_{now}} = \{ \var{hk_{sp}} \mid
+                            \var{hk_{sp}} \mapsto e \in \var{retiring}, ~
+                            e = \var{epoch}
+                         \}
 }{
-  \mathit{epoch} \vdash
+  \var{epoch} \vdash
   \begin{array}{r}
-    \mathit{stpools} \\
-    \mathit{retiring}
+    \var{stpools} \\
+    \var{retiring}
   \end{array}
-  \xlongrightarrow[\textsc{reap stake pools}]{}
+  \transitionarrow{reap stake pools}{}
   \begin{array}{l}
-    \mathit{retiring_{now}} \subtractdom \mathit{stpools} \\
-    \mathit{retiring_{now}} \subtractdom \mathit{retiring}
+    \var{retiring_{now}} \subtractdom \var{stpools} \\
+    \var{retiring_{now}} \subtractdom \var{retiring}
   \end{array}
 }
 \end{equation*}

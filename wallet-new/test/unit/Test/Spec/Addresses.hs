@@ -18,10 +18,10 @@ import           Test.QuickCheck.Monadic (PropertyM, monadicIO, pick)
 import           Pos.Core (Address)
 import           Pos.Crypto (EncryptedSecretKey, safeDeterministicKeyGen)
 
-import           Cardano.Wallet.API.Request (RequestParams(..))
-import           Cardano.Wallet.API.Request.Pagination (PaginationParams(..),
-                     Page(..), PerPage(..))
-import           Cardano.Wallet.API.Response (WalletResponse(wrData))
+import           Cardano.Wallet.API.Request (RequestParams (..))
+import           Cardano.Wallet.API.Request.Pagination (Page (..),
+                     PaginationParams (..), PerPage (..))
+import           Cardano.Wallet.API.Response (WalletResponse (wrData))
 import           Cardano.Wallet.API.V1.Handlers.Addresses as Handlers
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel

@@ -558,12 +558,12 @@ instance DSL.Hash h Addr => Interpret h (BlockMeta' h) where
       _blockMetaAddressMeta <- intAddrMetas addrMeta'
       return $ BlockMeta {..}
       where
-          intAddrMetas :: Map Addr AddressMeta -> IntT h e m (InDb (Map Address AddressMeta))
-          intAddrMetas addrMetas= InDb . Map.fromList <$> mapM intAddrMeta (Map.toList addrMetas)
+          intAddrMetas :: Map Addr AddressMeta -> IntT h e m (Map (InDb Address) AddressMeta)
+          intAddrMetas addrMetas= Map.fromList <$> mapM intAddrMeta (Map.toList addrMetas)
 
           -- Interpret only the key, leaving the indexed value AddressMeta unchanged
-          intAddrMeta :: (Addr,AddressMeta) -> IntT h e m (Address,AddressMeta)
-          intAddrMeta (addr,addrMeta) = (,addrMeta) . addrInfoCardano <$> int addr
+          intAddrMeta :: (Addr,AddressMeta) -> IntT h e m (InDb Address, AddressMeta)
+          intAddrMeta (addr,addrMeta) = (,addrMeta) . InDb . addrInfoCardano <$> int addr
 
           intTxIds :: Map (h (DSL.Transaction h Addr)) SlotId -> IntT h e m (InDb (Map TxId SlotId))
           intTxIds txIds = InDb . Map.fromList <$> mapM intTxId (Map.toList txIds)

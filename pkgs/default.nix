@@ -14568,8 +14568,8 @@ version = "1.1.0";
 src = fetchgit {
 
 url = "https://github.com/input-output-hk/cardano-crypto";
-sha256 = "1v165n4cmp4g272406vaaan7bwvrw2m55jwcbz8qqjxslxv1l63p";
-rev = "33c7ecc6e4bd71c3ea0195e9d796eeace7be22cf";
+sha256 = "0ax9gxbr3qnji1jwz2rz97573lkyi4128m2ck90bi1x15p4bm65y";
+rev = "e87fcd3fea18f664d6e4f39c11abb8cafbd25785";
 
 };
 isLibrary = true;
@@ -14746,6 +14746,7 @@ license = stdenv.lib.licenses.bsd3;
 , http-client
 , http-client-tls
 , http-conduit
+, http-types
 , lens
 , log-warper
 , memory
@@ -14841,6 +14842,7 @@ hspec
 http-client
 http-client-tls
 http-conduit
+http-types
 lens
 log-warper
 memory
@@ -17599,6 +17601,7 @@ license = stdenv.lib.licenses.mit;
 , monad-control
 , MonadRandom
 , mtl
+, pvss
 , QuickCheck
 , random
 , reflection
@@ -17735,10 +17738,12 @@ lens
 log-warper
 MonadRandom
 mtl
+pvss
 QuickCheck
 safe-exceptions
 safecopy
 serokell-util
+servant
 servant-server
 stm
 universum
@@ -17784,7 +17789,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-util
 , cardano-sl-util-test
 , cardano-sl-wallet
-, cardano-sl-wallet-test
 , cassava
 , cereal
 , conduit
@@ -17798,6 +17802,7 @@ license = stdenv.lib.licenses.mit;
 , ed25519
 , exceptions
 , filepath
+, foldl
 , formatting
 , gauge
 , generics-sop
@@ -17898,7 +17903,6 @@ cardano-sl-networking
 cardano-sl-node-ipc
 cardano-sl-util
 cardano-sl-wallet
-cardano-sl-wallet-test
 cereal
 conduit
 connection
@@ -17909,6 +17913,7 @@ data-default-class
 directory
 ed25519
 exceptions
+foldl
 formatting
 generics-sop
 http-api-data
@@ -18026,7 +18031,6 @@ filepath
 formatting
 hedgehog
 hspec
-ixset-typed
 lens
 log-warper
 mtl
@@ -18058,7 +18062,6 @@ base
 bytestring
 cardano-sl-client
 cardano-sl-core
-cardano-sl-db
 cardano-sl-wallet
 cassava
 connection

@@ -349,6 +349,7 @@ instance
       where
         incorporate =
             foldr (uncurry appendToQueryString) req . toQueryString
+    hoistClientMonad _ _ _ _ = error "no hoistClientMonad here"
 
 toQueryString :: SOP.All (KnownQueryParam a) ixs => FilterOperations ixs a -> [(Text, Maybe Text)]
 toQueryString NoFilters = []

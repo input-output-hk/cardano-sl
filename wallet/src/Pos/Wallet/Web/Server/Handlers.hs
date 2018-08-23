@@ -14,8 +14,7 @@ import           Ntp.Client (NtpStatus)
 
 import           Pos.Wallet.Web.Swagger.Spec (swaggerSpecForWalletApi)
 import           Servant.API ((:<|>) ((:<|>)))
-import           Servant.Generic (AsServerT, GenericProduct, ToServant,
-                     toServant)
+import           Servant.Server.Generic (genericServerT)
 import           Servant.Server (Handler, Server, ServerT, hoistServer)
 import           Servant.Swagger.UI (swaggerSchemaUIServer)
 
@@ -66,7 +65,7 @@ servantHandlers
     -> TVar NtpStatus
     -> (TxAux -> m Bool)
     -> ServerT A.WalletApi m
-servantHandlers logTrace pm txpConfig ntpStatus submitTx = toServant' A.WalletApiRecord
+servantHandlers logTrace pm txpConfig ntpStatus submitTx = genericServerT A.WalletApiRecord
     { _test        = testHandlers
     , _wallets     = walletsHandlers logTrace
     , _accounts    = accountsHandlers logTrace
@@ -85,13 +84,13 @@ servantHandlers logTrace pm txpConfig ntpStatus submitTx = toServant' A.WalletAp
 -- branches of the API
 
 testHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WTestApi m
-testHandlers = toServant' A.WTestApiRecord
+testHandlers = genericServerT A.WTestApiRecord
     { _testReset = M.testResetAll
     , _testState = M.dumpState
     }
 
 walletsHandlers :: MonadFullWalletWebMode ctx m => TraceNamed m -> ServerT A.WWalletsApi m
-walletsHandlers logTrace = toServant' A.WWalletsApiRecord
+walletsHandlers logTrace = genericServerT A.WWalletsApiRecord
     { _getWallet              = M.getWallet logTrace
     , _getWallets             = M.getWallets logTrace
     , _newWallet              = M.newWallet logTrace
@@ -103,7 +102,7 @@ walletsHandlers logTrace = toServant' A.WWalletsApiRecord
     }
 
 accountsHandlers :: MonadFullWalletWebMode ctx m => TraceNamed m -> ServerT A.WAccountsApi m
-accountsHandlers logTrace = toServant' A.WAccountsApiRecord
+accountsHandlers logTrace = genericServerT A.WAccountsApiRecord
     { _getAccount    = M.getAccount logTrace
     , _getAccounts   = M.getAccounts logTrace
     , _updateAccount = M.updateAccount logTrace
@@ -112,13 +111,13 @@ accountsHandlers logTrace = toServant' A.WAccountsApiRecord
     }
 
 addressesHandlers :: MonadFullWalletWebMode ctx m => TraceNamed m -> ServerT A.WAddressesApi m
-addressesHandlers logTrace = toServant' A.WAddressesApiRecord
+addressesHandlers logTrace = genericServerT A.WAddressesApiRecord
     { _newAddress     = M.newAddress logTrace RandomSeed
     , _isValidAddress = M.isValidAddress
     }
 
 profileHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WProfileApi m
-profileHandlers = toServant' A.WProfileApiRecord
+profileHandlers = genericServerT A.WProfileApiRecord
     { _getProfile    = M.getUserProfile
     , _updateProfile = M.updateUserProfile
     }
@@ -130,7 +129,7 @@ txsHandlers
     -> TxpConfiguration
     -> (TxAux -> m Bool)
     -> ServerT A.WTxsApi m
-txsHandlers logTrace pm txpConfig submitTx = toServant' A.WTxsApiRecord
+txsHandlers logTrace pm txpConfig submitTx = genericServerT A.WTxsApiRecord
     { _newPayment                = M.newPayment logTrace pm txpConfig submitTx
     , _newPaymentBatch           = M.newPaymentBatch logTrace pm txpConfig submitTx
     , _txFee                     = M.getTxFee pm
@@ -142,7 +141,7 @@ txsHandlers logTrace pm txpConfig submitTx = toServant' A.WTxsApiRecord
     }
 
 updateHandlers :: MonadFullWalletWebMode ctx m => TraceNamed m -> ServerT A.WUpdateApi m
-updateHandlers logTrace = toServant' A.WUpdateApiRecord
+updateHandlers logTrace = genericServerT A.WUpdateApiRecord
     { _nextUpdate     = M.nextUpdate
     , _postponeUpdate = M.postponeUpdate
     , _applyUpdate    = M.applyUpdate logTrace
@@ -155,18 +154,18 @@ redemptionsHandlers
     -> TxpConfiguration
     -> (TxAux -> m Bool)
     -> ServerT A.WRedemptionsApi m
-redemptionsHandlers logTrace pm txpConfig submitTx = toServant' A.WRedemptionsApiRecord
+redemptionsHandlers logTrace pm txpConfig submitTx = genericServerT A.WRedemptionsApiRecord
     { _redeemADA          = M.redeemAda logTrace pm txpConfig submitTx
     , _redeemADAPaperVend = M.redeemAdaPaperVend logTrace pm txpConfig submitTx
     }
 
 reportingHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WReportingApi m
-reportingHandlers = toServant' A.WReportingApiRecord
+reportingHandlers = genericServerT A.WReportingApiRecord
     { _reportingInitialized = M.reportingInitialized
     }
 
 settingsHandlers :: MonadFullWalletWebMode ctx m => TraceNamed m -> TVar NtpStatus -> ServerT A.WSettingsApi m
-settingsHandlers logTrace ntpStatus = toServant' A.WSettingsApiRecord
+settingsHandlers logTrace ntpStatus = genericServerT A.WSettingsApiRecord
     { _getSlotsDuration    = blockchainSlotDuration <&> fromIntegral
     , _getVersion          = pure curSoftwareVersion
     , _getSyncProgress     = M.syncProgress logTrace
@@ -174,28 +173,17 @@ settingsHandlers logTrace ntpStatus = toServant' A.WSettingsApiRecord
     }
 
 backupHandlers :: MonadFullWalletWebMode ctx m => TraceNamed m -> ServerT A.WBackupApi m
-backupHandlers logTrace = toServant' A.WBackupApiRecord
-    { _importBackupJSON = M.importWalletJSON logTrace
+backupHandlers logTrace = genericServerT A.WBackupApiRecord
+    { _importBackupJSON = M.importWalletJSON
     , _exportBackupJSON = M.exportWalletJSON
     }
 
 infoHandlers :: (MonadFullWalletWebMode ctx m, HasCompileInfo) => ServerT A.WInfoApi m
-infoHandlers = toServant' A.WInfoApiRecord
+infoHandlers = genericServerT A.WInfoApiRecord
     { _getClientInfo = M.getClientInfo
     }
 
 systemHandlers :: MonadFullWalletWebMode ctx m => TraceNamed m -> ServerT A.WSystemApi m
-systemHandlers logTrace = toServant' A.WSystemApiRecord
+systemHandlers logTrace = genericServerT A.WSystemApiRecord
     { _requestShutdown = M.requestShutdown logTrace
     }
-
-----------------------------------------------------------------------------
--- Utilities
-----------------------------------------------------------------------------
-
--- | A type-restricted synonym for 'toServant' that lets us avoid some type
--- annotations
-toServant'
-    :: (a ~ r (AsServerT m), GenericProduct a)
-    => a -> ToServant a
-toServant' = toServant

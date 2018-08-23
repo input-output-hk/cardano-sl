@@ -44,7 +44,8 @@ import           Network.Wai (Application)
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
 
 import qualified Serokell.Util.Base64 as B64
-import           Servant.Generic (AsServerT, toServant)
+import           Servant.Server.Generic (AsServerT)
+import           Servant.API.Generic (toServant)
 import           Servant.Server (Server, ServerT, err405, errReasonPhrase,
                      serve)
 

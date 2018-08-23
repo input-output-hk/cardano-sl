@@ -320,17 +320,20 @@ instance HasSwagger (subApi :> res) =>
 instance HasClient m (subApi :> res) => HasClient m (CDecodeApiArg subApi :> res) where
     type Client m (CDecodeApiArg subApi :> res) = Client m (subApi :> res)
     clientWithRoute p _ req = clientWithRoute p (Proxy @(subApi :> res)) req
+    hoistClientMonad _ _ _ _ = error "no hoistClientMonad here"
 
 instance HasClient m (subApi :> res) =>
          HasClient m (WithDefaultApiArg subApi :> res) where
     type Client m (WithDefaultApiArg subApi :> res) = Client m (subApi :> res)
     clientWithRoute p _ req = clientWithRoute p (Proxy @(subApi :> res)) req
+    hoistClientMonad _ _ _ _ = error "no hoistClientMonad here"
 
 instance (RunClient m, HasClient m (Verb mt st ct $ ApiModifiedRes mod a)) =>
          HasClient m (VerbMod mod (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) where
     type Client m (VerbMod mod (Verb mt st ct a)) = Client m (Verb mt st ct $ ApiModifiedRes mod a)
     clientWithRoute p _ req =
         clientWithRoute p (Proxy @(Verb mt st ct $ ApiModifiedRes mod a)) req
+    hoistClientMonad _ _ _ _ = error "no hoistClientMonad here"
 
 -------------------------------------------------------------------------
 -- Logging

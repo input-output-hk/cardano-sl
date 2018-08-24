@@ -50,6 +50,7 @@ import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..),
                      WalletStartupOptions (..), getWalletDbOptions,
                      getWalletNodeOptions, walletDbPath, walletFlushDb,
                      walletRebuildDb)
+import qualified Cardano.Wallet.Server.LegacyPlugins as LegacyPlugins
 import qualified Cardano.Wallet.Server.Plugins as Plugins
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer.Kernel as WalletLayer.Kernel
@@ -102,15 +103,15 @@ actionWithLegacyWallet coreConfig txpConfig sscParams nodeParams ntpConfig wArgs
         keys' <- mapM getKeyById addrs
         forM_ keys' (syncWallet . keyToWalletDecrCredentials)
 
-    plugins :: TVar NtpStatus -> Plugins.Plugin WalletWebMode
+    plugins :: TVar NtpStatus -> LegacyPlugins.Plugin WalletWebMode
     plugins ntpStatus =
-        mconcat [ Plugins.conversation wArgs
-                , Plugins.legacyWalletBackend coreConfig txpConfig wArgs ntpStatus
-                , Plugins.walletDocumentation wArgs
-                , Plugins.acidCleanupWorker wArgs
-                , Plugins.syncWalletWorker (configBlkSecurityParam coreConfig)
-                , Plugins.resubmitterPlugin coreConfig txpConfig
-                , Plugins.notifierPlugin
+        mconcat [ LegacyPlugins.conversation wArgs
+                , LegacyPlugins.legacyWalletBackend coreConfig txpConfig wArgs ntpStatus
+                , LegacyPlugins.walletDocumentation wArgs
+                , LegacyPlugins.acidCleanupWorker wArgs
+                , LegacyPlugins.syncWalletWorker (configBlkSecurityParam coreConfig)
+                , LegacyPlugins.resubmitterPlugin coreConfig txpConfig
+                , LegacyPlugins.notifierPlugin
                 ]
 
 -- | The "workhorse" responsible for starting a Cardano edge node plus a number of extra plugins.
@@ -162,11 +163,24 @@ actionWithWallet coreConfig txpConfig sscParams nodeParams ntpConfig params =
         -> (Diffusion Kernel.Mode.WalletMode -> Kernel.Mode.WalletMode ())
     runNodeWithInit w nr = runNode coreConfig txpConfig nr (plugins w)
 
-    -- TODO: Don't know if we need any of the other plugins that are used
-    -- in the legacy wallet (see 'actionWithLegacyWallet').
+    -- FIXME: Do we need the monitoring API ?
     plugins :: (PassiveWalletLayer IO, PassiveWallet)
             -> Plugins.Plugin Kernel.Mode.WalletMode
-    plugins w = mconcat [ Plugins.walletBackend pm params w ]
+    plugins w = mconcat
+        -- The actual wallet backend server.
+        [ Plugins.apiServer pm params w
+
+        -- The corresponding wallet documention, served as a different
+        -- server which doesn't require client x509 certificates to
+        -- connect, but still serves the doc through TLS
+        , Plugins.docServer params
+
+        -- Periodically compact & snapshot the acid-state database.
+        , Plugins.acidStateSnapshots
+
+        -- | A @Plugin@ to notify frontend via websockets.
+        , Plugins.updateNotifier
+        ]
 
     -- Extract the logger name from node parameters
     --
@@ -178,6 +192,7 @@ actionWithWallet coreConfig txpConfig sscParams nodeParams ntpConfig params =
       where
         loggerName :: LoggerName
         loggerName = lpDefaultName . bpLoggingParams . npBaseParams $ nodeParams
+
 
 -- | Runs an edge node plus its wallet backend API.
 startEdgeNode :: HasCompileInfo => WalletStartupOptions -> IO ()

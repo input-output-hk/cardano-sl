@@ -1,0 +1,52 @@
+-- This file has been generated from package.yaml by hpack version 0.28.2.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: bb45d4a908e3e7071b1713cc12a1aa422ff25a652bd067a0c0042a4f018e6942
+
+name:           delegation
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/githubuser/delegation#readme>
+homepage:       https://github.com/githubuser/delegation#readme
+bug-reports:    https://github.com/githubuser/delegation/issues
+author:         Author name here
+maintainer:     example@example.com
+copyright:      2018 Author name here
+license:        BSD3
+build-type:     Simple
+cabal-version:  >= 1.10
+extra-source-files:
+    README.md
+
+source-repository head
+  type: git
+  location: https://github.com/githubuser/delegation
+
+library
+  exposed-modules:
+      Delegation
+  other-modules:
+      Paths_delegation
+  hs-source-dirs:
+      src
+  build-depends:
+      base >=4.7 && <5
+    , containers
+  default-language: Haskell2010
+
+test-suite delegation-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      SimpleSpec
+      Paths_delegation
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      QuickCheck
+    , base >=4.7 && <5
+    , containers
+    , delegation
+    , hspec
+  default-language: Haskell2010

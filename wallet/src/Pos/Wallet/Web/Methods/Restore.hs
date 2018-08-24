@@ -50,7 +50,8 @@ import           Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.State (AddressLookupMode (Ever), askWalletDB,
                      askWalletSnapshot, createAccount, getAccountWAddresses,
                      getWalletMeta, removeHistoryCache, setWalletSyncTip)
-import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentialsKey (..),
+                     keyToWalletDecrCredentials)
 import qualified Pos.Wallet.Web.Tracking.Restore as Restore
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.Wallet.Web.Util (getWalletAccountIds)
@@ -157,7 +158,7 @@ restoreWallet :: ( L.MonadWalletLogic ctx m
                  ) => EncryptedSecretKey -> m CWallet
 restoreWallet sk = do
     db <- WS.askWalletDB
-    let credentials@(_, wId) = eskToWalletDecrCredentials sk
+    let credentials@(_, wId) = keyToWalletDecrCredentials $ KeyForRegular sk
     Restore.restoreWallet credentials
     WS.setWalletReady db wId True
     L.getWallet wId

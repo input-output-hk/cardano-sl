@@ -17,6 +17,7 @@ import           Universum
 import           Control.Monad.Except (runExcept)
 import qualified Data.Map as M
 import           Data.Time.Units (Second)
+import           Formatting (build, sformat, (%))
 import           Servant.Server (err403, err405, errReasonPhrase)
 import           System.Wlog (logDebug)
 import           UnliftIO (MonadUnliftIO)
@@ -196,7 +197,11 @@ sendMoney pm txpConfig submitTx passphrase moneySource dstDistr policy = do
         throwM err403
         { errReasonPhrase = "Transaction creation is disabled when the wallet is restoring."
         }
-    rootSk <- getSKById srcWallet
+    rootSk <- maybe (throwM (RequestError $ sformat ("No regular source wallet with address "%build)
+                                                    srcWallet))
+                    pure
+                    =<< getSKById srcWallet
+
     checkPassMatches passphrase rootSk `whenNothing`
         throwM (RequestError "Passphrase doesn't match")
 

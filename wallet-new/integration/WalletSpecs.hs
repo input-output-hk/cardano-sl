@@ -13,7 +13,7 @@ import           Util
 
 
 walletSpecs :: WalletRef -> WalletClient IO -> Spec
-walletSpecs _ wc = do
+walletSpecs _ wc =
     describe "Wallets" $ do
         it "Creating a wallet makes it available." $ do
             newWallet <- randomWallet CreateWallet
@@ -51,6 +51,15 @@ walletSpecs _ wc = do
                 }
 
             eresp `shouldPrism_` _Right
+
+        it "creating wallet gives rise to an empty Utxo histogram" $ do
+            newWallet <- randomWallet CreateWallet
+            wallet <- createWalletCheck wc newWallet
+
+            eresp <- getUtxoStatistics wc (walId wallet)
+            utxoStatistics <- fmap wrData eresp `shouldPrism` _Right
+            let utxoStatisticsExpected = computeUtxoStatistics log10 []
+            utxoStatistics `shouldBe` utxoStatisticsExpected
   where
     testWalletAlreadyExists action = do
             newWallet1 <- randomWallet action

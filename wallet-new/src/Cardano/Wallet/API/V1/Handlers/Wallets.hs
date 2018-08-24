@@ -2,17 +2,17 @@ module Cardano.Wallet.API.V1.Handlers.Wallets where
 
 import           Universum
 
-import           Pos.Core (Coin)
+import           Servant
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
-
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
 
-import           Servant
+import           Pos.Core.Common (Coin (..))
+
 
 -- | All the @Servant@ handlers for wallet-specific operations.
 handlers :: PassiveWalletLayer IO -> ServerT Wallets.API Handler
@@ -22,6 +22,7 @@ handlers pwl =  newWallet pwl
            :<|> deleteWallet pwl
            :<|> getWallet pwl
            :<|> updateWallet pwl
+           :<|> getUtxoStatistics pwl
            :<|> checkExternalWallet pwl
            :<|> newExternalWallet pwl
            :<|> deleteExternalWallet pwl
@@ -95,6 +96,17 @@ updateWallet pwl wid walletUpdateRequest = do
     case res of
          Left e  -> throwM e
          Right w -> return $ single w
+
+getUtxoStatistics
+    :: PassiveWalletLayer IO
+    -> WalletId
+    -> Handler (WalletResponse UtxoStatistics)
+getUtxoStatistics pwl wid = do
+    res <- liftIO $ WalletLayer.getUtxos pwl wid
+    case res of
+         Left e  -> throwM e
+         Right w ->
+            return $ single $ V1.computeUtxoStatistics V1.log10 (map snd w)
 
 checkExternalWallet :: PassiveWalletLayer IO
                     -> PublicKeyAsBase58

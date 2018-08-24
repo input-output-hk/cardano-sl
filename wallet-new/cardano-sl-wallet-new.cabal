@@ -129,6 +129,7 @@ library
                        Cardano.Wallet.Server.CLI
                        Cardano.Wallet.Server.Plugins
                        Cardano.Wallet.TypeLits
+                       Cardano.Wallet.Types.UtxoStatistics
                        Cardano.Wallet.Client
                        Cardano.Wallet.Client.Http
 
@@ -175,7 +176,6 @@ library
                      , cardano-sl-node-ipc
                      , cardano-sl-util
                      , cardano-sl-wallet
-                     , cardano-sl-wallet-test
                      , cereal
                      , conduit
                      , connection
@@ -194,6 +194,7 @@ library
                      , http-client-tls
                      , http-types
                      , ixset-typed
+                     , foldl
                      , lens
                      , log-warper
                      , memory
@@ -207,6 +208,7 @@ library
                      , reflection
                      , resourcet
                      , retry
+                     , stm
                      , safecopy
                      , safe-exceptions
                      , serokell-util
@@ -354,6 +356,7 @@ executable wal-integr-test
                      , aeson-diff
                      , aeson-pretty
                      , bytestring
+                     , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-wallet
                      , cardano-sl-wallet-new
@@ -502,7 +505,6 @@ test-suite wallet-unit-tests
                     , data-default
                     , formatting
                     , hspec
-                    , ixset-typed
                     , lens
                     , log-warper
                     , mtl
@@ -640,7 +642,6 @@ benchmark cardano-sl-wallet-new-bench
                      , bytestring
                      , cardano-sl-client
                      , cardano-sl-core
-                     , cardano-sl-db
                      , cardano-sl-wallet
                      , cassava
                      , connection

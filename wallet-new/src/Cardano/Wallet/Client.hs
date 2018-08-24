@@ -89,6 +89,8 @@ data WalletClient m
         :: WalletId -> Resp m Wallet
     , updateWallet
          :: WalletId -> Update Wallet -> Resp m Wallet
+    , getUtxoStatistics
+        :: WalletId -> Resp m UtxoStatistics
     , postCheckExternalWallet
          :: PublicKeyAsBase58 -> Resp m WalletAndTxHistory
     , postExternalWallet
@@ -136,7 +138,7 @@ data WalletClient m
          :: Resp m NodeSettings
     -- info
     , getNodeInfo
-         :: Resp m NodeInfo
+         :: ForceNtpCheck -> Resp m NodeInfo
     } deriving Generic
 
 -- | Paginates through all request pages and concatenates the result.
@@ -218,6 +220,8 @@ hoistClient phi wc = WalletClient
         phi . getWallet wc
     , updateWallet =
         \x -> phi . updateWallet wc x
+    , getUtxoStatistics =
+         phi . getUtxoStatistics wc
     , postCheckExternalWallet =
         phi . postCheckExternalWallet wc
     , postExternalWallet =
@@ -250,7 +254,7 @@ hoistClient phi wc = WalletClient
     , getNodeSettings =
         phi (getNodeSettings wc)
     , getNodeInfo =
-        phi (getNodeInfo wc)
+        phi . getNodeInfo wc
     }
 
 -- | Generalize a @'WalletClient' 'IO'@ into a @('MonadIO' m) =>

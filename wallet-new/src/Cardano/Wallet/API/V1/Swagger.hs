@@ -24,6 +24,11 @@ import           Cardano.Wallet.API.V1.Swagger.Example
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.TypeLits (KnownSymbols (..))
 
+import           Pos.Core.Update (SoftwareVersion)
+import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
+import           Pos.Util.Servant (CustomQueryFlag, LoggingApi)
+import           Pos.Wallet.Web.Swagger.Instances.Schema ()
+
 import           Control.Lens ((?~))
 import           Data.Aeson (encode)
 import           Data.Aeson.Encode.Pretty
@@ -31,12 +36,9 @@ import           Data.Map (Map)
 import           Data.Swagger hiding (Example, Header)
 import           Data.Typeable
 import           Formatting (build, sformat)
+import           GHC.TypeLits (KnownSymbol)
 import           NeatInterpolation
-import           Pos.Core.Update (SoftwareVersion)
-import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
-import           Pos.Util.Servant (LoggingApi)
-import           Pos.Wallet.Web.Swagger.Instances.Schema ()
-import           Servant (Handler, ServantErr (..), Server)
+import           Servant (Handler, QueryFlag, ServantErr (..), Server)
 import           Servant.API.Sub
 import           Servant.Swagger
 import           Servant.Swagger.UI (SwaggerSchemaUI')
@@ -188,15 +190,43 @@ instance ToParamSchema Core.Address where
 instance ToParamSchema (V1 Core.Address) where
   toParamSchema _ = toParamSchema (Proxy @Core.Address)
 
+instance ( KnownSymbol sym
+         , HasSwagger sub
+         ) =>
+         HasSwagger (CustomQueryFlag sym flag :> sub) where
+    toSwagger _ =
+        let swgr       = toSwagger (Proxy @(QueryFlag sym :> sub))
+        in swgr & over (operationsOf swgr . parameters) (map toDescription)
+          where
+            toDescription :: Referenced Param -> Referenced Param
+            toDescription (Inline p@(_paramName -> pName)) =
+                case M.lookup pName customQueryFlagToDescription of
+                    Nothing -> Inline p
+                    Just d  -> Inline (p & description .~ Just d)
+            toDescription x = x
+
+
 --
 -- Descriptions
 --
+
+customQueryFlagToDescription :: Map T.Text T.Text
+customQueryFlagToDescription = M.fromList [
+    ("force_ntp_check", forceNtpCheckDescription)
+  ]
 
 requestParameterToDescription :: Map T.Text T.Text
 requestParameterToDescription = M.fromList [
     ("page", pageDescription)
   , ("per_page", perPageDescription (fromString $ show maxPerPageEntries) (fromString $ show defaultPerPageEntries))
   ]
+
+-- TODO: it would be nice to read ntp configuration directly here to fetch
+-- 30 seconds wait time instead of hardcoding it here.
+forceNtpCheckDescription :: T.Text
+forceNtpCheckDescription = [text|
+In some cases, API Clients need to force a new NTP check as a previous result gets cached. A typical use-case is after asking a user to fix its system clock. If this flag is set, request will block until NTP server responds or it will timout if NTP server is not available within **30** seconds.
+|]
 
 pageDescription :: T.Text
 pageDescription = [text|
@@ -285,10 +315,6 @@ This is the specification for the Cardano Wallet API, automatically generated as
 Software Version   | Git Revision
 -------------------|-------------------
 $deSoftwareVersion | $deGitRevision
-
-> **Warning**: This version is currently a **BETA-release** which is still under testing before
-> its final stable release. Should you encounter any issues or have any remarks, please let us
-> know; your feedback is highly appreciated.
 
 
 Getting Started
@@ -831,6 +857,24 @@ curl -X GET 'https://127.0.0.1:8090/api/v1/transactions?wallet_id=Ae2tdPwU...3AV
   --cert ./scripts/tls-files/client.pem
 ```
 
+
+Getting Utxo statistics
+---------------------------------
+
+You can get Utxo statistics of a given wallet using
+ [`GET /api/v1/wallets/{{walletId}}/statistics/utxos`](#tag/Accounts%2Fpaths%2F~1api~1v1~1wallets~1{walletId}~1statistics~1utxos%2Fget)
+```
+curl -X GET \
+  https://127.0.0.1:8090/api/v1/wallets/Ae2tdPwUPE...8V3AVTnqGZ/statistics/utxos \
+  -H 'Accept: application/json;charset=utf-8' \
+  --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem
+```
+
+```json
+$readUtxoStatistics
+```
+
 Make sure to carefully read the section about [Pagination](#section/Pagination) to fully
 leverage the API capabilities.
 |]
@@ -845,7 +889,7 @@ leverage the API capabilities.
     readFees             = decodeUtf8 $ encodePretty $ genExample @(WalletResponse EstimatedFees)
     readNodeInfo         = decodeUtf8 $ encodePretty $ genExample @(WalletResponse NodeInfo)
     readTransactions     = decodeUtf8 $ encodePretty $ genExample @(WalletResponse [Transaction])
-
+    readUtxoStatistics   = decodeUtf8 $ encodePretty $ genExample @(WalletResponse UtxoStatistics)
 
 -- | Provide an alternative UI (ReDoc) for rendering Swagger documentation.
 swaggerSchemaUIServer

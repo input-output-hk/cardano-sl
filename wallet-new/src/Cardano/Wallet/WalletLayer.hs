@@ -7,6 +7,7 @@ module Cardano.Wallet.WalletLayer
     , UpdateWalletError(..)
     , UpdateWalletPasswordError(..)
     , DeleteWalletError(..)
+    , GetUtxosError(..)
     , NewPaymentError(..)
     , EstimateFeesError(..)
     , RedeemAdaError(..)
@@ -28,6 +29,7 @@ import qualified Prelude
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
 import           Pos.Chain.Block (Blund)
+import           Pos.Chain.Txp (Utxo)
 import           Pos.Core (Coin, Timestamp)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Txp (Tx, TxId)
@@ -39,8 +41,8 @@ import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
 import           Cardano.Wallet.API.Request.Sort (SortOperations (..))
 import           Cardano.Wallet.API.Response (SliceOf (..), WalletResponse)
 import           Cardano.Wallet.API.V1.Types (Account, AccountBalance,
-                     AccountIndex, AccountUpdate, Address, NewAccount,
-                     NewAddress, NewWallet, NodeInfo, NodeSettings,
+                     AccountIndex, AccountUpdate, Address, ForceNtpCheck,
+                     NewAccount, NewAddress, NewWallet, NodeInfo, NodeSettings,
                      PasswordUpdate, Payment, Redemption, Transaction, V1 (..),
                      Wallet, WalletAddress, WalletId, WalletUpdate)
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
@@ -156,6 +158,25 @@ instance Buildable DeleteWalletError where
         bprint ("DeleteWalletWalletIdDecodingFailed " % build) txt
     build (DeleteWalletError kernelError) =
         bprint ("DeleteWalletError " % build) kernelError
+
+data GetUtxosError =
+      GetUtxosWalletIdDecodingFailed Text
+    | GetUtxosGetAccountsError Kernel.UnknownHdRoot
+    | GetUtxosCurrentAvailableUtxoError Kernel.UnknownHdAccount
+    deriving Eq
+
+instance Show GetUtxosError where
+    show = formatToString build
+
+instance Exception GetUtxosError
+
+instance Buildable GetUtxosError where
+    build (GetUtxosWalletIdDecodingFailed txt) =
+        bprint ("GetUtxosWalletIdDecodingFailed " % build) txt
+    build (GetUtxosGetAccountsError kernelError) =
+        bprint ("GetUtxosGetAccountsError " % build) kernelError
+    build (GetUtxosCurrentAvailableUtxoError kernelError) =
+        bprint ("GetUtxosCurrentAvailableUtxoError " % build) kernelError
 
 ------------------------------------------------------------
 -- Errors when dealing with addresses
@@ -348,6 +369,8 @@ data PassiveWalletLayer m = PassiveWalletLayer
                            -> PasswordUpdate
                            -> m (Either UpdateWalletPasswordError Wallet)
     , deleteWallet         :: WalletId -> m (Either DeleteWalletError ())
+    , getUtxos             :: WalletId
+                           -> m (Either GetUtxosError [(Account, Utxo)])
     -- accounts
     , createAccount        :: WalletId
                            -> NewAccount
@@ -441,7 +464,7 @@ data ActiveWalletLayer m = ActiveWalletLayer {
       --
       -- This lives in the active wallet layer as the node info endpoint returns
       -- status information about the diffusion layer
-    , getNodeInfo :: m NodeInfo
+    , getNodeInfo :: ForceNtpCheck -> m NodeInfo
     }
 
 ------------------------------------------------------------

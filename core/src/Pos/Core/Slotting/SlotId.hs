@@ -28,7 +28,9 @@ import           Universum
 import           Control.Lens (Iso', iso, lens, makeLensesFor)
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import           Formatting (Format, bprint, build, ords, (%))
+import           Data.Text (pack)
+import           Data.Text.Lazy.Builder (fromText)
+import           Formatting (Format, bprint, build, later, (%))
 import qualified Formatting.Buildable as Buildable
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
@@ -50,7 +52,25 @@ data SlotId = SlotId
 
 instance Buildable SlotId where
     build SlotId {..} =
-        bprint (ords%" slot of "%ords%" epoch") (getSlotIndex siSlot) siEpoch
+        bprint (intords%" slot of "%intords%" epoch")
+            (getSlotIndex siSlot) (getEpochIndex siEpoch)
+
+-- | temporary reimplementation of 'ords' from "Formatting"
+--   because the original function converts the integer value to a real number
+intords :: (Show n, Integral n) => Format r (n -> r)
+intords = later go
+  where
+    fmt = fromText . pack . show
+    go n
+      | tens > 3 && tens < 21 = fmt n <> "th"
+      | otherwise =
+            fmt n <>
+            case n `mod` 10 of
+              1 -> "st"
+              2 -> "nd"
+              3 -> "rd"
+              _ -> "th"
+      where tens = n `mod` 100
 
 instance NFData SlotId
 

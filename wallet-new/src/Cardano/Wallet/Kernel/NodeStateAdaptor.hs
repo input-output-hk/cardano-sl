@@ -54,7 +54,6 @@ import qualified Formatting.Buildable
 import           Ntp.Client (NtpStatus (..))
 import           Ntp.Packet (NtpOffset)
 import           Serokell.Data.Memory.Units (Byte)
-import           System.Wlog (CanLog (..), HasLoggerName (..))
 
 import qualified Cardano.Wallet.API.V1.Types as V1
 import           Pos.Chain.Block (Block, HeaderHash, MainBlock, blockHeader,
@@ -88,6 +87,7 @@ import           Pos.Util (CompileTimeInfo, HasCompileInfo, HasLens (..),
                      lensOf', withCompileInfo)
 import qualified Pos.Util as Util
 import           Pos.Util.Concurrent.PriorityLock (Priority (..))
+import           Pos.Util.Wlog (CanLog (..), HasLoggerName (..))
 
 import           Test.Pos.Configuration (withDefConfiguration,
                      withDefUpdateConfiguration)

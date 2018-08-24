@@ -17,7 +17,6 @@ import qualified Crypto.Random as Rand
 import qualified Data.HashMap.Strict as HM
 import           Formatting (build, int, sformat, (%))
 import           Serokell.Util (listJson)
-import           System.Wlog (WithLogger, logDebug)
 import           Universum
 
 import           Pos.Chain.Block (ComponentBlock (..), HeaderHash, headerHash)
@@ -42,6 +41,7 @@ import           Pos.DB.Lrc (HasLrcContext, getSscRichmen)
 import qualified Pos.DB.Ssc.GState as DB
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Lens (_neHead, _neLast)
+import           Pos.Util.Wlog (WithLogger, logDebug)
 
 ----------------------------------------------------------------------------
 -- Modes

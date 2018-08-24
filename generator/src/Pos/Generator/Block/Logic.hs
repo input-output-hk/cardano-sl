@@ -19,7 +19,6 @@ import           Control.Monad.Random.Strict (RandT, mapRandT)
 import           Data.Default (Default)
 import           Formatting (build, sformat, (%))
 import           System.Random (RandomGen (..))
-import           System.Wlog (logWarning)
 
 import           Pos.AllSecrets (HasAllSecrets (..), unInvSecretsMap)
 import           Pos.Chain.Block (Block, BlockHeader, Blund, mkGenesisBlock)
@@ -46,6 +45,7 @@ import           Pos.Generator.Block.Param (BlockGenParams,
                      HasBlockGenParams (..))
 import           Pos.Generator.Block.Payload (genPayload)
 import           Pos.Util (HasLens', maybeThrow, _neHead)
+import           Pos.Util.Wlog (logWarning)
 
 ----------------------------------------------------------------------------
 -- Block generation

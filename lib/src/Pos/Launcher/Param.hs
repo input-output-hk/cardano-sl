@@ -12,7 +12,6 @@ module Pos.Launcher.Param
 import           Universum
 
 import           Control.Lens (makeLensesWith)
-import           System.Wlog (LoggerName)
 
 import           Pos.Behavior (BehaviorConfig (..))
 import           Pos.Chain.Security (SecurityParams)
@@ -28,6 +27,7 @@ import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.UserPublic (UserPublic)
 import           Pos.Util.UserSecret (UserSecret)
 import           Pos.Util.Util (HasLens (..))
+import           Pos.Util.Wlog (LoggerName)
 
 -- | Contains all parameters required for hierarchical logger initialization.
 data LoggingParams = LoggingParams

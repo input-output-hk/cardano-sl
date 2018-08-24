@@ -16,8 +16,6 @@ import           Data.Default (def)
 import qualified Data.HashMap.Strict as HM
 import           Data.List ((!!))
 import           Formatting (sformat, string, (%))
-import           System.Wlog (CanLog, HasLoggerName, logDebug, logError,
-                     logInfo)
 
 import           Pos.Binary (Raw)
 import           Pos.Chain.Update (SystemTag, UpId, UpdateData (..),
@@ -29,6 +27,8 @@ import           Pos.Crypto (Hash, ProtocolMagic, emptyPassphrase, hash,
                      hashHexF, unsafeHash, withSafeSigner, withSafeSigners)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Network.Update.Download (installerHash)
+import           Pos.Util.Wlog (CanLog, HasLoggerName, logDebug, logError,
+                     logInfo)
 
 import           Lang.Value (ProposeUpdateParams (..), ProposeUpdateSystem (..))
 import           Mode (MonadAuxxMode)

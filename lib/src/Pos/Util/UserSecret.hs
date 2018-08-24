@@ -54,11 +54,6 @@ import           System.FileLock (FileLock, SharedExclusive (..), lockFile,
                      unlockFile, withFileLock)
 import           System.FilePath (takeDirectory, takeFileName)
 import           System.IO (hClose, openBinaryTempFile)
-#ifdef POSIX
-import           System.Wlog (WithLogger, logInfo, logWarning)
-#else
-import           System.Wlog (WithLogger, logInfo)
-#endif
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeFull',
                      deriveSimpleBi, encodeListLen, enforceSize, serialize')
@@ -69,6 +64,11 @@ import           Pos.Crypto (EncryptedSecretKey, SecretKey, VssKeyPair,
 import           Pos.Util.UserKeyError (KeyError (..), UserKeyError (..),
                      UserKeyType (..))
 import           Test.Pos.Crypto.Arbitrary ()
+#ifdef POSIX
+import           Pos.Util.Wlog (WithLogger, logInfo, logWarning)
+#else
+import           Pos.Util.Wlog (WithLogger, logInfo)
+#endif
 
 #ifdef POSIX
 import           Formatting (oct, sformat)

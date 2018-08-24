@@ -25,7 +25,6 @@ import qualified Data.Text as T
 import           Formatting (build, int, sformat, (%))
 import           Serokell.Util.Text (listJson)
 import           Serokell.Util.Verify (VerificationRes (..))
-import           System.Wlog (WithLogger, logDebug)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Block (BlockHeader (..), HeaderHash,
@@ -46,6 +45,7 @@ import           Pos.DB.Delegation (dlgVerifyHeader, runDBCede)
 import qualified Pos.DB.GState.Common as GS (getTip)
 import qualified Pos.DB.Lrc as LrcDB
 import           Pos.DB.Update (getAdoptedBVFull)
+import           Pos.Util.Wlog (WithLogger, logDebug)
 
 -- | Result of single (new) header classification.
 data ClassifyHeaderRes

@@ -16,7 +16,6 @@ import           Control.Lens (at)
 import           Control.Monad.Except (MonadError, runExceptT, throwError)
 import           Crypto.Random (MonadRandom)
 import qualified Data.HashMap.Strict as HM
-import           System.Wlog (logError)
 
 import           Pos.Chain.Block.Union (IsMainHeader, headerSlotL)
 import           Pos.Chain.Ssc.Error (SscVerifyError (..))
@@ -38,6 +37,7 @@ import           Pos.Crypto (ProtocolMagic)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Some (Some)
 import           Pos.Util.Util (sortWithMDesc)
+import           Pos.Util.Wlog (logError)
 
 -- | Verify 'SscPayload' with respect to data provided by
 -- MonadToss. If data is valid it is also applied.  Otherwise

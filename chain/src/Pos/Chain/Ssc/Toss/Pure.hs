@@ -16,9 +16,6 @@ import           Universum hiding (id)
 
 import           Control.Lens (at, uses, (%=), (.=))
 import qualified Crypto.Random as Rand
-import           System.Wlog (CanLog, HasLoggerName (..), LogEvent,
-                     NamedPureLogger (..), WithLogger, dispatchEvents,
-                     runNamedPureLog)
 
 import           Pos.Chain.Lrc (RichmenSet, RichmenStakes)
 import           Pos.Chain.Ssc.Base (deleteSignedCommitment,
@@ -31,6 +28,9 @@ import qualified Pos.Chain.Ssc.VssCertData as VCD
 import           Pos.Core (EpochIndex, HasGenesisData, HasProtocolConstants,
                      crucialSlot, genesisVssCerts)
 import           Pos.Core.Update (BlockVersionData)
+import           Pos.Util.Wlog (CanLog, HasLoggerName (..), LogEvent,
+                     NamedPureLogger (..), WithLogger, dispatchEvents,
+                     runNamedPureLog)
 
 type MultiRichmenStakes = HashMap EpochIndex RichmenStakes
 type MultiRichmenSet   = HashMap EpochIndex RichmenSet

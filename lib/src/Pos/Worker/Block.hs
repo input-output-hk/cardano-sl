@@ -19,7 +19,6 @@ import           Formatting (Format, bprint, build, fixed, int, now, sformat,
 import           Serokell.Util (enumerate, listJson, pairF)
 import qualified System.Metrics.Label as Label
 import           System.Random (randomRIO)
-import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Chain.Block (HasBlockConfiguration, criticalCQ,
                      criticalCQBootstrap, fixedTimeCQSec, gbHeader,
@@ -66,6 +65,7 @@ import           Pos.Infra.Util.TimeLimit (logWarningSWaitLinear)
 import           Pos.Network.Block.Logic (triggerRecovery)
 import           Pos.Network.Block.Retrieval (retrievalWorker)
 import           Pos.Network.Block.WorkMode (BlockWorkMode)
+import           Pos.Util.Wlog (logDebug, logError, logInfo, logWarning)
 
 ----------------------------------------------------------------------------
 -- All workers

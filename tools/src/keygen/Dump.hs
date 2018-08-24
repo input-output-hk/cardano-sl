@@ -16,7 +16,6 @@ import           Serokell.Util (enumerate)
 import qualified Serokell.Util.Base64 as B64
 import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath ((</>))
-import           System.Wlog (WithLogger, logInfo)
 
 import           Pos.Core.Genesis (GeneratedSecrets (..), PoorSecret (..),
                      RichSecrets (..), poorSecretToEncKey)
@@ -24,6 +23,7 @@ import           Pos.Crypto (SecretKey)
 import           Pos.Util.UserSecret (UserSecret, initializeUserSecret,
                      mkGenesisWalletUserSecret, takeUserSecret, usKeys,
                      usPrimKey, usVss, usWallet, writeUserSecretRelease)
+import           Pos.Util.Wlog (WithLogger, logInfo)
 
 ----------------------------------------------------------------------------
 -- Dump individual secrets

@@ -11,7 +11,6 @@ module Pos.Listener.Delegation
 import           Universum
 
 import           Formatting (build, sformat, shown, (%))
-import           System.Wlog (WithLogger, logDebug, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Delegation (HasDlgConfiguration, MonadDelegation)
@@ -24,6 +23,7 @@ import           Pos.Infra.Communication.Protocol (Message)
 import           Pos.Infra.Communication.Relay (DataMsg)
 import           Pos.Infra.StateLock (StateLock)
 import           Pos.Util (HasLens')
+import           Pos.Util.Wlog (WithLogger, logDebug, logWarning)
 
 -- Message constraints we need to be defined.
 type DlgMessageConstraint

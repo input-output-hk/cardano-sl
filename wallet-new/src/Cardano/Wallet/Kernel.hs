@@ -25,10 +25,10 @@ import           Control.Concurrent.MVar (modifyMVar)
 import           Data.Acid (AcidState)
 import           Data.Acid.Memory (openMemoryState)
 import qualified Data.Map.Strict as Map
-import           System.Wlog (Severity (..))
 
 import           Pos.Core (ProtocolMagic)
 import           Pos.Core.Txp (TxAux (..))
+import           Pos.Util.Wlog (Severity (..))
 
 import           Cardano.Wallet.Kernel.DB.AcidState (DB, defDB)
 import           Cardano.Wallet.Kernel.DB.TxMeta

@@ -53,11 +53,11 @@ import qualified Pos.Wallet.Web.Server.Runner as V0
 import           Pos.Wallet.Web.Sockets (getWalletWebSockets,
                      upgradeApplicationWS)
 import qualified Servant
-import           System.Wlog (logInfo, modifyLoggerName, usingLoggerName)
 
 import           Pos.Context (HasNodeContext)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Util (lensOf)
+import           Pos.Util.Wlog (logInfo, modifyLoggerName, usingLoggerName)
 
 import           Cardano.NodeIPC (startNodeJsIPC)
 import           Pos.Configuration (walletProductionApi,

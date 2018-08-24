@@ -24,9 +24,9 @@ import           Universum hiding (State)
 
 import           Control.Lens.TH
 import           Data.Acid (AcidState)
-import           System.Wlog (Severity (..))
 
 import           Pos.Core (ProtocolMagic)
+import           Pos.Util.Wlog (Severity (..))
 
 import           Cardano.Wallet.Kernel.DB.AcidState (DB)
 import           Cardano.Wallet.Kernel.DB.TxMeta

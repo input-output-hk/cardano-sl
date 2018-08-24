@@ -19,10 +19,10 @@ import           Formatting (Format, build, sformat)
 import qualified System.Metrics as Metrics
 import           System.Metrics.Gauge (Gauge)
 import qualified System.Metrics.Gauge as Gauge
-import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Core.Conc (currentTime)
 import           Pos.Core.Metrics.Constants (withCardanoNamespace)
+import           Pos.Util.Wlog (WithLogger, logDebug)
 
 -- | 'MetricMonitor' is primarily used to parameterize 'recordValue'
 -- function (see below).

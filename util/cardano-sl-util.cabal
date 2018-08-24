@@ -41,6 +41,7 @@ library
                        Pos.Util.Timer
                        Pos.Util.Trace
                        Pos.Util.Util
+                       Pos.Util.Wlog
 
   other-modules:
                        Pos.Util.CompileInfoGit

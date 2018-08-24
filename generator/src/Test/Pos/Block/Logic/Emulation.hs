@@ -20,8 +20,9 @@ import qualified Control.Monad.Trans.Control as MC
 import qualified Crypto.Random as Rand
 import           Data.Coerce (coerce)
 import           Data.Time.Units (Microsecond)
-import           System.Wlog (CanLog (..))
 import           UnliftIO (MonadUnliftIO)
+
+import           Pos.Util.Wlog (CanLog (..))
 
 newtype ClockVar = ClockVar (IORef Microsecond)
 

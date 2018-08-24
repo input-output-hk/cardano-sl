@@ -41,14 +41,14 @@ import           Formatting.Buildable (Buildable (build))
 import qualified Formatting as F
 import           GHC.Generics (Generic)
 import           Prelude hiding (takeWhile)
-import           System.Wlog (LoggerConfig (..), errorPlus, fromScratch,
-                     infoPlus, lcTree, ltSeverity, maybeLogsDirB,
-                     parseLoggerConfig, productionB, setupLogging, warningPlus,
-                     zoomLogger)
 
 import           Node (Message (..))
 import           Pos.Util (realTime)
 import           Pos.Util.Trace (Trace, traceWith)
+import           Pos.Util.Wlog (LoggerConfig (..), errorPlus, fromScratch,
+                     infoPlus, lcTree, ltSeverity, maybeLogsDirB,
+                     parseLoggerConfig, productionB, setupLogging, warningPlus,
+                     zoomLogger)
 
 -- * Transfered data types
 

@@ -63,7 +63,6 @@ import qualified Network.Transport.TCP as TCP
 import           Node.Internal (NodeId (..))
 import qualified Prelude
 import qualified System.Metrics as Monitoring
-import           System.Wlog (LoggerName (..))
 
 import           Pos.Core.Metrics.Constants (cardanoNamespace)
 import           Pos.Infra.Network.DnsDomains (DnsDomains (..), NodeAddr)
@@ -73,6 +72,7 @@ import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Infra.Util.TimeWarp (addressToNodeId)
 import           Pos.Util.Trace (wlogTrace)
 import           Pos.Util.Util (HasLens', lensOf)
+import           Pos.Util.Wlog (LoggerName (..))
 
 {-------------------------------------------------------------------------------
   Network configuration

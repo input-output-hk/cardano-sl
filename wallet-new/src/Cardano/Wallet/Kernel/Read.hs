@@ -15,9 +15,9 @@ import           Universum hiding (State)
 import           Data.Acid.Advanced (query')
 import           Formatting (sformat, (%))
 import           Serokell.Util (listJson)
-import           System.Wlog (Severity (..))
 
 import           Pos.Crypto (EncryptedSecretKey)
+import           Pos.Util.Wlog (Severity (..))
 
 import           Cardano.Wallet.Kernel.DB.AcidState (DB, Snapshot (..))
 import           Cardano.Wallet.Kernel.DB.Read as Getters

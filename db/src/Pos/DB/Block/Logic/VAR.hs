@@ -23,7 +23,6 @@ import           Control.Monad.Except (ExceptT (ExceptT),
                      MonadError (throwError), runExceptT, withExceptT)
 import qualified Data.List.NonEmpty as NE
 import           Formatting (sformat, shown, (%))
-import           System.Wlog (logDebug)
 
 import           Pos.Chain.Block (ApplyBlocksException (..), Block, Blund,
                      HeaderHash, RollbackException (..), Undo (..),
@@ -53,6 +52,7 @@ import           Pos.DB.Txp.Settings
 import           Pos.DB.Update (getAdoptedBVFull, usVerifyBlocks)
 import           Pos.Util (neZipWith4, spanSafe, _neHead)
 import           Pos.Util.Util (HasLens (..))
+import           Pos.Util.Wlog (logDebug)
 
 -- -- CHECK: @verifyBlocksLogic
 -- -- #txVerifyBlocks

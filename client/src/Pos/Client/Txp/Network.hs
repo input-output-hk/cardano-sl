@@ -16,7 +16,6 @@ module Pos.Client.Txp.Network
 import           Universum
 
 import           Formatting (build, sformat, (%))
-import           System.Wlog (logInfo)
 
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Balances (MonadBalances (..), getOwnUtxo)
@@ -35,6 +34,7 @@ import           Pos.Infra.Communication.Protocol (OutSpecs)
 import           Pos.Infra.Communication.Specs (createOutSpecs)
 import           Pos.Infra.Diffusion.Types (Diffusion (sendTx))
 import           Pos.Util.Util (eitherToThrow)
+import           Pos.Util.Wlog (logInfo)
 import           Pos.WorkMode.Class (MinWorkMode)
 
 type TxMode m

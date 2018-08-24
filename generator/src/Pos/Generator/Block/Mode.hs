@@ -26,7 +26,6 @@ import           Control.Lens.TH (makeLensesWith)
 import           Control.Monad.Random.Strict (RandT)
 import qualified Crypto.Random as Rand
 import           Data.Default (Default)
-import           System.Wlog (WithLogger, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Block (HasSlogGState (..))
@@ -62,6 +61,7 @@ import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
                      MonadSlotsData, currentTimeSlottingSimple)
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Util (HasLens (..), newInitFuture, postfixLFields)
+import           Pos.Util.Wlog (WithLogger, logWarning)
 
 
 ----------------------------------------------------------------------------

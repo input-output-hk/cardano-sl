@@ -176,7 +176,6 @@ library
                       , http-conduit
                       , http-types
                       , lens
-                      , log-warper >= 1.1.1
                       , memory
                       , mmorph
                       , monad-control
@@ -327,7 +326,6 @@ test-suite cardano-test
                      , generic-arbitrary
                      , hspec
                      , lens
-                     , log-warper
                      , network-transport
                      , network-transport-inmemory
                      , pvss

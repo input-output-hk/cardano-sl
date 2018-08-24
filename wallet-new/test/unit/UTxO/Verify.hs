@@ -19,7 +19,6 @@ import           Control.Monad.State.Strict (mapStateT)
 import           Data.Default (def)
 import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
-import           System.Wlog
 
 import           Pos.Chain.Block
 import           Pos.Chain.Delegation (DlgUndo (..))
@@ -34,6 +33,7 @@ import           Pos.DB.Txp (TxpBlock)
 import           Pos.Util (neZipWith4)
 import           Pos.Util.Lens
 import qualified Pos.Util.Modifier as MM
+import           Pos.Util.Wlog
 import           Serokell.Util.Verify
 
 {-------------------------------------------------------------------------------

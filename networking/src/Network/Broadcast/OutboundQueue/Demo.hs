@@ -20,9 +20,9 @@ import qualified Data.Set as Set
 import           Data.String (fromString)
 import           Data.Text (Text)
 import           Formatting (sformat, shown, (%))
-import           System.Wlog
 
 import           Pos.Util.Trace (wlogTrace)
+import           Pos.Util.Wlog
 
 import           Network.Broadcast.OutboundQueue (OutboundQ)
 import qualified Network.Broadcast.OutboundQueue as OutQ

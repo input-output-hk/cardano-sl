@@ -21,7 +21,6 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Formatting (build, ords, sformat, (%))
 import qualified System.Metrics.Counter as Metrics
-import           System.Wlog (logDebug, logInfo, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Lrc (LrcError (..), RichmenStakes,
@@ -56,6 +55,7 @@ import qualified Pos.DB.Txp.Stakes as GS
 import           Pos.DB.Update (getAdoptedBVFull, getCompetingBVStates)
 import           Pos.Util (maybeThrow)
 import           Pos.Util.Util (HasLens (..))
+import           Pos.Util.Wlog (logDebug, logInfo, logWarning)
 
 
 ----------------------------------------------------------------------------

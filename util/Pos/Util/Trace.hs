@@ -12,7 +12,7 @@ module Pos.Util.Trace
 
 import           Data.Functor.Contravariant (Contravariant (..), Op (..))
 import qualified Data.Text.IO as TIO
-import qualified System.Wlog as Wlog
+import qualified Pos.Util.Wlog as Wlog
 import           Universum hiding (trace)
 
 -- | Abstracts logging.

@@ -17,7 +17,6 @@ import           Control.Monad.STM (retry)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Second)
 import           Formatting (build, int, sformat, (%))
-import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Chain.Block (Block, BlockHeader, HasHeaderHash (..),
                      HeaderHash)
@@ -41,6 +40,7 @@ import           Pos.Network.Block.RetrievalQueue (BlockRetrievalQueueTag,
                      BlockRetrievalTask (..))
 import           Pos.Network.Block.WorkMode (BlockWorkMode)
 import           Pos.Util.Util (HasLens (..))
+import           Pos.Util.Wlog (logDebug, logError, logInfo, logWarning)
 
 -- I really don't like join
 {-# ANN retrievalWorker ("HLint: ignore Use join" :: Text) #-}

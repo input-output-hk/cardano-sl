@@ -38,8 +38,8 @@ import           System.IO (hClose, openTempFile)
 import           Pos.Crypto (EncryptedSecretKey, hash)
 import           Pos.Util.UserSecret (UserSecret, getUSPath, isEmptyUserSecret,
                      takeUserSecret, usKeys, writeUserSecretRelease)
-import           System.Wlog (CanLog (..), HasLoggerName (..), LoggerName (..),
-                     logMessage)
+import           Pos.Util.Wlog (CanLog (..), HasLoggerName (..),
+                     LoggerName (..), logMessage)
 
 import           Cardano.Wallet.Kernel.DB.HdWallet (eskToHdRootId)
 import           Cardano.Wallet.Kernel.Types (WalletId (..))

@@ -52,9 +52,9 @@ import           Test.Pos.Crypto.Arbitrary ()
 
 #ifdef POSIX
 import           Formatting (oct, sformat)
+import           Pos.Util.Wlog (WithLogger, logWarning)
 import qualified System.Posix.Files as PSX
 import qualified System.Posix.Types as PSX (FileMode)
-import           System.Wlog (WithLogger, logWarning)
 #endif
 
 -- Because of the Formatting import

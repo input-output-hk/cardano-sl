@@ -5,7 +5,6 @@ import           Universum
 import           UnliftIO (MonadUnliftIO)
 
 import qualified Data.Map as M
-import           System.Wlog (WithLogger, logInfo, modifyLoggerName)
 
 import           Pos.Chain.Block (headerHash)
 import           Pos.Chain.Txp (genesisUtxo, unGenesisUtxo, utxoToModifier)
@@ -16,6 +15,7 @@ import           Pos.DB.Class (MonadDBRead (..))
 import           Pos.DB.Txp.Utxo (filterUtxo)
 import           Pos.Infra.Slotting (MonadSlotsData)
 import           Pos.Util (HasLens (..))
+import           Pos.Util.Wlog (WithLogger, logInfo, modifyLoggerName)
 
 import           Pos.Wallet.Web.State (WalletDB, WalletDbReader, askWalletDB,
                      setWalletRestorationSyncTip, updateWalletBalancesAndUtxo)

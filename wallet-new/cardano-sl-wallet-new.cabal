@@ -196,7 +196,6 @@ library
                      , ixset-typed
                      , foldl
                      , lens
-                     , log-warper
                      , memory
                      , mtl
                      , mwc-random
@@ -277,7 +276,6 @@ executable cardano-node
                      , cardano-sl-util
                      , cardano-sl-wallet
                      , cardano-sl-wallet-new
-                     , log-warper
                      , stm
                      , text
                      , universum
@@ -507,7 +505,6 @@ test-suite wallet-unit-tests
                     , formatting
                     , hspec
                     , lens
-                    , log-warper
                     , mtl
                     , QuickCheck
                     , quickcheck-instances

@@ -38,7 +38,6 @@ import qualified Data.Map as M
 import qualified Database.RocksDB as Rocks
 import           Formatting (sformat, (%))
 import           Serokell.Util (Color (Red), colorize, mapJson)
-import           System.Wlog (WithLogger, logError)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')
@@ -58,6 +57,7 @@ import           Pos.DB.GState.Common (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.DB.Txp (getAllPotentiallyHugeUtxo, utxoSource)
 import           Pos.Explorer.Core (AddrHistory, TxExtra (..))
 import           Pos.Util.Util (maybeThrow)
+import           Pos.Util.Wlog (WithLogger, logError)
 
 
 

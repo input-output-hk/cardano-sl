@@ -23,7 +23,6 @@ import           Data.Default (Default (def))
 import           Data.Traversable (for)
 import           Formatting (build, sformat, (%))
 import           System.IO.Error (isDoesNotExistError)
-import           System.Wlog (logDebug)
 
 import qualified Data.HashMap.Strict as HM
 import           Pos.Client.KeyStorage (addSecretKey)
@@ -35,6 +34,7 @@ import           Pos.Util (HasLens (..), maybeThrow)
 import           Pos.Util.UserSecret (UserSecretDecodingError (..),
                      WalletUserSecret (..), mkGenesisWalletUserSecret,
                      readUserSecret, usWallet, wusAccounts, wusWalletName)
+import           Pos.Util.Wlog (logDebug)
 import           Pos.Wallet.Web.Account (GenSeed (..), genSaveRootKey,
                      genUniqueAccountId)
 import           Pos.Wallet.Web.Backup (AccountMetaBackup (..),

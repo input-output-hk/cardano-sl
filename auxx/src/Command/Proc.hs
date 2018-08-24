@@ -13,8 +13,6 @@ import           Data.Default (def)
 import           Data.List ((!!))
 import qualified Data.Map as Map
 import           Formatting (build, int, sformat, stext, (%))
-import           System.Wlog (CanLog, HasLoggerName, logError, logInfo,
-                     logWarning)
 import qualified Text.JSON.Canonical as CanonicalJSON
 
 import           Pos.Chain.Txp (TxpConfiguration)
@@ -39,6 +37,8 @@ import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Util.UserSecret (WalletUserSecret (..), readUserSecret,
                      usKeys, usPrimKey, usWallet, userSecret)
 import           Pos.Util.Util (eitherToThrow)
+import           Pos.Util.Wlog (CanLog, HasLoggerName, logError, logInfo,
+                     logWarning)
 
 import           Command.BlockGen (generateBlocks)
 import           Command.Help (mkHelpMessage)

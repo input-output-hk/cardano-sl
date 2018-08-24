@@ -22,7 +22,6 @@ import           Data.List (findIndex)
 import           Data.List.NonEmpty ((<|))
 import qualified Data.List.NonEmpty as NE
 import           Formatting (int, sformat, (%))
-import           System.Wlog (WithLogger)
 
 import           Pos.Chain.Block (BlockHeader, HasBlockConfiguration,
                      HasSlogGState, HeaderHash, fixedTimeCQ, headerHash,
@@ -39,6 +38,7 @@ import           Pos.DB.Block.Slog.Context (slogGetLastSlots)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadBlockDBRead)
 import           Pos.Util (_neHead)
+import           Pos.Util.Wlog (WithLogger)
 
 -- | Find LCA of headers list and main chain, including oldest
 -- header's parent hash. Acts as it would iterate from newest to

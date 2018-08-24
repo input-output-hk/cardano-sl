@@ -105,11 +105,11 @@ import           Ether.Internal (HasLens (..))
 import qualified Formatting as F
 import           GHC.TypeLits (ErrorMessage (..))
 import qualified Language.Haskell.TH as TH
+import           Pos.Util.Wlog (LoggerName, WithLogger, logDebug, logError,
+                     logInfo, usingLoggerName)
 import qualified Prelude
 import           Serokell.Util (listJson)
 import           Serokell.Util.Exceptions ()
-import           System.Wlog (LoggerName, WithLogger, logDebug, logError,
-                     logInfo, usingLoggerName)
 import qualified Text.Megaparsec as P
 
 ----------------------------------------------------------------------------

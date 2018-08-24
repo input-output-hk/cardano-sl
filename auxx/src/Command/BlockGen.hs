@@ -11,7 +11,6 @@ import           Universum
 import           Control.Monad.Random.Strict (evalRandT)
 import           Data.Default (def)
 import           System.Random (mkStdGen, randomIO)
-import           System.Wlog (logInfo)
 
 import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Chain.Txp (TxpConfiguration)
@@ -25,6 +24,7 @@ import           Pos.Generator.Block (BlockGenParams (..), genBlocks,
 import           Pos.Infra.StateLock (Priority (..), withStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Util.CompileInfo (withCompileInfo)
+import           Pos.Util.Wlog (logInfo)
 
 import           Lang.Value (GenBlocksParams (..))
 import           Mode (MonadAuxxMode)

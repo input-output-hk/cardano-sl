@@ -15,7 +15,6 @@ module Pos.Listener.Txp
 import           Data.Tagged (Tagged (..))
 import           Formatting (build, sformat, (%))
 import           Node.Message.Class (Message)
-import           System.Wlog (WithLogger, logInfo)
 import           Universum
 
 import           Pos.Chain.Txp (TxpConfiguration)
@@ -25,6 +24,7 @@ import           Pos.DB.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem,
                      txpProcessTx)
 import qualified Pos.Infra.Communication.Relay as Relay
 import           Pos.Infra.Util.JsonLog.Events (JLEvent (..), JLTxR (..))
+import           Pos.Util.Wlog (WithLogger, logInfo)
 
 -- Real tx processing
 -- CHECK: @handleTxDo

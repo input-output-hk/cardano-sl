@@ -27,7 +27,6 @@ import qualified Control.Concurrent as Conc
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Data.Time.Units (Microsecond, TimeUnit, convertUnit,
                      toMicroseconds)
-import           System.Wlog (HasLoggerName (..))
 import           UnliftIO (MonadUnliftIO)
 import           UnliftIO.Async (async, cancel, concurrently, forConcurrently,
                      mapConcurrently, race, wait, withAsync,
@@ -35,6 +34,7 @@ import           UnliftIO.Async (async, cancel, concurrently, forConcurrently,
 import           UnliftIO.MVar (modifyMVar, newMVar)
 
 import           Pos.Util (realTime)
+import           Pos.Util.Wlog (HasLoggerName (..))
 
 currentTime :: MonadIO m => m Microsecond
 currentTime = liftIO realTime

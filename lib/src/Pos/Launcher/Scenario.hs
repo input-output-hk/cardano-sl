@@ -15,7 +15,6 @@ import           Universum
 import qualified Data.HashMap.Strict as HM
 import           Formatting (bprint, build, int, sformat, shown, (%))
 import           Serokell.Util (listJson)
-import           System.Wlog (WithLogger, askLoggerName, logInfo)
 
 import           Pos.Chain.Txp (TxpConfiguration, bootDustThreshold)
 import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion,
@@ -35,6 +34,7 @@ import           Pos.Infra.Util.LogSafe (logInfoS)
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
+import           Pos.Util.Wlog (WithLogger, askLoggerName, logInfo)
 import           Pos.Worker (allWorkers)
 import           Pos.WorkMode.Class (WorkMode)
 

@@ -32,8 +32,6 @@ import           Universum
 
 import           Data.Time.Units (Millisecond, fromMicroseconds)
 import           Formatting (int, sformat, shown, stext, (%))
-import           System.Wlog (WithLogger, logDebug, logInfo, logNotice,
-                     logWarning, modifyLoggerName)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Core (LocalSlotIndex, SlotId (..), Timestamp (..), slotIdF)
@@ -51,6 +49,8 @@ import           Pos.Infra.Slotting.Class (MonadSlots (..))
 import           Pos.Infra.Slotting.Error (SlottingError (..))
 import           Pos.Infra.Slotting.Impl.Util (slotFromTimestamp)
 import           Pos.Util.Util (maybeThrow)
+import           Pos.Util.Wlog (WithLogger, logDebug, logInfo, logNotice,
+                     logWarning, modifyLoggerName)
 
 
 

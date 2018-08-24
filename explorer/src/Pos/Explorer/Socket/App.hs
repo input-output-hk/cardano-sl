@@ -35,15 +35,15 @@ import           Network.Wai.Handler.Warp (Settings, defaultSettings,
 import           Network.Wai.Middleware.Cors (CorsResourcePolicy, Origin, cors,
                      corsOrigins, simpleCorsResourcePolicy)
 import           Serokell.Util.Text (listJson)
-import           System.Wlog (CanLog, HasLoggerName, LoggerName,
-                     NamedPureLogger, WithLogger, askLoggerName, logDebug,
-                     logInfo, logWarning, modifyLoggerName, usingLoggerName)
 
 import           Pos.Chain.Block (Blund)
 import           Pos.Core (addressF, siEpoch)
 import           Pos.Core.Conc (withAsync)
 import qualified Pos.GState as DB
 import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
+import           Pos.Util.Wlog (CanLog, HasLoggerName, LoggerName,
+                     NamedPureLogger, WithLogger, askLoggerName, logDebug,
+                     logInfo, logWarning, modifyLoggerName, usingLoggerName)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.ExplorerMode (ExplorerMode)

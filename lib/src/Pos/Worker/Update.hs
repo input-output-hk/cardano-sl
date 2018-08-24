@@ -10,7 +10,6 @@ import           Universum
 
 import           Formatting (build, sformat, (%))
 import           Serokell.Util.Text (listJsonIndent)
-import           System.Wlog (logDebug, logInfo)
 
 import           Pos.Chain.Update (ConfirmedProposalState (..),
                      curSoftwareVersion)
@@ -25,6 +24,7 @@ import           Pos.Infra.Slotting.Util (ActionTerminationPolicy (..),
 import           Pos.Listener.Update (UpdateMode)
 import           Pos.Network.Update.Download (downloadUpdate)
 import           Pos.Util.Util (lensOf)
+import           Pos.Util.Wlog (logDebug, logInfo)
 
 -- | Update System related workers.
 usWorkers

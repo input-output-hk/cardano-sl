@@ -33,7 +33,6 @@ import           Control.Monad.Free.Church (F (..))
 import           Control.Monad.Morph (generalize, hoist)
 import           Control.Monad.Reader (mapReaderT)
 import           Control.Monad.State.Strict (mapStateT)
-import           System.Wlog (NamedPureLogger)
 
 import           Pos.Chain.Txp (ExtendedGlobalToilM, ExtendedLocalToilM,
                      StakesLookupF)
@@ -45,6 +44,7 @@ import           Pos.Explorer.Txp.Toil.Types (ExplorerExtraLookup (..),
                      eemLocalTxsExtra, eemNewUtxoSum)
 import           Pos.Util (type (~>))
 import qualified Pos.Util.Modifier as MM
+import           Pos.Util.Wlog (NamedPureLogger)
 
 ----------------------------------------------------------------------------
 -- Monadic actions with extra txp data.

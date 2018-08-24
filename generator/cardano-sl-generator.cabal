@@ -55,7 +55,6 @@ library
                      , exceptions
                      , formatting
                      , lens
-                     , log-warper
                      , monad-control
                      , random
                      , safe-exceptions
@@ -273,7 +272,6 @@ executable cardano-sl-verification-bench-exe
                       , ether
                       , formatting
                       , lens
-                      , log-warper
                       , lrucache
                       , MonadRandom
                       , mtl

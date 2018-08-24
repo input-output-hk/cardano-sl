@@ -21,7 +21,6 @@ import qualified Control.Concurrent.STM as STM
 import           Control.Monad.Except (runExceptT, throwError)
 import           Formatting (bprint, build, sformat, stext, (%))
 import qualified Formatting.Buildable
-import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Core (SlotCount, SlotId, epochOrSlotG, epochOrSlotToSlot,
                      flattenSlotId, slotIdF, slotSecurityParam)
@@ -30,6 +29,7 @@ import           Pos.DB.Class (MonadDBRead)
 import           Pos.Infra.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Infra.Slotting.Class (MonadSlots (getCurrentSlot))
 import           Pos.Util.Util (HasLens (..))
+import           Pos.Util.Wlog (WithLogger, logDebug)
 
 newtype TipSlot = TipSlot SlotId
 

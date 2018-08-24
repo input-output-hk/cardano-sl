@@ -12,7 +12,6 @@ import           Universum hiding (id)
 import           Crypto.Random (drgNewSeed, seedNew, withDRG)
 import qualified Data.HashMap.Strict as HM
 import           Formatting (build, sformat, (%))
-import           System.Wlog (WithLogger, launchNamedPureLog, logWarning)
 
 import           Pos.Binary.Class (AsBinary, asBinary, fromBinary)
 import           Pos.Chain.Ssc.Mem (MonadSscMem, SscGlobalQuery,
@@ -22,6 +21,7 @@ import           Pos.Core.Common (StakeholderId, addressHash)
 import           Pos.Core.Ssc (Commitment (..), getCommitmentsMap)
 import           Pos.Crypto (DecShare, EncShare, VssKeyPair, VssPublicKey,
                      decryptShare, toVssPublicKey)
+import           Pos.Util.Wlog (WithLogger, launchNamedPureLog, logWarning)
 
 -- | Decrypt shares (in commitments) that are intended for us and that we can
 -- decrypt.

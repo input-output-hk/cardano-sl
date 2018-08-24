@@ -39,7 +39,7 @@ import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Class (MonadDBRead, MonadGState (..))
 import           Pos.DB.Txp.MemState.Types (GenericTxpLocalData (..))
 import           Pos.Util.Util (HasLens (..))
-import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog)
+import           Pos.Util.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog)
 
 data TxpHolderTag
 

@@ -51,7 +51,8 @@ import qualified Formatting as F
 import           Formatting.Buildable (build)
 import qualified Language.Haskell.TH.Syntax as TH
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
-import           System.Wlog (CanLog, HasLoggerName (..), LoggerNameBox (..))
+
+import           Pos.Util.Wlog (CanLog, HasLoggerName (..), LoggerNameBox (..))
 
 ----------------------------------------------------------------------------
 -- Orphan miscellaneous instances

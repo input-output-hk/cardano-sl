@@ -13,8 +13,6 @@ import           Formatting (build, sformat, stext, string, (%))
 import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath ((</>))
 import           System.FilePath.Glob (glob)
-import           System.Wlog (WithLogger, debugPlus, logInfo, productionB,
-                     setupLogging, termSeveritiesOutB, usingLoggerName)
 import qualified Text.JSON.Canonical as CanonicalJSON
 
 import           Pos.Binary (asBinary, serialize')
@@ -33,6 +31,8 @@ import           Pos.Launcher (HasConfigurations, withConfigurations)
 import           Pos.Util.UserSecret (readUserSecret, takeUserSecret, usKeys,
                      usPrimKey, usVss, usWallet, writeUserSecretRelease,
                      wusRootKey)
+import           Pos.Util.Wlog (WithLogger, debugPlus, logInfo, productionB,
+                     setupLogging, termSeveritiesOutB, usingLoggerName)
 
 import           Dump (dumpFakeAvvmSeed, dumpGeneratedGenesisData,
                      dumpRichSecrets)

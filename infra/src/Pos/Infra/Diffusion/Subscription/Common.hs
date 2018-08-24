@@ -32,7 +32,6 @@ import           Network.Broadcast.OutboundQueue.Types (removePeer, simplePeers)
 
 import           Formatting (sformat, shown, (%))
 import           System.Clock (Clock (Monotonic), TimeSpec, getTime, toNanoSecs)
-import           System.Wlog (Severity (..))
 
 import           Pos.Infra.Communication.Listener (listenerConv)
 import           Pos.Infra.Communication.Protocol (Conversation (..),
@@ -45,6 +44,7 @@ import qualified Pos.Infra.Diffusion.Subscription.Status as Status (subscribed,
                      subscribing, terminated)
 import           Pos.Infra.Network.Types (Bucket (..), NodeType)
 import           Pos.Util.Trace (Trace, traceWith)
+import           Pos.Util.Wlog (Severity (..))
 
 
 -- | While holding the MVar, update the outbound queue bucket with the new

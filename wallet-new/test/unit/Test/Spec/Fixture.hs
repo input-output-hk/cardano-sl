@@ -14,7 +14,7 @@ module Test.Spec.Fixture (
 
 import           Universum
 
-import           System.Wlog (Severity)
+import           Pos.Util.Wlog (Severity)
 
 import           Pos.Core (Config (..))
 

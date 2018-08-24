@@ -27,6 +27,7 @@ module Cardano.Wallet.Kernel.NodeStateAdaptor (
   , compileInfo
   , getNtpStatus
     -- * Non-mockable
+  , filterUtxo
   , mostRecentMainBlock
   , triggerShutdown
   , waitForUpdate
@@ -43,6 +44,8 @@ import           Universum
 import           Control.Lens (lens)
 import           Control.Monad.IO.Unlift (MonadUnliftIO, UnliftIO (UnliftIO),
                      askUnliftIO, unliftIO, withUnliftIO)
+import           Data.Conduit (mapOutputMaybe, runConduitRes, (.|))
+import qualified Data.Conduit.List as Conduit
 import           Data.SafeCopy (base, deriveSafeCopy)
 import           Data.Time.Units (Millisecond)
 import           Formatting (bprint, build, sformat, shown, (%))
@@ -63,12 +66,14 @@ import           Pos.Core.Configuration (HasConfiguration, genesisHash,
                      protocolConstants)
 import           Pos.Core.Slotting (EpochIndex (..), HasSlottingVar (..),
                      LocalSlotIndex (..), MonadSlots (..), SlotId (..))
+import           Pos.Core.Txp (TxIn, TxOutAux)
 import qualified Pos.DB.Block as DB
 import           Pos.DB.BlockIndex (getTipHeader)
 import           Pos.DB.Class (MonadDBRead (..), getBlock)
 import           Pos.DB.GState.Lock (StateLock, withStateLockNoMetrics)
 import           Pos.DB.Rocks.Functions (dbGetDefault, dbIterSourceDefault)
 import           Pos.DB.Rocks.Types (NodeDBs)
+import           Pos.DB.Txp.Utxo (utxoSource)
 import           Pos.DB.Update (UpdateContext, getAdoptedBVData,
                      ucDownloadedUpdate)
 import           Pos.Infra.Shutdown.Class (HasShutdownContext (..))
@@ -400,6 +405,11 @@ defaultGetNextEpochSlotDuration = Slotting.getNextEpochSlotDuration
 {-------------------------------------------------------------------------------
   Non-mockable functinos
 -------------------------------------------------------------------------------}
+
+filterUtxo :: (NodeConstraints, MonadCatch m, MonadUnliftIO m)
+           => ((TxIn, TxOutAux) -> Maybe a) -> WithNodeState m [a]
+filterUtxo p = runConduitRes $ mapOutputMaybe p utxoSource
+                            .| Conduit.fold (flip (:)) []
 
 triggerShutdown :: MonadIO m => WithNodeState m ()
 triggerShutdown = Shutdown.triggerShutdown

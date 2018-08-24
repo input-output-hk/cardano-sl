@@ -66,9 +66,28 @@ estimateFees activeWallet pw grouping regulation payment = liftIO $
 redeemAda :: MonadIO m
           => Kernel.ActiveWallet
           -> V1.Redemption
-          -> m (Either RedeemAdaError Tx)
-redeemAda _activeWallet _redemption = liftIO $
-    error "TODO: redeemAda: not yet implemented"
+          -> m (Either RedeemAdaError (Tx, TxMeta))
+redeemAda aw
+          V1.Redemption{
+              redemptionRedemptionCode   = code
+            , redemptionMnemonic         = mMnemonic
+            , redemptionSpendingPassword = V1.V1 spendingPassword
+            , redemptionWalletId         = wId
+            , redemptionAccountIndex     = accIx
+            } = runExceptT $ do
+    accId <- withExceptT RedeemAdaWalletIdDecodingFailed $
+               fromAccountId wId accIx
+    case mMnemonic of
+      Nothing -> do
+        redeemKey <- withExceptT RedeemAdaInvalidRedemptionCode $
+                       fromRedemptionCode code
+        withExceptT RedeemAdaError $ ExceptT $ liftIO $
+          Kernel.redeemAda aw accId spendingPassword redeemKey
+      Just mnemonic -> do
+        redeemKey <- withExceptT RedeemAdaInvalidRedemptionCode $
+                       fromRedemptionCodePaper code mnemonic
+        withExceptT RedeemAdaError $ ExceptT $ liftIO $
+          Kernel.redeemAda aw accId spendingPassword redeemKey
 
 {-------------------------------------------------------------------------------
   Internal auxiliary

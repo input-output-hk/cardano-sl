@@ -535,6 +535,12 @@ instance Buildable NewPendingError where
     build (NewPendingFailed npf) =
         bprint ("NewPendingFailed " % build) npf
 
+instance Buildable NewForeignError where
+    build (NewForeignUnknown unknownAccount) =
+        bprint ("NewForeignUnknown " % build) unknownAccount
+    build (NewForeignFailed npf) =
+        bprint ("NewForeignFailed " % build) npf
+
 {-------------------------------------------------------------------------------
   Arbitrary
 -------------------------------------------------------------------------------}

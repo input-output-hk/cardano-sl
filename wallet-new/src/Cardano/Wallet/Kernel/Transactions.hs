@@ -2,11 +2,13 @@
 module Cardano.Wallet.Kernel.Transactions (
       pay
     , estimateFees
+    , redeemAda
     -- * Errors
     , NewTransactionError(..)
     , SignTransactionError(..)
     , PaymentError(..)
     , EstimateFeesError(..)
+    , RedeemAdaError(..)
     , cardanoFee
     -- * Internal & testing use only
     , newTransaction
@@ -32,12 +34,14 @@ import           Formatting (bprint, build, sformat, (%))
 import qualified Formatting.Buildable
 
 import           Pos.Chain.Txp (Utxo)
+import qualified Pos.Client.Txp.Util as CTxp
 import           Pos.Core (Address, Coin, unsafeIntegerToCoin, unsafeSubCoin)
 import qualified Pos.Core as Core
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxIn (..), TxOut (..),
                      TxOutAux (..))
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, SafeSigner (..),
-                     ShouldCheckPassphrase (..), hash)
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, RedeemSecretKey,
+                     SafeSigner (..), ShouldCheckPassphrase (..), hash,
+                     redeemToPublic)
 
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
@@ -47,7 +51,8 @@ import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
 import qualified Cardano.Wallet.Kernel.CoinSelection.FromGeneric as CoinSelection
 import           Cardano.Wallet.Kernel.CoinSelection.Generic
                      (CoinSelHardErr (..))
-import           Cardano.Wallet.Kernel.DB.AcidState (DB, NewPendingError)
+import           Cardano.Wallet.Kernel.DB.AcidState (DB, NewForeignError,
+                     NewPendingError)
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.InDb
@@ -56,8 +61,8 @@ import           Cardano.Wallet.Kernel.DB.TxMeta.Types
 import           Cardano.Wallet.Kernel.Internal (ActiveWallet (..),
                      walletKeystore, walletNode)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
-import           Cardano.Wallet.Kernel.NodeStateAdaptor (getMaxTxSize)
-import           Cardano.Wallet.Kernel.Pending (newPending)
+import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as Node
+import           Cardano.Wallet.Kernel.Pending (newForeign, newPending)
 import           Cardano.Wallet.Kernel.Read (getWalletSnapshot)
 import           Cardano.Wallet.Kernel.Types (AccountId (..),
                      RawResolvedTx (..), WalletId (..))
@@ -173,7 +178,7 @@ newTransaction :: ActiveWallet
                -> IO (Either NewTransactionError (TxAux, TxMeta, Utxo))
 newTransaction ActiveWallet{..} spendingPassword options accountId payees = runExceptT $ do
     initialEnv <- liftIO $ newEnvironment
-    maxTxSize  <- liftIO $ getMaxTxSize (walletPassive ^. walletNode)
+    maxTxSize  <- liftIO $ Node.getMaxTxSize (walletPassive ^. walletNode)
     let maxInputs = estimateMaxTxInputs dummyAddrAttrSize dummyTxAttrSize maxTxSize
 
     -- STEP 0: Get available UTxO
@@ -413,3 +418,113 @@ cardanoFee inputs outputs = Core.mkCoin $
     estimateCardanoFee linearFeePolicy inputs (toList $ fmap Core.getCoin outputs)
     where
       linearFeePolicy = Core.TxSizeLinear (Core.Coeff 155381) (Core.Coeff 43.946)
+
+{-------------------------------------------------------------------------------
+  Ada redemption
+
+  Old wallet layer implemention lives in "Pos.Wallet.Web.Methods.Redeem".
+-------------------------------------------------------------------------------}
+
+data RedeemAdaError =
+    -- | Unknown account
+    --
+    -- NOTE: The Daedalus frontend requires users to create an account before
+    -- they can redeem Ada.
+    RedeemAdaUnknownAccountId UnknownHdAccount
+
+    -- | We failed to translate the redeem key to a valid Cardano address
+  | RedeemAdaErrorCreateAddressFailed Kernel.CreateAddressError
+
+    -- | There are no UTxO available at the redeem address
+    --
+    -- This probably means that the voucher has already been redeemed, but it
+    -- /could/ also mean that there was never any voucher at this address.
+  | RedeemAdaNotAvailable Address
+
+    -- | There are multiple outputs available at this address
+    --
+    -- This really should not happen at all. If this happens, we are running
+    -- in a test setup with an invalid genesis block.
+  | RedeemAdaMultipleOutputs Address
+
+    -- | We were unable to submit the transaction
+    --
+    -- If this error happens, it almost certainly indicates a bug.
+  | RedeemAdaNewForeignFailed NewForeignError
+
+instance Buildable RedeemAdaError where
+    build (RedeemAdaUnknownAccountId err) =
+      bprint ("RedeemAdaUnknownAccountId " % build) err
+    build (RedeemAdaErrorCreateAddressFailed err) =
+      bprint ("RedeemAdaErrorCreateAddressFailed " % build) err
+    build (RedeemAdaNotAvailable addr) =
+      bprint ("RedeemAdaNotAvailable " % build) addr
+    build (RedeemAdaMultipleOutputs addr) =
+      bprint ("RedeemAdaMultipleOutputs " % build) addr
+    build (RedeemAdaNewForeignFailed err) =
+      bprint ("RedeemAdaNewForeignFailed " % build) err
+
+-- | Redeem Ada voucher
+--
+-- NOTE: The account must already exist, it is /not/ created implicitly if it
+-- does not yet exist.
+redeemAda :: ActiveWallet
+          -> HdAccountId      -- ^ Account ID
+          -> PassPhrase       -- ^ Spending password
+          -> RedeemSecretKey  -- ^ Redemption key
+          -> IO (Either RedeemAdaError (Tx, TxMeta))
+redeemAda w@ActiveWallet{..} accId pw rsk = runExceptT $ do
+    snapshot   <- liftIO $ getWalletSnapshot walletPassive
+    _accExists <- withExceptT RedeemAdaUnknownAccountId $ exceptT $
+                    lookupHdAccountId snapshot accId
+    changeAddr <- withExceptT RedeemAdaErrorCreateAddressFailed $ ExceptT $ liftIO $
+                    Kernel.createAddress
+                      pw
+                      (AccountIdHdRnd accId)
+                      walletPassive
+    (tx, meta) <- mkTx changeAddr
+    withExceptT RedeemAdaNewForeignFailed $ ExceptT $ liftIO $
+      newForeign
+        w
+        accId
+        tx
+        meta
+    return (taTx tx, meta)
+  where
+    redeemAddr :: Address
+    redeemAddr = Core.makeRedeemAddress $ redeemToPublic rsk
+
+    mkTx :: Address -> ExceptT RedeemAdaError IO (TxAux, TxMeta)
+    mkTx output = do
+        now  <- liftIO $ Core.getCurrentTimestamp
+        utxo <- liftIO $
+                  Node.withNodeState (walletPassive ^. walletNode) $ \_lock ->
+                    Node.filterUtxo isOutput
+        (inp@(TxInUtxo inHash inIx), coin) <-
+          case utxo of
+            [i]   -> return i
+            []    -> throwError $ RedeemAdaNotAvailable    redeemAddr
+            _:_:_ -> throwError $ RedeemAdaMultipleOutputs redeemAddr
+        let out    = TxOutAux $ TxOut output coin
+            txAux  = CTxp.makeRedemptionTx
+                       walletProtocolMagic
+                       rsk
+                       (inp :| [])
+                       (out :| [])
+            txMeta = TxMeta {
+                _txMetaId         = hash (taTx txAux)
+              , _txMetaAmount     = coin
+              , _txMetaInputs     = (inHash, inIx, redeemAddr, coin) :| []
+              , _txMetaOutputs    = (output, coin) :| []
+              , _txMetaCreationAt = now
+              , _txMetaIsLocal    = False -- input does not belong to wallet
+              , _txMetaIsOutgoing = False -- increases wallet's balance
+              , _txMetaWalletId   = _fromDb $ getHdRootId (accId ^. hdAccountIdParent)
+              , _txMetaAccountIx  = getHdAccountIx (accId ^. hdAccountIdIx)
+              }
+        return (txAux, txMeta)
+      where
+        isOutput :: (TxIn, TxOutAux) -> Maybe (TxIn, Coin)
+        isOutput (inp, TxOutAux (TxOut addr coin)) = do
+            guard $ addr == redeemAddr
+            return (inp, coin)

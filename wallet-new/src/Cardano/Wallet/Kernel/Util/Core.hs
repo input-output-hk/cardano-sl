@@ -5,11 +5,13 @@
 -- > import qualified Cardano.Wallet.Kernel.Util.Core as Core
 module Cardano.Wallet.Kernel.Util.Core (
     -- * General utility functions
-    getCurrentTimestamp
+    absCoin
   , derefIn
+  , getCurrentTimestamp
   , fromUtxo
+  , nothingToZero
+  , sumCoinsUnsafe
   , toOutPair
-  , getSomeTimestamp
     -- * UTxO
   , utxoBalance
   , utxoRestrictToInputs
@@ -17,6 +19,7 @@ module Cardano.Wallet.Kernel.Util.Core (
   , utxoUnions
     -- * Transactions
   , paymentAmount
+  , toCoin
   , txOuts
   , txIns
   , txAuxId
@@ -28,7 +31,6 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import           Data.Time.Clock.POSIX (getPOSIXTime)
-import           Data.Time.Units (fromMicroseconds)
 import           Serokell.Util (enumerate)
 
 import qualified Pos.Chain.Txp as Core
@@ -46,9 +48,6 @@ import           Cardano.Wallet.Kernel.Util
 -- NOTE: we are abandoning the 'Mockable time' strategy of core.
 getCurrentTimestamp :: IO Core.Timestamp
 getCurrentTimestamp = Core.Timestamp . round . (* 1000000) <$> getPOSIXTime
-
-getSomeTimestamp :: Core.Timestamp
-getSomeTimestamp = Core.Timestamp $ fromMicroseconds 12340000
 
 {-------------------------------------------------------------------------------
   UTxO
@@ -99,6 +98,29 @@ txAuxId = hash . Core.taTx
   External auxiliary
 -------------------------------------------------------------------------------}
 
+sumCoinsUnsafe :: (Container coins, Element coins ~ Core.Coin)
+         => coins -> Core.Coin
+sumCoinsUnsafe = Core.unsafeIntegerToCoin . Core.sumCoins
+
+-- | This is not unsafe although we use unsafeGetCoin, because
+-- this is not actually unsafe either.
+absCoin :: Core.Coin -> Core.Coin -> Core.Coin
+absCoin ca cb
+    | a >= b = Core.Coin (a-b)
+    | otherwise = Core.Coin (b-a)
+    where
+      a = Core.unsafeGetCoin ca
+      b = Core.unsafeGetCoin cb
+
+nothingToZero :: Ord a => a -> Map a Core.Coin -> Core.Coin
+nothingToZero acc mp = case Map.lookup acc mp of
+    Nothing -> Core.unsafeIntegerToCoin 0
+    Just n  -> n
+
+-- | Gets the underlying value (as a 'Coin') from a 'TxOutAux'.
+toCoin :: Core.TxOutAux -> Core.Coin
+toCoin = Core.txOutValue . Core.toaOut
+
 toOutPair :: Core.TxOutAux -> (Core.Address, Core.Coin)
 toOutPair txOutAux = (toAddress txOutAux, toCoin txOutAux)
 
@@ -113,10 +135,6 @@ derefIn txIn = case txIn of
 {-------------------------------------------------------------------------------
   Internal auxiliary
 -------------------------------------------------------------------------------}
-
--- | Gets the underlying value (as a 'Coin') from a 'TxOutAux'.
-toCoin :: Core.TxOutAux -> Core.Coin
-toCoin = Core.txOutValue . Core.toaOut
 
 -- | Gets the underlying address from a 'TxOutAux'.
 toAddress :: Core.TxOutAux -> Core.Address

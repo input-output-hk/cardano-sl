@@ -31,11 +31,11 @@ import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 serializeMsgSerializedBlockSpec
     :: (HasStaticConfigurations) => Spec
 serializeMsgSerializedBlockSpec = do
-    prop desc $ blockPropertyTestable $ do
+    prop desc $ blockPropertyTestable $ \_ -> do
         (block, _) <- bpGenBlock dummyProtocolMagic (TxpConfiguration 200 Set.empty) (EnableTxPayload True) (InplaceDB True)
         let sb = Serialized $ serialize' block
         assert $ serializeMsgSerializedBlock (MsgSerializedBlock sb) == serialize' (MsgBlock block)
-    prop descNoBlock $ blockPropertyTestable $ do
+    prop descNoBlock $ blockPropertyTestable $ \_ -> do
         let msg :: MsgSerializedBlock
             msg = MsgNoSerializedBlock "no block"
             msg' :: MsgBlock
@@ -52,13 +52,13 @@ serializeMsgSerializedBlockSpec = do
 deserializeSerilizedMsgSerializedBlockSpec
     :: (HasStaticConfigurations) => Spec
 deserializeSerilizedMsgSerializedBlockSpec = do
-    prop desc $ blockPropertyTestable $ do
+    prop desc $ blockPropertyTestable $ \_ -> do
         (block, _) <- bpGenBlock dummyProtocolMagic (TxpConfiguration 200 Set.empty) (EnableTxPayload True) (InplaceDB True)
         let sb = Serialized $ serialize' block
         let msg :: Either Text MsgBlock
             msg = decodeFull . BSL.fromStrict . serializeMsgSerializedBlock $ MsgSerializedBlock sb
         assert $ msg == Right (MsgBlock block)
-    prop descNoBlock $ blockPropertyTestable $ do
+    prop descNoBlock $ blockPropertyTestable $ \_ -> do
         let msg :: MsgSerializedBlock
             msg = MsgNoSerializedBlock "no block"
         assert $ (decodeFull . BSL.fromStrict . serializeMsgSerializedBlock $ msg) == Right (MsgNoBlock "no block")

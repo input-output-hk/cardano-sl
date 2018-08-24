@@ -96,7 +96,6 @@ library
                        -- Configuration
                        Pos.Core.Configuration.BlockVersionData
                        Pos.Core.Configuration.Core
-                       Pos.Core.Configuration.GeneratedSecrets
                        Pos.Core.Configuration.GenesisData
                        Pos.Core.Configuration.GenesisHash
                        Pos.Core.Configuration.Protocol

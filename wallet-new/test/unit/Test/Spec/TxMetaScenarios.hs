@@ -36,9 +36,6 @@ import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..),
                      SlotId (..))
 import           Pos.Util (withCompileInfo)
 
-
-import           Ntp.Client (NtpStatus (..))
-
 import           Test.Hspec
 import           Test.Infrastructure.Genesis
 import           Test.Pos.Configuration (withDefConfiguration,
@@ -395,7 +392,7 @@ nodeStParams1 =
       , mockNodeStateSlotStart = const $ Right getSomeTimestamp
       , mockNodeStateSecurityParameter = SecurityParameter 2160
       , mockNodeStateNextEpochSlotDuration = fromMicroseconds 200
-      , mockNodeStateNtpStatus = NtpSyncPending
+      , mockNodeStateNtpDrift = const (V1.TimeInfo Nothing)
       }
 
 nodeStParams2 :: MockNodeStateParams
@@ -408,7 +405,7 @@ nodeStParams2 =
       , mockNodeStateSlotStart = const $ Right getSomeTimestamp
       , mockNodeStateSecurityParameter = SecurityParameter 2160
       , mockNodeStateNextEpochSlotDuration = fromMicroseconds 200
-      , mockNodeStateNtpStatus = NtpSyncPending
+      , mockNodeStateNtpDrift = const (V1.TimeInfo Nothing)
       }
 
 -- | Initialize active wallet in a manner suitable for generator-based testing.
@@ -418,10 +415,12 @@ nodeStParams2 =
 -- there for better testing.
 bracketActiveWalletTxMeta :: MockNodeStateParams -> (Kernel.ActiveWallet -> IO a) -> IO a
 bracketActiveWalletTxMeta stateParams test =
-    withDefConfiguration $ \pm -> do
+    withDefConfiguration $ \coreConfig -> do
         bracketPassiveWalletTxMeta stateParams $ \passive ->
-          Kernel.bracketActiveWallet pm passive diffusion $ \active ->
-            test active
+            Kernel.bracketActiveWallet (configProtocolMagic coreConfig)
+                                       passive
+                                       diffusion
+                $ \active -> test active
 
 -- | Initialize passive wallet in a manner suitable for the unit tests
 bracketPassiveWalletTxMeta :: MockNodeStateParams -> (Kernel.PassiveWallet -> IO a) -> IO a

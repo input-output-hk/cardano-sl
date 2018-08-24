@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveAnyClass #-}
+
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Context needed for the translation between DSL and Cardano types
@@ -50,7 +51,7 @@ import           Pos.Chain.Block (BlockHeader (..), GenesisBlock, HeaderHash,
                      blockHeaderHash, genesisBlock0, _gbHeader)
 import           Pos.Chain.Lrc
 import           Pos.Chain.Txp
-import           Pos.Core
+import           Pos.Core as Core
 import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Genesis (GeneratedSecrets (..), GenesisData (..),
                      GenesisDelegation (..), PoorSecret (..), RichSecrets (..))
@@ -88,20 +89,29 @@ data CardanoContext = CardanoContext {
     , ccEpochSlots  :: SlotCount
     }
 
-initCardanoContext :: HasConfiguration => ProtocolMagic -> CardanoContext
-initCardanoContext ccMagic = CardanoContext{..}
+initCardanoContext
+    :: HasConfiguration
+    => Core.Config
+    -> CardanoContext
+initCardanoContext coreConfig = CardanoContext
+    { ccStakes      = genesisStakes
+    , ccBlock0      = ccBlock0
+    , ccData        = genesisData
+    , ccUtxo        = ccUtxo
+    , ccSecrets     = fromMaybe (error "initCardanoContext: no secrets") $
+                          configGeneratedSecrets coreConfig
+    , ccMagic       = configProtocolMagic coreConfig
+    , ccInitLeaders = ccLeaders
+    , ccBalances    = utxoToAddressCoinPairs ccUtxo
+    , ccHash0       = (blockHeaderHash . BlockHeaderGenesis . _gbHeader) ccBlock0
+    , ccEpochSlots  = epochSlots
+    }
   where
-    ccLeaders     = genesisLeaders epochSlots
-    ccStakes      = genesisStakes
-    ccBlock0      = genesisBlock0 ccMagic (GenesisHash genesisHash) ccLeaders
-    ccData        = genesisData
-    ccUtxo        = unGenesisUtxo genesisUtxo
-    ccSecrets     = fromMaybe (error "initCardanoContext: no secrets") $
-                      generatedSecrets
-    ccInitLeaders = ccLeaders
-    ccBalances    = utxoToAddressCoinPairs ccUtxo
-    ccHash0       = (blockHeaderHash . BlockHeaderGenesis . _gbHeader) ccBlock0
-    ccEpochSlots  = epochSlots
+    ccLeaders = genesisLeaders epochSlots
+    ccBlock0  = genesisBlock0 (configProtocolMagic coreConfig)
+                              (GenesisHash genesisHash)
+                              ccLeaders
+    ccUtxo    = unGenesisUtxo genesisUtxo
 
 {-------------------------------------------------------------------------------
   More explicit representation of the various actors in the genesis block

@@ -18,7 +18,6 @@ import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath ((</>))
 import           System.Wlog (WithLogger, logInfo)
 
-import           Pos.Core.Configuration (HasGeneratedSecrets, generatedSecrets)
 import           Pos.Core.Genesis (GeneratedSecrets (..), PoorSecret (..),
                      RichSecrets (..), poorSecretToEncKey)
 import           Pos.Crypto (SecretKey)
@@ -67,14 +66,16 @@ dumpFakeAvvmSeed fp seed = writeFile fp (B64.encode seed)
 ----------------------------------------------------------------------------
 
 dumpGeneratedGenesisData
-    :: (MonadIO m, WithLogger m, MonadThrow m, HasGeneratedSecrets)
-    => (FilePath, FilePath)
+    :: (MonadIO m, WithLogger m, MonadThrow m)
+    => GeneratedSecrets
+    -> (FilePath, FilePath)
     -> m ()
-dumpGeneratedGenesisData (dir, pat) = do
-    let GeneratedSecrets {..} =
-            fromMaybe (error "GeneratedSecrets are unknown") generatedSecrets
-    dumpKeyfiles (dir, pat) gsDlgIssuersSecrets gsRichSecrets gsPoorSecrets
-    dumpFakeAvvmSeeds dir gsFakeAvvmSeeds
+dumpGeneratedGenesisData gs (dir, pat) = do
+    dumpKeyfiles (dir, pat)
+                 (gsDlgIssuersSecrets gs)
+                 (gsRichSecrets gs)
+                 (gsPoorSecrets gs)
+    dumpFakeAvvmSeeds dir (gsFakeAvvmSeeds gs)
 
 dumpKeyfiles
     :: (MonadIO m, MonadThrow m, WithLogger m)

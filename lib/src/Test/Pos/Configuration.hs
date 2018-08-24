@@ -36,11 +36,10 @@ import           Pos.Chain.Update (HasUpdateConfiguration,
                      withUpdateConfiguration)
 import           Pos.Configuration (HasNodeConfiguration, withNodeConfiguration)
 import           Pos.Core (HasConfiguration, withGenesisSpec)
-import           Pos.Core.Configuration (CoreConfiguration (..),
+import           Pos.Core.Configuration as Core (Config, CoreConfiguration (..),
                      GenesisConfiguration (..))
 import           Pos.Core.Genesis (GenesisSpec (..))
 import           Pos.Core.Update (BlockVersionData)
-import           Pos.Crypto (ProtocolMagic)
 import           Pos.Launcher.Configuration (Configuration (..),
                      HasConfigurations)
 import           Pos.Util.Config (embedYamlConfigCT)
@@ -91,7 +90,7 @@ withDefBlockConfiguration = withBlockConfiguration (ccBlock defaultTestConf)
 withDefDlgConfiguration :: (HasDlgConfiguration => r) -> r
 withDefDlgConfiguration = withDlgConfiguration (ccDlg defaultTestConf)
 
-withDefConfiguration :: (HasConfiguration => ProtocolMagic -> r) -> r
+withDefConfiguration :: (HasConfiguration => Core.Config -> r) -> r
 withDefConfiguration = withGenesisSpec 0 (ccCore defaultTestConf) id
 
 withStaticConfigurations :: (HasStaticConfigurations => TxpConfiguration -> NtpConfiguration -> r) -> r
@@ -104,6 +103,12 @@ withStaticConfigurations patak =
     withDefNtpConfiguration (patak $ TxpConfiguration 200 Set.empty)
 
 withDefConfigurations
-    :: (HasConfigurations => ProtocolMagic -> TxpConfiguration -> NtpConfiguration -> r) -> r
-withDefConfigurations bardaq =
-    withDefConfiguration $ \pm -> withStaticConfigurations (bardaq pm)
+    :: (  HasConfigurations
+       => Core.Config
+       -> TxpConfiguration
+       -> NtpConfiguration
+       -> r
+       )
+    -> r
+withDefConfigurations bardaq = withDefConfiguration
+    $ \coreConfig -> withStaticConfigurations (bardaq coreConfig)

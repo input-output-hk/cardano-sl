@@ -66,7 +66,8 @@ import           GHC.IO.Exception (IOErrorType (..), IOException (..))
 
 import           Paths_cardano_sl (version)
 import           Pos.Client.CLI (readLoggerConfig)
-import           Pos.Core (HasConfiguration, ProtocolMagic, Timestamp (..))
+import           Pos.Core (Config (..), HasConfiguration, ProtocolMagic,
+                     Timestamp (..))
 import           Pos.DB.Block (dbGetSerBlockRealDefault,
                      dbGetSerBlundRealDefault, dbGetSerUndoRealDefault,
                      dbPutSerBlundsRealDefault)
@@ -306,7 +307,7 @@ main =
                       set Log.ltFiles [Log.HandlerWrap "launcher" Nothing] .
                       set Log.ltSeverity (Just Log.debugPlus)
     logException loggerName . Log.usingLoggerName loggerName $
-        withConfigurations Nothing loConfiguration $ \pm _ _ -> do
+        withConfigurations Nothing loConfiguration $ \coreConfig _ _ -> do
 
         -- Generate TLS certificates as needed
         generateTlsCertificates loConfiguration loX509ToolPath loTlsPath
@@ -316,7 +317,7 @@ main =
                 logNotice "LAUNCHER STARTED"
                 logInfo "Running in the server scenario"
                 serverScenario
-                    pm
+                    (configProtocolMagic coreConfig)
                     (NodeDbPath loNodeDbPath)
                     loLogsPrefix
                     loNodeLogConfig
@@ -336,7 +337,7 @@ main =
                 logNotice "LAUNCHER STARTED"
                 logInfo "Running in the client scenario"
                 clientScenario
-                    pm
+                    (configProtocolMagic coreConfig)
                     (NodeDbPath loNodeDbPath)
                     loLogsPrefix
                     loNodeLogConfig

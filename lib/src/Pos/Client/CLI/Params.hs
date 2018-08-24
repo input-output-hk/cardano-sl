@@ -22,7 +22,7 @@ import           Pos.Chain.Update (UpdateParams (..))
 import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), NodeArgs (..))
 import           Pos.Client.CLI.Options (CommonArgs (..))
 import           Pos.Client.CLI.Secrets (prepareUserSecret)
-import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Genesis (GeneratedSecrets)
 import           Pos.Crypto (VssKeyPair)
 import           Pos.Infra.Network.CLI (intNetworkConfigOpts)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
@@ -62,15 +62,15 @@ getNodeParams ::
        ( MonadIO m
        , WithLogger m
        , MonadCatch m
-       , HasConfiguration
        )
     => LoggerName
     -> CommonNodeArgs
     -> NodeArgs
+    -> GeneratedSecrets
     -> m NodeParams
-getNodeParams defaultLoggerName cArgs@CommonNodeArgs{..} NodeArgs{..} = do
-    (primarySK, userSecret) <-
-        prepareUserSecret cArgs =<< peekUserSecret (getKeyfilePath cArgs)
+getNodeParams defaultLoggerName cArgs@CommonNodeArgs{..} NodeArgs{..} generatedSecrets = do
+    (primarySK, userSecret) <- prepareUserSecret cArgs generatedSecrets
+        =<< peekUserSecret (getKeyfilePath cArgs)
     userPublic <- peekUserPublic publicKeyfilePath
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
     npBehaviorConfig <- case behaviorConfigPath of

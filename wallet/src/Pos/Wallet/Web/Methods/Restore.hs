@@ -27,8 +27,7 @@ import           System.Wlog (logDebug)
 
 import qualified Data.HashMap.Strict as HM
 import           Pos.Client.KeyStorage (addSecretKey)
-import           Pos.Core.Configuration (genesisSecretsPoor)
-import           Pos.Core.Genesis (poorSecretToEncKey)
+import           Pos.Core.Genesis (PoorSecret, poorSecretToEncKey)
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, emptyPassphrase,
                      firstHardened)
 import           Pos.Infra.StateLock (Priority (..), withStateLockNoMetrics)
@@ -279,13 +278,16 @@ importWalletSecret passphrase WalletUserSecret{..} = do
 
 -- | Creates wallet with given genesis hd-wallet key.
 -- For debug purposes
-addInitialRichAccount :: ( L.MonadWalletLogic ctx m
-                         , MonadUnliftIO m
-                         , HasLens SyncQueue ctx SyncQueue
-                         ) => Int -> m ()
-addInitialRichAccount keyId =
+addInitialRichAccount
+    :: ( L.MonadWalletLogic ctx m
+       , MonadUnliftIO m
+       , HasLens SyncQueue ctx SyncQueue
+       )
+    => Int
+    -> [PoorSecret]
+    -> m ()
+addInitialRichAccount keyId hdwSecretKeys =
     E.handleAny wSetExistsHandler $ do
-        let hdwSecretKeys = fromMaybe (error "Hdw secrets keys are unknown") genesisSecretsPoor
         key <- maybeThrow noKey (map poorSecretToEncKey $ hdwSecretKeys ^? ix keyId)
         void $ importWalletSecret emptyPassphrase $
             mkGenesisWalletUserSecret key

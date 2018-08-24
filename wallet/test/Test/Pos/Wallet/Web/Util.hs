@@ -41,8 +41,7 @@ import           Pos.Chain.Block (Blund, LastKnownHeaderTag, blockHeader,
 import           Pos.Chain.Txp (TxpConfiguration, Utxo)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
-import           Pos.Core (Address, BlockCount, Coin, HasConfiguration,
-                     genesisSecretsPoor)
+import           Pos.Core (Address, BlockCount, Coin, HasConfiguration)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Common (IsBootstrapEraAddr (..), deriveLvl2KeyPair)
 import           Pos.Core.Genesis (poorSecretToEncKey)
@@ -65,6 +64,7 @@ import           Pos.Infra.Util.JsonLog.Events
 import           Test.Pos.Block.Logic.Util (EnableTxPayload, InplaceDB,
                      genBlockGenParams)
 import           Test.Pos.Core.Arbitrary.Txp ()
+import           Test.Pos.Core.Dummy (dummyGenesisSecretsPoor)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty,
                      maybeStopProperty)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty)
@@ -114,9 +114,7 @@ importWallets
     :: HasConfigurations
     => Int -> Gen PassPhrase -> WalletProperty [PassPhrase]
 importWallets numLimit passGen = do
-    let secrets =
-            map poorSecretToEncKey $
-            fromMaybe (error "Generated secrets are unknown") genesisSecretsPoor
+    let secrets = map poorSecretToEncKey dummyGenesisSecretsPoor
     (encSecrets, passphrases) <- pick $ do
         seks <- take numLimit <$> sublistOf secrets `suchThat` (not . null)
         let l = length seks

@@ -55,10 +55,16 @@ spec :: Spec
 spec = do
     describe "test TxMeta insertion" $ do
       withWithoutWW $ \useWW -> do
-        it "TxMetaScenarioA" $ bracketActiveWallet $ checkTxMeta' useWW (txMetaScenarioA genesis)
-        it "TxMetaScenarioB" $ bracketActiveWallet $ checkTxMeta' useWW (txMetaScenarioB genesis)
-        it "TxMetaScenarioC" $ bracketActiveWallet $ checkTxMeta' useWW (txMetaScenarioC genesis)
-        it "TxMetaScenarioD" $ bracketActiveWallet $ checkTxMeta' useWW (txMetaScenarioD genesis)
+        it "TxMetaScenarioA" $ bracketTxMeta useWW (txMetaScenarioA genesis)
+        it "TxMetaScenarioB" $ bracketTxMeta useWW (txMetaScenarioB genesis)
+        it "TxMetaScenarioC" $ bracketTxMeta useWW (txMetaScenarioC genesis)
+        it "TxMetaScenarioD" $ bracketTxMeta useWW (txMetaScenarioD genesis)
+        it "TxMetaScenarioE" $ bracketTxMeta useWW (txMetaScenarioE genesis)
+        it "TxMetaScenarioF" $ bracketTxMeta useWW (txMetaScenarioF genesis)
+        it "TxMetaScenarioG" $ bracketTxMeta useWW (txMetaScenarioG genesis)
+        it "TxMetaScenarioH" $ bracketTxMeta useWW (txMetaScenarioH genesis)
+        it "TxMetaScenarioI" $ bracketTxMeta useWW (txMetaScenarioI genesis)
+        it "TxMetaScenarioJ" $ bracketTxMeta useWW (txMetaScenarioJ genesis)
 
     describe "Compare wallet kernel to pure model" $ do
       describe "Using hand-written inductive wallets, computes the expected block metadata for" $ do
@@ -176,14 +182,20 @@ spec = do
 
             shouldBe actual' expected'
 
-    checkTxMeta' :: Hash h Addr
-                 => UseWalletWorker
-                 -> (Inductive h Addr, Kernel.PassiveWallet -> IO ())
-                 -> Kernel.ActiveWallet
-                 -> IO ()
-    checkTxMeta' useWW (ind, checker) activeWallet = do
-          _ <- evaluate' useWW activeWallet ind
-          checker (Kernel.walletPassive $ activeWallet)
+    bracketTxMeta :: Hash h Addr
+                  => UseWalletWorker
+                  -> TxScenarioRet h
+                  -> IO ()
+    bracketTxMeta useWW (nodeState, ind, check) =
+      bracketActiveWalletTxMeta nodeState bracketAction
+        where
+          bracketAction activeWallet = do
+            _ <- evaluate' useWW activeWallet ind
+            check $ Kernel.walletPassive $ activeWallet
+
+
+
+
 
 
 {-------------------------------------------------------------------------------

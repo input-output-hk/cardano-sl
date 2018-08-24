@@ -36,6 +36,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
 import           Data.Reflection (give)
+import           Data.Time.Units (fromMicroseconds)
 import           Formatting (bprint, build, shown, (%))
 import qualified Formatting.Buildable
 import           Prelude (Show (..))
@@ -47,7 +48,6 @@ import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Resolved
 import           Cardano.Wallet.Kernel.Types
 import           Cardano.Wallet.Kernel.Util (at)
-import           Cardano.Wallet.Kernel.Util.Core
 
 import           Pos.Chain.Block (Block, BlockHeader (..), GenesisBlock,
                      MainBlock, gbHeader, genBlockLeaders, mkGenesisBlock)
@@ -587,12 +587,12 @@ instance DSL.Hash h Addr => Interpret h (DSL.Transaction h Addr) where
   int :: forall e m. Monad m
       => DSL.Transaction h Addr -> IntT h e m RawResolvedTx
   int t = do
-      let timestamp = getSomeTimestamp
+      let currentTime = getSomeTimestamp -- Pos.Core.Timestamp $ minBound
       (trIns', resolvedInputs) <- unzip <$> mapM int (DSL.trIns' t)
       trOuts'                  <-           mapM int (DSL.trOuts t)
       txAux   <- liftTranslateInt $ mkTx trIns' trOuts'
       putTxMeta t $ hash (taTx txAux)
-      return $ mkRawResolvedTx timestamp txAux (NE.fromList resolvedInputs)
+      return $ mkRawResolvedTx currentTime txAux (NE.fromList resolvedInputs)
     where
       mkTx :: [TxOwnedInput SomeKeyPair]
            -> [TxOutAux]
@@ -633,7 +633,8 @@ instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
                    (icBlockHeader  prev)
                    slot
                    txs'
-        let raw = mkRawResolvedBlock block resolvedTxInputs getSomeTimestamp
+        let currentTime = getSomeTimestamp
+        let raw = mkRawResolvedBlock block resolvedTxInputs currentTime
         checkpoint <- mkCheckpoint prev slot raw
         if isEpochBoundary pc slot
           then second (\ebb -> (raw, Just ebb)) <$> createEpochBoundary checkpoint
@@ -726,6 +727,10 @@ instance DSL.Hash h Addr => Interpret h (IntSwitchToFork h) where
 mustBeLeft :: Either a Void -> a
 mustBeLeft (Left  a) = a
 mustBeLeft (Right b) = absurd b
+
+getSomeTimestamp :: Pos.Core.Timestamp
+getSomeTimestamp = Pos.Core.Timestamp $ fromMicroseconds 12340000
+
 
 {-------------------------------------------------------------------------------
   Pretty-printing

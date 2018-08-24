@@ -494,6 +494,7 @@ test-suite wallet-unit-tests
                     , cardano-sl-core-test
                     , cardano-sl-crypto
                     , cardano-sl-db
+                    , cardano-sl-networking
                     , cardano-sl-util
                     , cardano-sl-wallet-new
                     , constraints
@@ -514,6 +515,7 @@ test-suite wallet-unit-tests
                     , servant-server
                     , tabl
                     , text
+                    , time-units
                     , formatting
                     , universum
                     , unordered-containers

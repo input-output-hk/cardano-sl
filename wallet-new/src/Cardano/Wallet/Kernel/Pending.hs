@@ -4,6 +4,7 @@ module Cardano.Wallet.Kernel.Pending (
   , newForeign
   , cancelPending
   , NewPendingError
+  , PartialTxMeta
   ) where
 
 import           Universum hiding (State)
@@ -14,6 +15,7 @@ import           Control.Concurrent.MVar (modifyMVar_)
 
 import           Data.Acid.Advanced (update')
 
+import           Pos.Core (Coin (..))
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxOut (..))
 import           Pos.Crypto (EncryptedSecretKey)
 
@@ -30,6 +32,7 @@ import           Cardano.Wallet.Kernel.PrefilterTx (filterOurs)
 import           Cardano.Wallet.Kernel.Read (getWalletCredentials)
 import           Cardano.Wallet.Kernel.Submission (Cancelled, addPending)
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
+import           Cardano.Wallet.Kernel.Util.Core
 
 import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentialsKey (..),
                      keyToWalletDecrCredentials)
@@ -37,6 +40,9 @@ import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentialsKey (..),
 {-------------------------------------------------------------------------------
   Submit pending transactions
 -------------------------------------------------------------------------------}
+
+
+type PartialTxMeta = Bool -> Coin -> IO TxMeta
 
 -- | Submit a new pending transaction
 --
@@ -47,10 +53,10 @@ import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentialsKey (..),
 newPending :: ActiveWallet
            -> HdAccountId
            -> TxAux
-           -> Maybe TxMeta
-           -> IO (Either NewPendingError ())
-newPending w accountId tx mbMeta = do
-    newTx w accountId tx mbMeta $ \ourAddrs ->
+           -> PartialTxMeta
+           -> IO (Either NewPendingError TxMeta)
+newPending w accountId tx partialMeta = do
+    newTx w accountId tx partialMeta $ \ourAddrs ->
         update' ((walletPassive w) ^. wallets) $ NewPending accountId (InDb tx) ourAddrs
 
 -- | Submit new foreign transaction
@@ -63,7 +69,7 @@ newForeign :: ActiveWallet
            -> TxMeta
            -> IO (Either NewForeignError ())
 newForeign w accountId tx meta = do
-    newTx w accountId tx (Just meta) $ \ourAddrs ->
+    map void <$> newTx w accountId tx (\_ _ -> return meta) $ \ourAddrs ->
         update' ((walletPassive w) ^. wallets) $ NewForeign accountId (InDb tx) ourAddrs
 
 -- | Submit a new transaction
@@ -78,39 +84,39 @@ newForeign w accountId tx meta = do
 newTx :: forall e. ActiveWallet
       -> HdAccountId
       -> TxAux
-      -> Maybe TxMeta
+      -> PartialTxMeta
       -> ([HdAddress] -> IO (Either e ())) -- ^ the update to run, takes ourAddrs as arg
-      -> IO (Either e ())
-newTx ActiveWallet{..} accountId tx mbMeta upd = do
+      -> IO (Either e TxMeta)
+newTx ActiveWallet{..} accountId tx partialMeta upd = do
     -- run the update
     allOurs' <- allOurs <$> getWalletCredentials walletPassive
-    res <- upd allOurs'
+    let (addrsOurs',coinsOurs) = unzip allOurs'
+        outCoins = sumCoinsUnsafe coinsOurs
+        allOutsOurs = length allOurs' == length txOut
+    res <- upd $ addrsOurs'
     case res of
         Left e   -> return (Left e)
         Right () -> do
             -- process transaction on success
-            putTxMeta' mbMeta
+            meta <- partialMeta allOutsOurs outCoins
+            putTxMeta (walletPassive ^. walletMeta) meta
             submitTx
-            return (Right ())
+            return (Right meta)
     where
-        addrs = NE.toList $ map txOutAddress (_txOutputs . taTx $ tx)
+        (txOut :: [TxOut]) = NE.toList $ (_txOutputs . taTx $ tx)
         wid   = WalletIdHdRnd (accountId ^. hdAccountIdParent)
 
         -- | NOTE: we recognise addresses in the transaction outputs that belong to _all_ wallets,
         --  not only for the wallet to which this transaction is being submitted
-        allOurs :: [(WalletId, EncryptedSecretKey)] -> [HdAddress]
+        allOurs :: [(WalletId, EncryptedSecretKey)] -> [(HdAddress,Coin)]
         allOurs = concatMap (ourAddrs . snd)
 
-        ourAddrs :: EncryptedSecretKey -> [HdAddress]
+        ourAddrs :: EncryptedSecretKey -> [(HdAddress,Coin)]
         ourAddrs esk =
-            map f $ filterOurs wKey identity addrs
+            map f $ filterOurs wKey txOutAddress txOut
             where
-                f (address,addressId) = initHdAddress addressId (InDb address)
+                f (txOut',addressId) = (initHdAddress addressId (InDb (txOutAddress txOut')), txOutValue txOut')
                 wKey = (wid, keyToWalletDecrCredentials $ KeyForRegular esk)
-
-        putTxMeta' :: Maybe TxMeta -> IO ()
-        putTxMeta' (Just meta) = putTxMeta (walletPassive ^. walletMeta) meta
-        putTxMeta' Nothing     = pure ()
 
         submitTx :: IO ()
         submitTx = modifyMVar_ (walletPassive ^. walletSubmission) $

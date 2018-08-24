@@ -11,6 +11,7 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 import qualified Data.SemVer as V
+import           Formatting (build, sformat, (%))
 import           Test.QuickCheck (Arbitrary (..), elements)
 
 import           Pos.Crypto (EncryptedSecretKey)
@@ -60,7 +61,11 @@ getWalletBackup :: AccountMode ctx m
                 -> CId Wal
                 -> m WalletBackup
 getWalletBackup ws wId = do
-    sk <- getSKById wId
+    -- Wallet backup is related to regular (internal) wallets only,
+    -- because we don't store secret keys for external wallets.
+    sk <- maybeThrow (InternalError (sformat ("Backup, no wallet with address "%build%" found") wId))
+                     =<< getSKById wId
+
     meta <- maybeThrow (InternalError "Wallet have no meta") $
             getWalletMeta ws wId
     let accountIds = getWalletAccountIds ws wId

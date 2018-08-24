@@ -47,7 +47,7 @@ import           Pos.Wallet.Web.Sockets (ConnectionsVar, closeWSConnections,
 import           Pos.Wallet.Web.State (closeState, openState)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
 import           Pos.Wallet.Web.Tracking (syncWallet)
-import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Decrypt (keyToWalletDecrCredentials)
 import           Pos.Web (TlsParams, serveDocImpl, serveImpl)
 
 -- TODO [CSM-407]: Mixture of logic seems to be here
@@ -90,7 +90,7 @@ walletServer
     -> (forall x. m x -> Handler x)
     -> m (Server WalletSwaggerApi)
 walletServer pm txpConfig diffusion ntpStatus nat = do
-    mapM_ (findKey >=> syncWallet . eskToWalletDecrCredentials) =<< myRootAddresses
+    mapM_ (findKey >=> syncWallet . keyToWalletDecrCredentials) =<< myRootAddresses
     return $ servantHandlersWithSwagger pm txpConfig ntpStatus submitTx nat
   where
     -- Diffusion layer takes care of submitting transactions.

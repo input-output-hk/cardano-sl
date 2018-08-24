@@ -135,15 +135,12 @@ instance Buildable AutoIncrementKey where
     build (AutoIncrementKey k) = bprint ("AutoIncrementKey " % build) k
 
 data Indexed a = Indexed {
-    _ixedIndex   :: AutoIncrementKey
-  , _ixedIndexed :: a
+    _ixedIndex   :: !AutoIncrementKey
+  , _ixedIndexed :: !a
   }
 
 Lens.makeLenses ''Indexed
-
-instance SafeCopy a => SafeCopy (Indexed a) where
-    getCopy = error "TODO"
-    putCopy = error "TODO"
+deriveSafeCopy 1 'base ''Indexed
 
 instance Buildable a => Buildable (Indexed a) where
     build (Indexed (AutoIncrementKey idx) r) =

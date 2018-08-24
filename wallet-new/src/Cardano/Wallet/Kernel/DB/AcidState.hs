@@ -28,6 +28,10 @@ module Cardano.Wallet.Kernel.DB.AcidState (
     -- *** DELETE
   , DeleteHdRoot(..)
   , DeleteHdAccount(..)
+    -- ** Software updates
+  , AddUpdate(..)
+  , RemoveNextUpdate(..)
+  , GetNextUpdate(..)
     -- *** Testing
   , ObservableRollbackUseInTestsOnly(..)
     -- * Errors
@@ -51,15 +55,18 @@ import           Pos.Chain.Txp (Utxo)
 import           Pos.Core (SlotId)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Txp (TxAux, TxId)
+import           Pos.Core.Update (SoftwareVersion)
 
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Delete as HD
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Update as HD
-import           Cardano.Wallet.Kernel.DB.InDb
+import           Cardano.Wallet.Kernel.DB.InDb (InDb (InDb))
 import           Cardano.Wallet.Kernel.DB.Spec
 import           Cardano.Wallet.Kernel.DB.Spec.Pending (Pending)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Update as Spec
+import           Cardano.Wallet.Kernel.DB.Updates (Updates, noUpdates)
+import qualified Cardano.Wallet.Kernel.DB.Updates as Updates
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
@@ -84,7 +91,11 @@ import           Cardano.Wallet.Kernel.Util (markMissingMapEntries)
 --    "Pos.Wallet.Web.State.Storage".
 --  * V1 API defined in "Cardano.Wallet.API.V1.*" (in @src/@)
 data DB = DB {
-      _dbHdWallets :: HdWallets
+      -- | HD wallets with randomly assigned account and address indices
+      _dbHdWallets :: !HdWallets
+
+      -- | Available updates
+    , _dbUpdates   :: !Updates
     }
 
 makeLenses ''DB
@@ -92,7 +103,7 @@ deriveSafeCopy 1 'base ''DB
 
 -- | Default DB
 defDB :: DB
-defDB = DB initHdWallets
+defDB = DB initHdWallets noUpdates
 
 {-------------------------------------------------------------------------------
   Custom errors
@@ -169,7 +180,7 @@ ensureExistsHdAddress newAddress = do
 -- transactions for all the wallets managed by this edge node.
 cancelPending :: Map HdAccountId (InDb (Set TxId)) -> Update DB ()
 cancelPending cancelled = void . runUpdate' . zoom dbHdWallets $
-    forM_ (Map.toList cancelled) $ \(accountId, InDb txids) ->
+    forM_ (Map.toList cancelled) $ \(accountId, InDb txids) -> do
         -- Here we are deliberately swallowing the possible exception
         -- returned by the wrapped 'zoom' as the only reason why this update
         -- might fail is if, in the meantime, the target account was cancelled,
@@ -462,6 +473,22 @@ deleteHdAccount accId = runUpdateDiscardSnapshot . zoom dbHdWallets $
     HD.deleteHdAccount accId
 
 {-------------------------------------------------------------------------------
+  Software updates
+-------------------------------------------------------------------------------}
+
+addUpdate :: InDb SoftwareVersion -> Update DB ()
+addUpdate upd = runUpdateNoErrors . zoom dbUpdates $
+    Updates.addUpdate upd
+
+removeNextUpdate :: Update DB ()
+removeNextUpdate = runUpdateNoErrors . zoom dbUpdates $
+    Updates.removeNextUpdate
+
+getNextUpdate :: InDb SoftwareVersion -> Update DB (Maybe (InDb SoftwareVersion))
+getNextUpdate current = runUpdateNoErrors . zoom dbUpdates $
+    Updates.getNextUpdate current
+
+{-------------------------------------------------------------------------------
   Acid-state magic
 -------------------------------------------------------------------------------}
 
@@ -490,6 +517,10 @@ makeAcidic ''DB [
     , 'updateHdAccountName
     , 'deleteHdRoot
     , 'deleteHdAccount
+      -- Software updates
+    , 'addUpdate
+    , 'removeNextUpdate
+    , 'getNextUpdate
       -- Testing
     , 'observableRollbackUseInTestsOnly
     ]
@@ -503,6 +534,12 @@ instance Buildable NewPendingError where
         bprint ("NewPendingUnknown " % build) unknownAccount
     build (NewPendingFailed npf) =
         bprint ("NewPendingFailed " % build) npf
+
+instance Buildable NewForeignError where
+    build (NewForeignUnknown unknownAccount) =
+        bprint ("NewForeignUnknown " % build) unknownAccount
+    build (NewForeignFailed npf) =
+        bprint ("NewForeignFailed " % build) npf
 
 {-------------------------------------------------------------------------------
   Arbitrary

@@ -629,9 +629,7 @@ getTxMetas conn (Offset offset) (Limit limit) accountFops mbAddress fopTxId fopT
                         pure $ _outputTableTxId out
                 -- union removes txId duplicates.
                 txid <- SQL.union_ input output
-                meta <- SQL.join_ (_mDbMeta metaDB)
-                        (\ mt -> ((_txMetaTableId mt) ==. txid))
-                pure meta
+                SQL.join_ (_mDbMeta metaDB) (\ mt -> ((_txMetaTableId mt) ==. txid))
 
         metaQueryWithAddr addr = do
             meta <- case mbSorting of

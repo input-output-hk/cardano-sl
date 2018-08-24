@@ -16,7 +16,6 @@ module Cardano.Wallet.Kernel.ChainState (
 import           Universum
 
 import qualified Data.Map.Strict as Map
-import           Data.SafeCopy (SafeCopy (..))
 
 import           Pos.Chain.Block (HeaderHash, gbHeader, headerHash,
                      mainBlockSlot, prevBlockL)
@@ -248,14 +247,6 @@ data ChainStateException =
   deriving (Show)
 
 instance Exception ChainStateException
-
-{-------------------------------------------------------------------------------
-  Serialization
--------------------------------------------------------------------------------}
-
-instance SafeCopy ChainBrief where
-  getCopy = error "TODO: getCopy for ChainBrief"
-  putCopy = error "TODO: putCopy for ChainBrief"
 
 {-------------------------------------------------------------------------------
   Pretty printing

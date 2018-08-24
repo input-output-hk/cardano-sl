@@ -19,6 +19,7 @@ library
                        Cardano.Wallet.API.Indices
                        Cardano.Wallet.API.Internal
                        Cardano.Wallet.API.Internal.Handlers
+                       Cardano.Wallet.API.Internal.LegacyHandlers
                        Cardano.Wallet.API.Request
                        Cardano.Wallet.API.Request.Filter
                        Cardano.Wallet.API.Request.Pagination
@@ -97,6 +98,7 @@ library
                        Cardano.Wallet.Kernel.DB.Sqlite
                        Cardano.Wallet.Kernel.DB.TxMeta
                        Cardano.Wallet.Kernel.DB.TxMeta.Types
+                       Cardano.Wallet.Kernel.DB.Updates
                        Cardano.Wallet.Kernel.DB.Util.AcidState
                        Cardano.Wallet.Kernel.DB.Util.IxSet
                        Cardano.Wallet.Kernel.Diffusion
@@ -114,6 +116,8 @@ library
                        Cardano.Wallet.Kernel.Types
                        Cardano.Wallet.Kernel.Util
                        Cardano.Wallet.Kernel.Util.Core
+                       Cardano.Wallet.Kernel.Util.StrictList
+                       Cardano.Wallet.Kernel.Util.StrictNonEmpty
                        Cardano.Wallet.Kernel.Util.StrictStateT
                        Cardano.Wallet.Kernel.Wallets
                        Cardano.Wallet.LegacyServer
@@ -137,11 +141,11 @@ library
                        Cardano.Wallet.WalletLayer.Kernel.Addresses
                        Cardano.Wallet.WalletLayer.Kernel.Conv
                        Cardano.Wallet.WalletLayer.Kernel.Info
+                       Cardano.Wallet.WalletLayer.Kernel.Internal
                        Cardano.Wallet.WalletLayer.Kernel.Settings
                        Cardano.Wallet.WalletLayer.Kernel.Transactions
                        Cardano.Wallet.WalletLayer.Kernel.Wallets
                        Cardano.Wallet.WalletLayer.Kernel
-                       Cardano.Wallet.WalletLayer.Error
 
   other-modules:       Paths_cardano_sl_wallet_new
   ghc-options:         -Wall
@@ -172,6 +176,7 @@ library
                      , cardano-sl-util
                      , cardano-sl-wallet
                      , cardano-sl-wallet-test
+                     , cereal
                      , conduit
                      , connection
                      , containers
@@ -179,6 +184,7 @@ library
                      , data-default
                      , data-default-class
                      , directory
+                     , ed25519
                      , exceptions
                      , formatting
                      , formatting
@@ -390,7 +396,7 @@ executable wal-integr-test
                       MonadFailDesugaring
 
 test-suite wallet-unit-tests
-  ghc-options:        -Wall
+  ghc-options:        -Wall -O2
   type:               exitcode-stdio-1.0
   main-is:            WalletUnitTest.hs
   other-modules:      InputSelection.Evaluation
@@ -523,7 +529,7 @@ test-suite wallet-unit-tests
                     , time
 
 test-suite wallet-new-specs
-  ghc-options:      -Wall
+  ghc-options:      -Wall -O2 -threaded -rtsopts
   type:             exitcode-stdio-1.0
   main-is:          Spec.hs
   hs-source-dirs:   test test/unit
@@ -567,10 +573,12 @@ test-suite wallet-new-specs
   build-depends:      base
                     , aeson
                     , bytestring
+                    , cardano-crypto
                     , cardano-sl
                     , cardano-sl-binary-test
                     , cardano-sl-client
                     , cardano-sl-client
+                    , cardano-sl-chain-test
                     , cardano-sl-core
                     , cardano-sl-core-test
                     , cardano-sl-crypto
@@ -578,6 +586,7 @@ test-suite wallet-new-specs
                     , cardano-sl-util-test
                     , cardano-sl-wallet
                     , cardano-sl-wallet-new
+                    , cereal
                     , data-default
                     , directory
                     , directory
@@ -587,6 +596,7 @@ test-suite wallet-new-specs
                     , lens
                     , QuickCheck
                     , quickcheck-instances
+                    , safecopy
                     , safe-exceptions
                     , servant
                     , servant-server

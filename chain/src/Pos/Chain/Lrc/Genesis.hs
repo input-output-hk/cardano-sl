@@ -30,4 +30,9 @@ followTheSatoshiUtxo ::
     -> Utxo
     -> SlotLeaders
 followTheSatoshiUtxo epochSlots seed utxo =
+    -- NB: here we rely on the ordering produced by HM.toList; if it changes,
+    -- `genesisLeaders` might start producing different results. Be careful with
+    -- this code!
+    --
+    -- See https://github.com/input-output-hk/cardano-sl/issues/3425
     followTheSatoshi epochSlots seed $ HM.toList $ utxoToStakes utxo

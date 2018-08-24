@@ -31,6 +31,7 @@ import           Pos.Chain.Block (Blund)
 import           Pos.Core (Coin, Timestamp)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Txp (Tx, TxId)
+import           Pos.Core.Update (SoftwareVersion)
 import           Pos.Crypto (PassPhrase)
 
 import           Cardano.Wallet.API.Request (RequestParams (..))
@@ -53,6 +54,7 @@ import qualified Cardano.Wallet.Kernel.Transactions as Kernel
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
                      (TimeExecutionLimit)
+import           Cardano.Wallet.WalletLayer.Kernel.Conv (InvalidRedemptionCode)
 
 ------------------------------------------------------------
 -- Errors when manipulating wallets
@@ -393,6 +395,12 @@ data PassiveWalletLayer m = PassiveWalletLayer
 
     -- node settings
     , getNodeSettings      :: m NodeSettings
+
+    -- internal
+    , nextUpdate           :: m (Maybe (V1 SoftwareVersion))
+    , applyUpdate          :: m ()
+    , postponeUpdate       :: m ()
+    , resetWalletState     :: m ()
     }
 
 ------------------------------------------------------------
@@ -427,7 +435,7 @@ data ActiveWalletLayer m = ActiveWalletLayer {
                    -> m (Either EstimateFeesError Coin)
 
       -- | Redeem ada
-    , redeemAda :: Redemption -> m (Either RedeemAdaError Tx)
+    , redeemAda :: Redemption -> m (Either RedeemAdaError (Tx, TxMeta))
 
       -- | Node info
       --
@@ -487,8 +495,10 @@ instance Arbitrary EstimateFeesError where
                       , EstimateFeesTimeLimitReached <$> arbitrary
                       ]
 
--- | TODO: Will need to be extended
-data RedeemAdaError = RedeemAdaError
+data RedeemAdaError =
+    RedeemAdaError Kernel.RedeemAdaError
+  | RedeemAdaWalletIdDecodingFailed Text
+  | RedeemAdaInvalidRedemptionCode InvalidRedemptionCode
 
 instance Show RedeemAdaError where
     show = formatToString build
@@ -496,4 +506,9 @@ instance Show RedeemAdaError where
 instance Exception RedeemAdaError
 
 instance Buildable RedeemAdaError where
-    build RedeemAdaError = "RedeemAdaError"
+    build (RedeemAdaError err) =
+        bprint ("RedeemAdaError " % build) err
+    build (RedeemAdaWalletIdDecodingFailed txt) =
+        bprint ("RedeemAdaWalletIdDecodingFailed " % build) txt
+    build (RedeemAdaInvalidRedemptionCode txt) =
+        bprint ("RedeemAdaInvalidRedemptionCode " % build) txt

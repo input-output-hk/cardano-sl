@@ -37,7 +37,7 @@ import           Data.Typeable (TypeRep, typeRep)
 import           Pos.Binary.Class (LengthOf, Range (..), SizeOverride (..),
                      encode, szSimplify, szWithCtx, toLazyByteString)
 import qualified Pos.Chain.Txp as Core
-import qualified Pos.Client.Txp.Util as Core
+import qualified Pos.Client.Txp.Util as CTxp
 import           Pos.Core (AddrAttributes, Coin (..), TxSizeLinear,
                      calculateTxSizeLinear)
 import qualified Pos.Core as Core
@@ -198,7 +198,7 @@ mkStdTx :: Monad m
         -> m (Either e Core.TxAux)
 mkStdTx pm shuffle hdwSigners inps outs change = do
     allOuts <- shuffle $ foldl' (flip NE.cons) outs change
-    return $ Core.makeMPubKeyTxAddrs pm hdwSigners (fmap repack inps) allOuts
+    return $ CTxp.makeMPubKeyTxAddrs pm hdwSigners (fmap repack inps) allOuts
   where
     -- Repack a utxo-derived tuple into a format suitable for
     -- 'TxOwnedInputs'.

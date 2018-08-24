@@ -33,6 +33,7 @@ import qualified Cardano.Wallet.WalletLayer.Kernel.Accounts as Accounts
 import qualified Cardano.Wallet.WalletLayer.Kernel.Active as Active
 import qualified Cardano.Wallet.WalletLayer.Kernel.Addresses as Addresses
 import qualified Cardano.Wallet.WalletLayer.Kernel.Info as Info
+import qualified Cardano.Wallet.WalletLayer.Kernel.Internal as Internal
 import qualified Cardano.Wallet.WalletLayer.Kernel.Settings as Settings
 import qualified Cardano.Wallet.WalletLayer.Kernel.Transactions as Transactions
 import qualified Cardano.Wallet.WalletLayer.Kernel.Wallets as Wallets
@@ -78,6 +79,10 @@ bracketPassiveWallet logFunction keystore rocksDB f = do
         , updateAccount        = Accounts.updateAccount       w
         , deleteAccount        = Accounts.deleteAccount       w
         , createAddress        = Addresses.createAddress      w
+        , nextUpdate           = Internal.nextUpdate          w
+        , applyUpdate          = Internal.applyUpdate         w
+        , postponeUpdate       = Internal.postponeUpdate      w
+        , resetWalletState     = Internal.resetWalletState    w
         , applyBlocks          = invokeIO . Actions.ApplyBlocks
         , rollbackBlocks       = invokeIO . Actions.RollbackBlocks . length
           -- Read-only operations

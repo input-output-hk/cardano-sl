@@ -31,7 +31,8 @@ import           Cardano.Wallet.Kernel.Read (getWalletCredentials)
 import           Cardano.Wallet.Kernel.Submission (Cancelled, addPending)
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
 
-import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentialsKey (..),
+                     keyToWalletDecrCredentials)
 
 {-------------------------------------------------------------------------------
   Submit pending transactions
@@ -105,7 +106,7 @@ newTx ActiveWallet{..} accountId tx mbMeta upd = do
             map f $ filterOurs wKey identity addrs
             where
                 f (address,addressId) = initHdAddress addressId (InDb address)
-                wKey = (wid, eskToWalletDecrCredentials esk)
+                wKey = (wid, keyToWalletDecrCredentials $ KeyForRegular esk)
 
         putTxMeta' :: Maybe TxMeta -> IO ()
         putTxMeta' (Just meta) = putTxMeta (walletPassive ^. walletMeta) meta

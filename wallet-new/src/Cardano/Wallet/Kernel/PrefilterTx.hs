@@ -30,7 +30,8 @@ import           Pos.Core.Txp (TxId, TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.Wallet.Web.State.Storage (WAddressMeta (..))
 import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials,
-                     eskToWalletDecrCredentials, selectOwnAddresses)
+                     WalletDecrCredentialsKey (..), keyToWalletDecrCredentials,
+                     selectOwnAddresses)
 
 import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.HdWallet
@@ -168,7 +169,7 @@ prefilterUtxo :: HdRootId -> EncryptedSecretKey -> Utxo -> Map HdAccountId (Utxo
 prefilterUtxo rootId esk utxo = map toPrefilteredUtxo prefUtxo
     where
         (_,prefUtxo) = prefilterUtxo' wKey utxo
-        wKey         = (WalletIdHdRnd rootId, eskToWalletDecrCredentials esk)
+        wKey         = (WalletIdHdRnd rootId, keyToWalletDecrCredentials $ KeyForRegular esk)
 
 -- | Produce Utxo along with all (extended) addresses occurring in the Utxo
 toPrefilteredUtxo :: UtxoWithAddrId -> (Utxo,[AddrWithId])
@@ -262,7 +263,7 @@ prefilterBlock block wid esk =
     , metas)
   where
     wdc :: WalletDecrCredentials
-    wdc  = eskToWalletDecrCredentials esk
+    wdc  = keyToWalletDecrCredentials $ KeyForRegular esk
     wKey = (wid, wdc)
 
     inps :: [Map HdAccountId (Set TxIn)]
@@ -309,7 +310,7 @@ mkBlockMeta slotId addrs_ = LocalBlockMeta BlockMeta{..}
         indexedAddrs = indexByAddr addrs_
 
         _blockMetaSlotId      = InDb . Map.fromList . map (,slotId) $ txIds'
-        _blockMetaAddressMeta = InDb $ Map.map mkAddressMeta indexedAddrs
+        _blockMetaAddressMeta = Map.map mkAddressMeta indexedAddrs
 
 -- | This function is called once for each address found in a particular block of
 --   transactions. The collection of address summaries passed to this function
@@ -347,11 +348,11 @@ mkAddressMeta addrs
 -- | Index the list of address summaries by Address.
 --   NOTE: Since there will be at least one AddressSummary per Address,
 --   we can safely use NE.fromList.
-indexByAddr :: [AddressSummary] -> Map Address (NE.NonEmpty AddressSummary)
+indexByAddr :: [AddressSummary] -> Map (InDb Address) (NE.NonEmpty AddressSummary)
 indexByAddr addrs =
     Map.map NE.fromList (Map.fromListWith (++) addrs')
     where
-        fromAddrSummary addrSummary = (addrSummaryAddr addrSummary, [addrSummary])
+        fromAddrSummary addrSummary = (InDb (addrSummaryAddr addrSummary), [addrSummary])
         addrs' = map fromAddrSummary addrs
 
 fromUtxoSummary :: Map TxIn (TxOutAux,AddressSummary)

@@ -1,33 +1,38 @@
-{-# LANGUAGE RecordWildCards, NamedFieldPuns #-}
-{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, TypeFamilies,
-             FlexibleContexts, ScopedTypeVariables, GADTs, RankNTypes,
-             GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FunctionalDependencies     #-}
+{-# LANGUAGE GADTs                      #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE NamedFieldPuns             #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TypeFamilies               #-}
 module ConsumerProtocol where
 
-import Data.Word
-import Data.List (tails, foldl')
+import           Data.List (foldl', tails)
+import           Data.Word
 --import Data.Maybe
-import Data.Hashable
+import           Data.Hashable
 --import qualified Data.Set as Set
-import qualified Data.Map as Map
 import           Data.Map (Map)
+import qualified Data.Map as Map
 import           Data.PriorityQueue.FingerTree (PQueue)
 import qualified Data.PriorityQueue.FingerTree as PQueue
 
-import Control.Applicative
-import Control.Monad
-import Control.Concurrent.STM (STM, retry)
-import Control.Exception (assert)
-import Control.Monad.ST.Lazy
-import Data.STRef.Lazy
-import System.Random (StdGen, mkStdGen, randomR)
+import           Control.Applicative
+import           Control.Concurrent.STM (STM, retry)
+import           Control.Exception (assert)
+import           Control.Monad
+import           Control.Monad.ST.Lazy
+import           Data.STRef.Lazy
+import           System.Random (StdGen, mkStdGen, randomR)
 
-import Test.QuickCheck
+import           Test.QuickCheck
 
-import ChainExperiment2
-import MonadClass
-import Sim hiding (MVar)
-import qualified Sim
+import           ChainExperiment2
+import           MonadClass
+import           Sim (Chan (..), SimM, flipChan)
 
 --
 -- IPC based protocol
@@ -60,7 +65,7 @@ consumerSideProtocol1 :: forall m.
                       -> m ()
 consumerSideProtocol1 ConsumerHandlers{..} chan = do
     -- The consumer opens by sending a list of points on their chain.
-    -- This includes the head block and 
+    -- This includes the head block and
     (hpoint, points) <- getChainPoints
     sendMsg chan (MsgSetHead hpoint points)
     MsgIntersectImproved{} <- recvMsg chan
@@ -150,38 +155,77 @@ producerSideProtocol1 ProducerHandlers{..} chan =
     updateMsg (RollBackward p) = MsgRollBackward p
 
 
-exampleProducer :: forall m. MonadConc m
-                => MVar m (ChainProducerState)
+exampleProducer :: forall m. (MonadConc m, MonadSay m)
+                => MVar m (ChainProducerState, MVar m (ChainProducerState))
                 -> ProducerHandlers m ReaderId
 exampleProducer chainvar =
     ProducerHandlers {..}
   where
     findIntersectionRange :: Point -> [Point] -> m (Maybe (Point, Point))
     findIntersectionRange hpoint points = do
-      cps <- readMVar chainvar
+      (cps, _) <- readMVar chainvar
       return $! findIntersection cps hpoint points
 
     establishReaderState :: Point -> Point -> m ReaderId
     establishReaderState hpoint ipoint =
-      modifyMVar chainvar $ \cps ->
-        return $! initialiseReader hpoint ipoint cps
+      modifyMVar chainvar $ \(cps, mcps) ->
+          case initialiseReader hpoint ipoint cps of
+            (cps', rid) -> return ((cps', mcps), rid)
 
     updateReaderState :: ReaderId -> Point -> Maybe Point -> m ()
     updateReaderState rid hpoint mipoint =
-      modifyMVar_ chainvar $ \cps ->
-        return $! updateReader rid hpoint mipoint cps
+      modifyMVar_ chainvar $ \(cps, mcps) ->
+        let !ncps = updateReader rid hpoint mipoint cps
+        in return $! (ncps, mcps)
 
     tryReadChainUpdate :: ReaderId -> m (Maybe (ConsumeChain Block))
     tryReadChainUpdate rid =
       modifyMVar chainvar $ \cps ->
-        return $ swizzle cps $ readerInstruction cps rid
+        return $ (swizzle cps $ readerInstruction (fst cps) rid)
       where
-        swizzle cps Nothing          = (cps, Nothing)
-        swizzle _   (Just (cps', x)) = (cps', Just x)
+        swizzle cps       Nothing          = (cps, Nothing)
+        swizzle (_, mcps) (Just (cps', x)) = ((cps', mcps), Just x)
 
     readChainUpdate :: ReaderId -> m (ConsumeChain Block)
-    readChainUpdate = undefined
+    readChainUpdate rid = do
+      -- block on the inner mvar
+      say ("blocking on updated for " ++ show rid)
+      cps <- readMVar chainvar >>= readMVar . snd
+      case readerInstruction cps rid of
+          Just (_, x) -> return x
+          -- NOTE: this will block until we know how to update the
+          -- consumer; it may never end. Maybe we should just fail.
+          Nothing     -> readChainUpdate rid
 
+exampleConsumer :: forall m. MonadConc m
+                => MVar m (ChainProducerState, MVar m (ChainProducerState))
+                -> ConsumerHandlers m
+exampleConsumer chainvar = ConsumerHandlers {..}
+    where
+    getChainPoints :: m (Point, [Point])
+    getChainPoints = do
+        (ChainProducerState {chainState}, _) <- readMVar chainvar
+        -- TODO: bootstraping case (client has no blocks)
+        let (p : ps) = map blockPoint $ absChainState chainState
+        return (p, ps)
+
+    addBlock :: Block -> m ()
+    addBlock b = void $ modifyMVar_ chainvar $ \(cps@ChainProducerState {chainState}, mcps) -> do
+        let !chainState' = applyChainStateUpdate (AddBlock b) chainState
+        let !cps' = cps { chainState = chainState' }
+        -- wake up awaiting producers
+        _ <- tryPutMVar mcps cps'
+        mcps' <- newEmptyMVar
+        return (cps', mcps')
+
+    rollbackTo :: Point -> m ()
+    rollbackTo p = void $ modifyMVar_ chainvar $ \(cps@ChainProducerState {chainState}, mcps) -> do
+        let !chainState' = applyChainStateUpdate (RollBack p) chainState
+        let !cps' = cps { chainState = chainState' }
+        -- wake up awaiting producers
+        _ <- tryPutMVar mcps cps'
+        mcps' <- newEmptyMVar
+        return (cps', mcps')
 
 --
 -- Simulation of composition of producer and consumer

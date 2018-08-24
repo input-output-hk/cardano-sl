@@ -1,16 +1,17 @@
-{-# LANGUAGE RecordWildCards, NamedFieldPuns #-}
+{-# LANGUAGE NamedFieldPuns  #-}
+{-# LANGUAGE RecordWildCards #-}
 module ChainExperiment2 where
 
-import Data.Word
-import Data.List (tails, foldl', find)
-import Data.Hashable
-import qualified Data.Map as Map
+import           Data.Hashable
+import           Data.List (find, foldl', tails)
 import           Data.Map (Map)
+import qualified Data.Map as Map
+import           Data.Word
 
-import Control.Applicative
-import Control.Exception (assert)
+import           Control.Applicative
+import           Control.Exception (assert)
 
-import Test.QuickCheck
+import           Test.QuickCheck
 
 
 --
@@ -54,7 +55,7 @@ validChainExtension b (b':_) = prevBlockId b == blockId b'
 
 --
 -- And useful later: chain fragments
--- 
+--
 
 -- | Like 'Chain but does not have to chain onto the genesis block. Its final
 -- back pointer can be anything at all.
@@ -115,25 +116,23 @@ prop_TestChain (TestChain chain) = validChain chain
 --
 
 data ChainUpdate = AddBlock   Block
-                 | SwitchFork Int     -- rollback by n
-                              [Block] -- add more blocks
+                 | RollBack Point
   deriving Show
 
 -- This is the key operation on chains in this model
 applyChainUpdate :: ChainUpdate -> Chain -> Chain
 applyChainUpdate (AddBlock     b)  c = b:c
-applyChainUpdate (SwitchFork n bs) c = bs ++ drop n c
+applyChainUpdate (RollBack p)      c = go c
+    where
+    go [] = []
+    go (b : bs) | blockPoint b == p = b : bs
+                | otherwise         = go bs
 
 applyChainUpdates :: [ChainUpdate] -> Chain -> Chain
 applyChainUpdates = flip (foldl (flip applyChainUpdate))
 
 validChainUpdate :: ChainUpdate -> Chain -> Bool
-validChainUpdate cu c = validChainUpdate' cu
-                     && validChain (applyChainUpdate cu c)
-
-validChainUpdate' :: ChainUpdate -> Bool
-validChainUpdate' (AddBlock    _b)  = True
-validChainUpdate' (SwitchFork n bs) = n >= 0 && n <= k && length bs == n + 1
+validChainUpdate cu c = validChain (applyChainUpdate cu c)
 
 k :: Int
 k = 5 -- maximum fork length in these tests
@@ -155,11 +154,9 @@ genChainUpdate chain = do
     let maxRollback = length (take k chain)
     n <- choose (-10, maxRollback)
     if n <= 0
-      then AddBlock     <$> genBlock (chainHeadBlockId chain)
+      then AddBlock <$> genBlock (chainHeadBlockId chain)
                                      (chainHeadSlot chain + 1)
-      else SwitchFork n <$> let chain' = drop n chain in
-                            genNBlocks (n+1) (chainHeadBlockId chain')
-                                             (chainHeadSlot chain' + 1)
+      else return $ RollBack (blockPoint (head (drop (n - 1) chain)))
 
 genChainUpdates :: Chain -> Int -> Gen [ChainUpdate]
 genChainUpdates _     0 = return []
@@ -368,9 +365,15 @@ switchForkVolatile rollback newblocks (Volatile blocks (Just tip)) =
         rollbackTo      = prevBlockId (last backwards)
         rollforwardFrom = blockId (last newblocks)
 
+rollback :: Point -> ChainState -> ChainState
+rollback p (ChainState v) = ChainState (rollbackVolatile p v)
+
+rollbackVolatile :: Point -> Volatile -> Volatile
+rollbackVolatile = undefined
+
 applyChainStateUpdate :: ChainUpdate -> ChainState -> ChainState
-applyChainStateUpdate (AddBlock     b)  = addBlock b
-applyChainStateUpdate (SwitchFork n bs) = switchFork n bs
+applyChainStateUpdate (AddBlock     b) = addBlock b
+applyChainStateUpdate (RollBack p)     = rollback p
 
 -- | This is now the simulation property covering both the add block and
 -- switch fork operations.
@@ -402,7 +405,7 @@ prop_switchFork (TestChainAndUpdates chain updates) =
 --    error "rollBackToVolatile: precondition violation"
 
 --rollBackToVolatile (slot, bid) (Volatile blocks (Just tip)) =
-    
+
 
 --
 -- Read pointer operations
@@ -425,6 +428,10 @@ type ReaderStates = [ReaderState]
 -- that were in the same slot.
 --
 type Point        = (Slot, BlockId)
+
+blockPoint :: Block -> Point
+blockPoint b = (blockSlot b, blockId b)
+
 type ReaderId     = Int
 data ReaderState  = ReaderState {
        -- | Where the chain of the consumer and producer intersect. If the

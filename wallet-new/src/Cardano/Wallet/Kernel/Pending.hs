@@ -41,8 +41,11 @@ import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentialsKey (..),
   Submit pending transactions
 -------------------------------------------------------------------------------}
 
-
-type PartialTxMeta = Bool -> Coin -> IO TxMeta
+-- | When we create a new Transaction, we don`t yet know which outputs belong to us
+-- (it may not be just the change addresses change we create, but also addresses the user specifies).
+-- This check happenes in @newTx@. Until then we move around this partial TxMetadata.
+-- @Bool@ indicates if all outputs are ours and @Coin@ the sum of the coin of our outputs.
+type PartialTxMeta = Bool -> Coin -> TxMeta
 
 -- | Submit a new pending transaction
 --
@@ -69,7 +72,7 @@ newForeign :: ActiveWallet
            -> TxMeta
            -> IO (Either NewForeignError ())
 newForeign w accountId tx meta = do
-    map void <$> newTx w accountId tx (\_ _ -> return meta) $ \ourAddrs ->
+    map void <$> newTx w accountId tx (\_ _ ->  meta) $ \ourAddrs ->
         update' ((walletPassive w) ^. wallets) $ NewForeign accountId (InDb tx) ourAddrs
 
 -- | Submit a new transaction
@@ -90,15 +93,15 @@ newTx :: forall e. ActiveWallet
 newTx ActiveWallet{..} accountId tx partialMeta upd = do
     -- run the update
     allOurs' <- allOurs <$> getWalletCredentials walletPassive
-    let (addrsOurs',coinsOurs) = unzip allOurs'
-        outCoins = sumCoinsUnsafe coinsOurs
+    let (addrsOurs',ourOutputCoins) = unzip allOurs'
+        gainedOutputCoins = sumCoinsUnsafe ourOutputCoins
         allOutsOurs = length allOurs' == length txOut
     res <- upd $ addrsOurs'
     case res of
         Left e   -> return (Left e)
         Right () -> do
             -- process transaction on success
-            meta <- partialMeta allOutsOurs outCoins
+            let meta = partialMeta allOutsOurs gainedOutputCoins
             putTxMeta (walletPassive ^. walletMeta) meta
             submitTx
             return (Right meta)

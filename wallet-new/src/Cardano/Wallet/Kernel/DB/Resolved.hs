@@ -61,12 +61,12 @@ data ResolvedTx = ResolvedTx {
     }
 
 -- | This is used when apply block is called, during prefiltering, so related inputs
--- and outputs to the HDAccount are known.
--- @inCoin@ is the coins from input addresses of the account.
--- @outCoin@ is the coins from output addresses of the account.
+-- and outputs to the HDAccount are known to the caller.
+-- @spentInputsCoins@ is the coins from input addresses of the account. They reduce the balance.
+-- @gainedOutputsCoins@ is the coins from output addresses of the account. They increase the balance.
 -- @allOurs@ indictes if all inputs and outputs addresses belong to the account.
 resolvedToTxMeta :: ResolvedTx -> Coin -> Coin -> Bool -> HD.HdAccountId -> TxMeta
-resolvedToTxMeta ResolvedTx{..} inCoin outCoin allOurs accountId =
+resolvedToTxMeta ResolvedTx{..} spentInputsCoins gainedOutputsCoins allOurs accountId =
   fromMaybe (error "Invalid ResolvedTx") mbMeta
   where
     mbMeta = do
@@ -75,12 +75,12 @@ resolvedToTxMeta ResolvedTx{..} inCoin outCoin allOurs accountId =
       let (txId, timestamp) = _fromDb _rtxMeta
       return TxMeta {
           _txMetaId = txId
-        , _txMetaAmount = absCoin inCoin outCoin
+        , _txMetaAmount = absCoin spentInputsCoins gainedOutputsCoins
         , _txMetaInputs = inps
         , _txMetaOutputs = outs
         , _txMetaCreationAt = timestamp
         , _txMetaIsLocal = allOurs
-        , _txMetaIsOutgoing = outCoin < inCoin
+        , _txMetaIsOutgoing = gainedOutputsCoins < spentInputsCoins -- it's outgoing if gained is less than spent.
         , _txMetaWalletId = _fromDb $ HD.getHdRootId (accountId ^. HD.hdAccountIdParent)
         , _txMetaAccountIx = HD.getHdAccountIx $ accountId ^. HD.hdAccountIdIx
       }

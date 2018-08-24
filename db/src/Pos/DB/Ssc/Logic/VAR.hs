@@ -28,8 +28,8 @@ import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem,
                      runPureTossWithLogger, sscGlobal,
                      sscIsCriticalVerifyError, sscRunGlobalUpdate,
                      supplyPureTossEnv, verifyAndApplySscPayload)
-import           Pos.Core as Core (Config, HasCoreConfiguration, HasGenesisData,
-                     SlotCount, epochIndexL, epochOrSlotG)
+import           Pos.Core as Core (Config, HasCoreConfiguration, SlotCount,
+                     epochIndexL, epochOrSlotG)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Exception (assertionFailed)
 import           Pos.Core.Reporting (MonadReporting, reportError)
@@ -175,7 +175,7 @@ onVerifyFailedInApply hashes e = assertionFailed msg
 -- | Verify SSC-related part of given blocks with respect to current GState
 -- and apply them on success. Blocks must be from the same epoch.
 sscVerifyAndApplyBlocks
-    :: (SscVerifyMode m, HasGenesisData)
+    :: SscVerifyMode m
     => Core.Config
     -> RichmenStakes
     -> BlockVersionData
@@ -188,7 +188,7 @@ sscVerifyAndApplyBlocks coreConfig richmenStake bvd blocks =
     richmenData = HM.fromList [(epoch, richmenStake)]
 
 verifyAndApplyMultiRichmen
-    :: (SscVerifyMode m, HasGenesisData)
+    :: SscVerifyMode m
     => Core.Config
     -> Bool
     -> (MultiRichmenStakes, BlockVersionData)
@@ -224,9 +224,7 @@ sscRollbackBlocks epochSlots blocks = sscRunGlobalUpdate $ do
     sscRollbackU epochSlots blocks
     sscGlobalStateToBatch <$> get
 
-sscRollbackU
-    :: HasGenesisData
-    => SlotCount -> NewestFirst NE SscBlock -> SscGlobalUpdate ()
+sscRollbackU :: SlotCount -> NewestFirst NE SscBlock -> SscGlobalUpdate ()
 sscRollbackU epochSlots blocks = tossToUpdate $ rollbackSsc epochSlots oldestEOS payloads
   where
     oldestEOS = blocks ^. _Wrapped . _neLast . epochOrSlotG

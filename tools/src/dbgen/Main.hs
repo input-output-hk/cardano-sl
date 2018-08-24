@@ -119,7 +119,7 @@ newRealModeContext coreConfig txpConfig dbs confOpts publicKeyPath secretKeyPath
         coreConfig
         nodeParams
         gtParams
-        (txpGlobalSettings (configProtocolMagic coreConfig) txpConfig)
+        (txpGlobalSettings coreConfig txpConfig)
         (initNodeDBs coreConfig) $ \NodeResources{..} ->
         RealModeContext <$> pure dbs
                         <*> pure nrSscState

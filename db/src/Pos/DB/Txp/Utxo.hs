@@ -41,11 +41,9 @@ import qualified Formatting.Buildable
 import           Serokell.Util (Color (Red), colorize)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Chain.Txp (GenesisUtxo (..), Utxo, addrBelongsToSet,
-                     txOutStake)
-import           Pos.Core (Address, Coin, HasCoreConfiguration, coinF,
-                     genesisData, mkCoin, sumCoins, unsafeAddCoin,
-                     unsafeIntegerToCoin)
+import           Pos.Chain.Txp (Utxo, addrBelongsToSet, genesisUtxo, txOutStake)
+import           Pos.Core (Address, Coin, HasCoreConfiguration, coinF, mkCoin,
+                     sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Core.Genesis (GenesisData (..))
 import           Pos.Core.Txp (TxIn (..), TxOutAux (toaOut))
 import           Pos.DB (DBError (..), DBIteratorClass (..), DBTag (GStateDB),
@@ -86,11 +84,11 @@ instance HasCoreConfiguration => RocksBatchOp UtxoOp where
 ----------------------------------------------------------------------------
 
 -- | Initializes utxo db.
-initGStateUtxo :: (MonadDB m) => GenesisUtxo -> m ()
-initGStateUtxo (GenesisUtxo genesisUtxo) =
+initGStateUtxo :: (MonadDB m) => GenesisData -> m ()
+initGStateUtxo genesisData =
     writeBatchGState $ concatMap createBatchOp utxoList
   where
-    utxoList = M.toList genesisUtxo
+    utxoList = M.toList $ genesisUtxo genesisData
     createBatchOp (txin, txout) = [AddTxOut txin txout]
 
 ----------------------------------------------------------------------------
@@ -136,8 +134,8 @@ getAllPotentiallyHugeUtxo = runConduitRes $ utxoSource .| utxoSink
 
 sanityCheckUtxo
     :: (MonadDBRead m, WithLogger m, MonadUnliftIO m)
-    => Coin -> m ()
-sanityCheckUtxo expectedTotalStake = do
+    => GenesisData -> Coin -> m ()
+sanityCheckUtxo genesisData expectedTotalStake = do
     let stakesSource =
             mapOutput (map snd . txOutStake (gdBootStakeholders genesisData)
                        . toaOut . snd) utxoSource

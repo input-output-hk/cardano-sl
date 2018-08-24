@@ -29,8 +29,11 @@ import           Test.Pos.Configuration (HasStaticConfigurations,
 -- should be the same as the binary encoding of `MsgBlock`.
 serializeMsgSerializedBlockSpec :: HasStaticConfigurations => Spec
 serializeMsgSerializedBlockSpec = do
-    prop desc $ blockPropertyTestable $ \_ -> do
-        (block, _) <- bpGenBlock (TxpConfiguration 200 Set.empty) (EnableTxPayload True) (InplaceDB True)
+    prop desc $ blockPropertyTestable $ \coreConfig -> do
+        (block, _) <- bpGenBlock coreConfig
+                                 (TxpConfiguration 200 Set.empty)
+                                 (EnableTxPayload True)
+                                 (InplaceDB True)
         let sb = Serialized $ serialize' block
         assert $ serializeMsgSerializedBlock (MsgSerializedBlock sb) == serialize' (MsgBlock block)
     prop descNoBlock $ blockPropertyTestable $ \_ -> do
@@ -49,8 +52,11 @@ serializeMsgSerializedBlockSpec = do
 -- `serializeMsgSerializedBlock`) should give back the original block.
 deserializeSerilizedMsgSerializedBlockSpec :: HasStaticConfigurations => Spec
 deserializeSerilizedMsgSerializedBlockSpec = do
-    prop desc $ blockPropertyTestable $ \_ -> do
-        (block, _) <- bpGenBlock (TxpConfiguration 200 Set.empty) (EnableTxPayload True) (InplaceDB True)
+    prop desc $ blockPropertyTestable $ \coreConfig -> do
+        (block, _) <- bpGenBlock coreConfig
+                                 (TxpConfiguration 200 Set.empty)
+                                 (EnableTxPayload True)
+                                 (InplaceDB True)
         let sb = Serialized $ serialize' block
         let msg :: Either Text MsgBlock
             msg = decodeFull . BSL.fromStrict . serializeMsgSerializedBlock $ MsgSerializedBlock sb

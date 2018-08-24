@@ -42,11 +42,11 @@ import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Chain.Block (HeaderHash)
-import           Pos.Chain.Txp (GenesisUtxo (..), genesisUtxo, utxoF,
-                     utxoToAddressCoinPairs)
-import           Pos.Core as Core (Address, Coin, Config, EpochIndex (..),
+import           Pos.Chain.Txp (genesisUtxo, utxoF, utxoToAddressCoinPairs)
+import           Pos.Core as Core (Address, Coin, Config (..), EpochIndex (..),
                      HasConfiguration, coinToInteger, unsafeAddCoin)
 import           Pos.Core.Chrono (NewestFirst (..))
+import           Pos.Core.Genesis (GenesisData)
 import           Pos.Core.Txp (Tx, TxId, TxOut (..), TxOutAux (..))
 import           Pos.DB (DBError (..), DBIteratorClass (..), DBTag (GStateDB),
                      MonadDB, MonadDBRead (dbGet), RocksBatchOp (..),
@@ -63,7 +63,8 @@ explorerInitDB
      . (MonadReader ctx m, MonadUnliftIO m, MonadDB m)
     => Core.Config
     -> m ()
-explorerInitDB coreConfig = initNodeDBs coreConfig >> prepareExplorerDB
+explorerInitDB coreConfig =
+    initNodeDBs coreConfig >> prepareExplorerDB (configGenesisData coreConfig)
 
 ----------------------------------------------------------------------------
 -- Types
@@ -162,11 +163,10 @@ getLastTransactions = gsGetBi lastTxsPrefix
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareExplorerDB :: (MonadDB m, MonadUnliftIO m) => m ()
-prepareExplorerDB = do
+prepareExplorerDB :: (MonadDB m, MonadUnliftIO m) => GenesisData -> m ()
+prepareExplorerDB genesisData = do
     unlessM balancesInitializedM $ do
-        let GenesisUtxo utxo = genesisUtxo
-            addressCoinPairs = utxoToAddressCoinPairs utxo
+        let addressCoinPairs = utxoToAddressCoinPairs $ genesisUtxo genesisData
         putGenesisBalances addressCoinPairs
         putInitFlag
 

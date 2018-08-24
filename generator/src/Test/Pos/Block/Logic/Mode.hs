@@ -65,8 +65,8 @@ import           Pos.Chain.Ssc (SscMemTag, SscState)
 import           Pos.Chain.Txp (TxpConfiguration (..))
 import           Pos.Core as Core (Config (..), CoreConfiguration (..),
                      GenesisConfiguration (..), HasConfiguration, SlotId,
-                     Timestamp (..), configGeneratedSecretsThrow,
-                     withGenesisSpec)
+                     Timestamp (..), configEpochSlots,
+                     configGeneratedSecretsThrow, withGenesisSpec)
 import           Pos.Core.Conc (currentTime)
 import           Pos.Core.Configuration (HasGenesisBlockVersionData,
                      withGenesisBlockVersionData)
@@ -76,7 +76,6 @@ import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MonadReporting (..))
 import           Pos.Core.Slotting (MonadSlotsData)
 import           Pos.Core.Update (BlockVersionData)
-import           Pos.Crypto (SecretKey)
 import           Pos.DB (DBPure, MonadDB (..), MonadDBRead (..),
                      MonadGState (..))
 import qualified Pos.DB as DB
@@ -121,8 +120,7 @@ import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation,
 import           Test.Pos.Configuration (defaultTestBlockVersionData,
                      defaultTestConf, defaultTestGenesisSpec)
 import           Test.Pos.Core.Arbitrary ()
-import           Test.Pos.Core.Dummy (dummyConfig, dummyEpochSlots)
-import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
+import           Test.Pos.Core.Dummy (dummyEpochSlots)
 
 ----------------------------------------------------------------------------
 -- Parameters
@@ -253,17 +251,19 @@ initBlockTestContext ::
        ( HasConfiguration
        , HasDlgConfiguration
        )
-    => TestParams
-    -> [SecretKey]
+    => Core.Config
+    -> TestParams
     -> (BlockTestContext -> Emulation a)
     -> Emulation a
-initBlockTestContext tp@TestParams {..} genesisSecretKeys callback = do
+initBlockTestContext coreConfig tp@TestParams {..} callback = do
     clockVar <- Emulation ask
     dbPureVar <- newDBPureVar
     (futureLrcCtx, putLrcCtx) <- newInitFuture "lrcCtx"
     (futureSlottingVar, putSlottingVar) <- newInitFuture "slottingVar"
     systemStart <- Timestamp <$> currentTime
-    slottingState <- mkSimpleSlottingStateVar dummyEpochSlots
+    let epochSlots = configEpochSlots coreConfig
+    slottingState <- mkSimpleSlottingStateVar epochSlots
+    genesisSecretKeys <- gsSecretKeys <$> configGeneratedSecretsThrow coreConfig
     let initCtx =
             TestInitModeContext
                 dbPureVar
@@ -272,18 +272,18 @@ initBlockTestContext tp@TestParams {..} genesisSecretKeys callback = do
                 systemStart
                 futureLrcCtx
         initBlockTestContextDo = do
-            initNodeDBs dummyConfig
+            initNodeDBs coreConfig
             _gscSlottingVar <- newTVarIO =<< GS.getSlottingData
             putSlottingVar _gscSlottingVar
             let btcLoggerName = "testing"
             lcLrcSync <- mkLrcSyncData >>= newTVarIO
             let _gscLrcContext = LrcContext {..}
             putLrcCtx _gscLrcContext
-            btcUpdateContext <- mkUpdateContext dummyEpochSlots
-            btcSscState <- mkSscState dummyEpochSlots
+            btcUpdateContext <- mkUpdateContext epochSlots
+            btcSscState <- mkSscState epochSlots
             _gscSlogGState <- mkSlogGState
             btcTxpMem <- mkTxpLocalData
-            let btcTxpGlobalSettings = txpGlobalSettings dummyProtocolMagic _tpTxpConfiguration
+            let btcTxpGlobalSettings = txpGlobalSettings coreConfig _tpTxpConfiguration
             let btcSlotId = Nothing
             let btcParams = tp
             let btcGState = GS.GStateContext {_gscDB = DB.PureDB dbPureVar, ..}
@@ -309,13 +309,13 @@ runBlockTestMode ::
        ( HasDlgConfiguration
        , HasConfiguration
        )
-    => TestParams
-    -> [SecretKey]
+    => Core.Config
+    -> TestParams
     -> BlockTestMode a
     -> IO a
-runBlockTestMode tp genesisSecretKeys action =
-    runEmulation (getTimestamp $ tp ^. tpStartTime) $
-    initBlockTestContext tp genesisSecretKeys (runReaderT action)
+runBlockTestMode coreConfig tp action =
+    runEmulation (getTimestamp $ tp ^. tpStartTime)
+        $ initBlockTestContext coreConfig tp (runReaderT action)
 
 ----------------------------------------------------------------------------
 -- Property
@@ -331,12 +331,9 @@ blockPropertyToProperty
     -> (HasConfiguration => Core.Config -> BlockProperty a)
     -> Property
 blockPropertyToProperty tpGen blockProperty =
-    forAll tpGen $ \tp -> withTestParams tp $ \coreConfig ->
-        monadic (\prop -> ioProperty $ do
-                    secretKeys <- gsSecretKeys
-                        <$> configGeneratedSecretsThrow coreConfig
-                    runBlockTestMode tp secretKeys prop)
-                (blockProperty coreConfig)
+    forAll tpGen $ \tp -> withTestParams tp $ \coreConfig -> monadic
+        (ioProperty . runBlockTestMode coreConfig tp)
+        (blockProperty coreConfig)
 
 -- | Simplified version of 'blockPropertyToProperty' which uses
 -- 'Arbitrary' instance to generate 'TestParams'.

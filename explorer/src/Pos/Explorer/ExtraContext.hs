@@ -31,10 +31,10 @@ import           Pos.DB.Class (MonadDBRead)
 import           Pos.Explorer.DB (Epoch, Page, getEpochBlocks, getEpochPages,
                      getPageBlocks)
 
-import           Pos.Chain.Txp (GenesisUtxo (..), genesisUtxo,
-                     utxoToAddressCoinPairs)
-import           Pos.Core (Address, Coin, EpochIndex, HasConfiguration,
-                     SlotId (..), SlotLeaders, Timestamp, isRedeemAddress)
+import           Pos.Chain.Txp (genesisUtxo, utxoToAddressCoinPairs)
+import           Pos.Core (Address, Coin, EpochIndex, SlotId (..), SlotLeaders,
+                     Timestamp, isRedeemAddress)
+import           Pos.Core.Genesis (GenesisData)
 import           Pos.DB.Lrc (getLeadersForEpoch)
 import           Pos.Infra.Slotting (MonadSlotsData, getSlotStart)
 
@@ -53,9 +53,9 @@ data ExtraContext = ExtraContext
     , ecExplorerMockableMode :: !ExplorerMockableMode
     }
 
-makeExtraCtx :: HasConfiguration => ExtraContext
-makeExtraCtx =
-    let addressCoinPairs = utxoToAddressCoinPairs $ unGenesisUtxo genesisUtxo
+makeExtraCtx :: GenesisData -> ExtraContext
+makeExtraCtx genesisData =
+    let addressCoinPairs = utxoToAddressCoinPairs $ genesisUtxo genesisData
         redeemOnly = filter (isRedeemAddress . fst) addressCoinPairs
     in ExtraContext
         { ecAddressCoinPairs     = V.fromList redeemOnly

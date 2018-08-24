@@ -202,7 +202,9 @@ instance MonadBListener AuxxMode where
     onRollbackBlocks = realModeToAuxx ... onRollbackBlocks
 
 instance HasConfiguration => MonadBalances AuxxMode where
-    getOwnUtxos addrs = ifM isTempDbUsed (getOwnUtxosGenesis addrs) (getFilteredUtxo addrs)
+    getOwnUtxos genesisData addrs = ifM isTempDbUsed
+                                        (getOwnUtxosGenesis genesisData addrs)
+                                        (getFilteredUtxo addrs)
     getBalance = getBalanceFromUtxo
 
 instance HasConfiguration =>

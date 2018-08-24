@@ -18,9 +18,9 @@ import qualified Data.Map.Strict as M
 import           Pos.Chain.Txp.Base (addrBelongsTo, addrBelongsToSet,
                      txOutStake)
 import           Pos.Chain.Txp.Toil.Types (Utxo)
-import           Pos.Core (Address, Coin, HasGenesisData, StakesMap,
-                     genesisData, sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
-import           Pos.Core.Genesis (GenesisData (..))
+import           Pos.Core (Address, Coin, StakesMap, sumCoins, unsafeAddCoin,
+                     unsafeIntegerToCoin)
+import           Pos.Core.Genesis (GenesisWStakeholders)
 import           Pos.Core.Txp (TxOut (txOutValue), TxOutAux (..), _TxOut)
 
 -- | Select only TxOuts for given address
@@ -40,12 +40,12 @@ getTotalCoinsInUtxo =
     map (txOutValue . toaOut) . toList
 
 -- | Convert 'Utxo' to 'StakesMap'.
-utxoToStakes :: HasGenesisData => Utxo -> StakesMap
-utxoToStakes = foldl' putDistr mempty . M.toList
+utxoToStakes :: GenesisWStakeholders -> Utxo -> StakesMap
+utxoToStakes bootStakeholders = foldl' putDistr mempty . M.toList
   where
     plusAt hm (key, val) = HM.insertWith unsafeAddCoin key val hm
     putDistr hm (_, TxOutAux txOut) =
-        foldl' plusAt hm (txOutStake (gdBootStakeholders genesisData) txOut)
+        foldl' plusAt hm (txOutStake bootStakeholders txOut)
 
 utxoToAddressCoinPairs :: Utxo -> [(Address, Coin)]
 utxoToAddressCoinPairs utxo = combineWith unsafeAddCoin txOuts

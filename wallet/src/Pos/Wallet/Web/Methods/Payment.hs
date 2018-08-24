@@ -33,6 +33,7 @@ import           Pos.Configuration (walletTxCreationDisabled)
 import           Pos.Core as Core (Address, Coin, Config (..), HasConfiguration,
                      getCurrentTimestamp)
 import           Pos.Core.Conc (concurrently, delay)
+import           Pos.Core.Genesis (GenesisData)
 import           Pos.Core.Txp (TxAux (..), TxOut (..), _txOutputs)
 import           Pos.Crypto (PassPhrase, SafeSigner, ShouldCheckPassphrase (..),
                      checkPassMatches, hash, withSafeSignerUnsafe)
@@ -127,7 +128,9 @@ getTxFee
 getTxFee coreConfig srcAccount dstAccount coin policy = do
     ws <- askWalletSnapshot
     let pendingAddrs = getPendingAddresses ws policy
-    utxo <- getMoneySourceUtxo ws (AccountMoneySource srcAccount)
+    utxo <- getMoneySourceUtxo (configGenesisData coreConfig)
+                               ws
+                               (AccountMoneySource srcAccount)
     outputs <- coinDistrToOutputs $ one (dstAccount, coin)
     TxFee fee <- rewrapTxError "Cannot compute transaction fee" $
         eitherToThrow =<< runTxCreator policy (computeTxFee coreConfig pendingAddrs utxo outputs)
@@ -167,13 +170,14 @@ getMoneySourceWallet (AccountMoneySource accId)  = aiWId accId
 getMoneySourceWallet (WalletMoneySource wid)     = wid
 
 getMoneySourceUtxo :: (MonadThrow m, MonadBalances m)
-                   => WalletSnapshot
+                   => GenesisData
+                   -> WalletSnapshot
                    -> MoneySource
                    -> m Utxo
-getMoneySourceUtxo ws =
+getMoneySourceUtxo genesisData ws =
     getMoneySourceAddresses ws >=>
     mapM (return . view wamAddress) >=>
-    getOwnUtxos
+    getOwnUtxos genesisData
 
 sendMoney
     :: (MonadWalletTxFull ctx m)

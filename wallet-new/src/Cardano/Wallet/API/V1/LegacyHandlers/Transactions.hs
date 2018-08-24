@@ -9,6 +9,7 @@ import           Servant
 import           Pos.Chain.Txp (TxId, TxpConfiguration)
 import           Pos.Client.Txp.Util (defaultInputSelectionPolicy)
 import qualified Pos.Client.Txp.Util as V0
+import           Pos.Core as Core (Config (..))
 import qualified Pos.Core as Core
 import           Pos.Core.Txp (TxAux)
 import qualified Pos.Util.Servant as V0
@@ -153,7 +154,9 @@ estimateFees coreConfig Payment{..} = do
     let (V1 policy) = fromMaybe (V1 defaultInputSelectionPolicy) pmtGroupingPolicy
         pendingAddrs = V0.getPendingAddresses ws policy
     cAccountId <- migrate pmtSource
-    utxo <- V0.getMoneySourceUtxo ws (V0.AccountMoneySource cAccountId)
+    utxo <- V0.getMoneySourceUtxo (configGenesisData coreConfig)
+                                  ws
+                                  (V0.AccountMoneySource cAccountId)
     outputs <- V0.coinDistrToOutputs =<< mapM migrate pmtDestinations
     efee <- V0.runTxCreator policy (V0.computeTxFee coreConfig pendingAddrs utxo outputs)
     case efee of

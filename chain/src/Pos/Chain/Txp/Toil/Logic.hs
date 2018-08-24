@@ -33,11 +33,12 @@ import           Pos.Chain.Txp.Toil.Utxo (VerifyTxUtxoRes (..))
 import qualified Pos.Chain.Txp.Toil.Utxo as Utxo
 import           Pos.Chain.Txp.Topsort (topsortTxs)
 import           Pos.Core (AddrAttributes (..), AddrStakeDistribution (..),
-                     Address, EpochIndex, HasGenesisData,
-                     addrAttributesUnwrapped, isRedeemAddress)
+                     Address, EpochIndex, addrAttributesUnwrapped,
+                     isRedeemAddress)
 import           Pos.Core.Common (integerToCoin)
 import qualified Pos.Core.Common as Fee (TxFeePolicy (..),
                      calculateTxSizeLinear)
+import           Pos.Core.Genesis (GenesisWStakeholders)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxOut (..), TxUndo,
                      TxpUndo, checkTxAux, toaOut, txOutAddress)
 import           Pos.Core.Update (BlockVersionData (..), isBootstrapEraBVD)
@@ -71,16 +72,16 @@ verifyToil pm bvd lockedAssets curEpoch verifyAllIsKnown =
 
 -- | Apply transactions from one block. They must be valid (for
 -- example, it implies topological sort).
-applyToil :: HasGenesisData => [(TxAux, TxUndo)] -> GlobalToilM ()
-applyToil [] = pass
-applyToil txun = do
-    applyTxsToStakes txun
+applyToil :: GenesisWStakeholders -> [(TxAux, TxUndo)] -> GlobalToilM ()
+applyToil _ [] = pass
+applyToil bootStakeholders txun = do
+    applyTxsToStakes bootStakeholders txun
     utxoMToGlobalToilM $ mapM_ (applyTxToUtxo' . withTxId . fst) txun
 
 -- | Rollback transactions from one block.
-rollbackToil :: HasGenesisData => [(TxAux, TxUndo)] -> GlobalToilM ()
-rollbackToil txun = do
-    rollbackTxsStakes txun
+rollbackToil :: GenesisWStakeholders -> [(TxAux, TxUndo)] -> GlobalToilM ()
+rollbackToil bootStakeholders txun = do
+    rollbackTxsStakes bootStakeholders txun
     utxoMToGlobalToilM $ mapM_ Utxo.rollbackTxUtxo $ reverse txun
 
 ----------------------------------------------------------------------------

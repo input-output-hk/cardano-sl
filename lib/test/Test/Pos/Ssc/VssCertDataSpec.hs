@@ -198,7 +198,7 @@ instance HasConfiguration => Arbitrary RollbackData where
                           lastKnownEoS
                           certsToRollback
 
-verifyRollback :: HasConfiguration => RollbackData -> Gen Property
+verifyRollback :: RollbackData -> Gen Property
 verifyRollback (Rollback oldSscGlobalState rollbackEoS vssCerts) = do
     let certAdder vcd = foldl' (flip Ssc.insert) vcd vssCerts
         newSscGlobalState@(SscGlobalState _ _ _ newVssCertData) =

@@ -120,7 +120,7 @@ import           Test.Pos.Block.Logic.Mode (BlockTestContext (..),
                      getCurrentSlotBlockingTestDefault,
                      getCurrentSlotInaccurateTestDefault,
                      getCurrentSlotTestDefault, initBlockTestContext)
-import           Test.Pos.Core.Dummy (dummyEpochSlots, dummyGenesisSecretKeys)
+import           Test.Pos.Core.Dummy (dummyConfig, dummyEpochSlots)
 
 ----------------------------------------------------------------------------
 -- Parameters
@@ -199,7 +199,7 @@ initWalletTestContext ::
     -> (WalletTestContext -> Emulation a)
     -> Emulation a
 initWalletTestContext WalletTestParams {..} callback =
-    initBlockTestContext _wtpBlockTestParams dummyGenesisSecretKeys
+    initBlockTestContext dummyConfig _wtpBlockTestParams
         $ \wtcBlockTestContext -> do
             wtc <- liftIO $ do
                 wtcWalletState <- openMemState
@@ -408,8 +408,8 @@ instance (HasConfigurations) => MonadTxHistory WalletTestMode where
     saveTx = saveTxDefault
 
 instance HasConfiguration => MonadBalances WalletTestMode where
-    getOwnUtxos = getOwnUtxosDefault
-    getBalance = getBalanceDefault
+    getOwnUtxos = const $ getOwnUtxosDefault
+    getBalance = const $ getBalanceDefault
 
 instance MonadUpdates WalletTestMode where
     waitForUpdate = waitForUpdateWebWallet

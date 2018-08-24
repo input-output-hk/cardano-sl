@@ -14,9 +14,6 @@ module Pos.Core.Configuration.Core
 
        , coreConfiguration
        , dbSerializeVersion
-
-       -- * For testing - Should probably be moved from the library
-       , defaultCoreConfiguration
        ) where
 
 import           Prelude
@@ -33,16 +30,8 @@ import           Data.Monoid ((<>))
 import           Data.Reflection (Given (..), give)
 
 import           Pos.Binary.Class (Raw)
-import           Pos.Core.Common (Coeff (..), SharedSeed (..), TxFeePolicy (..),
-                     TxSizeLinear (..), unsafeCoinPortionFromDouble)
-import           Pos.Core.Genesis (FakeAvvmOptions (..),
-                     GenesisAvvmBalances (..), GenesisInitializer (..),
-                     GenesisProtocolConstants (..), GenesisSpec (..),
-                     TestnetBalanceOptions (..), noGenesisDelegation)
-import           Pos.Core.ProtocolConstants (VssMaxTTL (..), VssMinTTL (..))
-import           Pos.Core.Slotting (EpochIndex (..))
-import           Pos.Core.Update (BlockVersionData (..), SoftforkRule (..))
-import           Pos.Crypto (ProtocolMagic (..))
+import           Pos.Core.Genesis (GenesisAvvmBalances (..),
+                     GenesisInitializer (..), GenesisSpec (..))
 import           Pos.Crypto.Hashing (Hash)
 
 data GenesisConfiguration
@@ -130,45 +119,6 @@ data CoreConfiguration = CoreConfiguration
     deriving (Show, Generic)
 
 deriveJSON defaultOptions ''CoreConfiguration
-
-defaultCoreConfiguration :: CoreConfiguration
-defaultCoreConfiguration = CoreConfiguration (GCSpec defaultGenesisSpec)  0
-
-defaultGenesisSpec :: GenesisSpec
-defaultGenesisSpec = UnsafeGenesisSpec
-  (GenesisAvvmBalances HM.empty)
-  (SharedSeed "c2tvdm9yb2RhIEdndXJkYSBib3JvZGEgcHJvdm9kYSA=")
-  noGenesisDelegation
-  (BlockVersionData
-    0
-    7000
-    2000000
-    2000000
-    4096
-    700
-    (unsafeCoinPortionFromDouble 0.01)
-    (unsafeCoinPortionFromDouble 0.005)
-    (unsafeCoinPortionFromDouble 0.001)
-    (unsafeCoinPortionFromDouble 0.1)
-    10
-    (SoftforkRule (unsafeCoinPortionFromDouble 0.9)
-                  (unsafeCoinPortionFromDouble 0.6)
-                  (unsafeCoinPortionFromDouble 0.05)
-    )
-    (TxFeePolicyTxSizeLinear $ TxSizeLinear (Coeff 155381) (Coeff 43.946))
-    (EpochIndex maxBound)
-  )
-  (GenesisProtocolConstants 10
-                            (ProtocolMagic 55550001)
-                            (VssMaxTTL 6)
-                            (VssMinTTL 2)
-  )
-  (GenesisInitializer (TestnetBalanceOptions 12 4 6e17 0.99 True)
-                      (FakeAvvmOptions 10 100000)
-                      (unsafeCoinPortionFromDouble 1)
-                      True
-                      6e17
-  )
 
 type HasCoreConfiguration = Given CoreConfiguration
 

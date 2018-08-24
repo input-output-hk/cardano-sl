@@ -38,7 +38,7 @@ import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getOwnUtxoForPk)
 import           Pos.Client.Txp.Network (prepareMTx, submitTxRaw)
 import           Pos.Client.Txp.Util (createTx)
-import           Pos.Core as Core (Config, IsBootstrapEraAddr (..),
+import           Pos.Core as Core (Config (..), IsBootstrapEraAddr (..),
                      Timestamp (..), configEpochSlots, deriveFirstHDAddress,
                      makePubKeyAddress, mkCoin)
 import           Pos.Core.Conc (concurrently, currentTime, delay,
@@ -124,7 +124,8 @@ sendToAllGenesis coreConfig keysToSend diffusion (SendToAllGenesisParams genesis
                     txOutValue = mkCoin 1
                     }
                     txOuts = TxOutAux txOut1 :| []
-                utxo <- getOwnUtxoForPk $ safeToPublic signer
+                utxo <- getOwnUtxoForPk (configGenesisData coreConfig)
+                    $ safeToPublic signer
                 etx <- createTx coreConfig mempty utxo signer txOuts publicKey
                 case etx of
                     Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)

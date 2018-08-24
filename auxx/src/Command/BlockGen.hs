@@ -15,8 +15,7 @@ import           System.Random (mkStdGen, randomIO)
 import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
-import           Pos.Core as Core (Config (..), genesisData)
-import           Pos.Core.Genesis (gdBootStakeholders)
+import           Pos.Core as Core (Config (..), configBootStakeholders)
 import           Pos.Crypto (encToSecret)
 import           Pos.DB.Txp (txpGlobalSettings)
 import           Pos.Generator.Block (BlockGenParams (..), genBlocks,
@@ -43,15 +42,13 @@ generateBlocks coreConfig txpConfig GenBlocksParams{..} = withStateLock HighPrio
     let bgenParams =
             BlockGenParams
                 { _bgpSecrets         = allSecrets
-                , _bgpGenStakeholders = gdBootStakeholders genesisData
+                , _bgpGenStakeholders = configBootStakeholders coreConfig
                 , _bgpBlockCount      = fromIntegral bgoBlockN
                 -- tx generation is disabled for now
                 , _bgpTxGenParams     = def & tgpTxCountRange .~ (0,0)
                 , _bgpInplaceDB       = True
                 , _bgpSkipNoKey       = True
-                , _bgpTxpGlobalSettings = txpGlobalSettings
-                      (configProtocolMagic coreConfig)
-                      txpConfig
+                , _bgpTxpGlobalSettings = txpGlobalSettings coreConfig txpConfig
                 }
     withCompileInfo $ evalRandT
         (genBlocks coreConfig txpConfig bgenParams (const ()))

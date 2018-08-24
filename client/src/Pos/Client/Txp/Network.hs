@@ -24,12 +24,11 @@ import           Pos.Client.Txp.Util (InputSelectionPolicy,
                      PendingAddresses (..), TxCreateMode, TxError (..),
                      createMTx, createRedemptionTx, createUnsignedTx)
 import           Pos.Communication.Types (InvOrDataTK)
-import           Pos.Core as Core (Address, Coin, Config, makeRedeemAddress,
-                     mkCoin, unsafeAddCoin)
+import           Pos.Core as Core (Address, Coin, Config (..),
+                     makeRedeemAddress, mkCoin, unsafeAddCoin)
 import           Pos.Core.Txp (Tx, TxAux (..), TxId, TxMsgContents (..),
                      TxOut (..), TxOutAux (..), txaF)
-import           Pos.Crypto (ProtocolMagic, RedeemSecretKey, SafeSigner, hash,
-                     redeemToPublic)
+import           Pos.Crypto (RedeemSecretKey, SafeSigner, hash, redeemToPublic)
 import           Pos.Infra.Communication.Protocol (OutSpecs)
 import           Pos.Infra.Communication.Specs (createOutSpecs)
 import           Pos.Infra.Diffusion.Types (Diffusion (sendTx))
@@ -58,7 +57,7 @@ prepareMTx
     -> AddrData m
     -> m (TxAux, NonEmpty TxOut)
 prepareMTx coreConfig hdwSigners pendingAddrs inputSelectionPolicy addrs outputs addrData = do
-    utxo <- getOwnUtxos (toList addrs)
+    utxo <- getOwnUtxos (configGenesisData coreConfig) (toList addrs)
     eitherToThrow =<<
         createMTx coreConfig pendingAddrs inputSelectionPolicy utxo hdwSigners outputs addrData
 
@@ -73,25 +72,26 @@ prepareUnsignedTx
     -> Address
     -> m (Either TxError (Tx, NonEmpty TxOut))
 prepareUnsignedTx coreConfig pendingAddrs inputSelectionPolicy addrs outputs changeAddress = do
-    utxo <- getOwnUtxos (toList addrs)
+    utxo <- getOwnUtxos (configGenesisData coreConfig) (toList addrs)
     createUnsignedTx coreConfig pendingAddrs inputSelectionPolicy utxo outputs changeAddress
 
 -- | Construct redemption Tx using redemption secret key and a output address
 prepareRedemptionTx
     :: TxMode m
-    => ProtocolMagic
+    => Core.Config
     -> RedeemSecretKey
     -> Address
     -> m (TxAux, Address, Coin)
-prepareRedemptionTx pm rsk output = do
+prepareRedemptionTx coreConfig rsk output = do
     let redeemAddress = makeRedeemAddress $ redeemToPublic rsk
-    utxo <- getOwnUtxo redeemAddress
+    utxo <- getOwnUtxo (configGenesisData coreConfig) redeemAddress
     let addCoin c = unsafeAddCoin c . txOutValue . toaOut
         redeemBalance = foldl' addCoin (mkCoin 0) utxo
         txOuts = one $
             TxOutAux {toaOut = TxOut output redeemBalance}
     when (redeemBalance == mkCoin 0) $ throwM RedemptionDepleted
-    txAux <- eitherToThrow =<< createRedemptionTx pm utxo rsk txOuts
+    txAux <- eitherToThrow
+        =<< createRedemptionTx (configProtocolMagic coreConfig) utxo rsk txOuts
     pure (txAux, redeemAddress, redeemBalance)
 
 -- | Send the ready-to-use transaction

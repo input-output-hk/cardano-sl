@@ -64,7 +64,8 @@ import           Pos.Infra.Util.JsonLog.Events
 import           Test.Pos.Block.Logic.Util (EnableTxPayload, InplaceDB,
                      genBlockGenParams)
 import           Test.Pos.Core.Arbitrary.Txp ()
-import           Test.Pos.Core.Dummy (dummyConfig, dummyGenesisSecretsPoor)
+import           Test.Pos.Core.Dummy (dummyConfig, dummyGenesisData,
+                     dummyGenesisSecretsPoor)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty,
                      maybeStopProperty)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty)
@@ -82,7 +83,7 @@ wpGenBlocks
     -> InplaceDB
     -> WalletProperty (OldestFirst [] Blund)
 wpGenBlocks txpConfig blkCnt enTxPayload inplaceDB = do
-    params <- genBlockGenParams blkCnt enTxPayload inplaceDB
+    params <- genBlockGenParams dummyConfig blkCnt enTxPayload inplaceDB
     g <- pick $ MkGen $ \qc _ -> qc
     lift $ modifyStateLock HighPriority ApplyBlock $ \prevTip -> do -- FIXME is ApplyBlock the right one?
         blunds <- OldestFirst <$> evalRandT (genBlocks dummyConfig txpConfig params maybeToList) g
@@ -119,7 +120,7 @@ importWallets numLimit passGen = do
         passwds <- vectorOf l passGen
         pure (seks, passwds)
     let wuses = map mkGenesisWalletUserSecret encSecrets
-    lift $ mapM_ (uncurry importWalletDo) (zip passphrases wuses)
+    lift $ mapM_ (uncurry $ importWalletDo dummyGenesisData) (zip passphrases wuses)
     skeys <- lift getSecretKeysPlain
     assertProperty (not (null skeys)) "Empty set of imported keys"
     pure passphrases
@@ -214,7 +215,7 @@ genWalletUtxo sk psw size =
 -- | Checks that balance of address is positive and returns it.
 expectedAddrBalance :: HasConfiguration => Address -> Coin -> WalletProperty ()
 expectedAddrBalance addr expected = do
-    balance <- lift $ getBalance addr
+    balance <- lift $ getBalance dummyGenesisData addr
     assertProperty (balance == expected) $
         sformat ("balance for address "%build
                     %" mismatched, expected: "%build

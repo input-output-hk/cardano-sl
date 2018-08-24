@@ -21,6 +21,7 @@ module Cardano.Wallet.Kernel.NodeStateAdaptor (
   , getSecurityParameter
   , getMaxTxSize
   , getSlotCount
+  , getGenesisData
   , getSlotStart
   , getNextEpochSlotDuration
   , getNodeSyncProgress
@@ -65,10 +66,11 @@ import           Pos.Chain.Update (ConfirmedProposalState,
                      HasUpdateConfiguration, SoftwareVersion, bvdMaxTxSize)
 import qualified Pos.Chain.Update as Upd
 import           Pos.Context (NodeContext (..))
-import           Pos.Core (BlockCount, ProtocolConstants (pcK), SlotCount,
-                     Timestamp, configEpochSlots, difficultyL,
-                     genesisBlockVersionData, getChainDifficulty, pcEpochSlots)
+import           Pos.Core as Core (BlockCount, Config (..), SlotCount,
+                     Timestamp, configEpochSlots, configK, difficultyL,
+                     genesisBlockVersionData, getChainDifficulty)
 import           Pos.Core.Configuration (HasConfiguration, genesisHash)
+import           Pos.Core.Genesis (GenesisData)
 import           Pos.Core.Slotting (EpochIndex (..), HasSlottingVar (..),
                      LocalSlotIndex (..), MonadSlots (..), SlotId (..))
 import           Pos.Core.Txp (TxIn, TxOutAux)
@@ -101,9 +103,6 @@ import           Test.Pos.Configuration (withDefConfiguration,
 newtype SecurityParameter = SecurityParameter Int
 
 deriveSafeCopy 1 'base ''SecurityParameter
-
-pcK' :: ProtocolConstants -> SecurityParameter
-pcK' = SecurityParameter . pcK
 
 -- | Returned by 'getSlotStart' when requesting info about an unknown epoch
 data UnknownEpoch = UnknownEpoch SlotId
@@ -250,6 +249,9 @@ data NodeStateAdaptor m = Adaptor {
       -- places.
     , getSlotCount :: m SlotCount
 
+    -- | Get the @GenesisData@
+    , getGenesisData :: m GenesisData
+
       -- | Get the start of a slot
       --
       -- When looking up data for past of the current epochs, the value should
@@ -360,19 +362,20 @@ instance MonadIO m => MonadSlots Res (WithNodeState m) where
 -- NOTE: This captures the node constraints in the closure so that the adaptor
 -- can be used in a place where these constraints is not available.
 newNodeStateAdaptor :: forall m ext. (NodeConstraints, MonadIO m, MonadMask m)
-                    => ProtocolConstants
+                    => Core.Config
                     -> NodeResources ext
                     -> TVar NtpStatus
                     -> NodeStateAdaptor m
-newNodeStateAdaptor pc nr ntpStatus = Adaptor
+newNodeStateAdaptor coreConfig nr ntpStatus = Adaptor
     { withNodeState            =            run
     , getTipSlotId             =            run $ \_lock -> defaultGetTipSlotId
     , getMaxTxSize             =            run $ \_lock -> defaultGetMaxTxSize
     , getSlotStart             = \slotId -> run $ \_lock -> defaultGetSlotStart slotId
     , getNextEpochSlotDuration =            run $ \_lock -> defaultGetNextEpochSlotDuration
     , getNodeSyncProgress      = \lockCtx -> run $ defaultSyncProgress lockCtx
-    , getSecurityParameter     = return $ pcK'         pc
-    , getSlotCount             = return $ pcEpochSlots pc
+    , getSecurityParameter     = return . SecurityParameter $ configK coreConfig
+    , getSlotCount             = return $ configEpochSlots coreConfig
+    , getGenesisData           = return $ configGenesisData coreConfig
     , curSoftwareVersion       = return $ Upd.curSoftwareVersion
     , compileInfo              = return $ Util.compileInfo
     , getNtpDrift              = defaultGetNtpDrift ntpStatus
@@ -552,6 +555,7 @@ mockNodeState MockNodeStateParams{..} =
         , getSlotStart             = return . mockNodeStateSlotStart
         , getMaxTxSize             = return $ bvdMaxTxSize genesisBlockVersionData
         , getSlotCount             = return $ configEpochSlots coreConfig
+        , getGenesisData           = return $ configGenesisData coreConfig
         , curSoftwareVersion       = return $ Upd.curSoftwareVersion
         , compileInfo              = return $ Util.compileInfo
         , getNtpDrift              = return . mockNodeStateNtpDrift

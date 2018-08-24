@@ -25,7 +25,9 @@ import           Pos.Chain.Block (HasBlockConfiguration)
 import           Pos.Chain.Ssc (HasSscConfiguration)
 import           Pos.Chain.Update (HasUpdateConfiguration)
 import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core (HasConfiguration, SlotCount)
+import           Pos.Core as Core (Config (..), HasConfiguration, SlotCount,
+                     configEpochSlots)
+import           Pos.Core.Genesis (GenesisData)
 import           Pos.DB.Txp (MempoolExt, MonadTxpLocal (..))
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Reporting (MonadReporting (..))
@@ -93,32 +95,35 @@ notifierPlugin epochSlots settings _ = notifierApp epochSlots settings
 
 explorerPlugin
     :: HasExplorerConfiguration
-    => SlotCount
+    => Core.Config
     -> Word16
     -> Diffusion ExplorerProd
     -> ExplorerProd ()
-explorerPlugin epochSlots = flip $ explorerServeWebReal epochSlots
+explorerPlugin coreConfig = flip $ explorerServeWebReal coreConfig
 
 explorerServeWebReal
     :: HasExplorerConfiguration
-    => SlotCount
+    => Core.Config
     -> Diffusion ExplorerProd
     -> Word16
     -> ExplorerProd ()
-explorerServeWebReal epochSlots diffusion port = do
+explorerServeWebReal coreConfig diffusion port = do
     rctx <- ask
-    let handlers = explorerHandlers epochSlots diffusion
-        server = hoistServer explorerApi (convertHandler rctx) handlers
+    let handlers = explorerHandlers (configEpochSlots coreConfig) diffusion
+        server   = hoistServer
+            explorerApi
+            (convertHandler (configGenesisData coreConfig) rctx)
+            handlers
         app = explorerApp (pure server)
     explorerServeImpl app port
 
 convertHandler
-    :: HasConfiguration
-    => RealModeContext ExplorerExtraModifier
+    :: GenesisData
+    -> RealModeContext ExplorerExtraModifier
     -> ExplorerProd a
     -> Handler a
-convertHandler rctx handler =
-    let extraCtx = makeExtraCtx
+convertHandler genesisData rctx handler =
+    let extraCtx = makeExtraCtx genesisData
         ioAction = realRunner $
                    runExplorerProd extraCtx
                    handler

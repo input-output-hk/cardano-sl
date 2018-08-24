@@ -202,7 +202,7 @@ onNewSlotCommitment coreConfig slotId@SlotId {..} sendCommitment
         ourId <- getOurStakeholderId
         shouldSendCommitment <- andM
             [ not . hasCommitment ourId <$> sscGetGlobalState
-            , memberVss ourId <$> getStableCerts k siEpoch]
+            , memberVss ourId <$> getStableCerts coreConfig siEpoch]
         if shouldSendCommitment then
             logDebugS "We should send commitment"
         else
@@ -360,7 +360,7 @@ generateAndSetNewSecret
     -> m (Maybe SignedCommitment)
 generateAndSetNewSecret coreConfig sk SlotId {..} = do
     richmen <- getSscRichmen "generateAndSetNewSecret" siEpoch
-    certs <- getStableCerts (configBlkSecurityParam coreConfig) siEpoch
+    certs <- getStableCerts coreConfig siEpoch
     inAssertMode $ do
         let participantIds =
                 HM.keys . getVssCertificatesMap $

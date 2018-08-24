@@ -35,9 +35,9 @@ import           Pos.Client.CLI.Options (configurationOptions)
 import           Pos.Configuration (nodeConfiguration)
 import           Pos.Core (StakeholderId, Timestamp (..))
 import           Pos.Core.Conc (currentTime)
-import           Pos.Core.Configuration (HasConfiguration, canonicalGenesisJson,
-                     coreConfiguration, genesisData, prettyGenesisJson)
-import           Pos.Core.Genesis (gdStartTime)
+import           Pos.Core.Configuration (canonicalGenesisJson,
+                     coreConfiguration, prettyGenesisJson)
+import           Pos.Core.Genesis (GenesisData, gdStartTime)
 import           Pos.Core.NetworkAddress (addrParser)
 import           Pos.Crypto (decodeAbstractHash)
 import           Pos.Launcher.Configuration (Configuration (..),
@@ -53,11 +53,12 @@ printFlags = do
 printInfoOnStart ::
        (HasConfigurations, WithLogger m, MonadIO m)
     => CommonNodeArgs
+    -> GenesisData
     -> NtpConfiguration
     -> TxpConfiguration
     -> m ()
-printInfoOnStart CommonNodeArgs {..} ntpConfig txpConfig = do
-    whenJust cnaDumpGenesisDataPath $ dumpGenesisData True
+printInfoOnStart CommonNodeArgs {..} genesisData ntpConfig txpConfig = do
+    whenJust cnaDumpGenesisDataPath $ dumpGenesisData genesisData True
     when cnaDumpConfiguration $ dumpConfiguration ntpConfig txpConfig
     printFlags
     t <- currentTime
@@ -96,8 +97,8 @@ readLoggerConfig = maybe (return defaultLoggerConfig) parseLoggerConfig
 
 -- | Dump our 'GenesisData' into a file.
 dumpGenesisData ::
-       (HasConfiguration, MonadIO m, WithLogger m) => Bool -> FilePath -> m ()
-dumpGenesisData canonical path = do
+       (MonadIO m, WithLogger m) => GenesisData -> Bool -> FilePath -> m ()
+dumpGenesisData genesisData canonical path = do
     let (canonicalJsonBytes, jsonHash) = canonicalGenesisJson genesisData
     let prettyJsonStr = prettyGenesisJson genesisData
     logInfo $ sformat ("Writing JSON with hash "%shown%" to "%shown) jsonHash path

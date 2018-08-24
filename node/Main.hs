@@ -56,7 +56,7 @@ action
     -> NtpConfiguration
     -> IO ()
 action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) coreConfig txpConfig ntpConfig = do
-    CLI.printInfoOnStart cArgs ntpConfig txpConfig
+    CLI.printInfoOnStart cArgs (configGenesisData coreConfig) ntpConfig txpConfig
     logInfo "Wallet is disabled, because software is built w/o it"
     currentParams <- CLI.getNodeParams loggerName
                                        cArgs

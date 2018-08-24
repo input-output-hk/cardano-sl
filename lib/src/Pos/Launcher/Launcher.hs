@@ -46,7 +46,7 @@ runNodeRealSimple coreConfig txpConfig np sscnp plugins = bracketNodeResources
     coreConfig
     np
     sscnp
-    (txpGlobalSettings (configProtocolMagic coreConfig) txpConfig)
+    (txpGlobalSettings coreConfig txpConfig)
     (initNodeDBs coreConfig)
     action
   where

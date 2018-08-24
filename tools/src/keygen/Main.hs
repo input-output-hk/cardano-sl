@@ -175,5 +175,7 @@ main = do
                   DumpAvvmSeeds opts -> dumpAvvmSeeds opts
                   GenerateKeysBySpec gkbg ->
                       generateKeysByGenesis generatedSecrets gkbg
-                  DumpGenesisData dgdPath dgdCanonical ->
-                      CLI.dumpGenesisData dgdCanonical dgdPath
+                  DumpGenesisData dgdPath dgdCanonical -> CLI.dumpGenesisData
+                      (configGenesisData coreConfig)
+                      dgdCanonical
+                      dgdPath

@@ -21,8 +21,8 @@ import           Data.Time.Units (Second)
 import           Formatting (float, int, sformat, (%))
 import           System.IO (hFlush, stdout)
 
-import           Pos.Chain.Txp (TxpConfiguration, genesisUtxo, unGenesisUtxo)
-import           Pos.Core as Core (Config)
+import           Pos.Chain.Txp (TxpConfiguration, genesisUtxo)
+import           Pos.Core as Core (Config (..))
 import           Pos.Core.Conc (delay)
 import           Pos.Crypto (AHash (..), fullPublicKeyF, hashHexF)
 import           Pos.Infra.Diffusion.Types (Diffusion)
@@ -50,7 +50,7 @@ auxxPlugin ::
     -> m ()
 auxxPlugin coreConfig txpConfig auxxOptions repl = \diffusion -> do
     logInfo $ sformat ("Length of genesis utxo: " %int)
-                      (length $ unGenesisUtxo genesisUtxo)
+                      (length $ genesisUtxo $ configGenesisData coreConfig)
     rawExec (Just coreConfig) (Just txpConfig) (Just Dict) auxxOptions (Just diffusion) repl
 
 rawExec ::

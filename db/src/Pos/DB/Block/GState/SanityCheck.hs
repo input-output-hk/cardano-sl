@@ -8,6 +8,7 @@ import           Universum
 
 import           UnliftIO (MonadUnliftIO)
 
+import           Pos.Core.Genesis (GenesisData)
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.GState.Stakes (getRealTotalStake)
 import           Pos.DB.Txp (sanityCheckStakes, sanityCheckUtxo)
@@ -20,8 +21,8 @@ sanityCheckDB ::
        , MonadDBRead m
        , MonadUnliftIO m
        )
-    => m ()
-sanityCheckDB = inAssertMode sanityCheckGStateDB
+    => GenesisData -> m ()
+sanityCheckDB = inAssertMode . sanityCheckGStateDB
 
 -- | Check that GState DB is consistent.
 sanityCheckGStateDB ::
@@ -30,7 +31,8 @@ sanityCheckGStateDB ::
        , MonadUnliftIO m
        , WithLogger m
        )
-    => m ()
-sanityCheckGStateDB = do
+    => GenesisData
+    -> m ()
+sanityCheckGStateDB genesisData = do
     sanityCheckStakes
-    sanityCheckUtxo =<< getRealTotalStake
+    sanityCheckUtxo genesisData =<< getRealTotalStake

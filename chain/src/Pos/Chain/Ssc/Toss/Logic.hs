@@ -25,9 +25,9 @@ import           Pos.Chain.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..))
 import           Pos.Chain.Ssc.Toss.Types (TossModifier (..))
 import           Pos.Core as Core (Config (..), EpochIndex, EpochOrSlot (..),
                      LocalSlotIndex, SlotCount, SlotId (siSlot), StakeholderId,
-                     configBlkSecurityParam, configSlotSecurityParam,
-                     epochIndexL, epochOrSlot, epochOrSlotPred,
-                     epochOrSlotToEnum, getEpochOrSlot, getSlotIndex, mkCoin)
+                     configSlotSecurityParam, epochIndexL, epochOrSlot,
+                     epochOrSlotPred, epochOrSlotToEnum, getEpochOrSlot,
+                     getSlotIndex, mkCoin)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Ssc (CommitmentsMap (..), InnerSharesMap, Opening,
                      SignedCommitment, SscPayload (..), VssCertificate,
@@ -68,7 +68,7 @@ verifyAndApplySscPayload coreConfig eoh payload = do
         whenRight eoh $ const $ verifySscPayload coreConfig eoh payload
     let blockCerts = spVss payload
     let curEpoch = either identity (^. epochIndexL) eoh
-    checkPayload (configBlkSecurityParam coreConfig) curEpoch payload
+    checkPayload coreConfig curEpoch payload
 
     -- Apply
     case eoh of

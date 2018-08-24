@@ -31,10 +31,10 @@ import           Pos.Core.Update (BlockVersionData (..))
 import           Pos.Crypto (SecretKey)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import           Pos.DB (getTipHeader)
-import           Pos.DB.Block (VerifyBlocksContext, getVerifyBlocksContext',
-                     rollbackBlocks, verifyAndApplyBlocks, verifyBlocksPrefix)
+import           Pos.DB.Block (rollbackBlocks, verifyAndApplyBlocks,
+                     verifyBlocksPrefix)
 import           Pos.DB.DB (initNodeDBs)
-import qualified Pos.DB.Lrc as LrcDB
+import           Pos.DB.Lrc (getLeadersForEpoch, lrcActionOnEpochReason)
 import           Pos.DB.Txp (txpGlobalSettings)
 import           Pos.Generator.Block (BlockGenParams (..), TxGenParams (..),
                      genBlockNoApply, genBlocks, mkBlockGenContext)
@@ -95,12 +95,14 @@ verifyBlocksBenchmark
 verifyBlocksBenchmark !pm !secretKeys !tp !ctx =
     bgroup "block verification"
         [ env (runBlockTestMode tp secretKeys (genEnv (BlockCount 100)))
-            $ \ ~(vctx, blocks) -> bench "verifyAndApplyBlocks" (verifyAndApplyBlocksB vctx blocks)
+            $ \ ~(curSlot, blocks) -> bench "verifyAndApplyBlocks" (verifyAndApplyBlocksB curSlot blocks)
+        -- `verifyBlocksPrefix` will succeed only on the first block, it
+        -- requires that blocks are applied.
         , env (runBlockTestMode tp secretKeys (genEnv (BlockCount 1)))
-            $ \ ~(vctx, blocks) -> bench "verifyBlocksPrefix" (verifyBlocksPrefixB vctx blocks)
+            $ \ ~(curSlot, blocks) -> bench "verifyBlocksPrefix" (verifyBlocksPrefixB curSlot blocks)
         ]
     where
-    genEnv :: BlockCount -> BlockTestMode (VerifyBlocksContext, OldestFirst NE Block)
+    genEnv :: BlockCount -> BlockTestMode (Maybe SlotId, OldestFirst NE Block)
     genEnv bCount = do
         initNodeDBs pm slotSecurityParam
         g <- liftIO $ newStdGen
@@ -122,32 +124,31 @@ verifyBlocksBenchmark !pm !secretKeys !tp !ctx =
             curSlot = case mapMaybe (either (const Nothing) Just . unEpochOrSlot . getEpochOrSlot) bs of
                 [] -> Nothing
                 ss -> Just $ maximum ss
-        vctx <- getVerifyBlocksContext' curSlot
-        return $ ( vctx, OldestFirst $ NE.fromList bs)
+        return $ (curSlot, OldestFirst $ NE.fromList bs)
 
     verifyAndApplyBlocksB
-        :: VerifyBlocksContext
+        :: Maybe SlotId
         -> OldestFirst NE Block
         -> Benchmarkable
-    verifyAndApplyBlocksB verifyBlocksCtx blocks =
+    verifyAndApplyBlocksB curSlot blocks =
         nfIO
             $ runBTM tp ctx
             $ satisfySlotCheck blocks
-            $ verifyAndApplyBlocks pm (_tpTxpConfiguration tp) verifyBlocksCtx False blocks >>= \case
+            $ verifyAndApplyBlocks pm (_tpTxpConfiguration tp) curSlot False blocks >>= \case
                     Left err -> return (Just err)
                     Right (_, blunds) -> do
                         whenJust (nonEmptyNewestFirst blunds) (rollbackBlocks pm)
                         return Nothing
 
     verifyBlocksPrefixB
-        :: VerifyBlocksContext
+        :: Maybe SlotId
         -> OldestFirst NE Block
         -> Benchmarkable
-    verifyBlocksPrefixB verifyBlocksCtx blocks =
+    verifyBlocksPrefixB curSlot blocks =
         nfIO
             $ runBTM tp ctx
             $ satisfySlotCheck blocks
-            $ map fst <$> verifyBlocksPrefix pm verifyBlocksCtx blocks
+            $ map fst <$> verifyBlocksPrefix pm curSlot blocks
 
 -- | Benchmark which runs `verifyHeader`
 verifyHeaderBenchmark
@@ -183,7 +184,7 @@ verifyHeaderBenchmark !pm !secretKeys !tp = env (runBlockTestMode tp secretKeys 
                 , _bgpGenStakeholders = gdBootStakeholders genesisData
                 , _bgpTxpGlobalSettings = txpGlobalSettings pm (_tpTxpConfiguration tp)
                 }
-        leaders <- LrcDB.lrcActionOnEpochReason epoch "genBlock" LrcDB.getLeadersForEpoch
+        leaders <- lrcActionOnEpochReason epoch "genBlock" getLeadersForEpoch
         mblock <- flip evalRandT g $ do
             blockGenCtx <- lift $ mkBlockGenContext blockGenParams
             tipHeader <- lift $ getTipHeader

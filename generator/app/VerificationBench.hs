@@ -30,8 +30,8 @@ import           Pos.Core.Genesis (FakeAvvmOptions (..), GenesisData (..),
 import           Pos.Core.Slotting (Timestamp (..))
 import           Pos.Crypto (SecretKey)
 import           Pos.Crypto.Configuration (ProtocolMagic)
-import           Pos.DB.Block (getVerifyBlocksContext', rollbackBlocks,
-                     verifyAndApplyBlocks, verifyBlocksPrefix)
+import           Pos.DB.Block (rollbackBlocks, verifyAndApplyBlocks,
+                     verifyBlocksPrefix)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Txp.Logic (txpGlobalSettings)
 import           Pos.Generator.Block (BlockGenParams (..), TxGenParams (..),
@@ -271,9 +271,7 @@ main = do
             -> BlockTestMode (Microsecond, Maybe (Either VerifyBlocksException ApplyBlocksException))
         validate pm blocks = do
             verStart <- realTime
-            -- omitting current slot for simplicity
-            ctx <- getVerifyBlocksContext' Nothing
-            res <- (force . either Left (Right . fst)) <$> verifyBlocksPrefix pm ctx blocks
+            res <- (force . either Left (Right . fst)) <$> verifyBlocksPrefix pm Nothing blocks
             verEnd <- realTime
             return (verEnd - verStart, either (Just . Left) (const Nothing) res)
 
@@ -285,8 +283,7 @@ main = do
             -> BlockTestMode (Microsecond, Maybe (Either VerifyBlocksException ApplyBlocksException))
         validateAndApply pm txpConfig blocks = do
             verStart <- realTime
-            ctx <- getVerifyBlocksContext' Nothing
-            res <- force <$> verifyAndApplyBlocks pm txpConfig ctx False blocks
+            res <- force <$> verifyAndApplyBlocks pm txpConfig Nothing False blocks
             verEnd <- realTime
             case res of
                 Left _ -> return ()

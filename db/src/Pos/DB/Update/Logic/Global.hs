@@ -101,22 +101,21 @@ usApplyBlocks
        , USGlobalApplyMode ctx m
        )
     => ProtocolMagic
-    -> BlockVersion
     -> OldestFirst NE UpdateBlock
     -> Maybe PollModifier
     -> m [DB.SomeBatchOp]
-usApplyBlocks pm bv blocks modifierMaybe =
+usApplyBlocks pm blocks modifierMaybe =
     withUSLogger $
     processModifier =<<
     case modifierMaybe of
         Nothing -> do
-            verdict <- usVerifyBlocks pm False bv blocks
+            verdict <- usVerifyBlocks pm False blocks
             either onFailure (return . fst) verdict
         Just modifier -> do
             -- TODO: I suppose such sanity checks should be done at higher
             -- level.
             inAssertMode $ do
-                verdict <- usVerifyBlocks pm False bv blocks
+                verdict <- usVerifyBlocks pm False blocks
                 whenLeft verdict $ \v -> onFailure v
             return modifier
   where
@@ -168,16 +167,16 @@ usVerifyBlocks ::
        )
     => ProtocolMagic
     -> Bool
-    -> BlockVersion
     -> OldestFirst NE UpdateBlock
     -> m (Either PollVerFailure (PollModifier, OldestFirst NE USUndo))
-usVerifyBlocks pm verifyAllIsKnown adoptedBV blocks =
+usVerifyBlocks pm verifyAllIsKnown blocks =
     withUSLogger $
     reportUnexpectedError $
     processRes <$> run (runExceptT action)
   where
     action = do
-        mapM (verifyBlock pm adoptedBV verifyAllIsKnown) blocks
+        lastAdopted <- getAdoptedBV
+        mapM (verifyBlock pm lastAdopted verifyAllIsKnown) blocks
     run :: PollT (DBPoll n) a -> n (a, PollModifier)
     run = runDBPoll . runPollT def
     processRes ::

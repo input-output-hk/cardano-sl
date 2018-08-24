@@ -116,7 +116,6 @@ library
                        Pos.DB.Block.Logic.Creation
                        Pos.DB.Block.Logic.Header
                        Pos.DB.Block.Logic.Internal
-                       Pos.DB.Block.Logic.Types
                        Pos.DB.Block.Logic.Util
                        Pos.DB.Block.Logic.VAR
                        Pos.DB.Block.Lrc

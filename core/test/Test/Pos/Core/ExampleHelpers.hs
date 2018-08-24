@@ -8,24 +8,42 @@ module Test.Pos.Core.ExampleHelpers
         , exampleAddress3
         , exampleAddress4
         , exampleBlockVersion
-        , exampleBlockVersionData
+        , exampleBlockVersionData0
+        , exampleBlockVersionData1
+        , exampleBlockVersionData2
         , exampleBlockVersionModifier
         , exampleCommitment
         , exampleCommitmentsMap
         , exampleCommitmentSignature
         , exampleChainDifficulty
         , exampleEpochIndex
-        , exampleGenesisAvvmBalances
-        , exampleGenesisConfiguration_GCSpec
+        , exampleGenesisWStakeholders
+        , exampleGenesisVssCertificatesMap
+        , exampleGenesisNonAvvmBalances0
+        , exampleGenesisNonAvvmBalances1
+        , exampleGenesisNonAvvmBalances2
+        , exampleGenesisAvvmBalances0
+        , exampleGenesisAvvmBalances1
+        , exampleGenesisAvvmBalances2
+        , exampleGenesisConfiguration_GCSpec0
+        , exampleGenesisConfiguration_GCSpec1
+        , exampleGenesisConfiguration_GCSpec2
         , exampleGenesisConfiguration_GCSrc
+        , exampleGenesisData0
+        , exampleGenesisData1
+        , exampleGenesisData2
         , exampleGenesisDelegation
-        , exampleGenesisInitializer
+        , exampleGenesisInitializer0
+        , exampleGenesisInitializer1
+        , exampleGenesisInitializer2
         , exampleHashTx
         , exampleInnerSharesMap
         , exampleLightDlgIndices
         , exampleOpening
         , exampleOpeningsMap
-        , exampleProtocolConstants
+        , exampleGenesisProtocolConstants0
+        , exampleGenesisProtocolConstants1
+        , exampleGenesisProtocolConstants2
         , exampleProxySKBlockInfo
         , examplePublicKey
         , exampleRedeemPublicKey
@@ -33,7 +51,9 @@ module Test.Pos.Core.ExampleHelpers
         , exampleScript
         , exampleSecretKey
         , exampleSecretKeys
-        , exampleSharedSeed
+        , exampleSharedSeed0
+        , exampleSharedSeed1
+        , exampleSharedSeed2
         , exampleSharesDistribution
         , exampleSignedCommitment
         , exampleSlotId
@@ -111,14 +131,17 @@ import           Pos.Core.Configuration
 import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..),
                      ProxySKBlockInfo, ProxySKHeavy)
 import           Pos.Core.Genesis (FakeAvvmOptions (..),
-                     GenesisAvvmBalances (..), GenesisDelegation (..),
-                     GenesisInitializer (..), GenesisProtocolConstants (..),
-                     GenesisSpec (..), TestnetBalanceOptions (..))
+                     GenesisAvvmBalances (..), GenesisData (..),
+                     GenesisDelegation (..), GenesisInitializer (..),
+                     GenesisNonAvvmBalances (..),
+                     GenesisProtocolConstants (..), GenesisSpec (..),
+                     GenesisVssCertificatesMap (..), GenesisWStakeholders (..),
+                     TestnetBalanceOptions (..))
 import           Pos.Core.Merkle (mkMerkleTree, mtRoot)
 import           Pos.Core.ProtocolConstants (ProtocolConstants, VssMaxTTL (..),
                      VssMinTTL (..))
 import           Pos.Core.Slotting (EpochIndex (..), FlatSlotId,
-                     LocalSlotIndex (..), SlotId (..))
+                     LocalSlotIndex (..), SlotId (..), Timestamp (..))
 import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap,
                      InnerSharesMap, Opening, OpeningsMap, SharesDistribution,
                      SignedCommitment, SscPayload (..), SscProof (..),
@@ -179,8 +202,8 @@ exampleAttributes = mkAttributes ()
 exampleBlockVersion :: BlockVersion
 exampleBlockVersion = BlockVersion 1 1 1
 
-exampleBlockVersionData :: BlockVersionData
-exampleBlockVersionData = BlockVersionData
+exampleBlockVersionData0 :: BlockVersionData
+exampleBlockVersionData0 = BlockVersionData
                               (999 :: ScriptVersion)
                               (999 :: Millisecond)
                               (999 :: Byte)
@@ -200,6 +223,86 @@ exampleBlockVersionData = BlockVersionData
         c1' = Coeff (MkFixed 999)
         c2' = Coeff (MkFixed 77)
         sfrule = (SoftforkRule (CoinPortion 99) (CoinPortion 99) (CoinPortion 99))
+
+exampleBlockVersionData1 :: BlockVersionData
+exampleBlockVersionData1 = BlockVersionData
+    { bvdScriptVersion = 56903
+    , bvdSlotDuration = 379 :: Millisecond
+    , bvdMaxBlockSize = 0 :: Byte
+    , bvdMaxHeaderSize = 2 :: Byte
+    , bvdMaxTxSize = 8 :: Byte
+    , bvdMaxProposalSize = 0 :: Byte
+    , bvdMpcThd = CoinPortion
+        { getCoinPortion = 340531572846619
+        }
+    , bvdHeavyDelThd = CoinPortion
+        { getCoinPortion = 136666896062087
+        }
+    , bvdUpdateVoteThd = CoinPortion
+        { getCoinPortion = 6813701006338
+        }
+    , bvdUpdateProposalThd = CoinPortion
+        { getCoinPortion = 497008830503149
+        }
+    , bvdUpdateImplicit = 6473853538638325423
+    , bvdSoftforkRule = SoftforkRule
+        { srInitThd = CoinPortion
+            { getCoinPortion = 960317883358477
+            }
+        , srMinThd = CoinPortion
+            { getCoinPortion = 532535816427207
+            }
+        , srThdDecrement = CoinPortion
+            { getCoinPortion = 329013992078399
+            }
+        }
+    , bvdTxFeePolicy =
+        TxFeePolicyTxSizeLinear $
+        TxSizeLinear (Coeff $ MkFixed 172) (Coeff $ MkFixed 8)
+    , bvdUnlockStakeEpoch = EpochIndex
+        { getEpochIndex = 13346688070232230243
+        }
+    }
+
+exampleBlockVersionData2 :: BlockVersionData
+exampleBlockVersionData2 = BlockVersionData
+    { bvdScriptVersion = 9061
+    , bvdSlotDuration = 734 :: Millisecond
+    , bvdMaxBlockSize = 4 :: Byte
+    , bvdMaxHeaderSize = 5 :: Byte
+    , bvdMaxTxSize = 6 :: Byte
+    , bvdMaxProposalSize = 0 :: Byte
+    , bvdMpcThd = CoinPortion
+        { getCoinPortion = 236107662480767
+        }
+    , bvdHeavyDelThd = CoinPortion
+        { getCoinPortion = 433334544134126
+        }
+    , bvdUpdateVoteThd = CoinPortion
+        { getCoinPortion = 934785458282543
+        }
+    , bvdUpdateProposalThd = CoinPortion
+        { getCoinPortion = 642506074573997
+        }
+    , bvdUpdateImplicit = 13112058965239099249
+    , bvdSoftforkRule = SoftforkRule
+        { srInitThd = CoinPortion
+            { getCoinPortion = 46944805160625
+            }
+        , srMinThd = CoinPortion
+            { getCoinPortion = 195823507728266
+            }
+        , srThdDecrement = CoinPortion
+            { getCoinPortion = 747866672432320
+            }
+        }
+    , bvdTxFeePolicy =
+        TxFeePolicyTxSizeLinear $
+        TxSizeLinear (Coeff $ MkFixed 31) (Coeff $ MkFixed 84)
+    , bvdUnlockStakeEpoch = EpochIndex
+        { getEpochIndex = 3647707432224754741
+        }
+    }
 
 exampleChainDifficulty :: ChainDifficulty
 exampleChainDifficulty = ChainDifficulty (BlockCount 9999)
@@ -618,18 +721,134 @@ exampleGenesisConfiguration_GCSrc :: GenesisConfiguration
 exampleGenesisConfiguration_GCSrc =
     GCSrc "dRaMwdYsH3QA3dChe" (abstractHash (Raw "Test"))
 
-exampleGenesisConfiguration_GCSpec :: GenesisConfiguration
-exampleGenesisConfiguration_GCSpec =
+exampleGenesisConfiguration_GCSpec0 :: GenesisConfiguration
+exampleGenesisConfiguration_GCSpec0 =
     GCSpec $ UnsafeGenesisSpec
-        exampleGenesisAvvmBalances
-        exampleSharedSeed
+        exampleGenesisAvvmBalances0
+        exampleSharedSeed0
         exampleGenesisDelegation
-        exampleBlockVersionData
-        exampleProtocolConstants
-        exampleGenesisInitializer
+        exampleBlockVersionData0
+        exampleGenesisProtocolConstants0
+        exampleGenesisInitializer0
 
-exampleGenesisAvvmBalances :: GenesisAvvmBalances
-exampleGenesisAvvmBalances =
+exampleGenesisConfiguration_GCSpec1 :: GenesisConfiguration
+exampleGenesisConfiguration_GCSpec1 =
+    GCSpec $ UnsafeGenesisSpec
+        exampleGenesisAvvmBalances1
+        exampleSharedSeed1
+        exampleGenesisDelegation
+        exampleBlockVersionData1
+        exampleGenesisProtocolConstants1
+        exampleGenesisInitializer1
+
+exampleGenesisConfiguration_GCSpec2 :: GenesisConfiguration
+exampleGenesisConfiguration_GCSpec2 =
+    GCSpec $ UnsafeGenesisSpec
+        exampleGenesisAvvmBalances2
+        exampleSharedSeed2
+        exampleGenesisDelegation
+        exampleBlockVersionData2
+        exampleGenesisProtocolConstants2
+        exampleGenesisInitializer2
+
+exampleGenesisData0 :: GenesisData
+exampleGenesisData0 =
+    GenesisData
+        { gdBootStakeholders = exampleGenesisWStakeholders
+        , gdHeavyDelegation = exampleGenesisDelegation
+        -- Timestamps are stored as seconds, so they are rounded to
+        -- the nearest 10^6.
+        , gdStartTime = Timestamp { getTimestamp = 421337000000 }
+        , gdVssCerts = exampleGenesisVssCertificatesMap 10 4
+        , gdNonAvvmBalances = exampleGenesisNonAvvmBalances0
+        , gdBlockVersionData = exampleBlockVersionData0
+        , gdProtocolConsts = exampleGenesisProtocolConstants0
+        , gdAvvmDistr = exampleGenesisAvvmBalances0
+        , gdFtsSeed = exampleSharedSeed0
+        }
+
+exampleGenesisData1 :: GenesisData
+exampleGenesisData1 =
+    GenesisData
+        { gdBootStakeholders = exampleGenesisWStakeholders
+        , gdHeavyDelegation = exampleGenesisDelegation
+        , gdStartTime = Timestamp { getTimestamp = 3131000000 }
+        , gdVssCerts = exampleGenesisVssCertificatesMap 0 10
+        , gdNonAvvmBalances = exampleGenesisNonAvvmBalances1
+        , gdBlockVersionData = exampleBlockVersionData1
+        , gdProtocolConsts = exampleGenesisProtocolConstants1
+        , gdAvvmDistr = exampleGenesisAvvmBalances1
+        , gdFtsSeed = exampleSharedSeed1
+        }
+
+exampleGenesisData2 :: GenesisData
+exampleGenesisData2 =
+    GenesisData
+        { gdBootStakeholders = exampleGenesisWStakeholders
+        , gdHeavyDelegation = exampleGenesisDelegation
+        , gdStartTime = Timestamp { getTimestamp = 3735000000 }
+        , gdVssCerts = exampleGenesisVssCertificatesMap 8 5
+        , gdNonAvvmBalances = exampleGenesisNonAvvmBalances2
+        , gdBlockVersionData = exampleBlockVersionData2
+        , gdProtocolConsts = exampleGenesisProtocolConstants2
+        , gdAvvmDistr = exampleGenesisAvvmBalances2
+        , gdFtsSeed = exampleSharedSeed2
+        }
+
+exampleGenesisWStakeholders :: GenesisWStakeholders
+exampleGenesisWStakeholders =
+    let mapSize = 1
+        stakeholderIds = replicate mapSize exampleStakeholderId
+        word16s :: [Word16]
+        word16s = [1337]
+    in  GenesisWStakeholders { getGenesisWStakeholders =
+            M.fromList $ zip stakeholderIds word16s }
+
+exampleGenesisVssCertificatesMap :: Int -> Int -> GenesisVssCertificatesMap
+exampleGenesisVssCertificatesMap offset num =
+    GenesisVssCertificatesMap { getGenesisVssCertificatesMap =
+        exampleVssCertificatesMap offset num }
+
+exampleGenesisNonAvvmBalances0 :: GenesisNonAvvmBalances
+exampleGenesisNonAvvmBalances0 =
+    GenesisNonAvvmBalances {getGenesisNonAvvmBalances =
+        (HM.fromList [ (exampleAddress, coin)
+                     , (exampleAddress1, coin1)
+                     ]) }
+  where
+    coin  = Coin {getCoin = 36524597913081152}
+    coin1 = Coin {getCoin = 37343863242999412}
+
+exampleGenesisNonAvvmBalances1 :: GenesisNonAvvmBalances
+exampleGenesisNonAvvmBalances1 =
+    GenesisNonAvvmBalances {getGenesisNonAvvmBalances =
+        (HM.fromList [ (exampleAddress, coin)
+                     , (exampleAddress1, coin1)
+                     , (exampleAddress2, coin2)
+                     ]) }
+  where
+    coin  = Coin {getCoin = 1234567}
+    coin1 = Coin {getCoin = 1337}
+    coin2 = Coin {getCoin = 12552661871782587}
+
+exampleGenesisNonAvvmBalances2 :: GenesisNonAvvmBalances
+exampleGenesisNonAvvmBalances2 =
+    GenesisNonAvvmBalances {getGenesisNonAvvmBalances =
+        (HM.fromList [ (exampleAddress, coin)
+                     , (exampleAddress1, coin1)
+                     , (exampleAddress2, coin2)
+                     , (exampleAddress3, coin3)
+                     , (exampleAddress4, coin4)
+                     ]) }
+  where
+    coin  = Coin {getCoin = 4873920820}
+    coin1 = Coin {getCoin = 8274687}
+    coin2 = Coin {getCoin = 12552661871782587}
+    coin3 = Coin {getCoin = 189377823442}
+    coin4 = Coin {getCoin = 4672189289312323}
+
+exampleGenesisAvvmBalances0 :: GenesisAvvmBalances
+exampleGenesisAvvmBalances0 =
     GenesisAvvmBalances {getGenesisAvvmBalances =
         (HM.fromList [(RedeemPublicKey (Ed25519.PublicKey fstRedKey)
                      , Coin {getCoin = 36524597913081152})
@@ -642,8 +861,42 @@ exampleGenesisAvvmBalances =
     sndRedKey = hexToBS "9cdabcec332abbc6fdf883ca5bf3a8afddca69bfea\
                         \c14c013304da88ac032fe6"
 
-exampleSharedSeed :: SharedSeed
-exampleSharedSeed = SharedSeed (getBytes 8 32)
+exampleGenesisAvvmBalances1 :: GenesisAvvmBalances
+exampleGenesisAvvmBalances1 =
+    GenesisAvvmBalances {getGenesisAvvmBalances =
+        (HM.fromList [(RedeemPublicKey (Ed25519.PublicKey fstRedKey)
+                     , Coin {getCoin = 434210906})
+                     ,(RedeemPublicKey (Ed25519.PublicKey  sndRedKey)
+                     ,Coin {getCoin = 172323403})
+                     ]) }
+  where
+    fstRedKey = hexToBS "a75fe437a908c252a8f3e9601df15d593a1a2a589c\
+                        \65b9519b0fab24f9396bdf"
+    sndRedKey = hexToBS "296ca6970e61bf9854aea38d2cae9b3019a5c63fd28\
+                        \ff4a0e9d366c825c788e4"
+
+exampleGenesisAvvmBalances2 :: GenesisAvvmBalances
+exampleGenesisAvvmBalances2 =
+    GenesisAvvmBalances {getGenesisAvvmBalances =
+        (HM.fromList [(RedeemPublicKey (Ed25519.PublicKey fstRedKey)
+                     , Coin {getCoin = 630099400})
+                     ,(RedeemPublicKey (Ed25519.PublicKey  sndRedKey)
+                     ,Coin {getCoin = 37343863242999412})
+                     ]) }
+  where
+    fstRedKey = hexToBS "81a329ab75009b925efc26c334919509650b865dd6\
+                        \3d6f8db257e0245f04d324"
+    sndRedKey = hexToBS "72043ce554335af1193adeb04639c1e1e2f7aaf203\
+                        \d997f8032856677c2ce05f"
+
+exampleSharedSeed0 :: SharedSeed
+exampleSharedSeed0 = SharedSeed (getBytes 8 32)
+
+exampleSharedSeed1 :: SharedSeed
+exampleSharedSeed1 = SharedSeed (getBytes 16 32)
+
+exampleSharedSeed2 :: SharedSeed
+exampleSharedSeed2 = SharedSeed (getBytes 24 32)
 
 exampleGenesisDelegation :: GenesisDelegation
 exampleGenesisDelegation = UnsafeGenesisDelegation (HM.fromList
@@ -675,15 +928,29 @@ exampleGenesisDelegation = UnsafeGenesisDelegation (HM.fromList
     pskDelChainCode = CC.ChainCode (hexToBS "55163b178e999b9fd50637b2edab8c85\
                                             \8a879ac3c4bd3e610095419a19696573")
 
-exampleProtocolConstants :: GenesisProtocolConstants
-exampleProtocolConstants = GenesisProtocolConstants
+exampleGenesisProtocolConstants0 :: GenesisProtocolConstants
+exampleGenesisProtocolConstants0 = GenesisProtocolConstants
     { gpcK = 37
     , gpcProtocolMagic = ProtocolMagic {getProtocolMagic = 1783847074}
     , gpcVssMaxTTL = VssMaxTTL {getVssMaxTTL = 1477558317}
     , gpcVssMinTTL = VssMinTTL {getVssMinTTL = 744040476}}
 
-exampleGenesisInitializer :: GenesisInitializer
-exampleGenesisInitializer = GenesisInitializer
+exampleGenesisProtocolConstants1 :: GenesisProtocolConstants
+exampleGenesisProtocolConstants1 = GenesisProtocolConstants
+    { gpcK = 64
+    , gpcProtocolMagic = ProtocolMagic {getProtocolMagic = 135977977}
+    , gpcVssMaxTTL = VssMaxTTL {getVssMaxTTL = 126106167}
+    , gpcVssMinTTL = VssMinTTL {getVssMinTTL = 310228653}}
+
+exampleGenesisProtocolConstants2 :: GenesisProtocolConstants
+exampleGenesisProtocolConstants2 = GenesisProtocolConstants
+    { gpcK = 2
+    , gpcProtocolMagic = ProtocolMagic {getProtocolMagic = 1780893186}
+    , gpcVssMaxTTL = VssMaxTTL {getVssMaxTTL = 402296078}
+    , gpcVssMinTTL = VssMinTTL {getVssMinTTL = 1341799941}}
+
+exampleGenesisInitializer0 :: GenesisInitializer
+exampleGenesisInitializer0 = GenesisInitializer
     {giTestBalance = TestnetBalanceOptions
         {tboPoors = 2448641325904532856
         , tboRichmen = 14071205313513960321
@@ -697,6 +964,46 @@ exampleGenesisInitializer = GenesisInitializer
                  {getCoinPortion = 366832547637728}
                  , giUseHeavyDlg = False
                  , giSeed = 0}
+
+exampleGenesisInitializer1 :: GenesisInitializer
+exampleGenesisInitializer1 = GenesisInitializer
+    { giTestBalance = TestnetBalanceOptions
+        { tboPoors = 6042739228893020332
+        , tboRichmen = 6300032953394836094
+        , tboTotalBalance = 15800731757646603171
+        , tboRichmenShare = 3.7001504124217166
+        , tboUseHDAddresses = False
+        }
+    , giFakeAvvmBalance = FakeAvvmOptions
+        { faoCount = 1863091022267159357
+        , faoOneBalance = 15821780831116413482
+        }
+    , giAvvmBalanceFactor = CoinPortion
+        { getCoinPortion = 794919302027403
+        }
+    , giUseHeavyDlg = False
+    , giSeed = 1
+    }
+
+exampleGenesisInitializer2 :: GenesisInitializer
+exampleGenesisInitializer2 = GenesisInitializer
+    { giTestBalance = TestnetBalanceOptions
+        { tboPoors = 354896133480201129
+        , tboRichmen = 6001143654143911879
+        , tboTotalBalance = 911040566224079710
+        , tboRichmenShare = 6.2349745920068775
+        , tboUseHDAddresses = False
+        }
+    , giFakeAvvmBalance = FakeAvvmOptions
+        { faoCount = 108112649620073880
+        , faoOneBalance = 7896368278086760723
+        }
+    , giAvvmBalanceFactor = CoinPortion
+        { getCoinPortion = 2106983080171
+        }
+    , giUseHeavyDlg = True
+    , giSeed = 3
+    }
 
 hexToBS :: Text -> ByteString
 hexToBS ts = case B16.decode ts of

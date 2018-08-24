@@ -30,6 +30,7 @@ library
                      , base
                      , base16-bytestring
                      , bytestring
+                     , canonical-json
                      , cardano-sl-util
                      , cryptonite
                      , directory

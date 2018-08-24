@@ -15852,6 +15852,7 @@ license = stdenv.lib.licenses.mit;
 , base
 , base16-bytestring
 , bytestring
+, canonical-json
 , cardano-crypto
 , cardano-sl-binary
 , cardano-sl-binary-test
@@ -15894,6 +15895,7 @@ aeson
 base
 base16-bytestring
 bytestring
+canonical-json
 cardano-crypto
 cardano-sl-binary
 cardano-sl-binary-test
@@ -17458,6 +17460,7 @@ aeson
 async
 base
 bytestring
+canonical-json
 directory
 file-embed
 filepath
@@ -17491,6 +17494,7 @@ license = stdenv.lib.licenses.mit;
 , base
 , base16-bytestring
 , bytestring
+, canonical-json
 , cardano-sl-util
 , cpphs
 , cryptonite
@@ -17528,6 +17532,7 @@ attoparsec
 base
 base16-bytestring
 bytestring
+canonical-json
 cardano-sl-util
 cryptonite
 directory

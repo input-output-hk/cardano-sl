@@ -46,7 +46,7 @@ import           Test.Pos.Binary.Helpers.GoldenRoundTrip (goldenTestBi,
 import           Test.Pos.Core.ExampleHelpers (exampleAddrSpendingData_PubKey,
                      exampleAddress, exampleAddress1, exampleAddress2,
                      exampleAddress3, exampleAddress4, exampleBlockVersion,
-                     exampleBlockVersionData, exampleBlockVersionModifier,
+                     exampleBlockVersionData0, exampleBlockVersionModifier,
                      exampleCommitment, exampleCommitmentSignature,
                      exampleCommitmentsMap, exampleEpochIndex, exampleHashTx,
                      exampleInnerSharesMap, exampleLightDlgIndices,
@@ -478,7 +478,7 @@ roundTripBlockVersion = eachOf 50 genBlockVersion roundTripsBiBuildable
 
 golden_BlockVersionData :: Property
 golden_BlockVersionData = goldenTestBi bVerDat "test/golden/BlockVersionData"
-    where bVerDat = exampleBlockVersionData
+    where bVerDat = exampleBlockVersionData0
 
 roundTripBlockVersionData :: Property
 roundTripBlockVersionData = eachOf 50 genBlockVersionData roundTripsBiBuildable

@@ -140,6 +140,7 @@ test-suite test
                      , base
                      , bytestring
                      , async
+                     , canonical-json
                      , cardano-sl-util
                      , directory
                      , file-embed

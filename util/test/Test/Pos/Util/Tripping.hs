@@ -2,6 +2,9 @@
 
 module Test.Pos.Util.Tripping where
 
+import qualified Prelude
+import           Universum
+
 import           Data.Aeson (FromJSON, ToJSON, decode, encode)
 import           Data.Text.Internal.Builder (fromText, toLazyText)
 import           Formatting.Buildable (Buildable (..))
@@ -9,12 +12,11 @@ import           Hedgehog (Group, MonadTest, discoverPrefix, success, tripping)
 import           Hedgehog.Internal.Property (Diff (..), failWith)
 import           Hedgehog.Internal.Show (valueDiff)
 import           Hedgehog.Internal.TH (TExpQ)
-import qualified Prelude
+import           System.IO (hSetEncoding, stderr, stdout, utf8)
+import qualified Text.JSON.Canonical as Canonical
 import           Text.Show.Pretty (Value (..), parseValue)
 
-import           System.IO (hSetEncoding, stderr, stdout, utf8)
-
-import           Universum
+import           Pos.Util.Json.Canonical (SchemaError (..))
 
 discoverRoundTrip :: TExpQ Group
 discoverRoundTrip = discoverPrefix "roundTrip"
@@ -27,6 +29,26 @@ roundTripsAesonShow a = tripping a encode decode
 roundTripsAesonBuildable
     :: (Eq a, MonadTest m, ToJSON a, FromJSON a, Buildable a) => a -> m ()
 roundTripsAesonBuildable a = trippingBuildable a encode decode
+
+-- We want @SchemaError@s to show up different (register failure)
+instance Eq SchemaError where
+    _ == _ = False
+
+-- TODO @intricate: roundTripsCanonicalJSONShow
+roundTripsCanonicalJSONShow
+    :: forall m a
+     . ( Eq a
+       , MonadTest m
+       , Canonical.ToJSON Identity a
+       , Canonical.FromJSON (Either SchemaError) a
+       , HasCallStack
+       , Show a
+       )
+    => a
+    -> m ()
+roundTripsCanonicalJSONShow x =
+    tripping x (runIdentity . Canonical.toJSON :: a -> Canonical.JSValue)
+               (Canonical.fromJSON :: Canonical.JSValue -> Either SchemaError a)
 
 runTests :: [IO Bool] -> IO ()
 runTests tests' = do

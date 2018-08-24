@@ -260,15 +260,15 @@ newAccountIncludeUnready
     :: MonadWalletLogic ctx m
     => Bool -> AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
 newAccountIncludeUnready includeUnready addGenSeed passphrase CAccountInit {..} = do
-    mps <- withTxpLocalData getMempoolSnapshot
+    mempool <- withTxpLocalData getMempoolSnapshot
     db <- askWalletDB
     ws <- getWalletSnapshot db
     -- TODO nclarke We read the mempool at this point to be consistent with the previous
     -- behaviour, but we may want to consider whether we should read it _after_ the
     -- account is created, since it's not used until we call 'getAccountMod'
-    accMod <- txMempoolToModifier ws mps . keyToWalletDecrCredentials =<< findKey caInitWId
+    accMod <- txMempoolToModifier ws mempool . keyToWalletDecrCredentials =<< findKey caInitWId
     -- check wallet exists
-    _ <- getWalletIncludeUnready ws mps includeUnready caInitWId
+    _ <- getWalletIncludeUnready ws mempool includeUnready caInitWId
 
     cAddr <- genUniqueAccountId ws addGenSeed caInitWId
     cAddrMeta <- genUniqueAddress ws addGenSeed passphrase cAddr

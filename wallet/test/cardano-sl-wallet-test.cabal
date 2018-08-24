@@ -19,6 +19,7 @@ library
                      , base
                      , bytestring
                      , cardano-sl-core-test
+                     , cardano-sl-util-test
                      , cardano-sl-wallet
                      , serokell-util >= 0.1.3.4
                      , universum
@@ -27,3 +28,4 @@ library
 
   ghc-options:         -Wall
                        -O2
+                       -threaded

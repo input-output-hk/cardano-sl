@@ -166,13 +166,12 @@ data InvariantViolation =
       | DuplicatedInputIn  Txp.TxId
       | DuplicatedOutputIn Txp.TxId
       | UndisputableLookupFailed Text
+        -- ^ The db works in a try-catch style: it always first tries to
+        -- insert data and if the PrimaryKey is already there, we catch the
+        -- exception and do the lookup. This lookup should never fail, because
+        -- the db is append only and if it`s found once, it should always
+        -- be there.
       | TxIdInvariantViolated Txp.TxId
-        -- ^ When looking up a transaction which the storage claims to be
-        -- already present as a duplicate, such lookup failed. This is an
-        -- invariant violation because a 'TxMeta' storage is append-only,
-        -- therefore the data cannot possibly be evicted, and should be there
-        -- by definition (or we wouldn't get a duplicate collision in the
-        -- first place).
       deriving Show
 
 -- | A domain-specific collection of things which might go wrong when

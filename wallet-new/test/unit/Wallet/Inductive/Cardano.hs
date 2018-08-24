@@ -18,11 +18,12 @@ import           Universum
 import           Cardano.Wallet.Kernel.Types
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import qualified Data.Map.Strict as Map
+import           Data.Time.Units (fromMicroseconds)
 import           Formatting (bprint, build, formatToString, sformat, (%))
 import qualified Formatting.Buildable
 
 import           Pos.Chain.Txp (Utxo, formatUtxo)
-import           Pos.Core (HasConfiguration)
+import           Pos.Core (HasConfiguration, Timestamp (..))
 import           Pos.Core.Chrono
 import           Pos.Crypto (EncryptedSecretKey)
 
@@ -35,7 +36,6 @@ import qualified Cardano.Wallet.Kernel.Pending as Kernel
 import           Cardano.Wallet.Kernel.PrefilterTx (prefilterUtxo)
 import qualified Cardano.Wallet.Kernel.Read as Kernel
 import           Cardano.Wallet.Kernel.Transactions (toMeta)
-import           Cardano.Wallet.Kernel.Util.Core (getSomeTimestamp)
 
 import           Util.Buildable
 import           Util.Validated
@@ -268,9 +268,9 @@ equivalentT useWW activeWallet esk = \mkWallet w ->
                       -> RawResolvedTx
                       -> TranslateT EquivalenceViolation m ()
     walletNewPendingT ctxt accountId tx = do
-        meta <- toMeta getSomeTimestamp accountId tx
-        -- TODO: should meta history be tested here?
-        _ <- liftIO $ Kernel.newPending activeWallet accountId (rawResolvedTx tx) (rightToMaybe meta)
+        let currentTime = getSomeTimestamp
+        let partialMeta = toMeta currentTime accountId tx
+        _ <- liftIO $ Kernel.newPending activeWallet accountId (rawResolvedTx tx) partialMeta
         checkWalletState ctxt accountId
 
     walletRollbackT :: InductiveCtxt h
@@ -380,6 +380,13 @@ instance Show EquivalenceViolation where
     show = formatToString build
 
 instance Exception EquivalenceViolation
+
+{-------------------------------------------------------------------------------
+  Auxiliary
+-------------------------------------------------------------------------------}
+
+getSomeTimestamp :: Timestamp
+getSomeTimestamp = Timestamp $ fromMicroseconds 12340000
 
 {-------------------------------------------------------------------------------
   Pretty-printing

@@ -62,13 +62,13 @@ import           Cardano.Wallet.Kernel.Internal (ActiveWallet (..),
                      walletKeystore, walletNode)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as Node
-import           Cardano.Wallet.Kernel.Pending (newForeign, newPending)
+import           Cardano.Wallet.Kernel.Pending (PartialTxMeta, newForeign,
+                     newPending)
 import           Cardano.Wallet.Kernel.Read (getWalletSnapshot)
 import           Cardano.Wallet.Kernel.Types (AccountId (..),
                      RawResolvedTx (..), WalletId (..))
 import           Cardano.Wallet.Kernel.Util (shuffleNE)
-import           Cardano.Wallet.Kernel.Util.Core (paymentAmount, utxoBalance,
-                     utxoRestrictToInputs)
+import           Cardano.Wallet.Kernel.Util.Core
 import           Cardano.Wallet.WalletLayer.Kernel.Conv (exceptT)
 
 {-------------------------------------------------------------------------------
@@ -135,8 +135,8 @@ pay activeWallet spendingPassword opts accountId payees = do
             res <- newTransaction activeWallet spendingPassword opts accountId payees
             case res of
                  Left e      -> return (Left $ PaymentNewTransactionError e)
-                 Right (txAux, meta, _utxo) -> do
-                     succeeded <- newPending activeWallet accountId txAux (Just meta)
+                 Right (txAux, partialMeta, _utxo) -> do
+                     succeeded <- newPending activeWallet accountId txAux partialMeta
                      case succeeded of
                           Left e   -> do
                               -- If the next retry would bring us to the
@@ -148,7 +148,7 @@ pay activeWallet spendingPassword opts accountId payees = do
                                        PaymentSubmissionMaxAttemptsReached
                                    Just _  ->
                                        PaymentNewPendingError e
-                          Right () -> return $ Right (taTx $ txAux, meta)
+                          Right meta -> return $ Right (taTx $ txAux, meta)
     where
         -- See <https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter>
         retryPolicy :: RetryPolicyM IO
@@ -175,7 +175,7 @@ newTransaction :: ActiveWallet
                -- ^ The source HD account from where the payment should originate
                -> NonEmpty (Address, Coin)
                -- ^ The payees
-               -> IO (Either NewTransactionError (TxAux, TxMeta, Utxo))
+               -> IO (Either NewTransactionError (TxAux, PartialTxMeta, Utxo))
 newTransaction ActiveWallet{..} spendingPassword options accountId payees = runExceptT $ do
     initialEnv <- liftIO $ newEnvironment
     maxTxSize  <- liftIO $ Node.getMaxTxSize (walletPassive ^. walletNode)
@@ -211,8 +211,11 @@ newTransaction ActiveWallet{..} spendingPassword options accountId payees = runE
 
     -- STEP 4: Compute metadata
     let txId = hash . taTx $ txAux
-    txMeta <- createNewMeta accountId txId inputs (toaOut <$> outputs)
-    return (txAux, txMeta, availableUtxo)
+    -- This is the sum of inputs coins.
+    let inCoins = paymentAmount (toaOut . snd <$> inputs)
+    -- partially applied, because we don`t know here which outputs are ours
+    let partialMeta = createNewMeta accountId txId inputs (toaOut <$> outputs) True inCoins
+    return (txAux, partialMeta, availableUtxo)
   where
     -- Generate an initial seed for the random generator using the hash of
     -- the payees, which ensure that the coin selection (and the fee estimation)
@@ -252,41 +255,46 @@ newTransaction ActiveWallet{..} spendingPassword options accountId payees = runE
                              (AccountIdHdRnd accountId)
                              walletPassive
 
-createNewMeta :: HdAccountId -> TxId -> NonEmpty (TxIn, TxOutAux) -> NonEmpty TxOut -> ExceptT NewTransactionError IO TxMeta
-createNewMeta hdId txId inp out = do
-    time <- Core.getCurrentTimestamp
-    metaForNewTx time hdId txId inp out
+-- | This is called when we create a new Pending Transaction.
+createNewMeta :: HdAccountId -> TxId -> NonEmpty (TxIn, TxOutAux) -> NonEmpty TxOut -> Bool -> Coin -> Bool -> Coin -> IO TxMeta
+createNewMeta hdId txId inp out allInOurs inCoin allOutOurs outCoin = do
+    time <- liftIO getCurrentTimestamp
+    metaForNewTx time hdId txId inp out allInOurs inCoin allOutOurs outCoin
 
-metaForNewTx :: (Monad m) => Core.Timestamp -> HdAccountId -> TxId -> NonEmpty (TxIn, TxOutAux) -> NonEmpty TxOut -> ExceptT NewTransactionError m TxMeta
-metaForNewTx time accountId txId inputs outputs = do
-    inputsForMeta <- forM inputs toInput
-    return TxMeta {
-                  _txMetaId = txId
-                , _txMetaAmount = minBound -- TODO(kde): find out what this should be. |sum(o) - sum(i)| maybe?
-                , _txMetaInputs = inputsForMeta
-                , _txMetaOutputs = aux <$> outputs
-                , _txMetaCreationAt = time
-                , _txMetaIsLocal = False -- TODO(kde): find a way to check if all addresses are ours.
-                , _txMetaIsOutgoing = True
-                , _txMetaWalletId = _fromDb $ getHdRootId (accountId ^. hdAccountIdParent)
-                , _txMetaAccountIx = getHdAccountIx $ accountId ^. hdAccountIdIx
-            }
+metaForNewTx  :: Monad m => Core.Timestamp ->
+                 HdAccountId -> TxId -> NonEmpty (TxIn, TxOutAux) -> NonEmpty TxOut -> Bool -> Coin -> Bool -> Coin  -> m TxMeta
+metaForNewTx time accountId txId inputs outputs allInpOurs inCoin allOutOurs outCoin =
+    return $ TxMeta {
+          _txMetaId = txId
+        , _txMetaAmount = absCoin inCoin outCoin
+        , _txMetaInputs = inputsForMeta
+        , _txMetaOutputs = aux <$> outputs
+        , _txMetaCreationAt = time
+        , _txMetaIsLocal = allInpOurs && allOutOurs
+        , _txMetaIsOutgoing = outCoin < inCoin -- it`s outgoing if our inputs used are more than the new utxo.
+        , _txMetaWalletId = _fromDb $ getHdRootId (accountId ^. hdAccountIdParent)
+        , _txMetaAccountIx = getHdAccountIx $ accountId ^. hdAccountIdIx
+    }
   where
+    inputsForMeta = toInput <$> inputs
     aux txOut = (txOutAddress txOut, txOutValue txOut)
     toInput (txin, txOutAux) = case txin of
         TxInUtxo txid index ->
             let (addr, coins) = aux $ toaOut txOutAux
-            in return (txid, index, addr, coins)
-        TxInUnknown _ _ -> throwError NewTransactionInvalidTxIn
+            in (txid, index, addr, coins)
+        TxInUnknown _ _ -> error "Tried to create TxMeta with unknown input"
 
-toMeta :: Monad m => Core.Timestamp -> HdAccountId -> RawResolvedTx -> m (Either NewTransactionError TxMeta)
-toMeta time accountId UnsafeRawResolvedTx{..} = do
-    let txId = hash . taTx $ rawResolvedTx
-        (txIns :: NonEmpty TxIn) = _txInputs $ taTx rawResolvedTx
+-- | Different wraper for @metaForNewTx@ mainly for testing.
+toMeta :: Monad m => Core.Timestamp -> HdAccountId -> RawResolvedTx -> Bool -> Coin -> m TxMeta
+toMeta time accountId UnsafeRawResolvedTx{..} allOutOurs outCoin = do
+    let allInpOurs = True
+        txId = hash . taTx $ rawResolvedTx
+        (txIn :: NonEmpty TxIn) = _txInputs $ taTx rawResolvedTx
         (inputsRes :: NonEmpty TxOutAux) = rawResolvedTxInputs
-        inputs = NonEmpty.zip txIns inputsRes
-        txOuts = _txOutputs $ taTx rawResolvedTx
-    runExceptT $ metaForNewTx time accountId txId inputs txOuts
+        inpCoin = paymentAmount $ toaOut <$> inputsRes
+        inputs = NonEmpty.zip txIn inputsRes
+        txOut = _txOutputs $ taTx rawResolvedTx
+    metaForNewTx time accountId txId inputs txOut allInpOurs inpCoin allOutOurs outCoin
 
 -- | Special monad used to process the payments, which randomness is derived
 -- from a fixed seed obtained from hashing the payees. This guarantees that

@@ -25,7 +25,7 @@ import           Serokell.Util (listJson, mapJson)
 import           Data.SafeCopy (base, deriveSafeCopy)
 
 import           Pos.Chain.Txp (Utxo)
-import           Pos.Core (Address (..), SlotId)
+import           Pos.Core (Address (..), Coin, SlotId)
 import           Pos.Core.Txp (TxId, TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.Wallet.Web.State.Storage (WAddressMeta (..))
@@ -37,10 +37,11 @@ import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock,
-                     ResolvedInput, ResolvedTx, rbSlotId, rbTxs, rtxInputs,
-                     rtxOutputs, toTxMeta)
+                     ResolvedInput, ResolvedTx, rbSlotId, rbTxs,
+                     resolvedToTxMeta, rtxInputs, rtxOutputs)
 import           Cardano.Wallet.Kernel.DB.TxMeta.Types
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
+import           Cardano.Wallet.Kernel.Util.Core
 
 {-------------------------------------------------------------------------------
  Pre-filter Tx Inputs and Outputs; pre-filter a block of transactions.
@@ -127,7 +128,7 @@ prefilterTx :: WalletKey
               , Map HdAccountId UtxoSummaryRaw)
               , [TxMeta])
             -- ^ prefiltered inputs, prefiltered output utxo, extended with address summary
-prefilterTx wKey tx = ((prefInps,prefOuts'),metas)
+prefilterTx wKey tx = ((prefInps',prefOuts'),metas)
     where
         inps = toList (tx ^. rtxInputs  . fromDb)
         outs =         tx ^. rtxOutputs . fromDb
@@ -137,22 +138,29 @@ prefilterTx wKey tx = ((prefInps,prefOuts'),metas)
 
         prefOuts' = Map.map (extendWithSummary (onlyOurInps,onlyOurOuts))
                             prefOuts
+        -- this Set.map does not change the number of elements because TxIn's are unique.
+        prefInps' = map (Set.map fst) prefInps
 
-        allAccounts = toList $ Map.keysSet prefInps <> Map.keysSet prefOuts
+        (prefInCoins  :: (Map HdAccountId Coin)) = map (sumCoinsUnsafe . map snd . Set.toList) prefInps
+        (prefOutCoins :: (Map HdAccountId Coin)) = map (\mp -> sumCoinsUnsafe $ map (toCoin . fst) mp) prefOuts'
 
-        metas = map (toTxMeta tx) allAccounts
+        allAccounts = toList $ Map.keysSet prefInps' <> Map.keysSet prefOuts
+        metas = map (\acc -> resolvedToTxMeta tx
+            (nothingToZero acc prefInCoins)
+            (nothingToZero acc prefOutCoins)
+            (onlyOurInps && onlyOurOuts) acc) allAccounts
 
 -- | Prefilter inputs of a transaction
 prefilterInputs :: WalletKey
           -> [(TxIn, ResolvedInput)]
-          -> (Bool, Map HdAccountId (Set TxIn))
+          -> (Bool, Map HdAccountId (Set (TxIn,Coin)))
 prefilterInputs wKey inps
     = prefilterResolvedTxPairs wKey mergeF inps
     where
         mergeF = Map.fromListWith Set.union . (map f)
 
-        f ((txIn, _txOut),addrId) = (addrId ^. hdAddressIdParent,
-                                     Set.singleton txIn)
+        f ((txIn, out),addrId) = (addrId ^. hdAddressIdParent,
+                                     Set.singleton (txIn, toCoin out))
 
 -- | Prefilter utxo using wallet key
 prefilterUtxo' :: WalletKey -> Utxo -> (Bool, Map HdAccountId UtxoWithAddrId)

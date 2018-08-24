@@ -67,10 +67,10 @@ _showContext = do
 
 tests :: Spec
 tests = describe "Wallet unit tests" $ do
+    Test.Spec.Kernel.spec
     Test.Spec.GetTransactions.spec
     Test.Spec.Translation.spec
     Test.Spec.Models.spec
-    Test.Spec.Kernel.spec
     Test.Spec.WalletWorker.spec
     Test.Spec.Submission.spec
     txMetaStorageSpecs

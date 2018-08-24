@@ -18014,6 +18014,7 @@ cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-db
+cardano-sl-networking
 cardano-sl-util
 cardano-sl-util-test
 cardano-sl-wallet
@@ -18049,6 +18050,7 @@ swagger2
 tabl
 text
 time
+time-units
 universum
 unordered-containers
 vector

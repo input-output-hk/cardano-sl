@@ -5,7 +5,7 @@ module Cardano.Wallet.Kernel.DB.Resolved (
   , ResolvedTx(..)
   , ResolvedBlock(..)
     -- * MetaData
-  , toTxMeta
+  , resolvedToTxMeta
     -- ** Lenses
   , rtxInputs
   , rtxOutputs
@@ -20,14 +20,13 @@ import           Universum
 import           Control.Lens.TH (makeLenses)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as Map
-import           Data.Maybe (fromJust)
 import           Formatting (bprint, (%))
 import           Formatting.Buildable
 
 import           Serokell.Util (listJson, mapJson, pairF)
 
 import qualified Pos.Chain.Txp as Core
-import           Pos.Core (SlotId, Timestamp)
+import           Pos.Core (Coin, SlotId, Timestamp)
 
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.InDb
@@ -58,14 +57,17 @@ data ResolvedTx = ResolvedTx {
     , _rtxOutputs :: InDb Core.Utxo
 
      -- | Transaction Meta
-    , _rtxMeta    :: InDb Meta
+    , _rtxMeta    :: InDb (Core.TxId, Timestamp)
     }
 
-type Meta = (Core.TxId, Timestamp)
-
-toTxMeta :: ResolvedTx -> HD.HdAccountId -> TxMeta
-toTxMeta ResolvedTx{..} accountId =
-  fromJust mbMeta
+-- | This is used when apply block is called, during prefiltering, so related inputs
+-- and outputs to the HDAccount are known.
+-- @inCoin@ is the coins from input addresses of the account.
+-- @outCoin@ is the coins from output addresses of the account.
+-- @allOurs@ indictes if all inputs and outputs addresses belong to the account.
+resolvedToTxMeta :: ResolvedTx -> Coin -> Coin -> Bool -> HD.HdAccountId -> TxMeta
+resolvedToTxMeta ResolvedTx{..} inCoin outCoin allOurs accountId =
+  fromMaybe (error "Invalid ResolvedTx") mbMeta
   where
     mbMeta = do
       inps <- NE.nonEmpty $ mapMaybe toInpQuad $ NE.toList (_fromDb _rtxInputs)
@@ -73,12 +75,12 @@ toTxMeta ResolvedTx{..} accountId =
       let (txId, timestamp) = _fromDb _rtxMeta
       return TxMeta {
           _txMetaId = txId
-        , _txMetaAmount = minBound
+        , _txMetaAmount = absCoin inCoin outCoin
         , _txMetaInputs = inps
         , _txMetaOutputs = outs
         , _txMetaCreationAt = timestamp
-        , _txMetaIsLocal = False
-        , _txMetaIsOutgoing = False
+        , _txMetaIsLocal = allOurs
+        , _txMetaIsOutgoing = outCoin < inCoin
         , _txMetaWalletId = _fromDb $ HD.getHdRootId (accountId ^. HD.hdAccountIdParent)
         , _txMetaAccountIx = HD.getHdAccountIx $ accountId ^. HD.hdAccountIdIx
       }
@@ -87,7 +89,6 @@ toTxMeta ResolvedTx{..} accountId =
       (txId, ix) <- derefIn txIn
       let (addr, coin) = toOutPair resolvedInput
       return (txId, ix, addr, coin)
-
 
 -- | (Unsigned block) containing resolved transactions
 --

@@ -1,4 +1,5 @@
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 -- | Translation of UTxO DSL into an abstract chain.
 module Chain.Abstract.Translate.FromUTxO where
@@ -11,6 +12,7 @@ import           Control.Monad.Except
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
+import           Pos.Core.Chrono (OldestFirst(..))
 import           Universum
 import qualified UTxO.DSL as DSL
 
@@ -75,12 +77,12 @@ instance Exception IntException
 -------------------------------------------------------------------------------}
 
 newtype TranslateT h e m a = TranslateT {
-      unTranslateT :: StateT (TransState h) (ReaderT (TransCtxt h) (ExceptT (Either IntException e) m)) a
+      unTranslateT :: StateT (TransState h) (ReaderT (TransCtxt h) (ExceptT e m)) a
     }
   deriving ( Functor
            , Applicative
            , Monad
-           , MonadError (Either IntException e)
+           , MonadError e
            , MonadIO
            , MonadReader (TransCtxt h)
            , MonadState (TransState h)
@@ -92,7 +94,7 @@ instance MonadTrans (TranslateT h e) where
 runTranslateT :: TransCtxt h
               -> TransState h
               -> TranslateT h e m a
-              -> ExceptT (Either IntException e) m (a, TransState h)
+              -> ExceptT e m (a, TransState h)
 runTranslateT ctxt st (TranslateT stAct) = flip runReaderT ctxt $ runStateT stAct st
 
 {-------------------------------------------------------------------------------
@@ -100,34 +102,34 @@ runTranslateT ctxt st (TranslateT stAct) = flip runReaderT ctxt $ runStateT stAc
 -------------------------------------------------------------------------------}
 
 -- | Add transaction into the context
-putTx :: forall h e m. (DSL.Hash h Addr, Monad m)
+putTx :: forall h m. (DSL.Hash h Addr, Monad m)
       => Transaction h Addr
-      -> TranslateT h e m ()
+      -> TranslateT h IntException m ()
 putTx t = tsTx %= Map.insert (hash t) t
 
 getTx :: (DSL.Hash h Addr, Monad m)
       => h (DSL.Transaction h Addr)
-      -> TranslateT h e m (Transaction h Addr)
+      -> TranslateT h IntException m (Transaction h Addr)
 getTx h = do
     tx <- use tsTx
     case Map.lookup h tx of
-      Nothing -> throwError $ Left $ IntUnknownHash (pretty h)
+      Nothing -> throwError $ IntUnknownHash (pretty h)
       Just m  -> return m
 
 -- | Lookup a transaction by hash
 findHash' :: (DSL.Hash h Addr, Monad m)
           => h (DSL.Transaction h Addr)
-          -> TranslateT h e m (Transaction h Addr)
+          -> TranslateT h IntException m (Transaction h Addr)
 findHash' = getTx
 
 -- | Resolve an input
 inpSpentOutput' :: (DSL.Hash h Addr, Monad m)
                 => DSL.Input h Addr
-                -> TranslateT h e m (Output h Addr)
+                -> TranslateT h IntException m (Output h Addr)
 inpSpentOutput' (DSL.Input h idx) =  do
     tx <- findHash' h
     case toList (trOuts tx) ^? ix (fromIntegral idx) of
-      Nothing  -> throwError $ Left $ IntIndexOutOfRange (pretty h) idx
+      Nothing  -> throwError $ IntIndexOutOfRange (pretty h) idx
       Just out -> return out
 
 {-------------------------------------------------------------------------------
@@ -144,11 +146,16 @@ translate
   -> DSL.Chain h Addr
      -- | Block modifiers. These can be used to tune the chain generation to
      -- give different validating and non-validating chains.
-  -> [BlockModifier (TranslateT h IntException m) h Addr]
-  -> m (Either (Either IntException e) (Chain h Addr))
-translate addrs chain blockMods = runExceptT . fmap fst $ runTranslateT initCtx initState go
+  -> [BlockModifier (TranslateT h e m) h Addr]
+  -> Parameters (TransState h) h Addr
+--  -> m (Either IntException (Chain h Addr, Maybe [Invalidity]))
+  -> m (Either IntException (Chain h Addr))
+translate addrs chain blockMods params = runExceptT . fmap fst $ runTranslateT initCtx initState go
   where
-    initCtx = TransCtxt { _tcAddresses = addrs }
+    initCtx = TransCtxt
+        { _tcAddresses = addrs
+        , _parameters = params
+        }
     initState = TransState
         { _tsTx = Map.empty
         , _tsCheckpoints = initCheckpoint :| []
@@ -159,7 +166,10 @@ translate addrs chain blockMods = runExceptT . fmap fst $ runTranslateT initCtx 
         , icStakes = StakeDistribution $ Map.fromList (toList addrs `zip` (repeat 1))
         , icDlg = id
         }
+    go :: TranslateT h IntException m (OldestFirst [] (Block h Addr))
     go = mapM intBlock chain
+
+    intOutput :: (Ord a, Monad n) => DSL.Output h a -> n (Output h1 a)
     intOutput out =  do
         -- Compute the stake repartition function. At present, this is fixed to
         -- assign all stake to the bootstrap stakeholders.
@@ -168,6 +178,8 @@ translate addrs chain blockMods = runExceptT . fmap fst $ runTranslateT initCtx 
           , outVal = DSL.outVal out
           , outRepartition = Repartition $ Map.empty
           }
+
+    intTransaction :: DSL.Transaction h Addr -> TranslateT h IntException m (Transaction h Addr)
     intTransaction tr = do
       allAddrs <- asks _tcAddresses
       outs <- mapM intOutput =<< (nonEmptyEx IntEmptyOutputs $ DSL.trOuts tr)
@@ -183,6 +195,8 @@ translate addrs chain blockMods = runExceptT . fmap fst $ runTranslateT initCtx 
             }
       putTx absTr
       return absTr
+
+    intBlock :: OldestFirst [] (DSL.Transaction h Addr) -> TranslateT h IntException m (Block h Addr)
     intBlock block = do
       allAddrs <- asks _tcAddresses
       c :| _  <- use tsCheckpoints
@@ -194,6 +208,6 @@ translate addrs chain blockMods = runExceptT . fmap fst $ runTranslateT initCtx 
         , blockTransactions = trs
         , blockDlg = []
         }
-    nonEmptyEx :: IntException -> [a] -> TranslateT h e m (NonEmpty a)
-    nonEmptyEx ex []    = throwError $ Left $ ex
+    nonEmptyEx :: IntException -> [a] -> TranslateT h IntException m (NonEmpty a)
+    nonEmptyEx ex []    = throwError $ ex
     nonEmptyEx _ (x:xs) = return $ x :| xs

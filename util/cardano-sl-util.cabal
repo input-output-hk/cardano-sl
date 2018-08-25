@@ -6,8 +6,9 @@ description:         This package contains utility functions not specific
                      something from scratch.
 license:             MIT
 license-file:        LICENSE
-author:              Serokell
-maintainer:          hi@serokell.io
+homepage:            https://github.com/input-output-hk/cardano-sl
+author:              IOHK
+maintainer:          support@iohk.io
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
@@ -31,6 +32,12 @@ library
                        Pos.Util.Json.Parse
                        Pos.Util.Justify
                        Pos.Util.Lens
+                       Pos.Util.Log
+                       Pos.Util.Log.Internal
+                       Pos.Util.Log.LogSafe
+                       Pos.Util.Log.LoggerConfig
+                       Pos.Util.Log.LoggerName
+                       Pos.Util.Log.Severity
                        Pos.Util.LoggerName
                        Pos.Util.LRU
                        Pos.Util.Modifier
@@ -45,6 +52,7 @@ library
 
   other-modules:
                        Pos.Util.CompileInfoGit
+                       Pos.Util.Log.Scribes
 
   build-depends:       aeson
                      , base
@@ -63,6 +71,7 @@ library
                      , filepath
                      , formatting
                      , hashable
+                     , katip
                      , lens
                      , log-warper >= 1.0.3
                      , lrucache
@@ -86,6 +95,7 @@ library
                      , universum
                      , unliftio-core
                      , unordered-containers
+                     , yaml
 
   default-language:    Haskell2010
 
@@ -131,6 +141,7 @@ test-suite test
   other-modules:
                        Spec
                        Test.Pos.Util.Golden
+                       Test.Pos.Util.LogSpec
                        Test.Pos.Util.Modifier
                        Test.Pos.Util.ModifierSpec
                        Test.Pos.Util.QuickCheck.Property

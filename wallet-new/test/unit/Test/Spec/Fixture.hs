@@ -23,6 +23,7 @@ import           Test.QuickCheck (arbitrary, frequency)
 import           Test.QuickCheck.Monadic (PropertyM, pick)
 
 import qualified Cardano.Wallet.API.V1.Types as V1
+import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
 import           Cardano.Wallet.Kernel.Internal (ActiveWallet, PassiveWallet)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
@@ -44,8 +45,12 @@ withLayer :: MonadIO m
           -> PropertyM IO a
 withLayer cc = do
     liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
-        WalletLayer.Kernel.bracketPassiveWallet devNull keystore mockNodeStateDef $ \layer wallet -> do
-            cc layer wallet
+        WalletLayer.Kernel.bracketPassiveWallet
+            Kernel.UseInMemory
+            devNull
+            keystore
+            mockNodeStateDef
+            $ \layer wallet -> cc layer wallet
 
 type GenPassiveWalletFixture x = PropertyM IO (PassiveWallet -> IO x)
 type GenActiveWalletFixture x  = PropertyM IO (Keystore.Keystore -> ActiveWallet  -> IO x)
@@ -57,9 +62,14 @@ withPassiveWalletFixture :: MonadIO m
 withPassiveWalletFixture prepareFixtures cc = do
     generateFixtures <- prepareFixtures
     liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
-        WalletLayer.Kernel.bracketPassiveWallet devNull keystore mockNodeStateDef $ \layer wallet -> do
-            fixtures <- generateFixtures wallet
-            cc keystore layer wallet fixtures
+        WalletLayer.Kernel.bracketPassiveWallet
+            Kernel.UseInMemory
+            devNull
+            keystore
+            mockNodeStateDef
+            $ \layer wallet -> do
+                fixtures <- generateFixtures wallet
+                cc keystore layer wallet fixtures
 
 withActiveWalletFixture :: MonadIO m
                         => GenActiveWalletFixture x
@@ -68,7 +78,7 @@ withActiveWalletFixture :: MonadIO m
 withActiveWalletFixture prepareFixtures cc = do
     generateFixtures <- prepareFixtures
     liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
-        WalletLayer.Kernel.bracketPassiveWallet devNull keystore mockNodeStateDef $ \passiveLayer passiveWallet -> do
+        WalletLayer.Kernel.bracketPassiveWallet Kernel.UseInMemory devNull keystore mockNodeStateDef $ \passiveLayer passiveWallet -> do
             withDefConfiguration $ \coreConfig -> do
                 WalletLayer.Kernel.bracketActiveWallet
                         (configProtocolMagic coreConfig)

@@ -10,13 +10,13 @@ import           Data.Aeson.Types (ToJSON (..))
 import           Formatting (sformat, shown, (%))
 import qualified System.Metrics as Metrics
 import qualified System.Metrics.Gauge as Metrics.Gauge
-import           System.Wlog (logDebug)
 
 import           Pos.Chain.Txp (MemPool (_mpSize))
 import           Pos.Core.JsonLog.LogEvents (JLEvent (..), JLMemPool (..),
                      MemPoolModifyReason (..))
 import           Pos.Core.Metrics.Constants (withCardanoNamespace)
 import           Pos.DB.GState.Lock (StateLockMetrics (..))
+import           Pos.Util.Wlog (logDebug)
 
 -- | 'StateLockMetrics' to record txp MemPool metrics.
 recordTxpMetrics :: Metrics.Store -> TVar MemPool -> IO (StateLockMetrics MemPoolModifyReason)

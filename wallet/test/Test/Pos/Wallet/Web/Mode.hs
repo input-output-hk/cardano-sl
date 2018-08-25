@@ -35,7 +35,6 @@ import           Data.Default (def)
 import           Formatting (bprint, build, formatToString, (%))
 import qualified Formatting.Buildable
 import qualified Prelude
-import           System.Wlog (HasLoggerName (..), LoggerName)
 import           Test.Hspec (Spec)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Arbitrary (..), Property, Testable (..),
@@ -95,6 +94,7 @@ import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
 import           Pos.Util.UserPublic (HasUserPublic (..), UserPublic)
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret)
 import           Pos.Util.Util (HasLens (..))
+import           Pos.Util.Wlog (HasLoggerName (..), LoggerName)
 import           Pos.Wallet.Redirect (applyLastUpdateWebWallet,
                      blockchainSlotDurationWebWallet, connectedPeersWebWallet,
                      localChainDifficultyWebWallet,

@@ -25,7 +25,6 @@ import           Formatting (bprint, build, sformat, shown, stext, (%))
 import qualified Formatting.Buildable as B
 import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Metrics
-import           System.Wlog (logDebug, logInfo, logWarning)
 
 import           Pos.Chain.Block (ApplyBlocksException, Block, BlockHeader,
                      Blund, HasHeaderHash (..), HeaderHash, LastKnownHeaderTag,
@@ -58,6 +57,7 @@ import           Pos.Network.Block.WorkMode (BlockWorkMode)
 import           Pos.Util (buildListBounds, multilineBounds, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Util (lensOf)
+import           Pos.Util.Wlog (logDebug, logInfo, logWarning)
 
 ----------------------------------------------------------------------------
 -- Exceptions

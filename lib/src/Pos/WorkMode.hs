@@ -18,7 +18,6 @@ import           Universum
 
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
-import           System.Wlog (HasLoggerName (..), LoggerName)
 
 import           Pos.Chain.Block (HasSlogContext (..), HasSlogGState (..))
 import           Pos.Chain.Delegation (DelegationVar)
@@ -57,6 +56,7 @@ import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
 import           Pos.Util.UserPublic (HasUserPublic (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.Util.Util (HasLens (..))
+import           Pos.Util.Wlog (HasLoggerName (..), LoggerName)
 import           Pos.WorkMode.Class (MinWorkMode, WorkMode)
 
 data RealModeContext ext = RealModeContext

@@ -50,10 +50,10 @@ import           Network.Socket (AddrInfo,
                      addrFlags, addrSocketType)
 import qualified Network.Socket as Socket
 import qualified Network.Socket.ByteString as Socket.ByteString (sendTo)
-import qualified System.Wlog as Wlog
 
 import           Ntp.Packet (NtpPacket)
 import           Pos.Util.Trace (Trace, traceWith, wlogTrace)
+import qualified Pos.Util.Wlog as Wlog
 
 
 ntpTrace :: Trace IO (Wlog.Severity, Text)

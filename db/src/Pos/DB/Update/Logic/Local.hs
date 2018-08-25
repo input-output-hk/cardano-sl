@@ -31,7 +31,6 @@ import           Data.Default (Default (def))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Formatting (sformat, (%))
-import           System.Wlog (WithLogger, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (biSize)
@@ -61,6 +60,7 @@ import           Pos.DB.Update.Poll.Logic.Apply (verifyAndApplyUSPayload)
 import           Pos.DB.Update.Poll.Logic.Normalize (filterProposalsByThd,
                      normalizePoll, refreshPoll)
 import           Pos.Util.Util (HasLens (..), HasLens')
+import           Pos.Util.Wlog (WithLogger, logWarning)
 
 type USLocalLogicMode ctx m =
     ( MonadIO m

@@ -19,8 +19,6 @@ import           Universum hiding (try)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Yaml as Yaml
 import           Formatting (sformat, shown, (%))
-import           System.Wlog (LoggerConfig (..), WithLogger, logInfo,
-                     parseLoggerConfig, productionB)
 import           Text.Parsec (parserFail, try)
 import qualified Text.Parsec.Char as P
 import qualified Text.Parsec.Text as P
@@ -45,6 +43,8 @@ import           Pos.Crypto (decodeAbstractHash)
 import           Pos.Launcher.Configuration (Configuration (..),
                      HasConfigurations)
 import           Pos.Util.AssertMode (inAssertMode)
+import           Pos.Util.Wlog (LoggerConfig (..), WithLogger, logInfo,
+                     parseLoggerConfig, productionB)
 
 printFlags :: WithLogger m => m ()
 printFlags = do

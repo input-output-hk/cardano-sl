@@ -23,7 +23,6 @@ import           Data.List ((\\))
 import           Formatting (bprint, build, sformat, (%))
 import qualified Formatting.Buildable as B
 import           Serokell.Util (listJson, mapJson)
-import           System.Wlog (WithLogger, logDebug)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Block (Block, ComponentBlock (..), gbHeader,
@@ -55,6 +54,7 @@ import           Pos.DB.Delegation.Logic.Mempool (clearDlgMemPoolAction,
 import qualified Pos.DB.GState.Common as GS
 import           Pos.DB.Lrc (HasLrcContext, getDlgRichmen)
 import           Pos.Util (getKeys, _neHead)
+import           Pos.Util.Wlog (WithLogger, logDebug)
 
 
 -- Copied from 'these' library.

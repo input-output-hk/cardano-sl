@@ -30,7 +30,6 @@ import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat, (%))
 import           Serokell.Util (Color (Red), colorize)
 import           Serokell.Util.Verify (formatAllErrors, verResToMonadError)
-import           System.Wlog (WithLogger)
 
 import           Pos.Chain.Block (Block, Blund, HasSlogGState, SlogUndo (..),
                      Undo (..), genBlockLeaders, headerHash, headerHashG,
@@ -60,6 +59,7 @@ import           Pos.DB.Lrc (HasLrcContext, lrcActionOnEpochReason)
 import qualified Pos.DB.Lrc as LrcDB
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
+import           Pos.Util.Wlog (WithLogger)
 
 ----------------------------------------------------------------------------
 -- Helpers

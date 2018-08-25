@@ -3,7 +3,6 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Info where
 import           Universum
 
 import           Control.Monad.STM (retry)
-import           System.Wlog (WithLogger)
 
 import           Cardano.Wallet.API.Response (WalletResponse, single)
 import qualified Cardano.Wallet.API.V1.Info as Info
@@ -13,6 +12,7 @@ import           Cardano.Wallet.API.V1.Types as V1
 import           Ntp.Client (NtpStatus (NtpSyncPending))
 import           Pos.Infra.Diffusion.Subscription.Status (ssMap)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
+import           Pos.Util.Wlog (WithLogger)
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo)
 import           Servant
 

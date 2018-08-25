@@ -14,8 +14,6 @@ import           Universum
 import           Control.Lens (at, mapped, to, uses, (%=), (.=))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
-import           System.Wlog (CanLog, HasLoggerName (..), LogEvent,
-                     NamedPureLogger, logDebug, logWarning, runNamedPureLog)
 
 import           Pos.Chain.Update (BlockVersionState (..),
                      DecidedProposalState (..), MonadPoll (..),
@@ -24,6 +22,8 @@ import           Pos.Chain.Update (BlockVersionState (..),
 import           Pos.Core.Update (SoftwareVersion (..), UpdateProposal (..))
 import           Pos.Crypto (hash)
 import qualified Pos.DB.Update.Poll.PollState as Poll
+import           Pos.Util.Wlog (CanLog, HasLoggerName (..), LogEvent,
+                     NamedPureLogger, logDebug, logWarning, runNamedPureLog)
 
 newtype PurePoll a = PurePoll
     { getPurePoll :: StateT Poll.PollState (NamedPureLogger Identity) a

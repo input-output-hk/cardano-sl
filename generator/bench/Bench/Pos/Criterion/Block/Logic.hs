@@ -12,7 +12,6 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (convertUnit)
 import           Serokell.Util.Verify (isVerSuccess)
 import           System.Random (newStdGen)
-import           System.Wlog (LoggerName (..))
 
 import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Chain.Block (Block, VerifyBlockParams (..),
@@ -44,6 +43,7 @@ import           Pos.Launcher.Configuration (ConfigurationOptions (..),
                      withConfigurationsM)
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Util.Util (realTime)
+import           Pos.Util.Wlog (LoggerName (..))
 
 import           Test.Pos.Block.Logic.Emulation (runEmulation, sudoLiftIO)
 import           Test.Pos.Block.Logic.Mode (BlockTestContext, BlockTestMode,

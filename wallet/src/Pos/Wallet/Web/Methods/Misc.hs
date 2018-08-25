@@ -40,7 +40,6 @@ import qualified Formatting.Buildable
 import           Serokell.Util (listJson)
 import           Servant.API.ContentTypes (MimeRender (..), NoContent (..),
                      OctetStream)
-import           System.Wlog (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
 import           Ntp.Client (NtpStatus (..))
@@ -58,6 +57,7 @@ import           Pos.Infra.Slotting (MonadSlots, getCurrentSlotBlocking)
 import           Pos.Infra.Util.LogSafe (logInfoUnsafeP)
 import           Pos.Util (maybeThrow)
 import           Pos.Util.Servant (HasTruncateLogPolicy (..))
+import           Pos.Util.Wlog (WithLogger)
 import           Pos.Wallet.Aeson.ClientTypes ()
 import           Pos.Wallet.Aeson.Storage ()
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo, MonadUpdates,

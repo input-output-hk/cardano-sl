@@ -21,7 +21,6 @@ import           Control.Monad.Except (MonadError (throwError), runExceptT)
 import           Data.Default (Default (def))
 import           Formatting (build, fixed, ords, sformat, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
-import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (BlockHeader (..), Blockchain (..),
@@ -69,6 +68,7 @@ import           Pos.DB.Update (UpdateContext, clearUSMemPool, getMaxBlockSize,
                      usCanCreateBlock, usPreparePayload)
 import           Pos.Util (_neHead)
 import           Pos.Util.Util (HasLens (..), HasLens')
+import           Pos.Util.Wlog (WithLogger, logDebug)
 
 -- | A set of constraints necessary to create a block from mempool.
 type MonadCreateBlock ctx m

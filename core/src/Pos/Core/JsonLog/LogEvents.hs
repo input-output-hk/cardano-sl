@@ -38,13 +38,13 @@ import           Data.Aeson.TH (deriveJSON)
 import           Data.Aeson.Types (typeMismatch)
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.HashMap.Strict as HMS
-import           System.Wlog (WithLogger)
 
 import           Pos.Core (EpochIndex (..), HasConfiguration, SlotId (..),
                      mkLocalSlotIndex)
 import           Pos.Core.JsonLog.JsonLogT (JsonLogConfig (..))
 import qualified Pos.Core.JsonLog.JsonLogT as JL
 import           Pos.Util.Util (realTime)
+import           Pos.Util.Wlog (WithLogger)
 
 type BlockId = Text
 type TxId = Text

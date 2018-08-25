@@ -25,7 +25,6 @@ import           Network.HTTP.Simple (getResponseBody, getResponseStatus,
 import qualified Serokell.Util.Base16 as B16
 import           Serokell.Util.Text (listJsonIndent, mapJson)
 import           System.Directory (doesFileExist)
-import           System.Wlog (WithLogger, logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Class (Raw)
 import           Pos.Chain.Update (ConfirmedProposalState (..),
@@ -39,6 +38,7 @@ import           Pos.Infra.Reporting (reportOrLogW)
 import           Pos.Listener.Update (UpdateMode)
 import           Pos.Util.Concurrent (withMVar)
 import           Pos.Util.Util (HasLens (..), (<//>))
+import           Pos.Util.Wlog (WithLogger, logDebug, logInfo, logWarning)
 
 -- | Compute hash of installer, this is hash is 'udPkgHash' from 'UpdateData'.
 --

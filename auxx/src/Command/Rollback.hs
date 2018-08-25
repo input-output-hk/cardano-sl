@@ -11,7 +11,6 @@ import           Data.Aeson (encode)
 import qualified Data.ByteString.Lazy as BSL
 import           Data.List (genericTake)
 import           Formatting (build, int, sformat, string, (%))
-import           System.Wlog (logInfo)
 
 import           Pos.Chain.Block (Blund, mainBlockTxPayload)
 import           Pos.Chain.Txp (flattenTxPayload)
@@ -25,6 +24,7 @@ import qualified Pos.DB.Block as DB
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.Infra.StateLock (Priority (..), withStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
+import           Pos.Util.Wlog (logInfo)
 
 import           Mode (MonadAuxxMode)
 

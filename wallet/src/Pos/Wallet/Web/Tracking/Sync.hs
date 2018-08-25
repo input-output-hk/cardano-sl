@@ -80,7 +80,7 @@ import           Pos.Infra.Util.LogSafe (buildSafe, logDebugSP, logErrorSP,
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (HasLens (..), getKeys, timed)
-import           System.Wlog (CanLog, HasLoggerName, WithLogger, logDebug,
+import           Pos.Util.Wlog (CanLog, HasLoggerName, WithLogger, logDebug,
                      logError, logInfo, logWarning, modifyLoggerName)
 
 import           Pos.Wallet.Web.ClientTypes (CId, CTxMeta (..), Wal)

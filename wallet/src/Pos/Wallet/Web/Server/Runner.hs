@@ -21,7 +21,6 @@ import           Control.Monad.Except (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
 import           Network.Wai (Application)
 import           Servant.Server (Handler)
-import           System.Wlog (logInfo, usingLoggerName)
 
 import           Ntp.Client (NtpStatus)
 
@@ -38,6 +37,7 @@ import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Launcher.Runner (runRealMode)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.Util (HasLens (..))
+import           Pos.Util.Wlog (logInfo, usingLoggerName)
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Methods (addInitialRichAccount)
 import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext (..),

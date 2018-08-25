@@ -80,14 +80,13 @@ import           Formatting (bprint, build, fconst, later, mapf, (%))
 import qualified Formatting.Buildable
 import           Formatting.Internal (Format (..))
 import qualified Language.Haskell.TH as TH
-import           System.Wlog (CanLog (..), HasLoggerName (..), Severity (..),
-                     logMCond)
-import           System.Wlog.LogHandler (LogHandlerTag (HandlerFilelike))
 
 import           Pos.Core (Timestamp)
 import           Pos.Core.Common (Address, Coin)
 import           Pos.Core.Txp (TxId)
 import           Pos.Crypto (PassPhrase)
+import           Pos.Util.Wlog (CanLog (..), HasLoggerName (..),
+                     LogHandlerTag (HandlerFilelike), Severity (..), logMCond)
 
 ----------------------------------------------------------------------------
 -- Logging

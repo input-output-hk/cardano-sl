@@ -43,9 +43,9 @@ import           Control.Monad.Trans.Reader (ReaderT (..))
 import           Data.Aeson (ToJSON, encode)
 import           Data.ByteString.Lazy.Char8 (hPutStrLn)
 import           Formatting (sformat, shown, (%))
-import           System.IO (Handle, hFlush)
-import           System.Wlog (CanLog, HasLoggerName (..), WithLogger,
+import           Pos.Util.Wlog (CanLog, HasLoggerName (..), WithLogger,
                      logWarning)
+import           System.IO (Handle, hFlush)
 
 import           Pos.Core.JsonLog.CanJsonLog (CanJsonLog (..))
 import           Pos.Core.JsonLog.Event (JLTimedEvent, timedIO, toEvent)

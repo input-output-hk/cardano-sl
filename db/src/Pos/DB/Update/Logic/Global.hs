@@ -15,7 +15,6 @@ import           Universum
 
 import           Control.Monad.Except (MonadError, runExceptT)
 import           Data.Default (Default (def))
-import           System.Wlog (WithLogger, modifyLoggerName)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Block (ComponentBlock (..), headerHashG,
@@ -46,6 +45,7 @@ import           Pos.DB.Update.Poll.Logic.Softfork (processGenesisBlock,
                      recordBlockIssuance)
 import           Pos.Util.AssertMode (inAssertMode)
 import qualified Pos.Util.Modifier as MM
+import           Pos.Util.Wlog (WithLogger, modifyLoggerName)
 
 
 ----------------------------------------------------------------------------

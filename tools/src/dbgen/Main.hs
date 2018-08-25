@@ -43,13 +43,13 @@ import           Pos.Wallet.Web.Mode (WalletWebModeContext (..))
 import           Pos.Wallet.Web.State.Acidic (closeState, openState)
 import           Pos.Wallet.Web.State.State (WalletDB)
 import           Pos.WorkMode (RealModeContext (..))
-import           System.Wlog (HasLoggerName (..), LoggerName (..))
 
 import           Pos.Tools.Dbgen.CLI (CLI (..))
 import           Pos.Tools.Dbgen.Lib (generateWalletDB, loadGenSpec)
 import           Pos.Tools.Dbgen.Rendering (bold, say)
 import           Pos.Tools.Dbgen.Stats (showStatsAndExit, showStatsData)
 import           Pos.Tools.Dbgen.Types (UberMonad)
+import           Pos.Util.Wlog (HasLoggerName (..), LoggerName (..))
 
 defaultNetworkConfig :: Topology kademlia -> NetworkConfig kademlia
 defaultNetworkConfig ncTopology = NetworkConfig {

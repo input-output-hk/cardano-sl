@@ -26,11 +26,11 @@ import           Control.Exception.Base (ErrorCall (..))
 import           Data.Default (Default)
 import qualified Data.Time as Time
 import           Formatting (sformat, shown, (%))
-import           System.IO (BufferMode (..), hClose, hSetBuffering)
-import qualified System.Metrics as Metrics
-import           System.Wlog (LoggerConfig (..), WithLogger, consoleActionB,
+import           Pos.Util.Wlog (LoggerConfig (..), WithLogger, consoleActionB,
                      defaultHandleAction, logDebug, logInfo, maybeLogsDirB,
                      productionB, removeAllHandlers, setupLogging, showTidB)
+import           System.IO (BufferMode (..), hClose, hSetBuffering)
+import qualified System.Metrics as Metrics
 
 import           Network.Broadcast.OutboundQueue.Types (NodeType (..))
 import           Pos.Binary ()
@@ -70,8 +70,8 @@ import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
 import           Pos.Util (bracketWithLogging, newInitFuture)
 
 #ifdef linux_HOST_OS
+import qualified Pos.Util.Wlog as Logger
 import qualified System.Systemd.Daemon as Systemd
-import qualified System.Wlog as Logger
 #endif
 
 ----------------------------------------------------------------------------

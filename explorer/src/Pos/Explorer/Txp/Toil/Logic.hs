@@ -18,7 +18,6 @@ import qualified Data.HashSet as HS
 import           Data.List (delete)
 import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat, (%))
-import           System.Wlog (logError)
 
 import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Txp (ToilVerFailure (..), TxpConfiguration,
@@ -38,6 +37,7 @@ import           Pos.Explorer.Txp.Toil.Monad (EGlobalToilM, ELocalToilM,
                      getAddrBalance, getAddrHistory, getTxExtra, getUtxoSum,
                      putAddrBalance, putTxExtra, putUtxoSum, updateAddrHistory)
 import           Pos.Util.Util (Sign (..))
+import           Pos.Util.Wlog (logError)
 
 ----------------------------------------------------------------------------
 -- Global

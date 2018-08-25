@@ -16,7 +16,6 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Tagged (Tagged (..))
 import           Formatting (build, sformat, (%))
 import           Serokell.Util.Text (listJson)
-import           System.Wlog (logInfo)
 
 import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Update (BlockVersionState (..), MonadPoll (..),
@@ -29,6 +28,7 @@ import           Pos.DB.Update.Poll.Logic.Base (ConfirmedEpoch, CurEpoch,
                      adoptBlockVersion, calcSoftforkThreshold, canBeAdoptedBV,
                      updateSlottingData)
 import           Pos.Util.AssertMode (inAssertMode)
+import           Pos.Util.Wlog (logInfo)
 
 -- | Record the fact that main block with given version and leader has
 -- been issued by for the given slot.

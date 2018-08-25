@@ -26,12 +26,12 @@ module Pos.Infra.Reporting.Methods
 import           Universum
 
 import           Control.Exception (ErrorCall (..), Exception (..))
-import           System.Wlog (Severity (..), WithLogger, logMessage)
 
 import           Pos.Core.Exception (CardanoFatalError)
 import           Pos.Core.Reporting (MonadReporting (..), Reporter (..),
                      noReporter, reportError, reportInfo)
 import           Pos.DB.Error (DBError (..))
+import           Pos.Util.Wlog (Severity (..), WithLogger, logMessage)
 
 ----------------------------------------------------------------------------
 -- Exception handling

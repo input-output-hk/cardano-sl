@@ -18,7 +18,6 @@ import           Universum
 import           Control.Exception.Safe (Handler (..), catches, onException)
 import           Data.Time.Units (fromMicroseconds)
 import           Formatting (build, sformat, shown, stext, (%))
-import           System.Wlog (WithLogger, logDebug, logInfo)
 
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Client.Txp.History (saveTx, thTimestamp)
@@ -30,6 +29,7 @@ import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Util.LogSafe (buildSafe, logInfoSP, logWarningSP,
                      secretOnlyF)
 import           Pos.Util.Util (maybeThrow)
+import           Pos.Util.Wlog (WithLogger, logDebug, logInfo)
 import           Pos.Wallet.Web.Error (WalletError (InternalError))
 import           Pos.Wallet.Web.Pending.Functions (isReclaimableFailure,
                      ptxPoolInfo, usingPtxCoords)

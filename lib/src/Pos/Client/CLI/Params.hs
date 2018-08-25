@@ -14,7 +14,6 @@ import           Universum
 
 import           Data.Default (def)
 import qualified Data.Yaml as Yaml
-import           System.Wlog (LoggerName, WithLogger)
 
 import           Pos.Behavior (BehaviorConfig (..))
 import           Pos.Chain.Ssc (SscParams (..))
@@ -30,6 +29,7 @@ import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
 import           Pos.Util.UserPublic (peekUserPublic)
 import           Pos.Util.UserSecret (peekUserSecret)
 import           Pos.Util.Util (eitherToThrow)
+import           Pos.Util.Wlog (LoggerName, WithLogger)
 
 loggingParams :: LoggerName -> CommonNodeArgs -> LoggingParams
 loggingParams defaultName CommonNodeArgs{..} =

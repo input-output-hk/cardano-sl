@@ -11,7 +11,6 @@ import           Universum
 import qualified Data.ByteString.Lazy as BSL
 import           Formatting (sformat, (%))
 import           Network.Kademlia (takeSnapshot)
-import           System.Wlog (WithLogger, logNotice)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize)
@@ -24,6 +23,7 @@ import           Pos.Infra.Recovery.Info (MonadRecoveryInfo, recoveryCommGuard)
 import           Pos.Infra.Reporting (MonadReporting)
 import           Pos.Infra.Shutdown (HasShutdownContext)
 import           Pos.Infra.Slotting.Util (defaultOnNewSlotParams, onNewSlot)
+import           Pos.Util.Wlog (WithLogger, logNotice)
 
 type DhtWorkMode ctx m =
     ( WithLogger m

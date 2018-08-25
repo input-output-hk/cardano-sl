@@ -28,7 +28,6 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Data.List (partition)
 import qualified Data.Map.Strict as M
-import           System.Wlog (HasLoggerName (..))
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Block (HasSlogContext (..), HasSlogGState (..))
@@ -81,6 +80,7 @@ import qualified Pos.Util.Modifier as MM
 import           Pos.Util.UserPublic (HasUserPublic (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.Util.Util (HasLens (..))
+import           Pos.Util.Wlog (HasLoggerName (..))
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.WorkMode (MinWorkMode, RealMode, RealModeContext (..))
 

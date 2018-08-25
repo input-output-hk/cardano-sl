@@ -10,11 +10,11 @@ import           Universum
 
 import qualified Control.Concurrent.STM as STM
 import           Data.Maybe (fromJust)
-import           System.Wlog (Severity (Debug))
 
 import           Pos.Chain.Block (Blund, Undo (..), mainBlockSlot)
 import qualified Pos.Core as Core
 import           Pos.Core.Chrono (OldestFirst (..))
+import           Pos.Util.Wlog (Severity (Debug))
 
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Actions as Actions

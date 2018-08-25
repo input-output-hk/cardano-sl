@@ -14,9 +14,9 @@ import           Serokell.AcidState.ExtendedState (ExtendedState (..),
 import           System.Directory (getModificationTime, listDirectory,
                      removeFile)
 import           System.FilePath ((</>))
-import           System.Wlog (WithLogger, logDebug, logError)
 
 import           Pos.Core.Conc (delay)
+import           Pos.Util.Wlog (WithLogger, logDebug, logError)
 import           Pos.Wallet.Web.State.State (WalletDB)
 
 type MonadAcidCleanup ctx m =

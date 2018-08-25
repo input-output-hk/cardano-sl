@@ -77,8 +77,6 @@ import           Pos.DB.Txp (getTxOut)
 import           Pos.Explorer.Core (TxExtra (..))
 import qualified Pos.Explorer.DB as DB
 import           Pos.Util (maybeThrow)
-import           System.Wlog (WithLogger, logDebug, logWarning,
-                     modifyLoggerName)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.ExplorerMode (ExplorerMode)
@@ -95,6 +93,8 @@ import           Pos.Explorer.Web.ClientTypes (CAddress, CTxBrief,
 import           Pos.Explorer.Web.Error (ExplorerError (..))
 import           Pos.Explorer.Web.Server (getBlocksLastPage, getEpochPage,
                      getEpochPagesOrThrow, topsortTxsOrFail)
+import           Pos.Util.Wlog (WithLogger, logDebug, logWarning,
+                     modifyLoggerName)
 
 
 -- * Event names

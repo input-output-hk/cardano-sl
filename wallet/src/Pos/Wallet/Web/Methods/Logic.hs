@@ -43,7 +43,6 @@ import qualified Data.Set as S
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           Formatting (build, sformat, (%))
 import           Servant.API.ContentTypes (NoContent (..))
-import           System.Wlog (WithLogger)
 
 import           Pos.Chain.Txp (TxAux, TxId, UndoMap, applyUtxoModToAddrCoinMap)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead,
@@ -59,6 +58,7 @@ import           Pos.Infra.Slotting (MonadSlots)
 import           Pos.Util (maybeThrow)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)
+import           Pos.Util.Wlog (WithLogger)
 import           Pos.Wallet.Aeson ()
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Account (AddrGenSeed, GenSeed (DeterminedSeed),

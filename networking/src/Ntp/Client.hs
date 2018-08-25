@@ -39,7 +39,6 @@ import           Data.Typeable (Typeable)
 import           Formatting (sformat, shown, (%))
 import qualified Network.Socket as Socket
 import           Network.Socket.ByteString (recvFrom)
-import qualified System.Wlog as Wlog
 
 import           Ntp.Packet (NtpOffset, NtpPacket (..), clockOffset,
                      mkNtpPacket, ntpPacketSize)
@@ -48,6 +47,7 @@ import           Ntp.Util (AddrFamily (..), Addresses, Sockets,
                      logDebug, logInfo, logWarning, ntpTrace, resolveNtpHost,
                      runWithAddrFamily, sendPacket, udpLocalAddresses)
 import           Pos.Util.Trace (traceWith)
+import qualified Pos.Util.Wlog as Wlog
 
 data NtpStatus =
       -- | The difference between NTP time and local system time

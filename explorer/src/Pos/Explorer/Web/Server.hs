@@ -47,7 +47,6 @@ import qualified Serokell.Util.Base64 as B64
 import           Servant.Generic (AsServerT, toServant)
 import           Servant.Server (Server, ServerT, err405, errReasonPhrase,
                      serve)
-import           System.Wlog (logDebug)
 
 import           Pos.Crypto (WithHash (..), hash, redeemPkBuild, withHash)
 
@@ -73,6 +72,7 @@ import           Pos.DB.Txp (MonadTxpMem, getFilteredUtxo, getLocalTxs,
                      getMemPool, withTxpLocalData)
 import           Pos.Infra.Slotting (MonadSlots (..), getSlotStart)
 import           Pos.Util (divRoundUp, maybeThrow)
+import           Pos.Util.Wlog (logDebug)
 import           Pos.Web (serveImpl)
 
 import           Pos.Explorer.Aeson.ClientTypes ()

@@ -10,7 +10,6 @@ module Pos.Network.Block.WorkMode
 import           Universum
 
 import           Data.Default (Default)
-import           System.Wlog (WithLogger)
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Chain.Block (HasBlockConfiguration, HasSlogContext,
@@ -33,6 +32,7 @@ import           Pos.Network.Block.RetrievalQueue (BlockRetrievalQueue,
 import           Pos.Network.Block.Types (MsgBlock, MsgGetBlocks, MsgGetHeaders,
                      MsgHeaders)
 import           Pos.Util.Util (HasLens, HasLens')
+import           Pos.Util.Wlog (WithLogger)
 
 -- | These instances are implemented in @Pos.Binary.Communication@,
 -- and @Pos.Communication.Limits@, which are unavailable at this

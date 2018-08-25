@@ -22,7 +22,6 @@ import qualified Data.Set as S
 import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
 import           Formatting (sformat, stext, (%))
 import           Serokell.Util (listChunkedJson, listJsonIndent)
-import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Client.Txp.History (MonadTxHistory, TxHistoryEntry (..),
                      txHistoryListToMap)
@@ -31,6 +30,7 @@ import           Pos.Core.Txp (TxId)
 import           Pos.Infra.Util.LogSafe (logInfoSP, secureListF)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (eitherToThrow)
+import           Pos.Util.Wlog (WithLogger, logDebug)
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..),
                      getLocalHistory)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,

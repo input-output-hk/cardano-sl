@@ -25,8 +25,6 @@ import           Control.Monad.Morph (generalize, hoist)
 import           Data.Default (Default (def))
 import qualified Data.HashMap.Strict as HM
 import           Formatting (build, sformat, (%))
-import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog,
-                     logDebug, logError, logWarning)
 
 import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Txp (ExtendedLocalToilM, LocalToilState (..),
@@ -52,6 +50,8 @@ import           Pos.DB.Txp.MemState (GenericTxpLocalData (..), MempoolExt,
                      getLocalUndos, getMemPool, getTxpExtra, getUtxoModifier,
                      setTxpLocalData, withTxpLocalData, withTxpLocalDataLog)
 import           Pos.Util.Util (HasLens')
+import           Pos.Util.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog,
+                     logDebug, logError, logWarning)
 
 type TxpProcessTransactionMode ctx m =
     ( TxpLocalWorkMode ctx m

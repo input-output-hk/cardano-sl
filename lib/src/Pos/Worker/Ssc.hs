@@ -20,7 +20,6 @@ import qualified System.Metrics.Gauge as Metrics
 import           UnliftIO (MonadUnliftIO)
 
 import qualified Crypto.Random as Rand
-import           System.Wlog (WithLogger)
 
 import           Pos.Binary.Class (AsBinary, asBinary, fromBinary)
 import           Pos.Chain.Lrc (RichmenStakes)
@@ -67,6 +66,7 @@ import           Pos.Infra.Util.LogSafe (logDebugS, logErrorS, logInfoS,
                      logWarningS)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Util (HasLens (..), getKeys, leftToPanic)
+import           Pos.Util.Wlog (WithLogger)
 
 
 type SscMode ctx m

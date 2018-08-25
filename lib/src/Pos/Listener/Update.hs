@@ -13,7 +13,6 @@ module Pos.Listener.Update
 import           Universum
 
 import           Formatting (build, sformat, (%))
-import           System.Wlog (WithLogger, logNotice, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Update (HasUpdateConfiguration, UpdateParams)
@@ -28,6 +27,7 @@ import           Pos.Infra.Shutdown.Class (HasShutdownContext)
 import           Pos.Infra.Slotting (MonadSlots)
 import           Pos.Infra.StateLock (StateLock)
 import           Pos.Util.Util (HasLens (..))
+import           Pos.Util.Wlog (WithLogger, logNotice, logWarning)
 
 
 

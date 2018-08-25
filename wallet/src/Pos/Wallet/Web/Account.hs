@@ -24,7 +24,6 @@ import           Universum
 import           Control.Monad.Except (MonadError (throwError), runExceptT)
 import           Formatting (build, sformat, (%))
 import           System.Random (randomRIO)
-import           System.Wlog (WithLogger)
 
 import           Pos.Client.KeyStorage (AllUserPublics (..),
                      AllUserSecrets (..), MonadKeys, MonadKeysRead,
@@ -38,6 +37,7 @@ import           Pos.Crypto (EncryptedSecretKey, PassPhrase, PublicKey,
 import           Pos.Util (eitherToThrow)
 import           Pos.Util.Mnemonic (Mnemonic, mnemonicToSeed)
 import           Pos.Util.Servant (encodeCType)
+import           Pos.Util.Wlog (WithLogger)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, Wal, encToCId)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.State (AddressLookupMode (Ever),

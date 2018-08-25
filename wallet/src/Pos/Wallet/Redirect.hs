@@ -24,7 +24,6 @@ import           Universum hiding (id)
 import           Control.Lens (views)
 import qualified Data.HashMap.Strict as HM
 import           Data.Time.Units (Millisecond)
-import           System.Wlog (WithLogger, logWarning)
 
 import           Pos.Chain.Block (BlockHeader, LastKnownHeaderTag,
                      MonadLastKnownHeader)
@@ -45,6 +44,7 @@ import           Pos.DB.Update (UpdateContext (ucDownloadedUpdate))
 import           Pos.Infra.Shutdown (HasShutdownContext, triggerShutdown)
 import           Pos.Infra.Slotting (MonadSlots (..), getNextEpochSlotDuration)
 import           Pos.Util.Util (HasLens (..))
+import           Pos.Util.Wlog (WithLogger, logWarning)
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..),
                      MonadUpdates (..))
 import           Pos.Wallet.Web.Account (AccountMode, getKeyById)

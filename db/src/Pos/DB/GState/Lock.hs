@@ -34,8 +34,6 @@ import           Control.Monad.Catch (MonadMask)
 import           Data.Aeson.Types (ToJSON (..), Value)
 import           Data.Time.Units (Microsecond)
 import           System.Mem (getAllocationCounter)
-import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName,
-                     usingLoggerName)
 
 import           Pos.Chain.Block (HeaderHash)
 import           Pos.Core.Conc (currentTime)
@@ -44,6 +42,8 @@ import           Pos.Util.Concurrent (modifyMVar, withMVar)
 import           Pos.Util.Concurrent.PriorityLock (Priority (..), PriorityLock,
                      newPriorityLock, withPriorityLock)
 import           Pos.Util.Util (HasLens', lensOf)
+import           Pos.Util.Wlog (LoggerNameBox, WithLogger, askLoggerName,
+                     usingLoggerName)
 
 
 -- | A simple wrapper over 'MVar' which stores 'HeaderHash' (our

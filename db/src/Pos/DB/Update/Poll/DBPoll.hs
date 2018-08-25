@@ -13,7 +13,6 @@ import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce (coerce)
 import qualified Data.HashMap.Strict as HM
 import qualified Ether
-import           System.Wlog (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Lrc (FullRichmenData)
@@ -23,6 +22,7 @@ import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.Lrc (HasLrcContext, getIssuersStakes,
                      lrcActionOnEpochReason, tryGetUSRichmen)
 import qualified Pos.DB.Update.GState as GS
+import           Pos.Util.Wlog (WithLogger)
 
 ----------------------------------------------------------------------------
 -- Transformer

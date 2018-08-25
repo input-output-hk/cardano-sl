@@ -51,8 +51,6 @@ import qualified System.IO.Silently as Silently
 import           System.Process (ProcessHandle, waitForProcess)
 import qualified System.Process as Process
 import           System.Timeout (timeout)
-import           System.Wlog (logError, logInfo, logNotice, logWarning)
-import qualified System.Wlog as Log
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 #ifndef mingw32_HOST_OS
@@ -86,6 +84,8 @@ import           Pos.Util (HasLens (..), directory, logException,
                      postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo,
                      withCompileInfo)
+import           Pos.Util.Wlog (logError, logInfo, logNotice, logWarning)
+import qualified Pos.Util.Wlog as Log
 
 import           Pos.Tools.Launcher.Environment (substituteEnvVarsValue)
 import           Pos.Tools.Launcher.Logging (reportErrorDefault)

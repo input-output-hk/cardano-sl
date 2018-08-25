@@ -32,8 +32,6 @@ import           Data.Time.Units (fromMicroseconds)
 
 import           Data.Aeson.Options (defaultOptions)
 import           System.FilePath (takeDirectory)
-import           System.Wlog (LoggerName, WithLogger, askLoggerName, logInfo,
-                     usingLoggerName)
 
 import           Ntp.Client (NtpConfiguration)
 
@@ -41,6 +39,8 @@ import           Pos.Core (Address, decodeTextAddress)
 import           Pos.Core.Genesis (GenesisData)
 import           Pos.Core.Slotting (Timestamp (..))
 import           Pos.Util.Config (parseYamlConfig)
+import           Pos.Util.Wlog (LoggerName, WithLogger, askLoggerName, logInfo,
+                     usingLoggerName)
 
 import           Pos.Chain.Block
 import           Pos.Chain.Delegation

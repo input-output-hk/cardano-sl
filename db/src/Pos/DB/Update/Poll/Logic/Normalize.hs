@@ -15,7 +15,6 @@ import           Control.Lens (at, non)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Formatting (build, sformat, (%))
-import           System.Wlog (logWarning)
 
 import           Pos.Chain.Update (DecidedProposalState (..), LocalVotes,
                      MonadPoll (..), MonadPollRead (..), PollVerFailure (..),
@@ -28,6 +27,7 @@ import           Pos.Crypto (PublicKey, hash)
 import           Pos.DB.Update.Poll.Logic.Apply (verifyAndApplyProposal,
                      verifyAndApplyVoteDo)
 import           Pos.Util.Util (getKeys, sortWithMDesc)
+import           Pos.Util.Wlog (logWarning)
 
 -- | Normalize given proposals and votes with respect to current Poll
 -- state, i. e. apply all valid data and discard invalid data.  This

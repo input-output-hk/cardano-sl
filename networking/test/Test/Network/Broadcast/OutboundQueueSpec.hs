@@ -19,12 +19,13 @@ import qualified Data.Set as Set
 import qualified Network.Broadcast.OutboundQueue as OutQ
 import           Network.Broadcast.OutboundQueue.Demo
 import           Network.Broadcast.OutboundQueue.Types
-import           System.Wlog
 import           Test.Hspec (Spec, describe, it)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import           Test.QuickCheck (Gen, Property, choose, forAll, ioProperty,
                      property, suchThat, (===))
 import qualified Test.QuickCheck as QC
+
+import           Pos.Util.Wlog
 
 arbitraryNodeType :: Gen NodeType
 arbitraryNodeType = QC.elements [minBound .. maxBound]

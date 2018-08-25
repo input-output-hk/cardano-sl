@@ -31,7 +31,6 @@ import           Data.Time.Units (Microsecond, fromMicroseconds, toMicroseconds)
 import           Formatting (build, int, sformat, shown, stext, (%))
 import           System.Environment (lookupEnv)
 import           System.IO (BufferMode (LineBuffering), hClose, hSetBuffering)
-import           System.Wlog (logError, logInfo)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Txp (topsortTxAuxes)
@@ -53,6 +52,7 @@ import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic, SecretKey,
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Util.UserSecret (usWallet, userSecret, wusRootKey)
 import           Pos.Util.Util (maybeThrow)
+import           Pos.Util.Wlog (logError, logInfo)
 
 import           Mode (MonadAuxxMode, makePubKeyAddressAuxx)
 

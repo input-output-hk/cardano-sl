@@ -14,7 +14,6 @@ module Pos.GState.Context
 import           Universum
 
 import           Control.Lens (lens, makeClassy)
-import           System.Wlog (WithLogger)
 
 import           Pos.Chain.Block (HasSlogGState (..), SlogGState)
 import           Pos.DB.Block (cloneSlogGState)
@@ -24,6 +23,7 @@ import           Pos.DB.Sum (DBSum (..))
 import           Pos.Infra.Slotting (HasSlottingVar, SlottingVar,
                      cloneSlottingVar, slottingVar)
 import           Pos.Util.Util (HasLens', lensOf)
+import           Pos.Util.Wlog (WithLogger)
 
 -- | This type contains DB and in-memory contexts which basically
 -- replicate GState. It's parameterized by DB type, because we have

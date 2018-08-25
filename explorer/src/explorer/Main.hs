@@ -13,7 +13,6 @@ module Main
 import           Universum
 
 import           Data.Maybe (fromJust)
-import           System.Wlog (LoggerName, logInfo)
 
 import           ExplorerNodeOptions (ExplorerArgs (..), ExplorerNodeArgs (..),
                      getExplorerNodeOptions)
@@ -40,6 +39,7 @@ import           Pos.Launcher.Configuration (AssetLockPath (..))
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
+import           Pos.Util.Wlog (LoggerName, logInfo)
 import           Pos.Worker.Update (updateTriggerWorker)
 
 loggerName :: LoggerName

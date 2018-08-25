@@ -15,7 +15,6 @@ module Pos.DB.Ssc.State.Global
        ) where
 
 import           Formatting (build, sformat, (%))
-import           System.Wlog (WithLogger, logDebug, logInfo)
 import           Universum
 
 import           Pos.Chain.Ssc (MonadSscMem, SscGlobalState (..),
@@ -26,6 +25,7 @@ import           Pos.Core (EpochIndex (..), HasGenesisData,
 import           Pos.Core.Ssc (VssCertificatesMap (..))
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB.Ssc.GState as DB
+import           Pos.Util.Wlog (WithLogger, logDebug, logInfo)
 
 ----------------------------------------------------------------------------
 -- Certs

@@ -14,7 +14,6 @@ import           Control.Lens (has)
 import           Data.Time.Units (Microsecond, Second, convertUnit)
 import           Formatting (build, sformat, (%))
 import           Serokell.Util (enumerate, listJson)
-import           System.Wlog (logDebug, logInfo, modifyLoggerName)
 
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Client.Txp.Addresses (MonadAddresses)
@@ -36,6 +35,7 @@ import           Pos.Infra.Slotting (MonadSlots, OnNewSlotParams (..),
                      defaultOnNewSlotParams, getNextEpochSlotDuration,
                      onNewSlot)
 import           Pos.Infra.Util.LogSafe (logInfoSP, secretOnlyF, secureListF)
+import           Pos.Util.Wlog (logDebug, logInfo, modifyLoggerName)
 import           Pos.Wallet.Web.Pending.Functions (usingPtxCoords)
 import           Pos.Wallet.Web.Pending.Submission (ptxResubmissionHandler,
                      submitAndSavePtx)

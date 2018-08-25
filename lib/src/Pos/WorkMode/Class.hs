@@ -14,7 +14,6 @@ import           Universum
 
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Crypto.Random as Rand
-import           System.Wlog (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Block (HasBlockConfiguration, HasSlogContext,
@@ -44,6 +43,7 @@ import           Pos.Infra.StateLock (StateLock, StateLockMetrics)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason)
 import           Pos.Recovery.Types (MonadRecoveryHeader)
 import           Pos.Util (HasLens, HasLens')
+import           Pos.Util.Wlog (WithLogger)
 
 -- | Bunch of constraints to perform work for real world distributed system.
 type WorkMode ctx m

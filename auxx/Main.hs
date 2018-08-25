@@ -11,7 +11,6 @@ import           Data.Maybe (fromMaybe)
 import           Formatting (sformat, shown, (%))
 import qualified Network.Transport.TCP as TCP (TCPAddr (..))
 import qualified System.IO.Temp as Temp
-import           System.Wlog (LoggerName, logInfo)
 
 import           Ntp.Client (NtpConfiguration)
 
@@ -34,6 +33,7 @@ import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.Config (ConfigurationException (..))
 import           Pos.Util.UserSecret (usVss)
+import           Pos.Util.Wlog (LoggerName, logInfo)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 
 import           AuxxOptions (AuxxAction (..), AuxxOptions (..),

@@ -45,7 +45,6 @@ import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import           Formatting (ords, sformat, (%))
-import           System.Wlog (logWarning)
 
 import           Pos.Binary.Class (AsBinary, fromBinary)
 import           Pos.Chain.Lrc (RichmenSet, RichmenStakes)
@@ -64,6 +63,7 @@ import           Pos.Core.Ssc (Commitment (..),
 import           Pos.Core.Update (bvdMpcThd)
 import           Pos.Crypto (DecShare, verifyDecShare, verifyEncShares)
 import           Pos.Util.Util (getKeys)
+import           Pos.Util.Wlog (logWarning)
 
 ----------------------------------------------------------------------------
 -- Trivial getters (proper interface of MonadTossRead)

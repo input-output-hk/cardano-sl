@@ -35,7 +35,6 @@ import qualified Data.Map.Strict as M (fromList, insert)
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 import           Serokell.Util.Text (listJson)
-import           System.Wlog (WithLogger)
 
 import           Pos.Chain.Block (Block, MainBlock, genesisBlock0, headerHash,
                      mainBlockSlot, mainBlockTxPayload)
@@ -63,6 +62,7 @@ import           Pos.Infra.StateLock (StateLock, StateLockMetrics)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason)
 import           Pos.Util (eitherToThrow, maybeThrow)
 import           Pos.Util.Util (HasLens')
+import           Pos.Util.Wlog (WithLogger)
 
 ----------------------------------------------------------------------
 -- Deduction of history

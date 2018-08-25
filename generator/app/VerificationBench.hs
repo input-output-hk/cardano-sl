@@ -13,9 +13,6 @@ import           Formatting (int, sformat, shown, (%))
 import qualified Options.Applicative as Opts
 import           System.Directory (doesFileExist)
 import           System.Random (newStdGen)
-import           System.Wlog (LoggerConfig, LoggerName (..), consoleActionB,
-                     debugPlus, defaultHandleAction, logError, logInfo,
-                     setupLogging, termSeveritiesOutB)
 
 import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Binary.Class (decodeFull, serialize)
@@ -44,6 +41,9 @@ import           Pos.Launcher.Configuration (ConfigurationOptions (..),
                      withConfigurationsM)
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Util.Util (realTime)
+import           Pos.Util.Wlog (LoggerConfig, LoggerName (..), consoleActionB,
+                     debugPlus, defaultHandleAction, logError, logInfo,
+                     setupLogging, termSeveritiesOutB)
 
 import           Test.Pos.Block.Logic.Mode (BlockTestMode, TestParams (..),
                      runBlockTestMode)

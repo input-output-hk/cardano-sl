@@ -19,7 +19,6 @@ import qualified Data.Map as M
 import           Data.Time.Units (Second)
 import           Formatting (build, sformat, (%))
 import           Servant.Server (err403, err405, errReasonPhrase)
-import           System.Wlog (logDebug)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Txp (TxFee (..), TxpConfiguration, Utxo)
@@ -40,6 +39,7 @@ import           Pos.Crypto (PassPhrase, ProtocolMagic, SafeSigner,
 import           Pos.DB (MonadGState)
 import           Pos.Util (eitherToThrow, maybeThrow)
 import           Pos.Util.Servant (encodeCType)
+import           Pos.Util.Wlog (logDebug)
 import           Pos.Wallet.Aeson.ClientTypes ()
 import           Pos.Wallet.Aeson.WalletBackup ()
 import           Pos.Wallet.Web.Account (getSKByAddressPure, getSKById)

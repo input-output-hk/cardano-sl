@@ -39,8 +39,6 @@ import           Network.Broadcast.OutboundQueue (Alts, Peers, peersFromList)
 import qualified Network.DNS as DNS
 import qualified Network.Transport.TCP as TCP
 import qualified Options.Applicative as Opt
-import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName,
-                     logError, logNotice, usingLoggerName)
 
 import           Pos.Core.NetworkAddress (NetworkAddress, addrParser,
                      addrParserNoWildcard)
@@ -53,6 +51,8 @@ import           Pos.Infra.Network.Yaml (NodeMetadata (..))
 import qualified Pos.Infra.Network.Yaml as Y
 import           Pos.Infra.Util.TimeWarp (addressToNodeId)
 import           Pos.Util.OptParse (fromParsec)
+import           Pos.Util.Wlog (LoggerNameBox, WithLogger, askLoggerName,
+                     logError, logNotice, usingLoggerName)
 
 #ifdef POSIX
 import           Pos.Infra.Util.SigHandler (Signal (..), installHandler)

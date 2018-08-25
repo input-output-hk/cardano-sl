@@ -22,7 +22,6 @@ import           Network.Wai (Application)
 import           Network.Wai.Handler.Warp (Settings)
 import           Serokell.AcidState.ExtendedState (ExtendedState)
 import           Servant.Server (Handler, Server, serve)
-import           System.Wlog (WithLogger, logInfo)
 
 import qualified Data.ByteString.Char8 as BS8
 
@@ -36,6 +35,7 @@ import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion (sendTx))
 import           Pos.Util (bracketWithLogging)
 import           Pos.Util.CompileInfo (HasCompileInfo)
+import           Pos.Util.Wlog (WithLogger, logInfo)
 import           Pos.Wallet.Web.Account (findKey, myRootAddresses)
 import           Pos.Wallet.Web.Api (WalletSwaggerApi, swaggerWalletApi)
 import           Pos.Wallet.Web.Mode (MonadFullWalletWebMode,

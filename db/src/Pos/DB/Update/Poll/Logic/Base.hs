@@ -37,7 +37,6 @@ import qualified Data.Set as S
 import           Data.Tagged (Tagged, untag)
 import           Data.Time.Units (convertUnit)
 import           Formatting (build, int, sformat, (%))
-import           System.Wlog (WithLogger, logDebug, logNotice)
 
 import           Pos.Chain.Block (HeaderHash, IsMainHeader (..), headerHashG)
 import           Pos.Chain.Update (BlockVersionState (..),
@@ -60,6 +59,7 @@ import           Pos.Core.Update (BlockVersion (..), BlockVersionData (..),
                      BlockVersionModifier (..), SoftforkRule (..), UpId,
                      UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto (PublicKey, hash, shortHashF)
+import           Pos.Util.Wlog (WithLogger, logDebug, logNotice)
 
 
 

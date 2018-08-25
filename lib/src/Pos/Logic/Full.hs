@@ -13,7 +13,6 @@ import           Data.Conduit (ConduitT)
 import qualified Data.HashMap.Strict as HM
 import           Data.Tagged (Tagged (..), tagWith)
 import           Formatting (build, sformat, (%))
-import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Chain.Block (Block, BlockHeader, HasBlockConfiguration,
                      HeaderHash)
@@ -57,6 +56,7 @@ import           Pos.Network.Block.WorkMode (BlockWorkMode)
 import           Pos.Recovery (MonadRecoveryInfo)
 import qualified Pos.Recovery as Recovery
 import           Pos.Util.Util (HasLens (..))
+import           Pos.Util.Wlog (WithLogger, logDebug)
 
 -- The full logic layer uses existing pieces from the former monolithic
 -- approach, in which there was no distinction between networking and

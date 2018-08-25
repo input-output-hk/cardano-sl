@@ -18,9 +18,9 @@ module Cardano.Wallet.Kernel.Util.StrictNonEmpty (
 
 import           Universum hiding ((:|), head, init, last, take, toList)
 
+import qualified Data.Foldable
 import           Data.SafeCopy (SafeCopy (..), base, contain, deriveSafeCopy,
                      safeGet, safePut)
-import qualified Data.Foldable
 import           Pos.Core.Chrono
 
 import           Cardano.Wallet.Kernel.Util.StrictList (StrictList)

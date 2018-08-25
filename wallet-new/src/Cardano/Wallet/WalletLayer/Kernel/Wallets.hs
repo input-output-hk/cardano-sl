@@ -28,14 +28,11 @@ import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
 import           Cardano.Wallet.Kernel.DB.AcidState (dbHdWallets)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
-import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
-import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
+import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import           Cardano.Wallet.Kernel.DB.TxMeta.Types
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
-import           Cardano.Wallet.Kernel.Decrypt (WalletDecrCredentialsKey (..),
-                     keyToWalletDecrCredentials)
 import           Cardano.Wallet.Kernel.Internal (walletKeystore,
                      walletRestorationTask)
 import qualified Cardano.Wallet.Kernel.Internal as Kernel
@@ -91,18 +88,11 @@ createWallet wallet
     restore = runExceptT $ do
         now  <- liftIO getCurrentTimestamp
 
-        let esk = snd $ safeDeterministicKeyGen (BIP39.mnemonicToSeed mnemonic)
-                                                spendingPassword
+        let esk    = snd $ safeDeterministicKeyGen
+                             (BIP39.mnemonicToSeed mnemonic)
+                             spendingPassword
             rootId = HD.eskToHdRootId esk
-            root = HD.initHdRoot rootId
-                                 (HD.WalletName v1WalletName)
-                                 (if spendingPassword == emptyPassphrase
-                                      then HD.NoSpendingPassword
-                                      else HD.HasSpendingPassword (InDb now))
-                                 hdAssuranceLevel
-                                 (InDb now)
-            wId = WalletIdHdRnd (root ^. HD.hdRootId)
-            wkey = (wId, keyToWalletDecrCredentials (KeyForRegular esk))
+            wId    = WalletIdHdRnd rootId
 
         -- Insert the 'EncryptedSecretKey' into the 'Keystore'
         liftIO $ Keystore.insert wId esk (wallet ^. walletKeystore)
@@ -114,7 +104,15 @@ createWallet wallet
                 blundToResolvedBlock getTimeBySlot blund <&> \case
                     Nothing -> (M.empty, [])
                     Just rb -> prefilterBlock rb wId esk
-        coins <- liftIO $ restoreWallet wallet root wkey prefilter
+
+        (root, coins) <- withExceptT (CreateWalletError . Kernel.CreateWalletFailed) $ ExceptT $
+            restoreWallet
+              wallet
+              (spendingPassword /= emptyPassphrase)
+              (HD.WalletName v1WalletName)
+              hdAssuranceLevel
+              esk
+              prefilter
 
         -- Return the wallet information, with an updated balance.
         updateSyncState wallet wId ((mkRoot now root) { V1.walBalance = V1 coins })
@@ -266,4 +264,3 @@ updateSyncState :: MonadIO m
 updateSyncState wallet wId v1wal = do
     wss <- M.lookup wId <$> readMVar (wallet ^. walletRestorationTask)
     return v1wal { V1.walSyncState = toSyncState wss }
-

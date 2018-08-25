@@ -56,13 +56,11 @@ import qualified Formatting.Buildable
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
 import           Pos.Chain.Txp (Utxo)
-import           Pos.Core (FlatSlotId, SlotCount, SlotId, flattenSlotIdExplicit,
-                     mkCoin)
+import           Pos.Core (FlatSlotId, SlotCount, SlotId, flattenSlotIdExplicit)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Txp (TxAux, TxId)
 import           Pos.Core.Update (SoftwareVersion)
 
-import           Cardano.Wallet.Kernel.DB.BlockMeta (emptyLocalBlockMeta)
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Delete as HD
@@ -70,7 +68,6 @@ import qualified Cardano.Wallet.Kernel.DB.HdWallet.Update as HD
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (InDb))
 import           Cardano.Wallet.Kernel.DB.Spec
 import           Cardano.Wallet.Kernel.DB.Spec.Pending (Pending)
-import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
 import qualified Cardano.Wallet.Kernel.DB.Spec.Update as Spec
 import           Cardano.Wallet.Kernel.DB.Updates (Updates, noUpdates)
 import qualified Cardano.Wallet.Kernel.DB.Updates as Updates
@@ -81,7 +78,6 @@ import           Cardano.Wallet.Kernel.NodeStateAdaptor (SecurityParameter (..))
 import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId,
                      PrefilteredBlock (..), emptyPrefilteredBlock)
 import           Cardano.Wallet.Kernel.Util (markMissingMapEntries)
-import           Cardano.Wallet.Kernel.Util.Core (utxoBalance)
 
 {-------------------------------------------------------------------------------
   Top-level database
@@ -256,7 +252,7 @@ applyBlock k (InDb slotId) blocks = runUpdateNoErrors $ zoom dbHdWallets $
     mkUpdate (accId, mPB) = AccountUpdate {
           accountUpdateId    = accId
         , accountUpdateAddrs = pfbAddrs pb
-        , accountUpdateNew   = AccountUpdateNew Map.empty
+        , accountUpdateNew   = AccountUpdateNewUpToDate Map.empty
         , accountUpdate      =
             matchHdAccountCheckpoints
               (state $ swap . Spec.applyBlock        k slotId pb)
@@ -295,7 +291,7 @@ applyHistoricalBlock k (InDb slotId) slotCount blocks =
     mkUpdate (accId, mPB) = AccountUpdate {
           accountUpdateId    = accId
         , accountUpdateAddrs = pfbAddrs pb
-        , accountUpdateNew   = AccountUpdateNew Map.empty
+        , accountUpdateNew   = AccountMustExist -- TODO: Not true
         , accountUpdate      = do
             -- Apply the block to the historical checkpoints
             txIds <- matchHdAccountState
@@ -376,7 +372,7 @@ switchToFork k n blocks = runUpdateDiscardSnapshot $ zoom dbHdWallets $
     mkUpdate (accId, mPBs) = AccountUpdate {
           accountUpdateId    = accId
         , accountUpdateAddrs = concatMap (pfbAddrs . snd) pbs
-        , accountUpdateNew   = AccountUpdateNew Map.empty
+        , accountUpdateNew   = AccountUpdateNewUpToDate Map.empty
         , accountUpdate      =
             matchHdAccountCheckpoints
               (state $ swap . Spec.switchToFork k n (OldestFirst pbs))
@@ -416,13 +412,11 @@ observableRollbackUseInTestsOnly = runUpdateDiscardSnapshot $
   Wallet creation
 -------------------------------------------------------------------------------}
 
--- | Create an HdWallet with HdRoot, possibly with HdAccounts and HdAddresses.
+-- | Create an HdWallet with HdRoot
 --
--- Given prefiltered utxo's, by account, create an HdAccount for each account,
--- along with HdAddresses for all utxo outputs.
---
--- NOTE: since the genesis Utxo does not come into being through regular
--- transactions, there is no block metadata to record when we create a wallet.
+-- NOTE: We allow an initial set of accounts with associated addresses and
+-- balances /ONLY/ for testing purpose. Normally this should be empty; see
+-- 'createHdWallet'/'createWalletHdRnd' in "Cardano.Wallet.Kernel.Wallets".
 createHdWallet :: HdRoot
                -> Map HdAccountId (Utxo,[AddrWithId])
                -> Update DB (Either HD.CreateHdRootError ())
@@ -435,7 +429,7 @@ createHdWallet newRoot utxoByAccount =
              -> AccountUpdate HD.CreateHdRootError ()
     mkUpdate (accId, (utxo, addrs)) = AccountUpdate {
           accountUpdateId    = accId
-        , accountUpdateNew   = AccountUpdateNew utxo
+        , accountUpdateNew   = AccountUpdateNewUpToDate utxo
         , accountUpdateAddrs = addrs
         , accountUpdate      = return () -- just need to create it, no more
         }
@@ -444,38 +438,22 @@ createHdWallet newRoot utxoByAccount =
 -- starting from the 'HdAccountOutsideK' state.
 restoreHdWallet :: HdRoot
                 -> SlotId
-                -> Map HdAccountId (Utxo, [AddrWithId])
+                -> Map HdAccountId (Utxo, Utxo, [AddrWithId])
+                -- ^ Current and genesis UTxO per account
                 -> Update DB (Either HD.CreateHdRootError ())
 restoreHdWallet newRoot slotId utxoByAccount =
     runUpdateDiscardSnapshot . zoom dbHdWallets $ do
       HD.createHdRoot newRoot
       updateAccounts_ $ map mkUpdate (Map.toList utxoByAccount)
   where
-    mkUpdate :: (HdAccountId, (Utxo, [AddrWithId]))
+    mkUpdate :: (HdAccountId, (Utxo, Utxo, [AddrWithId]))
              -> AccountUpdate HD.CreateHdRootError ()
-    mkUpdate (accId, (utxo, addrs)) = AccountUpdate {
+    mkUpdate (accId, (curUtxo, genUtxo, addrs)) = AccountUpdate {
           accountUpdateId    = accId
-        , accountUpdateNew   = AccountUpdateNew utxo
+        , accountUpdateNew   = AccountUpdateNewOutsideK curUtxo genUtxo slotId
         , accountUpdateAddrs = addrs
-        , accountUpdate      = do
-                hdAccountState .= (HdAccountStateOutsideK $ HdAccountOutsideK
-                    { _hdOutsideKCurrent    = one (tipCheckpoint utxo)
-                    , _hdOutsideKHistorical = genesisCheckpoint
-                    })
+        , accountUpdate      = return () -- Create it only
         }
-
-    tipCheckpoint :: Utxo -> PartialCheckpoint
-    tipCheckpoint utxo = PartialCheckpoint
-      { _pcheckpointUtxo        = InDb utxo
-      , _pcheckpointUtxoBalance = InDb . mkCoin . fromIntegral . utxoBalance $ utxo
-      , _pcheckpointPending     = Pending.empty
-      , _pcheckpointBlockMeta   = emptyLocalBlockMeta -- TODO (@mn): is this right?
-      , _pcheckpointSlotId      = InDb slotId
-      , _pcheckpointForeign     = Pending.empty
-      }
-
-    genesisCheckpoint :: Checkpoint
-    genesisCheckpoint = initCheckpoint Map.empty
 
 {-------------------------------------------------------------------------------
   Internal: support for updating accounts
@@ -510,18 +488,53 @@ data AccountUpdate e a = AccountUpdate {
 -- so this is what we use for the 'SlotId' of the first account.
 --
 -- See 'AccountUpdate'.
-data AccountUpdateNew = AccountUpdateNew {
-      -- | 'UTxO' to use to create the first checkpoint
-      accountUpdateUtxo  :: !Utxo
-    }
+data AccountUpdateNew =
+     -- | Create new account which is up to date with the blockchain
+     --
+     -- Conceptually the first checkpoint of new account is always created in
+     -- slot 0 of epoch 0, at the dawn of time, and this is what we use for
+     -- the 'SlotId'. We nonetheless allow to specify a 'Utxo' for this
+     -- checkpoint, since some accounts are assigned an initial balance
+     -- in the Cardano genesis block.
+     --
+     -- NOTE: The /ONLY/ reason that we allow for an initial UTxO is here
+     -- is that for testing purposes it is convenient to be able to create
+     -- a wallet with an initial non-empty UTxO.
+     AccountUpdateNewUpToDate !Utxo
+
+    -- | Create a new account which will be in restoration state
+    --
+    -- We specify
+    --
+    -- * The current UTxO (obtained by filtering the full node's current UTxO)
+    -- * The genesis UTxO (obtained by filtering 'genesisUtxo')
+    -- * The slot ID of the tip at the time of restoration
+  | AccountUpdateNewOutsideK !Utxo !Utxo !SlotId
+
+    -- | Never create a new account
+    --
+    -- This is used when we know externally that the account must exist
+  | AccountMustExist
 
 -- | Brand new account (if one needs to be created)
 accountUpdateCreate :: HdAccountId -> AccountUpdateNew -> HdAccount
-accountUpdateCreate accId AccountUpdateNew{..} =
-    HD.initHdAccount accId firstCheckpoint
+accountUpdateCreate accId (AccountUpdateNewUpToDate utxo) =
+    HD.initHdAccount accId initState
   where
-    firstCheckpoint :: Checkpoint
-    firstCheckpoint = initCheckpoint accountUpdateUtxo
+    initState :: HdAccountState
+    initState = HdAccountStateUpToDate HdAccountUpToDate {
+          _hdUpToDateCheckpoints = one $ initCheckpoint utxo
+        }
+accountUpdateCreate accId (AccountUpdateNewOutsideK curUtxo genUtxo slotId) =
+    HD.initHdAccount accId initState
+  where
+    initState :: HdAccountState
+    initState = HdAccountStateOutsideK HdAccountOutsideK {
+          _hdOutsideKCurrent    = one $ initPartialCheckpoint curUtxo slotId
+        , _hdOutsideKHistorical = initCheckpoint genUtxo
+        }
+accountUpdateCreate _accId AccountMustExist =
+    error "accountUpdateCreate: assertion failed"
 
 updateAccount :: AccountUpdate e a -> Update' HdWallets e (HdAccountId, a)
 updateAccount AccountUpdate{..} = do
@@ -538,7 +551,7 @@ updateAccount AccountUpdate{..} = do
     createAddress (addressId, address) =
         zoomOrCreateHdAddress
             assumeHdAccountExists -- we just created it
-            (HD.initHdAddress addressId (InDb address))
+            (HD.initHdAddress addressId address)
             addressId
             (return ())
 

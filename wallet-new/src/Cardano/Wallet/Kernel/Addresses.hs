@@ -27,7 +27,6 @@ import           Cardano.Wallet.Kernel.DB.HdWallet.Create
                      (CreateHdAddressError (..), initHdAddress)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Derivation
                      (HardeningMode (..), deriveIndex)
-import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
 import           Cardano.Wallet.Kernel.Internal (PassiveWallet, walletKeystore,
                      wallets)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
@@ -144,7 +143,7 @@ createHdRndAddress spendingPassword esk accId pw = do
             case mbAddr of
                  Nothing -> return (Left $ CreateAddressHdRndGenerationFailed accId)
                  Just (newAddress, _) -> do
-                    let hdAddress  = initHdAddress hdAddressId (InDb newAddress)
+                    let hdAddress  = initHdAddress hdAddressId newAddress
                     let db = pw ^. wallets
                     res <- update db (CreateHdAddress hdAddress)
                     case res of

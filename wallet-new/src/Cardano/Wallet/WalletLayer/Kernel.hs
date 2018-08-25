@@ -13,8 +13,8 @@ import qualified Control.Concurrent.STM as STM
 
 import           Pos.Chain.Block (Blund)
 import qualified Pos.Core as Core
-import           Pos.Util.Wlog (Severity (Debug))
 import           Pos.Core.Chrono (OldestFirst (..))
+import           Pos.Util.Wlog (Severity (Debug))
 
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Actions as Actions

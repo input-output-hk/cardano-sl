@@ -28,6 +28,7 @@ import           Pos.Core.Chrono
 import           Pos.Crypto (EncryptedSecretKey)
 
 import qualified Cardano.Wallet.Kernel.BListener as Kernel
+import qualified Cardano.Wallet.Kernel.DB.AcidState as DB
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import qualified Cardano.Wallet.Kernel.Internal as Internal
 import           Cardano.Wallet.Kernel.Invariants as Kernel
@@ -216,12 +217,14 @@ equivalentT useWW activeWallet esk = \mkWallet w ->
                 -> Utxo
                 -> TranslateT EquivalenceViolation m HD.HdAccountId
     walletBootT ctxt utxo = do
-        res <- liftIO $ Kernel.createWalletHdRnd passiveWallet
-                                                 False
-                                                 walletName
-                                                 assuranceLevel
-                                                 esk
-                                                 utxo
+        res <- liftIO $
+          Kernel.createWalletHdRnd
+            passiveWallet
+            False
+            walletName
+            assuranceLevel
+            esk
+            (\root -> Left $ DB.CreateHdWallet root (prefilterUtxo (root ^. HD.hdRootId) esk utxo))
         case res of
              Left e -> createWalletErr (STB e)
              Right hdRoot -> do

@@ -13,6 +13,7 @@ module Cardano.Wallet.Kernel.DB.Spec (
   , checkpointForeign
     -- * Partial checkpoints
   , PartialCheckpoint(..)
+  , initPartialCheckpoint
   , fromFullCheckpoint
   , toFullCheckpoint
     -- ** Lenses
@@ -151,6 +152,31 @@ data PartialCheckpoint = PartialCheckpoint {
 makeLenses ''PartialCheckpoint
 
 deriveSafeCopy 1 'base ''PartialCheckpoint
+
+-- | Initial partial checkpoint when we are restoring a wallet
+--
+-- NOTE: The UTxO for the partial checkpoint must be obtained by looking at the
+-- UTxO of the underlying full node. HOWEVER, we do not have access to the
+-- block metadata for the most recent block! We have (partial) block metadata
+-- for all blocks /after/ the initial partial checkpoint, and we have (complete)
+-- block metadata for all historical checkpoints that we recover, but this is
+-- only checkpoint for which we have no block metadata at all. Therefore we set
+-- the block metadata to 'emptyBlockMeta'. Then during restoration when we are
+-- recovering  historical checkpoints, we don't stop until the historical
+-- checkpoints  /overlap/ one block with the partial checkpoints, so that the
+-- block metadata of this initial partial checkpoint is not used.
+--
+-- See also 'finishRestoration'.
+initPartialCheckpoint :: Core.Utxo -> Core.SlotId -> PartialCheckpoint
+initPartialCheckpoint utxo slotId = PartialCheckpoint {
+      _pcheckpointUtxo        = InDb $ utxo
+    , _pcheckpointUtxoBalance = InDb $ Core.unsafeIntegerToCoin $
+                                         Core.utxoBalance utxo
+    , _pcheckpointPending     = Pending.empty
+    , _pcheckpointForeign     = Pending.empty
+    , _pcheckpointBlockMeta   = LocalBlockMeta emptyBlockMeta
+    , _pcheckpointSlotId      = InDb $ slotId
+    }
 
 -- | A full check point can be " downcast " to a partial checkpoint by
 -- forgetting that we have complete block metadata.

@@ -22,12 +22,13 @@ import           Cardano.Wallet.Kernel.DB.AcidState (CreateHdAccount (..), DB,
                      DeleteHdAccount (..), UpdateHdAccountName (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet (AccountName (..),
                      HdAccount (..), HdAccountId (..), HdAccountIx (..),
-                     HdRootId, UnknownHdAccount (..), hdAccountName)
+                     HdAccountState (..), HdAccountUpToDate (..), HdRootId,
+                     UnknownHdAccount (..), hdAccountName)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Create
                      (CreateHdAccountError (..), initHdAccount)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Derivation
                      (HardeningMode (..), deriveIndex)
-import           Cardano.Wallet.Kernel.DB.Spec (Checkpoint, initCheckpoint)
+import           Cardano.Wallet.Kernel.DB.Spec (initCheckpoint)
 import           Cardano.Wallet.Kernel.Internal (PassiveWallet, walletKeystore,
                      wallets)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
@@ -115,7 +116,7 @@ createHdRndAccount _spendingPassword accountName _esk rootId pw = do
         tryGenerateAccount gen collisions = do
             newIndex <- deriveIndex (flip uniformR gen) HdAccountIx HardDerivation
             let hdAccountId = HdAccountId rootId newIndex
-                newAccount  = initHdAccount hdAccountId firstCheckpoint &
+                newAccount  = initHdAccount hdAccountId initState &
                               hdAccountName .~ accountName
                 db = pw ^. wallets
             res <- update db (CreateHdAccount newAccount)
@@ -136,9 +137,11 @@ createHdRndAccount _spendingPassword accountName _esk rootId pw = do
         maxAllowedCollisions :: Word32
         maxAllowedCollisions = 42
 
-        -- | The first 'Checkpoint' known to this 'Account'.
-        firstCheckpoint :: Checkpoint
-        firstCheckpoint = initCheckpoint mempty
+        -- Initial account state
+        initState :: HdAccountState
+        initState = HdAccountStateUpToDate HdAccountUpToDate {
+              _hdUpToDateCheckpoints = one $ initCheckpoint mempty
+            }
 
 -- | Deletes an HD 'Account' from the data storage.
 deleteAccount :: HdAccountId

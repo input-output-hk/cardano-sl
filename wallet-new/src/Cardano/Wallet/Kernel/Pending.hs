@@ -118,7 +118,7 @@ newTx ActiveWallet{..} accountId tx partialMeta upd = do
         ourAddrs esk =
             map f $ filterOurs wKey txOutAddress txOut
             where
-                f (txOut',addressId) = (initHdAddress addressId (InDb (txOutAddress txOut')), txOutValue txOut')
+                f (txOut',addressId) = (initHdAddress addressId (txOutAddress txOut'), txOutValue txOut')
                 wKey = (wid, keyToWalletDecrCredentials $ KeyForRegular esk)
 
         submitTx :: IO ()

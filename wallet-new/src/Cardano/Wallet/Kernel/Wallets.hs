@@ -19,7 +19,6 @@ import qualified Formatting.Buildable
 
 import           Data.Acid.Advanced (update')
 
-import           Pos.Chain.Txp (Utxo)
 import           Pos.Core (Timestamp)
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase,
                      changeEncPassphrase, checkPassMatches, emptyPassphrase,
@@ -28,8 +27,8 @@ import           Pos.Crypto (EncryptedSecretKey, PassPhrase,
 import           Cardano.Wallet.Kernel.BIP39 (Mnemonic)
 import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
 import           Cardano.Wallet.Kernel.DB.AcidState (CreateHdWallet (..),
-                     DeleteHdRoot (..), UpdateHdRootPassword (..),
-                     UpdateHdWallet (..))
+                     DeleteHdRoot (..), RestoreHdWallet,
+                     UpdateHdRootPassword (..), UpdateHdWallet (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel, HdRoot,
                      WalletName, eskToHdRootId)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
@@ -38,7 +37,6 @@ import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
 import           Cardano.Wallet.Kernel.Internal (PassiveWallet, walletKeystore,
                      wallets)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
-import           Cardano.Wallet.Kernel.PrefilterTx (prefilterUtxo)
 import qualified Cardano.Wallet.Kernel.Read as Kernel
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
 import           Cardano.Wallet.Kernel.Util.Core (getCurrentTimestamp)
@@ -101,30 +99,29 @@ instance Exception UpdateWalletPasswordError
 -------------------------------------------------------------------------------}
 
 -- | Creates a new HD 'Wallet'.
--- INVARIANT: The input 'Mnemonic' should be supplied by the frontend such that
--- this is a brand new 'Mnemonic' never used before on the blockchain. Failing
--- to do so would cause an invariant violation as we system would treat this
--- wallet as a new one rather than dealing with a proper restoration.
 --
+-- PRECONDITION: The input 'Mnemonic' should be supplied by the frontend such
+-- that this is a brand new 'Mnemonic' never used before on the blockchain. For
+-- other wallets restoration should be used.
 createHdWallet :: PassiveWallet
-             -> Mnemonic nat
-             -- ^ The set of words (i.e the mnemonic) to generate the initial seed.
-             -- See <https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#From_mnemonic_to_seed>
-             -- This Kernel function is agnostic in the number of words, and it's
-             -- wallet layer's responsibility to make sure that invalid sizes are
-             -- rejected.
-             -> PassPhrase
-             -- ^ The spending password to encrypt the 'SecretKey' for the
-             -- newly-generated wallet. If the user didn't specify any, the
-             -- empty 'PassPhrase' is used.
-             -> AssuranceLevel
-             -- ^ The 'AssuranceLevel' for this wallet, namely after how many
-             -- blocks each transaction is considered 'adopted'. This translates
-             -- in the frontend with a different threshold for the confirmation
-             -- range (@low@, @medium@, @high@).
-             -> WalletName
-             -- ^ The name for this wallet.
-             -> IO (Either CreateWalletError HdRoot)
+               -> Mnemonic nat
+               -- ^ The set of words (i.e the mnemonic) to generate the initial seed.
+               -- See <https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#From_mnemonic_to_seed>
+               -- This Kernel function is agnostic in the number of words, and it's
+               -- wallet layer's responsibility to make sure that invalid sizes are
+               -- rejected.
+               -> PassPhrase
+               -- ^ The spending password to encrypt the 'SecretKey' for the
+               -- newly-generated wallet. If the user didn't specify any, the
+               -- empty 'PassPhrase' is used.
+               -> AssuranceLevel
+               -- ^ The 'AssuranceLevel' for this wallet, namely after how many
+               -- blocks each transaction is considered 'adopted'. This translates
+               -- in the frontend with a different threshold for the confirmation
+               -- range (@low@, @medium@, @high@).
+               -> WalletName
+               -- ^ The name for this wallet.
+               -> IO (Either CreateWalletError HdRoot)
 createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
     -- STEP 1: Generate the 'EncryptedSecretKey' outside any acid-state
     -- transaction, to not leak it into acid-state's transaction logs.
@@ -137,8 +134,9 @@ createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
                              walletName
                              assuranceLevel
                              esk
-                             mempty -- Brand new wallets have no Utxo.
-                                    -- See the invariant at the top.
+                             -- Brand new wallets have no Utxo
+                             -- See preconditon above.
+                             (\hdRoot -> Left $ CreateHdWallet hdRoot mempty)
     case res of
          Left e   -> return . Left $ CreateWalletFailed e
          Right hdRoot -> do
@@ -150,10 +148,6 @@ createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
 -- | Creates an HD wallet where new accounts and addresses are generated
 -- via random index derivation.
 --
--- Prefilters the Utxo before passing it to the Acidstate update.
---
--- Adds an HdRoot and HdAccounts (which are discovered during prefiltering of utxo).
--- In the case of empty utxo, no HdAccounts are created.
 -- Fails with CreateHdWalletError if the HdRootId already exists.
 createWalletHdRnd :: PassiveWallet
                   -> Bool
@@ -161,9 +155,9 @@ createWalletHdRnd :: PassiveWallet
                   -> HD.WalletName
                   -> AssuranceLevel
                   -> EncryptedSecretKey
-                  -> Utxo
+                  -> (HdRoot -> Either CreateHdWallet RestoreHdWallet)
                   -> IO (Either HD.CreateHdRootError HdRoot)
-createWalletHdRnd pw hasSpendingPassword name assuranceLevel esk utxo = do
+createWalletHdRnd pw hasSpendingPassword name assuranceLevel esk createWallet = do
     created <- InDb <$> getCurrentTimestamp
     let rootId  = eskToHdRootId esk
         newRoot = HD.initHdRoot rootId
@@ -171,9 +165,10 @@ createWalletHdRnd pw hasSpendingPassword name assuranceLevel esk utxo = do
                                 (hdSpendingPassword created)
                                 assuranceLevel
                                 created
-        utxoByAccount = prefilterUtxo rootId esk utxo
 
-    res <- update' (pw ^. wallets) $ CreateHdWallet newRoot utxoByAccount
+    res <- case createWallet newRoot of
+             Left  create  -> update' (pw ^. wallets) create
+             Right restore -> update' (pw ^. wallets) restore
     return $ case res of
                  Left err -> Left err
                  Right () -> Right newRoot
@@ -256,4 +251,3 @@ updatePassword pw hdRootId oldPassword newPassword = do
                            Left e ->
                                return $ Left (UpdateWalletPasswordUnknownHdRoot e)
                            Right (db, hdRoot') -> return $ Right (db, hdRoot')
-

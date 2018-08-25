@@ -212,9 +212,9 @@ newTransaction ActiveWallet{..} spendingPassword options accountId payees = runE
     -- STEP 4: Compute metadata
     let txId = hash . taTx $ txAux
     -- This is the sum of inputs coins.
-    let inCoins = paymentAmount (toaOut . snd <$> inputs)
+    let spentInputCoins = paymentAmount (toaOut . snd <$> inputs)
     -- partially applied, because we don`t know here which outputs are ours
-    let partialMeta = createNewMeta accountId txId inputs (toaOut <$> outputs) True inCoins
+    partialMeta <- liftIO $ createNewMeta accountId txId inputs (toaOut <$> outputs) True spentInputCoins
     return (txAux, partialMeta, availableUtxo)
   where
     -- Generate an initial seed for the random generator using the hash of
@@ -256,22 +256,23 @@ newTransaction ActiveWallet{..} spendingPassword options accountId payees = runE
                              walletPassive
 
 -- | This is called when we create a new Pending Transaction.
-createNewMeta :: HdAccountId -> TxId -> NonEmpty (TxIn, TxOutAux) -> NonEmpty TxOut -> Bool -> Coin -> Bool -> Coin -> IO TxMeta
-createNewMeta hdId txId inp out allInOurs inCoin allOutOurs outCoin = do
+-- This actually returns a function because we don`t know yet our outputs.
+createNewMeta :: HdAccountId -> TxId -> NonEmpty (TxIn, TxOutAux) -> NonEmpty TxOut -> Bool -> Coin -> IO PartialTxMeta
+createNewMeta hdId txId inp out allInOurs spentInputsCoins = do
     time <- liftIO getCurrentTimestamp
-    metaForNewTx time hdId txId inp out allInOurs inCoin allOutOurs outCoin
+    return $ metaForNewTx time hdId txId inp out allInOurs spentInputsCoins
+    -- ^ this partially applied function indicates the lack of all TxMeta at this stage.
 
-metaForNewTx  :: Monad m => Core.Timestamp ->
-                 HdAccountId -> TxId -> NonEmpty (TxIn, TxOutAux) -> NonEmpty TxOut -> Bool -> Coin -> Bool -> Coin  -> m TxMeta
-metaForNewTx time accountId txId inputs outputs allInpOurs inCoin allOutOurs outCoin =
-    return $ TxMeta {
+metaForNewTx  :: Core.Timestamp -> HdAccountId -> TxId -> NonEmpty (TxIn, TxOutAux) -> NonEmpty TxOut -> Bool -> Coin -> Bool -> Coin -> TxMeta
+metaForNewTx time accountId txId inputs outputs allInpOurs spentInputsCoins allOutOurs gainedOutputsCoins =
+    TxMeta {
           _txMetaId = txId
-        , _txMetaAmount = absCoin inCoin outCoin
+        , _txMetaAmount = absCoin spentInputsCoins gainedOutputsCoins
         , _txMetaInputs = inputsForMeta
         , _txMetaOutputs = aux <$> outputs
         , _txMetaCreationAt = time
         , _txMetaIsLocal = allInpOurs && allOutOurs
-        , _txMetaIsOutgoing = outCoin < inCoin -- it`s outgoing if our inputs used are more than the new utxo.
+        , _txMetaIsOutgoing = gainedOutputsCoins < spentInputsCoins -- it`s outgoing if our inputs spent are more than the new utxo.
         , _txMetaWalletId = _fromDb $ getHdRootId (accountId ^. hdAccountIdParent)
         , _txMetaAccountIx = getHdAccountIx $ accountId ^. hdAccountIdIx
     }
@@ -284,17 +285,17 @@ metaForNewTx time accountId txId inputs outputs allInpOurs inCoin allOutOurs out
             in (txid, index, addr, coins)
         TxInUnknown _ _ -> error "Tried to create TxMeta with unknown input"
 
--- | Different wraper for @metaForNewTx@ mainly for testing.
-toMeta :: Monad m => Core.Timestamp -> HdAccountId -> RawResolvedTx -> Bool -> Coin -> m TxMeta
-toMeta time accountId UnsafeRawResolvedTx{..} allOutOurs outCoin = do
+-- | Different wraper for @metaForNewTx@ mainly for testing Only NewPending Transactions.
+toMeta :: Core.Timestamp -> HdAccountId -> RawResolvedTx -> PartialTxMeta
+toMeta time accountId UnsafeRawResolvedTx{..} allOutOurs outCoin =
     let allInpOurs = True
         txId = hash . taTx $ rawResolvedTx
         (txIn :: NonEmpty TxIn) = _txInputs $ taTx rawResolvedTx
         (inputsRes :: NonEmpty TxOutAux) = rawResolvedTxInputs
-        inpCoin = paymentAmount $ toaOut <$> inputsRes
+        spentInputCoins = paymentAmount $ toaOut <$> inputsRes
         inputs = NonEmpty.zip txIn inputsRes
         txOut = _txOutputs $ taTx rawResolvedTx
-    metaForNewTx time accountId txId inputs txOut allInpOurs inpCoin allOutOurs outCoin
+    in metaForNewTx time accountId txId inputs txOut allInpOurs spentInputCoins allOutOurs outCoin
 
 -- | Special monad used to process the payments, which randomness is derived
 -- from a fixed seed obtained from hashing the payees. This guarantees that

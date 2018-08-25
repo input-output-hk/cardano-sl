@@ -66,10 +66,10 @@ getNodeParams ::
     => LoggerName
     -> CommonNodeArgs
     -> NodeArgs
-    -> GeneratedSecrets
+    -> Maybe GeneratedSecrets
     -> m NodeParams
-getNodeParams defaultLoggerName cArgs@CommonNodeArgs{..} NodeArgs{..} generatedSecrets = do
-    (primarySK, userSecret) <- prepareUserSecret cArgs generatedSecrets
+getNodeParams defaultLoggerName cArgs@CommonNodeArgs{..} NodeArgs{..} mGeneratedSecrets = do
+    (primarySK, userSecret) <- prepareUserSecret cArgs mGeneratedSecrets
         =<< peekUserSecret (getKeyfilePath cArgs)
     userPublic <- peekUserPublic publicKeyfilePath
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts

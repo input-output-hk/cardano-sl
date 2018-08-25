@@ -16,7 +16,7 @@ import           Pos.Chain.Ssc (SscParams)
 import           Pos.Chain.Txp (TxpConfiguration)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (ncUserSecret)
-import           Pos.Core (Config (..), configGeneratedSecretsThrow, epochSlots)
+import           Pos.Core (Config (..), epochSlots)
 import           Pos.Core.Genesis (GeneratedSecrets)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
@@ -174,10 +174,10 @@ actionWithNewWallet pm txpConfig sscParams nodeParams ntpConfig params =
 startEdgeNode :: HasCompileInfo => WalletStartupOptions -> IO ()
 startEdgeNode wso =
     withConfigurations blPath conf $ \coreConfig txpConfig ntpConfig -> do
-        generatedSecrets <- configGeneratedSecretsThrow coreConfig
-        (sscParams, nodeParams) <- getParameters generatedSecrets
-                                                 txpConfig
-                                                 ntpConfig
+        (sscParams, nodeParams) <- getParameters
+            (configGeneratedSecrets coreConfig)
+            txpConfig
+            ntpConfig
         case wsoWalletBackendParams wso of
             WalletLegacy legacyParams -> actionWithWallet
                 (configProtocolMagic coreConfig)
@@ -195,13 +195,13 @@ startEdgeNode wso =
                 newParams
   where
     getParameters :: HasConfigurations
-                  => GeneratedSecrets
+                  => Maybe GeneratedSecrets
                   -> TxpConfiguration
                   -> NtpConfiguration
                   -> IO (SscParams, NodeParams)
-    getParameters generatedSecrets txpConfig ntpConfig = do
+    getParameters mGeneratedSecrets txpConfig ntpConfig = do
 
-      currentParams <- CLI.getNodeParams defaultLoggerName (wsoNodeArgs wso) nodeArgs generatedSecrets
+      currentParams <- CLI.getNodeParams defaultLoggerName (wsoNodeArgs wso) nodeArgs mGeneratedSecrets
       let vssSK = fromJust $ npUserSecret currentParams ^. usVss
       let gtParams = CLI.gtSscParams (wsoNodeArgs wso) vssSK (npBehaviorConfig currentParams)
 

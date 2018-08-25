@@ -28,17 +28,23 @@ import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..))
 prepareUserSecret
     :: (MonadIO m, WithLogger m)
     => CommonNodeArgs
-    -> GeneratedSecrets
+    -> Maybe GeneratedSecrets
     -> UserSecret
     -> m (SecretKey, UserSecret)
-prepareUserSecret CommonNodeArgs {devGenesisSecretI} generatedSecrets userSecret = do
+prepareUserSecret CommonNodeArgs {devGenesisSecretI} mGeneratedSecrets userSecret = do
     (_, userSecretWithVss) <-
         fillUserSecretVSS (rsVssKeyPair <$> predefinedRichKeys) userSecret
     fillPrimaryKey (rsPrimaryKey <$> predefinedRichKeys) userSecretWithVss
   where
     predefinedRichKeys :: Maybe RichSecrets
-    predefinedRichKeys =
-        devGenesisSecretI >>= \i -> gsRichSecrets generatedSecrets ^? ix i
+    predefinedRichKeys = do
+        i <- devGenesisSecretI
+        case mGeneratedSecrets of
+            Nothing -> error
+                $  "devGenesisSecretI is specified, but GeneratedSecrets are "
+                <> "missing from Core.Config. GenesisInitializer might be "
+                <> "incorrectly specified."
+            Just generatedSecrets -> gsRichSecrets generatedSecrets ^? ix i
 
 -- Make sure UserSecret contains a primary key.
 fillPrimaryKey ::

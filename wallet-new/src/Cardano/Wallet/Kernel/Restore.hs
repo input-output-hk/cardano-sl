@@ -7,7 +7,6 @@ module Cardano.Wallet.Kernel.Restore
 
 import           Universum
 
-import           Control.Concurrent (threadDelay)
 import           Control.Concurrent.Async (async, cancel)
 import           Control.Concurrent.MVar (modifyMVar_)
 import           Data.Acid (update)
@@ -15,6 +14,10 @@ import qualified Data.Map.Merge.Strict as M
 import qualified Data.Map.Strict as M
 import           Data.Time.Clock (NominalDiffTime, UTCTime, diffUTCTime,
                      getCurrentTime)
+import           Formatting (bprint, build, formatToString, (%))
+import qualified Formatting.Buildable
+
+import qualified Prelude
 
 import           Cardano.Wallet.API.Types.UnitOfMeasure
 import           Cardano.Wallet.Kernel (walletLogMessage)
@@ -25,6 +28,7 @@ import           Cardano.Wallet.Kernel.DB.AcidState (ApplyHistoricalBlock (..),
 import           Cardano.Wallet.Kernel.DB.BlockContext
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.HdWallet.Create (CreateHdRootError)
+import qualified Cardano.Wallet.Kernel.DB.Spec.Update as Spec
 import           Cardano.Wallet.Kernel.DB.TxMeta.Types
 import           Cardano.Wallet.Kernel.Decrypt (WalletDecrCredentialsKey (..),
                      decryptAddress, keyToWalletDecrCredentials)
@@ -42,8 +46,8 @@ import           Cardano.Wallet.Kernel.Types (WalletId (..))
 import           Cardano.Wallet.Kernel.Util.Core (utxoBalance)
 import           Cardano.Wallet.Kernel.Wallets (createWalletHdRnd)
 
-import           Pos.Chain.Block (Blund, HeaderHash, MainBlock, headerHash,
-                     mainBlockSlot)
+import           Pos.Chain.Block (Block, Blund, HeaderHash, MainBlock, Undo,
+                     headerHash, mainBlockSlot)
 import           Pos.Chain.Txp (GenesisUtxo (..), Utxo, genesisUtxo)
 import           Pos.Core (BlockCount (..), Coin, SlotId, flattenSlotIdExplicit,
                      mkCoin, unsafeIntegerToCoin)
@@ -52,7 +56,7 @@ import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.DB.Block (getFirstGenesisBlockHash, getUndo,
                      resolveForwardLink)
 import           Pos.DB.Class (getBlock)
-import           Pos.Util.Trace (Severity (Debug, Error))
+import           Pos.Util.Trace (Severity (Error))
 
 -- | Restore a wallet
 --
@@ -188,6 +192,8 @@ getWalletInitInfo wKey@(wId, wdc) lock = do
         return (addrId ^. HD.hdAddressIdParent, M.singleton inp (out, addrId))
 
 -- | Restore a wallet's transaction history.
+--
+-- TODO: Think about what we should do if a 'RestorationException' is thrown.
 restoreWalletHistoryAsync :: Kernel.PassiveWallet
                           -> HD.HdRootId
                           -> HeaderHash
@@ -195,82 +201,58 @@ restoreWalletHistoryAsync :: Kernel.PassiveWallet
                           -> (Blund -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta]))
                           -> IO ()
 restoreWalletHistoryAsync wallet rootId target tgtSlot prefilter = do
-
-    say "sleeping 10 seconds before starting restoration, so that the tip has a chance to move"
-    pause 10
-
-    -- TODO (@mn): should filter genesis utxo for the first wallet
-    withNode (getFirstGenesisBlockHash >>= getBlock) >>= \case
-        Nothing  -> say "failed to find genesis block's successor!!" >> finish
-        Just gbs -> restore (headerHash gbs) NoTimingData
-
+    -- 'getFirstGenesisBlockHash' is confusingly named: it returns the hash of
+    -- the first block /after/ the genesis block.
+    startingPoint <- withNode $ getFirstGenesisBlockHash
+    restore startingPoint NoTimingData
   where
+    wId :: WalletId
     wId = WalletIdHdRnd rootId
-    pause = when True . threadDelay . (* 1000000)
-
-    say = (wallet ^. walletLogMessage) Debug . ("mnoonan: " <>)
 
     -- Process the restoration of the block with the given 'HeaderHash'.
-    -- The (UTCTime, Int) pair is used t
     restore :: HeaderHash -> TimingData -> IO ()
     restore hh timing = do
-
-        -- Increment our timing counter, producing an average rate
-        -- every 5 blocks.
+        -- Updating the average rate every 5 blocks.
         (rate, timing') <- tickTiming 5 timing
 
         -- Update each account's historical checkpoints
-        (block, undo) <- withNode ((,) <$> getBlock hh <*> getUndo hh)
+        block <- getBlockOrThrow hh
 
-        whenJust ((,) <$> block <*> undo) $ \blund ->
-          whenRight (fst blund) $ \mb -> do
+        -- Skip EBBs
+        whenRight block $ \mb -> do
+          -- Filter the blocks by account
+          blund <- (Right mb, ) <$> getUndoOrThrow hh
+          (prefilteredBlocks, txMetas) <- prefilter blund
 
-            -- Gather the information we will need to decide if we are within K blocks of the tip.
-            slotCount <- getSlotCount (wallet ^. walletNode)
-            let flat = flattenSlotIdExplicit slotCount
+          -- Apply the block
+          k    <- getSecurityParameter (wallet ^. walletNode)
+          ctxt <- withNode $ mainBlockContext mb
+          mErr <- update (wallet ^. wallets) $
+                    ApplyHistoricalBlock k ctxt prefilteredBlocks
+          case mErr of
+            Left err -> throwM $ RestorationApplyHistoricalBlockFailed err
+            Right () -> return ()
 
-            -- Filter the blocks by account
-            (prefilteredBlocks, txMetas) <- prefilter blund
+          -- Update our progress
+          slotCount <- getSlotCount (wallet ^. walletNode)
+          let flat             = flattenSlotIdExplicit slotCount
+              blockPerSec      = MeasuredIn . BlockCount . perSecond <$> rate
+              throughputUpdate = maybe identity (set wriThroughput) blockPerSec
+              slotId           = mb ^. mainBlockSlot
+          updateRestorationInfo wallet wId ( (wriCurrentSlot .~ flat slotId)
+                                           . (wriTargetSlot  .~ flat tgtSlot)
+                                           . throughputUpdate )
 
-            let slotId = mb ^. mainBlockSlot
-            k    <- getSecurityParameter (wallet ^. walletNode)
-            ctxt <- withNodeState (wallet ^. walletNode) $ \_lock ->
-                      mainBlockContext mb
-            mErr <- update (wallet ^. wallets) $
-                      ApplyHistoricalBlock k ctxt prefilteredBlocks
-
-            case mErr of
-              Left err -> error $ "restore: unexpected error during applyHistoricalBlock: " <> pretty err
-              Right () -> return ()
-
-            -- Update our progress
-            let blockPerSec = MeasuredIn . BlockCount . perSecond <$> rate
-                throughputUpdate = maybe identity (set wriThroughput) blockPerSec
-
-            updateRestorationInfo wallet wId ( (wriCurrentSlot .~ flat slotId)
-                                             . (wriTargetSlot  .~ flat tgtSlot)
-                                             . throughputUpdate )
-
-            -- Store the TxMetas
-            forM_ txMetas (putTxMeta (wallet ^. walletMeta))
-
-        -- MN TEMPORARY: slow your roll! Add an artificial 5 second delay whenever
-        -- the throughput rate was updated, so we can look for it in the `wallets`
-        -- endpoint results.
-        case rate of
-            Nothing -> return ()
-            Just _  -> pause 5
+          -- Store the TxMetas
+          forM_ txMetas (putTxMeta (wallet ^. walletMeta))
 
         -- Get the next block from the node and recurse.
-        if target == hh
-          then say "made it to target!" >> finish
-          else nextBlock hh >>= \case
-            Nothing      -> say "failed to find next block!!" >> finish
+        if target == hh then
+          finish
+        else
+          nextBlock hh >>= \case
+            Nothing      -> throwM $ RestorationFinishUnreachable target hh
             Just header' -> restore header' timing'
-
-    -- Step forward to the successor of the given block.
-    nextBlock :: HeaderHash -> IO (Maybe HeaderHash)
-    nextBlock hh = withNode (resolveForwardLink hh)
 
     -- TODO (@mn): probably should use some kind of bracket to ensure this cleanup happens.
     finish :: IO ()
@@ -278,6 +260,27 @@ restoreWalletHistoryAsync wallet rootId target tgtSlot prefilter = do
         k <- getSecurityParameter (wallet ^. walletNode)
         update (wallet ^. wallets) $ RestorationComplete k rootId
         modifyMVar_ (wallet ^. walletRestorationTask) (pure . M.delete wId)
+
+    -- Step forward to the successor of the given block.
+    nextBlock :: HeaderHash -> IO (Maybe HeaderHash)
+    nextBlock hh = withNode (resolveForwardLink hh)
+
+    -- Get a block
+    getBlockOrThrow :: HeaderHash -> IO Block
+    getBlockOrThrow hh = do
+        mBlock <- withNode $ getBlock hh
+        case mBlock of
+           Nothing -> throwM $ RestorationBlockNotFound hh
+           Just b  -> return b
+
+    -- Get undo for a mainblock
+    -- NOTE: We use this undo information only for input resolution.
+    getUndoOrThrow :: HeaderHash -> IO Undo
+    getUndoOrThrow hh = do
+        mBlock <- withNode $ getUndo hh
+        case mBlock of
+           Nothing -> throwM $ RestorationUndoNotFound hh
+           Just b  -> return b
 
     withNode :: forall a. (NodeConstraints => WithNodeState IO a) -> IO a
     withNode action = withNodeState (wallet ^. walletNode) (\_lock -> action)
@@ -289,6 +292,10 @@ updateRestorationInfo :: Kernel.PassiveWallet
                       -> IO ()
 updateRestorationInfo wallet wId upd =
   modifyMVar_ (wallet ^. walletRestorationTask) (pure . M.adjust upd wId)
+
+{-------------------------------------------------------------------------------
+  Timing information (for throughput calculations)
+-------------------------------------------------------------------------------}
 
 -- | Keep track of how many events have happened since a given start time.
 data TimingData
@@ -312,3 +319,29 @@ tickTiming k' (Timing k start)
 -- | Convert a rate to a number of events per second.
 perSecond :: Rate -> Word64
 perSecond (Rate n dt) = fromInteger $ round (toRational n / toRational dt)
+
+{-------------------------------------------------------------------------------
+  Exceptions
+-------------------------------------------------------------------------------}
+
+-- | Exception during restoration
+data RestorationException =
+    RestorationBlockNotFound HeaderHash
+  | RestorationUndoNotFound HeaderHash
+  | RestorationApplyHistoricalBlockFailed Spec.ApplyBlockFailed
+  | RestorationFinishUnreachable HeaderHash HeaderHash
+
+instance Buildable RestorationException where
+    build (RestorationBlockNotFound hash) =
+      bprint ("RestorationBlockNotFound " % build) hash
+    build (RestorationUndoNotFound hash) =
+      bprint ("RestorationUndoNotFound " % build) hash
+    build (RestorationApplyHistoricalBlockFailed err) =
+      bprint ("RestorationApplyHistoricalBlockFailed " % build) err
+    build (RestorationFinishUnreachable target final) =
+      bprint ("RestorationFinishUnreachable " % build % " " % build) target final
+
+instance Show RestorationException where
+    show = formatToString build
+
+instance Exception RestorationException

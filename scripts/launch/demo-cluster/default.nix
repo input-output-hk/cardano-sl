@@ -142,8 +142,7 @@ in pkgs.writeScript "demo-cluster" ''
     SYNCED=0
     while [[ $SYNCED != 100 ]]
     do
-      PERC=$(curl --cacert ${stateDir}/tls/client/ca.crt --cert ${stateDir}/tls/client/client.pem https://${demoWallet.walletListen}/api/v1/node-info | jq .data.syncProgress.quantity)
-      echo "PERC=$PERC"
+      PERC=$(curl --silent --cacert ${stateDir}/tls/client/ca.crt --cert ${stateDir}/tls/client/client.pem https://${demoWallet.walletListen}/api/v1/node-info | jq .data.syncProgress.quantity)
       if [[ $PERC == "100" ]]
       then
         echo Blockchain Synced: $PERC%

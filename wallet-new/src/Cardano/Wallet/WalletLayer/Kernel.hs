@@ -42,12 +42,13 @@ import qualified Cardano.Wallet.WalletLayer.Kernel.Wallets as Wallets
 -- The passive wallet cannot send new transactions.
 bracketPassiveWallet
     :: forall m n a. (MonadIO n, MonadIO m, MonadMask m)
-    => (Severity -> Text -> IO ())
+    => Kernel.DatabaseMode
+    -> (Severity -> Text -> IO ())
     -> Keystore
     -> NodeStateAdaptor IO
     -> (PassiveWalletLayer n -> Kernel.PassiveWallet -> m a) -> m a
-bracketPassiveWallet logFunction keystore rocksDB f = do
-    Kernel.bracketPassiveWallet logFunction keystore rocksDB $ \w -> do
+bracketPassiveWallet mode logFunction keystore rocksDB f = do
+    Kernel.bracketPassiveWallet mode logFunction keystore rocksDB $ \w -> do
       let wai = Actions.WalletActionInterp
                  { Actions.applyBlocks = \blunds -> do
                     ls <- mapM (blundToResolvedBlock getTime)

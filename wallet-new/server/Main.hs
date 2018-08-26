@@ -116,14 +116,15 @@ actionWithWallet pm txpConfig sscParams nodeParams ntpConfig wArgs@WalletBackend
                 ]
 
 actionWithNewWallet :: (HasConfigurations, HasCompileInfo)
-                    => ProtocolMagic
+                    => Kernel.DatabaseMode
+                    -> ProtocolMagic
                     -> TxpConfiguration
                     -> SscParams
                     -> NodeParams
                     -> NtpConfiguration
                     -> NewWalletBackendParams
                     -> IO ()
-actionWithNewWallet pm txpConfig sscParams nodeParams ntpConfig params =
+actionWithNewWallet dbMode pm txpConfig sscParams nodeParams ntpConfig params =
     bracketNodeResources
         nodeParams
         sscParams
@@ -133,7 +134,7 @@ actionWithNewWallet pm txpConfig sscParams nodeParams ntpConfig params =
       userSecret <- readTVarIO (ncUserSecret $ nrContext nr)
       let nodeState = NodeStateAdaptor.newNodeStateAdaptor nr ntpStatus
       liftIO $ Keystore.bracketLegacyKeystore userSecret $ \keystore -> do
-          WalletLayer.Kernel.bracketPassiveWallet logMessage' keystore nodeState $ \walletLayer passiveWallet -> do
+          WalletLayer.Kernel.bracketPassiveWallet dbMode logMessage' keystore nodeState $ \walletLayer passiveWallet -> do
             Kernel.init passiveWallet
             Kernel.Mode.runWalletMode pm
                                       txpConfig
@@ -187,6 +188,7 @@ startEdgeNode wso =
                 ntpConfig
                 legacyParams
             WalletNew newParams -> actionWithNewWallet
+                Kernel.UseInMemory -- TODO: Pull from configuration
                 (configProtocolMagic coreConfig)
                 txpConfig
                 sscParams

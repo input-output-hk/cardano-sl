@@ -30,27 +30,9 @@ with localLib;
 let
   ifDebug = localLib.optionalString (debug);
   ifDisableClientAuth = localLib.optionalString (disableClientAuth);
-  environments = {
-    mainnet = {
-      relays = "relays.cardano-mainnet.iohk.io";
-      confKey = "mainnet_full";
-    };
-    mainnet-staging = {
-      relays = "relays.awstest.iohkdev.io";
-      confKey = "mainnet_dryrun_full";
-    };
-    testnet = {
-      relays = "relays.cardano-testnet.iohkdev.io";
-      confKey = "testnet_full";
-    };
-    demo = {
-      confKey = "dev";
-      relays = "127.0.0.1";
-    };
-    override = {
-      inherit relays confKey confFile;
-    };
-  };
+  env = if environment == "override"
+    then { inherit relays confKey confFile; }
+    else environments.${environment};
   executables =  {
     wallet = if useStackBinaries then "stack exec -- cardano-node" else "${iohkPkgs.cardano-sl-wallet-new}/bin/cardano-node";
     explorer = if useStackBinaries then "stack exec -- cardano-explorer" else "${iohkPkgs.cardano-sl-explorer-static}/bin/cardano-explorer";
@@ -61,14 +43,14 @@ let
   src = ./../../../.;
   topologyFileDefault = pkgs.writeText "topology-${environment}" ''
     wallet:
-      relays: [[{ host: ${environments.${environment}.relays} }]]
+      relays: [[{ host: ${env.relays} }]]
       valency: 1
       fallbacks: 7
   '';
   configFiles = iohkPkgs.cardano-sl-config;
   configurationArgs = pkgs.lib.concatStringsSep " " [
-    "--configuration-file ${environments.${environment}.confFile or "${configFiles}/lib/configuration.yaml"}"
-    "--configuration-key ${environments.${environment}.confKey}"
+    "--configuration-file ${env.confFile or "${configFiles}/lib/configuration.yaml"}"
+    "--configuration-key ${env.confKey}"
   ];
 
 in pkgs.writeScript "${executable}-connect-to-${environment}" ''

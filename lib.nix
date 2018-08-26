@@ -47,4 +47,38 @@ in lib // (rec {
     export LC_ALL=en_GB.UTF-8
     export LANG=en_GB.UTF-8
   '';
+
+  # Blockchain networks and their configuration keys
+  environments = {
+    mainnet = {
+      attr = "mainnet";
+      relays = "relays.cardano-mainnet.iohk.io";
+      confKey = "mainnet_full";
+      private = false;
+    };
+    mainnet-staging = {
+      attr = "staging";
+      relays = "relays.awstest.iohkdev.io";
+      confKey = "mainnet_dryrun_full";
+      private = false;
+    };
+    testnet = {
+      attr = "testnet";
+      relays = "relays.cardano-testnet.iohkdev.io";
+      confKey = "testnet_full";
+      private = false;
+    };
+    demo = {
+      attr = "demo";
+      confKey = "dev";
+      relays = "127.0.0.1";
+      private = true;
+    };
+  };
+
+  # Generates an attrset for the three cardano-sl networks by applying
+  # the given function to each environment.
+  forEnvironments = f: lib.mapAttrs'
+    (name: env: lib.nameValuePair env.attr (f (env // { environment = name; })))
+    (lib.filterAttrs (name: env: !env.private) environments);
 })

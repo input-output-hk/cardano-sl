@@ -38,11 +38,12 @@ import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials,
                      WalletDecrCredentialsKey (..), keyToWalletDecrCredentials,
                      selectOwnAddresses)
 
+import           Cardano.Wallet.Kernel.DB.BlockContext
 import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock,
-                     ResolvedInput, ResolvedTx, rbSlotId, rbTxs,
+                     ResolvedInput, ResolvedTx, rbContext, rbTxs,
                      resolvedToTxMeta, rtxInputs, rtxOutputs)
 import           Cardano.Wallet.Kernel.DB.TxMeta.Types
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
@@ -50,7 +51,7 @@ import           Cardano.Wallet.Kernel.Util.Core
 
 {-------------------------------------------------------------------------------
  Pre-filter Tx Inputs and Outputs; pre-filter a block of transactions.
-+-------------------------------------------------------------------------------}
+-------------------------------------------------------------------------------}
 
 -- | Address extended with an HdAddressId, which embeds information that places
 --   the Address in the context of the Wallet/Accounts/Addresses hierarchy.
@@ -72,6 +73,9 @@ data PrefilteredBlock = PrefilteredBlock {
 
       -- | Prefiltered block metadata
     , pfbMeta    :: !LocalBlockMeta
+
+      -- | Block context
+    , pfbContext :: !BlockContext
     }
 
 deriveSafeCopy 1 'base ''PrefilteredBlock
@@ -81,13 +85,13 @@ deriveSafeCopy 1 'base ''PrefilteredBlock
 -- An empty prefiltered block is what we get when we filter a block for a
 -- particular account and there is nothing in the block that is of
 -- relevance to that account
-emptyPrefilteredBlock :: PrefilteredBlock
-emptyPrefilteredBlock = PrefilteredBlock {
+emptyPrefilteredBlock :: BlockContext -> PrefilteredBlock
+emptyPrefilteredBlock context = PrefilteredBlock {
       pfbInputs  = Set.empty
     , pfbOutputs = Map.empty
     , pfbAddrs   = []
     , pfbMeta    = emptyLocalBlockMeta
-
+    , pfbContext = context
     }
 
 type WalletKey = (WalletId, WalletDecrCredentials)
@@ -119,7 +123,7 @@ type UtxoSummaryRaw = Map TxIn (TxOutAux,AddressSummary)
 
 {-------------------------------------------------------------------------------
  Pre-filter Tx Inputs and Outputs to those that belong to the given Wallet.
-+-------------------------------------------------------------------------------}
+-------------------------------------------------------------------------------}
 
 -- | Prefilter the inputs and outputs of a resolved transaction.
 --   Prefiltered inputs and outputs are indexed by accountId.
@@ -259,7 +263,7 @@ extendWithSummary (onlyOurInps,onlyOurOuts) utxoWithAddrId
 {-------------------------------------------------------------------------------
  Pre-filter a block of transactions, adorn each prefiltered block with block metadata
  and Transaction metadata.
-+-------------------------------------------------------------------------------}
+-------------------------------------------------------------------------------}
 
 -- | Prefilter the transactions of a resolved block for the given wallet.
 --
@@ -270,7 +274,7 @@ prefilterBlock :: ResolvedBlock
                -> (Map HdAccountId PrefilteredBlock, [TxMeta])
 prefilterBlock block wid esk =
       (Map.fromList
-    $ map (mkPrefBlock (block ^. rbSlotId) inpAll outAll)
+    $ map (mkPrefBlock (block ^. rbContext) inpAll outAll)
     $ Set.toList accountIds
     , metas)
   where
@@ -291,16 +295,17 @@ prefilterBlock block wid esk =
 
     accountIds = Map.keysSet inpAll `Set.union` Map.keysSet outAll
 
-mkPrefBlock :: SlotId
+mkPrefBlock :: BlockContext
             -> Map HdAccountId (Set TxIn)
             -> Map HdAccountId (Map TxIn (TxOutAux, AddressSummary))
             -> HdAccountId
             -> (HdAccountId, PrefilteredBlock)
-mkPrefBlock slotId inps outs accId = (accId, PrefilteredBlock {
+mkPrefBlock context inps outs accId = (accId, PrefilteredBlock {
         pfbInputs  = inps'
       , pfbOutputs = outs'
       , pfbAddrs   = addrs''
       , pfbMeta    = blockMeta'
+      , pfbContext = context
       })
     where
         fromAddrSummary :: AddressSummary -> AddrWithId
@@ -312,7 +317,7 @@ mkPrefBlock slotId inps outs accId = (accId, PrefilteredBlock {
         (outs', addrs') = fromUtxoSummary (byAccountId accId Map.empty outs)
 
         addrs''    = nub $ map fromAddrSummary addrs'
-        blockMeta' = mkBlockMeta slotId addrs'
+        blockMeta' = mkBlockMeta (context ^. bcSlotId . fromDb) addrs'
 
 mkBlockMeta :: SlotId -> [AddressSummary] -> LocalBlockMeta
 mkBlockMeta slotId addrs_ = LocalBlockMeta BlockMeta{..}

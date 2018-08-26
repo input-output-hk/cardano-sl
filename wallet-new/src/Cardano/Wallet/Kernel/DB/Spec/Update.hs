@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE LambdaCase   #-}
 {-# LANGUAGE RankNTypes   #-}
 
 -- | UPDATE operations on the wallet-spec state
@@ -6,6 +7,7 @@ module Cardano.Wallet.Kernel.DB.Spec.Update (
     -- * Errors
     NewPendingFailed(..)
   , NewForeignFailed(..)
+  , ApplyBlockFailed(..)
     -- * Updates
   , newPending
   , newForeign
@@ -22,17 +24,17 @@ import           Universum hiding ((:|))
 import qualified Data.Map.Strict as Map
 import           Data.SafeCopy (base, deriveSafeCopy)
 import qualified Data.Set as Set
-import           Formatting (bprint, (%))
+import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 import           Serokell.Util (listJsonIndent)
-import           Test.QuickCheck (Arbitrary (..))
+import           Test.QuickCheck (Arbitrary (..), elements)
 
 import           Pos.Chain.Txp (Utxo)
 import qualified Pos.Core as Core
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
-import           Pos.Core.Slotting (SlotId)
 import qualified Pos.Core.Txp as Txp
 
+import           Cardano.Wallet.Kernel.DB.BlockContext
 import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec
@@ -81,6 +83,33 @@ instance Buildable NewForeignFailed where
 -- TODO: See comments for the 'Arbitrary' instance for 'NewPendingFailed'
 instance Arbitrary NewForeignFailed where
     arbitrary = pure . NewForeignInputsAvailable . InDb $ mempty
+
+-- | Errors thrown by 'applyBlock'
+data ApplyBlockFailed =
+    -- | The block we're trying to apply does not fit onto the previous
+    --
+    -- This indicates that the wallet has fallen behind the node (for example,
+    -- when the node informs the wallet of a block but the wallet gets
+    -- shut down before it gets a chance to process it).
+    --
+    -- We record  the context of the block we're trying to apply and the
+    -- context of the most recent checkpoint.
+    ApplyBlockNotSuccessor BlockContext (Maybe BlockContext)
+
+deriveSafeCopy 1 'base ''ApplyBlockFailed
+
+instance Buildable ApplyBlockFailed where
+    build (ApplyBlockNotSuccessor context checkpoint) = bprint
+        ("ApplyBlockNotSuccessor "
+        % "{ context:    " % build
+        % ", checkpoint: " % build
+        % "}"
+        )
+        context
+        checkpoint
+
+instance Arbitrary ApplyBlockFailed where
+   arbitrary = elements []
 
 {-------------------------------------------------------------------------------
   Wallet spec mandated updates
@@ -149,55 +178,66 @@ cancelPending txids = map (cpPending %~ Pending.delete txids)
 --
 -- Additionally returns the set of transactions removed from pending.
 applyBlock :: SecurityParameter
-           -> SlotId
            -> PrefilteredBlock
-           -> NewestFirst StrictNonEmpty Checkpoint
-           -> (NewestFirst StrictNonEmpty Checkpoint, Set Txp.TxId)
-applyBlock (SecurityParameter k) slotId pb checkpoints = (
-      takeNewest k $ NewestFirst $ Checkpoint {
+           -> Update' (NewestFirst StrictNonEmpty Checkpoint)
+                      ApplyBlockFailed
+                      (Set Txp.TxId)
+applyBlock (SecurityParameter k) pb = do
+    checkpoints <- get
+    let current           = checkpoints ^. currentCheckpoint
+        utxo              = current ^. checkpointUtxo        . fromDb
+        balance           = current ^. checkpointUtxoBalance . fromDb
+        (utxo', balance') = updateUtxo      pb (utxo, balance)
+        (pending', rem1)  = updatePending   pb (current ^. checkpointPending)
+        blockMeta'        = updateBlockMeta pb (current ^. checkpointBlockMeta)
+        (foreign', rem2)  = updatePending   pb (current ^. checkpointForeign)
+    if (pfbContext pb) `blockContextSucceeds` (current ^. checkpointContext) then do
+      put $ takeNewest k $ NewestFirst $ Checkpoint {
           _checkpointUtxo        = InDb utxo'
         , _checkpointUtxoBalance = InDb balance'
         , _checkpointPending     = pending'
         , _checkpointBlockMeta   = blockMeta'
-        , _checkpointSlotId      = InDb slotId
         , _checkpointForeign     = foreign'
+        , _checkpointContext     = Just $ pfbContext pb
         } SNE.<| getNewestFirst checkpoints
-    , Set.unions [rem1, rem2]
-    )
-  where
-    current           = checkpoints ^. currentCheckpoint
-    utxo              = current ^. checkpointUtxo        . fromDb
-    balance           = current ^. checkpointUtxoBalance . fromDb
-    (utxo', balance') = updateUtxo      pb (utxo, balance)
-    (pending', rem1)  = updatePending   pb (current ^. checkpointPending)
-    blockMeta'        = updateBlockMeta pb (current ^. checkpointBlockMeta)
-    (foreign', rem2)  = updatePending   pb (current ^. checkpointForeign)
+      return $ Set.unions [rem1, rem2]
+    else
+      throwError $ ApplyBlockNotSuccessor
+                     (pfbContext pb)
+                     (current ^. checkpointContext)
 
 -- | Like 'applyBlock', but to a list of partial checkpoints instead
-applyBlockPartial :: SecurityParameter
-                  -> SlotId
-                  -> PrefilteredBlock
-                  -> NewestFirst StrictNonEmpty PartialCheckpoint
-                  -> (NewestFirst StrictNonEmpty PartialCheckpoint, Set Txp.TxId)
-applyBlockPartial (SecurityParameter _k) slotId pb checkpoints = (
-      NewestFirst $ PartialCheckpoint {
+--
+-- NOTE: Unlike 'applyBlock', we do /NOT/ throw away partial checkpoints. If
+-- we did, it might be impossible for the historical checkpoints to ever
+-- catch up with the current ones.
+applyBlockPartial :: PrefilteredBlock
+                  -> Update' (NewestFirst StrictNonEmpty PartialCheckpoint)
+                             ApplyBlockFailed
+                             (Set Txp.TxId)
+applyBlockPartial pb = do
+    checkpoints <- get
+    let current           = checkpoints ^. currentCheckpoint
+        utxo              = current ^. pcheckpointUtxo        . fromDb
+        balance           = current ^. pcheckpointUtxoBalance . fromDb
+        (utxo', balance') = updateUtxo           pb (utxo, balance)
+        (pending', rem1)  = updatePending        pb (current ^. pcheckpointPending)
+        blockMeta'        = updateLocalBlockMeta pb (current ^. pcheckpointBlockMeta)
+        (foreign', rem2)  = updatePending        pb (current ^. pcheckpointForeign)
+    if (pfbContext pb) `blockContextSucceeds` (current ^. pcheckpointContext) then do
+      put $ NewestFirst $ PartialCheckpoint {
           _pcheckpointUtxo        = InDb utxo'
         , _pcheckpointUtxoBalance = InDb balance'
         , _pcheckpointPending     = pending'
         , _pcheckpointBlockMeta   = blockMeta'
-        , _pcheckpointSlotId      = InDb slotId
         , _pcheckpointForeign     = foreign'
+        , _pcheckpointContext     = Just $ pfbContext pb
         } SNE.<| getNewestFirst checkpoints
-    , Set.unions [rem1, rem2]
-    )
-  where
-    current           = checkpoints ^. currentCheckpoint
-    utxo              = current ^. pcheckpointUtxo        . fromDb
-    balance           = current ^. pcheckpointUtxoBalance . fromDb
-    (utxo', balance') = updateUtxo           pb (utxo, balance)
-    (pending', rem1)  = updatePending        pb (current ^. pcheckpointPending)
-    blockMeta'        = updateLocalBlockMeta pb (current ^. pcheckpointBlockMeta)
-    (foreign', rem2)  = updatePending        pb (current ^. pcheckpointForeign)
+      return $ Set.unions [rem1, rem2]
+    else
+      throwError $ ApplyBlockNotSuccessor
+                     (pfbContext pb)
+                     (current ^. pcheckpointContext)
 
 -- | Rollback
 --
@@ -211,29 +251,29 @@ applyBlockPartial (SecurityParameter _k) slotId pb checkpoints = (
 -- so that the submission layer can start sending those out again.
 --
 -- This is an internal function only, and not exported. See 'switchToFork'.
-rollback :: NewestFirst StrictNonEmpty Checkpoint
-         -> (NewestFirst StrictNonEmpty Checkpoint, Pending)
-rollback (NewestFirst (c :| SL.Nil))        = (NewestFirst $ c :| SL.Nil, Pending.empty)
-rollback (NewestFirst (c :| SL.Cons c' cs)) = (NewestFirst $ Checkpoint {
-        _checkpointUtxo        = c' ^. checkpointUtxo
-      , _checkpointUtxoBalance = c' ^. checkpointUtxoBalance
-      , _checkpointBlockMeta   = c' ^. checkpointBlockMeta
-      , _checkpointSlotId      = c' ^. checkpointSlotId
-      , _checkpointPending     = Pending.union (c  ^. checkpointPending)
-                                               (c' ^. checkpointPending)
-      , _checkpointForeign     = Pending.union (c  ^. checkpointForeign)
-                                               (c' ^. checkpointForeign)
-      } :| cs
-    , Pending.union
-        ((c' ^. checkpointPending) Pending.\\ (c ^. checkpointPending))
-        ((c' ^. checkpointForeign) Pending.\\ (c ^. checkpointForeign))
-    )
+rollback :: Update' (NewestFirst StrictNonEmpty Checkpoint) e Pending
+rollback = state $ \case
+    NewestFirst (c :| SL.Nil)        -> (Pending.empty, NewestFirst $ c :| SL.Nil)
+    NewestFirst (c :| SL.Cons c' cs) -> (
+          Pending.union
+            ((c' ^. checkpointPending) Pending.\\ (c ^. checkpointPending))
+            ((c' ^. checkpointForeign) Pending.\\ (c ^. checkpointForeign))
+        , NewestFirst $ Checkpoint {
+              _checkpointUtxo        = c' ^. checkpointUtxo
+            , _checkpointUtxoBalance = c' ^. checkpointUtxoBalance
+            , _checkpointBlockMeta   = c' ^. checkpointBlockMeta
+            , _checkpointContext     = c' ^. checkpointContext
+            , _checkpointPending     = Pending.union (c  ^. checkpointPending)
+                                                     (c' ^. checkpointPending)
+            , _checkpointForeign     = Pending.union (c  ^. checkpointForeign)
+                                                     (c' ^. checkpointForeign)
+            } :| cs
+      )
 
 -- | Observable rollback, used in testing only
 --
 -- See 'switchToFork' for production use.
-observableRollbackUseInTestsOnly :: NewestFirst StrictNonEmpty Checkpoint
-                                 -> (NewestFirst StrictNonEmpty Checkpoint, Pending)
+observableRollbackUseInTestsOnly :: Update' (NewestFirst StrictNonEmpty Checkpoint) e Pending
 observableRollbackUseInTestsOnly = rollback
 
 -- | Switch to a fork
@@ -246,41 +286,36 @@ observableRollbackUseInTestsOnly = rollback
 -- (since they are new confirmed).
 switchToFork :: SecurityParameter
              -> Int  -- ^ Number of blocks to rollback
-             -> OldestFirst [] (SlotId, PrefilteredBlock) -- ^ Blocks to apply
-             -> NewestFirst StrictNonEmpty Checkpoint
-             -> (NewestFirst StrictNonEmpty Checkpoint, (Pending, Set Txp.TxId))
-switchToFork k numRollbacks blocksToApply = \cps ->
-    rollbacks Pending.empty numRollbacks cps
+             -> OldestFirst [] PrefilteredBlock -- ^ Blocks to apply
+             -> Update' (NewestFirst StrictNonEmpty Checkpoint)
+                        ApplyBlockFailed
+                        (Pending, Set Txp.TxId)
+switchToFork k numRollbacks blocksToApply = do
+    reintroduced <- rollbacks Pending.empty numRollbacks
+    applyBlocks reintroduced Set.empty (getOldestFirst blocksToApply)
   where
     rollbacks :: Pending -- Accumulator: reintroduced pending transactions
-              -> Int
-              -> NewestFirst StrictNonEmpty Checkpoint
-              -> (NewestFirst StrictNonEmpty Checkpoint, (Pending, Set Txp.TxId))
-    rollbacks !accNew 0 cps =
-        applyBlocks
-          accNew
-          Set.empty
-          (getOldestFirst blocksToApply)
-          cps
-    rollbacks !accNew n cps =
-        rollbacks (Pending.union accNew reintroduced) (n - 1) cps'
-      where
-        (cps', reintroduced) = rollback cps
+              -> Int     -- Number of rollback to do
+              -> Update' (NewestFirst StrictNonEmpty Checkpoint)
+                         e
+                         Pending
+    rollbacks !accNew 0 = return accNew
+    rollbacks !accNew n = do
+        reintroduced <- rollback
+        rollbacks (Pending.union accNew reintroduced) (n - 1)
 
     applyBlocks :: Pending -- Accumulator: reintroduced pending transactions
                 -> Set Txp.TxId -- Accumulator: removed pending transactions
-                -> [(SlotId, PrefilteredBlock)]
-                -> NewestFirst StrictNonEmpty Checkpoint
-                -> (NewestFirst StrictNonEmpty Checkpoint, (Pending, Set Txp.TxId))
-    applyBlocks !accNew !accRem []               cps = (cps, (accNew, accRem))
-    applyBlocks !accNew !accRem ((slotId, b):bs) cps =
-        applyBlocks
-          (Pending.delete removed accNew)
-          (Set.union      removed accRem)
-          bs
-          cps'
-      where
-       (cps', removed) = applyBlock k slotId b cps
+                -> [PrefilteredBlock]
+                -> Update' (NewestFirst StrictNonEmpty Checkpoint)
+                           ApplyBlockFailed
+                           (Pending, Set Txp.TxId)
+    applyBlocks !accNew !accRem []     = return (accNew, accRem)
+    applyBlocks !accNew !accRem (b:bs) = do
+        removed <- applyBlock k b
+        applyBlocks (Pending.delete removed accNew)
+                    (Set.union      removed accRem)
+                    bs
 
 {-------------------------------------------------------------------------------
   Internal auxiliary

@@ -31,6 +31,7 @@ module Cardano.Wallet.Kernel.NodeStateAdaptor (
   , mostRecentMainBlock
   , triggerShutdown
   , waitForUpdate
+  , defaultGetSlotStart
     -- * Support for tests
   , NodeStateUnavailable(..)
   , MockNodeStateParams(..)
@@ -88,7 +89,6 @@ import           Pos.Util (CompileTimeInfo, HasCompileInfo, HasLens (..),
 import qualified Pos.Util as Util
 import           Pos.Util.Concurrent.PriorityLock (Priority (..))
 import           Pos.Util.Wlog (CanLog (..), HasLoggerName (..))
-
 import           Test.Pos.Configuration (withDefConfiguration,
                      withDefUpdateConfiguration)
 

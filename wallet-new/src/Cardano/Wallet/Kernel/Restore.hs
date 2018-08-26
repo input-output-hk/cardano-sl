@@ -20,10 +20,11 @@ import           Cardano.Wallet.API.Types.UnitOfMeasure
 import           Cardano.Wallet.Kernel (walletLogMessage)
 import qualified Cardano.Wallet.Kernel as Kernel
 import           Cardano.Wallet.Kernel.DB.AcidState (ApplyHistoricalBlock (..),
-                     CreateHdWallet (..), RestoreHdWallet (..))
+                     CreateHdWallet (..), RestorationComplete (..),
+                     RestoreHdWallet (..))
+import           Cardano.Wallet.Kernel.DB.BlockContext
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.HdWallet.Create (CreateHdRootError)
-import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
 import           Cardano.Wallet.Kernel.DB.TxMeta.Types
 import           Cardano.Wallet.Kernel.Decrypt (WalletDecrCredentialsKey (..),
                      decryptAddress, keyToWalletDecrCredentials)
@@ -80,7 +81,7 @@ restoreWallet pw spendingPass name assurance esk prefilter = do
       WalletRestore utxos (tgtTip, tgtSlot) -> do
         -- Create the wallet
         mRoot <- createWalletHdRnd pw spendingPass name assurance esk $ \root ->
-                   Right $ RestoreHdWallet root tgtSlot utxos
+                   Right $ RestoreHdWallet root utxos
         case mRoot of
           Left  err  -> return (Left err)
           Right root -> do
@@ -101,7 +102,7 @@ restoreWallet pw spendingPass name assurance esk prefilter = do
               -- is pointless, because that thread will probably be long gone if
               -- an exception ever happens in the restoration worker. Therefore
               -- we just log any errors.
-              catch (restoreWalletHistoryAsync pw wId tgtTip tgtSlot prefilter) $ \(e :: SomeException) ->
+              catch (restoreWalletHistoryAsync pw (root ^. HD.hdRootId) tgtTip tgtSlot prefilter) $ \(e :: SomeException) ->
                 (pw ^. walletLogMessage) Error ("Exception during restoration: " <> show e)
 
             -- Set up the cancellation action
@@ -188,12 +189,12 @@ getWalletInitInfo wKey@(wId, wdc) lock = do
 
 -- | Restore a wallet's transaction history.
 restoreWalletHistoryAsync :: Kernel.PassiveWallet
-                          -> WalletId
+                          -> HD.HdRootId
                           -> HeaderHash
                           -> SlotId
                           -> (Blund -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta]))
                           -> IO ()
-restoreWalletHistoryAsync wallet wId target tgtSlot prefilter = do
+restoreWalletHistoryAsync wallet rootId target tgtSlot prefilter = do
 
     say "sleeping 10 seconds before starting restoration, so that the tip has a chance to move"
     pause 10
@@ -204,7 +205,7 @@ restoreWalletHistoryAsync wallet wId target tgtSlot prefilter = do
         Just gbs -> restore (headerHash gbs) NoTimingData
 
   where
-
+    wId = WalletIdHdRnd rootId
     pause = when True . threadDelay . (* 1000000)
 
     say = (wallet ^. walletLogMessage) Debug . ("mnoonan: " <>)
@@ -232,9 +233,15 @@ restoreWalletHistoryAsync wallet wId target tgtSlot prefilter = do
             (prefilteredBlocks, txMetas) <- prefilter blund
 
             let slotId = mb ^. mainBlockSlot
-            k <- getSecurityParameter (wallet ^. walletNode)
-            update (wallet ^. wallets)
-                   (ApplyHistoricalBlock k (InDb slotId) slotCount prefilteredBlocks)
+            k    <- getSecurityParameter (wallet ^. walletNode)
+            ctxt <- withNodeState (wallet ^. walletNode) $ \_lock ->
+                      mainBlockContext mb
+            mErr <- update (wallet ^. wallets) $
+                      ApplyHistoricalBlock k ctxt prefilteredBlocks
+
+            case mErr of
+              Left err -> error $ "restore: unexpected error during applyHistoricalBlock: " <> pretty err
+              Right () -> return ()
 
             -- Update our progress
             let blockPerSec = MeasuredIn . BlockCount . perSecond <$> rate
@@ -267,7 +274,10 @@ restoreWalletHistoryAsync wallet wId target tgtSlot prefilter = do
 
     -- TODO (@mn): probably should use some kind of bracket to ensure this cleanup happens.
     finish :: IO ()
-    finish = modifyMVar_ (wallet ^. walletRestorationTask) (pure . M.delete wId)
+    finish = do
+        k <- getSecurityParameter (wallet ^. walletNode)
+        update (wallet ^. wallets) $ RestorationComplete k rootId
+        modifyMVar_ (wallet ^. walletRestorationTask) (pure . M.delete wId)
 
     withNode :: forall a. (NodeConstraints => WithNodeState IO a) -> IO a
     withNode action = withNodeState (wallet ^. walletNode) (\_lock -> action)

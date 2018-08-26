@@ -24,6 +24,7 @@ module Cardano.Wallet.Kernel.DB.Util.AcidState (
   , zoomDef
   , zoomCreate
   , zoomAll
+  , zoomAll_
     -- ** Convenience re-exports
   , throwError
   ) where
@@ -228,3 +229,13 @@ zoomAll l (Update' upd) = Update' $ strictStateT $ \large -> do
     let update (ixset', bs) = (Map.fromList bs, large & l .~ ixset')
         ixset               = large ^. l
     update <$> IxSet.otraverseCollect (fmap swap . runStrictStateT upd) ixset
+
+-- | Variation on 'zoomAll' with no return values
+zoomAll_ :: (Indexable a)
+         => Lens' st (IxSet a)
+         -> Update' a  e ()
+         -> Update' st e ()
+zoomAll_ l (Update' upd) = Update' $ strictStateT $ \large -> do
+    let update ixset' = ((), large & l .~ ixset')
+        ixset         = large ^. l
+    update <$> IxSet.otraverse (execStrictStateT upd) ixset

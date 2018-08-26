@@ -19,7 +19,7 @@ import           Data.Maybe (fromJust)
 import           Pos.Chain.Block (Blund, mainBlockSlot, undoTx)
 import           Pos.Chain.Txp (Utxo)
 import           Pos.Core (mkCoin)
-import           Pos.Core.Slotting (SlotId, Timestamp)
+import           Pos.Core.Slotting (Timestamp)
 import           Pos.Crypto.Signing
 
 import           Cardano.Wallet.API.V1.Types (V1 (..))
@@ -27,6 +27,7 @@ import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
 import           Cardano.Wallet.Kernel.DB.AcidState (dbHdWallets)
+import           Cardano.Wallet.Kernel.DB.BlockContext
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
@@ -37,7 +38,8 @@ import           Cardano.Wallet.Kernel.Internal (walletKeystore,
                      walletRestorationTask)
 import qualified Cardano.Wallet.Kernel.Internal as Kernel
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
-import           Cardano.Wallet.Kernel.NodeStateAdaptor (NodeStateAdaptor (..))
+import           Cardano.Wallet.Kernel.NodeStateAdaptor (NodeStateAdaptor)
+import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as Node
 import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock,
                      prefilterBlock)
 import qualified Cardano.Wallet.Kernel.Read as Kernel
@@ -101,7 +103,7 @@ createWallet wallet
         -- asynchronously reconstruct the wallet's history.
         let prefilter :: Blund -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta])
             prefilter blund =
-                blundToResolvedBlock getTimeBySlot blund <&> \case
+                blundToResolvedBlock (wallet ^. Kernel.walletNode) blund <&> \case
                     Nothing -> (M.empty, [])
                     Just rb -> prefilterBlock rb wId esk
 
@@ -140,13 +142,6 @@ createWallet wallet
 
     spendingPassword = maybe emptyPassphrase coerce mbSpendingPassword
     hdAssuranceLevel = fromAssuranceLevel v1AssuranceLevel
-
-    getTimeBySlot :: SlotId -> IO Timestamp
-    getTimeBySlot n = do
-        time <- rightToMaybe <$> getSlotStart (wallet ^. Kernel.walletNode) n
-        defaultTime <- getCurrentTimestamp
-        return $ fromMaybe defaultTime time
-
 
 -- | Updates the 'SpendingPassword' for this wallet.
 updateWallet :: MonadIO m
@@ -244,17 +239,20 @@ getWalletUtxos wId db = runExcept $ do
 
 -- | The use of the unsafe constructor 'UnsafeRawResolvedBlock' is justified
 -- by the invariants established in the 'Blund'.
-blundToResolvedBlock :: (SlotId -> IO Timestamp) -> Blund -> IO (Maybe ResolvedBlock)
-blundToResolvedBlock getTimeBySlot (b,u) = do
+blundToResolvedBlock :: NodeStateAdaptor IO -> Blund -> IO (Maybe ResolvedBlock)
+blundToResolvedBlock node (b,u) = do
     case b of
-        Left _ ->  return Nothing
-        Right mainBlock ->  do
-            let slot = mainBlock ^. mainBlockSlot
-            time <- getTimeBySlot slot
-            return . Just $ fromRawResolvedBlock
-              (UnsafeRawResolvedBlock mainBlock spentOutputs' time)
-  where
-      spentOutputs' = map (map fromJust) $ undoTx u
+      Left  _ebb      -> return Nothing
+      Right mainBlock -> Node.withNodeState node $ \_lock -> do
+        ctxt  <- mainBlockContext mainBlock
+        mTime <- Node.defaultGetSlotStart (mainBlock ^. mainBlockSlot)
+        now   <- liftIO $ getCurrentTimestamp
+        return $ Just $ fromRawResolvedBlock UnsafeRawResolvedBlock {
+            rawResolvedBlock       = mainBlock
+          , rawResolvedBlockInputs = map (map fromJust) $ undoTx u
+          , rawTimestamp           = either (const now) identity mTime
+          , rawResolvedContext     = ctxt
+          }
 
 updateSyncState :: MonadIO m
                 => Kernel.PassiveWallet

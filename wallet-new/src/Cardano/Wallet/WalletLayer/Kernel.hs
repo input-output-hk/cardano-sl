@@ -46,22 +46,17 @@ bracketPassiveWallet logFunction keystore node f = do
     Kernel.bracketPassiveWallet logFunction keystore node $ \w -> do
       let wai = Actions.WalletActionInterp
                  { Actions.applyBlocks = \blunds -> do
-                    ls <- mapM (Wallets.blundToResolvedBlock getTimeBySlot)
+                    ls <- mapM (Wallets.blundToResolvedBlock node)
                         (toList (getOldestFirst blunds))
                     let mp = catMaybes ls
-                    Kernel.applyBlocks w (OldestFirst mp)
+                    -- TODO: Deal with ApplyBlockFailed
+                    mapM_ (Kernel.applyBlock w) mp
                  , Actions.switchToFork = \_ _ ->
                      logFunction Debug "<switchToFork>"
                  , Actions.emit = logFunction Debug }
       Actions.withWalletWorker wai $ \invoke -> do
          f (passiveWalletLayer w invoke) w
   where
-    getTimeBySlot :: Core.SlotId -> IO Core.Timestamp
-    getTimeBySlot n = do
-        time <- rightToMaybe <$> getSlotStart node n
-        defaultTime <- Core.getCurrentTimestamp
-        return $ fromMaybe defaultTime time
-
     passiveWalletLayer :: Kernel.PassiveWallet
                        -> (Actions.WalletAction Blund -> STM ())
                        -> PassiveWalletLayer n

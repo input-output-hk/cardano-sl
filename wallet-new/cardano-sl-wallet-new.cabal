@@ -80,6 +80,7 @@ library
                        Cardano.Wallet.Kernel.CoinSelection.Generic.LargestFirst
                        Cardano.Wallet.Kernel.CoinSelection.Generic.Random
                        Cardano.Wallet.Kernel.DB.AcidState
+                       Cardano.Wallet.Kernel.DB.BlockContext
                        Cardano.Wallet.Kernel.DB.BlockMeta
                        Cardano.Wallet.Kernel.DB.HdWallet
                        Cardano.Wallet.Kernel.DB.HdWallet.Create

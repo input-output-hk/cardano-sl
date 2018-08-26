@@ -17,8 +17,7 @@ import           Ntp.Client (NtpConfiguration)
 import           Pos.Chain.Txp (TxpConfiguration)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (NodeContext (..))
-import           Pos.Core as Core (Config (..), ConfigurationError,
-                     configGeneratedSecretsThrow, epochSlots)
+import           Pos.Core as Core (Config (..), ConfigurationError, epochSlots)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Txp (txpGlobalSettings)
@@ -107,10 +106,11 @@ action opts@AuxxOptions {..} command = do
     runWithConfig printAction coreConfig txpConfig ntpConfig = do
         printAction "Mode: with-config"
         CLI.printInfoOnStart aoCommonNodeArgs ntpConfig txpConfig
-        generatedSecrets <- configGeneratedSecretsThrow coreConfig
-        (nodeParams, tempDbUsed) <-
-            correctNodeParams opts =<<
-                CLI.getNodeParams loggerName cArgs nArgs generatedSecrets
+        (nodeParams, tempDbUsed) <- correctNodeParams opts =<< CLI.getNodeParams
+            loggerName
+            cArgs
+            nArgs
+            (configGeneratedSecrets coreConfig)
 
         let toRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
             toRealMode auxxAction = do

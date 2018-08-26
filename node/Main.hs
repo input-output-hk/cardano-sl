@@ -21,7 +21,7 @@ import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..),
                      SimpleNodeArgs (..))
 import qualified Pos.Client.CLI as CLI
-import           Pos.Core as Core (Config (..), configGeneratedSecretsThrow)
+import           Pos.Core as Core (Config (..))
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Launcher (HasConfigurations, NodeParams (..),
                      loggerBracket, runNodeReal, withConfigurations)
@@ -59,8 +59,10 @@ action
 action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) coreConfig txpConfig ntpConfig = do
     CLI.printInfoOnStart cArgs ntpConfig txpConfig
     logInfo "Wallet is disabled, because software is built w/o it"
-    generatedSecrets <- configGeneratedSecretsThrow coreConfig
-    currentParams <- CLI.getNodeParams loggerName cArgs nArgs generatedSecrets
+    currentParams <- CLI.getNodeParams loggerName
+                                       cArgs
+                                       nArgs
+                                       (configGeneratedSecrets coreConfig)
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
     let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)

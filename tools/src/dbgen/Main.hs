@@ -22,8 +22,7 @@ import           Options.Generic (getRecord)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Client.CLI (CommonArgs (..), CommonNodeArgs (..),
                      NodeArgs (..), getNodeParams, gtSscParams)
-import           Pos.Core as Core (Config (..), Timestamp (..),
-                     configGeneratedSecretsThrow, epochSlots)
+import           Pos.Core as Core (Config (..), Timestamp (..), epochSlots)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Rocks.Functions (openNodeDBs)
 import           Pos.DB.Rocks.Types (NodeDBs)
@@ -110,8 +109,10 @@ newRealModeContext coreConfig txpConfig dbs confOpts publicKeyPath secretKeyPath
          , cnaDumpConfiguration   = False
          }
     loggerName <- askLoggerName
-    generatedSecrets <- configGeneratedSecretsThrow coreConfig
-    nodeParams <- getNodeParams loggerName cArgs nodeArgs generatedSecrets
+    nodeParams <- getNodeParams loggerName
+                                cArgs
+                                nodeArgs
+                                (configGeneratedSecrets coreConfig)
     let vssSK = fromJust $ npUserSecret nodeParams ^. usVss
     let gtParams = gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
     bracketNodeResources @() nodeParams gtParams (txpGlobalSettings pm txpConfig) (initNodeDBs pm epochSlots) $ \NodeResources{..} ->

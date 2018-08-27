@@ -48,15 +48,17 @@ makeFields ''PredecessorConfig
 -- | The previous block hash in a new block should point to the last block.
 predecessor :: PredecessorConfig
             -> Policy (GenM h)
-predecessor conf = Policy pg
+predecessor conf = Policy pname (BlockModifier mb)
     where
-        pg = BlockModifier mb
+        pname = PolicyName "Block Predecessor"
         mb block = do
             c :| _ <- use tsCheckpoints
             valid <- lift arbitrary
             return $ if (valid >= conf ^. validLikelihood)
-                then block { blockPred = icBlockHash c }
-                else block { blockPred = invalidBlockHash }
+                then (block { blockPred = icBlockHash c }, mempty)
+                else ( block { blockPred = invalidBlockHash }
+                     , [PolicyViolation pname "Predecessor hash does not match hash of previous block."]
+                     )
 
 --------------------------------------------------------------------------------
 -- Slot leader
@@ -71,7 +73,8 @@ makeFields ''SlotLeaderConfig
 -- | Block must be issued by the slot leader for its slot.
 slotLeader :: SlotLeaderConfig
            -> Policy (GenM h)
-slotLeader conf = Policy pg
+slotLeader conf = Policy pname pg
     where
+        pname = PolicyName "Slot Leader"
         pg = BlockModifier mb
-        mb block = return block
+        mb block = return (block, mempty)

@@ -91,6 +91,7 @@ test-suite property-tests
                      , lens
                      , mtl
                      , safe-exceptions >= 0.1
+                     , text
                      , universum >= 0.1.11
                      , utxo
                      , HUnit

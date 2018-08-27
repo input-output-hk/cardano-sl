@@ -632,31 +632,54 @@ them to the blockchain, as transaction metadata. They will remain valid
 until explicitly overwritten or revoked, as an automatic expiry would
 likely increase the amount of undelegated, offline stake. The following
 certificates can be posted to the blockchain:
-
 \begin{itemize}
-\item
-  Stake key registration certificate
-\item
-  Stake key de-registration certificate
-\item
-  Stake pool registration certificate
-\item
-  Stake pool retirement certificate
-\item
-  Heavyweight delegation certificate
+\item Stake key registration certificates
+\item Stake key de-registration certificates
+\item Heavyweight delegation certificate
+\item Stake pool registration certificate
+\item Stake pool retirement certificate
 \end{itemize}
-
 There is one form of certificate which is not posted to the blockchain
 in advance, but is presented when it is used:
-
 \begin{itemize}
 \item
   Lightweight delegation certificates
 \end{itemize}
-
 Although this last kind is a delegation certificate it is quite
 different from the others which are used to define the delegation
 relation.
+
+\subsubsection{Certificate Replay Prevention}
+\label{certificate-replay-prevention}
+
+Unlike transactions, which due to the nature of the UTxO accounting
+model inherently cannot be replayed, the certificates need an explicit
+mechanism to prevent replays. The danger otherwise would include
+examples such as when a user switches away from a stake pool by posting
+a new delegation certificate, the old stake pool reposts the original
+delegation certificate, effectively thwarting their attempt to change
+stake pool.
+
+The solution we employ is to borrow an idea from UTxO witnesses and to
+piggy-back on the inherent replay protection of the rest of the
+transaction. A UTxO witness for an input is a signature on the entire
+transaction body, which of course includes all inputs and outputs (but
+not witnesses obviously). This means the signature can only be reused
+on the same transaction, and due to the nature of UTxO accounting, the
+same transaction cannot be included in the ledger again.
+
+For certificates, we do essentially the same thing. The witness for a
+certificate is a signature using the main key needed to authorise the
+certificate (which is different for different kinds of certificate).
+Just like UTxO witnesses, the witness is a signature on the entire
+transaction body. This means that provided the transaction spends at
+least one input then we inherit the inherent replay protection of UTxO
+accounting. This is a real constraint, but not an unreasonable one:
+even a transaction that only posts certificates has to pay transaction
+fees and transaction fees need coin inputs. The only case where this
+constraint might bite is in the case of negative fees from deleting
+registrations where the negative fee might be enough to cover the
+overall transaction fee without needing other inputs.
 
 \subsubsection{Stake key Registration Certificates}
 \label{stake-key-registration-certificates}
@@ -3503,12 +3526,14 @@ ledger rules for Cardano, with a focus on the rules for delegation in the
 Cardano Shelly release. The purpose is to help clarify the design and to give
 a reasonable starting point for tests and an implementation.
 
-\newcommand{\powerset}[1]{\mathbb{P}(#1)}
+\newcommand{\powerset}[1]{\mathbb{P}~#1}
 \newcommand{\restrictdom}{\lhd}
 \newcommand{\subtractdom}{\mathbin{\slashed{\restrictdom}}}
 \newcommand{\restrictrange}{\rhd}
 \newcommand{\union}{\cup}
 \newcommand{\unionoverride}{\mathbin{\underrightarrow\cup}}
+\newcommand{\uniondistinct}{\uplus}
+\newcommand{\and}{~\wedge~} %TODO can one use \mathrel like \iff ?
 \newcommand{\var}[1]{\mathit{#1}}
 \newcommand{\fun}[1]{\mathsf{#1}}
 \newcommand{\type}[1]{\mathsf{#1}}
@@ -3708,7 +3733,7 @@ a reasonable starting point for tests and an implementation.
 %
 \begin{equation*}
 \frac{
-  \fun{txins} ~ \var{tx} \subseteq \var{utxo} \quad\quad
+  \fun{txins} ~ \var{tx} \subseteq \var{utxo} \qquad
   \fun{balance}~(\fun{txouts}~\var{tx}) \leq \fun{balance}~(\fun{txins} ~ \var{tx} \restrictdom \var{utxo})
 }{
   \begin{array}{r}
@@ -3730,10 +3755,199 @@ a reasonable starting point for tests and an implementation.
 
 \begin{figure}
 
+
+
+\emph{Addresses}
+%
+\begin{equation*}
+\begin{array}{r@{~\in~}l@{\qquad=\qquad}l}
+  \var{addr}
+& \type{Addr}
+& \type{Addr_{txin}} \uniondistinct \type{Addr_{account}}
+\end{array}
+\end{equation*}
+%
+\emph{Derived types}
+%
+\begin{equation*}
+\begin{array}{r@{~\in~}l@{\quad=\quad}r@{~\in~}l}
+  \var{tx}
+& \type{Tx}
+& (\var{txbody}, \var{wits})
+& \type{TxBody} \times \type{Wits}
+\\
+  \var{txbody}
+& \type{TxBody}
+& (\var{ins}, \var{outs}, \var{certs})
+& \powerset{\type{TxIn}} \times
+  (\type{Ix} \mapsto \type{TxOut}) \times
+  \powerset{\type{Cert}}
+\\
+  \var{txin}
+& \type{TxIn}
+& (\var{txid}, \var{ix})
+& \type{TxId} \times \type{Ix}
+\\
+  \var{txout}
+& \type{TxOut}
+& (\var{addr}, c)
+& \type{Addr} \times \type{Coin}
+\\
+  \var{utxo}
+& \type{UTxO}
+& \var{txin} \mapsto \var{txout}
+& \type{TxIn} \mapsto \type{TxOut}
+\\
+  \var{wits}
+& \type{Wits}
+& (\var{wits_{txin}}, \var{wits_{cert}})
+& \powerset{\type{Wit}} \times \powerset{\type{Wit}}
+\\
+  \var{wit}
+& \type{Wit}
+& (\var{vk}, \sigma)
+& \type{VKey} \times \type{Sig}
+\end{array}
+\end{equation*}
+%
+\emph{Transitions}
+%
 \begin{equation*}
 \frac{
-  \var{hk_{sk}} = \fun{hash} ~ \var{vk_{sk}} \quad\quad
-  \var{hk_{sk}} \notin \var{stkeys} \quad\quad
+  \begin{array}{c}
+    \var{tx} = (\var{txbody}, \var{wits}) \qquad
+    \var{txbody} = (\var{ins}, \var{outs}, \var{certs}) \qquad
+    \var{wits} = (\var{wits_{txin}}, \var{wits_{cert}})
+  \\[0.5em]
+  \fun{witness_{txin}} ~ \var{wits_{txin}}~ \var{ins} ~ \var{utxo} \qquad\quad
+  \fun{witness_{cert}} ~ \var{wits_{cert}} ~ \var{certs}
+  \\[0.5em]
+  \begin{array}{r}
+    \var{utxo} \\
+    \var{accounts}
+  \end{array}
+  \transitionarrow{utxo update}{\var{ins}, \var{outs}}
+  \begin{array}{l}
+    \var{utxo}^\prime \\
+    \var{accounts}^\prime
+  \end{array}
+  \qquad\quad
+  \var{epoch} \vdash
+  \begin{array}{r}
+    \var{accounts}^\prime \\
+    \var{certst}
+  \end{array}
+  \transitionarrow{certs update}{\var{certs}}
+  \begin{array}{l}
+    \var{accounts}^{\prime\prime} \\
+    \var{certst}^\prime
+  \end{array}
+  \end{array}
+}{
+  \var{epoch} \vdash
+  \begin{array}{r}
+    \var{utxo} \\
+    \var{accounts} \\
+    \var{certst} \\
+    \Lambda
+  \end{array}
+  \transitionarrow{transaction}{\var{tx}}
+  \begin{array}{l}
+    \var{utxo}^\prime \\
+    \var{accounts}^{\prime\prime} \\
+    \var{certst}^\prime \\
+    \Lambda ; \var{tx}
+  \end{array}
+}
+\end{equation*}
+%
+\emph{Witness relations}
+%
+\begin{align*}
+& \fun{witness_{txin}} ~ \in \powerset{\type{Wit}} \times \powerset{\type{TxIn}} \times \type{UTxO} \\
+& \begin{array}[t]{@{}l@{~}r@{~}l}
+  \fun{witness_{txin}} ~ \var{wits}~ \var{ins} ~ \var{utxo}
+    & \iff & \forall i \in \var{ins} \;\;
+             \exists (\var{vk}, \sigma) \in \var{wits}. \;\;
+             \verified{\var{vk}}{\var{txbody}}{\sigma}
+             \and \fun{auth_{txin}} ~ \var{vk} ~ i ~ \var{utxo} \\
+    & \and & \size{\var{wits}} = \size{\var{ins}}
+  \end{array}
+\\
+& \fun{witness_{cert}} \in \powerset{\type{Wit}} \times \powerset{\type{Cert}} \\
+& \begin{array}[t]{@{}l@{~}r@{~}l}
+  \fun{witness_{cert}} ~ \var{wits} ~ \var{certs}
+    & \iff & \forall c \in \var{certs} \;\;
+             \exists (\var{vk}, \sigma) \in \var{wits}. \;\;
+             \verified{\var{vk}}{\var{txbody}}{\sigma}
+             \and \fun{auth_{cert}} ~ \var{vk} ~ c \\
+    & \and & \size{\var{wits}} = \size{\var{certs}}
+  \end{array}
+\\[1em]
+& \fun{auth_{txin}}   \in \type{VKey} \times \type{TxIn} \times \type{UTxO} \\
+& \fun{auth_{txin}} ~ \var{vk} ~ i ~ \var{utxo}
+  \iff \exists \var{hk}. \;\; \var{hk} = \fun{hash}~ \var{vk}
+  \and (i \mapsto (\var{hk} \mathbin{||} \_, \_)) \in \var{utxo}
+\\[0.4em]
+& \fun{auth_{cert}} \in \type{VKey} \times \type{Cert} \\
+& \fun{auth_{cert}} ~ \var{vk} ~ c \iff 
+\end{align*}
+%
+\emph{Certificate types}
+%
+\begin{equation*}
+\begin{array}{r@{}c@{}l}
+  \type{Cert} &=& \type{Cert_{regkey}} \uniondistinct
+                \type{Cert_{deregkey}} \uniondistinct
+                \type{Cert_{delegate}} \\
+              &\hfill\uniondistinct\;&
+                \type{Cert_{regpool}} \uniondistinct
+                \type{Cert_{retirepool}} \\
+  \textsc{RegKey}(c) \in \type{Cert} &\iff& c \in \type{Cert_{regkey}} \\
+  \textsc{DeregKey}(c) \in \type{Cert} &\iff& c \in \type{Cert_{deregkey}} \\
+  \textsc{Delegate}(c) \in \type{Cert} &\iff& c \in \type{Cert_{delegate}} \\
+  \textsc{RegPool}(c) \in \type{Cert} &\iff& c \in \type{Cert_{regpool}} \\
+  \textsc{RetirePool}(c) \in \type{Cert} &\iff& c \in \type{Cert_{RetirePool}} \\
+\end{array}
+\end{equation*}
+%
+\begin{equation*}
+\begin{array}{r@{~\in~}l@{\quad=\quad}r@{~\in~}l}
+  \var{c}
+& \type{Cert_{RegKey}}
+& \var{hk}
+& \type{Hash}
+\\
+\end{array}
+\end{equation*}
+
+%
+%\emph{Certificate transitions}
+%
+%\begin{equation*}
+%\frac{
+%  \var{utxo} \transitionarrow{utxo update}{\var{ins}, \var{outs}} \var{utxo}^\prime
+%  \qquad\quad
+%  \var{epoch} \vdash
+%  \var{certst} \transitionarrow{certs update}{\var{certs}} \var{certst}^\prime
+%}{
+%  \var{epoch} \vdash
+%  foo
+%  \transitionarrow{certs update}{\var{certs}}
+%  bar
+%}
+%\end{equation*}
+%
+\caption{UTxO style handling of certificates}
+\label{fig:utxo_style_certificates}
+\end{figure}
+
+
+\begin{figure}
+\begin{equation*}
+\frac{
+  \var{hk_{sk}} = \fun{hash} ~ \var{vk_{sk}} \qquad
+  \var{hk_{sk}} \notin \var{stkeys} \qquad
   \verified{\var{vk_{sk}}}{\var{vk_{sk}}}{\sigma}
 }{
   \begin{array}{r}
@@ -3753,9 +3967,9 @@ a reasonable starting point for tests and an implementation.
 %
 \begin{equation*}
 \frac{
-  \var{hk_{sk}} = \fun{hash} ~ \var{vk_{sk}} \quad\quad
-  \var{hk_{sk}} \in \var{stkeys} \quad\quad
-  \verified{\var{vk_{sk}}}{\var{vk_{sk}}}{\sigma}
+  \var{hk_{sk}} = \fun{hash} ~ \var{vk_{sk}} \qquad
+  \var{hk_{sk}} \in \var{stkeys} \qquad
+1  \verified{\var{vk_{sk}}}{\var{vk_{sk}}}{\sigma}
 }{
   \begin{array}{r}
     \var{stkeys} \\ \var{accounts} \\ \var{delegations}
@@ -3774,9 +3988,9 @@ a reasonable starting point for tests and an implementation.
 %
 \begin{equation*}
 \frac{
-  \var{cert} = (\var{vk_{sk}}, \var{hk_{sp}}) \quad\quad
-  \var{hk_{sk}} = \fun{hash} ~ \var{vk_{sk}} \quad\quad
-  \var{hk_{sk}} \in \var{stkeys} \quad\quad
+  \var{cert} = (\var{vk_{sk}}, \var{hk_{sp}}) \qquad
+  \var{hk_{sk}} = \fun{hash} ~ \var{vk_{sk}} \qquad
+  \var{hk_{sk}} \in \var{stkeys} \qquad
   \verified{\var{vk_{sk}}}{\var{cert}}{\sigma}
 }{
   \var{stkeys} \vdash \var{delegations}
@@ -3796,12 +4010,12 @@ a reasonable starting point for tests and an implementation.
 \begin{equation*}
 \frac{
   \begin{array}{c}
-    \var{cert} = (\var{vk_{sp}}, \var{pledge}, (c, m), \var{alt}) \quad\quad
+    \var{cert} = (\var{vk_{sp}}, \var{pledge}, (c, m), \var{alt}) \qquad
     \var{hk_{sp}} = \fun{hash} ~ \var{vk_{sp}}
     \\[0.3em]
-    \verified{\var{vk_{sp}}}{\var{cert}}{\sigma} \quad\quad 
+    \verified{\var{vk_{sp}}}{\var{cert}}{\sigma} \qquad 
     \forall \var{vk_{sk}} \in \var{pledge}. ~ \exists \sigma \in \Sigma. ~
-      \verified{\var{vk_{sk}}}{\var{cert}}{\sigma}  \quad\quad
+      \verified{\var{vk_{sk}}}{\var{cert}}{\sigma}  \qquad
     \size{\var{pledge}} = \size{\Sigma}
   \end{array}
 }{
@@ -3823,11 +4037,11 @@ a reasonable starting point for tests and an implementation.
 \begin{equation*}
 \frac{
   \begin{array}{c}
-    \var{cert} = (\var{vk_{sp}}, e) \quad\quad
+    \var{cert} = (\var{vk_{sp}}, e) \qquad
     \var{hk_{sp}} = \fun{hash} ~ \var{vk_{sp}}
     \\[0.3em]
-    \var{hk_{sp}} \in \dom \var{stpools} \quad\quad
-    \var{epoch} < e < \var{epoch} + E_\var{max} \quad\quad
+    \var{hk_{sp}} \in \dom \var{stpools} \qquad
+    \var{epoch} < e < \var{epoch} + E_\var{max} \qquad
     \verified{\var{vk_{sp}}}{\var{cert}}{\sigma}
   \end{array}
 }{
@@ -3876,7 +4090,7 @@ a reasonable starting point for tests and an implementation.
 One fundamental raison-d'\^{e}tre for transaction fees in Cardano (or any other
 cryptocurrency for that matter) is to compensate node operators for their costs:
 Processing a transaction incurs costs, and the person doing the processing
-should be reiumbursed accordingly.
+should be reimbursed accordingly.
 
 In reality however, there are more than just one-time processing costs.
 In particular, there are long term \emph{storage} costs whenever a transaction

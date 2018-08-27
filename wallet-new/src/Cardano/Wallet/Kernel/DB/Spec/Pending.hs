@@ -7,7 +7,7 @@
 -- > import           Cardano.Wallet.Kernel.DB.Spec.Pending (Pending)
 -- > import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
 module Cardano.Wallet.Kernel.DB.Spec.Pending (
-    Pending -- opaque
+    Pending (..) -- visible only to enable delta compression until we find a better solution.
     -- * Basic combinators
   , null
   , lookup

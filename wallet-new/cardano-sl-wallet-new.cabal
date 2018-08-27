@@ -85,6 +85,7 @@ library
                        Cardano.Wallet.Kernel.DB.AcidState
                        Cardano.Wallet.Kernel.DB.BlockContext
                        Cardano.Wallet.Kernel.DB.BlockMeta
+                       Cardano.Wallet.Kernel.DB.Checkpoints
                        Cardano.Wallet.Kernel.DB.HdWallet
                        Cardano.Wallet.Kernel.DB.HdWallet.Create
                        Cardano.Wallet.Kernel.DB.HdWallet.Delete
@@ -408,7 +409,8 @@ test-suite wallet-unit-tests
   ghc-options:        -Wall -O2 -threaded
   type:               exitcode-stdio-1.0
   main-is:            WalletUnitTest.hs
-  other-modules:      InputSelection.Evaluation
+  other-modules:      DeltaCompressionSpecs
+                      InputSelection.Evaluation
                       InputSelection.Evaluation.Events
                       InputSelection.Evaluation.Generic
                       InputSelection.Evaluation.Options

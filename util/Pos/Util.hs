@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -Wno-unused-imports   #-}
 {-# OPTIONS_GHC -Wno-dodgy-exports    #-}
 
+
 module Pos.Util
        ( module Pos.Util.Concurrent.PriorityLock
        , module Pos.Util.Concurrent.RWLock

@@ -4,14 +4,16 @@ module DeltaCompressionSpecs (spec) where
 
 import           Universum
 
-import           Formatting.Buildable (build)
 import           Formatting (bprint)
+import           Formatting.Buildable (build)
 
 import           Test.Hspec
 import           Test.QuickCheck (Arbitrary, arbitrary)
 import           Test.QuickCheck.Monadic (monadicIO, pick)
 
 import           Cardano.Wallet.Kernel.DB.Checkpoints
+
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 data BMap k v = BMap {unMap :: Map k v} deriving (Show, Eq)
 

@@ -1,6 +1,3 @@
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
-
 module Cardano.Wallet.Kernel.DB.Checkpoints where
 
 import           Universum
@@ -14,7 +11,7 @@ import qualified Data.Set as S
 
 import qualified Pos.Chain.Txp as Core
 import qualified Pos.Core as Core
-import           Pos.Core.Chrono (NewestFirst(..))
+import           Pos.Core.Chrono (NewestFirst (..))
 
 import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.InDb
@@ -58,7 +55,7 @@ steps :: (Checkpoint, [DeltaCheckpoint] ) -> Checkpoints
 steps (c, ls) = Checkpoints . NewestFirst $ c SNE.:| go c ls
   where
     go :: Checkpoint -> [DeltaCheckpoint] -> SL.StrictList Checkpoint
-    go _ [] = SL.Nil
+    go _ []         = SL.Nil
     go c' (dc:rest) = let new = stepC c' dc in SL.Cons new (go new rest)
 
 deltaC :: Checkpoint -> Checkpoint -> DeltaCheckpoint

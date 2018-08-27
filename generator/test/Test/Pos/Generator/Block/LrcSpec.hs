@@ -20,7 +20,7 @@ import           Serokell.Util (listJson)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Gen, arbitrary, choose)
-import           Test.QuickCheck.Monadic (pick, run)
+import           Test.QuickCheck.Monadic (pick)
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Chain.Block (mainBlockTxPayload)
@@ -38,7 +38,6 @@ import           Pos.DB.Block (ShouldCallBListener (..), applyBlocksUnsafe)
 import qualified Pos.DB.Block as Lrc
 import qualified Pos.DB.Lrc as LrcDB
 import           Pos.DB.Txp (getAllPotentiallyHugeStakesMap)
-import           Pos.DB.Update (getAdoptedBVFull)
 import qualified Pos.GState as GS
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Util.Util (getKeys)
@@ -260,10 +259,7 @@ genAndApplyBlockFixedTxs txpConfig txs = do
                              (EnableTxPayload False)
                              (InplaceDB False)
     let blund = emptyBlund & _1 . _Right . mainBlockTxPayload .~ txPayload
-    (adoptedBV, adoptedBVD) <- run getAdoptedBVFull
     lift $ applyBlocksUnsafe dummyProtocolMagic
-                             adoptedBV
-                             adoptedBVD
                              (ShouldCallBListener False)
                              (one blund)
                              Nothing

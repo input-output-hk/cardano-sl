@@ -39,6 +39,7 @@ import           Pos.Core.Exception (cardanoExceptionFromException,
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..))
+import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Crypto (ProtocolMagic, shortHashF)
 import           Pos.DB.Block (ClassifyHeaderRes (..), classifyNewHeader,
                      lcaWithMainChain, verifyAndApplyBlocks)
@@ -290,8 +291,8 @@ applyWithoutRollback pm txpConfig diffusion blocks = do
         :: HeaderHash -> m (HeaderHash, Either ApplyBlocksException HeaderHash)
     applyWithoutRollbackDo curTip = do
         logInfo "Verifying and applying blocks..."
-        ctx <- L.getVerifyBlocksContext
-        res <- fmap fst <$> verifyAndApplyBlocks pm txpConfig ctx False blocks
+        curSlot <- getCurrentSlot
+        res <- fmap fst <$> verifyAndApplyBlocks pm txpConfig curSlot False blocks
         logInfo "Verifying and applying blocks done"
         let newTip = either (const curTip) identity res
         pure (newTip, res)

@@ -27,10 +27,8 @@ import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Core (EpochOrSlot (..), SlotId (..), addressHash,
                      epochIndexL, getEpochOrSlot, getSlotIndex)
 import           Pos.Crypto (ProtocolMagic, pskDelegatePk)
-import           Pos.DB.Block (ShouldCallBListener (..),
-                     VerifyBlocksContext (..), applyBlocksUnsafe,
-                     createMainBlockInternal, getVerifyBlocksContext,
-                     getVerifyBlocksContext', lrcSingleShot, normalizeMempool,
+import           Pos.DB.Block (ShouldCallBListener (..), applyBlocksUnsafe,
+                     createMainBlockInternal, lrcSingleShot, normalizeMempool,
                      verifyBlocksPrefix)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Delegation (getDlgTransPsk)
@@ -172,30 +170,23 @@ genBlock pm txpConfig eos = do
     let epoch = eos ^. epochIndexL
     tipHeader <- lift DB.getTipHeader
     genBlockNoApply pm txpConfig eos tipHeader >>= \case
-        Just block@Left{}   -> do
+        Just block@Left{}   ->
             let slot0 = SlotId epoch minBound
-            ctx <- getVerifyBlocksContext' (Just slot0)
-            fmap Just $ withCurrentSlot slot0 $ lift $ verifyAndApply ctx block
-        Just block@Right {} -> do
-            ctx <- getVerifyBlocksContext
-            fmap Just $ lift $ verifyAndApply ctx block
+            in fmap Just $ withCurrentSlot slot0 $ lift $ verifyAndApply (Just slot0) block
+        Just block@Right {} ->
+            fmap Just $ lift $ verifyAndApply Nothing block
         Nothing -> return Nothing
     where
     verifyAndApply
-        :: VerifyBlocksContext
+        :: Maybe SlotId
         -> Block
         -> BlockGenMode (MempoolExt m) m Blund
-    verifyAndApply ctx block =
-        verifyBlocksPrefix pm ctx (one block) >>= \case
+    verifyAndApply curSlot block =
+        verifyBlocksPrefix pm curSlot (one block) >>= \case
             Left err -> throwM (BGCreatedInvalid err)
             Right (undos, pollModifier) -> do
                 let undo = undos ^. _Wrapped . _neHead
                     blund = (block, undo)
-                applyBlocksUnsafe pm
-                    (vbcBlockVersion ctx)
-                    (vbcBlockVersionData ctx)
-                    (ShouldCallBListener True)
-                    (one blund)
-                    (Just pollModifier)
+                applyBlocksUnsafe pm (ShouldCallBListener True) (one blund) (Just pollModifier)
                 normalizeMempool pm txpConfig
                 pure blund

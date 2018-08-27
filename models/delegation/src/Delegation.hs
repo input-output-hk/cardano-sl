@@ -1,5 +1,10 @@
+{-# LANGUAGE PackageImports  #-}
+
 module Delegation where
 
+import qualified Crypto.Hash
+import qualified Data.ByteArray           as BA
+import qualified Data.ByteString.Char8    as BS
 import           Data.Map       (Map)
 import qualified Data.Map       as Map
 import           Data.Monoid    (Monoid)
@@ -8,7 +13,8 @@ import           Data.Set       (Set)
 import qualified Data.Set       as Set
 
 
-newtype TxId = TxId Tx deriving (Show, Eq, Ord)
+newtype TxId = TxId { getTxId :: Crypto.Hash.Digest Crypto.Hash.SHA256 }
+  deriving (Show, Eq, Ord)
 newtype Addr = Addr Int deriving (Show, Eq, Ord)
 newtype Coin = Coin Int deriving (Show, Eq, Ord)
 data TxIn = TxIn TxId Int deriving (Show, Eq, Ord)
@@ -18,6 +24,10 @@ newtype UTxO = UTxO (Map TxIn TxOut) deriving (Show, Eq, Ord)
 
 -- TODO is it okay that I've used list indices instead of implementing the Ix Type?
 
+instance BA.ByteArrayAccess Tx where
+  length        = BA.length . BS.pack . show
+  withByteArray = BA.withByteArray . BS.pack  . show
+
 instance Semigroup Coin where
   (Coin a) <> (Coin b) = Coin (a + b)
 
@@ -26,7 +36,7 @@ instance Monoid Coin where
   mappend = (<>)
 
 txid :: Tx -> TxId
-txid = TxId
+txid = TxId . Crypto.Hash.hash
 
 txins :: Tx -> Set TxIn
 txins = inputs

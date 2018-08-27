@@ -23,14 +23,14 @@ import           Universum
 import qualified Data.List.NonEmpty as NE
 import           Formatting.Buildable (Buildable (..))
 
-import           Pos.Chain.Block (MainBlock, gbBody, mainBlockSlot, mbTxs,
-                     mbWitnesses)
+import           Pos.Chain.Block (MainBlock, gbBody, mbTxs, mbWitnesses)
 import qualified Pos.Core as Core
 import           Pos.Core.Txp (Tx, TxAux (..), TxId, TxIn (..), txInputs)
 
 import           Formatting (bprint, (%))
 import qualified Formatting as F
 
+import           Cardano.Wallet.Kernel.DB.BlockContext
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Resolved
@@ -128,8 +128,12 @@ data RawResolvedBlock = UnsafeRawResolvedBlock {
       -- see 'fromRawResolvedBlock'.
     , rawResolvedBlockInputs :: !ResolvedBlockInputs
 
-    -- | The creation time of this Block.
+      -- | The creation time of this Block.
+
     , rawTimestamp           :: !Core.Timestamp
+
+      -- | Block context
+    , rawResolvedContext     :: !BlockContext
     }
 
 -- | Invariant for 'RawResolvedBlock'
@@ -149,10 +153,11 @@ invRawResolvedBlock block ins =
 mkRawResolvedBlock :: MainBlock
                    -> ResolvedBlockInputs
                    -> Core.Timestamp
+                   -> BlockContext
                    -> RawResolvedBlock
-mkRawResolvedBlock block ins timestamp =
+mkRawResolvedBlock block ins timestamp context =
     if invRawResolvedBlock block ins
-      then UnsafeRawResolvedBlock block ins timestamp
+      then UnsafeRawResolvedBlock block ins timestamp context
       else error "mkRawResolvedBlock: invariant violation"
 
 {-------------------------------------------------------------------------------
@@ -177,13 +182,12 @@ fromRawResolvedTx UnsafeRawResolvedTx{..} = ResolvedTx {
 
 fromRawResolvedBlock :: RawResolvedBlock -> ResolvedBlock
 fromRawResolvedBlock UnsafeRawResolvedBlock{..} = ResolvedBlock {
-      _rbTxs    = zipWith aux (getBlockTxs rawResolvedBlock)
-                              rawResolvedBlockInputs
-    , _rbSlotId = rawResolvedBlock ^. mainBlockSlot
-    , _rbMeta   = rawTimestamp
+      _rbTxs     = zipWith aux (getBlockTxs rawResolvedBlock)
+                               rawResolvedBlockInputs
+    , _rbContext = rawResolvedContext
+    , _rbMeta    = rawTimestamp
     }
   where
-
     -- Justification for the use of the unsafe constructor:
     -- The invariant for 'RawResolvedBlock' guarantees the invariant for the
     -- individual transactions.

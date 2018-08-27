@@ -93,13 +93,15 @@ initPassiveWallet :: (Severity -> Text -> IO ())
                   -> IO PassiveWallet
 initPassiveWallet logMessage keystore Handles{..} node = do
     submission <- newMVar (newWalletSubmission rho)
+    restore    <- newMVar Map.empty
     return PassiveWallet {
-          _walletLogMessage = logMessage
-        , _walletKeystore   = keystore
-        , _wallets          = hAcid
-        , _walletMeta       = hMeta
-        , _walletNode       = node
-        , _walletSubmission = submission
+          _walletLogMessage      = logMessage
+        , _walletKeystore        = keystore
+        , _wallets               = hAcid
+        , _walletMeta            = hMeta
+        , _walletNode            = node
+        , _walletSubmission      = submission
+        , _walletRestorationTask = restore
         }
   where
     rho = defaultResubmitFunction (exponentialBackoff 255 1.25)

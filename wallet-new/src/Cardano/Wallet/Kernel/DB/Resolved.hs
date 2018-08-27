@@ -11,7 +11,7 @@ module Cardano.Wallet.Kernel.DB.Resolved (
   , rtxOutputs
   , rtxMeta
   , rbTxs
-  , rbSlotId
+  , rbContext
   , rbMeta
   ) where
 
@@ -21,13 +21,14 @@ import           Control.Lens.TH (makeLenses)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as Map
 import           Formatting (bprint, (%))
-import           Formatting.Buildable
+import qualified Formatting.Buildable
 
 import           Serokell.Util (listJson, mapJson, pairF)
 
 import qualified Pos.Chain.Txp as Core
-import           Pos.Core (Coin, SlotId, Timestamp)
+import           Pos.Core (Coin, Timestamp)
 
+import           Cardano.Wallet.Kernel.DB.BlockContext
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.TxMeta.Types
@@ -97,13 +98,13 @@ resolvedToTxMeta ResolvedTx{..} spentInputsCoins gainedOutputsCoins allOurs acco
 -- represented here.
 data ResolvedBlock = ResolvedBlock {
       -- | Transactions in the block
-      _rbTxs    :: ![ResolvedTx]
+      _rbTxs     :: ![ResolvedTx]
 
-      -- | Slot ID of this block
-    , _rbSlotId :: !SlotId
+      -- | Block context
+    , _rbContext :: !BlockContext
 
       -- | Creation time of this block
-    , _rbMeta   :: !Timestamp
+    , _rbMeta    :: !Timestamp
     }
 
 makeLenses ''ResolvedTx

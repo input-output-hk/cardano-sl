@@ -42,6 +42,7 @@ import qualified Formatting.Buildable
 import           Prelude (Show (..))
 import           Serokell.Util (listJson, mapJson)
 
+import           Cardano.Wallet.Kernel.DB.BlockContext
 import           Cardano.Wallet.Kernel.DB.BlockMeta (AddressMeta,
                      BlockMeta (..))
 import           Cardano.Wallet.Kernel.DB.InDb
@@ -50,7 +51,8 @@ import           Cardano.Wallet.Kernel.Types
 import           Cardano.Wallet.Kernel.Util (at)
 
 import           Pos.Chain.Block (Block, BlockHeader (..), GenesisBlock,
-                     MainBlock, gbHeader, genBlockLeaders, mkGenesisBlock)
+                     HeaderHash, MainBlock, gbHeader, genBlockLeaders,
+                     headerHash, mkGenesisBlock)
 import           Pos.Chain.Lrc (followTheSatoshi)
 import           Pos.Chain.Ssc (defaultSscPayload)
 import           Pos.Chain.Txp (Utxo, txOutStake)
@@ -138,6 +140,14 @@ data IntCheckpoint = IntCheckpoint {
       -- Will be initialized to the header of the genesis block.
     , icBlockHeader   :: !BlockHeader
 
+      -- | The header of the /main/ block in this slot
+      --
+      -- This may be different at epoch boundaries, when 'icBlockHeader' will
+      -- be set to the header of the EBB.
+      --
+      -- Set to 'Nothing' for the first checkpoint.
+    , icMainBlockHdr  :: !(Maybe HeaderHash)
+
       -- | Slot leaders for the current epoch
     , icEpochLeaders  :: !SlotLeaders
 
@@ -178,6 +188,7 @@ initIntCtxt boot = do
         , _icCheckpoints = IntCheckpoint {
               icSlotId        = translateFirstSlot
             , icBlockHeader   = genesis
+            , icMainBlockHdr  = Nothing
             , icEpochLeaders  = leaders
             , icStakes        = initStakes
             , icCrucialStakes = initStakes
@@ -337,10 +348,9 @@ pushCheckpoint f = do
 
 mkCheckpoint :: Monad m
              => IntCheckpoint    -- ^ Previous checkpoint
-             -> SlotId           -- ^ Slot of the new block just created
              -> RawResolvedBlock -- ^ The block just created
              -> TranslateT IntException m IntCheckpoint
-mkCheckpoint prev slot raw@(UnsafeRawResolvedBlock block _inputs _) = do
+mkCheckpoint prev raw@(UnsafeRawResolvedBlock block _inputs _ ctxt) = do
     pc <- asks constants
     gs <- asks weights
     let isCrucial = give pc $ slot == crucialSlot (siEpoch slot)
@@ -348,12 +358,15 @@ mkCheckpoint prev slot raw@(UnsafeRawResolvedBlock block _inputs _) = do
     return IntCheckpoint {
         icSlotId        = slot
       , icBlockHeader   = BlockHeaderMain $ block ^. gbHeader
+      , icMainBlockHdr  = Just $ headerHash block
       , icEpochLeaders  = icEpochLeaders prev
       , icStakes        = newStakes
       , icCrucialStakes = if isCrucial
                             then newStakes
                             else icCrucialStakes prev
       }
+  where
+    slot = ctxt ^. bcSlotId . fromDb
 
 -- | Update the stakes map as a result of a block.
 --
@@ -634,8 +647,13 @@ instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
                    slot
                    txs'
         let currentTime = getSomeTimestamp
-        let raw = mkRawResolvedBlock block resolvedTxInputs currentTime
-        checkpoint <- mkCheckpoint prev slot raw
+        let ctxt = BlockContext {
+                       _bcSlotId   = InDb  $  slot
+                     , _bcHash     = InDb  $  headerHash block
+                     , _bcPrevMain = InDb <$> icMainBlockHdr prev
+                     }
+        let raw = mkRawResolvedBlock block resolvedTxInputs currentTime ctxt
+        checkpoint <- mkCheckpoint prev raw
         if isEpochBoundary pc slot
           then second (\ebb -> (raw, Just ebb)) <$> createEpochBoundary checkpoint
           else return (checkpoint, (raw, Nothing))

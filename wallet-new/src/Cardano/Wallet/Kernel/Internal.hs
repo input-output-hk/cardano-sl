@@ -9,6 +9,7 @@
 module Cardano.Wallet.Kernel.Internal (
     -- * Passive wallet
     PassiveWallet(..)
+  , WalletRestorationInfo(..)
     -- ** Lenses
   , walletKeystore
   , walletMeta
@@ -16,6 +17,11 @@ module Cardano.Wallet.Kernel.Internal (
   , walletLogMessage
   , walletNode
   , walletSubmission
+  , walletRestorationTask
+  , wriCurrentSlot
+  , wriTargetSlot
+  , wriThroughput
+  , wriCancel
     -- * Active wallet
   , ActiveWallet(..)
   ) where
@@ -25,15 +31,40 @@ import           Universum hiding (State)
 import           Control.Lens.TH
 import           Data.Acid (AcidState)
 
-import           Pos.Core (ProtocolMagic)
+import           Pos.Core (BlockCount, FlatSlotId, ProtocolMagic)
 import           Pos.Util.Wlog (Severity (..))
 
+import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..),
+                     UnitOfMeasure (..))
 import           Cardano.Wallet.Kernel.DB.AcidState (DB)
 import           Cardano.Wallet.Kernel.DB.TxMeta
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (NodeStateAdaptor)
 import           Cardano.Wallet.Kernel.Submission (WalletSubmission)
+import           Cardano.Wallet.Kernel.Types (WalletId)
+
+{-------------------------------------------------------------------------------
+  Restoration status
+-------------------------------------------------------------------------------}
+
+-- | Wallet restoration information
+--
+-- The restoration info tracks the progress of a background wallet
+-- restoration task currently in progress. In addition to giving
+-- visibility into a restoration task, it also provides an action
+-- that can be used to cancel the background restoration task.
+data WalletRestorationInfo = WalletRestorationInfo
+  { _wriCurrentSlot :: FlatSlotId
+     -- ^ The most recently restored slot
+  , _wriTargetSlot  :: FlatSlotId
+     -- ^ The target slot; when restoration reaches this slot,
+     -- it is finished and the wallet is up-to-date.
+  , _wriThroughput  :: MeasuredIn 'BlocksPerSecond BlockCount
+    -- ^ Speed of restoration.
+  , _wriCancel      :: IO ()
+    -- ^ The action that can be used to cancel the restoration task.
+  }
 
 {-------------------------------------------------------------------------------
   Passive wallet
@@ -46,16 +77,16 @@ import           Cardano.Wallet.Kernel.Submission (WalletSubmission)
 --
 data PassiveWallet = PassiveWallet {
       -- | Send log message
-      _walletLogMessage :: Severity -> Text -> IO ()
+      _walletLogMessage      :: Severity -> Text -> IO ()
 
       -- | Logger
-    , _walletKeystore   :: Keystore
+    , _walletKeystore        :: Keystore
 
       -- | An opaque handle to a place where we store the 'EncryptedSecretKey'.
-    , _wallets          :: AcidState DB
+    , _wallets               :: AcidState DB
 
       -- | Database handle
-    , _walletMeta       :: MetaDBHandle
+    , _walletMeta            :: MetaDBHandle
 
       -- | Access to the underlying node
       --
@@ -68,7 +99,7 @@ data PassiveWallet = PassiveWallet {
       --
       -- The primary function of this is wallet restoration, where the wallet's
       -- own DB /cannot/ be consulted.
-    , _walletNode       :: NodeStateAdaptor IO
+    , _walletNode            :: NodeStateAdaptor IO
 
       -- | The wallet submission layer
       --
@@ -83,11 +114,20 @@ data PassiveWallet = PassiveWallet {
       -- the active part actually sends stuff across the network. Fortunately,
       -- we already have this split: the submission layer itself is just a
       -- pure data structure, and the sending happens in a separate thread.
-    , _walletSubmission :: MVar WalletSubmission
+    , _walletSubmission      :: MVar WalletSubmission
+
+      -- | Wallet restoration tasks. Wallets that are in the midst of a restoration
+      -- will be doing background work to restore the history. This map holds a
+      -- reference to the restoration background task, along with the current status
+      -- of the task.
+      --
+      -- The invariant is that a WalletId should appear in this map if and only if
+      -- that wallet is still undergoing restoration.
+    , _walletRestorationTask :: MVar (Map WalletId WalletRestorationInfo)
     }
 
 makeLenses ''PassiveWallet
-
+makeLenses ''WalletRestorationInfo
 
 {-------------------------------------------------------------------------------
   Active wallet

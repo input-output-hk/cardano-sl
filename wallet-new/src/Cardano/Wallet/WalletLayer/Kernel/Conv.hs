@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 -- | Convert to and from V1 types
 module Cardano.Wallet.WalletLayer.Kernel.Conv (
     -- * From V1 to kernel types
@@ -13,6 +14,7 @@ module Cardano.Wallet.WalletLayer.Kernel.Conv (
   , toWallet
   , toAddress
   , toAssuranceLevel
+  , toSyncState
     -- * Custom errors
   , InvalidRedemptionCode(..)
     -- * Convenience re-exports
@@ -34,10 +36,11 @@ import           Formatting (bprint, build, formatToString, sformat, shown, (%))
 import qualified Formatting.Buildable
 import qualified Serokell.Util.Base64 as B64
 
-import           Pos.Core (decodeTextAddress)
+import           Pos.Core (BlockCount (..), decodeTextAddress)
 import           Pos.Crypto (AesKey, RedeemSecretKey, aesDecrypt,
                      redeemDeterministicKeyGen)
 
+import           Cardano.Wallet.API.Types.UnitOfMeasure
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
 import           Cardano.Wallet.Kernel.BIP39 (mnemonicToAesKey)
@@ -49,6 +52,8 @@ import           Cardano.Wallet.Kernel.DB.Spec (cpAddressMeta)
 import           Cardano.Wallet.Kernel.DB.Spec.Read
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (ixedIndexed)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
+import           Cardano.Wallet.Kernel.Internal (WalletRestorationInfo,
+                     wriCurrentSlot, wriTargetSlot, wriThroughput)
 import qualified Cardano.Wallet.Kernel.Read as Kernel
 import           Cardano.Wallet.Kernel.Util (exceptT)
 -- import           Cardano.Wallet.WalletLayer (InvalidRedemptionCode (..))
@@ -158,7 +163,6 @@ toWallet db hdRoot = V1.Wallet {
     , walSpendingPasswordLastUpdate = V1 lastUpdate
     , walCreatedAt                  = V1 createdAt
     , walAssuranceLevel             = v1AssuranceLevel
-    -- FIXME(adn) Do this as part of CBR-243.
     , walSyncState                  = V1.Synced
     -- FIXME: Now we have 2 types of wallet: regular and external.
     -- Currently there's only regular wallets, it will be changed in
@@ -224,3 +228,23 @@ instance Buildable InvalidRedemptionCode where
 
 instance Show InvalidRedemptionCode where
     show = formatToString build
+
+-- | Calculate the 'SyncState' from data about the wallet's restoration.
+toSyncState :: Maybe WalletRestorationInfo -> V1.SyncState
+toSyncState = \case
+    Nothing   -> V1.Synced
+    Just info -> let MeasuredIn (BlockCount blocksPerSec) = info ^. wriThroughput
+      in V1.Restoring $
+           V1.SyncProgress
+             { spEstimatedCompletionTime =
+                     let blocksToGo = (info ^. wriTargetSlot) - (info ^. wriCurrentSlot)
+                         bps = max blocksPerSec 1
+                     in V1.mkEstimatedCompletionTime (fromIntegral ((1000 * blocksToGo) `div` bps))
+             , spThroughput = V1.mkSyncThroughput (BlockCount blocksPerSec)
+             , spPercentage =
+                     let tgtSlot = info ^. wriTargetSlot
+                         pct = if tgtSlot /= 0
+                               then (100 * (info ^. wriCurrentSlot)) `div` tgtSlot
+                               else 0
+                     in V1.mkSyncPercentage (fromIntegral pct)
+             }

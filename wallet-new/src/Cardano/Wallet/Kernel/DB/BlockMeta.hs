@@ -1,4 +1,6 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE StandaloneDeriving         #-}
 
 -- | Block metadata conform the wallet specification
 module Cardano.Wallet.Kernel.DB.BlockMeta (
@@ -162,3 +164,5 @@ instance Buildable BlockMeta where
         )
         (_fromDb _blockMetaSlotId)
         _blockMetaAddressMeta
+
+deriving instance Buildable LocalBlockMeta

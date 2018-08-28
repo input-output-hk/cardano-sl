@@ -32,7 +32,7 @@ import           Data.SafeCopy (base, deriveSafeCopy)
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 import           Serokell.Util (mapJson)
-import           Test.QuickCheck (Arbitrary (..), Gen ,arbitrary)
+import           Test.QuickCheck (Arbitrary (..), Gen, arbitrary)
 
 import qualified Pos.Core as Core
 import qualified Pos.Core.Txp as Txp
@@ -112,6 +112,7 @@ emptyBlockMeta = BlockMeta {
 -- 'BlockMeta' type is the same; 'LocalBlockMeta' serves merely as a marker that
 -- this data is potentially incomplete.
 newtype LocalBlockMeta = LocalBlockMeta { localBlockMeta :: BlockMeta }
+        deriving (Eq, Show)
 
 makeWrapped ''LocalBlockMeta
 
@@ -157,6 +158,11 @@ instance Arbitrary BlockMeta where
     txIds <- replicateM n arbitrary
     addrs <- arbitrary
     return $ BlockMeta (InDb . Map.fromList $ zip txIds slotsIds) addrs
+
+instance Arbitrary LocalBlockMeta where
+  arbitrary = do
+    bm <- arbitrary
+    pure $ LocalBlockMeta bm
 
 slotIdGen :: Gen Core.SlotId
 slotIdGen = do

@@ -24,27 +24,67 @@ import qualified Cardano.Wallet.Kernel.Util.StrictNonEmpty as SNE
 
 import           Test.Pos.Core.Arbitrary ()
 
+-- This module aims to define memory efficient Safecopy instances for Checkpoints.
+-- This is done by defining new types, which are the diffs of the Checkpoints.
+-- To achieve this we first define diff-types for the building blocks of Checkpoint:
+-- Map, Pending, BlockMeta and eventually Checkpoint.
+--
+-- To reduce boilerplate we could define a class like following:
+-- class Differentiable A B | A -> B where
+--   delta :: A -> A -> B
+--   step  :: A -> B -> A
+
 newtype Checkpoints = Checkpoints {unCheckpoints :: NewestFirst StrictNonEmpty Checkpoint}
   deriving (Eq, Show)
 
-take :: Int -> Checkpoints -> Checkpoints
-take n (Checkpoints (NewestFirst ls)) = Checkpoints (NewestFirst (SNE.take n ls))
-
-instance Arbitrary Checkpoints where
-  arbitrary = do
-    ls <- arbitrary
-    pure . Checkpoints . NewestFirst $ ls
-
 instance SC.SafeCopy Checkpoints where
     getCopy = SC.contain $ do
-      c <- SC.safeGet
       ds <- SC.safeGet
-      pure $ steps (c,ds)
+      pure $ steps ds
     putCopy cs  = SC.contain $ do
-      let (c,ds) = deltas cs
-      SC.safePut c
-      SC.safePut ds
+      let dcs = deltas cs
+      SC.safePut dcs
 
+deltas :: Checkpoints -> (Checkpoint, [DeltaCheckpoint])
+deltas (Checkpoints (NewestFirst (a SNE.:| strict))) = (a, go a strict)
+  where
+    go :: Checkpoint -> SL.StrictList Checkpoint -> [DeltaCheckpoint]
+    go _ SL.Nil                  = []
+    go c (SL.Cons c' strictRest) = (deltaC c' c) : (go c' strictRest)
+
+steps :: (Checkpoint, [DeltaCheckpoint] ) -> Checkpoints
+steps (c, ls) = Checkpoints . NewestFirst $ c SNE.:| go c ls
+  where
+    go :: Checkpoint -> [DeltaCheckpoint] -> SL.StrictList Checkpoint
+    go _ []         = SL.Nil
+    go c' (dc:rest) = let new = stepC c' dc in SL.Cons new (go new rest)
+
+newtype PartialCheckpoints = PartialCheckpoints {unPartialCheckpoints :: NewestFirst StrictNonEmpty PartialCheckpoint}
+  deriving (Eq, Show)
+
+instance SC.SafeCopy PartialCheckpoints where
+  getCopy = SC.contain $ do
+    dpc <- SC.safeGet
+    pure $ stepsPartial dpc
+  putCopy cs  = SC.contain $ do
+    let dpc = deltasPartial cs
+    SC.safePut dpc
+
+deltasPartial :: PartialCheckpoints -> (PartialCheckpoint, [DeltaCheckpoint])
+deltasPartial (PartialCheckpoints (NewestFirst (a SNE.:| strict))) = (a, go a strict)
+  where
+    go :: PartialCheckpoint -> SL.StrictList PartialCheckpoint -> [DeltaCheckpoint]
+    go _ SL.Nil                  = []
+    go c (SL.Cons c' strictRest) = (deltaPartialC c' c) : (go c' strictRest)
+
+stepsPartial :: (PartialCheckpoint, [DeltaCheckpoint] ) -> PartialCheckpoints
+stepsPartial (c, ls) = PartialCheckpoints . NewestFirst $ c SNE.:| go c ls
+  where
+    go :: PartialCheckpoint -> [DeltaCheckpoint] -> SL.StrictList PartialCheckpoint
+    go _ []         = SL.Nil
+    go c' (dc:rest) = let new = stepPartialC c' dc in SL.Cons new (go new rest)
+
+-- | This is the Delta type for both Checkpoint and PartialCheckpoint
 data DeltaCheckpoint = DeltaCheckpoint {
     dcUtxo        :: !(InDb UtxoDiff)
   , dcUtxoBalance :: !(InDb Core.Coin)
@@ -60,19 +100,6 @@ type BlockMetaDiff = (BlockMetaSlotIdDiff, BlockMetaAddressDiff)
 type BlockMetaSlotIdDiff = InDb (Map Core.TxId Core.SlotId, Set Core.TxId)
 type BlockMetaAddressDiff = (Map (InDb Core.Address) AddressMeta, Set (InDb Core.Address))
 
-deltas :: Checkpoints -> (Checkpoint, [DeltaCheckpoint])
-deltas (Checkpoints (NewestFirst (a SNE.:| strict))) = (a, go a strict)
-  where
-    go :: Checkpoint -> SL.StrictList Checkpoint -> [DeltaCheckpoint]
-    go _ SL.Nil                  = []
-    go c (SL.Cons c' strictRest) = (deltaC c' c) : (go c' strictRest)
-
-steps :: (Checkpoint, [DeltaCheckpoint] ) -> Checkpoints
-steps (c, ls) = Checkpoints . NewestFirst $ c SNE.:| go c ls
-  where
-    go :: Checkpoint -> [DeltaCheckpoint] -> SL.StrictList Checkpoint
-    go _ []         = SL.Nil
-    go c' (dc:rest) = let new = stepC c' dc in SL.Cons new (go new rest)
 
 deltaC :: Checkpoint -> Checkpoint -> DeltaCheckpoint
 deltaC c c' = DeltaCheckpoint {
@@ -93,6 +120,28 @@ stepC c DeltaCheckpoint{..} =
     , _checkpointBlockMeta   = stepBlockMeta (_checkpointBlockMeta c) dcBlockMeta
     , _checkpointContext     = dcContext
     , _checkpointForeign     = stepPending (_checkpointForeign c) dcForeign
+  }
+
+deltaPartialC :: PartialCheckpoint -> PartialCheckpoint -> DeltaCheckpoint
+deltaPartialC c c' = DeltaCheckpoint {
+    dcUtxo         = deltaUtxo (_pcheckpointUtxo c) (_pcheckpointUtxo c')
+  , dcUtxoBalance  = _pcheckpointUtxoBalance c
+  , dcPending      = deltaPending (_pcheckpointPending c) (_pcheckpointPending c')
+  , dcBlockMeta    = deltaBlockMeta (localBlockMeta . _pcheckpointBlockMeta $ c)
+                                    (localBlockMeta . _pcheckpointBlockMeta $ c')
+  , dcForeign      = deltaPending (_pcheckpointForeign c) (_pcheckpointForeign c')
+  , dcContext      = _pcheckpointContext c
+}
+
+stepPartialC :: PartialCheckpoint -> DeltaCheckpoint -> PartialCheckpoint
+stepPartialC c DeltaCheckpoint{..} =
+  PartialCheckpoint {
+    _pcheckpointUtxo          = stepUtxo (_pcheckpointUtxo c) dcUtxo
+    , _pcheckpointUtxoBalance = dcUtxoBalance
+    , _pcheckpointPending     = stepPending (_pcheckpointPending c) dcPending
+    , _pcheckpointBlockMeta   = LocalBlockMeta $ stepBlockMeta (localBlockMeta ._pcheckpointBlockMeta $ c) dcBlockMeta
+    , _pcheckpointForeign     = stepPending (_pcheckpointForeign c) dcForeign
+    , _pcheckpointContext     = dcContext
   }
 
 deltaPending :: Pending -> Pending -> PendingDiff
@@ -136,5 +185,15 @@ deltaS newSet oldSet = (S.difference newSet oldSet, S.difference oldSet newSet)
 
 stepS :: Ord k => Set k -> (Set k, Set k) -> Set k
 stepS oldSet (new, deleted) = S.difference (S.union oldSet new) deleted
+
+instance Arbitrary Checkpoints where
+  arbitrary = do
+    ls <- arbitrary
+    pure . Checkpoints . NewestFirst $ ls
+
+instance Arbitrary PartialCheckpoints where
+  arbitrary = do
+    ls <- arbitrary
+    pure . PartialCheckpoints . NewestFirst $ ls
 
 SC.deriveSafeCopy 1 'SC.base ''DeltaCheckpoint

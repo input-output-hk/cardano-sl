@@ -157,7 +157,7 @@ data PartialCheckpoint = PartialCheckpoint {
     , _pcheckpointBlockMeta   :: !LocalBlockMeta
     , _pcheckpointForeign     :: !Pending
     , _pcheckpointContext     :: !(Maybe BlockContext)
-    }
+    } deriving (Eq, Show)
 
 makeLenses ''PartialCheckpoint
 
@@ -315,6 +315,14 @@ instance Arbitrary Checkpoint where
                          <*> arbitrary
                          <*> arbitrary
                          <*> arbitrary
+
+instance Arbitrary PartialCheckpoint where
+  arbitrary = PartialCheckpoint <$> arbitrary
+                                <*> arbitrary
+                                <*> arbitrary
+                                <*> arbitrary
+                                <*> arbitrary
+                                <*> arbitrary
 
 {-------------------------------------------------------------------------------
   Pretty-printing

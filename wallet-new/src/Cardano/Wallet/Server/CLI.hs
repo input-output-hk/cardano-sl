@@ -69,6 +69,10 @@ data WalletBackendParams = WalletBackendParams
 data NewWalletBackendParams = NewWalletBackendParams WalletBackendParams
     deriving (Show)
 
+getWalletDbOptions :: NewWalletBackendParams -> WalletDBOptions
+getWalletDbOptions (NewWalletBackendParams WalletBackendParams{..}) =
+    walletDbOptions
+
 -- | A richer type to specify in which mode we are running this node.
 data RunMode = ProductionMode
              -- ^ Run in production mode

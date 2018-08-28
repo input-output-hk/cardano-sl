@@ -70,11 +70,12 @@ data UpdateWalletPasswordError =
     | UpdateWalletPasswordKeyNotFound HD.HdRootId
       -- ^ When trying to update the wallet password, there was no
       -- 'EncryptedSecretKey' in the Keystore for this 'HdRootId'.
-    | UpdateWalletPasswordChangeFailed HD.HdRootId
-      -- ^ When trying to shield the 'SecretKey' with the new, supplied
-      -- 'PassPhrase', the crypto primitive responsible for that failed.
     | UpdateWalletPasswordUnknownHdRoot HD.UnknownHdRoot
       -- ^ When trying to update the DB the input 'HdRootId' was not found.
+    | UpdateWalletPasswordKeystoreChangedInTheMeantime HD.HdRootId
+      -- ^ When trying to update the password inside the keystore, the
+      -- previous 'PassPhrase' didn't match or it was deleted, which means
+      -- this operation is not valid anymore.
 
 instance Arbitrary UpdateWalletPasswordError where
     arbitrary = oneof []
@@ -84,10 +85,10 @@ instance Buildable UpdateWalletPasswordError where
         bprint ("UpdateWalletPasswordOldPasswordMismatch " % F.build) hdRootId
     build (UpdateWalletPasswordKeyNotFound hdRootId) =
         bprint ("UpdateWalletPasswordKeyNotFound " % F.build) hdRootId
-    build (UpdateWalletPasswordChangeFailed hdRootId) =
-        bprint ("UpdateWalletPasswordChangeFailed " % F.build) hdRootId
     build (UpdateWalletPasswordUnknownHdRoot uRoot) =
         bprint ("UpdateWalletPasswordUnknownHdRoot " % F.build) uRoot
+    build (UpdateWalletPasswordKeystoreChangedInTheMeantime uRoot) =
+        bprint ("UpdateWalletPasswordKeystoreChangedInTheMeantime " % F.build) uRoot
 
 instance Show UpdateWalletPasswordError where
     show = formatToString build
@@ -126,9 +127,20 @@ createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
     -- STEP 1: Generate the 'EncryptedSecretKey' outside any acid-state
     -- transaction, to not leak it into acid-state's transaction logs.
     let (_, esk) = safeDeterministicKeyGen (BIP39.mnemonicToSeed mnemonic) spendingPassword
-    -- STEP 2: Atomically generate the wallet and the initial internal structure in
-    -- an acid-state transaction.
+
+    -- STEP 2: Insert the key into the keystore. We do this preemptively so that,
+    -- in case of asynchronous exceptions, the worst which can happen is for the
+    -- key to stay dangling into the keystore and the wallet not to be created.
+    -- Then calling 'createHdWallet' a second time in this situation would
+    -- correctly persist the wallet in the DB.
+    -- The converse won't be true: leaving a dangling 'HdRoot' without its associated
+    -- key in the keystore would break the sytem consistency and make the wallet
+    -- unusable.
     let newRootId = eskToHdRootId esk
+    Keystore.insert (WalletIdHdRnd newRootId) esk (pw ^. walletKeystore)
+
+    -- STEP 3: Atomically generate the wallet and the initial internal structure in
+    -- an acid-state transaction.
     res <- createWalletHdRnd pw
                              (spendingPassword /= emptyPassphrase)
                              walletName
@@ -138,11 +150,8 @@ createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
                              -- See preconditon above.
                              (\hdRoot -> Left $ CreateHdWallet hdRoot mempty)
     case res of
-         Left e   -> return . Left $ CreateWalletFailed e
-         Right hdRoot -> do
-             -- STEP 3: Insert the 'EncryptedSecretKey' into the 'Keystore'
-             Keystore.insert (WalletIdHdRnd newRootId) esk (pw ^. walletKeystore)
-             return (Right hdRoot)
+         Left e       -> return . Left $ CreateWalletFailed e
+         Right hdRoot -> return (Right hdRoot)
 
 
 -- | Creates an HD wallet where new accounts and addresses are generated
@@ -190,6 +199,15 @@ deleteHdWallet wallet rootId = do
         Left err -> return (Left err)
         Right () -> do
             -- STEP 2: Purge the key from the keystore.
+            --
+            -- NOTE ON ATOMICITY: In the case of asynchronous exceptions
+            -- striking between STEP 1 & 2, note how this won't compromise the
+            -- internal consistency of the system. Yes, it would leave a
+            -- dangling key into the keystore, but that won't be as bad as
+            -- trying to delete the key first @and then@ delete the wallet
+            -- from the DB, which would expose us to consistency troubles as
+            -- an 'HdRoot' without any associated keys in the keystore is
+            -- unusable.
             Keystore.delete (WalletIdHdRnd rootId) (wallet ^. walletKeystore)
             return $ Right ()
 
@@ -222,32 +240,45 @@ updatePassword pw hdRootId oldPassword newPassword = do
     mbKey <- Keystore.lookup wId keystore
     case mbKey of
          Nothing -> return $ Left $ UpdateWalletPasswordKeyNotFound hdRootId
-         Just esk -> do
-             -- STEP 2: Check that the 2 password matches. While this in
-             --         principle could be checked on the wallet layer side,
-             --         it's preferrable to do everything in the kernel to make
-             --         this operation really atomic.
-             let pwdCheck = maybeToRight (UpdateWalletPasswordOldPasswordMismatch hdRootId) $
-                            checkPassMatches oldPassword esk
+         Just oldKey -> do
 
-             -- STEP 3: Compute the new key using the cryptographic primitives
+             -- Predicate to check that the 2 password matches. It gets passed
+             -- down to the 'Keystore' to ensure atomicity.
+             let pwdCheck = maybe False (const True) . checkPassMatches oldPassword
+
+             -- STEP 2: Compute the new key using the cryptographic primitives
              --         we have. This operation doesn't change any state, it
              --         just recomputes the new 'EncryptedSecretKey' in-place.
-             genNewKey <- changeEncPassphrase oldPassword newPassword esk
-             let mbNewKey = maybeToRight (UpdateWalletPasswordChangeFailed hdRootId) $
+             genNewKey <- changeEncPassphrase oldPassword newPassword oldKey
+             let mbNewKey = maybeToRight (UpdateWalletPasswordOldPasswordMismatch hdRootId) $
                             genNewKey
 
-             case pwdCheck >> mbNewKey of
+             case mbNewKey of
                   Left e -> return (Left e)
                   Right newKey -> do
-                      -- STEP 4: Update the keystore, atomically.
-                      Keystore.replace wId newKey keystore
-                      -- STEP 5: Update the timestamp in the wallet data storage.
-                      lastUpdateNow <- InDb <$> getCurrentTimestamp
-                      let hasSpendingPassword = HD.HasSpendingPassword lastUpdateNow
-                      res <- update' (pw ^. wallets)
-                                     (UpdateHdRootPassword hdRootId hasSpendingPassword)
-                      case res of
-                           Left e ->
-                               return $ Left (UpdateWalletPasswordUnknownHdRoot e)
-                           Right (db, hdRoot') -> return $ Right (db, hdRoot')
+                      -- STEP 3: Update the keystore, atomically.
+                      swapped <- Keystore.compareAndReplace wId pwdCheck newKey keystore
+                      case swapped of
+                           -- We failed, the password changed in the
+                           -- meantime, and the user needs to repeat the
+                           -- operation.
+                           Keystore.PredicateFailed ->
+                               return $ Left (UpdateWalletPasswordOldPasswordMismatch hdRootId)
+                           -- We failed, in the meantime the user deleted the
+                           -- key.
+                           Keystore.OldKeyLookupFailed -> do
+                               return $ Left (UpdateWalletPasswordKeystoreChangedInTheMeantime hdRootId)
+                           Keystore.Replaced -> do
+                               -- STEP 4: Update the timestamp in the wallet data storage.
+                               -- If we get interrupted here by an asynchronous exception the
+                               -- price we will pay would be a slightly incorrect notion of
+                               -- "how long ago we did change the password", but it won't
+                               -- compromise the integrity of the system.
+                               lastUpdateNow <- InDb <$> getCurrentTimestamp
+                               let hasSpendingPassword = HD.HasSpendingPassword lastUpdateNow
+                               res <- update' (pw ^. wallets)
+                                              (UpdateHdRootPassword hdRootId hasSpendingPassword)
+                               case res of
+                                    Left e ->
+                                        return $ Left (UpdateWalletPasswordUnknownHdRoot e)
+                                    Right (db, hdRoot') -> return $ Right (db, hdRoot')

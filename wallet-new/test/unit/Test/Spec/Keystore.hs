@@ -78,8 +78,9 @@ spec =
                 withKeystore $ \ks -> do
                     Keystore.insert wid oldKey ks
                     mbOldKey <- Keystore.lookup wid ks
-                    Keystore.replace wid newKey ks
+                    result <- Keystore.compareAndReplace wid (const True) newKey ks
                     mbNewKey <- Keystore.lookup wid ks
+                    result `shouldBe` Keystore.Replaced
                     (fmap hash mbOldKey) `shouldSatisfy` ((/=) (fmap hash mbNewKey))
 
         prop "Inserts are persisted after releasing the keystore" $ monadicIO $ do

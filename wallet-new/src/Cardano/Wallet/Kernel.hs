@@ -93,8 +93,10 @@ initPassiveWallet :: (Severity -> Text -> IO ())
                   -> WalletHandles
                   -> NodeStateAdaptor IO
                   -> IO PassiveWallet
-initPassiveWallet logMessage keystore handles node =
-    preparePassiveWallet >>= initSubmission
+initPassiveWallet logMessage keystore handles node = do
+    pw <- preparePassiveWallet
+    initSubmission pw
+    return pw
     where
         -- | Prepare Passive Wallet for initialisation.
         -- NOTE: the Submission Layer is not initialised yet since that would require
@@ -117,12 +119,11 @@ initPassiveWallet logMessage keystore handles node =
 
         -- | Since the submission layer state is not persisted, we need to initialise
         -- the submission layer with all pending transactions present in the wallet state.
-        initSubmission :: PassiveWallet -> IO PassiveWallet
-        initSubmission pw  = do
-            db <- getWalletSnapshot pw
-            modifyMVar_ (_walletSubmission pw) $
-                return . addPendings (pendingByAccount db)
-            return pw
+        initSubmission :: PassiveWallet -> IO ()
+        initSubmission pw_  = do
+            pendings <- pendingByAccount <$> getWalletSnapshot pw_
+            modifyMVar_ (_walletSubmission pw_) $
+                return . addPendings pendings
 
 -- | Initialize the Passive wallet (specified by the ESK) with the given Utxo
 --

@@ -33,6 +33,8 @@ transactionSpecs wRef wc =
             genesis <- genesisWallet wc
             (fromAcct, _) <- firstAccountAndId wc genesis
 
+            log $ show fromAcct
+
             wallet <- sampleWallet wRef wc
             (toAcct, toAddr) <- firstAccountAndId wc wallet
 
@@ -91,7 +93,7 @@ transactionSpecs wRef wc =
 
             txn <- fmap wrData etxn `shouldPrism` _Right
 
-            threadDelay 120000000
+            threadDelay 180000000
             eresp <- getTransactionIndex wc (Just (walId wallet)) (Just (accIndex toAcct)) Nothing
             resp <- fmap wrData eresp `shouldPrism` _Right
 

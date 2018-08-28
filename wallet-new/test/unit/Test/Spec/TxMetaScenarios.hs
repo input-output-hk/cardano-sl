@@ -393,6 +393,7 @@ nodeStParams1 =
       , mockNodeStateSecurityParameter = SecurityParameter 2160
       , mockNodeStateNextEpochSlotDuration = fromMicroseconds 200
       , mockNodeStateNtpDrift = const (V1.TimeInfo Nothing)
+      , mockNodeStateSyncProgress = (Just 100, 100)
       }
 
 nodeStParams2 :: MockNodeStateParams
@@ -406,6 +407,7 @@ nodeStParams2 =
       , mockNodeStateSecurityParameter = SecurityParameter 2160
       , mockNodeStateNextEpochSlotDuration = fromMicroseconds 200
       , mockNodeStateNtpDrift = const (V1.TimeInfo Nothing)
+      , mockNodeStateSyncProgress = (Just 100, 100)
       }
 
 -- | Initialize active wallet in a manner suitable for generator-based testing.

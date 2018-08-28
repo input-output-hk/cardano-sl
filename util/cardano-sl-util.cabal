@@ -47,6 +47,8 @@ library
                        Pos.Util.Some
                        Pos.Util.Timer
                        Pos.Util.Trace
+                       Pos.Util.Trace.Unstructured
+                       Pos.Util.Trace.Named
                        Pos.Util.Util
                        Pos.Util.Wlog
 
@@ -146,6 +148,7 @@ test-suite test
                        Test.Pos.Util.ModifierSpec
                        Test.Pos.Util.QuickCheck.Property
                        Test.Pos.Util.TimerSpec
+                       Test.Pos.Util.TraceSpec
                        Test.Pos.Util.Tripping
 
   build-depends:       aeson

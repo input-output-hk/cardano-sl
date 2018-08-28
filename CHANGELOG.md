@@ -1,5 +1,32 @@
 # CHANGELOG
 
+## Cardano SL 1.3.1
+
+### Features
+
+- Add genesis data for the Cardano SL public Testnet. ([#3265](https://github.com/input-output-hk/cardano-sl/pull/3265), [#3349](https://github.com/input-output-hk/cardano-sl/pull/3349), DEVOPS-398)
+
+- Add a "faucet" API to dispense Testnet Ada to users. ([#2939](https://github.com/input-output-hk/cardano-sl/pull/2939), DEVOPS-834)
+
+- Adjust the address format so that Testnet addresses are not valid on Mainnet. (TBA, CO-354)
+
+- Support additional fields for Daedalus bug reports in the report server. ([#3394](https://github.com/input-output-hk/cardano-sl/pull/3394), TSD-116)
+
+### Fixes
+
+- Fix a case where the error reporting system can cause the node to stop syncing. ([#3294](https://github.com/input-output-hk/cardano-sl/pull/3294), CDEC-469, CDEC-439)
+
+- Add a workaround for the RocksDB issue which prevented Daedalus Windows users with non-ASCII usernames from starting the wallet. ([#3465](https://github.com/input-output-hk/cardano-sl/pull/3465), CBR-391)
+
+- Add support to cardano-sl-launcher for launching Daedalus in "safe mode". ([#3421](https://github.com/input-output-hk/cardano-sl/pull/3421), DDW-380)
+
+- Fix the x509 certificate generation tool to allow using IP addresses as subject alternate names. ([#3390](https://github.com/input-output-hk/cardano-sl/pull/3390), DEVOPS-992)
+
+- Fix display of the git version in Cardano Explorer. ([#3386](https://github.com/input-output-hk/cardano-sl/pull/3386), DEVOPS-999)
+
+- Update Windows build script to use a newer openssl version. ([#3397](https://github.com/input-output-hk/cardano-sl/pull/3397), DEVOPS-1003)
+
+
 ## Cardano SL 1.3.0 (Mainnet)
 
 ### Features

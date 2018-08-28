@@ -31,7 +31,7 @@ import           Pos.Chain.Block.Union (Block, BlockHeader (..),
                      MainConsensusData (..), MainToSign (..),
                      mainBlockEBDataProof)
 import           Pos.Chain.Ssc (verifySscPayload)
-import           Pos.Core.Configuration (HasProtocolConstants)
+import           Pos.Core as Core (Config (..))
 import           Pos.Core.Delegation (LightDlgIndices (..), checkDlgPayload)
 import           Pos.Core.Slotting (SlotId (..))
 import           Pos.Core.Ssc (checkSscPayload)
@@ -53,13 +53,11 @@ verifyBlockHeader pm (BlockHeaderMain bhm) = verifyMainBlockHeader pm bhm
 
 -- | Verify a Block in isolation.
 verifyBlock
-    :: ( MonadError Text m
-       , HasProtocolConstants
-       )
-    => ProtocolMagic
+    :: MonadError Text m
+    => Core.Config
     -> Block
     -> m ()
-verifyBlock pm = either verifyGenesisBlock (verifyMainBlock pm)
+verifyBlock coreConfig = either verifyGenesisBlock (verifyMainBlock coreConfig)
 
 -- | To verify a genesis block we only have to check the body proof.
 verifyGenesisBlock
@@ -72,12 +70,12 @@ verifyGenesisBlock UnsafeGenericBlock {..} =
 verifyMainBlock
     :: ( MonadError Text m
        , Bi MainProof
-       , HasProtocolConstants
        )
-    => ProtocolMagic
+    => Core.Config
     -> GenericBlock MainBlockchain
     -> m ()
-verifyMainBlock pm block@UnsafeGenericBlock {..} = do
+verifyMainBlock coreConfig block@UnsafeGenericBlock {..} = do
+    let pm = configProtocolMagic coreConfig
     verifyMainBlockHeader pm _gbHeader
     verifyMainBody pm _gbBody
     -- No need to verify the main extra body data. It's an 'Attributes ()'
@@ -93,7 +91,7 @@ verifyMainBlock pm block@UnsafeGenericBlock {..} = do
     -- be done in 'verifyMainBody'.
     either (throwError . pretty) pure $
         verifySscPayload
-            pm
+            coreConfig
             (Right (Some _gbHeader))
             (_mbSscPayload _gbBody)
 

@@ -30,7 +30,7 @@ import           Pos.Chain.Ssc.Base (deleteSignedCommitment,
                      isOpeningId, isOpeningIdx, isSharesId, isSharesIdx)
 import           Pos.Chain.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..),
                      MonadTossRead (..))
-import           Pos.Core (HasProtocolConstants, LocalSlotIndex, SlotId)
+import           Pos.Core (BlockCount, LocalSlotIndex, SlotId)
 import           Pos.Core.Ssc (CommitmentsMap, OpeningsMap, SharesMap,
                      VssCertificatesMap, insertVss)
 import           Pos.Util.Util (cborError, ether)
@@ -49,17 +49,17 @@ instance Buildable SscTag where
     build SharesMsg         = "shares"
     build VssCertificateMsg = "VSS certificate"
 
-isGoodSlotForTag :: HasProtocolConstants => SscTag -> LocalSlotIndex -> Bool
+isGoodSlotForTag :: SscTag -> BlockCount -> LocalSlotIndex -> Bool
 isGoodSlotForTag CommitmentMsg     = isCommitmentIdx
 isGoodSlotForTag OpeningMsg        = isOpeningIdx
 isGoodSlotForTag SharesMsg         = isSharesIdx
-isGoodSlotForTag VssCertificateMsg = const True
+isGoodSlotForTag VssCertificateMsg = const $ const True
 
-isGoodSlotIdForTag :: HasProtocolConstants => SscTag -> SlotId -> Bool
+isGoodSlotIdForTag :: SscTag -> BlockCount -> SlotId -> Bool
 isGoodSlotIdForTag CommitmentMsg     = isCommitmentId
 isGoodSlotIdForTag OpeningMsg        = isOpeningId
 isGoodSlotIdForTag SharesMsg         = isSharesId
-isGoodSlotIdForTag VssCertificateMsg = const True
+isGoodSlotIdForTag VssCertificateMsg = const $ const True
 
 data TossModifier = TossModifier
     { _tmCommitments  :: !CommitmentsMap
@@ -118,7 +118,7 @@ instance MonadTossRead m =>
     getOpenings = ether $ (<>) <$> use tmOpenings <*> getOpenings
     getShares = ether $ (<>) <$> use tmShares <*> getShares
     getVssCertificates = ether $ (<>) <$> use tmCertificates <*> getVssCertificates
-    getStableCertificates = ether . getStableCertificates
+    getStableCertificates k = ether . getStableCertificates k
 
 instance MonadTossEnv m =>
          MonadTossEnv (TossT m) where

@@ -73,7 +73,7 @@ import           Pos.Binary (biSize)
 import           Pos.Chain.Block (MainBlock, Undo (..), gbHeader, gbhConsensus,
                      headerHash, mainBlockSlot, mainBlockTxPayload, mcdSlot,
                      prevBlockL)
-import           Pos.Core (Address, Coin, EpochIndex, LocalSlotIndex,
+import           Pos.Core (Address, Coin, EpochIndex, LocalSlotIndex, SlotCount,
                      SlotId (..), StakeholderId, Timestamp, addressF,
                      coinToInteger, decodeTextAddress, getEpochIndex,
                      getSlotIndex, mkCoin, sumCoins, timestampToPosix,
@@ -209,9 +209,10 @@ instance NFData CBlockEntry
 
 toBlockEntry
     :: ExplorerMode ctx m
-    => (MainBlock, Undo)
+    => SlotCount
+    -> (MainBlock, Undo)
     -> m CBlockEntry
-toBlockEntry (blk, Undo{..}) = do
+toBlockEntry epochSlots (blk, Undo{..}) = do
 
     blkSlotStart      <- getSlotStartCSLI $ blk ^. gbHeader . gbhConsensus . mcdSlot
 
@@ -221,7 +222,7 @@ toBlockEntry (blk, Undo{..}) = do
         slotIndex     = siSlot  blkHeaderSlot
 
     -- Find the epoch and slot leader
-    epochSlotLeader   <- LrcDB.getLeader $ SlotId epochIndex slotIndex
+    epochSlotLeader   <- LrcDB.getLeader epochSlots $ SlotId epochIndex slotIndex
 
     -- Fill required fields for @CBlockEntry@
     let cbeEpoch      = getEpochIndex epochIndex
@@ -276,10 +277,11 @@ data CBlockSummary = CBlockSummary
 
 toBlockSummary
     :: ExplorerMode ctx m
-    => (MainBlock, Undo)
+    => SlotCount
+    -> (MainBlock, Undo)
     -> m CBlockSummary
-toBlockSummary blund@(blk, _) = do
-    cbsEntry    <- toBlockEntry blund
+toBlockSummary epochSlots blund@(blk, _) = do
+    cbsEntry    <- toBlockEntry epochSlots blund
     cbsNextHash <- fmap toCHash <$> GS.resolveForwardLink blk
 
     let blockTxs      = blk ^. mainBlockTxPayload . txpTxs

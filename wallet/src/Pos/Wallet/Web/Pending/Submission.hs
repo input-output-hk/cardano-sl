@@ -23,9 +23,9 @@ import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Client.Txp.History (saveTx, thTimestamp)
 import           Pos.Client.Txp.Network (TxMode)
 import           Pos.Configuration (walletTxCreationDisabled)
-import           Pos.Core (diffTimestamp, getCurrentTimestamp)
+import           Pos.Core as Core (Config (..), diffTimestamp,
+                     getCurrentTimestamp)
 import           Pos.Core.Txp (TxAux)
-import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Util.LogSafe (buildSafe, logInfoSP, logWarningSP,
                      secretOnlyF)
 import           Pos.Util.Util (maybeThrow)
@@ -109,14 +109,14 @@ type TxSubmissionMode ctx m = ( TxMode m )
 -- but treats tx as future /pending/ transaction.
 submitAndSavePtx
     :: TxSubmissionMode ctx m
-    => ProtocolMagic
+    => Core.Config
     -> TxpConfiguration
     -> WalletDB
     -> (TxAux -> m Bool)
     -> PtxSubmissionHandlers m
     -> PendingTx
     -> m ()
-submitAndSavePtx pm txpConfig db submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
+submitAndSavePtx coreConfig txpConfig db submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
     -- this should've been checked before, but just in case
     when walletTxCreationDisabled $
         throwM $ InternalError "Transaction creation is disabled by configuration!"
@@ -134,7 +134,7 @@ submitAndSavePtx pm txpConfig db submitTx PtxSubmissionHandlers{..} ptx@PendingT
                       _ptxTxId
        | otherwise -> do
            addOnlyNewPendingTx db ptx
-           (saveTx pm txpConfig (_ptxTxId, _ptxTxAux)
+           (saveTx coreConfig txpConfig (_ptxTxId, _ptxTxAux)
                `catches` handlers)
                `onException` creationFailedHandler
            ack <- submitTx _ptxTxAux
@@ -142,7 +142,12 @@ submitAndSavePtx pm txpConfig db submitTx PtxSubmissionHandlers{..} ptx@PendingT
 
            poolInfo <- badInitPtxCondition `maybeThrow` ptxPoolInfo _ptxCond
            _ <- usingPtxCoords (casPtxCondition db) ptx _ptxCond (PtxApplying poolInfo)
-           when ack $ ptxUpdateMeta db _ptxWallet _ptxTxId PtxMarkAcknowledged
+           when ack $ ptxUpdateMeta
+               (configProtocolConstants coreConfig)
+               db
+               _ptxWallet
+               _ptxTxId
+               PtxMarkAcknowledged
   where
     handlers =
         [ Handler $ \e ->

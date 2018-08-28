@@ -20,7 +20,7 @@ import           Test.QuickCheck (Arbitrary (..), Property, choose, oneof,
 import           Test.QuickCheck.Monadic (pick)
 
 import           Pos.Chain.Txp (TxpConfiguration (..))
-import           Pos.Core (Address, BlockCount (..), blkSecurityParam)
+import           Pos.Core (Address, BlockCount (..))
 import           Pos.Core.Chrono (nonEmptyOldestFirst, toNewestFirst)
 import           Pos.Crypto (emptyPassphrase)
 import           Pos.DB.Block (rollbackBlocks)
@@ -42,7 +42,7 @@ import           Pos.Wallet.Web.Tracking.Types (newSyncRequest)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..),
                      InplaceDB (..))
 import           Test.Pos.Configuration (withDefConfigurations)
-import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
+import           Test.Pos.Core.Dummy (dummyConfig, dummyK)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty)
 import           Test.Pos.Wallet.Arbitrary.Web.ClientTypes ()
 import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
@@ -63,27 +63,25 @@ spec = withDefConfigurations $ \_ _ _ -> do
 
 twoApplyTwoRollbacksSpec :: HasConfigurations => Spec
 twoApplyTwoRollbacksSpec = walletPropertySpec twoApplyTwoRollbacksDesc $ do
-    let k = fromIntegral blkSecurityParam :: Word64
+    let k = fromIntegral dummyK :: Word64
     -- During these tests we need to manually switch back to the old synchronous
     -- way of restoring.
     void $ importSomeWallets (pure emptyPassphrase)
     secretKeys <- lift getSecretKeysPlain
     lift $ forM_ secretKeys $ \sk ->
-        syncWalletWithBlockchain . newSyncRequest . keyToWalletDecrCredentials $ KeyForRegular sk
+        syncWalletWithBlockchain dummyK . newSyncRequest . keyToWalletDecrCredentials $ KeyForRegular sk
 
     -- Testing starts here
     genesisWalletDB <- lift WS.askWalletSnapshot
     applyBlocksCnt1 <- pick $ choose (1, k `div` 2)
     applyBlocksCnt2 <- pick $ choose (1, k `div` 2)
     let txpConfig = TxpConfiguration 200 Set.empty
-    blunds1 <- wpGenBlocks dummyProtocolMagic
-                           txpConfig
+    blunds1 <- wpGenBlocks txpConfig
                            (Just $ BlockCount applyBlocksCnt1)
                            (EnableTxPayload True)
                            (InplaceDB True)
     after1ApplyDB <- lift WS.askWalletSnapshot
-    blunds2 <- wpGenBlocks dummyProtocolMagic
-                           txpConfig
+    blunds2 <- wpGenBlocks txpConfig
                            (Just $ BlockCount applyBlocksCnt2)
                            (EnableTxPayload True)
                            (InplaceDB True)
@@ -91,9 +89,9 @@ twoApplyTwoRollbacksSpec = walletPropertySpec twoApplyTwoRollbacksDesc $ do
     let toNE = fromMaybe (error "sequence of blocks are empty") . nonEmptyOldestFirst
     let to1Rollback = toNewestFirst $ toNE blunds2
     let to2Rollback = toNewestFirst $ toNE blunds1
-    lift $ rollbackBlocks dummyProtocolMagic to1Rollback
+    lift $ rollbackBlocks dummyConfig to1Rollback
     after1RollbackDB <- lift WS.askWalletSnapshot
-    lift $ rollbackBlocks dummyProtocolMagic to2Rollback
+    lift $ rollbackBlocks dummyConfig to2Rollback
     after2RollbackDB <- lift WS.askWalletSnapshot
     assertProperty (after1RollbackDB == after1ApplyDB)
         "wallet-db after first apply doesn't equal to wallet-db after first rollback"

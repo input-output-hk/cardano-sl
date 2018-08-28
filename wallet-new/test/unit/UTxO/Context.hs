@@ -100,18 +100,18 @@ initCardanoContext coreConfig = CardanoContext
     , ccUtxo        = ccUtxo
     , ccSecrets     = fromMaybe (error "initCardanoContext: no secrets") $
                           configGeneratedSecrets coreConfig
-    , ccMagic       = configProtocolMagic coreConfig
+    , ccMagic       = ccMagic
     , ccInitLeaders = ccLeaders
     , ccBalances    = utxoToAddressCoinPairs ccUtxo
     , ccHash0       = (blockHeaderHash . BlockHeaderGenesis . _gbHeader) ccBlock0
-    , ccEpochSlots  = epochSlots
+    , ccEpochSlots  = ccEpochSlots
     }
   where
-    ccLeaders = genesisLeaders epochSlots
-    ccBlock0  = genesisBlock0 (configProtocolMagic coreConfig)
-                              (GenesisHash genesisHash)
-                              ccLeaders
-    ccUtxo    = unGenesisUtxo genesisUtxo
+    ccEpochSlots = configEpochSlots coreConfig
+    ccLeaders    = genesisLeaders ccEpochSlots
+    ccMagic      = configProtocolMagic coreConfig
+    ccBlock0     = genesisBlock0 ccMagic (GenesisHash genesisHash) ccLeaders
+    ccUtxo       = unGenesisUtxo genesisUtxo
 
 {-------------------------------------------------------------------------------
   More explicit representation of the various actors in the genesis block

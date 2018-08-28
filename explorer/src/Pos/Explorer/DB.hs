@@ -44,11 +44,10 @@ import           Pos.Binary.Class (serialize')
 import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Txp (GenesisUtxo (..), genesisUtxo, utxoF,
                      utxoToAddressCoinPairs)
-import           Pos.Core (Address, Coin, EpochIndex (..), HasConfiguration,
-                     SlotCount, coinToInteger, unsafeAddCoin)
+import           Pos.Core as Core (Address, Coin, Config, EpochIndex (..),
+                     HasConfiguration, coinToInteger, unsafeAddCoin)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Txp (Tx, TxId, TxOut (..), TxOutAux (..))
-import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (DBError (..), DBIteratorClass (..), DBTag (GStateDB),
                      MonadDB, MonadDBRead (dbGet), RocksBatchOp (..),
                      dbIterSource, dbSerializeValue, encodeWithKeyPrefix)
@@ -59,16 +58,12 @@ import           Pos.Explorer.Core (AddrHistory, TxExtra (..))
 import           Pos.Util.Util (maybeThrow)
 import           Pos.Util.Wlog (WithLogger, logError)
 
-
-
 explorerInitDB
-    :: forall ctx m.
-       ( MonadReader ctx m
-       , MonadUnliftIO m
-       , MonadDB m
-       )
-    => ProtocolMagic -> SlotCount -> m ()
-explorerInitDB pm epochSlots = initNodeDBs pm epochSlots >> prepareExplorerDB
+    :: forall ctx m
+     . (MonadReader ctx m, MonadUnliftIO m, MonadDB m)
+    => Core.Config
+    -> m ()
+explorerInitDB coreConfig = initNodeDBs coreConfig >> prepareExplorerDB
 
 ----------------------------------------------------------------------------
 -- Types

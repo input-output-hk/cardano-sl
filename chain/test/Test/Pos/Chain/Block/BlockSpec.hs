@@ -56,12 +56,10 @@ spec = withGenesisSpec 0 defaultCoreConfiguration id $ \_ ->
             prop verifyHeadersDesc validateGoodHeaderChain
             emptyHeaderChain (NewestFirst [])
   where
-    mainHeaderFormationDesc
-        = "Manually generating a main header block and using\
-    \ mkMainHeader is the same"
-    genesisHeaderFormationDesc
-        = "Manually generating a genesis header block and using\
-    \ mkGenesisHeader is the same"
+    mainHeaderFormationDesc =
+        "Manually generating a main header block and using mkMainHeader is the same"
+    genesisHeaderFormationDesc =
+        "Manually generating a genesis header block and using mkGenesisHeader is the same"
     verifyHeaderDesc = "Successfully verifies a correct main block header"
     invalidProtocolMagicHeaderDesc =
         "Header with invalid protocol magic does not validate"

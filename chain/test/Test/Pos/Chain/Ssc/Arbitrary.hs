@@ -37,12 +37,9 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
 import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..), SscGlobalState (..),
                      SscSecretStorage (..), SscTag (..), TossModifier (..),
-                     VssCertData (..), isCommitmentIdExplicit,
-                     isOpeningIdExplicit, isSharesIdExplicit,
+                     VssCertData (..), isCommitmentId, isOpeningId, isSharesId,
                      mkSignedCommitment)
 import           Pos.Core (EpochIndex, SlotId (..))
-import           Pos.Core.Configuration (HasProtocolConstants,
-                     protocolConstants)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
                      VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..),
@@ -55,6 +52,7 @@ import           Pos.Crypto (ProtocolMagic, SecretKey, deterministic,
 
 import           Test.Pos.Core.Arbitrary (genVssCertificate)
 import           Test.Pos.Core.Arbitrary.Unsafe ()
+import           Test.Pos.Core.Dummy (dummyK)
 import           Test.Pos.Crypto.Arbitrary (genSignature)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Arbitrary (Nonrepeating (..),
@@ -186,13 +184,13 @@ instance Arbitrary SscPayload where
     shrink = genericShrink
 
 -- | We need the 'ProtocolConstants' because they give meaning to 'SlotId'.
-genSscPayloadForSlot :: ProtocolMagic -> ProtocolConstants -> SlotId -> Gen SscPayload
-genSscPayloadForSlot pm pc slot
-    | isCommitmentIdExplicit pc slot =
+genSscPayloadForSlot :: ProtocolMagic -> SlotId -> Gen SscPayload
+genSscPayloadForSlot pm slot
+    | isCommitmentId dummyK slot =
         CommitmentsPayload <$> (genCommitments slot) <*> (genVssCerts slot)
-    | isOpeningIdExplicit pc slot =
+    | isOpeningId dummyK slot =
         OpeningsPayload <$> arbitrary <*> (genVssCerts slot)
-    | isSharesIdExplicit pc slot =
+    | isSharesId dummyK slot =
         SharesPayload <$> arbitrary <*> (genVssCerts slot)
     | otherwise =
         CertificatesPayload <$> (genVssCerts slot)
@@ -209,8 +207,8 @@ genSscPayloadForSlot pm pc slot
         arbitrary
     genValidCert SlotId{..} (sk, pk) = mkVssCertificate pm sk pk $ siEpoch + 5
 
-instance HasProtocolConstants => Arbitrary SscPayloadDependsOnSlot where
-    arbitrary = pure $ SscPayloadDependsOnSlot (genSscPayloadForSlot dummyProtocolMagic protocolConstants)
+instance Arbitrary SscPayloadDependsOnSlot where
+    arbitrary = pure $ SscPayloadDependsOnSlot (genSscPayloadForSlot dummyProtocolMagic)
 
 genVssCertificatesMap :: ProtocolMagic -> Gen VssCertificatesMap
 genVssCertificatesMap pm = do
@@ -221,11 +219,11 @@ instance Arbitrary VssCertificatesMap where
     arbitrary = genVssCertificatesMap dummyProtocolMagic
     shrink = genericShrink
 
-instance HasProtocolConstants => Arbitrary VssCertData where
+instance Arbitrary VssCertData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasProtocolConstants => Arbitrary SscGlobalState where
+instance Arbitrary SscGlobalState where
     arbitrary = genericArbitrary
     shrink = genericShrink
 

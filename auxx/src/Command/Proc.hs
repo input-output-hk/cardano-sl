@@ -19,8 +19,8 @@ import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Chain.Update (BlockVersionModifier (..))
 import           Pos.Client.KeyStorage (addSecretKey, getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
-import           Pos.Core as Core (AddrStakeDistribution (..), Address,
-                     Config (..), StakeholderId, addressHash,
+import           Pos.Core as Core (AddrStakeDistribution (..), Config (..),
+                     StakeholderId, addressHash, configEpochSlots,
                      configGeneratedSecretsThrow, mkMultiKeyDistr,
                      unsafeGetCoin)
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
@@ -103,6 +103,7 @@ createCommandProcs mCoreConfig mTxpConfig hasAuxxMode printAction mDiffusion = r
     },
 
     let name = "addr" in
+    needsCoreConfig name >>= \coreConfig ->
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
@@ -114,7 +115,7 @@ createCommandProcs mCoreConfig mTxpConfig hasAuxxMode printAction mDiffusion = r
     , cpExec = \(pk', mDistr) -> do
         pk <- toLeft pk'
         addr <- case mDistr of
-            Nothing -> makePubKeyAddressAuxx pk
+            Nothing -> makePubKeyAddressAuxx (configEpochSlots coreConfig) pk
             Just distr -> return $
                 makeAddress (PubKeyASD pk) (AddrAttributes Nothing distr)
         return $ ValueAddress addr
@@ -124,6 +125,7 @@ createCommandProcs mCoreConfig mTxpConfig hasAuxxMode printAction mDiffusion = r
     },
 
     let name = "addr-hd" in
+    needsCoreConfig name >>= \coreConfig ->
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
@@ -134,7 +136,7 @@ createCommandProcs mCoreConfig mTxpConfig hasAuxxMode printAction mDiffusion = r
         sk <- evaluateWHNF (sks !! i) -- WHNF is sufficient to force possible errors
                                       -- from using (!!). I'd use NF but there's no
                                       -- NFData instance for secret keys.
-        addrHD <- deriveHDAddressAuxx sk
+        addrHD <- deriveHDAddressAuxx (configEpochSlots coreConfig) sk
         return $ ValueAddress addrHD
     , cpHelp = "address of the HD wallet for the specified public key"
     },
@@ -191,13 +193,16 @@ createCommandProcs mCoreConfig mTxpConfig hasAuxxMode printAction mDiffusion = r
     return . procConst "false" $ ValueBool False,
 
     let name = "balance" in
+    needsCoreConfig name >>= \coreConfig ->
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
     , cpArgumentPrepare = identity
     , cpArgumentConsumer = getArg (tyAddress `tyEither` tyPublicKey `tyEither` tyInt) "addr"
     , cpExec = \addr' -> do
-        addr <- toLeft addr'
+        addr <-
+          either return (makePubKeyAddressAuxx $ configEpochSlots coreConfig) <=<
+          traverse (either return getPublicKeyFromIndex) $ addr'
         balance <- getBalance addr
         return $ ValueNumber (fromIntegral . unsafeGetCoin $ balance)
     , cpHelp = "check the amount of coins on the specified address"
@@ -229,10 +234,7 @@ createCommandProcs mCoreConfig mTxpConfig hasAuxxMode printAction mDiffusion = r
         return Tx.SendToAllGenesisParams{..}
     , cpExec = \stagp -> do
         secretKeys <- gsSecretKeys <$> configGeneratedSecretsThrow coreConfig
-        Tx.sendToAllGenesis (configProtocolMagic coreConfig)
-                            secretKeys
-                            diffusion
-                            stagp
+        Tx.sendToAllGenesis coreConfig secretKeys diffusion stagp
         return ValueUnit
     , cpHelp = "create and send transactions from all genesis addresses \
                \ for <duration> seconds, <delay> in ms. <conc> is the \
@@ -263,7 +265,7 @@ createCommandProcs mCoreConfig mTxpConfig hasAuxxMode printAction mDiffusion = r
         (,) <$> getArg tyInt "i"
             <*> getArgSome tyTxOut "out"
     , cpExec = \(i, outputs) -> do
-        Tx.send (configProtocolMagic coreConfig) diffusion i outputs
+        Tx.send coreConfig diffusion i outputs
         return ValueUnit
     , cpHelp = "send from #i to specified transaction outputs \
                \ (use 'tx-out' to build them)"
@@ -424,7 +426,7 @@ createCommandProcs mCoreConfig mTxpConfig hasAuxxMode printAction mDiffusion = r
         bgoSeed <- getArgOpt tyInt "seed"
         return GenBlocksParams{..}
     , cpExec = \params -> do
-        generateBlocks (configProtocolMagic coreConfig) txpConfig params
+        generateBlocks coreConfig txpConfig params
         return ValueUnit
     , cpHelp = "generate <n> blocks"
     },
@@ -479,26 +481,26 @@ createCommandProcs mCoreConfig mTxpConfig hasAuxxMode printAction mDiffusion = r
         rpDumpPath <- getArg tyFilePath "dump-file"
         pure RollbackParams{..}
     , cpExec = \RollbackParams{..} -> do
-        Rollback.rollbackAndDump (configProtocolMagic coreConfig)
-                                 rpNum
-                                 rpDumpPath
+        Rollback.rollbackAndDump coreConfig rpNum rpDumpPath
         return ValueUnit
     , cpHelp = ""
     },
 
     let name = "listaddr" in
+    needsCoreConfig name >>= \coreConfig ->
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
     , cpArgumentPrepare = identity
     , cpArgumentConsumer = do pure ()
     , cpExec = \() -> do
+        let epochSlots = configEpochSlots coreConfig
         sks <- getSecretKeysPlain
         printAction "Available addresses:"
         for_ (zip [0 :: Int ..] sks) $ \(i, sk) -> do
             let pk = encToPublic sk
-            addr <- makePubKeyAddressAuxx pk
-            addrHD <- deriveHDAddressAuxx sk
+            addr <- makePubKeyAddressAuxx epochSlots pk
+            addrHD <- deriveHDAddressAuxx epochSlots sk
             printAction $
                 sformat ("    #"%int%":   addr:      "%build%"\n"%
                          "          pk:        "%fullPublicKeyF%"\n"%
@@ -507,7 +509,7 @@ createCommandProcs mCoreConfig mTxpConfig hasAuxxMode printAction mDiffusion = r
                     i addr pk (addressHash pk) addrHD
         walletMB <- (^. usWallet) <$> (view userSecret >>= readTVarIO)
         whenJust walletMB $ \wallet -> do
-            addrHD <- deriveHDAddressAuxx (_wusRootKey wallet)
+            addrHD <- deriveHDAddressAuxx epochSlots (_wusRootKey wallet)
             printAction $
                 sformat ("    Wallet address:\n"%
                          "          HD addr:   "%build)
@@ -557,9 +559,6 @@ instance MonadAuxxMode m => ToLeft m PublicKey Int where
 
 instance MonadAuxxMode m => ToLeft m StakeholderId PublicKey where
     toLeft = return . either identity addressHash
-
-instance MonadAuxxMode m => ToLeft m Address PublicKey where
-    toLeft = either return makePubKeyAddressAuxx
 
 getPublicKeyFromIndex :: MonadAuxxMode m => Int -> m PublicKey
 getPublicKeyFromIndex i = do

@@ -279,7 +279,7 @@ runBenchmark = do
     streamIORef <- newIORef []
     let seed = 0
         size = 4
-        !arbitraryBlock = force $ Right (generateMainBlock protocolMagic protocolConstants seed size)
+        !arbitraryBlock = force $ Right (generateMainBlock protocolMagic seed size)
         !arbitraryHashes = force $ someHash :| replicate 2199 someHash
         !arbitraryHeader = force $ Block.getBlockHeader arbitraryBlock
         !arbitraryHeaders = force $ arbitraryHeader :| replicate 2199 arbitraryHeader

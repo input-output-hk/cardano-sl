@@ -32,10 +32,11 @@ import           Pos.Chain.Ssc (HasSscConfiguration, HasSscContext (..),
                      isSharesIdx, mkSignedCommitment, mpcSendInterval,
                      scBehavior, scParticipateSsc, scVssKeyPair,
                      sgsCommitments, vssThreshold)
-import           Pos.Core (EpochIndex, HasPrimaryKey, SlotId (..),
-                     StakeholderId, Timestamp (..), blkSecurityParam,
+import           Pos.Core as Core (BlockCount, Config (..), EpochIndex,
+                     HasPrimaryKey, SlotId (..), StakeholderId, Timestamp (..),
+                     configBlkSecurityParam, configEpochSlots, configVssMaxTTL,
                      getOurSecretKey, getOurStakeholderId, getSlotIndex,
-                     mkLocalSlotIndex, slotSecurityParam, vssMaxTTL)
+                     kEpochSlots, kSlotSecurityParam, mkLocalSlotIndex)
 import           Pos.Core.Conc (currentTime, delay)
 import           Pos.Core.JsonLog (CanJsonLog)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
@@ -45,9 +46,8 @@ import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
                      getCommitmentsMap, lookupVss, memberVss, mkVssCertificate,
                      randCommitmentAndOpening)
 import           Pos.Core.Update (bvdMpcThd)
-import           Pos.Crypto (ProtocolMagic, SecretKey, VssKeyPair, VssPublicKey,
-                     randomNumber, randomNumberInRange, runSecureRandom,
-                     vssKeyGen)
+import           Pos.Crypto (SecretKey, VssKeyPair, VssPublicKey, randomNumber,
+                     randomNumberInRange, runSecureRandom, vssKeyGen)
 import           Pos.Crypto.SecretSharing (toVssPublicKey)
 import           Pos.DB (gsAdoptedBVData)
 import           Pos.DB.Class (MonadDB, MonadGState)
@@ -95,8 +95,12 @@ sscWorkers
   :: ( SscMode ctx m
      , HasMisbehaviorMetrics ctx
      )
-  => ProtocolMagic -> [Diffusion m -> m ()]
-sscWorkers pm = [onNewSlotSsc pm, checkForIgnoredCommitmentsWorker]
+  => Core.Config
+  -> [Diffusion m -> m ()]
+sscWorkers coreConfig =
+    [ onNewSlotSsc coreConfig
+    , checkForIgnoredCommitmentsWorker (configBlkSecurityParam coreConfig)
+    ]
 
 shouldParticipate :: SscMode ctx m => EpochIndex -> m Bool
 shouldParticipate epoch = do
@@ -112,32 +116,30 @@ shouldParticipate epoch = do
 -- CHECK: @onNewSlotSsc
 -- #checkNSendOurCert
 onNewSlotSsc
-    :: ( SscMode ctx m
-       )
-    => ProtocolMagic
+    :: SscMode ctx m
+    => Core.Config
     -> Diffusion m
     -> m ()
-onNewSlotSsc pm = \diffusion -> onNewSlot defaultOnNewSlotParams $ \slotId ->
-    recoveryCommGuard "onNewSlot worker in SSC" $ do
+onNewSlotSsc coreConfig diffusion = onNewSlot (configEpochSlots coreConfig) defaultOnNewSlotParams $ \slotId ->
+    recoveryCommGuard (configBlkSecurityParam coreConfig) "onNewSlot worker in SSC" $ do
         sscGarbageCollectLocalData slotId
         whenM (shouldParticipate $ siEpoch slotId) $ do
             behavior <- view sscContext >>=
                 (readTVarIO . scBehavior)
-            checkNSendOurCert pm (sendSscCert diffusion)
-            onNewSlotCommitment pm slotId (sendSscCommitment diffusion)
-            onNewSlotOpening pm (sbSendOpening behavior) slotId (sendSscOpening diffusion)
-            onNewSlotShares pm (sbSendShares behavior) slotId (sendSscShares diffusion)
+            checkNSendOurCert coreConfig (sendSscCert diffusion)
+            onNewSlotCommitment coreConfig slotId (sendSscCommitment diffusion)
+            onNewSlotOpening coreConfig (sbSendOpening behavior) slotId (sendSscOpening diffusion)
+            onNewSlotShares coreConfig (sbSendShares behavior) slotId (sendSscShares diffusion)
 
 -- CHECK: @checkNSendOurCert
 -- Checks whether 'our' VSS certificate has been announced
 checkNSendOurCert
     :: forall ctx m.
-       ( SscMode ctx m
-       )
-    => ProtocolMagic
+       SscMode ctx m
+    => Core.Config
     -> (VssCertificate -> m ())
     -> m ()
-checkNSendOurCert pm sendCert = do
+checkNSendOurCert coreConfig sendCert = do
     ourId <- getOurStakeholderId
     let sendCertDo resend slot = do
             if resend then
@@ -147,11 +149,11 @@ checkNSendOurCert pm sendCert = do
                          "Our VssCertificate hasn't been announced yet or TTL has expired, \
                          \we will announce it now."
             ourVssCertificate <- getOurVssCertificate slot
-            sscProcessOurMessage (sscProcessCertificate pm ourVssCertificate)
+            sscProcessOurMessage (sscProcessCertificate coreConfig ourVssCertificate)
             _ <- sendCert ourVssCertificate
             logDebugS "Announced our VssCertificate."
 
-    slMaybe <- getCurrentSlot
+    slMaybe <- getCurrentSlot $ configEpochSlots coreConfig
     case slMaybe of
         Nothing -> pass
         Just sl -> do
@@ -180,8 +182,8 @@ checkNSendOurCert pm sendCert = do
                 ourVssKeyPair <- getOurVssKeyPair
                 let vssKey = asBinary $ toVssPublicKey ourVssKeyPair
                     createOurCert =
-                        mkVssCertificate pm ourSk vssKey .
-                        (+) (vssMaxTTL - 1) . siEpoch
+                        mkVssCertificate (configProtocolMagic coreConfig) ourSk vssKey .
+                        (+) (configVssMaxTTL coreConfig - 1) . siEpoch
                 return $ createOurCert slot
 
 getOurVssKeyPair :: SscMode ctx m => m VssKeyPair
@@ -189,19 +191,18 @@ getOurVssKeyPair = views sscContext scVssKeyPair
 
 -- Commitments-related part of new slot processing
 onNewSlotCommitment
-    :: ( SscMode ctx m
-       )
-    => ProtocolMagic
+    :: SscMode ctx m
+    => Core.Config
     -> SlotId
     -> (SignedCommitment -> m ())
     -> m ()
-onNewSlotCommitment pm slotId@SlotId {..} sendCommitment
-    | not (isCommitmentIdx siSlot) = pass
+onNewSlotCommitment coreConfig slotId@SlotId {..} sendCommitment
+    | not (isCommitmentIdx k siSlot) = pass
     | otherwise = do
         ourId <- getOurStakeholderId
         shouldSendCommitment <- andM
             [ not . hasCommitment ourId <$> sscGetGlobalState
-            , memberVss ourId <$> getStableCerts siEpoch]
+            , memberVss ourId <$> getStableCerts k siEpoch]
         if shouldSendCommitment then
             logDebugS "We should send commitment"
         else
@@ -213,10 +214,12 @@ onNewSlotCommitment pm slotId@SlotId {..} sendCommitment
                 Just comm -> logDebugS stillValidMsg >> sendOurCommitment comm
                 Nothing   -> onNewSlotCommDo
   where
+    k = configBlkSecurityParam coreConfig
+
     onNewSlotCommDo = do
         ourSk <- getOurSecretKey
         logDebugS $ sformat ("Generating secret for "%ords%" epoch") siEpoch
-        generated <- generateAndSetNewSecret pm ourSk slotId
+        generated <- generateAndSetNewSecret coreConfig ourSk slotId
         case generated of
             Nothing -> logWarningS "I failed to generate secret for SSC"
             Just comm -> do
@@ -224,8 +227,8 @@ onNewSlotCommitment pm slotId@SlotId {..} sendCommitment
               sendOurCommitment comm
 
     sendOurCommitment comm = do
-        sscProcessOurMessage (sscProcessCommitment pm comm)
-        sendOurData sendCommitment CommitmentMsg comm siEpoch 0
+        sscProcessOurMessage (sscProcessCommitment coreConfig comm)
+        sendOurData k sendCommitment CommitmentMsg comm siEpoch 0
 
 -- | Generate a random Opening.
 randomOpening :: IO Opening
@@ -239,17 +242,16 @@ randomOpening = snd <$> secureRandCommitmentAndOpening
 
 -- Openings-related part of new slot processing
 onNewSlotOpening
-    :: ( SscMode ctx m
-       )
-    => ProtocolMagic
+    :: SscMode ctx m
+    => Core.Config
     -> SscOpeningParams     -- ^ This parameter is part of the node's
                             -- BehaviorConfig which defines how the node should
                             -- behave when it's sending openings to other nodes
     -> SlotId
     -> (Opening -> m ())
     -> m ()
-onNewSlotOpening pm params SlotId {..} sendOpening
-    | not $ isOpeningIdx siSlot = pass
+onNewSlotOpening coreConfig params SlotId {..} sendOpening
+    | not $ isOpeningIdx k siSlot = pass
     | otherwise = do
         ourId <- getOurStakeholderId
         globalData <- sscGetGlobalState
@@ -260,6 +262,8 @@ onNewSlotOpening pm params SlotId {..} sendOpening
                     Nothing   -> logWarningS noOpenMsg
                     Just open -> sendOpeningDo ourId open
   where
+    k = configBlkSecurityParam coreConfig
+
     noCommMsg =
         "We're not sending opening, because there is no commitment \
         \from us in global state"
@@ -275,28 +279,28 @@ onNewSlotOpening pm params SlotId {..} sendOpening
             -- typically only specified for testing purposes.
             SscOpeningWrong  -> Just <$> liftIO randomOpening
         whenJust mbOpen' $ \open' -> do
-            sscProcessOurMessage (sscProcessOpening pm ourId open')
-            sendOurData sendOpening OpeningMsg open' siEpoch 2
+            sscProcessOurMessage (sscProcessOpening coreConfig ourId open')
+            sendOurData k sendOpening OpeningMsg open' siEpoch 2
 
 -- Shares-related part of new slot processing
 onNewSlotShares
-    :: ( SscMode ctx m
-       )
-    => ProtocolMagic
+    :: SscMode ctx m
+    => Core.Config
     -> SscSharesParams
     -> SlotId
     -> (InnerSharesMap -> m ())
     -> m ()
-onNewSlotShares pm params SlotId {..} sendShares = do
+onNewSlotShares coreConfig params SlotId {..} sendShares = do
     ourId <- getOurStakeholderId
     -- Send decrypted shares that others have sent us
     shouldSendShares <- do
         sharesInBlockchain <- hasShares ourId <$> sscGetGlobalState
-        return $ isSharesIdx siSlot && not sharesInBlockchain
+        return $ isSharesIdx k siSlot && not sharesInBlockchain
     when shouldSendShares $ do
         ourVss <- views sscContext scVssKeyPair
         sendSharesDo ourId =<< getOurShares ourVss
   where
+    k = configBlkSecurityParam coreConfig
     sendSharesDo ourId shares = do
         let shares' = case params of
                 SscSharesNone   -> mempty
@@ -309,8 +313,8 @@ onNewSlotShares pm params SlotId {..} sendShares = do
                     shares & partsOf each %~ reverse
         unless (HM.null shares') $ do
             let lShares = fmap (map asBinary) shares'
-            sscProcessOurMessage (sscProcessShares pm ourId lShares)
-            sendOurData sendShares SharesMsg lShares siEpoch 4
+            sscProcessOurMessage (sscProcessShares coreConfig ourId lShares)
+            sendOurData k sendShares SharesMsg lShares siEpoch 4
 
 sscProcessOurMessage
     :: (Buildable err, SscMode ctx m)
@@ -325,17 +329,18 @@ sscProcessOurMessage action =
 
 sendOurData
     :: SscMode ctx m
-    => (contents -> m ())
+    => BlockCount
+    -> (contents -> m ())
     -> SscTag
     -> contents
     -> EpochIndex
     -> Word16
     -> m ()
-sendOurData sendIt msgTag dt epoch slMultiplier = do
+sendOurData k sendIt msgTag dt epoch slMultiplier = do
     -- Note: it's not necessary to create a new thread here, because
     -- in one invocation of onNewSlot we can't process more than one
     -- type of message.
-    waitUntilSend msgTag epoch slMultiplier
+    waitUntilSend k msgTag epoch slMultiplier
     logInfoS $ sformat ("Announcing our "%build) msgTag
     _ <- sendIt dt
     logDebugS $ sformat ("Sent our " %build%" to neighbors") msgTag
@@ -347,16 +352,15 @@ sendOurData sendIt msgTag dt epoch slMultiplier = do
 -- node doesn't have recent enough blocks and needs to be
 -- synchronized).
 generateAndSetNewSecret
-    :: forall ctx m.
-       ( SscMode ctx m
-       )
-    => ProtocolMagic
+    :: forall ctx m
+     . SscMode ctx m
+    => Core.Config
     -> SecretKey
     -> SlotId -- ^ Current slot
     -> m (Maybe SignedCommitment)
-generateAndSetNewSecret pm sk SlotId {..} = do
+generateAndSetNewSecret coreConfig sk SlotId {..} = do
     richmen <- getSscRichmen "generateAndSetNewSecret" siEpoch
-    certs <- getStableCerts siEpoch
+    certs <- getStableCerts (configBlkSecurityParam coreConfig) siEpoch
     inAssertMode $ do
         let participantIds =
                 HM.keys . getVssCertificatesMap $
@@ -396,7 +400,11 @@ generateAndSetNewSecret pm sk SlotId {..} = do
                     Right keys -> do
                         (comm, open) <- liftIO $ runSecureRandom $
                             randCommitmentAndOpening threshold keys
-                        let signedComm = mkSignedCommitment pm sk siEpoch comm
+                        let signedComm = mkSignedCommitment
+                                (configProtocolMagic coreConfig)
+                                sk
+                                siEpoch
+                                comm
                         SS.putOurSecret signedComm open siEpoch
                         pure (Just signedComm)
 
@@ -412,11 +420,11 @@ randomTimeInInterval interval =
 
 waitUntilSend
     :: SscMode ctx m
-    => SscTag -> EpochIndex -> Word16 -> m ()
-waitUntilSend msgTag epoch slMultiplier = do
+    => BlockCount -> SscTag -> EpochIndex -> Word16 -> m ()
+waitUntilSend k msgTag epoch slMultiplier = do
     let slot =
             leftToPanic "waitUntilSend: " $
-            mkLocalSlotIndex $ slMultiplier * fromIntegral slotSecurityParam
+            mkLocalSlotIndex (kEpochSlots k) $ slMultiplier * fromIntegral (kSlotSecurityParam k)
     Timestamp beginning <-
         getSlotStartEmpatically $
         SlotId {siEpoch = epoch, siSlot = slot}
@@ -444,11 +452,14 @@ checkForIgnoredCommitmentsWorker
        ( SscMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => Diffusion m
+    => BlockCount
+    -> Diffusion m
     -> m ()
-checkForIgnoredCommitmentsWorker = \_ -> do
+checkForIgnoredCommitmentsWorker k _ = do
     counter <- newTVarIO 0
-    onNewSlot defaultOnNewSlotParams (checkForIgnoredCommitmentsWorkerImpl counter)
+    onNewSlot (kEpochSlots k)
+              defaultOnNewSlotParams
+              (checkForIgnoredCommitmentsWorkerImpl k counter)
 
 -- This worker checks whether our commitments appear in blocks. This check
 -- is done only if we actually should participate in SSC. It's triggered if
@@ -464,12 +475,12 @@ checkForIgnoredCommitmentsWorkerImpl
        ( SscMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => TVar Word -> SlotId -> m ()
-checkForIgnoredCommitmentsWorkerImpl counter SlotId {..}
+    => BlockCount -> TVar Word -> SlotId -> m ()
+checkForIgnoredCommitmentsWorkerImpl k counter SlotId {..}
     -- It's enough to do this check once per epoch near the end of the epoch.
-    | getSlotIndex siSlot /= 9 * fromIntegral blkSecurityParam = pass
+    | getSlotIndex siSlot /= 9 * fromIntegral k = pass
     | otherwise =
-        recoveryCommGuard "checkForIgnoredCommitmentsWorker" $
+        recoveryCommGuard k "checkForIgnoredCommitmentsWorker" $
         whenM (shouldParticipate siEpoch) $ do
             ourId <- getOurStakeholderId
             globalCommitments <-

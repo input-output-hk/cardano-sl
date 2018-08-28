@@ -19,17 +19,15 @@ import           Pos.Binary.Class (decodeFull, serialize)
 import           Pos.Chain.Block (ApplyBlocksException, Block,
                      VerifyBlocksException)
 import           Pos.Chain.Txp (TxpConfiguration (..))
-import           Pos.Core (Config (..), configGeneratedSecretsThrow)
+import           Pos.Core as Core (Config (..), configGeneratedSecretsThrow)
 import           Pos.Core.Chrono (NE, OldestFirst (..), nonEmptyNewestFirst)
 import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)
-import           Pos.Core.Configuration (genesisBlockVersionData, genesisData,
-                     slotSecurityParam)
+import           Pos.Core.Configuration (genesisBlockVersionData, genesisData)
 import           Pos.Core.Genesis (FakeAvvmOptions (..), GenesisData (..),
                      GenesisInitializer (..), GenesisProtocolConstants (..),
                      TestnetBalanceOptions (..), gsSecretKeys)
 import           Pos.Core.Slotting (Timestamp (..))
 import           Pos.Crypto (SecretKey)
-import           Pos.Crypto.Configuration (ProtocolMagic)
 import           Pos.DB.Block (rollbackBlocks, verifyAndApplyBlocks,
                      verifyBlocksPrefix)
 import           Pos.DB.DB (initNodeDBs)
@@ -71,14 +69,14 @@ balance = TestnetBalanceOptions
     }
 
 generateBlocks :: HasConfigurations
-               => ProtocolMagic
+               => Core.Config
                -> [SecretKey]
                -> TxpConfiguration
                -> BlockCount
                -> BlockTestMode (OldestFirst NE Block)
-generateBlocks pm secretKeys txpConfig bCount = do
+generateBlocks coreConfig secretKeys txpConfig bCount = do
     g <- liftIO $ newStdGen
-    bs <- flip evalRandT g $ genBlocks pm txpConfig
+    bs <- flip evalRandT g $ genBlocks coreConfig txpConfig
             (BlockGenParams
                 { _bgpSecrets = mkAllSecretsSimple secretKeys
                 , _bgpBlockCount = bCount
@@ -89,7 +87,9 @@ generateBlocks pm secretKeys txpConfig bCount = do
                 , _bgpInplaceDB = False
                 , _bgpSkipNoKey = True
                 , _bgpGenStakeholders = gdBootStakeholders genesisData
-                , _bgpTxpGlobalSettings = txpGlobalSettings pm (TxpConfiguration 200 Set.empty)
+                , _bgpTxpGlobalSettings = txpGlobalSettings
+                      (configProtocolMagic coreConfig)
+                      (TxpConfiguration 200 Set.empty)
                 })
             (maybeToList . fmap fst)
     return $ OldestFirst $ NE.fromList bs
@@ -205,16 +205,15 @@ main = do
                     , _tpGenesisInitializer = genesisInitializer
                     , _tpTxpConfiguration = TxpConfiguration 200 Set.empty
                     }
-                pm = configProtocolMagic coreConfig
             secretKeys <- gsSecretKeys <$> configGeneratedSecretsThrow coreConfig
             runBlockTestMode tp secretKeys $ do
                 -- initialize databasea
-                initNodeDBs pm slotSecurityParam
+                initNodeDBs coreConfig
                 bs <- case baBlockCache args of
                     Nothing -> do
                         -- generate blocks and evaluate them to normal form
                         logInfo "Generating blocks"
-                        generateBlocks pm secretKeys txpConfig (baBlockCount args)
+                        generateBlocks coreConfig secretKeys txpConfig (baBlockCount args)
                     Just path -> do
                         fileExists <- liftIO $ doesFileExist path
                         mbs <- if fileExists
@@ -224,7 +223,7 @@ main = do
                             Nothing -> do
                                 -- generate blocks and evaluate them to normal form
                                 logInfo "Generating blocks"
-                                bs <- generateBlocks pm secretKeys txpConfig (baBlockCount args)
+                                bs <- generateBlocks coreConfig secretKeys txpConfig (baBlockCount args)
                                 liftIO $ writeBlocks path bs
                                 return bs
                             Just bs -> return bs
@@ -236,8 +235,8 @@ main = do
                         $ \(idx, blocks) -> do
                             logInfo $ sformat ("Pass: "%int) idx
                             (if baApply args
-                                then validateAndApply pm txpConfig blocks
-                                else validate pm blocks)
+                                then validateAndApply coreConfig txpConfig blocks
+                                else validate coreConfig blocks)
 
                     let -- drop first three results (if there are more than three results)
                         itimes :: [Float]
@@ -266,27 +265,28 @@ main = do
 
         validate
             :: HasConfigurations
-            => ProtocolMagic
+            => Core.Config
             -> OldestFirst NE Block
             -> BlockTestMode (Microsecond, Maybe (Either VerifyBlocksException ApplyBlocksException))
-        validate pm blocks = do
+        validate coreConfig blocks = do
             verStart <- realTime
-            res <- (force . either Left (Right . fst)) <$> verifyBlocksPrefix pm Nothing blocks
+            res <- (force . either Left (Right . fst)) <$> verifyBlocksPrefix coreConfig Nothing blocks
             verEnd <- realTime
             return (verEnd - verStart, either (Just . Left) (const Nothing) res)
 
         validateAndApply
             :: HasConfigurations
-            => ProtocolMagic
+            => Core.Config
             -> TxpConfiguration
             -> OldestFirst NE Block
             -> BlockTestMode (Microsecond, Maybe (Either VerifyBlocksException ApplyBlocksException))
-        validateAndApply pm txpConfig blocks = do
+        validateAndApply coreConfig txpConfig blocks = do
             verStart <- realTime
-            res <- force <$> verifyAndApplyBlocks pm txpConfig Nothing False blocks
+            res <- force <$> verifyAndApplyBlocks coreConfig txpConfig Nothing False blocks
             verEnd <- realTime
             case res of
                 Left _ -> return ()
-                Right (_, blunds)
-                    -> whenJust (nonEmptyNewestFirst blunds) (rollbackBlocks pm)
+                Right (_, blunds) -> whenJust
+                    (nonEmptyNewestFirst blunds)
+                    (rollbackBlocks coreConfig)
             return (verEnd - verStart, either (Just . Right) (const Nothing) res)

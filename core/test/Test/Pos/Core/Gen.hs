@@ -494,26 +494,27 @@ genVssMinTTL = VssMinTTL <$> genWord32
 genEpochIndex :: Gen EpochIndex
 genEpochIndex = EpochIndex <$> Gen.word64 Range.constantBounded
 
-genEpochOrSlot :: ProtocolConstants -> Gen EpochOrSlot
-genEpochOrSlot pc =
+genEpochOrSlot :: SlotCount -> Gen EpochOrSlot
+genEpochOrSlot epochSlots =
     Gen.choice [ EpochOrSlot . Left <$> genEpochIndex
-               , EpochOrSlot . Right <$> genSlotId pc
+               , EpochOrSlot . Right <$> genSlotId epochSlots
                ]
 
 genFlatSlotId :: Gen FlatSlotId
 genFlatSlotId = Gen.word64 Range.constantBounded
 
-genLocalSlotIndex :: ProtocolConstants -> Gen LocalSlotIndex
-genLocalSlotIndex pc = UnsafeLocalSlotIndex <$> Gen.word16 (Range.constant lb ub)
+genLocalSlotIndex :: SlotCount -> Gen LocalSlotIndex
+genLocalSlotIndex epochSlots =
+    UnsafeLocalSlotIndex <$> Gen.word16 (Range.constant lb ub)
   where
     lb = getSlotIndex (localSlotIndexMinBound)
-    ub = getSlotIndex (localSlotIndexMaxBound pc)
+    ub = getSlotIndex (localSlotIndexMaxBound epochSlots)
 
 genSlotCount :: Gen SlotCount
 genSlotCount = SlotCount <$> Gen.word64 Range.constantBounded
 
-genSlotId :: ProtocolConstants -> Gen SlotId
-genSlotId pc = SlotId <$> genEpochIndex <*> genLocalSlotIndex pc
+genSlotId :: SlotCount -> Gen SlotId
+genSlotId epochSlots = SlotId <$> genEpochIndex <*> genLocalSlotIndex epochSlots
 
 genTimeDiff :: Gen TimeDiff
 genTimeDiff = TimeDiff <$> genMicrosecond

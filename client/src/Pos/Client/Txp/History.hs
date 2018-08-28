@@ -45,11 +45,11 @@ import           Pos.Chain.Txp (ToilVerFailure, Tx (..), TxAux (..), TxId,
                      applyTxToUtxo, evalUtxoM, flattenTxPayload, genesisUtxo,
                      runUtxoM, topsortTxs, txOutAddress, unGenesisUtxo,
                      utxoGet, utxoToLookup)
-import           Pos.Core (Address, ChainDifficulty, GenesisHash (..),
-                     HasConfiguration, Timestamp (..), difficultyL, epochSlots,
-                     genesisHash)
+import           Pos.Core as Core (Address, ChainDifficulty, Config (..),
+                     GenesisHash (..), HasConfiguration, Timestamp (..),
+                     configEpochSlots, difficultyL, genesisHash)
 import           Pos.Core.JsonLog (CanJsonLog (..))
-import           Pos.Crypto (ProtocolMagic, WithHash (..), withHash)
+import           Pos.Crypto (WithHash (..), withHash)
 import           Pos.DB (MonadDBRead, MonadGState)
 import           Pos.DB.Block (getBlock)
 import           Pos.DB.Txp (MempoolExt, MonadTxpLocal, MonadTxpMem, buildUtxo,
@@ -169,17 +169,17 @@ genesisUtxoLookup = utxoToLookup . unGenesisUtxo $ genesisUtxo
 ----------------------------------------------------------------------------
 
 -- | A class which have methods to get transaction history
-class (Monad m, HasConfiguration) => MonadTxHistory m where
+class Monad m => MonadTxHistory m where
     getBlockHistory
-        :: ProtocolMagic -> [Address] -> m (Map TxId TxHistoryEntry)
+        :: Core.Config -> [Address] -> m (Map TxId TxHistoryEntry)
     getLocalHistory
         :: [Address] -> m (Map TxId TxHistoryEntry)
-    saveTx :: ProtocolMagic -> TxpConfiguration -> (TxId, TxAux) -> m ()
+    saveTx :: Core.Config -> TxpConfiguration -> (TxId, TxAux) -> m ()
 
     default getBlockHistory
         :: (MonadTrans t, MonadTxHistory m', t m' ~ m)
-        => ProtocolMagic -> [Address] -> m (Map TxId TxHistoryEntry)
-    getBlockHistory pm = lift . getBlockHistory pm
+        => Core.Config -> [Address] -> m (Map TxId TxHistoryEntry)
+    getBlockHistory coreConfig = lift . getBlockHistory coreConfig
 
     default getLocalHistory
         :: (MonadTrans t, MonadTxHistory m', t m' ~ m)
@@ -188,11 +188,11 @@ class (Monad m, HasConfiguration) => MonadTxHistory m where
 
     default saveTx
         :: (MonadTrans t, MonadTxHistory m', t m' ~ m)
-        => ProtocolMagic
+        => Core.Config
         -> TxpConfiguration
         -> (TxId, TxAux)
         -> m ()
-    saveTx pm txpConfig = lift . saveTx pm txpConfig
+    saveTx coreConfig txpConfig = lift . saveTx coreConfig txpConfig
 
 instance {-# OVERLAPPABLE #-}
     (MonadTxHistory m, MonadTrans t, Monad (t m)) =>
@@ -216,11 +216,14 @@ type TxHistoryEnv ctx m =
 getBlockHistoryDefault
     :: forall ctx m
      . (HasConfiguration, TxHistoryEnv ctx m)
-    => ProtocolMagic
+    => Core.Config
     -> [Address]
     -> m (Map TxId TxHistoryEntry)
-getBlockHistoryDefault pm addrs = do
-    let bot      = headerHash (genesisBlock0 pm (GenesisHash genesisHash) (genesisLeaders epochSlots))
+getBlockHistoryDefault coreConfig addrs = do
+    let bot = headerHash $ genesisBlock0
+            (configProtocolMagic coreConfig)
+            (GenesisHash genesisHash)
+            (genesisLeaders $ configEpochSlots coreConfig)
     sd          <- GS.getSlottingData
     systemStart <- getSystemStartM
 
@@ -268,11 +271,11 @@ instance Exception SaveTxException where
             SaveTxToilFailure x -> toString (pretty x)
 
 saveTxDefault :: TxHistoryEnv ctx m
-              => ProtocolMagic
+              => Core.Config
               -> TxpConfiguration
               -> (TxId, TxAux) -> m ()
-saveTxDefault pm txpConfig txw = do
-    res <- txpProcessTx pm txpConfig txw
+saveTxDefault coreConfig txpConfig txw = do
+    res <- txpProcessTx coreConfig txpConfig txw
     eitherToThrow (first SaveTxToilFailure res)
 
 txHistoryListToMap :: [TxHistoryEntry] -> Map TxId TxHistoryEntry

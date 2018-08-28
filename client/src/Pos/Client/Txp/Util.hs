@@ -70,8 +70,9 @@ import           Pos.Chain.Txp (Tx (..), TxAux (..), TxFee (..), TxIn (..),
                      TxInWitness (..), TxOut (..), TxOutAux (..),
                      TxSigData (..), Utxo)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
-import           Pos.Core (Address, Coin, StakeholderId, TxFeePolicy (..),
-                     TxSizeLinear (..), calculateTxSizeLinear, coinToInteger,
+import           Pos.Core as Core (Address, Coin, Config (..), SlotCount,
+                     StakeholderId, TxFeePolicy (..), TxSizeLinear (..),
+                     calculateTxSizeLinear, coinToInteger, configEpochSlots,
                      integerToCoin, isRedeemAddress, mkCoin, sumCoins,
                      txSizeLinearMinValue, unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Core.Attributes (mkAttributes)
@@ -528,13 +529,14 @@ prepareTxRaw pendingTx utxo outputs fee = do
 -- Returns set of tx outputs including change output (if it's necessary)
 mkOutputsWithRem
     :: TxCreateMode m
-    => AddrData m
+    => SlotCount
+    -> AddrData m
     -> TxRaw
     -> TxCreator m TxOutputs
-mkOutputsWithRem addrData TxRaw {..}
+mkOutputsWithRem epochSlots addrData TxRaw {..}
     | trRemainingMoney == mkCoin 0 = pure trOutputs
     | otherwise = do
-        changeAddr <- lift . lift $ getNewAddress addrData
+        changeAddr <- lift . lift $ getNewAddress epochSlots addrData
         let txOut = TxOut changeAddr trRemainingMoney
         pure $ TxOutAux txOut :| toList trOutputs
 
@@ -553,33 +555,34 @@ mkOutputsWithRemForUnsignedTx TxRaw {..} changeAddress
 
 prepareInpsOuts
     :: TxCreateMode m
-    => ProtocolMagic
+    => Core.Config
     -> PendingAddresses
     -> Utxo
     -> TxOutputs
     -> AddrData m
     -> TxCreator m (TxOwnedInputs TxOut, TxOutputs)
-prepareInpsOuts pm pendingTx utxo outputs addrData = do
-    txRaw@TxRaw {..} <- prepareTxWithFee pm pendingTx utxo outputs
-    outputsWithRem <- mkOutputsWithRem addrData txRaw
+prepareInpsOuts coreConfig pendingTx utxo outputs addrData = do
+    txRaw@TxRaw {..} <- prepareTxWithFee coreConfig pendingTx utxo outputs
+    outputsWithRem <-
+        mkOutputsWithRem (configEpochSlots coreConfig) addrData txRaw
     pure (trInputs, outputsWithRem)
 
 prepareInpsOutsForUnsignedTx
     :: TxCreateMode m
-    => ProtocolMagic
+    => Core.Config
     -> PendingAddresses
     -> Utxo
     -> TxOutputs
     -> Address
     -> TxCreator m (TxOwnedInputs TxOut, TxOutputs)
-prepareInpsOutsForUnsignedTx pm pendingTx utxo outputs changeAddress = do
-    txRaw@TxRaw {..} <- prepareTxWithFee pm pendingTx utxo outputs
+prepareInpsOutsForUnsignedTx coreConfig pendingTx utxo outputs changeAddress = do
+    txRaw@TxRaw {..} <- prepareTxWithFee coreConfig pendingTx utxo outputs
     let outputsWithRem = mkOutputsWithRemForUnsignedTx txRaw changeAddress
     pure (trInputs, outputsWithRem)
 
 createGenericTx
     :: TxCreateMode m
-    => ProtocolMagic
+    => Core.Config
     -> PendingAddresses
     -> (TxOwnedInputs TxOut -> TxOutputs -> Either TxError TxAux)
     -> InputSelectionPolicy
@@ -587,15 +590,15 @@ createGenericTx
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createGenericTx pm pendingTx creator inputSelectionPolicy utxo outputs addrData =
-    runTxCreator inputSelectionPolicy $ do
-        (inps, outs) <- prepareInpsOuts pm pendingTx utxo outputs addrData
+createGenericTx coreConfig pendingTx creator inputSelectionPolicy utxo outputs addrData
+    = runTxCreator inputSelectionPolicy $ do
+        (inps, outs) <- prepareInpsOuts coreConfig pendingTx utxo outputs addrData
         txAux <- either throwError return $ creator inps outs
         pure (txAux, map fst inps)
 
 createGenericTxSingle
     :: TxCreateMode m
-    => ProtocolMagic
+    => Core.Config
     -> PendingAddresses
     -> (TxInputs -> TxOutputs -> Either TxError TxAux)
     -> InputSelectionPolicy
@@ -603,13 +606,14 @@ createGenericTxSingle
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createGenericTxSingle pm pendingTx creator = createGenericTx pm pendingTx (creator . map snd)
+createGenericTxSingle coreConfig pendingTx creator =
+    createGenericTx coreConfig pendingTx (creator . map snd)
 
 -- | Make a multi-transaction using given secret key and info for outputs.
 -- Currently used for HD wallets only, thus `HDAddressPayload` is required
 createMTx
     :: TxCreateMode m
-    => ProtocolMagic
+    => Core.Config
     -> PendingAddresses
     -> InputSelectionPolicy
     -> Utxo
@@ -617,9 +621,15 @@ createMTx
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createMTx pm pendingTx groupInputs utxo hdwSigners outputs addrData =
-    createGenericTx pm pendingTx (makeMPubKeyTxAddrs pm getSigner)
-        groupInputs utxo outputs addrData
+createMTx coreConfig pendingTx groupInputs utxo hdwSigners outputs addrData =
+    createGenericTx
+        coreConfig
+        pendingTx
+        (makeMPubKeyTxAddrs (configProtocolMagic coreConfig) getSigner)
+        groupInputs
+        utxo
+        outputs
+        addrData
   where
     getSigner address =
         note (SafeSignerNotFound address) $
@@ -629,30 +639,35 @@ createMTx pm pendingTx groupInputs utxo hdwSigners outputs addrData =
 -- outputs.
 createTx
     :: TxCreateMode m
-    => ProtocolMagic
+    => Core.Config
     -> PendingAddresses
     -> Utxo
     -> SafeSigner
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createTx pm pendingTx utxo ss outputs addrData =
-    createGenericTxSingle pm pendingTx (\i o -> Right $ makePubKeyTx pm ss i o)
-    OptimizeForHighThroughput utxo outputs addrData
+createTx coreConfig pendingTx utxo ss outputs addrData = createGenericTxSingle
+    coreConfig
+    pendingTx
+    (\i o -> Right $ makePubKeyTx (configProtocolMagic coreConfig) ss i o)
+    OptimizeForHighThroughput
+    utxo
+    outputs
+    addrData
 
 -- | Create unsigned Tx, it will be signed by external wallet.
 createUnsignedTx
     :: TxCreateMode m
-    => ProtocolMagic
+    => Core.Config
     -> PendingAddresses
     -> InputSelectionPolicy
     -> Utxo
     -> TxOutputs
     -> Address
     -> m (Either TxError (Tx,NonEmpty TxOut))
-createUnsignedTx pm pendingTx selectionPolicy utxo outputs changeAddress =
+createUnsignedTx coreConfig pendingTx selectionPolicy utxo outputs changeAddress =
     runTxCreator selectionPolicy $ do
-        (inps, outs) <- prepareInpsOutsForUnsignedTx pm
+        (inps, outs) <- prepareInpsOutsForUnsignedTx coreConfig
                                                      pendingTx
                                                      utxo
                                                      outputs
@@ -663,17 +678,20 @@ createUnsignedTx pm pendingTx selectionPolicy utxo outputs changeAddress =
 -- | Make a transaction, using M-of-N script as a source
 createMOfNTx
     :: TxCreateMode m
-    => ProtocolMagic
+    => Core.Config
     -> PendingAddresses
     -> Utxo
     -> [(StakeholderId, Maybe SafeSigner)]
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createMOfNTx pm pendingTx utxo keys outputs addrData =
-    createGenericTxSingle pm pendingTx (\i o -> Right $ makeMOfNTx pm validator sks i o)
+createMOfNTx coreConfig pendingTx utxo keys outputs addrData =
+    createGenericTxSingle coreConfig
+                          pendingTx
+                          (\i o -> Right $ makeMOfNTx pm validator sks i o)
     OptimizeForSecurity utxo outputs addrData
   where
+    pm = configProtocolMagic coreConfig
     ids = map fst keys
     sks = map snd keys
     m = length $ filter isJust sks
@@ -714,25 +732,26 @@ withLinearFeePolicy action = view tcdFeePolicy >>= \case
 -- | Prepare transaction considering fees
 prepareTxWithFee
     :: MonadAddresses m
-    => ProtocolMagic
+    => Core.Config
     -> PendingAddresses
     -> Utxo
     -> TxOutputs
     -> TxCreator m TxRaw
-prepareTxWithFee pm pendingTx utxo outputs = withLinearFeePolicy $ \linearPolicy ->
-    stabilizeTxFee pm pendingTx linearPolicy utxo outputs
+prepareTxWithFee coreConfig pendingTx utxo outputs =
+    withLinearFeePolicy $ \linearPolicy ->
+        stabilizeTxFee coreConfig pendingTx linearPolicy utxo outputs
 
 -- | Compute, how much fees we should pay to send money to given
 -- outputs
 computeTxFee
     :: MonadAddresses m
-    => ProtocolMagic
+    => Core.Config
     -> PendingAddresses
     -> Utxo
     -> TxOutputs
     -> TxCreator m TxFee
-computeTxFee pm pendingTx utxo outputs = do
-    TxRaw {..} <- prepareTxWithFee pm pendingTx utxo outputs
+computeTxFee coreConfig pendingTx utxo outputs = do
+    TxRaw {..} <- prepareTxWithFee coreConfig pendingTx utxo outputs
     let outAmount = sumTxOutCoins trOutputs
         inAmount = sumCoins $ map (txOutValue . fst) trInputs
         remaining = coinToInteger trRemainingMoney
@@ -785,13 +804,13 @@ computeTxFee pm pendingTx utxo outputs = do
 stabilizeTxFee
     :: forall m
      . MonadAddresses m
-    => ProtocolMagic
+    => Core.Config
     -> PendingAddresses
     -> TxSizeLinear
     -> Utxo
     -> TxOutputs
     -> TxCreator m TxRaw
-stabilizeTxFee pm pendingTx linearPolicy utxo outputs = do
+stabilizeTxFee coreConfig pendingTx linearPolicy utxo outputs = do
     minFee <- fixedToFee (txSizeLinearMinValue linearPolicy)
     mtx <- stabilizeTxFeeDo (False, firstStageAttempts) minFee
     case mtx of
@@ -807,9 +826,12 @@ stabilizeTxFee pm pendingTx linearPolicy utxo outputs = do
     stabilizeTxFeeDo (_, 0) _ = pure Nothing
     stabilizeTxFeeDo (isSecondStage, attempt) expectedFee = do
         txRaw <- prepareTxRaw pendingTx utxo outputs expectedFee
-        fakeChangeAddr <- lift . lift $ getFakeChangeAddress
-        txMinFee <- txToLinearFee linearPolicy $
-                    createFakeTxFromRawTx pm fakeChangeAddr txRaw
+        fakeChangeAddr <- lift . lift $ getFakeChangeAddress $ configEpochSlots
+            coreConfig
+        txMinFee <- txToLinearFee linearPolicy $ createFakeTxFromRawTx
+            (configProtocolMagic coreConfig)
+            fakeChangeAddr
+            txRaw
 
         let txRawWithFee = S.Min $ S.Arg expectedFee txRaw
         let iterateDo step = stabilizeTxFeeDo step txMinFee

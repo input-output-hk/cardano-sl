@@ -98,7 +98,6 @@ library
                        Pos.Core.Configuration.Core
                        Pos.Core.Configuration.GenesisData
                        Pos.Core.Configuration.GenesisHash
-                       Pos.Core.Configuration.Protocol
 
                        -- Context
                        Pos.Core.Context.PrimaryKey
@@ -283,7 +282,6 @@ test-suite test
                        Test.Pos.Core.Chrono
                        Test.Pos.Core.ChronoSpec
                        Test.Pos.Core.CoinSpec
-                       Test.Pos.Core.EnumEmpTest
                        Test.Pos.Core.ExampleHelpers
                        Test.Pos.Core.Gen
                        Test.Pos.Core.Json
@@ -294,6 +292,7 @@ test-suite test
                        Test.Pos.Core.Arbitrary
                        Test.Pos.Core.Arbitrary.Slotting
                        Test.Pos.Core.Arbitrary.Unsafe
+                       Test.Pos.Core.Dummy
 
   build-depends:       aeson
                      , base

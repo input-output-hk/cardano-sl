@@ -8,6 +8,6 @@ ghcid: ## Run ghcid with the wallet-new project
 ghcid-test: ## Have ghcid run the test suite for the wallet-new-specs on successful recompile
 	ghcid \
 	    --command "stack ghci cardano-sl-wallet:lib cardano-sl-wallet:test:cardano-wallet-test --ghci-options=-fobject-code" \
-	    --test "main"
+	    --test "Main.main"
 
 .PHONY: ghcid ghcid-test help

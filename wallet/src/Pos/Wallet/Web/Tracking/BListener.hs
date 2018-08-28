@@ -22,7 +22,7 @@ import           Pos.Chain.Block (BlockHeader (..), Blund, HeaderHash,
                      blockHeader, getBlockHeader, headerSlotL,
                      mainBlockTxPayload, prevBlockL, undoTx)
 import           Pos.Chain.Txp (flattenTxPayload)
-import           Pos.Core (Timestamp, difficultyL)
+import           Pos.Core (ProtocolConstants, Timestamp, difficultyL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Txp (TxAux (..), TxUndo)
 import           Pos.DB.BatchOp (SomeBatchOp)
@@ -123,16 +123,18 @@ onApplyBlocksWebWallet blunds = setLogger . reportTimeouts "apply" $ do
 
 -- Perform this action under block lock.
 onRollbackBlocksWebWallet
-    :: forall ctx m .
-    ( AccountMode ctx m
-    , WS.WalletDbReader ctx m
-    , MonadDBRead m
-    , MonadSlots ctx m
-    , MonadReporting m
-    , CanLogInParallel m
-    )
-    => NewestFirst NE Blund -> m SomeBatchOp
-onRollbackBlocksWebWallet blunds = setLogger . reportTimeouts "rollback" $ do
+    :: forall ctx m
+     . ( AccountMode ctx m
+       , WS.WalletDbReader ctx m
+       , MonadDBRead m
+       , MonadSlots ctx m
+       , MonadReporting m
+       , CanLogInParallel m
+       )
+    => ProtocolConstants
+    -> NewestFirst NE Blund
+    -> m SomeBatchOp
+onRollbackBlocksWebWallet pc blunds = setLogger . reportTimeouts "rollback" $ do
     db <- WS.askWalletDB
     ws <- WS.getWalletSnapshot db
     let newestFirst = getNewestFirst blunds
@@ -161,7 +163,7 @@ onRollbackBlocksWebWallet blunds = setLogger . reportTimeouts "rollback" $ do
         let rollbackBlockWith trackingOperation = do
               let dbUsed = WS.getCustomAddresses ws WS.UsedAddr
                   mapModifier = trackingRollbackTxs credentials dbUsed gbDiff blkHeaderTs txs
-              rollbackModifierFromWallet db trackingOperation wid newTip mapModifier
+              rollbackModifierFromWallet pc db trackingOperation wid newTip mapModifier
               logMsg "Rolled back" (getNewestFirst blunds) wid mapModifier
 
         rollbackBlockWith SyncWallet

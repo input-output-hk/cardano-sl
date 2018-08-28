@@ -23,14 +23,15 @@ import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
                      tmCertificates, tmCommitments, tmOpenings, tmShares)
 import           Pos.Chain.Txp (MemPool (..), TxpConfiguration)
 import           Pos.Communication (NodeId)
-import           Pos.Core (HasConfiguration, StakeholderId, addressHash)
+import           Pos.Core as Core (Config (..), HasConfiguration, StakeholderId,
+                     addressHash, configBlkSecurityParam, configEpochSlots)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Ssc (getCertId, getCommitmentsMap, lookupVss)
 import           Pos.Core.Txp (TxAux (..), TxMsgContents (..))
 import           Pos.Core.Update (BlockVersionData, UpdateProposal (..),
                      UpdateVote (..))
-import           Pos.Crypto (ProtocolMagic, hash)
+import           Pos.Crypto (hash)
 import qualified Pos.DB.Block as Block
 import qualified Pos.DB.Block as DB (getTipBlock)
 import qualified Pos.DB.BlockIndex as DB (getHeader, getTipHeader)
@@ -94,14 +95,14 @@ type LogicWorkMode ctx m =
 -- monadX constraints to do most of its work.
 logicFull
     :: forall ctx m .
-       ( LogicWorkMode ctx m )
-    => ProtocolMagic
+       LogicWorkMode ctx m
+    => Core.Config
     -> TxpConfiguration
     -> StakeholderId
     -> SecurityParams
     -> (JLEvent -> m ()) -- ^ JSON log callback. FIXME replace by structured logging solution
     -> Logic m
-logicFull pm txpConfig ourStakeholderId securityParams jsonLogTx =
+logicFull coreConfig txpConfig ourStakeholderId securityParams jsonLogTx =
     let
         getSerializedBlock :: HeaderHash -> m (Maybe SerializedBlock)
         getSerializedBlock = DB.dbGetSerBlock
@@ -119,7 +120,8 @@ logicFull pm txpConfig ourStakeholderId securityParams jsonLogTx =
         getAdoptedBVData = gsAdoptedBVData
 
         recoveryInProgress :: m Bool
-        recoveryInProgress = Recovery.recoveryInProgress
+        recoveryInProgress =
+            Recovery.recoveryInProgress $ configEpochSlots coreConfig
 
         getBlockHeader :: HeaderHash -> m (Maybe BlockHeader)
         getBlockHeader = DB.getHeader
@@ -135,7 +137,11 @@ logicFull pm txpConfig ourStakeholderId securityParams jsonLogTx =
             :: Maybe Word -- ^ Optional limit on how many to pull in.
             -> NonEmpty HeaderHash
             -> Maybe HeaderHash
-            -> m (Either Block.GetHeadersFromManyToError (NewestFirst NE BlockHeader))
+            -> m
+                   ( Either
+                         Block.GetHeadersFromManyToError
+                         (NewestFirst NE BlockHeader)
+                   )
         getBlockHeaders = Block.getHeadersFromManyTo
 
         getLcaMainChain
@@ -144,23 +150,23 @@ logicFull pm txpConfig ourStakeholderId securityParams jsonLogTx =
         getLcaMainChain = Block.lcaWithMainChainSuffix
 
         postBlockHeader :: BlockHeader -> NodeId -> m ()
-        postBlockHeader = Block.handleUnsolicitedHeader pm
+        postBlockHeader = Block.handleUnsolicitedHeader coreConfig
 
         postPskHeavy :: ProxySKHeavy -> m Bool
-        postPskHeavy = Delegation.handlePsk pm
+        postPskHeavy = Delegation.handlePsk $ configProtocolMagic coreConfig
 
         postTx = KeyVal
             { toKey = pure . Tagged . hash . taTx . getTxMsgContents
             , handleInv = \(Tagged txId) -> not . HM.member txId . _mpLocalTxs <$> withTxpLocalData getMemPool
             , handleReq = \(Tagged txId) -> fmap TxMsgContents . HM.lookup txId . _mpLocalTxs <$> withTxpLocalData getMemPool
-            , handleData = \(TxMsgContents txAux) -> Txp.handleTxDo pm txpConfig jsonLogTx txAux
+            , handleData = \(TxMsgContents txAux) -> Txp.handleTxDo coreConfig txpConfig jsonLogTx txAux
             }
 
         postUpdate = KeyVal
             { toKey = \(up, _) -> pure . tag $ hash up
             , handleInv = isProposalNeeded . unTagged
             , handleReq = getLocalProposalNVotes . unTagged
-            , handleData = handleProposal pm
+            , handleData = handleProposal coreConfig
             }
           where
             tag = tagWith (Proxy :: Proxy (UpdateProposal, [UpdateVote]))
@@ -169,7 +175,7 @@ logicFull pm txpConfig ourStakeholderId securityParams jsonLogTx =
             { toKey = \UnsafeUpdateVote{..} -> pure $ tag (uvProposalId, uvKey, uvDecision)
             , handleInv = \(Tagged (id, pk, dec)) -> isVoteNeeded id pk dec
             , handleReq = \(Tagged (id, pk, dec)) -> getLocalVote id pk dec
-            , handleData = handleVote pm
+            , handleData = handleVote coreConfig
             }
           where
             tag = tagWith (Proxy :: Proxy UpdateVote)
@@ -178,28 +184,28 @@ logicFull pm txpConfig ourStakeholderId securityParams jsonLogTx =
             CommitmentMsg
             (\(MCCommitment (pk, _, _)) -> addressHash pk)
             (\id tm -> MCCommitment <$> tm ^. tmCommitments . to getCommitmentsMap . at id)
-            (\(MCCommitment comm) -> sscProcessCommitment pm comm)
+            (\(MCCommitment comm) -> sscProcessCommitment coreConfig comm)
 
         postSscOpening = postSscCommon
             OpeningMsg
             (\(MCOpening key _) -> key)
             (\id tm -> MCOpening id <$> tm ^. tmOpenings . at id)
-            (\(MCOpening key open) -> sscProcessOpening pm key open)
+            (\(MCOpening key open) -> sscProcessOpening coreConfig key open)
 
         postSscShares = postSscCommon
             SharesMsg
             (\(MCShares key _) -> key)
             (\id tm -> MCShares id <$> tm ^. tmShares . at id)
-            (\(MCShares key shares) -> sscProcessShares pm key shares)
+            (\(MCShares key shares) -> sscProcessShares coreConfig key shares)
 
         postSscVssCert = postSscCommon
             VssCertificateMsg
             (\(MCVssCertificate vc) -> getCertId vc)
             (\id tm -> MCVssCertificate <$> lookupVss id (tm ^. tmCertificates))
-            (\(MCVssCertificate cert) -> sscProcessCertificate pm cert)
+            (\(MCVssCertificate cert) -> sscProcessCertificate coreConfig cert)
 
         postSscCommon
-            :: ( Buildable err, Buildable contents )
+            :: (Buildable err, Buildable contents)
             => SscTag
             -> (contents -> StakeholderId)
             -> (StakeholderId -> TossModifier -> Maybe contents)
@@ -207,7 +213,9 @@ logicFull pm txpConfig ourStakeholderId securityParams jsonLogTx =
             -> KeyVal (Tagged contents StakeholderId) contents m
         postSscCommon sscTag contentsToKey toContents processData = KeyVal
             { toKey = pure . tagWith contentsProxy . contentsToKey
-            , handleInv = sscIsDataUseful sscTag . unTagged
+            , handleInv =
+                  sscIsDataUseful (configBlkSecurityParam coreConfig) sscTag
+                      . unTagged
             , handleReq = \(Tagged addr) -> toContents addr . view ldModifier <$> sscRunLocalQuery ask
             , handleData = \dat -> do
                   let addr = contentsToKey dat
@@ -228,5 +236,4 @@ logicFull pm txpConfig ourStakeholderId securityParams jsonLogTx =
                 sscProcessMessageDo dat >>= \case
                     Left err -> False <$ logDebug (sformat ("Data is rejected, reason: "%build) err)
                     Right () -> return True
-
     in Logic {..}

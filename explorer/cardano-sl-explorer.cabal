@@ -86,6 +86,7 @@ library
                       , cardano-sl-chain
                       , cardano-sl-chain-test
                       , cardano-sl-core
+                      , cardano-sl-core-test
                       , cardano-sl-crypto
                       , cardano-sl-crypto-test
                       , cardano-sl-db

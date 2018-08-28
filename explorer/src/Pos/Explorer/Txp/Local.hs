@@ -13,11 +13,11 @@ import           Universum
 import qualified Data.HashMap.Strict as HM
 
 import           Pos.Chain.Txp (ToilVerFailure (..), TxpConfiguration, Utxo)
-import           Pos.Core (EpochIndex, Timestamp)
+import           Pos.Core as Core (Config (..), EpochIndex, Timestamp,
+                     configEpochSlots)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Txp (TxAux (..), TxId)
 import           Pos.Core.Update (BlockVersionData)
-import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Txp.Logic (txNormalizeAbstract,
                      txProcessTransactionAbstract)
 import           Pos.DB.Txp.MemState (MempoolExt, TxpLocalWorkMode, getTxpExtra,
@@ -47,27 +47,32 @@ eTxProcessTransaction ::
        , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
        , CanJsonLog m
        )
-    => ProtocolMagic
+    => Core.Config
     -> TxpConfiguration
     -> (TxId, TxAux)
     -> m (Either ToilVerFailure ())
-eTxProcessTransaction pm txpConfig itw =
-    withStateLock LowPriority ProcessTransaction $ \__tip -> eTxProcessTransactionNoLock pm txpConfig itw
+eTxProcessTransaction coreConfig txpConfig itw =
+    withStateLock LowPriority ProcessTransaction
+        $ \__tip -> eTxProcessTransactionNoLock coreConfig txpConfig itw
 
 eTxProcessTransactionNoLock ::
        forall ctx m. (ETxpLocalWorkMode ctx m)
-    => ProtocolMagic
+    => Core.Config
     -> TxpConfiguration
     -> (TxId, TxAux)
     -> m (Either ToilVerFailure ())
-eTxProcessTransactionNoLock pm txpConfig itw = getCurrentSlot >>= \case
+eTxProcessTransactionNoLock coreConfig txpConfig itw = getCurrentSlot epochSlots >>= \case
     Nothing   -> pure $ Left ToilSlotUnknown
     Just slot -> do
         -- First get the current @SlotId@ so we can calculate the time.
         -- Then get when that @SlotId@ started and use that as a time for @Tx@.
         mTxTimestamp <- getSlotStart slot
-        txProcessTransactionAbstract buildContext (processTx' mTxTimestamp) itw
+        txProcessTransactionAbstract epochSlots
+                                     buildContext
+                                     (processTx' mTxTimestamp)
+                                     itw
   where
+    epochSlots = configEpochSlots coreConfig
     buildContext :: Utxo -> TxAux -> m ExplorerExtraLookup
     buildContext utxo = buildExplorerExtraLookup utxo . one
 
@@ -77,20 +82,27 @@ eTxProcessTransactionNoLock pm txpConfig itw = getCurrentSlot >>= \case
         -> EpochIndex
         -> (TxId, TxAux)
         -> ExceptT ToilVerFailure ELocalToilM ()
-    processTx' mTxTimestamp bvd epoch tx =
-        eProcessTx pm txpConfig bvd epoch tx (TxExtra Nothing mTxTimestamp)
+    processTx' mTxTimestamp bvd epoch tx = eProcessTx
+        (configProtocolMagic coreConfig)
+        txpConfig
+        bvd
+        epoch
+        tx
+        (TxExtra Nothing mTxTimestamp)
 
 -- | 1. Recompute UtxoView by current MemPool
 --   2. Remove invalid transactions from MemPool
 --   3. Set new tip to txp local data
 eTxNormalize
     :: forall ctx m . (ETxpLocalWorkMode ctx m)
-    => ProtocolMagic
+    => Core.Config
     -> TxpConfiguration
     -> m ()
-eTxNormalize pm txpConfig = do
+eTxNormalize coreConfig txpConfig = do
     extras <- MM.insertionsMap . view eemLocalTxsExtra <$> withTxpLocalData getTxpExtra
-    txNormalizeAbstract buildExplorerExtraLookup (normalizeToil' extras)
+    txNormalizeAbstract (configEpochSlots coreConfig)
+                        buildExplorerExtraLookup
+                        (normalizeToil' extras)
   where
     normalizeToil' ::
            HashMap TxId TxExtra
@@ -100,4 +112,8 @@ eTxNormalize pm txpConfig = do
         -> ELocalToilM ()
     normalizeToil' extras bvd epoch txs =
         let toNormalize = HM.toList $ HM.intersectionWith (,) txs extras
-        in eNormalizeToil pm txpConfig bvd epoch toNormalize
+        in eNormalizeToil (configProtocolMagic coreConfig)
+                          txpConfig
+                          bvd
+                          epoch
+                          toNormalize

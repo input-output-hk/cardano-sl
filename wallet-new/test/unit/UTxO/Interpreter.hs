@@ -75,6 +75,8 @@ import           UTxO.Crypto
 import qualified UTxO.DSL as DSL
 import           UTxO.Translate
 
+import           Test.Pos.Core.Dummy (dummyConfig, dummyEpochSlots, dummyK)
+
 {-------------------------------------------------------------------------------
   Errors that may occur during interpretation
 -------------------------------------------------------------------------------}
@@ -351,9 +353,8 @@ mkCheckpoint :: Monad m
              -> RawResolvedBlock -- ^ The block just created
              -> TranslateT IntException m IntCheckpoint
 mkCheckpoint prev raw@(UnsafeRawResolvedBlock block _inputs _ ctxt) = do
-    pc <- asks constants
     gs <- asks weights
-    let isCrucial = give pc $ slot == crucialSlot (siEpoch slot)
+    let isCrucial = slot == crucialSlot dummyK (siEpoch slot)
     newStakes <- updateStakes gs (fromRawResolvedBlock raw) (icStakes prev)
     return IntCheckpoint {
         icSlotId        = slot
@@ -640,7 +641,6 @@ instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
   int (OldestFirst txs) = do
       (txs', resolvedTxInputs) <- unpack <$> mapM int txs
       pushCheckpoint $ \prev slot -> do
-        pc    <- asks constants
         block <- mkBlock
                    (icEpochLeaders prev)
                    (icBlockHeader  prev)
@@ -654,17 +654,17 @@ instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
                      }
         let raw = mkRawResolvedBlock block resolvedTxInputs currentTime ctxt
         checkpoint <- mkCheckpoint prev raw
-        if isEpochBoundary pc slot
+        if isEpochBoundary slot
           then second (\ebb -> (raw, Just ebb)) <$> createEpochBoundary checkpoint
           else return (checkpoint, (raw, Nothing))
     where
       unpack :: [RawResolvedTx] -> ([TxAux], [ResolvedTxInputs])
       unpack = unzip . map (rawResolvedTx &&& rawResolvedTxInputs)
 
-      isEpochBoundary :: ProtocolConstants -> SlotId -> Bool
-      isEpochBoundary pc slot = siSlot slot == localSlotIndexMaxBound pc
+      isEpochBoundary :: SlotId -> Bool
+      isEpochBoundary slot = siSlot slot == localSlotIndexMaxBound dummyEpochSlots
 
-      mkBlock :: (HasConfiguration, HasUpdateConfiguration)
+      mkBlock :: HasUpdateConfiguration
               => SlotLeaders
               -> BlockHeader
               -> SlotId
@@ -680,9 +680,8 @@ instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
         -- figure out who needs to sign the block
         BlockSignInfo{..} <- asks $ blockSignInfoForSlot leaders slotId
 
-        pm <- asks magic
         createMainBlockPure
-          pm
+          dummyConfig
           blockSizeLimit
           prev
           (Just (bsiPSK, bsiLeader))
@@ -690,7 +689,7 @@ instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
           bsiKey
           (RawPayload
               (toList ts)
-              (defaultSscPayload (siSlot slotId)) -- TODO
+              (defaultSscPayload dummyK (siSlot slotId)) -- TODO
               dlgPayload
               updPayload
             )

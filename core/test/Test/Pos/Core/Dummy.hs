@@ -1,7 +1,11 @@
 {-# LANGUAGE NumDecimals #-}
 
 module Test.Pos.Core.Dummy
-       ( dummyProtocolConstants
+       ( dummyConfig
+       , dummyProtocolConstants
+       , dummyK
+       , dummyEpochSlots
+       , dummySlotSecurityParam
        , dummyGenesisInitializer
        , dummyGenesisAvvmBalances
        , dummyGeneratedGenesisData
@@ -15,9 +19,10 @@ module Test.Pos.Core.Dummy
 
 import           Universum
 
-import           Pos.Core (ProtocolConstants (..), VssMaxTTL (..),
-                     VssMinTTL (..), unsafeCoinPortionFromDouble,
-                     withProtocolConstants)
+import           Pos.Core (BlockCount, Config (..), ProtocolConstants (..),
+                     SlotCount, VssMaxTTL (..), VssMinTTL (..), kEpochSlots,
+                     kSlotSecurityParam, pcBlkSecurityParam,
+                     unsafeCoinPortionFromDouble)
 import           Pos.Core.Genesis (FakeAvvmOptions (..),
                      GeneratedGenesisData (..), GeneratedSecrets (..),
                      GenesisAvvmBalances (..), GenesisInitializer (..),
@@ -28,6 +33,13 @@ import           Pos.Crypto (SecretKey)
 
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
+dummyConfig :: Config
+dummyConfig = Config
+    { configProtocolMagic = dummyProtocolMagic
+    , configProtocolConstants = dummyProtocolConstants
+    , configGeneratedSecrets = Just dummyGeneratedSecrets
+    }
+
 dummyProtocolConstants :: ProtocolConstants
 dummyProtocolConstants = ProtocolConstants
  { pcK = 10
@@ -35,12 +47,20 @@ dummyProtocolConstants = ProtocolConstants
  , pcVssMaxTTL = VssMaxTTL 6
  }
 
+dummyK :: BlockCount
+dummyK = pcBlkSecurityParam dummyProtocolConstants
+
+dummyEpochSlots :: SlotCount
+dummyEpochSlots = kEpochSlots dummyK
+
+dummySlotSecurityParam :: SlotCount
+dummySlotSecurityParam = kSlotSecurityParam dummyK
+
 dummyGeneratedGenesisData :: GeneratedGenesisData
-dummyGeneratedGenesisData =
-    withProtocolConstants dummyProtocolConstants $ generateGenesisData
-        dummyProtocolMagic
-        dummyGenesisInitializer
-        dummyGenesisAvvmBalances
+dummyGeneratedGenesisData = generateGenesisData dummyProtocolMagic
+                                                dummyProtocolConstants
+                                                dummyGenesisInitializer
+                                                dummyGenesisAvvmBalances
 
 dummyGeneratedSecrets :: GeneratedSecrets
 dummyGeneratedSecrets = ggdSecrets dummyGeneratedGenesisData

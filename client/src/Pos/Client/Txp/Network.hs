@@ -24,8 +24,8 @@ import           Pos.Client.Txp.Util (InputSelectionPolicy,
                      PendingAddresses (..), TxCreateMode, TxError (..),
                      createMTx, createRedemptionTx, createUnsignedTx)
 import           Pos.Communication.Types (InvOrDataTK)
-import           Pos.Core (Address, Coin, makeRedeemAddress, mkCoin,
-                     unsafeAddCoin)
+import           Pos.Core as Core (Address, Coin, Config, makeRedeemAddress,
+                     mkCoin, unsafeAddCoin)
 import           Pos.Core.Txp (Tx, TxAux (..), TxId, TxMsgContents (..),
                      TxOut (..), TxOutAux (..), txaF)
 import           Pos.Crypto (ProtocolMagic, RedeemSecretKey, SafeSigner, hash,
@@ -49,7 +49,7 @@ type TxMode m
 -- | Construct Tx using multiple secret keys and given list of desired outputs.
 prepareMTx
     :: TxMode m
-    => ProtocolMagic
+    => Core.Config
     -> (Address -> Maybe SafeSigner)
     -> PendingAddresses
     -> InputSelectionPolicy
@@ -57,23 +57,24 @@ prepareMTx
     -> NonEmpty TxOutAux
     -> AddrData m
     -> m (TxAux, NonEmpty TxOut)
-prepareMTx pm hdwSigners pendingAddrs inputSelectionPolicy addrs outputs addrData = do
+prepareMTx coreConfig hdwSigners pendingAddrs inputSelectionPolicy addrs outputs addrData = do
     utxo <- getOwnUtxos (toList addrs)
-    eitherToThrow =<< createMTx pm pendingAddrs inputSelectionPolicy utxo hdwSigners outputs addrData
+    eitherToThrow =<<
+        createMTx coreConfig pendingAddrs inputSelectionPolicy utxo hdwSigners outputs addrData
 
 -- | Construct unsigned Tx
 prepareUnsignedTx
     :: TxMode m
-    => ProtocolMagic
+    => Core.Config
     -> PendingAddresses
     -> InputSelectionPolicy
     -> NonEmpty Address
     -> NonEmpty TxOutAux
     -> Address
     -> m (Either TxError (Tx, NonEmpty TxOut))
-prepareUnsignedTx pm pendingAddrs inputSelectionPolicy addrs outputs changeAddress = do
+prepareUnsignedTx coreConfig pendingAddrs inputSelectionPolicy addrs outputs changeAddress = do
     utxo <- getOwnUtxos (toList addrs)
-    createUnsignedTx pm pendingAddrs inputSelectionPolicy utxo outputs changeAddress
+    createUnsignedTx coreConfig pendingAddrs inputSelectionPolicy utxo outputs changeAddress
 
 -- | Construct redemption Tx using redemption secret key and a output address
 prepareRedemptionTx

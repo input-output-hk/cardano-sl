@@ -33,7 +33,7 @@ import           Test.Pos.Core.ExampleHelpers (exampleBlockVersion,
                      exampleSlotLeaders, exampleSoftwareVersion,
                      exampleSscPayload, exampleSscProof, exampleTxPayload,
                      exampleTxProof, exampleUpdatePayload, exampleUpdateProof,
-                     feedPM, feedPMC, staticHeavyDlgIndexes,
+                     feedPM, feedPMEpochSlots, staticHeavyDlgIndexes,
                      staticProxySKHeavys)
 import           Test.Pos.Util.Golden (discoverGolden, eachOf)
 import           Test.Pos.Util.Tripping (discoverRoundTrip)
@@ -63,7 +63,8 @@ golden_BlockHeaderMain =
     goldenTestBi exampleBlockHeaderMain "test/golden/BlockHeaderMain"
 
 roundTripBlockHeaderBi :: Property
-roundTripBlockHeaderBi = eachOf 10 (feedPMC genBlockHeader) roundTripsBiBuildable
+roundTripBlockHeaderBi =
+    eachOf 10 (feedPMEpochSlots genBlockHeader) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- BlockHeaderAttributes
@@ -90,7 +91,8 @@ golden_BlockSignature_Heavy =
     goldenTestBi exampleBlockPSignatureHeavy "test/golden/BlockSignature_Heavy"
 
 roundTripBlockSignatureBi :: Property
-roundTripBlockSignatureBi = eachOf 10 (feedPMC genBlockSignature) roundTripsBiBuildable
+roundTripBlockSignatureBi =
+    eachOf 10 (feedPMEpochSlots genBlockSignature) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- GenesisBlockHeader
@@ -147,7 +149,8 @@ golden_MainBlockHeader :: Property
 golden_MainBlockHeader = goldenTestBi exampleMainBlockHeader "test/golden/MainBlockHeader"
 
 roundTripMainBlockHeaderBi :: Property
-roundTripMainBlockHeaderBi = eachOf 20 (feedPMC genMainBlockHeader) roundTripsBiBuildable
+roundTripMainBlockHeaderBi =
+    eachOf 20 (feedPMEpochSlots genMainBlockHeader) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- MainBody
@@ -167,7 +170,8 @@ golden_MainConsensusData = goldenTestBi mcd "test/golden/MainConsensusData"
                                 exampleChainDifficulty exampleBlockSignature
 
 roundTripMainConsensusData :: Property
-roundTripMainConsensusData = eachOf 20 (feedPMC genMainConsensusData) roundTripsBiShow
+roundTripMainConsensusData =
+    eachOf 20 (feedPMEpochSlots genMainConsensusData) roundTripsBiShow
 
 --------------------------------------------------------------------------------
 -- MainExtraBodyData
@@ -205,7 +209,8 @@ golden_MainToSign :: Property
 golden_MainToSign = goldenTestBi exampleMainToSign "test/golden/MainToSign"
 
 roundTripMainToSignBi :: Property
-roundTripMainToSignBi = eachOf 20 (feedPMC genMainToSign) roundTripsBiShow
+roundTripMainToSignBi =
+    eachOf 20 (feedPMEpochSlots genMainToSign) roundTripsBiShow
 
 --------------------------------------------------------------------------------
 -- Example golden datatypes

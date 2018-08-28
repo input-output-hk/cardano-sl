@@ -21,8 +21,8 @@ import           Servant.Swagger.UI (swaggerSchemaUIServer)
 
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Chain.Update (curSoftwareVersion)
+import           Pos.Core as Core (Config (..))
 import           Pos.Core.Txp (TxAux)
-import           Pos.Crypto (ProtocolMagic)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 
 import           Pos.Wallet.WalletMode (blockchainSlotDuration)
@@ -39,14 +39,16 @@ servantHandlersWithSwagger
     :: ( MonadFullWalletWebMode ctx m
        , HasCompileInfo
        )
-    => ProtocolMagic
+    => Core.Config
     -> TxpConfiguration
     -> TVar NtpStatus
     -> (TxAux -> m Bool)
     -> (forall x. m x -> Handler x)
     -> Server A.WalletSwaggerApi
-servantHandlersWithSwagger pm txpConfig ntpStatus submitTx nat =
-    hoistServer A.walletApi nat (servantHandlers pm txpConfig ntpStatus submitTx)
+servantHandlersWithSwagger coreConfig txpConfig ntpStatus submitTx nat =
+    hoistServer A.walletApi
+                nat
+                (servantHandlers coreConfig txpConfig ntpStatus submitTx)
    :<|>
     swaggerSchemaUIServer swaggerSpecForWalletApi
 
@@ -58,20 +60,20 @@ servantHandlers
     :: ( MonadFullWalletWebMode ctx m
        , HasCompileInfo
        )
-    => ProtocolMagic
+    => Core.Config
     -> TxpConfiguration
     -> TVar NtpStatus
     -> (TxAux -> m Bool)
     -> ServerT A.WalletApi m
-servantHandlers pm txpConfig ntpStatus submitTx = toServant' A.WalletApiRecord
+servantHandlers coreConfig txpConfig ntpStatus submitTx = toServant' A.WalletApiRecord
     { _test        = testHandlers
     , _wallets     = walletsHandlers
     , _accounts    = accountsHandlers
     , _addresses   = addressesHandlers
     , _profile     = profileHandlers
-    , _txs         = txsHandlers pm txpConfig submitTx
+    , _txs         = txsHandlers coreConfig txpConfig submitTx
     , _update      = updateHandlers
-    , _redemptions = redemptionsHandlers pm txpConfig submitTx
+    , _redemptions = redemptionsHandlers coreConfig txpConfig submitTx
     , _reporting   = reportingHandlers
     , _settings    = settingsHandlers ntpStatus
     , _backup      = backupHandlers
@@ -122,15 +124,16 @@ profileHandlers = toServant' A.WProfileApiRecord
 
 txsHandlers
     :: MonadFullWalletWebMode ctx m
-    => ProtocolMagic
+    => Core.Config
     -> TxpConfiguration
     -> (TxAux -> m Bool)
     -> ServerT A.WTxsApi m
-txsHandlers pm txpConfig submitTx = toServant' A.WTxsApiRecord
-    { _newPayment                = M.newPayment pm txpConfig submitTx
-    , _newPaymentBatch           = M.newPaymentBatch pm txpConfig submitTx
-    , _txFee                     = M.getTxFee pm
-    , _resetFailedPtxs           = M.resetAllFailedPtxs
+txsHandlers coreConfig txpConfig submitTx = toServant' A.WTxsApiRecord
+    { _newPayment                = M.newPayment coreConfig txpConfig submitTx
+    , _newPaymentBatch           = M.newPaymentBatch coreConfig txpConfig submitTx
+    , _txFee                     = M.getTxFee coreConfig
+    , _resetFailedPtxs           = M.resetAllFailedPtxs $
+          configProtocolConstants coreConfig
     , _cancelApplyingPtxs        = M.cancelAllApplyingPtxs
     , _cancelSpecificApplyingPtx = M.cancelOneApplyingPtx
     , _getHistory                = M.getHistoryLimited
@@ -146,13 +149,13 @@ updateHandlers = toServant' A.WUpdateApiRecord
 
 redemptionsHandlers
     :: MonadFullWalletWebMode ctx m
-    => ProtocolMagic
+    => Core.Config
     -> TxpConfiguration
     -> (TxAux -> m Bool)
     -> ServerT A.WRedemptionsApi m
-redemptionsHandlers pm txpConfig submitTx = toServant' A.WRedemptionsApiRecord
-    { _redeemADA          = M.redeemAda pm txpConfig submitTx
-    , _redeemADAPaperVend = M.redeemAdaPaperVend pm txpConfig submitTx
+redemptionsHandlers coreConfig txpConfig submitTx = toServant' A.WRedemptionsApiRecord
+    { _redeemADA          = M.redeemAda coreConfig txpConfig submitTx
+    , _redeemADAPaperVend = M.redeemAdaPaperVend coreConfig txpConfig submitTx
     }
 
 reportingHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WReportingApi m

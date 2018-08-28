@@ -24,7 +24,7 @@ import           Test.QuickCheck.Random (QCGen)
 
 import           Pos.Chain.Block (Blund, headerHash)
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Core (HasConfiguration, blkSecurityParam, epochSlots,
+import           Pos.Core (HasConfiguration, ProtocolConstants (..),
                      genesisData)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      nonEmptyNewestFirst, nonEmptyOldestFirst,
@@ -51,7 +51,8 @@ import           Test.Pos.Block.Logic.Util (EnableTxPayload (..),
 import           Test.Pos.Block.Property (blockPropertySpec)
 import           Test.Pos.Configuration (HasStaticConfigurations,
                      withStaticConfigurations)
-import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
+import           Test.Pos.Core.Dummy (dummyConfig, dummyEpochSlots, dummyK,
+                     dummyProtocolConstants)
 import           Test.Pos.Util.QuickCheck.Property (splitIntoChunks,
                      stopProperty)
 
@@ -100,12 +101,10 @@ verifyEmptyMainBlock :: HasConfigurations
                      => TxpConfiguration
                      -> BlockProperty ()
 verifyEmptyMainBlock txpConfig = do
-    emptyBlock <- fst <$> bpGenBlock dummyProtocolMagic
-                                     txpConfig
-                                     (EnableTxPayload False)
-                                     (InplaceDB False)
-    curSlot <- getCurrentSlot
-    whenLeftM (lift $ verifyBlocksPrefix dummyProtocolMagic curSlot (one emptyBlock))
+    emptyBlock <- fst
+        <$> bpGenBlock txpConfig (EnableTxPayload False) (InplaceDB False)
+    curSlot <- getCurrentSlot dummyEpochSlots
+    whenLeftM (lift $ verifyBlocksPrefix dummyConfig curSlot (one emptyBlock))
         $ stopProperty
         . pretty
 
@@ -115,11 +114,10 @@ verifyValidBlocks
     -> BlockProperty ()
 verifyValidBlocks txpConfig = do
     bpGoToArbitraryState
-    blocks <- map fst . toList <$> bpGenBlocks dummyProtocolMagic
-                                               txpConfig
-                                               Nothing
-                                               (EnableTxPayload True)
-                                               (InplaceDB False)
+    blocks <- map fst . toList <$> bpGenBlocks txpConfig
+                                              Nothing
+                                              (EnableTxPayload True)
+                                              (InplaceDB False)
     pre (not $ null blocks)
     let blocksToVerify = OldestFirst $ case blocks of
             -- impossible because of precondition (see 'pre' above)
@@ -129,7 +127,7 @@ verifyValidBlocks txpConfig = do
                 in block0 :| otherBlocks'
 
     verRes <- lift $ satisfySlotCheck blocksToVerify $ verifyBlocksPrefix
-        dummyProtocolMagic
+        dummyConfig
         Nothing
         blocksToVerify
     whenLeft verRes $ stopProperty . pretty
@@ -151,7 +149,7 @@ verifyAndApplyBlocksSpec txpConfig =
         satisfySlotCheck blocks $
            -- we don't check current SlotId, because the applier is run twice
            -- and the check will fail the verification
-           whenLeftM (verifyAndApplyBlocks dummyProtocolMagic txpConfig Nothing True blocks) throwM
+           whenLeftM (verifyAndApplyBlocks dummyConfig txpConfig Nothing True blocks) throwM
     applyByOneOrAllAtOnceDesc =
         "verifying and applying blocks one by one leads " <>
         "to the same GState as verifying and applying them all at once " <>
@@ -185,8 +183,7 @@ applyByOneOrAllAtOnce
     -> BlockProperty ()
 applyByOneOrAllAtOnce txpConfig applier = do
     bpGoToArbitraryState
-    blunds <- getOldestFirst <$> bpGenBlocks dummyProtocolMagic
-                                             txpConfig
+    blunds <- getOldestFirst <$> bpGenBlocks txpConfig
                                              Nothing
                                              (EnableTxPayload True)
                                              (InplaceDB False)
@@ -251,12 +248,12 @@ blockEventSuccessSpec txpConfig =
    and a few sheets of paper trying to figure out how to write it.
 -}
 
-genSuccessWithForks :: forall g m. (HasConfiguration, RandomGen g, Monad m) => BlockEventGenT g m ()
+genSuccessWithForks :: forall g m . (RandomGen g, Monad m) => BlockEventGenT g m ()
 genSuccessWithForks = do
-      emitBlockApply BlockApplySuccess $ pathSequence mempty ["0"]
-      generateFork "0" []
-      emitBlockApply BlockApplySuccess $ pathSequence "0" ["1", "2"]
-      generateFork ("0" <> "1" <> "2") []
+    emitBlockApply BlockApplySuccess $ pathSequence mempty ["0"]
+    generateFork "0" []
+    emitBlockApply BlockApplySuccess $ pathSequence "0" ["1", "2"]
+    generateFork ("0" <> "1" <> "2") []
   where
     generateFork ::
            Path -- base path (from the main chain)
@@ -265,7 +262,7 @@ genSuccessWithForks = do
     generateFork basePath rollbackFork = do
         let
             forkLen    = length rollbackFork
-            wiggleRoom = fromIntegral blkSecurityParam - forkLen
+            wiggleRoom = fromIntegral dummyK - forkLen
         stopFork <- byChance (if forkLen > 0 then 0.1 else 0)
         if stopFork
             then whenJust (nonEmptyNewestFirst rollbackFork) $
@@ -274,7 +271,7 @@ genSuccessWithForks = do
                 needRollback <-
                     -- forkLen=0                => needRollback 0%
                     -- forkLen=blkSecurityParam => needRollback 100%
-                    byChance (realToFrac $ forkLen Ratio.% fromIntegral blkSecurityParam)
+                    byChance (realToFrac $ forkLen Ratio.% fromIntegral dummyK)
                 if needRollback
                     then do
                         retreat <- getRandomR (1, forkLen)
@@ -305,7 +302,7 @@ blockPropertyScenarioGen txpConfig m = do
     allSecrets <- getAllSecrets
     let genStakeholders = gdBootStakeholders genesisData
     g <- pick $ MkGen $ \qc _ -> qc
-    lift $ flip evalRandT g $ runBlockEventGenT dummyProtocolMagic
+    lift $ flip evalRandT g $ runBlockEventGenT dummyConfig
                                                 txpConfig
                                                 allSecrets
                                                 genStakeholders
@@ -373,7 +370,7 @@ applyThroughEpochProp txpConfig afterCross = do
         let
             approachEpochEdge =
                 pathSequence mempty . OldestFirst . NE.fromList $
-                replicate (fromIntegral epochSlots - 1) "a"
+                replicate (fromIntegral dummyEpochSlots - 1) "a"
             crossEpochEdge =
                 pathSequence (NE.last $ getOldestFirst approachEpochEdge) $
                 OldestFirst . NE.fromList $
@@ -409,10 +406,10 @@ singleForkProp txpConfig fd = do
 
 data ForkDepth = ForkShort | ForkMedium | ForkDeep
 
-genSingleFork :: forall g m. (HasConfigurations, RandomGen g, Monad m)
+genSingleFork :: forall g m . (RandomGen g, Monad m)
               => ForkDepth -> BlockEventGenT g m ()
 genSingleFork fd = do
-    let k = fromIntegral blkSecurityParam :: Int
+    let k = pcK dummyProtocolConstants
     -- 'd' is how deeply in the chain the fork starts. In other words, it's how many
     -- blocks we're going to rollback (therefore must be >1).
     d <- getRandomR $ case fd of

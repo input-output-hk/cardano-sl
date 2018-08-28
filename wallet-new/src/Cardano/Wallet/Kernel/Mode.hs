@@ -14,7 +14,7 @@ import           Universum
 import           Pos.Chain.Block
 import           Pos.Chain.Txp
 import           Pos.Context
-import           Pos.Core
+import           Pos.Core as Core (Config, HasConfiguration)
 import           Pos.Core.Chrono
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..))
@@ -81,22 +81,22 @@ walletRollbackBlocks w bs = do
     return mempty
 
 instance MonadBListener WalletMode where
-  onApplyBlocks    bs = getWallet >>= (`walletApplyBlocks`    bs)
-  onRollbackBlocks bs = getWallet >>= (`walletRollbackBlocks` bs)
+  onApplyBlocks      bs = getWallet >>= (`walletApplyBlocks`    bs)
+  onRollbackBlocks _ bs = getWallet >>= (`walletRollbackBlocks` bs)
 
 {-------------------------------------------------------------------------------
   Run the wallet
 -------------------------------------------------------------------------------}
 
 runWalletMode :: forall a. (HasConfigurations, HasCompileInfo)
-              => ProtocolMagic
+              => Core.Config
               -> TxpConfiguration
               -> NodeResources ()
               -> PassiveWalletLayer IO
               -> (Diffusion WalletMode -> WalletMode a)
               -> IO a
-runWalletMode pm txpConfig nr wallet action =
-    runRealMode pm txpConfig nr $ \diffusion ->
+runWalletMode coreConfig txpConfig nr wallet action =
+    runRealMode coreConfig txpConfig nr $ \diffusion ->
         walletModeToRealMode wallet (action (hoistDiffusion realModeToWalletMode (walletModeToRealMode wallet) diffusion))
 
 walletModeToRealMode :: forall a. PassiveWalletLayer IO -> WalletMode a -> RealMode () a
@@ -177,9 +177,7 @@ instance HasConfiguration => MonadDB WalletMode where
   dbDelete      = dbDeleteDefault
   dbPutSerBlunds = dbPutSerBlundsRealDefault
 
-instance ( HasConfiguration
-         , MonadSlotsData ctx WalletMode
-         ) => MonadSlots ctx WalletMode where
+instance MonadSlotsData ctx WalletMode => MonadSlots ctx WalletMode where
   getCurrentSlot           = getCurrentSlotSimple
   getCurrentSlotBlocking   = getCurrentSlotBlockingSimple
   getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple

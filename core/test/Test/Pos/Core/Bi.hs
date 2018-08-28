@@ -66,7 +66,7 @@ import           Test.Pos.Core.ExampleHelpers (exampleAddrSpendingData_PubKey,
                      exampleUpdateProposal, exampleUpdateProposalToSign,
                      exampleUpdateVote, exampleVoteId, exampleVssCertificate,
                      exampleVssCertificatesHash, exampleVssCertificatesMap,
-                     feedPC, feedPM, staticHeavyDlgIndexes,
+                     feedEpochSlots, feedPM, staticHeavyDlgIndexes,
                      staticProxySKHeavys)
 import           Test.Pos.Core.Gen
 import           Test.Pos.Crypto.Bi (getBytes)
@@ -389,7 +389,7 @@ golden_EpochOrSlotSI = goldenTestBi eos "test/golden/EpochOrSlotSI"
   where eos = EpochOrSlot (Right exampleSlotId)
 
 roundTripEpochOrSlotBi :: Property
-roundTripEpochOrSlotBi = eachOf 1000 (feedPC genEpochOrSlot) roundTripsBiBuildable
+roundTripEpochOrSlotBi = eachOf 1000 (feedEpochSlots genEpochOrSlot) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- FlatSlotId
@@ -409,7 +409,7 @@ golden_LocalSlotIndex = goldenTestBi lsi "test/golden/LocalSlotIndex"
   where lsi = UnsafeLocalSlotIndex 52
 
 roundTripLocalSlotIndexBi :: Property
-roundTripLocalSlotIndexBi = eachOf 1000 (feedPC genLocalSlotIndex) roundTripsBiBuildable
+roundTripLocalSlotIndexBi = eachOf 1000 (feedEpochSlots genLocalSlotIndex) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- SlotCount
@@ -428,7 +428,7 @@ golden_SlotId :: Property
 golden_SlotId = goldenTestBi exampleSlotId "test/golden/SlotId"
 
 roundTripSlotIdBi :: Property
-roundTripSlotIdBi = eachOf 1000 (feedPC genSlotId) roundTripsBiBuildable
+roundTripSlotIdBi = eachOf 1000 (feedEpochSlots genSlotId) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- TimeDiff

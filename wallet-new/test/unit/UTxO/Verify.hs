@@ -36,6 +36,9 @@ import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Wlog
 import           Serokell.Util.Verify
 
+import           Test.Pos.Core.Dummy (dummyConfig, dummyEpochSlots, dummyK)
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
+
 {-------------------------------------------------------------------------------
   Verification environment
 -------------------------------------------------------------------------------}
@@ -222,15 +225,13 @@ mapVerifyErrors f (Verify ma) = Verify $ mapStateT (withExceptT f) ma
 -- corresponding functions from the Cardano core. This didn't look very easy
 -- so I skipped it for now.
 verifyBlocksPrefix
-    :: HasConfiguration
-    => ProtocolMagic
-    -> HeaderHash    -- ^ Expected tip
+    :: HeaderHash    -- ^ Expected tip
     -> Maybe SlotId  -- ^ Current slot
     -> SlotLeaders   -- ^ Slot leaders for this epoch
     -> LastBlkSlots  -- ^ Last block slots
     -> OldestFirst NE Block
     -> Verify VerifyBlocksException (OldestFirst NE Undo)
-verifyBlocksPrefix pm tip curSlot leaders lastSlots blocks = do
+verifyBlocksPrefix tip curSlot leaders lastSlots blocks = do
     when (tip /= blocks ^. _Wrapped . _neHead . prevBlockL) $
         throwError $ VerifyBlocksError "the first block isn't based on the tip"
 
@@ -238,7 +239,7 @@ verifyBlocksPrefix pm tip curSlot leaders lastSlots blocks = do
 
     -- Verify block envelope
     slogUndos <- mapVerifyErrors VerifyBlocksError $
-                   slogVerifyBlocks pm curSlot leaders lastSlots blocks
+                   slogVerifyBlocks curSlot leaders lastSlots blocks
 
     -- We skip SSC verification
     {-
@@ -248,7 +249,7 @@ verifyBlocksPrefix pm tip curSlot leaders lastSlots blocks = do
 
     -- Verify transactions
     txUndo <- mapVerifyErrors (VerifyBlocksError . pretty) $
-        tgsVerifyBlocks pm $ map toTxpBlock blocks
+        tgsVerifyBlocks $ map toTxpBlock blocks
 
     -- Skip delegation verification
     {-
@@ -292,14 +293,12 @@ verifyBlocksPrefix pm tip curSlot leaders lastSlots blocks = do
 -- * Uses 'gsAdoptedBVData' instead of 'getAdoptedBVFull'
 -- * Use hard-coded 'dataMustBeKnown' (instead of deriving this from 'adoptedBV')
 slogVerifyBlocks
-    :: HasConfiguration
-    => ProtocolMagic
-    -> Maybe SlotId  -- ^ Current slot
+    :: Maybe SlotId  -- ^ Current slot
     -> SlotLeaders   -- ^ Slot leaders for this epoch
     -> LastBlkSlots  -- ^ Last block slots
     -> OldestFirst NE Block
     -> Verify Text (OldestFirst NE SlogUndo)
-slogVerifyBlocks pm curSlot leaders lastSlots blocks = do
+slogVerifyBlocks curSlot leaders lastSlots blocks = do
     adoptedBVD <- gsAdoptedBVData
 
     -- We take head here, because blocks are in oldest first order and
@@ -312,12 +311,12 @@ slogVerifyBlocks pm curSlot leaders lastSlots blocks = do
         _ -> pass
     let blocksList = OldestFirst (toList (getOldestFirst blocks))
     verResToMonadError formatAllErrors $
-        verifyBlocks pm curSlot dataMustBeKnown adoptedBVD leaders blocksList
+        verifyBlocks dummyConfig curSlot dataMustBeKnown adoptedBVD leaders blocksList
 
     -- Here we need to compute 'SlogUndo'. When we add apply a block,
     -- we can remove one of the last slots stored in
     -- 'BlockExtra'. This removed slot must be put into 'SlogUndo'.
-    let toFlatSlot = fmap (flattenSlotId . view mainBlockSlot) . rightToMaybe
+    let toFlatSlot = fmap (flattenSlotId dummyEpochSlots . view mainBlockSlot) . rightToMaybe
     -- these slots will be added if we apply all blocks
     let newSlots = mapMaybe toFlatSlot (toList blocks)
     let combinedSlots :: OldestFirst [] FlatSlotId
@@ -327,7 +326,7 @@ slogVerifyBlocks pm curSlot leaders lastSlots blocks = do
     let removedSlots :: OldestFirst [] FlatSlotId
         removedSlots =
             combinedSlots & _Wrapped %~
-            (take $ length combinedSlots - fromIntegral blkSecurityParam)
+            (take $ length combinedSlots - fromIntegral dummyK)
     -- Note: here we exploit the fact that genesis block can be only 'head'.
     -- If we have genesis block, then size of 'newSlots' will be less than
     -- number of blocks we verify. It means that there will definitely
@@ -353,14 +352,14 @@ slogVerifyBlocks pm curSlot leaders lastSlots blocks = do
 -- * Does everything in a pure monad.
 --   I don't fully grasp the consequences of this.
 tgsVerifyBlocks
-    :: ProtocolMagic
-    -> OldestFirst NE TxpBlock
+    :: OldestFirst NE TxpBlock
     -> Verify ToilVerFailure (OldestFirst NE TxpUndo)
-tgsVerifyBlocks pm newChain = do
+tgsVerifyBlocks newChain = do
     bvd <- gsAdoptedBVData
     let epoch = NE.last (getOldestFirst newChain) ^. epochIndexL
     let verifyPure :: [TxAux] -> Verify ToilVerFailure TxpUndo
-        verifyPure = nat . verifyToil pm bvd mempty epoch dataMustBeKnown
+        verifyPure = nat .
+            verifyToil dummyProtocolMagic bvd mempty epoch dataMustBeKnown
     mapM (verifyPure . convertPayload) newChain
   where
     convertPayload :: TxpBlock -> [TxAux]

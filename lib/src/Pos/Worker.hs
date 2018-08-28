@@ -14,7 +14,8 @@ import           Pos.Worker.Block (blkWorkers)
 -- Message instances.
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Context (NodeContext (..))
-import           Pos.Crypto (ProtocolMagic)
+import           Pos.Core as Core (Config, configBlkSecurityParam,
+                     configEpochSlots)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Network.CLI (launchStaticConfigMonitoring)
 import           Pos.Infra.Network.Types (NetworkConfig (..))
@@ -28,19 +29,20 @@ import           Pos.WorkMode (WorkMode)
 -- | All, but in reality not all, workers used by full node.
 allWorkers
     :: forall ext ctx m . WorkMode ctx m
-    => ProtocolMagic
+    => Core.Config
     -> TxpConfiguration
     -> NodeResources ext
     -> [Diffusion m -> m ()]
-allWorkers pm txpConfig NodeResources {..} = mconcat
-    [ sscWorkers pm
-    , usWorkers
-    , blkWorkers pm txpConfig
+allWorkers coreConfig txpConfig NodeResources {..} = mconcat
+    [ sscWorkers coreConfig
+    , usWorkers (configBlkSecurityParam coreConfig)
+    , blkWorkers coreConfig txpConfig
     , dlgWorkers
     , [properSlottingWorker, staticConfigMonitoringWorker]
     ]
   where
     topology = ncTopology ncNetworkConfig
     NodeContext {..} = nrContext
-    properSlottingWorker = const logNewSlotWorker
+    properSlottingWorker =
+        const $ logNewSlotWorker $ configEpochSlots coreConfig
     staticConfigMonitoringWorker = const (launchStaticConfigMonitoring topology)

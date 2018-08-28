@@ -22,7 +22,6 @@ import qualified GHC.Exts as IL
 import           Pos.Chain.Block (Blund, HeaderHash)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Exception (CardanoFatalError (..))
 import           Pos.Core.Slotting (EpochOrSlot (..), SlotId, getEpochOrSlot)
 import           Pos.DB.Block (BlockLrcMode, rollbackBlocks,
@@ -40,7 +39,7 @@ import           Pos.Util.Util (eitherToThrow, lensOf)
 import           Test.Pos.Block.Logic.Mode (BlockTestContext,
                      PureDBSnapshotsVar (..))
 import           Test.Pos.Block.Logic.Util (satisfySlotCheck)
-import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
+import           Test.Pos.Core.Dummy (dummyConfig)
 
 data SnapshotMissingEx = SnapshotMissingEx SnapshotId
     deriving (Show)
@@ -60,8 +59,7 @@ data BlockEventResult
     | BlockEventDbChanged DbNotEquivalentToSnapshot
 
 verifyAndApplyBlocks' ::
-       ( HasConfiguration
-       , BlockLrcMode BlockTestContext m
+       ( BlockLrcMode BlockTestContext m
        , MonadTxpLocal m
        )
     => TxpConfiguration
@@ -81,10 +79,9 @@ verifyAndApplyBlocks' txpConfig blunds = do
                 ss -> Just $ maximum ss
     satisfySlotCheck blocks $ do
         _ :: (HeaderHash, NewestFirst [] Blund) <- eitherToThrow =<<
-            verifyAndApplyBlocks dummyProtocolMagic txpConfig curSlot True blocks
+            verifyAndApplyBlocks dummyConfig txpConfig curSlot True blocks
         return ()
-  where
-    blocks = fst <$> blunds
+    where blocks = fst <$> blunds
 
 -- | Execute a single block event.
 runBlockEvent ::
@@ -107,7 +104,7 @@ runBlockEvent txpConfig (BlkEvApply ev) =
         BlockApplyFailure -> BlockEventFailure (IsExpected True) e
 
 runBlockEvent _ (BlkEvRollback ev) =
-    (onSuccess <$ rollbackBlocks dummyProtocolMagic (ev ^. berInput))
+    (onSuccess <$ rollbackBlocks dummyConfig (ev ^. berInput))
        `catch` (return . onFailure)
   where
     onSuccess = case ev ^. berOutValid of

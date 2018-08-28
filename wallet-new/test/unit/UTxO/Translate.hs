@@ -33,13 +33,14 @@ import           Pos.Chain.Txp
 import           Pos.Chain.Update
 import           Pos.Core
 import           Pos.Core.Chrono
-import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Class (MonadGState (..))
 
 import           Util.Validated
 import           UTxO.Context
 import           UTxO.Verify (Verify)
 import qualified UTxO.Verify as Verify
+
+import           Test.Pos.Core.Dummy (dummyEpochSlots)
 
 {-------------------------------------------------------------------------------
   Testing infrastructure from cardano-sl-core
@@ -170,7 +171,7 @@ translateFirstSlot = SlotId 0 localSlotIndexMinBound
 -- TODO: Surely a function like this must already exist somewhere?
 translateNextSlot :: Monad m => SlotId -> TranslateT e m SlotId
 translateNextSlot (SlotId epoch lsi) = withConfig $
-    return $ case addLocalSlotIndex 1 lsi of
+    return $ case addLocalSlotIndex dummyEpochSlots 1 lsi of
                Just lsi' -> SlotId epoch       lsi'
                Nothing   -> SlotId (epoch + 1) localSlotIndexMinBound
 
@@ -216,32 +217,26 @@ verifyBlocksPrefix blocks =
         validatedFromExceptT . throwError $ VerifyBlocksError "No genesis epoch!"
       ESRValid genEpoch (OldestFirst succEpochs) -> do
         CardanoContext{..} <- asks tcCardano
-        verify $ validateGenEpoch ccMagic ccHash0 ccInitLeaders genEpoch >>= \genUndos -> do
-          epochUndos <- sequence $ validateSuccEpoch ccMagic <$> succEpochs
+        verify $ validateGenEpoch ccHash0 ccInitLeaders genEpoch >>= \genUndos -> do
+          epochUndos <- sequence $ validateSuccEpoch <$> succEpochs
           return $ foldl' (\a b -> a <> b) genUndos epochUndos
 
   where
-    validateGenEpoch :: ProtocolMagic
-                     -> HeaderHash
+    validateGenEpoch :: HeaderHash
                      -> SlotLeaders
                      -> OldestFirst NE MainBlock
-                     -> ( HasConfiguration
-                          => Verify VerifyBlocksException (OldestFirst NE Undo))
-    validateGenEpoch pm ccHash0 ccInitLeaders geb = do
+                     -> Verify VerifyBlocksException (OldestFirst NE Undo)
+    validateGenEpoch ccHash0 ccInitLeaders geb = do
       Verify.verifyBlocksPrefix
-        pm
         ccHash0
         Nothing
         ccInitLeaders
         (OldestFirst [])
         (Right <$> geb ::  OldestFirst NE Block)
-    validateSuccEpoch :: ProtocolMagic
-                      -> EpochBlocks NE
-                      -> ( HasConfiguration
-                           => Verify VerifyBlocksException (OldestFirst NE Undo))
-    validateSuccEpoch pm (SuccEpochBlocks ebb emb) = do
+    validateSuccEpoch :: EpochBlocks NE
+                      -> Verify VerifyBlocksException (OldestFirst NE Undo)
+    validateSuccEpoch (SuccEpochBlocks ebb emb) = do
       Verify.verifyBlocksPrefix
-        pm
         (ebb ^. headerHashG)
         Nothing
         (ebb ^. gbBody . gbLeaders)

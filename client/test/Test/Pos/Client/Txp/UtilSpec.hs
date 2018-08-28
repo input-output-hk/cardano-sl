@@ -40,6 +40,7 @@ import           Pos.Util.Util (leftToPanic)
 import           Test.Pos.Client.Txp.Mode (HasTxpConfigurations, TxpTestMode,
                      TxpTestProperty, withBVData)
 import           Test.Pos.Configuration (withDefConfigurations)
+import           Test.Pos.Core.Dummy (dummyConfig)
 import           Test.Pos.Crypto.Arbitrary ()
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Arbitrary (nonrepeating)
@@ -117,8 +118,8 @@ testCreateMTx
     :: HasTxpConfigurations
     => CreateMTxParams
     -> TxpTestProperty (Either TxError (TxAux, NonEmpty TxOut))
-testCreateMTx CreateMTxParams{..} = lift $
-    createMTx dummyProtocolMagic mempty cmpInputSelectionPolicy cmpUtxo (getSignerFromList cmpSigners)
+testCreateMTx CreateMTxParams {..} = lift $
+    createMTx dummyConfig mempty cmpInputSelectionPolicy cmpUtxo (getSignerFromList cmpSigners)
     cmpOutputs cmpAddrData
 
 createMTxWorksWhenWeAreRichSpec
@@ -229,7 +230,7 @@ txWithRedeemOutputFailsSpec
 txWithRedeemOutputFailsSpec inputSelectionPolicy = do
     forAllM genParams $ \(CreateMTxParams {..}) -> do
         txOrError <-
-            createMTx dummyProtocolMagic mempty cmpInputSelectionPolicy cmpUtxo
+            createMTx dummyConfig mempty cmpInputSelectionPolicy cmpUtxo
                       (getSignerFromList cmpSigners)
                       cmpOutputs cmpAddrData
         case txOrError of

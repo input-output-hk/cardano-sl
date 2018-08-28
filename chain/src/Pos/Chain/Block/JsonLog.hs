@@ -13,15 +13,15 @@ import           Pos.Chain.Block.Blockchain (gbHeader, gbhPrevBlock)
 import           Pos.Chain.Block.Genesis (genBlockEpoch)
 import           Pos.Chain.Block.Union (Block, HeaderHash, headerHash,
                      headerHashF, mainBlockSlot, mainBlockTxPayload)
-import           Pos.Core (HasConfiguration, SlotId (..), getEpochIndex,
-                     getSlotIndex, mkLocalSlotIndex)
+import           Pos.Core (SlotCount, SlotId (..), getEpochIndex, getSlotIndex,
+                     mkLocalSlotIndex)
 import           Pos.Core.JsonLog.LogEvents (JLBlock (..), JLEvent (..))
 import           Pos.Core.Txp (txpTxs)
 import           Pos.Crypto (hash, hashHexF)
 
 -- | Return event of created block.
-jlCreatedBlock :: HasConfiguration => Block -> JLEvent
-jlCreatedBlock block = JLCreatedBlock $ JLBlock {..}
+jlCreatedBlock :: SlotCount -> Block -> JLEvent
+jlCreatedBlock epochSlots block = JLCreatedBlock $ JLBlock {..}
   where
     jlHash = showHeaderHash $ headerHash block
     jlPrevBlock = showHeaderHash $ case block of
@@ -33,7 +33,7 @@ jlCreatedBlock block = JLCreatedBlock $ JLBlock {..}
               Right mB -> map fromTx . toList $ mB ^. mainBlockTxPayload . txpTxs
     slot :: SlotId
     slot = case block of
-        Left  gB -> let slotZero = case mkLocalSlotIndex 0 of
+        Left  gB -> let slotZero = case mkLocalSlotIndex epochSlots 0 of
                                         Right sz -> sz
                                         Left _   -> error "impossible branch"
                     in SlotId (gB ^. genBlockEpoch) slotZero

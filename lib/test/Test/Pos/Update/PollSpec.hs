@@ -19,7 +19,7 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
 
 import           Pos.Chain.Update (applyBVM)
 import qualified Pos.Chain.Update as Poll
-import           Pos.Core (HasConfiguration, StakeholderId, addressHash)
+import           Pos.Core (StakeholderId, addressHash)
 import           Pos.Core.Update (ApplicationName, BlockVersion (..),
                      BlockVersionData (..), SoftwareVersion (..), UpId,
                      UpdateProposal (..))
@@ -30,12 +30,11 @@ import qualified Pos.Util.Modifier as MM
 
 import           Test.Pos.Binary.Helpers ()
 import           Test.Pos.Chain.Update.Arbitrary ()
-import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.DB.Update.Arbitrary ()
 import           Test.Pos.Util.QuickCheck.Property (formsMonoid)
 
 spec :: Spec
-spec = withDefConfiguration $ \_ -> describe "Poll" $ do
+spec = describe "Poll" $ do
     let smaller n = modifyMaxSuccess (const n)
     describe "modifyPollModifier" $ smaller 30 $ do
         prop
@@ -95,7 +94,7 @@ data PollAction
     | SetEpochProposers (HashSet StakeholderId)
     deriving (Show, Eq, Generic)
 
-instance HasConfiguration => Arbitrary PollAction where
+instance Arbitrary PollAction where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -196,8 +195,7 @@ perform = foldl (>>) (return ()) . map actionToMonad
 -- | Operational equivalence operator in the 'PurePoll' monad. To be used when
 -- equivalence between two sequences of actions in 'PurePoll' is to be tested/proved.
 (==^)
-    :: HasConfiguration
-    => [PollAction]
+    :: [PollAction]
     -> [PollAction]
     -> Gen PollAction
     -> PollStateTestInfo
@@ -239,8 +237,7 @@ property will cause it to fail.
 -}
 
 putDelBVState
-    :: HasConfiguration
-    => BlockVersion
+    :: BlockVersion
     -> Poll.BlockVersionState
     -> PollStateTestInfo
     -> Property
@@ -251,8 +248,7 @@ putDelBVState bv bvs =
     in ([PutBVState bv bvs, DelBVState bv] ==^ []) actionPrefixGen
 
 setDeleteConfirmedSV
-    :: HasConfiguration
-    => SoftwareVersion
+    :: SoftwareVersion
     -> PollStateTestInfo
     -> Property
 setDeleteConfirmedSV sv =
@@ -263,8 +259,7 @@ setDeleteConfirmedSV sv =
     in ([SetLastConfirmedSV sv, DelConfirmedSV appName] ==^ []) actionPrefixGen
 
 addDeleteConfirmedProposal
-    :: HasConfiguration
-    => Poll.ConfirmedProposalState
+    :: Poll.ConfirmedProposalState
     -> PollStateTestInfo
     -> Property
 addDeleteConfirmedProposal cps =
@@ -276,8 +271,7 @@ addDeleteConfirmedProposal cps =
        []) actionPrefixGen
 
 insertDeleteProposal
-    :: HasConfiguration
-    => Poll.ProposalState
+    :: Poll.ProposalState
     -> PollStateTestInfo
     -> Property
 insertDeleteProposal ps =

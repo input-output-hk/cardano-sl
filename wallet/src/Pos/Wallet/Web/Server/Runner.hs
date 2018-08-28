@@ -29,7 +29,6 @@ import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Core as Core (Config (..), configGeneratedSecretsThrow)
 import           Pos.Core.Genesis (gsPoorSecrets)
 import           Pos.Core.NetworkAddress (NetworkAddress)
-import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
 import           Pos.Infra.Shutdown.Class (HasShutdownContext (shutdownContext))
 import           Pos.Launcher.Configuration (HasConfigurations)
@@ -52,11 +51,9 @@ import           Pos.Web (TlsParams)
 
 -- | 'WalletWebMode' runner.
 runWRealMode
-    :: forall a .
-       ( HasConfigurations
-       , HasCompileInfo
-       )
-    => ProtocolMagic
+    :: forall a
+     . (HasConfigurations, HasCompileInfo)
+    => Core.Config
     -> TxpConfiguration
     -> WalletDB
     -> ConnectionsVar
@@ -64,8 +61,8 @@ runWRealMode
     -> NodeResources WalletMempoolExt
     -> (Diffusion WalletWebMode -> WalletWebMode a)
     -> IO a
-runWRealMode pm txpConfig db conn syncRequests res action =
-    runRealMode pm txpConfig res $ \diffusion ->
+runWRealMode coreConfig txpConfig db conn syncRequests res action =
+    runRealMode coreConfig txpConfig res $ \diffusion ->
         walletWebModeToRealMode db conn syncRequests $
             action (hoistDiffusion realModeToWalletWebMode (walletWebModeToRealMode db conn syncRequests) diffusion)
 
@@ -98,7 +95,7 @@ walletServeWebFull coreConfig txpConfig diffusion ntpStatus debug address mTlsPa
 
         wwmc <- walletWebModeContext
         walletApplication $ walletServer @WalletWebModeContext @WalletWebMode
-            (configProtocolMagic coreConfig)
+            coreConfig
             txpConfig
             diffusion
             ntpStatus

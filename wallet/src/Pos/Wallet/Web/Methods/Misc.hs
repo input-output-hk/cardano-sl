@@ -48,7 +48,8 @@ import           Pos.Chain.Txp (TxId, TxIn, TxOut)
 import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion)
 import           Pos.Client.KeyStorage (MonadKeys (..), deleteAllSecretKeys)
 import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core (HasConfiguration, SlotId)
+import           Pos.Core (HasConfiguration, ProtocolConstants, SlotId,
+                     pcEpochSlots)
 import           Pos.Core.Conc (async, delay)
 import           Pos.Core.Update (SoftwareVersion (..))
 import           Pos.Crypto (hashHexF)
@@ -215,10 +216,13 @@ dumpState = WalletStateSnapshot <$> askWalletSnapshot
 -- Tx resubmitting
 ----------------------------------------------------------------------------
 
-resetAllFailedPtxs :: (HasConfiguration, MonadSlots ctx m, WalletDbReader ctx m) => m NoContent
-resetAllFailedPtxs = do
+resetAllFailedPtxs
+    :: (MonadSlots ctx m, WalletDbReader ctx m)
+    => ProtocolConstants
+    -> m NoContent
+resetAllFailedPtxs pc = do
     db <- askWalletDB
-    getCurrentSlotBlocking >>= resetFailedPtxs db
+    getCurrentSlotBlocking (pcEpochSlots pc) >>= resetFailedPtxs pc db
     return NoContent
 
 ----------------------------------------------------------------------------

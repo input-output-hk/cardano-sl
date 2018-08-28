@@ -10,6 +10,7 @@ module Pos.DB.Block.GState.BlockExtra
        , getLastSlots
        , getFirstGenesisBlockHash
        , BlockExtraOp (..)
+       , buildBlockExtraOp
        , foldlUpWhileM
        , loadHashesUpWhile
        , loadHeadersUpWhile
@@ -22,16 +23,14 @@ import           Universum hiding (init)
 
 import           Data.Conduit (ConduitT, yield)
 import qualified Database.RocksDB as Rocks
-import           Formatting (bprint, build, (%))
-import qualified Formatting.Buildable
+import           Formatting (Format, bprint, build, later, (%))
 import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Chain.Block (Block, BlockHeader, HasHeaderHash, HeaderHash,
                      LastBlkSlots, headerHash, noLastBlkSlots)
-import           Pos.Core (FlatSlotId, HasCoreConfiguration,
-                     HasProtocolConstants, genesisHash, slotIdF,
-                     unflattenSlotId)
+import           Pos.Core (FlatSlotId, HasCoreConfiguration, SlotCount,
+                     genesisHash, slotIdF, unflattenSlotId)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (..), MonadDB, MonadDBRead (..),
@@ -87,16 +86,18 @@ data BlockExtraOp
       -- ^ Updates list of slots for last blocks.
     deriving (Show)
 
-instance HasProtocolConstants => Buildable BlockExtraOp where
-    build (AddForwardLink from to) =
+buildBlockExtraOp :: SlotCount -> Format r (BlockExtraOp -> r)
+buildBlockExtraOp epochSlots = later build'
+  where
+    build' (AddForwardLink from to) =
         bprint ("AddForwardLink from "%shortHashF%" to "%shortHashF) from to
-    build (RemoveForwardLink from) =
+    build' (RemoveForwardLink from) =
         bprint ("RemoveForwardLink from "%shortHashF) from
-    build (SetInMainChain flag h) =
+    build' (SetInMainChain flag h) =
         bprint ("SetInMainChain for "%shortHashF%": "%build) h flag
-    build (SetLastSlots slots) =
+    build' (SetLastSlots slots) =
         bprint ("SetLastSlots: "%listJson)
-        (map (bprint slotIdF . unflattenSlotId) slots)
+        (map (bprint slotIdF . unflattenSlotId epochSlots) slots)
 
 instance HasCoreConfiguration => RocksBatchOp BlockExtraOp where
     toBatchOp (AddForwardLink from to) =

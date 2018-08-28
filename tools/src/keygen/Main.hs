@@ -17,10 +17,10 @@ import qualified Text.JSON.Canonical as CanonicalJSON
 
 import           Pos.Binary (asBinary, serialize')
 import qualified Pos.Client.CLI as CLI
-import           Pos.Core (Config (..), CoreConfiguration (..),
-                     GenesisConfiguration (..), ProtocolMagic, addressHash,
-                     ccGenesis, configGeneratedSecretsThrow, coreConfiguration,
-                     vssMaxTTL)
+import           Pos.Core as Core (Config (..), CoreConfiguration (..),
+                     GenesisConfiguration (..), addressHash, ccGenesis,
+                     configGeneratedSecretsThrow, configVssMaxTTL,
+                     coreConfiguration)
 import           Pos.Core.Genesis (GeneratedSecrets (..), RichSecrets (..),
                      generateFakeAvvm, generateRichSecrets)
 import           Pos.Core.Ssc (mkVssCertificate, vcSigningKey)
@@ -134,17 +134,19 @@ generateKeysByGenesis generatedSecrets GenKeysOptions{..} = do
             logInfo (toText gkoOutDir <> " generated successfully")
 
 genVssCert
-    :: (HasConfigurations, WithLogger m, MonadIO m)
-    => ProtocolMagic -> FilePath -> m ()
-genVssCert pm path = do
+    :: (WithLogger m, MonadIO m)
+    => Core.Config
+    -> FilePath
+    -> m ()
+genVssCert coreConfig path = do
     us <- readUserSecret path
     let primKey = fromMaybe (error "No primary key") (us ^. usPrimKey)
         vssKey  = fromMaybe (error "No VSS key") (us ^. usVss)
     let cert = mkVssCertificate
-                 pm
+                 (configProtocolMagic coreConfig)
                  primKey
                  (asBinary (toVssPublicKey vssKey))
-                 (vssMaxTTL - 1)
+                 (configVssMaxTTL coreConfig - 1)
     putText $ sformat ("JSON: key "%hashHexF%", value "%stext)
               (addressHash $ vcSigningKey cert)
               (decodeUtf8 $
@@ -168,8 +170,7 @@ main = do
               case koCommand of
                   RearrangeMask msk  -> rearrange msk
                   GenerateKey   path -> genPrimaryKey path
-                  GenerateVss path ->
-                      genVssCert (configProtocolMagic coreConfig) path
+                  GenerateVss   path -> genVssCert coreConfig path
                   ReadKey       path -> readKey path
                   DumpAvvmSeeds opts -> dumpAvvmSeeds opts
                   GenerateKeysBySpec gkbg ->

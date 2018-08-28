@@ -22,7 +22,6 @@ import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..),
                      SimpleNodeArgs (..))
 import qualified Pos.Client.CLI as CLI
 import           Pos.Core as Core (Config (..))
-import           Pos.Crypto (ProtocolMagic)
 import           Pos.Launcher (HasConfigurations, NodeParams (..),
                      loggerBracket, runNodeReal, withConfigurations)
 import           Pos.Launcher.Configuration (AssetLockPath (..))
@@ -39,13 +38,13 @@ actionWithoutWallet
     :: ( HasConfigurations
        , HasCompileInfo
        )
-    => ProtocolMagic
+    => Core.Config
     -> TxpConfiguration
     -> SscParams
     -> NodeParams
     -> IO ()
-actionWithoutWallet pm txpConfig sscParams nodeParams =
-    runNodeReal pm txpConfig nodeParams sscParams [updateTriggerWorker]
+actionWithoutWallet coreConfig txpConfig sscParams nodeParams =
+    runNodeReal coreConfig txpConfig nodeParams sscParams [updateTriggerWorker]
 
 action
     :: ( HasConfigurations
@@ -67,10 +66,7 @@ action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) coreCo
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
     let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
-    actionWithoutWallet (configProtocolMagic coreConfig)
-                        txpConfig
-                        sscParams
-                        currentParams
+    actionWithoutWallet coreConfig txpConfig sscParams currentParams
 
 main :: IO ()
 main = withCompileInfo $ do

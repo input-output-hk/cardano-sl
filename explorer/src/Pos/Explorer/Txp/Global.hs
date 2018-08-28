@@ -11,7 +11,8 @@ import qualified Data.HashMap.Strict as HM
 import           Pos.Chain.Block (ComponentBlock (..), HeaderHash, headerHash,
                      headerSlotL)
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Core (HasConfiguration, SlotId (..), epochIndexL)
+import           Pos.Core (HasConfiguration, SlotId (..), epochIndexL,
+                     localSlotIndexMinBound)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Txp (TxAux, TxUndo)
 import           Pos.Crypto (ProtocolMagic)
@@ -63,7 +64,7 @@ rollbackSettings =
         }
 
 applySingle ::
-       forall ctx m. (HasConfiguration, TxpGlobalApplyMode ctx m)
+       forall ctx m . TxpGlobalApplyMode ctx m
     => TxpBlund -> m (EGlobalToilM ())
 applySingle txpBlund = do
     -- @TxpBlund@ is a block/blund with a reduced set of information required for
@@ -79,7 +80,7 @@ applySingle txpBlund = do
     let slotId   = case txpBlock of
             ComponentBlockGenesis genesisBlock -> SlotId
                                   { siEpoch = genesisBlock ^. epochIndexL
-                                  , siSlot  = minBound
+                                  , siSlot  = localSlotIndexMinBound
                                   -- Genesis block doesn't have a slot, set to minBound
                                   }
             ComponentBlockMain mainHeader _  -> mainHeader ^. headerSlotL

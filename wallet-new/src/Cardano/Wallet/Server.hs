@@ -15,6 +15,7 @@ import qualified Cardano.Wallet.API.Internal.Handlers as Internal
 import qualified Cardano.Wallet.API.V1.Handlers as V1
 import           Cardano.Wallet.API.V1.Swagger (swaggerSchemaUIServer)
 import qualified Cardano.Wallet.API.V1.Swagger as Swagger
+import qualified Cardano.Wallet.API.WIP.Handlers as WIP (handlers)
 import           Cardano.Wallet.Server.CLI (RunMode (..))
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..))
 
@@ -30,6 +31,7 @@ walletServer w _ =
     :<|> v0Handler
     :<|> v1Handler
     :<|> internalHandler
+    :<|> wipHandler
   where
     -- TODO: It'd be nicer to not throw an exception here, but servant doesn't
     -- make this very easy at the moment.
@@ -37,6 +39,7 @@ walletServer w _ =
     v0Handler       = error "V0 API no longer supported"
     v1Handler       = V1.handlers w
     internalHandler = Internal.handlers (walletPassiveLayer w)
+    wipHandler      = WIP.handlers $ walletPassiveLayer w
 
 walletDocServer :: (HasCompileInfo, HasUpdateConfiguration) => Server WalletDocAPI
 walletDocServer = v0DocHandler :<|> v1DocHandler

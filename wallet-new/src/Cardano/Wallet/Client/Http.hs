@@ -32,6 +32,7 @@ import           Servant ((:<|>) (..), (:>))
 import           Servant.Client (BaseUrl (..), ClientEnv (..), ClientM,
                      Scheme (..), ServantError (..), client, runClientM)
 
+import           Cardano.Wallet.API (WIPAPI)
 import qualified Cardano.Wallet.API.V1 as V1
 import           Cardano.Wallet.Client
 
@@ -174,10 +175,12 @@ mkHttpClient baseUrl manager = WalletClient
         :<|> getWalletR
         :<|> updateWalletR
         :<|> getUtxoStatisticsR
-        :<|> postCheckExternalWalletR
+        = walletsAPI
+
+    postCheckExternalWalletR
         :<|> postExternalWalletR
         :<|> deleteExternalWalletR
-        = walletsAPI
+        = client (Proxy @ WIPAPI)
 
     deleteAccountR
         :<|> getAccountR

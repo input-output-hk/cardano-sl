@@ -66,6 +66,9 @@ library
                        Cardano.Wallet.API.V1.Transactions
                        Cardano.Wallet.API.V1.Types
                        Cardano.Wallet.API.V1.Wallets
+                       Cardano.Wallet.API.WIP
+                       Cardano.Wallet.API.WIP.Handlers
+                       Cardano.Wallet.API.WIP.LegacyHandlers
                        Cardano.Wallet.Kernel
                        Cardano.Wallet.Kernel.Accounts
                        Cardano.Wallet.Kernel.Actions

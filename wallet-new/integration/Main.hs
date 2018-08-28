@@ -49,16 +49,6 @@ main = do
     let walletClient :: MonadIO m => WalletClient m
         walletClient = liftClient $ mkHttpClient baseUrl manager
 
-    walletState <- initialWalletState walletClient
-
-    printT $ "Initial wallet state: " <> show walletState
-
-    -- some monadic fold or smth similar
-    _ <- runActionCheck
-       walletClient
-       walletState
-       actionDistribution
-
     -- Acquire the initial state for the deterministic tests
     wRef <- newWalletRef
 
@@ -69,8 +59,19 @@ main = do
     --     Try `cardano-integration-test --help' for more information.
     --
     -- See also: https://github.com/hspec/hspec/issues/135
-    printT "Starting deterministic tests."
-    withArgs [] . hspec $ deterministicTests wRef walletClient manager
+    withArgs [] $ do
+        printT "Starting deterministic tests."
+        hspec $ deterministicTests wRef walletClient manager
+
+        walletState <- initialWalletState walletClient
+
+        printT $ "Initial wallet state: " <> show walletState
+
+        -- some monadic fold or smth similar
+        void $ runActionCheck
+          walletClient
+          walletState
+          actionDistribution
   where
     orFail :: MonadFail m => Either String a -> m a
     orFail =

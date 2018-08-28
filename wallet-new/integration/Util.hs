@@ -94,7 +94,8 @@ genesisWallet wc = do
     maybe
         (fail "Genesis wallet is missing; did you import it prior to executing the test-suite?")
         return
-        (find ((lockedWallet /=) . walId) allWallets)
+        (find isUnlockedGenesisWallet allWallets)
+  where isUnlockedGenesisWallet w = isGenesisWallet w && not (isLockedWallet w)
 
 -- Hard code the genesis wallet that's asset locked
 genesisAssetLockedWallet :: WalletClient IO -> IO Wallet
@@ -103,11 +104,18 @@ genesisAssetLockedWallet wc = do
     maybe
         (fail "Genesis wallet is missing; did you import it prior to executing the test-suite?")
         return
-        (find ((lockedWallet ==) . walId) allWallets)
+        (find isLockedGenesisWallet allWallets)
+  where isLockedGenesisWallet w = isGenesisWallet w && isLockedWallet w
+
+isGenesisWallet :: Wallet -> Bool
+isGenesisWallet = (== "Genesis wallet") . walName
 
 lockedWallet :: WalletId
 lockedWallet =
     WalletId "Ae2tdPwUPEZ5YjF9WuDoWfCZLPQ56MdQC6CZa2VKwMVRVqBBfTLPNcPvET4"
+
+isLockedWallet :: Wallet -> Bool
+isLockedWallet = (== lockedWallet) . walId
 
 genesisRef :: WalletRef
 genesisRef = unsafePerformIO newEmptyMVar

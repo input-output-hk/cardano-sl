@@ -18,9 +18,6 @@ module Pos.Context.Context
        , BlockRetrievalQueue
 
        , ConnectedPeers(..)
-
-       -- * Lenses
-       , ncLastKnownHeader_L
        ) where
 
 import           Universum

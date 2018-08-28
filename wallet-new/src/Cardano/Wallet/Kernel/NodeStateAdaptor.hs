@@ -64,7 +64,7 @@ import           Pos.Chain.Block (Block, HeaderHash, LastKnownHeader,
 import           Pos.Chain.Update (ConfirmedProposalState,
                      HasUpdateConfiguration, SoftwareVersion, bvdMaxTxSize)
 import qualified Pos.Chain.Update as Upd
-import           Pos.Context (NodeContext (..), ncLastKnownHeader_L)
+import           Pos.Context (NodeContext (..))
 import           Pos.Core (BlockCount, ProtocolConstants (pcK), SlotCount,
                      Timestamp, difficultyL, genesisBlockVersionData,
                      getChainDifficulty, pcEpochSlots)
@@ -315,7 +315,7 @@ instance HasLens UpdateContext Res UpdateContext where
     lensOf = mkResLens (nrContextLens . lensOf')
 
 instance HasLens LastKnownHeaderTag Res LastKnownHeader where
-    lensOf = mkResLens (nrContextLens . ncLastKnownHeader_L)
+    lensOf = mkResLens (nrContextLens . lensOf @LastKnownHeaderTag)
 
 instance HasSlottingVar Res where
     slottingTimestamp = mkResLens (nrContextLens . slottingTimestamp)

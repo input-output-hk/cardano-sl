@@ -1,25 +1,51 @@
-{-# LANGUAGE PackageImports  #-}
+{-# LANGUAGE PackageImports #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module Delegation where
 
-import qualified Crypto.Hash
-import qualified Data.ByteArray           as BA
-import qualified Data.ByteString.Char8    as BS
-import           Data.Map       (Map)
-import qualified Data.Map       as Map
-import           Data.Monoid    (Monoid)
-import           Data.Semigroup (Semigroup, (<>))
-import           Data.Set       (Set)
-import qualified Data.Set       as Set
+import           Crypto.Hash           (Digest, SHA256, hash)
+import qualified Data.ByteArray        as BA
+import qualified Data.ByteString.Char8 as BS
+import           Data.Foldable         (all)
+import           Data.List             (find)
+import           Data.Map              (Map)
+import qualified Data.Map              as Map
+import           Data.Maybe            (isJust)
+import           Data.Monoid           (Monoid)
+import           Data.Semigroup        (Semigroup, (<>))
+import           Data.Set              (Set)
+import qualified Data.Set              as Set
 
 
-newtype TxId = TxId { getTxId :: Crypto.Hash.Digest Crypto.Hash.SHA256 }
+newtype TxId = TxId { getTxId :: Digest SHA256 }
   deriving (Show, Eq, Ord)
-newtype Addr = Addr Int deriving (Show, Eq, Ord)
+data Addr = AddrTxin (Digest SHA256) (Digest SHA256)
+          | AddrAccount (Digest SHA256) (Digest SHA256)
+          deriving (Show, Eq, Ord)
 newtype Coin = Coin Int deriving (Show, Eq, Ord)
+data Cert = RegKey | DeRegKey | Delegate | RegPool | RetirePool
+  deriving (Show, Eq, Ord)
+
+newtype Owner = Owner Int deriving (Show, Eq, Ord)
+newtype SKey = SKey Owner deriving (Show, Eq, Ord)
+newtype VKey = VKey Owner deriving (Show, Eq, Ord)
+data Sig a = Sig a Owner deriving (Show, Eq, Ord)
+data WitTxin = WitTxin VKey (Sig TxIn) deriving (Show, Eq, Ord)
+data WitCert = WitCert VKey (Sig Cert) deriving (Show, Eq, Ord)
+data Wits = Wits { txinWits :: (Set WitTxin)
+                 , certWits :: (Set WitCert)
+                 } deriving (Show, Eq, Ord)
+
 data TxIn = TxIn TxId Int deriving (Show, Eq, Ord)
 data TxOut = TxOut Addr Coin deriving (Show, Eq, Ord)
-data Tx = Tx { inputs :: Set TxIn, outputs :: [TxOut] } deriving (Show, Eq, Ord)
+data TxBody = TxBody { inputs  :: Set TxIn
+                     , outputs :: [TxOut]
+                     , certs   :: Set Cert
+                     } deriving (Show, Eq, Ord)
+data Tx = Tx { body :: TxBody
+             , wits :: Wits
+             } deriving (Show, Eq)
+
 newtype UTxO = UTxO (Map TxIn TxOut) deriving (Show, Eq, Ord)
 
 -- TODO is it okay that I've used list indices instead of implementing the Ix Type?
@@ -27,6 +53,16 @@ newtype UTxO = UTxO (Map TxIn TxOut) deriving (Show, Eq, Ord)
 instance BA.ByteArrayAccess Tx where
   length        = BA.length . BS.pack . show
   withByteArray = BA.withByteArray . BS.pack  . show
+
+instance BA.ByteArrayAccess VKey where
+  length        = BA.length . BS.pack . show
+  withByteArray = BA.withByteArray . BS.pack . show
+
+instance BA.ByteArrayAccess SKey where
+  length        = BA.length . BS.pack . show
+  withByteArray = BA.withByteArray . BS.pack . show
+
+-- TODO how do I remove these boilerplate instances?
 
 instance Semigroup Coin where
   (Coin a) <> (Coin b) = Coin (a + b)
@@ -36,15 +72,16 @@ instance Monoid Coin where
   mappend = (<>)
 
 txid :: Tx -> TxId
-txid = TxId . Crypto.Hash.hash
+txid = TxId . hash
 
 txins :: Tx -> Set TxIn
-txins = inputs
+txins = inputs . body
 
 txouts :: Tx -> UTxO
 txouts tx = UTxO $
-  Map.fromList [(TxIn transId idx, out) | (out, idx) <- zip (outputs tx) [0..]]
+  Map.fromList [(TxIn transId idx, out) | (out, idx) <- zip (outs tx) [0..]]
   where
+    outs = outputs . body
     transId = txid tx
 
 unionUTxO :: UTxO -> UTxO -> UTxO
@@ -54,20 +91,11 @@ balance :: UTxO -> Coin
 balance (UTxO utxo) = foldr addCoins mempty utxo
   where addCoins (TxOut _ a) b = a <> b
 
-newtype Owner = Owner Int deriving (Show, Eq, Ord)
-newtype SKey = SKey Owner deriving (Show, Eq, Ord)
-newtype VKey = VKey Owner deriving (Show, Eq, Ord)
-newtype KeyHash = KeyHash VKey deriving (Show, Eq, Ord)
-data Signature a = Signature a Owner deriving (Show, Eq)
+sign :: SKey -> a -> Sig a
+sign (SKey k) d = Sig d k
 
-keyHash :: VKey -> KeyHash
-keyHash = KeyHash
-
-sign :: SKey -> a -> Signature a
-sign (SKey k) d = Signature d k
-
-verify :: Eq a => VKey -> a -> Signature a -> Bool
-verify (VKey vk) vd (Signature sd sk) = vk == sk && vd == sd
+verify :: Eq a => VKey -> a -> Sig a -> Bool
+verify (VKey vk) vd (Sig sd sk) = vk == sk && vd == sd
 
 type Ledger = [Tx]
 
@@ -94,8 +122,8 @@ instance Monoid Validity where
   mappend = (<>)
 
 validInputs :: Tx -> UTxO -> Validity
-validInputs (Tx inputs _) (UTxO utox) =
-  if inputs `Set.isSubsetOf` Map.keysSet utox
+validInputs tx (UTxO utox) =
+  if (txins tx) `Set.isSubsetOf` Map.keysSet utox
     then Valid
     else Invalid [UnknownInputs]
 
@@ -114,3 +142,33 @@ transactionTransition tx utxo =
   case valid tx utxo of
     Valid          -> Right (txins tx !<| utxo `unionUTxO` txouts tx)
     Invalid errors -> Left errors
+
+authTxin :: VKey -> TxIn -> UTxO -> Bool
+authTxin key txin (UTxO utxo) =
+  case Map.lookup txin utxo of
+    Just (TxOut (AddrTxin pay _) _) -> hash key == pay
+    _ -> False
+
+witnessTxin :: Set WitTxin -> Set TxIn -> UTxO -> Bool
+witnessTxin ws ins utxo =
+  (Set.size ws) == (Set.size ins) && all (hasWitness ws) ins
+  where
+    hasWitness ws input = isJust $ find (isWitness input utxo) ws
+    isWitness txin utxo (WitTxin key sig) =
+      verify key txin sig && authTxin key txin utxo
+
+authCert :: VKey -> Cert -> Bool
+authCert key cert = True -- TODO
+
+witnessCert :: Set WitCert -> Set Cert-> Bool
+witnessCert ws cs =
+  (Set.size ws) == (Set.size cs) && all (hasWitness ws) cs
+  where
+    hasWitness ws cert = isJust $ find (isWitness cert) ws
+    isWitness cert (WitCert key sig) =
+      verify key cert sig && authCert key cert
+--TODO combine with witnessTxin?
+
+witness :: Tx -> UTxO -> Bool
+witness (Tx (TxBody ins _ cs) (Wits txWits ctWits)) utxo =
+  witnessTxin txWits ins utxo && witnessCert ctWits cs

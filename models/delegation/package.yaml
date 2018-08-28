@@ -33,5 +33,6 @@ tests:
     dependencies:
     - delegation
     - containers
+    - cryptonite
     - hspec
     - QuickCheck

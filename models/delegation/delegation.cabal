@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: b3d7fb5c903b5a90adc8c80e22fd70e2b044b77b07f14c487e6203765e474174
+-- hash: ac023eb45d0a4a01901192259e495eb7f11b5c396f85f737b661ce24011bc679
 
 name:           delegation
 version:        0.1.0.0
@@ -50,6 +50,7 @@ test-suite delegation-test
       QuickCheck
     , base >=4.7 && <5
     , containers
+    , cryptonite
     , delegation
     , hspec
   default-language: Haskell2010

@@ -22,6 +22,7 @@ import           Universum hiding (drop, dropWhile, init, last, reverse, take,
                      toList)
 
 import qualified Data.Foldable
+import           Test.QuickCheck (Arbitrary (..), arbitrary)
 import           Data.SafeCopy (SafeCopy (..), base, contain, deriveSafeCopy,
                      safeGet, safePut)
 import           Pos.Core.Chrono
@@ -106,3 +107,12 @@ splitLast = \case
        -> (StrictList a, a)
     go acc lastElem Nil         = (reverse acc, lastElem)
     go acc lastElem (Cons x xs) = go (Cons lastElem acc) x xs
+
+fromList :: [a] -> StrictList a
+fromList [] = Nil
+fromList (a:r) = Cons a $ fromList r
+
+instance Arbitrary a => Arbitrary (StrictList a) where
+    arbitrary = do
+        ls <- arbitrary
+        pure $ fromList ls

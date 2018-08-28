@@ -42,6 +42,7 @@ import qualified Data.Set as Set
 import           Formatting (bprint, (%))
 import qualified Formatting.Buildable
 import           Serokell.Util (mapJson)
+import           Test.QuickCheck (Arbitrary, arbitrary)
 
 import qualified Pos.Chain.Txp as Core
 import qualified Pos.Core as Core
@@ -51,6 +52,9 @@ import           Cardano.Wallet.Kernel.DB.InDb
 import qualified Cardano.Wallet.Kernel.Util as Util
 import qualified Cardano.Wallet.Kernel.Util.Core as Core
 
+import           Test.Pos.Core.Arbitrary ()
+import           Test.Pos.Core.Arbitrary.Txp ()
+
 {-------------------------------------------------------------------------------
   Pending transactions
 -------------------------------------------------------------------------------}
@@ -59,7 +63,7 @@ import qualified Cardano.Wallet.Kernel.Util.Core as Core
 type UnderlyingMap = Map Core.TxId Core.TxAux
 
 -- | Pending transactions
-newtype Pending = Pending (InDb UnderlyingMap)
+newtype Pending = Pending (InDb UnderlyingMap) deriving (Eq, Show)
 
 deriveSafeCopy 1 'base ''Pending
 
@@ -203,3 +207,8 @@ liftMap2 f (toMap -> p) (toMap -> p') = fromMap (f p p')
 
 instance Buildable Pending where
     build (Pending (InDb p)) = bprint ("Pending " % mapJson) p
+
+instance Arbitrary Pending where
+    arbitrary = do
+      p <- arbitrary
+      pure . Pending . InDb $ p

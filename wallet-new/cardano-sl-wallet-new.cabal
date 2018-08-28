@@ -510,6 +510,7 @@ test-suite wallet-unit-tests
                     , cardano-sl-util
                     , cardano-sl-util-test
                     , cardano-sl-wallet-new
+                    , cereal
                     , constraints
                     , containers
                     , cryptonite
@@ -522,6 +523,7 @@ test-suite wallet-unit-tests
                     , QuickCheck
                     , quickcheck-instances
                     , safe-exceptions
+                    , safecopy
                     , reflection
                     , serokell-util
                     , servant-server

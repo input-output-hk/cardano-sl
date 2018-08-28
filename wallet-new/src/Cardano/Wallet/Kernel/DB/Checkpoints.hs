@@ -8,11 +8,13 @@ import qualified Data.Map as M
 import qualified Data.SafeCopy as SC
 import           Data.Set (Set)
 import qualified Data.Set as S
+import           Test.QuickCheck (Arbitrary (..), arbitrary)
 
 import qualified Pos.Chain.Txp as Core
 import qualified Pos.Core as Core
 import           Pos.Core.Chrono (NewestFirst (..))
 
+import           Cardano.Wallet.Kernel.DB.BlockContext
 import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec
@@ -20,22 +22,36 @@ import           Cardano.Wallet.Kernel.DB.Spec.Pending (Pending (..))
 import           Cardano.Wallet.Kernel.Util.StrictNonEmpty (StrictNonEmpty (..))
 import qualified Cardano.Wallet.Kernel.Util.StrictNonEmpty as SNE
 
-newtype Checkpoints = Checkpoints (NewestFirst StrictNonEmpty Checkpoint)
+import           Test.Pos.Core.Arbitrary ()
+
+newtype Checkpoints = Checkpoints {unCheckpoints :: NewestFirst StrictNonEmpty Checkpoint}
+  deriving (Eq, Show)
+
+take :: Int -> Checkpoints -> Checkpoints
+take n (Checkpoints (NewestFirst ls)) = Checkpoints (NewestFirst (SNE.take n ls))
+
+instance Arbitrary Checkpoints where
+  arbitrary = do
+    ls <- arbitrary
+    pure . Checkpoints . NewestFirst $ ls
 
 instance SC.SafeCopy Checkpoints where
     getCopy = SC.contain $ do
-      deltas <- SC.safeGet
-      pure $ steps deltas
-    putCopy cs = SC.contain $ do
-      SC.safePut $ toDiffs cs
+      c <- SC.safeGet
+      ds <- SC.safeGet
+      pure $ steps (c,ds)
+    putCopy cs  = SC.contain $ do
+      let (c,ds) = deltas cs
+      SC.safePut c
+      SC.safePut ds
 
 data DeltaCheckpoint = DeltaCheckpoint {
     dcUtxo        :: !(InDb UtxoDiff)
   , dcUtxoBalance :: !(InDb Core.Coin)
   , dcPending     :: !PendingDiff
   , dcBlockMeta   :: !BlockMetaDiff
-  , dcslotId      :: !(InDb Core.SlotId)
   , dcForeign     :: !PendingDiff
+  , dcContext     :: !(Maybe BlockContext)
 }
 
 type PendingDiff = InDb (Map Core.TxId Core.TxAux, Set Core.TxId)
@@ -44,12 +60,12 @@ type BlockMetaDiff = (BlockMetaSlotIdDiff, BlockMetaAddressDiff)
 type BlockMetaSlotIdDiff = InDb (Map Core.TxId Core.SlotId, Set Core.TxId)
 type BlockMetaAddressDiff = (Map (InDb Core.Address) AddressMeta, Set (InDb Core.Address))
 
-toDiffs :: Checkpoints -> (Checkpoint, [DeltaCheckpoint])
-toDiffs (Checkpoints (NewestFirst (a SNE.:| strict))) = (a, go a strict)
+deltas :: Checkpoints -> (Checkpoint, [DeltaCheckpoint])
+deltas (Checkpoints (NewestFirst (a SNE.:| strict))) = (a, go a strict)
   where
     go :: Checkpoint -> SL.StrictList Checkpoint -> [DeltaCheckpoint]
     go _ SL.Nil                  = []
-    go c (SL.Cons c' strictRest) = (deltaC c c') : (go c' strictRest)
+    go c (SL.Cons c' strictRest) = (deltaC c' c) : (go c' strictRest)
 
 steps :: (Checkpoint, [DeltaCheckpoint] ) -> Checkpoints
 steps (c, ls) = Checkpoints . NewestFirst $ c SNE.:| go c ls
@@ -64,21 +80,20 @@ deltaC c c' = DeltaCheckpoint {
   , dcUtxoBalance  = _checkpointUtxoBalance c
   , dcPending      = deltaPending (_checkpointPending c) (_checkpointPending c')
   , dcBlockMeta    = deltaBlockMeta (_checkpointBlockMeta c) (_checkpointBlockMeta c')
-  , dcslotId       = _checkpointSlotId c
   , dcForeign      = deltaPending (_checkpointForeign c) (_checkpointForeign c')
+  , dcContext      = _checkpointContext c
 }
 
 stepC :: Checkpoint -> DeltaCheckpoint -> Checkpoint
-stepC Checkpoint{..} DeltaCheckpoint{..} =
+stepC c DeltaCheckpoint{..} =
   Checkpoint {
-    _checkpointUtxo          = stepUtxo _checkpointUtxo dcUtxo
+    _checkpointUtxo          = stepUtxo (_checkpointUtxo c) dcUtxo
     , _checkpointUtxoBalance = dcUtxoBalance
-    , _checkpointPending     = stepPending _checkpointPending dcPending
-    , _checkpointBlockMeta   = stepBlockMeta _checkpointBlockMeta dcBlockMeta
-    , _checkpointSlotId      = dcslotId
-    , _checkpointForeign     = stepPending _checkpointForeign dcForeign
+    , _checkpointPending     = stepPending (_checkpointPending c) dcPending
+    , _checkpointBlockMeta   = stepBlockMeta (_checkpointBlockMeta c) dcBlockMeta
+    , _checkpointContext     = dcContext
+    , _checkpointForeign     = stepPending (_checkpointForeign c) dcForeign
   }
-
 
 deltaPending :: Pending -> Pending -> PendingDiff
 deltaPending (Pending inm) (Pending inm') = deltaM <$> inm <*> inm'
@@ -100,6 +115,8 @@ stepBlockMeta :: BlockMeta -> BlockMetaDiff -> BlockMeta
 stepBlockMeta (BlockMeta bmsi bms) (dbmsi, dbms) =
   BlockMeta (stepM <$> bmsi <*> dbmsi) (stepM bms dbms)
 
+-- As a diff of two Maps we use the Map of new values (changed or completely new)
+-- plus a Set of deleted values.
 -- property: keys of the return set cannot be keys of the returned Map.
 deltaM :: (Eq v, Ord k) => Map k v -> Map k v -> (Map k v, Set k)
 deltaM newMap oldMap =

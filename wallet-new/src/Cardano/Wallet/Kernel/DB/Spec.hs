@@ -48,6 +48,7 @@ import           Data.SafeCopy (base, deriveSafeCopy)
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 import           Serokell.Util.Text (mapJson)
+import           Test.QuickCheck (Arbitrary (..))
 
 import qualified Pos.Chain.Txp as Core
 import qualified Pos.Core as Core
@@ -61,6 +62,9 @@ import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
 import           Cardano.Wallet.Kernel.Util.Core as Core
 import           Cardano.Wallet.Kernel.Util.StrictNonEmpty (StrictNonEmpty (..))
 import qualified Cardano.Wallet.Kernel.Util.StrictNonEmpty as SNE
+
+import           Test.Pos.Core.Arbitrary ()
+import           Test.Pos.Core.Arbitrary.Txp ()
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
@@ -112,7 +116,7 @@ data Checkpoint = Checkpoint {
       --   wallet of a new block, but the wallet crashes or is terminated before
       --   it can process the block.)
     , _checkpointContext     :: !(Maybe BlockContext)
-    }
+    } deriving (Eq, Show)
 
 makeLenses ''Checkpoint
 
@@ -302,6 +306,15 @@ currentAddressMeta addr = currentCheckpoint . cpAddressMeta addr
 
 oldestCheckpoint :: Getter (NewestFirst StrictNonEmpty c) c
 oldestCheckpoint = _Wrapped . to SNE.last
+
+
+instance Arbitrary Checkpoint where
+  arbitrary = Checkpoint <$> arbitrary
+                         <*> arbitrary
+                         <*> arbitrary
+                         <*> arbitrary
+                         <*> arbitrary
+                         <*> arbitrary
 
 {-------------------------------------------------------------------------------
   Pretty-printing

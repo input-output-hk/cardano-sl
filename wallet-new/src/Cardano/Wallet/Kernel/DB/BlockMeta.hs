@@ -32,7 +32,7 @@ import           Data.SafeCopy (base, deriveSafeCopy)
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 import           Serokell.Util (mapJson)
-import           Test.QuickCheck (Arbitrary (..), arbitrary, Gen)
+import           Test.QuickCheck (Arbitrary (..), Gen ,arbitrary)
 
 import qualified Pos.Core as Core
 import qualified Pos.Core.Txp as Txp

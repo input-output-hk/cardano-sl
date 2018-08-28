@@ -1,10 +1,9 @@
 {-# LANGUAGE RankNTypes #-}
 module DeltaCompressionSpecs (spec) where
 
+import           Universum
 
-import           Universum hiding(take)
-
-import           Data.Map as M hiding(take)
+import           Data.Map as M
 import qualified Data.SafeCopy as SC
 import           Data.Serialize (runGet, runPut)
 import           Formatting (bprint)

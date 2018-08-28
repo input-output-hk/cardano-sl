@@ -16,7 +16,7 @@ import           Control.Lens (makeLenses)
 import           Data.SafeCopy (base, deriveSafeCopy)
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
-import           Test.QuickCheck (Arbitrary (..), arbitrary, Gen)
+import           Test.QuickCheck (Arbitrary (..), Gen, arbitrary)
 
 import qualified Pos.Chain.Block as Core
 import qualified Pos.Core as Core

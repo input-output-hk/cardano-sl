@@ -21,7 +21,7 @@ module Cardano.Wallet.Kernel (
 import           Universum hiding (State, init)
 
 import           Control.Concurrent.Async (async, cancel)
-import           Control.Concurrent.MVar (modifyMVar)
+import           Control.Concurrent.MVar (modifyMVar, modifyMVar_)
 import           Data.Acid (AcidState)
 import           Data.Acid.Memory (openMemoryState)
 import qualified Data.Map.Strict as Map
@@ -31,14 +31,16 @@ import           Pos.Core.Txp (TxAux (..))
 import           Pos.Util.Wlog (Severity (..))
 
 import           Cardano.Wallet.Kernel.DB.AcidState (DB, defDB)
+import           Cardano.Wallet.Kernel.DB.Read (pendingByAccount)
 import           Cardano.Wallet.Kernel.DB.TxMeta
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Internal
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (NodeStateAdaptor)
 import           Cardano.Wallet.Kernel.Pending (cancelPending)
+import           Cardano.Wallet.Kernel.Read (getWalletSnapshot)
 import           Cardano.Wallet.Kernel.Submission (WalletSubmission,
-                     defaultResubmitFunction, exponentialBackoff,
+                     addPendings, defaultResubmitFunction, exponentialBackoff,
                      newWalletSubmission, tick)
 import           Cardano.Wallet.Kernel.Submission.Worker (tickSubmissionLayer)
 
@@ -85,26 +87,43 @@ handlesClose (Handles _ meta) = closeMetaDB meta
   Wallet Initialisers
 -------------------------------------------------------------------------------}
 
--- | Initialise Passive Wallet with empty Wallets collection
+-- | Initialise Passive Wallet
 initPassiveWallet :: (Severity -> Text -> IO ())
                   -> Keystore
                   -> WalletHandles
                   -> NodeStateAdaptor IO
                   -> IO PassiveWallet
-initPassiveWallet logMessage keystore Handles{..} node = do
-    submission <- newMVar (newWalletSubmission rho)
-    restore    <- newMVar Map.empty
-    return PassiveWallet {
-          _walletLogMessage      = logMessage
-        , _walletKeystore        = keystore
-        , _wallets               = hAcid
-        , _walletMeta            = hMeta
-        , _walletNode            = node
-        , _walletSubmission      = submission
-        , _walletRestorationTask = restore
-        }
-  where
-    rho = defaultResubmitFunction (exponentialBackoff 255 1.25)
+initPassiveWallet logMessage keystore handles node = do
+    pw <- preparePassiveWallet
+    initSubmission pw
+    return pw
+    where
+        -- | Prepare Passive Wallet for initialisation.
+        -- NOTE: the Submission Layer is not initialised yet since that would require
+        -- access to the PassiveWallet state
+        preparePassiveWallet :: IO PassiveWallet
+        preparePassiveWallet = do
+            submission <- newMVar (newWalletSubmission rho)
+            restore    <- newMVar Map.empty
+            return PassiveWallet {
+                  _walletLogMessage      = logMessage
+                , _walletKeystore        = keystore
+                , _wallets               = hAcid handles
+                , _walletMeta            = hMeta handles
+                , _walletNode            = node
+                , _walletSubmission      = submission
+                , _walletRestorationTask = restore
+                }
+          where
+            rho = defaultResubmitFunction (exponentialBackoff 255 1.25)
+
+        -- | Since the submission layer state is not persisted, we need to initialise
+        -- the submission layer with all pending transactions present in the wallet state.
+        initSubmission :: PassiveWallet -> IO ()
+        initSubmission pw_  = do
+            pendings <- pendingByAccount <$> getWalletSnapshot pw_
+            modifyMVar_ (_walletSubmission pw_) $
+                return . addPendings pendings
 
 -- | Initialize the Passive wallet (specified by the ESK) with the given Utxo
 --

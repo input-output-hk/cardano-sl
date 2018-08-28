@@ -1279,7 +1279,9 @@ tick :: WalletSubmission
 
 ### 10.1 Interface
 
-* "call addPending on newPending"
+#### Adding and removing pending transactions
+* "call `addPending` on `newPending` and (possibly) on `rollback`"
+* "call `remPending` on `applyBlock` and `cancel`"
 
 After adding a new transaction (`newPending`/`newForeign`) to the wallet state, we notify the submission layer of the new transaction:
 
@@ -1290,7 +1292,7 @@ submitTx = modifyMVar_ (walletPassive ^. walletSubmission) $
 ```
 [submitTx](https://github.com/input-output-hk/cardano-sl/blob/6659d8501c727714a7861ad2e527a337e0a11b86/wallet-new/src/Cardano/Wallet/Kernel/Pending.hs#L114-L116)
 
-* "call remPending during applyBlock"
+In `applyBlock` we remove relevant pending transactions:
 
 ```haskell
 -- | Notify all the wallets in the PassiveWallet of a new block
@@ -1307,10 +1309,34 @@ applyBlock pw@PassiveWallet{..} b = do
 ```
 [BListener.applyBlock](https://github.com/input-output-hk/cardano-sl/blob/6659d8501c727714a7861ad2e527a337e0a11b86/wallet-new/src/Cardano/Wallet/Kernel/BListener.hs#L54-L64)
 
+In `switchToFork` we _add_ / _remove_ the relevant pending transactions to/from the submission layer (which corresponds with the Wallet Spec on possibly adding pendings during `rollback` and removing pendings during `applyBlock`):
+
+```haskell
+switchToFork :: PassiveWallet
+             -> Int             -- ^ Number of blocks to roll back
+             -> [ResolvedBlock] -- ^ Blocks in the new fork
+             -> IO (Either RollbackDuringRestoration ())
+switchToFork pw@PassiveWallet{..} n bs = do
+    k <- Node.getSecurityParameter _walletNode
+    blocksAndMeta <- mapM (prefilterBlock' pw) bs
+    let (blockssByAccount, metas) = unzip blocksAndMeta
+    res <- update' _wallets $ SwitchToFork k n blockssByAccount
+    case res of
+      Left  err     -> return $ Left err
+      Right changes -> do mapM_ (putTxMeta _walletMeta) $ concat metas
+                          modifyMVar_ _walletSubmission $
+                            return . Submission.addPendings (fst <$> changes)
+                          modifyMVar_ _walletSubmission $
+                            return . Submission.remPending (snd <$> changes)
+                          return $ Right ()
+```
+[switchToFork](https://github.com/input-output-hk/cardano-sl/blob/6659d8501c727714a7861ad2e527a337e0a11b86/wallet-new/src/Cardano/Wallet/Kernel/BListener.hs#L74-L94)
+
+#### Tick function
+
 * "must be a thread that periodically calls tick, to give the submission layer a chance to resubmit transactions that haven’t made it into the blockchain yet. The set of transactions returned by tick ... the wallet should remove such transactions from its pending set"
 
-The submission layer resource is managed in `bracketActiveWallet`.
-The resubmission function `tickFunction` calls `tick` and cancels any pending transactions returned:
+The submission layer resource is managed in `bracketActiveWallet` and is initialised with `tickFunction`, which calls `tick` and cancels any pending transactions returned:
 
 ```haskell
 tickFunction :: MVar WalletSubmission -> IO ()
@@ -1328,6 +1354,12 @@ tickFunction submissionLayer = do
 #### cancelPending
 
 ```haskell
+-- | Cancel a pending transaction
+--
+-- NOTE: This gets called in response to events /from/ the wallet submission
+-- layer, so we shouldn't be notifying the submission in return here.
+--
+-- This removes the transaction from either pending or foreign.
 cancelPending :: forall c. IsCheckpoint c
               => Set Txp.TxId
               -> NewestFirst StrictNonEmpty c -> NewestFirst StrictNonEmpty c
@@ -1336,6 +1368,89 @@ cancelPending txids = map (cpPending %~ Pending.delete txids)
 [cancelPending](https://github.com/input-output-hk/cardano-sl/blob/6659d8501c727714a7861ad2e527a337e0a11b86/wallet-new/src/Cardano/Wallet/Kernel/DB/Spec/Update.hs#L141-L146)
 
 ### 10.2 Implementation
+
+* The `Schedule` time slots are modeled as a collection of `ScheduleEvents` per `slotId`
+
+```haskell
+data Schedule = Schedule {
+      _ssScheduled     :: IntMap ScheduleEvents
+    , _ssUnsentNursery :: [ScheduleSend]
+    }
+
+-- | A type representing an item (in this context, a transaction) scheduled
+-- to be regularly sent in a given slot (computed by a given 'RetryPolicy').
+data ScheduleSend = ScheduleSend HdAccountId Txp.TxId Txp.TxAux SubmissionCount deriving Eq
+
+-- | A type representing an item (in this context, a transaction @ID@) which
+-- needs to be checked against the blockchain for inclusion. In other terms,
+-- we need to confirm that indeed the transaction identified by the given 'TxId' has
+-- been adopted, i.e. it's not in the local pending set anymore.
+data ScheduleEvictIfNotConfirmed = ScheduleEvictIfNotConfirmed HdAccountId Txp.TxId deriving Eq
+
+-- | All the events we can schedule for a given 'Slot', partitioned into
+-- 'ScheduleSend' and 'ScheduleEvictIfNotConfirmed'.
+data ScheduleEvents = ScheduleEvents {
+      _seToSend    :: [ScheduleSend]
+    -- ^ A list of transactions which we need to send.
+    , _seToConfirm :: [ScheduleEvictIfNotConfirmed]
+    -- ^ A list of transactions which we need to check if they have been
+    -- confirmed (i.e. adopted) by the blockchain.
+    }
+
+```
+
+* "When the submission layer is notified of new pending transactions, it adds those to its pending set and schedules them to be submitted in the next slot, recording an initial submission count of 0"
+
+```haskell
+-- | Schedule the full list of pending transactions.
+-- The transactions will be scheduled immediately in the next 'Slot'.
+schedulePending :: HdAccountId
+                -> Pending
+                -> WalletSubmission
+                -> WalletSubmission
+schedulePending accId pending ws =
+    let currentSlot = ws ^. wsState . wssCurrentSlot
+    in addToSchedule ws (mapSlot succ currentSlot) toSend mempty
+    where
+        toEntry :: (Txp.TxId, Txp.TxAux) -> ScheduleSend
+        toEntry (txId, txAux) = ScheduleSend accId txId txAux (SubmissionCount 0)
+
+        toSend :: [ScheduleSend]
+        toSend = map toEntry (Pending.toList pending)
+```
+
+* "The submission layer is parameterised over a ‘resubmission function’ ρ"
+* "If desired, the submission count can be used to implement exponential back-off"
+
+```haskell
+
+-- see initPassiveWallet:
+
+submission <- newMVar (newWalletSubmission rho)
+...
+rho = defaultResubmitFunction (exponentialBackoff 255 1.25)
+```
+[initPassiveWallet](https://github.com/input-output-hk/cardano-sl/blob/6659d8501c727714a7861ad2e527a337e0a11b86/wallet-new/src/Cardano/Wallet/Kernel.hs#L105)
+
+### 10.3 Persistence
+
+* "The state of the submission layer does not need to be persisted. If the wallet is shutdown for some period of time, the submission layer can simply be re-initialised from the state of the wallet, starting the submission process afresh for any transactions that the wallet still reports as pending."
+
+```haskell
+
+-- see initPassiveWallet...
+
+initSubmission :: PassiveWallet -> IO ()
+initSubmission pw  = do
+    pendings <- pendingByAccount <$> getWalletSnapshot pw
+    modifyMVar_ (_walletSubmission pw) $
+	    return . addPendings pendings
+```
+Note: the above code was added shortly after this document was pinned to a git hash (hence no link).
+
+### 10.4 Transactions with TTL
+
+Cardano does not implement transaction TTL yet and instead relies on submission count and a maximum retry limit.
 
 **Fig 14 - Wallet Spec**
 

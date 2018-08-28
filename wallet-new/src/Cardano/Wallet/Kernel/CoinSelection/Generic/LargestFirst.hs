@@ -59,8 +59,8 @@ atLeast maxNumInputs targetMin = do
           -- failure, otherwise we have genuinely exhausted the utxo.
           let balance = utxoBalance utxo
           if balance < targetMin
-             then throwError $ CoinSelHardErrUtxoExhausted balance targetMin
-             else throwError $ CoinSelHardErrMaxInputsReached maxNumInputs
+             then throwError $ CoinSelHardErrUtxoExhausted (pretty balance) (pretty targetMin)
+             else throwError $ CoinSelHardErrMaxInputsReached (pretty maxNumInputs)
       Just (selected, remainingUtxo) -> do
         put remainingUtxo
         return selected

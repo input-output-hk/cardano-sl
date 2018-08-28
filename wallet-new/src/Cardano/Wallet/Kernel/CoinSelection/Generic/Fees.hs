@@ -73,7 +73,7 @@ receiverPaysFee totalFee =
             return $ cs { coinSelOutput = newOut }
           Nothing ->
             throwError $
-              CoinSelHardErrOutputCannotCoverFee (coinSelRequest cs) fee
+              CoinSelHardErrOutputCannotCoverFee (pretty (coinSelRequest cs)) (pretty fee)
 
 {-------------------------------------------------------------------------------
   Sender pays fee

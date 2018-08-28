@@ -324,7 +324,7 @@ validateOutput :: Monad m
                -> CoinSelT utxo CoinSelHardErr m ()
 validateOutput out =
     when (Core.isRedeemAddress . Core.txOutAddress . Core.toaOut $ out) $
-      throwError $ CoinSelHardErrOutputIsRedeemAddress out
+      throwError $ CoinSelHardErrOutputIsRedeemAddress (pretty out)
 
 {-------------------------------------------------------------------------------
   Top-level entry points

@@ -282,19 +282,17 @@ data CoinSelHardErr =
     -- We record the original output and the fee it needed to cover.
     --
     -- Only applicable using 'ReceiverPaysFees' regulation
-    forall dom. CoinSelDom dom =>
-      CoinSelHardErrOutputCannotCoverFee (Output dom) (Fee dom)
+    CoinSelHardErrOutputCannotCoverFee Text Text
 
     -- | Attempt to pay into a redeem-only address
-  | forall dom. CoinSelDom dom =>
-      CoinSelHardErrOutputIsRedeemAddress (Output dom)
+  | CoinSelHardErrOutputIsRedeemAddress Text
 
     -- | UTxO exhausted whilst trying to pick inputs to cover remaining fee
   | CoinSelHardErrCannotCoverFee
 
     -- | When trying to construct a transaction, the max number of allowed
     -- inputs was reached.
-  | CoinSelHardErrMaxInputsReached Word64
+  | CoinSelHardErrMaxInputsReached Text
 
     -- | UTxO exhausted during input selection
     --
@@ -302,8 +300,7 @@ data CoinSelHardErr =
     -- we tried to make.
     --
     -- See also 'CoinSelHardErrCannotCoverFee'
-  | forall dom. CoinSelDom dom =>
-      CoinSelHardErrUtxoExhausted (Value dom) (Value dom)
+  | CoinSelHardErrUtxoExhausted Text Text
 
     -- | UTxO depleted using input selection
   | CoinSelHardErrUtxoDepleted

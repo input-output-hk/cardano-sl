@@ -33,7 +33,7 @@ instance Monad genM => Monoid (BlockModifier genM h a) where
 
 -- | A 'Policy' should correspond to a particular aspect of the system we want
 -- to test. It provides both the means to validate a chain extension against the
--- policy, and to generate valid or valid blocks.
+-- policy, and to generate valid or invalid blocks.
 data Policy genM = Policy
   { -- | Name of this policy. This is included when a policy has been violated.
     polName :: PolicyName

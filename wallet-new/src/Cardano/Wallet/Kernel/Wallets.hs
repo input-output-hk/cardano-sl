@@ -136,6 +136,13 @@ createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
     -- The converse won't be true: leaving a dangling 'HdRoot' without its associated
     -- key in the keystore would break the sytem consistency and make the wallet
     -- unusable.
+    -- There is another important aspect about atomicity which deals with
+    -- scheduling (as in thread scheduling, which means we could be interrupted
+    -- at any time during our processing). In case we would create the wallet
+    -- @before@ inserting the key, this wallet would now be available to 'applyBlock':
+    -- but the latter would fail to fetch the relevant key from the keystore
+    -- (We got interrupted before inserting it) causing a system panic.
+    -- We can fix this properly as part of [CBR-404].
     let newRootId = eskToHdRootId esk
     Keystore.insert (WalletIdHdRnd newRootId) esk (pw ^. walletKeystore)
 
@@ -150,7 +157,16 @@ createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
                              -- See preconditon above.
                              (\hdRoot -> Left $ CreateHdWallet hdRoot mempty)
     case res of
-         Left e       -> return . Left $ CreateWalletFailed e
+         -- NOTE(adinapoli): This is the @only@ error the DB can return, at
+         -- least for now, so we are pattern matching directly on it. In the
+         -- case of more errors being added, carefully thinking would have to
+         -- be put into whether or not we should remove the key from the keystore
+         -- at this point. Surely we don't want to do this in the case the
+         -- wallet already exists, or we would end up deleting the key of the
+         -- existing wallet!
+         -- Fix properly as part of [CBR-404].
+         Left e@(HD.CreateHdRootExists _) ->
+             return . Left $ CreateWalletFailed e
          Right hdRoot -> return (Right hdRoot)
 
 
@@ -208,6 +224,7 @@ deleteHdWallet wallet rootId = do
             -- from the DB, which would expose us to consistency troubles as
             -- an 'HdRoot' without any associated keys in the keystore is
             -- unusable.
+            -- Fix properly as part of [CBR-404].
             Keystore.delete (WalletIdHdRnd rootId) (wallet ^. walletKeystore)
             return $ Right ()
 
@@ -273,7 +290,13 @@ updatePassword pw hdRootId oldPassword newPassword = do
                                -- If we get interrupted here by an asynchronous exception the
                                -- price we will pay would be a slightly incorrect notion of
                                -- "how long ago we did change the password", but it won't
-                               -- compromise the integrity of the system.
+                               -- compromise the integrity of the system. However, there is a
+                               -- potentially subtle use case here: in case the user didn't set a
+                               -- @spending password@ initially, but it does later in the lifecycle of
+                               -- the wallet, this ghost update would be problematic, as the system would
+                               -- report "HasNoSpendingPassword" instead of correctly reporting a password
+                               -- was set.
+                               -- Fix this properly as part of [CBR-404].
                                lastUpdateNow <- InDb <$> getCurrentTimestamp
                                let hasSpendingPassword = HD.HasSpendingPassword lastUpdateNow
                                res <- update' (pw ^. wallets)

@@ -17,6 +17,14 @@ import           Universum
 import qualified UTxO.DSL as DSL
 
 {-------------------------------------------------------------------------------
+  Chain validity
+-------------------------------------------------------------------------------}
+
+data ChainValidity
+    = ValidChain
+    | InvalidChain [(SlotId, PolicyViolation)]
+
+{-------------------------------------------------------------------------------
   Translation context
 -------------------------------------------------------------------------------}
 
@@ -138,7 +146,7 @@ inpSpentOutput' (DSL.Input h idx) =  do
 
 -- | Translate from a UTxO chain into the abstract one.
 translate
-  :: forall h m e. (DSL.Hash h Addr, Monad m)
+  :: forall h m. (DSL.Hash h Addr, Monad m)
      -- | Set of all actors in the system. All transactions will be considered
      -- as existing between these.
   => NonEmpty Addr
@@ -146,10 +154,9 @@ translate
   -> DSL.Chain h Addr
      -- | Policies. These can be used to tune the chain generation to
      -- give different validating and non-validating chains.
-  -> [Policy (TranslateT h e m)]
+  -> [Policy h (TranslateT h IntException m)]
   -> Parameters (TransState h) h Addr
---  -> m (Either IntException (Chain h Addr, Maybe [Invalidity]))
-  -> m (Either IntException (Chain h Addr))
+ -> m (Either IntException (Chain h Addr, ChainValidity))
 translate addrs chain policies params = runExceptT . fmap fst $ runTranslateT initCtx initState go
   where
     initCtx = TransCtxt
@@ -166,8 +173,17 @@ translate addrs chain policies params = runExceptT . fmap fst $ runTranslateT in
         , icStakes = StakeDistribution $ Map.fromList (toList addrs `zip` (repeat 1))
         , icDlg = id
         }
-    go :: TranslateT h IntException m (OldestFirst [] (Block h Addr))
-    go = mapM intBlock chain
+    go :: TranslateT h IntException m (Chain h Addr, ChainValidity)
+    go = do
+        chainWithViolations <- mapM intBlock chain
+        return $ (fst <$> chainWithViolations, checkValid chainWithViolations)
+      where
+        checkValid (OldestFirst blks) = let
+            tagLoc (block, pvs) = fmap (blockSlot block, ) pvs
+          in case join $ tagLoc <$> blks of
+            [] -> ValidChain
+            xs -> InvalidChain xs
+
 
     intOutput :: (Ord a, Monad n) => DSL.Output h a -> n (Output h1 a)
     intOutput out =  do
@@ -196,12 +212,12 @@ translate addrs chain policies params = runExceptT . fmap fst $ runTranslateT in
       putTx absTr
       return absTr
 
-    intBlock :: OldestFirst [] (DSL.Transaction h Addr) -> TranslateT h IntException m (Block h Addr)
+    intBlock :: OldestFirst [] (DSL.Transaction h Addr) -> TranslateT h IntException m (Block h Addr, [PolicyViolation])
     intBlock block = do
       allAddrs <- asks _tcAddresses
       c :| _  <- use tsCheckpoints
       trs <- mapM intTransaction block
-      return $ Block
+      applyBlockMod (mconcat $ polGenerator <$> policies) $ Block
         { blockPred = icBlockHash c
         , blockSlot = icSlotId c
         , blockIssuer = head allAddrs
@@ -211,3 +227,4 @@ translate addrs chain policies params = runExceptT . fmap fst $ runTranslateT in
     nonEmptyEx :: IntException -> [a] -> TranslateT h IntException m (NonEmpty a)
     nonEmptyEx ex []    = throwError $ ex
     nonEmptyEx _ (x:xs) = return $ x :| xs
+    applyBlockMod (BlockModifier gen) block = gen block

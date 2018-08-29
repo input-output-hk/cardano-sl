@@ -4,7 +4,6 @@ module Chain.Policy where
 
 import           Chain.Abstract
 import           Universum
-import qualified UTxO.DSL as DSL
 import qualified Data.Text as T
 
 newtype PolicyName = PolicyName T.Text
@@ -34,10 +33,10 @@ instance Monad genM => Monoid (BlockModifier genM h a) where
 -- | A 'Policy' should correspond to a particular aspect of the system we want
 -- to test. It provides both the means to validate a chain extension against the
 -- policy, and to generate valid or valid blocks.
-data Policy genM = Policy
+data Policy h genM = Policy
   { -- | Name of this policy. This is included when a policy has been violated.
     polName :: PolicyName
-  , polGenerator :: BlockModifier genM DSL.IdentityAsHash Addr
+  , polGenerator :: BlockModifier genM h Addr
   }
 
 data BlockModifierException = BlockModifierException deriving Show

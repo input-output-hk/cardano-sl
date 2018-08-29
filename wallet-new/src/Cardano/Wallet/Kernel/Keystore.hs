@@ -13,12 +13,14 @@
 module Cardano.Wallet.Kernel.Keystore (
       Keystore -- opaque
     , DeletePolicy(..)
+    , ReplaceResult(..)
       -- * Constructing a keystore
     , bracketKeystore
     , bracketLegacyKeystore
     -- * Inserting values
     , insert
-    , replace
+    -- * Replacing values, atomically
+    , compareAndReplace
     -- * Deleting values
     , delete
     -- * Queries on a keystore
@@ -29,7 +31,7 @@ module Cardano.Wallet.Kernel.Keystore (
 
 import           Universum
 
-import           Control.Concurrent (modifyMVar_, withMVar)
+import           Control.Concurrent (modifyMVar, modifyMVar_, withMVar)
 import           Control.Monad.Trans.Identity (IdentityT (..), runIdentityT)
 import qualified Data.List
 import           System.Directory (getTemporaryDirectory, removeFile)
@@ -185,14 +187,34 @@ insertKey esk us =
       contains :: [EncryptedSecretKey] -> EncryptedSecretKey -> Bool
       contains ls k = hash k `elem` map hash ls
 
--- | Replace an old 'EncryptedSecretKey' with a new one.
-replace :: WalletId
-        -> EncryptedSecretKey
-        -> Keystore
-        -> IO ()
-replace walletId esk (Keystore ks) =
-    modifyMVar_ ks $ \(InternalStorage us) -> do
-        return . InternalStorage . insertKey esk . deleteKey walletId $ us
+
+-- | An enumeration
+data ReplaceResult =
+      Replaced
+    | OldKeyLookupFailed
+    | PredicateFailed
+    -- ^ The supplied predicate failed.
+    deriving (Show, Eq)
+
+-- | Replace an old 'EncryptedSecretKey' with a new one,
+-- verifying a pre-condition on the previously stored key.
+compareAndReplace :: WalletId
+                  -> (EncryptedSecretKey -> Bool)
+                  -> EncryptedSecretKey
+                  -> Keystore
+                  -> IO ReplaceResult
+compareAndReplace walletId predicateOnOldKey newKey (Keystore ks) =
+    modifyMVar ks $ \(InternalStorage us) -> do
+        let mbOldKey = lookupKey us walletId
+        case predicateOnOldKey <$> mbOldKey of
+            Nothing    -> return (InternalStorage us, OldKeyLookupFailed)
+            Just False -> return (InternalStorage us, PredicateFailed)
+            Just True  ->
+                return ( InternalStorage . insertKey newKey
+                                         . deleteKey walletId
+                                         $ us
+                       , Replaced
+                       )
 
 {-------------------------------------------------------------------------------
   Looking up things inside a keystore

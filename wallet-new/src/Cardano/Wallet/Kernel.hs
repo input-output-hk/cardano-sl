@@ -5,24 +5,28 @@
 -- of the UTxO DSL), so that we can test it outside of a node context also
 -- (in unit tests).
 module Cardano.Wallet.Kernel (
-    -- * Passive wallet
-    PassiveWallet -- opaque
-  , bracketPassiveWallet
-  , init
-    -- ** Lenses
-  , walletLogMessage
-  , walletPassive
-  , walletMeta
-    -- * Active wallet
-  , ActiveWallet -- opaque
-  , bracketActiveWallet
-  ) where
+      -- * Passive wallet
+      PassiveWallet -- opaque
+    , bracketPassiveWallet
+    , init
+    -- * Configuration
+    , DatabaseMode(..)
+    , DatabasePaths(..)
+    , useDefaultPaths
+      -- ** Lenses
+    , walletLogMessage
+    , walletPassive
+    , walletMeta
+      -- * Active wallet
+    , ActiveWallet -- opaque
+    , bracketActiveWallet
+    ) where
 
 import           Universum hiding (State, init)
 
 import           Control.Concurrent.Async (async, cancel)
 import           Control.Concurrent.MVar (modifyMVar, modifyMVar_)
-import           Data.Acid (AcidState)
+import           Data.Acid (AcidState, openLocalState, openLocalStateFrom)
 import           Data.Acid.Memory (openMemoryState)
 import qualified Data.Map.Strict as Map
 
@@ -48,17 +52,44 @@ import           Cardano.Wallet.Kernel.Submission.Worker (tickSubmissionLayer)
   Passive Wallet Resource Management
 -------------------------------------------------------------------------------}
 
+-- | This type is used to configure the database location.
+data DatabaseMode
+    = UseInMemory
+    -- ^ This constructor is used when you want to run the database in memory.
+    -- This is useful for testing as it does not require a disk. The database
+    -- will start out with the fresh, default, uninitialized state.
+    | UseFilePath DatabasePaths
+    -- ^ Load the databases from the given paths.
+
+-- | A configuration type for specifying where to load the databases from.
+data DatabasePaths
+    = DatabasePaths
+    { dbPathAcidState :: Maybe FilePath
+    -- ^ The path for the @acid-state@ database. If 'Nothing' is passed, then
+    -- this uses the default value (see 'openLocalState').
+    , dbPathMetadata  :: Maybe FilePath
+    -- ^ This path is used for the SQLite database that contains the transaction
+    -- metadata. If 'Nothing' is provided, then this uses the path
+    -- @./wallet-db-sqlite.sqlite3@
+    } deriving (Eq, Show)
+
+-- | Use the default paths on disk. See 'DatabasePaths' for more details.
+useDefaultPaths :: DatabaseMode
+useDefaultPaths = UseFilePath (DatabasePaths Nothing Nothing)
+
 -- | Allocate wallet resources
 --
 -- Here and elsewhere we'll want some constraints on this monad here, but
 -- it shouldn't be too specific.
-bracketPassiveWallet :: (MonadMask m, MonadIO m)
-                     => (Severity -> Text -> IO ())
-                     -> Keystore
-                     -> NodeStateAdaptor IO
-                     -> (PassiveWallet -> m a) -> m a
-bracketPassiveWallet logMsg keystore node f =
-    bracket (liftIO $ handlesOpen)
+bracketPassiveWallet
+    :: (MonadMask m, MonadIO m)
+    => DatabaseMode
+    -> (Severity -> Text -> IO ())
+    -> Keystore
+    -> NodeStateAdaptor IO
+    -> (PassiveWallet -> m a) -> m a
+bracketPassiveWallet mode logMsg keystore node f =
+    bracket (liftIO $ handlesOpen mode)
             (liftIO . handlesClose)
             (\ handles ->
                 bracket
@@ -73,12 +104,19 @@ data WalletHandles = Handles {
 
 -- TODO(kde): this will be run with asynchronous exceptions masked.
 -- and we should rethink if migrateMetaDB should happen here.
-handlesOpen :: IO WalletHandles
-handlesOpen = do
-    db <- openMemoryState defDB
-    metadb <- openMetaDB ":memory:" -- TODO: CBR-378
-    migrateMetaDB metadb
-    return $ Handles db metadb
+handlesOpen :: DatabaseMode -> IO WalletHandles
+handlesOpen mode =
+    case mode of
+        UseInMemory -> do
+            db <- openMemoryState defDB
+            metadb <- openMetaDB ":memory:"
+            migrateMetaDB metadb
+            return $ Handles db metadb
+        UseFilePath (DatabasePaths macidDb msqliteDb) -> do
+            db <- maybe openLocalState openLocalStateFrom macidDb defDB
+            metadb <- openMetaDB (fromMaybe "./wallet-db-sqlite.sqlite3" msqliteDb)
+            migrateMetaDB metadb
+            return $ Handles db metadb
 
 handlesClose :: WalletHandles -> IO ()
 handlesClose (Handles _ meta) = closeMetaDB meta

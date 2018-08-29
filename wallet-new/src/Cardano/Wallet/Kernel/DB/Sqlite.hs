@@ -44,6 +44,7 @@ import           Database.Beam.Schema (Beamable, Database, DatabaseSettings,
 import qualified Database.Beam.Schema as Beam
 import           Database.Beam.Sqlite.Connection (Sqlite, runBeamSqlite,
                      runBeamSqlite)
+import           Database.Beam.Sqlite.Migrate (getDbConstraints)
 import           Database.Beam.Sqlite.Syntax (SqliteCommandSyntax,
                      SqliteDataTypeSyntax, SqliteExpressionSyntax,
                      SqliteSelectSyntax, SqliteValueSyntax, fromSqliteCommand,
@@ -61,9 +62,10 @@ import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as M
 import           Data.Time.Units (Second, fromMicroseconds, toMicroseconds)
 import           Database.Beam.Migrate (CheckedDatabaseSettings, DataType (..),
-                     Migration, MigrationSteps, boolean, createTable,
-                     evaluateDatabase, executeMigration, field, migrationStep,
-                     notNull, runMigrationSteps, unCheckDatabase)
+                     Migration, MigrationSteps, boolean, collectChecks,
+                     createTable, evaluateDatabase, executeMigration, field,
+                     migrationStep, notNull, runMigrationSilenced,
+                     runMigrationSteps, unCheckDatabase)
 import           Formatting (sformat)
 import           GHC.Generics (Generic)
 
@@ -386,17 +388,32 @@ initialMigration () = do
 migrateMetaDB :: MigrationSteps SqliteCommandSyntax () (CheckedDatabaseSettings Sqlite MetaDB)
 migrateMetaDB = migrationStep "Initial migration" initialMigration
 
--- | Migrates the 'MetaDB', potentially mangling the input database.
--- TODO(adinapoli): Make it safe.
+-- | Migrates the 'MetaDB', failing with an IO exception in case this is not
+-- possible.
 unsafeMigrateMetaDB :: Sqlite.Connection -> IO ()
 unsafeMigrateMetaDB conn = do
-    -- Sqlite.setTrace conn (Just putStrLn)
-    void $ runMigrationSteps 0 Nothing migrateMetaDB (\_ _ -> executeMigration (Sqlite.execute_ conn . newSqlQuery))
-    -- We don`t add Indexes on tx_metas (meta_id) because it`s unecessary for the PrimaryKey.
-    Sqlite.execute_ conn "CREATE INDEX meta_created_at ON tx_metas (meta_created_at)"
-    Sqlite.execute_ conn "CREATE INDEX meta_query ON tx_metas (meta_wallet_id, meta_account_ix, meta_id, meta_created_at)"
-    Sqlite.execute_ conn "CREATE INDEX inputs_address ON tx_metas_inputs (input_address)"
-    Sqlite.execute_ conn "CREATE INDEX outputs_address ON tx_metas_outputs (output_address)"
+    -- FIXME(adinapoli): This code is hacky but should get us going for the
+    -- initial release. A more robust solution would be provided as part of
+    -- [CBR-403].
+    currentDbConstraints <- runBeamSqlite conn getDbConstraints
+    expectedConstraints  <-
+        collectChecks <$>
+            runMigrationSteps 0 Nothing migrateMetaDB (\_ _ step -> pure (runMigrationSilenced step))
+    case currentDbConstraints == expectedConstraints of
+        True -> do
+            -- Nothing to do, we are up-to-date.
+            return ()
+        False -> do
+            -- Migration is needed. NOTE: The above will work only on an empty DB,
+            -- but will fail in case of a *proper* migration. See [CBR-403].
+            void $ runMigrationSteps 0 Nothing migrateMetaDB (\_ _ -> executeMigration (Sqlite.execute_ conn . newSqlQuery))
+            -- We don`t add Indexes on tx_metas (meta_id) because it`s unecessary for the PrimaryKey.
+            -- NOTE(adinapoli): This really doesn't belong here: we should create these indices exactly one as part of
+            -- the initial migration step, not out-of-band via the raw sqlite DSL. Fix as part of [CBR-403].
+            Sqlite.execute_ conn "CREATE INDEX meta_created_at ON tx_metas (meta_created_at)"
+            Sqlite.execute_ conn "CREATE INDEX meta_query ON tx_metas (meta_wallet_id, meta_account_ix, meta_id, meta_created_at)"
+            Sqlite.execute_ conn "CREATE INDEX inputs_address ON tx_metas_inputs (input_address)"
+            Sqlite.execute_ conn "CREATE INDEX outputs_address ON tx_metas_outputs (output_address)"
     where
         newSqlQuery :: SqliteCommandSyntax -> Sqlite.Query
         newSqlQuery syntax =

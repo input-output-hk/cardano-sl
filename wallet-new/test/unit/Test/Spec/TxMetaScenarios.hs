@@ -428,7 +428,12 @@ bracketActiveWalletTxMeta stateParams test =
 bracketPassiveWalletTxMeta :: MockNodeStateParams -> (Kernel.PassiveWallet -> IO a) -> IO a
 bracketPassiveWalletTxMeta stateParams postHook = do
       Keystore.bracketTestKeystore $ \keystore ->
-          Kernel.bracketPassiveWallet logMessage keystore (mockNodeState stateParams) postHook
+          Kernel.bracketPassiveWallet
+            Kernel.UseInMemory
+            logMessage
+            keystore
+            (mockNodeState stateParams)
+            postHook
   where
     logMessage _ _  = return ()
 

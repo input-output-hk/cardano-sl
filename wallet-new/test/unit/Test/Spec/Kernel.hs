@@ -256,8 +256,13 @@ dependentPending GenesisValues{..} = Inductive {
 -- | Initialize passive wallet in a manner suitable for the unit tests
 bracketPassiveWallet :: (Kernel.PassiveWallet -> IO a) -> IO a
 bracketPassiveWallet postHook = do
-      Keystore.bracketTestKeystore $ \keystore ->
-          Kernel.bracketPassiveWallet logMessage keystore mockNodeStateDef postHook
+    Keystore.bracketTestKeystore $ \keystore ->
+        Kernel.bracketPassiveWallet
+            Kernel.UseInMemory
+            logMessage
+            keystore
+            mockNodeStateDef
+            postHook
   where
    -- TODO: Decide what to do with logging.
    -- For now we are not logging them to stdout to not alter the output of

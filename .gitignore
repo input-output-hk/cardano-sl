@@ -17,7 +17,8 @@ b
 # Various DBs
 node-db*
 wallet-db/
-wallet-new-db/
+wallet-db-acid/
+wallet-db-sqlite.sqlite3
 db-*/
 wdb-*/
 

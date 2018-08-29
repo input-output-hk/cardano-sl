@@ -1,5 +1,5 @@
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE RankNTypes     #-}
 -- | Wallet state as mandated by the wallet specification
 module Cardano.Wallet.Kernel.DB.Spec (
     -- * Checkpoint
@@ -63,7 +63,7 @@ import           Test.QuickCheck (Arbitrary (..))
 
 import qualified Pos.Chain.Txp as Core
 import qualified Pos.Core as Core
-import           Pos.Core.Chrono (NewestFirst(..))
+import           Pos.Core.Chrono (NewestFirst (..))
 
 import           Cardano.Wallet.Kernel.DB.BlockContext
 import           Cardano.Wallet.Kernel.DB.BlockMeta

@@ -28,7 +28,8 @@ import           Cardano.Wallet.Kernel.DB.HdWallet.Create
                      (CreateHdAccountError (..), initHdAccount)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Derivation
                      (HardeningMode (..), deriveIndex)
-import           Cardano.Wallet.Kernel.DB.Spec (Checkpoints (..), initCheckpoint)
+import           Cardano.Wallet.Kernel.DB.Spec (Checkpoints (..),
+                     initCheckpoint)
 import           Cardano.Wallet.Kernel.Internal (PassiveWallet, walletKeystore,
                      wallets)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore

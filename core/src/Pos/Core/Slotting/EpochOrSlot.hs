@@ -41,6 +41,12 @@ import           Pos.Core.Slotting.SlotId
 
 -- | Represents SlotId or EpochIndex. Useful because genesis blocks
 -- have only EpochIndex, while main blocks have SlotId.
+
+-- This type is a pain in the neck. It would have been far better as a simple
+-- sum type. Because this encoding is baked into the system (ie it has a Bi
+-- instance that is either send over the network or stored on the blockchain)
+-- its painful to change. The best we can do is provide helper functions to
+-- minimise the pain.
 newtype EpochOrSlot = EpochOrSlot
     { unEpochOrSlot :: Either EpochIndex SlotId
     } deriving (Show, Eq, Generic, NFData)

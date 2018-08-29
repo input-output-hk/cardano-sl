@@ -7,16 +7,17 @@
 module Pos.DB.Block.Internal
        ( BlockStoragePaths (..)
 
-       , dbGetSerBlundRealDefault
+       , dbGetSerBlundRealFile
        , dbGetSerBlundPureDefault
        , dbGetSerBlockPureDefault
        , dbGetSerUndoPureDefault
        , dbPutSerBlundsPureDefault
-       , dbGetSerBlockRealDefault
-       , dbGetSerUndoRealDefault
+       , dbGetSerBlockRealFile
+       , dbGetSerUndoRealFile
        , dbPutSerBlundsRealDefault
 
        , deleteBlock
+       , getSerializedBlund
        , prepareBlockDB
 
        , getAllPaths
@@ -209,30 +210,34 @@ dbPutSerBlundsPureDefault (toList -> blunds) = do
 -- Rocks implementation
 ----------------------------------------------------------------------------
 
--- instance MonadBlockDBGeneric Block
-
 type BlockDBGenericEnv ctx m =
     ( MonadDBRead m
     , MonadRealDB ctx m
     )
 
-dbGetSerBlockRealDefault ::
+-- The following 'dbGetSer*RealFile' functions get Blocks/Blunds/Undos when
+-- they are stored in files. They will fail (return 'Nothing') for items when
+-- those items are part of a epoch that has been consolidated into a single
+-- file. That means these functions should not be called directly from outside
+-- the DB package.
+
+dbGetSerBlockRealFile ::
        forall ctx m. (BlockDBGenericEnv ctx m)
     => HeaderHash
     -> m (Maybe SerializedBlock)
-dbGetSerBlockRealDefault = getSerializedBlock
+dbGetSerBlockRealFile = getSerializedBlock
 
-dbGetSerUndoRealDefault ::
+dbGetSerUndoRealFile ::
        forall ctx m. BlockDBGenericEnv ctx m
     => HeaderHash
     -> m (Maybe SerializedUndo)
-dbGetSerUndoRealDefault = getSerializedUndo
+dbGetSerUndoRealFile = getSerializedUndo
 
-dbGetSerBlundRealDefault ::
+dbGetSerBlundRealFile ::
        forall ctx m. (BlockDBGenericEnv ctx m)
     => HeaderHash
     -> m (Maybe SerializedBlund)
-dbGetSerBlundRealDefault hh =
+dbGetSerBlundRealFile hh =
     Serialized . uncurry BS.append <<$>> getSerializedBlund hh
 
 dbPutSerBlundsRealDefault ::

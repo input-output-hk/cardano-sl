@@ -35,13 +35,16 @@ import           Universum
 
 import           Pos.Chain.Block (HeaderHash)
 import qualified Pos.Chain.Block as CB
+import           Pos.DB.Block.Epoch (dbGetConsolidatedSerBlockRealDefault,
+                     dbGetConsolidatedSerBlundRealDefault,
+                     dbGetConsolidatedSerUndoRealDefault)
 import           Pos.DB.Block.Internal (dbGetSerBlockPureDefault,
-                     dbGetSerBlockRealDefault, dbGetSerBlundPureDefault,
-                     dbGetSerBlundRealDefault, dbGetSerUndoPureDefault,
-                     dbGetSerUndoRealDefault, dbPutSerBlundsPureDefault,
-                     dbPutSerBlundsRealDefault, deleteBlock, prepareBlockDB)
-import           Pos.DB.Class (MonadDB (..), SerializedBlock, SerializedBlund,
-                     SerializedUndo, getBlock)
+                     dbGetSerBlundPureDefault, dbGetSerUndoPureDefault,
+                     dbPutSerBlundsPureDefault, dbPutSerBlundsRealDefault,
+                     deleteBlock, prepareBlockDB)
+import           Pos.DB.Class (MonadDB (..), MonadDBRead (..), SerializedBlock,
+                     SerializedBlund, SerializedUndo, getBlock)
+import           Pos.DB.Rocks (MonadRealDB)
 import           Pos.DB.Sum (MonadDBSum, eitherDB)
 
 import           Pos.DB.Block.BListener as X
@@ -55,6 +58,28 @@ import           Pos.DB.Block.Logic.VAR as X
 import           Pos.DB.Block.Lrc as X
 import           Pos.DB.Block.Slog.Context as X
 import           Pos.DB.Block.Slog.Logic as X
+
+
+-- | Switch out the default 'dbGetSerBlundRealDefault' with the one that can
+-- get a 'SerializedBlund' from either an epoch file (if the blund has already
+-- been consolidated) or a regular blund file if it has not.
+dbGetSerBlundRealDefault
+    :: (MonadDBRead m, MonadRealDB ctx m)
+    => HeaderHash
+    -> m (Maybe SerializedBlund)
+dbGetSerBlundRealDefault = dbGetConsolidatedSerBlundRealDefault
+
+dbGetSerBlockRealDefault
+    :: (MonadDBRead m, MonadRealDB ctx m)
+    => HeaderHash
+    -> m (Maybe SerializedBlock)
+dbGetSerBlockRealDefault = dbGetConsolidatedSerBlockRealDefault
+
+dbGetSerUndoRealDefault
+    :: (MonadDBRead m, MonadRealDB ctx m)
+    => HeaderHash
+    -> m (Maybe SerializedUndo)
+dbGetSerUndoRealDefault = dbGetConsolidatedSerUndoRealDefault
 
 ----------------------------------------------------------------------------
 -- DBSum implementation

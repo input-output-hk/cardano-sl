@@ -18,6 +18,8 @@ module Pos.DB.Rocks.Types
        , NodeDBs (..)
        , blockIndexDB
        , blockDataDir
+       , epochDataDir
+       , epochLock
        , gStateDB
        , lrcDB
        , miscDB
@@ -64,10 +66,12 @@ data DB = DB
 data NodeDBs = NodeDBs
     { _blockIndexDB :: !DB       -- ^ Block index.
     , _blockDataDir :: !FilePath -- ^ Block and undo files.
+    , _epochDataDir :: !FilePath -- ^ Epoch files.
     , _gStateDB     :: !DB       -- ^ Global state corresponding to some tip.
     , _lrcDB        :: !DB       -- ^ Data computed by LRC.
     , _miscDB       :: !DB       -- ^ Everything small and insignificant
     , _miscLock     :: !RWLock   -- ^ Lock on misc db
+    , _epochLock    :: !RWLock   -- ^ Lock for the epoch file consolidation.
     }
 
 makeLenses ''NodeDBs

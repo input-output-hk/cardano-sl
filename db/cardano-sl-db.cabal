@@ -109,6 +109,7 @@ library
                        Pos.DB.Update.Poll.Logic.Version
 
                        Pos.DB.Block.BListener
+                       Pos.DB.Block.Epoch
                        Pos.DB.Block.GState.BlockExtra
                        Pos.DB.Block.GState.SanityCheck
                        Pos.DB.Block.Internal

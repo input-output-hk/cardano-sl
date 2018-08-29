@@ -72,7 +72,7 @@ actionWithLegacyWallet coreConfig txpConfig sscParams nodeParams ntpConfig wArgs
     bracketWalletWebDB (walletDbPath walletDbOptions) (walletRebuildDb walletDbOptions) $ \db ->
         bracketWalletWS $ \conn ->
             bracketNodeResources
-                (configBlkSecurityParam coreConfig)
+                coreConfig
                 nodeParams
                 sscParams
                 (txpGlobalSettings (configProtocolMagic coreConfig) txpConfig)
@@ -124,7 +124,7 @@ actionWithWallet :: (HasConfigurations, HasCompileInfo)
                  -> IO ()
 actionWithWallet coreConfig txpConfig sscParams nodeParams ntpConfig params =
     bracketNodeResources
-        (configBlkSecurityParam coreConfig)
+        coreConfig
         nodeParams
         sscParams
         (txpGlobalSettings pm txpConfig)

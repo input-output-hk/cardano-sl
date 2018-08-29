@@ -39,8 +39,8 @@ import           Pos.Client.CLI.Util (readLoggerConfig)
 import           Pos.Configuration
 import           Pos.Context (ConnectedPeers (..), NodeContext (..),
                      StartTime (..))
-import           Pos.Core (BlockCount, HasConfiguration, Timestamp, genesisData,
-                     kEpochSlots)
+import           Pos.Core (BlockCount, Config, HasConfiguration, Timestamp,
+                     configBlkSecurityParam, genesisData, kEpochSlots)
 import           Pos.Core.Genesis (gdStartTime)
 import           Pos.Core.Reporting (initializeMisbehaviorMetrics)
 import           Pos.DB (MonadDBRead, NodeDBs)
@@ -102,13 +102,13 @@ allocateNodeResources
        , HasDlgConfiguration
        , HasBlockConfiguration
        )
-    => BlockCount
+    => Config
     -> NodeParams
     -> SscParams
     -> TxpGlobalSettings
     -> InitMode ()
     -> IO (NodeResources ext)
-allocateNodeResources k np@NodeParams {..} sscnp txpSettings initDB = do
+allocateNodeResources coreCfg np@NodeParams {..} sscnp txpSettings initDB = do
     logInfo "Allocating node resources..."
     npDbPath <- case npDbPathM of
         Nothing -> do
@@ -147,12 +147,14 @@ allocateNodeResources k np@NodeParams {..} sscnp txpSettings initDB = do
                 , ancdEkgStore = nrEkgStore
                 , ancdTxpMemState = txpVar
                 }
-        ctx@NodeContext {..} <- allocateNodeContext k ancd txpSettings nrEkgStore
+        ctx@NodeContext {..} <- allocateNodeContext
+                                    (configBlkSecurityParam coreCfg)
+                                    ancd txpSettings nrEkgStore
         putLrcContext ncLrcContext
         logDebug "Filled LRC Context future"
         dlgVar <- mkDelegationVar
         logDebug "Created DLG var"
-        sscState <- mkSscState $ kEpochSlots k
+        sscState <- mkSscState $ kEpochSlots (configBlkSecurityParam coreCfg)
         logDebug "Created SSC var"
         jsonLogHandle <-
             case npJLFile of
@@ -200,17 +202,17 @@ bracketNodeResources :: forall ext a.
       , HasDlgConfiguration
       , HasBlockConfiguration
       )
-    => BlockCount
+    => Config
     -> NodeParams
     -> SscParams
     -> TxpGlobalSettings
     -> InitMode ()
     -> (HasConfiguration => NodeResources ext -> IO a)
     -> IO a
-bracketNodeResources k np sp txp initDB action = do
+bracketNodeResources coreCfg np sp txp initDB action = do
     let msg = "`NodeResources'"
     bracketWithLogging msg
-            (allocateNodeResources k np sp txp initDB)
+            (allocateNodeResources coreCfg np sp txp initDB)
             releaseNodeResources $ \nodeRes ->do
         -- Notify systemd we are fully operative
         -- FIXME this is not the place to notify.

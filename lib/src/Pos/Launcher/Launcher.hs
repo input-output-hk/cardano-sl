@@ -12,7 +12,7 @@ import           Universum
 
 import           Pos.Chain.Ssc (SscParams)
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Core as Core (Config (..), configBlkSecurityParam)
+import           Pos.Core as Core (Config (..))
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Txp (txpGlobalSettings)
 import           Pos.Infra.Diffusion.Types (Diffusion)
@@ -43,7 +43,7 @@ runNodeRealSimple
        ]
     -> IO ()
 runNodeRealSimple coreConfig txpConfig np sscnp plugins = bracketNodeResources
-    (configBlkSecurityParam coreConfig)
+    coreConfig
     np
     sscnp
     (txpGlobalSettings (configProtocolMagic coreConfig) txpConfig)

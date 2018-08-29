@@ -180,7 +180,7 @@ translate addrs chain policies params = runExceptT . fmap fst $ runTranslateT in
       where
         checkValid (OldestFirst blks) = let
             tagLoc (block, pvs) = fmap (blockSlot block, ) pvs
-          in case join $ tagLoc <$> blks of
+          in case tagLoc =<< blks of
             [] -> ValidChain
             xs -> InvalidChain xs
 

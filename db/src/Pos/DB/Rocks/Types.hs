@@ -23,7 +23,6 @@ module Pos.DB.Rocks.Types
        , gStateDB
        , lrcDB
        , miscDB
-       , miscLock
 
        , getDBByTag
        , getNodeDBs
@@ -70,7 +69,6 @@ data NodeDBs = NodeDBs
     , _gStateDB     :: !DB       -- ^ Global state corresponding to some tip.
     , _lrcDB        :: !DB       -- ^ Data computed by LRC.
     , _miscDB       :: !DB       -- ^ Everything small and insignificant
-    , _miscLock     :: !RWLock   -- ^ Lock on misc db
     , _epochLock    :: !RWLock   -- ^ Lock for the epoch file consolidation.
     }
 

@@ -1,7 +1,9 @@
 name:                cardano-sl-node
 version:             1.3.0
 synopsis:            Cardano SL simple node executable
-description:         Please see README.md
+description:         Provides a 'cardano-node-simple' executable which can
+                     connect to the Cardano network and act as a full node
+                     but does not have any wallet capabilities.
 license:             MIT
 license-file:        LICENSE
 author:              Serokell

@@ -23,7 +23,7 @@ import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..),
 import qualified Pos.Client.CLI as CLI
 import           Pos.Core as Core (Config (..))
 import           Pos.Launcher (HasConfigurations, NodeParams (..),
-                     loggerBracket, runNodeReal, withConfigurations)
+                     loggerBracket, runNodeRealSimple, withConfigurations)
 import           Pos.Launcher.Configuration (AssetLockPath (..))
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
@@ -44,7 +44,7 @@ actionWithoutWallet
     -> NodeParams
     -> IO ()
 actionWithoutWallet coreConfig txpConfig sscParams nodeParams =
-    runNodeReal coreConfig txpConfig nodeParams sscParams [updateTriggerWorker]
+    runNodeRealSimple coreConfig txpConfig nodeParams sscParams [updateTriggerWorker]
 
 action
     :: ( HasConfigurations

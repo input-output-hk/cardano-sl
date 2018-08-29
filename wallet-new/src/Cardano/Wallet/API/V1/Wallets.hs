@@ -40,16 +40,4 @@ type API = Tags '["Wallets"] :>
     :<|> "wallets" :> CaptureWalletId :> "statistics" :> "utxos"
                    :> Summary "Returns Utxo statistics for the Wallet identified by the given walletId."
                    :> Get '[ValidJSON] (WalletResponse UtxoStatistics)
-    :<|> "external-wallets"
-                   :> Capture "rootPK" PublicKeyAsBase58
-                   :> Summary "Check if this external wallet is presented in the node."
-                   :> PostCreated '[ValidJSON] (WalletResponse WalletAndTxHistory)
-    :<|> "external-wallets"
-                   :> Summary "Creates a new or restores an existing external wallet (mobile client or hardware wallet)."
-                   :> ReqBody '[ValidJSON] (New ExternalWallet)
-                   :> PostCreated '[ValidJSON] (WalletResponse Wallet)
-    :<|> "external-wallets"
-                   :> Capture "rootPK" PublicKeyAsBase58
-                   :> Summary "Deletes the given external wallet and all its accounts."
-                   :> DeleteNoContent '[ValidJSON] NoContent
     )

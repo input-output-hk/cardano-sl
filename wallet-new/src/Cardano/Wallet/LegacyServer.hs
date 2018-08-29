@@ -22,7 +22,7 @@ import qualified Cardano.Wallet.API.Internal.LegacyHandlers as Internal
 import qualified Cardano.Wallet.API.V0.Handlers as V0
 import qualified Cardano.Wallet.API.V1.LegacyHandlers as V1
 import qualified Cardano.Wallet.API.V1.Swagger as Swagger
-
+import qualified Cardano.Wallet.API.WIP.LegacyHandlers as WIP (handlers)
 
 -- | This function has the tricky task of plumbing different versions of the API,
 -- with potentially different monadic stacks into a uniform @Server@ we can use
@@ -40,11 +40,12 @@ walletServer natV0 coreConfig txpConfig diffusion ntpStatus runMode =
     :<|> v0Handler
     :<|> v1Handler
     :<|> internalHandler
+    :<|> wipHandler
   where
     v0Handler       = V0.handlers natV0 coreConfig txpConfig diffusion ntpStatus
     v1Handler       = V1.handlers natV0 coreConfig txpConfig diffusion ntpStatus
     internalHandler = Internal.handlers natV0 runMode
-
+    wipHandler      = WIP.handlers natV0 pm txpConfig diffusion ntpStatus
 
 walletDocServer
     :: (HasConfigurations, HasCompileInfo)

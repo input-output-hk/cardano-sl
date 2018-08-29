@@ -23,9 +23,6 @@ handlers pwl =  newWallet pwl
            :<|> getWallet pwl
            :<|> updateWallet pwl
            :<|> getUtxoStatistics pwl
-           :<|> checkExternalWallet pwl
-           :<|> newExternalWallet pwl
-           :<|> deleteExternalWallet pwl
 
 -- | Creates a new or restores an existing @wallet@ given a 'NewWallet' payload.
 -- Returns to the client the representation of the created or restored
@@ -107,21 +104,3 @@ getUtxoStatistics pwl wid = do
          Left e  -> throwM e
          Right w ->
             return $ single $ V1.computeUtxoStatistics V1.log10 (map snd w)
-
-checkExternalWallet :: PassiveWalletLayer IO
-                    -> PublicKeyAsBase58
-                    -> Handler (WalletResponse WalletAndTxHistory)
-checkExternalWallet _encodedRootPK =
-    error "[CHW-54], Cardano Hardware Wallet feature, , check external wallet, unimplemented yet."
-
-newExternalWallet :: PassiveWalletLayer IO
-                  -> NewExternalWallet
-                  -> Handler (WalletResponse Wallet)
-newExternalWallet _newExtWallet =
-    error "[CHW-80], Cardano Hardware Wallet feature, new external wallet, unimplemented yet."
-
-deleteExternalWallet :: PassiveWalletLayer IO
-                     -> PublicKeyAsBase58
-                     -> Handler NoContent
-deleteExternalWallet _encodedRootPK =
-    error "[CHW-106], Cardano Hardware Wallet feature, , delete external wallet, unimplemented yet."

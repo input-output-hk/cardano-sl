@@ -17037,12 +17037,21 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto
 , cardano-sl-infra
 , cardano-sl-networking
-, cardano-sl-ssc
 , cardano-sl-util
+, containers
 , cpphs
+, hashable
+, hspec
+, HUnit
+, lens
 , log-warper
+, mtl
+, QuickCheck
+, safe-exceptions
 , stdenv
+, text
 , universum
+, utxo
 }:
 mkDerivation {
 
@@ -17074,12 +17083,23 @@ cpphs
 testHaskellDepends = [
 base
 cardano-sl
+cardano-sl-chain
+cardano-sl-core
 cardano-sl-crypto
 cardano-sl-infra
 cardano-sl-networking
-cardano-sl-ssc
 cardano-sl-util
+containers
+hashable
+hspec
+HUnit
+lens
+mtl
+QuickCheck
+safe-exceptions
+text
 universum
+utxo
 ];
 doHaddock = false;
 description = "Cardano SL simple node executable";

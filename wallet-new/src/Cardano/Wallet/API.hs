@@ -70,7 +70,7 @@ type WalletDocAPI = V0Doc :<|> V1Doc
 walletDocAPI :: Proxy WalletDocAPI
 walletDocAPI = Proxy
 
-type NewWalletAPI = LoggingApi WalletLoggingConfig (V1API :<|> InternalAPI)
+type NewWalletAPI = LoggingApi WalletLoggingConfig (V1API :<|> InternalAPI :<|> WIPAPI)
 newWalletAPI :: Proxy NewWalletAPI
 newWalletAPI = Proxy
 

@@ -95,7 +95,6 @@ test-suite property-tests
                      , universum >= 0.1.11
                      , utxo
                      , HUnit
-                     , validation
   ghc-options:
                        -threaded
                        -rtsopts

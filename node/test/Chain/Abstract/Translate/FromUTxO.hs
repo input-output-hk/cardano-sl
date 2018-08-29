@@ -1,6 +1,6 @@
-{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE InstanceSigs        #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeFamilies        #-}
 -- | Translation of UTxO DSL into an abstract chain.
 module Chain.Abstract.Translate.FromUTxO where
 
@@ -12,7 +12,7 @@ import           Control.Monad.Except
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
-import           Pos.Core.Chrono (OldestFirst(..))
+import           Pos.Core.Chrono (OldestFirst (..))
 import           Universum
 import qualified UTxO.DSL as DSL
 
@@ -144,13 +144,13 @@ translate
   => NonEmpty Addr
      -- | UTxO DSL chain
   -> DSL.Chain h Addr
-     -- | Block modifiers. These can be used to tune the chain generation to
+     -- | Policies. These can be used to tune the chain generation to
      -- give different validating and non-validating chains.
-  -> [BlockModifier (TranslateT h e m) h Addr]
+  -> [Policy (TranslateT h e m)]
   -> Parameters (TransState h) h Addr
 --  -> m (Either IntException (Chain h Addr, Maybe [Invalidity]))
   -> m (Either IntException (Chain h Addr))
-translate addrs chain blockMods params = runExceptT . fmap fst $ runTranslateT initCtx initState go
+translate addrs chain policies params = runExceptT . fmap fst $ runTranslateT initCtx initState go
   where
     initCtx = TransCtxt
         { _tcAddresses = addrs

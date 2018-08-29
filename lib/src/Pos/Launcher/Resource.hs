@@ -11,8 +11,6 @@ module Pos.Launcher.Resource
          -- * Full resources
          NodeResources (..)
 
-       , allocateNodeResources
-       , releaseNodeResources
        , bracketNodeResources
 
          -- * Smaller resources

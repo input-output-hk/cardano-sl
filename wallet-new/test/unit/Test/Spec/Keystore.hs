@@ -11,6 +11,7 @@ import           System.IO.Error (IOError)
 
 import           Test.Hspec (Spec, describe, it, shouldBe, shouldReturn,
                      shouldSatisfy)
+import           Test.Hspec.Core.Spec (sequential)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Gen, arbitrary)
 import           Test.QuickCheck.Monadic (forAllM, monadicIO, pick, run)
@@ -51,9 +52,10 @@ nukeKeystore :: FilePath -> IO ()
 nukeKeystore fp =
     removeFile fp `catch` (\(_ :: IOError) -> return ())
 
+-- These test perform file-IO and cannot run in parallel.
 spec :: Spec
 spec =
-    describe "Keystore to store UserSecret(s)" $ do
+    sequential $ describe "Keystore to store UserSecret(s)" $ do
         it "creating a brand new one works" $ do
             nukeKeystore "test_keystore.key"
             Keystore.bracketKeystore KeepKeystoreIfEmpty "test_keystore.key" $ \_ks ->

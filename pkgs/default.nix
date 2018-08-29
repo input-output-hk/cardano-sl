@@ -17785,6 +17785,7 @@ license = stdenv.lib.licenses.mit;
 , generics-sop
 , hedgehog
 , hspec
+, hspec-core
 , http-api-data
 , http-client
 , http-client-tls
@@ -18007,6 +18008,7 @@ filepath
 formatting
 hedgehog
 hspec
+hspec-core
 lens
 mtl
 normaldistribution

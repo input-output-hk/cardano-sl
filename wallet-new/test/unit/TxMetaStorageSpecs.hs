@@ -525,7 +525,7 @@ txMetaStorageSpecs = do
                         let txid = _txMetaId m1
                         forM_ metasA (putTxMeta hdl)
                         (result, count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything (Just addr) (FilterByIndex txid) NoFilterOp Nothing
-                        count `shouldBe` (Just 1)
+                        count `shouldBe` (Just 1) -- here it`s exactly one because we filter on TxId.
                         map Isomorphic result `shouldBe` [Isomorphic m1]
 
         it "correctly filters on txid meta with the correct address in Inputs or Outputs" $ monadicIO $ do
@@ -555,8 +555,11 @@ txMetaStorageSpecs = do
                         let result = filter (\m -> _txMetaId m `elem` map _txMetaId [m1, m2] ) (result1 <> result2)
                         length result1 `shouldBe` 1
                         length result `shouldBe` 2
-                        count1 `shouldBe` (Just 2)
-                        count2 `shouldBe` (Just 2)
+                        -- it`s possible that the generator created the
+                        -- same address more than once. So we may expect more than 2 results here.
+                        count1 `shouldSatisfy` (justbeq 2)
+                        count2 `shouldSatisfy` (justbeq 2)
+                        count1 `shouldBe` count2
                         map Isomorphic result `shouldBe` sortByCreationAt Descending (map Isomorphic [m1, m2])
 
         it "applying all filters succeeds when it should" $ monadicIO $ do
@@ -597,6 +600,7 @@ txMetaStorageSpecs = do
                         map Isomorphic result `shouldBe` []
                         total `shouldBe` (Just $ 0)
 
+-- Tests that the values is there and is Bigger or Equal to n.
 justbeq :: Int -> Maybe Int -> Bool
 justbeq n mb =
     case mb of
@@ -606,7 +610,6 @@ justbeq n mb =
 -- The following functions transform the TxMeta created by genMeta. The result follows the pattern:
 --   Nothing if the inputs [TxMeta] are less than needed
 --   Just ([TxMeta_to_be_inserted],  ... filters for getTxMetas ... , [TxMeta_expected_as_result])
-
 walletIdTransform :: [TxMeta] -> Maybe ([TxMeta], AccountFops, [TxMeta])
 walletIdTransform ls = case ls of
     [] -> Nothing

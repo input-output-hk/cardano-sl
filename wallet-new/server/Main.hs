@@ -139,7 +139,7 @@ actionWithWallet coreConfig txpConfig sscParams nodeParams ntpConfig params =
           let dbPath = walletDbPath (getWalletDbOptions params)
           let dbMode = Kernel.UseFilePath (Kernel.DatabasePaths {
                 Kernel.dbPathAcidState = Just (dbPath <> "-acid")
-              , Kernel.dbPathMetadata  = Just (dbPath <> "-sqlite")
+              , Kernel.dbPathMetadata  = Just (dbPath <> "-sqlite.sqlite3")
               })
           WalletLayer.Kernel.bracketPassiveWallet dbMode logMessage' keystore nodeState $ \walletLayer passiveWallet -> do
               Kernel.init passiveWallet

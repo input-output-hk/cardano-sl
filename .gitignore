@@ -18,7 +18,7 @@ b
 node-db*
 wallet-db/
 wallet-db-acid/
-wallet-db-sqlite
+wallet-db-sqlite.sqlite3
 db-*/
 wdb-*/
 

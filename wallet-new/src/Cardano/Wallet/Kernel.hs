@@ -70,7 +70,7 @@ data DatabasePaths
     , dbPathMetadata  :: Maybe FilePath
     -- ^ This path is used for the SQLite database that contains the transaction
     -- metadata. If 'Nothing' is provided, then this uses the path
-    -- @./wallet-database/metadata.sqlite3@
+    -- @./wallet-db-sqlite.sqlite3@
     } deriving (Eq, Show)
 
 -- | Use the default paths on disk. See 'DatabasePaths' for more details.
@@ -109,12 +109,12 @@ handlesOpen mode =
     case mode of
         UseInMemory -> do
             db <- openMemoryState defDB
-            metadb <- openMetaDB ":memory:" -- TODO: CBR-378
+            metadb <- openMetaDB ":memory:"
             migrateMetaDB metadb
             return $ Handles db metadb
         UseFilePath (DatabasePaths macidDb msqliteDb) -> do
             db <- maybe openLocalState openLocalStateFrom macidDb defDB
-            metadb <- openMetaDB (fromMaybe "./wallet-database/meta.sqlite3" msqliteDb)
+            metadb <- openMetaDB (fromMaybe "./wallet-db-sqlite.sqlite3" msqliteDb)
             migrateMetaDB metadb
             return $ Handles db metadb
 

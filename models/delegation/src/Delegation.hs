@@ -30,8 +30,8 @@ newtype Owner = Owner Int deriving (Show, Eq, Ord)
 newtype SKey = SKey Owner deriving (Show, Eq, Ord)
 newtype VKey = VKey Owner deriving (Show, Eq, Ord)
 data Sig a = Sig a Owner deriving (Show, Eq, Ord)
-data WitTxin = WitTxin VKey (Sig TxIn) deriving (Show, Eq, Ord)
-data WitCert = WitCert VKey (Sig Cert) deriving (Show, Eq, Ord)
+data WitTxin = WitTxin VKey (Sig TxBody) deriving (Show, Eq, Ord)
+data WitCert = WitCert VKey (Sig TxBody) deriving (Show, Eq, Ord)
 data Wits = Wits { txinWits :: (Set WitTxin)
                  , certWits :: (Set WitCert)
                  } deriving (Show, Eq, Ord)
@@ -149,26 +149,27 @@ authTxin key txin (UTxO utxo) =
     Just (TxOut (AddrTxin pay _) _) -> hash key == pay
     _ -> False
 
-witnessTxin :: Set WitTxin -> Set TxIn -> UTxO -> Bool
-witnessTxin ws ins utxo =
+witnessTxin :: Tx -> UTxO -> Bool
+witnessTxin (Tx txBody (Wits ws _)) utxo =
   (Set.size ws) == (Set.size ins) && all (hasWitness ws) ins
   where
-    hasWitness ws input = isJust $ find (isWitness input utxo) ws
-    isWitness txin utxo (WitTxin key sig) =
-      verify key txin sig && authTxin key txin utxo
+    ins = inputs txBody
+    hasWitness ws input = isJust $ find (isWitness txBody input utxo) ws
+    isWitness tb inp utxo (WitTxin key sig) =
+      verify key tb sig && authTxin key inp utxo
 
 authCert :: VKey -> Cert -> Bool
 authCert key cert = True -- TODO
 
-witnessCert :: Set WitCert -> Set Cert-> Bool
-witnessCert ws cs =
+witnessCert :: Tx -> Bool
+witnessCert (Tx txBody (Wits _ ws)) =
   (Set.size ws) == (Set.size cs) && all (hasWitness ws) cs
   where
-    hasWitness ws cert = isJust $ find (isWitness cert) ws
-    isWitness cert (WitCert key sig) =
-      verify key cert sig && authCert key cert
+    cs = certs txBody
+    hasWitness ws cert = isJust $ find (isWitness txBody cert) ws
+    isWitness txBody cert (WitCert key sig) =
+      verify key txBody sig && authCert key cert
 --TODO combine with witnessTxin?
 
 witness :: Tx -> UTxO -> Bool
-witness (Tx (TxBody ins _ cs) (Wits txWits ctWits)) utxo =
-  witnessTxin txWits ins utxo && witnessCert ctWits cs
+witness tx utxo = witnessTxin tx utxo && witnessCert tx

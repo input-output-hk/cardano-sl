@@ -9,13 +9,16 @@ import           Data.List  (find)
 import           Delegation
 
 
-alice = Owner 1
-bob = Owner 2
-carol = Owner 3
+alice_pay = Owner 1
+alice_stake = Owner 2
+bob_pay = Owner 3
+bob_stake = Owner 4
+carol_pay = Owner 5
+carol_stake = Owner 6
 
-aliceAddr = AddrTxin (hash (VKey alice)) (hash (SKey alice))
-bobAddr = AddrTxin (hash (VKey bob)) (hash (SKey bob))
-carolAddr = AddrTxin (hash (VKey carol)) (hash (SKey carol))
+aliceAddr = AddrTxin (hash (VKey alice_pay)) (hash (VKey alice_stake))
+bobAddr = AddrTxin (hash (VKey bob_pay)) (hash (VKey bob_stake))
+carolAddr = AddrTxin (hash (VKey carol_pay)) (hash (VKey carol_stake))
 
 noWitnesses = Wits Set.empty Set.empty
 
@@ -37,10 +40,10 @@ tx1Body = TxBody
             (Set.fromList [Delegate])
 tx1Wits = Wits
             (Set.fromList
-              [ WitTxin (VKey alice) (Sig (TxIn tx0Id 0) alice)
+              [ WitTxin (VKey alice_pay) (Sig tx1Body alice_pay)
               ])
             (Set.fromList
-              [ WitCert (VKey alice) (Sig Delegate alice)
+              [ WitCert (VKey alice_stake) (Sig tx1Body alice_stake)
               ])
 tx1 = Tx tx1Body tx1Wits
 

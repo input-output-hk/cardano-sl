@@ -322,7 +322,7 @@ data HdAccountState =
 
 -- | Account state for an account which has complete historical data
 data HdAccountUpToDate = HdAccountUpToDate {
-      _hdUpToDateCheckpoints :: !(NewestFirst StrictNonEmpty Checkpoint)
+      _hdUpToDateCheckpoints :: !(Checkpoints Checkpoint)
     }
 
 -- | Account state for an account which is lacking some historical checkpoints
@@ -334,14 +334,14 @@ data HdAccountIncomplete = HdAccountIncomplete {
       -- lack historical checkpoints. We synchronously construct a partial
       -- checkpoint for the current tip, and then as we get new blocks from
       -- the BListener, we add new partial checkpoints.
-      _hdIncompleteCurrent    :: !(NewestFirst StrictNonEmpty PartialCheckpoint)
+      _hdIncompleteCurrent    :: !(Checkpoints PartialCheckpoint)
 
       -- | Historical full checkpoints
       --
       -- Meanwhile, we asynchronously construct full checkpoints, starting
       -- from genesis. Once this gets to within k slots of the tip, we start
       -- keeping all of these.
-    , _hdIncompleteHistorical :: !(NewestFirst StrictNonEmpty Checkpoint)
+    , _hdIncompleteHistorical :: !(Checkpoints Checkpoint)
     }
 
 makeLenses ''HdAccountUpToDate
@@ -368,14 +368,14 @@ makeLenses ''HdAccountIncomplete
 finishRestoration :: SecurityParameter
                   -> HdAccountIncomplete
                   -> HdAccountUpToDate
-finishRestoration (SecurityParameter k) (HdAccountIncomplete partial historical) =
+finishRestoration (SecurityParameter k) (HdAccountIncomplete (Checkpoints partial) (Checkpoints historical)) =
     case SL.last initPartial of
       Nothing ->
-        HdAccountUpToDate $ takeNewest k $ NewestFirst $
+        HdAccountUpToDate $ Checkpoints $ takeNewest k $ NewestFirst $
           (mostRecentHistorical :| olderHistorical)
       Just secondLast | Just context <- secondLast ^. pcheckpointContext ->
         if context `blockContextSucceeds` (mostRecentHistorical ^. checkpointContext)
-          then HdAccountUpToDate $ takeNewest k $ NewestFirst $
+          then HdAccountUpToDate $ Checkpoints $ takeNewest k $ NewestFirst $
                  SNE.prependList
                    (mkFull <$> initPartial)
                    (mostRecentHistorical :| olderHistorical)
@@ -433,12 +433,12 @@ hdAccountStateCurrent f (HdAccountStateUpToDate st) =
     (\pcp -> HdAccountStateUpToDate (st & l .~ pcp)) <$> f (st ^. l)
   where
     l :: Lens' HdAccountUpToDate PartialCheckpoint
-    l = hdUpToDateCheckpoints . _Wrapped . SNE.head . fromFullCheckpoint
+    l = hdUpToDateCheckpoints . unCheckpoints . _Wrapped . SNE.head . fromFullCheckpoint
 hdAccountStateCurrent f (HdAccountStateIncomplete st) =
     (\pcp -> HdAccountStateIncomplete (st & l .~ pcp)) <$> f (st ^. l)
   where
     l :: Lens' HdAccountIncomplete PartialCheckpoint
-    l = hdIncompleteCurrent . _Wrapped . SNE.head
+    l = hdIncompleteCurrent . unCheckpoints . _Wrapped . SNE.head
 
 {-------------------------------------------------------------------------------
   Unknown identifiers
@@ -638,7 +638,7 @@ matchHdAccountState updUpToDate updIncomplete = withZoomableConstraints $
 -- | Zoom to the current checkpoints of the wallet
 zoomHdAccountCheckpoints :: CanZoom f
                          => (   forall c. IsCheckpoint c
-                             => f e (NewestFirst StrictNonEmpty c) a )
+                             => f e (Checkpoints c) a )
                          -> f e HdAccount a
 zoomHdAccountCheckpoints upd = matchHdAccountCheckpoints upd upd
 
@@ -649,16 +649,16 @@ zoomHdAccountCurrent :: CanZoom f
 zoomHdAccountCurrent upd = withZoomableConstraints $
     zoomHdAccountCheckpoints $
       Z.wrap $ \cps -> do
-        let l :: Lens' (NewestFirst StrictNonEmpty c) c
-            l = _Wrapped . SNE.head
+        let l :: Lens' (Checkpoints c) c
+            l = unCheckpoints . _Wrapped . SNE.head
         second (\cp' -> cps & l .~ cp') $ Z.unwrap upd (cps ^. l)
 
 -- | Variant of 'zoomHdAccountCheckpoints' that distinguishes between
 -- full checkpoints (wallet is up to date) and partial checkpoints
 -- (wallet is still recovering historical data)
 matchHdAccountCheckpoints :: CanZoom f
-                          => f e (NewestFirst StrictNonEmpty Checkpoint)        a
-                          -> f e (NewestFirst StrictNonEmpty PartialCheckpoint) a
+                          => f e (Checkpoints Checkpoint)        a
+                          -> f e (Checkpoints PartialCheckpoint) a
                           -> f e HdAccount a
 matchHdAccountCheckpoints updFull updPartial =
     matchHdAccountState

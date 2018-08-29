@@ -1,9 +1,12 @@
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE DeriveFoldable #-}
 -- | Wallet state as mandated by the wallet specification
 module Cardano.Wallet.Kernel.DB.Spec (
     -- * Checkpoint
     Checkpoint(..)
+  , Checkpoints(..)
   , initCheckpoint
+  , liftCheckpoints
     -- ** Lenses
   , checkpointUtxo
   , checkpointUtxoBalance
@@ -17,6 +20,7 @@ module Cardano.Wallet.Kernel.DB.Spec (
   , fromFullCheckpoint
   , toFullCheckpoint
     -- ** Lenses
+  , unCheckpoints
   , pcheckpointUtxo
   , pcheckpointUtxoBalance
   , pcheckpointPending
@@ -37,6 +41,13 @@ module Cardano.Wallet.Kernel.DB.Spec (
   , currentForeign
     -- ** Convenience: accessors for other checkpoints
   , oldestCheckpoint
+    -- ** public for testing compression
+  , deltas
+  , steps
+  , deltaC
+  , stepC
+  , deltaPartialC
+  , stepPartialC
   ) where
 
 import           Universum
@@ -44,7 +55,7 @@ import           Universum
 import           Control.Lens (Getter, from, to, _Wrapped)
 import           Control.Lens.TH (makeLenses)
 import           Data.Coerce (coerce)
-import           Data.SafeCopy (base, deriveSafeCopy)
+import qualified Data.SafeCopy as SC
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 import           Serokell.Util.Text (mapJson)
@@ -52,14 +63,16 @@ import           Test.QuickCheck (Arbitrary (..))
 
 import qualified Pos.Chain.Txp as Core
 import qualified Pos.Core as Core
-import           Pos.Core.Chrono (NewestFirst)
+import           Pos.Core.Chrono (NewestFirst(..))
 
 import           Cardano.Wallet.Kernel.DB.BlockContext
 import           Cardano.Wallet.Kernel.DB.BlockMeta
+import           Cardano.Wallet.Kernel.DB.Compression
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec.Pending (Pending)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
 import           Cardano.Wallet.Kernel.Util.Core as Core
+import qualified Cardano.Wallet.Kernel.Util.StrictList as SL
 import           Cardano.Wallet.Kernel.Util.StrictNonEmpty (StrictNonEmpty (..))
 import qualified Cardano.Wallet.Kernel.Util.StrictNonEmpty as SNE
 
@@ -120,7 +133,7 @@ data Checkpoint = Checkpoint {
 
 makeLenses ''Checkpoint
 
-deriveSafeCopy 1 'base ''Checkpoint
+SC.deriveSafeCopy 1 'SC.base ''Checkpoint
 
 -- | Initial checkpoint for an account
 --
@@ -161,7 +174,7 @@ data PartialCheckpoint = PartialCheckpoint {
 
 makeLenses ''PartialCheckpoint
 
-deriveSafeCopy 1 'base ''PartialCheckpoint
+SC.deriveSafeCopy 1 'SC.base ''PartialCheckpoint
 
 -- | Initial partial checkpoint when we are restoring a wallet
 --
@@ -233,6 +246,41 @@ toFullCheckpoint prevBlockMeta PartialCheckpoint{..} = Checkpoint {
     withPrev = appendBlockMeta prevBlockMeta
 
 {-------------------------------------------------------------------------------
+  Checkpoints Wrapper
+-------------------------------------------------------------------------------}
+
+newtype Checkpoints c = Checkpoints {_unCheckpoints :: NewestFirst StrictNonEmpty c}
+    deriving (Eq, Foldable, Show)
+
+makeLenses ''Checkpoints
+
+liftCheckpoints :: (NewestFirst StrictNonEmpty c1 -> NewestFirst StrictNonEmpty c2)
+                -> Checkpoints c1 -> Checkpoints c2
+liftCheckpoints f (Checkpoints cs) = Checkpoints (f cs)
+
+deltas :: IsCheckpoint c =>  Checkpoints c -> (c, [DeltaCheckpoint])
+deltas (Checkpoints (NewestFirst (a SNE.:| strict))) = (a, go a strict)
+  where
+    go :: IsCheckpoint c => c -> SL.StrictList c -> [DeltaCheckpoint]
+    go _ SL.Nil                  = []
+    go c (SL.Cons c' strictRest) = (delta c' c) : (go c' strictRest)
+
+steps :: IsCheckpoint c => (c, [DeltaCheckpoint] ) -> Checkpoints c
+steps (c, ls) = Checkpoints . NewestFirst $ c SNE.:| go c ls
+  where
+    go :: IsCheckpoint c => c -> [DeltaCheckpoint] -> SL.StrictList c
+    go _ []         = SL.Nil
+    go c' (dc:rest) = let new = step c' dc in SL.Cons new (go new rest)
+
+instance (IsCheckpoint c, SC.SafeCopy c) => SC.SafeCopy (Checkpoints c) where
+  getCopy = SC.contain $ do
+    ds <- SC.safeGet
+    pure $ steps ds
+  putCopy cs  = SC.contain $ do
+    let dcs = deltas cs
+    SC.safePut dcs
+
+{-------------------------------------------------------------------------------
   Unify over full and partial checkpoints
 -------------------------------------------------------------------------------}
 
@@ -256,6 +304,8 @@ class IsCheckpoint c where
     cpBlockMeta   :: Lens' c LocalBlockMeta
     cpForeign     :: Lens' c Pending
     cpContext     :: Lens' c (Maybe BlockContext)
+    delta         :: c -> c -> DeltaCheckpoint
+    step          :: c -> DeltaCheckpoint -> c
 
 instance IsCheckpoint Checkpoint where
     cpUtxo        = checkpointUtxo . fromDb
@@ -264,6 +314,8 @@ instance IsCheckpoint Checkpoint where
     cpBlockMeta   = checkpointBlockMeta . from _Wrapped
     cpForeign     = checkpointForeign
     cpContext     = checkpointContext
+    delta         = deltaC
+    step          = stepC
 
 instance IsCheckpoint PartialCheckpoint where
     cpUtxo        = pcheckpointUtxo . fromDb
@@ -272,23 +324,73 @@ instance IsCheckpoint PartialCheckpoint where
     cpBlockMeta   = pcheckpointBlockMeta
     cpForeign     = pcheckpointForeign
     cpContext     = pcheckpointContext
+    delta         = deltaPartialC
+    step          = stepPartialC
 
 cpAddressMeta :: IsCheckpoint c => Core.Address -> Lens' c AddressMeta
 cpAddressMeta addr = cpBlockMeta . _Wrapped . addressMeta addr
 
 {-------------------------------------------------------------------------------
+  Convenience: definitions for compression
+-------------------------------------------------------------------------------}
+
+deltaC :: Checkpoint -> Checkpoint -> DeltaCheckpoint
+deltaC c c' = DeltaCheckpoint {
+    dcUtxo         = deltaUtxo (_checkpointUtxo c) (_checkpointUtxo c')
+  , dcUtxoBalance  = _checkpointUtxoBalance c
+  , dcPending      = deltaPending (_checkpointPending c) (_checkpointPending c')
+  , dcBlockMeta    = deltaBlockMeta (_checkpointBlockMeta c) (_checkpointBlockMeta c')
+  , dcForeign      = deltaPending (_checkpointForeign c) (_checkpointForeign c')
+  , dcContext      = _checkpointContext c
+}
+
+stepC :: Checkpoint -> DeltaCheckpoint -> Checkpoint
+stepC c DeltaCheckpoint{..} =
+  Checkpoint {
+    _checkpointUtxo          = stepUtxo (_checkpointUtxo c) dcUtxo
+    , _checkpointUtxoBalance = dcUtxoBalance
+    , _checkpointPending     = stepPending (_checkpointPending c) dcPending
+    , _checkpointBlockMeta   = stepBlockMeta (_checkpointBlockMeta c) dcBlockMeta
+    , _checkpointContext     = dcContext
+    , _checkpointForeign     = stepPending (_checkpointForeign c) dcForeign
+  }
+
+deltaPartialC :: PartialCheckpoint -> PartialCheckpoint -> DeltaCheckpoint
+deltaPartialC c c' = DeltaCheckpoint {
+    dcUtxo         = deltaUtxo (_pcheckpointUtxo c) (_pcheckpointUtxo c')
+  , dcUtxoBalance  = _pcheckpointUtxoBalance c
+  , dcPending      = deltaPending (_pcheckpointPending c) (_pcheckpointPending c')
+  , dcBlockMeta    = deltaBlockMeta (localBlockMeta . _pcheckpointBlockMeta $ c)
+                                    (localBlockMeta . _pcheckpointBlockMeta $ c')
+  , dcForeign      = deltaPending (_pcheckpointForeign c) (_pcheckpointForeign c')
+  , dcContext      = _pcheckpointContext c
+}
+
+stepPartialC :: PartialCheckpoint -> DeltaCheckpoint -> PartialCheckpoint
+stepPartialC c DeltaCheckpoint{..} =
+  PartialCheckpoint {
+    _pcheckpointUtxo          = stepUtxo (_pcheckpointUtxo c) dcUtxo
+    , _pcheckpointUtxoBalance = dcUtxoBalance
+    , _pcheckpointPending     = stepPending (_pcheckpointPending c) dcPending
+    , _pcheckpointBlockMeta   = LocalBlockMeta $ stepBlockMeta (localBlockMeta ._pcheckpointBlockMeta $ c) dcBlockMeta
+    , _pcheckpointForeign     = stepPending (_pcheckpointForeign c) dcForeign
+    , _pcheckpointContext     = dcContext
+  }
+
+
+{-------------------------------------------------------------------------------
   Convenience: lift lenses on single checkpoint to the most recent one
 -------------------------------------------------------------------------------}
 
-currentCheckpoint :: Lens' (NewestFirst StrictNonEmpty c) c
-currentCheckpoint = _Wrapped . SNE.head
+currentCheckpoint :: Lens' (Checkpoints c) c
+currentCheckpoint = unCheckpoints . _Wrapped . SNE.head
 
-currentUtxo        :: IsCheckpoint c => Lens' (NewestFirst StrictNonEmpty c) Core.Utxo
-currentUtxoBalance :: IsCheckpoint c => Lens' (NewestFirst StrictNonEmpty c) Core.Coin
-currentPending     :: IsCheckpoint c => Lens' (NewestFirst StrictNonEmpty c) Pending
-currentBlockMeta   :: IsCheckpoint c => Lens' (NewestFirst StrictNonEmpty c) LocalBlockMeta
-currentForeign     :: IsCheckpoint c => Lens' (NewestFirst StrictNonEmpty c) Pending
-currentContext     :: IsCheckpoint c => Lens' (NewestFirst StrictNonEmpty c) (Maybe BlockContext)
+currentUtxo        :: IsCheckpoint c => Lens' (Checkpoints c) Core.Utxo
+currentUtxoBalance :: IsCheckpoint c => Lens' (Checkpoints c) Core.Coin
+currentPending     :: IsCheckpoint c => Lens' (Checkpoints c) Pending
+currentBlockMeta   :: IsCheckpoint c => Lens' (Checkpoints c) LocalBlockMeta
+currentForeign     :: IsCheckpoint c => Lens' (Checkpoints c) Pending
+currentContext     :: IsCheckpoint c => Lens' (Checkpoints c) (Maybe BlockContext)
 
 currentUtxo        = currentCheckpoint . cpUtxo
 currentUtxoBalance = currentCheckpoint . cpUtxoBalance
@@ -297,7 +399,7 @@ currentBlockMeta   = currentCheckpoint . cpBlockMeta
 currentForeign     = currentCheckpoint . cpForeign
 currentContext     = currentCheckpoint . cpContext
 
-currentAddressMeta :: IsCheckpoint c => Core.Address -> Lens' (NewestFirst StrictNonEmpty c) AddressMeta
+currentAddressMeta :: IsCheckpoint c => Core.Address -> Lens' (Checkpoints c) AddressMeta
 currentAddressMeta addr = currentCheckpoint . cpAddressMeta addr
 
 {-------------------------------------------------------------------------------
@@ -323,6 +425,11 @@ instance Arbitrary PartialCheckpoint where
                                 <*> arbitrary
                                 <*> arbitrary
                                 <*> arbitrary
+
+instance Arbitrary c => Arbitrary (Checkpoints c) where
+  arbitrary = do
+    ls <- arbitrary
+    pure . Checkpoints . NewestFirst $ ls
 
 {-------------------------------------------------------------------------------
   Pretty-printing

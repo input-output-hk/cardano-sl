@@ -85,7 +85,7 @@ library
                        Cardano.Wallet.Kernel.DB.AcidState
                        Cardano.Wallet.Kernel.DB.BlockContext
                        Cardano.Wallet.Kernel.DB.BlockMeta
-                       Cardano.Wallet.Kernel.DB.Checkpoints
+                       Cardano.Wallet.Kernel.DB.Compression
                        Cardano.Wallet.Kernel.DB.HdWallet
                        Cardano.Wallet.Kernel.DB.HdWallet.Create
                        Cardano.Wallet.Kernel.DB.HdWallet.Delete

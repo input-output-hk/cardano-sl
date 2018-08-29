@@ -13,7 +13,8 @@ import           Test.Hspec
 import           Test.QuickCheck (Arbitrary, arbitrary, resize)
 import           Test.QuickCheck.Monadic (monadicIO, pick)
 
-import           Cardano.Wallet.Kernel.DB.Checkpoints
+import           Cardano.Wallet.Kernel.DB.Compression
+import           Cardano.Wallet.Kernel.DB.Spec
 
 import           Test.Pos.Core.Arbitrary ()
 
@@ -92,33 +93,49 @@ spec = do
             let c'' = stepC c' d
             return $ c'' `shouldBe` c
 
+        it "Checkpoint round trips (using class function)" $ monadicIO $ do
+            (c :: Checkpoint) <- pick arbitrary
+            c' <- pick arbitrary
+            let d = delta c c'
+            let c'' = step c' d
+            return $ c'' `shouldBe` c
+
         it "Checkpoints round trips" $ monadicIO $ do
-            cs <- pick $ resize 10 arbitrary -- limit here is important, because
-                                             -- this creates a whole wallet state.
+            (cs  :: Checkpoints Checkpoint) <- pick $ resize 10 arbitrary
+            -- ^ limit here is important, because
+            --   this creates a whole wallet state.
             let d = deltas cs
             let cs'' = steps d
             return $ cs'' `shouldBe` cs
 
         it "Safecopy Checkpoints round trips" $ monadicIO $ do
-            (cs :: Checkpoints) <- pick $ resize 10 arbitrary
+            (cs :: Checkpoints Checkpoint) <- pick $ resize 10 arbitrary
             let ret = runGet SC.safeGet (runPut (SC.safePut cs))
             return $ ret `shouldBe` (Right cs)
 
-        it "PartialCheckpoint round trips" $ monadicIO $ do
+        it "PartialCheckpoint round trips " $ monadicIO $ do
             c <- pick arbitrary
             c' <- pick arbitrary
             let d = deltaPartialC c c'
             let c'' = stepPartialC c' d
             return $ c'' `shouldBe` c
 
+        it "PartialCheckpoint round trips (using class function)" $ monadicIO $ do
+            (c :: PartialCheckpoint) <- pick arbitrary
+            c' <- pick arbitrary
+            let d = delta c c'
+            let c'' = step c' d
+            return $ c'' `shouldBe` c
+
         it "PartialCheckpoints round trips" $ monadicIO $ do
-            cs <- pick $ resize 10 arbitrary -- limit here is important, because
-                                                -- this creates a whole wallet state.
-            let d = deltasPartial cs
-            let cs'' = stepsPartial d
+            (cs  :: Checkpoints PartialCheckpoint) <- pick $ resize 10 arbitrary
+            -- ^ limit here is important, because
+            --   this creates a whole wallet state.
+            let d = deltas cs
+            let cs'' = steps d
             return $ cs'' `shouldBe` cs
 
         it "Safecopy PartialCheckpoints round trips" $ monadicIO $ do
-            (cs :: PartialCheckpoints) <- pick $ resize 10 arbitrary
+            (cs :: Checkpoints PartialCheckpoint) <- pick $ resize 10 arbitrary
             let ret = runGet SC.safeGet (runPut (SC.safePut cs))
             return $ ret `shouldBe` (Right cs)

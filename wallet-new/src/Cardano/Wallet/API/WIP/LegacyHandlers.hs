@@ -9,11 +9,6 @@ module Cardano.Wallet.API.WIP.LegacyHandlers (
       handlers
     ) where
 
-import           Ntp.Client (NtpStatus)
-import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Crypto (ProtocolMagic)
-import           Pos.Infra.Diffusion.Types (Diffusion)
-
 import           Formatting (build, sformat)
 import           Universum
 import           UnliftIO (MonadUnliftIO)
@@ -38,12 +33,8 @@ import           Servant
 
 handlers :: HasConfigurations
             => (forall a. MonadV1 a -> Handler a)
-            -> ProtocolMagic
-            -> TxpConfiguration
-            -> Diffusion MonadV1
-            -> TVar NtpStatus
             -> Server WIP.API
-handlers naturalTransformation _pm _txpConfig _diffusion _ntpStatus =
+handlers naturalTransformation =
          hoist' (Proxy @WIP.API) handlersPlain
   where
     hoist'

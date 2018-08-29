@@ -511,6 +511,7 @@ test-suite wallet-unit-tests
                     , data-default
                     , formatting
                     , hspec
+                    , hspec-core
                     , lens
                     , mtl
                     , QuickCheck

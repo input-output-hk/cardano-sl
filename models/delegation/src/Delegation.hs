@@ -63,6 +63,10 @@ instance BA.ByteArrayAccess SKey where
   length        = BA.length . BS.pack . show
   withByteArray = BA.withByteArray . BS.pack . show
 
+instance BA.ByteArrayAccess String where
+  length        = BA.length . BS.pack
+  withByteArray = BA.withByteArray . BS.pack
+
 -- TODO how do I remove these boilerplate instances?
 
 instance Semigroup Coin where
@@ -137,8 +141,13 @@ data LedgerState =
   , getEpoch :: Int
   } deriving (Show, Eq)
 
-emptyLedgerState = LedgerState
-  (UTxO Map.empty)
+genesisId = TxId $ hash "in the begining"
+
+genesisState :: [TxOut] -> LedgerState
+genesisState outs = LedgerState
+  (UTxO (Map.fromList
+    [((TxIn genesisId idx), out) | (idx, out) <- zip [0..] outs]
+  ))
   Map.empty
   Set.empty
   Map.empty

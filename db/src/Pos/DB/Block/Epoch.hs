@@ -32,9 +32,9 @@ import           System.IO.Error (isDoesNotExistError)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Chain.Block (HeaderHash, blockHeaderHash)
-import           Pos.Core (EpochIndex (..), EpochOrSlot (..),
-                     LocalSlotIndex (..), SlotId (..), epochSlots,
-                     getEpochOrSlot)
+import           Pos.Core as Core (Config (..), EpochIndex (..),
+                     EpochOrSlot (..), LocalSlotIndex (..), SlotCount (..),
+                     SlotId (..), configEpochSlots, getEpochOrSlot)
 import           Pos.DB.Block.GState.BlockExtra (getFirstGenesisBlockHash,
                      resolveForwardLink)
 import           Pos.DB.Block.Internal (bspBlund, dbGetSerBlockRealFile,
@@ -92,15 +92,15 @@ renderConsolidateError = \case
 -- is running at any time.
 consoldidateEpochs
     :: (MonadCatch m, MonadDB m, MonadIO m, MonadMask m, MonadReader NodeDBs m)
-    => ExceptT ConsolidateError m ()
-consoldidateEpochs = ExceptT $ do
+    => Core.Config -> ExceptT ConsolidateError m ()
+consoldidateEpochs coreConfig = ExceptT $ do
     elock <- view epochLock <$> getNodeDBs
     mr <- whenAcquireWrite elock $ do
             tipEpoch <- getTipEpoch
             checkPoint <- getConsolidateCheckPoint
             if tipEpoch < 2
                 then pure $ Right ()
-                else consolidateLoop checkPoint (tipEpoch - 1)
+                else consolidateLoop checkPoint (configEpochSlots coreConfig) (tipEpoch - 1)
     pure $ fromMaybe (Right ()) mr
 
 
@@ -210,8 +210,8 @@ type ConsolidateM m =
 -- On each loop, the check point in the 'MiscDB' is updated.
 consolidateLoop
     :: ConsolidateM m
-    => ConsolidateCheckPoint -> EpochIndex -> m (Either ConsolidateError ())
-consolidateLoop startCcp endEpoch
+    => ConsolidateCheckPoint -> SlotCount -> EpochIndex -> m (Either ConsolidateError ())
+consolidateLoop startCcp epochSlots endEpoch
     | ccpEpochIndex startCcp >= endEpoch = pure $ Right ()
     | otherwise = runExceptT $ loop startCcp
   where

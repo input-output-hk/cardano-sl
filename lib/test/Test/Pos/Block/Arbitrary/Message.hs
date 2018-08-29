@@ -11,7 +11,6 @@ import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
-import           Pos.Core (HasGenesisHash)
 import qualified Pos.Network.Block.Types as T
 
 import           Test.Pos.Chain.Block.Arbitrary ()
@@ -35,7 +34,7 @@ instance Arbitrary T.MsgHeaders where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasGenesisHash => Arbitrary T.MsgBlock where
+instance Arbitrary T.MsgBlock where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -51,6 +50,6 @@ instance Arbitrary T.MsgStreamUpdate where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasGenesisHash => Arbitrary T.MsgStreamBlock where
+instance Arbitrary T.MsgStreamBlock where
     arbitrary = genericArbitrary
     shrink = genericShrink

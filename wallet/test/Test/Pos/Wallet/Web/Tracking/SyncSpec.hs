@@ -69,7 +69,7 @@ twoApplyTwoRollbacksSpec = walletPropertySpec twoApplyTwoRollbacksDesc $ do
     void $ importSomeWallets (pure emptyPassphrase)
     secretKeys <- lift getSecretKeysPlain
     lift $ forM_ secretKeys $ \sk ->
-        syncWalletWithBlockchain dummyK . newSyncRequest . keyToWalletDecrCredentials $ KeyForRegular sk
+        syncWalletWithBlockchain dummyConfig . newSyncRequest . keyToWalletDecrCredentials $ KeyForRegular sk
 
     -- Testing starts here
     genesisWalletDB <- lift WS.askWalletSnapshot

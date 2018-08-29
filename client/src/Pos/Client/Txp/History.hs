@@ -45,8 +45,7 @@ import           Pos.Chain.Txp (ToilVerFailure, Tx (..), TxAux (..), TxId,
                      applyTxToUtxo, evalUtxoM, flattenTxPayload, genesisUtxo,
                      runUtxoM, topsortTxs, txOutAddress, utxoGet, utxoToLookup)
 import           Pos.Core as Core (Address, ChainDifficulty, Config (..),
-                     GenesisHash (..), HasConfiguration, Timestamp (..),
-                     difficultyL, genesisHash)
+                     Timestamp (..), difficultyL)
 import           Pos.Core.Genesis (GenesisData)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Crypto (WithHash (..), withHash)
@@ -215,14 +214,15 @@ type TxHistoryEnv ctx m =
 
 getBlockHistoryDefault
     :: forall ctx m
-     . (HasConfiguration, TxHistoryEnv ctx m)
+     . TxHistoryEnv ctx m
     => Core.Config
     -> [Address]
     -> m (Map TxId TxHistoryEntry)
 getBlockHistoryDefault coreConfig addrs = do
+    let genesisHash = configGenesisHash coreConfig
     let bot = headerHash $ genesisBlock0
             (configProtocolMagic coreConfig)
-            (GenesisHash genesisHash)
+            genesisHash
             (genesisLeaders coreConfig)
     sd          <- GS.getSlottingData
     systemStart <- getSystemStartM
@@ -243,7 +243,7 @@ getBlockHistoryDefault coreConfig addrs = do
                 (genesisUtxoLookup $ configGenesisData coreConfig)
                 (deriveAddrHistoryBlk addrs getBlockTimestamp hist blk)
 
-    fst <$> GS.foldlUpWhileM getBlock bot filterFunc (pure ... foldStep) mempty
+    fst <$> GS.foldlUpWhileM (getBlock genesisHash) bot filterFunc (pure ... foldStep) mempty
 
 getLocalHistoryDefault
     :: forall ctx m. TxHistoryEnv ctx m

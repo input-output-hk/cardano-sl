@@ -30,8 +30,9 @@ import           UnliftIO (MonadUnliftIO)
 import           Pos.Chain.Block (BlockHeader (..), HeaderHash,
                      VerifyHeaderParams (..), headerHash, headerHashG,
                      headerSlotL, prevBlockL, verifyHeader)
-import           Pos.Core as Core (BlockCount, Config (..), configEpochSlots,
-                     difficultyL, epochIndexL, getEpochOrSlot)
+import           Pos.Core as Core (Config (..), configBlkSecurityParam,
+                     configEpochSlots, difficultyL, epochIndexL,
+                     getEpochOrSlot)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst (..),
                      toNewestFirst, toOldestFirst, _NewestFirst, _OldestFirst)
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
@@ -214,18 +215,20 @@ getHeadersFromManyTo mLimit checkpoints startM = runExceptT $ do
 -- exponentially base 2 relatively to the depth in the blockchain.
 getHeadersOlderExp
     :: MonadDBRead m
-    => BlockCount
+    => Core.Config
     -> Maybe HeaderHash
     -> m (OldestFirst NE HeaderHash)
-getHeadersOlderExp k upto = do
+getHeadersOlderExp coreConfig upto = do
     tip <- GS.getTip
     let upToReal = fromMaybe tip upto
     -- Using 'blkSecurityParam + 1' because fork can happen on k+1th one.
-    (allHeaders :: NewestFirst [] BlockHeader) <-
-        -- loadHeadersByDepth always returns nonempty list unless you
-        -- pass depth 0 (we pass k+1). It throws if upToReal is
-        -- absent. So it either throws or returns nonempty.
-        loadHeadersByDepth (k + 1) upToReal
+    -- loadHeadersByDepth always returns nonempty list unless you
+    -- pass depth 0 (we pass k+1). It throws if upToReal is
+    -- absent. So it either throws or returns nonempty.
+    (allHeaders :: NewestFirst [] BlockHeader) <- loadHeadersByDepth
+        (configGenesisHash coreConfig)
+        (configBlkSecurityParam coreConfig + 1)
+        upToReal
     let toNE = fromMaybe (error "getHeadersOlderExp: couldn't create nonempty") .
                nonEmpty
     let selectedHashes :: NewestFirst [] HeaderHash

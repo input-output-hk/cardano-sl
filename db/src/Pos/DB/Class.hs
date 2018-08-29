@@ -59,7 +59,8 @@ import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class (Bi, decodeFull')
 import           Pos.Chain.Block (Block, BlockHeader, HeaderHash)
-import           Pos.Core (EpochIndex, HasConfiguration, isBootstrapEra)
+import           Pos.Core (EpochIndex, GenesisHash, HasConfiguration,
+                     isBootstrapEra)
 import           Pos.Core.Update (BlockVersionData (..))
 import           Pos.DB.Error (DBError (DBMalformed))
 import           Pos.Util.Util (eitherToThrow)
@@ -111,13 +112,13 @@ class (HasConfiguration, MonadThrow m) => MonadDBRead m where
         ) => DBTag -> Proxy i -> ConduitT () (IterType i) (ResourceT m) ()
 
     -- | Get block by header hash
-    dbGetSerBlock :: HeaderHash -> m (Maybe SerializedBlock)
+    dbGetSerBlock :: GenesisHash -> HeaderHash -> m (Maybe SerializedBlock)
 
     -- | Get undo by header hash
-    dbGetSerUndo :: HeaderHash -> m (Maybe SerializedUndo)
+    dbGetSerUndo :: GenesisHash -> HeaderHash -> m (Maybe SerializedUndo)
 
     -- | Get blund by header hash
-    dbGetSerBlund :: HeaderHash -> m (Maybe SerializedBlund)
+    dbGetSerBlund :: GenesisHash -> HeaderHash -> m (Maybe SerializedBlund)
 
 instance {-# OVERLAPPABLE #-}
     (MonadDBRead m, MonadTrans t, MonadThrow (t m)) =>
@@ -126,9 +127,9 @@ instance {-# OVERLAPPABLE #-}
     dbGet tag = lift . dbGet tag
     dbIterSource tag (p :: Proxy i) =
         transPipe (transResourceT lift) (dbIterSource tag p)
-    dbGetSerBlock = lift . dbGetSerBlock
-    dbGetSerUndo = lift . dbGetSerUndo
-    dbGetSerBlund = lift . dbGetSerBlund
+    dbGetSerBlock genesisHash = lift . dbGetSerBlock genesisHash
+    dbGetSerUndo genesisHash = lift . dbGetSerUndo genesisHash
+    dbGetSerBlund genesisHash = lift . dbGetSerBlund genesisHash
 
 type MonadBlockDBRead m = (MonadDBRead m)
 
@@ -139,8 +140,8 @@ getDeserialized getter x = getter x >>= \case
     Nothing  -> pure Nothing
     Just ser -> eitherToThrow $ bimap DBMalformed Just $ decodeFull' $ unSerialized ser
 
-getBlock :: MonadBlockDBRead m => HeaderHash -> m (Maybe Block)
-getBlock = getDeserialized dbGetSerBlock
+getBlock :: MonadBlockDBRead m => GenesisHash -> HeaderHash -> m (Maybe Block)
+getBlock = getDeserialized . dbGetSerBlock
 
 -- | Pure interface to the database. Combines read-only interface and
 -- ability to put raw bytes.

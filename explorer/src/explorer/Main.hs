@@ -22,7 +22,7 @@ import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..),
                      getNodeParams)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (NodeContext (..))
-import           Pos.Core as Core (Config (..), configEpochSlots)
+import           Pos.Core as Core (Config (..))
 import           Pos.Explorer.DB (explorerInitDB)
 import           Pos.Explorer.ExtraContext (makeExtraCtx)
 import           Pos.Explorer.Socket (NotifierSettings (..))
@@ -73,12 +73,11 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
 
         let vssSK = fromJust $ npUserSecret currentParams ^. usVss
         let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
-        let epochSlots = configEpochSlots coreConfig
 
         let plugins :: [Diffusion ExplorerProd -> ExplorerProd ()]
             plugins =
                 [ explorerPlugin coreConfig webPort
-                , notifierPlugin epochSlots NotifierSettings {nsPort = notifierPort}
+                , notifierPlugin coreConfig NotifierSettings {nsPort = notifierPort}
                 , updateTriggerWorker
                 ]
         bracketNodeResources
@@ -105,7 +104,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
         -> IO ()
     runExplorerRealMode coreConfig txpConfig nr@NodeResources{..} go =
         let NodeContext {..} = nrContext
-            extraCtx = makeExtraCtx $ configGenesisData coreConfig
+            extraCtx = makeExtraCtx coreConfig
             explorerModeToRealMode  = runExplorerProd extraCtx
          in runRealMode coreConfig txpConfig nr $ \diffusion ->
                 explorerModeToRealMode (go (hoistDiffusion (lift . lift) explorerModeToRealMode diffusion))

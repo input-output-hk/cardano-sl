@@ -27,7 +27,8 @@ import           System.IO.Error (isDoesNotExistError)
 
 import qualified Data.HashMap.Strict as HM
 import           Pos.Client.KeyStorage (addSecretKey)
-import           Pos.Core.Genesis (GenesisData, PoorSecret, poorSecretToEncKey)
+import           Pos.Core as Core (Config (..))
+import           Pos.Core.Genesis (PoorSecret, poorSecretToEncKey)
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, PublicKey,
                      emptyPassphrase, firstHardened)
 import           Pos.Infra.StateLock (Priority (..), withStateLockNoMetrics)
@@ -128,7 +129,7 @@ restoreWalletFromSeed
        , MonadUnliftIO m
        , HasLens SyncQueue ctx SyncQueue
        )
-    => GenesisData
+    => Core.Config
     -> PassPhrase
     -> CWalletInit
     -> m CWallet
@@ -146,34 +147,34 @@ restoreWalletFromSeedNoThrow
       , MonadUnliftIO m
       , HasLens SyncQueue ctx SyncQueue
       )
-    => GenesisData
+    => Core.Config
     -> PassPhrase
     -> CWalletInit
     -> m (Either (CId Wal) CWallet)
-restoreWalletFromSeedNoThrow genesisData passphrase cwInit = do
+restoreWalletFromSeedNoThrow coreConfig passphrase cwInit = do
     eresult <- mkWallet passphrase cwInit False
-    for eresult $ \(sk, _) -> restoreWallet genesisData sk
+    for eresult $ \(sk, _) -> restoreWallet coreConfig sk
 
 restoreWallet :: ( L.MonadWalletLogic ctx m
                  , MonadUnliftIO m
                  , HasLens SyncQueue ctx SyncQueue
-                 ) => GenesisData -> EncryptedSecretKey -> m CWallet
-restoreWallet genesisData sk = restoreWith genesisData $ KeyForRegular sk
+                 ) => Core.Config -> EncryptedSecretKey -> m CWallet
+restoreWallet coreConfig sk = restoreWith coreConfig $ KeyForRegular sk
 
  -- | Restore a history related to given external wallet, using its root PK.
 restoreExternalWallet :: ( L.MonadWalletLogic ctx m
                          , MonadUnliftIO m
                          , HasLens SyncQueue ctx SyncQueue
-                         ) => GenesisData -> PublicKey -> m CWallet
-restoreExternalWallet genesisData pk = restoreWith genesisData $ KeyForExternal pk
+                         ) => Core.Config -> PublicKey -> m CWallet
+restoreExternalWallet coreConfig pk = restoreWith coreConfig $ KeyForExternal pk
 
 restoreWith :: ( L.MonadWalletLogic ctx m
                , MonadUnliftIO m
                , HasLens SyncQueue ctx SyncQueue
-               ) => GenesisData -> WalletDecrCredentialsKey -> m CWallet
-restoreWith genesisData key = do
+               ) => Core.Config -> WalletDecrCredentialsKey -> m CWallet
+restoreWith coreConfig key = do
     let credentials@(_, wId) = keyToWalletDecrCredentials key
-    Restore.restoreWallet genesisData credentials
+    Restore.restoreWallet coreConfig credentials
     db <- WS.askWalletDB
     WS.setWalletReady db wId True
     L.getWallet wId
@@ -181,8 +182,8 @@ restoreWith genesisData key = do
 restoreWalletFromBackup :: ( L.MonadWalletLogic ctx m
                            , MonadUnliftIO m
                            , HasLens SyncQueue ctx SyncQueue
-                           ) => GenesisData -> WalletBackup -> m CWallet
-restoreWalletFromBackup genesisData WalletBackup {..} = do
+                           ) => Core.Config -> WalletBackup -> m CWallet
+restoreWalletFromBackup coreConfig WalletBackup {..} = do
     db <- askWalletDB
     ws <- getWalletSnapshot db
     let wId = encToCId wbSecretKey
@@ -226,24 +227,24 @@ restoreWalletFromBackup genesisData WalletBackup {..} = do
                     Just [] -> void $ L.newAddress defaultAccAddrIdx emptyPassphrase accId
                     Just _  -> pure ()
 
-            restoreWallet genesisData wbSecretKey
+            restoreWallet coreConfig wbSecretKey
 
 importWallet
     :: ( L.MonadWalletLogic ctx m
        , MonadUnliftIO m
        , HasLens SyncQueue ctx SyncQueue
        )
-    => GenesisData
+    => Core.Config
     -> PassPhrase
     -> CFilePath
     -> m CWallet
-importWallet genesisData passphrase (CFilePath (toString -> fp)) = do
+importWallet coreConfig passphrase (CFilePath (toString -> fp)) = do
     secret <-
         rewrapToWalletError isDoesNotExistError noFile $
         rewrapToWalletError (\UserSecretDecodingError{} -> True) decodeFailed $
         readUserSecret fp
     wSecret <- maybeThrow noWalletSecret (secret ^. usWallet)
-    importWalletDo genesisData passphrase wSecret
+    importWalletDo coreConfig passphrase wSecret
   where
     noWalletSecret = RequestError "This key doesn't contain HD wallet info"
     noFile _ = RequestError "File doesn't exist"
@@ -255,12 +256,12 @@ importWalletDo
        , MonadUnliftIO m
        , HasLens SyncQueue ctx SyncQueue
        )
-    => GenesisData
+    => Core.Config
     -> PassPhrase
     -> WalletUserSecret
     -> m CWallet
-importWalletDo genesisData passphrase wSecret = do
-    wId <- cwId <$> importWalletSecret genesisData emptyPassphrase wSecret
+importWalletDo coreConfig passphrase wSecret = do
+    wId <- cwId <$> importWalletSecret coreConfig emptyPassphrase wSecret
     _ <- L.changeWalletPassphrase wId emptyPassphrase passphrase
     L.getWallet wId
 
@@ -269,11 +270,11 @@ importWalletSecret
        , MonadUnliftIO m
        , HasLens SyncQueue ctx SyncQueue
        )
-    => GenesisData
+    => Core.Config
     -> PassPhrase
     -> WalletUserSecret
     -> m CWallet
-importWalletSecret genesisData passphrase WalletUserSecret{..} = do
+importWalletSecret coreConfig passphrase WalletUserSecret{..} = do
     let key    = _wusRootKey
         wid    = encToCId key
         wMeta  = def { cwName = _wusWalletName }
@@ -293,7 +294,7 @@ importWalletSecret genesisData passphrase WalletUserSecret{..} = do
         let accId = AccountId wid walletIndex
         L.newAddress (DeterminedSeed accountIndex) passphrase accId
 
-    restoreWallet genesisData key
+    restoreWallet coreConfig key
 
 -- | Creates wallet with given genesis hd-wallet key.
 -- For debug purposes
@@ -303,13 +304,13 @@ addInitialRichAccount
        , HasLens SyncQueue ctx SyncQueue
        )
     => Int
-    -> GenesisData
+    -> Core.Config
     -> [PoorSecret]
     -> m ()
-addInitialRichAccount keyId genesisData hdwSecretKeys =
+addInitialRichAccount keyId coreConfig hdwSecretKeys =
     E.handleAny wSetExistsHandler $ do
         key <- maybeThrow noKey (map poorSecretToEncKey $ hdwSecretKeys ^? ix keyId)
-        void $ importWalletSecret genesisData emptyPassphrase $
+        void $ importWalletSecret coreConfig emptyPassphrase $
             mkGenesisWalletUserSecret key
                 & wusWalletName .~ "Precreated wallet full of money"
                 & wusAccounts . traversed . _2 .~ "Initial account"

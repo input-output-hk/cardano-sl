@@ -14,7 +14,7 @@ import           Formatting (build, int, sformat, string, (%))
 
 import           Pos.Chain.Block (Blund, mainBlockTxPayload)
 import           Pos.Chain.Txp (flattenTxPayload)
-import           Pos.Core as Core (Config, difficultyL, epochIndexL)
+import           Pos.Core as Core (Config (..), difficultyL, epochIndexL)
 import           Pos.Core.Chrono (NewestFirst, _NewestFirst)
 import           Pos.Core.Txp (TxAux)
 import           Pos.DB.Block (BypassSecurityCheck (..),
@@ -37,8 +37,9 @@ rollbackAndDump
     -> m ()
 rollbackAndDump coreConfig numToRollback outFile = withStateLock HighPriority ApplyBlockWithRollback $ \_ -> do
     printTipDifficulty
-    blundsMaybeEmpty <- modifyBlunds <$>
-        DB.loadBlundsFromTipByDepth (fromIntegral numToRollback)
+    blundsMaybeEmpty <- modifyBlunds <$> DB.loadBlundsFromTipByDepth
+        (configGenesisHash coreConfig)
+        (fromIntegral numToRollback)
     logInfo $ sformat ("Loaded "%int%" blunds") (length blundsMaybeEmpty)
     case _Wrapped nonEmpty blundsMaybeEmpty of
         Nothing -> pass

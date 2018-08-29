@@ -18,6 +18,7 @@ import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 
 import qualified Pos.Chain.Block as Core
+import           Pos.Core (GenesisHash)
 import qualified Pos.Core as Core
 
 import           Cardano.Wallet.Kernel.DB.InDb
@@ -65,9 +66,9 @@ a `blockContextSucceeds` (Just b) =
 -------------------------------------------------------------------------------}
 
 mainBlockContext :: (NodeConstraints, MonadIO m, MonadCatch m)
-                 => Core.MainBlock -> WithNodeState m BlockContext
-mainBlockContext mb = do
-    mPrev <- mostRecentMainBlock (mb ^. Core.mainBlockPrevBlock)
+                 => GenesisHash -> Core.MainBlock -> WithNodeState m BlockContext
+mainBlockContext genesisHash mb = do
+    mPrev <- mostRecentMainBlock genesisHash (mb ^. Core.mainBlockPrevBlock)
     return BlockContext {
         _bcSlotId   = InDb $ mb ^. Core.mainBlockSlot
       , _bcHash     = InDb $ Core.headerHash mb

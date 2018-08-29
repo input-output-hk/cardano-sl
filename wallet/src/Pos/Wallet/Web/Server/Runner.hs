@@ -91,7 +91,7 @@ walletServeWebFull coreConfig txpConfig diffusion ntpStatus debug address mTlsPa
         when debug $ do
           generatedSecrets <- gsPoorSecrets
               <$> configGeneratedSecretsThrow coreConfig
-          addInitialRichAccount 0 (configGenesisData coreConfig) generatedSecrets
+          addInitialRichAccount 0 coreConfig generatedSecrets
 
         wwmc <- walletWebModeContext
         walletApplication $ walletServer @WalletWebModeContext @WalletWebMode

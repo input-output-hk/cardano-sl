@@ -29,8 +29,8 @@ import           Serokell.Util.Text (listJson)
 import           Pos.Binary.Class (serialize')
 import           Pos.Chain.Block (Block, BlockHeader, HasHeaderHash, HeaderHash,
                      LastBlkSlots, headerHash, noLastBlkSlots)
-import           Pos.Core (FlatSlotId, HasCoreConfiguration, SlotCount,
-                     genesisHash, slotIdF, unflattenSlotId)
+import           Pos.Core (FlatSlotId, GenesisHash (..), HasCoreConfiguration,
+                     SlotCount, slotIdF, unflattenSlotId)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (..), MonadDB, MonadDBRead (..),
@@ -64,9 +64,9 @@ getLastSlots =
     gsGetBi lastSlotsKey
 
 -- | Retrieves first genesis block hash.
-getFirstGenesisBlockHash :: MonadDBRead m => m HeaderHash
-getFirstGenesisBlockHash =
-    resolveForwardLink (genesisHash :: HeaderHash) >>=
+getFirstGenesisBlockHash :: MonadDBRead m => GenesisHash -> m HeaderHash
+getFirstGenesisBlockHash genesisHash =
+    resolveForwardLink (getGenesisHash genesisHash :: HeaderHash) >>=
     maybeThrow (DBMalformed "Can't retrieve genesis block, maybe db is not initialized?")
 
 ----------------------------------------------------------------------------
@@ -197,19 +197,20 @@ loadHeadersUpWhile = loadUpWhile getHeader
 -- | Returns blocks loaded up.
 loadBlocksUpWhile
     :: (MonadBlockDBRead m, HasHeaderHash a)
-    => a
+    => GenesisHash
+    -> a
     -> (Block -> Int -> Bool)
     -> m (OldestFirst [] Block)
-loadBlocksUpWhile = loadUpWhile getBlock
+loadBlocksUpWhile genesisHash = loadUpWhile (getBlock genesisHash)
 
 ----------------------------------------------------------------------------
 -- Initialization
 ----------------------------------------------------------------------------
 
-initGStateBlockExtra :: MonadDB m => HeaderHash -> m ()
-initGStateBlockExtra firstGenesisHash = do
+initGStateBlockExtra :: MonadDB m => GenesisHash -> HeaderHash -> m ()
+initGStateBlockExtra genesisHash firstGenesisHash = do
     gsPutBi (mainChainKey firstGenesisHash) ()
-    gsPutBi (forwardLinkKey genesisHash) firstGenesisHash
+    gsPutBi (forwardLinkKey $ getGenesisHash genesisHash) firstGenesisHash
     gsPutBi lastSlotsKey noLastBlkSlots
 
 ----------------------------------------------------------------------------

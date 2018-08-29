@@ -120,7 +120,7 @@ importWallets numLimit passGen = do
         passwds <- vectorOf l passGen
         pure (seks, passwds)
     let wuses = map mkGenesisWalletUserSecret encSecrets
-    lift $ mapM_ (uncurry $ importWalletDo dummyGenesisData) (zip passphrases wuses)
+    lift $ mapM_ (uncurry $ importWalletDo dummyConfig) (zip passphrases wuses)
     skeys <- lift getSecretKeysPlain
     assertProperty (not (null skeys)) "Empty set of imported keys"
     pure passphrases

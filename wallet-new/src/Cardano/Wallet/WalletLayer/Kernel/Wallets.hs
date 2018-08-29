@@ -18,7 +18,7 @@ import           Data.Maybe (fromJust)
 
 import           Pos.Chain.Block (Blund, mainBlockSlot, undoTx)
 import           Pos.Chain.Txp (Utxo)
-import           Pos.Core (mkCoin)
+import           Pos.Core (Config (..), mkCoin)
 import           Pos.Core.Slotting (Timestamp)
 import           Pos.Crypto.Signing
 
@@ -262,10 +262,11 @@ getWalletUtxos wId db = runExcept $ do
 -- by the invariants established in the 'Blund'.
 blundToResolvedBlock :: NodeStateAdaptor IO -> Blund -> IO (Maybe ResolvedBlock)
 blundToResolvedBlock node (b,u) = do
+    genesisHash <- configGenesisHash <$> Node.getCoreConfig node
     case b of
       Left  _ebb      -> return Nothing
       Right mainBlock -> Node.withNodeState node $ \_lock -> do
-        ctxt  <- mainBlockContext mainBlock
+        ctxt  <- mainBlockContext genesisHash mainBlock
         mTime <- Node.defaultGetSlotStart (mainBlock ^. mainBlockSlot)
         now   <- liftIO $ getCurrentTimestamp
         return $ Just $ fromRawResolvedBlock UnsafeRawResolvedBlock {

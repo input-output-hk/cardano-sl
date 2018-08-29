@@ -373,9 +373,9 @@ instance HasSlottingVar TestInitModeContext where
 instance HasConfiguration => MonadDBRead TestInitMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault
-    dbGetSerBlock = DB.dbGetSerBlockPureDefault
-    dbGetSerUndo = DB.dbGetSerUndoPureDefault
-    dbGetSerBlund = DB.dbGetSerBlundPureDefault
+    dbGetSerBlock = const DB.dbGetSerBlockPureDefault
+    dbGetSerUndo = const DB.dbGetSerUndoPureDefault
+    dbGetSerBlund = const DB.dbGetSerBlundPureDefault
 
 instance HasConfiguration => MonadDB TestInitMode where
     dbPut = DB.dbPutPureDefault
@@ -507,9 +507,9 @@ instance MonadSlotsData ctx BlockTestMode => MonadSlots ctx BlockTestMode where
 instance HasConfiguration => MonadDBRead BlockTestMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault
-    dbGetSerBlock = DB.dbGetSerBlockPureDefault
-    dbGetSerUndo = DB.dbGetSerUndoPureDefault
-    dbGetSerBlund = DB.dbGetSerBlundPureDefault
+    dbGetSerBlock = const DB.dbGetSerBlockPureDefault
+    dbGetSerUndo = const DB.dbGetSerUndoPureDefault
+    dbGetSerBlund = const DB.dbGetSerBlundPureDefault
 
 instance HasConfiguration => MonadDB BlockTestMode where
     dbPut = DB.dbPutPureDefault

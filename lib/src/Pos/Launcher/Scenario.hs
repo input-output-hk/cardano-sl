@@ -20,10 +20,12 @@ import           Pos.Chain.Txp (TxpConfiguration, bootDustThreshold)
 import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion,
                      lastKnownBlockVersion, ourSystemTag)
 import           Pos.Context (getOurPublicKey)
-import           Pos.Core as Core (Config (..), addressHash)
+import           Pos.Core as Core (Config (..), addressHash,
+                     configBootStakeholders, configFtsSeed,
+                     configHeavyDelegation)
 import           Pos.Core.Conc (mapConcurrently)
-import           Pos.Core.Genesis (GenesisData (..), GenesisDelegation (..),
-                     GenesisWStakeholders (..), gdFtsSeed)
+import           Pos.Core.Genesis (GenesisDelegation (..),
+                     GenesisWStakeholders (..))
 import           Pos.Crypto (pskDelegatePk)
 import qualified Pos.DB.BlockIndex as DB
 import qualified Pos.GState as GS
@@ -45,12 +47,12 @@ runNode'
        ( HasCompileInfo
        , WorkMode ctx m
        )
-    => GenesisData
+    => Core.Config
     -> NodeResources ext
     -> [Diffusion m -> m ()]
     -> [Diffusion m -> m ()]
     -> Diffusion m -> m ()
-runNode' genesisData NodeResources {..} workers' plugins' = \diffusion -> do
+runNode' coreConfig NodeResources {..} workers' plugins' = \diffusion -> do
     logInfo $ "Built with: " <> pretty compileInfo
     nodeStartMsg
     inAssertMode $ logInfo "Assert mode on"
@@ -59,14 +61,14 @@ runNode' genesisData NodeResources {..} workers' plugins' = \diffusion -> do
     logInfoS $ sformat ("My public key is: "%build%", pk hash: "%build)
         pk pkHash
 
-    let genesisStakeholders = gdBootStakeholders genesisData
+    let genesisStakeholders = configBootStakeholders coreConfig
     logInfo $ sformat
         ("Genesis stakeholders ("%int%" addresses, dust threshold "%build%"): "%build)
         (length $ getGenesisWStakeholders genesisStakeholders)
         (bootDustThreshold genesisStakeholders)
         genesisStakeholders
 
-    let genesisDelegation = gdHeavyDelegation genesisData
+    let genesisDelegation = configHeavyDelegation coreConfig
     let formatDlgPair (issuerId, delegateId) =
             bprint (build%" -> "%build) issuerId delegateId
     logInfo $ sformat ("GenesisDelegation (stakeholder ids): "%listJson)
@@ -74,11 +76,12 @@ runNode' genesisData NodeResources {..} workers' plugins' = \diffusion -> do
             $ HM.toList
             $ unGenesisDelegation genesisDelegation
 
-    firstGenesisHash <- GS.getFirstGenesisBlockHash
+    firstGenesisHash <- GS.getFirstGenesisBlockHash $ configGenesisHash
+        coreConfig
     logInfo $ sformat
         ("First genesis block hash: "%build%", genesis seed is "%build)
         firstGenesisHash
-        (gdFtsSeed genesisData)
+        (configFtsSeed coreConfig)
 
     tipHeader <- DB.getTipHeader
     logInfo $ sformat ("Current tip header: "%build) tipHeader
@@ -113,11 +116,8 @@ runNode
     -> NodeResources ext
     -> [Diffusion m -> m ()]
     -> Diffusion m -> m ()
-runNode coreConfig txpConfig nr plugins = runNode'
-    (configGenesisData coreConfig)
-    nr
-    workers'
-    plugins
+runNode coreConfig txpConfig nr plugins =
+    runNode' coreConfig nr workers' plugins
     where workers' = allWorkers coreConfig txpConfig nr
 
 -- | This function prints a very useful message when node is started.

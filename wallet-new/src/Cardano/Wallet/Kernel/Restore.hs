@@ -36,9 +36,9 @@ import           Cardano.Wallet.Kernel.Internal (WalletRestorationInfo (..),
                      walletMeta, walletNode, walletRestorationTask, wallets,
                      wriCancel, wriCurrentSlot, wriTargetSlot, wriThroughput)
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (Lock, LockContext (..),
-                     NodeConstraints, WithNodeState, filterUtxo,
-                     getGenesisData, getSecurityParameter, getSlotCount,
-                     mostRecentMainBlock, withNodeState)
+                     NodeConstraints, WithNodeState, filterUtxo, getCoreConfig,
+                     getSecurityParameter, getSlotCount, mostRecentMainBlock,
+                     withNodeState)
 import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId,
                      PrefilteredBlock, UtxoWithAddrId, WalletKey,
                      prefilterUtxo', toHdAddressId, toPrefilteredUtxo)
@@ -49,9 +49,9 @@ import           Cardano.Wallet.Kernel.Wallets (createWalletHdRnd)
 import           Pos.Chain.Block (Block, Blund, HeaderHash, MainBlock, Undo,
                      headerHash, mainBlockSlot)
 import           Pos.Chain.Txp (Utxo, genesisUtxo)
-import           Pos.Core (BlockCount (..), Coin, SlotId, flattenSlotId, mkCoin,
+import           Pos.Core as Core (BlockCount (..), Coin, Config (..),
+                     GenesisHash, SlotId, flattenSlotId, mkCoin,
                      unsafeIntegerToCoin)
-import           Pos.Core.Genesis (GenesisData)
 import           Pos.Core.Txp (TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.DB.Block (getFirstGenesisBlockHash, getUndo,
@@ -77,8 +77,8 @@ restoreWallet :: Kernel.PassiveWallet
               -> (Blund -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta]))
               -> IO (Either CreateHdRootError (HD.HdRoot, Coin))
 restoreWallet pw spendingPass name assurance esk prefilter = do
-    genesisData <- getGenesisData (pw ^. walletNode)
-    walletInitInfo <- withNodeState (pw ^. walletNode) $ getWalletInitInfo genesisData wkey
+    coreConfig <- getCoreConfig (pw ^. walletNode)
+    walletInitInfo <- withNodeState (pw ^. walletNode) $ getWalletInitInfo coreConfig wkey
     case walletInitInfo of
       WalletCreate utxos -> do
         root <- createWalletHdRnd pw spendingPass name assurance esk $ \root ->
@@ -150,11 +150,11 @@ data WalletInitInfo =
 -- information about the tip of the blockchain (provided the blockchain
 -- isn't empty).
 getWalletInitInfo :: NodeConstraints
-                  => GenesisData
+                  => Core.Config
                   -> WalletKey
                   -> Lock (WithNodeState IO)
                   -> WithNodeState IO WalletInitInfo
-getWalletInitInfo genesisData wKey@(wId, wdc) lock = do
+getWalletInitInfo coreConfig wKey@(wId, wdc) lock = do
     -- Find all of the current UTXO that this wallet owns.
     -- We lock the node state to be sure the tip header and the UTxO match
     (tipHeader, curUtxo :: Map HD.HdAccountId (Utxo, [AddrWithId])) <-
@@ -164,10 +164,11 @@ getWalletInitInfo genesisData wKey@(wId, wdc) lock = do
     -- Find genesis UTxO for this wallet
     let genUtxo :: Map HD.HdAccountId (Utxo, [AddrWithId])
         genUtxo = fmap toPrefilteredUtxo . snd $
-                    prefilterUtxo' wKey (genesisUtxo genesisData)
+                    prefilterUtxo' wKey
+                                   (genesisUtxo $ configGenesisData coreConfig)
 
     -- Get the tip
-    mTip <- mostRecentMainBlock tipHeader
+    mTip <- mostRecentMainBlock (configGenesisHash coreConfig) tipHeader
     return $ case mTip of
       Nothing  -> WalletCreate genUtxo
       Just tip -> WalletRestore (mergeInfo curUtxo genUtxo) (tipInfo tip)
@@ -204,32 +205,33 @@ restoreWalletHistoryAsync :: Kernel.PassiveWallet
                           -> (Blund -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta]))
                           -> IO ()
 restoreWalletHistoryAsync wallet rootId target tgtSlot prefilter = do
+    genesisHash <- configGenesisHash <$> getCoreConfig (wallet ^. walletNode)
     -- 'getFirstGenesisBlockHash' is confusingly named: it returns the hash of
     -- the first block /after/ the genesis block.
-    startingPoint <- withNode $ getFirstGenesisBlockHash
-    restore startingPoint NoTimingData
+    startingPoint <- withNode $ getFirstGenesisBlockHash genesisHash
+    restore genesisHash startingPoint NoTimingData
   where
     wId :: WalletId
     wId = WalletIdHdRnd rootId
 
     -- Process the restoration of the block with the given 'HeaderHash'.
-    restore :: HeaderHash -> TimingData -> IO ()
-    restore hh timing = do
+    restore :: GenesisHash -> HeaderHash -> TimingData -> IO ()
+    restore genesisHash hh timing = do
         -- Updating the average rate every 5 blocks.
         (rate, timing') <- tickTiming 5 timing
 
         -- Update each account's historical checkpoints
-        block <- getBlockOrThrow hh
+        block <- getBlockOrThrow genesisHash hh
 
         -- Skip EBBs
         whenRight block $ \mb -> do
           -- Filter the blocks by account
-          blund <- (Right mb, ) <$> getUndoOrThrow hh
+          blund <- (Right mb, ) <$> getUndoOrThrow genesisHash hh
           (prefilteredBlocks, txMetas) <- prefilter blund
 
           -- Apply the block
           k    <- getSecurityParameter (wallet ^. walletNode)
-          ctxt <- withNode $ mainBlockContext mb
+          ctxt <- withNode $ mainBlockContext genesisHash mb
           mErr <- update (wallet ^. wallets) $
                     ApplyHistoricalBlock k ctxt prefilteredBlocks
           case mErr of
@@ -255,7 +257,7 @@ restoreWalletHistoryAsync wallet rootId target tgtSlot prefilter = do
         else
           nextBlock hh >>= \case
             Nothing      -> throwM $ RestorationFinishUnreachable target hh
-            Just header' -> restore header' timing'
+            Just header' -> restore genesisHash header' timing'
 
     -- TODO (@mn): probably should use some kind of bracket to ensure this cleanup happens.
     finish :: IO ()
@@ -269,18 +271,18 @@ restoreWalletHistoryAsync wallet rootId target tgtSlot prefilter = do
     nextBlock hh = withNode (resolveForwardLink hh)
 
     -- Get a block
-    getBlockOrThrow :: HeaderHash -> IO Block
-    getBlockOrThrow hh = do
-        mBlock <- withNode $ getBlock hh
+    getBlockOrThrow :: GenesisHash -> HeaderHash -> IO Block
+    getBlockOrThrow genesisHash hh = do
+        mBlock <- withNode $ getBlock genesisHash hh
         case mBlock of
            Nothing -> throwM $ RestorationBlockNotFound hh
            Just b  -> return b
 
     -- Get undo for a mainblock
     -- NOTE: We use this undo information only for input resolution.
-    getUndoOrThrow :: HeaderHash -> IO Undo
-    getUndoOrThrow hh = do
-        mBlock <- withNode $ getUndo hh
+    getUndoOrThrow :: GenesisHash -> HeaderHash -> IO Undo
+    getUndoOrThrow genesisHash hh = do
+        mBlock <- withNode $ getUndo genesisHash hh
         case mBlock of
            Nothing -> throwM $ RestorationUndoNotFound hh
            Just b  -> return b

@@ -116,7 +116,7 @@ docServer (NewWalletBackendParams WalletBackendParams{..}) = pure $ \_ ->
         (Just defaultSettings)
         Nothing
   where
-    (ip, port) = walletDocAddress
+    (ip, port) = walletAddress
 
     application :: Kernel.WalletMode Application
     application =

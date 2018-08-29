@@ -17323,6 +17323,7 @@ license = stdenv.lib.licenses.mit;
   mkDerivation
 , aeson
 , async
+, auto-update
 , base
 , bytestring
 , canonical-json
@@ -17385,6 +17386,7 @@ configureFlags = [
 ];
 libraryHaskellDepends = [
 aeson
+auto-update
 base
 canonical-json
 cborg

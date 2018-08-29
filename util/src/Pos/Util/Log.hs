@@ -3,15 +3,15 @@
 module Pos.Util.Log
        (
        -- * Logging
-         Severity(..)
+         Severity (..)
        , LogContext
        , LogContextT
        , LoggingHandler
        -- * Compatibility
-       , CanLog(..)
+       , CanLog (..)
        , WithLogger
        -- * Configuration
-       , LoggerConfig(..)
+       , LoggerConfig (..)
        , parseLoggerConfig
        , retrieveLogFiles
        -- * Startup
@@ -36,7 +36,6 @@ module Pos.Util.Log
 import           Universum
 
 import           Control.Lens (each)
-
 
 import qualified Data.Text as T
 import           Data.Text.Lazy.Builder
@@ -116,28 +115,39 @@ setupLogging lc = do
     liftIO $ Internal.registerBackends lh scribes
     return lh
       where
+        -- returns a list of: (name, Scribe, finalizer)
         meta :: LoggingHandler -> LoggerConfig -> IO [(T.Text, K.Scribe)]
         meta _lh _lc = do
             -- setup scribes according to configuration
             let lhs = _lc ^. lcLoggerTree ^. ltHandlers ^.. each
                 basepath = _lc ^. lcBasePath
+                -- default rotation parameters: max. 24 hours, max. 10 files kept, max. size 5 MB
+                rotation = fromMaybe (RotationParameters {_rpMaxAgeHours=24,_rpKeepFilesNum=10,_rpLogLimitBytes=5*1000*1000})
+                                     (_lc ^. lcRotation)
             forM lhs (\lh -> case (lh ^. lhBackend) of
                     FileJsonBE -> do
-                        putStrLn ("creating JSON backend ..." :: Text)
+                        let bp = fromMaybe "." basepath
+                            fp = fromMaybe "node.json" $ lh ^. lhFpath
+                            fdesc = Internal.mkFileDescription bp fp
+                            nm = lh ^. lhName
                         scribe <- mkJsonFileScribe
-                                      (fromMaybe "." basepath)
-                                      (fromMaybe "<unk>" $ lh ^. lhFpath)
+                                      rotation
+                                      fdesc
                                       (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
                                       K.V0
-                        return (lh ^. lhName, scribe)
+                        return (nm, scribe)
                     FileTextBE -> do
-                        scribe <- mkFileScribe
-                                      (fromMaybe "." basepath)
-                                      (fromMaybe "<unk>" $ lh ^. lhFpath)
+                        let bp = fromMaybe "." basepath
+                            fp = (fromMaybe "node.log" $ lh ^. lhFpath)
+                            fdesc = Internal.mkFileDescription bp fp
+                            nm = lh ^. lhName
+                        scribe <- mkTextFileScribe
+                                      rotation
+                                      fdesc
                                       True
                                       (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
                                       K.V0
-                        return (lh ^. lhName, scribe)
+                        return (nm, scribe)
                     StdoutBE -> do
                         scribe <- mkStdoutScribe
                                       (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
@@ -154,7 +164,6 @@ setupLogging lc = do
                                       K.V0
                         return (lh ^. lhName, scribe)
                  )
-
 
 {-| provide logging in IO
 

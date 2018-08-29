@@ -1,75 +1,110 @@
+{-# LANGUAGE RankNTypes      #-}
 {-# LANGUAGE RecordWildCards #-}
+
 -- | provide backends for `katip`
+
 module Pos.Util.Log.Scribes
     ( mkStdoutScribe
     , mkStderrScribe
     , mkDevNullScribe
-    , mkFileScribe
+    , mkTextFileScribe
     , mkJsonFileScribe
     ) where
 
 import           Universum hiding (fromString)
 
-import           Control.Exception.Safe (Exception (..), catchIO)
+import           Control.AutoUpdate (UpdateSettings (..), defaultUpdateSettings,
+                     mkAutoUpdate)
+import           Control.Concurrent.MVar (modifyMVar_)
 
 import           Data.Aeson.Text (encodeToLazyText)
 import           Data.Text.Lazy.Builder
-import qualified Data.Text.Lazy.IO as T
+import qualified Data.Text.Lazy.IO as TIO
+import           Data.Time (diffUTCTime)
 import           Katip.Core
 import           Katip.Format.Time (formatAsIso8601)
 import           Katip.Scribes.Handle (brackets, getKeys)
+
 import qualified Pos.Util.Log.Internal as Internal
-import           System.FilePath ((</>))
+import           Pos.Util.Log.LoggerConfig (RotationParameters (..))
+import           Pos.Util.Log.Rotator (cleanupRotator, evalRotator,
+                     initializeRotator)
+
 import           System.IO (BufferMode (LineBuffering), Handle,
-                     IOMode (WriteMode), hFlush, hSetBuffering, stderr, stdout)
-import           System.IO.Unsafe (unsafePerformIO)
+                     IOMode (WriteMode), hClose, hSetBuffering, stderr, stdout)
 
--- | global lock for file Scribes
-{-# NOINLINE lock #-}
-lock :: MVar ()
-lock = unsafePerformIO $ newMVar ()
+-- | create a katip scribe for logging to a file in JSON representation
+mkJsonFileScribe :: RotationParameters -> Internal.FileDescription -> Severity -> Verbosity -> IO Scribe
+mkJsonFileScribe rot fdesc s v = do
+    mkFileScribe rot fdesc formatter False s v
+  where
+    formatter :: LogItem a => Handle -> Bool -> Verbosity -> Item a -> IO Int
+    formatter hdl _ v' item = do
+        let tmsg = encodeToLazyText $ itemJson v' item
+        TIO.hPutStrLn hdl tmsg
+        return $ length tmsg
 
-prtoutException :: Exception e => FilePath -> e -> IO ()
-prtoutException fp e = do
-    putStrLn $ "error while opening log @ " ++ fp
-    putStrLn $ "exception: " ++ displayException e
+-- | create a katip scribe for logging to a file in textual representation
+mkTextFileScribe :: RotationParameters -> Internal.FileDescription -> Bool -> Severity -> Verbosity -> IO Scribe
+mkTextFileScribe rot fdesc colorize s v = do
+    mkFileScribe rot fdesc formatter colorize s v
+  where
+    formatter :: LogItem a => Handle -> Bool -> Verbosity -> Item a -> IO Int
+    formatter hdl colorize' v' item = do
+        let tmsg = toLazyText $ formatItem colorize' v' item
+        TIO.hPutStrLn hdl tmsg
+        return $ length tmsg
 
--- | create a katip scribe for logging to a file (JSON)
-mkJsonFileScribe :: FilePath -> FilePath -> Severity -> Verbosity -> IO Scribe
-mkJsonFileScribe bp fp s v = do
-    h <- catchIO (openFile (bp </> fp) WriteMode) $
-            \e -> do
-                prtoutException (bp </> fp) e
-                return stdout    -- fallback to standard output in case of exception
-    hSetBuffering h LineBuffering
-    locklocal <- newMVar ()
+-- | create a katip scribe for logging to a file
+--   and handle file rotation within the katip-invoked logging function
+mkFileScribe
+    :: RotationParameters
+    -> Internal.FileDescription
+    -> (forall a . LogItem a => Handle -> Bool -> Verbosity -> Item a -> IO Int)      -- format and output function, returns written bytes
+    -> Bool                              -- whether the output is colourized
+    -> Severity -> Verbosity
+    -> IO Scribe
+mkFileScribe rot fdesc formatter colorize s v = do
+    trp <- initializeRotator rot fdesc
+    scribestate <- newMVar trp    -- triple of (handle), (bytes remaining), (rotate time)
+    -- sporadically remove old log files - every 10 seconds
+    cleanup <- mkAutoUpdate defaultUpdateSettings { updateAction = cleanupRotator rot fdesc, updateFreq = 10000000 }
+    let finalizer :: IO ()
+        finalizer = do
+            modifyMVar_ scribestate $ \(hdl, b, t) -> do
+                hClose hdl
+                return (hdl, b, t)
     let logger :: forall a. LogItem a => Item a -> IO ()
         logger item =
           when (permitItem s item) $
-              bracket_ (takeMVar locklocal) (putMVar locklocal ()) $
-                T.hPutStrLn h $ encodeToLazyText $ itemJson v item
-    pure $ Scribe logger (hFlush h)
+              modifyMVar_ scribestate $ \(hdl, bytes, rottime) -> do
+                  byteswritten <- formatter hdl colorize v item
+                  -- remove old files
+                  cleanup
+                  -- detect log file rotation
+                  let bytes' = bytes - (toInteger $ byteswritten)
+                  let tdiff' = round $ diffUTCTime rottime (_itemTime item)
+                  if bytes' < 0 || tdiff' < (0 :: Integer)
+                     then do   -- log file rotation
+                        putStrLn $ "rotate! bytes=" ++ (show bytes') ++ " tdiff=" ++ (show tdiff')
+                        hClose hdl
+                        (hdl2, bytes2, rottime2) <- evalRotator rot fdesc
+                        return (hdl2, bytes2, rottime2)
+                     else
+                        return (hdl, bytes', rottime)
+
+    return $ Scribe logger finalizer
 
 -- | create a katip scribe for logging to a file
-mkFileScribe :: FilePath -> FilePath -> Bool -> Severity -> Verbosity -> IO Scribe
-mkFileScribe bp fp colorize s v = do
-    h <- catchIO (openFile (bp </> fp) WriteMode) $
-            \e -> do
-                prtoutException (bp </> fp) e
-                return stdout    -- fallback to standard output in case of exception
-    mkFileScribeH h colorize s v
-
--- | internal: return scribe on file handle
--- thread safe by MVar
--- formatting done with 'formatItem'
 mkFileScribeH :: Handle -> Bool -> Severity -> Verbosity -> IO Scribe
 mkFileScribeH h colorize s v = do
     hSetBuffering h LineBuffering
+    locklocal <- newMVar ()
     let logger :: forall a. LogItem a => Item a -> IO ()
         logger item = when (permitItem s item) $
-            bracket_ (takeMVar lock) (putMVar lock ()) $
-                T.hPutStrLn h $! toLazyText $ formatItem colorize v item
-    pure $ Scribe logger (hFlush h)
+            bracket_ (takeMVar locklocal) (putMVar locklocal ()) $
+                TIO.hPutStrLn h $! toLazyText $ formatItem colorize v item
+    pure $ Scribe logger (hClose h)
 
 -- | create a katip scribe for logging to the console
 mkStdoutScribe :: Severity -> Verbosity -> IO Scribe
@@ -88,8 +123,8 @@ mkDevNullScribe lh s v = do
     let logger :: forall a. LogItem a => Item a -> IO ()
         logger item = when (permitItem s item) $
             Internal.incrementLinesLogged lh
-              >> (T.hPutStrLn h $! toLazyText $ formatItem colorize v item)
-    pure $ Scribe logger (hFlush h)
+              >> (TIO.hPutStrLn h $! toLazyText $ formatItem colorize v item)
+    pure $ Scribe logger (hClose h)
 
 
 -- | format a @LogItem@ with subsecond precision (ISO 8601)

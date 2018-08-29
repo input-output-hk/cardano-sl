@@ -30,7 +30,7 @@ tx0 = Tx
         noWitnesses
 tx0Id = txid tx0
 
-genesisUTxO = txouts tx0
+genesisState = applyTransaction tx0 emptyLedgerState
 
 tx1Body = TxBody
             (Set.fromList [TxIn tx0Id 0])
@@ -49,12 +49,19 @@ tx1 = Tx tx1Body tx1Wits
 
 spec :: Spec
 spec = do
+  it "genesis balance" $ balance (getUtxo genesisState) `shouldBe` Coin 30
   it "transaction transition" $
-    transactionTransition tx1 genesisUTxO `shouldBe` Right ( UTxO ( Map.fromList
-      [ (TxIn (txid tx0) 1, TxOut bobAddr (Coin 20))
-      , (TxIn (txid tx1) 0, TxOut aliceAddr (Coin 7))
-      , (TxIn (txid tx1) 1, TxOut bobAddr (Coin 1))
-      , (TxIn (txid tx1) 2, TxOut carolAddr (Coin 2))
-      ]))
-  it "genesis balance" $ balance genesisUTxO `shouldBe` Coin 30
-  it "correct witnesses" $ witness tx1 genesisUTxO `shouldBe` True
+    asStateTransition tx1 genesisState `shouldBe` Right ( LedgerState {
+      getUtxo = UTxO $ Map.fromList
+                  [ (TxIn (txid tx0) 1, TxOut bobAddr (Coin 20))
+                  , (TxIn (txid tx1) 0, TxOut aliceAddr (Coin 7))
+                  , (TxIn (txid tx1) 1, TxOut bobAddr (Coin 1))
+                  , (TxIn (txid tx1) 2, TxOut carolAddr (Coin 2))
+                  ]
+      , getAccounts = Map.empty
+      , getStKeys = Set.empty
+      , getDelegations = Map.empty
+      , getStPools = Set.empty
+      , getRetiring = Map.empty
+      , getEpoch = 0
+      })

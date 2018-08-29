@@ -29,6 +29,7 @@ data Cert = RegKey | DeRegKey | Delegate | RegPool | RetirePool
 newtype Owner = Owner Int deriving (Show, Eq, Ord)
 newtype SKey = SKey Owner deriving (Show, Eq, Ord)
 newtype VKey = VKey Owner deriving (Show, Eq, Ord)
+newtype HashKey = HashKey (Digest SHA256) deriving (Show, Eq, Ord)
 data Sig a = Sig a Owner deriving (Show, Eq, Ord)
 data WitTxin = WitTxin VKey (Sig TxBody) deriving (Show, Eq, Ord)
 data WitCert = WitCert VKey (Sig TxBody) deriving (Show, Eq, Ord)
@@ -109,7 +110,11 @@ ins <| (UTxO utxo) =
 ins !<| (UTxO utxo) =
   UTxO $ Map.filterWithKey (\k _ -> k `Set.notMember` ins) utxo
 
-data ValidationError = UnknownInputs | IncreasedTotalBalance deriving (Show, Eq)
+data ValidationError = UnknownInputs
+                     | IncreasedTotalBalance
+                     | InsuffientTxWitnesses
+                     | InsuffientCertWitnesses
+                     deriving (Show, Eq)
 data Validity = Valid | Invalid [ValidationError] deriving (Show, Eq)
 
 instance Semigroup Validity where
@@ -121,27 +126,38 @@ instance Monoid Validity where
   mempty = Valid
   mappend = (<>)
 
-validInputs :: Tx -> UTxO -> Validity
-validInputs tx (UTxO utox) =
-  if (txins tx) `Set.isSubsetOf` Map.keysSet utox
+data LedgerState =
+  LedgerState
+  { getUtxo :: UTxO
+  , getAccounts :: Map HashKey Coin
+  , getStKeys :: Set HashKey
+  , getDelegations :: Map HashKey HashKey
+  , getStPools :: Set HashKey
+  , getRetiring :: Map HashKey Int
+  , getEpoch :: Int
+  } deriving (Show, Eq)
+
+emptyLedgerState = LedgerState
+  (UTxO Map.empty)
+  Map.empty
+  Set.empty
+  Map.empty
+  Set.empty
+  Map.empty
+  0
+
+validInputs :: Tx -> LedgerState -> Validity
+validInputs tx l =
+  if (txins tx) `Set.isSubsetOf` unspentInputs (getUtxo l)
     then Valid
     else Invalid [UnknownInputs]
+  where unspentInputs (UTxO utxo) = Map.keysSet utxo
 
-preserveBalance :: Tx -> UTxO -> Validity
-preserveBalance tx utxo =
-  if balance (txouts tx) <= balance (txins tx <| utxo)
+preserveBalance :: Tx -> LedgerState -> Validity
+preserveBalance tx l =
+  if balance (txouts tx) <= balance (txins tx <| (getUtxo l))
     then Valid
     else Invalid [IncreasedTotalBalance]
-
-valid :: Tx -> UTxO -> Validity
-valid tx utxo =
-  validInputs tx utxo <> preserveBalance tx utxo
-
-transactionTransition :: Tx -> UTxO -> Either [ValidationError] UTxO
-transactionTransition tx utxo =
-  case valid tx utxo of
-    Valid          -> Right (txins tx !<| utxo `unionUTxO` txouts tx)
-    Invalid errors -> Left errors
 
 authTxin :: VKey -> TxIn -> UTxO -> Bool
 authTxin key txin (UTxO utxo) =
@@ -149,10 +165,13 @@ authTxin key txin (UTxO utxo) =
     Just (TxOut (AddrTxin pay _) _) -> hash key == pay
     _ -> False
 
-witnessTxin :: Tx -> UTxO -> Bool
-witnessTxin (Tx txBody (Wits ws _)) utxo =
-  (Set.size ws) == (Set.size ins) && all (hasWitness ws) ins
+witnessTxin :: Tx -> LedgerState -> Validity
+witnessTxin (Tx txBody (Wits ws _)) l =
+  if (Set.size ws) == (Set.size ins) && all (hasWitness ws) ins
+    then Valid
+    else Invalid [InsuffientTxWitnesses]
   where
+    utxo = getUtxo l
     ins = inputs txBody
     hasWitness ws input = isJust $ find (isWitness txBody input utxo) ws
     isWitness tb inp utxo (WitTxin key sig) =
@@ -161,9 +180,11 @@ witnessTxin (Tx txBody (Wits ws _)) utxo =
 authCert :: VKey -> Cert -> Bool
 authCert key cert = True -- TODO
 
-witnessCert :: Tx -> Bool
+witnessCert :: Tx -> Validity
 witnessCert (Tx txBody (Wits _ ws)) =
-  (Set.size ws) == (Set.size cs) && all (hasWitness ws) cs
+  if (Set.size ws) == (Set.size cs) && all (hasWitness ws) cs
+    then Valid
+    else Invalid [InsuffientTxWitnesses]
   where
     cs = certs txBody
     hasWitness ws cert = isJust $ find (isWitness txBody cert) ws
@@ -171,5 +192,35 @@ witnessCert (Tx txBody (Wits _ ws)) =
       verify key txBody sig && authCert key cert
 --TODO combine with witnessTxin?
 
-witness :: Tx -> UTxO -> Bool
-witness tx utxo = witnessTxin tx utxo && witnessCert tx
+valid :: Tx -> LedgerState -> Validity
+valid tx l =
+  validInputs tx l
+    <> preserveBalance tx l
+    <> witnessTxin tx l
+    <> witnessCert tx
+
+
+applyTransaction :: Tx -> LedgerState -> LedgerState
+applyTransaction tx l = LedgerState
+                         { getUtxo = newUTxOs
+                         , getAccounts = newAccounts
+                         , getStKeys = newStKeys
+                         , getDelegations = newDelegations
+                         , getStPools = newStPools
+                         , getRetiring = newRetiring
+                         , getEpoch = newEpoch
+                         }
+  where
+    newUTxOs = (txins tx !<| (getUtxo l) `unionUTxO` txouts tx)
+    newAccounts = getAccounts l --TODO implement
+    newStKeys = getStKeys l --TODO implement
+    newDelegations = getDelegations l --TODO implement
+    newStPools = getStPools l --TODO implement
+    newRetiring = getRetiring l --TODO implement
+    newEpoch = getEpoch l --TODO implement
+
+asStateTransition :: Tx -> LedgerState -> Either [ValidationError] LedgerState
+asStateTransition tx l =
+  case valid tx l of
+    Invalid errors -> Left errors
+    Valid          -> Right $ applyTransaction tx l

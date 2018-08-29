@@ -47,7 +47,7 @@ makeFields ''PredecessorConfig
 
 -- | The previous block hash in a new block should point to the last block.
 predecessor :: PredecessorConfig
-            -> Policy (GenM h)
+            -> Policy h (GenM h)
 predecessor conf = Policy pname (BlockModifier mb)
     where
         pname = PolicyName "Block Predecessor"
@@ -72,7 +72,7 @@ makeFields ''SlotLeaderConfig
 
 -- | Block must be issued by the slot leader for its slot.
 slotLeader :: SlotLeaderConfig
-           -> Policy (GenM h)
+           -> Policy h (GenM h)
 slotLeader conf = Policy pname pg
     where
         pname = PolicyName "Slot Leader"

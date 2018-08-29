@@ -105,7 +105,10 @@ data Transaction h a = Transaction
   -- ^ Free-form comments, used for debugging
   , trWitness :: NE a
   -- ^ Transaction witnesses. There should be one witness per transaction input.
-  } deriving (Eq, Show)
+  } deriving Eq
+
+instance Show (Transaction h a) where
+    show t = show $ trHash t
 
 -- | The abstract transaction has the same hash as the underlying DSL transaction.
 hash :: DSL.Hash h a

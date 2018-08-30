@@ -22,8 +22,8 @@ import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel,
                      poll, wait, waitAny, withAsync, withAsyncWithUnmask)
 import           Control.Exception.Safe (catchAny, handle, mask_, tryAny)
 import           Control.Lens (makeLensesWith)
-import           Data.Aeson (FromJSON, Value (Array, Bool, Object), fromJSON,
-                     genericParseJSON, withObject)
+import           Data.Aeson (FromJSON, ToJSON, Value (Array, Bool, Object),
+                     fromJSON, genericParseJSON, genericToJSON, withObject)
 import qualified Data.Aeson as AE
 import           Data.Aeson.Options (defaultOptions)
 import qualified Data.ByteString.Lazy as BS.L

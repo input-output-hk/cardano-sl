@@ -89,7 +89,7 @@ castSorting S.NoSorts = return Nothing
 castSorting (S.SortOp (sop :: S.SortOperation ix V1.Transaction) _) =
     case symbolVal (Proxy @(IndexToQueryParam V1.Transaction ix)) of
         "created_at" -> return $ Just $ TxMeta.Sorting TxMeta.SortByCreationAt (castSortingDirection sop)
-        txt -> throwError $ GetTxInvalidSortingOperaration txt
+        txt -> throwError $ GetTxInvalidSortingOperation txt
 
 castSortingDirection :: S.SortOperation ix a -> TxMeta.SortDirection
 castSortingDirection (S.SortByIndex srt _) = case srt of

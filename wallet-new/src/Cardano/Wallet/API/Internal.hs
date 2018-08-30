@@ -7,9 +7,9 @@ import           Pos.Core.Update (SoftwareVersion)
 
 import           Servant
 
-import           Cardano.Wallet.API.Response (ValidJSON)
+import           Cardano.Wallet.API.Response (ValidJSON, WalletResponse)
 import           Cardano.Wallet.API.Types (Tags)
-import           Cardano.Wallet.API.V1.Types (V1)
+import           Cardano.Wallet.API.V1.Types (V1, Wallet, WalletImport)
 
 type API = Tags '["Internal"] :>
     (    "next-update"
@@ -27,4 +27,8 @@ type API = Tags '["Internal"] :>
     :<|> "reset-wallet-state"
         :> Summary "Clear wallet state and all associated secret keys"
         :> DeleteNoContent '[ValidJSON] NoContent
+    :<|> "import-wallet"
+        :> Summary "Import a Wallet from disk."
+        :> ReqBody '[ValidJSON] WalletImport
+        :> Post '[ValidJSON] (WalletResponse Wallet)
     )

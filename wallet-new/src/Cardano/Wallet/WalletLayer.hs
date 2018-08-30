@@ -19,6 +19,7 @@ module Cardano.Wallet.WalletLayer
     , GetTxError(..)
     , DeleteAccountError(..)
     , UpdateAccountError(..)
+    , ImportWalletError(..)
     ) where
 
 import           Universum
@@ -44,7 +45,8 @@ import           Cardano.Wallet.API.V1.Types (Account, AccountBalance,
                      AccountIndex, AccountUpdate, Address, ForceNtpCheck,
                      NewAccount, NewAddress, NewWallet, NodeInfo, NodeSettings,
                      PasswordUpdate, Payment, Redemption, Transaction, V1 (..),
-                     Wallet, WalletAddress, WalletId, WalletUpdate)
+                     Wallet, WalletAddress, WalletId, WalletImport,
+                     WalletUpdate)
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
@@ -318,6 +320,20 @@ instance Buildable UpdateAccountError where
     build (UpdateAccountWalletIdDecodingFailed txt) =
         bprint ("UpdateAccountWalletIdDecodingFailed " % build) txt
 
+data ImportWalletError =
+      ImportWalletFileNotFound FilePath
+    deriving Eq
+
+-- | Unsound show instance needed for the 'Exception' instance.
+instance Show ImportWalletError where
+    show = formatToString build
+
+instance Exception ImportWalletError
+
+instance Buildable ImportWalletError where
+    build (ImportWalletFileNotFound fp) =
+        bprint ("ImportWalletFileNotFound " % build) fp
+
 ------------------------------------------------------------
 -- Errors when getting Transactions
 ------------------------------------------------------------
@@ -325,7 +341,7 @@ instance Buildable UpdateAccountError where
 data GetTxError =
       GetTxMissingWalletIdError
     | GetTxAddressDecodingFailed Text
-    | GetTxInvalidSortingOperaration String
+    | GetTxInvalidSortingOperation String
     | GetTxUnknownHdAccount Kernel.UnknownHdAccount
 
 instance Show GetTxError where
@@ -336,8 +352,8 @@ instance Buildable GetTxError where
         bprint "GetTxMissingWalletIdError "
     build (GetTxAddressDecodingFailed txt) =
         bprint ("GetTxAddressDecodingFailed " % build) txt
-    build (GetTxInvalidSortingOperaration txt) =
-        bprint ("GetTxInvalidSortingOperaration " % build) txt
+    build (GetTxInvalidSortingOperation txt) =
+        bprint ("GetTxInvalidSortingOperation " % build) txt
     build (GetTxUnknownHdAccount err) =
         bprint ("GetTxUnknownHdAccount " % build) err
 
@@ -345,7 +361,7 @@ instance Buildable GetTxError where
 instance Arbitrary GetTxError where
     arbitrary = oneof [ pure GetTxMissingWalletIdError
                       , pure (GetTxAddressDecodingFailed "by_amount")
-                      , pure (GetTxInvalidSortingOperaration "123")
+                      , pure (GetTxInvalidSortingOperation "123")
                       , GetTxUnknownHdAccount <$> arbitrary
                       ]
 
@@ -424,6 +440,7 @@ data PassiveWalletLayer m = PassiveWalletLayer
     , applyUpdate          :: m ()
     , postponeUpdate       :: m ()
     , resetWalletState     :: m ()
+    , importWallet         :: WalletImport -> m (Either ImportWalletError Wallet)
     }
 
 ------------------------------------------------------------

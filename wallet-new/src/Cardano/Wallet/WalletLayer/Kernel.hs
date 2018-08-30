@@ -75,6 +75,7 @@ bracketPassiveWallet mode logFunction keystore node f = do
         , applyUpdate          = Internal.applyUpdate         w
         , postponeUpdate       = Internal.postponeUpdate      w
         , resetWalletState     = Internal.resetWalletState    w
+        , importWallet         = Internal.importWallet        w
         , applyBlocks          = invokeIO . Actions.ApplyBlocks
         , rollbackBlocks       = invokeIO . Actions.RollbackBlocks . length
 

@@ -43,6 +43,7 @@ GTAGS
 GRTAGS
 GPATH
 TAGS
+.projectile
 
 # Vim
 tags*
@@ -103,7 +104,6 @@ result*
 
 # remove when done debugging
 1.1.1-1-w/
-
 
 # Created by https://www.gitignore.io/api/python
 
@@ -216,3 +216,13 @@ venv.bak/
 /docs/on-the-wire/binary.fls
 /docs/on-the-wire/binary.fdb_latexmk
 /docs/on-the-wire/binary.dvi
+
+# Don't include config files with sensitive data or tls certs
+/faucet/test-config.json
+/faucet/tls/*
+/faucet/wallet-source.json
+/faucet/existing-wallet-details.json
+/faucet/generated-wallet-details.json
+/faucet/default.nix
+/faucet/shell.nix
+/faucet/recaptcha-secret.txt

@@ -37,6 +37,7 @@ packages:
 - wallet/test
 - wallet-new # The new (unreleased) version of the wallet
 - node-ipc
+- faucet
 - acid-state-exts
 
 # IOHK projects:
@@ -57,11 +58,6 @@ packages:
 - location:
     git: https://github.com/input-output-hk/cardano-crypto
     commit: e87fcd3fea18f664d6e4f39c11abb8cafbd25785
-  extra-dep: true
-# to be removed when haskell-ip is in the current stackage version
-- location:
-    git: https://github.com/andrewthad/haskell-ip
-    commit: 9bb453139aa82cc973125091800422a523e1eb8f
   extra-dep: true
 
 ## Vendored/Forked dependencies
@@ -126,6 +122,11 @@ packages:
 - location:
     git: https://github.com/parsonsmatt/acid-state
     commit: 63ac55ae020655104936d8a90ccc6a939642cd0d
+  extra-dep: true
+  # to be removed when haskell-ip is in the current stackage version
+- location:
+    git: https://github.com/andrewthad/haskell-ip
+    commit: 9bb453139aa82cc973125091800422a523e1eb8f
   extra-dep: true
 
 # Required for explorer.

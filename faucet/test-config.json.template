@@ -1,0 +1,22 @@
+{
+  "wallet-host": "127.0.0.1"
+, "wallet-port": 8090
+, "port": 8081
+, "payment-distribution": {
+    "mean" : 1000
+  , "scale": 500
+
+  }
+, "statsd": {
+    "host": "127.0.0.1"
+  , "port": 8125
+  , "flush-interval": 1000
+  }
+, "source-wallet": { "generate-to": "./write-generated-wallet-info-here.json" }
+  // or:
+, "source-wallet": { "read-from": "./existing-wallet-details.json" }
+, "logging-config": "./logging.cfg"
+, "public-certificate": "./tls/ca.crt"
+, "private-key": "./tls/server.key"
+, "recaptcha-secret-file": "recaptcha-secret.txt"
+}

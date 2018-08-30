@@ -19,22 +19,22 @@ import           Serokell.Util.Text (listJson)
 import           Pos.Chain.Txp.Base (txOutStake)
 import           Pos.Chain.Txp.Toil.Monad (GlobalToilM, getStake, getTotalStake,
                      setStake, setTotalStake)
-import           Pos.Core (HasGenesisData, StakesList, coinToInteger,
-                     genesisData, mkCoin, sumCoins, unsafeIntegerToCoin)
-import           Pos.Core.Genesis (GenesisData (..))
+import           Pos.Core (StakesList, coinToInteger, mkCoin, sumCoins,
+                     unsafeIntegerToCoin)
+import           Pos.Core.Genesis (GenesisWStakeholders)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxOutAux (..), TxUndo)
 import           Pos.Util.Wlog (logDebug)
 
 -- | Apply transactions to stakes.
-applyTxsToStakes :: HasGenesisData => [(TxAux, TxUndo)] -> GlobalToilM ()
-applyTxsToStakes txun = do
-    let (txOutPlus, txInMinus) = concatStakes txun
+applyTxsToStakes :: GenesisWStakeholders -> [(TxAux, TxUndo)] -> GlobalToilM ()
+applyTxsToStakes bootStakeholders txun = do
+    let (txOutPlus, txInMinus) = concatStakes bootStakeholders txun
     recomputeStakes txOutPlus txInMinus
 
 -- | Rollback application of transactions to stakes.
-rollbackTxsStakes :: HasGenesisData => [(TxAux, TxUndo)] -> GlobalToilM ()
-rollbackTxsStakes txun = do
-    let (txOutMinus, txInPlus) = concatStakes txun
+rollbackTxsStakes :: GenesisWStakeholders -> [(TxAux, TxUndo)] -> GlobalToilM ()
+rollbackTxsStakes bootStakeholders txun = do
+    let (txOutMinus, txInPlus) = concatStakes bootStakeholders txun
     recomputeStakes txInPlus txOutMinus
 
 ----------------------------------------------------------------------------
@@ -87,13 +87,14 @@ recomputeStakes plusDistr minusDistr = do
         err = error ("recomputeStakes: no stake for " <> show key)
 
 -- Concatenate stakes of the all passed transactions and undos.
-concatStakes :: HasGenesisData => [(TxAux, TxUndo)] -> (StakesList, StakesList)
-concatStakes (unzip -> (txas, undo)) = (txasTxOutDistr, undoTxInDistr)
+concatStakes :: GenesisWStakeholders -> [(TxAux, TxUndo)] -> (StakesList, StakesList)
+concatStakes bootStakeholders (unzip -> (txas, undo)) =
+    (txasTxOutDistr, undoTxInDistr)
   where
     onlyKnownUndos = catMaybes . toList
     txasTxOutDistr = concatMap concatDistr txas
-    undoTxInDistr = concatMap (txOutStake (gdBootStakeholders genesisData) . toaOut)
+    undoTxInDistr = concatMap (txOutStake bootStakeholders . toaOut)
                     (foldMap onlyKnownUndos undo)
     concatDistr (TxAux UnsafeTx {..} _) =
-        concatMap (txOutStake  (gdBootStakeholders genesisData) . toaOut)
+        concatMap (txOutStake bootStakeholders . toaOut)
         $ toList (map TxOutAux _txOutputs)

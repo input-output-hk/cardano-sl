@@ -28,9 +28,9 @@ import           Pos.Chain.Ssc.Error (SscVerifyError (..))
 import           Pos.Chain.Ssc.Toss.Base (verifyEntriesGuardM)
 import           Pos.Chain.Ssc.Types (SscGlobalState (..))
 import qualified Pos.Chain.Ssc.VssCertData as VCD
-import           Pos.Core as Core (BlockCount, Config (..), EpochIndex (..),
-                     HasGenesisData, SlotId (..), StakeholderId,
-                     genesisVssCerts, pcBlkSecurityParam)
+import           Pos.Core as Core (Config (..), EpochIndex (..), SlotId (..),
+                     StakeholderId, configBlkSecurityParam, configVssCerts,
+                     pcBlkSecurityParam)
 import           Pos.Core.Slotting (crucialSlot)
 import           Pos.Core.Ssc (CommitmentsMap (..), SscPayload (..),
                      VssCertificatesMap)
@@ -136,12 +136,12 @@ verifySscPayload coreConfig eoh payload = case payload of
 ----------------------------------------------------------------------------
 
 getStableCertsPure
-    :: HasGenesisData
-    => BlockCount
+    :: Core.Config
     -> EpochIndex
     -> VCD.VssCertData
     -> VssCertificatesMap
-getStableCertsPure k epoch certs
-    | epoch == 0 = genesisVssCerts
-    | otherwise =
-          VCD.certs $ VCD.setLastKnownSlot (crucialSlot k epoch) certs
+getStableCertsPure coreConfig epoch certs
+    | epoch == 0 = configVssCerts coreConfig
+    | otherwise = VCD.certs $ VCD.setLastKnownSlot
+        (crucialSlot (configBlkSecurityParam coreConfig) epoch)
+        certs

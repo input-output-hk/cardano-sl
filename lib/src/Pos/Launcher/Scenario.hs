@@ -20,7 +20,7 @@ import           Pos.Chain.Txp (TxpConfiguration, bootDustThreshold)
 import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion,
                      lastKnownBlockVersion, ourSystemTag)
 import           Pos.Context (getOurPublicKey)
-import           Pos.Core as Core (Config, addressHash, genesisData)
+import           Pos.Core as Core (Config (..), addressHash)
 import           Pos.Core.Conc (mapConcurrently)
 import           Pos.Core.Genesis (GenesisData (..), GenesisDelegation (..),
                      GenesisWStakeholders (..), gdFtsSeed)
@@ -45,11 +45,12 @@ runNode'
        ( HasCompileInfo
        , WorkMode ctx m
        )
-    => NodeResources ext
+    => GenesisData
+    -> NodeResources ext
     -> [Diffusion m -> m ()]
     -> [Diffusion m -> m ()]
     -> Diffusion m -> m ()
-runNode' NodeResources {..} workers' plugins' = \diffusion -> do
+runNode' genesisData NodeResources {..} workers' plugins' = \diffusion -> do
     logInfo $ "Built with: " <> pretty compileInfo
     nodeStartMsg
     inAssertMode $ logInfo "Assert mode on"
@@ -112,9 +113,12 @@ runNode
     -> NodeResources ext
     -> [Diffusion m -> m ()]
     -> Diffusion m -> m ()
-runNode coreConfig txpConfig nr plugins = runNode' nr workers' plugins
-  where
-    workers' = allWorkers coreConfig txpConfig nr
+runNode coreConfig txpConfig nr plugins = runNode'
+    (configGenesisData coreConfig)
+    nr
+    workers'
+    plugins
+    where workers' = allWorkers coreConfig txpConfig nr
 
 -- | This function prints a very useful message when node is started.
 nodeStartMsg :: (HasUpdateConfiguration, WithLogger m) => m ()

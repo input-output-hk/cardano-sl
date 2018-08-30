@@ -43,11 +43,11 @@ import           Pos.Chain.Txp (ToilVerFailure, Tx (..), TxAux (..), TxId,
                      TxOut, TxOutAux (..), TxWitness, TxpConfiguration,
                      TxpError (..), UtxoLookup, UtxoM, UtxoModifier,
                      applyTxToUtxo, evalUtxoM, flattenTxPayload, genesisUtxo,
-                     runUtxoM, topsortTxs, txOutAddress, unGenesisUtxo,
-                     utxoGet, utxoToLookup)
+                     runUtxoM, topsortTxs, txOutAddress, utxoGet, utxoToLookup)
 import           Pos.Core as Core (Address, ChainDifficulty, Config (..),
                      GenesisHash (..), HasConfiguration, Timestamp (..),
-                     configEpochSlots, difficultyL, genesisHash)
+                     difficultyL, genesisHash)
+import           Pos.Core.Genesis (GenesisData)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Crypto (WithHash (..), withHash)
 import           Pos.DB (MonadDBRead, MonadGState)
@@ -161,8 +161,8 @@ deriveAddrHistoryBlk addrs getTs hist (Right blk) = do
 -- Genesis UtxoLookup
 ----------------------------------------------------------------------------
 
-genesisUtxoLookup :: HasConfiguration => UtxoLookup
-genesisUtxoLookup = utxoToLookup . unGenesisUtxo $ genesisUtxo
+genesisUtxoLookup :: GenesisData -> UtxoLookup
+genesisUtxoLookup = utxoToLookup . genesisUtxo
 
 ----------------------------------------------------------------------------
 -- MonadTxHistory
@@ -223,7 +223,7 @@ getBlockHistoryDefault coreConfig addrs = do
     let bot = headerHash $ genesisBlock0
             (configProtocolMagic coreConfig)
             (GenesisHash genesisHash)
-            (genesisLeaders $ configEpochSlots coreConfig)
+            (genesisLeaders coreConfig)
     sd          <- GS.getSlottingData
     systemStart <- getSystemStartM
 
@@ -240,7 +240,7 @@ getBlockHistoryDefault coreConfig addrs = do
         foldStep (hist, modifier) blk =
             runUtxoM
                 modifier
-                genesisUtxoLookup
+                (genesisUtxoLookup $ configGenesisData coreConfig)
                 (deriveAddrHistoryBlk addrs getBlockTimestamp hist blk)
 
     fst <$> GS.foldlUpWhileM getBlock bot filterFunc (pure ... foldStep) mempty

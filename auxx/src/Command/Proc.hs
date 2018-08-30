@@ -203,7 +203,7 @@ createCommandProcs mCoreConfig mTxpConfig hasAuxxMode printAction mDiffusion = r
         addr <-
           either return (makePubKeyAddressAuxx $ configEpochSlots coreConfig) <=<
           traverse (either return getPublicKeyFromIndex) $ addr'
-        balance <- getBalance addr
+        balance <- getBalance (configGenesisData coreConfig) addr
         return $ ValueNumber (fromIntegral . unsafeGetCoin $ balance)
     , cpHelp = "check the amount of coins on the specified address"
     },

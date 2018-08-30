@@ -26,6 +26,7 @@ import           Pos.Chain.Txp
 import           Pos.Chain.Update
 import           Pos.Core
 import           Pos.Core.Chrono
+import           Pos.Core.Genesis (GenesisData (..))
 import           Pos.Core.Update (BlockVersionData)
 import           Pos.DB.Block (toTxpBlock)
 import           Pos.DB.Class (MonadGState (..))
@@ -36,7 +37,8 @@ import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Wlog
 import           Serokell.Util.Verify
 
-import           Test.Pos.Core.Dummy (dummyConfig, dummyEpochSlots, dummyK)
+import           Test.Pos.Core.Dummy (dummyConfig, dummyEpochSlots,
+                     dummyGenesisData, dummyK)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 {-------------------------------------------------------------------------------
@@ -58,18 +60,18 @@ data VerifyEnv = UnsafeVerifyEnv {
     , venvLoggerName       :: LoggerName
     }
 
-verifyEnv' :: HasGenesisData
-           => Utxo
+verifyEnv' :: Utxo
            -> BlockVersionData
            -> LoggerName
            -> VerifyEnv
 verifyEnv' utxo bvd lname = UnsafeVerifyEnv {
-      venvInitUtxo         =                     utxo
-    , venvInitStakes       = utxoToStakes        utxo
+      venvInitUtxo         = utxo
+    , venvInitStakes       = utxoToStakes bootStakeholders utxo
     , venvInitTotal        = getTotalCoinsInUtxo utxo
     , venvBlockVersionData = bvd
     , venvLoggerName       = lname
     }
+  where bootStakeholders = gdBootStakeholders dummyGenesisData
 
 verifyEnv :: HasConfiguration => Utxo -> VerifyEnv
 verifyEnv utxo =

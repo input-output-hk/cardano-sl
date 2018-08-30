@@ -60,7 +60,10 @@ action :: ExplorerNodeArgs -> IO ()
 action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
     withConfigurations blPath conf $ \coreConfig txpConfig ntpConfig ->
     withCompileInfo $ do
-        CLI.printInfoOnStart cArgs ntpConfig txpConfig
+        CLI.printInfoOnStart cArgs
+                             (configGenesisData coreConfig)
+                             ntpConfig
+                             txpConfig
         logInfo $ "Explorer is enabled!"
         currentParams <- getNodeParams
             loggerName
@@ -74,7 +77,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
 
         let plugins :: [Diffusion ExplorerProd -> ExplorerProd ()]
             plugins =
-                [ explorerPlugin epochSlots webPort
+                [ explorerPlugin coreConfig webPort
                 , notifierPlugin epochSlots NotifierSettings {nsPort = notifierPort}
                 , updateTriggerWorker
                 ]
@@ -82,7 +85,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
             coreConfig
             currentParams
             sscParams
-            (explorerTxpGlobalSettings (configProtocolMagic coreConfig) txpConfig)
+            (explorerTxpGlobalSettings coreConfig txpConfig)
             (explorerInitDB coreConfig) $ \nr@NodeResources {..} ->
                 runExplorerRealMode coreConfig txpConfig nr (runNode coreConfig txpConfig nr plugins)
   where
@@ -102,7 +105,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
         -> IO ()
     runExplorerRealMode coreConfig txpConfig nr@NodeResources{..} go =
         let NodeContext {..} = nrContext
-            extraCtx = makeExtraCtx
+            extraCtx = makeExtraCtx $ configGenesisData coreConfig
             explorerModeToRealMode  = runExplorerProd extraCtx
          in runRealMode coreConfig txpConfig nr $ \diffusion ->
                 explorerModeToRealMode (go (hoistDiffusion (lift . lift) explorerModeToRealMode diffusion))

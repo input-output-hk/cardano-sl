@@ -94,9 +94,9 @@ initCardanoContext
     => Core.Config
     -> CardanoContext
 initCardanoContext coreConfig = CardanoContext
-    { ccStakes      = genesisStakes
+    { ccStakes      = genesisStakes ccData
     , ccBlock0      = ccBlock0
-    , ccData        = genesisData
+    , ccData        = ccData
     , ccUtxo        = ccUtxo
     , ccSecrets     = fromMaybe (error "initCardanoContext: no secrets") $
                           configGeneratedSecrets coreConfig
@@ -104,14 +104,14 @@ initCardanoContext coreConfig = CardanoContext
     , ccInitLeaders = ccLeaders
     , ccBalances    = utxoToAddressCoinPairs ccUtxo
     , ccHash0       = (blockHeaderHash . BlockHeaderGenesis . _gbHeader) ccBlock0
-    , ccEpochSlots  = ccEpochSlots
+    , ccEpochSlots  = configEpochSlots coreConfig
     }
   where
-    ccEpochSlots = configEpochSlots coreConfig
-    ccLeaders    = genesisLeaders ccEpochSlots
+    ccData       = configGenesisData coreConfig
+    ccLeaders    = genesisLeaders coreConfig
     ccMagic      = configProtocolMagic coreConfig
     ccBlock0     = genesisBlock0 ccMagic (GenesisHash genesisHash) ccLeaders
-    ccUtxo       = unGenesisUtxo genesisUtxo
+    ccUtxo       = genesisUtxo ccData
 
 {-------------------------------------------------------------------------------
   More explicit representation of the various actors in the genesis block

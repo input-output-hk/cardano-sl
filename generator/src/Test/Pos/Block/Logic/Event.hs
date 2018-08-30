@@ -21,6 +21,7 @@ import qualified GHC.Exts as IL
 
 import           Pos.Chain.Block (Blund, HeaderHash)
 import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Core as Core (Config (..))
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Exception (CardanoFatalError (..))
 import           Pos.Core.Slotting (EpochOrSlot (..), SlotId, getEpochOrSlot)
@@ -39,7 +40,6 @@ import           Pos.Util.Util (eitherToThrow, lensOf)
 import           Test.Pos.Block.Logic.Mode (BlockTestContext,
                      PureDBSnapshotsVar (..))
 import           Test.Pos.Block.Logic.Util (satisfySlotCheck)
-import           Test.Pos.Core.Dummy (dummyConfig)
 
 data SnapshotMissingEx = SnapshotMissingEx SnapshotId
     deriving (Show)
@@ -62,10 +62,11 @@ verifyAndApplyBlocks' ::
        ( BlockLrcMode BlockTestContext m
        , MonadTxpLocal m
        )
-    => TxpConfiguration
+    => Core.Config
+    -> TxpConfiguration
     -> OldestFirst NE Blund
     -> m ()
-verifyAndApplyBlocks' txpConfig blunds = do
+verifyAndApplyBlocks' coreConfig txpConfig blunds = do
     let -- We cannot simply take `getCurrentSlot` since blocks are generated in
         --`MonadBlockGen` which locally changes its current slot.  We just take
         -- the last slot of all generated blocks.
@@ -79,7 +80,7 @@ verifyAndApplyBlocks' txpConfig blunds = do
                 ss -> Just $ maximum ss
     satisfySlotCheck blocks $ do
         _ :: (HeaderHash, NewestFirst [] Blund) <- eitherToThrow =<<
-            verifyAndApplyBlocks dummyConfig txpConfig curSlot True blocks
+            verifyAndApplyBlocks coreConfig txpConfig curSlot True blocks
         return ()
     where blocks = fst <$> blunds
 
@@ -88,12 +89,13 @@ runBlockEvent ::
        ( BlockLrcMode BlockTestContext m
        , MonadTxpLocal m
        )
-    => TxpConfiguration
+    => Core.Config
+    -> TxpConfiguration
     -> BlockEvent
     -> m BlockEventResult
 
-runBlockEvent txpConfig (BlkEvApply ev) =
-    (onSuccess <$ verifyAndApplyBlocks' txpConfig (ev ^. beaInput))
+runBlockEvent coreConfig txpConfig (BlkEvApply ev) =
+    (onSuccess <$ verifyAndApplyBlocks' coreConfig txpConfig (ev ^. beaInput))
         `catch` (return . onFailure)
   where
     onSuccess = case ev ^. beaOutValid of
@@ -103,8 +105,8 @@ runBlockEvent txpConfig (BlkEvApply ev) =
         BlockApplySuccess -> BlockEventFailure (IsExpected False) e
         BlockApplyFailure -> BlockEventFailure (IsExpected True) e
 
-runBlockEvent _ (BlkEvRollback ev) =
-    (onSuccess <$ rollbackBlocks dummyConfig (ev ^. berInput))
+runBlockEvent coreConfig _ (BlkEvRollback ev) =
+    (onSuccess <$ rollbackBlocks coreConfig (ev ^. berInput))
        `catch` (return . onFailure)
   where
     onSuccess = case ev ^. berOutValid of
@@ -125,7 +127,7 @@ runBlockEvent _ (BlkEvRollback ev) =
             in
                 BlockEventFailure (IsExpected isExpected) e
 
-runBlockEvent _ (BlkEvSnap ev) =
+runBlockEvent _ _ (BlkEvSnap ev) =
     (onSuccess <$ runSnapshotOperation ev)
         `catch` (return . onFailure)
   where
@@ -171,16 +173,17 @@ runBlockScenario ::
        , BlockLrcMode BlockTestContext m
        , MonadTxpLocal m
        )
-    => TxpConfiguration
+    => Core.Config
+    -> TxpConfiguration
     -> BlockScenario
     -> m BlockScenarioResult
-runBlockScenario _ (BlockScenario []) =
+runBlockScenario _ _ (BlockScenario []) =
     return BlockScenarioFinishedOk
-runBlockScenario txpConfig (BlockScenario (ev:evs)) = do
-    runBlockEvent txpConfig ev >>= \case
+runBlockScenario coreConfig txpConfig (BlockScenario (ev:evs)) = do
+    runBlockEvent coreConfig txpConfig ev >>= \case
         BlockEventSuccess (IsExpected isExp) ->
             if isExp
-                then runBlockScenario txpConfig (BlockScenario evs)
+                then runBlockScenario coreConfig txpConfig (BlockScenario evs)
                 else return BlockScenarioUnexpectedSuccess
         BlockEventFailure (IsExpected isExp) e ->
             return $ if isExp

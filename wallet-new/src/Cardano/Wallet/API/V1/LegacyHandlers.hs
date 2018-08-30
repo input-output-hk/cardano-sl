@@ -11,7 +11,7 @@ import           Universum
 
 import           Ntp.Client (NtpStatus)
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Core as Core (Config, configBlkSecurityParam)
+import           Pos.Core as Core (Config)
 import           Pos.Infra.Diffusion.Types (Diffusion (sendTx))
 
 import qualified Cardano.Wallet.API.V1 as V1
@@ -48,7 +48,7 @@ handlers :: ( HasConfigurations
             -> Server V1.API
 handlers naturalTransformation coreConfig txpConfig diffusion ntpStatus =
          hoist' (Proxy @Addresses.API) Addresses.handlers
-    :<|> hoist' (Proxy @Wallets.API) (Wallets.handlers $ configBlkSecurityParam coreConfig)
+    :<|> hoist' (Proxy @Wallets.API) (Wallets.handlers coreConfig)
     :<|> hoist' (Proxy @Accounts.API) Accounts.handlers
     :<|> hoist' (Proxy @Transactions.API) (Transactions.handlers coreConfig txpConfig sendTx')
     :<|> hoist' (Proxy @Settings.API) Settings.handlers

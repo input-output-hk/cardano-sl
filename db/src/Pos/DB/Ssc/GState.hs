@@ -15,7 +15,8 @@ import qualified Formatting.Buildable
 
 import           Pos.Chain.Ssc (SscGlobalState (..))
 import qualified Pos.Chain.Ssc as VCD
-import           Pos.Core (HasCoreConfiguration, genesisVssCerts)
+import           Pos.Core (HasCoreConfiguration)
+import           Pos.Core.Ssc (VssCertificatesMap)
 import           Pos.DB (MonadDB, MonadDBRead, RocksBatchOp (..))
 import           Pos.DB.Error (DBError (DBMalformed))
 import           Pos.DB.Functions (dbSerializeValue)
@@ -30,8 +31,8 @@ getSscGlobalState =
 sscGlobalStateToBatch :: SscGlobalState -> SscOp
 sscGlobalStateToBatch = PutGlobalState
 
-initSscDB :: (MonadDB m) => m ()
-initSscDB = gsPutBi sscKey (def {_sgsVssCertificates = vcd})
+initSscDB :: (MonadDB m) => VssCertificatesMap -> m ()
+initSscDB genesisVssCerts = gsPutBi sscKey (def {_sgsVssCertificates = vcd})
   where
     vcd = VCD.fromList . toList $ genesisVssCerts
 

@@ -100,7 +100,7 @@ redeemAdaInternal coreConfig txpConfig submitTx passphrase cAccId seedBs = do
     ws <- getWalletSnapshot db
     th <- rewrapTxError "Cannot send redemption transaction" $ do
         (txAux, redeemAddress, redeemBalance) <- prepareRedemptionTx
-            (configProtocolMagic coreConfig)
+            coreConfig
             redeemSK
             dstAddr
 

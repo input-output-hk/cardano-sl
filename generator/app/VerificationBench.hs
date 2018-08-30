@@ -19,10 +19,11 @@ import           Pos.Binary.Class (decodeFull, serialize)
 import           Pos.Chain.Block (ApplyBlocksException, Block,
                      VerifyBlocksException)
 import           Pos.Chain.Txp (TxpConfiguration (..))
-import           Pos.Core as Core (Config (..), configGeneratedSecretsThrow)
+import           Pos.Core as Core (Config (..), configBootStakeholders,
+                     configGeneratedSecretsThrow)
 import           Pos.Core.Chrono (NE, OldestFirst (..), nonEmptyNewestFirst)
 import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)
-import           Pos.Core.Configuration (genesisBlockVersionData, genesisData)
+import           Pos.Core.Configuration (genesisBlockVersionData)
 import           Pos.Core.Genesis (FakeAvvmOptions (..), GenesisData (..),
                      GenesisInitializer (..), GenesisProtocolConstants (..),
                      TestnetBalanceOptions (..), gsSecretKeys)
@@ -86,9 +87,9 @@ generateBlocks coreConfig secretKeys txpConfig bCount = do
                     }
                 , _bgpInplaceDB = False
                 , _bgpSkipNoKey = True
-                , _bgpGenStakeholders = gdBootStakeholders genesisData
+                , _bgpGenStakeholders = configBootStakeholders coreConfig
                 , _bgpTxpGlobalSettings = txpGlobalSettings
-                      (configProtocolMagic coreConfig)
+                      coreConfig
                       (TxpConfiguration 200 Set.empty)
                 })
             (maybeToList . fmap fst)
@@ -206,7 +207,7 @@ main = do
                     , _tpTxpConfiguration = TxpConfiguration 200 Set.empty
                     }
             secretKeys <- gsSecretKeys <$> configGeneratedSecretsThrow coreConfig
-            runBlockTestMode tp secretKeys $ do
+            runBlockTestMode coreConfig tp $ do
                 -- initialize databasea
                 initNodeDBs coreConfig
                 bs <- case baBlockCache args of

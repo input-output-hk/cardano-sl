@@ -41,10 +41,9 @@ import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem, PureToss,
                      supplyPureTossEnv, syncingStateWith, tmCertificates,
                      tmCommitments, tmOpenings, tmShares,
                      verifyAndApplySscPayload)
-import           Pos.Core as Core (BlockCount, Config, EpochIndex,
-                     HasGenesisData, SlotId (..), StakeholderId,
-                     configBlkSecurityParam, configEpochSlots, epochIndexL,
-                     kEpochSlots)
+import           Pos.Core as Core (BlockCount, Config, EpochIndex, SlotId (..),
+                     StakeholderId, configBlkSecurityParam, configEpochSlots,
+                     epochIndexL, kEpochSlots)
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
                      SscPayload (..), VssCertificate, mkCommitmentsMap,
@@ -120,8 +119,7 @@ sscNormalize coreConfig = do
     executeMonadBaseRandom seed = hoist $ hoist (pure . fst . Rand.withDRG seed)
 
 sscNormalizeU
-    :: HasGenesisData
-    => Core.Config
+    :: Core.Config
     -> (EpochIndex, RichmenStakes)
     -> BlockVersionData
     -> SscGlobalState
@@ -147,7 +145,6 @@ sscIsDataUseful
        , MonadSlots ctx m
        , MonadSscMem ctx m
        , Rand.MonadRandom m
-       , HasGenesisData
        )
     => BlockCount -> SscTag -> StakeholderId -> m Bool
 sscIsDataUseful k tag id =
@@ -264,8 +261,7 @@ sscProcessData coreConfig tag payload =
     executeMonadBaseRandom seed = hoist $ hoist (pure . fst . Rand.withDRG seed)
 
 sscProcessDataDo
-    :: ( MonadState SscLocalData m, HasGenesisData
-       , WithLogger m, Rand.MonadRandom m)
+    :: (MonadState SscLocalData m, WithLogger m, Rand.MonadRandom m)
     => Core.Config
     -> (EpochIndex, RichmenStakes)
     -> BlockVersionData

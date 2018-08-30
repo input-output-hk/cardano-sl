@@ -10,8 +10,6 @@ module Pos.Chain.Txp.Toil.Types
        , utxoF
        , utxoToModifier
        , utxoToLookup
-       , GenesisUtxo (..)
-       , _GenesisUtxo
 
        , StakesView (..)
        , svStakes
@@ -29,7 +27,7 @@ module Pos.Chain.Txp.Toil.Types
 
 import           Universum
 
-import           Control.Lens (makeLenses, makePrisms, makeWrapped)
+import           Control.Lens (makeLenses)
 import           Data.Default (Default, def)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as M (lookup, member, toList)
@@ -71,14 +69,6 @@ utxoToModifier = foldl' (flip $ uncurry MM.insert) mempty . M.toList
 
 utxoToLookup :: Utxo -> UtxoLookup
 utxoToLookup = flip M.lookup
-
--- | Wrapper for genesis utxo.
-newtype GenesisUtxo = GenesisUtxo
-    { unGenesisUtxo :: Utxo
-    } deriving (Show)
-
-makePrisms  ''GenesisUtxo
-makeWrapped ''GenesisUtxo
 
 ----------------------------------------------------------------------------
 -- Fee

@@ -28,8 +28,8 @@ import           Pos.Chain.Lrc (LrcError (..), RichmenStakes,
                      followTheSatoshiM)
 import           Pos.Chain.Ssc (MonadSscMem, noReportNoSecretsForEpoch1)
 import           Pos.Chain.Update (BlockVersionState (..))
-import           Pos.Core as Core (Coin, Config, EpochIndex, EpochOrSlot (..),
-                     SharedSeed, SlotCount, StakeholderId,
+import           Pos.Core as Core (Coin, Config (..), EpochIndex,
+                     EpochOrSlot (..), SharedSeed, SlotCount, StakeholderId,
                      configBlkSecurityParam, configEpochSlots, configK,
                      crucialSlot, epochIndexL, getEpochOrSlot)
 import           Pos.Core.Chrono (NE, NewestFirst (..), toOldestFirst)
@@ -171,7 +171,7 @@ lrcDo coreConfig epoch consumers = do
     withBlocksRolledBack blundsToRollbackNE $ do
         issuersComputationDo epoch
         richmenComputationDo epoch consumers
-        DB.sanityCheckDB
+        DB.sanityCheckDB $ configGenesisData coreConfig
         leadersComputationDo (configEpochSlots coreConfig) epoch seed
   where
     atLeastKNewestFirst :: forall a. NewestFirst [] a -> Maybe (NewestFirst NE a)

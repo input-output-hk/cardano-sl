@@ -21,6 +21,7 @@ import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Pos.Chain.Update ()
+import           Pos.Core as Core (Config (..), configBlkSecurityParam)
 import qualified Pos.Core as Core
 
 import           Pos.Util (HasLens (..))
@@ -33,8 +34,8 @@ import           Servant
 
 -- | All the @Servant@ handlers for wallet-specific operations.
 handlers :: HasConfigurations
-         => Core.BlockCount -> ServerT Wallets.API MonadV1
-handlers k = newWallet k
+         => Core.Config -> ServerT Wallets.API MonadV1
+handlers coreConfig = newWallet coreConfig
     :<|> listWallets
     :<|> updatePassword
     :<|> deleteWallet
@@ -68,20 +69,21 @@ newWallet
        , V0.MonadBlockchainInfo m
        , HasLens SyncQueue ctx SyncQueue
        )
-    => Core.BlockCount
+    => Core.Config
     -> NewWallet
     -> m (WalletResponse Wallet)
-newWallet k NewWallet{..} = do
+newWallet coreConfig NewWallet{..} = do
 
     spV0 <- V0.syncProgress
     syncPercentage <- migrate spV0
 
     -- Do not allow creation or restoration of wallets if the underlying node
     -- is still catching up.
-    unless (isNodeSufficientlySynced k spV0) $ throwM (NodeIsStillSyncing syncPercentage)
+    unless (isNodeSufficientlySynced (configBlkSecurityParam coreConfig) spV0)
+        $ throwM (NodeIsStillSyncing syncPercentage)
 
     let newWalletHandler CreateWallet  = V0.newWalletNoThrow
-        newWalletHandler RestoreWallet = V0.restoreWalletFromSeedNoThrow
+        newWalletHandler RestoreWallet = V0.restoreWalletFromSeedNoThrow (configGenesisData coreConfig)
         (V1 spendingPassword) = fromMaybe (V1 mempty) newwalSpendingPassword
         (BackupPhrase backupPhrase) = newwalBackupPhrase
     initMeta <- V0.CWalletMeta <$> pure newwalName

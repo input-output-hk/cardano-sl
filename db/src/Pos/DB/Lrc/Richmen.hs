@@ -31,10 +31,10 @@ import           Pos.Chain.Lrc (FullRichmenData, RichmenComponent (..),
                      findDelegationStakes, findRichmenStakes)
 import           Pos.Chain.Txp (genesisStakes)
 import           Pos.Core (Coin, CoinPortion, StakeholderId, addressHash,
-                     applyCoinPortionUp, genesisData, sumCoins,
-                     unsafeIntegerToCoin)
+                     applyCoinPortionUp, sumCoins, unsafeIntegerToCoin)
 import           Pos.Core.Delegation (ProxySKHeavy)
-import           Pos.Core.Genesis (gdHeavyDelegation, unGenesisDelegation)
+import           Pos.Core.Genesis (GenesisData, gdHeavyDelegation,
+                     unGenesisDelegation)
 import           Pos.Crypto (pskDelegatePk)
 import           Pos.DB.Class (MonadDB)
 import           Pos.DB.Lrc.Consumer.Delegation (dlgRichmenComponent,
@@ -48,21 +48,24 @@ import           Pos.DB.Lrc.RichmenBase (getRichmen, putRichmen)
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareLrcRichmen :: MonadDB m => m ()
-prepareLrcRichmen = do
-    prepareLrcRichmenDo sscRichmenComponent
-    prepareLrcRichmenDo updateRichmenComponent
-    prepareLrcRichmenDo dlgRichmenComponent
+prepareLrcRichmen :: MonadDB m => GenesisData -> m ()
+prepareLrcRichmen genesisData = do
+    prepareLrcRichmenDo genesisData sscRichmenComponent
+    prepareLrcRichmenDo genesisData updateRichmenComponent
+    prepareLrcRichmenDo genesisData dlgRichmenComponent
 
 prepareLrcRichmenDo
-    :: (Bi richmenData, MonadDB m) => RichmenComponent richmenData -> m ()
-prepareLrcRichmenDo rc =
+    :: (Bi richmenData, MonadDB m)
+    => GenesisData
+    -> RichmenComponent richmenData
+    -> m ()
+prepareLrcRichmenDo genesisData rc =
     whenNothingM_ (getRichmen rc 0) . putRichmen rc 0 $ computeInitial
         genesisDistribution
         genesisDelegation
         rc
   where
-    genesisDistribution = HM.toList genesisStakes
+    genesisDistribution = HM.toList $ genesisStakes genesisData
     genesisDelegation   = unGenesisDelegation $ gdHeavyDelegation genesisData
 
 computeInitial

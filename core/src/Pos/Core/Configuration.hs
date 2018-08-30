@@ -13,6 +13,15 @@ module Pos.Core.Configuration
        , configChainQualityThreshold
        , configEpochSlots
        , configGeneratedSecretsThrow
+       , configBootStakeholders
+       , configHeavyDelegation
+       , configStartTime
+       , configVssCerts
+       , configNonAvvmBalances
+       , configBlockVersionData
+       , configGenesisProtocolConstants
+       , configAvvmDistr
+       , configFtsSeed
 
        , ConfigurationError (..)
        , HasConfiguration
@@ -35,14 +44,15 @@ import           System.IO.Error (userError)
 import qualified Text.JSON.Canonical as Canonical
 
 import           Pos.Binary.Class (Raw)
-import           Pos.Core.Common (BlockCount)
+import           Pos.Core.Common (BlockCount, SharedSeed)
 import           Pos.Core.Configuration.BlockVersionData as E
 import           Pos.Core.Configuration.Core as E
-import           Pos.Core.Configuration.GenesisData as E
 import           Pos.Core.Configuration.GenesisHash as E
-import           Pos.Core.Genesis (GeneratedSecrets, GenesisData (..),
-                     GenesisDelegation, GenesisInitializer (..),
+import           Pos.Core.Genesis (GeneratedSecrets, GenesisAvvmBalances,
+                     GenesisData (..), GenesisDelegation,
+                     GenesisInitializer (..), GenesisNonAvvmBalances,
                      GenesisProtocolConstants (..), GenesisSpec (..),
+                     GenesisVssCertificatesMap (..), GenesisWStakeholders,
                      genesisProtocolConstantsToProtocolConstants,
                      mkGenesisDelegation)
 import           Pos.Core.Genesis.Generate (GeneratedGenesisData (..),
@@ -51,6 +61,8 @@ import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
                      pcBlkSecurityParam, pcChainQualityThreshold, pcEpochSlots,
                      pcSlotSecurityParam, vssMaxTTL, vssMinTTL)
 import           Pos.Core.Slotting (SlotCount, Timestamp)
+import           Pos.Core.Ssc (VssCertificatesMap)
+import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto.Configuration as E
 import           Pos.Crypto.Hashing (Hash, hashRaw, unsafeHash)
 import           Pos.Util.Json.Canonical (SchemaError)
@@ -60,6 +72,7 @@ data Config = Config
     { configProtocolMagic     :: ProtocolMagic
     , configProtocolConstants :: ProtocolConstants
     , configGeneratedSecrets  :: Maybe GeneratedSecrets
+    , configGenesisData       :: GenesisData
     }
 
 configK :: Config -> Int
@@ -93,10 +106,36 @@ configGeneratedSecretsThrow =
             pure
         . configGeneratedSecrets
 
+configBootStakeholders :: Config -> GenesisWStakeholders
+configBootStakeholders = gdBootStakeholders . configGenesisData
+
+configHeavyDelegation :: Config -> GenesisDelegation
+configHeavyDelegation = gdHeavyDelegation . configGenesisData
+
+configStartTime :: Config -> Timestamp
+configStartTime = gdStartTime . configGenesisData
+
+configVssCerts :: Config -> VssCertificatesMap
+configVssCerts = getGenesisVssCertificatesMap . gdVssCerts . configGenesisData
+
+configNonAvvmBalances :: Config -> GenesisNonAvvmBalances
+configNonAvvmBalances = gdNonAvvmBalances . configGenesisData
+
+configBlockVersionData :: Config -> BlockVersionData
+configBlockVersionData = gdBlockVersionData . configGenesisData
+
+configGenesisProtocolConstants :: Config -> GenesisProtocolConstants
+configGenesisProtocolConstants = gdProtocolConsts . configGenesisData
+
+configAvvmDistr :: Config -> GenesisAvvmBalances
+configAvvmDistr = gdAvvmDistr . configGenesisData
+
+configFtsSeed :: Config -> SharedSeed
+configFtsSeed = gdFtsSeed . configGenesisData
+
 -- | Coarse catch-all configuration constraint for use by depending modules.
 type HasConfiguration =
     ( HasCoreConfiguration
-    , HasGenesisData
     , HasGenesisHash
     , HasGenesisBlockVersionData
     )
@@ -171,13 +210,13 @@ withCoreConfigurations conf@CoreConfiguration{..} fn confDir mSystemStart mSeed 
 
         withCoreConfiguration conf $
             withGenesisBlockVersionData (gdBlockVersionData theGenesisData) $
-            withGenesisData theGenesisData $
             withGenesisHash theGenesisHash $
             act $
             Config
                 { configProtocolMagic     = pm
                 , configProtocolConstants = pc
                 , configGeneratedSecrets  = Nothing
+                , configGenesisData       = theGenesisData
                 }
 
     -- If a 'GenesisSpec' is given, we ensure we have a start time (needed if
@@ -242,12 +281,12 @@ withGenesisSpec theSystemStart conf@CoreConfiguration{..} fn val = case ccGenesi
                 theGenesisHash = unsafeHash @Text "patak"
              in withCoreConfiguration conf $
                   withGenesisHash theGenesisHash $
-                  withGenesisData theGenesisData $
                   val $
                   Config
                       { configProtocolMagic     = pm
                       , configProtocolConstants = pc
                       , configGeneratedSecrets  = Just ggdSecrets
+                      , configGenesisData       = theGenesisData
                       }
       where
         pm = gpcProtocolMagic (gsProtocolConstants spec)

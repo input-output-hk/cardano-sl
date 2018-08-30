@@ -200,7 +200,7 @@ applyBlocksDbUnsafeDo coreConfig scb blunds pModifier = do
         , sscBatch
         , slogBatch
         ]
-    sanityCheckDB
+    sanityCheckDB $ configGenesisData coreConfig
 
 -- | Rollback sequence of blocks, head-newest order expected with head being
 -- current tip. It's also assumed that lock on block db is taken already.
@@ -237,7 +237,7 @@ rollbackBlocksUnsafe coreConfig bsc scb toRollback = do
     -- in 'applyBlocksUnsafe' and we always ensure that some blocks
     -- are applied after rollback.
     dlgNormalizeOnRollback $ configProtocolMagic coreConfig
-    sanityCheckDB
+    sanityCheckDB $ configGenesisData coreConfig
 
 
 toComponentBlock :: (MainBlock -> payload) -> Block -> ComponentBlock payload

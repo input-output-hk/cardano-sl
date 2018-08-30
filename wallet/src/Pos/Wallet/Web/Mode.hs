@@ -322,8 +322,8 @@ getBalanceDefault addr = do
         applyUtxoModToAddrCoinMap updates balancesAndUtxo
 
 instance HasConfiguration => MonadBalances WalletWebMode where
-    getOwnUtxos = getOwnUtxosDefault
-    getBalance = getBalanceDefault
+    getOwnUtxos = const $ getOwnUtxosDefault
+    getBalance = const $ getBalanceDefault
 
 instance (HasConfiguration)
         => MonadTxHistory WalletWebMode where

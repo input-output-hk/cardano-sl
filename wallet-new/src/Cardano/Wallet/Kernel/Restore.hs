@@ -37,8 +37,8 @@ import           Cardano.Wallet.Kernel.Internal (WalletRestorationInfo (..),
                      wriCancel, wriCurrentSlot, wriTargetSlot, wriThroughput)
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (Lock, LockContext (..),
                      NodeConstraints, WithNodeState, filterUtxo,
-                     getSecurityParameter, getSlotCount, mostRecentMainBlock,
-                     withNodeState)
+                     getGenesisData, getSecurityParameter, getSlotCount,
+                     mostRecentMainBlock, withNodeState)
 import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId,
                      PrefilteredBlock, UtxoWithAddrId, WalletKey,
                      prefilterUtxo', toHdAddressId, toPrefilteredUtxo)
@@ -48,9 +48,10 @@ import           Cardano.Wallet.Kernel.Wallets (createWalletHdRnd)
 
 import           Pos.Chain.Block (Block, Blund, HeaderHash, MainBlock, Undo,
                      headerHash, mainBlockSlot)
-import           Pos.Chain.Txp (GenesisUtxo (..), Utxo, genesisUtxo)
+import           Pos.Chain.Txp (Utxo, genesisUtxo)
 import           Pos.Core (BlockCount (..), Coin, SlotId, flattenSlotId, mkCoin,
                      unsafeIntegerToCoin)
+import           Pos.Core.Genesis (GenesisData)
 import           Pos.Core.Txp (TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.DB.Block (getFirstGenesisBlockHash, getUndo,
@@ -76,7 +77,8 @@ restoreWallet :: Kernel.PassiveWallet
               -> (Blund -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta]))
               -> IO (Either CreateHdRootError (HD.HdRoot, Coin))
 restoreWallet pw spendingPass name assurance esk prefilter = do
-    walletInitInfo <- withNodeState (pw ^. walletNode) $ getWalletInitInfo wkey
+    genesisData <- getGenesisData (pw ^. walletNode)
+    walletInitInfo <- withNodeState (pw ^. walletNode) $ getWalletInitInfo genesisData wkey
     case walletInitInfo of
       WalletCreate utxos -> do
         root <- createWalletHdRnd pw spendingPass name assurance esk $ \root ->
@@ -148,10 +150,11 @@ data WalletInitInfo =
 -- information about the tip of the blockchain (provided the blockchain
 -- isn't empty).
 getWalletInitInfo :: NodeConstraints
-                  => WalletKey
+                  => GenesisData
+                  -> WalletKey
                   -> Lock (WithNodeState IO)
                   -> WithNodeState IO WalletInitInfo
-getWalletInitInfo wKey@(wId, wdc) lock = do
+getWalletInitInfo genesisData wKey@(wId, wdc) lock = do
     -- Find all of the current UTXO that this wallet owns.
     -- We lock the node state to be sure the tip header and the UTxO match
     (tipHeader, curUtxo :: Map HD.HdAccountId (Utxo, [AddrWithId])) <-
@@ -161,7 +164,7 @@ getWalletInitInfo wKey@(wId, wdc) lock = do
     -- Find genesis UTxO for this wallet
     let genUtxo :: Map HD.HdAccountId (Utxo, [AddrWithId])
         genUtxo = fmap toPrefilteredUtxo . snd $
-                    prefilterUtxo' wKey (unGenesisUtxo genesisUtxo)
+                    prefilterUtxo' wKey (genesisUtxo genesisData)
 
     -- Get the tip
     mTip <- mostRecentMainBlock tipHeader

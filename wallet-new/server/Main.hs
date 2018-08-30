@@ -17,7 +17,6 @@ import           Pos.Chain.Txp (TxpConfiguration)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (ncUserSecret)
 import           Pos.Core as Core (Config (..), configBlkSecurityParam)
-import           Pos.Core.Genesis (GeneratedSecrets)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Txp (txpGlobalSettings)
 import           Pos.Infra.Diffusion.Types (Diffusion)
@@ -76,7 +75,7 @@ actionWithLegacyWallet coreConfig txpConfig sscParams nodeParams ntpConfig wArgs
                 coreConfig
                 nodeParams
                 sscParams
-                (txpGlobalSettings (configProtocolMagic coreConfig) txpConfig)
+                (txpGlobalSettings coreConfig txpConfig)
                 (initNodeDBs coreConfig) $ \nr@NodeResources {..} -> do
                     syncQueue <- liftIO newTQueueIO
                     ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
@@ -128,12 +127,12 @@ actionWithWallet coreConfig txpConfig sscParams nodeParams ntpConfig params =
         coreConfig
         nodeParams
         sscParams
-        (txpGlobalSettings pm txpConfig)
+        (txpGlobalSettings coreConfig txpConfig)
         (initNodeDBs coreConfig) $ \nr -> do
       ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
       userSecret <- readTVarIO (ncUserSecret $ nrContext nr)
       let nodeState = NodeStateAdaptor.newNodeStateAdaptor
-              (configProtocolConstants coreConfig)
+              coreConfig
               nr
               ntpStatus
       liftIO $ Keystore.bracketLegacyKeystore userSecret $ \keystore -> do
@@ -200,10 +199,7 @@ actionWithWallet coreConfig txpConfig sscParams nodeParams ntpConfig params =
 startEdgeNode :: HasCompileInfo => WalletStartupOptions -> IO ()
 startEdgeNode wso =
     withConfigurations blPath conf $ \coreConfig txpConfig ntpConfig -> do
-        (sscParams, nodeParams) <- getParameters
-            (configGeneratedSecrets coreConfig)
-            txpConfig
-            ntpConfig
+        (sscParams, nodeParams) <- getParameters coreConfig txpConfig ntpConfig
         case wsoWalletBackendParams wso of
             WalletLegacy legacyParams -> actionWithLegacyWallet
                 coreConfig
@@ -221,17 +217,23 @@ startEdgeNode wso =
                 newParams
   where
     getParameters :: HasConfigurations
-                  => Maybe GeneratedSecrets
+                  => Core.Config
                   -> TxpConfiguration
                   -> NtpConfiguration
                   -> IO (SscParams, NodeParams)
-    getParameters mGeneratedSecrets txpConfig ntpConfig = do
+    getParameters coreConfig txpConfig ntpConfig = do
 
-      currentParams <- CLI.getNodeParams defaultLoggerName (wsoNodeArgs wso) nodeArgs mGeneratedSecrets
+      currentParams <- CLI.getNodeParams defaultLoggerName
+                                         (wsoNodeArgs wso)
+                                         nodeArgs
+                                         (configGeneratedSecrets coreConfig)
       let vssSK = fromJust $ npUserSecret currentParams ^. usVss
       let gtParams = CLI.gtSscParams (wsoNodeArgs wso) vssSK (npBehaviorConfig currentParams)
 
-      CLI.printInfoOnStart (wsoNodeArgs wso) ntpConfig txpConfig
+      CLI.printInfoOnStart (wsoNodeArgs wso)
+                           (configGenesisData coreConfig)
+                           ntpConfig
+                           txpConfig
       logInfo "Wallet is enabled!"
 
       return (gtParams, currentParams)

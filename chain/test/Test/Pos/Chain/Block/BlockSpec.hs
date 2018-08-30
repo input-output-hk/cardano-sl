@@ -30,19 +30,19 @@ import           Pos.Core (EpochIndex (..), GenesisHash (..), HasConfiguration,
                      SlotId (..), difficultyL, genesisHash)
 import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Core.Chrono (NewestFirst (..))
-import           Pos.Core.Configuration (defaultCoreConfiguration,
-                     withGenesisSpec)
+import           Pos.Core.Configuration (withGenesisSpec)
 import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
 import           Pos.Crypto (ProtocolMagic (..), ProxySecretKey (pskIssuerPk),
                      SecretKey, SignTag (..), createPsk, proxySign, sign,
                      toPublic)
 
 import           Test.Pos.Chain.Block.Arbitrary as BT
+import           Test.Pos.Core.Dummy (dummyCoreConfiguration)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 -- This tests are quite slow, hence max success is at most 20.
 spec :: Spec
-spec = withGenesisSpec 0 defaultCoreConfiguration id $ \_ ->
+spec = withGenesisSpec 0 dummyCoreConfiguration id $ \_ ->
     describe "Block properties" $ modifyMaxSuccess (min 20) $ do
         describe "mkMainHeader" $ do
             prop mainHeaderFormationDesc mainHeaderFormation

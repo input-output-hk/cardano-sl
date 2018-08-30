@@ -654,9 +654,9 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
     catchErrors reqId st =
         flip catchError (servantErrHandler reqId st) .
         handleAny (exceptionsHandler reqId st)
-    servantErrHandler reqId timer err@ServantErr{..} = do
+    servantErrHandler reqId timer err = do
         durationText <- timer
-        let errMsg = sformat (build%" "%string) errHTTPCode errReasonPhrase
+        let errMsg = sformat (build%" "%string) (errHTTPCode err) (errReasonPhrase err)
         inLogCtx $ logInfoSP $ \_sl ->
             sformat ("\n    "%stext%" "%stext%" "%stext)
                 (colorizeDull White $ responseTag reqId)

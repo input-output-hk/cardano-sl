@@ -148,7 +148,7 @@ toDHTNode :: K.Node DHTKey -> DHTNode
 toDHTNode n = DHTNode (fromKPeer . K.peer $ n) $ K.nodeId n
 
 fromKPeer :: K.Peer -> NetworkAddress
-fromKPeer K.Peer{..} = (encodeUtf8 peerHost, fromIntegral peerPort)
+fromKPeer (K.Peer pHost pPort) = (encodeUtf8 pHost, fromIntegral pPort)
 
 toKPeer :: NetworkAddress -> K.Peer
 toKPeer (peerHost, peerPort) = K.Peer (decodeUtf8 peerHost) (fromIntegral peerPort)

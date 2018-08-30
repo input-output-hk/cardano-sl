@@ -172,7 +172,7 @@ pToken :: Lexer (Span, Token)
 pToken = withPosition (try pToken' <|> pUnknown) <* pSkip
   where
     posToLoc :: SourcePos -> Loc
-    posToLoc SourcePos{..} = uncurry loc
+    posToLoc (SourcePos _ sourceLine sourceColumn) = uncurry loc
         ( fromIntegral . unPos $ sourceLine
         , fromIntegral . unPos $ sourceColumn)
     withPosition p = do

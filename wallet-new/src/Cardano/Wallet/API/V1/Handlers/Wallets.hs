@@ -34,9 +34,7 @@ newWallet pwl newWalletRequest = do
     -- FIXME(adn) Do not allow creation or restoration of wallets if the underlying node
     -- is still catching up.
 
-    -- FIXME(adn) Wallet restoration from seed will be provided as part of
-    -- CBR-243.
-    res <- liftIO $ WalletLayer.createWallet pwl newWalletRequest
+    res <- liftIO $ WalletLayer.createWallet pwl (WalletLayer.CreateWallet newWalletRequest)
     case res of
          Left e  -> throwM e
          Right w -> return $ single w

@@ -1,7 +1,9 @@
 module Cardano.Wallet.WalletLayer
     ( PassiveWalletLayer (..)
     , ActiveWalletLayer (..)
-    -- * Errors
+    -- * Types
+    , CreateWallet(..)
+    -- ** Errors
     , CreateWalletError(..)
     , GetWalletError(..)
     , UpdateWalletError(..)
@@ -35,7 +37,7 @@ import           Pos.Core (Coin, Timestamp)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Txp (Tx, TxId)
 import           Pos.Core.Update (SoftwareVersion)
-import           Pos.Crypto (PassPhrase)
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase)
 
 import           Cardano.Wallet.API.Request (RequestParams (..))
 import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
@@ -44,9 +46,9 @@ import           Cardano.Wallet.API.Response (SliceOf (..), WalletResponse)
 import           Cardano.Wallet.API.V1.Types (Account, AccountBalance,
                      AccountIndex, AccountUpdate, Address, ForceNtpCheck,
                      NewAccount, NewAddress, NewWallet, NodeInfo, NodeSettings,
-                     PasswordUpdate, Payment, Redemption, Transaction, V1 (..),
-                     Wallet, WalletAddress, WalletId, WalletImport,
-                     WalletUpdate)
+                     PasswordUpdate, Payment, Redemption, SpendingPassword,
+                     Transaction, V1 (..), Wallet, WalletAddress, WalletId,
+                     WalletImport, WalletUpdate)
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
@@ -61,8 +63,12 @@ import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
 import           Cardano.Wallet.WalletLayer.Kernel.Conv (InvalidRedemptionCode)
 
 ------------------------------------------------------------
--- Errors when manipulating wallets
+-- Type & Errors when manipulating wallets
 ------------------------------------------------------------
+
+data CreateWallet =
+    CreateWallet NewWallet
+  | ImportWalletFromESK EncryptedSecretKey (Maybe SpendingPassword)
 
 data CreateWalletError =
       CreateWalletError Kernel.CreateWalletError
@@ -375,7 +381,7 @@ instance Exception GetTxError
 data PassiveWalletLayer m = PassiveWalletLayer
     {
     -- wallets
-      createWallet         :: NewWallet -> m (Either CreateWalletError Wallet)
+      createWallet         :: CreateWallet -> m (Either CreateWalletError Wallet)
     , getWallets           :: m (IxSet Wallet)
     , getWallet            :: WalletId -> m (Either GetWalletError Wallet)
     , updateWallet         :: WalletId

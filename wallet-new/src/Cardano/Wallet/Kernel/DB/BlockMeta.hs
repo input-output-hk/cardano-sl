@@ -19,8 +19,6 @@ module Cardano.Wallet.Kernel.DB.BlockMeta (
   , addressMetaIsUsed
   , blockMetaAddressMeta
   , blockMetaSlotId
-    -- ** Arbitrary
-  , slotIdGen
   ) where
 
 import           Universum
@@ -32,7 +30,6 @@ import           Data.SafeCopy (base, deriveSafeCopy)
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 import           Serokell.Util (mapJson)
-import           Test.QuickCheck (Arbitrary (..), Gen, arbitrary)
 
 import qualified Pos.Core as Core
 import qualified Pos.Core.Txp as Txp
@@ -40,9 +37,6 @@ import qualified Pos.Core.Txp as Txp
 import           Cardano.Wallet.Kernel.DB.InDb
 
 import           Data.Semigroup (Semigroup)
-
-import           Test.Pos.Core.Arbitrary ()
-import           Test.Pos.Core.Arbitrary.Txp ()
 
 {-------------------------------------------------------------------------------
   Address metadata
@@ -54,7 +48,7 @@ data AddressMeta = AddressMeta {
       _addressMetaIsUsed   :: Bool
       -- | Whether or not this is a 'change' Address
     , _addressMetaIsChange :: Bool
-    } deriving (Eq, Show)
+    } deriving Eq
 
 instance Semigroup AddressMeta where
   a <> b = mergeAddrMeta a b
@@ -66,9 +60,6 @@ instance Semigroup AddressMeta where
 instance Monoid AddressMeta where
   mempty  = AddressMeta False False
   mappend = (<>)
-
-instance Arbitrary AddressMeta where
-  arbitrary = AddressMeta <$> arbitrary <*> arbitrary
 
 makeLenses ''AddressMeta
 deriveSafeCopy 1 'base ''AddressMeta
@@ -83,7 +74,7 @@ data BlockMeta = BlockMeta {
       _blockMetaSlotId      :: !(InDb (Map Txp.TxId Core.SlotId))
       -- | Address metadata
     , _blockMetaAddressMeta :: !(Map (InDb Core.Address) AddressMeta)
-    } deriving (Eq, Show)
+    } deriving Eq
 
 makeLenses ''BlockMeta
 deriveSafeCopy 1 'base ''BlockMeta
@@ -112,7 +103,7 @@ emptyBlockMeta = BlockMeta {
 -- 'BlockMeta' type is the same; 'LocalBlockMeta' serves merely as a marker that
 -- this data is potentially incomplete.
 newtype LocalBlockMeta = LocalBlockMeta { localBlockMeta :: BlockMeta }
-        deriving (Eq, Show)
+        deriving Eq
 
 makeWrapped ''LocalBlockMeta
 
@@ -150,25 +141,6 @@ appendLocalBlockMeta (LocalBlockMeta cur) = LocalBlockMeta . appendBlockMeta cur
 -- any information that is relevant to the wallet.
 emptyLocalBlockMeta :: LocalBlockMeta
 emptyLocalBlockMeta = LocalBlockMeta emptyBlockMeta
-
-instance Arbitrary BlockMeta where
-  arbitrary = do
-    n <- arbitrary
-    slotsIds <- replicateM n slotIdGen
-    txIds <- replicateM n arbitrary
-    addrs <- arbitrary
-    return $ BlockMeta (InDb . Map.fromList $ zip txIds slotsIds) addrs
-
-instance Arbitrary LocalBlockMeta where
-  arbitrary = do
-    bm <- arbitrary
-    pure $ LocalBlockMeta bm
-
-slotIdGen :: Gen Core.SlotId
-slotIdGen = do
-  w64 <- arbitrary
-  w16 <- arbitrary
-  return $ Core.SlotId (Core.EpochIndex w64) (Core.UnsafeLocalSlotIndex w16)
 
 {-------------------------------------------------------------------------------
   Pretty-printing

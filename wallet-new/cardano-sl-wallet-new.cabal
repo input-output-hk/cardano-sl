@@ -409,7 +409,8 @@ test-suite wallet-unit-tests
   ghc-options:        -Wall -O2 -threaded
   type:               exitcode-stdio-1.0
   main-is:            WalletUnitTest.hs
-  other-modules:      DeltaCompressionSpecs
+  other-modules:      Arbitrary
+                      DeltaCompressionSpecs
                       InputSelection.Evaluation
                       InputSelection.Evaluation.Events
                       InputSelection.Evaluation.Generic

@@ -58,8 +58,7 @@ import           Data.Coerce (coerce)
 import qualified Data.SafeCopy as SC
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
-import           Serokell.Util.Text (mapJson)
-import           Test.QuickCheck (Arbitrary (..))
+import           Serokell.Util.Text (listJson, mapJson)
 
 import qualified Pos.Chain.Txp as Core
 import qualified Pos.Core as Core
@@ -75,9 +74,6 @@ import           Cardano.Wallet.Kernel.Util.Core as Core
 import qualified Cardano.Wallet.Kernel.Util.StrictList as SL
 import           Cardano.Wallet.Kernel.Util.StrictNonEmpty (StrictNonEmpty (..))
 import qualified Cardano.Wallet.Kernel.Util.StrictNonEmpty as SNE
-
-import           Test.Pos.Core.Arbitrary ()
-import           Test.Pos.Core.Arbitrary.Txp ()
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
@@ -129,7 +125,7 @@ data Checkpoint = Checkpoint {
       --   wallet of a new block, but the wallet crashes or is terminated before
       --   it can process the block.)
     , _checkpointContext     :: !(Maybe BlockContext)
-    } deriving (Eq, Show)
+    } deriving Eq
 
 makeLenses ''Checkpoint
 
@@ -170,7 +166,7 @@ data PartialCheckpoint = PartialCheckpoint {
     , _pcheckpointBlockMeta   :: !LocalBlockMeta
     , _pcheckpointForeign     :: !Pending
     , _pcheckpointContext     :: !(Maybe BlockContext)
-    } deriving (Eq, Show)
+    } deriving Eq
 
 makeLenses ''PartialCheckpoint
 
@@ -409,28 +405,6 @@ currentAddressMeta addr = currentCheckpoint . cpAddressMeta addr
 oldestCheckpoint :: Getter (NewestFirst StrictNonEmpty c) c
 oldestCheckpoint = _Wrapped . to SNE.last
 
-
-instance Arbitrary Checkpoint where
-  arbitrary = Checkpoint <$> arbitrary
-                         <*> arbitrary
-                         <*> arbitrary
-                         <*> arbitrary
-                         <*> arbitrary
-                         <*> arbitrary
-
-instance Arbitrary PartialCheckpoint where
-  arbitrary = PartialCheckpoint <$> arbitrary
-                                <*> arbitrary
-                                <*> arbitrary
-                                <*> arbitrary
-                                <*> arbitrary
-                                <*> arbitrary
-
-instance Arbitrary c => Arbitrary (Checkpoints c) where
-  arbitrary = do
-    ls <- arbitrary
-    pure . Checkpoints . NewestFirst $ ls
-
 {-------------------------------------------------------------------------------
   Pretty-printing
 -------------------------------------------------------------------------------}
@@ -470,3 +444,11 @@ instance Buildable PartialCheckpoint where
         _pcheckpointBlockMeta
         _pcheckpointContext
         _pcheckpointForeign
+
+instance Buildable c => Buildable (Checkpoints c) where
+    build (Checkpoints ls) = bprint
+        ( "Checkpoints "
+        % "{ _unCheckpoints: " % listJson
+        % "}"
+        )
+        ls

@@ -16,7 +16,6 @@ import           Control.Lens (makeLenses)
 import           Data.SafeCopy (base, deriveSafeCopy)
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
-import           Test.QuickCheck (Arbitrary (..), Gen, arbitrary)
 
 import qualified Pos.Chain.Block as Core
 import qualified Pos.Core as Core
@@ -44,7 +43,7 @@ data BlockContext = BlockContext {
       -- we do some work to figure out what the previous /main/ block was.
       -- See 'mostRecentMainBlock'.
     , _bcPrevMain :: !(Maybe (InDb Core.HeaderHash))
-    } deriving (Eq, Show)
+    } deriving Eq
 
 makeLenses ''BlockContext
 deriveSafeCopy 1 'base ''BlockContext
@@ -74,19 +73,6 @@ mainBlockContext mb = do
       , _bcHash     = InDb $ Core.headerHash mb
       , _bcPrevMain = (InDb . Core.headerHash) <$> mPrev
       }
-
-instance Arbitrary BlockContext where
-  arbitrary = do
-    slotId <- slotIdGen
-    hh <- arbitrary
-    mhh <- arbitrary
-    pure $ BlockContext (InDb slotId) hh mhh
-
-slotIdGen :: Gen Core.SlotId
-slotIdGen = do
-  w64 <- arbitrary
-  w16 <- arbitrary
-  return $ Core.SlotId (Core.EpochIndex w64) (Core.UnsafeLocalSlotIndex w16)
 
 {-------------------------------------------------------------------------------
   Pretty-printing

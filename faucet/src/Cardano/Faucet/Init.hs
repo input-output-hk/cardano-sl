@@ -50,7 +50,7 @@ import           System.Wlog (CanLog, HasLoggerName, LoggerNameBox (..),
                      liftLogIO, logDebug, logError, logInfo, withSublogger)
 
 import           Cardano.Wallet.API.V1.Types (Account (..), Address,
-                     AssuranceLevel (NormalAssurance), BackupPhrase (..),
+                     AssuranceLevel (NormalAssurance), BackupPhrase (..), ForceNtpCheck(..),
                      NewWallet (..), NodeInfo (..), Payment (..),
                      PaymentDistribution (..), PaymentSource (..),
                      SyncPercentage, V1 (..), Wallet (..), WalletAddress (..),
@@ -98,7 +98,7 @@ getSyncState
     => WalletClient m
     -> m (Either ClientError SyncPercentage)
 getSyncState client = do
-    r <- getNodeInfo client
+    r <- getNodeInfo client ForceNtpCheck
     return (nfoSyncProgress . wrData <$> r)
 
 --------------------------------------------------------------------------------

@@ -1,5 +1,7 @@
 {-# LANGUAGE RecordWildCards #-}
+
 -- | internal definitions for "Pos.Util.Log"
+
 module Pos.Util.Log.Internal
        ( newConfig
        , registerBackends
@@ -13,15 +15,21 @@ module Pos.Util.Log.Internal
        , incrementLinesLogged
        , modifyLinesLogged
        , LoggingHandler      --  only export name
+       , FileDescription (..)
+       , mkFileDescription
        ) where
 
+import           Control.AutoUpdate (UpdateSettings (..), defaultUpdateSettings,
+                     mkAutoUpdate)
 import           Control.Concurrent.MVar (modifyMVar_, newMVar, withMVar)
 
 import qualified Data.Text as T
 import           Data.Time (UTCTime, getCurrentTime)
+import           System.FilePath (splitFileName, (</>))
 import           Universum hiding (newMVar)
 
 import qualified Katip as K
+import qualified Katip.Core as KC
 
 import           Pos.Util.Log.LoggerConfig (LoggerConfig (..))
 import           Pos.Util.Log.Severity
@@ -42,6 +50,20 @@ s2kname s = K.Namespace [s]
 s2knames :: [Text] -> K.Namespace
 s2knames s = K.Namespace s
 
+-- | log files have a prefix and a name
+data FileDescription = FileDescription {
+                         prefixpath :: FilePath,
+                         filename   :: FilePath }
+                       deriving (Show)
+
+mkFileDescription :: FilePath -> FilePath -> FileDescription
+mkFileDescription bp fp =
+    -- if fp contains a filename in a directory path
+    --    move this path to the prefix and only keep the name
+    let (extbp, fname) = splitFileName fp
+    in
+    FileDescription { prefixpath = bp </> extbp
+                    , filename = fname }
 
 -- | Our internal state
 data LoggingHandlerInternal = LoggingHandlerInternal
@@ -89,13 +111,23 @@ registerBackends :: LoggingHandler -> [(T.Text, K.Scribe)] -> IO ()
 registerBackends lh scribes = do
     LoggingHandlerInternal cfg _ counter <- takeMVar (getLSI lh)
     le0 <- K.initLogEnv (s2kname "cardano-sl") "production"
-    let le1 = updateEnv le0 getCurrentTime
+    -- use 'getCurrentTime' to get a more precise timestamp
+    -- as katip uses per default some internal buffered time variable
+    timer <- mkAutoUpdate defaultUpdateSettings { updateAction = getCurrentTime, updateFreq = 10000 }
+    let le1 = updateEnv le0 timer
     le <- register scribes le1
     putMVar (getLSI lh) $ LoggingHandlerInternal cfg (Just le) counter
       where
         register :: [(T.Text, K.Scribe)] -> K.LogEnv -> IO K.LogEnv
         register [] le = return le
         register ((n, s):scs) le =
-            register scs =<< K.registerScribe n s K.defaultScribeSettings le
+            register scs =<< K.registerScribe n s scribeSettings le
         updateEnv :: K.LogEnv -> IO UTCTime -> K.LogEnv
-        updateEnv le f = le { K._logEnvTimer = f }
+        -- request a new time 'getCurrentTime' at most 100 times a second
+        updateEnv le timer =
+            le { K._logEnvTimer = timer, K._logEnvHost = "hostname" }
+
+scribeSettings :: KC.ScribeSettings
+scribeSettings = KC.ScribeSettings bufferSize
+  where
+    bufferSize = 5000   -- size of the queue (in log items)

@@ -20,8 +20,9 @@ module Pos.Util.Log.LoggerConfig
        , lcBasePath
        , ltHandlers
        , ltMinSeverity
-       , rpKeepFiles
-       , rpLogLimit
+       , rpKeepFilesNum
+       , rpLogLimitBytes
+       , rpMaxAgeHours
        , lhBackend
        , lhName
        , lhFpath
@@ -58,15 +59,17 @@ deriving instance FromJSON BackendKind
 -- | @'RotationParameters'@ one of the two categories  used in the
 --   logging config, specifying the log rotation parameters
 data RotationParameters = RotationParameters
-    { _rpLogLimit  :: !Word64  -- ^ max size of file in bytes
-    , _rpKeepFiles :: !Word    -- ^ number of files to keep
+    { _rpLogLimitBytes :: !Word64  -- ^ max size of file in bytes
+    , _rpMaxAgeHours   :: !Word    -- ^ hours
+    , _rpKeepFilesNum  :: !Word    -- ^ number of files to keep
     } deriving (Generic, Show, Eq)
 
 instance ToJSON RotationParameters
 instance FromJSON RotationParameters where
     parseJSON = withObject "rotation params" $ \o -> do
-        _rpLogLimit  <- o .: "logLimit"
-        _rpKeepFiles <- o .: "keepFiles"
+        _rpLogLimitBytes  <- o .: "logLimit"
+        _rpMaxAgeHours    <- o .:? "maxAge" .!= 24
+        _rpKeepFilesNum   <- o .: "keepFiles"
         return RotationParameters{..}
 
 makeLenses ''RotationParameters
@@ -193,8 +196,9 @@ instance Semigroup LoggerConfig where
                 }
 instance Monoid LoggerConfig where
     mempty = LoggerConfig { _lcRotation = Just RotationParameters {
-                                            _rpLogLimit = 10 * 1024 * 1024,
-                                            _rpKeepFiles = 10 }
+                                            _rpLogLimitBytes = 5 * 1024 * 1024,
+                                            _rpKeepFilesNum  = 10,
+                                            _rpMaxAgeHours   = 24 }
                      , _lcLoggerTree = mempty
                      , _lcBasePath = Nothing
                      }

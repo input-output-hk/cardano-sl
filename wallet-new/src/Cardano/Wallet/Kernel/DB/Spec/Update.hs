@@ -87,18 +87,24 @@ instance Arbitrary NewForeignFailed where
 
 -- | Errors thrown by 'applyBlock'
 data ApplyBlockFailed
-    -- | The block we're trying to apply does not fit onto the previous
-    --
-    -- This indicates that the wallet has fallen behind the node (for example,
-    -- when the node informs the wallet of a block but the wallet gets
-    -- shut down before it gets a chance to process it).
-    --
-    -- We record  the context of the block we're trying to apply and the
-    -- context of the most recent checkpoint.
     = ApplyBlockNotSuccessor BlockContext (Maybe BlockContext)
+      -- ^ The block we're trying to apply does not fit onto the previous
+      --
+      -- This indicates that the wallet has fallen behind the node (for example,
+      -- when the node informs the wallet of a block but the wallet gets
+      -- shut down before it gets a chance to process it).
+      --
+      -- We record  the context of the block we're trying to apply and the
+      -- context of the most recent checkpoint.
     | CouldNotReachCheckpoint BlockContext
+      -- ^ While trying to backfill missing blocks, we found that the last known
+      -- block was not an ancestor of the block to apply.
     | CouldNotFindBlockForHeader HeaderHash
+      -- ^ While trying to backfill missing blocks, we got a header that did not
+      -- correspond to a known block.
     | NotAMainBlock HeaderHash
+      -- ^ While trying to backfill missing blocks, we got a header that did not
+      -- correspond to a main block.
 
 deriveSafeCopy 1 'base ''ApplyBlockFailed
 

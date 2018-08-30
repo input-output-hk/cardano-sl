@@ -9,7 +9,7 @@ module Cardano.Wallet.WalletLayer.Kernel.Internal (
 import           Universum
 
 import           Data.Acid.Advanced (update')
-import           System.Directory (doesFileExist)
+import           System.IO.Error (isDoesNotExistError)
 
 import           Pos.Core.Update (SoftwareVersion)
 
@@ -73,18 +73,18 @@ importWallet :: MonadIO m
              -> WalletImport
              -> m (Either ImportWalletError Wallet)
 importWallet pw WalletImport{..} = liftIO $ do
-    -- Check if the file exists on disk. Considerations on atomicity here are
-    -- less important as this is an internal endpoint anyway.
-    fileIsThere <- doesFileExist wiFilePath
-    if not fileIsThere
-       then return (Left $ ImportWalletFileNotFound wiFilePath)
-       else Keystore.bracketImportLegacyKeystore wiFilePath $ \legacyKeystore -> do
-           mbEsk <- Keystore.lookupLegacyRootKey legacyKeystore
-           case mbEsk of
-               Nothing  -> return (Left $ ImportWalletNoWalletFoundInBackup wiFilePath)
-               Just esk -> do
-                   res <- liftIO $ createWallet pw (ImportWalletFromESK esk wiSpendingPassword)
-                   return $ case res of
-                        Left e               -> Left (ImportWalletCreationFailed e)
-                        Right importedWallet -> Right importedWallet
+    secretE <- try $ Keystore.readWalletSecret wiFilePath
+    case secretE of
+         Left e ->
+             if isDoesNotExistError e
+                 then return (Left $ ImportWalletFileNotFound wiFilePath)
+                 else throwM e
+         Right mbEsk -> do
+             case mbEsk of
+                 Nothing  -> return (Left $ ImportWalletNoWalletFoundInBackup wiFilePath)
+                 Just esk -> do
+                     res <- liftIO $ createWallet pw (ImportWalletFromESK esk wiSpendingPassword)
+                     return $ case res of
+                          Left e               -> Left (ImportWalletCreationFailed e)
+                          Right importedWallet -> Right importedWallet
 

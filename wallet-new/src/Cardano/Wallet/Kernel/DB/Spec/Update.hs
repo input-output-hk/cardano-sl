@@ -29,6 +29,7 @@ import qualified Formatting.Buildable
 import           Serokell.Util (listJsonIndent)
 import           Test.QuickCheck (Arbitrary (..), elements)
 
+import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Txp (Utxo)
 import qualified Pos.Core as Core
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
@@ -85,7 +86,7 @@ instance Arbitrary NewForeignFailed where
     arbitrary = pure . NewForeignInputsAvailable . InDb $ mempty
 
 -- | Errors thrown by 'applyBlock'
-data ApplyBlockFailed =
+data ApplyBlockFailed
     -- | The block we're trying to apply does not fit onto the previous
     --
     -- This indicates that the wallet has fallen behind the node (for example,
@@ -94,7 +95,10 @@ data ApplyBlockFailed =
     --
     -- We record  the context of the block we're trying to apply and the
     -- context of the most recent checkpoint.
-    ApplyBlockNotSuccessor BlockContext (Maybe BlockContext)
+    = ApplyBlockNotSuccessor BlockContext (Maybe BlockContext)
+    | CouldNotReachCheckpoint BlockContext
+    | CouldNotFindBlockForHeader HeaderHash
+    | NotAMainBlock HeaderHash
 
 deriveSafeCopy 1 'base ''ApplyBlockFailed
 
@@ -103,10 +107,28 @@ instance Buildable ApplyBlockFailed where
         ("ApplyBlockNotSuccessor "
         % "{ context:    " % build
         % ", checkpoint: " % build
-        % "}"
+        % " }"
         )
         context
         checkpoint
+    build (CouldNotReachCheckpoint context) = bprint
+        ("CouldNotReachCheckpoint "
+        % "{ context: " % build
+        % " }"
+        )
+        context
+    build (CouldNotFindBlockForHeader hh) = bprint
+        ("CouldNotFindBlockForHeader "
+        % "{ header hash: " % build
+        % " }"
+        )
+        hh
+    build (NotAMainBlock hh) = bprint
+        ("NotAMainBlock "
+        % "{ header hash: " % build
+        % " }"
+        )
+        hh
 
 instance Arbitrary ApplyBlockFailed where
    arbitrary = elements []

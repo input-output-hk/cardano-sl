@@ -132,7 +132,10 @@ data IntCheckpoint = IntCheckpoint {
       -- Set to 'Nothing' for the first checkpoint.
     , icMainBlockHdr  :: !(Maybe HeaderHash)
 
-      -- | Slot leaders for the current epoch
+       -- | The header hash of the previous /main/ block.
+    , icPrevMainHH    :: !(Maybe HeaderHash)
+
+     -- | Slot leaders for the current epoch
     , icEpochLeaders  :: !SlotLeaders
 
       -- | Running stakes
@@ -198,6 +201,7 @@ mkCheckpoint prev slot block inputs = do
         icSlotId        = slot
       , icBlockHeader   = BlockHeaderMain $ block ^. gbHeader
       , icMainBlockHdr  = Just $ headerHash block
+      , icPrevMainHH    = Just $ headerHash (icBlockHeader prev)
       , icEpochLeaders  = icEpochLeaders prev
       , icStakes        = newStakes
       , icCrucialStakes = if isCrucial

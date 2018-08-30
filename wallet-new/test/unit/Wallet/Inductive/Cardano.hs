@@ -31,8 +31,10 @@ import           Pos.Crypto (EncryptedSecretKey, emptyPassphrase)
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import qualified Cardano.Wallet.Kernel.BListener as Kernel
 import qualified Cardano.Wallet.Kernel.DB.AcidState as DB
+import qualified Cardano.Wallet.Kernel.DB.BlockContext as DB
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
-import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
+import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
+import qualified Cardano.Wallet.Kernel.DB.Resolved as DB
 import qualified Cardano.Wallet.Kernel.Internal as Internal
 import           Cardano.Wallet.Kernel.Invariants as Kernel
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
@@ -177,7 +179,8 @@ interpretT useWW injErr mkWallet EventCallbacks{..} Inductive{..} =
         go ic hist w (e@(ExtSwitchToFork n bs):es) = do
             let w'      = switchToFork w n bs
                 hist'   = kernelEvent hist e w'
-            (bs', ic') <- int' hist' ic (IntSwitchToFork n bs)
+                bs0     = OldestFirst . toList . getOldestFirst $ bs
+            (bs', ic') <- int' hist' ic (IntSwitchToFork n bs0)
             let hist''  = kernelRollback hist' ic'
                 indCtxt = InductiveCtxt hist'' ic' w'
             withConfig $ walletSwitchToForkT indCtxt accountId n bs'
@@ -278,7 +281,7 @@ equivalentT useWW activeWallet esk = \mkWallet w ->
                       -> TranslateT EquivalenceViolation m ()
     walletApplyBlockT ctxt accountId block = do
         -- We assume the wallet is not behind
-        Right () <- liftIO $ Kernel.applyBlock passiveWallet (fromRawResolvedBlock block)
+        liftIO $ Kernel.applyBlock passiveWallet (fromRawResolvedBlock block)
         checkWalletState ctxt accountId
 
     walletNewPendingT :: InductiveCtxt h
@@ -304,9 +307,11 @@ equivalentT useWW activeWallet esk = \mkWallet w ->
                         -> Int
                         -> OldestFirst [] RawResolvedBlock
                         -> TranslateT EquivalenceViolation m ()
-    walletSwitchToForkT ctxt accountId n bs = do
+    walletSwitchToForkT ctxt accountId _n bs = do
         -- We assume the wallet is not in restoration mode
-        Right () <- liftIO $ Kernel.switchToFork passiveWallet n (map fromRawResolvedBlock (toList bs))
+        let rbs@(oldest:_) = map fromRawResolvedBlock (toList bs)
+            hh = _fromDb <$> (oldest ^. DB.rbContext . DB.bcPrevMain)
+        liftIO $ Kernel.switchToFork passiveWallet hh rbs
         checkWalletState ctxt accountId
 
     checkWalletState :: InductiveCtxt h

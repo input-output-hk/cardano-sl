@@ -10,19 +10,27 @@ module Cardano.Wallet.WalletLayer.Kernel
 import           Universum
 
 import qualified Control.Concurrent.STM as STM
+import qualified Data.List.NonEmpty as NE
 
-import           Pos.Chain.Block (Blund)
+import           Pos.Chain.Block (Blund, blockHeader, headerHash, prevBlockL)
+import           Pos.Chain.Genesis (Config (..))
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (ProtocolMagic)
-import           Pos.Util.Wlog (Severity (Debug))
+import           Pos.Util.Wlog (Severity (Debug, Warning))
 
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Actions as Actions
 import qualified Cardano.Wallet.Kernel.BListener as Kernel
+import           Cardano.Wallet.Kernel.DB.AcidState (dbHdWallets)
+import           Cardano.Wallet.Kernel.DB.HdWallet (hdAccountRestorationState,
+                     hdRootId, hdWalletsRoots)
+import qualified Cardano.Wallet.Kernel.DB.Read as Kernel
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
 import           Cardano.Wallet.Kernel.NodeStateAdaptor
 import qualified Cardano.Wallet.Kernel.Read as Kernel
+import qualified Cardano.Wallet.Kernel.Restore as Kernel
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),
                      PassiveWalletLayer (..))
 import qualified Cardano.Wallet.WalletLayer.Kernel.Accounts as Accounts
@@ -45,18 +53,50 @@ bracketPassiveWallet
     -> (PassiveWalletLayer n -> Kernel.PassiveWallet -> m a) -> m a
 bracketPassiveWallet mode logFunction keystore node f = do
     Kernel.bracketPassiveWallet mode logFunction keystore node $ \w -> do
+
+      -- For each wallet in a restoration state, re-start the background
+      -- restoration tasks.
+      liftIO $ do
+          snapshot <- Kernel.getWalletSnapshot w
+          let wallets = IxSet.toList (snapshot ^. dbHdWallets . hdWalletsRoots)
+          for_ wallets $ \root -> do
+              let accts      = Kernel.accountsByRootId snapshot (root ^. hdRootId)
+                  restoring  = IxSet.findWithEvidence hdAccountRestorationState accts
+
+              whenJust restoring $ \(src, tgt) -> do
+                  (w ^. Kernel.walletLogMessage) Warning
+                      ("bracketPassiveWallet: continuing restoration of "
+                       <> show (root ^. hdRootId)
+                       <> " from checkpoint " <> maybe "(genesis)" pretty src
+                       <> " with target "     <> pretty tgt)
+                  Kernel.continueRestoration w root src tgt
+
+      -- Start the wallet worker
       let wai = Actions.WalletActionInterp
                  { Actions.applyBlocks = \blunds -> do
                     ls <- mapM (Wallets.blundToResolvedBlock node)
                         (toList (getOldestFirst blunds))
                     let mp = catMaybes ls
-                    -- TODO: Deal with ApplyBlockFailed
                     mapM_ (Kernel.applyBlock w) mp
-                 , Actions.switchToFork = \_ _ ->
-                     logFunction Debug "<switchToFork>"
-                 , Actions.emit = logFunction Debug }
+
+                 , Actions.switchToFork = \_ (OldestFirst blunds) -> do
+                     -- Get the hash of the last main block before this fork.
+                     let almostOldest = fst (NE.head blunds)
+                     gh     <- configGenesisHash <$> getCoreConfig node
+                     oldest <- withNodeState node $ \_lock ->
+                                 mostRecentMainBlock gh
+                                   (almostOldest ^. blockHeader . prevBlockL)
+
+                     bs <- catMaybes <$> mapM (Wallets.blundToResolvedBlock node)
+                                             (NE.toList blunds)
+
+                     Kernel.switchToFork w (headerHash <$> oldest) bs
+
+                 , Actions.emit = logFunction Debug
+                 }
       Actions.withWalletWorker wai $ \invoke -> do
          f (passiveWalletLayer w invoke) w
+
   where
     passiveWalletLayer :: Kernel.PassiveWallet
                        -> (Actions.WalletAction Blund -> STM ())

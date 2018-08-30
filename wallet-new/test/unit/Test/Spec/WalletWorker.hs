@@ -98,9 +98,7 @@ data StackResult = StackResult
 stackOps :: Actions.WalletActionInterp (State Stack) Int
 stackOps = Actions.WalletActionInterp
     { Actions.applyBlocks  = mapM_ push
-    , Actions.switchToFork = \n bs -> do
-          replicateM_ n pop
-          mapM_ push bs
+    , Actions.switchToFork = \n bs -> replicateM_ n pop >> mapM_ push bs
     , Actions.emit         = const (return ())
     }
   where
@@ -120,9 +118,9 @@ interpStackOp op = modify $ \stk ->
 
 actionToStackOp :: Actions.WalletAction Int -> State Stack ()
 actionToStackOp = \case
-    Actions.ApplyBlocks    bs -> mapM_ push bs
-    Actions.RollbackBlocks n  -> replicateM_ n pop
-    Actions.LogMessage _      -> return ()
+    Actions.ApplyBlocks    bs  -> mapM_ push bs
+    Actions.RollbackBlocks n   -> replicateM_ n pop
+    Actions.LogMessage _       -> return ()
   where
     push = interpStackOp . Push
     pop  = interpStackOp Pop

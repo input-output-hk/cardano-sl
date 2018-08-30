@@ -29,6 +29,7 @@ module Cardano.Wallet.Kernel.DB.AcidState (
   , UpdateHdWallet(..)
   , UpdateHdRootPassword(..)
   , UpdateHdAccountName(..)
+  , ResetAllHdWalletAccounts(..)
     -- *** DELETE
   , DeleteHdRoot(..)
   , DeleteHdAccount(..)
@@ -43,20 +44,22 @@ module Cardano.Wallet.Kernel.DB.AcidState (
     -- * Errors
   , NewPendingError(..)
   , NewForeignError(..)
-  , SwitchToForkError(..)
+  , SwitchToForkInternalError(..)
   ) where
 
 import           Universum
 
+import           Control.Lens ((.=))
 import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Except (MonadError, catchError)
 import           Data.Acid (Query, Update, makeAcidic)
 import qualified Data.Map.Strict as Map
 import           Data.SafeCopy (base, deriveSafeCopy)
+import qualified Data.Set as Set
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
-import           Test.QuickCheck (Arbitrary (..), oneof)
 
+import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Txp (TxAux, TxId, Utxo)
 import           Pos.Chain.Update (SoftwareVersion)
 import           Pos.Core.Chrono (OldestFirst (..))
@@ -79,7 +82,10 @@ import qualified Cardano.Wallet.Kernel.DB.Util.Zoomable as Z
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (SecurityParameter (..))
 import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId,
                      PrefilteredBlock (..), emptyPrefilteredBlock)
-import           UTxO.Util (markMissingMapEntries)
+import           Cardano.Wallet.Kernel.Util.NonEmptyMap (NonEmptyMap)
+import qualified Cardano.Wallet.Kernel.Util.NonEmptyMap as NEM
+import           Test.QuickCheck (Arbitrary (..), oneof)
+import           UTxO.Util (markMissingMapEntries, mustBeRight)
 
 {-------------------------------------------------------------------------------
   Top-level database
@@ -132,16 +138,16 @@ data NewForeignError =
   | NewForeignFailed Spec.NewForeignFailed
 
 -- | Errors thrown by 'SwitchToFork'
-data SwitchToForkError =
+data SwitchToForkInternalError =
     -- | We cannot roll back  when we don't have full historical data available
     RollbackDuringRestoration
 
     -- | Apply block failed
-  | ApplyBlockFailed Spec.ApplyBlockFailed
+  | ApplyBlockFailedInternal Spec.ApplyBlockFailed
 
 deriveSafeCopy 1 'base ''NewPendingError
 deriveSafeCopy 1 'base ''NewForeignError
-deriveSafeCopy 1 'base ''SwitchToForkError
+deriveSafeCopy 1 'base ''SwitchToForkInternalError
 
 {-------------------------------------------------------------------------------
   Wrap wallet spec
@@ -233,16 +239,27 @@ cancelPending cancelled = void . runUpdate' . zoom dbHdWallets $
 --   need to push a new checkpoint.
 applyBlock :: SecurityParameter
            -> BlockContext
+           -> Maybe (Set HdAccountId)
            -> Map HdAccountId PrefilteredBlock
-           -> Update DB (Either Spec.ApplyBlockFailed (Map HdAccountId (Set TxId)))
-applyBlock k context blocks = runUpdateDiscardSnapshot $ zoom dbHdWallets $
-    updateAccounts =<< mkUpdates <$> use hdWalletsAccounts
+           -> Update DB (Either (NonEmptyMap HdAccountId Spec.ApplyBlockFailed) (Map HdAccountId (Set TxId)))
+applyBlock k context restriction blocks = runUpdateDiscardSnapshot $ do
+    -- Try to apply the block to each account in each wallet. If *any* have failed, throw the
+    -- list of *all* failures; otherwise, run the update.
+    let applyAll :: Update' Void DB (Map HdAccountId (Either Spec.ApplyBlockFailed (Set TxId)))
+        applyAll = zoom dbHdWallets $ updateAccounts =<< mkUpdates <$> use hdWalletsAccounts
+    (problems, successes) <- fmap (Map.mapEither id) (mapUpdateErrors absurd applyAll)
+    maybe (return successes) throwError (NEM.fromMap problems)
+
   where
+    acctFilter :: HdAccountId -> Bool
+    acctFilter = maybe (const True) (flip elem) restriction
+
     mkUpdates :: IxSet HdAccount
-              -> [AccountUpdate Spec.ApplyBlockFailed (Set TxId)]
+              -> [AccountUpdate Void (Either Spec.ApplyBlockFailed (Set TxId))]
     mkUpdates existingAccounts =
           map mkUpdate
         . Map.toList
+        . Map.filterWithKey (const . acctFilter)
         . markMissingMapEntries (IxSet.toMap existingAccounts)
         $ blocks
 
@@ -256,15 +273,15 @@ applyBlock k context blocks = runUpdateDiscardSnapshot $ zoom dbHdWallets $
     -- initial utxo for accounts discovered during 'applyBlock' (and
     -- 'switchToFork')
     mkUpdate :: (HdAccountId, Maybe PrefilteredBlock)
-             -> AccountUpdate Spec.ApplyBlockFailed (Set TxId)
+             -> AccountUpdate Void (Either Spec.ApplyBlockFailed (Set TxId))
     mkUpdate (accId, mPB) = AccountUpdate {
           accountUpdateId    = accId
         , accountUpdateAddrs = pfbAddrs pb
         , accountUpdateNew   = AccountUpdateNewUpToDate Map.empty
         , accountUpdate      =
             matchHdAccountCheckpoints
-              (Spec.applyBlock k      pb)
-              (Spec.applyBlockPartial pb)
+              (tryUpdate' $ Spec.applyBlock k      pb)
+              (tryUpdate' $ Spec.applyBlockPartial pb)
         }
       where
         pb :: PrefilteredBlock
@@ -281,10 +298,9 @@ applyHistoricalBlock k context blocks =
       updateAccounts_ =<< mkUpdates <$> use hdWalletsAccounts
   where
     mkUpdates :: IxSet HdAccount -> [AccountUpdate Spec.ApplyBlockFailed ()]
-    mkUpdates existingAccounts =
+    mkUpdates _existingAccounts =
           map mkUpdate
         . Map.toList
-        . markMissingMapEntries (IxSet.toMap existingAccounts)
         $ blocks
 
     -- The account update
@@ -294,12 +310,12 @@ applyHistoricalBlock k context blocks =
     -- have an empty genesis UTxO and an empty current UTxO. (It can't have
     -- a non-empty genesis UTxO because if it did we would already have
     -- known about this account).
-    mkUpdate :: (HdAccountId, Maybe PrefilteredBlock)
+    mkUpdate :: (HdAccountId, PrefilteredBlock)
              -> AccountUpdate Spec.ApplyBlockFailed ()
-    mkUpdate (accId, mPB) = AccountUpdate {
+    mkUpdate (accId, pb) = AccountUpdate {
           accountUpdateId    = accId
         , accountUpdateAddrs = pfbAddrs pb
-        , accountUpdateNew   = AccountUpdateNewIncomplete mempty mempty
+        , accountUpdateNew   = AccountUpdateNewIncomplete mempty mempty context
         , accountUpdate      = void $ Z.wrap $ \acc -> do
             -- Under normal circumstances we should not encounter an account
             -- that is in UpToDate state during restoration. There is only one
@@ -320,7 +336,7 @@ applyHistoricalBlock k context blocks =
                       })
             case acc ^. hdAccountState of
               HdAccountStateUpToDate (HdAccountUpToDate upToDate) -> do
-                let current = liftCheckpoints (fmap (view fromFullCheckpoint)) upToDate
+                let current = liftCheckpoints (fmap (fromFullCheckpoint context)) upToDate
                     history = Checkpoints $ one $ initCheckpoint mempty
                 second (updateHistory current) $
                   Z.unwrap (Spec.applyBlock k pb) history
@@ -328,9 +344,6 @@ applyHistoricalBlock k context blocks =
                 second (updateHistory current) $
                   Z.unwrap (Spec.applyBlock k pb) history
         }
-      where
-        pb :: PrefilteredBlock
-        pb = fromMaybe (emptyPrefilteredBlock context) mPB
 
 -- | Finish restoration of a wallet
 --
@@ -352,42 +365,59 @@ restorationComplete k rootId = runUpdateNoErrors $ zoom dbHdWallets $
     accRootId :: HdAccount -> HdRootId
     accRootId = view (hdAccountId . hdAccountIdParent)
 
--- | Switch to a fork
---
--- See comments about prefiltering for 'applyBlock'.
---
--- Returns the set of transactions that were reintroduced into pending by the
--- rollback and the transactions that were removed from pending by the new
--- blocks.
---
--- TODO: We use a plain list here rather than 'OldestFirst' since the latter
--- does not have a 'SafeCopy' instance.
+{-| Switch to a fork
+
+    See comments about prefiltering for 'applyBlock'.
+
+    Returns the set of transactions that were reintroduced into pending by the
+    rollback and the transactions that were removed from pending by the new
+    blocks.
+
+    TODO: We use a plain list here rather than 'OldestFirst' since the latter
+    does not have a 'SafeCopy' instance.
+
+ genesis
+ block         `oldest`                   tip before
+  |               |                           |
+  V               V                           V   tip after
+  o---o---o---o---o---o---o---o---o---o---o---o       |
+                   \                                  V
+                    `-o---o---o---o---o---o---o---o---o
+                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                                     |
+                                  `blocks`
+-}
 switchToFork :: SecurityParameter
-             -> Int
+             -> Maybe HeaderHash
+                -- ^ 'Nothing' for genesis block, or else @Just hh@ where @hh@
+                -- is the hash of some main block.
              -> [(BlockContext, Map HdAccountId PrefilteredBlock)]
-             -> Update DB (Either SwitchToForkError
+             -> Set HdRootId
+             -> Update DB (Either [HdAccountId]
                                   (Map HdAccountId (Pending, Set TxId)))
-switchToFork k n blocks = runUpdateDiscardSnapshot $ zoom dbHdWallets $
-    updateAccounts =<< mkUpdates <$> use hdWalletsAccounts
+switchToFork k oldest blocks toSkip =
+    runUpdateDiscardSnapshot $ zoom dbHdWallets $
+        updateAccountsWithErrors =<< mkUpdates <$> use hdWalletsAccounts
   where
     mkUpdates :: IxSet HdAccount
-              -> [AccountUpdate SwitchToForkError (Pending, Set TxId)]
+              -> [AccountUpdate SwitchToForkInternalError (Pending, Set TxId)]
     mkUpdates existingAccounts =
           map mkUpdate
         . Map.toList
+        . (Map.filterWithKey $ \acctId _ -> not ((acctId ^. hdAccountIdParent) `Set.member` toSkip))
         . redistribute
         . map (second (markMissingMapEntries (IxSet.toMap existingAccounts)))
         $ blocks
 
     mkUpdate :: (HdAccountId, OldestFirst [] PrefilteredBlock)
-             -> AccountUpdate SwitchToForkError (Pending, Set TxId)
+             -> AccountUpdate SwitchToForkInternalError (Pending, Set TxId)
     mkUpdate (accId, pbs) = AccountUpdate {
           accountUpdateId    = accId
         , accountUpdateAddrs = concatMap pfbAddrs pbs
         , accountUpdateNew   = AccountUpdateNewUpToDate Map.empty
         , accountUpdate      =
             matchHdAccountCheckpoints
-              (mapUpdateErrors ApplyBlockFailed $ Spec.switchToFork k n pbs)
+              (mapUpdateErrors ApplyBlockFailedInternal $ Spec.switchToFork k oldest pbs)
               (throwError RollbackDuringRestoration)
         }
 
@@ -415,7 +445,7 @@ switchToFork k n blocks = runUpdateDiscardSnapshot $ zoom dbHdWallets $
 -- Returns the set of pending transactions that have become pending again,
 -- for each account.
 -- See 'switchToFork' for use in real code.
-observableRollbackUseInTestsOnly :: Update DB (Either SwitchToForkError
+observableRollbackUseInTestsOnly :: Update DB (Either SwitchToForkInternalError
                                                       (Map HdAccountId Pending))
 observableRollbackUseInTestsOnly = runUpdateDiscardSnapshot $
     zoomIxSet (dbHdWallets . hdWalletsAccounts) $
@@ -490,19 +520,22 @@ restoreHdWallet :: HdRoot
                 -- 'HdAccount'.
                 -> HdAddress
                 -- ^ The default HdAddress to go with this HdRoot
+                -> BlockContext
+                -- ^ The initial block context for restorations
                 -> Map HdAccountId (Utxo, Utxo, [AddrWithId])
                 -- ^ Current and genesis UTxO per account
                 -> Update DB (Either HD.CreateHdRootError ())
-restoreHdWallet newRoot defaultHdAccountId defaultHdAddress utxoByAccount =
-    runUpdateDiscardSnapshot . zoom dbHdWallets $ do
-      HD.createHdRoot newRoot
-      updateAccounts_ $ map mkUpdate (Map.toList (insertDefault utxoByAccount))
+restoreHdWallet newRoot defaultHdAccountId defaultHdAddress ctx utxoByAccount =
+    runUpdateDiscardSnapshot $ do
+      zoom dbHdWallets $ do
+          HD.createHdRoot newRoot
+          updateAccounts_ $ map mkUpdate (Map.toList (insertDefault utxoByAccount))
   where
     mkUpdate :: (HdAccountId, (Utxo, Utxo, [AddrWithId]))
              -> AccountUpdate HD.CreateHdRootError ()
     mkUpdate (accId, (curUtxo, genUtxo, addrs)) = AccountUpdate {
           accountUpdateId    = accId
-        , accountUpdateNew   = AccountUpdateNewIncomplete curUtxo genUtxo
+        , accountUpdateNew   = AccountUpdateNewIncomplete curUtxo genUtxo ctx
         , accountUpdateAddrs = addrs
         , accountUpdate      = return () -- Create it only
         }
@@ -572,7 +605,8 @@ data AccountUpdateNew =
     --
     -- * The current UTxO (obtained by filtering the full node's current UTxO)
     -- * The genesis UTxO (obtained by filtering 'genesisUtxo')
-  | AccountUpdateNewIncomplete !Utxo !Utxo
+    -- * The block context to use for the first partial checkpoint.
+  | AccountUpdateNewIncomplete !Utxo !Utxo !BlockContext
 
 -- | Brand new account (if one needs to be created)
 accountUpdateCreate :: HdAccountId -> AccountUpdateNew -> HdAccount
@@ -583,12 +617,12 @@ accountUpdateCreate accId (AccountUpdateNewUpToDate utxo) =
     initState = HdAccountStateUpToDate HdAccountUpToDate {
           _hdUpToDateCheckpoints = Checkpoints $ one $ initCheckpoint utxo
         }
-accountUpdateCreate accId (AccountUpdateNewIncomplete curUtxo genUtxo) =
+accountUpdateCreate accId (AccountUpdateNewIncomplete curUtxo genUtxo ctx) =
     HD.initHdAccount accId initState
   where
     initState :: HdAccountState
     initState = HdAccountStateIncomplete HdAccountIncomplete {
-          _hdIncompleteCurrent    = Checkpoints $ one $ initPartialCheckpoint curUtxo
+          _hdIncompleteCurrent    = Checkpoints $ one $ initPartialCheckpoint ctx curUtxo
         , _hdIncompleteHistorical = Checkpoints $ one $ initCheckpoint        genUtxo
         }
 
@@ -616,6 +650,19 @@ updateAccounts = fmap Map.fromList . mapM updateAccount
 
 updateAccounts_ :: [AccountUpdate e ()] -> Update' e HdWallets ()
 updateAccounts_ = mapM_ updateAccount
+
+-- | Run each update, collecting all errors. Then, if there were any errors for any
+-- accounts, throw them all at once without updating the state.
+-- Otherwise, update the state as usual.
+updateAccountsWithErrors :: [AccountUpdate e a]
+                         -> Update' [HdAccountId] HdWallets (Map HdAccountId a)
+updateAccountsWithErrors updates = do
+    results <- forM updates $ \upd ->
+        tryUpdate (mapUpdateErrors (const $ accountUpdateId upd) (updateAccount upd))
+    let (errors, successes) = partitionEithers results
+    case errors of
+      []   -> return (Map.fromList successes)
+      errs -> throwError errs
 
 {-------------------------------------------------------------------------------
   Wrap HD C(R)UD operations
@@ -659,6 +706,37 @@ deleteHdRoot rootId = runUpdateDiscardSnapshot . zoom dbHdWallets $
 deleteHdAccount :: HdAccountId -> Update DB (Either UnknownHdAccount ())
 deleteHdAccount accId = runUpdateDiscardSnapshot . zoom dbHdWallets $
     HD.deleteHdAccount accId
+
+-- | Set all accounts in the map back to an incomplete state. This is used to
+-- put an existing wallet back into an initial state for restoration.
+resetAllHdWalletAccounts :: BlockContext -> Map HdAccountId (Utxo, Utxo, [AddrWithId]) -> Update DB ()
+resetAllHdWalletAccounts context utxoByAccount = mustBeRight <$> do
+    runUpdateDiscardSnapshot $ zoom dbHdWallets $
+      updateAccounts_ =<< mkUpdates <$> use hdWalletsAccounts
+  where
+    mkUpdates :: IxSet HdAccount -> [AccountUpdate Void ()]
+    mkUpdates existingAccounts =
+          map mkUpdate
+        . Map.toList
+        . markMissingMapEntries (IxSet.toMap existingAccounts)
+        $ utxoByAccount
+
+    -- The account update: set every account back to the incomplete state.
+    mkUpdate :: (HdAccountId, Maybe (Utxo, Utxo, [AddrWithId]))
+             -> AccountUpdate Void ()
+    mkUpdate (accId, utxos) = AccountUpdate {
+          accountUpdateId    = accId
+        , accountUpdateAddrs = []
+        , accountUpdateNew   = AccountUpdateNewIncomplete mempty mempty context
+        , accountUpdate      =
+                let (curUtxo, genUtxo) = maybe (mempty, mempty) (\(u,u',_) -> (u,u')) utxos
+                    s = HdAccountIncomplete
+                      { _hdIncompleteCurrent    = Checkpoints $ one $ initPartialCheckpoint context curUtxo
+                      , _hdIncompleteHistorical = Checkpoints $ one $ initCheckpoint        genUtxo
+                      }
+                in hdAccountState .= HdAccountStateIncomplete s
+        }
+
 
 {-------------------------------------------------------------------------------
   DB cleaning
@@ -716,6 +794,7 @@ makeAcidic ''DB [
     , 'updateHdAccountName
     , 'deleteHdRoot
     , 'deleteHdAccount
+    , 'resetAllHdWalletAccounts
     , 'clearDB
     , 'restoreHdWallet
       -- Software updates

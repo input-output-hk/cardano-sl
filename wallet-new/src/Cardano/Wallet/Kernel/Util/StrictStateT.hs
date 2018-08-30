@@ -8,6 +8,7 @@ module Cardano.Wallet.Kernel.Util.StrictStateT (
   , evalStrictStateT
   , execStrictStateT
   , strictStateT
+  , mapStrictStateT
     -- * Conduit support
   , strictStateC
   , execStrictStateC
@@ -56,6 +57,9 @@ strictStateT f = StrictStateT $ StateT f'
   where
     f' :: s -> m (a, s)
     f' s = do (a, !s') <- f s ; return (a, s')
+
+mapStrictStateT :: (m (a, s) -> n (b, s)) -> StrictStateT s m a -> StrictStateT s n b
+mapStrictStateT f m = StrictStateT $ StateT $ f . runStrictStateT m
 
 {-------------------------------------------------------------------------------
   Conduit support

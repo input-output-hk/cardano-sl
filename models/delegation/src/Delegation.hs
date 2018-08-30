@@ -23,14 +23,43 @@ data Addr = AddrTxin (Digest SHA256) (Digest SHA256)
           | AddrAccount (Digest SHA256) (Digest SHA256)
           deriving (Show, Eq, Ord)
 newtype Coin = Coin Int deriving (Show, Eq, Ord)
-data Cert = RegKey | DeRegKey | Delegate | RegPool | RetirePool
-  deriving (Show, Eq, Ord)
 
 newtype Owner = Owner Int deriving (Show, Eq, Ord)
 newtype SKey = SKey Owner deriving (Show, Eq, Ord)
 newtype VKey = VKey Owner deriving (Show, Eq, Ord)
 newtype HashKey = HashKey (Digest SHA256) deriving (Show, Eq, Ord)
+
+hashKey :: VKey -> HashKey
+hashKey key = HashKey $ hash key
+
 data Sig a = Sig a Owner deriving (Show, Eq, Ord)
+
+data StakePool = StakePool
+                   { poolPubKey :: VKey
+                   , poolOperators :: [HashKey]
+                   , poolCost :: Coin
+                   , poolMargin :: Float -- TODO is float okay?
+                   , poolAltAcnt :: Maybe HashKey
+                   } deriving (Show, Eq, Ord)
+
+data Delegation = Delegation { delegator :: VKey
+                             , delegatee :: VKey }
+                             deriving (Show, Eq, Ord)
+
+data Cert = RegKey VKey
+          | DeRegKey VKey --TODO this is actually HashKey on page 13, is that what we want?
+          | RegPool StakePool
+          | RetirePool VKey Int
+          | Delegate Delegation
+  deriving (Show, Eq, Ord)
+
+getRequiredSigningKey :: Cert -> VKey
+getRequiredSigningKey (RegKey key) = key
+getRequiredSigningKey (DeRegKey key) = key
+getRequiredSigningKey (RegPool pool) = poolPubKey pool
+getRequiredSigningKey (RetirePool key _) = key
+getRequiredSigningKey (Delegate delegation) = delegator delegation
+
 data WitTxin = WitTxin VKey (Sig TxBody) deriving (Show, Eq, Ord)
 data WitCert = WitCert VKey (Sig TxBody) deriving (Show, Eq, Ord)
 data Wits = Wits { txinWits :: (Set WitTxin)
@@ -187,7 +216,7 @@ witnessTxin (Tx txBody (Wits ws _)) l =
       verify key tb sig && authTxin key inp utxo
 
 authCert :: VKey -> Cert -> Bool
-authCert key cert = True -- TODO
+authCert key cert = getRequiredSigningKey cert == key
 
 witnessCert :: Tx -> Validity
 witnessCert (Tx txBody (Wits _ ws)) =
@@ -208,28 +237,29 @@ valid tx l =
     <> witnessTxin tx l
     <> witnessCert tx
 
+applyCert :: Cert -> LedgerState -> LedgerState
+applyCert (RegKey key) ls = ls {getStKeys = (Set.insert (hashKey key) (getStKeys ls))}
+applyCert (DeRegKey key) ls = ls {getStKeys = (Set.delete (hashKey key) (getStKeys ls))}
+applyCert (Delegate (Delegation source target)) ls =
+  ls {getDelegations = Map.insert (hashKey source) (hashKey target) (getDelegations ls)}
+applyCert (RegPool sp) ls = ls {getStPools = (Set.insert hsk (getStPools ls))}
+  where hsk = hashKey $ poolPubKey sp
+applyCert (RetirePool key epoch) ls = ls {getRetiring = retiring}
+  where retiring = Map.insert (hashKey key) epoch (getRetiring ls)
 
-applyTransaction :: Tx -> LedgerState -> LedgerState
-applyTransaction tx l = LedgerState
-                         { getUtxo = newUTxOs
-                         , getAccounts = newAccounts
-                         , getStKeys = newStKeys
-                         , getDelegations = newDelegations
-                         , getStPools = newStPools
-                         , getRetiring = newRetiring
-                         , getEpoch = newEpoch
-                         }
-  where
-    newUTxOs = (txins tx !<| (getUtxo l) `unionUTxO` txouts tx)
-    newAccounts = getAccounts l --TODO implement
-    newStKeys = getStKeys l --TODO implement
-    newDelegations = getDelegations l --TODO implement
-    newStPools = getStPools l --TODO implement
-    newRetiring = getRetiring l --TODO implement
-    newEpoch = getEpoch l --TODO implement
+applyTxBody :: LedgerState -> Tx -> LedgerState
+applyTxBody ls tx = ls { getUtxo = newUTxOs }
+  where newUTxOs = (txins tx !<| (getUtxo ls) `unionUTxO` txouts tx)
 
-asStateTransition :: Tx -> LedgerState -> Either [ValidationError] LedgerState
-asStateTransition tx l =
-  case valid tx l of
+applyCerts :: LedgerState -> Set Cert -> LedgerState
+applyCerts = Set.fold applyCert
+
+applyTransaction :: LedgerState -> Tx -> LedgerState
+applyTransaction ls tx = applyTxBody (applyCerts ls cs) tx
+  where cs = (certs . body) tx
+
+asStateTransition :: LedgerState -> Tx -> Either [ValidationError] LedgerState
+asStateTransition ls tx =
+  case valid tx ls of
     Invalid errors -> Left errors
-    Valid          -> Right $ applyTransaction tx l
+    Valid          -> Right $ applyTransaction ls tx

@@ -9,16 +9,16 @@ import           Data.List  (find)
 import           Delegation
 
 
-alice_pay = Owner 1
-alice_stake = Owner 2
-bob_pay = Owner 3
-bob_stake = Owner 4
-carol_pay = Owner 5
-carol_stake = Owner 6
+alicePay = Owner 1
+aliceStake = Owner 2
+bobPay = Owner 3
+bobStake = Owner 4
+poolPay = Owner 5
+poolStake = Owner 6
 
-aliceAddr = AddrTxin (hash (VKey alice_pay)) (hash (VKey alice_stake))
-bobAddr = AddrTxin (hash (VKey bob_pay)) (hash (VKey bob_stake))
-carolAddr = AddrTxin (hash (VKey carol_pay)) (hash (VKey carol_stake))
+aliceAddr = AddrTxin (hash (VKey alicePay)) (hash (VKey aliceStake))
+bobAddr = AddrTxin (hash (VKey bobPay)) (hash (VKey bobStake))
+poolAddr = AddrTxin (hash (VKey poolPay)) (hash (VKey poolStake))
 
 genesis = genesisState
             [ TxOut aliceAddr (Coin 10)
@@ -28,14 +28,15 @@ tx1Body = TxBody
             (Set.fromList [TxIn genesisId 0])
             [ TxOut aliceAddr (Coin 7)
             , TxOut bobAddr (Coin 1)
-            , TxOut carolAddr (Coin 2) ]
-            (Set.fromList [Delegate])
+            , TxOut poolAddr (Coin 2) ]
+            (Set.fromList [
+              Delegate (Delegation (VKey aliceStake) (VKey poolStake))])
 tx1Wits = Wits
             (Set.fromList
-              [ WitTxin (VKey alice_pay) (Sig tx1Body alice_pay)
+              [ WitTxin (VKey alicePay) (Sig tx1Body alicePay)
               ])
             (Set.fromList
-              [ WitCert (VKey alice_stake) (Sig tx1Body alice_stake)
+              [ WitCert (VKey aliceStake) (Sig tx1Body aliceStake)
               ])
 tx1 = Tx tx1Body tx1Wits
 
@@ -43,16 +44,17 @@ spec :: Spec
 spec = do
   it "genesis balance" $ balance (getUtxo genesis) `shouldBe` Coin 30
   it "transaction transition" $
-    asStateTransition tx1 genesis `shouldBe` Right ( LedgerState {
+    asStateTransition genesis tx1 `shouldBe` Right ( LedgerState {
       getUtxo = UTxO $ Map.fromList
                   [ (TxIn genesisId 1, TxOut bobAddr (Coin 20))
                   , (TxIn (txid tx1) 0, TxOut aliceAddr (Coin 7))
                   , (TxIn (txid tx1) 1, TxOut bobAddr (Coin 1))
-                  , (TxIn (txid tx1) 2, TxOut carolAddr (Coin 2))
+                  , (TxIn (txid tx1) 2, TxOut poolAddr (Coin 2))
                   ]
       , getAccounts = Map.empty
       , getStKeys = Set.empty
-      , getDelegations = Map.empty
+      , getDelegations = Map.fromList [
+          ((hashKey (VKey aliceStake)), (hashKey (VKey poolStake)))]
       , getStPools = Set.empty
       , getRetiring = Map.empty
       , getEpoch = 0

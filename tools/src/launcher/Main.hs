@@ -12,7 +12,6 @@
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
-{-# LANGUAGE RecordWildCards  #-}
 
 import qualified Prelude (show)
 import           Universum
@@ -639,7 +638,7 @@ readSafeMode lo = do
     decoded <- liftIO $ Y.decodeFileEither safeModeConfigFile
     case decoded of
         Right value -> pure $ smcSafeMode value
-        Left _ -> pure False
+        Left _      -> pure False
 
 saveSafeMode :: LauncherOptions -> Bool -> M ()
 saveSafeMode lo status = do

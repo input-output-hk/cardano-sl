@@ -5,6 +5,13 @@
 
 ### Features
 
+- #### Reduce number of files on disk
+  Blund files (containing blocks and their undos) for older epochs (from zero up to current
+  epoch minus two) are now consolidated into epoch/index file pairs. That means that the number
+  of files to store the block chain for a single epoch is reduced from 21600 (one blund file for
+  each slot in an epoch) to an epoch/index file pair. Consolidation happens on-the-fly in a
+  background process.
+
 ### Fixes
 
 - #### Make productionReporter more robust

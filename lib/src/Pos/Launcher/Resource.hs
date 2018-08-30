@@ -19,6 +19,8 @@ module Pos.Launcher.Resource
 
 import           Universum
 
+import           Control.Concurrent.Async.Lifted (Async)
+import qualified Control.Concurrent.Async.Lifted as Async
 import           Control.Concurrent.STM (newEmptyTMVarIO, newTBQueueIO)
 import           Control.Exception.Base (ErrorCall (..))
 import           Data.Default (Default)
@@ -43,7 +45,7 @@ import           Pos.Core as Core (Config, HasConfiguration, Timestamp,
                      configBlkSecurityParam, configEpochSlots, configStartTime)
 import           Pos.Core.Reporting (initializeMisbehaviorMetrics)
 import           Pos.DB (MonadDBRead, NodeDBs)
-import           Pos.DB.Block (mkSlogContext)
+import           Pos.DB.Block (consolidateWorker, mkSlogContext)
 import           Pos.DB.Delegation (mkDelegationVar)
 import           Pos.DB.Lrc (LrcContext (..), mkLrcSyncData)
 import           Pos.DB.Rocks (closeNodeDBs, openNodeDBs)
@@ -86,6 +88,7 @@ data NodeResources ext = NodeResources
     , nrJsonLogConfig :: !JsonLogConfig
     -- ^ Config for optional JSON logging.
     , nrEkgStore      :: !Metrics.Store
+    , nrConsolidate   :: !(Async ())
     }
 
 ----------------------------------------------------------------------------
@@ -133,6 +136,9 @@ allocateNodeResources coreConfig np@NodeParams {..} sscnp txpSettings initDB = d
         initDB
         logDebug "Initialized DB"
 
+        consAsync <- Async.async $ consolidateWorker coreConfig
+        logDebug "Initialized block/epoch consolidation"
+
         nrEkgStore <- liftIO $ Metrics.newStore
         logDebug "Created EKG store"
 
@@ -175,6 +181,7 @@ allocateNodeResources coreConfig np@NodeParams {..} sscnp txpSettings initDB = d
             , nrTxpState = txpVar
             , nrDlgState = dlgVar
             , nrJsonLogConfig = jsonLogConfig
+            , nrConsolidate = consAsync
             , ..
             }
 
@@ -189,6 +196,7 @@ releaseNodeResources NodeResources {..} = do
             (liftIO . hClose) h
             putMVar mVarHandle h
     closeNodeDBs nrDBs
+    Async.cancel nrConsolidate
     releaseNodeContext nrContext
 
 -- | Run computation which requires 'NodeResources' ensuring that

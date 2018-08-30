@@ -7,6 +7,7 @@
 module Pos.DB.Block
        ( getBlock
        , deleteBlock
+       , consolidateWorker
 
        , prepareBlockDB
 
@@ -35,7 +36,8 @@ import           Universum
 
 import           Pos.Chain.Block (HeaderHash)
 import qualified Pos.Chain.Block as CB
-import           Pos.DB.Block.Epoch (dbGetConsolidatedSerBlockRealDefault,
+import           Pos.DB.Block.Epoch (consolidateWorker,
+                     dbGetConsolidatedSerBlockRealDefault,
                      dbGetConsolidatedSerBlundRealDefault,
                      dbGetConsolidatedSerUndoRealDefault)
 import           Pos.DB.Block.Internal (dbGetSerBlockPureDefault,

@@ -95,7 +95,6 @@ openNodeDBs recreate fp = do
     _gStateDB <- openRocksDB gStatePath
     _lrcDB <- openRocksDB lrcPath
     _miscDB <- openRocksDB miscPath
-    _miscLock <- RWL.new
     _epochLock <- RWL.new
     pure NodeDBs {..}
   where

@@ -17,8 +17,7 @@ import           Ntp.Client (NtpConfiguration)
 import           Pos.Chain.Txp (TxpConfiguration)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (NodeContext (..))
-import           Pos.Core as Core (Config (..), ConfigurationError,
-                     configBlkSecurityParam)
+import           Pos.Core as Core (Config (..), ConfigurationError)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Txp (txpGlobalSettings)
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
@@ -124,7 +123,7 @@ action opts@AuxxOptions {..} command = do
             sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
 
         let pm = configProtocolMagic coreConfig
-        bracketNodeResources (configBlkSecurityParam coreConfig) nodeParams sscParams (txpGlobalSettings pm txpConfig) (initNodeDBs coreConfig) $ \nr ->
+        bracketNodeResources coreConfig nodeParams sscParams (txpGlobalSettings pm txpConfig) (initNodeDBs coreConfig) $ \nr ->
             let NodeContext {..} = nrContext nr
                 modifier = if aoStartMode == WithNode
                            then runNodeWithSinglePlugin coreConfig txpConfig nr

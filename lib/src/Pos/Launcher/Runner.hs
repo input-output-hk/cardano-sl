@@ -9,8 +9,6 @@ module Pos.Launcher.Runner
        ( -- * High level runners
          runRealMode
 
-       , elimRealMode
-
        -- * Exported for custom usage in CLI utils
        , runServer
        ) where

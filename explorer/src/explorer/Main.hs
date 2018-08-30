@@ -22,8 +22,7 @@ import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..),
                      getNodeParams)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (NodeContext (..))
-import           Pos.Core as Core (Config (..), configBlkSecurityParam,
-                     configEpochSlots)
+import           Pos.Core as Core (Config (..), configEpochSlots)
 import           Pos.Explorer.DB (explorerInitDB)
 import           Pos.Explorer.ExtraContext (makeExtraCtx)
 import           Pos.Explorer.Socket (NotifierSettings (..))
@@ -80,7 +79,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
                 , updateTriggerWorker
                 ]
         bracketNodeResources
-            (configBlkSecurityParam coreConfig)
+            coreConfig
             currentParams
             sscParams
             (explorerTxpGlobalSettings (configProtocolMagic coreConfig) txpConfig)

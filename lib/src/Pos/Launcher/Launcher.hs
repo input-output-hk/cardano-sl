@@ -5,14 +5,14 @@
 
 module Pos.Launcher.Launcher
        ( -- * Node launcher.
-         runNodeReal
+         runNodeRealSimple
        ) where
 
 import           Universum
 
 import           Pos.Chain.Ssc (SscParams)
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Core as Core (Config (..), configBlkSecurityParam)
+import           Pos.Core as Core (Config (..))
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Txp (txpGlobalSettings)
 import           Pos.Infra.Diffusion.Types (Diffusion)
@@ -30,7 +30,9 @@ import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 -----------------------------------------------------------------------------
 
 -- | Run full node in real mode.
-runNodeReal
+-- This function is *only* used by `cardano-node-simple`, the node without
+-- wallet functionality.
+runNodeRealSimple
     :: (HasConfigurations, HasCompileInfo)
     => Core.Config
     -> TxpConfiguration
@@ -40,8 +42,8 @@ runNodeReal
        -> RealMode EmptyMempoolExt ()
        ]
     -> IO ()
-runNodeReal coreConfig txpConfig np sscnp plugins = bracketNodeResources
-    (configBlkSecurityParam coreConfig)
+runNodeRealSimple coreConfig txpConfig np sscnp plugins = bracketNodeResources
+    coreConfig
     np
     sscnp
     (txpGlobalSettings (configProtocolMagic coreConfig) txpConfig)

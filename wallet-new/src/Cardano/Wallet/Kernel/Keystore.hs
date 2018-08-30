@@ -16,6 +16,7 @@ module Cardano.Wallet.Kernel.Keystore (
     , ReplaceResult(..)
       -- * Constructing a keystore
     , bracketKeystore
+    , bracketImportLegacyKeystore
     , bracketLegacyKeystore
     -- * Inserting values
     , insert
@@ -25,6 +26,7 @@ module Cardano.Wallet.Kernel.Keystore (
     , delete
     -- * Queries on a keystore
     , lookup
+    , lookupLegacyRootKey
     -- * Tests handy functions
     , bracketTestKeystore
     ) where
@@ -39,7 +41,8 @@ import           System.IO (hClose, openTempFile)
 
 import           Pos.Crypto (EncryptedSecretKey, hash)
 import           Pos.Util.UserSecret (UserSecret, getUSPath, isEmptyUserSecret,
-                     takeUserSecret, usKeys, writeUserSecretRelease)
+                     readUserSecret, takeUserSecret, usKeys, usWallet,
+                     writeUserSecretRelease, _wusRootKey)
 import           Pos.Util.Wlog (CanLog (..), HasLoggerName (..),
                      LoggerName (..), logMessage)
 
@@ -100,6 +103,25 @@ bracketKeystore deletePolicy fp withKeystore =
 newKeystore :: FilePath -> IO Keystore
 newKeystore fp = runIdentityT $ fromKeystore $ do
     us <- takeUserSecret fp
+    Keystore <$> newMVar (InternalStorage us)
+
+-- | Like 'bracketKeystore', but this function is meant to be used to support
+-- the legacy feature of importing a wallet from its '.key' file (thus the
+-- 'legacy' suffix).
+bracketImportLegacyKeystore :: FilePath
+                            -- ^ The path to the file which will be used for the 'Keystore'
+                            -> (Keystore -> IO a)
+                            -- ^ An action on the 'Keystore'.
+                            -> IO a
+bracketImportLegacyKeystore fp withKeystore =
+    bracket (importLegacyKeystore fp)
+            (releaseKeystore KeepKeystoreIfEmpty)
+            withKeystore
+
+-- | Imports a Keystore from disk.
+importLegacyKeystore :: FilePath -> IO Keystore
+importLegacyKeystore fp = runIdentityT $ fromKeystore $ do
+    us <- readUserSecret fp
     Keystore <$> newMVar (InternalStorage us)
 
 -- | Creates a legacy 'Keystore' by reading the 'UserSecret' from a 'NodeContext'.
@@ -231,6 +253,14 @@ lookup wId (Keystore ks) =
 lookupKey :: UserSecret -> WalletId -> Maybe EncryptedSecretKey
 lookupKey us (WalletIdHdRnd walletId) =
     Data.List.find (\k -> eskToHdRootId k == walletId) (us ^. usKeys)
+
+-- | Lookup the root 'EncryptedSecretKey' associated to this keystore
+lookupLegacyRootKey :: Keystore -> IO (Maybe EncryptedSecretKey)
+lookupLegacyRootKey (Keystore ks) =
+    withMVar ks $ \(InternalStorage us) ->
+        case us ^. usWallet of
+             Nothing -> return Nothing
+             Just w  -> return (Just $ _wusRootKey w)
 
 {-------------------------------------------------------------------------------
   Deleting things from the keystore

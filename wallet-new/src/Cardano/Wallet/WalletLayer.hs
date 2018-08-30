@@ -328,7 +328,11 @@ instance Buildable UpdateAccountError where
 
 data ImportWalletError =
       ImportWalletFileNotFound FilePath
-    deriving Eq
+    | ImportWalletNoWalletFoundInBackup FilePath
+    -- ^ When trying to fetch the required information, the legacy keystore
+    -- didn't provide any.
+    | ImportWalletCreationFailed CreateWalletError
+    -- ^ When trying to import this wallet, the wallet creation failed.
 
 -- | Unsound show instance needed for the 'Exception' instance.
 instance Show ImportWalletError where
@@ -339,6 +343,10 @@ instance Exception ImportWalletError
 instance Buildable ImportWalletError where
     build (ImportWalletFileNotFound fp) =
         bprint ("ImportWalletFileNotFound " % build) fp
+    build (ImportWalletNoWalletFoundInBackup fp) =
+        bprint ("ImportWalletNoWalletFoundInBackup " % build) fp
+    build (ImportWalletCreationFailed err) =
+        bprint ("ImportWalletCreationFailed " % build) err
 
 ------------------------------------------------------------
 -- Errors when getting Transactions

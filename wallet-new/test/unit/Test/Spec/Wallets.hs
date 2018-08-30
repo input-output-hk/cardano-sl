@@ -73,7 +73,7 @@ genNewWalletRq spendingPassword = do
 prepareFixtures :: GenPassiveWalletFixture Fixture
 prepareFixtures = do
     spendingPassword <- pick (arbitrary `suchThat` ((/=) mempty))
-    newWalletRq <- genNewWalletRq (Just spendingPassword)
+    newWalletRq <- WalletLayer.CreateWallet <$> genNewWalletRq (Just spendingPassword)
     return $ \pw -> do
         res <- Wallets.createWallet pw newWalletRq
         case res of
@@ -107,7 +107,7 @@ spec = describe "Wallets" $ do
             prop "works as expected in the happy path scenario" $ withMaxSuccess 50 $ do
                 monadicIO $ do
                     pwd     <- genSpendingPassword
-                    request <- genNewWalletRq pwd
+                    request <- WalletLayer.CreateWallet <$> genNewWalletRq pwd
                     withLayer $ \layer _ -> do
                         liftIO $ do
                             res <- WalletLayer.createWallet layer request
@@ -116,7 +116,7 @@ spec = describe "Wallets" $ do
             prop "fails if the wallet already exists" $ withMaxSuccess 50 $ do
                 monadicIO $ do
                     pwd     <- genSpendingPassword
-                    request <- genNewWalletRq pwd
+                    request <- WalletLayer.CreateWallet <$> genNewWalletRq pwd
                     withLayer $ \layer _ -> do
                         liftIO $ do
                             -- The first time it must succeed.
@@ -137,7 +137,8 @@ spec = describe "Wallets" $ do
                     pwd     <- genSpendingPassword
                     request <- genNewWalletRq pwd
                     withLayer $ \layer _ -> do
-                        let w' = request { V1.newwalName = "İıÀļƒȑĕďŏŨƞįťŢęșťıİ 日本" }
+                        let w' = WalletLayer.CreateWallet $
+                                request { V1.newwalName = "İıÀļƒȑĕďŏŨƞįťŢęșťıİ 日本" }
                         liftIO $ do
                             res <- WalletLayer.createWallet layer w'
                             (bimap STB STB res) `shouldSatisfy` isRight
@@ -418,7 +419,8 @@ spec = describe "Wallets" $ do
 
             prop "works as expected in the happy path scenario" $ withMaxSuccess 50 $ do
                 monadicIO $ do
-                    rqs <- map (\rq -> rq { V1.newwalOperation = V1.CreateWallet })
+                    rqs <- map (\rq -> WalletLayer.CreateWallet $
+                                   rq { V1.newwalOperation = V1.CreateWallet })
                                <$> pick (vectorOf 5 arbitrary)
                     withLayer $ \layer _ -> do
                         forM_ rqs (WalletLayer.createWallet layer)

@@ -51,7 +51,7 @@ genNewAccountRq spendingPassword = do
 prepareFixtures :: GenPassiveWalletFixture Fixture
 prepareFixtures = do
     spendingPassword <- genSpendingPassword
-    newWalletRq <- Wallets.genNewWalletRq spendingPassword
+    newWalletRq <- WalletLayer.CreateWallet <$> Wallets.genNewWalletRq spendingPassword
     newAccountRq <- genNewAccountRq spendingPassword
     return $ \pw -> do
         res <- Wallets.createWallet pw newWalletRq

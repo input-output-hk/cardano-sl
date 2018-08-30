@@ -163,7 +163,6 @@ actionWithWallet coreConfig txpConfig sscParams nodeParams ntpConfig params =
         -> (Diffusion Kernel.Mode.WalletMode -> Kernel.Mode.WalletMode ())
     runNodeWithInit w nr = runNode coreConfig txpConfig nr (plugins w)
 
-    -- FIXME: Do we need the monitoring API ?
     plugins :: (PassiveWalletLayer IO, PassiveWallet)
             -> Plugins.Plugin Kernel.Mode.WalletMode
     plugins w = mconcat
@@ -174,6 +173,9 @@ actionWithWallet coreConfig txpConfig sscParams nodeParams ntpConfig params =
         -- server which doesn't require client x509 certificates to
         -- connect, but still serves the doc through TLS
         , Plugins.docServer params
+
+        -- The monitoring API for the Core node.
+        , Plugins.monitoringServer params
 
         -- Periodically compact & snapshot the acid-state database.
         , Plugins.acidStateSnapshots

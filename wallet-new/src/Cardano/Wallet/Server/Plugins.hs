@@ -7,6 +7,7 @@ module Cardano.Wallet.Server.Plugins
     ( Plugin
     , apiServer
     , docServer
+    , monitoringServer
     , acidStateSnapshots
     , updateNotifier
     ) where
@@ -34,6 +35,7 @@ import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.Wlog (logError, logInfo, usingLoggerName)
 import           Pos.Web (serveDocImpl, serveImpl)
+import qualified Pos.Web.Server
 
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
 import qualified Cardano.Wallet.Kernel.Mode as Kernel
@@ -70,7 +72,7 @@ apiServer protocolMagic (NewWalletBackendParams WalletBackendParams{..}) (passiv
             Nothing
             (Just $ portCallback ctx)
   where
-    (ip, port) = walletDocAddress
+    (ip, port) = walletAddress
 
     getApplication :: ActiveWalletLayer IO -> Kernel.WalletMode Application
     getApplication active = do
@@ -116,12 +118,26 @@ docServer (NewWalletBackendParams WalletBackendParams{..}) = pure $ \_ ->
         (Just defaultSettings)
         Nothing
   where
-    (ip, port) = walletAddress
+    (ip, port) = walletDocAddress
 
     application :: Kernel.WalletMode Application
     application =
         return $ Servant.serve API.newWalletDocAPI Server.walletDocServer
 
+-- | A @Plugin@ to serve the node monitoring API.
+monitoringServer :: HasConfigurations
+                 => NewWalletBackendParams
+                 -> Plugin Kernel.WalletMode
+monitoringServer (NewWalletBackendParams WalletBackendParams{..}) =
+    case enableMonitoringApi of
+         True  -> pure $ \_ -> do
+             serveImpl Pos.Web.Server.application
+                       "127.0.0.1"
+                       monitoringApiPort
+                       walletTLSParams
+                       Nothing
+                       Nothing
+         False -> []
 
 -- | A @Plugin@ to periodically compact & snapshot the acid-state database.
 acidStateSnapshots :: Plugin Kernel.WalletMode

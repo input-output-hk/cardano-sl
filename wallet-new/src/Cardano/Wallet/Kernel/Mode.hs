@@ -193,3 +193,6 @@ instance HasConfiguration
       => MonadTxpLocal WalletMode where
   txpNormalize = txNormalize
   txpProcessTx = txProcessTransaction
+
+instance HasNodeContext WalletContext where
+    nodeContext = wcRealModeContext_L . lensOf @NodeContext

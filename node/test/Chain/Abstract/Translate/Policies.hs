@@ -78,3 +78,21 @@ slotLeader conf = Policy pname pg
         pname = PolicyName "Slot Leader"
         pg = BlockModifier mb
         mb block = return (block, mempty)
+
+--------------------------------------------------------------------------------
+-- Block validation policies
+--------------------------------------------------------------------------------
+checkPredecessor :: Policy h (GenM h)
+checkPredecessor = Policy pname (BlockModifier validator)
+    where
+        pname = PolicyName "Block Predecessor"
+        validator block = do
+            c :| _ <- use tsCheckpoints
+            p <- asks _parameters
+            return (block, pv c p block)
+        pv _ _ block | blockPred block == invalidBlockHash = [violation]
+        pv _ p block | blockPred block == genesisBlockHash = [] -- (height p) chain == 1 = []
+        pv c _ block | blockPred block /= icBlockHash c = [violation]
+        pv _ _ _ = []
+        violation = PolicyViolation pname description
+        description = "Predecessor hash does not match hash of previous block."

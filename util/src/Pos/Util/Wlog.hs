@@ -1,7 +1,69 @@
 module Pos.Util.Wlog
-        ( module System.Wlog
-        , module System.Wlog.LogHandler
-        , module System.Wlog.Formatter
+        ( -- * CanLog
+          CanLog (..)
+        , WithLogger
+        , dispatchEvents
+          -- * Pure logging manipulation
+        , LogEvent (..)
+        , NamedPureLogger (..)
+        , launchNamedPureLog
+        , runNamedPureLog
+          -- * Logging functions
+        , logDebug
+        , logError
+        , logInfo
+        , logNotice
+        , logWarning
+        , logMessage
+          -- * LoggerName
+        , LoggerName (..)
+        , LoggerNameBox (..)
+        , HasLoggerName (..)
+        , usingLoggerName
+          -- * LoggerConfig
+        , LoggerConfig (..)
+        , lcLogsDirectory
+        , lcTermSeverityOut
+        , lcTree
+        , parseLoggerConfig
+          -- * Hierarchical tree of loggers (with lenses)
+        , HandlerWrap (..)
+        , fromScratch
+        , hwFilePath
+        , ltFiles
+        , ltSeverity
+        , ltSubloggers
+        , zoomLogger
+          -- * Builders for 'LoggerConfig'
+        , consoleActionB
+        , maybeLogsDirB
+        , showTidB
+        , productionB
+        , termSeveritiesOutB
+          -- * Severity
+        , Severity (..)
+        , debugPlus
+        , errorPlus
+        , infoPlus
+        , noticePlus
+        , warningPlus
+          -- * Saving Changes
+        , retrieveLogContent
+        , updateGlobalLogger
+          -- * LogHandler
+        , defaultHandleAction
+          -- * Logging messages with a condition
+        , logMCond
+          -- * Utility functions
+        , removeAllHandlers
+          -- * Modifying Loggers
+        , setLevel
+          -- * Launcher
+        , setupLogging
+          -- * Formatter
+        , centiUtcTimeF
+          -- * LogHandler
+        , LogHandlerTag (HandlerFilelike)
         ) where
 
 import           System.Wlog (CanLog (..), HandlerWrap (..), HasLoggerName (..),

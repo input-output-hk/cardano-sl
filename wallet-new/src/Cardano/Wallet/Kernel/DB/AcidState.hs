@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE RankNTypes      #-}
 {-# LANGUAGE TemplateHaskell #-}
 
@@ -53,6 +54,7 @@ import           Control.Lens ((.=))
 import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Except (MonadError, catchError)
 import           Data.Acid (Query, Update, makeAcidic)
+import qualified Data.Aeson as Aeson
 import qualified Data.Map.Strict as Map
 import           Data.SafeCopy (base, deriveSafeCopy)
 import qualified Data.Set as Set
@@ -128,6 +130,10 @@ data NewPendingError =
 
     -- | Some inputs are not in the wallet utxo
   | NewPendingFailed Spec.NewPendingFailed
+  deriving (Generic, Eq)
+
+instance Aeson.ToJSON NewPendingError
+instance Aeson.FromJSON  NewPendingError
 
 -- | Errors thrown by 'newForeign'
 data NewForeignError =
@@ -136,7 +142,15 @@ data NewForeignError =
 
     -- | Some inputs are not in the wallet utxo
   | NewForeignFailed Spec.NewForeignFailed
+  deriving (Generic, Eq)
 
+instance Aeson.ToJSON NewForeignError
+instance Aeson.FromJSON NewForeignError
+
+instance Arbitrary NewForeignError where
+    arbitrary = oneof [ NewForeignUnknown <$> arbitrary
+                      , NewForeignFailed  <$> arbitrary
+                      ]
 -- | Errors thrown by 'SwitchToFork'
 data SwitchToForkInternalError =
     -- | We cannot roll back  when we don't have full historical data available

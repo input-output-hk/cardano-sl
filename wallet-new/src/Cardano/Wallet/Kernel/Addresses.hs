@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Cardano.Wallet.Kernel.Addresses (
       createAddress
     , newHdAddress
@@ -15,6 +17,7 @@ import qualified Formatting.Buildable
 import           System.Random.MWC (GenIO, createSystemRandom, uniformR)
 
 import           Data.Acid (update)
+import qualified Data.Aeson as Aeson
 
 import           Pos.Core (Address, IsBootstrapEraAddr (..), deriveLvl2KeyPair)
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase,
@@ -52,10 +55,17 @@ data CreateAddressError =
     | CreateAddressHdRndAddressSpaceSaturated HdAccountId
       -- ^ The available number of HD addresses in use in such that trying
       -- to find another random index would be too expensive
-    deriving Eq
+    deriving (Generic, Eq)
+
+instance Aeson.ToJSON CreateAddressError
+instance Aeson.FromJSON CreateAddressError
 
 instance Arbitrary CreateAddressError where
-    arbitrary = oneof []
+    arbitrary = oneof [ CreateAddressUnknownHdAccount <$> arbitrary
+                      , CreateAddressKeystoreNotFound <$> arbitrary
+                      , CreateAddressHdRndGenerationFailed <$> arbitrary
+                      , CreateAddressHdRndAddressSpaceSaturated <$> arbitrary
+                      ]
 
 instance Buildable CreateAddressError where
     build (CreateAddressUnknownHdAccount uAccount) =

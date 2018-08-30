@@ -13,6 +13,7 @@ import           Control.Lens.TH (makeLenses)
 import           Crypto.Error (CryptoFailable (..))
 import           Crypto.Hash (Digest, digestFromByteString)
 import qualified Crypto.PubKey.Ed25519 as Ed25519
+import           Data.Aeson (FromJSON (..), ToJSON (..))
 import qualified Data.ByteArray as BA
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
@@ -67,7 +68,7 @@ import           UTxO.Util
 -- is correct /only/ if @x@ has a primitive type (i.e., not one defined in
 -- the Cardano core, but in the Haskell base libraries).
 newtype InDb a = InDb { _fromDb :: a }
-    deriving (Eq, Show, Ord, Buildable)
+    deriving (Eq, Show, Ord, Buildable, ToJSON, FromJSON)
 
 instance Functor InDb where
     fmap f = InDb . f . _fromDb

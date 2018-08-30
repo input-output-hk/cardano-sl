@@ -9,12 +9,16 @@ module Cardano.Wallet.WalletLayer.QuickCheck
 import           Universum
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
+import qualified Cardano.Wallet.Kernel.Transactions ()
 import           Cardano.Wallet.Orphans.Arbitrary ()
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),
-                     DeleteAccountError (..), DeleteWalletError (..),
+                     CreateAccountError (..), CreateAddressError (..),
+                     CreateWalletError (..), DeleteAccountError (..),
+                     DeleteWalletError (..), EstimateFeesError (..),
                      GetAccountError (..), GetAccountsError (..),
-                     GetUtxosError (..), GetWalletError (..),
-                     ImportWalletError (..), PassiveWalletLayer (..),
+                     GetTxError (..), GetUtxosError (..), GetWalletError (..),
+                     ImportWalletError (..), NewPaymentError (..),
+                     PassiveWalletLayer (..), RedeemAdaError (..),
                      UpdateAccountError (..), UpdateWalletError (..),
                      UpdateWalletPasswordError (..), ValidateAddressError (..))
 
@@ -122,6 +126,11 @@ instance Arbitrary UpdateAccountError where
                       , UpdateAccountWalletIdDecodingFailed <$> arbitrary
                       ]
 
+instance Arbitrary CreateAccountError where
+    arbitrary = oneof [ CreateAccountError <$> arbitrary
+                      , CreateAccountWalletIdDecodingFailed <$> arbitrary
+                      ]
+
 instance Arbitrary DeleteAccountError where
     arbitrary = oneof [ DeleteAccountError <$> arbitrary
                       , DeleteAccountWalletIdDecodingFailed <$> arbitrary
@@ -165,3 +174,33 @@ instance Arbitrary ImportWalletError where
 -- components and use it.
 instance Arbitrary ConfirmedProposalState where
     arbitrary = oneof []
+
+instance Arbitrary RedeemAdaError where
+    arbitrary = oneof [ RedeemAdaError <$> arbitrary
+                      , pure (RedeemAdaWalletIdDecodingFailed "foobar")
+                      , RedeemAdaInvalidRedemptionCode <$> arbitrary
+                      ]
+
+instance Arbitrary CreateWalletError where
+    arbitrary = oneof [ CreateWalletError <$> arbitrary
+                      ]
+
+instance Arbitrary CreateAddressError where
+    arbitrary = oneof [ CreateAddressError <$> arbitrary
+                      , pure (CreateAddressAddressDecodingFailed "Ae2tdPwUPEZ18ZjTLnLVr9CEvUEUX4eW1LBHbxxx")
+                      ]
+
+instance Arbitrary GetTxError where
+    arbitrary = oneof [ pure GetTxMissingWalletIdError
+                      , pure (GetTxAddressDecodingFailed "by_amount")
+                      , pure (GetTxInvalidSortingOperation "123")
+                      , GetTxUnknownHdAccount <$> arbitrary
+                      ]
+
+instance Arbitrary NewPaymentError where
+    arbitrary = oneof [ NewPaymentWalletIdDecodingFailed <$> arbitrary ]
+
+instance Arbitrary EstimateFeesError where
+    arbitrary = oneof [ EstimateFeesError <$> arbitrary
+                      , EstimateFeesTimeLimitReached <$> arbitrary
+                      ]

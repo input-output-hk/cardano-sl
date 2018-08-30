@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Cardano.Wallet.Kernel.Accounts (
       createAccount
     , deleteAccount
@@ -15,6 +17,7 @@ import qualified Formatting.Buildable
 import           System.Random.MWC (GenIO, createSystemRandom, uniformR)
 
 import           Data.Acid (update)
+import qualified Data.Aeson as Aeson
 
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase)
 
@@ -47,10 +50,16 @@ data CreateAccountError =
     | CreateAccountHdRndAccountSpaceSaturated HdRootId
       -- ^ The available number of HD accounts in use is such that trying
       -- to find another random index would be too expensive.
-    deriving Eq
+    deriving (Generic, Eq)
+
+instance Aeson.ToJSON CreateAccountError
+instance Aeson.FromJSON CreateAccountError
 
 instance Arbitrary CreateAccountError where
-    arbitrary = oneof []
+    arbitrary = oneof [ CreateAccountUnknownHdRoot <$> arbitrary
+                      , CreateAccountKeystoreNotFound <$> arbitrary
+                      , CreateAccountHdRndAccountSpaceSaturated <$> arbitrary
+                      ]
 
 instance Buildable CreateAccountError where
     build (CreateAccountUnknownHdRoot uRoot) =

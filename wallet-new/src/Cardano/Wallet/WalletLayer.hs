@@ -29,7 +29,6 @@ import           Universum
 import           Formatting (bprint, build, formatToString, (%))
 import qualified Formatting.Buildable
 import qualified Prelude
-import           Test.QuickCheck (Arbitrary (..), oneof)
 
 import           Pos.Chain.Block (Blund)
 import           Pos.Chain.Txp (Tx, TxId, Utxo)
@@ -77,10 +76,6 @@ instance Show CreateWalletError where
     show = formatToString build
 
 instance Exception CreateWalletError
-
-instance Arbitrary CreateWalletError where
-    arbitrary = oneof [ CreateWalletError <$> arbitrary
-                      ]
 
 instance Buildable CreateWalletError where
     build (CreateWalletError kernelError) =
@@ -197,11 +192,6 @@ instance Show CreateAddressError where
 
 instance Exception CreateAddressError
 
-instance Arbitrary CreateAddressError where
-    arbitrary = oneof [ CreateAddressError <$> arbitrary
-                      , pure (CreateAddressAddressDecodingFailed "Ae2tdPwUPEZ18ZjTLnLVr9CEvUEUX4eW1LBHbxxx")
-                      ]
-
 instance Buildable CreateAddressError where
     build (CreateAddressError kernelError) =
         bprint ("CreateAddressError " % build) kernelError
@@ -241,11 +231,6 @@ instance Show CreateAccountError where
     show = formatToString build
 
 instance Exception CreateAccountError
-
-instance Arbitrary CreateAccountError where
-    arbitrary = oneof [ CreateAccountError <$> arbitrary
-                      , CreateAccountWalletIdDecodingFailed <$> arbitrary
-                      ]
 
 instance Buildable CreateAccountError where
     build (CreateAccountError kernelError) =
@@ -365,14 +350,6 @@ instance Buildable GetTxError where
         bprint ("GetTxInvalidSortingOperation " % build) txt
     build (GetTxUnknownHdAccount err) =
         bprint ("GetTxUnknownHdAccount " % build) err
-
-
-instance Arbitrary GetTxError where
-    arbitrary = oneof [ pure GetTxMissingWalletIdError
-                      , pure (GetTxAddressDecodingFailed "by_amount")
-                      , pure (GetTxInvalidSortingOperation "123")
-                      , GetTxUnknownHdAccount <$> arbitrary
-                      ]
 
 instance Exception GetTxError
 
@@ -540,11 +517,6 @@ instance Buildable EstimateFeesError where
         bprint ("EstimateFeesTimeLimitReached " % build) ter
     build (EstimateFeesWalletIdDecodingFailed txt) =
         bprint ("EstimateFeesWalletIdDecodingFailed " % build) txt
-
-instance Arbitrary EstimateFeesError where
-    arbitrary = oneof [ EstimateFeesError <$> arbitrary
-                      , EstimateFeesTimeLimitReached <$> arbitrary
-                      ]
 
 data RedeemAdaError =
     RedeemAdaError Kernel.RedeemAdaError

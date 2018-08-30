@@ -8,6 +8,7 @@ module UTxO.Verify
     , verify
 
     -- * Specific verification functions
+    , VerifyBlockFailure(..)
     , verifyBlocksPrefix
     ) where
 
@@ -19,7 +20,11 @@ import           Control.Monad.State.Strict (mapStateT)
 import           Data.Default (def)
 import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
+import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable
+import           Serokell.Util (listJson)
 
+import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block
 import           Pos.Chain.Delegation (DlgUndo (..))
 import           Pos.Chain.Txp
@@ -352,22 +357,25 @@ slogVerifyBlocks curSlot leaders lastSlots blocks = do
 --
 -- * 'verifyAllIsKnown' hardcoded ('dataMustBeKnown')
 -- * Does everything in a pure monad.
+-- * We include teh transaction in the failure
 --   I don't fully grasp the consequences of this.
 tgsVerifyBlocks
     :: OldestFirst NE TxpBlock
-    -> Verify ToilVerFailure (OldestFirst NE TxpUndo)
+    -> Verify VerifyBlockFailure (OldestFirst NE TxpUndo)
 tgsVerifyBlocks newChain = do
     bvd <- gsAdoptedBVData
     let epoch = NE.last (getOldestFirst newChain) ^. epochIndexL
-    let verifyPure :: [TxAux] -> Verify ToilVerFailure TxpUndo
-        verifyPure = nat .
-            verifyToil dummyProtocolMagic bvd mempty epoch dataMustBeKnown
+    let verifyPure :: [TxAux] -> Verify VerifyBlockFailure TxpUndo
+        verifyPure txs = nat $
+          withExceptT (verifyBlockFailure txs) $
+            verifyToil dummyProtocolMagic bvd mempty epoch dataMustBeKnown txs
     mapM (verifyPure . convertPayload) newChain
   where
     convertPayload :: TxpBlock -> [TxAux]
     convertPayload (ComponentBlockMain _ payload) = flattenTxPayload payload
     convertPayload (ComponentBlockGenesis _)      = []
-    nat :: forall e a. ExceptT e UtxoM a -> Verify e a
+
+    nat :: ExceptT e UtxoM a -> Verify e a
     nat action =
         Verify $ do
             baseUtxo <- lift . lift $ venvInitUtxo <$> WithVerifyEnv ask
@@ -377,6 +385,35 @@ tgsVerifyBlocks newChain = do
                 (Left err, _) -> throwError err
                 (Right res, newModifier) ->
                     res <$ (_1 . gtsUtxoModifier .= newModifier)
+
+
+
+data VerifyBlockFailure =
+    -- | We record the original failure and we attempt to figure out which
+    -- transaction this belonged to. Since we can't be totally sure, this may
+    -- be empty (couldn't find any matches) or have more than one element
+    -- (it could have been more than one transaction that failed)
+    ToilVerFailure [TxAux] ToilVerFailure
+
+-- | Try to construct more detailed error message
+--
+-- The core code we call verifies an entire block at once, so we have to
+-- guess which transaction in the list it was that failed
+verifyBlockFailure :: [TxAux] -> ToilVerFailure -> VerifyBlockFailure
+verifyBlockFailure txs failure =
+    case failure of
+      ToilInsufficientFee _policy _fee _minFee sz ->
+        -- _minFee is determined entirely by sz: not useful for filtering
+        -- we cannot use _fee because a 'TxAux' does not give us enough
+        -- information to compute the actual fee (we need the resolved inputs)
+        let matching tx = biSize tx == sz
+        in ToilVerFailure (filter matching txs) failure
+      _otherwise ->
+        ToilVerFailure [] failure
+
+instance Buildable VerifyBlockFailure where
+    build (ToilVerFailure txs failure) =
+        bprint ("ToilVerFailure " % listJson % " " % build) txs failure
 
 -- | Check all data
 --

@@ -11,6 +11,9 @@ module UTxO.ToCardano.Interpreter (
     -- * Interpretation context
     IntCtxt -- opaque
   , initIntCtxt
+    -- * Interpretation checkpoints
+  , IntCheckpoint(..)
+  , mostRecentCheckpoint
     -- * Interpretation monad
   , IntT
   , runIntT
@@ -94,6 +97,38 @@ data TxMeta h = TxMeta {
     , tmHash :: TxId
     }
 
+-- | Checkpoint (we create one for each block we translate)
+data IntCheckpoint = IntCheckpoint {
+      -- | Slot number of this checkpoint
+      icSlotId        :: !SlotId
+
+      -- | Header of the block in this slot
+      --
+      -- Will be initialized to the header of the genesis block.
+    , icBlockHeader   :: !BlockHeader
+
+      -- | The header of the /main/ block in this slot
+      --
+      -- This may be different at epoch boundaries, when 'icBlockHeader' will
+      -- be set to the header of the EBB.
+      --
+      -- Set to 'Nothing' for the first checkpoint.
+    , icMainBlockHdr  :: !(Maybe HeaderHash)
+
+      -- | The header hash of the previous /main/ block.
+    , icPrevMainHH    :: !(Maybe HeaderHash)
+
+      -- | Slot leaders for the current epoch
+    , icEpochLeaders  :: !SlotLeaders
+
+      -- | Running stakes
+    , icStakes        :: !StakesMap
+
+      -- | Snapshot of the stakes at the 'crucial' slot in the current epoch; in
+      -- other words, the stakes used to compute the slot leaders for the next epoch.
+    , icCrucialStakes :: !StakesMap
+    }
+
 -- | Interpretation context
 data IntCtxt h = IntCtxt {
       -- | Transaction metadata
@@ -124,11 +159,16 @@ initIntCtxt boot = do
               icSlotId        = translateFirstSlot
             , icBlockHeader   = genesis
             , icMainBlockHdr  = Nothing
+            , icPrevMainHH    = Nothing
             , icEpochLeaders  = leaders
             , icStakes        = initStakes
             , icCrucialStakes = initStakes
             } :| []
         }
+
+-- | Get the most recent checkpoint from the context.
+mostRecentCheckpoint :: IntCtxt h -> IntCheckpoint
+mostRecentCheckpoint = NE.head . _icCheckpoints
 
 {-------------------------------------------------------------------------------
   The interpretation monad
@@ -246,6 +286,115 @@ pushCheckpoint f = do
     icCheckpoints .= c' :| c : cs
     return a
 
+{-------------------------------------------------------------------------------
+  Constructing checkpoints
+-------------------------------------------------------------------------------}
+
+mkCheckpoint :: Monad m
+             => IntCheckpoint    -- ^ Previous checkpoint
+             -> RawResolvedBlock -- ^ The block just created
+             -> TranslateT IntException m IntCheckpoint
+mkCheckpoint prev raw@(UnsafeRawResolvedBlock block _inputs _ ctxt) = do
+    gs <- asks weights
+    let isCrucial = slot == crucialSlot dummyK (siEpoch slot)
+    newStakes <- updateStakes gs (fromRawResolvedBlock raw) (icStakes prev)
+    return IntCheckpoint {
+        icSlotId        = slot
+      , icBlockHeader   = BlockHeaderMain $ block ^. gbHeader
+      , icMainBlockHdr  = Just $ headerHash block
+      , icPrevMainHH    = Just $ headerHash (icBlockHeader prev)
+      , icEpochLeaders  = icEpochLeaders prev
+      , icStakes        = newStakes
+      , icCrucialStakes = if isCrucial
+                            then newStakes
+                            else icCrucialStakes prev
+      }
+  where
+    slot = ctxt ^. bcSlotId . fromDb
+
+-- | Update the stakes map as a result of a block.
+--
+-- We follow the 'Stakes modification' section of the txp.md document.
+updateStakes :: forall m. MonadError IntException m
+             => GenesisWStakeholders
+             -> ResolvedBlock
+             -> StakesMap -> m StakesMap
+updateStakes gs (ResolvedBlock txs _ _) =
+    foldr ((>=>) . go) return txs
+  where
+    go :: ResolvedTx -> StakesMap -> m StakesMap
+    go (ResolvedTx ins outs _) =
+        subStake >=> addStake
+      where
+        subStakes, addStakes :: [(StakeholderId, Coin)]
+        subStakes = concatMap txOutStake' $ toList     (_fromDb ins)
+        addStakes = concatMap txOutStake' $ Map.toList (_fromDb outs)
+
+        subStake, addStake :: StakesMap -> m StakesMap
+        subStake sm = foldM (flip subStake1) sm subStakes
+        addStake sm = foldM (flip addStake1) sm addStakes
+
+    subStake1, addStake1 :: (StakeholderId, Coin) -> StakesMap -> m StakesMap
+    subStake1 (id, c) sm = do
+        stake <- stakeOf id sm
+        case stake `subCoin` c of
+          Just stake' -> return $! HM.insert id stake' sm
+          Nothing     -> throwError $ IntStakeUnderflow id stake c
+    addStake1 (id, c) sm = do
+        stake <- stakeOf id sm
+        case stake `addCoin` c of
+          Just stake' -> return $! HM.insert id stake' sm
+          Nothing     -> throwError $ IntStakeOverflow id stake c
+
+    stakeOf :: StakeholderId -> StakesMap -> m Coin
+    stakeOf id sm =
+        case HM.lookup id sm of
+          Just s  -> return s
+          Nothing -> throwError $ IntUnknownStakeholder id
+
+    txOutStake' :: (TxIn, TxOutAux) -> StakesList
+    txOutStake' = txOutStake gs . toaOut . snd
+
+-- | Create an epoch boundary block
+--
+-- In between each epoch there is an epoch boundary block (or EBB), that records
+-- the stakes for the next epoch (in the Cardano codebase is referred to as a
+-- "genesis block", and indeed the types are the same; we follow the terminology
+-- from the spec here).
+--
+-- We /update/ the most recent checkpoint so that when we rollback, we effectively
+-- rollback /two/ blocks. This is important, because the DSL has no concept of these
+-- EBBs.
+createEpochBoundary :: Monad m
+                    => IntCheckpoint
+                    -> TranslateT IntException m (IntCheckpoint, GenesisBlock)
+createEpochBoundary ic = do
+    pm    <- asks magic
+    pc    <- asks constants
+    slots <- asks (ccEpochSlots . tcCardano)
+    let newLeaders = give pc $ followTheSatoshi
+                                 slots
+                                 boringSharedSeed
+                                 (HM.toList $ icCrucialStakes ic)
+        ebb = mkGenesisBlock
+                pm
+                (Right     $ icBlockHeader ic)
+                (nextEpoch $ icSlotId      ic)
+                newLeaders
+    return (
+        ic { icEpochLeaders = ebb ^. genBlockLeaders
+           , icBlockHeader  = BlockHeaderGenesis $ ebb ^. gbHeader
+           }
+      , ebb
+      )
+  where
+    -- This is a shared seed which never changes. Obviously it is not an
+    -- accurate reflection of how Cardano works.
+    boringSharedSeed :: SharedSeed
+    boringSharedSeed = SharedSeed "Static shared seed"
+
+    nextEpoch :: SlotId -> EpochIndex
+    nextEpoch (SlotId (EpochIndex i) _) = EpochIndex $ i + 1
 
 {-------------------------------------------------------------------------------
   Translate the DSL UTxO definitions to Cardano types

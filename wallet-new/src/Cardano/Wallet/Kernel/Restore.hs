@@ -3,16 +3,17 @@
 
 module Cardano.Wallet.Kernel.Restore
     ( restoreWallet
-    , stopAllRestorations
+    , restoreKnownWallet
     ) where
 
 import           Universum
 
 import           Control.Concurrent.Async (async, cancel)
-import           Control.Concurrent.MVar (modifyMVar_)
+import           Control.Lens (at)
 import           Data.Acid (update)
 import qualified Data.Map.Merge.Strict as M
 import qualified Data.Map.Strict as M
+import           Data.Maybe (fromJust)
 import           Data.Time.Clock (NominalDiffTime, UTCTime, diffUTCTime,
                      getCurrentTime)
 import           Formatting (bprint, build, formatToString, (%))
@@ -25,35 +26,46 @@ import           Cardano.Wallet.Kernel (walletLogMessage)
 import qualified Cardano.Wallet.Kernel as Kernel
 import           Cardano.Wallet.Kernel.DB.AcidState (ApplyHistoricalBlock (..),
                      CreateHdWallet (..), RestorationComplete (..),
-                     RestoreHdWallet (..))
+                     RestoreHdWallet (..), dbHdWallets)
 import           Cardano.Wallet.Kernel.DB.BlockContext
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.HdWallet.Create (CreateHdRootError)
+import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
+import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Update as Spec
 import           Cardano.Wallet.Kernel.DB.TxMeta.Types
 import           Cardano.Wallet.Kernel.Decrypt (WalletDecrCredentialsKey (..),
                      decryptAddress, keyToWalletDecrCredentials)
 import           Cardano.Wallet.Kernel.Internal (WalletRestorationInfo (..),
-                     walletMeta, walletNode, walletRestorationTask, wallets,
-                     wriCancel, wriCurrentSlot, wriTargetSlot, wriThroughput)
+                     WalletRestorationProgress (..), addRestoration,
+                     cancelRestoration, lookupRestorationInfo,
+                     removeRestoration, restartRestoration, walletKeystore,
+                     walletMeta, walletNode, wallets, wrpCurrentSlot,
+                     wrpTargetSlot, wrpThroughput)
+import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (Lock, LockContext (..),
-                     NodeConstraints, WithNodeState, filterUtxo, getCoreConfig,
+                     NodeConstraints, NodeStateAdaptor, WithNodeState,
+                     defaultGetSlotStart, filterUtxo, getCoreConfig,
                      getSecurityParameter, getSlotCount, mostRecentMainBlock,
                      withNodeState)
 import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId,
                      PrefilteredBlock, UtxoWithAddrId, WalletKey,
-                     prefilterUtxo', toHdAddressId, toPrefilteredUtxo)
-import           Cardano.Wallet.Kernel.Types (WalletId (..))
+                     prefilterBlock, prefilterUtxo', toHdAddressId,
+                     toPrefilteredUtxo)
+import           Cardano.Wallet.Kernel.Read (getWalletSnapshot)
+import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..),
+                     WalletId (..), fromRawResolvedBlock, rawResolvedBlock,
+                     rawResolvedBlockInputs, rawResolvedContext, rawTimestamp)
 import           Cardano.Wallet.Kernel.Util.Core (utxoBalance)
 import           Cardano.Wallet.Kernel.Wallets (createWalletHdRnd)
 
-import           Pos.Chain.Block (Block, Blund, HeaderHash, MainBlock, Undo,
-                     headerHash, mainBlockSlot)
-import           Pos.Chain.Genesis as Genesis (Config (..), GenesisHash)
+import           Pos.Chain.Block (Block, Blund, HeaderHash, Undo, headerHash,
+                     mainBlockSlot, undoTx)
 import           Pos.Chain.Txp (TxIn (..), TxOut (..), TxOutAux (..), Utxo,
                      genesisUtxo)
-import           Pos.Core (Address, BlockCount (..), Coin, SlotId,
-                     flattenSlotId, mkCoin, unsafeIntegerToCoin)
+import           Pos.Core as Core (Address, BlockCount (..), Coin, Config (..),
+                     GenesisHash, SlotId, flattenSlotId, getCurrentTimestamp,
+                     mkCoin, unsafeIntegerToCoin)
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.DB.Block (getFirstGenesisBlockHash, getUndo,
                      resolveForwardLink)
@@ -81,71 +93,151 @@ import           Pos.Util.Trace (Severity (Error))
 restoreWallet :: Kernel.PassiveWallet
               -> Bool
               -- ^ Did this wallet have a spending password set?
-              -> Address
+              -> Core.Address
               -- ^ The stock address to use for the companion 'HdAccount'.
               -> HD.WalletName
               -> HD.AssuranceLevel
               -> EncryptedSecretKey
-              -> (Blund -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta]))
               -> IO (Either CreateHdRootError (HD.HdRoot, Coin))
-restoreWallet pw hasSpendingPassword defaultCardanoAddress name assurance esk prefilter = do
-    genesisConfig <- getCoreConfig (pw ^. walletNode)
-    walletInitInfo <- withNodeState (pw ^. walletNode) $ getWalletInitInfo genesisConfig wkey
+restoreWallet pw hasSpendingPassword defaultCardanoAddress name assurance esk = do
+    coreConfig <- getCoreConfig (pw ^. walletNode)
+    walletInitInfo <- withNodeState (pw ^. walletNode) $ getWalletInitInfo coreConfig wkey
     case walletInitInfo of
       WalletCreate utxos -> do
         root <- createWalletHdRnd pw hasSpendingPassword defaultCardanoAddress name assurance esk $
                 \root defaultHdAccount defaultHdAddress ->
                       Left $ CreateHdWallet root defaultHdAccount defaultHdAddress utxos
         return $ fmap (, mkCoin 0) root
-      WalletRestore utxos (tgtTip, tgtSlot) -> do
-        -- Create the wallet
-        mRoot <- createWalletHdRnd pw hasSpendingPassword defaultCardanoAddress name assurance esk $
-                 \root defaultHdAccount defaultHdAddress ->
-                       Right $ RestoreHdWallet root defaultHdAccount defaultHdAddress utxos
-        case mRoot of
-          Left  err  -> return (Left err)
-          Right root -> do
-            -- Set the wallet's restoration information
-            slotCount <- getSlotCount (pw ^. walletNode)
-            let restoreInfo = WalletRestorationInfo
-                  { _wriCurrentSlot = 0
-                  , _wriTargetSlot  = flattenSlotId slotCount tgtSlot
-                  , _wriThroughput  = MeasuredIn 0
-                  , _wriCancel      = return ()
-                  }
-            modifyMVar_ (pw ^. walletRestorationTask) (pure . M.insert wId restoreInfo)
+      WalletRestore utxos tgt -> do
+          -- Create the wallet for restoration, deleting the wallet first if it
+          -- already exists.
+          mRoot <- createWalletHdRnd pw hasSpendingPassword defaultCardanoAddress name assurance esk $
+                  \root defaultHdAccount defaultHdAddress ->
+                      Right $ RestoreHdWallet root defaultHdAccount defaultHdAddress tgt utxos
+          case mRoot of
+              Left  err  -> return (Left err)
+              Right root -> do
+                  -- Start the restoration task.
+                  beginRestoration pw wId prefilter root tgt (restart root)
 
-            -- Begin restoring the wallet history in the background.
-            restoreTask <- async $
-              -- We are starting this async /from/ a thread that runs in response
-              -- to a REST request. Linking the async to that REST request thread
-              -- is pointless, because that thread will probably be long gone if
-              -- an exception ever happens in the restoration worker. Therefore
-              -- we just log any errors.
-              catch (restoreWalletHistoryAsync pw (root ^. HD.hdRootId) tgtTip tgtSlot prefilter) $ \(e :: SomeException) ->
-                (pw ^. walletLogMessage) Error ("Exception during restoration: " <> show e)
+                  -- Return the wallet's current balance.
+                  let coins = unsafeIntegerToCoin
+                            . utxoBalance
+                            . M.unions
+                            . M.elems
+                            . fmap (\(cur, _gen, _addrs) -> cur)
+                            $ utxos
+                  return (Right (root, coins))
 
-            -- Set up the cancellation action
-            updateRestorationInfo pw wId (wriCancel .~ cancel restoreTask)
-
-            -- Return the wallet's current balance.
-            let balance = unsafeIntegerToCoin
-                        . utxoBalance
-                        . M.unions
-                        . M.elems
-                        . fmap (\(cur, _gen, _addrs) -> cur)
-                        $ utxos
-            return $ Right (root, balance)
   where
-    rootId = HD.eskToHdRootId esk
-    wId    = WalletIdHdRnd rootId
+    prefilter :: Blund -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta])
+    prefilter = mkPrefilter pw wId esk
+
+    restart :: HD.HdRoot -> IO ()
+    restart root = do
+        coreConfig <- getCoreConfig (pw ^. walletNode)
+        walletInitInfo <- withNodeState (pw ^. walletNode) $ getWalletInitInfo coreConfig wkey
+        case walletInitInfo of
+            WalletCreate _utxos -> return ()
+            WalletRestore _utxos tgt ->
+                beginRestoration pw wId prefilter root tgt (restart root)
+
+    wId    = WalletIdHdRnd (HD.eskToHdRootId esk)
     wkey   = (wId, keyToWalletDecrCredentials (KeyForRegular esk))
+
+
+mkPrefilter :: Kernel.PassiveWallet
+            -> WalletId
+            -> EncryptedSecretKey
+            -> Blund
+            -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta])
+mkPrefilter pw wId esk blund = blundToResolvedBlock (pw ^. walletNode) blund <&> \case
+    Nothing -> (M.empty, [])
+    Just rb -> prefilterBlock rb wId esk
+
+-- | Begin a restoration for a wallet that is already known. This is used
+-- to put an existing wallet back into a restoration state when something has
+-- gone wrong.
+restoreKnownWallet :: Kernel.PassiveWallet
+                   -> HD.HdRootId
+                   -> IO ()
+restoreKnownWallet pw rootId = do
+    let wId = WalletIdHdRnd rootId
+    lookupRestorationInfo pw wId >>= \case
+        -- Restart a pre-existing restoration
+        Just wri -> do
+            cancelRestoration  wri
+            restartRestoration wri
+
+        -- Start a new restoration of a seemingly up-to-date wallet.
+        Nothing -> Keystore.lookup wId (pw ^. walletKeystore) >>= \case
+            Nothing  -> return () -- TODO (@mn): raise an error
+            Just esk -> do
+                let prefilter = mkPrefilter pw wId esk
+                    wkey = (wId, keyToWalletDecrCredentials (KeyForRegular esk))
+
+                coreConfig <- getCoreConfig (pw ^. walletNode)
+                db <- getWalletSnapshot pw
+                case db ^. dbHdWallets . HD.hdWalletsRoots . at rootId of
+                    Nothing   -> return () -- TODO (@mn): this really shouldn't happen
+                    Just root ->
+                      let restart =
+                              withNodeState (pw ^. walletNode) (getWalletInitInfo coreConfig wkey) >>= \case
+                                  WalletCreate  _utxos     -> return ()
+                                  WalletRestore _utxos tgt ->
+                                    beginRestoration pw wId prefilter root tgt restart
+                      in restart
+
+beginRestoration  :: Kernel.PassiveWallet
+                  -> WalletId
+                  -> (Blund -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta]))
+                  -> HD.HdRoot
+                  -> BlockContext
+                  -> IO ()
+                  -> IO ()
+beginRestoration pw wId prefilter root tgt restart = do
+
+    let tgtTip  = tgt ^. bcHash   . fromDb
+        tgtSlot = tgt ^. bcSlotId . fromDb
+
+    -- Set the wallet's restoration information
+    slotCount <- getSlotCount (pw ^. walletNode)
+    progress <- newIORef $ WalletRestorationProgress
+                           { _wrpCurrentSlot = 0
+                           , _wrpTargetSlot  = flattenSlotId slotCount tgtSlot
+                           , _wrpThroughput  = MeasuredIn 0
+                           }
+    theTask <- newEmptyMVar
+
+    let restoreInfo = WalletRestorationInfo
+                      { _wriProgress = readIORef progress
+                      , _wriCancel   = readMVar theTask >>= cancel
+                      , _wriRestart  = restart
+                      }
+
+    addRestoration pw wId restoreInfo
+
+    -- Begin restoring the wallet history in the background.
+    restoreTask <- async $
+        -- We are starting this async /from/ a thread that runs in response
+        -- to a REST request. Linking the async to that REST request thread
+        -- is pointless, because that thread will probably be long gone if
+        -- an exception ever happens in the restoration worker. Therefore
+        -- we just log any errors.
+        catch (restoreWalletHistoryAsync pw
+                                         (root ^. HD.hdRootId)
+                                         prefilter
+                                         progress
+                                         (tgtTip, tgtSlot)) $ \(e :: SomeException) ->
+              (pw ^. walletLogMessage) Error ("Exception during restoration: " <> show e)
+
+    void $ swapMVar theTask restoreTask
 
 -- | Information we need to start the restoration process
 data WalletInitInfo =
     -- | Create the wallet, without actually restoring
     --
-    -- This is used only when the chain has no main blocks yet. We record
+   -- This is used only when the chain has no main blocks yet. We record
     -- the only the genesis UTxO for the wallet, and any addresses we found.
     WalletCreate
       (Map HD.HdAccountId (Utxo, [AddrWithId]))
@@ -156,7 +248,7 @@ data WalletInitInfo =
     -- about the most recent main block on the chain.
   | WalletRestore
       (Map HD.HdAccountId (Utxo, Utxo, [AddrWithId]))
-      (HeaderHash, SlotId)
+      BlockContext
 
 -- | Query the underlying node for the info we need to restore a wallet
 --
@@ -182,13 +274,13 @@ getWalletInitInfo genesisConfig wKey@(wId, wdc) lock = do
                                    (genesisUtxo $ configGenesisData genesisConfig)
 
     -- Get the tip
-    mTip <- mostRecentMainBlock (configGenesisHash genesisConfig) tipHeader
-    return $ case mTip of
-      Nothing  -> WalletCreate genUtxo
-      Just tip -> WalletRestore (mergeInfo curUtxo genUtxo) (tipInfo tip)
+    let gh = configGenesisHash coreConfig
+    mTip <- mostRecentMainBlock gh tipHeader
+    case mTip of
+      Nothing  -> return (WalletCreate genUtxo)
+      Just tip -> WalletRestore (mergeInfo curUtxo genUtxo) <$> mainBlockContext gh tip
+
   where
-    tipInfo :: MainBlock -> (HeaderHash, SlotId)
-    tipInfo mb = (headerHash mb, mb ^. mainBlockSlot)
 
     mergeInfo :: (Monoid cur, Monoid gen)
               => Map HD.HdAccountId (cur, [AddrWithId])
@@ -214,11 +306,11 @@ getWalletInitInfo genesisConfig wKey@(wId, wdc) lock = do
 -- TODO: Think about what we should do if a 'RestorationException' is thrown.
 restoreWalletHistoryAsync :: Kernel.PassiveWallet
                           -> HD.HdRootId
-                          -> HeaderHash
-                          -> SlotId
                           -> (Blund -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta]))
+                          -> IORef WalletRestorationProgress
+                          -> (HeaderHash, SlotId)
                           -> IO ()
-restoreWalletHistoryAsync wallet rootId target tgtSlot prefilter = do
+restoreWalletHistoryAsync wallet rootId prefilter progress (tgtHash, tgtSlot) = do
     genesisHash <- configGenesisHash <$> getCoreConfig (wallet ^. walletNode)
     -- 'getFirstGenesisBlockHash' is confusingly named: it returns the hash of
     -- the first block /after/ the genesis block.
@@ -231,6 +323,7 @@ restoreWalletHistoryAsync wallet rootId target tgtSlot prefilter = do
     -- Process the restoration of the block with the given 'HeaderHash'.
     restore :: GenesisHash -> HeaderHash -> TimingData -> IO ()
     restore genesisHash hh timing = do
+
         -- Updating the average rate every 5 blocks.
         (rate, timing') <- tickTiming 5 timing
 
@@ -239,50 +332,48 @@ restoreWalletHistoryAsync wallet rootId target tgtSlot prefilter = do
 
         -- Skip EBBs
         whenRight block $ \mb -> do
-          -- Filter the blocks by account
-          blund <- (Right mb, ) <$> getUndoOrThrow genesisHash hh
-          (prefilteredBlocks, txMetas) <- prefilter blund
+            -- Filter the blocks by account
+            blund <- (Right mb, ) <$> getUndoOrThrow genesisHash hh
+            (prefilteredBlocks, txMetas) <- prefilter blund
 
-          -- Apply the block
-          k    <- getSecurityParameter (wallet ^. walletNode)
-          ctxt <- withNode $ mainBlockContext genesisHash mb
-          mErr <- update (wallet ^. wallets) $
-                    ApplyHistoricalBlock k ctxt prefilteredBlocks
-          case mErr of
-            Left err -> throwM $ RestorationApplyHistoricalBlockFailed err
-            Right () -> return ()
+            -- Apply the block
+            k    <- getSecurityParameter (wallet ^. walletNode)
+            ctxt <- withNode $ mainBlockContext genesisHash mb
+            mErr <- update (wallet ^. wallets) $
+                   ApplyHistoricalBlock k ctxt prefilteredBlocks
+            case mErr of
+                Left err -> throwM $ RestorationApplyHistoricalBlockFailed err
+                Right () -> return ()
 
-          -- Update our progress
-          slotCount <- getSlotCount (wallet ^. walletNode)
-          let flat             = flattenSlotId slotCount
-              blockPerSec      = MeasuredIn . BlockCount . perSecond <$> rate
-              throughputUpdate = maybe identity (set wriThroughput) blockPerSec
-              slotId           = mb ^. mainBlockSlot
-          updateRestorationInfo wallet wId ( (wriCurrentSlot .~ flat slotId)
-                                           . (wriTargetSlot  .~ flat tgtSlot)
-                                           . throughputUpdate )
+            -- Update our progress
+            slotCount <- getSlotCount (wallet ^. walletNode)
+            let flat             = flattenSlotId slotCount
+                blockPerSec      = MeasuredIn . BlockCount . perSecond <$> rate
+                throughputUpdate = maybe identity (set wrpThroughput) blockPerSec
+                slotId           = mb ^. mainBlockSlot
+            modifyIORef progress ( (wrpCurrentSlot .~ flat slotId)
+                                 . (wrpTargetSlot  .~ flat tgtSlot)
+                                 . throughputUpdate )
+            -- Store the TxMetas
+            forM_ txMetas (putTxMeta (wallet ^. walletMeta))
 
-          -- Store the TxMetas
-          forM_ txMetas (putTxMeta (wallet ^. walletMeta))
-
-        -- Get the next block from the node and recurse.
-        if target == hh then
-          finish
-        else
-          nextBlock hh >>= \case
-            Nothing      -> throwM $ RestorationFinishUnreachable target hh
-            Just header' -> restore genesisHash header' timing'
+        -- Decide how to proceed.
+        if tgtHash == hh then
+            finish
+          else nextHistoricalHash hh >>= \case
+            Nothing  -> throwM (RestorationFinishUnreachable tgtHash hh)
+            Just hh' -> restore genesisHash hh' timing'
 
     -- TODO (@mn): probably should use some kind of bracket to ensure this cleanup happens.
     finish :: IO ()
     finish = do
         k <- getSecurityParameter (wallet ^. walletNode)
         update (wallet ^. wallets) $ RestorationComplete k rootId
-        modifyMVar_ (wallet ^. walletRestorationTask) (pure . M.delete wId)
+        removeRestoration wallet wId
 
     -- Step forward to the successor of the given block.
-    nextBlock :: HeaderHash -> IO (Maybe HeaderHash)
-    nextBlock hh = withNode (resolveForwardLink hh)
+    nextHistoricalHash :: HeaderHash -> IO (Maybe HeaderHash)
+    nextHistoricalHash hh = withNode $ resolveForwardLink hh
 
     -- Get a block
     getBlockOrThrow :: GenesisHash -> HeaderHash -> IO Block
@@ -303,22 +394,6 @@ restoreWalletHistoryAsync wallet rootId target tgtSlot prefilter = do
 
     withNode :: forall a. (NodeConstraints => WithNodeState IO a) -> IO a
     withNode action = withNodeState (wallet ^. walletNode) (\_lock -> action)
-
--- Update the restoration information for a wallet.
-updateRestorationInfo :: Kernel.PassiveWallet
-                      -> WalletId
-                      -> (WalletRestorationInfo -> WalletRestorationInfo)
-                      -> IO ()
-updateRestorationInfo wallet wId upd =
-  modifyMVar_ (wallet ^. walletRestorationTask) (pure . M.adjust upd wId)
-
--- | Clears the restoration state and stops and threads.
-stopAllRestorations :: Kernel.PassiveWallet -> IO ()
-stopAllRestorations pw = do
-    modifyMVar_ (pw ^. walletRestorationTask) $ \mp -> do
-      let vals = M.elems mp
-      mapM_ _wriCancel vals
-      return M.empty
 
 {-------------------------------------------------------------------------------
   Timing information (for throughput calculations)
@@ -372,3 +447,25 @@ instance Show RestorationException where
     show = formatToString build
 
 instance Exception RestorationException
+
+{-------------------------------------------------------------------------------
+  TODO (@mn): duplicated from Cardano.Wallet.WalletLayer.Kernel.Wallets
+-------------------------------------------------------------------------------}
+
+-- | The use of the unsafe constructor 'UnsafeRawResolvedBlock' is justified
+-- by the invariants established in the 'Blund'.
+blundToResolvedBlock :: NodeStateAdaptor IO -> Blund -> IO (Maybe ResolvedBlock)
+blundToResolvedBlock node (b,u) = do
+    genesisHash <- configGenesisHash <$> getCoreConfig node
+    case b of
+      Left  _ebb      -> return Nothing
+      Right mainBlock -> withNodeState node $ \_lock -> do
+        ctxt  <- mainBlockContext genesisHash mainBlock
+        mTime <- defaultGetSlotStart (mainBlock ^. mainBlockSlot)
+        now   <- liftIO $ getCurrentTimestamp
+        return $ Just $ fromRawResolvedBlock UnsafeRawResolvedBlock {
+            rawResolvedBlock       = mainBlock
+          , rawResolvedBlockInputs = map (map fromJust) $ undoTx u
+          , rawTimestamp           = either (const now) identity mTime
+          , rawResolvedContext     = ctxt
+          }

@@ -62,6 +62,7 @@ module Cardano.Wallet.Kernel.DB.Util.IxSet (
   , otraverse
   , otraversal
   , foldl'
+  , any
     -- * Destruction
   , toList
   , toAscList
@@ -72,7 +73,7 @@ module Cardano.Wallet.Kernel.DB.Util.IxSet (
   ) where
 
 import qualified Prelude
-import           Universum hiding (Foldable, empty, foldl', null, toList)
+import           Universum hiding (Foldable, any, empty, foldl', null, toList)
 
 import qualified Control.Lens as Lens
 import           Data.Coerce (coerce)
@@ -419,6 +420,10 @@ foldl' f initialValue (WrapIxSet nativeSet) =
     Data.Foldable.foldl' (\acc (WrapOrdByPrimKey a) -> f acc a)
                          initialValue
                          nativeSet
+
+-- | Test if any elements satisfy the predicate, via foldl'.
+any :: (a -> Bool) -> IxSet a -> Bool
+any p = foldl' (\acc x -> acc || p x) False
 
 -- | Right fold
 foldrIxSet :: (a -> acc -> acc)

@@ -31,6 +31,8 @@ module Cardano.Wallet.Kernel.DB.HdWallet.Read (
 
 import           Universum
 
+import           Control.Lens (to)
+
 import           Pos.Chain.Txp (TxId, Utxo)
 import           Pos.Core (Address, Coin, SlotId, mkCoin, unsafeAddCoin)
 
@@ -75,7 +77,7 @@ pendingByAccount :: Query' e HdWallets (Map HdAccountId Pending)
 pendingByAccount = fmap aux . IxSet.toMap <$> view hdWalletsAccounts
   where
     aux :: HdAccount -> Pending
-    aux acc = acc ^. hdAccountState . hdAccountStateCurrent . cpPending
+    aux acc = acc ^. hdAccountState . hdAccountStateCurrent cpPending
 
 {-------------------------------------------------------------------------------
   Simple lookups
@@ -159,6 +161,4 @@ currentTotalBalance accId =
 currentTotalBalance' :: HdAccount -> Query' e HdWallets Coin
 currentTotalBalance' acc = do
     ourAddrs <- IxSet.getEQ (acc ^. hdAccountId) <$> view hdWalletsAddresses
-    return $ cpTotalBalance ourAddrs cp
-  where
-    cp = acc ^. hdAccountState . hdAccountStateCurrent
+    return (acc ^. hdAccountState . hdAccountStateCurrent (to $ cpTotalBalance ourAddrs))

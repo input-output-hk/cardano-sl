@@ -29,6 +29,7 @@ import qualified Formatting.Buildable
 import           Serokell.Util (listJsonIndent)
 import           Test.QuickCheck (Arbitrary (..), elements)
 
+import qualified Pos.Chain.Block as Core
 import           Pos.Chain.Txp (Utxo)
 import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Core as Core
@@ -224,20 +225,20 @@ applyBlockPartial pb = do
         (pending', rem1)  = updatePending        pb (current ^. pcheckpointPending)
         blockMeta'        = updateLocalBlockMeta pb (current ^. pcheckpointBlockMeta)
         (foreign', rem2)  = updatePending        pb (current ^. pcheckpointForeign)
-    if (pfbContext pb) `blockContextSucceeds` (current ^. pcheckpointContext) then do
-      put $ Checkpoints . NewestFirst $ PartialCheckpoint {
+    if (pfbContext pb) `blockContextSucceeds` (current ^. cpContext) then do
+      put $ Checkpoints $ NewestFirst $ PartialCheckpoint {
           _pcheckpointUtxo        = InDb utxo'
         , _pcheckpointUtxoBalance = InDb balance'
         , _pcheckpointPending     = pending'
         , _pcheckpointBlockMeta   = blockMeta'
         , _pcheckpointForeign     = foreign'
-        , _pcheckpointContext     = Just $ pfbContext pb
+        , _pcheckpointContext     = pfbContext pb
         } SNE.<| getNewestFirst ls
       return $ Set.unions [rem1, rem2]
     else
       throwError $ ApplyBlockNotSuccessor
                      (pfbContext pb)
-                     (current ^. pcheckpointContext)
+                     (current ^. cpContext)
 
 -- | Rollback
 --
@@ -253,22 +254,14 @@ applyBlockPartial pb = do
 -- This is an internal function only, and not exported. See 'switchToFork'.
 rollback :: Update' e (Checkpoints Checkpoint) Pending
 rollback = state $ \case
-    Checkpoints (NewestFirst (c :| SL.Nil))        -> (Pending.empty, Checkpoints . NewestFirst $ c :| SL.Nil)
-    Checkpoints (NewestFirst (c :| SL.Cons c' cs)) -> (
-          Pending.union
-            ((c' ^. checkpointPending) Pending.\\ (c ^. checkpointPending))
-            ((c' ^. checkpointForeign) Pending.\\ (c ^. checkpointForeign))
-        , Checkpoints . NewestFirst $ Checkpoint {
-              _checkpointUtxo        = c' ^. checkpointUtxo
-            , _checkpointUtxoBalance = c' ^. checkpointUtxoBalance
-            , _checkpointBlockMeta   = c' ^. checkpointBlockMeta
-            , _checkpointContext     = c' ^. checkpointContext
-            , _checkpointPending     = Pending.union (c  ^. checkpointPending)
-                                                     (c' ^. checkpointPending)
-            , _checkpointForeign     = Pending.union (c  ^. checkpointForeign)
-                                                     (c' ^. checkpointForeign)
-            } :| cs
-      )
+    Checkpoints (NewestFirst (c :| SL.Nil)) -> (Pending.empty,
+                                                Checkpoints . NewestFirst $ c :| SL.Nil)
+    Checkpoints (NewestFirst (c :| SL.Cons c' cs)) ->
+        (Pending.union
+            ((c' ^. cpPending) Pending.\\ (c ^. cpPending))
+            ((c' ^. cpForeign) Pending.\\ (c ^. cpForeign)),
+         Checkpoints . NewestFirst $ (c' & cpPending %~ Pending.union (c ^. cpPending)
+                                         & cpForeign %~ Pending.union (c ^. cpForeign)) :| cs)
 
 -- | Observable rollback, used in testing only
 --
@@ -285,24 +278,29 @@ observableRollbackUseInTestsOnly = rollback
 -- (to the rollback) and the transactions that got removed from pending
 -- (since they are new confirmed).
 switchToFork :: SecurityParameter
-             -> Int  -- ^ Number of blocks to rollback
+             -> Maybe Core.HeaderHash  -- ^ Roll back until we meet this block.
              -> OldestFirst [] PrefilteredBlock -- ^ Blocks to apply
              -> Update' ApplyBlockFailed
                         (Checkpoints Checkpoint)
                         (Pending, Set Txp.TxId)
-switchToFork k numRollbacks blocksToApply = do
-    reintroduced <- rollbacks Pending.empty numRollbacks
+switchToFork k oldest blocksToApply = do
+    reintroduced <- rollbacks Pending.empty
     applyBlocks reintroduced Set.empty (getOldestFirst blocksToApply)
   where
     rollbacks :: Pending -- Accumulator: reintroduced pending transactions
-              -> Int     -- Number of rollback to do
               -> Update' e
                          (Checkpoints Checkpoint)
                          Pending
-    rollbacks !accNew 0 = return accNew
-    rollbacks !accNew n = do
+    rollbacks !accNew = do
+        curCtx <- use currentContext
         reintroduced <- rollback
-        rollbacks (Pending.union accNew reintroduced) (n - 1)
+        let acc = Pending.union accNew reintroduced
+            prev = join (curCtx <&> _bcPrevMain) <&> _fromDb
+
+        case (prev == oldest, prev) of
+            (True, _)        -> return acc    -- We rolled back everything we needed to.
+            (False, Nothing) -> return acc    -- The checkpoints began after the fork point.
+            (False, Just _)  -> rollbacks acc -- Keep going
 
     applyBlocks :: Pending -- Accumulator: reintroduced pending transactions
                 -> Set Txp.TxId -- Accumulator: removed pending transactions

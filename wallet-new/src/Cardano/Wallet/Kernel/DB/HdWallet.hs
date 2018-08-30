@@ -1,7 +1,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE RankNTypes                 #-}
 -- TODO: Not sure about the best way to avoid the orphan instances here
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# OPTIONS_GHC -fno-warn-orphans -Wno-redundant-constraints #-}
 
 -- | HD wallets
 module Cardano.Wallet.Kernel.DB.HdWallet (
@@ -51,6 +52,7 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
   , hdAccountName
   , hdAccountState
   , hdAccountStateCurrent
+  , hdAccountStateUpToDate
     -- *** Account state: up to date
   , hdUpToDateCheckpoints
     -- *** Account state: under restoration
@@ -90,7 +92,7 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
 
 import           Universum hiding ((:|))
 
-import           Control.Lens (at, (+~), _Wrapped)
+import           Control.Lens (Getter, at, to, (+~), _Wrapped)
 import           Control.Lens.TH (makeLenses)
 import qualified Data.ByteString as BS
 import qualified Data.IxSet.Typed as IxSet (Indexable (..))
@@ -397,15 +399,13 @@ finishRestoration (SecurityParameter k) (HdAccountIncomplete (Checkpoints partia
       Nothing ->
         HdAccountUpToDate $ Checkpoints $ takeNewest k $ NewestFirst $
           (mostRecentHistorical :| olderHistorical)
-      Just secondLast | Just context <- secondLast ^. pcheckpointContext ->
-        if context `blockContextSucceeds` (mostRecentHistorical ^. checkpointContext)
+      Just secondLast -> let checkpoint = secondLast ^. pcheckpointContext in
+        if checkpoint `blockContextSucceeds` (mostRecentHistorical ^. checkpointContext)
           then HdAccountUpToDate $ Checkpoints $ takeNewest k $ NewestFirst $
                  SNE.prependList
                    (mkFull <$> initPartial)
                    (mostRecentHistorical :| olderHistorical)
           else error "finishRestoration: checkpoints do not line up!"
-      _otherwise ->
-        error "finishRestoration: invalid partial checkpoint (missing context)"
   where
     (initPartial, _oldestPartial)           = SNE.splitLast $ getNewestFirst partial
     mostRecentHistorical :| olderHistorical =                 getNewestFirst historical
@@ -452,17 +452,21 @@ hdAddressAccountId = hdAddressId . hdAddressIdParent
 hdAddressRootId :: Lens' HdAddress HdRootId
 hdAddressRootId = hdAddressAccountId . hdAccountIdParent
 
-hdAccountStateCurrent :: Lens' HdAccountState PartialCheckpoint
-hdAccountStateCurrent f (HdAccountStateUpToDate st) =
-    (\pcp -> HdAccountStateUpToDate (st & l .~ pcp)) <$> f (st ^. l)
-  where
-    l :: Lens' HdAccountUpToDate PartialCheckpoint
-    l = hdUpToDateCheckpoints . unCheckpoints . _Wrapped . SNE.head . fromFullCheckpoint
-hdAccountStateCurrent f (HdAccountStateIncomplete st) =
-    (\pcp -> HdAccountStateIncomplete (st & l .~ pcp)) <$> f (st ^. l)
-  where
-    l :: Lens' HdAccountIncomplete PartialCheckpoint
-    l = hdIncompleteCurrent . unCheckpoints . _Wrapped . SNE.head
+hdAccountStateCurrent :: (forall c. IsCheckpoint c => Getter c a) -> Getter HdAccountState a
+hdAccountStateCurrent g = to $ \case
+    HdAccountStateUpToDate st ->
+      st ^. hdUpToDateCheckpoints . unCheckpoints . _Wrapped . SNE.head . g
+    HdAccountStateIncomplete st ->
+      st ^. hdIncompleteCurrent   . unCheckpoints . _Wrapped . SNE.head . g
+
+{-------------------------------------------------------------------------------
+  Predicates
+-------------------------------------------------------------------------------}
+
+hdAccountStateUpToDate :: HdAccount -> Bool
+hdAccountStateUpToDate a = case a ^. hdAccountState of
+    HdAccountStateUpToDate   _ -> True
+    HdAccountStateIncomplete _ -> False
 
 {-------------------------------------------------------------------------------
   Unknown identifiers

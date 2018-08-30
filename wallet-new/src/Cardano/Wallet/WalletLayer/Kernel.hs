@@ -10,8 +10,10 @@ module Cardano.Wallet.WalletLayer.Kernel
 import           Universum
 
 import qualified Control.Concurrent.STM as STM
+import qualified Data.List.NonEmpty as NE
 
-import           Pos.Chain.Block (Blund)
+import           Pos.Chain.Block (Blund, blockHeader, headerHash, prevBlockL)
+import qualified Pos.Core as Core
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Util.Wlog (Severity (Debug))
@@ -19,10 +21,15 @@ import           Pos.Util.Wlog (Severity (Debug))
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Actions as Actions
 import qualified Cardano.Wallet.Kernel.BListener as Kernel
+import           Cardano.Wallet.Kernel.DB.HdWallet (hdAccountStateUpToDate)
+import qualified Cardano.Wallet.Kernel.DB.Read as Kernel
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
 import           Cardano.Wallet.Kernel.NodeStateAdaptor
 import qualified Cardano.Wallet.Kernel.Read as Kernel
+import qualified Cardano.Wallet.Kernel.Restore as Kernel
+import           Cardano.Wallet.Kernel.Types (WalletId (..))
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),
                      PassiveWalletLayer (..))
 import qualified Cardano.Wallet.WalletLayer.Kernel.Accounts as Accounts
@@ -45,18 +52,47 @@ bracketPassiveWallet
     -> (PassiveWalletLayer n -> Kernel.PassiveWallet -> m a) -> m a
 bracketPassiveWallet mode logFunction keystore node f = do
     Kernel.bracketPassiveWallet mode logFunction keystore node $ \w -> do
+
+      -- For each wallet in a restoration state, re-start the background
+      -- restoration tasks.
+      liftIO $ do
+          snapshot <- Kernel.getWalletSnapshot w
+          let restoringWallets = catMaybes $ Kernel.walletIds snapshot <&> \case
+                  WalletIdHdRnd rootId ->
+                    let accts       = Kernel.accountsByRootId snapshot rootId
+                        isRestoring = not . hdAccountStateUpToDate
+                    in if IxSet.any isRestoring accts
+                       then Just rootId
+                       else Nothing
+
+          for_ restoringWallets (Kernel.restoreKnownWallet w)
+
+      -- Start the wallet worker
       let wai = Actions.WalletActionInterp
                  { Actions.applyBlocks = \blunds -> do
                     ls <- mapM (Wallets.blundToResolvedBlock node)
                         (toList (getOldestFirst blunds))
                     let mp = catMaybes ls
-                    -- TODO: Deal with ApplyBlockFailed
                     mapM_ (Kernel.applyBlock w) mp
-                 , Actions.switchToFork = \_ _ ->
-                     logFunction Debug "<switchToFork>"
-                 , Actions.emit = logFunction Debug }
+
+                 , Actions.switchToFork = \_ (OldestFirst blunds) -> do
+                     -- Get the hash of the last main block before this fork.
+                     let almostOldest = fst (NE.head blunds)
+                     gh     <- Core.configGenesisHash <$> getCoreConfig node
+                     oldest <- withNodeState node $ \_lock ->
+                                 mostRecentMainBlock gh
+                                   (almostOldest ^. blockHeader . prevBlockL)
+
+                     bs <- catMaybes <$> mapM (Wallets.blundToResolvedBlock node)
+                                             (NE.toList blunds)
+
+                     Kernel.switchToFork w (headerHash <$> oldest) bs
+
+                 , Actions.emit = logFunction Debug
+                 }
       Actions.withWalletWorker wai $ \invoke -> do
          f (passiveWalletLayer w invoke) w
+
   where
     passiveWalletLayer :: Kernel.PassiveWallet
                        -> (Actions.WalletAction Blund -> STM ())

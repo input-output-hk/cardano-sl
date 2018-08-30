@@ -34,9 +34,9 @@ let
     then { inherit relays confKey confFile; }
     else environments.${environment};
   executables =  {
-    wallet = if useStackBinaries then "stack exec -- cardano-node" else "${iohkPkgs.cardano-sl-wallet-new}/bin/cardano-node";
+    wallet = if useStackBinaries then "stack exec -- cardano-node" else "${iohkPkgs.cardano-sl-wallet-new-static}/bin/cardano-node";
     explorer = if useStackBinaries then "stack exec -- cardano-explorer" else "${iohkPkgs.cardano-sl-explorer-static}/bin/cardano-explorer";
-    x509gen = if useStackBinaries then "stack exec -- cardano-x509-certificates" else "${iohkPkgs.cardano-sl-tools}/bin/cardano-x509-certificates";
+    x509gen = if useStackBinaries then "stack exec -- cardano-x509-certificates" else "${iohkPkgs.cardano-sl-tools-static}/bin/cardano-x509-certificates";
   };
   ifWallet = localLib.optionalString (executable == "wallet");
   iohkPkgs = import ./../../../default.nix { inherit config system pkgs gitrev; };

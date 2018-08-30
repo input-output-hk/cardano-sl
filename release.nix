@@ -39,8 +39,10 @@ let
     cardano-sl-wallet-new = supportedSystems;
     all-cardano-sl = supportedSystems;
     cardano-sl-explorer-static = [ "x86_64-linux" ];
+    cardano-sl-explorer = [ "x86_64-linux" ];
     cardano-sl-explorer-frontend = [ "x86_64-linux" ];
     cardano-report-server-static = [ "x86_64-linux" ];
+    cardano-report-server = [ "x86_64-linux" ];
     stack2nix = supportedSystems;
     purescript = supportedSystems;
     daedalus-bridge = supportedSystems;

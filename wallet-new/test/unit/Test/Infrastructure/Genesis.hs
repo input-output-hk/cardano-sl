@@ -111,7 +111,6 @@ genesisValues txSizeLinear boot = GenesisValues{..}
 overestimate :: (Int -> [Value] -> Value) -> Int -> Int -> Value
 overestimate getFee ins outs = getFee ins (replicate outs (getCoin maxBound))
 
-
 {-------------------------------------------------------------------------------
   Auxiliary
 -------------------------------------------------------------------------------}

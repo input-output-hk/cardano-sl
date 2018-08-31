@@ -98,6 +98,64 @@ accountSpecs wRef wc =
 
             map (AccountBalance . accAmount) accsUpdated `shouldBe` balancesPartialUpdated
 
+
+        it "redeeming avvv key gives rise to the corresponding increase of balance of wallet'account - mnemonic not used" $ do
+
+            newWallet <- randomWallet CreateWallet
+            Wallet{..} <- createWalletCheck wc newWallet
+
+            --adding new account
+            rAcc <- generate arbitrary :: IO NewAccount
+            newAcctResp <- postAccount wc walId rAcc
+            newAcct <- wrData <$> newAcctResp `shouldPrism` _Right
+
+            balancePartialRespB <- getAccountBalance wc walId (accIndex newAcct)
+            balancesPartialB <- wrData <$> balancePartialRespB `shouldPrism` _Right
+            let zeroBalance = AccountBalance $ V1 (Core.mkCoin 0)
+            balancesPartialB `shouldBe` zeroBalance
+
+            -- state-demo/genesis-keys/keys-fakeavvm/fake-9.seed
+            let avvmKey = "QBYOctbb6fJT/dBDLwg4je+SAvEzEhRxA7wpLdEFhnY="
+            --password is set to Nothing
+            passPhrase <- generate (pure mempty) :: IO SpendingPassword
+            let redemption = Redemption
+                    { redemptionRedemptionCode = ShieldedRedemptionCode avvmKey
+                    , redemptionMnemonic = Nothing
+                    , redemptionSpendingPassword = passPhrase
+                    , redemptionWalletId = walId
+                    , redemptionAccountIndex = accIndex newAcct
+                    }
+
+            etxn <- redeemAda wc redemption
+
+            txn <- fmap wrData etxn `shouldPrism` _Right
+
+            threadDelay 180000000
+
+            --checking if redemption give rise to transaction indexing
+            eresp <- getTransactionIndex
+                wc
+                (Just walId)
+                (Just (accIndex newAcct))
+                Nothing
+            resp <- fmap wrData eresp `shouldPrism` _Right
+            map txId resp `shouldContain` [txId txn]
+
+            --balance for the previously zero-balance account should increase by 100000
+            balancePartialResp <- getAccountBalance wc walId (accIndex newAcct)
+            balancesPartial <- wrData <$> balancePartialResp `shouldPrism` _Right
+            let nonzeroBalance = AccountBalance $ V1 (Core.mkCoin 100000)
+            balancesPartial `shouldBe` nonzeroBalance
+
+            --redeemAda for the same redeem address should result in error
+            etxnAgain <- redeemAda wc redemption
+
+            clientError <- etxnAgain `shouldPrism` _Left
+            clientError
+                `shouldBe`
+                    ClientWalletError (UnknownError "Request error (Cannot send redemption transaction: Redemption address balance is 0)")
+
+
   where
     filterByAddress :: WalletAddress -> FilterOperations '[V1 Address] WalletAddress
     filterByAddress addr =

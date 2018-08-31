@@ -44,7 +44,7 @@ walletServer natV0 coreConfig txpConfig diffusion ntpStatus runMode =
   where
     v0Handler       = V0.handlers natV0 coreConfig txpConfig diffusion ntpStatus
     v1Handler       = V1.handlers natV0 coreConfig txpConfig diffusion ntpStatus
-    internalHandler = Internal.handlers natV0 runMode
+    internalHandler = Internal.handlers natV0 (configGenesisData coreConfig) runMode
     wipHandler      = WIP.handlers natV0 coreConfig
 
 walletDocServer

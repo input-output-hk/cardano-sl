@@ -20,6 +20,7 @@ module Cardano.Wallet.Kernel.NodeStateAdaptor (
   , getTipSlotId
   , getSecurityParameter
   , getMaxTxSize
+  , getFeePolicy
   , getSlotCount
   , getGenesisData
   , getSlotStart
@@ -63,11 +64,12 @@ import           Pos.Chain.Block (Block, HeaderHash, LastKnownHeader,
                      LastKnownHeaderTag, MainBlock, blockHeader, headerHash,
                      mainBlockSlot, prevBlockL)
 import           Pos.Chain.Update (ConfirmedProposalState,
-                     HasUpdateConfiguration, SoftwareVersion, bvdMaxTxSize)
+                     HasUpdateConfiguration, SoftwareVersion, bvdMaxTxSize,
+                     bvdTxFeePolicy)
 import qualified Pos.Chain.Update as Upd
 import           Pos.Context (NodeContext (..))
-import           Pos.Core as Core (BlockCount, Config (..), SlotCount,
-                     Timestamp, configEpochSlots, configK, difficultyL,
+import           Pos.Core (BlockCount, Config (..), SlotCount, Timestamp,
+                     TxFeePolicy, configEpochSlots, configK, difficultyL,
                      genesisBlockVersionData, getChainDifficulty)
 import           Pos.Core.Configuration (HasConfiguration, genesisHash)
 import           Pos.Core.Genesis (GenesisData)
@@ -235,6 +237,9 @@ data NodeStateAdaptor m = Adaptor {
       -- | Get maximum transaction size
     , getMaxTxSize :: m Byte
 
+      -- | Get fee policy
+    , getFeePolicy :: m TxFeePolicy
+
       -- | Get the security parameter (@k@)
     , getSecurityParameter :: m SecurityParameter
 
@@ -362,7 +367,7 @@ instance MonadIO m => MonadSlots Res (WithNodeState m) where
 -- NOTE: This captures the node constraints in the closure so that the adaptor
 -- can be used in a place where these constraints is not available.
 newNodeStateAdaptor :: forall m ext. (NodeConstraints, MonadIO m, MonadMask m)
-                    => Core.Config
+                    => Config
                     -> NodeResources ext
                     -> TVar NtpStatus
                     -> NodeStateAdaptor m
@@ -370,6 +375,7 @@ newNodeStateAdaptor coreConfig nr ntpStatus = Adaptor
     { withNodeState            =            run
     , getTipSlotId             =            run $ \_lock -> defaultGetTipSlotId
     , getMaxTxSize             =            run $ \_lock -> defaultGetMaxTxSize
+    , getFeePolicy             =            run $ \_lock -> defaultGetFeePolicy
     , getSlotStart             = \slotId -> run $ \_lock -> defaultGetSlotStart slotId
     , getNextEpochSlotDuration =            run $ \_lock -> defaultGetNextEpochSlotDuration
     , getNodeSyncProgress      = \lockCtx -> run $ defaultSyncProgress lockCtx
@@ -405,6 +411,10 @@ withLock NotYetLocked  f = Wrap $ withStateLockNoMetrics LowPriority
 defaultGetMaxTxSize :: (MonadIO m, MonadCatch m, NodeConstraints)
                     => WithNodeState m Byte
 defaultGetMaxTxSize = bvdMaxTxSize <$> getAdoptedBVData
+
+defaultGetFeePolicy :: (MonadIO m, MonadCatch m, NodeConstraints)
+                    => WithNodeState m TxFeePolicy
+defaultGetFeePolicy = bvdTxFeePolicy <$> getAdoptedBVData
 
 -- | Get the slot ID of the chain tip
 --
@@ -554,6 +564,7 @@ mockNodeState MockNodeStateParams{..} =
         , getNodeSyncProgress      = \_ -> return mockNodeStateSyncProgress
         , getSlotStart             = return . mockNodeStateSlotStart
         , getMaxTxSize             = return $ bvdMaxTxSize genesisBlockVersionData
+        , getFeePolicy             = return $ bvdTxFeePolicy genesisBlockVersionData
         , getSlotCount             = return $ configEpochSlots coreConfig
         , getGenesisData           = return $ configGenesisData coreConfig
         , curSoftwareVersion       = return $ Upd.curSoftwareVersion

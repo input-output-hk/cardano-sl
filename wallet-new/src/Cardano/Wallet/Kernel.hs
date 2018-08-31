@@ -14,6 +14,7 @@ module Cardano.Wallet.Kernel (
     , DatabasePaths(..)
     , useDefaultPaths
       -- ** Lenses
+    , walletNode
     , walletLogMessage
     , walletPassive
     , walletMeta

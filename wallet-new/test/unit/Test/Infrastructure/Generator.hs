@@ -23,7 +23,7 @@ import           UTxO.Generator
 import           Wallet.Inductive
 import           Wallet.Inductive.Generator
 
-import           Pos.Core (TxSizeLinear)
+import           Pos.Core (TxSizeLinear, getCoin)
 
 {-------------------------------------------------------------------------------
   Generator model
@@ -47,7 +47,7 @@ data GeneratorModel h a = GeneratorModel {
     , gmOurs         :: Set a
 
       -- | Estimate fees
-    , gmEstimateFee  :: Int -> [Value] -> Value
+    , gmEstimateFee  :: Int -> Int -> Value
     }
 
 genChainUsingModel :: (Hash h a, Ord a) => GeneratorModel h a -> Gen (Chain h a)
@@ -116,15 +116,23 @@ cardanoModel :: TxSizeLinear
              -> [Addr] -- ^ list of all addresses (including "ours")
              -> Transaction GivenHash Addr
              -> GeneratorModel GivenHash Addr
-cardanoModel linearFeePolicy ourActor allAddrs boot =
-    GeneratorModel {
+cardanoModel linearFeePolicy ourActor allAddrs boot = GeneratorModel {
       gmBoot          = boot
     , gmAllAddresses  = allAddrs
     , gmOurs          = Set.fromList ourAddrs
-    , gmEstimateFee   = estimateCardanoFee linearFeePolicy
+    , gmEstimateFee   = estimateFee
     }
-    where
-        ours (Addr (IxPoor actor) _) = (ourActor == actor)
-        ours _                       = False
+  where
+    ours :: Addr -> Bool
+    ours (Addr (IxPoor actor) _) = (ourActor == actor)
+    ours _                       = False
 
-        ourAddrs = filter ours allAddrs
+    ourAddrs :: [Addr]
+    ourAddrs = filter ours allAddrs
+
+    estimateFee :: Int -> Int -> Value
+    estimateFee inps outs =
+        estimateCardanoFee
+          linearFeePolicy
+          inps
+          (replicate outs (getCoin maxBound))

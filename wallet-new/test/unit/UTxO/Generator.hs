@@ -185,14 +185,14 @@ data GenTrParams a = GenTrParams {
       -- | Fee model
       --
       -- Provide fee given number of inputs and outputs
-    , gtpEstimateFee   :: Int -> [Value] -> Value
+    , gtpEstimateFee   :: Int -> Int -> Value
 
       -- | Output parameters
     , gtpOutParams     :: GenOutParams a
     }
 
 -- | Default 'GenTrParams'
-defTrParams :: (Int -> [Value] -> Value) -- ^ Fee model
+defTrParams :: (Int -> Int -> Value)    -- ^ Fee model
             -> [a]                      -- ^ Addresses we can generate outputs to
             -> GenTrParams a
 defTrParams feeModel addresses = GenTrParams {
@@ -259,17 +259,16 @@ genTransaction GenTrParams{..} removeUsedInputs makeOutputsAvailable notThese = 
         nextHash   <- gtsNextHash <<+= 1
         numOutputs <- lift $ choose (1, gtpMaxNumOutputs)
 
-        let inValue = sum (map (outVal . snd) inputs)
-            gos = initOutState inValue
+        let fee          = gtpEstimateFee numInputs numOutputs
+            totalInValue = sum (map (outVal . snd) inputs)
 
-        (outputs, gos') <- lift $ (`runStateT` gos) $
-                             replicateAtMostM numOutputs $ genOutput gtpOutParams
-
-        let fee     = gtpEstimateFee numInputs (map outVal outputs)
-
-        if inValue <= fee || gos' ^. gosAvailable < fee
+        if totalInValue <= fee
           then return Nothing
           else do
+            let gos = initOutState (totalInValue - fee)
+
+            outputs <- lift $ (`evalStateT` gos) $
+              replicateAtMostM numOutputs $ genOutput gtpOutParams
 
             let tr = Transaction {
                          trFresh = 0
@@ -308,7 +307,7 @@ data GenChainParams a = GenChainParams {
     }
 
 -- | Default 'GenChainParams'
-defChainParams :: (Int -> [Value] -> Value) -- ^ Fee model
+defChainParams :: (Int -> Int -> Value)    -- ^ Fee model
                -> [a]                      -- ^ Address we can generate outputs for
                -> GenChainParams a
 defChainParams feeModel addresses = GenChainParams {

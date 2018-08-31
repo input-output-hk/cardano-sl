@@ -2,12 +2,12 @@ module Pos.Util.Wlog
         ( -- * CanLog
           CanLog (..)
         , WithLogger
-        , dispatchEvents
+        , dispatchEvents        -- call sites: 1 chain/src/Pos/Chain/Ssc/Toss/Pure.hs
           -- * Pure logging manipulation
         , LogEvent (..)
         , NamedPureLogger (..)
-        , launchNamedPureLog
-        , runNamedPureLog
+        , launchNamedPureLog    -- call sites: 8   chain,db,explorer
+        , runNamedPureLog       -- call sites: 2   chain,db
           -- * Logging functions
         , logDebug
         , logError
@@ -17,9 +17,9 @@ module Pos.Util.Wlog
         , logMessage
           -- * LoggerName
         , LoggerName (..)
-        , LoggerNameBox (..)
+        , LoggerNameBox (..)    -- call sites: 9  core,db,infra,lib,tools,util
         , HasLoggerName (..)
-        , usingLoggerName
+        , usingLoggerName       -- call sites: 22 db,explorer,infra,lib,networking,node-ipc,tools,wallet,wallet-new
           -- * LoggerConfig
         , LoggerConfig (..)
         , lcLogsDirectory
@@ -83,3 +83,21 @@ import           System.Wlog (CanLog (..), HandlerWrap (..), HasLoggerName (..),
                      zoomLogger)
 import           System.Wlog.Formatter (centiUtcTimeF)
 import           System.Wlog.LogHandler (LogHandlerTag (HandlerFilelike))
+
+
+
+{-
+  attempt for reducing complexity:
+
+  1. count call sites per function
+  2. comment out 0 usages
+  3. group by "common usage pattern"
+      * just logging functions
+      * setup logging
+      * logging configuration
+      * pure logger?
+      * only 'CanLog' imported
+      * CanLog and WithLogger imported => redundant
+      * CanLog and HasLoggerName imported => replace with 'WithLogger'
+-}
+

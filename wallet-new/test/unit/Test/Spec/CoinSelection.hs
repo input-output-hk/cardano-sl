@@ -39,11 +39,11 @@ import           Util.Buildable
 import           Cardano.Wallet.Kernel.CoinSelection (CoinSelFinalResult (..),
                      CoinSelHardErr (..), CoinSelPolicy,
                      CoinSelectionOptions (..), ExpenseRegulation (..),
-                     InputGrouping (..), largestFirst, mkStdTx, newOptions,
-                     random)
+                     InputGrouping (..), estimateMaxTxInputsExplicitBounds,
+                     largestFirst, mkStdTx, newOptions, random)
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
-                     (estimateCardanoFee, estimateHardMaxTxInputs,
-                     estimateMaxTxInputs)
+                     (estimateCardanoFee,
+                     estimateHardMaxTxInputsExplicitBounds)
 import           Cardano.Wallet.Kernel.Util.Core (paymentAmount, utxoBalance,
                      utxoRestrictToInputs)
 import           Pos.Crypto.Signing.Safe (fakeSigner)
@@ -716,12 +716,12 @@ spec =
 
         describe "Estimating the maximum number of inputs" $ do
             prop "estimateMaxTxInputs yields a lower bound." $
-                forAll (genMaxInputTx estimateMaxTxInputs) $ \case
+                forAll (genMaxInputTx estimateMaxTxInputsExplicitBounds) $ \case
                     Left _err        -> False
                     Right (lhs, rhs) -> lhs <= rhs
 
             prop "estimateMaxTxInputs yields a relatively tight bound." $
-                forAll (genMaxInputTx $ \x y z -> 1 + estimateHardMaxTxInputs x y z) $ \case
+                forAll (genMaxInputTx $ \x y z -> 1 + estimateHardMaxTxInputsExplicitBounds x y z) $ \case
                     Left _err        -> False
                     Right (lhs, rhs) -> lhs > rhs
 
@@ -729,7 +729,7 @@ spec =
                 forAll ((,) <$> genMaxTxSize
                             <*> (getAddrAttrSize <$> genOutAux)) $
                 \(maxTxSize, addrAttrSize) ->
-                    let safeMax = estimateMaxTxInputs     addrAttrSize txAttrSize maxTxSize
-                        hardMax = estimateHardMaxTxInputs addrAttrSize txAttrSize maxTxSize
+                    let safeMax = estimateMaxTxInputsExplicitBounds     addrAttrSize txAttrSize maxTxSize
+                        hardMax = estimateHardMaxTxInputsExplicitBounds addrAttrSize txAttrSize maxTxSize
                         threshold = 5 -- percent
                     in (hardMax * 100) `div` safeMax <= 100 + threshold

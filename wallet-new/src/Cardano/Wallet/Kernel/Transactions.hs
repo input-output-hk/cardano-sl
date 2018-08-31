@@ -35,7 +35,8 @@ import qualified Formatting.Buildable
 
 import           Pos.Chain.Txp (Utxo)
 import qualified Pos.Client.Txp.Util as CTxp
-import           Pos.Core (Address, Coin, unsafeIntegerToCoin, unsafeSubCoin)
+import           Pos.Core (Address, Coin, TxFeePolicy (..), unsafeIntegerToCoin,
+                     unsafeSubCoin)
 import qualified Pos.Core as Core
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxIn (..), TxOut (..),
                      TxOutAux (..))
@@ -46,8 +47,7 @@ import           Pos.Crypto (EncryptedSecretKey, PassPhrase, RedeemSecretKey,
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (CoinSelFinalResult (..), CoinSelectionOptions,
-                     dummyAddrAttrSize, dummyTxAttrSize, estimateCardanoFee,
-                     estimateMaxTxInputs, mkStdTx)
+                     estimateCardanoFee, estimateMaxTxInputs, mkStdTx)
 import qualified Cardano.Wallet.Kernel.CoinSelection.FromGeneric as CoinSelection
 import           Cardano.Wallet.Kernel.CoinSelection.Generic
                      (CoinSelHardErr (..))
@@ -179,7 +179,8 @@ newTransaction :: ActiveWallet
 newTransaction ActiveWallet{..} spendingPassword options accountId payees = runExceptT $ do
     initialEnv <- liftIO $ newEnvironment
     maxTxSize  <- liftIO $ Node.getMaxTxSize (walletPassive ^. walletNode)
-    let maxInputs = estimateMaxTxInputs dummyAddrAttrSize dummyTxAttrSize maxTxSize
+    -- TODO: We should cache this maxInputs value
+    let maxInputs = estimateMaxTxInputs maxTxSize
 
     -- STEP 0: Get available UTxO
     snapshot      <- liftIO $ getWalletSnapshot walletPassive
@@ -422,11 +423,12 @@ mkSigner spendingPassword (Just esk) snapshot addr =
                      Left (SignTransactionErrorNotOwned addr)
 
 -- | An estimate of the Tx fees in Cardano based on a sensible number of defaults.
-cardanoFee :: Int -> NonEmpty Coin -> Coin
-cardanoFee inputs outputs = Core.mkCoin $
-    estimateCardanoFee linearFeePolicy inputs (toList $ fmap Core.getCoin outputs)
-    where
-      linearFeePolicy = Core.TxSizeLinear (Core.Coeff 155381) (Core.Coeff 43.946)
+cardanoFee :: TxFeePolicy -> Int -> NonEmpty Coin -> Coin
+cardanoFee (TxFeePolicyTxSizeLinear policy) inputs outputs =
+    Core.mkCoin $
+      estimateCardanoFee policy inputs (toList $ fmap Core.getCoin outputs)
+cardanoFee TxFeePolicyUnknown{} _ _ =
+    error "cardanoFee: unknown policy"
 
 {-------------------------------------------------------------------------------
   Ada redemption

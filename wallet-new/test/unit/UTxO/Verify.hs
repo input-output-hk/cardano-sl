@@ -386,7 +386,18 @@ tgsVerifyBlocks newChain = do
                 (Right res, newModifier) ->
                     res <$ (_1 . gtsUtxoModifier .= newModifier)
 
+-- | Check all data
+--
+-- In the regular verification code in various places are checks to see whether
+-- we expect blocks to contain data we don't know about (if version numbers
+-- mismatch). Since we generate all our own blocks in the tests, this is not
+-- relevant here.
+dataMustBeKnown :: Bool
+dataMustBeKnown = True
 
+{-------------------------------------------------------------------------------
+  More detailed error messages
+-------------------------------------------------------------------------------}
 
 data VerifyBlockFailure =
     -- | We record the original failure and we attempt to figure out which
@@ -412,14 +423,11 @@ verifyBlockFailure txs failure =
         ToilVerFailure [] failure
 
 instance Buildable VerifyBlockFailure where
-    build (ToilVerFailure txs failure) =
-        bprint ("ToilVerFailure " % listJson % " " % build) txs failure
-
--- | Check all data
---
--- In the regular verification code in various places are checks to see whether
--- we expect blocks to contain data we don't know about (if version numbers
--- mismatch). Since we generate all our own blocks in the tests, this is not
--- relevant here.
-dataMustBeKnown :: Bool
-dataMustBeKnown = True
+    build (ToilVerFailure txs failure) = bprint
+        ( "ToilVerFailure "
+        % "{ matchingTxs: " % listJson
+        % ", failure:     " % build
+        % "}"
+        )
+        txs
+        failure

@@ -18,13 +18,14 @@ module Cardano.Wallet.Kernel.CoinSelection.FromGeneric (
   , largestFirst
     -- * Estimating fees
   , estimateCardanoFee
-  , dummyAddrAttrSize
-  , dummyTxAttrSize
+  , boundAddrAttrSize
+  , boundTxAttrSize
     -- * Estimating transaction limits
   , estimateMaxTxInputs
-  , estimateHardMaxTxInputs
     -- * Testing & internal use only
   , estimateSize
+  , estimateMaxTxInputsExplicitBounds
+  , estimateHardMaxTxInputsExplicitBounds
   ) where
 
 import           Universum hiding (Sum (..))
@@ -423,17 +424,23 @@ estimateSize saa sta ins outs =
 estimateCardanoFee :: TxSizeLinear -> Int -> [Word64] -> Word64
 estimateCardanoFee linearFeePolicy ins outs
     = round $ calculateTxSizeLinear linearFeePolicy
-            $ hi $ estimateSize dummyAddrAttrSize dummyTxAttrSize ins outs
+            $ hi $ estimateSize boundAddrAttrSize boundTxAttrSize ins outs
 
 -- | Size to use for a value of type @Attributes AddrAttributes@ when estimating
 --   encoded transaction sizes. The minimum possible value is 2.
-dummyAddrAttrSize :: Byte
-dummyAddrAttrSize = 16
+--
+-- NOTE: When the /actual/ size exceeds this bounds, we may underestimate
+-- tranasction fees and potentially generate invalid transactions.
+boundAddrAttrSize :: Byte
+boundAddrAttrSize = 34
 
 -- | Size to use for a value of type @Attributes ()@ when estimating
 --   encoded transaction sizes. The minimum possible value is 2.
-dummyTxAttrSize :: Byte
-dummyTxAttrSize = 2
+--
+-- NOTE: When the /actual/ size exceeds this bounds, we may underestimate
+-- tranasction fees and potentially generate invalid transactions.
+boundTxAttrSize :: Byte
+boundTxAttrSize = 2
 
 -- | For a given transaction size, and sizes for @Attributes AddrAttributes@ and
 --   @Attributes ()@, compute the maximum possible number of inputs a transaction
@@ -443,16 +450,31 @@ dummyTxAttrSize = 2
 --   We use a conservative over-estimate for the encoded transaction sizes, so the
 --   number of transaction inputs computed here is a lower bound on the true
 --   maximum.
-estimateMaxTxInputs
+--
+-- NOTE: This function takes explicit bounds for tx and addr sizes. For most
+-- purposes you probably want 'estimateMaxTxInputs' instead.
+estimateMaxTxInputsExplicitBounds
   :: Byte -- ^ Size of @Attributes AddrAttributes@
   -> Byte -- ^ Size of @Attributes ()@
   -> Byte -- ^ Maximum size of a transaction
   -> Word64
-estimateMaxTxInputs addrAttrSize txAttrSize maxSize =
+estimateMaxTxInputsExplicitBounds addrAttrSize txAttrSize maxSize =
     fromIntegral (searchUp estSize maxSize 7)
-
   where
-    estSize txins = hi $ estimateSize addrAttrSize txAttrSize txins [Core.maxCoinVal]
+    estSize txins = hi $ estimateSize
+                           addrAttrSize
+                           txAttrSize
+                           txins
+                           [Core.maxCoinVal]
+
+-- | Variation on 'estimateMaxTxInputsExplicitBounds' that uses the bounds
+-- we use throughout the codebase
+estimateMaxTxInputs
+  :: Byte -- ^ Maximum size of a transaction
+  -> Word64
+estimateMaxTxInputs = estimateMaxTxInputsExplicitBounds
+                        boundAddrAttrSize
+                        boundTxAttrSize
 
 -- | For a given transaction size, and sizes for @Attributes AddrAttributes@ and
 --   @Attributes ()@, compute the maximum possible number of inputs a transaction
@@ -462,16 +484,21 @@ estimateMaxTxInputs addrAttrSize txAttrSize maxSize =
 --   possible inputs a transaction can have; by comparison, @estimateMaxTxInputs@
 --   gives an upper bound on the number of inputs you can put into a transaction,
 --   if you do not have /a priori/ control over the size of those inputs.
-estimateHardMaxTxInputs
+--
+-- Used only in testing. See 'estimateMaxTxInputs'.
+estimateHardMaxTxInputsExplicitBounds
   :: Byte -- ^ Size of @Attributes AddrAttributes@
   -> Byte -- ^ Size of @Attributes ()@
   -> Byte -- ^ Maximum size of a transaction
   -> Word64
-estimateHardMaxTxInputs addrAttrSize txAttrSize maxSize =
+estimateHardMaxTxInputsExplicitBounds addrAttrSize txAttrSize maxSize =
     fromIntegral (searchUp estSize maxSize 7)
-
   where
-    estSize txins = lo $ estimateSize addrAttrSize txAttrSize txins [minBound]
+    estSize txins = lo $ estimateSize
+                           addrAttrSize
+                           txAttrSize
+                           txins
+                           [minBound]
 
 -- | Substitutions for certain sizes and lengths in the size estimates.
 sizeEstimateCtx :: Map TypeRep SizeOverride

@@ -40,8 +40,11 @@ import           Data.Time.Units (fromMicroseconds)
 import           Formatting (bprint, build, shown, (%))
 import qualified Formatting.Buildable
 import           Prelude (Show (..))
+import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util (listJson, mapJson)
 
+import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
+                     (boundAddrAttrSize, boundTxAttrSize)
 import           Cardano.Wallet.Kernel.DB.BlockContext
 import           Cardano.Wallet.Kernel.DB.BlockMeta (AddressMeta,
                      BlockMeta (..))
@@ -50,6 +53,7 @@ import           Cardano.Wallet.Kernel.DB.Resolved
 import           Cardano.Wallet.Kernel.Types
 import           Cardano.Wallet.Kernel.Util (at)
 
+import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (Block, BlockHeader (..), GenesisBlock,
                      HeaderHash, MainBlock, gbHeader, genBlockLeaders,
                      headerHash, mkGenesisBlock)
@@ -65,7 +69,7 @@ import           Pos.Core.Genesis (GenesisWStakeholders, gdBootStakeholders,
                      gdProtocolConsts,
                      genesisProtocolConstantsToProtocolConstants)
 import           Pos.Core.Txp (TxAux (..), TxId, TxIn (..), TxOut (..),
-                     TxOutAux (..))
+                     TxOutAux (..), txAttributes)
 import           Pos.Crypto
 import           Pos.DB.Block (RawPayload (..), createMainBlockPure)
 
@@ -107,6 +111,25 @@ data IntException =
 
     -- | Attempt to rollback without previous checkpoints
   | IntCannotRollback
+
+    -- | The size of the attributes in the transaction exceeded our bounds
+    --
+    -- In order to estimate transaction size we use two values
+    -- `boundAddrAttrSize` and `boundTxAttrSize`. If the attributes in an actual
+    -- transaction exceeds these values, we will end up underestimating the fees
+    -- we need to pay. This isn't really a problem for the interpreter, but it's
+    -- a problem elsewhere and when this happens various tests will fail. So we
+    -- check this right at the point where we generate a transaction, and fail
+    -- early if the bounds are exceeded.
+    --
+    -- We record the size of the attributes on the transaction as well as the
+    -- size of the attributes of all addresses in the outputs.
+  | IntTxAttrBoundsExceeded Byte
+
+    -- | The size of the attributes of an address exceeded our bounds
+    --
+    -- See 'IntTxAttrBoundsExceeded' for details.
+  | IntAddrAttrBoundsExceeded Byte
   deriving (Show)
 
 instance Exception IntException
@@ -518,6 +541,9 @@ instance Interpret h (DSL.Output h Addr) where
   int DSL.Output{..} = do
       AddrInfo{..} <- int outAddr
       outVal'      <- int outVal
+      let addrAttrSize = biSize (addrAttributes addrInfoCardano)
+      unless (addrAttrSize <= boundAddrAttrSize) $
+        throwError $ Left $ IntAddrAttrBoundsExceeded addrAttrSize
       return TxOutAux {
           toaOut = TxOut {
               txOutAddress = addrInfoCardano
@@ -605,6 +631,9 @@ instance DSL.Hash h Addr => Interpret h (DSL.Transaction h Addr) where
       (trIns', resolvedInputs) <- unzip <$> mapM int (DSL.trIns' t)
       trOuts'                  <-           mapM int (DSL.trOuts t)
       txAux   <- liftTranslateInt $ mkTx trIns' trOuts'
+      let txAttrSize = biSize (taTx txAux ^. txAttributes)
+      unless (txAttrSize <= boundTxAttrSize) $
+        throwError $ Left $ IntTxAttrBoundsExceeded txAttrSize
       putTxMeta t $ hash (taTx txAux)
       return $ mkRawResolvedTx currentTime txAux (NE.fromList resolvedInputs)
     where

@@ -44,10 +44,6 @@ module Cardano.Wallet.Kernel.DB.Spec (
     -- ** public for testing compression
   , deltas
   , steps
-  , deltaC
-  , stepC
-  , deltaPartialC
-  , stepPartialC
   ) where
 
 import           Universum
@@ -310,8 +306,8 @@ instance IsCheckpoint Checkpoint where
     cpBlockMeta   = checkpointBlockMeta . from _Wrapped
     cpForeign     = checkpointForeign
     cpContext     = checkpointContext
-    delta         = deltaC
-    step          = stepC
+    delta         = deltaCheckpoint
+    step          = stepCheckpoint
 
 instance IsCheckpoint PartialCheckpoint where
     cpUtxo        = pcheckpointUtxo . fromDb
@@ -320,8 +316,8 @@ instance IsCheckpoint PartialCheckpoint where
     cpBlockMeta   = pcheckpointBlockMeta
     cpForeign     = pcheckpointForeign
     cpContext     = pcheckpointContext
-    delta         = deltaPartialC
-    step          = stepPartialC
+    delta         = deltaPartialCheckpoint
+    step          = stepPartialCheckpoint
 
 cpAddressMeta :: IsCheckpoint c => Core.Address -> Lens' c AddressMeta
 cpAddressMeta addr = cpBlockMeta . _Wrapped . addressMeta addr
@@ -330,8 +326,8 @@ cpAddressMeta addr = cpBlockMeta . _Wrapped . addressMeta addr
   Convenience: definitions for compression
 -------------------------------------------------------------------------------}
 
-deltaC :: Checkpoint -> Checkpoint -> DeltaCheckpoint
-deltaC c c' = DeltaCheckpoint {
+deltaCheckpoint :: Checkpoint -> Checkpoint -> DeltaCheckpoint
+deltaCheckpoint c c' = DeltaCheckpoint {
     dcUtxo         = deltaUtxo (_checkpointUtxo c) (_checkpointUtxo c')
   , dcUtxoBalance  = _checkpointUtxoBalance c
   , dcPending      = deltaPending (_checkpointPending c) (_checkpointPending c')
@@ -340,8 +336,8 @@ deltaC c c' = DeltaCheckpoint {
   , dcContext      = _checkpointContext c
 }
 
-stepC :: Checkpoint -> DeltaCheckpoint -> Checkpoint
-stepC c DeltaCheckpoint{..} =
+stepCheckpoint :: Checkpoint -> DeltaCheckpoint -> Checkpoint
+stepCheckpoint c DeltaCheckpoint{..} =
   Checkpoint {
     _checkpointUtxo          = stepUtxo (_checkpointUtxo c) dcUtxo
     , _checkpointUtxoBalance = dcUtxoBalance
@@ -351,8 +347,8 @@ stepC c DeltaCheckpoint{..} =
     , _checkpointForeign     = stepPending (_checkpointForeign c) dcForeign
   }
 
-deltaPartialC :: PartialCheckpoint -> PartialCheckpoint -> DeltaCheckpoint
-deltaPartialC c c' = DeltaCheckpoint {
+deltaPartialCheckpoint :: PartialCheckpoint -> PartialCheckpoint -> DeltaCheckpoint
+deltaPartialCheckpoint c c' = DeltaCheckpoint {
     dcUtxo         = deltaUtxo (_pcheckpointUtxo c) (_pcheckpointUtxo c')
   , dcUtxoBalance  = _pcheckpointUtxoBalance c
   , dcPending      = deltaPending (_pcheckpointPending c) (_pcheckpointPending c')
@@ -362,8 +358,8 @@ deltaPartialC c c' = DeltaCheckpoint {
   , dcContext      = _pcheckpointContext c
 }
 
-stepPartialC :: PartialCheckpoint -> DeltaCheckpoint -> PartialCheckpoint
-stepPartialC c DeltaCheckpoint{..} =
+stepPartialCheckpoint :: PartialCheckpoint -> DeltaCheckpoint -> PartialCheckpoint
+stepPartialCheckpoint c DeltaCheckpoint{..} =
   PartialCheckpoint {
     _pcheckpointUtxo          = stepUtxo (_pcheckpointUtxo c) dcUtxo
     , _pcheckpointUtxoBalance = dcUtxoBalance

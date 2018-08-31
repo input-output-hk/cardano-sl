@@ -7,7 +7,7 @@
 -- > import           Cardano.Wallet.Kernel.DB.Spec.Pending (Pending)
 -- > import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
 module Cardano.Wallet.Kernel.DB.Spec.Pending (
-    Pending (..) -- visible only for compression.
+    Pending -- opaque
     -- * Basic combinators
   , null
   , lookup
@@ -31,6 +31,9 @@ module Cardano.Wallet.Kernel.DB.Spec.Pending (
   , txOuts
   , change
   , removeInputs
+  , PendingDiff
+  , liftDeltaPending
+  , liftStepPending
   ) where
 
 import           Universum hiding (empty, null, toList)
@@ -196,6 +199,20 @@ liftMap f (toMap -> p) = fromMap (f p)
 liftMap2 :: (UnderlyingMap -> UnderlyingMap -> UnderlyingMap)
          -> Pending -> Pending -> Pending
 liftMap2 f (toMap -> p) (toMap -> p') = fromMap (f p p')
+
+{--------------------------------------------------------------------------------
+  Compression
+-------------------------------------------------------------------------------}
+
+type PendingDiff = InDb (Map Core.TxId Core.TxAux, Set Core.TxId)
+
+liftDeltaPending :: (UnderlyingMap -> UnderlyingMap -> (Map Core.TxId Core.TxAux, Set Core.TxId))
+    -> Pending -> Pending -> PendingDiff
+liftDeltaPending f (Pending (InDb m)) (Pending (InDb m')) = InDb (f m m')
+
+liftStepPending :: (UnderlyingMap -> (Map Core.TxId Core.TxAux, Set Core.TxId) -> UnderlyingMap)
+    -> Pending -> PendingDiff -> Pending
+liftStepPending f (Pending (InDb m)) (InDb d) = Pending . InDb $ f m d
 
 {-------------------------------------------------------------------------------
   Pretty printing

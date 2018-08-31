@@ -10,13 +10,12 @@ import           Test.Hspec
 import           Test.QuickCheck (arbitrary, resize)
 import           Test.QuickCheck.Monadic (monadicIO, pick)
 
-import           Arbitrary ()
 import           Cardano.Wallet.Kernel.DB.Compression
 import           Cardano.Wallet.Kernel.DB.Spec
 
 import           Util.Buildable (ShowThroughBuild (..))
 
-import           Test.Pos.Core.Arbitrary ()
+import           Arbitrary ()
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
@@ -29,8 +28,8 @@ spec = do
         it "Map round trips" $ monadicIO $ do
             (mp :: Map Int Int) <- pick arbitrary
             mp' <- pick arbitrary
-            let d = deltaM mp mp'
-            let mp'' = stepM mp' d
+            let d = deltaMap mp mp'
+            let mp'' = stepMap mp' d
             return $ mp `shouldBe` mp''
 
         it "Map round trips, (one Map is strictly bigger)" $ monadicIO $ do
@@ -38,8 +37,8 @@ spec = do
             mp2 <- pick arbitrary
             let mp = mp1 <> mp2
             let mp' = mp1
-            let d = deltaM mp mp'
-            let mp'' = stepM mp' d
+            let d = deltaMap mp mp'
+            let mp'' = stepMap mp' d
             return $ mp'' `shouldBe` mp
 
         it "Map round trips, (Maps have intersection and no one is strictly bigger)" $ monadicIO $ do
@@ -48,16 +47,16 @@ spec = do
             mp3 <- pick arbitrary
             let mp = mp1 <> mp2
             let mp' = mp2 <> mp3
-            let d = deltaM mp mp'
-            let mp'' = stepM mp' d
+            let d = deltaMap mp mp'
+            let mp'' = stepMap mp' d
             return $ mp'' `shouldBe` mp
 
         it "Map round trips, (Maps have no intersection)" $ monadicIO $ do
             (mp :: Map Int Int) <- pick arbitrary
             mp1 <- pick arbitrary
             let mp' = mp1 M.\\ mp
-            let d = deltaM mp mp'
-            let mp'' = stepM mp' d
+            let d = deltaMap mp mp'
+            let mp'' = stepMap mp' d
             return $ mp'' `shouldBe` mp
 
         it "Pending round trips" $ monadicIO $ do
@@ -82,13 +81,6 @@ spec = do
             return $ (STB bm'') `shouldBe` (STB bm)
 
         it "Checkpoint round trips" $ monadicIO $ do
-            c <- pick' $ resize 30 arbitrary
-            c' <- pick' $ resize 30 arbitrary
-            let d = deltaC c c'
-            let c'' = stepC c' d
-            return $ (STB c'') `shouldBe` (STB c)
-
-        it "Checkpoint round trips (using class function)" $ monadicIO $ do
             (c :: Checkpoint) <- pick' $ resize 30 arbitrary
             c' <- pick' $ resize 30 arbitrary
             let d = delta c c'
@@ -108,14 +100,7 @@ spec = do
             let ret = runGet SC.safeGet (runPut (SC.safePut cs))
             return $ (STB <$> ret) `shouldBe` (Right (STB cs))
 
-        it "PartialCheckpoint round trips " $ monadicIO $ do
-            c <- pick' $ resize 30 arbitrary
-            c' <- pick' $ resize 30 arbitrary
-            let d = deltaPartialC c c'
-            let c'' = stepPartialC c' d
-            return $ (STB c'') `shouldBe` (STB c)
-
-        it "PartialCheckpoint round trips (using class function)" $ monadicIO $ do
+        it "PartialCheckpoint round trips" $ monadicIO $ do
             (c :: PartialCheckpoint) <- pick' arbitrary
             c' <- pick' $ resize 30 arbitrary
             let d = delta c c'

@@ -75,5 +75,5 @@ instance Arbitrary AddressMeta where
 instance Arbitrary Pending where
     arbitrary = do
         p <- arbitrary
-        pure . Pending . InDb $ p
+        return $ fromTransactions p
 

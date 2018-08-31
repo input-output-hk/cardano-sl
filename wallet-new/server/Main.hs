@@ -42,6 +42,7 @@ import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
 
 import           Cardano.Wallet.Kernel (PassiveWallet)
 import qualified Cardano.Wallet.Kernel as Kernel
+import qualified Cardano.Wallet.Kernel.Internal as Kernel.Internal
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as NodeStateAdaptor
 import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..),
@@ -177,7 +178,7 @@ actionWithWallet coreConfig txpConfig sscParams nodeParams ntpConfig params =
         , Plugins.monitoringServer params
 
         -- Periodically compact & snapshot the acid-state database.
-        , Plugins.acidStateSnapshots
+        , Plugins.acidStateSnapshots (view Kernel.Internal.wallets (snd w)) params
 
         -- | A @Plugin@ to notify frontend via websockets.
         , Plugins.updateNotifier

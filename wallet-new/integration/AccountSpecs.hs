@@ -45,7 +45,7 @@ accountSpecs wRef wc =
             forM_ tests $ \PaginationTest{..} -> do
                 eresp <- getAccountAddresses wc walId accIndex page perPage filters
                 expectations . acaAddresses . wrData =<< eresp `shouldPrism` _Right
-        it "can retrieve initial and updated balances of several account from getAccountBalances that are equivalent to what is obtained from getAccount" $ do
+        it "can retrieve initial and updated balances of several accounts from getAccountBalances that are equivalent to what is obtained from getAccounts" $ do
             genesis <- genesisWallet wc
             (fromAcct, _) <- firstAccountAndId wc genesis
 
@@ -99,6 +99,7 @@ accountSpecs wRef wc =
             map (AccountBalance . accAmount) accsUpdated `shouldBe` balancesPartialUpdated
 
 
+
         it "redeeming avvv key gives rise to the corresponding increase of balance of wallet'account - mnemonic not used" $ do
 
             newWallet <- randomWallet CreateWallet
@@ -121,7 +122,9 @@ accountSpecs wRef wc =
             let redemption = Redemption
                     { redemptionRedemptionCode = ShieldedRedemptionCode avvmKey
                     , redemptionMnemonic = Nothing
-                    , redemptionSpendingPassword = passPhrase
+                    , redemptionSpendingPassword = case newwalSpendingPassword newWallet of
+                            Just spPassw -> spPassw
+                            Nothing      -> passPhrase
                     , redemptionWalletId = walId
                     , redemptionAccountIndex = accIndex newAcct
                     }

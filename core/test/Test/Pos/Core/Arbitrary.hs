@@ -52,7 +52,6 @@ import           Pos.Core (AddrAttributes (..), AddrSpendingData (..),
                      mkMultiKeyDistr, unsafeCoinPortionFromDouble,
                      unsafeGetCoin, unsafeSubCoin)
 import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
-import           Pos.Core.Configuration (HasGenesisBlockVersionData)
 import           Pos.Core.Constants (sharedSeedLength)
 import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
 import qualified Pos.Core.Genesis as G
@@ -511,7 +510,7 @@ instance Arbitrary TxFeePolicy where
 -- Arbitrary types from 'Pos.Core.Genesis'
 ----------------------------------------------------------------------------
 
-instance HasGenesisBlockVersionData => Arbitrary G.TestnetBalanceOptions where
+instance Arbitrary G.TestnetBalanceOptions where
     arbitrary = do
         -- We have at least 2 owned addresses in system so we can send
         -- transactions in block-gen/tests.

@@ -42,8 +42,8 @@ import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Wlog
 import           Serokell.Util.Verify
 
-import           Test.Pos.Core.Dummy (dummyConfig, dummyEpochSlots,
-                     dummyGenesisData, dummyK)
+import           Test.Pos.Core.Dummy (dummyBlockVersionData, dummyConfig,
+                     dummyEpochSlots, dummyGenesisData, dummyK)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 {-------------------------------------------------------------------------------
@@ -78,11 +78,11 @@ verifyEnv' utxo bvd lname = UnsafeVerifyEnv {
     }
   where bootStakeholders = gdBootStakeholders dummyGenesisData
 
-verifyEnv :: HasConfiguration => Utxo -> VerifyEnv
+verifyEnv :: Utxo -> VerifyEnv
 verifyEnv utxo =
     verifyEnv'
       utxo
-      genesisBlockVersionData
+      dummyBlockVersionData
       "verify"
 
 {-------------------------------------------------------------------------------
@@ -112,10 +112,6 @@ instance HasLoggerName WithVerifyEnv where
 
   The verification monad is set up to facilitate 'verifyToil', which seems to
   be the workhorse of verification (verifying transactions inside a block).
-
-  NOTE: Ideally we'd hide 'HasConfiguration' here in the same way that we did
-  for 'Translate', but this is made impossible by the superclass constraint of
-  'MonadUtxoRead'.
 -------------------------------------------------------------------------------}
 
 newtype Verify e a = Verify {
@@ -128,7 +124,7 @@ newtype Verify e a = Verify {
 -- | Run the verifier
 --
 -- Returns the result of verification as well as the final UTxO.
-verify :: HasConfiguration => Utxo -> Verify e a -> Either e (a, Utxo)
+verify :: Utxo -> Verify e a -> Either e (a, Utxo)
 verify utxo ma =
     second finalUtxo <$>
     verify' (defGlobalToilState, []) (verifyEnv utxo) ma

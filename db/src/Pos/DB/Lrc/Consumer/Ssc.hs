@@ -18,9 +18,8 @@ module Pos.DB.Lrc.Consumer.Ssc
 import           Universum
 
 import           Pos.Chain.Lrc (RichmenComponent (..), RichmenStakes)
-import           Pos.Core (EpochIndex, HasGenesisBlockVersionData,
-                     genesisBlockVersionData)
-import           Pos.Core.Update (bvdMpcThd)
+import           Pos.Core (EpochIndex)
+import           Pos.Core.Update (BlockVersionData (..))
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState)
 import           Pos.DB.Lrc.Consumer (LrcConsumer,
                      lrcConsumerFromComponentSimple)
@@ -31,11 +30,11 @@ import           Pos.DB.Lrc.RichmenBase (getRichmen)
 -- RichmenComponent
 ----------------------------------------------------------------------------
 
-sscRichmenComponent :: HasGenesisBlockVersionData => RichmenComponent RichmenStakes
-sscRichmenComponent = RichmenComponent
+sscRichmenComponent :: BlockVersionData -> RichmenComponent RichmenStakes
+sscRichmenComponent genesisBvd = RichmenComponent
     { rcToData            = snd
     , rcTag               = "ssc"
-    , rcInitialThreshold  = bvdMpcThd genesisBlockVersionData
+    , rcInitialThreshold  = bvdMpcThd genesisBvd
     , rcConsiderDelegated = True
     }
 
@@ -44,8 +43,9 @@ sscRichmenComponent = RichmenComponent
 ----------------------------------------------------------------------------
 
 -- | Consumer will be called on every Richmen computation.
-sscLrcConsumer :: (MonadGState m, MonadDB m) => LrcConsumer m
-sscLrcConsumer = lrcConsumerFromComponentSimple sscRichmenComponent bvdMpcThd
+sscLrcConsumer :: (MonadGState m, MonadDB m) => BlockVersionData -> LrcConsumer m
+sscLrcConsumer genesisBvd =
+    lrcConsumerFromComponentSimple (sscRichmenComponent genesisBvd) bvdMpcThd
 
 ----------------------------------------------------------------------------
 -- Getting richmen
@@ -55,14 +55,19 @@ sscLrcConsumer = lrcConsumerFromComponentSimple sscRichmenComponent bvdMpcThd
 -- ricmen for the given epoch.
 getSscRichmen
     :: (MonadIO m, MonadDBRead m, MonadReader ctx m, HasLrcContext ctx)
-    => Text               -- ^ Function name (to include into error message)
+    => BlockVersionData
+    -> Text               -- ^ Function name (to include into error message)
     -> EpochIndex         -- ^ Epoch for which you want to know the richmen
     -> m RichmenStakes
-getSscRichmen fname epoch = lrcActionOnEpochReason
+getSscRichmen genesisBvd fname epoch = lrcActionOnEpochReason
     epoch
     (fname <> ": couldn't get SSC richmen")
-    tryGetSscRichmen
+    (tryGetSscRichmen genesisBvd)
 
 -- | Like 'getSscRichmen', but doesn't wait and doesn't fail.
-tryGetSscRichmen :: MonadDBRead m => EpochIndex -> m (Maybe RichmenStakes)
-tryGetSscRichmen = getRichmen sscRichmenComponent
+tryGetSscRichmen
+    :: MonadDBRead m
+    => BlockVersionData
+    -> EpochIndex
+    -> m (Maybe RichmenStakes)
+tryGetSscRichmen = getRichmen . sscRichmenComponent

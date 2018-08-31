@@ -35,9 +35,9 @@ import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion,
                      lastKnownBlockVersion)
 import           Pos.Core as Core (BlockCount, Config (..), EpochIndex,
                      EpochOrSlot (..), SlotId (..), configBlkSecurityParam,
-                     configEpochSlots, epochIndexL, flattenSlotId,
-                     getEpochOrSlot, kChainQualityThreshold, kEpochSlots,
-                     localSlotIndexMinBound)
+                     configBlockVersionData, configEpochSlots, epochIndexL,
+                     flattenSlotId, getEpochOrSlot, kChainQualityThreshold,
+                     kEpochSlots, localSlotIndexMinBound)
 import           Pos.Core.Context (HasPrimaryKey, getOurSecretKey)
 import           Pos.Core.Exception (assertionFailed, reportFatalError)
 import           Pos.Core.JsonLog (CanJsonLog (..))
@@ -273,7 +273,7 @@ createMainBlockInternal coreConfig sId pske = do
     msgFmt = "We are trying to create main block, our tip header is\n"%build
     createMainBlockFinish :: BlockHeader -> ExceptT Text m MainBlock
     createMainBlockFinish prevHeader = do
-        rawPay <- lift $ getRawPayload k (headerHash prevHeader) sId
+        rawPay <- lift $ getRawPayload coreConfig (headerHash prevHeader) sId
         sk <- getOurSecretKey
         -- 100 bytes is substracted to account for different unexpected
         -- overhead.  You can see that in bitcoin blocks are 1-2kB less
@@ -426,14 +426,14 @@ data RawPayload = RawPayload
     }
 
 getRawPayload :: MonadCreateBlock ctx m
-    => BlockCount
+    => Core.Config
     -> HeaderHash
     -> SlotId
     -> m RawPayload
-getRawPayload k tip slotId = do
+getRawPayload coreConfig tip slotId = do
     localTxs <- txGetPayload tip -- result is topsorted
-    sscData <- sscGetLocalPayload k slotId
-    usPayload <- usPreparePayload tip slotId
+    sscData <- sscGetLocalPayload (configBlkSecurityParam coreConfig) slotId
+    usPayload <- usPreparePayload (configBlockVersionData coreConfig) tip slotId
     dlgPayload <- getDlgMempool
     let rawPayload =
             RawPayload

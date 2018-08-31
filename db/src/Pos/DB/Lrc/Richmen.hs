@@ -30,8 +30,9 @@ import           Pos.Binary.Class (Bi)
 import           Pos.Chain.Lrc (FullRichmenData, RichmenComponent (..),
                      findDelegationStakes, findRichmenStakes)
 import           Pos.Chain.Txp (genesisStakes)
-import           Pos.Core (Coin, CoinPortion, StakeholderId, addressHash,
-                     applyCoinPortionUp, sumCoins, unsafeIntegerToCoin)
+import           Pos.Core as Core (Coin, CoinPortion, Config (..),
+                     StakeholderId, addressHash, applyCoinPortionUp,
+                     configBlockVersionData, sumCoins, unsafeIntegerToCoin)
 import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Genesis (GenesisData, gdHeavyDelegation,
                      unGenesisDelegation)
@@ -48,11 +49,14 @@ import           Pos.DB.Lrc.RichmenBase (getRichmen, putRichmen)
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareLrcRichmen :: MonadDB m => GenesisData -> m ()
-prepareLrcRichmen genesisData = do
-    prepareLrcRichmenDo genesisData sscRichmenComponent
-    prepareLrcRichmenDo genesisData updateRichmenComponent
-    prepareLrcRichmenDo genesisData dlgRichmenComponent
+prepareLrcRichmen :: MonadDB m => Core.Config -> m ()
+prepareLrcRichmen coreConfig = do
+    prepareLrcRichmenDo genesisData (sscRichmenComponent genesisBvd)
+    prepareLrcRichmenDo genesisData (updateRichmenComponent genesisBvd)
+    prepareLrcRichmenDo genesisData (dlgRichmenComponent genesisBvd)
+  where
+    genesisData = configGenesisData coreConfig
+    genesisBvd  = configBlockVersionData coreConfig
 
 prepareLrcRichmenDo
     :: (Bi richmenData, MonadDB m)

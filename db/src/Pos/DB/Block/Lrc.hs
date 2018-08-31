@@ -30,8 +30,9 @@ import           Pos.Chain.Ssc (MonadSscMem, noReportNoSecretsForEpoch1)
 import           Pos.Chain.Update (BlockVersionState (..))
 import           Pos.Core as Core (Coin, Config (..), EpochIndex,
                      EpochOrSlot (..), SharedSeed, SlotCount, StakeholderId,
-                     configBlkSecurityParam, configEpochSlots, configK,
-                     crucialSlot, epochIndexL, getEpochOrSlot)
+                     configBlkSecurityParam, configBlockVersionData,
+                     configEpochSlots, configK, crucialSlot, epochIndexL,
+                     getEpochOrSlot)
 import           Pos.Core.Chrono (NE, NewestFirst (..), toOldestFirst)
 import           Pos.Core.Conc (forConcurrently)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
@@ -87,7 +88,7 @@ lrcSingleShot coreConfig epoch = do
          %build) epoch
     tryAcquireExclusiveLock epoch lock onAcquiredLock
   where
-    consumers = allLrcConsumers @ctx @m
+    consumers = allLrcConsumers @ctx @m (configBlockVersionData coreConfig)
     for_thEpochMsg = sformat (" for "%ords%" epoch") epoch
     onAcquiredLock = do
         logDebug "lrcSingleShot has acquired LRC lock"
@@ -153,7 +154,7 @@ lrcDo coreConfig epoch consumers = do
     blundsToRollback <- DB.loadBlundsFromTipWhile genesisHash whileAfterCrucial
     blundsToRollbackNE <-
         maybeThrow UnknownBlocksForLrc (atLeastKNewestFirst blundsToRollback)
-    seed <- sscCalculateSeed epoch >>= \case
+    seed <- sscCalculateSeed (configBlockVersionData coreConfig) epoch >>= \case
         Right s -> do
             logInfo $ sformat
                 ("Calculated seed for epoch "%build%" successfully") epoch

@@ -20,8 +20,10 @@ import           Serokell.Util.Text (listJson)
 import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Update (BlockVersionState (..), MonadPoll (..),
                      MonadPollRead (..), PollVerFailure (..))
-import           Pos.Core (BlockCount, Coin, EpochIndex, SlotCount, SlotId (..),
-                     StakeholderId, crucialSlot, sumCoins, unsafeIntegerToCoin)
+import           Pos.Core as Core (BlockCount, Coin, Config (..), EpochIndex,
+                     SlotId (..), StakeholderId, configBlockVersionData,
+                     configEpochSlots, crucialSlot, sumCoins,
+                     unsafeIntegerToCoin)
 import           Pos.Core.Update (BlockVersion, BlockVersionData (..),
                      SoftforkRule (..))
 import           Pos.DB.Update.Poll.Logic.Base (ConfirmedEpoch, CurEpoch,
@@ -79,13 +81,14 @@ recordBlockIssuance k id bv slot h = do
 processGenesisBlock
     :: forall m
      . (MonadError PollVerFailure m, MonadPoll m)
-    => SlotCount
+    => Core.Config
     -> EpochIndex
     -> m ()
-processGenesisBlock epochSlots epoch = do
+processGenesisBlock coreConfig epoch = do
     -- First thing to do is to obtain values threshold for softfork
     -- resolution rule check.
-    totalStake <- note (PollUnknownStakes epoch) =<< getEpochTotalStake epoch
+    totalStake <- note (PollUnknownStakes epoch)
+        =<< getEpochTotalStake (configBlockVersionData coreConfig) epoch
     BlockVersionData {..} <- getAdoptedBVData
     -- Then we take all competing BlockVersions and actually check softfork
     -- resolution rule for them.
@@ -105,7 +108,7 @@ processGenesisBlock epochSlots epoch = do
         -- unstable to stable.
         Just (chooseToAdopt -> toAdopt) -> adoptAndFinish competing toAdopt
     -- In the end we also update slotting data to the most recent state.
-    updateSlottingData epochSlots epoch
+    updateSlottingData (configEpochSlots coreConfig) epoch
     setEpochProposers mempty
   where
     checkThreshold ::

@@ -41,7 +41,8 @@ import           Pos.Chain.Update (HasUpdateConfiguration,
                      PollVerFailure (..), canCombineVotes, evalPollT,
                      execPollT, getAdoptedBV, modifyPollModifier, psVotes,
                      reportUnexpectedError, runPollT)
-import           Pos.Core as Core (Config, SlotId (..), slotIdF)
+import           Pos.Core as Core (Config, SlotId (..), configBlockVersionData,
+                     slotIdF)
 import           Pos.Core.Reporting (MonadReporting)
 import           Pos.Core.Update (BlockVersionData (..), UpId,
                      UpdatePayload (..), UpdateProposal, UpdateVote (..))
@@ -150,7 +151,8 @@ processSkeleton coreConfig payload =
         maxBlockSize <- bvdMaxBlockSize <$> lift DB.getAdoptedBVData
         msIntermediate <-
             -- TODO: This is a rather arbitrary limit, we should revisit it (see CSL-1664)
-            if | maxBlockSize * 2 <= mpSize msPool -> lift (refreshMemPool ms)
+            if | maxBlockSize * 2 <= mpSize msPool ->
+                   lift (refreshMemPool (configBlockVersionData coreConfig) ms)
                | otherwise -> pure ms
         processSkeletonDo msIntermediate
   where
@@ -175,11 +177,11 @@ refreshMemPool
        , WithLogger m
        , HasUpdateConfiguration
        )
-    => MemState -> m MemState
-refreshMemPool ms@MemState {..} = do
+    => BlockVersionData -> MemState -> m MemState
+refreshMemPool genesisBvd ms@MemState {..} = do
     let MemPool {..} = msPool
-    ((newProposals, newVotes), newModifier) <-
-        runDBPoll . runPollT def $ refreshPoll msSlot mpProposals mpLocalVotes
+    ((newProposals, newVotes), newModifier) <- runDBPoll . runPollT def
+        $ refreshPoll genesisBvd msSlot mpProposals mpLocalVotes
     let newPool =
             MemPool
             { mpProposals = newProposals
@@ -285,11 +287,11 @@ processVote coreConfig vote =
 -- current GState.  This function assumes that GState is locked. It
 -- tries to leave as much data as possible. It assumes that
 -- 'stateLock' is taken.
-usNormalize :: USLocalLogicMode ctx m => m ()
-usNormalize = do
+usNormalize :: USLocalLogicMode ctx m => BlockVersionData -> m ()
+usNormalize genesisBvd = do
     tip <- DB.getTip
     stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
-    atomically . writeTVar stateVar =<< usNormalizeDo (Just tip) Nothing
+    atomically . writeTVar stateVar =<< usNormalizeDo genesisBvd (Just tip) Nothing
 
 -- Normalization under lock.  Note that here we don't care whether tip
 -- in mempool is the same as the one is DB, because we take payload
@@ -297,13 +299,13 @@ usNormalize = do
 -- GState.
 usNormalizeDo
     :: USLocalLogicMode ctx m
-    => Maybe HeaderHash -> Maybe SlotId -> m MemState
-usNormalizeDo tip slot = do
+    => BlockVersionData -> Maybe HeaderHash -> Maybe SlotId -> m MemState
+usNormalizeDo genesisBvd tip slot = do
     stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
     ms@MemState {..} <- readTVarIO stateVar
     let MemPool {..} = msPool
-    ((newProposals, newVotes), newModifier) <-
-        runDBPoll . runPollT def $ normalizePoll msSlot mpProposals mpLocalVotes
+    ((newProposals, newVotes), newModifier) <- runDBPoll . runPollT def
+        $ normalizePoll genesisBvd msSlot mpProposals mpLocalVotes
     let newTip = fromMaybe msTip tip
     let newSlot = fromMaybe msSlot slot
     let newPool =
@@ -322,15 +324,17 @@ usNormalizeDo tip slot = do
     return newMS
 
 -- | Update memory state to make it correct for given slot.
-processNewSlot :: USLocalLogicModeWithLock ctx m => SlotId -> m ()
-processNewSlot slotId = withUSLock $ processNewSlotNoLock slotId
+processNewSlot
+    :: USLocalLogicModeWithLock ctx m => BlockVersionData -> SlotId -> m ()
+processNewSlot genesisBvd slotId =
+    withUSLock $ processNewSlotNoLock genesisBvd slotId
 
-processNewSlotNoLock :: USLocalLogicMode ctx m => SlotId -> m ()
-processNewSlotNoLock slotId = modifyMemState $ \ms@MemState{..} -> do
+processNewSlotNoLock :: USLocalLogicMode ctx m => BlockVersionData -> SlotId -> m ()
+processNewSlotNoLock genesisBvd slotId = modifyMemState $ \ms@MemState{..} -> do
     if | msSlot >= slotId -> pure ms
        -- Crucial changes happen only when epoch changes.
        | siEpoch msSlot == siEpoch slotId -> pure $ ms {msSlot = slotId}
-       | otherwise -> usNormalizeDo Nothing (Just slotId)
+       | otherwise -> usNormalizeDo genesisBvd Nothing (Just slotId)
 
 -- | Prepare UpdatePayload for inclusion into new block with given
 -- SlotId based on given tip.  This function assumes that
@@ -345,16 +349,17 @@ processNewSlotNoLock slotId = modifyMemState $ \ms@MemState{..} -> do
 -- maintenance (empty blocks are better than no blocks).
 usPreparePayload ::
        USLocalLogicMode ctx m
-    => HeaderHash
+    => BlockVersionData
+    -> HeaderHash
     -> SlotId
     -> m UpdatePayload
-usPreparePayload neededTip slotId@SlotId{..} = do
+usPreparePayload genesisBvd neededTip slotId@SlotId{..} = do
     -- First of all, we make sure that mem state corresponds to given
     -- slot.  If mem state corresponds to newer slot already, it won't
     -- be updated, but we don't want to create block in this case
     -- anyway.  In normal cases 'processNewSlot' can't fail here
     -- because of tip mismatch, because we are under 'stateLock'.
-    processNewSlotNoLock slotId
+    processNewSlotNoLock genesisBvd slotId
     -- After that we normalize payload to be sure it's valid. We try
     -- to keep it valid anyway, but we decided to have an extra
     -- precaution. We also do it because here we need to eliminate all
@@ -365,7 +370,7 @@ usPreparePayload neededTip slotId@SlotId{..} = do
   where
     preparePayloadDo = do
         -- Normalization is done just in case, as said before
-        MemState {..} <- usNormalizeDo Nothing (Just slotId)
+        MemState {..} <- usNormalizeDo genesisBvd Nothing (Just slotId)
         -- If slot doesn't match, we can't provide payload for this slot.
         if | msSlot /= slotId -> def <$
                logWarning (sformat slotMismatchFmt msSlot slotId)
@@ -376,7 +381,7 @@ usPreparePayload neededTip slotId@SlotId{..} = do
                -- positive stake for inclusion into payload.
                let MemPool {..} = msPool
                (filteredProposals, bad) <- runDBPoll . evalPollT msModifier $
-                   filterProposalsByThd siEpoch mpProposals
+                   filterProposalsByThd genesisBvd siEpoch mpProposals
                runDBPoll . evalPollT msModifier $
                    finishPrepare bad filteredProposals mpLocalVotes
     slotMismatchFmt = "US payload can't be created due to slot mismatch "%

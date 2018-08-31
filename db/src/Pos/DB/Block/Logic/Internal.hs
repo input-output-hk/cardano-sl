@@ -43,7 +43,7 @@ import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem, SscBlock)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Chain.Update (PollModifier)
 import           Pos.Core as Core (Config (..), configBlkSecurityParam,
-                     configEpochSlots, epochIndexL)
+                     configBlockVersionData, configEpochSlots, epochIndexL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Exception (assertionFailed)
 import           Pos.Core.Reporting (MonadReporting)
@@ -133,7 +133,7 @@ normalizeMempool coreConfig txpConfig = do
     -- within block application.
     sscNormalize coreConfig
     txpNormalize coreConfig txpConfig
-    usNormalize
+    usNormalize (configBlockVersionData coreConfig)
 
 -- | Applies a definitely valid prefix of blocks. This function is unsafe,
 -- use it only if you understand what you're doing. That means you can break
@@ -236,7 +236,7 @@ rollbackBlocksUnsafe coreConfig bsc scb toRollback = do
     -- We don't normalize other mempools, because they are normalized
     -- in 'applyBlocksUnsafe' and we always ensure that some blocks
     -- are applied after rollback.
-    dlgNormalizeOnRollback $ configProtocolMagic coreConfig
+    dlgNormalizeOnRollback coreConfig
     sanityCheckDB $ configGenesisData coreConfig
 
 

@@ -58,10 +58,9 @@ import           Pos.Chain.Update (BlockVersionState (..),
                      cpsSoftwareVersion, genesisBlockVersion,
                      genesisSoftwareVersions, ourAppName, ourSystemTag,
                      psProposal)
-import           Pos.Core (ChainDifficulty, HasCoreConfiguration,
-                     ProtocolConstants, SlotId, StakeholderId, TimeDiff (..),
-                     pcEpochSlots)
-import           Pos.Core.Configuration (genesisBlockVersionData)
+import           Pos.Core as Core (ChainDifficulty, Config (..),
+                     HasCoreConfiguration, SlotId, StakeholderId,
+                     TimeDiff (..), configBlockVersionData, configEpochSlots)
 import           Pos.Core.Slotting (EpochSlottingData (..), SlottingData,
                      createInitSlottingData)
 import           Pos.Core.Update (ApplicationName, BlockVersion,
@@ -171,18 +170,19 @@ instance HasCoreConfiguration => RocksBatchOp UpdateOp where
 -- Initialization
 ----------------------------------------------------------------------------
 
-initGStateUS :: MonadDB m => ProtocolConstants -> m ()
-initGStateUS pc = do
+initGStateUS :: MonadDB m => Core.Config -> m ()
+initGStateUS coreConfig = do
     writeBatchGState $
         PutSlottingData genesisSlottingData :
         PutEpochProposers mempty :
-        SetAdopted genesisBlockVersion genesisBlockVersionData :
+        SetAdopted genesisBlockVersion genesisBvd :
         map ConfirmVersion genesisSoftwareVersions
   where
-    genesisSlotDuration = bvdSlotDuration genesisBlockVersionData
+    genesisBvd = configBlockVersionData coreConfig
+    genesisSlotDuration = bvdSlotDuration genesisBvd
 
     genesisEpochDuration :: Microsecond
-    genesisEpochDuration = fromIntegral (pcEpochSlots pc) * convertUnit genesisSlotDuration
+    genesisEpochDuration = fromIntegral (configEpochSlots coreConfig) * convertUnit genesisSlotDuration
 
     esdCurrent :: EpochSlottingData
     esdCurrent = EpochSlottingData

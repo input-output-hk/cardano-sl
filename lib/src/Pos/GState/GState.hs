@@ -32,7 +32,7 @@ prepareGStateDB coreConfig initialTip = unlessM isInitialized $ do
     initGStateUtxo genesisData
     initSscDB $ configVssCerts coreConfig
     initGStateStakes genesisData
-    initGStateUS $ configProtocolConstants coreConfig
+    initGStateUS coreConfig
     initGStateDlg $ configHeavyDelegation coreConfig
     initGStateBlockExtra (configGenesisHash coreConfig) initialTip
 

@@ -34,9 +34,10 @@ import           Pos.Chain.Ssc (HasSscConfiguration, HasSscContext (..),
                      sgsCommitments, vssThreshold)
 import           Pos.Core as Core (BlockCount, Config (..), EpochIndex,
                      HasPrimaryKey, SlotId (..), StakeholderId, Timestamp (..),
-                     configBlkSecurityParam, configEpochSlots, configVssMaxTTL,
-                     getOurSecretKey, getOurStakeholderId, getSlotIndex,
-                     kEpochSlots, kSlotSecurityParam, mkLocalSlotIndex)
+                     configBlkSecurityParam, configBlockVersionData,
+                     configEpochSlots, configVssMaxTTL, getOurSecretKey,
+                     getOurStakeholderId, getSlotIndex, kEpochSlots,
+                     kSlotSecurityParam, mkLocalSlotIndex)
 import           Pos.Core.Conc (currentTime, delay)
 import           Pos.Core.JsonLog (CanJsonLog)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
@@ -45,7 +46,7 @@ import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
                      VssCertificate (..), VssCertificatesMap (..),
                      getCommitmentsMap, lookupVss, memberVss, mkVssCertificate,
                      randCommitmentAndOpening)
-import           Pos.Core.Update (bvdMpcThd)
+import           Pos.Core.Update (BlockVersionData (..))
 import           Pos.Crypto (SecretKey, VssKeyPair, VssPublicKey, randomNumber,
                      randomNumberInRange, runSecureRandom, vssKeyGen)
 import           Pos.Crypto.SecretSharing (toVssPublicKey)
@@ -99,12 +100,12 @@ sscWorkers
   -> [Diffusion m -> m ()]
 sscWorkers coreConfig =
     [ onNewSlotSsc coreConfig
-    , checkForIgnoredCommitmentsWorker (configBlkSecurityParam coreConfig)
+    , checkForIgnoredCommitmentsWorker coreConfig
     ]
 
-shouldParticipate :: SscMode ctx m => EpochIndex -> m Bool
-shouldParticipate epoch = do
-    richmen <- getSscRichmen "shouldParticipate" epoch
+shouldParticipate :: SscMode ctx m => BlockVersionData -> EpochIndex -> m Bool
+shouldParticipate genesisBvd epoch = do
+    richmen <- getSscRichmen genesisBvd "shouldParticipate" epoch
     participationEnabled <- view sscContext >>=
         (readTVarIO . scParticipateSsc)
     ourId <- getOurStakeholderId
@@ -123,7 +124,7 @@ onNewSlotSsc
 onNewSlotSsc coreConfig diffusion = onNewSlot (configEpochSlots coreConfig) defaultOnNewSlotParams $ \slotId ->
     recoveryCommGuard (configBlkSecurityParam coreConfig) "onNewSlot worker in SSC" $ do
         sscGarbageCollectLocalData slotId
-        whenM (shouldParticipate $ siEpoch slotId) $ do
+        whenM (shouldParticipate (configBlockVersionData coreConfig) $ siEpoch slotId) $ do
             behavior <- view sscContext >>=
                 (readTVarIO . scBehavior)
             checkNSendOurCert coreConfig (sendSscCert diffusion)
@@ -359,7 +360,9 @@ generateAndSetNewSecret
     -> SlotId -- ^ Current slot
     -> m (Maybe SignedCommitment)
 generateAndSetNewSecret coreConfig sk SlotId {..} = do
-    richmen <- getSscRichmen "generateAndSetNewSecret" siEpoch
+    richmen <- getSscRichmen (configBlockVersionData coreConfig)
+                             "generateAndSetNewSecret"
+                              siEpoch
     certs <- getStableCerts coreConfig siEpoch
     inAssertMode $ do
         let participantIds =
@@ -452,14 +455,14 @@ checkForIgnoredCommitmentsWorker
        ( SscMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => BlockCount
+    => Core.Config
     -> Diffusion m
     -> m ()
-checkForIgnoredCommitmentsWorker k _ = do
+checkForIgnoredCommitmentsWorker coreConfig _ = do
     counter <- newTVarIO 0
-    onNewSlot (kEpochSlots k)
+    onNewSlot (configEpochSlots coreConfig)
               defaultOnNewSlotParams
-              (checkForIgnoredCommitmentsWorkerImpl k counter)
+              (checkForIgnoredCommitmentsWorkerImpl coreConfig counter)
 
 -- This worker checks whether our commitments appear in blocks. This check
 -- is done only if we actually should participate in SSC. It's triggered if
@@ -475,13 +478,13 @@ checkForIgnoredCommitmentsWorkerImpl
        ( SscMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => BlockCount -> TVar Word -> SlotId -> m ()
-checkForIgnoredCommitmentsWorkerImpl k counter SlotId {..}
+    => Core.Config -> TVar Word -> SlotId -> m ()
+checkForIgnoredCommitmentsWorkerImpl coreConfig counter SlotId {..}
     -- It's enough to do this check once per epoch near the end of the epoch.
-    | getSlotIndex siSlot /= 9 * fromIntegral k = pass
+    | getSlotIndex siSlot /= 9 * fromIntegral (configBlkSecurityParam coreConfig) = pass
     | otherwise =
-        recoveryCommGuard k "checkForIgnoredCommitmentsWorker" $
-        whenM (shouldParticipate siEpoch) $ do
+        recoveryCommGuard (configBlkSecurityParam coreConfig) "checkForIgnoredCommitmentsWorker" $
+        whenM (shouldParticipate (configBlockVersionData coreConfig) siEpoch) $ do
             ourId <- getOurStakeholderId
             globalCommitments <-
                 getCommitmentsMap . view sgsCommitments <$> sscGetGlobalState

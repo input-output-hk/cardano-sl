@@ -17,7 +17,7 @@ import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Lrc (FullRichmenData)
 import           Pos.Chain.Update (HasUpdateConfiguration, MonadPollRead (..))
-import           Pos.Core (Coin, HasGenesisBlockVersionData)
+import           Pos.Core (Coin)
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.Lrc (HasLrcContext, getIssuersStakes,
                      lrcActionOnEpochReason, tryGetUSRichmen)
@@ -42,7 +42,6 @@ instance ( MonadIO m
          , MonadReader ctx m
          , HasLrcContext ctx
          , HasUpdateConfiguration
-         , HasGenesisBlockVersionData
          ) =>
          MonadPollRead (DBPoll m) where
     getBVState = GS.getBVState
@@ -54,8 +53,9 @@ instance ( MonadIO m
     getProposal = GS.getProposalState
     getProposalsByApp = GS.getProposalsByApp
     getConfirmedProposals = GS.getConfirmedProposals Nothing
-    getEpochTotalStake e = fmap fst <$> tryGetUSRichmen e
-    getRichmanStake e id = (findStake =<<) <$> tryGetUSRichmen e
+    getEpochTotalStake genesisBvd e = fmap fst <$> tryGetUSRichmen genesisBvd e
+    getRichmanStake genesisBvd e id =
+        (findStake =<<) <$> tryGetUSRichmen genesisBvd e
       where
         findStake :: FullRichmenData -> Maybe Coin
         findStake = HM.lookup id . snd

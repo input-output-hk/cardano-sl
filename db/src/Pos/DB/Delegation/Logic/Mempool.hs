@@ -30,11 +30,12 @@ import           Pos.Chain.Delegation (DlgMemPool, DlgPayload (..),
                      MonadDelegation, cmPskMods, dwMessageCache, dwPoolSize,
                      dwProxySKPool, dwTip, emptyCedeModifier, isRevokePsk,
                      pskToDlgEdgeAction)
-import           Pos.Core (addressHash, epochIndexL)
+import           Pos.Core as Core (Config (..), addressHash,
+                     configBlockVersionData, epochIndexL)
 import           Pos.Core.Conc (currentTime)
 import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Update (bvdMaxBlockSize)
-import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), PublicKey)
+import           Pos.Crypto (ProxySecretKey (..), PublicKey)
 import           Pos.DB (MonadDBRead, MonadGState)
 import qualified Pos.DB as DB
 import           Pos.DB.Delegation.Cede.Holders (evalMapCede)
@@ -128,25 +129,27 @@ processProxySKHeavy
        , HasLens' ctx StateLock
        , MonadMask m
        )
-    => ProtocolMagic -> ProxySKHeavy -> m PskHeavyVerdict
-processProxySKHeavy pm psk =
+    => Core.Config -> ProxySKHeavy -> m PskHeavyVerdict
+processProxySKHeavy coreConfig psk =
     withStateLockNoMetrics LowPriority $ \_stateLockHeader ->
-        processProxySKHeavyInternal pm psk
+        processProxySKHeavyInternal coreConfig psk
 
 -- | Main logic of heavy psk processing, doesn't have
 -- synchronization. Should be called __only__ if you are sure that
 -- 'StateLock' is taken already.
 processProxySKHeavyInternal ::
        forall ctx m. (ProcessHeavyConstraint ctx m)
-    => ProtocolMagic
+    => Core.Config
     -> ProxySKHeavy
     -> m PskHeavyVerdict
-processProxySKHeavyInternal pm psk = do
+processProxySKHeavyInternal coreConfig psk = do
     curTime <- microsecondsToUTC <$> currentTime
     dbTip <- DB.getTipHeader
     let dbTipHash = headerHash dbTip
     let headEpoch = dbTip ^. epochIndexL
-    richmen <- getDlgRichmen "Delegation.Logic#processProxySKHeavy" headEpoch
+    richmen <- getDlgRichmen (configBlockVersionData coreConfig)
+                             "Delegation.Logic#processProxySKHeavy"
+                             headEpoch
     maxBlockSize <- bvdMaxBlockSize <$> DB.gsAdoptedBVData
     let iPk = pskIssuerPk psk
 
@@ -169,7 +172,11 @@ processProxySKHeavyInternal pm psk = do
                      (const (error "processProxySKHeavyInternal:can't happen",True))) $
         evalMapCede cedeModifier $
         runExceptT $
-        dlgVerifyPskHeavy pm richmen (CheckForCycle True) headEpoch psk
+        dlgVerifyPskHeavy (configProtocolMagic coreConfig)
+                          richmen
+                          (CheckForCycle True)
+                          headEpoch
+                          psk
 
     -- Here the memory state is the same.
     runDelegationStateAction $ do

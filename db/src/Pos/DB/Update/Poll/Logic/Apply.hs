@@ -27,9 +27,9 @@ import           Pos.Chain.Update (ConfirmedProposalState (..),
 import           Pos.Core as Core (BlockCount, ChainDifficulty (..), Coin,
                      Config (..), EpochIndex, SlotCount, SlotId (..),
                      addressHash, applyCoinPortionUp, coinToInteger,
-                     configBlkSecurityParam, configEpochSlots, difficultyL,
-                     epochIndexL, flattenSlotId, sumCoins, unflattenSlotId,
-                     unsafeIntegerToCoin)
+                     configBlkSecurityParam, configBlockVersionData,
+                     configEpochSlots, difficultyL, epochIndexL, flattenSlotId,
+                     sumCoins, unflattenSlotId, unsafeIntegerToCoin)
 import           Pos.Core.Attributes (areAttributesKnown)
 import           Pos.Core.Update (BlockVersion, BlockVersionData (..),
                      SoftwareVersion (..), UpId, UpdatePayload (..),
@@ -87,15 +87,18 @@ verifyAndApplyUSPayload coreConfig lastAdopted verifyAllIsKnown slotOrHeader upp
         let (curPropVotes, otherVotes) = partition votePredicate upVotes
         let otherGroups = NE.groupWith uvProposalId otherVotes
         -- When there is proposal in payload, it's verified and applied.
-        whenJust upProposal $
-            verifyAndApplyProposal verifyAllIsKnown slotOrHeader curPropVotes
+        whenJust upProposal $ verifyAndApplyProposal
+            genesisBvd
+            verifyAllIsKnown
+            slotOrHeader
+            curPropVotes
         -- Then we also apply votes from other groups.
         -- ChainDifficulty is needed, because proposal may become approved
         -- and then we'll need to track whether it becomes confirmed.
         let cd = case slotOrHeader of
                 Left  _ -> Nothing
                 Right h -> Just (h ^. difficultyL, h ^. headerHashG)
-        mapM_ (verifyAndApplyVotesGroup cd) otherGroups
+        mapM_ (verifyAndApplyVotesGroup genesisBvd cd) otherGroups
     -- If we are applying payload from block, we also check implicit
     -- agreement rule and depth of decided proposals (they can become
     -- confirmed/discarded).
@@ -113,6 +116,7 @@ verifyAndApplyUSPayload coreConfig lastAdopted verifyAllIsKnown slotOrHeader upp
                 (mainHeader ^. headerHashG)
                 (mainHeader ^. difficultyL)
   where
+    genesisBvd = configBlockVersionData coreConfig
     isEmptyPayload = isNothing upProposal && null upVotes
 
 -- Here we verify all US-related data from header.
@@ -129,13 +133,13 @@ verifyHeader lastAdopted header = do
 -- If stakeholder wasn't richman at that point, PollNotRichman is thrown.
 resolveVoteStake
     :: (MonadError PollVerFailure m, MonadPollRead m)
-    => EpochIndex -> Coin -> UpdateVote -> m Coin
-resolveVoteStake epoch totalStake vote = do
+    => BlockVersionData -> EpochIndex -> Coin -> UpdateVote -> m Coin
+resolveVoteStake genesisBvd epoch totalStake vote = do
     let !id = addressHash (uvKey vote)
     thresholdPortion <- bvdUpdateProposalThd <$> getAdoptedBVData
     let threshold = applyCoinPortionUp thresholdPortion totalStake
     let errNotRichman mbStake = PollNotRichman id threshold mbStake
-    stake <- note (errNotRichman Nothing) =<< getRichmanStake epoch id
+    stake <- note (errNotRichman Nothing) =<< getRichmanStake genesisBvd epoch id
     when (stake < threshold) $
         throwError $ errNotRichman (Just stake)
     return stake
@@ -159,12 +163,13 @@ resolveVoteStake epoch totalStake vote = do
 -- state (if it has enough voted stake at once).
 verifyAndApplyProposal
     :: (MonadError PollVerFailure m, MonadPoll m)
-    => Bool
+    => BlockVersionData
+    -> Bool
     -> Either SlotId (Some IsMainHeader)
     -> [UpdateVote]
     -> UpdateProposal
     -> m ()
-verifyAndApplyProposal verifyAllIsKnown slotOrHeader votes
+verifyAndApplyProposal genesisBvd verifyAllIsKnown slotOrHeader votes
                            up@UnsafeUpdateProposal {..} = do
     let !upId = hash up
     let !upFromId = addressHash upFrom
@@ -190,9 +195,11 @@ verifyAndApplyProposal verifyAllIsKnown slotOrHeader votes
     -- We also verify that software version is expected one.
     verifySoftwareVersion upId up
     -- After that we resolve stakes of all votes.
-    totalStake <- note (PollUnknownStakes epoch) =<< getEpochTotalStake epoch
-    votesAndStakes <-
-        mapM (\v -> (v, ) <$> resolveVoteStake epoch totalStake v) votes
+    totalStake <- note (PollUnknownStakes epoch)
+        =<< getEpochTotalStake genesisBvd epoch
+    votesAndStakes <- mapM
+        (\v -> (v, ) <$> resolveVoteStake genesisBvd epoch totalStake v)
+        votes
     -- When necessary, we also check that proposal itself has enough
     -- positive votes to be included into block.
     when (isRight slotOrHeader) $
@@ -231,8 +238,11 @@ verifyProposalStake totalStake votesAndStakes upId = do
 -- Votes are assumed to be for the same proposal.
 verifyAndApplyVotesGroup
     :: ApplyMode m
-    => Maybe (ChainDifficulty, HeaderHash) -> NonEmpty UpdateVote -> m ()
-verifyAndApplyVotesGroup cd votes = mapM_ verifyAndApplyVote votes
+    => BlockVersionData
+    -> Maybe (ChainDifficulty, HeaderHash)
+    -> NonEmpty UpdateVote
+    -> m ()
+verifyAndApplyVotesGroup genesisBvd cd votes = mapM_ verifyAndApplyVote votes
   where
     upId = uvProposalId $ NE.head votes
     verifyAndApplyVote vote = do
@@ -242,19 +252,20 @@ verifyAndApplyVotesGroup cd votes = mapM_ verifyAndApplyVote votes
         case ps of
             PSDecided _     -> throwError
                                    $ PollProposalIsDecided upId stakeholderId
-            PSUndecided ups -> verifyAndApplyVoteDo cd ups vote
+            PSUndecided ups -> verifyAndApplyVoteDo genesisBvd cd ups vote
 
 -- Here we actually apply vote to stored undecided proposal.
 verifyAndApplyVoteDo
     :: ApplyMode m
-    => Maybe (ChainDifficulty, HeaderHash)
+    => BlockVersionData
+    -> Maybe (ChainDifficulty, HeaderHash)
     -> UndecidedProposalState
     -> UpdateVote
     -> m ()
-verifyAndApplyVoteDo cd ups vote = do
+verifyAndApplyVoteDo genesisBvd cd ups vote = do
     let e = siEpoch $ upsSlot ups
-    totalStake <- note (PollUnknownStakes e) =<< getEpochTotalStake e
-    voteStake <- resolveVoteStake e totalStake vote
+    totalStake <- note (PollUnknownStakes e) =<< getEpochTotalStake genesisBvd e
+    voteStake <- resolveVoteStake genesisBvd e totalStake vote
     newUPS@UndecidedProposalState {..} <-
         voteToUProposalState (uvKey vote) voteStake (uvDecision vote) ups
     let newPS

@@ -100,8 +100,7 @@ verifyBlocksPrefix coreConfig currentSlot blocks = runExceptT $ do
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
     txUndo <- withExceptT (VerifyBlocksError . pretty) $
         ExceptT $ tgsVerifyBlocks dataMustBeKnown $ map toTxpBlock blocks
-    pskUndo <- withExceptT VerifyBlocksError
-        $ dlgVerifyBlocks (configProtocolMagic coreConfig) blocks
+    pskUndo <- withExceptT VerifyBlocksError $ dlgVerifyBlocks coreConfig blocks
     (pModifier, usUndos) <- withExceptT (VerifyBlocksError . pretty) $
         ExceptT $ usVerifyBlocks coreConfig dataMustBeKnown (map toUpdateBlock blocks)
 

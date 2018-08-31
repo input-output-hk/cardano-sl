@@ -43,6 +43,7 @@ import           Data.Text.Lazy.Builder
 import           Pos.Util.Log.Internal (LoggingHandler)
 import qualified Pos.Util.Log.Internal as Internal
 import           Pos.Util.Log.LoggerConfig
+import           Pos.Util.Log.LoggerName (LoggerName)
 import           Pos.Util.Log.Scribes
 import           Pos.Util.Log.Severity (Severity (..))
 
@@ -55,8 +56,6 @@ type LogContext = K.KatipContext
 type LogContextT = K.KatipContextT
 
 type WithLogger m = (CanLog m)
-
-type LoggerName = Text
 
 -- -- | compatibility
 class (MonadIO m, LogContext m) => CanLog m where
@@ -121,8 +120,11 @@ setupLogging lc = do
             -- setup scribes according to configuration
             let lhs = _lc ^. lcLoggerTree ^. ltHandlers ^.. each
                 basepath = _lc ^. lcBasePath
+                sevfilter = _lc ^. lcLoggerTree ^. ltNamedSeverity
                 -- default rotation parameters: max. 24 hours, max. 10 files kept, max. size 5 MB
-                rotation = fromMaybe (RotationParameters {_rpMaxAgeHours=24,_rpKeepFilesNum=10,_rpLogLimitBytes=5*1000*1000})
+                rotation = fromMaybe (RotationParameters { _rpMaxAgeHours=24,
+                                                           _rpKeepFilesNum=10,
+                                                           _rpLogLimitBytes=5*1000*1000 })
                                      (_lc ^. lcRotation)
             forM lhs (\lh -> case (lh ^. lhBackend) of
                     FileJsonBE -> do
@@ -132,8 +134,9 @@ setupLogging lc = do
                             nm = lh ^. lhName
                         scribe <- mkJsonFileScribe
                                       rotation
+                                      sevfilter
                                       fdesc
-                                      (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
+                                      (fromMaybe Debug $ lh ^. lhMinSeverity)
                                       K.V0
                         return (nm, scribe)
                     FileTextBE -> do
@@ -143,24 +146,28 @@ setupLogging lc = do
                             nm = lh ^. lhName
                         scribe <- mkTextFileScribe
                                       rotation
+                                      sevfilter
                                       fdesc
                                       True
-                                      (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
+                                      (fromMaybe Debug $ lh ^. lhMinSeverity)
                                       K.V0
                         return (nm, scribe)
                     StdoutBE -> do
                         scribe <- mkStdoutScribe
-                                      (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
+                                      sevfilter
+                                      (fromMaybe Debug $ lh ^. lhMinSeverity)
                                       K.V0
                         return (lh ^. lhName, scribe)
                     StderrBE -> do
                         scribe <- mkStderrScribe
-                                      (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
+                                      sevfilter
+                                      (fromMaybe Debug $ lh ^. lhMinSeverity)
                                       K.V0
                         return (lh ^. lhName, scribe)
                     DevNullBE -> do
                         scribe <- mkDevNullScribe _lh
-                                      (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
+                                      sevfilter
+                                      (fromMaybe Debug $ lh ^. lhMinSeverity)
                                       K.V0
                         return (lh ^. lhName, scribe)
                  )
@@ -238,5 +245,12 @@ loggerBracket lh name action = do
 
    >>> lh <- setupLogging $ defaultInteractiveConfiguration Info
    >>> usingLoggerName lh "testmore" $ do { logInfo "hello..." }
+
+   >>> lc0 <- return $ defaultInteractiveConfiguration Info
+   >>> newlt <- return $ lc0 ^. lcLoggerTree & ltNamedSeverity .~ Data.HashMap.Strict.fromList [("cardano-sl.silent", Error)]
+   >>> lc <- return $ lc0 & lcLoggerTree .~ newlt
+   >>> lh <- setupLogging lc
+   >>> usingLoggerName lh "silent" $ do { logWarning "you won't see this!" }
+   >>> usingLoggerName lh "verbose" $ do { logWarning "now you read this!" }
 -}
 

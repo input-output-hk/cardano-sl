@@ -8,6 +8,7 @@ module Pos.Util.Log.LoggerConfig
        , RotationParameters (..)
        , LogHandler (..)
        , LoggerTree (..)
+       , NamedSeverity
        , BackendKind (..)
        , LogSecurityLevel (..)
        , defaultTestConfiguration
@@ -20,6 +21,7 @@ module Pos.Util.Log.LoggerConfig
        , lcBasePath
        , ltHandlers
        , ltMinSeverity
+       , ltNamedSeverity
        , rpKeepFilesNum
        , rpLogLimitBytes
        , rpMaxAgeHours
@@ -39,10 +41,13 @@ import           GHC.Generics
 import           Universum
 
 import           Control.Lens (each, makeLenses)
+import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
+import           Data.Traversable (for)
 
 import           System.FilePath (normalise)
 
+import           Pos.Util.Log.LoggerName (LoggerName)
 import           Pos.Util.Log.Severity
 
 
@@ -96,7 +101,7 @@ data LogHandler = LogHandler
       -- ^ describes the backend (scribe for katip) to be loaded
     , _lhMinSeverity   :: !(Maybe Severity)
       -- ^ the minimum severity to be logged
-    } deriving (Generic, Show, Eq)
+    } deriving (Eq, Generic, Show)
 
 instance ToJSON LogHandler
 instance FromJSON LogHandler where
@@ -110,12 +115,22 @@ instance FromJSON LogHandler where
 
 makeLenses ''LogHandler
 
+-- | a mapping LoggerName -> Severity
+--   can override the '_ltMinSeverity' for a named context
+type NamedSeverity = HashMap LoggerName Severity
+
+filterKnowns :: HashMap Text a -> HashMap LoggerName a
+filterKnowns = HM.filterWithKey (\k _ -> k `notElem` known)
+  where
+    known = ["file","files","severity","handlers"]
+
 -- | @'LoggerTree'@ contains the actual logging configuration,
 --    'Severity' and 'LogHandler'
 data LoggerTree = LoggerTree
-    { _ltMinSeverity :: !Severity
-    , _ltHandlers    :: ![LogHandler]
-    } deriving (Generic, Show, Eq)
+    { _ltMinSeverity   :: !Severity
+    , _ltHandlers      :: ![LogHandler]
+    , _ltNamedSeverity :: !NamedSeverity
+    } deriving (Eq, Generic, Show)
 
 instance ToJSON LoggerTree
 instance FromJSON LoggerTree where
@@ -135,14 +150,16 @@ instance FromJSON LoggerTree where
                 LogHandler { _lhName=name
                            , _lhFpath=Just fp
                            , _lhBackend=FileTextBE
-                           , _lhMinSeverity=Just Debug
+                           , _lhMinSeverity=Just Info
                            , _lhSecurityLevel=case ".pub" `T.isSuffixOf` name of
                                 True -> Just PublicLogLevel
                                 _    -> Just SecretLogLevel
                            }) $
                 maybeToList singleFile ++ manyFiles
         let _ltHandlers = fileHandlers <> handlers <> [consoleHandler]
-        (_ltMinSeverity :: Severity) <- o .: "severity" .!= Debug
+        (_ltMinSeverity :: Severity) <- o .: "severity" .!= Info
+        -- everything else is considered a severity filter
+        (_ltNamedSeverity :: NamedSeverity) <- for (filterKnowns o) parseJSON
         return LoggerTree{..}
 
 mkUniq :: [LogHandler] -> [LogHandler]
@@ -160,6 +177,7 @@ instance Semigroup LoggerTree where
     lt1 <> lt2 = LoggerTree {
                   _ltMinSeverity = _ltMinSeverity lt1 `min` _ltMinSeverity lt2
                 , _ltHandlers = mkUniq $ _ltHandlers lt1 <> _ltHandlers lt2
+                , _ltNamedSeverity = _ltNamedSeverity lt1 <> _ltNamedSeverity lt2
                 }
 instance Monoid LoggerTree where
     mempty = LoggerTree { _ltMinSeverity = Info
@@ -167,6 +185,7 @@ instance Monoid LoggerTree where
                                                , _lhBackend=StdoutBE
                                                , _lhMinSeverity=Just Info
                                                , _lhSecurityLevel=Just PublicLogLevel}]
+                   , _ltNamedSeverity = HM.empty
                    }
         --  default values
     mappend = (<>)
@@ -240,6 +259,7 @@ defaultInteractiveConfiguration minSeverity =
         _lcBasePath = Nothing
         _lcLoggerTree = LoggerTree {
             _ltMinSeverity = Debug,
+            _ltNamedSeverity = HM.empty,
             _ltHandlers = [ LogHandler {
                 _lhBackend = StdoutBE,
                 _lhName = "console",
@@ -259,6 +279,7 @@ defaultStdErrConfiguration minSeverity =
         _lcBasePath = Nothing
         _lcLoggerTree = LoggerTree {
             _ltMinSeverity = Debug,
+            _ltNamedSeverity = HM.empty,
             _ltHandlers = [ LogHandler {
                 _lhBackend = StderrBE,
                 _lhName = "stderr",
@@ -278,6 +299,7 @@ jsonInteractiveConfiguration minSeverity =
         _lcBasePath = Nothing
         _lcLoggerTree = LoggerTree {
             _ltMinSeverity = Debug,
+            _ltNamedSeverity = HM.empty,
             _ltHandlers = [ LogHandler {
                 _lhBackend = StdoutBE,
                 _lhName = "console",
@@ -303,6 +325,7 @@ defaultTestConfiguration minSeverity =
         _lcBasePath = Nothing
         _lcLoggerTree = LoggerTree {
             _ltMinSeverity = Debug,
+            _ltNamedSeverity = HM.empty,
             _ltHandlers = [ LogHandler {
                 _lhBackend = DevNullBE,
                 _lhName = "devnull",

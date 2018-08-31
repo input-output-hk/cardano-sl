@@ -6,6 +6,7 @@ import           Universum hiding (replicate)
 
 import           Control.Concurrent (threadDelay)
 
+import qualified Data.HashMap.Strict as HM
 import           Data.Text (append, replicate)
 import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
 import           Data.Time.Units (Microsecond, fromMicroseconds)
@@ -19,7 +20,7 @@ import           Pos.Util.Log.Internal (getLinesLogged)
 import           Pos.Util.Log.LoggerConfig (BackendKind (..), LogHandler (..),
                      LogSecurityLevel (..), LoggerConfig (..), LoggerTree (..),
                      defaultInteractiveConfiguration, defaultTestConfiguration,
-                     lcLoggerTree, ltMinSeverity)
+                     lcLoggerTree, ltMinSeverity, ltNamedSeverity)
 import           Pos.Util.Log.LogSafe (logDebugS, logErrorS, logInfoS,
                      logNoticeS, logWarningS)
 import           Pos.Util.Log.Severity (Severity (..))
@@ -180,6 +181,7 @@ spec = describe "Logging" $ do
     it "compose LoggerConfig - minimum of severities" $ do
         let lc1 = (LoggerConfig { _lcBasePath = Nothing, _lcRotation = Nothing
                         , _lcLoggerTree = LoggerTree {_ltMinSeverity = Info,
+                                                      _ltNamedSeverity = HM.empty,
                              _ltHandlers = [LogHandler {_lhName = "file1.log", _lhFpath = Just "file1.log",
                                                         _lhSecurityLevel = Just PublicLogLevel,
                                                         _lhBackend = FileTextBE,
@@ -188,6 +190,7 @@ spec = describe "Logging" $ do
                         })
             lc2 = (LoggerConfig { _lcBasePath = Nothing, _lcRotation = Nothing
                         , _lcLoggerTree = LoggerTree {_ltMinSeverity = Warning,
+                                                      _ltNamedSeverity = HM.empty,
                              _ltHandlers = [LogHandler {_lhName = "file2.log", _lhFpath = Just "file2.log",
                                                         _lhSecurityLevel = Just PublicLogLevel,
                                                         _lhBackend = FileTextBE,
@@ -197,7 +200,8 @@ spec = describe "Logging" $ do
             lc3 = lc1 <> lc2
         lc3 ^. lcLoggerTree . ltMinSeverity `shouldBe` Info
 
-    it "compose complex LoggerConfig" $
+    modifyMaxSuccess (const 2) $ modifyMaxSize (const 2) $
+      it "compose complex LoggerConfig" $
         ( (defaultInteractiveConfiguration Debug) <>
           (LoggerConfig { _lcBasePath = Nothing, _lcRotation = Nothing
                                              , _lcLoggerTree = mempty }))
@@ -205,10 +209,25 @@ spec = describe "Logging" $ do
         (defaultInteractiveConfiguration Debug) <>
           (LoggerConfig { _lcBasePath = Nothing, _lcRotation = Nothing
                         , _lcLoggerTree = LoggerTree {_ltMinSeverity = Debug,
+                                                      _ltNamedSeverity = HM.empty,
                              _ltHandlers = [LogHandler {_lhName = "console", _lhFpath = Nothing,
                                                         _lhSecurityLevel = Just PublicLogLevel,
                                                         _lhBackend = StdoutBE,
                                                         _lhMinSeverity = Just Debug
                                                        }]}
                         })
+
+    modifyMaxSuccess (const 2) $ modifyMaxSize (const 2) $
+      it "change minimum severity filter for a specific context" $
+        monadicIO $ do
+            let lc0 = defaultTestConfiguration Info
+                newlt = lc0 ^. lcLoggerTree & ltNamedSeverity .~ HM.fromList [("cardano-sl.silent", Error)]
+                lc = lc0 & lcLoggerTree .~ newlt
+            lh <- setupLogging lc
+            lift $ usingLoggerName lh "silent" $ do { logWarning "you won't see this!" }
+            lift $ threadDelay 0300000
+            lift $ usingLoggerName lh "verbose" $ do { logWarning "now you read this!" }
+            lift $ threadDelay 0300000
+            linesLogged <- lift $ getLinesLogged lh
+            assert (linesLogged == 1)
 

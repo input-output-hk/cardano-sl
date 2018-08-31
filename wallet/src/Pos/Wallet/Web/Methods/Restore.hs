@@ -9,6 +9,7 @@ module Pos.Wallet.Web.Methods.Restore
        , restoreWalletFromSeed
        , restoreWalletFromSeedNoThrow
        , restoreWalletFromBackup
+       , restoreExternalWallet
        , addInitialRichAccount
 
        -- For testing
@@ -27,8 +28,8 @@ import           System.IO.Error (isDoesNotExistError)
 import qualified Data.HashMap.Strict as HM
 import           Pos.Client.KeyStorage (addSecretKey)
 import           Pos.Core.Genesis (GenesisData, PoorSecret, poorSecretToEncKey)
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, emptyPassphrase,
-                     firstHardened)
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, PublicKey,
+                     emptyPassphrase, firstHardened)
 import           Pos.Infra.StateLock (Priority (..), withStateLockNoMetrics)
 import           Pos.Util (HasLens (..), maybeThrow)
 import           Pos.Util.UserSecret (UserSecretDecodingError (..),
@@ -157,10 +158,23 @@ restoreWallet :: ( L.MonadWalletLogic ctx m
                  , MonadUnliftIO m
                  , HasLens SyncQueue ctx SyncQueue
                  ) => GenesisData -> EncryptedSecretKey -> m CWallet
-restoreWallet genesisData sk = do
-    db <- WS.askWalletDB
-    let credentials@(_, wId) = keyToWalletDecrCredentials $ KeyForRegular sk
+restoreWallet genesisData sk = restoreWith genesisData $ KeyForRegular sk
+
+ -- | Restore a history related to given external wallet, using its root PK.
+restoreExternalWallet :: ( L.MonadWalletLogic ctx m
+                         , MonadUnliftIO m
+                         , HasLens SyncQueue ctx SyncQueue
+                         ) => GenesisData -> PublicKey -> m CWallet
+restoreExternalWallet genesisData pk = restoreWith genesisData $ KeyForExternal pk
+
+restoreWith :: ( L.MonadWalletLogic ctx m
+               , MonadUnliftIO m
+               , HasLens SyncQueue ctx SyncQueue
+               ) => GenesisData -> WalletDecrCredentialsKey -> m CWallet
+restoreWith genesisData key = do
+    let credentials@(_, wId) = keyToWalletDecrCredentials key
     Restore.restoreWallet genesisData credentials
+    db <- WS.askWalletDB
     WS.setWalletReady db wId True
     L.getWallet wId
 

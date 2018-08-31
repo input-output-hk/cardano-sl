@@ -14,9 +14,10 @@ import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),
                      CreateAccountError (..), DeleteAccountError (..),
                      DeleteWalletError (..), GetAccountError (..),
                      GetAccountsError (..), GetUtxosError (..),
-                     GetWalletError (..), PassiveWalletLayer (..),
-                     UpdateAccountError (..), UpdateWalletError (..),
-                     UpdateWalletPasswordError (..), ValidateAddressError (..))
+                     GetWalletError (..), ImportWalletError (..),
+                     PassiveWalletLayer (..), UpdateAccountError (..),
+                     UpdateWalletError (..), UpdateWalletPasswordError (..),
+                     ValidateAddressError (..))
 
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 
@@ -69,6 +70,7 @@ bracketPassiveWallet =
         , applyUpdate          = liftedGen
         , postponeUpdate       = liftedGen
         , resetWalletState     = liftedGen
+        , importWallet         = \_ -> liftedGen
         }
 
 -- | A utility function.
@@ -154,4 +156,10 @@ instance Arbitrary UpdateWalletError where
 
 instance Arbitrary ValidateAddressError where
     arbitrary = oneof [ ValidateAddressDecodingFailed <$> arbitrary
+                      ]
+
+instance Arbitrary ImportWalletError where
+    arbitrary = oneof [ ImportWalletFileNotFound <$> arbitrary
+                      , ImportWalletNoWalletFoundInBackup <$> arbitrary
+                      , ImportWalletCreationFailed <$> arbitrary
                       ]

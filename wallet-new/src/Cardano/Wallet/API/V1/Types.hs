@@ -91,6 +91,8 @@ module Cardano.Wallet.API.V1.Types (
   , SignedTransaction (..)
   -- * Updates
   , WalletSoftwareUpdate (..)
+  -- * Importing a wallet from a backup
+  , WalletImport (..)
   -- * Settings
   , NodeSettings (..)
   , SlotDuration
@@ -445,6 +447,10 @@ instance Semigroup (V1 Core.PassPhrase) where
 instance Monoid (V1 Core.PassPhrase) where
     mempty = V1 mempty
     mappend = (<>)
+
+instance BuildableSafeGen SpendingPassword where
+    buildSafeGen sl pwd =
+        bprint (plainOrSecureF sl build (fconst "<spending password>")) pwd
 
 type WalletName = Text
 
@@ -2262,6 +2268,35 @@ instance BuildableSafeGen WalletSoftwareUpdate where
         updBlockchainVersion
         updScriptVersion
 
+-- | A type encapsulating enough information to import a wallet from a
+-- backup file.
+data WalletImport = WalletImport
+  { wiSpendingPassword :: !(Maybe SpendingPassword)
+  , wiFilePath         :: !FilePath
+  } deriving (Show, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''WalletImport
+
+instance ToSchema WalletImport where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "wi" (\(--^) props -> props
+      & ("spendingPassword"   --^ "An optional spending password to set for the imported wallet.")
+      & ("filePath" --^ "The path to the .key file holding the backup.")
+    )
+
+instance Arbitrary WalletImport where
+  arbitrary = WalletImport <$> arbitrary
+                           <*> arbitrary
+
+deriveSafeBuildable ''WalletImport
+instance BuildableSafeGen WalletImport where
+    buildSafeGen sl WalletImport{..} = bprint("{"
+        %" spendingPassword="%build
+        %" filePath="%build
+        %" }")
+        (maybe "null" (buildSafeGen sl) wiSpendingPassword)
+        wiFilePath
+
 
 -- | How many milliseconds a slot lasts for.
 newtype SlotDuration = SlotDuration (MeasuredIn 'Milliseconds Word)
@@ -2871,6 +2906,10 @@ instance Example SignedTransaction where
     example = SignedTransaction <$> example
                                 <*> example
                                 <*> example
+
+instance Example WalletImport where
+    example = WalletImport <$> example
+                           <*> pure "/Users/foo/Documents/wallet_to_import.key"
 
 --
 -- Wallet Errors

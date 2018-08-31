@@ -1,9 +1,10 @@
 module Cardano.Wallet.API.V1.LegacyHandlers.Wallets (
       handlers
 
-    -- * Internals, exposed only for testing
+    -- * Internals, exposed only for testing or in internal endpoints
     , isNodeSufficientlySynced
     , newWallet
+    , addWalletInfo
     ) where
 
 import           Universum

@@ -3,20 +3,27 @@ module Cardano.Wallet.WalletLayer.Kernel.Internal (
   , applyUpdate
   , postponeUpdate
   , resetWalletState
+  , importWallet
   ) where
 
 import           Universum
 
 import           Data.Acid.Advanced (update')
+import           System.IO.Error (isDoesNotExistError)
 
 import           Pos.Core.Update (SoftwareVersion)
 
-import           Cardano.Wallet.API.V1.Types (V1 (..))
+import           Cardano.Wallet.API.V1.Types (V1 (..), Wallet,
+                     WalletImport (..))
 import           Cardano.Wallet.Kernel.DB.AcidState (GetNextUpdate (..),
                      RemoveNextUpdate (..))
 import           Cardano.Wallet.Kernel.DB.InDb
 import qualified Cardano.Wallet.Kernel.Internal as Kernel
+import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as Node
+import           Cardano.Wallet.WalletLayer (CreateWallet (..),
+                     ImportWalletError (..))
+import           Cardano.Wallet.WalletLayer.Kernel.Wallets (createWallet)
 
 -- | Get next update (if any)
 --
@@ -59,3 +66,25 @@ postponeUpdate w = update' (w ^. Kernel.wallets) $ RemoveNextUpdate
 -- | Reset wallet state
 resetWalletState :: Kernel.PassiveWallet -> m ()
 resetWalletState = error "TODO: resetWaletState [CBR-393]"
+
+-- | Imports a 'Wallet' from a backup on disk.
+importWallet :: MonadIO m
+             => Kernel.PassiveWallet
+             -> WalletImport
+             -> m (Either ImportWalletError Wallet)
+importWallet pw WalletImport{..} = liftIO $ do
+    secretE <- try $ Keystore.readWalletSecret wiFilePath
+    case secretE of
+         Left e ->
+             if isDoesNotExistError e
+                 then return (Left $ ImportWalletFileNotFound wiFilePath)
+                 else throwM e
+         Right mbEsk -> do
+             case mbEsk of
+                 Nothing  -> return (Left $ ImportWalletNoWalletFoundInBackup wiFilePath)
+                 Just esk -> do
+                     res <- liftIO $ createWallet pw (ImportWalletFromESK esk wiSpendingPassword)
+                     return $ case res of
+                          Left e               -> Left (ImportWalletCreationFailed e)
+                          Right importedWallet -> Right importedWallet
+

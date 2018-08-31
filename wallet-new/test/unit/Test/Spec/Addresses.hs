@@ -92,7 +92,7 @@ prepareAddressFixture
   -> Fixture.GenPassiveWalletFixture [AddressFixture]
 prepareAddressFixture n = do
     spendingPassword <- Fixture.genSpendingPassword
-    newWalletRq <- Wallets.genNewWalletRq spendingPassword
+    newWalletRq <- WalletLayer.CreateWallet <$> Wallets.genNewWalletRq spendingPassword
     return $ \pw -> do
         Right v1Wallet <- Wallets.createWallet pw newWalletRq
         -- Get all the available accounts

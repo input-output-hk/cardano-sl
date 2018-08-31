@@ -17,6 +17,7 @@ module Cardano.Wallet.Kernel.Keystore (
       -- * Constructing a keystore
     , bracketKeystore
     , bracketLegacyKeystore
+    , readWalletSecret
     -- * Inserting values
     , insert
     -- * Replacing values, atomically
@@ -32,14 +33,14 @@ module Cardano.Wallet.Kernel.Keystore (
 import           Universum
 
 import           Control.Concurrent (modifyMVar, modifyMVar_, withMVar)
-import           Control.Monad.Trans.Identity (IdentityT (..), runIdentityT)
 import qualified Data.List
 import           System.Directory (getTemporaryDirectory, removeFile)
 import           System.IO (hClose, openTempFile)
 
 import           Pos.Crypto (EncryptedSecretKey, hash)
 import           Pos.Util.UserSecret (UserSecret, getUSPath, isEmptyUserSecret,
-                     takeUserSecret, usKeys, writeUserSecretRelease)
+                     readUserSecret, takeUserSecret, usKeys, usWallet,
+                     writeUserSecretRelease, _wusRootKey)
 import           Pos.Util.Wlog (CanLog (..), HasLoggerName (..),
                      LoggerName (..), logMessage)
 
@@ -54,7 +55,7 @@ data Keystore = Keystore (MVar InternalStorage)
 
 -- | Internal monad used to smooth out the 'WithLogger' dependency imposed
 -- by 'Pos.Util.UserSecret', to not commit to any way of logging things just yet.
-newtype KeystoreM a = KeystoreM { fromKeystore :: IdentityT IO a }
+newtype KeystoreM a = KeystoreM { fromKeystore :: IO a }
                     deriving (Functor, Applicative, Monad, MonadIO)
 
 instance HasLoggerName KeystoreM where
@@ -98,9 +99,30 @@ bracketKeystore deletePolicy fp withKeystore =
 
 -- | Creates a new keystore.
 newKeystore :: FilePath -> IO Keystore
-newKeystore fp = runIdentityT $ fromKeystore $ do
+newKeystore fp = fromKeystore $ do
     us <- takeUserSecret fp
     Keystore <$> newMVar (InternalStorage us)
+
+-- | Reads the legacy root key stored in the specified keystore. This is
+-- useful only for importing a wallet using the legacy '.key' format.
+readWalletSecret :: FilePath
+                 -- ^ The path to the file which will be used for the 'Keystore'
+                 -> IO (Maybe EncryptedSecretKey)
+readWalletSecret fp = importKeystore >>= lookupLegacyRootKey
+  where
+    lookupLegacyRootKey :: Keystore -> IO (Maybe EncryptedSecretKey)
+    lookupLegacyRootKey (Keystore ks) =
+        withMVar ks $ \(InternalStorage us) ->
+            case us ^. usWallet of
+                 Nothing -> return Nothing
+                 Just w  -> return (Just $ _wusRootKey w)
+
+    importKeystore :: IO Keystore
+    importKeystore = fromKeystore $ do
+        us <- readUserSecret fp
+        Keystore <$> newMVar (InternalStorage us)
+
+
 
 -- | Creates a legacy 'Keystore' by reading the 'UserSecret' from a 'NodeContext'.
 -- Hopefully this function will go in the near future.
@@ -134,7 +156,7 @@ bracketTestKeystore withKeystore =
 -- races due to the fact its underlying file is stored in the OS' temporary
 -- directory.
 newTestKeystore :: IO Keystore
-newTestKeystore = liftIO $ runIdentityT $ fromKeystore $ do
+newTestKeystore = liftIO $ fromKeystore $ do
     tempDir         <- liftIO getTemporaryDirectory
     (tempFile, hdl) <- liftIO $ openTempFile tempDir "keystore.key"
     liftIO $ hClose hdl

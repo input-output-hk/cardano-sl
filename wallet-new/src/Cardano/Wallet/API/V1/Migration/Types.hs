@@ -353,6 +353,9 @@ instance Migrate V0.CWalletMeta V1.WalletUpdate where
             , uwalAssuranceLevel    = migratedAssurance
             }
 
+instance Migrate FilePath V0.CFilePath where
+    eitherMigrate fp = pure $ V0.CFilePath (toText fp)
+
 --
 -- Migration Errors
 --

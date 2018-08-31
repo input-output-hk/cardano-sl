@@ -1,7 +1,9 @@
 module Cardano.Wallet.WalletLayer
     ( PassiveWalletLayer (..)
     , ActiveWalletLayer (..)
-    -- * Errors
+    -- * Types
+    , CreateWallet(..)
+    -- ** Errors
     , CreateWalletError(..)
     , GetWalletError(..)
     , UpdateWalletError(..)
@@ -19,6 +21,7 @@ module Cardano.Wallet.WalletLayer
     , GetTxError(..)
     , DeleteAccountError(..)
     , UpdateAccountError(..)
+    , ImportWalletError(..)
     ) where
 
 import           Universum
@@ -34,7 +37,7 @@ import           Pos.Core (Coin, Timestamp)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Txp (Tx, TxId)
 import           Pos.Core.Update (SoftwareVersion)
-import           Pos.Crypto (PassPhrase)
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase)
 
 import           Cardano.Wallet.API.Request (RequestParams (..))
 import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
@@ -43,8 +46,9 @@ import           Cardano.Wallet.API.Response (SliceOf (..), WalletResponse)
 import           Cardano.Wallet.API.V1.Types (Account, AccountBalance,
                      AccountIndex, AccountUpdate, Address, ForceNtpCheck,
                      NewAccount, NewAddress, NewWallet, NodeInfo, NodeSettings,
-                     PasswordUpdate, Payment, Redemption, Transaction, V1 (..),
-                     Wallet, WalletAddress, WalletId, WalletUpdate)
+                     PasswordUpdate, Payment, Redemption, SpendingPassword,
+                     Transaction, V1 (..), Wallet, WalletAddress, WalletId,
+                     WalletImport, WalletUpdate)
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
@@ -59,8 +63,12 @@ import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
 import           Cardano.Wallet.WalletLayer.Kernel.Conv (InvalidRedemptionCode)
 
 ------------------------------------------------------------
--- Errors when manipulating wallets
+-- Type & Errors when manipulating wallets
 ------------------------------------------------------------
+
+data CreateWallet =
+    CreateWallet NewWallet
+  | ImportWalletFromESK EncryptedSecretKey (Maybe SpendingPassword)
 
 data CreateWalletError =
       CreateWalletError Kernel.CreateWalletError
@@ -318,6 +326,28 @@ instance Buildable UpdateAccountError where
     build (UpdateAccountWalletIdDecodingFailed txt) =
         bprint ("UpdateAccountWalletIdDecodingFailed " % build) txt
 
+data ImportWalletError =
+      ImportWalletFileNotFound FilePath
+    | ImportWalletNoWalletFoundInBackup FilePath
+    -- ^ When trying to fetch the required information, the legacy keystore
+    -- didn't provide any.
+    | ImportWalletCreationFailed CreateWalletError
+    -- ^ When trying to import this wallet, the wallet creation failed.
+
+-- | Unsound show instance needed for the 'Exception' instance.
+instance Show ImportWalletError where
+    show = formatToString build
+
+instance Exception ImportWalletError
+
+instance Buildable ImportWalletError where
+    build (ImportWalletFileNotFound fp) =
+        bprint ("ImportWalletFileNotFound " % build) fp
+    build (ImportWalletNoWalletFoundInBackup fp) =
+        bprint ("ImportWalletNoWalletFoundInBackup " % build) fp
+    build (ImportWalletCreationFailed err) =
+        bprint ("ImportWalletCreationFailed " % build) err
+
 ------------------------------------------------------------
 -- Errors when getting Transactions
 ------------------------------------------------------------
@@ -325,7 +355,7 @@ instance Buildable UpdateAccountError where
 data GetTxError =
       GetTxMissingWalletIdError
     | GetTxAddressDecodingFailed Text
-    | GetTxInvalidSortingOperaration String
+    | GetTxInvalidSortingOperation String
     | GetTxUnknownHdAccount Kernel.UnknownHdAccount
 
 instance Show GetTxError where
@@ -336,8 +366,8 @@ instance Buildable GetTxError where
         bprint "GetTxMissingWalletIdError "
     build (GetTxAddressDecodingFailed txt) =
         bprint ("GetTxAddressDecodingFailed " % build) txt
-    build (GetTxInvalidSortingOperaration txt) =
-        bprint ("GetTxInvalidSortingOperaration " % build) txt
+    build (GetTxInvalidSortingOperation txt) =
+        bprint ("GetTxInvalidSortingOperation " % build) txt
     build (GetTxUnknownHdAccount err) =
         bprint ("GetTxUnknownHdAccount " % build) err
 
@@ -345,7 +375,7 @@ instance Buildable GetTxError where
 instance Arbitrary GetTxError where
     arbitrary = oneof [ pure GetTxMissingWalletIdError
                       , pure (GetTxAddressDecodingFailed "by_amount")
-                      , pure (GetTxInvalidSortingOperaration "123")
+                      , pure (GetTxInvalidSortingOperation "123")
                       , GetTxUnknownHdAccount <$> arbitrary
                       ]
 
@@ -359,7 +389,7 @@ instance Exception GetTxError
 data PassiveWalletLayer m = PassiveWalletLayer
     {
     -- wallets
-      createWallet         :: NewWallet -> m (Either CreateWalletError Wallet)
+      createWallet         :: CreateWallet -> m (Either CreateWalletError Wallet)
     , getWallets           :: m (IxSet Wallet)
     , getWallet            :: WalletId -> m (Either GetWalletError Wallet)
     , updateWallet         :: WalletId
@@ -424,6 +454,7 @@ data PassiveWalletLayer m = PassiveWalletLayer
     , applyUpdate          :: m ()
     , postponeUpdate       :: m ()
     , resetWalletState     :: m ()
+    , importWallet         :: WalletImport -> m (Either ImportWalletError Wallet)
     }
 
 ------------------------------------------------------------

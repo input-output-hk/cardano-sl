@@ -17892,6 +17892,7 @@ data-default-class
 directory
 ed25519
 exceptions
+filepath
 foldl
 formatting
 generics-sop

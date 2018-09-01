@@ -81,7 +81,8 @@ import qualified Data.Foldable
 import           Data.IxSet.Typed (IndexOp, SetOp)
 import qualified Data.IxSet.Typed as IxSet
 import qualified Data.Map.Strict as Map
-import           Data.SafeCopy (SafeCopy (..), base, deriveSafeCopy)
+import           Data.SafeCopy (SafeCopy (..), base, contain, deriveSafeCopy,
+                     safeGet, safePut)
 import qualified Data.Set as Set
 import qualified Data.Traversable
 
@@ -179,9 +180,16 @@ type IsIndexOf ix a = IxSet.IsIndexOf ix (PrimKey a ': IndicesOf a)
   Safecopy
 -------------------------------------------------------------------------------}
 
-instance SafeCopy a => SafeCopy (IxSet a) where
-  getCopy = error "getCopy for IxSet wrapper"
-  putCopy = error "putCopy for IxSet wrapper"
+instance SafeCopy a => SafeCopy (OrdByPrimKey a) where
+    getCopy = contain $ WrapOrdByPrimKey <$> safeGet
+    putCopy (WrapOrdByPrimKey a) = contain $ safePut a
+
+instance (IxSet.Indexable (PrimKey a : IndicesOf a) (OrdByPrimKey a)
+         ,SafeCopy a
+         ,SafeCopy (OrdByPrimKey a)
+         ) => SafeCopy (IxSet a) where
+  getCopy = contain $ WrapIxSet <$> safeGet
+  putCopy (WrapIxSet nativeSet) = contain $ safePut nativeSet
 
 {-------------------------------------------------------------------------------
   Building 'Indexable' instances

@@ -34,7 +34,7 @@ import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..), FlatSlotI
 import           Pos.Core.Ssc (SscPayload (..), SscProof (..))
 import           Pos.Core.Txp (Tx (..), TxInWitness (..), TxOutAux (..))
 import           Pos.Core.Update (ApplicationName (..), SoftforkRule (..))
-import           Pos.Crypto (Hash, ProtocolMagic (..), PublicKey (..), SignTag (..), abstractHash,
+import           Pos.Crypto (Hash, ProtocolMagic (..), ProtocolMagicId (..), RequiresNetworkMagic (..), PublicKey (..), SignTag (..), abstractHash,
                              createPsk, hash, proxySign, redeemDeterministicKeyGen, sign, toPublic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Merkle (mkMerkleTree, mtRoot)
@@ -1066,8 +1066,12 @@ roundTripTxProof = eachOf 50 (feedPM genTxProof) roundTripsBiBuildable
 golden_TxSig :: Property
 golden_TxSig = goldenTestBi txSigGold "test/golden/TxSig"
     where
-        txSigGold = sign (ProtocolMagic 0) SignForTestingOnly
-                         exampleSecretKey exampleTxSigData
+        txSigGold = sign (ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
+                                        , getRequiresNetworkMagic = NMMustBeNothing
+                                        })
+                         SignForTestingOnly
+                         exampleSecretKey
+                         exampleTxSigData
 
 roundTripTxSig :: Property
 roundTripTxSig = eachOf 50 (feedPM genTxSig) roundTripsBiBuildable
@@ -1242,16 +1246,26 @@ exampleBlockHeaderGenesis = (BlockHeaderGenesis exampleGenesisBlockHeader)
 
 exampleBlockHeaderMain :: MainBlockHeader
 exampleBlockHeaderMain =
-  mkMainHeaderExplicit (ProtocolMagic 0) exampleHeaderHash
-                       exampleChainDifficulty exampleSlotId
-                       exampleSecretKey Nothing
-                       exampleMainBody exampleMainExtraHeaderData
+  mkMainHeaderExplicit (ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
+                                      , getRequiresNetworkMagic = NMMustBeNothing
+                                      })
+                       exampleHeaderHash
+                       exampleChainDifficulty
+                       exampleSlotId
+                       exampleSecretKey
+                       Nothing
+                       exampleMainBody
+                       exampleMainExtraHeaderData
 
 exampleBlockSignature :: BlockSignature
-exampleBlockSignature = BlockSignature (sign (ProtocolMagic 7)
-                                              SignMainBlock
-                                              exampleSecretKey
-                                              exampleMainToSign)
+exampleBlockSignature = BlockSignature (sign pm
+                                             SignMainBlock
+                                             exampleSecretKey
+                                             exampleMainToSign)
+  where
+    pm = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 7
+                       , getRequiresNetworkMagic = NMMustBeNothing
+                       }
 
 exampleBlockPSignatureLight :: BlockSignature
 exampleBlockPSignatureLight = BlockPSignatureLight sig
@@ -1259,7 +1273,9 @@ exampleBlockPSignatureLight = BlockPSignatureLight sig
     sig = proxySign pm SignProxySK delegateSk psk exampleMainToSign
     [delegateSk, issuerSk] = exampleSecretKeys 5 2
     psk = createPsk pm issuerSk (toPublic delegateSk) exampleLightDlgIndices
-    pm = ProtocolMagic 2
+    pm = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 2
+                       , getRequiresNetworkMagic = NMMustBeNothing
+                       }
 
 exampleBlockPSignatureHeavy :: BlockSignature
 exampleBlockPSignatureHeavy = BlockPSignatureHeavy sig
@@ -1267,7 +1283,9 @@ exampleBlockPSignatureHeavy = BlockPSignatureHeavy sig
     sig = proxySign pm SignProxySK delegateSk psk exampleMainToSign
     [delegateSk, issuerSk] = exampleSecretKeys 5 2
     psk = createPsk pm issuerSk (toPublic delegateSk) (staticHeavyDlgIndexes !! 0)
-    pm = ProtocolMagic 2
+    pm = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 2
+                       , getRequiresNetworkMagic = NMMustBeNothing
+                       }
 
 exampleMainConsensusData :: MainConsensusData
 exampleMainConsensusData = MainConsensusData exampleSlotId
@@ -1283,17 +1301,20 @@ exampleMainExtraHeaderData =
                         (abstractHash (MainExtraBodyData (mkAttributes ())))
 
 exampleGenesisBlockHeader :: GenesisBlockHeader
-exampleGenesisBlockHeader = mkGenesisHeader (ProtocolMagic 0)
+exampleGenesisBlockHeader = mkGenesisHeader pm
                                             (Left (GenesisHash prevHash))
                                             (EpochIndex 11)
                                             exampleGenesisBody
   where
+    pm = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
+                       , getRequiresNetworkMagic = NMMustBeNothing
+                       }
     prevHash = coerce (hash ("genesisHash" :: Text)) :: Hash a
 
 -- We use `Nothing` as the ProxySKBlockInfo to avoid clashing key errors
 -- (since we use example keys which aren't related to each other)
 exampleMainBlockHeader :: MainBlockHeader
-exampleMainBlockHeader = mkMainHeaderExplicit (ProtocolMagic 7)
+exampleMainBlockHeader = mkMainHeaderExplicit pm
                                               exampleHeaderHash
                                               exampleChainDifficulty
                                               exampleSlotId
@@ -1301,6 +1322,10 @@ exampleMainBlockHeader = mkMainHeaderExplicit (ProtocolMagic 7)
                                               Nothing
                                               exampleMainBody
                                               exampleMainExtraHeaderData
+  where
+    pm = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 7
+                       , getRequiresNetworkMagic = NMMustBeNothing
+                       }
 
 exampleMainProof :: MainProof
 exampleMainProof = MainProof exampleTxProof exampleSscProof

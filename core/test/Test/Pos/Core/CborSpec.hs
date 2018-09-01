@@ -16,7 +16,8 @@ import           Test.Hspec (Spec, describe)
 import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi, serialize, unsafeDeserialize)
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi, serialize,
+                                   unsafeDeserialize)
 import           Pos.Binary.Core ()
 import           Pos.Core
 import           Pos.Core.Common (ScriptVersion)
@@ -28,6 +29,7 @@ import           Test.Pos.Binary.Helpers (binaryTest)
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Core.Chrono ()
 import           Test.Pos.Crypto.Arbitrary ()
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 
 data MyScript = MyScript
@@ -77,7 +79,7 @@ instance Bi (Attributes X2) where
 
 
 spec :: Spec
-spec = withGenesisSpec 0 defaultCoreConfiguration $ \_ ->
+spec = withGenesisSpec 0 (defaultCoreConfiguration dummyProtocolMagic) $ \_ ->
     describe "Cbor Bi instances" $ do
         describe "Core.Address" $ do
             binaryTest @Address

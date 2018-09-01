@@ -11,13 +11,14 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (NonNegative (..), Positive (..), Property, (===), (==>))
 
 import           Pos.Core (EpochOrSlot, HasConfiguration, SlotId (..), defaultCoreConfiguration,
-                           flattenSlotId, withGenesisSpec, unflattenSlotId)
+                           flattenSlotId, unflattenSlotId, withGenesisSpec)
 
 import           Test.Pos.Core.Arbitrary (EoSToIntOverflow (..), UnreasonableEoS (..))
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Property (shouldThrowException, (.=.))
 
 spec :: Spec
-spec = withGenesisSpec 0 defaultCoreConfiguration $ \_ -> describe "Slotting" $ do
+spec = withGenesisSpec 0 (defaultCoreConfiguration dummyProtocolMagic) $ \_ -> describe "Slotting" $ do
     describe "SlotId" $ do
         describe "Ord" $ do
             prop "is consistent with flatten/unflatten"

@@ -15,7 +15,7 @@ module Pos.Core.Block.Blockchain
 
        -- * Lenses
        -- ** Header
-       , gbhProtocolMagic
+       , gbhProtocolMagicId
        , gbhPrevBlock
        , gbhBodyProof
        , gbhConsensus
@@ -36,7 +36,7 @@ import           Control.Lens (makeLenses)
 import           Control.Monad.Except (MonadError (throwError))
 import           Formatting (build, sformat, (%))
 
-import           Pos.Crypto (ProtocolMagic)
+import           Pos.Crypto (ProtocolMagic (..), ProtocolMagicId)
 
 ----------------------------------------------------------------------------
 -- Blockchain class
@@ -94,15 +94,15 @@ class Blockchain p where
 -- general there may be some invariants which must hold for the
 -- contents of header.
 data GenericBlockHeader b = UnsafeGenericBlockHeader
-    { _gbhProtocolMagic :: !ProtocolMagic
+    { _gbhProtocolMagicId :: !ProtocolMagicId
       -- | Pointer to the header of the previous block.
-    , _gbhPrevBlock     :: !(BHeaderHash b)
+    , _gbhPrevBlock       :: !(BHeaderHash b)
     , -- | Proof of body.
-      _gbhBodyProof     :: !(BodyProof b)
+      _gbhBodyProof       :: !(BodyProof b)
     , -- | Consensus data to verify consensus algorithm.
-      _gbhConsensus     :: !(ConsensusData b)
+      _gbhConsensus       :: !(ConsensusData b)
     , -- | Any extra data.
-      _gbhExtra         :: !(ExtraHeaderData b)
+      _gbhExtra           :: !(ExtraHeaderData b)
     } deriving (Generic)
 
 deriving instance
@@ -179,8 +179,9 @@ mkGenericHeader
     -> ExtraHeaderData b
     -> GenericBlockHeader b
 mkGenericHeader pm hashPrev body consensus extra =
-    UnsafeGenericBlockHeader pm hashPrev proof (consensus proof) extra
+    UnsafeGenericBlockHeader pmId hashPrev proof (consensus proof) extra
   where
+    pmId = getProtocolMagicId pm
     proof = mkBodyProof @b body
 
 -- | Smart constructor for 'GenericBlock'.

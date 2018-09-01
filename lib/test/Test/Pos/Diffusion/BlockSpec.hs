@@ -31,18 +31,18 @@ import           Pos.Binary.Class (serialize')
 import           Pos.Core (Block, BlockHeader, BlockVersion (..), HeaderHash, blockHeaderHash)
 import qualified Pos.Core as Core (getBlockHeader)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
-import           Pos.Crypto (ProtocolMagic (..))
+import           Pos.Crypto (ProtocolMagic (..), ProtocolMagicId (..), RequiresNetworkMagic (..))
 import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
-import           Pos.DB.Class (SerializedBlock, Serialized (..))
+import           Pos.DB.Class (Serialized (..), SerializedBlock)
 import           Pos.Diffusion.Full (FullDiffusionConfiguration (..), FullDiffusionInternals (..),
                                      RunFullDiffusionInternals (..),
                                      diffusionLayerFullExposeInternals)
 import           Pos.Infra.Diffusion.Types as Diffusion (Diffusion (..), StreamEntry (..))
-import           Pos.Logic.Pure (pureLogic)
-import           Pos.Logic.Types as Logic (Logic (..))
 import qualified Pos.Infra.Network.Policy as Policy
 import           Pos.Infra.Network.Types (Bucket (..))
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
+import           Pos.Logic.Pure (pureLogic)
+import           Pos.Logic.Types as Logic (Logic (..))
 
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Util.Trace (wlogTrace)
@@ -53,7 +53,7 @@ import           Test.Pos.Block.Arbitrary.Generate (generateMainBlock)
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 protocolMagic :: ProtocolMagic
-protocolMagic = ProtocolMagic 0
+protocolMagic = ProtocolMagic (ProtocolMagicId 0) NMMustBeNothing
 
 protocolConstants :: ProtocolConstants
 protocolConstants = ProtocolConstants

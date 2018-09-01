@@ -160,7 +160,7 @@ import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
                      UpdateVote (..), VoteId, mkUpdateProof,
                      mkUpdateProposalWSign, mkUpdateVoteSafe)
 import           Pos.Crypto (AbstractHash (..), EncShare (..),
-                     HDAddressPayload (..), Hash, ProtocolMagic (..),
+                     HDAddressPayload (..), Hash, RequiresNetworkMagic (..), ProtocolMagic (..), ProtocolMagicId (..),
                      RedeemPublicKey, RedeemSignature, SafeSigner (..),
                      Secret (..), SecretKey (..), SecretProof (..),
                      SignTag (..), VssKeyPair, VssPublicKey (..), abstractHash,
@@ -322,7 +322,9 @@ exampleCommitmentOpening =
 exampleCommitmentSignature :: CommitmentSignature
 exampleCommitmentSignature =
     sign
-      (ProtocolMagic 0)
+      (ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
+                     , getRequiresNetworkMagic = NMMustBeNothing
+                     })
       SignForTestingOnly
       exampleSecretKey
       (exampleEpochIndex, exampleCommitment)
@@ -423,9 +425,15 @@ exampleRedeemPublicKey :: RedeemPublicKey
 exampleRedeemPublicKey = fromJust (fst <$> redeemDeterministicKeyGen (getBytes 0 32))
 
 exampleRedeemSignature :: RedeemSignature TxSigData
-exampleRedeemSignature = redeemSign (ProtocolMagic 0) SignForTestingOnly rsk exampleTxSigData
-    where
-        rsk = fromJust (snd <$> redeemDeterministicKeyGen (getBytes 0 32))
+exampleRedeemSignature =
+    redeemSign (ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
+                              , getRequiresNetworkMagic = NMMustBeNothing
+                              })
+               SignForTestingOnly
+               rsk
+               exampleTxSigData
+  where
+    rsk = fromJust (snd <$> redeemDeterministicKeyGen (getBytes 0 32))
 
 -- In order to get the key starting at byte 10, we generate two with offsets of 10
 -- between them and take the second.
@@ -529,7 +537,12 @@ exampleTxProof = TxProof 32 mroot hashWit
     hashWit = hash $ [(V.fromList [(PkWitness examplePublicKey exampleTxSig)])]
 
 exampleTxSig :: TxSig
-exampleTxSig = sign (ProtocolMagic 0) SignForTestingOnly exampleSecretKey exampleTxSigData
+exampleTxSig = sign (ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
+                                   , getRequiresNetworkMagic = NMMustBeNothing
+                                   })
+                    SignForTestingOnly
+                    exampleSecretKey
+                    exampleTxSigData
 
 exampleTxSigData :: TxSigData
 exampleTxSigData = TxSigData exampleHashTx
@@ -568,7 +581,9 @@ exampleUpdateProposalToSign :: UpdateProposalToSign
     ( mkUpdateProposalWSign pm bv bvm sv hm ua ss
     , UpdateProposalToSign bv bvm sv hm ua )
   where
-    pm  = ProtocolMagic 0
+    pm  = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
+                        , getRequiresNetworkMagic = NMMustBeNothing
+                        }
     bv  = exampleBlockVersion
     bvm = exampleBlockVersionModifier
     sv  = exampleSoftwareVersion
@@ -579,7 +594,9 @@ exampleUpdateProposalToSign :: UpdateProposalToSign
 exampleUpdateVote :: UpdateVote
 exampleUpdateVote = mkUpdateVoteSafe pm ss ui ar
   where
-    pm = ProtocolMagic 0
+    pm = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
+                       , getRequiresNetworkMagic = NMMustBeNothing
+                       }
     ss = exampleSafeSigner 0
     ui = exampleUpId
     ar = True
@@ -591,7 +608,9 @@ exampleVoteId = (exampleUpId, examplePublicKey, False)
 exampleVssCertificate :: VssCertificate
 exampleVssCertificate =
     mkVssCertificate
-        (ProtocolMagic 0)
+        (ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
+                       , getRequiresNetworkMagic = NMMustBeNothing
+                       })
         exampleSecretKey
         (asBinary (toVssPublicKey $ deterministicVssKeyGen ("golden" :: ByteString)))
         (EpochIndex 11)
@@ -601,7 +620,9 @@ exampleVssCertificates offset num =  map vssCert [0..num-1]
     where
         secretKeyList = (exampleSecretKeys offset num)
         vssCert index = mkVssCertificate
-                           (ProtocolMagic 0)
+                           (ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
+                                          , getRequiresNetworkMagic = NMMustBeNothing
+                                          })
                            (secretKeyList !! index)
                            (asBinary (toVssPublicKey $ deterministicVssKeyGen (getBytes index 128)))
                            (EpochIndex 122)
@@ -619,7 +640,12 @@ staticHeavyDlgIndexes :: [HeavyDlgIndex]
 staticHeavyDlgIndexes = map (HeavyDlgIndex . EpochIndex) [5,1,3,27,99,247]
 
 staticProtocolMagics :: [ProtocolMagic]
-staticProtocolMagics = map ProtocolMagic [0..5]
+staticProtocolMagics = map mkPm [0..5]
+  where
+    mkPm :: Int32 -> ProtocolMagic
+    mkPm x = ProtocolMagic { getProtocolMagicId = ProtocolMagicId x
+                           , getRequiresNetworkMagic = NMMustBeNothing
+                           }
 
 staticProxySKHeavys :: [ProxySKHeavy]
 staticProxySKHeavys = zipWith4 safeCreatePsk
@@ -931,21 +957,27 @@ exampleGenesisDelegation = UnsafeGenesisDelegation (HM.fromList
 exampleGenesisProtocolConstants0 :: GenesisProtocolConstants
 exampleGenesisProtocolConstants0 = GenesisProtocolConstants
     { gpcK = 37
-    , gpcProtocolMagic = ProtocolMagic {getProtocolMagic = 1783847074}
+    , gpcProtocolMagic = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 1783847074
+                                       , getRequiresNetworkMagic = NMMustBeNothing
+                                       }
     , gpcVssMaxTTL = VssMaxTTL {getVssMaxTTL = 1477558317}
     , gpcVssMinTTL = VssMinTTL {getVssMinTTL = 744040476}}
 
 exampleGenesisProtocolConstants1 :: GenesisProtocolConstants
 exampleGenesisProtocolConstants1 = GenesisProtocolConstants
     { gpcK = 64
-    , gpcProtocolMagic = ProtocolMagic {getProtocolMagic = 135977977}
+    , gpcProtocolMagic = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 135977977
+                                       , getRequiresNetworkMagic = NMMustBeNothing
+                                       }
     , gpcVssMaxTTL = VssMaxTTL {getVssMaxTTL = 126106167}
     , gpcVssMinTTL = VssMinTTL {getVssMinTTL = 310228653}}
 
 exampleGenesisProtocolConstants2 :: GenesisProtocolConstants
 exampleGenesisProtocolConstants2 = GenesisProtocolConstants
     { gpcK = 2
-    , gpcProtocolMagic = ProtocolMagic {getProtocolMagic = 1780893186}
+    , gpcProtocolMagic = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 1780893186
+                                       , getRequiresNetworkMagic = NMMustBeNothing
+                                       }
     , gpcVssMaxTTL = VssMaxTTL {getVssMaxTTL = 402296078}
     , gpcVssMinTTL = VssMinTTL {getVssMinTTL = 1341799941}}
 

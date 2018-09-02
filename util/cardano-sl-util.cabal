@@ -155,6 +155,7 @@ test-suite test
                        Test.Pos.Util.TimerSpec
                        Test.Pos.Util.TraceSpec
                        Test.Pos.Util.Tripping
+                       Test.Pos.Util.WlogSpec
 
   build-depends:       aeson
                      , base

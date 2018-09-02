@@ -80,8 +80,8 @@ import           Pos.Infra.Util.LogSafe (buildSafe, logDebugSP, logErrorSP,
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (HasLens (..), getKeys, timed)
-import           Pos.Util.Wlog (CanLog, HasLoggerName, WithLogger, logDebug,
-                     logError, logInfo, logWarning, modifyLoggerName)
+import           Pos.Util.Wlog (HasLoggerName, WithLogger, logDebug, logError,
+                     logInfo, logWarning, modifyLoggerName)
 
 import           Pos.Wallet.Web.ClientTypes (CId, CTxMeta (..), Wal)
 import           Pos.Wallet.Web.Error.Types (WalletError (..))
@@ -734,8 +734,7 @@ calculateEstimatedRemainingTime (WS.SyncThroughput blocks) remainingBlocks =
 
 -- | Apply the given 'CAccModifier' to a wallet.
 applyModifierToWallet
-    :: ( CanLog m
-       , HasLoggerName m
+    :: ( WithLogger m
        , MonadIO m
        )
     => WalletDB
@@ -773,7 +772,7 @@ applyModifierToWallet db trackingOperation wid newBlockHeaderTip CAccModifier{..
       newSyncState
 
 rollbackModifierFromWallet
-    :: (CanLog m, HasLoggerName m, MonadSlots ctx m)
+    :: (WithLogger m, MonadSlots ctx m)
     => ProtocolConstants
     -> WalletDB
     -> TrackingOperation

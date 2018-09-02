@@ -42,8 +42,8 @@ module Cardano.Wallet.Kernel.DB.Spec (
     -- ** Convenience: accessors for other checkpoints
   , oldestCheckpoint
     -- ** public for testing compression
-  , deltas
-  , steps
+  , findDeltas
+  , applyDeltas
   ) where
 
 import           Universum
@@ -125,8 +125,6 @@ data Checkpoint = Checkpoint {
 
 makeLenses ''Checkpoint
 
-SC.deriveSafeCopy 1 'SC.base ''Checkpoint
-
 -- | Initial checkpoint for an account
 --
 -- This takes a UTxO as argument to allow for wallets that are given an initial
@@ -165,8 +163,6 @@ data PartialCheckpoint = PartialCheckpoint {
     } deriving Eq
 
 makeLenses ''PartialCheckpoint
-
-SC.deriveSafeCopy 1 'SC.base ''PartialCheckpoint
 
 -- | Initial partial checkpoint when we are restoring a wallet
 --
@@ -250,26 +246,62 @@ liftCheckpoints :: (NewestFirst StrictNonEmpty c1 -> NewestFirst StrictNonEmpty 
                 -> Checkpoints c1 -> Checkpoints c2
 liftCheckpoints f (Checkpoints cs) = Checkpoints (f cs)
 
-deltas :: IsCheckpoint c =>  Checkpoints c -> (c, [DeltaCheckpoint])
-deltas (Checkpoints (NewestFirst (a SNE.:| strict))) = (a, go a strict)
+findDeltas :: IsCheckpoint c =>  Checkpoints c -> (InitialCheckpoint c, [DeltaCheckpoint])
+findDeltas (Checkpoints (NewestFirst (a SNE.:| strict))) = (Initial a, go a strict)
   where
     go :: IsCheckpoint c => c -> SL.StrictList c -> [DeltaCheckpoint]
     go _ SL.Nil                  = []
     go c (SL.Cons c' strictRest) = (delta c' c) : (go c' strictRest)
 
-steps :: IsCheckpoint c => (c, [DeltaCheckpoint] ) -> Checkpoints c
-steps (c, ls) = Checkpoints . NewestFirst $ c SNE.:| go c ls
+applyDeltas :: IsCheckpoint c => (InitialCheckpoint c, [DeltaCheckpoint] ) -> Checkpoints c
+applyDeltas (Initial c, ls) = Checkpoints . NewestFirst $ c SNE.:| go c ls
   where
     go :: IsCheckpoint c => c -> [DeltaCheckpoint] -> SL.StrictList c
     go _ []         = SL.Nil
     go c' (dc:rest) = let new = step c' dc in SL.Cons new (go new rest)
 
-instance (IsCheckpoint c, SC.SafeCopy c) => SC.SafeCopy (Checkpoints c) where
+newtype InitialCheckpoint c = Initial c
+
+instance SC.SafeCopy (InitialCheckpoint Checkpoint) where
+  getCopy = SC.contain $ do
+    utxo <-SC.safeGet
+    balance <- SC.safeGet
+    pending <- SC.safeGet
+    bm <- SC.safeGet
+    ctx <- SC.safeGet
+    fpending <- SC.safeGet
+    pure $ Initial $ Checkpoint utxo balance pending bm ctx fpending
+  putCopy (Initial (Checkpoint utxo balance pending bm ctx fpending)) = SC.contain $ do
+    SC.safePut utxo
+    SC.safePut balance
+    SC.safePut pending
+    SC.safePut bm
+    SC.safePut ctx
+    SC.safePut fpending
+
+instance SC.SafeCopy (InitialCheckpoint PartialCheckpoint) where
+  getCopy = SC.contain $ do
+    utxo <-SC.safeGet
+    balance <- SC.safeGet
+    pending <- SC.safeGet
+    bm <- SC.safeGet
+    ctx <- SC.safeGet
+    fpending <- SC.safeGet
+    pure $ Initial $ PartialCheckpoint utxo balance pending bm ctx fpending
+  putCopy (Initial (PartialCheckpoint utxo balance pending bm ctx fpending)) = SC.contain $ do
+    SC.safePut utxo
+    SC.safePut balance
+    SC.safePut pending
+    SC.safePut bm
+    SC.safePut ctx
+    SC.safePut fpending
+
+instance (IsCheckpoint c, SC.SafeCopy (InitialCheckpoint c)) => SC.SafeCopy (Checkpoints c) where
   getCopy = SC.contain $ do
     ds <- SC.safeGet
-    pure $ steps ds
+    pure $ applyDeltas ds
   putCopy cs  = SC.contain $ do
-    let dcs = deltas cs
+    let dcs = findDeltas cs
     SC.safePut dcs
 
 {-------------------------------------------------------------------------------

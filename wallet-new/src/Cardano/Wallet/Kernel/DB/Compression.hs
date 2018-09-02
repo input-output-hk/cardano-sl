@@ -5,8 +5,6 @@ import           Universum
 import           Data.Map (Map)
 import qualified Data.Map as M
 import qualified Data.SafeCopy as SC
-import           Data.Set (Set)
-import qualified Data.Set as S
 
 import qualified Pos.Chain.Txp as Core
 import qualified Pos.Core as Core
@@ -16,6 +14,7 @@ import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec.Pending (Pending, PendingDiff,
                      liftDeltaPending, liftStepPending)
+import           Cardano.Wallet.Kernel.Util
 
 import           Test.Pos.Core.Arbitrary ()
 
@@ -39,10 +38,10 @@ data DeltaCheckpoint = DeltaCheckpoint {
   , dcContext     :: !(Maybe BlockContext)
 }
 
-type UtxoDiff = (Core.Utxo, Set Core.TxIn)
+type UtxoDiff = MapDiff Core.TxIn Core.TxOutAux
 type BlockMetaDiff = (BlockMetaSlotIdDiff, BlockMetaAddressDiff)
-type BlockMetaSlotIdDiff = InDb (Map Core.TxId Core.SlotId, Set Core.TxId)
-type BlockMetaAddressDiff = (Map (InDb Core.Address) AddressMeta, Set (InDb Core.Address))
+type BlockMetaSlotIdDiff = InDb (MapDiff Core.TxId Core.SlotId)
+type BlockMetaAddressDiff = MapDiff (InDb Core.Address) AddressMeta
 
 deltaPending :: Pending -> Pending -> PendingDiff
 deltaPending = liftDeltaPending deltaMap
@@ -67,24 +66,17 @@ stepBlockMeta (BlockMeta bmsi bms) (dbmsi, dbms) =
 -- As a diff of two Maps we use the Map of new values (changed or completely new)
 -- plus a Set of deleted values.
 -- property: keys of the return set cannot be keys of the returned Map.
-deltaMap :: (Eq v, Ord k) => Map k v -> Map k v -> (Map k v, Set k)
+deltaMap :: (Eq v, Ord k) => Map k v -> Map k v -> MapDiff k v
 deltaMap newMap oldMap =
   let f newEntry oldEntry = if newEntry == oldEntry then Nothing else Just newEntry
       newEntries = M.differenceWith f newMap oldMap -- this includes pairs that changed values.
       deletedKeys = M.keysSet $ M.difference oldMap newMap
-  in (newEntries, deletedKeys)
+  in MapDiff newEntries deletedKeys
 
 -- newEntries should have no keys in common with deletedKeys.
-stepMap :: Ord k => Map k v -> (Map k v, Set k) -> Map k v
-stepMap oldMap (newEntries, deletedKeys) =
+stepMap :: Ord k => Map k v -> MapDiff k v -> Map k v
+stepMap oldMap (MapDiff newEntries deletedKeys) =
   M.union newEntries lighterMap -- for common keys, union prefers the newPairs values.
     where lighterMap = M.withoutKeys oldMap deletedKeys
-
--- | The first Set contains the new keys, while the second the deleted ones.
-deltaSet :: Ord k => Set k -> Set k -> (Set k, Set k)
-deltaSet newSet oldSet = (S.difference newSet oldSet, S.difference oldSet newSet)
-
-stepSet :: Ord k => Set k -> (Set k, Set k) -> Set k
-stepSet oldSet (new, deleted) = S.difference (S.union oldSet new) deleted
 
 SC.deriveSafeCopy 1 'SC.base ''DeltaCheckpoint

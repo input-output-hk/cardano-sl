@@ -91,8 +91,8 @@ spec = do
             (cs  :: Checkpoints Checkpoint) <- pick' $ resize 10 arbitrary
             -- ^ limit here is important, because
             --   this creates a whole wallet state.
-            let d = deltas cs
-            let cs'' = steps d
+            let d = findDeltas cs
+            let cs'' = applyDeltas d
             return $ (STB cs'') `shouldBe` (STB cs)
 
         it "Safecopy Checkpoints round trips" $ monadicIO $ do
@@ -111,8 +111,8 @@ spec = do
             (cs  :: Checkpoints PartialCheckpoint) <- pick' $ resize 10 arbitrary
             -- ^ limit here is important, because
             --   this creates a whole wallet state.
-            let d = deltas cs
-            let cs'' = steps d
+            let d = findDeltas cs
+            let cs'' = applyDeltas d
             return $ (STB cs'') `shouldBe` (STB cs)
 
         it "Safecopy PartialCheckpoints round trips" $ monadicIO $ do

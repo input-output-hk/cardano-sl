@@ -31,6 +31,8 @@ module Cardano.Wallet.Kernel.Util (
   , traverseCollect
     -- * Dealing with Void
   , mustBeRight
+    -- * Compression
+  , MapDiff(..)
   ) where
 
 import           Universum
@@ -40,6 +42,7 @@ import           Crypto.Number.Generate (generateBetween)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Merge.Strict as Map.Merge
 import qualified Data.Map.Strict as Map
+import qualified Data.SafeCopy as SC
 import qualified Data.Set as Set
 import qualified Data.Vector as V
 import           Data.Vector.Mutable (IOVector)
@@ -200,3 +203,19 @@ traverseCollect f = runCollect . traverse f'
 mustBeRight :: Either Void b -> b
 mustBeRight (Left  a) = absurd a
 mustBeRight (Right b) = b
+
+{-------------------------------------------------------------------------------
+  Compression
+-------------------------------------------------------------------------------}
+
+data MapDiff k v = MapDiff {
+      mapDiffAdded   :: Map.Map k v
+    , setDiffDeleted :: Set.Set k
+  }
+
+instance (SC.SafeCopy k, SC.SafeCopy v, Ord k) => SC.SafeCopy (MapDiff k v) where
+  getCopy = SC.contain $ do
+    (m, s) <- SC.safeGet
+    pure $ MapDiff m s
+  putCopy (MapDiff m s)  = SC.contain $ do
+    SC.safePut (m, s)

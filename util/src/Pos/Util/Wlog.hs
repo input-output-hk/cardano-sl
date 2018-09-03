@@ -1,5 +1,4 @@
-{-# LANGUAGE Rank2Types      #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE Rank2Types #-}
 
 -- | an interface to 'log-warper'
 --  functions and types gradually migrate towards 'katip'
@@ -258,7 +257,7 @@ newtype PureLogger m a = PureLogger
                 MonadThrow, HasLoggerName)
 
 instance Monad m => CanLog (PureLogger m) where
-    dispatchMessage leLoggerName leSeverity leMessage = modify' (|> LogEvent{..})
+    dispatchMessage name severity message = modify' (|> (LogEvent name severity message))
 instance MFunctor PureLogger where
     hoist f = PureLogger . hoist f . runPureLogger
 

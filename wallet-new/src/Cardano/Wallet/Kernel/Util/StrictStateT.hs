@@ -3,7 +3,7 @@
 {-# LANGUAGE RankNTypes                 #-}
 
 module Cardano.Wallet.Kernel.Util.StrictStateT (
-    StrictStateT -- opaque
+    StrictStateT(..)
   , runStrictStateT
   , evalStrictStateT
   , execStrictStateT

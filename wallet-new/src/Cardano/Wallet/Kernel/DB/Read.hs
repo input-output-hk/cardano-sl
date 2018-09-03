@@ -114,17 +114,17 @@ currentTxIsPending = liftHd2 HD.currentTxIsPending
   Internal auxiliary
 -------------------------------------------------------------------------------}
 
-liftHd0 :: Query' HdWallets err z -> DB -> Either err z
+liftHd0 :: Query' err HdWallets z -> DB -> Either err z
 liftHd0 f = runQuery' f . view dbHdWallets
 
-liftHd1 :: (a -> Query' HdWallets err z) -> DB -> a -> Either err z
+liftHd1 :: (a -> Query' err HdWallets z) -> DB -> a -> Either err z
 liftHd1 f db a = liftHd0 (f a) db
 
-liftHd2 :: (a -> b -> Query' HdWallets err z) -> DB -> a -> b -> Either err z
+liftHd2 :: (a -> b -> Query' err HdWallets z) -> DB -> a -> b -> Either err z
 liftHd2 f db a b = liftHd0 (f a b) db
 
-liftNoErrorsHd0 :: Query' HdWallets Void z -> DB -> z
+liftNoErrorsHd0 :: Query' Void HdWallets z -> DB -> z
 liftNoErrorsHd0 f = runQueryNoErrors f . view dbHdWallets
 
-liftNoErrorsHd1 :: (a -> Query' HdWallets Void z) -> DB -> a -> z
+liftNoErrorsHd1 :: (a -> Query' Void HdWallets z) -> DB -> a -> z
 liftNoErrorsHd1 f db a = liftNoErrorsHd0 (f a) db

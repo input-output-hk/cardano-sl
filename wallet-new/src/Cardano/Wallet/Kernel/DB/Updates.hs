@@ -40,10 +40,10 @@ updatesList = getUpdates . _Wrapped . iso coerce coerce
 noUpdates :: Updates
 noUpdates = Updates $ OldestFirst SL.Nil
 
-addUpdate :: InDb SoftwareVersion -> Update' Updates e ()
+addUpdate :: InDb SoftwareVersion -> Update' e Updates ()
 addUpdate (InDb upd) = updatesList %= (<> SL.singleton upd)
 
-removeNextUpdate :: Update' Updates e ()
+removeNextUpdate :: Update' e Updates ()
 removeNextUpdate = updatesList %= SL.drop 1
 
 -- | Next the next available update, if any
@@ -53,7 +53,7 @@ removeNextUpdate = updatesList %= SL.drop 1
 -- NOTE: This is adopted from the behaviour of 'nextUpdate' in
 -- "Pos.Wallet.Web.Methods.Misc".
 getNextUpdate :: InDb SoftwareVersion -- ^ Current
-              -> Update' Updates e (Maybe (InDb SoftwareVersion))
+              -> Update' e Updates (Maybe (InDb SoftwareVersion))
 getNextUpdate (InDb current) = do
     fmap InDb . SL.toMaybe . view updatesList <$> modifyAndGetNew dropOld
   where

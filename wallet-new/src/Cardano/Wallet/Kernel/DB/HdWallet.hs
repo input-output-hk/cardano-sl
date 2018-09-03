@@ -112,6 +112,7 @@ import           Cardano.Wallet.Kernel.DB.Spec
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
 import           Cardano.Wallet.Kernel.DB.Util.IxSet
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet hiding (Indexable)
+import qualified Cardano.Wallet.Kernel.DB.Util.Zoomable as Z
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (SecurityParameter (..))
 import           Cardano.Wallet.Kernel.Util (liftNewestFirst, modifyAndGetOld)
 import qualified Cardano.Wallet.Kernel.Util.StrictList as SL
@@ -564,21 +565,21 @@ initHdWallets = HdWallets IxSet.empty IxSet.empty IxSet.empty
 zoomHdRootId :: forall f e a. CanZoom f
              => (UnknownHdRoot -> e)
              -> HdRootId
-             -> f HdRoot e a -> f HdWallets e a
+             -> f e HdRoot a -> f e HdWallets a
 zoomHdRootId embedErr rootId =
     zoomDef err (hdWalletsRoots . at rootId)
   where
-    err :: f HdWallets e a
+    err :: f e HdWallets a
     err = missing $ embedErr (UnknownHdRoot rootId)
 
 zoomHdAccountId :: forall f e a. CanZoom f
                 => (UnknownHdAccount -> e)
                 -> HdAccountId
-                -> f HdAccount e a -> f HdWallets e a
+                -> f e HdAccount a -> f e HdWallets a
 zoomHdAccountId embedErr accId =
     zoomDef err (hdWalletsAccounts . at accId)
   where
-    err :: f HdWallets e a
+    err :: f e HdWallets a
     err = zoomHdRootId embedErr' (accId ^. hdAccountIdParent) $
             missing $ embedErr (UnknownHdAccount accId)
 
@@ -588,11 +589,11 @@ zoomHdAccountId embedErr accId =
 zoomHdAddressId :: forall f e a. CanZoom f
                 => (UnknownHdAddress -> e)
                 -> HdAddressId
-                -> f HdAddress e a -> f HdWallets e a
+                -> f e HdAddress a -> f e HdWallets a
 zoomHdAddressId embedErr addrId =
     zoomDef err (hdWalletsAddresses . at addrId) . zoom ixedIndexed
   where
-    err :: f HdWallets e a
+    err :: f e HdWallets a
     err = zoomHdAccountId embedErr' (addrId ^. hdAddressIdParent) $
             missing $ embedErr (UnknownHdAddress addrId)
 
@@ -607,55 +608,58 @@ zoomHdAddressId embedErr addrId =
 zoomHdCardanoAddress :: forall e a.
                         (UnknownHdAddress -> e)
                      -> Core.Address
-                     -> Query' HdAddress e a -> Query' HdWallets e a
+                     -> Query' e HdAddress a -> Query' e HdWallets a
 zoomHdCardanoAddress embedErr addr =
     localQuery findAddress
   where
-    findAddress :: Query' HdWallets e HdAddress
+    findAddress :: Query' e HdWallets HdAddress
     findAddress = do
         addresses <- view hdWalletsAddresses
         maybe err return $ (fmap _ixedIndexed $ getOne $ getEQ (V1 addr) addresses)
 
-    err :: Query' HdWallets e x
+    err :: Query' e HdWallets x
     err = missing $ embedErr (UnknownHdCardanoAddress addr)
 
 -- | Pattern match on the state of the account
 matchHdAccountState :: CanZoom f
-                    => f HdAccountUpToDate   e a
-                    -> f HdAccountIncomplete e a
-                    -> f HdAccount           e a
-matchHdAccountState updUpToDate updIncomplete = withZoom $ \acc zoomTo ->
-    case acc ^. hdAccountState of
-      HdAccountStateUpToDate st ->
-        zoomTo st (\st' -> acc & hdAccountState .~ HdAccountStateUpToDate   st') updUpToDate
-      HdAccountStateIncomplete st ->
-        zoomTo st (\st' -> acc & hdAccountState .~ HdAccountStateIncomplete st') updIncomplete
+                    => f e HdAccountUpToDate   a
+                    -> f e HdAccountIncomplete a
+                    -> f e HdAccount           a
+matchHdAccountState updUpToDate updIncomplete = withZoomableConstraints $
+    Z.wrap $ \acc ->
+      case acc ^. hdAccountState of
+        HdAccountStateUpToDate st -> do
+          let upd st' = acc & hdAccountState .~ HdAccountStateUpToDate  st'
+          second upd $ Z.unwrap updUpToDate st
+        HdAccountStateIncomplete st -> do
+          let upd st' = acc & hdAccountState .~ HdAccountStateIncomplete st'
+          second upd $ Z.unwrap updIncomplete st
 
 -- | Zoom to the current checkpoints of the wallet
 zoomHdAccountCheckpoints :: CanZoom f
                          => (   forall c. IsCheckpoint c
-                             => f (NewestFirst StrictNonEmpty c) e a )
-                         -> f HdAccount e a
+                             => f e (NewestFirst StrictNonEmpty c) a )
+                         -> f e HdAccount a
 zoomHdAccountCheckpoints upd = matchHdAccountCheckpoints upd upd
 
 -- | Zoom to the most recent checkpoint
 zoomHdAccountCurrent :: CanZoom f
-                     => (forall c. IsCheckpoint c => f c e a)
-                     -> f HdAccount e a
-zoomHdAccountCurrent upd =
+                     => (forall c. IsCheckpoint c => f e c a)
+                     -> f e HdAccount a
+zoomHdAccountCurrent upd = withZoomableConstraints $
     zoomHdAccountCheckpoints $
-      withZoom $ \cps zoomTo -> do
+      Z.wrap $ \cps -> do
         let l :: Lens' (NewestFirst StrictNonEmpty c) c
             l = _Wrapped . SNE.head
-        zoomTo (cps ^. l) (\cp' -> cps & l .~ cp') upd
+        second (\cp' -> cps & l .~ cp') $ Z.unwrap upd (cps ^. l)
 
 -- | Variant of 'zoomHdAccountCheckpoints' that distinguishes between
 -- full checkpoints (wallet is up to date) and partial checkpoints
 -- (wallet is still recovering historical data)
 matchHdAccountCheckpoints :: CanZoom f
-                          => f (NewestFirst StrictNonEmpty Checkpoint)        e a
-                          -> f (NewestFirst StrictNonEmpty PartialCheckpoint) e a
-                          -> f HdAccount e a
+                          => f e (NewestFirst StrictNonEmpty Checkpoint)        a
+                          -> f e (NewestFirst StrictNonEmpty PartialCheckpoint) a
+                          -> f e HdAccount a
 matchHdAccountCheckpoints updFull updPartial =
     matchHdAccountState
       (zoom hdUpToDateCheckpoints updFull)
@@ -670,19 +674,19 @@ matchHdAccountCheckpoints updFull updPartial =
 -- Precondition: @newRoot ^. hdRootId == rootId@
 zoomOrCreateHdRoot :: HdRoot
                    -> HdRootId
-                   -> Update' HdRoot    e a
-                   -> Update' HdWallets e a
+                   -> Update' e HdRoot    a
+                   -> Update' e HdWallets a
 zoomOrCreateHdRoot newRoot rootId upd =
     zoomCreate (return newRoot) (hdWalletsRoots . at rootId) $ upd
 
 -- | Variation on 'zoomHdAccountId' that creates the 'HdAccount' if it doesn't exist
 --
 -- Precondition: @newAccount ^. hdAccountId == accountId@
-zoomOrCreateHdAccount :: (HdRootId -> Update' HdWallets e ())
+zoomOrCreateHdAccount :: (HdRootId -> Update' e HdWallets ())
                       -> HdAccount
                       -> HdAccountId
-                      -> Update' HdAccount e a
-                      -> Update' HdWallets e a
+                      -> Update' e HdAccount a
+                      -> Update' e HdWallets a
 zoomOrCreateHdAccount checkRootExists newAccount accId upd = do
     checkRootExists $ accId ^. hdAccountIdParent
     zoomCreate (return newAccount) (hdWalletsAccounts . at accId) $ upd
@@ -690,11 +694,11 @@ zoomOrCreateHdAccount checkRootExists newAccount accId upd = do
 -- | Variation on 'zoomHdAddressId' that creates the 'HdAddress' if it doesn't exist
 --
 -- Precondition: @newAddress ^. hdAddressId == AddressId@
-zoomOrCreateHdAddress :: (HdAccountId -> Update' HdWallets e ())
+zoomOrCreateHdAddress :: (HdAccountId -> Update' e HdWallets ())
                       -> HdAddress
                       -> HdAddressId
-                      -> Update' HdAddress e a
-                      -> Update' HdWallets e a
+                      -> Update' e HdAddress a
+                      -> Update' e HdWallets a
 zoomOrCreateHdAddress checkAccountExists newAddress addrId upd = do
     checkAccountExists accId
     zoomCreate createAddress
@@ -703,7 +707,7 @@ zoomOrCreateHdAddress checkAccountExists newAddress addrId upd = do
         accId :: HdAccountId
         accId = addrId ^. hdAddressIdParent
 
-        createAddress :: Update' HdWallets e (Indexed HdAddress)
+        createAddress :: Update' e HdWallets (Indexed HdAddress)
         createAddress = do
             let err = "zoomOrCreateHdAddress: we checked that the account existed "
                    <> "before calling this function, but the DB lookup failed nonetheless."
@@ -714,13 +718,13 @@ zoomOrCreateHdAddress checkAccountExists newAddress addrId upd = do
 -- | Assume that the given HdRoot exists
 --
 -- Helper function which can be used as an argument to 'zoomOrCreateHdAccount'
-assumeHdRootExists :: HdRootId -> Update' HdWallets e ()
+assumeHdRootExists :: HdRootId -> Update' e HdWallets ()
 assumeHdRootExists _id = return ()
 
 -- | Assume that the given HdAccount exists
 --
 -- Helper function which can be used as an argument to 'zoomOrCreateHdAddress'
-assumeHdAccountExists :: HdAccountId -> Update' HdWallets e ()
+assumeHdAccountExists :: HdAccountId -> Update' e HdWallets ()
 assumeHdAccountExists _id = return ()
 
 {-------------------------------------------------------------------------------

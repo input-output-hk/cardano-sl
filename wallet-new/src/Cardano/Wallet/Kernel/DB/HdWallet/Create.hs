@@ -68,7 +68,7 @@ deriveSafeCopy 1 'base ''CreateHdAddressError
 -------------------------------------------------------------------------------}
 
 -- | Create a new wallet
-createHdRoot :: HdRoot -> Update' HdWallets CreateHdRootError ()
+createHdRoot :: HdRoot -> Update' CreateHdRootError HdWallets ()
 createHdRoot hdRoot =
     zoom hdWalletsRoots $ do
       exists <- gets $ IxSet.member rootId
@@ -78,7 +78,7 @@ createHdRoot hdRoot =
     rootId = hdRoot ^. hdRootId
 
 -- | Create a new account
-createHdAccount :: HdAccount -> Update' HdWallets CreateHdAccountError ()
+createHdAccount :: HdAccount -> Update' CreateHdAccountError HdWallets ()
 createHdAccount hdAccount = do
     -- Check that the root ID exists
     zoomHdRootId CreateHdAccountUnknownRoot rootId $
@@ -93,7 +93,7 @@ createHdAccount hdAccount = do
     rootId    = accountId ^. hdAccountIdParent
 
 -- | Create a new address
-createHdAddress :: HdAddress -> Update' HdWallets CreateHdAddressError ()
+createHdAddress :: HdAddress -> Update' CreateHdAddressError HdWallets ()
 createHdAddress hdAddress = do
     -- Check that the account ID exists
     currentPkCounter <-

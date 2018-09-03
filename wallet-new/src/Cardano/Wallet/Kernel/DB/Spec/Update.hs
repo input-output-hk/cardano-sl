@@ -134,7 +134,7 @@ instance Arbitrary ApplyBlockFailed where
 --   (and do not store private keys) so we cannot actually sign transactions.
 newPending :: forall c. IsCheckpoint c
            => InDb Txp.TxAux
-           -> Update' (NewestFirst StrictNonEmpty c) NewPendingFailed ()
+           -> Update' NewPendingFailed (NewestFirst StrictNonEmpty c) ()
 newPending (InDb tx) = do
     checkpoints <- get
     let (_available, unavailable) =
@@ -155,7 +155,7 @@ newPending (InDb tx) = do
 -- impact this has on the reasoning in the wallet spec.
 newForeign :: forall c. IsCheckpoint c
            => InDb Txp.TxAux
-           -> Update' (NewestFirst StrictNonEmpty c) NewForeignFailed ()
+           -> Update' NewForeignFailed (NewestFirst StrictNonEmpty c) ()
 newForeign (InDb tx) = do
     checkpoints <- get
     let (available, _unavailable) =
@@ -179,8 +179,8 @@ cancelPending txids = map (cpPending %~ Pending.delete txids)
 -- Additionally returns the set of transactions removed from pending.
 applyBlock :: SecurityParameter
            -> PrefilteredBlock
-           -> Update' (NewestFirst StrictNonEmpty Checkpoint)
-                      ApplyBlockFailed
+           -> Update' ApplyBlockFailed
+                      (NewestFirst StrictNonEmpty Checkpoint)
                       (Set Txp.TxId)
 applyBlock (SecurityParameter k) pb = do
     checkpoints <- get
@@ -212,8 +212,8 @@ applyBlock (SecurityParameter k) pb = do
 -- we did, it might be impossible for the historical checkpoints to ever
 -- catch up with the current ones.
 applyBlockPartial :: PrefilteredBlock
-                  -> Update' (NewestFirst StrictNonEmpty PartialCheckpoint)
-                             ApplyBlockFailed
+                  -> Update' ApplyBlockFailed
+                             (NewestFirst StrictNonEmpty PartialCheckpoint)
                              (Set Txp.TxId)
 applyBlockPartial pb = do
     checkpoints <- get
@@ -251,7 +251,7 @@ applyBlockPartial pb = do
 -- so that the submission layer can start sending those out again.
 --
 -- This is an internal function only, and not exported. See 'switchToFork'.
-rollback :: Update' (NewestFirst StrictNonEmpty Checkpoint) e Pending
+rollback :: Update' e (NewestFirst StrictNonEmpty Checkpoint) Pending
 rollback = state $ \case
     NewestFirst (c :| SL.Nil)        -> (Pending.empty, NewestFirst $ c :| SL.Nil)
     NewestFirst (c :| SL.Cons c' cs) -> (
@@ -273,7 +273,7 @@ rollback = state $ \case
 -- | Observable rollback, used in testing only
 --
 -- See 'switchToFork' for production use.
-observableRollbackUseInTestsOnly :: Update' (NewestFirst StrictNonEmpty Checkpoint) e Pending
+observableRollbackUseInTestsOnly :: Update' e (NewestFirst StrictNonEmpty Checkpoint) Pending
 observableRollbackUseInTestsOnly = rollback
 
 -- | Switch to a fork
@@ -287,8 +287,8 @@ observableRollbackUseInTestsOnly = rollback
 switchToFork :: SecurityParameter
              -> Int  -- ^ Number of blocks to rollback
              -> OldestFirst [] PrefilteredBlock -- ^ Blocks to apply
-             -> Update' (NewestFirst StrictNonEmpty Checkpoint)
-                        ApplyBlockFailed
+             -> Update' ApplyBlockFailed
+                        (NewestFirst StrictNonEmpty Checkpoint)
                         (Pending, Set Txp.TxId)
 switchToFork k numRollbacks blocksToApply = do
     reintroduced <- rollbacks Pending.empty numRollbacks
@@ -296,8 +296,8 @@ switchToFork k numRollbacks blocksToApply = do
   where
     rollbacks :: Pending -- Accumulator: reintroduced pending transactions
               -> Int     -- Number of rollback to do
-              -> Update' (NewestFirst StrictNonEmpty Checkpoint)
-                         e
+              -> Update' e
+                         (NewestFirst StrictNonEmpty Checkpoint)
                          Pending
     rollbacks !accNew 0 = return accNew
     rollbacks !accNew n = do
@@ -307,8 +307,8 @@ switchToFork k numRollbacks blocksToApply = do
     applyBlocks :: Pending -- Accumulator: reintroduced pending transactions
                 -> Set Txp.TxId -- Accumulator: removed pending transactions
                 -> [PrefilteredBlock]
-                -> Update' (NewestFirst StrictNonEmpty Checkpoint)
-                           ApplyBlockFailed
+                -> Update' ApplyBlockFailed
+                           (NewestFirst StrictNonEmpty Checkpoint)
                            (Pending, Set Txp.TxId)
     applyBlocks !accNew !accRem []     = return (accNew, accRem)
     applyBlocks !accNew !accRem (b:bs) = do

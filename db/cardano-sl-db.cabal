@@ -211,3 +211,4 @@ test-suite test
   default-language:    Haskell2010
   default-extensions:  NoImplicitPrelude
                        OverloadedStrings
+  ghc-options:         -Wall

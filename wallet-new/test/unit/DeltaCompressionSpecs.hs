@@ -12,6 +12,8 @@ import           Test.QuickCheck.Monadic (monadicIO, pick)
 
 import           Cardano.Wallet.Kernel.DB.Compression
 import           Cardano.Wallet.Kernel.DB.Spec
+import           Cardano.Wallet.Kernel.DB.Spec.Pending
+import           Cardano.Wallet.Kernel.Util
 
 import           Util.Buildable (ShowThroughBuild (..))
 

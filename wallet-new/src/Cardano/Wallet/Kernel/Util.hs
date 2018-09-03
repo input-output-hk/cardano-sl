@@ -33,6 +33,8 @@ module Cardano.Wallet.Kernel.Util (
   , mustBeRight
     -- * Compression
   , MapDiff(..)
+  , deltaMap
+  , stepMap
   ) where
 
 import           Universum
@@ -215,6 +217,20 @@ data MapDiff k v = MapDiff {
       mapDiffAdded   :: Map.Map k v
     , setDiffDeleted :: Set.Set k
   }
+
+-- property: keys of the return set cannot be keys of the returned Map.
+deltaMap :: (Eq v, Ord k) => Map k v -> Map k v -> MapDiff k v
+deltaMap newMap oldMap =
+  let f newEntry oldEntry = if newEntry == oldEntry then Nothing else Just newEntry
+      newEntries = Map.differenceWith f newMap oldMap -- this includes pairs that changed values.
+      deletedKeys = Map.keysSet $ Map.difference oldMap newMap
+  in MapDiff newEntries deletedKeys
+
+-- newEntries should have no keys in common with deletedKeys.
+stepMap :: Ord k => Map k v -> MapDiff k v -> Map k v
+stepMap oldMap (MapDiff newEntries deletedKeys) =
+  Map.union newEntries lighterMap -- for common keys, union prefers the newPairs values.
+    where lighterMap = Map.withoutKeys oldMap deletedKeys
 
 instance (SC.SafeCopy k, SC.SafeCopy v, Ord k) => SC.SafeCopy (MapDiff k v) where
   getCopy = SC.contain $ do

@@ -362,9 +362,9 @@ deltaCheckpoint :: Checkpoint -> Checkpoint -> DeltaCheckpoint
 deltaCheckpoint c c' = DeltaCheckpoint {
     dcUtxo         = deltaUtxo (_checkpointUtxo c) (_checkpointUtxo c')
   , dcUtxoBalance  = _checkpointUtxoBalance c
-  , dcPending      = deltaPending (_checkpointPending c) (_checkpointPending c')
+  , dcPending      = Pending.deltaPending (_checkpointPending c) (_checkpointPending c')
   , dcBlockMeta    = deltaBlockMeta (_checkpointBlockMeta c) (_checkpointBlockMeta c')
-  , dcForeign      = deltaPending (_checkpointForeign c) (_checkpointForeign c')
+  , dcForeign      = Pending.deltaPending (_checkpointForeign c) (_checkpointForeign c')
   , dcContext      = _checkpointContext c
 }
 
@@ -373,20 +373,20 @@ stepCheckpoint c DeltaCheckpoint{..} =
   Checkpoint {
     _checkpointUtxo          = stepUtxo (_checkpointUtxo c) dcUtxo
     , _checkpointUtxoBalance = dcUtxoBalance
-    , _checkpointPending     = stepPending (_checkpointPending c) dcPending
+    , _checkpointPending     = Pending.stepPending (_checkpointPending c) dcPending
     , _checkpointBlockMeta   = stepBlockMeta (_checkpointBlockMeta c) dcBlockMeta
     , _checkpointContext     = dcContext
-    , _checkpointForeign     = stepPending (_checkpointForeign c) dcForeign
+    , _checkpointForeign     = Pending.stepPending (_checkpointForeign c) dcForeign
   }
 
 deltaPartialCheckpoint :: PartialCheckpoint -> PartialCheckpoint -> DeltaCheckpoint
 deltaPartialCheckpoint c c' = DeltaCheckpoint {
     dcUtxo         = deltaUtxo (_pcheckpointUtxo c) (_pcheckpointUtxo c')
   , dcUtxoBalance  = _pcheckpointUtxoBalance c
-  , dcPending      = deltaPending (_pcheckpointPending c) (_pcheckpointPending c')
+  , dcPending      = Pending.deltaPending (_pcheckpointPending c) (_pcheckpointPending c')
   , dcBlockMeta    = deltaBlockMeta (localBlockMeta . _pcheckpointBlockMeta $ c)
                                     (localBlockMeta . _pcheckpointBlockMeta $ c')
-  , dcForeign      = deltaPending (_pcheckpointForeign c) (_pcheckpointForeign c')
+  , dcForeign      = Pending.deltaPending (_pcheckpointForeign c) (_pcheckpointForeign c')
   , dcContext      = _pcheckpointContext c
 }
 
@@ -395,9 +395,9 @@ stepPartialCheckpoint c DeltaCheckpoint{..} =
   PartialCheckpoint {
     _pcheckpointUtxo          = stepUtxo (_pcheckpointUtxo c) dcUtxo
     , _pcheckpointUtxoBalance = dcUtxoBalance
-    , _pcheckpointPending     = stepPending (_pcheckpointPending c) dcPending
+    , _pcheckpointPending     = Pending.stepPending (_pcheckpointPending c) dcPending
     , _pcheckpointBlockMeta   = LocalBlockMeta $ stepBlockMeta (localBlockMeta ._pcheckpointBlockMeta $ c) dcBlockMeta
-    , _pcheckpointForeign     = stepPending (_pcheckpointForeign c) dcForeign
+    , _pcheckpointForeign     = Pending.stepPending (_pcheckpointForeign c) dcForeign
     , _pcheckpointContext     = dcContext
   }
 

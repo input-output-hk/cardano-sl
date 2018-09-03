@@ -31,14 +31,17 @@ module Pos.Util.Log
        , LoggerName
        , askLoggerName
        , addLoggerName
+       -- * other functions
+       , logItem'
        ) where
 
 import           Universum
 
+import           Control.Concurrent (myThreadId)
 import           Control.Lens (each)
-
 import qualified Data.Text as T
 import           Data.Text.Lazy.Builder
+import qualified Language.Haskell.TH as TH
 
 import           Pos.Util.Log.Internal (LoggingHandler)
 import qualified Pos.Util.Log.Internal as Internal
@@ -254,3 +257,29 @@ loggerBracket lh name action = do
    >>> usingLoggerName lh "verbose" $ do { logWarning "now you read this!" }
 -}
 
+-- | Equivalent to katip's logItem without the `Katip m` constraint
+logItem'
+    :: (KC.LogItem a, MonadIO m)
+    => a
+    -> KC.Namespace
+    -> K.LogEnv
+    -> Maybe TH.Loc
+    -> KC.Severity
+    -> KC.LogStr
+    -> m ()
+logItem' a ns env loc sev msg = do
+    liftIO $ do
+      item <- K.Item
+        <$> pure (env ^. KC.logEnvApp)
+        <*> pure (env ^. KC.logEnvEnv)
+        <*> pure sev
+        <*> (KC.mkThreadIdText <$> myThreadId)
+        <*> pure (env ^. KC.logEnvHost)
+        <*> pure (env ^. KC.logEnvPid)
+        <*> pure a
+        <*> pure msg
+        <*> (env ^. KC.logEnvTimer)
+        <*> pure ((env ^. KC.logEnvApp) <> ns)
+        <*> pure loc
+      forM_ (elems (env ^. KC.logEnvScribes)) $
+          \ (KC.ScribeHandle _ shChan) -> atomically (KC.tryWriteTBQueue shChan (KC.NewItem item))

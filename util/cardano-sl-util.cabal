@@ -39,6 +39,7 @@ library
                        Pos.Util.Log.LoggerConfig
                        Pos.Util.Log.LoggerName
                        Pos.Util.Log.Severity
+                       Pos.Util.Wlog.Compatibility
                        Pos.Util.LoggerName
                        Pos.Util.LRU
                        Pos.Util.Modifier

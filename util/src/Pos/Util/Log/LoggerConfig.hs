@@ -16,7 +16,7 @@ module Pos.Util.Log.LoggerConfig
        , defaultStdErrConfiguration
        , jsonInteractiveConfiguration
        -- * access
-       , lcLoggerTree
+       , lcLoggerTree, lcTree
        , lcRotation
        , lcBasePath
        , ltHandlers
@@ -211,7 +211,10 @@ instance Semigroup LoggerConfig where
     lc1 <> lc2 = LoggerConfig {
                   _lcRotation = _lcRotation  lc1
                 , _lcLoggerTree = _lcLoggerTree lc1 <> _lcLoggerTree lc2
-                , _lcBasePath = _lcBasePath lc1
+                , _lcBasePath = let basePath1 = _lcBasePath lc1 in
+                                case basePath1 of
+                                    Nothing -> _lcBasePath lc2
+                                    _       -> basePath1
                 }
 instance Monoid LoggerConfig where
     mempty = LoggerConfig { _lcRotation = Just RotationParameters {
@@ -335,3 +338,7 @@ defaultTestConfiguration minSeverity =
           }
     in
     LoggerConfig{..}
+
+lcTree :: Functor f => (LoggerTree -> f LoggerTree) -> LoggerConfig -> f LoggerConfig
+lcTree = lcLoggerTree
+

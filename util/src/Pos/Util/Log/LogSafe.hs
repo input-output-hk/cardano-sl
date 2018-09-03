@@ -111,7 +111,7 @@ logMCond lh sev msg cond = do
 -- | this emulates katip's 'logItem' function, but only outputs the message
 --   to scribes which match the 'SelectionMode'
 logItemS
-    :: (K.LogItem a, K.Katip m)
+    :: (K.LogItem a, MonadIO m)
     => LoggingHandler
     -> a
     -> K.Namespace

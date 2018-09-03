@@ -12,6 +12,7 @@ module Pos.Util.Log.Internal
        , getConfig
        , getLinesLogged
        , getLogEnv
+       , getLogContext
        , incrementLinesLogged
        , modifyLinesLogged
        , LoggingHandler      --  only export name
@@ -69,6 +70,7 @@ mkFileDescription bp fp =
 data LoggingHandlerInternal = LoggingHandlerInternal
     { lsiConfig      :: !(Maybe LoggerConfig)
     , lsiLogEnv      :: !(Maybe K.LogEnv)
+    , lsiLogContext  :: !(Maybe K.LogContexts)
     -- | Counter for the number of lines that are logged
     , lsiLinesLogged :: !Integer
     }
@@ -85,6 +87,9 @@ getConfig lh = withMVar (getLSI lh) $ \LoggingHandlerInternal{..} -> return lsiC
 getLogEnv :: LoggingHandler -> IO (Maybe K.LogEnv)
 getLogEnv lh = withMVar (getLSI lh) $ \LoggingHandlerInternal{..} -> return lsiLogEnv
 
+getLogContext :: LoggingHandler -> IO (Maybe K.LogContexts)
+getLogContext lh = withMVar (getLSI lh) $ \LoggingHandlerInternal{..} -> return lsiLogContext
+
 getLinesLogged :: LoggingHandler -> IO Integer
 getLinesLogged lh = withMVar (getLSI lh) $ \LoggingHandlerInternal{..} -> return lsiLinesLogged
 
@@ -93,30 +98,30 @@ incrementLinesLogged :: LoggingHandler -> IO ()
 incrementLinesLogged lh = modifyLinesLogged lh (+1)
 modifyLinesLogged :: LoggingHandler -> (Integer -> Integer) -> IO ()
 modifyLinesLogged lh f = do
-    LoggingHandlerInternal cfg env counter <- takeMVar (getLSI lh)
-    putMVar (getLSI lh) $ LoggingHandlerInternal cfg env $ f counter
+    LoggingHandlerInternal cfg env ctx counter <- takeMVar (getLSI lh)
+    putMVar (getLSI lh) $ LoggingHandlerInternal cfg env ctx $ f counter
 
 updateConfig :: LoggingHandler -> LoggerConfig -> IO ()
 updateConfig lh lc = modifyMVar_ (getLSI lh) $ \LoggingHandlerInternal{..} ->
-    return $ LoggingHandlerInternal (Just lc) lsiLogEnv lsiLinesLogged
+    return $ LoggingHandlerInternal (Just lc) lsiLogEnv lsiLogContext lsiLinesLogged
 
 -- | create internal state given a configuration @LoggerConfig@
 newConfig :: LoggerConfig -> IO LoggingHandler
 newConfig lc = do
-    mv <- newMVar $ LoggingHandlerInternal (Just lc) Nothing 0
+    mv <- newMVar $ LoggingHandlerInternal (Just lc) Nothing Nothing 0
     return $ LoggingHandler mv
 
 -- | register scribes in `katip`
 registerBackends :: LoggingHandler -> [(T.Text, K.Scribe)] -> IO ()
 registerBackends lh scribes = do
-    LoggingHandlerInternal cfg _ counter <- takeMVar (getLSI lh)
+    LoggingHandlerInternal cfg _ ctx counter <- takeMVar (getLSI lh)
     le0 <- K.initLogEnv (s2kname "cardano-sl") "production"
     -- use 'getCurrentTime' to get a more precise timestamp
     -- as katip uses per default some internal buffered time variable
     timer <- mkAutoUpdate defaultUpdateSettings { updateAction = getCurrentTime, updateFreq = 10000 }
     let le1 = updateEnv le0 timer
     le <- register scribes le1
-    putMVar (getLSI lh) $ LoggingHandlerInternal cfg (Just le) counter
+    putMVar (getLSI lh) $ LoggingHandlerInternal cfg (Just le) ctx counter
       where
         register :: [(T.Text, K.Scribe)] -> K.LogEnv -> IO K.LogEnv
         register [] le = return le

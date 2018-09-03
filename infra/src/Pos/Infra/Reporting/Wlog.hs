@@ -4,7 +4,6 @@
 module Pos.Infra.Reporting.Wlog
     ( withWlogTempFile
     , readWlogFile
-    , retrieveLogFiles
     , compressLogs
     , withTempLogFile
     , LoggerConfig (..)
@@ -14,24 +13,24 @@ import           Universum
 
 import qualified Codec.Archive.Tar as Tar
 import qualified Codec.Archive.Tar.Entry as Tar
-import           Control.Lens (each, to)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Conduit (runConduitRes, yield, (.|))
 import           Data.Conduit.List (consume)
 import qualified Data.Conduit.Lzma as Lzma
-import qualified Data.HashMap.Strict as HM
 import           Data.List (isSuffixOf)
 import qualified Data.Text.IO as TIO
 import           Data.Time.Clock (getCurrentTime)
 import           Data.Time.Format (defaultTimeLocale, formatTime)
 import           System.Directory (canonicalizePath, doesFileExist,
                      getTemporaryDirectory, removeFile)
-import           System.FilePath (takeFileName)
+import           System.FilePath (takeFileName, (</>))
 import           System.IO (IOMode (WriteMode), hClose, hFlush, withFile)
 
-import           Pos.Util.Wlog (LoggerConfig (..), LoggerName, hwFilePath,
-                     lcTree, ltFiles, ltSubloggers, retrieveLogContent)
+import           Pos.Util.Wlog (LoggerConfig (..), retrieveLogContent)
+
+import           Pos.Util.Log.LoggerConfig (lcBasePath, retrieveLogFiles)
+
 
 -- FIXME we get PackingError from here, but it should defined locally, since
 -- it's log-warper specific.
@@ -65,8 +64,11 @@ readWlogFile logConfig = case mLogFile of
   where
     -- Grab all public log files, using the 'LoggerConfig', and take the
     -- first one.
-    allFiles = map snd $ retrieveLogFiles logConfig
-    mLogFile = (fmap fst . uncons) (filter (".pub" `isSuffixOf`) allFiles)
+    basepath = fromMaybe "./" $ logConfig ^. lcBasePath
+    allFiles = map ((</> basepath) . snd) $ retrieveLogFiles logConfig
+    mLogFile = case filter (".pub" `isSuffixOf`) allFiles of
+                    []    -> Nothing
+                    (f:_) -> Just f
     -- 2 megabytes, assuming we use chars which are ASCII mostly
     charsConst :: Int
     charsConst = 1024 * 1024 * 2
@@ -75,17 +77,6 @@ readWlogFile logConfig = case mLogFile of
     takeGlobalSize curLimit (t:xs) =
         let delta = curLimit - length t
         in bool [] (t : (takeGlobalSize delta xs)) (delta > 0)
-
--- | Given logger config, retrieves all (logger name, filepath) for
--- every logger that has file handle. Filepath inside does __not__
--- contain the common logger config prefix.
-retrieveLogFiles :: LoggerConfig -> [([LoggerName], FilePath)]
-retrieveLogFiles lconfig = fromLogTree $ lconfig ^. lcTree
-  where
-    fromLogTree lt =
-        let curElems = map ([],) (lt ^.. ltFiles . each . hwFilePath)
-            iterNext (part, node) = map (first (part :)) $ fromLogTree node
-        in curElems ++ concatMap iterNext (lt ^. ltSubloggers . to HM.toList)
 
 -- | Pass a list of absolute paths to log files. This function will
 -- archive and compress these files and put resulting file into log

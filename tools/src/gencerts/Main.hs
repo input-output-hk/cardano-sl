@@ -112,7 +112,7 @@ genCertificate CertDescription{..} = do
     (priv,) <$> signCertificate certSigningKey cert
   where
     addDays :: Int -> DateTime -> DateTime
-    addDays n time@DateTime{..} =
+    addDays n time@(DateTime dtDate _) =
         time { dtDate = dateAddPeriod dtDate (mempty { periodDays = n }) }
 
     addMinutes :: Int -> DateTime -> DateTime

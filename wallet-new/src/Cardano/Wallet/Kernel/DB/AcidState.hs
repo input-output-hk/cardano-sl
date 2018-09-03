@@ -74,6 +74,7 @@ import qualified Cardano.Wallet.Kernel.DB.Updates as Updates
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
+import qualified Cardano.Wallet.Kernel.DB.Util.Zoomable as Z
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (SecurityParameter (..))
 import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId,
                      PrefilteredBlock (..), emptyPrefilteredBlock)
@@ -173,7 +174,7 @@ newForeign accountId tx ourAddrs = runUpdateDiscardSnapshot . zoom dbHdWallets $
 
     mapM_ ensureExistsHdAddress ourAddrs
 
-ensureExistsHdAddress :: HdAddress -> Update' HdWallets e ()
+ensureExistsHdAddress :: HdAddress -> Update' e HdWallets ()
 ensureExistsHdAddress newAddress = do
     zoomOrCreateHdAddress
         assumeHdAccountExists
@@ -299,7 +300,7 @@ applyHistoricalBlock k context blocks =
           accountUpdateId    = accId
         , accountUpdateAddrs = pfbAddrs pb
         , accountUpdateNew   = AccountUpdateNewIncomplete mempty mempty
-        , accountUpdate      = void $ withZoom $ \acc zoomTo -> do
+        , accountUpdate      = void $ Z.wrap $ \acc -> do
             -- Under normal circumstances we should not encounter an account
             -- that is in UpToDate state during restoration. There is only one
             -- circumstance under which this can happen: we start restoration,
@@ -321,9 +322,11 @@ applyHistoricalBlock k context blocks =
               HdAccountStateUpToDate (HdAccountUpToDate upToDate) -> do
                 let current = fmap (view fromFullCheckpoint) upToDate
                     history = one $ initCheckpoint mempty
-                zoomTo history (updateHistory current) $ Spec.applyBlock k pb
+                second (updateHistory current) $
+                  Z.unwrap (Spec.applyBlock k pb) history
               HdAccountStateIncomplete (HdAccountIncomplete current history) ->
-                zoomTo history (updateHistory current) $ Spec.applyBlock k pb
+                second (updateHistory current) $
+                  Z.unwrap (Spec.applyBlock k pb) history
         }
       where
         pb :: PrefilteredBlock
@@ -335,7 +338,7 @@ applyHistoricalBlock k context blocks =
 -- function to mark all accounts as up to date
 restorationComplete :: SecurityParameter -> HdRootId -> Update DB ()
 restorationComplete k rootId = runUpdateNoErrors $ zoom dbHdWallets $
-    zoomAll_ hdWalletsAccounts $
+    zoomIxSet_ hdWalletsAccounts $
       modify $ \acc -> go acc (acc ^. hdAccountState)
   where
     go :: HdAccount -> HdAccountState -> HdAccount
@@ -415,7 +418,7 @@ switchToFork k n blocks = runUpdateDiscardSnapshot $ zoom dbHdWallets $
 observableRollbackUseInTestsOnly :: Update DB (Either SwitchToForkError
                                                       (Map HdAccountId Pending))
 observableRollbackUseInTestsOnly = runUpdateDiscardSnapshot $
-    zoomAll (dbHdWallets . hdWalletsAccounts) $
+    zoomIxSet (dbHdWallets . hdWalletsAccounts) $
       matchHdAccountCheckpoints
         (Spec.observableRollbackUseInTestsOnly)
         (throwError RollbackDuringRestoration)
@@ -490,7 +493,7 @@ data AccountUpdate e a = AccountUpdate {
     , accountUpdateAddrs :: ![AddrWithId]
 
       -- | The update to run
-    , accountUpdate      :: !(Update' HdAccount e a)
+    , accountUpdate      :: !(Update' e HdAccount a)
     }
 
 -- | Information we need to create new accounts
@@ -539,7 +542,7 @@ accountUpdateCreate accId (AccountUpdateNewIncomplete curUtxo genUtxo) =
         , _hdIncompleteHistorical = one $ initCheckpoint        genUtxo
         }
 
-updateAccount :: AccountUpdate e a -> Update' HdWallets e (HdAccountId, a)
+updateAccount :: AccountUpdate e a -> Update' e HdWallets (HdAccountId, a)
 updateAccount AccountUpdate{..} = do
     res <- zoomOrCreateHdAccount
              assumeHdRootExists
@@ -550,7 +553,7 @@ updateAccount AccountUpdate{..} = do
     return res
   where
     -- Create address (if needed)
-    createAddress :: AddrWithId -> Update' HdWallets e ()
+    createAddress :: AddrWithId -> Update' e HdWallets ()
     createAddress (addressId, address) =
         zoomOrCreateHdAddress
             assumeHdAccountExists -- we just created it
@@ -558,10 +561,10 @@ updateAccount AccountUpdate{..} = do
             addressId
             (return ())
 
-updateAccounts :: [AccountUpdate e a] -> Update' HdWallets e (Map HdAccountId a)
+updateAccounts :: [AccountUpdate e a] -> Update' e HdWallets (Map HdAccountId a)
 updateAccounts = fmap Map.fromList . mapM updateAccount
 
-updateAccounts_ :: [AccountUpdate e ()] -> Update' HdWallets e ()
+updateAccounts_ :: [AccountUpdate e ()] -> Update' e HdWallets ()
 updateAccounts_ = mapM_ updateAccount
 
 {-------------------------------------------------------------------------------

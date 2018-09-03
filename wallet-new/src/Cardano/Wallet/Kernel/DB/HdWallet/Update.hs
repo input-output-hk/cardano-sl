@@ -19,21 +19,21 @@ import           Cardano.Wallet.Kernel.Util (modifyAndGetNew)
 updateHdRoot :: HdRootId
              -> AssuranceLevel
              -> WalletName
-             -> Update' HdWallets UnknownHdRoot HdRoot
+             -> Update' UnknownHdRoot HdWallets HdRoot
 updateHdRoot rootId assurance name =
     zoomHdRootId identity rootId $ do
         modifyAndGetNew $ set hdRootAssurance assurance . set hdRootName name
 
 updateHdRootPassword :: HdRootId
                      -> HasSpendingPassword
-                     -> Update' HdWallets UnknownHdRoot HdRoot
+                     -> Update' UnknownHdRoot HdWallets HdRoot
 updateHdRootPassword rootId hasSpendingPassword =
     zoomHdRootId identity rootId $ do
         modifyAndGetNew $ hdRootHasPassword .~ hasSpendingPassword
 
 updateHdAccountName :: HdAccountId
                     -> AccountName
-                    -> Update' HdWallets UnknownHdAccount HdAccount
+                    -> Update' UnknownHdAccount HdWallets HdAccount
 updateHdAccountName accId name = do
     zoomHdAccountId identity accId $ do
         modifyAndGetNew $ hdAccountName .~ name

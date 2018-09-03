@@ -52,26 +52,26 @@ import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 -- | All accounts in the given wallet
 --
 -- NOTE: Does not check that the root exists.
-accountsByRootId :: HdRootId -> Query' HdWallets e (IxSet HdAccount)
+accountsByRootId :: HdRootId -> Query' e HdWallets (IxSet HdAccount)
 accountsByRootId rootId = do
     asks $ IxSet.getEQ rootId . view hdWalletsAccounts
 
 -- | All addresses in the given wallet
 --
 -- NOTE: Does not check that the root exists.
-addressesByRootId :: HdRootId -> Query' HdWallets e (IxSet (Indexed HdAddress))
+addressesByRootId :: HdRootId -> Query' e HdWallets (IxSet (Indexed HdAddress))
 addressesByRootId rootId =
     asks $ IxSet.getEQ rootId . view hdWalletsAddresses
 
 -- | All addresses in the given account
 --
 -- NOTE: Does not check that the account exists.
-addressesByAccountId :: HdAccountId -> Query' HdWallets e (IxSet (Indexed HdAddress))
+addressesByAccountId :: HdAccountId -> Query' e HdWallets (IxSet (Indexed HdAddress))
 addressesByAccountId accId =
     asks $ IxSet.getEQ accId . view hdWalletsAddresses
 
 -- | All pending transactions in all accounts
-pendingByAccount :: Query' HdWallets e (Map HdAccountId Pending)
+pendingByAccount :: Query' e HdWallets (Map HdAccountId Pending)
 pendingByAccount = fmap aux . IxSet.toMap <$> view hdWalletsAccounts
   where
     aux :: HdAccount -> Pending
@@ -81,23 +81,23 @@ pendingByAccount = fmap aux . IxSet.toMap <$> view hdWalletsAccounts
   Simple lookups
 -------------------------------------------------------------------------------}
 
-lookupHdRootId :: HdRootId -> Query' HdWallets UnknownHdRoot HdRoot
+lookupHdRootId :: HdRootId -> Query' UnknownHdRoot HdWallets HdRoot
 lookupHdRootId rootId = zoomHdRootId identity rootId $ ask
 
-lookupHdAccountId :: HdAccountId -> Query' HdWallets UnknownHdAccount HdAccount
+lookupHdAccountId :: HdAccountId -> Query' UnknownHdAccount HdWallets HdAccount
 lookupHdAccountId accId = zoomHdAccountId identity accId $ ask
 
-lookupHdAddressId :: HdAddressId -> Query' HdWallets UnknownHdAddress HdAddress
+lookupHdAddressId :: HdAddressId -> Query' UnknownHdAddress HdWallets HdAddress
 lookupHdAddressId addrId = zoomHdAddressId identity addrId $ ask
 
-lookupCardanoAddress :: Address -> Query' HdWallets UnknownHdAddress HdAddress
+lookupCardanoAddress :: Address -> Query' UnknownHdAddress HdWallets HdAddress
 lookupCardanoAddress addr = zoomHdCardanoAddress identity addr $ ask
 
 {-------------------------------------------------------------------------------
   Properties of an entire HdRoot
 -------------------------------------------------------------------------------}
 
-rootAssuranceLevel :: HdRootId -> Query' HdWallets UnknownHdRoot AssuranceLevel
+rootAssuranceLevel :: HdRootId -> Query' UnknownHdRoot HdWallets AssuranceLevel
 rootAssuranceLevel rootId =
     zoomHdRootId identity rootId $
       view hdRootAssurance
@@ -105,7 +105,7 @@ rootAssuranceLevel rootId =
 -- | Total balance for all accounts in the given root
 --
 -- NOTE: Does not check that the root exists.
-rootTotalBalance :: HdRootId -> Query' HdWallets e Coin
+rootTotalBalance :: HdRootId -> Query' e HdWallets Coin
 rootTotalBalance rootId = do
     accounts <- IxSet.getEQ rootId <$> view hdWalletsAccounts
     sumTotals <$> mapM currentTotalBalance' (IxSet.toList accounts)
@@ -119,36 +119,36 @@ rootTotalBalance rootId = do
 
 -- | Internal: lift a function on the current checkpoint
 liftCP :: (forall c. IsCheckpoint c => c -> a)
-       -> HdAccountId -> Query' HdWallets UnknownHdAccount a
+       -> HdAccountId -> Query' UnknownHdAccount HdWallets a
 liftCP f accId =
     zoomHdAccountId identity accId $
       zoomHdAccountCurrent $
         asks f
 
-currentUtxo :: HdAccountId -> Query' HdWallets UnknownHdAccount Utxo
+currentUtxo :: HdAccountId -> Query' UnknownHdAccount HdWallets Utxo
 currentUtxo = liftCP (view cpUtxo)
 
-currentAvailableUtxo :: HdAccountId -> Query' HdWallets UnknownHdAccount Utxo
+currentAvailableUtxo :: HdAccountId -> Query' UnknownHdAccount HdWallets Utxo
 currentAvailableUtxo = liftCP cpAvailableUtxo
 
-currentTxSlotId :: TxId -> HdAccountId -> Query' HdWallets UnknownHdAccount (Maybe SlotId)
+currentTxSlotId :: TxId -> HdAccountId -> Query' UnknownHdAccount HdWallets (Maybe SlotId)
 currentTxSlotId txId = liftCP $ cpTxSlotId txId
 
-currentTxIsPending :: TxId -> HdAccountId -> Query' HdWallets UnknownHdAccount Bool
+currentTxIsPending :: TxId -> HdAccountId -> Query' UnknownHdAccount HdWallets Bool
 currentTxIsPending txId = liftCP $ cpTxIsPending txId
 
-currentAvailableBalance :: HdAccountId -> Query' HdWallets UnknownHdAccount Coin
+currentAvailableBalance :: HdAccountId -> Query' UnknownHdAccount HdWallets Coin
 currentAvailableBalance = liftCP cpAvailableBalance
 
-currentAddressMeta :: HdAddress -> Query' HdWallets UnknownHdAccount AddressMeta
+currentAddressMeta :: HdAddress -> Query' UnknownHdAccount HdWallets AddressMeta
 currentAddressMeta = withAddr $ \addr ->
     liftCP $ view (cpAddressMeta (addr ^. hdAddressAddress . fromDb))
   where
-    withAddr :: (HdAddress -> HdAccountId -> Query' st e a)
-             -> (HdAddress -> Query' st e a)
+    withAddr :: (HdAddress -> HdAccountId -> Query' e st a)
+             -> (HdAddress -> Query' e st a)
     withAddr f addr = f addr (addr ^. hdAddressId . hdAddressIdParent)
 
-currentTotalBalance :: HdAccountId -> Query' HdWallets UnknownHdAccount Coin
+currentTotalBalance :: HdAccountId -> Query' UnknownHdAccount HdWallets Coin
 currentTotalBalance accId =
     zoomHdAccountId identity accId ask >>= currentTotalBalance'
 
@@ -156,7 +156,7 @@ currentTotalBalance accId =
 --
 -- Total balance breaks the pattern because we need the set of addresses that
 -- belong to the account, but for that we need 'HdWallets'.
-currentTotalBalance' :: HdAccount -> Query' HdWallets e Coin
+currentTotalBalance' :: HdAccount -> Query' e HdWallets Coin
 currentTotalBalance' acc = do
     ourAddrs <- IxSet.getEQ (acc ^. hdAccountId) <$> view hdWalletsAddresses
     return $ cpTotalBalance ourAddrs cp

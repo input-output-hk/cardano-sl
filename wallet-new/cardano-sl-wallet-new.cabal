@@ -104,6 +104,7 @@ library
                        Cardano.Wallet.Kernel.DB.Updates
                        Cardano.Wallet.Kernel.DB.Util.AcidState
                        Cardano.Wallet.Kernel.DB.Util.IxSet
+                       Cardano.Wallet.Kernel.DB.Util.Zoomable
                        Cardano.Wallet.Kernel.Decrypt
                        Cardano.Wallet.Kernel.Diffusion
                        Cardano.Wallet.Kernel.Internal
@@ -167,6 +168,7 @@ library
                      , beam-core
                      , beam-migrate
                      , beam-sqlite
+                     , bifunctors
                      , bytestring
                      , cardano-crypto
                      , cardano-sl
@@ -192,6 +194,7 @@ library
                      , directory
                      , ed25519
                      , exceptions
+                     , foldl
                      , formatting
                      , formatting
                      , generics-sop
@@ -200,7 +203,6 @@ library
                      , http-client-tls
                      , http-types
                      , ixset-typed
-                     , foldl
                      , lens
                      , memory
                      , mtl
@@ -213,7 +215,6 @@ library
                      , reflection
                      , resourcet
                      , retry
-                     , stm
                      , safecopy
                      , safe-exceptions
                      , serokell-util
@@ -227,6 +228,7 @@ library
                      , servant-swagger-ui-redoc
                      , sqlite-simple
                      , sqlite-simple-errors
+                     , stm
                      , stm
                      , swagger2
                      , text

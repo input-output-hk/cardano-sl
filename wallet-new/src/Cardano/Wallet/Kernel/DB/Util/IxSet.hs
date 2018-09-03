@@ -60,7 +60,7 @@ module Cardano.Wallet.Kernel.DB.Util.IxSet (
     -- * Traversal
   , omap
   , otraverse
-  , otraverseCollect
+  , otraversal
   , foldl'
     -- * Destruction
   , toList
@@ -91,8 +91,6 @@ import           Pos.Core.Util.LogSafe (BuildableSafe, SecureLog, buildSafeList,
                      getSecureLog, secure)
 import           Serokell.Util (listJsonIndent)
 import           Test.QuickCheck (Arbitrary (..))
-
-import           Cardano.Wallet.Kernel.Util (Collect (..))
 
 {-------------------------------------------------------------------------------
   Primary keys
@@ -397,16 +395,9 @@ otraverse :: (Applicative f, Indexable a)
           => (a -> f a) -> IxSet a -> f (IxSet a)
 otraverse f = fmap fromList . Data.Traversable.traverse f . toList
 
--- | Generalization of 'otraverse' that allows to collect additional values
---
--- NOTE: Like 'otraverse', this rebuilds the entire 'IxSet'.
-otraverseCollect :: forall f a b. (Applicative f, Indexable a, HasPrimKey a)
-                 => (a -> f (a, b)) -> IxSet a -> f (IxSet a, [(PrimKey a, b)])
-otraverseCollect f =
-   fmap (first fromList) . runCollect . Data.Traversable.traverse f' . toList
-  where
-    f' :: a -> Collect [(PrimKey a, b)] f a
-    f' = Collect . fmap (\(a, b) -> (a, [(primKey a, b)])) . f
+-- | Package 'otraverse' up as a 'Traversal''
+otraversal :: Indexable a => Traversal' (IxSet a) a
+otraversal = otraverse
 
 -- | Strict left fold over an 'IxSet'.
 foldl' :: (acc -> a -> acc)

@@ -20,7 +20,7 @@ import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 
 -- | Delete a wallet in a cascade fashion, i.e. including all its accounts
 -- and transitively all its addresses.
-deleteHdRoot :: HdRootId -> Update' HdWallets UnknownHdRoot ()
+deleteHdRoot :: HdRootId -> Update' UnknownHdRoot HdWallets ()
 deleteHdRoot rootId = do
     -- Check that the root exists to begin with
     zoomHdRootId identity rootId $
@@ -42,7 +42,7 @@ deleteHdRoot rootId = do
 
 
 -- | Delete an account
-deleteHdAccount :: HdAccountId -> Update' HdWallets UnknownHdAccount ()
+deleteHdAccount :: HdAccountId -> Update' UnknownHdAccount HdWallets ()
 deleteHdAccount accId = do
     -- Check that the account & its parent root do exist before deleting anything.
     zoomHdAccountId identity accId $
@@ -58,7 +58,7 @@ deleteHdAccount accId = do
         at accId .= Nothing
 
 -- | Delete an address.
-deleteHdAddress :: HdAddressId -> Update' HdWallets UnknownHdAccount ()
+deleteHdAddress :: HdAddressId -> Update' UnknownHdAccount HdWallets ()
 deleteHdAddress addrId = do
     -- Check that the account & its parent root do exist before deleting anything.
     zoomHdAccountId identity (addrId ^. hdAddressIdParent) $

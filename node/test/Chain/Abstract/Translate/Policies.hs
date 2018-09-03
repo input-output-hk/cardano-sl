@@ -73,11 +73,23 @@ makeFields ''SlotLeaderConfig
 -- | Block must be issued by the slot leader for its slot.
 slotLeader :: SlotLeaderConfig
            -> Policy h (GenM h)
-slotLeader conf = Policy pname pg
+slotLeader conf = Policy pname (BlockModifier mb)
     where
         pname = PolicyName "Slot Leader"
-        pg = BlockModifier mb
-        mb block = return (block, mempty)
+        mb block = do
+            st <- get
+            c :| _ <- use tsCheckpoints
+            params <- view parameters
+            let seed = currentSeed params $ st
+                stake = icStakes c
+                slotId = currentSlot params $ st
+                sl = (Chain.Abstract.slotLeader params) seed stake slotId
+            valid <- lift arbitrary
+            return $ if valid >= conf ^. validLikelihood
+                then (block { blockIssuer = sl }, mempty)
+                else ( block
+                     , [PolicyViolation pname "Block issued by somebody other than the slot leader."]
+                     )
 
 --------------------------------------------------------------------------------
 -- Block validation policies

@@ -143,15 +143,21 @@ type Chain h a = OldestFirst [] (Block h a)
 -- The Parameters type was moved here from the Chain.Validation.Parameters
 -- module to avoid circular dependencies
 
+-- | Random seed
+newtype Seed = Seed Int
+    deriving (Eq, Show)
+
 -- | Parameters to chain validation.
 --
 --   This is defined in section 4 of the paper. These parameters act as the
 --   environment within which we can validate chain extension or other
 --   operations.
 data Parameters st h a = Parameters
-  { slotLeader :: st -> StakeDistribution a -> SlotId -> a
+  { slotLeader :: Seed -> StakeDistribution a -> SlotId -> a
+    -- | Extract the current random seed from the state.
+  , currentSeed :: st -> Seed
   , currentSlot :: st -> SlotId
-  , height :: Chain h a -> Int
+  , height :: st -> Int
   , quality :: Int -> Int
   , inCommitmentPhase :: SlotId -> Bool
   , inOpenPhase :: SlotId -> Bool
@@ -162,7 +168,7 @@ data Parameters st h a = Parameters
     -- be rolled back.
   , k :: Int
   , initialStakeDistribution :: StakeDistribution a
-  , initialSeed :: st
+  , initialSeed :: Seed
   , minFee :: Transaction h a -> Int
   , initTransactions :: [Transaction h a]
   , bootstrapStakeholders :: Set.Set a

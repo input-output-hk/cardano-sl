@@ -25,6 +25,7 @@ import           Servant.Server (Handler, hoistServer)
 import           Pos.Block.Configuration (HasBlockConfiguration)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Reporting (MonadReporting (..))
 import           Pos.Recovery ()
@@ -103,7 +104,7 @@ explorerServeWebReal
     -> ExplorerProd ()
 explorerServeWebReal diffusion port = do
     rctx <- ask
-    let handlers = explorerHandlers diffusion
+    let handlers = explorerHandlers fixedNM diffusion
         server = hoistServer explorerApi (convertHandler rctx) handlers
         app = explorerApp (pure server)
     explorerServeImpl app port
@@ -125,3 +126,7 @@ convertHandler rctx handler =
 
     excHandlers = [E.Handler catchServant]
     catchServant = throwError
+
+
+fixedNM :: NetworkMagic
+fixedNM = NMNothing

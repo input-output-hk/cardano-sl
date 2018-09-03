@@ -45,6 +45,7 @@ import           Serokell.Util.Base16 (base16F)
 import           Universum
 
 import           Pos.Core
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto
 import           Pos.Lrc.Genesis
 import           Pos.Txp
@@ -289,7 +290,7 @@ initActors CardanoContext{..} = Actors{..}
         richKey = regularKeyPair richSec
 
         richAddr :: Address
-        richAddr = makePubKeyAddressBoot (toPublic richSec)
+        richAddr = makePubKeyAddressBoot fixedNM (toPublic richSec)
 
     mkPoor :: PoorSecret -> (PublicKey, Poor)
     mkPoor (PoorSecret _) = error err
@@ -306,6 +307,7 @@ initActors CardanoContext{..} = Actors{..}
 
         poorAddrs :: [(EncKeyPair, Address)]
         poorAddrs = [ case deriveFirstHDAddress
+                             fixedNM
                              (IsBootstrapEraAddr True)
                              emptyPassphrase
                              poorSec of
@@ -341,7 +343,7 @@ initActors CardanoContext{..} = Actors{..}
         avvmKey = RedeemKeyPair{..}
 
         avvmAddr :: Address
-        avvmAddr = makeRedeemAddress redKpPub
+        avvmAddr = makeRedeemAddress fixedNM redKpPub
 
         Just (redKpPub, redKpSec) = redeemDeterministicKeyGen avvmSeed
 
@@ -647,3 +649,7 @@ instance Buildable TransCtxt where
       tcCardano
       tcActors
       tcAddrMap
+
+
+fixedNM :: NetworkMagic
+fixedNM = NMNothing

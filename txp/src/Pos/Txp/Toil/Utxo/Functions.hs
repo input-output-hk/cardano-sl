@@ -19,16 +19,17 @@ import           Formatting (int, sformat, (%))
 import           Serokell.Util (allDistinct, enumerate)
 
 import           Pos.Binary.Core ()
-import           Pos.Core (AddrType (..), Address (..), integerToCoin, isRedeemAddress,
-                           isUnknownAddressType, sumCoins)
+import           Pos.Core (AddrAttributes (..), AddrType (..), Address (..), integerToCoin,
+                           isRedeemAddress, isUnknownAddressType, sumCoins)
 import           Pos.Core.Common (checkPubKeyAddress, checkRedeemAddress, checkScriptAddress)
+import           Pos.Core.NetworkMagic (NetworkMagic)
 import           Pos.Core.Txp (Tx (..), TxAttributes, TxAux (..), TxIn (..), TxInWitness (..),
                                TxOut (..), TxOutAux (..), TxSigData (..), TxUndo, TxWitness,
                                isTxInUnknown)
 import           Pos.Crypto (SignTag (SignRedeemTx, SignTx), WithHash (..), checkSig, hash,
                              redeemCheckSig)
 import           Pos.Crypto.Configuration (ProtocolMagic)
-import           Pos.Data.Attributes (Attributes (attrRemain), areAttributesKnown)
+import           Pos.Data.Attributes (Attributes (..), areAttributesKnown)
 import           Pos.Script (Script (..), isKnownScriptVersion, txScriptCheck)
 import           Pos.Txp.Toil.Failure (ToilVerFailure (..), TxOutVerFailure (..),
                                        WitnessVerFailure (..))
@@ -51,6 +52,7 @@ data VTxContext = VTxContext
       vtcVerifyAllIsKnown :: !Bool
 --    , vtcSlotId   :: !SlotId         -- ^ Slot id of block transaction is checked in
 --    , vtcLeaderId :: !StakeholderId  -- ^ Leader id of block transaction is checked in
+    , vtcNetworkMagic     :: !NetworkMagic
     }
 
 -- | Result of successful 'Tx' verification based on Utxo.
@@ -134,7 +136,7 @@ verifyTxUtxo protocolMagic ctx@VTxContext {..} lockedAssets ta@(TxAux UnsafeTx {
         -> ExceptT ToilVerFailure UtxoM (NonEmpty (TxIn, TxOutAux))
     filterAssetLocked xs =
         case NE.filter notAssetLockedSrcAddr xs of
-            [] -> throwError ToilEmptyAfterFilter
+            []     -> throwError ToilEmptyAfterFilter
             (y:ys) -> pure (y :| ys)
 
     -- Return `True` iff none of the source addresses are in the lockedAssets set.
@@ -187,6 +189,11 @@ verifyOutputs VTxContext {..} (TxAux UnsafeTx {..} _) =
             throwError $ ToilInvalidOutput i (TxOutUnknownAddressType addr)
         when (isRedeemAddress addr) $
             throwError $ ToilInvalidOutput i (TxOutRedeemAddressProhibited addr)
+        unless (addressHasValidMagic (attrData addrAttributes)) $
+            throwError $ ToilInvalidOutput i (TxOutAddressBadNetworkMagic addr)
+
+    addressHasValidMagic :: AddrAttributes -> Bool
+    addressHasValidMagic addrAttrs = vtcNetworkMagic == (aaNetworkMagic addrAttrs)
 
 -- Verify inputs of a transaction after they have been resolved
 -- (implies that they are known).

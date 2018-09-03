@@ -17,8 +17,8 @@ import           GHC.TypeLits (TypeError)
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util (listJson)
 
-import           Pos.Core (Address, HeaderHash, ScriptVersion, TxFeePolicy, addressF,
-                           addressDetailedF)
+import           Pos.Core (Address, HeaderHash, ScriptVersion, TxFeePolicy, addressDetailedF,
+                           addressF)
 import           Pos.Core.Txp (TxIn, TxInWitness, TxOut (..))
 import           Pos.Data.Attributes (UnparsedFields)
 import           Pos.Script (PlutusError)
@@ -174,7 +174,9 @@ data TxOutVerFailure
     | TxOutUnknownAddressType Address
     -- | Can't send to a redeem address
     | TxOutRedeemAddressProhibited Address
-    deriving (Show, Eq, Generic, NFData)
+    -- | NetworkMagic's must match
+    | TxOutAddressBadNetworkMagic Address
+     deriving (Show, Eq, Generic, NFData)
 
 instance Buildable TxOutVerFailure where
     build (TxOutUnknownAttributes addr) =
@@ -185,3 +187,7 @@ instance Buildable TxOutVerFailure where
     build (TxOutRedeemAddressProhibited addr) =
         bprint ("sends money to a redeem address ("
                 %addressF%"), this is prohibited") addr
+    build (TxOutAddressBadNetworkMagic addr) =
+        bprint ("sends money to an address with mismatched \
+                \NetworkMagic ("%addressF%"), this is prohibited")
+               addr

@@ -40,6 +40,7 @@ import           Pos.Client.Txp.Util (createTx)
 import           Pos.Core (BlockVersionData (bvdSlotDuration), IsBootstrapEraAddr (..),
                            Timestamp (..), deriveFirstHDAddress, makePubKeyAddress, mkCoin)
 import           Pos.Core.Configuration (genesisBlockVersionData, genesisSecretKeys)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Core.Txp (TxAux (..), TxIn (TxInUtxo), TxOut (..), TxOutAux (..), txaF)
 import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic, emptyPassphrase, encToPublic,
                              fakeSigner, hash, safeToPublic, toPublic, withSafeSigners)
@@ -108,13 +109,13 @@ sendToAllGenesis pm diffusion (SendToAllGenesisParams genesisTxsPerThread txsPer
                 let signer = fakeSigner secretKey
                     publicKey = toPublic secretKey
                 -- construct transaction output
-                outAddr <- makePubKeyAddressAuxx publicKey
+                outAddr <- makePubKeyAddressAuxx fixedNM publicKey
                 let txOut1 = TxOut {
                     txOutAddress = outAddr,
                     txOutValue = mkCoin 1
                     }
                     txOuts = TxOutAux txOut1 :| []
-                utxo <- getOwnUtxoForPk $ safeToPublic signer
+                utxo <- getOwnUtxoForPk fixedNM $ safeToPublic signer
                 etx <- createTx pm mempty utxo signer txOuts publicKey
                 case etx of
                     Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
@@ -221,10 +222,10 @@ send
 send pm diffusion idx outputs = do
     skey <- takeSecret
     let curPk = encToPublic skey
-    let plainAddresses = map (flip makePubKeyAddress curPk . IsBootstrapEraAddr) [False, True]
+    let plainAddresses = map (flip (makePubKeyAddress fixedNM) curPk . IsBootstrapEraAddr) [False, True]
     let (hdAddresses, hdSecrets) = unzip $ map
             (\ibea -> fromMaybe (error "send: pass mismatch") $
-                    deriveFirstHDAddress (IsBootstrapEraAddr ibea) emptyPassphrase skey) [False, True]
+                    deriveFirstHDAddress fixedNM (IsBootstrapEraAddr ibea) emptyPassphrase skey) [False, True]
     let allAddresses = hdAddresses ++ plainAddresses
     let allSecrets = hdSecrets ++ [skey, skey]
     etx <- withSafeSigners allSecrets (pure emptyPassphrase) $ \signers -> runExceptT @AuxxException $ do
@@ -272,3 +273,6 @@ sendTxsFromFile diffusion txsFile = do
                 (topsortTxAuxes txAuxes)
         let submitOne = submitTxRaw diffusion
         mapM_ submitOne sortedTxAuxes
+
+fixedNM :: NetworkMagic
+fixedNM = NMNothing

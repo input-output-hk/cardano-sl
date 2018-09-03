@@ -66,6 +66,7 @@ import           Pos.Core (Address, Coin, StakeholderId, TxFeePolicy (..), TxSiz
                            isRedeemAddress, mkCoin, sumCoins, txSizeLinearMinValue,
                            unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (ProtocolMagic, RedeemSecretKey, SafeSigner,
                              SignTag (SignRedeemTx, SignTx), deterministicKeyGen, fakeSigner, hash,
                              redeemSign, redeemToPublic, safeSign, safeToPublic)
@@ -494,13 +495,14 @@ prepareTxRaw pendingTx utxo outputs fee = do
 -- Returns set of tx outputs including change output (if it's necessary)
 mkOutputsWithRem
     :: TxCreateMode m
-    => AddrData m
+    => NetworkMagic
+    -> AddrData m
     -> TxRaw
     -> TxCreator m TxOutputs
-mkOutputsWithRem addrData TxRaw {..}
+mkOutputsWithRem nm addrData TxRaw {..}
     | trRemainingMoney == mkCoin 0 = pure trOutputs
     | otherwise = do
-        changeAddr <- lift . lift $ getNewAddress addrData
+        changeAddr <- lift . lift $ getNewAddress nm addrData
         let txOut = TxOut changeAddr trRemainingMoney
         pure $ TxOutAux txOut :| toList trOutputs
 
@@ -514,7 +516,7 @@ prepareInpsOuts
     -> TxCreator m (TxOwnedInputs TxOut, TxOutputs)
 prepareInpsOuts pm pendingTx utxo outputs addrData = do
     txRaw@TxRaw {..} <- prepareTxWithFee pm pendingTx utxo outputs
-    outputsWithRem <- mkOutputsWithRem addrData txRaw
+    outputsWithRem <- mkOutputsWithRem fixedNM addrData txRaw
     pure (trInputs, outputsWithRem)
 
 createGenericTx
@@ -727,7 +729,7 @@ stabilizeTxFee pm pendingTx linearPolicy utxo outputs = do
     stabilizeTxFeeDo (_, 0) _ = pure Nothing
     stabilizeTxFeeDo (isSecondStage, attempt) expectedFee = do
         txRaw <- prepareTxRaw pendingTx utxo outputs expectedFee
-        fakeChangeAddr <- lift . lift $ getFakeChangeAddress
+        fakeChangeAddr <- lift . lift $ getFakeChangeAddress fixedNM
         txMinFee <- txToLinearFee linearPolicy $
                     createFakeTxFromRawTx pm fakeChangeAddr txRaw
 
@@ -772,3 +774,7 @@ createFakeTxFromRawTx pm fakeAddr TxRaw{..} =
            (\_ -> Right $ fakeSigner fakeSK)
            trInputs
            txOutsWithRem
+
+
+fixedNM :: NetworkMagic
+fixedNM = NMNothing

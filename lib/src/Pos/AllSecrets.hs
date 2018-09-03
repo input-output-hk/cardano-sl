@@ -27,6 +27,7 @@ import           Pos.Binary.Core ()
 import           Pos.Core (AddrSpendingData (..), Address, IsBootstrapEraAddr (..), StakeholderId,
                            addressHash, checkAddrSpendingData, makePubKeyAddress,
                            makePubKeyAddressBoot)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (PublicKey, SecretKey, toPublic)
 
 -- | This map effectively provides inverse of 'hash' and
@@ -91,12 +92,17 @@ mkAllSecretsSimple sks =
     , _asSpendingData = invAddrSpendingData
     }
   where
+    nm = fixedNM
     pks :: [PublicKey]
     pks = map toPublic sks
     spendingDataList = map PubKeyASD pks
-    addressesNonBoot = map (makePubKeyAddress (IsBootstrapEraAddr False)) pks
-    addressesBoot = map makePubKeyAddressBoot pks
+    addressesNonBoot = map (makePubKeyAddress nm (IsBootstrapEraAddr False)) pks
+    addressesBoot = map (makePubKeyAddressBoot nm) pks
     invAddrSpendingData =
         mkInvAddrSpendingData $
         zip addressesNonBoot spendingDataList <>
         zip addressesBoot spendingDataList
+
+
+fixedNM :: NetworkMagic
+fixedNM = NMNothing

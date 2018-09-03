@@ -26,6 +26,7 @@ import           Formatting (build, formatToString, sformat)
 import           Pos.Chain.Txp (TxOut (..), TxOutAux (..))
 import           Pos.Core (Address, Coin (..), IsBootstrapEraAddr (..),
                      deriveLvl2KeyPair, mkCoin)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (EncryptedSecretKey, ShouldCheckPassphrase (..),
                      emptyPassphrase, safeDeterministicKeyGen)
 
@@ -98,7 +99,8 @@ prepareFixtures initialBalance toPay = do
     utxo' <- foldlM (\acc (txIn, (TxOutAux (TxOut _ coin))) -> do
                         newIndex <- deriveIndex (pick . choose) HdAddressIx HardDerivation
 
-                        let Just (addr, _) = deriveLvl2KeyPair (IsBootstrapEraAddr True)
+                        let Just (addr, _) = deriveLvl2KeyPair fixedNM
+                                                               (IsBootstrapEraAddr True)
                                                                (ShouldCheckPassphrase True)
                                                                mempty
                                                                esk
@@ -321,3 +323,6 @@ spec = describe "NewPayment" $ do
                         let pmt = newPayment { V1.pmtSpendingPassword = randomPass }
                         res <- liftIO (runExceptT . runHandler' $ Handlers.estimateFees activeLayer pmt)
                         liftIO ((bimap identity STB res) `shouldSatisfy` isRight)
+
+fixedNM :: NetworkMagic
+fixedNM = NetworkMainOrStage

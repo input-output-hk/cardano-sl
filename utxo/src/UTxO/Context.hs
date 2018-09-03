@@ -57,6 +57,7 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
 import           Pos.Chain.Lrc
 import           Pos.Chain.Txp
 import           Pos.Core as Core
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto
 
 import           UTxO.Crypto
@@ -322,7 +323,7 @@ initActors CardanoContext{..} = Actors{..}
         richKey = regularKeyPair richSec
 
         richAddr :: Address
-        richAddr = makePubKeyAddressBoot (toPublic richSec)
+        richAddr = makePubKeyAddressBoot fixedNM (toPublic richSec)
 
     mkPoor :: PoorSecret -> (PublicKey, Poor)
     mkPoor (PoorSecret _) = error err
@@ -365,7 +366,7 @@ initActors CardanoContext{..} = Actors{..}
         avvmKey = RedeemKeyPair{..}
 
         avvmAddr :: Address
-        avvmAddr = makeRedeemAddress redKpPub
+        avvmAddr = makeRedeemAddress fixedNM redKpPub
 
         Just (redKpPub, redKpSec) = redeemDeterministicKeyGen avvmSeed
 
@@ -494,7 +495,7 @@ initAddrMap Actors{..} = AddrMap{
                              -> Word32 -- ^ address index
                              -> (EncKeyPair, Address)
             deriveHDAddress' esk accIx' addrIx'
-                = case deriveLvl2KeyPair bootstrapEra scp emptyPassphrase esk accIx' addrIx' of
+                = case deriveLvl2KeyPair fixedNM bootstrapEra scp emptyPassphrase esk accIx' addrIx' of
                     Nothing          -> error "impossible"
                     Just (addr, key) -> (encKeyPair key, addr)
                 where
@@ -715,3 +716,6 @@ instance Buildable GenesisData where
       % "}"
       )
       gdBootStakeholders
+
+fixedNM :: NetworkMagic
+fixedNM = NetworkMainOrStage

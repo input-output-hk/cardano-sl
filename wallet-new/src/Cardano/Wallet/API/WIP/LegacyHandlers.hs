@@ -28,6 +28,7 @@ import           Pos.Chain.Txp (TxAux, TxpConfiguration)
 import           Pos.Chain.Update ()
 import           Pos.Client.KeyStorage (addPublicKey)
 import qualified Pos.Core as Core
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (PublicKey)
 
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
@@ -79,7 +80,7 @@ checkExternalWallet genesisConfig encodedRootPK = do
     rootPK <- mkPublicKeyOrFail encodedRootPK
 
     ws <- V0.askWalletSnapshot
-    let walletId = encodeCType . Core.makePubKeyAddressBoot $ rootPK
+    let walletId = encodeCType . (Core.makePubKeyAddressBoot fixedNM) $ rootPK
     walletExists <- V0.doesWalletExist walletId
     (v0wallet, transactions, isWalletReady) <- if walletExists
         then do
@@ -158,7 +159,7 @@ createNewExternalWallet walletMeta encodedRootPK = do
     -- with the blockchain.
     addPublicKey rootPK
 
-    let walletId = encodeCType . Core.makePubKeyAddressBoot $ rootPK
+    let walletId = encodeCType . (Core.makePubKeyAddressBoot fixedNM) $ rootPK
         isReady  = True -- We don't need to sync new wallet with the blockchain.
 
     -- Create new external wallet.
@@ -184,7 +185,7 @@ restoreExternalWallet
 restoreExternalWallet genesisConfig walletMeta encodedRootPK = do
     rootPK <- mkPublicKeyOrFail encodedRootPK
 
-    let walletId = encodeCType . Core.makePubKeyAddressBoot $ rootPK
+    let walletId = encodeCType . (Core.makePubKeyAddressBoot fixedNM) $ rootPK
      -- Public key will be used during synchronization with the blockchain.
     addPublicKey rootPK
 
@@ -269,3 +270,6 @@ newSignedTransaction
     -> m (WalletResponse Transaction)
 newSignedTransaction _txpConfig _submitTx _signedTx =
     error "[CHW-57], Cardano Hardware Wallet, unimplemented yet."
+
+fixedNM :: NetworkMagic
+fixedNM = NetworkMainOrStage

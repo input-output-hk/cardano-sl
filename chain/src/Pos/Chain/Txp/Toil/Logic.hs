@@ -45,6 +45,7 @@ import           Pos.Core (AddrAttributes (..), AddrStakeDistribution (..),
 import           Pos.Core.Common (integerToCoin)
 import qualified Pos.Core.Common as Fee (TxFeePolicy (..),
                      calculateTxSizeLinear)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (ProtocolMagic, WithHash (..), hash)
 import           Pos.Util (liftEither)
 
@@ -144,12 +145,11 @@ verifyAndApplyTx ::
     -> ExceptT ToilVerFailure UtxoM TxUndo
 verifyAndApplyTx pm adoptedBVD lockedAssets curEpoch verifyVersions tx@(_, txAux) = do
     whenLeft (checkTxAux txAux) (throwError . ToilInconsistentTxAux)
+    let ctx = Utxo.VTxContext verifyVersions fixedNM
     vtur@VerifyTxUtxoRes {..} <- Utxo.verifyTxUtxo pm ctx lockedAssets txAux
     liftEither $ verifyGState adoptedBVD curEpoch txAux vtur
     lift $ applyTxToUtxo' tx
     pure vturUndo
-  where
-    ctx = Utxo.VTxContext verifyVersions
 
 isRedeemTx :: TxUndo -> Bool
 isRedeemTx resolvedOuts = all isRedeemAddress inputAddresses
@@ -237,3 +237,7 @@ withTxId aux = (hash (taTx aux), aux)
 
 applyTxToUtxo' :: (TxId, TxAux) -> UtxoM ()
 applyTxToUtxo' (i, TxAux tx _) = Utxo.applyTxToUtxo (WithHash tx i)
+
+
+fixedNM :: NetworkMagic
+fixedNM = NetworkMainOrStage

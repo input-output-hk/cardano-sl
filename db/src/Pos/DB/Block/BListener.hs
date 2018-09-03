@@ -17,30 +17,31 @@ import           Control.Monad.Trans (MonadTrans (..))
 import           Pos.Chain.Block (Blund)
 import           Pos.Core (ProtocolConstants)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Core.NetworkMagic (NetworkMagic)
 import           Pos.DB.BatchOp (SomeBatchOp)
 
 class Monad m => MonadBListener m where
     -- Callback will be called after putting blocks into BlocksDB
     -- and before changing of GStateDB.
     -- Callback action will be performed under block lock.
-    onApplyBlocks :: OldestFirst NE Blund -> m SomeBatchOp
+    onApplyBlocks :: NetworkMagic -> OldestFirst NE Blund -> m SomeBatchOp
     -- Callback will be called before changing of GStateDB.
     -- Callback action will be performed under block lock.
-    onRollbackBlocks :: ProtocolConstants -> NewestFirst NE Blund -> m SomeBatchOp
+    onRollbackBlocks :: NetworkMagic -> ProtocolConstants -> NewestFirst NE Blund -> m SomeBatchOp
 
 instance {-# OVERLAPPABLE #-}
     ( MonadBListener m, Monad m, MonadTrans t, Monad (t m)) =>
         MonadBListener (t m)
   where
-    onApplyBlocks = lift . onApplyBlocks
-    onRollbackBlocks pc = lift . onRollbackBlocks pc
+    onApplyBlocks nm = lift . onApplyBlocks nm
+    onRollbackBlocks nm pc = lift . onRollbackBlocks nm pc
 
 onApplyBlocksStub
     :: Monad m
-    => OldestFirst NE Blund -> m SomeBatchOp
-onApplyBlocksStub _ = pure mempty
+    => NetworkMagic -> OldestFirst NE Blund -> m SomeBatchOp
+onApplyBlocksStub _ _ = pure mempty
 
 onRollbackBlocksStub
     :: Monad m
-    => NewestFirst NE Blund -> m SomeBatchOp
-onRollbackBlocksStub _ = pure mempty
+    => NetworkMagic -> NewestFirst NE Blund -> m SomeBatchOp
+onRollbackBlocksStub _ _ = pure mempty

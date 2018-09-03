@@ -27,6 +27,7 @@ import qualified Pos.Chain.Txp as Core
 import           Pos.Core as Core
 import           Pos.Core (Coin (..), IsBootstrapEraAddr (..),
                      deriveLvl2KeyPair, mkCoin)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (EncryptedSecretKey, ShouldCheckPassphrase (..),
                      emptyPassphrase, safeDeterministicKeyGen)
 import           Pos.Crypto.HD (firstHardened)
@@ -110,7 +111,8 @@ prepareFixtures initialBalance = do
         utxo' <- foldlM (\acc (txIn, (TxOutAux (TxOut _ coin))) -> do
                             newIndex <- deriveIndex (pick . choose) HdAddressIx HardDerivation
 
-                            let Just (addr, _) = deriveLvl2KeyPair (IsBootstrapEraAddr True)
+                            let Just (addr, _) = deriveLvl2KeyPair fixedNM
+                                                                (IsBootstrapEraAddr True)
                                                                 (ShouldCheckPassphrase True)
                                                                 mempty
                                                                 esk
@@ -470,3 +472,6 @@ payAux aw hdAccountId payees fees = do
     bimap STB STB payRes `shouldSatisfy` isRight
     let Right t = payRes
     return t
+
+fixedNM :: NetworkMagic
+fixedNM = NetworkMainOrStage

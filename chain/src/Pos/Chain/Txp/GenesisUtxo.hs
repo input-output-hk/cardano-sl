@@ -16,6 +16,7 @@ import           Pos.Chain.Txp.Toil (Utxo, utxoToStakes)
 import           Pos.Chain.Txp.Tx (TxIn (..), TxOut (..))
 import           Pos.Chain.Txp.TxOutAux (TxOutAux (..))
 import           Pos.Core (Address, Coin, StakesMap, makeRedeemAddress)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (unsafeHash)
 
 
@@ -26,9 +27,12 @@ genesisStakes genesisData =
 genesisUtxo :: GenesisData -> Utxo
 genesisUtxo genesisData =
     let
+        networkMagic :: NetworkMagic
+        networkMagic = fixedNM
+
         preUtxo :: [(Address, Coin)]
         preUtxo =
-            (first makeRedeemAddress <$> HM.toList
+            (first (makeRedeemAddress networkMagic) <$> HM.toList
                     (getGenesisAvvmBalances $ gdAvvmDistr genesisData)
                 )
                 <> (HM.toList $ getGenesisNonAvvmBalances $ gdNonAvvmBalances
@@ -40,3 +44,6 @@ genesisUtxo genesisData =
             (TxInUtxo (unsafeHash addr) 0, TxOutAux (TxOut addr coin))
     in
         Map.fromList $ utxoEntry <$> preUtxo
+
+fixedNM :: NetworkMagic
+fixedNM = NetworkMainOrStage

@@ -17,6 +17,7 @@ import           System.Random.MWC (GenIO, createSystemRandom, uniformR)
 import           Data.Acid (update)
 
 import           Pos.Core (Address, IsBootstrapEraAddr (..), deriveLvl2KeyPair)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase,
                      ShouldCheckPassphrase (..))
 
@@ -161,7 +162,8 @@ newHdAddress :: EncryptedSecretKey
              -> HdAddressId
              -> Maybe HdAddress
 newHdAddress esk spendingPassword accId hdAddressId =
-    let mbAddr = deriveLvl2KeyPair (IsBootstrapEraAddr True)
+    let mbAddr = deriveLvl2KeyPair fixedNM
+                                   (IsBootstrapEraAddr True)
                                    (ShouldCheckPassphrase True)
                                    spendingPassword
                                    esk
@@ -170,3 +172,6 @@ newHdAddress esk spendingPassword accId hdAddressId =
     in case mbAddr of
          Nothing              -> Nothing
          Just (newAddress, _) -> Just $ initHdAddress hdAddressId newAddress
+
+fixedNM :: NetworkMagic
+fixedNM = NetworkMainOrStage

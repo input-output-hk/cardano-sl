@@ -35,10 +35,10 @@ import           Pos.Chain.Txp.TxWitness (TxInWitness (..), TxSigData (..),
 import           Pos.Chain.Txp.Undo (TxUndo)
 import           Pos.Core (AddrType (..), Address (..), integerToCoin,
                      isRedeemAddress, isUnknownAddressType, sumCoins)
-import           Pos.Core.Attributes (Attributes (attrRemain),
-                     areAttributesKnown)
-import           Pos.Core.Common (checkPubKeyAddress, checkRedeemAddress,
-                     checkScriptAddress)
+import           Pos.Core.Attributes (Attributes (..), areAttributesKnown)
+import           Pos.Core.Common (AddrAttributes (..), checkPubKeyAddress,
+                     checkRedeemAddress, checkScriptAddress)
+import           Pos.Core.NetworkMagic (NetworkMagic)
 import           Pos.Crypto (SignTag (SignRedeemTx, SignTx), WithHash (..),
                      checkSig, hash, redeemCheckSig)
 import           Pos.Crypto.Configuration (ProtocolMagic)
@@ -59,6 +59,7 @@ data VTxContext = VTxContext
       vtcVerifyAllIsKnown :: !Bool
 --    , vtcSlotId   :: !SlotId         -- ^ Slot id of block transaction is checked in
 --    , vtcLeaderId :: !StakeholderId  -- ^ Leader id of block transaction is checked in
+    , vtcNetworkMagic     :: !NetworkMagic
     }
 
 -- | Result of successful 'Tx' verification based on Utxo.
@@ -195,6 +196,11 @@ verifyOutputs VTxContext {..} (TxAux UnsafeTx {..} _) =
             throwError $ ToilInvalidOutput i (TxOutUnknownAddressType addr)
         when (isRedeemAddress addr) $
             throwError $ ToilInvalidOutput i (TxOutRedeemAddressProhibited addr)
+        unless (addressHasValidMagic (attrData addrAttributes)) $
+            throwError $ ToilInvalidOutput i (TxOutAddressBadNetworkMagic addr)
+
+    addressHasValidMagic :: AddrAttributes -> Bool
+    addressHasValidMagic addrAttrs = vtcNetworkMagic == (aaNetworkMagic addrAttrs)
 
 -- Verify inputs of a transaction after they have been resolved
 -- (implies that they are known).

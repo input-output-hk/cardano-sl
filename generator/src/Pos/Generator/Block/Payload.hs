@@ -34,6 +34,7 @@ import           Pos.Client.Txp.Util (InputSelectionPolicy (..), TxError (..),
 import           Pos.Core (AddrSpendingData (..), Address (..), Coin,
                      SlotId (..), addressHash, coinToInteger,
                      makePubKeyAddressBoot, unsafeIntegerToCoin)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (SecretKey, WithHash (..), fakeSigner, hash,
                      toPublic)
 import           Pos.DB.Txp (MonadTxpLocal (..), getAllPotentiallyHugeUtxo)
@@ -140,6 +141,7 @@ genTxPayload genesisConfig txpConfig = do
         txsN <- fromIntegral <$> getRandomR (a, a + d)
         replicateM_ txsN genTransaction
   where
+    nm = fixedNM
     genTransaction :: StateT GenTxData (BlockGenRandMode ext g m) ()
     genTransaction = do
         utxo <- use gtdUtxo
@@ -171,7 +173,7 @@ genTxPayload genesisConfig txpConfig = do
         -- Currently payload generator only uses addresses with
         -- bootstrap era distribution. This is fine, because we don't
         -- have usecases where we switch to reward era.
-        let utxoAddresses = map (makePubKeyAddressBoot . toPublic) $ HM.elems secrets
+        let utxoAddresses = map (makePubKeyAddressBoot nm . toPublic) $ HM.elems secrets
             utxoAddrsN = HM.size secrets
         let adder hm TxOutAux { toaOut = TxOut {..} } =
                 HM.insertWith (+) txOutAddress (coinToInteger txOutValue) hm
@@ -200,7 +202,7 @@ genTxPayload genesisConfig txpConfig = do
         totalTxAmount <- getRandomR (fromIntegral outputsN, totalOwnMoney `div` 2)
 
         changeAddrIdx <- getRandomR (0, utxoAddrsN - 1)
-        let changeAddrData = makePubKeyAddressBoot $ secretsPks !! changeAddrIdx
+        let changeAddrData = makePubKeyAddressBoot nm $ secretsPks !! changeAddrIdx
 
         -- Prepare tx outputs
         coins <- splitCoins outputsN (unsafeIntegerToCoin totalTxAmount)
@@ -257,3 +259,6 @@ genPayload
     -> SlotId
     -> BlockGenRandMode ext g m ()
 genPayload genesisConfig txpConfig _ = genTxPayload genesisConfig txpConfig
+
+fixedNM :: NetworkMagic
+fixedNM = NetworkMainOrStage

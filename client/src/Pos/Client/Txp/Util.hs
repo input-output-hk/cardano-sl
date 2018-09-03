@@ -79,6 +79,7 @@ import           Pos.Core (Address, Coin, SlotCount, StakeholderId,
                      isRedeemAddress, mkCoin, sumCoins, txSizeLinearMinValue,
                      unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Core.Attributes (mkAttributes)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (ProtocolMagic, RedeemSecretKey, SafeSigner,
                      SignTag (SignRedeemTx, SignTx), deterministicKeyGen,
                      fakeSigner, hash, redeemSign, redeemToPublic, safeSign,
@@ -527,14 +528,15 @@ prepareTxRaw pendingTx utxo outputs fee = do
 -- Returns set of tx outputs including change output (if it's necessary)
 mkOutputsWithRem
     :: TxCreateMode m
-    => SlotCount
+    => NetworkMagic
+    -> SlotCount
     -> AddrData m
     -> TxRaw
     -> TxCreator m TxOutputs
-mkOutputsWithRem epochSlots addrData TxRaw {..}
+mkOutputsWithRem nm epochSlots addrData TxRaw {..}
     | trRemainingMoney == mkCoin 0 = pure trOutputs
     | otherwise = do
-        changeAddr <- lift . lift $ getNewAddress epochSlots addrData
+        changeAddr <- lift . lift $ getNewAddress nm epochSlots addrData
         let txOut = TxOut changeAddr trRemainingMoney
         pure $ TxOutAux txOut :| toList trOutputs
 
@@ -562,7 +564,7 @@ prepareInpsOuts
 prepareInpsOuts genesisConfig pendingTx utxo outputs addrData = do
     txRaw@TxRaw {..} <- prepareTxWithFee genesisConfig pendingTx utxo outputs
     outputsWithRem <-
-        mkOutputsWithRem (configEpochSlots genesisConfig) addrData txRaw
+        mkOutputsWithRem fixedNM (configEpochSlots genesisConfig) addrData txRaw
     pure (trInputs, outputsWithRem)
 
 prepareInpsOutsForUnsignedTx
@@ -824,7 +826,7 @@ stabilizeTxFee genesisConfig pendingTx linearPolicy utxo outputs = do
     stabilizeTxFeeDo (_, 0) _ = pure Nothing
     stabilizeTxFeeDo (isSecondStage, attempt) expectedFee = do
         txRaw <- prepareTxRaw pendingTx utxo outputs expectedFee
-        fakeChangeAddr <- lift . lift $ getFakeChangeAddress $ configEpochSlots
+        fakeChangeAddr <- lift . lift $ getFakeChangeAddress fixedNM $ configEpochSlots
             genesisConfig
         txMinFee <- txToLinearFee linearPolicy $ createFakeTxFromRawTx
             (configProtocolMagic genesisConfig)
@@ -872,3 +874,7 @@ createFakeTxFromRawTx pm fakeAddr TxRaw{..} =
            (\_ -> Right $ fakeSigner fakeSK)
            trInputs
            txOutsWithRem
+
+
+fixedNM :: NetworkMagic
+fixedNM = NetworkMainOrStage

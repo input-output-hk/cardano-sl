@@ -12,11 +12,13 @@ import           Universum
 
 import           Control.Monad.Trans (MonadTrans)
 
-import           Pos.Chain.Genesis (GenesisData)
+import           Pos.Chain.Genesis (GenesisData (..),
+                     GenesisProtocolConstants (..))
 import           Pos.Chain.Txp (Utxo, filterUtxoByAddrs, genesisUtxo,
                      getTotalCoinsInUtxo)
 import           Pos.Core (Address (..), Coin, IsBootstrapEraAddr (..),
                      makePubKeyAddress)
+import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
 import           Pos.Crypto (PublicKey)
 
 -- | A class which have the methods to get state of address' balance
@@ -53,6 +55,9 @@ getOwnUtxo genesisData = getOwnUtxos genesisData . one
 getOwnUtxoForPk :: MonadBalances m => GenesisData -> PublicKey -> m Utxo
 getOwnUtxoForPk genesisData ourPk = getOwnUtxos genesisData ourAddresses
   where
+    nm :: NetworkMagic
+    nm = makeNetworkMagic . gpcProtocolMagic . gdProtocolConsts $ genesisData
+    --
     ourAddresses :: [Address]
     ourAddresses =
-        map (flip makePubKeyAddress ourPk . IsBootstrapEraAddr) [False, True]
+        map (flip (makePubKeyAddress nm) ourPk . IsBootstrapEraAddr) [False, True]

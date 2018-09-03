@@ -31,6 +31,7 @@ import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Core.Common (Coin (..), IsBootstrapEraAddr (..),
                      makePubKeyAddress)
 import           Pos.Core.Merkle (mkMerkleTree, mtRoot)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (AbstractHash (..), Hash, PublicKey (..),
                      RedeemSignature, SignTag (..), hash,
                      redeemDeterministicKeyGen, redeemSign, sign)
@@ -57,7 +58,7 @@ exampleTxInUtxo :: TxIn
 exampleTxInUtxo = TxInUtxo exampleHashTx 47 -- TODO: loop here
 
 exampleTxOut :: TxOut
-exampleTxOut = TxOut (makePubKeyAddress (IsBootstrapEraAddr True) pkey) (Coin 47)
+exampleTxOut = TxOut (makePubKeyAddress fixedNM (IsBootstrapEraAddr True) pkey) (Coin 47)
     where
         Right pkey = PublicKey <$> CC.xpub (getBytes 0 64)
 
@@ -92,3 +93,6 @@ exampleRedeemSignature = redeemSign exampleProtocolMagic SignForTestingOnly rsk 
 
 exampleHashTx :: Hash Tx
 exampleHashTx = coerce (hash "golden" :: Hash Text)
+
+fixedNM :: NetworkMagic
+fixedNM = NetworkMainOrStage

@@ -100,7 +100,7 @@ accountSpecs wRef wc =
 
 
 
-        it "redeeming avvv key gives rise to the corresponding increase of balance of wallet'account - mnemonic not used" $ do
+        it "redeeming avvm key gives rise to the corresponding increase of balance of wallet'account - mnemonic not used" $ do
 
             newWallet <- randomWallet CreateWallet
             Wallet{..} <- createWalletCheck wc newWallet
@@ -118,7 +118,8 @@ accountSpecs wRef wc =
             -- state-demo/genesis-keys/keys-fakeavvm/fake-9.seed
             let avvmKey = "QBYOctbb6fJT/dBDLwg4je+SAvEzEhRxA7wpLdEFhnY="
             --password is set to Nothing
-            passPhrase <- generate (pure mempty) :: IO SpendingPassword
+            --passPhrase <- generate (pure mempty) :: IO SpendingPassword
+            passPhrase <- pure mempty :: IO SpendingPassword
             let redemption = Redemption
                     { redemptionRedemptionCode = ShieldedRedemptionCode avvmKey
                     , redemptionMnemonic = Nothing
@@ -133,7 +134,7 @@ accountSpecs wRef wc =
 
             txn <- fmap wrData etxn `shouldPrism` _Right
 
-            threadDelay 180000000
+            threadDelay 90000000
 
             --checking if redemption give rise to transaction indexing
             eresp <- getTransactionIndex

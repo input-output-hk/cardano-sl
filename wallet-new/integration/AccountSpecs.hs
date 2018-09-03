@@ -117,8 +117,9 @@ accountSpecs wRef wc =
 
             -- state-demo/genesis-keys/keys-fakeavvm/fake-9.seed
             let avvmKey = "QBYOctbb6fJT/dBDLwg4je+SAvEzEhRxA7wpLdEFhnY="
-            --password is set to Nothing
-            --passPhrase <- generate (pure mempty) :: IO SpendingPassword
+
+            --password is set to Nothing in the current implementation of randomWallet
+            --when it changes redemptionSpendingPassword handles it, otherwise passPhare addresses it
             passPhrase <- pure mempty :: IO SpendingPassword
             let redemption = Redemption
                     { redemptionRedemptionCode = ShieldedRedemptionCode avvmKey

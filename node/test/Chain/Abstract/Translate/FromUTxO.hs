@@ -212,7 +212,7 @@ translate addrs chain policies params = runExceptT . fmap fst $ runTranslateT in
       putTx absTr
       return absTr
 
-    intBlock :: OldestFirst [] (DSL.Transaction h Addr) -> TranslateT h IntException m (Block h Addr, [PolicyViolation])
+    intBlock :: DSL.Block h Addr -> TranslateT h IntException m (Block h Addr, [PolicyViolation])
     intBlock block = do
       allAddrs <- asks _tcAddresses
       c :| _  <- use tsCheckpoints

@@ -208,6 +208,9 @@ mustBeRight (Right b) = b
   Compression
 -------------------------------------------------------------------------------}
 
+
+-- As a diff of two Maps we use the Map of new values (changed or completely new)
+-- plus a Set of deleted values.
 data MapDiff k v = MapDiff {
       mapDiffAdded   :: Map.Map k v
     , setDiffDeleted :: Set.Set k

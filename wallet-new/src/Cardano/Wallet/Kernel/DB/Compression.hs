@@ -63,8 +63,6 @@ stepBlockMeta :: BlockMeta -> BlockMetaDiff -> BlockMeta
 stepBlockMeta (BlockMeta bmsi bms) (dbmsi, dbms) =
   BlockMeta (stepMap <$> bmsi <*> dbmsi) (stepMap bms dbms)
 
--- As a diff of two Maps we use the Map of new values (changed or completely new)
--- plus a Set of deleted values.
 -- property: keys of the return set cannot be keys of the returned Map.
 deltaMap :: (Eq v, Ord k) => Map k v -> Map k v -> MapDiff k v
 deltaMap newMap oldMap =

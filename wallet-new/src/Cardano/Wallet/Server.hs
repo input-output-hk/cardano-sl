@@ -33,7 +33,7 @@ walletServer w _ =
   where
     v1Handler       = V1.handlers w
     internalHandler = Internal.handlers (walletPassiveLayer w)
-    wipHandler      = WIP.handlers $ walletPassiveLayer w
+    wipHandler      = WIP.handlers w
 
 walletDocServer :: (HasCompileInfo, HasUpdateConfiguration) => Server NewWalletDocAPI
 walletDocServer =

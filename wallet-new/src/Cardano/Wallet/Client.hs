@@ -97,6 +97,10 @@ data WalletClient m
          :: New ExternalWallet -> Resp m Wallet
     , deleteExternalWallet
          :: PublicKeyAsBase58 -> m (Either ClientError ())
+    , postUnsignedTransaction
+         :: PaymentWithChangeAddress -> Resp m RawTransaction
+    , postSignedTransaction
+         :: SignedTransaction -> Resp m Transaction
     -- account endpoints
     , deleteAccount
          :: WalletId -> AccountIndex -> m (Either ClientError ())
@@ -228,6 +232,10 @@ hoistClient phi wc = WalletClient
         phi . postExternalWallet wc
     , deleteExternalWallet =
         phi . deleteExternalWallet wc
+    , postUnsignedTransaction =
+        phi . postUnsignedTransaction wc
+    , postSignedTransaction =
+        phi . postSignedTransaction wc
     , deleteAccount =
         \x -> phi . deleteAccount wc x
     , getAccount =

@@ -114,6 +114,10 @@ mkHttpClient baseUrl manager = WalletClient
         = run . postExternalWalletR
     , deleteExternalWallet
         = unNoContent . run . deleteExternalWalletR
+    , postUnsignedTransaction
+        = run . postUnsignedTransactionR
+    , postSignedTransaction
+        = run . postSignedTransactionR
     -- account endpoints
     , deleteAccount
         = \x -> unNoContent . run . deleteAccountR x
@@ -180,6 +184,8 @@ mkHttpClient baseUrl manager = WalletClient
     postCheckExternalWalletR
         :<|> postExternalWalletR
         :<|> deleteExternalWalletR
+        :<|> postUnsignedTransactionR
+        :<|> postSignedTransactionR
         = client (Proxy @ WIPAPI)
 
     deleteAccountR

@@ -29,6 +29,7 @@ module Cardano.Wallet.Kernel.NodeStateAdaptor (
   , curSoftwareVersion
   , compileInfo
   , getNtpDrift
+  , getCreationTimestamp
     -- * Non-mockable
   , filterUtxo
   , mostRecentMainBlock
@@ -52,7 +53,7 @@ import           Control.Monad.STM (orElse, retry)
 import           Data.Conduit (mapOutputMaybe, runConduitRes, (.|))
 import qualified Data.Conduit.List as Conduit
 import           Data.SafeCopy (base, deriveSafeCopy)
-import           Data.Time.Units (Millisecond, toMicroseconds)
+import           Data.Time.Units (Millisecond, fromMicroseconds, toMicroseconds)
 import           Formatting (bprint, build, sformat, shown, (%))
 import qualified Formatting.Buildable
 import           Ntp.Client (NtpStatus (..))
@@ -60,6 +61,7 @@ import           Ntp.Packet (NtpOffset)
 import           Serokell.Data.Memory.Units (Byte)
 
 import qualified Cardano.Wallet.API.V1.Types as V1
+import           Cardano.Wallet.Kernel.Util.Core as Util
 import           Pos.Chain.Block (Block, HeaderHash, LastKnownHeader,
                      LastKnownHeaderTag, MainBlock, blockHeader, headerHash,
                      mainBlockSlot, prevBlockL)
@@ -70,7 +72,7 @@ import           Pos.Chain.Update (ConfirmedProposalState,
 import qualified Pos.Chain.Update as Upd
 import           Pos.Context (NodeContext (..))
 import           Pos.Core as Core (BlockCount, Config (..), GenesisHash (..),
-                     SlotCount, Timestamp, TxFeePolicy, configBlockVersionData,
+                     SlotCount, Timestamp (..), TxFeePolicy, configBlockVersionData,
                      configEpochSlots, configK, difficultyL,
                      getChainDifficulty)
 import           Pos.Core.Configuration (HasConfiguration)
@@ -287,6 +289,10 @@ data NodeStateAdaptor m = Adaptor {
       -- | Ask the NTP client for the status
     , getNtpDrift :: V1.ForceNtpCheck -> m V1.TimeInfo
 
+      -- | Get the current timestamp
+      --
+      -- Tests can mock transaction creation time with this function.
+    , getCreationTimestamp :: m Timestamp
     }
 
 {-------------------------------------------------------------------------------
@@ -385,6 +391,7 @@ newNodeStateAdaptor coreConfig nr ntpStatus = Adaptor
     , curSoftwareVersion       = return $ Upd.curSoftwareVersion
     , compileInfo              = return $ Util.compileInfo
     , getNtpDrift              = defaultGetNtpDrift ntpStatus
+    , getCreationTimestamp     =             run $ \_lock -> defaultGetCreationTimestamp
     }
   where
     genesisHash = configGenesisHash coreConfig
@@ -455,6 +462,8 @@ defaultSyncProgress lockContext lock = do
              )
     return (max localHeight <$> globalHeight, localHeight)
 
+defaultGetCreationTimestamp :: MonadIO m => WithNodeState m Timestamp
+defaultGetCreationTimestamp = liftIO $ Util.getCurrentTimestamp
 
 {-------------------------------------------------------------------------------
   Non-mockable functions
@@ -572,6 +581,7 @@ mockNodeState MockNodeStateParams{..} =
         , curSoftwareVersion       = return $ Upd.curSoftwareVersion
         , compileInfo              = return $ Util.compileInfo
         , getNtpDrift              = return . mockNodeStateNtpDrift
+        , getCreationTimestamp     = return $ mockNodeStateCreationTimestamp
         }
 
 -- | Variation on 'mockNodeState' that uses the default params
@@ -600,6 +610,9 @@ data MockNodeStateParams = NodeConstraints => MockNodeStateParams {
 
         -- | Value for 'getNtpDrift'
       , mockNodeStateNtpDrift :: V1.ForceNtpCheck -> V1.TimeInfo
+
+        -- | Value for 'getCreationTimestamp'
+      , mockNodeStateCreationTimestamp :: Timestamp
       }
 
 -- | Default 'MockNodeStateParams'
@@ -624,8 +637,12 @@ defMockNodeStateParams =
         , mockNodeStateSyncProgress          = notDefined "mockNodeStateSyncProgress"
         , mockNodeStateSecurityParameter     = SecurityParameter 2160
         , mockNodeStateNtpDrift              = const (V1.TimeInfo Nothing)
+        , mockNodeStateCreationTimestamp     = getSomeTimestamp
         }
   where
+    getSomeTimestamp :: Timestamp
+    getSomeTimestamp = Timestamp $ fromMicroseconds 12340000
+
     notDefined :: Text -> a
     notDefined = error
               . sformat ("defMockNodeStateParams: '" % build % "' not defined")

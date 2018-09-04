@@ -267,14 +267,27 @@ blundToResolvedBlock node (b,u) = do
       Left  _ebb      -> return Nothing
       Right mainBlock -> Node.withNodeState node $ \_lock -> do
         ctxt  <- mainBlockContext genesisHash mainBlock
-        mTime <- Node.defaultGetSlotStart (mainBlock ^. mainBlockSlot)
+        mTime <- getTimestamp (mainBlock ^. mainBlockSlot)
         now   <- liftIO $ getCurrentTimestamp
         return $ Just $ fromRawResolvedBlock UnsafeRawResolvedBlock {
             rawResolvedBlock       = mainBlock
           , rawResolvedBlockInputs = map (map fromJust) $ undoTx u
-          , rawTimestamp           = either (const now) identity mTime
+          , rawTimestamp           = mTime
           , rawResolvedContext     = ctxt
           }
+    where
+        -- | Get the timestamp to associate with the raw resolved block.
+        --   This timestamp becomes the createdAt time for all transactions
+        --   confirmed in this block.
+        --
+        --   Note: We use time derived from the block slot, otherwise we
+        --   rely on `getCreationTimestamp` provided by the node.
+        getTimestamp slotId = do
+            slotTime  <- Node.defaultGetSlotStart slotId
+            nodeTime  <- liftIO $ Node.getCreationTimestamp node
+
+            return $ either (const nodeTime) identity slotTime
+
 
 updateSyncState :: MonadIO m
                 => Kernel.PassiveWallet

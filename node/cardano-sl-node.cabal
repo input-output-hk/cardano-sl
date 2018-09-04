@@ -71,6 +71,7 @@ test-suite property-tests
 
                        Chain.Abstract
                        Chain.Abstract.Translate.FromUTxO
+                       Chain.Abstract.Translate.ToCardano
                        Chain.Abstract.Translate.Policies
                        Chain.Policy
                        Infrastructure.Generator

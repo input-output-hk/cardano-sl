@@ -90,21 +90,3 @@ slotLeader conf = Policy pname (BlockModifier mb)
                 else ( block
                      , [PolicyViolation pname "Block issued by somebody other than the slot leader."]
                      )
-
---------------------------------------------------------------------------------
--- Block validation policies
---------------------------------------------------------------------------------
-checkPredecessor :: Policy h (GenM h)
-checkPredecessor = Policy pname (BlockModifier validator)
-    where
-        pname = PolicyName "Block Predecessor"
-        validator block = do
-            c :| r <- use tsCheckpoints
-            return (block, pv c (1 + length r) block)
-        pv _ _  block | blockPred block == invalidBlockHash    = [violation]
-        pv _ ht block | blockPred block == genesisBlockHash &&
-                        ht == 1                                = []
-        pv c _  block | blockPred block /= icBlockHash c       = [violation]
-        pv _ _ _                                               = []
-        violation = PolicyViolation pname description
-        description = "Predecessor hash does not match hash of previous block."

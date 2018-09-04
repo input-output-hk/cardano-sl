@@ -1,5 +1,5 @@
 name:                cardano-sl-wallet-new
-version:             1.3.0
+version:             1.3.1
 synopsis:            The Wallet Backend for a Cardano node.
 description:         Please see README.md
 homepage:            https://github.com/input-output-hk/cardano-sl/#readme

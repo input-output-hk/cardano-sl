@@ -37,6 +37,7 @@ packages:
 - wallet/test
 - wallet-new # The new (unreleased) version of the wallet
 - node-ipc
+- faucet
 - acid-state-exts
 
 # IOHK projects:
@@ -310,6 +311,7 @@ ghc-options:
   cardano-sl-db:          -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-db-test:     -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-explorer:    -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-faucet:      -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-generator:   -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-infra:       -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-networking:  -Werror -Wcompat -fwarn-redundant-constraints

@@ -128,10 +128,10 @@ specBody nm =
 
 
 addressSetByTxsProp :: NetworkMagic -> SecretKey -> Bool
-addressSetByTxsProp _nm key =
+addressSetByTxsProp nm key =
     let
-        addrA = secretKeyToAddress key
-        addrB = secretKeyToAddress key
+        addrA = secretKeyToAddress nm key
+        addrB = secretKeyToAddress nm key
         txA = mkTxOut 2 addrA
         txB = mkTxOut 3 addrA
         txC = mkTxOut 4 addrB

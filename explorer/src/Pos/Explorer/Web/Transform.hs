@@ -25,7 +25,8 @@ import           Servant.Server (Handler, hoistServer)
 import           Pos.Block.Configuration (HasBlockConfiguration)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration)
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Reporting (MonadReporting (..))
 import           Pos.Recovery ()
@@ -92,19 +93,21 @@ notifierPlugin settings _ = notifierApp settings
 
 explorerPlugin
     :: HasExplorerConfiguration
-    => Word16
+    => ProtocolMagic
+    -> Word16
     -> Diffusion ExplorerProd
     -> ExplorerProd ()
-explorerPlugin = flip explorerServeWebReal
+explorerPlugin pm = flip (explorerServeWebReal pm)
 
 explorerServeWebReal
     :: HasExplorerConfiguration
-    => Diffusion ExplorerProd
+    => ProtocolMagic
+    -> Diffusion ExplorerProd
     -> Word16
     -> ExplorerProd ()
-explorerServeWebReal diffusion port = do
+explorerServeWebReal pm diffusion port = do
     rctx <- ask
-    let handlers = explorerHandlers fixedNM diffusion
+    let handlers = explorerHandlers (makeNetworkMagic pm) diffusion
         server = hoistServer explorerApi (convertHandler rctx) handlers
         app = explorerApp (pure server)
     explorerServeImpl app port
@@ -126,7 +129,3 @@ convertHandler rctx handler =
 
     excHandlers = [E.Handler catchServant]
     catchServant = throwError
-
-
-fixedNM :: NetworkMagic
-fixedNM = NMNothing

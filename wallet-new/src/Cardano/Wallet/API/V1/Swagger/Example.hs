@@ -17,7 +17,6 @@ import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot (..))
 
 import qualified Data.Map.Strict as Map
 import qualified Pos.Core.Common as Core
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import qualified Pos.Crypto.Signing as Core
 
 
@@ -65,7 +64,7 @@ instance Example (V1 Address) where
                     [ pure Core.BootstrapEraDistr
                     , Core.SingleKeyDistr <$> arbitrary
                     ]
-                <*> pure fixedNM
+                <*> arbitrary
 
 instance Example BackupPhrase where
     example = pure def
@@ -145,7 +144,3 @@ instance Example WalletStateSnapshot
 -- TODO: We should probably add this as a part of our swagger CI script and fail swagger if we find some of them - with instruction to the developer above what is said above.
 --
 -- Most of it comes to removing Nothing from `Arbitrary (Maybe a)` instance and removing empty list from `Arbitrary [a]` instance. It could be done automatically with some quickcheck hacks but I think it would be an overkill.
-
-
-fixedNM :: NetworkMagic
-fixedNM = NMNothing

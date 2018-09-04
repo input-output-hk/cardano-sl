@@ -24,6 +24,7 @@ import qualified Data.IxSet.Typed as IxSet
 import qualified Pos.Core as Core
 import           Pos.Update.Configuration ()
 
+import           Pos.Core.NetworkMagic (NetworkMagic)
 import           Pos.Util (HasLens (..))
 import qualified Pos.Wallet.WalletMode as V0
 import qualified Pos.Wallet.Web.Error.Types as V0
@@ -33,13 +34,14 @@ import           Servant
 
 -- | All the @Servant@ handlers for wallet-specific operations.
 handlers :: HasConfigurations
-         => ServerT Wallets.API MonadV1
-handlers = newWallet
-    :<|> listWallets
-    :<|> updatePassword
-    :<|> deleteWallet
-    :<|> getWallet
-    :<|> updateWallet
+         => NetworkMagic
+         -> ServerT Wallets.API MonadV1
+handlers nm = newWallet nm
+    :<|> listWallets nm
+    :<|> updatePassword nm
+    :<|> deleteWallet nm
+    :<|> getWallet nm
+    :<|> updateWallet nm
 
 
 -- | Pure function which returns whether or not the underlying node is
@@ -68,9 +70,10 @@ newWallet
        , V0.MonadBlockchainInfo m
        , HasLens SyncQueue ctx SyncQueue
        )
-    => NewWallet
+    => NetworkMagic
+    -> NewWallet
     -> m (WalletResponse Wallet)
-newWallet NewWallet{..} = do
+newWallet nm NewWallet{..} = do
 
     spV0 <- V0.syncProgress
     syncPercentage <- migrate spV0
@@ -79,8 +82,8 @@ newWallet NewWallet{..} = do
     -- is still catching up.
     unless (isNodeSufficientlySynced spV0) $ throwM (NodeIsStillSyncing syncPercentage)
 
-    let newWalletHandler CreateWallet  = V0.newWallet
-        newWalletHandler RestoreWallet = V0.restoreWalletFromSeed
+    let newWalletHandler CreateWallet  = V0.newWallet nm
+        newWalletHandler RestoreWallet = V0.restoreWalletFromSeed nm
         (V1 spendingPassword) = fromMaybe (V1 mempty) newwalSpendingPassword
         (V1 backupPhrase) = newwalBackupPhrase
     initMeta <- V0.CWalletMeta <$> pure newwalName
@@ -106,46 +109,48 @@ listWallets :: ( MonadThrow m
                , V0.MonadWalletLogicRead ctx m
                , V0.MonadBlockchainInfo m
                )
-            => RequestParams
+            => NetworkMagic
+            -> RequestParams
             -> FilterOperations Wallet
             -> SortOperations Wallet
             -> m (WalletResponse [Wallet])
-listWallets params fops sops = do
+listWallets nm params fops sops = do
     ws <- V0.askWalletSnapshot
     currentDepth <- V0.networkChainDifficulty
     respondWith params fops sops (IxSet.fromList <$> do
-        (V0.getWalletsWithInfo ws >>= (migrate @_ @[V1.Wallet] . map (\(w, i) -> (w,i,currentDepth)))))
+        (V0.getWalletsWithInfo nm ws >>= (migrate @_ @[V1.Wallet] . map (\(w, i) -> (w,i,currentDepth)))))
 
 updatePassword
     :: ( MonadWalletLogic ctx m
        , V0.MonadBlockchainInfo m
        )
-    => WalletId -> PasswordUpdate -> m (WalletResponse Wallet)
-updatePassword wid PasswordUpdate{..} = do
+    => NetworkMagic -> WalletId -> PasswordUpdate -> m (WalletResponse Wallet)
+updatePassword nm wid PasswordUpdate{..} = do
     wid' <- migrate wid
     let (V1 old) = pwdOld
         (V1 new) = pwdNew
-    _ <- V0.changeWalletPassphrase wid' old new
+    _ <- V0.changeWalletPassphrase nm wid' old new
     single <$> do
         ss <- V0.askWalletSnapshot
-        wallet <- V0.getWallet wid'
+        wallet <- V0.getWallet nm wid'
         addWalletInfo ss wallet
 
 -- | Deletes an exisiting wallet.
 deleteWallet
     :: (MonadWalletLogic ctx m)
-    => WalletId
+    => NetworkMagic
+    -> WalletId
     -> m NoContent
-deleteWallet = V0.deleteWallet <=< migrate
+deleteWallet nm = V0.deleteWallet nm <=< migrate
 
 getWallet :: ( MonadThrow m
              , MonadWalletLogicRead ctx m
              , V0.MonadBlockchainInfo m
-             ) => WalletId -> m (WalletResponse Wallet)
-getWallet wid = do
+             ) => NetworkMagic -> WalletId -> m (WalletResponse Wallet)
+getWallet nm wid = do
     ss <- V0.askWalletSnapshot
     wid' <- migrate wid
-    wallet <- V0.getWallet wid'
+    wallet <- V0.getWallet nm wid'
     single <$> addWalletInfo ss wallet
 
 addWalletInfo
@@ -168,15 +173,16 @@ updateWallet
     :: (V0.MonadWalletLogic ctx m
        , V0.MonadBlockchainInfo m
        )
-    => WalletId
+    => NetworkMagic
+    -> WalletId
     -> WalletUpdate
     -> m (WalletResponse Wallet)
-updateWallet wid WalletUpdate{..} = do
+updateWallet nm wid WalletUpdate{..} = do
     ws <- V0.askWalletSnapshot
     wid' <- migrate wid
     assurance <- migrate uwalAssuranceLevel
     walletMeta <- maybe (throwM WalletNotFound) pure $ V0.getWalletMeta wid' ws
-    updated <- V0.updateWallet wid' walletMeta
+    updated <- V0.updateWallet nm wid' walletMeta
         { V0.cwName = uwalName
         , V0.cwAssurance = assurance
         }

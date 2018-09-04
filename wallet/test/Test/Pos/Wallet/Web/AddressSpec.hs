@@ -74,11 +74,11 @@ fakeAddressHasMaxSizeTest
     -> Word32
     -> WalletProperty ()
 fakeAddressHasMaxSizeTest nm generator accSeed = do
-    passphrase <- importSingleWallet mostlyEmptyPassphrases
+    passphrase <- importSingleWallet nm mostlyEmptyPassphrases
     ws <- askWalletSnapshot
     wid <- expectedOne "wallet addresses" $ getWalletAddresses ws
     accId <- lift $ decodeCTypeOrFail . caId
-         =<< newAccount (DeterminedSeed accSeed) passphrase (CAccountInit def wid)
+         =<< newAccount nm (DeterminedSeed accSeed) passphrase (CAccountInit def wid)
     address <- generator nm accId passphrase
 
     largeAddress <- lift $ getFakeChangeAddress nm
@@ -95,10 +95,10 @@ changeAddressGenerator nm accId passphrase = lift $ getNewAddress nm (accId, pas
 
 -- | Generator which is directly used in endpoints.
 commonAddressGenerator :: AddressGenerator
-commonAddressGenerator _nm accId passphrase = do
+commonAddressGenerator nm accId passphrase = do
     ws <- askWalletSnapshot
     addrSeed <- pick arbitrary
-    let genAddress = genUniqueAddress ws (DeterminedSeed addrSeed) passphrase accId
+    let genAddress = genUniqueAddress nm ws (DeterminedSeed addrSeed) passphrase accId
     -- can't catch under 'PropertyM', workarounding
     maddr <- lift $ (Just <$> genAddress) `catch` seedBusyHandler
     addr <- maybe (stop Discard) pure maddr

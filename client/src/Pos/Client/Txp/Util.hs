@@ -66,7 +66,7 @@ import           Pos.Core (Address, Coin, StakeholderId, TxFeePolicy (..), TxSiz
                            isRedeemAddress, mkCoin, sumCoins, txSizeLinearMinValue,
                            unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
+import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
 import           Pos.Crypto (ProtocolMagic, RedeemSecretKey, SafeSigner,
                              SignTag (SignRedeemTx, SignTx), deterministicKeyGen, fakeSigner, hash,
                              redeemSign, redeemToPublic, safeSign, safeToPublic)
@@ -516,7 +516,7 @@ prepareInpsOuts
     -> TxCreator m (TxOwnedInputs TxOut, TxOutputs)
 prepareInpsOuts pm pendingTx utxo outputs addrData = do
     txRaw@TxRaw {..} <- prepareTxWithFee pm pendingTx utxo outputs
-    outputsWithRem <- mkOutputsWithRem fixedNM addrData txRaw
+    outputsWithRem <- mkOutputsWithRem (makeNetworkMagic pm) addrData txRaw
     pure (trInputs, outputsWithRem)
 
 createGenericTx
@@ -729,7 +729,7 @@ stabilizeTxFee pm pendingTx linearPolicy utxo outputs = do
     stabilizeTxFeeDo (_, 0) _ = pure Nothing
     stabilizeTxFeeDo (isSecondStage, attempt) expectedFee = do
         txRaw <- prepareTxRaw pendingTx utxo outputs expectedFee
-        fakeChangeAddr <- lift . lift $ getFakeChangeAddress fixedNM
+        fakeChangeAddr <- lift . lift $ getFakeChangeAddress (makeNetworkMagic pm)
         txMinFee <- txToLinearFee linearPolicy $
                     createFakeTxFromRawTx pm fakeChangeAddr txRaw
 
@@ -774,7 +774,3 @@ createFakeTxFromRawTx pm fakeAddr TxRaw{..} =
            (\_ -> Right $ fakeSigner fakeSK)
            trInputs
            txOutsWithRem
-
-
-fixedNM :: NetworkMagic
-fixedNM = NMNothing

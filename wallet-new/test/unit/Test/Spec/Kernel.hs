@@ -90,7 +90,7 @@ specBody pm =
 
 -- | Initialize passive wallet in a manner suitable for the unit tests
 bracketPassiveWallet :: ProtocolMagic -> (Kernel.PassiveWallet -> IO a) -> IO a
-bracketPassiveWallet _pm = Kernel.bracketPassiveWallet logMessage
+bracketPassiveWallet pm = Kernel.bracketPassiveWallet pm logMessage
   where
    -- TODO: Decide what to do with logging
     logMessage _sev txt = print txt

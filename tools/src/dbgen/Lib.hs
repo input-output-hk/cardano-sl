@@ -22,6 +22,7 @@ import           GHC.Generics (Generic)
 import           Crypto.Random.Entropy (getEntropy)
 import           Pos.Client.Txp (TxHistoryEntry (..))
 import           Pos.Core (Address, Coin, mkCoin)
+import           Pos.Core.NetworkMagic (NetworkMagic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.DB.GState.Common (getTip)
 import           Pos.Infra.StateLock (StateLock (..))
@@ -202,8 +203,8 @@ fakeSync = do
 
 
 -- | The main entry point.
-generateWalletDB :: CLI -> GenSpec -> UberMonad ()
-generateWalletDB CLI{..} spec@GenSpec{..} = do
+generateWalletDB :: NetworkMagic -> CLI -> GenSpec -> UberMonad ()
+generateWalletDB nm CLI{..} spec@GenSpec{..} = do
     fakeSync
     -- If `addTo` is not mempty, skip the generation
     -- but append the requested addresses to the input
@@ -216,15 +217,15 @@ generateWalletDB CLI{..} spec@GenSpec{..} = do
     case addTo of
         Just accId ->
             if (checkIfAddTo fakeUtxoSpec fakeTxs) then
-                addAddressesTo spec accId
+                addAddressesTo nm spec accId
             else do
-                timed $ generateFakeUtxo fakeUtxoSpec accId
-                timed $ generateFakeTxs fakeTxs accId
+                timed $ generateFakeUtxo nm fakeUtxoSpec accId
+                timed $ generateFakeTxs nm fakeTxs accId
 
         Nothing -> do
             say $ printf "Generating %d wallets..." wallets
-            wallets' <- timed (forM [1..wallets] genWallet)
-            forM_ (zip [1..] wallets') (genAccounts spec)
+            wallets' <- timed (forM [1..wallets] (genWallet nm))
+            forM_ (zip [1..] wallets') (genAccounts nm spec)
     say $ green "OK."
   where
     checkIfAddTo :: FakeUtxoCoinDistribution -> FakeTxsHistory -> Bool
@@ -233,9 +234,9 @@ generateWalletDB CLI{..} spec@GenSpec{..} = do
 
 
 -- | Here we generate fake txs. For now it's a simple arbitrary generation.
-generateFakeTxs :: FakeTxsHistory -> AccountId -> UberMonad ()
-generateFakeTxs NoHistory _                = pure ()
-generateFakeTxs SimpleTxsHistory{..} aId   = do
+generateFakeTxs :: NetworkMagic -> FakeTxsHistory -> AccountId -> UberMonad ()
+generateFakeTxs _  NoHistory _                = pure ()
+generateFakeTxs nm SimpleTxsHistory{..} aId   = do
     -- Get the number of txs we need to generate.
     let txsNumber = fromIntegral txsCount
 
@@ -246,21 +247,22 @@ generateFakeTxs SimpleTxsHistory{..} aId   = do
     -- We don't generate all txs at once since we could run out of memory.
     -- That's why we use batching so GC can clear the memory behind us in
     -- batches.
-    void $ replicateM batches (generateNFakeTxs batchSize numOutgoingAddress aId)
-    generateNFakeTxs remainder numOutgoingAddress aId
+    void $ replicateM batches (generateNFakeTxs nm batchSize numOutgoingAddress aId)
+    generateNFakeTxs nm remainder numOutgoingAddress aId
 
 
 -- | Se we can run it in batches so we don't run out of memory.
 generateNFakeTxs
-    :: Int
+    :: NetworkMagic
+    -> Int
     -> NumOfOutgoingAddresses
     -> AccountId
     -> UberMonad ()
-generateNFakeTxs txsNumber numOfAddresses aId = do
+generateNFakeTxs nm txsNumber numOfAddresses aId = do
 
     db <- askWalletDB
 
-    accounts <- getAccounts Nothing
+    accounts <- getAccounts nm Nothing
 
     let walletId :: CId Wal
         walletId = aiWId aId
@@ -337,16 +339,16 @@ generateRealTxHistE outputAddresses = do
     genCoins = mkCoin <$> choose (1, 1000)
 
 
-generateFakeUtxo :: FakeUtxoCoinDistribution -> AccountId -> UberMonad ()
-generateFakeUtxo NoDistribution _          = pure ()
-generateFakeUtxo RangeDistribution{..} aId = do
+generateFakeUtxo :: NetworkMagic -> FakeUtxoCoinDistribution -> AccountId -> UberMonad ()
+generateFakeUtxo _  NoDistribution _          = pure ()
+generateFakeUtxo nm RangeDistribution{..} aId = do
 
     db <- askWalletDB
     ws <- getWalletSnapshot db
 
     let fromAddr = range
     -- First let's generate the initial addesses where we will fake money from.
-    genCAddresses <- timed $ forM [1..fromAddr] (const $ genAddress aId)
+    genCAddresses <- timed $ forM [1..fromAddr] (const $ genAddress nm aId)
 
     let generatedAddresses = rights $ map unwrapCAddress genCAddresses
 
@@ -374,35 +376,35 @@ unwrapCAddress :: CAddress -> Either Text Address
 unwrapCAddress = decodeCType . cadId
 
 
-addAddressesTo :: GenSpec -> AccountId -> UberMonad ()
-addAddressesTo spec cid = genAddresses spec cid
+addAddressesTo :: NetworkMagic -> GenSpec -> AccountId -> UberMonad ()
+addAddressesTo nm spec cid = genAddresses nm spec cid
 
 
-genAccounts :: GenSpec -> (Int, CWallet) -> UberMonad ()
-genAccounts spec@(walletSpec -> wspec) (idx, wallet) = do
+genAccounts :: NetworkMagic -> GenSpec -> (Int, CWallet) -> UberMonad ()
+genAccounts nm spec@(walletSpec -> wspec) (idx, wallet) = do
     let accs = accounts wspec
     say $ printf "Generating %d accounts for Wallet %d..." accs idx
-    cAccounts <- timed (forM [1..accs] (genAccount wallet))
+    cAccounts <- timed (forM [1..accs] (genAccount nm wallet))
     let cids = map toAccountId cAccounts
-    forM_ cids (genAddresses spec)
+    forM_ cids (genAddresses nm spec)
 
 
 toAccountId :: CAccount -> AccountId
 toAccountId CAccount{..} = either (error . toS) id (decodeCType caId)
 
 
-genAddresses :: GenSpec -> AccountId -> UberMonad ()
-genAddresses (accountSpec . walletSpec -> aspec) cid = do
+genAddresses :: NetworkMagic -> GenSpec -> AccountId -> UberMonad ()
+genAddresses nm (accountSpec . walletSpec -> aspec) cid = do
     let addrs = addresses aspec
     say $ printf "Generating %d addresses for Account %s..." addrs (renderAccountId cid)
-    timed (forM_ [1..addrs] (const $ genAddress cid))
+    timed (forM_ [1..addrs] (const $ genAddress nm cid))
 
 
 -- | Creates a new 'CWallet'.
-genWallet :: Integer -> UberMonad CWallet
-genWallet walletNum = do
+genWallet :: NetworkMagic -> Integer -> UberMonad CWallet
+genWallet nm walletNum = do
     mnemonic  <- newRandomMnemonic
-    newWallet mempty (walletInit mnemonic)
+    newWallet nm mempty (walletInit mnemonic)
   where
     walletInit :: BackupPhrase -> CWalletInit
     walletInit backupPhrase = CWalletInit {
@@ -431,9 +433,9 @@ newRandomMnemonic = do
 
 
 -- | Creates a new 'CAccount'.
-genAccount :: CWallet -> Integer -> UberMonad CAccount
-genAccount CWallet{..} accountNum = do
-    newAccountIncludeUnready True RandomSeed mempty accountInit
+genAccount :: NetworkMagic -> CWallet -> Integer -> UberMonad CAccount
+genAccount nm CWallet{..} accountNum = do
+    newAccountIncludeUnready nm True RandomSeed mempty accountInit
   where
     accountInit :: CAccountInit
     accountInit = CAccountInit {
@@ -445,7 +447,7 @@ genAccount CWallet{..} accountNum = do
 
 
 -- | Creates a new 'CAddress'.
-genAddress :: AccountId -> UberMonad CAddress
-genAddress cid = do
+genAddress :: NetworkMagic -> AccountId -> UberMonad CAddress
+genAddress nm cid = do
     let (walletId, addrNum) = (aiWId cid, aiIndex cid)
-    newAddress RandomSeed mempty (AccountId walletId addrNum)
+    newAddress nm RandomSeed mempty (AccountId walletId addrNum)

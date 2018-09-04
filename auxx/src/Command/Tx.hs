@@ -40,7 +40,7 @@ import           Pos.Client.Txp.Util (createTx)
 import           Pos.Core (BlockVersionData (bvdSlotDuration), IsBootstrapEraAddr (..),
                            Timestamp (..), deriveFirstHDAddress, makePubKeyAddress, mkCoin)
 import           Pos.Core.Configuration (genesisBlockVersionData, genesisSecretKeys)
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Core.Txp (TxAux (..), TxIn (TxInUtxo), TxOut (..), TxOutAux (..), txaF)
 import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic, emptyPassphrase, encToPublic,
                              fakeSigner, hash, safeToPublic, toPublic, withSafeSigners)
@@ -104,18 +104,19 @@ sendToAllGenesis pm diffusion (SendToAllGenesisParams genesisTxsPerThread txsPer
         logInfo $ sformat ("Found "%shown%" keys in the genesis block.") (length keysToSend)
         startAtTxt <- liftIO $ lookupEnv "AUXX_START_AT"
         let startAt = fromMaybe 0 . readMaybe . fromMaybe "" $ startAtTxt :: Int
+        let nm = makeNetworkMagic pm
         -- construct a transaction, and add it to the queue
         let addTx secretKey = do
                 let signer = fakeSigner secretKey
                     publicKey = toPublic secretKey
                 -- construct transaction output
-                outAddr <- makePubKeyAddressAuxx fixedNM publicKey
+                outAddr <- makePubKeyAddressAuxx nm publicKey
                 let txOut1 = TxOut {
                     txOutAddress = outAddr,
                     txOutValue = mkCoin 1
                     }
                     txOuts = TxOutAux txOut1 :| []
-                utxo <- getOwnUtxoForPk fixedNM $ safeToPublic signer
+                utxo <- getOwnUtxoForPk nm $ safeToPublic signer
                 etx <- createTx pm mempty utxo signer txOuts publicKey
                 case etx of
                     Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
@@ -221,11 +222,12 @@ send
     -> m ()
 send pm diffusion idx outputs = do
     skey <- takeSecret
+    let nm = makeNetworkMagic pm
     let curPk = encToPublic skey
-    let plainAddresses = map (flip (makePubKeyAddress fixedNM) curPk . IsBootstrapEraAddr) [False, True]
+    let plainAddresses = map (flip (makePubKeyAddress nm) curPk . IsBootstrapEraAddr) [False, True]
     let (hdAddresses, hdSecrets) = unzip $ map
             (\ibea -> fromMaybe (error "send: pass mismatch") $
-                    deriveFirstHDAddress fixedNM (IsBootstrapEraAddr ibea) emptyPassphrase skey) [False, True]
+                    deriveFirstHDAddress nm (IsBootstrapEraAddr ibea) emptyPassphrase skey) [False, True]
     let allAddresses = hdAddresses ++ plainAddresses
     let allSecrets = hdSecrets ++ [skey, skey]
     etx <- withSafeSigners allSecrets (pure emptyPassphrase) $ \signers -> runExceptT @AuxxException $ do
@@ -273,6 +275,3 @@ sendTxsFromFile diffusion txsFile = do
                 (topsortTxAuxes txAuxes)
         let submitOne = submitTxRaw diffusion
         mapM_ submitOne sortedTxAuxes
-
-fixedNM :: NetworkMagic
-fixedNM = NMNothing

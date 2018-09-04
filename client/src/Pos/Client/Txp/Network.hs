@@ -25,7 +25,7 @@ import           Pos.Client.Txp.Util (InputSelectionPolicy, PendingAddresses (..
 import           Pos.Communication.Message ()
 import           Pos.Communication.Types (InvOrDataTK)
 import           Pos.Core (Address, Coin, makeRedeemAddress, mkCoin, unsafeAddCoin)
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Core.Txp (TxAux (..), TxId, TxOut (..), TxOutAux (..), txaF)
 import           Pos.Crypto (ProtocolMagic, RedeemSecretKey, SafeSigner, hash, redeemToPublic)
 import           Pos.Infra.Communication.Protocol (OutSpecs)
@@ -68,7 +68,8 @@ prepareRedemptionTx
     -> Address
     -> m (TxAux, Address, Coin)
 prepareRedemptionTx pm rsk output = do
-    let redeemAddress = makeRedeemAddress fixedNM $ redeemToPublic rsk
+    let nm = makeNetworkMagic pm
+    let redeemAddress = makeRedeemAddress nm $ redeemToPublic rsk
     utxo <- getOwnUtxo redeemAddress
     let addCoin c = unsafeAddCoin c . txOutValue . toaOut
         redeemBalance = foldl' addCoin (mkCoin 0) utxo
@@ -90,7 +91,3 @@ submitTxRaw diffusion txAux@TxAux {..} = do
 
 sendTxOuts :: OutSpecs
 sendTxOuts = createOutSpecs (Proxy :: Proxy (InvOrDataTK TxId TxMsgContents))
-
-
-fixedNM :: NetworkMagic
-fixedNM = NMNothing

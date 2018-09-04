@@ -15,6 +15,7 @@ import qualified Serokell.Util.Base64 as B64
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Client.Txp.Network (prepareRedemptionTx)
 import           Pos.Core (TxAux (..), TxOut (..), getCurrentTimestamp)
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (PassPhrase, ProtocolMagic, aesDecrypt, deriveAesKeyBS, hash,
                              redeemDeterministicKeyGen)
 import           Pos.Util (maybeThrow)
@@ -84,10 +85,11 @@ redeemAdaInternal pm submitTx passphrase cAccId seedBs = do
     accId <- decodeCTypeOrFail cAccId
     db <- askWalletDB
 
+    let nm = makeNetworkMagic pm
     -- new redemption wallet
-    _ <- L.getAccount accId
+    _ <- L.getAccount nm accId
 
-    dstAddr <- decodeCTypeOrFail . cadId =<< L.newAddress RandomSeed passphrase accId
+    dstAddr <- decodeCTypeOrFail . cadId =<< L.newAddress nm RandomSeed passphrase accId
     ws <- getWalletSnapshot db
     th <- rewrapTxError "Cannot send redemption transaction" $ do
         (txAux, redeemAddress, redeemBalance) <-

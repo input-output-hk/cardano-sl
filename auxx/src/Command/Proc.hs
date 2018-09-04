@@ -17,12 +17,11 @@ import qualified Text.JSON.Canonical as CanonicalJSON
 
 import           Pos.Client.KeyStorage (addSecretKey, getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
-import           Pos.Core (AddrStakeDistribution (..), Address, HeavyDlgIndex (..),
-                           SoftwareVersion (..), StakeholderId, addressHash, mkMultiKeyDistr,
-                           unsafeGetCoin)
+import           Pos.Core (AddrStakeDistribution (..), HeavyDlgIndex (..), SoftwareVersion (..),
+                           StakeholderId, addressHash, mkMultiKeyDistr, unsafeGetCoin)
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..), makeAddress)
 import           Pos.Core.Configuration (genesisSecretKeys)
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Core.Txp (TxOut (..))
 import           Pos.Crypto (ProtocolMagic, PublicKey, emptyPassphrase, encToPublic, fullPublicKeyF,
                              hashHexF, noPassEncrypt, safeCreatePsk, unsafeCheatingHashCoerce,
@@ -94,6 +93,8 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
 
     let name = "addr" in
     needsAuxxMode name >>= \Dict ->
+    needsProtocolMagic name >>= \pm ->
+    let nm = makeNetworkMagic pm in
     return CommandProc
     { cpName = name
     , cpArgumentPrepare = map
@@ -104,9 +105,9 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
     , cpExec = \(pk', mDistr) -> do
         pk <- toLeft pk'
         addr <- case mDistr of
-            Nothing -> makePubKeyAddressAuxx fixedNM pk
+            Nothing -> makePubKeyAddressAuxx nm pk
             Just distr -> return $
-                makeAddress (PubKeyASD pk) (AddrAttributes Nothing distr fixedNM)
+                makeAddress (PubKeyASD pk) (AddrAttributes Nothing distr nm)
         return $ ValueAddress addr
     , cpHelp = "address for the specified public key. a stake distribution \
              \ can be specified manually (by default it uses the current epoch \
@@ -115,6 +116,7 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
 
     let name = "addr-hd" in
     needsAuxxMode name >>= \Dict ->
+    needsProtocolMagic name >>= \pm ->
     return CommandProc
     { cpName = name
     , cpArgumentPrepare = identity
@@ -124,7 +126,8 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
         sk <- evaluateWHNF (sks !! i) -- WHNF is sufficient to force possible errors
                                       -- from using (!!). I'd use NF but there's no
                                       -- NFData instance for secret keys.
-        addrHD <- deriveHDAddressAuxx fixedNM sk
+        let nm = makeNetworkMagic pm
+        addrHD <- deriveHDAddressAuxx nm sk
         return $ ValueAddress addrHD
     , cpHelp = "address of the HD wallet for the specified public key"
     },
@@ -182,12 +185,16 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
 
     let name = "balance" in
     needsAuxxMode name >>= \Dict ->
+    needsProtocolMagic name >>= \pm ->
+    let nm = makeNetworkMagic pm in
     return CommandProc
     { cpName = name
     , cpArgumentPrepare = identity
     , cpArgumentConsumer = getArg (tyAddress `tyEither` tyPublicKey `tyEither` tyInt) "addr"
     , cpExec = \addr' -> do
-        addr <- toLeft addr'
+        addr <- case addr' of
+            Left a    -> pure a
+            Right pki -> makePubKeyAddressAuxx nm =<< toLeft pki
         balance <- getBalance addr
         return $ ValueNumber (fromIntegral . unsafeGetCoin $ balance)
     , cpHelp = "check the amount of coins on the specified address"
@@ -466,6 +473,8 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
 
     let name = "listaddr" in
     needsAuxxMode name >>= \Dict ->
+    needsProtocolMagic name >>= \pm ->
+    let nm = makeNetworkMagic pm in
     return CommandProc
     { cpName = name
     , cpArgumentPrepare = identity
@@ -475,8 +484,8 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
         printAction "Available addresses:"
         for_ (zip [0 :: Int ..] sks) $ \(i, sk) -> do
             let pk = encToPublic sk
-            addr <- makePubKeyAddressAuxx fixedNM pk
-            addrHD <- deriveHDAddressAuxx fixedNM sk
+            addr <- makePubKeyAddressAuxx nm pk
+            addrHD <- deriveHDAddressAuxx nm sk
             printAction $
                 sformat ("    #"%int%":   addr:      "%build%"\n"%
                          "          pk:        "%fullPublicKeyF%"\n"%
@@ -485,7 +494,7 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
                     i addr pk (addressHash pk) addrHD
         walletMB <- (^. usWallet) <$> (view userSecret >>= atomically . readTVar)
         whenJust walletMB $ \wallet -> do
-            addrHD <- deriveHDAddressAuxx fixedNM (_wusRootKey wallet)
+            addrHD <- deriveHDAddressAuxx nm (_wusRootKey wallet)
             printAction $
                 sformat ("    Wallet address:\n"%
                          "          HD addr:   "%build)
@@ -536,16 +545,9 @@ instance MonadAuxxMode m => ToLeft m PublicKey Int where
 instance MonadAuxxMode m => ToLeft m StakeholderId PublicKey where
     toLeft = return . either identity addressHash
 
-instance MonadAuxxMode m => ToLeft m Address PublicKey where
-    toLeft = either return (makePubKeyAddressAuxx fixedNM)
-
 getPublicKeyFromIndex :: MonadAuxxMode m => Int -> m PublicKey
 getPublicKeyFromIndex i = do
     sks <- getSecretKeysPlain
     let sk = sks !! i
         pk = encToPublic sk
     evaluateNF pk
-
-
-fixedNM :: NetworkMagic
-fixedNM = NMNothing

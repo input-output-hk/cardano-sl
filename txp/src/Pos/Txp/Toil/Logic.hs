@@ -25,7 +25,7 @@ import           Pos.Core (AddrAttributes (..), AddrStakeDistribution (..), Addr
                            addrAttributesUnwrapped, isBootstrapEraBVD, isRedeemAddress)
 import           Pos.Core.Common (integerToCoin)
 import qualified Pos.Core.Common as Fee (TxFeePolicy (..), calculateTxSizeLinear)
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxOut (..), TxUndo, TxpUndo, checkTxAux,
                                toaOut, txOutAddress)
 import           Pos.Crypto (WithHash (..), hash)
@@ -138,7 +138,7 @@ verifyAndApplyTx ::
     -> ExceptT ToilVerFailure UtxoM TxUndo
 verifyAndApplyTx pm adoptedBVD lockedAssets curEpoch verifyVersions tx@(_, txAux) = do
     whenLeft (checkTxAux txAux) (throwError . ToilInconsistentTxAux)
-    let ctx = Utxo.VTxContext verifyVersions fixedNM
+    let ctx = Utxo.VTxContext verifyVersions (makeNetworkMagic pm)
     vtur@VerifyTxUtxoRes {..} <- Utxo.verifyTxUtxo pm ctx lockedAssets txAux
     liftEither $ verifyGState adoptedBVD curEpoch txAux vtur
     lift $ applyTxToUtxo' tx
@@ -230,7 +230,3 @@ withTxId aux = (hash (taTx aux), aux)
 
 applyTxToUtxo' :: (TxId, TxAux) -> UtxoM ()
 applyTxToUtxo' (i, TxAux tx _) = Utxo.applyTxToUtxo (WithHash tx i)
-
-
-fixedNM :: NetworkMagic
-fixedNM = NMNothing

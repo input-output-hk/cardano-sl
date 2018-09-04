@@ -8,7 +8,7 @@ module Cardano.Wallet.WalletLayer.Kernel
 import           Universum
 
 import           Data.Maybe (fromJust)
-import           System.Wlog (Severity(Debug))
+import           System.Wlog (Severity (Debug))
 
 import           Pos.Block.Types (Blund, Undo (..))
 
@@ -23,17 +23,19 @@ import           Pos.Core.Chrono (OldestFirst (..))
 
 import qualified Cardano.Wallet.Kernel.Actions as Actions
 import qualified Data.Map.Strict as Map
-import           Pos.Util.BackupPhrase
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Crypto.Signing
+import           Pos.Util.BackupPhrase
 
 -- | Initialize the passive wallet.
 -- The passive wallet cannot send new transactions.
 bracketPassiveWallet
     :: forall m n a. (MonadIO n, MonadIO m, MonadMask m)
-    => (Severity -> Text -> IO ())
+    => ProtocolMagic
+    -> (Severity -> Text -> IO ())
     -> (PassiveWalletLayer n -> m a) -> m a
-bracketPassiveWallet logFunction f =
-    Kernel.bracketPassiveWallet logFunction $ \w -> do
+bracketPassiveWallet pm logFunction f =
+    Kernel.bracketPassiveWallet pm logFunction $ \w -> do
 
       -- Create the wallet worker and its communication endpoint `invoke`.
       invoke <- Actions.forkWalletWorker $ Actions.WalletActionInterp

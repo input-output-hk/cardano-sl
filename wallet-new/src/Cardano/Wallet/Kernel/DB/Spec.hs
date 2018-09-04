@@ -66,6 +66,7 @@ import           Cardano.Wallet.Kernel.DB.Compression
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec.Pending (Pending)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
+import           Cardano.Wallet.Kernel.Util
 import           Cardano.Wallet.Kernel.Util.Core as Core
 import qualified Cardano.Wallet.Kernel.Util.StrictList as SL
 import           Cardano.Wallet.Kernel.Util.StrictNonEmpty (StrictNonEmpty (..))
@@ -246,19 +247,19 @@ liftCheckpoints :: (NewestFirst StrictNonEmpty c1 -> NewestFirst StrictNonEmpty 
                 -> Checkpoints c1 -> Checkpoints c2
 liftCheckpoints f (Checkpoints cs) = Checkpoints (f cs)
 
-findDeltas :: IsCheckpoint c =>  Checkpoints c -> (InitialCheckpoint c, [DeltaCheckpoint])
+findDeltas :: (IsCheckpoint c, Differentiable c d) =>  Checkpoints c -> (InitialCheckpoint c, [d])
 findDeltas (Checkpoints (NewestFirst (a SNE.:| strict))) = (Initial a, go a strict)
   where
-    go :: IsCheckpoint c => c -> SL.StrictList c -> [DeltaCheckpoint]
+    go :: (IsCheckpoint c, Differentiable c d) => c -> SL.StrictList c -> [d]
     go _ SL.Nil                  = []
-    go c (SL.Cons c' strictRest) = (delta c' c) : (go c' strictRest)
+    go c (SL.Cons c' strictRest) = (findDelta c' c) : (go c' strictRest)
 
-applyDeltas :: IsCheckpoint c => (InitialCheckpoint c, [DeltaCheckpoint] ) -> Checkpoints c
+applyDeltas :: (IsCheckpoint c, Differentiable c d) => (InitialCheckpoint c, [d] ) -> Checkpoints c
 applyDeltas (Initial c, ls) = Checkpoints . NewestFirst $ c SNE.:| go c ls
   where
-    go :: IsCheckpoint c => c -> [DeltaCheckpoint] -> SL.StrictList c
+    go :: (IsCheckpoint c, Differentiable c d) => c -> [d] -> SL.StrictList c
     go _ []         = SL.Nil
-    go c' (dc:rest) = let new = step c' dc in SL.Cons new (go new rest)
+    go c' (dc:rest) = let new = applyDelta c' dc in SL.Cons new (go new rest)
 
 newtype InitialCheckpoint c = Initial c
 
@@ -296,13 +297,14 @@ instance SC.SafeCopy (InitialCheckpoint PartialCheckpoint) where
     SC.safePut ctx
     SC.safePut fpending
 
-instance (IsCheckpoint c, SC.SafeCopy (InitialCheckpoint c)) => SC.SafeCopy (Checkpoints c) where
-  getCopy = SC.contain $ do
-    ds <- SC.safeGet
-    pure $ applyDeltas ds
-  putCopy cs  = SC.contain $ do
-    let dcs = findDeltas cs
-    SC.safePut dcs
+instance (IsCheckpoint c, Differentiable c d, SC.SafeCopy (InitialCheckpoint c), SC.SafeCopy d)
+  => SC.SafeCopy (Checkpoints c) where
+    getCopy = SC.contain $ do
+      ds <- SC.safeGet
+      pure $ applyDeltas ds
+    putCopy cs  = SC.contain $ do
+      let dcs = findDeltas cs
+      SC.safePut dcs
 
 {-------------------------------------------------------------------------------
   Unify over full and partial checkpoints
@@ -328,8 +330,6 @@ class IsCheckpoint c where
     cpBlockMeta   :: Lens' c LocalBlockMeta
     cpForeign     :: Lens' c Pending
     cpContext     :: Lens' c (Maybe BlockContext)
-    delta         :: c -> c -> DeltaCheckpoint
-    step          :: c -> DeltaCheckpoint -> c
 
 instance IsCheckpoint Checkpoint where
     cpUtxo        = checkpointUtxo . fromDb
@@ -338,8 +338,6 @@ instance IsCheckpoint Checkpoint where
     cpBlockMeta   = checkpointBlockMeta . from _Wrapped
     cpForeign     = checkpointForeign
     cpContext     = checkpointContext
-    delta         = deltaCheckpoint
-    step          = stepCheckpoint
 
 instance IsCheckpoint PartialCheckpoint where
     cpUtxo        = pcheckpointUtxo . fromDb
@@ -348,8 +346,14 @@ instance IsCheckpoint PartialCheckpoint where
     cpBlockMeta   = pcheckpointBlockMeta
     cpForeign     = pcheckpointForeign
     cpContext     = pcheckpointContext
-    delta         = deltaPartialCheckpoint
-    step          = stepPartialCheckpoint
+
+instance Differentiable Checkpoint DeltaCheckpoint where
+    findDelta = findDeltaCheckpoint
+    applyDelta = applyDeltaCheckpoint
+
+instance Differentiable PartialCheckpoint DeltaCheckpoint where
+    findDelta = findDeltaPartialCheckpoint
+    applyDelta = applyDeltaPartialCheckpoint
 
 cpAddressMeta :: IsCheckpoint c => Core.Address -> Lens' c AddressMeta
 cpAddressMeta addr = cpBlockMeta . _Wrapped . addressMeta addr
@@ -358,46 +362,46 @@ cpAddressMeta addr = cpBlockMeta . _Wrapped . addressMeta addr
   Convenience: definitions for compression
 -------------------------------------------------------------------------------}
 
-deltaCheckpoint :: Checkpoint -> Checkpoint -> DeltaCheckpoint
-deltaCheckpoint c c' = DeltaCheckpoint {
-    dcUtxo         = deltaUtxo (_checkpointUtxo c) (_checkpointUtxo c')
+findDeltaCheckpoint :: Checkpoint -> Checkpoint -> DeltaCheckpoint
+findDeltaCheckpoint c c' = DeltaCheckpoint {
+    dcUtxo         = findDelta (_checkpointUtxo c) (_checkpointUtxo c')
   , dcUtxoBalance  = _checkpointUtxoBalance c
-  , dcPending      = Pending.deltaPending (_checkpointPending c) (_checkpointPending c')
-  , dcBlockMeta    = deltaBlockMeta (_checkpointBlockMeta c) (_checkpointBlockMeta c')
-  , dcForeign      = Pending.deltaPending (_checkpointForeign c) (_checkpointForeign c')
+  , dcPending      = findDelta (_checkpointPending c) (_checkpointPending c')
+  , dcBlockMeta    = findDelta (_checkpointBlockMeta c) (_checkpointBlockMeta c')
+  , dcForeign      = findDelta (_checkpointForeign c) (_checkpointForeign c')
   , dcContext      = _checkpointContext c
 }
 
-stepCheckpoint :: Checkpoint -> DeltaCheckpoint -> Checkpoint
-stepCheckpoint c DeltaCheckpoint{..} =
+applyDeltaCheckpoint :: Checkpoint -> DeltaCheckpoint -> Checkpoint
+applyDeltaCheckpoint c DeltaCheckpoint{..} =
   Checkpoint {
-    _checkpointUtxo          = stepUtxo (_checkpointUtxo c) dcUtxo
+    _checkpointUtxo          = applyDelta (_checkpointUtxo c) dcUtxo
     , _checkpointUtxoBalance = dcUtxoBalance
-    , _checkpointPending     = Pending.stepPending (_checkpointPending c) dcPending
-    , _checkpointBlockMeta   = stepBlockMeta (_checkpointBlockMeta c) dcBlockMeta
+    , _checkpointPending     = applyDelta (_checkpointPending c) dcPending
+    , _checkpointBlockMeta   = applyDelta (_checkpointBlockMeta c) dcBlockMeta
     , _checkpointContext     = dcContext
-    , _checkpointForeign     = Pending.stepPending (_checkpointForeign c) dcForeign
+    , _checkpointForeign     = applyDelta (_checkpointForeign c) dcForeign
   }
 
-deltaPartialCheckpoint :: PartialCheckpoint -> PartialCheckpoint -> DeltaCheckpoint
-deltaPartialCheckpoint c c' = DeltaCheckpoint {
-    dcUtxo         = deltaUtxo (_pcheckpointUtxo c) (_pcheckpointUtxo c')
+findDeltaPartialCheckpoint :: PartialCheckpoint -> PartialCheckpoint -> DeltaCheckpoint
+findDeltaPartialCheckpoint c c' = DeltaCheckpoint {
+    dcUtxo         = findDelta (_pcheckpointUtxo c) (_pcheckpointUtxo c')
   , dcUtxoBalance  = _pcheckpointUtxoBalance c
-  , dcPending      = Pending.deltaPending (_pcheckpointPending c) (_pcheckpointPending c')
-  , dcBlockMeta    = deltaBlockMeta (localBlockMeta . _pcheckpointBlockMeta $ c)
+  , dcPending      = findDelta (_pcheckpointPending c) (_pcheckpointPending c')
+  , dcBlockMeta    = findDelta (localBlockMeta . _pcheckpointBlockMeta $ c)
                                     (localBlockMeta . _pcheckpointBlockMeta $ c')
-  , dcForeign      = Pending.deltaPending (_pcheckpointForeign c) (_pcheckpointForeign c')
+  , dcForeign      = findDelta (_pcheckpointForeign c) (_pcheckpointForeign c')
   , dcContext      = _pcheckpointContext c
 }
 
-stepPartialCheckpoint :: PartialCheckpoint -> DeltaCheckpoint -> PartialCheckpoint
-stepPartialCheckpoint c DeltaCheckpoint{..} =
+applyDeltaPartialCheckpoint :: PartialCheckpoint -> DeltaCheckpoint -> PartialCheckpoint
+applyDeltaPartialCheckpoint c DeltaCheckpoint{..} =
   PartialCheckpoint {
-    _pcheckpointUtxo          = stepUtxo (_pcheckpointUtxo c) dcUtxo
+    _pcheckpointUtxo          = applyDelta (_pcheckpointUtxo c) dcUtxo
     , _pcheckpointUtxoBalance = dcUtxoBalance
-    , _pcheckpointPending     = Pending.stepPending (_pcheckpointPending c) dcPending
-    , _pcheckpointBlockMeta   = LocalBlockMeta $ stepBlockMeta (localBlockMeta ._pcheckpointBlockMeta $ c) dcBlockMeta
-    , _pcheckpointForeign     = Pending.stepPending (_pcheckpointForeign c) dcForeign
+    , _pcheckpointPending     = applyDelta (_pcheckpointPending c) dcPending
+    , _pcheckpointBlockMeta   = LocalBlockMeta $ applyDelta (localBlockMeta ._pcheckpointBlockMeta $ c) dcBlockMeta
+    , _pcheckpointForeign     = applyDelta (_pcheckpointForeign c) dcForeign
     , _pcheckpointContext     = dcContext
   }
 

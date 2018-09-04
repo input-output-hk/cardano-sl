@@ -1,6 +1,6 @@
-{-# LANGUAGE BangPatterns       #-}
-{-# LANGUAGE StandaloneDeriving #-}
-
+{-# LANGUAGE BangPatterns           #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE StandaloneDeriving     #-}
 -- | General purpose utility functions
 module Cardano.Wallet.Kernel.Util (
     -- * Lists
@@ -32,9 +32,10 @@ module Cardano.Wallet.Kernel.Util (
     -- * Dealing with Void
   , mustBeRight
     -- * Compression
+  , Differentiable
   , MapDiff(..)
-  , deltaMap
-  , stepMap
+  , findDelta
+  , applyDelta
   ) where
 
 import           Universum
@@ -210,6 +211,9 @@ mustBeRight (Right b) = b
   Compression
 -------------------------------------------------------------------------------}
 
+class Differentiable a b | a -> b where
+  findDelta   :: a -> a -> b
+  applyDelta  :: a -> b -> a
 
 -- As a diff of two Maps we use the Map of new values (changed or completely new)
 -- plus a Set of deleted values.
@@ -218,17 +222,21 @@ data MapDiff k v = MapDiff {
     , setDiffDeleted :: Set.Set k
   }
 
+instance (Eq v, Ord k) => Differentiable (Map k v) (MapDiff k v) where
+  findDelta  = findDeltaMap
+  applyDelta = applyDeltaMap
+
 -- property: keys of the return set cannot be keys of the returned Map.
-deltaMap :: (Eq v, Ord k) => Map k v -> Map k v -> MapDiff k v
-deltaMap newMap oldMap =
+findDeltaMap :: (Eq v, Ord k) => Map k v -> Map k v -> MapDiff k v
+findDeltaMap newMap oldMap =
   let f newEntry oldEntry = if newEntry == oldEntry then Nothing else Just newEntry
       newEntries = Map.differenceWith f newMap oldMap -- this includes pairs that changed values.
       deletedKeys = Map.keysSet $ Map.difference oldMap newMap
   in MapDiff newEntries deletedKeys
 
 -- newEntries should have no keys in common with deletedKeys.
-stepMap :: Ord k => Map k v -> MapDiff k v -> Map k v
-stepMap oldMap (MapDiff newEntries deletedKeys) =
+applyDeltaMap :: Ord k => Map k v -> MapDiff k v -> Map k v
+applyDeltaMap oldMap (MapDiff newEntries deletedKeys) =
   Map.union newEntries lighterMap -- for common keys, union prefers the newPairs values.
     where lighterMap = Map.withoutKeys oldMap deletedKeys
 

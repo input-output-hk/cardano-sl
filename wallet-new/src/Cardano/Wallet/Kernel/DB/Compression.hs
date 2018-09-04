@@ -1,4 +1,12 @@
-module Cardano.Wallet.Kernel.DB.Compression where
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
+module Cardano.Wallet.Kernel.DB.Compression (
+    DeltaCheckpoint (..)
+  , UtxoDiff
+  , BlockMetaDiff
+  , BlockMetaSlotIdDiff
+  , BlockMetaAddressDiff
+  ) where
 
 import           Universum
 
@@ -17,13 +25,8 @@ import           Test.Pos.Core.Arbitrary ()
 
 -- This module aims to help define memory efficient Safecopy instances for Checkpoints.
 -- This is done by defining new types, which are the diffs of the Checkpoints.
--- To achieve this we first define delta types for the building blocks of Checkpoint:
+-- To achieve this we first define diff types for the building blocks of Checkpoint:
 -- Map, Pending, BlockMeta and eventually Checkpoint.
---
--- To reduce boilerplate we could define a class like following:
--- class Differentiable A B | A -> B where
---   delta :: A -> A -> B
---   step  :: A -> B -> A
 
 -- | This is the Delta type for both Checkpoint and PartialCheckpoint
 data DeltaCheckpoint = DeltaCheckpoint {
@@ -40,18 +43,26 @@ type BlockMetaDiff = (BlockMetaSlotIdDiff, BlockMetaAddressDiff)
 type BlockMetaSlotIdDiff = InDb (MapDiff Core.TxId Core.SlotId)
 type BlockMetaAddressDiff = MapDiff (InDb Core.Address) AddressMeta
 
-deltaUtxo :: InDb Core.Utxo -> InDb Core.Utxo -> InDb UtxoDiff
-deltaUtxo inm inm' = deltaMap <$> inm <*> inm'
+instance Differentiable (InDb Core.Utxo) (InDb UtxoDiff) where
+  findDelta  = findDeltaUtxo
+  applyDelta = applyDeltaUtxo
 
-stepUtxo :: InDb Core.Utxo -> InDb UtxoDiff -> InDb Core.Utxo
-stepUtxo inu dinu = stepMap <$> inu <*> dinu
+findDeltaUtxo :: InDb Core.Utxo -> InDb Core.Utxo -> InDb UtxoDiff
+findDeltaUtxo inm inm' = findDelta <$> inm <*> inm'
 
-deltaBlockMeta :: BlockMeta -> BlockMeta -> BlockMetaDiff
-deltaBlockMeta (BlockMeta bmsi bma) (BlockMeta bmsi' bma') =
-  (deltaMap <$> bmsi <*> bmsi', deltaMap bma bma')
+applyDeltaUtxo :: InDb Core.Utxo -> InDb UtxoDiff -> InDb Core.Utxo
+applyDeltaUtxo inu dinu = applyDelta <$> inu <*> dinu
 
-stepBlockMeta :: BlockMeta -> BlockMetaDiff -> BlockMeta
-stepBlockMeta (BlockMeta bmsi bms) (dbmsi, dbms) =
-  BlockMeta (stepMap <$> bmsi <*> dbmsi) (stepMap bms dbms)
+instance Differentiable BlockMeta BlockMetaDiff where
+  findDelta = findDeltaBlockMeta
+  applyDelta = applyDeltaBlockMeta
+
+findDeltaBlockMeta :: BlockMeta -> BlockMeta -> BlockMetaDiff
+findDeltaBlockMeta (BlockMeta bmsi bma) (BlockMeta bmsi' bma') =
+  (findDelta <$> bmsi <*> bmsi', findDelta bma bma')
+
+applyDeltaBlockMeta :: BlockMeta -> BlockMetaDiff -> BlockMeta
+applyDeltaBlockMeta (BlockMeta bmsi bms) (dbmsi, dbms) =
+  BlockMeta (applyDelta <$> bmsi <*> dbmsi) (applyDelta bms dbms)
 
 SC.deriveSafeCopy 1 'SC.base ''DeltaCheckpoint

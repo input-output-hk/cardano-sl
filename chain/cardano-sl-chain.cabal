@@ -263,6 +263,8 @@ test-suite test
                        ScopedTypeVariables
                        MonadFailDesugaring
 
+  ghc-options:         -Wall
+
 benchmark block-bench
   main-is:             block-bench.hs
   hs-source-dirs:      bench test
@@ -277,7 +279,7 @@ benchmark block-bench
                        Test.Pos.Chain.Update.Arbitrary
                        Test.Pos.Chain.Update.Arbitrary.Core
 
-  ghc-options: -O2
+  ghc-options:         -Wall -O2
   build-depends:       QuickCheck
                      , base
                      , bytestring
@@ -296,3 +298,5 @@ benchmark block-bench
                      , text
                      , universum
                      , unordered-containers
+
+  default-extensions:  NoImplicitPrelude

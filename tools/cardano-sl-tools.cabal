@@ -570,6 +570,8 @@ library
                      , universum >= 0.1.11
                      , unordered-containers
 
+  default-extensions:   NoImplicitPrelude
+
 test-suite cardano-sl-tools-test
   main-is:             Test.hs
   other-modules:

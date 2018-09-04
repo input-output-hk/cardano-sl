@@ -44,6 +44,7 @@ import           Cardano.Wallet.API.Response (JSONValidationError)
 import           Cardano.Wallet.API.V1.Migration.Types (Migrate (..),
                      MigrationError)
 import           Cardano.Wallet.API.V1.Types
+import           Cardano.Wallet.Kernel.DB.HdWallet (HdRoot)
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
 import           Cardano.Wallet.Orphans ()
 import qualified Cardano.Wallet.Util as Util
@@ -162,6 +163,7 @@ spec = parallel $ describe "Marshalling & Unmarshalling" $ do
         safeCopyRoundTrip @(InDb Core.MainBlockHeader)
         safeCopyRoundTrip @(InDb Core.MainConsensusData)
         safeCopyRoundTrip @(InDb Core.BlockSignature)
+        safeCopyRoundTrip @(IxSet HdRoot)
 
         -- Other roundtrips
         generalRoundtripProp "UTC time" Util.showApiUtcTime Util.parseApiUtcTime

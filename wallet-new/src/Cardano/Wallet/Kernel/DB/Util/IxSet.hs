@@ -167,6 +167,9 @@ newtype IxSet a = WrapIxSet {
       unwrapIxSet :: IxSet.IxSet (PrimKey a ': IndicesOf a) (OrdByPrimKey a)
     }
 
+instance Indexable a => Eq (IxSet a) where
+    (WrapIxSet i1) == (WrapIxSet i2) = i1 == i2
+
 instance Show a => Show (IxSet a) where
     show = show . toList
 

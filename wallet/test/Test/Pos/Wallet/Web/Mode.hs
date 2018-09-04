@@ -370,8 +370,8 @@ instance HasLens (StateLockMetrics MemPoolModifyReason) WalletTestContext (State
 
 instance HasConfigurations => MonadAddresses WalletTestMode where
     type AddrData WalletTestMode = (AccountId, PassPhrase)
-    getNewAddress _nm = getNewAddressWebWallet
-    getFakeChangeAddress nm = pure (largestHDAddressBoot nm)
+    getNewAddress = getNewAddressWebWallet
+    getFakeChangeAddress = pure . largestHDAddressBoot
 
 instance MonadKeysRead WalletTestMode where
     getSecret = getSecretDefault
@@ -393,8 +393,8 @@ instance MonadUpdates WalletTestMode where
     applyLastUpdate = applyLastUpdateWebWallet
 
 instance (HasConfigurations) => MonadBListener WalletTestMode where
-    onApplyBlocks _nm = onApplyBlocksWebWallet
-    onRollbackBlocks _nm = onRollbackBlocksWebWallet
+    onApplyBlocks = onApplyBlocksWebWallet
+    onRollbackBlocks = onRollbackBlocksWebWallet
 
 instance HasConfiguration => MonadBlockchainInfo WalletTestMode where
     networkChainDifficulty = networkChainDifficultyWebWallet

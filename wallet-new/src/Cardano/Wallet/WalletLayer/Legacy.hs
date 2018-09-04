@@ -16,16 +16,17 @@ import           Data.Coerce (coerce)
 import           Cardano.Wallet.WalletLayer.Error (WalletLayerError (..))
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
 
-import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.API.V1.Migration (migrate)
 import           Cardano.Wallet.API.V1.Migration.Types ()
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex, AccountUpdate, Address,
                                               NewAccount (..), NewWallet (..), V1 (..), Wallet,
                                               WalletId, WalletOperation (..), WalletUpdate)
+import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 
 import           Pos.Client.KeyStorage (MonadKeys)
 import           Pos.Core (ChainDifficulty)
-import           Pos.Crypto (PassPhrase)
+import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
+import           Pos.Crypto (PassPhrase, ProtocolMagic)
 
 import           Pos.Util (HasLens', maybeThrow)
 import           Pos.Wallet.Web.Account (GenSeed (..))
@@ -39,8 +40,8 @@ import           Pos.Wallet.Web.State.State (WalletDbReader, askWalletDB, askWal
 import           Pos.Wallet.Web.State.Storage (getWalletInfo)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 
-import           Pos.Core.Chrono (NE, OldestFirst (..), NewestFirst (..))
 import           Pos.Block.Types (Blund)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 
 
 -- | Let's unify all the requirements for the legacy wallet.
@@ -58,24 +59,26 @@ type MonadLegacyWallet ctx m =
 -- The passive wallet cannot send new transactions.
 bracketPassiveWallet
     :: forall ctx m n a. (MonadMask n, MonadLegacyWallet ctx m)
-    => (PassiveWalletLayer m -> n a) -> n a
-bracketPassiveWallet =
+    => ProtocolMagic -> (PassiveWalletLayer m -> n a) -> n a
+bracketPassiveWallet pm =
     bracket
         (pure passiveWalletLayer)
         (\_ -> return ())
   where
+    nm = makeNetworkMagic pm
+    --
     passiveWalletLayer :: PassiveWalletLayer m
     passiveWalletLayer = PassiveWalletLayer
-        { _pwlCreateWallet   = pwlCreateWallet
+        { _pwlCreateWallet   = pwlCreateWallet nm
         , _pwlGetWalletIds   = pwlGetWalletIds
-        , _pwlGetWallet      = pwlGetWallet
-        , _pwlUpdateWallet   = pwlUpdateWallet
-        , _pwlDeleteWallet   = pwlDeleteWallet
+        , _pwlGetWallet      = pwlGetWallet nm
+        , _pwlUpdateWallet   = pwlUpdateWallet nm
+        , _pwlDeleteWallet   = pwlDeleteWallet nm
 
-        , _pwlCreateAccount  = pwlCreateAccount
-        , _pwlGetAccounts    = pwlGetAccounts
-        , _pwlGetAccount     = pwlGetAccount
-        , _pwlUpdateAccount  = pwlUpdateAccount
+        , _pwlCreateAccount  = pwlCreateAccount nm
+        , _pwlGetAccounts    = pwlGetAccounts nm
+        , _pwlGetAccount     = pwlGetAccount nm
+        , _pwlUpdateAccount  = pwlUpdateAccount nm
         , _pwlDeleteAccount  = pwlDeleteAccount
 
         , _pwlGetAddresses   = pwlGetAddresses
@@ -103,9 +106,10 @@ bracketActiveWallet walletPassiveLayer _walletDiffusion =
 
 pwlCreateWallet
     :: forall ctx m. (MonadLegacyWallet ctx m)
-    => NewWallet
+    => NetworkMagic
+    -> NewWallet
     -> m Wallet
-pwlCreateWallet NewWallet{..} = do
+pwlCreateWallet nm NewWallet{..} = do
 
     let spendingPassword = fromMaybe mempty $ coerce newwalSpendingPassword
     let backupPhrase     = coerce newwalBackupPhrase
@@ -121,12 +125,12 @@ pwlCreateWallet NewWallet{..} = do
     wId         <- migrate $ cwId wallet
 
     -- Get wallet or throw if missing.
-    maybeThrow (WalletNotFound wId) =<< pwlGetWallet wId
+    maybeThrow (WalletNotFound wId) =<< pwlGetWallet nm wId
   where
     -- | We have two functions which are very similar.
     newWalletHandler :: WalletOperation -> PassPhrase -> CWalletInit -> m CWallet
-    newWalletHandler CreateWallet  = newWallet
-    newWalletHandler RestoreWallet = restoreWalletFromSeed
+    newWalletHandler CreateWallet  = newWallet nm
+    newWalletHandler RestoreWallet = restoreWalletFromSeed nm
     -- NOTE: this is temporary solution until we get rid of V0 error handling and/or we lift error handling into types:
     --   https://github.com/input-output-hk/cardano-sl/pull/2811#discussion_r183469153
     --   https://github.com/input-output-hk/cardano-sl/pull/2811#discussion_r183472103
@@ -145,13 +149,14 @@ pwlGetWalletIds = do
 
 pwlGetWallet
     :: forall ctx m. (MonadLegacyWallet ctx m)
-    => WalletId
+    => NetworkMagic
+    -> WalletId
     -> m (Maybe Wallet)
-pwlGetWallet wId = do
+pwlGetWallet nm wId = do
     ws          <- askWalletSnapshot
 
     cWId        <- migrate wId
-    wallet      <- V0.getWallet cWId
+    wallet      <- V0.getWallet nm cWId
 
     pure $ do
         walletInfo  <- getWalletInfo cWId ws
@@ -161,10 +166,11 @@ pwlGetWallet wId = do
 
 pwlUpdateWallet
     :: forall ctx m. (MonadLegacyWallet ctx m)
-    => WalletId
+    => NetworkMagic
+    -> WalletId
     -> WalletUpdate
     -> m Wallet
-pwlUpdateWallet wId wUpdate = do
+pwlUpdateWallet nm wId wUpdate = do
     walletDB    <- askWalletDB
 
     cWId        <- migrate wId
@@ -174,19 +180,20 @@ pwlUpdateWallet wId wUpdate = do
     setWalletMeta walletDB cWId cWMeta
 
     -- Get wallet or throw if missing.
-    maybeThrow (WalletNotFound wId) =<< pwlGetWallet wId
+    maybeThrow (WalletNotFound wId) =<< pwlGetWallet nm wId
 
 -- | Seems silly, but we do need some sort of feedback from
 -- the DB.
 pwlDeleteWallet
     :: forall ctx m. (MonadLegacyWallet ctx m)
-    => WalletId
+    => NetworkMagic
+    -> WalletId
     -> m Bool
-pwlDeleteWallet wId = do
+pwlDeleteWallet nm wId = do
     cWId        <- migrate wId
     -- TODO(ks): It would be better to catch specific @Exception@.
     -- Maybe @try@?
-    catchAll (const True <$> V0.deleteWallet cWId) (const . pure $ False)
+    catchAll (const True <$> V0.deleteWallet nm cWId) (const . pure $ False)
 
 ------------------------------------------------------------
 -- Account
@@ -194,47 +201,51 @@ pwlDeleteWallet wId = do
 
 pwlCreateAccount
     :: forall ctx m. (MonadLegacyWallet ctx m)
-    => WalletId
+    => NetworkMagic
+    -> WalletId
     -> NewAccount
     -> m Account
-pwlCreateAccount wId newAcc@NewAccount{..} = do
+pwlCreateAccount nm wId newAcc@NewAccount{..} = do
 
     let spendingPassword = fromMaybe mempty . fmap coerce $ naccSpendingPassword
 
     accInit     <- migrate (wId, newAcc)
-    cAccount    <- V0.newAccount RandomSeed spendingPassword accInit
+    cAccount    <- V0.newAccount nm RandomSeed spendingPassword accInit
 
     migrate cAccount
 
 pwlGetAccounts
     :: forall ctx m. (MonadLegacyWallet ctx m)
-    => WalletId
+    => NetworkMagic
+    -> WalletId
     -> m [Account]
-pwlGetAccounts wId = do
+pwlGetAccounts nm wId = do
     cWId        <- migrate wId
-    cAccounts   <- V0.getAccounts $ Just cWId
+    cAccounts   <- V0.getAccounts nm $ Just cWId
     migrate cAccounts
 
 pwlGetAccount
     :: forall ctx m. (MonadLegacyWallet ctx m)
-    => WalletId
+    => NetworkMagic
+    -> WalletId
     -> AccountIndex
     -> m (Maybe Account)
-pwlGetAccount wId aId = do
+pwlGetAccount nm wId aId = do
     accId       <- migrate (wId, aId)
-    account     <- V0.getAccount accId
+    account     <- V0.getAccount nm accId
     Just <$> migrate account
 
 pwlUpdateAccount
     :: forall ctx m. (MonadLegacyWallet ctx m)
-    => WalletId
+    => NetworkMagic
+    -> WalletId
     -> AccountIndex
     -> AccountUpdate
     -> m Account
-pwlUpdateAccount wId accIdx accUpdate = do
+pwlUpdateAccount nm wId accIdx accUpdate = do
     newAccId    <- migrate (wId, accIdx)
     accMeta     <- migrate accUpdate
-    cAccount    <- V0.updateAccount newAccId accMeta
+    cAccount    <- V0.updateAccount nm newAccId accMeta
     migrate cAccount
 
 pwlDeleteAccount

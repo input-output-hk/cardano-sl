@@ -22,6 +22,7 @@ import           Pos.Arbitrary.Wallet.Web.ClientTypes ()
 import           Pos.Block.Logic (rollbackBlocks)
 import           Pos.Core (Address, BlockCount (..), blkSecurityParam)
 import           Pos.Core.Chrono (nonEmptyOldestFirst, toNewestFirst)
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..), emptyPassphrase)
 import           Pos.Launcher (HasConfigurations)
 
@@ -81,9 +82,10 @@ twoApplyTwoRollbacksSpec pm = walletPropertySpec twoApplyTwoRollbacksDesc $ do
     let k = fromIntegral blkSecurityParam :: Word64
     -- During these tests we need to manually switch back to the old synchronous
     -- way of restoring.
-    void $ importSomeWallets (pure emptyPassphrase)
+    let nm = makeNetworkMagic pm
+    void $ importSomeWallets nm (pure emptyPassphrase)
     sks <- lift getSecretKeysPlain
-    lift $ forM_ sks $ \s -> syncWalletWithBlockchain (newSyncRequest (eskToWalletDecrCredentials s))
+    lift $ forM_ sks $ \s -> syncWalletWithBlockchain (newSyncRequest (eskToWalletDecrCredentials nm s))
 
     -- Testing starts here
     genesisWalletDB <- lift WS.askWalletSnapshot

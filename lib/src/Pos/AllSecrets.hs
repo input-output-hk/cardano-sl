@@ -27,7 +27,7 @@ import           Pos.Binary.Core ()
 import           Pos.Core (AddrSpendingData (..), Address, IsBootstrapEraAddr (..), StakeholderId,
                            addressHash, checkAddrSpendingData, makePubKeyAddress,
                            makePubKeyAddressBoot)
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
+import           Pos.Core.NetworkMagic (NetworkMagic)
 import           Pos.Crypto (PublicKey, SecretKey, toPublic)
 
 -- | This map effectively provides inverse of 'hash' and
@@ -85,14 +85,13 @@ instance Buildable AllSecrets where
 -- | Make simple 'AllSecrets' assuming that only public key addresses
 -- with bootstrap era distribution and single key distribution exist
 -- in the system.
-mkAllSecretsSimple :: [SecretKey] -> AllSecrets
-mkAllSecretsSimple sks =
+mkAllSecretsSimple :: NetworkMagic -> [SecretKey] -> AllSecrets
+mkAllSecretsSimple nm sks =
     AllSecrets
     { _asSecretKeys = mkInvSecretsMap sks
     , _asSpendingData = invAddrSpendingData
     }
   where
-    nm = fixedNM
     pks :: [PublicKey]
     pks = map toPublic sks
     spendingDataList = map PubKeyASD pks
@@ -102,7 +101,3 @@ mkAllSecretsSimple sks =
         mkInvAddrSpendingData $
         zip addressesNonBoot spendingDataList <>
         zip addressesBoot spendingDataList
-
-
-fixedNM :: NetworkMagic
-fixedNM = NMNothing

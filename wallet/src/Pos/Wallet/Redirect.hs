@@ -31,6 +31,7 @@ import qualified Pos.Context as PC
 import           Pos.Core (ChainDifficulty, HasConfiguration, Timestamp, Tx, TxAux (..), TxId,
                            TxUndo, difficultyL, getCurrentTimestamp)
 import           Pos.Core.Block (BlockHeader)
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (ProtocolMagic, WithHash (..))
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
@@ -131,11 +132,14 @@ txpProcessTxWebWallet
     , AccountMode ctx m
     , WS.WalletDbReader ctx m
     )
-    => ProtocolMagic -> (TxId, TxAux) -> m (Either ToilVerFailure ())
+    => ProtocolMagic
+    -> (TxId, TxAux)
+    -> m (Either ToilVerFailure ())
 txpProcessTxWebWallet pm tx@(txId, txAux) = do
     db <- WS.askWalletDB
     txProcessTransaction pm tx >>= traverse (const $ addTxToWallets db)
   where
+    nm = makeNetworkMagic pm
     addTxToWallets :: WS.WalletDB -> m ()
     addTxToWallets db = do
         txUndos <- withTxpLocalData getLocalUndos
@@ -152,7 +156,7 @@ txpProcessTxWebWallet pm tx@(txId, txAux) = do
 
     toThee :: (WithHash Tx, TxUndo) -> Timestamp -> CId Wal -> m (CId Wal, THEntryExtra)
     toThee txWithUndo ts wId = do
-        wdc <- eskToWalletDecrCredentials <$> getSKById wId
+        wdc <- eskToWalletDecrCredentials nm <$> getSKById nm wId
         pure (wId, buildTHEntryExtra wdc txWithUndo (Nothing, Just ts))
 
 txpNormalizeWebWallet

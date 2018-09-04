@@ -26,6 +26,7 @@ import           Servant.Server (Handler)
 import           System.Wlog (logInfo, usingLoggerName)
 
 import           Cardano.NodeIPC (startNodeJsIPC)
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
 import           Pos.Infra.Shutdown.Class (HasShutdownContext (shutdownContext))
@@ -85,7 +86,7 @@ walletServeWebFull pm diffusion ntpStatus debug address mTlsParams = do
     action :: WalletWebMode Application
     action = do
         logInfo "Wallet Web API has STARTED!"
-        when debug $ addInitialRichAccount 0
+        when debug $ addInitialRichAccount (makeNetworkMagic pm) 0
 
         wwmc <- walletWebModeContext
         walletApplication $

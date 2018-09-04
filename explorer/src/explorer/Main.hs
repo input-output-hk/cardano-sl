@@ -30,8 +30,8 @@ import           Pos.Explorer.Txp (ExplorerExtraModifier, explorerTxpGlobalSetti
 import           Pos.Explorer.Web (ExplorerProd, explorerPlugin, notifierPlugin, runExplorerProd)
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeParams (..),
-                               NodeResources (..), bracketNodeResources,
-                               loggerBracket, runNode, runRealMode, withConfigurations)
+                               NodeResources (..), bracketNodeResources, loggerBracket, runNode,
+                               runRealMode, withConfigurations)
 import           Pos.Launcher.Configuration (AssetLockPath (..))
 import           Pos.Update.Worker (updateTriggerWorker)
 import           Pos.Util (logException)
@@ -66,7 +66,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
 
         let plugins :: [Diffusion ExplorerProd -> ExplorerProd ()]
             plugins =
-                [ explorerPlugin webPort
+                [ explorerPlugin pm webPort
                 , notifierPlugin NotifierSettings{ nsPort = notifierPort }
                 , updateTriggerWorker
                 ]

@@ -433,4 +433,4 @@ sumCoinOfInputsOutputs addressListMB
 --------------------------------------------------------------------------------
 
 instance Arbitrary CAddress where
-    arbitrary = toCAddress . secretKeyToAddress <$> arbitrary
+    arbitrary = toCAddress <$> (secretKeyToAddress <$> arbitrary <*> arbitrary)

@@ -39,7 +39,7 @@ import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), Epoch
                            headerHash, makePubKeyAddressBoot)
 import           Pos.Core.Block (Block, BlockHeader, GenesisBlock, MainBlock, getBlockHeader)
 import           Pos.Core.Block.Constructors (mkGenesisBlock)
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
+import           Pos.Core.NetworkMagic (NetworkMagic)
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpdatePayload (..))
@@ -399,9 +399,5 @@ produceSecretKeys blocksNumber = liftIO $ secretKeys
 -- | Factory to create an `Address`
 -- | Friendly borrowed from `Test.Pos.Client.Txp.UtilSpec`
 -- | TODO: Remove it as soon as ^ is exposed
-secretKeyToAddress :: SecretKey -> Address
-secretKeyToAddress = makePubKeyAddressBoot fixedNM . toPublic
-
-
-fixedNM :: NetworkMagic
-fixedNM = NMNothing
+secretKeyToAddress :: NetworkMagic -> SecretKey -> Address
+secretKeyToAddress nm = makePubKeyAddressBoot nm . toPublic

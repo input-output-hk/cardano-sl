@@ -48,10 +48,10 @@ specBody pm = withProvidedMagicConfig pm $
            (restoreWalletAddressFromBackupSpec (makeNetworkMagic pm))
 
 restoreWalletAddressFromBackupSpec :: HasConfigurations => NetworkMagic -> Spec
-restoreWalletAddressFromBackupSpec _nm =
+restoreWalletAddressFromBackupSpec nm =
     walletPropertySpec restoreWalletAddressFromBackupDesc $ do
         walletBackup   <- pick arbitrary
-        restoredWallet <- lift $ restoreWalletFromBackup walletBackup
+        restoredWallet <- lift $ restoreWalletFromBackup nm walletBackup
         let noOfAccounts = cwAccountsNumber restoredWallet
         assertProperty (noOfAccounts > 0) $ "Exported wallet has no accounts!"
   where

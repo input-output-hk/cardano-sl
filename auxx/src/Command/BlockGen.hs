@@ -14,6 +14,7 @@ import           System.Wlog (logInfo)
 import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Core (gdBootStakeholders, genesisData)
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (ProtocolMagic, encToSecret)
 import           Pos.Generator.Block (BlockGenParams (..), genBlocks, tgpTxCountRange)
 import           Pos.Infra.StateLock (Priority (..), withStateLock)
@@ -30,7 +31,8 @@ generateBlocks pm GenBlocksParams{..} = withStateLock HighPriority ApplyBlock $ 
     seed <- liftIO $ maybe randomIO pure bgoSeed
     logInfo $ "Generating with seed " <> show seed
 
-    allSecrets <- mkAllSecretsSimple . map encToSecret <$> getSecretKeysPlain
+    let nm = makeNetworkMagic pm
+    allSecrets <- mkAllSecretsSimple nm . map encToSecret <$> getSecretKeysPlain
 
     let bgenParams =
             BlockGenParams

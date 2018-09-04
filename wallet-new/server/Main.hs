@@ -14,6 +14,7 @@ import           Mockable (Production (..), runProduction)
 import           Ntp.Client (NtpStatus, withNtpClient)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Core (epochSlots)
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Infra.Diffusion.Types (Diffusion)
@@ -21,7 +22,8 @@ import           Pos.Infra.Ntp.Configuration (NtpConfiguration, ntpClientSetting
 import           Pos.Launcher (NodeParams (..), NodeResources (..), bpLoggingParams,
                                bracketNodeResources, loggerBracket, lpDefaultName, runNode,
                                withConfigurations)
-import           Pos.Launcher.Configuration (AssetLockPath (..), ConfigurationOptions, HasConfigurations)
+import           Pos.Launcher.Configuration (AssetLockPath (..), ConfigurationOptions,
+                                             HasConfigurations)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (logException)
@@ -72,6 +74,8 @@ actionWithWallet pm sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..
                     ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
                     runWRealMode pm db conn syncQueue nr (mainAction ntpStatus nr)
   where
+    nm = makeNetworkMagic pm
+
     mainAction ntpStatus = runNodeWithInit ntpStatus $ do
         when (walletFlushDb walletDbOptions) $ do
             logInfo "Flushing wallet db..."
@@ -90,8 +94,8 @@ actionWithWallet pm sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..
     syncWallets :: WalletWebMode ()
     syncWallets = do
         addrs <- getWalletAddresses <$> askWalletSnapshot
-        sks <- mapM getSKById addrs
-        forM_ sks (syncWallet . eskToWalletDecrCredentials)
+        sks <- mapM (getSKById nm) addrs
+        forM_ sks (syncWallet . eskToWalletDecrCredentials nm)
 
     plugins :: TVar NtpStatus -> Plugins.Plugin WalletWebMode
     plugins ntpStatus =
@@ -120,7 +124,7 @@ actionWithNewWallet pm sscParams nodeParams params =
       -- 'NewWalletBackendParams' to construct or initialize the wallet
 
       -- TODO(ks): Currently using non-implemented layer for wallet layer.
-      bracketKernelPassiveWallet logMessage' $ \wallet -> do
+      bracketKernelPassiveWallet pm logMessage' $ \wallet -> do
         liftIO $ logMessage' Info "Wallet kernel initialized"
         Kernel.Mode.runWalletMode pm nr wallet (mainAction wallet nr)
   where

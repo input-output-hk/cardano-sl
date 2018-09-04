@@ -1,5 +1,6 @@
 module Cardano.Wallet.Kernel.Accounts (
-      createAccount
+      createHdRandomAccount
+    , createHdFixedAccount
     , deleteAccount
     , updateAccount
     -- * Errors
@@ -15,8 +16,6 @@ import qualified Formatting.Buildable
 import           System.Random.MWC (GenIO, createSystemRandom, uniformR)
 
 import           Data.Acid (update)
-
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase)
 
 import           Cardano.Wallet.Kernel.DB.AcidState (CreateHdAccount (..), DB,
                      DeleteHdAccount (..), UpdateHdAccountName (..))
@@ -44,6 +43,9 @@ data CreateAccountError =
     | CreateAccountKeystoreNotFound WalletId
       -- ^ When trying to create the 'Account', the 'Keystore' didn't have
       -- any secret associated with the input 'WalletId'.
+    | CreateAccountAlreadyExists HdRootId HdAccountIx
+      -- ^ When creating a certain account, the account already existed in
+      -- the database.
     | CreateAccountHdRndAccountSpaceSaturated HdRootId
       -- ^ The available number of HD accounts in use is such that trying
       -- to find another random index would be too expensive.
@@ -57,6 +59,8 @@ instance Buildable CreateAccountError where
         bprint ("CreateAccountUnknownHdRoot " % F.build) uRoot
     build (CreateAccountKeystoreNotFound accId) =
         bprint ("CreateAccountKeystoreNotFound " % F.build) accId
+    build (CreateAccountAlreadyExists rootId accId) =
+        bprint ("CreateAccountAlreadyExists " % F.build % F.build) rootId accId
     build (CreateAccountHdRndAccountSpaceSaturated hdAcc) =
         bprint ("CreateAccountHdRndAccountSpaceSaturated " % F.build) hdAcc
 
@@ -65,42 +69,90 @@ instance Show CreateAccountError where
 
 instance Exception CreateAccountError
 
+
+createHdRandomAccount :: AccountName
+                      -- ^ The name for this account.
+                      -> WalletId
+                      -- ^ An abstract notion of a 'Wallet identifier
+                      -> PassiveWallet
+                      -> IO (Either CreateAccountError HdAccount)
+createHdRandomAccount = createAccount newHdRndAccount
+
+-- | Creates an 'HdAccount' from a @fixed@ index. Note how, despite tempting,
+-- it's incorrect to call this @sequential generation@, as in such case the
+-- index wouldn't be passed but merely an internal detail of such function.
+-- @fixed@ here really means "externally provided".
+createHdFixedAccount :: HdAccountIx
+                     -- ^ The account index to target
+                     -> AccountName
+                     -- ^ The name for this account.
+                     -> WalletId
+                     -- ^ An abstract notion of a 'Wallet identifier
+                     -> PassiveWallet
+                     -> IO (Either CreateAccountError HdAccount)
+createHdFixedAccount newIndex = createAccount (newHdFixedAccount newIndex)
+
+
+type MkNewAccount = AccountName
+                  -> HdRootId
+                  -> PassiveWallet
+                  -> IO (Either CreateAccountError HdAccount)
+
 -- | Creates a new 'Account' for the input wallet.
 -- Note: @it does not@ generate a new 'Address' to go in tandem with this
--- 'Account'. This will be responsibility of the wallet layer.
-createAccount :: PassPhrase
-              -- ^ The 'Passphrase' (a.k.a the \"Spending Password\").
+-- 'Account'. This will be responsibility of the caller.
+createAccount :: MkNewAccount
+              -- ^ A function to create the account.
               -> AccountName
               -- ^ The name for this account.
               -> WalletId
               -- ^ An abstract notion of a 'Wallet identifier
               -> PassiveWallet
               -> IO (Either CreateAccountError HdAccount)
-createAccount spendingPassword accountName walletId pw = do
+createAccount creationFunction accountName walletId pw = do
     let keystore = pw ^. walletKeystore
     case walletId of
          WalletIdHdRnd hdRootId -> do
              mbEsk <- Keystore.lookup (WalletIdHdRnd hdRootId) keystore
              case mbEsk of
                   Nothing  -> return (Left $ CreateAccountKeystoreNotFound walletId)
-                  Just esk ->
-                      createHdRndAccount spendingPassword
-                                         accountName
-                                         esk
-                                         hdRootId
-                                         pw
+                  Just _   -> creationFunction accountName hdRootId pw
+
+newHdFixedAccount :: HdAccountIx
+                  -> AccountName
+                  -> HdRootId
+                  -> PassiveWallet
+                  -> IO (Either CreateAccountError HdAccount)
+newHdFixedAccount newIndex accountName rootId pw = do
+    let hdAccountId = HdAccountId rootId newIndex
+        newAccount  = initHdAccount hdAccountId initialAccountState &
+                      hdAccountName .~ accountName
+        db = pw ^. wallets
+    res <- update db (CreateHdAccount newAccount)
+    case res of
+         (Left (CreateHdAccountExists _)) ->
+             -- Nothing we can do; we were asked to create a specific account
+             -- with a specific index, but there was a collision in the DB
+             return (Left $ CreateAccountAlreadyExists rootId newIndex)
+         (Left (CreateHdAccountUnknownRoot _)) ->
+             return (Left $ CreateAccountUnknownHdRoot rootId)
+         Right () -> return (Right newAccount)
+
+-- | The initial state for a newly-created account.
+initialAccountState :: HdAccountState
+initialAccountState = HdAccountStateUpToDate HdAccountUpToDate {
+      _hdUpToDateCheckpoints = Checkpoints . one $ initCheckpoint mempty
+    }
 
 -- | Creates a new 'Account' using the random HD derivation under the hood.
 -- This code follows the same pattern of 'createHdRndAddress', but the two
 -- functions are "similarly different" enough to not make convenient generalise
 -- the code.
-createHdRndAccount :: PassPhrase
-                   -> AccountName
-                   -> EncryptedSecretKey
-                   -> HdRootId
-                   -> PassiveWallet
-                   -> IO (Either CreateAccountError HdAccount)
-createHdRndAccount _spendingPassword accountName _esk rootId pw = do
+newHdRndAccount :: AccountName
+                -> HdRootId
+                -> PassiveWallet
+                -> IO (Either CreateAccountError HdAccount)
+newHdRndAccount accountName rootId pw = do
     gen <- createSystemRandom
     go gen 0
     where
@@ -117,7 +169,7 @@ createHdRndAccount _spendingPassword accountName _esk rootId pw = do
         tryGenerateAccount gen collisions = do
             newIndex <- deriveIndex (flip uniformR gen) HdAccountIx HardDerivation
             let hdAccountId = HdAccountId rootId newIndex
-                newAccount  = initHdAccount hdAccountId initState &
+                newAccount  = initHdAccount hdAccountId initialAccountState &
                               hdAccountName .~ accountName
                 db = pw ^. wallets
             res <- update db (CreateHdAccount newAccount)
@@ -138,11 +190,6 @@ createHdRndAccount _spendingPassword accountName _esk rootId pw = do
         maxAllowedCollisions :: Word32
         maxAllowedCollisions = 42
 
-        -- Initial account state
-        initState :: HdAccountState
-        initState = HdAccountStateUpToDate HdAccountUpToDate {
-              _hdUpToDateCheckpoints = Checkpoints . one $ initCheckpoint mempty
-            }
 
 -- | Deletes an HD 'Account' from the data storage.
 deleteAccount :: HdAccountId

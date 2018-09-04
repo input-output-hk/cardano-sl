@@ -1,5 +1,6 @@
 module Cardano.Wallet.WalletLayer.Kernel.Accounts (
     createAccount
+  , createHdAccount
   , getAccount
   , getAccountBalance
   , getAccountAddresses
@@ -28,52 +29,73 @@ import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import qualified Cardano.Wallet.Kernel.Internal as Kernel
 import qualified Cardano.Wallet.Kernel.Read as Kernel
 import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
-import           Cardano.Wallet.WalletLayer (CreateAccountError (..),
-                     DeleteAccountError (..), GetAccountError (..),
-                     GetAccountsError (..), UpdateAccountError (..))
+import           Cardano.Wallet.WalletLayer (CreateAccount (..),
+                     CreateAccountError (..), DeleteAccountError (..),
+                     GetAccountError (..), GetAccountsError (..),
+                     UpdateAccountError (..))
 import           Cardano.Wallet.WalletLayer.Kernel.Conv
 
 createAccount :: MonadIO m
               => Kernel.PassiveWallet
               -> V1.WalletId
-              -> V1.NewAccount
+              -> CreateAccount
               -> m (Either CreateAccountError V1.Account)
-createAccount wallet wId (V1.NewAccount mbSpendingPassword accountName) = liftIO $ runExceptT $  do
-    rootId <- withExceptT CreateAccountWalletIdDecodingFailed $
-                fromRootId wId
-    acc    <- withExceptT CreateAccountError $ ExceptT $ liftIO $
-                Kernel.createAccount passPhrase
-                                     (HD.AccountName accountName)
-                                     (WalletIdHdRnd rootId)
-                                     wallet
-    let accId = acc ^. HD.hdAccountId
-    -- Create a new address to go in tandem with this brand-new 'Account'.
-    fmap (mkAccount accId) $
-      withExceptT CreateAccountFirstAddressGenerationFailed $ ExceptT $ liftIO $
-        Kernel.createAddress passPhrase (AccountIdHdRnd accId) wallet
+createAccount wallet wId createAccountRequest = liftIO $ do
+    either (Left . identity) (Right . uncurry mkAccount)
+      <$> createHdAccount wallet wId createAccountRequest
   where
-    passPhrase = maybe mempty coerce mbSpendingPassword
-
     -- We cannot use the general 'fromAccount' function here since we lack
     -- a DB snapshot. We /could/ in principle ask for a snapshot and use that,
     -- but if meanwhile the account has already been changed that might lead
     -- to confusing results. Modifying the kernel code to do this atomically
     -- and return the (single) final snapshot might be possible but right now
     -- is more difficult than it appears (I've tried).
-    mkAccount :: HD.HdAccountId -> V1.Address -> V1.Account
-    mkAccount accId addr = V1.Account {
-        accIndex     = toAccountId accId
+    mkAccount :: HD.HdAccount -> HD.HdAddress -> V1.Account
+    mkAccount acc addr = V1.Account {
+        accIndex     = toAccountId (acc ^. HD.hdAccountId)
       , accAmount    = V1.V1 (Core.mkCoin 0)
-      , accName      = accountName
+      , accName      = V1.naccName (toNewAccountRq createAccountRequest)
       , accWalletId  = wId
-      , accAddresses = [
-            V1.WalletAddress {
-                addrId            = V1.V1 addr
-              , addrUsed          = False
-              , addrChangeAddress = False
-              }
-          ]
+      , accAddresses = [ toAddress acc addr ]
       }
+
+createHdAccount :: MonadIO m
+                => Kernel.PassiveWallet
+                -> V1.WalletId
+                -> CreateAccount
+                -> m (Either CreateAccountError (HD.HdAccount, HD.HdAddress))
+createHdAccount wallet wId createAccountRequest = liftIO $ runExceptT $  do
+    let (V1.NewAccount mbSpendingPassword accountName) = toNewAccountRq createAccountRequest
+    rootId <- withExceptT CreateAccountWalletIdDecodingFailed $
+                fromRootId wId
+    acc    <- withExceptT CreateAccountError $ ExceptT $ liftIO $
+        case createAccountRequest of
+             CreateHdAccountRandomIndex _ ->
+                Kernel.createHdRandomAccount (HD.AccountName accountName)
+                                             (WalletIdHdRnd rootId)
+                                             wallet
+             CreateHdAccountFixedIndex newIndex _ ->
+                Kernel.createHdFixedAccount newIndex
+                                            (HD.AccountName accountName)
+                                            (WalletIdHdRnd rootId)
+                                            wallet
+    let accId = acc ^. HD.hdAccountId
+    -- Create a new address to go in tandem with this brand-new 'Account'.
+    fmap (acc,) $
+      withExceptT CreateAccountFirstAddressGenerationFailed $ ExceptT $ liftIO $
+        Kernel.createAddress (passPhrase mbSpendingPassword)
+                             (AccountIdHdRnd accId)
+                             wallet
+  where
+    passPhrase = maybe mempty coerce
+
+
+toNewAccountRq :: CreateAccount -> V1.NewAccount
+toNewAccountRq createAccountRequest =
+    case createAccountRequest of
+        CreateHdAccountFixedIndex _ rq -> rq
+        CreateHdAccountRandomIndex rq  -> rq
+
 
 -- | Retrieves a full set of accounts.
 getAccounts :: V1.WalletId

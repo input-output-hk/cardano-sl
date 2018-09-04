@@ -13,6 +13,7 @@ module Cardano.Wallet.WalletLayer.Kernel.Conv (
   , toAccount
   , toWallet
   , toAddress
+  , toCardanoAddress
   , toAssuranceLevel
   , toSyncState
     -- * Custom errors
@@ -36,7 +37,7 @@ import           Formatting (bprint, build, formatToString, sformat, shown, (%))
 import qualified Formatting.Buildable
 import qualified Serokell.Util.Base64 as B64
 
-import           Pos.Core (BlockCount (..), decodeTextAddress)
+import           Pos.Core (Address, BlockCount (..), decodeTextAddress)
 import           Pos.Crypto (AesKey, RedeemSecretKey, aesDecrypt,
                      redeemDeterministicKeyGen)
 
@@ -195,6 +196,9 @@ toAddress acc hdAddress =
   where
     cardanoAddress = hdAddress ^. HD.hdAddressAddress . fromDb
     addressMeta    = acc ^. HD.hdAccountState . HD.hdAccountStateCurrent . cpAddressMeta cardanoAddress
+
+toCardanoAddress :: HD.HdAddress -> Address
+toCardanoAddress hdAddress = hdAddress ^. HD.hdAddressAddress . fromDb
 
 {-------------------------------------------------------------------------------
   Custom errors

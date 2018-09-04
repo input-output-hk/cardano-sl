@@ -6,9 +6,10 @@ module Chain.Abstract.Translate.FromUTxO where
 
 import           Chain.Abstract
 import           Chain.Policy
-import           Control.Lens (ix, (%=))
+import           Control.Lens (ix, (%=), (<%=))
 import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Except
+import           Data.List.NonEmpty ((<|))
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
@@ -47,7 +48,10 @@ data IntCheckpoint = IntCheckpoint {
 data TransState h = TransState {
       -- | Transaction map
       _tsTx          :: !(Map (h (DSL.Transaction h Addr)) (Transaction h Addr))
-
+      -- | Current slot ID. Note that this may not be the same as the increment
+      -- of the previous checkpoint, because it's possible that no block gets
+      -- issued in a slot.
+    , _tsCurrentSlot :: !SlotId
       -- | Checkpoints
     , _tsCheckpoints :: !(NonEmpty IntCheckpoint)
     }
@@ -78,7 +82,6 @@ data IntException =
   deriving (Show, Eq)
 
 instance Exception IntException
-
 
 {-------------------------------------------------------------------------------
   Translation into abstract chain
@@ -166,6 +169,7 @@ translate addrs chain policies params = runExceptT . fmap fst $ runTranslateT in
     initState = TransState
         { _tsTx = Map.empty
         , _tsCheckpoints = initCheckpoint :| []
+        , _tsCurrentSlot = SlotId 0
         }
     initCheckpoint = IntCheckpoint
         { icSlotId = SlotId 0
@@ -215,16 +219,29 @@ translate addrs chain policies params = runExceptT . fmap fst $ runTranslateT in
     intBlock :: DSL.Block h Addr -> TranslateT h IntException m (Block h Addr, [PolicyViolation])
     intBlock block = do
       allAddrs <- asks _tcAddresses
+      curSlot <- tsCurrentSlot <%= nextSlot
       c :| _  <- use tsCheckpoints
       trs <- mapM intTransaction block
-      applyBlockMod (mconcat $ polGenerator <$> policies) $ Block
+      -- TODO Create checkpoint!
+      r@(bl, _) <- applyBlockMod (mconcat $ polGenerator <$> policies) $ Block
         { blockPred = icBlockHash c
-        , blockSlot = icSlotId c
+        , blockSlot = curSlot
         , blockIssuer = head allAddrs
         , blockTransactions = trs
         , blockDlg = []
         }
+      createCheckpoint bl
+      return r
     nonEmptyEx :: IntException -> [a] -> TranslateT h IntException m (NonEmpty a)
     nonEmptyEx ex []    = throwError $ ex
     nonEmptyEx _ (x:xs) = return $ x :| xs
     applyBlockMod (BlockModifier gen) block = gen block
+    createCheckpoint :: Block h Addr -> TranslateT h IntException m ()
+    createCheckpoint block = modify $ over tsCheckpoints (\x -> ic <| x)
+        where
+            ic = IntCheckpoint
+                { icSlotId = blockSlot block
+                , icBlockHash = blockHash block
+                , icStakes = initialStakeDistribution params
+                , icDlg = id
+                }

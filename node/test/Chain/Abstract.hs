@@ -138,6 +138,10 @@ data Block h a = Block
   , blockDlg          :: [Delegation h a]
   } deriving (Eq, Show)
 
+-- | Calculate the hash of the block
+blockHash :: Block h a -> BlockHash
+blockHash (blockPred -> BlockHash oldHash) = BlockHash (oldHash + 1)
+
 type Chain h a = OldestFirst [] (Block h a)
 
 -- The Parameters type was moved here from the Chain.Validation.Parameters

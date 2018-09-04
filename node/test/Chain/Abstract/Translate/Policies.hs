@@ -5,6 +5,7 @@ import           Chain.Abstract
 import           Chain.Abstract.Translate.FromUTxO
 import           Chain.Policy
 import           Control.Lens.TH
+import           Data.Default
 import           Test.QuickCheck.Arbitrary
 import           Test.QuickCheck.Gen
 import           Universum
@@ -43,6 +44,9 @@ data PredecessorConfig = PredecessorConfig
     { _predecessorConfigValidLikelihood :: Percentage
     }
 
+instance Default PredecessorConfig where
+    def = PredecessorConfig $ Percentage 99
+
 makeFields ''PredecessorConfig
 
 -- | The previous block hash in a new block should point to the last block.
@@ -61,12 +65,75 @@ predecessor conf = Policy pname (BlockModifier mb)
                      )
 
 --------------------------------------------------------------------------------
+-- Not future slot
+--------------------------------------------------------------------------------
+
+data NotFutureSlotConfig = NotFutureSlotConfig
+    { _notFutureSlotConfigValidLikelihood :: Percentage
+    }
+
+instance Default NotFutureSlotConfig where
+    def = NotFutureSlotConfig $ Percentage 99
+
+makeFields ''NotFutureSlotConfig
+
+-- | Slot for a block must be larger than the slot number for the last block.
+notFutureSlot :: NotFutureSlotConfig
+              -> Policy h (GenM h)
+notFutureSlot conf = Policy pname (BlockModifier mb)
+    where
+        pname = PolicyName "Not future slot"
+        mb block =  do
+            currentSlot <- use tsCurrentSlot
+            valid <- lift arbitrary
+            return $ if valid >= conf ^. validLikelihood
+                -- By default, blocks are issued in the current slot
+                then (block, mempty)
+                else ( block { blockSlot = nextSlot currentSlot }
+                     , [PolicyViolation pname "Block issued in a future slot."]
+                     )
+
+
+--------------------------------------------------------------------------------
+-- Not past slot
+--------------------------------------------------------------------------------
+
+data NotPastSlotConfig = NotPastSlotConfig
+    { _notPastSlotConfigValidLikelihood :: Percentage
+    }
+
+instance Default NotPastSlotConfig where
+    def = NotPastSlotConfig $ Percentage 99
+
+makeFields ''NotPastSlotConfig
+
+-- | Slot for a block must be larger than the slot number for the last block.
+notPastSlot :: NotPastSlotConfig
+            -> Policy h (GenM h)
+notPastSlot conf = Policy pname (BlockModifier mb)
+    where
+        pname = PolicyName "Not past slot"
+        mb block =  do
+            c :| _ <- use tsCheckpoints
+            let lastSlot = icSlotId c
+            valid <- lift arbitrary
+            return $ if valid >= conf ^. validLikelihood
+                -- By default, blocks are issued in the current slot
+                then (block, mempty)
+                else ( block { blockSlot = lastSlot }
+                     , [PolicyViolation pname "Block issued in a past slot."]
+                     )
+
+--------------------------------------------------------------------------------
 -- Slot leader
 --------------------------------------------------------------------------------
 
 data SlotLeaderConfig = SlotLeaderConfig
     { _slotLeaderConfigValidLikelihood :: Percentage
     }
+
+instance Default SlotLeaderConfig where
+    def = SlotLeaderConfig $ Percentage 99
 
 makeFields ''SlotLeaderConfig
 
@@ -90,21 +157,3 @@ slotLeader conf = Policy pname (BlockModifier mb)
                 else ( block
                      , [PolicyViolation pname "Block issued by somebody other than the slot leader."]
                      )
-
---------------------------------------------------------------------------------
--- Block validation policies
---------------------------------------------------------------------------------
-checkPredecessor :: Policy h (GenM h)
-checkPredecessor = Policy pname (BlockModifier validator)
-    where
-        pname = PolicyName "Block Predecessor"
-        validator block = do
-            c :| r <- use tsCheckpoints
-            return (block, pv c (1 + length r) block)
-        pv _ _  block | blockPred block == invalidBlockHash    = [violation]
-        pv _ ht block | blockPred block == genesisBlockHash &&
-                        ht == 1                                = []
-        pv c _  block | blockPred block /= icBlockHash c       = [violation]
-        pv _ _ _                                               = []
-        violation = PolicyViolation pname description
-        description = "Predecessor hash does not match hash of previous block."

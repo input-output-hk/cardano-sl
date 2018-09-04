@@ -86,6 +86,7 @@ test-suite property-tests
                      , cardano-sl-networking
                      , cardano-sl-util
                      , cardano-sl
+                     , data-default >= 0.7
                      , hashable
                      , hspec
                      , lens

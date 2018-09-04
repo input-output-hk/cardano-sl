@@ -14,8 +14,11 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
+                       Test.Pos.Core.Bi
                        Test.Pos.Core.Chrono
+                       Test.Pos.Core.ExampleHelpers
                        Test.Pos.Core.Gen
+                       Test.Pos.Core.Json
                        Test.Pos.Core.Arbitrary
                        Test.Pos.Core.Arbitrary.Unsafe
 

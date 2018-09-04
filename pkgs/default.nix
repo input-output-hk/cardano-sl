@@ -15632,10 +15632,12 @@ license = stdenv.lib.licenses.mit;
 , aeson
 , ansi-terminal
 , base
+, base16-bytestring
 , base58-bytestring
 , bytestring
 , Cabal
 , canonical-json
+, cardano-crypto
 , cardano-sl-binary
 , cardano-sl-binary-test
 , cardano-sl-crypto
@@ -15650,6 +15652,7 @@ license = stdenv.lib.licenses.mit;
 , data-default
 , deepseq
 , deriving-compat
+, ed25519
 , exceptions
 , extra
 , filepath
@@ -15657,12 +15660,14 @@ license = stdenv.lib.licenses.mit;
 , formatting
 , generic-arbitrary
 , hashable
+, hedgehog
 , hspec
 , lens
 , log-warper
 , memory
 , mtl
 , plutus-prototype
+, pvss
 , QuickCheck
 , quickcheck-instances
 , random
@@ -15736,8 +15741,11 @@ libraryToolDepends = [
 cpphs
 ];
 testHaskellDepends = [
+aeson
 base
+base16-bytestring
 bytestring
+cardano-crypto
 cardano-sl-binary
 cardano-sl-binary-test
 cardano-sl-crypto
@@ -15745,9 +15753,14 @@ cardano-sl-crypto-test
 cardano-sl-util
 cardano-sl-util-test
 containers
+cryptonite
+deepseq
+ed25519
 formatting
 generic-arbitrary
+hedgehog
 hspec
+pvss
 QuickCheck
 quickcheck-instances
 random
@@ -15756,6 +15769,7 @@ text
 time-units
 universum
 unordered-containers
+vector
 ];
 testToolDepends = [
 cpphs
@@ -15947,7 +15961,9 @@ license = stdenv.lib.licenses.mit;
   mkDerivation
 , base
 , bytestring
+, cardano-crypto
 , cardano-sl-binary
+, cardano-sl-binary-test
 , cardano-sl-crypto
 , cardano-sl-util
 , cardano-sl-util-test
@@ -15972,7 +15988,9 @@ configureFlags = [
 libraryHaskellDepends = [
 base
 bytestring
+cardano-crypto
 cardano-sl-binary
+cardano-sl-binary-test
 cardano-sl-crypto
 cardano-sl-util
 cardano-sl-util-test
@@ -17843,6 +17861,7 @@ license = stdenv.lib.licenses.mit;
 , async
 , base
 , binary
+, canonical-json
 , cborg
 , cereal
 , concurrent-extra
@@ -17902,6 +17921,7 @@ libraryHaskellDepends = [
 aeson
 base
 binary
+canonical-json
 cborg
 cereal
 concurrent-extra
@@ -17971,23 +17991,33 @@ license = stdenv.lib.licenses.mit;
 "cardano-sl-util-test" = callPackage
 ({
   mkDerivation
+, aeson
 , attoparsec
 , base
 , base16-bytestring
 , bytestring
+, canonical-json
 , cardano-sl-util
 , cpphs
 , cryptonite
+, directory
+, file-embed
+, filepath
 , formatting
 , hedgehog
 , hspec
 , mtl
+, pretty-show
 , QuickCheck
 , quickcheck-instances
 , stdenv
 , tagged
+, template-haskell
+, text
+, text-format
 , time-units
 , universum
+, unordered-containers
 }:
 mkDerivation {
 
@@ -17999,21 +18029,31 @@ configureFlags = [
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
+aeson
 attoparsec
 base
 base16-bytestring
 bytestring
+canonical-json
 cardano-sl-util
 cryptonite
+directory
+file-embed
+filepath
 formatting
 hedgehog
 hspec
 mtl
+pretty-show
 QuickCheck
 quickcheck-instances
 tagged
+template-haskell
+text
+text-format
 time-units
 universum
+unordered-containers
 ];
 libraryToolDepends = [
 cpphs

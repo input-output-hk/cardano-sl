@@ -182,9 +182,9 @@ genProxySignature genA genW = do
 -- Signature Generators
 ----------------------------------------------------------------------------
 
-genSignature :: Bi a => Gen a -> Gen (Signature a)
-genSignature genA =
-    sign <$> genProtocolMagic <*> genSignTag <*> genSecretKey <*> genA
+genSignature :: Bi a => ProtocolMagic -> Gen a -> Gen (Signature a)
+genSignature pm genA =
+    sign pm <$> genSignTag <*> genSecretKey <*> genA
 
 genSignatureEncoded :: Gen ByteString -> Gen (Signature a)
 genSignatureEncoded genB =
@@ -196,12 +196,12 @@ genSigned genA =
 
 genRedeemSignature
     ::  Bi a
-    => Gen a
+    => ProtocolMagic
+    -> Gen a
     -> Gen (RedeemSignature a)
-genRedeemSignature genA =
-    redeemSign <$> gpm <*> gst <*> grsk <*> genA
+genRedeemSignature pm genA =
+    redeemSign pm <$> gst <*> grsk <*> genA
   where
-    gpm  = genProtocolMagic
     gst  = genSignTag
     grsk = genRedeemSecretKey
 

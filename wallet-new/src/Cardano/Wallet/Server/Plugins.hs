@@ -24,7 +24,7 @@ import           Network.Wai.Middleware.Cors (cors, corsMethods,
 
 import           Cardano.NodeIPC (startNodeJsIPC)
 import           Cardano.Wallet.API as API
-import           Cardano.Wallet.Kernel (PassiveWallet)
+import           Cardano.Wallet.Kernel (PassiveWallet, DatabaseMode(..))
 import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..),
                      RunMode, WalletBackendParams (..), getWalletDbOptions,
                      isDebugMode, walletAcidInterval)
@@ -148,11 +148,15 @@ monitoringServer (NewWalletBackendParams WalletBackendParams{..}) =
 -- | A @Plugin@ to periodically compact & snapshot the acid-state database.
 acidStateSnapshots :: AcidState db
                    -> NewWalletBackendParams
+                   -> DatabaseMode
                    -> Plugin Kernel.WalletMode
-acidStateSnapshots dbRef params = pure $ \_diffusion -> do
+acidStateSnapshots dbRef params dbMode = pure $ \_diffusion -> do
     let opts = getWalletDbOptions params
     modifyLoggerName (const "acid-state-checkpoint-plugin") $
-        createAndArchiveCheckpoints dbRef (walletAcidInterval opts)
+        createAndArchiveCheckpoints
+            dbRef
+            (walletAcidInterval opts)
+            dbMode
 
 -- | A @Plugin@ to notify frontend via websockets.
 updateNotifier :: Plugin Kernel.WalletMode

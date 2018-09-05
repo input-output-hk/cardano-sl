@@ -13,6 +13,8 @@ module Cardano.Wallet.Kernel (
     , DatabaseMode(..)
     , DatabasePaths(..)
     , useDefaultPaths
+    , defaultAcidStatePath
+    , defaultSqlitePath
       -- ** Lenses
     , walletLogMessage
     , walletPassive
@@ -24,9 +26,11 @@ module Cardano.Wallet.Kernel (
 
 import           Universum hiding (State, init)
 
+import System.FilePath ((</>))
+import Data.Typeable (typeRep)
 import           Control.Concurrent.Async (async, cancel)
 import           Control.Concurrent.MVar (modifyMVar, modifyMVar_)
-import           Data.Acid (AcidState, openLocalState, openLocalStateFrom)
+import           Data.Acid (AcidState, openLocalStateFrom)
 import           Data.Acid.Memory (openMemoryState)
 import qualified Data.Map.Strict as Map
 
@@ -64,18 +68,25 @@ data DatabaseMode
 -- | A configuration type for specifying where to load the databases from.
 data DatabasePaths
     = DatabasePaths
-    { dbPathAcidState :: Maybe FilePath
-    -- ^ The path for the @acid-state@ database. If 'Nothing' is passed, then
-    -- this uses the default value (see 'openLocalState').
-    , dbPathMetadata  :: Maybe FilePath
+    { dbPathAcidState :: FilePath
+    -- ^ The path for the @acid-state@ database.
+    , dbPathMetadata  :: FilePath
     -- ^ This path is used for the SQLite database that contains the transaction
-    -- metadata. If 'Nothing' is provided, then this uses the path
-    -- @./wallet-db-sqlite.sqlite3@
+    -- metadata.
     } deriving (Eq, Show)
 
 -- | Use the default paths on disk. See 'DatabasePaths' for more details.
 useDefaultPaths :: DatabaseMode
-useDefaultPaths = UseFilePath (DatabasePaths Nothing Nothing)
+useDefaultPaths = UseFilePath
+    $ DatabasePaths
+        (defaultAcidStatePath (Proxy @DB))
+        defaultSqlitePath
+
+defaultAcidStatePath :: Typeable st => Proxy st -> FilePath
+defaultAcidStatePath p = "state" </> show (typeRep p)
+
+defaultSqlitePath :: FilePath
+defaultSqlitePath = "./wallet-db-sqlite.sqlite"
 
 -- | Allocate wallet resources
 --
@@ -112,9 +123,9 @@ handlesOpen mode =
             metadb <- openMetaDB ":memory:"
             migrateMetaDB metadb
             return $ Handles db metadb
-        UseFilePath (DatabasePaths macidDb msqliteDb) -> do
-            db <- maybe openLocalState openLocalStateFrom macidDb defDB
-            metadb <- openMetaDB (fromMaybe "./wallet-db-sqlite.sqlite3" msqliteDb)
+        UseFilePath (DatabasePaths acidDb sqliteDb) -> do
+            db <- openLocalStateFrom acidDb defDB
+            metadb <- openMetaDB sqliteDb
             migrateMetaDB metadb
             return $ Handles db metadb
 

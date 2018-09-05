@@ -20,8 +20,8 @@ let
   pkgs = import fixedNixpkgs { config = {}; };
   wrapDockerImage = cluster: let
     images = {
-      mainnet = iohkPkgs.dockerImages.mainnet.wallet;
-      staging = iohkPkgs.dockerImages.staging.wallet;
+      mainnet = iohkPkgs.dockerImages.mainnet;
+      staging = iohkPkgs.dockerImages.staging;
     };
     image = images."${cluster}";
   in pkgs.runCommand "${image.name}-hydra" {} ''

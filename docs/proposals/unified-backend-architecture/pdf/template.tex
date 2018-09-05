@@ -1,0 +1,145 @@
+\documentclass[$if(fontsize)$$fontsize$$endif$,oneside]{article}
+
+% Common fonts.
+\usepackage{fontspec}
+\defaultfontfeatures{Ligatures=TeX}
+\setmainfont{PT Sans}
+\setsansfont{PT Sans}
+\setmonofont[Scale=1.0]{PT Mono}
+
+\usepackage{polyglossia}
+\setdefaultlanguage[]{english}
+\setmainlanguage[]{english}
+\setotherlanguage[]{english}
+
+% For pretty headers.
+\usepackage{fancyhdr}
+
+% For image inserting.
+\usepackage{graphicx}
+
+% Paragraphs without horizontal indent, but with vertical one.
+\usepackage[parfill]{parskip}
+
+% Define metadata and hyperrefs style.
+\usepackage{hyperref}
+\PassOptionsToPackage{usenames,dvipsnames}{color} % color is loaded by hyperref
+\hypersetup{unicode=true,
+            pdftitle={Unified Backend Architecture, Tech Specification},
+            pdfauthor={IOHK},
+            pdfsubject={Unified Backend Architecture},
+% Colors for hyperrefs.
+            colorlinks=true,
+            linkcolor=Blue,
+            citecolor=Blue,
+            urlcolor=Blue,
+            pdfborder={0 0 0},
+            breaklinks=true}
+% Hyperrefs font is the same one.
+\urlstyle{same}
+
+\setlength{\emergencystretch}{3em}  % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+\usepackage{color}
+\usepackage{fancyvrb}
+\VerbatimFootnotes % allows verbatim text in footnotes
+
+\usepackage{amsfonts}
+
+% Common settings for source code snippets.
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\},baselinestretch=0.9,samepage=true,frame=single,rulecolor=\color{white},framesep=3mm}
+
+% Define syntax highlighting.
+\newenvironment{Shaded}{}{}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{\textbf{{#1}}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.56,0.13,0.00}{{#1}}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{{#1}}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{{#1}}}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{{#1}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.53,0.00,0.00}{{#1}}}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{{#1}}}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{{#1}}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{{#1}}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{{#1}}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.73,0.40,0.53}{{#1}}}
+\newcommand{\ImportTok}[1]{{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textit{{#1}}}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.73,0.13,0.13}{\textit{{#1}}}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{{#1}}}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{{#1}}}}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{{#1}}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.02,0.16,0.49}{{#1}}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.10,0.09,0.49}{{#1}}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{\textbf{{#1}}}}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.40,0.40,0.40}{{#1}}}
+\newcommand{\BuiltInTok}[1]{{#1}}
+\newcommand{\ExtensionTok}[1]{{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.74,0.48,0.00}{{#1}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.49,0.56,0.16}{{#1}}}
+\newcommand{\RegionMarkerTok}[1]{{#1}}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{{#1}}}}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{{#1}}}}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{1.00,0.00,0.00}{\textbf{{#1}}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{1.00,0.00,0.00}{\textbf{{#1}}}}
+\newcommand{\NormalTok}[1]{{#1}}
+
+% Define page format with margins.
+\usepackage[$for(geometry)$$geometry$$sep$,$endfor$]{geometry}
+
+\usepackage{setspace}
+\usepackage{textcomp}
+
+% First page.
+\newcommand*{\cardanosltitle}{\begingroup
+\newlength{\drop} % Command for generating a specific amount of whitespace
+\drop=0.1\textheight % Define the command as 10% of the total text height
+
+\vspace{\drop} % Whitespace between the top lines and title
+\centering % Center all text
+%\textcolor{MidnightBlue}{ % Red font color
+
+\begin{center}
+  \includegraphics[scale=0.5]{cardano-logo.png}
+\end{center}
+
+{\huge Unified Backend Architecture}\\[0.5\baselineskip]
+{\Large in Cardano SL}\\[0.5\baselineskip]
+
+\vfill
+{\large \textcopyright \textsc{ IOHK 2018}}\par
+\endgroup}
+
+\begin{document}
+
+\pagestyle{empty}
+\cardanosltitle
+\newpage
+
+\begin{abstract}
+This article provides technical specification for Unified Backend Architecture in Cardano SL.
+\end{abstract}
+
+% Define color of hyperrefs in the Contents.
+\hypersetup{linkcolor=black}
+\setcounter{secnumdepth}{0}
+\setcounter{tocdepth}{3}
+\pagestyle{empty}
+\doublespacing % Double spacing for items in Contents.
+\tableofcontents
+\singlespacing
+\thispagestyle{empty}
+\clearpage
+
+% Set front header.
+\pagestyle{fancy}
+\fancyhf{}
+% Left up corner - chapter name.
+\fancyhead[L]{\fontsize{10}{12} \selectfont \rmfamily{\nouppercase\leftmark}}
+% Right up corner - page number.
+\fancyhead[R]{\fontsize{10}{12} \selectfont \rmfamily{\thepage}}
+
+$body$
+
+\end{document}

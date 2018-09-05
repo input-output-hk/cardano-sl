@@ -10,6 +10,7 @@ module Test.Pos.Core.Gen
         , genGenesisConsensusData
         , genGenesisHash
         , genGenesisProof
+        , genHeaderHash
         , genMainBlockHeader
         , genMainBody
         , genMainConsensusData
@@ -167,10 +168,11 @@ import qualified Hedgehog.Range as Range
 import           Pos.Binary.Class (Bi, Raw (..), asBinary)
 import           Pos.Core.Block (BlockBodyAttributes, BlockHeader (..), BlockHeaderAttributes,
                                  BlockSignature (..), GenesisBlockHeader, GenesisBody (..),
-                                 GenesisConsensusData (..), GenesisProof (..), MainBlockHeader,
-                                 MainBody (..), MainConsensusData (..), MainExtraBodyData (..),
+                                 GenesisConsensusData (..), GenesisExtraHeaderData (..),
+                                 GenesisProof (..), HeaderHash, MainBlockHeader, MainBody (..),
+                                 MainConsensusData (..), MainExtraBodyData (..),
                                  MainExtraHeaderData (..), MainProof (..), MainToSign (..),
-                                 mkGenesisHeader, mkMainHeader)
+                                 mkGenericHeader, mkMainHeaderExplicit)
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                                   AddrStakeDistribution (..), AddrType (..), Address (..),
                                   BlockCount (..), ChainDifficulty (..), Coeff (..), Coin (..),
@@ -229,7 +231,7 @@ genBlockBodyAttributes = pure $ mkAttributes ()
 
 genBlockHeader :: ProtocolMagic -> ProtocolConstants -> Gen BlockHeader
 genBlockHeader pm pc =
-    Gen.choice [ BlockHeaderGenesis <$> genGenesisBlockHeader pm pc
+    Gen.choice [ BlockHeaderGenesis <$> genGenesisBlockHeader pm
                , BlockHeaderMain <$> genMainBlockHeader pm pc
                ]
 
@@ -247,16 +249,16 @@ genBlockSignature pm pc =
               <$> genProxySignature (genMainToSign pm pc) genHeavyDlgIndex
         ]
 
-genGenesisBlockHeader :: ProtocolMagic -> ProtocolConstants -> Gen GenesisBlockHeader
-genGenesisBlockHeader pm pc =
-    mkGenesisHeader pm
-        <$> Gen.choice gens
-        <*> genEpochIndex
-        <*> genGenesisBody
-  where
-    gens = [ Left <$> genGenesisHash
-           , Right <$> genBlockHeader pm pc
-           ]
+genGenesisBlockHeader :: ProtocolMagic -> Gen GenesisBlockHeader
+genGenesisBlockHeader pm = do
+    epoch      <- genEpochIndex
+    body       <- genGenesisBody
+    prevHash   <- coerce <$> genTextHash
+    difficulty <- genChainDifficulty
+    let consensus = const (GenesisConsensusData {_gcdEpoch      = epoch
+                                                ,_gcdDifficulty = difficulty})
+        gehd      = GenesisExtraHeaderData $ mkAttributes ()
+    pure (mkGenericHeader pm prevHash body consensus gehd)
 
 genGenesisBody :: Gen GenesisBody
 genGenesisBody = GenesisBody <$> genSlotLeaders
@@ -269,8 +271,11 @@ genGenesisConsensusData =
 
 genGenesisHash :: Gen GenesisHash
 genGenesisHash = do
-  sampleText <- Gen.text Range.constantBounded Gen.alphaNum
-  pure $ GenesisHash (coerce (hash sampleText :: Hash Text))
+  th <- genTextHash
+  pure (GenesisHash (coerce th))
+
+genHeaderHash :: Gen HeaderHash
+genHeaderHash = coerce <$> genTextHash
 
 genGenesisProof :: Gen GenesisProof
 genGenesisProof = GenesisProof <$> genAbstractHash genSlotLeaders
@@ -285,11 +290,12 @@ genMainBody pm =
 
 genMainBlockHeader :: ProtocolMagic -> ProtocolConstants -> Gen MainBlockHeader
 genMainBlockHeader pm pc =
-    mkMainHeader pm
-        <$> (Left <$> genGenesisHash)
+    mkMainHeaderExplicit pm
+        <$> genHeaderHash
+        <*> genChainDifficulty
         <*> genSlotId pc
         <*> genSecretKey
-        <*> genProxySKBlockInfo pm
+        <*> pure Nothing
         <*> genMainBody pm
         <*> genMainExtraHeaderData
 
@@ -446,7 +452,7 @@ genStakesList :: Gen StakesList
 genStakesList = Gen.list range gen
   where
     gen = (,) <$> genStakeholderId <*> genCoin
-    range = Range.constant 0 10
+    range = Range.linear 0 10
 
 genStakesMap :: Gen StakesMap
 genStakesMap = genCustomHashMap genStakeholderId genCoin
@@ -704,7 +710,7 @@ genOpening = snd <$> genCommitmentOpening
 
 genOpeningsMap :: Gen OpeningsMap
 genOpeningsMap = do
-    hMapSize <- Gen.int (Range.constant 0 20)
+    hMapSize <- Gen.int (Range.linear 0 10)
     stakeholderId <- Gen.list (Range.singleton hMapSize) genStakeholderId
     opening <- Gen.list (Range.singleton hMapSize) genOpening
     pure $ HM.fromList $ zip stakeholderId opening
@@ -714,7 +720,7 @@ genSharesDistribution = genCustomHashMap genStakeholderId genWord16
 
 genSharesMap :: Gen SharesMap
 genSharesMap = do
-    hMapSize <- Gen.int (Range.constant 0 20)
+    hMapSize <- Gen.int (Range.linear 0 10)
     stakeholderId <- Gen.list (Range.singleton hMapSize) genStakeholderId
     innerSharesMap <- Gen.list (Range.singleton hMapSize) genInnerSharesMap
     pure $ HM.fromList $ zip stakeholderId innerSharesMap
@@ -975,7 +981,7 @@ genUpId pm = genAbstractHash (genUpdateProposal pm)
 
 genUpsData :: Gen (HM.HashMap SystemTag UpdateData)
 genUpsData = do
-    hMapSize <- Gen.int (Range.constant 0 20)
+    hMapSize <- Gen.int (Range.linear 0 20)
     sysTagList <- Gen.list (Range.singleton hMapSize) genSystemTag
     upDataList <- Gen.list (Range.singleton hMapSize) genUpdateData
     pure $ HM.fromList $ zip sysTagList upDataList
@@ -998,7 +1004,7 @@ genAttributes genA =  mkAttributes <$> genA
 ----------------------------------------------------------------------------
 
 genMerkleTree :: Bi a => Gen a -> Gen (MerkleTree a)
-genMerkleTree genA = mkMerkleTree <$> Gen.list (Range.constant 0 10) genA
+genMerkleTree genA = mkMerkleTree <$> Gen.list (Range.linear 0 10) genA
 
 genMerkleRoot :: Bi a => Gen a -> Gen (MerkleRoot a)
 genMerkleRoot genA = mtRoot <$> genMerkleTree genA
@@ -1012,7 +1018,7 @@ customHashMapGen
     => Gen k -> Gen v -> Gen (HM.HashMap k v)
 customHashMapGen keyGen valGen =
     HM.fromList
-        <$> (Gen.list (Range.constant 1 10) $ (,) <$> keyGen <*> valGen)
+        <$> (Gen.list (Range.linear 1 10) $ (,) <$> keyGen <*> valGen)
 
 genBase16Bs :: Gen ByteString
 genBase16Bs = B16.encode <$> genBytes 32
@@ -1035,7 +1041,7 @@ genCustomHashMap
 genCustomHashMap genK genV = HM.fromList <$> Gen.list range gen
   where
     gen = (,) <$> genK <*> genV
-    range = Range.constant 0 10
+    range = Range.linear 0 10
 
 genMillisecond :: Gen Millisecond
 genMillisecond = fromMicroseconds <$> Gen.integral (Range.constant 0 1000000)

@@ -15783,8 +15783,11 @@ license = stdenv.lib.licenses.mit;
 ({
   mkDerivation
 , base
+, base16-bytestring
 , bytestring
+, cardano-crypto
 , cardano-sl-binary
+, cardano-sl-binary-test
 , cardano-sl-core
 , cardano-sl-crypto
 , cardano-sl-crypto-test
@@ -15794,6 +15797,7 @@ license = stdenv.lib.licenses.mit;
 , cryptonite
 , cryptonite-openssl
 , data-default
+, ed25519
 , formatting
 , generic-arbitrary
 , hedgehog
@@ -15806,6 +15810,7 @@ license = stdenv.lib.licenses.mit;
 , serokell-util
 , stdenv
 , tagged
+, text
 , time-units
 , universum
 , unordered-containers
@@ -15822,8 +15827,11 @@ configureFlags = [
 ];
 libraryHaskellDepends = [
 base
+base16-bytestring
 bytestring
+cardano-crypto
 cardano-sl-binary
+cardano-sl-binary-test
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-crypto-test
@@ -15833,6 +15841,7 @@ containers
 cryptonite
 cryptonite-openssl
 data-default
+ed25519
 formatting
 generic-arbitrary
 hedgehog
@@ -15844,6 +15853,7 @@ quickcheck-instances
 random
 serokell-util
 tagged
+text
 time-units
 universum
 unordered-containers

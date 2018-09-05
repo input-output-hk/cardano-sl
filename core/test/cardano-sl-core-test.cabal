@@ -1,5 +1,5 @@
 name:                cardano-sl-core-test
-version:             1.3.1
+version:             1.3.0
 synopsis:            Cardano SL - core functionality (tests)
 description:         QuickCheck Arbitrary instances for the Cardano SL core
                      functionality.
@@ -18,14 +18,18 @@ library
                        Test.Pos.Core.Chrono
                        Test.Pos.Core.ExampleHelpers
                        Test.Pos.Core.Gen
-                       Test.Pos.Core.Json
                        Test.Pos.Core.Arbitrary
                        Test.Pos.Core.Arbitrary.Unsafe
+                       Test.Pos.Core.Json
 
   build-depends:       QuickCheck
+                     , aeson
                      , base
+                     , base16-bytestring
                      , bytestring
+                     , cardano-crypto
                      , cardano-sl-binary
+                     , cardano-sl-binary-test
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
@@ -33,18 +37,16 @@ library
                      , cardano-sl-util-test
                      , containers
                      , cryptonite
-                     , cryptonite-openssl >= 0.5
                      , data-default
+                     , ed25519
                      , formatting
                      , generic-arbitrary
                      , hedgehog
-                     , hspec
-                     , mtl
                      , pvss
                      , quickcheck-instances
                      , random
                      , serokell-util
-                     , tagged
+                     , text
                      , time-units
                      , universum
                      , unordered-containers
@@ -66,7 +68,6 @@ library
                        DefaultSignatures
                        NoImplicitPrelude
                        OverloadedStrings
-                       RecordWildCards
                        TypeApplications
                        TupleSections
                        ViewPatterns
@@ -78,7 +79,9 @@ library
                        TemplateHaskell
                        ScopedTypeVariables
                        MonadFailDesugaring
+                       RecordWildCards
                        GADTs
 
-  ghc-options:         -Wall
+  ghc-options:
                        -O2
+                       -Wall

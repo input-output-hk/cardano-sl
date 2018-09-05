@@ -23,4 +23,12 @@ type API = Tags '["WIP"] :>
                    :> Capture "rootPK" PublicKeyAsBase58
                    :> Summary "Deletes the given external wallet and all its accounts."
                    :> DeleteNoContent '[ValidJSON] NoContent
+    :<|> "external-transactions" :> "unsigned"
+                   :> Summary "Creates a new unsigned transaction (it will be signed externally)."
+                   :> ReqBody '[ValidJSON] PaymentWithChangeAddress
+                   :> Post '[ValidJSON] (WalletResponse RawTransaction)
+    :<|> "external-transactions"
+                   :> Summary "Publish an externally-signed transaction."
+                   :> ReqBody '[ValidJSON] SignedTransaction
+                   :> Post '[ValidJSON] (WalletResponse Transaction)
     )

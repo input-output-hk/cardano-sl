@@ -23,12 +23,14 @@ import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.WIP as WIP
+import           Pos.Chain.Txp (TxAux, TxpConfiguration)
 import           Pos.Chain.Update ()
 import           Pos.Client.KeyStorage (addPublicKey)
 import qualified Pos.Core as Core
 import           Pos.Core.Genesis (GenesisData)
 import           Pos.Crypto (PublicKey)
 
+import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Util (HasLens, maybeThrow)
 import           Pos.Util.Servant (encodeCType)
 import qualified Pos.Wallet.WalletMode as V0
@@ -39,9 +41,11 @@ import           Servant
 handlers :: HasConfigurations
             => (forall a. MonadV1 a -> Handler a)
             -> Core.Config
+            -> TxpConfiguration
+            -> Diffusion MonadV1
             -> Server WIP.API
-handlers naturalTransformation coreConfig =
-         hoist' (Proxy @WIP.API) (handlersPlain coreConfig)
+handlers naturalTransformation coreConfig txpConfig diffusion =
+         hoist' (Proxy @WIP.API) (handlersPlain coreConfig txpConfig submitTx)
   where
     hoist'
         :: forall (api :: *). HasServer api '[]
@@ -49,13 +53,19 @@ handlers naturalTransformation coreConfig =
         -> ServerT api MonadV1
         -> Server api
     hoist' p = hoistServer p naturalTransformation
+    submitTx = sendTx diffusion
 
 -- | All the @Servant@ handlers for wallet-specific operations.
 handlersPlain :: HasConfigurations
-         => Core.Config -> ServerT WIP.API MonadV1
-handlersPlain coreConfig = checkExternalWallet coreConfig
+         => Core.Config
+         -> TxpConfiguration
+         -> (TxAux -> MonadV1 Bool)
+         -> ServerT WIP.API MonadV1
+handlersPlain coreConfig txpConfig submitTx = checkExternalWallet coreConfig
     :<|> newExternalWallet coreConfig
     :<|> deleteExternalWallet
+    :<|> newUnsignedTransaction
+    :<|> newSignedTransaction txpConfig submitTx
 
 -- | Check if external wallet is presented in node's wallet db.
 checkExternalWallet
@@ -242,3 +252,24 @@ mkPublicKeyOrFail encodedRootPK =
     case mkPublicKeyFromBase58 encodedRootPK of
         Left problem -> throwM (InvalidPublicKey $ sformat build problem)
         Right rootPK -> return rootPK
+
+newUnsignedTransaction
+    :: -- forall ctx m . (V0.MonadWalletTxFull ctx m)
+       -- =>
+    PaymentWithChangeAddress
+    -> m (WalletResponse RawTransaction)
+newUnsignedTransaction _paymentWithChangeAddress =
+    error "[CHW-57], Cardano Hardware Wallet, unimplemented yet."
+
+-- | It is assumed that we received a transaction which was signed
+-- on the client side (mobile client or hardware wallet).
+-- Now we have to submit this transaction as usually.
+newSignedTransaction
+    :: -- forall ctx m . (V0.MonadWalletTxFull ctx m)
+       -- =>
+    TxpConfiguration
+    -> (TxAux -> m Bool)
+    -> SignedTransaction
+    -> m (WalletResponse Transaction)
+newSignedTransaction _txpConfig _submitTx _signedTx =
+    error "[CHW-57], Cardano Hardware Wallet, unimplemented yet."

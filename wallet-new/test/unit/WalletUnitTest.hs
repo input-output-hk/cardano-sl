@@ -4,13 +4,12 @@ module Main (main) where
 import           Universum
 
 import           Formatting (build, sformat)
-import           Test.Hspec (Spec, describe, hspec, parallel)
+import           Test.Hspec (Spec, describe, hspec)
 
 import           InputSelection.Evaluation (evalUsingGenData, evalUsingReplay)
 import           InputSelection.Evaluation.Options (Command (..), evalCommand,
                      getEvalOptions)
 import           InputSelection.Evaluation.Replot (replot)
-import           Test.Pos.Util.Parallel.Parallelize (parallelizeAllCores)
 import           UTxO.Bootstrap (bootstrapTransaction)
 import           UTxO.Context (Addr, TransCtxt)
 import           UTxO.DSL (GivenHash, Transaction)
@@ -36,12 +35,11 @@ import           TxMetaStorageSpecs (txMetaStorageSpecs)
 
 main :: IO ()
 main = do
-    parallelizeAllCores
     mEvalOptions <- getEvalOptions
     case mEvalOptions of
       Nothing -> do
         -- _showContext
-        runTranslateNoErrors $ withConfig $ return $ hspec $ tests
+        runTranslateNoErrors $ withConfig $ return $ hspec tests
       Just evalOptions ->
         -- NOTE: The coin selection must be invoked with @eval@
         -- Run @wallet-unit-tests eval --help@ for details.
@@ -68,7 +66,7 @@ _showContext = do
 -------------------------------------------------------------------------------}
 
 tests :: Spec
-tests = parallel $ describe "Wallet unit tests" $ do
+tests = describe "Wallet unit tests" $ do
     Test.Spec.Kernel.spec
     Test.Spec.GetTransactions.spec
     Test.Spec.Translation.spec

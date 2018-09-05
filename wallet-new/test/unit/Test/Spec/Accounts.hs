@@ -110,6 +110,16 @@ spec = describe "Accounts" $ do
                     res <- runExceptT . runHandler' $ hdl
                     (bimap identity STB res) `shouldSatisfy` isRight
 
+        prop "comes with 1 address by default" $ withMaxSuccess 50 $ do
+            monadicIO $ do
+                withFixture $ \_ layer _ Fixture{..} -> do
+                    let hdl = Handlers.newAccount layer (V1.walId fixtureV1Wallet) fixtureNewAccountRq
+                    res <- runExceptT . runHandler' $ hdl
+                    case res of
+                         Left e -> throwM e
+                         Right API.WalletResponse{..} ->
+                             length (V1.accAddresses wrData) `shouldBe` 1
+
     describe "DeleteAccount" $ do
 
         prop "works as expected in the happy path scenario" $ withMaxSuccess 50 $ do

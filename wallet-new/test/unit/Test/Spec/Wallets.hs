@@ -17,6 +17,7 @@ import           Formatting (build, formatToString)
 
 import           Pos.Core (decodeTextAddress)
 import           Pos.Crypto (emptyPassphrase, hash)
+import           Pos.Crypto.HD (firstHardened)
 
 import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
 import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel (..),
@@ -37,6 +38,7 @@ import qualified Cardano.Wallet.WalletLayer.Kernel.Wallets as Wallets
 import qualified Cardano.Wallet.API.Request as API
 import qualified Cardano.Wallet.API.Request.Pagination as API
 import qualified Cardano.Wallet.API.Response as V1
+import           Cardano.Wallet.API.V1.Handlers.Accounts as Handlers
 import           Cardano.Wallet.API.V1.Handlers.Wallets as Handlers
 import           Cardano.Wallet.API.V1.Types (V1 (..), unV1)
 import qualified Cardano.Wallet.API.V1.Types as V1
@@ -176,6 +178,20 @@ spec = describe "Wallets" $ do
                         liftIO $ do
                             res <- runExceptT . runHandler' $ Handlers.newWallet layer rq
                             (bimap identity STB res) `shouldSatisfy` isRight
+
+            prop "comes by default with 1 account at a predictable index" $ withMaxSuccess 50 $ do
+                monadicIO $ do
+                    pwd <- genSpendingPassword
+                    rq  <- genNewWalletRq pwd
+                    withLayer $ \layer _ -> do
+                        liftIO $ do
+                            let fetchAccount wId =
+                                    Handlers.getAccount layer wId (V1.unsafeMkAccountIndex firstHardened)
+                            res <- runExceptT . runHandler' $ do
+                                V1.WalletResponse{..} <- Handlers.newWallet layer rq
+                                fetchAccount (V1.walId wrData)
+                            (bimap identity STB res) `shouldSatisfy` isRight
+
 
     describe "DeleteWallet" $ do
         describe "Wallet deletion (wallet layer)" $ do

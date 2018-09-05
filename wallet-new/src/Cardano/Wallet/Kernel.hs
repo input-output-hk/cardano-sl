@@ -101,7 +101,7 @@ bracketPassiveWallet
     -> (PassiveWallet -> m a) -> m a
 bracketPassiveWallet mode logMsg keystore node f =
     bracket (liftIO $ handlesOpen mode)
-            (liftIO . handlesClose)
+            (liftIO . handlesClose mode)
             (\ handles ->
                 bracket
                   (liftIO $ initPassiveWallet logMsg keystore handles node)
@@ -129,8 +129,15 @@ handlesOpen mode =
             migrateMetaDB metadb
             return $ Handles db metadb
 
-handlesClose :: WalletHandles -> IO ()
-handlesClose (Handles _ meta) = closeMetaDB meta
+handlesClose :: WalletHandles -> DatabaseMode -> IO ()
+handlesClose (Handles acidDb meta) dbMode = do
+    closeMetaDB meta
+    case dbMode of
+        UseInMemory ->
+            pure ()
+        UseFilePath (DatabasePaths _ _) -> do
+            createCheckpoint acidDb
+            createArchive acidDb
 
 {-------------------------------------------------------------------------------
   Wallet Initialisers

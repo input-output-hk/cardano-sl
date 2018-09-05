@@ -27,14 +27,14 @@
 
 ## Prerequisites
 
-* You should know what a transaction is, its structure and about tx
-  witnesses. You can read about it
+* You should know what a transaction is, be familiar with its structure, and know about tx
+  witnesses and payloads. You can read about these concepts here:
   [here](https://cardanodocs.com/cardano/transactions/).
-* You also should know technical details about
-  [addresses](https://cardanodocs.com/cardano/addresses/).
-* Please read about
+* You should also know technical details about
+  [addresses], see: (https://cardanodocs.com/cardano/addresses/).
+* For balances and stake information, see:
   [balances and stakes](https://cardanodocs.com/cardano/balance-and-stake/) and
-  don't confuse them.
+  do not confuse them.
 * [Bootstrap era](https://cardanodocs.com/timeline/bootstrap/).
 * [Block structure](https://cardanodocs.com/technical/blocks/#design).
   Specifically, you need to know about how transactions are stored in blocks.
@@ -44,15 +44,15 @@
 
 Transaction processing consists of two parts: global and local. Global
 transaction processing is a part of block processing which checks
-whether transactional payload of blocks is valid and updates
-corresponding state when blocks are applied/rolled back. Local
-transaction processing checks standalone transactions and updates
-local mempool. These two parts have almost same logic with a few
+whether the transactional payload of blocks is valid and updates
+corresponding states when blocks are applied or rolled back. Local
+transaction processing checks standalone transactions and updates the
+local mempool. These two parts have almost the same logic, bar a few
 differences. We first describe global transaction processing and then
 describe how local transaction processing differs from it.
 
-Transaction processing is abbreviated to `txp` in code and some other
-places.
+Transaction processing is abbreviated to `txp` within the code and other
+locations.
 
 ## Global transaction processing
 
@@ -64,39 +64,39 @@ genesis block) check whether transactions payload (`TxPayload`) from
 these blocks are valid.
 [Recall](https://cardanodocs.com/technical/blocks/#main-block)
 that transactions payload contains actual transactions (stored in the
-Merkle tree) and list of witnesses for inputs of those transactions.
+Merkle tree) and a list of witnesses for the inputs of those transactions.
 
-The algorithm is similar to the one from Bitcoin (for example, UTXO is used to prevent
+The algorithm is similar to the one from bitcoin (for example, UTXO is used to prevent
 double-spending), but is more complicated due to various reasons, including:
 
 * Extendable (via update mechanism) data structures
 * Maintaining stakes in addition to balances
 
 
-We describe global txp as stateful algorithm:
-* Initial state `S₀` is derived from blockchain genesis data (see [mainnet genesis JSON](https://raw.githubusercontent.com/input-output-hk/cardano-sl/e7cfb1724024e0db2f25ddd2eb8f8f17c0bc497f/node/mainnet-genesis.json))
+We describe global txp as a stateful algorithm:
+* Where the initial state `S₀` is derived from the blockchain genesis data (see [mainnet genesis JSON](https://raw.githubusercontent.com/input-output-hk/cardano-sl/e7cfb1724024e0db2f25ddd2eb8f8f17c0bc497f/node/mainnet-genesis.json))
 * `S₁, S₂, …` are maintained as sequential application of blocks  `B₀, B₁, B₂, … ` to state `S₀`
 * State transition function. Given GState `S` and a main block `B` return either an error describing why `B` is invalid (w.r.t. tx payload) or new GState `S'`
   ```
   verifyAndApplyGState :: GState -> MainBlock -> Either TxPayloadVerificationError GState
   -- ^ Note, that function definition and types are different in code and are put here for reader's convenience
   ```
-  * Note, that state transition function is defined only for main blocks. This is done because genesis blocks (as defined in Ouroboros) don't have tx payload and thus are not considered by global txp.
-  * Recall that tx payload contains transactions (stored in Merkle tree) and their witnesses.
+  * Note: The state transition function is defined only for main blocks. This is done because genesis blocks (as defined in Ouroboros), do not have tx payload and are not considered by global txp.
+  * Recall that tx payload contains transactions (stored in the Merkle tree) and their witnesses.
 
-Note, that in theory transaction verification can be stateless (except genesis
+Note: In theory, transaction verification can be stateless (except genesis
 state `S₀`) and be described without mentioning any additional state
-(apart from blocks themselves). But in practice it would be very
+(apart from the blocks themselves). But in practice it would be very
 inefficient and inconvenient.
 
-For sake of simplicity, we describe state transition function in two parts:
+For the sake of simplicity, we describe state transition function in two parts:
 * Verification: given GState `S` and a main block `B`, check whether `B` is valid (and can be applied to `S`)
 * Modification: given GState `S` and a main block `B` (successfully verified against `S`), produce `S'`
 
 ### GState
 
-In this section we describe parts of GState relevant to transaction
-processing (GState is an actual structure in code used by few more
+In this section we describe parts of GState that are relevant to transaction
+processing (GState is an actual structure in the code used by various
 components).
 
 * UTXO (unspent transaction outputs)
@@ -127,9 +127,9 @@ components).
   UTXO is a map from `TxIn` to
   `TxOutAux` ([code](https://github.com/input-output-hk/cardano-sl/blob/e7cfb1724024e0db2f25ddd2eb8f8f17c0bc497f/txp/Pos/Txp/Toil/Types.hs#L58)) which contains all unspent outputs.
   * `TxOutAux` is just an alias for `TxOut` ([code](https://github.com/input-output-hk/cardano-sl/blob/e7cfb1724024e0db2f25ddd2eb8f8f17c0bc497f/txp/Pos/Txp/Core/Types.hs#L160)). Later it can be extended if we want to associate
-  more data with unspent outputs (e. g. slot of the block in which
+  more data with unspent outputs (e. g. the slot of the block in which
   this transaction appeared).
-  * If a transaction `A` has 1 output (`out1`) which hasn't been
+  * If a transaction `A` has 1 output (`out1`) which has not been
   spent yet, UTXO will have a pair `(TxIn (hash A) 0, out1)`.
 
 * Stakes
@@ -146,7 +146,7 @@ components).
   parameters of the algorithm
   which can be updated by Update System (details are not covered in this document).
 
-  Txp doesn't modify this value, it only reads it.
+  Txp does not modify this value, it only reads it.
 
   Some values are relevant for transaction processing:
   * `maxTxSize` – maximal size of a transaction.
@@ -160,44 +160,44 @@ components).
 
 Many types in Cardano-SL are designed in an extensible way. They can
 be extended via softfork in future (e. g. new data can be attached or
-semantics can be changed). Examples are:
+semantics can be changed). Examples include:
 * `TxIn` has two constructors `TxInUtxo` and `TxInUnknown`. The former
-  is just a reference to an unspent output, it's the only `TxIn` type
-  we use currently. `TxInUnknown` contains arbitrary bytestring as
-  payload. Later we may introduce another type of transaction inputs
-  (e. g. to redeem fees). Then old software will parse these inputs
-  as `TxInUnknown`, but new software will parse them as new type of
+  is just a reference to an unspent output, it is the only `TxIn` type
+  we use currently. `TxInUnknown` contains arbitrary bytestring as the
+  payload. Later we could introduce other types of transaction inputs
+  (e. g. to redeem fees). In this case, these inputs will be parsed
+  as `TxInUnknown`, but the new software will parse them as a new type of
   input (and process them appropriately).
 * `Attributes` is basically a map from 1-byte integers to arbitrary
   values. Some values can be parsed into known data types, other
   values are treated as _unparsed fields_. `Attributes` are part of
   various data types, e. g. `Tx`. In version 0 `Tx` always has empty
-  attributes. But in version 1 we may add more data to `Tx` (put it
-  into `Attributes`). In this case new software will parse this data
-  and old software will treat it as unparsed fields.
+  attributes. But in version 1 we could add more data to `Tx` (put it
+  into `Attributes`). In this case, this date will be parsed
+  and the previous software will treat the data as unparsed fields.
 * Unknown address type. Each valid address in Cardano-SL has a
-  type. It can be one of fixed address types or unknown address type
-  which can't be interpreted by current version of software.
+  type. It can be one of either the fixed address types or the unknown address type
+  which cannot be interpreted by the current version of the software.
 
-There are few more examples, but these three should demonstrate the
+There are a few more examples, but these three should demonstrate the
 general idea. If we encounter unknown data (unparsed fields, unknown
 tx input type, unknown address type, etc.) in a block, there are two
 possible behaviours:
-1. Consider such block invalid.
-2. Do as many checks as we can and ignore checks which can't be done
-   because data is unknown. This behaviour depends on which type of
+1. Consider such blocs invalid.
+2. Do as many checks as we can and ignore checks which cannot be done
+   because the data is unknown. This behaviour depends on which type of
    data we are processing, each particular case is described in more
-   details below.
+   detail below.
 
-The behaviour depends on two protocol versions: version used by this
-software and last adopted version. We verify that data in blocks is
+The behaviour depends on two protocol versions: the version used by this
+software and the last adopted version. We verify that the data in blocks is
 known if protocol version used by this software is greater than or
-equal to the adopted version. That's because in this case:
+equal to the adopted version. That is because in this case:
 
 1. Authors of this software are aware of the adopted version.
 2. Each issued block must be formed with respect to adopted version.
 
-Comparison is quite tricky here. Table below demonstrates it.
+The comparison can be difficult, as demonstrated in the following table:
 
 | Our   | Adopted | Check? |
 | ----- | ------- | ------ |
@@ -208,14 +208,14 @@ Comparison is quite tricky here. Table below demonstrates it.
 | 1.2.3 |  1.1.1  | Yes    |
 | 2.2.8 |  1.9.9  | Yes    |
 
-If `(major, minor)` of our version is greater than of adopted
-one, then check is certainly done. If it's equal, then check is
-done only if `alt` component is the same as adopted one. In
-other cases (i. e. when our `(major, minor)` is less than from
-adopted version) check is not done.
+If `(major, minor)` of our version is greater than that of the adopted
+one, then a check is certainly performed. If it is equal, then a check is
+performed only if the `alt` component is the same as the adopted one. In
+other cases, (i. e. when our `(major, minor)` is less than from the
+adopted version) a check is not performed.
 
-Note: when we say that attributes must be known, it means that
-unparsed fields must be empty.
+Note: When we say that the attributes must be known, it means that
+any unparsed fields must be empty.
 
 ### Verification
 
@@ -464,32 +464,32 @@ Stakes modification is a bit more complex than UTXO modification, but is also ve
 
 ## Local transaction processing
 
-Local transaction processing is needed for transaction relay. Node can
+Local transaction processing is needed for transaction relay. Nodes can
 receive a standalone transaction from the network and then it needs to
 verify it against its current state (global + mempool) and:
 
 * Apply and relay further (to neighbors)
 * Reject
 
-There are few differences between local txp and global txp:
+There are a few differences between local txp and global txp:
 
 * In local txp we consider not only GState, but also mempool. We
    behave as if transactions in mempool were applied as part of another
    block on top of GState `S`.
-   We never modify GState, only mempool is modified.
+   We never modify GState, only the mempool is modified.
 * We impose a limit on mempool size, specified in a number of
-   transactions. If mempool is overwhelmed, we won't accept new
-   transactions until we free some space up.
-* Transaction verification depends on current epoch (to determine whether to
+   transactions. If the mempool is overwhelmed, we will not accept new
+   transactions until space is freed up.
+* Transaction verification depends on the current epoch (to determine whether to
    apply bootstrap era checks).
-   In global txp we know epoch from block header.
+   In global txp we know the epoch from the block header.
 
-   In local txp we use current epoch. If it's
+   In local txp we use current epoch. If it is
    unknown (which means that our local chain is quite outdated), we
-   reject incoming transactions.
+   reject any incoming transactions.
 
 * `verifyAllIsKnown` is always set to `True` in local txp (in all related checks).
 
-Note that local transaction processing is basically an implementation
+Note: Local transaction processing is basically an implementation
 detail and other nodes can do it differently. For example, a node can
 always reject all transactions and never relay them.

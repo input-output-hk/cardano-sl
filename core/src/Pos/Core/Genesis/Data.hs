@@ -11,13 +11,13 @@ import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
 
 import           Pos.Core.Common (SharedSeed)
 import           Pos.Core.Slotting (Timestamp)
+import           Pos.Core.Ssc (VssCertificatesMap)
 import           Pos.Core.Update (BlockVersionData)
 
 import           Pos.Core.Genesis.AvvmBalances
 import           Pos.Core.Genesis.Delegation
 import           Pos.Core.Genesis.NonAvvmBalances
 import           Pos.Core.Genesis.ProtocolConstants
-import           Pos.Core.Genesis.VssCertificatesMap
 import           Pos.Core.Genesis.WStakeholders
 import           Pos.Util.Json.Canonical ()
 
@@ -28,7 +28,7 @@ data GenesisData = GenesisData
     { gdBootStakeholders :: !GenesisWStakeholders
     , gdHeavyDelegation  :: !GenesisDelegation
     , gdStartTime        :: !Timestamp
-    , gdVssCerts         :: !GenesisVssCertificatesMap
+    , gdVssCerts         :: !VssCertificatesMap
     , gdNonAvvmBalances  :: !GenesisNonAvvmBalances
     , gdBlockVersionData :: !BlockVersionData
     , gdProtocolConsts   :: !GenesisProtocolConstants
@@ -57,7 +57,7 @@ instance (ReportSchemaErrors m) => FromJSON m GenesisData where
         gdStartTime <- fromJSField obj "startTime"
         -- note that we don't need to validate this map explicitly because
         -- the FromJSON instance of 'VssCertificatesMap' already does this
-        gdVssCerts <- GenesisVssCertificatesMap <$> fromJSField obj "vssCerts"
+        gdVssCerts <- fromJSField obj "vssCerts"
         gdNonAvvmBalances <- fromJSField obj "nonAvvmBalances"
         gdBlockVersionData <- fromJSField obj "blockVersionData"
         gdProtocolConsts <- fromJSField obj "protocolConsts"

@@ -51,7 +51,7 @@ import           Pos.Core.Genesis (GeneratedSecrets, GenesisAvvmBalances,
                      GenesisData (..), GenesisDelegation,
                      GenesisInitializer (..), GenesisNonAvvmBalances,
                      GenesisProtocolConstants (..), GenesisSpec (..),
-                     GenesisVssCertificatesMap (..), GenesisWStakeholders,
+                     GenesisWStakeholders,
                      genesisProtocolConstantsToProtocolConstants,
                      mkGenesisDelegation)
 import           Pos.Core.Genesis.Generate (GeneratedGenesisData (..),
@@ -116,7 +116,7 @@ configStartTime :: Config -> Timestamp
 configStartTime = gdStartTime . configGenesisData
 
 configVssCerts :: Config -> VssCertificatesMap
-configVssCerts = getGenesisVssCertificatesMap . gdVssCerts . configGenesisData
+configVssCerts = gdVssCerts . configGenesisData
 
 configNonAvvmBalances :: Config -> GenesisNonAvvmBalances
 configNonAvvmBalances = gdNonAvvmBalances . configGenesisData

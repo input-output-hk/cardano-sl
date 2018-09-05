@@ -576,7 +576,7 @@ instance Arbitrary G.GenesisData where
         hasKnownFeePolicy BlockVersionData {bvdTxFeePolicy = TxFeePolicyTxSizeLinear {}} =
             True
         hasKnownFeePolicy _ = False
-        arbitraryVssCerts = G.GenesisVssCertificatesMap . mkVssCertificatesMapLossy <$> arbitrary
+        arbitraryVssCerts = mkVssCertificatesMapLossy <$> arbitrary
 ----------------------------------------------------------------------------
 -- Arbitrary miscellaneous types
 ----------------------------------------------------------------------------

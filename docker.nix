@@ -1,4 +1,5 @@
 { environment ? "mainnet"
+, name
 , connect
 , gitrev
 , pkgs
@@ -28,7 +29,7 @@ let
     exec ${connectToCluster}
   '';
 in pkgs.dockerTools.buildImage {
-  name = "cardano-container-${environment}";
+  name = "cardano-container-${environment}-${name}";
   contents = with pkgs; [ iana-etc startScript openssl bashInteractive coreutils utillinux iproute iputils curl socat ];
   config = {
     Cmd = [ "cardano-start" ];

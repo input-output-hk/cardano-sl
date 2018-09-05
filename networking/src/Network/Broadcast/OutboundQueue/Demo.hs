@@ -44,8 +44,6 @@ runEnqueue = id
 
 relayDemo :: IO ()
 relayDemo = do
-    updateGlobalLogger "*production*" (setLevel noticePlus)
-
     let block :: Text -> [Node] -> Enqueue () -> Enqueue ()
         block label nodes act = do
           usingLoggerName (fromString "outboundqueue-production") $ logNotice label

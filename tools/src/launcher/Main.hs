@@ -76,7 +76,7 @@ import           Pos.DB.Rocks (NodeDBs, closeNodeDBs, dbDeleteDefault,
                      dbWriteBatchDefault, openNodeDBs)
 import           Pos.DB.Update (affirmUpdateInstalled)
 import           Pos.Infra.Reporting.Http (sendReport)
-import           Pos.Infra.Reporting.Wlog (compressLogs, retrieveLogFiles)
+import           Pos.Infra.Reporting.Wlog (compressLogs)
 import           Pos.Launcher (HasConfigurations, withConfigurations)
 import           Pos.Launcher.Configuration (ConfigurationOptions (..))
 import           Pos.Network.Update.Download (installerHash)
@@ -85,11 +85,13 @@ import           Pos.Util (HasLens (..), directory, logException,
                      postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo,
                      withCompileInfo)
-import           Pos.Util.Log.LoggerConfig (defaultInteractiveConfiguration,
+import           Pos.Util.Log.LoggerConfig (BackendKind (..), LogHandler (..),
+                     LogSecurityLevel (..), defaultInteractiveConfiguration,
+                     lcBasePath, lcLoggerTree, ltHandlers, ltMinSeverity,
                      retrieveLogFiles)
-import           Pos.Util.Wlog (LoggerNameBox (..), Severity (Debug),
-                     lcBasePath, lcLoggerTree, logError, logInfo, logNotice,
-                     logWarning, usingLoggerName)
+import           Pos.Util.Wlog (LoggerNameBox (..), Severity (Info), logError,
+                     logInfo, logNotice, logWarning, setupLogging,
+                     usingLoggerName)
 
 import           Pos.Tools.Launcher.Environment (substituteEnvVarsValue)
 import           Pos.Tools.Launcher.Logging (reportErrorDefault)
@@ -304,18 +306,22 @@ main =
             case loNodeLogConfig of
                 Nothing -> loNodeArgs
                 Just lc -> loNodeArgs ++ ["--log-config", toText lc]
-    setupLogging Nothing $
-        defaultInteractiveConfiguration Debug
+    setupLogging $
+        defaultInteractiveConfiguration Info
             & lcBasePath .~ launcherLogsPrefix
             & lcLoggerTree %~ case launcherLogsPrefix of
                   Nothing ->
                       identity
                   Just _  ->
-                    (ltHandlers %~ (\xs -> LogHandler { _lhName="node", _lhFpath=Just "node.log"
-                    , _lhBackend=FileTextBE
-                    , _lhMinSeverity=Just Debug
-                    , _lhSecurityLevel=Just PublicLogLevel} : xs)) .
-                    set ltMinSeverity Debug
+                    (ltHandlers %~ (\xs -> [LogHandler { _lhName="node", _lhFpath=Just "node.log"
+                                                       , _lhBackend=FileTextBE
+                                                       , _lhMinSeverity=Just Info
+                                                       , _lhSecurityLevel=Just SecretLogLevel}
+                                           ,LogHandler { _lhName="json", _lhFpath=Just "pub/node.pub"
+                                                       , _lhBackend=FileJsonBE
+                                                       , _lhMinSeverity=Just Info
+                                                       , _lhSecurityLevel=Just PublicLogLevel}] ++ xs)) .
+                    set ltMinSeverity Info
     logException loggerName . usingLoggerName loggerName $
         withConfigurations Nothing Nothing False loConfiguration $ \coreConfig _ _ _ -> do
 
@@ -726,6 +732,7 @@ reportNodeCrash
     -> M ()
 reportNodeCrash pm exitCode _ logConfPath reportServ = do
     logConfig <- readLoggerConfig (toString <$> logConfPath)
+    -- TODO   this should be moved where we have access to logfiles
     let logFileNames =
             map ((fromMaybe "" (logConfig ^. lcBasePath) </>) . snd) $
             retrieveLogFiles logConfig

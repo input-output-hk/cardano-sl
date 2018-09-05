@@ -47,7 +47,7 @@ import           Pos.Tools.Dbgen.Lib (generateWalletDB, loadGenSpec)
 import           Pos.Tools.Dbgen.Rendering (bold, say)
 import           Pos.Tools.Dbgen.Stats (showStatsAndExit, showStatsData)
 import           Pos.Tools.Dbgen.Types (UberMonad)
-import           Pos.Util.Wlog (HasLoggerName (..), LoggerName (..))
+import           Pos.Util.Wlog (HasLoggerName (..))
 
 defaultNetworkConfig :: Topology kademlia -> NetworkConfig kademlia
 defaultNetworkConfig ncTopology = NetworkConfig {
@@ -124,7 +124,7 @@ newRealModeContext genesisConfig txpConfig dbs confOpts publicKeyPath secretKeyP
                         <*> pure nrTxpState
                         <*> pure nrDlgState
                         <*> jsonLogConfigFromHandle stdout
-                        <*> pure (LoggerName "dbgen")
+                        <*> pure "dbgen"
                         <*> pure nrContext
                         <*> pure noReporter
                         -- <*> initQueue (defaultNetworkConfig (TopologyAuxx mempty)) Nothing

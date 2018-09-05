@@ -250,7 +250,7 @@ validCert ls (RegKey key) =
   -- TODO spec mentions signing the public stake key. needed?
 
 validCert ls (DeRegKey key) =
-  if Set.member (hashKey key) (getStPools ls)
+  if Set.member (hashKey key) (getStKeys ls)
   then Valid
   else Invalid [BadDeregistration]
   -- TODO spec mentions signing the public stake key. needed?

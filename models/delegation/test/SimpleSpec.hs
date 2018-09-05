@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-missing-signatures #-}
+
 module SimpleSpec where
 
 import           Crypto.Hash (hash)
@@ -5,7 +7,6 @@ import qualified Data.Map   as Map
 import qualified Data.Set   as Set
 import           Test.Hspec
 
-import           Data.List  (find)
 import           Delegation
 
 
@@ -74,21 +75,40 @@ tx3Wits = Wits
               ])
 tx3 = Tx tx3Body tx3Wits
 
+tx4Body = TxBody Set.empty [] (Set.fromList [DeRegKey (VKey aliceStake)])
+tx4Wits = Wits Set.empty
+            (Set.fromList [WitCert (VKey aliceStake) (Sig tx4Body aliceStake)])
+tx4 = Tx tx4Body tx4Wits
+
+tx5Body = TxBody Set.empty []
+            (Set.fromList [Delegate (Delegation (VKey bobStake) (VKey poolStake))])
+tx5Wits = Wits Set.empty
+            (Set.fromList [WitCert (VKey bobStake) (Sig tx5Body bobStake)])
+tx5 = Tx tx5Body tx5Wits
+
+tx6Body = TxBody Set.empty []
+            (Set.fromList [RetirePool (VKey poolStake) 5])
+tx6Wits = Wits Set.empty
+            (Set.fromList [WitCert (VKey poolStake) (Sig tx6Body poolStake)])
+tx6 = Tx tx6Body tx6Wits
+
 ledgerState :: Ledger -> Either [ValidationError] LedgerState
 ledgerState [] = Right $ genesis
 ledgerState (t:ts) = ledgerState ts >>= asStateTransition t
+
+expectedUtxo = UTxO $ Map.fromList
+                 [ (TxIn genesisId 1, TxOut bobAddr (Coin 20))
+                 , (TxIn (txid tx1) 0, TxOut aliceAddr (Coin 7))
+                 , (TxIn (txid tx1) 1, TxOut bobAddr (Coin 1))
+                 , (TxIn (txid tx1) 2, TxOut poolAddr (Coin 2))
+                 ]
 
 spec :: Spec
 spec = do
   it "genesis balance" $ balance (getUtxo genesis) `shouldBe` Coin 30
   it "transaction as state transition" $
-    ledgerState [tx1] `shouldBe` Right ( LedgerState {
-      getUtxo = UTxO $ Map.fromList
-                  [ (TxIn genesisId 1, TxOut bobAddr (Coin 20))
-                  , (TxIn (txid tx1) 0, TxOut aliceAddr (Coin 7))
-                  , (TxIn (txid tx1) 1, TxOut bobAddr (Coin 1))
-                  , (TxIn (txid tx1) 2, TxOut poolAddr (Coin 2))
-                  ]
+    ledgerState [tx1] `shouldBe` Right ( LedgerState
+      { getUtxo = expectedUtxo
       , getAccounts = Map.fromList
                         [ (aliceStKeyHash, Coin 0)
                         , (bobStKeyHash, Coin 0)
@@ -101,13 +121,8 @@ spec = do
       , getEpoch = 0
       })
   it "delegation" $
-    ledgerState [tx3, tx2, tx1] `shouldBe` Right ( LedgerState {
-      getUtxo = UTxO $ Map.fromList
-                  [ (TxIn genesisId 1, TxOut bobAddr (Coin 20))
-                  , (TxIn (txid tx1) 0, TxOut aliceAddr (Coin 7))
-                  , (TxIn (txid tx1) 1, TxOut bobAddr (Coin 1))
-                  , (TxIn (txid tx1) 2, TxOut poolAddr (Coin 2))
-                  ]
+    ledgerState [tx3, tx2, tx1] `shouldBe` Right ( LedgerState
+      { getUtxo = expectedUtxo
       , getAccounts = Map.fromList
                         [ (aliceStKeyHash, Coin 0)
                         , (bobStKeyHash, Coin 0)
@@ -128,3 +143,66 @@ spec = do
                                    [ (poolStKeyHash, Coin 9)
                                    , (bobStKeyHash, Coin 21)
                                    ]
+  it "deregister stake key" $
+    ledgerState [tx4, tx3, tx2, tx1] `shouldBe` Right ( LedgerState
+      { getUtxo = expectedUtxo
+      , getAccounts = Map.fromList
+                        [ (bobStKeyHash, Coin 0)
+                        , (poolStKeyHash, Coin 0)
+                        ]
+      , getStKeys = Set.fromList [bobStKeyHash, poolStKeyHash]
+      , getDelegations = Map.fromList
+                           [ (bobStKeyHash, bobStKeyHash)
+                           , (poolStKeyHash, poolStKeyHash)]
+      , getStPools = Set.fromList [poolStKeyHash, bobStKeyHash]
+      , getRetiring = Map.empty
+      , getEpoch = 0
+      })
+
+  it "re-delegate" $
+    ledgerState [tx5, tx4, tx3, tx2, tx1] `shouldBe` Right ( LedgerState
+      { getUtxo = expectedUtxo
+      , getAccounts = Map.fromList
+                        [ (bobStKeyHash, Coin 0)
+                        , (poolStKeyHash, Coin 0)
+                        ]
+      , getStKeys = Set.fromList [bobStKeyHash, poolStKeyHash]
+      , getDelegations = Map.fromList
+                           [ (bobStKeyHash, poolStKeyHash)
+                           , (poolStKeyHash, poolStKeyHash)]
+      , getStPools = Set.fromList [poolStKeyHash, bobStKeyHash]
+      , getRetiring = Map.empty
+      , getEpoch = 0
+      })
+
+  it "retiring a pool" $
+    ledgerState [tx6, tx5, tx4, tx3, tx2, tx1] `shouldBe` Right ( LedgerState
+      { getUtxo = expectedUtxo
+      , getAccounts = Map.fromList
+                        [ (bobStKeyHash, Coin 0)
+                        , (poolStKeyHash, Coin 0)
+                        ]
+      , getStKeys = Set.fromList [bobStKeyHash, poolStKeyHash]
+      , getDelegations = Map.fromList
+                           [ (bobStKeyHash, poolStKeyHash)
+                           , (poolStKeyHash, poolStKeyHash)]
+      , getStPools = Set.fromList [poolStKeyHash, bobStKeyHash]
+      , getRetiring = Map.fromList [(poolStKeyHash, 5)]
+      , getEpoch = 0
+      })
+  it "retire pool" $
+    let (Right ls) = ledgerState [tx6, tx5, tx4, tx3, tx2, tx1] in
+      (retirePools ls 5) `shouldBe` LedgerState {
+        getUtxo = expectedUtxo
+        , getAccounts = Map.fromList
+                          [ (bobStKeyHash, Coin 0)
+                          , (poolStKeyHash, Coin 0)
+                          ]
+        , getStKeys = Set.fromList [bobStKeyHash, poolStKeyHash]
+        , getDelegations = Map.fromList
+                             [ (bobStKeyHash, poolStKeyHash)
+                             , (poolStKeyHash, poolStKeyHash)]
+        , getStPools = Set.fromList [bobStKeyHash]
+        , getRetiring = Map.empty
+        , getEpoch = 0
+        }

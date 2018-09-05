@@ -63,15 +63,17 @@ main = do
         printT "Starting deterministic tests."
         hspec $ deterministicTests wRef walletClient manager
 
-        walletState <- initialWalletState walletClient
+        printT $ "The 'runActionCheck' tests were disabled because they were highly un-reliable."
+        when False $ do
+            walletState <- initialWalletState walletClient
 
-        printT $ "Initial wallet state: " <> show walletState
+            printT $ "Initial wallet state: " <> show walletState
 
-        -- some monadic fold or smth similar
-        void $ runActionCheck
-          walletClient
-          walletState
-          actionDistribution
+            -- some monadic fold or smth similar
+            void $ runActionCheck
+                walletClient
+                walletState
+                actionDistribution
   where
     orFail :: MonadFail m => Either String a -> m a
     orFail =

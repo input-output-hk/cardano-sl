@@ -41,8 +41,7 @@ import           Pos.Crypto (EncryptedSecretKey, hash)
 import           Pos.Util.UserSecret (UserSecret, getUSPath, isEmptyUserSecret,
                      readUserSecret, takeUserSecret, usKeys, usWallet,
                      writeRaw, writeUserSecretRelease, _wusRootKey)
-import           Pos.Util.Wlog (CanLog (..), HasLoggerName (..),
-                     LoggerName (..), logMessage)
+import           Pos.Util.Wlog (CanLog (..), HasLoggerName (..), logMessage)
 
 import           Cardano.Wallet.Kernel.DB.HdWallet (eskToHdRootId)
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
@@ -59,7 +58,7 @@ newtype KeystoreM a = KeystoreM { fromKeystore :: IO a }
                     deriving (Functor, Applicative, Monad, MonadIO)
 
 instance HasLoggerName KeystoreM where
-    askLoggerName = return (LoggerName "Keystore")
+    askLoggerName = return "Keystore"
     modifyLoggerName _ action = action
 
 instance CanLog KeystoreM where

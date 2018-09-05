@@ -29,7 +29,6 @@ module Pos.Util.Wlog
         , usingLoggerName       -- call sites: 22 db,explorer,infra,lib,networking,node-ipc,tools,wallet,wallet-new
           -- * LoggerConfig
         , LoggerConfig (..)     -- call sites: 13  (mostly together with 'setupLogging')
-        , lcLogsDirectory       -- call sites: 1 tools/src/launcher/Main.hs
         , lcTermSeverityOut     -- call sites: 1 tools/src/launcher/Main.hs
         , lcTree                -- call sites: 4 infra,lib,networking,tools
         , parseLoggerConfig     -- call sites: 2 lib,networking
@@ -40,7 +39,6 @@ module Pos.Util.Wlog
         , ltSeverity            -- call sites: 5 networking/src/Bench/Network/Commons.hs,tools/src/launcher/Main.hs
           -- * Builders for 'LoggerConfig'
         , productionB           -- call sites: 6 lib,networking,tools
-        , termSeveritiesOutB    -- call sites: 1 tools/src/keygen/Main.hs
           -- * Severity
         , Severity (..)
         , debugPlus             -- call sites: 4 generator/app/VerificationBench.hs,tools:keygen|launcher
@@ -60,9 +58,8 @@ module Pos.Util.Wlog
         , setLogPrefix
         ) where
 
-import           System.Wlog (HandlerWrap (..), debugPlus, lcLogsDirectory,
-                     lcTermSeverityOut, ltSeverity, noticePlus,
-                     removeAllHandlers, setLevel, termSeveritiesOutB,
+import           System.Wlog (HandlerWrap (..), debugPlus, lcTermSeverityOut,
+                     ltSeverity, noticePlus, removeAllHandlers, setLevel,
                      updateGlobalLogger)
 import           System.Wlog.Formatter (centiUtcTimeF)
 

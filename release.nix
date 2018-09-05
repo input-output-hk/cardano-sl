@@ -23,13 +23,16 @@ let
       mainnet = iohkPkgs.dockerImages.mainnet;
       staging = iohkPkgs.dockerImages.staging;
     };
-    image = images."${cluster}";
-  in pkgs.runCommand "${image.name}-hydra" {} ''
-    mkdir -pv $out/nix-support/
-    cat <<EOF > $out/nix-support/hydra-build-products
-    file dockerimage ${image}
-    EOF
-  '';
+    wrapImage = image: pkgs.runCommand "${image.name}-hydra" {} ''
+      mkdir -pv $out/nix-support/
+      cat <<EOF > $out/nix-support/hydra-build-products
+      file dockerimage ${image}
+      EOF
+    '';
+  in {
+    wallet = wrapImage images."${cluster}".wallet;
+    explorer = wrapImage images."${cluster}".explorer;
+  };
   platforms = {
     cardano-sl = supportedSystems;
     cardano-sl-auxx = supportedSystems;

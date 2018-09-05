@@ -26,13 +26,13 @@ module Cardano.Wallet.Kernel (
 
 import           Universum hiding (State, init)
 
-import System.FilePath ((</>))
-import Data.Typeable (typeRep)
 import           Control.Concurrent.Async (async, cancel)
 import           Control.Concurrent.MVar (modifyMVar, modifyMVar_)
 import           Data.Acid (AcidState, openLocalStateFrom)
 import           Data.Acid.Memory (openMemoryState)
 import qualified Data.Map.Strict as Map
+import           Data.Typeable (typeRep)
+import           System.FilePath ((</>))
 
 import           Pos.Core (ProtocolMagic)
 import           Pos.Core.Txp (TxAux (..))

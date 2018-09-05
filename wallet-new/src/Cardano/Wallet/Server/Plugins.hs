@@ -24,7 +24,7 @@ import           Network.Wai.Middleware.Cors (cors, corsMethods,
 
 import           Cardano.NodeIPC (startNodeJsIPC)
 import           Cardano.Wallet.API as API
-import           Cardano.Wallet.Kernel (PassiveWallet, DatabaseMode(..))
+import           Cardano.Wallet.Kernel (DatabaseMode (..), PassiveWallet)
 import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..),
                      RunMode, WalletBackendParams (..), getWalletDbOptions,
                      isDebugMode, walletAcidInterval)

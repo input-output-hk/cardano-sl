@@ -9,8 +9,6 @@ module Pos.Aeson.Core.Configuration
 import           Data.Aeson.TH (deriveJSON)
 import           Serokell.Aeson.Options (defaultOptions)
 
-import           Pos.Aeson.Genesis ()
-import           Pos.Core.Configuration.Core (CoreConfiguration (..), GenesisConfiguration (..))
+import           Pos.Core.Configuration.Core (CoreConfiguration (..))
 
-deriveJSON defaultOptions ''GenesisConfiguration
 deriveJSON defaultOptions ''CoreConfiguration

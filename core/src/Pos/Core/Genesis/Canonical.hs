@@ -3,17 +3,14 @@
 -- | Canonical encoding of 'GenesisData'.
 
 module Pos.Core.Genesis.Canonical
-       ( SchemaError(..)
+       (
        ) where
 
 import           Universum
 
 import           Control.Lens (_Left)
-import           Control.Monad.Except (MonadError (..))
 import           Data.Fixed (Fixed (..))
 import qualified Data.HashMap.Strict as HM
-import qualified Data.Text.Buildable as Buildable
-import qualified Data.Text.Lazy.Builder as Builder (fromText)
 import           Data.Time.Units (Millisecond, Second, convertUnit)
 import           Data.Typeable (typeRep)
 import           Formatting (formatToString)
@@ -52,31 +49,11 @@ import           Pos.Core.Genesis.ProtocolConstants (GenesisProtocolConstants (.
 import           Pos.Core.Genesis.VssCertificatesMap (GenesisVssCertificatesMap (..))
 import           Pos.Core.Genesis.WStakeholders (GenesisWStakeholders (..))
 
+import           Pos.Util.Json.Canonical ()
+
 ----------------------------------------------------------------------------
 -- Primitive standard/3rdparty types
 ----------------------------------------------------------------------------
-
-data SchemaError = SchemaError
-    { seExpected :: !Text
-    , seActual   :: !(Maybe Text)
-    } deriving (Show)
-
-instance Buildable SchemaError where
-    build SchemaError{..} = mconcat
-        [ "expected " <> Builder.fromText seExpected
-        , case seActual of
-            Nothing     -> mempty
-            Just actual -> " but got " <> Builder.fromText actual
-        ]
-
-instance (Monad m, Applicative m, MonadError SchemaError m) => ReportSchemaErrors m where
-    expected expec actual = throwError SchemaError
-        { seExpected = fromString expec
-        , seActual = fmap fromString actual
-        }
-
-instance Monad m => ToJSON m Int32 where
-    toJSON = pure . JSNum . fromIntegral
 
 instance Monad m => ToJSON m Word16 where
     toJSON = pure . JSNum . fromIntegral
@@ -303,10 +280,6 @@ wrapConstructor =
 ----------------------------------------------------------------------------
 -- External
 ---------------------------------------------------------------------------
-
-instance (ReportSchemaErrors m) => FromJSON m Int32 where
-    fromJSON (JSNum i) = pure . fromIntegral $ i
-    fromJSON val       = expectedButGotValue "Int32" val
 
 instance (ReportSchemaErrors m) => FromJSON m Word16 where
     fromJSON (JSNum i) = pure . fromIntegral $ i

@@ -29,11 +29,12 @@ import           Pos.Core.Configuration.Protocol as E
 import           Pos.Core.Genesis (GenesisData (..), GenesisDelegation, GenesisInitializer (..),
                                    GenesisProtocolConstants (..), GenesisSpec (..),
                                    genesisProtocolConstantsToProtocolConstants, mkGenesisDelegation)
-import           Pos.Core.Genesis.Canonical (SchemaError)
+import           Pos.Core.Genesis.Canonical ()
 import           Pos.Core.Genesis.Generate (GeneratedGenesisData (..), generateGenesisData)
 import           Pos.Core.Slotting (Timestamp)
 import           Pos.Crypto.Configuration as E
 import           Pos.Crypto.Hashing (Hash, hashRaw, unsafeHash)
+import           Pos.Util.Json.Canonical (SchemaError (..))
 import           Pos.Util.Util (leftToPanic)
 
 -- | Coarse catch-all configuration constraint for use by depending modules.

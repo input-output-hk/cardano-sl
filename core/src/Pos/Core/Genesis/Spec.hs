@@ -33,7 +33,7 @@ data GenesisSpec = UnsafeGenesisSpec
     -- ^ Other constants which affect consensus.
     , gsInitializer       :: !GenesisInitializer
     -- ^ Other data which depend on genesis type.
-    } deriving (Show, Generic)
+    } deriving (Eq, Show, Generic)
 
 -- | Safe constructor for 'GenesisSpec'. Throws error if something
 -- goes wrong.

@@ -4,6 +4,7 @@
 
 module Test.Pos.Crypto.Bi
     ( tests
+    , getBytes
     ) where
 
 import           Universum
@@ -76,7 +77,8 @@ golden_Signature = goldenTestBi sig "test/golden/Signature"
     sig        = sign (ProtocolMagic 0) SignForTestingOnly skey ()
 
 genUnitSignature :: Gen (Signature ())
-genUnitSignature = genSignature $ pure ()
+genUnitSignature = do pm <- genProtocolMagic
+                      genSignature pm (pure ())
 
 roundTripSignatureBi :: Property
 roundTripSignatureBi = eachOf 1000 genUnitSignature roundTripsBiBuildable
@@ -154,7 +156,8 @@ golden_RedeemSignature = goldenTestBi rsig "test/golden/RedeemSignature"
     rsig     = redeemSign (ProtocolMagic 0) SignForTestingOnly rsk ()
 
 genUnitRedeemSignature :: Gen (RedeemSignature ())
-genUnitRedeemSignature = genRedeemSignature $ pure ()
+genUnitRedeemSignature = do pm <- genProtocolMagic
+                            genRedeemSignature pm (pure ())
 
 roundTripRedeemSignatureBi :: Property
 roundTripRedeemSignatureBi =

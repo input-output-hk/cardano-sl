@@ -1,6 +1,5 @@
 module Pos.Core.Genesis
-       ( module Pos.Core.Genesis.Canonical
-       , module Pos.Core.Genesis.Generate
+       ( module Pos.Core.Genesis.Generate
 
        , module Pos.Core.Genesis.AvvmBalances
        , module Pos.Core.Genesis.Data
@@ -13,7 +12,7 @@ module Pos.Core.Genesis
        , module Pos.Core.Genesis.WStakeholders
        ) where
 
-import           Pos.Core.Genesis.Canonical
+import           Pos.Core.Genesis.Canonical ()
 import           Pos.Core.Genesis.Generate
 
 import           Pos.Core.Genesis.AvvmBalances

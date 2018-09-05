@@ -28,8 +28,8 @@ import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem,
                      runPureTossWithLogger, sscGlobal,
                      sscIsCriticalVerifyError, sscRunGlobalUpdate,
                      supplyPureTossEnv, verifyAndApplySscPayload)
-import           Pos.Core as Core (Config, HasCoreConfiguration, SlotCount,
-                     configBlockVersionData, epochIndexL, epochOrSlotG)
+import           Pos.Core as Core (Config, SlotCount, configBlockVersionData,
+                     epochIndexL, epochOrSlotG)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Exception (assertionFailed)
 import           Pos.Core.Reporting (MonadReporting, reportError)
@@ -257,5 +257,5 @@ tossToVerifier action = do
         Right res -> (identity .= newState) $> res
 
 -- | Dump global state to DB.
-sscGlobalStateToBatch :: (HasCoreConfiguration) => SscGlobalState -> [SomeBatchOp]
+sscGlobalStateToBatch :: SscGlobalState -> [SomeBatchOp]
 sscGlobalStateToBatch = one . SomeBatchOp . DB.sscGlobalStateToBatch

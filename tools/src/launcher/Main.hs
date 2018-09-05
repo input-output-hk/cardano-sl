@@ -64,8 +64,7 @@ import           GHC.IO.Exception (IOErrorType (..), IOException (..))
 
 import           Paths_cardano_sl (version)
 import           Pos.Client.CLI (readLoggerConfig)
-import           Pos.Core (Config (..), HasConfiguration, ProtocolMagic,
-                     Timestamp (..))
+import           Pos.Core (Config (..), ProtocolMagic, Timestamp (..))
 import           Pos.DB.Block (dbGetSerBlockRealDefault,
                      dbGetSerBlundRealDefault, dbGetSerUndoRealDefault,
                      dbPutSerBlundsRealDefault)
@@ -256,14 +255,14 @@ type LauncherMode = ReaderT LauncherModeContext IO
 instance HasLens NodeDBs LauncherModeContext NodeDBs where
     lensOf = lmcNodeDBs_L
 
-instance HasConfiguration => MonadDBRead LauncherMode where
+instance MonadDBRead LauncherMode where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
     dbGetSerBlock = dbGetSerBlockRealDefault
     dbGetSerUndo = dbGetSerUndoRealDefault
     dbGetSerBlund = dbGetSerBlundRealDefault
 
-instance HasConfiguration => MonadDB LauncherMode where
+instance MonadDB LauncherMode where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
@@ -311,7 +310,7 @@ main =
                       set Log.ltFiles [Log.HandlerWrap "launcher" Nothing] .
                       set Log.ltSeverity (Just Log.debugPlus)
     logException loggerName . Log.usingLoggerName loggerName $
-        withConfigurations Nothing loConfiguration $ \coreConfig _ _ -> do
+        withConfigurations Nothing Nothing False loConfiguration $ \coreConfig _ _ -> do
 
         -- Generate TLS certificates as needed
         generateTlsCertificates loConfiguration loX509ToolPath loTlsPath
@@ -541,7 +540,7 @@ frontendOnlyScenario ndbp node wallet updater walletLog = do
 
 -- | We run the updater and delete the update file if the update was
 -- successful.
-runUpdater :: HasConfigurations => NodeDbPath -> UpdaterData -> M ()
+runUpdater :: NodeDbPath -> UpdaterData -> M ()
 runUpdater ndbp ud = do
     let path = udPath ud
         args = udArgs ud

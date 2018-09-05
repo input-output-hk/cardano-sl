@@ -57,8 +57,7 @@ import           Pos.Client.Txp.History (MonadTxHistory (..),
                      getBlockHistoryDefault, getLocalHistoryDefault,
                      saveTxDefault)
 import           Pos.Context (ConnectedPeers (..))
-import           Pos.Core (HasConfiguration, Timestamp (..),
-                     largestHDAddressBoot)
+import           Pos.Core (Timestamp (..), largestHDAddressBoot)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Crypto (PassPhrase)
 import           Pos.DB (MonadDB (..), MonadDBRead (..), MonadGState (..))
@@ -191,10 +190,8 @@ getSentTxs = atomically . readTVar =<< view wtcSentTxs_L
 -- Initialization
 ----------------------------------------------------------------------------
 
-initWalletTestContext ::
-       ( HasConfiguration
-       , HasDlgConfiguration
-       )
+initWalletTestContext
+    :: HasDlgConfiguration
     => WalletTestParams
     -> (WalletTestContext -> Emulation a)
     -> Emulation a
@@ -222,13 +219,8 @@ initWalletTestContext WalletTestParams {..} callback =
                 pure WalletTestContext {..}
             callback wtc
 
-runWalletTestMode ::
-       ( HasConfiguration
-       , HasDlgConfiguration
-       )
-    => WalletTestParams
-    -> WalletTestMode a
-    -> IO a
+runWalletTestMode
+    :: HasDlgConfiguration => WalletTestParams -> WalletTestMode a -> IO a
 runWalletTestMode wtp action =
     runEmulation (getTimestamp $ wtp ^. wtpBlockTestParams . tpStartTime) $
     initWalletTestContext wtp $
@@ -244,7 +236,7 @@ type WalletProperty = PropertyM WalletTestMode
 -- | Convert 'WalletProperty' to 'Property' using given generator of
 -- 'WalletTestParams'.
 walletPropertyToProperty
-    :: (HasConfiguration, HasDlgConfiguration, Testable a)
+    :: (HasDlgConfiguration, Testable a)
     => Gen WalletTestParams
     -> WalletProperty a
     -> Property
@@ -252,14 +244,13 @@ walletPropertyToProperty wtpGen walletProperty =
     forAll wtpGen $ \wtp ->
         monadic (ioProperty . runWalletTestMode wtp) walletProperty
 
-instance (HasConfiguration, HasDlgConfiguration, Testable a)
-        => Testable (WalletProperty a) where
+instance (HasDlgConfiguration, Testable a) => Testable (WalletProperty a) where
     property = walletPropertyToProperty arbitrary
 
 walletPropertySpec ::
-       (HasConfiguration, HasDlgConfiguration, Testable a)
+       (HasDlgConfiguration, Testable a)
     => String
-    -> (HasConfiguration => WalletProperty a)
+    -> WalletProperty a
     -> Spec
 walletPropertySpec description wp =
     prop description (walletPropertyToProperty arbitrary wp)
@@ -336,20 +327,20 @@ instance {-# OVERLAPPING #-} HasLoggerName WalletTestMode where
     askLoggerName = askLoggerNameDefault
     modifyLoggerName = modifyLoggerNameDefault
 
-instance HasConfiguration => MonadDBRead WalletTestMode where
+instance MonadDBRead WalletTestMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault
     dbGetSerBlock = const DB.dbGetSerBlockPureDefault
     dbGetSerUndo = const DB.dbGetSerUndoPureDefault
     dbGetSerBlund = const DB.dbGetSerBlundPureDefault
 
-instance HasConfiguration => MonadDB WalletTestMode where
+instance MonadDB WalletTestMode where
     dbPut = DB.dbPutPureDefault
     dbWriteBatch = DB.dbWriteBatchPureDefault
     dbDelete = DB.dbDeletePureDefault
     dbPutSerBlunds = DB.dbPutSerBlundsPureDefault
 
-instance HasConfiguration => MonadGState WalletTestMode where
+instance MonadGState WalletTestMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault
 
 ----------------------------------------------------------------------------
@@ -389,7 +380,7 @@ instance HasLens (StateLockMetrics MemPoolModifyReason) WalletTestContext (State
 -- This never made any sense. WalletDbReader is a type synonym.
 -- instance WalletDbReader WalletTestContext WalletTestMode
 
-instance HasConfigurations => MonadAddresses WalletTestMode where
+instance MonadAddresses WalletTestMode where
     type AddrData WalletTestMode = (AccountId, PassPhrase)
     getNewAddress _ = getNewAddressWebWallet
     getFakeChangeAddress _ = pure largestHDAddressBoot
@@ -402,12 +393,12 @@ instance MonadKeys WalletTestMode where
     modifyPublic = modifyPublicPureDefault
     modifySecret = modifySecretPureDefault
 
-instance (HasConfigurations) => MonadTxHistory WalletTestMode where
+instance MonadTxHistory WalletTestMode where
     getBlockHistory = getBlockHistoryDefault
     getLocalHistory = getLocalHistoryDefault
     saveTx = saveTxDefault
 
-instance HasConfiguration => MonadBalances WalletTestMode where
+instance MonadBalances WalletTestMode where
     getOwnUtxos = const $ getOwnUtxosDefault
     getBalance = const $ getBalanceDefault
 
@@ -415,11 +406,11 @@ instance MonadUpdates WalletTestMode where
     waitForUpdate = waitForUpdateWebWallet
     applyLastUpdate = applyLastUpdateWebWallet
 
-instance (HasConfigurations) => MonadBListener WalletTestMode where
+instance MonadBListener WalletTestMode where
     onApplyBlocks = onApplyBlocksWebWallet
     onRollbackBlocks = onRollbackBlocksWebWallet
 
-instance HasConfiguration => MonadBlockchainInfo WalletTestMode where
+instance MonadBlockchainInfo WalletTestMode where
     networkChainDifficulty = networkChainDifficultyWebWallet
     localChainDifficulty = localChainDifficultyWebWallet
     blockchainSlotDuration = blockchainSlotDurationWebWallet
@@ -433,7 +424,7 @@ instance (HasConfigurations)
     txpProcessTx = txProcessTransactionNoLock
 
 
-instance (HasConfigurations) => MonadTxpLocal WalletTestMode where
+instance MonadTxpLocal WalletTestMode where
     txpNormalize = txpNormalizeWebWallet
     txpProcessTx = txpProcessTxWebWallet
 

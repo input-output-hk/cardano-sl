@@ -24,8 +24,8 @@ import           Pos.Chain.Update (BlockVersionState, ConfirmedProposalState,
                      PollT, PollVerFailure, ProposalState, USUndo, execPollT,
                      execRollT, getAdoptedBV, lastKnownBlockVersion,
                      reportUnexpectedError, runPollT)
-import           Pos.Core as Core (Config, HasCoreConfiguration, StakeholderId,
-                     addressHash, configBlkSecurityParam, epochIndexL)
+import           Pos.Core as Core (Config, StakeholderId, addressHash,
+                     configBlkSecurityParam, epochIndexL)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Exception (reportFatalError)
 import           Pos.Core.Reporting (MonadReporting)
@@ -137,10 +137,7 @@ usRollbackBlocks blunds =
 -- This function takes a 'PollModifier' corresponding to a sequence of
 -- blocks, updates in-memory slotting data and converts this modifier
 -- to '[SomeBatchOp]'.
-processModifier ::
-       forall ctx m. (MonadSlotsData ctx m, HasCoreConfiguration)
-    => PollModifier
-    -> m [DB.SomeBatchOp]
+processModifier :: MonadSlotsData ctx m => PollModifier -> m [DB.SomeBatchOp]
 processModifier pm@PollModifier {pmSlottingData = newSlottingData} =
     modifierToBatch pm <$ whenJust newSlottingData setNewSlottingData
   where
@@ -234,7 +231,7 @@ usCanCreateBlock =
 -- Conversion to batch
 ----------------------------------------------------------------------------
 
-modifierToBatch :: HasCoreConfiguration => PollModifier -> [DB.SomeBatchOp]
+modifierToBatch :: PollModifier -> [DB.SomeBatchOp]
 modifierToBatch PollModifier {..} =
     concat $
     [ bvsModifierToBatch (MM.insertions pmBVs) (MM.deletions pmBVs)
@@ -253,8 +250,7 @@ modifierToBatch PollModifier {..} =
     ]
 
 bvsModifierToBatch
-    :: HasCoreConfiguration
-    => [(BlockVersion, BlockVersionState)]
+    :: [(BlockVersion, BlockVersionState)]
     -> [BlockVersion]
     -> [DB.SomeBatchOp]
 bvsModifierToBatch added deleted = addOps ++ delOps
@@ -262,13 +258,12 @@ bvsModifierToBatch added deleted = addOps ++ delOps
     addOps = map (DB.SomeBatchOp . uncurry SetBVState) added
     delOps = map (DB.SomeBatchOp . DelBV) deleted
 
-lastAdoptedModifierToBatch :: HasCoreConfiguration => Maybe (BlockVersion, BlockVersionData) -> [DB.SomeBatchOp]
+lastAdoptedModifierToBatch :: Maybe (BlockVersion, BlockVersionData) -> [DB.SomeBatchOp]
 lastAdoptedModifierToBatch Nothing          = []
 lastAdoptedModifierToBatch (Just (bv, bvd)) = [DB.SomeBatchOp $ SetAdopted bv bvd]
 
 confirmedVerModifierToBatch
-    :: HasCoreConfiguration
-    => [(ApplicationName, NumSoftwareVersion)]
+    :: [(ApplicationName, NumSoftwareVersion)]
     -> [ApplicationName]
     -> [DB.SomeBatchOp]
 confirmedVerModifierToBatch added deleted =
@@ -278,8 +273,7 @@ confirmedVerModifierToBatch added deleted =
     delOps = map (DB.SomeBatchOp . DelConfirmedVersion) deleted
 
 confirmedPropModifierToBatch
-    :: HasCoreConfiguration
-    => [(SoftwareVersion, ConfirmedProposalState)]
+    :: [(SoftwareVersion, ConfirmedProposalState)]
     -> [SoftwareVersion]
     -> [DB.SomeBatchOp]
 confirmedPropModifierToBatch (map snd -> confAdded) confDeleted =
@@ -289,8 +283,7 @@ confirmedPropModifierToBatch (map snd -> confAdded) confDeleted =
     confDelOps = map (DB.SomeBatchOp . DelConfirmedProposal) confDeleted
 
 upModifierToBatch
-    :: HasCoreConfiguration
-    => [(UpId, ProposalState)]
+    :: [(UpId, ProposalState)]
     -> [UpId]
     -> [DB.SomeBatchOp]
 upModifierToBatch (map snd -> added) deleted
@@ -299,10 +292,10 @@ upModifierToBatch (map snd -> added) deleted
     addOps = map (DB.SomeBatchOp . PutProposal) added
     delOps = map (DB.SomeBatchOp . DeleteProposal) deleted
 
-sdModifierToBatch :: HasCoreConfiguration => Maybe SlottingData -> [DB.SomeBatchOp]
+sdModifierToBatch :: Maybe SlottingData -> [DB.SomeBatchOp]
 sdModifierToBatch Nothing   = []
 sdModifierToBatch (Just sd) = [DB.SomeBatchOp $ PutSlottingData sd]
 
-epModifierToBatch :: HasCoreConfiguration => Maybe (HashSet StakeholderId) -> [DB.SomeBatchOp]
+epModifierToBatch :: Maybe (HashSet StakeholderId) -> [DB.SomeBatchOp]
 epModifierToBatch Nothing   = []
 epModifierToBatch (Just ep) = [DB.SomeBatchOp $ PutEpochProposers ep]

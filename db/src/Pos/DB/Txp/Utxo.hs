@@ -41,14 +41,15 @@ import qualified Formatting.Buildable
 import           Serokell.Util (Color (Red), colorize)
 import           UnliftIO (MonadUnliftIO)
 
+import           Pos.Binary.Class (serialize')
 import           Pos.Chain.Txp (TxIn (..), TxOutAux (toaOut), Utxo,
                      addrBelongsToSet, genesisUtxo, txOutStake)
-import           Pos.Core (Address, Coin, HasCoreConfiguration, coinF, mkCoin,
-                     sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Core (Address, Coin, coinF, mkCoin, sumCoins,
+                     unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Core.Genesis (GenesisData (..))
 import           Pos.DB (DBError (..), DBIteratorClass (..), DBTag (GStateDB),
                      IterType, MonadDB, MonadDBRead, RocksBatchOp (..),
-                     dbIterSource, dbSerializeValue, encodeWithKeyPrefix)
+                     dbIterSource, encodeWithKeyPrefix)
 import           Pos.DB.GState.Common (gsGetBi, writeBatchGState)
 import           Pos.Util.Wlog (WithLogger, logError)
 
@@ -74,9 +75,9 @@ instance Buildable UtxoOp where
         bprint ("AddTxOut ("%build%", "%build%")")
         txIn txOutAux
 
-instance HasCoreConfiguration => RocksBatchOp UtxoOp where
+instance RocksBatchOp UtxoOp where
     toBatchOp (AddTxOut txIn txOut) =
-        [Rocks.Put (txInKey txIn) (dbSerializeValue txOut)]
+        [Rocks.Put (txInKey txIn) (serialize' txOut)]
     toBatchOp (DelTxIn txIn) = [Rocks.Del $ txInKey txIn]
 
 ----------------------------------------------------------------------------

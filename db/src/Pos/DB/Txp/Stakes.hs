@@ -33,15 +33,14 @@ import qualified Formatting.Buildable
 import           Serokell.Util (Color (Red), colorize)
 import           UnliftIO (MonadUnliftIO)
 
+import           Pos.Binary.Class (serialize')
 import           Pos.Chain.Txp (genesisStakes)
-import           Pos.Core (Coin, HasCoreConfiguration, StakeholderId, StakesMap,
-                     coinF, mkCoin, sumCoins, unsafeAddCoin,
-                     unsafeIntegerToCoin)
+import           Pos.Core (Coin, StakeholderId, StakesMap, coinF, mkCoin,
+                     sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Core.Genesis (GenesisData (..))
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (..), DBTag (GStateDB), IterType, MonadDB,
-                     MonadDBRead, RocksBatchOp (..), dbIterSource,
-                     dbSerializeValue)
+                     MonadDBRead, RocksBatchOp (..), dbIterSource)
 import           Pos.DB.GState.Common (gsPutBi)
 import           Pos.DB.GState.Stakes (StakeIter, ftsStakeKey, ftsSumKey,
                      getRealTotalStake)
@@ -61,11 +60,11 @@ instance Buildable StakesOp where
     build (PutFtsStake ad c) =
         bprint ("PutFtsStake ("%shortHashF%", "%coinF%")") ad c
 
-instance HasCoreConfiguration => RocksBatchOp StakesOp where
-    toBatchOp (PutTotalStake c)  = [Rocks.Put ftsSumKey (dbSerializeValue c)]
+instance RocksBatchOp StakesOp where
+    toBatchOp (PutTotalStake c)  = [Rocks.Put ftsSumKey (serialize' c)]
     toBatchOp (PutFtsStake ad c) =
         if c == mkCoin 0 then [Rocks.Del (ftsStakeKey ad)]
-        else [Rocks.Put (ftsStakeKey ad) (dbSerializeValue c)]
+        else [Rocks.Put (ftsStakeKey ad) (serialize' c)]
 
 ----------------------------------------------------------------------------
 -- Initialization

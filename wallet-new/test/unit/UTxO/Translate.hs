@@ -67,7 +67,6 @@ import           Test.Pos.Configuration (withDefConfiguration,
 -- 'CardanoContext' instead.
 data TranslateEnv = TranslateEnv {
       teContext :: TransCtxt
-    , teConfig  :: Dict HasConfiguration
     , teUpdate  :: Dict HasUpdateConfiguration
     }
 
@@ -108,7 +107,6 @@ runTranslateT (TranslateT ta) =
       let env :: TranslateEnv
           env = TranslateEnv {
                     teContext = initContext (initCardanoContext coreConfig)
-                  , teConfig  = Dict
                   , teUpdate  = Dict
                   }
       in do ma <- runReaderT (runExceptT ta) env
@@ -130,10 +128,9 @@ runTranslateNoErrors = runTranslate
 
 -- | Lift functions that want the configuration as type class constraints
 withConfig :: Monad m
-           => ((HasConfiguration, HasUpdateConfiguration) => TranslateT e m a)
+           => (HasUpdateConfiguration => TranslateT e m a)
            -> TranslateT e m a
 withConfig f = do
-    Dict <- TranslateT $ asks teConfig
     Dict <- TranslateT $ asks teUpdate
     f
 
@@ -185,7 +182,7 @@ translateGenesisHeader = view gbHeader <$> asks (ccBlock0 . tcCardano)
 
 -- | Run the verifier
 verify :: Monad m
-       => (HasConfiguration => Verify e a)
+       => Verify e a
        -> TranslateT e' m (Validated e (a, Utxo))
 verify ma = withConfig $ do
     utxo <- asks (ccUtxo . tcCardano)

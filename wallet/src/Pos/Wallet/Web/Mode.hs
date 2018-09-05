@@ -43,8 +43,8 @@ import           Pos.Client.Txp.History (MonadTxHistory (..),
                      getBlockHistoryDefault, getLocalHistoryDefault,
                      saveTxDefault)
 import           Pos.Context (HasNodeContext (..))
-import           Pos.Core (Address, Coin, HasConfiguration, HasPrimaryKey (..),
-                     isRedeemAddress, largestHDAddressBoot, mkCoin)
+import           Pos.Core (Address, Coin, HasPrimaryKey (..), isRedeemAddress,
+                     largestHDAddressBoot, mkCoin)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MonadReporting (..), Reporter (..))
@@ -71,7 +71,6 @@ import           Pos.Infra.Slotting.Impl (currentTimeSlottingSimple,
 import           Pos.Infra.StateLock (StateLock)
 import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
                      jsonLogDefault)
-import           Pos.Launcher (HasConfigurations)
 import           Pos.Recovery ()
 import           Pos.Util (postfixLFields)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
@@ -252,24 +251,23 @@ instance {-# OVERLAPPING #-} HasLoggerName WalletWebMode where
 instance {-# OVERLAPPING #-} CanJsonLog WalletWebMode where
     jsonLog = jsonLogDefault
 
-instance HasConfiguration => MonadDBRead WalletWebMode where
+instance MonadDBRead WalletWebMode where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
     dbGetSerBlock = dbGetSerBlockRealDefault
     dbGetSerUndo = dbGetSerUndoRealDefault
     dbGetSerBlund = dbGetSerBlundRealDefault
 
-instance HasConfiguration => MonadDB WalletWebMode where
+instance MonadDB WalletWebMode where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
     dbPutSerBlunds = dbPutSerBlundsRealDefault
 
-instance HasConfiguration => MonadGState WalletWebMode where
+instance MonadGState WalletWebMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault
 
-instance (HasConfiguration)
-       => MonadBListener WalletWebMode where
+instance MonadBListener WalletWebMode where
     onApplyBlocks = onApplyBlocksWebWallet
     onRollbackBlocks = onRollbackBlocksWebWallet
 
@@ -277,8 +275,7 @@ instance MonadUpdates WalletWebMode where
     waitForUpdate = waitForUpdateWebWallet
     applyLastUpdate = applyLastUpdateWebWallet
 
-instance (HasConfiguration) =>
-         MonadBlockchainInfo WalletWebMode where
+instance MonadBlockchainInfo WalletWebMode where
     networkChainDifficulty = networkChainDifficultyWebWallet
     localChainDifficulty = localChainDifficultyWebWallet
     connectedPeers = connectedPeersWebWallet
@@ -321,20 +318,18 @@ getBalanceDefault addr = do
         HM.lookup addr $
         applyUtxoModToAddrCoinMap updates balancesAndUtxo
 
-instance HasConfiguration => MonadBalances WalletWebMode where
+instance MonadBalances WalletWebMode where
     getOwnUtxos = const $ getOwnUtxosDefault
     getBalance = const $ getBalanceDefault
 
-instance (HasConfiguration)
-        => MonadTxHistory WalletWebMode where
+instance MonadTxHistory WalletWebMode where
     getBlockHistory = getBlockHistoryDefault
     getLocalHistory = getLocalHistoryDefault
     saveTx = saveTxDefault
 
 type instance MempoolExt WalletWebMode = WalletMempoolExt
 
-instance HasConfiguration =>
-         MonadTxpLocal WalletWebMode where
+instance MonadTxpLocal WalletWebMode where
     txpNormalize = txpNormalizeWebWallet
     txpProcessTx = txpProcessTxWebWallet
 
@@ -354,8 +349,7 @@ getNewAddressWebWallet (accId, passphrase) = do
     cAddrMeta <- newAddress_ ws RandomSeed passphrase accId
     return $ cAddrMeta ^. wamAddress
 
-instance (HasConfigurations)
-      => MonadAddresses Pos.Wallet.Web.Mode.WalletWebMode where
+instance MonadAddresses Pos.Wallet.Web.Mode.WalletWebMode where
     type AddrData Pos.Wallet.Web.Mode.WalletWebMode = (AccountId, PassPhrase)
     -- We rely on the fact that Daedalus always uses HD addresses with
     -- BootstrapEra distribution.

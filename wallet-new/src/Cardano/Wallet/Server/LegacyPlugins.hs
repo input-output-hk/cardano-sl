@@ -202,11 +202,11 @@ resubmitterPlugin coreConfig txpConfig = [\diffusion -> askWalletDB >>= \db ->
                         startPendingTxsResubmitter coreConfig txpConfig db (sendTx diffusion)]
 
 -- | A @Plugin@ to notify frontend via websockets.
-notifierPlugin :: HasConfigurations => Plugin WalletWebMode
+notifierPlugin :: Plugin WalletWebMode
 notifierPlugin = [const V0.notifierPlugin]
 
 -- | The @Plugin@ responsible for the restoration & syncing of a wallet.
-syncWalletWorker :: HasConfigurations => Core.Config -> Plugin WalletWebMode
+syncWalletWorker :: Core.Config -> Plugin WalletWebMode
 syncWalletWorker coreConfig = pure $ const $
     modifyLoggerName (const "syncWalletWorker") $
     (view (lensOf @SyncQueue) >>= processSyncRequest coreConfig)

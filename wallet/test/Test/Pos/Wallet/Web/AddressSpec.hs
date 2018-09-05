@@ -19,7 +19,6 @@ import           Pos.Binary (biSize)
 import           Pos.Client.Txp.Addresses (getFakeChangeAddress, getNewAddress)
 import           Pos.Core.Common (Address)
 import           Pos.Crypto (PassPhrase)
-import           Pos.Launcher (HasConfigurations)
 
 import           Pos.Wallet.Web.Account (GenSeed (..), genUniqueAddress)
 import           Pos.Wallet.Web.ClientTypes (AccountId, CAccountInit (..), caId)
@@ -46,9 +45,7 @@ spec = withDefConfigurations $ \_ _ _ ->
 
 type AddressGenerator = AccountId -> PassPhrase -> WalletProperty Address
 
-fakeAddressHasMaxSizeTest
-    :: HasConfigurations
-    => AddressGenerator -> Word32 -> WalletProperty ()
+fakeAddressHasMaxSizeTest :: AddressGenerator -> Word32 -> WalletProperty ()
 fakeAddressHasMaxSizeTest generator accSeed = do
     passphrase <- importSingleWallet mostlyEmptyPassphrases
     ws <- askWalletSnapshot
@@ -66,7 +63,7 @@ fakeAddressHasMaxSizeTest generator accSeed = do
 -- | Addresses generator used in 'MonadAddresses' to create change addresses.
 -- Unfortunatelly, its randomness doesn't depend on QuickCheck seed,
 -- so another proper generator is helpful.
-changeAddressGenerator :: HasConfigurations => AddressGenerator
+changeAddressGenerator :: AddressGenerator
 changeAddressGenerator accId passphrase =
     lift $ getNewAddress dummyEpochSlots (accId, passphrase)
 

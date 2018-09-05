@@ -13,10 +13,11 @@ import           Data.ByteArray (convert)
 
 import qualified Database.RocksDB as Rocks
 
+import           Pos.Binary.Class (serialize')
 import           Pos.Chain.Block (BlockHeader, HeaderHash, headerHash)
 import           Pos.DB.Class (DBTag (BlockIndexDB), MonadBlockDBRead,
                      MonadDB (..))
-import           Pos.DB.Functions (dbGetBi, dbSerializeValue)
+import           Pos.DB.Functions (dbGetBi)
 import           Pos.DB.GState.Common (getTipSomething)
 
 -- | Returns header of block that was requested from Block DB.
@@ -33,7 +34,7 @@ getTipHeader = getTipSomething "header" getHeader
 putHeadersIndex :: (MonadDB m) => [BlockHeader] -> m ()
 putHeadersIndex =
     dbWriteBatch BlockIndexDB .
-    map (\h -> Rocks.Put (blockIndexKey $ headerHash h) (dbSerializeValue h))
+    map (\h -> Rocks.Put (blockIndexKey $ headerHash h) (serialize' h))
 
 -- | Deletes header from the index db.
 deleteHeaderIndex :: MonadDB m => HeaderHash -> m ()

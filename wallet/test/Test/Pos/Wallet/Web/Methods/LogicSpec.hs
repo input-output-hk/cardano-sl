@@ -10,7 +10,6 @@ import           Universum
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
 
-import           Pos.Launcher (HasConfigurations)
 import           Pos.Wallet.Web.Methods.Logic (getAccounts, getWallets)
 
 import           Test.Pos.Configuration (withDefConfigurations)
@@ -25,7 +24,7 @@ spec = withDefConfigurations $ \_ _ _ ->
   where
     emptyWalletOnStarts = "wallet must be empty on start"
 
-emptyWallet :: HasConfigurations => WalletProperty ()
+emptyWallet :: WalletProperty ()
 emptyWallet = do
     wallets <- lift getWallets
     unless (null wallets) $

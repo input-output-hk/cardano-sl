@@ -26,10 +26,8 @@ import           Universum
 
 import qualified Database.RocksDB as Rocks
 
-import           Pos.Binary.Class (Bi)
-import           Pos.Core.Configuration (HasCoreConfiguration)
+import           Pos.Binary.Class (Bi, serialize')
 import           Pos.Core.Slotting (EpochIndex)
-import           Pos.DB (dbSerializeValue)
 import           Pos.DB.Class (DBTag (LrcDB), MonadDB (dbDelete, dbWriteBatch),
                      MonadDBRead (dbGet))
 import           Pos.DB.Error (DBError (DBMalformed))
@@ -64,9 +62,9 @@ putBatchBi = putBatch . toRocksOps
 delete :: (MonadDB m) => ByteString -> m ()
 delete = dbDelete LrcDB
 
-toRocksOps :: (HasCoreConfiguration, Bi v) => [(ByteString, v)] -> [Rocks.BatchOp]
+toRocksOps :: Bi v => [(ByteString, v)] -> [Rocks.BatchOp]
 toRocksOps ops =
-    [Rocks.Put key (dbSerializeValue value) | (key, value) <- ops]
+    [Rocks.Put key (serialize' value) | (key, value) <- ops]
 
 ----------------------------------------------------------------------------
 -- Common getters

@@ -23,7 +23,7 @@ import           Formatting (bprint, build, formatToString, sformat, (%))
 import qualified Formatting.Buildable
 
 import           Pos.Chain.Txp (Utxo, formatUtxo)
-import           Pos.Core (HasConfiguration, Timestamp (..))
+import           Pos.Core (Timestamp (..))
 import           Pos.Core.Chrono
 import           Pos.Crypto (EncryptedSecretKey, emptyPassphrase)
 
@@ -66,10 +66,10 @@ data EventCallbacks h m = EventCallbacks {
       -- The callback is given the translated UTxO of the bootstrap
       -- transaction (we cannot give it the translated transaction because
       -- we cannot translate the bootstrap transaction).
-      walletBootT :: HasConfiguration => InductiveCtxt h -> Utxo -> m HD.HdAccountId
+      walletBootT :: InductiveCtxt h -> Utxo -> m HD.HdAccountId
 
       -- | Apply a block
-    , walletApplyBlockT :: HasConfiguration => InductiveCtxt h -> HD.HdAccountId -> RawResolvedBlock -> m ()
+    , walletApplyBlockT :: InductiveCtxt h -> HD.HdAccountId -> RawResolvedBlock -> m ()
 
       -- | Insert new pending transaction
     , walletNewPendingT :: InductiveCtxt h -> HD.HdAccountId -> RawResolvedTx -> m ()

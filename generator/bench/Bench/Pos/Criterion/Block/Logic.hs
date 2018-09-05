@@ -229,7 +229,7 @@ runBenchmark = do
             , cfoSystemStart = Just (Timestamp startTime)
             }
     withCompileInfo
-        $ withConfigurationsM (LoggerName "verifyBenchmark") Nothing cfo id
+        $ withConfigurationsM (LoggerName "verifyBenchmark") Nothing Nothing False cfo
         $ \coreConfig txpConfig _ -> do
             let tp = TestParams
                     { _tpStartTime = Timestamp (convertUnit startTime)

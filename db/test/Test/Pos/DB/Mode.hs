@@ -14,8 +14,6 @@ import           Universum
 
 import           Control.Lens (makeLenses)
 
-import           Pos.Core (HasConfiguration)
-
 import           Pos.DB (MonadDB (..), MonadDBRead (..), NodeDBs, closeNodeDBs,
                      dbDeleteDefault, dbGetDefault, dbIterSourceDefault,
                      dbPutDefault, dbWriteBatchDefault, deleteNodeDBs,
@@ -51,14 +49,14 @@ runTestMode testMode =
         closeNodeDBs nodeDBs
         deleteNodeDBs nodeDBs
 
-instance HasConfiguration => MonadDBRead TestMode where
+instance MonadDBRead TestMode where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
     dbGetSerBlock = dbGetSerBlockRealDefault
     dbGetSerUndo = dbGetSerUndoRealDefault
     dbGetSerBlund = dbGetSerBlundRealDefault
 
-instance HasConfiguration => MonadDB TestMode where
+instance MonadDB TestMode where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault

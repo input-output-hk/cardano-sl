@@ -34,8 +34,7 @@ import           Servant
 
 
 -- | All the @Servant@ handlers for wallet-specific operations.
-handlers :: HasConfigurations
-         => Core.Config -> ServerT Wallets.API MonadV1
+handlers :: Core.Config -> ServerT Wallets.API MonadV1
 handlers coreConfig = newWallet coreConfig
     :<|> listWallets
     :<|> updatePassword

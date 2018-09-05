@@ -39,10 +39,9 @@ import           Pos.Client.Txp.History (MonadTxHistory (..),
                      getBlockHistoryDefault, getLocalHistoryDefault,
                      saveTxDefault)
 import           Pos.Context (HasNodeContext (..))
-import           Pos.Core (Address, HasConfiguration, HasPrimaryKey (..),
-                     IsBootstrapEraAddr (..), SlotCount, deriveFirstHDAddress,
-                     largestPubKeyAddressBoot, largestPubKeyAddressSingleKey,
-                     makePubKeyAddress, siEpoch)
+import           Pos.Core (Address, HasPrimaryKey (..), IsBootstrapEraAddr (..),
+                     SlotCount, deriveFirstHDAddress, largestPubKeyAddressBoot,
+                     largestPubKeyAddressSingleKey, makePubKeyAddress, siEpoch)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MonadReporting (..))
@@ -180,7 +179,7 @@ instance {-# OVERLAPPING #-} HasLoggerName AuxxMode where
 instance {-# OVERLAPPING #-} CanJsonLog AuxxMode where
     jsonLog = realModeToAuxx ... jsonLog
 
-instance HasConfiguration => MonadDBRead AuxxMode where
+instance MonadDBRead AuxxMode where
     dbGet = realModeToAuxx ... dbGet
     dbIterSource tag p =
         transPipe (transResourceT realModeToAuxx) (dbIterSource tag p)
@@ -188,27 +187,26 @@ instance HasConfiguration => MonadDBRead AuxxMode where
     dbGetSerUndo = realModeToAuxx ... dbGetSerUndo
     dbGetSerBlund = realModeToAuxx ... dbGetSerBlund
 
-instance HasConfiguration => MonadDB AuxxMode where
+instance MonadDB AuxxMode where
     dbPut = realModeToAuxx ... dbPut
     dbWriteBatch = realModeToAuxx ... dbWriteBatch
     dbDelete = realModeToAuxx ... dbDelete
     dbPutSerBlunds = realModeToAuxx ... dbPutSerBlunds
 
-instance HasConfiguration => MonadGState AuxxMode where
+instance MonadGState AuxxMode where
     gsAdoptedBVData = realModeToAuxx ... gsAdoptedBVData
 
 instance MonadBListener AuxxMode where
     onApplyBlocks = realModeToAuxx ... onApplyBlocks
     onRollbackBlocks = realModeToAuxx ... onRollbackBlocks
 
-instance HasConfiguration => MonadBalances AuxxMode where
+instance MonadBalances AuxxMode where
     getOwnUtxos genesisData addrs = ifM isTempDbUsed
                                         (getOwnUtxosGenesis genesisData addrs)
                                         (getFilteredUtxo addrs)
     getBalance = getBalanceFromUtxo
 
-instance HasConfiguration =>
-         MonadTxHistory AuxxMode where
+instance MonadTxHistory AuxxMode where
     getBlockHistory = getBlockHistoryDefault
     getLocalHistory = getLocalHistoryDefault
     saveTx = saveTxDefault
@@ -233,8 +231,7 @@ instance MonadKeys AuxxMode where
 
 type instance MempoolExt AuxxMode = EmptyMempoolExt
 
-instance HasConfiguration =>
-         MonadTxpLocal AuxxMode where
+instance MonadTxpLocal AuxxMode where
     txpNormalize pm = withReaderT acRealModeContext . txNormalize pm
     txpProcessTx coreConfig txpConfig = withReaderT acRealModeContext . txProcessTransaction coreConfig txpConfig
 

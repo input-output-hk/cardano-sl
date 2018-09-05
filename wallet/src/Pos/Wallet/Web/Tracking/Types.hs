@@ -17,7 +17,6 @@ import           Universum
 
 import           Control.Concurrent.STM (TQueue, writeTQueue)
 
-import           Pos.Core (HasConfiguration)
 import           Pos.DB.Class (MonadDBRead (..))
 import           Pos.Infra.Slotting (MonadSlotsData)
 import           Pos.Infra.StateLock (StateLock)
@@ -42,7 +41,6 @@ type WalletTrackingEnv ctx m =
      ( WS.WalletDbReader ctx m
      , MonadSlotsData ctx m
      , WithLogger m
-     , HasConfiguration
      , MonadThrow m
      , MonadDBRead m
      , BlockLockMode ctx m

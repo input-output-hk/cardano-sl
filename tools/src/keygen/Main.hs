@@ -16,18 +16,15 @@ import           System.FilePath.Glob (glob)
 import qualified Text.JSON.Canonical as CanonicalJSON
 
 import           Pos.Binary (asBinary, serialize')
-import qualified Pos.Client.CLI as CLI
-import           Pos.Core as Core (Config (..), CoreConfiguration (..),
-                     GenesisConfiguration (..), addressHash, ccGenesis,
-                     configGeneratedSecretsThrow, configVssMaxTTL,
-                     coreConfiguration)
+import           Pos.Core as Core (Config (..), addressHash,
+                     configGeneratedSecretsThrow, configVssMaxTTL)
 import           Pos.Core.Genesis (GeneratedSecrets (..), RichSecrets (..),
                      generateFakeAvvm, generateRichSecrets)
 import           Pos.Core.Ssc (mkVssCertificate, vcSigningKey)
 import           Pos.Crypto (EncryptedSecretKey (..), SecretKey (..),
                      VssKeyPair, fullPublicKeyF, hashHexF, noPassEncrypt,
                      redeemPkB64F, toPublic, toVssPublicKey)
-import           Pos.Launcher (HasConfigurations, withConfigurations)
+import           Pos.Launcher (dumpGenesisData, withConfigurations)
 import           Pos.Util.UserSecret (readUserSecret, takeUserSecret, usKeys,
                      usPrimKey, usVss, usWallet, writeUserSecretRelease,
                      wusRootKey)
@@ -123,15 +120,11 @@ dumpAvvmSeeds DumpAvvmSeedsOptions{..} = do
     logInfo $ "Seeds were generated"
 
 generateKeysByGenesis
-    :: (HasConfigurations, MonadIO m, WithLogger m, MonadThrow m)
+    :: (MonadIO m, WithLogger m, MonadThrow m)
     => GeneratedSecrets -> GenKeysOptions -> m ()
 generateKeysByGenesis generatedSecrets GenKeysOptions{..} = do
-    case ccGenesis coreConfiguration of
-        GCSrc {} ->
-            error $ "Launched source file conf"
-        GCSpec {} -> do
-            dumpGeneratedGenesisData generatedSecrets (gkoOutDir, gkoKeyPattern)
-            logInfo (toText gkoOutDir <> " generated successfully")
+    dumpGeneratedGenesisData generatedSecrets (gkoOutDir, gkoKeyPattern)
+    logInfo (toText gkoOutDir <> " generated successfully")
 
 genVssCert
     :: (WithLogger m, MonadIO m)
@@ -163,7 +156,7 @@ main = do
     KeygenOptions {..} <- getKeygenOptions
     setupLogging Nothing $ productionB <> termSeveritiesOutB debugPlus
     usingLoggerName "keygen"
-        $ withConfigurations Nothing koConfigurationOptions
+        $ withConfigurations Nothing Nothing False koConfigurationOptions
         $ \coreConfig _ _ -> do
               logInfo "Processing command"
               generatedSecrets <- configGeneratedSecretsThrow coreConfig
@@ -175,7 +168,7 @@ main = do
                   DumpAvvmSeeds opts -> dumpAvvmSeeds opts
                   GenerateKeysBySpec gkbg ->
                       generateKeysByGenesis generatedSecrets gkbg
-                  DumpGenesisData dgdPath dgdCanonical -> CLI.dumpGenesisData
+                  DumpGenesisData dgdPath dgdCanonical -> dumpGenesisData
                       (configGenesisData coreConfig)
                       dgdCanonical
                       dgdPath

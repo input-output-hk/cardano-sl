@@ -23,8 +23,7 @@ import           Pos.Chain.Ssc (SscGlobalState (..), VssCertData (..),
                      expiryEoS, rollbackSsc, runPureToss, setLastKnownSlot,
                      sgsVssCertificates)
 import qualified Pos.Chain.Ssc as Ssc
-import           Pos.Core (EpochIndex (..), EpochOrSlot (..), HasConfiguration,
-                     SlotId (..))
+import           Pos.Core (EpochIndex (..), EpochOrSlot (..), SlotId (..))
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Slotting (flattenEpochOrSlot, unflattenSlotId)
 import           Pos.Core.Ssc (VssCertificate (..), getCertId,
@@ -86,7 +85,7 @@ newtype CorrectVssCertData = CorrectVssCertData
     { getVssCertData :: VssCertData
     } deriving (Show)
 
-instance HasConfiguration => Arbitrary CorrectVssCertData where
+instance Arbitrary CorrectVssCertData where
     arbitrary = (CorrectVssCertData <$>) $ do
         certificatesToAdd <- choose (0, 100)
         lkeos             <- arbitrary :: Gen EpochOrSlot
@@ -178,7 +177,7 @@ verifyDeleteAndFilter (getVssCertData -> vcd@VssCertData{..}) =
 data RollbackData = Rollback SscGlobalState EpochOrSlot [VssCertificate]
     deriving (Show, Eq)
 
-instance HasConfiguration => Arbitrary RollbackData where
+instance Arbitrary RollbackData where
     arbitrary = do
         goodVssCertData@(VssCertData {..}) <- getVssCertData <$> arbitrary
         certsToRollbackN <- choose (0, 100) >>= choose . (0,)

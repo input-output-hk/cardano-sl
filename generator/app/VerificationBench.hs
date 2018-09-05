@@ -19,13 +19,14 @@ import           Pos.Binary.Class (decodeFull, serialize)
 import           Pos.Chain.Block (ApplyBlocksException, Block,
                      VerifyBlocksException)
 import           Pos.Chain.Txp (TxpConfiguration (..))
-import           Pos.Core as Core (Config (..), configBlockVersionData,
-                     configBootStakeholders, configGeneratedSecretsThrow)
+import           Pos.Core as Core (Config (..), ProtocolConstants (..),
+                     configBlockVersionData, configBootStakeholders,
+                     configGeneratedSecretsThrow)
 import           Pos.Core.Chrono (NE, OldestFirst (..), nonEmptyNewestFirst)
 import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)
-import           Pos.Core.Genesis (FakeAvvmOptions (..), GenesisData (..),
-                     GenesisInitializer (..), GenesisProtocolConstants (..),
-                     TestnetBalanceOptions (..), gsSecretKeys)
+import           Pos.Core.Genesis (FakeAvvmOptions (..),
+                     GenesisInitializer (..), TestnetBalanceOptions (..),
+                     gsSecretKeys)
 import           Pos.Core.Slotting (Timestamp (..))
 import           Pos.Crypto (SecretKey)
 import           Pos.DB.Block (rollbackBlocks, verifyAndApplyBlocks,
@@ -195,25 +196,27 @@ main = do
             , cfoKey = baConfigKey args
             , cfoSystemStart = Just (Timestamp startTime)
             }
-        fn :: GenesisData -> GenesisData
-        fn gd = gd { gdProtocolConsts = (gdProtocolConsts gd) { gpcK = baK args } }
     withCompileInfo $
-        withConfigurationsM (LoggerName "verification-bench") Nothing cfo fn $ \ !coreConfig !txpConfig !_ -> do
-            let tp = TestParams
+        withConfigurationsM (LoggerName "verification-bench") Nothing Nothing False cfo $ \ !coreConfig !txpConfig !_ -> do
+            let coreConfig' = coreConfig
+                    { configProtocolConstants =
+                        (configProtocolConstants coreConfig) { pcK = baK args }
+                    }
+                tp = TestParams
                     { _tpStartTime = Timestamp (convertUnit startTime)
-                    , _tpBlockVersionData = configBlockVersionData coreConfig
+                    , _tpBlockVersionData = configBlockVersionData coreConfig'
                     , _tpGenesisInitializer = genesisInitializer
                     , _tpTxpConfiguration = TxpConfiguration 200 Set.empty
                     }
-            secretKeys <- gsSecretKeys <$> configGeneratedSecretsThrow coreConfig
-            runBlockTestMode coreConfig tp $ do
+            secretKeys <- gsSecretKeys <$> configGeneratedSecretsThrow coreConfig'
+            runBlockTestMode coreConfig' tp $ do
                 -- initialize databasea
-                initNodeDBs coreConfig
+                initNodeDBs coreConfig'
                 bs <- case baBlockCache args of
                     Nothing -> do
                         -- generate blocks and evaluate them to normal form
                         logInfo "Generating blocks"
-                        generateBlocks coreConfig secretKeys txpConfig (baBlockCount args)
+                        generateBlocks coreConfig' secretKeys txpConfig (baBlockCount args)
                     Just path -> do
                         fileExists <- liftIO $ doesFileExist path
                         mbs <- if fileExists
@@ -223,7 +226,7 @@ main = do
                             Nothing -> do
                                 -- generate blocks and evaluate them to normal form
                                 logInfo "Generating blocks"
-                                bs <- generateBlocks coreConfig secretKeys txpConfig (baBlockCount args)
+                                bs <- generateBlocks coreConfig' secretKeys txpConfig (baBlockCount args)
                                 liftIO $ writeBlocks path bs
                                 return bs
                             Just bs -> return bs
@@ -235,8 +238,8 @@ main = do
                         $ \(idx, blocks) -> do
                             logInfo $ sformat ("Pass: "%int) idx
                             (if baApply args
-                                then validateAndApply coreConfig txpConfig blocks
-                                else validate coreConfig blocks)
+                                then validateAndApply coreConfig' txpConfig blocks
+                                else validate coreConfig' blocks)
 
                     let -- drop first three results (if there are more than three results)
                         itimes :: [Float]

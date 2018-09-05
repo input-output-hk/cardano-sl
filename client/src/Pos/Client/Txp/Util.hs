@@ -76,7 +76,6 @@ import           Pos.Core as Core (Address, Coin, Config (..), SlotCount,
                      integerToCoin, isRedeemAddress, mkCoin, sumCoins,
                      txSizeLinearMinValue, unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Core.Attributes (mkAttributes)
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Update (bvdTxFeePolicy)
 import           Pos.Crypto (ProtocolMagic, RedeemSecretKey, SafeSigner,
                      SignTag (SignRedeemTx, SignTx), deterministicKeyGen,
@@ -217,10 +216,7 @@ instance Arbitrary InputSelectionPolicy where
     arbitrary = elements [minBound .. maxBound]
 
 -- | Mode for creating transactions. We need to know fee policy.
-type TxDistrMode m
-     = ( MonadGState m
-       , HasConfiguration
-       )
+type TxDistrMode m = MonadGState m
 
 type TxCreateMode m
     = ( TxDistrMode m

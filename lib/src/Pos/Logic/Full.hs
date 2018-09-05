@@ -24,8 +24,8 @@ import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
 import           Pos.Chain.Txp (MemPool (..), TxAux (..), TxMsgContents (..),
                      TxpConfiguration)
 import           Pos.Communication (NodeId)
-import           Pos.Core as Core (Config (..), HasConfiguration, StakeholderId,
-                     addressHash, configBlkSecurityParam, configEpochSlots)
+import           Pos.Core as Core (Config (..), StakeholderId, addressHash,
+                     configBlkSecurityParam, configEpochSlots)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Ssc (getCertId, getCommitmentsMap, lookupVss)
@@ -74,8 +74,7 @@ import           Pos.Util.Wlog (WithLogger, logDebug)
 -- layer which uses the more complicated monad, and vice-versa.
 
 type LogicWorkMode ctx m =
-    ( HasConfiguration
-    , HasBlockConfiguration
+    ( HasBlockConfiguration
     , WithLogger m
     , MonadReader ctx m
     , MonadMask m

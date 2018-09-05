@@ -11,7 +11,7 @@ import           System.Directory (canonicalizePath, doesDirectoryExist,
 
 import           Pos.Chain.Block (Block, HeaderHash, Undo, headerHash)
 import qualified Pos.Client.CLI as CLI
-import           Pos.Core (Config (..), GenesisHash, HasConfiguration)
+import           Pos.Core (Config (..), GenesisHash)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.DB (closeNodeDBs, openNodeDBs)
 import           Pos.DB.Block (getUndo)
@@ -49,8 +49,7 @@ dbSizes root = do
 
 -- | Analyse the blockchain, printing useful statistics.
 analyseBlockchain
-    :: HasConfiguration
-    => GenesisHash
+    :: GenesisHash
     -> CLIOptions
     -> HeaderHash
     -> BlockchainInspector ()
@@ -60,18 +59,18 @@ analyseBlockchain genesisHash cli tip =
                        else analyseBlockchainLazily genesisHash cli
 
 -- | Tries to fetch a `Block` given its `HeaderHash`.
-fetchBlock :: HasConfiguration => GenesisHash -> HeaderHash -> BlockchainInspector (Maybe Block)
+fetchBlock :: GenesisHash -> HeaderHash -> BlockchainInspector (Maybe Block)
 fetchBlock = getBlock
 
 -- | Tries to fetch an `Undo` for the given `Block`.
-fetchUndo :: HasConfiguration => GenesisHash -> Block -> BlockchainInspector (Maybe Undo)
+fetchUndo :: GenesisHash -> Block -> BlockchainInspector (Maybe Undo)
 fetchUndo genesisHash = getUndo genesisHash . headerHash
 
 -- | Analyse the blockchain lazily by rendering all the blocks at once, loading the whole
 -- blockchain into memory. This mode generates very nice-looking tables, but using it for
 -- big DBs might not be feasible.
 analyseBlockchainLazily
-    :: HasConfiguration => GenesisHash -> CLIOptions -> BlockchainInspector ()
+    :: GenesisHash -> CLIOptions -> BlockchainInspector ()
 analyseBlockchainLazily genesisHash cli = do
     allBlocks <-
         map (bimap identity Just) . getNewestFirst <$> DB.loadBlundsFromTipWhile
@@ -82,8 +81,7 @@ analyseBlockchainLazily genesisHash cli = do
 -- | Analyse the blockchain eagerly, rendering a block at time, without loading the whole
 -- blockchain into memory.
 analyseBlockchainEagerly
-    :: HasConfiguration
-    => GenesisHash
+    :: GenesisHash
     -> CLIOptions
     -> HeaderHash
     -> BlockchainInspector ()
@@ -99,11 +97,10 @@ analyseBlockchainEagerly genesisHash cli currentTip = do
 main :: IO ()
 main = do
     args <- getOptions
-    CLI.printFlags
     action args
 
 action :: CLIOptions -> IO ()
-action cli@CLIOptions{..} = withConfigurations Nothing conf $ \coreConfig _ _ -> do
+action cli@CLIOptions{..} = withConfigurations Nothing Nothing False conf $ \coreConfig _ _ -> do
     -- Render the first report
     sizes <- liftIO (canonicalizePath dbPath >>= dbSizes)
     liftIO $ putText $ render uom printMode sizes

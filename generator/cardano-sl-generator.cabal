@@ -192,7 +192,6 @@ benchmark cardano-sl-verification-bench
                       , cardano-sl-generator
                       , cardano-sl-util
                       , criterion
-                      , log-warper
                       , MonadRandom
                       , QuickCheck
                       , random

@@ -1,13 +1,17 @@
+{-# LANGUAGE InstanceSigs           #-}
 {-# LANGUAGE TypeFamilies           #-}
 
 -- | Translation of an abstract chain into Cardano.
-module Chain.Abstract.Translate.ToCardano where
+module Chain.Abstract.Translate.ToCardano (
+    IntT
+  ) where
 
-import           Chain.Abstract (Addr, SlotId, BlockHash, StakeDistribution)
 import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Except
+import           Pos.Core.Common (Coin(..), mkCoin)
 import           Universum
 import           UTxO.Context (TransCtxt(..))
+import qualified UTxO.DSL as DSL (Value)
 import           UTxO.Interpreter (Interpretation(..), Interpret(..))
 
 {-------------------------------------------------------------------------------
@@ -103,3 +107,13 @@ data Abstract2Cardano
 
 instance Interpretation Abstract2Cardano where
   type IntCtx Abstract2Cardano = IntT
+
+{-------------------------------------------------------------------------------
+  Instances that read, but not update, the state
+-------------------------------------------------------------------------------}
+
+instance Interpret Abstract2Cardano h DSL.Value where
+  type Interpreted Abstract2Cardano DSL.Value = Coin
+
+  int :: Monad m => DSL.Value -> IntT h e m Coin
+  int = return . mkCoin

@@ -77,9 +77,9 @@ class (Monad m, WithLogger m) => MonadPollRead m where
     -- ^ Get active proposals for the specified application.
     getConfirmedProposals :: m [ConfirmedProposalState]
     -- ^ Get all known confirmed proposals.
-    getEpochTotalStake :: EpochIndex -> m (Maybe Coin)
+    getEpochTotalStake :: BlockVersionData -> EpochIndex -> m (Maybe Coin)
     -- ^ Get total stake from distribution corresponding to given epoch
-    getRichmanStake :: EpochIndex -> StakeholderId -> m (Maybe Coin)
+    getRichmanStake :: BlockVersionData -> EpochIndex -> StakeholderId -> m (Maybe Coin)
     -- ^ Get stake of ricmhan corresponding to given epoch (if she is
     -- really rich)
     getOldProposals :: SlotId -> m [UndecidedProposalState]
@@ -115,8 +115,8 @@ instance {-# OVERLAPPABLE #-}
     getProposal = lift . getProposal
     getProposalsByApp = lift . getProposalsByApp
     getConfirmedProposals = lift getConfirmedProposals
-    getEpochTotalStake = lift . getEpochTotalStake
-    getRichmanStake e = lift . getRichmanStake e
+    getEpochTotalStake genesisBvd = lift . getEpochTotalStake genesisBvd
+    getRichmanStake genesisBvd e = lift . getRichmanStake genesisBvd e
     getOldProposals = lift . getOldProposals
     getDeepProposals = lift . getDeepProposals
     getBlockIssuerStake e = lift . getBlockIssuerStake e
@@ -309,8 +309,8 @@ instance (MonadPollRead m) =>
         MM.valuesM
             (map (first cpsSoftwareVersion . join (,)) <$> getConfirmedProposals) =<<
         use pmConfirmedPropsL
-    getEpochTotalStake = lift . getEpochTotalStake
-    getRichmanStake e = lift . getRichmanStake e
+    getEpochTotalStake genesisBvd = lift . getEpochTotalStake genesisBvd
+    getRichmanStake genesisBvd e = lift . getRichmanStake genesisBvd e
     getOldProposals sl = ether $
         map snd <$>
         (MM.mapMaybeM getOldProposalPairs extractOld =<< use pmActivePropsL)

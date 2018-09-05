@@ -22,11 +22,11 @@ import           Pos.Chain.Update (HasUpdateConfiguration)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (Address, HasConfiguration, makePubKeyAddressBoot)
-import           Pos.Core.Configuration (HasGenesisBlockVersionData,
-                     genesisBlockVersionData)
 import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (deterministicKeyGen)
 import           Pos.DB (MonadGState (..))
+
+import           Test.Pos.Core.Dummy (dummyBlockVersionData)
 
 ----------------------------------------------------------------------------
 -- Configuration propagation
@@ -37,7 +37,6 @@ type HasTxpConfigurations =
        , HasSscConfiguration
        , HasConfiguration
        , HasUpdateConfiguration
-       , HasGenesisBlockVersionData
        )
 
 ----------------------------------------------------------------------------
@@ -86,5 +85,5 @@ instance MonadAddresses TxpTestProperty where
     getNewAddress epochSlots = lift . getNewAddress epochSlots
     getFakeChangeAddress = lift . getFakeChangeAddress
 
-instance (HasTxpConfigurations, Testable a) => Testable (TxpTestProperty a) where
-    property = monadic (ioProperty . flip runReaderT genesisBlockVersionData)
+instance Testable a => Testable (TxpTestProperty a) where
+    property = monadic (ioProperty . flip runReaderT dummyBlockVersionData)

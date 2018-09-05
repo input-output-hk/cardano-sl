@@ -13,7 +13,8 @@ import           Serokell.Util.Text (listJsonIndent)
 
 import           Pos.Chain.Update (ConfirmedProposalState (..),
                      curSoftwareVersion)
-import           Pos.Core (BlockCount, kEpochSlots)
+import           Pos.Core as Core (Config (..), configBlkSecurityParam,
+                     configBlockVersionData, configEpochSlots)
 import           Pos.Core.Update (SoftwareVersion (..), UpdateProposal (..))
 import           Pos.DB.Update (UpdateContext (..), getConfirmedProposals,
                      processNewSlot)
@@ -29,9 +30,11 @@ import           Pos.Util.Wlog (logDebug, logInfo)
 
 -- | Update System related workers.
 usWorkers
-    :: forall ctx m . UpdateMode ctx m => BlockCount -> [Diffusion m -> m ()]
-usWorkers k = [processNewSlotWorker, checkForUpdateWorker]
+    :: forall ctx m . UpdateMode ctx m => Core.Config -> [Diffusion m -> m ()]
+usWorkers coreConfig = [processNewSlotWorker, checkForUpdateWorker]
   where
+    epochSlots = configEpochSlots coreConfig
+    k = configBlkSecurityParam coreConfig
     -- These are two separate workers. We want them to run in parallel
     -- and not affect each other.
     processNewSlotParams = defaultOnNewSlotParams
@@ -39,12 +42,12 @@ usWorkers k = [processNewSlotWorker, checkForUpdateWorker]
             "Update.processNewSlot"
         }
     processNewSlotWorker _ =
-        onNewSlot (kEpochSlots k) processNewSlotParams $ \s ->
+        onNewSlot epochSlots processNewSlotParams $ \s ->
             recoveryCommGuard k "processNewSlot in US" $ do
                 logDebug "Updating slot for US..."
-                processNewSlot s
+                processNewSlot (configBlockVersionData coreConfig) s
     checkForUpdateWorker _ =
-        onNewSlot (kEpochSlots k) defaultOnNewSlotParams $ \_ ->
+        onNewSlot epochSlots defaultOnNewSlotParams $ \_ ->
             recoveryCommGuard k "checkForUpdate" (checkForUpdate @ctx @m)
 
 checkForUpdate ::

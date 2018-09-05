@@ -6,7 +6,8 @@ module Pos.DB.Lrc.Lrc
 
 import           Universum
 
-import           Pos.Core as Core (Config (..), configFtsSeed)
+import           Pos.Core as Core (Config (..), configBlockVersionData,
+                     configFtsSeed)
 import           Pos.DB.Class (MonadDB)
 import           Pos.DB.Error (DBError (..))
 import           Pos.DB.Lrc.Common (prepareLrcCommon)
@@ -21,10 +22,14 @@ import           Pos.Util (maybeThrow)
 prepareLrcDB :: MonadDB m => Core.Config -> m ()
 prepareLrcDB coreConfig = do
     prepareLrcLeaders coreConfig
-    prepareLrcRichmen (configGenesisData coreConfig)
+    prepareLrcRichmen coreConfig
     let cantReadErr =
             DBMalformed "Can't read richmen US after richmen initialization"
-    totalStake <- fst <$> (maybeThrow cantReadErr =<< tryGetUSRichmen 0)
+    totalStake <-
+        fst
+            <$> (   maybeThrow cantReadErr
+                =<< tryGetUSRichmen (configBlockVersionData coreConfig) 0
+                )
     prepareLrcIssuers totalStake
     prepareLrcSeed (configFtsSeed coreConfig)
     prepareLrcCommon

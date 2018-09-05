@@ -46,7 +46,6 @@ import qualified Text.JSON.Canonical as Canonical
 
 import           Pos.Binary.Class (Raw)
 import           Pos.Core.Common (BlockCount, SharedSeed)
-import           Pos.Core.Configuration.BlockVersionData as E
 import           Pos.Core.Configuration.Core as E
 import           Pos.Core.Configuration.GenesisHash as E
 import           Pos.Core.Genesis (GeneratedSecrets, GenesisAvvmBalances,
@@ -136,10 +135,7 @@ configFtsSeed :: Config -> SharedSeed
 configFtsSeed = gdFtsSeed . configGenesisData
 
 -- | Coarse catch-all configuration constraint for use by depending modules.
-type HasConfiguration =
-    ( HasCoreConfiguration
-    , HasGenesisBlockVersionData
-    )
+type HasConfiguration = HasCoreConfiguration
 
 canonicalGenesisJson :: GenesisData -> (BSL.ByteString, Hash Raw)
 canonicalGenesisJson theGenesisData = (canonicalJsonBytes, jsonHash)
@@ -210,7 +206,6 @@ withCoreConfigurations conf@CoreConfiguration{..} fn confDir mSystemStart mSeed 
                      (show theGenesisHash) (show expectedHash)
 
         withCoreConfiguration conf $
-            withGenesisBlockVersionData (gdBlockVersionData theGenesisData) $
             act $
             Config
                 { configProtocolMagic     = pm
@@ -252,7 +247,6 @@ withGenesisSpec
 withGenesisSpec theSystemStart conf@CoreConfiguration{..} fn val = case ccGenesis of
     GCSrc {} -> error "withGenesisSpec called with GCSrc"
     GCSpec spec ->
-        withGenesisBlockVersionData (gsBlockVersionData spec) $
             let
                 -- Generate
                 GeneratedGenesisData {..} =
@@ -272,7 +266,7 @@ withGenesisSpec theSystemStart conf@CoreConfiguration{..} fn val = case ccGenesi
                       , gdStartTime        = theSystemStart
                       , gdVssCerts         = ggdVssCerts
                       , gdNonAvvmBalances  = ggdNonAvvm
-                      , gdBlockVersionData = genesisBlockVersionData
+                      , gdBlockVersionData = gsBlockVersionData spec
                       , gdProtocolConsts   = gsProtocolConstants spec
                       , gdAvvmDistr        = ggdAvvm
                       , gdFtsSeed          = gsFtsSeed spec

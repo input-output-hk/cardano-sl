@@ -17,6 +17,7 @@ import           Pos.Chain.Ssc (MonadSscMem, SscGlobalQuery, SscSeedError,
 import qualified Pos.Chain.Ssc as Ssc
 import           Pos.Core (EpochIndex (..), SharedSeed)
 import           Pos.Core.Ssc (VssCertificatesMap (..), vcVssKey)
+import           Pos.Core.Update (BlockVersionData)
 import           Pos.DB (MonadDBRead)
 import           Pos.DB.Lrc (HasLrcContext, getSscRichmen)
 
@@ -32,14 +33,15 @@ sscCalculateSeed
        , HasLrcContext ctx
        , MonadIO m
        )
-    => EpochIndex
+    => BlockVersionData
+    -> EpochIndex
     -> m (Either SscSeedError SharedSeed)
-sscCalculateSeed epoch = do
+sscCalculateSeed genesisBvd epoch = do
     -- We take richmen for the previous epoch because during N-th epoch we
     -- were using richmen for N-th epoch for everything – so, when we are
     -- calculating the seed for N+1-th epoch, we should still use data from
     -- N-th epoch.
-    richmen <- getSscRichmen "sscCalculateSeed" (epoch - 1)
+    richmen <- getSscRichmen genesisBvd "sscCalculateSeed" (epoch - 1)
     sscRunGlobalQuery $ sscCalculateSeedQ richmen
 
 sscCalculateSeedQ

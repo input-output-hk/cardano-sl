@@ -22,8 +22,8 @@ import           Pos.Chain.Delegation (DlgPayload, ProxySKBlockInfo)
 import           Pos.Chain.Ssc (defaultSscPayload)
 import           Pos.Chain.Update (HasUpdateConfiguration)
 import qualified Pos.Communication ()
-import           Pos.Core (SlotId (..), genesisBlockVersionData,
-                     localSlotIndexMinBound, unsafeMkLocalSlotIndex)
+import           Pos.Core (SlotId (..), localSlotIndexMinBound,
+                     unsafeMkLocalSlotIndex)
 import           Pos.Core.Ssc (SscPayload (..), mkVssCertificatesMapLossy)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (BlockVersionData (..), UpdatePayload (..))
@@ -34,16 +34,15 @@ import           Test.Pos.Chain.Block.Arbitrary ()
 import           Test.Pos.Chain.Delegation.Arbitrary (genDlgPayload)
 import           Test.Pos.Chain.Ssc.Arbitrary (commitmentMapEpochGen,
                      vssCertificateEpochGen)
-import           Test.Pos.Configuration (withDefConfiguration,
-                     withDefUpdateConfiguration)
+import           Test.Pos.Configuration (withDefUpdateConfiguration)
 import           Test.Pos.Core.Arbitrary.Txp (GoodTx, goodTxToTxAux)
-import           Test.Pos.Core.Dummy (dummyConfig, dummyEpochSlots, dummyK,
-                     dummyProtocolConstants)
+import           Test.Pos.Core.Dummy (dummyBlockVersionData, dummyConfig,
+                     dummyEpochSlots, dummyK, dummyProtocolConstants)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck (SmallGenerator (..), makeSmall)
 
 spec :: Spec
-spec = withDefConfiguration $ \_ -> withDefUpdateConfiguration $
+spec = withDefUpdateConfiguration $
   describe "Block.Logic.Creation" $ do
 
     -- Sampling the minimum empty block size
@@ -67,7 +66,7 @@ spec = withDefConfiguration $ \_ -> withDefUpdateConfiguration $
                  -- bytes; this is *completely* independent of encoding used.
                  -- Empirically, empty blocks don't get bigger than 550
                  -- bytes.
-                 s <= 550 && s <= bvdMaxBlockSize genesisBlockVersionData
+                 s <= 550 && s <= bvdMaxBlockSize dummyBlockVersionData
         prop "doesn't create blocks bigger than the limit" $
             forAll (choose (emptyBSize, emptyBSize * 10)) $ \(fromBytes -> limit) ->
             forAll arbitrary $ \(prevHeader, sk, updatePayload) ->

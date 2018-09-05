@@ -28,9 +28,9 @@ import qualified Pos.Chain.Lrc as Lrc
 import           Pos.Chain.Txp (TxpConfiguration (..))
 import           Pos.Core as Core (Coin, Config (..), EpochIndex, StakeholderId,
                      addressHash, coinF, configBlkSecurityParam,
-                     configEpochSlots, configFtsSeed,
+                     configBlockVersionData, configEpochSlots, configFtsSeed,
                      configGeneratedSecretsThrow)
-import           Pos.Core.Genesis (GeneratedSecrets, GenesisInitializer (..),
+import           Pos.Core.Genesis (GenesisInitializer (..),
                      TestnetBalanceOptions (..), gsSecretKeysPoor,
                      gsSecretKeysRich)
 import           Pos.Core.Txp (TxAux, mkTxPayload)
@@ -184,21 +184,18 @@ lrcCorrectnessProp coreConfig txpConfig = do
                                 ", computed leaders: "%listJson)
            expectedLeadersStakes leaders1
 
-    generatedSecrets <- configGeneratedSecretsThrow coreConfig
-    checkRichmen generatedSecrets
+    checkRichmen coreConfig
 
-checkRichmen :: HasConfigurations => GeneratedSecrets -> BlockProperty ()
-checkRichmen generatedSecrets = do
-    checkRichmenStakes =<< getRichmen (lift . LrcDB.tryGetSscRichmen)
-    checkRichmenFull =<< getRichmen (lift . LrcDB.tryGetUSRichmen)
-    checkRichmenSet =<< getRichmen (lift . LrcDB.tryGetDlgRichmen)
+checkRichmen :: HasConfigurations => Core.Config -> BlockProperty ()
+checkRichmen coreConfig = do
+    checkRichmenStakes =<< getRichmen (lift . LrcDB.tryGetSscRichmen genesisBvd)
+    checkRichmenFull =<< getRichmen (lift . LrcDB.tryGetUSRichmen genesisBvd)
+    checkRichmenSet =<< getRichmen (lift . LrcDB.tryGetDlgRichmen genesisBvd)
   where
+    genesisBvd = configBlockVersionData coreConfig
+
     toStakeholders :: [SecretKey] -> [StakeholderId]
     toStakeholders = map (addressHash . toPublic)
-    poorStakeholders :: [StakeholderId]
-    poorStakeholders = toStakeholders $ gsSecretKeysPoor generatedSecrets
-    richStakeholders :: [StakeholderId]
-    richStakeholders = toStakeholders $ gsSecretKeysRich generatedSecrets
 
     getRichmen ::
            (EpochIndex -> BlockProperty (Maybe richmen))
@@ -230,6 +227,8 @@ checkRichmen generatedSecrets = do
 
     checkRichmenSet :: Lrc.RichmenSet -> BlockProperty ()
     checkRichmenSet richmenSet = do
+        poorStakeholders <- toStakeholders . gsSecretKeysPoor
+            <$> configGeneratedSecretsThrow coreConfig
         mapM_ (checkPoor richmenSet) poorStakeholders
         let checkRich (id, realStake) =
                 when (isNothing (richmenSet ^. at id)) $
@@ -240,6 +239,8 @@ checkRichmen generatedSecrets = do
 
     expectedRichmenStakes :: BlockProperty [(StakeholderId, Coin)]
     expectedRichmenStakes = do
+        richStakeholders <- toStakeholders . gsSecretKeysRich
+            <$> configGeneratedSecretsThrow coreConfig
         let resolve id = (id, ) . fromMaybe minBound <$> GS.getRealStake id
         lift $ mapM resolve richStakeholders
 

@@ -40,7 +40,7 @@ import           UTxO.Context
 import           UTxO.Verify (Verify)
 import qualified UTxO.Verify as Verify
 
-import           Test.Pos.Core.Dummy (dummyEpochSlots)
+import           Test.Pos.Core.Dummy (dummyBlockVersionData, dummyEpochSlots)
 
 {-------------------------------------------------------------------------------
   Testing infrastructure from cardano-sl-core
@@ -95,7 +95,7 @@ instance Monad m => MonadReader TransCtxt (TranslateT e m) where
 
 -- | Right now this always returns the genesis policy
 instance Monad m => MonadGState (TranslateT e m) where
-  gsAdoptedBVData = withConfig $ return genesisBlockVersionData
+  gsAdoptedBVData = pure dummyBlockVersionData
 
 -- | Run translation
 --

@@ -69,8 +69,8 @@ import           Pos.Chain.Update (ConfirmedProposalState,
 import qualified Pos.Chain.Update as Upd
 import           Pos.Context (NodeContext (..))
 import           Pos.Core as Core (BlockCount, Config (..), GenesisHash (..),
-                     SlotCount, Timestamp, TxFeePolicy, configEpochSlots,
-                     configK, difficultyL, genesisBlockVersionData,
+                     SlotCount, Timestamp, TxFeePolicy, configBlockVersionData,
+                     configEpochSlots, configK, difficultyL,
                      getChainDifficulty)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Slotting (EpochIndex (..), HasSlottingVar (..),
@@ -557,15 +557,16 @@ mockNodeState :: (HasCallStack, MonadThrow m)
 mockNodeState MockNodeStateParams{..} =
     withDefConfiguration $ \coreConfig ->
     withDefUpdateConfiguration $
-      Adaptor {
+    let genesisBvd = configBlockVersionData coreConfig
+    in Adaptor {
           withNodeState            = \_ -> throwM $ NodeStateUnavailable callStack
         , getTipSlotId             = return mockNodeStateTipSlotId
         , getSecurityParameter     = return mockNodeStateSecurityParameter
         , getNextEpochSlotDuration = return mockNodeStateNextEpochSlotDuration
         , getNodeSyncProgress      = \_ -> return mockNodeStateSyncProgress
         , getSlotStart             = return . mockNodeStateSlotStart
-        , getMaxTxSize             = return $ bvdMaxTxSize genesisBlockVersionData
-        , getFeePolicy             = return $ bvdTxFeePolicy genesisBlockVersionData
+        , getMaxTxSize             = return $ bvdMaxTxSize genesisBvd
+        , getFeePolicy             = return $ bvdTxFeePolicy genesisBvd
         , getSlotCount             = return $ configEpochSlots coreConfig
         , getCoreConfig            = return coreConfig
         , curSoftwareVersion       = return $ Upd.curSoftwareVersion

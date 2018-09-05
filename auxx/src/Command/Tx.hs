@@ -39,11 +39,10 @@ import           Pos.Client.Txp.Balances (getOwnUtxoForPk)
 import           Pos.Client.Txp.Network (prepareMTx, submitTxRaw)
 import           Pos.Client.Txp.Util (createTx)
 import           Pos.Core as Core (Config (..), IsBootstrapEraAddr (..),
-                     Timestamp (..), configEpochSlots, deriveFirstHDAddress,
-                     makePubKeyAddress, mkCoin)
+                     Timestamp (..), configBlockVersionData, configEpochSlots,
+                     deriveFirstHDAddress, makePubKeyAddress, mkCoin)
 import           Pos.Core.Conc (concurrently, currentTime, delay,
                      forConcurrently, modifySharedAtomic, newSharedAtomic)
-import           Pos.Core.Configuration (genesisBlockVersionData)
 import           Pos.Core.Txp (TxAux (..), TxIn (TxInUtxo), TxOut (..),
                      TxOutAux (..), txaF)
 import           Pos.Core.Update (BlockVersionData (..))
@@ -93,7 +92,7 @@ sendToAllGenesis
     -> SendToAllGenesisParams
     -> m ()
 sendToAllGenesis coreConfig keysToSend diffusion (SendToAllGenesisParams genesisTxsPerThread txsPerThread conc delay_ tpsSentFile) = do
-    let genesisSlotDuration = fromIntegral (toMicroseconds $ bvdSlotDuration genesisBlockVersionData) `div` 1000000 :: Int
+    let genesisSlotDuration = fromIntegral (toMicroseconds $ bvdSlotDuration (configBlockVersionData coreConfig)) `div` 1000000 :: Int
     tpsMVar <- newSharedAtomic $ TxCount 0 conc
     startTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
     bracket (openFile tpsSentFile WriteMode) (liftIO . hClose) $ \h -> do

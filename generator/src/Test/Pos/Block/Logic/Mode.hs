@@ -68,8 +68,6 @@ import           Pos.Core as Core (Config (..), CoreConfiguration (..),
                      Timestamp (..), configEpochSlots,
                      configGeneratedSecretsThrow, withGenesisSpec)
 import           Pos.Core.Conc (currentTime)
-import           Pos.Core.Configuration (HasGenesisBlockVersionData,
-                     withGenesisBlockVersionData)
 import           Pos.Core.Genesis (GenesisInitializer (..), GenesisSpec (..),
                      gsSecretKeys)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
@@ -158,13 +156,10 @@ instance Arbitrary TestParams where
         let _tpStartTime = Timestamp (fromMicroseconds 0)
         let _tpBlockVersionData = defaultTestBlockVersionData
         let _tpTxpConfiguration = TxpConfiguration 200 Set.empty
-        _tpGenesisInitializer <-
-            withGenesisBlockVersionData
-                _tpBlockVersionData
-                genGenesisInitializer
+        _tpGenesisInitializer <- genGenesisInitializer
         return TestParams {..}
 
-genGenesisInitializer :: HasGenesisBlockVersionData => Gen GenesisInitializer
+genGenesisInitializer :: Gen GenesisInitializer
 genGenesisInitializer = do
     giTestBalance <- arbitrary
     giFakeAvvmBalance <- arbitrary

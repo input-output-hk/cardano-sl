@@ -156,7 +156,7 @@ logicFull coreConfig txpConfig ourStakeholderId securityParams jsonLogTx =
         postBlockHeader = Block.handleUnsolicitedHeader coreConfig
 
         postPskHeavy :: ProxySKHeavy -> m Bool
-        postPskHeavy = Delegation.handlePsk $ configProtocolMagic coreConfig
+        postPskHeavy = Delegation.handlePsk coreConfig
 
         postTx = KeyVal
             { toKey = pure . Tagged . hash . taTx . getTxMsgContents

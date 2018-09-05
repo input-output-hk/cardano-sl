@@ -42,8 +42,9 @@ import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem, PureToss,
                      tmCommitments, tmOpenings, tmShares,
                      verifyAndApplySscPayload)
 import           Pos.Core as Core (BlockCount, Config, EpochIndex, SlotId (..),
-                     StakeholderId, configBlkSecurityParam, configEpochSlots,
-                     epochIndexL, kEpochSlots)
+                     StakeholderId, configBlkSecurityParam,
+                     configBlockVersionData, configEpochSlots, epochIndexL,
+                     kEpochSlots)
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
                      SscPayload (..), VssCertificate, mkCommitmentsMap,
@@ -103,7 +104,9 @@ sscNormalize
     -> m ()
 sscNormalize coreConfig = do
     tipEpoch <- view epochIndexL <$> getTipHeader
-    richmenData <- getSscRichmen "sscNormalize" tipEpoch
+    richmenData <- getSscRichmen (configBlockVersionData coreConfig)
+                                 "sscNormalize"
+                                 tipEpoch
     bvd <- gsAdoptedBVData
     globalVar <- sscGlobal <$> askSscMem
     localVar <- sscLocal <$> askSscMem
@@ -241,7 +244,7 @@ sscProcessData coreConfig tag payload =
         bvd <- gsAdoptedBVData
         let epoch = ld ^. ldEpoch
         seed <- Rand.drgNew
-        lift (tryGetSscRichmen epoch) >>= \case
+        lift (tryGetSscRichmen (configBlockVersionData coreConfig) epoch) >>= \case
             Nothing -> throwError $ TossUnknownRichmen epoch
             Just richmen -> do
                 gs <- sscRunGlobalQuery ask

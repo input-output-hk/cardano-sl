@@ -17,11 +17,11 @@ import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Chain.Block (Block, VerifyBlockParams (..),
                      VerifyHeaderParams (..), getBlockHeader, verifyBlock,
                      verifyHeader)
-import           Pos.Core as Core (Config (..), configBootStakeholders,
-                     configEpochSlots, configGeneratedSecretsThrow)
+import           Pos.Core as Core (Config (..), configBlockVersionData,
+                     configBootStakeholders, configEpochSlots,
+                     configGeneratedSecretsThrow)
 import           Pos.Core.Chrono (NE, OldestFirst (..), nonEmptyNewestFirst)
 import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)
-import           Pos.Core.Configuration (genesisBlockVersionData)
 import           Pos.Core.Genesis (FakeAvvmOptions (..),
                      GenesisInitializer (..), TestnetBalanceOptions (..),
                      gsSecretKeys)
@@ -233,7 +233,7 @@ runBenchmark = do
         $ \coreConfig txpConfig _ -> do
             let tp = TestParams
                     { _tpStartTime = Timestamp (convertUnit startTime)
-                    , _tpBlockVersionData = genesisBlockVersionData
+                    , _tpBlockVersionData = configBlockVersionData coreConfig
                     , _tpGenesisInitializer = genesisInitializer
                     , _tpTxpConfiguration = txpConfig
                     }

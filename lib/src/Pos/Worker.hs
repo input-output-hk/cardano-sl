@@ -14,8 +14,7 @@ import           Pos.Worker.Block (blkWorkers)
 -- Message instances.
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Context (NodeContext (..))
-import           Pos.Core as Core (Config, configBlkSecurityParam,
-                     configEpochSlots)
+import           Pos.Core as Core (Config, configEpochSlots)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Network.CLI (launchStaticConfigMonitoring)
 import           Pos.Infra.Network.Types (NetworkConfig (..))
@@ -35,7 +34,7 @@ allWorkers
     -> [Diffusion m -> m ()]
 allWorkers coreConfig txpConfig NodeResources {..} = mconcat
     [ sscWorkers coreConfig
-    , usWorkers (configBlkSecurityParam coreConfig)
+    , usWorkers coreConfig
     , blkWorkers coreConfig txpConfig
     , dlgWorkers
     , [properSlottingWorker, staticConfigMonitoringWorker]

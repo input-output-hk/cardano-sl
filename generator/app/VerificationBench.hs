@@ -19,11 +19,10 @@ import           Pos.Binary.Class (decodeFull, serialize)
 import           Pos.Chain.Block (ApplyBlocksException, Block,
                      VerifyBlocksException)
 import           Pos.Chain.Txp (TxpConfiguration (..))
-import           Pos.Core as Core (Config (..), configBootStakeholders,
-                     configGeneratedSecretsThrow)
+import           Pos.Core as Core (Config (..), configBlockVersionData,
+                     configBootStakeholders, configGeneratedSecretsThrow)
 import           Pos.Core.Chrono (NE, OldestFirst (..), nonEmptyNewestFirst)
 import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)
-import           Pos.Core.Configuration (genesisBlockVersionData)
 import           Pos.Core.Genesis (FakeAvvmOptions (..), GenesisData (..),
                      GenesisInitializer (..), GenesisProtocolConstants (..),
                      TestnetBalanceOptions (..), gsSecretKeys)
@@ -202,7 +201,7 @@ main = do
         withConfigurationsM (LoggerName "verification-bench") Nothing cfo fn $ \ !coreConfig !txpConfig !_ -> do
             let tp = TestParams
                     { _tpStartTime = Timestamp (convertUnit startTime)
-                    , _tpBlockVersionData = genesisBlockVersionData
+                    , _tpBlockVersionData = configBlockVersionData coreConfig
                     , _tpGenesisInitializer = genesisInitializer
                     , _tpTxpConfiguration = TxpConfiguration 200 Set.empty
                     }

@@ -25,8 +25,7 @@ import           Pos.Chain.Update (BlockVersionState, ConfirmedProposalState,
                      execRollT, getAdoptedBV, lastKnownBlockVersion,
                      reportUnexpectedError, runPollT)
 import           Pos.Core as Core (Config, HasCoreConfiguration, StakeholderId,
-                     addressHash, configBlkSecurityParam, configEpochSlots,
-                     epochIndexL)
+                     addressHash, configBlkSecurityParam, epochIndexL)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Exception (reportFatalError)
 import           Pos.Core.Reporting (MonadReporting)
@@ -194,8 +193,7 @@ verifyBlock
     -> UpdateBlock
     -> m USUndo
 verifyBlock coreConfig _ _ (ComponentBlockGenesis genBlk) =
-    execRollT $ processGenesisBlock (configEpochSlots coreConfig)
-                                    (genBlk ^. epochIndexL)
+    execRollT $ processGenesisBlock coreConfig (genBlk ^. epochIndexL)
 verifyBlock coreConfig lastAdopted verifyAllIsKnown (ComponentBlockMain header payload) =
     execRollT $ do
         verifyAndApplyUSPayload

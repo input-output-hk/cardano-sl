@@ -29,7 +29,7 @@ import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem,
                      sscIsCriticalVerifyError, sscRunGlobalUpdate,
                      supplyPureTossEnv, verifyAndApplySscPayload)
 import           Pos.Core as Core (Config, HasCoreConfiguration, SlotCount,
-                     epochIndexL, epochOrSlotG)
+                     configBlockVersionData, epochIndexL, epochOrSlotG)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Exception (assertionFailed)
 import           Pos.Core.Reporting (MonadReporting, reportError)
@@ -88,7 +88,9 @@ sscVerifyBlocks coreConfig blocks = do
                 lastEpoch
     inAssertMode $ unless (epoch == lastEpoch) $
         assertionFailed differentEpochsMsg
-    richmenSet <- getSscRichmen "sscVerifyBlocks" epoch
+    richmenSet <- getSscRichmen (configBlockVersionData coreConfig)
+                                "sscVerifyBlocks"
+                                epoch
     bvd <- gsAdoptedBVData
     globalVar <- sscGlobal <$> askSscMem
     gs <- readTVarIO globalVar

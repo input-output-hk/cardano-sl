@@ -94,7 +94,6 @@ library
                        Pos.Core.Common.TxSizeLinear
 
                        -- Configuration
-                       Pos.Core.Configuration.BlockVersionData
                        Pos.Core.Configuration.Core
                        Pos.Core.Configuration.GenesisHash
 

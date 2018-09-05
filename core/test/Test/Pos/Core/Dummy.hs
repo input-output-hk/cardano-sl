@@ -18,6 +18,7 @@ module Test.Pos.Core.Dummy
        , dummyGenesisSecretsPoor
        , dummyCoreConfiguration
        , dummyGenesisSpec
+       , dummyBlockVersionData
        , dummyGenesisData
        , dummyGenesisDataStartTime
        , dummyGenesisHash

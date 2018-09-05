@@ -16,11 +16,10 @@ import           Test.QuickCheck.Arbitrary.Generic (genericShrink)
 import           Pos.Chain.Lrc (RichmenStakes)
 import           Pos.Core.Common (Coin, CoinPortion, coinPortionToDouble,
                      mkCoin, unsafeAddCoin, unsafeGetCoin, unsafeSubCoin)
-import           Pos.Core.Configuration (HasGenesisBlockVersionData,
-                     genesisBlockVersionData)
 import           Pos.Core.Update (BlockVersionData (bvdMpcThd))
 
 import           Test.Pos.Core.Arbitrary ()
+import           Test.Pos.Core.Dummy (dummyBlockVersionData)
 
 -- | Wrapper over 'RichmenStakes'. Its 'Arbitrary' instance enforces that the
 -- stake distribution inside must be valid with respect to the threshold
@@ -76,5 +75,5 @@ genRichmenStakes thd = do
 
 data GenesisMpcThd
 
-instance HasGenesisBlockVersionData => Reifies GenesisMpcThd CoinPortion where
-    reflect _ = bvdMpcThd genesisBlockVersionData
+instance Reifies GenesisMpcThd CoinPortion where
+    reflect _ = bvdMpcThd dummyBlockVersionData

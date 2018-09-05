@@ -68,9 +68,9 @@ instance MonadPollRead PurePoll where
             pure False
         filterFun (_, Just _) = pure True
     getConfirmedProposals = PurePoll $ use $ Poll.psConfirmedProposals . to HM.elems
-    getEpochTotalStake ei =
+    getEpochTotalStake _ ei =
         PurePoll $ uses Poll.psFullRichmenData $ (Just . fst) <=< HM.lookup ei
-    getRichmanStake ei si =
+    getRichmanStake _ ei si =
         PurePoll $ uses Poll.psFullRichmenData $ (HM.lookup si . snd) <=< HM.lookup ei
     getOldProposals si =
         PurePoll $ uses Poll.psActiveProposals $ filter ((<= si) . upsSlot) .

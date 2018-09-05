@@ -20,6 +20,8 @@ aliceAddr = AddrTxin (hash (VKey alicePay)) (hash (VKey aliceStake))
 bobAddr = AddrTxin (hash (VKey bobPay)) (hash (VKey bobStake))
 poolAddr = AddrTxin (hash (VKey poolPay)) (hash (VKey poolStake))
 
+aliceStKeyHash = hashKey (VKey aliceStake)
+
 genesis = genesisState
             [ TxOut aliceAddr (Coin 10)
             , TxOut bobAddr (Coin 20) ]
@@ -30,7 +32,7 @@ tx1Body = TxBody
             , TxOut bobAddr (Coin 1)
             , TxOut poolAddr (Coin 2) ]
             (Set.fromList [
-              Delegate (Delegation (VKey aliceStake) (VKey poolStake))])
+              RegKey (VKey aliceStake)])
 tx1Wits = Wits
             (Set.fromList
               [ WitTxin (VKey alicePay) (Sig tx1Body alicePay)
@@ -51,10 +53,9 @@ spec = do
                   , (TxIn (txid tx1) 1, TxOut bobAddr (Coin 1))
                   , (TxIn (txid tx1) 2, TxOut poolAddr (Coin 2))
                   ]
-      , getAccounts = Map.empty
-      , getStKeys = Set.empty
-      , getDelegations = Map.fromList [
-          ((hashKey (VKey aliceStake)), (hashKey (VKey poolStake)))]
+      , getAccounts = Map.fromList [(aliceStKeyHash, Coin 0)]
+      , getStKeys = Set.fromList [aliceStKeyHash]
+      , getDelegations = Map.empty
       , getStPools = Set.empty
       , getRetiring = Map.empty
       , getEpoch = 0

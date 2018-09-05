@@ -36,7 +36,7 @@ data Sig a = Sig a Owner deriving (Show, Eq, Ord)
 
 data StakePool = StakePool
                    { poolPubKey :: VKey
-                   , poolOperators :: [HashKey]
+                   , poolPledges :: Map VKey Coin
                    , poolCost :: Coin
                    , poolMargin :: Float -- TODO is float okay?
                    , poolAltAcnt :: Maybe HashKey
@@ -147,6 +147,11 @@ data ValidationError = UnknownInputs
                      | IncreasedTotalBalance
                      | InsuffientTxWitnesses
                      | InsuffientCertWitnesses
+                     | BadRegistration
+                     | BadDeregistration
+                     | BadDelegation
+                     | BadPoolRegistration
+                     | BadPoolRetirement
                      deriving (Show, Eq)
 data Validity = Valid | Invalid [ValidationError] deriving (Show, Eq)
 
@@ -230,22 +235,72 @@ witnessCert (Tx txBody (Wits _ ws)) =
       verify key txBody sig && authCert key cert
 --TODO combine with witnessTxin?
 
+maxEpochRetirement = 100 -- TODO based on k? find a realistic value
+
+validCert :: LedgerState -> Cert -> Validity
+
+validCert ls (RegKey key) =
+  if Set.notMember (hashKey key) (getStPools ls)
+  then Valid
+  else Invalid [BadRegistration]
+  -- TODO spec mentions signing the public stake key. needed?
+
+validCert ls (DeRegKey key) =
+  if Set.member (hashKey key) (getStPools ls)
+  then Valid
+  else Invalid [BadDeregistration]
+  -- TODO spec mentions signing the public stake key. needed?
+
+validCert ls (Delegate (Delegation key _)) =
+  if Set.member (hashKey key) (getStPools ls)
+  then Valid
+  else Invalid [BadDelegation]
+
+validCert ls (RegPool sp) =
+  if True -- What exactly is being signed?
+  then Valid
+  else Invalid [BadPoolRegistration]
+
+validCert ls (RetirePool key epoch) =
+  if (getEpoch ls) < epoch && epoch < maxEpochRetirement
+  then Valid
+  else Invalid [BadPoolRetirement]
+  -- TODO What exactly is being signed?
+
+validCerts :: Tx -> LedgerState -> Validity
+validCerts (Tx (TxBody _ _ certs) _) ls = foldMap (validCert ls) certs
+
 valid :: Tx -> LedgerState -> Validity
 valid tx l =
   validInputs tx l
     <> preserveBalance tx l
+    <> validCerts tx l
     <> witnessTxin tx l
     <> witnessCert tx
 
 applyCert :: Cert -> LedgerState -> LedgerState
-applyCert (RegKey key) ls = ls {getStKeys = (Set.insert (hashKey key) (getStKeys ls))}
-applyCert (DeRegKey key) ls = ls {getStKeys = (Set.delete (hashKey key) (getStKeys ls))}
+applyCert (RegKey key) ls = ls
+  { getStKeys = (Set.insert (hashKey key) (getStKeys ls))
+  , getAccounts = (Map.insert (hashKey key) (Coin 0) (getAccounts ls))}
+applyCert (DeRegKey key) ls = ls
+  { getStKeys = (Set.delete (hashKey key) (getStKeys ls))
+  , getAccounts = Map.delete (hashKey key) (getAccounts ls)
+  , getDelegations = Map.delete (hashKey key) (getDelegations ls)
+    }
 applyCert (Delegate (Delegation source target)) ls =
   ls {getDelegations = Map.insert (hashKey source) (hashKey target) (getDelegations ls)}
-applyCert (RegPool sp) ls = ls {getStPools = (Set.insert hsk (getStPools ls))}
+applyCert (RegPool sp) ls = ls
+  { getStPools = (Set.insert hsk (getStPools ls))
+  , getRetiring = Map.delete hsk (getRetiring ls)}
   where hsk = hashKey $ poolPubKey sp
 applyCert (RetirePool key epoch) ls = ls {getRetiring = retiring}
   where retiring = Map.insert (hashKey key) epoch (getRetiring ls)
+
+retirePools :: LedgerState -> Int -> LedgerState
+retirePools ls epoch = ls
+  { getStPools = Set.difference (getStPools ls) (Map.keysSet retiring)
+  , getRetiring = active }
+  where (active, retiring) = Map.partition ((/=) epoch) (getRetiring ls)
 
 applyTxBody :: LedgerState -> Tx -> LedgerState
 applyTxBody ls tx = ls { getUtxo = newUTxOs }

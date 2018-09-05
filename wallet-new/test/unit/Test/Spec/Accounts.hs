@@ -23,8 +23,8 @@ import qualified Cardano.Wallet.Kernel.DB.HdWallet as Kernel
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import qualified Cardano.Wallet.Kernel.Internal as Internal
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
-import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
-import           Cardano.Wallet.WalletLayer (CreateAccount (..))
+import           Cardano.Wallet.WalletLayer (CreateAccount (..),
+                     PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
 import qualified Cardano.Wallet.WalletLayer.Kernel.Wallets as Wallets
 import           Control.Monad.Except (runExceptT)

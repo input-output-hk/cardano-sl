@@ -118,31 +118,21 @@ createAccount creationFunction accountName walletId pw = do
                   Nothing  -> return (Left $ CreateAccountKeystoreNotFound walletId)
                   Just _   -> creationFunction accountName hdRootId pw
 
+-- | Creates a new 'Account' using a fixed (given) index.
 newHdFixedAccount :: HdAccountIx
                   -> AccountName
                   -> HdRootId
                   -> PassiveWallet
                   -> IO (Either CreateAccountError HdAccount)
 newHdFixedAccount newIndex accountName rootId pw = do
-    let hdAccountId = HdAccountId rootId newIndex
-        newAccount  = initHdAccount hdAccountId initialAccountState &
-                      hdAccountName .~ accountName
-        db = pw ^. wallets
-    res <- update db (CreateHdAccount newAccount)
-    case res of
-         (Left (CreateHdAccountExists _)) ->
+    let onFailure err = case err of
+         CreateHdAccountExists _ ->
              -- Nothing we can do; we were asked to create a specific account
              -- with a specific index, but there was a collision in the DB
              return (Left $ CreateAccountAlreadyExists rootId newIndex)
-         (Left (CreateHdAccountUnknownRoot _)) ->
+         CreateHdAccountUnknownRoot _ ->
              return (Left $ CreateAccountUnknownHdRoot rootId)
-         Right () -> return (Right newAccount)
-
--- | The initial state for a newly-created account.
-initialAccountState :: HdAccountState
-initialAccountState = HdAccountStateUpToDate HdAccountUpToDate {
-      _hdUpToDateCheckpoints = Checkpoints . one $ initCheckpoint mempty
-    }
+    tryGenerateAccount onFailure newIndex rootId accountName pw
 
 -- | Creates a new 'Account' using the random HD derivation under the hood.
 -- This code follows the same pattern of 'createHdRndAddress', but the two
@@ -160,25 +150,14 @@ newHdRndAccount accountName rootId pw = do
         go gen collisions =
             case collisions >= maxAllowedCollisions of
                  True  -> return $ Left (CreateAccountHdRndAccountSpaceSaturated rootId)
-                 False -> tryGenerateAccount gen collisions
-
-        tryGenerateAccount :: GenIO
-                           -> Word32
-                           -- ^ The current number of collisions
-                           -> IO (Either CreateAccountError HdAccount)
-        tryGenerateAccount gen collisions = do
-            newIndex <- deriveIndex (flip uniformR gen) HdAccountIx HardDerivation
-            let hdAccountId = HdAccountId rootId newIndex
-                newAccount  = initHdAccount hdAccountId initialAccountState &
-                              hdAccountName .~ accountName
-                db = pw ^. wallets
-            res <- update db (CreateHdAccount newAccount)
-            case res of
-                 (Left (CreateHdAccountExists _)) ->
-                     go gen (succ collisions)
-                 (Left (CreateHdAccountUnknownRoot _)) ->
-                     return (Left $ CreateAccountUnknownHdRoot rootId)
-                 Right () -> return (Right newAccount)
+                 False -> do
+                     let onFailure err = case err of
+                           CreateHdAccountExists _ ->
+                               go gen (succ collisions)
+                           CreateHdAccountUnknownRoot _ ->
+                               return (Left $ CreateAccountUnknownHdRoot rootId)
+                     newIndex <- deriveIndex (flip uniformR gen) HdAccountIx HardDerivation
+                     tryGenerateAccount onFailure newIndex rootId accountName pw
 
         -- The maximum number of allowed collisions. This number was
         -- empirically calculated based on a [beta distribution](https://en.wikipedia.org/wiki/Beta_distribution).
@@ -189,6 +168,30 @@ newHdRndAccount accountName rootId pw = do
         -- this is why it was picked.
         maxAllowedCollisions :: Word32
         maxAllowedCollisions = 42
+
+tryGenerateAccount :: (CreateHdAccountError -> IO (Either CreateAccountError HdAccount))
+                   -- ^ An action to be run in case of errors
+                   -> HdAccountIx
+                   -> HdRootId
+                   -> AccountName
+                   -- ^ The requested index
+                   -> PassiveWallet
+                   -> IO (Either CreateAccountError HdAccount)
+tryGenerateAccount onFailure newIndex rootId accountName pw = do
+    let hdAccountId = HdAccountId rootId newIndex
+        newAccount  = initHdAccount hdAccountId initialAccountState &
+                      hdAccountName .~ accountName
+        db = pw ^. wallets
+    res <- update db (CreateHdAccount newAccount)
+    case res of
+         (Left e) -> onFailure e
+         Right () -> return (Right newAccount)
+  where
+    initialAccountState :: HdAccountState
+    initialAccountState = HdAccountStateUpToDate HdAccountUpToDate {
+          _hdUpToDateCheckpoints = Checkpoints . one $ initCheckpoint mempty
+        }
+
 
 
 -- | Deletes an HD 'Account' from the data storage.

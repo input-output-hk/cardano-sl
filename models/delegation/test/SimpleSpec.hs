@@ -3,8 +3,8 @@
 module SimpleSpec where
 
 import           Crypto.Hash (hash)
-import qualified Data.Map   as Map
-import qualified Data.Set   as Set
+import qualified Data.Map    as Map
+import qualified Data.Set    as Set
 import           Test.Hspec
 
 import           Delegation
@@ -93,7 +93,7 @@ tx6Wits = Wits Set.empty
 tx6 = Tx tx6Body tx6Wits
 
 ledgerState :: Ledger -> Either [ValidationError] LedgerState
-ledgerState [] = Right $ genesis
+ledgerState []     = Right $ genesis
 ledgerState (t:ts) = ledgerState ts >>= asStateTransition t
 
 expectedUtxo = UTxO $ Map.fromList

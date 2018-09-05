@@ -1,5 +1,5 @@
-{-# LANGUAGE PackageImports #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE PackageImports    #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Delegation where
@@ -36,10 +36,10 @@ hashKey key = HashKey $ hash key
 data Sig a = Sig a Owner deriving (Show, Eq, Ord)
 
 data StakePool = StakePool
-                   { poolPubKey :: VKey
+                   { poolPubKey  :: VKey
                    , poolPledges :: Map VKey Coin
-                   , poolCost :: Coin
-                   , poolMargin :: Float -- TODO is float okay?
+                   , poolCost    :: Coin
+                   , poolMargin  :: Float -- TODO is float okay?
                    , poolAltAcnt :: Maybe HashKey
                    } deriving (Show, Eq, Ord)
 
@@ -55,10 +55,10 @@ data Cert = RegKey VKey
   deriving (Show, Eq, Ord)
 
 getRequiredSigningKey :: Cert -> VKey
-getRequiredSigningKey (RegKey key) = key
-getRequiredSigningKey (DeRegKey key) = key
-getRequiredSigningKey (RegPool pool) = poolPubKey pool
-getRequiredSigningKey (RetirePool key _) = key
+getRequiredSigningKey (RegKey key)          = key
+getRequiredSigningKey (DeRegKey key)        = key
+getRequiredSigningKey (RegPool pool)        = poolPubKey pool
+getRequiredSigningKey (RetirePool key _)    = key
 getRequiredSigningKey (Delegate delegation) = delegator delegation
 
 data WitTxin = WitTxin VKey (Sig TxBody) deriving (Show, Eq, Ord)
@@ -167,13 +167,13 @@ instance Monoid Validity where
 
 data LedgerState =
   LedgerState
-  { getUtxo :: UTxO
-  , getAccounts :: Map HashKey Coin
-  , getStKeys :: Set HashKey
+  { getUtxo        :: UTxO
+  , getAccounts    :: Map HashKey Coin
+  , getStKeys      :: Set HashKey
   , getDelegations :: Map HashKey HashKey
-  , getStPools :: Set HashKey
-  , getRetiring :: Map HashKey Int
-  , getEpoch :: Int
+  , getStPools     :: Set HashKey
+  , getRetiring    :: Map HashKey Int
+  , getEpoch       :: Int
   } deriving (Show, Eq)
 
 genesisId :: TxId
@@ -208,7 +208,7 @@ authTxin :: VKey -> TxIn -> UTxO -> Bool
 authTxin key txin (UTxO utxo) =
   case Map.lookup txin utxo of
     Just (TxOut (AddrTxin pay _) _) -> hash key == pay
-    _ -> False
+    _                               -> False
 
 witnessTxin :: Tx -> LedgerState -> Validity
 witnessTxin (Tx txBody (Wits ws _)) l =

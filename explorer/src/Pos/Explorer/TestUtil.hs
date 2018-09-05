@@ -40,9 +40,8 @@ import           Pos.Chain.Ssc (defaultSscPayload)
 import           Pos.Chain.Update (HasUpdateConfiguration)
 import qualified Pos.Communication ()
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
-                     EpochIndex (..), GenesisHash (..), HasConfiguration,
-                     LocalSlotIndex (..), SlotId (..), SlotLeaders,
-                     StakeholderId, difficultyL, genesisHash,
+                     EpochIndex (..), LocalSlotIndex (..), SlotId (..),
+                     SlotLeaders, StakeholderId, difficultyL,
                      makePubKeyAddressBoot)
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (TxAux)
@@ -56,7 +55,7 @@ import           Pos.Explorer.ExtraContext (ExplorerMockableMode (..))
 
 import           Test.Pos.Chain.Block.Arbitrary ()
 import           Test.Pos.Configuration (withDefConfigurations)
-import           Test.Pos.Core.Dummy (dummyConfig, dummyK)
+import           Test.Pos.Core.Dummy (dummyConfig, dummyGenesisHash, dummyK)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 
@@ -246,7 +245,7 @@ leftToCounter x c = either (\t -> counterexample (toString t) False) (property .
 
 -- | Function that should generate arbitrary blocks that we can use in tests.
 produceBlocksByBlockNumberAndSlots
-    :: forall m. (HasConfiguration, HasUpdateConfiguration, MonadIO m)
+    :: forall m. (HasUpdateConfiguration, MonadIO m)
     => BlockNumber
     -> SlotsPerEpoch
     -> SlotLeaders
@@ -300,7 +299,7 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
       where
         epochGenesisBlock :: GenesisBlock
         epochGenesisBlock = mkGenesisBlock dummyProtocolMagic
-                                           (maybe (Left (GenesisHash genesisHash)) Right mBlockHeader)
+                                           (maybe (Left dummyGenesisHash) Right mBlockHeader)
                                            epochIndex
                                            producedSlotLeaders
 

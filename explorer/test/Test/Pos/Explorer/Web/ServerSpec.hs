@@ -30,7 +30,7 @@ import           Pos.Util (divRoundUp)
 
 import           Test.Pos.Chain.Block.Arbitrary ()
 import           Test.Pos.Configuration (withDefConfigurations)
-import           Test.Pos.Core.Dummy (dummyEpochSlots, dummyGenesisData)
+import           Test.Pos.Core.Dummy (dummyConfig, dummyEpochSlots)
 
 
 ----------------------------------------------------------------
@@ -341,7 +341,7 @@ blocksTotalFunctionalSpec =
 
                   -- The extra context so we can mock the functions.
                   let extraContext :: ExtraContext
-                      extraContext = makeExtraCtx dummyGenesisData
+                      extraContext = makeExtraCtx dummyConfig
 
                   -- We run the function in @ExplorerTestMode@ so we don't need to define
                   -- a million instances.

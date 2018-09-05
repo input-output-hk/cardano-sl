@@ -104,14 +104,17 @@ logicFull
     -> Logic m
 logicFull coreConfig txpConfig ourStakeholderId securityParams jsonLogTx =
     let
+        genesisHash = configGenesisHash coreConfig
+
         getSerializedBlock :: HeaderHash -> m (Maybe SerializedBlock)
-        getSerializedBlock = DB.dbGetSerBlock
+        getSerializedBlock = DB.dbGetSerBlock genesisHash
 
         streamBlocks :: HeaderHash -> ConduitT () SerializedBlock m ()
-        streamBlocks = Block.streamBlocks DB.dbGetSerBlock Block.resolveForwardLink
+        streamBlocks = Block.streamBlocks (DB.dbGetSerBlock genesisHash)
+                                          Block.resolveForwardLink
 
         getTip :: m Block
-        getTip = DB.getTipBlock
+        getTip = DB.getTipBlock genesisHash
 
         getTipHeader :: m BlockHeader
         getTipHeader = DB.getTipHeader

@@ -65,7 +65,7 @@ import           Formatting (sformat, shown, stext, (%))
 import           Network.EngineIO (SocketId)
 import           Network.SocketIO (Socket, socketId)
 import           Pos.Chain.Block (Block, Blund, HeaderHash, mainBlockTxPayload)
-import           Pos.Core (Address, SlotCount)
+import           Pos.Core (Address, GenesisHash, SlotCount)
 import           Pos.Core.Chrono (getOldestFirst)
 import           Pos.Core.Txp (Tx (..), TxOut (..), TxOutAux (..), txOutAddress,
                      txpTxs)
@@ -362,12 +362,12 @@ notifyEpochsLastPageSubscribers epochSlots currentEpoch = do
 -- | Gets blocks from recent inclusive to old one exclusive.
 getBlundsFromTo
     :: forall ctx m . ExplorerMode ctx m
-    => HeaderHash -> HeaderHash -> m (Maybe [Blund])
-getBlundsFromTo recentBlock oldBlock =
+    => GenesisHash -> HeaderHash -> HeaderHash -> m (Maybe [Blund])
+getBlundsFromTo genesisHash recentBlock oldBlock =
     DB.getHashesRange Nothing oldBlock recentBlock >>= \case
         Left _ -> pure Nothing
         Right (getOldestFirst -> hashes) ->
-            Just . catMaybes <$> forM (NE.tail hashes) getBlund
+            Just . catMaybes <$> forM (NE.tail hashes) (getBlund genesisHash)
 
 addrsTouchedByTx
     :: MonadDBRead m

@@ -20,16 +20,20 @@ module Test.Pos.Core.Dummy
        , dummyGenesisSpec
        , dummyGenesisData
        , dummyGenesisDataStartTime
+       , dummyGenesisHash
        ) where
 
 import           Universum
 
+import           Data.Coerce (coerce)
+
 import           Pos.Core (BlockCount, Coeff (..), Config (..),
                      CoreConfiguration (..), EpochIndex (..),
-                     GenesisConfiguration (..), ProtocolConstants (..),
-                     SharedSeed (..), SlotCount, Timestamp, TxFeePolicy (..),
-                     TxSizeLinear (..), VssMaxTTL (..), VssMinTTL (..),
-                     kEpochSlots, kSlotSecurityParam, pcBlkSecurityParam,
+                     GenesisConfiguration (..), GenesisHash (..),
+                     ProtocolConstants (..), SharedSeed (..), SlotCount,
+                     Timestamp, TxFeePolicy (..), TxSizeLinear (..),
+                     VssMaxTTL (..), VssMinTTL (..), kEpochSlots,
+                     kSlotSecurityParam, pcBlkSecurityParam,
                      unsafeCoinPortionFromDouble)
 import           Pos.Core.Genesis (FakeAvvmOptions (..),
                      GeneratedGenesisData (..), GeneratedSecrets (..),
@@ -41,7 +45,7 @@ import           Pos.Core.Genesis (FakeAvvmOptions (..),
                      gsSecretKeys, gsSecretKeysPoor, gsSecretKeysRich,
                      noGenesisDelegation)
 import           Pos.Core.Update (BlockVersionData (..), SoftforkRule (..))
-import           Pos.Crypto (SecretKey)
+import           Pos.Crypto (SecretKey, unsafeHash)
 
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
@@ -50,12 +54,12 @@ dummyConfig = dummyConfigStartTime 0
 
 dummyConfigStartTime :: Timestamp -> Config
 dummyConfigStartTime systemStart = Config
-    { configProtocolMagic = dummyProtocolMagic
+    { configProtocolMagic     = dummyProtocolMagic
     , configProtocolConstants = dummyProtocolConstants
-    , configGeneratedSecrets = Just dummyGeneratedSecrets
-    , configGenesisData = dummyGenesisDataStartTime systemStart
+    , configGeneratedSecrets  = Just dummyGeneratedSecrets
+    , configGenesisData       = dummyGenesisDataStartTime systemStart
+    , configGenesisHash       = dummyGenesisHash
     }
-
 
 dummyProtocolConstants :: ProtocolConstants
 dummyProtocolConstants = ProtocolConstants
@@ -160,3 +164,6 @@ dummyGenesisDataStartTime systemStart = GenesisData
     , gdAvvmDistr        = ggdAvvm dummyGeneratedGenesisData
     , gdFtsSeed          = dummyFtsSeed
     }
+
+dummyGenesisHash :: GenesisHash
+dummyGenesisHash = GenesisHash $ coerce $ unsafeHash @Text "patak"

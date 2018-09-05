@@ -32,9 +32,9 @@ import           Pos.Explorer.DB (Epoch, Page, getEpochBlocks, getEpochPages,
                      getPageBlocks)
 
 import           Pos.Chain.Txp (genesisUtxo, utxoToAddressCoinPairs)
-import           Pos.Core (Address, Coin, EpochIndex, SlotId (..), SlotLeaders,
-                     Timestamp, isRedeemAddress)
-import           Pos.Core.Genesis (GenesisData)
+import           Pos.Core as Core (Address, Coin, Config (..), EpochIndex,
+                     GenesisHash, SlotId (..), SlotLeaders, Timestamp,
+                     isRedeemAddress)
 import           Pos.DB.Lrc (getLeadersForEpoch)
 import           Pos.Infra.Slotting (MonadSlotsData, getSlotStart)
 
@@ -53,13 +53,14 @@ data ExtraContext = ExtraContext
     , ecExplorerMockableMode :: !ExplorerMockableMode
     }
 
-makeExtraCtx :: GenesisData -> ExtraContext
-makeExtraCtx genesisData =
-    let addressCoinPairs = utxoToAddressCoinPairs $ genesisUtxo genesisData
+makeExtraCtx :: Core.Config -> ExtraContext
+makeExtraCtx coreConfig =
+    let addressCoinPairs =
+            utxoToAddressCoinPairs $ genesisUtxo $ configGenesisData coreConfig
         redeemOnly = filter (isRedeemAddress . fst) addressCoinPairs
     in ExtraContext
         { ecAddressCoinPairs     = V.fromList redeemOnly
-        , ecExplorerMockableMode = prodMode
+        , ecExplorerMockableMode = prodMode $ configGenesisHash coreConfig
         }
 
 -- | For mocking we mostly need to replace just the external CSL functions.
@@ -109,11 +110,11 @@ data ExplorerMockableMode = ExplorerMockableMode
     }
 
 -- | This is what we use in production when we run Explorer.
-prodMode :: ExplorerMockableMode
-prodMode = ExplorerMockableMode {
-      emmGetTipBlock            = DB.getTipBlock,
+prodMode :: GenesisHash -> ExplorerMockableMode
+prodMode genesisHash = ExplorerMockableMode {
+      emmGetTipBlock            = DB.getTipBlock genesisHash,
       emmGetPageBlocks          = getPageBlocks,
-      emmGetBlundFromHH         = DB.getBlund,
+      emmGetBlundFromHH         = DB.getBlund genesisHash,
       emmGetSlotStart           = getSlotStart,
       emmGetLeadersFromEpoch    = getLeadersForEpoch,
       emmGetEpochBlocks         = getEpochBlocks,

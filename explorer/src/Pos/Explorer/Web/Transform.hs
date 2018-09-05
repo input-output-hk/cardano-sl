@@ -25,9 +25,7 @@ import           Pos.Chain.Block (HasBlockConfiguration)
 import           Pos.Chain.Ssc (HasSscConfiguration)
 import           Pos.Chain.Update (HasUpdateConfiguration)
 import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core as Core (Config (..), HasConfiguration, SlotCount,
-                     configEpochSlots)
-import           Pos.Core.Genesis (GenesisData)
+import           Pos.Core as Core (Config (..), HasConfiguration)
 import           Pos.DB.Txp (MempoolExt, MonadTxpLocal (..))
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Reporting (MonadReporting (..))
@@ -87,11 +85,11 @@ type HasExplorerConfiguration =
 
 notifierPlugin
     :: HasExplorerConfiguration
-    => SlotCount
+    => Core.Config
     -> NotifierSettings
     -> Diffusion ExplorerProd
     -> ExplorerProd ()
-notifierPlugin epochSlots settings _ = notifierApp epochSlots settings
+notifierPlugin coreConfig settings _ = notifierApp coreConfig settings
 
 explorerPlugin
     :: HasExplorerConfiguration
@@ -109,21 +107,21 @@ explorerServeWebReal
     -> ExplorerProd ()
 explorerServeWebReal coreConfig diffusion port = do
     rctx <- ask
-    let handlers = explorerHandlers (configEpochSlots coreConfig) diffusion
+    let handlers = explorerHandlers coreConfig diffusion
         server   = hoistServer
             explorerApi
-            (convertHandler (configGenesisData coreConfig) rctx)
+            (convertHandler coreConfig rctx)
             handlers
         app = explorerApp (pure server)
     explorerServeImpl app port
 
 convertHandler
-    :: GenesisData
+    :: Core.Config
     -> RealModeContext ExplorerExtraModifier
     -> ExplorerProd a
     -> Handler a
-convertHandler genesisData rctx handler =
-    let extraCtx = makeExtraCtx genesisData
+convertHandler coreConfig rctx handler =
+    let extraCtx = makeExtraCtx coreConfig
         ioAction = realRunner $
                    runExplorerProd extraCtx
                    handler

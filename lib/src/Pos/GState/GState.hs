@@ -34,7 +34,7 @@ prepareGStateDB coreConfig initialTip = unlessM isInitialized $ do
     initGStateStakes genesisData
     initGStateUS $ configProtocolConstants coreConfig
     initGStateDlg $ configHeavyDelegation coreConfig
-    initGStateBlockExtra initialTip
+    initGStateBlockExtra (configGenesisHash coreConfig) initialTip
 
     setInitialized
   where genesisData = configGenesisData coreConfig

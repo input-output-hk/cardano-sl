@@ -22,7 +22,7 @@ module Cardano.Wallet.Kernel.NodeStateAdaptor (
   , getMaxTxSize
   , getFeePolicy
   , getSlotCount
-  , getGenesisData
+  , getCoreConfig
   , getSlotStart
   , getNextEpochSlotDuration
   , getNodeSyncProgress
@@ -68,11 +68,11 @@ import           Pos.Chain.Update (ConfirmedProposalState,
                      bvdTxFeePolicy)
 import qualified Pos.Chain.Update as Upd
 import           Pos.Context (NodeContext (..))
-import           Pos.Core (BlockCount, Config (..), SlotCount, Timestamp,
-                     TxFeePolicy, configEpochSlots, configK, difficultyL,
-                     genesisBlockVersionData, getChainDifficulty)
-import           Pos.Core.Configuration (HasConfiguration, genesisHash)
-import           Pos.Core.Genesis (GenesisData)
+import           Pos.Core as Core (BlockCount, Config (..), GenesisHash (..),
+                     SlotCount, Timestamp, TxFeePolicy, configEpochSlots,
+                     configK, difficultyL, genesisBlockVersionData,
+                     getChainDifficulty)
+import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Slotting (EpochIndex (..), HasSlottingVar (..),
                      LocalSlotIndex (..), MonadSlots (..), SlotId (..))
 import           Pos.Core.Txp (TxIn, TxOutAux)
@@ -254,8 +254,8 @@ data NodeStateAdaptor m = Adaptor {
       -- places.
     , getSlotCount :: m SlotCount
 
-    -- | Get the @GenesisData@
-    , getGenesisData :: m GenesisData
+    -- | Get the @Core.Config@
+    , getCoreConfig :: m Core.Config
 
       -- | Get the start of a slot
       --
@@ -373,7 +373,7 @@ newNodeStateAdaptor :: forall m ext. (NodeConstraints, MonadIO m, MonadMask m)
                     -> NodeStateAdaptor m
 newNodeStateAdaptor coreConfig nr ntpStatus = Adaptor
     { withNodeState            =            run
-    , getTipSlotId             =            run $ \_lock -> defaultGetTipSlotId
+    , getTipSlotId             =            run $ \_lock -> defaultGetTipSlotId genesisHash
     , getMaxTxSize             =            run $ \_lock -> defaultGetMaxTxSize
     , getFeePolicy             =            run $ \_lock -> defaultGetFeePolicy
     , getSlotStart             = \slotId -> run $ \_lock -> defaultGetSlotStart slotId
@@ -381,12 +381,13 @@ newNodeStateAdaptor coreConfig nr ntpStatus = Adaptor
     , getNodeSyncProgress      = \lockCtx -> run $ defaultSyncProgress lockCtx
     , getSecurityParameter     = return . SecurityParameter $ configK coreConfig
     , getSlotCount             = return $ configEpochSlots coreConfig
-    , getGenesisData           = return $ configGenesisData coreConfig
+    , getCoreConfig            = return coreConfig
     , curSoftwareVersion       = return $ Upd.curSoftwareVersion
     , compileInfo              = return $ Util.compileInfo
     , getNtpDrift              = defaultGetNtpDrift ntpStatus
     }
   where
+    genesisHash = configGenesisHash coreConfig
     run :: forall a.
            (    NodeConstraints
              => Lock (WithNodeState m)
@@ -420,10 +421,10 @@ defaultGetFeePolicy = bvdTxFeePolicy <$> getAdoptedBVData
 --
 -- Returns slot 0 in epoch 0 if there are no blocks yet.
 defaultGetTipSlotId :: (MonadIO m, MonadCatch m, NodeConstraints)
-                    => WithNodeState m SlotId
-defaultGetTipSlotId = do
+                    => GenesisHash -> WithNodeState m SlotId
+defaultGetTipSlotId genesisHash = do
     hdrHash <- headerHash <$> getTipHeader
-    aux <$> mostRecentMainBlock hdrHash
+    aux <$> mostRecentMainBlock genesisHash hdrHash
   where
     aux :: Maybe MainBlock -> SlotId
     aux (Just mainBlock) = mainBlock ^. mainBlockSlot
@@ -506,12 +507,12 @@ defaultGetNtpDrift tvar ntpCheckBehavior = liftIO $ do
 --
 -- Returns nothing if there are no (regular) blocks on the blockchain yet.
 mostRecentMainBlock :: forall m. (MonadIO m, MonadCatch m, NodeConstraints)
-                    => HeaderHash -> WithNodeState m (Maybe MainBlock)
-mostRecentMainBlock = go
+                    => GenesisHash -> HeaderHash -> WithNodeState m (Maybe MainBlock)
+mostRecentMainBlock genesisHash = go
   where
     go :: HeaderHash -> WithNodeState m (Maybe MainBlock)
     go hdrHash
-      | hdrHash == genesisHash = return Nothing
+      | hdrHash == getGenesisHash genesisHash = return Nothing
       | otherwise = do
           block <- getBlockOrThrow hdrHash
           case block of
@@ -532,7 +533,7 @@ mostRecentMainBlock = go
 
     getBlockOrThrow :: HeaderHash -> WithNodeState m Block
     getBlockOrThrow hdrHash = do
-        mBlock <- getBlock hdrHash
+        mBlock <- getBlock genesisHash hdrHash
         case mBlock of
           Nothing    -> throwM $ MissingBlock callStack hdrHash
           Just block -> return block
@@ -566,7 +567,7 @@ mockNodeState MockNodeStateParams{..} =
         , getMaxTxSize             = return $ bvdMaxTxSize genesisBlockVersionData
         , getFeePolicy             = return $ bvdTxFeePolicy genesisBlockVersionData
         , getSlotCount             = return $ configEpochSlots coreConfig
-        , getGenesisData           = return $ configGenesisData coreConfig
+        , getCoreConfig            = return coreConfig
         , curSoftwareVersion       = return $ Upd.curSoftwareVersion
         , compileInfo              = return $ Util.compileInfo
         , getNtpDrift              = return . mockNodeStateNtpDrift

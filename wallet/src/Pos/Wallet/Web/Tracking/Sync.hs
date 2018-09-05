@@ -60,9 +60,10 @@ import           Pos.Chain.Txp (UndoMap, flattenTxPayload, topsortTxs,
                      _txOutputs)
 import           Pos.Client.Txp.History (TxHistoryEntry (..),
                      txHistoryListToMap)
-import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
+import           Pos.Core as Core (Address, BlockCount (..),
+                     ChainDifficulty (..), Config (..), GenesisHash (..),
                      HasDifficulty (..), ProtocolConstants, Timestamp (..),
-                     genesisHash, pcEpochSlots, timestampToPosix)
+                     configBlkSecurityParam, pcEpochSlots, timestampToPosix)
 import           Pos.Core.Chrono (getNewestFirst)
 import           Pos.Core.Txp (TxAux (..), TxId, TxUndo)
 import           Pos.Crypto (WithHash (..), shortHashF, withHash)
@@ -114,14 +115,14 @@ syncWallet credentials = submitSyncRequest (newSyncRequest credentials)
 -- requests from a 'SyncQueue', in an infinite loop.
 processSyncRequest
     :: (WalletDbReader ctx m, BlockLockMode ctx m, MonadSlotsData ctx m)
-    => BlockCount
+    => Core.Config
     -> SyncQueue
     -> m ()
-processSyncRequest k syncQueue = do
+processSyncRequest coreConfig syncQueue = do
     newRequest <- atomically (readTQueue syncQueue)
-    syncWalletWithBlockchain k newRequest
+    syncWalletWithBlockchain coreConfig newRequest
         >>= either processSyncError (const (logSuccess newRequest))
-    processSyncRequest k syncQueue
+    processSyncRequest coreConfig syncQueue
 
 -- | Yields a new 'CAccModifier' using the information retrieved from the mempool, if any.
 txMempoolToModifier :: WalletTrackingEnv ctx m
@@ -229,10 +230,10 @@ syncWalletWithBlockchain
     , BlockLockMode ctx m
     , MonadSlotsData ctx m
     )
-    => BlockCount
+    => Core.Config
     -> SyncRequest
     -> m SyncResult
-syncWalletWithBlockchain k syncRequest@SyncRequest{..} = setLogger $ do
+syncWalletWithBlockchain coreConfig syncRequest@SyncRequest{..} = setLogger $ do
     ws <- WS.askWalletSnapshot
     let (_, walletId) = srCredentials
     let onError       = pure . Left . SyncFailed walletId
@@ -245,7 +246,7 @@ syncWalletWithBlockchain k syncRequest@SyncRequest{..} = setLogger $ do
         case WS.getWalletSyncState ws walletId of
             Nothing                -> pure $ Left (NoSyncStateAvailable walletId)
             Just NotSynced         -> do
-                genesisHeader <- firstGenesisHeader
+                genesisHeader <- firstGenesisHeader genesisHash
                 either (pure . Left . identity) (syncDo srOperation) genesisHeader
 
             -- FIXME(adn): There is a bit of duplication in these two paths.
@@ -313,11 +314,14 @@ syncWalletWithBlockchain k syncRequest@SyncRequest{..} = setLogger $ do
                             (syncDo (RestoreWallet expectedRbd))
                             wHeaderMb
   where
+    genesisHash = configGenesisHash coreConfig
+
     syncDo :: TrackingOperation -> BlockHeader -> m SyncResult
     syncDo trackingOp walletTipHeader = do
         let wdiff = (fromIntegral . heightOf $ walletTipHeader) :: Word32
         gstateTipH <- DB.getTipHeader
         let currentBlockchainDepth = heightOf gstateTipH
+        let k = configBlkSecurityParam coreConfig
 
         -- First of all we check how far we are lagging behind with respect to
         -- the @currentBlockchainDepth@. If we are lagging _at least_ k blocks
@@ -333,6 +337,7 @@ syncWalletWithBlockchain k syncRequest@SyncRequest{..} = setLogger $ do
                 -- to avoid blocking of blocks verification/application.
                 stableBlockHeader <- List.last . getNewestFirst <$>
                     GS.loadHeadersByDepth
+                        genesisHash
                         (k + 1)
                         (headerHash gstateTipH)
                 logInfo $ sformat
@@ -342,6 +347,7 @@ syncWalletWithBlockchain k syncRequest@SyncRequest{..} = setLogger $ do
                     )
                     (headerHash stableBlockHeader)
                 result <- syncWalletWithBlockchainUnsafe
+                    genesisHash
                     (syncRequest { srOperation = trackingOp })
                     walletTipHeader
                     stableBlockHeader
@@ -356,6 +362,7 @@ syncWalletWithBlockchain k syncRequest@SyncRequest{..} = setLogger $ do
                     tipH <- fromMaybe (error "No block header corresponding to tip")
                         <$> DB.getHeader tip
                     syncWalletWithBlockchainUnsafe
+                        genesisHash
                         (syncRequest { srOperation = SyncWallet })
                         wNewTip
                         tipH
@@ -379,7 +386,8 @@ syncWalletWithBlockchainUnsafe
     , WithLogger m
     , MonadSlotsData ctx m
     )
-    => SyncRequest
+    => GenesisHash
+    -> SyncRequest
     -> BlockHeader
     -- ^ Block header corresponding to wallet's tip. It can map
     -- to the genesis BlockHeader if this is a brand new wallet being
@@ -387,7 +395,7 @@ syncWalletWithBlockchainUnsafe
     -> BlockHeader
     -- ^ Blockchain's tip header hash
     -> m SyncResult
-syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $ do
+syncWalletWithBlockchainUnsafe genesisHash syncRequest walletTip blockchainTip = setLogger $ do
     let credentials@(_, walletId) = srCredentials syncRequest
     systemStart  <- getSystemStartM
     slottingData <- GS.getSlottingData
@@ -402,6 +410,7 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
     ((mapModifier, newSyncTip), timeTook) <-
         timed "syncWalletWithBlockchainUnsafe.computeAccModifier" $
             computeAccModifier
+                genesisHash
                 blockchainTip
                 credentials
                 getBlockHeaderTimestamp
@@ -444,7 +453,7 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
             WS.setWalletSyncTip db walletId (headerHash newSyncTip)
             pure $ Right ()
         False ->
-            syncWalletWithBlockchainUnsafe syncRequest newSyncTip blockchainTip
+            syncWalletWithBlockchainUnsafe genesisHash syncRequest newSyncTip blockchainTip
   where
         blockHeaderTimestamp :: Timestamp -> SlottingData -> BlockHeader -> Maybe Timestamp
         blockHeaderTimestamp systemStart slottingData = \case
@@ -488,7 +497,8 @@ computeAccModifier
     , WithLogger m
     , MonadSlotsData ctx m
     )
-    => BlockHeader
+    => GenesisHash
+    -> BlockHeader
     -> WalletDecrCredentials
     -> (BlockHeader -> Maybe Timestamp)
     -> BlockHeader
@@ -502,7 +512,7 @@ computeAccModifier
     -- stop the recursion.
     -> m (CAccModifier, BlockHeader)
     -- ^ The new wallet modifier and the new sync tip for the wallet.
-computeAccModifier blockchainTip credentials getBlockTimestamp wHeader usedAddresses currentModifier currentBlockCount
+computeAccModifier genesisHash blockchainTip credentials getBlockTimestamp wHeader usedAddresses currentModifier currentBlockCount
     | currentBlockCount >= 10000 = do
         let progress localDepth totalDepth = ((fromIntegral localDepth) * 100.0) /
                                              (max 1.0 (fromIntegral totalDepth))
@@ -520,7 +530,7 @@ computeAccModifier blockchainTip credentials getBlockTimestamp wHeader usedAddre
                 -- the application was interrupted during rollback.  We
                 -- don't load blocks explicitly, because blockain can be
                 -- long.
-                nextBlund <- resolveForwardLink wHeader >>= (maybe (pure Nothing) getBlund)
+                nextBlund <- resolveForwardLink wHeader >>= (maybe (pure Nothing) (getBlund genesisHash))
                 case nextBlund of
                     Nothing -> pure (currentModifier, blockchainTip)
                     Just blund@(currentBlock, _) -> do
@@ -528,6 +538,7 @@ computeAccModifier blockchainTip credentials getBlockTimestamp wHeader usedAddre
                                 currentModifier
                                 <> applyBlock credentials usedAddresses blund getBlockTimestamp
                         computeAccModifier
+                            genesisHash
                             blockchainTip
                             credentials
                             getBlockTimestamp
@@ -541,6 +552,7 @@ computeAccModifier blockchainTip credentials getBlockTimestamp wHeader usedAddre
                 -- during blocks application.
                 blunds <- getNewestFirst
                     <$> GS.loadBlundsWhile
+                        genesisHash
                         (\b -> getBlockHeader b /= blockchainTip)
                         (headerHash wHeader)
                 let rollback b =
@@ -567,9 +579,9 @@ heightOf = view difficultyL
 
 -- | Retrieves the 'BlockHeader' correspending to the first 'GenesisBlock' of
 -- this blockchain.
-firstGenesisHeader :: MonadDBRead m => m (Either SyncError BlockHeader)
-firstGenesisHeader = runExceptT $ do
-    genesisHeaderHash  <- resolveForwardLink (genesisHash @BlockHeader)
+firstGenesisHeader :: MonadDBRead m => GenesisHash -> m (Either SyncError BlockHeader)
+firstGenesisHeader genesisHash = runExceptT $ do
+    genesisHeaderHash  <- resolveForwardLink (getGenesisHash genesisHash @BlockHeader)
     case genesisHeaderHash of
         Nothing  -> throwError GenesisHeaderHashNotFound
         Just ghh -> do

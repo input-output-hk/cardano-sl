@@ -84,7 +84,7 @@ newWallet coreConfig NewWallet{..} = do
         $ throwM (NodeIsStillSyncing syncPercentage)
 
     let newWalletHandler CreateWallet  = V0.newWalletNoThrow
-        newWalletHandler RestoreWallet = V0.restoreWalletFromSeedNoThrow (configGenesisData coreConfig)
+        newWalletHandler RestoreWallet = V0.restoreWalletFromSeedNoThrow coreConfig
         (V1 spendingPassword) = fromMaybe (V1 mempty) newwalSpendingPassword
         (BackupPhrase backupPhrase) = newwalBackupPhrase
     initMeta <- V0.CWalletMeta <$> pure newwalName

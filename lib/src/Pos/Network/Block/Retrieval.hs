@@ -21,8 +21,7 @@ import           Formatting (build, int, sformat, (%))
 import           Pos.Chain.Block (Block, BlockHeader, HasHeaderHash (..),
                      HeaderHash)
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Core as Core (Config, configBlkSecurityParam, difficultyL,
-                     isMoreDifficult)
+import           Pos.Core as Core (Config, difficultyL, isMoreDifficult)
 import           Pos.Core.Chrono (NE, OldestFirst (..), _OldestFirst)
 import           Pos.Core.Conc (delay)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics)
@@ -171,9 +170,7 @@ retrievalWorker coreConfig txpConfig diffusion = do
             throwM $ DialogUnexpected $ "handleRecovery: recovery header is " <>
                                         "already present in db"
         logDebug "handleRecovery: fetching blocks"
-        checkpoints <- toList <$> getHeadersOlderExp
-            (configBlkSecurityParam coreConfig)
-            Nothing
+        checkpoints <- toList <$> getHeadersOlderExp coreConfig Nothing
         void $ streamProcessBlocks coreConfig
                                    txpConfig
                                    diffusion

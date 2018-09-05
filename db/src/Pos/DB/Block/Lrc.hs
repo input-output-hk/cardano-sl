@@ -139,7 +139,7 @@ lrcDo
     -> [LrcConsumer m]
     -> m ()
 lrcDo coreConfig epoch consumers = do
-    blundsUpToGenesis <- DB.loadBlundsFromTipWhile upToGenesis
+    blundsUpToGenesis <- DB.loadBlundsFromTipWhile genesisHash upToGenesis
     -- If there are blocks from 'epoch' it means that we somehow accepted them
     -- before running LRC for 'epoch'. It's very bad.
     unless (null blundsUpToGenesis) $ throwM LrcAfterGenesis
@@ -150,7 +150,7 @@ lrcDo coreConfig epoch consumers = do
     -- However, it's important to check that there are blocks to
     -- rollback before computing ssc seed (because if there are no
     -- blocks, it doesn't make sense to do it).
-    blundsToRollback <- DB.loadBlundsFromTipWhile whileAfterCrucial
+    blundsToRollback <- DB.loadBlundsFromTipWhile genesisHash whileAfterCrucial
     blundsToRollbackNE <-
         maybeThrow UnknownBlocksForLrc (atLeastKNewestFirst blundsToRollback)
     seed <- sscCalculateSeed epoch >>= \case
@@ -174,6 +174,7 @@ lrcDo coreConfig epoch consumers = do
         DB.sanityCheckDB $ configGenesisData coreConfig
         leadersComputationDo (configEpochSlots coreConfig) epoch seed
   where
+    genesisHash = configGenesisHash coreConfig
     atLeastKNewestFirst :: forall a. NewestFirst [] a -> Maybe (NewestFirst NE a)
     atLeastKNewestFirst l =
         if length l >= configK coreConfig

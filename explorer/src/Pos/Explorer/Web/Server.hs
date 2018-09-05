@@ -60,8 +60,9 @@ import           Pos.Chain.Block (Block, Blund, HeaderHash, MainBlock, Undo,
                      gbHeader, gbhConsensus, mainBlockSlot, mainBlockTxPayload,
                      mcdSlot)
 import           Pos.Chain.Txp (TxMap, mpLocalTxs, topsortTxs)
-import           Pos.Core (AddrType (..), Address (..), Coin, EpochIndex,
-                     SlotCount, Timestamp, coinToInteger, difficultyL,
+import           Pos.Core as Core (AddrType (..), Address (..), Coin,
+                     Config (..), EpochIndex, GenesisHash, SlotCount,
+                     Timestamp, coinToInteger, configEpochSlots, difficultyL,
                      getChainDifficulty, isUnknownAddressType,
                      makeRedeemAddress, siEpoch, siSlot, sumCoins,
                      timestampToPosix, unsafeAddCoin, unsafeIntegerToCoin,
@@ -127,26 +128,29 @@ explorerApp serv = serve explorerApi <$> serv
 
 explorerHandlers
     :: forall ctx m. ExplorerMode ctx m
-    => SlotCount -> Diffusion m -> ServerT ExplorerApi m
-explorerHandlers epochSlots _diffusion =
+    => Core.Config -> Diffusion m -> ServerT ExplorerApi m
+explorerHandlers coreConfig _diffusion =
     toServant (ExplorerApiRecord
         { _totalAda           = getTotalAda
         , _blocksPages        = getBlocksPage epochSlots
         , _blocksPagesTotal   = getBlocksPagesTotal
-        , _blocksSummary      = getBlockSummary epochSlots
-        , _blocksTxs          = getBlockTxs
+        , _blocksSummary      = getBlockSummary coreConfig
+        , _blocksTxs          = getBlockTxs genesisHash
         , _txsLast            = getLastTxs
-        , _txsSummary         = getTxSummary
-        , _addressSummary     = getAddressSummary
+        , _txsSummary         = getTxSummary genesisHash
+        , _addressSummary     = getAddressSummary genesisHash
         , _addressUtxoBulk    = getAddressUtxoBulk
         , _epochPages         = getEpochPage epochSlots
         , _epochSlots         = getEpochSlot epochSlots
         , _genesisSummary     = getGenesisSummary
         , _genesisPagesTotal  = getGenesisPagesTotal
         , _genesisAddressInfo = getGenesisAddressInfo
-        , _statsTxs           = getStatsTxs epochSlots
+        , _statsTxs           = getStatsTxs coreConfig
         }
         :: ExplorerApiRecord (AsServerT m))
+  where
+    epochSlots = configEpochSlots coreConfig
+    genesisHash = configGenesisHash coreConfig
 
 ----------------------------------------------------------------
 -- API Functions
@@ -309,26 +313,27 @@ getLastTxs = do
 -- | Get block summary.
 getBlockSummary
     :: ExplorerMode ctx m
-    => SlotCount
+    => Core.Config
     -> CHash
     -> m CBlockSummary
-getBlockSummary epochSlots cHash = do
+getBlockSummary coreConfig cHash = do
     headerHash <- unwrapOrThrow $ fromCHash cHash
-    mainBlund  <- getMainBlund headerHash
-    toBlockSummary epochSlots mainBlund
+    mainBlund  <- getMainBlund (configGenesisHash coreConfig) headerHash
+    toBlockSummary (configEpochSlots coreConfig) mainBlund
 
 
 -- | Get transactions from a block.
 getBlockTxs
     :: ExplorerMode ctx m
-    => CHash
+    => GenesisHash
+    -> CHash
     -> Maybe Word
     -> Maybe Word
     -> m [CTxBrief]
-getBlockTxs cHash mLimit mSkip = do
+getBlockTxs genesisHash cHash mLimit mSkip = do
     let limit = fromIntegral $ fromMaybe defaultPageSizeWord mLimit
     let skip = fromIntegral $ fromMaybe 0 mSkip
-    txs <- getMainBlockTxs cHash
+    txs <- getMainBlockTxs genesisHash cHash
 
     forM (take limit . drop skip $ txs) $ \tx -> do
         extra <- getTxExtra (hash tx) >>=
@@ -342,9 +347,10 @@ getBlockTxs cHash mLimit mSkip = do
 -- @UnknownAddressType@.
 getAddressSummary
     :: ExplorerMode ctx m
-    => CAddress
+    => GenesisHash
+    -> CAddress
     -> m CAddressSummary
-getAddressSummary cAddr = do
+getAddressSummary genesisHash cAddr = do
     addr <- cAddrToAddr cAddr
 
     when (isUnknownAddressType addr) $
@@ -362,7 +368,7 @@ getAddressSummary cAddr = do
 
     transactions <- forM txIds $ \id -> do
         extra <- getTxExtraOrFail id
-        tx <- getTxMain id extra
+        tx <- getTxMain genesisHash id extra
         pure $ makeTxBrief tx extra
 
     pure CAddressSummary {
@@ -422,9 +428,10 @@ getAddressUtxoBulk cAddrs = do
 -- are transactions that have to be written in the blockchain.
 getTxSummary
     :: ExplorerMode ctx m
-    => CTxId
+    => GenesisHash
+    -> CTxId
     -> m CTxSummary
-getTxSummary cTxId = do
+getTxSummary genesisHash cTxId = do
     -- There are two places whence we can fetch a transaction: MemPool and DB.
     -- However, TxExtra should be added in the DB when a transaction is added
     -- to MemPool. So we start with TxExtra and then figure out whence to fetch
@@ -457,7 +464,7 @@ getTxSummary cTxId = do
         let headerHashBP        = fst blockchainPlace
         let txIndexInBlock      = snd blockchainPlace
 
-        mb                     <- getMainBlock headerHashBP
+        mb                     <- getMainBlock genesisHash headerHashBP
         blkSlotStart           <- getBlkSlotStart mb
 
         let blockHeight         = fromIntegral $ mb ^. difficultyL
@@ -752,12 +759,14 @@ getEpochPage epochSlots epochIndex mPage = do
 
 getStatsTxs
     :: forall ctx m. ExplorerMode ctx m
-    => SlotCount
+    => Core.Config
     -> Maybe Word
     -> m (Integer, [(CTxId, Byte)])
-getStatsTxs epochSlots mPageNumber = do
+getStatsTxs coreConfig mPageNumber = do
     -- Get blocks from the requested page
-    blocksPage <- getBlocksPage epochSlots mPageNumber (Just defaultPageSizeWord)
+    blocksPage <- getBlocksPage (configEpochSlots coreConfig)
+                                mPageNumber
+                                (Just defaultPageSizeWord)
     getBlockPageTxsInfo blocksPage
   where
     getBlockPageTxsInfo
@@ -777,7 +786,7 @@ getStatsTxs epochSlots mPageNumber = do
             :: CHash
             -> m [(CTxId, Byte)]
         getBlockTxsInfo cHash = do
-            txs <- getMainBlockTxs cHash
+            txs <- getMainBlockTxs (configGenesisHash coreConfig) cHash
             pure $ txToTxIdSize <$> txs
           where
             txToTxIdSize :: Tx -> (CTxId, Byte)
@@ -807,10 +816,10 @@ defaultPageSizeWord = fromIntegral defaultPageSize
 toPageSize :: Maybe Word -> Integer
 toPageSize = fromIntegral . fromMaybe defaultPageSizeWord
 
-getMainBlockTxs :: ExplorerMode ctx m => CHash -> m [Tx]
-getMainBlockTxs cHash = do
+getMainBlockTxs :: ExplorerMode ctx m => GenesisHash -> CHash -> m [Tx]
+getMainBlockTxs genesisHash cHash = do
     hash' <- unwrapOrThrow $ fromCHash cHash
-    blk   <- getMainBlock hash'
+    blk   <- getMainBlock genesisHash hash'
     topsortTxsOrFail withHash $ toList $ blk ^. mainBlockTxPayload . txpTxs
 
 makeTxBrief :: Tx -> TxExtra -> CTxBrief
@@ -904,13 +913,13 @@ cTxIdToTxId cTxId = either exception pure (fromCTxId cTxId)
   where
     exception = const $ throwM $ Internal "Invalid transaction id!"
 
-getMainBlund :: ExplorerMode ctx m => HeaderHash -> m MainBlund
-getMainBlund h = do
-    (blk, undo) <- getBlund h >>= maybeThrow (Internal "No block found")
+getMainBlund :: ExplorerMode ctx m => GenesisHash -> HeaderHash -> m MainBlund
+getMainBlund genesisHash h = do
+    (blk, undo) <- getBlund genesisHash h >>= maybeThrow (Internal "No block found")
     either (const $ throwM $ Internal "Block is genesis block") (pure . (,undo)) blk
 
-getMainBlock :: ExplorerMode ctx m => HeaderHash -> m MainBlock
-getMainBlock = fmap fst . getMainBlund
+getMainBlock :: ExplorerMode ctx m => GenesisHash -> HeaderHash -> m MainBlock
+getMainBlock genesisHash = fmap fst . getMainBlund genesisHash
 
 -- | Get transaction extra from the database, and if you don't find it
 -- throw an exception.
@@ -919,11 +928,11 @@ getTxExtraOrFail txId = getTxExtra txId >>= maybeThrow exception
   where
     exception = Internal "Transaction not found"
 
-getTxMain :: ExplorerMode ctx m => TxId -> TxExtra -> m Tx
-getTxMain id TxExtra {..} = case teBlockchainPlace of
+getTxMain :: ExplorerMode ctx m => GenesisHash -> TxId -> TxExtra -> m Tx
+getTxMain genesisHash id TxExtra {..} = case teBlockchainPlace of
     Nothing -> taTx <$> fetchTxFromMempoolOrFail id
     Just (hh, idx) -> do
-        mb <- getMainBlock hh
+        mb <- getMainBlock genesisHash hh
         maybeThrow (Internal "TxExtra return tx index that is out of bounds") $
             atMay (toList $ mb ^. mainBlockTxPayload . txpTxs) $ fromIntegral idx
 

@@ -30,7 +30,7 @@ import           Pos.Chain.Block (ApplyBlocksException, Block, BlockHeader,
                      Blund, HasHeaderHash (..), HeaderHash, LastKnownHeaderTag,
                      blockHeader, gbHeader, headerHashG, prevBlockL)
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Core as Core (Config, SlotCount, configEpochSlots,
+import           Pos.Core as Core (Config (..), SlotCount, configEpochSlots,
                      isMoreDifficult)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      _NewestFirst, _OldestFirst)
@@ -247,7 +247,8 @@ handleBlocks coreConfig txpConfig blocks diffusion = do
     handleBlocksWithLca lcaHash = do
         logDebug $ sformat ("Handling block w/ LCA, which is "%shortHashF) lcaHash
         -- Head blund in result is the youngest one.
-        toRollback <- DB.loadBlundsFromTipWhile $ \blk -> headerHash blk /= lcaHash
+        toRollback <- DB.loadBlundsFromTipWhile (configGenesisHash coreConfig)
+            $ \blk -> headerHash blk /= lcaHash
         maybe (applyWithoutRollback coreConfig txpConfig diffusion blocks)
               (applyWithRollback coreConfig txpConfig diffusion blocks lcaHash)
               (_NewestFirst nonEmpty toRollback)

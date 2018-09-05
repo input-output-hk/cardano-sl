@@ -14,7 +14,7 @@ import           Pos.Wallet.Web.Methods.Restore (restoreWalletFromBackup)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import           Test.Pos.Configuration (withDefConfigurations)
-import           Test.Pos.Core.Dummy (dummyGenesisData)
+import           Test.Pos.Core.Dummy (dummyConfig)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty)
 import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
 import           Test.QuickCheck (Arbitrary (..))
@@ -30,7 +30,7 @@ restoreWalletAddressFromBackupSpec =
     walletPropertySpec restoreWalletAddressFromBackupDesc $ do
         walletBackup   <- pick arbitrary
         restoredWallet <- lift
-            $ restoreWalletFromBackup dummyGenesisData walletBackup
+            $ restoreWalletFromBackup dummyConfig walletBackup
         let noOfAccounts = cwAccountsNumber restoredWallet
         assertProperty (noOfAccounts > 0) $ "Exported wallet has no accounts!"
   where

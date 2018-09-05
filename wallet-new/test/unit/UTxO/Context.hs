@@ -90,8 +90,7 @@ data CardanoContext = CardanoContext {
     }
 
 initCardanoContext
-    :: HasConfiguration
-    => Core.Config
+    :: Core.Config
     -> CardanoContext
 initCardanoContext coreConfig = CardanoContext
     { ccStakes      = genesisStakes ccData
@@ -110,7 +109,7 @@ initCardanoContext coreConfig = CardanoContext
     ccData       = configGenesisData coreConfig
     ccLeaders    = genesisLeaders coreConfig
     ccMagic      = configProtocolMagic coreConfig
-    ccBlock0     = genesisBlock0 ccMagic (GenesisHash genesisHash) ccLeaders
+    ccBlock0     = genesisBlock0 ccMagic (configGenesisHash coreConfig) ccLeaders
     ccUtxo       = genesisUtxo ccData
 
 {-------------------------------------------------------------------------------

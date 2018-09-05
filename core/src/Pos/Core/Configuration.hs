@@ -39,6 +39,7 @@ import           Universum
 import           Control.Exception (throwIO)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
+import           Data.Coerce (coerce)
 import           System.FilePath ((</>))
 import           System.IO.Error (userError)
 import qualified Text.JSON.Canonical as Canonical
@@ -73,6 +74,7 @@ data Config = Config
     , configProtocolConstants :: ProtocolConstants
     , configGeneratedSecrets  :: Maybe GeneratedSecrets
     , configGenesisData       :: GenesisData
+    , configGenesisHash       :: GenesisHash
     }
 
 configK :: Config -> Int
@@ -136,7 +138,6 @@ configFtsSeed = gdFtsSeed . configGenesisData
 -- | Coarse catch-all configuration constraint for use by depending modules.
 type HasConfiguration =
     ( HasCoreConfiguration
-    , HasGenesisHash
     , HasGenesisBlockVersionData
     )
 
@@ -210,13 +211,13 @@ withCoreConfigurations conf@CoreConfiguration{..} fn confDir mSystemStart mSeed 
 
         withCoreConfiguration conf $
             withGenesisBlockVersionData (gdBlockVersionData theGenesisData) $
-            withGenesisHash theGenesisHash $
             act $
             Config
                 { configProtocolMagic     = pm
                 , configProtocolConstants = pc
                 , configGeneratedSecrets  = Nothing
                 , configGenesisData       = theGenesisData
+                , configGenesisHash       = GenesisHash $ coerce theGenesisHash
                 }
 
     -- If a 'GenesisSpec' is given, we ensure we have a start time (needed if
@@ -278,15 +279,15 @@ withGenesisSpec theSystemStart conf@CoreConfiguration{..} fn val = case ccGenesi
                       }
                 -- Anything will do for the genesis hash. A hash of "patak" was used
                 -- before, and so it remains.
-                theGenesisHash = unsafeHash @Text "patak"
+                theGenesisHash = GenesisHash $ coerce $ unsafeHash @Text "patak"
              in withCoreConfiguration conf $
-                  withGenesisHash theGenesisHash $
                   val $
                   Config
                       { configProtocolMagic     = pm
                       , configProtocolConstants = pc
                       , configGeneratedSecrets  = Just ggdSecrets
                       , configGenesisData       = theGenesisData
+                      , configGenesisHash       = theGenesisHash
                       }
       where
         pm = gpcProtocolMagic (gsProtocolConstants spec)

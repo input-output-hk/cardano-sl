@@ -8,7 +8,7 @@ import qualified Data.Map as M
 
 import           Pos.Chain.Block (headerHash)
 import           Pos.Chain.Txp (genesisUtxo, utxoToModifier)
-import           Pos.Core (Address, HasDifficulty (..))
+import           Pos.Core as Core (Address, Config (..), HasDifficulty (..))
 import           Pos.Core.Genesis (GenesisData)
 import           Pos.Core.Txp (TxIn, TxOut (..), TxOutAux (..))
 import qualified Pos.DB.BlockIndex as DB
@@ -37,17 +37,17 @@ restoreWallet :: ( WalletDbReader ctx m
                  , HasLens SyncQueue ctx SyncQueue
                  , MonadSlotsData ctx m
                  , MonadUnliftIO m
-                 ) => GenesisData -> WalletDecrCredentials -> m ()
-restoreWallet genesisData credentials = do
+                 ) => Core.Config -> WalletDecrCredentials -> m ()
+restoreWallet coreConfig credentials = do
     db <- askWalletDB
     let (_, walletId) = credentials
     modifyLoggerName (const "syncWalletWorker") $ do
         logInfo "New Restoration request for a wallet..."
-        genesisBlockHeaderE <- firstGenesisHeader
+        genesisBlockHeaderE <- firstGenesisHeader $ configGenesisHash coreConfig
         case genesisBlockHeaderE of
             Left syncError -> processSyncError syncError
             Right genesisBlock -> do
-                restoreGenesisAddresses genesisData db credentials
+                restoreGenesisAddresses (configGenesisData coreConfig) db credentials
                 restoreWalletBalance db credentials
                 -- At this point, we consider ourselves synced with the UTXO up-to the
                 -- 'RestorationBlockDepth' we compute now. During 'syncWalletWithBlockchain',

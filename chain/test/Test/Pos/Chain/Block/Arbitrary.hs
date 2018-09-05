@@ -32,8 +32,8 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
 import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (HeaderHash)
 import qualified Pos.Chain.Block as Block
-import           Pos.Core (GenesisHash (..), HasGenesisHash, genesisHash,
-                     localSlotIndexMaxBound, localSlotIndexMinBound)
+import           Pos.Core (GenesisHash (..), localSlotIndexMaxBound,
+                     localSlotIndexMinBound)
 import qualified Pos.Core as Core
 import           Pos.Core.Attributes (areAttributesKnown)
 import qualified Pos.Core.Delegation as Core
@@ -46,7 +46,7 @@ import           Test.Pos.Chain.Ssc.Arbitrary (SscPayloadDependsOnSlot (..),
 import           Test.Pos.Chain.Update.Arbitrary (genUpdatePayload)
 import           Test.Pos.Core.Arbitrary (genSlotId)
 import           Test.Pos.Core.Arbitrary.Txp (genTxPayload)
-import           Test.Pos.Core.Dummy (dummyEpochSlots)
+import           Test.Pos.Core.Dummy (dummyEpochSlots, dummyGenesisHash)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 newtype BodyDependsOnSlot b = BodyDependsOnSlot
@@ -96,9 +96,9 @@ instance Arbitrary Block.GenesisBody where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasGenesisHash => Arbitrary Block.GenesisBlock where
+instance Arbitrary Block.GenesisBlock where
     arbitrary = Block.mkGenesisBlock dummyProtocolMagic
-        <$> (maybe (Left (GenesisHash genesisHash)) Right <$> arbitrary)
+        <$> (maybe (Left dummyGenesisHash) Right <$> arbitrary)
         <*> arbitrary
         <*> arbitrary
     shrink = genericShrink
@@ -234,7 +234,7 @@ genMainBlock pm  prevHash difficulty = do
         <*> pure extraHeaderData
     pure $ Block.UnsafeGenericBlock header body extraBodyData
 
-instance HasGenesisHash => Arbitrary Block.MainBlock where
+instance Arbitrary Block.MainBlock where
     arbitrary = do
         slot <- arbitrary
         BodyDependsOnSlot {..} <- arbitrary :: Gen (BodyDependsOnSlot Block.MainBlockchain)
@@ -247,7 +247,7 @@ instance HasGenesisHash => Arbitrary Block.MainBlock where
             <*> pure (hash extraBodyData)
         header <-
             Block.mkMainHeader dummyProtocolMagic
-                <$> (maybe (Left (GenesisHash genesisHash)) Right <$> arbitrary)
+                <$> (maybe (Left dummyGenesisHash) Right <$> arbitrary)
                 <*> pure slot
                 <*> arbitrary
                 <*> pure Nothing
@@ -357,11 +357,11 @@ bhlEpochs = 2
 --
 -- Note that a leader is generated for each slot.
 -- (Not exactly a leader - see previous comment)
-instance HasGenesisHash => Arbitrary BlockHeaderList where
+instance Arbitrary BlockHeaderList where
     arbitrary = do
         incompleteEpochSize <- choose (1, dummyEpochSlots - 1)
         let slot = Core.SlotId 0 localSlotIndexMinBound
-        generateBHL (GenesisHash genesisHash) True slot (dummyEpochSlots * bhlEpochs + incompleteEpochSize)
+        generateBHL dummyGenesisHash True slot (dummyEpochSlots * bhlEpochs + incompleteEpochSize)
 
 generateBHL
     :: GenesisHash
@@ -404,13 +404,13 @@ newtype HeaderAndParams = HAndP
 -- already been done in the 'Arbitrary' instance of the 'BlockHeaderList'
 -- type, so it is used here and at most 3 blocks are taken from the generated
 -- list.
-instance HasGenesisHash => Arbitrary HeaderAndParams where
+instance Arbitrary HeaderAndParams where
     arbitrary = do
         -- This integer is used as a seed to randomly choose a slot down below
         seed <- arbitrary :: Gen Int
         startSlot <- Core.SlotId <$> choose (0, bhlMaxStartingEpoch) <*> arbitrary
         (headers, leaders) <- first reverse . getHeaderList <$>
-            (generateBHL (GenesisHash genesisHash) True startSlot =<< choose (1, 2))
+            (generateBHL dummyGenesisHash True startSlot =<< choose (1, 2))
         let num = length headers
         -- 'skip' is the random number of headers that should be skipped in
         -- the header chain. This ensures different parts of it are chosen

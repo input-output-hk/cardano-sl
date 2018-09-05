@@ -27,7 +27,6 @@ import           Pos.Chain.Txp (TxAux, TxpConfiguration)
 import           Pos.Chain.Update ()
 import           Pos.Client.KeyStorage (addPublicKey)
 import qualified Pos.Core as Core
-import           Pos.Core.Genesis (GenesisData)
 import           Pos.Crypto (PublicKey)
 
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
@@ -114,7 +113,7 @@ checkExternalWallet coreConfig encodedRootPK = do
                 -- This is a new wallet, currently un-synchronized, so there's no
                 -- history of transactions yet.
                 transactions = []
-            (,,) <$> restoreExternalWallet (Core.configGenesisData coreConfig) defaultMeta encodedRootPK
+            (,,) <$> restoreExternalWallet coreConfig defaultMeta encodedRootPK
                  <*> pure transactions
                  <*> pure False -- We restore wallet, so it's unready yet.
 
@@ -136,7 +135,7 @@ newExternalWallet
     -> m (WalletResponse Wallet)
 newExternalWallet coreConfig (NewExternalWallet rootPK assuranceLevel name operation) = do
     let newExternalWalletHandler CreateWallet  = createNewExternalWallet
-        newExternalWalletHandler RestoreWallet = restoreExternalWallet (Core.configGenesisData coreConfig)
+        newExternalWalletHandler RestoreWallet = restoreExternalWallet coreConfig
     walletMeta <- V0.CWalletMeta <$> pure name
                                  <*> migrate assuranceLevel
                                  <*> pure 0
@@ -179,11 +178,11 @@ restoreExternalWallet
        , HasLens SyncQueue ctx SyncQueue
        , V0.MonadWalletLogic ctx m
        )
-    => GenesisData
+    => Core.Config
     -> V0.CWalletMeta
     -> PublicKeyAsBase58
     -> m V0.CWallet
-restoreExternalWallet genesisData walletMeta encodedRootPK = do
+restoreExternalWallet coreConfig walletMeta encodedRootPK = do
     rootPK <- mkPublicKeyOrFail encodedRootPK
 
     let walletId = encodeCType . Core.makePubKeyAddressBoot $ rootPK
@@ -197,7 +196,7 @@ restoreExternalWallet genesisData walletMeta encodedRootPK = do
     addInitAccountInExternalWallet walletId
 
     -- Restoring this wallet.
-    V0.restoreExternalWallet genesisData rootPK
+    V0.restoreExternalWallet coreConfig rootPK
 
 addInitAccountInExternalWallet
     :: ( MonadThrow m

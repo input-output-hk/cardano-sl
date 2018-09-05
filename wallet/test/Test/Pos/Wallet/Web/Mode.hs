@@ -339,9 +339,9 @@ instance {-# OVERLAPPING #-} HasLoggerName WalletTestMode where
 instance HasConfiguration => MonadDBRead WalletTestMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault
-    dbGetSerBlock = DB.dbGetSerBlockPureDefault
-    dbGetSerUndo = DB.dbGetSerUndoPureDefault
-    dbGetSerBlund = DB.dbGetSerBlundPureDefault
+    dbGetSerBlock = const DB.dbGetSerBlockPureDefault
+    dbGetSerUndo = const DB.dbGetSerUndoPureDefault
+    dbGetSerBlund = const DB.dbGetSerBlundPureDefault
 
 instance HasConfiguration => MonadDB WalletTestMode where
     dbPut = DB.dbPutPureDefault

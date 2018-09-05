@@ -16,7 +16,7 @@ import           Pos.Chain.Ssc (SscParams)
 import           Pos.Chain.Txp (TxpConfiguration)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (ncUserSecret)
-import           Pos.Core as Core (Config (..), configBlkSecurityParam)
+import           Pos.Core as Core (Config (..))
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Txp (txpGlobalSettings)
 import           Pos.Infra.Diffusion.Types (Diffusion)
@@ -108,7 +108,7 @@ actionWithLegacyWallet coreConfig txpConfig sscParams nodeParams ntpConfig wArgs
                 , LegacyPlugins.legacyWalletBackend coreConfig txpConfig wArgs ntpStatus
                 , LegacyPlugins.walletDocumentation wArgs
                 , LegacyPlugins.acidCleanupWorker wArgs
-                , LegacyPlugins.syncWalletWorker (configBlkSecurityParam coreConfig)
+                , LegacyPlugins.syncWalletWorker coreConfig
                 , LegacyPlugins.resubmitterPlugin coreConfig txpConfig
                 , LegacyPlugins.notifierPlugin
                 ]

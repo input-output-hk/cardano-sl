@@ -28,7 +28,7 @@ import           Universum hiding (State, init)
 
 import           Control.Concurrent.Async (async, cancel)
 import           Control.Concurrent.MVar (modifyMVar, modifyMVar_)
-import           Data.Acid (AcidState, openLocalStateFrom)
+import           Data.Acid (AcidState, openLocalStateFrom, createCheckpoint, createArchive)
 import           Data.Acid.Memory (openMemoryState)
 import qualified Data.Map.Strict as Map
 import           Data.Typeable (typeRep)
@@ -129,8 +129,8 @@ handlesOpen mode =
             migrateMetaDB metadb
             return $ Handles db metadb
 
-handlesClose :: WalletHandles -> DatabaseMode -> IO ()
-handlesClose (Handles acidDb meta) dbMode = do
+handlesClose :: DatabaseMode -> WalletHandles -> IO ()
+handlesClose dbMode (Handles acidDb meta) = do
     closeMetaDB meta
     case dbMode of
         UseInMemory ->

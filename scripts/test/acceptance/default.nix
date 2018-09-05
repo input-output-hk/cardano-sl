@@ -66,9 +66,9 @@ in
         echo "Blockchain synced: $perc%  $height blocks"
       else
         if [[ -z "$perc" ]]; then
-          echo "Blockchain syncing..."
+          echo "$(date +"%H:%M:%S") Blockchain syncing..."
         else
-          echo "Blockchain syncing: $perc%  $local_height/$height blocks"
+          echo "$(date +"%H:%M:%S") Blockchain syncing: $perc%  $local_height/$height blocks"
         fi
         counter=$((counter + 1))
         sleep 10

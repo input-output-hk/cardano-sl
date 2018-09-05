@@ -1,30 +1,54 @@
 {-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE TemplateHaskell #-}
 
+-- This module contains the code for consolidating blund (block/undo) files
+-- into an epoch/index file pair.
+--
+-- There are up to 21600 blocks per epoch and these are consolidated into an
+-- epoch file and an index for lookup the blund by 'SlotId'. Once an entire
+-- epoch has been consolidated into an epoch/index file pair, the old blund
+-- files are deleted.
+--
+-- Epoch files (which have a header containing version information) consist
+-- of the concatenation of the data for all the slots within the epoch, where
+-- the data for a slot is stored as as the concatenation of:
+--   * the four characters "blnd" to mark the start of a slot (for debugging)
+--   * a 32 bit value for the length of the block
+--   * a 32 bit value for the length of the undo
+--   * the block itself
+--   * the undo itself
+--
+-- Epoch index files contain a header and then an indexed vector of the offset
+-- into the file where the data for a slot will be found. If an offset in the
+-- file has all its bits set, then that mean that there is no block/undo for
+-- that slot index.
+--
+-- The consolidation process always leaves at least the last two epochs
+-- unconsolidated so that this code can ignore the possibility of rollbacks.
+
+-- Implementation details below.
+
 module Pos.DB.Block.Epoch
-       ( ConsolidateError (..)
-       , consoldidateEpochs
+       ( consolidateWorker
+
        , dbGetConsolidatedSerBlundRealDefault
        , dbGetConsolidatedSerBlockRealDefault
        , dbGetConsolidatedSerUndoRealDefault
-       , renderConsolidateError
-
-       -- TODO: Public during development/testing.
-       , ConsolidateCheckPoint (..)
-       , deleteConsolidateCheckPoint
-       , getConsolidateCheckPoint
        ) where
 
 import           Universum
 
+import           Control.Concurrent (threadDelay)
+import           Control.Exception.Safe (SomeException, handle)
 import           Control.Monad (when)
+import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Trans.Except (ExceptT, throwE)
 import           Data.Binary (decode, encode)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Either (partitionEithers)
-import           Formatting (build, sformat, (%))
-import           System.Directory (renameFile)
+import           Formatting (build, int, sformat, shown, (%))
+import           System.Directory (removeFile)
 import           System.FilePath ((</>))
 import           System.IO (IOMode (..), SeekMode (..), hClose, hSeek,
                      openBinaryFile, withBinaryFile)
@@ -41,68 +65,65 @@ import           Pos.DB.Block.Internal (bspBlund, dbGetSerBlockRealFile,
                      dbGetSerBlundRealFile, dbGetSerUndoRealFile, getAllPaths,
                      getSerializedBlund)
 import           Pos.DB.BlockIndex (getHeader, getTipHeader)
-import           Pos.DB.Class (DBTag (MiscDB), MonadDB (..), MonadDBRead (..),
-                     Serialized (..), SerializedBlock, SerializedBlund,
-                     SerializedUndo)
+import           Pos.DB.Class (MonadDB (..), MonadDBRead (..), Serialized (..),
+                     SerializedBlock, SerializedBlund, SerializedUndo)
 import           Pos.DB.Epoch.Index (SlotIndexOffset (..), getEpochBlundOffset,
                      writeEpochIndex)
+import           Pos.DB.Error (DBError (DBMalformed))
 import           Pos.DB.Misc.Common (miscGetBi, miscPutBi)
-import           Pos.DB.Rocks.Types (MonadRealDB, NodeDBs (..), blockDataDir,
-                     epochDataDir, epochLock, getNodeDBs)
+import           Pos.DB.Rocks.Types (MonadRealDB, blockDataDir, epochDataDir,
+                     epochLock, getNodeDBs)
 import           Pos.Util.Concurrent.RWLock (whenAcquireWrite)
+import           Pos.Util.Wlog (CanLog, HasLoggerName, logError, logInfo,
+                     usingLoggerName)
 
-data ConsolidateError
-    = CEFinalBlockNotBoundary !Text
-    | CEExpectedGenesis !Text !HeaderHash
-    | CEExcpectedMain !Text !HeaderHash
-    | CEForwardLink !Text !HeaderHash
-    | CEEoSLookupFailed !Text !HeaderHash
-    | CEBlockLookupFailed !Text !LocalSlotIndex !HeaderHash
-    | CEBOffsetFail !Text
-    | CEBlockMismatch !Text !LocalSlotIndex
-    | CEBBlockNotFound !Text !LocalSlotIndex !HeaderHash
-
-renderConsolidateError :: ConsolidateError -> Text
-renderConsolidateError = \case
-    CEFinalBlockNotBoundary fn ->
-        fn <> ": Final block is not an epoch boundary block"
-    CEExpectedGenesis fn h ->
-        fn <> sformat (": hash " % build % " should be an epoch boundary hash.") h
-    CEExcpectedMain fn h ->
-        fn <> sformat (": hash " % build % " should be a main block hash.") h
-    CEForwardLink fn h ->
-        fn <> sformat (": failed to follow hash " % build) h
-    CEEoSLookupFailed fn h ->
-        fn <> sformat (": EpochOrSlot lookup failed on hash " % build) h
-    CEBlockLookupFailed fn lsi h ->
-        fn <> sformat (": block lookup failed on (" % build % ", " % build % ")") lsi h
-    CEBOffsetFail fn ->
-        fn <> ": Failed to find offset"
-    CEBlockMismatch fn lsi ->
-        fn <> sformat (": block mismatch at index " % build) lsi
-    CEBBlockNotFound fn lsi hh ->
-        fn <> sformat (": block mssing : " % build % " " % build) lsi hh
-
--- | Consolidate discrete blund files for a single epoch into a single epoch/
--- index file pair. Will consolidate from the original genesis epoch up to and
--- including two epochs before the current epoch.
--- If a consolidation has been done before it will retrieve a check point
--- from the MisDB and start from there.
--- This function takes and holds a RWLock to ensure that only one consolidation
--- is running at any time.
-consoldidateEpochs
-    :: (MonadCatch m, MonadDB m, MonadIO m, MonadMask m, MonadReader NodeDBs m)
-    => Core.Config -> ExceptT ConsolidateError m ()
-consoldidateEpochs coreConfig = ExceptT $ do
-    elock <- view epochLock <$> getNodeDBs
-    mr <- whenAcquireWrite elock $ do
-            tipEpoch <- getTipEpoch
+-- | Block/epoch consolidation worker.
+-- This function is only ever called once from 'bracketNodeResources' and is
+-- started as an `'Async' process and does not terminate until the 'Async' is
+-- cancelled when 'bracketNodeResources' releases the 'NodeResources'.
+consolidateWorker
+    :: (CanLog m, MonadCatch m, MonadDB m, MonadMask m, MonadRealDB ctx m)
+    => Core.Config -> m ()
+consolidateWorker coreCfg =
+    usingLoggerName "consolidate" $
+        handle handler $ do
             checkPoint <- getConsolidateCheckPoint
-            if tipEpoch < 2
-                then pure $ Right ()
-                else consolidateLoop checkPoint (configEpochSlots coreConfig) (tipEpoch - 1)
-    pure $ fromMaybe (Right ()) mr
+            tipEpoch <- getTipEpoch
+            logInfo $ sformat ("current tip epoch is "%int%", "%int%" epochs consolidated")
+                        (getEpochIndex tipEpoch) (getEpochIndex $ ccpEpochIndex checkPoint)
+            forever $ do
+                -- Don't start consolidation until the node has been running for
+                -- bit. Want the node to do all its initialisation, but do not want
+                -- it to sync too many blocks before starting consolidation.
+                sleepSeconds 15
+                loop $ CSSyncSeconds 2
+  where
+    epochSlots :: SlotCount
+    epochSlots = configEpochSlots coreCfg
 
+    -- Since this module uses 'Control.Exception.Safe' catching 'SomeException'
+    -- will only catch synchronous exceptions, which we just log.
+    -- Sleep for 15 seconds after logging to mitigate problems with an exception
+    -- being continuously rethrown.
+    handler :: (CanLog m, HasLoggerName m, MonadIO m) => SomeException -> m ()
+    handler e = do
+        logError $ sformat shown e
+        sleepSeconds 15
+
+    loop
+        :: (HasLoggerName m, CanLog m, MonadDB m, MonadMask m, MonadRealDB ctx m)
+        => ConsolidateStatus -> m ()
+    loop !oldCs = do
+        elock <- view epochLock <$> getNodeDBs
+        mcs <- whenAcquireWrite elock $ do
+                checkPoint <- getConsolidateCheckPoint
+                tipEpoch <- getTipEpoch
+                if ccpEpochIndex checkPoint + 2 > tipEpoch
+                    then pure $ increaseSyncSeconds oldCs
+                    else consolidateWithStatus checkPoint oldCs epochSlots
+        let newCs = fromMaybe (CSSyncSeconds 2) mcs
+        sleepSeconds $ statusToSeconds newCs
+        loop newCs
 
 -- | Get a 'SerializedBlund' from the DB. If the block has already been
 -- consolidated into an epoch file retieve it from there, otherwise,
@@ -190,6 +211,40 @@ getConsolidatedSerBlund (SlotId ei lsi) = do
 
 -- -----------------------------------------------------------------------------
 
+data ConsolidateError
+    = CEFinalBlockNotBoundary !Text
+    | CEExpectedGenesis !Text !HeaderHash
+    | CEExcpectedMain !Text !HeaderHash
+    | CEForwardLink !Text !HeaderHash
+    | CEEoSLookupFailed !Text !HeaderHash
+    | CEBlockLookupFailed !Text !LocalSlotIndex !HeaderHash
+    | CEBOffsetFail !Text
+    | CEBlockMismatch !Text !LocalSlotIndex
+    | CEBBlockNotFound !Text !LocalSlotIndex !HeaderHash
+
+renderConsolidateError :: ConsolidateError -> Text
+renderConsolidateError = \case
+    CEFinalBlockNotBoundary fn ->
+        fn <> ": Final block is not an epoch boundary block"
+    CEExpectedGenesis fn h ->
+        fn <> sformat (": hash " % build % " should be an epoch boundary hash.") h
+    CEExcpectedMain fn h ->
+        fn <> sformat (": hash " % build % " should be a main block hash.") h
+    CEForwardLink fn h ->
+        fn <> sformat (": failed to follow hash " % build) h
+    CEEoSLookupFailed fn h ->
+        fn <> sformat (": EpochOrSlot lookup failed on hash " % build) h
+    CEBlockLookupFailed fn lsi h ->
+        fn <> sformat (": block lookup failed on (" % build % ", " % build % ")") lsi h
+    CEBOffsetFail fn ->
+        fn <> ": Failed to find offset"
+    CEBlockMismatch fn lsi ->
+        fn <> sformat (": block mismatch at index " % build) lsi
+    CEBBlockNotFound fn lsi hh ->
+        fn <> sformat (": block mssing : " % build % " " % build) lsi hh
+
+-- -----------------------------------------------------------------------------
+
 data SlotIndexHash
     = SlotIndexHash !LocalSlotIndex !HeaderHash
 
@@ -198,50 +253,116 @@ data SlotIndexLength
     deriving Eq
 
 -- For convenience in this module. Should not be allowed to escape.
-type ConsolidateM m =
+type ConsolidateM ctx m =
     ( MonadIO m
     , MonadMask m
-    , MonadReader NodeDBs m
+    , MonadRealDB ctx m
     , MonadDB m
     )
 
--- Consolidate from the check point until the specified 'endEpoch'. If
--- the 'endEpoch' has already been consolidated, return success.
--- On each loop, the check point in the 'MiscDB' is updated.
-consolidateLoop
-    :: ConsolidateM m
-    => ConsolidateCheckPoint -> SlotCount -> EpochIndex -> m (Either ConsolidateError ())
-consolidateLoop startCcp epochSlots endEpoch
-    | ccpEpochIndex startCcp >= endEpoch = pure $ Right ()
-    | otherwise = runExceptT $ loop startCcp
-  where
-    loop
-        :: ConsolidateM m
-        => ConsolidateCheckPoint -> ExceptT ConsolidateError m ()
-    loop ccp = do
-        (epochBoundary, sihs) <- getEpochHeaderHashes $ ccpHeaderHash ccp
-        (epochPath, indexPath) <- mkEpochPaths (ccpEpochIndex ccp) . view epochDataDir <$> getNodeDBs
-        liftIO $ print (epochPath, indexPath)
+-- | A local (to this module) type to control the behaviour of the consolidation
+-- process. A problem faced by this code is that there is no way for it to
+-- figure out the current synchronisation status of the block chain because
+-- that all happens at a higher level and monads/state that this code does not
+-- have access to.
+--
+-- This code also needs to deal with a couple of scenarios on startup:
+--  * This node is syncing the blockchain from scratch and needs to consolidate
+--    older epochs as they arrive.
+--  * This node is fully synced, but has been running old code and no
+--    consolidation has ever been performed.
+--  * This node is running code that does consolidate blocks and all but the
+--    last two blocks have already been consolidated.
+-- During any of the above secnarios, we may also need to deal with a flakey
+-- network connection
+--
+-- To handle all three cases without any synchonisaion feedback, the best we can
+-- do is poll the current tip epoch and compare it to our check point epoch, with
+-- an increase in sleep times between polling. When the sleep time gets over a
+-- certain amount we switch to a mode where this polling is done once every day.
+-- When we are polling more frequently that once a day, if a epoch needs to be
+-- consolidated, the sleep time resets to the minimum (2 seconds).
+data ConsolidateStatus
+    = CSSyncSeconds !Word
+    -- ^ Consolodation is more than two blocks behind and needs to catch up.
+    -- The 'Word' carries the number of seconds to sleep between consolidations.
+    | CSFollowing
+    -- ^ Consolodation is at most two blocks behind the tip so we poll once a
+    -- a day.
 
-        xs <- consolidateEpochBlocks epochPath sihs
-        liftIO $ writeEpochIndex epochSlots indexPath xs
+statusToSeconds :: ConsolidateStatus -> Integer
+statusToSeconds cs =
+    case cs of
+        CSSyncSeconds s -> fromIntegral s
+        CSFollowing     -> 24 * 60 * 60 -- A whole day
 
-        -- Write starting point for next consolidation to the MiscDB.
-        let nextCcp = ConsolidateCheckPoint (ccpEpochIndex ccp + 1) epochBoundary
-        putConsolidateCheckPoint nextCcp
+-- Reset the sleep time to the minimum. When syncing  a large number of epochs,
+-- with a large backlog of unconsolidated block, a fast network and a slow disk
+-- can result epochs being consolidated slower than  they are retrieved from
+-- the network.
+resetSyncSeconds :: ConsolidateStatus -> ConsolidateStatus
+resetSyncSeconds st =
+    case st of
+        CSSyncSeconds _ -> minimumSeconds
+        CSFollowing     -> CSFollowing
 
-        -- After the check point is written, delete old Blunds.
-        lift $ mapM_ deleteOldBlund sihs
+-- | When the ConsolidateStatus is reset this is the minimum it gets reset to.
+minimumSeconds :: ConsolidateStatus
+minimumSeconds = CSSyncSeconds 2
 
-        when (ccpEpochIndex nextCcp < endEpoch) $
-            loop nextCcp
+-- When we increase the sleep time we do it slowly to allow for slow
+-- syncing on slow networks, but when the last sleep time exceeds an hour
+-- (cummulatively a little over 4 hours) we switch to polling once a day
+-- (CSFollowing).
+increaseSyncSeconds :: ConsolidateStatus -> ConsolidateStatus
+increaseSyncSeconds st =
+    case st of
+        CSSyncSeconds s
+            | s < 60 * 60 -> CSSyncSeconds (s + s `div` 3 + 1)
+            | otherwise -> CSFollowing
+        CSFollowing -> CSFollowing
 
-deleteOldBlund :: ConsolidateM m => SlotIndexHash -> m ()
+consolidateWithStatus
+    :: (HasLoggerName m, CanLog m, ConsolidateM ctx m)
+    => ConsolidateCheckPoint -> ConsolidateStatus -> SlotCount -> m ConsolidateStatus
+consolidateWithStatus checkPoint oldStatus epochSlots = do
+    enCpp <- runExceptT $ consolidateOneEpoch checkPoint epochSlots
+    -- 'tipEpoch' is the tip of the block chain that has been synced by this node so far.
+    tipEpoch <- getTipEpoch
+    logInfo $ sformat ("consolidated epoch "%int%", current tip is epoch "%int)
+                (getEpochIndex $ ccpEpochIndex checkPoint) (getEpochIndex tipEpoch)
+    case enCpp of
+        Left e -> do
+            logError $ renderConsolidateError e
+            pure $ increaseSyncSeconds oldStatus -- Not much else to be done!
+        Right () -> do
+            pure $ if ccpEpochIndex checkPoint + 2 > tipEpoch
+                    then increaseSyncSeconds oldStatus
+                    else resetSyncSeconds oldStatus
+
+
+consolidateOneEpoch
+    :: ConsolidateM ctx m
+    => ConsolidateCheckPoint -> SlotCount -> ExceptT ConsolidateError m ()
+consolidateOneEpoch ccp epochSlots = do
+    (epochBoundary, sihs) <- getEpochHeaderHashes $ ccpHeaderHash ccp
+    (epochPath, indexPath) <- mkEpochPaths (ccpEpochIndex ccp) . view epochDataDir <$> getNodeDBs
+
+    xs <- consolidateEpochBlocks epochPath sihs
+    liftIO $ writeEpochIndex epochSlots indexPath xs
+
+    -- Write starting point for next consolidation to the MiscDB.
+    putConsolidateCheckPoint $ ConsolidateCheckPoint (ccpEpochIndex ccp + 1) epochBoundary
+
+    -- After the check point is written, delete old blunds for the epoch we have just
+    -- consolidated.
+    lift $ mapM_ deleteOldBlund sihs
+
+deleteOldBlund :: ConsolidateM ctx m => SlotIndexHash -> m ()
 deleteOldBlund (SlotIndexHash _ hh) = do
     bdd <- view blockDataDir <$> getNodeDBs
     let bp = bspBlund (getAllPaths bdd hh)
-    -- TODO: During development/testing, we rename rather than delete.
-    (liftIO $ renameFile bp (bp ++ ".bak")) `catch` handler
+    liftIO (removeFile bp) `catch` handler
   where
     handler e
         | isDoesNotExistError e = pure ()
@@ -253,7 +374,7 @@ deleteOldBlund (SlotIndexHash _ hh) = do
 -- the blocks to a single file specified by 'FilePath' and return a
 -- '[SlotIndexOffset]' which is used to write the epoch index file.
 consolidateEpochBlocks
-    :: ConsolidateM m
+    :: ConsolidateM ctx m
     => FilePath -> [SlotIndexHash] -> ExceptT ConsolidateError m [SlotIndexOffset]
 consolidateEpochBlocks fpath xs = ExceptT $ do
     ys <- bracket
@@ -268,7 +389,7 @@ consolidateEpochBlocks fpath xs = ExceptT $ do
             (e:_, _) -> Left e
   where
     consolidate
-        :: ConsolidateM m
+        :: ConsolidateM ctx m
         => Handle -> SlotIndexHash -> m (Either ConsolidateError SlotIndexLength)
     consolidate hdl  (SlotIndexHash lsi hh) = do
         mblund <- getSerializedBlund hh
@@ -276,17 +397,16 @@ consolidateEpochBlocks fpath xs = ExceptT $ do
             Nothing ->
                 pure . Left $ CEBBlockNotFound "consolidateEpochBlocks" lsi hh
             Just (blck, undo) -> do
-                liftIO $ do
-                    LBS.hPutStr hdl $ LBS.fromChunks
+                let chunk = LBS.fromChunks
                         ["blnd"
                         , packWord32 $ fromIntegral (BS.length blck)
                         , packWord32 $ fromIntegral (BS.length undo)
                         , blck
                         , undo
                         ]
-                pure . Right $
-                    SlotIndexLength (getSlotIndex lsi)
-                        (fromIntegral $ 12 + BS.length blck + BS.length undo)
+                liftIO $ LBS.hPutStr hdl chunk
+                pure . Right $ SlotIndexLength (getSlotIndex lsi)
+                                (fromIntegral $ LBS.length chunk)
 
 -- | Given the hash of an epoch boundary block, return a pair of the next
 -- epoch boundary hash and a list of the header hashes of the main blocks
@@ -323,13 +443,11 @@ getLocalSlotIndex
     :: MonadDBRead m
     => HeaderHash -> ExceptT ConsolidateError m LocalSlotIndex
 getLocalSlotIndex hh = do
-    meos <- getHeaderEpochOrSlot hh
+    meos <- unEpochOrSlot <<$>> getHeaderEpochOrSlot hh
     case meos of
-        Nothing -> throwE $ CEEoSLookupFailed "getLocalSlotIndex" hh
-        Just eos ->
-            case unEpochOrSlot eos of
-                Left _    -> throwE $ CEExcpectedMain "getLocalSlotIndex" hh
-                Right sid -> pure $ siSlot sid
+        Nothing          -> throwE $ CEEoSLookupFailed "getLocalSlotIndex" hh
+        Just (Left _)    -> throwE $ CEExcpectedMain "getLocalSlotIndex" hh
+        Just (Right sid) -> pure $ siSlot sid
 
 isMainBlockHeader :: MonadDBRead m => HeaderHash -> m Bool
 isMainBlockHeader hh =
@@ -343,16 +461,13 @@ getTipEpoch :: MonadDBRead m => m EpochIndex
 getTipEpoch =
     getBlockHeaderEpoch =<< fmap blockHeaderHash getTipHeader
 
-
 getBlockHeaderEpoch :: MonadDBRead m => HeaderHash -> m EpochIndex
 getBlockHeaderEpoch hhash = do
-    meos <- getHeaderEpochOrSlot hhash
+    meos <- unEpochOrSlot <<$>> getHeaderEpochOrSlot hhash
     case meos of
-        Nothing -> error "getBlockHeaderEpoch: Nothing"
-        Just eos ->
-            case unEpochOrSlot eos of
-                Left eid  -> pure eid
-                Right sid -> pure $ siEpoch sid
+        Nothing -> throwM $ DBMalformed "getBlockHeaderEpoch: Nothing"
+        Just (Left eid)  -> pure eid
+        Just (Right sid) -> pure $ siEpoch sid
 
 
 epochIndexToOffset :: [SlotIndexLength] -> [SlotIndexOffset]
@@ -380,6 +495,18 @@ packWord32 = LBS.toStrict . encode
 unpackWord32 :: ByteString -> Word32
 unpackWord32 = decode . LBS.fromStrict
 
+-- | Sleep for the required number of seconds. We use 'Integer' here to avoid
+-- any chance of wrap around.
+-- Code lifted from concurrent-extra version 0.5.
+sleepSeconds :: MonadIO m => Integer -> m ()
+sleepSeconds sec =
+    liftIO . delay $ sec * 1000 * 1000
+  where
+    delay time = do
+        let maxWait = min time $ toInteger (maxBound :: Int)
+        liftIO $ threadDelay (fromInteger maxWait)
+        when (maxWait /= time) $ delay (time - maxWait)
+
 -- -----------------------------------------------------------------------------
 -- ConsoldateCheckPoint is stored in the MiscDB and contains the EpochIndex
 -- and HeaderHash of epoch boundary block that will be the next epoch to be
@@ -387,7 +514,10 @@ unpackWord32 = decode . LBS.fromStrict
 
 data ConsolidateCheckPoint = ConsolidateCheckPoint
     { ccpEpochIndex :: !EpochIndex
+      -- ^ The EpochIndex of the next epoch to be consolidated.
     , ccpHeaderHash :: !HeaderHash
+      -- ^ The HeaderHash of the boundary block separating the last consolidated
+      -- epoch and the next one to be consolidated.
     }
 
 -- | Get the 'HeaderHash' of the marking the start of the first un-consolidated
@@ -407,19 +537,13 @@ putConsolidateCheckPoint :: MonadDB m => ConsolidateCheckPoint -> m ()
 putConsolidateCheckPoint =
     miscPutBi consolidateCheckPointKey
 
--- | Strictly for testing before we add code to delete blund files after they
--- have been consolidated.
-deleteConsolidateCheckPoint :: MonadDB m => m ()
-deleteConsolidateCheckPoint =
-    dbDelete MiscDB consolidateCheckPointKey
-
-
 consolidateCheckPointKey :: ByteString
 consolidateCheckPointKey = "consolidateCheckPoint"
 
 -- -----------------------------------------------------------------------------
 -- TH at the end of the file.
 
+-- ConsolidateCheckPoint gets stored in the MiscDB so we need a 'Bi' instance.
 deriveSimpleBi ''ConsolidateCheckPoint [
     Cons 'ConsolidateCheckPoint [
         Field [| ccpEpochIndex :: EpochIndex |],

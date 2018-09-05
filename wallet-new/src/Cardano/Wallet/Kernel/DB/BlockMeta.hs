@@ -103,6 +103,7 @@ emptyBlockMeta = BlockMeta {
 -- 'BlockMeta' type is the same; 'LocalBlockMeta' serves merely as a marker that
 -- this data is potentially incomplete.
 newtype LocalBlockMeta = LocalBlockMeta { localBlockMeta :: BlockMeta }
+        deriving Eq
 
 makeWrapped ''LocalBlockMeta
 

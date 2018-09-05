@@ -31,6 +31,7 @@ module Cardano.Wallet.Kernel.DB.Spec.Pending (
   , txOuts
   , change
   , removeInputs
+  , PendingDiff
   ) where
 
 import           Universum hiding (empty, null, toList)
@@ -59,7 +60,7 @@ import qualified Cardano.Wallet.Kernel.Util.Core as Core
 type UnderlyingMap = Map Core.TxId Core.TxAux
 
 -- | Pending transactions
-newtype Pending = Pending (InDb UnderlyingMap)
+newtype Pending = Pending (InDb UnderlyingMap) deriving Eq
 
 deriveSafeCopy 1 'base ''Pending
 
@@ -196,6 +197,24 @@ liftMap f (toMap -> p) = fromMap (f p)
 liftMap2 :: (UnderlyingMap -> UnderlyingMap -> UnderlyingMap)
          -> Pending -> Pending -> Pending
 liftMap2 f (toMap -> p) (toMap -> p') = fromMap (f p p')
+
+{--------------------------------------------------------------------------------
+  Compression
+-------------------------------------------------------------------------------}
+
+newtype PendingDiff = PendingDiff (InDb (Util.MapDiff Core.TxId Core.TxAux))
+
+instance Util.Differentiable Pending PendingDiff where
+    findDelta  = findDeltaPending
+    applyDelta = applyDeltaPending
+
+findDeltaPending :: Pending -> Pending -> PendingDiff
+findDeltaPending (Pending (InDb m)) (Pending (InDb m')) = PendingDiff (InDb (Util.findDelta m m'))
+
+applyDeltaPending :: Pending -> PendingDiff -> Pending
+applyDeltaPending (Pending (InDb m)) (PendingDiff (InDb d)) = Pending . InDb $ Util.applyDelta m d
+
+deriveSafeCopy 1 'base ''PendingDiff
 
 {-------------------------------------------------------------------------------
   Pretty printing

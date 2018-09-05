@@ -43,7 +43,7 @@ data BlockContext = BlockContext {
       -- we do some work to figure out what the previous /main/ block was.
       -- See 'mostRecentMainBlock'.
     , _bcPrevMain :: !(Maybe (InDb Core.HeaderHash))
-    }
+    } deriving Eq
 
 makeLenses ''BlockContext
 deriveSafeCopy 1 'base ''BlockContext

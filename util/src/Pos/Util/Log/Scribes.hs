@@ -11,19 +11,20 @@ module Pos.Util.Log.Scribes
     , mkJsonFileScribe
     ) where
 
-import           Universum hiding (fromString)
+import           Universum
 
 import           Control.AutoUpdate (UpdateSettings (..), defaultUpdateSettings,
                      mkAutoUpdate)
 import           Control.Concurrent.MVar (modifyMVar_)
 
 import           Data.Aeson.Text (encodeToLazyText)
+import qualified Data.Text as T
 import           Data.Text.Lazy.Builder
 import qualified Data.Text.Lazy.IO as TIO
 import           Data.Time (diffUTCTime)
+import           Data.Time.Format (defaultTimeLocale, formatTime)
 import           Katip.Core
-import           Katip.Format.Time (formatAsIso8601)
-import           Katip.Scribes.Handle (brackets, getKeys)
+import           Katip.Scribes.Handle (brackets)
 
 import qualified Pos.Util.Log.Internal as Internal
 import           Pos.Util.Log.LoggerConfig (RotationParameters (..))
@@ -49,7 +50,7 @@ mkTextFileScribe :: RotationParameters -> Internal.FileDescription -> Bool -> Se
 mkTextFileScribe rot fdesc colorize s v = do
     mkFileScribe rot fdesc formatter colorize s v
   where
-    formatter :: LogItem a => Handle -> Bool -> Verbosity -> Item a -> IO Int
+    formatter :: Handle -> Bool -> Verbosity -> Item a -> IO Int
     formatter hdl colorize' v' item = do
         let tmsg = toLazyText $ formatItem colorize' v' item
         TIO.hPutStrLn hdl tmsg
@@ -100,7 +101,7 @@ mkFileScribeH :: Handle -> Bool -> Severity -> Verbosity -> IO Scribe
 mkFileScribeH h colorize s v = do
     hSetBuffering h LineBuffering
     locklocal <- newMVar ()
-    let logger :: forall a. LogItem a => Item a -> IO ()
+    let logger :: forall a. Item a -> IO ()
         logger item = when (permitItem s item) $
             bracket_ (takeMVar locklocal) (putMVar locklocal ()) $
                 TIO.hPutStrLn h $! toLazyText $ formatItem colorize v item
@@ -120,7 +121,7 @@ mkDevNullScribe lh s v = do
     h <- openFile "/dev/null" WriteMode
     let colorize = False
     hSetBuffering h LineBuffering
-    let logger :: forall a. LogItem a => Item a -> IO ()
+    let logger :: forall a. Item a -> IO ()
         logger item = when (permitItem s item) $
             Internal.incrementLinesLogged lh
               >> (TIO.hPutStrLn h $! toLazyText $ formatItem colorize v item)
@@ -128,34 +129,35 @@ mkDevNullScribe lh s v = do
 
 
 -- | format a @LogItem@ with subsecond precision (ISO 8601)
-formatItem :: LogItem a => Bool -> Verbosity -> Item a -> Builder
-formatItem withColor verb Item{..} =
-    brackets nowStr <>
-    brackets (mconcat $ map fromText $ intercalateNs _itemNamespace) <>
-    brackets (fromText (renderSeverity' _itemSeverity)) <>
-    brackets (fromString _itemHost) <>
-    brackets (fromString (show _itemProcess)) <>
-    brackets (fromText (getThreadIdText _itemThread)) <>
-    mconcat ks <>
-    maybe mempty (brackets . fromString . locationToString) _itemLoc <>
+formatItem :: Bool -> Verbosity -> Item a -> Builder
+formatItem withColor _verb Item{..} =
+    fromText header <>
+    fromText " " <>
+    brackets (fromText timestamp) <>
     fromText " " <>
     unLogStr _itemMessage
   where
-    nowStr = fromText (formatAsIso8601 _itemTime)
-    ks = map brackets $ getKeys verb _itemPayload
-    renderSeverity' s = case s of
-      EmergencyS -> red $ renderSeverity s
-      AlertS     -> red $ renderSeverity s
-      CriticalS  -> red $ renderSeverity s
-      ErrorS     -> red $ renderSeverity s
-      NoticeS    -> magenta $ renderSeverity s
-      WarningS   -> yellow $ renderSeverity s
-      InfoS      -> blue $ renderSeverity s
-      _          -> renderSeverity s
+    header = colorBySeverity _itemSeverity $
+             "[" <> mconcat namedcontext <> ":" <> severity <> ":" <> threadid <> "]"
+    namedcontext = intercalateNs _itemNamespace
+    severity = renderSeverity _itemSeverity
+    threadid = getThreadIdText _itemThread
+    timestamp = T.pack $ formatTime defaultTimeLocale tsformat _itemTime
+    tsformat :: String
+    tsformat = "%F %T%2Q %Z"
+    colorBySeverity s m = case s of
+      EmergencyS -> red m
+      AlertS     -> red m
+      CriticalS  -> red m
+      ErrorS     -> red m
+      NoticeS    -> magenta m
+      WarningS   -> yellow m
+      InfoS      -> blue m
+      _          -> m
     red = colorize "31"
     yellow = colorize "33"
     magenta = colorize "35"
     blue = colorize "34"
-    colorize c s
-      | withColor = "\ESC["<> c <> "m" <> s <> "\ESC[0m"
-      | otherwise = s
+    colorize c m
+      | withColor = "\ESC["<> c <> "m" <> m <> "\ESC[0m"
+      | otherwise = m

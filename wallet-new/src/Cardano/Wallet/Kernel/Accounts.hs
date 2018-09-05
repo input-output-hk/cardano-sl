@@ -28,7 +28,8 @@ import           Cardano.Wallet.Kernel.DB.HdWallet.Create
                      (CreateHdAccountError (..), initHdAccount)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Derivation
                      (HardeningMode (..), deriveIndex)
-import           Cardano.Wallet.Kernel.DB.Spec (initCheckpoint)
+import           Cardano.Wallet.Kernel.DB.Spec (Checkpoints (..),
+                     initCheckpoint)
 import           Cardano.Wallet.Kernel.Internal (PassiveWallet, walletKeystore,
                      wallets)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
@@ -140,7 +141,7 @@ createHdRndAccount _spendingPassword accountName _esk rootId pw = do
         -- Initial account state
         initState :: HdAccountState
         initState = HdAccountStateUpToDate HdAccountUpToDate {
-              _hdUpToDateCheckpoints = one $ initCheckpoint mempty
+              _hdUpToDateCheckpoints = Checkpoints . one $ initCheckpoint mempty
             }
 
 -- | Deletes an HD 'Account' from the data storage.

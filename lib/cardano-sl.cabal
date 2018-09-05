@@ -176,6 +176,7 @@ library
                       , http-conduit
                       , http-types
                       , lens
+                      , lifted-async
                       , memory
                       , mmorph
                       , monad-control

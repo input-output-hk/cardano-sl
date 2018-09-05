@@ -10,7 +10,7 @@ import           Data.Foldable         (all)
 import           Data.List             (find)
 import           Data.Map              (Map)
 import qualified Data.Map              as Map
-import           Data.Maybe            (isJust)
+import           Data.Maybe            (isJust, mapMaybe)
 import           Data.Monoid           (Monoid)
 import           Data.Semigroup        (Semigroup, (<>))
 import           Data.Set              (Set)
@@ -251,8 +251,8 @@ validCert ls (DeRegKey key) =
   else Invalid [BadDeregistration]
   -- TODO spec mentions signing the public stake key. needed?
 
-validCert ls (Delegate (Delegation key _)) =
-  if Set.member (hashKey key) (getStPools ls)
+validCert ls (Delegate (Delegation _ poolKey)) =
+  if Set.member (hashKey poolKey) (getStPools ls)
   then Valid
   else Invalid [BadDelegation]
 
@@ -288,7 +288,8 @@ applyCert (DeRegKey key) ls = ls
   , getDelegations = Map.delete (hashKey key) (getDelegations ls)
     }
 applyCert (Delegate (Delegation source target)) ls =
-  ls {getDelegations = Map.insert (hashKey source) (hashKey target) (getDelegations ls)}
+  ls {getDelegations =
+    Map.insert (hashKey source) (hashKey target) (getDelegations ls)}
 applyCert (RegPool sp) ls = ls
   { getStPools = (Set.insert hsk (getStPools ls))
   , getRetiring = Map.delete hsk (getRetiring ls)}
@@ -313,8 +314,18 @@ applyTransaction :: LedgerState -> Tx -> LedgerState
 applyTransaction ls tx = applyTxBody (applyCerts ls cs) tx
   where cs = (certs . body) tx
 
-asStateTransition :: LedgerState -> Tx -> Either [ValidationError] LedgerState
-asStateTransition ls tx =
+asStateTransition :: Tx -> LedgerState -> Either [ValidationError] LedgerState
+asStateTransition tx ls =
   case valid tx ls of
     Invalid errors -> Left errors
     Valid          -> Right $ applyTransaction ls tx
+
+delegatedStake :: LedgerState -> Map HashKey Coin
+delegatedStake ls = Map.fromListWith mappend delegatedOutputs
+  where
+    getOutputs (UTxO utxo) = Map.elems utxo
+    addStake delegations (TxOut (AddrTxin _ hsk) c) = do
+      pool <- Map.lookup (HashKey hsk) delegations
+      return (pool, c)
+    outs = getOutputs . getUtxo $ ls
+    delegatedOutputs = mapMaybe (addStake (getDelegations ls)) outs

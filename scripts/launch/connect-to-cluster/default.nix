@@ -17,6 +17,7 @@
 , relays ? null
 , debug ? false
 , disableClientAuth ? false
+, useLegacyDataLayer ? false
 , extraParams ? ""
 , useStackBinaries ? false
 }:
@@ -30,6 +31,7 @@ with localLib;
 let
   ifDebug = localLib.optionalString (debug);
   ifDisableClientAuth = localLib.optionalString (disableClientAuth);
+  walletDataLayer = if useLegacyDataLayer then "" else "--new-wallet";
   env = if environment == "override"
     then { inherit relays confKey confFile; }
     else environments.${environment};
@@ -92,7 +94,7 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     --topology "${if topologyFile != null then topologyFile else topologyFileDefault}" \
     --logs-prefix "${stateDir}/logs"                               \
     --db-path "${stateDir}/db"   ${extraParams}                    \
-    ${ ifWallet "--wallet-db-path '${stateDir}/wallet-db'"}        \
+    ${ ifWallet "--wallet-db-path '${stateDir}/wallet-db' ${walletDataLayer}"} \
     ${ ifDebug "--wallet-debug"}                                   \
     ${ ifDisableClientAuth "--no-client-auth"}                     \
     --keyfile ${stateDir}/secret.key                               \

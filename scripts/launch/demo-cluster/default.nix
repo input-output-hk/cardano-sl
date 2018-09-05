@@ -17,6 +17,7 @@
 , configurationKey ? "default"
 , useStackBinaries ? false
 , disableClientAuth ? false
+, useLegacyDataLayer ? false
 }:
 
 with localLib;
@@ -27,7 +28,7 @@ let
   demoClusterDeps = with pkgs; [ jq coreutils curl gnused openssl ];
   allDeps =  demoClusterDeps ++ (optionals (!useStackBinaries ) cardanoDeps);
   walletConfig = {
-    inherit stateDir disableClientAuth;
+    inherit stateDir disableClientAuth useLegacyDataLayer;
     topologyFile = walletTopologyFile;
     environment = "demo";
   };

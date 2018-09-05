@@ -22,6 +22,7 @@ in
 , enablePhaseMetrics ? true
 , allowCustomConfig ? true
 , useStackBinaries ? false
+, fasterBuild ? false
 }:
 
 with pkgs.lib;
@@ -111,6 +112,14 @@ let
     });
   };
 
+  # Disabling optimization for cardano-sl packages will
+  # return a build ~20% faster (measured in DEVOPS-1032).
+  fasterBuildOverlay = self: super: {
+    mkDerivation = args: super.mkDerivation (args // optionalAttrs (localLib.isCardanoSL args.pname) {
+      configureFlags = (args.configureFlags or []) ++ [ "--ghc-options=-O0" ];
+    });
+  };
+
   dontCheckOverlay = self: super: {
     mkDerivation = args: super.mkDerivation (args // {
       doCheck = false;
@@ -133,7 +142,8 @@ let
       ++ optional enablePhaseMetrics metricOverlay
       ++ optional enableBenchmarks benchmarkOverlay
       ++ optional enableDebugging debugOverlay
-      ++ optional forceDontCheck dontCheckOverlay;
+      ++ optional forceDontCheck dontCheckOverlay
+      ++ optional fasterBuild fasterBuildOverlay;
 
   cardanoPkgs = builtins.foldl' (pkgs: overlay: pkgs.extend overlay) cardanoPkgsBase activeOverlays;
   connect = let

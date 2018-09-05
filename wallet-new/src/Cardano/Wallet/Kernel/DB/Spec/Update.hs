@@ -86,15 +86,15 @@ instance Arbitrary NewForeignFailed where
 
 -- | Errors thrown by 'applyBlock'
 data ApplyBlockFailed =
-      ApplyBlockNotSuccessor BlockContext (Maybe BlockContext)
-      -- ^ The block we're trying to apply does not fit onto the previous
-      --
-      -- This indicates that the wallet has fallen behind the node (for example,
-      -- when the node informs the wallet of a block but the wallet gets
-      -- shut down before it gets a chance to process it).
-      --
-      -- We record  the context of the block we're trying to apply and the
-      -- context of the most recent checkpoint.
+    -- | The block we're trying to apply does not fit onto the previous
+    --
+    -- This indicates that the wallet has fallen behind the node (for example,
+    -- when the node informs the wallet of a block but the wallet gets
+    -- shut down before it gets a chance to process it).
+    --
+    -- We record  the context of the block we're trying to apply and the
+    -- context of the most recent checkpoint.
+    ApplyBlockNotSuccessor BlockContext (Maybe BlockContext)
 
 deriveSafeCopy 1 'base ''ApplyBlockFailed
 
@@ -103,7 +103,7 @@ instance Buildable ApplyBlockFailed where
         ("ApplyBlockNotSuccessor "
         % "{ context:    " % build
         % ", checkpoint: " % build
-        % " }"
+        % "}"
         )
         context
         checkpoint

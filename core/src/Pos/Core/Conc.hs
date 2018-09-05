@@ -43,11 +43,19 @@ currentTimeUnits :: (TimeUnit t, MonadIO m) => m t
 currentTimeUnits = convertUnit <$> currentTime
 
 -- toMicroseconds :: TimeUnit t => t -> Integer
--- then we cast to an Int. Hopefully it fits!
+-- Use Integer to avoid potential Int overflow.
 delay :: (TimeUnit t, MonadIO m)
          => t
          -> m ()
-delay time = liftIO (Conc.threadDelay (fromIntegral (toMicroseconds time)))
+delay =
+    liftIO . sleep . toMicroseconds
+  where
+    sleep :: Integer -> IO ()
+    sleep time = do
+        let maxWait = min time $ toInteger (maxBound :: Int)
+        Conc.threadDelay (fromInteger maxWait)
+        when (maxWait /= time) $ sleep (time - maxWait)
+
 
 -- | This function is analogous to `System.Timeout.timeout`. It's
 -- based on `race` and `delay`.

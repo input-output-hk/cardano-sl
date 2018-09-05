@@ -26,4 +26,4 @@ them. The task can be split into two almost independent parts:
 2. Figure out how to check snapshot's validity.
 
 The first part is described in TODO and the second one is described in
-TODO.
+[Establishing trust in a snapshot](trust.md).

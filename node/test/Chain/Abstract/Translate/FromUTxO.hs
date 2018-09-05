@@ -237,7 +237,7 @@ translate addrs chain policies params = runExceptT . fmap fst $ runTranslateT in
     nonEmptyEx _ (x:xs) = return $ x :| xs
     applyBlockMod (BlockModifier gen) block = gen block
     createCheckpoint :: Block h Addr -> TranslateT h IntException m ()
-    createCheckpoint block = modify $ over tsCheckpoints (\x -> ic <| x)
+    createCheckpoint block = modify $ over tsCheckpoints (ic <|)
         where
             ic = IntCheckpoint
                 { icSlotId = blockSlot block

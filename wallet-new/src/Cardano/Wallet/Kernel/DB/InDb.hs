@@ -35,6 +35,7 @@ import qualified Pos.Core.Update as Core
 import qualified Pos.Crypto as Core
 
 import qualified Cardano.Crypto.Wallet as CCW
+import           Cardano.Wallet.Kernel.Util
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
@@ -815,3 +816,11 @@ instance forall algo a.
         pure (InDb (Core.AbstractHash d))
     putCopy (InDb (Core.AbstractHash (d :: Digest algo))) = SC.contain $ do
         SC.safePut (BA.convert d :: B.ByteString)
+
+instance (SC.SafeCopy (InDb a), SC.SafeCopy (InDb b), Ord a)
+    => SC.SafeCopy (InDb (MapDiff a b)) where
+    getCopy = SC.contain $ do
+        InDb (m, s) <- SC.safeGet
+        pure $ InDb $ MapDiff m s
+    putCopy (InDb (MapDiff m s)) = SC.contain $
+        SC.safePut (InDb (m,s))

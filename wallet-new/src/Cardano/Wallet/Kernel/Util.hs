@@ -1,6 +1,6 @@
-{-# LANGUAGE BangPatterns       #-}
-{-# LANGUAGE StandaloneDeriving #-}
-
+{-# LANGUAGE BangPatterns           #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE StandaloneDeriving     #-}
 -- | General purpose utility functions
 module Cardano.Wallet.Kernel.Util (
     -- * Lists
@@ -31,6 +31,11 @@ module Cardano.Wallet.Kernel.Util (
   , traverseCollect
     -- * Dealing with Void
   , mustBeRight
+    -- * Compression
+  , Differentiable
+  , MapDiff(..)
+  , findDelta
+  , applyDelta
   ) where
 
 import           Universum
@@ -40,6 +45,7 @@ import           Crypto.Number.Generate (generateBetween)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Merge.Strict as Map.Merge
 import qualified Data.Map.Strict as Map
+import qualified Data.SafeCopy as SC
 import qualified Data.Set as Set
 import qualified Data.Vector as V
 import           Data.Vector.Mutable (IOVector)
@@ -200,3 +206,43 @@ traverseCollect f = runCollect . traverse f'
 mustBeRight :: Either Void b -> b
 mustBeRight (Left  a) = absurd a
 mustBeRight (Right b) = b
+
+{-------------------------------------------------------------------------------
+  Compression
+-------------------------------------------------------------------------------}
+
+class Differentiable a b | a -> b where
+  findDelta   :: a -> a -> b
+  applyDelta  :: a -> b -> a
+
+-- As a diff of two Maps we use the Map of new values (changed or completely new)
+-- plus a Set of deleted values.
+data MapDiff k v = MapDiff {
+      mapDiffAdded   :: Map.Map k v
+    , setDiffDeleted :: Set.Set k
+  }
+
+instance (Eq v, Ord k) => Differentiable (Map k v) (MapDiff k v) where
+  findDelta  = findDeltaMap
+  applyDelta = applyDeltaMap
+
+-- property: keys of the return set cannot be keys of the returned Map.
+findDeltaMap :: (Eq v, Ord k) => Map k v -> Map k v -> MapDiff k v
+findDeltaMap newMap oldMap =
+  let f newEntry oldEntry = if newEntry == oldEntry then Nothing else Just newEntry
+      newEntries = Map.differenceWith f newMap oldMap -- this includes pairs that changed values.
+      deletedKeys = Map.keysSet $ Map.difference oldMap newMap
+  in MapDiff newEntries deletedKeys
+
+-- newEntries should have no keys in common with deletedKeys.
+applyDeltaMap :: Ord k => Map k v -> MapDiff k v -> Map k v
+applyDeltaMap oldMap (MapDiff newEntries deletedKeys) =
+  Map.union newEntries lighterMap -- for common keys, union prefers the newPairs values.
+    where lighterMap = Map.withoutKeys oldMap deletedKeys
+
+instance (SC.SafeCopy k, SC.SafeCopy v, Ord k) => SC.SafeCopy (MapDiff k v) where
+  getCopy = SC.contain $ do
+    (m, s) <- SC.safeGet
+    pure $ MapDiff m s
+  putCopy (MapDiff m s)  = SC.contain $ do
+    SC.safePut (m, s)

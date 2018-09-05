@@ -23,6 +23,8 @@ import           Data.SafeCopy (SafeCopy (..), base, contain, deriveSafeCopy,
                      safeGet, safePut)
 import           Pos.Core.Chrono
 
+import           Test.QuickCheck (Arbitrary (..), arbitrary)
+
 import           Cardano.Wallet.Kernel.Util.StrictList (StrictList)
 import qualified Cardano.Wallet.Kernel.Util.StrictList as SL
 
@@ -84,3 +86,9 @@ take k (x :| xs) = x :| SL.take (k - 1) xs
 prependList :: StrictList a -> StrictNonEmpty a -> StrictNonEmpty a
 prependList SL.Nil         ys        = ys
 prependList (SL.Cons x xs) (y :| ys) = x :| (xs <> SL.Cons y ys)
+
+instance Arbitrary a => Arbitrary (StrictNonEmpty a) where
+    arbitrary =  do
+        a <- arbitrary
+        ls <- arbitrary
+        pure $ a :| ls

@@ -85,6 +85,7 @@ library
                        Cardano.Wallet.Kernel.DB.AcidState
                        Cardano.Wallet.Kernel.DB.BlockContext
                        Cardano.Wallet.Kernel.DB.BlockMeta
+                       Cardano.Wallet.Kernel.DB.Compression
                        Cardano.Wallet.Kernel.DB.HdWallet
                        Cardano.Wallet.Kernel.DB.HdWallet.Create
                        Cardano.Wallet.Kernel.DB.HdWallet.Delete
@@ -408,7 +409,9 @@ test-suite wallet-unit-tests
   ghc-options:        -Wall -O2 -threaded
   type:               exitcode-stdio-1.0
   main-is:            WalletUnitTest.hs
-  other-modules:      InputSelection.Evaluation
+  other-modules:      Arbitrary
+                      DeltaCompressionSpecs
+                      InputSelection.Evaluation
                       InputSelection.Evaluation.Events
                       InputSelection.Evaluation.Generic
                       InputSelection.Evaluation.Options
@@ -508,6 +511,7 @@ test-suite wallet-unit-tests
                     , cardano-sl-util
                     , cardano-sl-util-test
                     , cardano-sl-wallet-new
+                    , cereal
                     , constraints
                     , containers
                     , cryptonite
@@ -520,6 +524,7 @@ test-suite wallet-unit-tests
                     , QuickCheck
                     , quickcheck-instances
                     , safe-exceptions
+                    , safecopy
                     , reflection
                     , serokell-util
                     , servant-server

@@ -56,7 +56,7 @@ import qualified Formatting.Buildable
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
 import           Pos.Chain.Txp (Utxo)
-import           Pos.Core.Chrono (NewestFirst, OldestFirst (..))
+import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Txp (TxAux, TxId)
 import           Pos.Core.Update (SoftwareVersion)
 
@@ -79,7 +79,6 @@ import           Cardano.Wallet.Kernel.NodeStateAdaptor (SecurityParameter (..))
 import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId,
                      PrefilteredBlock (..), emptyPrefilteredBlock)
 import           Cardano.Wallet.Kernel.Util (markMissingMapEntries)
-import           Cardano.Wallet.Kernel.Util.StrictNonEmpty (StrictNonEmpty)
 
 {-------------------------------------------------------------------------------
   Top-level database
@@ -309,8 +308,8 @@ applyHistoricalBlock k context blocks =
             -- 'applyBlock' is not aware that we are restoring, it will create a
             -- new account in up-to-date state. If this happens, we rectify the
             -- situation here.
-            let updateHistory :: NewestFirst StrictNonEmpty PartialCheckpoint
-                              -> NewestFirst StrictNonEmpty Checkpoint
+            let updateHistory :: Checkpoints PartialCheckpoint
+                              -> Checkpoints Checkpoint
                               -> HdAccount
                 updateHistory current history' =
                   acc & hdAccountState .~ HdAccountStateIncomplete
@@ -320,8 +319,8 @@ applyHistoricalBlock k context blocks =
                       })
             case acc ^. hdAccountState of
               HdAccountStateUpToDate (HdAccountUpToDate upToDate) -> do
-                let current = fmap (view fromFullCheckpoint) upToDate
-                    history = one $ initCheckpoint mempty
+                let current = liftCheckpoints (fmap (view fromFullCheckpoint)) upToDate
+                    history = Checkpoints $ one $ initCheckpoint mempty
                 second (updateHistory current) $
                   Z.unwrap (Spec.applyBlock k pb) history
               HdAccountStateIncomplete (HdAccountIncomplete current history) ->
@@ -531,15 +530,15 @@ accountUpdateCreate accId (AccountUpdateNewUpToDate utxo) =
   where
     initState :: HdAccountState
     initState = HdAccountStateUpToDate HdAccountUpToDate {
-          _hdUpToDateCheckpoints = one $ initCheckpoint utxo
+          _hdUpToDateCheckpoints = Checkpoints $ one $ initCheckpoint utxo
         }
 accountUpdateCreate accId (AccountUpdateNewIncomplete curUtxo genUtxo) =
     HD.initHdAccount accId initState
   where
     initState :: HdAccountState
     initState = HdAccountStateIncomplete HdAccountIncomplete {
-          _hdIncompleteCurrent    = one $ initPartialCheckpoint curUtxo
-        , _hdIncompleteHistorical = one $ initCheckpoint        genUtxo
+          _hdIncompleteCurrent    = Checkpoints $ one $ initPartialCheckpoint curUtxo
+        , _hdIncompleteHistorical = Checkpoints $ one $ initCheckpoint        genUtxo
         }
 
 updateAccount :: AccountUpdate e a -> Update' e HdWallets (HdAccountId, a)

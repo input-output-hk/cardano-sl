@@ -163,7 +163,7 @@ let
       paths = attrValues (filterAttrs (name: drv: localLib.isCardanoSL name) cardanoPkgs);
       ignoreCollisions = true;
     };
-    mkDocker = { environment, connectArgs ? {} }: import ./docker.nix { inherit environment connect gitrev pkgs connectArgs; };
+    mkDocker = { environment, name ? "wallet", connectArgs ? {} }: import ./docker.nix { inherit environment name connect gitrev pkgs connectArgs; };
     stack2nix = import (pkgs.fetchFromGitHub {
       owner = "avieth";
       repo = "stack2nix";
@@ -190,6 +190,9 @@ let
       mainnet.wallet = mkDocker { environment = "mainnet"; };
       staging.wallet = mkDocker { environment = "mainnet-staging"; };
       testnet.wallet = mkDocker { environment = "testnet"; };
+      mainnet.explorer = mkDocker { environment = "mainnet"; name = "explorer"; connectArgs = { executable = "explorer"; }; };
+      staging.explorer = mkDocker { environment = "mainnet-staging"; name = "explorer"; connectArgs = { executable = "explorer"; }; };
+      testnet.explorer = mkDocker { environment = "testnet"; name = "explorer"; connectArgs = { executable = "explorer"; }; };
     };
 
     cardano-sl-config = pkgs.runCommand "cardano-sl-config" {} ''

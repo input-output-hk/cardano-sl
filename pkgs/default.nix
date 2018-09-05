@@ -15782,6 +15782,7 @@ license = stdenv.lib.licenses.mit;
 "cardano-sl-core-test" = callPackage
 ({
   mkDerivation
+, aeson
 , base
 , base16-bytestring
 , bytestring
@@ -15795,21 +15796,17 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-util-test
 , containers
 , cryptonite
-, cryptonite-openssl
 , data-default
 , ed25519
 , formatting
 , generic-arbitrary
 , hedgehog
-, hspec
-, mtl
 , pvss
 , QuickCheck
 , quickcheck-instances
 , random
 , serokell-util
 , stdenv
-, tagged
 , text
 , time-units
 , universum
@@ -15819,13 +15816,14 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-core-test";
-version = "1.3.1";
+version = "1.3.0";
 src = ./../core/test;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
+aeson
 base
 base16-bytestring
 bytestring
@@ -15839,20 +15837,16 @@ cardano-sl-util
 cardano-sl-util-test
 containers
 cryptonite
-cryptonite-openssl
 data-default
 ed25519
 formatting
 generic-arbitrary
 hedgehog
-hspec
-mtl
 pvss
 QuickCheck
 quickcheck-instances
 random
 serokell-util
-tagged
 text
 time-units
 universum

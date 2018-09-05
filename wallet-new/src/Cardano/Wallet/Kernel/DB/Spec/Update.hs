@@ -29,7 +29,6 @@ import qualified Formatting.Buildable
 import           Serokell.Util (listJsonIndent)
 import           Test.QuickCheck (Arbitrary (..), elements)
 
-import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Txp (Utxo)
 import qualified Pos.Core as Core
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
@@ -86,8 +85,8 @@ instance Arbitrary NewForeignFailed where
     arbitrary = pure . NewForeignInputsAvailable . InDb $ mempty
 
 -- | Errors thrown by 'applyBlock'
-data ApplyBlockFailed
-    = ApplyBlockNotSuccessor BlockContext (Maybe BlockContext)
+data ApplyBlockFailed =
+      ApplyBlockNotSuccessor BlockContext (Maybe BlockContext)
       -- ^ The block we're trying to apply does not fit onto the previous
       --
       -- This indicates that the wallet has fallen behind the node (for example,
@@ -96,15 +95,6 @@ data ApplyBlockFailed
       --
       -- We record  the context of the block we're trying to apply and the
       -- context of the most recent checkpoint.
-    | CouldNotReachCheckpoint BlockContext
-      -- ^ While trying to backfill missing blocks, we found that the last known
-      -- block was not an ancestor of the block to apply.
-    | CouldNotFindBlockForHeader HeaderHash
-      -- ^ While trying to backfill missing blocks, we got a header that did not
-      -- correspond to a known block.
-    | NotAMainBlock HeaderHash
-      -- ^ While trying to backfill missing blocks, we got a header that did not
-      -- correspond to a main block.
 
 deriveSafeCopy 1 'base ''ApplyBlockFailed
 
@@ -117,24 +107,6 @@ instance Buildable ApplyBlockFailed where
         )
         context
         checkpoint
-    build (CouldNotReachCheckpoint context) = bprint
-        ("CouldNotReachCheckpoint "
-        % "{ context: " % build
-        % " }"
-        )
-        context
-    build (CouldNotFindBlockForHeader hh) = bprint
-        ("CouldNotFindBlockForHeader "
-        % "{ header hash: " % build
-        % " }"
-        )
-        hh
-    build (NotAMainBlock hh) = bprint
-        ("NotAMainBlock "
-        % "{ header hash: " % build
-        % " }"
-        )
-        hh
 
 instance Arbitrary ApplyBlockFailed where
    arbitrary = elements []

@@ -14748,6 +14748,7 @@ license = stdenv.lib.licenses.bsd3;
 , http-conduit
 , http-types
 , lens
+, lifted-async
 , memory
 , mmorph
 , monad-control
@@ -14844,6 +14845,7 @@ http-client-tls
 http-conduit
 http-types
 lens
+lifted-async
 memory
 mmorph
 monad-control

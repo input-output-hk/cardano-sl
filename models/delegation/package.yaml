@@ -30,6 +30,8 @@ tests:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -Wall
+    - -Werror
     dependencies:
     - delegation
     - containers

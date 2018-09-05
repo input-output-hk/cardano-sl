@@ -1,5 +1,6 @@
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Delegation where
 
@@ -175,6 +176,7 @@ data LedgerState =
   , getEpoch :: Int
   } deriving (Show, Eq)
 
+genesisId :: TxId
 genesisId = TxId $ hash "in the begining"
 
 genesisState :: [TxOut] -> LedgerState
@@ -216,9 +218,10 @@ witnessTxin (Tx txBody (Wits ws _)) l =
   where
     utxo = getUtxo l
     ins = inputs txBody
-    hasWitness ws input = isJust $ find (isWitness txBody input utxo) ws
-    isWitness tb inp utxo (WitTxin key sig) =
-      verify key tb sig && authTxin key inp utxo
+    hasWitness witnesses input =
+      isJust $ find (isWitness txBody input utxo) witnesses
+    isWitness tb inp unspent (WitTxin key sig) =
+      verify key tb sig && authTxin key inp unspent
 
 authCert :: VKey -> Cert -> Bool
 authCert key cert = getRequiredSigningKey cert == key
@@ -230,11 +233,12 @@ witnessCert (Tx txBody (Wits _ ws)) =
     else Invalid [InsuffientTxWitnesses]
   where
     cs = certs txBody
-    hasWitness ws cert = isJust $ find (isWitness txBody cert) ws
-    isWitness txBody cert (WitCert key sig) =
-      verify key txBody sig && authCert key cert
+    hasWitness witnesses cert = isJust $ find (isWitness txBody cert) witnesses
+    isWitness txBdy cert (WitCert key sig) =
+      verify key txBdy sig && authCert key cert
 --TODO combine with witnessTxin?
 
+maxEpochRetirement :: Int
 maxEpochRetirement = 100 -- TODO based on k? find a realistic value
 
 validCert :: LedgerState -> Cert -> Validity
@@ -256,19 +260,19 @@ validCert ls (Delegate (Delegation _ poolKey)) =
   then Valid
   else Invalid [BadDelegation]
 
-validCert ls (RegPool sp) =
+validCert _ (RegPool _) =
   if True -- What exactly is being signed?
   then Valid
   else Invalid [BadPoolRegistration]
 
-validCert ls (RetirePool key epoch) =
+validCert ls (RetirePool _ epoch) =
   if (getEpoch ls) < epoch && epoch < maxEpochRetirement
   then Valid
   else Invalid [BadPoolRetirement]
   -- TODO What exactly is being signed?
 
 validCerts :: Tx -> LedgerState -> Validity
-validCerts (Tx (TxBody _ _ certs) _) ls = foldMap (validCert ls) certs
+validCerts (Tx (TxBody _ _ cs) _) ls = foldMap (validCert ls) cs
 
 valid :: Tx -> LedgerState -> Validity
 valid tx l =
@@ -327,5 +331,6 @@ delegatedStake ls = Map.fromListWith mappend delegatedOutputs
     addStake delegations (TxOut (AddrTxin _ hsk) c) = do
       pool <- Map.lookup (HashKey hsk) delegations
       return (pool, c)
+    addStake _ _ = Nothing
     outs = getOutputs . getUtxo $ ls
     delegatedOutputs = mapMaybe (addStake (getDelegations ls)) outs

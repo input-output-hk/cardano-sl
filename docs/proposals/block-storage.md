@@ -25,90 +25,89 @@ lower bound).
 
 ## The requirements
 
-An obvious solution is **storing all blocks in RocksDB** (a key–value
-database that we are using). Indeed, a long time ago we had all blocks
-stored in RocksDB – but we switched from that to storing each block in a
-different file. Storing blocks in RocksDB has several related disadvantages:
+Here's a list of requirements for a good solution:
 
-  * If you want to back the database up you would have to copy the blocks as
-    well, while in reality the blocks can always be redownloaded and we
-    don't care much about losing them.
+  * R1. Store blocks separately from the main database.
 
-  * A hard drive failure has a much bigger chance to corrupt the database,
-    if the database contains lots of data (blocks).
+  * R2. Fast lookup by header hash.
+  
+  * R3. Fast sequential iteration
 
-So, here's a list of requirements for a good solution:
+  * R4. A solution should be stable to corruptions
 
-  * We'd like to store blocks separately from the main database.
+  * R5. Apply compression to the blocks, and since each block isn't
+        very well compressible on its own, the solution should use either
+        dictionary compression or compress all blocks as a whole.
+    
+  * R6. Solution should be easy to implement and maintain
 
-  * We want fast lookup by header hash.
+## Possible solutions
 
-  * We'd like to store them in batches (e.g. one batch = one epoch), so that
-    corruption of one batch wouldn't affect other batches.
+### Storing all blocks in one RocksDB
 
-  * We want to apply compression to the blocks, and since each block isn't
-    very well compressible on its own, the solution should use either
-    dictionary compression or compress all blocks as a whole.
+  1. New RocksDB for blocks. Enable out of a box compression with dictionary.
+  
+  2. When a new block comes, add it along with undo to this database by header hash.
 
-  * It'd be good to be able to reuse somebody else's code, because generally
-    there are lots of non-obvious problems with files (e.g. whenever you're
-    modifying a file and want to protect against power failure, you should
-    use `flush` in the right way – and it's very easy to forget about that).
+Such solution satisfies R1, R2, R5 and R6.
+Also there is a way to achieve R3, it will be described in the next chapter.
 
-## The solution
-
-Out of all considered solutions (SQLite, storing blocks in an archive, CBOR
-map, some database) it seems that the ideal solution is very simple: 
+### One RocksDB per epoch
 
   1. Create a new RocksDB database for each epoch, with keys = hashes and
-     values = blocks. Enable compression with dictionary.
+     values = blocks. Enable out of a box compression with dictionary.
 
   2. Store a map `hash -> epoch` in some other database (e.g. “blockindex”).
 
-  3. When a new block comes, add it to the database and to the index map.
+  3. When a new block comes, add it along with undo to the database and to the index map.
+  
+This solution satisfies R1, R2, R4, R5.
+Also there is the same way to achieve R3 like for **Storing all blocks in one RocksDB**.
+  
+### One plain file per epoch
 
-The pros are:
-  * almost no new code to write
-  * fast lookups
-  * no new dependencies
-  * compression out of the box
-  * checksumming out of the box
-  * whole database can be uploaded/downloaded pretty easily
+  1. Create a new file for each epoch.
+  
+  2. Store epoch's blocks (along with undo) in plain file sequentially.
+  
+  3. Support a map `hash -> position in a file` in some other database (e.g. "blockindex")
 
-## Why not just one database?
+Such solution satisfies R1, R2, R3 and R4, however, it's harder to do compression (R5) and it's hard to implement and maintain (R6).
 
-Admittedly, storing all blocks in one RocksDB database is even easier than
-storing them in several databases, if only because we don't have to maintain
-a `hash -> epoch` map. However, there are two good arguments for splitting
-the database:
+### The best solution
+It seems that the third solution can satisfy all R1-R6 requirements, however, 
+it's harder than it may seem. Managing all this stuff (like positions, files and compression) can cause a lot of pain for us.
 
-  1. **With a split database, we won't have to redownload the whole
-     blockchain if hard drive corruption happens.**
+The third solution looks very similar to the first one and it has stable to corruption unlike the first one,
+but it's very questionable whether we should be worried about stableness to corruptions, probably user himself should care about it.
 
-     It might seem that we shouldn't actually care that much about blocks,
-     because they can be redownloaded at any time. However, it doesn't mean
-     we shouldn't care about them *at all* – downloading the blockchain is a
-     slow operation (for Ethereum it can take up to a day even on a fast
-     connection), and it's entirely possible that we will have users with
-     slow connections and big, cheap, unreliable hard drives. Dividing the
-     blockchain into epochs is a nice tradeoff.
+So in result, it seems that we should go by the easiest way and implement the first approach.
 
-     (It is also the tradeoff that Bitcoin makes, for instance.)
+## Sequential iteration hack
 
-  2. **A split database provides more flexibility for users.**
+As it was mentioned in the previous section, 
+there is a way to achieve fast sequential iteration for the approach based on storing blocks in RocksDB.
+This ways is a little bit tricky, but I am sure it should be at least mentioned.
 
-     When the storage format isn't monolithic, it gives users some freedom
-     to adjust it to their circumstances:
+So, first of all, let's clarify the problem. Currently, all sequential iterations and loading are implemented in such way: 
+we iterate over header hashes and get required data by this header hash. 
+Getting data by header hash is random access operation and may take significant time 
+(it should be measured how much it really takes, there is [CSL-2350](https://iohk.myjetbrains.com/youtrack/issue/CSL-2350) for it).
 
-       * For instance, a user (e.g. an exchange) could write a simple script
-         to store old epochs on a RAID array and the latest epoch – on an
-         SSD.
+The hack is let's construct key of block (along with undo) as concationation of the following strings:
+  1. Unique prefix for blocks' keys, for instance `f/`
+  2. Char corresponding to `log₁₀(block's difficulty)`. 
+     So the idea is to match to bigger difficulties chars with bigger codes and vice versa.
+     Then blocks with smaller difficulty will follow earlier.
+  3. Block's difficulty written as string, for instance difficulty `123` will turn into `"123"` string.
+  4. Block's header hash
+  
+To get access to block by header hash we first of all need to get its header (which contains difficulty) from "blocindex", 
+construct key for block using suggested approach and then get a block from database.
 
-       * A trusted party (i.e. trusted by a particular group of users and
-         not necessarily by the whole community) could distribute a torrent
-         containing the first N epochs, and then everyone would just
-         download the missing blocks.
+Sequential iteration over blockchain starting with specified header hash can be implemented using `iterSeek` 
+and either `iterNext` for forward iteration or `iterPrev` for backward iteration.
 
-       * Somebody could want to keep an incremental backup of the blockchain
-         on a portable hard drive (an incremental backup, of course, becomes
-         much harder to perform with a monolithic database).
+This hack is useful when getting blocks by header hash isn't a frequent operation, 
+this assumption seems to be applied to our case.
+

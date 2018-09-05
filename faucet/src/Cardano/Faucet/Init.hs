@@ -96,7 +96,7 @@ completelySynced = mkSyncPercentage 100
 
 -- | Looks up the 'SyncPercentage' using 'getNodeInfo' from the 'WalletClient'
 getSyncState
-    :: (HasLoggerName m, MonadIO m)
+    :: (Monad m)
     => WalletClient m
     -> m (Either ClientError SyncPercentage)
 getSyncState client = do
@@ -106,7 +106,7 @@ getSyncState client = do
 --------------------------------------------------------------------------------
 
 listToEitherT
-    :: (HasLoggerName m, CanLog m, MonadIO m)
+    :: (HasLoggerName m, CanLog m)
     => e -> Text -> Text -> [a] -> ExceptT e m a
 listToEitherT err errMsg successMsg as = case as of
     [a] -> logInfo successMsg >> return a
@@ -120,7 +120,7 @@ runClient
 runClient err m = ExceptT $ (fmap (first err)) $ fmap (fmap wrData) m
 
 getOneAddress
-  :: (HasLoggerName m, CanLog m, MonadIO m)
+  :: (HasLoggerName m, CanLog m)
   => WalletId
   -> Account
   -> ExceptT InitFaucetError m WalletAddress
@@ -198,7 +198,7 @@ writeCreatedWalletInfo fp cw = do
 --
 -- Fails with 'CouldntReadBalance'
 readWalletBalance
-    :: (HasLoggerName m, CanLog m, MonadIO m)
+    :: (CanLog m)
     => WalletClient m
     -> PaymentSource
     -> ExceptT InitFaucetError m Int64
@@ -233,7 +233,7 @@ monitorWalletBalance fEnv = do
 --
 -- Fails with 'BadAddress'
 readReturnAddress
-    :: (HasLoggerName m, CanLog m, MonadIO m)
+    :: (HasLoggerName m, CanLog m)
     => WalletClient m
     -> PaymentSource
     -> ExceptT InitFaucetError m (V1 Address)

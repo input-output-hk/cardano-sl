@@ -42,7 +42,7 @@ prop_randomAmount pd = monadicIO $ do
     between (PaymentDistribution m s) c = c <= m + s
                                       && c >= m - s
 
-prop_aeson_id :: (Arbitrary a, ToJSON a, FromJSON a, Eq a) => a -> Bool
+prop_aeson_id :: (ToJSON a, FromJSON a, Eq a) => a -> Bool
 prop_aeson_id a = Just a == (decode $ encode a)
 
 

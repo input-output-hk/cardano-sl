@@ -50,12 +50,13 @@ import           System.Wlog (CanLog, HasLoggerName, LoggerNameBox (..),
                      liftLogIO, logDebug, logError, logInfo, withSublogger)
 
 import           Cardano.Wallet.API.V1.Types (Account (..), Address,
-                     AssuranceLevel (NormalAssurance), BackupPhrase (..), ForceNtpCheck(..),
-                     NewWallet (..), NodeInfo (..), Payment (..),
-                     PaymentDistribution (..), PaymentSource (..),
-                     SyncPercentage, V1 (..), Wallet (..), WalletAddress (..),
-                     WalletId, WalletOperation (CreateWallet),
-                     mkSyncPercentage, txAmount, unV1)
+                     AssuranceLevel (NormalAssurance), BackupPhrase (..),
+                     ForceNtpCheck (..), NewWallet (..), NodeInfo (..),
+                     Payment (..), PaymentDistribution (..),
+                     PaymentSource (..), SyncPercentage, V1 (..), Wallet (..),
+                     WalletAddress (..), WalletId,
+                     WalletOperation (CreateWallet), mkSyncPercentage,
+                     txAmount, unV1)
 import           Cardano.Wallet.Client (ClientError (..), WalletClient (..),
                      WalletResponse (..), liftClient)
 import           Cardano.Wallet.Client.Http (mkHttpClient)

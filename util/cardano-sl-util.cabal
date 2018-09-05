@@ -79,10 +79,10 @@ library
                      , hashable
                      , katip
                      , lens
-                     , log-warper >= 1.0.3
                      , lrucache
                      , megaparsec
                      , mmorph
+                     , monad-control
                      , mtl
                      , optparse-applicative
                      , parsec
@@ -98,6 +98,7 @@ library
                      , time
                      , time-units
                      , transformers
+                     , transformers-base
                      , transformers-lift
                      , universum
                      , unliftio-core

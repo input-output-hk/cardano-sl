@@ -202,7 +202,7 @@ logMessageS severity lh t =
 -- Secure buildables
 ----------------------------------------------------------------------------
 
--- * Secutity log levels
+-- * Security log levels
 
 -- Stuff below provides way to use different @instance Buildable@ for writing
 -- to secret and public logs.

@@ -8,17 +8,17 @@ import           Test.Hspec (Spec, describe, it)
 import           Test.Hspec.QuickCheck (modifyMaxSize, modifyMaxSuccess)
 import           Test.QuickCheck.Monadic (monadicIO)
 
+import           Pos.Util.Log.LoggerConfig (defaultInteractiveConfiguration)
 import           Pos.Util.Wlog
 
 someLogging :: IO ()
 someLogging = do
-    setupLogging Nothing loggerConfig
+    setupLogging loggerConfig
     usingLoggerName "testing" $ do
         testLog
   where
     loggerConfig :: LoggerConfig
-    loggerConfig = termSeveritiesOutB debugPlus
-                <> consoleActionB defaultHandleAction
+    loggerConfig = defaultInteractiveConfiguration Debug
 
 testLog :: (MonadIO m, WithLogger m) => m ()
 testLog = do

@@ -59,8 +59,18 @@ main = do
     --     Try `cardano-integration-test --help' for more information.
     --
     -- See also: https://github.com/hspec/hspec/issues/135
-    withArgs [] $ do
+
+    let optionsFromAbove = case (testRunnerMatch, testRunnerSeed) of
+            (Nothing, Nothing)      -> []
+            (Nothing, Just seed)    -> ["--seed", show seed]
+            (Just match, Nothing)   -> ["-m", match]
+            (Just match, Just seed) -> ["-m", match, "--seed", show seed]
+
+    withArgs optionsFromAbove  $ do
         printT "Starting deterministic tests."
+        printT $ "match from options: " <> show testRunnerMatch
+        printT $ "seed from options: " <> show testRunnerSeed
+
         hspec $ deterministicTests wRef walletClient manager
 
         printT $ "The 'runActionCheck' tests were disabled because they were highly un-reliable."

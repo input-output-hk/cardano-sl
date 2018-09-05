@@ -7,7 +7,10 @@ import           Universum
 
 import           Cardano.Wallet.Client.Http
 import           Control.Lens
+import           Functions (randomTest)
 import           Test.Hspec
+import           Test.QuickCheck.Monadic (run)
+
 
 import           Util
 
@@ -15,34 +18,36 @@ import           Util
 addressSpecs :: WalletRef -> WalletClient IO -> Spec
 addressSpecs wRef wc = do
     describe "Addresses" $ do
-        it "Creating an address makes it available" $ do
+
+        randomTest "Creating an address makes it available" 1 $ do
             -- create a wallet
-            Wallet{..} <- sampleWallet wRef wc
+            Wallet{..} <- run $ sampleWallet wRef wc
 
             -- create an account
-            accResp <- postAccount wc walId (NewAccount Nothing "hello")
-            acc@Account{..} <- wrData <$> accResp `shouldPrism` _Right
+            accResp <- run $ postAccount wc walId (NewAccount Nothing "hello")
+            acc@Account{..} <- run $ wrData <$> accResp `shouldPrism` _Right
 
             -- accounts should exist
-            accResp' <- getAccounts wc walId
-            accs <- wrData <$> accResp' `shouldPrism` _Right
-            accs `shouldContain` [acc]
+            accResp' <- run $ getAccounts wc walId
+            accs <- run $ wrData <$> accResp' `shouldPrism` _Right
+            liftIO $ accs `shouldContain` [acc]
 
             -- create an address
-            addResp <- postAddress wc (NewAddress Nothing accIndex walId)
-            addr <- wrData <$> addResp `shouldPrism` _Right
+            addResp <- run $ postAddress wc (NewAddress Nothing accIndex walId)
+            addr <- run $ wrData <$> addResp `shouldPrism` _Right
 
             -- verify that address is in the API
-            idxResp <- getAddressIndex wc
-            addrs <- wrData <$> idxResp `shouldPrism` _Right
+            idxResp <- run $ getAddressIndex wc
+            addrs <- run $ wrData <$> idxResp `shouldPrism` _Right
 
-            map addrId addrs `shouldContain` [addrId addr]
+            liftIO $ map addrId addrs `shouldContain` [addrId addr]
 
-        it "Index returns real data" $ do
-            addrsResp <- getAddressIndex wc
-            addrs <- wrData <$> addrsResp `shouldPrism` _Right
 
-            addrsResp' <- getAddressIndex wc
-            addrs' <- wrData <$> addrsResp' `shouldPrism` _Right
+        randomTest "Index returns real data" 1 $ do
+            addrsResp <- run $ getAddressIndex wc
+            addrs <- run $ wrData <$> addrsResp `shouldPrism` _Right
 
-            addrs `shouldBe` addrs'
+            addrsResp' <- run $ getAddressIndex wc
+            addrs' <- run $ wrData <$> addrsResp' `shouldPrism` _Right
+
+            liftIO $ addrs `shouldBe` addrs'

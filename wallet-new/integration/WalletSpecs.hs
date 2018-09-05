@@ -7,73 +7,78 @@ import           Universum
 
 import           Cardano.Wallet.Client.Http
 import           Control.Lens
+import           Functions (randomTest)
 import           Test.Hspec
+import           Test.QuickCheck.Monadic (run)
 
 import           Util
 
 
 walletSpecs :: WalletRef -> WalletClient IO -> Spec
 walletSpecs _ wc =
+
     describe "Wallets" $ do
-        it "Creating a wallet makes it available." $ do
-            newWallet <- randomWallet CreateWallet
-            Wallet{..} <- createWalletCheck wc newWallet
 
-            eresp <- getWallet wc walId
-            void $ eresp `shouldPrism` _Right
+        randomTest "Creating a wallet makes it available." 1 $ do
+            newWallet <- run $ randomWallet CreateWallet
+            Wallet{..} <- run $ createWalletCheck wc newWallet
 
-        it "Updating a wallet persists the update" $ do
-            newWallet <- randomWallet CreateWallet
-            wallet <- createWalletCheck wc newWallet
+            eresp <- run $ getWallet wc walId
+            liftIO $ void $ eresp `shouldPrism` _Right
+
+        randomTest "Updating a wallet persists the update" 1 $ do
+            newWallet <- run $ randomWallet CreateWallet
+            wallet <- run $ createWalletCheck wc newWallet
             let newName = "Foobar Bazquux"
                 newAssurance = NormalAssurance
-            eupdatedWallet <- updateWallet wc (walId wallet) WalletUpdate
+            eupdatedWallet <- run $ updateWallet wc (walId wallet) WalletUpdate
                 { uwalName = newName
                 , uwalAssuranceLevel = newAssurance
                 }
-            Wallet{..} <- wrData <$> eupdatedWallet `shouldPrism` _Right
-            walName `shouldBe` newName
-            walAssuranceLevel `shouldBe` newAssurance
+            Wallet{..} <- run $ wrData <$> eupdatedWallet `shouldPrism` _Right
+            liftIO $ walName `shouldBe` newName
+            liftIO $ walAssuranceLevel `shouldBe` newAssurance
 
-        it "CreateWallet with the same mnemonics rises WalletAlreadyExists error" $
+        randomTest "CreateWallet with the same mnemonics rises WalletAlreadyExists error" 1 $ do
             testWalletAlreadyExists CreateWallet
 
-        it "RestoreWallet with the same mnemonics throws WalletAlreadyExists" $
+        randomTest "RestoreWallet with the same mnemonics throws WalletAlreadyExists" 1 $ do
             testWalletAlreadyExists RestoreWallet
 
-        it "Can accept Unicode characters" $ do
-            newWallet <- randomWallet CreateWallet
-            wallet <- createWalletCheck wc newWallet
+        randomTest "Can accept Unicode characters" 1 $ do
+            newWallet <- run $ randomWallet CreateWallet
+            wallet <- run $ createWalletCheck wc newWallet
 
-            eresp <- updateWallet wc (walId wallet) WalletUpdate
+            eresp <- run $ updateWallet wc (walId wallet) WalletUpdate
                 { uwalName = "patate漢patate字patat"
                 , uwalAssuranceLevel = NormalAssurance
                 }
 
-            eresp `shouldPrism_` _Right
+            liftIO $ eresp `shouldPrism_` _Right
 
-        it "creating wallet gives rise to an empty Utxo histogram" $ do
-            newWallet <- randomWallet CreateWallet
-            wallet <- createWalletCheck wc newWallet
+        randomTest "creating wallet gives rise to an empty Utxo histogram" 1 $ do
+            newWallet <- run $ randomWallet CreateWallet
+            wallet <- run $ createWalletCheck wc newWallet
 
-            eresp <- getUtxoStatistics wc (walId wallet)
-            utxoStatistics <- fmap wrData eresp `shouldPrism` _Right
+            eresp <- run $ getUtxoStatistics wc (walId wallet)
+            utxoStatistics <- run $ fmap wrData eresp `shouldPrism` _Right
             let utxoStatisticsExpected = computeUtxoStatistics log10 []
-            utxoStatistics `shouldBe` utxoStatisticsExpected
+            liftIO $ utxoStatistics `shouldBe` utxoStatisticsExpected
+
   where
     testWalletAlreadyExists action = do
-            newWallet1 <- randomWallet action
-            preWallet2 <- randomWallet action
+            newWallet1 <- run $ randomWallet action
+            preWallet2 <- run $ randomWallet action
             let newWallet2 =
                     preWallet2
                         { newwalBackupPhrase = newwalBackupPhrase newWallet1
                         }
             -- First wallet creation/restoration should succeed
-            result <- postWallet wc newWallet1
-            wallet <- fmap wrData (result `shouldPrism` _Right)
+            result <- run $ postWallet wc newWallet1
+            wallet <- run $ fmap wrData (result `shouldPrism` _Right)
             -- Second wallet creation/restoration should rise WalletAlreadyExists
-            eresp <- postWallet wc newWallet2
-            clientError <- eresp `shouldPrism` _Left
-            clientError
+            eresp <- run $ postWallet wc newWallet2
+            clientError <- run $ eresp `shouldPrism` _Left
+            liftIO $ clientError
                 `shouldBe`
                     ClientWalletError (WalletAlreadyExists (walId wallet))

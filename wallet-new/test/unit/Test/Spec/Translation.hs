@@ -8,12 +8,13 @@ import qualified Data.Set as Set
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, shown, (%))
 import           Pos.Core.Chrono
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 import           Serokell.Util (mapJson)
 import           Test.Hspec.QuickCheck
 
 import qualified Pos.Block.Error as Cardano
-import qualified Pos.Txp.Toil as Cardano
 import           Pos.Core (Coeff (..), TxSizeLinear (..), getCoin)
+import qualified Pos.Txp.Toil as Cardano
 
 import           Test.Infrastructure.Generator
 import           Test.Infrastructure.Genesis
@@ -32,26 +33,37 @@ import           UTxO.Translate
 
 spec :: Spec
 spec = do
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm = do
     describe "Translation sanity checks" $ do
       it "can construct and verify empty block" $
-        intAndVerifyPure linearFeePolicy emptyBlock `shouldSatisfy` expectValid
+        intAndVerifyPure pm linearFeePolicy emptyBlock `shouldSatisfy` expectValid
 
       it "can construct and verify block with one transaction" $
-        intAndVerifyPure linearFeePolicy oneTrans `shouldSatisfy` expectValid
+        intAndVerifyPure pm linearFeePolicy oneTrans `shouldSatisfy` expectValid
 
       it "can construct and verify example 1 from the UTxO paper" $
-        intAndVerifyPure linearFeePolicy example1 `shouldSatisfy` expectValid
+        intAndVerifyPure pm linearFeePolicy example1 `shouldSatisfy` expectValid
 
       it "can reject overspending" $
-        intAndVerifyPure linearFeePolicy overspend `shouldSatisfy` expectInvalid
+        intAndVerifyPure pm linearFeePolicy overspend `shouldSatisfy` expectInvalid
 
       it "can reject double spending" $
-        intAndVerifyPure linearFeePolicy doublespend `shouldSatisfy` expectInvalid
+        intAndVerifyPure pm linearFeePolicy doublespend `shouldSatisfy` expectInvalid
 
     describe "Translation QuickCheck tests" $ do
       prop "can translate randomly generated chains" $
         forAll
-          (intAndVerifyGen (genChainUsingModel . cardanoModel linearFeePolicy))
+          (intAndVerifyGen pm (genChainUsingModel . cardanoModel linearFeePolicy))
           expectValid
 
   where
@@ -171,27 +183,31 @@ overestimate getFee ins outs = getFee ins (replicate outs (getCoin maxBound))
   Verify chain
 -------------------------------------------------------------------------------}
 
-intAndVerifyPure :: TxSizeLinear
+intAndVerifyPure :: ProtocolMagic
+                 -> TxSizeLinear
                  -> (GenesisValues GivenHash -> Chain GivenHash Addr)
                  -> ValidationResult GivenHash Addr
-intAndVerifyPure txSizeLinear pc = runIdentity $ intAndVerify (Identity . pc . genesisValues txSizeLinear)
+intAndVerifyPure pm txSizeLinear pc = runIdentity $
+    intAndVerify pm (Identity . pc . genesisValues txSizeLinear)
 
 -- | Specialization of 'intAndVerify' to 'Gen'
-intAndVerifyGen :: (Transaction GivenHash Addr -> Gen (Chain GivenHash Addr))
-                -> Gen (ValidationResult GivenHash Addr)
+intAndVerifyGen :: ProtocolMagic -> (Transaction GivenHash Addr
+                -> Gen (Chain GivenHash Addr)) -> Gen (ValidationResult GivenHash Addr)
 intAndVerifyGen = intAndVerify
 
 -- | Specialization of 'intAndVerifyChain' to 'GivenHash'
 intAndVerify :: Monad m
-             => (Transaction GivenHash Addr -> m (Chain GivenHash Addr))
+             => ProtocolMagic
+             -> (Transaction GivenHash Addr -> m (Chain GivenHash Addr))
              -> m (ValidationResult GivenHash Addr)
 intAndVerify = intAndVerifyChain
 
 -- | Interpret and verify a chain.
 intAndVerifyChain :: (Hash h Addr, Monad m)
-                  => (Transaction h Addr -> m (Chain h Addr))
+                  => ProtocolMagic
+                  -> (Transaction h Addr -> m (Chain h Addr))
                   -> m (ValidationResult h Addr)
-intAndVerifyChain pc = runTranslateT $ do
+intAndVerifyChain pm pc = runTranslateT pm $ do
     boot  <- asks bootstrapTransaction
     chain <- lift $ pc boot
     let ledger      = chainToLedger boot chain

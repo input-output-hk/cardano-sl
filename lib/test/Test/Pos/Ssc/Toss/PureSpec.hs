@@ -8,23 +8,36 @@ import           Universum
 
 import qualified Crypto.Random as Rand
 import           Data.Default (def)
-import           Test.Hspec (Spec, describe)
+import           Test.Hspec (Spec, describe, runIO)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Arbitrary (..), Gen, Property, forAll, listOf, suchThat, (===))
+import           Test.QuickCheck (Arbitrary (..), Gen, Property, arbitrary, forAll, generate,
+                                  listOf, suchThat, (===))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Ssc ()
 import           Pos.Core (EpochOrSlot, HasConfiguration, InnerSharesMap, Opening, SignedCommitment,
                            StakeholderId, VssCertificate (..), addressHash)
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 import qualified Pos.Ssc.Toss.Class as Toss
 import qualified Pos.Ssc.Toss.Pure as Toss
 import qualified Pos.Ssc.Types as Toss
 
-import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Configuration (withProvidedMagicConfig)
 import           Test.Pos.Core.Arbitrary ()
 
 spec :: Spec
-spec = withDefConfiguration $ \_ -> describe "Toss" $ do
+spec = do
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm = withProvidedMagicConfig pm $ do
     let smaller n = modifyMaxSuccess (const n)
     describe "PureToss" $ smaller 30 $ do
         prop "Adding and deleting a signed commitment in the 'PureToss' monad is the\

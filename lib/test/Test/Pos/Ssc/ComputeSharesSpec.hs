@@ -10,25 +10,37 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 import           Data.Reflection (Reifies (..))
-import           Test.Hspec (Expectation, Spec, describe, shouldBe)
+import           Test.Hspec (Expectation, Spec, describe, runIO, shouldBe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Property, (.&&.), (===))
+import           Test.QuickCheck (Property, arbitrary, generate, (.&&.), (===))
 
 import           Pos.Core (Coin, CoinPortion, StakeholderId, mkCoin, unsafeAddressHash,
                            unsafeCoinPortionFromDouble, unsafeGetCoin, unsafeSubCoin)
 import           Pos.Core.Common (applyCoinPortionDown, sumCoins)
 import           Pos.Core.Ssc (SharesDistribution)
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 import           Pos.Lrc (RichmenStakes, RichmenType (RTUsual), findRichmenPure)
 import           Pos.Ssc (SscVerifyError, computeSharesDistrPure, isDistrInaccuracyAcceptable,
                           sharesDistrMaxSumDistr)
 
-import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Configuration (withProvidedMagicConfig)
 import           Test.Pos.Lrc.Arbitrary (GenesisMpcThd, InvalidRichmenStakes (..),
                                          ValidRichmenStakes (..))
 import           Test.Pos.Util.QuickCheck.Property (qcIsLeft)
 
 spec :: Spec
-spec = withDefConfiguration $ \_ -> describe "computeSharesDistr" $ do
+spec = do
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm = withProvidedMagicConfig pm $ describe "computeSharesDistr" $ do
     prop emptyRichmenStakesDesc emptyRichmenStakes
     modifyMaxSuccess (const 3) $
         prop invalidStakeErrorsDesc invalidStakeErrors

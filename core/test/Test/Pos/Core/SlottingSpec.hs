@@ -6,19 +6,31 @@ module Test.Pos.Core.SlottingSpec
 
 import           Universum
 
-import           Test.Hspec (Expectation, Spec, anyErrorCall, describe)
+import           Test.Hspec (Expectation, Spec, anyErrorCall, describe, runIO)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (NonNegative (..), Positive (..), Property, (===), (==>))
+import           Test.QuickCheck (NonNegative (..), Positive (..), Property, arbitrary, generate,
+                                  (===), (==>))
 
 import           Pos.Core (EpochOrSlot, HasConfiguration, SlotId (..), defaultCoreConfiguration,
                            flattenSlotId, unflattenSlotId, withGenesisSpec)
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 
 import           Test.Pos.Core.Arbitrary (EoSToIntOverflow (..), UnreasonableEoS (..))
-import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Property (shouldThrowException, (.=.))
 
 spec :: Spec
-spec = withGenesisSpec 0 (defaultCoreConfiguration dummyProtocolMagic) $ \_ -> describe "Slotting" $ do
+spec = do
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm = withGenesisSpec 0 (defaultCoreConfiguration pm) $ \_ -> describe "Slotting" $ do
     describe "SlotId" $ do
         describe "Ord" $ do
             prop "is consistent with flatten/unflatten"

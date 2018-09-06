@@ -12,11 +12,11 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Data.List.Extra (nubOrdOn)
 import           System.Random (mkStdGen, randomR)
-import           Test.Hspec (Spec, describe)
+import           Test.Hspec (Spec, describe, runIO)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (Arbitrary (..), Gen, NonEmptyList (..), Property, elements,
-                                  listOf, property, sublistOf, suchThat, vector, (.&&.), (===),
-                                  (==>))
+import           Test.QuickCheck (Arbitrary (..), Gen, NonEmptyList (..), Property, arbitrary,
+                                  elements, generate, listOf, property, sublistOf, suchThat, vector,
+                                  (.&&.), (===), (==>))
 
 import           Pos.Arbitrary.Ssc (BadCommAndOpening (..), BadSignedCommitment (..),
                                     CommitmentOpening (..))
@@ -27,8 +27,8 @@ import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), HasConfiguration,
 import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap (..), InnerSharesMap,
                                Opening, OpeningsMap, SharesMap, SignedCommitment,
                                mkCommitmentsMapUnsafe)
-import           Pos.Crypto (DecShare, PublicKey, SecretKey, SignTag (SignCommitment), sign,
-                             toPublic)
+import           Pos.Crypto (DecShare, ProtocolMagic (..), PublicKey, RequiresNetworkMagic (..),
+                             SecretKey, SignTag (SignCommitment), sign, toPublic)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Ssc (MultiRichmenStakes, PureTossWithEnv, SscGlobalState (..),
                           SscVerifyError (..), VssCertData (..), checkCertificatesPayload,
@@ -40,11 +40,22 @@ import           Pos.Ssc.Base (deleteSignedCommitment, verifyCommitment, verifyC
 import           Test.Pos.Lrc.Arbitrary (GenesisMpcThd, ValidRichmenStakes (..))
 import           Test.Pos.Util.QuickCheck.Property (qcElem, qcFail, qcIsRight)
 
-import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Configuration (withProvidedMagicConfig)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 spec :: Spec
-spec = withDefConfiguration $ \_ -> describe "Ssc.Base" $ do
+spec = do
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm = withProvidedMagicConfig pm $ describe "Ssc.Base" $ do
     describe "verifyCommitment" $ do
         prop description_verifiesOkComm verifiesOkComm
     describe "verifyCommitmentSignature" $ do

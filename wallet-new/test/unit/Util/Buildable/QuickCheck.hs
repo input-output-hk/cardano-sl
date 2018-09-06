@@ -10,6 +10,8 @@ module Util.Buildable.QuickCheck (
   , QC.Gen
   , QC.conjoin
   , QC.choose
+  , QC.generate
+  , QC.arbitrary
   ) where
 
 import qualified Test.QuickCheck as QC

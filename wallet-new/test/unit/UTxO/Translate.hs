@@ -32,6 +32,7 @@ import           Pos.Block.Error
 import           Pos.Block.Types
 import           Pos.Core
 import           Pos.Core.Chrono
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.Txp.Toil
@@ -49,7 +50,7 @@ import qualified UTxO.Verify as Verify
   configuration.yaml. It is specified by a 'GenesisSpec'.
 -------------------------------------------------------------------------------}
 
-import           Test.Pos.Configuration (withDefConfiguration, withDefUpdateConfiguration)
+import           Test.Pos.Configuration (withDefUpdateConfiguration, withProvidedMagicConfig)
 
 {-------------------------------------------------------------------------------
   Translation monad
@@ -95,13 +96,15 @@ instance Monad m => MonadGState (TranslateT e m) where
 --
 -- NOTE: This uses the default test configuration, and throws any errors as
 -- pure exceptions.
-runTranslateT :: Monad m => Exception e => TranslateT e m a -> m a
-runTranslateT (TranslateT ta) =
-    withDefConfiguration $ \pm ->
+runTranslateT :: Monad m => Exception e
+              => ProtocolMagic -> TranslateT e m a -> m a
+runTranslateT pm (TranslateT ta) =
+    withProvidedMagicConfig pm $
     withDefUpdateConfiguration $
-      let env :: TranslateEnv
+      let nm = NMNothing
+          env :: TranslateEnv
           env = TranslateEnv {
-                    teContext       = initContext (initCardanoContext pm)
+                    teContext       = initContext nm (initCardanoContext pm)
                   , teProtocolMagic = pm
                   , teConfig        = Dict
                   , teUpdate        = Dict
@@ -112,11 +115,11 @@ runTranslateT (TranslateT ta) =
               Right a -> return a
 
 -- | Specialization of 'runTranslateT'
-runTranslate :: Exception e => Translate e a -> a
-runTranslate = runIdentity . runTranslateT
+runTranslate :: Exception e => ProtocolMagic -> Translate e a -> a
+runTranslate pm = runIdentity . runTranslateT pm
 
 -- | Specialised form of 'runTranslate' when there can be no errors
-runTranslateNoErrors :: Translate Void a -> a
+runTranslateNoErrors :: ProtocolMagic -> Translate Void a -> a
 runTranslateNoErrors = runTranslate
 
 -- | Lift functions that want the configuration as type class constraints

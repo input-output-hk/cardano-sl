@@ -10,16 +10,17 @@ import           Universum
 import           Data.Default (def)
 import           Formatting (sformat, (%))
 import           Serokell.Data.Memory.Units (memory)
-import           Test.Hspec (Spec, describe)
+import           Test.Hspec (Spec, describe, runIO)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Discard (..), arbitrary)
+import           Test.QuickCheck (Discard (..), arbitrary, generate)
 import           Test.QuickCheck.Monadic (pick, stop)
 
 import           Pos.Binary (biSize)
 import           Pos.Client.Txp.Addresses (getFakeChangeAddress, getNewAddress)
+import           Pos.Configuration ()
 import           Pos.Core.Common (Address)
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
-import           Pos.Crypto (PassPhrase)
+import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
+import           Pos.Crypto (PassPhrase, ProtocolMagic (..), RequiresNetworkMagic (..))
 import           Pos.Launcher (HasConfigurations)
 
 import           Pos.Wallet.Web.Account (GenSeed (..), genUniqueAddress)
@@ -28,34 +29,50 @@ import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.Methods.Logic (newAccount)
 import           Pos.Wallet.Web.State (askWalletSnapshot, getWalletAddresses, wamAddress)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail)
-import           Test.Pos.Configuration (withDefConfigurations)
+import           Test.Pos.Configuration (withProvidedMagicConfig)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty, expectedOne)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty)
 import           Test.Pos.Wallet.Web.Util (importSingleWallet, mostlyEmptyPassphrases)
 
 spec :: Spec
-spec = withDefConfigurations $ \_ _ ->
-    describe "Fake address has maximal possible size" $
+spec = do
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    withProvidedMagicConfig pm $
+        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+            specBody pm
+
+specBody :: HasConfigurations => ProtocolMagic -> Spec
+specBody pm = describe "Fake address has maximal possible size" $
     modifyMaxSuccess (const 10) $ do
         prop "getNewAddress" $
-            fakeAddressHasMaxSizeTest changeAddressGenerator
+            let nm = makeNetworkMagic pm in
+            fakeAddressHasMaxSizeTest nm changeAddressGenerator
         prop "genUniqueAddress" $
-            fakeAddressHasMaxSizeTest commonAddressGenerator
+            let nm = makeNetworkMagic pm in
+            fakeAddressHasMaxSizeTest nm commonAddressGenerator
 
-type AddressGenerator = AccountId -> PassPhrase -> WalletProperty Address
+type AddressGenerator = NetworkMagic -> AccountId -> PassPhrase -> WalletProperty Address
 
 fakeAddressHasMaxSizeTest
     :: HasConfigurations
-    => AddressGenerator -> Word32 -> WalletProperty ()
-fakeAddressHasMaxSizeTest generator accSeed = do
+    => NetworkMagic
+    -> AddressGenerator
+    -> Word32
+    -> WalletProperty ()
+fakeAddressHasMaxSizeTest nm generator accSeed = do
     passphrase <- importSingleWallet mostlyEmptyPassphrases
     ws <- askWalletSnapshot
     wid <- expectedOne "wallet addresses" $ getWalletAddresses ws
     accId <- lift $ decodeCTypeOrFail . caId
          =<< newAccount (DeterminedSeed accSeed) passphrase (CAccountInit def wid)
-    address <- generator accId passphrase
+    address <- generator nm accId passphrase
 
-    largeAddress <- lift (getFakeChangeAddress fixedNM)
+    largeAddress <- lift $ getFakeChangeAddress nm
 
     assertProperty
         (biSize largeAddress >= biSize address)
@@ -65,11 +82,11 @@ fakeAddressHasMaxSizeTest generator accSeed = do
 -- Unfortunatelly, its randomness doesn't depend on QuickCheck seed,
 -- so another proper generator is helpful.
 changeAddressGenerator :: HasConfigurations => AddressGenerator
-changeAddressGenerator accId passphrase = lift $ getNewAddress fixedNM (accId, passphrase)
+changeAddressGenerator nm accId passphrase = lift $ getNewAddress nm (accId, passphrase)
 
 -- | Generator which is directly used in endpoints.
 commonAddressGenerator :: AddressGenerator
-commonAddressGenerator accId passphrase = do
+commonAddressGenerator _nm accId passphrase = do
     ws <- askWalletSnapshot
     addrSeed <- pick arbitrary
     let genAddress = genUniqueAddress ws (DeterminedSeed addrSeed) passphrase accId
@@ -81,7 +98,3 @@ commonAddressGenerator accId passphrase = do
     seedBusyHandler (InternalError "address generation: this index is already taken")
                       = pure Nothing
     seedBusyHandler e = throwM e
-
-
-fixedNM :: NetworkMagic
-fixedNM = NMNothing

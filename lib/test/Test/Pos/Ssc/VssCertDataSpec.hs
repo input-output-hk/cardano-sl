@@ -11,10 +11,10 @@ import qualified Data.HashSet as HS
 import           Data.List.Extra (nubOrdOn)
 import qualified Data.Set as S
 import           Data.Tuple (swap)
-import           Test.Hspec (Spec, describe)
+import           Test.Hspec (Spec, describe, runIO)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (Arbitrary (..), Gen, Property, choose, conjoin, counterexample,
-                                  suchThat, vectorOf, (.&&.), (==>))
+import           Test.QuickCheck (Arbitrary (..), Gen, Property, arbitrary, choose, conjoin,
+                                  counterexample, generate, suchThat, vectorOf, (.&&.), (==>))
 
 import           Pos.Arbitrary.Ssc ()
 import           Pos.Core (EpochIndex (..), EpochOrSlot (..), HasConfiguration, SlotId (..),
@@ -22,17 +22,29 @@ import           Pos.Core (EpochIndex (..), EpochOrSlot (..), HasConfiguration, 
                            slotSecurityParam)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Slotting (flattenEpochOrSlot, unflattenSlotId)
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 import           Pos.Ssc (SscGlobalState (..), VssCertData (..), delete, empty, expiryEoS, filter,
                           insert, keys, lookup, member, rollbackSsc, runPureToss, setLastKnownSlot,
                           sgsVssCertificates)
 
-import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Configuration (withProvidedMagicConfig)
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Property (qcIsJust)
 
 spec :: Spec
-spec = withDefConfiguration $ \_ -> describe "Ssc.VssCertData" $ do
+spec = do
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm = withProvidedMagicConfig pm $ describe "Ssc.VssCertData" $ do
     describe "verifyInsertVssCertData" $
         prop description_verifyInsertVssCertData verifyInsertVssCertData
     describe "verifyDeleteVssCertData" $

@@ -6,37 +6,61 @@ module Chain.Abstract.Translate.ToCardano (
     IntT
   ) where
 
+import           Chain.Abstract (Output, Transaction(..), hash)
+import           Control.Lens ((%=), ix)
 import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Except
+import           Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import           Pos.Core.Common (Coin(..), mkCoin)
+import           Pos.Chain.Txp (TxOutAux, TxId, TxIn(..))
 import           Universum
-import           UTxO.Context (TransCtxt(..))
-import qualified UTxO.DSL as DSL (Value)
-import           UTxO.Interpreter (Interpretation(..), Interpret(..))
+import           UTxO.Context (Addr, AddrInfo(..), TransCtxt(..), resolveAddr)
+import           UTxO.Crypto (SomeKeyPair, TxOwnedInput)
+import qualified UTxO.DSL as DSL (Hash, Input(..), Transaction, Value, outAddr)
+import           UTxO.Interpreter (
+                   Interpretation(..)
+                 , Interpret(..)
+                 )
 
 {-------------------------------------------------------------------------------
-  Translation context
+  Interpretation context
 -------------------------------------------------------------------------------}
 
 -- | Checkpoint (we create one for each block we translate)
 data IntCheckpoint
 
+-- | Information we keep about the transactions we encounter
+data TxMeta h = TxMeta {
+  -- | The DSL transaction itself
+  --
+  -- We use this for input resolution.
+  tmTx   :: !(Transaction h Addr)
+
+  -- | Its Cardano hash
+  --
+  -- This is intentionally not a strict field because for the bootstrap
+  -- transaction there is no corresponding TxId and this will be an error term.
+, tmHash :: TxId
+}
+
 -- | Interpretation context
-data IntCtxt (h :: * -> *)
+data IntCtxt h = IntCtxt {
+  -- | Transaction map
+  _icTx          :: !(Map (h (DSL.Transaction h Addr)) (TxMeta h))
+}
 
 makeLenses ''IntCtxt
-
--- | Translation state
-data TransState (h :: * -> *)
-
-makeLenses ''TransState
 
 {-------------------------------------------------------------------------------
 Errors that may occur during interpretation
 -------------------------------------------------------------------------------}
 
 -- | Interpretation error
-data IntException = IntException deriving Show -- TODO
+data IntException
+  = IntUnknownHash     Text
+  | IntIndexOutOfRange Text Word32 -- ^ During input resolution (hash and index)
+    deriving Show -- TODO
 
 instance Exception IntException
 
@@ -49,10 +73,6 @@ instance Exception IntException
 -------------------------------------------------------------------------------}
 
 -- | Translation environment
---
--- NOTE: As we reduce the scope of 'HasConfiguration' and
--- 'HasUpdateConfiguration', those values should be added into the
--- 'CardanoContext' instead.
 data TranslateEnv = TranslateEnv {
       teContext :: TransCtxt
     }
@@ -98,6 +118,40 @@ newtype IntT h e m a = IntT {
 instance Monad m => MonadState (IntCtxt h) (IntT h e m) where
  get    = IntT $ get
  put !s = IntT $ put s
+
+{-------------------------------------------------------------------------------
+  Dealing with the transactions
+-------------------------------------------------------------------------------}
+
+-- | Add transaction into the context
+putTx :: (DSL.Hash h Addr, Monad m)
+      => Transaction h Addr
+      -> TxId
+      -> IntT h e m ()
+putTx t txId = icTx %= Map.insert (hash t) TxMeta {
+  tmTx   = t
+, tmHash = txId
+}
+
+-- | Get transaction from the context
+getTx :: (DSL.Hash h Addr, Monad m)
+      => h (DSL.Transaction h Addr)
+      -> IntT h IntException m (TxMeta h)
+getTx h = do
+    txMap <- use icTx
+    case Map.lookup h txMap of
+      Nothing     -> throwError $ Left $ IntUnknownHash (pretty h)
+      Just txMeta -> return txMeta
+
+-- | Resolve an input
+inpSpentOutput' :: (DSL.Hash h Addr, Monad m)
+                => DSL.Input h Addr
+                -> IntT h IntException m (Output h Addr)
+inpSpentOutput' (DSL.Input h idx) =  do
+  txMeta <- getTx h
+  case toList (trOuts . tmTx $ txMeta) ^? ix (fromIntegral idx) of
+    Nothing  -> throwError $ Left $ IntIndexOutOfRange (pretty h) idx
+    Just out -> return out
 
 {-------------------------------------------------------------------------------
   Translate the Abstract chain definitions to Cardano types

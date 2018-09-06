@@ -12,7 +12,6 @@
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
-{-# LANGUAGE RecordWildCards  #-}
 
 import qualified Prelude (show)
 import           Universum
@@ -22,9 +21,9 @@ import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel,
                      poll, wait, waitAny, withAsync, withAsyncWithUnmask)
 import           Control.Exception.Safe (catchAny, handle, mask_, tryAny)
 import           Control.Lens (makeLensesWith)
-import           Data.Aeson (FromJSON, ToJSON, Value (Array, Bool, Object, String),
-                     fromJSON, genericParseJSON, genericToJSON, toJSON,
-                     withObject)
+import           Data.Aeson (FromJSON, ToJSON,
+                     Value (Array, Bool, Object, String), fromJSON,
+                     genericParseJSON, genericToJSON, toJSON, withObject)
 import qualified Data.Aeson as AE
 import           Data.Aeson.Options (defaultOptions)
 import qualified Data.ByteString.Lazy as BS.L
@@ -653,7 +652,7 @@ readSafeMode lo = do
     decoded <- liftIO $ Y.decodeFileEither safeModeConfigFile
     case decoded of
         Right value -> pure $ smcSafeMode value
-        Left _ -> pure False
+        Left _      -> pure False
 
 saveSafeMode :: LauncherOptions -> Bool -> M ()
 saveSafeMode lo status = do

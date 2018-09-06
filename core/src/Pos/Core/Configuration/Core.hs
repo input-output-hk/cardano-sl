@@ -2,10 +2,7 @@
 {-# LANGUAGE Rank2Types  #-}
 
 module Pos.Core.Configuration.Core
-       (
-       -- * The configuration structure
-         CoreConfiguration(..)
-       , GenesisConfiguration(..)
+       ( GenesisConfiguration(..)
        ) where
 
 import           Prelude
@@ -15,7 +12,6 @@ import           Data.Aeson (FromJSON, ToJSON, Value (..), genericToEncoding,
                      pairs, parseJSON, toEncoding, (.:))
 import           Data.Aeson.Encoding (pairStr)
 import           Data.Aeson.Options (defaultOptions)
-import           Data.Aeson.TH (deriveJSON)
 import           Data.Aeson.Types (typeMismatch)
 import qualified Data.HashMap.Strict as HM
 import           Data.Monoid ((<>))
@@ -97,16 +93,3 @@ instance FromJSON GenesisConfiguration where
         | otherwise = fail "Incorrect JSON encoding for GenesisConfiguration"
 
     parseJSON invalid = typeMismatch "GenesisConfiguration" invalid
-
-data CoreConfiguration = CoreConfiguration
-    {
-      -- | Specifies the genesis
-      ccGenesis            :: !GenesisConfiguration
-
-      -- | Versioning for values in node's DB
-    , ccDbSerializeVersion :: !Word8
-
-    }
-    deriving (Show, Generic)
-
-deriveJSON defaultOptions ''CoreConfiguration

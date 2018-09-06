@@ -36,7 +36,7 @@ import           Pos.Chain.Update (HasUpdateConfiguration,
                      withUpdateConfiguration)
 import           Pos.Configuration (HasNodeConfiguration, withNodeConfiguration)
 import           Pos.Core (mkConfig)
-import           Pos.Core.Configuration as Core (Config, CoreConfiguration (..),
+import           Pos.Core.Configuration as Core (Config,
                      GenesisConfiguration (..))
 import           Pos.Core.Genesis (GenesisSpec (..))
 import           Pos.Core.Update (BlockVersionData)
@@ -54,10 +54,9 @@ defaultTestConf = case J.fromJSON $ J.Object jobj of
     jobj = $(embedYamlConfigCT (Proxy @J.Object) "configuration.yaml" "configuration.yaml" "test")
 
 defaultTestGenesisSpec :: GenesisSpec
-defaultTestGenesisSpec =
-    case ccGenesis (ccCore defaultTestConf) of
-        GCSpec spec -> spec
-        _           -> error "unexpected genesis type in test"
+defaultTestGenesisSpec = case ccGenesis defaultTestConf of
+    GCSpec spec -> spec
+    _           -> error "unexpected genesis type in test"
 
 defaultTestBlockVersionData :: BlockVersionData
 defaultTestBlockVersionData = gsBlockVersionData defaultTestGenesisSpec

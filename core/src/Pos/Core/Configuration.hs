@@ -24,7 +24,7 @@ module Pos.Core.Configuration
        , configFtsSeed
 
        , ConfigurationError (..)
-       , withCoreConfigurations
+       , configFromGenesisConfig
        , mkConfig
 
        , canonicalGenesisJson
@@ -157,11 +157,9 @@ prettyGenesisJson theGenesisData =
 --
 -- If the configuration gives a testnet genesis spec, then a start time must
 -- be provided, probably sourced from command line arguments.
-withCoreConfigurations
+configFromGenesisConfig
     :: (MonadThrow m, MonadIO m)
-    => CoreConfiguration
-    -- ^ Update @'GenesisData'@ before passing its parts to @'given'@.
-    -> FilePath
+    => FilePath
     -- ^ Directory where 'configuration.yaml' is stored.
     -> Maybe Timestamp
     -- ^ Optional system start time.
@@ -169,8 +167,9 @@ withCoreConfigurations
     -> Maybe Integer
     -- ^ Optional seed which overrides one from testnet initializer if
     -- provided.
+    -> GenesisConfiguration
     -> m Config
-withCoreConfigurations conf confDir mSystemStart mSeed = case ccGenesis conf of
+configFromGenesisConfig confDir mSystemStart mSeed = \case
     -- If a 'GenesisData' source file is given, we check its hash against the
     -- given expected hash, parse it, and use the GenesisData to fill in all of
     -- the obligations.
@@ -225,10 +224,7 @@ withCoreConfigurations conf confDir mSystemStart mSeed = case ccGenesis conf of
 
         pure $ mkConfig theSystemStart theSpec
 
-mkConfig
-    :: Timestamp
-    -> GenesisSpec
-    -> Config
+mkConfig :: Timestamp -> GenesisSpec -> Config
 mkConfig theSystemStart spec = Config
     { configProtocolMagic     = pm
     , configProtocolConstants = pc

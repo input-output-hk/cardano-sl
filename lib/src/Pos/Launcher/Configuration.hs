@@ -24,10 +24,11 @@ module Pos.Launcher.Configuration
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON,
-                     genericToJSON, withObject, (.:), (.:?))
+import           Data.Aeson (FromJSON (..), ToJSON (..), genericToJSON,
+                     withObject, (.:), (.:?))
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default (Default (..))
+import qualified Data.HashMap.Strict as HM
 import           Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text as Text
@@ -59,21 +60,35 @@ import           Pos.Core.Configuration as Core
 
 -- | Product of all configurations required to run a node.
 data Configuration = Configuration
-    { ccCore   :: !CoreConfiguration
-    , ccNtp    :: !NtpConfiguration
-    , ccUpdate :: !UpdateConfiguration
-    , ccSsc    :: !SscConfiguration
-    , ccDlg    :: !DlgConfiguration
-    , ccTxp    :: !TxpConfiguration
-    , ccBlock  :: !BlockConfiguration
-    , ccNode   :: !NodeConfiguration
+    { ccGenesis :: !GenesisConfiguration
+    , ccNtp     :: !NtpConfiguration
+    , ccUpdate  :: !UpdateConfiguration
+    , ccSsc     :: !SscConfiguration
+    , ccDlg     :: !DlgConfiguration
+    , ccTxp     :: !TxpConfiguration
+    , ccBlock   :: !BlockConfiguration
+    , ccNode    :: !NodeConfiguration
     } deriving (Show, Generic)
 
 instance FromJSON Configuration where
-    parseJSON = genericParseJSON defaultOptions
+    parseJSON = withObject "Configuration" $ \o -> do
+        ccGenesis <- if
+            | HM.member "genesis" o -> o .: "genesis"
+            | HM.member "core" o -> do
+                coreO <- o .: "core"
+                coreO .: "genesis"
+            | otherwise -> fail "Incorrect JSON encoding for Configuration"
+        ccNtp    <- o .: "ntp"
+        ccUpdate <- o .: "update"
+        ccSsc    <- o .: "ssc"
+        ccDlg    <- o .: "dlg"
+        ccTxp    <- o .: "txp"
+        ccBlock  <- o .: "block"
+        ccNode   <- o .: "node"
+        pure $ Configuration {..}
 
 instance ToJSON Configuration where
-    toJSON = genericToJSON defaultOptions
+     toJSON = genericToJSON defaultOptions
 
 type HasConfigurations =
     ( HasUpdateConfiguration
@@ -134,10 +149,11 @@ withConfigurationsM logName mAssetLockPath dumpGenesisPath dumpConfig cfo act = 
         Nothing -> pure mempty
         Just fp -> liftIO $ readAssetLockedSrcAddrs fp
     let configDir = takeDirectory $ cfoFilePath cfo
-    coreConfig <- withCoreConfigurations (ccCore cfg)
-                                         configDir
-                                         (cfoSystemStart cfo)
-                                         (cfoSeed cfo)
+    coreConfig <- configFromGenesisConfig
+        configDir
+        (cfoSystemStart cfo)
+        (cfoSeed cfo)
+        (ccGenesis cfg)
     withUpdateConfiguration (ccUpdate cfg) $
         withSscConfiguration (ccSsc cfg) $
         withDlgConfiguration (ccDlg cfg) $
@@ -148,7 +164,7 @@ withConfigurationsM logName mAssetLockPath dumpGenesisPath dumpConfig cfo act = 
                 dumpGenesisPath
                 dumpConfig
                 (configGenesisData coreConfig)
-                (ccCore cfg)
+                (ccGenesis cfg)
                 (ccNtp cfg)
                 txpConfig
             act coreConfig txpConfig (ccNtp cfg)
@@ -167,12 +183,13 @@ withConfigurations
     -> m r
 withConfigurations mAssetLockPath dumpGenesisPath dumpConfig cfo act = do
     loggerName <- askLoggerName
-    withConfigurationsM loggerName
-                        mAssetLockPath
-                        dumpGenesisPath
-                        dumpConfig
-                        cfo
-                        act
+    withConfigurationsM
+        loggerName
+        mAssetLockPath
+        dumpGenesisPath
+        dumpConfig
+        cfo
+        act
 
 addAssetLock :: Set Address -> TxpConfiguration -> TxpConfiguration
 addAssetLock bset tcfg =
@@ -195,13 +212,13 @@ printInfoOnStart ::
     => Maybe FilePath
     -> Bool
     -> GenesisData
-    -> CoreConfiguration
+    -> GenesisConfiguration
     -> NtpConfiguration
     -> TxpConfiguration
     -> m ()
-printInfoOnStart dumpGenesisPath dumpConfig genesisData coreConfig ntpConfig txpConfig = do
+printInfoOnStart dumpGenesisPath dumpConfig genesisData genesisConfig ntpConfig txpConfig = do
     whenJust dumpGenesisPath $ dumpGenesisData genesisData True
-    when dumpConfig $ dumpConfiguration coreConfig ntpConfig txpConfig
+    when dumpConfig $ dumpConfiguration genesisConfig ntpConfig txpConfig
     printFlags
     t <- currentTime
     mapM_ logInfo $
@@ -227,14 +244,14 @@ dumpGenesisData genesisData canonical path = do
 -- | Dump our configuration into stdout and exit.
 dumpConfiguration
     :: (HasConfigurations, MonadIO m)
-    => CoreConfiguration
+    => GenesisConfiguration
     -> NtpConfiguration
     -> TxpConfiguration
     -> m ()
-dumpConfiguration coreConfig ntpConfig txpConfig = do
+dumpConfiguration genesisConfig ntpConfig txpConfig = do
     let conf =
             Configuration
-            { ccCore = coreConfig
+            { ccGenesis = genesisConfig
             , ccNtp = ntpConfig
             , ccUpdate = updateConfiguration
             , ccSsc = sscConfiguration

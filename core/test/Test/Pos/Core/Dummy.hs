@@ -16,7 +16,6 @@ module Test.Pos.Core.Dummy
        , dummyGenesisSecretKeysPoor
        , dummyGenesisSecretsRich
        , dummyGenesisSecretsPoor
-       , dummyCoreConfiguration
        , dummyGenesisSpec
        , dummyBlockVersionData
        , dummyGenesisData
@@ -26,11 +25,9 @@ module Test.Pos.Core.Dummy
 
 import           Universum
 
-import           Pos.Core (BlockCount, Coeff (..), Config (..),
-                     CoreConfiguration (..), EpochIndex (..),
-                     GenesisConfiguration (..), GenesisHash (..),
-                     ProtocolConstants (..), SharedSeed (..), SlotCount,
-                     Timestamp, TxFeePolicy (..), TxSizeLinear (..),
+import           Pos.Core (BlockCount, Coeff (..), Config (..), EpochIndex (..),
+                     GenesisHash (..), ProtocolConstants (..), SharedSeed (..),
+                     SlotCount, Timestamp, TxFeePolicy (..), TxSizeLinear (..),
                      VssMaxTTL (..), VssMinTTL (..), kEpochSlots,
                      kSlotSecurityParam, mkConfig, pcBlkSecurityParam,
                      unsafeCoinPortionFromDouble)
@@ -93,13 +90,6 @@ dummyGenesisSecretKeysRich = gsSecretKeysRich dummyGeneratedSecrets
 
 dummyGenesisSecretKeysPoor :: [SecretKey]
 dummyGenesisSecretKeysPoor = gsSecretKeysPoor dummyGeneratedSecrets
-
-dummyCoreConfiguration :: CoreConfiguration
-dummyCoreConfiguration =
-    CoreConfiguration (GCSpec dummyGenesisSpec) dummyDbSerializeVersion
-
-dummyDbSerializeVersion :: Word8
-dummyDbSerializeVersion = 0
 
 dummyGenesisSpec :: GenesisSpec
 dummyGenesisSpec = UnsafeGenesisSpec

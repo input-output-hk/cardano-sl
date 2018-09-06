@@ -6,14 +6,14 @@ module Chain.Abstract.Translate.ToCardano (
     IntT
   ) where
 
-import           Chain.Abstract (Output, Transaction(..), hash)
+import           Chain.Abstract (Output(..), Transaction(..), hash, outAddr)
 import           Control.Lens ((%=), ix)
 import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Except
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import           Pos.Core.Common (Coin(..), mkCoin)
-import           Pos.Chain.Txp (TxOutAux, TxId, TxIn(..))
+import           Pos.Chain.Txp (TxOutAux(..), TxId, TxIn(..), TxOut(..))
 import           Universum
 import           UTxO.Context (Addr, AddrInfo(..), TransCtxt(..), resolveAddr)
 import           UTxO.Crypto (SomeKeyPair, TxOwnedInput)
@@ -91,8 +91,6 @@ newtype TranslateT e m a = TranslateT {
 instance MonadTrans (TranslateT e) where
   lift = TranslateT . lift . lift
 
-type Translate e = TranslateT e Identity
-
 instance Monad m => MonadReader TransCtxt (TranslateT e m) where
   ask     = TranslateT $ asks teContext
   local f = TranslateT . local f' . unTranslateT
@@ -136,17 +134,22 @@ putTx t txId = icTx %= Map.insert (hash t) TxMeta {
 -- | Get transaction from the context
 getTx :: (DSL.Hash h Addr, Monad m)
       => h (DSL.Transaction h Addr)
-      -> IntT h IntException m (TxMeta h)
+      -> IntT h e m (TxMeta h)
 getTx h = do
     txMap <- use icTx
     case Map.lookup h txMap of
       Nothing     -> throwError $ Left $ IntUnknownHash (pretty h)
       Just txMeta -> return txMeta
 
+-- | Lookup the Cardano hash for the given DSL hash
+intHash :: (Monad m, DSL.Hash h Addr)
+        => h (DSL.Transaction h Addr) -> IntT h e m TxId
+intHash = fmap tmHash . getTx
+
 -- | Resolve an input
 inpSpentOutput' :: (DSL.Hash h Addr, Monad m)
                 => DSL.Input h Addr
-                -> IntT h IntException m (Output h Addr)
+                -> IntT h e m (Output h Addr)
 inpSpentOutput' (DSL.Input h idx) =  do
   txMeta <- getTx h
   case toList (trOuts . tmTx $ txMeta) ^? ix (fromIntegral idx) of
@@ -171,3 +174,43 @@ instance Interpret Abstract2Cardano h DSL.Value where
 
   int :: Monad m => DSL.Value -> IntT h e m Coin
   int = return . mkCoin
+
+instance Interpret Abstract2Cardano h Addr where
+  type Interpreted Abstract2Cardano Addr = AddrInfo
+
+  int :: Monad m => Addr -> IntT h e m AddrInfo
+  int = asks . resolveAddr
+
+
+instance Interpret Abstract2Cardano h (Output h Addr) where
+  type Interpreted Abstract2Cardano (Output h Addr) = TxOutAux
+
+  int :: Monad m
+      => Output h Addr
+      -> IntT h e m TxOutAux
+  int Output{..} = do
+    AddrInfo{..} <- (int @Abstract2Cardano) outAddr
+    outVal'      <- (int @Abstract2Cardano) outVal
+    return TxOutAux {
+      toaOut = TxOut {
+        txOutAddress = addrInfoCardano
+      , txOutValue   = outVal'
+      }
+    }
+
+instance DSL.Hash h Addr => Interpret Abstract2Cardano h (DSL.Input h Addr) where
+  type Interpreted Abstract2Cardano (DSL.Input h Addr) =
+    (TxOwnedInput SomeKeyPair, TxOutAux)
+
+  int :: Monad m
+      => DSL.Input h Addr -> IntT h e m (TxOwnedInput SomeKeyPair, TxOutAux)
+  int inp@DSL.Input{..} = do
+      -- We figure out who must sign the input by looking at the output
+      spentOutput   <- inpSpentOutput' inp
+      resolvedInput <- (int @Abstract2Cardano) spentOutput
+      AddrInfo{..} <- (int @Abstract2Cardano) $ outAddr spentOutput
+      inpTrans'    <- intHash $ inpTrans
+      return (
+               (addrInfoAddrKey, TxInUtxo inpTrans' inpIndex)
+             , resolvedInput
+             )

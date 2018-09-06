@@ -6,19 +6,32 @@ module Test.Pos.Types.Identity.SafeCopySpec
 
 import           Universum
 
-import           Test.Hspec (Spec, describe)
+import           Test.Hspec (Spec, describe, runIO)
+import           Test.QuickCheck (arbitrary, generate)
 
 import qualified Pos.Core as Core
 import qualified Pos.Core.Txp as Txp
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 import           Pos.SafeCopy ()
 
 import           Test.Pos.Binary.Helpers (safeCopyTest)
-import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Configuration (withProvidedMagicConfig)
 import           Test.Pos.Txp.Arbitrary ()
 import           Test.Pos.Txp.Arbitrary.Network ()
 
 spec :: Spec
-spec = withDefConfiguration $ \_ -> describe "Types" $ do
+spec = do
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm = withProvidedMagicConfig pm $ describe "Types" $ do
     describe "SafeCopy instances" $ do
         safeCopyTest @Core.EpochIndex
         safeCopyTest @Core.LocalSlotIndex

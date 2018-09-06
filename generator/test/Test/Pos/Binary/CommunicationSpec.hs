@@ -6,32 +6,33 @@ import           Universum
 
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default (def)
-import           Test.Hspec (Spec, describe)
+import           Test.Hspec (Spec, describe, runIO)
 import           Test.Hspec.QuickCheck (prop)
+import           Test.QuickCheck (arbitrary, generate)
 import           Test.QuickCheck.Monadic (assert)
 
 import           Pos.Binary.Class (decodeFull, serialize')
 import           Pos.Binary.Communication (serializeMsgSerializedBlock)
 import           Pos.Block.Network.Types (MsgBlock (..), MsgSerializedBlock (..))
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 import           Pos.DB.Class (Serialized (..))
 import           Pos.Util.CompileInfo (withCompileInfo)
 
 import           Test.Pos.Block.Logic.Mode (blockPropertyTestable)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..), bpGenBlock)
-import           Test.Pos.Configuration (HasStaticConfigurations, withStaticConfigurations)
-import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
+import           Test.Pos.Configuration (HasStaticConfigurations, withProvidedMagicConfig)
 
 -- |
 -- The binary encoding of `MsgSerializedBlock` using `serializeMsgSerializedBlock`
 -- should be the same as the binary encoding of `MsgBlock`.
 serializeMsgSerializedBlockSpec
-    :: (HasStaticConfigurations) => Spec
-serializeMsgSerializedBlockSpec = do
-    prop desc $ blockPropertyTestable $ do
-        (block, _) <- bpGenBlock dummyProtocolMagic (EnableTxPayload True) (InplaceDB True)
+    :: (HasStaticConfigurations) => ProtocolMagic -> Spec
+serializeMsgSerializedBlockSpec pm = do
+    prop desc $ blockPropertyTestable pm $ do
+        (block, _) <- bpGenBlock pm (EnableTxPayload True) (InplaceDB True)
         let sb = Serialized $ serialize' block
         assert $ serializeMsgSerializedBlock (MsgSerializedBlock sb) == serialize' (MsgBlock block)
-    prop descNoBlock $ blockPropertyTestable $ do
+    prop descNoBlock $ blockPropertyTestable pm $ do
         let msg :: MsgSerializedBlock
             msg = MsgNoSerializedBlock "no block"
             msg' :: MsgBlock
@@ -46,15 +47,15 @@ serializeMsgSerializedBlockSpec = do
 -- Deserialization of a serialized `MsgSerializedBlock` (with
 -- `serializeMsgSerializedBlock`) should give back the original block.
 deserializeSerilizedMsgSerializedBlockSpec
-    :: (HasStaticConfigurations) => Spec
-deserializeSerilizedMsgSerializedBlockSpec = do
-    prop desc $ blockPropertyTestable $ do
-        (block, _) <- bpGenBlock dummyProtocolMagic (EnableTxPayload True) (InplaceDB True)
+    :: (HasStaticConfigurations) => ProtocolMagic -> Spec
+deserializeSerilizedMsgSerializedBlockSpec pm = do
+    prop desc $ blockPropertyTestable pm $ do
+        (block, _) <- bpGenBlock pm (EnableTxPayload True) (InplaceDB True)
         let sb = Serialized $ serialize' block
         let msg :: Either Text MsgBlock
             msg = decodeFull . BSL.fromStrict . serializeMsgSerializedBlock $ MsgSerializedBlock sb
         assert $ msg == Right (MsgBlock block)
-    prop descNoBlock $ blockPropertyTestable $ do
+    prop descNoBlock $ blockPropertyTestable pm $ do
         let msg :: MsgSerializedBlock
             msg = MsgNoSerializedBlock "no block"
         assert $ (decodeFull . BSL.fromStrict . serializeMsgSerializedBlock $ msg) == Right (MsgNoBlock "no block")
@@ -63,7 +64,18 @@ deserializeSerilizedMsgSerializedBlockSpec = do
     descNoBlock = "deserialization of a serialized MsgNoSerializedBlock message should give back corresponding MsgNoBlock"
 
 spec :: Spec
-spec = withStaticConfigurations $ \_ -> withCompileInfo def $
+spec = do
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm = withProvidedMagicConfig pm $ withCompileInfo def $
     describe "Pos.Binary.Communication" $ do
-        describe "serializeMsgSerializedBlock" serializeMsgSerializedBlockSpec
-        describe "decode is left inverse of serializeMsgSerializedBlock" deserializeSerilizedMsgSerializedBlockSpec
+        describe "serializeMsgSerializedBlock" (serializeMsgSerializedBlockSpec pm)
+        describe "decode is left inverse of serializeMsgSerializedBlock" (deserializeSerilizedMsgSerializedBlockSpec pm)

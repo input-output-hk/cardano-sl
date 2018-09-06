@@ -17,6 +17,7 @@ module Test.Pos.Txp.Arbitrary
        , genTxInWitness
        , genTxOutDist
        , genTxPayload
+       , genGoodTxWithMagic
        ) where
 
 import           Universum
@@ -31,7 +32,7 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import           Pos.Binary.Class (Raw)
 import           Pos.Binary.Core ()
 import           Pos.Core.Common (Coin, IsBootstrapEraAddr (..), makePubKeyAddress)
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..), TxOut (..),
                                TxOutAux (..), TxPayload (..), TxProof (..), TxSigData (..),
                                mkTxPayload)
@@ -145,12 +146,11 @@ buildProperTx pm inputList (inCoin, outCoin) =
     newTxHash = hash newTx
     ins  = fmap (view _2) txList
     outs = fmap (view _4) txList
-    mkWitness fromSk = PkWitness
-        { twKey = toPublic fromSk
-        , twSig = sign pm SignTx fromSk TxSigData {
-                      txSigTxHash = newTxHash } }
+    mkWitness fromSk =
+        PkWitness (toPublic fromSk) (sign pm SignTx fromSk $ TxSigData newTxHash)
+    nm = makeNetworkMagic pm
     makeTxOutput s c =
-        TxOut (makePubKeyAddress fixedNM (IsBootstrapEraAddr True) $ toPublic s) c
+        TxOut (makePubKeyAddress nm (IsBootstrapEraAddr True) $ toPublic s) c
 
 -- | Well-formed transaction 'Tx'.
 --
@@ -158,6 +158,12 @@ buildProperTx pm inputList (inCoin, outCoin) =
 newtype GoodTx = GoodTx
     { getGoodTx :: NonEmpty (Tx, TxIn, TxOutAux, TxInWitness)
     } deriving (Generic, Show)
+
+genGoodTxWithMagic :: ProtocolMagic -> Gen GoodTx
+genGoodTxWithMagic pm =
+        GoodTx <$> (buildProperTx pm
+                        <$> arbitrary
+                        <*> pure (identity, identity))
 
 goodTxToTxAux :: GoodTx -> TxAux
 goodTxToTxAux (GoodTx l) = TxAux tx witness
@@ -236,7 +242,3 @@ genTxPayload pm = mkTxPayload <$> genTxOutDist pm
 instance Arbitrary TxPayload where
     arbitrary = genTxPayload dummyProtocolMagic
     shrink = genericShrink
-
-
-fixedNM :: NetworkMagic
-fixedNM = NMNothing

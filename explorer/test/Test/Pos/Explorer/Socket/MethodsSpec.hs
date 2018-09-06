@@ -15,24 +15,24 @@ import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 import           Network.EngineIO (SocketId)
 
-import           Test.Hspec (Spec, anyException, describe, it, shouldBe, shouldThrow)
+import           Test.Hspec (Spec, anyException, describe, it, runIO, shouldBe, shouldThrow)
 import           Test.Hspec.QuickCheck (modifyMaxSize, prop)
-import           Test.QuickCheck (Property, arbitrary, forAll)
+import           Test.QuickCheck (Property, arbitrary, forAll, generate)
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
-import           Pos.Crypto (SecretKey)
+import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..), SecretKey)
 import           Pos.Explorer.ExplorerMode (runSubTestMode)
-import           Pos.Explorer.Socket.Holder (ConnectionsState, ExplorerSocket(..),
+import           Pos.Explorer.Socket.Holder (ConnectionsState, ExplorerSocket (..),
                                              csAddressSubscribers, csBlocksPageSubscribers,
-                                             csEpochsLastPageSubscribers, csTxsSubscribers,
-                                             csClients, mkClientContext, mkConnectionsState)
-import           Pos.Explorer.Socket.Methods (addrSubParam, addressSetByTxs,
-                                              blockPageSubParam, fromCAddressOrThrow,
-                                              spSessId, subscribeAddr, subscribeBlocksLastPage,
-                                              subscribeEpochsLastPage, subscribeTxs,
-                                              txsSubParam, unsubscribeAddr, unsubscribeBlocksLastPage,
-                                              unsubscribeEpochsLastPage, unsubscribeFully,
-                                              unsubscribeTxs)
+                                             csClients, csEpochsLastPageSubscribers,
+                                             csTxsSubscribers, mkClientContext, mkConnectionsState)
+import           Pos.Explorer.Socket.Methods (addrSubParam, addressSetByTxs, blockPageSubParam,
+                                              fromCAddressOrThrow, spSessId, subscribeAddr,
+                                              subscribeBlocksLastPage, subscribeEpochsLastPage,
+                                              subscribeTxs, txsSubParam, unsubscribeAddr,
+                                              unsubscribeBlocksLastPage, unsubscribeEpochsLastPage,
+                                              unsubscribeFully, unsubscribeTxs)
 import           Pos.Explorer.TestUtil (secretKeyToAddress)
 import           Pos.Explorer.Web.ClientTypes (CAddress (..), toCAddress)
 
@@ -46,7 +46,18 @@ import           Test.Pos.Explorer.MockFactory (mkTxOut)
 -- stack test cardano-sl-explorer --fast --test-arguments "-m Test.Pos.Explorer.Socket"
 
 spec :: Spec
-spec =
+spec = do
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        specBody (makeNetworkMagic pm)
+
+specBody :: NetworkMagic -> Spec
+specBody nm =
     describe "Methods" $ do
         describe "fromCAddressOrThrow" $
             it "throws an exception if a given CAddress is invalid" $
@@ -54,7 +65,7 @@ spec =
         describe "addressSetByTxs" $
             modifyMaxSize (const 200) $
                 prop "creates a Set of Addresses by given txs"
-                    addressSetByTxsProp
+                    (addressSetByTxsProp nm)
         describe "addrSubParam" $
             it "stores a given SocketId into SubscriptionParam of address subscribers" $ do
                 let socketId = BS.pack "any-id" -- SocketId
@@ -108,8 +119,8 @@ spec =
                     unsubscribeFullyProp
 
 
-addressSetByTxsProp :: SecretKey -> Bool
-addressSetByTxsProp key =
+addressSetByTxsProp :: NetworkMagic -> SecretKey -> Bool
+addressSetByTxsProp _nm key =
     let
         addrA = secretKeyToAddress key
         addrB = secretKeyToAddress key

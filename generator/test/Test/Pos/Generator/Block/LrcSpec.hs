@@ -15,9 +15,9 @@ import           Control.Lens (At (at), Index, _Right)
 import qualified Data.HashMap.Strict as HM
 import           Formatting (build, int, sformat, (%))
 import           Serokell.Util (listJson)
-import           Test.Hspec (Spec, describe)
+import           Test.Hspec (Spec, describe, runIO)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Gen, arbitrary, choose)
+import           Test.QuickCheck (Gen, arbitrary, choose, generate)
 import           Test.QuickCheck.Monadic (pick)
 
 import           Pos.Binary.Class (serialize')
@@ -30,7 +30,7 @@ import           Pos.Core (Coin, EpochIndex, GenesisData (..), GenesisInitialize
                            genesisSecretKeysRich)
 import           Pos.Core.Block (mainBlockTxPayload)
 import           Pos.Core.Txp (TxAux, mkTxPayload)
-import           Pos.Crypto (SecretKey, toPublic)
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..), SecretKey, toPublic)
 import qualified Pos.GState as GS
 import           Pos.Launcher (HasConfigurations)
 import qualified Pos.Lrc as Lrc
@@ -41,12 +41,22 @@ import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..)
                                             bpGenBlocks)
 import           Test.Pos.Block.Property (blockPropertySpec)
 import           Test.Pos.Configuration (defaultTestBlockVersionData, withStaticConfigurations)
-import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck (maybeStopProperty, stopProperty)
 
 
 spec :: Spec
-spec = withStaticConfigurations $ \_ ->
+spec = do
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm = withStaticConfigurations $ \_ ->
     describe "Lrc.Worker" $ modifyMaxSuccess (const 4) $ do
         describe "lrcSingleShot" $ do
             -- Currently we want to run it only 4 times, because there
@@ -54,10 +64,10 @@ spec = withStaticConfigurations $ \_ ->
             -- negligible) and performance matters (but not very much,
             -- so we can run more than once).
             modifyMaxSuccess (const 4) $ prop lrcCorrectnessDesc $
-                blockPropertyToProperty genTestParams lrcCorrectnessProp
+                blockPropertyToProperty pm genTestParams (lrcCorrectnessProp pm)
             -- This test is relatively slow, hence we launch it only 15 times.
-            modifyMaxSuccess (const 15) $ blockPropertySpec lessThanKAfterCrucialDesc
-                lessThanKAfterCrucialProp
+            modifyMaxSuccess (const 15) $ blockPropertySpec pm lessThanKAfterCrucialDesc
+                (lessThanKAfterCrucialProp pm)
   where
     lrcCorrectnessDesc =
         "Computes richmen correctly according to the stake distribution " <>
@@ -115,8 +125,8 @@ genGenesisInitializer = do
 -- Actual correctness test
 ----------------------------------------------------------------------------
 
-lrcCorrectnessProp :: HasConfigurations => BlockProperty ()
-lrcCorrectnessProp = do
+lrcCorrectnessProp :: HasConfigurations => ProtocolMagic -> BlockProperty ()
+lrcCorrectnessProp pm = do
     let k = blkSecurityParam
     -- This value is how many blocks we need to generate first. We
     -- want to generate blocks for all slots which will be considered
@@ -125,27 +135,27 @@ lrcCorrectnessProp = do
     -- anything similar, because we don't want to rely on the code,
     -- but rather want to use our knowledge.
     let blkCount0 = 8 * k - 1
-    () <$ bpGenBlocks dummyProtocolMagic
+    () <$ bpGenBlocks pm
                       (Just blkCount0)
                       (EnableTxPayload False)
                       (InplaceDB True)
-    genAndApplyBlockFixedTxs =<< txsBeforeBoundary
+    genAndApplyBlockFixedTxs pm =<< txsBeforeBoundary
     -- At this point we have applied '8 * k' blocks. The current state
     -- will be used in LRC.
     stableStakes <- lift GS.getAllPotentiallyHugeStakesMap
     -- All further blocks will not be considered by LRC for the 1-st
     -- epoch. So we include some transactions to make sure they are
     -- not considered.
-    genAndApplyBlockFixedTxs =<< txsAfterBoundary
+    genAndApplyBlockFixedTxs pm =<< txsAfterBoundary
     -- We need to have at least 'k' blocks after the boundary to make
     -- sure that stable blocks are indeed stable. Note that we have
     -- already applied 1 blocks, hence 'pred'.
     blkCount1 <- pred <$> pick (choose (k, 2 * k))
-    () <$ bpGenBlocks dummyProtocolMagic
+    () <$ bpGenBlocks pm
                       (Just blkCount1)
                       (EnableTxPayload False)
                       (InplaceDB True)
-    lift $ Lrc.lrcSingleShot dummyProtocolMagic 1
+    lift $ Lrc.lrcSingleShot pm 1
     leaders1 <-
         maybeStopProperty "No leaders for epoch#1!" =<< lift (Lrc.getLeadersForEpoch 1)
     -- Here we use 'genesisSeed' (which is the seed for the 0-th
@@ -234,14 +244,15 @@ checkRichmen = do
                  %coinF%", total stake is "%coinF)
                 poorGuyStake totalStake
 
-genAndApplyBlockFixedTxs :: HasConfigurations => [TxAux] -> BlockProperty ()
-genAndApplyBlockFixedTxs txs = do
+genAndApplyBlockFixedTxs :: HasConfigurations
+                         => ProtocolMagic -> [TxAux] -> BlockProperty ()
+genAndApplyBlockFixedTxs pm txs = do
     let txPayload = mkTxPayload txs
-    emptyBlund <- bpGenBlock dummyProtocolMagic
+    emptyBlund <- bpGenBlock pm
                              (EnableTxPayload False)
                              (InplaceDB False)
     let blund = emptyBlund & _1 . _Right . mainBlockTxPayload .~ txPayload
-    lift $ applyBlocksUnsafe dummyProtocolMagic
+    lift $ applyBlocksUnsafe pm
                              (ShouldCallBListener False)
                              (one blund)
                              Nothing
@@ -269,8 +280,8 @@ txsAfterBoundary = pure []
 ----------------------------------------------------------------------------
 
 lessThanKAfterCrucialProp
-    :: HasConfigurations => BlockProperty ()
-lessThanKAfterCrucialProp = do
+    :: HasConfigurations => ProtocolMagic -> BlockProperty ()
+lessThanKAfterCrucialProp pm = do
     let k = blkSecurityParam
     -- We need to generate '8 * k' blocks for first '8 * k' slots.
     let inFirst8K = 8 * k
@@ -281,7 +292,7 @@ lessThanKAfterCrucialProp = do
     -- LRC should succeed iff number of blocks in last '2 * k' slots is
     -- at least 'k'.
     let shouldSucceed = inLast2K >= k
-    () <$ bpGenBlocks dummyProtocolMagic
+    () <$ bpGenBlocks pm
                       (Just toGenerate)
                       (EnableTxPayload False)
                       (InplaceDB True)
@@ -290,7 +301,7 @@ lessThanKAfterCrucialProp = do
              " blocks after crucial slot, but it failed")
     let unexpectedFailMsg = sformat (mkFormat "succeed") inLast2K
     let unexpectedSuccessMsg = sformat (mkFormat "fail") inLast2K
-    lift (try $ Lrc.lrcSingleShot dummyProtocolMagic 1) >>= \case
+    lift (try $ Lrc.lrcSingleShot pm 1) >>= \case
         Left Lrc.UnknownBlocksForLrc
             | shouldSucceed -> stopProperty unexpectedFailMsg
             | otherwise -> pass

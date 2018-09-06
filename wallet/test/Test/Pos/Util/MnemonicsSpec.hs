@@ -4,11 +4,13 @@ import           Universum
 
 import           Data.ByteString.Char8 (pack)
 import           Data.Set (Set)
-import           Test.Hspec (Spec, it, shouldSatisfy, xit)
+import           Test.Hspec (Spec, describe, it, runIO, shouldSatisfy, xit)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Arbitrary (..), forAll, property)
+import           Test.QuickCheck (Arbitrary (..), arbitrary, forAll, generate, property)
 import           Test.QuickCheck.Gen (oneof, vectorOf)
 
+import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 import           Pos.Util.BackupPhrase (BackupPhrase (..), safeKeysFromPhrase)
 import           Pos.Util.Mnemonics (defMnemonic, fromMnemonic, toMnemonic)
 import           Pos.Wallet.Web.ClientTypes.Functions (encToCId)
@@ -19,6 +21,17 @@ import qualified Data.Set as Set
 
 spec :: Spec
 spec = do
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        specBody (makeNetworkMagic pm)
+
+specBody :: NetworkMagic -> Spec
+specBody _nm = do
     it "No example mnemonic" $
         fromMnemonic defMnemonic `shouldSatisfy` isLeft
 

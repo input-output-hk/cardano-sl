@@ -17,15 +17,17 @@ module DevelopmentSpec (spec) where
 import           Universum
 
 import           Pos.Client.KeyStorage (addSecretKey, getSecretKeysPlain)
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Util.BackupPhrase (BackupPhrase (..), safeKeysFromPhrase)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty)
 
-import           Test.Hspec (Spec, describe)
+import           Test.Hspec (Spec, describe, runIO)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
-import           Test.Pos.Configuration (withDefConfigurations)
+import           Test.Pos.Configuration (withProvidedMagicConfig)
 import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
+import           Test.QuickCheck (arbitrary, generate)
 
 import           Cardano.Wallet.API.Development.LegacyHandlers (deleteSecretKeys)
 import           Cardano.Wallet.Server.CLI (RunMode (..))
@@ -34,8 +36,19 @@ import           Servant
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 spec :: Spec
-spec =
-    withDefConfigurations $ \_ _ ->
+spec = do
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm =
+    withProvidedMagicConfig pm $
         describe "development endpoint" $
         describe "secret-keys" $ modifyMaxSuccess (const 10) deleteAllSecretKeysSpec
 

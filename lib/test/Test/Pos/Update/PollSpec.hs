@@ -8,28 +8,39 @@ import           Universum
 
 import           Control.Lens (at)
 import qualified Data.HashSet as HS
-import           Test.Hspec (Spec, describe)
+import           Test.Hspec (Spec, describe, runIO)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Arbitrary (..), Gen, Property, conjoin, forAll, listOf, suchThat,
-                                  (===))
+import           Test.QuickCheck (Arbitrary (..), Gen, Property, arbitrary, conjoin, forAll,
+                                  generate, listOf, suchThat, (===))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Update ()
 import           Pos.Core (ApplicationName, BlockVersion (..), BlockVersionData (..),
                            HasConfiguration, SoftwareVersion (..), StakeholderId, addressHash)
 import           Pos.Core.Update (UpId, UpdateProposal (..))
-import           Pos.Crypto (hash)
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..), hash)
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Update.BlockVersion (applyBVM)
 import qualified Pos.Update.Poll as Poll
 import qualified Pos.Util.Modifier as MM
 
 import           Test.Pos.Binary.Helpers ()
-import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Configuration (withProvidedMagicConfig)
 import           Test.Pos.Util.QuickCheck.Property (formsMonoid)
 
 spec :: Spec
-spec = withDefConfiguration $ \_ -> describe "Poll" $ do
+spec = do
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm = withProvidedMagicConfig pm $ describe "Poll" $ do
     let smaller n = modifyMaxSuccess (const n)
     describe "modifyPollModifier" $ smaller 30 $ do
         prop

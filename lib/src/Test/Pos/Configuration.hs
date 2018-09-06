@@ -8,6 +8,7 @@ module Test.Pos.Configuration
 
        , HasStaticConfigurations
        , withDefConfiguration
+       , withProvidedMagicConfig
        , withDefNtpConfiguration
        , withDefNodeConfiguration
        , withDefSscConfiguration
@@ -28,7 +29,7 @@ import           Pos.Block.Configuration (HasBlockConfiguration, withBlockConfig
 import           Pos.Configuration (HasNodeConfiguration, withNodeConfiguration)
 import           Pos.Core (BlockVersionData, HasConfiguration, withGenesisSpec)
 import           Pos.Core.Configuration (CoreConfiguration (..), GenesisConfiguration (..))
-import           Pos.Core.Genesis (GenesisSpec (..))
+import           Pos.Core.Genesis (GenesisProtocolConstants (..), GenesisSpec (..))
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Delegation (HasDlgConfiguration, withDlgConfiguration)
 import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
@@ -90,6 +91,20 @@ withDefTxpConfiguration = withTxpConfiguration (ccTxp defaultTestConf)
 
 withDefConfiguration :: (HasConfiguration => ProtocolMagic -> r) -> r
 withDefConfiguration = withGenesisSpec 0 (ccCore defaultTestConf)
+
+withProvidedMagicConfig :: ProtocolMagic -> (HasConfigurations => r) -> r
+withProvidedMagicConfig pm f = withGenesisSpec 0 (updateCC (ccCore defaultTestConf)) (\_pm -> withStaticConfigurations (const f))
+  where
+    updateCC :: CoreConfiguration -> CoreConfiguration
+    updateCC cc = cc { ccGenesis = updateGC (ccGenesis cc) }
+    --
+    updateGC :: GenesisConfiguration -> GenesisConfiguration
+    updateGC (GCSrc _ _) = error "got GCSrc"
+    updateGC (GCSpec spec) = GCSpec $ spec
+        { gsProtocolConstants = updateGPC (gsProtocolConstants spec) }
+    --
+    updateGPC :: GenesisProtocolConstants -> GenesisProtocolConstants
+    updateGPC gpc = gpc { gpcProtocolMagic = pm }
 
 withStaticConfigurations :: (HasStaticConfigurations => NtpConfiguration -> r) -> r
 withStaticConfigurations patak =

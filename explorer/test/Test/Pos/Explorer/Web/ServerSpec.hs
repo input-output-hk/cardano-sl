@@ -8,13 +8,14 @@ module Test.Pos.Explorer.Web.ServerSpec
 
 import           Universum
 
-import           Test.Hspec (Spec, describe, shouldBe)
+import           Test.Hspec (Spec, describe, runIO, shouldBe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (arbitrary, counterexample, forAll, (==>))
+import           Test.QuickCheck (arbitrary, counterexample, forAll, generate, (==>))
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
 import qualified Pos.Communication ()
 import           Pos.Core (EpochIndex (..))
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 import           Pos.Explorer.ExplorerMode (runExplorerTestMode)
 import           Pos.Explorer.ExtraContext (ExtraContext (..), makeExtraCtx, makeMockExtraCtx)
 import           Pos.Explorer.TestUtil (emptyBlk, generateValidBlocksSlotsNumber,
@@ -29,7 +30,7 @@ import           Pos.Util (divRoundUp)
 import           Pos.Util.Mockable ()
 
 import           Test.Pos.Block.Arbitrary ()
-import           Test.Pos.Configuration (withDefConfigurations)
+import           Test.Pos.Configuration (withProvidedMagicConfig)
 
 
 ----------------------------------------------------------------
@@ -40,7 +41,18 @@ import           Test.Pos.Configuration (withDefConfigurations)
 
 -- stack test cardano-sl-explorer --fast --test-arguments "-m Pos.Explorer.Web.Server"
 spec :: Spec
-spec = withDefConfigurations $ \_ _ -> do
+spec = do
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm = withProvidedMagicConfig pm $ do
     describe "Pos.Explorer.Web.Server" $ do
         blocksTotalSpec
         blocksPagesTotalSpec

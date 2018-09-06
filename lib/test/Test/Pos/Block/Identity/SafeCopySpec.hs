@@ -4,18 +4,31 @@ module Test.Pos.Block.Identity.SafeCopySpec
        ( spec
        ) where
 
-import           Test.Hspec (Spec, describe)
+import           Test.Hspec (Spec, describe, runIO)
+import           Test.QuickCheck (arbitrary, generate)
 import           Universum
 
 import qualified Pos.Core.Block as BT
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 import           Pos.SafeCopy ()
 
 import           Test.Pos.Binary.Helpers (safeCopyTest)
 import           Test.Pos.Block.Arbitrary ()
-import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Configuration (withProvidedMagicConfig)
 
 spec :: Spec
-spec = withDefConfiguration $ \_ -> describe "Block types" $ do
+spec = do
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm = withProvidedMagicConfig pm $ describe "Block types" $
     describe "SafeCopy instances" $ do
         describe "GenericBlockHeader" $ do
             describe "GenesisBlockHeader" $ do

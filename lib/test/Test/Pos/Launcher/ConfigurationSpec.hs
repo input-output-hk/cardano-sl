@@ -11,12 +11,14 @@ import           Pos.Core.Slotting (Timestamp (..))
 import           Pos.Launcher.Configuration (ConfigurationOptions (..),
                      defaultConfigurationOptions, withConfigurationsM)
 import           Pos.Util.Config (ConfigurationException)
-import           Pos.Util.Wlog (LoggerName (..))
+import           Pos.Util.Log.LoggerConfig (defaultTestConfiguration)
+import           Pos.Util.Wlog (Severity (Debug), setupLogging)
 
 spec :: Spec
 spec = describe "Pos.Launcher.Configuration" $ do
     describe "withConfigurationsM" $ do
         it "should parse `lib/configuration.yaml` file" $ do
+            liftIO $ setupLogging (defaultTestConfiguration Debug)
             startTime <- Timestamp . round . (* 1000000) <$> liftIO getPOSIXTime
             let cfo = defaultConfigurationOptions
                         { cfoFilePath = "./configuration.yaml"
@@ -25,6 +27,6 @@ spec = describe "Pos.Launcher.Configuration" $ do
             let catchFn :: ConfigurationException -> IO (Maybe ConfigurationException)
                 catchFn e = return $ Just e
             res  <- liftIO $ catch
-                (withConfigurationsM (LoggerName "test") Nothing Nothing False cfo (\_ _ _ _ -> return Nothing))
+                (withConfigurationsM "test" Nothing Nothing False cfo (\_ _ _ _ -> return Nothing))
                 catchFn
             res `shouldSatisfy` isNothing

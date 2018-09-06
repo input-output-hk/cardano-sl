@@ -16,7 +16,7 @@ import           Control.Concurrent.Async (wait, withAsync)
 import           Control.Concurrent.MVar (newEmptyMVar, putMVar, readMVar,
                      takeMVar)
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO)
-import           Control.Exception (catch, throwIO)
+import           Control.Exception (handle, throwIO)
 import           Control.Lens (sans, (%=), (&~), (.=))
 import           Control.Monad (forM_, unless, when)
 import           Control.Monad.IO.Class (liftIO)
@@ -35,7 +35,9 @@ import           Test.QuickCheck.Modifiers (NonEmptyList (..), getNonEmpty)
 
 import           Node
 import           Node.Message.Binary (binaryPacking)
-import           Pos.Util.Trace (wlogTrace)
+import           Pos.Util.Log.LoggerConfig (defaultTestConfiguration)
+import           Pos.Util.Trace (wsetupLogging)
+import           Pos.Util.Wlog (Severity (Debug))
 import           Test.Util (HeavyParcel (..), Parcel (..), Payload (..),
                      TestState, deliveryTest, expected, makeInMemoryTransport,
                      makeTCPTransport, mkTestState, modifyTestState,
@@ -44,12 +46,12 @@ import           Test.Util (HeavyParcel (..), Parcel (..), Payload (..),
 spec :: Spec
 spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
 
-    let logTrace = wlogTrace ""
+    logTrace <- runIO $ wsetupLogging (defaultTestConfiguration Debug) ""
 
         -- Take at most 25000 bytes for each Received message.
         -- We want to ensure that the MTU works, but not make the tests too
         -- painfully slow.
-        mtu = 25000
+    let mtu = 25000
         tcpTransportUnbounded = runIO $ makeTCPTransport "0.0.0.0" "127.0.0.1" "10342" simpleUnboundedQDisc mtu
         tcpTransportOnePlace = runIO $ makeTCPTransport "0.0.0.0" "127.0.0.1" "10343" simpleOnePlaceQDisc mtu
         tcpTransportFair = runIO $ makeTCPTransport "0.0.0.0" "127.0.0.1" "10345" (fairQDisc (const (return Nothing))) mtu
@@ -177,7 +179,7 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
                     node logTrace (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) gen binaryPacking () env $ \_node ->
                         NodeAction (const []) $ \converse -> do
                             timeout "client waiting for ACK" 5000000 $
-                                flip catch handleThreadKilled $ converseWith converse peerAddr $ \_peerData -> Conversation $ \cactions -> do
+                                handle handleThreadKilled $ converseWith converse peerAddr $ \_peerData -> Conversation $ \cactions -> do
                                     _ :: Maybe Parcel <- recv cactions maxBound
                                     send cactions (Parcel 0 (Payload 32))
                                     return ()

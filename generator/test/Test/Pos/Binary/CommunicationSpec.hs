@@ -6,7 +6,7 @@ import           Universum
 
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Set as Set
-import           Test.Hspec (Spec, describe)
+import           Test.Hspec (Spec, beforeAll_, describe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck.Monadic (assert)
 
@@ -17,6 +17,8 @@ import           Pos.DB.Class (Serialized (..))
 import           Pos.Network.Block.Types (MsgBlock (..),
                      MsgSerializedBlock (..))
 import           Pos.Util.CompileInfo (withCompileInfo)
+import           Pos.Util.Log.LoggerConfig (defaultTestConfiguration)
+import           Pos.Util.Wlog (Severity (Debug), setupLogging)
 
 import           Test.Pos.Block.Logic.Mode (blockPropertyTestable)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..),
@@ -70,7 +72,8 @@ deserializeSerilizedMsgSerializedBlockSpec = do
     descNoBlock = "deserialization of a serialized MsgNoSerializedBlock message should give back corresponding MsgNoBlock"
 
 spec :: Spec
-spec = withStaticConfigurations $ \_ _ -> withCompileInfo $
-    describe "Pos.Binary.Communication" $ do
-        describe "serializeMsgSerializedBlock" serializeMsgSerializedBlockSpec
-        describe "decode is left inverse of serializeMsgSerializedBlock" deserializeSerilizedMsgSerializedBlockSpec
+spec = beforeAll_ (setupLogging (defaultTestConfiguration Debug)) $
+    withStaticConfigurations $ \_ _ -> withCompileInfo $
+        describe "Pos.Binary.Communication" $ do
+            describe "serializeMsgSerializedBlock" serializeMsgSerializedBlockSpec
+            describe "decode is left inverse of serializeMsgSerializedBlock" deserializeSerilizedMsgSerializedBlockSpec

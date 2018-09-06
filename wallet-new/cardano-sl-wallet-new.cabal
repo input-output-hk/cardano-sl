@@ -367,6 +367,7 @@ executable wal-integr-test
                      , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-chain
+                     , cardano-sl-util
                      , cardano-sl-wallet
                      , cardano-sl-wallet-new
                      , containers

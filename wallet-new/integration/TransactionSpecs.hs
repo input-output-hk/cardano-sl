@@ -18,6 +18,8 @@ import           Util
 import qualified Data.Map.Strict as Map
 import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Core as Core
+import           Pos.Util.Log.LoggerConfig (defaultTestConfiguration)
+import           Pos.Util.Wlog (Severity (Debug), setupLogging)
 
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
@@ -29,8 +31,7 @@ ppShowT :: Show a => a -> Text
 ppShowT = fromString . ppShow
 
 transactionSpecs :: WalletRef -> WalletClient IO -> Spec
-transactionSpecs wRef wc =
-
+transactionSpecs wRef wc = beforeAll_ (setupLogging (defaultTestConfiguration Debug)) $
     describe "Transactions" $ do
 
         randomTest "posted transactions appear in the index" 1 $ do

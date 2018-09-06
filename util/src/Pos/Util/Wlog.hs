@@ -56,4 +56,3 @@ import           Pos.Util.Wlog.Compatibility (CanLog (..), HasLoggerName (..),
                      logMessage, logNotice, logWarning, productionB,
                      removeAllHandlers, retrieveLogContent, runNamedPureLog,
                      setupLogging, usingLoggerName)
-

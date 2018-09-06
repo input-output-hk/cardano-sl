@@ -37,7 +37,7 @@ module Pos.Util.Wlog.Compatibility
          , getLinesLogged
          ) where
 
-import           Control.Concurrent (isEmptyMVar, myThreadId)
+import           Control.Concurrent (modifyMVar_, myThreadId)
 import           Control.Lens (each)
 import           Control.Monad.Base (MonadBase)
 import           Control.Monad.Morph (MFunctor (..))
@@ -223,17 +223,14 @@ dispatchEvents = mapM_ dispatchLogEvent
 -- | internal access to logging handler
 {-# NOINLINE loggingHandler #-}
 loggingHandler :: MVar LoggingHandler
-loggingHandler = unsafePerformIO $ do newEmptyMVar
+loggingHandler = unsafePerformIO $ do
+    newMVar $ error "LoggingHandler MVar is not initialized."
 
 -- | setup logging according to configuration @LoggerConfig@
 --   the backends (scribes) will be registered with katip
 setupLogging :: MonadIO m => LoggerConfig -> m ()
-setupLogging lc = do
-    nologging <- liftIO $ isEmptyMVar loggingHandler
-    --unless nologging $ error "logging already setup!"
-    when nologging
-        $ do { lh <- Log.setupLogging lc
-             ; putMVar loggingHandler lh }
+setupLogging lc = liftIO $
+                    modifyMVar_ loggingHandler $ const $ Log.setupLogging lc
 
 -- LogSafe
 

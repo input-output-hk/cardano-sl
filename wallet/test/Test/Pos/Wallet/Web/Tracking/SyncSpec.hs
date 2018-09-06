@@ -13,7 +13,7 @@ import qualified Data.HashSet as HS
 import           Data.List (intersect, (\\))
 import qualified Data.Set as Set
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
-import           Test.Hspec (Spec, describe, xdescribe)
+import           Test.Hspec (Spec, beforeAll_, describe, xdescribe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Arbitrary (..), Property, choose, oneof,
                      sublistOf, suchThat, vectorOf, (===))
@@ -25,6 +25,8 @@ import           Pos.Core.Chrono (nonEmptyOldestFirst, toNewestFirst)
 import           Pos.Crypto (emptyPassphrase)
 import           Pos.DB.Block (rollbackBlocks)
 import           Pos.Launcher (HasConfigurations)
+import           Pos.Util.Log.LoggerConfig (defaultTestConfiguration)
+import           Pos.Util.Wlog (Severity (Debug), setupLogging)
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.State.Storage (WalletStorage (..))
 import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentialsKey (..),
@@ -49,17 +51,18 @@ import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
 import           Test.Pos.Wallet.Web.Util (importSomeWallets, wpGenBlocks)
 
 spec :: Spec
-spec = withDefConfigurations $ \_ _ _ -> do
-    describe "Pos.Wallet.Web.Tracking.BListener" $ modifyMaxSuccess (const 10) $ do
-        describe "Two applications and rollbacks" twoApplyTwoRollbacksSpec
-    xdescribe "Pos.Wallet.Web.Tracking.evalChange (pending, CSL-2473)" $ do
-        prop evalChangeDiffAccountsDesc evalChangeDiffAccounts
-        prop evalChangeSameAccountsDesc evalChangeSameAccounts
-  where
-    evalChangeDiffAccountsDesc =
-      "An outgoing transaction to another account."
-    evalChangeSameAccountsDesc =
-      "Outgoing transaction from account to the same account."
+spec = beforeAll_ (setupLogging (defaultTestConfiguration Debug)) $
+    withDefConfigurations $ \_ _ _ -> do
+        describe "Pos.Wallet.Web.Tracking.BListener" $ modifyMaxSuccess (const 10) $ do
+            describe "Two applications and rollbacks" twoApplyTwoRollbacksSpec
+        xdescribe "Pos.Wallet.Web.Tracking.evalChange (pending, CSL-2473)" $ do
+            prop evalChangeDiffAccountsDesc evalChangeDiffAccounts
+            prop evalChangeSameAccountsDesc evalChangeSameAccounts
+      where
+        evalChangeDiffAccountsDesc =
+          "An outgoing transaction to another account."
+        evalChangeSameAccountsDesc =
+          "Outgoing transaction from account to the same account."
 
 twoApplyTwoRollbacksSpec :: HasConfigurations => Spec
 twoApplyTwoRollbacksSpec = walletPropertySpec twoApplyTwoRollbacksDesc $ do

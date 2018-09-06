@@ -17,7 +17,7 @@ import           Control.Exception.Safe (try)
 import           Data.List ((!!), (\\))
 import           Data.List.NonEmpty (fromList)
 import           Formatting (build, sformat, (%))
-import           Test.Hspec (Spec, describe, shouldBe)
+import           Test.Hspec (Spec, beforeAll_, describe, shouldBe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import           Test.QuickCheck (arbitrary, choose, generate)
 import           Test.QuickCheck.Monadic (pick)
@@ -44,7 +44,9 @@ import qualified Pos.Wallet.Web.State.State as WS
 import           Pos.Wallet.Web.State.Storage (AddressInfo (..), wamAddress)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow)
 
+import           Pos.Util.Log.LoggerConfig (defaultTestConfiguration)
 import           Pos.Util.Servant (encodeCType)
+import           Pos.Util.Wlog (Severity (Debug), setupLogging)
 
 import           Test.Pos.Chain.Genesis.Dummy (dummyConfig, dummyGenesisData)
 import           Test.Pos.Configuration (withDefConfigurations)
@@ -61,7 +63,8 @@ deriving instance Eq CTx
 
 -- TODO remove HasCompileInfo when MonadWalletWebMode will be splitted.
 spec :: Spec
-spec = withCompileInfo $
+spec = beforeAll_ (setupLogging (defaultTestConfiguration Debug)) $
+    withCompileInfo $
        withDefConfigurations $ \_ txpConfig _ ->
        describe "Wallet.Web.Methods.Payment" $ modifyMaxSuccess (const 10) $ do
     describe "newPaymentBatch" $ do

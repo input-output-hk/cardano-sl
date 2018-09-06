@@ -9,9 +9,11 @@ import           Universum
 
 import           Pos.Launcher (HasConfigurations)
 
+import           Pos.Util.Log.LoggerConfig (defaultTestConfiguration)
+import           Pos.Util.Wlog (Severity (Debug), setupLogging)
 import           Pos.Wallet.Web.ClientTypes (CWallet (..))
 import           Pos.Wallet.Web.Methods.Restore (restoreWalletFromBackup)
-import           Test.Hspec (Spec, describe)
+import           Test.Hspec (Spec, beforeAll_, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import           Test.Pos.Chain.Genesis.Dummy (dummyConfig)
 import           Test.Pos.Configuration (withDefConfigurations)
@@ -21,9 +23,10 @@ import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Monadic (pick)
 
 spec :: Spec
-spec = withDefConfigurations $ \_ _ _ ->
-       describe "restoreAddressFromWalletBackup" $ modifyMaxSuccess (const 10) $ do
-           restoreWalletAddressFromBackupSpec
+spec = beforeAll_ (setupLogging (defaultTestConfiguration Debug)) $
+            withDefConfigurations $ \_ _ _ ->
+                describe "restoreAddressFromWalletBackup" $ modifyMaxSuccess (const 10) $ do
+                    restoreWalletAddressFromBackupSpec
 
 restoreWalletAddressFromBackupSpec :: HasConfigurations => Spec
 restoreWalletAddressFromBackupSpec =

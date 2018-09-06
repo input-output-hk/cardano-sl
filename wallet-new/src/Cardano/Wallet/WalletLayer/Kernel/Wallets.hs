@@ -268,7 +268,6 @@ blundToResolvedBlock node (b,u) = do
       Right mainBlock -> Node.withNodeState node $ \_lock -> do
         ctxt  <- mainBlockContext genesisHash mainBlock
         mTime <- getTimestamp (mainBlock ^. mainBlockSlot)
-        now   <- liftIO $ getCurrentTimestamp
         return $ Just $ fromRawResolvedBlock UnsafeRawResolvedBlock {
             rawResolvedBlock       = mainBlock
           , rawResolvedBlockInputs = map (map fromJust) $ undoTx u

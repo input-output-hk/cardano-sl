@@ -72,9 +72,9 @@ import           Pos.Chain.Update (ConfirmedProposalState,
 import qualified Pos.Chain.Update as Upd
 import           Pos.Context (NodeContext (..))
 import           Pos.Core as Core (BlockCount, Config (..), GenesisHash (..),
-                     SlotCount, Timestamp (..), TxFeePolicy, configBlockVersionData,
-                     configEpochSlots, configK, difficultyL,
-                     getChainDifficulty)
+                     SlotCount, Timestamp (..), TxFeePolicy,
+                     configBlockVersionData, configEpochSlots, configK,
+                     difficultyL, getChainDifficulty)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Slotting (EpochIndex (..), HasSlottingVar (..),
                      LocalSlotIndex (..), MonadSlots (..), SlotId (..))

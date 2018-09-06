@@ -1,3 +1,10 @@
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE UndecidableInstances  #-}
+
 -- | Arbitrary instances for Lrc types.
 
 module Test.Pos.Chain.Lrc.Arbitrary

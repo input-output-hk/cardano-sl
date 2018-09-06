@@ -25,7 +25,7 @@ import           Test.QuickCheck.Monadic (pick)
 import           Pos.Binary.Class (serialize')
 import           Pos.Chain.Block (mainBlockTxPayload)
 import qualified Pos.Chain.Lrc as Lrc
-import           Pos.Chain.Txp (TxpConfiguration (..))
+import           Pos.Chain.Txp (TxAux, TxpConfiguration (..), mkTxPayload)
 import           Pos.Core as Core (Coin, Config (..), EpochIndex, StakeholderId,
                      addressHash, coinF, configBlkSecurityParam,
                      configBlockVersionData, configEpochSlots, configFtsSeed,
@@ -33,7 +33,6 @@ import           Pos.Core as Core (Coin, Config (..), EpochIndex, StakeholderId,
 import           Pos.Core.Genesis (GenesisInitializer (..),
                      TestnetBalanceOptions (..), gsSecretKeysPoor,
                      gsSecretKeysRich)
-import           Pos.Core.Txp (TxAux, mkTxPayload)
 import           Pos.Crypto (SecretKey, toPublic)
 import           Pos.DB.Block (ShouldCallBListener (..), applyBlocksUnsafe)
 import qualified Pos.DB.Block as Lrc

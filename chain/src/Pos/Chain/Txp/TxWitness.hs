@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Pos.Core.Txp.TxWitness
+module Pos.Chain.Txp.TxWitness
        ( TxWitness
        , TxInWitness (..)
        , TxSigData (..)
@@ -29,7 +29,7 @@ import           Pos.Crypto (Hash, PublicKey, RedeemPublicKey, RedeemSignature,
                      Signature, hash, shortHashF)
 import           Pos.Util.Util (aesonError)
 
-import           Pos.Core.Txp.Tx (Tx)
+import           Pos.Chain.Txp.Tx (Tx)
 
 -- | A witness is a proof that a transaction is allowed to spend the funds it
 -- spends (by providing signatures, redeeming scripts, etc). A separate proof

@@ -36,8 +36,8 @@ import           Serokell.Util.Base16 (base16F)
 import           Universum
 
 import           Pos.Chain.Script (Script, parseRedeemer, parseValidator)
+import           Pos.Chain.Txp (TxSigData)
 import           Pos.Core (StakeholderId)
-import           Pos.Core.Txp (TxSigData)
 import           Pos.Crypto (SafeSigner, SignTag (SignTx), deterministicKeyGen,
                      fullPublicKeyHexF, fullSignatureHexF, hashHexF, safeSign,
                      safeToPublic, signRaw, signTag)

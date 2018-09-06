@@ -15,8 +15,8 @@ import           Control.Concurrent.MVar (modifyMVar_)
 
 import           Data.Acid.Advanced (update')
 
+import           Pos.Chain.Txp (Tx (..), TxAux (..), TxOut (..))
 import           Pos.Core (Coin (..))
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxOut (..))
 import           Pos.Crypto (EncryptedSecretKey)
 
 import           Cardano.Wallet.Kernel.DB.AcidState (CancelPending (..),

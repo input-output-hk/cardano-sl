@@ -1,4 +1,8 @@
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE LambdaCase       #-}
+{-# LANGUAGE RecordWildCards  #-}
+{-# LANGUAGE TupleSections    #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ViewPatterns     #-}
 
 -- | Specification of Pos.Chain.Txp.Utxo
 
@@ -27,21 +31,21 @@ import           Pos.Chain.Script.Examples (alwaysSuccessValidator,
                      goodStdlibRedeemer, idValidator, intValidator,
                      intValidatorWithBlah, multisigRedeemer, multisigValidator,
                      shaStressRedeemer, sigStressRedeemer, stdlibValidator)
-import           Pos.Chain.Txp (ToilVerFailure (..), Utxo, VTxContext (..),
+import           Pos.Chain.Txp (ToilVerFailure (..), Tx (..), TxAux (..),
+                     TxIn (..), TxInWitness (..), TxOut (..), TxOutAux (..),
+                     TxSigData (..), TxWitness, Utxo, VTxContext (..),
                      VerifyTxUtxoRes, WitnessVerFailure (..), applyTxToUtxo,
-                     evalUtxoM, execUtxoM, utxoGet, utxoToLookup, verifyTxUtxo)
+                     evalUtxoM, execUtxoM, isTxInUnknown, utxoGet,
+                     utxoToLookup, verifyTxUtxo)
 import           Pos.Core (addressHash, checkPubKeyAddress,
                      makePubKeyAddressBoot, makeScriptAddress, mkCoin,
                      sumCoins)
 import           Pos.Core.Attributes (mkAttributes)
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..),
-                     TxOut (..), TxOutAux (..), TxSigData (..), TxWitness,
-                     isTxInUnknown)
 import           Pos.Crypto (SignTag (SignTx), checkSig, fakeSigner, hash,
                      toPublic, unsafeHash, withHash)
 import qualified Pos.Util.Modifier as MM
 
-import           Test.Pos.Core.Arbitrary.Txp (BadSigsTx (..),
+import           Test.Pos.Chain.Txp.Arbitrary (BadSigsTx (..),
                      DoubleInputTx (..), GoodTx (..))
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Arbitrary (SmallGenerator (..),

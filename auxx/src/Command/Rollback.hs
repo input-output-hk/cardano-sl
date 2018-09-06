@@ -13,10 +13,9 @@ import           Data.List (genericTake)
 import           Formatting (build, int, sformat, string, (%))
 
 import           Pos.Chain.Block (Blund, mainBlockTxPayload)
-import           Pos.Chain.Txp (flattenTxPayload)
+import           Pos.Chain.Txp (TxAux, flattenTxPayload)
 import           Pos.Core as Core (Config (..), difficultyL, epochIndexL)
 import           Pos.Core.Chrono (NewestFirst, _NewestFirst)
-import           Pos.Core.Txp (TxAux)
 import           Pos.DB.Block (BypassSecurityCheck (..),
                      ShouldCallBListener (..), rollbackBlocksUnsafe)
 import qualified Pos.DB.Block as DB

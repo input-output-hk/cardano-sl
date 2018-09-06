@@ -17,8 +17,8 @@ import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Set as Set
 import           Formatting.Buildable (build)
 
+import           Pos.Chain.Txp (TxId)
 import qualified Pos.Core as Core
-import           Pos.Core.Txp (TxId)
 
 import           Formatting (bprint)
 import           Serokell.Util.Text (listJsonIndent, pairF)

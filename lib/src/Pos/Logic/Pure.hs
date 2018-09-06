@@ -19,7 +19,7 @@ import           Pos.Chain.Block (Block, BlockHeader (..),
                      MainBlockHeader, MainBlockchain, MainBody (..),
                      MainConsensusData (..), MainExtraBodyData (..),
                      MainExtraHeaderData (..), MainProof (..))
-import           Pos.Chain.Txp (emptyTxPayload)
+import           Pos.Chain.Txp (TxProof (..), emptyTxPayload)
 import           Pos.Core (StakeholderId, TxFeePolicy (..),
                      unsafeCoinPortionFromDouble)
 import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
@@ -31,7 +31,6 @@ import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..),
                      SlotId (..))
 import           Pos.Core.Ssc (SscPayload (..), SscProof (..),
                      VssCertificatesMap (..))
-import           Pos.Core.Txp (TxProof (..))
 import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
                      BlockVersionData (..), SoftforkRule (..),
                      SoftwareVersion (..), UpdatePayload (..), UpdateProof)

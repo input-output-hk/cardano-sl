@@ -42,12 +42,12 @@ import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Chain.Block (HeaderHash)
-import           Pos.Chain.Txp (genesisUtxo, utxoF, utxoToAddressCoinPairs)
+import           Pos.Chain.Txp (Tx, TxId, TxOut (..), TxOutAux (..),
+                     genesisUtxo, utxoF, utxoToAddressCoinPairs)
 import           Pos.Core as Core (Address, Coin, Config (..), EpochIndex (..),
                      HasConfiguration, coinToInteger, unsafeAddCoin)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Genesis (GenesisData)
-import           Pos.Core.Txp (Tx, TxId, TxOut (..), TxOutAux (..))
 import           Pos.DB (DBError (..), DBIteratorClass (..), DBTag (GStateDB),
                      MonadDB, MonadDBRead (dbGet), RocksBatchOp (..),
                      dbIterSource, dbSerializeValue, encodeWithKeyPrefix)

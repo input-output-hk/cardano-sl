@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Pos.Core.Txp.TxProof
+module Pos.Chain.Txp.TxProof
        ( TxProof (..)
        , mkTxProof
        ) where
@@ -15,9 +15,9 @@ import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
 import           Pos.Core.Merkle (MerkleRoot, mkMerkleTree, mtRoot)
 import           Pos.Crypto (Hash, hash)
 
-import           Pos.Core.Txp.Tx
-import           Pos.Core.Txp.TxPayload
-import           Pos.Core.Txp.TxWitness
+import           Pos.Chain.Txp.Tx
+import           Pos.Chain.Txp.TxPayload
+import           Pos.Chain.Txp.TxWitness
 
 data TxProof = TxProof
     { txpNumber        :: !Word32
@@ -44,7 +44,7 @@ instance NFData TxProof
 -- | Construct 'TxProof' which proves given 'TxPayload'.
 -- This will construct a merkle tree, which can be very expensive. Use with
 -- care. Bi constraints arise because we need to hash these things.
-mkTxProof :: Bi TxInWitness => TxPayload -> TxProof
+mkTxProof :: TxPayload -> TxProof
 mkTxProof UnsafeTxPayload {..} =
     TxProof
     { txpNumber = fromIntegral (length _txpTxs)

@@ -56,8 +56,8 @@ import           Formatting (build, float, sformat, shown, (%))
 import           Pos.Chain.Block (BlockHeader (..), Blund, HeaderHash,
                      MainBlock, getBlockHeader, headerHash, headerSlotL,
                      mainBlockTxPayload, undoTx)
-import           Pos.Chain.Txp (UndoMap, flattenTxPayload, topsortTxs,
-                     _txOutputs)
+import           Pos.Chain.Txp (TxAux (..), TxId, TxUndo, UndoMap,
+                     flattenTxPayload, topsortTxs, _txOutputs)
 import           Pos.Client.Txp.History (TxHistoryEntry (..),
                      txHistoryListToMap)
 import           Pos.Core as Core (Address, BlockCount (..),
@@ -65,7 +65,6 @@ import           Pos.Core as Core (Address, BlockCount (..),
                      HasDifficulty (..), ProtocolConstants, Timestamp (..),
                      configBlkSecurityParam, pcEpochSlots, timestampToPosix)
 import           Pos.Core.Chrono (getNewestFirst)
-import           Pos.Core.Txp (TxAux (..), TxId, TxUndo)
 import           Pos.Crypto (WithHash (..), shortHashF, withHash)
 import           Pos.DB.Block (getBlund, resolveForwardLink)
 import qualified Pos.DB.Block as GS

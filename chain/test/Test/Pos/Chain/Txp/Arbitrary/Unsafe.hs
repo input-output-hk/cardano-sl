@@ -2,11 +2,11 @@
 
 -- | 'Arbitrary' unsafe instances for some types from Txp types
 
-module Test.Pos.Core.Arbitrary.Txp.Unsafe () where
+module Test.Pos.Chain.Txp.Arbitrary.Unsafe () where
 
 import           Universum
 
-import           Pos.Core.Txp (TxOut (..))
+import           Pos.Chain.Txp (TxOut (..))
 
 import           Test.Pos.Core.Arbitrary.Unsafe ()
 import           Test.Pos.Util.QuickCheck.Arbitrary (ArbitraryUnsafe (..))

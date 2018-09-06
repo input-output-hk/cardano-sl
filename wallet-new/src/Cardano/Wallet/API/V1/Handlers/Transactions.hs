@@ -14,10 +14,10 @@ import           Servant
 
 import           Data.Coerce (coerce)
 
+import           Pos.Chain.Txp (TxId)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..),
                      defaultInputSelectionPolicy)
 import           Pos.Core (Address, Timestamp)
-import           Pos.Core.Txp (TxId)
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response

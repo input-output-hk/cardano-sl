@@ -1,11 +1,11 @@
-module Pos.Core.Txp.Undo
+module Pos.Chain.Txp.Undo
        ( TxpUndo
        , TxUndo
        ) where
 
 import           Universum
 
-import           Pos.Core.Txp.TxOutAux
+import           Pos.Chain.Txp.TxOutAux
 
 type TxpUndo = [TxUndo]
 

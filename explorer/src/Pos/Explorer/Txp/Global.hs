@@ -10,13 +10,12 @@ import qualified Data.HashMap.Strict as HM
 
 import           Pos.Chain.Block (ComponentBlock (..), HeaderHash, headerHash,
                      headerSlotL)
-import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Chain.Txp (TxAux, TxUndo, TxpConfiguration)
 import           Pos.Core as Core (Config (..), HasConfiguration, SlotId (..),
                      configBootStakeholders, epochIndexL,
                      localSlotIndexMinBound)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Genesis (GenesisWStakeholders)
-import           Pos.Core.Txp (TxAux, TxUndo)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Txp (ProcessBlundsSettings (..), TxpBlund,
                      TxpGlobalApplyMode, TxpGlobalRollbackMode,

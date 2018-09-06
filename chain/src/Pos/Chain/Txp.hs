@@ -1,19 +1,20 @@
 -- | Txp system reexports.
 
 module Pos.Chain.Txp
-       ( module Pos.Core.Txp
-       , module Pos.Chain.Txp.Base
-       , module Pos.Chain.Txp.Configuration
-       , module Pos.Chain.Txp.Error
-       , module Pos.Chain.Txp.Toil
-       , module Pos.Chain.Txp.Topsort
-       , module Pos.Chain.Txp.GenesisUtxo
+       ( module X
        ) where
 
-import           Pos.Chain.Txp.Base
-import           Pos.Chain.Txp.Configuration
-import           Pos.Chain.Txp.Error
-import           Pos.Chain.Txp.GenesisUtxo
-import           Pos.Chain.Txp.Toil
-import           Pos.Chain.Txp.Topsort
-import           Pos.Core.Txp
+import           Pos.Chain.Txp.Base as X
+import           Pos.Chain.Txp.Configuration as X
+import           Pos.Chain.Txp.Error as X
+import           Pos.Chain.Txp.GenesisUtxo as X
+import           Pos.Chain.Txp.Toil as X
+import           Pos.Chain.Txp.Topsort as X
+import           Pos.Chain.Txp.Tx as X
+import           Pos.Chain.Txp.TxAux as X
+import           Pos.Chain.Txp.TxMsg as X
+import           Pos.Chain.Txp.TxOutAux as X
+import           Pos.Chain.Txp.TxPayload as X
+import           Pos.Chain.Txp.TxProof as X
+import           Pos.Chain.Txp.TxWitness as X
+import           Pos.Chain.Txp.Undo as X

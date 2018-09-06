@@ -19,13 +19,12 @@ import           Control.Exception.Safe (Handler (..), catches, onException)
 import           Data.Time.Units (fromMicroseconds)
 import           Formatting (build, sformat, shown, stext, (%))
 
-import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Chain.Txp (TxAux, TxpConfiguration)
 import           Pos.Client.Txp.History (saveTx, thTimestamp)
 import           Pos.Client.Txp.Network (TxMode)
 import           Pos.Configuration (walletTxCreationDisabled)
 import           Pos.Core as Core (Config (..), diffTimestamp,
                      getCurrentTimestamp)
-import           Pos.Core.Txp (TxAux)
 import           Pos.Infra.Util.LogSafe (buildSafe, logInfoSP, logWarningSP,
                      secretOnlyF)
 import           Pos.Util.Util (maybeThrow)

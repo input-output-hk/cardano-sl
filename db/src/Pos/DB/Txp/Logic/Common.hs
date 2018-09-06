@@ -9,8 +9,8 @@ import           Universum
 
 import qualified Data.Map as M (fromList)
 
-import           Pos.Chain.Txp (Utxo, UtxoModifier)
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxOutAux)
+import           Pos.Chain.Txp (Tx (..), TxAux (..), TxIn (..), TxOutAux, Utxo,
+                     UtxoModifier)
 import           Pos.Crypto (hash)
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.Txp.Utxo (getTxOut)

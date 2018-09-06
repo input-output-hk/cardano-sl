@@ -24,8 +24,8 @@ import qualified Data.List.NonEmpty as NE
 import           Formatting.Buildable (Buildable (..))
 
 import           Pos.Chain.Block (MainBlock, gbBody, mbTxs, mbWitnesses)
+import           Pos.Chain.Txp (Tx, TxAux (..), TxId, TxIn (..), txInputs)
 import qualified Pos.Core as Core
-import           Pos.Core.Txp (Tx, TxAux (..), TxId, TxIn (..), txInputs)
 
 import           Formatting (bprint, (%))
 import qualified Formatting as F

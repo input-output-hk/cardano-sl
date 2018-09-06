@@ -37,13 +37,13 @@ import           Data.Typeable (TypeRep, typeRep)
 
 import           Pos.Binary.Class (LengthOf, Range (..), SizeOverride (..),
                      encode, szSimplify, szWithCtx, toLazyByteString)
+import           Pos.Chain.Txp (TxAux, TxIn, TxInWitness, TxOut, TxSigData)
 import qualified Pos.Chain.Txp as Core
 import qualified Pos.Client.Txp.Util as CTxp
 import           Pos.Core (AddrAttributes, Coin (..), TxSizeLinear,
                      calculateTxSizeLinear)
 import qualified Pos.Core as Core
 import           Pos.Core.Attributes (Attributes)
-import           Pos.Core.Txp (TxAux, TxIn, TxInWitness, TxOut, TxSigData)
 import           Pos.Crypto (Signature)
 import qualified Pos.Crypto as Core
 import           Serokell.Data.Memory.Units (Byte, toBytes)

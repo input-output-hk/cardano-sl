@@ -34,9 +34,8 @@ import           Test.QuickCheck (Arbitrary (..), arbitrary, choose, elements,
                      infiniteListOf, shuffle)
 
 import           Cardano.Wallet.API.V1.Swagger.Example (Example)
-import           Pos.Chain.Txp (Utxo)
+import           Pos.Chain.Txp (TxOut (..), TxOutAux (..), Utxo)
 import           Pos.Core.Common (Coin (..))
-import           Pos.Core.Txp (TxOut (..), TxOutAux (..))
 import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..),
                      deriveSafeBuildable)
 

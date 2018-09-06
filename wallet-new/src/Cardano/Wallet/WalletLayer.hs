@@ -32,10 +32,9 @@ import qualified Prelude
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
 import           Pos.Chain.Block (Blund)
-import           Pos.Chain.Txp (Utxo)
+import           Pos.Chain.Txp (Tx, TxId, Utxo)
 import           Pos.Core (Coin, Timestamp)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.Core.Txp (Tx, TxId)
 import           Pos.Core.Update (SoftwareVersion)
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase)
 

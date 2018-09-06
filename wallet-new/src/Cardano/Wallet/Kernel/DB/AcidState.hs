@@ -55,9 +55,8 @@ import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
-import           Pos.Chain.Txp (Utxo)
+import           Pos.Chain.Txp (TxAux, TxId, Utxo)
 import           Pos.Core.Chrono (OldestFirst (..))
-import           Pos.Core.Txp (TxAux, TxId)
 import           Pos.Core.Update (SoftwareVersion)
 
 import           Cardano.Wallet.Kernel.DB.BlockContext

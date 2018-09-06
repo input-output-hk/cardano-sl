@@ -175,6 +175,7 @@ library
                      , cardano-sl
                      , cardano-sl-binary
                      , cardano-sl-chain
+                     , cardano-sl-chain-test
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-core-test
@@ -365,6 +366,7 @@ executable wal-integr-test
                      , bytestring
                      , cardano-sl
                      , cardano-sl-core
+                     , cardano-sl-chain
                      , cardano-sl-wallet
                      , cardano-sl-wallet-new
                      , containers
@@ -501,6 +503,7 @@ test-suite wallet-unit-tests
                     , cardano-sl
                     , cardano-sl-binary
                     , cardano-sl-chain
+                    , cardano-sl-chain-test
                     , cardano-sl-client
                     , cardano-sl-core
                     , cardano-sl-core-test

@@ -41,11 +41,11 @@ import qualified Formatting.Buildable
 import           Serokell.Util (Color (Red), colorize)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Chain.Txp (Utxo, addrBelongsToSet, genesisUtxo, txOutStake)
+import           Pos.Chain.Txp (TxIn (..), TxOutAux (toaOut), Utxo,
+                     addrBelongsToSet, genesisUtxo, txOutStake)
 import           Pos.Core (Address, Coin, HasCoreConfiguration, coinF, mkCoin,
                      sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Core.Genesis (GenesisData (..))
-import           Pos.Core.Txp (TxIn (..), TxOutAux (toaOut))
 import           Pos.DB (DBError (..), DBIteratorClass (..), DBTag (GStateDB),
                      IterType, MonadDB, MonadDBRead, RocksBatchOp (..),
                      dbIterSource, dbSerializeValue, encodeWithKeyPrefix)

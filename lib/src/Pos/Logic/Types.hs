@@ -20,11 +20,11 @@ import           Pos.Chain.Block (Block, BlockHeader, HeaderHash)
 import           Pos.Chain.Security (SecurityParams (..))
 import           Pos.Chain.Ssc (MCCommitment, MCOpening, MCShares,
                      MCVssCertificate)
+import           Pos.Chain.Txp (TxId, TxMsgContents)
 import           Pos.Communication (NodeId)
 import           Pos.Core (StakeholderId)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Delegation (ProxySKHeavy)
-import           Pos.Core.Txp (TxId, TxMsgContents)
 import           Pos.Core.Update (BlockVersionData, UpId, UpdateProposal,
                      UpdateVote, VoteId)
 import           Pos.DB.Block (GetHashesRangeError, GetHeadersFromManyToError)

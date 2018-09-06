@@ -72,7 +72,7 @@ import           Test.QuickCheck
 import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountId)
 import           Cardano.Wallet.Kernel.DB.Spec.Pending (Pending)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
-import qualified Pos.Core.Txp as Txp
+import qualified Pos.Chain.Txp as Txp
 
 -- | Wallet Submission Layer
 --

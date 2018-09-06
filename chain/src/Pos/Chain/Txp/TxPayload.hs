@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Pos.Core.Txp.TxPayload
+module Pos.Chain.Txp.TxPayload
        ( TxPayload (..)
        , mkTxPayload
        , checkTxPayload
@@ -15,9 +15,9 @@ import           Control.Monad.Except (MonadError)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 
 import           Pos.Binary.Class (Bi (..))
-import           Pos.Core.Txp.Tx
-import           Pos.Core.Txp.TxAux
-import           Pos.Core.Txp.TxWitness
+import           Pos.Chain.Txp.Tx
+import           Pos.Chain.Txp.TxAux
+import           Pos.Chain.Txp.TxWitness
 
 -- | Payload of Txp component which is part of main block. Constructor
 -- is unsafe, because it lets one create invalid payload, for example

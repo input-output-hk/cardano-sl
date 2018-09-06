@@ -6,7 +6,8 @@ module Cardano.Wallet.Kernel.Diffusion (
 
 import           Universum
 
-import           Pos.Core.Txp (TxAux)
+import           Pos.Chain.Txp (TxAux)
+import           Pos.Core ()
 import           Pos.Infra.Communication.Types.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStatus,
                      ssMap)

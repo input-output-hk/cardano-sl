@@ -19,9 +19,9 @@ import           Servant.API (FromHttpApiData (..), ToHttpApiData (..))
 import           Servant.Multipart (FromMultipart (..), Mem, lookupFile,
                      lookupInput)
 
+import           Pos.Chain.Txp (TxId)
 import           Pos.Core (Address, Coin (..), checkCoin, coinToInteger,
                      decodeTextAddress, mkCoin, unsafeGetCoin)
-import           Pos.Core.Txp (TxId)
 import           Pos.Crypto (PassPhrase, decodeHash, hashHexF, passphraseLength)
 import           Pos.Util.Servant (FromCType (..), HasTruncateLogPolicy (..),
                      OriginType, ToCType (..), WithTruncatedLog (..))

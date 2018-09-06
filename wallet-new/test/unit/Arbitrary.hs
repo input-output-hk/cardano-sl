@@ -19,8 +19,8 @@ import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec
 import           Cardano.Wallet.Kernel.DB.Spec.Pending
 
+import           Test.Pos.Chain.Txp.Arbitrary ()
 import           Test.Pos.Core.Arbitrary ()
-import           Test.Pos.Core.Arbitrary.Txp ()
 
 instance Arbitrary BlockContext where
     arbitrary = do
@@ -76,4 +76,3 @@ instance Arbitrary Pending where
     arbitrary = do
         p <- arbitrary
         return $ fromTransactions p
-

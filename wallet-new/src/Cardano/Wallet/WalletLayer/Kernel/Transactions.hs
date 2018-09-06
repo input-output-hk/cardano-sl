@@ -8,9 +8,9 @@ import           Universum
 import           Control.Monad.Except
 import           GHC.TypeLits (symbolVal)
 
+import           Pos.Chain.Txp (TxId)
 import           Pos.Core (Address, Coin, SlotCount, SlotId, Timestamp,
                      decodeTextAddress, flattenSlotId, getBlockCount)
-import           Pos.Core.Txp (TxId)
 
 import           Cardano.Wallet.API.Indices
 import           Cardano.Wallet.API.Request

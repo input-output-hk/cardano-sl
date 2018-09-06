@@ -12,11 +12,11 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 
-import           Pos.Chain.Txp (ToilVerFailure (..), TxpConfiguration, Utxo)
+import           Pos.Chain.Txp (ToilVerFailure (..), TxAux (..), TxId,
+                     TxpConfiguration, Utxo)
 import           Pos.Core as Core (Config (..), EpochIndex, Timestamp,
                      configEpochSlots)
 import           Pos.Core.JsonLog (CanJsonLog (..))
-import           Pos.Core.Txp (TxAux (..), TxId)
 import           Pos.Core.Update (BlockVersionData)
 import           Pos.DB.Txp.Logic (txNormalizeAbstract,
                      txProcessTransactionAbstract)

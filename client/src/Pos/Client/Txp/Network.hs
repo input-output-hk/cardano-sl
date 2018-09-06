@@ -17,6 +17,8 @@ import           Universum
 
 import           Formatting (build, sformat, (%))
 
+import           Pos.Chain.Txp (Tx, TxAux (..), TxId, TxMsgContents (..),
+                     TxOut (..), TxOutAux (..), txaF)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Balances (MonadBalances (..), getOwnUtxo)
 import           Pos.Client.Txp.History (MonadTxHistory (..))
@@ -26,8 +28,6 @@ import           Pos.Client.Txp.Util (InputSelectionPolicy,
 import           Pos.Communication.Types (InvOrDataTK)
 import           Pos.Core as Core (Address, Coin, Config (..),
                      makeRedeemAddress, mkCoin, unsafeAddCoin)
-import           Pos.Core.Txp (Tx, TxAux (..), TxId, TxMsgContents (..),
-                     TxOut (..), TxOutAux (..), txaF)
 import           Pos.Crypto (RedeemSecretKey, SafeSigner, hash, redeemToPublic)
 import           Pos.Infra.Communication.Protocol (OutSpecs)
 import           Pos.Infra.Communication.Specs (createOutSpecs)

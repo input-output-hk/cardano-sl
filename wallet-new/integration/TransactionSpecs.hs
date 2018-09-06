@@ -14,8 +14,8 @@ import           Text.Show.Pretty (ppShow)
 import           Util
 
 import qualified Data.Map.Strict as Map
+import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Core as Core
-import qualified Pos.Core.Txp as Txp
 
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}

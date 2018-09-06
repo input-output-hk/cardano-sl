@@ -7,10 +7,10 @@ import           UnliftIO (MonadUnliftIO)
 import qualified Data.Map as M
 
 import           Pos.Chain.Block (headerHash)
-import           Pos.Chain.Txp (genesisUtxo, utxoToModifier)
+import           Pos.Chain.Txp (TxIn, TxOut (..), TxOutAux (..), genesisUtxo,
+                     utxoToModifier)
 import           Pos.Core as Core (Address, Config (..), HasDifficulty (..))
 import           Pos.Core.Genesis (GenesisData)
-import           Pos.Core.Txp (TxIn, TxOut (..), TxOutAux (..))
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead (..))
 import           Pos.DB.Txp.Utxo (filterUtxo)

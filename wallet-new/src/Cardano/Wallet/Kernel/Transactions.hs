@@ -33,13 +33,12 @@ import           Test.QuickCheck (Arbitrary (..), oneof)
 import           Formatting (bprint, build, sformat, (%))
 import qualified Formatting.Buildable
 
-import           Pos.Chain.Txp (Utxo)
+import           Pos.Chain.Txp (Tx (..), TxAux (..), TxId, TxIn (..),
+                     TxOut (..), TxOutAux (..), Utxo)
 import qualified Pos.Client.Txp.Util as CTxp
 import           Pos.Core (Address, Coin, TxFeePolicy (..), unsafeIntegerToCoin,
                      unsafeSubCoin)
 import qualified Pos.Core as Core
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxIn (..), TxOut (..),
-                     TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, RedeemSecretKey,
                      SafeSigner (..), ShouldCheckPassphrase (..), hash,
                      redeemToPublic)

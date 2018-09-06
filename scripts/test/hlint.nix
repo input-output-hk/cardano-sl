@@ -25,13 +25,9 @@ runCommand "cardano-hlint-check" { buildInputs = [ hlint ]; } ''
     echo '====================================================================='
     echo 'Note: to ignore a particular hint (e.g. "Reduce duplication"), write'
     echo 'this in the source file:'
-    tput bold
     echo '{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}'
-    tput sgr0
     echo 'You can also apply it just to a particular function, which is better:'
-    tput bold
     echo '{-# ANN funcName ("HLint: ignore Reduce duplication" :: Text) #-}'
-    tput sgr0
     exit $EXIT_CODE
   else
     echo $EXIT_CODE > $out

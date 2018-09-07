@@ -4,6 +4,7 @@ module Cardano.Wallet.Kernel.DB.Updates (
   , addUpdate
   , removeNextUpdate
   , getNextUpdate
+  , clearUpdates
   ) where
 
 import           Universum
@@ -45,6 +46,9 @@ addUpdate (InDb upd) = updatesList %= (<> SL.singleton upd)
 
 removeNextUpdate :: Update' e Updates ()
 removeNextUpdate = updatesList %= SL.drop 1
+
+clearUpdates :: Update' e Updates ()
+clearUpdates = updatesList %= \_ -> mempty
 
 -- | Next the next available update, if any
 --

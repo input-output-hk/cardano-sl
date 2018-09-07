@@ -6,6 +6,7 @@
 module Cardano.Wallet.Kernel.Submission (
     -- * Public API
       newWalletSubmission
+    , emptyWalletSubmission
     , addPending
     , addPendings
     , remPending
@@ -609,3 +610,9 @@ prependEvents targetSlot events old =
 -- | Increments the 'SubmissionCount' by the supplied function.
 incSubmissionCount :: SubmissionCount -> (Int -> Int) -> SubmissionCount
 incSubmissionCount (SubmissionCount count) f =  SubmissionCount (f count)
+
+emptyWalletSubmission :: WalletSubmission
+emptyWalletSubmission = newWalletSubmission resubmitFunction
+
+resubmitFunction :: ResubmissionFunction
+resubmitFunction = defaultResubmitFunction (exponentialBackoff 255 1.25)

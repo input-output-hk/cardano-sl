@@ -177,6 +177,33 @@ hasDupes xs = length (Set.fromList xs) /= List.length xs
 -- | Specs which tests the persistent storage and API provided by 'TxMeta'.
 txMetaStorageSpecs :: Spec
 txMetaStorageSpecs = do
+    describe "migrations" $ do
+        it "calling migration second time does nothing" $ monadicIO $ do
+            testMetaSTB <- pick genMeta
+            let testMeta = unSTB testMetaSTB
+            db <- liftIO $ openMetaDB ":memory:"
+            liftIO $ migrateMetaDB db
+            liftIO $ putTxMeta db testMeta
+            mbTx1 <- liftIO $ getTxMeta db (testMeta ^. txMetaId) (testMeta ^. txMetaWalletId) (testMeta ^. txMetaAccountIx)
+            liftIO $ migrateMetaDB db
+            mbTx2 <- liftIO $ getTxMeta db (testMeta ^. txMetaId) (testMeta ^. txMetaWalletId) (testMeta ^. txMetaAccountIx)
+            liftIO $ Isomorphic <$> mbTx1 `shouldBe` Just (Isomorphic testMeta)
+            liftIO $ Isomorphic <$> mbTx2 `shouldBe` Just (Isomorphic testMeta)
+            liftIO $ closeMetaDB db
+
+        it "calling clearMetaDB wipes entries" $ monadicIO $ do
+            testMetaSTB <- pick genMeta
+            let testMeta = unSTB testMetaSTB
+            db <- liftIO $ openMetaDB ":memory:"
+            liftIO $ migrateMetaDB db
+            liftIO $ putTxMeta db testMeta
+            mbTx1 <- liftIO $ getTxMeta db (testMeta ^. txMetaId) (testMeta ^. txMetaWalletId) (testMeta ^. txMetaAccountIx)
+            liftIO $ clearMetaDB db
+            mbTx2 <- liftIO $ getTxMeta db (testMeta ^. txMetaId) (testMeta ^. txMetaWalletId) (testMeta ^. txMetaAccountIx)
+            liftIO $ Isomorphic <$> mbTx1 `shouldBe` Just (Isomorphic testMeta)
+            liftIO $ Isomorphic <$> mbTx2 `shouldBe` Nothing
+            liftIO $ closeMetaDB db
+
     describe "uniqueElements generator" $ do
         it "generates unique inputs" $ monadicIO $ do
             (inputs :: NonEmpty (ShowThroughBuild Input)) <- pick (uniqueElements 30)

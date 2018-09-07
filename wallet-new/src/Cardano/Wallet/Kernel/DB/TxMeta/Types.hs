@@ -287,6 +287,7 @@ instance Buildable PutReturn where
 data MetaDBHandle = MetaDBHandle {
       closeMetaDB   :: IO ()
     , migrateMetaDB :: IO ()
+    , clearMetaDB   :: IO ()
     , getTxMeta     :: Txp.TxId -> Core.Address -> Word32 -> IO (Maybe TxMeta)
     , putTxMeta     :: TxMeta -> IO ()
     , putTxMetaT    :: TxMeta -> IO PutReturn

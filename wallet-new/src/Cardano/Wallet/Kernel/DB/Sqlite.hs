@@ -11,6 +11,9 @@ module Cardano.Wallet.Kernel.DB.Sqlite (
       newConnection
     , closeMetaDB
 
+    -- * Clear all entries
+    , clearMetaDB
+
     -- * Basic API
     , putTxMeta
     , getTxMeta
@@ -432,6 +435,13 @@ newConnection path = Sqlite.open path
 closeMetaDB :: Sqlite.Connection -> IO ()
 closeMetaDB = Sqlite.close
 
+clearMetaDB :: Sqlite.Connection -> IO ()
+clearMetaDB conn = do
+    Sqlite.withTransaction conn $ runBeamSqlite conn $ do
+        SQL.runDelete $ SQL.delete (_mDbOutputs metaDB) (\_ -> SQL.val_ True)
+        SQL.runDelete $ SQL.delete (_mDbInputs metaDB) (\_ -> SQL.val_ True)
+        SQL.runDelete $ SQL.delete (_mDbMeta metaDB) (\_ -> SQL.val_ True)
+
 putTxMeta :: Sqlite.Connection -> Kernel.TxMeta -> IO ()
 putTxMeta conn txMeta = void $ putTxMetaT conn txMeta
 
@@ -446,7 +456,7 @@ putTxMetaT conn txMeta =
         accountIx = _txMetaTableAccountIx tMeta
         walletId = _txMetaTableWalletId tMeta
     in do
-        res1 <- Sqlite.runDBAction $ runBeamSqlite conn $ do
+        res1 <- Sqlite.withTransaction conn  $ Sqlite.runDBAction $ runBeamSqlite conn $ do
             -- The order here is important. If Outputs succeed everything else should also succeed.
             SQL.runInsert $ SQL.insert (_mDbOutputs metaDB) $ SQL.insertValues (NonEmpty.toList outputs)
             SQL.runInsert $ SQL.insert (_mDbMeta metaDB)    $ SQL.insertValues [tMeta]

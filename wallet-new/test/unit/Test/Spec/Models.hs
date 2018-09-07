@@ -45,10 +45,11 @@ runWithMagic rnm = do
 specBody :: ProtocolMagic -> Spec
 specBody pm =
     describe "Test pure wallets" $ do
+      let rnm = getRequiresNetworkMagic pm
       it "Using simple model" $
-        forAll (genInductiveUsingModel simpleModel) $ testPureWalletWith
+        forAll (genInductiveUsingModel rnm simpleModel) $ testPureWalletWith
       it "Using Cardano model" $
-        forAll (genInductiveUsingModel (cardanoModel linearFeePolicy boot)) $ testPureWalletWith
+        forAll (genInductiveUsingModel rnm (cardanoModel linearFeePolicy boot)) $ testPureWalletWith
   where
     transCtxt = runTranslateNoErrors pm ask
     boot      = bootstrapTransaction transCtxt

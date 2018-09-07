@@ -43,7 +43,8 @@ runWithMagic rnm = do
 specBody :: ProtocolMagic -> Spec
 specBody pm =
     it "Compare wallet kernel to pure model" $
-      forAll (genInductiveUsingModel model) $ \ind -> do
+      let rnm = getRequiresNetworkMagic pm in
+      forAll (genInductiveUsingModel rnm model) $ \ind -> do
         -- TODO: remove once we have support for rollback in the kernel
         let indDontRoll = uptoFirstRollback ind
         bracketActiveWallet pm $ \activeWallet -> do

@@ -62,8 +62,9 @@ specBody pm = do
 
     describe "Translation QuickCheck tests" $ do
       prop "can translate randomly generated chains" $
+        let rnm = getRequiresNetworkMagic pm in
         forAll
-          (intAndVerifyGen pm (genChainUsingModel . cardanoModel linearFeePolicy))
+          (intAndVerifyGen pm (genChainUsingModel rnm . cardanoModel linearFeePolicy))
           expectValid
 
   where
@@ -188,7 +189,9 @@ intAndVerifyPure :: ProtocolMagic
                  -> (GenesisValues GivenHash -> Chain GivenHash Addr)
                  -> ValidationResult GivenHash Addr
 intAndVerifyPure pm txSizeLinear pc = runIdentity $
-    intAndVerify pm (Identity . pc . genesisValues txSizeLinear)
+    intAndVerify pm (Identity . pc . genesisValues txSizeLinear rnm)
+  where
+    rnm = getRequiresNetworkMagic pm
 
 -- | Specialization of 'intAndVerify' to 'Gen'
 intAndVerifyGen :: ProtocolMagic -> (Transaction GivenHash Addr

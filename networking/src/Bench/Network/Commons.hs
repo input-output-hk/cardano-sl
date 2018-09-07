@@ -23,7 +23,7 @@ module Bench.Network.Commons
        ) where
 
 import           Control.Applicative ((<|>))
--- import           Control.Lens (zoom, (?=))
+import           Control.Lens ((&), (.~), (^.))
 import           Control.Monad (join)
 import           Control.Monad.Trans (MonadIO (..))
 
@@ -32,6 +32,7 @@ import           Data.Binary (Binary (..))
 import qualified Data.ByteString.Lazy as BL
 import           Data.Data (Data)
 import           Data.Functor (($>))
+import qualified Data.HashMap.Strict as HM
 import           Data.Int (Int64)
 import           Data.Monoid ((<>))
 import           Data.Text (Text)
@@ -44,9 +45,10 @@ import           Prelude hiding (takeWhile)
 
 import           Node (Message (..))
 import           Pos.Util (realTime)
-import           Pos.Util.Log.LoggerConfig (defaultInteractiveConfiguration)
+import           Pos.Util.Log.LoggerConfig (defaultInteractiveConfiguration,
+                     lcLoggerTree, ltMinSeverity, ltNamedSeverity)
 import           Pos.Util.Trace (Trace, traceWith)
-import           Pos.Util.Wlog (LoggerConfig (..), Severity (Debug),
+import           Pos.Util.Wlog (LoggerConfig (..), Severity (..),
                      parseLoggerConfig, setLogPrefix, setupLogging)
 
 -- * Transfered data types
@@ -85,7 +87,18 @@ logMeasure logTrace miEvent miId miPayload = do
     liftIO $ traceWith logTrace $ F.sformat F.build $ LogMessage MeasureInfo{..}
 
 defaultLogConfig :: LoggerConfig
-defaultLogConfig = defaultInteractiveConfiguration Debug
+defaultLogConfig =
+    let lc0   = defaultInteractiveConfiguration Info
+        newlt = lc0 ^. lcLoggerTree
+                    & ltMinSeverity .~ Info
+                    & ltNamedSeverity .~
+                        HM.fromList [ ("cardano-sl.sender", Info)
+                                    , ("cardano-sl.sender.comm", Error)
+                                    , ("cardano-sl.receiver", Info)
+                                    , ("cardano-sl.receiver.comm", Error) ]
+    in
+    lc0 & lcLoggerTree .~ newlt
+
 
 loadLogConfig :: MonadIO m => Maybe FilePath -> Maybe FilePath -> m ()
 loadLogConfig logsPrefix configFile = do

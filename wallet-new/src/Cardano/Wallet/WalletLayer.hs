@@ -3,6 +3,7 @@ module Cardano.Wallet.WalletLayer
     , ActiveWalletLayer (..)
     -- * Types
     , CreateWallet(..)
+    , CreateAccount(..)
     -- ** Errors
     , CreateWalletError(..)
     , GetWalletError(..)
@@ -234,6 +235,14 @@ instance Buildable ValidateAddressError where
 -- Errors when dealing with Accounts
 ------------------------------------------------------------
 
+data CreateAccount =
+    CreateHdAccountFixedIndex Kernel.HdAccountIx NewAccount
+  -- ^ Creates a new HD 'Account' using as the account index
+  -- the supplied one.
+  | CreateHdAccountRandomIndex NewAccount
+  -- ^ Creates a new HD 'Account' using as the account index
+  -- a randomly-generated one.
+
 data CreateAccountError =
       CreateAccountError Kernel.CreateAccountError
     | CreateAccountWalletIdDecodingFailed Text
@@ -402,7 +411,7 @@ data PassiveWalletLayer m = PassiveWalletLayer
                            -> m (Either GetUtxosError [(Account, Utxo)])
     -- accounts
     , createAccount        :: WalletId
-                           -> NewAccount
+                           -> CreateAccount
                            -> m (Either CreateAccountError Account)
     , getAccounts          :: WalletId
                            -> m (Either GetAccountsError (IxSet Account))

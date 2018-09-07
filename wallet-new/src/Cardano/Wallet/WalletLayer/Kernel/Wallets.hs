@@ -20,6 +20,7 @@ import           Pos.Chain.Block (Blund, mainBlockSlot, undoTx)
 import           Pos.Chain.Txp (Utxo)
 import           Pos.Core (Config (..), mkCoin)
 import           Pos.Core.Slotting (Timestamp)
+import           Pos.Crypto.HD (firstHardened)
 import           Pos.Crypto.Signing
 
 import           Cardano.Wallet.API.V1.Types (V1 (..))
@@ -81,11 +82,15 @@ createWallet wallet newWalletRequest = liftIO $ do
                                       (fromAssuranceLevel newwalAssuranceLevel)
                                       (HD.WalletName newwalName)
       let rootId = root ^. HD.hdRootId
-      _ <- withExceptT CreateWalletFirstAccountCreationFailed $ ExceptT $
-             Kernel.createAccount (spendingPassword newwalSpendingPassword)
-                                  (HD.AccountName "Default account")
-                                  (WalletIdHdRnd rootId)
-                                  wallet
+      _ <- withExceptT CreateWalletFirstAccountCreationFailed $ ExceptT $ do
+             -- When we create a new wallet, we want to create a new account
+             -- with a predictable, fixed seed, in compliance with the old
+             -- schema.
+             Kernel.createHdFixedAccount
+                 (HD.HdAccountIx firstHardened)
+                 (HD.AccountName "Default account")
+                 (WalletIdHdRnd rootId)
+                 wallet
       return (mkRoot newwalName newwalAssuranceLevel now root)
 
     restore :: V1.NewWallet

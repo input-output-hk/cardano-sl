@@ -68,7 +68,8 @@ import           Cardano.Wallet.Kernel.Types (AccountId (..),
                      RawResolvedTx (..), WalletId (..))
 import           Cardano.Wallet.Kernel.Util (shuffleNE)
 import           Cardano.Wallet.Kernel.Util.Core
-import           Cardano.Wallet.WalletLayer.Kernel.Conv (exceptT)
+import           Cardano.Wallet.WalletLayer.Kernel.Conv (exceptT,
+                     toCardanoAddress)
 
 {-------------------------------------------------------------------------------
   Generating payments and estimating fees
@@ -254,9 +255,10 @@ newTransaction ActiveWallet{..} spendingPassword options accountId payees = runE
     genChangeAddr :: MonadIO m
                   => ExceptT Kernel.CreateAddressError m Address
     genChangeAddr = ExceptT $ liftIO $
-        Kernel.createAddress spendingPassword
-                             (AccountIdHdRnd accountId)
-                             walletPassive
+        fmap toCardanoAddress <$>
+            Kernel.createAddress spendingPassword
+                                 (AccountIdHdRnd accountId)
+                                 walletPassive
 
 -- | This is called when we create a new Pending Transaction.
 -- This actually returns a function because we don`t know yet our outputs.
@@ -494,7 +496,7 @@ redeemAda w@ActiveWallet{..} accId pw rsk = runExceptT $ do
                       pw
                       (AccountIdHdRnd accId)
                       walletPassive
-    (tx, meta) <- mkTx changeAddr
+    (tx, meta) <- mkTx (toCardanoAddress changeAddr)
     withExceptT RedeemAdaNewForeignFailed $ ExceptT $ liftIO $
       newForeign
         w

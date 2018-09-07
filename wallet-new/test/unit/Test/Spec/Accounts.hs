@@ -23,13 +23,15 @@ import qualified Cardano.Wallet.Kernel.DB.HdWallet as Kernel
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import qualified Cardano.Wallet.Kernel.Internal as Internal
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
-import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
+import           Cardano.Wallet.WalletLayer (CreateAccount (..),
+                     PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
 import qualified Cardano.Wallet.WalletLayer.Kernel.Wallets as Wallets
 import           Control.Monad.Except (runExceptT)
 import           Servant.Server
 
 import           Pos.Core.Common (mkCoin)
+import           Pos.Crypto.HD (firstHardened)
 
 import           Test.Spec.Fixture (GenPassiveWalletFixture,
                      genSpendingPassword, withLayer, withPassiveWalletFixture)
@@ -79,7 +81,7 @@ spec = describe "Accounts" $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
                     res <- WalletLayer.createAccount layer
                              (V1.walId fixtureV1Wallet)
-                             fixtureNewAccountRq
+                             (CreateHdAccountRandomIndex fixtureNewAccountRq)
                     (bimap STB STB res) `shouldSatisfy` isRight
 
         prop "fails if the parent wallet doesn't exists" $ withMaxSuccess 50 $ do
@@ -88,7 +90,7 @@ spec = describe "Accounts" $ do
                 pwd <- genSpendingPassword
                 request <- genNewAccountRq pwd
                 withLayer $ \layer _ -> do
-                    res <- WalletLayer.createAccount layer wId request
+                    res <- WalletLayer.createAccount layer wId (CreateHdAccountRandomIndex request)
                     case res of
                          Left (WalletLayer.CreateAccountError (CreateAccountKeystoreNotFound _)) ->
                              return ()
@@ -108,6 +110,16 @@ spec = describe "Accounts" $ do
                     res <- runExceptT . runHandler' $ hdl
                     (bimap identity STB res) `shouldSatisfy` isRight
 
+        prop "comes with 1 address by default" $ withMaxSuccess 50 $ do
+            monadicIO $ do
+                withFixture $ \_ layer _ Fixture{..} -> do
+                    let hdl = Handlers.newAccount layer (V1.walId fixtureV1Wallet) fixtureNewAccountRq
+                    res <- runExceptT . runHandler' $ hdl
+                    case res of
+                         Left e -> throwM e
+                         Right API.WalletResponse{..} ->
+                             length (V1.accAddresses wrData) `shouldBe` 1
+
     describe "DeleteAccount" $ do
 
         prop "works as expected in the happy path scenario" $ withMaxSuccess 50 $ do
@@ -115,7 +127,7 @@ spec = describe "Accounts" $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
                     let wId = V1.walId fixtureV1Wallet
                     (Right V1.Account{..}) <-
-                        WalletLayer.createAccount layer wId fixtureNewAccountRq
+                        WalletLayer.createAccount layer wId (CreateHdAccountRandomIndex fixtureNewAccountRq)
                     res <- WalletLayer.deleteAccount layer wId accIndex
                     (bimap STB STB res) `shouldSatisfy` isRight
 
@@ -124,7 +136,7 @@ spec = describe "Accounts" $ do
                 wId <- pick arbitrary
                 withLayer $ \layer _ -> do
                     res <- WalletLayer.deleteAccount layer wId
-                             (V1.unsafeMkAccountIndex 2147483648)
+                             (V1.unsafeMkAccountIndex firstHardened)
                     case res of
                          Left (WalletLayer.DeleteAccountError
                                   (V1 (Kernel.UnknownHdAccountRoot _))) ->
@@ -140,9 +152,12 @@ spec = describe "Accounts" $ do
         prop "fails if the account doesn't exists" $ withMaxSuccess 50 $ do
             monadicIO $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
+                    -- Pick the first non-allocated index after 'firstHardened',
+                    -- as by defaults each fixture's wallet is created with a
+                    -- default account at index 'firstHardened'.
                     res <- WalletLayer.deleteAccount layer
                              (V1.walId fixtureV1Wallet)
-                             (V1.unsafeMkAccountIndex 2147483648)
+                             (V1.unsafeMkAccountIndex (firstHardened + 1))
                     case res of
                          Left (WalletLayer.DeleteAccountError
                                   (V1 (Kernel.UnknownHdAccount _))) ->
@@ -185,10 +200,13 @@ spec = describe "Accounts" $ do
         prop "Servant handler fails if the account doesn't exist" $ withMaxSuccess 50 $ do
             monadicIO $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
+                    -- Pick the first non-allocated index after 'firstHardened',
+                    -- as by defaults each fixture's wallet is created with a
+                    -- default account at index 'firstHardened'.
                     let delete =
                             Handlers.deleteAccount layer
                                 (V1.walId fixtureV1Wallet)
-                                (V1.unsafeMkAccountIndex 2147483648)
+                                (V1.unsafeMkAccountIndex (firstHardened + 1))
                     res <- try . runExceptT . runHandler' $ delete
                     case res of
                          Left (_e :: WalletLayer.DeleteAccountError)  -> return ()
@@ -202,7 +220,7 @@ spec = describe "Accounts" $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
                     let wId = V1.walId fixtureV1Wallet
                     (Right V1.Account{..}) <-
-                        WalletLayer.createAccount layer wId fixtureNewAccountRq
+                        WalletLayer.createAccount layer wId (CreateHdAccountRandomIndex fixtureNewAccountRq)
                     let updateAccountRq = V1.AccountUpdate "My nice account"
                     res <- WalletLayer.updateAccount layer wId accIndex updateAccountRq
                     case res of
@@ -234,9 +252,12 @@ spec = describe "Accounts" $ do
             monadicIO $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
                     let wId = V1.walId fixtureV1Wallet
+                    -- Pick the first non-allocated index after 'firstHardened',
+                    -- as by defaults each fixture's wallet is created with a
+                    -- default account at index 'firstHardened'.
                     res <- WalletLayer.updateAccount layer
                              wId
-                             (V1.unsafeMkAccountIndex 2147483648)
+                             (V1.unsafeMkAccountIndex (firstHardened + 1))
                              (V1.AccountUpdate "new account")
                     case res of
                          Left (WalletLayer.UpdateAccountError
@@ -270,7 +291,7 @@ spec = describe "Accounts" $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
                     (Right V1.Account{..}) <-
                         WalletLayer.createAccount layer (V1.walId fixtureV1Wallet)
-                                                        fixtureNewAccountRq
+                                                        (CreateHdAccountRandomIndex fixtureNewAccountRq)
                     res <- WalletLayer.getAccount layer (V1.walId fixtureV1Wallet)
                                                         accIndex
                     case res of
@@ -298,9 +319,12 @@ spec = describe "Accounts" $ do
         prop "fails if the account doesn't exists" $ withMaxSuccess 50 $ do
             monadicIO $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
+                    -- Pick the first non-allocated index after 'firstHardened',
+                    -- as by defaults each fixture's wallet is created with a
+                    -- default account at index 'firstHardened'.
                     res <- WalletLayer.getAccount layer
                              (V1.walId fixtureV1Wallet)
-                             (V1.unsafeMkAccountIndex 2147483648)
+                             (V1.unsafeMkAccountIndex (firstHardened + 1))
                     case res of
                          Left (WalletLayer.GetAccountError (V1 (Kernel.UnknownHdAccount _))) ->
                              return ()
@@ -333,7 +357,7 @@ spec = describe "Accounts" $ do
                     -- by the 'createWallet' endpoint, for a total of 5.
                     forM_ [1..4] $ \(_i :: Int) ->
                         WalletLayer.createAccount layer (V1.walId fixtureV1Wallet)
-                                                        fixtureNewAccountRq
+                                                        (CreateHdAccountRandomIndex fixtureNewAccountRq)
                     res <- WalletLayer.getAccounts layer (V1.walId fixtureV1Wallet)
                     case res of
                          Left e     -> fail (show e)
@@ -377,9 +401,12 @@ spec = describe "Accounts" $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
                     let params = API.RequestParams (API.PaginationParams (API.Page 1) (API.PerPage 10))
                     let filters = API.NoFilters
+                    -- Pick the first non-allocated index after 'firstHardened',
+                    -- as by defaults each fixture's wallet is created with a
+                    -- default account at index 'firstHardened'.
                     res <- WalletLayer.getAccountAddresses layer
                              (V1.walId fixtureV1Wallet)
-                             (V1.unsafeMkAccountIndex 2147483648)
+                             (V1.unsafeMkAccountIndex (firstHardened + 1))
                              params
                              filters
                     case res of
@@ -401,7 +428,7 @@ spec = describe "Accounts" $ do
                     -- by the 'createWallet' endpoint, for a total of 5.
                     forM_ [1..4] $ \(_i :: Int) ->
                         WalletLayer.createAccount layer (V1.walId fixtureV1Wallet)
-                                                        fixtureNewAccountRq
+                                                        (CreateHdAccountRandomIndex fixtureNewAccountRq)
                     accounts <- WalletLayer.getAccounts layer (V1.walId fixtureV1Wallet)
                     let accountIndices =
                             case accounts of
@@ -453,7 +480,7 @@ spec = describe "Accounts" $ do
                     -- by the 'createWallet' endpoint, for a total of 5.
                     forM_ [1..4] $ \(_i :: Int) ->
                         WalletLayer.createAccount layer (V1.walId fixtureV1Wallet)
-                                                        fixtureNewAccountRq
+                                                        (CreateHdAccountRandomIndex fixtureNewAccountRq)
                     accountsBefore <- WalletLayer.getAccounts layer (V1.walId fixtureV1Wallet)
                     let accountIndices =
                             case accountsBefore of
@@ -481,7 +508,7 @@ spec = describe "Accounts" $ do
                     let zero = V1 (mkCoin 0)
                     (Right V1.Account{..}) <-
                         WalletLayer.createAccount layer (V1.walId fixtureV1Wallet)
-                                                        fixtureNewAccountRq
+                                                        (CreateHdAccountRandomIndex fixtureNewAccountRq)
                     res <- WalletLayer.getAccountBalance layer (V1.walId fixtureV1Wallet)
                                                                accIndex
                     case res of
@@ -491,9 +518,12 @@ spec = describe "Accounts" $ do
         prop "fails if the account doesn't exists" $ withMaxSuccess 50 $ do
             monadicIO $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
+                    -- Pick the first non-allocated index after 'firstHardened',
+                    -- as by defaults each fixture's wallet is created with a
+                    -- default account at index 'firstHardened'.
                     res <- WalletLayer.getAccountBalance layer
                              (V1.walId fixtureV1Wallet)
-                             (V1.unsafeMkAccountIndex 2147483648)
+                             (V1.unsafeMkAccountIndex (firstHardened + 1))
                     case res of
                          Left (WalletLayer.GetAccountError (V1 (Kernel.UnknownHdAccount _))) ->
                              return ()
@@ -514,7 +544,7 @@ spec = describe "Accounts" $ do
                     -- by the 'createWallet' endpoint, for a total of 5.
                     forM_ [1..4] $ \(_i :: Int) ->
                         WalletLayer.createAccount layer (V1.walId fixtureV1Wallet)
-                                                        fixtureNewAccountRq
+                                                        (CreateHdAccountRandomIndex fixtureNewAccountRq)
                     accounts <- WalletLayer.getAccounts layer (V1.walId fixtureV1Wallet)
                     let accountIndices =
                             case accounts of

@@ -63,7 +63,8 @@ newAccount :: PassiveWalletLayer IO
            -> NewAccount
            -> Handler (WalletResponse Account)
 newAccount layer wId newAccountRequest = do
-    res <- liftIO $ WalletLayer.createAccount layer wId newAccountRequest
+    let req = WalletLayer.CreateHdAccountRandomIndex newAccountRequest
+    res <- liftIO $ WalletLayer.createAccount layer wId req
     case res of
          Left e        -> throwM e
          Right account -> return $ single account

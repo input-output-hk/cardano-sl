@@ -10,7 +10,7 @@ import           Universum
 import           Control.Monad.Trans.Except
 import           Data.Coerce (coerce)
 
-import           Pos.Core (Address, decodeTextAddress)
+import           Pos.Core (decodeTextAddress)
 
 import           Cardano.Wallet.API.Request (RequestParams (..))
 import           Cardano.Wallet.API.Request.Pagination (Page (..),
@@ -50,8 +50,8 @@ createAddress wallet
 
     -- | Creates a new 'WalletAddress'. As this is a brand new, fresh Address,
     -- it's fine to have 'False' for both 'isUsed' and 'isChange'.
-    mkAddress :: Address -> WalletAddress
-    mkAddress addr = WalletAddress (V1 addr) False False
+    mkAddress :: HD.HdAddress -> WalletAddress
+    mkAddress addr = WalletAddress (V1 $ toCardanoAddress addr) False False
 
 
 

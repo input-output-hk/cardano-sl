@@ -241,7 +241,7 @@ data HdAddressId = HdAddressId {
       _hdAddressIdParent :: !HdAccountId
     , _hdAddressIdIx     :: !HdAddressIx
     }
-  deriving (Eq)
+  deriving Eq
 
 -- | We make sure to compare the address index first to avoid doing an
 -- unnecessary comparison of the account ID
@@ -309,7 +309,9 @@ data HdAddress = HdAddress {
 
       -- | The actual address
     , _hdAddressAddress :: !(InDb Core.Address)
-    }
+    } deriving Eq
+
+
 
 {-------------------------------------------------------------------------------
   Account state

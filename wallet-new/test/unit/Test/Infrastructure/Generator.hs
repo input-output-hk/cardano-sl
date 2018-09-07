@@ -23,7 +23,8 @@ import           UTxO.Generator
 import           Wallet.Inductive
 import           Wallet.Inductive.Generator
 
-import           Pos.Core ( TxSizeLinear, calculateTxSizeLinear )
+import           Pos.Core (TxSizeLinear, calculateTxSizeLinear)
+import           Pos.Crypto (RequiresNetworkMagic (..))
 import           Serokell.Data.Memory.Units (Byte, fromBytes)
 
 {-------------------------------------------------------------------------------
@@ -51,20 +52,21 @@ data GeneratorModel h a = GeneratorModel {
     , gmMaxNumOurs    :: Int
 
       -- | Estimate fees
-    , gmEstimateFee   :: Int -> [Value] -> Value
+    , gmEstimateFee   :: RequiresNetworkMagic -> Int -> [Value] -> Value
     }
 
-genChainUsingModel :: (Hash h a, Ord a) => GeneratorModel h a -> Gen (Chain h a)
-genChainUsingModel GeneratorModel{..} =
+genChainUsingModel :: (Hash h a, Ord a)
+                   => RequiresNetworkMagic -> GeneratorModel h a -> Gen (Chain h a)
+genChainUsingModel rnm GeneratorModel{..} =
     evalStateT (genChain params) initState
   where
-    params    = defChainParams gmEstimateFee gmAllAddresses
+    params    = defChainParams (gmEstimateFee rnm) gmAllAddresses
     initUtxo  = utxoRestrictToAddr (`elem` gmAllAddresses) $ trUtxo gmBoot
     initState = initTrState initUtxo 1
 
-genInductiveUsingModel :: (Hash h a, Ord a)
-                       => GeneratorModel h a -> Gen (Inductive h a)
-genInductiveUsingModel GeneratorModel{..} = do
+genInductiveUsingModel :: (Hash h a, Ord a) => RequiresNetworkMagic
+                       -> GeneratorModel h a -> Gen (Inductive h a)
+genInductiveUsingModel rnm GeneratorModel{..} = do
     numOurs <- choose (1, min (length potentialOurs) gmMaxNumOurs)
     addrs'  <- shuffle potentialOurs
     let ours = Set.fromList (take numOurs addrs')
@@ -76,7 +78,8 @@ genInductiveUsingModel GeneratorModel{..} = do
       }
   where
     potentialOurs = filter gmPotentialOurs gmAllAddresses
-    params ours   = defEventsParams gmEstimateFee gmAllAddresses ours initUtxo
+    params ours   =
+        defEventsParams (gmEstimateFee rnm) gmAllAddresses ours initUtxo
     initUtxo      = utxoRestrictToAddr (`elem` gmAllAddresses) $ trUtxo gmBoot
     initState     = initEventsGlobalState 1
 
@@ -91,7 +94,7 @@ simpleModel :: GeneratorModel GivenHash Char
 simpleModel = GeneratorModel {
       gmAllAddresses  = addrs
     , gmPotentialOurs = \_ -> True
-    , gmEstimateFee   = \_ _ -> 0
+    , gmEstimateFee   = \_ _ _ -> 0
     , gmMaxNumOurs    = 3
     , gmBoot          = Transaction {
                             trFresh = fromIntegral (length addrs) * initBal
@@ -176,9 +179,12 @@ estimateSize saa sta ins outs
 --   NOTE: The average size of @Attributes AddrAttributes@ and
 --         the transaction attributes @Attributes ()@ are both hard-coded
 --         here with some (hopefully) realistic values.
-estimateCardanoFee :: TxSizeLinear -> Int -> [Value] -> Value
-estimateCardanoFee linearFeePolicy ins outs
-    = round (calculateTxSizeLinear linearFeePolicy (estimateSize 128 16 ins outs))
+estimateCardanoFee :: TxSizeLinear -> RequiresNetworkMagic -> Int -> [Value] -> Value
+estimateCardanoFee linearFeePolicy rnm ins outs
+    = round (calculateTxSizeLinear linearFeePolicy (estimateSize addrAttrSize 16 ins outs))
+  where
+    addrAttrSize = 128 + (case rnm of NMMustBeNothing -> 0
+                                      NMMustBeJust    -> 4)
 
 {-------------------------------------------------------------------------------
   Auxiliary

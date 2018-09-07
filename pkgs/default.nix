@@ -15865,6 +15865,7 @@ license = stdenv.lib.licenses.mit;
 , base
 , binary
 , bytestring
+, canonical-json
 , cardano-crypto
 , cardano-sl-binary
 , cardano-sl-binary-test
@@ -15910,6 +15911,7 @@ aeson
 base
 binary
 bytestring
+canonical-json
 cardano-crypto
 cardano-sl-binary
 cardano-sl-util

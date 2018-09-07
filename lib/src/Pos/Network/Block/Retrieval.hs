@@ -20,8 +20,9 @@ import           Formatting (build, int, sformat, (%))
 
 import           Pos.Chain.Block (Block, BlockHeader, HasHeaderHash (..),
                      HeaderHash)
+import           Pos.Chain.Genesis as Genesis (Config)
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Core as Core (Config, difficultyL, isMoreDifficult)
+import           Pos.Core (difficultyL, isMoreDifficult)
 import           Pos.Core.Chrono (NE, OldestFirst (..), _OldestFirst)
 import           Pos.Core.Conc (delay)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics)
@@ -60,10 +61,10 @@ retrievalWorker
        ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> Diffusion m -> m ()
-retrievalWorker coreConfig txpConfig diffusion = do
+retrievalWorker genesisConfig txpConfig diffusion = do
     logInfo "Starting retrievalWorker loop"
     mainLoop
   where
@@ -113,9 +114,9 @@ retrievalWorker coreConfig txpConfig diffusion = do
     handleContinues nodeId header = do
         let hHash = headerHash header
         logDebug $ "handleContinues: " <> pretty hHash
-        classifyNewHeader coreConfig header >>= \case
+        classifyNewHeader genesisConfig header >>= \case
             CHContinues ->
-                void $ getProcessBlocks coreConfig txpConfig diffusion nodeId hHash [hHash]
+                void $ getProcessBlocks genesisConfig txpConfig diffusion nodeId hHash [hHash]
             res -> logDebug $
                 "processContHeader: expected header to " <>
                 "be continuation, but it's " <> show res
@@ -125,7 +126,7 @@ retrievalWorker coreConfig txpConfig diffusion = do
     -- enter recovery mode.
     handleAlternative nodeId header = do
         logDebug $ "handleAlternative: " <> pretty (headerHash header)
-        classifyNewHeader coreConfig header >>= \case
+        classifyNewHeader genesisConfig header >>= \case
             CHInvalid _ ->
                 logError "handleAlternative: invalid header got into retrievalWorker queue"
             CHUseless _ ->
@@ -157,7 +158,7 @@ retrievalWorker coreConfig txpConfig diffusion = do
         reportOrLogW (sformat
             ("handleRecoveryE: error handling nodeId="%build%", header="%build%": ")
             nodeId (headerHash rHeader)) e
-        dropRecoveryHeaderAndRepeat coreConfig diffusion nodeId
+        dropRecoveryHeaderAndRepeat genesisConfig diffusion nodeId
 
     -- Recovery handling. We assume that header in the recovery variable is
     -- appropriate and just query headers/blocks.
@@ -170,8 +171,8 @@ retrievalWorker coreConfig txpConfig diffusion = do
             throwM $ DialogUnexpected $ "handleRecovery: recovery header is " <>
                                         "already present in db"
         logDebug "handleRecovery: fetching blocks"
-        checkpoints <- toList <$> getHeadersOlderExp coreConfig Nothing
-        void $ streamProcessBlocks coreConfig
+        checkpoints <- toList <$> getHeadersOlderExp genesisConfig Nothing
+        void $ streamProcessBlocks genesisConfig
                                    txpConfig
                                    diffusion
                                    nodeId
@@ -263,11 +264,11 @@ dropRecoveryHeader nodeId = do
 -- | Drops the recovery header and, if it was successful, queries the tips.
 dropRecoveryHeaderAndRepeat
     :: BlockWorkMode ctx m
-    => Core.Config
+    => Genesis.Config
     -> Diffusion m
     -> NodeId
     -> m ()
-dropRecoveryHeaderAndRepeat coreConfig diffusion nodeId = do
+dropRecoveryHeaderAndRepeat genesisConfig diffusion nodeId = do
     kicked <- dropRecoveryHeader nodeId
     when kicked $ attemptRestartRecovery
   where
@@ -275,7 +276,7 @@ dropRecoveryHeaderAndRepeat coreConfig diffusion nodeId = do
         logDebug "Attempting to restart recovery"
         -- FIXME why delay? Why 2 seconds?
         delay (2 :: Second)
-        handleAny handleRecoveryTriggerE $ triggerRecovery coreConfig diffusion
+        handleAny handleRecoveryTriggerE $ triggerRecovery genesisConfig diffusion
         logDebug "Attempting to restart recovery over"
     handleRecoveryTriggerE =
         -- REPORT:ERROR 'reportOrLogE' somewhere in block retrieval.
@@ -287,14 +288,14 @@ dropRecoveryHeaderAndRepeat coreConfig diffusion nodeId = do
 getProcessBlocks
     :: forall ctx m
      . (BlockWorkMode ctx m, HasMisbehaviorMetrics ctx)
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> Diffusion m
     -> NodeId
     -> HeaderHash
     -> [HeaderHash]
     -> m ()
-getProcessBlocks coreConfig txpConfig diffusion nodeId desired checkpoints = do
+getProcessBlocks genesisConfig txpConfig diffusion nodeId desired checkpoints = do
     result <- Diffusion.getBlocks diffusion nodeId desired checkpoints
     case OldestFirst <$> nonEmpty (getOldestFirst result) of
       Nothing -> do
@@ -307,7 +308,7 @@ getProcessBlocks coreConfig txpConfig diffusion nodeId desired checkpoints = do
           logDebug $ sformat
               ("Retrieved "%int%" blocks")
               (blocks ^. _OldestFirst . to NE.length)
-          handleBlocks coreConfig txpConfig blocks diffusion
+          handleBlocks genesisConfig txpConfig blocks diffusion
           -- If we've downloaded any block with bigger
           -- difficulty than ncRecoveryHeader, we're
           -- gracefully exiting recovery mode.
@@ -331,20 +332,20 @@ getProcessBlocks coreConfig txpConfig diffusion nodeId desired checkpoints = do
 streamProcessBlocks
     :: forall ctx m
      . (BlockWorkMode ctx m, HasMisbehaviorMetrics ctx)
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> Diffusion m
     -> NodeId
     -> HeaderHash
     -> [HeaderHash]
     -> m ()
-streamProcessBlocks coreConfig txpConfig diffusion nodeId desired checkpoints = do
+streamProcessBlocks genesisConfig txpConfig diffusion nodeId desired checkpoints = do
     logInfo "streaming start"
     r <- Diffusion.streamBlocks diffusion nodeId desired checkpoints writeCallback
     case r of
          Nothing -> do
              logInfo "streaming not supported, reverting to batch mode"
-             getProcessBlocks coreConfig txpConfig diffusion nodeId desired checkpoints
+             getProcessBlocks genesisConfig txpConfig diffusion nodeId desired checkpoints
          Just _  -> do
              logInfo "streaming done"
              return ()
@@ -352,4 +353,4 @@ streamProcessBlocks coreConfig txpConfig diffusion nodeId desired checkpoints = 
     writeCallback :: [Block] -> m ()
     writeCallback [] = return ()
     writeCallback (block:blocks) =
-        handleBlocks coreConfig txpConfig (OldestFirst (NE.reverse $ block :| blocks)) diffusion
+        handleBlocks genesisConfig txpConfig (OldestFirst (NE.reverse $ block :| blocks)) diffusion

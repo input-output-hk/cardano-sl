@@ -15,6 +15,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import qualified Data.Map.Strict as M
 
+import           Pos.Chain.Genesis (GenesisWStakeholders)
 import           Pos.Chain.Txp.Base (addrBelongsTo, addrBelongsToSet,
                      txOutStake)
 import           Pos.Chain.Txp.Toil.Types (Utxo)
@@ -22,7 +23,6 @@ import           Pos.Chain.Txp.Tx (TxOut (txOutValue), _TxOut)
 import           Pos.Chain.Txp.TxOutAux (TxOutAux (..))
 import           Pos.Core (Address, Coin, StakesMap, sumCoins, unsafeAddCoin,
                      unsafeIntegerToCoin)
-import           Pos.Core.Genesis (GenesisWStakeholders)
 
 -- | Select only TxOuts for given address
 filterUtxoByAddr :: Address -> Utxo -> Utxo

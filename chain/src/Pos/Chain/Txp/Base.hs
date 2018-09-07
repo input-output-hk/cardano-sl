@@ -19,6 +19,7 @@ import qualified Data.HashSet as HS
 import           Data.List (zipWith)
 import qualified Data.Map.Strict as M
 
+import           Pos.Chain.Genesis (GenesisWStakeholders (..))
 import           Pos.Chain.Txp.Tx (TxOut (..))
 import           Pos.Chain.Txp.TxAux (TxAux (..))
 import           Pos.Chain.Txp.TxOutAux (TxOutAux (..))
@@ -28,7 +29,6 @@ import           Pos.Core (AddrStakeDistribution (..), Address (..), Coin,
                      aaStakeDistribution, addrAttributesUnwrapped,
                      applyCoinPortionDown, coinToInteger, mkCoin, sumCoins,
                      unsafeAddCoin, unsafeGetCoin, unsafeIntegerToCoin)
-import           Pos.Core.Genesis (GenesisWStakeholders (..))
 import           Pos.Crypto (hash)
 import           Pos.Crypto.Random (deterministic, randomNumber)
 

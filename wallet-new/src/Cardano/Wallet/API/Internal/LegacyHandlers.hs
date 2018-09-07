@@ -14,8 +14,8 @@ import           Control.Monad.Catch (MonadThrow)
 import           Servant
 import           UnliftIO (MonadUnliftIO)
 
+import           Pos.Chain.Genesis as Genesis (Config)
 import qualified Pos.Client.KeyStorage as V0
-import           Pos.Core as Core (Config)
 import           Pos.Core.Update (SoftwareVersion)
 import           Pos.Crypto (emptyPassphrase)
 import           Pos.Util (HasLens (..))
@@ -38,17 +38,17 @@ import           Cardano.Wallet.Server.CLI (RunMode (..), isDebugMode)
 handlers
     :: HasUpdateConfiguration
     => (forall a. MonadV1 a -> Handler a)
-    -> Core.Config
+    -> Genesis.Config
     -> RunMode
     -> Server Internal.API
-handlers naturalTransformation coreConfig runMode =
+handlers naturalTransformation genesisConfig runMode =
     let
         handlers' =
                  nextUpdate
             :<|> V0.applyUpdate
             :<|> V0.postponeUpdate
             :<|> resetWalletState runMode
-            :<|> importWallet coreConfig
+            :<|> importWallet genesisConfig
     in
         hoistServer (Proxy @Internal.API) naturalTransformation handlers'
 
@@ -78,11 +78,11 @@ importWallet
        , MonadUnliftIO m
        , HasLens SyncQueue ctx SyncQueue
        )
-    => Core.Config
+    => Genesis.Config
     -> WalletImport
     -> m (WalletResponse Wallet)
-importWallet coreConfig WalletImport{..} = do
+importWallet genesisConfig WalletImport{..} = do
     fp <- migrate wiFilePath
-    v0Wallet <- V0.importWallet coreConfig (maybe emptyPassphrase unV1 wiSpendingPassword) fp
+    v0Wallet <- V0.importWallet genesisConfig (maybe emptyPassphrase unV1 wiSpendingPassword) fp
     snapshot <- V0.askWalletSnapshot
     single <$> Legacy.addWalletInfo snapshot v0Wallet

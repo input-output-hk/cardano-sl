@@ -11,10 +11,11 @@ import           Universum
 import           Formatting (build, sformat, (%))
 import           Serokell.Util.Text (listJsonIndent)
 
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     configBlkSecurityParam, configBlockVersionData,
+                     configEpochSlots)
 import           Pos.Chain.Update (ConfirmedProposalState (..),
                      curSoftwareVersion)
-import           Pos.Core as Core (Config (..), configBlkSecurityParam,
-                     configBlockVersionData, configEpochSlots)
 import           Pos.Core.Update (SoftwareVersion (..), UpdateProposal (..))
 import           Pos.DB.Update (UpdateContext (..), getConfirmedProposals,
                      processNewSlot)
@@ -30,11 +31,11 @@ import           Pos.Util.Wlog (logDebug, logInfo)
 
 -- | Update System related workers.
 usWorkers
-    :: forall ctx m . UpdateMode ctx m => Core.Config -> [Diffusion m -> m ()]
-usWorkers coreConfig = [processNewSlotWorker, checkForUpdateWorker]
+    :: forall ctx m . UpdateMode ctx m => Genesis.Config -> [Diffusion m -> m ()]
+usWorkers genesisConfig = [processNewSlotWorker, checkForUpdateWorker]
   where
-    epochSlots = configEpochSlots coreConfig
-    k = configBlkSecurityParam coreConfig
+    epochSlots = configEpochSlots genesisConfig
+    k = configBlkSecurityParam genesisConfig
     -- These are two separate workers. We want them to run in parallel
     -- and not affect each other.
     processNewSlotParams = defaultOnNewSlotParams
@@ -45,7 +46,7 @@ usWorkers coreConfig = [processNewSlotWorker, checkForUpdateWorker]
         onNewSlot epochSlots processNewSlotParams $ \s ->
             recoveryCommGuard k "processNewSlot in US" $ do
                 logDebug "Updating slot for US..."
-                processNewSlot (configBlockVersionData coreConfig) s
+                processNewSlot (configBlockVersionData genesisConfig) s
     checkForUpdateWorker _ =
         onNewSlot epochSlots defaultOnNewSlotParams $ \_ ->
             recoveryCommGuard k "checkForUpdate" (checkForUpdate @ctx @m)

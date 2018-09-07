@@ -12,8 +12,8 @@ import           Universum
 import qualified Control.Concurrent.STM as STM
 
 import           Pos.Chain.Block (Blund)
-import qualified Pos.Core as Core
 import           Pos.Core.Chrono (OldestFirst (..))
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Util.Wlog (Severity (Debug))
 
 import qualified Cardano.Wallet.Kernel as Kernel
@@ -108,7 +108,7 @@ bracketPassiveWallet mode logFunction keystore node f = do
 -- 'WalletDiffusion' layer in scope.
 bracketActiveWallet
     :: forall m n a. (MonadIO m, MonadMask m, MonadIO n)
-    => Core.ProtocolMagic
+    => ProtocolMagic
     -> PassiveWalletLayer n
     -> Kernel.PassiveWallet
     -> WalletDiffusion

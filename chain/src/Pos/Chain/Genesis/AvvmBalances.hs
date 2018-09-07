@@ -1,4 +1,6 @@
-module Pos.Core.Genesis.AvvmBalances
+{-# LANGUAGE TypeFamilies #-}
+
+module Pos.Chain.Genesis.AvvmBalances
        ( GenesisAvvmBalances (..)
        ) where
 

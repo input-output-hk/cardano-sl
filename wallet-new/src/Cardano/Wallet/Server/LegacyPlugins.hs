@@ -46,8 +46,8 @@ import           Pos.Wallet.Web.Sockets (getWalletWebSockets,
                      upgradeApplicationWS)
 import qualified Servant
 
+import           Pos.Chain.Genesis as Genesis (Config)
 import           Pos.Context (HasNodeContext)
-import           Pos.Core as Core (Config)
 import           Pos.Util (lensOf)
 import           Pos.Util.Wlog (logInfo, logWarning, modifyLoggerName,
                      usingLoggerName)
@@ -111,13 +111,13 @@ walletDocumentation WalletBackendParams {..} = pure $ \_ ->
 
 -- | A @Plugin@ to start the wallet backend API.
 legacyWalletBackend :: (HasConfigurations, HasCompileInfo)
-                    => Core.Config
+                    => Genesis.Config
                     -> WalletConfiguration
                     -> TxpConfiguration
                     -> WalletBackendParams
                     -> TVar NtpStatus
                     -> Plugin WalletWebMode
-legacyWalletBackend coreConfig walletConfig txpConfig WalletBackendParams {..} ntpStatus = pure $ \diffusion -> do
+legacyWalletBackend genesisConfig walletConfig txpConfig WalletBackendParams {..} ntpStatus = pure $ \diffusion -> do
     modifyLoggerName (const "legacyServantBackend") $ do
       logWarning $ sformat "RUNNING THE OLD LEGACY DATA LAYER IS NOT RECOMMENDED!"
       logInfo $ sformat ("Production mode for API: "%build)
@@ -148,7 +148,7 @@ legacyWalletBackend coreConfig walletConfig txpConfig WalletBackendParams {..} n
             $ Servant.serve API.walletAPI
             $ LegacyServer.walletServer
                 (V0.convertHandler ctx)
-                coreConfig
+                genesisConfig
                 txpConfig
                 diffusion
                 ntpStatus
@@ -197,21 +197,21 @@ legacyWalletBackend coreConfig walletConfig txpConfig WalletBackendParams {..} n
 
 -- | A @Plugin@ to resubmit pending transactions.
 resubmitterPlugin :: HasConfigurations
-                  => Core.Config
+                  => Genesis.Config
                   -> TxpConfiguration
                   -> Plugin WalletWebMode
-resubmitterPlugin coreConfig txpConfig = [\diffusion -> askWalletDB >>= \db ->
-                        startPendingTxsResubmitter coreConfig txpConfig db (sendTx diffusion)]
+resubmitterPlugin genesisConfig txpConfig = [\diffusion -> askWalletDB >>= \db ->
+                        startPendingTxsResubmitter genesisConfig txpConfig db (sendTx diffusion)]
 
 -- | A @Plugin@ to notify frontend via websockets.
 notifierPlugin :: Plugin WalletWebMode
 notifierPlugin = [const V0.notifierPlugin]
 
 -- | The @Plugin@ responsible for the restoration & syncing of a wallet.
-syncWalletWorker :: Core.Config -> Plugin WalletWebMode
-syncWalletWorker coreConfig = pure $ const $
+syncWalletWorker :: Genesis.Config -> Plugin WalletWebMode
+syncWalletWorker genesisConfig = pure $ const $
     modifyLoggerName (const "syncWalletWorker") $
-    (view (lensOf @SyncQueue) >>= processSyncRequest coreConfig)
+    (view (lensOf @SyncQueue) >>= processSyncRequest genesisConfig)
 
 corsMiddleware :: Middleware
 corsMiddleware = cors (const $ Just policy)

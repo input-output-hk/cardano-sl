@@ -12,9 +12,9 @@ import           Universum
 
 import           Pos.Worker.Block (blkWorkers)
 -- Message instances.
+import           Pos.Chain.Genesis as Genesis (Config, configEpochSlots)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Context (NodeContext (..))
-import           Pos.Core as Core (Config, configEpochSlots)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Network.CLI (launchStaticConfigMonitoring)
 import           Pos.Infra.Network.Types (NetworkConfig (..))
@@ -28,14 +28,14 @@ import           Pos.WorkMode (WorkMode)
 -- | All, but in reality not all, workers used by full node.
 allWorkers
     :: forall ext ctx m . WorkMode ctx m
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> NodeResources ext
     -> [Diffusion m -> m ()]
-allWorkers coreConfig txpConfig NodeResources {..} = mconcat
-    [ sscWorkers coreConfig
-    , usWorkers coreConfig
-    , blkWorkers coreConfig txpConfig
+allWorkers genesisConfig txpConfig NodeResources {..} = mconcat
+    [ sscWorkers genesisConfig
+    , usWorkers genesisConfig
+    , blkWorkers genesisConfig txpConfig
     , dlgWorkers
     , [properSlottingWorker, staticConfigMonitoringWorker]
     ]
@@ -43,5 +43,5 @@ allWorkers coreConfig txpConfig NodeResources {..} = mconcat
     topology = ncTopology ncNetworkConfig
     NodeContext {..} = nrContext
     properSlottingWorker =
-        const $ logNewSlotWorker $ configEpochSlots coreConfig
+        const $ logNewSlotWorker $ configEpochSlots genesisConfig
     staticConfigMonitoringWorker = const (launchStaticConfigMonitoring topology)

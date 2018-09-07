@@ -119,7 +119,8 @@ import           Test.Pos.Block.Logic.Mode (BlockTestContext (..),
                      getCurrentSlotBlockingTestDefault,
                      getCurrentSlotInaccurateTestDefault,
                      getCurrentSlotTestDefault, initBlockTestContext)
-import           Test.Pos.Core.Dummy (dummyConfig, dummyEpochSlots)
+import           Test.Pos.Chain.Genesis.Dummy (dummyConfig)
+import           Test.Pos.Core.Dummy (dummyEpochSlots)
 
 ----------------------------------------------------------------------------
 -- Parameters

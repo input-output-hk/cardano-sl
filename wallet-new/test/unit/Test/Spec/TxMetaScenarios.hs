@@ -30,6 +30,7 @@ import           Cardano.Wallet.Kernel.NodeStateAdaptor
                      mockNodeState)
 import           Cardano.Wallet.WalletLayer.Kernel.Transactions
 
+import           Pos.Chain.Genesis (Config (..))
 import           Pos.Core
 import           Pos.Core.Chrono
 import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..),
@@ -419,9 +420,9 @@ nodeStParams2 =
 -- there for better testing.
 bracketActiveWalletTxMeta :: MockNodeStateParams -> (Kernel.ActiveWallet -> IO a) -> IO a
 bracketActiveWalletTxMeta stateParams test =
-    withDefConfiguration $ \coreConfig -> do
+    withDefConfiguration $ \genesisConfig -> do
         bracketPassiveWalletTxMeta stateParams $ \passive ->
-            Kernel.bracketActiveWallet (configProtocolMagic coreConfig)
+            Kernel.bracketActiveWallet (configProtocolMagic genesisConfig)
                                        passive
                                        diffusion
                 $ \active -> test active

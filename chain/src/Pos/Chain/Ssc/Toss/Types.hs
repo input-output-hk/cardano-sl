@@ -118,7 +118,7 @@ instance MonadTossRead m =>
     getOpenings = ether $ (<>) <$> use tmOpenings <*> getOpenings
     getShares = ether $ (<>) <$> use tmShares <*> getShares
     getVssCertificates = ether $ (<>) <$> use tmCertificates <*> getVssCertificates
-    getStableCertificates coreConfig = ether . getStableCertificates coreConfig
+    getStableCertificates genesisConfig = ether . getStableCertificates genesisConfig
 
 instance MonadTossEnv m =>
          MonadTossEnv (TossT m) where

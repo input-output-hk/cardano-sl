@@ -16,7 +16,7 @@ import           Universum
 
 import           Pos.Util.Wlog (Severity)
 
-import           Pos.Core (Config (..))
+import           Pos.Chain.Genesis (Config (..))
 
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.QuickCheck (arbitrary, frequency)
@@ -79,9 +79,9 @@ withActiveWalletFixture prepareFixtures cc = do
     generateFixtures <- prepareFixtures
     liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
         WalletLayer.Kernel.bracketPassiveWallet Kernel.UseInMemory devNull keystore mockNodeStateDef $ \passiveLayer passiveWallet -> do
-            withDefConfiguration $ \coreConfig -> do
+            withDefConfiguration $ \genesisConfig -> do
                 WalletLayer.Kernel.bracketActiveWallet
-                        (configProtocolMagic coreConfig)
+                        (configProtocolMagic genesisConfig)
                         passiveLayer
                         passiveWallet
                         diffusion

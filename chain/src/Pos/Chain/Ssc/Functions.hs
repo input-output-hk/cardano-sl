@@ -22,14 +22,15 @@ import qualified Data.HashMap.Strict as HM
 import           Serokell.Util.Verify (isVerSuccess)
 
 import           Pos.Chain.Block.Union (IsMainHeader, headerSlotL)
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     configBlkSecurityParam, configVssCerts)
 import           Pos.Chain.Ssc.Base (checkCertTTL, isCommitmentId, isOpeningId,
                      isSharesId, verifySignedCommitment, vssThreshold)
 import           Pos.Chain.Ssc.Error (SscVerifyError (..))
 import           Pos.Chain.Ssc.Toss.Base (verifyEntriesGuardM)
 import           Pos.Chain.Ssc.Types (SscGlobalState (..))
 import qualified Pos.Chain.Ssc.VssCertData as VCD
-import           Pos.Core as Core (Config (..), EpochIndex (..), SlotId (..),
-                     StakeholderId, configBlkSecurityParam, configVssCerts,
+import           Pos.Core (EpochIndex (..), SlotId (..), StakeholderId,
                      pcBlkSecurityParam)
 import           Pos.Core.Slotting (crucialSlot)
 import           Pos.Core.Ssc (CommitmentsMap (..), SscPayload (..),
@@ -70,8 +71,8 @@ hasVssCertificate id = VCD.member id . _sgsVssCertificates
 -- We also do some general sanity checks.
 verifySscPayload
     :: MonadError SscVerifyError m
-    => Core.Config -> Either EpochIndex (Some IsMainHeader) -> SscPayload -> m ()
-verifySscPayload coreConfig eoh payload = case payload of
+    => Genesis.Config -> Either EpochIndex (Some IsMainHeader) -> SscPayload -> m ()
+verifySscPayload genesisConfig eoh payload = case payload of
     CommitmentsPayload comms certs -> do
         whenHeader eoh isComm
         commChecks comms
@@ -90,7 +91,7 @@ verifySscPayload coreConfig eoh payload = case payload of
     whenHeader (Right header) f = f $ header ^. headerSlotL
 
     epochId = either identity (view $ headerSlotL . to siEpoch) eoh
-    pc = configProtocolConstants coreConfig
+    pc = configProtocolConstants genesisConfig
     k = pcBlkSecurityParam pc
     isComm  slotId = unless (isCommitmentId k slotId) $ throwError $ NotCommitmentPhase slotId
     isOpen  slotId = unless (isOpeningId k slotId) $ throwError $ NotOpeningPhase slotId
@@ -114,7 +115,7 @@ verifySscPayload coreConfig eoh payload = case payload of
     -- #verifySignedCommitment
     commChecks commitments = do
         let checkComm = isVerSuccess . verifySignedCommitment
-                (configProtocolMagic coreConfig)
+                (configProtocolMagic genesisConfig)
                 epochId
         verifyEntriesGuardM fst snd CommitmentInvalid
                             (pure . checkComm)
@@ -136,12 +137,12 @@ verifySscPayload coreConfig eoh payload = case payload of
 ----------------------------------------------------------------------------
 
 getStableCertsPure
-    :: Core.Config
+    :: Genesis.Config
     -> EpochIndex
     -> VCD.VssCertData
     -> VssCertificatesMap
-getStableCertsPure coreConfig epoch certs
-    | epoch == 0 = configVssCerts coreConfig
+getStableCertsPure genesisConfig epoch certs
+    | epoch == 0 = configVssCerts genesisConfig
     | otherwise = VCD.certs $ VCD.setLastKnownSlot
-        (crucialSlot (configBlkSecurityParam coreConfig) epoch)
+        (crucialSlot (configBlkSecurityParam genesisConfig) epoch)
         certs

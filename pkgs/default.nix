@@ -15340,6 +15340,7 @@ license = stdenv.lib.licenses.mit;
 , base16-bytestring
 , bytestring
 , Cabal
+, canonical-json
 , cardano-crypto
 , cardano-sl-binary
 , cardano-sl-binary-test
@@ -15361,6 +15362,7 @@ license = stdenv.lib.licenses.mit;
 , ekg-core
 , ether
 , exceptions
+, filepath
 , fmt
 , formatting
 , free
@@ -15411,6 +15413,7 @@ array
 base
 bytestring
 Cabal
+canonical-json
 cardano-sl-binary
 cardano-sl-core
 cardano-sl-crypto
@@ -15425,6 +15428,7 @@ deepseq
 ekg-core
 ether
 exceptions
+filepath
 fmt
 formatting
 free
@@ -15522,6 +15526,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-crypto-test
+, cardano-sl-util
 , cardano-sl-util-test
 , containers
 , data-default
@@ -15532,6 +15537,7 @@ license = stdenv.lib.licenses.mit;
 , random
 , reflection
 , stdenv
+, time-units
 , universum
 , unordered-containers
 , vector
@@ -15559,6 +15565,7 @@ cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
+cardano-sl-util
 cardano-sl-util-test
 containers
 data-default
@@ -15568,6 +15575,7 @@ hedgehog
 QuickCheck
 random
 reflection
+time-units
 universum
 unordered-containers
 vector
@@ -15584,6 +15592,7 @@ license = stdenv.lib.licenses.mit;
 , bytestring
 , cardano-sl
 , cardano-sl-chain
+, cardano-sl-chain-test
 , cardano-sl-core
 , cardano-sl-core-test
 , cardano-sl-crypto
@@ -15651,6 +15660,7 @@ base
 bytestring
 cardano-sl
 cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto
@@ -16547,6 +16557,7 @@ base
 bytestring
 cardano-sl
 cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-client
 cardano-sl-core
 cardano-sl-core-test
@@ -17675,6 +17686,7 @@ bytestring
 cardano-crypto
 cardano-sl
 cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-client
 cardano-sl-core
 cardano-sl-core-test

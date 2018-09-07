@@ -42,12 +42,12 @@ import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Chain.Block (HeaderHash)
+import           Pos.Chain.Genesis as Genesis (Config (..), GenesisData)
 import           Pos.Chain.Txp (Tx, TxId, TxOut (..), TxOutAux (..),
                      genesisUtxo, utxoF, utxoToAddressCoinPairs)
-import           Pos.Core as Core (Address, Coin, Config (..), EpochIndex (..),
-                     coinToInteger, unsafeAddCoin)
+import           Pos.Core (Address, Coin, EpochIndex (..), coinToInteger,
+                     unsafeAddCoin)
 import           Pos.Core.Chrono (NewestFirst (..))
-import           Pos.Core.Genesis (GenesisData)
 import           Pos.DB (DBError (..), DBIteratorClass (..), DBTag (GStateDB),
                      MonadDB, MonadDBRead (dbGet), RocksBatchOp (..),
                      dbIterSource, encodeWithKeyPrefix)
@@ -61,10 +61,10 @@ import           Pos.Util.Wlog (WithLogger, logError)
 explorerInitDB
     :: forall ctx m
      . (MonadReader ctx m, MonadUnliftIO m, MonadDB m)
-    => Core.Config
+    => Genesis.Config
     -> m ()
-explorerInitDB coreConfig =
-    initNodeDBs coreConfig >> prepareExplorerDB (configGenesisData coreConfig)
+explorerInitDB genesisConfig =
+    initNodeDBs genesisConfig >> prepareExplorerDB (configGenesisData genesisConfig)
 
 ----------------------------------------------------------------------------
 -- Types

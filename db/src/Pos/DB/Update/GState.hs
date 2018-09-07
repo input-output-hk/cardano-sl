@@ -50,6 +50,8 @@ import           Serokell.Data.Memory.Units (Byte)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     configBlockVersionData, configEpochSlots)
 import           Pos.Chain.Update (BlockVersionState (..),
                      ConfirmedProposalState (..),
                      DecidedProposalState (dpsDifficulty),
@@ -58,9 +60,8 @@ import           Pos.Chain.Update (BlockVersionState (..),
                      cpsSoftwareVersion, genesisBlockVersion,
                      genesisSoftwareVersions, ourAppName, ourSystemTag,
                      psProposal)
-import           Pos.Core as Core (ChainDifficulty, Config (..), SlotId,
-                     StakeholderId, TimeDiff (..), configBlockVersionData,
-                     configEpochSlots)
+import           Pos.Core (ChainDifficulty, SlotId, StakeholderId,
+                     TimeDiff (..))
 import           Pos.Core.Slotting (EpochSlottingData (..), SlottingData,
                      createInitSlottingData)
 import           Pos.Core.Update (ApplicationName, BlockVersion,
@@ -169,19 +170,19 @@ instance RocksBatchOp UpdateOp where
 -- Initialization
 ----------------------------------------------------------------------------
 
-initGStateUS :: MonadDB m => Core.Config -> m ()
-initGStateUS coreConfig = do
+initGStateUS :: MonadDB m => Genesis.Config -> m ()
+initGStateUS genesisConfig = do
     writeBatchGState $
         PutSlottingData genesisSlottingData :
         PutEpochProposers mempty :
         SetAdopted genesisBlockVersion genesisBvd :
         map ConfirmVersion genesisSoftwareVersions
   where
-    genesisBvd = configBlockVersionData coreConfig
+    genesisBvd = configBlockVersionData genesisConfig
     genesisSlotDuration = bvdSlotDuration genesisBvd
 
     genesisEpochDuration :: Microsecond
-    genesisEpochDuration = fromIntegral (configEpochSlots coreConfig) * convertUnit genesisSlotDuration
+    genesisEpochDuration = fromIntegral (configEpochSlots genesisConfig) * convertUnit genesisSlotDuration
 
     esdCurrent :: EpochSlottingData
     esdCurrent = EpochSlottingData

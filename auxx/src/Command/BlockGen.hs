@@ -13,9 +13,10 @@ import           Data.Default (def)
 import           System.Random (mkStdGen, randomIO)
 
 import           Pos.AllSecrets (mkAllSecretsSimple)
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     configBootStakeholders)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
-import           Pos.Core as Core (Config (..), configBootStakeholders)
 import           Pos.Crypto (encToSecret)
 import           Pos.DB.Txp (txpGlobalSettings)
 import           Pos.Generator.Block (BlockGenParams (..), genBlocks,
@@ -29,11 +30,11 @@ import           Lang.Value (GenBlocksParams (..))
 import           Mode (MonadAuxxMode)
 
 generateBlocks :: MonadAuxxMode m
-               => Core.Config
+               => Genesis.Config
                -> TxpConfiguration
                -> GenBlocksParams
                -> m ()
-generateBlocks coreConfig txpConfig GenBlocksParams{..} = withStateLock HighPriority ApplyBlock $ \_ -> do
+generateBlocks genesisConfig txpConfig GenBlocksParams{..} = withStateLock HighPriority ApplyBlock $ \_ -> do
     seed <- liftIO $ maybe randomIO pure bgoSeed
     logInfo $ "Generating with seed " <> show seed
 
@@ -42,16 +43,16 @@ generateBlocks coreConfig txpConfig GenBlocksParams{..} = withStateLock HighPrio
     let bgenParams =
             BlockGenParams
                 { _bgpSecrets         = allSecrets
-                , _bgpGenStakeholders = configBootStakeholders coreConfig
+                , _bgpGenStakeholders = configBootStakeholders genesisConfig
                 , _bgpBlockCount      = fromIntegral bgoBlockN
                 -- tx generation is disabled for now
                 , _bgpTxGenParams     = def & tgpTxCountRange .~ (0,0)
                 , _bgpInplaceDB       = True
                 , _bgpSkipNoKey       = True
-                , _bgpTxpGlobalSettings = txpGlobalSettings coreConfig txpConfig
+                , _bgpTxpGlobalSettings = txpGlobalSettings genesisConfig txpConfig
                 }
     withCompileInfo $ evalRandT
-        (genBlocks coreConfig txpConfig bgenParams (const ()))
+        (genBlocks genesisConfig txpConfig bgenParams (const ()))
         (mkStdGen seed)
     -- We print it twice because there can be a ton of logs and
     -- you don't notice the first message.

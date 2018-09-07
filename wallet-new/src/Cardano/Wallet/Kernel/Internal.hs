@@ -31,7 +31,8 @@ import           Universum hiding (State)
 import           Control.Lens.TH
 import           Data.Acid (AcidState)
 
-import           Pos.Core (BlockCount, FlatSlotId, ProtocolMagic)
+import           Pos.Core (BlockCount, FlatSlotId)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Util.Wlog (Severity (..))
 
 import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..),

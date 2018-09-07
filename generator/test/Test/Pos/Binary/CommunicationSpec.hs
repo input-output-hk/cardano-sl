@@ -29,8 +29,8 @@ import           Test.Pos.Configuration (HasStaticConfigurations,
 -- should be the same as the binary encoding of `MsgBlock`.
 serializeMsgSerializedBlockSpec :: HasStaticConfigurations => Spec
 serializeMsgSerializedBlockSpec = do
-    prop desc $ blockPropertyTestable $ \coreConfig -> do
-        (block, _) <- bpGenBlock coreConfig
+    prop desc $ blockPropertyTestable $ \genesisConfig -> do
+        (block, _) <- bpGenBlock genesisConfig
                                  (TxpConfiguration 200 Set.empty)
                                  (EnableTxPayload True)
                                  (InplaceDB True)
@@ -52,8 +52,8 @@ serializeMsgSerializedBlockSpec = do
 -- `serializeMsgSerializedBlock`) should give back the original block.
 deserializeSerilizedMsgSerializedBlockSpec :: HasStaticConfigurations => Spec
 deserializeSerilizedMsgSerializedBlockSpec = do
-    prop desc $ blockPropertyTestable $ \coreConfig -> do
-        (block, _) <- bpGenBlock coreConfig
+    prop desc $ blockPropertyTestable $ \genesisConfig -> do
+        (block, _) <- bpGenBlock genesisConfig
                                  (TxpConfiguration 200 Set.empty)
                                  (EnableTxPayload True)
                                  (InplaceDB True)

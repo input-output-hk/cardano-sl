@@ -16,12 +16,12 @@ import           Data.Default (def)
 import qualified Data.Yaml as Yaml
 
 import           Pos.Behavior (BehaviorConfig (..))
+import           Pos.Chain.Genesis (GeneratedSecrets)
 import           Pos.Chain.Ssc (SscParams (..))
 import           Pos.Chain.Update (UpdateParams (..))
 import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), NodeArgs (..))
 import           Pos.Client.CLI.Options (CommonArgs (..))
 import           Pos.Client.CLI.Secrets (prepareUserSecret)
-import           Pos.Core.Genesis (GeneratedSecrets)
 import           Pos.Crypto (VssKeyPair)
 import           Pos.Infra.Network.CLI (intNetworkConfigOpts)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),

@@ -27,13 +27,13 @@ import qualified Data.HashMap.Strict as HM
 import           Formatting (build, sformat, (%))
 
 import           Pos.Chain.Block (HeaderHash)
+import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots)
 import           Pos.Chain.Txp (ExtendedLocalToilM, LocalToilState (..),
                      MemPool, ToilVerFailure (..), TxAux (..), TxId, TxUndo,
                      TxpConfiguration (..), UndoMap, Utxo, UtxoLookup,
                      UtxoModifier, extendLocalToilM, mpLocalTxs, normalizeToil,
                      processTx, topsortTxs, utxoToLookup)
-import           Pos.Core as Core (Config (..), EpochIndex, SlotCount,
-                     configEpochSlots, siEpoch)
+import           Pos.Core (EpochIndex, SlotCount, siEpoch)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.JsonLog.LogEvents (MemPoolModifyReason (..))
 import           Pos.Core.Reporting (reportError)
@@ -66,9 +66,9 @@ type TxpProcessTransactionMode ctx m =
 -- only.
 txProcessTransaction
     :: ( TxpProcessTransactionMode ctx m)
-    => Core.Config -> TxpConfiguration -> (TxId, TxAux) -> m (Either ToilVerFailure ())
-txProcessTransaction coreConfig txpConfig itw =
-    withStateLock LowPriority ProcessTransaction $ \__tip -> txProcessTransactionNoLock coreConfig txpConfig itw
+    => Genesis.Config -> TxpConfiguration -> (TxId, TxAux) -> m (Either ToilVerFailure ())
+txProcessTransaction genesisConfig txpConfig itw =
+    withStateLock LowPriority ProcessTransaction $ \__tip -> txProcessTransactionNoLock genesisConfig txpConfig itw
 
 -- | Unsafe version of 'txProcessTransaction' which doesn't take a
 -- lock. Can be used in tests.
@@ -77,12 +77,12 @@ txProcessTransactionNoLock
        ( TxpLocalWorkMode ctx m
        , MempoolExt m ~ ()
        )
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> (TxId, TxAux)
     -> m (Either ToilVerFailure ())
-txProcessTransactionNoLock coreConfig txpConfig = txProcessTransactionAbstract
-    (configEpochSlots coreConfig)
+txProcessTransactionNoLock genesisConfig txpConfig = txProcessTransactionAbstract
+    (configEpochSlots genesisConfig)
     buildContext
     processTxHoisted
   where
@@ -96,7 +96,7 @@ txProcessTransactionNoLock coreConfig txpConfig = txProcessTransactionAbstract
         -> ExceptT ToilVerFailure (ExtendedLocalToilM () ()) TxUndo
     processTxHoisted bvd =
         mapExceptT extendLocalToilM
-            ... (processTx (configProtocolMagic coreConfig) txpConfig bvd)
+            ... (processTx (configProtocolMagic genesisConfig) txpConfig bvd)
 
 txProcessTransactionAbstract ::
        forall extraEnv extraState ctx m a.
@@ -185,9 +185,9 @@ txNormalize
        ( TxpLocalWorkMode ctx m
        , MempoolExt m ~ ()
        )
-    => Core.Config -> TxpConfiguration -> m ()
-txNormalize coreConfig txpConfig =
-    txNormalizeAbstract (configEpochSlots coreConfig) buildContext
+    => Genesis.Config -> TxpConfiguration -> m ()
+txNormalize genesisConfig txpConfig =
+    txNormalizeAbstract (configEpochSlots genesisConfig) buildContext
         $ normalizeToilHoisted
   where
     buildContext :: Utxo -> [TxAux] -> m ()
@@ -200,7 +200,7 @@ txNormalize coreConfig txpConfig =
         -> ExtendedLocalToilM () () ()
     normalizeToilHoisted bvd epoch txs =
         extendLocalToilM
-            $ normalizeToil (configProtocolMagic coreConfig) txpConfig bvd epoch
+            $ normalizeToil (configProtocolMagic genesisConfig) txpConfig bvd epoch
             $ HM.toList txs
 
 txNormalizeAbstract ::

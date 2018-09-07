@@ -11,11 +11,11 @@ import           Universum
 import           Control.Concurrent.STM (newTQueueIO)
 import           Ntp.Client (NtpConfiguration, NtpStatus, ntpClientSettings,
                      withNtpClient)
+import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Ssc (SscParams)
 import           Pos.Chain.Txp (TxpConfiguration)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (ncUserSecret)
-import           Pos.Core as Core (Config (..))
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Txp (txpGlobalSettings)
 import           Pos.Infra.Diffusion.Types (Diffusion)
@@ -61,7 +61,7 @@ defaultLoggerName = "node"
 -- | The legacy function responsible for starting a Cardano edge node plus a
 -- number of extra plugins.
 actionWithLegacyWallet :: (HasConfigurations, HasCompileInfo)
-                 => Core.Config
+                 => Genesis.Config
                  -> WalletConfiguration
                  -> TxpConfiguration
                  -> SscParams
@@ -69,18 +69,18 @@ actionWithLegacyWallet :: (HasConfigurations, HasCompileInfo)
                  -> NtpConfiguration
                  -> WalletBackendParams
                  -> IO ()
-actionWithLegacyWallet coreConfig walletConfig txpConfig sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
+actionWithLegacyWallet genesisConfig walletConfig txpConfig sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
     bracketWalletWebDB (walletDbPath walletDbOptions) (walletRebuildDb walletDbOptions) $ \db ->
         bracketWalletWS $ \conn ->
             bracketNodeResources
-                coreConfig
+                genesisConfig
                 nodeParams
                 sscParams
-                (txpGlobalSettings coreConfig txpConfig)
-                (initNodeDBs coreConfig) $ \nr@NodeResources {..} -> do
+                (txpGlobalSettings genesisConfig txpConfig)
+                (initNodeDBs genesisConfig) $ \nr@NodeResources {..} -> do
                     syncQueue <- liftIO newTQueueIO
                     ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
-                    runWRealMode coreConfig txpConfig db conn syncQueue nr (mainAction ntpStatus nr)
+                    runWRealMode genesisConfig txpConfig db conn syncQueue nr (mainAction ntpStatus nr)
   where
     mainAction ntpStatus = runNodeWithInit ntpStatus $ do
         when (walletFlushDb walletDbOptions) $ do
@@ -95,7 +95,7 @@ actionWithLegacyWallet coreConfig walletConfig txpConfig sscParams nodeParams nt
 
     runNodeWithInit ntpStatus init' nr diffusion = do
         _ <- init'
-        runNode coreConfig txpConfig nr (plugins ntpStatus) diffusion
+        runNode genesisConfig txpConfig nr (plugins ntpStatus) diffusion
 
     syncWallets :: WalletWebMode ()
     syncWallets = do
@@ -106,34 +106,34 @@ actionWithLegacyWallet coreConfig walletConfig txpConfig sscParams nodeParams nt
     plugins :: TVar NtpStatus -> LegacyPlugins.Plugin WalletWebMode
     plugins ntpStatus =
         mconcat [ LegacyPlugins.conversation wArgs
-                , LegacyPlugins.legacyWalletBackend coreConfig walletConfig txpConfig wArgs ntpStatus
+                , LegacyPlugins.legacyWalletBackend genesisConfig walletConfig txpConfig wArgs ntpStatus
                 , LegacyPlugins.walletDocumentation wArgs
                 , LegacyPlugins.acidCleanupWorker wArgs
-                , LegacyPlugins.syncWalletWorker coreConfig
-                , LegacyPlugins.resubmitterPlugin coreConfig txpConfig
+                , LegacyPlugins.syncWalletWorker genesisConfig
+                , LegacyPlugins.resubmitterPlugin genesisConfig txpConfig
                 , LegacyPlugins.notifierPlugin
                 ]
 
 -- | The "workhorse" responsible for starting a Cardano edge node plus a number of extra plugins.
 actionWithWallet :: (HasConfigurations, HasCompileInfo)
-                 => Core.Config
+                 => Genesis.Config
                  -> TxpConfiguration
                  -> SscParams
                  -> NodeParams
                  -> NtpConfiguration
                  -> NewWalletBackendParams
                  -> IO ()
-actionWithWallet coreConfig txpConfig sscParams nodeParams ntpConfig params =
+actionWithWallet genesisConfig txpConfig sscParams nodeParams ntpConfig params =
     bracketNodeResources
-        coreConfig
+        genesisConfig
         nodeParams
         sscParams
-        (txpGlobalSettings coreConfig txpConfig)
-        (initNodeDBs coreConfig) $ \nr -> do
+        (txpGlobalSettings genesisConfig txpConfig)
+        (initNodeDBs genesisConfig) $ \nr -> do
       ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
       userSecret <- readTVarIO (ncUserSecret $ nrContext nr)
       let nodeState = NodeStateAdaptor.newNodeStateAdaptor
-              coreConfig
+              genesisConfig
               nr
               ntpStatus
       liftIO $ Keystore.bracketLegacyKeystore userSecret $ \keystore -> do
@@ -144,13 +144,13 @@ actionWithWallet coreConfig txpConfig sscParams nodeParams ntpConfig params =
               })
           WalletLayer.Kernel.bracketPassiveWallet dbMode logMessage' keystore nodeState $ \walletLayer passiveWallet -> do
               Kernel.init passiveWallet
-              Kernel.Mode.runWalletMode coreConfig
+              Kernel.Mode.runWalletMode genesisConfig
                                         txpConfig
                                         nr
                                         walletLayer
                                         (mainAction (walletLayer, passiveWallet) nr dbMode)
   where
-    pm = configProtocolMagic coreConfig
+    pm = configProtocolMagic genesisConfig
     mainAction
         :: (PassiveWalletLayer IO, PassiveWallet)
         -> NodeResources ext
@@ -163,7 +163,7 @@ actionWithWallet coreConfig txpConfig sscParams nodeParams ntpConfig params =
         -> NodeResources ext
         -> Kernel.DatabaseMode
         -> (Diffusion Kernel.Mode.WalletMode -> Kernel.Mode.WalletMode ())
-    runNodeWithInit w nr dbMode = runNode coreConfig txpConfig nr (plugins w dbMode)
+    runNodeWithInit w nr dbMode = runNode genesisConfig txpConfig nr (plugins w dbMode)
 
     plugins :: (PassiveWalletLayer IO, PassiveWallet)
             -> Kernel.DatabaseMode
@@ -203,12 +203,12 @@ actionWithWallet coreConfig txpConfig sscParams nodeParams ntpConfig params =
 startEdgeNode :: HasCompileInfo => WalletStartupOptions -> IO ()
 startEdgeNode wso =
     withConfigurations blPath dumpGenesisPath dumpConfiguration conf $
-        \coreConfig walletConfig txpConfig ntpConfig -> do
-        (sscParams, nodeParams) <- getParameters coreConfig
+        \genesisConfig walletConfig txpConfig ntpConfig -> do
+        (sscParams, nodeParams) <- getParameters genesisConfig
 
         case wsoWalletBackendParams wso of
             WalletLegacy legacyParams -> actionWithLegacyWallet
-                coreConfig
+                genesisConfig
                 walletConfig
                 txpConfig
                 sscParams
@@ -216,20 +216,20 @@ startEdgeNode wso =
                 ntpConfig
                 legacyParams
             WalletNew newParams -> actionWithWallet
-                coreConfig
+                genesisConfig
                 txpConfig
                 sscParams
                 nodeParams
                 ntpConfig
                 newParams
   where
-    getParameters :: Core.Config -> IO (SscParams, NodeParams)
-    getParameters coreConfig = do
+    getParameters :: Genesis.Config -> IO (SscParams, NodeParams)
+    getParameters genesisConfig = do
 
       (currentParams, Just gtParams) <- CLI.getNodeParams defaultLoggerName
                                          (wsoNodeArgs wso)
                                          nodeArgs
-                                         (configGeneratedSecrets coreConfig)
+                                         (configGeneratedSecrets genesisConfig)
 
       logInfo "Wallet is enabled!"
 

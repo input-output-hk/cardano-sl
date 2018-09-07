@@ -1,8 +1,7 @@
 module Test.Pos.Core.Gen
-       ( genGenesisHash
-
+       (
         -- Pos.Core.Common Generators
-        , genAddrAttributes
+          genAddrAttributes
         , genAddress
         , genAddrSpendingData
         , genAddrStakeDistribution
@@ -22,24 +21,12 @@ module Test.Pos.Core.Gen
         , genTxFeePolicy
         , genTxSizeLinear
 
-        -- Pos.Core.Configuration Generators
-        , genGenesisConfiguration
-
         -- Pos.Core.Delegation Generators
         , genDlgPayload
         , genHeavyDlgIndex
         , genLightDlgIndices
         , genProxySKBlockInfo
         , genProxySKHeavy
-
-        -- Pos.Core.Genesis Generators
-        , genFakeAvvmOptions
-        , genGenesisAvvmBalances
-        , genGenesisDelegation
-        , genGenesisInitializer
-        , genGenesisProtocolConstants
-        , genGenesisSpec
-        , genTestnetBalanceOptions
 
         -- Pos.Core.JsonLog Generators
         , genInvReqDataFlowLog
@@ -115,8 +102,6 @@ module Test.Pos.Core.Gen
 
 import           Universum
 
-import           Data.Coerce (coerce)
-import           Data.Either (either)
 import           Data.Fixed (Fixed (..))
 import qualified Data.HashMap.Strict as HM
 import           Data.List.NonEmpty (fromList)
@@ -136,15 +121,8 @@ import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                      StakesMap, TxFeePolicy (..), TxSizeLinear (..),
                      coinPortionDenominator, makeAddress, maxCoinVal,
                      mkMultiKeyDistr)
-import           Pos.Core.Configuration (GenesisConfiguration (..),
-                     GenesisHash (..))
 import           Pos.Core.Delegation (DlgPayload (..), HeavyDlgIndex (..),
                      LightDlgIndices (..), ProxySKBlockInfo, ProxySKHeavy)
-import           Pos.Core.Genesis (FakeAvvmOptions (..),
-                     GenesisAvvmBalances (..), GenesisDelegation (..),
-                     GenesisInitializer (..), GenesisProtocolConstants (..),
-                     GenesisSpec (..), TestnetBalanceOptions (..),
-                     mkGenesisDelegation, mkGenesisSpec)
 import           Pos.Core.JsonLog.LogEvents (InvReqDataFlowLog (..))
 import           Pos.Core.Merkle (MerkleRoot (..), MerkleTree (..),
                      mkMerkleTree, mtRoot)
@@ -174,14 +152,9 @@ import           Pos.Util.Util (leftToPanic)
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Test.Pos.Crypto.Gen (genAbstractHash, genDecShare,
-                     genHDAddressPayload, genProtocolMagic, genPublicKey,
-                     genRedeemPublicKey, genSafeSigner, genSecretKey,
-                     genSignature, genVssPublicKey)
-
-genGenesisHash :: Gen GenesisHash
-genGenesisHash = do
-    th <- genTextHash
-    pure (GenesisHash (coerce th))
+                     genHDAddressPayload, genPublicKey, genRedeemPublicKey,
+                     genSafeSigner, genSecretKey, genSignature,
+                     genVssPublicKey)
 
 ----------------------------------------------------------------------------
 -- Pos.Core.Common Generators
@@ -325,18 +298,6 @@ genTxSizeLinear :: Gen TxSizeLinear
 genTxSizeLinear = TxSizeLinear <$> genCoeff <*> genCoeff
 
 ----------------------------------------------------------------------------
--- Pos.Core.Configuration Generators
-----------------------------------------------------------------------------
-
-genGenesisConfiguration :: ProtocolMagic -> Gen GenesisConfiguration
-genGenesisConfiguration pm =
-    Gen.choice [ GCSrc
-                     <$> Gen.string (Range.constant 10 25) Gen.alphaNum
-                     <*> genHashRaw
-               , GCSpec <$> genGenesisSpec pm
-               ]
-
-----------------------------------------------------------------------------
 -- Pos.Core.Delegation Generators
 ----------------------------------------------------------------------------
 
@@ -363,60 +324,6 @@ genProxySKHeavy pm =
         <$> genSafeSigner
         <*> genPublicKey
         <*> genHeavyDlgIndex
-
-----------------------------------------------------------------------------
--- Pos.Core.Genesis Generators
-----------------------------------------------------------------------------
-
-genFakeAvvmOptions :: Gen FakeAvvmOptions
-genFakeAvvmOptions =
-    FakeAvvmOptions
-        <$> Gen.word Range.constantBounded
-        <*> Gen.word64 Range.constantBounded
-
-genGenesisDelegation :: ProtocolMagic -> Gen (GenesisDelegation)
-genGenesisDelegation pm = do
-    proxySKHeavyList <- Gen.list (Range.linear 1 10) $ genProxySKHeavy pm
-    case (mkGenesisDelegation proxySKHeavyList) of
-        Left _       -> genGenesisDelegation pm
-        Right genDel -> pure genDel
-
-genGenesisInitializer :: Gen GenesisInitializer
-genGenesisInitializer =
-    GenesisInitializer
-        <$> genTestnetBalanceOptions
-        <*> genFakeAvvmOptions
-        <*> genCoinPortion
-        <*> Gen.bool
-        <*> Gen.integral (Range.constant 0 10)
-
-genGenesisProtocolConstants :: Gen GenesisProtocolConstants
-genGenesisProtocolConstants =
-    GenesisProtocolConstants
-        <$> Gen.int (Range.constant 0 100)
-        <*> genProtocolMagic
-        <*> genVssMaxTTL
-        <*> genVssMinTTL
-
-genGenesisSpec :: ProtocolMagic -> Gen GenesisSpec
-genGenesisSpec pm = mkGenSpec >>=  either (error . toText) pure
-    where
-        mkGenSpec = mkGenesisSpec
-                      <$> genGenesisAvvmBalances
-                      <*> genSharedSeed
-                      <*> genGenesisDelegation pm
-                      <*> genBlockVersionData
-                      <*> genGenesisProtocolConstants
-                      <*> genGenesisInitializer
-
-genTestnetBalanceOptions :: Gen TestnetBalanceOptions
-genTestnetBalanceOptions =
-    TestnetBalanceOptions
-        <$> Gen.word Range.constantBounded
-        <*> Gen.word Range.constantBounded
-        <*> Gen.word64 Range.constantBounded
-        <*> Gen.double (Range.constant 0 10)
-        <*> Gen.bool
 
 ----------------------------------------------------------------------------
 -- Pos.Core.JsonLog Generators
@@ -492,9 +399,6 @@ genTimestamp = Timestamp <$> genMicrosecond
 ----------------------------------------------------------------------------
 -- Pos.Core.Ssc Generators
 ----------------------------------------------------------------------------
-
-genGenesisAvvmBalances :: Gen GenesisAvvmBalances
-genGenesisAvvmBalances = GenesisAvvmBalances <$> customHashMapGen genRedeemPublicKey genCoin
 
 genCommitment :: Gen Commitment
 genCommitment = fst <$> genCommitmentOpening
@@ -732,13 +636,6 @@ genMerkleRoot genA = mtRoot <$> genMerkleTree genA
 ----------------------------------------------------------------------------
 -- Helper Generators
 ----------------------------------------------------------------------------
-
-customHashMapGen
-    :: (Hashable k, Eq k)
-    => Gen k -> Gen v -> Gen (HM.HashMap k v)
-customHashMapGen keyGen valGen =
-    HM.fromList
-        <$> (Gen.list (Range.linear 1 10) $ (,) <$> keyGen <*> valGen)
 
 genBytes :: Int -> Gen ByteString
 genBytes n = Gen.bytes (Range.singleton n)

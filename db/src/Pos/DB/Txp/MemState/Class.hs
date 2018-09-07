@@ -30,9 +30,9 @@ import           Data.Default (Default (..))
 import qualified Data.HashMap.Strict as HM
 
 import           Pos.Chain.Block (HeaderHash)
+import           Pos.Chain.Genesis as Genesis (Config)
 import           Pos.Chain.Txp (MemPool (..), ToilVerFailure, TxAux, TxId,
                      TxpConfiguration, UndoMap, UtxoModifier)
-import           Pos.Core as Core (Config)
 import           Pos.Core.Reporting (MonadReporting)
 import           Pos.Core.Slotting (MonadSlots (..))
 import           Pos.DB.Class (MonadDBRead, MonadGState (..))
@@ -128,8 +128,8 @@ clearTxpMemPool txpData = do
 type family MempoolExt (m :: * -> *) :: *
 
 class Monad m => MonadTxpLocal m where
-    txpNormalize :: Core.Config -> TxpConfiguration -> m ()
-    txpProcessTx :: Core.Config -> TxpConfiguration -> (TxId, TxAux) -> m (Either ToilVerFailure ())
+    txpNormalize :: Genesis.Config -> TxpConfiguration -> m ()
+    txpProcessTx :: Genesis.Config -> TxpConfiguration -> (TxId, TxAux) -> m (Either ToilVerFailure ())
 
 type TxpLocalWorkMode ctx m =
     ( MonadIO m

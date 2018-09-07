@@ -18,15 +18,16 @@ import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Binary.Class (decodeFull, serialize)
 import           Pos.Chain.Block (ApplyBlocksException, Block,
                      VerifyBlocksException)
-import           Pos.Chain.Txp (TxpConfiguration (..))
-import           Pos.Core as Core (Config (..), ProtocolConstants (..),
+import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlockVersionData, configBootStakeholders,
                      configGeneratedSecretsThrow)
-import           Pos.Core.Chrono (NE, OldestFirst (..), nonEmptyNewestFirst)
-import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)
-import           Pos.Core.Genesis (FakeAvvmOptions (..),
+import           Pos.Chain.Genesis (FakeAvvmOptions (..),
                      GenesisInitializer (..), TestnetBalanceOptions (..),
                      gsSecretKeys)
+import           Pos.Chain.Txp (TxpConfiguration (..))
+import           Pos.Core (ProtocolConstants (..))
+import           Pos.Core.Chrono (NE, OldestFirst (..), nonEmptyNewestFirst)
+import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)
 import           Pos.Core.Slotting (Timestamp (..))
 import           Pos.Crypto (SecretKey)
 import           Pos.DB.Block (rollbackBlocks, verifyAndApplyBlocks,
@@ -70,14 +71,14 @@ balance = TestnetBalanceOptions
     }
 
 generateBlocks :: HasConfigurations
-               => Core.Config
+               => Genesis.Config
                -> [SecretKey]
                -> TxpConfiguration
                -> BlockCount
                -> BlockTestMode (OldestFirst NE Block)
-generateBlocks coreConfig secretKeys txpConfig bCount = do
+generateBlocks genesisConfig secretKeys txpConfig bCount = do
     g <- liftIO $ newStdGen
-    bs <- flip evalRandT g $ genBlocks coreConfig txpConfig
+    bs <- flip evalRandT g $ genBlocks genesisConfig txpConfig
             (BlockGenParams
                 { _bgpSecrets = mkAllSecretsSimple secretKeys
                 , _bgpBlockCount = bCount
@@ -87,9 +88,9 @@ generateBlocks coreConfig secretKeys txpConfig bCount = do
                     }
                 , _bgpInplaceDB = False
                 , _bgpSkipNoKey = True
-                , _bgpGenStakeholders = configBootStakeholders coreConfig
+                , _bgpGenStakeholders = configBootStakeholders genesisConfig
                 , _bgpTxpGlobalSettings = txpGlobalSettings
-                      coreConfig
+                      genesisConfig
                       (TxpConfiguration 200 Set.empty)
                 })
             (maybeToList . fmap fst)
@@ -197,26 +198,26 @@ main = do
             , cfoSystemStart = Just (Timestamp startTime)
             }
     withCompileInfo $
-        withConfigurationsM (LoggerName "verification-bench") Nothing Nothing False cfo $ \ !coreConfig !_ !txpConfig !_ -> do
-            let coreConfig' = coreConfig
+        withConfigurationsM (LoggerName "verification-bench") Nothing Nothing False cfo $ \ !genesisConfig !_ !txpConfig !_ -> do
+            let genesisConfig' = genesisConfig
                     { configProtocolConstants =
-                        (configProtocolConstants coreConfig) { pcK = baK args }
+                        (configProtocolConstants genesisConfig) { pcK = baK args }
                     }
                 tp = TestParams
                     { _tpStartTime = Timestamp (convertUnit startTime)
-                    , _tpBlockVersionData = configBlockVersionData coreConfig'
+                    , _tpBlockVersionData = configBlockVersionData genesisConfig'
                     , _tpGenesisInitializer = genesisInitializer
                     , _tpTxpConfiguration = TxpConfiguration 200 Set.empty
                     }
-            secretKeys <- gsSecretKeys <$> configGeneratedSecretsThrow coreConfig'
-            runBlockTestMode coreConfig' tp $ do
+            secretKeys <- gsSecretKeys <$> configGeneratedSecretsThrow genesisConfig'
+            runBlockTestMode genesisConfig' tp $ do
                 -- initialize databasea
-                initNodeDBs coreConfig'
+                initNodeDBs genesisConfig'
                 bs <- case baBlockCache args of
                     Nothing -> do
                         -- generate blocks and evaluate them to normal form
                         logInfo "Generating blocks"
-                        generateBlocks coreConfig' secretKeys txpConfig (baBlockCount args)
+                        generateBlocks genesisConfig' secretKeys txpConfig (baBlockCount args)
                     Just path -> do
                         fileExists <- liftIO $ doesFileExist path
                         mbs <- if fileExists
@@ -226,7 +227,7 @@ main = do
                             Nothing -> do
                                 -- generate blocks and evaluate them to normal form
                                 logInfo "Generating blocks"
-                                bs <- generateBlocks coreConfig' secretKeys txpConfig (baBlockCount args)
+                                bs <- generateBlocks genesisConfig' secretKeys txpConfig (baBlockCount args)
                                 liftIO $ writeBlocks path bs
                                 return bs
                             Just bs -> return bs
@@ -238,8 +239,8 @@ main = do
                         $ \(idx, blocks) -> do
                             logInfo $ sformat ("Pass: "%int) idx
                             (if baApply args
-                                then validateAndApply coreConfig' txpConfig blocks
-                                else validate coreConfig' blocks)
+                                then validateAndApply genesisConfig' txpConfig blocks
+                                else validate genesisConfig' blocks)
 
                     let -- drop first three results (if there are more than three results)
                         itimes :: [Float]
@@ -268,28 +269,28 @@ main = do
 
         validate
             :: HasConfigurations
-            => Core.Config
+            => Genesis.Config
             -> OldestFirst NE Block
             -> BlockTestMode (Microsecond, Maybe (Either VerifyBlocksException ApplyBlocksException))
-        validate coreConfig blocks = do
+        validate genesisConfig blocks = do
             verStart <- realTime
-            res <- (force . either Left (Right . fst)) <$> verifyBlocksPrefix coreConfig Nothing blocks
+            res <- (force . either Left (Right . fst)) <$> verifyBlocksPrefix genesisConfig Nothing blocks
             verEnd <- realTime
             return (verEnd - verStart, either (Just . Left) (const Nothing) res)
 
         validateAndApply
             :: HasConfigurations
-            => Core.Config
+            => Genesis.Config
             -> TxpConfiguration
             -> OldestFirst NE Block
             -> BlockTestMode (Microsecond, Maybe (Either VerifyBlocksException ApplyBlocksException))
-        validateAndApply coreConfig txpConfig blocks = do
+        validateAndApply genesisConfig txpConfig blocks = do
             verStart <- realTime
-            res <- force <$> verifyAndApplyBlocks coreConfig txpConfig Nothing False blocks
+            res <- force <$> verifyAndApplyBlocks genesisConfig txpConfig Nothing False blocks
             verEnd <- realTime
             case res of
                 Left _ -> return ()
                 Right (_, blunds) -> whenJust
                     (nonEmptyNewestFirst blunds)
-                    (rollbackBlocks coreConfig)
+                    (rollbackBlocks genesisConfig)
             return (verEnd - verStart, either (Just . Right) (const Nothing) res)

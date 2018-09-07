@@ -30,6 +30,7 @@ import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Block (HasSlogGState (..))
 import           Pos.Chain.Delegation (DelegationVar, HasDlgConfiguration)
+import           Pos.Chain.Genesis (GenesisWStakeholders (..))
 import           Pos.Chain.Ssc (HasSscConfiguration, SscMemTag, SscState)
 import           Pos.Chain.Update (HasUpdateConfiguration)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
@@ -38,7 +39,6 @@ import           Pos.Core (Address, HasPrimaryKey (..), SlotCount, SlotId (..),
                      Timestamp, epochOrSlotToSlot, getEpochOrSlot,
                      largestPubKeyAddressBoot)
 import           Pos.Core.Exception (reportFatalError)
-import           Pos.Core.Genesis (GenesisWStakeholders (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MonadReporting (..))
 import           Pos.Crypto (SecretKey)

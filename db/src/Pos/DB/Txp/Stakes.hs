@@ -34,10 +34,10 @@ import           Serokell.Util (Color (Red), colorize)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')
+import           Pos.Chain.Genesis (GenesisData (..))
 import           Pos.Chain.Txp (genesisStakes)
 import           Pos.Core (Coin, StakeholderId, StakesMap, coinF, mkCoin,
                      sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
-import           Pos.Core.Genesis (GenesisData (..))
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (..), DBTag (GStateDB), IterType, MonadDB,
                      MonadDBRead, RocksBatchOp (..), dbIterSource)

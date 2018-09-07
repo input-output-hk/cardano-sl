@@ -40,7 +40,8 @@ import           UTxO.Context
 import           UTxO.Verify (Verify)
 import qualified UTxO.Verify as Verify
 
-import           Test.Pos.Core.Dummy (dummyBlockVersionData, dummyEpochSlots)
+import           Test.Pos.Chain.Genesis.Dummy (dummyBlockVersionData,
+                     dummyEpochSlots)
 
 {-------------------------------------------------------------------------------
   Testing infrastructure from cardano-sl-core
@@ -102,11 +103,11 @@ instance Monad m => MonadGState (TranslateT e m) where
 -- pure exceptions.
 runTranslateT :: Monad m => Exception e => TranslateT e m a -> m a
 runTranslateT (TranslateT ta) =
-    withDefConfiguration $ \coreConfig ->
+    withDefConfiguration $ \genesisConfig ->
     withDefUpdateConfiguration $
       let env :: TranslateEnv
           env = TranslateEnv {
-                    teContext = initContext (initCardanoContext coreConfig)
+                    teContext = initContext (initCardanoContext genesisConfig)
                   , teUpdate  = Dict
                   }
       in do ma <- runReaderT (runExceptT ta) env

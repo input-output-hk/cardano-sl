@@ -15,13 +15,13 @@ import           Data.Time.Units (Microsecond, Second, convertUnit)
 import           Formatting (build, sformat, (%))
 import           Serokell.Util (enumerate, listJson)
 
+import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots)
 import           Pos.Chain.Txp (TxAux, TxpConfiguration)
 import           Pos.Client.Txp.Addresses (MonadAddresses)
 import           Pos.Client.Txp.Network (TxMode)
 import           Pos.Configuration (HasNodeConfiguration,
                      pendingTxResubmitionPeriod, walletTxCreationDisabled)
-import           Pos.Core as Core (ChainDifficulty (..), Config (..),
-                     SlotId (..), configEpochSlots, difficultyL)
+import           Pos.Core (ChainDifficulty (..), SlotId (..), difficultyL)
 import           Pos.Core.Chrono (getOldestFirst)
 import           Pos.Core.Conc (delay, forConcurrently)
 import qualified Pos.DB.BlockIndex as DB
@@ -71,17 +71,17 @@ processPtxInNewestBlocks db PendingTx{..} = do
          ptxDiff + depth <= tipDiff
 
 resubmitTx :: MonadPendings ctx m
-           => Core.Config
+           => Genesis.Config
            -> TxpConfiguration
            -> WalletDB
            -> (TxAux -> m Bool)
            -> PendingTx
            -> m ()
-resubmitTx coreConfig txpConfig db submitTx ptx =
+resubmitTx genesisConfig txpConfig db submitTx ptx =
     handleAny (\_ -> pass) $ do
         logInfoSP $ \sl -> sformat ("Resubmitting tx "%secretOnlyF sl build) (_ptxTxId ptx)
         let submissionH = ptxResubmissionHandler db ptx
-        submitAndSavePtx coreConfig txpConfig db submitTx submissionH ptx
+        submitAndSavePtx genesisConfig txpConfig db submitTx submissionH ptx
         updateTiming
   where
     reportNextCheckTime time = logInfoSP $ \sl -> sformat
@@ -95,7 +95,7 @@ resubmitTx coreConfig txpConfig db submitTx ptx =
 
     updateTiming = do
         usingPtxCoords
-            (ptxUpdateMeta (configProtocolConstants coreConfig) db)
+            (ptxUpdateMeta (configProtocolConstants genesisConfig) db)
             ptx
             PtxIncSubmitTiming
         ws <- getWalletSnapshot db
@@ -106,17 +106,17 @@ resubmitTx coreConfig txpConfig db submitTx ptx =
 -- | Distributes pending txs submition over current slot ~evenly
 resubmitPtxsDuringSlot
     :: MonadPendings ctx m
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> WalletDB
     -> (TxAux -> m Bool)
     -> [PendingTx]
     -> m ()
-resubmitPtxsDuringSlot coreConfig txpConfig db submitTx ptxs = do
+resubmitPtxsDuringSlot genesisConfig txpConfig db submitTx ptxs = do
     interval <- evalSubmitDelay (length ptxs)
     void . forConcurrently (enumerate ptxs) $ \(i, ptx) -> do
         delay (interval * i)
-        resubmitTx coreConfig txpConfig db submitTx ptx
+        resubmitTx genesisConfig txpConfig db submitTx ptx
   where
     submitionEta = 5 :: Second
     evalSubmitDelay toResubmitNum = do
@@ -127,14 +127,14 @@ resubmitPtxsDuringSlot coreConfig txpConfig db submitTx ptxs = do
 
 processPtxsToResubmit
     :: MonadPendings ctx m
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> WalletDB
     -> (TxAux -> m Bool)
     -> SlotId
     -> [PendingTx]
     -> m ()
-processPtxsToResubmit coreConfig txpConfig db submitTx _curSlot ptxs = do
+processPtxsToResubmit genesisConfig txpConfig db submitTx _curSlot ptxs = do
     ptxsPerSlotLimit <- evalPtxsPerSlotLimit
     let toResubmit =
             take (min 1 ptxsPerSlotLimit) $  -- for now the limit will be 1,
@@ -147,7 +147,7 @@ processPtxsToResubmit coreConfig txpConfig db submitTx _curSlot ptxs = do
         logInfoSP $ \sl -> sformat (fmt sl) (map _ptxTxId toResubmit)
     when (null toResubmit) $
         logDebug "There are no transactions to resubmit"
-    resubmitPtxsDuringSlot coreConfig txpConfig db submitTx toResubmit
+    resubmitPtxsDuringSlot genesisConfig txpConfig db submitTx toResubmit
   where
     fmt sl = "Transactions to resubmit on current slot: "%secureListF sl listJson
     evalPtxsPerSlotLimit = do
@@ -163,47 +163,47 @@ processPtxsToResubmit coreConfig txpConfig db submitTx _curSlot ptxs = do
 -- if needed.
 processPtxs
     :: MonadPendings ctx m
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> WalletDB
     -> (TxAux -> m Bool)
     -> SlotId
     -> [PendingTx]
     -> m ()
-processPtxs coreConfig txpConfig db submitTx curSlot ptxs = do
+processPtxs genesisConfig txpConfig db submitTx curSlot ptxs = do
     mapM_ (processPtxInNewestBlocks db) ptxs
     if walletTxCreationDisabled
     then logDebug "Transaction resubmission is disabled"
-    else processPtxsToResubmit coreConfig txpConfig db submitTx curSlot ptxs
+    else processPtxsToResubmit genesisConfig txpConfig db submitTx curSlot ptxs
 
 processPtxsOnSlot
     :: MonadPendings ctx m
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> WalletDB
     -> (TxAux -> m Bool)
     -> SlotId
     -> m ()
-processPtxsOnSlot coreConfig txpConfig db submitTx curSlot = do
+processPtxsOnSlot genesisConfig txpConfig db submitTx curSlot = do
     ws <- getWalletSnapshot db
     let ptxs = getPendingTxs ws
     let sortedPtxs = getOldestFirst $ sortPtxsChrono ptxs
-    processPtxs coreConfig txpConfig db submitTx curSlot sortedPtxs
+    processPtxs genesisConfig txpConfig db submitTx curSlot sortedPtxs
 
 -- | On each slot this takes several pending transactions and resubmits them if
 -- needed and possible.
 startPendingTxsResubmitter
     :: MonadPendings ctx m
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> WalletDB
     -> (TxAux -> m Bool)
     -> m ()
-startPendingTxsResubmitter coreConfig txpConfig db submitTx =
+startPendingTxsResubmitter genesisConfig txpConfig db submitTx =
     setLogger $ onNewSlot
-        (configEpochSlots coreConfig)
+        (configEpochSlots genesisConfig)
         onsp
-        (processPtxsOnSlot coreConfig txpConfig db submitTx)
+        (processPtxsOnSlot genesisConfig txpConfig db submitTx)
   where
     setLogger = modifyLoggerName (<> "tx" <> "resubmitter")
     onsp :: OnNewSlotParams

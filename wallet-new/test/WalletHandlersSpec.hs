@@ -8,7 +8,7 @@ import qualified Cardano.Wallet.API.V1.LegacyHandlers.Wallets as V1
 import qualified Pos.Core as Core
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
-import           Test.Pos.Core.Dummy (dummyK)
+import           Test.Pos.Chain.Genesis.Dummy (dummyK)
 
 newSyncProgress :: Word64 -> Word64 -> V0.SyncProgress
 newSyncProgress localBlocks totalBlks =

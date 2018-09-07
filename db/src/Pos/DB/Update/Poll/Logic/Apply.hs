@@ -19,16 +19,17 @@ import           Formatting (build, builder, int, sformat, (%))
 import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (HeaderHash, IsMainHeader (..), headerHashG,
                      headerSlotL)
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     configBlkSecurityParam, configBlockVersionData,
+                     configEpochSlots)
 import           Pos.Chain.Update (ConfirmedProposalState (..),
                      DecidedProposalState (..), DpsExtra (..), MonadPoll (..),
                      MonadPollRead (..), PollVerFailure (..),
                      ProposalState (..), UndecidedProposalState (..),
                      UpsExtra (..), psProposal)
-import           Pos.Core as Core (BlockCount, ChainDifficulty (..), Coin,
-                     Config (..), EpochIndex, SlotCount, SlotId (..),
-                     addressHash, applyCoinPortionUp, coinToInteger,
-                     configBlkSecurityParam, configBlockVersionData,
-                     configEpochSlots, difficultyL, epochIndexL, flattenSlotId,
+import           Pos.Core (BlockCount, ChainDifficulty (..), Coin, EpochIndex,
+                     SlotCount, SlotId (..), addressHash, applyCoinPortionUp,
+                     coinToInteger, difficultyL, epochIndexL, flattenSlotId,
                      sumCoins, unflattenSlotId, unsafeIntegerToCoin)
 import           Pos.Core.Attributes (areAttributesKnown)
 import           Pos.Core.Update (BlockVersion, BlockVersionData (..),
@@ -66,16 +67,16 @@ type ApplyMode m =
 -- checked.
 verifyAndApplyUSPayload
     :: ApplyMode m
-    => Core.Config
+    => Genesis.Config
     -> BlockVersion
     -> Bool
     -> Either SlotId (Some IsMainHeader)
     -> UpdatePayload
     -> m ()
-verifyAndApplyUSPayload coreConfig lastAdopted verifyAllIsKnown slotOrHeader upp@UpdatePayload {..} = do
+verifyAndApplyUSPayload genesisConfig lastAdopted verifyAllIsKnown slotOrHeader upp@UpdatePayload {..} = do
     -- First of all, we verify data.
     either (throwError . PollInvalidUpdatePayload) pure
-        =<< runExceptT (checkUpdatePayload (configProtocolMagic coreConfig) upp)
+        =<< runExceptT (checkUpdatePayload (configProtocolMagic genesisConfig) upp)
     whenRight slotOrHeader $ verifyHeader lastAdopted
 
     unless isEmptyPayload $ do
@@ -106,17 +107,17 @@ verifyAndApplyUSPayload coreConfig lastAdopted verifyAllIsKnown slotOrHeader upp
         Left _           -> pass
         Right mainHeader -> do
             applyImplicitAgreement
-                (configEpochSlots coreConfig)
+                (configEpochSlots genesisConfig)
                 (mainHeader ^. headerSlotL)
                 (mainHeader ^. difficultyL)
                 (mainHeader ^. headerHashG)
             applyDepthCheck
-                (configBlkSecurityParam coreConfig)
+                (configBlkSecurityParam genesisConfig)
                 (mainHeader ^. epochIndexL)
                 (mainHeader ^. headerHashG)
                 (mainHeader ^. difficultyL)
   where
-    genesisBvd = configBlockVersionData coreConfig
+    genesisBvd = configBlockVersionData genesisConfig
     isEmptyPayload = isNothing upProposal && null upVotes
 
 -- Here we verify all US-related data from header.

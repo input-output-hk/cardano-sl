@@ -12,11 +12,11 @@ import           Universum
 
 import           Control.Monad.Trans (MonadTrans)
 
+import           Pos.Chain.Genesis (GenesisData)
 import           Pos.Chain.Txp (Utxo, filterUtxoByAddrs, genesisUtxo,
                      getTotalCoinsInUtxo)
 import           Pos.Core (Address (..), Coin, IsBootstrapEraAddr (..),
                      makePubKeyAddress)
-import           Pos.Core.Genesis (GenesisData)
 import           Pos.Crypto (PublicKey)
 
 -- | A class which have the methods to get state of address' balance

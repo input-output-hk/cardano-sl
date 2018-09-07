@@ -24,6 +24,9 @@ import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat, (%))
 
 import           Pos.Chain.Block (ComponentBlock (..))
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     configBootStakeholders)
+import           Pos.Chain.Genesis (GenesisWStakeholders)
 import           Pos.Chain.Txp (ExtendedGlobalToilM, GlobalToilEnv (..),
                      GlobalToilM, GlobalToilState (..), StakesView (..),
                      ToilVerFailure, TxAux, TxUndo, TxpConfiguration (..),
@@ -31,11 +34,10 @@ import           Pos.Chain.Txp (ExtendedGlobalToilM, GlobalToilEnv (..),
                      defGlobalToilState, flattenTxPayload, gtsUtxoModifier,
                      rollbackToil, runGlobalToilMBase, runUtxoM, utxoToLookup,
                      verifyToil)
-import           Pos.Core as Core (Config (..), ProtocolMagic,
-                     configBootStakeholders, epochIndexL)
+import           Pos.Core (epochIndexL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Exception (assertionFailed)
-import           Pos.Core.Genesis (GenesisWStakeholders)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Class (gsAdoptedBVData)
 import           Pos.DB.GState.Stakes (getRealStake, getRealTotalStake)
@@ -54,8 +56,8 @@ import qualified Pos.Util.Modifier as MM
 
 -- | Settings used for global transactions data processing used by a
 -- simple full node.
-txpGlobalSettings :: Core.Config -> TxpConfiguration -> TxpGlobalSettings
-txpGlobalSettings coreConfig txpConfig = TxpGlobalSettings
+txpGlobalSettings :: Genesis.Config -> TxpConfiguration -> TxpGlobalSettings
+txpGlobalSettings genesisConfig txpConfig = TxpGlobalSettings
     { tgsVerifyBlocks   = verifyBlocks pm txpConfig
     , tgsApplyBlocks    = applyBlocksWith
         pm
@@ -64,8 +66,8 @@ txpGlobalSettings coreConfig txpConfig = TxpGlobalSettings
     , tgsRollbackBlocks = rollbackBlocks bootStakeholders
     }
   where
-    pm               = configProtocolMagic coreConfig
-    bootStakeholders = configBootStakeholders coreConfig
+    pm               = configProtocolMagic genesisConfig
+    bootStakeholders = configBootStakeholders genesisConfig
 
 ----------------------------------------------------------------------------
 -- Verify

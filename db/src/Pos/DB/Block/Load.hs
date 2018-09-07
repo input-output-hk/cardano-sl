@@ -28,8 +28,8 @@ import           Pos.Binary.Class (serialize')
 import           Pos.Chain.Block (Block, BlockHeader, Blund, HasPrevBlock (..),
                      HeaderHash, Undo (..))
 import qualified Pos.Chain.Block as CB
-import           Pos.Core (BlockCount, GenesisHash (..),
-                     HasDifficulty (difficultyL))
+import           Pos.Chain.Genesis (GenesisHash (..))
+import           Pos.Core (BlockCount, HasDifficulty (difficultyL))
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Crypto (shortHashF)
 import           Pos.DB.BlockIndex (getHeader)

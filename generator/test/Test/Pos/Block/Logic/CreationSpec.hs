@@ -32,12 +32,13 @@ import           Pos.DB.Block (RawPayload (..), createMainBlockPure)
 
 import           Test.Pos.Chain.Block.Arbitrary ()
 import           Test.Pos.Chain.Delegation.Arbitrary (genDlgPayload)
+import           Test.Pos.Chain.Genesis.Dummy (dummyBlockVersionData,
+                     dummyConfig, dummyEpochSlots, dummyK,
+                     dummyProtocolConstants)
 import           Test.Pos.Chain.Ssc.Arbitrary (commitmentMapEpochGen,
                      vssCertificateEpochGen)
 import           Test.Pos.Chain.Txp.Arbitrary (GoodTx, goodTxToTxAux)
 import           Test.Pos.Configuration (withDefUpdateConfiguration)
-import           Test.Pos.Core.Dummy (dummyBlockVersionData, dummyConfig,
-                     dummyEpochSlots, dummyK, dummyProtocolConstants)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck (SmallGenerator (..), makeSmall)
 

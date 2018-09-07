@@ -20,6 +20,7 @@ import           Serokell.Util (listJson)
 import           Universum
 
 import           Pos.Chain.Block (ComponentBlock (..), HeaderHash, headerHash)
+import           Pos.Chain.Genesis as Genesis (Config, configBlockVersionData)
 import           Pos.Chain.Lrc (RichmenStakes)
 import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem,
                      MultiRichmenStakes, PureToss, SscBlock,
@@ -28,8 +29,7 @@ import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem,
                      runPureTossWithLogger, sscGlobal,
                      sscIsCriticalVerifyError, sscRunGlobalUpdate,
                      supplyPureTossEnv, verifyAndApplySscPayload)
-import           Pos.Core as Core (Config, SlotCount, configBlockVersionData,
-                     epochIndexL, epochOrSlotG)
+import           Pos.Core (SlotCount, epochIndexL, epochOrSlotG)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Exception (assertionFailed)
 import           Pos.Core.Reporting (MonadReporting, reportError)
@@ -75,10 +75,10 @@ type SscGlobalApplyMode ctx m = SscGlobalVerifyMode ctx m
 -- All blocks must be from the same epoch.
 sscVerifyBlocks
     :: SscGlobalVerifyMode ctx m
-    => Core.Config
+    => Genesis.Config
     -> OldestFirst NE SscBlock
     -> m (Either SscVerifyError SscGlobalState)
-sscVerifyBlocks coreConfig blocks = do
+sscVerifyBlocks genesisConfig blocks = do
     let epoch = blocks ^. _Wrapped . _neHead . epochIndexL
     let lastEpoch = blocks ^. _Wrapped . _neLast . epochIndexL
     let differentEpochsMsg =
@@ -88,7 +88,7 @@ sscVerifyBlocks coreConfig blocks = do
                 lastEpoch
     inAssertMode $ unless (epoch == lastEpoch) $
         assertionFailed differentEpochsMsg
-    richmenSet <- getSscRichmen (configBlockVersionData coreConfig)
+    richmenSet <- getSscRichmen (configBlockVersionData genesisConfig)
                                 "sscVerifyBlocks"
                                 epoch
     bvd <- gsAdoptedBVData
@@ -96,7 +96,7 @@ sscVerifyBlocks coreConfig blocks = do
     gs <- readTVarIO globalVar
     res <-
         runExceptT
-            (execStateT (sscVerifyAndApplyBlocks coreConfig richmenSet bvd blocks) gs)
+            (execStateT (sscVerifyAndApplyBlocks genesisConfig richmenSet bvd blocks) gs)
     case res of
         Left e
             | sscIsCriticalVerifyError e ->
@@ -113,19 +113,19 @@ sscVerifyBlocks coreConfig blocks = do
 -- argument (it can be calculated in advance using 'sscVerifyBlocks').
 sscApplyBlocks
     :: SscGlobalApplyMode ctx m
-    => Core.Config
+    => Genesis.Config
     -> OldestFirst NE SscBlock
     -> Maybe SscGlobalState
     -> m [SomeBatchOp]
-sscApplyBlocks coreConfig blocks (Just newState) = do
+sscApplyBlocks genesisConfig blocks (Just newState) = do
     inAssertMode $ do
         let hashes = map headerHash blocks
-        expectedState <- sscVerifyValidBlocks coreConfig blocks
+        expectedState <- sscVerifyValidBlocks genesisConfig blocks
         if | newState == expectedState -> pass
            | otherwise -> onUnexpectedVerify hashes
     sscApplyBlocksFinish newState
-sscApplyBlocks coreConfig blocks Nothing =
-    sscApplyBlocksFinish =<< sscVerifyValidBlocks coreConfig blocks
+sscApplyBlocks genesisConfig blocks Nothing =
+    sscApplyBlocksFinish =<< sscVerifyValidBlocks genesisConfig blocks
 
 sscApplyBlocksFinish
     :: (SscGlobalApplyMode ctx m)
@@ -139,11 +139,11 @@ sscApplyBlocksFinish gs = do
 
 sscVerifyValidBlocks
     :: SscGlobalApplyMode ctx m
-    => Core.Config
+    => Genesis.Config
     -> OldestFirst NE SscBlock
     -> m SscGlobalState
-sscVerifyValidBlocks coreConfig blocks =
-    sscVerifyBlocks coreConfig blocks >>= \case
+sscVerifyValidBlocks genesisConfig blocks =
+    sscVerifyBlocks genesisConfig blocks >>= \case
         Left e -> onVerifyFailedInApply hashes e
         Right newState -> return newState
   where
@@ -178,31 +178,31 @@ onVerifyFailedInApply hashes e = assertionFailed msg
 -- and apply them on success. Blocks must be from the same epoch.
 sscVerifyAndApplyBlocks
     :: SscVerifyMode m
-    => Core.Config
+    => Genesis.Config
     -> RichmenStakes
     -> BlockVersionData
     -> OldestFirst NE SscBlock
     -> m ()
-sscVerifyAndApplyBlocks coreConfig richmenStake bvd blocks =
-    verifyAndApplyMultiRichmen coreConfig False (richmenData, bvd) blocks
+sscVerifyAndApplyBlocks genesisConfig richmenStake bvd blocks =
+    verifyAndApplyMultiRichmen genesisConfig False (richmenData, bvd) blocks
   where
     epoch = blocks ^. _Wrapped . _neHead . epochIndexL
     richmenData = HM.fromList [(epoch, richmenStake)]
 
 verifyAndApplyMultiRichmen
     :: SscVerifyMode m
-    => Core.Config
+    => Genesis.Config
     -> Bool
     -> (MultiRichmenStakes, BlockVersionData)
     -> OldestFirst NE SscBlock
     -> m ()
-verifyAndApplyMultiRichmen coreConfig onlyCerts env =
+verifyAndApplyMultiRichmen genesisConfig onlyCerts env =
     tossToVerifier . hoist (supplyPureTossEnv env) .
     mapM_ verifyAndApplyDo
   where
     verifyAndApplyDo (ComponentBlockGenesis header) = applyGenesisBlock $ header ^. epochIndexL
     verifyAndApplyDo (ComponentBlockMain header payload) =
-        verifyAndApplySscPayload coreConfig (Right header) $
+        verifyAndApplySscPayload genesisConfig (Right header) $
         filterPayload payload
     filterPayload payload
         | onlyCerts = leaveOnlyCerts payload

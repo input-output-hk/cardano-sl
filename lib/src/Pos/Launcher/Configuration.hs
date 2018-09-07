@@ -45,9 +45,11 @@ import           System.FilePath (takeDirectory)
 
 import           Ntp.Client (NtpConfiguration)
 
+import           Pos.Chain.Genesis as Genesis (Config (..), GenesisData (..),
+                     StaticConfig, canonicalGenesisJson,
+                     mkConfigFromStaticConfig, prettyGenesisJson)
 import           Pos.Core (Address, decodeTextAddress)
 import           Pos.Core.Conc (currentTime)
-import           Pos.Core.Genesis (GenesisData (..))
 import           Pos.Core.Slotting (Timestamp (..))
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Config (parseYamlConfig)
@@ -60,11 +62,10 @@ import           Pos.Chain.Ssc hiding (filter)
 import           Pos.Chain.Txp
 import           Pos.Chain.Update
 import           Pos.Configuration
-import           Pos.Core.Configuration as Core
 
 -- | Product of all configurations required to run a node.
 data Configuration = Configuration
-    { ccGenesis :: !GenesisConfiguration
+    { ccGenesis :: !StaticConfig
     , ccNtp     :: !NtpConfiguration
     , ccUpdate  :: !UpdateConfiguration
     , ccSsc     :: !SscConfiguration
@@ -180,7 +181,7 @@ withConfigurationsM
     -> Maybe FilePath
     -> Bool
     -> ConfigurationOptions
-    -> (HasConfigurations => Core.Config -> WalletConfiguration -> TxpConfiguration -> NtpConfiguration -> m r)
+    -> (HasConfigurations => Genesis.Config -> WalletConfiguration -> TxpConfiguration -> NtpConfiguration -> m r)
     -> m r
 withConfigurationsM logName mAssetLockPath dumpGenesisPath dumpConfig cfo act = do
     logInfo' ("using configurations: " <> show cfo)
@@ -189,7 +190,7 @@ withConfigurationsM logName mAssetLockPath dumpGenesisPath dumpConfig cfo act = 
         Nothing -> pure mempty
         Just fp -> liftIO $ readAssetLockedSrcAddrs fp
     let configDir = takeDirectory $ cfoFilePath cfo
-    coreConfig <- configFromGenesisConfig
+    genesisConfig <- mkConfigFromStaticConfig
         configDir
         (cfoSystemStart cfo)
         (cfoSeed cfo)
@@ -203,12 +204,12 @@ withConfigurationsM logName mAssetLockPath dumpGenesisPath dumpConfig cfo act = 
             liftIO . usingLoggerName logName $ printInfoOnStart
                 dumpGenesisPath
                 dumpConfig
-                (configGenesisData coreConfig)
+                (configGenesisData genesisConfig)
                 (ccGenesis cfg)
                 (ccNtp cfg)
                 (ccWallet cfg)
                 txpConfig
-            act coreConfig (ccWallet cfg) txpConfig (ccNtp cfg)
+            act genesisConfig (ccWallet cfg) txpConfig (ccNtp cfg)
 
     where
     logInfo' :: Text -> m ()
@@ -220,7 +221,7 @@ withConfigurations
     -> Maybe FilePath
     -> Bool
     -> ConfigurationOptions
-    -> (HasConfigurations => Core.Config-> WalletConfiguration -> TxpConfiguration -> NtpConfiguration -> m r)
+    -> (HasConfigurations => Genesis.Config-> WalletConfiguration -> TxpConfiguration -> NtpConfiguration -> m r)
     -> m r
 withConfigurations mAssetLockPath dumpGenesisPath dumpConfig cfo act = do
     loggerName <- askLoggerName
@@ -253,7 +254,7 @@ printInfoOnStart ::
     => Maybe FilePath
     -> Bool
     -> GenesisData
-    -> GenesisConfiguration
+    -> StaticConfig
     -> NtpConfiguration
     -> WalletConfiguration
     -> TxpConfiguration
@@ -286,7 +287,7 @@ dumpGenesisData genesisData canonical path = do
 -- | Dump our configuration into stdout and exit.
 dumpConfiguration
     :: (HasConfigurations, MonadIO m)
-    => GenesisConfiguration
+    => StaticConfig
     -> NtpConfiguration
     -> WalletConfiguration
     -> TxpConfiguration

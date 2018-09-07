@@ -13,8 +13,9 @@ import           Data.List (genericTake)
 import           Formatting (build, int, sformat, string, (%))
 
 import           Pos.Chain.Block (Blund, mainBlockTxPayload)
+import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Txp (TxAux, flattenTxPayload)
-import           Pos.Core as Core (Config (..), difficultyL, epochIndexL)
+import           Pos.Core (difficultyL, epochIndexL)
 import           Pos.Core.Chrono (NewestFirst, _NewestFirst)
 import           Pos.DB.Block (BypassSecurityCheck (..),
                      ShouldCallBListener (..), rollbackBlocksUnsafe)
@@ -30,14 +31,14 @@ import           Mode (MonadAuxxMode)
 -- from it to the given file.
 rollbackAndDump
     :: MonadAuxxMode m
-    => Core.Config
+    => Genesis.Config
     -> Word
     -> FilePath
     -> m ()
-rollbackAndDump coreConfig numToRollback outFile = withStateLock HighPriority ApplyBlockWithRollback $ \_ -> do
+rollbackAndDump genesisConfig numToRollback outFile = withStateLock HighPriority ApplyBlockWithRollback $ \_ -> do
     printTipDifficulty
     blundsMaybeEmpty <- modifyBlunds <$> DB.loadBlundsFromTipByDepth
-        (configGenesisHash coreConfig)
+        (configGenesisHash genesisConfig)
         (fromIntegral numToRollback)
     logInfo $ sformat ("Loaded "%int%" blunds") (length blundsMaybeEmpty)
     case _Wrapped nonEmpty blundsMaybeEmpty of
@@ -52,7 +53,7 @@ rollbackAndDump coreConfig numToRollback outFile = withStateLock HighPriority Ap
             liftIO $ BSL.writeFile outFile (encode allTxs)
             logInfo $ sformat ("Dumped "%int%" transactions to "%string)
                       (length allTxs) (outFile)
-            rollbackBlocksUnsafe coreConfig (BypassSecurityCheck True) (ShouldCallBListener True) blunds
+            rollbackBlocksUnsafe genesisConfig (BypassSecurityCheck True) (ShouldCallBListener True) blunds
             logInfo $ sformat ("Rolled back "%int%" blocks") (length blunds)
             printTipDifficulty
   where

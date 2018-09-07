@@ -1,4 +1,4 @@
-module Pos.Core.Genesis.Spec
+module Pos.Chain.Genesis.Spec
        ( GenesisSpec (..)
        , mkGenesisSpec
        ) where
@@ -14,10 +14,10 @@ import           Serokell.Util (allDistinct)
 import           Pos.Core.Common (SharedSeed)
 import           Pos.Core.Update (BlockVersionData)
 
-import           Pos.Core.Genesis.AvvmBalances
-import           Pos.Core.Genesis.Delegation
-import           Pos.Core.Genesis.Initializer
-import           Pos.Core.Genesis.ProtocolConstants
+import           Pos.Chain.Genesis.AvvmBalances
+import           Pos.Chain.Genesis.Delegation
+import           Pos.Chain.Genesis.Initializer
+import           Pos.Chain.Genesis.ProtocolConstants
 
 -- | Specification how to generate full genesis data.
 data GenesisSpec = UnsafeGenesisSpec

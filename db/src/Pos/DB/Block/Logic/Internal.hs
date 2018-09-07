@@ -39,11 +39,13 @@ import           Pos.Chain.Block (Block, Blund, ComponentBlock (..),
                      mainBlockDlgPayload, mainBlockSscPayload,
                      mainBlockTxPayload, mainBlockUpdatePayload)
 import           Pos.Chain.Delegation (DlgBlock, DlgBlund, MonadDelegation)
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     configBlkSecurityParam, configBlockVersionData,
+                     configEpochSlots)
 import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem, SscBlock)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Chain.Update (PollModifier)
-import           Pos.Core as Core (Config (..), configBlkSecurityParam,
-                     configBlockVersionData, configEpochSlots, epochIndexL)
+import           Pos.Core (epochIndexL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Exception (assertionFailed)
 import           Pos.Core.Reporting (MonadReporting)
@@ -124,16 +126,16 @@ type MonadMempoolNormalization ctx m
 -- | Normalize mempool.
 normalizeMempool
     :: MonadMempoolNormalization ctx m
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> m ()
-normalizeMempool coreConfig txpConfig = do
+normalizeMempool genesisConfig txpConfig = do
     -- We normalize all mempools except the delegation one.
     -- That's because delegation mempool normalization is harder and is done
     -- within block application.
-    sscNormalize coreConfig
-    txpNormalize coreConfig txpConfig
-    usNormalize (configBlockVersionData coreConfig)
+    sscNormalize genesisConfig
+    txpNormalize genesisConfig txpConfig
+    usNormalize (configBlockVersionData genesisConfig)
 
 -- | Applies a definitely valid prefix of blocks. This function is unsafe,
 -- use it only if you understand what you're doing. That means you can break
@@ -143,12 +145,12 @@ normalizeMempool coreConfig txpConfig = do
 applyBlocksUnsafe
     :: ( MonadBlockApply ctx m
        )
-    => Core.Config
+    => Genesis.Config
     -> ShouldCallBListener
     -> OldestFirst NE Blund
     -> Maybe PollModifier
     -> m ()
-applyBlocksUnsafe coreConfig scb blunds pModifier = do
+applyBlocksUnsafe genesisConfig scb blunds pModifier = do
     -- Check that all blunds have the same epoch.
     unless (null nextEpoch) $ assertionFailed $
         sformat ("applyBlocksUnsafe: tried to apply more than we should"%
@@ -168,7 +170,7 @@ applyBlocksUnsafe coreConfig scb blunds pModifier = do
         (b@(Left _,_):|(x:xs)) -> app' (b:|[]) >> app' (x:|xs)
         _                      -> app blunds
   where
-    app x = applyBlocksDbUnsafeDo coreConfig scb x pModifier
+    app x = applyBlocksDbUnsafeDo genesisConfig scb x pModifier
     app' = app . OldestFirst
     (thisEpoch, nextEpoch) =
         spanSafe ((==) `on` view (_1 . epochIndexL)) $ getOldestFirst blunds
@@ -176,23 +178,23 @@ applyBlocksUnsafe coreConfig scb blunds pModifier = do
 applyBlocksDbUnsafeDo
     :: ( MonadBlockApply ctx m
        )
-    => Core.Config
+    => Genesis.Config
     -> ShouldCallBListener
     -> OldestFirst NE Blund
     -> Maybe PollModifier
     -> m ()
-applyBlocksDbUnsafeDo coreConfig scb blunds pModifier = do
+applyBlocksDbUnsafeDo genesisConfig scb blunds pModifier = do
     let blocks = fmap fst blunds
     -- Note: it's important to do 'slogApplyBlocks' first, because it
     -- puts blocks in DB.
-    slogBatch <- slogApplyBlocks (configBlkSecurityParam coreConfig) scb blunds
+    slogBatch <- slogApplyBlocks (configBlkSecurityParam genesisConfig) scb blunds
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
-    usBatch <- SomeBatchOp <$> usApplyBlocks coreConfig (map toUpdateBlock blocks) pModifier
+    usBatch <- SomeBatchOp <$> usApplyBlocks genesisConfig (map toUpdateBlock blocks) pModifier
     delegateBatch <- SomeBatchOp <$> dlgApplyBlocks (map toDlgBlund blunds)
     txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
     sscBatch <- SomeBatchOp <$>
         -- TODO: pass not only 'Nothing'
-        sscApplyBlocks coreConfig (map toSscBlock blocks) Nothing
+        sscApplyBlocks genesisConfig (map toSscBlock blocks) Nothing
     GS.writeBatchGState
         [ delegateBatch
         , usBatch
@@ -200,19 +202,19 @@ applyBlocksDbUnsafeDo coreConfig scb blunds pModifier = do
         , sscBatch
         , slogBatch
         ]
-    sanityCheckDB $ configGenesisData coreConfig
+    sanityCheckDB $ configGenesisData genesisConfig
 
 -- | Rollback sequence of blocks, head-newest order expected with head being
 -- current tip. It's also assumed that lock on block db is taken already.
 rollbackBlocksUnsafe
     :: MonadBlockApply ctx m
-    => Core.Config
+    => Genesis.Config
     -> BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
     -> ShouldCallBListener
     -> NewestFirst NE Blund
     -> m ()
-rollbackBlocksUnsafe coreConfig bsc scb toRollback = do
-    slogRoll <- slogRollbackBlocks (configProtocolConstants coreConfig)
+rollbackBlocksUnsafe genesisConfig bsc scb toRollback = do
+    slogRoll <- slogRollbackBlocks (configProtocolConstants genesisConfig)
                                    bsc
                                    scb
                                    toRollback
@@ -222,7 +224,7 @@ rollbackBlocksUnsafe coreConfig bsc scb toRollback = do
                               & each._1 %~ toUpdateBlock)
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
     txRoll <- tgsRollbackBlocks $ map toTxpBlund toRollback
-    sscBatch <- SomeBatchOp <$> sscRollbackBlocks (configEpochSlots coreConfig)
+    sscBatch <- SomeBatchOp <$> sscRollbackBlocks (configEpochSlots genesisConfig)
         (map (toSscBlock . fst) toRollback)
     GS.writeBatchGState
         [ dlgRoll
@@ -236,8 +238,8 @@ rollbackBlocksUnsafe coreConfig bsc scb toRollback = do
     -- We don't normalize other mempools, because they are normalized
     -- in 'applyBlocksUnsafe' and we always ensure that some blocks
     -- are applied after rollback.
-    dlgNormalizeOnRollback coreConfig
-    sanityCheckDB $ configGenesisData coreConfig
+    dlgNormalizeOnRollback genesisConfig
+    sanityCheckDB $ configGenesisData genesisConfig
 
 
 toComponentBlock :: (MainBlock -> payload) -> Block -> ComponentBlock payload

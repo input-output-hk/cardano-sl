@@ -7,8 +7,8 @@ module Pos.GState.GState
 import           Universum
 
 import           Pos.Chain.Block (HeaderHash)
-import           Pos.Core as Core (Config (..), configHeavyDelegation,
-                     configVssCerts)
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     configHeavyDelegation, configVssCerts)
 import           Pos.DB.Block (initGStateBlockExtra)
 import           Pos.DB.Class (MonadDB)
 import           Pos.DB.Delegation (initGStateDlg)
@@ -24,20 +24,20 @@ prepareGStateDB ::
        ( MonadReader ctx m
        , MonadDB m
        )
-    => Core.Config
+    => Genesis.Config
     -> HeaderHash
     -> m ()
-prepareGStateDB coreConfig initialTip = unlessM isInitialized $ do
+prepareGStateDB genesisConfig initialTip = unlessM isInitialized $ do
     initGStateCommon initialTip
     initGStateUtxo genesisData
-    initSscDB $ configVssCerts coreConfig
+    initSscDB $ configVssCerts genesisConfig
     initGStateStakes genesisData
-    initGStateUS coreConfig
-    initGStateDlg $ configHeavyDelegation coreConfig
-    initGStateBlockExtra (configGenesisHash coreConfig) initialTip
+    initGStateUS genesisConfig
+    initGStateDlg $ configHeavyDelegation genesisConfig
+    initGStateBlockExtra (configGenesisHash genesisConfig) initialTip
 
     setInitialized
-  where genesisData = configGenesisData coreConfig
+  where genesisData = configGenesisData genesisConfig
 
 -- The following is not used in the project yet. To be added back at a
 -- later stage when needed.

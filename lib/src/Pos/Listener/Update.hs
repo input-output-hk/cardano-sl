@@ -15,8 +15,8 @@ import           Universum
 import           Formatting (build, sformat, (%))
 import           UnliftIO (MonadUnliftIO)
 
+import           Pos.Chain.Genesis as Genesis (Config)
 import           Pos.Chain.Update (HasUpdateConfiguration, UpdateParams)
-import           Pos.Core as Core (Config)
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
 import           Pos.DB.Class (MonadDB, MonadGState)
 import           Pos.DB.Lrc (HasLrcContext)
@@ -53,17 +53,17 @@ type UpdateMode ctx m
 
 handleProposal
     :: forall ctx m . UpdateMode ctx m
-    => Core.Config
+    => Genesis.Config
     -> (UpdateProposal, [UpdateVote])
     -> m Bool
-handleProposal coreConfig (proposal, votes) = do
-    res <- processProposal coreConfig proposal
+handleProposal genesisConfig (proposal, votes) = do
+    res <- processProposal genesisConfig proposal
     logProp proposal res
     let processed = isRight res
     processed <$ when processed (mapM_ processVoteLog votes)
   where
     processVoteLog :: UpdateVote -> m ()
-    processVoteLog vote = processVote coreConfig vote >>= logVote vote
+    processVoteLog vote = processVote genesisConfig vote >>= logVote vote
     logVote vote (Left cause) =
         logWarning $ sformat ("Proposal is accepted but vote "%build%
                               " is rejected, the reason is: "%build)
@@ -86,11 +86,11 @@ handleProposal coreConfig (proposal, votes) = do
 
 handleVote
     :: UpdateMode ctx m
-    => Core.Config
+    => Genesis.Config
     -> UpdateVote
     -> m Bool
-handleVote coreConfig uv = do
-    res <- processVote coreConfig uv
+handleVote genesisConfig uv = do
+    res <- processVote genesisConfig uv
     logProcess uv res
     pure $ isRight res
   where

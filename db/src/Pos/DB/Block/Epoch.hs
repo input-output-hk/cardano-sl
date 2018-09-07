@@ -56,9 +56,10 @@ import           System.IO.Error (isDoesNotExistError)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Chain.Block (HeaderHash, blockHeaderHash)
-import           Pos.Core as Core (Config (..), EpochIndex (..),
-                     EpochOrSlot (..), GenesisHash, LocalSlotIndex (..),
-                     SlotCount (..), SlotId (..), configEpochSlots,
+import           Pos.Chain.Genesis as Genesis (Config (..), GenesisHash,
+                     configEpochSlots)
+import           Pos.Core (EpochIndex (..), EpochOrSlot (..),
+                     LocalSlotIndex (..), SlotCount (..), SlotId (..),
                      getEpochOrSlot)
 import           Pos.DB.Block.GState.BlockExtra (getFirstGenesisBlockHash,
                      resolveForwardLink)
@@ -84,8 +85,8 @@ import           Pos.Util.Wlog (CanLog, HasLoggerName, logError, logInfo,
 -- cancelled when 'bracketNodeResources' releases the 'NodeResources'.
 consolidateWorker
     :: (CanLog m, MonadCatch m, MonadDB m, MonadMask m, MonadRealDB ctx m)
-    => Core.Config -> m ()
-consolidateWorker coreConfig =
+    => Genesis.Config -> m ()
+consolidateWorker genesisConfig =
     usingLoggerName "consolidate" $
         handle handler $ do
             checkPoint <- getConsolidateCheckPoint genesisHash
@@ -100,9 +101,9 @@ consolidateWorker coreConfig =
                 loop $ CSSyncSeconds 2
   where
     epochSlots :: SlotCount
-    epochSlots = configEpochSlots coreConfig
+    epochSlots = configEpochSlots genesisConfig
 
-    genesisHash = configGenesisHash coreConfig
+    genesisHash = configGenesisHash genesisConfig
 
     -- Since this module uses 'Control.Exception.Safe' catching 'SomeException'
     -- will only catch synchronous exceptions, which we just log.

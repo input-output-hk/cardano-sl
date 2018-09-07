@@ -37,8 +37,8 @@ import           Network.Wai.Middleware.Cors (CorsResourcePolicy, Origin, cors,
 import           Serokell.Util.Text (listJson)
 
 import           Pos.Chain.Block (Blund)
-import           Pos.Core as Core (Config (..), addressF, configEpochSlots,
-                     siEpoch)
+import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots)
+import           Pos.Core (addressF, siEpoch)
 import           Pos.Core.Conc (withAsync)
 import qualified Pos.GState as DB
 import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
@@ -163,11 +163,11 @@ notifierServer notifierSettings connVar = do
         "404 - Not Found"
 
 periodicPollChanges
-    :: forall ctx m . ExplorerMode ctx m => Core.Config -> ConnectionsVar -> m ()
-periodicPollChanges coreConfig connVar =
+    :: forall ctx m . ExplorerMode ctx m => Genesis.Config -> ConnectionsVar -> m ()
+periodicPollChanges genesisConfig connVar =
     -- Runs every 5 seconds.
     runPeriodically (5000 :: Millisecond) (Nothing, mempty) $ do
-        let epochSlots = configEpochSlots coreConfig
+        let epochSlots = configEpochSlots genesisConfig
 
         curBlock   <- DB.getTip
         mempoolTxs <- lift $ S.fromList <$> getMempoolTxs @ctx
@@ -181,7 +181,7 @@ periodicPollChanges coreConfig connVar =
                     then return Nothing
                     else forM mWasBlock $ \wasBlock -> do
                         mBlocks <- lift $ getBlundsFromTo @ctx
-                            (configGenesisHash coreConfig)
+                            (configGenesisHash genesisConfig)
                             curBlock
                             wasBlock
                         case mBlocks of
@@ -224,12 +224,12 @@ periodicPollChanges coreConfig connVar =
 notifierApp
     :: forall ctx m
      . ExplorerMode ctx m
-    => Core.Config
+    => Genesis.Config
     -> NotifierSettings
     -> m ()
-notifierApp coreConfig settings =
+notifierApp genesisConfig settings =
     modifyLoggerName (<> "notifier.socket-io") $ do
         logInfo "Starting"
         connVar <- liftIO $ STM.newTVarIO mkConnectionsState
-        withAsync (periodicPollChanges coreConfig connVar)
+        withAsync (periodicPollChanges genesisConfig connVar)
                   (\_async -> notifierServer settings connVar)

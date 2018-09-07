@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Pos.Core.Genesis.ProtocolConstants
+module Pos.Chain.Genesis.ProtocolConstants
        ( GenesisProtocolConstants (..)
        , genesisProtocolConstantsToProtocolConstants
        , genesisProtocolConstantsFromProtocolConstants
@@ -8,15 +8,16 @@ module Pos.Core.Genesis.ProtocolConstants
 
 import           Universum
 
+import           Control.Monad.Except (MonadError)
 import           Data.Aeson.Options (defaultOptions)
 import           Data.Aeson.TH (deriveJSON)
 import           Text.JSON.Canonical (FromJSON (..), Int54, JSValue (..),
-                     ReportSchemaErrors, ToJSON (..), fromJSField, mkObject)
+                     ToJSON (..), fromJSField, mkObject)
 
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
                      VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
-import           Pos.Util.Json.Canonical ()
+import           Pos.Util.Json.Canonical (SchemaError)
 
 -- | 'GensisProtocolConstants' are not really part of genesis global state,
 -- but they affect consensus, so they are part of 'GenesisSpec' and
@@ -42,7 +43,7 @@ instance Monad m => ToJSON m GenesisProtocolConstants where
             , ("vssMinTTL", toJSON gpcVssMinTTL)
             ]
 
-instance ReportSchemaErrors m => FromJSON m GenesisProtocolConstants where
+instance MonadError SchemaError m => FromJSON m GenesisProtocolConstants where
     fromJSON obj = do
         gpcK <- fromIntegral @Int54 <$> fromJSField obj "k"
         gpcProtocolMagic <- ProtocolMagic <$> fromJSField obj "protocolMagic"

@@ -35,14 +35,14 @@ import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (HeaderHash)
+import           Pos.Chain.Genesis as Genesis (Config, configBlockVersionData)
 import           Pos.Chain.Update (HasUpdateConfiguration,
                      MonadPoll (deactivateProposal),
                      MonadPollRead (getProposal), PollModifier,
                      PollVerFailure (..), canCombineVotes, evalPollT,
                      execPollT, getAdoptedBV, modifyPollModifier, psVotes,
                      reportUnexpectedError, runPollT)
-import           Pos.Core as Core (Config, SlotId (..), configBlockVersionData,
-                     slotIdF)
+import           Pos.Core (SlotId (..), slotIdF)
 import           Pos.Core.Reporting (MonadReporting)
 import           Pos.Core.Update (BlockVersionData (..), UpId,
                      UpdatePayload (..), UpdateProposal, UpdateVote (..))
@@ -129,10 +129,10 @@ processSkeleton ::
        ( USLocalLogicModeWithLock ctx m
        , MonadReporting m
        )
-    => Core.Config
+    => Genesis.Config
     -> UpdatePayload
     -> m (Either PollVerFailure ())
-processSkeleton coreConfig payload =
+processSkeleton genesisConfig payload =
     reportUnexpectedError $
     withUSLock $
     runExceptT $
@@ -152,7 +152,7 @@ processSkeleton coreConfig payload =
         msIntermediate <-
             -- TODO: This is a rather arbitrary limit, we should revisit it (see CSL-1664)
             if | maxBlockSize * 2 <= mpSize msPool ->
-                   lift (refreshMemPool (configBlockVersionData coreConfig) ms)
+                   lift (refreshMemPool (configBlockVersionData genesisConfig) ms)
                | otherwise -> pure ms
         processSkeletonDo msIntermediate
   where
@@ -160,7 +160,7 @@ processSkeleton coreConfig payload =
         modifierOrFailure <-
             lift . runDBPoll . runExceptT . evalPollT msModifier . execPollT def $ do
                 lastAdopted <- getAdoptedBV
-                verifyAndApplyUSPayload coreConfig lastAdopted True (Left msSlot) payload
+                verifyAndApplyUSPayload genesisConfig lastAdopted True (Left msSlot) payload
         case modifierOrFailure of
             Left failure -> throwError failure
             Right modifier -> do
@@ -221,11 +221,11 @@ getLocalProposalNVotes id = do
 -- sender could be sure that error would happen.
 processProposal
     :: (USLocalLogicModeWithLock ctx m, MonadReporting m)
-    => Core.Config
+    => Genesis.Config
     -> UpdateProposal
     -> m (Either PollVerFailure ())
-processProposal coreConfig proposal =
-    processSkeleton coreConfig $ UpdatePayload (Just proposal) []
+processProposal genesisConfig proposal =
+    processSkeleton genesisConfig $ UpdatePayload (Just proposal) []
 
 ----------------------------------------------------------------------------
 -- Votes
@@ -273,11 +273,11 @@ getLocalVote propId pk decision = do
 -- sender could be sure that error would happen.
 processVote
     :: (USLocalLogicModeWithLock ctx m, MonadReporting m)
-    => Core.Config
+    => Genesis.Config
     -> UpdateVote
     -> m (Either PollVerFailure ())
-processVote coreConfig vote =
-    processSkeleton coreConfig $ UpdatePayload Nothing [vote]
+processVote genesisConfig vote =
+    processSkeleton genesisConfig $ UpdatePayload Nothing [vote]
 
 ----------------------------------------------------------------------------
 -- Normalization and related

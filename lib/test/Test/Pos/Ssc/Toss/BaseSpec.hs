@@ -43,10 +43,10 @@ import           Test.Pos.Chain.Lrc.Arbitrary (GenesisMpcThd,
                      ValidRichmenStakes (..))
 import           Test.Pos.Util.QuickCheck.Property (qcElem, qcFail, qcIsRight)
 
+import           Test.Pos.Chain.Genesis.Dummy (dummyBlockVersionData,
+                     dummyConfig, dummyK)
 import           Test.Pos.Chain.Ssc.Arbitrary (BadCommAndOpening (..),
                      BadSignedCommitment (..), CommitmentOpening (..))
-import           Test.Pos.Core.Dummy (dummyBlockVersionData, dummyConfig,
-                     dummyK)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 spec :: Spec

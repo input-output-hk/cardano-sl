@@ -22,7 +22,7 @@ import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (deterministicKeyGen)
 import           Pos.DB (MonadGState (..))
 
-import           Test.Pos.Core.Dummy (dummyBlockVersionData)
+import           Test.Pos.Chain.Genesis.Dummy (dummyBlockVersionData)
 
 ----------------------------------------------------------------------------
 -- Mock for TxCreateMode

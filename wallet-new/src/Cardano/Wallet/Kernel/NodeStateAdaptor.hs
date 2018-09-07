@@ -66,15 +66,15 @@ import           Cardano.Wallet.Kernel.Util.Core as Util
 import           Pos.Chain.Block (Block, HeaderHash, LastKnownHeader,
                      LastKnownHeaderTag, MainBlock, blockHeader, headerHash,
                      mainBlockSlot, prevBlockL)
+import           Pos.Chain.Genesis as Genesis (Config (..), GenesisHash (..),
+                     configBlockVersionData, configEpochSlots, configK)
 import           Pos.Chain.Txp (TxIn, TxOutAux)
 import           Pos.Chain.Update (ConfirmedProposalState,
                      HasUpdateConfiguration, SoftwareVersion, bvdMaxTxSize,
                      bvdTxFeePolicy)
 import qualified Pos.Chain.Update as Upd
 import           Pos.Context (NodeContext (..))
-import           Pos.Core as Core (BlockCount, Config (..), GenesisHash (..),
-                     SlotCount, Timestamp (..), TxFeePolicy,
-                     configBlockVersionData, configEpochSlots, configK,
+import           Pos.Core (BlockCount, SlotCount, Timestamp (..), TxFeePolicy,
                      difficultyL, getChainDifficulty)
 import           Pos.Core.Slotting (EpochIndex (..), HasSlottingVar (..),
                      LocalSlotIndex (..), MonadSlots (..), SlotId (..))
@@ -255,8 +255,8 @@ data NodeStateAdaptor m = Adaptor {
       -- places.
     , getSlotCount :: m SlotCount
 
-    -- | Get the @Core.Config@
-    , getCoreConfig :: m Core.Config
+    -- | Get the @Genesis.Config@
+    , getCoreConfig :: m Genesis.Config
 
       -- | Get the start of a slot
       --
@@ -376,7 +376,7 @@ newNodeStateAdaptor :: forall m ext. (NodeConstraints, MonadIO m, MonadMask m)
                     -> NodeResources ext
                     -> TVar NtpStatus
                     -> NodeStateAdaptor m
-newNodeStateAdaptor coreConfig nr ntpStatus = Adaptor
+newNodeStateAdaptor genesisConfig nr ntpStatus = Adaptor
     { withNodeState            =            run
     , getTipSlotId             =            run $ \_lock -> defaultGetTipSlotId genesisHash
     , getMaxTxSize             =            run $ \_lock -> defaultGetMaxTxSize
@@ -384,16 +384,16 @@ newNodeStateAdaptor coreConfig nr ntpStatus = Adaptor
     , getSlotStart             = \slotId -> run $ \_lock -> defaultGetSlotStart slotId
     , getNextEpochSlotDuration =            run $ \_lock -> defaultGetNextEpochSlotDuration
     , getNodeSyncProgress      = \lockCtx -> run $ defaultSyncProgress lockCtx
-    , getSecurityParameter     = return . SecurityParameter $ configK coreConfig
-    , getSlotCount             = return $ configEpochSlots coreConfig
-    , getCoreConfig            = return coreConfig
+    , getSecurityParameter     = return . SecurityParameter $ configK genesisConfig
+    , getSlotCount             = return $ configEpochSlots genesisConfig
+    , getCoreConfig            = return genesisConfig
     , curSoftwareVersion       = return $ Upd.curSoftwareVersion
     , compileInfo              = return $ Util.compileInfo
     , getNtpDrift              = defaultGetNtpDrift ntpStatus
     , getCreationTimestamp     =             run $ \_lock -> defaultGetCreationTimestamp
     }
   where
-    genesisHash = configGenesisHash coreConfig
+    genesisHash = configGenesisHash genesisConfig
     run :: forall a.
            (    NodeConstraints
              => Lock (WithNodeState m)
@@ -594,9 +594,9 @@ instance Exception NodeStateUnavailable
 mockNodeState :: (HasCallStack, MonadThrow m)
               => MockNodeStateParams -> NodeStateAdaptor m
 mockNodeState MockNodeStateParams{..} =
-    withDefConfiguration $ \coreConfig ->
+    withDefConfiguration $ \genesisConfig ->
     withDefUpdateConfiguration $
-    let genesisBvd = configBlockVersionData coreConfig
+    let genesisBvd = configBlockVersionData genesisConfig
     in Adaptor {
           withNodeState            = \_ -> throwM $ NodeStateUnavailable callStack
         , getTipSlotId             = return mockNodeStateTipSlotId
@@ -606,8 +606,8 @@ mockNodeState MockNodeStateParams{..} =
         , getSlotStart             = return . mockNodeStateSlotStart
         , getMaxTxSize             = return $ bvdMaxTxSize genesisBvd
         , getFeePolicy             = return $ bvdTxFeePolicy genesisBvd
-        , getSlotCount             = return $ configEpochSlots coreConfig
-        , getCoreConfig            = return coreConfig
+        , getSlotCount             = return $ configEpochSlots genesisConfig
+        , getCoreConfig            = return genesisConfig
         , curSoftwareVersion       = return $ Upd.curSoftwareVersion
         , compileInfo              = return $ Util.compileInfo
         , getNtpDrift              = return . mockNodeStateNtpDrift

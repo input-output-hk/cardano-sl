@@ -34,10 +34,10 @@ import           Pos.Chain.Block.Union (Block, BlockHeader (..),
                      HasHeaderHash (..), HeaderHash, blockHeaderProtocolMagic,
                      getBlockHeader, headerSlotL, mainHeaderLeaderKey,
                      mebAttributes, mehAttributes, prevBlockL)
-import           Pos.Core as Core (ChainDifficulty, Config (..), EpochOrSlot,
-                     HasDifficulty (..), HasEpochIndex (..),
-                     HasEpochOrSlot (..), SlotId (..), SlotLeaders,
-                     addressHash, getSlotIndex)
+import           Pos.Chain.Genesis as Genesis (Config (..))
+import           Pos.Core (ChainDifficulty, EpochOrSlot, HasDifficulty (..),
+                     HasEpochIndex (..), HasEpochOrSlot (..), SlotId (..),
+                     SlotLeaders, addressHash, getSlotIndex)
 import           Pos.Core.Attributes (areAttributesKnown)
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst)
 import           Pos.Core.Slotting (EpochIndex)
@@ -266,14 +266,14 @@ instance NFData VerifyBlockParams
 -- 2.  The size of each block does not exceed `bvdMaxBlockSize`.
 -- 3.  (Optional) No block has any unknown attributes.
 verifyBlock
-    :: Core.Config
+    :: Genesis.Config
     -> VerifyBlockParams
     -> Block
     -> VerificationRes
-verifyBlock coreConfig VerifyBlockParams {..} blk = mconcat
+verifyBlock genesisConfig VerifyBlockParams {..} blk = mconcat
     [ verifyFromEither "internal block consistency"
-                       (BHelpers.verifyBlock coreConfig blk)
-    , verifyHeader (configProtocolMagic coreConfig)
+                       (BHelpers.verifyBlock genesisConfig blk)
+    , verifyHeader (configProtocolMagic genesisConfig)
                    vbpVerifyHeader
                    (getBlockHeader blk)
     , checkSize vbpMaxSize
@@ -317,14 +317,14 @@ type VerifyBlocksIter = (SlotLeaders, Maybe BlockHeader, VerificationRes)
 -- laziness of 'VerificationRes' which is good because laziness for this data
 -- type is crucial.
 verifyBlocks
-    :: Core.Config
+    :: Genesis.Config
     -> Maybe SlotId
     -> Bool
     -> BlockVersionData
     -> SlotLeaders
     -> OldestFirst [] Block
     -> VerificationRes
-verifyBlocks coreConfig curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step start
+verifyBlocks genesisConfig curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step start
   where
     start :: VerifyBlocksIter
     -- Note that here we never know previous header before this
@@ -353,4 +353,4 @@ verifyBlocks coreConfig curSlotId verifyNoUnknown bvd initLeaders = view _3 . fo
                 , vbpMaxSize = bvdMaxBlockSize bvd
                 , vbpVerifyNoUnknown = verifyNoUnknown
                 }
-        in (newLeaders, Just $ getBlockHeader blk, res <> verifyBlock coreConfig vbp blk)
+        in (newLeaders, Just $ getBlockHeader blk, res <> verifyBlock genesisConfig vbp blk)

@@ -25,9 +25,9 @@ import           Servant.Server (Handler)
 import           Ntp.Client (NtpStatus)
 
 import           Cardano.NodeIPC (startNodeJsIPC)
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     configGeneratedSecretsThrow, gsPoorSecrets)
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Core as Core (Config (..), configGeneratedSecretsThrow)
-import           Pos.Core.Genesis (gsPoorSecrets)
 import           Pos.Core.NetworkAddress (NetworkAddress)
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
 import           Pos.Infra.Shutdown.Class (HasShutdownContext (shutdownContext))
@@ -53,7 +53,7 @@ import           Pos.Web (TlsParams)
 runWRealMode
     :: forall a
      . (HasConfigurations, HasCompileInfo)
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> WalletDB
     -> ConnectionsVar
@@ -61,8 +61,8 @@ runWRealMode
     -> NodeResources WalletMempoolExt
     -> (Diffusion WalletWebMode -> WalletWebMode a)
     -> IO a
-runWRealMode coreConfig txpConfig db conn syncRequests res action =
-    runRealMode coreConfig txpConfig res $ \diffusion ->
+runWRealMode genesisConfig txpConfig db conn syncRequests res action =
+    runRealMode genesisConfig txpConfig res $ \diffusion ->
         walletWebModeToRealMode db conn syncRequests $
             action (hoistDiffusion realModeToWalletWebMode (walletWebModeToRealMode db conn syncRequests) diffusion)
 
@@ -70,7 +70,7 @@ walletServeWebFull
     :: ( HasConfigurations
        , HasCompileInfo
        )
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> Diffusion WalletWebMode
     -> TVar NtpStatus
@@ -78,7 +78,7 @@ walletServeWebFull
     -> NetworkAddress          -- ^ IP and Port to listen
     -> Maybe TlsParams
     -> WalletWebMode ()
-walletServeWebFull coreConfig txpConfig diffusion ntpStatus debug address mTlsParams = do
+walletServeWebFull genesisConfig txpConfig diffusion ntpStatus debug address mTlsParams = do
     ctx <- view shutdownContext
     let
       portCallback :: Word16 -> IO ()
@@ -90,12 +90,12 @@ walletServeWebFull coreConfig txpConfig diffusion ntpStatus debug address mTlsPa
         logInfo "Wallet Web API has STARTED!"
         when debug $ do
           generatedSecrets <- gsPoorSecrets
-              <$> configGeneratedSecretsThrow coreConfig
-          addInitialRichAccount 0 coreConfig generatedSecrets
+              <$> configGeneratedSecretsThrow genesisConfig
+          addInitialRichAccount 0 genesisConfig generatedSecrets
 
         wwmc <- walletWebModeContext
         walletApplication $ walletServer @WalletWebModeContext @WalletWebMode
-            coreConfig
+            genesisConfig
             txpConfig
             diffusion
             ntpStatus

@@ -30,8 +30,9 @@ import           Pos.Chain.Delegation (DlgMemPool, DlgPayload (..),
                      MonadDelegation, cmPskMods, dwMessageCache, dwPoolSize,
                      dwProxySKPool, dwTip, emptyCedeModifier, isRevokePsk,
                      pskToDlgEdgeAction)
-import           Pos.Core as Core (Config (..), addressHash,
-                     configBlockVersionData, epochIndexL)
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     configBlockVersionData)
+import           Pos.Core (addressHash, epochIndexL)
 import           Pos.Core.Conc (currentTime)
 import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Update (bvdMaxBlockSize)
@@ -129,25 +130,25 @@ processProxySKHeavy
        , HasLens' ctx StateLock
        , MonadMask m
        )
-    => Core.Config -> ProxySKHeavy -> m PskHeavyVerdict
-processProxySKHeavy coreConfig psk =
+    => Genesis.Config -> ProxySKHeavy -> m PskHeavyVerdict
+processProxySKHeavy genesisConfig psk =
     withStateLockNoMetrics LowPriority $ \_stateLockHeader ->
-        processProxySKHeavyInternal coreConfig psk
+        processProxySKHeavyInternal genesisConfig psk
 
 -- | Main logic of heavy psk processing, doesn't have
 -- synchronization. Should be called __only__ if you are sure that
 -- 'StateLock' is taken already.
 processProxySKHeavyInternal ::
        forall ctx m. (ProcessHeavyConstraint ctx m)
-    => Core.Config
+    => Genesis.Config
     -> ProxySKHeavy
     -> m PskHeavyVerdict
-processProxySKHeavyInternal coreConfig psk = do
+processProxySKHeavyInternal genesisConfig psk = do
     curTime <- microsecondsToUTC <$> currentTime
     dbTip <- DB.getTipHeader
     let dbTipHash = headerHash dbTip
     let headEpoch = dbTip ^. epochIndexL
-    richmen <- getDlgRichmen (configBlockVersionData coreConfig)
+    richmen <- getDlgRichmen (configBlockVersionData genesisConfig)
                              "Delegation.Logic#processProxySKHeavy"
                              headEpoch
     maxBlockSize <- bvdMaxBlockSize <$> DB.gsAdoptedBVData
@@ -172,7 +173,7 @@ processProxySKHeavyInternal coreConfig psk = do
                      (const (error "processProxySKHeavyInternal:can't happen",True))) $
         evalMapCede cedeModifier $
         runExceptT $
-        dlgVerifyPskHeavy (configProtocolMagic coreConfig)
+        dlgVerifyPskHeavy (configProtocolMagic genesisConfig)
                           richmen
                           (CheckForCycle True)
                           headEpoch

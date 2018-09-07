@@ -36,7 +36,7 @@ import           Universum
 
 import           Pos.Chain.Block (HeaderHash)
 import qualified Pos.Chain.Block as CB
-import           Pos.Core (GenesisHash)
+import           Pos.Chain.Genesis (GenesisHash)
 import           Pos.DB.Block.Epoch (consolidateWorker,
                      dbGetConsolidatedSerBlockRealDefault,
                      dbGetConsolidatedSerBlundRealDefault,

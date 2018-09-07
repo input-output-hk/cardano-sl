@@ -12,7 +12,7 @@ import           Test.Hspec (Spec)
 import           Test.Hspec.QuickCheck (prop)
 
 import           Pos.Chain.Delegation (HasDlgConfiguration)
-import           Pos.Core as Core (Config)
+import           Pos.Chain.Genesis as Genesis (Config)
 
 import           Test.Pos.Block.Logic.Mode (BlockProperty,
                      blockPropertyTestable)
@@ -22,6 +22,6 @@ import           Test.QuickCheck.Property (Testable)
 blockPropertySpec ::
        (HasDlgConfiguration, Testable a)
     => String
-    -> (Core.Config -> BlockProperty a)
+    -> (Genesis.Config -> BlockProperty a)
     -> Spec
 blockPropertySpec description bp = prop description (blockPropertyTestable bp)

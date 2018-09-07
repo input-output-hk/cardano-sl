@@ -10,7 +10,7 @@ import           Universum
 
 import           Control.Exception.Safe (catchIO)
 
-import           Pos.Core (ProtocolMagic)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Reporting (Reporter (..))
 import           Pos.Infra.Reporting.Http (reportNode)

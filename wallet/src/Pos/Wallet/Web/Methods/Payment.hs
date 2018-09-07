@@ -21,6 +21,7 @@ import           Formatting (build, sformat, (%))
 import           Servant.Server (err403, err405, errReasonPhrase)
 import           UnliftIO (MonadUnliftIO)
 
+import           Pos.Chain.Genesis as Genesis (Config (..), GenesisData)
 import           Pos.Chain.Txp (TxAux (..), TxFee (..), TxOut (..),
                      TxpConfiguration, Utxo, _txOutputs)
 import           Pos.Client.KeyStorage (getSecretKeys)
@@ -31,10 +32,8 @@ import           Pos.Client.Txp.Network (prepareMTx)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), computeTxFee,
                      runTxCreator)
 import           Pos.Configuration (walletTxCreationDisabled)
-import           Pos.Core as Core (Address, Coin, Config (..),
-                     getCurrentTimestamp)
+import           Pos.Core (Address, Coin, getCurrentTimestamp)
 import           Pos.Core.Conc (concurrently, delay)
-import           Pos.Core.Genesis (GenesisData)
 import           Pos.Crypto (PassPhrase, SafeSigner, ShouldCheckPassphrase (..),
                      checkPassMatches, hash, withSafeSignerUnsafe)
 import           Pos.DB (MonadGState)
@@ -63,7 +62,7 @@ import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow,
 
 newPayment
     :: MonadWalletTxFull ctx m
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> (TxAux -> m Bool)
     -> PassPhrase
@@ -72,14 +71,14 @@ newPayment
     -> Coin
     -> InputSelectionPolicy
     -> m CTx
-newPayment coreConfig txpConfig submitTx passphrase srcAccount dstAddress coin policy =
+newPayment genesisConfig txpConfig submitTx passphrase srcAccount dstAddress coin policy =
     -- This is done for two reasons:
     -- 1. In order not to overflow relay.
     -- 2. To let other things (e. g. block processing) happen if
     -- `newPayment`s are done continuously.
     notFasterThan (6 :: Second) $ do
       sendMoney
-          coreConfig
+          genesisConfig
           txpConfig
           submitTx
           passphrase
@@ -89,17 +88,17 @@ newPayment coreConfig txpConfig submitTx passphrase srcAccount dstAddress coin p
 
 newPaymentBatch
     :: MonadWalletTxFull ctx m
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> (TxAux -> m Bool)
     -> PassPhrase
     -> NewBatchPayment
     -> m CTx
-newPaymentBatch coreConfig txpConfig submitTx passphrase NewBatchPayment {..} = do
+newPaymentBatch genesisConfig txpConfig submitTx passphrase NewBatchPayment {..} = do
     src <- decodeCTypeOrFail npbFrom
     notFasterThan (6 :: Second) $ do
       sendMoney
-          coreConfig
+          genesisConfig
           txpConfig
           submitTx
           passphrase
@@ -118,21 +117,21 @@ type MonadFees ctx m =
 
 getTxFee
      :: MonadFees ctx m
-     => Core.Config
+     => Genesis.Config
      -> AccountId
      -> CId Addr
      -> Coin
      -> InputSelectionPolicy
      -> m CCoin
-getTxFee coreConfig srcAccount dstAccount coin policy = do
+getTxFee genesisConfig srcAccount dstAccount coin policy = do
     ws <- askWalletSnapshot
     let pendingAddrs = getPendingAddresses ws policy
-    utxo <- getMoneySourceUtxo (configGenesisData coreConfig)
+    utxo <- getMoneySourceUtxo (configGenesisData genesisConfig)
                                ws
                                (AccountMoneySource srcAccount)
     outputs <- coinDistrToOutputs $ one (dstAccount, coin)
     TxFee fee <- rewrapTxError "Cannot compute transaction fee" $
-        eitherToThrow =<< runTxCreator policy (computeTxFee coreConfig pendingAddrs utxo outputs)
+        eitherToThrow =<< runTxCreator policy (computeTxFee genesisConfig pendingAddrs utxo outputs)
     pure $ encodeCType fee
 
 data MoneySource
@@ -180,7 +179,7 @@ getMoneySourceUtxo genesisData ws =
 
 sendMoney
     :: (MonadWalletTxFull ctx m)
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> (TxAux -> m Bool)
     -> PassPhrase
@@ -188,7 +187,7 @@ sendMoney
     -> NonEmpty (CId Addr, Coin)
     -> InputSelectionPolicy
     -> m CTx
-sendMoney coreConfig txpConfig submitTx passphrase moneySource dstDistr policy = do
+sendMoney genesisConfig txpConfig submitTx passphrase moneySource dstDistr policy = do
     db <- askWalletDB
     ws <- getWalletSnapshot db
     when walletTxCreationDisabled $
@@ -232,7 +231,7 @@ sendMoney coreConfig txpConfig submitTx passphrase moneySource dstDistr policy =
     let pendingAddrs = getPendingAddresses ws policy
     th <- rewrapTxError "Cannot send transaction" $ do
         (txAux, inpTxOuts') <-
-            prepareMTx coreConfig getSigner pendingAddrs policy srcAddrs outputs (relatedAccount, passphrase)
+            prepareMTx genesisConfig getSigner pendingAddrs policy srcAddrs outputs (relatedAccount, passphrase)
 
         ts <- Just <$> getCurrentTimestamp
         let tx = taTx txAux
@@ -241,14 +240,14 @@ sendMoney coreConfig txpConfig submitTx passphrase moneySource dstDistr policy =
             dstAddrs  = map txOutAddress . toList $
                         _txOutputs tx
             th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
-        ptx <- mkPendingTx (configProtocolConstants coreConfig)
+        ptx <- mkPendingTx (configProtocolConstants genesisConfig)
                            ws
                            srcWallet
                            txHash
                            txAux
                            th
 
-        th <$ submitAndSaveNewPtx coreConfig txpConfig db submitTx ptx
+        th <$ submitAndSaveNewPtx genesisConfig txpConfig db submitTx ptx
 
     -- We add TxHistoryEntry's meta created by us in advance
     -- to make TxHistoryEntry in CTx consistent with entry in history.

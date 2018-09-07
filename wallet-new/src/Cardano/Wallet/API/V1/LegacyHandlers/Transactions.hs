@@ -6,10 +6,10 @@ import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat)
 import           Servant
 
+import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Txp (TxAux, TxId, TxpConfiguration)
 import           Pos.Client.Txp.Util (defaultInputSelectionPolicy)
 import qualified Pos.Client.Txp.Util as V0
-import           Pos.Core as Core (Config (..))
 import qualified Pos.Core as Core
 import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.WalletMode as V0
@@ -59,25 +59,25 @@ convertTxError err = case err of
 
 handlers
     :: HasConfigurations
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> (TxAux -> MonadV1 Bool)
     -> ServerT Transactions.API MonadV1
-handlers coreConfig txpConfig submitTx =
-             newTransaction coreConfig txpConfig submitTx
+handlers genesisConfig txpConfig submitTx =
+             newTransaction genesisConfig txpConfig submitTx
         :<|> allTransactions
-        :<|> estimateFees coreConfig
-        :<|> redeemAda coreConfig txpConfig submitTx
+        :<|> estimateFees genesisConfig
+        :<|> redeemAda genesisConfig txpConfig submitTx
 
 newTransaction
     :: forall ctx m
      . (V0.MonadWalletTxFull ctx m)
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> (TxAux -> m Bool)
     -> Payment
     -> m (WalletResponse Transaction)
-newTransaction coreConfig txpConfig submitTx Payment {..} = do
+newTransaction genesisConfig txpConfig submitTx Payment {..} = do
     ws <- V0.askWalletSnapshot
     sourceWallet <- migrate (psWalletId pmtSource)
 
@@ -100,7 +100,7 @@ newTransaction coreConfig txpConfig submitTx Payment {..} = do
     addrCoinList <- migrate $ NE.toList pmtDestinations
     let (V1 policy) = fromMaybe (V1 defaultInputSelectionPolicy) pmtGroupingPolicy
     let batchPayment = V0.NewBatchPayment cAccountId addrCoinList policy
-    cTx <- V0.newPaymentBatch coreConfig txpConfig submitTx spendingPw batchPayment
+    cTx <- V0.newPaymentBatch genesisConfig txpConfig submitTx spendingPw batchPayment
     single <$> migrate cTx
 
 
@@ -145,19 +145,19 @@ allTransactions mwalletId mAccIdx mAddr requestParams fops sops  =
 
 estimateFees
     :: (MonadThrow m, V0.MonadFees ctx m)
-    => Core.Config
+    => Genesis.Config
     -> Payment
     -> m (WalletResponse EstimatedFees)
-estimateFees coreConfig Payment{..} = do
+estimateFees genesisConfig Payment{..} = do
     ws <- V0.askWalletSnapshot
     let (V1 policy) = fromMaybe (V1 defaultInputSelectionPolicy) pmtGroupingPolicy
         pendingAddrs = V0.getPendingAddresses ws policy
     cAccountId <- migrate pmtSource
-    utxo <- V0.getMoneySourceUtxo (configGenesisData coreConfig)
+    utxo <- V0.getMoneySourceUtxo (configGenesisData genesisConfig)
                                   ws
                                   (V0.AccountMoneySource cAccountId)
     outputs <- V0.coinDistrToOutputs =<< mapM migrate pmtDestinations
-    efee <- V0.runTxCreator policy (V0.computeTxFee coreConfig pendingAddrs utxo outputs)
+    efee <- V0.runTxCreator policy (V0.computeTxFee genesisConfig pendingAddrs utxo outputs)
     case efee of
         Right fee ->
             single <$> migrate fee
@@ -166,12 +166,12 @@ estimateFees coreConfig Payment{..} = do
 
 redeemAda
     :: HasConfigurations
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> (TxAux -> MonadV1 Bool)
     -> Redemption
     -> MonadV1 (WalletResponse Transaction)
-redeemAda coreConfig txpConfig submitTx r = do
+redeemAda genesisConfig txpConfig submitTx r = do
     let ShieldedRedemptionCode seed = redemptionRedemptionCode r
         V1 spendingPassword = redemptionSpendingPassword r
         walletId = redemptionWalletId r
@@ -186,10 +186,10 @@ redeemAda coreConfig txpConfig submitTx r = do
                     , V0.pvSeed = seed
                     , V0.pvBackupPhrase = phrase
                     }
-            V0.redeemAdaPaperVend coreConfig txpConfig submitTx spendingPassword cpaperRedeem
+            V0.redeemAdaPaperVend genesisConfig txpConfig submitTx spendingPassword cpaperRedeem
         Nothing -> do
             let cwalletRedeem = V0.CWalletRedeem
                     { V0.crWalletId = caccountId
                     , V0.crSeed = seed
                     }
-            V0.redeemAda coreConfig txpConfig submitTx spendingPassword cwalletRedeem
+            V0.redeemAda genesisConfig txpConfig submitTx spendingPassword cwalletRedeem

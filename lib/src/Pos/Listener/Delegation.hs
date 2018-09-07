@@ -14,7 +14,7 @@ import           Formatting (build, sformat, shown, (%))
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Delegation (HasDlgConfiguration, MonadDelegation)
-import           Pos.Core as Core (Config)
+import           Pos.Chain.Genesis as Genesis (Config)
 import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.DB.Class (MonadBlockDBRead, MonadGState)
 import           Pos.DB.Delegation (PskHeavyVerdict (..), processProxySKHeavy)
@@ -46,10 +46,10 @@ type DlgListenerConstraint ctx m
        )
 
 handlePsk
-    :: (DlgListenerConstraint ctx m) => Core.Config -> ProxySKHeavy -> m Bool
-handlePsk coreConfig pSk = do
+    :: (DlgListenerConstraint ctx m) => Genesis.Config -> ProxySKHeavy -> m Bool
+handlePsk genesisConfig pSk = do
     logDebug $ sformat ("Got request to handle heavyweight psk: "%build) pSk
-    verdict <- processProxySKHeavy coreConfig pSk
+    verdict <- processProxySKHeavy genesisConfig pSk
     logDebug $ sformat ("The verdict for cert "%build%" is: "%shown) pSk verdict
     case verdict of
         PHTipMismatch -> do
@@ -57,7 +57,7 @@ handlePsk coreConfig pSk = do
             -- leaders can be calculated incorrectly. This is
             -- really weird and must not happen. We'll just retry.
             logWarning "Tip mismatch happened in delegation db!"
-            handlePsk coreConfig pSk
+            handlePsk genesisConfig pSk
         PHAdded -> pure True
         PHRemoved -> pure True
         _ -> pure False

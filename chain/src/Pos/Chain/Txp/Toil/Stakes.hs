@@ -16,6 +16,7 @@ import qualified Data.HashSet as HS
 import           Formatting (sformat, (%))
 import           Serokell.Util.Text (listJson)
 
+import           Pos.Chain.Genesis (GenesisWStakeholders)
 import           Pos.Chain.Txp.Base (txOutStake)
 import           Pos.Chain.Txp.Toil.Monad (GlobalToilM, getStake, getTotalStake,
                      setStake, setTotalStake)
@@ -25,7 +26,6 @@ import           Pos.Chain.Txp.TxOutAux (TxOutAux (..))
 import           Pos.Chain.Txp.Undo (TxUndo)
 import           Pos.Core (StakesList, coinToInteger, mkCoin, sumCoins,
                      unsafeIntegerToCoin)
-import           Pos.Core.Genesis (GenesisWStakeholders)
 import           Pos.Util.Wlog (logDebug)
 
 -- | Apply transactions to stakes.

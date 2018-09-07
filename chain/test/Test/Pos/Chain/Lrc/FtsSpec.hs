@@ -23,8 +23,9 @@ import           Pos.Core (Coin, SharedSeed, StakeholderId, StakesList,
                      unsafeIntegerToCoin)
 import           Pos.Crypto (PublicKey)
 
+import           Test.Pos.Chain.Genesis.Dummy (dummyEpochSlots,
+                     dummyProtocolConstants)
 import           Test.Pos.Core.Arbitrary ()
-import           Test.Pos.Core.Dummy (dummyEpochSlots, dummyProtocolConstants)
 import           Test.Pos.Util.QuickCheck.Property (qcNotElem)
 
 -- | Constant specifying the number of times 'ftsReasonableStake' will be

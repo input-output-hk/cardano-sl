@@ -22,10 +22,10 @@ import qualified Control.Monad.Reader as Mtl
 import           Servant.Server (Handler, hoistServer)
 
 import           Pos.Chain.Block (HasBlockConfiguration)
+import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Ssc (HasSscConfiguration)
 import           Pos.Chain.Update (HasUpdateConfiguration)
 import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core as Core (Config (..))
 import           Pos.DB.Txp (MempoolExt, MonadTxpLocal (..))
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Reporting (MonadReporting (..))
@@ -59,7 +59,7 @@ instance MonadTxpLocal RealModeE where
 
 instance MonadTxpLocal ExplorerProd where
     txpNormalize pm = lift . lift . txpNormalize pm
-    txpProcessTx coreConfig txpConfig = lift . lift . txpProcessTx coreConfig txpConfig
+    txpProcessTx genesisConfig txpConfig = lift . lift . txpProcessTx genesisConfig txpConfig
 
 -- | Use the 'RealMode' instance.
 -- FIXME instance on a type synonym.
@@ -82,43 +82,43 @@ type HasExplorerConfiguration =
 
 notifierPlugin
     :: HasExplorerConfiguration
-    => Core.Config
+    => Genesis.Config
     -> NotifierSettings
     -> Diffusion ExplorerProd
     -> ExplorerProd ()
-notifierPlugin coreConfig settings _ = notifierApp coreConfig settings
+notifierPlugin genesisConfig settings _ = notifierApp genesisConfig settings
 
 explorerPlugin
     :: HasExplorerConfiguration
-    => Core.Config
+    => Genesis.Config
     -> Word16
     -> Diffusion ExplorerProd
     -> ExplorerProd ()
-explorerPlugin coreConfig = flip $ explorerServeWebReal coreConfig
+explorerPlugin genesisConfig = flip $ explorerServeWebReal genesisConfig
 
 explorerServeWebReal
     :: HasExplorerConfiguration
-    => Core.Config
+    => Genesis.Config
     -> Diffusion ExplorerProd
     -> Word16
     -> ExplorerProd ()
-explorerServeWebReal coreConfig diffusion port = do
+explorerServeWebReal genesisConfig diffusion port = do
     rctx <- ask
-    let handlers = explorerHandlers coreConfig diffusion
+    let handlers = explorerHandlers genesisConfig diffusion
         server   = hoistServer
             explorerApi
-            (convertHandler coreConfig rctx)
+            (convertHandler genesisConfig rctx)
             handlers
         app = explorerApp (pure server)
     explorerServeImpl app port
 
 convertHandler
-    :: Core.Config
+    :: Genesis.Config
     -> RealModeContext ExplorerExtraModifier
     -> ExplorerProd a
     -> Handler a
-convertHandler coreConfig rctx handler =
-    let extraCtx = makeExtraCtx coreConfig
+convertHandler genesisConfig rctx handler =
+    let extraCtx = makeExtraCtx genesisConfig
         ioAction = realRunner $
                    runExplorerProd extraCtx
                    handler

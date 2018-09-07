@@ -28,6 +28,8 @@ import           Formatting (int, sformat, (%))
 import           Serokell.Util (magnify')
 
 import           Pos.Binary.Class (biSize)
+import           Pos.Chain.Genesis as Genesis (Config, configBlkSecurityParam,
+                     configBlockVersionData, configEpochSlots)
 import           Pos.Chain.Lrc (RichmenStakes)
 import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem, PureToss,
                      SscGlobalState, SscLocalData (..), SscLocalQuery,
@@ -41,10 +43,8 @@ import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem, PureToss,
                      supplyPureTossEnv, syncingStateWith, tmCertificates,
                      tmCommitments, tmOpenings, tmShares,
                      verifyAndApplySscPayload)
-import           Pos.Core as Core (BlockCount, Config, EpochIndex, SlotId (..),
-                     StakeholderId, configBlkSecurityParam,
-                     configBlockVersionData, configEpochSlots, epochIndexL,
-                     kEpochSlots)
+import           Pos.Core (BlockCount, EpochIndex, SlotId (..), StakeholderId,
+                     epochIndexL, kEpochSlots)
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
                      SscPayload (..), VssCertificate, mkCommitmentsMap,
@@ -100,11 +100,11 @@ sscNormalize
        , MonadIO m
        , Rand.MonadRandom m
        )
-    => Core.Config
+    => Genesis.Config
     -> m ()
-sscNormalize coreConfig = do
+sscNormalize genesisConfig = do
     tipEpoch <- view epochIndexL <$> getTipHeader
-    richmenData <- getSscRichmen (configBlockVersionData coreConfig)
+    richmenData <- getSscRichmen (configBlockVersionData genesisConfig)
                                  "sscNormalize"
                                  tipEpoch
     bvd <- gsAdoptedBVData
@@ -116,23 +116,23 @@ sscNormalize coreConfig = do
     launchNamedPureLog atomically $
         syncingStateWith localVar $
         executeMonadBaseRandom seed $
-        sscNormalizeU coreConfig (tipEpoch, richmenData) bvd gs
+        sscNormalizeU genesisConfig (tipEpoch, richmenData) bvd gs
   where
     -- (... MonadPseudoRandom) a -> (... n) a
     executeMonadBaseRandom seed = hoist $ hoist (pure . fst . Rand.withDRG seed)
 
 sscNormalizeU
-    :: Core.Config
+    :: Genesis.Config
     -> (EpochIndex, RichmenStakes)
     -> BlockVersionData
     -> SscGlobalState
     -> SscLocalUpdate ()
-sscNormalizeU coreConfig (epoch, stake) bvd gs = do
+sscNormalizeU genesisConfig (epoch, stake) bvd gs = do
     oldModifier <- use ldModifier
     let multiRichmen = HM.fromList [(epoch, stake)]
     newModifier <-
         evalPureTossWithLogger gs $ supplyPureTossEnv (multiRichmen, bvd) $
-        execTossT mempty $ normalizeToss coreConfig epoch oldModifier
+        execTossT mempty $ normalizeToss genesisConfig epoch oldModifier
     ldModifier .= newModifier
     ldEpoch .= epoch
     ldSize .= biSize newModifier
@@ -192,70 +192,70 @@ type SscDataProcessingMode ctx m =
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessCommitment
     :: SscDataProcessingMode ctx m
-    => Core.Config
+    => Genesis.Config
     -> SignedCommitment
     -> m (Either SscVerifyError ())
-sscProcessCommitment coreConfig comm =
-    sscProcessData coreConfig CommitmentMsg
+sscProcessCommitment genesisConfig comm =
+    sscProcessData genesisConfig CommitmentMsg
         $ CommitmentsPayload (mkCommitmentsMap [comm]) mempty
 
 -- | Process 'Opening' received from network, checking it against
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessOpening
     :: SscDataProcessingMode ctx m
-    => Core.Config
+    => Genesis.Config
     -> StakeholderId
     -> Opening
     -> m (Either SscVerifyError ())
-sscProcessOpening coreConfig id opening = sscProcessData coreConfig OpeningMsg
+sscProcessOpening genesisConfig id opening = sscProcessData genesisConfig OpeningMsg
     $ OpeningsPayload (HM.fromList [(id, opening)]) mempty
 
 -- | Process 'InnerSharesMap' received from network, checking it against
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessShares
     :: SscDataProcessingMode ctx m
-    => Core.Config
+    => Genesis.Config
     -> StakeholderId
     -> InnerSharesMap
     -> m (Either SscVerifyError ())
-sscProcessShares coreConfig id shares =
-    sscProcessData coreConfig SharesMsg $ SharesPayload (HM.fromList [(id, shares)]) mempty
+sscProcessShares genesisConfig id shares =
+    sscProcessData genesisConfig SharesMsg $ SharesPayload (HM.fromList [(id, shares)]) mempty
 
 -- | Process 'VssCertificate' received from network, checking it against
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessCertificate
     :: SscDataProcessingMode ctx m
-    => Core.Config
+    => Genesis.Config
     -> VssCertificate
     -> m (Either SscVerifyError ())
-sscProcessCertificate coreConfig cert = sscProcessData coreConfig VssCertificateMsg
+sscProcessCertificate genesisConfig cert = sscProcessData genesisConfig VssCertificateMsg
     $ CertificatesPayload (mkVssCertificatesMapSingleton cert)
 
 sscProcessData
     :: SscDataProcessingMode ctx m
-    => Core.Config
+    => Genesis.Config
     -> SscTag
     -> SscPayload
     -> m (Either SscVerifyError ())
-sscProcessData coreConfig tag payload =
+sscProcessData genesisConfig tag payload =
     runExceptT $ do
-        getCurrentSlot (configEpochSlots coreConfig) >>= checkSlot
+        getCurrentSlot (configEpochSlots genesisConfig) >>= checkSlot
         ld <- sscRunLocalQuery ask
         bvd <- gsAdoptedBVData
         let epoch = ld ^. ldEpoch
         seed <- Rand.drgNew
-        lift (tryGetSscRichmen (configBlockVersionData coreConfig) epoch) >>= \case
+        lift (tryGetSscRichmen (configBlockVersionData genesisConfig) epoch) >>= \case
             Nothing -> throwError $ TossUnknownRichmen epoch
             Just richmen -> do
                 gs <- sscRunGlobalQuery ask
                 ExceptT $
                     sscRunLocalSTM $
                     executeMonadBaseRandom seed $
-                    sscProcessDataDo coreConfig (epoch, richmen) bvd gs payload
+                    sscProcessDataDo genesisConfig (epoch, richmen) bvd gs payload
   where
     checkSlot Nothing = throwError CurrentSlotUnknown
     checkSlot (Just si@SlotId {..})
-        | isGoodSlotForTag tag (configBlkSecurityParam coreConfig) siSlot = pass
+        | isGoodSlotForTag tag (configBlkSecurityParam genesisConfig) siSlot = pass
         | CommitmentMsg <- tag = throwError $ NotCommitmentPhase si
         | OpeningMsg <- tag = throwError $ NotOpeningPhase si
         | SharesMsg <- tag = throwError $ NotSharesPhase si
@@ -265,13 +265,13 @@ sscProcessData coreConfig tag payload =
 
 sscProcessDataDo
     :: (MonadState SscLocalData m, WithLogger m, Rand.MonadRandom m)
-    => Core.Config
+    => Genesis.Config
     -> (EpochIndex, RichmenStakes)
     -> BlockVersionData
     -> SscGlobalState
     -> SscPayload
     -> m (Either SscVerifyError ())
-sscProcessDataDo coreConfig richmenData bvd gs payload =
+sscProcessDataDo genesisConfig richmenData bvd gs payload =
     runExceptT $ do
         storedEpoch <- use ldEpoch
         let givenEpoch = fst richmenData
@@ -288,7 +288,7 @@ sscProcessDataDo coreConfig richmenData bvd gs payload =
                | otherwise ->
                    evalPureTossWithLogger gs .
                    supplyPureTossEnv (multiRichmen, bvd) .
-                   execTossT mempty . refreshToss coreConfig givenEpoch =<<
+                   execTossT mempty . refreshToss genesisConfig givenEpoch =<<
                    use ldModifier
         newTM <-
             ExceptT $
@@ -296,7 +296,7 @@ sscProcessDataDo coreConfig richmenData bvd gs payload =
             supplyPureTossEnv (multiRichmen, bvd) $
             runExceptT $
             execTossT oldTM $
-            verifyAndApplySscPayload coreConfig (Left storedEpoch) payload
+            verifyAndApplySscPayload genesisConfig (Left storedEpoch) payload
         ldModifier .= newTM
         -- If mempool was exhausted, it's easier to recompute total size.
         -- Otherwise (most common case) we don't want to spend time on it and

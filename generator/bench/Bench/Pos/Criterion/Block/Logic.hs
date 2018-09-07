@@ -17,14 +17,13 @@ import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Chain.Block (Block, VerifyBlockParams (..),
                      VerifyHeaderParams (..), getBlockHeader, verifyBlock,
                      verifyHeader)
-import           Pos.Core as Core (Config (..), configBlockVersionData,
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     FakeAvvmOptions (..), GenesisInitializer (..),
+                     TestnetBalanceOptions (..), configBlockVersionData,
                      configBootStakeholders, configEpochSlots,
-                     configGeneratedSecretsThrow)
+                     configGeneratedSecretsThrow, gsSecretKeys)
 import           Pos.Core.Chrono (NE, OldestFirst (..), nonEmptyNewestFirst)
 import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)
-import           Pos.Core.Genesis (FakeAvvmOptions (..),
-                     GenesisInitializer (..), TestnetBalanceOptions (..),
-                     gsSecretKeys)
 import           Pos.Core.Slotting (EpochOrSlot (..), SlotId, Timestamp (..),
                      epochIndexL, getEpochOrSlot)
 import           Pos.Core.Update (BlockVersionData (..))
@@ -86,26 +85,26 @@ runBTM tp ctx btm = runEmulation (getTimestamp (_tpStartTime tp)) $ runReaderT b
 -- | Benchmark which runs `verifyAndApplyBlocks` && `rollbackBlocks`.
 verifyBlocksBenchmark
     :: HasConfigurations
-    => Core.Config
+    => Genesis.Config
     -> [SecretKey]
     -> TestParams
     -> BlockTestContext
     -> Benchmark
-verifyBlocksBenchmark !coreConfig !secretKeys !tp !ctx =
+verifyBlocksBenchmark !genesisConfig !secretKeys !tp !ctx =
     bgroup "block verification"
-        [ env (runBlockTestMode coreConfig tp (genEnv (BlockCount 100)))
+        [ env (runBlockTestMode genesisConfig tp (genEnv (BlockCount 100)))
             $ \ ~(curSlot, blocks) -> bench "verifyAndApplyBlocks" (verifyAndApplyBlocksB curSlot blocks)
         -- `verifyBlocksPrefix` will succeed only on the first block, it
         -- requires that blocks are applied.
-        , env (runBlockTestMode coreConfig tp (genEnv (BlockCount 1)))
+        , env (runBlockTestMode genesisConfig tp (genEnv (BlockCount 1)))
             $ \ ~(curSlot, blocks) -> bench "verifyBlocksPrefix" (verifyBlocksPrefixB curSlot blocks)
         ]
     where
     genEnv :: BlockCount -> BlockTestMode (Maybe SlotId, OldestFirst NE Block)
     genEnv bCount = do
-        initNodeDBs coreConfig
+        initNodeDBs genesisConfig
         g <- liftIO $ newStdGen
-        bs <- flip evalRandT g $ genBlocks coreConfig (_tpTxpConfiguration tp)
+        bs <- flip evalRandT g $ genBlocks genesisConfig (_tpTxpConfiguration tp)
                 (BlockGenParams
                     { _bgpSecrets = mkAllSecretsSimple secretKeys
                     , _bgpBlockCount = bCount
@@ -115,9 +114,9 @@ verifyBlocksBenchmark !coreConfig !secretKeys !tp !ctx =
                         }
                     , _bgpInplaceDB = False
                     , _bgpSkipNoKey = True -- TODO: should be False?
-                    , _bgpGenStakeholders = configBootStakeholders coreConfig
+                    , _bgpGenStakeholders = configBootStakeholders genesisConfig
                     , _bgpTxpGlobalSettings = txpGlobalSettings
-                          coreConfig
+                          genesisConfig
                           (_tpTxpConfiguration tp)
                     })
                 (maybeToList . fmap fst)
@@ -135,11 +134,11 @@ verifyBlocksBenchmark !coreConfig !secretKeys !tp !ctx =
         nfIO
             $ runBTM tp ctx
             $ satisfySlotCheck blocks
-            $ verifyAndApplyBlocks coreConfig (_tpTxpConfiguration tp) curSlot False blocks >>= \case
+            $ verifyAndApplyBlocks genesisConfig (_tpTxpConfiguration tp) curSlot False blocks >>= \case
                     Left err -> return (Just err)
                     Right (_, blunds) -> do
                         whenJust (nonEmptyNewestFirst blunds)
-                                 (rollbackBlocks coreConfig)
+                                 (rollbackBlocks genesisConfig)
                         return Nothing
 
     verifyBlocksPrefixB
@@ -150,16 +149,16 @@ verifyBlocksBenchmark !coreConfig !secretKeys !tp !ctx =
         nfIO
             $ runBTM tp ctx
             $ satisfySlotCheck blocks
-            $ map fst <$> verifyBlocksPrefix coreConfig curSlot blocks
+            $ map fst <$> verifyBlocksPrefix genesisConfig curSlot blocks
 
 -- | Benchmark which runs `verifyHeader`
 verifyHeaderBenchmark
     :: HasConfigurations
-    => Core.Config
+    => Genesis.Config
     -> [SecretKey]
     -> TestParams
     -> Benchmark
-verifyHeaderBenchmark !coreConfig !secretKeys !tp = env (runBlockTestMode coreConfig tp genEnv)
+verifyHeaderBenchmark !genesisConfig !secretKeys !tp = env (runBlockTestMode genesisConfig tp genEnv)
         $ \ ~(block, params) -> bgroup "block verification"
             [ bench "verifyHeader" $ benchHeaderVerification
                 (getBlockHeader block, vbpVerifyHeader params)
@@ -168,10 +167,10 @@ verifyHeaderBenchmark !coreConfig !secretKeys !tp = env (runBlockTestMode coreCo
             ]
 
     where
-    pm = configProtocolMagic coreConfig
+    pm = configProtocolMagic genesisConfig
     genEnv :: BlockTestMode (Block, VerifyBlockParams)
     genEnv = do
-        initNodeDBs coreConfig
+        initNodeDBs genesisConfig
         g <- liftIO $ newStdGen
         eos <- getEpochOrSlot <$> getTipHeader
         let epoch = eos ^. epochIndexL
@@ -184,18 +183,18 @@ verifyHeaderBenchmark !coreConfig !secretKeys !tp = env (runBlockTestMode coreCo
                     }
                 , _bgpInplaceDB = False
                 , _bgpSkipNoKey = True -- TODO: should be False?
-                , _bgpGenStakeholders = configBootStakeholders coreConfig
+                , _bgpGenStakeholders = configBootStakeholders genesisConfig
                 , _bgpTxpGlobalSettings =
-                      txpGlobalSettings coreConfig (_tpTxpConfiguration tp)
+                      txpGlobalSettings genesisConfig (_tpTxpConfiguration tp)
                 }
         leaders <- lrcActionOnEpochReason epoch "genBlock" getLeadersForEpoch
         mblock <- flip evalRandT g $ do
             blockGenCtx <- lift $ mkBlockGenContext
-                (configEpochSlots coreConfig)
+                (configEpochSlots genesisConfig)
                 blockGenParams
             tipHeader <- lift $ getTipHeader
             mapRandT (flip runReaderT blockGenCtx)
-                $ genBlockNoApply coreConfig (_tpTxpConfiguration tp) eos tipHeader
+                $ genBlockNoApply genesisConfig (_tpTxpConfiguration tp) eos tipHeader
         let !block = fromMaybe (error "verifyHeaderBench: failed to generate a header") mblock
 
         let !verifyHeaderParams = VerifyHeaderParams
@@ -217,7 +216,7 @@ verifyHeaderBenchmark !coreConfig !secretKeys !tp = env (runBlockTestMode coreCo
         nf isVerSuccess $ verifyHeader pm params header
 
     benchBlockVerification ~(block, params) =
-        nf isVerSuccess $ verifyBlock coreConfig params block
+        nf isVerSuccess $ verifyBlock genesisConfig params block
 
 
 runBenchmark :: IO ()
@@ -230,17 +229,17 @@ runBenchmark = do
             }
     withCompileInfo
         $ withConfigurationsM (LoggerName "verifyBenchmark") Nothing Nothing False cfo
-        $ \coreConfig _ txpConfig _ -> do
+        $ \genesisConfig _ txpConfig _ -> do
             let tp = TestParams
                     { _tpStartTime = Timestamp (convertUnit startTime)
-                    , _tpBlockVersionData = configBlockVersionData coreConfig
+                    , _tpBlockVersionData = configBlockVersionData genesisConfig
                     , _tpGenesisInitializer = genesisInitializer
                     , _tpTxpConfiguration = txpConfig
                     }
-            secretKeys <- gsSecretKeys <$> configGeneratedSecretsThrow coreConfig
+            secretKeys <- gsSecretKeys <$> configGeneratedSecretsThrow genesisConfig
             runEmulation startTime
-                $ initBlockTestContext coreConfig tp $ \ctx ->
+                $ initBlockTestContext genesisConfig tp $ \ctx ->
                     sudoLiftIO $ defaultMainWith config
-                        [ verifyBlocksBenchmark coreConfig secretKeys tp ctx
-                        , verifyHeaderBenchmark coreConfig secretKeys tp
+                        [ verifyBlocksBenchmark genesisConfig secretKeys tp ctx
+                        , verifyHeaderBenchmark genesisConfig secretKeys tp
                         ]

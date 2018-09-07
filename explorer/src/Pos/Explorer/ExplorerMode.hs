@@ -60,7 +60,7 @@ import           Pos.WorkMode (MinWorkMode)
 -- Need Emulation because it has instance Mockable CurrentTime
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation)
 import           Test.Pos.Block.Logic.Mode (TestParams (..))
-import           Test.Pos.Core.Dummy (dummyConfig, dummyEpochSlots)
+import           Test.Pos.Chain.Genesis.Dummy (dummyConfig, dummyEpochSlots)
 
 
 -------------------------------------------------------------------------------------

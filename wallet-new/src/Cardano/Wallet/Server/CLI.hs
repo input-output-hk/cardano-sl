@@ -123,12 +123,12 @@ chooseWalletBackendParser :: Parser ChooseWalletBackend
 chooseWalletBackendParser = choose
     <$> walletBackendParamsParser
     <*> (switch $ mconcat [
-            long "new-wallet"
-          , help "Use the new wallet implementation (NOT FOR PRODUCTION USE)"
+            long "legacy-wallet"
+          , help "Use the legacy wallet implementation (NOT RECOMMENDED)"
           ])
   where
-    choose opts False = WalletLegacy $ opts
-    choose opts True  = WalletNew    $ NewWalletBackendParams opts
+    choose opts True  = WalletLegacy $ opts
+    choose opts False = WalletNew    $ NewWalletBackendParams opts
 
 -- | The @Parser@ for the @WalletBackendParams@.
 walletBackendParamsParser :: Parser WalletBackendParams

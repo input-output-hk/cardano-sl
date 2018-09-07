@@ -32,8 +32,6 @@ import           Data.Acid (AcidState, createArchive, createCheckpoint,
                      openLocalStateFrom)
 import           Data.Acid.Memory (openMemoryState)
 import qualified Data.Map.Strict as Map
-import           Data.Typeable (typeRep)
-import           System.FilePath ((</>))
 
 import           Pos.Core (ProtocolMagic)
 import           Pos.Core.Txp (TxAux (..))

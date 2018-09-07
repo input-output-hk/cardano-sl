@@ -8,6 +8,7 @@ import qualified Data.Set    as Set
 import           Test.Hspec
 
 import           Delegation
+import           Delegation.UTxO
 
 
 alicePay = Owner 1

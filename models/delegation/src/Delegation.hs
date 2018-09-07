@@ -1,8 +1,41 @@
+{-|
+Module      : Delegation
+Description : Delegation Executable Model
+Stability   : experimental
+
+This is a stand-alone executable model for the delegation design.
+-}
+
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE PackageImports    #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Delegation where
+module Delegation
+  ( SKey(..)
+  , VKey(..)
+  , HashKey(..)
+  , hashKey
+  , Sig(..)
+  , StakePool(..)
+  , Delegation(..)
+  , Cert(..)
+  , WitTxin(..)
+  , WitCert(..)
+  , Wits(..)
+  , TxBody(..)
+  , Tx(..)
+  , Ledger(..)
+  , ValidationError(..)
+  , Validity(..)
+  , LedgerState(..)
+  , genesisState
+  , genesisId
+  , txid
+  , asStateTransition
+  , delegatedStake
+  , retirePools
+  ) where
+
 
 import           Crypto.Hash           (Digest, SHA256, hash)
 import qualified Data.ByteArray        as BA
@@ -17,15 +50,9 @@ import           Data.Semigroup        (Semigroup, (<>))
 import           Data.Set              (Set)
 import qualified Data.Set              as Set
 
+import Delegation.UTxO
 
-newtype TxId = TxId { getTxId :: Digest SHA256 }
-  deriving (Show, Eq, Ord)
-data Addr = AddrTxin (Digest SHA256) (Digest SHA256)
-          | AddrAccount (Digest SHA256) (Digest SHA256)
-          deriving (Show, Eq, Ord)
-newtype Coin = Coin Int deriving (Show, Eq, Ord)
 
-newtype Owner = Owner Int deriving (Show, Eq, Ord)
 newtype SKey = SKey Owner deriving (Show, Eq, Ord)
 newtype VKey = VKey Owner deriving (Show, Eq, Ord)
 newtype HashKey = HashKey (Digest SHA256) deriving (Show, Eq, Ord)
@@ -67,8 +94,6 @@ data Wits = Wits { txinWits :: (Set WitTxin)
                  , certWits :: (Set WitCert)
                  } deriving (Show, Eq, Ord)
 
-data TxIn = TxIn TxId Int deriving (Show, Eq, Ord)
-data TxOut = TxOut Addr Coin deriving (Show, Eq, Ord)
 data TxBody = TxBody { inputs  :: Set TxIn
                      , outputs :: [TxOut]
                      , certs   :: Set Cert
@@ -76,10 +101,6 @@ data TxBody = TxBody { inputs  :: Set TxIn
 data Tx = Tx { body :: TxBody
              , wits :: Wits
              } deriving (Show, Eq)
-
-newtype UTxO = UTxO (Map TxIn TxOut) deriving (Show, Eq, Ord)
-
--- TODO is it okay that I've used list indices instead of implementing the Ix Type?
 
 instance BA.ByteArrayAccess Tx where
   length        = BA.length . BS.pack . show
@@ -99,13 +120,6 @@ instance BA.ByteArrayAccess String where
 
 -- TODO how do I remove these boilerplate instances?
 
-instance Semigroup Coin where
-  (Coin a) <> (Coin b) = Coin (a + b)
-
-instance Monoid Coin where
-  mempty = Coin 0
-  mappend = (<>)
-
 txid :: Tx -> TxId
 txid = TxId . hash
 
@@ -119,13 +133,6 @@ txouts tx = UTxO $
     outs = outputs . body
     transId = txid tx
 
-unionUTxO :: UTxO -> UTxO -> UTxO
-unionUTxO (UTxO a) (UTxO b) = UTxO $ Map.union a b
-
-balance :: UTxO -> Coin
-balance (UTxO utxo) = foldr addCoins mempty utxo
-  where addCoins (TxOut _ a) b = a <> b
-
 sign :: SKey -> a -> Sig a
 sign (SKey k) d = Sig d k
 
@@ -133,16 +140,6 @@ verify :: Eq a => VKey -> a -> Sig a -> Bool
 verify (VKey vk) vd (Sig sd sk) = vk == sk && vd == sd
 
 type Ledger = [Tx]
-
--- |Domain restriction TODO: better symbol?
-(<|) :: Set TxIn -> UTxO -> UTxO
-ins <| (UTxO utxo) =
-  UTxO $ Map.filterWithKey (\k _ -> k `Set.member` ins) utxo
-
--- |Domain exclusion TODO: better symbol?
-(!<|) :: Set TxIn -> UTxO -> UTxO
-ins !<| (UTxO utxo) =
-  UTxO $ Map.filterWithKey (\k _ -> k `Set.notMember` ins) utxo
 
 data ValidationError = UnknownInputs
                      | IncreasedTotalBalance
@@ -309,7 +306,7 @@ retirePools ls epoch = ls
 
 applyTxBody :: LedgerState -> Tx -> LedgerState
 applyTxBody ls tx = ls { getUtxo = newUTxOs }
-  where newUTxOs = (txins tx !<| (getUtxo ls) `unionUTxO` txouts tx)
+  where newUTxOs = (txins tx !<| (getUtxo ls) `union` txouts tx)
 
 applyCerts :: LedgerState -> Set Cert -> LedgerState
 applyCerts = Set.fold applyCert

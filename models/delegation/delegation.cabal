@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: c7ea13be75cf0d885379a438f62365672525ef92c55b306e2408deab4a56f72c
+-- hash: 1815e637f5f10aca241282789e6714a6d626218e20249c5387e42e1c584b2b62
 
 name:           delegation
 version:        0.1.0.0
@@ -25,6 +25,7 @@ source-repository head
 library
   exposed-modules:
       Delegation
+      Delegation.UTxO
   other-modules:
       Paths_delegation
   hs-source-dirs:

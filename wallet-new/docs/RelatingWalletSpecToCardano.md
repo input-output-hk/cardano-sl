@@ -2,7 +2,9 @@
 
 This document is pinned to these versions of the Cardano code and Wallet Spec:
 
-- **Cardano code**: Git commit 6659d8501c727714a7861ad2e527a337e0a11b86
+- **Cardano code**: Git commits
+	- 6659d8501c727714a7861ad2e527a337e0a11b86
+	- e06f3084a24b988e8491003fab7e1dc6c31aeb0c
 - **Wallet Spec**: v1.2 (12 July 2018)
 
 ## Introduction
@@ -988,6 +990,72 @@ data TxMeta = TxMeta {
     }
 ```
 [TxMeta](https://github.com/input-output-hk/cardano-sl/blob/6659d8501c727714a7861ad2e527a337e0a11b86/wallet-new/src/Cardano/Wallet/Kernel/DB/TxMeta/Types.hs#L71-L108)
+
+#### TxMeta creation date
+
+Transaction metadata describes a transaction at a particular phase in its lifetime, i.e. there are typically multiple (static) metadata for each transaction.
+
+The creation date used for transaction metadata differs for pending and confirmed transactions:
+* a new transaction is created (`newPending` and `newForeign`) with creation time set to the _current time_
+* if a pending transaction is later confirmed during `applyBlock`, we use the "block time" (derived from the block slot) as the creation time (in fact, we use the same "block time" as creation date for all transactions confirmed in the block)
+
+In order to provide a consistent (and mockable) source of time, we use the `getCreationTimestamp` on the `NodeStateAdaptor` to get current the time. The `NodeStateAdaptor` is included in the `PassiveWallet` and provides access to the node context.
+
+**Payments (Pending transactions)**
+
+Pending transactions are created in [newTransaction](https://github.com/input-output-hk/cardano-sl/blob/6659d8501c727714a7861ad2e527a337e0a11b86/wallet-new/src/Cardano/Wallet/Kernel/Transactions.hs#L159-L248), where we use the `getCreationTimestamp` provided by the `NodeStateAdaptor` to obtain the meta data creation time:
+
+```haskell
+txMetaCreatedAt_  <- liftIO $ Node.getCreationTimestamp (walletPassive ^. walletNode)
+```
+
+Note: the above code was added shortly after this document was pinned to a git hash (hence no link).
+
+**Redemptions (Foreign transactions)**
+
+A new Foreign transaction is created when we redeem Ada. As with new pending transactions, we use the `getCreationTimestamp` provided by the `NodeStateAdaptor` to obtain the meta data creation time:
+
+```haskell
+now  <- liftIO $ Node.getCreationTimestamp (walletPassive ^. walletNode)
+```
+
+Note: the above code was added shortly after this document was pinned to a git hash (hence no link).
+
+**Confirmations (Apply Block)**
+
+When we apply a block we expect a `ResolvedBlock`, which is derived from a `Blund` before `applyBlock` is called (see [bracketPassiveWallet-blundToResolvedBlock](https://github.com/input-output-hk/cardano-sl/blob/e06f3084a24b988e8491003fab7e1dc6c31aeb0c/wallet-new/src/Cardano/Wallet/WalletLayer/Kernel.hs#L50))
+
+`blundToResolvedBlock` uses the block slot to compute the creation time for all transactions in the block, see `getTimeStamp` below:
+
+```haskell
+blundToResolvedBlock :: NodeStateAdaptor IO -> Blund -> IO (Maybe ResolvedBlock)
+blundToResolvedBlock node (b,u) = do
+    case b of
+      Left  _ebb      -> return Nothing
+      Right mainBlock -> Node.withNodeState node $ \_lock -> do
+        ctxt  <- mainBlockContext mainBlock
+        mTime <- getTimestamp (mainBlock ^. mainBlockSlot)
+        return $ Just $ fromRawResolvedBlock UnsafeRawResolvedBlock {
+            rawResolvedBlock       = mainBlock
+          , rawResolvedBlockInputs = map (map fromJust) $ undoTx u
+          , rawTimestamp           = mTime
+          , rawResolvedContext     = ctxt
+          }
+    where
+        -- | Get the timestamp to associate with the raw resolved block.
+        --   This timestamp becomes the createdAt time for all transactions
+        --   confirmed in this block.
+        --
+        --   Note: We use time derived from the block slot, otherwise we
+        --   rely on `getCreationTimestamp` provided by the node.
+        getTimestamp slotId = do
+            slotTime  <- Node.defaultGetSlotStart slotId
+            nodeTime  <- liftIO $ Node.getCreationTimestamp node
+
+            return $ either (const nodeTime) identity slotTime
+```
+
+Note: the above code was added shortly after this document was pinned to a git hash (hence no link).
 
 #### Persisting transaction metadata
 

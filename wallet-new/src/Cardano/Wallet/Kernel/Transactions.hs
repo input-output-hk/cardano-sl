@@ -213,8 +213,11 @@ newTransaction ActiveWallet{..} spendingPassword options accountId payees = runE
     let txId = hash . taTx $ txAux
     -- This is the sum of inputs coins.
     let spentInputCoins = paymentAmount (toaOut . snd <$> inputs)
+    -- we use `getCreationTimestamp` provided by the `NodeStateAdaptor`
+    -- to compute the createdAt timestamp for `TxMeta`
+    txMetaCreatedAt_  <- liftIO $ Node.getCreationTimestamp (walletPassive ^. walletNode)
     -- partially applied, because we don`t know here which outputs are ours
-    partialMeta <- liftIO $ createNewMeta accountId txId inputs (toaOut <$> outputs) True spentInputCoins
+    partialMeta <- liftIO $ createNewMeta accountId txId txMetaCreatedAt_ inputs (toaOut <$> outputs) True spentInputCoins
     return (txAux, partialMeta, availableUtxo)
   where
     -- Generate an initial seed for the random generator using the hash of
@@ -257,9 +260,8 @@ newTransaction ActiveWallet{..} spendingPassword options accountId payees = runE
 
 -- | This is called when we create a new Pending Transaction.
 -- This actually returns a function because we don`t know yet our outputs.
-createNewMeta :: HdAccountId -> TxId -> NonEmpty (TxIn, TxOutAux) -> NonEmpty TxOut -> Bool -> Coin -> IO PartialTxMeta
-createNewMeta hdId txId inp out allInOurs spentInputsCoins = do
-    time <- liftIO getCurrentTimestamp
+createNewMeta :: HdAccountId -> TxId -> Core.Timestamp -> NonEmpty (TxIn, TxOutAux) -> NonEmpty TxOut -> Bool -> Coin -> IO PartialTxMeta
+createNewMeta hdId txId time inp out allInOurs spentInputsCoins = do
     return $ metaForNewTx time hdId txId inp out allInOurs spentInputsCoins
     -- ^ this partially applied function indicates the lack of all TxMeta at this stage.
 
@@ -504,9 +506,11 @@ redeemAda w@ActiveWallet{..} accId pw rsk = runExceptT $ do
     redeemAddr :: Address
     redeemAddr = Core.makeRedeemAddress $ redeemToPublic rsk
 
+    -- | Note: we use `getCreationTimestamp` provided by the `NodeStateAdaptor`
+    --   to compute the createdAt timestamp for `TxMeta`
     mkTx :: Address -> ExceptT RedeemAdaError IO (TxAux, TxMeta)
     mkTx output = do
-        now  <- liftIO $ Core.getCurrentTimestamp
+        now  <- liftIO $ Node.getCreationTimestamp (walletPassive ^. walletNode)
         utxo <- liftIO $
                   Node.withNodeState (walletPassive ^. walletNode) $ \_lock ->
                     Node.filterUtxo isOutput

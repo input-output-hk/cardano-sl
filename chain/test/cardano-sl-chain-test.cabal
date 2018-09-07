@@ -17,6 +17,8 @@ library
                        Test.Pos.Chain.Block.Bi
                        Test.Pos.Chain.Block.Gen
                        Test.Pos.Chain.Delegation.Arbitrary
+                       Test.Pos.Chain.Delegation.Example
+                       Test.Pos.Chain.Delegation.Gen
                        Test.Pos.Chain.Genesis.Arbitrary
                        Test.Pos.Chain.Genesis.Dummy
                        Test.Pos.Chain.Lrc.Arbitrary

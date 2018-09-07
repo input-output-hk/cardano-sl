@@ -27,9 +27,10 @@ import           Pos.Chain.Genesis (FakeAvvmOptions (..),
                      mkGenesisDelegation, mkGenesisSpec)
 import           Pos.Crypto (ProtocolMagic)
 
+import           Test.Pos.Chain.Delegation.Gen (genProxySKHeavy)
 import           Test.Pos.Core.Gen (genBlockVersionData, genCoin,
-                     genCoinPortion, genHashRaw, genProxySKHeavy,
-                     genSharedSeed, genTextHash, genVssMaxTTL, genVssMinTTL)
+                     genCoinPortion, genHashRaw, genSharedSeed, genTextHash,
+                     genVssMaxTTL, genVssMinTTL)
 import           Test.Pos.Crypto.Gen (genProtocolMagic, genRedeemPublicKey)
 
 genGenesisHash :: Gen GenesisHash

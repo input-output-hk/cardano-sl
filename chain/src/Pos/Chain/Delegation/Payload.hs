@@ -1,4 +1,4 @@
-module Pos.Core.Delegation.Payload
+module Pos.Chain.Delegation.Payload
        ( DlgPayload (..)
        , checkDlgPayload
        ) where
@@ -16,7 +16,7 @@ import           Pos.Binary.Class (Bi (..))
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..),
                      validateProxySecretKey)
 
-import           Pos.Core.Delegation.HeavyDlgIndex
+import           Pos.Chain.Delegation.HeavyDlgIndex
 
 -- | 'DlgPayload' is put into 'MainBlock' and is a set of heavyweight
 -- proxy signing keys. List of psk issuers should be unique also.

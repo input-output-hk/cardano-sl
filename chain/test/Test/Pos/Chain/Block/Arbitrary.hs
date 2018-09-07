@@ -32,11 +32,11 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
 import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (HeaderHash)
 import qualified Pos.Chain.Block as Block
+import qualified Pos.Chain.Delegation as Core
 import           Pos.Chain.Genesis (GenesisHash (..))
 import           Pos.Core (localSlotIndexMaxBound, localSlotIndexMinBound)
 import qualified Pos.Core as Core
 import           Pos.Core.Attributes (areAttributesKnown)
-import qualified Pos.Core.Delegation as Core
 import           Pos.Crypto (ProtocolMagic, PublicKey, SecretKey, createPsk,
                      hash, toPublic)
 

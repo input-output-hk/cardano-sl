@@ -57,6 +57,7 @@ import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (Block, BlockHeader (..), GenesisBlock,
                      HeaderHash, MainBlock, gbHeader, genBlockLeaders,
                      headerHash, mkGenesisBlock)
+import           Pos.Chain.Delegation (DlgPayload (..))
 import           Pos.Chain.Genesis (GenesisWStakeholders, gdBootStakeholders,
                      gdProtocolConsts,
                      genesisProtocolConstantsToProtocolConstants)
@@ -68,7 +69,6 @@ import           Pos.Chain.Update
 import           Pos.Client.Txp
 import           Pos.Core
 import           Pos.Core.Chrono
-import           Pos.Core.Delegation (DlgPayload (..))
 import           Pos.Crypto
 import           Pos.DB.Block (RawPayload (..), createMainBlockPure)
 

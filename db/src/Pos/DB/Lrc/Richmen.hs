@@ -27,6 +27,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 
 import           Pos.Binary.Class (Bi)
+import           Pos.Chain.Delegation (ProxySKHeavy)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlockVersionData)
 import           Pos.Chain.Genesis (GenesisData, gdHeavyDelegation,
@@ -36,7 +37,6 @@ import           Pos.Chain.Lrc (FullRichmenData, RichmenComponent (..),
 import           Pos.Chain.Txp (genesisStakes)
 import           Pos.Core (Coin, CoinPortion, StakeholderId, addressHash,
                      applyCoinPortionUp, sumCoins, unsafeIntegerToCoin)
-import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Crypto (pskDelegatePk)
 import           Pos.DB.Class (MonadDB)
 import           Pos.DB.Lrc.Consumer.Delegation (dlgRichmenComponent,

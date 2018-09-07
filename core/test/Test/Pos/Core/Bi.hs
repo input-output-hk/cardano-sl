@@ -8,7 +8,6 @@ import           Universum
 import           Crypto.Hash (Blake2b_224)
 import           Data.Fixed (Fixed (..))
 import qualified Data.HashMap.Strict as HM
-import           Data.List ((!!))
 import qualified Data.Map as M
 import           Data.Time.Units (fromMicroseconds)
 import           Data.Typeable (typeRep)
@@ -26,7 +25,6 @@ import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                      Coin (..), CoinPortion (..), ScriptVersion,
                      SharedSeed (..), StakeholderId, TxFeePolicy (..),
                      TxSizeLinear (..))
-import           Pos.Core.Delegation (DlgPayload (..), ProxySKBlockInfo)
 import           Pos.Core.Merkle (mkMerkleTree, mtRoot)
 import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..),
                      FlatSlotId, LocalSlotIndex (..), SlotCount (..),
@@ -46,9 +44,8 @@ import           Test.Pos.Core.ExampleHelpers (exampleAddrSpendingData_PubKey,
                      exampleBlockVersionData, exampleBlockVersionModifier,
                      exampleCommitment, exampleCommitmentSignature,
                      exampleCommitmentsMap, exampleEpochIndex,
-                     exampleInnerSharesMap, exampleLightDlgIndices,
-                     exampleOpening, exampleOpeningsMap,
-                     exampleProxySKBlockInfo, examplePublicKey, exampleScript,
+                     exampleInnerSharesMap, exampleOpening, exampleOpeningsMap,
+                     examplePublicKey, exampleScript,
                      exampleSharesDistribution, exampleSignedCommitment,
                      exampleSlotId, exampleSlotLeaders, exampleSoftwareVersion,
                      exampleSscPayload, exampleSscProof, exampleStakeholderId,
@@ -58,8 +55,7 @@ import           Test.Pos.Core.ExampleHelpers (exampleAddrSpendingData_PubKey,
                      exampleUpdateProposalToSign, exampleUpdateVote,
                      exampleVoteId, exampleVssCertificate,
                      exampleVssCertificatesHash, exampleVssCertificatesMap,
-                     feedEpochSlots, feedPM, staticHeavyDlgIndexes,
-                     staticProxySKHeavys)
+                     feedEpochSlots, feedPM)
 import           Test.Pos.Core.Gen
 import           Test.Pos.Crypto.Bi (getBytes)
 import           Test.Pos.Util.Golden (discoverGolden, eachOf)
@@ -305,60 +301,6 @@ golden_TxSizeLinear = goldenTestBi tsl "test/golden/TxSizeLinear"
 
 roundTripTxSizeLinearBi :: Property
 roundTripTxSizeLinearBi = eachOf 1000 genTxSizeLinear roundTripsBiBuildable
-
---------------------------------------------------------------------------------
--- DlgPayload
---------------------------------------------------------------------------------
-golden_DlgPayload :: Property
-golden_DlgPayload = goldenTestBi dp "test/golden/DlgPayload"
-  where dp = UnsafeDlgPayload (take 4 staticProxySKHeavys)
-
-roundTripDlgPayloadBi :: Property
-roundTripDlgPayloadBi = eachOf 100 (feedPM genDlgPayload) roundTripsBiBuildable
-
---------------------------------------------------------------------------------
--- HeavyDlgIndex
---------------------------------------------------------------------------------
-golden_HeavyDlgIndex :: Property
-golden_HeavyDlgIndex = goldenTestBi hdi "test/golden/HeavyDlgIndex"
-  where hdi = staticHeavyDlgIndexes !! 0
-
-roundTripHeavyDlgIndexBi :: Property
-roundTripHeavyDlgIndexBi = eachOf 1000 genHeavyDlgIndex roundTripsBiBuildable
-
---------------------------------------------------------------------------------
--- LightDlgIndices
---------------------------------------------------------------------------------
-golden_LightDlgIndices :: Property
-golden_LightDlgIndices = goldenTestBi exampleLightDlgIndices
-                                      "test/golden/LightDlgIndices"
-
-roundTripLightDlgIndicesBi :: Property
-roundTripLightDlgIndicesBi = eachOf 1000 genLightDlgIndices roundTripsBiBuildable
-
---------------------------------------------------------------------------------
--- ProxySKBlockInfo
---------------------------------------------------------------------------------
-golden_ProxySKBlockInfo_Nothing :: Property
-golden_ProxySKBlockInfo_Nothing = goldenTestBi pskbi "test/golden/ProxySKBlockInfo_Nothing"
-  where pskbi = Nothing :: ProxySKBlockInfo
-
-golden_ProxySKBlockInfo_Just :: Property
-golden_ProxySKBlockInfo_Just = goldenTestBi exampleProxySKBlockInfo
-                                            "test/golden/ProxySKBlockInfo_Just"
-
-roundTripProxySKBlockInfoBi :: Property
-roundTripProxySKBlockInfoBi = eachOf 200 (feedPM genProxySKBlockInfo) roundTripsBiShow
-
---------------------------------------------------------------------------------
--- ProxySKHeavy
---------------------------------------------------------------------------------
-golden_ProxySKHeavy :: Property
-golden_ProxySKHeavy = goldenTestBi skh "test/golden/ProxySKHeavy"
-  where skh = staticProxySKHeavys !! 0
-
-roundTripProxySKHeavyBi :: Property
-roundTripProxySKHeavyBi = eachOf 200 (feedPM genProxySKHeavy) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- EpochIndex

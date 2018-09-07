@@ -15,6 +15,7 @@ import qualified Data.Map as Map
 import           Formatting (build, int, sformat, stext, (%))
 import qualified Text.JSON.Canonical as CanonicalJSON
 
+import           Pos.Chain.Delegation (HeavyDlgIndex (..))
 import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots,
                      configGeneratedSecretsThrow)
 import           Pos.Chain.Genesis (gsSecretKeys)
@@ -26,7 +27,6 @@ import           Pos.Core (AddrStakeDistribution (..), StakeholderId,
                      addressHash, mkMultiKeyDistr, unsafeGetCoin)
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                      makeAddress)
-import           Pos.Core.Delegation (HeavyDlgIndex (..))
 import           Pos.Core.Update (SoftwareVersion (..))
 import           Pos.Crypto (PublicKey, emptyPassphrase, encToPublic,
                      fullPublicKeyF, hashHexF, noPassEncrypt, safeCreatePsk,

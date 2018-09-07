@@ -16,11 +16,10 @@ module Test.Pos.Core.ExampleHelpers
         , exampleChainDifficulty
         , exampleEpochIndex
         , exampleInnerSharesMap
-        , exampleLightDlgIndices
         , exampleOpening
         , exampleOpeningsMap
-        , exampleProxySKBlockInfo
         , examplePublicKey
+        , examplePublicKeys
         , exampleRedeemPublicKey
         , exampleScript
         , exampleSecretKey
@@ -50,8 +49,7 @@ module Test.Pos.Core.ExampleHelpers
         , exampleVssCertificatesHash
         , exampleVssCertificatesMap
         , exampleVssPublicKeys
-        , staticHeavyDlgIndexes
-        , staticProxySKHeavys
+        , staticSafeSigners
 
         -- Helpers
         , feedPM
@@ -67,7 +65,7 @@ import qualified Crypto.SCRAPE as Scrape
 import           Data.Coerce (coerce)
 import           Data.Fixed (Fixed (..))
 import qualified Data.HashMap.Strict as HM
-import           Data.List (zipWith4, (!!))
+import           Data.List ((!!))
 import           Data.List.NonEmpty (fromList)
 import qualified Data.Map as M
 import           Data.Maybe (fromJust)
@@ -86,8 +84,6 @@ import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                      SharedSeed (..), SlotLeaders, StakeholderId, StakesList,
                      TxFeePolicy (..), TxSizeLinear (..), addressHash,
                      coinPortionDenominator, makeAddress, mkMultiKeyDistr)
-import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..),
-                     ProxySKBlockInfo, ProxySKHeavy)
 import           Pos.Core.ProtocolConstants (ProtocolConstants, pcEpochSlots)
 import           Pos.Core.Slotting (EpochIndex (..), FlatSlotId,
                      LocalSlotIndex (..), SlotCount, SlotId (..))
@@ -110,8 +106,7 @@ import           Pos.Crypto (EncShare (..), HDAddressPayload (..),
                      Secret (..), SecretKey (..), SecretProof (..),
                      SignTag (..), VssKeyPair, VssPublicKey (..), abstractHash,
                      decryptShare, deterministic, deterministicVssKeyGen, hash,
-                     redeemDeterministicKeyGen, safeCreatePsk, sign,
-                     toVssPublicKey)
+                     redeemDeterministicKeyGen, sign, toVssPublicKey)
 import           Pos.Crypto.Signing (PublicKey (..))
 
 import           Test.Pos.Core.Gen (genProtocolConstants)
@@ -440,18 +435,6 @@ exampleVssCertificatesHash :: Int -> Int -> VssCertificatesHash
 exampleVssCertificatesHash offset len =
     hash . getVssCertificatesMap $ exampleVssCertificatesMap offset len
 
-
-staticHeavyDlgIndexes :: [HeavyDlgIndex]
-staticHeavyDlgIndexes = map (HeavyDlgIndex . EpochIndex) [5,1,3,27,99,247]
-
-staticProtocolMagics :: [ProtocolMagic]
-staticProtocolMagics = map ProtocolMagic [0..5]
-
-staticProxySKHeavys :: [ProxySKHeavy]
-staticProxySKHeavys = zipWith4 safeCreatePsk
-                               staticProtocolMagics staticSafeSigners
-                               (examplePublicKeys 1 6) staticHeavyDlgIndexes
-
 staticSafeSigners :: [SafeSigner]
 staticSafeSigners = map FakeSigner (exampleSecretKeys 1 6)
 
@@ -480,12 +463,6 @@ exampleSscPayload :: SscPayload
 exampleSscPayload = SharesPayload exampleSharesMap (exampleVssCertificatesMap 10 4)
   where
     exampleSharesMap = HM.fromList $ [(exampleStakeholderId, exampleInnerSharesMap 3 1)]
-
-exampleProxySKBlockInfo :: ProxySKBlockInfo
-exampleProxySKBlockInfo = Just (staticProxySKHeavys !! 0, examplePublicKey)
-
-exampleLightDlgIndices :: LightDlgIndices
-exampleLightDlgIndices = LightDlgIndices (EpochIndex 7, EpochIndex 88)
 
 exampleAddress :: Address
 exampleAddress = makeAddress exampleAddrSpendingData_PubKey attrs

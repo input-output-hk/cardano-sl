@@ -20,9 +20,9 @@ import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 import           Universum
 
+import           Pos.Chain.Delegation (ProxySKHeavy)
 import           Pos.Chain.Txp (TxIn)
 import           Pos.Core
-import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Crypto
 
 {-------------------------------------------------------------------------------

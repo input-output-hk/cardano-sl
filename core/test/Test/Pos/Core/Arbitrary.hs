@@ -52,7 +52,6 @@ import           Pos.Core (AddrAttributes (..), AddrSpendingData (..),
                      unsafeCoinPortionFromDouble, unsafeGetCoin, unsafeSubCoin)
 import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
 import           Pos.Core.Constants (sharedSeedLength)
-import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
 import           Pos.Core.Merkle (MerkleTree, mkMerkleTree)
 import           Pos.Core.ProtocolConstants (pcEpochSlots)
 import           Pos.Core.Ssc (VssCertificate, mkVssCertificate)
@@ -510,17 +509,6 @@ instance Arbitrary Timestamp where
     shrink = shrinkIntegral
 
 deriving instance Arbitrary TimeDiff
-
-instance Arbitrary HeavyDlgIndex where
-    arbitrary = HeavyDlgIndex <$> arbitrary
-    shrink = genericShrink
-
-instance Arbitrary LightDlgIndices where
-    arbitrary = do
-        l <- arbitrary
-        r <- arbitrary
-        pure $ LightDlgIndices $ if r >= l then (l,r) else (r,l)
-    shrink = genericShrink
 
 ----------------------------------------------------------------------------
 -- SSC

@@ -18,9 +18,9 @@ import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 import           Universum
 
+import           Pos.Chain.Delegation.HeavyDlgIndex (ProxySKHeavy)
 import           Pos.Chain.Delegation.Types (isRevokePsk)
 import           Pos.Core (StakeholderId, addressHash)
-import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Crypto (pskIssuerPk)
 
 -- | Action on delegation database, used commonly. Generalizes

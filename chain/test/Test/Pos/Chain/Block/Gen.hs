@@ -36,10 +36,11 @@ import           Pos.Core (SlotCount)
 import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Crypto (ProtocolMagic)
 
+import           Test.Pos.Chain.Delegation.Gen (genDlgPayload, genHeavyDlgIndex,
+                     genLightDlgIndices)
 import           Test.Pos.Chain.Txp.Gen (genTxPayload, genTxProof)
 import           Test.Pos.Core.Gen (genBlockVersion, genChainDifficulty,
-                     genDlgPayload, genEpochIndex, genHeavyDlgIndex,
-                     genLightDlgIndices, genSlotId, genSlotLeaders,
+                     genEpochIndex, genSlotId, genSlotLeaders,
                      genSoftwareVersion, genSscPayload, genSscProof,
                      genTextHash, genUpdatePayload, genUpdateProof)
 import           Test.Pos.Crypto.Gen (genAbstractHash, genProxySignature,

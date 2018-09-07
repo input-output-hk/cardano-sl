@@ -30,12 +30,12 @@ import           Serokell.Util.Verify (VerificationRes (..), formatAllErrors,
                      verifyGeneric)
 
 import           Pos.Binary.Class (asBinary, serialize')
+import           Pos.Chain.Delegation (HeavyDlgIndex (..), ProxySKHeavy)
 import           Pos.Core.Common (Address, Coin, IsBootstrapEraAddr (..),
                      StakeholderId, addressHash, applyCoinPortionDown,
                      coinToInteger, deriveFirstHDAddress,
                      makePubKeyAddressBoot, mkCoin, sumCoins,
                      unsafeIntegerToCoin)
-import           Pos.Core.Delegation (HeavyDlgIndex (..), ProxySKHeavy)
 import           Pos.Core.ProtocolConstants (ProtocolConstants, vssMaxTTL,
                      vssMinTTL)
 import           Pos.Core.Ssc (VssCertificate, VssCertificatesMap,

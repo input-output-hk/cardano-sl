@@ -15,6 +15,7 @@ import qualified Serokell.Util.Base16 as B16
 
 import qualified Cardano.Crypto.Wallet as CC
 import           Pos.Binary.Class (Raw (..))
+import           Pos.Chain.Delegation (HeavyDlgIndex (..))
 import           Pos.Chain.Genesis (FakeAvvmOptions (..),
                      GenesisAvvmBalances (..), GenesisDelegation (..),
                      GenesisInitializer (..), GenesisProtocolConstants (..),
@@ -22,7 +23,6 @@ import           Pos.Chain.Genesis (FakeAvvmOptions (..),
                      TestnetBalanceOptions (..))
 import           Pos.Core (Coin (..), CoinPortion (..), EpochIndex (..),
                      VssMaxTTL (..), VssMinTTL (..), addressHash)
-import           Pos.Core.Delegation (HeavyDlgIndex (..))
 import           Pos.Crypto (ProtocolMagic (..), ProxyCert (..),
                      ProxySecretKey (..), RedeemPublicKey, abstractHash,
                      redeemDeterministicKeyGen)

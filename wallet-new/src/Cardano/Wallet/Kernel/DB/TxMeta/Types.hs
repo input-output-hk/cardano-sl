@@ -274,14 +274,14 @@ data MetaDBHandle = MetaDBHandle {
     , migrateMetaDB :: IO ()
     , getTxMeta     :: Txp.TxId -> IO (Maybe TxMeta)
     , putTxMeta     :: TxMeta -> IO ()
-    , getTxMetas    :: Offset -- ^ Pagination: the starting offset of results.
-                    -> Limit  -- ^ An upper limit of the length of [TxMeta] returned.
-                    -> AccountFops -- ^ Filters on the Account. This may specidy an Account or a Wallet.
-                    -> Maybe Core.Address -- ^ Filters on the Addres.
-                    -> FilterOperation Txp.TxId -- ^ Filters on the TxId of the Tx.
-                    -> FilterOperation Core.Timestamp -- ^ Filters on the creation timestamp of the Tx.
-                    -> Maybe Sorting -- ^ Sorting of the results.
-                    -> IO ([TxMeta], Maybe Int) -- ^ the result in the form (results, totalEntries).
+    , getTxMetas    :: Offset -- Pagination: the starting offset of results.
+                    -> Limit  -- An upper limit of the length of [TxMeta] returned.
+                    -> AccountFops -- Filters on the Account. This may specidy an Account or a Wallet.
+                    -> Maybe Core.Address -- Filters on the Addres.
+                    -> FilterOperation Txp.TxId -- Filters on the TxId of the Tx.
+                    -> FilterOperation Core.Timestamp -- Filters on the creation timestamp of the Tx.
+                    -> Maybe Sorting -- Sorting of the results.
+                    -> IO ([TxMeta], Maybe Int) -- the result in the form (results, totalEntries).
                                                 -- totalEntries may be Nothing, because counting can
                                                 -- be an expensive operation.
     }

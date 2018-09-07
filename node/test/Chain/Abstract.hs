@@ -11,8 +11,8 @@ import qualified Data.Map.Strict as Map
 import           Data.Monoid (Sum (..))
 import qualified Data.Set as Set
 import           Pos.Core.Chrono
+import           Prelude (Show (..))
 import           Universum hiding (Show, show)
-import           Prelude (Show(..))
 import qualified UTxO.DSL as DSL
 
 -- | In the abstract DSL, we identify transactions with integers.
@@ -157,23 +157,23 @@ newtype Seed = Seed Int
 --   environment within which we can validate chain extension or other
 --   operations.
 data Parameters st h a = Parameters
-  { slotLeader :: Seed -> StakeDistribution a -> SlotId -> a
+  { slotLeader               :: Seed -> StakeDistribution a -> SlotId -> a
     -- | Extract the current random seed from the state.
-  , currentSeed :: st -> Seed
-  , currentSlot :: st -> SlotId
-  , height :: st -> Int
-  , quality :: Int -> Int
-  , inCommitmentPhase :: SlotId -> Bool
-  , inOpenPhase :: SlotId -> Bool
-  , inRecoveryPhase :: SlotId -> Bool
-  , maxMempoolSize :: Int
+  , currentSeed              :: st -> Seed
+  , currentSlot              :: st -> SlotId
+  , height                   :: st -> Int
+  , quality                  :: Int -> Int
+  , inCommitmentPhase        :: SlotId -> Bool
+  , inOpenPhase              :: SlotId -> Bool
+  , inRecoveryPhase          :: SlotId -> Bool
+  , maxMempoolSize           :: Int
     -- | The chain rollback limit. This is defined in the original Ouroboros
     -- paper. After this many blocks, a block is considered stable and may not
     -- be rolled back.
-  , k :: Int
+  , k                        :: Int
   , initialStakeDistribution :: StakeDistribution a
-  , initialSeed :: Seed
-  , minFee :: Transaction h a -> Int
-  , initTransactions :: [Transaction h a]
-  , bootstrapStakeholders :: Set.Set a
+  , initialSeed              :: Seed
+  , minFee                   :: Transaction h a -> Int
+  , initTransactions         :: [Transaction h a]
+  , bootstrapStakeholders    :: Set.Set a
   }

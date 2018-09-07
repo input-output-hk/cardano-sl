@@ -117,8 +117,8 @@ type UtxoSummaryRaw = Map TxIn (TxOutAux,AddressSummary)
 --   The output Utxo is extended with address summary information
 prefilterTx :: WalletKey
             -> ResolvedTx
-            -> (Map HdAccountId (Set TxIn)      -- ^ prefiltered inputs
-              , Map HdAccountId UtxoSummaryRaw) -- ^ prefiltered output utxo, extended with address summary
+            -> (Map HdAccountId (Set TxIn)      -- prefiltered inputs
+              , Map HdAccountId UtxoSummaryRaw) -- prefiltered output utxo, extended with address summary
 prefilterTx wKey tx = (prefInps,prefOuts')
     where
         inps = toList (tx ^. rtxInputs  . fromDb)

@@ -108,7 +108,7 @@ ntpClientSettings NtpConfiguration {..} = NtpClientSettings
     , ntpResponseTimeout = fromMicroseconds $ ntpcResponseTimeout
     , ntpPollDelay       = fromMicroseconds $ ntpcPollDelay
     , ntpSelection       = minimum . NE.map abs
-    -- ^ Take minmum of received offsets.
+    -- Take minmum of received offsets.
     }
 
 mkNtpClient :: NtpClientSettings -> TVar NtpStatus -> Sockets -> IO NtpClient

@@ -43,14 +43,14 @@ data SyncStatus
     -- ^ We don't know current slot, so we are definitely not
     -- synchronized well enough.
     | SSLagBehind !TipSlot
-                  -- ^ Our tip's slot (if our tip is genesis, we use 0
+                  --  Our tip's slot (if our tip is genesis, we use 0
                   -- as local slot).
                   !CurrentSlot
-                  -- ^ We know current slot, but our tip's slot lags behind
+                  --  We know current slot, but our tip's slot lags behind
                   -- current slot too much.
     | SSInFuture !TipSlot
                  !CurrentSlot
-                 -- ^ We know current slot and our tip's slot is greater than
+                 --  We know current slot and our tip's slot is greater than
                  -- the current one. Most likely we are misconfigured or we are
                  -- cheating somehow (e. g. creating blocks using block-gen).
     | SSKindaSynced

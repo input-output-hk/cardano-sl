@@ -6,21 +6,25 @@ module Infrastructure.Generator
   , simpleModel
   , simpleGen
   , seeds
+  , mInCommitmentPhase
+  , chainAddresses
   ) where
 
-import           Universum
+import           Universum hiding ((^.))
 
+import           Control.Lens (to, (^.))
 import           Data.Functor.Identity (runIdentity)
 import           Data.List (findIndex, scanl', (!!))
+import qualified Data.Map as Map
 import           Data.Maybe (fromMaybe)
 import           Data.Monoid (Sum (Sum), getSum)
 import           Data.Semigroup ((<>))
 import qualified Data.Set as Set
 import           Test.QuickCheck (Gen)
 
-import           UTxO.DSL (GivenHash, Hash, Output (Output),
-                     Transaction (Transaction), Value, trExtra, trFee, trFresh,
-                     trHash, trIns, trOuts, trUtxo, utxoRestrictToAddr)
+import           UTxO.DSL (GivenHash, Hash, Output (Output), Value, outAddr,
+                     trExtra, trFee, trFresh, trHash, trIns, trOuts, trUtxo,
+                     utxoRestrictToAddr)
 import           UTxO.Generator (defChainParams, genChain, initTrState)
 
 import           Chain.Abstract (Addr, Chain, Parameters (Parameters),
@@ -32,12 +36,12 @@ import           Chain.Abstract (Addr, Chain, Parameters (Parameters),
                      initialStakeDistribution, k, maxMempoolSize, minFee,
                      quality, slotLeader)
 import           Chain.Abstract.Translate.FromUTxO (ChainValidity, IntException,
-                     TransState, translate)
+                     TransState, translate, tsCheckpoints, _tsCurrentSlot)
 import qualified UTxO.DSL as DSL
 
 
 data GeneratorModel h a = GeneratorModel
-  { gmBoot         :: Transaction h a
+  { gmBoot         :: DSL.Transaction h a
   , gmAllAddresses :: [a]
   , gmEstimateFee  :: Int -> [Value] -> Value
   }
@@ -61,7 +65,7 @@ simpleModel :: GeneratorModel GivenHash Char
 simpleModel = GeneratorModel {
       gmAllAddresses  = addrs
     , gmEstimateFee   = \_ _ -> 0
-    , gmBoot          = Transaction {
+    , gmBoot          = DSL.Transaction {
                             trFresh = fromIntegral (length addrs) * initBal
                           , trIns   = Set.empty
                           , trOuts  = [Output a initBal | a <- addrs]
@@ -85,28 +89,32 @@ simpleGen = genChainUsingModel simpleModel
 asAbstractChain
   :: DSL.Chain GivenHash Addr
   -> Either IntException (Chain GivenHash Addr, ChainValidity)
-asAbstractChain ch = runIdentity $ translate addrs ch [] params
+asAbstractChain ch = runIdentity $ translate addrs ch [] (params addrs initTs)
   where
     addrs = undefined
+    initTs = fromMaybe [] . safeHead . map toList . toList $ ch
     params = simpleParams
 
-simpleParams :: Parameters (TransState GivenHash) GivenHash Addr
-simpleParams = Parameters
+simpleParams
+  :: NonEmpty Addr
+  -> [DSL.Transaction GivenHash Addr]
+  -> Parameters (TransState GivenHash) GivenHash Addr
+simpleParams addrs initTs = Parameters
   { slotLeader = mSlotLeader
-  , currentSeed = undefined
-  , currentSlot = undefined
-  , height = undefined
-  , quality = undefined
-  , inCommitmentPhase = undefined
-  , inOpenPhase = undefined
-  , inRecoveryPhase = undefined
-  , maxMempoolSize = undefined
-  , k = undefined
-  , initialStakeDistribution = undefined
-  , initialSeed = undefined
-  , minFee = undefined
-  , initTransactions = undefined
-  , bootstrapStakeholders = undefined
+  , currentSeed = mCurrentSeed
+  , currentSlot = _tsCurrentSlot
+  , height = mHeight
+  , quality = mQuality
+  , inCommitmentPhase = mInCommitmentPhase
+  , inOpenPhase = mInOpenPhase
+  , inRecoveryPhase = mInRecoveryPhase
+  , maxMempoolSize = 200
+  , k = 2160
+  , initialStakeDistribution = mInitialStakeDistribution addrs
+  , initialSeed = Seed 0
+  , minFee = const 0 -- TODO: QUESTION: what properties should 'minFee' satisfy?
+  , initTransactions = initTs
+  , bootstrapStakeholders = Set.fromList $ toList addrs
   }
 
 -- | Implementation of the slot leader function, called @sl@ in section 7.2.
@@ -170,3 +178,47 @@ seeds s0 n = (n, s0):[ numGen n sn | (_, sn) <- seeds s0 n ]
 numGen :: Int  -> Seed -> (Int, Seed)
 -- Some dummy implementation for now...
 numGen i (Seed s) = (s `mod` i, Seed (s + 1))
+
+-- | For now we return the same seed. Ideally we'd need to perform an SCC
+-- computation, which uses the stake distribution and the VSS payloads (which
+-- should be tracked in the state).
+--
+mCurrentSeed :: TransState GivenHash -> Seed
+mCurrentSeed = const (Seed 15)
+
+-- | Compute the number of blocks as the height of the chain (See Section 7.1).
+-- The number of blocks can be obtained from the list of checkpoints in the
+-- translation state, which contains a checkpoint for each block that we
+-- translate.
+mHeight :: TransState GivenHash -> Int
+mHeight st = st ^. tsCheckpoints . to length
+
+-- | Quality of a chain. It maps a number of blocks into a number of blocks.
+mQuality :: Int -> Int
+mQuality = (*2)
+
+-- | Is the slot in the commitment phase?
+mInCommitmentPhase :: SlotId -> Bool
+mInCommitmentPhase (SlotId k) = 0 <= k && k < mQuality k
+
+-- | Is the slot in the opening phase.
+mInOpenPhase :: SlotId -> Bool
+mInOpenPhase (SlotId k) = 2 * mQuality k <= k && k < 3 * mQuality k
+
+-- | Is the slot in the recovery phase.
+mInRecoveryPhase :: SlotId -> Bool
+mInRecoveryPhase (SlotId k) = 4 * mQuality k <= k && k < 5 * mQuality k
+
+mInitialStakeDistribution :: NonEmpty Addr -> StakeDistribution Addr
+mInitialStakeDistribution addrs = StakeDistribution
+                                $ Map.fromList
+                                $ zip (toList addrs) (repeat 1)
+
+-- | Extract the set of addresses in a chain.
+chainAddresses :: Ord a => DSL.Chain h a -> Set a
+chainAddresses = Set.fromList
+               . map outAddr
+               . concatMap trOuts
+               . concatMap toList
+               . toList
+

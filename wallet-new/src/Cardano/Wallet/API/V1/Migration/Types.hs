@@ -170,15 +170,15 @@ instance Migrate V0.SyncProgress V1.SyncPercentage where
 instance Migrate V0.CAccount V1.Account where
     eitherMigrate V0.CAccount{..} =
         V1.Account <$> eitherMigrate caId
-                   -- ^ accId
+                   --  accId
                    <*> mapM eitherMigrate caAddresses
-                   -- ^ accAddresses
+                   --  accAddresses
                    <*> eitherMigrate caAmount
-                   -- ^ accAmount
+                   --  accAmount
                    <*> pure (V0.caName caMeta)
-                   -- ^ accName
+                   --  accName
                    <*> eitherMigrate caId
-                   -- ^ accWalletId
+                   --  accWalletId
 
 -- in old API 'V0.AccountId' supposed to carry both wallet id and derivation index
 instance Migrate (V1.WalletId, V1.AccountIndex) V0.AccountId where

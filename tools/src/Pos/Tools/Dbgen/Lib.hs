@@ -134,9 +134,9 @@ data FakeUtxoCoinDistribution
     -- ^ Do not distribute the coins.
     | RangeDistribution
         AddressRange
-        -- ^ Distributes to only XX addresses.
+        -- Distributes to only XX addresses.
         DistributionAmount
-        -- ^ The amount we want to distribute to those addresses.
+        -- The amount we want to distribute to those addresses.
     -- ^ TODO(adn): For now we KISS, later we can add more type constructors
     deriving (Show, Eq, Generic)
 
@@ -175,10 +175,10 @@ data FakeTxsHistory
     -- ^ Do not generate fake history.
     | SimpleTxsHistory
         !Integer
-        -- ^ Number of txs we want to generate.
+        -- Number of txs we want to generate.
         !NumOfOutgoingAddresses
-        -- ^ Number of outgoing addreses of a single @Tx@.
-    -- ^ Simple tx history generation.
+        -- Number of outgoing addreses of a single @Tx@.
+    -- Simple tx history generation.
     -- TODO(ks): For now KISS, we can add more generation strategies.
     deriving (Show, Eq, Generic)
 

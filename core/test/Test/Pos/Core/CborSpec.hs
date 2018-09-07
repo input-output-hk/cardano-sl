@@ -21,7 +21,6 @@ import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
                      deriveSimpleBi, serialize, unsafeDeserialize)
 import           Pos.Core
 import           Pos.Core.Common (ScriptVersion)
-import           Pos.Core.Ssc (VssCertificate)
 import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
                      BlockVersionData (..), SoftforkRule (..),
                      SoftwareVersion (..))
@@ -111,8 +110,6 @@ spec = describe "Cbor Bi instances" $ do
             binaryTest @TxFeePolicy
         describe "Core.Script" $ do
             binaryTest @Script
-        describe "Core.Vss" $ do
-            binaryTest @VssCertificate
         describe "Core.Version" $ do
             binaryTest @ApplicationName
             binaryTest @SoftwareVersion

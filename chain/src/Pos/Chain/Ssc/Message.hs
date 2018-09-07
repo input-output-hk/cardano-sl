@@ -23,10 +23,12 @@ import           Control.Lens (makePrisms)
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable as Buildable
 
+import           Pos.Chain.Ssc.Commitment (SignedCommitment)
+import           Pos.Chain.Ssc.Opening (Opening)
+import           Pos.Chain.Ssc.SharesMap (InnerSharesMap)
 import           Pos.Chain.Ssc.Toss.Types (SscTag (..))
+import           Pos.Chain.Ssc.VssCertificate (VssCertificate, getCertId)
 import           Pos.Core (StakeholderId, addressHash)
-import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
-                     VssCertificate, getCertId)
 
 class HasSscTag a where
     toSscTag :: a -> SscTag

@@ -1,4 +1,6 @@
-module Pos.Core.Ssc.VssCertificatesMap
+{-# LANGUAGE TypeFamilies #-}
+
+module Pos.Chain.Ssc.VssCertificatesMap
        ( VssCertificatesMap (..)
 
        -- ** Creating maps
@@ -26,15 +28,15 @@ import           Data.List.Extra (nubOrdOn)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (build, sformat, (%))
 import           Serokell.Util (allDistinct)
-import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
-                     ToJSON (..))
+import           Text.JSON.Canonical (FromJSON (..), ToJSON (..))
 
 import           Pos.Binary.Class (Bi (..), Decoder, Encoding)
+import           Pos.Chain.Ssc.VssCertificate (VssCertificate (..),
+                     checkVssCertificate, getCertId, toCertPair)
 import           Pos.Core.Binary ()
 import           Pos.Core.Common (StakeholderId)
-import           Pos.Core.Ssc.VssCertificate (VssCertificate (..),
-                     checkVssCertificate, getCertId, toCertPair)
 import           Pos.Crypto (ProtocolMagic)
+import           Pos.Util.Json.Canonical (SchemaError)
 import           Pos.Util.Json.Parse (wrapConstructor)
 import           Pos.Util.Util (cborError, toAesonError)
 
@@ -69,7 +71,7 @@ instance Bi VssCertificatesMap where
 instance Monad m => ToJSON m VssCertificatesMap where
     toJSON = toJSON . getVssCertificatesMap
 
-instance ReportSchemaErrors m => FromJSON m VssCertificatesMap where
+instance MonadError SchemaError m => FromJSON m VssCertificatesMap where
     fromJSON val = do
         m <- UnsafeVssCertificatesMap <$> fromJSON val
         wrapConstructor (validateVssCertificatesMap m)

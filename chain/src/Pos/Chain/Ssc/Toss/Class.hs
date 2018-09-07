@@ -15,10 +15,14 @@ import           Control.Monad.Trans (MonadTrans)
 
 import           Pos.Chain.Genesis as Genesis (Config)
 import           Pos.Chain.Lrc (RichmenStakes)
+import           Pos.Chain.Ssc.Commitment (SignedCommitment)
+import           Pos.Chain.Ssc.CommitmentsMap (CommitmentsMap)
+import           Pos.Chain.Ssc.Opening (Opening)
+import           Pos.Chain.Ssc.OpeningsMap (OpeningsMap)
+import           Pos.Chain.Ssc.SharesMap (InnerSharesMap, SharesMap)
+import           Pos.Chain.Ssc.VssCertificate (VssCertificate)
+import           Pos.Chain.Ssc.VssCertificatesMap (VssCertificatesMap)
 import           Pos.Core (EpochIndex, EpochOrSlot, StakeholderId)
-import           Pos.Core.Ssc (CommitmentsMap, InnerSharesMap, Opening,
-                     OpeningsMap, SharesMap, SignedCommitment, VssCertificate,
-                     VssCertificatesMap)
 import           Pos.Core.Update (BlockVersionData)
 import           Pos.Util.Wlog (WithLogger)
 

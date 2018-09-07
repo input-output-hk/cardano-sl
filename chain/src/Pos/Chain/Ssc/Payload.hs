@@ -1,4 +1,4 @@
-module Pos.Core.Ssc.Payload
+module Pos.Chain.Ssc.Payload
        ( SscPayload (..)
        , checkSscPayload
        , spVss
@@ -17,11 +17,11 @@ import           Serokell.Util (listJson)
 import           Pos.Crypto (ProtocolMagic, shortHashF)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveIndexedBi)
-import           Pos.Core.Ssc.CommitmentsMap
-import           Pos.Core.Ssc.OpeningsMap
-import           Pos.Core.Ssc.SharesMap
-import           Pos.Core.Ssc.VssCertificate (VssCertificate (vcExpiryEpoch))
-import           Pos.Core.Ssc.VssCertificatesMap
+import           Pos.Chain.Ssc.CommitmentsMap
+import           Pos.Chain.Ssc.OpeningsMap
+import           Pos.Chain.Ssc.SharesMap
+import           Pos.Chain.Ssc.VssCertificate (VssCertificate (vcExpiryEpoch))
+import           Pos.Chain.Ssc.VssCertificatesMap
 import           Pos.Util.Util (cborError)
 
 -- | Payload included into blocks.

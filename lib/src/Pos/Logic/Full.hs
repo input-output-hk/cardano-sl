@@ -22,14 +22,14 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
 import           Pos.Chain.Security (SecurityParams, shouldIgnorePkAddress)
 import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..), SscTag (..),
-                     TossModifier, ldModifier, sscRunLocalQuery,
-                     tmCertificates, tmCommitments, tmOpenings, tmShares)
+                     TossModifier, getCertId, getCommitmentsMap, ldModifier,
+                     lookupVss, sscRunLocalQuery, tmCertificates,
+                     tmCommitments, tmOpenings, tmShares)
 import           Pos.Chain.Txp (MemPool (..), TxAux (..), TxMsgContents (..),
                      TxpConfiguration)
 import           Pos.Communication (NodeId)
 import           Pos.Core (StakeholderId, addressHash)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
-import           Pos.Core.Ssc (getCertId, getCommitmentsMap, lookupVss)
 import           Pos.Core.Update (BlockVersionData, UpdateProposal (..),
                      UpdateVote (..))
 import           Pos.Crypto (hash)

@@ -23,6 +23,7 @@ library
                        Test.Pos.Chain.Genesis.Dummy
                        Test.Pos.Chain.Lrc.Arbitrary
                        Test.Pos.Chain.Ssc.Arbitrary
+                       Test.Pos.Chain.Ssc.Example
                        Test.Pos.Chain.Ssc.Gen
                        Test.Pos.Chain.Ssc.Json
                        Test.Pos.Chain.Txp.Arbitrary
@@ -52,6 +53,7 @@ library
                      , formatting
                      , generic-arbitrary
                      , hedgehog
+                     , pvss
                      , QuickCheck
                      , random
                      , reflection

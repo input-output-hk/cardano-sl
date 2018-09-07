@@ -12,11 +12,11 @@ import           Universum
 
 import           Pos.Chain.Lrc (RichmenStakes)
 import           Pos.Chain.Ssc (MonadSscMem, SscGlobalQuery, SscSeedError,
-                     calculateSeed, sgsCommitments, sgsOpenings, sgsShares,
-                     sgsVssCertificates, sscRunGlobalQuery)
+                     VssCertificatesMap (..), calculateSeed, sgsCommitments,
+                     sgsOpenings, sgsShares, sgsVssCertificates,
+                     sscRunGlobalQuery, vcVssKey)
 import qualified Pos.Chain.Ssc as Ssc
 import           Pos.Core (EpochIndex (..), SharedSeed)
-import           Pos.Core.Ssc (VssCertificatesMap (..), vcVssKey)
 import           Pos.Core.Update (BlockVersionData)
 import           Pos.DB (MonadDBRead)
 import           Pos.DB.Lrc (HasLrcContext, getSscRichmen)

@@ -19,10 +19,10 @@ import           Universum
 
 import           Pos.Chain.Genesis as Genesis (Config)
 import           Pos.Chain.Ssc (MonadSscMem, SscGlobalState (..),
-                     getStableCertsPure, sgsVssCertificates, sscRunGlobalQuery)
+                     VssCertificatesMap (..), getStableCertsPure,
+                     sgsVssCertificates, sscRunGlobalQuery)
 import qualified Pos.Chain.Ssc as Ssc
 import           Pos.Core (EpochIndex (..), SlotId (..))
-import           Pos.Core.Ssc (VssCertificatesMap (..))
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB.Ssc.GState as DB
 import           Pos.Util.Wlog (WithLogger, logDebug, logInfo)

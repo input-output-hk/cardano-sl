@@ -20,13 +20,13 @@ import           Test.QuickCheck (Property, choose, counterexample, generate,
 import           Test.QuickCheck.Property (failed, succeeded)
 
 import           Pos.Binary
-import           Pos.Chain.Ssc (SscSeedError (..), calculateSeed,
-                     secretToSharedSeed, vssThreshold)
+import           Pos.Chain.Ssc (Commitment (..), CommitmentsMap, Opening (..),
+                     SscSeedError (..), calculateSeed, getCommShares,
+                     getCommitmentsMap, mkCommitmentsMap,
+                     randCommitmentAndOpening, secretToSharedSeed,
+                     vssThreshold)
 import           Pos.Core (AddressHash, SharedSeed (..), StakeholderId,
                      addressHash, mkCoin)
-import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..),
-                     getCommShares, getCommitmentsMap, mkCommitmentsMap,
-                     randCommitmentAndOpening)
 import           Pos.Crypto (DecShare, PublicKey, SecretKey,
                      SignTag (SignCommitment), Threshold, VssKeyPair,
                      VssPublicKey, decryptShare, sign, toPublic,

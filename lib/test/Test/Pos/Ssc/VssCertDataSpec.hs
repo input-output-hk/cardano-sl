@@ -20,14 +20,13 @@ import           Test.QuickCheck (Arbitrary (..), Gen, Property, choose,
                      (==>))
 
 import           Pos.Chain.Ssc (SscGlobalState (..), VssCertData (..),
-                     expiryEoS, rollbackSsc, runPureToss, setLastKnownSlot,
-                     sgsVssCertificates)
+                     VssCertificate (..), expiryEoS, getCertId,
+                     getVssCertificatesMap, mkVssCertificate, rollbackSsc,
+                     runPureToss, setLastKnownSlot, sgsVssCertificates)
 import qualified Pos.Chain.Ssc as Ssc
 import           Pos.Core (EpochIndex (..), EpochOrSlot (..), SlotId (..))
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Slotting (flattenEpochOrSlot, unflattenSlotId)
-import           Pos.Core.Ssc (VssCertificate (..), getCertId,
-                     getVssCertificatesMap, mkVssCertificate)
 
 import           Test.Pos.Chain.Genesis.Dummy (dummyEpochSlots,
                      dummySlotSecurityParam)

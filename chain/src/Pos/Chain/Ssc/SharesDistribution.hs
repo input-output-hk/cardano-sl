@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Pos.Core.Ssc.SharesDistribution
+module Pos.Chain.Ssc.SharesDistribution
        ( SharesDistribution
        ) where
 

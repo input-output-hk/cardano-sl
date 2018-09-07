@@ -17,12 +17,15 @@ import           Pos.Binary.Class (AsBinary, fromBinary)
 import           Pos.Chain.Lrc (RichmenStakes)
 import           Pos.Chain.Ssc.Base (secretToSharedSeed, verifyOpening,
                      vssThreshold)
+import           Pos.Chain.Ssc.Commitment (Commitment (..), SignedCommitment,
+                     getCommShares)
+import           Pos.Chain.Ssc.CommitmentsMap (CommitmentsMap (..))
 import           Pos.Chain.Ssc.Error.Seed (SscSeedError (..))
+import           Pos.Chain.Ssc.Opening (Opening (..))
+import           Pos.Chain.Ssc.OpeningsMap (OpeningsMap)
+import           Pos.Chain.Ssc.SharesMap (SharesMap)
 import           Pos.Core (SharedSeed, StakeholderId, addressHash, mkCoin,
                      sumCoins, unsafeIntegerToCoin)
-import           Pos.Core.Ssc (Commitment (..), CommitmentsMap (..),
-                     Opening (..), OpeningsMap, SharesMap, SignedCommitment,
-                     getCommShares)
 import           Pos.Crypto (DecShare, Secret, VssPublicKey, recoverSecret,
                      verifySecret)
 import           Pos.Util.Util (getKeys)

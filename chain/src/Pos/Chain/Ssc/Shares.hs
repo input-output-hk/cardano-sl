@@ -14,11 +14,12 @@ import qualified Data.HashMap.Strict as HM
 import           Formatting (build, sformat, (%))
 
 import           Pos.Binary.Class (AsBinary, asBinary, fromBinary)
+import           Pos.Chain.Ssc.Commitment (Commitment (..))
+import           Pos.Chain.Ssc.CommitmentsMap (getCommitmentsMap)
 import           Pos.Chain.Ssc.Mem (MonadSscMem, SscGlobalQuery,
                      sscRunGlobalQuery)
 import           Pos.Chain.Ssc.Types (sgsCommitments, sgsOpenings)
 import           Pos.Core.Common (StakeholderId, addressHash)
-import           Pos.Core.Ssc (Commitment (..), getCommitmentsMap)
 import           Pos.Crypto (DecShare, EncShare, VssKeyPair, VssPublicKey,
                      decryptShare, toVssPublicKey)
 import           Pos.Util.Wlog (WithLogger, launchNamedPureLog, logWarning)

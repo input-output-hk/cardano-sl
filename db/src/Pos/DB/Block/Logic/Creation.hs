@@ -32,7 +32,8 @@ import           Pos.Chain.Delegation (DelegationVar, DlgPayload (..),
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlkSecurityParam, configBlockVersionData,
                      configEpochSlots)
-import           Pos.Chain.Ssc (MonadSscMem, defaultSscPayload, stripSscPayload)
+import           Pos.Chain.Ssc (MonadSscMem, SscPayload, defaultSscPayload,
+                     stripSscPayload)
 import           Pos.Chain.Txp (TxAux (..), TxpConfiguration, emptyTxPayload,
                      mkTxPayload)
 import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion,
@@ -47,7 +48,6 @@ import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.JsonLog.LogEvents (MemPoolModifyReason (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics, reportError)
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
-import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Update (UpdatePayload (..))
 import           Pos.Core.Util.LogSafe (logInfoS)
 import           Pos.Crypto (SecretKey)

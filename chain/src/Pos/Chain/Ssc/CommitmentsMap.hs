@@ -1,4 +1,6 @@
-module Pos.Core.Ssc.CommitmentsMap
+{-# LANGUAGE TypeFamilies #-}
+
+module Pos.Chain.Ssc.CommitmentsMap
        ( CommitmentsMap (getCommitmentsMap)
        , mkCommitmentsMap
        , mkCommitmentsMapUnsafe
@@ -12,8 +14,8 @@ import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Serokell.Util (allDistinct)
 
 import           Pos.Binary.Class (Bi (..), Decoder, Encoding)
+import           Pos.Chain.Ssc.Commitment (SignedCommitment)
 import           Pos.Core.Common (StakeholderId, addressHash)
-import           Pos.Core.Ssc.Commitment (SignedCommitment)
 import           Pos.Crypto (PublicKey)
 import           Pos.Util.Util (cborError)
 

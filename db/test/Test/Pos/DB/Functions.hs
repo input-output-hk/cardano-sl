@@ -14,8 +14,8 @@ import           Hedgehog
 import           Pos.Binary.Class (Bi)
 import           Pos.DB (DBTag (..), dbGetBi, dbPutBi)
 
-import           Test.Pos.Core.ExampleHelpers (exampleBlockVersionData,
-                     exampleSscPayload)
+import           Test.Pos.Chain.Ssc.Example (exampleSscPayload)
+import           Test.Pos.Core.ExampleHelpers (exampleBlockVersionData)
 import           Test.Pos.DB.Mode (runTestMode)
 
 

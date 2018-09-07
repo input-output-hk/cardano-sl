@@ -1,4 +1,4 @@
-module Pos.Core.Ssc.OpeningsMap
+module Pos.Chain.Ssc.OpeningsMap
        ( OpeningsMap
        ) where
 
@@ -6,6 +6,6 @@ import           Universum
 
 import           Pos.Core.Common (StakeholderId)
 
-import           Pos.Core.Ssc.Opening
+import           Pos.Chain.Ssc.Opening
 
 type OpeningsMap = HashMap StakeholderId Opening

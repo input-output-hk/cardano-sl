@@ -20,8 +20,8 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
                      GeneratedSecrets (..), RichSecrets (..),
                      configGeneratedSecretsThrow, configVssMaxTTL,
                      generateFakeAvvm, generateRichSecrets)
+import           Pos.Chain.Ssc (mkVssCertificate, vcSigningKey)
 import           Pos.Core (addressHash)
-import           Pos.Core.Ssc (mkVssCertificate, vcSigningKey)
 import           Pos.Crypto (EncryptedSecretKey (..), SecretKey (..),
                      VssKeyPair, fullPublicKeyF, hashHexF, noPassEncrypt,
                      redeemPkB64F, toPublic, toVssPublicKey)

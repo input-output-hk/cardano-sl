@@ -1,4 +1,4 @@
-module Pos.Core.Ssc.Opening
+module Pos.Chain.Ssc.Opening
        ( Opening (..)
        ) where
 

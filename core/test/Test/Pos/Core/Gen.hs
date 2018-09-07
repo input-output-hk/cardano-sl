@@ -39,22 +39,6 @@ module Test.Pos.Core.Gen
         , genTimeDiff
         , genTimestamp
 
-        -- Pos.Core.Ssc Generators
-        , genCommitment
-        , genCommitmentsMap
-        , genCommitmentSignature
-        , genInnerSharesMap
-        , genSharesMap
-        , genOpening
-        , genOpeningsMap
-        , genSscPayload
-        , genSscProof
-        , genSharesDistribution
-        , genSignedCommitment
-        , genVssCertificate
-        , genVssCertificatesHash
-        , genVssCertificatesMap
-
         -- Pos.Core.Update Generators
         , genApplicationName
         , genBlockVersion
@@ -84,6 +68,7 @@ module Test.Pos.Core.Gen
         , genMerkleTree
 
         -- Helpers
+        , genCustomHashMap
         , genTextHash
         , genByte
         , genBytes
@@ -97,14 +82,13 @@ import           Universum
 
 import           Data.Fixed (Fixed (..))
 import qualified Data.HashMap.Strict as HM
-import           Data.List.NonEmpty (fromList)
 import qualified Data.Map as M
 import           Data.Maybe
 import           Data.Time.Units (Microsecond, Millisecond, fromMicroseconds)
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
-import           Pos.Binary.Class (Bi, Raw (..), asBinary)
+import           Pos.Binary.Class (Bi, Raw (..))
 import           Pos.Core.Attributes (Attributes (..), mkAttributes)
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                      AddrStakeDistribution (..), AddrType (..), Address (..),
@@ -123,13 +107,6 @@ import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..),
                      FlatSlotId, LocalSlotIndex (..), SlotCount (..),
                      SlotId (..), TimeDiff (..), Timestamp (..),
                      localSlotIndexMaxBound, localSlotIndexMinBound)
-import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap,
-                     InnerSharesMap, Opening, OpeningsMap, SharesDistribution,
-                     SharesMap, SignedCommitment, SscPayload (..), SscProof,
-                     VssCertificate (..), VssCertificatesHash,
-                     VssCertificatesMap (..), mkCommitmentsMap, mkSscProof,
-                     mkVssCertificate, mkVssCertificatesMap,
-                     randCommitmentAndOpening)
 import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
                      BlockVersionData (..), BlockVersionModifier (..),
                      SoftforkRule (..), SoftwareVersion (..), SystemTag (..),
@@ -137,13 +114,13 @@ import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
                      UpdateProof, UpdateProposal (..),
                      UpdateProposalToSign (..), UpdateProposals,
                      UpdateVote (..), VoteId, mkUpdateVote)
-import           Pos.Crypto (Hash, ProtocolMagic, deterministic, hash)
+import           Pos.Crypto (Hash, ProtocolMagic, hash)
 import           Pos.Util.Util (leftToPanic)
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Test.Pos.Crypto.Gen (genAbstractHash, genDecShare,
-                     genHDAddressPayload, genPublicKey, genRedeemPublicKey,
-                     genSecretKey, genSignature, genVssPublicKey)
+import           Test.Pos.Crypto.Gen (genAbstractHash, genHDAddressPayload,
+                     genPublicKey, genRedeemPublicKey, genSecretKey,
+                     genSignature)
 
 ----------------------------------------------------------------------------
 -- Pos.Core.Common Generators
@@ -356,92 +333,6 @@ genTimeDiff = TimeDiff <$> genMicrosecond
 
 genTimestamp :: Gen Timestamp
 genTimestamp = Timestamp <$> genMicrosecond
-
-----------------------------------------------------------------------------
--- Pos.Core.Ssc Generators
-----------------------------------------------------------------------------
-
-genCommitment :: Gen Commitment
-genCommitment = fst <$> genCommitmentOpening
-
-genCommitmentOpening :: Gen (Commitment, Opening)
-genCommitmentOpening = do
-    let numKeys = 128 :: Int
-    parties <-
-        Gen.integral (Range.constant 4 (fromIntegral numKeys)) :: Gen Integer
-    threshold <- Gen.integral (Range.constant 2 (parties - 2)) :: Gen Integer
-    vssKeys <- replicateM numKeys genVssPublicKey
-    pure
-        $ deterministic "commitmentOpening"
-        $ randCommitmentAndOpening threshold (fromList vssKeys)
-
-genCommitmentSignature :: ProtocolMagic -> Gen CommitmentSignature
-genCommitmentSignature pm = genSignature pm $ (,) <$> genEpochIndex <*> genCommitment
-
-genCommitmentsMap :: ProtocolMagic -> Gen CommitmentsMap
-genCommitmentsMap pm = mkCommitmentsMap <$> Gen.list range (genSignedCommitment pm)
-  where
-    range = Range.linear 0 10
-
-genInnerSharesMap :: Gen InnerSharesMap
-genInnerSharesMap = do
-    hMS <- Gen.int (Range.linear 0 10)
-    stakeholderId <- Gen.list (Range.singleton hMS) genStakeholderId
-    nonEmptyDS <- Gen.nonEmpty (Range.singleton hMS) (asBinary <$> genDecShare)
-    pure $ HM.fromList $ zip stakeholderId [nonEmptyDS]
-
-genOpening :: Gen Opening
-genOpening = snd <$> genCommitmentOpening
-
-genOpeningsMap :: Gen OpeningsMap
-genOpeningsMap = do
-    hMapSize <- Gen.int (Range.linear 0 10)
-    stakeholderId <- Gen.list (Range.singleton hMapSize) genStakeholderId
-    opening <- Gen.list (Range.singleton hMapSize) genOpening
-    pure $ HM.fromList $ zip stakeholderId opening
-
-genSharesDistribution :: Gen SharesDistribution
-genSharesDistribution = genCustomHashMap genStakeholderId genWord16
-
-genSharesMap :: Gen SharesMap
-genSharesMap = do
-    hMapSize <- Gen.int (Range.linear 0 10)
-    stakeholderId <- Gen.list (Range.singleton hMapSize) genStakeholderId
-    innerSharesMap <- Gen.list (Range.singleton hMapSize) genInnerSharesMap
-    pure $ HM.fromList $ zip stakeholderId innerSharesMap
-
-genSignedCommitment :: ProtocolMagic -> Gen SignedCommitment
-genSignedCommitment pm =
-    (,,) <$> genPublicKey <*> genCommitment <*> genCommitmentSignature pm
-
--- We mod the size to the range [0,5000) to give relatively large tests which
--- are still reasonably fast to generate.
-genSscPayload :: ProtocolMagic -> Gen SscPayload
-genSscPayload pm = Gen.scale (`mod` 5000) $
-    Gen.choice
-        [ CertificatesPayload <$> genVssCertificatesMap pm
-        , CommitmentsPayload <$> genCommitmentsMap pm <*> genVssCertificatesMap pm
-        , OpeningsPayload <$> genOpeningsMap <*> genVssCertificatesMap pm
-        , SharesPayload <$> genSharesMap <*> genVssCertificatesMap pm
-        ]
-
-genSscProof :: ProtocolMagic -> Gen SscProof
-genSscProof pm = mkSscProof <$> genSscPayload pm
-
-genVssCertificate :: ProtocolMagic -> Gen VssCertificate
-genVssCertificate pm =
-    mkVssCertificate pm
-        <$> genSecretKey
-        <*> (asBinary <$> genVssPublicKey)
-        <*> genEpochIndex
-
-genVssCertificatesHash :: ProtocolMagic -> Gen VssCertificatesHash
-genVssCertificatesHash pm =
-    hash <$> genCustomHashMap genStakeholderId (genVssCertificate pm)
-
-genVssCertificatesMap :: ProtocolMagic -> Gen VssCertificatesMap
-genVssCertificatesMap pm =
-    mkVssCertificatesMap <$> Gen.list (Range.linear 0 5) (genVssCertificate pm)
 
 ----------------------------------------------------------------------------
 -- Pos.Core.Update Generators

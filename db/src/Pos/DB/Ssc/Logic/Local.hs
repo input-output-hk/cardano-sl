@@ -31,13 +31,16 @@ import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Genesis as Genesis (Config, configBlkSecurityParam,
                      configBlockVersionData, configEpochSlots)
 import           Pos.Chain.Lrc (RichmenStakes)
-import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem, PureToss,
+import           Pos.Chain.Ssc (HasSscConfiguration, InnerSharesMap,
+                     MonadSscMem, Opening, PureToss, SignedCommitment,
                      SscGlobalState, SscLocalData (..), SscLocalQuery,
-                     SscLocalUpdate, SscTag (..), SscVerifyError (..), TossT,
-                     askSscMem, evalPureTossWithLogger, evalTossT, execTossT,
+                     SscLocalUpdate, SscPayload (..), SscTag (..),
+                     SscVerifyError (..), TossT, VssCertificate, askSscMem,
+                     evalPureTossWithLogger, evalTossT, execTossT,
                      hasCertificateToss, hasCommitmentToss, hasOpeningToss,
                      hasSharesToss, isCommitmentIdx, isGoodSlotForTag,
                      isOpeningIdx, isSharesIdx, ldEpoch, ldModifier, ldSize,
+                     mkCommitmentsMap, mkVssCertificatesMapSingleton,
                      normalizeToss, refreshToss, sscGlobal, sscLocal,
                      sscRunGlobalQuery, sscRunLocalQuery, sscRunLocalSTM,
                      supplyPureTossEnv, syncingStateWith, tmCertificates,
@@ -46,9 +49,6 @@ import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem, PureToss,
 import           Pos.Core (BlockCount, EpochIndex, SlotId (..), StakeholderId,
                      epochIndexL, kEpochSlots)
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
-import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
-                     SscPayload (..), VssCertificate, mkCommitmentsMap,
-                     mkVssCertificatesMapSingleton)
 import           Pos.Core.Update (BlockVersionData (..))
 import           Pos.DB (MonadBlockDBRead, MonadDBRead,
                      MonadGState (gsAdoptedBVData))

@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Pos.Core.Ssc.VssCertificate
+module Pos.Chain.Ssc.VssCertificate
        ( VssCertificate (..)
 
        , _vcVssKey
@@ -26,7 +26,7 @@ import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, build, int, (%))
 import qualified Formatting.Buildable as Buildable
 import           Text.JSON.Canonical (FromJSON (..), Int54, JSValue (..),
-                     ReportSchemaErrors, ToJSON (..), fromJSField, mkObject)
+                     ToJSON (..), fromJSField, mkObject)
 
 import           Pos.Binary.Class (AsBinary, Bi (..), encodeListLen,
                      enforceSize)
@@ -35,7 +35,7 @@ import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Crypto (ProtocolMagic, PublicKey, SecretKey,
                      SignTag (SignVssCert), Signature, VssPublicKey, checkSig,
                      sign, toPublic)
-import           Pos.Util.Json.Canonical ()
+import           Pos.Util.Json.Canonical (SchemaError)
 
 -- | VssCertificate allows VssPublicKey to participate in MPC. Each
 -- stakeholder should create a Vss keypair, sign VSS public key with signing
@@ -106,7 +106,7 @@ instance Monad m => ToJSON m VssCertificate where
             , ("signingKey", toJSON (vcSigningKey vc))
             ]
 
-instance (ReportSchemaErrors m) => FromJSON m VssCertificate where
+instance MonadError SchemaError m => FromJSON m VssCertificate where
     fromJSON obj = do
         vssKey <- fromJSField obj "vssKey"
         expiryEpoch <- fromIntegral @Int54 <$> fromJSField obj "expiryEpoch"

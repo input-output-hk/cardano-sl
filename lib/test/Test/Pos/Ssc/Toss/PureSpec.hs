@@ -15,10 +15,10 @@ import           Test.QuickCheck (Arbitrary (..), Gen, Property, forAll, listOf,
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
+import           Pos.Chain.Ssc (InnerSharesMap, Opening, SignedCommitment,
+                     VssCertificate (..))
 import qualified Pos.Chain.Ssc as Toss
 import           Pos.Core (EpochOrSlot, StakeholderId, addressHash)
-import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
-                     VssCertificate (..))
 
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Infra.Arbitrary.Ssc ()

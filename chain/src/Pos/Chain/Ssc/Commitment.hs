@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Pos.Core.Ssc.Commitment
+module Pos.Chain.Ssc.Commitment
        ( Commitment (..)
        , CommitmentSignature
        , SignedCommitment

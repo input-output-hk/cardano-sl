@@ -1,5 +1,5 @@
 name:                cardano-sl-binary-test
-version:             1.3.0
+version:             1.3.1
 synopsis:            Cardano SL - binary serializarion (tests)
 description:         This package contains test helpers for cardano-sl-binary.
 license:             MIT

@@ -1,5 +1,5 @@
 name:                cardano-sl-binary
-version:             1.3.0
+version:             1.3.1
 synopsis:            Cardano SL - binary serialization
 description:         This package defines a type class for binary serialization,
                      helpers and instances.

@@ -1,4 +1,5 @@
 {-# LANGUAGE InstanceSigs           #-}
+{-# LANGUAGE Rank2Types             #-}
 {-# LANGUAGE TypeFamilies           #-}
 
 -- | Translation of an abstract chain into Cardano.
@@ -6,17 +7,26 @@ module Chain.Abstract.Translate.ToCardano (
     IntT
   ) where
 
+import           Cardano.Wallet.Kernel.Types (RawResolvedTx(..), mkRawResolvedTx)
 import           Chain.Abstract (Output(..), Transaction(..), hash, outAddr)
 import           Control.Lens ((%=), ix)
 import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Except
+import           Data.Constraint (Dict(..))
+import qualified Data.List.NonEmpty as NE
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import           Pos.Chain.Txp (TxAux(..), TxOutAux(..), TxId, TxIn(..), TxOut(..))
+import           Pos.Chain.Update (HasUpdateConfiguration)
+import           Pos.Client.Txp.Util (makeMPubKeyTx, makeRedemptionTx)
+import           Pos.Core (HasConfiguration, ProtocolMagic)
 import           Pos.Core.Common (Coin(..), mkCoin)
-import           Pos.Chain.Txp (TxOutAux(..), TxId, TxIn(..), TxOut(..))
+import           Pos.Crypto.Signing.Safe (SafeSigner(SafeSigner, FakeSigner))
 import           Universum
-import           UTxO.Context (Addr, AddrInfo(..), TransCtxt(..), resolveAddr)
-import           UTxO.Crypto (SomeKeyPair, TxOwnedInput)
+import           UTxO.Context (Addr, AddrInfo(..), TransCtxt(..), resolveAddr, CardanoContext(..))
+import           UTxO.Crypto (SomeKeyPair, TxOwnedInput,
+                   ClassifiedInputs(InputsRegular, InputsRedeem), classifyInputs,
+                   RegularKeyPair(..), RedeemKeyPair(..))
 import qualified UTxO.DSL as DSL (Hash, Input(..), Transaction, Value, outAddr)
 import           UTxO.Interpreter (
                    Interpretation(..)
@@ -53,14 +63,22 @@ data IntCtxt h = IntCtxt {
 makeLenses ''IntCtxt
 
 {-------------------------------------------------------------------------------
+  Extract some values we need from the translation context
+-------------------------------------------------------------------------------}
+
+magic :: TransCtxt -> ProtocolMagic
+magic = ccMagic . tcCardano
+
+{-------------------------------------------------------------------------------
 Errors that may occur during interpretation
 -------------------------------------------------------------------------------}
 
 -- | Interpretation error
 data IntException
-  = IntUnknownHash     Text
-  | IntIndexOutOfRange Text Word32 -- ^ During input resolution (hash and index)
-    deriving Show -- TODO
+  = IntUnknownHash      Text
+  | IntExClassifyInputs Text
+  | IntIndexOutOfRange  Text Word32 -- ^ During input resolution (hash and index)
+    deriving Show
 
 instance Exception IntException
 
@@ -75,6 +93,8 @@ instance Exception IntException
 -- | Translation environment
 data TranslateEnv = TranslateEnv {
       teContext :: TransCtxt
+    , teConfig  :: Dict HasConfiguration
+    , teUpdate  :: Dict HasUpdateConfiguration
     }
 
 newtype TranslateT e m a = TranslateT {
@@ -114,8 +134,29 @@ newtype IntT h e m a = IntT {
 
 -- | Evaluate state strictly
 instance Monad m => MonadState (IntCtxt h) (IntT h e m) where
- get    = IntT $ get
- put !s = IntT $ put s
+  get    = IntT $ get
+  put !s = IntT $ put s
+
+-- | Lift functions that want the configuration as type class constraints
+withConfig :: Monad m
+           => ((HasConfiguration, HasUpdateConfiguration) => TranslateT e m a)
+           -> TranslateT e m a
+withConfig f = do
+    Dict <- TranslateT $ asks teConfig
+    Dict <- TranslateT $ asks teUpdate
+    f
+
+-- | Map errors
+mapTranslateErrors :: Functor m
+                   => (e -> e') -> TranslateT e m a -> TranslateT e' m a
+mapTranslateErrors f (TranslateT ma) = TranslateT $ withExceptT f ma
+
+-- | Convenience function to list actions in the 'Translate' monad
+liftTranslateInt :: Monad m
+                 => (   (HasConfiguration, HasUpdateConfiguration)
+                     => TranslateT IntException m a)
+                 -> IntT h e m a
+liftTranslateInt ta =  IntT $ lift $ mapTranslateErrors Left $ withConfig $ ta
 
 {-------------------------------------------------------------------------------
   Dealing with the transactions
@@ -208,9 +249,54 @@ instance DSL.Hash h Addr => Interpret Abstract2Cardano h (DSL.Input h Addr) wher
       -- We figure out who must sign the input by looking at the output
       spentOutput   <- inpSpentOutput' inp
       resolvedInput <- (int @Abstract2Cardano) spentOutput
-      AddrInfo{..} <- (int @Abstract2Cardano) $ outAddr spentOutput
-      inpTrans'    <- intHash $ inpTrans
+      AddrInfo{..}  <- (int @Abstract2Cardano) $ outAddr spentOutput
+      inpTrans'     <- intHash $ inpTrans
       return (
                (addrInfoAddrKey, TxInUtxo inpTrans' inpIndex)
              , resolvedInput
              )
+
+{-------------------------------------------------------------------------------
+  Instances that change the state
+
+  NOTE: We need to be somewhat careful with using these instances. When
+  interpreting a bunch of transactions, those blocks will be part of the
+  context of whatever is interpreted next.
+-------------------------------------------------------------------------------}
+
+-- | Interpretation of transactions
+instance DSL.Hash h Addr => Interpret Abstract2Cardano h (Transaction h Addr) where
+  type Interpreted Abstract2Cardano (Transaction h Addr) = RawResolvedTx
+
+  int :: forall e m. Monad m
+      => Transaction h Addr -> IntT h e m RawResolvedTx
+  int t = do
+      (trIns', resolvedInputs) <- unzip . toList <$> mapM (int @Abstract2Cardano) (trIns  t)
+      trOuts'                  <-         toList <$> mapM (int @Abstract2Cardano) (trOuts t)
+      txAux   <- liftTranslateInt $ mkTx trIns' trOuts'
+      -- TODO(md): Add the transaction to the state
+      -- putTx t (hash t) -- _something -- hash (taTx txAux)
+      return $ mkRawResolvedTx txAux (NE.fromList resolvedInputs)
+    where
+      mkTx :: [TxOwnedInput SomeKeyPair]
+           -> [TxOutAux]
+           -> TranslateT IntException m TxAux
+      mkTx inps outs = mapTranslateErrors IntExClassifyInputs $ do
+        pm <- asks magic
+        case classifyInputs inps of
+          Left err ->
+            throwError err
+          Right (InputsRegular inps') -> withConfig $
+            return . either absurd identity $
+              makeMPubKeyTx
+                pm
+                (Right . FakeSigner . regKpSec)
+                (NE.fromList inps')
+                (NE.fromList outs)
+          Right (InputsRedeem (kp, inp)) -> withConfig $
+            return $
+              makeRedemptionTx
+                pm
+                (redKpSec kp)
+                (NE.fromList [inp])
+                (NE.fromList outs)

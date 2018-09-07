@@ -8,23 +8,21 @@ import qualified Data.Set    as Set
 import           Test.Hspec
 
 import           Delegation
-import           Delegation.UTxO
 
+alicePay = keyPair (Owner 1)
+aliceStake = keyPair (Owner 2)
+bobPay = keyPair (Owner 3)
+bobStake = keyPair (Owner 4)
+poolPay = keyPair (Owner 5)
+poolStake = keyPair (Owner 6)
 
-alicePay = Owner 1
-aliceStake = Owner 2
-bobPay = Owner 3
-bobStake = Owner 4
-poolPay = Owner 5
-poolStake = Owner 6
+aliceAddr = AddrTxin (hash (vKey alicePay)) (hash (vKey aliceStake))
+bobAddr = AddrTxin (hash (vKey bobPay)) (hash (vKey bobStake))
+poolAddr = AddrTxin (hash (vKey poolPay)) (hash (vKey poolStake))
 
-aliceAddr = AddrTxin (hash (VKey alicePay)) (hash (VKey aliceStake))
-bobAddr = AddrTxin (hash (VKey bobPay)) (hash (VKey bobStake))
-poolAddr = AddrTxin (hash (VKey poolPay)) (hash (VKey poolStake))
-
-aliceStKeyHash = hashKey (VKey aliceStake)
-bobStKeyHash = hashKey (VKey bobStake)
-poolStKeyHash = hashKey (VKey poolStake)
+aliceStKeyHash = hashKey (vKey aliceStake)
+bobStKeyHash = hashKey (vKey bobStake)
+poolStKeyHash = hashKey (vKey poolStake)
 
 genesis = genesisState
             [ TxOut aliceAddr (Coin 10)
@@ -36,61 +34,61 @@ tx1Body = TxBody
             , TxOut bobAddr (Coin 1)
             , TxOut poolAddr (Coin 2) ]
             (Set.fromList
-              [ RegKey (VKey aliceStake)
-              , RegKey (VKey bobStake)
-              , RegKey (VKey poolStake)])
+              [ RegKey (vKey aliceStake)
+              , RegKey (vKey bobStake)
+              , RegKey (vKey poolStake)])
 tx1Wits = Wits
             (Set.fromList
-              [ WitTxin (VKey alicePay) (Sig tx1Body alicePay)
+              [ WitTxin (vKey alicePay) (sign (sKey alicePay) tx1Body)
               ])
             (Set.fromList
-              [ WitCert (VKey aliceStake) (Sig tx1Body aliceStake)
-              , WitCert (VKey bobStake) (Sig tx1Body bobStake)
-              , WitCert (VKey poolStake) (Sig tx1Body poolStake)
+              [ WitCert (vKey aliceStake) (sign (sKey  aliceStake) tx1Body)
+              , WitCert (vKey bobStake) (sign (sKey  bobStake) tx1Body)
+              , WitCert (vKey poolStake) (sign (sKey  poolStake) tx1Body)
               ])
 tx1 = Tx tx1Body tx1Wits
 
 tx2Body = TxBody Set.empty []
             (Set.fromList
-               [ RegPool $ StakePool (VKey poolStake) Map.empty (Coin 1) 0.01 Nothing
-               , RegPool $ StakePool (VKey bobStake) Map.empty (Coin 0) 1 Nothing])
+               [ RegPool $ StakePool (vKey poolStake) Map.empty (Coin 1) 0.01 Nothing
+               , RegPool $ StakePool (vKey bobStake) Map.empty (Coin 0) 1 Nothing])
 tx2Wits = Wits
             Set.empty
             (Set.fromList
-              [ WitCert (VKey poolStake) (Sig tx2Body poolStake)
-              , WitCert (VKey bobStake) (Sig tx2Body bobStake)
+              [ WitCert (vKey poolStake) (sign (sKey  poolStake) tx2Body)
+              , WitCert (vKey bobStake) (sign (sKey  bobStake) tx2Body)
               ])
 tx2 = Tx tx2Body tx2Wits
 
 tx3Body = TxBody Set.empty []
             (Set.fromList
-               [ Delegate (Delegation (VKey aliceStake) (VKey poolStake))
-               , Delegate (Delegation (VKey bobStake) (VKey bobStake))
-               , Delegate (Delegation (VKey poolStake) (VKey poolStake))])
+               [ Delegate (Delegation (vKey aliceStake) (vKey poolStake))
+               , Delegate (Delegation (vKey bobStake) (vKey bobStake))
+               , Delegate (Delegation (vKey poolStake) (vKey poolStake))])
 tx3Wits = Wits
             Set.empty
             (Set.fromList
-              [ WitCert (VKey aliceStake) (Sig tx3Body aliceStake)
-              , WitCert (VKey bobStake) (Sig tx3Body bobStake)
-              , WitCert (VKey poolStake) (Sig tx3Body poolStake)
+              [ WitCert (vKey aliceStake) (sign (sKey  aliceStake) tx3Body)
+              , WitCert (vKey bobStake) (sign (sKey  bobStake) tx3Body)
+              , WitCert (vKey poolStake) (sign (sKey  poolStake) tx3Body)
               ])
 tx3 = Tx tx3Body tx3Wits
 
-tx4Body = TxBody Set.empty [] (Set.fromList [DeRegKey (VKey aliceStake)])
+tx4Body = TxBody Set.empty [] (Set.fromList [DeRegKey (vKey aliceStake)])
 tx4Wits = Wits Set.empty
-            (Set.fromList [WitCert (VKey aliceStake) (Sig tx4Body aliceStake)])
+            (Set.fromList [WitCert (vKey aliceStake) (sign (sKey  aliceStake) tx4Body)])
 tx4 = Tx tx4Body tx4Wits
 
 tx5Body = TxBody Set.empty []
-            (Set.fromList [Delegate (Delegation (VKey bobStake) (VKey poolStake))])
+            (Set.fromList [Delegate (Delegation (vKey bobStake) (vKey poolStake))])
 tx5Wits = Wits Set.empty
-            (Set.fromList [WitCert (VKey bobStake) (Sig tx5Body bobStake)])
+            (Set.fromList [WitCert (vKey bobStake) (sign (sKey  bobStake) tx5Body)])
 tx5 = Tx tx5Body tx5Wits
 
 tx6Body = TxBody Set.empty []
-            (Set.fromList [RetirePool (VKey poolStake) 5])
+            (Set.fromList [RetirePool (vKey poolStake) 5])
 tx6Wits = Wits Set.empty
-            (Set.fromList [WitCert (VKey poolStake) (Sig tx6Body poolStake)])
+            (Set.fromList [WitCert (vKey poolStake) (sign (sKey  poolStake) tx6Body)])
 tx6 = Tx tx6Body tx6Wits
 
 ledgerState :: Ledger -> Either [ValidationError] LedgerState

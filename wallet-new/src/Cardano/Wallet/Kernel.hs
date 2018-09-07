@@ -28,7 +28,8 @@ import           Universum hiding (State, init)
 
 import           Control.Concurrent.Async (async, cancel)
 import           Control.Concurrent.MVar (modifyMVar, modifyMVar_)
-import           Data.Acid (AcidState, openLocalStateFrom, createCheckpoint, createArchive)
+import           Data.Acid (AcidState, createArchive, createCheckpoint,
+                     openLocalStateFrom)
 import           Data.Acid.Memory (openMemoryState)
 import qualified Data.Map.Strict as Map
 import           Data.Typeable (typeRep)

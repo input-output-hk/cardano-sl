@@ -78,16 +78,14 @@ data DatabasePaths
 
 -- | Use the default paths on disk. See 'DatabasePaths' for more details.
 useDefaultPaths :: DatabaseMode
-useDefaultPaths = UseFilePath
-    $ DatabasePaths
-        (defaultAcidStatePath (Proxy @DB))
-        defaultSqlitePath
+useDefaultPaths =
+    UseFilePath $ DatabasePaths defaultAcidStatePath defaultSqlitePath
 
-defaultAcidStatePath :: Typeable st => Proxy st -> FilePath
-defaultAcidStatePath p = "state" </> show (typeRep p)
+defaultAcidStatePath :: FilePath
+defaultAcidStatePath = "wallet-db-acid"
 
 defaultSqlitePath :: FilePath
-defaultSqlitePath = "./wallet-db-sqlite.sqlite"
+defaultSqlitePath = "./wallet-db-sqlite.sqlite3"
 
 -- | Allocate wallet resources
 --

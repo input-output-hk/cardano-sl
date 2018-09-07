@@ -15,7 +15,7 @@ import           Pos.Binary.Core.Block ()
 import           Pos.Binary.Core.Common ()
 import qualified Pos.Core.Block.Blockchain as T
 import           Pos.Core.Block.Union.Types (BlockHeader (..))
-import           Pos.Crypto.Configuration (ProtocolMagic (..))
+import           Pos.Crypto.Configuration (ProtocolMagicId (..))
 import           Pos.Util.Util (cborError)
 
 instance ( Typeable b
@@ -26,14 +26,14 @@ instance ( Typeable b
          ) =>
          Bi (T.GenericBlockHeader b) where
     encode bh =  encodeListLen 5
-              <> encode (getProtocolMagic (T._gbhProtocolMagic bh))
+              <> encode (unProtocolMagicId (T._gbhProtocolMagicId bh))
               <> encode (T._gbhPrevBlock bh)
               <> encode (T._gbhBodyProof bh)
               <> encode (T._gbhConsensus bh)
               <> encode (T._gbhExtra bh)
     decode = do
         enforceSize "GenericBlockHeader b" 5
-        _gbhProtocolMagic <- ProtocolMagic <$> decode
+        _gbhProtocolMagicId <- ProtocolMagicId <$> decode
         _gbhPrevBlock <- decode
         _gbhBodyProof <- decode
         _gbhConsensus <- decode

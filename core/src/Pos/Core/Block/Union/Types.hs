@@ -33,7 +33,7 @@ module Pos.Core.Block.Union.Types
        , HasPrevBlock (..)
 
        , blockHeaderHash
-       , blockHeaderProtocolMagic
+       , blockHeaderProtocolMagicId
 
        -- * IsHeader classes
        , IsHeader
@@ -64,7 +64,7 @@ import           Pos.Core.Slotting (HasEpochIndex (..), HasEpochOrSlot (..), Slo
 import           Pos.Core.Ssc (mkSscProof)
 import           Pos.Core.Txp (mkTxProof)
 import           Pos.Core.Update (HasBlockVersion (..), HasSoftwareVersion (..), mkUpdateProof)
-import           Pos.Crypto (Hash, ProtocolMagic, PublicKey, Signature, hash, unsafeHash)
+import           Pos.Crypto (Hash, ProtocolMagicId, PublicKey, Signature, hash, unsafeHash)
 import           Pos.Util.Some (Some, applySome, liftLensSome)
 
 ----------------------------------------------------------------------------
@@ -264,9 +264,9 @@ instance (BHeaderHash b ~ HeaderHash) =>
     prevBlockL = gbHeader . gbhPrevBlock
 
 -- | The 'ProtocolMagic' in a 'BlockHeader'.
-blockHeaderProtocolMagic :: BlockHeader -> ProtocolMagic
-blockHeaderProtocolMagic (BlockHeaderGenesis gbh) = _gbhProtocolMagic gbh
-blockHeaderProtocolMagic (BlockHeaderMain mbh)    = _gbhProtocolMagic mbh
+blockHeaderProtocolMagicId :: BlockHeader -> ProtocolMagicId
+blockHeaderProtocolMagicId (BlockHeaderGenesis gbh) = _gbhProtocolMagicId gbh
+blockHeaderProtocolMagicId (BlockHeaderMain mbh)    = _gbhProtocolMagicId mbh
 
 makePrisms 'BlockHeaderGenesis
 

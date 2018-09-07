@@ -24,9 +24,9 @@ import           Pos.Core (Block, BlockHeader, BlockVersionData (..), Body, Body
                            _mbUpdatePayload)
 import           Pos.Core.Block.Main ()
 import           Pos.Core.Common (CoinPortion, SharedSeed (..))
-import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
 import           Pos.Core.Genesis
-import           Pos.Crypto (ProtocolMagic (..))
+import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
+import           Pos.Crypto (ProtocolMagic (..), ProtocolMagicId (..), RequiresNetworkMagic (..))
 
 import           Test.Pos.Block.Arbitrary.Generate (generateMainBlock)
 
@@ -34,7 +34,7 @@ import           Test.Pos.Block.Arbitrary.Generate (generateMainBlock)
 -- 'MainBlock'.
 
 pm :: ProtocolMagic
-pm = ProtocolMagic 0
+pm = ProtocolMagic (ProtocolMagicId 0) NMMustBeNothing
 
 pc :: ProtocolConstants
 pc = ProtocolConstants

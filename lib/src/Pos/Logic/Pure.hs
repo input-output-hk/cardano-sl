@@ -21,21 +21,22 @@ import           Pos.Core.Block (BlockHeaderAttributes, BlockSignature (..), Mai
                                  MainBlockHeader, MainBlockchain, MainBody (..),
                                  MainConsensusData (..), MainExtraBodyData (..),
                                  MainExtraHeaderData (..), MainProof (..))
+import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Common (BlockCount (..), ChainDifficulty (..))
 import           Pos.Core.Delegation (DlgPayload (..))
 import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..), SlotId (..))
 import           Pos.Core.Ssc (SscPayload (..), SscProof (..), VssCertificatesMap (..))
 import           Pos.Core.Txp (TxProof (..))
 import           Pos.Core.Update (UpdatePayload (..), UpdateProof)
-import           Pos.Crypto.Configuration (ProtocolMagic (..))
+import           Pos.Crypto.Configuration (ProtocolMagic (..), ProtocolMagicId (..),
+                                           RequiresNetworkMagic (..))
 import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
 import           Pos.Crypto.Signing (PublicKey (..), SecretKey (..), Signature (..),
                                      deterministicKeyGen, signRaw)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
-import           Pos.DB.Class (SerializedBlock, Serialized (..))
+import           Pos.DB.Class (Serialized (..), SerializedBlock)
 import           Pos.Merkle (MerkleRoot (..))
 import           Pos.Txp.Base (emptyTxPayload)
-import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 
 import           Pos.Logic.Types (KeyVal (..), Logic (..))
 
@@ -182,7 +183,7 @@ blockHeader = BlockHeaderMain mainBlockHeader
 
 mainBlockHeader :: MainBlockHeader
 mainBlockHeader = UnsafeGenericBlockHeader
-    { _gbhProtocolMagic = protocolMagic
+    { _gbhProtocolMagicId = protocolMagicId
     , _gbhPrevBlock = mainBlockHeaderHash
     , _gbhBodyProof = bodyProof
     , _gbhConsensus = consensusData
@@ -245,8 +246,11 @@ chainDifficulty = ChainDifficulty
 blockSignature :: BlockSignature
 blockSignature = BlockSignature (coerce (signRaw protocolMagic Nothing secretKey mempty))
 
+protocolMagicId :: ProtocolMagicId
+protocolMagicId = ProtocolMagicId 0
+
 protocolMagic :: ProtocolMagic
-protocolMagic = ProtocolMagic 0
+protocolMagic = ProtocolMagic protocolMagicId NMMustBeNothing
 
 extraHeaderData :: ExtraHeaderData MainBlockchain
 extraHeaderData = MainExtraHeaderData

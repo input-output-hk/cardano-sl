@@ -39,7 +39,7 @@ import           Pos.Core.Update (ApplicationName (..), BlockVersion (..), Block
                                   BlockVersionModifier (..), SoftforkRule (..),
                                   SoftwareVersion (..), SystemTag (..), UpdateData (..),
                                   UpdatePayload (..), UpdateProposal (..), UpdateVote (..))
-import           Pos.Crypto (ProtocolMagic (..))
+import           Pos.Crypto (ProtocolMagic (..), ProtocolMagicId (..), RequiresNetworkMagic (..))
 import           Pos.Crypto.Hashing (AbstractHash (..), WithHash (..))
 import           Pos.Crypto.HD (HDAddressPayload (..))
 import           Pos.Crypto.SecretSharing (SecretProof)
@@ -72,6 +72,8 @@ getCopyBi = contain $ do
 -- Core types
 ----------------------------------------------------------------------------
 
+deriveSafeCopySimple 0 'base ''RequiresNetworkMagic
+deriveSafeCopySimple 0 'base ''ProtocolMagicId
 deriveSafeCopySimple 0 'base ''ProtocolMagic
 
 deriveSafeCopySimple 0 'base ''Script
@@ -183,7 +185,7 @@ instance ( SafeCopy (BHeaderHash b)
          SafeCopy (GenericBlockHeader b) where
     getCopy =
         contain $
-        do _gbhProtocolMagic <- safeGet
+        do _gbhProtocolMagicId <- safeGet
            _gbhPrevBlock <- safeGet
            _gbhBodyProof <- safeGet
            _gbhConsensus <- safeGet
@@ -191,7 +193,7 @@ instance ( SafeCopy (BHeaderHash b)
            return $! UnsafeGenericBlockHeader {..}
     putCopy UnsafeGenericBlockHeader {..} =
         contain $
-        do safePut _gbhProtocolMagic
+        do safePut _gbhProtocolMagicId
            safePut _gbhPrevBlock
            safePut _gbhBodyProof
            safePut _gbhConsensus

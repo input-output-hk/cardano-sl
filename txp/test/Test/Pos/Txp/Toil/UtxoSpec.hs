@@ -37,6 +37,7 @@ import           Pos.Txp (ToilVerFailure (..), Utxo, VTxContext (..), VerifyTxUt
                           utxoToLookup, verifyTxUtxo)
 import qualified Pos.Util.Modifier as MM
 
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Txp.Arbitrary (BadSigsTx (..), DoubleInputTx (..), GoodTx (..))
 import           Test.Pos.Util.QuickCheck.Arbitrary (SmallGenerator (..), nonrepeating, runGen)
 import           Test.Pos.Util.QuickCheck.Property (qcIsLeft, qcIsRight)
@@ -47,7 +48,7 @@ import           Test.Pos.Util.QuickCheck.Property (qcIsLeft, qcIsRight)
 
 spec :: Spec
 spec =
-    withGenesisSpec 0 defaultCoreConfiguration
+    withGenesisSpec 0 (defaultCoreConfiguration dummyProtocolMagic)
         $ \pm -> describe "Txp.Toil.Utxo" $ do
               describe "utxoGet (no modifier)" $ do
                   it "returns Nothing when given empty Utxo"

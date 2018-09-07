@@ -18,13 +18,13 @@ import qualified Pos.Block.Logic.Integrity as T
 import           Pos.Core (GenesisHash (..), HasConfiguration, genesisHash)
 import qualified Pos.Core as T
 import           Pos.Core.Chrono (NewestFirst (..))
-import           Pos.Crypto (ProtocolMagic (..), ProxySecretKey (pskIssuerPk), SecretKey,
-                             SignTag (..), createPsk, proxySign, sign, toPublic)
+import           Pos.Crypto (ProtocolMagicId (..), ProxySecretKey (pskIssuerPk), SecretKey,
+                             SignTag (..), createPsk, getProtocolMagic, proxySign, sign, toPublic)
 import           Pos.Data.Attributes (mkAttributes)
 
 import           Test.Pos.Block.Arbitrary as T
 import           Test.Pos.Configuration (withDefConfiguration)
-import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic, dummyProtocolMagicId)
 
 -- This tests are quite slow, hence max success is at most 20.
 spec :: Spec
@@ -80,11 +80,11 @@ genesisHeaderFormation prevHeader epoch body = header === manualHeader
         epoch
         body
     manualHeader = T.UnsafeGenericBlockHeader
-        { T._gbhProtocolMagic = dummyProtocolMagic
-        , T._gbhPrevBlock     = h
-        , T._gbhBodyProof     = proof
-        , T._gbhConsensus     = consensus h proof
-        , T._gbhExtra         = T.GenesisExtraHeaderData $ mkAttributes ()
+        { T._gbhProtocolMagicId = dummyProtocolMagicId
+        , T._gbhPrevBlock       = h
+        , T._gbhBodyProof       = proof
+        , T._gbhConsensus       = consensus h proof
+        , T._gbhExtra           = T.GenesisExtraHeaderData $ mkAttributes ()
         }
     h          = maybe genesisHash T.headerHash prevHeader
     proof      = T.mkBodyProof @T.GenesisBlockchain body
@@ -114,7 +114,7 @@ mainHeaderFormation prevHeader slotId signer body extra =
                                                  extra
     manualHeader =
         T.UnsafeGenericBlockHeader
-        { T._gbhProtocolMagic = dummyProtocolMagic
+        { T._gbhProtocolMagicId = dummyProtocolMagicId
         , T._gbhPrevBlock = prevHash
         , T._gbhBodyProof = proof
         , T._gbhConsensus = consensus proof
@@ -165,10 +165,10 @@ validateGoodMainHeader (T.getHAndP -> (params, header)) =
 -- reason.
 validateBadProtocolMagicMainHeader :: T.HeaderAndParams -> Bool
 validateBadProtocolMagicMainHeader (T.getHAndP -> (params, header)) =
-    let protocolMagic' = ProtocolMagic (getProtocolMagic dummyProtocolMagic + 1)
+    let protocolMagic' = ProtocolMagicId (getProtocolMagic dummyProtocolMagic + 1)
         header' = case header of
-            T.BlockHeaderGenesis h -> T.BlockHeaderGenesis (h { T._gbhProtocolMagic = protocolMagic' })
-            T.BlockHeaderMain h    -> T.BlockHeaderMain    (h { T._gbhProtocolMagic = protocolMagic' })
+            T.BlockHeaderGenesis h -> T.BlockHeaderGenesis (h { T._gbhProtocolMagicId = protocolMagic' })
+            T.BlockHeaderMain h    -> T.BlockHeaderMain    (h { T._gbhProtocolMagicId = protocolMagic' })
     in  not $ isVerSuccess $ T.verifyHeader dummyProtocolMagic params header'
 
 validateGoodHeaderChain :: T.BlockHeaderList -> Bool

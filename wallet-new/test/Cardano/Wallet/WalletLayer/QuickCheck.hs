@@ -21,6 +21,7 @@ import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),
 
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 
+import           Pos.Chain.Update (ConfirmedProposalState)
 import           Pos.Core ()
 import           Test.Pos.Chain.Txp.Arbitrary ()
 import           Test.QuickCheck (Arbitrary (..), arbitrary, generate, oneof)
@@ -71,6 +72,9 @@ bracketPassiveWallet =
         , postponeUpdate       = liftedGen
         , resetWalletState     = liftedGen
         , importWallet         = \_ -> liftedGen
+
+        , waitForUpdate        = liftedGen
+        , addUpdate            = \_ -> liftedGen
         }
 
 -- | A utility function.
@@ -163,3 +167,10 @@ instance Arbitrary ImportWalletError where
                       , ImportWalletNoWalletFoundInBackup <$> arbitrary
                       , ImportWalletCreationFailed <$> arbitrary
                       ]
+
+-- This is obviously not a valid 'Arbitrary' instance, but one will be provided
+-- when we will be start using this 'WalletLayer' implementation. Note how the
+-- core layer already provides one, it's just a matter of exposing it to other
+-- components and use it.
+instance Arbitrary ConfirmedProposalState where
+    arbitrary = oneof []

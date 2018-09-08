@@ -1,15 +1,15 @@
 steps:
-  - label: 'stack2nix'
-    command: 'nix-shell -Q -j 4 --run scripts/check-stack2nix.sh'
-    agents:
-      system: x86_64-linux
-
-  - label: 'release.nix'
-    command: 'nix-shell --run scripts/ci/check-hydra.sh'
-    agents:
-      system: x86_64-linux
-
-  - label: 'explorer frontend: checking generated dependencies'
-    command: "cd explorer/frontend && ./nix/generate-frontend-deps.hs --test"
+  - label: 'stack rebuild'
+    env:
+      # fixme: bucket in eu-central-1 is better for buildkite agents
+      AWS_REGION: us-west-1
+      S3_BUCKET: appveyor-ci-cache
+      CACHE_S3_MAX_SIZE: 2500MB
+    command:
+      - "rm -rf /build/cardano-sl"
+      - "git clone . /build/cardano-sl"
+      - "cd /build/cardano-sl"
+      - "nix-build scripts/ci/buildkite -o stack-rebuild"
+      - "./stack-rebuild"
     agents:
       system: x86_64-linux

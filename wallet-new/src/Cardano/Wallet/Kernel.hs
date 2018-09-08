@@ -13,6 +13,8 @@ module Cardano.Wallet.Kernel (
     , DatabaseMode(..)
     , DatabasePaths(..)
     , useDefaultPaths
+    , defaultAcidStatePath
+    , defaultSqlitePath
       -- ** Lenses
     , walletNode
     , walletLogMessage
@@ -27,7 +29,8 @@ import           Universum hiding (State, init)
 
 import           Control.Concurrent.Async (async, cancel)
 import           Control.Concurrent.MVar (modifyMVar, modifyMVar_)
-import           Data.Acid (AcidState, openLocalState, openLocalStateFrom)
+import           Data.Acid (AcidState, createArchive, createCheckpoint,
+                     openLocalStateFrom)
 import           Data.Acid.Memory (openMemoryState)
 import qualified Data.Map.Strict as Map
 
@@ -64,18 +67,23 @@ data DatabaseMode
 -- | A configuration type for specifying where to load the databases from.
 data DatabasePaths
     = DatabasePaths
-    { dbPathAcidState :: Maybe FilePath
-    -- ^ The path for the @acid-state@ database. If 'Nothing' is passed, then
-    -- this uses the default value (see 'openLocalState').
-    , dbPathMetadata  :: Maybe FilePath
+    { dbPathAcidState :: FilePath
+    -- ^ The path for the @acid-state@ database.
+    , dbPathMetadata  :: FilePath
     -- ^ This path is used for the SQLite database that contains the transaction
-    -- metadata. If 'Nothing' is provided, then this uses the path
-    -- @./wallet-db-sqlite.sqlite3@
+    -- metadata.
     } deriving (Eq, Show)
 
 -- | Use the default paths on disk. See 'DatabasePaths' for more details.
 useDefaultPaths :: DatabaseMode
-useDefaultPaths = UseFilePath (DatabasePaths Nothing Nothing)
+useDefaultPaths =
+    UseFilePath $ DatabasePaths defaultAcidStatePath defaultSqlitePath
+
+defaultAcidStatePath :: FilePath
+defaultAcidStatePath = "wallet-db-acid"
+
+defaultSqlitePath :: FilePath
+defaultSqlitePath = "./wallet-db-sqlite.sqlite3"
 
 -- | Allocate wallet resources
 --
@@ -90,7 +98,7 @@ bracketPassiveWallet
     -> (PassiveWallet -> m a) -> m a
 bracketPassiveWallet mode logMsg keystore node f =
     bracket (liftIO $ handlesOpen mode)
-            (liftIO . handlesClose)
+            (liftIO . handlesClose mode)
             (\ handles ->
                 bracket
                   (liftIO $ initPassiveWallet logMsg keystore handles node)
@@ -112,14 +120,21 @@ handlesOpen mode =
             metadb <- openMetaDB ":memory:"
             migrateMetaDB metadb
             return $ Handles db metadb
-        UseFilePath (DatabasePaths macidDb msqliteDb) -> do
-            db <- maybe openLocalState openLocalStateFrom macidDb defDB
-            metadb <- openMetaDB (fromMaybe "./wallet-db-sqlite.sqlite3" msqliteDb)
+        UseFilePath (DatabasePaths acidDb sqliteDb) -> do
+            db <- openLocalStateFrom acidDb defDB
+            metadb <- openMetaDB sqliteDb
             migrateMetaDB metadb
             return $ Handles db metadb
 
-handlesClose :: WalletHandles -> IO ()
-handlesClose (Handles _ meta) = closeMetaDB meta
+handlesClose :: DatabaseMode -> WalletHandles -> IO ()
+handlesClose dbMode (Handles acidDb meta) = do
+    closeMetaDB meta
+    case dbMode of
+        UseInMemory ->
+            pure ()
+        UseFilePath (DatabasePaths _ _) -> do
+            createCheckpoint acidDb
+            createArchive acidDb
 
 {-------------------------------------------------------------------------------
   Wallet Initialisers

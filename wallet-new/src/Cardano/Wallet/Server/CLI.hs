@@ -40,6 +40,8 @@ data WalletDBOptions = WalletDBOptions {
     , walletRebuildDb    :: !Bool
       -- ^ Whether or not to wipe and rebuild the DB.
     , walletAcidInterval :: !Minute
+      -- ^ The delay between one operation on the acid-state DB and the other.
+      -- Such @operation@ entails things like checkpointing the DB.
     , walletFlushDb      :: !Bool
     } deriving Show
 

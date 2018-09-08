@@ -135,6 +135,7 @@ library
                        Cardano.Wallet.Server
                        Cardano.Wallet.Server.CLI
                        Cardano.Wallet.Server.Plugins
+                       Cardano.Wallet.Server.Plugins.AcidState
                        Cardano.Wallet.Server.LegacyPlugins
                        Cardano.Wallet.TypeLits
                        Cardano.Wallet.Types.UtxoStatistics
@@ -199,6 +200,7 @@ library
                      , foldl
                      , formatting
                      , formatting
+                     , filepath
                      , generics-sop
                      , http-api-data
                      , http-client

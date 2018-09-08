@@ -42,6 +42,7 @@ import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
 
 import           Cardano.Wallet.Kernel (PassiveWallet)
 import qualified Cardano.Wallet.Kernel as Kernel
+import qualified Cardano.Wallet.Kernel.Internal as Kernel.Internal
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as NodeStateAdaptor
 import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..),
@@ -138,8 +139,8 @@ actionWithWallet coreConfig txpConfig sscParams nodeParams ntpConfig params =
       liftIO $ Keystore.bracketLegacyKeystore userSecret $ \keystore -> do
           let dbPath = walletDbPath (getWalletDbOptions params)
           let dbMode = Kernel.UseFilePath (Kernel.DatabasePaths {
-                Kernel.dbPathAcidState = Just (dbPath <> "-acid")
-              , Kernel.dbPathMetadata  = Just (dbPath <> "-sqlite.sqlite3")
+                Kernel.dbPathAcidState = dbPath <> "-acid"
+              , Kernel.dbPathMetadata  = dbPath <> "-sqlite.sqlite3"
               })
           WalletLayer.Kernel.bracketPassiveWallet dbMode logMessage' keystore nodeState $ \walletLayer passiveWallet -> do
               Kernel.init passiveWallet
@@ -147,24 +148,27 @@ actionWithWallet coreConfig txpConfig sscParams nodeParams ntpConfig params =
                                         txpConfig
                                         nr
                                         walletLayer
-                                        (mainAction (walletLayer, passiveWallet) nr)
+                                        (mainAction (walletLayer, passiveWallet) nr dbMode)
   where
     pm = configProtocolMagic coreConfig
     mainAction
         :: (PassiveWalletLayer IO, PassiveWallet)
         -> NodeResources ext
+        -> Kernel.DatabaseMode
         -> (Diffusion Kernel.Mode.WalletMode -> Kernel.Mode.WalletMode ())
     mainAction w nr = runNodeWithInit w nr
 
     runNodeWithInit
         :: (PassiveWalletLayer IO, PassiveWallet)
         -> NodeResources ext
+        -> Kernel.DatabaseMode
         -> (Diffusion Kernel.Mode.WalletMode -> Kernel.Mode.WalletMode ())
-    runNodeWithInit w nr = runNode coreConfig txpConfig nr (plugins w)
+    runNodeWithInit w nr dbMode = runNode coreConfig txpConfig nr (plugins w dbMode)
 
     plugins :: (PassiveWalletLayer IO, PassiveWallet)
+            -> Kernel.DatabaseMode
             -> Plugins.Plugin Kernel.Mode.WalletMode
-    plugins w = mconcat
+    plugins w dbMode = mconcat
         -- The actual wallet backend server.
         [ Plugins.apiServer pm params w
 
@@ -177,7 +181,7 @@ actionWithWallet coreConfig txpConfig sscParams nodeParams ntpConfig params =
         , Plugins.monitoringServer params
 
         -- Periodically compact & snapshot the acid-state database.
-        , Plugins.acidStateSnapshots
+        , Plugins.acidStateSnapshots (view Kernel.Internal.wallets (snd w)) params dbMode
 
         -- | A @Plugin@ to notify frontend via websockets.
         , Plugins.updateNotifier

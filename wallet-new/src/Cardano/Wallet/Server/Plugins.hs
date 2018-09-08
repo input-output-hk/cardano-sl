@@ -14,6 +14,8 @@ module Cardano.Wallet.Server.Plugins
 
 import           Universum
 
+import           Data.Acid (AcidState)
+
 import           Network.Wai (Application, Middleware)
 import           Network.Wai.Handler.Warp (defaultSettings)
 import           Network.Wai.Middleware.Cors (cors, corsMethods,
@@ -22,9 +24,10 @@ import           Network.Wai.Middleware.Cors (cors, corsMethods,
 
 import           Cardano.NodeIPC (startNodeJsIPC)
 import           Cardano.Wallet.API as API
-import           Cardano.Wallet.Kernel (PassiveWallet)
+import           Cardano.Wallet.Kernel (DatabaseMode (..), PassiveWallet)
 import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..),
-                     RunMode, WalletBackendParams (..), isDebugMode)
+                     RunMode, WalletBackendParams (..), getWalletDbOptions,
+                     isDebugMode, walletAcidInterval)
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer,
                      PassiveWalletLayer)
 import           Pos.Crypto (ProtocolMagic)
@@ -33,13 +36,16 @@ import           Pos.Infra.Shutdown (HasShutdownContext (shutdownContext),
                      ShutdownContext)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Util.Wlog (logError, logInfo, usingLoggerName)
+import           Pos.Util.Wlog (logError, logInfo, modifyLoggerName,
+                     usingLoggerName)
 import           Pos.Web (serveDocImpl, serveImpl)
 import qualified Pos.Web.Server
 
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
 import qualified Cardano.Wallet.Kernel.Mode as Kernel
 import qualified Cardano.Wallet.Server as Server
+import           Cardano.Wallet.Server.Plugins.AcidState
+                     (createAndArchiveCheckpoints)
 import qualified Cardano.Wallet.WalletLayer.Kernel as WalletLayer.Kernel
 import qualified Data.ByteString.Char8 as BS8
 import qualified Servant
@@ -140,10 +146,17 @@ monitoringServer (NewWalletBackendParams WalletBackendParams{..}) =
          False -> []
 
 -- | A @Plugin@ to periodically compact & snapshot the acid-state database.
-acidStateSnapshots :: Plugin Kernel.WalletMode
-acidStateSnapshots = [
-    \_diffusion -> logError "Not Implemented: acidStateSnapshots [CBR-305]"
-    ]
+acidStateSnapshots :: AcidState db
+                   -> NewWalletBackendParams
+                   -> DatabaseMode
+                   -> Plugin Kernel.WalletMode
+acidStateSnapshots dbRef params dbMode = pure $ \_diffusion -> do
+    let opts = getWalletDbOptions params
+    modifyLoggerName (const "acid-state-checkpoint-plugin") $
+        createAndArchiveCheckpoints
+            dbRef
+            (walletAcidInterval opts)
+            dbMode
 
 -- | A @Plugin@ to notify frontend via websockets.
 updateNotifier :: Plugin Kernel.WalletMode

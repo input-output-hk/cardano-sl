@@ -1,4 +1,5 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RankNTypes                 #-}
 -- TODO: Not sure about the best way to avoid the orphan instances here
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -125,6 +126,7 @@ import qualified Cardano.Wallet.Kernel.Util.StrictNonEmpty as SNE
 
 -- | Wallet name
 newtype WalletName = WalletName { getWalletName :: Text }
+    deriving (Eq, Show, Arbitrary)
 
 -- | Account name
 newtype AccountName = AccountName { getAccountName :: Text }
@@ -149,6 +151,12 @@ instance Arbitrary HdAddressIx where
 data AssuranceLevel =
     AssuranceLevelNormal
   | AssuranceLevelStrict
+  deriving (Show, Eq)
+
+instance Arbitrary AssuranceLevel where
+    arbitrary = oneof [ pure AssuranceLevelNormal
+                      , pure AssuranceLevelStrict
+                      ]
 
 -- | Interpretation of 'AssuranceLevel'
 --
@@ -165,6 +173,12 @@ data HasSpendingPassword =
 
     -- | If there is a spending password, we record when it was last updated.
   | HasSpendingPassword !(InDb Core.Timestamp)
+  deriving (Show, Eq)
+
+instance Arbitrary HasSpendingPassword where
+    arbitrary = oneof [ pure NoSpendingPassword
+                      , HasSpendingPassword . InDb <$> arbitrary
+                      ]
 
 deriveSafeCopy 1 'base ''WalletName
 deriveSafeCopy 1 'base ''AccountName
@@ -211,11 +225,12 @@ eskToHdRootId = HdRootId . InDb . Core.makePubKeyAddressBoot . Core.encToPublic
 -- as a primary key. This however is a slightly larger refactoring we don't
 -- currently have time for.
 newtype HdRootId = HdRootId { getHdRootId :: InDb Core.Address }
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Show)
+
 
 instance Arbitrary HdRootId where
   arbitrary = do
-      (_, esk) <- Core.safeDeterministicKeyGen <$> (BS.pack <$> vectorOf 12 arbitrary)
+      (_, esk) <- Core.safeDeterministicKeyGen <$> (BS.pack <$> vectorOf 32 arbitrary)
                                                <*> pure mempty
       pure (eskToHdRootId esk)
 
@@ -278,7 +293,14 @@ data HdRoot = HdRoot {
 
       -- | When was this wallet created?
     , _hdRootCreatedAt   :: !(InDb Core.Timestamp)
-    }
+    } deriving (Eq, Show)
+
+instance Arbitrary HdRoot where
+    arbitrary = HdRoot <$> arbitrary
+                       <*> arbitrary
+                       <*> arbitrary
+                       <*> arbitrary
+                       <*> (fmap InDb arbitrary)
 
 -- | Account in a HD wallet
 --

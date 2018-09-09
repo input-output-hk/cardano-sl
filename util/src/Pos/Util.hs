@@ -38,3 +38,5 @@ import           Pos.Util.Queue
 import           Pos.Util.Some
 import           Pos.Util.Timer
 import           Pos.Util.Util
+
+-- Just a comment.

@@ -11,6 +11,7 @@ module Pos.DB.Rocks.Functions
        , closeRocksDB
        , openNodeDBs
        , closeNodeDBs
+       , deleteNodeDBs
        , usingReadOptions
        , usingWriteOptions
 
@@ -39,7 +40,7 @@ import           Data.Conduit (ConduitT, bracketP, yield)
 import qualified Database.RocksDB as Rocks
 import           System.Directory (createDirectoryIfMissing, doesDirectoryExist,
                      removeDirectoryRecursive)
-import           System.FilePath ((</>))
+import           System.FilePath (takeDirectory, (</>))
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Core.Configuration (HasCoreConfiguration)
@@ -105,6 +106,10 @@ openNodeDBs recreate fp = do
 closeNodeDBs :: MonadIO m => NodeDBs -> m ()
 closeNodeDBs NodeDBs {..} =
     mapM_ closeRocksDB [_blockIndexDB, _gStateDB, _lrcDB, _miscDB]
+
+deleteNodeDBs :: MonadIO m => NodeDBs -> m ()
+deleteNodeDBs =
+    liftIO . removeDirectoryRecursive . takeDirectory . _epochDataDir
 
 usingReadOptions
     :: MonadRealDB ctx m

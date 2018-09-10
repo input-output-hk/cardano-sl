@@ -16205,12 +16205,15 @@ cpphs
 ];
 testHaskellDepends = [
 base
+cardano-sl-binary
 cardano-sl-binary-test
 cardano-sl-core
 cardano-sl-core-test
+cardano-sl-util
 cardano-sl-util-test
 filepath
 hedgehog
+lens
 temporary
 universum
 ];

@@ -72,7 +72,7 @@ data CreateWallet =
 
 data CreateWalletError =
       CreateWalletError Kernel.CreateWalletError
-    | CreateWalletFirstAccountCreationFailed Kernel.CreateAccountError
+    | CreateWalletFirstAccountCreationFailed CreateAccountError
 
 -- | Unsound show instance needed for the 'Exception' instance.
 instance Show CreateWalletError where
@@ -257,6 +257,12 @@ instance Show CreateAccountError where
     show = formatToString build
 
 instance Exception CreateAccountError
+
+instance Arbitrary CreateAccountError where
+    arbitrary = oneof [ CreateAccountError <$> arbitrary
+                      , CreateAccountWalletIdDecodingFailed <$> arbitrary
+                      , CreateAccountFirstAddressGenerationFailed <$> arbitrary
+                      ]
 
 instance Buildable CreateAccountError where
     build (CreateAccountError kernelError) =

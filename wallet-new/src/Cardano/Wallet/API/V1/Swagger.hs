@@ -1022,6 +1022,26 @@ swaggerSchemaUIServer =
   </body>
 </html>|]
 
+applyUpdateDescription :: Text
+applyUpdateDescription = [text|
+Apply the next available update proposal from the blockchain. Note that this
+will immediately shutdown the node and makes it unavailable for a short while.
+|]
+
+postponeUpdateDescription :: Text
+postponeUpdateDescription = [text|
+Discard the next available update from the node's local state. Yet, this doesn't
+reject the update which will still be applied as soon as the node is restarted.
+|]
+
+resetWalletStateDescription :: Text
+resetWalletStateDescription = [text|
+Wipe-out the node's local state entirely. The only intended use-case for this
+endpoint is during API integration testing. Note also that this will fail by
+default unless the node is running in debug mode.
+|]
+
+
 --
 -- The API
 --
@@ -1053,3 +1073,6 @@ api (compileInfo, curSoftwareVersion) walletAPI mkDescription = toSwagger wallet
     , deSoftwareVersion       = fromString $ show curSoftwareVersion
     }
   & info.license ?~ ("MIT" & url ?~ URL "https://raw.githubusercontent.com/input-output-hk/cardano-sl/develop/lib/LICENSE")
+  & paths %~ (POST, "/api/internal/apply-update") `setDescription` applyUpdateDescription
+  & paths %~ (POST, "/api/internal/postpone-update") `setDescription` postponeUpdateDescription
+  & paths %~ (DELETE, "/api/internal/reset-wallet-state") `setDescription` resetWalletStateDescription

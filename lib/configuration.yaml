@@ -51,7 +51,9 @@ dev: &dev
           unlockStakeEpoch: 18446744073709551615 # last epoch (maxBound @Word64)
         protocolConstants: &dev_core_genesis_spec_protocolConstants
           k: 2
-          protocolMagic: 55550001
+          protocolMagic:
+            pm: 55550001
+            requiresNetworkMagic: NMMustBeNothing
           vssMinTTL: 2
           vssMaxTTL: 6
         ftsSeed: "c2tvdm9yb2RhIEdndXJkYSBib3JvZGEgcHJvdm9kYSA="
@@ -250,7 +252,9 @@ mainnet_base: &mainnet_base
           unlockStakeEpoch: 18446744073709551615 # last epoch (maxBound @Word64)
         protocolConstants: &mainnet_base_protocolConstants
           k: 2160
-          protocolMagic: 10000000 # arbitrary protocolMagic, to be overridden in actual configs
+          protocolMagic:
+            pm: 10000000 # arbitrary protocolMagic, to be overridden in actual configs
+            requiresNetworkMagic: NMMustBeNothing
           vssMinTTL: 2
           vssMaxTTL: 6
         ftsSeed: "dmFzYSBvcGFzYSBza292b3JvZGEgR2d1cmRhIGJvcm9kYSBwcm92b2Rh"
@@ -14869,7 +14873,9 @@ testnet_launch: &testnet_launch
         <<: *mainnet_base_spec
         protocolConstants:
           <<: *mainnet_base_protocolConstants
-          protocolMagic: 1097911063
+          protocolMagic:
+            pm: 1097911063
+            requiresNetworkMagic: NMMustBeJust
         avvmDistr: {}
         initializer:
           testBalance:
@@ -15008,7 +15014,9 @@ devnet: &devnet
           slotDuration:      20000 # set to desired value
         protocolConstants:
           <<: *mainnet_base_protocolConstants
-          protocolMagic: 170987650
+          protocolMagic:
+            pm: 170987650
+            requiresNetworkMagic: NMMustBeNothing
           k: 6 # set to desired value
         avvmDistr: *mainnet_avvmDistr
         initializer:

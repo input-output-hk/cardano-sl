@@ -192,6 +192,22 @@ spec = describe "Wallets" $ do
                                 fetchAccount (V1.walId wrData)
                             (bimap identity STB res) `shouldSatisfy` isRight
 
+            prop "comes by default with 1 address at the default account" $ withMaxSuccess 50 $ do
+                monadicIO $ do
+                    pwd <- genSpendingPassword
+                    rq  <- genNewWalletRq pwd
+                    withLayer $ \layer _ -> do
+                        liftIO $ do
+                            let fetchAccount wId =
+                                    Handlers.getAccount layer wId (V1.unsafeMkAccountIndex firstHardened)
+                            res <- runExceptT . runHandler' $ do
+                                V1.WalletResponse{..} <- Handlers.newWallet layer rq
+                                fetchAccount (V1.walId wrData)
+                            case res of
+                                 Left e -> throwM e
+                                 Right V1.WalletResponse{..} ->
+                                     length (V1.accAddresses wrData) `shouldBe` 1
+
 
     describe "DeleteWallet" $ do
         describe "Wallet deletion (wallet layer)" $ do

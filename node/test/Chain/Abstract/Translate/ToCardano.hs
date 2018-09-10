@@ -22,12 +22,13 @@ import           Pos.Client.Txp.Util (makeMPubKeyTx, makeRedemptionTx)
 import           Pos.Core (HasConfiguration, ProtocolMagic)
 import           Pos.Core.Common (Coin(..), mkCoin)
 import           Pos.Crypto.Signing.Safe (SafeSigner(SafeSigner, FakeSigner))
+import qualified Pos.Crypto (hash)
 import           Universum
 import           UTxO.Context (Addr, AddrInfo(..), TransCtxt(..), resolveAddr, CardanoContext(..))
 import           UTxO.Crypto (SomeKeyPair, TxOwnedInput,
                    ClassifiedInputs(InputsRegular, InputsRedeem), classifyInputs,
                    RegularKeyPair(..), RedeemKeyPair(..))
-import qualified UTxO.DSL as DSL (Hash, Input(..), Transaction, Value, outAddr)
+import qualified UTxO.DSL as DSL (Hash, Input(..), Transaction, Value, outAddr, hash)
 import           UTxO.Interpreter (
                    Interpretation(..)
                  , Interpret(..)
@@ -274,8 +275,7 @@ instance DSL.Hash h Addr => Interpret Abstract2Cardano h (Transaction h Addr) wh
       (trIns', resolvedInputs) <- unzip . toList <$> mapM (int @Abstract2Cardano) (trIns  t)
       trOuts'                  <-         toList <$> mapM (int @Abstract2Cardano) (trOuts t)
       txAux   <- liftTranslateInt $ mkTx trIns' trOuts'
-      -- TODO(md): Add the transaction to the state
-      -- putTx t (hash t) -- _something -- hash (taTx txAux)
+      putTx t $ Pos.Crypto.hash (taTx txAux)
       return $ mkRawResolvedTx txAux (NE.fromList resolvedInputs)
     where
       mkTx :: [TxOwnedInput SomeKeyPair]

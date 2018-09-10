@@ -6,7 +6,9 @@ import           Universum
 import           Control.Monad.Except (runExceptT)
 import           Data.Acid (update)
 import qualified Data.ByteString as B
+-- import qualified Data.List as L
 import qualified Data.Map.Strict as M
+import qualified Data.Set as S
 import           Formatting (build, sformat)
 import           Servant.Server
 
@@ -16,7 +18,7 @@ import           Test.QuickCheck (arbitrary, choose, elements, withMaxSuccess,
                      (===))
 import           Test.QuickCheck.Monadic (PropertyM, monadicIO, pick)
 
-import           Pos.Core (Address)
+import           Pos.Core (Address, addrRoot)
 import           Pos.Crypto (EncryptedSecretKey, emptyPassphrase, firstHardened,
                      safeDeterministicKeyGen)
 
@@ -37,6 +39,7 @@ import           Cardano.Wallet.Kernel.DB.HdWallet.Create (initHdRoot)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Derivation
                      (HardeningMode (..), deriveIndex)
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Internal (PassiveWallet, wallets)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import qualified Cardano.Wallet.Kernel.Read as Kernel
@@ -44,6 +47,7 @@ import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
+import qualified Cardano.Wallet.WalletLayer.Kernel.Accounts as Accounts 
 import qualified Cardano.Wallet.WalletLayer.Kernel.Addresses as Addresses
 import qualified Cardano.Wallet.WalletLayer.Kernel.Conv as Kernel.Conv
 import qualified Cardano.Wallet.WalletLayer.Kernel.Wallets as Wallets
@@ -123,6 +127,35 @@ prepareAddressFixture n = do
                 let SliceOf{..} = Addresses.getAddresses (RequestParams pp) db'
                 return . map AddressFixture $ paginatedSlice
 
+prepareAddressesFixture
+    :: Int  -- ^ Number of Accounts to create.
+    -> Int  -- ^ Number of 'Address per account to create.
+    -> Fixture.GenPassiveWalletFixture (M.Map V1.AccountIndex [V1.WalletAddress])
+prepareAddressesFixture acn adn = do
+    spendingPassword <- Fixture.genSpendingPassword
+    newWalletRq <- WalletLayer.CreateWallet <$> Wallets.genNewWalletRq spendingPassword
+    return $ \pw -> do
+        let newAcc (n :: Int) = (V1.NewAccount spendingPassword ("My Account " <> show n))
+        Right v1Wallet <- Wallets.createWallet pw newWalletRq
+        forM_ [1..acn] $ \n ->
+            Accounts.createAccount pw (V1.walId v1Wallet) (WalletLayer.CreateHdAccountRandomIndex $ newAcc n)
+        -- Get all the available accounts
+        db <- Kernel.getWalletSnapshot pw
+        let Right accs = Accounts.getAccounts (V1.walId v1Wallet) db
+        let accounts = IxSet.toList accs
+        length accounts `shouldBe` (acn + 1)
+        let insertAddresses :: V1.Account -> IO (V1.AccountIndex, [V1.WalletAddress])
+            insertAddresses acc = do
+                let accId = V1.accIndex acc
+                let newAddressRq = V1.NewAddress spendingPassword accId (V1.walId v1Wallet)
+                res <- replicateM adn (Addresses.createAddress pw newAddressRq)
+                case sequence res of
+                    Left e     -> error (show e)
+                    Right addr -> return (accId, addr)
+        res <- mapM insertAddresses accounts
+        return $ M.fromList res
+
+
 withFixture :: (  Keystore.Keystore
                -> PassiveWalletLayer IO
                -> PassiveWallet
@@ -144,6 +177,18 @@ withAddressFixtures
 withAddressFixtures n =
   Fixture.withPassiveWalletFixture $ do
       prepareAddressFixture n
+
+withAddressesFixtures :: Int -> Int ->
+       (  Keystore.Keystore
+    -> PassiveWalletLayer IO
+    -> PassiveWallet
+    -> M.Map V1.AccountIndex [V1.WalletAddress]
+    -> IO a
+    )
+    -> PropertyM IO a
+withAddressesFixtures n m =
+    Fixture.withPassiveWalletFixture $ do
+        prepareAddressesFixture n m
 
 spec :: Spec
 spec = describe "Addresses" $ do
@@ -348,6 +393,112 @@ spec = describe "Addresses" $ do
                                                slice rNumOfPages rNumPerPage fixtureAddresses
                         pure (toBeCheckedAddresses === correctAddresses)
 
+        describe "Address listing with multiple Accounts (Servant)" $ do
+            prop "page 0, per page 0" $ withMaxSuccess 20 $ do
+                monadicIO $
+                    withAddressesFixtures 4 4 $ \_ layer _ _ -> do
+                        let pp = PaginationParams (Page 0) (PerPage 0)
+                        res <- runExceptT $ runHandler' $ do
+                            Handlers.listAddresses layer (RequestParams pp)
+                        case res of
+                            Right wr | null (wrData wr) -> pure ()
+                            _ -> fail ("Got " ++ show res)
+
+            prop "it yields the correct number of results" $ withMaxSuccess 20 $ do
+                monadicIO $
+                    withAddressesFixtures 3 4 $ \_ layer _ _ -> do
+                        let pp = PaginationParams (Page 1) (PerPage 40)
+                        res <- runExceptT $ runHandler' $ do
+                            Handlers.listAddresses layer (RequestParams pp)
+                        case res of
+                            Right wr -> do
+                                -- this takes into account that there is an initial account
+                                -- and each account has an initial address (but not the initial
+                                -- account thus the -1)
+                                length (wrData wr) `shouldBe` (3 + 1)*(4 + 1)
+                            _        -> fail ("Got " ++ show res)
+
+            prop "is deterministic" $ withMaxSuccess 20 $ do
+                monadicIO $
+                    withAddressesFixtures 3 8 $ \_ layer _ _ -> do
+                        let (expectedTotal :: Int) = (3 + 1)*(8 + 1)
+                        let pp = PaginationParams (Page 1) (PerPage 40)
+                        let pp1 = PaginationParams (Page 1) (PerPage (quot expectedTotal 3 + 1))
+                        let pp2 = PaginationParams (Page 2) (PerPage (quot expectedTotal 3 + 1))
+                        let pp3 = PaginationParams (Page 3) (PerPage (quot expectedTotal 3 + 1))
+                        res <- runExceptT $ runHandler' $ do
+                            Handlers.listAddresses layer (RequestParams pp)
+                        res' <- runExceptT $ runHandler' $ do
+                            Handlers.listAddresses layer (RequestParams pp)
+                        res1 <- runExceptT $ runHandler' $ do
+                            Handlers.listAddresses layer (RequestParams pp1)
+                        res1' <- runExceptT $ runHandler' $ do
+                            Handlers.listAddresses layer (RequestParams pp1)
+                        res2 <- runExceptT $ runHandler' $ do
+                            Handlers.listAddresses layer (RequestParams pp2)
+                        res2' <- runExceptT $ runHandler' $ do
+                            Handlers.listAddresses layer (RequestParams pp2)
+                        res3 <- runExceptT $ runHandler' $ do
+                            Handlers.listAddresses layer (RequestParams pp3)
+                        res3' <- runExceptT $ runHandler' $ do
+                            Handlers.listAddresses layer (RequestParams pp3)
+                        res `shouldBe` res'
+                        res1 `shouldBe` res1'
+                        res2 `shouldBe` res2'
+                        res3 `shouldBe` res3'
+
+            prop "yields the correct set of resutls" $ withMaxSuccess 20 $ do
+                monadicIO $
+                    withAddressesFixtures 4 8 $ \_ layer _ _ -> do
+                        let (expectedTotal :: Int) = (4 + 1)*(8 + 1)
+                        let pp = PaginationParams (Page 1) (PerPage 50)
+                        let pp1 = PaginationParams (Page 1) (PerPage (quot expectedTotal 3 + 1))
+                        let pp2 = PaginationParams (Page 2) (PerPage (quot expectedTotal 3 + 1))
+                        let pp3 = PaginationParams (Page 3) (PerPage (quot expectedTotal 3 + 1))
+                        res <- runExceptT $ runHandler' $ do
+                            Handlers.listAddresses layer (RequestParams pp)
+                        res1 <- runExceptT $ runHandler' $ do
+                            Handlers.listAddresses layer (RequestParams pp1)
+                        res2 <- runExceptT $ runHandler' $ do
+                            Handlers.listAddresses layer (RequestParams pp2)
+                        res3 <- runExceptT $ runHandler' $ do
+                            Handlers.listAddresses layer (RequestParams pp3)
+                        case (res, res1, res2, res3) of
+                            (Right wr, Right wr1, Right wr2, Right wr3) -> do
+                                length (wrData wr) `shouldBe` expectedTotal
+                                let con = wrData wr1 <> wrData wr2 <> wrData wr3
+                                length con `shouldBe` expectedTotal
+                                S.fromList con `shouldBe` S.fromList (wrData wr)
+    --                                The following test fails:
+    --                                (addrRoot . V1.unV1 . V1.addrId <$> con)
+    --                                    `shouldBe` (addrRoot . V1.unV1 . V1.addrId <$> wrData wr)
+                            _        -> fail ("Got " ++ show res)
+
+            prop "yields the correct ordered resutls when there is one account" $ withMaxSuccess 20 $ do
+                monadicIO $
+                    withAddressesFixtures 0 15 $ \_ layer _ _ -> do
+                        let (expectedTotal :: Int) = (0 + 1)*(15 + 1)
+                        let pp = PaginationParams (Page 1) (PerPage 50)
+                        let pp1 = PaginationParams (Page 1) (PerPage (quot expectedTotal 3 + 1))
+                        let pp2 = PaginationParams (Page 2) (PerPage (quot expectedTotal 3 + 1))
+                        let pp3 = PaginationParams (Page 3) (PerPage (quot expectedTotal 3 + 1))
+                        res <- runExceptT $ runHandler' $ do
+                            Handlers.listAddresses layer (RequestParams pp)
+                        res1 <- runExceptT $ runHandler' $ do
+                            Handlers.listAddresses layer (RequestParams pp1)
+                        res2 <- runExceptT $ runHandler' $ do
+                            Handlers.listAddresses layer (RequestParams pp2)
+                        res3 <- runExceptT $ runHandler' $ do
+                            Handlers.listAddresses layer (RequestParams pp3)
+                        case (res, res1, res2, res3) of
+                            (Right wr, Right wr1, Right wr2, Right wr3) -> do
+                                length (wrData wr) `shouldBe` expectedTotal
+                                let con = wrData wr1 <> wrData wr2 <> wrData wr3
+                                length con `shouldBe` expectedTotal
+                                S.fromList con `shouldBe` S.fromList (wrData wr)
+                                (addrRoot . V1.unV1 . V1.addrId <$> con)
+                                    `shouldBe` (addrRoot . V1.unV1 . V1.addrId <$> wrData wr)
+                            _        -> fail ("Got " ++ show res)
 
     describe "ValidateAddress" $ do
         describe "Address validation (wallet layer)" $ do

@@ -11,7 +11,9 @@ import           Control.Concurrent (threadDelay)
 import           Control.Lens
 import           Pos.Core.Common (mkCoin)
 import           Test.Hspec
-import           Test.QuickCheck (arbitrary, generate, shuffle)
+import           Test.Hspec.QuickCheck (prop)
+import           Test.QuickCheck (arbitrary, generate, shuffle, withMaxSuccess)
+import           Test.QuickCheck.Monadic (PropertyM, monadicIO, pick, run)
 import           Util
 
 import qualified Pos.Core as Core
@@ -99,28 +101,28 @@ accountSpecs wRef wc =
             map (AccountBalance . accAmount) accsUpdated `shouldBe` balancesPartialUpdated
 
 
+        pick "redeeming avvm key gives rise to the corresponding increase of balance of wallet'account - mnemonic not used" $ withMaxSuccess 1 $
+            monadicIO $ do
 
-        it "redeeming avvm key gives rise to the corresponding increase of balance of wallet'account - mnemonic not used" $ do
-
-            newWallet <- randomWallet CreateWallet
-            Wallet{..} <- createWalletCheck wc newWallet
+            newWallet <- run $ randomWallet CreateWallet
+            Wallet{..} <- run $ createWalletCheck wc newWallet
 
             --adding new account
-            rAcc <- generate arbitrary :: IO NewAccount
-            newAcctResp <- postAccount wc walId rAcc
-            newAcct <- wrData <$> newAcctResp `shouldPrism` _Right
+            rAcc <- pick arbitrary :: PropertyM IO NewAccount
+            newAcctResp <- run $ postAccount wc walId rAcc
+            newAcct <- run $ wrData <$> newAcctResp `shouldPrism` _Right
 
-            balancePartialRespB <- getAccountBalance wc walId (accIndex newAcct)
-            balancesPartialB <- wrData <$> balancePartialRespB `shouldPrism` _Right
+            balancePartialRespB <- run $ getAccountBalance wc walId (accIndex newAcct)
+            balancesPartialB <- run $ wrData <$> balancePartialRespB `shouldPrism` _Right
             let zeroBalance = AccountBalance $ V1 (Core.mkCoin 0)
-            balancesPartialB `shouldBe` zeroBalance
+            liftIO $ balancesPartialB `shouldBe` zeroBalance
 
             -- state-demo/genesis-keys/keys-fakeavvm/fake-9.seed
             let avvmKey = "QBYOctbb6fJT/dBDLwg4je+SAvEzEhRxA7wpLdEFhnY="
 
             --password is set to Nothing in the current implementation of randomWallet
             --when it changes redemptionSpendingPassword handles it, otherwise passPhare addresses it
-            passPhrase <- pure mempty :: IO SpendingPassword
+            passPhrase <- pure mempty :: PropertyM IO SpendingPassword
             let redemption = Redemption
                     { redemptionRedemptionCode = ShieldedRedemptionCode avvmKey
                     , redemptionMnemonic = Nothing
@@ -131,35 +133,34 @@ accountSpecs wRef wc =
                     , redemptionAccountIndex = accIndex newAcct
                     }
 
-            etxn <- redeemAda wc redemption
+            etxn <- run $ redeemAda wc redemption
 
-            txn <- fmap wrData etxn `shouldPrism` _Right
+            txn <- run $ fmap wrData etxn `shouldPrism` _Right
 
-            threadDelay 90000000
+            liftIO $ threadDelay 90000000
 
             --checking if redemption give rise to transaction indexing
-            eresp <- getTransactionIndex
+            eresp <- run $ getTransactionIndex
                 wc
                 (Just walId)
                 (Just (accIndex newAcct))
                 Nothing
-            resp <- fmap wrData eresp `shouldPrism` _Right
-            map txId resp `shouldContain` [txId txn]
+            resp <- run $ fmap wrData eresp `shouldPrism` _Right
+            liftIO $ map txId resp `shouldContain` [txId txn]
 
             --balance for the previously zero-balance account should increase by 100000
-            balancePartialResp <- getAccountBalance wc walId (accIndex newAcct)
-            balancesPartial <- wrData <$> balancePartialResp `shouldPrism` _Right
+            balancePartialResp <- run $ getAccountBalance wc walId (accIndex newAcct)
+            balancesPartial <- run $ wrData <$> balancePartialResp `shouldPrism` _Right
             let nonzeroBalance = AccountBalance $ V1 (Core.mkCoin 100000)
-            balancesPartial `shouldBe` nonzeroBalance
+            liftIO $ balancesPartial `shouldBe` nonzeroBalance
 
             --redeemAda for the same redeem address should result in error
-            etxnAgain <- redeemAda wc redemption
+            etxnAgain <- run $ redeemAda wc redemption
 
-            clientError <- etxnAgain `shouldPrism` _Left
-            clientError
+            clientError <- run $ etxnAgain `shouldPrism` _Left
+            liftIO $ clientError
                 `shouldBe`
                     ClientWalletError (UnknownError "Request error (Cannot send redemption transaction: Redemption address balance is 0)")
-
 
   where
     filterByAddress :: WalletAddress -> FilterOperations '[V1 Address] WalletAddress

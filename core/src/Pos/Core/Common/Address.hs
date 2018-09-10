@@ -19,6 +19,7 @@ module Pos.Core.Common.Address
 
        -- * Encoding
        , addrToBase58
+       , addrToBase58Text
        , encodeAddr
        , encodeAddrCRC32
 
@@ -196,6 +197,9 @@ addrAlphabet = bitcoinAlphabet
 
 addrToBase58 :: Address -> ByteString
 addrToBase58 = encodeBase58 addrAlphabet . Bi.serialize'
+
+addrToBase58Text :: Address -> Text
+addrToBase58Text = decodeUtf8 . addrToBase58
 
 instance Buildable Address where
     build = Buildable.build . decodeUtf8 @Text . addrToBase58

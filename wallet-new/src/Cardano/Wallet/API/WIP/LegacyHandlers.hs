@@ -9,8 +9,11 @@ module Cardano.Wallet.API.WIP.LegacyHandlers (
       handlers
     ) where
 
+import qualified Data.ByteString as BS
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
 import           Formatting (build, sformat)
+import qualified Serokell.Util.Base16 as B16
 import           Universum
 import           UnliftIO (MonadUnliftIO)
 
@@ -19,15 +22,18 @@ import qualified Pos.Wallet.Web.Methods as V0
 import qualified Pos.Wallet.Web.State as V0 (WalletSnapshot, askWalletSnapshot)
 import qualified Pos.Wallet.Web.State.Storage as V0
 
+import           Cardano.Crypto.Wallet (xsignature)
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.WIP as WIP
-import           Pos.Chain.Txp (TxAux, TxpConfiguration)
+import           Pos.Binary.Class (decodeFull', serialize')
+import           Pos.Chain.Txp (Tx, TxAux, TxSigData, TxpConfiguration)
 import           Pos.Chain.Update ()
 import           Pos.Client.KeyStorage (addPublicKey)
+import           Pos.Client.Txp.Util (TxError (..), defaultInputSelectionPolicy)
 import qualified Pos.Core as Core
-import           Pos.Crypto (PublicKey)
+import           Pos.Crypto (PublicKey, Signature (..), hash)
 
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Util (HasLens, maybeThrow)
@@ -63,8 +69,8 @@ handlersPlain :: HasConfigurations
 handlersPlain coreConfig txpConfig submitTx = checkExternalWallet coreConfig
     :<|> newExternalWallet coreConfig
     :<|> deleteExternalWallet
-    :<|> newUnsignedTransaction
-    :<|> newSignedTransaction txpConfig submitTx
+    :<|> newUnsignedTransaction coreConfig
+    :<|> newSignedTransaction coreConfig txpConfig submitTx
 
 -- | Check if external wallet is presented in node's wallet db.
 checkExternalWallet
@@ -80,7 +86,7 @@ checkExternalWallet coreConfig encodedRootPK = do
     rootPK <- mkPublicKeyOrFail encodedRootPK
 
     ws <- V0.askWalletSnapshot
-    let walletId = encodeCType . Core.makePubKeyAddressBoot $ rootPK
+    let walletId = makeWalletIdFrom rootPK
     walletExists <- V0.doesWalletExist walletId
     (v0wallet, transactions, isWalletReady) <- if walletExists
         then do
@@ -159,7 +165,7 @@ createNewExternalWallet walletMeta encodedRootPK = do
     -- with the blockchain.
     addPublicKey rootPK
 
-    let walletId = encodeCType . Core.makePubKeyAddressBoot $ rootPK
+    let walletId = makeWalletIdFrom rootPK
         isReady  = True -- We don't need to sync new wallet with the blockchain.
 
     -- Create new external wallet.
@@ -185,7 +191,7 @@ restoreExternalWallet
 restoreExternalWallet coreConfig walletMeta encodedRootPK = do
     rootPK <- mkPublicKeyOrFail encodedRootPK
 
-    let walletId = encodeCType . Core.makePubKeyAddressBoot $ rootPK
+    let walletId = makeWalletIdFrom rootPK
      -- Public key will be used during synchronization with the blockchain.
     addPublicKey rootPK
 
@@ -253,22 +259,107 @@ mkPublicKeyOrFail encodedRootPK =
         Right rootPK -> return rootPK
 
 newUnsignedTransaction
-    :: -- forall ctx m . (V0.MonadWalletTxFull ctx m)
-       -- =>
-    PaymentWithChangeAddress
+    :: forall ctx m . (V0.MonadWalletTxFull ctx m)
+    => Core.Config
+    -> PaymentWithChangeAddress
     -> m (WalletResponse RawTransaction)
-newUnsignedTransaction _paymentWithChangeAddress =
-    error "[CHW-57], Cardano Hardware Wallet, unimplemented yet."
+newUnsignedTransaction coreConfig paymentWithChangeAddress = do
+    -- Creating a new transaction as usual, but we don't sign or publish it.
+    -- This transaction will be signed on the client-side (mobile client or
+    -- hardware wallet), and after that transaction (with its signatures) will be
+    -- sent to backend.
+    let (PaymentWithChangeAddress pmt@Payment{..} encodedChangeAddr) = paymentWithChangeAddress
+    changeAddress <- either (throwM . InvalidAddressFormat)
+                            pure
+                            (V1.mkAddressFromBase58 encodedChangeAddr)
+
+    batchPayment <- createBatchPayment pmt
+    (tx, srcAddressesInfo) <- V0.newUnsignedTransaction coreConfig batchPayment changeAddress
+    let txAsBytes = serialize' tx
+    if BS.length txAsBytes > txMaxLengthInBytes
+        then throwM TooBigTransaction
+        else do
+            let txHash = hash tx
+                txSigDataInHexFormat = mkTransactionHashAsBase16 txHash
+                txInHexFormat = mkTransactionAsBase16 tx
+                srcAddressesWithPaths =
+                    map (\(addr, derivationPath) ->
+                            AddressAndPath (mkAddressAsBase58 addr)
+                                           (map word32ToAddressLevel derivationPath))
+                        $ NE.toList srcAddressesInfo
+                rawTx = RawTransaction txInHexFormat
+                                       txSigDataInHexFormat
+                                       srcAddressesWithPaths
+            pure $ single rawTx
+  where
+    -- Max size of transaction is a mandatory limit for hardware wallets like Ledger Nano S.
+    txMaxLengthInBytes = 4096
 
 -- | It is assumed that we received a transaction which was signed
 -- on the client side (mobile client or hardware wallet).
 -- Now we have to submit this transaction as usually.
 newSignedTransaction
-    :: -- forall ctx m . (V0.MonadWalletTxFull ctx m)
-       -- =>
-    TxpConfiguration
+    :: forall ctx m . (V0.MonadWalletTxFull ctx m)
+    => Core.Config
+    -> TxpConfiguration
     -> (TxAux -> m Bool)
     -> SignedTransaction
     -> m (WalletResponse Transaction)
-newSignedTransaction _txpConfig _submitTx _signedTx =
-    error "[CHW-57], Cardano Hardware Wallet, unimplemented yet."
+newSignedTransaction coreConfig
+                     txpConfig
+                     submitTx
+                     (SignedTransaction encodedRootPK encodedTx encodedAddrsWithProofs) = do
+    rootPK <- mkPublicKeyOrFail encodedRootPK
+
+    let walletId = makeWalletIdFrom rootPK
+        txAsHex = rawTransactionAsBase16 encodedTx
+    txRaw <- case B16.decode txAsHex of
+        Left _      -> throwM SignedTxNotBase16Format
+        Right txRaw -> return txRaw
+
+    tx <- case decodeFull' txRaw of
+        Left problem     -> throwM (SignedTxUnableToDecode $ toText problem)
+        Right (tx :: Tx) -> return tx
+
+    addrsWithProofs <- mapM checkAddressProofValidity encodedAddrsWithProofs
+
+    -- Submit signed transaction as pending one.
+    cTx <- V0.submitSignedTransaction coreConfig txpConfig submitTx walletId tx addrsWithProofs
+    single <$> migrate cTx
+  where
+    -- Check validity of the source address and the proof that we have a right
+    -- to spend money from corresponding input. Please note that it only checks
+    -- common validity (like Base16-format), crypto-validity will be checked later.
+    checkAddressProofValidity
+        :: AddressWithProof
+        -> m (Address, Signature TxSigData, PublicKey)
+    checkAddressProofValidity (AddressWithProof encodedAddr encodedTxSig encodedDerivedPK) = do
+        srcAddress <- either (throwM . InvalidAddressFormat)
+                             pure
+                             (V1.mkAddressFromBase58 encodedAddr)
+
+        txSignature <- case B16.decode (rawTransactionSignatureAsBase16 encodedTxSig) of
+            Left _ -> throwM SignedTxSignatureNotBase16Format
+            Right txSigItself -> case xsignature txSigItself of
+                Left problem -> throwM (SignedTxInvalidSignature $ toText problem)
+                Right realTxSig -> return (Signature realTxSig :: Signature TxSigData)
+
+        derivedPK <- case mkPublicKeyFromBase58 encodedDerivedPK of
+            Left problem -> throwM (InvalidPublicKey $ sformat build problem)
+            Right derivedPK -> return derivedPK
+
+        return (srcAddress, txSignature, derivedPK)
+
+-- | Helper function to reduce code duplication
+createBatchPayment
+    :: forall ctx m . (V0.MonadWalletTxFull ctx m)
+    => Payment
+    -> m (V0.NewBatchPayment)
+createBatchPayment (Payment source destinations groupingPolicy _) = do
+    cAccountId <- migrate source
+    addrCoinList <- migrate $ NE.toList destinations
+    let (V1 policy) = fromMaybe (V1 defaultInputSelectionPolicy) groupingPolicy
+    return $ V0.NewBatchPayment cAccountId addrCoinList policy
+
+makeWalletIdFrom :: PublicKey -> V0.CId V0.Wal
+makeWalletIdFrom = encodeCType . Core.makePubKeyAddressBoot

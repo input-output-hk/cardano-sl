@@ -3,18 +3,18 @@
 module Chain.Policy where
 
 import           Chain.Abstract
-import           Universum
 import qualified Data.Text as T
+import           Universum
 
-newtype PolicyName = PolicyName T.Text
+newtype PolicyName = PolicyName T.Text deriving (Show)
 
 -- | Record the violation of a policy. Generators may choose to create invalid
 -- blocks, and if they do so then they should tag them with a relevant
 -- 'PolicyViolation' value.
 data PolicyViolation = PolicyViolation
-  { pvPolName :: PolicyName
+  { pvPolName     :: PolicyName
   , pvDescription :: T.Text
-  }
+  } deriving (Show)
 
 -- | A block modifier.
 newtype BlockModifier genM h a = BlockModifier
@@ -35,7 +35,7 @@ instance Monad genM => Monoid (BlockModifier genM h a) where
 -- policy, and to generate valid or valid blocks.
 data Policy h genM = Policy
   { -- | Name of this policy. This is included when a policy has been violated.
-    polName :: PolicyName
+    polName      :: PolicyName
   , polGenerator :: BlockModifier genM h Addr
   }
 

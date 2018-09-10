@@ -8,6 +8,7 @@ module Infrastructure.Generator
   , seeds
   , mInCommitmentPhase
   , chainAddresses
+  , asAbstractChain
   ) where
 
 import           Universum hiding (head, tail, (^.))
@@ -27,7 +28,7 @@ import           Test.QuickCheck (Gen)
 import           UTxO.DSL (GivenHash, Hash, Value, trUtxo, utxoRestrictToAddr)
 import           UTxO.Generator (defChainParams, genChain, initTrState)
 
-import           Chain.Abstract (Addr, Chain, Output (Output),
+import           Chain.Abstract (Addr (Addr), Chain, Output (Output),
                      Parameters (Parameters), Repartition (Repartition),
                      Seed (Seed), SlotId (SlotId),
                      StakeDistribution (StakeDistribution),
@@ -64,7 +65,7 @@ genChainUsingModel GeneratorModel{gmBoot, gmAllAddresses, gmEstimateFee} =
 -- | Simplified generator model
 --
 -- Small values, simple addresses, and no fees
-simpleModel :: GeneratorModel GivenHash Char
+simpleModel :: GeneratorModel GivenHash Addr
 simpleModel = GeneratorModel {
       gmAllAddresses  = addrs
     , gmEstimateFee   = \_ _ -> 0
@@ -78,14 +79,14 @@ simpleModel = GeneratorModel {
                           }
     }
   where
-    addrs :: [Char]
-    addrs = ['a' .. 'g']
+    addrs :: [Addr]
+    addrs = Addr <$> [0 .. 7]
 
     initBal :: Value
     initBal = 10000
 
 -- | Instantiate a simple generator
-simpleGen :: Gen (DSL.Chain GivenHash Char)
+simpleGen :: Gen (DSL.Chain GivenHash Addr)
 simpleGen = genChainUsingModel simpleModel
 
 -- | Simple instance of a 'DSL.Chain' to an 'Abstract.Chain' translation.

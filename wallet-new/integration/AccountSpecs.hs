@@ -101,7 +101,7 @@ accountSpecs wRef wc =
             map (AccountBalance . accAmount) accsUpdated `shouldBe` balancesPartialUpdated
 
 
-        pick "redeeming avvm key gives rise to the corresponding increase of balance of wallet'account - mnemonic not used" $ withMaxSuccess 1 $
+        prop "redeeming avvm key gives rise to the corresponding increase of balance of wallet'account - mnemonic not used" $ withMaxSuccess 1 $
             monadicIO $ do
 
             newWallet <- run $ randomWallet CreateWallet

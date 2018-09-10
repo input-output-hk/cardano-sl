@@ -73,12 +73,14 @@ makeLenses ''TransCtxt
 
 -- | Interpretation error
 data IntException =
-    -- | A UTxO transcation has an empty input list.
+    -- | A UTxO transaction has an empty input list.
     IntEmptyInputs
     -- | A UTxO transaction has an empty output list.
   | IntEmptyOutputs
   | IntUnknownHash      Text
   | IntIndexOutOfRange  Text Word32 -- ^ During input resolution (hash and index)
+    -- | A DSL chain has an empty set of addresses.
+  | IntEmptyAddresses
   deriving (Show, Eq)
 
 instance Exception IntException

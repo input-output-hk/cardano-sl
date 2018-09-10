@@ -10,7 +10,7 @@ module Infrastructure.Generator
   , chainAddresses
   ) where
 
-import           Universum hiding ((^.))
+import           Universum hiding (head, tail, (^.))
 
 import           Control.Lens (to, (^.))
 import           Data.Functor.Identity (runIdentity)
@@ -20,22 +20,25 @@ import           Data.Maybe (fromMaybe)
 import           Data.Monoid (Sum (Sum), getSum)
 import           Data.Semigroup ((<>))
 import qualified Data.Set as Set
+import           Data.Traversable (traverse)
 import           Test.QuickCheck (Gen)
 
-import           UTxO.DSL (GivenHash, Hash, Output (Output), Value, outAddr,
-                     trExtra, trFee, trFresh, trHash, trIns, trOuts, trUtxo,
-                     utxoRestrictToAddr)
+
+import           UTxO.DSL (GivenHash, Hash, Value, trUtxo, utxoRestrictToAddr)
 import           UTxO.Generator (defChainParams, genChain, initTrState)
 
-import           Chain.Abstract (Addr, Chain, Parameters (Parameters),
+import           Chain.Abstract (Addr, Chain, Output (Output),
+                     Parameters (Parameters), Repartition (Repartition),
                      Seed (Seed), SlotId (SlotId),
                      StakeDistribution (StakeDistribution),
-                     bootstrapStakeholders, currentSeed, currentSlot, fApply,
-                     fSum, fSupport, height, inCommitmentPhase, inOpenPhase,
-                     inRecoveryPhase, initTransactions, initialSeed,
-                     initialStakeDistribution, k, maxMempoolSize, minFee,
-                     quality, slotLeader)
-import           Chain.Abstract.Translate.FromUTxO (ChainValidity, IntException,
+                     Transaction (Transaction), bootstrapStakeholders,
+                     currentSeed, currentSlot, fApply, fSum, fSupport, height,
+                     inCommitmentPhase, inOpenPhase, inRecoveryPhase,
+                     initTransactions, initialSeed, initialStakeDistribution,
+                     k, maxMempoolSize, minFee, outAddr, outRepartition,
+                     outVal, quality, slotLeader, trExtra, trFee, trFresh,
+                     trHash, trIns, trOuts, trWitness)
+import           Chain.Abstract.Translate.FromUTxO (ChainValidity, IntException (IntEmptyAddresses, IntEmptyInputs, IntEmptyOutputs),
                      TransState, translate, tsCheckpoints, _tsCurrentSlot)
 import qualified UTxO.DSL as DSL
 
@@ -68,7 +71,7 @@ simpleModel = GeneratorModel {
     , gmBoot          = DSL.Transaction {
                             trFresh = fromIntegral (length addrs) * initBal
                           , trIns   = Set.empty
-                          , trOuts  = [Output a initBal | a <- addrs]
+                          , trOuts  = [DSL.Output a initBal | a <- addrs]
                           , trFee   = 0
                           , trHash  = 0
                           , trExtra = ["Simple bootstrap"]
@@ -89,33 +92,38 @@ simpleGen = genChainUsingModel simpleModel
 asAbstractChain
   :: DSL.Chain GivenHash Addr
   -> Either IntException (Chain GivenHash Addr, ChainValidity)
-asAbstractChain ch = runIdentity $ translate addrs ch [] (params addrs initTs)
+asAbstractChain ch = do
+  addrs <- case chainAddresses ch of
+    []   -> Left  IntEmptyAddresses
+    a:as -> Right (a :| as)
+  params <- simpleParams addrs initTs
+  runIdentity $ translate addrs ch [] params
   where
-    addrs = undefined
     initTs = fromMaybe [] . safeHead . map toList . toList $ ch
-    params = simpleParams
 
 simpleParams
   :: NonEmpty Addr
   -> [DSL.Transaction GivenHash Addr]
-  -> Parameters (TransState GivenHash) GivenHash Addr
-simpleParams addrs initTs = Parameters
-  { slotLeader = mSlotLeader
-  , currentSeed = mCurrentSeed
-  , currentSlot = _tsCurrentSlot
-  , height = mHeight
-  , quality = mQuality
-  , inCommitmentPhase = mInCommitmentPhase
-  , inOpenPhase = mInOpenPhase
-  , inRecoveryPhase = mInRecoveryPhase
-  , maxMempoolSize = 200
-  , k = 2160
-  , initialStakeDistribution = mInitialStakeDistribution addrs
-  , initialSeed = Seed 0
-  , minFee = const 0 -- TODO: QUESTION: what properties should 'minFee' satisfy?
-  , initTransactions = initTs
-  , bootstrapStakeholders = Set.fromList $ toList addrs
-  }
+  -> Either IntException (Parameters (TransState GivenHash) GivenHash Addr)
+simpleParams addrs initTs = do
+  abstractInitTs <- traverse (dslTransactionToAbstract addrs) initTs
+  return Parameters
+    { slotLeader = mSlotLeader
+    , currentSeed = mCurrentSeed
+    , currentSlot = _tsCurrentSlot
+    , height = mHeight
+    , quality = mQuality
+    , inCommitmentPhase = mInCommitmentPhase
+    , inOpenPhase = mInOpenPhase
+    , inRecoveryPhase = mInRecoveryPhase
+    , maxMempoolSize = 200
+    , k = 2160
+    , initialStakeDistribution = mInitialStakeDistribution addrs
+    , initialSeed = Seed 0
+    , minFee = const 0 -- TODO: QUESTION: what properties should 'minFee' satisfy?
+    , initTransactions = abstractInitTs
+    , bootstrapStakeholders = Set.fromList $ toList addrs
+    }
 
 -- | Implementation of the slot leader function, called @sl@ in section 7.2.
 --
@@ -215,10 +223,44 @@ mInitialStakeDistribution addrs = StakeDistribution
                                 $ zip (toList addrs) (repeat 1)
 
 -- | Extract the set of addresses in a chain.
-chainAddresses :: Ord a => DSL.Chain h a -> Set a
-chainAddresses = Set.fromList
-               . map outAddr
-               . concatMap trOuts
+chainAddresses :: DSL.Chain h a -> [a]
+chainAddresses = map DSL.outAddr
+               . concatMap DSL.trOuts
                . concatMap toList
                . toList
 
+-- | Translation of DSL transactions onto Abstract transactions
+--
+-- TODO: this isn't right. How to translate one into the other?
+dslTransactionToAbstract
+  :: Ord a
+  => NonEmpty a
+  -> DSL.Transaction h a
+  -> Either IntException (Transaction h a)
+dslTransactionToAbstract addrs tx = do
+  neIns <- case ins of
+    []   -> Left IntEmptyInputs
+    i:is -> Right $  i :| is
+  neOuts <- case outs of
+    []   -> Left IntEmptyOutputs
+    o:os -> Right $ o :| os
+  return Transaction
+    { trFresh = DSL.trFresh tx
+    , trIns = neIns
+    , trOuts = neOuts
+    , trFee = DSL.trFee tx
+    , trHash = DSL.trHash tx
+    , trExtra = DSL.trExtra tx
+    , trWitness = addrs
+    }
+  where ins = Set.toList (DSL.trIns tx)
+        outs = dslOutputToAbstract <$> DSL.trOuts tx
+
+-- TODO: we need to unify this with 'FromUTxO.intOutput'!
+dslOutputToAbstract :: Ord a => DSL.Output h a -> Output h1 a
+dslOutputToAbstract out = Output
+  { outAddr = DSL.outAddr out
+  , outVal = DSL.outVal out
+  -- TODO: how do we want to determine this properly?
+  , outRepartition = Repartition $ Map.empty
+  }

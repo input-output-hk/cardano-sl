@@ -11,13 +11,12 @@ import           Universum
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Orphans.Arbitrary ()
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),
-                     CreateAccountError (..), DeleteAccountError (..),
-                     DeleteWalletError (..), GetAccountError (..),
-                     GetAccountsError (..), GetUtxosError (..),
-                     GetWalletError (..), ImportWalletError (..),
-                     PassiveWalletLayer (..), UpdateAccountError (..),
-                     UpdateWalletError (..), UpdateWalletPasswordError (..),
-                     ValidateAddressError (..))
+                     DeleteAccountError (..), DeleteWalletError (..),
+                     GetAccountError (..), GetAccountsError (..),
+                     GetUtxosError (..), GetWalletError (..),
+                     ImportWalletError (..), PassiveWalletLayer (..),
+                     UpdateAccountError (..), UpdateWalletError (..),
+                     UpdateWalletPasswordError (..), ValidateAddressError (..))
 
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 
@@ -105,12 +104,6 @@ bracketActiveWallet walletPassiveLayer _walletDiffusion =
  of the code to compile, as we are not actually using this particular layer
  anywhere.
 ------------------------------------------------------------------------------}
-
-instance Arbitrary CreateAccountError where
-    arbitrary = oneof [ CreateAccountError <$> arbitrary
-                      , pure (CreateAccountWalletIdDecodingFailed "foobar")
-                      , CreateAccountFirstAddressGenerationFailed <$> arbitrary
-                      ]
 
 instance Arbitrary GetAccountError where
     arbitrary = oneof [ GetAccountError . V1 <$> arbitrary

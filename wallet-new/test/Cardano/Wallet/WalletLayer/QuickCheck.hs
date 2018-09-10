@@ -11,16 +11,16 @@ import           Universum
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Orphans.Arbitrary ()
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),
-                     CreateAccountError (..), DeleteAccountError (..),
-                     DeleteWalletError (..), GetAccountError (..),
-                     GetAccountsError (..), GetUtxosError (..),
-                     GetWalletError (..), ImportWalletError (..),
-                     PassiveWalletLayer (..), UpdateAccountError (..),
-                     UpdateWalletError (..), UpdateWalletPasswordError (..),
-                     ValidateAddressError (..))
+                     DeleteAccountError (..), DeleteWalletError (..),
+                     GetAccountError (..), GetAccountsError (..),
+                     GetUtxosError (..), GetWalletError (..),
+                     ImportWalletError (..), PassiveWalletLayer (..),
+                     UpdateAccountError (..), UpdateWalletError (..),
+                     UpdateWalletPasswordError (..), ValidateAddressError (..))
 
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 
+import           Pos.Chain.Update (ConfirmedProposalState)
 import           Pos.Core ()
 import           Test.Pos.Chain.Txp.Arbitrary ()
 import           Test.QuickCheck (Arbitrary (..), arbitrary, generate, oneof)
@@ -71,6 +71,9 @@ bracketPassiveWallet =
         , postponeUpdate       = liftedGen
         , resetWalletState     = liftedGen
         , importWallet         = \_ -> liftedGen
+
+        , waitForUpdate        = liftedGen
+        , addUpdate            = \_ -> liftedGen
         }
 
 -- | A utility function.
@@ -105,12 +108,6 @@ bracketActiveWallet walletPassiveLayer _walletDiffusion =
  of the code to compile, as we are not actually using this particular layer
  anywhere.
 ------------------------------------------------------------------------------}
-
-instance Arbitrary CreateAccountError where
-    arbitrary = oneof [ CreateAccountError <$> arbitrary
-                      , pure (CreateAccountWalletIdDecodingFailed "foobar")
-                      , CreateAccountFirstAddressGenerationFailed <$> arbitrary
-                      ]
 
 instance Arbitrary GetAccountError where
     arbitrary = oneof [ GetAccountError . V1 <$> arbitrary
@@ -163,3 +160,10 @@ instance Arbitrary ImportWalletError where
                       , ImportWalletNoWalletFoundInBackup <$> arbitrary
                       , ImportWalletCreationFailed <$> arbitrary
                       ]
+
+-- This is obviously not a valid 'Arbitrary' instance, but one will be provided
+-- when we will be start using this 'WalletLayer' implementation. Note how the
+-- core layer already provides one, it's just a matter of exposing it to other
+-- components and use it.
+instance Arbitrary ConfirmedProposalState where
+    arbitrary = oneof []

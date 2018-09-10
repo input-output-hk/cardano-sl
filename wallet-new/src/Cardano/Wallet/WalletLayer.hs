@@ -34,6 +34,7 @@ import           Test.QuickCheck (Arbitrary (..), oneof)
 
 import           Pos.Chain.Block (Blund)
 import           Pos.Chain.Txp (Tx, TxId, Utxo)
+import           Pos.Chain.Update (ConfirmedProposalState)
 import           Pos.Core (Coin, Timestamp)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Update (SoftwareVersion)
@@ -72,7 +73,7 @@ data CreateWallet =
 
 data CreateWalletError =
       CreateWalletError Kernel.CreateWalletError
-    | CreateWalletFirstAccountCreationFailed Kernel.CreateAccountError
+    | CreateWalletFirstAccountCreationFailed CreateAccountError
 
 -- | Unsound show instance needed for the 'Exception' instance.
 instance Show CreateWalletError where
@@ -257,6 +258,12 @@ instance Show CreateAccountError where
     show = formatToString build
 
 instance Exception CreateAccountError
+
+instance Arbitrary CreateAccountError where
+    arbitrary = oneof [ CreateAccountError <$> arbitrary
+                      , CreateAccountWalletIdDecodingFailed <$> arbitrary
+                      , CreateAccountFirstAddressGenerationFailed <$> arbitrary
+                      ]
 
 instance Buildable CreateAccountError where
     build (CreateAccountError kernelError) =
@@ -463,6 +470,10 @@ data PassiveWalletLayer m = PassiveWalletLayer
     , postponeUpdate       :: m ()
     , resetWalletState     :: m ()
     , importWallet         :: WalletImport -> m (Either ImportWalletError Wallet)
+
+    -- updates
+    , waitForUpdate        :: m ConfirmedProposalState
+    , addUpdate            :: SoftwareVersion -> m ()
     }
 
 ------------------------------------------------------------

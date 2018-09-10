@@ -9,7 +9,7 @@ module Cardano.Wallet.Server.Plugins
     , docServer
     , monitoringServer
     , acidStateSnapshots
-    , updateNotifier
+    , updateWatcher
     ) where
 
 import           Universum
@@ -30,14 +30,14 @@ import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..),
                      isDebugMode, walletAcidInterval)
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer,
                      PassiveWalletLayer)
+import           Pos.Chain.Update (cpsSoftwareVersion)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Infra.Shutdown (HasShutdownContext (shutdownContext),
                      ShutdownContext)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Util.Wlog (logError, logInfo, modifyLoggerName,
-                     usingLoggerName)
+import           Pos.Util.Wlog (logInfo, modifyLoggerName, usingLoggerName)
 import           Pos.Web (serveDocImpl, serveImpl)
 import qualified Pos.Web.Server
 
@@ -46,6 +46,7 @@ import qualified Cardano.Wallet.Kernel.Mode as Kernel
 import qualified Cardano.Wallet.Server as Server
 import           Cardano.Wallet.Server.Plugins.AcidState
                      (createAndArchiveCheckpoints)
+import qualified Cardano.Wallet.WalletLayer as WalletLayer
 import qualified Cardano.Wallet.WalletLayer.Kernel as WalletLayer.Kernel
 import qualified Data.ByteString.Char8 as BS8
 import qualified Servant
@@ -158,8 +159,12 @@ acidStateSnapshots dbRef params dbMode = pure $ \_diffusion -> do
             (walletAcidInterval opts)
             dbMode
 
--- | A @Plugin@ to notify frontend via websockets.
-updateNotifier :: Plugin Kernel.WalletMode
-updateNotifier = [
-    \_diffusion -> logError "Not Implemented: updateNotifier [CBR-374]"
-    ]
+-- | A @Plugin@ to store updates proposal received from the blockchain
+updateWatcher :: Plugin Kernel.WalletMode
+updateWatcher = pure $ \_diffusion -> do
+    modifyLoggerName (const "update-watcher-plugin") $ do
+        w <- Kernel.getWallet
+        forever $ liftIO $ do
+            newUpdate <- WalletLayer.waitForUpdate w
+            logInfo "A new update was found!"
+            WalletLayer.addUpdate w . cpsSoftwareVersion $ newUpdate

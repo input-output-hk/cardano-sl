@@ -118,57 +118,49 @@ import qualified Serokell.Util.Base16 as B16
 
 import qualified Cardano.Crypto.Wallet as CC
 import           Pos.Binary.Class (Raw (..), asBinary)
-import           Pos.Data.Attributes (Attributes, mkAttributes)
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
-                     AddrStakeDistribution (..), Address (..), BlockCount (..),
-                     ChainDifficulty (..), Coeff (..), Coin (..),
-                     CoinPortion (..), IsBootstrapEraAddr (..), Script (..),
-                     ScriptVersion, SharedSeed (..), SlotLeaders,
-                     StakeholderId, StakesList, TxFeePolicy (..),
-                     TxSizeLinear (..), addressHash, coinPortionDenominator,
-                     makeAddress, makePubKeyAddress, mkMultiKeyDistr)
+                                  AddrStakeDistribution (..), Address (..), BlockCount (..),
+                                  ChainDifficulty (..), Coeff (..), Coin (..), CoinPortion (..),
+                                  IsBootstrapEraAddr (..), Script (..), ScriptVersion,
+                                  SharedSeed (..), SlotLeaders, StakeholderId, StakesList,
+                                  TxFeePolicy (..), TxSizeLinear (..), addressHash,
+                                  coinPortionDenominator, makeAddress, makePubKeyAddress,
+                                  mkMultiKeyDistr)
 import           Pos.Core.Configuration
-import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..),
-                     ProxySKBlockInfo, ProxySKHeavy)
-import           Pos.Core.Genesis (FakeAvvmOptions (..),
-                     GenesisAvvmBalances (..), GenesisData (..),
-                     GenesisDelegation (..), GenesisInitializer (..),
-                     GenesisNonAvvmBalances (..),
-                     GenesisProtocolConstants (..), GenesisSpec (..),
-                     GenesisVssCertificatesMap (..), GenesisWStakeholders (..),
-                     TestnetBalanceOptions (..))
-import           Pos.Core.ProtocolConstants (ProtocolConstants, VssMaxTTL (..),
-                     VssMinTTL (..))
-import           Pos.Core.Slotting (EpochIndex (..), FlatSlotId,
-                     LocalSlotIndex (..), SlotId (..), Timestamp (..))
-import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap,
-                     InnerSharesMap, Opening, OpeningsMap, SharesDistribution,
-                     SignedCommitment, SscPayload (..), SscProof (..),
-                     VssCertificate (..), VssCertificatesHash,
-                     VssCertificatesMap (..), mkCommitmentsMap,
-                     mkVssCertificate, mkVssCertificatesMap,
-                     randCommitmentAndOpening)
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxIn (..),
-                     TxInWitness (..), TxOut (..), TxPayload (..),
-                     TxProof (..), TxSig, TxSigData (..), TxWitness,
-                     mkTxPayload)
-import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
-                     BlockVersionData (..), BlockVersionModifier (..),
-                     SoftforkRule (..), SoftwareVersion (..), SystemTag (..),
-                     UpAttributes, UpId, UpdateData (..), UpdatePayload (..),
-                     UpdateProof, UpdateProposal, UpdateProposalToSign (..),
-                     UpdateVote (..), VoteId, mkUpdateProof,
-                     mkUpdateProposalWSign, mkUpdateVoteSafe)
-import           Pos.Crypto (AbstractHash (..), EncShare (..),
-                     HDAddressPayload (..), Hash, RequiresNetworkMagic (..), ProtocolMagic (..), ProtocolMagicId (..),
-                     RedeemPublicKey, RedeemSignature, SafeSigner (..),
-                     Secret (..), SecretKey (..), SecretProof (..),
-                     SignTag (..), VssKeyPair, VssPublicKey (..), abstractHash,
-                     decryptShare, deterministic, deterministicVssKeyGen, hash,
-                     redeemDeterministicKeyGen, redeemSign, safeCreatePsk,
-                     sign, toVssPublicKey)
-import           Pos.Crypto.Signing (ProxyCert (..), ProxySecretKey (..),
-                     PublicKey (..), RedeemPublicKey (..))
+import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..), ProxySKBlockInfo,
+                                      ProxySKHeavy)
+import           Pos.Core.Genesis (FakeAvvmOptions (..), GenesisAvvmBalances (..), GenesisData (..),
+                                   GenesisDelegation (..), GenesisInitializer (..),
+                                   GenesisNonAvvmBalances (..), GenesisProtocolConstants (..),
+                                   GenesisSpec (..), GenesisVssCertificatesMap (..),
+                                   GenesisWStakeholders (..), TestnetBalanceOptions (..))
+import           Pos.Core.ProtocolConstants (ProtocolConstants, VssMaxTTL (..), VssMinTTL (..))
+import           Pos.Core.Slotting (EpochIndex (..), FlatSlotId, LocalSlotIndex (..), SlotId (..),
+                                    Timestamp (..))
+import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap, InnerSharesMap,
+                               Opening, OpeningsMap, SharesDistribution, SignedCommitment,
+                               SscPayload (..), SscProof (..), VssCertificate (..),
+                               VssCertificatesHash, VssCertificatesMap (..), mkCommitmentsMap,
+                               mkVssCertificate, mkVssCertificatesMap, randCommitmentAndOpening)
+import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxIn (..), TxInWitness (..), TxOut (..),
+                               TxPayload (..), TxProof (..), TxSig, TxSigData (..), TxWitness,
+                               mkTxPayload)
+import           Pos.Core.Update (ApplicationName (..), BlockVersion (..), BlockVersionData (..),
+                                  BlockVersionModifier (..), SoftforkRule (..),
+                                  SoftwareVersion (..), SystemTag (..), UpAttributes, UpId,
+                                  UpdateData (..), UpdatePayload (..), UpdateProof, UpdateProposal,
+                                  UpdateProposalToSign (..), UpdateVote (..), VoteId, mkUpdateProof,
+                                  mkUpdateProposalWSign, mkUpdateVoteSafe)
+import           Pos.Crypto (AbstractHash (..), EncShare (..), HDAddressPayload (..), Hash,
+                             ProtocolMagic (..), ProtocolMagicId (..), RedeemPublicKey,
+                             RedeemSignature, RequiresNetworkMagic (..), SafeSigner (..),
+                             Secret (..), SecretKey (..), SecretProof (..), SignTag (..),
+                             VssKeyPair, VssPublicKey (..), abstractHash, decryptShare,
+                             deterministic, deterministicVssKeyGen, hash, redeemDeterministicKeyGen,
+                             redeemSign, safeCreatePsk, sign, toVssPublicKey)
+import           Pos.Crypto.Signing (ProxyCert (..), ProxySecretKey (..), PublicKey (..),
+                                     RedeemPublicKey (..))
+import           Pos.Data.Attributes (Attributes, mkAttributes)
 import           Pos.Merkle (mkMerkleTree, mtRoot)
 
 import           Test.Pos.Core.Gen (genProtocolConstants)

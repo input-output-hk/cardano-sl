@@ -15004,6 +15004,7 @@ devnet: &devnet
         protocolConstants:
           <<: *mainnet_base_protocolConstants
           protocolMagic: 170987650
+          requiresNetworkMagic: NMMustBeNothing
           k: 6 # set to desired value
         avvmDistr: *mainnet_avvmDistr
         initializer:

@@ -6,7 +6,6 @@ import           Universum
 import           Control.Monad.Except (runExceptT)
 import           Data.Acid (update)
 import qualified Data.ByteString as B
--- import qualified Data.List as L
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 import           Formatting (build, sformat)

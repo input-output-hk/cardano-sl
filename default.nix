@@ -154,9 +154,10 @@ let
   other = rec {
     testlist = innerClosePropagation [] [ cardanoPkgs.cardano-sl ];
     walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev useStackBinaries; };
+    walletSmokeTests = pkgs.callPackage ./scripts/test/wallet/smoke { inherit gitrev useStackBinaries; };
     validateJson = pkgs.callPackage ./tools/src/validate-json {};
     demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev useStackBinaries; };
-    demoClusterDaedalusDev = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev useStackBinaries; disableClientAuth = true; numImportedWallets = 0; useLegacyDataLayer = false; };
+    demoClusterDaedalusDev = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev useStackBinaries; disableClientAuth = true; numImportedWallets = 0; };
     demoClusterLaunchGenesis = pkgs.callPackage ./scripts/launch/demo-cluster {
       inherit gitrev useStackBinaries;
       launchGenesis = true;
@@ -170,6 +171,7 @@ let
       hlint = pkgs.callPackage ./scripts/test/hlint.nix { inherit src; };
       stylishHaskell = pkgs.callPackage ./scripts/test/stylish.nix { inherit (cardanoPkgs) stylish-haskell; inherit src localLib; };
       walletIntegration = pkgs.callPackage ./scripts/test/wallet/integration/build-test.nix { inherit walletIntegrationTests; };
+      walletSmoke = pkgs.callPackage ./scripts/test/wallet/smoke/build-test.nix { inherit walletSmokeTests; };
       swaggerSchemaValidation = pkgs.callPackage ./scripts/test/wallet/swaggerSchemaValidation.nix { inherit gitrev; };
     };
     cardano-sl-explorer-frontend = (import ./explorer/frontend {

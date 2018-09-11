@@ -1,0 +1,18 @@
+{stdenv, jq, curl, runCommand, walletSmokeTests, glibcLocales }:
+runCommand "cardano-wallet-smoke-tests" {
+  buildInputs = [ jq curl glibcLocales ];
+}
+''
+  #!${stdenv.shell}
+  function capture_logs {
+    echo "The build failed with exit code $?"
+    mkdir -pv $out/nix-support
+    touch $out/nix-support/failed
+    tar -czvf  $out/logs.tar.gz state-demo/logs
+    echo "file binary-dist $out/logs.tar.gz" >> $out/nix-support/hydra-build-products
+    exit 0
+  }
+  ${walletSmokeTests} || capture_logs
+  touch $out
+  exit 0
+''

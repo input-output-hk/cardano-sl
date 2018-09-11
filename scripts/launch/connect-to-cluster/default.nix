@@ -31,7 +31,7 @@ with localLib;
 let
   ifDebug = localLib.optionalString (debug);
   ifDisableClientAuth = localLib.optionalString (disableClientAuth);
-  walletDataLayer = if useLegacyDataLayer then "" else "--new-wallet";
+  walletDataLayer = if useLegacyDataLayer then "--legacy-wallet" else "";
   env = if environment == "override"
     then { inherit relays confKey confFile; }
     else environments.${environment};

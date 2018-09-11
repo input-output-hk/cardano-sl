@@ -210,6 +210,6 @@ test-suite test
                         GADTs
                         MonadFailDesugaring
 
-  build-tools: cpphs >= 1.10
+  build-tools: cpphs >= 1.11
    -- trigger a rebuild of the whole cardano stack
   ghc-options: -pgmP cpphs -optP --cpp

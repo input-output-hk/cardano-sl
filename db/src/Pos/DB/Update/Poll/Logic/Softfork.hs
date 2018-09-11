@@ -20,12 +20,12 @@ import           Serokell.Util.Text (listJson)
 import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlockVersionData, configEpochSlots)
-import           Pos.Chain.Update (BlockVersionState (..), MonadPoll (..),
-                     MonadPollRead (..), PollVerFailure (..))
+import           Pos.Chain.Update (BlockVersion, BlockVersionData (..),
+                     BlockVersionState (..), MonadPoll (..),
+                     MonadPollRead (..), PollVerFailure (..),
+                     SoftforkRule (..))
 import           Pos.Core (BlockCount, Coin, EpochIndex, SlotId (..),
                      StakeholderId, crucialSlot, sumCoins, unsafeIntegerToCoin)
-import           Pos.Core.Update (BlockVersion, BlockVersionData (..),
-                     SoftforkRule (..))
 import           Pos.DB.Update.Poll.Logic.Base (ConfirmedEpoch, CurEpoch,
                      adoptBlockVersion, calcSoftforkThreshold, canBeAdoptedBV,
                      updateSlottingData)

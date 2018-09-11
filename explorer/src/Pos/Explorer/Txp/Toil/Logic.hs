@@ -25,10 +25,10 @@ import           Pos.Chain.Txp (ToilVerFailure (..), Tx (..), TxAux (..), TxId,
                      TxOut (..), TxOutAux (..), TxUndo, TxpConfiguration,
                      extendGlobalToilM, extendLocalToilM, topsortTxs, _TxOut)
 import qualified Pos.Chain.Txp as Txp
+import           Pos.Chain.Update (BlockVersionData)
 import           Pos.Core (Address, Coin, EpochIndex, Timestamp, mkCoin,
                      sumCoins, unsafeAddCoin, unsafeSubCoin)
 import           Pos.Core.Chrono (NewestFirst (..))
-import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (ProtocolMagic, WithHash (..), hash)
 import           Pos.Explorer.Core (AddrHistory, TxExtra (..))
 import           Pos.Explorer.Txp.Toil.Monad (EGlobalToilM, ELocalToilM,

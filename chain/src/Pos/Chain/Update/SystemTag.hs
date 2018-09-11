@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveLift #-}
 
-module Pos.Core.Update.SystemTag
+module Pos.Chain.Update.SystemTag
        ( SystemTag (..)
        , checkSystemTag
        , systemTagMaxLength
@@ -20,7 +20,7 @@ import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text as T
 import           Distribution.System (Arch (..), OS (..))
 import           Distribution.Text (display)
-import           Instances.TH.Lift ()
+--import           Instances.TH.Lift ()
 import           Language.Haskell.TH.Syntax (Lift)
 
 import           Pos.Binary.Class (Bi (..))

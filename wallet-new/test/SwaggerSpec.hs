@@ -23,7 +23,7 @@ import           Cardano.Wallet.API.V1.Swagger ()
 import qualified Cardano.Wallet.API.V1.Swagger as Swagger
 import           Cardano.Wallet.Orphans.Aeson ()
 import           Cardano.Wallet.Orphans.Arbitrary ()
-import           Pos.Core.Update (ApplicationName (..), SoftwareVersion (..))
+import           Pos.Chain.Update (ApplicationName (..), SoftwareVersion (..))
 import           Pos.Util.CompileInfo (CompileTimeInfo (CompileTimeInfo),
                      gitRev)
 

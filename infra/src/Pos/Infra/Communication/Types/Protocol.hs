@@ -70,7 +70,7 @@ import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
                      deriveSimpleBi, encodeKnownCborDataItem, encodeListLen,
                      encodeUnknownCborDataItem, enforceSize)
 import           Pos.Binary.Limit (Limit (..))
-import           Pos.Core.Update (BlockVersion)
+import           Pos.Chain.Update (BlockVersion)
 import           Pos.Infra.Communication.BiP (BiP)
 import           Pos.Infra.Network.Types (MsgType (..), NodeId (..),
                      NodeType (..), Origin (..))

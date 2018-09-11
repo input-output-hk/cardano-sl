@@ -7,7 +7,7 @@ module Pos.DB.Lrc.Consumers
 
 import           Universum
 
-import           Pos.Core.Update (BlockVersionData)
+import           Pos.Chain.Update (BlockVersionData)
 import           Pos.DB.Lrc.Consumer (LrcConsumer)
 import           Pos.DB.Lrc.Consumer.Delegation (dlgLrcConsumer)
 import           Pos.DB.Lrc.Consumer.Ssc (sscLrcConsumer)

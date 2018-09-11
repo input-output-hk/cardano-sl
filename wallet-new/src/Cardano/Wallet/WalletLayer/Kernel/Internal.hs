@@ -15,8 +15,7 @@ import           Control.Concurrent.MVar (modifyMVar_)
 import           Data.Acid.Advanced (update')
 import           System.IO.Error (isDoesNotExistError)
 
-import           Pos.Chain.Update (ConfirmedProposalState)
-import           Pos.Core.Update (SoftwareVersion)
+import           Pos.Chain.Update (ConfirmedProposalState, SoftwareVersion)
 
 import           Cardano.Wallet.API.V1.Types (V1 (..), Wallet,
                      WalletImport (..))
@@ -124,4 +123,3 @@ importWallet pw WalletImport{..} = liftIO $ do
                      return $ case res of
                           Left e               -> Left (ImportWalletCreationFailed e)
                           Right importedWallet -> Right importedWallet
-

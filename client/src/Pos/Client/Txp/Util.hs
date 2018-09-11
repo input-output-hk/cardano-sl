@@ -70,6 +70,7 @@ import           Pos.Chain.Script.Examples (multisigRedeemer, multisigValidator)
 import           Pos.Chain.Txp (Tx (..), TxAux (..), TxFee (..), TxIn (..),
                      TxInWitness (..), TxOut (..), TxOutAux (..),
                      TxSigData (..), Utxo)
+import           Pos.Chain.Update (bvdTxFeePolicy)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Core (Address, Coin, SlotCount, StakeholderId,
                      TxFeePolicy (..), TxSizeLinear (..),
@@ -77,7 +78,6 @@ import           Pos.Core (Address, Coin, SlotCount, StakeholderId,
                      isRedeemAddress, mkCoin, sumCoins, txSizeLinearMinValue,
                      unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Core.Attributes (mkAttributes)
-import           Pos.Core.Update (bvdTxFeePolicy)
 import           Pos.Crypto (ProtocolMagic, RedeemSecretKey, SafeSigner,
                      SignTag (SignRedeemTx, SignTx), deterministicKeyGen,
                      fakeSigner, hash, redeemSign, redeemToPublic, safeSign,

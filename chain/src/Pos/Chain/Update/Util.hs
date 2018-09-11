@@ -2,7 +2,7 @@
 
 -- | Utility functions related to core update system types.
 
-module Pos.Core.Update.Util
+module Pos.Chain.Update.Util
        (
          -- * Checkers/validators.
          checkUpdatePayload
@@ -35,14 +35,14 @@ import           Formatting (Format, build)
 import           Instances.TH.Lift ()
 
 import           Pos.Binary.Crypto ()
-import           Pos.Core.Common.Types (checkCoinPortion)
-import           Pos.Core.Slotting (EpochIndex, isBootstrapEra)
-import           Pos.Core.Update.Types (BlockVersion, BlockVersionData (..),
+import           Pos.Chain.Update.Types (BlockVersion, BlockVersionData (..),
                      BlockVersionModifier (..), SoftforkRule (..),
                      SoftwareVersion, SystemTag, UpAttributes, UpdateData,
                      UpdatePayload (..), UpdateProposal (..),
                      UpdateProposalToSign (..), UpdateVote (..), VoteId,
                      checkSoftwareVersion, checkSystemTag)
+import           Pos.Core.Common.Types (checkCoinPortion)
+import           Pos.Core.Slotting (EpochIndex, isBootstrapEra)
 import           Pos.Crypto (ProtocolMagic, SafeSigner,
                      SignTag (SignUSProposal, SignUSVote), checkSig, safeSign,
                      safeToPublic)

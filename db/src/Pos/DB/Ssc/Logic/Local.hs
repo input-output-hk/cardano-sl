@@ -46,10 +46,10 @@ import           Pos.Chain.Ssc (HasSscConfiguration, InnerSharesMap,
                      supplyPureTossEnv, syncingStateWith, tmCertificates,
                      tmCommitments, tmOpenings, tmShares,
                      verifyAndApplySscPayload)
+import           Pos.Chain.Update (BlockVersionData (..))
 import           Pos.Core (BlockCount, EpochIndex, SlotId (..), StakeholderId,
                      epochIndexL, kEpochSlots)
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
-import           Pos.Core.Update (BlockVersionData (..))
 import           Pos.DB (MonadBlockDBRead, MonadDBRead,
                      MonadGState (gsAdoptedBVData))
 import           Pos.DB.BlockIndex (getTipHeader)

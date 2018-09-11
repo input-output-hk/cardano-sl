@@ -33,12 +33,12 @@ import           Pos.Chain.Txp (ExtendedLocalToilM, LocalToilState (..),
                      TxpConfiguration (..), UndoMap, Utxo, UtxoLookup,
                      UtxoModifier, extendLocalToilM, mpLocalTxs, normalizeToil,
                      processTx, topsortTxs, utxoToLookup)
+import           Pos.Chain.Update (BlockVersionData)
 import           Pos.Core (EpochIndex, SlotCount, siEpoch)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.JsonLog.LogEvents (MemPoolModifyReason (..))
 import           Pos.Core.Reporting (reportError)
 import           Pos.Core.Slotting (MonadSlots (..))
-import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (WithHash (..))
 import           Pos.DB.Class (MonadGState (..))
 import qualified Pos.DB.GState.Common as GS

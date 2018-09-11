@@ -187,10 +187,10 @@ import           Cardano.Wallet.Util (showApiUtcTime)
 
 import qualified Pos.Binary.Class as Bi
 import qualified Pos.Chain.Txp as Txp
+import qualified Pos.Chain.Update as Core
 import qualified Pos.Client.Txp.Util as Core
 import           Pos.Core (addressF)
 import qualified Pos.Core as Core
-import qualified Pos.Core.Update as Core
 import           Pos.Crypto (Hash, PublicKey (..), decodeHash, hashHexF)
 import qualified Pos.Crypto.Signing as Core
 import           Pos.Infra.Communication.Types.Protocol ()

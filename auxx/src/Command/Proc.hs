@@ -20,14 +20,14 @@ import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots,
                      configGeneratedSecretsThrow)
 import           Pos.Chain.Genesis (gsSecretKeys)
 import           Pos.Chain.Txp (TxOut (..), TxpConfiguration)
-import           Pos.Chain.Update (BlockVersionModifier (..))
+import           Pos.Chain.Update (BlockVersionModifier (..),
+                     SoftwareVersion (..))
 import           Pos.Client.KeyStorage (addSecretKey, getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Core (AddrStakeDistribution (..), StakeholderId,
                      addressHash, mkMultiKeyDistr, unsafeGetCoin)
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                      makeAddress)
-import           Pos.Core.Update (SoftwareVersion (..))
 import           Pos.Crypto (PublicKey, emptyPassphrase, encToPublic,
                      fullPublicKeyF, hashHexF, noPassEncrypt, safeCreatePsk,
                      unsafeCheatingHashCoerce, withSafeSigner)

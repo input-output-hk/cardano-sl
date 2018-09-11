@@ -137,12 +137,15 @@ import           Pos.Chain.Txp.Tx (Tx)
 import           Pos.Chain.Txp.TxPayload (TxPayload, txpTxs, txpWitnesses)
 import           Pos.Chain.Txp.TxProof (mkTxProof)
 import           Pos.Chain.Txp.TxWitness (TxWitness)
+import           Pos.Chain.Update.BlockVersion (BlockVersion,
+                     HasBlockVersion (..))
+import           Pos.Chain.Update.Payload (UpdatePayload)
+import           Pos.Chain.Update.Proof (mkUpdateProof)
+import           Pos.Chain.Update.SoftwareVersion (HasSoftwareVersion (..),
+                     SoftwareVersion)
 import           Pos.Core.Common (ChainDifficulty, HasDifficulty (..))
 import           Pos.Core.Slotting (EpochOrSlot (..), HasEpochIndex (..),
                      HasEpochOrSlot (..), SlotId (..), slotIdF)
-import           Pos.Core.Update (BlockVersion, HasBlockVersion (..),
-                     HasSoftwareVersion (..), SoftwareVersion, UpdatePayload,
-                     mkUpdateProof)
 import           Pos.Crypto (Hash, ProtocolMagic, PublicKey, Signature, hash,
                      hashHexF, unsafeHash)
 import           Pos.Util.Some (Some, applySome, liftLensSome)

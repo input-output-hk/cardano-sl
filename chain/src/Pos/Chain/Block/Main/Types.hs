@@ -27,9 +27,11 @@ import           Pos.Chain.Ssc.Payload (SscPayload)
 import           Pos.Chain.Ssc.Proof (SscProof)
 import           Pos.Chain.Txp.TxPayload (TxPayload)
 import           Pos.Chain.Txp.TxProof (TxProof)
+import           Pos.Chain.Update.BlockVersion (BlockVersion)
+import           Pos.Chain.Update.Payload (UpdatePayload)
+import           Pos.Chain.Update.Proof (UpdateProof)
+import           Pos.Chain.Update.SoftwareVersion (SoftwareVersion)
 import           Pos.Core.Attributes (Attributes, areAttributesKnown)
-import           Pos.Core.Update (BlockVersion, SoftwareVersion, UpdatePayload,
-                     UpdateProof)
 import           Pos.Crypto (Hash)
 
 -- | Proof of everything contained in the payload.

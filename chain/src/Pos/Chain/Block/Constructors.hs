@@ -25,11 +25,11 @@ import           Pos.Chain.Block.Union (BlockHeader, BlockSignature (..),
                      headerHash)
 import           Pos.Chain.Delegation (ProxySKBlockInfo)
 import           Pos.Chain.Genesis (GenesisHash (..))
+import           Pos.Chain.Update (BlockVersion, SoftwareVersion)
 import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Core.Common (ChainDifficulty, HasDifficulty (..),
                      SlotLeaders)
 import           Pos.Core.Slotting (EpochIndex, SlotId)
-import           Pos.Core.Update (BlockVersion, SoftwareVersion)
 import           Pos.Crypto (ProtocolMagic, SecretKey, SignTag (..), hash,
                      proxySign, sign, toPublic)
 

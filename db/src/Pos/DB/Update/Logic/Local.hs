@@ -36,16 +36,15 @@ import           UnliftIO (MonadUnliftIO)
 import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Genesis as Genesis (Config, configBlockVersionData)
-import           Pos.Chain.Update (HasUpdateConfiguration,
-                     MonadPoll (deactivateProposal),
+import           Pos.Chain.Update (BlockVersionData (..),
+                     HasUpdateConfiguration, MonadPoll (deactivateProposal),
                      MonadPollRead (getProposal), PollModifier,
-                     PollVerFailure (..), canCombineVotes, evalPollT,
-                     execPollT, getAdoptedBV, modifyPollModifier, psVotes,
-                     reportUnexpectedError, runPollT)
+                     PollVerFailure (..), UpId, UpdatePayload (..),
+                     UpdateProposal, UpdateVote (..), canCombineVotes,
+                     evalPollT, execPollT, getAdoptedBV, modifyPollModifier,
+                     psVotes, reportUnexpectedError, runPollT)
 import           Pos.Core (SlotId (..), slotIdF)
 import           Pos.Core.Reporting (MonadReporting)
-import           Pos.Core.Update (BlockVersionData (..), UpId,
-                     UpdatePayload (..), UpdateProposal, UpdateVote (..))
 import           Pos.Crypto (PublicKey, shortHashF)
 import           Pos.DB.Class (MonadDBRead)
 import qualified Pos.DB.GState.Common as DB

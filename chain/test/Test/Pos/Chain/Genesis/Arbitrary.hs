@@ -18,14 +18,15 @@ import           Test.QuickCheck (Arbitrary (..), choose, sized, suchThat)
 import           Pos.Chain.Delegation (HeavyDlgIndex (..))
 import           Pos.Chain.Genesis
 import           Pos.Chain.Ssc (mkVssCertificatesMapLossy)
+import           Pos.Chain.Update (BlockVersionData (..))
 import           Pos.Core (Timestamp (..), TxFeePolicy (..), maxCoinVal)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
                      VssMaxTTL (..), VssMinTTL (..))
-import           Pos.Core.Update (BlockVersionData (..))
 import           Pos.Crypto (createPsk, toPublic)
 import           Pos.Util.Util (leftToPanic)
 
 import           Test.Pos.Chain.Ssc.Arbitrary ()
+import           Test.Pos.Chain.Update.Arbitrary ()
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Arbitrary (nonrepeating)

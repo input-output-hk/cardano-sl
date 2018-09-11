@@ -25,9 +25,10 @@ import           Pos.Chain.Block.Union.Types (BlockHeader (..),
                      mainHeaderLeaderKey, mainHeaderSlot,
                      mainHeaderSoftwareVersion, mbTxs, mcdDifficulty,
                      mehBlockVersion, mehSoftwareVersion)
+import           Pos.Chain.Update.BlockVersion (HasBlockVersion (..))
+import           Pos.Chain.Update.SoftwareVersion (HasSoftwareVersion (..))
 import           Pos.Core.Common (HasDifficulty (..))
 import           Pos.Core.Slotting (HasEpochIndex (..), HasEpochOrSlot (..))
-import           Pos.Core.Update (HasBlockVersion (..), HasSoftwareVersion (..))
 
 instance NFData MainBlock
 

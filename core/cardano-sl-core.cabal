@@ -51,7 +51,6 @@ library
 
                        Pos.Core.Script
                        Pos.Core.Slotting
-                       Pos.Core.Update
 
                        Pos.Core.Util.LogSafe
                        Pos.Core.Util.TimeLimit
@@ -108,19 +107,6 @@ library
                        Pos.Core.Reporting.MemState
                        Pos.Core.Reporting.Methods
                        Pos.Core.Reporting.Metrics
-
-                       -- Update
-                       Pos.Core.Update.ApplicationName
-                       Pos.Core.Update.BlockVersion
-                       Pos.Core.Update.BlockVersionData
-                       Pos.Core.Update.BlockVersionModifier
-                       Pos.Core.Update.Data
-                       Pos.Core.Update.Payload
-                       Pos.Core.Update.Proof
-                       Pos.Core.Update.SoftforkRule
-                       Pos.Core.Update.SoftwareVersion
-                       Pos.Core.Update.SystemTag
-                       Pos.Core.Update.Vote
 
   build-depends:       aeson
                      , aeson-options

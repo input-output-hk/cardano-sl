@@ -8,9 +8,9 @@ import           Test.Hspec (Expectation, Spec, describe, it, shouldBe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Property, property)
 
-import           Pos.Core (decodeTextAddress)
-import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
+import           Pos.Chain.Update (ApplicationName (..), BlockVersion (..),
                      SoftwareVersion (..))
+import           Pos.Core (decodeTextAddress)
 import           Pos.Crypto (decodeAbstractHash, parseFullPublicKey,
                      unsafeCheatingHashCoerce)
 

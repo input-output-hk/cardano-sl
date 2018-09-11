@@ -29,11 +29,11 @@ import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem,
                      rollbackSsc, runPureTossWithLogger, sscGlobal,
                      sscIsCriticalVerifyError, sscRunGlobalUpdate,
                      supplyPureTossEnv, verifyAndApplySscPayload)
+import           Pos.Chain.Update (BlockVersionData)
 import           Pos.Core (SlotCount, epochIndexL, epochOrSlotG)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Exception (assertionFailed)
 import           Pos.Core.Reporting (MonadReporting, reportError)
-import           Pos.Core.Update (BlockVersionData)
 import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp (..),
                      gsAdoptedBVData)
 import           Pos.DB.Lrc (HasLrcContext, getSscRichmen)

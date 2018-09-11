@@ -49,6 +49,7 @@ library
                      , canonical-json
                      , cardano-sl
                      , cardano-sl-chain
+                     , cardano-sl-chain-test
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-core-test
@@ -187,6 +188,7 @@ test-suite cardano-auxx-test
   build-depends:
                        QuickCheck
                      , cardano-sl-auxx
+                     , cardano-sl-chain
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , hspec

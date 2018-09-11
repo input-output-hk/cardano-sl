@@ -36,7 +36,7 @@ import           Pos.Chain.Block (Block, Blund, HasSlogGState, SlogUndo (..),
                      mainBlockSlot, prevBlockL, verifyBlocks)
 import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots,
                      configK)
-import           Pos.Chain.Update (HasUpdateConfiguration,
+import           Pos.Chain.Update (BlockVersion (..), HasUpdateConfiguration,
                      lastKnownBlockVersion)
 import           Pos.Core (BlockCount, FlatSlotId, ProtocolConstants,
                      difficultyL, epochIndexL, flattenSlotId, kEpochSlots,
@@ -45,7 +45,6 @@ import           Pos.Core.Chrono (NE, NewestFirst (getNewestFirst),
                      OldestFirst (..), toOldestFirst, _OldestFirst)
 import           Pos.Core.Exception (assertionFailed, reportFatalError)
 import           Pos.Core.Slotting (MonadSlots, SlotId)
-import           Pos.Core.Update (BlockVersion (..))
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Block.BListener (MonadBListener (..))
 import qualified Pos.DB.Block.GState.BlockExtra as GS

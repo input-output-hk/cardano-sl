@@ -36,6 +36,7 @@ import           Pos.Binary.Communication (serializeMsgSerializedBlock,
                      serializeMsgStreamBlock)
 import           Pos.Chain.Block (Block, BlockHeader (..), HeaderHash,
                      MainBlockHeader, blockHeader, headerHash, prevBlockL)
+import           Pos.Chain.Update (BlockVersionData, bvdSlotDuration)
 import           Pos.Communication.Limits (mlMsgBlock, mlMsgGetBlocks,
                      mlMsgGetHeaders, mlMsgHeaders, mlMsgStream,
                      mlMsgStreamBlock)
@@ -45,7 +46,6 @@ import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
 import           Pos.Core.Exception (cardanoExceptionFromException,
                      cardanoExceptionToException)
 import           Pos.Core.NetworkAddress (NetworkAddress)
-import           Pos.Core.Update (BlockVersionData, bvdSlotDuration)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (DBMalformed))
 import           Pos.Infra.Communication.Listener (listenerConv)

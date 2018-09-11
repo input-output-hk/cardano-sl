@@ -68,10 +68,10 @@ import           Pos.Chain.Ssc (Commitment (..), InnerSharesMap,
                      MCVssCertificate (..), Opening (..), SignedCommitment,
                      VssCertificate)
 import           Pos.Chain.Txp (TxAux, TxMsgContents (..))
+import           Pos.Chain.Update (BlockVersionData (..), UpId,
+                     UpdateProposal (..), UpdateVote (..))
 import           Pos.Core (BlockCount, EpochIndex, StakeholderId,
                      coinPortionToDouble)
-import           Pos.Core.Update (BlockVersionData (..), UpId,
-                     UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto (ProxyCert (..), ProxySecretKey (..),
                      SecretProof (..))
 import           Pos.Network.Block.Types (MsgBlock (..), MsgGetBlocks (..),

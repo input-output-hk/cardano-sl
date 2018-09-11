@@ -4,7 +4,7 @@ import           Universum
 
 import           Servant
 
-import           Pos.Core.Update (SoftwareVersion)
+import           Pos.Chain.Update (SoftwareVersion)
 
 import qualified Cardano.Wallet.API.Internal as Internal
 import           Cardano.Wallet.API.Response (WalletResponse, single)

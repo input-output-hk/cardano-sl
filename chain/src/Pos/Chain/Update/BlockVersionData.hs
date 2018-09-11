@@ -1,12 +1,13 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Pos.Core.Update.BlockVersionData
+module Pos.Chain.Update.BlockVersionData
        ( BlockVersionData (..)
        , isBootstrapEraBVD
        ) where
 
 import           Universum
 
+import           Control.Monad.Except (MonadError)
 import qualified Data.Aeson.Options as S (defaultOptions)
 import           Data.Aeson.TH (deriveJSON)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
@@ -14,15 +15,15 @@ import           Data.Time.Units (Millisecond)
 import           Formatting (bprint, build, int, (%))
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Data.Memory.Units (Byte, memory)
-import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
-                     ToJSON (..), fromJSField, mkObject)
+import           Text.JSON.Canonical (FromJSON (..), ToJSON (..), fromJSField,
+                     mkObject)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
+import           Pos.Chain.Update.SoftforkRule
 import           Pos.Core.Binary ()
 import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy)
 import           Pos.Core.Slotting (EpochIndex, FlatSlotId, isBootstrapEra)
-import           Pos.Core.Update.SoftforkRule
-import           Pos.Util.Json.Canonical ()
+import           Pos.Util.Json.Canonical (SchemaError)
 import           Pos.Util.Orphans ()
 
 -- | Data which is associated with 'BlockVersion'.
@@ -96,7 +97,7 @@ instance Monad m => ToJSON m BlockVersionData where
             , ("unlockStakeEpoch", toJSON unlockStakeEpoch)
             ]
 
-instance ReportSchemaErrors m => FromJSON m BlockVersionData where
+instance MonadError SchemaError m => FromJSON m BlockVersionData where
     fromJSON obj = do
         bvdScriptVersion <- fromJSField obj "scriptVersion"
         bvdSlotDuration <- fromJSField obj "slotDuration"

@@ -39,11 +39,13 @@ import           Data.Time.Units (convertUnit)
 import           Formatting (build, int, sformat, (%))
 
 import           Pos.Chain.Block (HeaderHash, IsMainHeader (..), headerHashG)
-import           Pos.Chain.Update (BlockVersionState (..),
+import           Pos.Chain.Update (BlockVersion (..), BlockVersionData (..),
+                     BlockVersionModifier (..), BlockVersionState (..),
                      ConfirmedProposalState (..), DecidedProposalState (..),
                      DpsExtra (..), MonadPoll (..), MonadPollRead (..),
                      PollVerFailure (..), ProposalState (..),
-                     UndecidedProposalState (..), UpsExtra (..),
+                     SoftforkRule (..), UndecidedProposalState (..), UpId,
+                     UpdateProposal (..), UpdateVote (..), UpsExtra (..),
                      bvsIsConfirmed, combineVotes, cpsBlockVersion,
                      isPositiveVote, newVoteState)
 import           Pos.Core (Coin, CoinPortion (..), EpochIndex, SlotCount,
@@ -54,9 +56,6 @@ import           Pos.Core (Coin, CoinPortion (..), EpochIndex, SlotCount,
 import           Pos.Core.Slotting (EpochSlottingData (..), SlottingData,
                      addEpochSlottingData, getCurrentEpochIndex,
                      getNextEpochSlottingData)
-import           Pos.Core.Update (BlockVersion (..), BlockVersionData (..),
-                     BlockVersionModifier (..), SoftforkRule (..), UpId,
-                     UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto (PublicKey, hash, shortHashF)
 import           Pos.Util.Wlog (WithLogger, logDebug, logNotice)
 

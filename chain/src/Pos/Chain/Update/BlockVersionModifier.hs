@@ -1,8 +1,9 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Pos.Core.Update.BlockVersionModifier
+module Pos.Chain.Update.BlockVersionModifier
        ( BlockVersionModifier (..)
        , checkBlockVersionModifier
+       , applyBVM
        ) where
 
 import           Universum
@@ -23,7 +24,8 @@ import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy,
 import           Pos.Core.Slotting (EpochIndex, FlatSlotId)
 import           Pos.Util.Orphans ()
 
-import           Pos.Core.Update.SoftforkRule
+import           Pos.Chain.Update.BlockVersionData (BlockVersionData (..))
+import           Pos.Chain.Update.SoftforkRule
 
 -- | Data which represents modifications of block (aka protocol) version.
 data BlockVersionModifier = BlockVersionModifier
@@ -109,6 +111,26 @@ checkBlockVersionModifier BlockVersionModifier {..} = do
     whenJust bvmUpdateVoteThd checkCoinPortion
     whenJust bvmUpdateProposalThd checkCoinPortion
     whenJust bvmSoftforkRule checkSoftforkRule
+
+-- | Apply 'BlockVersionModifier' to 'BlockVersionData'.
+applyBVM :: BlockVersionModifier -> BlockVersionData -> BlockVersionData
+applyBVM BlockVersionModifier {..} BlockVersionData {..} =
+    BlockVersionData
+    { bvdScriptVersion     = fromMaybe bvdScriptVersion     bvmScriptVersion
+    , bvdSlotDuration      = fromMaybe bvdSlotDuration      bvmSlotDuration
+    , bvdMaxBlockSize      = fromMaybe bvdMaxBlockSize      bvmMaxBlockSize
+    , bvdMaxHeaderSize     = fromMaybe bvdMaxHeaderSize     bvmMaxHeaderSize
+    , bvdMaxTxSize         = fromMaybe bvdMaxTxSize         bvmMaxTxSize
+    , bvdMaxProposalSize   = fromMaybe bvdMaxProposalSize   bvmMaxProposalSize
+    , bvdMpcThd            = fromMaybe bvdMpcThd            bvmMpcThd
+    , bvdHeavyDelThd       = fromMaybe bvdHeavyDelThd       bvmHeavyDelThd
+    , bvdUpdateVoteThd     = fromMaybe bvdUpdateVoteThd     bvmUpdateVoteThd
+    , bvdUpdateProposalThd = fromMaybe bvdUpdateProposalThd bvmUpdateProposalThd
+    , bvdUpdateImplicit    = fromMaybe bvdUpdateImplicit    bvmUpdateImplicit
+    , bvdSoftforkRule      = fromMaybe bvdSoftforkRule      bvmSoftforkRule
+    , bvdTxFeePolicy       = fromMaybe bvdTxFeePolicy       bvmTxFeePolicy
+    , bvdUnlockStakeEpoch  = fromMaybe bvdUnlockStakeEpoch  bvmUnlockStakeEpoch
+    }
 
 deriveSimpleBi ''BlockVersionModifier [
     Cons 'BlockVersionModifier [

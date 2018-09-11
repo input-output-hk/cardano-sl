@@ -1,11 +1,11 @@
-module Pos.Core.Update.Proof
+module Pos.Chain.Update.Proof
        ( UpdateProof
        , mkUpdateProof
        ) where
 
 import           Pos.Crypto (Hash, hash)
 
-import           Pos.Core.Update.Payload
+import           Pos.Chain.Update.Payload
 
 -- | Proof that body of update message contains 'UpdatePayload'.
 type UpdateProof = Hash UpdatePayload

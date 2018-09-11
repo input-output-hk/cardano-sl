@@ -37,13 +37,13 @@ import           Pos.Chain.Txp.Tx (Tx (..), TxId, TxOut (..), txOutAddress)
 import           Pos.Chain.Txp.TxAux (TxAux (..), checkTxAux)
 import           Pos.Chain.Txp.TxOutAux (toaOut)
 import           Pos.Chain.Txp.Undo (TxUndo, TxpUndo)
+import           Pos.Chain.Update (BlockVersionData (..), isBootstrapEraBVD)
 import           Pos.Core (AddrAttributes (..), AddrStakeDistribution (..),
                      Address, EpochIndex, addrAttributesUnwrapped,
                      isRedeemAddress)
 import           Pos.Core.Common (integerToCoin)
 import qualified Pos.Core.Common as Fee (TxFeePolicy (..),
                      calculateTxSizeLinear)
-import           Pos.Core.Update (BlockVersionData (..), isBootstrapEraBVD)
 import           Pos.Crypto (ProtocolMagic, WithHash (..), hash)
 import           Pos.Util (liftEither)
 

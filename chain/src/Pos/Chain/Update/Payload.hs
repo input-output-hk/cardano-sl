@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Pos.Core.Update.Payload
+module Pos.Chain.Update.Payload
        ( UpdatePayload (..)
        , checkUpdatePayload
        ) where
@@ -17,7 +17,7 @@ import           Serokell.Util.Text (listJson)
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Crypto (ProtocolMagic)
 
-import           Pos.Core.Update.Vote
+import           Pos.Chain.Update.Vote
 
 -- | Update System payload. 'BodyProof MainBlockchain' contains
 -- 'UpdateProof' = @Hash UpdatePayload@.

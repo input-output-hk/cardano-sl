@@ -138,15 +138,25 @@ library
                        Pos.Chain.Ssc.VssCertificate
                        Pos.Chain.Ssc.VssCertificatesMap
 
+                       Pos.Chain.Update.ApplicationName
                        Pos.Chain.Update.BlockVersion
+                       Pos.Chain.Update.BlockVersionData
+                       Pos.Chain.Update.BlockVersionModifier
                        Pos.Chain.Update.Configuration
                        Pos.Chain.Update.Constants
+                       Pos.Chain.Update.Data
+                       Pos.Chain.Update.Params
+                       Pos.Chain.Update.Payload
                        Pos.Chain.Update.Poll
                        Pos.Chain.Update.Poll.Class
                        Pos.Chain.Update.Poll.Modifier
                        Pos.Chain.Update.Poll.Types
                        Pos.Chain.Update.Poll.Failure
-                       Pos.Chain.Update.Params
+                       Pos.Chain.Update.Proof
+                       Pos.Chain.Update.SoftforkRule
+                       Pos.Chain.Update.SoftwareVersion
+                       Pos.Chain.Update.SystemTag
+                       Pos.Chain.Update.Vote
 
   build-depends:       Cabal
                      , aeson
@@ -264,7 +274,11 @@ test-suite test
                        Test.Pos.Chain.Txp.Example
                        Test.Pos.Chain.Txp.Toil.UtxoSpec
                        Test.Pos.Chain.Update.Arbitrary
-                       Test.Pos.Chain.Update.Arbitrary.Core
+                       Test.Pos.Chain.Update.Bi
+                       Test.Pos.Chain.Update.CborSpec
+                       Test.Pos.Chain.Update.Example
+                       Test.Pos.Chain.Update.Gen
+                       Test.Pos.Chain.Update.Json
 
   build-depends:       base
                      , base16-bytestring
@@ -293,6 +307,7 @@ test-suite test
                      , random
                      , serokell-util
                      , formatting
+                     , time-units
                      , universum
                      , unordered-containers
                      , vector
@@ -316,7 +331,6 @@ benchmark block-bench
                        Test.Pos.Chain.Ssc.Arbitrary
                        Test.Pos.Chain.Txp.Arbitrary
                        Test.Pos.Chain.Update.Arbitrary
-                       Test.Pos.Chain.Update.Arbitrary.Core
 
   ghc-options:         -Wall -O2
   build-depends:       QuickCheck

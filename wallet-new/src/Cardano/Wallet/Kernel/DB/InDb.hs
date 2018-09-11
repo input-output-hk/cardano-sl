@@ -29,9 +29,9 @@ import qualified Pos.Chain.Block as Core
 import qualified Pos.Chain.Delegation as Core
 import qualified Pos.Chain.Ssc as Ssc
 import qualified Pos.Chain.Txp as Txp
+import qualified Pos.Chain.Update as Core
 import qualified Pos.Core as Core
 import qualified Pos.Core.Attributes as Core
-import qualified Pos.Core.Update as Core
 import qualified Pos.Crypto as Core
 
 import qualified Cardano.Crypto.Wallet as CCW

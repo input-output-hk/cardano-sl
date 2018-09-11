@@ -15,8 +15,8 @@ import           Servant
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Genesis as Genesis (Config)
+import           Pos.Chain.Update (SoftwareVersion)
 import qualified Pos.Client.KeyStorage as V0
-import           Pos.Core.Update (SoftwareVersion)
 import           Pos.Crypto (emptyPassphrase)
 import           Pos.Util (HasLens (..))
 import qualified Pos.Wallet.WalletMode as V0

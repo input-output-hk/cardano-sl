@@ -35,13 +35,13 @@ import           Pos.Chain.Block.Union (Block, BlockHeader (..),
                      getBlockHeader, headerSlotL, mainHeaderLeaderKey,
                      mebAttributes, mehAttributes, prevBlockL)
 import           Pos.Chain.Genesis as Genesis (Config (..))
+import           Pos.Chain.Update (BlockVersionData (..))
 import           Pos.Core (ChainDifficulty, EpochOrSlot, HasDifficulty (..),
                      HasEpochIndex (..), HasEpochOrSlot (..), SlotId (..),
                      SlotLeaders, addressHash, getSlotIndex)
 import           Pos.Core.Attributes (areAttributesKnown)
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst)
 import           Pos.Core.Slotting (EpochIndex)
-import           Pos.Core.Update (BlockVersionData (..))
 import           Pos.Crypto (ProtocolMagic (..))
 
 ----------------------------------------------------------------------------

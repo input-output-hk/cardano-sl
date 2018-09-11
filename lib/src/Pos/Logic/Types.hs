@@ -22,11 +22,11 @@ import           Pos.Chain.Security (SecurityParams (..))
 import           Pos.Chain.Ssc (MCCommitment, MCOpening, MCShares,
                      MCVssCertificate)
 import           Pos.Chain.Txp (TxId, TxMsgContents)
+import           Pos.Chain.Update (BlockVersionData, UpId, UpdateProposal,
+                     UpdateVote, VoteId)
 import           Pos.Communication (NodeId)
 import           Pos.Core (StakeholderId)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.Core.Update (BlockVersionData, UpId, UpdateProposal,
-                     UpdateVote, VoteId)
 import           Pos.DB.Block (GetHashesRangeError, GetHeadersFromManyToError)
 import           Pos.DB.Class (SerializedBlock)
 

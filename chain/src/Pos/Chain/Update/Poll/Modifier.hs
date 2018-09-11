@@ -22,13 +22,16 @@ import           Control.Lens (makeLensesFor)
 import           Data.Default (Default (def))
 import           Data.Semigroup (Semigroup)
 
+import           Pos.Chain.Update.ApplicationName (ApplicationName)
+import           Pos.Chain.Update.BlockVersion (BlockVersion)
+import           Pos.Chain.Update.BlockVersionData (BlockVersionData)
 import           Pos.Chain.Update.Poll.Types (BlockVersionState,
                      ConfirmedProposalState, ProposalState)
+import           Pos.Chain.Update.SoftwareVersion (NumSoftwareVersion,
+                     SoftwareVersion)
+import           Pos.Chain.Update.Vote (UpId)
 import           Pos.Core.Common (StakeholderId)
 import           Pos.Core.Slotting (SlottingData)
-import           Pos.Core.Update (ApplicationName, BlockVersion,
-                     BlockVersionData, NumSoftwareVersion, SoftwareVersion,
-                     UpId)
 import           Pos.Util.Modifier (MapModifier)
 
 -- | PollModifier is used in verification. It represents operation which

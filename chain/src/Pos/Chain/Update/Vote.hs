@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Pos.Core.Update.Vote
+module Pos.Chain.Update.Vote
        (
        -- Software update proposal
          UpdateProposal (..)
@@ -42,11 +42,11 @@ import           Pos.Crypto (Hash, ProtocolMagic, PublicKey, SafeSigner,
                      Signature, checkSig, hash, safeSign, safeToPublic,
                      shortHashF, sign, toPublic)
 
-import           Pos.Core.Update.BlockVersion
-import           Pos.Core.Update.BlockVersionModifier
-import           Pos.Core.Update.Data
-import           Pos.Core.Update.SoftwareVersion
-import           Pos.Core.Update.SystemTag
+import           Pos.Chain.Update.BlockVersion
+import           Pos.Chain.Update.BlockVersionModifier
+import           Pos.Chain.Update.Data
+import           Pos.Chain.Update.SoftwareVersion
+import           Pos.Chain.Update.SystemTag
 
 ----------------------------------------------------------------------------
 -- Software Update Proposal

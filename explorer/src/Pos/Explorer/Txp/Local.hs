@@ -15,9 +15,9 @@ import qualified Data.HashMap.Strict as HM
 import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots)
 import           Pos.Chain.Txp (ToilVerFailure (..), TxAux (..), TxId,
                      TxpConfiguration, Utxo)
+import           Pos.Chain.Update (BlockVersionData)
 import           Pos.Core (EpochIndex, Timestamp)
 import           Pos.Core.JsonLog (CanJsonLog (..))
-import           Pos.Core.Update (BlockVersionData)
 import           Pos.DB.Txp.Logic (txNormalizeAbstract,
                      txProcessTransactionAbstract)
 import           Pos.DB.Txp.MemState (MempoolExt, TxpLocalWorkMode, getTxpExtra,

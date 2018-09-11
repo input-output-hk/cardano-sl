@@ -8,9 +8,9 @@ module Pos.DB.Block.Logic.Types
 
 import           Universum
 
+import           Pos.Chain.Update (BlockVersion, BlockVersionData)
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot), SlotCount,
                      SlotId)
-import           Pos.Core.Update (BlockVersion, BlockVersionData)
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.Update (getAdoptedBVFull)
 

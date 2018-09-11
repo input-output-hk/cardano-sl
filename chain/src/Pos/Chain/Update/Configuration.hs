@@ -26,8 +26,10 @@ import           Data.Maybe (fromMaybe)
 import           Data.Reflection (Given (..), give)
 import           Distribution.System (buildArch, buildOS)
 
-import           Pos.Core.Update (ApplicationName, BlockVersion (..),
-                     SoftwareVersion (..), SystemTag (..), archHelper,
+import           Pos.Chain.Update.ApplicationName (ApplicationName)
+import           Pos.Chain.Update.BlockVersion (BlockVersion (..))
+import           Pos.Chain.Update.SoftwareVersion (SoftwareVersion (..))
+import           Pos.Chain.Update.SystemTag (SystemTag (..), archHelper,
                      osHelper)
 
 ----------------------------------------------------------------------------

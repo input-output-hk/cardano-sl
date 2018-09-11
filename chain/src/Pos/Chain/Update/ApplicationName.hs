@@ -1,4 +1,4 @@
-module Pos.Core.Update.ApplicationName
+module Pos.Chain.Update.ApplicationName
        ( ApplicationName (..)
        , applicationNameMaxLength
        , checkApplicationName

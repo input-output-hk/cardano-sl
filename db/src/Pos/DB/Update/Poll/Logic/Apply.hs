@@ -22,20 +22,19 @@ import           Pos.Chain.Block (HeaderHash, IsMainHeader (..), headerHashG,
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlkSecurityParam, configBlockVersionData,
                      configEpochSlots)
-import           Pos.Chain.Update (ConfirmedProposalState (..),
-                     DecidedProposalState (..), DpsExtra (..), MonadPoll (..),
-                     MonadPollRead (..), PollVerFailure (..),
-                     ProposalState (..), UndecidedProposalState (..),
-                     UpsExtra (..), psProposal)
+import           Pos.Chain.Update (BlockVersion, BlockVersionData (..),
+                     ConfirmedProposalState (..), DecidedProposalState (..),
+                     DpsExtra (..), MonadPoll (..), MonadPollRead (..),
+                     PollVerFailure (..), ProposalState (..),
+                     SoftwareVersion (..), UndecidedProposalState (..), UpId,
+                     UpdatePayload (..), UpdateProposal (..), UpdateVote (..),
+                     UpsExtra (..), blockVersionL, bvdUpdateProposalThd,
+                     checkUpdatePayload, psProposal)
 import           Pos.Core (BlockCount, ChainDifficulty (..), Coin, EpochIndex,
                      SlotCount, SlotId (..), addressHash, applyCoinPortionUp,
                      coinToInteger, difficultyL, epochIndexL, flattenSlotId,
                      sumCoins, unflattenSlotId, unsafeIntegerToCoin)
 import           Pos.Core.Attributes (areAttributesKnown)
-import           Pos.Core.Update (BlockVersion, BlockVersionData (..),
-                     SoftwareVersion (..), UpId, UpdatePayload (..),
-                     UpdateProposal (..), UpdateVote (..), blockVersionL,
-                     bvdUpdateProposalThd, checkUpdatePayload)
 import           Pos.Crypto (hash, shortHashF)
 import           Pos.DB.Update.Poll.Logic.Base (canBeAdoptedBV,
                      canCreateBlockBV, confirmBlockVersion, isDecided,

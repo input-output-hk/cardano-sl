@@ -9,7 +9,7 @@ import           Options.Applicative
 import           Servant ((:<|>))
 
 import           Cardano.Wallet.API (InternalAPI, V1API, v0API)
-import           Pos.Core.Update (ApplicationName (..), SoftwareVersion (..))
+import           Pos.Chain.Update (ApplicationName (..), SoftwareVersion (..))
 import           Pos.Util.CompileInfo (CompileTimeInfo (CompileTimeInfo),
                      gitRev)
 

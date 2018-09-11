@@ -40,10 +40,10 @@ import           Test.Pos.Chain.Delegation.Gen (genDlgPayload, genHeavyDlgIndex,
                      genLightDlgIndices)
 import           Test.Pos.Chain.Ssc.Gen (genSscPayload, genSscProof)
 import           Test.Pos.Chain.Txp.Gen (genTxPayload, genTxProof)
-import           Test.Pos.Core.Gen (genBlockVersion, genChainDifficulty,
-                     genEpochIndex, genSlotId, genSlotLeaders,
-                     genSoftwareVersion, genTextHash, genUpdatePayload,
-                     genUpdateProof)
+import           Test.Pos.Chain.Update.Gen (genBlockVersion, genSoftwareVersion,
+                     genUpdatePayload, genUpdateProof)
+import           Test.Pos.Core.Gen (genChainDifficulty, genEpochIndex,
+                     genSlotId, genSlotLeaders, genTextHash)
 import           Test.Pos.Crypto.Gen (genAbstractHash, genProxySignature,
                      genPublicKey, genSecretKey, genSignature)
 

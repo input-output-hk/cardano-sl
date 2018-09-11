@@ -58,8 +58,8 @@ import qualified Formatting.Buildable
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
 import           Pos.Chain.Txp (TxAux, TxId, Utxo)
+import           Pos.Chain.Update (SoftwareVersion)
 import           Pos.Core.Chrono (OldestFirst (..))
-import           Pos.Core.Update (SoftwareVersion)
 
 import           Cardano.Wallet.Kernel.DB.BlockContext
 import           Cardano.Wallet.Kernel.DB.HdWallet
@@ -408,7 +408,7 @@ switchToFork k n blocks = runUpdateDiscardSnapshot $ zoom dbHdWallets $
           -> OldestFirst [] PrefilteredBlock
     mkPBS = OldestFirst
           . map (\(bc, mPB) -> fromMaybe (emptyPrefilteredBlock bc) mPB)
-          . sortBy (comparing (view bcSlotId . fst))
+          . sortOn (view bcSlotId . fst)
 
 -- | Observable rollback, used for tests only
 --

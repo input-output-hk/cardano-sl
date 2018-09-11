@@ -10,7 +10,7 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 
-import qualified Pos.Core.Update as Upd
+import qualified Pos.Chain.Update as Upd
 import           Pos.Crypto (PublicKey, hash)
 import qualified Pos.DB.Update as Upd
 

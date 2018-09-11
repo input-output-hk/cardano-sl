@@ -39,6 +39,8 @@ import           Pos.Chain.Ssc (InnerSharesMap, MCCommitment (..),
                      MCOpening (..), MCShares (..), MCVssCertificate (..),
                      Opening, SignedCommitment, VssCertificate)
 import           Pos.Chain.Txp (TxAux)
+import           Pos.Chain.Update (BlockVersion, BlockVersionData (..), UpId,
+                     UpdateProposal, UpdateVote)
 import           Pos.Communication (EnqueueMsg, HandlerSpecs, InSpecs (..),
                      InvOrDataTK, Listener, MkListeners (..), Msg,
                      MsgSubscribe, MsgSubscribe1, NodeId, OutSpecs (..),
@@ -48,8 +50,6 @@ import           Pos.Communication (EnqueueMsg, HandlerSpecs, InSpecs (..),
 import           Pos.Core (ProtocolConstants (..), StakeholderId)
 import           Pos.Core.Chrono (OldestFirst)
 import           Pos.Core.Metrics.Constants (withCardanoNamespace)
-import           Pos.Core.Update (BlockVersion, BlockVersionData (..), UpId,
-                     UpdateProposal, UpdateVote)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import qualified Pos.Diffusion.Full.Block as Diffusion.Block
 import qualified Pos.Diffusion.Full.Delegation as Diffusion.Delegation

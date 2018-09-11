@@ -16,8 +16,8 @@ import           Pos.Chain.Ssc (MonadSscMem, SscGlobalQuery, SscSeedError,
                      sgsOpenings, sgsShares, sgsVssCertificates,
                      sscRunGlobalQuery, vcVssKey)
 import qualified Pos.Chain.Ssc as Ssc
+import           Pos.Chain.Update (BlockVersionData)
 import           Pos.Core (EpochIndex (..), SharedSeed)
-import           Pos.Core.Update (BlockVersionData)
 import           Pos.DB (MonadDBRead)
 import           Pos.DB.Lrc (HasLrcContext, getSscRichmen)
 

@@ -23,6 +23,7 @@ import           Test.QuickCheck.Monadic (forAllM, stop)
 
 import           Pos.Chain.Txp (Tx (..), TxAux (..), TxId, TxIn (..),
                      TxOut (..), TxOutAux (..), Utxo)
+import           Pos.Chain.Update (BlockVersionData (..))
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), TxError (..),
                      TxOutputs, TxWithSpendings, createMTx, createRedemptionTx,
@@ -30,7 +31,6 @@ import           Pos.Client.Txp.Util (InputSelectionPolicy (..), TxError (..),
 import           Pos.Core (Address, Coeff (..), TxFeePolicy (..),
                      TxSizeLinear (..), makePubKeyAddressBoot,
                      makeRedeemAddress, unsafeIntegerToCoin)
-import           Pos.Core.Update (BlockVersionData (..))
 import           Pos.Crypto (RedeemSecretKey, SafeSigner, SecretKey, decodeHash,
                      fakeSigner, redeemToPublic, toPublic)
 import           Pos.DB (gsAdoptedBVData)

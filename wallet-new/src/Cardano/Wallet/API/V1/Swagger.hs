@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds            #-}
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE QuasiQuotes          #-}
 {-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE TypeFamilies         #-}
@@ -9,7 +10,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Cardano.Wallet.API.V1.Swagger where
 
-import           Universum
+import           Universum hiding (get, put)
 
 import           Cardano.Wallet.API.Indices (ParamNames)
 import           Cardano.Wallet.API.Request.Filter
@@ -29,16 +30,17 @@ import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
 import           Pos.Util.Servant (CustomQueryFlag, LoggingApi)
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
-import           Control.Lens ((?~))
+import           Control.Lens (At, Index, IxValue, at, (?~))
 import           Data.Aeson (encode)
 import           Data.Aeson.Encode.Pretty
 import           Data.Map (Map)
-import           Data.Swagger hiding (Example, Header)
+import           Data.Swagger hiding (Example)
 import           Data.Typeable
 import           Formatting (build, sformat)
 import           GHC.TypeLits (KnownSymbol)
 import           NeatInterpolation
-import           Servant (Handler, QueryFlag, ServantErr (..), Server)
+import           Servant (Handler, QueryFlag, ServantErr (..), Server,
+                     StdMethod (..))
 import           Servant.API.Sub
 import           Servant.Swagger
 import           Servant.Swagger.UI (SwaggerSchemaUI')
@@ -69,6 +71,102 @@ inlineCodeBlock txt = "<pre>" <> replaceNewLines (replaceWhiteSpaces txt) <> "</
   where
     replaceNewLines    = T.replace "\n" "<br/>"
     replaceWhiteSpaces = T.replace " " "&nbsp;"
+
+
+-- | Drill in the 'Swagger' file in an unsafe way to modify a specific operation
+-- identified by a tuple (verb, path). The function looks a bit scary to use
+-- but is actually rather simple (see example below).
+--
+-- Note that if the identified path doesn't exist, the function will throw
+-- at runtime when trying to read the underlying swagger structure!
+--
+-- Example:
+--
+--     swagger
+--       & paths %~ (POST, "/api/v1/wallets") `alterOperation` (description ?~ "foo")
+--       & paths %~ (GET, "/api/v1/wallets/{walletId}") `alterOperation` (description ?~ "bar")
+--
+alterOperation ::
+    ( IxValue m ~ item
+    , Index m ~ FilePath
+    , At m
+    , HasGet item (Maybe Operation)
+    , HasPut item (Maybe Operation)
+    , HasPatch item (Maybe Operation)
+    , HasPost item (Maybe Operation)
+    , HasDelete item (Maybe Operation)
+    )
+    => (StdMethod, FilePath)
+    -> (Operation -> Operation)
+    -> m
+    -> m
+alterOperation (verb, path) alter =
+    at path %~ (Just . unsafeAlterItem)
+  where
+    errUnreachableEndpoint :: Text
+    errUnreachableEndpoint =
+        "Unreachable endpoint: " <> show verb <> " " <> show path
+
+    errUnsupportedVerb :: Text
+    errUnsupportedVerb =
+        "Used unsupported verb to identify an endpoint: " <> show verb
+
+    unsafeAlterItem ::
+        ( HasGet item (Maybe Operation)
+        , HasPut item (Maybe Operation)
+        , HasPatch item (Maybe Operation)
+        , HasPost item (Maybe Operation)
+        , HasDelete item (Maybe Operation)
+        )
+        => Maybe item
+        -> item
+    unsafeAlterItem = maybe
+        (error errUnreachableEndpoint)
+        (unsafeLensFor verb %~ (Just . unsafeAlterOperation))
+
+    unsafeAlterOperation :: Maybe Operation -> Operation
+    unsafeAlterOperation = maybe
+        (error errUnreachableEndpoint)
+        alter
+
+    unsafeLensFor ::
+        ( Functor f
+        , HasGet item (Maybe Operation)
+        , HasPut item (Maybe Operation)
+        , HasPatch item (Maybe Operation)
+        , HasPost item (Maybe Operation)
+        , HasDelete item (Maybe Operation)
+        )
+        => StdMethod
+        -> (Maybe Operation -> f (Maybe Operation))
+        -> item
+        -> f item
+    unsafeLensFor = \case
+        GET    -> get
+        PUT    -> put
+        PATCH  -> patch
+        POST   -> post
+        DELETE -> delete
+        _      -> error errUnsupportedVerb
+
+
+-- | A combinator to modify the description of an operation, using
+-- 'alterOperation' under the hood.
+--
+--
+-- Example:
+--
+--     swagger
+--       & paths %~ (POST, "/api/v1/wallets") `setDescription` "foo"
+--       & paths %~ (GET, "/api/v1/wallets/{walletId}") `setDescription` "bar"
+setDescription
+    :: (IxValue m ~ PathItem, Index m ~ FilePath, At m)
+    => (StdMethod, FilePath)
+    -> Text
+    -> m
+    -> m
+setDescription endpoint str =
+    endpoint `alterOperation` (description ?~ str)
 
 
 --
@@ -924,6 +1022,26 @@ swaggerSchemaUIServer =
   </body>
 </html>|]
 
+applyUpdateDescription :: Text
+applyUpdateDescription = [text|
+Apply the next available update proposal from the blockchain. Note that this
+will immediately shutdown the node and makes it unavailable for a short while.
+|]
+
+postponeUpdateDescription :: Text
+postponeUpdateDescription = [text|
+Discard the next available update from the node's local state. Yet, this doesn't
+reject the update which will still be applied as soon as the node is restarted.
+|]
+
+resetWalletStateDescription :: Text
+resetWalletStateDescription = [text|
+Wipe-out the node's local state entirely. The only intended use-case for this
+endpoint is during API integration testing. Note also that this will fail by
+default unless the node is running in debug mode.
+|]
+
+
 --
 -- The API
 --
@@ -955,3 +1073,6 @@ api (compileInfo, curSoftwareVersion) walletAPI mkDescription = toSwagger wallet
     , deSoftwareVersion       = fromString $ show curSoftwareVersion
     }
   & info.license ?~ ("MIT" & url ?~ URL "https://raw.githubusercontent.com/input-output-hk/cardano-sl/develop/lib/LICENSE")
+  & paths %~ (POST, "/api/internal/apply-update") `setDescription` applyUpdateDescription
+  & paths %~ (POST, "/api/internal/postpone-update") `setDescription` postponeUpdateDescription
+  & paths %~ (DELETE, "/api/internal/reset-wallet-state") `setDescription` resetWalletStateDescription

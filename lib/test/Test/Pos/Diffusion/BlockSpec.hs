@@ -122,7 +122,7 @@ clientLogic = pureLogic
 
 withServer :: Transport -> Logic IO -> (NodeId -> IO t) -> IO t
 withServer transport logic k = do
-    logTrace <- liftIO $ wsetupLogging (defaultTestConfiguration Debug) ("server" <> "outboundqueue")
+    logTrace <- liftIO $ wsetupLogging (defaultTestConfiguration Debug) ("server.outboundqueue")
     -- Morally, the server shouldn't need an outbound queue, but we have to
     -- give one.
     oq <- liftIO $ OQ.new
@@ -154,7 +154,7 @@ withServer transport logic k = do
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
         , fdcStreamWindow = 2048
-        , fdcTrace = wlogTrace ("server" <> "diffusion")
+        , fdcTrace = wlogTrace ("server.diffusion")
         }
 
 -- Like 'withServer' but we must set up the outbound queue so that it will
@@ -170,7 +170,7 @@ withClient streamWindow transport logic serverAddress@(Node.NodeId _) k = do
     -- Morally, the server shouldn't need an outbound queue, but we have to
     -- give one.
     oq <- OQ.new
-                 (wlogTrace ("client" <> "outboundqueue"))
+                 (wlogTrace ("client.outboundqueue"))
                  Policy.defaultEnqueuePolicyRelay
                  --Policy.defaultDequeuePolicyRelay
                  (const (OQ.Dequeue OQ.NoRateLimiting (OQ.MaxInFlight maxBound)))
@@ -200,7 +200,7 @@ withClient streamWindow transport logic serverAddress@(Node.NodeId _) k = do
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
         , fdcStreamWindow = streamWindow
-        , fdcTrace = wlogTrace ("client" <> "diffusion")
+        , fdcTrace = wlogTrace ("client.diffusion")
         }
 
 

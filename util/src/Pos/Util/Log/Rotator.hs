@@ -124,13 +124,11 @@ cleanupRotator rotation fdesc = do
     removeOldFiles :: Int -> Maybe (NonEmpty FilePath) -> IO ()
     removeOldFiles _ Nothing = return ()
     removeOldFiles n (Just flist) = do
-        putStrLn $ "dropping " ++ (show n) ++ " from " ++ (show flist)
         removeFiles $ reverse $ NE.drop n $ NE.reverse flist
     removeFiles [] = return ()
     removeFiles (fp : fps) = do
         let bp = prefixpath fdesc
             filepath = bp </> fp
-        putStrLn $ "removing file " ++ filepath
         removeFile filepath   -- destructive
         removeFiles fps
 

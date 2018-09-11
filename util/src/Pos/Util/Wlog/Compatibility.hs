@@ -230,9 +230,8 @@ loggingHandler = unsafePerformIO $ do
 --   the backends (scribes) will be registered with katip
 setupLogging :: MonadIO m => LoggerConfig -> m ()
 setupLogging lc = liftIO $
-                    modifyMVar_ loggingHandler $ const $ Log.setupLogging lc
+    modifyMVar_ loggingHandler $ const $ Log.setupLogging lc
 
--- LogSafe
 
 -- | Whether to log to given log handler.
 type SelectionMode = LogSecurityLevel -> Bool

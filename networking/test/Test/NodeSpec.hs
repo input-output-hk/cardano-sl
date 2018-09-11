@@ -46,7 +46,7 @@ import           Test.Util (HeavyParcel (..), Parcel (..), Payload (..),
 spec :: Spec
 spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
 
-    logTrace <- runIO $ wsetupLogging (defaultTestConfiguration Debug) ""
+    logTrace <- runIO $ wsetupLogging (defaultTestConfiguration Debug) "nodespec"
 
         -- Take at most 25000 bytes for each Received message.
         -- We want to ensure that the MTU works, but not make the tests too

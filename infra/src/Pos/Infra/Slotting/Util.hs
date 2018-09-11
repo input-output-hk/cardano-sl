@@ -189,13 +189,13 @@ onNewSlotDo epochSlots withLogging expectedSlotId onsp action = do
     shortDelay = 42
     recoveryRefreshDelay :: Millisecond
     recoveryRefreshDelay = 150
-    logTTW timeToWait = modifyLoggerName (<> "slotting") $ logDebug $
+    logTTW timeToWait = modifyLoggerName (<> ".slotting") $ logDebug $
                  sformat ("Waiting for "%shown%" before new slot") timeToWait
 
 logNewSlotWorker :: MonadOnNewSlot ctx m => SlotCount -> m ()
 logNewSlotWorker epochSlots =
     onNewSlotWithLogging epochSlots defaultOnNewSlotParams $ \slotId -> do
-        modifyLoggerName (<> "slotting") $
+        modifyLoggerName (<> ".slotting") $
             logNotice $ sformat ("New slot has just started: " %slotIdF) slotId
 
 -- | Wait until system starts. This function is useful if node is

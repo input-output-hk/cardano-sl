@@ -66,7 +66,7 @@ import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
                      NodeParams (..))
 import           Pos.Util (bracketWithLogging, newInitFuture)
 import           Pos.Util.Log.LoggerConfig (defaultInteractiveConfiguration)
-import           Pos.Util.Wlog (LoggerConfig (..), Severity (Info), WithLogger,
+import           Pos.Util.Wlog (LoggerConfig (..), Severity (Debug), WithLogger,
                      logDebug, logInfo, parseLoggerConfig, removeAllHandlers,
                      setupLogging)
 
@@ -243,7 +243,7 @@ getRealLoggerConfig LoggingParams{..} = do
     overrideConsoleLog :: LoggerConfig -> LoggerConfig
     overrideConsoleLog = case lpConsoleLog of
         Nothing    -> identity
-        Just True  -> (<>) (defaultInteractiveConfiguration Info)
+        Just True  -> (<>) (defaultInteractiveConfiguration Debug)
                       -- add output to the console with severity filter >= Info
         Just False -> identity
 

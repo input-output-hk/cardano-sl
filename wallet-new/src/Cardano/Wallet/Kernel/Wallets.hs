@@ -22,18 +22,23 @@ import           Data.Acid.Advanced (update')
 import           Pos.Core (Timestamp)
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase,
                      changeEncPassphrase, checkPassMatches, emptyPassphrase,
-                     safeDeterministicKeyGen)
+                     firstHardened, safeDeterministicKeyGen)
 
+import           Cardano.Wallet.Kernel.Addresses (newHdAddress)
 import           Cardano.Wallet.Kernel.BIP39 (Mnemonic)
 import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
 import           Cardano.Wallet.Kernel.DB.AcidState (CreateHdWallet (..),
                      DeleteHdRoot (..), RestoreHdWallet,
                      UpdateHdRootPassword (..), UpdateHdWallet (..))
-import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel, HdRoot,
-                     WalletName, eskToHdRootId)
+import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel, HdAccount,
+                     HdAccountId (..), HdAccountIx (..), HdAddress,
+                     HdAddressId (..), HdAddressIx (..), HdRoot, WalletName,
+                     eskToHdRootId)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
+import           Cardano.Wallet.Kernel.DB.Spec (Checkpoints (..),
+                     initCheckpoint)
 import           Cardano.Wallet.Kernel.Internal (PassiveWallet, walletKeystore,
                      wallets)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
@@ -149,16 +154,21 @@ createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
     -- STEP 3: Atomically generate the wallet and the initial internal structure in
     -- an acid-state transaction.
     res <- createWalletHdRnd pw
-                             (spendingPassword /= emptyPassphrase)
+                             spendingPassword
                              walletName
                              assuranceLevel
                              esk
                              -- Brand new wallets have no Utxo
                              -- See preconditon above.
-                             (\hdRoot -> Left $ CreateHdWallet hdRoot mempty)
+                             (\hdRoot defaultHdAccount defaultHdAddress ->
+                                 Left $ CreateHdWallet hdRoot
+                                                       defaultHdAccount
+                                                       defaultHdAddress
+                                                       mempty
+                             )
     case res of
-         -- NOTE(adinapoli): This is the @only@ error the DB can return, at
-         -- least for now, so we are pattern matching directly on it. In the
+         -- NOTE(adinapoli): This is the @only@ error the DB can return, (modulo
+         -- invariant violations), so we are pattern matching directly on it. In the
          -- case of more errors being added, carefully thinking would have to
          -- be put into whether or not we should remove the key from the keystore
          -- at this point. Surely we don't want to do this in the case the
@@ -167,6 +177,15 @@ createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
          -- Fix properly as part of [CBR-404].
          Left e@(HD.CreateHdRootExists _) ->
              return . Left $ CreateWalletFailed e
+
+         -- The two errors below are invariant violations. We do want to clean
+         -- up the keystore, and abort.
+         Left e@HD.CreateHdRootDefaultAddressCreationFailed -> do
+             Keystore.delete (WalletIdHdRnd newRootId) (pw ^. walletKeystore)
+             return . Left $ CreateWalletFailed e
+         Left e@HD.CreateHdRootDefaultAccountCreationFailed -> do
+             Keystore.delete (WalletIdHdRnd newRootId) (pw ^. walletKeystore)
+             return . Left $ CreateWalletFailed e
          Right hdRoot -> return (Right hdRoot)
 
 
@@ -174,33 +193,54 @@ createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
 -- via random index derivation.
 --
 -- Fails with CreateHdWalletError if the HdRootId already exists.
+--
+-- INVARIANT: Whenever we create an HdRoot, it @must@ come with a fresh
+-- account and address, both at 'firstHardened' index.
+--
 createWalletHdRnd :: PassiveWallet
-                  -> Bool
-                  -- ^ Whether or not this wallet has a spending password set.
+                  -> PassPhrase
                   -> HD.WalletName
                   -> AssuranceLevel
                   -> EncryptedSecretKey
-                  -> (HdRoot -> Either CreateHdWallet RestoreHdWallet)
+                  -> (  HdRoot
+                     -> HdAccount
+                     -> HdAddress
+                     -> Either CreateHdWallet RestoreHdWallet
+                     )
                   -> IO (Either HD.CreateHdRootError HdRoot)
-createWalletHdRnd pw hasSpendingPassword name assuranceLevel esk createWallet = do
+createWalletHdRnd pw spendingPassword name assuranceLevel esk createWallet = do
     created <- InDb <$> getCurrentTimestamp
-    let rootId  = eskToHdRootId esk
+    let hasSpendingPassword = spendingPassword /= emptyPassphrase
+        rootId  = eskToHdRootId esk
         newRoot = HD.initHdRoot rootId
                                 name
-                                (hdSpendingPassword created)
+                                (hdSpendingPassword hasSpendingPassword created)
                                 assuranceLevel
                                 created
+        hdAccountId = HdAccountId rootId (HdAccountIx firstHardened)
+        defaultHdAccount =
+            HD.initHdAccount hdAccountId initialAccountState &
+                HD.hdAccountName .~ (HD.AccountName "Default account")
+        hdAddressId = HdAddressId hdAccountId (HdAddressIx firstHardened)
 
-    res <- case createWallet newRoot of
-             Left  create  -> update' (pw ^. wallets) create
-             Right restore -> update' (pw ^. wallets) restore
-    return $ case res of
-                 Left err -> Left err
-                 Right () -> Right newRoot
+    case newHdAddress esk spendingPassword hdAccountId hdAddressId of
+         Nothing -> return (Left HD.CreateHdRootDefaultAddressCreationFailed)
+         Just defaultHdAddress -> do
+             -- We now have all the date we need to atomically generate a new
+             -- wallet with a default account & address.
+             res <- case createWallet newRoot defaultHdAccount defaultHdAddress of
+                 Left  create  -> update' (pw ^. wallets) create
+                 Right restore -> update' (pw ^. wallets) restore
+             return $ either Left (const (Right newRoot)) res
     where
 
-        hdSpendingPassword :: InDb Timestamp -> HD.HasSpendingPassword
-        hdSpendingPassword created =
+        initialAccountState :: HD.HdAccountState
+        initialAccountState = HD.HdAccountStateUpToDate HD.HdAccountUpToDate {
+              _hdUpToDateCheckpoints = Checkpoints . one $ initCheckpoint mempty
+            }
+
+        hdSpendingPassword :: Bool -> InDb Timestamp -> HD.HasSpendingPassword
+        hdSpendingPassword hasSpendingPassword created =
             if hasSpendingPassword then HD.HasSpendingPassword created
                                    else HD.NoSpendingPassword
 

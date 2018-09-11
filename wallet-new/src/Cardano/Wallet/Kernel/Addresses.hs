@@ -1,5 +1,6 @@
 module Cardano.Wallet.Kernel.Addresses (
-    createAddress
+      createAddress
+    , newHdAddress
     -- * Errors
     , CreateAddressError(..)
     ) where
@@ -137,16 +138,10 @@ createHdRndAddress spendingPassword esk accId pw = do
         tryGenerateAddress gen collisions = do
             newIndex <- deriveIndex (flip uniformR gen) HdAddressIx HardDerivation
             let hdAddressId = HdAddressId accId newIndex
-                mbAddr = deriveLvl2KeyPair (IsBootstrapEraAddr True)
-                                           (ShouldCheckPassphrase True)
-                                           spendingPassword
-                                           esk
-                                           (accId ^. hdAccountIdIx . to getHdAccountIx)
-                                           (hdAddressId ^. hdAddressIdIx . to getHdAddressIx)
+                mbAddr = newHdAddress esk spendingPassword accId hdAddressId
             case mbAddr of
                  Nothing -> return (Left $ CreateAddressHdRndGenerationFailed accId)
-                 Just (newAddress, _) -> do
-                    let hdAddress  = initHdAddress hdAddressId newAddress
+                 Just hdAddress -> do
                     let db = pw ^. wallets
                     res <- update db (CreateHdAddress hdAddress)
                     case res of
@@ -159,3 +154,22 @@ createHdRndAddress spendingPassword esk accId pw = do
         -- The maximum number of allowed collisions.
         maxAllowedCollisions :: Word32
         maxAllowedCollisions = 1024
+
+
+-- | Generates a new 'HdAddress' by performing the HD crypto derivation
+-- underneath. Returns 'Nothing' if the cryptographic derivation fails.
+newHdAddress :: EncryptedSecretKey
+             -> PassPhrase
+             -> HdAccountId
+             -> HdAddressId
+             -> Maybe HdAddress
+newHdAddress esk spendingPassword accId hdAddressId =
+    let mbAddr = deriveLvl2KeyPair (IsBootstrapEraAddr True)
+                                   (ShouldCheckPassphrase True)
+                                   spendingPassword
+                                   esk
+                                   (accId ^. hdAccountIdIx . to getHdAccountIx)
+                                   (hdAddressId ^. hdAddressIdIx . to getHdAddressIx)
+    in case mbAddr of
+         Nothing              -> Nothing
+         Just (newAddress, _) -> Just $ initHdAddress hdAddressId newAddress

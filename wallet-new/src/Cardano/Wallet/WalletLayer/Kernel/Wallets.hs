@@ -20,7 +20,6 @@ import           Pos.Chain.Block (Blund, mainBlockSlot, undoTx)
 import           Pos.Chain.Txp (Utxo)
 import           Pos.Core (Config (..), mkCoin)
 import           Pos.Core.Slotting (Timestamp)
-import           Pos.Crypto.HD (firstHardened)
 import           Pos.Crypto.Signing
 
 import           Cardano.Wallet.API.V1.Types (V1 (..))
@@ -48,12 +47,10 @@ import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..),
                      WalletId (..), fromRawResolvedBlock)
 import           Cardano.Wallet.Kernel.Util.Core (getCurrentTimestamp)
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
-import           Cardano.Wallet.WalletLayer (CreateAccount (..),
-                     CreateWallet (..), CreateWalletError (..),
-                     DeleteWalletError (..), GetUtxosError (..),
-                     GetWalletError (..), UpdateWalletError (..),
-                     UpdateWalletPasswordError (..))
-import qualified Cardano.Wallet.WalletLayer.Kernel.Accounts as Accounts
+import           Cardano.Wallet.WalletLayer (CreateWallet (..),
+                     CreateWalletError (..), DeleteWalletError (..),
+                     GetUtxosError (..), GetWalletError (..),
+                     UpdateWalletError (..), UpdateWalletPasswordError (..))
 import           Cardano.Wallet.WalletLayer.Kernel.Conv
 
 createWallet :: MonadIO m
@@ -82,16 +79,6 @@ createWallet wallet newWalletRequest = liftIO $ do
                                       (spendingPassword newwalSpendingPassword)
                                       (fromAssuranceLevel newwalAssuranceLevel)
                                       (HD.WalletName newwalName)
-      let rootId = root ^. HD.hdRootId
-      _ <- withExceptT CreateWalletFirstAccountCreationFailed $ ExceptT $ do
-             -- When we create a new wallet, we want to create a new account
-             -- with a predictable, fixed seed, in compliance with the old
-             -- schema.We offload this to the WalletLayer so that we can be
-             -- sure it will also create a fresh address and we won't
-             -- duplicate work.
-             let newAccount = V1.NewAccount newwalSpendingPassword "Default account"
-             let rq = CreateHdAccountFixedIndex (HD.HdAccountIx firstHardened) newAccount
-             Accounts.createHdAccount wallet (toRootId rootId) rq
       return (mkRoot newwalName newwalAssuranceLevel now root)
 
     restore :: V1.NewWallet
@@ -131,7 +118,7 @@ createWallet wallet newWalletRequest = liftIO $ do
         (root, coins) <- withExceptT (CreateWalletError . Kernel.CreateWalletFailed) $ ExceptT $
             restoreWallet
               wallet
-              (pwd /= emptyPassphrase)
+              pwd
               (HD.WalletName walletName)
               hdAssuranceLevel
               esk
@@ -162,11 +149,6 @@ createWallet wallet newWalletRequest = liftIO $ do
         createdAt  = hdRoot ^. HD.hdRootCreatedAt . fromDb
         walletId   = toRootId $ hdRoot ^. HD.hdRootId
 
-               -- (V1.BackupPhrase mnemonic)
-               -- mbSpendingPassword
-               -- v1AssuranceLevel
-               -- v1WalletName
-               -- operation
     mnemonic (V1.NewWallet (V1.BackupPhrase m) _ _ _ _) = m
     spendingPassword = maybe emptyPassphrase coerce
 

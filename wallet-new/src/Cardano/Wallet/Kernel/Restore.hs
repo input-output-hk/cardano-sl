@@ -54,7 +54,7 @@ import           Pos.Chain.Txp (TxIn (..), TxOut (..), TxOutAux (..), Utxo,
 import           Pos.Core as Core (BlockCount (..), Coin, Config (..),
                      GenesisHash, SlotId, flattenSlotId, mkCoin,
                      unsafeIntegerToCoin)
-import           Pos.Crypto (EncryptedSecretKey)
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase)
 import           Pos.DB.Block (getFirstGenesisBlockHash, getUndo,
                      resolveForwardLink)
 import           Pos.DB.Class (getBlock)
@@ -71,7 +71,7 @@ import           Pos.Util.Trace (Severity (Error))
 --
 -- Wallet initialization parameters match those of 'createWalletHdRnd'
 restoreWallet :: Kernel.PassiveWallet
-              -> Bool -- ^ Spending password
+              -> PassPhrase
               -> HD.WalletName
               -> HD.AssuranceLevel
               -> EncryptedSecretKey
@@ -82,13 +82,15 @@ restoreWallet pw spendingPass name assurance esk prefilter = do
     walletInitInfo <- withNodeState (pw ^. walletNode) $ getWalletInitInfo coreConfig wkey
     case walletInitInfo of
       WalletCreate utxos -> do
-        root <- createWalletHdRnd pw spendingPass name assurance esk $ \root ->
-                  Left $ CreateHdWallet root utxos
+        root <- createWalletHdRnd pw spendingPass name assurance esk $
+                \root defaultHdAccount defaultHdAddress ->
+                      Left $ CreateHdWallet root defaultHdAccount defaultHdAddress utxos
         return $ fmap (, mkCoin 0) root
       WalletRestore utxos (tgtTip, tgtSlot) -> do
         -- Create the wallet
-        mRoot <- createWalletHdRnd pw spendingPass name assurance esk $ \root ->
-                   Right $ RestoreHdWallet root utxos
+        mRoot <- createWalletHdRnd pw spendingPass name assurance esk $
+                 \root defaultHdAccount defaultHdAddress ->
+                       Right $ RestoreHdWallet root defaultHdAccount defaultHdAddress utxos
         case mRoot of
           Left  err  -> return (Left err)
           Right root -> do

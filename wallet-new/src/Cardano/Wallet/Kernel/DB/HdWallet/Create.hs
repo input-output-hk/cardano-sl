@@ -41,6 +41,12 @@ import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 data CreateHdRootError =
     -- | We already have a wallet with the specified ID
     CreateHdRootExists HdRootId
+  | CreateHdRootDefaultAccountCreationFailed
+  -- ^ There is a serious bug in the logic, as creating a fresh account on
+  -- a fresh wallet should @never@ fail.
+  | CreateHdRootDefaultAddressCreationFailed
+  -- ^ There is a serious bug in the logic, as creating a fresh address on
+  -- a fresh wallet should @never@ fail.
 
 -- | Errors thrown by 'createHdAccount'
 data CreateHdAccountError =
@@ -67,13 +73,30 @@ deriveSafeCopy 1 'base ''CreateHdAddressError
   CREATE
 -------------------------------------------------------------------------------}
 
--- | Create a new wallet
-createHdRoot :: HdRoot -> Update' CreateHdRootError HdWallets ()
-createHdRoot hdRoot =
+-- | Create a new wallet.
+-- INVARIANT: Creating a new wallet always come with a fresh HdAccount and
+-- a fresh 'HdAddress' attached to it, so we have to pass these two extra
+-- piece of into to the update function. We do @not@ build these inside the
+-- update function because derivation requires an 'EncryptedSecretKey' and
+-- definitely we do not want it to show up in our acid-state logs.
+--
+createHdRoot :: HdRoot
+             -> HdAccount
+             -- ^ The default HdAccount to go with this HdRoot
+             -> HdAddress
+             -- ^ The default HdAddress to go with this HdRoot
+             -> Update' CreateHdRootError HdWallets ()
+createHdRoot hdRoot defaultHdAccount defaultHdAddress = do
     zoom hdWalletsRoots $ do
       exists <- gets $ IxSet.member rootId
       when exists $ throwError $ CreateHdRootExists rootId
       at rootId .= Just hdRoot
+
+    mapUpdateErrors (const CreateHdRootDefaultAccountCreationFailed) $
+        createHdAccount defaultHdAccount
+    mapUpdateErrors (const CreateHdRootDefaultAddressCreationFailed) $
+        createHdAddress defaultHdAddress
+
   where
     rootId = hdRoot ^. hdRootId
 
@@ -183,6 +206,10 @@ initHdAddress addrId address = HdAddress {
 instance Buildable CreateHdRootError where
     build (CreateHdRootExists rootId)
         = bprint ("CreateHdRootError::CreateHdRootExists "%build) rootId
+    build CreateHdRootDefaultAccountCreationFailed
+        = bprint "Invariant violation! CreateHdRootError::CreateHdRootDefaultAccountCreationFailed"
+    build CreateHdRootDefaultAddressCreationFailed
+        = bprint "Invariant violation! CreateHdRootError::CreateHdRootDefaultAddressCreationFailed"
 
 instance Buildable CreateHdAccountError where
     build (CreateHdAccountUnknownRoot (UnknownHdRoot rootId))

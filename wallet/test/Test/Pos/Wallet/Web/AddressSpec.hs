@@ -18,6 +18,7 @@ import           Test.QuickCheck.Monadic (pick, stop)
 import           Pos.Binary (biSize)
 import           Pos.Client.Txp.Addresses (getFakeChangeAddress, getNewAddress)
 import           Pos.Core.Common (Address)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (PassPhrase)
 import           Pos.Launcher (HasConfigurations)
 
@@ -54,7 +55,7 @@ fakeAddressHasMaxSizeTest generator accSeed = do
          =<< newAccount (DeterminedSeed accSeed) passphrase (CAccountInit def wid)
     address <- generator accId passphrase
 
-    largeAddress <- lift getFakeChangeAddress
+    largeAddress <- lift (getFakeChangeAddress fixedNM)
 
     assertProperty
         (biSize largeAddress >= biSize address)
@@ -64,7 +65,7 @@ fakeAddressHasMaxSizeTest generator accSeed = do
 -- Unfortunatelly, its randomness doesn't depend on QuickCheck seed,
 -- so another proper generator is helpful.
 changeAddressGenerator :: HasConfigurations => AddressGenerator
-changeAddressGenerator accId passphrase = lift $ getNewAddress (accId, passphrase)
+changeAddressGenerator accId passphrase = lift $ getNewAddress fixedNM (accId, passphrase)
 
 -- | Generator which is directly used in endpoints.
 commonAddressGenerator :: AddressGenerator
@@ -80,3 +81,7 @@ commonAddressGenerator accId passphrase = do
     seedBusyHandler (InternalError "address generation: this index is already taken")
                       = pure Nothing
     seedBusyHandler e = throwM e
+
+
+fixedNM :: NetworkMagic
+fixedNM = NMNothing

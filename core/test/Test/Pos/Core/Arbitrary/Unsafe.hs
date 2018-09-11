@@ -10,6 +10,7 @@ import           Pos.Core (AddrAttributes (..), AddrStakeDistribution (..), Addr
                            Address (..), Coin, EpochIndex (..), LocalSlotIndex, SharedSeed (..),
                            SlotId (..), mkCoin)
 import           Pos.Core.Configuration (HasProtocolConstants)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Data.Attributes (mkAttributes)
 
 import           Test.Pos.Core.Arbitrary ()
@@ -32,9 +33,16 @@ instance ArbitraryUnsafe Address where
                 AddrAttributes
                 { aaPkDerivationPath = Nothing
                 , aaStakeDistribution = BootstrapEraDistr
+                , aaNetworkMagic = fixedNM
                 }
         let addrType = ATPubKey
         return Address {..}
 
 instance HasProtocolConstants => ArbitraryUnsafe SlotId where
     arbitraryUnsafe = SlotId <$> arbitraryUnsafe <*> arbitraryUnsafe
+
+instance ArbitraryUnsafe NetworkMagic
+
+
+fixedNM :: NetworkMagic
+fixedNM = NMNothing

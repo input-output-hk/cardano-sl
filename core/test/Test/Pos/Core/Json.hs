@@ -9,30 +9,29 @@ import           Pos.Aeson.Core ()
 import           Pos.Aeson.Core.Configuration ()
 import           Pos.Aeson.Genesis ()
 
-import           Test.Pos.Core.ExampleHelpers (exampleAddress, exampleAddress1,
-                     exampleAddress2, exampleAddress3, exampleAddress4,
-                     exampleGenesisConfiguration_GCSpec0,
-                     exampleGenesisConfiguration_GCSpec1,
-                     exampleGenesisConfiguration_GCSpec2,
-                     exampleGenesisConfiguration_GCSrc, exampleGenesisData0,
-                     exampleGenesisData1, exampleGenesisData2,
-                     exampleGenesisProtocolConstants0,
-                     exampleGenesisProtocolConstants1,
-                     exampleGenesisProtocolConstants2, feedPM)
-import           Test.Pos.Core.Gen (genAddress, genBlockVersionData, genByte,
-                     genCoin, genCoinPortion, genEpochIndex, genFlatSlotId,
-                     genGenesisAvvmBalances, genGenesisConfiguration,
-                     genGenesisData, genGenesisDelegation,
-                     genGenesisInitializer, genGenesisProtocolConstants,
-                     genSharedSeed, genSoftforkRule, genTxFeePolicy)
+import           Test.Pos.Core.ExampleHelpers (exampleAddress, exampleAddress1, exampleAddress2,
+                                               exampleAddress3, exampleAddress4,
+                                               exampleGenesisConfiguration_GCSpec0,
+                                               exampleGenesisConfiguration_GCSpec1,
+                                               exampleGenesisConfiguration_GCSpec2,
+                                               exampleGenesisConfiguration_GCSrc,
+                                               exampleGenesisData0, exampleGenesisData1,
+                                               exampleGenesisData2,
+                                               exampleGenesisProtocolConstants0,
+                                               exampleGenesisProtocolConstants1,
+                                               exampleGenesisProtocolConstants2, feedPM)
+import           Test.Pos.Core.Gen (genAddress, genBlockVersionData, genByte, genCoin,
+                                    genCoinPortion, genEpochIndex, genFlatSlotId,
+                                    genGenesisAvvmBalances, genGenesisConfiguration, genGenesisData,
+                                    genGenesisDelegation, genGenesisInitializer,
+                                    genGenesisProtocolConstants, genSharedSeed, genSoftforkRule,
+                                    genTxFeePolicy)
 import           Test.Pos.Crypto.Gen (genRedeemPublicKey)
 import           Test.Pos.Util.Gen (genMillisecond)
-import           Test.Pos.Util.Golden (discoverGolden, eachOf,
-                     goldenTestCanonicalJSONDec, goldenTestJSON,
-                     goldenTestJSONDec)
-import           Test.Pos.Util.Tripping (discoverRoundTrip,
-                     roundTripsAesonBuildable, roundTripsAesonShow,
-                     roundTripsCanonicalJSONShow)
+import           Test.Pos.Util.Golden (discoverGolden, eachOf, goldenTestCanonicalJSONDec,
+                                       goldenTestJSON, goldenTestJSONDec)
+import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonBuildable,
+                                         roundTripsAesonShow, roundTripsCanonicalJSONShow)
 
 --------------------------------------------------------------------------------
 -- Address

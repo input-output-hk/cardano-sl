@@ -64,6 +64,7 @@ import           Pos.Binary.Class (Bi, biSize)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Core.Common.Coin ()
 import           Pos.Core.Constants (accountGenesisIndex, wAddressGenesisIndex)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto.Hashing (hashHexF)
 import           Pos.Crypto.HD (HDAddressPayload, HDPassphrase, ShouldCheckPassphrase (..),
                                 deriveHDPassphrase, deriveHDPublicKey, deriveHDSecretKey,
@@ -189,35 +190,37 @@ makeAddress spendingData attributesUnwrapped =
 newtype IsBootstrapEraAddr = IsBootstrapEraAddr Bool
 
 -- | A function for making an address from 'PublicKey'.
-makePubKeyAddress :: IsBootstrapEraAddr -> PublicKey -> Address
-makePubKeyAddress = makePubKeyAddressImpl Nothing
+makePubKeyAddress :: NetworkMagic -> IsBootstrapEraAddr -> PublicKey -> Address
+makePubKeyAddress nm = makePubKeyAddressImpl nm Nothing
 
 -- | A function for making an address from 'PublicKey' for bootstrap era.
-makePubKeyAddressBoot :: PublicKey -> Address
-makePubKeyAddressBoot = makePubKeyAddress (IsBootstrapEraAddr True)
+makePubKeyAddressBoot :: NetworkMagic -> PublicKey -> Address
+makePubKeyAddressBoot nm = makePubKeyAddress nm (IsBootstrapEraAddr True)
 
 -- | This function creates a root public key address. Stake
 -- distribution doesn't matter for root addresses because by design
 -- nobody should even use these addresses as outputs, so we can put
 -- arbitrary distribution there. We use bootstrap era distribution
 -- because its representation is more compact.
-makeRootPubKeyAddress :: PublicKey -> Address
+makeRootPubKeyAddress :: NetworkMagic -> PublicKey -> Address
 makeRootPubKeyAddress = makePubKeyAddressBoot
 
 -- | A function for making an HDW address.
 makePubKeyHdwAddress
-    :: IsBootstrapEraAddr
+    :: NetworkMagic
+    -> IsBootstrapEraAddr
     -> HDAddressPayload    -- ^ Derivation path
     -> PublicKey
     -> Address
-makePubKeyHdwAddress ibe path = makePubKeyAddressImpl (Just path) ibe
+makePubKeyHdwAddress nm ibe path = makePubKeyAddressImpl nm (Just path) ibe
 
 makePubKeyAddressImpl
-    :: Maybe HDAddressPayload
+    :: NetworkMagic
+    -> Maybe HDAddressPayload
     -> IsBootstrapEraAddr
     -> PublicKey
     -> Address
-makePubKeyAddressImpl path (IsBootstrapEraAddr isBootstrapEra) key =
+makePubKeyAddressImpl nm path (IsBootstrapEraAddr isBootstrapEra) key =
     makeAddress spendingData attrs
   where
     spendingData = PubKeyASD key
@@ -225,31 +228,43 @@ makePubKeyAddressImpl path (IsBootstrapEraAddr isBootstrapEra) key =
         | isBootstrapEra = BootstrapEraDistr
         | otherwise = SingleKeyDistr (addressHash key)
     attrs =
-        AddrAttributes {aaStakeDistribution = distr, aaPkDerivationPath = path}
+        AddrAttributes { aaStakeDistribution = distr
+                       , aaPkDerivationPath = path
+                       , aaNetworkMagic = nm
+                       }
 
 -- | A function for making an address from a validation 'Script'.  It
 -- takes an optional 'StakeholderId'. If it's given, it will receive
 -- the stake sent to the resulting 'Address'. Otherwise it's assumed
 -- that an 'Address' is created for bootstrap era.
-makeScriptAddress :: Maybe StakeholderId -> Script -> Address
-makeScriptAddress stakeholder scr = makeAddress spendingData attrs
+makeScriptAddress
+    :: NetworkMagic
+    -> Maybe StakeholderId
+    -> Script
+    -> Address
+makeScriptAddress nm stakeholder scr = makeAddress spendingData attrs
   where
     spendingData = ScriptASD scr
     aaStakeDistribution = maybe BootstrapEraDistr SingleKeyDistr stakeholder
-    attrs = AddrAttributes {aaPkDerivationPath = Nothing, ..}
+    attrs = AddrAttributes { aaPkDerivationPath = Nothing
+                           , aaNetworkMagic = nm
+                           , ..}
 
 -- | A function for making an address from 'RedeemPublicKey'.
-makeRedeemAddress :: RedeemPublicKey -> Address
-makeRedeemAddress key = makeAddress spendingData attrs
+makeRedeemAddress :: NetworkMagic -> RedeemPublicKey -> Address
+makeRedeemAddress nm key = makeAddress spendingData attrs
   where
     spendingData = RedeemASD key
     attrs =
-        AddrAttributes
-        {aaStakeDistribution = BootstrapEraDistr, aaPkDerivationPath = Nothing}
+        AddrAttributes { aaStakeDistribution = BootstrapEraDistr
+                       , aaPkDerivationPath = Nothing
+                       , aaNetworkMagic = nm
+                       }
 
 -- | Create address from secret key in hardened way.
 createHDAddressH
-    :: IsBootstrapEraAddr
+    :: NetworkMagic
+    -> IsBootstrapEraAddr
     -> ShouldCheckPassphrase
     -> PassPhrase
     -> HDPassphrase
@@ -257,24 +272,25 @@ createHDAddressH
     -> [Word32]
     -> Word32
     -> Maybe (Address, EncryptedSecretKey)
-createHDAddressH ibea scp passphrase hdPassphrase parent parentPath childIndex = do
+createHDAddressH nm ibea scp passphrase hdPassphrase parent parentPath childIndex = do
     derivedSK <- deriveHDSecretKey scp passphrase parent childIndex
     let addressPayload = packHDAddressAttr hdPassphrase $ parentPath ++ [childIndex]
     let pk = encToPublic derivedSK
-    return (makePubKeyHdwAddress ibea addressPayload pk, derivedSK)
+    return (makePubKeyHdwAddress nm ibea addressPayload pk, derivedSK)
 
 -- | Create address from public key via non-hardened way.
 createHDAddressNH
-    :: IsBootstrapEraAddr
+    :: NetworkMagic
+    -> IsBootstrapEraAddr
     -> HDPassphrase
     -> PublicKey
     -> [Word32]
     -> Word32
     -> (Address, PublicKey)
-createHDAddressNH ibea passphrase parent parentPath childIndex = do
+createHDAddressNH nm ibea passphrase parent parentPath childIndex = do
     let derivedPK = deriveHDPublicKey parent childIndex
     let addressPayload = packHDAddressAttr passphrase $ parentPath ++ [childIndex]
-    (makePubKeyHdwAddress ibea addressPayload derivedPK, derivedPK)
+    (makePubKeyHdwAddress nm ibea addressPayload derivedPK, derivedPK)
 
 ----------------------------------------------------------------------------
 -- Checks
@@ -310,26 +326,28 @@ addrAttributesUnwrapped = attrData . addrAttributes
 
 -- | Makes account secret key for given wallet set.
 deriveLvl2KeyPair
-    :: IsBootstrapEraAddr
+    :: NetworkMagic
+    -> IsBootstrapEraAddr
     -> ShouldCheckPassphrase
     -> PassPhrase
     -> EncryptedSecretKey -- ^ key of wallet
     -> Word32 -- ^ account derivation index
     -> Word32 -- ^ address derivation index
     -> Maybe (Address, EncryptedSecretKey)
-deriveLvl2KeyPair ibea scp passphrase wsKey accountIndex addressIndex = do
+deriveLvl2KeyPair nm ibea scp passphrase wsKey accountIndex addressIndex = do
     wKey <- deriveHDSecretKey scp passphrase wsKey accountIndex
     let hdPass = deriveHDPassphrase $ encToPublic wsKey
     -- We don't need to check passphrase twice
-    createHDAddressH ibea (ShouldCheckPassphrase False) passphrase hdPass wKey [accountIndex] addressIndex
+    createHDAddressH nm ibea (ShouldCheckPassphrase False) passphrase hdPass wKey [accountIndex] addressIndex
 
 deriveFirstHDAddress
-    :: IsBootstrapEraAddr
+    :: NetworkMagic
+    -> IsBootstrapEraAddr
     -> PassPhrase
     -> EncryptedSecretKey -- ^ key of wallet set
     -> Maybe (Address, EncryptedSecretKey)
-deriveFirstHDAddress ibea passphrase wsKey =
-    deriveLvl2KeyPair ibea (ShouldCheckPassphrase False) passphrase wsKey accountGenesisIndex wAddressGenesisIndex
+deriveFirstHDAddress nm ibea passphrase wsKey =
+    deriveLvl2KeyPair nm ibea (ShouldCheckPassphrase False) passphrase wsKey accountGenesisIndex wAddressGenesisIndex
 
 ----------------------------------------------------------------------------
 -- Pattern-matching helpers
@@ -362,32 +380,33 @@ isBootstrapEraDistrAddress (addrAttributesUnwrapped -> AddrAttributes {..}) =
 -- | Largest (considering size of serialized data) PubKey address with
 -- BootstrapEra distribution. Actual size depends on CRC32 value which
 -- is serialized using var-length encoding.
-largestPubKeyAddressBoot :: Address
-largestPubKeyAddressBoot = makePubKeyAddressBoot goodPk
+largestPubKeyAddressBoot :: NetworkMagic -> Address
+largestPubKeyAddressBoot nm = makePubKeyAddressBoot nm goodPk
 
 -- | Maximal size of PubKey address with BootstrapEra
 -- distribution (43).
-maxPubKeyAddressSizeBoot :: Byte
-maxPubKeyAddressSizeBoot = biSize largestPubKeyAddressBoot
+maxPubKeyAddressSizeBoot :: NetworkMagic -> Byte
+maxPubKeyAddressSizeBoot = biSize . largestPubKeyAddressBoot
 
 -- | Largest (considering size of serialized data) PubKey address with
 -- SingleKey distribution. Actual size depends on CRC32 value which
 -- is serialized using var-length encoding.
-largestPubKeyAddressSingleKey :: Address
-largestPubKeyAddressSingleKey =
-    makePubKeyAddress (IsBootstrapEraAddr False) goodPk
+largestPubKeyAddressSingleKey :: NetworkMagic -> Address
+largestPubKeyAddressSingleKey nm =
+    makePubKeyAddress nm (IsBootstrapEraAddr False) goodPk
 
 -- | Maximal size of PubKey address with SingleKey
 -- distribution (78).
-maxPubKeyAddressSizeSingleKey :: Byte
-maxPubKeyAddressSizeSingleKey = biSize largestPubKeyAddressSingleKey
+maxPubKeyAddressSizeSingleKey :: NetworkMagic -> Byte
+maxPubKeyAddressSizeSingleKey = biSize . largestPubKeyAddressSingleKey
 
 -- | Largest (considering size of serialized data) HD address with
 -- BootstrapEra distribution. Actual size depends on CRC32 value which
 -- is serialized using var-length encoding.
-largestHDAddressBoot :: Address
-largestHDAddressBoot =
+largestHDAddressBoot :: NetworkMagic -> Address
+largestHDAddressBoot nm =
     case deriveLvl2KeyPair
+             nm
              (IsBootstrapEraAddr True)
              (ShouldCheckPassphrase False)
              emptyPassphrase
@@ -401,8 +420,8 @@ largestHDAddressBoot =
 
 -- | Maximal size of HD address with BootstrapEra
 -- distribution (76).
-maxHDAddressSizeBoot :: Byte
-maxHDAddressSizeBoot = biSize largestHDAddressBoot
+maxHDAddressSizeBoot :: NetworkMagic -> Byte
+maxHDAddressSizeBoot = biSize . largestHDAddressBoot
 
 -- Public key and secret key for which we know that they produce
 -- largest addresses in all cases we are interested in. It was checked

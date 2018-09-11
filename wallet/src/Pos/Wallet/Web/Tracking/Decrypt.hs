@@ -22,13 +22,14 @@ import           Serokell.Util (enumerate)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Core (Address (..), ChainDifficulty, Timestamp, aaPkDerivationPath,
                            addrAttributesUnwrapped, makeRootPubKeyAddress)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Core.Txp (Tx (..), TxIn (..), TxOut, TxOutAux (..), TxUndo, toaOut,
                                txOutAddress)
 import           Pos.Crypto (EncryptedSecretKey, HDPassphrase, WithHash (..), deriveHDPassphrase,
                              encToPublic, unpackHDAddressAttr)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Wallet.Web.ClientTypes (CId, Wal)
-import           Pos.Wallet.Web.State (WAddressMeta(..))
+import           Pos.Wallet.Web.State (WAddressMeta (..))
 
 type OwnTxInOuts = [((TxIn, TxOutAux), WAddressMeta)]
 
@@ -78,7 +79,7 @@ eskToWalletDecrCredentials :: EncryptedSecretKey -> WalletDecrCredentials
 eskToWalletDecrCredentials encSK = do
     let pubKey = encToPublic encSK
     let hdPass = deriveHDPassphrase pubKey
-    let wCId = encodeCType $ makeRootPubKeyAddress pubKey
+    let wCId = encodeCType $ makeRootPubKeyAddress fixedNM pubKey
     (hdPass, wCId)
 
 selectOwnAddresses
@@ -95,3 +96,7 @@ decryptAddress (hdPass, wCId) addr = do
     derPath <- unpackHDAddressAttr hdPass hdPayload
     guard $ length derPath == 2
     pure $ WAddressMeta wCId (derPath !! 0) (derPath !! 1) addr
+
+
+fixedNM :: NetworkMagic
+fixedNM = NMNothing

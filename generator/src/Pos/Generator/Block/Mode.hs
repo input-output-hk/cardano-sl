@@ -52,10 +52,9 @@ import           Pos.Generator.Block.Param (BlockGenParams (..), HasBlockGenPara
                                             HasTxGenParams (..))
 import qualified Pos.GState as GS
 import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
-import           Pos.Infra.Reporting (MonadReporting (..),
-                                      HasMisbehaviorMetrics (..))
-import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
-                                     MonadSlotsData, currentTimeSlottingSimple)
+import           Pos.Infra.Reporting (HasMisbehaviorMetrics (..), MonadReporting (..))
+import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSlotsData,
+                                     currentTimeSlottingSimple)
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Lrc (HasLrcContext, LrcContext (..))
 import           Pos.Ssc (HasSscConfiguration, SscMemTag, SscState, mkSscState)
@@ -331,19 +330,19 @@ instance MonadBlockGenBase m => DB.MonadGState (BlockGenMode ext m) where
     gsAdoptedBVData = gsAdoptedBVDataDefault
 
 instance MonadBListener m => MonadBListener (BlockGenMode ext m) where
-    onApplyBlocks = lift . onApplyBlocks
-    onRollbackBlocks = lift . onRollbackBlocks
+    onApplyBlocks nm = lift . onApplyBlocks nm
+    onRollbackBlocks nm = lift . onRollbackBlocks nm
 
 
 instance Monad m => MonadAddresses (BlockGenMode ext m) where
     type AddrData (BlockGenMode ext m) = Address
-    getNewAddress = pure
+    getNewAddress _ = pure
     -- It must be consistent with the way we construct address in
     -- block-gen. If it's changed, tests will fail, so we will notice
     -- it.
     -- N.B. Currently block-gen uses only PubKey addresses with BootstrapEra
     -- distribution.
-    getFakeChangeAddress = pure largestPubKeyAddressBoot
+    getFakeChangeAddress nm = pure (largestPubKeyAddressBoot nm)
 
 type instance MempoolExt (BlockGenMode ext m) = ext
 

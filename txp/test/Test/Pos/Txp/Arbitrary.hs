@@ -31,6 +31,7 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import           Pos.Binary.Class (Raw)
 import           Pos.Binary.Core ()
 import           Pos.Core.Common (Coin, IsBootstrapEraAddr (..), makePubKeyAddress)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..), TxOut (..),
                                TxOutAux (..), TxPayload (..), TxProof (..), TxSigData (..),
                                mkTxPayload)
@@ -149,7 +150,7 @@ buildProperTx pm inputList (inCoin, outCoin) =
         , twSig = sign pm SignTx fromSk TxSigData {
                       txSigTxHash = newTxHash } }
     makeTxOutput s c =
-        TxOut (makePubKeyAddress (IsBootstrapEraAddr True) $ toPublic s) c
+        TxOut (makePubKeyAddress fixedNM (IsBootstrapEraAddr True) $ toPublic s) c
 
 -- | Well-formed transaction 'Tx'.
 --
@@ -235,3 +236,7 @@ genTxPayload pm = mkTxPayload <$> genTxOutDist pm
 instance Arbitrary TxPayload where
     arbitrary = genTxPayload dummyProtocolMagic
     shrink = genericShrink
+
+
+fixedNM :: NetworkMagic
+fixedNM = NMNothing

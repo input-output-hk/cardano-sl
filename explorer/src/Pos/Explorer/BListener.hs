@@ -34,6 +34,7 @@ import           Pos.Block.Types (Blund)
 import           Pos.Core (HasConfiguration, HeaderHash, LocalSlotIndex (..), SlotId (..),
                            difficultyL, epochIndexL, getChainDifficulty, headerHash, mainBlockSlot)
 import           Pos.Core.Block (Block, MainBlock, mainBlockTxPayload)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst)
 import           Pos.Core.Txp (Tx, txpTxs)
 import           Pos.Crypto (withHash)
 import           Pos.DB.BatchOp (SomeBatchOp (..))
@@ -43,7 +44,6 @@ import           Pos.Explorer.DB (Epoch, EpochPagedBlocksKey, Page, defaultPageS
 import qualified Pos.Explorer.DB as DB
 import           Pos.Txp (topsortTxs)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst)
 
 
 ----------------------------------------------------------------------------
@@ -76,8 +76,8 @@ instance ( MonadDBRead m
          , HasConfiguration
          )
          => MonadBListener (ExplorerBListener m) where
-    onApplyBlocks     blunds = onApplyCallGeneral blunds
-    onRollbackBlocks  blunds = onRollbackCallGeneral blunds
+    onApplyBlocks    _nm blunds = onApplyCallGeneral blunds
+    onRollbackBlocks _nm blunds = onRollbackCallGeneral blunds
 
 
 ----------------------------------------------------------------------------

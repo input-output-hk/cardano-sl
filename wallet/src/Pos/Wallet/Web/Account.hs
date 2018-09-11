@@ -26,6 +26,7 @@ import           Universum
 import           Pos.Client.KeyStorage (AllUserSecrets (..), MonadKeys, MonadKeysRead, addSecretKey,
                                         getSecretKeys, getSecretKeysPlain)
 import           Pos.Core (Address (..), IsBootstrapEraAddr (..), deriveLvl2KeyPair)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ShouldCheckPassphrase (..),
                              firstHardened)
 import           Pos.Util (eitherToThrow)
@@ -188,6 +189,7 @@ deriveAddressSKPure secrets scp passphrase AccountId {..} addressIndex = do
     key <- getSKByIdPure secrets aiWId
     maybe (throwError badPass) pure $
         deriveLvl2KeyPair
+            fixedNM
             (IsBootstrapEraAddr True) -- TODO: make it context-dependent!
             scp
             passphrase
@@ -219,3 +221,9 @@ instance AccountMode ctx m => MonadKeySearch AccountId m where
 
 instance AccountMode ctx m => MonadKeySearch WAddressMeta m where
     findKey = findKey . _wamWalletId
+
+
+
+
+fixedNM :: NetworkMagic
+fixedNM = NMNothing

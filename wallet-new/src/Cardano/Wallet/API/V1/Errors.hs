@@ -16,6 +16,7 @@ import           Test.QuickCheck (Arbitrary (..), oneof)
 
 import qualified Pos.Client.Txp.Util as TxError
 import qualified Pos.Core as Core
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import qualified Pos.Crypto.Hashing as Crypto
 import qualified Pos.Data.Attributes as Core
 
@@ -137,7 +138,7 @@ sampleAddress = V1 $ Core.Address
     { Core.addrRoot =
         Crypto.unsafeAbstractHash ("asdfasdf" :: String)
     , Core.addrAttributes =
-        Core.mkAttributes $ Core.AddrAttributes Nothing Core.BootstrapEraDistr
+        Core.mkAttributes $ Core.AddrAttributes Nothing Core.BootstrapEraDistr fixedNM
     , Core.addrType =
         Core.ATPubKey
     }
@@ -244,3 +245,7 @@ applicationJson :: HTTP.Header
 applicationJson =
     let [hdr] = getHeaders (addHeader "application/json" mempty :: (Headers '[Header "Content-Type" String] String))
     in hdr
+
+
+fixedNM :: NetworkMagic
+fixedNM = NMNothing

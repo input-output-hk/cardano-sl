@@ -14,6 +14,7 @@ import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl (version)
 import           Pos.Core (makeRedeemAddress)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto.Signing (fromAvvmPk)
 import           Pos.Util.Util (eitherToThrow)
 
@@ -59,7 +60,7 @@ In this case each entered vending address is echoed with a testnet address.|]
 
 convertAddr :: Text -> IO Text
 convertAddr addr =
-    pretty . makeRedeemAddress <$>
+    pretty . makeRedeemAddress fixedNM <$>
     (eitherToThrow . fromAvvmPk) (toText addr)
 
 main :: IO ()
@@ -68,3 +69,7 @@ main = do
     case address of
         Just addr -> convertAddr addr >>= putText
         Nothing   -> forever (getLine >>= convertAddr >>= putText)
+
+
+fixedNM :: NetworkMagic
+fixedNM = NMNothing

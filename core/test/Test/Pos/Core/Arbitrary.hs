@@ -56,6 +56,7 @@ import           Pos.Core.Configuration (HasGenesisBlockVersionData, HasProtocol
 import           Pos.Core.Constants (sharedSeedLength)
 import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
 import qualified Pos.Core.Genesis as G
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..), VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Crypto (ProtocolMagic, createPsk, toPublic)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
@@ -252,6 +253,9 @@ instance Arbitrary AddrStakeDistribution where
                     portion <-
                         CoinPortion <$> choose (1, max 1 (limit - 1))
                     genPortions (n - 1) (portion : res)
+
+instance Arbitrary NetworkMagic where
+    arbitrary = oneof [pure NMNothing, NMJust <$> arbitrary]
 
 instance Arbitrary AddrAttributes where
     arbitrary = genericArbitrary

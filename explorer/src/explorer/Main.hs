@@ -12,8 +12,6 @@ module Main
 
 import           Universum
 
-import           Data.Maybe (fromJust)
-
 import           ExplorerNodeOptions (ExplorerArgs (..), ExplorerNodeArgs (..),
                      getExplorerNodeOptions)
 import           Pos.Binary ()
@@ -32,12 +30,11 @@ import           Pos.Explorer.Web (ExplorerProd, explorerPlugin, notifierPlugin,
                      runExplorerProd)
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations,
-                     NodeParams (..), NodeResources (..), bracketNodeResources,
-                     loggerBracket, runNode, runRealMode, withConfigurations)
+                     NodeResources (..), bracketNodeResources, loggerBracket,
+                     runNode, runRealMode, withConfigurations)
 import           Pos.Launcher.Configuration (AssetLockPath (..))
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
-import           Pos.Util.UserSecret (usVss)
 import           Pos.Util.Wlog (LoggerName, logInfo)
 import           Pos.Worker.Update (updateTriggerWorker)
 
@@ -65,14 +62,11 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
                              ntpConfig
                              txpConfig
         logInfo $ "Explorer is enabled!"
-        currentParams <- getNodeParams
+        (currentParams, Just sscParams) <- getNodeParams
             loggerName
             cArgs
             nodeArgs
             (configGeneratedSecrets coreConfig)
-
-        let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-        let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
         let plugins :: [Diffusion ExplorerProd -> ExplorerProd ()]
             plugins =

@@ -107,7 +107,7 @@ action opts@AuxxOptions {..} command = do
                              (configGenesisData coreConfig)
                              ntpConfig
                              txpConfig
-        (nodeParams, tempDbUsed) <- correctNodeParams opts =<< CLI.getNodeParams
+        (nodeParams, tempDbUsed) <- (correctNodeParams opts . fst) =<< CLI.getNodeParams
             loggerName
             cArgs
             nArgs

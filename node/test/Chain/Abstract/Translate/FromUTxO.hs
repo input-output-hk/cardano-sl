@@ -24,6 +24,7 @@ import qualified UTxO.DSL as DSL
 data ChainValidity
     = ValidChain
     | InvalidChain [(SlotId, PolicyViolation)]
+    deriving (Show)
 
 {-------------------------------------------------------------------------------
   Translation context

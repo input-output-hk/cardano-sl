@@ -123,6 +123,7 @@ simpleParams addrs initTs = do
     , initialSeed = Seed 0
     , minFee = const 0 -- TODO: QUESTION: what properties should 'minFee' satisfy?
     , initTransactions = abstractInitTs
+    -- TODO: how do we want to determine the bootstrap stakeholders?
     , bootstrapStakeholders = Set.fromList $ toList addrs
     }
 
@@ -218,6 +219,10 @@ mInOpenPhase (SlotId k) = 2 * mQuality k <= k && k < 3 * mQuality k
 mInRecoveryPhase :: SlotId -> Bool
 mInRecoveryPhase (SlotId k) = 4 * mQuality k <= k && k < 5 * mQuality k
 
+-- | Initial stake distribution that assigns 1 to each address passed as
+-- parameter.
+--
+-- TODO: shouldn't this be determined based on other parameters?
 mInitialStakeDistribution :: NonEmpty Addr -> StakeDistribution Addr
 mInitialStakeDistribution addrs = StakeDistribution
                                 $ Map.fromList

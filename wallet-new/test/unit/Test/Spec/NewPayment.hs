@@ -26,7 +26,7 @@ import           Pos.Chain.Txp (TxOut (..), TxOutAux (..))
 import           Pos.Core (Address, Coin (..), IsBootstrapEraAddr (..),
                      deriveLvl2KeyPair, mkCoin)
 import           Pos.Crypto (EncryptedSecretKey, ShouldCheckPassphrase (..),
-                     safeDeterministicKeyGen)
+                     emptyPassphrase, safeDeterministicKeyGen)
 
 import           Test.Spec.CoinSelection.Generators (InitialBalance (..),
                      Pay (..), genPayee, genUtxoWithAtLeast)
@@ -53,6 +53,7 @@ import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as Node
 import qualified Cardano.Wallet.Kernel.PrefilterTx as Kernel
 import qualified Cardano.Wallet.Kernel.Transactions as Kernel
 import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
+import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
 import qualified Cardano.Wallet.WalletLayer.Kernel.Conv as Kernel.Conv
@@ -110,9 +111,11 @@ prepareFixtures initialBalance toPay = do
         liftIO $ Keystore.insert (WalletIdHdRnd newRootId) esk keystore
         let pw = Kernel.walletPassive aw
 
-        let accounts = Kernel.prefilterUtxo newRootId esk utxo'
+        let accounts         = Kernel.prefilterUtxo newRootId esk utxo'
+            hdAccount        = Kernel.defaultHdAccount newRootId
+            (Just hdAddress) = Kernel.defaultHdAddress esk emptyPassphrase newRootId
 
-        void $ liftIO $ update (pw ^. wallets) (CreateHdWallet newRoot accounts)
+        void $ liftIO $ update (pw ^. wallets) (CreateHdWallet newRoot hdAccount hdAddress accounts)
         return $ Fixture {
                            fixtureHdRootId = newRootId
                          , fixtureAccountId = AccountIdHdRnd newAccountId

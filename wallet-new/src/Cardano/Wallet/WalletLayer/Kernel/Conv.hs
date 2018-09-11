@@ -197,8 +197,9 @@ toAddress acc hdAddress =
     cardanoAddress = hdAddress ^. HD.hdAddressAddress . fromDb
     addressMeta    = acc ^. HD.hdAccountState . HD.hdAccountStateCurrent . cpAddressMeta cardanoAddress
 
+-- | Converts a Kernel 'HdAddress' into a Cardano 'Address'.
 toCardanoAddress :: HD.HdAddress -> Address
-toCardanoAddress hdAddress = hdAddress ^. HD.hdAddressAddress . fromDb
+toCardanoAddress hdAddr = hdAddr ^. HD.hdAddressAddress . fromDb
 
 {-------------------------------------------------------------------------------
   Custom errors

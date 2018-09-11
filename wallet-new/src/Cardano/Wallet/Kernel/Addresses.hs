@@ -16,13 +16,13 @@ import           System.Random.MWC (GenIO, createSystemRandom, uniformR)
 
 import           Data.Acid (update)
 
-import           Pos.Core (IsBootstrapEraAddr (..), deriveLvl2KeyPair)
+import           Pos.Core (Address, IsBootstrapEraAddr (..), deriveLvl2KeyPair)
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase,
                      ShouldCheckPassphrase (..))
 
 import           Cardano.Wallet.Kernel.DB.AcidState (CreateHdAddress (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountId,
-                     HdAccountIx (..), HdAddress (..), HdAddressId (..),
+                     HdAccountIx (..), HdAddress, HdAddressId (..),
                      HdAddressIx (..), hdAccountIdIx, hdAccountIdParent,
                      hdAddressIdIx)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Create
@@ -33,6 +33,7 @@ import           Cardano.Wallet.Kernel.Internal (PassiveWallet, walletKeystore,
                      wallets)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
+import           Cardano.Wallet.WalletLayer.Kernel.Conv (toCardanoAddress)
 
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
@@ -77,7 +78,7 @@ createAddress :: PassPhrase
               -> AccountId
               -- ^ An abstract notion of an 'Account' identifier
               -> PassiveWallet
-              -> IO (Either CreateAddressError HdAddress)
+              -> IO (Either CreateAddressError Address)
 createAddress spendingPassword accId pw = do
     let keystore = pw ^. walletKeystore
     case accId of
@@ -102,9 +103,7 @@ createAddress spendingPassword accId pw = do
                                       keystore
              case mbEsk of
                   Nothing  -> return (Left $ CreateAddressKeystoreNotFound accId)
-                  Just esk ->
-                      createHdRndAddress spendingPassword esk hdAccId pw
-
+                  Just esk -> createHdRndAddress spendingPassword esk hdAccId pw
 
 -- | Creates a new 'Address' using the random HD derivation under the hood.
 -- Being this an operation bound not only by the number of available derivation
@@ -120,12 +119,12 @@ createHdRndAddress :: PassPhrase
                    -> EncryptedSecretKey
                    -> HdAccountId
                    -> PassiveWallet
-                   -> IO (Either CreateAddressError HdAddress)
+                   -> IO (Either CreateAddressError Address)
 createHdRndAddress spendingPassword esk accId pw = do
     gen <- createSystemRandom
     go gen 0
     where
-        go :: GenIO -> Word32 -> IO (Either CreateAddressError HdAddress)
+        go :: GenIO -> Word32 -> IO (Either CreateAddressError Address)
         go gen collisions =
             case collisions >= maxAllowedCollisions of
                  True  -> return $ Left (CreateAddressHdRndAddressSpaceSaturated accId)
@@ -134,7 +133,7 @@ createHdRndAddress spendingPassword esk accId pw = do
         tryGenerateAddress :: GenIO
                            -> Word32
                            -- ^ The current number of collisions
-                           -> IO (Either CreateAddressError HdAddress)
+                           -> IO (Either CreateAddressError Address)
         tryGenerateAddress gen collisions = do
             newIndex <- deriveIndex (flip uniformR gen) HdAddressIx HardDerivation
             let hdAddressId = HdAddressId accId newIndex
@@ -149,7 +148,7 @@ createHdRndAddress spendingPassword esk accId pw = do
                              go gen (succ collisions)
                          (Left (CreateHdAddressUnknown _)) ->
                              return (Left $ CreateAddressUnknownHdAccount accId)
-                         Right () -> return . Right $ hdAddress
+                         Right () -> return (Right $ toCardanoAddress hdAddress)
 
         -- The maximum number of allowed collisions.
         maxAllowedCollisions :: Word32

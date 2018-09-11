@@ -16,7 +16,7 @@ import           Test.QuickCheck (arbitrary, choose, withMaxSuccess)
 import           Test.QuickCheck.Monadic (PropertyM, monadicIO, pick)
 
 import           Pos.Core (Address)
-import           Pos.Crypto (EncryptedSecretKey, firstHardened,
+import           Pos.Crypto (EncryptedSecretKey, emptyPassphrase, firstHardened,
                      safeDeterministicKeyGen)
 
 import           Cardano.Wallet.API.Request (RequestParams (..))
@@ -40,6 +40,7 @@ import           Cardano.Wallet.Kernel.Internal (PassiveWallet, wallets)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import qualified Cardano.Wallet.Kernel.Read as Kernel
 import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
+import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
 import qualified Cardano.Wallet.WalletLayer.Kernel.Addresses as Addresses
@@ -78,8 +79,11 @@ prepareFixtures = do
                           <*> (InDb <$> pick arbitrary)
     newAccountId <- HdAccountId newRootId <$> deriveIndex (pick . choose) HdAccountIx HardDerivation
     let accounts = M.singleton newAccountId mempty
+        hdAccount        = Kernel.defaultHdAccount newRootId
+        (Just hdAddress) = Kernel.defaultHdAddress esk emptyPassphrase newRootId
+
     return $ \pw -> do
-        void $ liftIO $ update (pw ^. wallets) (CreateHdWallet newRoot accounts)
+        void $ liftIO $ update (pw ^. wallets) (CreateHdWallet newRoot hdAccount hdAddress accounts)
         return $ Fixture {
                            fixtureHdRootId = newRootId
                          , fixtureAccountId = AccountIdHdRnd newAccountId

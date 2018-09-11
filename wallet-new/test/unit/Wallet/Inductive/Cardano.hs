@@ -25,7 +25,7 @@ import qualified Formatting.Buildable
 import           Pos.Chain.Txp (Utxo, formatUtxo)
 import           Pos.Core (HasConfiguration, Timestamp (..))
 import           Pos.Core.Chrono
-import           Pos.Crypto (EncryptedSecretKey)
+import           Pos.Crypto (EncryptedSecretKey, emptyPassphrase)
 
 import qualified Cardano.Wallet.Kernel.BListener as Kernel
 import qualified Cardano.Wallet.Kernel.DB.AcidState as DB
@@ -220,11 +220,16 @@ equivalentT useWW activeWallet esk = \mkWallet w ->
         res <- liftIO $
           Kernel.createWalletHdRnd
             passiveWallet
-            False
+            emptyPassphrase
             walletName
             assuranceLevel
             esk
-            (\root -> Left $ DB.CreateHdWallet root (prefilterUtxo (root ^. HD.hdRootId) esk utxo))
+            (\root defaultAccount defaultAddress ->
+                Left $ DB.CreateHdWallet root
+                                         defaultAccount
+                                         defaultAddress
+                                         (prefilterUtxo (root ^. HD.hdRootId) esk utxo)
+            )
         case res of
              Left e -> createWalletErr (STB e)
              Right hdRoot -> do

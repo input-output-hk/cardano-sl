@@ -3,6 +3,8 @@ module Cardano.Wallet.Kernel.Wallets (
     , updateHdWallet
     , updatePassword
     , deleteHdWallet
+    , defaultHdAccount
+    , defaultHdAddress
       -- * Errors
     , CreateWalletError(..)
     , UpdateWalletPasswordError(..)
@@ -32,8 +34,8 @@ import           Cardano.Wallet.Kernel.DB.AcidState (CreateHdWallet (..),
                      UpdateHdRootPassword (..), UpdateHdWallet (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel, HdAccount,
                      HdAccountId (..), HdAccountIx (..), HdAddress,
-                     HdAddressId (..), HdAddressIx (..), HdRoot, WalletName,
-                     eskToHdRootId)
+                     HdAddressId (..), HdAddressIx (..), HdRoot, HdRootId,
+                     WalletName, eskToHdRootId)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
@@ -160,10 +162,10 @@ createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
                              esk
                              -- Brand new wallets have no Utxo
                              -- See preconditon above.
-                             (\hdRoot defaultHdAccount defaultHdAddress ->
+                             (\hdRoot hdAccount hdAddress ->
                                  Left $ CreateHdWallet hdRoot
-                                                       defaultHdAccount
-                                                       defaultHdAddress
+                                                       hdAccount
+                                                       hdAddress
                                                        mempty
                              )
     case res of
@@ -217,32 +219,49 @@ createWalletHdRnd pw spendingPassword name assuranceLevel esk createWallet = do
                                 (hdSpendingPassword hasSpendingPassword created)
                                 assuranceLevel
                                 created
-        hdAccountId = HdAccountId rootId (HdAccountIx firstHardened)
-        defaultHdAccount =
-            HD.initHdAccount hdAccountId initialAccountState &
-                HD.hdAccountName .~ (HD.AccountName "Default account")
-        hdAddressId = HdAddressId hdAccountId (HdAddressIx firstHardened)
 
-    case newHdAddress esk spendingPassword hdAccountId hdAddressId of
+    case defaultHdAddress esk spendingPassword rootId of
          Nothing -> return (Left HD.CreateHdRootDefaultAddressCreationFailed)
-         Just defaultHdAddress -> do
+         Just hdAddress -> do
              -- We now have all the date we need to atomically generate a new
              -- wallet with a default account & address.
-             res <- case createWallet newRoot defaultHdAccount defaultHdAddress of
+             res <- case createWallet newRoot (defaultHdAccount rootId) hdAddress of
                  Left  create  -> update' (pw ^. wallets) create
                  Right restore -> update' (pw ^. wallets) restore
              return $ either Left (const (Right newRoot)) res
     where
 
-        initialAccountState :: HD.HdAccountState
-        initialAccountState = HD.HdAccountStateUpToDate HD.HdAccountUpToDate {
-              _hdUpToDateCheckpoints = Checkpoints . one $ initCheckpoint mempty
-            }
-
         hdSpendingPassword :: Bool -> InDb Timestamp -> HD.HasSpendingPassword
         hdSpendingPassword hasSpendingPassword created =
             if hasSpendingPassword then HD.HasSpendingPassword created
                                    else HD.NoSpendingPassword
+
+defaultHdAddress :: EncryptedSecretKey
+                 -> PassPhrase
+                 -> HD.HdRootId
+                 -> Maybe HdAddress
+defaultHdAddress esk spendingPassword rootId =
+    let hdAccountId = defaultHdAccountId rootId
+        hdAddressId = HdAddressId hdAccountId (HdAddressIx firstHardened)
+    in newHdAddress esk spendingPassword hdAccountId hdAddressId
+
+
+defaultHdAccountId :: HdRootId -> HdAccountId
+defaultHdAccountId rootId = HdAccountId rootId (HdAccountIx firstHardened)
+
+
+defaultHdAccount :: HdRootId -> HdAccount
+defaultHdAccount rootId =
+    let hdAccountId = defaultHdAccountId rootId
+    in HD.initHdAccount hdAccountId initialAccountState &
+           HD.hdAccountName .~ (HD.AccountName "Default account")
+  where
+    initialAccountState :: HD.HdAccountState
+    initialAccountState = HD.HdAccountStateUpToDate HD.HdAccountUpToDate {
+          _hdUpToDateCheckpoints = Checkpoints . one $ initCheckpoint mempty
+        }
+
+
 
 deleteHdWallet :: PassiveWallet
                -> HD.HdRootId

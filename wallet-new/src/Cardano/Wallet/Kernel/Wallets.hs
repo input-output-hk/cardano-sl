@@ -3,6 +3,9 @@ module Cardano.Wallet.Kernel.Wallets (
     , updateHdWallet
     , updatePassword
     , deleteHdWallet
+    , defaultHdAccountId
+    , defaultHdAddressId
+    , defaultHdAddress
       -- * Errors
     , CreateWalletError(..)
     , UpdateWalletPasswordError(..)
@@ -19,21 +22,24 @@ import qualified Formatting.Buildable
 
 import           Data.Acid.Advanced (update')
 
-import           Pos.Core (Timestamp)
+import           Pos.Core (Address, Timestamp)
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase,
                      changeEncPassphrase, checkPassMatches, emptyPassphrase,
-                     safeDeterministicKeyGen)
+                     firstHardened, safeDeterministicKeyGen)
 
+import           Cardano.Wallet.Kernel.Addresses (newHdAddress)
 import           Cardano.Wallet.Kernel.BIP39 (Mnemonic)
 import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
 import           Cardano.Wallet.Kernel.DB.AcidState (CreateHdWallet (..),
                      DeleteHdRoot (..), RestoreHdWallet,
                      UpdateHdRootPassword (..), UpdateHdWallet (..))
-import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel, HdRoot,
+import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel,
+                     HdAccountId (..), HdAccountIx (..), HdAddress,
+                     HdAddressId (..), HdAddressIx (..), HdRoot, HdRootId,
                      WalletName, eskToHdRootId)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
-import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
+import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
 import           Cardano.Wallet.Kernel.Internal (PassiveWallet, walletKeystore,
                      wallets)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
@@ -50,6 +56,9 @@ import           Test.QuickCheck (Arbitrary (..), oneof)
 data CreateWalletError =
       CreateWalletFailed HD.CreateHdRootError
       -- ^ When trying to create the 'Wallet', the DB operation failed.
+    | CreateWalletDefaultAddressDerivationFailed
+    -- ^ When generating the default address for the companion 'HdAddress',
+    -- the derivation failed
 
 instance Arbitrary CreateWalletError where
     arbitrary = oneof []
@@ -57,6 +66,8 @@ instance Arbitrary CreateWalletError where
 instance Buildable CreateWalletError where
     build (CreateWalletFailed dbOperation) =
         bprint ("CreateWalletUnknownHdAccount " % F.build) dbOperation
+    build CreateWalletDefaultAddressDerivationFailed =
+        bprint "CreateWalletDefaultAddressDerivationFailed"
 
 instance Show CreateWalletError where
     show = formatToString build
@@ -146,43 +157,80 @@ createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
     let newRootId = eskToHdRootId esk
     Keystore.insert (WalletIdHdRnd newRootId) esk (pw ^. walletKeystore)
 
-    -- STEP 3: Atomically generate the wallet and the initial internal structure in
-    -- an acid-state transaction.
-    res <- createWalletHdRnd pw
-                             (spendingPassword /= emptyPassphrase)
-                             walletName
-                             assuranceLevel
-                             esk
-                             -- Brand new wallets have no Utxo
-                             -- See preconditon above.
-                             (\hdRoot -> Left $ CreateHdWallet hdRoot mempty)
-    case res of
-         -- NOTE(adinapoli): This is the @only@ error the DB can return, at
-         -- least for now, so we are pattern matching directly on it. In the
-         -- case of more errors being added, carefully thinking would have to
-         -- be put into whether or not we should remove the key from the keystore
-         -- at this point. Surely we don't want to do this in the case the
-         -- wallet already exists, or we would end up deleting the key of the
-         -- existing wallet!
-         -- Fix properly as part of [CBR-404].
-         Left e@(HD.CreateHdRootExists _) ->
-             return . Left $ CreateWalletFailed e
-         Right hdRoot -> return (Right hdRoot)
+    -- STEP 2.5: Generate the fresh Cardano Address which will be used for the
+    -- companion 'HdAddress'
+    let mbHdAddress =
+            newHdAddress esk
+                         spendingPassword
+                         (defaultHdAccountId newRootId)
+                         (defaultHdAddressId newRootId)
+    case mbHdAddress of
+        Nothing -> do
+            -- Here, ideally, we would like to do some cleanup and call
+            -- >>> Keystore.delete (WalletIdHdRnd newRootId) (pw ^. walletKeystore)
+            -- However, this wouldn't be correct in case, for example, the user
+            -- is trying to create the same wallet twice. In that case we would
+            -- wipe a pre-existing, perfectly valid key!
+            -- The solution to this and other problems will be provided with [CBR-404].
+            -- For the moment, the less evil solution is to simply allow dangling
+            -- keys in the keystore. Being 'Keystore.insert' idempotent, doing so
+            -- won't compromise using the wallet.
+            return $ Left CreateWalletDefaultAddressDerivationFailed
+        Just hdAddress -> do
+            -- STEP 3: Atomically generate the wallet and the initial internal structure in
+            -- an acid-state transaction.
+            res <- createWalletHdRnd pw
+                                     (spendingPassword /= emptyPassphrase)
+                                     (hdAddress ^. HD.hdAddressAddress . fromDb)
+                                     walletName
+                                     assuranceLevel
+                                     esk
+                                     -- Brand new wallets have no Utxo
+                                     -- See preconditon above.
+                                     (\hdRoot hdAccountId hdAddr ->
+                                         Left $ CreateHdWallet hdRoot
+                                                               hdAccountId
+                                                               hdAddr
+                                                               mempty
+                                     )
+            case res of
+                 -- NOTE(adinapoli): This is the @only@ error the DB can return,
+                 -- so we are pattern matching directly on it. In the
+                 -- case of more errors being added, carefully thinking would have to
+                 -- be put into whether or not we should remove the key from the keystore
+                 -- at this point. Surely we don't want to do this in the case the
+                 -- wallet already exists, or we would end up deleting the key of the
+                 -- existing wallet!
+                 -- Fix properly as part of [CBR-404].
+                 Left e@(HD.CreateHdRootExists _) ->
+                     return . Left $ CreateWalletFailed e
+
+                 Right hdRoot -> return (Right hdRoot)
 
 
 -- | Creates an HD wallet where new accounts and addresses are generated
 -- via random index derivation.
 --
 -- Fails with CreateHdWalletError if the HdRootId already exists.
+--
+-- INVARIANT: Whenever we create an HdRoot, it @must@ come with a fresh
+-- account and address, both at 'firstHardened' index.
+--
 createWalletHdRnd :: PassiveWallet
                   -> Bool
-                  -- ^ Whether or not this wallet has a spending password set.
+                  -- Does this wallet have a spending password?
+                  -> Address
+                  -- The 'Address' to use for the companion 'HdAddress'.
                   -> HD.WalletName
                   -> AssuranceLevel
                   -> EncryptedSecretKey
-                  -> (HdRoot -> Either CreateHdWallet RestoreHdWallet)
+                  -> (  HdRoot
+                     -> HdAccountId
+                     -> HdAddress
+                     -> Either CreateHdWallet RestoreHdWallet
+                     )
                   -> IO (Either HD.CreateHdRootError HdRoot)
-createWalletHdRnd pw hasSpendingPassword name assuranceLevel esk createWallet = do
+createWalletHdRnd pw hasSpendingPassword defaultCardanoAddress name assuranceLevel esk createWallet = do
     created <- InDb <$> getCurrentTimestamp
     let rootId  = eskToHdRootId esk
         newRoot = HD.initHdRoot rootId
@@ -191,18 +239,47 @@ createWalletHdRnd pw hasSpendingPassword name assuranceLevel esk createWallet = 
                                 assuranceLevel
                                 created
 
-    res <- case createWallet newRoot of
-             Left  create  -> update' (pw ^. wallets) create
-             Right restore -> update' (pw ^. wallets) restore
-    return $ case res of
-                 Left err -> Left err
-                 Right () -> Right newRoot
+        hdAddress = defaultHdAddressWith rootId defaultCardanoAddress
+
+    -- We now have all the date we need to atomically generate a new
+    -- wallet with a default account & address.
+    res <- case createWallet newRoot (defaultHdAccountId rootId) hdAddress of
+        Left  create  -> update' (pw ^. wallets) create
+        Right restore -> update' (pw ^. wallets) restore
+    return $ either Left (const (Right newRoot)) res
     where
 
         hdSpendingPassword :: InDb Timestamp -> HD.HasSpendingPassword
         hdSpendingPassword created =
             if hasSpendingPassword then HD.HasSpendingPassword created
                                    else HD.NoSpendingPassword
+
+-- | Creates a default 'HdAddress' at a fixed derivation path. This is
+-- useful for tests, but otherwise you may want to use 'defaultHdAddressWith'.
+defaultHdAddress :: EncryptedSecretKey
+                 -> PassPhrase
+                 -> HD.HdRootId
+                 -> Maybe HdAddress
+defaultHdAddress esk spendingPassword rootId =
+    let hdAccountId = defaultHdAccountId rootId
+        hdAddressId = HdAddressId hdAccountId (HdAddressIx firstHardened)
+    in newHdAddress esk spendingPassword hdAccountId hdAddressId
+
+-- | Given a Cardano 'Address', it returns a default 'HdAddress' at a fixed
+-- and predictable generation path.
+defaultHdAddressWith :: HD.HdRootId -> Address -> HdAddress
+defaultHdAddressWith rootId cardanoAddress =
+    let hdAccountId = defaultHdAccountId rootId
+        hdAddressId = HdAddressId hdAccountId (HdAddressIx firstHardened)
+    in HD.HdAddress hdAddressId (InDb cardanoAddress)
+
+defaultHdAccountId :: HdRootId -> HdAccountId
+defaultHdAccountId rootId = HdAccountId rootId (HdAccountIx firstHardened)
+
+defaultHdAddressId :: HdRootId -> HdAddressId
+defaultHdAddressId rootId =
+    HdAddressId (defaultHdAccountId rootId) (HdAddressIx firstHardened)
+
 
 deleteHdWallet :: PassiveWallet
                -> HD.HdRootId

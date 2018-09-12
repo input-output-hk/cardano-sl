@@ -67,9 +67,9 @@ deriveSafeCopy 1 'base ''CreateHdAddressError
   CREATE
 -------------------------------------------------------------------------------}
 
--- | Create a new wallet
+-- | Create a new wallet.
 createHdRoot :: HdRoot -> Update' CreateHdRootError HdWallets ()
-createHdRoot hdRoot =
+createHdRoot hdRoot = do
     zoom hdWalletsRoots $ do
       exists <- gets $ IxSet.member rootId
       when exists $ throwError $ CreateHdRootExists rootId

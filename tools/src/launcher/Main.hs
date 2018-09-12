@@ -21,8 +21,8 @@ import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel,
                      poll, wait, waitAny, withAsync, withAsyncWithUnmask)
 import           Control.Exception.Safe (catchAny, handle, mask_, tryAny)
 import           Control.Lens (makeLensesWith)
-import           Data.Aeson (FromJSON, Value (Array, Bool, Object), fromJSON,
-                     genericParseJSON, withObject)
+import           Data.Aeson (FromJSON, Value (Array, Bool, Object, String),
+                     fromJSON, genericParseJSON, withObject)
 import qualified Data.Aeson as AE
 import           Data.Aeson.Options (defaultOptions)
 import qualified Data.ByteString.Lazy as BS.L
@@ -128,6 +128,7 @@ instance FromJSON LauncherOptions where
             -- any yet.
             o <> HM.fromList
                 [ ("walletLogging", Bool False)
+                , ("workingDir",    String ".")
                 , ("nodeArgs",      Array mempty)
                 , ("walletArgs",    Array mempty)
                 , ("updaterArgs",   Array mempty)

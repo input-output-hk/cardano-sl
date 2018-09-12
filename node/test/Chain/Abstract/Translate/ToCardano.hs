@@ -3,8 +3,9 @@
 {-# LANGUAGE TypeFamilies           #-}
 
 -- | Translation of an abstract chain into Cardano.
-module Chain.Abstract.Translate.ToCardano (
-    IntT
+module Chain.Abstract.Translate.ToCardano
+  ( IntT(..)
+  , TranslateT(..)
   ) where
 
 import           Cardano.Wallet.Kernel.Types
@@ -358,10 +359,10 @@ mkCheckpoint :: Monad m
              -> RawResolvedBlock -- ^ The block just created
              -> TranslateT IntException m IntCheckpoint
 mkCheckpoint prev slot raw@(UnsafeRawResolvedBlock block _inputs) = do
-    pc <- asks constants
-    gs <- asks weights
-    let isCrucial = give pc $ slot == crucialSlot (Core.siEpoch slot)
+    pc        <- asks constants
+    gs        <- asks weights
     newStakes <- updateStakes gs (fromRawResolvedBlock raw) (icStakes prev)
+    let isCrucial = give pc $ slot == crucialSlot (Core.siEpoch slot)
     return IntCheckpoint {
         icSlotId        = slot
       , icBlockHeader   = BlockHeaderMain $ block ^. gbHeader
@@ -422,11 +423,8 @@ updateStakes gs (ResolvedBlock txs _) =
 -- from the spec here).
 --
 -- We /update/ the most recent checkpoint so that when we rollback, we effectively
--- rollback /two/ blocks. This is important, because the DSL has no concept of these
--- EBBs.
---
--- TODO(md): See what changes are needed given that we're dealing with abstract
---           blocks instead of DSL blocks.
+-- rollback /two/ blocks. This is important, because the abstract chain has no
+-- concept of EBBs.
 createEpochBoundary :: Monad m
                     => IntCheckpoint
                     -> TranslateT IntException m (IntCheckpoint, GenesisBlock)

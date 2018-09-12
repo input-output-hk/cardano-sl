@@ -45,6 +45,7 @@ import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow)
 import           Pos.Util.Servant (encodeCType)
 
 import           Test.Pos.Configuration (withProvidedMagicConfig)
+import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty, expectedOne, maybeStopProperty,
                                                     splitWord, stopProperty)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty, getSentTxs, submitTxTestMode,
@@ -57,19 +58,27 @@ import           Test.Pos.Wallet.Web.Util (deriveRandomAddress, expectedAddrBala
 deriving instance Eq CTx
 
 -- TODO remove HasCompileInfo when MonadWalletWebMode will be splitted.
+
+-- We run the tests this number of times, with different `ProtocolMagics`, to get increased
+-- coverage. We should really do this inside of the `prop`, but it is difficult to do that
+-- without significant rewriting of the testsuite.
+testMultiple :: Int
+testMultiple = 3
+
 spec :: Spec
 spec = do
     runWithMagic NMMustBeNothing
     runWithMagic NMMustBeJust
 
 runWithMagic :: RequiresNetworkMagic -> Spec
-runWithMagic rnm = do
-    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
-    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
-       withProvidedMagicConfig pm $
-       describe "Wallet.Web.Methods.Payment" $ modifyMaxSuccess (const 10) $ do
-           describe "Submitting a payment when restoring" (rejectPaymentIfRestoringSpec pm)
-           describe "One payment" (oneNewPaymentBatchSpec pm)
+runWithMagic rnm = replicateM_ testMultiple $
+    modifyMaxSuccess (`div` testMultiple) $ do
+        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
+        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+           withProvidedMagicConfig pm $
+           describe "Wallet.Web.Methods.Payment" $ modifyMaxSuccess (const 10) $ do
+               describe "Submitting a payment when restoring" (rejectPaymentIfRestoringSpec pm)
+               describe "One payment" (oneNewPaymentBatchSpec pm)
 
 data PaymentFixture = PaymentFixture {
       pswd        :: PassPhrase

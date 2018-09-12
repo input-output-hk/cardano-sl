@@ -7,8 +7,8 @@ import           Universum
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default (def)
 import           Test.Hspec (Spec, describe, runIO)
-import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (arbitrary, generate)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
+import           Test.QuickCheck (generate)
 import           Test.QuickCheck.Monadic (assert)
 
 import           Pos.Binary.Class (decodeFull, serialize')
@@ -21,6 +21,7 @@ import           Pos.Util.CompileInfo (withCompileInfo)
 import           Test.Pos.Block.Logic.Mode (blockPropertyTestable)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..), bpGenBlock)
 import           Test.Pos.Configuration (HasStaticConfigurations, withProvidedMagicConfig)
+import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
 
 -- |
 -- The binary encoding of `MsgSerializedBlock` using `serializeMsgSerializedBlock`
@@ -63,16 +64,24 @@ deserializeSerilizedMsgSerializedBlockSpec pm = do
     desc = "deserialization of a serialized MsgSerializedBlock message should give back corresponding MsgBlock"
     descNoBlock = "deserialization of a serialized MsgNoSerializedBlock message should give back corresponding MsgNoBlock"
 
+
+-- We run the tests this number of times, with different `ProtocolMagics`, to get increased
+-- coverage. We should really do this inside of the `prop`, but it is difficult to do that
+-- without significant rewriting of the testsuite.
+testMultiple :: Int
+testMultiple = 3
+
 spec :: Spec
 spec = do
     runWithMagic NMMustBeNothing
     runWithMagic NMMustBeJust
 
 runWithMagic :: RequiresNetworkMagic -> Spec
-runWithMagic rnm = do
-    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
-    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
-        specBody pm
+runWithMagic rnm = replicateM_ testMultiple $
+    modifyMaxSuccess (`div` testMultiple) $ do
+        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
+        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+            specBody pm
 
 specBody :: ProtocolMagic -> Spec
 specBody pm = withProvidedMagicConfig pm $ withCompileInfo def $

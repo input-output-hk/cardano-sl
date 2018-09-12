@@ -9,6 +9,7 @@ module Test.Pos.Crypto.Arbitrary
        , genSignature
        , genSignatureEncoded
        , genRedeemSignature
+       , genProtocolMagicUniformWithRNM
        ) where
 
 import           Universum hiding (keys)
@@ -16,7 +17,7 @@ import           Universum hiding (keys)
 import           Control.Monad (zipWithM)
 import qualified Data.ByteArray as ByteArray
 import           Data.List.NonEmpty (fromList)
-import           Test.QuickCheck (Arbitrary (..), Gen, elements, oneof, vector)
+import           Test.QuickCheck (Arbitrary (..), Gen, choose, elements, oneof, vector)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Binary.Class (AsBinary (..), AsBinaryClass (..), Bi, Raw)
@@ -53,6 +54,12 @@ instance Arbitrary ProtocolMagicId where
 
 instance Arbitrary RequiresNetworkMagic where
     arbitrary = elements [NMMustBeNothing, NMMustBeJust]
+
+genProtocolMagicUniformWithRNM :: RequiresNetworkMagic -> Gen ProtocolMagic
+genProtocolMagicUniformWithRNM rnm =
+    (\ident -> ProtocolMagic (ProtocolMagicId ident) rnm)
+    <$>
+    choose (minBound, maxBound)
 
 {- A note on 'Arbitrary' instances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

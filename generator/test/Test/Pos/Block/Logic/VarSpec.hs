@@ -17,7 +17,7 @@ import qualified Data.Ratio as Ratio
 import           Data.Semigroup ((<>))
 import           Test.Hspec (Spec, describe, runIO)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
-import           Test.QuickCheck (arbitrary, generate)
+import           Test.QuickCheck (generate)
 import           Test.QuickCheck.Gen (Gen (MkGen))
 import           Test.QuickCheck.Monadic (assert, pick, pre)
 import           Test.QuickCheck.Random (QCGen)
@@ -47,21 +47,30 @@ import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..)
                                             satisfySlotCheck)
 import           Test.Pos.Block.Property (blockPropertySpec)
 import           Test.Pos.Configuration (HasStaticConfigurations, withProvidedMagicConfig)
+import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
 import           Test.Pos.Util.QuickCheck.Property (splitIntoChunks, stopProperty)
 
 -- stack test cardano-sl --fast --test-arguments "-m Test.Pos.Block.Logic.Var"
-spec :: Spec
 -- Unfortunatelly, blocks generation is quite slow nowdays.
 -- See CSL-1382.
+
+-- We run the tests this number of times, with different `ProtocolMagics`, to get increased
+-- coverage. We should really do this inside of the `prop`, but it is difficult to do that
+-- without significant rewriting of the testsuite.
+testMultiple :: Int
+testMultiple = 1
+
+spec :: Spec
 spec = do
     runWithMagic NMMustBeNothing
     runWithMagic NMMustBeJust
 
 runWithMagic :: RequiresNetworkMagic -> Spec
-runWithMagic rnm = do
-    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
-    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
-        specBody pm
+runWithMagic rnm = replicateM_ testMultiple $
+    modifyMaxSuccess (`div` testMultiple) $ do
+        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
+        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+            specBody pm
 
 specBody :: ProtocolMagic -> Spec
 specBody pm = withProvidedMagicConfig pm $

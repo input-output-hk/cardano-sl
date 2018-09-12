@@ -8,8 +8,8 @@ module Test.Pos.Wallet.Web.Methods.LogicSpec
 import           Universum
 
 import           Test.Hspec (Spec, describe, runIO)
-import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (arbitrary, generate)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
+import           Test.QuickCheck (generate)
 
 import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
 import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
@@ -17,20 +17,29 @@ import           Pos.Launcher (HasConfigurations)
 import           Pos.Wallet.Web.Methods.Logic (getAccounts, getWallets)
 
 import           Test.Pos.Configuration (withProvidedMagicConfig)
+import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
 import           Test.Pos.Util.QuickCheck.Property (stopProperty)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty)
 
 -- TODO remove HasCompileInfo when MonadWalletWebMode will be splitted.
+
+-- We run the tests this number of times, with different `ProtocolMagics`, to get increased
+-- coverage. We should really do this inside of the `prop`, but it is difficult to do that
+-- without significant rewriting of the testsuite.
+testMultiple :: Int
+testMultiple = 1
+
 spec :: Spec
 spec = do
     runWithMagic NMMustBeNothing
     runWithMagic NMMustBeJust
 
 runWithMagic :: RequiresNetworkMagic -> Spec
-runWithMagic rnm = do
-    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
-    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
-        specBody pm
+runWithMagic rnm = replicateM_ testMultiple $
+    modifyMaxSuccess (`div` testMultiple) $ do
+        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
+        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+            specBody pm
 
 specBody :: ProtocolMagic -> Spec
 specBody pm = withProvidedMagicConfig pm $

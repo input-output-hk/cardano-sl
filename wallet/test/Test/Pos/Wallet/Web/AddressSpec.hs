@@ -30,9 +30,17 @@ import           Pos.Wallet.Web.Methods.Logic (newAccount)
 import           Pos.Wallet.Web.State (askWalletSnapshot, getWalletAddresses, wamAddress)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail)
 import           Test.Pos.Configuration (withProvidedMagicConfig)
+import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty, expectedOne)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty)
 import           Test.Pos.Wallet.Web.Util (importSingleWallet, mostlyEmptyPassphrases)
+
+
+-- We run the tests this number of times, with different `ProtocolMagics`, to get increased
+-- coverage. We should really do this inside of the `prop`, but it is difficult to do that
+-- without significant rewriting of the testsuite.
+testMultiple :: Int
+testMultiple = 1
 
 spec :: Spec
 spec = do
@@ -40,11 +48,12 @@ spec = do
     runWithMagic NMMustBeJust
 
 runWithMagic :: RequiresNetworkMagic -> Spec
-runWithMagic rnm = do
-    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
-    withProvidedMagicConfig pm $
-        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
-            specBody pm
+runWithMagic rnm = replicateM_ testMultiple $
+    modifyMaxSuccess (`div` testMultiple) $ do
+        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
+        withProvidedMagicConfig pm $
+            describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+                specBody pm
 
 specBody :: HasConfigurations => ProtocolMagic -> Spec
 specBody pm = describe "Fake address has maximal possible size" $

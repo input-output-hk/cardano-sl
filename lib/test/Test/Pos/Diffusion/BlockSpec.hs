@@ -15,7 +15,8 @@ import           Control.Monad.IO.Class (liftIO)
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Semigroup ((<>))
 import           Test.Hspec (Spec, describe, it, runIO, shouldBe)
-import           Test.QuickCheck (arbitrary, generate)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess)
+import           Test.QuickCheck (generate)
 
 import           Data.Bits
 import           Data.List.NonEmpty (NonEmpty ((:|)))
@@ -48,6 +49,7 @@ import           Pos.Logic.Types as Logic (Logic (..))
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Util.Trace (wlogTrace)
 import           Test.Pos.Block.Arbitrary.Generate (generateMainBlock)
+import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
 
 -- HLint warning disabled since I ran into https://ghc.haskell.org/trac/ghc/ticket/13106
 -- when trying to resolve it.
@@ -272,31 +274,42 @@ batchSimple pm blocks = do
             liftIO . blockDownloadBatch serverAddress (someHash, checkPoints)
     return True
 
+-- We run the tests this number of times, with different `ProtocolMagics`, to get increased
+-- coverage. We should really do this inside of the `prop`, but it is difficult to do that
+-- without significant rewriting of the testsuite.
+testMultiple :: Int
+testMultiple = 3
+
 spec :: Spec
 spec = do
     runWithMagic NMMustBeNothing
     runWithMagic NMMustBeJust
 
 runWithMagic :: RequiresNetworkMagic -> Spec
-runWithMagic rnm = do
-    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
-    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
-        describe "Blockdownload" $ do
-            it "Stream 4 blocks" $ do
-                r <- streamSimple pm 2048 4
-                r `shouldBe` True
-            it "Stream 128 blocks" $ do
-                r <- streamSimple pm 2048 128
-                r `shouldBe` True
-            it "Stream 4096 blocks" $ do
-                r <- streamSimple pm 128 4096
-                r `shouldBe` True
-            it "Streaming dislabed by client" $ do
-                r <- streamSimple pm 0 4
-                r `shouldBe` False
-            it "Batch, single block" $ do
-                r <- batchSimple pm 1
-                r `shouldBe` True
-            it "Batch of blocks" $ do
-                r <- batchSimple pm 2200
-                r `shouldBe` True
+runWithMagic rnm = replicateM_ testMultiple $
+    modifyMaxSuccess (`div` testMultiple) $ do
+        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
+        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+            specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm =
+    describe "Blockdownload" $ do
+        it "Stream 4 blocks" $ do
+            r <- streamSimple pm 2048 4
+            r `shouldBe` True
+        it "Stream 128 blocks" $ do
+            r <- streamSimple pm 2048 128
+            r `shouldBe` True
+        it "Stream 4096 blocks" $ do
+            r <- streamSimple pm 128 4096
+            r `shouldBe` True
+        it "Streaming dislabed by client" $ do
+            r <- streamSimple pm 0 4
+            r `shouldBe` False
+        it "Batch, single block" $ do
+            r <- batchSimple pm 1
+            r `shouldBe` True
+        it "Batch of blocks" $ do
+            r <- batchSimple pm 2200
+            r `shouldBe` True

@@ -15,7 +15,7 @@ import qualified Data.Vector as V (fromList)
 import           Fmt (blockListF', genericF, nameF, (+|), (|+))
 import           Serokell.Util (allDistinct)
 import           Test.Hspec (Expectation, Spec, describe, expectationFailure, it, runIO)
-import           Test.Hspec.QuickCheck (prop)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Property, arbitrary, counterexample, forAll, generate, (==>))
 
 import           Pos.Core (HasConfiguration, addressHash, checkPubKeyAddress,
@@ -38,6 +38,7 @@ import           Pos.Txp (ToilVerFailure (..), Utxo, VTxContext (..), VerifyTxUt
                           utxoToLookup, verifyTxUtxo)
 import qualified Pos.Util.Modifier as MM
 
+import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
 import           Test.Pos.Txp.Arbitrary (BadSigsTx (..), DoubleInputTx (..), GoodTx (..),
                                          genGoodTxWithMagic)
 import           Test.Pos.Util.QuickCheck.Arbitrary (SmallGenerator (..), nonrepeating, runGen)
@@ -47,16 +48,24 @@ import           Test.Pos.Util.QuickCheck.Property (qcIsLeft, qcIsRight)
 -- Spec
 ----------------------------------------------------------------------------
 
+
+-- We run the tests this number of times, with different `ProtocolMagics`, to get increased
+-- coverage. We should really do this inside of the `prop`, but it is difficult to do that
+-- without significant rewriting of the testsuite.
+testMultiple :: Int
+testMultiple = 3
+
 spec :: Spec
 spec = do
     runWithMagic NMMustBeNothing
     runWithMagic NMMustBeJust
 
 runWithMagic :: RequiresNetworkMagic -> Spec
-runWithMagic rnm = do
-    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
-    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
-        specBody pm
+runWithMagic rnm = replicateM_ testMultiple $
+    modifyMaxSuccess (`div` testMultiple) $ do
+        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
+        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+            specBody pm
 
 specBody :: ProtocolMagic -> Spec
 specBody pmTop =

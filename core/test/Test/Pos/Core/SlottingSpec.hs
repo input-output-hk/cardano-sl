@@ -7,16 +7,23 @@ module Test.Pos.Core.SlottingSpec
 import           Universum
 
 import           Test.Hspec (Expectation, Spec, anyErrorCall, describe, runIO)
-import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (NonNegative (..), Positive (..), Property, arbitrary, generate,
-                                  (===), (==>))
+import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
+import           Test.QuickCheck (NonNegative (..), Positive (..), Property, generate, (===), (==>))
 
 import           Pos.Core (EpochOrSlot, HasConfiguration, SlotId (..), defaultCoreConfiguration,
                            flattenSlotId, unflattenSlotId, withGenesisSpec)
 import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 
 import           Test.Pos.Core.Arbitrary (EoSToIntOverflow (..), UnreasonableEoS (..))
+import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
 import           Test.Pos.Util.QuickCheck.Property (shouldThrowException, (.=.))
+
+
+-- We run the tests this number of times, with different `ProtocolMagics`, to get increased
+-- coverage. We should really do this inside of the `prop`, but it is difficult to do that
+-- without significant rewriting of the testsuite.
+testMultiple :: Int
+testMultiple = 3
 
 spec :: Spec
 spec = do
@@ -24,10 +31,11 @@ spec = do
     runWithMagic NMMustBeJust
 
 runWithMagic :: RequiresNetworkMagic -> Spec
-runWithMagic rnm = do
-    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
-    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
-        specBody pm
+runWithMagic rnm = replicateM_ testMultiple $
+    modifyMaxSuccess (`div` testMultiple) $ do
+        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
+        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+            specBody pm
 
 specBody :: ProtocolMagic -> Spec
 specBody pm = withGenesisSpec 0 (defaultCoreConfiguration pm) $ \_ -> describe "Slotting" $ do

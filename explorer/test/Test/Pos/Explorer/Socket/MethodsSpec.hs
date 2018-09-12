@@ -16,12 +16,12 @@ import qualified Data.Set as S
 import           Network.EngineIO (SocketId)
 
 import           Test.Hspec (Spec, anyException, describe, it, runIO, shouldBe, shouldThrow)
-import           Test.Hspec.QuickCheck (modifyMaxSize, prop)
+import           Test.Hspec.QuickCheck (modifyMaxSize, modifyMaxSuccess, prop)
 import           Test.QuickCheck (Property, arbitrary, forAll, generate)
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
 import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
-import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..), SecretKey)
+import           Pos.Crypto (RequiresNetworkMagic (..), SecretKey)
 import           Pos.Explorer.ExplorerMode (runSubTestMode)
 import           Pos.Explorer.Socket.Holder (ConnectionsState, ExplorerSocket (..),
                                              csAddressSubscribers, csBlocksPageSubscribers,
@@ -36,6 +36,7 @@ import           Pos.Explorer.Socket.Methods (addrSubParam, addressSetByTxs, blo
 import           Pos.Explorer.TestUtil (secretKeyToAddress)
 import           Pos.Explorer.Web.ClientTypes (CAddress (..), toCAddress)
 
+import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
 import           Test.Pos.Explorer.MockFactory (mkTxOut)
 
 
@@ -45,16 +46,23 @@ import           Test.Pos.Explorer.MockFactory (mkTxOut)
 
 -- stack test cardano-sl-explorer --fast --test-arguments "-m Test.Pos.Explorer.Socket"
 
+-- We run the tests this number of times, with different `ProtocolMagics`, to get increased
+-- coverage. We should really do this inside of the `prop`, but it is difficult to do that
+-- without significant rewriting of the testsuite.
+testMultiple :: Int
+testMultiple = 1
+
 spec :: Spec
 spec = do
     runWithMagic NMMustBeNothing
     runWithMagic NMMustBeJust
 
 runWithMagic :: RequiresNetworkMagic -> Spec
-runWithMagic rnm = do
-    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
-    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
-        specBody (makeNetworkMagic pm)
+runWithMagic rnm = replicateM_ testMultiple $
+    modifyMaxSuccess (`div` testMultiple) $ do
+        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
+        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+            specBody (makeNetworkMagic pm)
 
 specBody :: NetworkMagic -> Spec
 specBody nm =

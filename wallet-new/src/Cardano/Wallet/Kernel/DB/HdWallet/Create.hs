@@ -41,9 +41,6 @@ import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 data CreateHdRootError =
     -- | We already have a wallet with the specified ID
     CreateHdRootExists HdRootId
-  | CreateHdRootDefaultAddressCreationFailed
-  -- ^ There is a serious bug in the logic, as creating a fresh address on
-  -- a fresh wallet should @never@ fail.
 
 -- | Errors thrown by 'createHdAccount'
 data CreateHdAccountError =
@@ -186,8 +183,6 @@ initHdAddress addrId address = HdAddress {
 instance Buildable CreateHdRootError where
     build (CreateHdRootExists rootId)
         = bprint ("CreateHdRootError::CreateHdRootExists "%build) rootId
-    build CreateHdRootDefaultAddressCreationFailed
-        = bprint "Invariant violation! CreateHdRootError::CreateHdRootDefaultAddressCreationFailed"
 
 instance Buildable CreateHdAccountError where
     build (CreateHdAccountUnknownRoot (UnknownHdRoot rootId))

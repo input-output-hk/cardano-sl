@@ -51,10 +51,10 @@ import           Pos.Chain.Block (Block, Blund, HeaderHash, MainBlock, Undo,
                      headerHash, mainBlockSlot)
 import           Pos.Chain.Txp (TxIn (..), TxOut (..), TxOutAux (..), Utxo,
                      genesisUtxo)
-import           Pos.Core as Core (BlockCount (..), Coin, Config (..),
+import           Pos.Core as Core (Address, BlockCount (..), Coin, Config (..),
                      GenesisHash, SlotId, flattenSlotId, mkCoin,
                      unsafeIntegerToCoin)
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase)
+import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.DB.Block (getFirstGenesisBlockHash, getUndo,
                      resolveForwardLink)
 import           Pos.DB.Class (getBlock)
@@ -70,25 +70,36 @@ import           Pos.Util.Trace (Severity (Error))
 -- background thread that will asynchronously restore the wallet history.
 --
 -- Wallet initialization parameters match those of 'createWalletHdRnd'
+-- NOTE: We pass in a fresh 'Address' which will be used to initialise the
+-- companion 'HdAccount' this wallet will be created with. The reason why
+-- we do this is that, if we were to use the 'PassPhrase' directly, it would
+-- have been impossible for upstream code dealing with migrations to call
+-- this function, as during migration time you don't have access to the
+-- users' spending passwords.
+-- During migration, instead, you can pick one of the @existing@ addresses
+-- in the legacy wallet layer, and use it as input.
 restoreWallet :: Kernel.PassiveWallet
-              -> PassPhrase
+              -> Bool
+              -- ^ Did this wallet have a spending password set?
+              -> Address
+              -- ^ The stock address to use for the companion 'HdAccount'.
               -> HD.WalletName
               -> HD.AssuranceLevel
               -> EncryptedSecretKey
               -> (Blund -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta]))
               -> IO (Either CreateHdRootError (HD.HdRoot, Coin))
-restoreWallet pw spendingPass name assurance esk prefilter = do
+restoreWallet pw hasSpendingPassword defaultCardanoAddress name assurance esk prefilter = do
     coreConfig <- getCoreConfig (pw ^. walletNode)
     walletInitInfo <- withNodeState (pw ^. walletNode) $ getWalletInitInfo coreConfig wkey
     case walletInitInfo of
       WalletCreate utxos -> do
-        root <- createWalletHdRnd pw spendingPass name assurance esk $
+        root <- createWalletHdRnd pw hasSpendingPassword defaultCardanoAddress name assurance esk $
                 \root defaultHdAccount defaultHdAddress ->
                       Left $ CreateHdWallet root defaultHdAccount defaultHdAddress utxos
         return $ fmap (, mkCoin 0) root
       WalletRestore utxos (tgtTip, tgtSlot) -> do
         -- Create the wallet
-        mRoot <- createWalletHdRnd pw spendingPass name assurance esk $
+        mRoot <- createWalletHdRnd pw hasSpendingPassword defaultCardanoAddress name assurance esk $
                  \root defaultHdAccount defaultHdAddress ->
                        Right $ RestoreHdWallet root defaultHdAccount defaultHdAddress utxos
         case mRoot of

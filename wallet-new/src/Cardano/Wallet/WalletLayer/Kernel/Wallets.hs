@@ -12,6 +12,7 @@ module Cardano.Wallet.WalletLayer.Kernel.Wallets (
 
 import           Universum
 
+import           Control.Monad.Except (throwError)
 import           Data.Coerce (coerce)
 import qualified Data.Map as M
 import           Data.Maybe (fromJust)
@@ -24,6 +25,7 @@ import           Pos.Crypto.Signing
 
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
+import           Cardano.Wallet.Kernel.Addresses (newHdAddress)
 import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
 import           Cardano.Wallet.Kernel.DB.AcidState (dbHdWallets)
 import           Cardano.Wallet.Kernel.DB.BlockContext
@@ -115,18 +117,26 @@ createWallet wallet newWalletRequest = liftIO $ do
                     Nothing -> (M.empty, [])
                     Just rb -> prefilterBlock rb wId esk
 
-        (root, coins) <- withExceptT (CreateWalletError . Kernel.CreateWalletFailed) $ ExceptT $
-            restoreWallet
-              wallet
-              pwd
-              (HD.WalletName walletName)
-              hdAssuranceLevel
-              esk
-              prefilter
+            mbHdAddress = newHdAddress esk
+                                       pwd
+                                       (Kernel.defaultHdAccountId rootId)
+                                       (Kernel.defaultHdAddressId rootId)
+        case mbHdAddress of
+            Nothing -> throwError (CreateWalletError Kernel.CreateWalletDefaultAddressDerivationFailed)
+            Just hdAddress -> do
+                (root, coins) <- withExceptT (CreateWalletError . Kernel.CreateWalletFailed) $ ExceptT $
+                    restoreWallet
+                      wallet
+                      (pwd /= emptyPassphrase)
+                      (hdAddress ^. HD.hdAddressAddress . fromDb)
+                      (HD.WalletName walletName)
+                      hdAssuranceLevel
+                      esk
+                      prefilter
 
-        -- Return the wallet information, with an updated balance.
-        let root' = mkRoot walletName (toAssuranceLevel hdAssuranceLevel) now root
-        updateSyncState wallet wId (root' { V1.walBalance = V1 coins })
+                -- Return the wallet information, with an updated balance.
+                let root' = mkRoot walletName (toAssuranceLevel hdAssuranceLevel) now root
+                updateSyncState wallet wId (root' { V1.walBalance = V1 coins })
 
     mkRoot :: Text -> V1.AssuranceLevel -> Timestamp -> HD.HdRoot -> V1.Wallet
     mkRoot v1WalletName v1AssuranceLevel now hdRoot = V1.Wallet {

@@ -27,9 +27,11 @@ import           Pos.Core (HasConfiguration, Timestamp (..))
 import           Pos.Core.Chrono
 import           Pos.Crypto (EncryptedSecretKey, emptyPassphrase)
 
+import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import qualified Cardano.Wallet.Kernel.BListener as Kernel
 import qualified Cardano.Wallet.Kernel.DB.AcidState as DB
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
+import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
 import qualified Cardano.Wallet.Kernel.Internal as Internal
 import           Cardano.Wallet.Kernel.Invariants as Kernel
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
@@ -217,17 +219,23 @@ equivalentT useWW activeWallet esk = \mkWallet w ->
                 -> Utxo
                 -> TranslateT EquivalenceViolation m HD.HdAccountId
     walletBootT ctxt utxo = do
+        let newRootId = HD.eskToHdRootId esk
+        let (Just defaultAddress) = Kernel.newHdAddress esk
+                                                        emptyPassphrase
+                                                        (Kernel.defaultHdAccountId newRootId)
+                                                        (Kernel.defaultHdAddressId newRootId)
         res <- liftIO $
           Kernel.createWalletHdRnd
             passiveWallet
-            emptyPassphrase
+            False
+            (defaultAddress ^. HD.hdAddressAddress . fromDb)
             walletName
             assuranceLevel
             esk
-            (\root defaultAccount defaultAddress ->
+            (\root defaultAccount defAddress ->
                 Left $ DB.CreateHdWallet root
                                          defaultAccount
-                                         defaultAddress
+                                         defAddress
                                          (prefilterUtxo (root ^. HD.hdRootId) esk utxo)
             )
         case res of

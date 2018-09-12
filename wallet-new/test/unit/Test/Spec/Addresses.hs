@@ -12,7 +12,8 @@ import           Servant.Server
 
 import           Test.Hspec (Spec, describe, shouldBe, shouldSatisfy)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (arbitrary, choose, withMaxSuccess)
+import           Test.QuickCheck (arbitrary, choose, elements, withMaxSuccess,
+                     (===))
 import           Test.QuickCheck.Monadic (PropertyM, monadicIO, pick)
 
 import           Pos.Core (Address)
@@ -323,6 +324,25 @@ spec = describe "Addresses" $ do
                                     , wa3' == addressFixtureAddress wa3
                                     -> pure ()
                            _ -> fail ("Got " ++ show res)
+
+            prop "arbitrary number of addresses, pages and per page" $ withMaxSuccess 500 $ do
+                monadicIO $ do
+                    (rNumOfAddresses :: Int) <- pick $ elements [0..15]
+                    (rNumOfPages :: Int) <- pick $ elements [0..15]
+                    (rNumPerPage :: Int) <- pick $ elements [0..15]
+                    withAddressFixtures rNumOfAddresses $ \_ layer _ fixtureAddresses -> do
+                        let (!>) = drop . (subtract 1)
+                        let (<!) = flip take
+                        let slice numOfPage numPerPage xs
+                                | numOfPage*numPerPage == 0 = []
+                                | otherwise = ((numOfPage-1)*numPerPage+1) !> xs <! numPerPage
+                        let pp = PaginationParams (Page rNumOfPages) (PerPage rNumPerPage)
+                        res <- runExceptT $ runHandler' $ do
+                           Handlers.listAddresses layer (RequestParams pp)
+                        let toBeCheckedAddresses = wrData <$> res
+                        let correctAddresses = pure $ map addressFixtureAddress $
+                                               slice rNumOfPages rNumPerPage fixtureAddresses
+                        pure (toBeCheckedAddresses === correctAddresses)
 
     describe "ValidateAddress" $ do
         describe "Address validation (wallet layer)" $ do

@@ -112,10 +112,10 @@ prepareFixtures initialBalance toPay = do
         let pw = Kernel.walletPassive aw
 
         let accounts         = Kernel.prefilterUtxo newRootId esk utxo'
-            hdAccount        = Kernel.defaultHdAccount newRootId
+            hdAccountId      = Kernel.defaultHdAccountId newRootId
             (Just hdAddress) = Kernel.defaultHdAddress esk emptyPassphrase newRootId
 
-        void $ liftIO $ update (pw ^. wallets) (CreateHdWallet newRoot hdAccount hdAddress accounts)
+        void $ liftIO $ update (pw ^. wallets) (CreateHdWallet newRoot hdAccountId hdAddress accounts)
         return $ Fixture {
                            fixtureHdRootId = newRootId
                          , fixtureAccountId = AccountIdHdRnd newAccountId

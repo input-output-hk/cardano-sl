@@ -11,8 +11,6 @@ module Main
 
 import           Universum
 
-import           Data.Maybe (fromJust)
-
 import           Ntp.Client (NtpConfiguration)
 
 import           Pos.Binary ()
@@ -27,7 +25,6 @@ import           Pos.Launcher (HasConfigurations, NodeParams (..),
 import           Pos.Launcher.Configuration (AssetLockPath (..))
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
-import           Pos.Util.UserSecret (usVss)
 import           Pos.Util.Wlog (LoggerName, logInfo)
 import           Pos.Worker.Update (updateTriggerWorker)
 
@@ -58,14 +55,11 @@ action
 action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) coreConfig txpConfig ntpConfig = do
     CLI.printInfoOnStart cArgs (configGenesisData coreConfig) ntpConfig txpConfig
     logInfo "Wallet is disabled, because software is built w/o it"
-    currentParams <- CLI.getNodeParams loggerName
-                                       cArgs
-                                       nArgs
-                                       (configGeneratedSecrets coreConfig)
-
-    let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-    let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
-
+    (currentParams, Just sscParams) <- CLI.getNodeParams
+       loggerName
+       cArgs
+       nArgs
+       (configGeneratedSecrets coreConfig)
     actionWithoutWallet coreConfig txpConfig sscParams currentParams
 
 main :: IO ()

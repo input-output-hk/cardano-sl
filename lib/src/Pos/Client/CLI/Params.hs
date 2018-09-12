@@ -27,7 +27,7 @@ import           Pos.Infra.Network.CLI (intNetworkConfigOpts)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
                      NodeParams (..))
 import           Pos.Util.UserPublic (peekUserPublic)
-import           Pos.Util.UserSecret (peekUserSecret)
+import           Pos.Util.UserSecret (peekUserSecret, usVss)
 import           Pos.Util.Util (eitherToThrow)
 import           Pos.Util.Wlog (LoggerName, WithLogger)
 
@@ -67,7 +67,7 @@ getNodeParams ::
     -> CommonNodeArgs
     -> NodeArgs
     -> Maybe GeneratedSecrets
-    -> m NodeParams
+    -> m (NodeParams, Maybe SscParams)
 getNodeParams defaultLoggerName cArgs@CommonNodeArgs{..} NodeArgs{..} mGeneratedSecrets = do
     (primarySK, userSecret) <- prepareUserSecret cArgs mGeneratedSecrets
         =<< peekUserSecret (getKeyfilePath cArgs)
@@ -76,24 +76,31 @@ getNodeParams defaultLoggerName cArgs@CommonNodeArgs{..} NodeArgs{..} mGenerated
     npBehaviorConfig <- case behaviorConfigPath of
         Nothing -> pure def
         Just fp -> eitherToThrow =<< liftIO (Yaml.decodeFileEither fp)
-    pure NodeParams
-        { npDbPathM = dbPath
-        , npRebuildDb = rebuildDB
-        , npSecretKey = primarySK
-        , npUserPublic = userPublic
-        , npUserSecret = userSecret
-        , npBaseParams = getBaseParams defaultLoggerName cArgs
-        , npJLFile = jlPath
-        , npReportServers = reportServers commonArgs
-        , npUpdateParams = UpdateParams
-            { upUpdatePath    = updateLatestPath
-            , upUpdateWithPkg = updateWithPackage
-            , upUpdateServers = updateServers commonArgs
+
+    let nodeParams = NodeParams
+            { npDbPathM = dbPath
+            , npRebuildDb = rebuildDB
+            , npSecretKey = primarySK
+            , npUserSecret = userSecret
+            , npUserPublic = userPublic
+            , npBaseParams = getBaseParams defaultLoggerName cArgs
+            , npJLFile = jlPath
+            , npReportServers = reportServers commonArgs
+            , npUpdateParams = UpdateParams
+                { upUpdatePath    = updateLatestPath
+                , upUpdateWithPkg = updateWithPackage
+                , upUpdateServers = updateServers commonArgs
+                }
+            , npRoute53Params = route53Params
+            , npEnableMetrics = enableMetrics
+            , npEkgParams = ekgParams
+            , npStatsdParams = statsdParams
+            , npAssetLockPath = cnaAssetLockPath
+            , ..
             }
-        , npRoute53Params = route53Params
-        , npEnableMetrics = enableMetrics
-        , npEkgParams = ekgParams
-        , npStatsdParams = statsdParams
-        , npAssetLockPath = cnaAssetLockPath
-        , ..
-        }
+
+    let sscParams = gtSscParams cArgs
+           <$> (userSecret ^. usVss)
+           <*> pure npBehaviorConfig
+
+    return (nodeParams, sscParams)

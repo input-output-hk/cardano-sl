@@ -9,7 +9,6 @@ module Main where
 import           Universum
 
 import           Control.Concurrent.STM (newTQueueIO)
-import           Data.Maybe (fromJust)
 import           Ntp.Client (NtpConfiguration, NtpStatus, ntpClientSettings,
                      withNtpClient)
 import           Pos.Chain.Ssc (SscParams)
@@ -27,7 +26,6 @@ import           Pos.Launcher.Configuration (AssetLockPath (..),
                      ConfigurationOptions, HasConfigurations)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
-import           Pos.Util.UserSecret (usVss)
 import           Pos.Util.Wlog (LoggerName, Severity (..), logInfo, logMessage,
                      usingLoggerName)
 import           Pos.Wallet.Web (bracketWalletWS, bracketWalletWebDB,
@@ -227,12 +225,10 @@ startEdgeNode wso =
                   -> IO (SscParams, NodeParams)
     getParameters coreConfig txpConfig ntpConfig = do
 
-      currentParams <- CLI.getNodeParams defaultLoggerName
+      (currentParams, Just gtParams) <- CLI.getNodeParams defaultLoggerName
                                          (wsoNodeArgs wso)
                                          nodeArgs
                                          (configGeneratedSecrets coreConfig)
-      let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-      let gtParams = CLI.gtSscParams (wsoNodeArgs wso) vssSK (npBehaviorConfig currentParams)
 
       CLI.printInfoOnStart (wsoNodeArgs wso)
                            (configGenesisData coreConfig)

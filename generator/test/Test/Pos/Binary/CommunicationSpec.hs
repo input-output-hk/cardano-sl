@@ -20,7 +20,7 @@ import           Pos.Util.CompileInfo (withCompileInfo)
 
 import           Test.Pos.Block.Logic.Mode (blockPropertyTestable)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..), bpGenBlock)
-import           Test.Pos.Configuration (HasStaticConfigurations, withProvidedMagicConfig)
+import           Test.Pos.Configuration (HasStaticConfigurations, withStaticConfigurations)
 import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
 
 -- |
@@ -84,7 +84,7 @@ runWithMagic rnm = replicateM_ testMultiple $
             specBody pm
 
 specBody :: ProtocolMagic -> Spec
-specBody pm = withProvidedMagicConfig pm $ withCompileInfo def $
+specBody pm = withStaticConfigurations $ \_ -> withCompileInfo def $
     describe "Pos.Binary.Communication" $ do
         describe "serializeMsgSerializedBlock" (serializeMsgSerializedBlockSpec pm)
         describe "decode is left inverse of serializeMsgSerializedBlock" (deserializeSerilizedMsgSerializedBlockSpec pm)

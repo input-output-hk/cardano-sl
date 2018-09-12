@@ -46,7 +46,7 @@ import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..)
                                             bpGenBlocks, bpGoToArbitraryState, getAllSecrets,
                                             satisfySlotCheck)
 import           Test.Pos.Block.Property (blockPropertySpec)
-import           Test.Pos.Configuration (HasStaticConfigurations, withProvidedMagicConfig)
+import           Test.Pos.Configuration (HasStaticConfigurations, withStaticConfigurations)
 import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
 import           Test.Pos.Util.QuickCheck.Property (splitIntoChunks, stopProperty)
 
@@ -73,7 +73,7 @@ runWithMagic rnm = replicateM_ testMultiple $
             specBody pm
 
 specBody :: ProtocolMagic -> Spec
-specBody pm = withProvidedMagicConfig pm $
+specBody pm = withStaticConfigurations $ \_ ->
     describe "Block.Logic.VAR" $ modifyMaxSuccess (min 4) $ do
         describe "verifyBlocksPrefix" (verifyBlocksPrefixSpec pm)
         describe "verifyAndApplyBlocks" (verifyAndApplyBlocksSpec pm)

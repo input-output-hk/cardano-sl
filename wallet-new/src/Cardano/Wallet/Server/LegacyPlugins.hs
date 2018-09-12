@@ -13,6 +13,7 @@ module Cardano.Wallet.Server.LegacyPlugins (
     , walletDocumentation
     , resubmitterPlugin
     , notifierPlugin
+    , throttleMiddleware
     ) where
 
 import           Universum
@@ -21,7 +22,7 @@ import           Cardano.Wallet.API as API
 import           Cardano.Wallet.API.V1.Headers (applicationJson)
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.LegacyServer as LegacyServer
-import           Cardano.Wallet.Server.CLI (RunMode, WalletBackendParams (..),
+import           Cardano.Wallet.Server.CLI (WalletBackendParams (..),
                      isDebugMode, walletAcidInterval, walletDbOptions)
 import qualified Pos.Wallet.Web.Error.Types as V0
 
@@ -32,9 +33,6 @@ import           Network.HTTP.Types.Status (badRequest400)
 import           Network.Wai (Application, Middleware, Response, responseLBS)
 import           Network.Wai.Handler.Warp (defaultSettings,
                      setOnExceptionResponse)
-import           Network.Wai.Middleware.Cors (cors, corsMethods,
-                     corsRequestHeaders, simpleCorsResourcePolicy,
-                     simpleMethods)
 import qualified Network.Wai.Middleware.Throttle as Throttle
 import           Ntp.Client (NtpStatus)
 import           Pos.Chain.Txp (TxpConfiguration)
@@ -57,7 +55,7 @@ import           Pos.Configuration (walletProductionApi,
                      walletTxCreationDisabled)
 import           Pos.Infra.Shutdown.Class (HasShutdownContext (shutdownContext))
 import           Pos.Launcher.Configuration (HasConfigurations,
-                     ThrottleSettings (..), WalletConfiguration (..))
+                     ThrottleSettings (..))
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.Server.Launcher (walletDocumentationImpl,
@@ -105,7 +103,11 @@ walletDocumentation WalletBackendParams {..} = pure $ \_ ->
     application :: WalletWebMode Application
     application = do
         let app = Servant.serve API.walletDocAPI LegacyServer.walletDocServer
-        withMiddleware (WalletConfiguration Nothing) walletRunMode app
+        return $
+            withMiddlewares
+                [ throttleMiddleware Nothing
+                ]
+                app
     tls =
         if isDebugMode walletRunMode then Nothing else walletTLSParams
 
@@ -116,8 +118,9 @@ legacyWalletBackend :: (HasConfigurations, HasCompileInfo)
                     -> TxpConfiguration
                     -> WalletBackendParams
                     -> TVar NtpStatus
+                    -> [Middleware]
                     -> Plugin WalletWebMode
-legacyWalletBackend genesisConfig walletConfig txpConfig WalletBackendParams {..} ntpStatus = pure $ \diffusion -> do
+legacyWalletBackend genesisConfig walletConfig txpConfig WalletBackendParams {..} ntpStatus middlewares = pure $ \diffusion -> do
     modifyLoggerName (const "legacyServantBackend") $ do
       logWarning $ sformat "RUNNING THE OLD LEGACY DATA LAYER IS NOT RECOMMENDED!"
       logInfo $ sformat ("Production mode for API: "%build)
@@ -143,7 +146,8 @@ legacyWalletBackend genesisConfig walletConfig txpConfig WalletBackendParams {..
         logInfo "Wallet Web API has STARTED!"
         wsConn <- getWalletWebSockets
         ctx <- V0.walletWebModeContext
-        withMiddleware walletConfig walletRunMode
+        return
+            $ withMiddlewares middlewares
             $ upgradeApplicationWS wsConn
             $ Servant.serve API.walletAPI
             $ LegacyServer.walletServer
@@ -213,37 +217,18 @@ syncWalletWorker genesisConfig = pure $ const $
     modifyLoggerName (const "syncWalletWorker") $
     (view (lensOf @SyncQueue) >>= processSyncRequest genesisConfig)
 
-corsMiddleware :: Middleware
-corsMiddleware = cors (const $ Just policy)
-    where
-      policy = simpleCorsResourcePolicy
-        { corsRequestHeaders = ["Content-Type"]
-        , corsMethods = "PUT" : simpleMethods
-        }
+-- | "Attaches" the middlewares to this 'Application'.
+withMiddlewares :: [Middleware] -> Application -> Application
+withMiddlewares = flip $ foldr ($)
 
-
--- | "Attaches" the middleware to this 'Application', if any.  When running in
--- debug mode, chances are we want to at least allow CORS to test the API with
--- a Swagger editor, locally.
-withMiddleware
-    :: MonadIO m
-    => WalletConfiguration
-    -> RunMode
-    -> Application
-    -> m Application
-withMiddleware walletConfiguration wrm app = do
-    throttling <- case ccThrottle walletConfiguration of
-        Nothing ->
-            pure identity
-        Just ts -> do
-            throttler <- liftIO $ Throttle.initThrottler
-            pure (Throttle.throttle (throttleSettings ts) throttler)
-    pure
-        . (if isDebugMode wrm then corsMiddleware else identity)
-        . throttling
-        $ app
+-- | A @Middleware@ to throttle requests.
+throttleMiddleware :: Maybe ThrottleSettings -> Middleware
+throttleMiddleware Nothing app = app
+throttleMiddleware (Just ts) app = \req respond -> do
+    throttler <- Throttle.initThrottler
+    Throttle.throttle throttleSettings throttler app req respond
   where
-    throttleSettings ts = Throttle.defaultThrottleSettings
+    throttleSettings = Throttle.defaultThrottleSettings
         { Throttle.onThrottled = \microsTilRetry ->
             let
                 err = V1.RequestThrottled microsTilRetry

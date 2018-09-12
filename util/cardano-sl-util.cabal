@@ -54,12 +54,12 @@ library
                        Pos.Util.Trace.Named
                        Pos.Util.Util
                        Pos.Util.Wlog
+                       Pos.Util.Log.Rotator
 
   other-modules:
                        Paths_cardano_sl_util
                        Pos.Util.CompileInfoGit
                        Pos.Util.Log.Scribes
-                       Pos.Util.Log.Rotator
 
   build-depends:       aeson
                      , auto-update
@@ -160,6 +160,7 @@ test-suite test
                        Test.Pos.Util.TraceSpec
                        Test.Pos.Util.Tripping
                        Test.Pos.Util.WlogSpec
+                       Test.Pos.Util.LogStructuredSpec
 
   build-depends:       aeson
                      , base

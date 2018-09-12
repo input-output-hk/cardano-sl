@@ -21,7 +21,7 @@ import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.HashMap.Strict as HM
 import           Serokell.Util.Verify (isVerSuccess)
 
-import           Pos.Chain.Block.Union (IsMainHeader, headerSlotL)
+import           Pos.Chain.Block.IsHeader (IsMainHeader, headerSlotL)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlkSecurityParam, configVssCerts)
 import           Pos.Chain.Ssc.Base (checkCertTTL, isCommitmentId, isOpeningId,

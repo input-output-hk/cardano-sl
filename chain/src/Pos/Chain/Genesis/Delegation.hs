@@ -17,7 +17,7 @@ import           Formatting (build, sformat, (%))
 import           Serokell.Util (allDistinct)
 import           Text.JSON.Canonical (FromJSON (..), ToJSON (..))
 
-import           Pos.Chain.Delegation (ProxySKHeavy)
+import           Pos.Chain.Delegation.HeavyDlgIndex (ProxySKHeavy)
 import           Pos.Core.Common (StakeholderId, addressHash)
 import           Pos.Crypto.Signing (ProxySecretKey (..), isSelfSignedPsk)
 import           Pos.Util.Json.Canonical (SchemaError)

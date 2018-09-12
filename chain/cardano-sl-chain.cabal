@@ -28,27 +28,22 @@ library
 
   other-modules:
 
-                       Pos.Chain.Block.Blockchain
-                       Pos.Chain.Block.Genesis
-                       Pos.Chain.Block.Genesis.Lens
-                       Pos.Chain.Block.Genesis.Instances
-                       Pos.Chain.Block.Genesis.Types
-                       Pos.Chain.Block.Main
-                       Pos.Chain.Block.Main.Instances
-                       Pos.Chain.Block.Main.Types
-                       Pos.Chain.Block.Union
-                       Pos.Chain.Block.Union.ComponentBlock
-                       Pos.Chain.Block.Union.Types
-                       Pos.Chain.Block.Constructors
-                       Pos.Chain.Block.BHelpers
+                       Pos.Chain.Block.Block
+                       Pos.Chain.Block.ComponentBlock
                        Pos.Chain.Block.Configuration
                        Pos.Chain.Block.Error
-                       Pos.Chain.Block.Logic
-                       Pos.Chain.Block.Slog
-                       Pos.Chain.Block.Types
-                       Pos.Chain.Block.Slog.Types
-                       Pos.Chain.Block.Logic.Integrity
+                       Pos.Chain.Block.Genesis
+                       Pos.Chain.Block.HasPrevBlock
+                       Pos.Chain.Block.Header
+                       Pos.Chain.Block.IsHeader
                        Pos.Chain.Block.JsonLog
+                       Pos.Chain.Block.Logic
+                       Pos.Chain.Block.Logic.Integrity
+                       Pos.Chain.Block.Main
+                       Pos.Chain.Block.Slog
+                       Pos.Chain.Block.Slog.Types
+                       Pos.Chain.Block.Types
+                       Pos.Chain.Block.Util
 
                        Pos.Chain.Delegation.Cede
                        Pos.Chain.Delegation.Cede.Class
@@ -348,6 +343,7 @@ benchmark block-bench
                      , deepseq
                      , formatting
                      , generic-arbitrary
+                     , lens
                      , random
                      , text
                      , universum

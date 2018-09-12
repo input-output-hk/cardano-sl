@@ -12,8 +12,8 @@ import           Formatting hiding (bytes)
 import           Options (CLIOptions (..), PrintMode (..), UOM (..))
 import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (Block, BlockHeader (..), Undo,
-                     blockHeaderHash, getBlockHeader, mbTxs, _gbBody,
-                     _gbhConsensus, _mcdLeaderKey)
+                     blockHeaderHash, gbBody, getBlockHeader,
+                     mainHeaderLeaderKey, mbTxs)
 import           Pos.Chain.Txp (Tx)
 import           Pos.Core (EpochIndex, EpochOrSlot (..), LocalSlotIndex (..),
                      SlotId (..), getEpochIndex, getEpochOrSlot)
@@ -157,11 +157,11 @@ getSlot = either (const Nothing) Just . unEpochOrSlot . getEpochOrSlot
 
 getLeader :: BlockHeader -> Maybe PublicKey
 getLeader (BlockHeaderGenesis _) = Nothing
-getLeader (BlockHeaderMain bh)   = Just . _mcdLeaderKey . _gbhConsensus $ bh
+getLeader (BlockHeaderMain bh)   = Just $ bh ^. mainHeaderLeaderKey
 
 getTxs :: Block -> [Tx]
 getTxs (Left _)          = []
-getTxs (Right mainBlock) = (_gbBody mainBlock) ^. mbTxs
+getTxs (Right mainBlock) = mainBlock ^. gbBody . mbTxs
 
 getHeaderSize :: BlockHeader -> Integer
 getHeaderSize (BlockHeaderGenesis h) = toBytes (biSize h)

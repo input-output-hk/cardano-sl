@@ -17,7 +17,7 @@ import           Control.Monad.Except (MonadError, runExceptT, throwError)
 import           Crypto.Random (MonadRandom)
 import qualified Data.HashMap.Strict as HM
 
-import           Pos.Chain.Block.Union (IsMainHeader, headerSlotL)
+import           Pos.Chain.Block.IsHeader (IsMainHeader, headerSlotL)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configSlotSecurityParam)
 import           Pos.Chain.Ssc.Commitment (SignedCommitment)

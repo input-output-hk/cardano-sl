@@ -11,7 +11,7 @@ import           Text.JSON.Canonical (FromJSON (..), ToJSON (..), fromJSField,
                      mkObject)
 
 import           Pos.Chain.Ssc.VssCertificatesMap (VssCertificatesMap)
-import           Pos.Chain.Update (BlockVersionData)
+import           Pos.Chain.Update.BlockVersionData (BlockVersionData)
 import           Pos.Core.Common (SharedSeed)
 import           Pos.Core.Slotting (Timestamp)
 

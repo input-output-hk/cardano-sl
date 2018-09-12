@@ -48,7 +48,7 @@ import           Formatting (ords, sformat, (%))
 
 import           Pos.Binary.Class (AsBinary, fromBinary)
 import           Pos.Chain.Genesis as Genesis (Config)
-import           Pos.Chain.Lrc (RichmenSet, RichmenStakes)
+import           Pos.Chain.Lrc.Types (RichmenSet, RichmenStakes)
 import           Pos.Chain.Ssc.Base (verifyOpening, vssThreshold)
 import           Pos.Chain.Ssc.Commitment (Commitment (..), SignedCommitment,
                      commShares, getCommShares)
@@ -65,7 +65,7 @@ import           Pos.Chain.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..),
 import           Pos.Chain.Ssc.VssCertificate (vcSigningKey, vcVssKey)
 import           Pos.Chain.Ssc.VssCertificatesMap (VssCertificatesMap (..),
                      lookupVss, memberVss)
-import           Pos.Chain.Update (bvdMpcThd)
+import           Pos.Chain.Update.BlockVersionData (bvdMpcThd)
 import           Pos.Core (CoinPortion, EpochIndex, StakeholderId, addressHash,
                      coinPortionDenominator, getCoinPortion, unsafeGetCoin)
 import           Pos.Crypto (DecShare, verifyDecShare, verifyEncShares)

@@ -9,37 +9,34 @@ module Test.Pos.Chain.Block.SafeCopySpec
 import           Test.Hspec (Spec, describe)
 import           Universum
 
-import qualified Pos.Chain.Block as Core
+import qualified Pos.Chain.Block as Block
 
 import           Test.Pos.Binary.Helpers (safeCopyTest)
 import           Test.Pos.Chain.Block.Arbitrary ()
 
 spec :: Spec
 spec = describe "Block types" $ do
-    -- These types are defined in 'core' but the 'Arbitrary' instances require
-    -- generator components defined in package like 'ssc' and 'update' which
-    -- means these tests cannot be moved to 'core'.
     describe "SafeCopy instances" $ do
         describe "GenericBlockHeader" $ do
             describe "GenesisBlockHeader" $ do
-                safeCopyTest @Core.GenesisBlockHeader
+                safeCopyTest @Block.GenesisBlockHeader
             describe "MainBlockHeader" $ do
-                safeCopyTest @Core.MainBlockHeader
-        describe "GenesisBlockchain" $ do
-            describe "BodyProof" $ do
-                safeCopyTest @(Core.BodyProof Core.GenesisBlockchain)
+                safeCopyTest @Block.MainBlockHeader
+        describe "GenesisBlock" $ do
+            describe "Proof" $ do
+                safeCopyTest @Block.GenesisProof
             describe "ConsensusData" $ do
-                safeCopyTest @(Core.ConsensusData Core.GenesisBlockchain)
+                safeCopyTest @Block.GenesisConsensusData
             describe "Body" $ do
-                safeCopyTest @(Core.Body Core.GenesisBlockchain)
-        describe "MainBlockchain" $ do
-            safeCopyTest @Core.MainExtraHeaderData
-            safeCopyTest @Core.MainExtraBodyData
-            describe "BodyProof" $ do
-                safeCopyTest @(Core.BodyProof Core.MainBlockchain)
+                safeCopyTest @Block.GenesisBody
+        describe "MainBlock" $ do
+            safeCopyTest @Block.MainExtraHeaderData
+            safeCopyTest @Block.MainExtraBodyData
+            describe "Proof" $ do
+                safeCopyTest @Block.MainProof
             describe "BlockSignature" $ do
-                safeCopyTest @Core.BlockSignature
+                safeCopyTest @Block.BlockSignature
             describe "ConsensusData" $ do
-                safeCopyTest @(Core.ConsensusData Core.MainBlockchain)
+                safeCopyTest @Block.MainConsensusData
             describe "Body" $ do
-                safeCopyTest @(Core.Body Core.MainBlockchain)
+                safeCopyTest @Block.MainBody

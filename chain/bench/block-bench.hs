@@ -10,11 +10,12 @@ import qualified Data.ByteString.Lazy as LBS
 import           System.Environment (lookupEnv)
 
 import           Pos.Binary.Class (Bi, serialize, unsafeDeserialize)
-import           Pos.Chain.Block (Body, BodyProof, ConsensusData, ExtraBodyData,
-                     ExtraHeaderData, MainBlock, MainBlockHeader,
-                     MainBlockchain, _gbBody, _gbExtra, _gbHeader,
-                     _gbhBodyProof, _gbhConsensus, _gbhExtra, _mbDlgPayload,
-                     _mbSscPayload, _mbTxPayload, _mbUpdatePayload)
+import           Pos.Chain.Block (MainBlock, MainBlockHeader, MainBody,
+                     MainConsensusData, MainExtraBodyData, MainExtraHeaderData,
+                     MainProof, gbBody, gbBodyProof, gbConsensus, gbExtra,
+                     gbHeader, gbhExtra, mainBlockDlgPayload,
+                     mainBlockSscPayload, mainBlockTxPayload,
+                     mainBlockUpdatePayload)
 import           Pos.Chain.Delegation (DlgPayload)
 import           Pos.Chain.Ssc (SscPayload)
 import           Pos.Chain.Txp (TxPayload (..))
@@ -34,15 +35,15 @@ pm = ProtocolMagic 0
 data TestSubject = TestSubject
     { tsBlock       :: !(MainBlock, LBS.ByteString)
     , tsHeader      :: !(MainBlockHeader, LBS.ByteString)
-    , tsBodyProof   :: !(BodyProof MainBlockchain, LBS.ByteString)
-    , tsConsensus   :: !(ConsensusData MainBlockchain, LBS.ByteString)
-    , tsExtraHeader :: !(ExtraHeaderData MainBlockchain, LBS.ByteString)
-    , tsBody        :: !(Body MainBlockchain, LBS.ByteString)
+    , tsBodyProof   :: !(MainProof, LBS.ByteString)
+    , tsConsensus   :: !(MainConsensusData, LBS.ByteString)
+    , tsExtraHeader :: !(MainExtraHeaderData, LBS.ByteString)
+    , tsBody        :: !(MainBody, LBS.ByteString)
     , tsTxPayload   :: !(TxPayload, LBS.ByteString)
     , tsSscPayload  :: !(SscPayload, LBS.ByteString)
     , tsDlgPayload  :: !(DlgPayload, LBS.ByteString)
     , tsUpdPayload  :: !(UpdatePayload, LBS.ByteString)
-    , tsExtraBody   :: !(ExtraBodyData MainBlockchain, LBS.ByteString)
+    , tsExtraBody   :: !(MainExtraBodyData, LBS.ByteString)
     }
 
 instance NFData TestSubject where
@@ -94,16 +95,16 @@ testSubject seed size =
       block = generateMainBlock pm seed size
 
       tsBlock = withSerialized block
-      tsHeader = withSerialized (_gbHeader $ block)
-      tsBodyProof = withSerialized (_gbhBodyProof . _gbHeader $ block)
-      tsConsensus = withSerialized (_gbhConsensus . _gbHeader $ block)
-      tsExtraHeader = withSerialized (_gbhExtra . _gbHeader $ block)
-      tsBody = withSerialized (_gbBody $ block)
-      tsTxPayload = withSerialized (_mbTxPayload . _gbBody $ block)
-      tsSscPayload = withSerialized (_mbSscPayload . _gbBody $ block)
-      tsDlgPayload = withSerialized (_mbDlgPayload . _gbBody $ block)
-      tsUpdPayload = withSerialized (_mbUpdatePayload . _gbBody $ block)
-      tsExtraBody  = withSerialized (_gbExtra $ block)
+      tsHeader = withSerialized (block ^. gbHeader)
+      tsBodyProof = withSerialized (block ^. gbBodyProof)
+      tsConsensus = withSerialized (block ^. gbConsensus)
+      tsExtraHeader = withSerialized (block ^. gbHeader . gbhExtra)
+      tsBody = withSerialized (block ^. gbBody)
+      tsTxPayload = withSerialized (block ^. mainBlockTxPayload)
+      tsSscPayload = withSerialized (block ^. mainBlockSscPayload)
+      tsDlgPayload = withSerialized (block ^. mainBlockDlgPayload)
+      tsUpdPayload = withSerialized (block ^. mainBlockUpdatePayload)
+      tsExtraBody  = withSerialized (block ^. gbExtra)
 
   in  TestSubject {..}
 
@@ -131,17 +132,17 @@ benchMain seed size = defaultMain
                 [ bench "all" (nf (unsafeDeserialize :: LBS.ByteString -> MainBlock) (snd . tsBlock $ ts))
                 , bgroup "header" $
                       [ bench "all" (nf (unsafeDeserialize :: LBS.ByteString -> MainBlockHeader) (snd . tsHeader $ ts))
-                      , bench "body_proof" (nf (unsafeDeserialize :: LBS.ByteString -> BodyProof MainBlockchain) (snd . tsBodyProof $ ts))
-                      , bench "consensus" (nf (unsafeDeserialize :: LBS.ByteString -> ConsensusData MainBlockchain) (snd . tsConsensus $ ts))
-                      , bench "extra" (nf (unsafeDeserialize :: LBS.ByteString -> ExtraHeaderData MainBlockchain) (snd . tsExtraHeader $ ts))
+                      , bench "body_proof" (nf (unsafeDeserialize :: LBS.ByteString -> MainProof) (snd . tsBodyProof $ ts))
+                      , bench "consensus" (nf (unsafeDeserialize :: LBS.ByteString -> MainConsensusData) (snd . tsConsensus $ ts))
+                      , bench "extra" (nf (unsafeDeserialize :: LBS.ByteString -> MainExtraHeaderData) (snd . tsExtraHeader $ ts))
                       ]
                 , bgroup "body" $
-                      [ bench "all" (nf (unsafeDeserialize :: LBS.ByteString -> Body MainBlockchain) (snd . tsBody $ ts))
+                      [ bench "all" (nf (unsafeDeserialize :: LBS.ByteString -> MainBody) (snd . tsBody $ ts))
                       , bench "tx" (nf (unsafeDeserialize :: LBS.ByteString -> TxPayload) (snd . tsTxPayload $ ts))
                       , bench "ssc" (nf (unsafeDeserialize :: LBS.ByteString -> SscPayload) (snd . tsSscPayload $ ts))
                       , bench "dlg" (nf (unsafeDeserialize :: LBS.ByteString -> DlgPayload) (snd . tsDlgPayload $ ts))
                       , bench "upd" (nf (unsafeDeserialize :: LBS.ByteString -> UpdatePayload) (snd . tsUpdPayload $ ts))
-                      , bench "extra" (nf (unsafeDeserialize :: LBS.ByteString -> ExtraBodyData MainBlockchain) (snd . tsExtraBody $ ts))
+                      , bench "extra" (nf (unsafeDeserialize :: LBS.ByteString -> MainExtraBodyData) (snd . tsExtraBody $ ts))
                       ]
                 ]
           ]

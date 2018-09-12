@@ -106,7 +106,8 @@ golden_GenesisBlockHeader = goldenTestBi exampleGenesisBlockHeader
                                          "test/golden/GenesisBlockHeader"
 
 roundTripGenesisBlockHeaderBi :: Property
-roundTripGenesisBlockHeaderBi = eachOf 1000 (feedPM genGenesisBlockHeader) roundTripsBiBuildable
+roundTripGenesisBlockHeaderBi =
+    eachOf 1000 (feedPMEpochSlots genGenesisBlockHeader) roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- GenesisBody

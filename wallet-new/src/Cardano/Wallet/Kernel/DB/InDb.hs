@@ -448,18 +448,18 @@ instance SC.SafeCopy (InDb Core.MainBlockHeader) where
         InDb consensus <- SC.safeGet
         InDb extra <- SC.safeGet
         pure . InDb $
-            Core.UnsafeGenericBlockHeader
+            Core.mkGenericBlockHeaderUnsafe
                 protocolMagic
                 prevBlock
                 bodyProof
                 consensus
                 extra
-    putCopy (InDb (Core.UnsafeGenericBlockHeader a b c d e)) = SC.contain $ do
-        safePutDb a
-        safePutDb b
-        safePutDb c
-        safePutDb d
-        safePutDb e
+    putCopy (InDb header) = SC.contain $ do
+        safePutDb $ header ^. Core.gbhProtocolMagic
+        safePutDb $ header ^. Core.gbhPrevBlock
+        safePutDb $ header ^. Core.gbhBodyProof
+        safePutDb $ header ^. Core.gbhConsensus
+        safePutDb $ header ^. Core.gbhExtra
 
 safePutDb :: SC.SafeCopy (InDb a) => a -> Put
 safePutDb = SC.safePut . InDb
@@ -746,19 +746,19 @@ instance SC.SafeCopy (InDb Core.GenesisBlockHeader) where
         InDb consensus <- SC.safeGet
         InDb extra <- SC.safeGet
         pure . InDb $
-            Core.UnsafeGenericBlockHeader
+            Core.mkGenericBlockHeaderUnsafe
                 protocolMagic
                 prevBlock
                 bodyProof
                 consensus
                 extra
 
-    putCopy (InDb (Core.UnsafeGenericBlockHeader pm pb bp co ex)) = SC.contain $ do
-        safePutDb pm
-        safePutDb pb
-        safePutDb bp
-        safePutDb co
-        safePutDb ex
+    putCopy (InDb header) = SC.contain $ do
+        safePutDb $ header ^. Core.gbhProtocolMagic
+        safePutDb $ header ^. Core.gbhPrevBlock
+        safePutDb $ header ^. Core.gbhBodyProof
+        safePutDb $ header ^. Core.gbhConsensus
+        safePutDb $ header ^. Core.gbhExtra
 
 instance SC.SafeCopy (InDb Core.ProtocolMagic) where
     getCopy = SC.contain $ do

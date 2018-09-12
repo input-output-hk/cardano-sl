@@ -26,11 +26,10 @@ import qualified Hedgehog.Gen as Gen
 import           Pos.Chain.Block (BlockBodyAttributes, BlockHeader (..),
                      BlockHeaderAttributes, BlockSignature (..),
                      GenesisBlockHeader, GenesisBody (..),
-                     GenesisConsensusData (..), GenesisExtraHeaderData (..),
-                     GenesisProof (..), HeaderHash, MainBlockHeader,
-                     MainBody (..), MainConsensusData (..),
+                     GenesisConsensusData (..), GenesisProof (..), HeaderHash,
+                     MainBlockHeader, MainBody (..), MainConsensusData (..),
                      MainExtraBodyData (..), MainExtraHeaderData (..),
-                     MainProof (..), MainToSign (..), mkGenericHeader,
+                     MainProof (..), MainToSign (..), mkGenesisHeader,
                      mkMainHeaderExplicit)
 import           Pos.Core (SlotCount)
 import           Pos.Core.Attributes (mkAttributes)
@@ -52,7 +51,7 @@ genBlockBodyAttributes = pure $ mkAttributes ()
 
 genBlockHeader :: ProtocolMagic -> SlotCount -> Gen BlockHeader
 genBlockHeader pm epochSlots =
-    Gen.choice [ BlockHeaderGenesis <$> genGenesisBlockHeader pm
+    Gen.choice [ BlockHeaderGenesis <$> genGenesisBlockHeader pm epochSlots
                , BlockHeaderMain <$> genMainBlockHeader pm epochSlots
                ]
 
@@ -72,16 +71,12 @@ genBlockSignature pm epochSlots = do
   where
     mts = genMainToSign pm epochSlots
 
-genGenesisBlockHeader :: ProtocolMagic -> Gen GenesisBlockHeader
-genGenesisBlockHeader pm = do
+genGenesisBlockHeader :: ProtocolMagic -> SlotCount -> Gen GenesisBlockHeader
+genGenesisBlockHeader pm epochSlots = do
     epoch      <- genEpochIndex
     body       <- genGenesisBody
-    prevHash   <- coerce <$> genTextHash
-    difficulty <- genChainDifficulty
-    let consensus = const (GenesisConsensusData {_gcdEpoch      = epoch
-                                                ,_gcdDifficulty = difficulty})
-        gehd      = GenesisExtraHeaderData $ mkAttributes ()
-    pure (mkGenericHeader pm prevHash body consensus gehd)
+    prevHeader <- BlockHeaderMain <$> genMainBlockHeader pm epochSlots
+    pure $ mkGenesisHeader pm (Right prevHeader) epoch body
 
 genGenesisBody :: Gen GenesisBody
 genGenesisBody = GenesisBody <$> genSlotLeaders

@@ -30,7 +30,8 @@ import           Serokell.Util.Verify (VerificationRes (..), formatAllErrors,
                      verifyGeneric)
 
 import           Pos.Binary.Class (asBinary, serialize')
-import           Pos.Chain.Delegation (HeavyDlgIndex (..), ProxySKHeavy)
+import           Pos.Chain.Delegation.HeavyDlgIndex (HeavyDlgIndex (..),
+                     ProxySKHeavy)
 import           Pos.Chain.Ssc.VssCertificate (VssCertificate, mkVssCertificate)
 import           Pos.Chain.Ssc.VssCertificatesMap (VssCertificatesMap,
                      mkVssCertificatesMap)

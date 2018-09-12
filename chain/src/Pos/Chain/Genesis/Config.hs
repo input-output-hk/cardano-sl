@@ -64,7 +64,7 @@ import           Pos.Chain.Genesis.ProtocolConstants
 import           Pos.Chain.Genesis.Spec (GenesisSpec (..))
 import           Pos.Chain.Genesis.WStakeholders (GenesisWStakeholders)
 import           Pos.Chain.Ssc.VssCertificatesMap (VssCertificatesMap)
-import           Pos.Chain.Update (BlockVersionData)
+import           Pos.Chain.Update.BlockVersionData (BlockVersionData)
 import           Pos.Core.Common (BlockCount, SharedSeed)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
                      pcBlkSecurityParam, pcChainQualityThreshold, pcEpochSlots,

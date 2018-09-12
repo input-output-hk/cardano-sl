@@ -11,7 +11,7 @@ import           Formatting (bprint, build, int, sformat, stext, (%))
 import qualified Formatting.Buildable
 import           Serokell.Data.Memory.Units (Byte, memory)
 
-import           Pos.Chain.Block.Union (HeaderHash)
+import           Pos.Chain.Block.Header (HeaderHash)
 import           Pos.Chain.Update.ApplicationName (ApplicationName)
 import           Pos.Chain.Update.BlockVersion (BlockVersion)
 import           Pos.Chain.Update.BlockVersionData (BlockVersionData)

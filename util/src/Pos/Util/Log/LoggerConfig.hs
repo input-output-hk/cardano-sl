@@ -59,7 +59,6 @@ data BackendKind = FileTextBE
                  | StderrBE
                  | DevNullBE
                  deriving (Eq, Generic, Show)
-deriving instance ToJSON BackendKind
 deriving instance FromJSON BackendKind
 
 -- | @'RotationParameters'@ one of the two categories  used in the
@@ -70,7 +69,6 @@ data RotationParameters = RotationParameters
     , _rpKeepFilesNum  :: !Word    -- ^ number of files to keep
     } deriving (Generic, Show, Eq)
 
-instance ToJSON RotationParameters
 instance FromJSON RotationParameters where
     parseJSON = withObject "rotation params" $ \o -> do
         _rpLogLimitBytes  <- o .: "logLimit"
@@ -86,7 +84,6 @@ data LogSecurityLevel = SecretLogLevel
                       -- ^ the log only contains public messages (i.e. 'logInfo')
                       deriving (Eq, Show, Generic)
 
-deriving instance ToJSON LogSecurityLevel
 deriving instance FromJSON LogSecurityLevel
 
 -- | @'LogHandler'@ describes the output handler (file, stdout, ..)
@@ -104,7 +101,6 @@ data LogHandler = LogHandler
       -- ^ the minimum severity to be logged
     } deriving (Eq, Generic, Show)
 
-instance ToJSON LogHandler
 instance FromJSON LogHandler where
     parseJSON = withObject "log handler" $ \o -> do
         (_lhName :: T.Text) <- o .: "name"
@@ -139,7 +135,6 @@ data LoggerTree = LoggerTree
     , _ltNamedSeverity :: !NamedSeverity
     } deriving (Eq, Generic, Show)
 
-instance ToJSON LoggerTree
 instance FromJSON LoggerTree where
     parseJSON = withObject "logger tree" $ \o -> do
         (singleFile :: Maybe FilePath) <- fmap normalise <$> o .:? "file"
@@ -206,7 +201,6 @@ data LoggerConfig = LoggerConfig
     , _lcBasePath   :: !(Maybe FilePath)
     } deriving (Generic, Show, Eq)
 
-instance ToJSON LoggerConfig
 instance FromJSON LoggerConfig where
     parseJSON = withObject "config " $ \o -> do
         _lcRotation <- o .:? "rotation"

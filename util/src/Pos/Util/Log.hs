@@ -1,3 +1,6 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Logging implemented with library `katip`
 
 module Pos.Util.Log
@@ -32,12 +35,15 @@ module Pos.Util.Log
        , addLoggerName
        -- * other functions
        , logItem'
+       -- * class for structured logging
+       , ToObject (..)
        ) where
 
 import           Universum
 
 import           Control.Concurrent (myThreadId)
 import           Control.Lens (each)
+import           Data.Aeson (Object, ToJSON (..), Value (..))
 import qualified Data.Text as T
 import           Data.Text.Lazy.Builder
 import qualified Language.Haskell.TH as TH
@@ -51,7 +57,6 @@ import           Pos.Util.Log.Severity (Severity (..))
 
 import qualified Katip as K
 import qualified Katip.Core as KC
-
 
 -- | alias - pretend not to depend on katip
 type LogContext = K.KatipContext
@@ -139,7 +144,7 @@ setupLogging cfoKey lc = do
                                       sevfilter
                                       fdesc
                                       (fromMaybe Debug $ lh ^. lhMinSeverity)
-                                      K.V0
+                                      K.V3
                         return (nm, scribe)
                     FileTextBE -> do
                         let bp = fromMaybe "./" basepath
@@ -258,7 +263,7 @@ loggerBracket lh name action = do
 
 -- | Equivalent to katip's logItem without the `Katip m` constraint
 logItem'
-    :: (KC.LogItem a, MonadIO m)
+    :: (ToObject a, MonadIO m)
     => a
     -> KC.Namespace
     -> K.LogEnv
@@ -282,3 +287,28 @@ logItem' a ns env loc sev msg = do
         <*> pure loc
       forM_ (elems (env ^. KC.logEnvScribes)) $
           \ (KC.ScribeHandle _ shChan) -> atomically (KC.tryWriteTBQueue shChan (KC.NewItem item))
+
+-- | Katip requires JSON objects to be logged as context. This
+-- typeclass provides a default instance which uses ToJSON and
+-- produces an empty object if 'toJSON' results in any type other than
+-- object. If you have a type you want to log that produces an Array
+-- or Number for example, you'll want to write an explicit instance
+-- here. You can trivially add a ToObject instance for something with
+-- a ToJSON instance like:
+--
+-- > instance ToObject Foo
+class ToObject a where
+    toObject :: a -> Object
+    default toObject :: ToJSON a => a -> Object
+    toObject v = case toJSON v of
+        Object o -> o
+        _        -> mempty
+
+instance ToObject () where
+    toObject _ = mempty
+
+instance {-# INCOHERENT #-} ToObject v => KC.ToObject v where
+    toObject = toObject
+
+instance {-# INCOHERENT #-} KC.ToObject a => KC.LogItem a where
+    payloadKeys _ _ = KC.AllKeys

@@ -166,7 +166,15 @@ createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
                          (defaultHdAddressId newRootId)
     case mbHdAddress of
         Nothing -> do
-            Keystore.delete (WalletIdHdRnd newRootId) (pw ^. walletKeystore)
+            -- Here, ideally, we would like to do some cleanup and call
+            -- >>> Keystore.delete (WalletIdHdRnd newRootId) (pw ^. walletKeystore)
+            -- However, this wouldn't be correct in case, for example, the user
+            -- is trying to create the same wallet twice. In that case we would
+            -- wipe a pre-existing, perfectly valid key!
+            -- The solution to this and other problems will be provided with [CBR-404].
+            -- For the moment, the less evil solution is to simply allow dangling
+            -- keys in the keystore. Being 'Keystore.insert' idempotent, doing so
+            -- won't compromise using the wallet.
             return $ Left CreateWalletDefaultAddressDerivationFailed
         Just hdAddress -> do
             -- STEP 3: Atomically generate the wallet and the initial internal structure in

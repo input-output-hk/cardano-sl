@@ -40,8 +40,8 @@ import           Chain.Abstract (Addr (Addr), Chain, Output (Output),
                      trOuts, trWitness)
 import           Chain.Abstract.FinitelySupportedFunction (fApply, fSum,
                      fSupport)
-import           Chain.Abstract.Repartition (Repartition, mkEmptyRepartition)
-import           Chain.Abstract.Translate.FromUTxO (ChainValidity, IntException (IntEmptyAddresses, IntEmptyInputs, IntEmptyOutputs),
+import           Chain.Abstract.Repartition (Repartition, mkRepartitionT)
+import           Chain.Abstract.Translate.FromUTxO (ChainValidity, IntException (IntEmptyAddresses, IntEmptyInputs, IntEmptyOutputs, IntLogicError),
                      TransState, translate, tsCheckpoints, _tsCurrentSlot)
 import qualified UTxO.DSL as DSL
 
@@ -249,6 +249,7 @@ dslTransactionToAbstract addrs tx = do
   neIns <- case ins of
     []   -> Left IntEmptyInputs
     i:is -> Right $  i :| is
+  outs <- traverse dslOutputToAbstract (DSL.trOuts tx)
   neOuts <- case outs of
     []   -> Left IntEmptyOutputs
     o:os -> Right $ o :| os
@@ -262,13 +263,17 @@ dslTransactionToAbstract addrs tx = do
     , trWitness = addrs
     }
   where ins = Set.toList (DSL.trIns tx)
-        outs = dslOutputToAbstract <$> DSL.trOuts tx
+
 
 -- TODO: we need to unify this with 'FromUTxO.intOutput'!
-dslOutputToAbstract :: Ord a => DSL.Output h a -> Output h1 a
-dslOutputToAbstract out = Output
-  { outAddr = DSL.outAddr out
-  , outVal = DSL.outVal out
-  -- TODO: how do we want to determine this properly?
-  , outRepartition = mkEmptyRepartition
-  }
+dslOutputToAbstract
+  :: (Ord a)
+  => DSL.Output h a -> Either IntException (Output h1 a)
+dslOutputToAbstract out = do
+  r <- mkRepartitionT (const IntLogicError) [(DSL.outAddr out, DSL.outVal out)]
+  return Output
+    { outAddr = DSL.outAddr out
+    , outVal = DSL.outVal out
+    -- TODO: how do we want to determine this properly?
+    , outRepartition = r
+    }

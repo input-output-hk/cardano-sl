@@ -30,7 +30,7 @@ import           Test.HUnit.Lang (Assertion, FailureReason (..),
 import           Universum
 import qualified UTxO.DSL as DSL
 
-import           Chain.Abstract.Repartition (mkEmptyRepartition)
+import           Chain.Abstract.Repartition (mkRepartitionT)
 
 shouldBe
     :: (HasCallStack, Eq a)
@@ -55,7 +55,7 @@ oDsl0 = DSL.Output
 oAbs0 = Abs.Output
         { outAddr        = head addrs
         , outVal         = 10 :: DSL.Value
-        , outRepartition = mkEmptyRepartition
+        , outRepartition = undefined
         }
 trDsl0 = DSL.Transaction
         { trFresh = 2 :: DSL.Value
@@ -70,7 +70,7 @@ inDsl1 = DSL.Input
 oAbs1 = Abs.Output
         { outAddr        = addrs !! 1
         , outVal         = 5 :: DSL.Value
-        , outRepartition = mkEmptyRepartition
+        , outRepartition = undefined
         }
 oDsl1 = DSL.Output
         { outAddr = addrs !! 1

@@ -13,61 +13,57 @@
 --
 module Chain.Abstract.Repartition
   ( Repartition
-  , mkEmptyRepartition
   , mkRepartition
+  , mkRepartitionT
   )
 where
 
 import           Universum
 
+import           Control.Monad.Except (MonadError, throwError)
 import           Data.Map (Map)
 import qualified Data.Map as Map
 import           Data.Monoid (Sum (Sum))
-import           Data.Validation (Validation (Failure))
+import           Data.Validation (Validation (Failure), validation)
 
 import           Chain.Abstract.FinitelySupportedFunction
                      (FinitelySupportedFunction, fSum)
 
--- | The stake repartition is a function that assigns a portion of the total
--- stake to addresses.
+-- | The stake repartition is a function that assigns stake to addresses.
+--
+-- To calculate the
 data Repartition a =
-  forall f. FinitelySupportedFunction f a (Sum Int) => Repartition f
+  forall f. FinitelySupportedFunction f a (Sum Word64) => Repartition f
 
+-- | Errors that can be returned by the smart constructors.
 data RepartitionError a
-  = NegativeValues (NonEmpty (a, Int))
-  -- ^ Pairs with negative values.
-  | SumNotOne Int
-  -- ^ The sum of all repartition images does not add up to one (they add to
-  -- the given value instead).
+  = EmptySupport
+  -- ^ There is no stake assigned to any address.
   deriving Show
 
 -- | Create a new repartition, using the given map. A `Left` value is returned
 -- if the map does not constitute a valid repartition.
 mkRepartition
   :: forall a . Ord a
-  => [(a, Int)]
+  => [(a, Word64)]
   -> Validation [RepartitionError a] (Repartition a)
 mkRepartition rs =
-  pure (Repartition rMap)
-  <* allNatural
-  <* addUpToOne
+  pure (Repartition rMap) <* nonEmptySupport
   where
-    rMap :: Map a (Sum Int)
+    rMap :: Map a (Sum Word64)
     rMap = Map.fromList $ fmap (second Sum) rs
 
-    allNatural :: Validation [RepartitionError a] ()
-    allNatural =
+    nonEmptySupport :: Validation [RepartitionError a] ()
+    nonEmptySupport =
       case filter ((0 <) . snd) rs of
-        []   -> pure ()
-        x:xs -> Failure . pure .  NegativeValues $ x:|xs
+        [] -> Failure [EmptySupport]
+        _  -> pure ()
 
-    addUpToOne :: Validation [RepartitionError a] ()
-    addUpToOne = unless (1 == imgSum) (Failure . pure . SumNotOne $ imgSum)
-      where
-        imgSum = sum $ fmap snd rs
+mkRepartitionT
+  :: forall e m a . (Ord a, MonadError e m)
+  => ([RepartitionError a] -> e)
+  -> [(a, Word64)]
+  -> m (Repartition a)
+mkRepartitionT liftErr rs =
+  validation (throwError . liftErr) return (mkRepartition rs)
 
--- | Create an empty repartition. Note that this function always succeed since
--- an empty repartition (i.e. one whose finite support is the empty set)
--- trivially satisfies all the conditions for a repartition.
-mkEmptyRepartition :: Ord a => Repartition a
-mkEmptyRepartition = Repartition $ Map.empty

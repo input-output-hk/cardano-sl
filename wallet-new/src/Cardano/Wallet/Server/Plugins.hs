@@ -10,18 +10,23 @@ module Cardano.Wallet.Server.Plugins
     , monitoringServer
     , acidStateSnapshots
     , updateNotifier
+    , corsMiddleware
+    , throttleMiddleware
     ) where
 
 import           Universum
 
 import           Data.Acid (AcidState)
 
-import           Network.Wai (Application, Middleware)
+import qualified Network.Wai.Middleware.Throttle as Throttle
+import           Network.Wai (Application, Middleware, responseLBS)
 import           Network.Wai.Handler.Warp (defaultSettings)
 import           Network.Wai.Middleware.Cors (cors, corsMethods,
                      corsRequestHeaders, simpleCorsResourcePolicy,
                      simpleMethods)
 
+import           Cardano.Wallet.API.V1.Headers (applicationJson)
+import qualified Cardano.Wallet.API.V1.Types as V1
 import           Cardano.NodeIPC (startNodeJsIPC)
 import           Cardano.Wallet.API as API
 import           Cardano.Wallet.Kernel (DatabaseMode (..), PassiveWallet)
@@ -34,7 +39,7 @@ import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Infra.Shutdown (HasShutdownContext (shutdownContext),
                      ShutdownContext)
-import           Pos.Launcher.Configuration (HasConfigurations)
+import           Pos.Launcher.Configuration (HasConfigurations, ThrottleSettings (..))
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.Wlog (logError, logInfo, modifyLoggerName,
                      usingLoggerName)
@@ -48,6 +53,7 @@ import           Cardano.Wallet.Server.Plugins.AcidState
                      (createAndArchiveCheckpoints)
 import qualified Cardano.Wallet.WalletLayer.Kernel as WalletLayer.Kernel
 import qualified Data.ByteString.Char8 as BS8
+import           Data.Aeson (encode)
 import qualified Servant
 
 -- Needed for Orphan Instance 'Buildable Servant.NoContent' :|
@@ -63,8 +69,9 @@ apiServer
     :: ProtocolMagic
     -> NewWalletBackendParams
     -> (PassiveWalletLayer IO, PassiveWallet)
+    -> [Middleware]
     -> Plugin Kernel.WalletMode
-apiServer protocolMagic (NewWalletBackendParams WalletBackendParams{..}) (passiveLayer, passiveWallet) =
+apiServer protocolMagic (NewWalletBackendParams WalletBackendParams{..}) (passiveLayer, passiveWallet) middlewares =
     pure $ \diffusion -> do
         env <- ask
         let diffusion' = Kernel.fromDiffusion (lower env) diffusion
@@ -82,9 +89,11 @@ apiServer protocolMagic (NewWalletBackendParams WalletBackendParams{..}) (passiv
 
     getApplication :: ActiveWalletLayer IO -> Kernel.WalletMode Application
     getApplication active = do
-      logInfo "New wallet API has STARTED!"
-      return $ withMiddleware walletRunMode $
-        Servant.serve API.newWalletAPI $ Server.walletServer active walletRunMode
+        logInfo "New wallet API has STARTED!"
+        return
+            $ withMiddlewares middlewares
+            $ Servant.serve API.newWalletAPI
+            $ Server.walletServer active walletRunMode
 
     lower :: env -> ReaderT env IO a -> IO a
     lower env m = runReaderT m env
@@ -93,21 +102,9 @@ apiServer protocolMagic (NewWalletBackendParams WalletBackendParams{..}) (passiv
     portCallback ctx =
         usingLoggerName "NodeIPC" . flip runReaderT ctx . startNodeJsIPC
 
-    -- | "Attaches" the middleware to this 'Application', if any.
-    -- When running in debug mode, chances are we want to at least allow CORS to test the API
-    -- with a Swagger editor, locally.
-    withMiddleware :: RunMode -> Application -> Application
-    withMiddleware wrm app
-      | isDebugMode wrm = corsMiddleware app
-      | otherwise = app
-
-    corsMiddleware :: Middleware
-    corsMiddleware = cors (const $ Just policy)
-        where
-          policy = simpleCorsResourcePolicy
-            { corsRequestHeaders = ["Content-Type"]
-            , corsMethods = "PUT" : simpleMethods
-            }
+    -- | "Attaches" the middlewares to this 'Application'.
+    withMiddlewares :: [Middleware] -> Application -> Application
+    withMiddlewares = flip $ foldr ($)
 
 
 -- | A @Plugin@ to serve the wallet documentation
@@ -163,3 +160,35 @@ updateNotifier :: Plugin Kernel.WalletMode
 updateNotifier = [
     \_diffusion -> logError "Not Implemented: updateNotifier [CBR-374]"
     ]
+
+-- | A @Middleware@ to throttle requests.
+throttleMiddleware :: Maybe ThrottleSettings -> Middleware
+throttleMiddleware Nothing app = app
+throttleMiddleware (Just ts) app = \req respond -> do
+    throttler <- Throttle.initThrottler
+    Throttle.throttle throttleSettings throttler app req respond
+  where
+    throttleSettings = Throttle.defaultThrottleSettings
+        { Throttle.onThrottled = \microsTilRetry ->
+            let
+                err = V1.RequestThrottled microsTilRetry
+            in
+                responseLBS (V1.toHttpErrorStatus err) [applicationJson] (encode err)
+        , Throttle.throttleRate = fromIntegral $ tsRate ts
+        , Throttle.throttlePeriod = fromIntegral $ tsPeriod ts
+        , Throttle.throttleBurst = fromIntegral $ tsBurst ts
+        }
+
+-- | A @Middleware@ to enable CORS.
+-- When running in debug mode, chances are we want to at least allow CORS to test the API
+-- with a Swagger editor, locally.
+corsMiddleware :: RunMode -> Middleware
+corsMiddleware wrm =
+    if isDebugMode wrm
+        then cors (const $ Just policy)
+        else identity
+  where
+    policy = simpleCorsResourcePolicy
+        { corsRequestHeaders = ["Content-Type"]
+        , corsMethods = "PUT" : simpleMethods
+        }

@@ -601,8 +601,8 @@ createHdRoot hdRoot defaultHdAccount defaultHdAddress =
     runUpdateDiscardSnapshot . zoom dbHdWallets $
         HD.createHdRoot hdRoot defaultHdAccount defaultHdAddress
 
-createHdAccount :: HdAccount -> Update DB (Either HD.CreateHdAccountError ())
-createHdAccount hdAccount = runUpdateDiscardSnapshot . zoom dbHdWallets $
+createHdAccount :: HdAccount -> Update DB (Either HD.CreateHdAccountError (DB, ()))
+createHdAccount hdAccount = runUpdate' . zoom dbHdWallets $
     HD.createHdAccount hdAccount
 
 createHdAddress :: HdAddress -> Update DB (Either HD.CreateHdAddressError ())

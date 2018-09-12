@@ -75,7 +75,7 @@ createAccount :: PassPhrase
               -> WalletId
               -- ^ An abstract notion of a 'Wallet identifier
               -> PassiveWallet
-              -> IO (Either CreateAccountError HdAccount)
+              -> IO (Either CreateAccountError (DB, HdAccount))
 createAccount spendingPassword accountName walletId pw = do
     let keystore = pw ^. walletKeystore
     case walletId of
@@ -99,12 +99,12 @@ createHdRndAccount :: PassPhrase
                    -> EncryptedSecretKey
                    -> HdRootId
                    -> PassiveWallet
-                   -> IO (Either CreateAccountError HdAccount)
+                   -> IO (Either CreateAccountError (DB, HdAccount))
 createHdRndAccount _spendingPassword accountName _esk rootId pw = do
     gen <- createSystemRandom
     go gen 0
     where
-        go :: GenIO -> Word32 -> IO (Either CreateAccountError HdAccount)
+        go :: GenIO -> Word32 -> IO (Either CreateAccountError (DB, HdAccount))
         go gen collisions =
             case collisions >= maxAllowedCollisions of
                  True  -> return $ Left (CreateAccountHdRndAccountSpaceSaturated rootId)
@@ -113,7 +113,7 @@ createHdRndAccount _spendingPassword accountName _esk rootId pw = do
         tryGenerateAccount :: GenIO
                            -> Word32
                            -- ^ The current number of collisions
-                           -> IO (Either CreateAccountError HdAccount)
+                           -> IO (Either CreateAccountError (DB, HdAccount))
         tryGenerateAccount gen collisions = do
             newIndex <- deriveIndex (flip uniformR gen) HdAccountIx HardDerivation
             let hdAccountId = HdAccountId rootId newIndex
@@ -126,7 +126,7 @@ createHdRndAccount _spendingPassword accountName _esk rootId pw = do
                      go gen (succ collisions)
                  (Left (CreateHdAccountUnknownRoot _)) ->
                      return (Left $ CreateAccountUnknownHdRoot rootId)
-                 Right () -> return (Right newAccount)
+                 Right (db', ()) -> return (Right (db', newAccount))
 
         -- The maximum number of allowed collisions. This number was
         -- empirically calculated based on a [beta distribution](https://en.wikipedia.org/wiki/Beta_distribution).

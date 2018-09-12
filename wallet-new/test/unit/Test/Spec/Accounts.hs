@@ -109,7 +109,10 @@ spec = describe "Accounts" $ do
                     res <- runExceptT . runHandler' $ hdl
                     (bimap identity STB res) `shouldSatisfy` isRight
 
-        prop "comes with 1 address by default" $ withMaxSuccess 50 $ do
+        prop "does NOT come with 1 address by default" $ withMaxSuccess 50 $ do
+            -- We expect newly created accounts to @not@ have any associated
+            -- addresses. Remember, it's only when we create a new HdRoot that
+            -- we enforce this invariant.
             monadicIO $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
                     let hdl = Handlers.newAccount layer (V1.walId fixtureV1Wallet) fixtureNewAccountRq
@@ -117,7 +120,7 @@ spec = describe "Accounts" $ do
                     case res of
                          Left e -> throwM e
                          Right API.WalletResponse{..} ->
-                             length (V1.accAddresses wrData) `shouldBe` 1
+                             length (V1.accAddresses wrData) `shouldBe` 0
 
     describe "DeleteAccount" $ do
 

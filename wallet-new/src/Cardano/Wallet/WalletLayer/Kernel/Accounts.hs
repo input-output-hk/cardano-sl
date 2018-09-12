@@ -44,24 +44,17 @@ createAccount :: MonadIO m
 createAccount wallet wId (V1.NewAccount mbSpendingPassword accountName) = liftIO $ runExceptT $  do
     rootId <- withExceptT CreateAccountWalletIdDecodingFailed $
                 fromRootId wId
-    acc    <- withExceptT CreateAccountError $ ExceptT $ liftIO $
-                Kernel.createAccount passPhrase
-                                     (HD.AccountName accountName)
-                                     (WalletIdHdRnd rootId)
-                                     wallet
-    db <- liftIO (Kernel.getWalletSnapshot wallet)
+    (db, acc) <- withExceptT CreateAccountError $ ExceptT $ liftIO $
+                     Kernel.createAccount passPhrase
+                                          (HD.AccountName accountName)
+                                          (WalletIdHdRnd rootId)
+                                          wallet
     let accId = acc ^. HD.hdAccountId
     let accountAddresses = addressesByAccountId db accId
     pure $ mkAccount acc (IxSet.toList accountAddresses)
   where
     passPhrase = maybe mempty coerce mbSpendingPassword
 
-    -- We cannot use the general 'fromAccount' function here since we lack
-    -- a DB snapshot. We /could/ in principle ask for a snapshot and use that,
-    -- but if meanwhile the account has already been changed that might lead
-    -- to confusing results. Modifying the kernel code to do this atomically
-    -- and return the (single) final snapshot might be possible but right now
-    -- is more difficult than it appears (I've tried).
     mkAccount :: HD.HdAccount -> [Indexed HD.HdAddress] -> V1.Account
     mkAccount account addresses = V1.Account {
         accIndex     = toAccountId (account ^. HD.hdAccountId)

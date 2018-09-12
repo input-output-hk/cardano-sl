@@ -17,6 +17,8 @@ import           Pos.Core.Chrono (OldestFirst (..))
 import           Universum
 import qualified UTxO.DSL as DSL
 
+import           Chain.Abstract.Repartition (mkEmptyRepartition)
+
 {-------------------------------------------------------------------------------
   Chain validity
 -------------------------------------------------------------------------------}
@@ -199,7 +201,7 @@ translate addrs chain policies params = runExceptT . fmap fst $ runTranslateT in
         return $ Output
           { outAddr = DSL.outAddr out
           , outVal = DSL.outVal out
-          , outRepartition = Repartition $ Map.empty
+          , outRepartition = mkEmptyRepartition
           }
 
     intTransaction :: DSL.Transaction h Addr -> TranslateT h IntException m (Transaction h Addr)

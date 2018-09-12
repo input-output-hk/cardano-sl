@@ -25,10 +25,12 @@ import qualified Data.Set as Set
 import           GHC.Stack.Types (SrcLoc)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Test.Hspec hiding (shouldBe)
-import           Test.HUnit.Lang (Assertion, FailureReason (..), HUnitFailure (..))
+import           Test.HUnit.Lang (Assertion, FailureReason (..),
+                     HUnitFailure (..))
 import           Universum
 import qualified UTxO.DSL as DSL
 
+import           Chain.Abstract.Repartition (mkEmptyRepartition)
 
 shouldBe
     :: (HasCallStack, Eq a)
@@ -53,7 +55,7 @@ oDsl0 = DSL.Output
 oAbs0 = Abs.Output
         { outAddr        = head addrs
         , outVal         = 10 :: DSL.Value
-        , outRepartition = Repartition (Map.empty :: Map.Map Addr (Sum Int))
+        , outRepartition = mkEmptyRepartition
         }
 trDsl0 = DSL.Transaction
         { trFresh = 2 :: DSL.Value
@@ -68,7 +70,7 @@ inDsl1 = DSL.Input
 oAbs1 = Abs.Output
         { outAddr        = addrs !! 1
         , outVal         = 5 :: DSL.Value
-        , outRepartition = Repartition (Map.empty :: Map.Map Addr (Sum Int))
+        , outRepartition = mkEmptyRepartition
         }
 oDsl1 = DSL.Output
         { outAddr = addrs !! 1

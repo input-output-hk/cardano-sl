@@ -29,16 +29,18 @@ import           UTxO.DSL (GivenHash, Hash, Value, trUtxo, utxoRestrictToAddr)
 import           UTxO.Generator (defChainParams, genChain, initTrState)
 
 import           Chain.Abstract (Addr (Addr), Chain, Output (Output),
-                     Parameters (Parameters), Repartition (Repartition),
-                     Seed (Seed), SlotId (SlotId),
+                     Parameters (Parameters), Seed (Seed), SlotId (SlotId),
                      StakeDistribution (StakeDistribution),
                      Transaction (Transaction), bootstrapStakeholders,
-                     currentSeed, currentSlot, fApply, fSum, fSupport, height,
-                     inCommitmentPhase, inOpenPhase, inRecoveryPhase,
-                     initTransactions, initialSeed, initialStakeDistribution,
-                     k, maxMempoolSize, minFee, outAddr, outRepartition,
-                     outVal, quality, slotLeader, trExtra, trFee, trFresh,
-                     trHash, trIns, trOuts, trWitness)
+                     currentSeed, currentSlot, height, inCommitmentPhase,
+                     inOpenPhase, inRecoveryPhase, initTransactions,
+                     initialSeed, initialStakeDistribution, k, maxMempoolSize,
+                     minFee, outAddr, outRepartition, outVal, quality,
+                     slotLeader, trExtra, trFee, trFresh, trHash, trIns,
+                     trOuts, trWitness)
+import           Chain.Abstract.FinitelySupportedFunction (fApply, fSum,
+                     fSupport)
+import           Chain.Abstract.Repartition (Repartition, mkEmptyRepartition)
 import           Chain.Abstract.Translate.FromUTxO (ChainValidity, IntException (IntEmptyAddresses, IntEmptyInputs, IntEmptyOutputs),
                      TransState, translate, tsCheckpoints, _tsCurrentSlot)
 import qualified UTxO.DSL as DSL
@@ -268,5 +270,5 @@ dslOutputToAbstract out = Output
   { outAddr = DSL.outAddr out
   , outVal = DSL.outVal out
   -- TODO: how do we want to determine this properly?
-  , outRepartition = Repartition $ Map.empty
+  , outRepartition = mkEmptyRepartition
   }

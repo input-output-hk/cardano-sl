@@ -5,9 +5,7 @@
 
 module Chain.Abstract where
 
-import qualified Data.Foldable (fold, foldMap)
-import           Data.Hashable (hash)
-import qualified Data.Map.Strict as Map
+import qualified Data.Hashable
 import           Data.Monoid (Sum (..))
 import qualified Data.Set as Set
 import           Pos.Core.Chrono
@@ -15,43 +13,28 @@ import           Prelude (Show (..))
 import           Universum hiding (Show, show)
 import qualified UTxO.DSL as DSL
 
+import           Chain.Abstract.FinitelySupportedFunction
+                     (FinitelySupportedFunction)
+import           Chain.Abstract.Repartition (Repartition)
+
 -- | In the abstract DSL, we identify transactions with integers.
 newtype Addr = Addr Int
   deriving (Buildable, Eq, Ord, Show)
 
--- | Block hash
+-- | Block hash.
 newtype BlockHash = BlockHash Int deriving (Eq, Show)
 
--- | Hash of the genesis block
+-- | Hash of the genesis block.
 genesisBlockHash :: BlockHash
 genesisBlockHash = BlockHash 0
 
--- | Invalid block hash
+-- | Invalid block hash.
 invalidBlockHash :: BlockHash
 invalidBlockHash = BlockHash $ Data.Hashable.hash @String "invalid"
 
--- | Function with finite support. Note that the paper defines these as taking
---   values in a Semiring, but there's nothing intrinsic to that constraint and
---   Monoid is in the standard libraries.
-class Monoid v => FinitelySupportedFunction f k v | f -> k v where
-  fSupport :: f -> Set.Set k
-  -- | Apply the function. This must return `mempty` when the key is not in the support
-  -- of the function.
-  fApply :: f -> k -> v
-  fSum :: f -> v
-  fSum fn = Data.Foldable.foldMap (fApply fn) . fSupport $ fn
-
--- | Standard implementation of a finitely supported function as a map.
-instance (Ord k, Monoid v) => FinitelySupportedFunction (Map.Map k v) k v where
-  fSupport = Map.keysSet
-  fApply m k = Map.findWithDefault mempty k m
-  fSum = Data.Foldable.fold . Map.elems
-
+-- | The stake distribution function assigns stake values to addresses.
 data StakeDistribution a =
   forall f. FinitelySupportedFunction f a (Sum Int) => StakeDistribution f
-
-data Repartition a =
-  forall f. FinitelySupportedFunction f a (Sum Int) => Repartition f
 
 data Delegation (h :: * -> *) a = Delegation
   { delegator :: a

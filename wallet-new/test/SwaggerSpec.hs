@@ -6,20 +6,26 @@ import           Universum
 
 import qualified Prelude
 
+import qualified Data.HashMap.Strict.InsOrd as IOMap
 import           Data.String.Conv
 import           Data.Swagger
 import           Pos.Wallet.Aeson.ClientTypes ()
-import           Servant.API.ContentTypes
+import           Servant
 import           Servant.Swagger.Test ()
 import           Test.Hspec
 import           Test.Hspec.QuickCheck
 import           Test.QuickCheck.Instances ()
 
+import           Cardano.Wallet.API (InternalAPI, V1API)
 import           Cardano.Wallet.API.Response (ValidJSON)
 import qualified Cardano.Wallet.API.V1 as V1
 import           Cardano.Wallet.API.V1.Swagger ()
+import qualified Cardano.Wallet.API.V1.Swagger as Swagger
 import           Cardano.Wallet.Orphans.Aeson ()
 import           Cardano.Wallet.Orphans.Arbitrary ()
+import           Pos.Core.Update (ApplicationName (..), SoftwareVersion (..))
+import           Pos.Util.CompileInfo (CompileTimeInfo (CompileTimeInfo),
+                     gitRev)
 
 -- for vendored code
 import           Data.Aeson (ToJSON)
@@ -47,10 +53,25 @@ instance ToSchema NoContent where
             & maxLength .~ Just 0
 
 spec :: Spec
-spec = modifyMaxSuccess (const 10) $
+spec = modifyMaxSuccess (const 10) $ do
     describe "Swagger Integration" $ do
         parallel $ describe "(V1) ToJSON matches ToSchema" $
             validateEveryToJSON' (Proxy @ V1.API)
+    describe "Swagger Validity" $ do
+        it "has valid URL-compatible names" $ do
+            let details =
+                    ( CompileTimeInfo gitRev
+                    , SoftwareVersion (ApplicationName "cardano-sl") 1
+                    )
+                swagger = Swagger.api details v1API' Swagger.highLevelDescription
+                v1API' = Proxy :: Proxy (V1API :<|> InternalAPI)
+            for_
+                (IOMap.keys (swagger ^. definitions))
+                (`shouldSatisfy` noReservedCharacters)
+
+noReservedCharacters :: Text -> Bool
+noReservedCharacters =
+    all (`notElem` (":/?#[]@!$&'()*+,;=" :: [Char]))
 
 -- vendored
 validateEveryToJSON'

@@ -114,11 +114,14 @@ instance ToJSON a => MimeRender OctetStream (WalletResponse a) where
 instance (ToSchema a, Typeable a) => ToSchema (WalletResponse a) where
     declareNamedSchema _ = do
         let a = Proxy @a
-            tyName = toText . show $ typeRep a
+            tyName = toText . map sanitize . show $ typeRep a
+            sanitize c
+                | c `elem` (":/?#[]@!$&'()*+,;=" :: String) = '_'
+                | otherwise = c
         aRef <- declareSchemaRef a
         respRef <- declareSchemaRef (Proxy @ResponseStatus)
         metaRef <- declareSchemaRef (Proxy @Metadata)
-        pure $ NamedSchema (Just $ "WalletResponse<" <> tyName <> ">") $ mempty
+        pure $ NamedSchema (Just $ "WalletResponse-" <> tyName) $ mempty
             & type_ .~ SwaggerObject
             & required .~ ["data", "status", "meta"]
             & properties .~

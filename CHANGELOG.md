@@ -30,6 +30,9 @@
 
 - Improve type safety (and as a consequence, API documentation) of account indexes (CBR-306)
 
+- The Swagger specification had names with illegal characters. These names
+  where changed to be URL friendly. [PR #3595](https://github.com/input-output-hk/cardano-sl/pull/3595)
+
 ### Improvements
 
 - Friendly error mistakes from deserializing invalid addresses instead of brutal 500 (CBR-283)

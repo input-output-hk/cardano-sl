@@ -25,8 +25,9 @@ import           Pos.Infra.Network.Types (NetworkConfig (..), Topology (..),
                      topologyDequeuePolicy, topologyEnqueuePolicy,
                      topologyFailurePolicy)
 import           Pos.Launcher (HasConfigurations, NodeParams (..),
-                     NodeResources (..), bracketNodeResources, loggerBracket,
-                     lpConsoleLog, runNode, runRealMode, withConfigurations)
+                     NodeResources (..), WalletConfiguration,
+                     bracketNodeResources, loggerBracket, lpConsoleLog,
+                     runNode, runRealMode, withConfigurations)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.Config (ConfigurationException (..))
@@ -108,8 +109,15 @@ action opts@AuxxOptions {..} command = do
     runWithoutNode :: PrintAction IO -> IO ()
     runWithoutNode printAction = printAction "Mode: light" >> rawExec Nothing Nothing Nothing opts Nothing command
 
-    runWithConfig :: HasConfigurations => PrintAction IO -> Core.Config -> TxpConfiguration -> NtpConfiguration -> IO ()
-    runWithConfig printAction coreConfig txpConfig _ntpConfig = do
+    runWithConfig
+        :: HasConfigurations
+        => PrintAction IO
+        -> Core.Config
+        -> WalletConfiguration
+        -> TxpConfiguration
+        -> NtpConfiguration
+        -> IO ()
+    runWithConfig printAction coreConfig _walletConfig txpConfig _ntpConfig = do
         printAction "Mode: with-config"
         (nodeParams, tempDbUsed) <- (correctNodeParams opts . fst) =<< CLI.getNodeParams
             loggerName

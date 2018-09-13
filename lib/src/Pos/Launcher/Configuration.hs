@@ -8,6 +8,10 @@
 module Pos.Launcher.Configuration
        ( AssetLockPath (..)
        , Configuration (..)
+       , WalletConfiguration(..)
+       , defaultWalletConfiguration
+       , ThrottleSettings(..)
+       , defaultThrottleSettings
        , HasConfigurations
 
        , ConfigurationOptions (..)
@@ -24,8 +28,8 @@ module Pos.Launcher.Configuration
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON (..), genericToJSON,
-                     withObject, (.:), (.:?))
+import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON,
+                     genericToJSON, withObject, (.:), (.:?))
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default (Default (..))
 import qualified Data.HashMap.Strict as HM
@@ -68,6 +72,7 @@ data Configuration = Configuration
     , ccTxp     :: !TxpConfiguration
     , ccBlock   :: !BlockConfiguration
     , ccNode    :: !NodeConfiguration
+    , ccWallet  :: !WalletConfiguration
     } deriving (Show, Generic)
 
 instance FromJSON Configuration where
@@ -85,10 +90,45 @@ instance FromJSON Configuration where
         ccTxp    <- o .: "txp"
         ccBlock  <- o .: "block"
         ccNode   <- o .: "node"
+        ccWallet <- o .: "wallet"
         pure $ Configuration {..}
 
 instance ToJSON Configuration where
      toJSON = genericToJSON defaultOptions
+
+data WalletConfiguration = WalletConfiguration
+    { ccThrottle :: !(Maybe ThrottleSettings)
+    } deriving (Show, Generic)
+
+defaultWalletConfiguration :: WalletConfiguration
+defaultWalletConfiguration = WalletConfiguration
+    { ccThrottle = Nothing
+    }
+
+instance FromJSON WalletConfiguration where
+    parseJSON = genericParseJSON defaultOptions
+
+instance ToJSON WalletConfiguration where
+    toJSON = genericToJSON defaultOptions
+
+data ThrottleSettings = ThrottleSettings
+    { tsRate   :: !Word64
+    , tsPeriod :: !Word64
+    , tsBurst  :: !Word64
+    } deriving (Show, Generic)
+
+defaultThrottleSettings :: ThrottleSettings
+defaultThrottleSettings = ThrottleSettings
+    { tsRate = 30
+    , tsPeriod = 1000000
+    , tsBurst = 30
+    }
+
+instance FromJSON ThrottleSettings where
+    parseJSON = genericParseJSON defaultOptions
+
+instance ToJSON ThrottleSettings where
+    toJSON = genericToJSON defaultOptions
 
 type HasConfigurations =
     ( HasUpdateConfiguration
@@ -140,7 +180,7 @@ withConfigurationsM
     -> Maybe FilePath
     -> Bool
     -> ConfigurationOptions
-    -> (HasConfigurations => Core.Config -> TxpConfiguration -> NtpConfiguration -> m r)
+    -> (HasConfigurations => Core.Config -> WalletConfiguration -> TxpConfiguration -> NtpConfiguration -> m r)
     -> m r
 withConfigurationsM logName mAssetLockPath dumpGenesisPath dumpConfig cfo act = do
     logInfo' ("using configurations: " <> show cfo)
@@ -166,8 +206,9 @@ withConfigurationsM logName mAssetLockPath dumpGenesisPath dumpConfig cfo act = 
                 (configGenesisData coreConfig)
                 (ccGenesis cfg)
                 (ccNtp cfg)
+                (ccWallet cfg)
                 txpConfig
-            act coreConfig txpConfig (ccNtp cfg)
+            act coreConfig (ccWallet cfg) txpConfig (ccNtp cfg)
 
     where
     logInfo' :: Text -> m ()
@@ -179,7 +220,7 @@ withConfigurations
     -> Maybe FilePath
     -> Bool
     -> ConfigurationOptions
-    -> (HasConfigurations => Core.Config -> TxpConfiguration -> NtpConfiguration -> m r)
+    -> (HasConfigurations => Core.Config-> WalletConfiguration -> TxpConfiguration -> NtpConfiguration -> m r)
     -> m r
 withConfigurations mAssetLockPath dumpGenesisPath dumpConfig cfo act = do
     loggerName <- askLoggerName
@@ -214,11 +255,12 @@ printInfoOnStart ::
     -> GenesisData
     -> GenesisConfiguration
     -> NtpConfiguration
+    -> WalletConfiguration
     -> TxpConfiguration
     -> m ()
-printInfoOnStart dumpGenesisPath dumpConfig genesisData genesisConfig ntpConfig txpConfig = do
+printInfoOnStart dumpGenesisPath dumpConfig genesisData genesisConfig ntpConfig walletConfig txpConfig = do
     whenJust dumpGenesisPath $ dumpGenesisData genesisData True
-    when dumpConfig $ dumpConfiguration genesisConfig ntpConfig txpConfig
+    when dumpConfig $ dumpConfiguration genesisConfig ntpConfig walletConfig txpConfig
     printFlags
     t <- currentTime
     mapM_ logInfo $
@@ -246,9 +288,10 @@ dumpConfiguration
     :: (HasConfigurations, MonadIO m)
     => GenesisConfiguration
     -> NtpConfiguration
+    -> WalletConfiguration
     -> TxpConfiguration
     -> m ()
-dumpConfiguration genesisConfig ntpConfig txpConfig = do
+dumpConfiguration genesisConfig ntpConfig walletConfig txpConfig = do
     let conf =
             Configuration
             { ccGenesis = genesisConfig
@@ -259,6 +302,7 @@ dumpConfiguration genesisConfig ntpConfig txpConfig = do
             , ccTxp = txpConfig
             , ccBlock = blockConfiguration
             , ccNode = nodeConfiguration
+            , ccWallet = walletConfig
             }
     putText . decodeUtf8 . Yaml.encode $ conf
     exitSuccess

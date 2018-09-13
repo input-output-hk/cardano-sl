@@ -197,7 +197,7 @@ main = do
             , cfoSystemStart = Just (Timestamp startTime)
             }
     withCompileInfo $
-        withConfigurationsM (LoggerName "verification-bench") Nothing Nothing False cfo $ \ !coreConfig !txpConfig !_ -> do
+        withConfigurationsM (LoggerName "verification-bench") Nothing Nothing False cfo $ \ !coreConfig !_ !txpConfig !_ -> do
             let coreConfig' = coreConfig
                     { configProtocolConstants =
                         (configProtocolConstants coreConfig) { pcK = baK args }

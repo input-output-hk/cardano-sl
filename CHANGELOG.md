@@ -12,6 +12,13 @@
   each slot in an epoch) to an epoch/index file pair. Consolidation happens on-the-fly in a
   background process.
 
+- #### Add bouncing and throttling to the API
+  Previously, exchanges could accidentally overload their wallet servers. We
+  have added configurable throttling to the API service to prevent this
+  problem. To configure this, setting, view the changes in the
+  `configuration.yaml` file under the `wallet` section. The API will now return
+  a 429 error containing the microseconds to wait until retry.
+
 ### Fixes
 
 - #### Make productionReporter more robust

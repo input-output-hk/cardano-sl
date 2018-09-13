@@ -55,7 +55,7 @@ main = do
 
 action :: ExplorerNodeArgs -> IO ()
 action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
-    withConfigurations blPath cnaDumpGenesisDataPath cnaDumpConfiguration conf $ \coreConfig txpConfig _ntpConfig ->
+    withConfigurations blPath cnaDumpGenesisDataPath cnaDumpConfiguration conf $ \coreConfig _ txpConfig _ntpConfig ->
     withCompileInfo $ do
         logInfo $ "Explorer is enabled!"
         (currentParams, Just sscParams) <- getNodeParams

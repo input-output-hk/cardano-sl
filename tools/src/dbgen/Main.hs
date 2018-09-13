@@ -167,7 +167,7 @@ main = do
     cli@CLI{..} <- getRecord "DBGen"
     let cfg = newConfig cli
 
-    withConfigurations Nothing Nothing False cfg $ \coreConfig txpConfig _ -> do
+    withConfigurations Nothing Nothing False cfg $ \coreConfig _ txpConfig _ -> do
         when showStats (showStatsAndExit walletPath)
 
         say $ bold "Starting the modification of the wallet..."

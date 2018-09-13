@@ -2976,6 +2976,9 @@ data WalletError =
     | NodeIsStillSyncing !SyncPercentage
     -- ^ The backend couldn't process the incoming request as the underlying
     -- node is still syncing with the blockchain.
+    | RequestThrottled !Word64
+    -- ^ The request has been throttled. The 'Word64' is a count of microseconds
+    -- until the user should retry.
     deriving (Generic, Show, Eq)
 
 -- deriveWalletErrorJSON ''WalletError
@@ -3015,6 +3018,7 @@ instance Arbitrary WalletError where
         , WalletIsNotReadyToProcessPayments <$> arbitrary
         , NodeIsStillSyncing <$> arbitrary
         , CannotCreateAddress <$> arbitraryText
+        , RequestThrottled <$> arbitrary
         ]
       where
         arbitraryText :: Gen Text
@@ -3069,6 +3073,9 @@ instance Buildable WalletError where
             bprint "We were unable to find a set of inputs to satisfy this transaction."
         CannotCreateAddress _ ->
             bprint "Cannot create derivation path for new address, for external wallet."
+        RequestThrottled _ ->
+            bprint "You've made too many requests too soon, and this one was throttled."
+
 
 -- | Convert wallet errors to Servant errors
 instance ToServantError WalletError where
@@ -3109,6 +3116,8 @@ instance ToServantError WalletError where
             err400
         CannotCreateAddress{} ->
             err500
+        RequestThrottled{} ->
+            err400 { errHTTPCode = 429 }
 
 -- | Declare the key used to wrap the diagnostic payload, if any
 instance HasDiagnostic WalletError where
@@ -3149,3 +3158,5 @@ instance HasDiagnostic WalletError where
             "address"
         CannotCreateAddress{} ->
             "msg"
+        RequestThrottled{} ->
+            "microsecondsUntilRetry"

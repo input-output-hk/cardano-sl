@@ -47,7 +47,9 @@ main = do
     let baseUrl = BaseUrl Https serverHost serverPort mempty
 
     let walletClient :: MonadIO m => WalletClient m
-        walletClient = liftClient $ mkHttpClient baseUrl manager
+        walletClient = withThrottlingRetry
+            . liftClient
+            $ mkHttpClient baseUrl manager
 
     -- Acquire the initial state for the deterministic tests
     wRef <- newWalletRef

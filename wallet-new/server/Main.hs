@@ -20,8 +20,9 @@ import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Txp (txpGlobalSettings)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Launcher (NodeParams (..), NodeResources (..),
-                     bpLoggingParams, bracketNodeResources, loggerBracket,
-                     lpDefaultName, runNode, withConfigurations)
+                     WalletConfiguration, bpLoggingParams,
+                     bracketNodeResources, loggerBracket, lpDefaultName,
+                     runNode, withConfigurations)
 import           Pos.Launcher.Configuration (AssetLockPath (..),
                      ConfigurationOptions, HasConfigurations)
 import           Pos.Util (logException)
@@ -61,13 +62,14 @@ defaultLoggerName = "node"
 -- number of extra plugins.
 actionWithLegacyWallet :: (HasConfigurations, HasCompileInfo)
                  => Core.Config
+                 -> WalletConfiguration
                  -> TxpConfiguration
                  -> SscParams
                  -> NodeParams
                  -> NtpConfiguration
                  -> WalletBackendParams
                  -> IO ()
-actionWithLegacyWallet coreConfig txpConfig sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
+actionWithLegacyWallet coreConfig walletConfig txpConfig sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
     bracketWalletWebDB (walletDbPath walletDbOptions) (walletRebuildDb walletDbOptions) $ \db ->
         bracketWalletWS $ \conn ->
             bracketNodeResources
@@ -104,7 +106,7 @@ actionWithLegacyWallet coreConfig txpConfig sscParams nodeParams ntpConfig wArgs
     plugins :: TVar NtpStatus -> LegacyPlugins.Plugin WalletWebMode
     plugins ntpStatus =
         mconcat [ LegacyPlugins.conversation wArgs
-                , LegacyPlugins.legacyWalletBackend coreConfig txpConfig wArgs ntpStatus
+                , LegacyPlugins.legacyWalletBackend coreConfig walletConfig txpConfig wArgs ntpStatus
                 , LegacyPlugins.walletDocumentation wArgs
                 , LegacyPlugins.acidCleanupWorker wArgs
                 , LegacyPlugins.syncWalletWorker coreConfig
@@ -200,23 +202,26 @@ actionWithWallet coreConfig txpConfig sscParams nodeParams ntpConfig params =
 -- | Runs an edge node plus its wallet backend API.
 startEdgeNode :: HasCompileInfo => WalletStartupOptions -> IO ()
 startEdgeNode wso =
-    withConfigurations blPath dumpGenesisPath dumpConfiguration conf
-        $ \coreConfig txpConfig ntpConfig -> do
-              (sscParams, nodeParams) <- getParameters coreConfig
-              case wsoWalletBackendParams wso of
-                  WalletLegacy legacyParams -> actionWithLegacyWallet
-                      coreConfig
-                      txpConfig
-                      sscParams
-                      nodeParams
-                      ntpConfig
-                      legacyParams
-                  WalletNew newParams -> actionWithWallet coreConfig
-                                                          txpConfig
-                                                          sscParams
-                                                          nodeParams
-                                                          ntpConfig
-                                                          newParams
+    withConfigurations blPath dumpGenesisPath dumpConfiguration conf $
+        \coreConfig walletConfig txpConfig ntpConfig -> do
+        (sscParams, nodeParams) <- getParameters coreConfig
+
+        case wsoWalletBackendParams wso of
+            WalletLegacy legacyParams -> actionWithLegacyWallet
+                coreConfig
+                walletConfig
+                txpConfig
+                sscParams
+                nodeParams
+                ntpConfig
+                legacyParams
+            WalletNew newParams -> actionWithWallet
+                coreConfig
+                txpConfig
+                sscParams
+                nodeParams
+                ntpConfig
+                newParams
   where
     getParameters :: Core.Config -> IO (SscParams, NodeParams)
     getParameters coreConfig = do

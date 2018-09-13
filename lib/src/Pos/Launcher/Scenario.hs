@@ -36,7 +36,8 @@ import           Pos.Infra.Util.LogSafe (logInfoS)
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
-import           Pos.Util.Wlog (WithLogger, askLoggerName, logInfo)
+import           Pos.Util.Wlog (LoggerName (..), WithLogger, askLoggerName,
+                     logInfo)
 import           Pos.Worker (allWorkers)
 import           Pos.WorkMode.Class (WorkMode)
 
@@ -93,17 +94,12 @@ runNode' coreConfig NodeResources {..} workers' plugins' = \diffusion -> do
     void (mapConcurrently runWithReportHandler (workers' ++ plugins'))
 
     exitFailure
-
   where
-    -- FIXME shouldn't this kill the whole program?
-    -- FIXME: looks like something bad.
-    -- REPORT:ERROR Node's worker/plugin failed with exception (which wasn't caught)
     reportHandler (SomeException e) = do
         loggerName <- askLoggerName
-        reportError $
-            sformat ("Worker/plugin with logger name "%shown%
-                    " failed with exception: "%shown)
-            loggerName e
+        let msg = "Worker/plugin with logger name "%shown%" failed with exception: "%shown
+        reportError $ sformat msg (getLoggerName loggerName) e
+        exitFailure
 
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.

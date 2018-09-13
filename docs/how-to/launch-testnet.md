@@ -21,7 +21,10 @@ overridden.
 ### Initializer
 
  * `protocolMagic` -- this number is different from mainnet's magic to
-   ensure that the address format of testnet is different to mainnet.
+   ensure that signatures from testnet are different to mainnet.
+ * `requiresNetworkMagic` -- `NMMustBeNothing` -- will ensure that the
+   format of addresses and hence transactions are different and
+   incompatible to those of mainnet.
  * `totalBalance` -- 42,000,000,000 Ada -- is close to the maximum
    possible coin value (45B Ada).
  * `avvmDistr` -- this is the empty hashmap, unlike in mainnet which

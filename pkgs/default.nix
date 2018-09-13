@@ -16411,6 +16411,7 @@ cardano-sl-block
 cardano-sl-block-test
 cardano-sl-core
 cardano-sl-crypto
+cardano-sl-crypto-test
 cardano-sl-txp
 cardano-sl-util
 containers
@@ -18305,6 +18306,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-core
 , cardano-sl-core-test
 , cardano-sl-crypto
+, cardano-sl-crypto-test
 , cardano-sl-db
 , cardano-sl-delegation
 , cardano-sl-infra
@@ -18529,6 +18531,7 @@ cardano-sl-block
 cardano-sl-client
 cardano-sl-core
 cardano-sl-crypto
+cardano-sl-crypto-test
 cardano-sl-db
 cardano-sl-delegation
 cardano-sl-lrc

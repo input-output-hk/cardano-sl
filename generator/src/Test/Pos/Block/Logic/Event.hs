@@ -22,6 +22,7 @@ import           Pos.Block.Logic.VAR (BlockLrcMode, rollbackBlocks, verifyAndApp
 import           Pos.Block.Types (Blund)
 import           Pos.Core (HasConfiguration, HeaderHash)
 import           Pos.Core.Chrono (NE, OldestFirst)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Pure (DBPureDiff, MonadPureDB, dbPureDiff, dbPureDump, dbPureReset)
 import           Pos.Exception (CardanoFatalError (..))
 import           Pos.Generator.BlockEvent (BlockApplyResult (..), BlockEvent, BlockEvent' (..),
@@ -34,7 +35,6 @@ import           Pos.Util.Util (eitherToThrow, lensOf)
 
 import           Test.Pos.Block.Logic.Mode (BlockTestContext, PureDBSnapshotsVar (..))
 import           Test.Pos.Block.Logic.Util (satisfySlotCheck)
-import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 data SnapshotMissingEx = SnapshotMissingEx SnapshotId
     deriving (Show)
@@ -58,12 +58,13 @@ verifyAndApplyBlocks' ::
        , BlockLrcMode BlockTestContext m
        , MonadTxpLocal m
        )
-    => OldestFirst NE Blund
+    => ProtocolMagic
+    -> OldestFirst NE Blund
     -> m ()
-verifyAndApplyBlocks' blunds = do
+verifyAndApplyBlocks' pm blunds = do
     satisfySlotCheck blocks $ do
         (_ :: HeaderHash) <- eitherToThrow =<<
-            verifyAndApplyBlocks dummyProtocolMagic True blocks
+            verifyAndApplyBlocks pm True blocks
         return ()
   where
     blocks = fst <$> blunds
@@ -73,11 +74,12 @@ runBlockEvent ::
        ( BlockLrcMode BlockTestContext m
        , MonadTxpLocal m
        )
-    => BlockEvent
+    => ProtocolMagic
+    -> BlockEvent
     -> m BlockEventResult
 
-runBlockEvent (BlkEvApply ev) =
-    (onSuccess <$ verifyAndApplyBlocks' (ev ^. beaInput))
+runBlockEvent pm (BlkEvApply ev) =
+    (onSuccess <$ verifyAndApplyBlocks' pm (ev ^. beaInput))
         `catch` (return . onFailure)
   where
     onSuccess = case ev ^. beaOutValid of
@@ -87,8 +89,8 @@ runBlockEvent (BlkEvApply ev) =
         BlockApplySuccess -> BlockEventFailure (IsExpected False) e
         BlockApplyFailure -> BlockEventFailure (IsExpected True) e
 
-runBlockEvent (BlkEvRollback ev) =
-    (onSuccess <$ rollbackBlocks dummyProtocolMagic (ev ^. berInput))
+runBlockEvent pm (BlkEvRollback ev) =
+    (onSuccess <$ rollbackBlocks pm (ev ^. berInput))
        `catch` (return . onFailure)
   where
     onSuccess = case ev ^. berOutValid of
@@ -109,7 +111,7 @@ runBlockEvent (BlkEvRollback ev) =
             in
                 BlockEventFailure (IsExpected isExpected) e
 
-runBlockEvent (BlkEvSnap ev) =
+runBlockEvent _ (BlkEvSnap ev) =
     (onSuccess <$ runSnapshotOperation ev)
         `catch` (return . onFailure)
   where
@@ -155,15 +157,16 @@ runBlockScenario ::
        , BlockLrcMode BlockTestContext m
        , MonadTxpLocal m
        )
-    => BlockScenario
+    => ProtocolMagic
+    -> BlockScenario
     -> m BlockScenarioResult
-runBlockScenario (BlockScenario []) =
+runBlockScenario _ (BlockScenario []) =
     return BlockScenarioFinishedOk
-runBlockScenario (BlockScenario (ev:evs)) = do
-    runBlockEvent ev >>= \case
+runBlockScenario pm (BlockScenario (ev:evs)) = do
+    runBlockEvent pm ev >>= \case
         BlockEventSuccess (IsExpected isExp) ->
             if isExp
-                then runBlockScenario (BlockScenario evs)
+                then runBlockScenario pm (BlockScenario evs)
                 else return BlockScenarioUnexpectedSuccess
         BlockEventFailure (IsExpected isExp) e ->
             return $ if isExp

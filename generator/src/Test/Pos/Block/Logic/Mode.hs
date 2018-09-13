@@ -61,10 +61,11 @@ import           Pos.AllSecrets (AllSecrets (..), HasAllSecrets (..), mkAllSecre
 import           Pos.Block.BListener (MonadBListener (..), onApplyBlocksStub, onRollbackBlocksStub)
 import           Pos.Block.Slog (HasSlogGState (..), mkSlogGState)
 import           Pos.Core (BlockVersionData, CoreConfiguration (..), GenesisConfiguration (..),
-                           GenesisInitializer (..), GenesisSpec (..), HasConfiguration,
-                           HasProtocolConstants, SlotId, Timestamp (..), genesisSecretKeys,
-                           epochSlots, withGenesisSpec)
-import           Pos.Core.Configuration (HasGenesisBlockVersionData, withGenesisBlockVersionData)
+                           GenesisInitializer (..), GenesisProtocolConstants (..), GenesisSpec (..),
+                           HasConfiguration, HasProtocolConstants, SlotId, Timestamp (..),
+                           epochSlots, genesisSecretKeys, withGenesisSpec)
+import           Pos.Core.Configuration (HasGenesisBlockVersionData, coreConfiguration,
+                                         withGenesisBlockVersionData)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (DBPure, MonadDB (..), MonadDBRead (..), MonadGState (..))
 import qualified Pos.DB as DB
@@ -102,7 +103,6 @@ import           Pos.WorkMode (EmptyMempoolExt)
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation, sudoLiftIO)
 import           Test.Pos.Configuration (defaultTestBlockVersionData, defaultTestConf,
                                          defaultTestGenesisSpec)
-import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 ----------------------------------------------------------------------------
 -- Parameters
@@ -155,18 +155,24 @@ genGenesisInitializer = do
 
 -- This function creates 'CoreConfiguration' from 'TestParams' and
 -- uses it to satisfy 'HasConfiguration'.
-withTestParams :: TestParams -> (HasConfiguration => ProtocolMagic -> r) -> r
-withTestParams TestParams {..} = withGenesisSpec _tpStartTime coreConfiguration
+withTestParams :: ProtocolMagic -> TestParams -> (HasConfiguration => ProtocolMagic -> r) -> r
+withTestParams pm TestParams {..} = withGenesisSpec _tpStartTime coreConfiguration'
   where
     defaultCoreConf :: CoreConfiguration
     defaultCoreConf = ccCore defaultTestConf
-    coreConfiguration :: CoreConfiguration
-    coreConfiguration = defaultCoreConf {ccGenesis = GCSpec genesisSpec}
+    coreConfiguration' :: CoreConfiguration
+    coreConfiguration' = defaultCoreConf {ccGenesis = GCSpec genesisSpec}
+    genesisSpec :: GenesisSpec
     genesisSpec =
         defaultTestGenesisSpec
         { gsInitializer = _tpGenesisInitializer
         , gsBlockVersionData = _tpBlockVersionData
+        , gsProtocolConstants =
+              updateGPC (gsProtocolConstants defaultTestGenesisSpec)
         }
+    updateGPC :: GenesisProtocolConstants -> GenesisProtocolConstants
+    updateGPC gpc = gpc { gpcProtocolMagic = pm }
+
 
 ----------------------------------------------------------------------------
 -- Init mode with instances
@@ -242,6 +248,9 @@ initBlockTestContext tp@TestParams {..} callback = do
     (futureSlottingVar, putSlottingVar) <- newInitFuture "slottingVar"
     systemStart <- Timestamp <$> currentTime
     slottingState <- mkSimpleSlottingStateVar
+    let pm = case ccGenesis coreConfiguration of
+                 GCSrc _ _ -> error "initBlockTestContext: run with `GCSrc` configuration"
+                 GCSpec gs -> gpcProtocolMagic (gsProtocolConstants gs)
     let initCtx =
             TestInitModeContext
                 dbPureVar
@@ -250,7 +259,7 @@ initBlockTestContext tp@TestParams {..} callback = do
                 systemStart
                 futureLrcCtx
         initBlockTestContextDo = do
-            initNodeDBs dummyProtocolMagic epochSlots
+            initNodeDBs pm epochSlots
             _gscSlottingVar <- newTVarIO =<< GS.getSlottingData
             putSlottingVar _gscSlottingVar
             let btcLoggerName = "testing"
@@ -261,7 +270,7 @@ initBlockTestContext tp@TestParams {..} callback = do
             btcSscState <- mkSscState
             _gscSlogGState <- mkSlogGState
             btcTxpMem <- mkTxpLocalData
-            let btcTxpGlobalSettings = txpGlobalSettings dummyProtocolMagic
+            let btcTxpGlobalSettings = txpGlobalSettings pm
             let btcSlotId = Nothing
             let btcParams = tp
             let btcGState = GS.GStateContext {_gscDB = DB.PureDB dbPureVar, ..}
@@ -309,12 +318,13 @@ type BlockProperty = PropertyM BlockTestMode
 -- 'TestParams'.
 blockPropertyToProperty
     :: (HasDlgConfiguration, Testable a)
-    => Gen TestParams
+    => ProtocolMagic
+    -> Gen TestParams
     -> (HasConfiguration => BlockProperty a)
     -> Property
-blockPropertyToProperty tpGen blockProperty =
+blockPropertyToProperty pm tpGen blockProperty =
     forAll tpGen $ \tp ->
-        withTestParams tp $ \_ ->
+        withTestParams pm tp $ \_ ->
         monadic (ioProperty . runBlockTestMode tp) blockProperty
 
 -- | Simplified version of 'blockPropertyToProperty' which uses
@@ -331,9 +341,10 @@ blockPropertyToProperty tpGen blockProperty =
 --     property = blockPropertyToProperty arbitrary
 blockPropertyTestable ::
        (HasDlgConfiguration, Testable a)
-    => (HasConfiguration => BlockProperty a)
+    => ProtocolMagic
+    -> (HasConfiguration => BlockProperty a)
     -> Property
-blockPropertyTestable = blockPropertyToProperty arbitrary
+blockPropertyTestable pm = blockPropertyToProperty pm arbitrary
 
 ----------------------------------------------------------------------------
 -- Boilerplate TestInitContext instances

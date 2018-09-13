@@ -18,9 +18,9 @@ import qualified Cardano.Crypto.Wallet as CC
 import           Crypto.Hash (Blake2b_224, Blake2b_256)
 import           Data.Tagged (Tagged)
 import           System.FileLock (FileLock)
-import           Test.Hspec (Spec, describe)
+import           Test.Hspec (Spec, describe, runIO)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Arbitrary (..))
+import           Test.QuickCheck (Arbitrary (..), arbitrary, generate)
 
 import           Pos.Arbitrary.Infra ()
 import           Pos.Arbitrary.Slotting ()
@@ -32,11 +32,12 @@ import           Pos.Binary.Core ()
 import           Pos.Binary.Ssc ()
 import qualified Pos.Block.Network as BT
 import qualified Pos.Block.Types as BT
-import           Pos.Core (ProxySKHeavy, StakeholderId, VssCertificate)
 import qualified Pos.Communication as C
 import           Pos.Communication.Limits (mlOpening, mlUpdateVote, mlVssCertificate)
+import           Pos.Core (ProxySKHeavy, StakeholderId, VssCertificate)
 import qualified Pos.Core.Block as BT
 import qualified Pos.Core.Ssc as Ssc
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 import qualified Pos.Crypto as Crypto
 import           Pos.Crypto.Signing (EncryptedSecretKey)
 import           Pos.Delegation (DlgPayload, DlgUndo)
@@ -55,9 +56,9 @@ import           Pos.Util.UserSecret (UserSecret, WalletUserSecret)
 import           Test.Pos.Binary.Helpers (U, binaryTest, extensionProperty, msgLenLimitedTest)
 import           Test.Pos.Block.Arbitrary ()
 import           Test.Pos.Block.Arbitrary.Message ()
-import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Configuration (withProvidedMagicConfig)
 import           Test.Pos.Core.Arbitrary ()
-import           Test.Pos.Crypto.Arbitrary ()
+import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
 import           Test.Pos.Delegation.Arbitrary ()
 import           Test.Pos.Txp.Arbitrary.Network ()
 import           Test.Pos.Util.QuickCheck (SmallGenerator)
@@ -68,8 +69,27 @@ type UpId' = Tagged (U.UpdateProposal, [U.UpdateVote])U.UpId
 
 ----------------------------------------
 
+
+-- We run the tests this number of times, with different `ProtocolMagics`, to get increased
+-- coverage. We should really do this inside of the `prop`, but it is difficult to do that
+-- without significant rewriting of the testsuite.
+testMultiple :: Int
+testMultiple = 3
+
 spec :: Spec
-spec = withDefConfiguration $ \_ -> do
+spec = do
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = replicateM_ testMultiple $
+    modifyMaxSuccess (`div` testMultiple) $ do
+        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
+        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+            specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm = withProvidedMagicConfig pm $ do
     describe "Cbor.Bi instances" $ do
         modifyMaxSuccess (const 1000) $ do
             describe "Lib/core instances" $ do

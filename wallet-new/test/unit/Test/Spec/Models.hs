@@ -5,8 +5,10 @@ module Test.Spec.Models (
 import           Universum
 
 import qualified Data.Set as Set
+import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 
 import           Test.Infrastructure.Generator
+import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
 import           Util.Buildable.Hspec
 import           Util.Buildable.QuickCheck
 import           UTxO.Bootstrap
@@ -24,21 +26,42 @@ import qualified Wallet.Rollback.Basic as Roll
 import qualified Wallet.Rollback.Full as Full
 
 import           Pos.Core (Coeff (..), TxSizeLinear (..))
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 
 {-------------------------------------------------------------------------------
   Pure wallet tests
 -------------------------------------------------------------------------------}
 
 -- | Test the pure wallet models
+
+-- We run the tests this number of times, with different `ProtocolMagics`, to get increased
+-- coverage. We should really do this inside of the `prop`, but it is difficult to do that
+-- without significant rewriting of the testsuite.
+testMultiple :: Int
+testMultiple = 3
+
 spec :: Spec
 spec = do
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = replicateM_ testMultiple $
+    modifyMaxSuccess (`div` testMultiple) $ do
+        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
+        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+            specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm =
     describe "Test pure wallets" $ do
+      let rnm = getRequiresNetworkMagic pm
       it "Using simple model" $
-        forAll (genInductiveUsingModel simpleModel) $ testPureWalletWith
+        forAll (genInductiveUsingModel rnm simpleModel) $ testPureWalletWith
       it "Using Cardano model" $
-        forAll (genInductiveUsingModel (cardanoModel linearFeePolicy boot)) $ testPureWalletWith
+        forAll (genInductiveUsingModel rnm (cardanoModel linearFeePolicy boot)) $ testPureWalletWith
   where
-    transCtxt = runTranslateNoErrors ask
+    transCtxt = runTranslateNoErrors pm ask
     boot      = bootstrapTransaction transCtxt
     linearFeePolicy = TxSizeLinear (Coeff 155381) (Coeff 43.946)
 

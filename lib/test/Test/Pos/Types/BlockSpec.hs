@@ -9,26 +9,46 @@ module Test.Pos.Types.BlockSpec
 import           Universum
 
 import           Serokell.Util (isVerSuccess)
-import           Test.Hspec (Spec, describe, it)
+import           Test.Hspec (Spec, describe, it, runIO)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Property, (===), (==>))
+import           Test.QuickCheck (Property, generate, (===), (==>))
 
 import           Pos.Binary (Bi)
 import qualified Pos.Block.Logic.Integrity as T
 import           Pos.Core (GenesisHash (..), HasConfiguration, genesisHash)
 import qualified Pos.Core as T
 import           Pos.Core.Chrono (NewestFirst (..))
-import           Pos.Crypto (ProtocolMagicId (..), ProxySecretKey (pskIssuerPk), SecretKey,
-                             SignTag (..), createPsk, getProtocolMagic, proxySign, sign, toPublic)
+import           Pos.Crypto (ProtocolMagic (..), ProtocolMagicId (..), ProxySecretKey (pskIssuerPk),
+                             RequiresNetworkMagic (..), SecretKey, SignTag (..), createPsk,
+                             getProtocolMagic, proxySign, sign, toPublic)
 import           Pos.Data.Attributes (mkAttributes)
 
 import           Test.Pos.Block.Arbitrary as T
-import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Configuration (withProvidedMagicConfig)
+import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic, dummyProtocolMagicId)
 
--- This tests are quite slow, hence max success is at most 20.
+
+-- We run the tests this number of times, with different `ProtocolMagics`, to get increased
+-- coverage. We should really do this inside of the `prop`, but it is difficult to do that
+-- without significant rewriting of the testsuite.
+testMultiple :: Int
+testMultiple = 3
+
 spec :: Spec
-spec = withDefConfiguration $ \_ ->
+spec = do
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = replicateM_ testMultiple $
+    modifyMaxSuccess (`div` testMultiple) $ do
+        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
+        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+            specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm = withProvidedMagicConfig pm $
     describe "Block properties" $ modifyMaxSuccess (min 20) $ do
         describe "mkMainHeader" $ do
             prop mainHeaderFormationDesc mainHeaderFormation

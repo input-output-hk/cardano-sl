@@ -108,7 +108,7 @@ genesisAssetLockedWallet wc = do
   where isLockedGenesisWallet w = isGenesisWallet w && isLockedWallet w
 
 isGenesisWallet :: Wallet -> Bool
-isGenesisWallet = (== "Genesis wallet") . walName
+isGenesisWallet = (== "Imported Wallet") . walName
 
 lockedWallet :: WalletId
 lockedWallet =

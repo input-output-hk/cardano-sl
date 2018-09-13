@@ -50,7 +50,7 @@ let
   topologyFile = import ./make-topology.nix { inherit (pkgs) lib; cores = numCoreNodes; relays = numRelayNodes; };
   walletTopologyFile = builtins.toFile "wallet-topology.yaml" (builtins.toJSON {
     wallet = {
-      relays = [ [ { addr = "127.0.0.1"; port = 3101; } ] ];
+      relays = [ [ { addr = "127.0.0.1"; port = 3100; } ] ];
       valency = 1;
       fallbacks = 1;
     };
@@ -119,15 +119,15 @@ in pkgs.writeScript "demo-cluster" ''
 
   trap "stop_cardano" INT TERM
   echo "Launching a demo cluster..."
-  for i in {1..${builtins.toString numCoreNodes}}
+  for i in {0..${builtins.toString (numCoreNodes - 1)}}
   do
-    node_args="--db-path ${stateDir}/core-db$i --rebuild-db ${if launchGenesis then "--keyfile ${stateDir}/genesis-keys/generated-keys/rich/key$((i - 1)).sk" else "--genesis-secret $i"} --listen 127.0.0.1:$((3000 + i)) --json-log ${stateDir}/logs/core$i.json --logs-prefix ${stateDir}/logs --system-start $system_start --metrics +RTS -N2 -qg -A1m -I0 -T -RTS --node-id core$i --topology ${topologyFile} --configuration-file $config_files/configuration.yaml --configuration-key ${configurationKey} ${ifAssetLock "--asset-lock-file ${assetLockFile}"}"
+    node_args="--db-path ${stateDir}/core-db$i --rebuild-db ${if launchGenesis then "--keyfile ${stateDir}/genesis-keys/generated-keys/rich/key\${i}.sk" else "--genesis-secret $i"} --listen 127.0.0.1:$((3000 + i)) --json-log ${stateDir}/logs/core$i.json --logs-prefix ${stateDir}/logs --system-start $system_start --metrics +RTS -N2 -qg -A1m -I0 -T -RTS --node-id core$i --topology ${topologyFile} --configuration-file $config_files/configuration.yaml --configuration-key ${configurationKey} ${ifAssetLock "--asset-lock-file ${assetLockFile}"}"
     echo Launching core node $i: cardano-node-simple $node_args
     cardano-node-simple $node_args &> ${stateDir}/logs/core$i.log &
     core_pid[$i]=$!
 
   done
-  for i in {1..${builtins.toString numRelayNodes}}
+  for i in {0..${builtins.toString (numRelayNodes - 1)}}
   do
     node_args="--db-path ${stateDir}/relay-db$i --rebuild-db --listen 127.0.0.1:$((3100 + i)) --json-log ${stateDir}/logs/relay$i.json --logs-prefix ${stateDir}/logs --system-start $system_start --metrics +RTS -N2 -qg -A1m -I0 -T -RTS --node-id relay$i --topology ${topologyFile} --configuration-file $config_files/configuration.yaml --configuration-key ${configurationKey}"
     echo Launching relay node $i: cardano-node-simple $node_args

@@ -1,6 +1,7 @@
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE RankNTypes                 #-}
 
 module Cardano.Wallet.Kernel.NodeStateAdaptor (
@@ -486,28 +487,59 @@ waitForUpdate = liftIO . takeMVar =<< asks l
     l :: Res -> MVar ConfirmedProposalState
     l = ucDownloadedUpdate . view lensOf'
 
+
 -- | Get the difference between NTP time and local system time, nothing if the
 -- NTP server couldn't be reached in the last 30min.
 --
 -- Note that one can force a new query to the NTP server in which case, it may
 -- take up to 30s to resolve.
-defaultGetNtpDrift :: MonadIO m => TVar NtpStatus -> V1.ForceNtpCheck -> m V1.TimeInfo
-defaultGetNtpDrift tvar ntpCheckBehavior = liftIO $ do
-    when (ntpCheckBehavior == V1.ForceNtpCheck) $
-        atomically $ writeTVar tvar NtpSyncPending
-    mkTimeInfo <$> waitForNtpStatus
+defaultGetNtpDrift
+    :: MonadIO m
+    => TVar NtpStatus
+    -> V1.ForceNtpCheck
+    -> m V1.TimeInfo
+defaultGetNtpDrift tvar ntpCheckBehavior = liftIO $ mkTimeInfo <$>
+    if (ntpCheckBehavior == V1.ForceNtpCheck) then
+        forceNtpCheck >> getNtpOffset blockingLookupNtpOffset
+    else
+        getNtpOffset nonBlockingLookupNtpOffset
   where
-    mkTimeInfo :: Maybe NtpOffset -> V1.TimeInfo
-    mkTimeInfo = V1.TimeInfo . fmap (V1.mkLocalTimeDifference . toMicroseconds)
+    forceNtpCheck :: MonadIO m => m ()
+    forceNtpCheck =
+        atomically $ writeTVar tvar NtpSyncPending
 
-    -- NOTE This usually takes ~100-300ms and at most 30s
-    waitForNtpStatus :: MonadIO m => m (Maybe NtpOffset)
-    waitForNtpStatus = atomically $ do
-        status <- readTVar tvar
-        case status of
-            NtpSyncPending     -> retry
-            NtpDrift offset    -> pure (Just offset)
-            NtpSyncUnavailable -> pure Nothing
+    getNtpOffset :: MonadIO m => (NtpStatus -> STM (Maybe NtpOffset)) -> m (Maybe NtpOffset)
+    getNtpOffset lookupNtpOffset =
+        atomically $ (readTVar tvar >>= lookupNtpOffset)
+
+    mkTimeInfo :: Maybe NtpOffset -> V1.TimeInfo
+    mkTimeInfo =
+        V1.TimeInfo . fmap (V1.mkLocalTimeDifference . toMicroseconds)
+
+
+-- Lookup NtpOffset from an NTPStatus in a non-blocking manner
+--
+-- i.e. Returns immediately with 'Nothing' if the NtpSync is pending.
+nonBlockingLookupNtpOffset
+    :: NtpStatus
+    -> STM (Maybe NtpOffset)
+nonBlockingLookupNtpOffset = \case
+    NtpSyncPending     -> pure Nothing
+    NtpDrift offset    -> pure (Just offset)
+    NtpSyncUnavailable -> pure Nothing
+
+
+-- Lookup NtpOffset from an NTPStatus in a blocking manner, this usually
+-- take ~100ms
+--
+-- i.e. Wait (at most 30s) for the NtpSync to resolve if pending
+blockingLookupNtpOffset
+    :: NtpStatus
+    -> STM (Maybe NtpOffset)
+blockingLookupNtpOffset = \case
+    NtpSyncPending     -> retry
+    NtpDrift offset    -> pure (Just offset)
+    NtpSyncUnavailable -> pure Nothing
 
 
 -- | Get the most recent main block starting at the specified header

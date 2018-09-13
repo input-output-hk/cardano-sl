@@ -158,7 +158,7 @@ while [[ $i -lt $panesCnt ]]; do
           --configuration-file lib/configuration.yaml
       fi
 
-      wallet_args=" --tlscert $config_dir/tls-files/server.crt --tlskey $config_dir/tls-files/server.key --tlsca $config_dir/tls-files/ca.crt $wallet_flush" # --wallet-rebuild-db'
+      wallet_args=" --tlscert $config_dir/tls-files/server.crt --tlskey $config_dir/tls-files/server.key --tlsca $config_dir/tls-files/ca.crt $wallet_flush --wallet-db-path $run_dir/wallet-db-$i" # --wallet-rebuild-db'
       wallet_args="$WALLET_EXTRA_ARGS $wallet_args --wallet-address 127.0.0.1:8090"
       exec_name="$WALLET_EXE_NAME"
       if [[ $WALLET_DEBUG != "" ]]; then
@@ -170,7 +170,7 @@ while [[ $i -lt $panesCnt ]]; do
           conf_file=$WALLET_CONFIG
       fi
       wallet_args=" --tlscert $base/../tls-files/server.crt --tlskey $base/../tls-files/server.key --tlsca $base/../tls-files/ca.crt $wallet_flush" # --wallet-rebuild-db'
-      wallet_args="$WALLET_EXTRA_ARGS --new-wallet $wallet_args --wallet-address 127.0.0.1:8091"
+      wallet_args="$WALLET_EXTRA_ARGS $wallet_args --wallet-address 127.0.0.1:8091"
       exec_name="$WALLET_EXE_NAME"
       if [[ $WALLET_DEBUG != "" ]]; then
           wallet_args="$wallet_args --wallet-debug"

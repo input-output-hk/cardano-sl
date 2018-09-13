@@ -17704,6 +17704,7 @@ license = stdenv.lib.licenses.mit;
 , http-client
 , http-client-tls
 , http-types
+, insert-ordered-containers
 , ixset-typed
 , lens
 , memory
@@ -17924,6 +17925,7 @@ formatting
 hedgehog
 hspec
 hspec-core
+insert-ordered-containers
 lens
 mtl
 normaldistribution

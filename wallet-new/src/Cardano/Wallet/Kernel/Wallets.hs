@@ -23,7 +23,7 @@ import qualified Formatting.Buildable
 import           Data.Acid.Advanced (update')
 
 import           Pos.Core (Address, Timestamp)
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase,
+import           Pos.Crypto (EncryptedSecretKey, HDPassphrase, PassPhrase,
                      changeEncPassphrase, checkPassMatches, emptyPassphrase,
                      firstHardened, safeDeterministicKeyGen)
 
@@ -40,6 +40,8 @@ import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel,
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
+import           Cardano.Wallet.Kernel.Decrypt (WalletDecrCredentialsKey (..),
+                     decryptHdLvl2DerivationPath, keyToWalletDecrCredentials)
 import           Cardano.Wallet.Kernel.Internal (PassiveWallet, walletKeystore,
                      wallets)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
@@ -204,6 +206,8 @@ createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
                  -- Fix properly as part of [CBR-404].
                  Left e@(HD.CreateHdRootExists _) ->
                      return . Left $ CreateWalletFailed e
+                 Left e@(HD.CreateHdRootDefaultAddressDerivationFailed) ->
+                     return . Left $ CreateWalletFailed e
 
                  Right hdRoot -> return (Right hdRoot)
 
@@ -239,14 +243,18 @@ createWalletHdRnd pw hasSpendingPassword defaultCardanoAddress name assuranceLev
                                 assuranceLevel
                                 created
 
-        hdAddress = defaultHdAddressWith rootId defaultCardanoAddress
+        hdPass    = fst $ keyToWalletDecrCredentials (KeyForRegular esk)
+        hdAddress = defaultHdAddressWith hdPass rootId defaultCardanoAddress
 
-    -- We now have all the date we need to atomically generate a new
-    -- wallet with a default account & address.
-    res <- case createWallet newRoot (defaultHdAccountId rootId) hdAddress of
-        Left  create  -> update' (pw ^. wallets) create
-        Right restore -> update' (pw ^. wallets) restore
-    return $ either Left (const (Right newRoot)) res
+    case hdAddress of
+        Nothing -> return (Left HD.CreateHdRootDefaultAddressDerivationFailed)
+        Just addr -> do
+            -- We now have all the date we need to atomically generate a new
+            -- wallet with a default account & address.
+            res <- case createWallet newRoot (defaultHdAccountId rootId) addr of
+                Left  create  -> update' (pw ^. wallets) create
+                Right restore -> update' (pw ^. wallets) restore
+            return $ either Left (const (Right newRoot)) res
     where
 
         hdSpendingPassword :: InDb Timestamp -> HD.HasSpendingPassword
@@ -267,11 +275,16 @@ defaultHdAddress esk spendingPassword rootId =
 
 -- | Given a Cardano 'Address', it returns a default 'HdAddress' at a fixed
 -- and predictable generation path.
-defaultHdAddressWith :: HD.HdRootId -> Address -> HdAddress
-defaultHdAddressWith rootId cardanoAddress =
-    let hdAccountId = defaultHdAccountId rootId
-        hdAddressId = HdAddressId hdAccountId (HdAddressIx firstHardened)
-    in HD.HdAddress hdAddressId (InDb cardanoAddress)
+-- module Cardano.Wallet.Kernel.Decrypt
+defaultHdAddressWith :: HDPassphrase
+                     -> HD.HdRootId
+                     -> Address
+                     -> Maybe HdAddress
+defaultHdAddressWith hdPass rootId cardanoAddress = do
+    (hdAccountIx, hdAddressIx) <- decryptHdLvl2DerivationPath hdPass cardanoAddress
+    let hdAccountId = HdAccountId rootId hdAccountIx
+        hdAddressId = HdAddressId hdAccountId hdAddressIx
+    pure $ HD.HdAddress hdAddressId (InDb cardanoAddress)
 
 defaultHdAccountId :: HdRootId -> HdAccountId
 defaultHdAccountId rootId = HdAccountId rootId (HdAccountIx firstHardened)

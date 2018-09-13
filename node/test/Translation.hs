@@ -15,9 +15,7 @@ module Translation
     -- , chAbs
     ) where
 
-import           Chain.Abstract
-import qualified Chain.Abstract as Abs
-import           Chain.Abstract.Translate.FromUTxO
+
 import           Control.Exception as E
 import           Data.List.NonEmpty hiding (reverse)
 import qualified Data.Map.Strict as Map
@@ -28,9 +26,13 @@ import           Test.Hspec hiding (shouldBe)
 import           Test.HUnit.Lang (Assertion, FailureReason (..),
                      HUnitFailure (..))
 import           Universum
+
 import qualified UTxO.DSL as DSL
 
+import           Chain.Abstract
+import qualified Chain.Abstract as Abs
 import           Chain.Abstract.Repartition (mkRepartitionT)
+import           Chain.Abstract.Translate.FromUTxO
 
 shouldBe
     :: (HasCallStack, Eq a)
@@ -53,10 +55,18 @@ oDsl0 = DSL.Output
         , outVal  = 10 :: DSL.Value
         } :: DSL.Output DSL.GivenHash Addr
 oAbs0 = Abs.Output
-        { outAddr        = head addrs
-        , outVal         = 10 :: DSL.Value
-        , outRepartition = undefined
+        { outAddr        = addr
+        , outVal         = val
+        , outRepartition = rep
         }
+  where
+    addr = head addrs
+    val = 10 :: DSL.Value
+    -- No runtime exception should be thrown since the value is positive.
+    -- If we inadvertently change the value to zero, we want the test to
+    -- fail anyway.
+    Right rep = mkRepartitionT (error "This shouldn't happen") [(addr, val)]
+
 trDsl0 = DSL.Transaction
         { trFresh = 2 :: DSL.Value
         , trIns   = Set.empty
@@ -68,10 +78,15 @@ inDsl1 = DSL.Input
         { inpTrans = DSL.givenHash trDsl0
         , inpIndex = 0 }
 oAbs1 = Abs.Output
-        { outAddr        = addrs !! 1
-        , outVal         = 5 :: DSL.Value
-        , outRepartition = undefined
+        { outAddr        = addr
+        , outVal         = val
+        , outRepartition = rep
         }
+  where
+    addr = addrs !! 1
+    val = 5 :: DSL.Value
+    Right rep = mkRepartitionT (error "This shouldn't happen") [(addr, val)]
+
 oDsl1 = DSL.Output
         { outAddr = addrs !! 1
         , outVal  = 5 :: DSL.Value

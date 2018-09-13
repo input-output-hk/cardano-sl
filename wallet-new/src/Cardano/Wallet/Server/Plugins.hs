@@ -9,7 +9,6 @@ module Cardano.Wallet.Server.Plugins
     , docServer
     , monitoringServer
     , acidStateSnapshots
-    , corsMiddleware
     , throttleMiddleware
     , updateWatcher
     ) where
@@ -20,9 +19,6 @@ import           Data.Acid (AcidState)
 
 import           Network.Wai (Application, Middleware, responseLBS)
 import           Network.Wai.Handler.Warp (defaultSettings)
-import           Network.Wai.Middleware.Cors (cors, corsMethods,
-                     corsRequestHeaders, simpleCorsResourcePolicy,
-                     simpleMethods)
 import qualified Network.Wai.Middleware.Throttle as Throttle
 
 import           Cardano.NodeIPC (startNodeJsIPC)
@@ -31,8 +27,8 @@ import           Cardano.Wallet.API.V1.Headers (applicationJson)
 import qualified Cardano.Wallet.API.V1.Types as V1
 import           Cardano.Wallet.Kernel (DatabaseMode (..), PassiveWallet)
 import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..),
-                     RunMode, WalletBackendParams (..), getWalletDbOptions,
-                     isDebugMode, walletAcidInterval)
+                     WalletBackendParams (..), getWalletDbOptions, isDebugMode,
+                     walletAcidInterval)
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer,
                      PassiveWalletLayer)
 import           Pos.Chain.Update (cpsSoftwareVersion)
@@ -173,20 +169,6 @@ throttleMiddleware (Just ts) app = \req respond -> do
         , Throttle.throttleRate = fromIntegral $ tsRate ts
         , Throttle.throttlePeriod = fromIntegral $ tsPeriod ts
         , Throttle.throttleBurst = fromIntegral $ tsBurst ts
-        }
-
--- | A @Middleware@ to enable CORS.
--- When running in debug mode, chances are we want to at least allow CORS to test the API
--- with a Swagger editor, locally.
-corsMiddleware :: RunMode -> Middleware
-corsMiddleware wrm =
-    if isDebugMode wrm
-        then cors (const $ Just policy)
-        else identity
-  where
-    policy = simpleCorsResourcePolicy
-        { corsRequestHeaders = ["Content-Type"]
-        , corsMethods = "PUT" : simpleMethods
         }
 
 -- | A @Plugin@ to store updates proposal received from the blockchain

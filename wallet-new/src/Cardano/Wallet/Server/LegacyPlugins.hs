@@ -13,7 +13,6 @@ module Cardano.Wallet.Server.LegacyPlugins (
     , walletDocumentation
     , resubmitterPlugin
     , notifierPlugin
-    , corsMiddleware
     , throttleMiddleware
     ) where
 
@@ -23,7 +22,7 @@ import           Cardano.Wallet.API as API
 import           Cardano.Wallet.API.V1.Headers (applicationJson)
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.LegacyServer as LegacyServer
-import           Cardano.Wallet.Server.CLI (RunMode, WalletBackendParams (..),
+import           Cardano.Wallet.Server.CLI (WalletBackendParams (..),
                      isDebugMode, walletAcidInterval, walletDbOptions)
 import qualified Pos.Wallet.Web.Error.Types as V0
 
@@ -34,9 +33,6 @@ import           Network.HTTP.Types.Status (badRequest400)
 import           Network.Wai (Application, Middleware, Response, responseLBS)
 import           Network.Wai.Handler.Warp (defaultSettings,
                      setOnExceptionResponse)
-import           Network.Wai.Middleware.Cors (cors, corsMethods,
-                     corsRequestHeaders, simpleCorsResourcePolicy,
-                     simpleMethods)
 import qualified Network.Wai.Middleware.Throttle as Throttle
 import           Ntp.Client (NtpStatus)
 import           Pos.Chain.Txp (TxpConfiguration)
@@ -109,8 +105,7 @@ walletDocumentation WalletBackendParams {..} = pure $ \_ ->
         let app = Servant.serve API.walletDocAPI LegacyServer.walletDocServer
         return $
             withMiddlewares
-                [ corsMiddleware walletRunMode
-                , throttleMiddleware Nothing
+                [ throttleMiddleware Nothing
                 ]
                 app
     tls =
@@ -241,18 +236,4 @@ throttleMiddleware (Just ts) app = \req respond -> do
         , Throttle.throttleRate = fromIntegral $ tsRate ts
         , Throttle.throttlePeriod = fromIntegral $ tsPeriod ts
         , Throttle.throttleBurst = fromIntegral $ tsBurst ts
-        }
-
--- | A @Middleware@ to enable CORS.
--- When running in debug mode, chances are we want to at least allow CORS to test the API
--- with a Swagger editor, locally.
-corsMiddleware :: RunMode -> Middleware
-corsMiddleware wrm =
-    if isDebugMode wrm
-        then cors (const $ Just policy)
-        else identity
-  where
-    policy = simpleCorsResourcePolicy
-        { corsRequestHeaders = ["Content-Type"]
-        , corsMethods = "PUT" : simpleMethods
         }

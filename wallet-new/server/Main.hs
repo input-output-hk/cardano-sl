@@ -47,7 +47,7 @@ import qualified Cardano.Wallet.Kernel.Internal as Kernel.Internal
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as NodeStateAdaptor
 import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..),
-                     NewWalletBackendParams (..), WalletBackendParams (..),
+                     NewWalletBackendParams, WalletBackendParams (..),
                      WalletStartupOptions (..), getWalletDbOptions,
                      getWalletNodeOptions, walletDbPath, walletFlushDb,
                      walletRebuildDb)
@@ -109,8 +109,7 @@ actionWithLegacyWallet coreConfig walletConfig txpConfig sscParams nodeParams nt
     plugins ntpStatus =
         mconcat [ LegacyPlugins.conversation wArgs
                 , LegacyPlugins.legacyWalletBackend coreConfig txpConfig wArgs ntpStatus
-                    [ LegacyPlugins.corsMiddleware walletRunMode
-                    , LegacyPlugins.throttleMiddleware (ccThrottle walletConfig)
+                    [ LegacyPlugins.throttleMiddleware (ccThrottle walletConfig)
                     ]
                 , LegacyPlugins.walletDocumentation wArgs
                 , LegacyPlugins.acidCleanupWorker wArgs
@@ -129,7 +128,7 @@ actionWithWallet :: (HasConfigurations, HasCompileInfo)
                  -> NtpConfiguration
                  -> NewWalletBackendParams
                  -> IO ()
-actionWithWallet coreConfig walletConfig txpConfig sscParams nodeParams ntpConfig params@(NewWalletBackendParams lparams) =
+actionWithWallet coreConfig walletConfig txpConfig sscParams nodeParams ntpConfig params =
     bracketNodeResources
         coreConfig
         nodeParams
@@ -177,10 +176,8 @@ actionWithWallet coreConfig walletConfig txpConfig sscParams nodeParams ntpConfi
     plugins w dbMode = mconcat
         -- The actual wallet backend server.
         [ Plugins.apiServer pm params w
-            -- Enable CORS.
-            [ Plugins.corsMiddleware (walletRunMode lparams)
             -- Throttle requests.
-            , Plugins.throttleMiddleware (ccThrottle walletConfig)
+            [ Plugins.throttleMiddleware (ccThrottle walletConfig)
             ]
 
         -- The corresponding wallet documention, served as a different

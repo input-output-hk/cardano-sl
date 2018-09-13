@@ -264,12 +264,30 @@ mechanism (hex-encoded).
 Section `"protocolConsts"` contains basic protocol constants:
 
 *  `"k"` - security parameter from the paper,
-*  `"protocolMagic"` - protocol magic value (it's included into a
-   serialized block and header and it's part of signed data, so when protocol
-   magic is changed, all signatures become invalid) used to
-   distinguish different networks,
+*  `"protocolMagic"` - protocol magic section, described fully below:
+   * `"pm"` - protocol magic number,
+   * `"requiresNetworkMagic"` - either `"NMMustBeNothing"` or `"NMMustBeJust"`,
 *  `"vssMaxTTL"` - VSS certificates maximum timeout to live (number of epochs),
 *  `"vssMinTTL"` - VSS certificates minimum timeout to live (number of epochs).
+
+Section `"protocolMagic"` defines the protocol magic number. When the
+protocol magic is changed, all signatures become invalid. This is used
+to distinguish different networks.
+
+*  `"pm"` - is the protocol magic number, is included in serialized
+   blocks and headers, and is part of signed data.
+*  `"requiresNetworkMagic"` - has two options:
+   * `"NMMustBeNothing"` (mainnet setting) - means that the protocol
+     magic value will *not* be included in the address format or
+     transactions.
+   * `"NMMustBeJust"` (public testnet setting) - means that the
+     protocol magic value will be included in the address format and
+     hence transactions.
+
+The `"protocolMagic"` value can either be an object with the two
+fields described above, or just a plain integer. In the latter case,
+`"requiresNetworkMagic"` will take the default value of
+`"NMMustBeJust"`.
 
 Section `"heavyDelegation"` contains an information about heavyweight delegation:
 

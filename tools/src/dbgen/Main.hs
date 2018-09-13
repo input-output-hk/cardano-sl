@@ -14,14 +14,14 @@ import           Universum
 
 import           Control.Concurrent.STM (newTQueueIO)
 import           Data.Default (def)
-import           Data.Maybe (fromJust, isJust)
+import           Data.Maybe (isJust)
 import           Data.Time.Units (fromMicroseconds)
 import qualified Network.Transport.TCP as TCP
 import           Options.Generic (getRecord)
 
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Client.CLI (CommonArgs (..), CommonNodeArgs (..),
-                     NodeArgs (..), getNodeParams, gtSscParams)
+                     NodeArgs (..), getNodeParams)
 import           Pos.Core as Core (Config (..), Timestamp (..))
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Rocks.Functions (openNodeDBs)
@@ -35,9 +35,7 @@ import           Pos.Infra.Reporting (noReporter)
 import           Pos.Infra.Util.JsonLog.Events (jsonLogConfigFromHandle)
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations,
                      NodeResources (..), bracketNodeResources,
-                     defaultConfigurationOptions, npBehaviorConfig,
-                     npUserSecret, withConfigurations)
-import           Pos.Util.UserSecret (usVss)
+                     defaultConfigurationOptions, withConfigurations)
 import           Pos.Wallet.Web.Mode (WalletWebModeContext (..))
 import           Pos.Wallet.Web.State.Acidic (closeState, openState)
 import           Pos.Wallet.Web.State.State (WalletDB)
@@ -109,12 +107,11 @@ newRealModeContext coreConfig txpConfig dbs confOpts publicKeyPath secretKeyPath
          , cnaDumpConfiguration   = False
          }
     loggerName <- askLoggerName
-    nodeParams <- getNodeParams loggerName
-                                cArgs
-                                nodeArgs
-                                (configGeneratedSecrets coreConfig)
-    let vssSK = fromJust $ npUserSecret nodeParams ^. usVss
-    let gtParams = gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
+    (nodeParams, Just gtParams) <- getNodeParams
+        loggerName
+        cArgs
+        nodeArgs
+        (configGeneratedSecrets coreConfig)
     bracketNodeResources @()
         coreConfig
         nodeParams
@@ -170,7 +167,7 @@ main = do
     cli@CLI{..} <- getRecord "DBGen"
     let cfg = newConfig cli
 
-    withConfigurations Nothing cfg $ \coreConfig _ txpConfig _ -> do
+    withConfigurations Nothing Nothing False cfg $ \coreConfig _ txpConfig _ -> do
         when showStats (showStatsAndExit walletPath)
 
         say $ bold "Starting the modification of the wallet..."

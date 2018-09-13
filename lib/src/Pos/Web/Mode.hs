@@ -13,7 +13,6 @@ import qualified Control.Monad.Reader as Mtl
 
 import           Pos.Context (HasPrimaryKey (..), HasSscContext (..),
                      NodeContext)
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.DB (NodeDBs)
 import           Pos.DB.Block (dbGetSerBlockRealDefault,
                      dbGetSerBlundRealDefault, dbGetSerUndoRealDefault,
@@ -53,14 +52,14 @@ instance HasPrimaryKey (WebModeContext ext) where
 
 type WebMode ext = Mtl.ReaderT (WebModeContext ext) IO
 
-instance HasConfiguration => MonadDBRead (WebMode ext) where
+instance MonadDBRead (WebMode ext) where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
     dbGetSerBlock = dbGetSerBlockRealDefault
     dbGetSerUndo = dbGetSerUndoRealDefault
     dbGetSerBlund = dbGetSerBlundRealDefault
 
-instance HasConfiguration => MonadDB (WebMode ext) where
+instance MonadDB (WebMode ext) where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault

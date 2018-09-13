@@ -9,7 +9,6 @@ module Main where
 import           Universum
 
 import           Control.Concurrent.STM (newTQueueIO)
-import           Data.Maybe (fromJust)
 import           Ntp.Client (NtpConfiguration, NtpStatus, ntpClientSettings,
                      withNtpClient)
 import           Pos.Chain.Ssc (SscParams)
@@ -28,7 +27,6 @@ import           Pos.Launcher.Configuration (AssetLockPath (..),
                      ConfigurationOptions, HasConfigurations)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
-import           Pos.Util.UserSecret (usVss)
 import           Pos.Util.Wlog (LoggerName, Severity (..), logInfo, logMessage,
                      usingLoggerName)
 import           Pos.Wallet.Web (bracketWalletWS, bracketWalletWebDB,
@@ -204,8 +202,10 @@ actionWithWallet coreConfig txpConfig sscParams nodeParams ntpConfig params =
 -- | Runs an edge node plus its wallet backend API.
 startEdgeNode :: HasCompileInfo => WalletStartupOptions -> IO ()
 startEdgeNode wso =
-    withConfigurations blPath conf $ \coreConfig walletConfig txpConfig ntpConfig -> do
-        (sscParams, nodeParams) <- getParameters coreConfig walletConfig txpConfig ntpConfig
+    withConfigurations blPath dumpGenesisPath dumpConfiguration conf $
+        \coreConfig walletConfig txpConfig ntpConfig -> do
+        (sscParams, nodeParams) <- getParameters coreConfig
+
         case wsoWalletBackendParams wso of
             WalletLegacy legacyParams -> actionWithLegacyWallet
                 coreConfig
@@ -223,29 +223,23 @@ startEdgeNode wso =
                 ntpConfig
                 newParams
   where
-    getParameters :: HasConfigurations
-                  => Core.Config
-                  -> WalletConfiguration
-                  -> TxpConfiguration
-                  -> NtpConfiguration
-                  -> IO (SscParams, NodeParams)
-    getParameters coreConfig walletConfig txpConfig ntpConfig = do
+    getParameters :: Core.Config -> IO (SscParams, NodeParams)
+    getParameters coreConfig = do
 
-      currentParams <- CLI.getNodeParams defaultLoggerName
+      (currentParams, Just gtParams) <- CLI.getNodeParams defaultLoggerName
                                          (wsoNodeArgs wso)
                                          nodeArgs
                                          (configGeneratedSecrets coreConfig)
-      let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-      let gtParams = CLI.gtSscParams (wsoNodeArgs wso) vssSK (npBehaviorConfig currentParams)
 
-      CLI.printInfoOnStart (wsoNodeArgs wso)
-                           (configGenesisData coreConfig)
-                           walletConfig
-                           ntpConfig
-                           txpConfig
       logInfo "Wallet is enabled!"
 
       return (gtParams, currentParams)
+
+    dumpGenesisPath :: Maybe FilePath
+    dumpGenesisPath = CLI.cnaDumpGenesisDataPath (wsoNodeArgs wso)
+
+    dumpConfiguration :: Bool
+    dumpConfiguration = CLI.cnaDumpConfiguration (wsoNodeArgs wso)
 
     conf :: ConfigurationOptions
     conf = CLI.configurationOptions $ CLI.commonArgs (wsoNodeArgs wso)

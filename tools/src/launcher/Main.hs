@@ -21,8 +21,8 @@ import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel,
                      poll, wait, waitAny, withAsync, withAsyncWithUnmask)
 import           Control.Exception.Safe (catchAny, handle, mask_, tryAny)
 import           Control.Lens (makeLensesWith)
-import           Data.Aeson (FromJSON, Value (Array, Bool, Object), fromJSON,
-                     genericParseJSON, withObject)
+import           Data.Aeson (FromJSON, Value (Array, Bool, Object, String),
+                     fromJSON, genericParseJSON, withObject)
 import qualified Data.Aeson as AE
 import           Data.Aeson.Options (defaultOptions)
 import qualified Data.ByteString.Lazy as BS.L
@@ -64,8 +64,7 @@ import           GHC.IO.Exception (IOErrorType (..), IOException (..))
 
 import           Paths_cardano_sl (version)
 import           Pos.Client.CLI (readLoggerConfig)
-import           Pos.Core (Config (..), HasConfiguration, ProtocolMagic,
-                     Timestamp (..))
+import           Pos.Core (Config (..), ProtocolMagic, Timestamp (..))
 import           Pos.DB.Block (dbGetSerBlockRealDefault,
                      dbGetSerBlundRealDefault, dbGetSerUndoRealDefault,
                      dbPutSerBlundsRealDefault)
@@ -128,6 +127,7 @@ instance FromJSON LauncherOptions where
             -- any yet.
             o <> HM.fromList
                 [ ("walletLogging", Bool False)
+                , ("workingDir",    String ".")
                 , ("nodeArgs",      Array mempty)
                 , ("walletArgs",    Array mempty)
                 , ("updaterArgs",   Array mempty)
@@ -255,14 +255,14 @@ type LauncherMode = ReaderT LauncherModeContext IO
 instance HasLens NodeDBs LauncherModeContext NodeDBs where
     lensOf = lmcNodeDBs_L
 
-instance HasConfiguration => MonadDBRead LauncherMode where
+instance MonadDBRead LauncherMode where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
     dbGetSerBlock = dbGetSerBlockRealDefault
     dbGetSerUndo = dbGetSerUndoRealDefault
     dbGetSerBlund = dbGetSerBlundRealDefault
 
-instance HasConfiguration => MonadDB LauncherMode where
+instance MonadDB LauncherMode where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
@@ -310,7 +310,7 @@ main =
                       set Log.ltFiles [Log.HandlerWrap "launcher" Nothing] .
                       set Log.ltSeverity (Just Log.debugPlus)
     logException loggerName . Log.usingLoggerName loggerName $
-        withConfigurations Nothing loConfiguration $ \coreConfig _ _ _ -> do
+        withConfigurations Nothing Nothing False loConfiguration $ \coreConfig _ _ _ -> do
 
         -- Generate TLS certificates as needed
         generateTlsCertificates loConfiguration loX509ToolPath loTlsPath
@@ -540,7 +540,7 @@ frontendOnlyScenario ndbp node wallet updater walletLog = do
 
 -- | We run the updater and delete the update file if the update was
 -- successful.
-runUpdater :: HasConfigurations => NodeDbPath -> UpdaterData -> M ()
+runUpdater :: NodeDbPath -> UpdaterData -> M ()
 runUpdater ndbp ud = do
     let path = udPath ud
         args = udArgs ud

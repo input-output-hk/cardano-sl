@@ -24,7 +24,6 @@ import           Pos.Core as Core (ChainDifficulty (..), Config (..),
                      SlotId (..), configEpochSlots, difficultyL)
 import           Pos.Core.Chrono (getOldestFirst)
 import           Pos.Core.Conc (delay, forConcurrently)
-import           Pos.Core.Configuration (HasConfiguration)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
@@ -54,7 +53,6 @@ type MonadPendings ctx m =
     , MonadReporting m
     , HasShutdownContext ctx
     , MonadSlots ctx m
-    , HasConfiguration
     , HasNodeConfiguration
     )
 

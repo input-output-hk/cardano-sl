@@ -31,16 +31,15 @@ import qualified Database.RocksDB as Rocks
 import           Formatting (bprint, int, sformat, stext, (%))
 import qualified Formatting.Buildable
 
-import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Class (Bi, serialize')
 import           Pos.Chain.Block (HeaderHash)
 import           Pos.Core (ChainDifficulty)
-import           Pos.Core.Configuration (HasCoreConfiguration)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB.BatchOp (RocksBatchOp (..), dbWriteBatch')
 import           Pos.DB.Class (DBTag (GStateDB), MonadDB (dbDelete),
                      MonadDBRead (..))
 import           Pos.DB.Error (DBError (DBMalformed))
-import           Pos.DB.Functions (dbGetBi, dbPutBi, dbSerializeValue)
+import           Pos.DB.Functions (dbGetBi, dbPutBi)
 import           Pos.Util.Util (maybeThrow)
 
 ----------------------------------------------------------------------------
@@ -99,11 +98,11 @@ instance Buildable CommonOp where
     build (PutMaxSeenDifficulty d) =
         bprint ("PutMaxSeenDifficulty ("%int%")") d
 
-instance HasCoreConfiguration => RocksBatchOp CommonOp where
+instance RocksBatchOp CommonOp where
     toBatchOp (PutTip h) =
-        [Rocks.Put tipKey (dbSerializeValue h)]
+        [Rocks.Put tipKey (serialize' h)]
     toBatchOp (PutMaxSeenDifficulty h) =
-        [Rocks.Put maxSeenDifficultyKey (dbSerializeValue h)]
+        [Rocks.Put maxSeenDifficultyKey (serialize' h)]
 
 ----------------------------------------------------------------------------
 -- Initialization

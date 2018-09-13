@@ -11,7 +11,7 @@ import qualified Data.HashMap.Strict as HM
 import           Pos.Chain.Block (ComponentBlock (..), HeaderHash, headerHash,
                      headerSlotL)
 import           Pos.Chain.Txp (TxAux, TxUndo, TxpConfiguration)
-import           Pos.Core as Core (Config (..), HasConfiguration, SlotId (..),
+import           Pos.Core as Core (Config (..), SlotId (..),
                      configBootStakeholders, epochIndexL,
                      localSlotIndexMinBound)
 import           Pos.Core.Chrono (NewestFirst (..))
@@ -96,7 +96,7 @@ applySingle bootStakeholders txpBlund = do
     let (txAuxesAndUndos, hHash) = blundToAuxNUndoWHash txpBlund
     return $ eApplyToil bootStakeholders mTxTimestamp txAuxesAndUndos hHash
 
-extraOps :: HasConfiguration => ExplorerExtraModifier -> SomeBatchOp
+extraOps :: ExplorerExtraModifier -> SomeBatchOp
 extraOps (ExplorerExtraModifier em (HM.toList -> histories) balances utxoNewSum) =
     SomeBatchOp $
     map GS.DelTxExtra (MM.deletions em) ++

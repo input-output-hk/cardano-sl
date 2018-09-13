@@ -24,9 +24,8 @@ import           Test.QuickCheck.Random (QCGen)
 
 import           Pos.Chain.Block (Blund, headerHash)
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Core as Core (Config (..), HasConfiguration,
-                     ProtocolConstants (..), configBootStakeholders,
-                     configEpochSlots)
+import           Pos.Core as Core (Config (..), ProtocolConstants (..),
+                     configBootStakeholders, configEpochSlots)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      nonEmptyNewestFirst, nonEmptyOldestFirst,
                      splitAtNewestFirst, toNewestFirst, _NewestFirst)
@@ -148,8 +147,7 @@ verifyAndApplyBlocksSpec txpConfig =
         applyByOneOrAllAtOnce coreConfig txpConfig (applier coreConfig)
   where
     applier
-        :: HasConfiguration
-        => Core.Config
+        :: Core.Config
         -> OldestFirst NE Blund
         -> BlockTestMode ()
     applier coreConfig blunds = do

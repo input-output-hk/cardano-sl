@@ -21,7 +21,6 @@ import           Data.Conduit (ConduitT, transPipe)
 
 import qualified Database.RocksDB as Rocks
 import           Pos.Binary.Class (Bi)
-import           Pos.Core.Configuration (HasCoreConfiguration)
 import           Pos.DB.Class (DBIteratorClass (..), DBTag, IterType)
 import           Pos.DB.Pure (DBPureVar)
 import qualified Pos.DB.Pure as DB
@@ -57,7 +56,6 @@ dbIterSourceSumDefault
        , DBIteratorClass i
        , Bi (IterKey i)
        , Bi (IterValue i)
-       , HasCoreConfiguration
        )
     => DBTag -> Proxy i -> ConduitT () (IterType i) m ()
 dbIterSourceSumDefault tag proxy = view (lensOf @DBSum) >>= \case

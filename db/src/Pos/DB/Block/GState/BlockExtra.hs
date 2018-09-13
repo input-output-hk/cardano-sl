@@ -29,12 +29,12 @@ import           Serokell.Util.Text (listJson)
 import           Pos.Binary.Class (serialize')
 import           Pos.Chain.Block (Block, BlockHeader, HasHeaderHash, HeaderHash,
                      LastBlkSlots, headerHash, noLastBlkSlots)
-import           Pos.Core (FlatSlotId, GenesisHash (..), HasCoreConfiguration,
-                     SlotCount, slotIdF, unflattenSlotId)
+import           Pos.Core (FlatSlotId, GenesisHash (..), SlotCount, slotIdF,
+                     unflattenSlotId)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (..), MonadDB, MonadDBRead (..),
-                     RocksBatchOp (..), dbSerializeValue, getHeader)
+                     RocksBatchOp (..), getHeader)
 import           Pos.DB.Class (MonadBlockDBRead, SerializedBlock, getBlock)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
 import           Pos.Util.Util (maybeThrow)
@@ -99,17 +99,17 @@ buildBlockExtraOp epochSlots = later build'
         bprint ("SetLastSlots: "%listJson)
         (map (bprint slotIdF . unflattenSlotId epochSlots) slots)
 
-instance HasCoreConfiguration => RocksBatchOp BlockExtraOp where
+instance RocksBatchOp BlockExtraOp where
     toBatchOp (AddForwardLink from to) =
-        [Rocks.Put (forwardLinkKey from) (dbSerializeValue to)]
+        [Rocks.Put (forwardLinkKey from) (serialize' to)]
     toBatchOp (RemoveForwardLink from) =
         [Rocks.Del $ forwardLinkKey from]
     toBatchOp (SetInMainChain False h) =
         [Rocks.Del $ mainChainKey h]
     toBatchOp (SetInMainChain True h) =
-        [Rocks.Put (mainChainKey h) (dbSerializeValue ()) ]
+        [Rocks.Put (mainChainKey h) (serialize' ()) ]
     toBatchOp (SetLastSlots slots) =
-        [Rocks.Put lastSlotsKey (dbSerializeValue slots)]
+        [Rocks.Put lastSlotsKey (serialize' slots)]
 
 ----------------------------------------------------------------------------
 -- Loops on forward links

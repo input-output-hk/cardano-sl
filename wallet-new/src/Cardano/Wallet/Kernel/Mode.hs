@@ -14,7 +14,7 @@ import           Universum
 import           Pos.Chain.Block
 import           Pos.Chain.Txp
 import           Pos.Context
-import           Pos.Core as Core (Config, HasConfiguration)
+import           Pos.Core as Core (Config)
 import           Pos.Core.Chrono
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..))
@@ -164,14 +164,14 @@ instance {-# OVERLAPPABLE #-}
 
 type instance MempoolExt WalletMode = EmptyMempoolExt
 
-instance HasConfiguration => MonadDBRead WalletMode where
+instance MonadDBRead WalletMode where
   dbGet         = dbGetDefault
   dbIterSource  = dbIterSourceDefault
   dbGetSerBlock = dbGetSerBlockRealDefault
   dbGetSerUndo  = dbGetSerUndoRealDefault
   dbGetSerBlund  = dbGetSerBlundRealDefault
 
-instance HasConfiguration => MonadDB WalletMode where
+instance MonadDB WalletMode where
   dbPut         = dbPutDefault
   dbWriteBatch  = dbWriteBatchDefault
   dbDelete      = dbDeleteDefault
@@ -183,14 +183,13 @@ instance MonadSlotsData ctx WalletMode => MonadSlots ctx WalletMode where
   getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple
   currentTimeSlotting      = currentTimeSlottingSimple
 
-instance HasConfiguration => MonadGState WalletMode where
+instance MonadGState WalletMode where
   gsAdoptedBVData = gsAdoptedBVDataDefault
 
 instance {-# OVERLAPPING #-} CanJsonLog WalletMode where
   jsonLog = jsonLogDefault
 
-instance HasConfiguration
-      => MonadTxpLocal WalletMode where
+instance MonadTxpLocal WalletMode where
   txpNormalize = txNormalize
   txpProcessTx = txProcessTransaction
 

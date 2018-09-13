@@ -13,13 +13,12 @@ import qualified Database.RocksDB as Rocks
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 
+import           Pos.Binary.Class (serialize')
 import           Pos.Chain.Ssc (SscGlobalState (..))
 import qualified Pos.Chain.Ssc as VCD
-import           Pos.Core (HasCoreConfiguration)
 import           Pos.Core.Ssc (VssCertificatesMap)
 import           Pos.DB (MonadDB, MonadDBRead, RocksBatchOp (..))
 import           Pos.DB.Error (DBError (DBMalformed))
-import           Pos.DB.Functions (dbSerializeValue)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
 import           Pos.Util.Util (maybeThrow)
 
@@ -46,8 +45,8 @@ data SscOp
 instance Buildable SscOp where
     build (PutGlobalState gs) = bprint ("SscOp ("%build%")") gs
 
-instance (HasCoreConfiguration) => RocksBatchOp SscOp where
-    toBatchOp (PutGlobalState gs) = [Rocks.Put sscKey (dbSerializeValue gs)]
+instance RocksBatchOp SscOp where
+    toBatchOp (PutGlobalState gs) = [Rocks.Put sscKey (serialize' gs)]
 
 ----------------------------------------------------------------------------
 -- Key

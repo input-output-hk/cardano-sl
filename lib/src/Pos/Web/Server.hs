@@ -46,7 +46,6 @@ import           Pos.Chain.Update (HasUpdateConfiguration)
 import           Pos.Context (HasNodeContext (..), HasSscContext (..),
                      NodeContext, getOurPublicKey)
 import           Pos.Core (EpochIndex (..), SlotLeaders)
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB as DB
 import qualified Pos.DB.Lrc as LrcDB
@@ -254,7 +253,7 @@ servantServer = withNat (Proxy @NodeApi) nodeServantHandlers
 ----------------------------------------------------------------------------
 
 nodeServantHandlers
-    :: (HasConfiguration, HasUpdateConfiguration, Default ext)
+    :: (HasUpdateConfiguration, Default ext)
     => ServerT NodeApi (WebMode ext)
 nodeServantHandlers =
     getLeaders
@@ -274,7 +273,7 @@ nodeServantHandlers =
     -- :<|> getOurSecret
     -- :<|> getSscStage
 
-getLeaders :: HasConfiguration => Maybe EpochIndex -> WebMode ext SlotLeaders
+getLeaders :: Maybe EpochIndex -> WebMode ext SlotLeaders
 getLeaders maybeEpoch = do
     -- epoch <- maybe (siEpoch <$> getCurrentSlot) pure maybeEpoch
     epoch <- maybe (pure 0) pure maybeEpoch
@@ -282,7 +281,7 @@ getLeaders maybeEpoch = do
   where
     err = err404 { errBody = encodeUtf8 ("Leaders are not know for current epoch"::Text) }
 
-getUtxo :: HasConfiguration => WebMode ext [TxOut]
+getUtxo :: WebMode ext [TxOut]
 getUtxo = map toaOut . toList <$> getAllPotentiallyHugeUtxo
 
 getLocalTxsNum :: Default ext => WebMode ext Word

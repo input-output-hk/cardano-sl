@@ -23,8 +23,7 @@ import qualified Cardano.Wallet.Kernel.DB.HdWallet as Kernel
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import qualified Cardano.Wallet.Kernel.Internal as Internal
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
-import           Cardano.Wallet.WalletLayer (CreateAccount (..),
-                     PassiveWalletLayer)
+import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
 import qualified Cardano.Wallet.WalletLayer.Kernel.Wallets as Wallets
 import           Control.Monad.Except (runExceptT)
@@ -81,7 +80,7 @@ spec = describe "Accounts" $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
                     res <- WalletLayer.createAccount layer
                              (V1.walId fixtureV1Wallet)
-                             (CreateHdAccountRandomIndex fixtureNewAccountRq)
+                             fixtureNewAccountRq
                     (bimap STB STB res) `shouldSatisfy` isRight
 
         prop "fails if the parent wallet doesn't exists" $ withMaxSuccess 50 $ do
@@ -90,7 +89,7 @@ spec = describe "Accounts" $ do
                 pwd <- genSpendingPassword
                 request <- genNewAccountRq pwd
                 withLayer $ \layer _ -> do
-                    res <- WalletLayer.createAccount layer wId (CreateHdAccountRandomIndex request)
+                    res <- WalletLayer.createAccount layer wId request
                     case res of
                          Left (WalletLayer.CreateAccountError (CreateAccountKeystoreNotFound _)) ->
                              return ()
@@ -110,7 +109,10 @@ spec = describe "Accounts" $ do
                     res <- runExceptT . runHandler' $ hdl
                     (bimap identity STB res) `shouldSatisfy` isRight
 
-        prop "comes with 1 address by default" $ withMaxSuccess 50 $ do
+        prop "does NOT come with 1 address by default" $ withMaxSuccess 50 $ do
+            -- We expect newly created accounts to @not@ have any associated
+            -- addresses. Remember, it's only when we create a new HdRoot that
+            -- we enforce this invariant.
             monadicIO $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
                     let hdl = Handlers.newAccount layer (V1.walId fixtureV1Wallet) fixtureNewAccountRq
@@ -118,7 +120,7 @@ spec = describe "Accounts" $ do
                     case res of
                          Left e -> throwM e
                          Right API.WalletResponse{..} ->
-                             length (V1.accAddresses wrData) `shouldBe` 1
+                             length (V1.accAddresses wrData) `shouldBe` 0
 
     describe "DeleteAccount" $ do
 
@@ -127,7 +129,7 @@ spec = describe "Accounts" $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
                     let wId = V1.walId fixtureV1Wallet
                     (Right V1.Account{..}) <-
-                        WalletLayer.createAccount layer wId (CreateHdAccountRandomIndex fixtureNewAccountRq)
+                        WalletLayer.createAccount layer wId fixtureNewAccountRq
                     res <- WalletLayer.deleteAccount layer wId accIndex
                     (bimap STB STB res) `shouldSatisfy` isRight
 
@@ -220,7 +222,7 @@ spec = describe "Accounts" $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
                     let wId = V1.walId fixtureV1Wallet
                     (Right V1.Account{..}) <-
-                        WalletLayer.createAccount layer wId (CreateHdAccountRandomIndex fixtureNewAccountRq)
+                        WalletLayer.createAccount layer wId fixtureNewAccountRq
                     let updateAccountRq = V1.AccountUpdate "My nice account"
                     res <- WalletLayer.updateAccount layer wId accIndex updateAccountRq
                     case res of
@@ -291,7 +293,7 @@ spec = describe "Accounts" $ do
                 withFixture $ \_ layer _ Fixture{..} -> do
                     (Right V1.Account{..}) <-
                         WalletLayer.createAccount layer (V1.walId fixtureV1Wallet)
-                                                        (CreateHdAccountRandomIndex fixtureNewAccountRq)
+                                                        fixtureNewAccountRq
                     res <- WalletLayer.getAccount layer (V1.walId fixtureV1Wallet)
                                                         accIndex
                     case res of
@@ -357,7 +359,7 @@ spec = describe "Accounts" $ do
                     -- by the 'createWallet' endpoint, for a total of 5.
                     forM_ [1..4] $ \(_i :: Int) ->
                         WalletLayer.createAccount layer (V1.walId fixtureV1Wallet)
-                                                        (CreateHdAccountRandomIndex fixtureNewAccountRq)
+                                                        fixtureNewAccountRq
                     res <- WalletLayer.getAccounts layer (V1.walId fixtureV1Wallet)
                     case res of
                          Left e     -> fail (show e)
@@ -428,7 +430,7 @@ spec = describe "Accounts" $ do
                     -- by the 'createWallet' endpoint, for a total of 5.
                     forM_ [1..4] $ \(_i :: Int) ->
                         WalletLayer.createAccount layer (V1.walId fixtureV1Wallet)
-                                                        (CreateHdAccountRandomIndex fixtureNewAccountRq)
+                                                        fixtureNewAccountRq
                     accounts <- WalletLayer.getAccounts layer (V1.walId fixtureV1Wallet)
                     let accountIndices =
                             case accounts of
@@ -480,7 +482,7 @@ spec = describe "Accounts" $ do
                     -- by the 'createWallet' endpoint, for a total of 5.
                     forM_ [1..4] $ \(_i :: Int) ->
                         WalletLayer.createAccount layer (V1.walId fixtureV1Wallet)
-                                                        (CreateHdAccountRandomIndex fixtureNewAccountRq)
+                                                        fixtureNewAccountRq
                     accountsBefore <- WalletLayer.getAccounts layer (V1.walId fixtureV1Wallet)
                     let accountIndices =
                             case accountsBefore of
@@ -508,7 +510,7 @@ spec = describe "Accounts" $ do
                     let zero = V1 (mkCoin 0)
                     (Right V1.Account{..}) <-
                         WalletLayer.createAccount layer (V1.walId fixtureV1Wallet)
-                                                        (CreateHdAccountRandomIndex fixtureNewAccountRq)
+                                                        fixtureNewAccountRq
                     res <- WalletLayer.getAccountBalance layer (V1.walId fixtureV1Wallet)
                                                                accIndex
                     case res of
@@ -544,7 +546,7 @@ spec = describe "Accounts" $ do
                     -- by the 'createWallet' endpoint, for a total of 5.
                     forM_ [1..4] $ \(_i :: Int) ->
                         WalletLayer.createAccount layer (V1.walId fixtureV1Wallet)
-                                                        (CreateHdAccountRandomIndex fixtureNewAccountRq)
+                                                        fixtureNewAccountRq
                     accounts <- WalletLayer.getAccounts layer (V1.walId fixtureV1Wallet)
                     let accountIndices =
                             case accounts of

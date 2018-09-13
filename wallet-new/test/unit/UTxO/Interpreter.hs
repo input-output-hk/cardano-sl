@@ -289,8 +289,7 @@ runIntBoot' boot = mapTranslateErrors mustBeLeft . runIntBoot boot
 
 -- | Convenience function to list actions in the 'Translate' monad
 liftTranslateInt :: Monad m
-                 => (   (HasConfiguration, HasUpdateConfiguration)
-                     => TranslateT IntException m a)
+                 => (HasUpdateConfiguration => TranslateT IntException m a)
                  -> IntT h e m a
 liftTranslateInt ta =  IntT $ lift $ mapTranslateErrors Left $ withConfig $ ta
 
@@ -353,7 +352,7 @@ popIntCheckpoint = do
 -- The function runs in the underlying 'Translate' monad so that it is not tempted
 -- to use state it shouldn't.
 pushCheckpoint :: Monad m
-                => (    (HasConfiguration, HasUpdateConfiguration)
+                => (    HasUpdateConfiguration
                      => IntCheckpoint
                      -> SlotId
                      -> TranslateT IntException m (IntCheckpoint, a))
@@ -399,7 +398,7 @@ updateStakes :: forall m. MonadError IntException m
              -> ResolvedBlock
              -> StakesMap -> m StakesMap
 updateStakes gs (ResolvedBlock txs _ _) =
-    foldr (>=>) return $ map go txs
+    foldr ((>=>) . go) return txs
   where
     go :: ResolvedTx -> StakesMap -> m StakesMap
     go (ResolvedTx ins outs _) =

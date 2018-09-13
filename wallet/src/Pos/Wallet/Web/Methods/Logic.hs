@@ -50,7 +50,6 @@ import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead,
                      addSecretKey, deletePublicKeyBy, deleteSecretKeyBy)
 import           Pos.Core (Address, Coin, makePubKeyAddressBoot, mkCoin,
                      sumCoins, unsafeIntegerToCoin)
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Crypto (PassPhrase, PublicKey, changeEncPassphrase,
                      checkPassMatches, emptyPassphrase, firstHardened)
 import           Pos.DB.Txp (GenericTxpLocalData, MonadTxpMem, getLocalTxs,
@@ -99,7 +98,6 @@ type MonadWalletLogicRead ctx m =
     , MonadKeysRead m
     , MonadTxpMem WalletMempoolExt ctx m
     , BlockLockMode ctx m
-    , HasConfiguration
     , WalletDbReader ctx m
     )
 

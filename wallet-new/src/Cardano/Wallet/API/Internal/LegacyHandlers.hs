@@ -36,7 +36,7 @@ import           Cardano.Wallet.Server.CLI (RunMode (..), isDebugMode)
 -- | Until we depend from V0 logic to implement the each 'Handler' we
 -- still need the natural transformation here.
 handlers
-    :: (HasConfiguration, HasUpdateConfiguration)
+    :: HasUpdateConfiguration
     => (forall a. MonadV1 a -> Handler a)
     -> Core.Config
     -> RunMode
@@ -53,7 +53,6 @@ handlers naturalTransformation coreConfig runMode =
         hoistServer (Proxy @Internal.API) naturalTransformation handlers'
 
 nextUpdate :: ( MonadIO m
-              , HasConfiguration
               , MonadThrow m
               , V0.WalletDbReader ctx m
               , HasUpdateConfiguration

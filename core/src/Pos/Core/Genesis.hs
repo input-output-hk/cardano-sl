@@ -8,7 +8,6 @@ module Pos.Core.Genesis
        , module Pos.Core.Genesis.NonAvvmBalances
        , module Pos.Core.Genesis.ProtocolConstants
        , module Pos.Core.Genesis.Spec
-       , module Pos.Core.Genesis.VssCertificatesMap
        , module Pos.Core.Genesis.WStakeholders
        ) where
 
@@ -21,5 +20,4 @@ import           Pos.Core.Genesis.Initializer
 import           Pos.Core.Genesis.NonAvvmBalances
 import           Pos.Core.Genesis.ProtocolConstants
 import           Pos.Core.Genesis.Spec
-import           Pos.Core.Genesis.VssCertificatesMap
 import           Pos.Core.Genesis.WStakeholders

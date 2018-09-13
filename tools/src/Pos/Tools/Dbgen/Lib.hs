@@ -229,7 +229,7 @@ timed action = do
     return res
 
 
-fakeSync :: UberMonad ()
+fakeSync :: WalletWebMode ()
 fakeSync = do
     say "Faking StateLock syncing..."
     tip <- getTip

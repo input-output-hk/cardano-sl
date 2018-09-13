@@ -33,7 +33,6 @@ import           Pos.Core.Merkle (MerkleTree)
 import           Test.Pos.Binary.Helpers (binaryTest)
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Core.Chrono ()
-import           Test.Pos.Core.Dummy (dummyCoreConfiguration)
 import           Test.Pos.Crypto.Arbitrary ()
 
 
@@ -84,8 +83,7 @@ instance Bi (Attributes X2) where
 
 
 spec :: Spec
-spec = withGenesisSpec 0 dummyCoreConfiguration id $ \_ ->
-    describe "Cbor Bi instances" $ do
+spec = describe "Cbor Bi instances" $ do
         describe "Core.Address" $ do
             binaryTest @Address
             binaryTest @Address'

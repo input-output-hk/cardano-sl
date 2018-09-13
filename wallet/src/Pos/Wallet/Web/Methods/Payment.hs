@@ -31,7 +31,7 @@ import           Pos.Client.Txp.Network (prepareMTx)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), computeTxFee,
                      runTxCreator)
 import           Pos.Configuration (walletTxCreationDisabled)
-import           Pos.Core as Core (Address, Coin, Config (..), HasConfiguration,
+import           Pos.Core as Core (Address, Coin, Config (..),
                      getCurrentTimestamp)
 import           Pos.Core.Conc (concurrently, delay)
 import           Pos.Core.Genesis (GenesisData)
@@ -114,7 +114,6 @@ type MonadFees ctx m =
     , MonadAddresses m
     , MonadBalances m
     , MonadIO m
-    , HasConfiguration
     )
 
 getTxFee

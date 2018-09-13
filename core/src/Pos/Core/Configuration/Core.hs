@@ -1,19 +1,8 @@
 {-# LANGUAGE NumDecimals #-}
 {-# LANGUAGE Rank2Types  #-}
 
--- | Global constants, configurable via Data.Reflection.
-
 module Pos.Core.Configuration.Core
-       (
-       -- * The configuration structure
-         CoreConfiguration(..)
-       , GenesisConfiguration(..)
-
-       , HasCoreConfiguration
-       , withCoreConfiguration
-
-       , coreConfiguration
-       , dbSerializeVersion
+       ( GenesisConfiguration(..)
        ) where
 
 import           Prelude
@@ -23,11 +12,9 @@ import           Data.Aeson (FromJSON, ToJSON, Value (..), genericToEncoding,
                      pairs, parseJSON, toEncoding, (.:))
 import           Data.Aeson.Encoding (pairStr)
 import           Data.Aeson.Options (defaultOptions)
-import           Data.Aeson.TH (deriveJSON)
 import           Data.Aeson.Types (typeMismatch)
 import qualified Data.HashMap.Strict as HM
 import           Data.Monoid ((<>))
-import           Data.Reflection (Given (..), give)
 
 import           Pos.Binary.Class (Raw)
 import           Pos.Core.Genesis (GenesisAvvmBalances (..),
@@ -106,29 +93,3 @@ instance FromJSON GenesisConfiguration where
         | otherwise = fail "Incorrect JSON encoding for GenesisConfiguration"
 
     parseJSON invalid = typeMismatch "GenesisConfiguration" invalid
-
-data CoreConfiguration = CoreConfiguration
-    {
-      -- | Specifies the genesis
-      ccGenesis            :: !GenesisConfiguration
-
-      -- | Versioning for values in node's DB
-    , ccDbSerializeVersion :: !Word8
-
-    }
-    deriving (Show, Generic)
-
-deriveJSON defaultOptions ''CoreConfiguration
-
-type HasCoreConfiguration = Given CoreConfiguration
-
-withCoreConfiguration :: CoreConfiguration -> (HasCoreConfiguration => r) -> r
-withCoreConfiguration = give
-
-coreConfiguration :: HasCoreConfiguration => CoreConfiguration
-coreConfiguration = given
-
--- | DB format version. When serializing items into the node's DB, the values are paired
--- with this constant.
-dbSerializeVersion :: HasCoreConfiguration => Word8
-dbSerializeVersion = fromIntegral . ccDbSerializeVersion $ coreConfiguration

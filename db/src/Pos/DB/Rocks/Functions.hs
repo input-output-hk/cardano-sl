@@ -11,6 +11,7 @@ module Pos.DB.Rocks.Functions
        , closeRocksDB
        , openNodeDBs
        , closeNodeDBs
+       , deleteNodeDBs
        , usingReadOptions
        , usingWriteOptions
 
@@ -39,13 +40,12 @@ import           Data.Conduit (ConduitT, bracketP, yield)
 import qualified Database.RocksDB as Rocks
 import           System.Directory (createDirectoryIfMissing, doesDirectoryExist,
                      removeDirectoryRecursive)
-import           System.FilePath ((</>))
+import           System.FilePath (takeDirectory, (</>))
 
-import           Pos.Binary.Class (Bi)
-import           Pos.Core.Configuration (HasCoreConfiguration)
+import           Pos.Binary.Class (Bi, serialize')
 import           Pos.DB.BatchOp (rocksWriteBatch)
 import           Pos.DB.Class (DBIteratorClass (..), DBTag (..), IterType)
-import           Pos.DB.Functions (dbSerializeValue, processIterEntry)
+import           Pos.DB.Functions (processIterEntry)
 import           Pos.DB.Rocks.Types (DB (..), MonadRealDB, NodeDBs (..),
                      getDBByTag)
 import qualified Pos.Util.Concurrent.RWLock as RWL
@@ -106,6 +106,10 @@ closeNodeDBs :: MonadIO m => NodeDBs -> m ()
 closeNodeDBs NodeDBs {..} =
     mapM_ closeRocksDB [_blockIndexDB, _gStateDB, _lrcDB, _miscDB]
 
+deleteNodeDBs :: MonadIO m => NodeDBs -> m ()
+deleteNodeDBs =
+    liftIO . removeDirectoryRecursive . takeDirectory . _epochDataDir
+
 usingReadOptions
     :: MonadRealDB ctx m
     => Rocks.ReadOptions
@@ -143,8 +147,8 @@ rocksDelete k DB {..} = Rocks.delete rocksDB rocksWriteOpts k
 -- garbage, should be abstracted and hidden
 
 -- | Write serializable value to RocksDb for given key.
-rocksPutBi :: (HasCoreConfiguration, Bi v, MonadIO m) => ByteString -> v -> DB -> m ()
-rocksPutBi k v = rocksPutBytes k (dbSerializeValue v)
+rocksPutBi :: (Bi v, MonadIO m) => ByteString -> v -> DB -> m ()
+rocksPutBi k v = rocksPutBytes k (serialize' v)
 
 ----------------------------------------------------------------------------
 -- Snapshot
@@ -179,7 +183,6 @@ rocksIterSource ::
        , DBIteratorClass i
        , Bi (IterKey i)
        , Bi (IterValue i)
-       , HasCoreConfiguration
        )
     => DBTag
     -> Proxy i
@@ -231,7 +234,6 @@ dbIterSourceDefault ::
        , DBIteratorClass i
        , Bi (IterKey i)
        , Bi (IterValue i)
-       , HasCoreConfiguration
        )
     => DBTag
     -> Proxy i

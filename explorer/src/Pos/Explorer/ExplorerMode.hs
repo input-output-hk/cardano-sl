@@ -186,7 +186,7 @@ instance HasLens DB.DBPureVar ExplorerTestInitContext DB.DBPureVar where
 -- Boilerplate ExplorerTestInitMode instances
 ----------------------------------------------------------------------------
 
-instance HasConfigurations => DB.MonadDBRead ExplorerTestInitMode where
+instance DB.MonadDBRead ExplorerTestInitMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault
     dbGetSerBlock = const DB.dbGetSerBlockPureDefault
@@ -239,7 +239,7 @@ instance HasJsonLogConfig ExplorerTestContext where
 -- Boilerplate ExplorerTestMode instances
 ----------------------------------------------------------------------------
 
-instance HasConfigurations => MonadGState ExplorerTestMode where
+instance MonadGState ExplorerTestMode where
     gsAdoptedBVData = DB.gsAdoptedBVDataDefault
 
 instance MonadSlotsData ctx ExplorerTestMode
@@ -259,7 +259,7 @@ instance MonadSlotsData ctx ExplorerTestMode
             Just slot -> pure slot
     currentTimeSlotting = Slot.currentTimeSlottingSimple
 
-instance HasConfigurations => DB.MonadDBRead ExplorerTestMode where
+instance DB.MonadDBRead ExplorerTestMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault
     dbGetSerBlock = const DB.dbGetSerBlockPureDefault

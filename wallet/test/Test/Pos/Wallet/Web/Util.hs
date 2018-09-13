@@ -42,7 +42,7 @@ import           Pos.Chain.Txp (TxIn, TxOut (..), TxOutAux (..),
                      TxpConfiguration, Utxo)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
-import           Pos.Core (Address, BlockCount, Coin, HasConfiguration)
+import           Pos.Core (Address, BlockCount, Coin)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Common (IsBootstrapEraAddr (..), deriveLvl2KeyPair)
 import           Pos.Core.Genesis (poorSecretToEncKey)
@@ -109,9 +109,7 @@ wpGenBlock txpConfig = fmap (Data.List.head . toList) ... wpGenBlocks txpConfig 
 
 -- | Import some nonempty set, but not bigger than given number of elements, of genesis secrets.
 -- Returns corresponding passphrases.
-importWallets
-    :: HasConfigurations
-    => Int -> Gen PassPhrase -> WalletProperty [PassPhrase]
+importWallets :: Int -> Gen PassPhrase -> WalletProperty [PassPhrase]
 importWallets numLimit passGen = do
     let secrets = map poorSecretToEncKey dummyGenesisSecretsPoor
     (encSecrets, passphrases) <- pick $ do
@@ -125,14 +123,10 @@ importWallets numLimit passGen = do
     assertProperty (not (null skeys)) "Empty set of imported keys"
     pure passphrases
 
-importSomeWallets
-    :: HasConfigurations
-    => Gen PassPhrase -> WalletProperty [PassPhrase]
+importSomeWallets :: Gen PassPhrase -> WalletProperty [PassPhrase]
 importSomeWallets = importWallets 10
 
-importSingleWallet
-    :: HasConfigurations
-    => Gen PassPhrase -> WalletProperty PassPhrase
+importSingleWallet :: Gen PassPhrase -> WalletProperty PassPhrase
 importSingleWallet passGen =
     fromMaybe (error "No wallets imported") . (fmap fst . uncons) <$> importWallets 1 passGen
 
@@ -213,7 +207,7 @@ genWalletUtxo sk psw size =
 -- Useful properties
 
 -- | Checks that balance of address is positive and returns it.
-expectedAddrBalance :: HasConfiguration => Address -> Coin -> WalletProperty ()
+expectedAddrBalance :: Address -> Coin -> WalletProperty ()
 expectedAddrBalance addr expected = do
     balance <- lift $ getBalance dummyGenesisData addr
     assertProperty (balance == expected) $

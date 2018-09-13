@@ -1,8 +1,8 @@
 { lib, cores, relays }:
 with lib;
 let
-  coreNames = map (index: "core${toString index}") (range 1 cores);
-  relayNames = map (index: "relay${toString index}") (range 1 relays);
+  coreNames = map (index: "core${toString index}") (range 0 (cores - 1));
+  relayNames = map (index: "relay${toString index}") (range 0 (relays - 1));
   peers = node: remove node (coreNames ++ relayNames);
   mkNodeTopology = type: index: let
     offset = if type == "relay" then 100 else 0;
@@ -17,7 +17,7 @@ let
     };
   };
   topology = {
-    nodes = builtins.listToAttrs ((map (mkNodeTopology "core") (range 1 cores)) ++ (map (mkNodeTopology "relay") (range 1 relays)));
+    nodes = builtins.listToAttrs ((map (mkNodeTopology "core") (range 0 (cores - 1))) ++ (map (mkNodeTopology "relay") (range 0 (relays - 1))));
   };
   topologyFile = builtins.toFile "topology.yaml" (builtins.toJSON topology);
 in topologyFile

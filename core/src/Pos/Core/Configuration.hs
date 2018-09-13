@@ -24,9 +24,8 @@ module Pos.Core.Configuration
        , configFtsSeed
 
        , ConfigurationError (..)
-       , HasConfiguration
-       , withCoreConfigurations
-       , withGenesisSpec
+       , configFromGenesisConfig
+       , mkConfig
 
        , canonicalGenesisJson
        , prettyGenesisJson
@@ -52,7 +51,7 @@ import           Pos.Core.Genesis (GeneratedSecrets, GenesisAvvmBalances,
                      GenesisData (..), GenesisDelegation,
                      GenesisInitializer (..), GenesisNonAvvmBalances,
                      GenesisProtocolConstants (..), GenesisSpec (..),
-                     GenesisVssCertificatesMap (..), GenesisWStakeholders,
+                     GenesisWStakeholders,
                      genesisProtocolConstantsToProtocolConstants,
                      mkGenesisDelegation)
 import           Pos.Core.Genesis.Generate (GeneratedGenesisData (..),
@@ -117,7 +116,7 @@ configStartTime :: Config -> Timestamp
 configStartTime = gdStartTime . configGenesisData
 
 configVssCerts :: Config -> VssCertificatesMap
-configVssCerts = getGenesisVssCertificatesMap . gdVssCerts . configGenesisData
+configVssCerts = gdVssCerts . configGenesisData
 
 configNonAvvmBalances :: Config -> GenesisNonAvvmBalances
 configNonAvvmBalances = gdNonAvvmBalances . configGenesisData
@@ -133,9 +132,6 @@ configAvvmDistr = gdAvvmDistr . configGenesisData
 
 configFtsSeed :: Config -> SharedSeed
 configFtsSeed = gdFtsSeed . configGenesisData
-
--- | Coarse catch-all configuration constraint for use by depending modules.
-type HasConfiguration = HasCoreConfiguration
 
 canonicalGenesisJson :: GenesisData -> (BSL.ByteString, Hash Raw)
 canonicalGenesisJson theGenesisData = (canonicalJsonBytes, jsonHash)
@@ -161,15 +157,9 @@ prettyGenesisJson theGenesisData =
 --
 -- If the configuration gives a testnet genesis spec, then a start time must
 -- be provided, probably sourced from command line arguments.
-withCoreConfigurations
-    :: forall m r.
-       ( MonadThrow m
-       , MonadIO m
-       )
-    => CoreConfiguration
-    -> (GenesisData -> GenesisData)
-    -- ^ Update @'GenesisData'@ before passing its parts to @'given'@.
-    -> FilePath
+configFromGenesisConfig
+    :: (MonadThrow m, MonadIO m)
+    => FilePath
     -- ^ Directory where 'configuration.yaml' is stored.
     -> Maybe Timestamp
     -- ^ Optional system start time.
@@ -177,9 +167,9 @@ withCoreConfigurations
     -> Maybe Integer
     -- ^ Optional seed which overrides one from testnet initializer if
     -- provided.
-    -> (HasConfiguration => Config -> m r)
-    -> m r
-withCoreConfigurations conf@CoreConfiguration{..} fn confDir mSystemStart mSeed act = case ccGenesis of
+    -> GenesisConfiguration
+    -> m Config
+configFromGenesisConfig confDir mSystemStart mSeed = \case
     -- If a 'GenesisData' source file is given, we check its hash against the
     -- given expected hash, parse it, and use the GenesisData to fill in all of
     -- the obligations.
@@ -196,7 +186,7 @@ withCoreConfigurations conf@CoreConfiguration{..} fn confDir mSystemStart mSeed 
 
         theGenesisData <- case Canonical.fromJSON gdataJSON of
             Left err -> throwM $ GenesisDataSchemaError err
-            Right it -> return $ fn it
+            Right it -> return it
 
         let (_, theGenesisHash) = canonicalGenesisJson theGenesisData
             pc = genesisProtocolConstantsToProtocolConstants (gdProtocolConsts theGenesisData)
@@ -205,15 +195,13 @@ withCoreConfigurations conf@CoreConfiguration{..} fn confDir mSystemStart mSeed 
             throwM $ GenesisHashMismatch
                      (show theGenesisHash) (show expectedHash)
 
-        withCoreConfiguration conf $
-            act $
-            Config
-                { configProtocolMagic     = pm
-                , configProtocolConstants = pc
-                , configGeneratedSecrets  = Nothing
-                , configGenesisData       = theGenesisData
-                , configGenesisHash       = GenesisHash $ coerce theGenesisHash
-                }
+        pure $ Config
+            { configProtocolMagic     = pm
+            , configProtocolConstants = pc
+            , configGeneratedSecrets  = Nothing
+            , configGenesisData       = theGenesisData
+            , configGenesisHash       = GenesisHash $ coerce theGenesisHash
+            }
 
     -- If a 'GenesisSpec' is given, we ensure we have a start time (needed if
     -- it's a testnet initializer) and then make a 'GenesisData' from it.
@@ -234,58 +222,48 @@ withCoreConfigurations conf@CoreConfiguration{..} fn confDir mSystemStart mSeed 
                     { gsInitializer = overrideSeed newSeed (gsInitializer spec)
                     }
 
-        let theConf = conf {ccGenesis = GCSpec theSpec}
+        pure $ mkConfig theSystemStart theSpec
 
-        withGenesisSpec theSystemStart theConf fn act
+mkConfig :: Timestamp -> GenesisSpec -> Config
+mkConfig theSystemStart spec = Config
+    { configProtocolMagic     = pm
+    , configProtocolConstants = pc
+    , configGeneratedSecrets  = Just ggdSecrets
+    , configGenesisData       = genesisData
+    , configGenesisHash       = genesisHash
+    }
+  where
+    pm = gpcProtocolMagic (gsProtocolConstants spec)
+    pc = genesisProtocolConstantsToProtocolConstants (gsProtocolConstants spec)
 
-withGenesisSpec
-    :: Timestamp
-    -> CoreConfiguration
-    -> (GenesisData -> GenesisData)
-    -> (HasConfiguration => Config -> r)
-    -> r
-withGenesisSpec theSystemStart conf@CoreConfiguration{..} fn val = case ccGenesis of
-    GCSrc {} -> error "withGenesisSpec called with GCSrc"
-    GCSpec spec ->
-            let
-                -- Generate
-                GeneratedGenesisData {..} =
-                    generateGenesisData pm pc (gsInitializer spec) (gsAvvmDistr spec)
+    -- Generate
+    GeneratedGenesisData {..} =
+        generateGenesisData pm pc (gsInitializer spec) (gsAvvmDistr spec)
 
-                -- Unite with generated
-                finalHeavyDelegation :: GenesisDelegation
-                finalHeavyDelegation =
-                    leftToPanic "withGenesisSpec" $ mkGenesisDelegation $
-                    (toList $ gsHeavyDelegation spec) <> toList ggdDelegation
+    -- Unite with generated
+    finalHeavyDelegation :: GenesisDelegation
+    finalHeavyDelegation =
+        leftToPanic "mkConfig"
+            $  mkGenesisDelegation
+            $  (toList $ gsHeavyDelegation spec)
+            <> toList ggdDelegation
 
-                -- Construct the final value
-                theGenesisData = fn $
-                   GenesisData
-                      { gdBootStakeholders = ggdBootStakeholders
-                      , gdHeavyDelegation  = finalHeavyDelegation
-                      , gdStartTime        = theSystemStart
-                      , gdVssCerts         = ggdVssCerts
-                      , gdNonAvvmBalances  = ggdNonAvvm
-                      , gdBlockVersionData = gsBlockVersionData spec
-                      , gdProtocolConsts   = gsProtocolConstants spec
-                      , gdAvvmDistr        = ggdAvvm
-                      , gdFtsSeed          = gsFtsSeed spec
-                      }
-                -- Anything will do for the genesis hash. A hash of "patak" was used
-                -- before, and so it remains.
-                theGenesisHash = GenesisHash $ coerce $ unsafeHash @Text "patak"
-             in withCoreConfiguration conf $
-                  val $
-                  Config
-                      { configProtocolMagic     = pm
-                      , configProtocolConstants = pc
-                      , configGeneratedSecrets  = Just ggdSecrets
-                      , configGenesisData       = theGenesisData
-                      , configGenesisHash       = theGenesisHash
-                      }
-      where
-        pm = gpcProtocolMagic (gsProtocolConstants spec)
-        pc = genesisProtocolConstantsToProtocolConstants (gsProtocolConstants spec)
+    -- Construct the final value
+    genesisData = GenesisData
+        { gdBootStakeholders = ggdBootStakeholders
+        , gdHeavyDelegation  = finalHeavyDelegation
+        , gdStartTime        = theSystemStart
+        , gdVssCerts         = ggdVssCerts
+        , gdNonAvvmBalances  = ggdNonAvvm
+        , gdBlockVersionData = gsBlockVersionData spec
+        , gdProtocolConsts   = gsProtocolConstants spec
+        , gdAvvmDistr        = ggdAvvm
+        , gdFtsSeed          = gsFtsSeed spec
+        }
+
+    -- Anything will do for the genesis hash. A hash of "patak" was used
+    -- before, and so it remains.
+    genesisHash = GenesisHash $ coerce $ unsafeHash @Text "patak"
 
 data ConfigurationError =
       -- | A system start time must be given when a testnet genesis is used.

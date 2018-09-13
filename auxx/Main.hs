@@ -93,10 +93,18 @@ action opts@AuxxOptions {..} command = do
             ->
                 handle @_ @ConfigurationException (\_ -> runWithoutNode pa)
               . handle @_ @ConfigurationError (\_ -> runWithoutNode pa)
-              $ withConfigurations Nothing conf (runWithConfig pa)
+              $ withConfigurations Nothing
+                                   cnaDumpGenesisDataPath
+                                   cnaDumpConfiguration
+                                   conf
+                                   (runWithConfig pa)
         Light
             -> runWithoutNode pa
-        _   -> withConfigurations Nothing conf (runWithConfig pa)
+        _   -> withConfigurations Nothing
+                                  cnaDumpGenesisDataPath
+                                  cnaDumpConfiguration
+                                  conf
+                                  (runWithConfig pa)
   where
     runWithoutNode :: PrintAction IO -> IO ()
     runWithoutNode printAction = printAction "Mode: light" >> rawExec Nothing Nothing Nothing opts Nothing command
@@ -109,14 +117,9 @@ action opts@AuxxOptions {..} command = do
         -> TxpConfiguration
         -> NtpConfiguration
         -> IO ()
-    runWithConfig printAction coreConfig walletConfig txpConfig ntpConfig = do
+    runWithConfig printAction coreConfig _walletConfig txpConfig _ntpConfig = do
         printAction "Mode: with-config"
-        CLI.printInfoOnStart aoCommonNodeArgs
-                             (configGenesisData coreConfig)
-                             walletConfig
-                             ntpConfig
-                             txpConfig
-        (nodeParams, tempDbUsed) <- correctNodeParams opts =<< CLI.getNodeParams
+        (nodeParams, tempDbUsed) <- (correctNodeParams opts . fst) =<< CLI.getNodeParams
             loggerName
             cArgs
             nArgs

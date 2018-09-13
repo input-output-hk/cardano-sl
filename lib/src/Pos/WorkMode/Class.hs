@@ -25,7 +25,7 @@ import           Pos.Chain.Update (HasUpdateConfiguration, UpdateParams)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Context (BlockRetrievalQueue, BlockRetrievalQueueTag,
                      HasSscContext, StartTime, TxpGlobalSettings)
-import           Pos.Core (HasConfiguration, HasPrimaryKey)
+import           Pos.Core (HasPrimaryKey)
 import           Pos.Core.JsonLog (CanJsonLog)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics, MonadReporting)
 import           Pos.DB.Block (MonadBListener)
@@ -92,7 +92,6 @@ type MinWorkMode m
       , CanJsonLog m
       , MonadIO m
       , MonadUnliftIO m
-      , HasConfiguration
       , HasUpdateConfiguration
       , HasNodeConfiguration
       , HasBlockConfiguration

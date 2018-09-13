@@ -12,11 +12,12 @@ import           Servant.Server
 
 import           Test.Hspec (Spec, describe, shouldBe, shouldSatisfy)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (arbitrary, choose, withMaxSuccess)
+import           Test.QuickCheck (arbitrary, choose, elements, withMaxSuccess,
+                     (===))
 import           Test.QuickCheck.Monadic (PropertyM, monadicIO, pick)
 
 import           Pos.Core (Address)
-import           Pos.Crypto (EncryptedSecretKey, firstHardened,
+import           Pos.Crypto (EncryptedSecretKey, emptyPassphrase, firstHardened,
                      safeDeterministicKeyGen)
 
 import           Cardano.Wallet.API.Request (RequestParams (..))
@@ -40,6 +41,7 @@ import           Cardano.Wallet.Kernel.Internal (PassiveWallet, wallets)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import qualified Cardano.Wallet.Kernel.Read as Kernel
 import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
+import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
 import qualified Cardano.Wallet.WalletLayer.Kernel.Addresses as Addresses
@@ -78,8 +80,11 @@ prepareFixtures = do
                           <*> (InDb <$> pick arbitrary)
     newAccountId <- HdAccountId newRootId <$> deriveIndex (pick . choose) HdAccountIx HardDerivation
     let accounts = M.singleton newAccountId mempty
+        hdAccountId      = Kernel.defaultHdAccountId newRootId
+        (Just hdAddress) = Kernel.defaultHdAddress esk emptyPassphrase newRootId
+
     return $ \pw -> do
-        void $ liftIO $ update (pw ^. wallets) (CreateHdWallet newRoot accounts)
+        void $ liftIO $ update (pw ^. wallets) (CreateHdWallet newRoot hdAccountId hdAddress accounts)
         return $ Fixture {
                            fixtureHdRootId = newRootId
                          , fixtureAccountId = AccountIdHdRnd newAccountId
@@ -323,6 +328,25 @@ spec = describe "Addresses" $ do
                                     , wa3' == addressFixtureAddress wa3
                                     -> pure ()
                            _ -> fail ("Got " ++ show res)
+
+            prop "arbitrary number of addresses, pages and per page" $ withMaxSuccess 500 $ do
+                monadicIO $ do
+                    (rNumOfAddresses :: Int) <- pick $ elements [0..15]
+                    (rNumOfPages :: Int) <- pick $ elements [0..15]
+                    (rNumPerPage :: Int) <- pick $ elements [0..15]
+                    withAddressFixtures rNumOfAddresses $ \_ layer _ fixtureAddresses -> do
+                        let (!>) = drop . (subtract 1)
+                        let (<!) = flip take
+                        let slice numOfPage numPerPage xs
+                                | numOfPage*numPerPage == 0 = []
+                                | otherwise = ((numOfPage-1)*numPerPage+1) !> xs <! numPerPage
+                        let pp = PaginationParams (Page rNumOfPages) (PerPage rNumPerPage)
+                        res <- runExceptT $ runHandler' $ do
+                           Handlers.listAddresses layer (RequestParams pp)
+                        let toBeCheckedAddresses = wrData <$> res
+                        let correctAddresses = pure $ map addressFixtureAddress $
+                                               slice rNumOfPages rNumPerPage fixtureAddresses
+                        pure (toBeCheckedAddresses === correctAddresses)
 
     describe "ValidateAddress" $ do
         describe "Address validation (wallet layer)" $ do

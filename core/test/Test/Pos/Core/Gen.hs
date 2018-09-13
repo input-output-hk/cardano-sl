@@ -24,7 +24,6 @@ module Test.Pos.Core.Gen
 
         -- Pos.Core.Configuration Generators
         , genGenesisConfiguration
-        , genCoreConfiguration
 
         -- Pos.Core.Delegation Generators
         , genDlgPayload
@@ -137,8 +136,8 @@ import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                      StakesMap, TxFeePolicy (..), TxSizeLinear (..),
                      coinPortionDenominator, makeAddress, maxCoinVal,
                      mkMultiKeyDistr)
-import           Pos.Core.Configuration (CoreConfiguration (..),
-                     GenesisConfiguration (..), GenesisHash (..))
+import           Pos.Core.Configuration (GenesisConfiguration (..),
+                     GenesisHash (..))
 import           Pos.Core.Delegation (DlgPayload (..), HeavyDlgIndex (..),
                      LightDlgIndices (..), ProxySKBlockInfo, ProxySKHeavy)
 import           Pos.Core.Genesis (FakeAvvmOptions (..),
@@ -336,12 +335,6 @@ genGenesisConfiguration pm =
                      <*> genHashRaw
                , GCSpec <$> genGenesisSpec pm
                ]
-
-genCoreConfiguration :: ProtocolMagic -> Gen CoreConfiguration
-genCoreConfiguration pm =
-    CoreConfiguration
-        <$> genGenesisConfiguration pm
-        <*> genWord8
 
 ----------------------------------------------------------------------------
 -- Pos.Core.Delegation Generators
@@ -775,9 +768,6 @@ genMicrosecond = fromMicroseconds <$> Gen.integral (Range.constant 0 1000000)
 
 genWord32 :: Gen Word32
 genWord32 = Gen.word32 Range.constantBounded
-
-genWord8 :: Gen Word8
-genWord8 = Gen.word8 Range.constantBounded
 
 genWord16 :: Gen Word16
 genWord16 = Gen.word16 Range.constantBounded

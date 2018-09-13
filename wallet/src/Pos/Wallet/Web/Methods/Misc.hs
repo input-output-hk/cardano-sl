@@ -48,8 +48,7 @@ import           Pos.Chain.Txp (TxId, TxIn, TxOut)
 import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion)
 import           Pos.Client.KeyStorage (MonadKeys (..), deleteAllSecretKeys)
 import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core (HasConfiguration, ProtocolConstants, SlotId,
-                     pcEpochSlots)
+import           Pos.Core (ProtocolConstants, SlotId, pcEpochSlots)
 import           Pos.Core.Conc (async, delay)
 import           Pos.Core.Update (SoftwareVersion (..))
 import           Pos.Crypto (hashHexF)
@@ -103,7 +102,6 @@ isValidAddress = pure . isRight . cIdToAddress
 -- | Get last update info
 nextUpdate
     :: ( MonadIO m
-       , HasConfiguration
        , MonadThrow m
        , WalletDbReader ctx m
        , HasUpdateConfiguration
@@ -178,7 +176,7 @@ localTimeDifferencePure NtpSyncPending     = Nothing
 localTimeDifferencePure NtpSyncUnavailable = Nothing
 
 localTimeDifference :: MonadIO m => TVar NtpStatus -> m (Maybe Integer)
-localTimeDifference ntpStatus = localTimeDifferencePure <$> (atomically $ readTVar ntpStatus)
+localTimeDifference ntpStatus = localTimeDifferencePure <$> readTVarIO ntpStatus
 
 ----------------------------------------------------------------------------
 -- Reset

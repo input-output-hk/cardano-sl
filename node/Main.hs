@@ -11,8 +11,6 @@ module Main
 
 import           Universum
 
-import           Data.Maybe (fromJust)
-
 import           Ntp.Client (NtpConfiguration)
 
 import           Pos.Binary ()
@@ -28,7 +26,6 @@ import           Pos.Launcher (HasConfigurations, NodeParams (..),
 import           Pos.Launcher.Configuration (AssetLockPath (..))
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
-import           Pos.Util.UserSecret (usVss)
 import           Pos.Util.Wlog (LoggerName, logInfo)
 import           Pos.Worker.Update (updateTriggerWorker)
 
@@ -57,24 +54,25 @@ action
     -> TxpConfiguration
     -> NtpConfiguration
     -> IO ()
-action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) coreConfig walletConfig txpConfig ntpConfig = do
-    CLI.printInfoOnStart cArgs (configGenesisData coreConfig) walletConfig ntpConfig txpConfig
+action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) coreConfig _ txpConfig _ntpConfig = do
     logInfo "Wallet is disabled, because software is built w/o it"
-    currentParams <- CLI.getNodeParams loggerName
-                                       cArgs
-                                       nArgs
-                                       (configGeneratedSecrets coreConfig)
-
-    let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-    let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
-
+    (currentParams, Just sscParams) <- CLI.getNodeParams
+       loggerName
+       cArgs
+       nArgs
+       (configGeneratedSecrets coreConfig)
     actionWithoutWallet coreConfig txpConfig sscParams currentParams
 
 main :: IO ()
 main = withCompileInfo $ do
     args@(CLI.SimpleNodeArgs commonNodeArgs _) <- CLI.getSimpleNodeOptions
     let loggingParams = CLI.loggingParams loggerName commonNodeArgs
-    let conf = CLI.configurationOptions (CLI.commonArgs commonNodeArgs)
-    let blPath = AssetLockPath <$> cnaAssetLockPath commonNodeArgs
-    loggerBracket loggingParams . logException "node" $
-        withConfigurations blPath conf $ action args
+    let conf          = CLI.configurationOptions (CLI.commonArgs commonNodeArgs)
+    let blPath        = AssetLockPath <$> cnaAssetLockPath commonNodeArgs
+    loggerBracket loggingParams
+        . logException "node"
+        $ withConfigurations blPath
+                             (cnaDumpGenesisDataPath commonNodeArgs)
+                             (cnaDumpConfiguration commonNodeArgs)
+                             conf
+        $ action args

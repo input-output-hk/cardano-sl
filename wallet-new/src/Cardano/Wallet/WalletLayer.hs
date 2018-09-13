@@ -3,7 +3,6 @@ module Cardano.Wallet.WalletLayer
     , ActiveWalletLayer (..)
     -- * Types
     , CreateWallet(..)
-    , CreateAccount(..)
     -- ** Errors
     , CreateWalletError(..)
     , GetWalletError(..)
@@ -73,7 +72,6 @@ data CreateWallet =
 
 data CreateWalletError =
       CreateWalletError Kernel.CreateWalletError
-    | CreateWalletFirstAccountCreationFailed CreateAccountError
 
 -- | Unsound show instance needed for the 'Exception' instance.
 instance Show CreateWalletError where
@@ -83,14 +81,11 @@ instance Exception CreateWalletError
 
 instance Arbitrary CreateWalletError where
     arbitrary = oneof [ CreateWalletError <$> arbitrary
-                      , CreateWalletFirstAccountCreationFailed <$> arbitrary
                       ]
 
 instance Buildable CreateWalletError where
     build (CreateWalletError kernelError) =
         bprint ("CreateWalletError " % build) kernelError
-    build (CreateWalletFirstAccountCreationFailed kernelError) =
-        bprint ("CreateWalletFirstAccountCreationFailed " % build) kernelError
 
 data GetWalletError =
       GetWalletError (V1 Kernel.UnknownHdRoot)
@@ -236,21 +231,10 @@ instance Buildable ValidateAddressError where
 -- Errors when dealing with Accounts
 ------------------------------------------------------------
 
-data CreateAccount =
-    CreateHdAccountFixedIndex Kernel.HdAccountIx NewAccount
-  -- ^ Creates a new HD 'Account' using as the account index
-  -- the supplied one.
-  | CreateHdAccountRandomIndex NewAccount
-  -- ^ Creates a new HD 'Account' using as the account index
-  -- a randomly-generated one.
-
 data CreateAccountError =
       CreateAccountError Kernel.CreateAccountError
     | CreateAccountWalletIdDecodingFailed Text
     -- ^ Decoding the parent's 'WalletId' from a raw 'Text' failed.
-    | CreateAccountFirstAddressGenerationFailed Kernel.CreateAddressError
-    -- ^ When trying to create the first 'Address' to go in tandem with this
-    -- 'Account', the generation failed.
     deriving Eq
 
 -- | Unsound show instance needed for the 'Exception' instance.
@@ -262,7 +246,6 @@ instance Exception CreateAccountError
 instance Arbitrary CreateAccountError where
     arbitrary = oneof [ CreateAccountError <$> arbitrary
                       , CreateAccountWalletIdDecodingFailed <$> arbitrary
-                      , CreateAccountFirstAddressGenerationFailed <$> arbitrary
                       ]
 
 instance Buildable CreateAccountError where
@@ -270,8 +253,6 @@ instance Buildable CreateAccountError where
         bprint ("CreateAccountError " % build) kernelError
     build (CreateAccountWalletIdDecodingFailed txt) =
         bprint ("CreateAccountWalletIdDecodingFailed " % build) txt
-    build (CreateAccountFirstAddressGenerationFailed kernelError) =
-        bprint ("CreateAccountFirstAddressGenerationFailed " % build) kernelError
 
 data GetAccountError =
       GetAccountError (V1 Kernel.UnknownHdAccount)
@@ -418,7 +399,7 @@ data PassiveWalletLayer m = PassiveWalletLayer
                            -> m (Either GetUtxosError [(Account, Utxo)])
     -- accounts
     , createAccount        :: WalletId
-                           -> CreateAccount
+                           -> NewAccount
                            -> m (Either CreateAccountError Account)
     , getAccounts          :: WalletId
                            -> m (Either GetAccountsError (IxSet Account))

@@ -4,9 +4,11 @@ in
   { supportedSystems ? [ "x86_64-linux" "x86_64-darwin" ]
   , scrubJobs ? true
   , cardano ? { outPath = ./.; rev = "abcdef"; }
+  , fasterBuild ? false
   , nixpkgsArgs ? {
       config = { allowUnfree = false; inHydra = true; };
       gitrev = cardano.rev;
+      inherit fasterBuild;
     }
   }:
 

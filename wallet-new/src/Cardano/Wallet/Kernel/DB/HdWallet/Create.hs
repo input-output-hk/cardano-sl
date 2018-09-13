@@ -41,6 +41,7 @@ import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 data CreateHdRootError =
     -- | We already have a wallet with the specified ID
     CreateHdRootExists HdRootId
+  | CreateHdRootDefaultAddressDerivationFailed
 
 -- | Errors thrown by 'createHdAccount'
 data CreateHdAccountError =
@@ -67,9 +68,9 @@ deriveSafeCopy 1 'base ''CreateHdAddressError
   CREATE
 -------------------------------------------------------------------------------}
 
--- | Create a new wallet
+-- | Create a new wallet.
 createHdRoot :: HdRoot -> Update' CreateHdRootError HdWallets ()
-createHdRoot hdRoot =
+createHdRoot hdRoot = do
     zoom hdWalletsRoots $ do
       exists <- gets $ IxSet.member rootId
       when exists $ throwError $ CreateHdRootExists rootId
@@ -183,6 +184,8 @@ initHdAddress addrId address = HdAddress {
 instance Buildable CreateHdRootError where
     build (CreateHdRootExists rootId)
         = bprint ("CreateHdRootError::CreateHdRootExists "%build) rootId
+    build CreateHdRootDefaultAddressDerivationFailed
+        = bprint "CreateHdRootError::CreateHdRootDefaultAddressDerivationFailed"
 
 instance Buildable CreateHdAccountError where
     build (CreateHdAccountUnknownRoot (UnknownHdRoot rootId))

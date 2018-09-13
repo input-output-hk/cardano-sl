@@ -16,12 +16,14 @@ import           Test.QuickCheck (arbitrary, choose, withMaxSuccess)
 import           Test.QuickCheck.Monadic (PropertyM, monadicIO, pick)
 
 import           Pos.Core (Address)
-import           Pos.Crypto (EncryptedSecretKey, safeDeterministicKeyGen)
+import           Pos.Crypto (EncryptedSecretKey, firstHardened,
+                     safeDeterministicKeyGen)
 
 import           Cardano.Wallet.API.Request (RequestParams (..))
 import           Cardano.Wallet.API.Request.Pagination (Page (..),
                      PaginationParams (..), PerPage (..))
-import           Cardano.Wallet.API.Response (WalletResponse (wrData))
+import           Cardano.Wallet.API.Response (SliceOf (..),
+                     WalletResponse (wrData))
 import           Cardano.Wallet.API.V1.Handlers.Addresses as Handlers
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
@@ -34,14 +36,12 @@ import           Cardano.Wallet.Kernel.DB.HdWallet.Create (initHdRoot)
 import           Cardano.Wallet.Kernel.DB.HdWallet.Derivation
                      (HardeningMode (..), deriveIndex)
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
-import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Internal (PassiveWallet, wallets)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import qualified Cardano.Wallet.Kernel.Read as Kernel
 import           Cardano.Wallet.Kernel.Types (AccountId (..), WalletId (..))
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
-import qualified Cardano.Wallet.WalletLayer.Kernel.Accounts as Accounts
 import qualified Cardano.Wallet.WalletLayer.Kernel.Addresses as Addresses
 import qualified Cardano.Wallet.WalletLayer.Kernel.Conv as Kernel.Conv
 import qualified Cardano.Wallet.WalletLayer.Kernel.Wallets as Wallets
@@ -62,7 +62,7 @@ data Fixture = Fixture {
 
 data AddressFixture = AddressFixture {
     addressFixtureAddress :: V1.WalletAddress
-    }
+    } deriving (Eq, Ord)
 
 -- | Prepare some fixtures using the 'PropertyM' context to prepare the data,
 -- and execute the 'acid-state' update once the 'PassiveWallet' gets into
@@ -95,15 +95,28 @@ prepareAddressFixture n = do
     newWalletRq <- WalletLayer.CreateWallet <$> Wallets.genNewWalletRq spendingPassword
     return $ \pw -> do
         Right v1Wallet <- Wallets.createWallet pw newWalletRq
-        -- Get all the available accounts
-        db <- Kernel.getWalletSnapshot pw
-        let Right accs = Accounts.getAccounts (V1.walId v1Wallet) db
-        let (acc : _) = IxSet.toList accs
-        let newAddressRq = V1.NewAddress spendingPassword (V1.accIndex acc) (V1.walId v1Wallet)
-        res <- replicateM n (Addresses.createAddress pw newAddressRq)
+        -- Create new accounts under the first, automatically-generated
+        -- account for this wallet, placed at 'firstHardened'.
+        let newAddressRq =
+                V1.NewAddress spendingPassword
+                              (V1.unsafeMkAccountIndex firstHardened)
+                              (V1.walId v1Wallet)
+
+        -- We create one address less of which is requested by the caller, as
+        -- by default each fresh account gets a new address.
+        res <- replicateM (max 0 (n -1)) (Addresses.createAddress pw newAddressRq)
         case sequence res of
-             Left e     -> error (show e)
-             Right addr -> return (map AddressFixture addr)
+            Left e     -> error (show e)
+            Right _addrs -> do
+                db' <- Kernel.getWalletSnapshot pw
+                -- Low & behold here lies an hack: in order to produce the data
+                -- in the same order in which it will be consumed by the
+                -- pagination tests, we need to call 'listAddresses', which
+                -- obviously doesn't list _just_ the addresses for a single
+                -- account, but it works as our fixture creates only one.
+                let pp = PaginationParams (Page 1) (PerPage 100)
+                let SliceOf{..} = Addresses.getAddresses (RequestParams pp) db'
+                return . map AddressFixture $ paginatedSlice
 
 withFixture :: (  Keystore.Keystore
                -> PassiveWalletLayer IO
@@ -255,10 +268,9 @@ spec = describe "Addresses" $ do
                         res <- runExceptT $ runHandler' $ do
                            Handlers.listAddresses layer (RequestParams pp)
                         case res of
-                           Right wr | [wa0'] <- wrData wr
-                                    , wa0' == addressFixtureAddress wa0
-                                    -> pure ()
-                           _ -> fail ("Got " ++ show res)
+                            Right wr ->
+                                wrData wr `shouldBe` [addressFixtureAddress wa0]
+                            _ -> fail ("Got " ++ show res)
 
             prop "3 addresses, page 1, per page 2" $ do
                 monadicIO $

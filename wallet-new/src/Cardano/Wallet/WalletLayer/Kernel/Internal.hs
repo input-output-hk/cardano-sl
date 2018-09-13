@@ -4,6 +4,9 @@ module Cardano.Wallet.WalletLayer.Kernel.Internal (
   , postponeUpdate
   , resetWalletState
   , importWallet
+
+  , waitForUpdate
+  , addUpdate
   ) where
 
 import           Universum
@@ -12,12 +15,13 @@ import           Control.Concurrent.MVar (modifyMVar_)
 import           Data.Acid.Advanced (update')
 import           System.IO.Error (isDoesNotExistError)
 
+import           Pos.Chain.Update (ConfirmedProposalState)
 import           Pos.Core.Update (SoftwareVersion)
 
 import           Cardano.Wallet.API.V1.Types (V1 (..), Wallet,
                      WalletImport (..))
-import           Cardano.Wallet.Kernel.DB.AcidState (ClearDB (..),
-                     GetNextUpdate (..), RemoveNextUpdate (..))
+import           Cardano.Wallet.Kernel.DB.AcidState (AddUpdate (..),
+                     ClearDB (..), GetNextUpdate (..), RemoveNextUpdate (..))
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.TxMeta
 import qualified Cardano.Wallet.Kernel.Internal as Kernel
@@ -66,6 +70,18 @@ applyUpdate w = liftIO $ do
 -- NOTE (legacy): 'postponeUpdate', "Pos.Wallet.Web.Methods.Misc".
 postponeUpdate :: MonadIO m => Kernel.PassiveWallet -> m ()
 postponeUpdate w = update' (w ^. Kernel.wallets) $ RemoveNextUpdate
+
+-- | Wait for an update notification
+waitForUpdate :: MonadIO m => Kernel.PassiveWallet -> m ConfirmedProposalState
+waitForUpdate w = liftIO $
+    Node.withNodeState (w ^. Kernel.walletNode) $ \_lock ->
+        Node.waitForUpdate
+
+-- | Add an update in the DB, this is triggered by the notifier once getting
+-- a new proposal from the blockchain
+addUpdate :: MonadIO m => Kernel.PassiveWallet -> SoftwareVersion -> m ()
+addUpdate w v = liftIO $
+    update' (w ^. Kernel.wallets) $ AddUpdate (InDb v)
 
 -- | Reset wallet state
 resetWalletState :: MonadIO m => Kernel.PassiveWallet -> m ()

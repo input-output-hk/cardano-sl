@@ -51,7 +51,8 @@ import qualified Servant
 import           Pos.Context (HasNodeContext)
 import           Pos.Core as Core (Config)
 import           Pos.Util (lensOf)
-import           Pos.Util.Wlog (logInfo, modifyLoggerName, usingLoggerName)
+import           Pos.Util.Wlog (logInfo, logWarning, modifyLoggerName,
+                     usingLoggerName)
 
 import           Cardano.NodeIPC (startNodeJsIPC)
 import           Pos.Configuration (walletProductionApi,
@@ -125,6 +126,7 @@ legacyWalletBackend :: (HasConfigurations, HasCompileInfo)
                     -> Plugin WalletWebMode
 legacyWalletBackend coreConfig txpConfig WalletBackendParams {..} ntpStatus middlewares = pure $ \diffusion -> do
     modifyLoggerName (const "legacyServantBackend") $ do
+      logWarning $ sformat "RUNNING THE OLD LEGACY DATA LAYER IS NOT RECOMMENDED!"
       logInfo $ sformat ("Production mode for API: "%build)
         walletProductionApi
       logInfo $ sformat ("Transaction submission disabled: "%build)

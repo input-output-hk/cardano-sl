@@ -9,40 +9,41 @@ module Cardano.Wallet.Server.Plugins
     , docServer
     , monitoringServer
     , acidStateSnapshots
-    , updateNotifier
     , corsMiddleware
     , throttleMiddleware
+    , updateWatcher
     ) where
 
 import           Universum
 
 import           Data.Acid (AcidState)
 
-import qualified Network.Wai.Middleware.Throttle as Throttle
 import           Network.Wai (Application, Middleware, responseLBS)
 import           Network.Wai.Handler.Warp (defaultSettings)
 import           Network.Wai.Middleware.Cors (cors, corsMethods,
                      corsRequestHeaders, simpleCorsResourcePolicy,
                      simpleMethods)
+import qualified Network.Wai.Middleware.Throttle as Throttle
 
-import           Cardano.Wallet.API.V1.Headers (applicationJson)
-import qualified Cardano.Wallet.API.V1.Types as V1
 import           Cardano.NodeIPC (startNodeJsIPC)
 import           Cardano.Wallet.API as API
+import           Cardano.Wallet.API.V1.Headers (applicationJson)
+import qualified Cardano.Wallet.API.V1.Types as V1
 import           Cardano.Wallet.Kernel (DatabaseMode (..), PassiveWallet)
 import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..),
                      RunMode, WalletBackendParams (..), getWalletDbOptions,
                      isDebugMode, walletAcidInterval)
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer,
                      PassiveWalletLayer)
+import           Pos.Chain.Update (cpsSoftwareVersion)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Infra.Shutdown (HasShutdownContext (shutdownContext),
                      ShutdownContext)
-import           Pos.Launcher.Configuration (HasConfigurations, ThrottleSettings (..))
+import           Pos.Launcher.Configuration (HasConfigurations,
+                     ThrottleSettings (..))
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Util.Wlog (logError, logInfo, modifyLoggerName,
-                     usingLoggerName)
+import           Pos.Util.Wlog (logInfo, modifyLoggerName, usingLoggerName)
 import           Pos.Web (serveDocImpl, serveImpl)
 import qualified Pos.Web.Server
 
@@ -51,9 +52,10 @@ import qualified Cardano.Wallet.Kernel.Mode as Kernel
 import qualified Cardano.Wallet.Server as Server
 import           Cardano.Wallet.Server.Plugins.AcidState
                      (createAndArchiveCheckpoints)
+import qualified Cardano.Wallet.WalletLayer as WalletLayer
 import qualified Cardano.Wallet.WalletLayer.Kernel as WalletLayer.Kernel
-import qualified Data.ByteString.Char8 as BS8
 import           Data.Aeson (encode)
+import qualified Data.ByteString.Char8 as BS8
 import qualified Servant
 
 -- Needed for Orphan Instance 'Buildable Servant.NoContent' :|
@@ -155,12 +157,6 @@ acidStateSnapshots dbRef params dbMode = pure $ \_diffusion -> do
             (walletAcidInterval opts)
             dbMode
 
--- | A @Plugin@ to notify frontend via websockets.
-updateNotifier :: Plugin Kernel.WalletMode
-updateNotifier = [
-    \_diffusion -> logError "Not Implemented: updateNotifier [CBR-374]"
-    ]
-
 -- | A @Middleware@ to throttle requests.
 throttleMiddleware :: Maybe ThrottleSettings -> Middleware
 throttleMiddleware Nothing app = app
@@ -192,3 +188,13 @@ corsMiddleware wrm =
         { corsRequestHeaders = ["Content-Type"]
         , corsMethods = "PUT" : simpleMethods
         }
+
+-- | A @Plugin@ to store updates proposal received from the blockchain
+updateWatcher :: Plugin Kernel.WalletMode
+updateWatcher = pure $ \_diffusion -> do
+    modifyLoggerName (const "update-watcher-plugin") $ do
+        w <- Kernel.getWallet
+        forever $ liftIO $ do
+            newUpdate <- WalletLayer.waitForUpdate w
+            logInfo "A new update was found!"
+            WalletLayer.addUpdate w . cpsSoftwareVersion $ newUpdate

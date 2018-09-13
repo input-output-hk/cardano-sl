@@ -194,8 +194,8 @@ actionWithWallet coreConfig walletConfig txpConfig sscParams nodeParams ntpConfi
         -- Periodically compact & snapshot the acid-state database.
         , Plugins.acidStateSnapshots (view Kernel.Internal.wallets (snd w)) params dbMode
 
-        -- | A @Plugin@ to notify frontend via websockets.
-        , Plugins.updateNotifier
+        -- | A @Plugin@ to watch and store incoming update proposals
+        , Plugins.updateWatcher
         ]
 
     -- Extract the logger name from node parameters

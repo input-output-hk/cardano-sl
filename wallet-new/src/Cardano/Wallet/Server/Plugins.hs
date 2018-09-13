@@ -16,18 +16,16 @@ import           Universum
 
 import           Data.Acid (AcidState)
 
-import           Network.Wai (Application, Middleware, responseLBS)
+import           Network.Wai (Application, Middleware)
 import           Network.Wai.Handler.Warp (defaultSettings)
-import qualified Network.Wai.Middleware.Throttle as Throttle
 
 import           Cardano.NodeIPC (startNodeJsIPC)
 import           Cardano.Wallet.API as API
-import           Cardano.Wallet.API.V1.Headers (applicationJson)
-import qualified Cardano.Wallet.API.V1.Types as V1
 import           Cardano.Wallet.Kernel (DatabaseMode (..), PassiveWallet)
 import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..),
                      WalletBackendParams (..), getWalletDbOptions, isDebugMode,
                      walletAcidInterval)
+import           Cardano.Wallet.Server.Middlewares (withMiddlewares)
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer,
                      PassiveWalletLayer)
 import           Pos.Chain.Update (cpsSoftwareVersion)
@@ -35,8 +33,7 @@ import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Infra.Shutdown (HasShutdownContext (shutdownContext),
                      ShutdownContext)
-import           Pos.Launcher.Configuration (HasConfigurations,
-                     ThrottleSettings (..))
+import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.Wlog (logInfo, modifyLoggerName, usingLoggerName)
 import           Pos.Web (serveDocImpl, serveImpl)
@@ -49,7 +46,6 @@ import           Cardano.Wallet.Server.Plugins.AcidState
                      (createAndArchiveCheckpoints)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
 import qualified Cardano.Wallet.WalletLayer.Kernel as WalletLayer.Kernel
-import           Data.Aeson (encode)
 import qualified Data.ByteString.Char8 as BS8
 import qualified Servant
 
@@ -98,11 +94,6 @@ apiServer protocolMagic (NewWalletBackendParams WalletBackendParams{..}) (passiv
     portCallback :: ShutdownContext -> Word16 -> IO ()
     portCallback ctx =
         usingLoggerName "NodeIPC" . flip runReaderT ctx . startNodeJsIPC
-
-    -- | "Attaches" the middlewares to this 'Application'.
-    withMiddlewares :: [Middleware] -> Application -> Application
-    withMiddlewares = flip $ foldr ($)
-
 
 -- | A @Plugin@ to serve the wallet documentation
 docServer

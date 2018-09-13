@@ -31,8 +31,8 @@ import           Pos.Chain.Txp (ExtendedGlobalToilM, GlobalToilEnv (..),
                      defGlobalToilState, flattenTxPayload, gtsUtxoModifier,
                      rollbackToil, runGlobalToilMBase, runUtxoM, utxoToLookup,
                      verifyToil)
-import           Pos.Core as Core (Config (..), HasCoreConfiguration,
-                     ProtocolMagic, configBootStakeholders, epochIndexL)
+import           Pos.Core as Core (Config (..), ProtocolMagic,
+                     configBootStakeholders, epochIndexL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Exception (assertionFailed)
 import           Pos.Core.Genesis (GenesisWStakeholders)
@@ -216,7 +216,7 @@ rollbackBlocks bootStakeholders (NewestFirst blunds) = processBlunds
 ----------------------------------------------------------------------------
 
 -- | Convert 'GlobalToilState' to batch of database operations.
-globalToilStateToBatch :: HasCoreConfiguration => GlobalToilState -> SomeBatchOp
+globalToilStateToBatch :: GlobalToilState -> SomeBatchOp
 globalToilStateToBatch GlobalToilState {..} =
     SomeBatchOp [SomeBatchOp utxoOps, SomeBatchOp stakesOps]
   where

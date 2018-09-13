@@ -7,7 +7,6 @@
 module Test.Pos.Client.Txp.Mode
        ( TxpTestProperty
        , TxpTestMode
-       , HasTxpConfigurations
        , withBVData
        ) where
 
@@ -17,27 +16,13 @@ import qualified Data.ByteString as BS
 import           Test.QuickCheck (Testable (..), ioProperty)
 import           Test.QuickCheck.Monadic (PropertyM, monadic)
 
-import           Pos.Chain.Ssc (HasSscConfiguration)
-import           Pos.Chain.Update (HasUpdateConfiguration)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
-import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core (Address, HasConfiguration, makePubKeyAddressBoot)
+import           Pos.Core (Address, makePubKeyAddressBoot)
 import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (deterministicKeyGen)
 import           Pos.DB (MonadGState (..))
 
 import           Test.Pos.Core.Dummy (dummyBlockVersionData)
-
-----------------------------------------------------------------------------
--- Configuration propagation
-----------------------------------------------------------------------------
-
-type HasTxpConfigurations =
-       ( HasNodeConfiguration
-       , HasSscConfiguration
-       , HasConfiguration
-       , HasUpdateConfiguration
-       )
 
 ----------------------------------------------------------------------------
 -- Mock for TxCreateMode

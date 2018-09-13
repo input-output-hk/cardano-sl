@@ -19,9 +19,7 @@ import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 
-handlers
-    :: HasConfigurations
-    => ServerT Accounts.API MonadV1
+handlers :: ServerT Accounts.API MonadV1
 handlers =
          deleteAccount
     :<|> getAccount

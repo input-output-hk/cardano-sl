@@ -27,7 +27,7 @@ import           Universum
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
 
-import           Pos.Core (HasConfiguration, Timestamp)
+import           Pos.Core (Timestamp)
 import           Pos.Core.Slotting (MonadSlotsData)
 import           Pos.DB (NodeDBs)
 import           Pos.DB.Block (dbGetSerBlockRealDefault,
@@ -75,14 +75,14 @@ instance HasSlottingVar InitModeContext where
     slottingTimestamp = imcSlottingVar_L . _1
     slottingVar = imcSlottingVar_L . _2
 
-instance HasConfiguration => MonadDBRead InitMode where
+instance MonadDBRead InitMode where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
     dbGetSerBlock = dbGetSerBlockRealDefault
     dbGetSerUndo = dbGetSerUndoRealDefault
     dbGetSerBlund = dbGetSerBlundRealDefault
 
-instance HasConfiguration => MonadDB InitMode where
+instance MonadDB InitMode where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault

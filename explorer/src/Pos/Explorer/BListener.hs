@@ -31,8 +31,8 @@ import           UnliftIO (MonadUnliftIO)
 import           Pos.Chain.Block (Block, Blund, HeaderHash, MainBlock,
                      headerHash, mainBlockSlot, mainBlockTxPayload)
 import           Pos.Chain.Txp (Tx, topsortTxs, txpTxs)
-import           Pos.Core (HasConfiguration, LocalSlotIndex (..), SlotId (..),
-                     difficultyL, epochIndexL, getChainDifficulty)
+import           Pos.Core (LocalSlotIndex (..), SlotId (..), difficultyL,
+                     epochIndexL, getChainDifficulty)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toNewestFirst)
 import           Pos.Crypto (withHash)
@@ -65,7 +65,6 @@ type MonadBListenerT m =
     , MonadCatch m
     , MonadDBRead m
     , MonadUnliftIO m
-    , HasConfiguration
     )
 
 -- Explorer implementation for usual node. Combines the operations.
@@ -73,7 +72,6 @@ instance ( MonadDBRead m
          , MonadUnliftIO m
          , MonadCatch m
          , WithLogger m
-         , HasConfiguration
          )
          => MonadBListener (ExplorerBListener m) where
     onApplyBlocks      blunds = onApplyCallGeneral blunds

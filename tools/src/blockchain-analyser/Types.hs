@@ -18,7 +18,6 @@ import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
 
 import           Pos.Chain.Block (Block, HeaderHash, prevBlockL)
-import           Pos.Core (HasConfiguration)
 import           Pos.DB (MonadDBRead (..))
 import qualified Pos.DB as DB
 import qualified Pos.DB.Block as BDB
@@ -53,7 +52,7 @@ initBlockchainAnalyser nodeDBs action = do
 instance HasLens DB.NodeDBs BlockchainInspectorContext DB.NodeDBs where
     lensOf = bicNodeDBs_L
 
-instance HasConfiguration => MonadDBRead BlockchainInspector where
+instance MonadDBRead BlockchainInspector where
     dbGet = DB.dbGetDefault
     dbIterSource = DB.dbIterSourceDefault
     dbGetSerBlock = BDB.dbGetSerBlockRealDefault

@@ -63,10 +63,8 @@ import           Pos.Chain.Block (HasSlogGState (..))
 import           Pos.Chain.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Chain.Ssc (SscMemTag, SscState)
 import           Pos.Chain.Txp (TxpConfiguration (..))
-import           Pos.Core as Core (Config (..), CoreConfiguration (..),
-                     GenesisConfiguration (..), HasConfiguration, SlotId,
-                     Timestamp (..), configEpochSlots,
-                     configGeneratedSecretsThrow, withGenesisSpec)
+import           Pos.Core as Core (Config (..), SlotId, Timestamp (..),
+                     configEpochSlots, configGeneratedSecretsThrow, mkConfig)
 import           Pos.Core.Conc (currentTime)
 import           Pos.Core.Genesis (GenesisInitializer (..), GenesisSpec (..),
                      gsSecretKeys)
@@ -103,8 +101,7 @@ import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSimpleSlotting,
                      getCurrentSlotInaccurateSimple', getCurrentSlotSimple,
                      getCurrentSlotSimple', mkSimpleSlottingStateVar)
 import           Pos.Infra.Slotting.Types (SlottingData)
-import           Pos.Launcher.Configuration (Configuration (..),
-                     HasConfigurations)
+import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util (newInitFuture, postfixLFields, postfixLFields2)
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
@@ -116,7 +113,7 @@ import           Pos.WorkMode (EmptyMempoolExt)
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation,
                      sudoLiftIO)
 import           Test.Pos.Configuration (defaultTestBlockVersionData,
-                     defaultTestConf, defaultTestGenesisSpec)
+                     defaultTestGenesisSpec)
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Core.Dummy (dummyEpochSlots)
 
@@ -170,14 +167,10 @@ genGenesisInitializer = do
 
 -- This function creates 'CoreConfiguration' from 'TestParams' and
 -- uses it to satisfy 'HasConfiguration'.
-withTestParams :: TestParams -> (HasConfiguration => Core.Config -> r) -> r
-withTestParams TestParams {..} = withGenesisSpec _tpStartTime coreConfiguration id
+withTestParams :: TestParams -> (Core.Config -> r) -> r
+withTestParams TestParams {..} f = f $ mkConfig _tpStartTime genesisSpec
   where
-    defaultCoreConf :: CoreConfiguration
-    defaultCoreConf = ccCore defaultTestConf
-    coreConfiguration :: CoreConfiguration
-    coreConfiguration = defaultCoreConf { ccGenesis = GCSpec genesisSpec }
-    genesisSpec       = defaultTestGenesisSpec
+    genesisSpec = defaultTestGenesisSpec
         { gsInitializer      = _tpGenesisInitializer
         , gsBlockVersionData = _tpBlockVersionData
         }
@@ -242,10 +235,8 @@ instance HasAllSecrets BlockTestContext where
 -- Initialization
 ----------------------------------------------------------------------------
 
-initBlockTestContext ::
-       ( HasConfiguration
-       , HasDlgConfiguration
-       )
+initBlockTestContext
+    :: HasDlgConfiguration
     => Core.Config
     -> TestParams
     -> (BlockTestContext -> Emulation a)
@@ -300,10 +291,8 @@ instance HasLens BlockTestContextTag BlockTestContext BlockTestContext where
 
 type BlockTestMode = ReaderT BlockTestContext Emulation
 
-runBlockTestMode ::
-       ( HasDlgConfiguration
-       , HasConfiguration
-       )
+runBlockTestMode
+    :: HasDlgConfiguration
     => Core.Config
     -> TestParams
     -> BlockTestMode a
@@ -323,7 +312,7 @@ type BlockProperty = PropertyM BlockTestMode
 blockPropertyToProperty
     :: (HasDlgConfiguration, Testable a)
     => Gen TestParams
-    -> (HasConfiguration => Core.Config -> BlockProperty a)
+    -> (Core.Config -> BlockProperty a)
     -> Property
 blockPropertyToProperty tpGen blockProperty =
     forAll tpGen $ \tp -> withTestParams tp $ \coreConfig -> monadic
@@ -344,7 +333,7 @@ blockPropertyToProperty tpGen blockProperty =
 --     property = blockPropertyToProperty arbitrary
 blockPropertyTestable ::
        (HasDlgConfiguration, Testable a)
-    => (HasConfiguration => Core.Config -> BlockProperty a)
+    => (Core.Config -> BlockProperty a)
     -> Property
 blockPropertyTestable = blockPropertyToProperty arbitrary
 
@@ -365,14 +354,14 @@ instance HasSlottingVar TestInitModeContext where
     slottingTimestamp = timcSystemStart_L
     slottingVar = timcSlottingVar_L
 
-instance HasConfiguration => MonadDBRead TestInitMode where
+instance MonadDBRead TestInitMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault
     dbGetSerBlock = const DB.dbGetSerBlockPureDefault
     dbGetSerUndo = const DB.dbGetSerUndoPureDefault
     dbGetSerBlund = const DB.dbGetSerBlundPureDefault
 
-instance HasConfiguration => MonadDB TestInitMode where
+instance MonadDB TestInitMode where
     dbPut = DB.dbPutPureDefault
     dbWriteBatch = DB.dbWriteBatchPureDefault
     dbDelete = DB.dbDeletePureDefault
@@ -499,20 +488,20 @@ instance MonadSlotsData ctx BlockTestMode => MonadSlots ctx BlockTestMode where
     getCurrentSlotInaccurate = const getCurrentSlotInaccurateTestDefault
     currentTimeSlotting = currentTimeSlottingTestDefault
 
-instance HasConfiguration => MonadDBRead BlockTestMode where
+instance MonadDBRead BlockTestMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault
     dbGetSerBlock = const DB.dbGetSerBlockPureDefault
     dbGetSerUndo = const DB.dbGetSerUndoPureDefault
     dbGetSerBlund = const DB.dbGetSerBlundPureDefault
 
-instance HasConfiguration => MonadDB BlockTestMode where
+instance MonadDB BlockTestMode where
     dbPut = DB.dbPutPureDefault
     dbWriteBatch = DB.dbWriteBatchPureDefault
     dbDelete = DB.dbDeletePureDefault
     dbPutSerBlunds = DB.dbPutSerBlundsPureDefault
 
-instance HasConfiguration => MonadGState BlockTestMode where
+instance MonadGState BlockTestMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault
 
 instance MonadBListener BlockTestMode where
@@ -525,6 +514,6 @@ instance HasConfigurations => MonadTxpLocal (BlockGenMode EmptyMempoolExt BlockT
     txpNormalize = withCompileInfo $ txNormalize
     txpProcessTx = withCompileInfo $ txProcessTransactionNoLock
 
-instance HasConfigurations => MonadTxpLocal BlockTestMode where
+instance MonadTxpLocal BlockTestMode where
     txpNormalize = withCompileInfo $ txNormalize
     txpProcessTx = withCompileInfo $ txProcessTransactionNoLock

@@ -41,8 +41,8 @@ import           Pos.Client.CLI.Util (readLoggerConfig)
 import           Pos.Configuration
 import           Pos.Context (ConnectedPeers (..), NodeContext (..),
                      StartTime (..))
-import           Pos.Core as Core (Config, HasConfiguration, Timestamp,
-                     configBlkSecurityParam, configEpochSlots, configStartTime)
+import           Pos.Core as Core (Config, Timestamp, configBlkSecurityParam,
+                     configEpochSlots, configStartTime)
 import           Pos.Core.Reporting (initializeMisbehaviorMetrics)
 import           Pos.DB (MonadDBRead, NodeDBs)
 import           Pos.DB.Block (consolidateWorker, mkSlogContext)
@@ -99,7 +99,6 @@ data NodeResources ext = NodeResources
 allocateNodeResources
     :: forall ext .
        ( Default ext
-       , HasConfiguration
        , HasNodeConfiguration
        , HasDlgConfiguration
        , HasBlockConfiguration
@@ -203,7 +202,6 @@ releaseNodeResources NodeResources {..} = do
 -- resources will be released eventually.
 bracketNodeResources :: forall ext a.
       ( Default ext
-      , HasConfiguration
       , HasNodeConfiguration
       , HasDlgConfiguration
       , HasBlockConfiguration
@@ -213,7 +211,7 @@ bracketNodeResources :: forall ext a.
     -> SscParams
     -> TxpGlobalSettings
     -> InitMode ()
-    -> (HasConfiguration => NodeResources ext -> IO a)
+    -> (NodeResources ext -> IO a)
     -> IO a
 bracketNodeResources coreConfig np sp txp initDB action = do
     let msg = "`NodeResources'"
@@ -266,7 +264,7 @@ data AllocateNodeContextData ext = AllocateNodeContextData
 
 allocateNodeContext
     :: forall ext .
-      (HasConfiguration, HasNodeConfiguration, HasBlockConfiguration)
+      (HasNodeConfiguration, HasBlockConfiguration)
     => Core.Config
     -> AllocateNodeContextData ext
     -> TxpGlobalSettings

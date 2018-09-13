@@ -16,7 +16,6 @@ import           Control.Concurrent.Async (mapConcurrently)
 import           Control.Lens ((.=))
 import           Data.Default (Default (def))
 import           Data.Time.Units (Microsecond, Second)
-import           Pos.Core (HasConfiguration)
 import           Pos.DB (MonadGState (..))
 import           Pos.Util.Wlog (WithLogger, logDebug)
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..),
@@ -36,7 +35,6 @@ type MonadNotifier ctx m =
     , MonadBlockchainInfo m
     , MonadUpdates m
     , MonadGState m
-    , HasConfiguration
     )
 
 -- FIXME: this is really inefficient. Temporary solution

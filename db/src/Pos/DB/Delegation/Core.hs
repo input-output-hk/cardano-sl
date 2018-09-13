@@ -57,12 +57,11 @@ import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Chain.Delegation (DlgEdgeAction (..), isRevokePsk)
-import           Pos.Core (HasCoreConfiguration, StakeholderId, addressHash)
+import           Pos.Core (StakeholderId, addressHash)
 import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Genesis (GenesisDelegation (..))
 import           Pos.Crypto (ProxySecretKey (..), PublicKey)
-import           Pos.DB (RocksBatchOp (..), dbSerializeValue,
-                     encodeWithKeyPrefix)
+import           Pos.DB (RocksBatchOp (..), encodeWithKeyPrefix)
 import           Pos.DB.Class (DBIteratorClass (..), DBTag (..), MonadDB,
                      MonadDBRead (..))
 import           Pos.DB.GState.Common (gsGetBi, writeBatchGState)
@@ -150,24 +149,24 @@ data DelegationOp
     -- ^ Remove stakeholderId from postedThisEpoch map.
     deriving (Show)
 
-instance HasCoreConfiguration => RocksBatchOp DelegationOp where
+instance RocksBatchOp DelegationOp where
     toBatchOp (PskFromEdgeAction (DlgEdgeAdd psk))
         | isRevokePsk psk =
           error $ "RocksBatchOp DelegationOp: malformed " <>
                   "revoke psk in DlgEdgeAdd: " <> pretty psk
         | otherwise =
-          [Rocks.Put (pskKey $ addressHash $ pskIssuerPk psk) (dbSerializeValue psk)]
+          [Rocks.Put (pskKey $ addressHash $ pskIssuerPk psk) (serialize' psk)]
     toBatchOp (PskFromEdgeAction (DlgEdgeDel issuerPk)) =
         [Rocks.Del $ pskKey issuerPk]
     toBatchOp (AddTransitiveDlg iSId dSId) =
-        [Rocks.Put (transDlgKey iSId) (dbSerializeValue dSId)]
+        [Rocks.Put (transDlgKey iSId) (serialize' dSId)]
     toBatchOp (DelTransitiveDlg sId) =
         [Rocks.Del $ transDlgKey sId]
     toBatchOp (SetTransitiveDlgRev dSId iSIds)
         | HS.null iSIds = [Rocks.Del $ transRevDlgKey dSId]
-        | otherwise     = [Rocks.Put (transRevDlgKey dSId) (dbSerializeValue iSIds)]
+        | otherwise     = [Rocks.Put (transRevDlgKey dSId) (serialize' iSIds)]
     toBatchOp (AddPostedThisEpoch sId) =
-        [Rocks.Put (postedThisEpochKey sId) (dbSerializeValue ())]
+        [Rocks.Put (postedThisEpochKey sId) (serialize' ())]
     toBatchOp (DelPostedThisEpoch sId) =
         [Rocks.Del (postedThisEpochKey sId)]
 

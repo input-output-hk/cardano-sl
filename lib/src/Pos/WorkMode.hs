@@ -24,7 +24,6 @@ import           Pos.Chain.Delegation (DelegationVar)
 import           Pos.Chain.Ssc (SscMemTag, SscState)
 import           Pos.Context (HasNodeContext (..), HasPrimaryKey (..),
                      HasSscContext (..), NodeContext)
-import           Pos.Core (HasConfiguration)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..))
 import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
@@ -154,17 +153,17 @@ instance MonadSlotsData ctx (RealMode ext) => MonadSlots ctx (RealMode ext) wher
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple
     currentTimeSlotting = currentTimeSlottingSimple
 
-instance HasConfiguration => MonadGState (RealMode ext) where
+instance MonadGState (RealMode ext) where
     gsAdoptedBVData = gsAdoptedBVDataDefault
 
-instance HasConfiguration => MonadDBRead (RealMode ext) where
+instance MonadDBRead (RealMode ext) where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
     dbGetSerBlock = dbGetSerBlockRealDefault
     dbGetSerUndo = dbGetSerUndoRealDefault
     dbGetSerBlund = dbGetSerBlundRealDefault
 
-instance HasConfiguration => MonadDB (RealMode ext) where
+instance MonadDB (RealMode ext) where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
@@ -176,8 +175,7 @@ instance MonadBListener (RealMode ext) where
 
 type instance MempoolExt (RealMode ext) = ext
 
-instance (HasConfiguration) =>
-         MonadTxpLocal (RealMode ()) where
+instance MonadTxpLocal (RealMode ()) where
     txpNormalize = txNormalize
     txpProcessTx = txProcessTransaction
 

@@ -185,7 +185,7 @@ lrcCorrectnessProp coreConfig txpConfig = do
 
     checkRichmen coreConfig
 
-checkRichmen :: HasConfigurations => Core.Config -> BlockProperty ()
+checkRichmen :: Core.Config -> BlockProperty ()
 checkRichmen coreConfig = do
     checkRichmenStakes =<< getRichmen (lift . LrcDB.tryGetSscRichmen genesisBvd)
     checkRichmenFull =<< getRichmen (lift . LrcDB.tryGetUSRichmen genesisBvd)

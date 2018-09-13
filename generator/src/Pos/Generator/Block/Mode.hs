@@ -34,9 +34,9 @@ import           Pos.Chain.Ssc (HasSscConfiguration, SscMemTag, SscState)
 import           Pos.Chain.Update (HasUpdateConfiguration)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core (Address, HasConfiguration, HasPrimaryKey (..),
-                     SlotCount, SlotId (..), Timestamp, epochOrSlotToSlot,
-                     getEpochOrSlot, largestPubKeyAddressBoot)
+import           Pos.Core (Address, HasPrimaryKey (..), SlotCount, SlotId (..),
+                     Timestamp, epochOrSlotToSlot, getEpochOrSlot,
+                     largestPubKeyAddressBoot)
 import           Pos.Core.Exception (reportFatalError)
 import           Pos.Core.Genesis (GenesisWStakeholders (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
@@ -75,7 +75,6 @@ type MonadBlockGenBase m
        , MonadMask m
        , MonadIO m
        , MonadUnliftIO m
-       , HasConfiguration
        , HasUpdateConfiguration
        , HasSscConfiguration
        , HasNodeConfiguration

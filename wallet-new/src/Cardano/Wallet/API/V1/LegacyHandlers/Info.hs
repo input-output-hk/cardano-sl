@@ -21,9 +21,7 @@ import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods.Misc as V0
 
 -- | All the @Servant@ handlers for settings-specific operations.
-handlers :: ( HasConfigurations
-            )
-         => Diffusion MonadV1
+handlers :: Diffusion MonadV1
          -> TVar NtpStatus
          -> ServerT Info.API MonadV1
 handlers = getInfo

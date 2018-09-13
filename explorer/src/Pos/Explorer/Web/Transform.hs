@@ -25,7 +25,7 @@ import           Pos.Chain.Block (HasBlockConfiguration)
 import           Pos.Chain.Ssc (HasSscConfiguration)
 import           Pos.Chain.Update (HasUpdateConfiguration)
 import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core as Core (Config (..), HasConfiguration)
+import           Pos.Core as Core (Config (..))
 import           Pos.DB.Txp (MempoolExt, MonadTxpLocal (..))
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Reporting (MonadReporting (..))
@@ -53,13 +53,11 @@ type ExplorerProd = ExtraContextT (ExplorerBListener RealModeE)
 
 type instance MempoolExt ExplorerProd = ExplorerExtraModifier
 
-instance HasConfiguration =>
-         MonadTxpLocal RealModeE where
+instance MonadTxpLocal RealModeE where
     txpNormalize = eTxNormalize
     txpProcessTx = eTxProcessTransaction
 
-instance HasConfiguration =>
-         MonadTxpLocal ExplorerProd where
+instance MonadTxpLocal ExplorerProd where
     txpNormalize pm = lift . lift . txpNormalize pm
     txpProcessTx coreConfig txpConfig = lift . lift . txpProcessTx coreConfig txpConfig
 
@@ -75,8 +73,7 @@ liftToExplorerProd :: RealModeE a -> ExplorerProd a
 liftToExplorerProd = lift . lift
 
 type HasExplorerConfiguration =
-    ( HasConfiguration
-    , HasBlockConfiguration
+    ( HasBlockConfiguration
     , HasNodeConfiguration
     , HasUpdateConfiguration
     , HasSscConfiguration

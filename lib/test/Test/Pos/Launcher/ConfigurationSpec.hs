@@ -25,7 +25,6 @@ spec = describe "Pos.Launcher.Configuration" $ do
             let catchFn :: ConfigurationException -> IO (Maybe ConfigurationException)
                 catchFn e = return $ Just e
             res  <- liftIO $ catch
-                (withConfigurationsM (LoggerName "test") Nothing cfo id (\_ _ _ -> return Nothing))
+                (withConfigurationsM (LoggerName "test") Nothing Nothing False cfo (\_ _ _ -> return Nothing))
                 catchFn
             res `shouldSatisfy` isNothing
-

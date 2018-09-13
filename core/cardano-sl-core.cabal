@@ -114,7 +114,6 @@ library
                        Pos.Core.Genesis.NonAvvmBalances
                        Pos.Core.Genesis.ProtocolConstants
                        Pos.Core.Genesis.Spec
-                       Pos.Core.Genesis.VssCertificatesMap
                        Pos.Core.Genesis.WStakeholders
 
                        -- Slotting

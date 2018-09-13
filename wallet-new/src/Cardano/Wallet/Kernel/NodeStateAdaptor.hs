@@ -75,7 +75,6 @@ import           Pos.Core as Core (BlockCount, Config (..), GenesisHash (..),
                      SlotCount, Timestamp (..), TxFeePolicy,
                      configBlockVersionData, configEpochSlots, configK,
                      difficultyL, getChainDifficulty)
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Slotting (EpochIndex (..), HasSlottingVar (..),
                      LocalSlotIndex (..), MonadSlots (..), SlotId (..))
 import qualified Pos.DB.Block as DB
@@ -170,8 +169,7 @@ type Lock m = forall a. LockContext -> (HeaderHash -> m a) -> m a
 -- Using 'NodeConstraints' in such functions isolates these functions from
 -- changes to the type classes used in the underlying node.
 type NodeConstraints = (
-      HasConfiguration
-    , HasUpdateConfiguration
+      HasUpdateConfiguration
     , HasCompileInfo
     )
 

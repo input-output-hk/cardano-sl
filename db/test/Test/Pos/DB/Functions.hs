@@ -12,11 +12,8 @@ import           Universum
 import           Hedgehog
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Core (HasConfiguration, withCoreConfiguration)
-import           Pos.DB (DBTag (..), dbGetBi, dbGetBiNoVersion, dbPutBi,
-                     dbPutBiNoVersion)
+import           Pos.DB (DBTag (..), dbGetBi, dbPutBi)
 
-import           Test.Pos.Core.Dummy (dummyCoreConfiguration)
 import           Test.Pos.Core.ExampleHelpers (exampleBlockVersionData,
                      exampleSscPayload)
 import           Test.Pos.DB.Mode (runTestMode)
@@ -26,7 +23,7 @@ import           Test.Pos.DB.Mode (runTestMode)
 -- | Trying to read a missing key results in a @Nothing@ value
 --
 prop_missingKey :: Property
-prop_missingKey = withTests 1 $ dbProperty $ do
+prop_missingKey = withTests 1 . property $ do
     result :: Maybe Bool <- liftIO . runTestMode $ dbGetBi MiscDB "test/bool"
     result === Nothing
 
@@ -35,7 +32,7 @@ prop_missingKey = withTests 1 $ dbProperty $ do
 -- | We can write values into the database and read them back
 --
 prop_putGet :: Property
-prop_putGet = withTests 1 $ dbProperty $ do
+prop_putGet = withTests 1 . property $ do
     putGetProperty "test/bool" True
     putGetProperty "test/int" (10000 :: Int)
     putGetProperty "test/bytestring" ("testing" :: ByteString)
@@ -47,7 +44,7 @@ prop_putGet = withTests 1 $ dbProperty $ do
 -- | We can write values with an explicit version and read them back
 --
 prop_putGetExplicitVersion :: Property
-prop_putGetExplicitVersion = withTests 1 $ dbProperty $ do
+prop_putGetExplicitVersion = withTests 1 . property $ do
     putGetExplicitVersionProperty "test/bool"       True
     putGetExplicitVersionProperty "test/int"        (10000 :: Int)
     putGetExplicitVersionProperty "test/bytestring" ("testing" :: ByteString)
@@ -58,26 +55,24 @@ prop_putGetExplicitVersion = withTests 1 $ dbProperty $ do
 
 
 --------------------------------------------------------------------------------
--- | We can write values with no version and read them back
+-- | We can write tuples with @Word8@s and read them back, not interpreting the
+--   @Word8@ as a version number
 --
-prop_putGetNoVersion :: Property
-prop_putGetNoVersion = withTests 1 $ dbProperty $ do
-    putGetNoVersionProperty "test/bool"             True
-    putGetNoVersionProperty "test/int"              (10000 :: Int)
-    putGetNoVersionProperty "test/bytestring"       ("testing" :: ByteString)
-    putGetNoVersionProperty "test/blockversiondata" exampleBlockVersionData
-    putGetNoVersionProperty "test/sscpayload"       exampleSscPayload
+prop_putGetWord8Tuple :: Property
+prop_putGetWord8Tuple = withTests 1 . property $ do
+    putGetWord8TupleProperty "test/bool"             True
+    putGetWord8TupleProperty "test/int"              (10000 :: Int)
+    putGetWord8TupleProperty "test/bytestring"       ("testing" :: ByteString)
+    putGetWord8TupleProperty "test/blockversiondata" exampleBlockVersionData
+    putGetWord8TupleProperty "test/sscpayload"       exampleSscPayload
 
 
 --------------------------------------------------------------------------------
 -- Hedgehog Helpers
 --------------------------------------------------------------------------------
 
-dbProperty :: (HasConfiguration => PropertyT IO ()) -> Property
-dbProperty prop = property $ withCoreConfiguration dummyCoreConfiguration prop
-
 putGetProperty
-    :: (HasConfiguration, Bi a, Eq a, Show a)
+    :: (Bi a, Eq a, Show a)
     => ByteString
     -> a
     -> PropertyT IO ()
@@ -88,26 +83,27 @@ putGetProperty k v = do
     result === Just v
 
 putGetExplicitVersionProperty
-    :: (HasConfiguration, Bi a, Eq a, Show a)
+    :: (Bi a, Eq a, Show a)
     => ByteString
     -> a
     -> PropertyT IO ()
 putGetExplicitVersionProperty k v = do
     result <- liftIO . runTestMode $ do
-        dbPutBiNoVersion MiscDB k (0 :: Word8, v)
+        dbPutBi MiscDB k (0 :: Word8, v)
         dbGetBi MiscDB k
     result === Just v
 
-putGetNoVersionProperty
-    :: (HasConfiguration, Bi a, Eq a, Show a)
+putGetWord8TupleProperty
+    :: (Bi a, Eq a, Show a)
     => ByteString
     -> a
     -> PropertyT IO ()
-putGetNoVersionProperty k v = do
+putGetWord8TupleProperty k v = do
+    let v' = (0 :: Word8, v)
     result <- liftIO . runTestMode $ do
-        dbPutBiNoVersion MiscDB k v
-        dbGetBiNoVersion MiscDB k
-    result === Just v
+        dbPutBi MiscDB k v'
+        dbGetBi MiscDB k
+    result === Just v'
 
 
 --------------------------------------------------------------------------------

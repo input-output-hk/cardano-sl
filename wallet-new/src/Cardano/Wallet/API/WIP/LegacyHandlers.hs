@@ -37,8 +37,7 @@ import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.Wallet.Web.Util (getWalletAccountIds)
 import           Servant
 
-handlers :: HasConfigurations
-            => (forall a. MonadV1 a -> Handler a)
+handlers :: (forall a. MonadV1 a -> Handler a)
             -> Core.Config
             -> TxpConfiguration
             -> Diffusion MonadV1
@@ -55,8 +54,7 @@ handlers naturalTransformation coreConfig txpConfig diffusion =
     submitTx = sendTx diffusion
 
 -- | All the @Servant@ handlers for wallet-specific operations.
-handlersPlain :: HasConfigurations
-         => Core.Config
+handlersPlain :: Core.Config
          -> TxpConfiguration
          -> (TxAux -> MonadV1 Bool)
          -> ServerT WIP.API MonadV1

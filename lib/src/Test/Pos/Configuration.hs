@@ -35,8 +35,8 @@ import           Pos.Chain.Txp (TxpConfiguration (..))
 import           Pos.Chain.Update (HasUpdateConfiguration,
                      withUpdateConfiguration)
 import           Pos.Configuration (HasNodeConfiguration, withNodeConfiguration)
-import           Pos.Core (HasConfiguration, withGenesisSpec)
-import           Pos.Core.Configuration as Core (Config, CoreConfiguration (..),
+import           Pos.Core (mkConfig)
+import           Pos.Core.Configuration as Core (Config,
                      GenesisConfiguration (..))
 import           Pos.Core.Genesis (GenesisSpec (..))
 import           Pos.Core.Update (BlockVersionData)
@@ -54,10 +54,9 @@ defaultTestConf = case J.fromJSON $ J.Object jobj of
     jobj = $(embedYamlConfigCT (Proxy @J.Object) "configuration.yaml" "configuration.yaml" "test")
 
 defaultTestGenesisSpec :: GenesisSpec
-defaultTestGenesisSpec =
-    case ccGenesis (ccCore defaultTestConf) of
-        GCSpec spec -> spec
-        _           -> error "unexpected genesis type in test"
+defaultTestGenesisSpec = case ccGenesis defaultTestConf of
+    GCSpec spec -> spec
+    _           -> error "unexpected genesis type in test"
 
 defaultTestBlockVersionData :: BlockVersionData
 defaultTestBlockVersionData = gsBlockVersionData defaultTestGenesisSpec
@@ -90,8 +89,8 @@ withDefBlockConfiguration = withBlockConfiguration (ccBlock defaultTestConf)
 withDefDlgConfiguration :: (HasDlgConfiguration => r) -> r
 withDefDlgConfiguration = withDlgConfiguration (ccDlg defaultTestConf)
 
-withDefConfiguration :: (HasConfiguration => Core.Config -> r) -> r
-withDefConfiguration = withGenesisSpec 0 (ccCore defaultTestConf) id
+withDefConfiguration :: (Core.Config -> r) -> r
+withDefConfiguration f = f $ mkConfig 0 defaultTestGenesisSpec
 
 withStaticConfigurations :: (HasStaticConfigurations => TxpConfiguration -> NtpConfiguration -> r) -> r
 withStaticConfigurations patak =

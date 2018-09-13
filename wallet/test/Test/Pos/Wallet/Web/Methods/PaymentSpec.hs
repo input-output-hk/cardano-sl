@@ -81,7 +81,7 @@ data PaymentFixture = PaymentFixture {
 }
 
 -- | Generic block of code to be reused across all the different payment specs.
-newPaymentFixture :: HasConfigurations => WalletProperty PaymentFixture
+newPaymentFixture :: WalletProperty PaymentFixture
 newPaymentFixture = do
     passphrases <- importSomeWallets mostlyEmptyPassphrases
     let l = length passphrases

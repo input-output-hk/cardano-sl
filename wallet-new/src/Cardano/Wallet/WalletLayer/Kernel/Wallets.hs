@@ -8,6 +8,7 @@ module Cardano.Wallet.WalletLayer.Kernel.Wallets (
     , getWallets
     , getWalletUtxos
     , blundToResolvedBlock
+    , prefilter
     ) where
 
 import           Universum
@@ -120,14 +121,6 @@ createWallet wallet newWalletRequest = liftIO $ do
         -- Insert the 'EncryptedSecretKey' into the 'Keystore'
         liftIO $ Keystore.insert wId esk (wallet ^. walletKeystore)
 
-        -- Synchronously restore the wallet balance, and begin to
-        -- asynchronously reconstruct the wallet's history.
-        let prefilter :: Blund -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta])
-            prefilter blund =
-                blundToResolvedBlock (wallet ^. Kernel.walletNode) blund <&> \case
-                    Nothing -> (M.empty, [])
-                    Just rb -> prefilterBlock rb wId esk
-
         (root, coins) <- withExceptT (CreateWalletError . Kernel.CreateWalletFailed) $ ExceptT $
             restoreWallet
               wallet
@@ -135,7 +128,7 @@ createWallet wallet newWalletRequest = liftIO $ do
               (HD.WalletName walletName)
               hdAssuranceLevel
               esk
-              prefilter
+              (prefilter esk wallet wId)
 
         -- Return the wallet information, with an updated balance.
         let root' = mkRoot walletName (toAssuranceLevel hdAssuranceLevel) now root
@@ -169,6 +162,15 @@ createWallet wallet newWalletRequest = liftIO $ do
                -- operation
     mnemonic (V1.NewWallet (V1.BackupPhrase m) _ _ _ _) = m
     spendingPassword = maybe emptyPassphrase coerce
+
+
+-- Synchronously restore the wallet balance, and begin to
+-- asynchronously reconstruct the wallet's history.
+prefilter :: EncryptedSecretKey -> Kernel.PassiveWallet -> WalletId -> Blund -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta])
+prefilter esk wallet wId blund =
+    blundToResolvedBlock (wallet ^. Kernel.walletNode) blund <&> \case
+        Nothing -> (M.empty, [])
+        Just rb -> prefilterBlock rb wId esk
 
 -- | Updates the 'SpendingPassword' for this wallet.
 updateWallet :: MonadIO m

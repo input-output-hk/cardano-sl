@@ -13,7 +13,6 @@ module Cardano.Wallet.Server.LegacyPlugins (
     , walletDocumentation
     , resubmitterPlugin
     , notifierPlugin
-    , throttleMiddleware
     ) where
 
 import           Universum
@@ -24,6 +23,7 @@ import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.LegacyServer as LegacyServer
 import           Cardano.Wallet.Server.CLI (WalletBackendParams (..),
                      isDebugMode, walletAcidInterval, walletDbOptions)
+import           Cardano.Wallet.Server.Middlewares (withMiddlewares)
 import qualified Pos.Wallet.Web.Error.Types as V0
 
 import           Control.Exception (fromException)
@@ -33,7 +33,6 @@ import           Network.HTTP.Types.Status (badRequest400)
 import           Network.Wai (Application, Middleware, Response, responseLBS)
 import           Network.Wai.Handler.Warp (defaultSettings,
                      setOnExceptionResponse)
-import qualified Network.Wai.Middleware.Throttle as Throttle
 import           Ntp.Client (NtpStatus)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
@@ -54,8 +53,7 @@ import           Cardano.NodeIPC (startNodeJsIPC)
 import           Pos.Configuration (walletProductionApi,
                      walletTxCreationDisabled)
 import           Pos.Infra.Shutdown.Class (HasShutdownContext (shutdownContext))
-import           Pos.Launcher.Configuration (HasConfigurations,
-                     ThrottleSettings (..))
+import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.Server.Launcher (walletDocumentationImpl,
@@ -103,24 +101,19 @@ walletDocumentation WalletBackendParams {..} = pure $ \_ ->
     application :: WalletWebMode Application
     application = do
         let app = Servant.serve API.walletDocAPI LegacyServer.walletDocServer
-        return $
-            withMiddlewares
-                [ throttleMiddleware Nothing
-                ]
-                app
+        return $ withMiddlewares [] app
     tls =
         if isDebugMode walletRunMode then Nothing else walletTLSParams
 
 -- | A @Plugin@ to start the wallet backend API.
 legacyWalletBackend :: (HasConfigurations, HasCompileInfo)
                     => Genesis.Config
-                    -> WalletConfiguration
                     -> TxpConfiguration
                     -> WalletBackendParams
                     -> TVar NtpStatus
                     -> [Middleware]
                     -> Plugin WalletWebMode
-legacyWalletBackend genesisConfig walletConfig txpConfig WalletBackendParams {..} ntpStatus middlewares = pure $ \diffusion -> do
+legacyWalletBackend genesisConfig txpConfig WalletBackendParams {..} ntpStatus middlewares = pure $ \diffusion -> do
     modifyLoggerName (const "legacyServantBackend") $ do
       logWarning $ sformat "RUNNING THE OLD LEGACY DATA LAYER IS NOT RECOMMENDED!"
       logInfo $ sformat ("Production mode for API: "%build)
@@ -216,25 +209,3 @@ syncWalletWorker :: Genesis.Config -> Plugin WalletWebMode
 syncWalletWorker genesisConfig = pure $ const $
     modifyLoggerName (const "syncWalletWorker") $
     (view (lensOf @SyncQueue) >>= processSyncRequest genesisConfig)
-
--- | "Attaches" the middlewares to this 'Application'.
-withMiddlewares :: [Middleware] -> Application -> Application
-withMiddlewares = flip $ foldr ($)
-
--- | A @Middleware@ to throttle requests.
-throttleMiddleware :: Maybe ThrottleSettings -> Middleware
-throttleMiddleware Nothing app = app
-throttleMiddleware (Just ts) app = \req respond -> do
-    throttler <- Throttle.initThrottler
-    Throttle.throttle throttleSettings throttler app req respond
-  where
-    throttleSettings = Throttle.defaultThrottleSettings
-        { Throttle.onThrottled = \microsTilRetry ->
-            let
-                err = V1.RequestThrottled microsTilRetry
-            in
-                responseLBS (V1.toHttpErrorStatus err) [applicationJson] (encode err)
-        , Throttle.throttleRate = fromIntegral $ tsRate ts
-        , Throttle.throttlePeriod = fromIntegral $ tsPeriod ts
-        , Throttle.throttleBurst = fromIntegral $ tsBurst ts
-        }

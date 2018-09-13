@@ -25,7 +25,6 @@ import           Network.HTTP.Types.Status (badRequest400)
 import           Network.Wai (Application, Middleware, Response, responseLBS)
 import           Network.Wai.Handler.Warp (defaultSettings,
                      setOnExceptionResponse)
-import qualified Network.Wai.Middleware.Throttle as Throttle
 
 import           Cardano.NodeIPC (startNodeJsIPC)
 import           Cardano.Wallet.API as API
@@ -40,6 +39,7 @@ import qualified Cardano.Wallet.Server as Server
 import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..),
                      WalletBackendParams (..), getWalletDbOptions, isDebugMode,
                      walletAcidInterval)
+import           Cardano.Wallet.Server.Middlewares (withMiddlewares)
 import           Cardano.Wallet.Server.Plugins.AcidState
                      (createAndArchiveCheckpoints)
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer,
@@ -52,13 +52,11 @@ import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Infra.Shutdown (HasShutdownContext (shutdownContext),
                      ShutdownContext)
-import           Pos.Launcher.Configuration (HasConfigurations,
-                     ThrottleSettings (..))
+import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.Wlog (logInfo, modifyLoggerName, usingLoggerName)
 import           Pos.Web (serveDocImpl, serveImpl)
 import qualified Pos.Web.Server
-
 
 -- Needed for Orphan Instance 'Buildable Servant.NoContent' :|
 import           Pos.Wallet.Web ()
@@ -124,11 +122,6 @@ apiServer protocolMagic (NewWalletBackendParams WalletBackendParams{..}) (passiv
     portCallback :: ShutdownContext -> Word16 -> IO ()
     portCallback ctx =
         usingLoggerName "NodeIPC" . flip runReaderT ctx . startNodeJsIPC
-
-    -- | "Attaches" the middlewares to this 'Application'.
-    withMiddlewares :: [Middleware] -> Application -> Application
-    withMiddlewares = flip $ foldr ($)
-
 
 -- | A @Plugin@ to serve the wallet documentation
 docServer

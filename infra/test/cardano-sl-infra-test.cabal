@@ -26,11 +26,9 @@ library
                        Test.Pos.Infra.Json
 
   build-depends:       QuickCheck
-                     , aeson
                      , async
                      , base
                      , bytestring
-                     , cardano-sl-binary
                      , cardano-sl-binary-test
                      , cardano-sl-chain
                      , cardano-sl-chain-test
@@ -49,7 +47,6 @@ library
                      , iproute
                      , kademlia
                      , universum
-                     , unordered-containers
 
   default-language:    Haskell2010
 

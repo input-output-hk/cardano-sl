@@ -25,9 +25,7 @@ library
                        Test.Pos.Core.Json
 
   build-depends:       QuickCheck
-                     , aeson
                      , base
-                     , base16-bytestring
                      , bytestring
                      , cardano-crypto
                      , cardano-sl-binary
@@ -39,9 +37,6 @@ library
                      , cardano-sl-util-test
                      , containers
                      , cryptonite
-                     , data-default
-                     , ed25519
-                     , formatting
                      , generic-arbitrary
                      , hedgehog
                      , pvss
@@ -52,7 +47,6 @@ library
                      , time-units
                      , universum
                      , unordered-containers
-                     , vector
 
   default-language:    Haskell2010
 

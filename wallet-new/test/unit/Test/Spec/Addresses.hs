@@ -348,6 +348,7 @@ spec = describe "Addresses" $ do
                                                slice rNumOfPages rNumPerPage fixtureAddresses
                         pure (toBeCheckedAddresses === correctAddresses)
 
+
     describe "ValidateAddress" $ do
         describe "Address validation (wallet layer)" $ do
 

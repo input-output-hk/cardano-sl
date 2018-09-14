@@ -6,25 +6,33 @@
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeApplications           #-}
 
+
 module Functions
     ( runActionCheck
     , printT
+    , randomTest
     ) where
 
-import           Universum hiding (init, uncons)
+import           Universum hiding (init, throwM, uncons)
 
 import           Control.Lens (at, each, filtered, uses, (%=), (+=), (.=),
                      (<>=), (?=))
+import           Control.Monad.Catch (throwM)
 import           Data.Aeson (toJSON)
 import           Data.Aeson.Diff (diff)
 import           Data.Aeson.Encode.Pretty (encodePretty)
 import           Data.Coerce (coerce)
 import           Data.List (isInfixOf, nub, uncons, (!!), (\\))
 import           Servant.Client (GenResponse (..))
-import           Test.Hspec (describe, expectationFailure, hspec, it, shouldBe,
-                     shouldContain)
+import           Test.Hspec (Spec, describe, expectationFailure, hspec,
+                     shouldBe, shouldContain)
+import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (arbitrary, choose, elements, frequency,
-                     generate, suchThat)
+                     quickCheck, suchThat, withMaxSuccess)
+import           Test.QuickCheck.Monadic (PropertyM, monadic, monadicIO, pick,
+                     pre, run, stop)
+import           Test.QuickCheck.Property (Property, Testable, ioProperty,
+                     rejected)
 import           Text.Show.Pretty (ppShow)
 
 import           Cardano.Wallet.API.Response (WalletResponse (..))
@@ -38,7 +46,7 @@ import           Cardano.Wallet.Client (ClientError (..), ServantError (..),
 import           Pos.Core (getCoin, mkCoin, unsafeAddCoin, unsafeSubCoin)
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
-import           Error (WalletTestError (..), showConstr)
+import           Error (WalletTestError (..))
 import           Types
 import           Util
 
@@ -64,43 +72,63 @@ runRefT act i = do
 execRefT :: MonadIO m => RefT s m a -> s -> m s
 execRefT x = fmap snd . runRefT x
 
+monadicRefIO :: s -> PropertyM (RefT s IO) () -> Property
+monadicRefIO ws = monadic $ \reft'io'prop ->
+    let ioProp = fmap fst (runRefT reft'io'prop ws)
+     in ioProperty ioProp
+
+instance MonadIO m => MonadState s (PropertyM (RefT s m)) where
+    get = lift $ (get :: RefT s m s)
+    put x = lift $ (put x :: RefT s m ())
+
+instance (MonadIO m, MonadThrow m) => MonadThrow (PropertyM (RefT s m)) where
+    throwM = lift . throwM
+
 -- | This function uses the given 'ActionProbabilities' to generate a list
 -- of actions to test against the API. It runs the actions through,
 -- eventually returning the final state.
 runActionCheck
-    :: (WalletTestMode m, HasCallStack)
-    => WalletClient m
+    :: (WalletTestMode m,
+        HasCallStack
+       )
+    => WalletClient IO
     -> WalletState
     -> ActionProbabilities
     -> m WalletState
 runActionCheck walletClient walletState actionProb = do
-    actions <- chooseActions 50 actionProb
-    log $ "Test will run these actions: " <> show (toList actions)
-    let client' = hoistClient lift walletClient
-    ws <- execRefT (tryAll (map (runAction client') actions) <|> pure ()) walletState
-              `catch` \x -> fmap (const walletState) . liftIO . hspec .
-                  describe "Unit Test Failure" $
-                      it ("threw a test error: " ++ showConstr x) $ case x of
-                          LocalWalletDiffers a b ->
-                              a `shouldBe` b
-                          LocalWalletsDiffers as bs ->
-                              sort as `shouldBe` sort bs
-                          LocalAccountDiffers a b ->
-                              a `shouldBe` b
-                          LocalAccountsDiffers as bs ->
-                              sort as `shouldBe` sort bs
-                          LocalAddressesDiffer as bs ->
-                              sort as `shouldBe` sort bs
-                          LocalAddressDiffer a b ->
-                              a `shouldBe` b
-                          LocalTransactionsDiffer as bs ->
-                              sort as `shouldBe` sort bs
-                          LocalTransactionMissing txn txns ->
-                              txns `shouldContain` [txn]
-                          err ->
-                              expectationFailure $ show err
-    _ <- execRefT report ws
-    pure ws
+    let randomTests = monadicIO $ do
+            actions <-  chooseActions 50 actionProb
+            log $ "Test will run these actions: " <> show (toList actions)
+            let client' = hoistClient lift walletClient
+            liftIO $ ( quickCheck $ monadicRefIO walletState
+                       (traverse_ (runAction client') actions)
+                     )
+                `Universum.catch`
+                \case
+                    LocalWalletDiffers a b ->
+                        liftIO $ a `shouldBe` b
+                    LocalWalletsDiffers as bs ->
+                        liftIO $ sort as `shouldBe` sort bs
+                    LocalAccountDiffers a b ->
+                        liftIO $ a `shouldBe` b
+                    LocalAccountsDiffers as bs ->
+                        liftIO $ sort as `shouldBe` sort bs
+                    LocalAddressesDiffer as bs ->
+                        liftIO $ sort as `shouldBe` sort bs
+                    LocalAddressDiffer a b ->
+                        liftIO $ a `shouldBe` b
+                    LocalTransactionsDiffer as bs ->
+                        liftIO $ sort as `shouldBe` sort bs
+                    LocalTransactionMissing txn txns ->
+                        liftIO $ txns `shouldContain` [txn]
+                    err ->
+                        liftIO $ expectationFailure $ show err
+
+    void $ liftIO $ hspec $ describe "Random Walk Test" $
+                prop ("50 API calls") $ withMaxSuccess 1 $ randomTests
+
+    _ <- execRefT report walletState
+    pure walletState
   where
     report = do
         acts <- use actionsNum
@@ -110,26 +138,23 @@ runActionCheck walletClient walletState actionProb = do
         log $ "Skipped actions: " <> show ([minBound..maxBound] \\ nub succs)
 
 
--- | Attempt each action in the list. If an action fails, ignore the
--- failure and try the next action in the sequence.
-tryAll :: Alternative f => NonEmpty (f a) -> f a
-tryAll (x :| xs) = foldl' (\this next -> (this *> next) <|> next) x xs
-
-freshPassword :: (MonadState WalletState m, MonadIO m) => m SpendingPassword
+freshPassword :: (MonadState WalletState (PropertyM m), MonadIO m) => PropertyM m SpendingPassword
 freshPassword = do
     passwords <- gets (toList . view walletsPass)
-    liftIO $ generate $ arbitrary `suchThat` (`notElem` passwords)
+    pick $ arbitrary `suchThat` (`notElem` passwords)
 
 -- | Here we run the actions.
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 -- NOTE: ordNub is available in latest universum, but current universum-0.9 doesn't have it.
 {-# ANN module ("HLint: ignore Use ordNub" :: Text) #-}
 runAction
-    :: (WalletTestMode m, MonadState WalletState m)
+    :: (WalletTestMode m,
+        MonadState WalletState (PropertyM m),
+        MonadThrow (PropertyM m)
+        )
     => WalletClient m
     -> Action
-    -> m ()
--- Wallets
+    -> PropertyM m ()
 runAction wc action = do
 
     previousWalletState <- get
@@ -143,9 +168,9 @@ runAction wc action = do
     case action of
         PostWallet -> do
             newPassword <- freshPassword
-            newWall     <- liftIO $ generate $ generateNewWallet newPassword
+            newWall     <- pick $ generateNewWallet newPassword
             log $ "Request: " <> ppShowT newWall
-            eresult      <- postWallet wc newWall
+            eresult      <- run $ postWallet wc newWall
 
             case eresult of
                 Right WalletResponse { wrData = result } -> do
@@ -169,10 +194,10 @@ runAction wc action = do
                         log "Mnemonic was already taken!"
                         -- we need to record that the password is in use
                         -- somehow
-                        dummyWallet <- liftIO $ generate arbitrary
+                        dummyWallet <- pick arbitrary
                         walletsPass . at dummyWallet ?= newPassword
                 Left err ->
-                    throwM err
+                    liftIO $ throwM err
           where
             generateNewWallet spendPass =
                 NewWallet
@@ -212,7 +237,7 @@ runAction wc action = do
 
             log $ "Deleting: " <> show (walId wallet)
             -- If we don't have any http client errors, the delete was a success.
-            _       <-  either throwM pure =<< deleteWallet wc (walId wallet)
+            _       <-  run $ either throwM pure =<< deleteWallet wc (walId wallet)
 
             -- Just in case, let's check if it's still there.
             result  <-  respToRes $ getWallets wc
@@ -265,7 +290,7 @@ runAction wc action = do
             -- Get the old wallet password.
             oldWalletPass <- use (walletsPass . at (walId wallet))
 
-            walletPass  <- maybe empty pure oldWalletPass
+            walletPass  <- maybe (pure mempty :: PropertyM m SpendingPassword) pure oldWalletPass
             newPassword <- freshPassword
 
             -- Create a password update.
@@ -293,7 +318,7 @@ runAction wc action = do
 
             wallet  <- pickRandomElement localWallets
             mpass   <- use (walletsPass . at (walId wallet))
-            newAcc  <-  liftIO $ generate (generateNewAccount mpass)
+            newAcc  <-  pick $ generateNewAccount mpass
             log $ "Posting account: " <> show (walId  wallet) <> ", " <> ppShowT newAcc
             result  <-  respToRes $ postAccount wc (walId wallet) newAcc
 
@@ -361,7 +386,7 @@ runAction wc action = do
             walletIdIsNotGenesis walletId
             log $ "Deleting account, walletID: " <> show walletId <> ", accIndex: " <> show accIdx
             -- If we don't have any http client errors, the delete was a success.
-            _ <- either throwM pure =<< deleteAccount wc walletId accIdx
+            _ <- run $ either throwM pure =<< deleteAccount wc walletId accIdx
 
             -- Just in case, let's check if it's still there.
             result  <-  respToRes $ getAccounts wc walletId
@@ -466,12 +491,12 @@ runAction wc action = do
                 reasonableFee = 100
 
             -- We should probably have a sensible minimum value.
-            moneyAmount <- liftIO . fmap mkCoin . generate
+            moneyAmount <- fmap mkCoin . pick
                 $ choose
                     ( 10
                     , getCoin (unV1 accountSourceMoney) - reasonableFee
                     )
-            -- moneyAmount <- liftIO $ generate arbitrary
+            -- moneyAmount <- pick arbitrary
 
             let paymentSource =
                     PaymentSource
@@ -496,13 +521,13 @@ runAction wc action = do
 
             -- Check the transaction fees.
             log $ "getTransactionFee: " <> ppShowT newPayment
-            etxFees  <-  fmap wrData <$> getTransactionFee wc newPayment
+            etxFees  <-  run $ fmap wrData <$> getTransactionFee wc newPayment
 
             txFees <- case etxFees of
                 Right a -> pure a
                 Left (ClientWalletError (NotEnoughMoney _)) -> do
                         log "Not enough money to do the transaction."
-                        empty
+                        (pure $ EstimatedFees (V1 . mkCoin $ 0))
                 Left err -> throwM err
 
 
@@ -659,15 +684,15 @@ runAction wc action = do
 --     :: (WalletTestMode m)
 --     => ActionProbabilities
 --     -> m Action
--- chooseAction = liftIO . generate . chooseActionGen
+-- chooseAction = pick . chooseActionGen
 
 -- | Generate a random sequence of actions with the given size.
 chooseActions
     :: (WalletTestMode m)
     => Word
     -> ActionProbabilities
-    -> m (NonEmpty Action)
-chooseActions n probs = liftIO . generate $ do
+    -> PropertyM m (NonEmpty Action)
+chooseActions n probs = pick $ do
     let gens = map (\(a, p) -> (getWeight p, pure a)) (toList probs)
     a <- frequency gens
     as <- replicateM (fromIntegral n - 1) (frequency gens)
@@ -677,25 +702,25 @@ chooseActions n probs = liftIO . generate $ do
 respToRes
     :: forall m a. (MonadThrow m)
     => m (Either ClientError (WalletResponse a))
-    -> m a
+    -> PropertyM m a
 respToRes resp = do
-    result <- resp
-    either throwM (pure . wrData) result
+    result <- lift resp
+    run $ either throwM (pure . wrData) result
 
 
 -- | Pick a random element using @IO@.
-pickRandomElement :: (MonadIO m, Alternative m) => [a] -> m a
-pickRandomElement [] = empty
-pickRandomElement xs = liftIO . generate . elements $ xs
+pickRandomElement :: (Show a, MonadIO m) => [a] -> PropertyM m a
+pickRandomElement [] = stop rejected
+pickRandomElement xs = pick . elements $ xs
 
 -- | A util function for checking the validity of invariants.
 checkInvariant
-    :: forall m. (MonadThrow m)
+    :: forall m. (MonadIO m)
     => Bool
     -> WalletTestError
-    -> m ()
+    -> PropertyM m ()
 checkInvariant True  _             = pure ()
-checkInvariant False walletTestErr = throwM walletTestErr
+checkInvariant False walletTestErr = liftIO $ throwM walletTestErr
 
 log :: MonadIO m => Text -> m ()
 log = putStrLn . mappend "[TEST-LOG] "
@@ -708,9 +733,16 @@ ppShowT :: Show a => a -> Text
 ppShowT = fromString . ppShow
 
 walletIdIsNotGenesis
-    :: (MonadState WalletState m, Alternative m)
-    => WalletId -> m ()
+    :: (Monad m,
+        MonadState WalletState (PropertyM m)
+       )
+    => WalletId -> PropertyM m ()
 walletIdIsNotGenesis walletId = do
     mwallet <- (fmap fst . uncons) . filter ((walletId ==) . walId) <$> use wallets
     whenJust mwallet $ \wal ->
-        guard (walName wal /= "Genesis wallet")
+        pre (walName wal /= "Genesis wallet")
+
+
+randomTest :: (Testable a) => String -> Int -> PropertyM IO a -> Spec
+randomTest msg maxSuccesses =
+    prop msg . withMaxSuccess maxSuccesses . monadicIO

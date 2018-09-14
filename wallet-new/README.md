@@ -85,11 +85,11 @@ $ curl https://localhost:8090/api/v1/node-info \
    --cert scripts/tls-files/client.pem
 ```
 
-> *NOTE* 
+> *NOTE*
 >
 > Every node running a wallet API needs x509 certificates for enabling TLS support. By default,
 > those certificates are located in `./scripts/tls-files`. Use them if you need a CA or a
-> client certificate. 
+> client certificate.
 
 
 ## Local Cluster
@@ -105,7 +105,7 @@ $ nix-build -A demoCluster -o run-demo --arg useStackBinaries true && ./run-demo
 
 This will run a local cluster after having set up a fresh environment for it in `./state-demo`.
 There are some files of interest in this folder you may need like the tls certificates or the
-logging configurations. 
+logging configurations.
 
 
 ### HTTPS
@@ -118,7 +118,7 @@ This server only accepts secure HTTPS connections.
 ```
 
 Read the documentation about TLS authentication in [docs/tls-authentication.md](../docs/tls-authentication.md)
-for details about how to contact a wallet node with TLS. 
+for details about how to contact a wallet node with TLS.
 
 
 ### Swagger Specification
@@ -154,7 +154,7 @@ $ stack test cardano-sl-wallet-new
 Wallet integration tests can be run using this command (from the project *root* directory):
 
 ```
-$ nix-build -A walletIntegrationTests --arg useStackBinaries true 
+$ nix-build -A walletIntegrationTests --arg useStackBinaries true
 ```
 
 > **NOTE**:
@@ -180,6 +180,17 @@ $ nix-build -A walletIntegrationTests --arg useStackBinaries true
 > cache the results (unless of a failure). If you have a need to rerun the
 > test, you can pass the `--check` flag to force the test to run again. `--check`
 > is used to confirm that results from one test match the results again.
+
+Wallet integration tests can be used also with seed/match options that behave like hspec test runner (and are passed to).
+--match PATTERN - behave exactly like Hspec's --match allowing to run only a subset of tests
+--seed SEED - enable passing an external, predictable seed to the test runner
+Example allowing the use of concrete seed and testing Address related tests only:
+
+```
+$ nix-build -A walletIntegrationTests -o launch_integration_tests
+$ ./launch_integration_tests --match 'Address' --seed 47286650
+```
+
 
 ## Developing
 
@@ -217,20 +228,20 @@ Response:
 
 ```
 {
-	"Right": {
-		"cwId": "Ae2tdPwUPEZEK5DvxPMtnTnUfQg8coWAAbNfLEvQ4GqWTe9h8d6AEkBDMce",
-		"cwMeta": {
-			"cwName": "Genesis wallet",
-			"cwAssurance": "CWANormal",
-			"cwUnit": 0
-		},
-		"cwAccountsNumber": 1,
-		"cwAmount": {
-			"getCCoin": "0"
-		},
-		"cwHasPassphrase": false,
-		"cwPassphraseLU": 1.52232831369479818e9
-	}
+        "Right": {
+                "cwId": "Ae2tdPwUPEZEK5DvxPMtnTnUfQg8coWAAbNfLEvQ4GqWTe9h8d6AEkBDMce",
+                "cwMeta": {
+                        "cwName": "Genesis wallet",
+                        "cwAssurance": "CWANormal",
+                        "cwUnit": 0
+                },
+                "cwAccountsNumber": 1,
+                "cwAmount": {
+                        "getCCoin": "0"
+                },
+                "cwHasPassphrase": false,
+                "cwPassphraseLU": 1.52232831369479818e9
+        }
 }
 ```
 

@@ -44,6 +44,19 @@ optionsParser = do
        <> help      "Server port"
        <> showDefault
 
+    testRunnerMatch <- optional . strOption $
+        long        "match"
+        <> metavar  "PATTERN"
+        <> help     "Only tests that match PATTERN will be run"
+        <> showDefault
+
+    testRunnerSeed <- optional . option auto $
+        long        "seed"
+        <> metavar  "SEED"
+        <> help     "Seed for a test runner"
+        <> showDefault
+
+
     pure CLOptions{..}
 
 
@@ -63,4 +76,6 @@ data CLOptions = CLOptions
     , tlsCACertPath     :: FilePath
     , serverHost        :: String
     , serverPort        :: Int
+    , testRunnerMatch   :: Maybe String
+    , testRunnerSeed    :: Maybe Integer
     } deriving (Show, Eq)

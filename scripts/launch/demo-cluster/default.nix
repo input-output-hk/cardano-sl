@@ -166,13 +166,14 @@ in pkgs.writeScript "demo-cluster" ''
       for i in {0..${builtins.toString numImportedWallets}}
       do
           echo "Importing key$i.sk ..."
-          curl https://${demoWallet.walletListen}/api/wallets/keys \
+          curl https://${demoWallet.walletListen}/api/internal/import-wallet \
           --cacert ${stateDir}/tls/client/ca.crt \
           --cert ${stateDir}/tls/client/client.pem \
           -X POST \
           -H 'cache-control: no-cache' \
-          -H 'content-type: application/json' \
-          -d "\"${stateDir}/genesis-keys/generated-keys/poor/key$i.sk\"" | jq .
+          -H 'Content-Type: application/json; charset=utf-8' \
+          -H 'Accept: application/json; charset=utf-8' \
+          -d "{\"filePath\": \"${stateDir}/genesis-keys/generated-keys/poor/key$i.sk\"}" | jq .
       done
     fi
   ''}

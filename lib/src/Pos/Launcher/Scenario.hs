@@ -36,8 +36,7 @@ import           Pos.Infra.Util.LogSafe (logInfoS)
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
-import           Pos.Util.Wlog (LoggerName (..), WithLogger, askLoggerName,
-                     logInfo)
+import           Pos.Util.Wlog (WithLogger, askLoggerName, logInfo)
 import           Pos.Worker (allWorkers)
 import           Pos.WorkMode.Class (WorkMode)
 
@@ -98,7 +97,7 @@ runNode' genesisConfig NodeResources {..} workers' plugins' = \diffusion -> do
     reportHandler (SomeException e) = do
         loggerName <- askLoggerName
         let msg = "Worker/plugin with logger name "%shown%" failed with exception: "%shown
-        reportError $ sformat msg (getLoggerName loggerName) e
+        reportError $ sformat msg loggerName e
         exitFailure
 
 -- | Entry point of full node.

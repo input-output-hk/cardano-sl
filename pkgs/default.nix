@@ -16843,6 +16843,7 @@ license = stdenv.lib.licenses.mit;
 , time
 , time-units
 , universum
+, unordered-containers
 , vector
 }:
 mkDerivation {
@@ -16887,6 +16888,7 @@ these
 time
 time-units
 universum
+unordered-containers
 ];
 executableHaskellDepends = [
 async

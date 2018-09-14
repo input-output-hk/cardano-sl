@@ -5,7 +5,6 @@ module Pos.Util.Log
        -- * Logging
          Severity (..)
        , LogContext
-       , LogContextT
        , LoggingHandler
        -- * Compatibility
        , CanLog (..)

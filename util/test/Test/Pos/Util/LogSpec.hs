@@ -15,15 +15,15 @@ import           Test.Hspec.QuickCheck (modifyMaxSize, modifyMaxSuccess)
 import           Test.QuickCheck (Property, property)
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
+import           Pos.Util.Log
+import           Pos.Util.Log.Internal (getLinesLogged)
 import           Pos.Util.Log.LoggerConfig (BackendKind (..), LogHandler (..),
                      LogSecurityLevel (..), LoggerConfig (..), LoggerTree (..),
                      defaultInteractiveConfiguration, defaultTestConfiguration,
                      lcLoggerTree, ltMinSeverity, ltNamedSeverity)
-import           Pos.Util.Wlog (Severity (..), WithLogger, getLinesLogged,
-                     logDebug, logError, logInfo, logNotice, logWarning,
-                     setupLogging, usingLoggerName)
---import           Pos.Util.Log.LogSafe (logDebugS, logErrorS, logInfoS,
---                     logNoticeS, logWarningS)
+import           Pos.Util.Log.LogSafe (logDebugS, logErrorS, logInfoS,
+                     logNoticeS, logWarningS)
+import           Pos.Util.Log.Severity (Severity (..))
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: String) #-}
 
@@ -48,30 +48,26 @@ prop_lines =
     monadicIO $ do
         let n0 = 20
             n1 = 1
-        (_, linesLogged) <- run (run_logging Debug 10 n0 n1)
+        (_, lineslogged) <- run (run_logging Debug 10 n0 n1)
         -- multiply by 5 because we log 5 different messages (n0 * n1) times
-        assert (linesLogged == n0 * n1 * 5)
-        -- assert (linesLogged >= n0 * n1 * 5 `div` 2)    -- weaker
+        assert (lineslogged == n0 * n1 * 5)
 
-  {-
 -- | Count as many lines as you intended to log.
 prop_sev :: Property
 prop_sev =
     monadicIO $ do
         let n0 = 20
             n1 = 1
-        (_, linesLogged) <- run (run_logging Warning 10 n0 n1)
+        (_, lineslogged) <- run (run_logging Warning 10 n0 n1)
         -- multiply by 2 because Debug, Info and Notice messages must not be logged
-        assert (linesLogged == n0 * n1 * 2)
-        -- assert (linesLogged >= n0 * n1 * 2 `div` 2)    -- weaker
--}
+        assert (lineslogged == n0 * n1 * 2)
+
 run_logging :: Severity -> Int -> Integer -> Integer -> IO (Microsecond, Integer)
-run_logging _ n n0 n1= do
+run_logging sev n n0 n1= do
         startTime <- getPOSIXTime
-        --setupLogging $ defaultTestConfiguration sev
-        lineslogged0 <- getLinesLogged
+        lh <- setupLogging $ defaultTestConfiguration sev
         forM_ [1..n0] $ \_ ->
-            usingLoggerName "test_log" $
+            usingLoggerName lh "test_log" $
                 forM_ [1..n1] $ \_ -> do
                     logDebug msg
                     logInfo msg
@@ -82,29 +78,27 @@ run_logging _ n n0 n1= do
         threadDelay $ fromIntegral (5000 * n0)
         let diffTime = nominalDiffTimeToMicroseconds (endTime - startTime)
         putStrLn $ "  time for " ++ (show (n0*n1)) ++ " iterations: " ++ (show diffTime)
-        lineslogged1 <- getLinesLogged
-        let lineslogged = lineslogged1 - lineslogged0
+        lineslogged <- getLinesLogged lh
         putStrLn $ "  lines logged :" ++ (show lineslogged)
         return (diffTime, lineslogged)
         where msg :: Text
               msg = replicate n "abcdefghijklmnopqrstuvwxyz"
 
-  {-
 prop_sevS :: Property
 prop_sevS =
     monadicIO $ do
         let n0 = 200
             n1 = 1
-        (_, linesLogged) <- run (run_loggingS Warning 10 n0 n1)
+        (_, lineslogged) <- run (run_loggingS Warning 10 n0 n1)
         -- multiply by 2 because Debug, Info and Notice messages must not be logged
-        assert (linesLogged == 0)
+        assert (lineslogged == 0)
 
 run_loggingS :: Severity -> Int -> Integer -> Integer-> IO (Microsecond, Integer)
 run_loggingS sev n n0 n1= do
         startTime <- getPOSIXTime
-        --setupLogging $ defaultTestConfiguration sev
+        lh <- setupLogging $ defaultTestConfiguration sev
         forM_ [1..n0] $ \_ ->
-            usingLoggerName "test_log" $
+            usingLoggerName lh "test_log" $
                 forM_ [1..n1] $ \_ -> do
                     logDebugS   lh msg
                     logInfoS    lh msg
@@ -115,17 +109,17 @@ run_loggingS sev n n0 n1= do
         threadDelay 0500000
         let diffTime = nominalDiffTimeToMicroseconds (endTime - startTime)
         putStrLn $ "  time for " ++ (show (n0*n1)) ++ " iterations: " ++ (show diffTime)
-        linesLogged <- getLinesLogged
-        putStrLn $ "  lines logged :" ++ (show linesLogged)
-        return (diffTime, linesLogged)
+        lineslogged <- getLinesLogged lh
+        putStrLn $ "  lines logged :" ++ (show lineslogged)
+        return (diffTime, lineslogged)
         where msg :: Text
               msg = replicate n "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
--}
+
 -- | example: setup logging
 example_setup :: IO ()
 example_setup = do
-    --setupLogging (defaultTestConfiguration Debug)
-    usingLoggerName "processXYZ" $ do
+    lh <- setupLogging (defaultTestConfiguration Debug)
+    usingLoggerName lh "processXYZ" $ do
         logInfo "entering"
         complexWork "42"
         logInfo "done."
@@ -135,12 +129,11 @@ example_setup = do
         complexWork m = do
             logDebug $ "let's see: " `append` m
 
-{-
 -- | example: bracket logging
 example_bracket :: IO ()
 example_bracket = do
-    setupLogging (defaultTestConfiguration Debug)
-    loggerBracket "processXYZ" $ do
+    lh <- setupLogging (defaultTestConfiguration Debug)
+    loggerBracket lh "processXYZ" $ do
         logInfo "entering"
         complexWork "42"
         logInfo "done."
@@ -150,17 +143,9 @@ example_bracket = do
         complexWork m =
             addLoggerName "in_complex" $ do
                 logDebug $ "let's see: " `append` m
--}
+
 spec :: Spec
 spec = describe "Logging" $ do
-    modifyMaxSuccess (const 1) $ modifyMaxSize (const 1) $
-      it "setup logging" $
-        monadicIO $ do
-            let lc0 = defaultTestConfiguration Debug
-                newlt = lc0 ^. lcLoggerTree & ltNamedSeverity .~ HM.fromList [("cardano-sl.silent", Error)]
-                lc = lc0 & lcLoggerTree .~ newlt
-            setupLogging lc
-
     modifyMaxSuccess (const 2) $ modifyMaxSize (const 2) $
       it "measure time for logging small messages" $
         property prop_small
@@ -173,24 +158,20 @@ spec = describe "Logging" $ do
       it "lines counted as logged must be equal to how many was intended to be written" $
         property prop_lines
 
-{-
     modifyMaxSuccess (const 2) $ modifyMaxSize (const 2) $
       it "Debug, Info and Notice messages must not be logged" $
         property prop_sev
--}
 
-{-  disabled for now
     modifyMaxSuccess (const 2) $ modifyMaxSize (const 2) $
       it "DebugS, InfoS, NoticeS, WarningS and ErrorS messages must not be logged in public logs" $
         property prop_sevS
--}
+
     it "demonstrating setup and initialisation of logging" $
         example_setup
 
-{-  disabled for now
     it "demonstrating bracket logging" $
         example_bracket
--}
+
     it "compose default LoggerConfig" $
         ((mempty :: LoggerConfig) <> (LoggerConfig { _lcBasePath = Nothing, _lcRotation = Nothing
                                              , _lcLoggerTree = mempty }))
@@ -239,13 +220,14 @@ spec = describe "Logging" $ do
     modifyMaxSuccess (const 2) $ modifyMaxSize (const 2) $
       it "change minimum severity filter for a specific context" $
         monadicIO $ do
-            lineslogged0 <- lift $ getLinesLogged
-            lift $ usingLoggerName "silent" $ do { logWarning "you won't see this!" }
+            let lc0 = defaultTestConfiguration Info
+                newlt = lc0 ^. lcLoggerTree & ltNamedSeverity .~ HM.fromList [("cardano-sl.silent", Error)]
+                lc = lc0 & lcLoggerTree .~ newlt
+            lh <- setupLogging lc
+            lift $ usingLoggerName lh "silent" $ do { logWarning "you won't see this!" }
             lift $ threadDelay 0300000
-            lift $ usingLoggerName "verbose" $ do { logWarning "now you read this!" }
+            lift $ usingLoggerName lh "verbose" $ do { logWarning "now you read this!" }
             lift $ threadDelay 0300000
-            lineslogged1 <- lift $ getLinesLogged
-            let lineslogged = lineslogged1 - lineslogged0
-            putStrLn $ "lines logged: " ++ (show lineslogged)
+            lineslogged <- lift $ getLinesLogged lh
             assert (lineslogged == 1)
 

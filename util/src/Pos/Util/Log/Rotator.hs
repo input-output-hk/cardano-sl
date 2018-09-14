@@ -109,7 +109,7 @@ initializeRotator rotation fdesc = do
                                  return stdout    -- fallback to standard output in case of exception
                   hSetBuffering hdl LineBuffering
                   cursize <- hFileSize hdl
-                  let rottime = addUTCTime (fromInteger $ maxAge * 3600) now
+                  let rottime = addUTCTime (fromInteger $ maxAge * 3600) tsfp
                   return (hdl, (maxSize - cursize), rottime)
   where
     fplen = length $ filename fdesc

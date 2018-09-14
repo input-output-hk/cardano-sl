@@ -1,7 +1,7 @@
 {-# LANGUAGE Rank2Types #-}
 
--- | an interface to 'log-warper'
---  functions and types gradually migrate towards 'katip'
+-- | a compatible interface to 'log-warper'
+--   logging output is directed to 'katip'
 
 module Pos.Util.Wlog
         ( -- * CanLog

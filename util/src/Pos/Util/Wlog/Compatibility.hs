@@ -90,7 +90,7 @@ instance CanLog IO where
         case mayEnv of
             Nothing -> error "logging not yet initialized. Abort."
             Just env -> Log.logItem' ()
-                                     (K.Namespace [name])
+                                     (K.Namespace (T.split (=='.') name))
                                      env
                                      Nothing
                                      (Internal.sev2klog severity)
@@ -284,7 +284,7 @@ logItemS lhandler a ns loc sev cond msg = do
 
 logMCond :: MonadIO m => LoggerName -> Severity -> Text -> SelectionMode -> m ()
 logMCond name severity msg cond = do
-    let ns = K.Namespace [name]
+    let ns = K.Namespace (T.split (=='.') name)
     lh <- liftIO $ readMVar loggingHandler
     logItemS lh () ns Nothing (Internal.sev2klog severity) cond $ K.logStr msg
 

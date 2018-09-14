@@ -323,7 +323,7 @@ main =
                                                        , _lhSecurityLevel=Just PublicLogLevel}] ++ xs)) .
                     set ltMinSeverity Info
     logException loggerName . usingLoggerName loggerName $
-        withConfigurations Nothing Nothing False loConfiguration $ \coreConfig _ _ _ -> do
+        withConfigurations Nothing Nothing False loConfiguration $ \genesisConfig _ _ _ -> do
 
         -- Generate TLS certificates as needed
         generateTlsCertificates loConfiguration loX509ToolPath loTlsPath

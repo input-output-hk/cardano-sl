@@ -18,7 +18,7 @@ import qualified Data.ByteString.Lazy as BSL
 import           Data.Conduit (runConduitRes, yield, (.|))
 import           Data.Conduit.List (consume)
 import qualified Data.Conduit.Lzma as Lzma
-import           Data.List (isSuffixOf)
+import           Data.List (isInfixOf)
 import qualified Data.Text.IO as TIO
 import           Data.Time.Clock (getCurrentTime)
 import           Data.Time.Format (defaultTimeLocale, formatTime)
@@ -66,7 +66,7 @@ readWlogFile logConfig = case mLogFile of
     -- first one.
     basepath = fromMaybe "./" $ logConfig ^. lcBasePath
     allFiles = map ((</> basepath) . snd) $ retrieveLogFiles logConfig
-    mLogFile = case filter (".pub" `isSuffixOf`) allFiles of
+    mLogFile = case filter (".json" `isInfixOf`) allFiles of
                     []    -> Nothing
                     (f:_) -> Just f
     -- 2 megabytes, assuming we use chars which are ASCII mostly

@@ -9,6 +9,7 @@ module Delegation.LedgerState
   -- * Validity Tests
   , valid
   -- * State Transitions
+  , applyTransaction
   , asStateTransition
   , delegatedStake
   , retirePools

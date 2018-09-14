@@ -18,6 +18,7 @@ module Delegation
   , SKey(..)
   , KeyPair(..)
   , keyPair
+  , HashKey
   , hashKey
   , sign
   , genesisId
@@ -31,6 +32,7 @@ module Delegation
   , StakePool(..)
   , TxBody(..)
   , Tx(..)
+  , TxId(..)
   , Cert(..)
   , ValidationError(..)
   , Wits(..)

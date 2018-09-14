@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 76c8f72b48c9259958e2a3e353d507b7b65cbc3139f962dcde768c644379c1f1
+-- hash: 308b72fd84a21ee7739db4eb57bdce859b73e27dceffe59abb43fb9c49ecec5b
 
 name:           delegation
 version:        0.1.0.0
@@ -48,7 +48,9 @@ test-suite delegation-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      DelegationSpec
       SimpleSpec
+      Utils
       Paths_delegation
   hs-source-dirs:
       test

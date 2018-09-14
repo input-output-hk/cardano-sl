@@ -1,4 +1,6 @@
-module Pos.Core.Genesis.Delegation
+{-# LANGUAGE TypeFamilies #-}
+
+module Pos.Chain.Genesis.Delegation
        ( GenesisDelegation (..)
        , noGenesisDelegation
        , mkGenesisDelegation

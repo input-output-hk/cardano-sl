@@ -29,9 +29,9 @@ import qualified System.Metrics.Gauge as Metrics
 import           Pos.Chain.Block (ApplyBlocksException, Block, BlockHeader,
                      Blund, HasHeaderHash (..), HeaderHash, LastKnownHeaderTag,
                      blockHeader, gbHeader, headerHashG, prevBlockL)
+import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots)
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Core as Core (Config (..), SlotCount, configEpochSlots,
-                     isMoreDifficult)
+import           Pos.Core (SlotCount, isMoreDifficult)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      _NewestFirst, _OldestFirst)
 import           Pos.Core.Conc (forConcurrently)
@@ -101,8 +101,8 @@ instance Exception BlockNetLogicException where
 triggerRecovery
     :: ( BlockWorkMode ctx m
        )
-    => Core.Config -> Diffusion m -> m ()
-triggerRecovery coreConfig diffusion = unlessM (recoveryInProgress $ configEpochSlots coreConfig) $ do
+    => Genesis.Config -> Diffusion m -> m ()
+triggerRecovery genesisConfig diffusion = unlessM (recoveryInProgress $ configEpochSlots genesisConfig) $ do
     logDebug "Recovery triggered, requesting tips from neighbors"
     -- The 'catch' here is for an exception when trying to enqueue the request.
     -- In 'requestTipsAndProcess', IO exceptions are caught, for each
@@ -125,7 +125,7 @@ triggerRecovery coreConfig diffusion = unlessM (recoveryInProgress $ configEpoch
         -- downloaded.
         bh <- mbh
         -- I know, it's not unsolicited. TODO rename.
-        handleUnsolicitedHeader coreConfig bh nodeId
+        handleUnsolicitedHeader genesisConfig bh nodeId
 
 ----------------------------------------------------------------------------
 -- Headers processing
@@ -133,15 +133,15 @@ triggerRecovery coreConfig diffusion = unlessM (recoveryInProgress $ configEpoch
 
 handleUnsolicitedHeader
     :: BlockWorkMode ctx m
-    => Core.Config
+    => Genesis.Config
     -> BlockHeader
     -> NodeId
     -> m ()
-handleUnsolicitedHeader coreConfig header nodeId = do
+handleUnsolicitedHeader genesisConfig header nodeId = do
     logDebug $ sformat
         ("handleUnsolicitedHeader: single header was propagated, processing:\n"
          %build) header
-    classificationRes <- classifyNewHeader coreConfig header
+    classificationRes <- classifyNewHeader genesisConfig header
     -- TODO: should we set 'To' hash to hash of header or leave it unlimited?
     case classificationRes of
         CHContinues -> do
@@ -225,12 +225,12 @@ handleBlocks
        ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> OldestFirst NE Block
     -> Diffusion m
     -> m ()
-handleBlocks coreConfig txpConfig blocks diffusion = do
+handleBlocks genesisConfig txpConfig blocks diffusion = do
     logDebug "handleBlocks: processing"
     inAssertMode $ logInfo $
         sformat ("Processing sequence of blocks: " % buildListBounds % "...") $
@@ -247,10 +247,10 @@ handleBlocks coreConfig txpConfig blocks diffusion = do
     handleBlocksWithLca lcaHash = do
         logDebug $ sformat ("Handling block w/ LCA, which is "%shortHashF) lcaHash
         -- Head blund in result is the youngest one.
-        toRollback <- DB.loadBlundsFromTipWhile (configGenesisHash coreConfig)
+        toRollback <- DB.loadBlundsFromTipWhile (configGenesisHash genesisConfig)
             $ \blk -> headerHash blk /= lcaHash
-        maybe (applyWithoutRollback coreConfig txpConfig diffusion blocks)
-              (applyWithRollback coreConfig txpConfig diffusion blocks lcaHash)
+        maybe (applyWithoutRollback genesisConfig txpConfig diffusion blocks)
+              (applyWithRollback genesisConfig txpConfig diffusion blocks lcaHash)
               (_NewestFirst nonEmpty toRollback)
 
 applyWithoutRollback
@@ -258,12 +258,12 @@ applyWithoutRollback
        ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> Diffusion m
     -> OldestFirst NE Block
     -> m ()
-applyWithoutRollback coreConfig txpConfig diffusion blocks = do
+applyWithoutRollback genesisConfig txpConfig diffusion blocks = do
     logInfo . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
        . getOldestFirst . map (view blockHeader) $ blocks
     modifyStateLock HighPriority ApplyBlock applyWithoutRollbackDo >>= \case
@@ -287,14 +287,14 @@ applyWithoutRollback coreConfig txpConfig diffusion blocks = do
             logInfo $ blocksAppliedMsg applied
             for_ blocks $ jsonLog . jlAdoptedBlock
   where
-    epochSlots = configEpochSlots coreConfig
+    epochSlots = configEpochSlots genesisConfig
     newestTip = blocks ^. _OldestFirst . _neLast . headerHashG
     applyWithoutRollbackDo
         :: HeaderHash -> m (HeaderHash, Either ApplyBlocksException HeaderHash)
     applyWithoutRollbackDo curTip = do
         logInfo "Verifying and applying blocks..."
         curSlot <- getCurrentSlot epochSlots
-        res <- fmap fst <$> verifyAndApplyBlocks coreConfig txpConfig curSlot False blocks
+        res <- fmap fst <$> verifyAndApplyBlocks genesisConfig txpConfig curSlot False blocks
         logInfo "Verifying and applying blocks done"
         let newTip = either (const curTip) identity res
         pure (newTip, res)
@@ -303,19 +303,19 @@ applyWithRollback
     :: ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> Diffusion m
     -> OldestFirst NE Block
     -> HeaderHash
     -> NewestFirst NE Blund
     -> m ()
-applyWithRollback coreConfig txpConfig diffusion toApply lca toRollback = do
+applyWithRollback genesisConfig txpConfig diffusion toApply lca toRollback = do
     logInfo . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
        . getOldestFirst . map (view blockHeader) $ toApply
     logInfo $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
     res <- modifyStateLock HighPriority ApplyBlockWithRollback $ \curTip -> do
-        res <- L.applyWithRollback coreConfig txpConfig toRollback toApplyAfterLca
+        res <- L.applyWithRollback genesisConfig txpConfig toRollback toApplyAfterLca
         pure (either (const curTip) identity res, res)
     case res of
         Left (pretty -> err) ->
@@ -328,7 +328,7 @@ applyWithRollback coreConfig txpConfig diffusion toApply lca toRollback = do
             logInfo $ blocksRolledBackMsg (getNewestFirst toRollback)
             logInfo $ blocksAppliedMsg (getOldestFirst toApply)
             for_ (getOldestFirst toApply) $ jsonLog . jlAdoptedBlock
-            relayBlock (configEpochSlots coreConfig) diffusion
+            relayBlock (configEpochSlots genesisConfig) diffusion
                 $ toApply ^. _OldestFirst . _neLast
   where
     toRollbackHashes = fmap headerHash toRollback

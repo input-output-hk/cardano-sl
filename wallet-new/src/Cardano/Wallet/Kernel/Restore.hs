@@ -49,11 +49,11 @@ import           Cardano.Wallet.Kernel.Wallets (createWalletHdRnd)
 
 import           Pos.Chain.Block (Block, Blund, HeaderHash, MainBlock, Undo,
                      headerHash, mainBlockSlot)
+import           Pos.Chain.Genesis as Genesis (Config (..), GenesisHash)
 import           Pos.Chain.Txp (TxIn (..), TxOut (..), TxOutAux (..), Utxo,
                      genesisUtxo)
-import           Pos.Core as Core (Address, BlockCount (..), Coin, Config (..),
-                     GenesisHash, SlotId, flattenSlotId, mkCoin,
-                     unsafeIntegerToCoin)
+import           Pos.Core (Address, BlockCount (..), Coin, SlotId,
+                     flattenSlotId, mkCoin, unsafeIntegerToCoin)
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.DB.Block (getFirstGenesisBlockHash, getUndo,
                      resolveForwardLink)
@@ -89,8 +89,8 @@ restoreWallet :: Kernel.PassiveWallet
               -> (Blund -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta]))
               -> IO (Either CreateHdRootError (HD.HdRoot, Coin))
 restoreWallet pw hasSpendingPassword defaultCardanoAddress name assurance esk prefilter = do
-    coreConfig <- getCoreConfig (pw ^. walletNode)
-    walletInitInfo <- withNodeState (pw ^. walletNode) $ getWalletInitInfo coreConfig wkey
+    genesisConfig <- getCoreConfig (pw ^. walletNode)
+    walletInitInfo <- withNodeState (pw ^. walletNode) $ getWalletInitInfo genesisConfig wkey
     case walletInitInfo of
       WalletCreate utxos -> do
         root <- createWalletHdRnd pw hasSpendingPassword defaultCardanoAddress name assurance esk $
@@ -164,11 +164,11 @@ data WalletInitInfo =
 -- information about the tip of the blockchain (provided the blockchain
 -- isn't empty).
 getWalletInitInfo :: NodeConstraints
-                  => Core.Config
+                  => Genesis.Config
                   -> WalletKey
                   -> Lock (WithNodeState IO)
                   -> WithNodeState IO WalletInitInfo
-getWalletInitInfo coreConfig wKey@(wId, wdc) lock = do
+getWalletInitInfo genesisConfig wKey@(wId, wdc) lock = do
     -- Find all of the current UTXO that this wallet owns.
     -- We lock the node state to be sure the tip header and the UTxO match
     (tipHeader, curUtxo :: Map HD.HdAccountId (Utxo, [AddrWithId])) <-
@@ -179,10 +179,10 @@ getWalletInitInfo coreConfig wKey@(wId, wdc) lock = do
     let genUtxo :: Map HD.HdAccountId (Utxo, [AddrWithId])
         genUtxo = fmap toPrefilteredUtxo . snd $
                     prefilterUtxo' wKey
-                                   (genesisUtxo $ configGenesisData coreConfig)
+                                   (genesisUtxo $ configGenesisData genesisConfig)
 
     -- Get the tip
-    mTip <- mostRecentMainBlock (configGenesisHash coreConfig) tipHeader
+    mTip <- mostRecentMainBlock (configGenesisHash genesisConfig) tipHeader
     return $ case mTip of
       Nothing  -> WalletCreate genUtxo
       Just tip -> WalletRestore (mergeInfo curUtxo genUtxo) (tipInfo tip)

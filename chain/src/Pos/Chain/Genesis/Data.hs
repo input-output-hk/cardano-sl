@@ -1,25 +1,26 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Pos.Core.Genesis.Data
+module Pos.Chain.Genesis.Data
        ( GenesisData (..)
        ) where
 
 import           Universum
 
-import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
-                     ToJSON (..), fromJSField, mkObject)
+import           Control.Monad.Except (MonadError (..))
+import           Text.JSON.Canonical (FromJSON (..), ToJSON (..), fromJSField,
+                     mkObject)
 
 import           Pos.Core.Common (SharedSeed)
 import           Pos.Core.Slotting (Timestamp)
 import           Pos.Core.Ssc (VssCertificatesMap)
 import           Pos.Core.Update (BlockVersionData)
 
-import           Pos.Core.Genesis.AvvmBalances
-import           Pos.Core.Genesis.Delegation
-import           Pos.Core.Genesis.NonAvvmBalances
-import           Pos.Core.Genesis.ProtocolConstants
-import           Pos.Core.Genesis.WStakeholders
-import           Pos.Util.Json.Canonical ()
+import           Pos.Chain.Genesis.AvvmBalances
+import           Pos.Chain.Genesis.Delegation
+import           Pos.Chain.Genesis.NonAvvmBalances
+import           Pos.Chain.Genesis.ProtocolConstants
+import           Pos.Chain.Genesis.WStakeholders
+import           Pos.Util.Json.Canonical (SchemaError)
 
 -- | Genesis data contains all data which determines consensus
 -- rules. It must be same for all nodes. It's used to initialize
@@ -50,7 +51,7 @@ instance Monad m => ToJSON m GenesisData where
             , ("ftsSeed", toJSON gdFtsSeed)
             ]
 
-instance (ReportSchemaErrors m) => FromJSON m GenesisData where
+instance (Monad m, MonadError SchemaError m) => FromJSON m GenesisData where
     fromJSON obj = do
         gdBootStakeholders <- fromJSField obj "bootStakeholders"
         gdHeavyDelegation <- fromJSField obj "heavyDelegation"

@@ -10,12 +10,12 @@ import qualified Data.HashMap.Strict as HM
 
 import           Pos.Chain.Block (ComponentBlock (..), HeaderHash, headerHash,
                      headerSlotL)
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     configBootStakeholders)
+import           Pos.Chain.Genesis (GenesisWStakeholders)
 import           Pos.Chain.Txp (TxAux, TxUndo, TxpConfiguration)
-import           Pos.Core as Core (Config (..), SlotId (..),
-                     configBootStakeholders, epochIndexL,
-                     localSlotIndexMinBound)
+import           Pos.Core (SlotId (..), epochIndexL, localSlotIndexMinBound)
 import           Pos.Core.Chrono (NewestFirst (..))
-import           Pos.Core.Genesis (GenesisWStakeholders)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Txp (ProcessBlundsSettings (..), TxpBlund,
                      TxpGlobalApplyMode, TxpGlobalRollbackMode,
@@ -30,19 +30,19 @@ import           Pos.Explorer.Txp.Toil (EGlobalToilM, ExplorerExtraLookup (..),
                      ExplorerExtraModifier (..), eApplyToil, eRollbackToil)
 
 -- | Settings used for global transactions data processing used by explorer.
-explorerTxpGlobalSettings :: Core.Config
+explorerTxpGlobalSettings :: Genesis.Config
                           -> TxpConfiguration
                           -> TxpGlobalSettings
-explorerTxpGlobalSettings coreConfig txpConfig =
+explorerTxpGlobalSettings genesisConfig txpConfig =
     -- verification is same
-    (txpGlobalSettings coreConfig txpConfig)
-        { tgsApplyBlocks    = applyBlocksWith (configProtocolMagic coreConfig)
+    (txpGlobalSettings genesisConfig txpConfig)
+        { tgsApplyBlocks    = applyBlocksWith (configProtocolMagic genesisConfig)
                                               txpConfig
                                               (applySettings bootStakeholders)
         , tgsRollbackBlocks = processBlunds (rollbackSettings bootStakeholders)
             . getNewestFirst
         }
-    where bootStakeholders = configBootStakeholders coreConfig
+    where bootStakeholders = configBootStakeholders genesisConfig
 
 applySettings ::
        (TxpGlobalApplyMode ctx m)

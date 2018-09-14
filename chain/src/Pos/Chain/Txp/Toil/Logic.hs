@@ -21,6 +21,7 @@ import           Control.Monad.Except (ExceptT, mapExceptT, throwError)
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class (biSize)
+import           Pos.Chain.Genesis (GenesisWStakeholders)
 import           Pos.Chain.Txp.Configuration (TxpConfiguration (..),
                      memPoolLimitTx)
 import           Pos.Chain.Txp.Toil.Failure (ToilVerFailure (..))
@@ -42,7 +43,6 @@ import           Pos.Core (AddrAttributes (..), AddrStakeDistribution (..),
 import           Pos.Core.Common (integerToCoin)
 import qualified Pos.Core.Common as Fee (TxFeePolicy (..),
                      calculateTxSizeLinear)
-import           Pos.Core.Genesis (GenesisWStakeholders)
 import           Pos.Core.Update (BlockVersionData (..), isBootstrapEraBVD)
 import           Pos.Crypto (ProtocolMagic, WithHash (..), hash)
 import           Pos.Util (liftEither)

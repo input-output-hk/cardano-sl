@@ -14,7 +14,7 @@ import qualified Test.QuickCheck.Gen as QC
 import qualified Test.QuickCheck.Random as QC
 
 import           Pos.Chain.Block (MainBlock)
-import           Pos.Core (ProtocolMagic)
+import           Pos.Crypto (ProtocolMagic)
 
 -- Also brings in the 'Arbitrary' instance for 'MainBlock'.
 import           Test.Pos.Chain.Block.Arbitrary (genMainBlock)

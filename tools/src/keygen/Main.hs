@@ -16,10 +16,11 @@ import           System.FilePath.Glob (glob)
 import qualified Text.JSON.Canonical as CanonicalJSON
 
 import           Pos.Binary (asBinary, serialize')
-import           Pos.Core as Core (Config (..), addressHash,
-                     configGeneratedSecretsThrow, configVssMaxTTL)
-import           Pos.Core.Genesis (GeneratedSecrets (..), RichSecrets (..),
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     GeneratedSecrets (..), RichSecrets (..),
+                     configGeneratedSecretsThrow, configVssMaxTTL,
                      generateFakeAvvm, generateRichSecrets)
+import           Pos.Core (addressHash)
 import           Pos.Core.Ssc (mkVssCertificate, vcSigningKey)
 import           Pos.Crypto (EncryptedSecretKey (..), SecretKey (..),
                      VssKeyPair, fullPublicKeyF, hashHexF, noPassEncrypt,
@@ -128,18 +129,18 @@ generateKeysByGenesis generatedSecrets GenKeysOptions{..} = do
 
 genVssCert
     :: (WithLogger m, MonadIO m)
-    => Core.Config
+    => Genesis.Config
     -> FilePath
     -> m ()
-genVssCert coreConfig path = do
+genVssCert genesisConfig path = do
     us <- readUserSecret path
     let primKey = fromMaybe (error "No primary key") (us ^. usPrimKey)
         vssKey  = fromMaybe (error "No VSS key") (us ^. usVss)
     let cert = mkVssCertificate
-                 (configProtocolMagic coreConfig)
+                 (configProtocolMagic genesisConfig)
                  primKey
                  (asBinary (toVssPublicKey vssKey))
-                 (configVssMaxTTL coreConfig - 1)
+                 (configVssMaxTTL genesisConfig - 1)
     putText $ sformat ("JSON: key "%hashHexF%", value "%stext)
               (addressHash $ vcSigningKey cert)
               (decodeUtf8 $
@@ -157,18 +158,18 @@ main = do
     setupLogging Nothing $ productionB <> termSeveritiesOutB debugPlus
     usingLoggerName "keygen"
         $ withConfigurations Nothing Nothing False koConfigurationOptions
-        $ \coreConfig _ _ _ -> do
+        $ \genesisConfig _ _ _ -> do
               logInfo "Processing command"
-              generatedSecrets <- configGeneratedSecretsThrow coreConfig
+              generatedSecrets <- configGeneratedSecretsThrow genesisConfig
               case koCommand of
                   RearrangeMask msk  -> rearrange msk
                   GenerateKey   path -> genPrimaryKey path
-                  GenerateVss   path -> genVssCert coreConfig path
+                  GenerateVss   path -> genVssCert genesisConfig path
                   ReadKey       path -> readKey path
                   DumpAvvmSeeds opts -> dumpAvvmSeeds opts
                   GenerateKeysBySpec gkbg ->
                       generateKeysByGenesis generatedSecrets gkbg
                   DumpGenesisData dgdPath dgdCanonical -> dumpGenesisData
-                      (configGenesisData coreConfig)
+                      (configGenesisData genesisConfig)
                       dgdCanonical
                       dgdPath

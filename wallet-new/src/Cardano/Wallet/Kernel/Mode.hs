@@ -12,9 +12,9 @@ import           Control.Lens (makeLensesWith)
 import           Universum
 
 import           Pos.Chain.Block
+import           Pos.Chain.Genesis as Genesis (Config)
 import           Pos.Chain.Txp
 import           Pos.Context
-import           Pos.Core as Core (Config)
 import           Pos.Core.Chrono
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..))
@@ -89,14 +89,14 @@ instance MonadBListener WalletMode where
 -------------------------------------------------------------------------------}
 
 runWalletMode :: forall a. (HasConfigurations, HasCompileInfo)
-              => Core.Config
+              => Genesis.Config
               -> TxpConfiguration
               -> NodeResources ()
               -> PassiveWalletLayer IO
               -> (Diffusion WalletMode -> WalletMode a)
               -> IO a
-runWalletMode coreConfig txpConfig nr wallet action =
-    runRealMode coreConfig txpConfig nr $ \diffusion ->
+runWalletMode genesisConfig txpConfig nr wallet action =
+    runRealMode genesisConfig txpConfig nr $ \diffusion ->
         walletModeToRealMode wallet (action (hoistDiffusion realModeToWalletMode (walletModeToRealMode wallet) diffusion))
 
 walletModeToRealMode :: forall a. PassiveWalletLayer IO -> WalletMode a -> RealMode () a

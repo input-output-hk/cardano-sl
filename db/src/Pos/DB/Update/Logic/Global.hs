@@ -19,13 +19,13 @@ import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Block (ComponentBlock (..), headerHashG,
                      headerLeaderKeyL, headerSlotL)
+import           Pos.Chain.Genesis as Genesis (Config, configBlkSecurityParam)
 import           Pos.Chain.Update (BlockVersionState, ConfirmedProposalState,
                      HasUpdateConfiguration, MonadPoll, PollModifier (..),
                      PollT, PollVerFailure, ProposalState, USUndo, execPollT,
                      execRollT, getAdoptedBV, lastKnownBlockVersion,
                      reportUnexpectedError, runPollT)
-import           Pos.Core as Core (Config, StakeholderId, addressHash,
-                     configBlkSecurityParam, epochIndexL)
+import           Pos.Core (StakeholderId, addressHash, epochIndexL)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Exception (reportFatalError)
 import           Pos.Core.Reporting (MonadReporting)
@@ -100,22 +100,22 @@ usApplyBlocks
     :: ( MonadThrow m
        , USGlobalApplyMode ctx m
        )
-    => Core.Config
+    => Genesis.Config
     -> OldestFirst NE UpdateBlock
     -> Maybe PollModifier
     -> m [DB.SomeBatchOp]
-usApplyBlocks coreConfig blocks modifierMaybe =
+usApplyBlocks genesisConfig blocks modifierMaybe =
     withUSLogger $
     processModifier =<<
     case modifierMaybe of
         Nothing -> do
-            verdict <- usVerifyBlocks coreConfig False blocks
+            verdict <- usVerifyBlocks genesisConfig False blocks
             either onFailure (return . fst) verdict
         Just modifier -> do
             -- TODO: I suppose such sanity checks should be done at higher
             -- level.
             inAssertMode $ do
-                verdict <- usVerifyBlocks coreConfig False blocks
+                verdict <- usVerifyBlocks genesisConfig False blocks
                 whenLeft verdict $ \v -> onFailure v
             return modifier
   where
@@ -162,18 +162,18 @@ usVerifyBlocks ::
        , MonadUnliftIO m
        , MonadReporting m
        )
-    => Core.Config
+    => Genesis.Config
     -> Bool
     -> OldestFirst NE UpdateBlock
     -> m (Either PollVerFailure (PollModifier, OldestFirst NE USUndo))
-usVerifyBlocks coreConfig verifyAllIsKnown blocks =
+usVerifyBlocks genesisConfig verifyAllIsKnown blocks =
     withUSLogger $
     reportUnexpectedError $
     processRes <$> run (runExceptT action)
   where
     action = do
         lastAdopted <- getAdoptedBV
-        mapM (verifyBlock coreConfig lastAdopted verifyAllIsKnown) blocks
+        mapM (verifyBlock genesisConfig lastAdopted verifyAllIsKnown) blocks
     run :: PollT (DBPoll n) a -> n (a, PollModifier)
     run = runDBPoll . runPollT def
     processRes ::
@@ -184,17 +184,17 @@ usVerifyBlocks coreConfig verifyAllIsKnown blocks =
 
 verifyBlock
     :: (USGlobalVerifyMode ctx m, MonadPoll m, MonadError PollVerFailure m)
-    => Core.Config
+    => Genesis.Config
     -> BlockVersion
     -> Bool
     -> UpdateBlock
     -> m USUndo
-verifyBlock coreConfig _ _ (ComponentBlockGenesis genBlk) =
-    execRollT $ processGenesisBlock coreConfig (genBlk ^. epochIndexL)
-verifyBlock coreConfig lastAdopted verifyAllIsKnown (ComponentBlockMain header payload) =
+verifyBlock genesisConfig _ _ (ComponentBlockGenesis genBlk) =
+    execRollT $ processGenesisBlock genesisConfig (genBlk ^. epochIndexL)
+verifyBlock genesisConfig lastAdopted verifyAllIsKnown (ComponentBlockMain header payload) =
     execRollT $ do
         verifyAndApplyUSPayload
-            coreConfig
+            genesisConfig
             lastAdopted
             verifyAllIsKnown
             (Right header)
@@ -205,7 +205,7 @@ verifyBlock coreConfig lastAdopted verifyAllIsKnown (ComponentBlockMain header p
         -- we assume that block version is confirmed.
         let leaderPk = header ^. headerLeaderKeyL
         recordBlockIssuance
-            (configBlkSecurityParam coreConfig)
+            (configBlkSecurityParam genesisConfig)
             (addressHash leaderPk)
             (header ^. blockVersionL)
             (header ^. headerSlotL)

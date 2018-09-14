@@ -36,10 +36,10 @@ import           Pos.Crypto (RedeemSecretKey, SafeSigner, SecretKey, decodeHash,
 import           Pos.DB (gsAdoptedBVData)
 import           Pos.Util.Util (leftToPanic)
 
+import           Test.Pos.Chain.Genesis.Dummy (dummyConfig)
 import           Test.Pos.Client.Txp.Mode (TxpTestMode, TxpTestProperty,
                      withBVData)
 import           Test.Pos.Configuration (withDefConfigurations)
-import           Test.Pos.Core.Dummy (dummyConfig)
 import           Test.Pos.Crypto.Arbitrary ()
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Arbitrary (nonrepeating)

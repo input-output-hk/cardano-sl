@@ -140,6 +140,7 @@ executable cardano-keygen
                      , bytestring >= 0.10
                      , canonical-json
                      , cardano-sl
+                     , cardano-sl-chain
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-util
@@ -203,6 +204,7 @@ executable cardano-launcher
                      , cardano-sl
                      , cardano-sl-chain
                      , cardano-sl-core
+                     , cardano-sl-crypto
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-tools

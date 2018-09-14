@@ -17,7 +17,7 @@ import qualified Serokell.Util.Base64 as B64
 import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath ((</>))
 
-import           Pos.Core.Genesis (GeneratedSecrets (..), PoorSecret (..),
+import           Pos.Chain.Genesis (GeneratedSecrets (..), PoorSecret (..),
                      RichSecrets (..), poorSecretToEncKey)
 import           Pos.Crypto (SecretKey)
 import           Pos.Util.UserSecret (UserSecret, initializeUserSecret,

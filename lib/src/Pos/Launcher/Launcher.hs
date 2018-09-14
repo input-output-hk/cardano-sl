@@ -10,9 +10,9 @@ module Pos.Launcher.Launcher
 
 import           Universum
 
+import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Ssc (SscParams)
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Core as Core (Config (..))
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Txp (txpGlobalSettings)
 import           Pos.Infra.Diffusion.Types (Diffusion)
@@ -34,7 +34,7 @@ import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 -- wallet functionality.
 runNodeRealSimple
     :: (HasConfigurations, HasCompileInfo)
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> NodeParams
     -> SscParams
@@ -42,17 +42,17 @@ runNodeRealSimple
        -> RealMode EmptyMempoolExt ()
        ]
     -> IO ()
-runNodeRealSimple coreConfig txpConfig np sscnp plugins = bracketNodeResources
-    coreConfig
+runNodeRealSimple genesisConfig txpConfig np sscnp plugins = bracketNodeResources
+    genesisConfig
     np
     sscnp
-    (txpGlobalSettings coreConfig txpConfig)
-    (initNodeDBs coreConfig)
+    (txpGlobalSettings genesisConfig txpConfig)
+    (initNodeDBs genesisConfig)
     action
   where
     action :: NodeResources EmptyMempoolExt -> IO ()
     action nr@NodeResources {..} = runRealMode
-        coreConfig
+        genesisConfig
         txpConfig
         nr
-        (runNode coreConfig txpConfig nr plugins)
+        (runNode genesisConfig txpConfig nr plugins)

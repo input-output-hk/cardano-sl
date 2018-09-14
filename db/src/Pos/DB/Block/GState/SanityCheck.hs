@@ -8,7 +8,7 @@ import           Universum
 
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Core.Genesis (GenesisData)
+import           Pos.Chain.Genesis (GenesisData)
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.GState.Stakes (getRealTotalStake)
 import           Pos.DB.Txp (sanityCheckStakes, sanityCheckUtxo)

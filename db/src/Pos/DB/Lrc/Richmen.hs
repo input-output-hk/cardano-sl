@@ -27,15 +27,16 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 
 import           Pos.Binary.Class (Bi)
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     configBlockVersionData)
+import           Pos.Chain.Genesis (GenesisData, gdHeavyDelegation,
+                     unGenesisDelegation)
 import           Pos.Chain.Lrc (FullRichmenData, RichmenComponent (..),
                      findDelegationStakes, findRichmenStakes)
 import           Pos.Chain.Txp (genesisStakes)
-import           Pos.Core as Core (Coin, CoinPortion, Config (..),
-                     StakeholderId, addressHash, applyCoinPortionUp,
-                     configBlockVersionData, sumCoins, unsafeIntegerToCoin)
+import           Pos.Core (Coin, CoinPortion, StakeholderId, addressHash,
+                     applyCoinPortionUp, sumCoins, unsafeIntegerToCoin)
 import           Pos.Core.Delegation (ProxySKHeavy)
-import           Pos.Core.Genesis (GenesisData, gdHeavyDelegation,
-                     unGenesisDelegation)
 import           Pos.Crypto (pskDelegatePk)
 import           Pos.DB.Class (MonadDB)
 import           Pos.DB.Lrc.Consumer.Delegation (dlgRichmenComponent,
@@ -49,14 +50,14 @@ import           Pos.DB.Lrc.RichmenBase (getRichmen, putRichmen)
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareLrcRichmen :: MonadDB m => Core.Config -> m ()
-prepareLrcRichmen coreConfig = do
+prepareLrcRichmen :: MonadDB m => Genesis.Config -> m ()
+prepareLrcRichmen genesisConfig = do
     prepareLrcRichmenDo genesisData (sscRichmenComponent genesisBvd)
     prepareLrcRichmenDo genesisData (updateRichmenComponent genesisBvd)
     prepareLrcRichmenDo genesisData (dlgRichmenComponent genesisBvd)
   where
-    genesisData = configGenesisData coreConfig
-    genesisBvd  = configBlockVersionData coreConfig
+    genesisData = configGenesisData genesisConfig
+    genesisBvd  = configBlockVersionData genesisConfig
 
 prepareLrcRichmenDo
     :: (Bi richmenData, MonadDB m)

@@ -34,9 +34,11 @@ import           Pos.Chain.Delegation (CedeModifier (..), DlgBlund,
                      MonadDelegation, cmPskMods, dlgEdgeActionIssuer,
                      dwProxySKPool, dwTip, emptyCedeModifier, getPskPk, modPsk,
                      pskToDlgEdgeAction)
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     configBlockVersionData)
 import           Pos.Chain.Lrc (RichmenSet)
-import           Pos.Core as Core (Config (..), EpochIndex (..), StakeholderId,
-                     addressHash, configBlockVersionData, epochIndexL, siEpoch)
+import           Pos.Core (EpochIndex (..), StakeholderId, addressHash,
+                     epochIndexL, siEpoch)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (ProxySecretKey (..), shortHashF)
@@ -327,14 +329,14 @@ dlgVerifyBlocks ::
        , MonadReader ctx m
        , HasLrcContext ctx
        )
-    => Core.Config
+    => Genesis.Config
     -> OldestFirst NE Block
     -> ExceptT Text m (OldestFirst NE DlgUndo)
-dlgVerifyBlocks coreConfig blocks = do
+dlgVerifyBlocks genesisConfig blocks = do
     richmen <- lift $ getDlgRichmen genesisBvd "dlgVerifyBlocks" headEpoch
     hoist (evalMapCede emptyCedeModifier) $ mapM (verifyBlock richmen) blocks
   where
-    genesisBvd = configBlockVersionData coreConfig
+    genesisBvd = configBlockVersionData genesisConfig
 
     headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
 
@@ -370,7 +372,7 @@ dlgVerifyBlocks coreConfig blocks = do
                 -- delete/override), apply new psks.
                 toRollback <- fmap catMaybes $ forM proxySKs $ \psk ->do
                     dlgVerifyPskHeavy
-                        (configProtocolMagic coreConfig)
+                        (configProtocolMagic genesisConfig)
                         richmen
                         (CheckForCycle False)
                         (blk ^. mainBlockSlot . to siEpoch)
@@ -508,12 +510,12 @@ dlgNormalizeOnRollback ::
        , DB.MonadGState m
        , HasLrcContext ctx
        )
-    => Core.Config -> m ()
-dlgNormalizeOnRollback coreConfig = do
+    => Genesis.Config -> m ()
+dlgNormalizeOnRollback genesisConfig = do
     tip <- DB.getTipHeader
     oldPool <- runDelegationStateAction $ do
         pool <- uses dwProxySKPool toList
         dwProxySKPool .= mempty
         dwTip .= headerHash tip
         pure pool
-    forM_ oldPool $ processProxySKHeavyInternal coreConfig
+    forM_ oldPool $ processProxySKHeavyInternal genesisConfig

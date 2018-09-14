@@ -30,11 +30,9 @@ library
                        Pos.Core.NetworkAddress
 
                        Pos.Core.Common
-                       Pos.Core.Configuration
                        Pos.Core.Constants
                        Pos.Core.Context
                        Pos.Core.Delegation
-                       Pos.Core.Genesis
 
                        -- JsonLog (moved from networking in
                        -- the `sinbin` shuffle). All modules
@@ -92,10 +90,6 @@ library
                        Pos.Core.Common.TxFeePolicy
                        Pos.Core.Common.TxSizeLinear
 
-                       -- Configuration
-                       Pos.Core.Configuration.Core
-                       Pos.Core.Configuration.GenesisHash
-
                        -- Context
                        Pos.Core.Context.PrimaryKey
 
@@ -104,17 +98,6 @@ library
                        Pos.Core.Delegation.LightDlgIndices
                        Pos.Core.Delegation.Payload
                        Pos.Core.Delegation.Proof
-
-                       -- Genesis
-                       Pos.Core.Genesis.Generate
-                       Pos.Core.Genesis.AvvmBalances
-                       Pos.Core.Genesis.Data
-                       Pos.Core.Genesis.Delegation
-                       Pos.Core.Genesis.Initializer
-                       Pos.Core.Genesis.NonAvvmBalances
-                       Pos.Core.Genesis.ProtocolConstants
-                       Pos.Core.Genesis.Spec
-                       Pos.Core.Genesis.WStakeholders
 
                        -- Slotting
                        Pos.Core.Slotting.EpochIndex

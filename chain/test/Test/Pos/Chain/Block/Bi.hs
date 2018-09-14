@@ -18,12 +18,12 @@ import           Pos.Chain.Block (BlockHeader (..), BlockHeaderAttributes,
                      MainExtraBodyData (..), MainExtraHeaderData (..),
                      MainProof (..), MainToSign (..), mkGenesisHeader,
                      mkMainHeaderExplicit)
-import           Pos.Core (EpochIndex (..), ProtocolMagic (..))
+import           Pos.Chain.Genesis (GenesisHash (..))
+import           Pos.Core (EpochIndex (..))
 import           Pos.Core.Attributes (mkAttributes)
-import           Pos.Core.Configuration (GenesisHash (..))
 import           Pos.Core.Delegation (DlgPayload (..))
-import           Pos.Crypto (Hash, SignTag (..), abstractHash, createPsk, hash,
-                     proxySign, sign, toPublic)
+import           Pos.Crypto (Hash, ProtocolMagic (..), SignTag (..),
+                     abstractHash, createPsk, hash, proxySign, sign, toPublic)
 
 import           Test.Pos.Binary.Helpers.GoldenRoundTrip (goldenTestBi,
                      roundTripsBiBuildable, roundTripsBiShow)

@@ -56,14 +56,15 @@ import           Formatting (build, float, sformat, shown, (%))
 import           Pos.Chain.Block (BlockHeader (..), Blund, HeaderHash,
                      MainBlock, getBlockHeader, headerHash, headerSlotL,
                      mainBlockTxPayload, undoTx)
+import           Pos.Chain.Genesis as Genesis (Config (..), GenesisHash (..),
+                     configBlkSecurityParam)
 import           Pos.Chain.Txp (TxAux (..), TxId, TxUndo, UndoMap,
                      flattenTxPayload, topsortTxs, _txOutputs)
 import           Pos.Client.Txp.History (TxHistoryEntry (..),
                      txHistoryListToMap)
-import           Pos.Core as Core (Address, BlockCount (..),
-                     ChainDifficulty (..), Config (..), GenesisHash (..),
+import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
                      HasDifficulty (..), ProtocolConstants, Timestamp (..),
-                     configBlkSecurityParam, pcEpochSlots, timestampToPosix)
+                     pcEpochSlots, timestampToPosix)
 import           Pos.Core.Chrono (getNewestFirst)
 import           Pos.Crypto (WithHash (..), shortHashF, withHash)
 import           Pos.DB.Block (getBlund, resolveForwardLink)
@@ -114,14 +115,14 @@ syncWallet credentials = submitSyncRequest (newSyncRequest credentials)
 -- requests from a 'SyncQueue', in an infinite loop.
 processSyncRequest
     :: (WalletDbReader ctx m, BlockLockMode ctx m, MonadSlotsData ctx m)
-    => Core.Config
+    => Genesis.Config
     -> SyncQueue
     -> m ()
-processSyncRequest coreConfig syncQueue = do
+processSyncRequest genesisConfig syncQueue = do
     newRequest <- atomically (readTQueue syncQueue)
-    syncWalletWithBlockchain coreConfig newRequest
+    syncWalletWithBlockchain genesisConfig newRequest
         >>= either processSyncError (const (logSuccess newRequest))
-    processSyncRequest coreConfig syncQueue
+    processSyncRequest genesisConfig syncQueue
 
 -- | Yields a new 'CAccModifier' using the information retrieved from the mempool, if any.
 txMempoolToModifier :: WalletTrackingEnv ctx m
@@ -229,10 +230,10 @@ syncWalletWithBlockchain
     , BlockLockMode ctx m
     , MonadSlotsData ctx m
     )
-    => Core.Config
+    => Genesis.Config
     -> SyncRequest
     -> m SyncResult
-syncWalletWithBlockchain coreConfig syncRequest@SyncRequest{..} = setLogger $ do
+syncWalletWithBlockchain genesisConfig syncRequest@SyncRequest{..} = setLogger $ do
     ws <- WS.askWalletSnapshot
     let (_, walletId) = srCredentials
     let onError       = pure . Left . SyncFailed walletId
@@ -313,14 +314,14 @@ syncWalletWithBlockchain coreConfig syncRequest@SyncRequest{..} = setLogger $ do
                             (syncDo (RestoreWallet expectedRbd))
                             wHeaderMb
   where
-    genesisHash = configGenesisHash coreConfig
+    genesisHash = configGenesisHash genesisConfig
 
     syncDo :: TrackingOperation -> BlockHeader -> m SyncResult
     syncDo trackingOp walletTipHeader = do
         let wdiff = (fromIntegral . heightOf $ walletTipHeader) :: Word32
         gstateTipH <- DB.getTipHeader
         let currentBlockchainDepth = heightOf gstateTipH
-        let k = configBlkSecurityParam coreConfig
+        let k = configBlkSecurityParam genesisConfig
 
         -- First of all we check how far we are lagging behind with respect to
         -- the @currentBlockchainDepth@. If we are lagging _at least_ k blocks

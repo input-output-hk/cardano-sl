@@ -6,15 +6,11 @@ import qualified Hedgehog as H
 import           Pos.Core.JsonLog.LogEvents (InvReqDataFlowLog (..))
 
 import           Test.Pos.Core.ExampleHelpers (exampleAddress, exampleAddress1,
-                     exampleAddress2, exampleAddress3, exampleAddress4,
-                     exampleGenesisConfiguration_GCSpec,
-                     exampleGenesisConfiguration_GCSrc, feedPM)
+                     exampleAddress2, exampleAddress3, exampleAddress4)
 import           Test.Pos.Core.Gen (genAddress, genBlockVersionData, genByte,
                      genCoin, genCoinPortion, genEpochIndex, genFlatSlotId,
-                     genGenesisAvvmBalances, genGenesisConfiguration,
-                     genGenesisDelegation, genGenesisInitializer,
-                     genGenesisProtocolConstants, genInvReqDataFlowLog,
-                     genSharedSeed, genSoftforkRule, genTxFeePolicy)
+                     genInvReqDataFlowLog, genSharedSeed, genSoftforkRule,
+                     genTxFeePolicy)
 import           Test.Pos.Crypto.Gen (genRedeemPublicKey)
 import           Test.Pos.Util.Gen (genMillisecond)
 import           Test.Pos.Util.Golden (discoverGolden, eachOf, goldenTestJSON)
@@ -65,34 +61,6 @@ roundTripAddressBuildable =
     eachOf 100 genAddress roundTripsAesonBuildable
 
 --------------------------------------------------------------------------------
--- GenesisConfiguration
---------------------------------------------------------------------------------
-
-golden_GenesisConfiguration_GCSpec :: Property
-golden_GenesisConfiguration_GCSpec =
-    goldenTestJSON
-        exampleGenesisConfiguration_GCSpec
-            "test/golden/GenesisConfiguration_GCSpec"
-
-golden_GenesisConfiguration_GCSrc :: Property
-golden_GenesisConfiguration_GCSrc =
-    goldenTestJSON
-        exampleGenesisConfiguration_GCSrc
-            "test/golden/GenesisConfiguration_GCSrc"
-
-roundTripGenesisConfiguration :: Property
-roundTripGenesisConfiguration =
-    eachOf 100 (feedPM genGenesisConfiguration) roundTripsAesonShow
-
---------------------------------------------------------------------------------
--- GenesisAvvmBalances
---------------------------------------------------------------------------------
-
-roundTripGenesisAvvmBalances :: Property
-roundTripGenesisAvvmBalances =
-     eachOf 100 genGenesisAvvmBalances roundTripsAesonShow
-
---------------------------------------------------------------------------------
 -- RedeemPublicKey
 --------------------------------------------------------------------------------
 
@@ -112,14 +80,6 @@ roundTripCoin = eachOf 1000 genCoin roundTripsAesonBuildable
 
 roundTripSharedSeed :: Property
 roundTripSharedSeed = eachOf 1000 genSharedSeed roundTripsAesonBuildable
-
---------------------------------------------------------------------------------
--- GenesisDelegation
---------------------------------------------------------------------------------
-
-roundTripGenesisDelegation :: Property
-roundTripGenesisDelegation =
-    eachOf 100 (feedPM genGenesisDelegation) roundTripsAesonShow
 
 --------------------------------------------------------------------------------
 -- BlockVersionData
@@ -177,23 +137,6 @@ roundTripTxFeePolicy = eachOf 1000 genTxFeePolicy roundTripsAesonBuildable
 
 roundTripEpochIndex :: Property
 roundTripEpochIndex = eachOf 1000 genEpochIndex roundTripsAesonBuildable
-
-
---------------------------------------------------------------------------------
--- ProtocolConstants
---------------------------------------------------------------------------------
-
-roundTripProtocolConstants :: Property
-roundTripProtocolConstants =
-    eachOf 1000 genGenesisProtocolConstants roundTripsAesonShow
-
---------------------------------------------------------------------------------
--- GenesisInitializer
---------------------------------------------------------------------------------
-
-roundTripGenesisInitializer :: Property
-roundTripGenesisInitializer =
-    eachOf 1000 genGenesisInitializer roundTripsAesonShow
 
 --------------------------------------------------------------------------------
 -- InvReqDataFlowLog

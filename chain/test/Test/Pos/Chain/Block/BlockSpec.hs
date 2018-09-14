@@ -26,8 +26,8 @@ import           Pos.Chain.Block (BlockHeader (..), BlockSignature (..),
                      MainExtraHeaderData (..), MainToSign (..), headerHash,
                      mkBodyProof, mkGenericHeader, mkGenesisHeader)
 import qualified Pos.Chain.Block as Block
-import           Pos.Core (EpochIndex (..), GenesisHash (..), SlotId (..),
-                     difficultyL)
+import           Pos.Chain.Genesis (GenesisHash (..))
+import           Pos.Core (EpochIndex (..), SlotId (..), difficultyL)
 import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
@@ -36,7 +36,7 @@ import           Pos.Crypto (ProtocolMagic (..), ProxySecretKey (pskIssuerPk),
                      toPublic)
 
 import           Test.Pos.Chain.Block.Arbitrary as BT
-import           Test.Pos.Core.Dummy (dummyGenesisHash)
+import           Test.Pos.Chain.Genesis.Dummy (dummyGenesisHash)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 -- This tests are quite slow, hence max success is at most 20.

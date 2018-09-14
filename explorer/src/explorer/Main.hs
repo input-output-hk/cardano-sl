@@ -15,12 +15,12 @@ import           Universum
 import           ExplorerNodeOptions (ExplorerArgs (..), ExplorerNodeArgs (..),
                      getExplorerNodeOptions)
 import           Pos.Binary ()
+import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..),
                      getNodeParams)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (NodeContext (..))
-import           Pos.Core as Core (Config (..))
 import           Pos.Explorer.DB (explorerInitDB)
 import           Pos.Explorer.ExtraContext (makeExtraCtx)
 import           Pos.Explorer.Socket (NotifierSettings (..))
@@ -55,28 +55,28 @@ main = do
 
 action :: ExplorerNodeArgs -> IO ()
 action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
-    withConfigurations blPath cnaDumpGenesisDataPath cnaDumpConfiguration conf $ \coreConfig _ txpConfig _ntpConfig ->
+    withConfigurations blPath cnaDumpGenesisDataPath cnaDumpConfiguration conf $ \genesisConfig _ txpConfig _ntpConfig ->
     withCompileInfo $ do
         logInfo $ "Explorer is enabled!"
         (currentParams, Just sscParams) <- getNodeParams
             loggerName
             cArgs
             nodeArgs
-            (configGeneratedSecrets coreConfig)
+            (configGeneratedSecrets genesisConfig)
 
         let plugins :: [Diffusion ExplorerProd -> ExplorerProd ()]
             plugins =
-                [ explorerPlugin coreConfig webPort
-                , notifierPlugin coreConfig NotifierSettings {nsPort = notifierPort}
+                [ explorerPlugin genesisConfig webPort
+                , notifierPlugin genesisConfig NotifierSettings {nsPort = notifierPort}
                 , updateTriggerWorker
                 ]
         bracketNodeResources
-            coreConfig
+            genesisConfig
             currentParams
             sscParams
-            (explorerTxpGlobalSettings coreConfig txpConfig)
-            (explorerInitDB coreConfig) $ \nr@NodeResources {..} ->
-                runExplorerRealMode coreConfig txpConfig nr (runNode coreConfig txpConfig nr plugins)
+            (explorerTxpGlobalSettings genesisConfig txpConfig)
+            (explorerInitDB genesisConfig) $ \nr@NodeResources {..} ->
+                runExplorerRealMode genesisConfig txpConfig nr (runNode genesisConfig txpConfig nr plugins)
   where
 
     blPath :: Maybe AssetLockPath
@@ -87,16 +87,16 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
 
     runExplorerRealMode
         :: (HasConfigurations,HasCompileInfo)
-        => Core.Config
+        => Genesis.Config
         -> TxpConfiguration
         -> NodeResources ExplorerExtraModifier
         -> (Diffusion ExplorerProd -> ExplorerProd ())
         -> IO ()
-    runExplorerRealMode coreConfig txpConfig nr@NodeResources{..} go =
+    runExplorerRealMode genesisConfig txpConfig nr@NodeResources{..} go =
         let NodeContext {..} = nrContext
-            extraCtx = makeExtraCtx coreConfig
+            extraCtx = makeExtraCtx genesisConfig
             explorerModeToRealMode  = runExplorerProd extraCtx
-         in runRealMode coreConfig txpConfig nr $ \diffusion ->
+         in runRealMode genesisConfig txpConfig nr $ \diffusion ->
                 explorerModeToRealMode (go (hoistDiffusion (lift . lift) explorerModeToRealMode diffusion))
 
     nodeArgs :: NodeArgs

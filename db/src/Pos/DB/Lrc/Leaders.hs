@@ -19,10 +19,10 @@ module Pos.DB.Lrc.Leaders
 import           Universum
 
 import           Pos.Binary.Class (serialize')
+import           Pos.Chain.Genesis as Genesis (Config, configEpochSlots)
 import           Pos.Chain.Lrc (genesisLeaders)
-import           Pos.Core as Core (Config, EpochIndex, SlotCount,
-                     SlotId (SlotId), SlotLeaders, StakeholderId,
-                     configEpochSlots, flattenSlotId, unsafeMkLocalSlotIndex)
+import           Pos.Core (EpochIndex, SlotCount, SlotId (SlotId), SlotLeaders,
+                     StakeholderId, flattenSlotId, unsafeMkLocalSlotIndex)
 import           Pos.DB.Class (MonadDB, MonadDBRead)
 import           Pos.DB.Lrc.Common (dbHasKey, getBi, putBatch, putBatchBi,
                      putBi, toRocksOps)
@@ -55,22 +55,22 @@ putLeadersForEpoch epochSlots epoch leaders = do
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareLrcLeaders :: MonadDB m => Core.Config -> m ()
-prepareLrcLeaders coreConfig =
+prepareLrcLeaders :: MonadDB m => Genesis.Config -> m ()
+prepareLrcLeaders genesisConfig =
     -- Initialization flag was added with CSE-240.
     unlessM isLrcDbInitialized $ do
         hasLeadersForEpoch0 <- hasLeaders 0
         if not hasLeadersForEpoch0 then
             -- The node is not initialized at all. Only need to put leaders
             -- for the first epoch.
-            putLeadersForEpoch epochSlots 0 (genesisLeaders coreConfig)
+            putLeadersForEpoch epochSlots 0 (genesisLeaders genesisConfig)
         else
             -- The node was initialized before CSE-240.
             -- Need to migrate data for all epochs.
             initLeaders 0
         putInitFlag
   where
-    epochSlots = configEpochSlots coreConfig
+    epochSlots = configEpochSlots genesisConfig
     initLeaders :: MonadDB m => EpochIndex -> m ()
     initLeaders i = do
         maybeLeaders <- getLeadersForEpoch i

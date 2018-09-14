@@ -20,8 +20,8 @@ import qualified Data.Text as T
 import qualified GHC.Exts as IL
 
 import           Pos.Chain.Block (Blund, HeaderHash)
+import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Core as Core (Config (..))
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Exception (CardanoFatalError (..))
 import           Pos.Core.Slotting (EpochOrSlot (..), SlotId, getEpochOrSlot)
@@ -62,11 +62,11 @@ verifyAndApplyBlocks' ::
        ( BlockLrcMode BlockTestContext m
        , MonadTxpLocal m
        )
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> OldestFirst NE Blund
     -> m ()
-verifyAndApplyBlocks' coreConfig txpConfig blunds = do
+verifyAndApplyBlocks' genesisConfig txpConfig blunds = do
     let -- We cannot simply take `getCurrentSlot` since blocks are generated in
         --`MonadBlockGen` which locally changes its current slot.  We just take
         -- the last slot of all generated blocks.
@@ -80,7 +80,7 @@ verifyAndApplyBlocks' coreConfig txpConfig blunds = do
                 ss -> Just $ maximum ss
     satisfySlotCheck blocks $ do
         _ :: (HeaderHash, NewestFirst [] Blund) <- eitherToThrow =<<
-            verifyAndApplyBlocks coreConfig txpConfig curSlot True blocks
+            verifyAndApplyBlocks genesisConfig txpConfig curSlot True blocks
         return ()
     where blocks = fst <$> blunds
 
@@ -89,13 +89,13 @@ runBlockEvent ::
        ( BlockLrcMode BlockTestContext m
        , MonadTxpLocal m
        )
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> BlockEvent
     -> m BlockEventResult
 
-runBlockEvent coreConfig txpConfig (BlkEvApply ev) =
-    (onSuccess <$ verifyAndApplyBlocks' coreConfig txpConfig (ev ^. beaInput))
+runBlockEvent genesisConfig txpConfig (BlkEvApply ev) =
+    (onSuccess <$ verifyAndApplyBlocks' genesisConfig txpConfig (ev ^. beaInput))
         `catch` (return . onFailure)
   where
     onSuccess = case ev ^. beaOutValid of
@@ -105,8 +105,8 @@ runBlockEvent coreConfig txpConfig (BlkEvApply ev) =
         BlockApplySuccess -> BlockEventFailure (IsExpected False) e
         BlockApplyFailure -> BlockEventFailure (IsExpected True) e
 
-runBlockEvent coreConfig _ (BlkEvRollback ev) =
-    (onSuccess <$ rollbackBlocks coreConfig (ev ^. berInput))
+runBlockEvent genesisConfig _ (BlkEvRollback ev) =
+    (onSuccess <$ rollbackBlocks genesisConfig (ev ^. berInput))
        `catch` (return . onFailure)
   where
     onSuccess = case ev ^. berOutValid of
@@ -173,17 +173,17 @@ runBlockScenario ::
        , BlockLrcMode BlockTestContext m
        , MonadTxpLocal m
        )
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> BlockScenario
     -> m BlockScenarioResult
 runBlockScenario _ _ (BlockScenario []) =
     return BlockScenarioFinishedOk
-runBlockScenario coreConfig txpConfig (BlockScenario (ev:evs)) = do
-    runBlockEvent coreConfig txpConfig ev >>= \case
+runBlockScenario genesisConfig txpConfig (BlockScenario (ev:evs)) = do
+    runBlockEvent genesisConfig txpConfig ev >>= \case
         BlockEventSuccess (IsExpected isExp) ->
             if isExp
-                then runBlockScenario coreConfig txpConfig (BlockScenario evs)
+                then runBlockScenario genesisConfig txpConfig (BlockScenario evs)
                 else return BlockScenarioUnexpectedSuccess
         BlockEventFailure (IsExpected isExp) e ->
             return $ if isExp

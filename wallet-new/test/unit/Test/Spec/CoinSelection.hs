@@ -25,12 +25,12 @@ import           Formatting.Buildable (Buildable (..))
 import qualified Text.Tabl as Tabl
 
 import           Pos.Binary.Class (Bi (encode), toLazyByteString)
+import           Pos.Chain.Genesis as Genesis (Config (..))
 import qualified Pos.Chain.Txp as Core
-import           Pos.Core as Core (Coeff (..), Config (..), TxSizeLinear (..),
-                     unsafeIntegerToCoin)
+import           Pos.Core (Coeff (..), TxSizeLinear (..), unsafeIntegerToCoin)
 import qualified Pos.Core as Core
 import           Pos.Core.Attributes (mkAttributes)
-import           Pos.Crypto (SecretKey)
+import           Pos.Crypto (ProtocolMagic, SecretKey)
 import           Serokell.Data.Memory.Units (Byte, fromBytes)
 import           Serokell.Util.Text (listJsonIndent)
 
@@ -419,10 +419,10 @@ genMaxInputTx estimator = do
     -- Now build the transaction, attempting to make the encoded size of the transaction
     -- as large as possible.
     bimap pretty ((,maxTxSize) . encodedSize) <$> (
-        withDefConfiguration $ \coreConfig -> do
+        withDefConfiguration $ \genesisConfig -> do
             key    <- arbitrary
             inputs <- replicateM maxInputs ((,) <$> genIn <*> genOutAux)
-            mkTx (configProtocolMagic coreConfig)
+            mkTx (configProtocolMagic genesisConfig)
                  key
                  (NE.fromList inputs)
                  (NE.fromList [output]) [])
@@ -471,7 +471,7 @@ genChange utxo payee css = forM css $ \change -> do
           }
       }
 
-mkTx :: Core.ProtocolMagic
+mkTx :: ProtocolMagic
      -> SecretKey
      -> NonEmpty (Core.TxIn, Core.TxOutAux)
      -- ^ Selected inputs
@@ -493,7 +493,7 @@ payRestrictInputsTo :: Word64
                     -> Policy
                     -> Gen RunResult
 payRestrictInputsTo maxInputs genU genP feeFunction adjustOptions bal amount policy =
-    withDefConfiguration $ \coreConfig -> do
+    withDefConfiguration $ \genesisConfig -> do
         utxo  <- genU bal
         payee <- genP utxo amount
         key   <- arbitrary
@@ -506,7 +506,7 @@ payRestrictInputsTo maxInputs genU genP feeFunction adjustOptions bal amount pol
              Left e -> return (utxo, payee, Left (STB e))
              Right (CoinSelFinalResult inputs outputs coins) -> do
                     change <- genChange utxo payee coins
-                    txAux  <- mkTx (configProtocolMagic coreConfig)
+                    txAux  <- mkTx (configProtocolMagic genesisConfig)
                                    key
                                    inputs
                                    outputs

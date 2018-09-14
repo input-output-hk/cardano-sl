@@ -23,6 +23,7 @@ import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.WIP as WIP
+import           Pos.Chain.Genesis as Genesis (Config)
 import           Pos.Chain.Txp (TxAux, TxpConfiguration)
 import           Pos.Chain.Update ()
 import           Pos.Client.KeyStorage (addPublicKey)
@@ -38,12 +39,12 @@ import           Pos.Wallet.Web.Util (getWalletAccountIds)
 import           Servant
 
 handlers :: (forall a. MonadV1 a -> Handler a)
-            -> Core.Config
+            -> Genesis.Config
             -> TxpConfiguration
             -> Diffusion MonadV1
             -> Server WIP.API
-handlers naturalTransformation coreConfig txpConfig diffusion =
-         hoist' (Proxy @WIP.API) (handlersPlain coreConfig txpConfig submitTx)
+handlers naturalTransformation genesisConfig txpConfig diffusion =
+         hoist' (Proxy @WIP.API) (handlersPlain genesisConfig txpConfig submitTx)
   where
     hoist'
         :: forall (api :: *). HasServer api '[]
@@ -54,12 +55,12 @@ handlers naturalTransformation coreConfig txpConfig diffusion =
     submitTx = sendTx diffusion
 
 -- | All the @Servant@ handlers for wallet-specific operations.
-handlersPlain :: Core.Config
+handlersPlain :: Genesis.Config
          -> TxpConfiguration
          -> (TxAux -> MonadV1 Bool)
          -> ServerT WIP.API MonadV1
-handlersPlain coreConfig txpConfig submitTx = checkExternalWallet coreConfig
-    :<|> newExternalWallet coreConfig
+handlersPlain genesisConfig txpConfig submitTx = checkExternalWallet genesisConfig
+    :<|> newExternalWallet genesisConfig
     :<|> deleteExternalWallet
     :<|> newUnsignedTransaction
     :<|> newSignedTransaction txpConfig submitTx
@@ -71,10 +72,10 @@ checkExternalWallet
        , MonadUnliftIO m
        , HasLens SyncQueue ctx SyncQueue
        )
-    => Core.Config
+    => Genesis.Config
     -> PublicKeyAsBase58
     -> m (WalletResponse WalletAndTxHistory)
-checkExternalWallet coreConfig encodedRootPK = do
+checkExternalWallet genesisConfig encodedRootPK = do
     rootPK <- mkPublicKeyOrFail encodedRootPK
 
     ws <- V0.askWalletSnapshot
@@ -111,7 +112,7 @@ checkExternalWallet coreConfig encodedRootPK = do
                 -- This is a new wallet, currently un-synchronized, so there's no
                 -- history of transactions yet.
                 transactions = []
-            (,,) <$> restoreExternalWallet coreConfig defaultMeta encodedRootPK
+            (,,) <$> restoreExternalWallet genesisConfig defaultMeta encodedRootPK
                  <*> pure transactions
                  <*> pure False -- We restore wallet, so it's unready yet.
 
@@ -128,12 +129,12 @@ newExternalWallet
        , V0.MonadBlockchainInfo m
        , V0.MonadWalletLogic ctx m
        )
-    => Core.Config
+    => Genesis.Config
     -> NewExternalWallet
     -> m (WalletResponse Wallet)
-newExternalWallet coreConfig (NewExternalWallet rootPK assuranceLevel name operation) = do
+newExternalWallet genesisConfig (NewExternalWallet rootPK assuranceLevel name operation) = do
     let newExternalWalletHandler CreateWallet  = createNewExternalWallet
-        newExternalWalletHandler RestoreWallet = restoreExternalWallet coreConfig
+        newExternalWalletHandler RestoreWallet = restoreExternalWallet genesisConfig
     walletMeta <- V0.CWalletMeta <$> pure name
                                  <*> migrate assuranceLevel
                                  <*> pure 0
@@ -176,11 +177,11 @@ restoreExternalWallet
        , HasLens SyncQueue ctx SyncQueue
        , V0.MonadWalletLogic ctx m
        )
-    => Core.Config
+    => Genesis.Config
     -> V0.CWalletMeta
     -> PublicKeyAsBase58
     -> m V0.CWallet
-restoreExternalWallet coreConfig walletMeta encodedRootPK = do
+restoreExternalWallet genesisConfig walletMeta encodedRootPK = do
     rootPK <- mkPublicKeyOrFail encodedRootPK
 
     let walletId = encodeCType . Core.makePubKeyAddressBoot $ rootPK
@@ -194,7 +195,7 @@ restoreExternalWallet coreConfig walletMeta encodedRootPK = do
     addInitAccountInExternalWallet walletId
 
     -- Restoring this wallet.
-    V0.restoreExternalWallet coreConfig rootPK
+    V0.restoreExternalWallet genesisConfig rootPK
 
 addInitAccountInExternalWallet
     :: ( MonadThrow m

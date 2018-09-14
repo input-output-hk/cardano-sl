@@ -16,7 +16,8 @@ import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (mockNodeStateDef)
 import qualified Cardano.Wallet.Kernel.Read as Kernel
 
-import           Pos.Core (Coeff (..), Config (..), TxSizeLinear (..))
+import           Pos.Chain.Genesis (Config (..))
+import           Pos.Core (Coeff (..), TxSizeLinear (..))
 import           Pos.Core.Chrono
 
 import           Test.Infrastructure.Generator
@@ -272,9 +273,9 @@ bracketPassiveWallet postHook = do
 
 -- | Initialize active wallet in a manner suitable for generator-based testing
 bracketActiveWallet :: (Kernel.ActiveWallet -> IO a) -> IO a
-bracketActiveWallet test = withDefConfiguration $ \coreConfig -> do
+bracketActiveWallet test = withDefConfiguration $ \genesisConfig -> do
     bracketPassiveWallet $ \passive ->
-        Kernel.bracketActiveWallet (configProtocolMagic coreConfig)
+        Kernel.bracketActiveWallet (configProtocolMagic genesisConfig)
                                    passive
                                    diffusion
                                    test

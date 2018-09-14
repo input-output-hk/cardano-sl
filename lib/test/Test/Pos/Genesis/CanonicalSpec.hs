@@ -9,11 +9,11 @@ import           Universum
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 
-import           Pos.Core.Genesis (GenesisAvvmBalances, GenesisData,
+import           Pos.Chain.Genesis (GenesisAvvmBalances, GenesisData,
                      GenesisDelegation, GenesisProtocolConstants,
                      GenesisWStakeholders)
 
-import           Test.Pos.Core.Arbitrary ()
+import           Test.Pos.Chain.Genesis.Arbitrary ()
 import           Test.Pos.Helpers (canonicalJsonTest)
 
 spec :: Spec

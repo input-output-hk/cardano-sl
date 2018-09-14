@@ -18,8 +18,9 @@ import qualified Data.Map as M
 import           Data.Maybe (fromJust)
 
 import           Pos.Chain.Block (Blund, mainBlockSlot, undoTx)
+import           Pos.Chain.Genesis (Config (..))
 import           Pos.Chain.Txp (Utxo)
-import           Pos.Core (Config (..), mkCoin)
+import           Pos.Core (mkCoin)
 import           Pos.Core.Slotting (Timestamp)
 import           Pos.Crypto.Signing
 

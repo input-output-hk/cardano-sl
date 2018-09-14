@@ -27,10 +27,10 @@ import qualified Data.ByteString.Char8 as BS8
 
 import           Ntp.Client (NtpStatus)
 
+import           Pos.Chain.Genesis as Genesis (Config)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Client.Txp.Network (sendTxOuts)
 import           Pos.Communication (OutSpecs)
-import           Pos.Core as Core (Config)
 import           Pos.Core.NetworkAddress (NetworkAddress)
 import           Pos.Infra.Diffusion.Types (Diffusion (sendTx))
 import           Pos.Util (bracketWithLogging)
@@ -83,15 +83,15 @@ walletApplication serv = do
 walletServer
     :: forall ctx m
      . (MonadFullWalletWebMode ctx m, HasCompileInfo)
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> Diffusion m
     -> TVar NtpStatus
     -> (forall x . m x -> Handler x)
     -> m (Server WalletSwaggerApi)
-walletServer coreConfig txpConfig diffusion ntpStatus nat = do
+walletServer genesisConfig txpConfig diffusion ntpStatus nat = do
     mapM_ (findKey >=> syncWallet . keyToWalletDecrCredentials) =<< myRootAddresses
-    return $ servantHandlersWithSwagger coreConfig txpConfig ntpStatus submitTx nat
+    return $ servantHandlersWithSwagger genesisConfig txpConfig ntpStatus submitTx nat
   where
     -- Diffusion layer takes care of submitting transactions.
     submitTx = sendTx diffusion

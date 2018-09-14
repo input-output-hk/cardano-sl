@@ -18,13 +18,13 @@ import           Universum
 import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat, stext, (%))
 
+import           Pos.Chain.Genesis as Genesis (Config)
 import           Pos.Chain.Txp (Tx (..), TxAux (..), TxOut (..), TxOutAux (..),
                      TxpConfiguration)
 import           Pos.Client.KeyStorage (MonadKeys)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..),
                      PendingAddresses (..), isCheckedTxError)
-import           Pos.Core as Core (Config)
 import           Pos.Core.Chrono (getNewestFirst, toNewestFirst)
 import           Pos.Core.Common (Coin)
 import           Pos.Crypto (PassPhrase, hash)
@@ -75,14 +75,14 @@ coinDistrToOutputs distr = do
 -- by the time of resubmission.
 submitAndSaveNewPtx
     :: TxSubmissionMode ctx m
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> WalletDB
     -> (TxAux -> m Bool)
     -> PendingTx
     -> m ()
-submitAndSaveNewPtx coreConfig txpConfig db submit =
-    submitAndSavePtx coreConfig txpConfig db submit ptxFirstSubmissionHandler
+submitAndSaveNewPtx genesisConfig txpConfig db submit =
+    submitAndSavePtx genesisConfig txpConfig db submit ptxFirstSubmissionHandler
 
 gatherPendingTxsSummary :: MonadWalletWebMode ctx m => m [PendingTxsSummary]
 gatherPendingTxsSummary =

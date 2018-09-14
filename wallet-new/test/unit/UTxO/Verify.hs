@@ -27,11 +27,11 @@ import           Serokell.Util (listJson)
 import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block
 import           Pos.Chain.Delegation (DlgUndo (..))
+import           Pos.Chain.Genesis (GenesisData (..))
 import           Pos.Chain.Txp
 import           Pos.Chain.Update
 import           Pos.Core
 import           Pos.Core.Chrono
-import           Pos.Core.Genesis (GenesisData (..))
 import           Pos.Core.Update (BlockVersionData)
 import           Pos.DB.Block (toTxpBlock)
 import           Pos.DB.Class (MonadGState (..))
@@ -42,8 +42,8 @@ import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Wlog
 import           Serokell.Util.Verify
 
-import           Test.Pos.Core.Dummy (dummyBlockVersionData, dummyConfig,
-                     dummyEpochSlots, dummyGenesisData, dummyK)
+import           Test.Pos.Chain.Genesis.Dummy (dummyBlockVersionData,
+                     dummyConfig, dummyEpochSlots, dummyGenesisData, dummyK)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 {-------------------------------------------------------------------------------

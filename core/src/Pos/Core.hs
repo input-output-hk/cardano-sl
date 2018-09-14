@@ -8,13 +8,11 @@ module Pos.Core
        , module Pos.Core.ProtocolConstants
        , module Pos.Core.Constants
        , module Pos.Core.Slotting
-       , module Pos.Core.Configuration
        , module Pos.Core.Context
        , module Pos.Core.Common
        ) where
 
 import           Pos.Core.Common
-import           Pos.Core.Configuration
 import           Pos.Core.Constants
 import           Pos.Core.Context
 import           Pos.Core.Exception

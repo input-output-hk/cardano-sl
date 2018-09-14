@@ -59,12 +59,13 @@ import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (Block, Blund, HeaderHash, MainBlock, Undo,
                      gbHeader, gbhConsensus, mainBlockSlot, mainBlockTxPayload,
                      mcdSlot)
+import           Pos.Chain.Genesis as Genesis (Config (..), GenesisHash,
+                     configEpochSlots)
 import           Pos.Chain.Txp (Tx (..), TxAux, TxId, TxIn (..), TxMap,
                      TxOutAux (..), mpLocalTxs, taTx, topsortTxs, txOutAddress,
                      txOutValue, txpTxs, _txOutputs)
-import           Pos.Core as Core (AddrType (..), Address (..), Coin,
-                     Config (..), EpochIndex, GenesisHash, SlotCount,
-                     Timestamp, coinToInteger, configEpochSlots, difficultyL,
+import           Pos.Core (AddrType (..), Address (..), Coin, EpochIndex,
+                     SlotCount, Timestamp, coinToInteger, difficultyL,
                      getChainDifficulty, isUnknownAddressType,
                      makeRedeemAddress, siEpoch, siSlot, sumCoins,
                      timestampToPosix, unsafeAddCoin, unsafeIntegerToCoin,
@@ -128,13 +129,13 @@ explorerApp serv = serve explorerApi <$> serv
 
 explorerHandlers
     :: forall ctx m. ExplorerMode ctx m
-    => Core.Config -> Diffusion m -> ServerT ExplorerApi m
-explorerHandlers coreConfig _diffusion =
+    => Genesis.Config -> Diffusion m -> ServerT ExplorerApi m
+explorerHandlers genesisConfig _diffusion =
     toServant (ExplorerApiRecord
         { _totalAda           = getTotalAda
         , _blocksPages        = getBlocksPage epochSlots
         , _blocksPagesTotal   = getBlocksPagesTotal
-        , _blocksSummary      = getBlockSummary coreConfig
+        , _blocksSummary      = getBlockSummary genesisConfig
         , _blocksTxs          = getBlockTxs genesisHash
         , _txsLast            = getLastTxs
         , _txsSummary         = getTxSummary genesisHash
@@ -145,12 +146,12 @@ explorerHandlers coreConfig _diffusion =
         , _genesisSummary     = getGenesisSummary
         , _genesisPagesTotal  = getGenesisPagesTotal
         , _genesisAddressInfo = getGenesisAddressInfo
-        , _statsTxs           = getStatsTxs coreConfig
+        , _statsTxs           = getStatsTxs genesisConfig
         }
         :: ExplorerApiRecord (AsServerT m))
   where
-    epochSlots = configEpochSlots coreConfig
-    genesisHash = configGenesisHash coreConfig
+    epochSlots = configEpochSlots genesisConfig
+    genesisHash = configGenesisHash genesisConfig
 
 ----------------------------------------------------------------
 -- API Functions
@@ -313,13 +314,13 @@ getLastTxs = do
 -- | Get block summary.
 getBlockSummary
     :: ExplorerMode ctx m
-    => Core.Config
+    => Genesis.Config
     -> CHash
     -> m CBlockSummary
-getBlockSummary coreConfig cHash = do
+getBlockSummary genesisConfig cHash = do
     headerHash <- unwrapOrThrow $ fromCHash cHash
-    mainBlund  <- getMainBlund (configGenesisHash coreConfig) headerHash
-    toBlockSummary (configEpochSlots coreConfig) mainBlund
+    mainBlund  <- getMainBlund (configGenesisHash genesisConfig) headerHash
+    toBlockSummary (configEpochSlots genesisConfig) mainBlund
 
 
 -- | Get transactions from a block.
@@ -759,12 +760,12 @@ getEpochPage epochSlots epochIndex mPage = do
 
 getStatsTxs
     :: forall ctx m. ExplorerMode ctx m
-    => Core.Config
+    => Genesis.Config
     -> Maybe Word
     -> m (Integer, [(CTxId, Byte)])
-getStatsTxs coreConfig mPageNumber = do
+getStatsTxs genesisConfig mPageNumber = do
     -- Get blocks from the requested page
-    blocksPage <- getBlocksPage (configEpochSlots coreConfig)
+    blocksPage <- getBlocksPage (configEpochSlots genesisConfig)
                                 mPageNumber
                                 (Just defaultPageSizeWord)
     getBlockPageTxsInfo blocksPage
@@ -786,7 +787,7 @@ getStatsTxs coreConfig mPageNumber = do
             :: CHash
             -> m [(CTxId, Byte)]
         getBlockTxsInfo cHash = do
-            txs <- getMainBlockTxs (configGenesisHash coreConfig) cHash
+            txs <- getMainBlockTxs (configGenesisHash genesisConfig) cHash
             pure $ txToTxIdSize <$> txs
           where
             txToTxIdSize :: Tx -> (CTxId, Byte)

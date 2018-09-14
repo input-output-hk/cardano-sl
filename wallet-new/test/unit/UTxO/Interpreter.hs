@@ -57,6 +57,9 @@ import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (Block, BlockHeader (..), GenesisBlock,
                      HeaderHash, MainBlock, gbHeader, genBlockLeaders,
                      headerHash, mkGenesisBlock)
+import           Pos.Chain.Genesis (GenesisWStakeholders, gdBootStakeholders,
+                     gdProtocolConsts,
+                     genesisProtocolConstantsToProtocolConstants)
 import           Pos.Chain.Lrc (followTheSatoshi)
 import           Pos.Chain.Ssc (defaultSscPayload)
 import           Pos.Chain.Txp (TxAux (..), TxId, TxIn (..), TxOut (..),
@@ -66,9 +69,6 @@ import           Pos.Client.Txp
 import           Pos.Core
 import           Pos.Core.Chrono
 import           Pos.Core.Delegation (DlgPayload (..))
-import           Pos.Core.Genesis (GenesisWStakeholders, gdBootStakeholders,
-                     gdProtocolConsts,
-                     genesisProtocolConstantsToProtocolConstants)
 import           Pos.Crypto
 import           Pos.DB.Block (RawPayload (..), createMainBlockPure)
 
@@ -78,7 +78,8 @@ import           UTxO.Crypto
 import qualified UTxO.DSL as DSL
 import           UTxO.Translate
 
-import           Test.Pos.Core.Dummy (dummyConfig, dummyEpochSlots, dummyK)
+import           Test.Pos.Chain.Genesis.Dummy (dummyConfig, dummyEpochSlots,
+                     dummyK)
 
 {-------------------------------------------------------------------------------
   Errors that may occur during interpretation

@@ -17,9 +17,9 @@ import           Formatting (build, sformat, (%))
 import           Node.Message.Class (Message)
 import           Universum
 
+import           Pos.Chain.Genesis as Genesis (Config)
 import           Pos.Chain.Txp (TxAux (..), TxId, TxMsgContents (..),
                      TxpConfiguration)
-import           Pos.Core as Core (Config)
 import           Pos.Crypto (hash)
 import           Pos.DB.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem,
                      txpProcessTx)
@@ -32,14 +32,14 @@ import           Pos.Util.Wlog (WithLogger, logInfo)
 -- #txProcessTransaction
 handleTxDo
     :: TxpMode ctx m
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> (JLEvent -> m ())  -- ^ How to log transactions
     -> TxAux              -- ^ Incoming transaction to be processed
     -> m Bool
-handleTxDo coreConfig txpConfig logTx txAux = do
+handleTxDo genesisConfig txpConfig logTx txAux = do
     let txId = hash (taTx txAux)
-    res <- txpProcessTx coreConfig txpConfig (txId, txAux)
+    res <- txpProcessTx genesisConfig txpConfig (txId, txAux)
     let json me = logTx $ JLTxReceived $ JLTxR
             { jlrTxId  = sformat build txId
             , jlrError = me

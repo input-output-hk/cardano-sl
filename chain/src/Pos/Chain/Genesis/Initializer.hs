@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Pos.Core.Genesis.Initializer
+module Pos.Chain.Genesis.Initializer
        ( GenesisInitializer (..)
        , TestnetBalanceOptions (..)
        , FakeAvvmOptions (..)

@@ -14,10 +14,10 @@ import qualified System.IO.Temp as Temp
 
 import           Ntp.Client (NtpConfiguration)
 
+import           Pos.Chain.Genesis as Genesis (Config (..), ConfigurationError)
 import           Pos.Chain.Txp (TxpConfiguration)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (NodeContext (..))
-import           Pos.Core as Core (Config (..), ConfigurationError)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Txp (txpGlobalSettings)
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
@@ -77,13 +77,13 @@ correctNodeParams AuxxOptions {..} np = do
 
 runNodeWithSinglePlugin ::
        (HasConfigurations, HasCompileInfo)
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> NodeResources EmptyMempoolExt
     -> (Diffusion AuxxMode -> AuxxMode ())
     -> Diffusion AuxxMode -> AuxxMode ()
-runNodeWithSinglePlugin coreConfig txpConfig nr plugin =
-    runNode coreConfig txpConfig nr [plugin]
+runNodeWithSinglePlugin genesisConfig txpConfig nr plugin =
+    runNode genesisConfig txpConfig nr [plugin]
 
 action :: HasCompileInfo => AuxxOptions -> Either WithCommandAction Text -> IO ()
 action opts@AuxxOptions {..} command = do
@@ -112,18 +112,18 @@ action opts@AuxxOptions {..} command = do
     runWithConfig
         :: HasConfigurations
         => PrintAction IO
-        -> Core.Config
+        -> Genesis.Config
         -> WalletConfiguration
         -> TxpConfiguration
         -> NtpConfiguration
         -> IO ()
-    runWithConfig printAction coreConfig _walletConfig txpConfig _ntpConfig = do
+    runWithConfig printAction genesisConfig _walletConfig txpConfig _ntpConfig = do
         printAction "Mode: with-config"
         (nodeParams, tempDbUsed) <- (correctNodeParams opts . fst) =<< CLI.getNodeParams
             loggerName
             cArgs
             nArgs
-            (configGeneratedSecrets coreConfig)
+            (configGeneratedSecrets genesisConfig)
 
         let toRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
             toRealMode auxxAction = do
@@ -137,17 +137,17 @@ action opts@AuxxOptions {..} command = do
                               (npUserSecret nodeParams ^. usVss)
             sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
 
-        bracketNodeResources coreConfig
+        bracketNodeResources genesisConfig
                              nodeParams
                              sscParams
-                             (txpGlobalSettings coreConfig txpConfig)
-                             (initNodeDBs coreConfig) $ \nr ->
+                             (txpGlobalSettings genesisConfig txpConfig)
+                             (initNodeDBs genesisConfig) $ \nr ->
             let NodeContext {..} = nrContext nr
                 modifier = if aoStartMode == WithNode
-                           then runNodeWithSinglePlugin coreConfig txpConfig nr
+                           then runNodeWithSinglePlugin genesisConfig txpConfig nr
                            else identity
-                auxxModeAction = modifier (auxxPlugin coreConfig txpConfig opts command)
-             in runRealMode coreConfig txpConfig nr $ \diffusion ->
+                auxxModeAction = modifier (auxxPlugin genesisConfig txpConfig opts command)
+             in runRealMode genesisConfig txpConfig nr $ \diffusion ->
                     toRealMode (auxxModeAction (hoistDiffusion realModeToAuxx toRealMode diffusion))
 
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs

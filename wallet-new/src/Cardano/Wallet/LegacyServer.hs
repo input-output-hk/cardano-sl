@@ -11,9 +11,9 @@ import           Cardano.Wallet.API.V1.Migration (HasCompileInfo,
 import           Cardano.Wallet.API.V1.Swagger (swaggerSchemaUIServer)
 import           Cardano.Wallet.Server.CLI (RunMode (..))
 import           Ntp.Client (NtpStatus)
+import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Chain.Update (curSoftwareVersion)
-import           Pos.Core as Core (Config (..))
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Util.CompileInfo (compileInfo)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
@@ -29,23 +29,23 @@ import qualified Cardano.Wallet.API.WIP.LegacyHandlers as WIP (handlers)
 -- with Servant.
 walletServer :: (HasConfigurations, HasCompileInfo)
              => (forall a. WalletWebMode a -> Handler a)
-             -> Core.Config
+             -> Genesis.Config
              -> TxpConfiguration
              -> Diffusion WalletWebMode
              -> TVar NtpStatus
              -> RunMode
              -> Server WalletAPI
-walletServer natV0 coreConfig txpConfig diffusion ntpStatus runMode =
+walletServer natV0 genesisConfig txpConfig diffusion ntpStatus runMode =
          v0Handler
     :<|> v0Handler
     :<|> v1Handler
     :<|> internalHandler
     :<|> wipHandler
   where
-    v0Handler       = V0.handlers natV0 coreConfig txpConfig diffusion ntpStatus
-    v1Handler       = V1.handlers natV0 coreConfig txpConfig diffusion ntpStatus
-    internalHandler = Internal.handlers natV0 coreConfig runMode
-    wipHandler      = WIP.handlers natV0 coreConfig txpConfig diffusion
+    v0Handler       = V0.handlers natV0 genesisConfig txpConfig diffusion ntpStatus
+    v1Handler       = V1.handlers natV0 genesisConfig txpConfig diffusion ntpStatus
+    internalHandler = Internal.handlers natV0 genesisConfig runMode
+    wipHandler      = WIP.handlers natV0 genesisConfig txpConfig diffusion
 
 walletDocServer
     :: (HasConfigurations, HasCompileInfo)

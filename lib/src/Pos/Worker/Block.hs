@@ -28,13 +28,15 @@ import           Pos.Chain.Block (HasBlockConfiguration, criticalCQ,
                      scDifficultyMonitorState, scEpochMonitorState,
                      scGlobalSlotMonitorState, scLocalSlotMonitorState)
 import           Pos.Chain.Delegation (ProxySKBlockInfo)
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     configBlkSecurityParam, configEpochSlots,
+                     configSlotSecurityParam)
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Core as Core (BlockCount, ChainDifficulty, Config (..),
-                     FlatSlotId, SlotCount, SlotId (..), Timestamp (Timestamp),
-                     addressHash, configBlkSecurityParam, configEpochSlots,
-                     configSlotSecurityParam, difficultyL, epochOrSlotToSlot,
-                     flattenSlotId, getEpochOrSlot, getOurPublicKey,
-                     getSlotIndex, kEpochSlots, localSlotIndexFromEnum,
+import           Pos.Core (BlockCount, ChainDifficulty, FlatSlotId, SlotCount,
+                     SlotId (..), Timestamp (Timestamp), addressHash,
+                     difficultyL, epochOrSlotToSlot, flattenSlotId,
+                     getEpochOrSlot, getOurPublicKey, getSlotIndex,
+                     kEpochSlots, localSlotIndexFromEnum,
                      localSlotIndexMinBound, slotIdF, slotIdSucc,
                      unflattenSlotId)
 import           Pos.Core.Chrono (OldestFirst (..))
@@ -79,14 +81,14 @@ blkWorkers
     :: ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> [Diffusion m -> m ()]
-blkWorkers coreConfig txpConfig =
-    [ blkCreatorWorker coreConfig txpConfig
-    , informerWorker $ configBlkSecurityParam coreConfig
-    , retrievalWorker coreConfig txpConfig
-    , recoveryTriggerWorker coreConfig
+blkWorkers genesisConfig txpConfig =
+    [ blkCreatorWorker genesisConfig txpConfig
+    , informerWorker $ configBlkSecurityParam genesisConfig
+    , retrievalWorker genesisConfig txpConfig
+    , recoveryTriggerWorker genesisConfig
     ]
 
 informerWorker
@@ -119,14 +121,14 @@ blkCreatorWorker
     :: ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> Diffusion m -> m ()
-blkCreatorWorker coreConfig txpConfig diffusion =
-    onNewSlot (configEpochSlots coreConfig) onsp $ \slotId ->
-        recoveryCommGuard (configBlkSecurityParam coreConfig)
+blkCreatorWorker genesisConfig txpConfig diffusion =
+    onNewSlot (configEpochSlots genesisConfig) onsp $ \slotId ->
+        recoveryCommGuard (configBlkSecurityParam genesisConfig)
                           "onNewSlot worker, blkCreatorWorker"
-            $          blockCreator coreConfig txpConfig slotId diffusion
+            $          blockCreator genesisConfig txpConfig slotId diffusion
             `catchAny` onBlockCreatorException
   where
     onBlockCreatorException = reportOrLogE "blockCreator failed: "
@@ -139,17 +141,17 @@ blockCreator
     :: ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> SlotId
     -> Diffusion m -> m ()
-blockCreator coreConfig txpConfig (slotId@SlotId {..}) diffusion = do
+blockCreator genesisConfig txpConfig (slotId@SlotId {..}) diffusion = do
 
     -- First of all we create genesis block if necessary.
-    mGenBlock <- createGenesisBlockAndApply coreConfig txpConfig siEpoch
+    mGenBlock <- createGenesisBlockAndApply genesisConfig txpConfig siEpoch
     whenJust mGenBlock $ \createdBlk -> do
         logInfo $ sformat ("Created genesis block:\n" %build) createdBlk
-        jsonLog $ jlCreatedBlock (configEpochSlots coreConfig) (Left createdBlk)
+        jsonLog $ jlCreatedBlock (configEpochSlots genesisConfig) (Left createdBlk)
 
     -- Then we get leaders for current epoch.
     leadersMaybe <- LrcDB.getLeadersForEpoch siEpoch
@@ -198,21 +200,21 @@ blockCreator coreConfig txpConfig (slotId@SlotId {..}) diffusion = do
                   "delegated by heavy psk: "%build)
                  ourHeavyPsk
            | weAreLeader ->
-                 onNewSlotWhenLeader coreConfig txpConfig slotId Nothing diffusion
+                 onNewSlotWhenLeader genesisConfig txpConfig slotId Nothing diffusion
            | heavyWeAreDelegate ->
                  let pske = swap <$> dlgTransM
-                 in onNewSlotWhenLeader coreConfig txpConfig slotId pske diffusion
+                 in onNewSlotWhenLeader genesisConfig txpConfig slotId pske diffusion
            | otherwise -> pass
 
 onNewSlotWhenLeader
     :: BlockWorkMode ctx m
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> SlotId
     -> ProxySKBlockInfo
     -> Diffusion m
     -> m ()
-onNewSlotWhenLeader coreConfig txpConfig slotId pske diffusion = do
+onNewSlotWhenLeader genesisConfig txpConfig slotId pske diffusion = do
     let logReason =
             sformat ("I have a right to create a block for the slot "%slotIdF%" ")
                     slotId
@@ -221,7 +223,7 @@ onNewSlotWhenLeader coreConfig txpConfig slotId pske diffusion = do
             sformat ("using heavyweight proxy signature key "%build%", will do it soon") psk
     logInfoS $ logReason <> maybe logLeader logCert pske
     nextSlotStart <- getSlotStartEmpatically
-        (slotIdSucc (configEpochSlots coreConfig) slotId)
+        (slotIdSucc (configEpochSlots genesisConfig) slotId)
     currentTime <- currentTimeSlotting
     let timeToCreate =
             max currentTime (nextSlotStart - Timestamp networkDiameter)
@@ -233,13 +235,13 @@ onNewSlotWhenLeader coreConfig txpConfig slotId pske diffusion = do
   where
     onNewSlotWhenLeaderDo = do
         logInfoS "It's time to create a block for current slot"
-        createdBlock <- createMainBlockAndApply coreConfig txpConfig slotId pske
+        createdBlock <- createMainBlockAndApply genesisConfig txpConfig slotId pske
         either whenNotCreated whenCreated createdBlock
         logInfoS "onNewSlotWhenLeader: done"
     whenCreated createdBlk = do
             logInfoS $
                 sformat ("Created a new block:\n" %build) createdBlk
-            jsonLog $ jlCreatedBlock (configEpochSlots coreConfig) (Right createdBlk)
+            jsonLog $ jlCreatedBlock (configEpochSlots genesisConfig) (Right createdBlk)
             void $ Diffusion.announceBlockHeader diffusion $ createdBlk ^. gbHeader
     whenNotCreated = logWarningS . (mappend "I couldn't create a new block: ")
 
@@ -251,8 +253,8 @@ recoveryTriggerWorker
     :: forall ctx m.
        ( BlockWorkMode ctx m
        )
-    => Core.Config -> Diffusion m -> m ()
-recoveryTriggerWorker coreConfig diffusion = do
+    => Genesis.Config -> Diffusion m -> m ()
+recoveryTriggerWorker genesisConfig diffusion = do
     -- Initial heuristic delay is needed (the system takes some time
     -- to initialize).
     -- TBD why 3 seconds? Why delay at all? Come on, we can do better.
@@ -260,10 +262,10 @@ recoveryTriggerWorker coreConfig diffusion = do
 
     repeatOnInterval $ do
         doTrigger <- needTriggerRecovery
-            <$> getSyncStatus epochSlots (configSlotSecurityParam coreConfig)
+            <$> getSyncStatus epochSlots (configSlotSecurityParam genesisConfig)
         when doTrigger $ do
             logInfo "Triggering recovery because we need it"
-            triggerRecovery coreConfig diffusion
+            triggerRecovery genesisConfig diffusion
 
         -- Sometimes we want to trigger recovery just in case. Maybe
         -- we're just 5 slots late, but nobody wants to send us
@@ -278,7 +280,7 @@ recoveryTriggerWorker coreConfig diffusion = do
             logInfo "Checking if we need recovery as a safety measure"
             whenM (needTriggerRecovery <$> getSyncStatus epochSlots 5) $ do
                 logInfo "Triggering recovery as a safety measure"
-                triggerRecovery coreConfig diffusion
+                triggerRecovery genesisConfig diffusion
 
         -- We don't want to ask for tips too frequently.
         -- E.g. there may be a tip processing mistake so that we
@@ -288,7 +290,7 @@ recoveryTriggerWorker coreConfig diffusion = do
         -- will minimize risks and network load.
         when (doTrigger || triggerSafety) $ delay (20 :: Second)
   where
-    epochSlots = configEpochSlots coreConfig
+    epochSlots = configEpochSlots genesisConfig
     repeatOnInterval action = void $ do
         delay (1 :: Second)
         -- REPORT:ERROR 'reportOrLogE' in recovery trigger worker

@@ -17,10 +17,11 @@ module Pos.DB.Ssc.State.Global
 import           Formatting (build, sformat, (%))
 import           Universum
 
+import           Pos.Chain.Genesis as Genesis (Config)
 import           Pos.Chain.Ssc (MonadSscMem, SscGlobalState (..),
                      getStableCertsPure, sgsVssCertificates, sscRunGlobalQuery)
 import qualified Pos.Chain.Ssc as Ssc
-import           Pos.Core as Core (Config, EpochIndex (..), SlotId (..))
+import           Pos.Core (EpochIndex (..), SlotId (..))
 import           Pos.Core.Ssc (VssCertificatesMap (..))
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB.Ssc.GState as DB
@@ -42,10 +43,10 @@ getGlobalCerts sl =
 -- | Get stable VSS certificates for given epoch.
 getStableCerts
     :: (MonadSscMem ctx m, MonadIO m)
-    => Core.Config
+    => Genesis.Config
     -> EpochIndex
     -> m VssCertificatesMap
-getStableCerts coreConfig epoch = getStableCertsPure coreConfig epoch
+getStableCerts genesisConfig epoch = getStableCertsPure genesisConfig epoch
     <$> sscRunGlobalQuery (view sgsVssCertificates)
 
 ----------------------------------------------------------------------------

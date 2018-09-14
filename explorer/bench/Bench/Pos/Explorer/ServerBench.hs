@@ -20,9 +20,9 @@ import           Pos.Explorer.TestUtil (BlockNumber, SlotsPerEpoch,
 import           Pos.Explorer.Web.ClientTypes (CBlockEntry)
 import           Pos.Explorer.Web.Server (getBlocksPage, getBlocksTotal)
 
+import           Test.Pos.Chain.Genesis.Dummy (dummyEpochSlots)
 import           Test.Pos.Chain.Txp.Arbitrary.Unsafe ()
 import           Test.Pos.Configuration (withDefConfigurations)
-import           Test.Pos.Core.Dummy (dummyEpochSlots)
 
 ----------------------------------------------------------------
 -- Mocked functions

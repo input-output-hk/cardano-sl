@@ -19,9 +19,9 @@ import           Servant.Generic (AsServerT, GenericProduct, ToServant,
 import           Servant.Server (Handler, Server, ServerT, hoistServer)
 import           Servant.Swagger.UI (swaggerSchemaUIServer)
 
+import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Txp (TxAux, TxpConfiguration)
 import           Pos.Chain.Update (curSoftwareVersion)
-import           Pos.Core as Core (Config (..))
 import           Pos.Util.CompileInfo (HasCompileInfo)
 
 import           Pos.Wallet.WalletMode (blockchainSlotDuration)
@@ -38,16 +38,16 @@ servantHandlersWithSwagger
     :: ( MonadFullWalletWebMode ctx m
        , HasCompileInfo
        )
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> TVar NtpStatus
     -> (TxAux -> m Bool)
     -> (forall x. m x -> Handler x)
     -> Server A.WalletSwaggerApi
-servantHandlersWithSwagger coreConfig txpConfig ntpStatus submitTx nat =
+servantHandlersWithSwagger genesisConfig txpConfig ntpStatus submitTx nat =
     hoistServer A.walletApi
                 nat
-                (servantHandlers coreConfig txpConfig ntpStatus submitTx)
+                (servantHandlers genesisConfig txpConfig ntpStatus submitTx)
    :<|>
     swaggerSchemaUIServer swaggerSpecForWalletApi
 
@@ -59,23 +59,23 @@ servantHandlers
     :: ( MonadFullWalletWebMode ctx m
        , HasCompileInfo
        )
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> TVar NtpStatus
     -> (TxAux -> m Bool)
     -> ServerT A.WalletApi m
-servantHandlers coreConfig txpConfig ntpStatus submitTx = toServant' A.WalletApiRecord
+servantHandlers genesisConfig txpConfig ntpStatus submitTx = toServant' A.WalletApiRecord
     { _test        = testHandlers
-    , _wallets     = walletsHandlers coreConfig
+    , _wallets     = walletsHandlers genesisConfig
     , _accounts    = accountsHandlers
     , _addresses   = addressesHandlers
     , _profile     = profileHandlers
-    , _txs         = txsHandlers coreConfig txpConfig submitTx
+    , _txs         = txsHandlers genesisConfig txpConfig submitTx
     , _update      = updateHandlers
-    , _redemptions = redemptionsHandlers coreConfig txpConfig submitTx
+    , _redemptions = redemptionsHandlers genesisConfig txpConfig submitTx
     , _reporting   = reportingHandlers
     , _settings    = settingsHandlers ntpStatus
-    , _backup      = backupHandlers coreConfig
+    , _backup      = backupHandlers genesisConfig
     , _info        = infoHandlers
     , _system      = systemHandlers
     }
@@ -89,15 +89,15 @@ testHandlers = toServant' A.WTestApiRecord
     }
 
 walletsHandlers
-    :: MonadFullWalletWebMode ctx m => Core.Config -> ServerT A.WWalletsApi m
-walletsHandlers coreConfig = toServant' A.WWalletsApiRecord
+    :: MonadFullWalletWebMode ctx m => Genesis.Config -> ServerT A.WWalletsApi m
+walletsHandlers genesisConfig = toServant' A.WWalletsApiRecord
     { _getWallet              = M.getWallet
     , _getWallets             = M.getWallets
     , _newWallet              = M.newWallet
     , _updateWallet           = M.updateWallet
-    , _restoreWallet          = M.restoreWalletFromSeed coreConfig
+    , _restoreWallet          = M.restoreWalletFromSeed genesisConfig
     , _deleteWallet           = M.deleteWallet
-    , _importWallet           = M.importWallet coreConfig
+    , _importWallet           = M.importWallet genesisConfig
     , _changeWalletPassphrase = M.changeWalletPassphrase
     }
 
@@ -124,16 +124,16 @@ profileHandlers = toServant' A.WProfileApiRecord
 
 txsHandlers
     :: MonadFullWalletWebMode ctx m
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> (TxAux -> m Bool)
     -> ServerT A.WTxsApi m
-txsHandlers coreConfig txpConfig submitTx = toServant' A.WTxsApiRecord
-    { _newPayment                = M.newPayment coreConfig txpConfig submitTx
-    , _newPaymentBatch           = M.newPaymentBatch coreConfig txpConfig submitTx
-    , _txFee                     = M.getTxFee coreConfig
+txsHandlers genesisConfig txpConfig submitTx = toServant' A.WTxsApiRecord
+    { _newPayment                = M.newPayment genesisConfig txpConfig submitTx
+    , _newPaymentBatch           = M.newPaymentBatch genesisConfig txpConfig submitTx
+    , _txFee                     = M.getTxFee genesisConfig
     , _resetFailedPtxs           = M.resetAllFailedPtxs $
-          configProtocolConstants coreConfig
+          configProtocolConstants genesisConfig
     , _cancelApplyingPtxs        = M.cancelAllApplyingPtxs
     , _cancelSpecificApplyingPtx = M.cancelOneApplyingPtx
     , _getHistory                = M.getHistoryLimited
@@ -149,13 +149,13 @@ updateHandlers = toServant' A.WUpdateApiRecord
 
 redemptionsHandlers
     :: MonadFullWalletWebMode ctx m
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> (TxAux -> m Bool)
     -> ServerT A.WRedemptionsApi m
-redemptionsHandlers coreConfig txpConfig submitTx = toServant' A.WRedemptionsApiRecord
-    { _redeemADA          = M.redeemAda coreConfig txpConfig submitTx
-    , _redeemADAPaperVend = M.redeemAdaPaperVend coreConfig txpConfig submitTx
+redemptionsHandlers genesisConfig txpConfig submitTx = toServant' A.WRedemptionsApiRecord
+    { _redeemADA          = M.redeemAda genesisConfig txpConfig submitTx
+    , _redeemADAPaperVend = M.redeemAdaPaperVend genesisConfig txpConfig submitTx
     }
 
 reportingHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WReportingApi m
@@ -171,9 +171,9 @@ settingsHandlers ntpStatus = toServant' A.WSettingsApiRecord
     , _localTimeDifference = fromMaybe 0 <$> M.localTimeDifference ntpStatus
     }
 
-backupHandlers :: MonadFullWalletWebMode ctx m => Core.Config -> ServerT A.WBackupApi m
-backupHandlers coreConfig = toServant' A.WBackupApiRecord
-    { _importBackupJSON = M.importWalletJSON coreConfig
+backupHandlers :: MonadFullWalletWebMode ctx m => Genesis.Config -> ServerT A.WBackupApi m
+backupHandlers genesisConfig = toServant' A.WBackupApiRecord
+    { _importBackupJSON = M.importWalletJSON genesisConfig
     , _exportBackupJSON = M.exportWalletJSON
     }
 

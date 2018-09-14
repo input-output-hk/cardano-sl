@@ -25,8 +25,8 @@ import           Pos.Core.Common (Coin, CoinPortion, coinPortionToDouble,
                      mkCoin, unsafeAddCoin, unsafeGetCoin, unsafeSubCoin)
 import           Pos.Core.Update (BlockVersionData (bvdMpcThd))
 
+import           Test.Pos.Chain.Genesis.Dummy (dummyBlockVersionData)
 import           Test.Pos.Core.Arbitrary ()
-import           Test.Pos.Core.Dummy (dummyBlockVersionData)
 
 -- | Wrapper over 'RichmenStakes'. Its 'Arbitrary' instance enforces that the
 -- stake distribution inside must be valid with respect to the threshold

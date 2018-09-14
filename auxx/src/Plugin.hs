@@ -21,8 +21,8 @@ import           Data.Time.Units (Second)
 import           Formatting (float, int, sformat, (%))
 import           System.IO (hFlush, stdout)
 
+import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Txp (TxpConfiguration, genesisUtxo)
-import           Pos.Core as Core (Config (..))
 import           Pos.Core.Conc (delay)
 import           Pos.Crypto (AHash (..), fullPublicKeyF, hashHexF)
 import           Pos.Infra.Diffusion.Types (Diffusion)
@@ -42,16 +42,16 @@ import           Repl (PrintAction, WithCommandAction (..))
 
 auxxPlugin ::
        MonadAuxxMode m
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> AuxxOptions
     -> Either WithCommandAction Text
     -> Diffusion m
     -> m ()
-auxxPlugin coreConfig txpConfig auxxOptions repl = \diffusion -> do
+auxxPlugin genesisConfig txpConfig auxxOptions repl = \diffusion -> do
     logInfo $ sformat ("Length of genesis utxo: " %int)
-                      (length $ genesisUtxo $ configGenesisData coreConfig)
-    rawExec (Just coreConfig) (Just txpConfig) (Just Dict) auxxOptions (Just diffusion) repl
+                      (length $ genesisUtxo $ configGenesisData genesisConfig)
+    rawExec (Just genesisConfig) (Just txpConfig) (Just Dict) auxxOptions (Just diffusion) repl
 
 rawExec ::
        ( MonadIO m
@@ -59,7 +59,7 @@ rawExec ::
        , CanLog m
        , HasLoggerName m
        )
-    => Maybe Core.Config
+    => Maybe Genesis.Config
     -> Maybe TxpConfiguration
     -> Maybe (Dict (MonadAuxxMode m))
     -> AuxxOptions
@@ -77,7 +77,7 @@ runWalletCmd ::
        , CanLog m
        , HasLoggerName m
        )
-    => Maybe Core.Config
+    => Maybe Genesis.Config
     -> Maybe TxpConfiguration
     -> Maybe (Dict (MonadAuxxMode m))
     -> Maybe (Diffusion m)
@@ -100,7 +100,7 @@ runCmd ::
        , CanLog m
        , HasLoggerName m
        )
-    => Maybe Core.Config
+    => Maybe Genesis.Config
     -> Maybe TxpConfiguration
     -> Maybe (Dict (MonadAuxxMode m))
     -> Maybe (Diffusion m)

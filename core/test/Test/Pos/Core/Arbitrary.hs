@@ -29,7 +29,7 @@ import           Universum
 import qualified Data.ByteString as BS (pack)
 import           Data.List ((!!))
 import qualified Data.Map as M
-import           Data.Time.Units (Second, TimeUnit (..), convertUnit)
+import           Data.Time.Units (TimeUnit (..))
 import           System.Random (Random)
 import           Test.QuickCheck (Arbitrary (..), Gen, choose, oneof, scale,
                      shrinkIntegral, sized, suchThat)
@@ -48,29 +48,24 @@ import           Pos.Core (AddrAttributes (..), AddrSpendingData (..),
                      TxFeePolicy (..), TxSizeLinear (..),
                      coinPortionDenominator, coinToInteger, divCoin,
                      localSlotIndexMaxBound, localSlotIndexMinBound,
-                     makeAddress, maxCoinVal, mkCoin, mkLocalSlotIndex,
-                     mkMultiKeyDistr, unsafeCoinPortionFromDouble,
-                     unsafeGetCoin, unsafeSubCoin)
+                     makeAddress, mkCoin, mkLocalSlotIndex, mkMultiKeyDistr,
+                     unsafeCoinPortionFromDouble, unsafeGetCoin, unsafeSubCoin)
 import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
 import           Pos.Core.Constants (sharedSeedLength)
 import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
-import qualified Pos.Core.Genesis as G
 import           Pos.Core.Merkle (MerkleTree, mkMerkleTree)
-import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
-                     VssMaxTTL (..), VssMinTTL (..), pcEpochSlots)
-import           Pos.Core.Ssc (VssCertificate, mkVssCertificate,
-                     mkVssCertificatesMapLossy)
+import           Pos.Core.ProtocolConstants (pcEpochSlots)
+import           Pos.Core.Ssc (VssCertificate, mkVssCertificate)
 import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
                      BlockVersionData (..), SoftforkRule (..),
                      SoftwareVersion (..), applicationNameMaxLength)
-import           Pos.Crypto (ProtocolMagic, createPsk, toPublic)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Util.Util (leftToPanic)
 
 import           Test.Pos.Core.Dummy (dummyProtocolConstants)
 import           Test.Pos.Crypto.Arbitrary ()
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.Orphans ()
-import           Test.Pos.Util.QuickCheck.Arbitrary (nonrepeating)
 
 
 {- NOTE: Deriving an 'Arbitrary' instance
@@ -506,77 +501,6 @@ instance Arbitrary TxFeePolicy where
         TxFeePolicyUnknown v a ->
             TxFeePolicyUnknown v <$> shrink a
 
-----------------------------------------------------------------------------
--- Arbitrary types from 'Pos.Core.Genesis'
-----------------------------------------------------------------------------
-
-instance Arbitrary G.TestnetBalanceOptions where
-    arbitrary = do
-        -- We have at least 2 owned addresses in system so we can send
-        -- transactions in block-gen/tests.
-        tboPoors <- choose (1, 100)
-        tboRichmen <- choose (1, 12)
-        tboTotalBalance <- choose (1000, maxCoinVal)
-        tboRichmenShare <- choose (0.55, 0.996)
-        let tboUseHDAddresses = False
-        return G.TestnetBalanceOptions {..}
-
-instance Arbitrary G.FakeAvvmOptions where
-    arbitrary = do
-        faoCount <- choose (0, 10)
-        faoOneBalance <- choose (5, 30)
-        return G.FakeAvvmOptions {..}
-
-instance Arbitrary G.GenesisDelegation where
-    arbitrary =
-        leftToPanic "arbitrary@GenesisDelegation" . G.mkGenesisDelegation <$> do
-            secretKeys <- sized (nonrepeating . min 10) -- we generate at most tens keys,
-                                                        -- because 'nonrepeating' fails when
-                                                        -- we want too many items, because
-                                                        -- life is hard
-            return $
-                case secretKeys of
-                    []                 -> []
-                    (delegate:issuers) -> mkCert (toPublic delegate) <$> issuers
-      where
-        mkCert delegatePk issuer = createPsk dummyProtocolMagic issuer delegatePk (HeavyDlgIndex 0)
-
-instance Arbitrary G.GenesisWStakeholders where
-    arbitrary = G.GenesisWStakeholders <$> arbitrary
-
-instance Arbitrary G.GenesisAvvmBalances where
-    arbitrary = G.GenesisAvvmBalances <$> arbitrary
-
-instance Arbitrary G.GenesisNonAvvmBalances where
-    arbitrary = G.GenesisNonAvvmBalances <$> arbitrary
-
-
-instance Arbitrary ProtocolConstants where
-    arbitrary = do
-        vssA <- arbitrary
-        vssB <- arbitrary
-        let (vssMin, vssMax) = if vssA > vssB
-                               then (VssMinTTL vssB, VssMaxTTL vssA)
-                               else (VssMinTTL vssA, VssMaxTTL vssB)
-        ProtocolConstants <$> choose (1, 20000) <*> pure vssMin <*> pure vssMax
-
-instance Arbitrary G.GenesisProtocolConstants where
-    arbitrary = flip G.genesisProtocolConstantsFromProtocolConstants dummyProtocolMagic <$> arbitrary
-
-instance Arbitrary G.GenesisData where
-    arbitrary = G.GenesisData
-        <$> arbitrary <*> arbitrary <*> arbitraryStartTime
-        <*> arbitraryVssCerts <*> arbitrary <*> arbitraryBVD
-        <*> arbitrary <*> arbitrary <*> arbitrary
-      where
-        -- System start time should be multiple of a second.
-        arbitraryStartTime = Timestamp . convertUnit @Second <$> arbitrary
-        -- Unknown tx fee policy in genesis is not ok.
-        arbitraryBVD = arbitrary `suchThat` hasKnownFeePolicy
-        hasKnownFeePolicy BlockVersionData {bvdTxFeePolicy = TxFeePolicyTxSizeLinear {}} =
-            True
-        hasKnownFeePolicy _ = False
-        arbitraryVssCerts = mkVssCertificatesMapLossy <$> arbitrary
 ----------------------------------------------------------------------------
 -- Arbitrary miscellaneous types
 ----------------------------------------------------------------------------

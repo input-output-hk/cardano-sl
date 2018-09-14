@@ -10,8 +10,8 @@ import           System.Directory (canonicalizePath, doesDirectoryExist,
                      getFileSize, listDirectory, withCurrentDirectory)
 
 import           Pos.Chain.Block (Block, HeaderHash, Undo, headerHash)
+import           Pos.Chain.Genesis (Config (..), GenesisHash)
 import qualified Pos.Client.CLI as CLI
-import           Pos.Core (Config (..), GenesisHash)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.DB (closeNodeDBs, openNodeDBs)
 import           Pos.DB.Block (getUndo)
@@ -100,7 +100,7 @@ main = do
     action args
 
 action :: CLIOptions -> IO ()
-action cli@CLIOptions{..} = withConfigurations Nothing Nothing False conf $ \coreConfig _ _ _ -> do
+action cli@CLIOptions{..} = withConfigurations Nothing Nothing False conf $ \genesisConfig _ _ _ -> do
     -- Render the first report
     sizes <- liftIO (canonicalizePath dbPath >>= dbSizes)
     liftIO $ putText $ render uom printMode sizes
@@ -108,6 +108,6 @@ action cli@CLIOptions{..} = withConfigurations Nothing Nothing False conf $ \cor
     -- Now open the DB and inspect it, generating the second report
     bracket (openNodeDBs False dbPath) closeNodeDBs $ \db ->
         initBlockchainAnalyser db $
-            GS.getTip >>= analyseBlockchain (configGenesisHash coreConfig) cli
+            GS.getTip >>= analyseBlockchain (configGenesisHash genesisConfig) cli
   where
     conf = CLI.configurationOptions commonArgs

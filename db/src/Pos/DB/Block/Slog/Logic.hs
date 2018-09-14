@@ -34,11 +34,12 @@ import           Serokell.Util.Verify (formatAllErrors, verResToMonadError)
 import           Pos.Chain.Block (Block, Blund, HasSlogGState, SlogUndo (..),
                      Undo (..), genBlockLeaders, headerHash, headerHashG,
                      mainBlockSlot, prevBlockL, verifyBlocks)
+import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots,
+                     configK)
 import           Pos.Chain.Update (HasUpdateConfiguration,
                      lastKnownBlockVersion)
-import           Pos.Core as Core (BlockCount, Config (..), FlatSlotId,
-                     ProtocolConstants, configEpochSlots, configK, difficultyL,
-                     epochIndexL, flattenSlotId, kEpochSlots,
+import           Pos.Core (BlockCount, FlatSlotId, ProtocolConstants,
+                     difficultyL, epochIndexL, flattenSlotId, kEpochSlots,
                      pcBlkSecurityParam)
 import           Pos.Core.Chrono (NE, NewestFirst (getNewestFirst),
                      OldestFirst (..), toOldestFirst, _OldestFirst)
@@ -129,11 +130,11 @@ type MonadSlogVerify ctx m =
 -- 3.  Compute 'SlogUndo's and return them.
 slogVerifyBlocks
     :: MonadSlogVerify ctx m
-    => Core.Config
+    => Genesis.Config
     -> Maybe SlotId -- ^ current slot
     -> OldestFirst NE Block
     -> m (Either Text (OldestFirst NE SlogUndo))
-slogVerifyBlocks coreConfig curSlot blocks = runExceptT $ do
+slogVerifyBlocks genesisConfig curSlot blocks = runExceptT $ do
     (adoptedBV, adoptedBVD) <- lift getAdoptedBVFull
     let dataMustBeKnown = mustDataBeKnown adoptedBV
     let headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
@@ -157,7 +158,7 @@ slogVerifyBlocks coreConfig curSlot blocks = runExceptT $ do
         blocksList = OldestFirst (NE.toList (getOldestFirst blocks))
     verResToMonadError formatAllErrors $
         verifyBlocks
-            coreConfig
+            genesisConfig
             curSlot
             dataMustBeKnown
             adoptedBVD
@@ -168,7 +169,7 @@ slogVerifyBlocks coreConfig curSlot blocks = runExceptT $ do
     -- This removed slot must be put into 'SlogUndo'.
     lastSlots <- lift GS.getLastSlots
     let toFlatSlot =
-            fmap (flattenSlotId (configEpochSlots coreConfig) . view mainBlockSlot) . rightToMaybe
+            fmap (flattenSlotId (configEpochSlots genesisConfig) . view mainBlockSlot) . rightToMaybe
     -- these slots will be added if we apply all blocks
     let newSlots = mapMaybe toFlatSlot (toList blocks)
     let combinedSlots :: OldestFirst [] FlatSlotId
@@ -178,7 +179,7 @@ slogVerifyBlocks coreConfig curSlot blocks = runExceptT $ do
     let removedSlots :: OldestFirst [] FlatSlotId
         removedSlots =
             combinedSlots & _Wrapped %~
-            (take $ length combinedSlots - configK coreConfig)
+            (take $ length combinedSlots - configK genesisConfig)
     -- Note: here we exploit the fact that genesis block can be only 'head'.
     -- If we have genesis block, then size of 'newSlots' will be less than
     -- number of blocks we verify. It means that there will definitely

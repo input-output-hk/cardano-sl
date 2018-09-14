@@ -12,10 +12,10 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 
+import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots)
 import           Pos.Chain.Txp (ToilVerFailure (..), TxAux (..), TxId,
                      TxpConfiguration, Utxo)
-import           Pos.Core as Core (Config (..), EpochIndex, Timestamp,
-                     configEpochSlots)
+import           Pos.Core (EpochIndex, Timestamp)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Update (BlockVersionData)
 import           Pos.DB.Txp.Logic (txNormalizeAbstract,
@@ -47,21 +47,21 @@ eTxProcessTransaction ::
        , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
        , CanJsonLog m
        )
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> (TxId, TxAux)
     -> m (Either ToilVerFailure ())
-eTxProcessTransaction coreConfig txpConfig itw =
+eTxProcessTransaction genesisConfig txpConfig itw =
     withStateLock LowPriority ProcessTransaction
-        $ \__tip -> eTxProcessTransactionNoLock coreConfig txpConfig itw
+        $ \__tip -> eTxProcessTransactionNoLock genesisConfig txpConfig itw
 
 eTxProcessTransactionNoLock ::
        forall ctx m. (ETxpLocalWorkMode ctx m)
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> (TxId, TxAux)
     -> m (Either ToilVerFailure ())
-eTxProcessTransactionNoLock coreConfig txpConfig itw = getCurrentSlot epochSlots >>= \case
+eTxProcessTransactionNoLock genesisConfig txpConfig itw = getCurrentSlot epochSlots >>= \case
     Nothing   -> pure $ Left ToilSlotUnknown
     Just slot -> do
         -- First get the current @SlotId@ so we can calculate the time.
@@ -72,7 +72,7 @@ eTxProcessTransactionNoLock coreConfig txpConfig itw = getCurrentSlot epochSlots
                                      (processTx' mTxTimestamp)
                                      itw
   where
-    epochSlots = configEpochSlots coreConfig
+    epochSlots = configEpochSlots genesisConfig
     buildContext :: Utxo -> TxAux -> m ExplorerExtraLookup
     buildContext utxo = buildExplorerExtraLookup utxo . one
 
@@ -83,7 +83,7 @@ eTxProcessTransactionNoLock coreConfig txpConfig itw = getCurrentSlot epochSlots
         -> (TxId, TxAux)
         -> ExceptT ToilVerFailure ELocalToilM ()
     processTx' mTxTimestamp bvd epoch tx = eProcessTx
-        (configProtocolMagic coreConfig)
+        (configProtocolMagic genesisConfig)
         txpConfig
         bvd
         epoch
@@ -95,12 +95,12 @@ eTxProcessTransactionNoLock coreConfig txpConfig itw = getCurrentSlot epochSlots
 --   3. Set new tip to txp local data
 eTxNormalize
     :: forall ctx m . (ETxpLocalWorkMode ctx m)
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> m ()
-eTxNormalize coreConfig txpConfig = do
+eTxNormalize genesisConfig txpConfig = do
     extras <- MM.insertionsMap . view eemLocalTxsExtra <$> withTxpLocalData getTxpExtra
-    txNormalizeAbstract (configEpochSlots coreConfig)
+    txNormalizeAbstract (configEpochSlots genesisConfig)
                         buildExplorerExtraLookup
                         (normalizeToil' extras)
   where
@@ -112,7 +112,7 @@ eTxNormalize coreConfig txpConfig = do
         -> ELocalToilM ()
     normalizeToil' extras bvd epoch txs =
         let toNormalize = HM.toList $ HM.intersectionWith (,) txs extras
-        in eNormalizeToil (configProtocolMagic coreConfig)
+        in eNormalizeToil (configProtocolMagic genesisConfig)
                           txpConfig
                           bvd
                           epoch

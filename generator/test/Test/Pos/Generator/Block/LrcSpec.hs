@@ -24,15 +24,15 @@ import           Test.QuickCheck.Monadic (pick)
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Chain.Block (mainBlockTxPayload)
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     GenesisInitializer (..), TestnetBalanceOptions (..),
+                     configBlkSecurityParam, configBlockVersionData,
+                     configEpochSlots, configFtsSeed,
+                     configGeneratedSecretsThrow, gsSecretKeysPoor,
+                     gsSecretKeysRich)
 import qualified Pos.Chain.Lrc as Lrc
 import           Pos.Chain.Txp (TxAux, TxpConfiguration (..), mkTxPayload)
-import           Pos.Core as Core (Coin, Config (..), EpochIndex, StakeholderId,
-                     addressHash, coinF, configBlkSecurityParam,
-                     configBlockVersionData, configEpochSlots, configFtsSeed,
-                     configGeneratedSecretsThrow)
-import           Pos.Core.Genesis (GenesisInitializer (..),
-                     TestnetBalanceOptions (..), gsSecretKeysPoor,
-                     gsSecretKeysRich)
+import           Pos.Core (Coin, EpochIndex, StakeholderId, addressHash, coinF)
 import           Pos.Crypto (SecretKey, toPublic)
 import           Pos.DB.Block (ShouldCallBListener (..), applyBlocksUnsafe)
 import qualified Pos.DB.Block as Lrc
@@ -128,11 +128,11 @@ genGenesisInitializer = do
 ----------------------------------------------------------------------------
 
 lrcCorrectnessProp :: HasConfigurations
-                   => Core.Config
+                   => Genesis.Config
                    -> TxpConfiguration
                    -> BlockProperty ()
-lrcCorrectnessProp coreConfig txpConfig = do
-    let k = configBlkSecurityParam coreConfig
+lrcCorrectnessProp genesisConfig txpConfig = do
+    let k = configBlkSecurityParam genesisConfig
     -- This value is how many blocks we need to generate first. We
     -- want to generate blocks for all slots which will be considered
     -- in LRC except the last one, because we want to include some
@@ -140,41 +140,41 @@ lrcCorrectnessProp coreConfig txpConfig = do
     -- anything similar, because we don't want to rely on the code,
     -- but rather want to use our knowledge.
     let blkCount0 = 8 * k - 1
-    () <$ bpGenBlocks coreConfig
+    () <$ bpGenBlocks genesisConfig
                       txpConfig
                       (Just blkCount0)
                       (EnableTxPayload False)
                       (InplaceDB True)
-    genAndApplyBlockFixedTxs coreConfig txpConfig =<< txsBeforeBoundary
+    genAndApplyBlockFixedTxs genesisConfig txpConfig =<< txsBeforeBoundary
     -- At this point we have applied '8 * k' blocks. The current state
     -- will be used in LRC.
     stableStakes <- lift getAllPotentiallyHugeStakesMap
     -- All further blocks will not be considered by LRC for the 1-st
     -- epoch. So we include some transactions to make sure they are
     -- not considered.
-    genAndApplyBlockFixedTxs coreConfig txpConfig =<< txsAfterBoundary
+    genAndApplyBlockFixedTxs genesisConfig txpConfig =<< txsAfterBoundary
     -- We need to have at least 'k' blocks after the boundary to make
     -- sure that stable blocks are indeed stable. Note that we have
     -- already applied 1 blocks, hence 'pred'.
     blkCount1 <- pred <$> pick (choose (k, 2 * k))
-    () <$ bpGenBlocks coreConfig
+    () <$ bpGenBlocks genesisConfig
                       txpConfig
                       (Just blkCount1)
                       (EnableTxPayload False)
                       (InplaceDB True)
-    lift $ Lrc.lrcSingleShot coreConfig 1
+    lift $ Lrc.lrcSingleShot genesisConfig 1
     leaders1 <-
         maybeStopProperty "No leaders for epoch#1!" =<< lift (LrcDB.getLeadersForEpoch 1)
     -- Here we use 'genesisSeed' (which is the seed for the 0-th
     -- epoch) because we have a contract that if there is no ssc
     -- payload the previous seed must be reused (which is the case in
     -- this test).
-    let genesisSeed = configFtsSeed coreConfig
+    let genesisSeed = configFtsSeed genesisConfig
     -- It's important to sort stakes and iterate in the same order as
     -- DB iteration.
     let sortedStakes = sortOn (serialize' . fst) (HM.toList stableStakes)
     let expectedLeadersStakes = Lrc.followTheSatoshi
-            (configEpochSlots coreConfig)
+            (configEpochSlots genesisConfig)
             genesisSeed
             sortedStakes
     when (expectedLeadersStakes /= leaders1) $
@@ -183,15 +183,15 @@ lrcCorrectnessProp coreConfig txpConfig = do
                                 ", computed leaders: "%listJson)
            expectedLeadersStakes leaders1
 
-    checkRichmen coreConfig
+    checkRichmen genesisConfig
 
-checkRichmen :: Core.Config -> BlockProperty ()
-checkRichmen coreConfig = do
+checkRichmen :: Genesis.Config -> BlockProperty ()
+checkRichmen genesisConfig = do
     checkRichmenStakes =<< getRichmen (lift . LrcDB.tryGetSscRichmen genesisBvd)
     checkRichmenFull =<< getRichmen (lift . LrcDB.tryGetUSRichmen genesisBvd)
     checkRichmenSet =<< getRichmen (lift . LrcDB.tryGetDlgRichmen genesisBvd)
   where
-    genesisBvd = configBlockVersionData coreConfig
+    genesisBvd = configBlockVersionData genesisConfig
 
     toStakeholders :: [SecretKey] -> [StakeholderId]
     toStakeholders = map (addressHash . toPublic)
@@ -227,7 +227,7 @@ checkRichmen coreConfig = do
     checkRichmenSet :: Lrc.RichmenSet -> BlockProperty ()
     checkRichmenSet richmenSet = do
         poorStakeholders <- toStakeholders . gsSecretKeysPoor
-            <$> configGeneratedSecretsThrow coreConfig
+            <$> configGeneratedSecretsThrow genesisConfig
         mapM_ (checkPoor richmenSet) poorStakeholders
         let checkRich (id, realStake) =
                 when (isNothing (richmenSet ^. at id)) $
@@ -239,7 +239,7 @@ checkRichmen coreConfig = do
     expectedRichmenStakes :: BlockProperty [(StakeholderId, Coin)]
     expectedRichmenStakes = do
         richStakeholders <- toStakeholders . gsSecretKeysRich
-            <$> configGeneratedSecretsThrow coreConfig
+            <$> configGeneratedSecretsThrow genesisConfig
         let resolve id = (id, ) . fromMaybe minBound <$> GS.getRealStake id
         lift $ mapM resolve richStakeholders
 
@@ -255,18 +255,18 @@ checkRichmen coreConfig = do
                 poorGuyStake totalStake
 
 genAndApplyBlockFixedTxs :: HasConfigurations
-                         => Core.Config
+                         => Genesis.Config
                          -> TxpConfiguration
                          -> [TxAux]
                          -> BlockProperty ()
-genAndApplyBlockFixedTxs coreConfig txpConfig txs = do
+genAndApplyBlockFixedTxs genesisConfig txpConfig txs = do
     let txPayload = mkTxPayload txs
-    emptyBlund <- bpGenBlock coreConfig
+    emptyBlund <- bpGenBlock genesisConfig
                              txpConfig
                              (EnableTxPayload False)
                              (InplaceDB False)
     let blund = emptyBlund & _1 . _Right . mainBlockTxPayload .~ txPayload
-    lift $ applyBlocksUnsafe coreConfig
+    lift $ applyBlocksUnsafe genesisConfig
                              (ShouldCallBListener False)
                              (one blund)
                              Nothing
@@ -295,11 +295,11 @@ txsAfterBoundary = pure []
 
 lessThanKAfterCrucialProp
     :: HasConfigurations
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> BlockProperty ()
-lessThanKAfterCrucialProp coreConfig txpConfig = do
-    let k = configBlkSecurityParam coreConfig
+lessThanKAfterCrucialProp genesisConfig txpConfig = do
+    let k = configBlkSecurityParam genesisConfig
     -- We need to generate '8 * k' blocks for first '8 * k' slots.
     let inFirst8K = 8 * k
     -- And then we need to generate random number of blocks in range
@@ -309,7 +309,7 @@ lessThanKAfterCrucialProp coreConfig txpConfig = do
     -- LRC should succeed iff number of blocks in last '2 * k' slots is
     -- at least 'k'.
     let shouldSucceed = inLast2K >= k
-    () <$ bpGenBlocks coreConfig
+    () <$ bpGenBlocks genesisConfig
                       txpConfig
                       (Just toGenerate)
                       (EnableTxPayload False)
@@ -319,7 +319,7 @@ lessThanKAfterCrucialProp coreConfig txpConfig = do
              " blocks after crucial slot, but it failed")
     let unexpectedFailMsg = sformat (mkFormat "succeed") inLast2K
     let unexpectedSuccessMsg = sformat (mkFormat "fail") inLast2K
-    lift (try $ Lrc.lrcSingleShot coreConfig 1) >>= \case
+    lift (try $ Lrc.lrcSingleShot genesisConfig 1) >>= \case
         Left Lrc.UnknownBlocksForLrc
             | shouldSucceed -> stopProperty unexpectedFailMsg
             | otherwise -> pass

@@ -31,10 +31,10 @@ import           Pos.DB.Class (MonadDBRead)
 import           Pos.Explorer.DB (Epoch, Page, getEpochBlocks, getEpochPages,
                      getPageBlocks)
 
+import           Pos.Chain.Genesis as Genesis (Config (..), GenesisHash)
 import           Pos.Chain.Txp (genesisUtxo, utxoToAddressCoinPairs)
-import           Pos.Core as Core (Address, Coin, Config (..), EpochIndex,
-                     GenesisHash, SlotId (..), SlotLeaders, Timestamp,
-                     isRedeemAddress)
+import           Pos.Core (Address, Coin, EpochIndex, SlotId (..), SlotLeaders,
+                     Timestamp, isRedeemAddress)
 import           Pos.DB.Lrc (getLeadersForEpoch)
 import           Pos.Infra.Slotting (MonadSlotsData, getSlotStart)
 
@@ -53,14 +53,14 @@ data ExtraContext = ExtraContext
     , ecExplorerMockableMode :: !ExplorerMockableMode
     }
 
-makeExtraCtx :: Core.Config -> ExtraContext
-makeExtraCtx coreConfig =
+makeExtraCtx :: Genesis.Config -> ExtraContext
+makeExtraCtx genesisConfig =
     let addressCoinPairs =
-            utxoToAddressCoinPairs $ genesisUtxo $ configGenesisData coreConfig
+            utxoToAddressCoinPairs $ genesisUtxo $ configGenesisData genesisConfig
         redeemOnly = filter (isRedeemAddress . fst) addressCoinPairs
     in ExtraContext
         { ecAddressCoinPairs     = V.fromList redeemOnly
-        , ecExplorerMockableMode = prodMode $ configGenesisHash coreConfig
+        , ecExplorerMockableMode = prodMode $ configGenesisHash genesisConfig
         }
 
 -- | For mocking we mostly need to replace just the external CSL functions.

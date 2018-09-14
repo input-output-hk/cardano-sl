@@ -10,12 +10,12 @@ import           Universum
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map.Strict as Map
 
+import           Pos.Chain.Genesis (GenesisData (..), getGenesisAvvmBalances,
+                     getGenesisNonAvvmBalances)
 import           Pos.Chain.Txp.Toil (Utxo, utxoToStakes)
 import           Pos.Chain.Txp.Tx (TxIn (..), TxOut (..))
 import           Pos.Chain.Txp.TxOutAux (TxOutAux (..))
 import           Pos.Core (Address, Coin, StakesMap, makeRedeemAddress)
-import           Pos.Core.Genesis (GenesisData (..), getGenesisAvvmBalances,
-                     getGenesisNonAvvmBalances)
 import           Pos.Crypto (unsafeHash)
 
 

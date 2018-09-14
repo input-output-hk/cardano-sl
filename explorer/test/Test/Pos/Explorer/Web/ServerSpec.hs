@@ -29,8 +29,8 @@ import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util (divRoundUp)
 
 import           Test.Pos.Chain.Block.Arbitrary ()
+import           Test.Pos.Chain.Genesis.Dummy (dummyConfig, dummyEpochSlots)
 import           Test.Pos.Configuration (withDefConfigurations)
-import           Test.Pos.Core.Dummy (dummyConfig, dummyEpochSlots)
 
 
 ----------------------------------------------------------------

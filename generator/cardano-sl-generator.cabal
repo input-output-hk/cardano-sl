@@ -40,6 +40,7 @@ library
                      , bytestring
                      , cardano-sl
                      , cardano-sl-chain
+                     , cardano-sl-chain-test
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-core-test

@@ -30,15 +30,13 @@ import           Ntp.Client (NtpConfiguration)
 import           Pos.Chain.Block (HasBlockConfiguration, withBlockConfiguration)
 import           Pos.Chain.Delegation (HasDlgConfiguration,
                      withDlgConfiguration)
+import           Pos.Chain.Genesis as Genesis (Config, GenesisSpec (..),
+                     StaticConfig (..), mkConfig)
 import           Pos.Chain.Ssc (HasSscConfiguration, withSscConfiguration)
 import           Pos.Chain.Txp (TxpConfiguration (..))
 import           Pos.Chain.Update (HasUpdateConfiguration,
                      withUpdateConfiguration)
 import           Pos.Configuration (HasNodeConfiguration, withNodeConfiguration)
-import           Pos.Core (mkConfig)
-import           Pos.Core.Configuration as Core (Config,
-                     GenesisConfiguration (..))
-import           Pos.Core.Genesis (GenesisSpec (..))
 import           Pos.Core.Update (BlockVersionData)
 import           Pos.Launcher.Configuration (Configuration (..),
                      HasConfigurations)
@@ -89,7 +87,7 @@ withDefBlockConfiguration = withBlockConfiguration (ccBlock defaultTestConf)
 withDefDlgConfiguration :: (HasDlgConfiguration => r) -> r
 withDefDlgConfiguration = withDlgConfiguration (ccDlg defaultTestConf)
 
-withDefConfiguration :: (Core.Config -> r) -> r
+withDefConfiguration :: (Genesis.Config -> r) -> r
 withDefConfiguration f = f $ mkConfig 0 defaultTestGenesisSpec
 
 withStaticConfigurations :: (HasStaticConfigurations => TxpConfiguration -> NtpConfiguration -> r) -> r
@@ -103,11 +101,11 @@ withStaticConfigurations patak =
 
 withDefConfigurations
     :: (  HasConfigurations
-       => Core.Config
+       => Genesis.Config
        -> TxpConfiguration
        -> NtpConfiguration
        -> r
        )
     -> r
 withDefConfigurations bardaq = withDefConfiguration
-    $ \coreConfig -> withStaticConfigurations (bardaq coreConfig)
+    $ \genesisConfig -> withStaticConfigurations (bardaq genesisConfig)

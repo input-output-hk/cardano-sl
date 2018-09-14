@@ -219,7 +219,7 @@ while [[ $i -lt $panesCnt ]]; do
             echo "  key: default"
             # The following is required by `withConfigurations`
             # (specifically, `withCoreConfigurations`). See
-            # Pos.Core.Configuration for more details.
+            # Pos.Genesis.Configuration for more details.
             echo "  systemStart: 0"
         } > $CONFIG_PATH
 

@@ -35,7 +35,7 @@ import           Data.Acid.Memory (openMemoryState)
 import qualified Data.Map.Strict as Map
 
 import           Pos.Chain.Txp (TxAux (..))
-import           Pos.Core (ProtocolMagic)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Util.Wlog (Severity (..))
 
 import           Cardano.Wallet.Kernel.DB.AcidState (DB, defDB)

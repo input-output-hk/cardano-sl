@@ -1,6 +1,6 @@
 {-# LANGUAGE Rank2Types #-}
 
-module Pos.Core.Configuration.GenesisHash
+module Pos.Chain.Genesis.Hash
        ( GenesisHash (..)
        ) where
 

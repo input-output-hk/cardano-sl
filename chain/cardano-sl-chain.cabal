@@ -17,6 +17,7 @@ library
   exposed-modules:
                        Pos.Chain.Block
                        Pos.Chain.Delegation
+                       Pos.Chain.Genesis
                        Pos.Chain.Lrc
                        Pos.Chain.Security
                        Pos.Chain.Ssc
@@ -55,6 +56,19 @@ library
                        Pos.Chain.Delegation.Class
                        Pos.Chain.Delegation.Configuration
                        Pos.Chain.Delegation.Types
+
+                       -- Genesis
+                       Pos.Chain.Genesis.AvvmBalances
+                       Pos.Chain.Genesis.Config
+                       Pos.Chain.Genesis.Data
+                       Pos.Chain.Genesis.Delegation
+                       Pos.Chain.Genesis.Generate
+                       Pos.Chain.Genesis.Hash
+                       Pos.Chain.Genesis.Initializer
+                       Pos.Chain.Genesis.NonAvvmBalances
+                       Pos.Chain.Genesis.ProtocolConstants
+                       Pos.Chain.Genesis.Spec
+                       Pos.Chain.Genesis.WStakeholders
 
                        Pos.Chain.Txp.Configuration
                        Pos.Chain.Txp.Base
@@ -125,6 +139,7 @@ library
                      , array
                      , base
                      , bytestring
+                     , canonical-json
                      , cardano-sl-binary
                      , cardano-sl-core
                      , cardano-sl-crypto
@@ -139,6 +154,7 @@ library
                      , ekg-core
                      , ether
                      , exceptions
+                     , filepath
                      , fmt >= 0.4
                      , formatting
                      , free
@@ -209,6 +225,10 @@ test-suite test
                        Test.Pos.Chain.Block.Gen
                        Test.Pos.Chain.Block.SafeCopySpec
                        Test.Pos.Chain.Delegation.Arbitrary
+                       Test.Pos.Chain.Genesis.Dummy
+                       Test.Pos.Chain.Genesis.Example
+                       Test.Pos.Chain.Genesis.Gen
+                       Test.Pos.Chain.Genesis.Json
                        Test.Pos.Chain.Lrc.FtsSpec
                        Test.Pos.Chain.Ssc.Gen
                        Test.Pos.Chain.Ssc.Json
@@ -269,6 +289,7 @@ benchmark block-bench
   other-modules:       Test.Pos.Chain.Block.Arbitrary
                        Test.Pos.Chain.Block.Arbitrary.Generate
                        Test.Pos.Chain.Delegation.Arbitrary
+                       Test.Pos.Chain.Genesis.Dummy
                        Test.Pos.Chain.Ssc.Arbitrary
                        Test.Pos.Chain.Txp.Arbitrary
                        Test.Pos.Chain.Update.Arbitrary

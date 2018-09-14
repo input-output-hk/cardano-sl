@@ -14,12 +14,12 @@ import           Universum
 import           Ntp.Client (NtpConfiguration)
 
 import           Pos.Binary ()
+import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Ssc (SscParams)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..),
                      SimpleNodeArgs (..))
 import qualified Pos.Client.CLI as CLI
-import           Pos.Core as Core (Config (..))
 import           Pos.Launcher (HasConfigurations, NodeParams (..),
                      WalletConfiguration, loggerBracket, runNodeRealSimple,
                      withConfigurations)
@@ -36,32 +36,32 @@ actionWithoutWallet
     :: ( HasConfigurations
        , HasCompileInfo
        )
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> SscParams
     -> NodeParams
     -> IO ()
-actionWithoutWallet coreConfig txpConfig sscParams nodeParams =
-    runNodeRealSimple coreConfig txpConfig nodeParams sscParams [updateTriggerWorker]
+actionWithoutWallet genesisConfig txpConfig sscParams nodeParams =
+    runNodeRealSimple genesisConfig txpConfig nodeParams sscParams [updateTriggerWorker]
 
 action
     :: ( HasConfigurations
        , HasCompileInfo
        )
     => SimpleNodeArgs
-    -> Core.Config
+    -> Genesis.Config
     -> WalletConfiguration
     -> TxpConfiguration
     -> NtpConfiguration
     -> IO ()
-action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) coreConfig _ txpConfig _ntpConfig = do
+action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) genesisConfig _ txpConfig _ntpConfig = do
     logInfo "Wallet is disabled, because software is built w/o it"
     (currentParams, Just sscParams) <- CLI.getNodeParams
        loggerName
        cArgs
        nArgs
-       (configGeneratedSecrets coreConfig)
-    actionWithoutWallet coreConfig txpConfig sscParams currentParams
+       (configGeneratedSecrets genesisConfig)
+    actionWithoutWallet genesisConfig txpConfig sscParams currentParams
 
 main :: IO ()
 main = withCompileInfo $ do

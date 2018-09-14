@@ -50,9 +50,9 @@ import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..),
 import           Pos.Crypto (ProtocolMagic, SecretKey, deterministic,
                      randomNumberInRange, toVssPublicKey, vssKeyGen)
 
+import           Test.Pos.Chain.Genesis.Dummy (dummyK)
 import           Test.Pos.Core.Arbitrary (genVssCertificate)
 import           Test.Pos.Core.Arbitrary.Unsafe ()
-import           Test.Pos.Core.Dummy (dummyK)
 import           Test.Pos.Crypto.Arbitrary (genSignature)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Arbitrary (Nonrepeating (..),

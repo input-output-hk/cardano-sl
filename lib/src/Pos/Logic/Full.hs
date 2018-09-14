@@ -16,6 +16,8 @@ import           Formatting (build, sformat, (%))
 
 import           Pos.Chain.Block (Block, BlockHeader, HasBlockConfiguration,
                      HeaderHash)
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     configBlkSecurityParam, configEpochSlots)
 import           Pos.Chain.Security (SecurityParams, shouldIgnorePkAddress)
 import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..), SscTag (..),
@@ -24,8 +26,7 @@ import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
 import           Pos.Chain.Txp (MemPool (..), TxAux (..), TxMsgContents (..),
                      TxpConfiguration)
 import           Pos.Communication (NodeId)
-import           Pos.Core as Core (Config (..), StakeholderId, addressHash,
-                     configBlkSecurityParam, configEpochSlots)
+import           Pos.Core (StakeholderId, addressHash)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Ssc (getCertId, getCommitmentsMap, lookupVss)
@@ -95,15 +96,15 @@ type LogicWorkMode ctx m =
 logicFull
     :: forall ctx m .
        LogicWorkMode ctx m
-    => Core.Config
+    => Genesis.Config
     -> TxpConfiguration
     -> StakeholderId
     -> SecurityParams
     -> (JLEvent -> m ()) -- ^ JSON log callback. FIXME replace by structured logging solution
     -> Logic m
-logicFull coreConfig txpConfig ourStakeholderId securityParams jsonLogTx =
+logicFull genesisConfig txpConfig ourStakeholderId securityParams jsonLogTx =
     let
-        genesisHash = configGenesisHash coreConfig
+        genesisHash = configGenesisHash genesisConfig
 
         getSerializedBlock :: HeaderHash -> m (Maybe SerializedBlock)
         getSerializedBlock = DB.dbGetSerBlock genesisHash
@@ -123,7 +124,7 @@ logicFull coreConfig txpConfig ourStakeholderId securityParams jsonLogTx =
 
         recoveryInProgress :: m Bool
         recoveryInProgress =
-            Recovery.recoveryInProgress $ configEpochSlots coreConfig
+            Recovery.recoveryInProgress $ configEpochSlots genesisConfig
 
         getBlockHeader :: HeaderHash -> m (Maybe BlockHeader)
         getBlockHeader = DB.getHeader
@@ -152,23 +153,23 @@ logicFull coreConfig txpConfig ourStakeholderId securityParams jsonLogTx =
         getLcaMainChain = Block.lcaWithMainChainSuffix
 
         postBlockHeader :: BlockHeader -> NodeId -> m ()
-        postBlockHeader = Block.handleUnsolicitedHeader coreConfig
+        postBlockHeader = Block.handleUnsolicitedHeader genesisConfig
 
         postPskHeavy :: ProxySKHeavy -> m Bool
-        postPskHeavy = Delegation.handlePsk coreConfig
+        postPskHeavy = Delegation.handlePsk genesisConfig
 
         postTx = KeyVal
             { toKey = pure . Tagged . hash . taTx . getTxMsgContents
             , handleInv = \(Tagged txId) -> not . HM.member txId . _mpLocalTxs <$> withTxpLocalData getMemPool
             , handleReq = \(Tagged txId) -> fmap TxMsgContents . HM.lookup txId . _mpLocalTxs <$> withTxpLocalData getMemPool
-            , handleData = \(TxMsgContents txAux) -> Txp.handleTxDo coreConfig txpConfig jsonLogTx txAux
+            , handleData = \(TxMsgContents txAux) -> Txp.handleTxDo genesisConfig txpConfig jsonLogTx txAux
             }
 
         postUpdate = KeyVal
             { toKey = \(up, _) -> pure . tag $ hash up
             , handleInv = isProposalNeeded . unTagged
             , handleReq = getLocalProposalNVotes . unTagged
-            , handleData = handleProposal coreConfig
+            , handleData = handleProposal genesisConfig
             }
           where
             tag = tagWith (Proxy :: Proxy (UpdateProposal, [UpdateVote]))
@@ -177,7 +178,7 @@ logicFull coreConfig txpConfig ourStakeholderId securityParams jsonLogTx =
             { toKey = \UnsafeUpdateVote{..} -> pure $ tag (uvProposalId, uvKey, uvDecision)
             , handleInv = \(Tagged (id, pk, dec)) -> isVoteNeeded id pk dec
             , handleReq = \(Tagged (id, pk, dec)) -> getLocalVote id pk dec
-            , handleData = handleVote coreConfig
+            , handleData = handleVote genesisConfig
             }
           where
             tag = tagWith (Proxy :: Proxy UpdateVote)
@@ -186,25 +187,25 @@ logicFull coreConfig txpConfig ourStakeholderId securityParams jsonLogTx =
             CommitmentMsg
             (\(MCCommitment (pk, _, _)) -> addressHash pk)
             (\id tm -> MCCommitment <$> tm ^. tmCommitments . to getCommitmentsMap . at id)
-            (\(MCCommitment comm) -> sscProcessCommitment coreConfig comm)
+            (\(MCCommitment comm) -> sscProcessCommitment genesisConfig comm)
 
         postSscOpening = postSscCommon
             OpeningMsg
             (\(MCOpening key _) -> key)
             (\id tm -> MCOpening id <$> tm ^. tmOpenings . at id)
-            (\(MCOpening key open) -> sscProcessOpening coreConfig key open)
+            (\(MCOpening key open) -> sscProcessOpening genesisConfig key open)
 
         postSscShares = postSscCommon
             SharesMsg
             (\(MCShares key _) -> key)
             (\id tm -> MCShares id <$> tm ^. tmShares . at id)
-            (\(MCShares key shares) -> sscProcessShares coreConfig key shares)
+            (\(MCShares key shares) -> sscProcessShares genesisConfig key shares)
 
         postSscVssCert = postSscCommon
             VssCertificateMsg
             (\(MCVssCertificate vc) -> getCertId vc)
             (\id tm -> MCVssCertificate <$> lookupVss id (tm ^. tmCertificates))
-            (\(MCVssCertificate cert) -> sscProcessCertificate coreConfig cert)
+            (\(MCVssCertificate cert) -> sscProcessCertificate genesisConfig cert)
 
         postSscCommon
             :: (Buildable err, Buildable contents)
@@ -216,7 +217,7 @@ logicFull coreConfig txpConfig ourStakeholderId securityParams jsonLogTx =
         postSscCommon sscTag contentsToKey toContents processData = KeyVal
             { toKey = pure . tagWith contentsProxy . contentsToKey
             , handleInv =
-                  sscIsDataUseful (configBlkSecurityParam coreConfig) sscTag
+                  sscIsDataUseful (configBlkSecurityParam genesisConfig) sscTag
                       . unTagged
             , handleReq = \(Tagged addr) -> toContents addr . view ldModifier <$> sscRunLocalQuery ask
             , handleData = \dat -> do

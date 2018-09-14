@@ -1,20 +1,20 @@
 {-# LANGUAGE CPP #-}
-module Pos.Core.Genesis.WStakeholders
+module Pos.Chain.Genesis.WStakeholders
        ( GenesisWStakeholders (..)
        ) where
 
 import           Universum
 
+import           Control.Monad.Except (MonadError)
 import qualified Data.Aeson as Aeson (FromJSON, ToJSON)
 import           Data.Semigroup (Semigroup)
 import           Formatting (bprint, (%))
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Util (mapJson)
-import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
-                     ToJSON (..))
+import           Text.JSON.Canonical (FromJSON (..), ToJSON (..))
 
 import           Pos.Core.Common (StakeholderId)
-import           Pos.Util.Json.Canonical ()
+import           Pos.Util.Json.Canonical (SchemaError)
 
 -- | Wrapper around weighted stakeholders map to be used in genesis
 -- core data.
@@ -39,7 +39,7 @@ instance Buildable GenesisWStakeholders where
 instance Monad m => ToJSON m GenesisWStakeholders where
     toJSON (GenesisWStakeholders stks) = toJSON stks
 
-instance ReportSchemaErrors m => FromJSON m GenesisWStakeholders where
+instance MonadError SchemaError m => FromJSON m GenesisWStakeholders where
     fromJSON = fmap GenesisWStakeholders . fromJSON
 
 deriving instance Aeson.ToJSON GenesisWStakeholders

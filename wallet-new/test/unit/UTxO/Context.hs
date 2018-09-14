@@ -49,12 +49,14 @@ import           Universum
 
 import           Pos.Chain.Block (BlockHeader (..), GenesisBlock, HeaderHash,
                      blockHeaderHash, genesisBlock0, _gbHeader)
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     GeneratedSecrets (..), GenesisData (..),
+                     GenesisDelegation (..), PoorSecret (..), RichSecrets (..),
+                     configEpochSlots)
 import           Pos.Chain.Lrc
 import           Pos.Chain.Txp
 import           Pos.Core as Core
 import           Pos.Core.Delegation (ProxySKHeavy)
-import           Pos.Core.Genesis (GeneratedSecrets (..), GenesisData (..),
-                     GenesisDelegation (..), PoorSecret (..), RichSecrets (..))
 import           Pos.Crypto
 
 import           UTxO.Crypto
@@ -90,26 +92,26 @@ data CardanoContext = CardanoContext {
     }
 
 initCardanoContext
-    :: Core.Config
+    :: Genesis.Config
     -> CardanoContext
-initCardanoContext coreConfig = CardanoContext
+initCardanoContext genesisConfig = CardanoContext
     { ccStakes      = genesisStakes ccData
     , ccBlock0      = ccBlock0
     , ccData        = ccData
     , ccUtxo        = ccUtxo
     , ccSecrets     = fromMaybe (error "initCardanoContext: no secrets") $
-                          configGeneratedSecrets coreConfig
+                          configGeneratedSecrets genesisConfig
     , ccMagic       = ccMagic
     , ccInitLeaders = ccLeaders
     , ccBalances    = utxoToAddressCoinPairs ccUtxo
     , ccHash0       = (blockHeaderHash . BlockHeaderGenesis . _gbHeader) ccBlock0
-    , ccEpochSlots  = configEpochSlots coreConfig
+    , ccEpochSlots  = configEpochSlots genesisConfig
     }
   where
-    ccData       = configGenesisData coreConfig
-    ccLeaders    = genesisLeaders coreConfig
-    ccMagic      = configProtocolMagic coreConfig
-    ccBlock0     = genesisBlock0 ccMagic (configGenesisHash coreConfig) ccLeaders
+    ccData       = configGenesisData genesisConfig
+    ccLeaders    = genesisLeaders genesisConfig
+    ccMagic      = configProtocolMagic genesisConfig
+    ccBlock0     = genesisBlock0 ccMagic (configGenesisHash genesisConfig) ccLeaders
     ccUtxo       = genesisUtxo ccData
 
 {-------------------------------------------------------------------------------

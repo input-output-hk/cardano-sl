@@ -12,7 +12,7 @@ import           Universum
 import           Control.Lens (ix)
 import           Crypto.Random (MonadRandom)
 
-import           Pos.Core.Genesis (GeneratedSecrets (..), RichSecrets (..))
+import           Pos.Chain.Genesis (GeneratedSecrets (..), RichSecrets (..))
 import           Pos.Crypto (SecretKey, VssKeyPair, keyGen, runSecureRandom,
                      vssKeyGen)
 import           Pos.Util.UserSecret (UserSecret, usPrimKey, usVss,
@@ -42,7 +42,7 @@ prepareUserSecret CommonNodeArgs {devGenesisSecretI} mGeneratedSecrets userSecre
         case mGeneratedSecrets of
             Nothing -> error
                 $  "devGenesisSecretI is specified, but GeneratedSecrets are "
-                <> "missing from Core.Config. GenesisInitializer might be "
+                <> "missing from Genesis.Config. GenesisInitializer might be "
                 <> "incorrectly specified."
             Just generatedSecrets -> gsRichSecrets generatedSecrets ^? ix i
 

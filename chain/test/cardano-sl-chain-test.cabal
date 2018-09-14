@@ -17,6 +17,8 @@ library
                        Test.Pos.Chain.Block.Bi
                        Test.Pos.Chain.Block.Gen
                        Test.Pos.Chain.Delegation.Arbitrary
+                       Test.Pos.Chain.Genesis.Arbitrary
+                       Test.Pos.Chain.Genesis.Dummy
                        Test.Pos.Chain.Lrc.Arbitrary
                        Test.Pos.Chain.Ssc.Arbitrary
                        Test.Pos.Chain.Ssc.Gen
@@ -41,6 +43,7 @@ library
                      , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
+                     , cardano-sl-util
                      , cardano-sl-util-test
                      , containers
                      , data-default
@@ -50,6 +53,7 @@ library
                      , QuickCheck
                      , random
                      , reflection
+                     , time-units
                      , universum
                      , unordered-containers
                      , vector

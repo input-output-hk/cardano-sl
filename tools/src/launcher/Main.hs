@@ -63,8 +63,10 @@ import           Foreign.C.Error (Errno (..), ePIPE)
 import           GHC.IO.Exception (IOErrorType (..), IOException (..))
 
 import           Paths_cardano_sl (version)
+import           Pos.Chain.Genesis (Config (..))
 import           Pos.Client.CLI (readLoggerConfig)
-import           Pos.Core (Config (..), ProtocolMagic, Timestamp (..))
+import           Pos.Core (Timestamp (..))
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Block (dbGetSerBlockRealDefault,
                      dbGetSerBlundRealDefault, dbGetSerUndoRealDefault,
                      dbPutSerBlundsRealDefault)
@@ -310,7 +312,7 @@ main =
                       set Log.ltFiles [Log.HandlerWrap "launcher" Nothing] .
                       set Log.ltSeverity (Just Log.debugPlus)
     logException loggerName . Log.usingLoggerName loggerName $
-        withConfigurations Nothing Nothing False loConfiguration $ \coreConfig _ _ _ -> do
+        withConfigurations Nothing Nothing False loConfiguration $ \genesisConfig _ _ _ -> do
 
         -- Generate TLS certificates as needed
         generateTlsCertificates loConfiguration loX509ToolPath loTlsPath
@@ -320,7 +322,7 @@ main =
                 logNotice "LAUNCHER STARTED"
                 logInfo "Running in the server scenario"
                 serverScenario
-                    (configProtocolMagic coreConfig)
+                    (configProtocolMagic genesisConfig)
                     (NodeDbPath loNodeDbPath)
                     loLogsPrefix
                     loNodeLogConfig
@@ -340,7 +342,7 @@ main =
                 logNotice "LAUNCHER STARTED"
                 logInfo "Running in the client scenario"
                 clientScenario
-                    (configProtocolMagic coreConfig)
+                    (configProtocolMagic genesisConfig)
                     (NodeDbPath loNodeDbPath)
                     loLogsPrefix
                     loNodeLogConfig

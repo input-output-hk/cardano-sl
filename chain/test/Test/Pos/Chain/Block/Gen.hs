@@ -32,8 +32,9 @@ import           Pos.Chain.Block (BlockBodyAttributes, BlockHeader (..),
                      MainExtraBodyData (..), MainExtraHeaderData (..),
                      MainProof (..), MainToSign (..), mkGenericHeader,
                      mkMainHeaderExplicit)
-import           Pos.Core (ProtocolMagic, SlotCount)
+import           Pos.Core (SlotCount)
 import           Pos.Core.Attributes (mkAttributes)
+import           Pos.Crypto (ProtocolMagic)
 
 import           Test.Pos.Chain.Txp.Gen (genTxPayload, genTxProof)
 import           Test.Pos.Core.Gen (genBlockVersion, genChainDifficulty,

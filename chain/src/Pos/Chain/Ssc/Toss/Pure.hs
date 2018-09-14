@@ -59,8 +59,8 @@ instance MonadTossRead PureToss where
     getOpenings = PureToss $ use sgsOpenings
     getShares = PureToss $ use sgsShares
     getVssCertificates = PureToss $ uses sgsVssCertificates VCD.certs
-    getStableCertificates coreConfig epoch =
-        PureToss $ uses sgsVssCertificates $ getStableCertsPure coreConfig epoch
+    getStableCertificates genesisConfig epoch =
+        PureToss $ uses sgsVssCertificates $ getStableCertsPure genesisConfig epoch
 
 instance MonadTossEnv PureTossWithEnv where
     getRichmen epoch = PureTossWithEnv $ view (_1 . at epoch)

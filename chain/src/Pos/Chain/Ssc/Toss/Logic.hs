@@ -18,16 +18,17 @@ import           Crypto.Random (MonadRandom)
 import qualified Data.HashMap.Strict as HM
 
 import           Pos.Chain.Block.Union (IsMainHeader, headerSlotL)
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     configSlotSecurityParam)
 import           Pos.Chain.Ssc.Error (SscVerifyError (..))
 import           Pos.Chain.Ssc.Functions (verifySscPayload)
 import           Pos.Chain.Ssc.Toss.Base (checkPayload)
 import           Pos.Chain.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..))
 import           Pos.Chain.Ssc.Toss.Types (TossModifier (..))
-import           Pos.Core as Core (Config (..), EpochIndex, EpochOrSlot (..),
-                     LocalSlotIndex, SlotCount, SlotId (siSlot), StakeholderId,
-                     configSlotSecurityParam, epochIndexL, epochOrSlot,
-                     epochOrSlotPred, epochOrSlotToEnum, getEpochOrSlot,
-                     getSlotIndex, mkCoin)
+import           Pos.Core (EpochIndex, EpochOrSlot (..), LocalSlotIndex,
+                     SlotCount, SlotId (siSlot), StakeholderId, epochIndexL,
+                     epochOrSlot, epochOrSlotPred, epochOrSlotToEnum,
+                     getEpochOrSlot, getSlotIndex, mkCoin)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Ssc (CommitmentsMap (..), InnerSharesMap, Opening,
                      SignedCommitment, SscPayload (..), VssCertificate,
@@ -48,27 +49,27 @@ verifyAndApplySscPayload
        , MonadError SscVerifyError m
        , MonadRandom m
        )
-    => Core.Config
+    => Genesis.Config
     -> Either EpochIndex (Some IsMainHeader)
     -> SscPayload
     -> m ()
-verifyAndApplySscPayload coreConfig eoh payload = do
+verifyAndApplySscPayload genesisConfig eoh payload = do
     -- Check the payload for internal consistency.
     either (throwError . SscInvalidPayload)
            pure
-           (checkSscPayload (configProtocolMagic coreConfig) payload)
+           (checkSscPayload (configProtocolMagic genesisConfig) payload)
     -- We can't trust payload from mempool, so we must call
     -- @verifySscPayload@.
-    whenLeft eoh $ const $ verifySscPayload coreConfig eoh payload
+    whenLeft eoh $ const $ verifySscPayload genesisConfig eoh payload
     -- We perform @verifySscPayload@ for block when we construct it
     -- (in the 'recreateGenericBlock').  So this check is just in case.
     -- NOTE: in block verification `verifySscPayload` on `MainBlock` is run
     -- by `Pos.Block.BHelper.verifyMainBlock`
     inAssertMode $
-        whenRight eoh $ const $ verifySscPayload coreConfig eoh payload
+        whenRight eoh $ const $ verifySscPayload genesisConfig eoh payload
     let blockCerts = spVss payload
     let curEpoch = either identity (^. epochIndexL) eoh
-    checkPayload coreConfig curEpoch payload
+    checkPayload genesisConfig curEpoch payload
 
     -- Apply
     case eoh of
@@ -82,7 +83,7 @@ verifyAndApplySscPayload coreConfig eoh payload = do
             let indexToCount :: LocalSlotIndex -> SlotCount
                 indexToCount = fromIntegral . getSlotIndex
             let slot = epochOrSlot (const 0) (indexToCount . siSlot) eos
-                slotSecurityParam = configSlotSecurityParam coreConfig
+                slotSecurityParam = configSlotSecurityParam genesisConfig
             when (slotSecurityParam <= slot && slot < 2 * slotSecurityParam) $
                 resetShares
     mapM_ putCertificate blockCerts
@@ -134,13 +135,13 @@ rollbackSsc epochSlots oldestEOS (NewestFirst payloads)
 -- | Apply as much data from given 'TossModifier' as possible.
 normalizeToss
     :: (MonadToss m, MonadTossEnv m, MonadRandom m)
-    => Core.Config
+    => Genesis.Config
     -> EpochIndex
     -> TossModifier
     -> m ()
-normalizeToss coreConfig epoch TossModifier {..} =
+normalizeToss genesisConfig epoch TossModifier {..} =
     normalizeTossDo
-        coreConfig
+        genesisConfig
         epoch
         ( HM.toList (getCommitmentsMap _tmCommitments)
         , HM.toList _tmOpenings
@@ -151,17 +152,17 @@ normalizeToss coreConfig epoch TossModifier {..} =
 -- rest. This function can be used if mempool is exhausted.
 refreshToss
     :: (MonadToss m, MonadTossEnv m, MonadRandom m)
-    => Core.Config
+    => Genesis.Config
     -> EpochIndex
     -> TossModifier
     -> m ()
-refreshToss coreConfig epoch TossModifier {..} = do
+refreshToss genesisConfig epoch TossModifier {..} = do
     comms <-
         takeMostValuable epoch (HM.toList (getCommitmentsMap _tmCommitments))
     opens <- takeMostValuable epoch (HM.toList _tmOpenings)
     shares <- takeMostValuable epoch (HM.toList _tmShares)
     certs <- takeMostValuable epoch (HM.toList (getVssCertificatesMap _tmCertificates))
-    normalizeTossDo coreConfig epoch (comms, opens, shares, certs)
+    normalizeTossDo genesisConfig epoch (comms, opens, shares, certs)
 
 takeMostValuable
     :: (MonadToss m, MonadTossEnv m)
@@ -184,11 +185,11 @@ type TossModifierLists
 normalizeTossDo
     :: forall m
      . (MonadToss m, MonadTossEnv m, MonadRandom m)
-    => Core.Config
+    => Genesis.Config
     -> EpochIndex
     -> TossModifierLists
     -> m ()
-normalizeTossDo coreConfig epoch (comms, opens, shares, certs) = do
+normalizeTossDo genesisConfig epoch (comms, opens, shares, certs) = do
     putsUseful $
         map (flip CommitmentsPayload mempty . mkCommitmentsMapUnsafe . one) $
         comms
@@ -198,6 +199,6 @@ normalizeTossDo coreConfig epoch (comms, opens, shares, certs) = do
   where
     putsUseful :: [SscPayload] -> m ()
     putsUseful entries = do
-        let verifyAndApply = runExceptT . verifyAndApplySscPayload coreConfig
+        let verifyAndApply = runExceptT . verifyAndApplySscPayload genesisConfig
                                                                    (Left epoch)
         mapM_ verifyAndApply entries

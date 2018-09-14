@@ -41,8 +41,8 @@ import           Pos.Wallet.Web.Tracking.Types (newSyncRequest)
 
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..),
                      InplaceDB (..))
+import           Test.Pos.Chain.Genesis.Dummy (dummyConfig, dummyK)
 import           Test.Pos.Configuration (withDefConfigurations)
-import           Test.Pos.Core.Dummy (dummyConfig, dummyK)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty)
 import           Test.Pos.Wallet.Arbitrary.Web.ClientTypes ()
 import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)

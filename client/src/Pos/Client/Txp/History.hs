@@ -38,15 +38,16 @@ import           Serokell.Util.Text (listJson)
 
 import           Pos.Chain.Block (Block, MainBlock, genesisBlock0, headerHash,
                      mainBlockSlot, mainBlockTxPayload)
+import           Pos.Chain.Genesis as Genesis (Config (..))
+import           Pos.Chain.Genesis (GenesisData)
 import           Pos.Chain.Lrc (genesisLeaders)
 import           Pos.Chain.Txp (ToilVerFailure, Tx (..), TxAux (..), TxId,
                      TxOut, TxOutAux (..), TxWitness, TxpConfiguration,
                      TxpError (..), UtxoLookup, UtxoM, UtxoModifier,
                      applyTxToUtxo, evalUtxoM, flattenTxPayload, genesisUtxo,
                      runUtxoM, topsortTxs, txOutAddress, utxoGet, utxoToLookup)
-import           Pos.Core as Core (Address, ChainDifficulty, Config (..),
-                     Timestamp (..), difficultyL)
-import           Pos.Core.Genesis (GenesisData)
+import           Pos.Core (Address, ChainDifficulty, Timestamp (..),
+                     difficultyL)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Crypto (WithHash (..), withHash)
 import           Pos.DB (MonadDBRead, MonadGState)
@@ -170,15 +171,15 @@ genesisUtxoLookup = utxoToLookup . genesisUtxo
 -- | A class which have methods to get transaction history
 class Monad m => MonadTxHistory m where
     getBlockHistory
-        :: Core.Config -> [Address] -> m (Map TxId TxHistoryEntry)
+        :: Genesis.Config -> [Address] -> m (Map TxId TxHistoryEntry)
     getLocalHistory
         :: [Address] -> m (Map TxId TxHistoryEntry)
-    saveTx :: Core.Config -> TxpConfiguration -> (TxId, TxAux) -> m ()
+    saveTx :: Genesis.Config -> TxpConfiguration -> (TxId, TxAux) -> m ()
 
     default getBlockHistory
         :: (MonadTrans t, MonadTxHistory m', t m' ~ m)
-        => Core.Config -> [Address] -> m (Map TxId TxHistoryEntry)
-    getBlockHistory coreConfig = lift . getBlockHistory coreConfig
+        => Genesis.Config -> [Address] -> m (Map TxId TxHistoryEntry)
+    getBlockHistory genesisConfig = lift . getBlockHistory genesisConfig
 
     default getLocalHistory
         :: (MonadTrans t, MonadTxHistory m', t m' ~ m)
@@ -187,11 +188,11 @@ class Monad m => MonadTxHistory m where
 
     default saveTx
         :: (MonadTrans t, MonadTxHistory m', t m' ~ m)
-        => Core.Config
+        => Genesis.Config
         -> TxpConfiguration
         -> (TxId, TxAux)
         -> m ()
-    saveTx coreConfig txpConfig = lift . saveTx coreConfig txpConfig
+    saveTx genesisConfig txpConfig = lift . saveTx genesisConfig txpConfig
 
 instance {-# OVERLAPPABLE #-}
     (MonadTxHistory m, MonadTrans t, Monad (t m)) =>
@@ -215,15 +216,15 @@ type TxHistoryEnv ctx m =
 getBlockHistoryDefault
     :: forall ctx m
      . TxHistoryEnv ctx m
-    => Core.Config
+    => Genesis.Config
     -> [Address]
     -> m (Map TxId TxHistoryEntry)
-getBlockHistoryDefault coreConfig addrs = do
-    let genesisHash = configGenesisHash coreConfig
+getBlockHistoryDefault genesisConfig addrs = do
+    let genesisHash = configGenesisHash genesisConfig
     let bot = headerHash $ genesisBlock0
-            (configProtocolMagic coreConfig)
+            (configProtocolMagic genesisConfig)
             genesisHash
-            (genesisLeaders coreConfig)
+            (genesisLeaders genesisConfig)
     sd          <- GS.getSlottingData
     systemStart <- getSystemStartM
 
@@ -240,7 +241,7 @@ getBlockHistoryDefault coreConfig addrs = do
         foldStep (hist, modifier) blk =
             runUtxoM
                 modifier
-                (genesisUtxoLookup $ configGenesisData coreConfig)
+                (genesisUtxoLookup $ configGenesisData genesisConfig)
                 (deriveAddrHistoryBlk addrs getBlockTimestamp hist blk)
 
     fst <$> GS.foldlUpWhileM (getBlock genesisHash) bot filterFunc (pure ... foldStep) mempty
@@ -271,11 +272,11 @@ instance Exception SaveTxException where
             SaveTxToilFailure x -> toString (pretty x)
 
 saveTxDefault :: TxHistoryEnv ctx m
-              => Core.Config
+              => Genesis.Config
               -> TxpConfiguration
               -> (TxId, TxAux) -> m ()
-saveTxDefault coreConfig txpConfig txw = do
-    res <- txpProcessTx coreConfig txpConfig txw
+saveTxDefault genesisConfig txpConfig txw = do
+    res <- txpProcessTx genesisConfig txpConfig txw
     eitherToThrow (first SaveTxToilFailure res)
 
 txHistoryListToMap :: [TxHistoryEntry] -> Map TxId TxHistoryEntry

@@ -29,9 +29,10 @@ import           Pos.Core.Slotting (flattenEpochOrSlot, unflattenSlotId)
 import           Pos.Core.Ssc (VssCertificate (..), getCertId,
                      getVssCertificatesMap, mkVssCertificate)
 
+import           Test.Pos.Chain.Genesis.Dummy (dummyEpochSlots,
+                     dummySlotSecurityParam)
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Core.Arbitrary ()
-import           Test.Pos.Core.Dummy (dummyEpochSlots, dummySlotSecurityParam)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Infra.Arbitrary.Ssc ()
 import           Test.Pos.Util.QuickCheck.Property (qcIsJust)

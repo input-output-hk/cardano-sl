@@ -23,15 +23,16 @@ import           Formatting (build, ords, sformat, (%))
 import qualified System.Metrics.Counter as Metrics
 import           UnliftIO (MonadUnliftIO)
 
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     configBlkSecurityParam, configBlockVersionData,
+                     configEpochSlots, configK)
 import           Pos.Chain.Lrc (LrcError (..), RichmenStakes,
                      findDelegationStakes, findRichmenStakes,
                      followTheSatoshiM)
 import           Pos.Chain.Ssc (MonadSscMem, noReportNoSecretsForEpoch1)
 import           Pos.Chain.Update (BlockVersionState (..))
-import           Pos.Core as Core (Coin, Config (..), EpochIndex,
-                     EpochOrSlot (..), SharedSeed, SlotCount, StakeholderId,
-                     configBlkSecurityParam, configBlockVersionData,
-                     configEpochSlots, configK, crucialSlot, epochIndexL,
+import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), SharedSeed,
+                     SlotCount, StakeholderId, crucialSlot, epochIndexL,
                      getEpochOrSlot)
 import           Pos.Core.Chrono (NE, NewestFirst (..), toOldestFirst)
 import           Pos.Core.Conc (forConcurrently)
@@ -78,17 +79,17 @@ type LrcModeFull ctx m =
 lrcSingleShot
     :: forall ctx m
      . (LrcModeFull ctx m, HasMisbehaviorMetrics ctx)
-    => Core.Config
+    => Genesis.Config
     -> EpochIndex
     -> m ()
-lrcSingleShot coreConfig epoch = do
+lrcSingleShot genesisConfig epoch = do
     lock <- views (lensOf @LrcContext) lcLrcSync
     logDebug $ sformat
         ("lrcSingleShot is trying to acquire LRC lock, the epoch is "
          %build) epoch
     tryAcquireExclusiveLock epoch lock onAcquiredLock
   where
-    consumers = allLrcConsumers @ctx @m (configBlockVersionData coreConfig)
+    consumers = allLrcConsumers @ctx @m (configBlockVersionData genesisConfig)
     for_thEpochMsg = sformat (" for "%ords%" epoch") epoch
     onAcquiredLock = do
         logDebug "lrcSingleShot has acquired LRC lock"
@@ -107,7 +108,7 @@ lrcSingleShot coreConfig epoch = do
                     , expectedRichmenComp)
         when need $ do
             logInfo "LRC is starting actual computation"
-            lrcDo coreConfig epoch filteredConsumers
+            lrcDo genesisConfig epoch filteredConsumers
             logInfo "LRC has finished actual computation"
         putEpoch epoch
         logInfo ("LRC has updated LRC DB" <> for_thEpochMsg)
@@ -135,11 +136,11 @@ lrcDo
      . ( LrcModeFull ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => Core.Config
+    => Genesis.Config
     -> EpochIndex
     -> [LrcConsumer m]
     -> m ()
-lrcDo coreConfig epoch consumers = do
+lrcDo genesisConfig epoch consumers = do
     blundsUpToGenesis <- DB.loadBlundsFromTipWhile genesisHash upToGenesis
     -- If there are blocks from 'epoch' it means that we somehow accepted them
     -- before running LRC for 'epoch'. It's very bad.
@@ -154,7 +155,7 @@ lrcDo coreConfig epoch consumers = do
     blundsToRollback <- DB.loadBlundsFromTipWhile genesisHash whileAfterCrucial
     blundsToRollbackNE <-
         maybeThrow UnknownBlocksForLrc (atLeastKNewestFirst blundsToRollback)
-    seed <- sscCalculateSeed (configBlockVersionData coreConfig) epoch >>= \case
+    seed <- sscCalculateSeed (configBlockVersionData genesisConfig) epoch >>= \case
         Right s -> do
             logInfo $ sformat
                 ("Calculated seed for epoch "%build%" successfully") epoch
@@ -172,21 +173,21 @@ lrcDo coreConfig epoch consumers = do
     withBlocksRolledBack blundsToRollbackNE $ do
         issuersComputationDo epoch
         richmenComputationDo epoch consumers
-        DB.sanityCheckDB $ configGenesisData coreConfig
-        leadersComputationDo (configEpochSlots coreConfig) epoch seed
+        DB.sanityCheckDB $ configGenesisData genesisConfig
+        leadersComputationDo (configEpochSlots genesisConfig) epoch seed
   where
-    genesisHash = configGenesisHash coreConfig
+    genesisHash = configGenesisHash genesisConfig
     atLeastKNewestFirst :: forall a. NewestFirst [] a -> Maybe (NewestFirst NE a)
     atLeastKNewestFirst l =
-        if length l >= configK coreConfig
+        if length l >= configK genesisConfig
         then coerce (nonEmpty @a) l
         else Nothing
 
-    applyBack blunds = applyBlocksUnsafe coreConfig scb blunds Nothing
+    applyBack blunds = applyBlocksUnsafe genesisConfig scb blunds Nothing
     upToGenesis b = b ^. epochIndexL >= epoch
     whileAfterCrucial b = getEpochOrSlot b > crucial
     crucial = EpochOrSlot $ Right $ crucialSlot
-        (configBlkSecurityParam coreConfig)
+        (configBlkSecurityParam genesisConfig)
         epoch
     bsc =
         -- LRC rollbacks temporarily to examine the state of the DB at the
@@ -199,7 +200,7 @@ lrcDo coreConfig epoch consumers = do
         -- and outer viewers mustn't know about it.
         ShouldCallBListener False
     withBlocksRolledBack blunds =
-        bracket_ (rollbackBlocksUnsafe coreConfig bsc scb blunds)
+        bracket_ (rollbackBlocksUnsafe genesisConfig bsc scb blunds)
                  (applyBack (toOldestFirst blunds))
 
 issuersComputationDo :: forall ctx m . LrcMode ctx m => EpochIndex -> m ()

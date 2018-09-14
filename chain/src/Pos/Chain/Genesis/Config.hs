@@ -3,8 +3,9 @@
 
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
-module Pos.Core.Configuration
-       ( Config (..)
+module Pos.Chain.Genesis.Config
+       ( StaticConfig (..)
+       , Config (..)
        , configK
        , configVssMinTTL
        , configVssMaxTTL
@@ -24,48 +25,136 @@ module Pos.Core.Configuration
        , configFtsSeed
 
        , ConfigurationError (..)
-       , configFromGenesisConfig
+       , mkConfigFromStaticConfig
        , mkConfig
 
        , canonicalGenesisJson
        , prettyGenesisJson
-
-       , module E
        ) where
 
 import           Universum
 
 import           Control.Exception (throwIO)
+import           Data.Aeson (FromJSON, ToJSON, Value (..), genericToEncoding,
+                     pairs, parseJSON, toEncoding, (.:))
+import           Data.Aeson.Encoding (pairStr)
+import           Data.Aeson.Options (defaultOptions)
+import           Data.Aeson.Types (typeMismatch)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Coerce (coerce)
+import qualified Data.HashMap.Strict as HM
 import           System.FilePath ((</>))
 import           System.IO.Error (userError)
 import qualified Text.JSON.Canonical as Canonical
 
 import           Pos.Binary.Class (Raw)
-import           Pos.Core.Common (BlockCount, SharedSeed)
-import           Pos.Core.Configuration.Core as E
-import           Pos.Core.Configuration.GenesisHash as E
-import           Pos.Core.Genesis (GeneratedSecrets, GenesisAvvmBalances,
-                     GenesisData (..), GenesisDelegation,
-                     GenesisInitializer (..), GenesisNonAvvmBalances,
-                     GenesisProtocolConstants (..), GenesisSpec (..),
-                     GenesisWStakeholders,
-                     genesisProtocolConstantsToProtocolConstants,
+import           Pos.Chain.Genesis.AvvmBalances (GenesisAvvmBalances (..))
+import           Pos.Chain.Genesis.Data (GenesisData (..))
+import           Pos.Chain.Genesis.Delegation (GenesisDelegation,
                      mkGenesisDelegation)
-import           Pos.Core.Genesis.Generate (GeneratedGenesisData (..),
-                     generateGenesisData)
+import           Pos.Chain.Genesis.Generate (GeneratedGenesisData (..),
+                     GeneratedSecrets, generateGenesisData)
+import           Pos.Chain.Genesis.Hash (GenesisHash (..))
+import           Pos.Chain.Genesis.Initializer (GenesisInitializer (..))
+import           Pos.Chain.Genesis.NonAvvmBalances (GenesisNonAvvmBalances)
+import           Pos.Chain.Genesis.ProtocolConstants
+                     (GenesisProtocolConstants (..),
+                     genesisProtocolConstantsToProtocolConstants)
+import           Pos.Chain.Genesis.Spec (GenesisSpec (..))
+import           Pos.Chain.Genesis.WStakeholders (GenesisWStakeholders)
+import           Pos.Core.Common (BlockCount, SharedSeed)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
                      pcBlkSecurityParam, pcChainQualityThreshold, pcEpochSlots,
                      pcSlotSecurityParam, vssMaxTTL, vssMinTTL)
 import           Pos.Core.Slotting (SlotCount, Timestamp)
 import           Pos.Core.Ssc (VssCertificatesMap)
 import           Pos.Core.Update (BlockVersionData)
-import           Pos.Crypto.Configuration as E
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Crypto.Hashing (Hash, hashRaw, unsafeHash)
 import           Pos.Util.Json.Canonical (SchemaError)
 import           Pos.Util.Util (leftToPanic)
+
+--------------------------------------------------------------------------------
+-- StaticConfig
+--------------------------------------------------------------------------------
+
+data StaticConfig
+      -- | Genesis from a 'GenesisSpec'.
+    = GCSpec !GenesisSpec
+      -- | 'GenesisData' is stored in a file.
+    | GCSrc !FilePath !(Hash Raw)
+      -- !FilePath = Path to file where 'GenesisData' is stored. Must be
+      -- in JSON, not necessary canonical.
+      -- !(Hash Raw) = Hash of canonically encoded 'GenesisData'.
+    deriving (Eq, Show, Generic)
+
+instance ToJSON StaticConfig where
+    toEncoding (GCSrc gcsFile gcsHash) =
+        pairs . pairStr "src"
+            . pairs  $ pairStr "file"
+                (toEncoding gcsFile) <> pairStr "hash" (toEncoding gcsHash)
+
+    toEncoding (GCSpec value)          =
+        genericToEncoding defaultOptions (GCSpec value)
+
+instance FromJSON StaticConfig where
+    parseJSON (Object o)
+        | HM.member "src" o  = GCSrc <$> ((o .: "src") >>= (.: "file"))
+                                      <*> ((o .: "src") >>= (.: "hash"))
+        | HM.member "spec" o = do
+              -- GCSpec Object
+              specO <- o .: "spec"
+
+              -- GenesisAvvmBalances
+              avvmDistrO <- specO .: "avvmDistr"
+              avvmDistr <- parseJSON (avvmDistrO)
+
+              -- SharedSeed
+              ftsSeed <- specO .: "ftsSeed"
+
+              -- GenesisDelegation
+              heavyDelegationO <- specO .: "heavyDelegation"
+              heavyDelegation <- parseJSON (heavyDelegationO)
+
+              -- BlockVersionData
+              blockVersionDataO <- specO .: "blockVersionData"
+              blockVersionData <- parseJSON blockVersionDataO
+
+              -- GenesisProtocolConstants
+              protocolConstantsO <- specO .: "protocolConstants"
+              protocolConstants <- parseJSON protocolConstantsO
+
+              -- GenesisInitializer
+              initializerO <- specO .: "initializer"
+              testBalanceO <- initializerO .: "testBalance"
+              testBalance <- parseJSON testBalanceO
+              fakeAvvmBalanceO <- (initializerO .: "fakeAvvmBalance")
+              fakeAvvmBalance <- parseJSON fakeAvvmBalanceO
+              avvmBalanceFactor <- initializerO .: "avvmBalanceFactor"
+              useHeavyDlg <- initializerO .: "useHeavyDlg"
+              seed <- initializerO .: "seed"
+
+              return . GCSpec $
+                  UnsafeGenesisSpec
+                      (GenesisAvvmBalances avvmDistr)
+                      ftsSeed
+                      heavyDelegation
+                      blockVersionData
+                      protocolConstants
+                      (GenesisInitializer
+                          testBalance
+                          fakeAvvmBalance
+                          avvmBalanceFactor
+                          useHeavyDlg
+                          seed)
+        | otherwise = fail "Incorrect JSON encoding for GenesisConfiguration"
+
+    parseJSON invalid = typeMismatch "GenesisConfiguration" invalid
+
+--------------------------------------------------------------------------------
+-- Config
+--------------------------------------------------------------------------------
 
 data Config = Config
     { configProtocolMagic     :: ProtocolMagic
@@ -101,7 +190,7 @@ configGeneratedSecretsThrow
 configGeneratedSecretsThrow =
     maybe
             (liftIO $ throwIO $ userError
-                "GeneratedSecrets missing from Core.Config"
+                "GeneratedSecrets missing from Genesis.Config"
             )
             pure
         . configGeneratedSecrets
@@ -157,7 +246,7 @@ prettyGenesisJson theGenesisData =
 --
 -- If the configuration gives a testnet genesis spec, then a start time must
 -- be provided, probably sourced from command line arguments.
-configFromGenesisConfig
+mkConfigFromStaticConfig
     :: (MonadThrow m, MonadIO m)
     => FilePath
     -- ^ Directory where 'configuration.yaml' is stored.
@@ -167,9 +256,9 @@ configFromGenesisConfig
     -> Maybe Integer
     -- ^ Optional seed which overrides one from testnet initializer if
     -- provided.
-    -> GenesisConfiguration
+    -> StaticConfig
     -> m Config
-configFromGenesisConfig confDir mSystemStart mSeed = \case
+mkConfigFromStaticConfig confDir mSystemStart mSeed = \case
     -- If a 'GenesisData' source file is given, we check its hash against the
     -- given expected hash, parse it, and use the GenesisData to fill in all of
     -- the obligations.

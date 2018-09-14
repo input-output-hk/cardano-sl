@@ -26,8 +26,8 @@ import           Formatting (bprint, (%))
 import qualified Formatting as F
 import           Formatting.Buildable (build)
 import qualified Pos.Chain.Txp as Txp
-import qualified Pos.Core as Core
 import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
+import           Pos.Crypto (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (hash)
 import           Pos.Crypto.Signing.Safe (safeDeterministicKeyGen)
 import           Serokell.Util.Text (listJsonIndent)
@@ -47,7 +47,7 @@ import           Util.Buildable.Hspec
   modules without having `wallet-new` depends from `cardano-sl-txp-test`.
 -------------------------------------------------------------------------------}
 
-genPending :: Core.ProtocolMagic -> Gen Pending
+genPending :: ProtocolMagic -> Gen Pending
 genPending pMagic = do
     elems <- listOf (do tx  <- Txp.genTx
                         wit <- (V.fromList <$> listOf (Txp.genTxInWitness pMagic))
@@ -89,7 +89,7 @@ genSchedule maxRetries pending (Slot lowerBound) = do
 
 genWalletSubmissionState :: HdAccountId -> MaxRetries -> Gen WalletSubmissionState
 genWalletSubmissionState accId maxRetries = do
-    pending   <- M.singleton accId <$> genPending (Core.ProtocolMagic 0)
+    pending   <- M.singleton accId <$> genPending (ProtocolMagic 0)
     let slot  = Slot 0 -- Make the layer always start from 0, to make running the specs predictable.
     scheduler <- genSchedule maxRetries pending slot
     return $ WalletSubmissionState pending scheduler slot
@@ -178,7 +178,7 @@ dependentTransactions = do
     outputForB <- (Txp.TxOut <$> arbitrary <*> arbitrary)
     outputForC <- (Txp.TxOut <$> arbitrary <*> arbitrary)
     outputForD <- (Txp.TxOut <$> arbitrary <*> arbitrary)
-    [a,b,c,d] <- vectorOf 4 (Txp.genTxAux (Core.ProtocolMagic 0))
+    [a,b,c,d] <- vectorOf 4 (Txp.genTxAux (ProtocolMagic 0))
     let a' = a { Txp.taTx = (Txp.taTx a) {
                      Txp._txInputs  = inputForA :| mempty
                    , Txp._txOutputs = outputForA :| mempty
@@ -219,7 +219,7 @@ genPureWalletSubmission accId =
 genPurePair :: Gen (ShowThroughBuild (WalletSubmission, M.Map HdAccountId Pending))
 genPurePair = do
     STB layer <- genPureWalletSubmission myAccountId
-    pending <- genPending (Core.ProtocolMagic 0)
+    pending <- genPending (ProtocolMagic 0)
     let pending' = Pending.delete (toTxIdSet $ layer ^. localPendingSet myAccountId) pending
     pure $ STB (layer, M.singleton myAccountId pending')
 

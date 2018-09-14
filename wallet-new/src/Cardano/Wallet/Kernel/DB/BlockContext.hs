@@ -18,7 +18,7 @@ import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 
 import qualified Pos.Chain.Block as Core
-import           Pos.Core (GenesisHash)
+import           Pos.Chain.Genesis (GenesisHash)
 import qualified Pos.Core as Core
 
 import           Cardano.Wallet.Kernel.DB.InDb

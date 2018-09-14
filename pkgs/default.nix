@@ -17759,7 +17759,6 @@ license = stdenv.lib.licenses.mit;
 , unordered-containers
 , vector
 , wai
-, wai-cors
 , wai-middleware-throttle
 , warp
 , x509
@@ -17861,7 +17860,6 @@ unliftio-core
 unordered-containers
 vector
 wai
-wai-cors
 wai-middleware-throttle
 warp
 x509

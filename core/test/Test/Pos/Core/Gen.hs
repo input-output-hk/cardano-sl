@@ -21,13 +21,6 @@ module Test.Pos.Core.Gen
         , genTxFeePolicy
         , genTxSizeLinear
 
-        -- Pos.Core.Delegation Generators
-        , genDlgPayload
-        , genHeavyDlgIndex
-        , genLightDlgIndices
-        , genProxySKBlockInfo
-        , genProxySKHeavy
-
         -- Pos.Core.JsonLog Generators
         , genInvReqDataFlowLog
 
@@ -121,8 +114,6 @@ import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                      StakesMap, TxFeePolicy (..), TxSizeLinear (..),
                      coinPortionDenominator, makeAddress, maxCoinVal,
                      mkMultiKeyDistr)
-import           Pos.Core.Delegation (DlgPayload (..), HeavyDlgIndex (..),
-                     LightDlgIndices (..), ProxySKBlockInfo, ProxySKHeavy)
 import           Pos.Core.JsonLog.LogEvents (InvReqDataFlowLog (..))
 import           Pos.Core.Merkle (MerkleRoot (..), MerkleTree (..),
                      mkMerkleTree, mtRoot)
@@ -146,15 +137,13 @@ import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
                      UpdateProof, UpdateProposal (..),
                      UpdateProposalToSign (..), UpdateProposals,
                      UpdateVote (..), VoteId, mkUpdateVote)
-import           Pos.Crypto (Hash, ProtocolMagic, deterministic, hash,
-                     safeCreatePsk)
+import           Pos.Crypto (Hash, ProtocolMagic, deterministic, hash)
 import           Pos.Util.Util (leftToPanic)
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Test.Pos.Crypto.Gen (genAbstractHash, genDecShare,
                      genHDAddressPayload, genPublicKey, genRedeemPublicKey,
-                     genSafeSigner, genSecretKey, genSignature,
-                     genVssPublicKey)
+                     genSecretKey, genSignature, genVssPublicKey)
 
 ----------------------------------------------------------------------------
 -- Pos.Core.Common Generators
@@ -296,34 +285,6 @@ genTxFeePolicy =
 
 genTxSizeLinear :: Gen TxSizeLinear
 genTxSizeLinear = TxSizeLinear <$> genCoeff <*> genCoeff
-
-----------------------------------------------------------------------------
--- Pos.Core.Delegation Generators
-----------------------------------------------------------------------------
-
-genDlgPayload :: ProtocolMagic -> Gen DlgPayload
-genDlgPayload pm =
-    UnsafeDlgPayload <$> Gen.list (Range.linear 0 5) (genProxySKHeavy pm)
-
-genHeavyDlgIndex :: Gen HeavyDlgIndex
-genHeavyDlgIndex = HeavyDlgIndex <$> genEpochIndex
-
-genLightDlgIndices :: Gen LightDlgIndices
-genLightDlgIndices =
-    LightDlgIndices <$> ((,) <$> genEpochIndex <*> genEpochIndex)
-
-genProxySKBlockInfo :: ProtocolMagic -> Gen ProxySKBlockInfo
-genProxySKBlockInfo pm = Gen.maybe $ do
-    pSKHeavy <- genProxySKHeavy pm
-    pubKey <- genPublicKey
-    pure (pSKHeavy,pubKey)
-
-genProxySKHeavy :: ProtocolMagic -> Gen ProxySKHeavy
-genProxySKHeavy pm =
-    safeCreatePsk pm
-        <$> genSafeSigner
-        <*> genPublicKey
-        <*> genHeavyDlgIndex
 
 ----------------------------------------------------------------------------
 -- Pos.Core.JsonLog Generators

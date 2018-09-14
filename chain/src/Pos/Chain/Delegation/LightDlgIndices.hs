@@ -1,4 +1,4 @@
-module Pos.Core.Delegation.LightDlgIndices
+module Pos.Chain.Delegation.LightDlgIndices
        ( LightDlgIndices (..)
        , ProxySigLight
        , ProxySKLight

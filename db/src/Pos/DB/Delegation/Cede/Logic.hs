@@ -22,11 +22,10 @@ import           Formatting (build, sformat, (%))
 
 import           Pos.Chain.Block (BlockSignature (..), MainBlockHeader,
                      gbhConsensus, mainHeaderLeaderKey, mcdSignature)
-import           Pos.Chain.Delegation (DlgMemPool, MonadCedeRead (..), getPskPk,
-                     isRevokePsk)
+import           Pos.Chain.Delegation (DlgMemPool, HeavyDlgIndex (..),
+                     MonadCedeRead (..), ProxySKHeavy, getPskPk, isRevokePsk)
 import           Pos.Chain.Lrc (RichmenSet)
 import           Pos.Core (EpochIndex, StakeholderId, addressHash)
-import           Pos.Core.Delegation (HeavyDlgIndex (..), ProxySKHeavy)
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), PublicKey,
                      psigPsk, validateProxySecretKey)
 import           Pos.DB (DBError (DBMalformed))

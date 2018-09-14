@@ -49,6 +49,7 @@ import           Universum
 
 import           Pos.Chain.Block (BlockHeader (..), GenesisBlock, HeaderHash,
                      blockHeaderHash, genesisBlock0, _gbHeader)
+import           Pos.Chain.Delegation (ProxySKHeavy)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      GeneratedSecrets (..), GenesisData (..),
                      GenesisDelegation (..), PoorSecret (..), RichSecrets (..),
@@ -56,7 +57,6 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
 import           Pos.Chain.Lrc
 import           Pos.Chain.Txp
 import           Pos.Core as Core
-import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Crypto
 
 import           UTxO.Crypto

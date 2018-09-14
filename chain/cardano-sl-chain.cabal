@@ -55,6 +55,10 @@ library
                        Pos.Chain.Delegation.Cede.Types
                        Pos.Chain.Delegation.Class
                        Pos.Chain.Delegation.Configuration
+                       Pos.Chain.Delegation.HeavyDlgIndex
+                       Pos.Chain.Delegation.LightDlgIndices
+                       Pos.Chain.Delegation.Payload
+                       Pos.Chain.Delegation.Proof
                        Pos.Chain.Delegation.Types
 
                        -- Genesis
@@ -225,6 +229,9 @@ test-suite test
                        Test.Pos.Chain.Block.Gen
                        Test.Pos.Chain.Block.SafeCopySpec
                        Test.Pos.Chain.Delegation.Arbitrary
+                       Test.Pos.Chain.Delegation.Bi
+                       Test.Pos.Chain.Delegation.Example
+                       Test.Pos.Chain.Delegation.Gen
                        Test.Pos.Chain.Genesis.Dummy
                        Test.Pos.Chain.Genesis.Example
                        Test.Pos.Chain.Genesis.Gen

@@ -13,9 +13,9 @@ import           Universum
 import           Formatting (build, sformat, shown, (%))
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Chain.Delegation (HasDlgConfiguration, MonadDelegation)
+import           Pos.Chain.Delegation (HasDlgConfiguration, MonadDelegation,
+                     ProxySKHeavy)
 import           Pos.Chain.Genesis as Genesis (Config)
-import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.DB.Class (MonadBlockDBRead, MonadGState)
 import           Pos.DB.Delegation (PskHeavyVerdict (..), processProxySKHeavy)
 import           Pos.DB.Lrc (HasLrcContext)

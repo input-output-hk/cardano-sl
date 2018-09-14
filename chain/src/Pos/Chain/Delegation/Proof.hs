@@ -1,11 +1,11 @@
-module Pos.Core.Delegation.Proof
+module Pos.Chain.Delegation.Proof
        ( DlgProof
        , mkDlgProof
        ) where
 
 import           Pos.Crypto (Hash, hash)
 
-import           Pos.Core.Delegation.Payload
+import           Pos.Chain.Delegation.Payload
 
 -- | Proof of delegation payload.
 type DlgProof = Hash DlgPayload

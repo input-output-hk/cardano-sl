@@ -6,7 +6,6 @@ module Pos.Chain.Delegation.Types
        ( DlgPayload (..)
        , DlgUndo (..)
        , DlgMemPool
-       , module Pos.Core.Delegation
        , isRevokePsk
 
        , DlgBlock
@@ -21,9 +20,9 @@ import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Chain.Block.Union (ComponentBlock (..))
+import           Pos.Chain.Delegation.HeavyDlgIndex (ProxySKHeavy)
+import           Pos.Chain.Delegation.Payload (DlgPayload (..))
 import           Pos.Core (StakeholderId)
-import           Pos.Core.Delegation (DlgPayload (..), ProxySKBlockInfo,
-                     ProxySKHeavy, checkDlgPayload)
 import           Pos.Crypto (ProxySecretKey, PublicKey, isSelfSignedPsk)
 
 -- | Undo for the delegation component.

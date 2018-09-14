@@ -18,25 +18,25 @@ import           Pos.Chain.Block (BlockHeader (..), BlockHeaderAttributes,
                      MainExtraBodyData (..), MainExtraHeaderData (..),
                      MainProof (..), MainToSign (..), mkGenesisHeader,
                      mkMainHeaderExplicit)
+import           Pos.Chain.Delegation (DlgPayload (..))
 import           Pos.Chain.Genesis (GenesisHash (..))
 import           Pos.Core (EpochIndex (..))
 import           Pos.Core.Attributes (mkAttributes)
-import           Pos.Core.Delegation (DlgPayload (..))
 import           Pos.Crypto (Hash, ProtocolMagic (..), SignTag (..),
                      abstractHash, createPsk, hash, proxySign, sign, toPublic)
 
 import           Test.Pos.Binary.Helpers.GoldenRoundTrip (goldenTestBi,
                      roundTripsBiBuildable, roundTripsBiShow)
 import           Test.Pos.Chain.Block.Gen
+import           Test.Pos.Chain.Delegation.Example (exampleLightDlgIndices,
+                     staticHeavyDlgIndexes, staticProxySKHeavys)
 import           Test.Pos.Chain.Txp.Example (exampleTxPayload, exampleTxProof)
 import           Test.Pos.Core.ExampleHelpers (exampleBlockVersion,
                      exampleChainDifficulty, exampleEpochIndex,
-                     exampleLightDlgIndices, examplePublicKey,
-                     exampleSecretKey, exampleSecretKeys, exampleSlotId,
-                     exampleSlotLeaders, exampleSoftwareVersion,
+                     examplePublicKey, exampleSecretKey, exampleSecretKeys,
+                     exampleSlotId, exampleSlotLeaders, exampleSoftwareVersion,
                      exampleSscPayload, exampleSscProof, exampleUpdatePayload,
-                     exampleUpdateProof, feedPM, feedPMEpochSlots,
-                     staticHeavyDlgIndexes, staticProxySKHeavys)
+                     exampleUpdateProof, feedPM, feedPMEpochSlots)
 import           Test.Pos.Util.Golden (discoverGolden, eachOf)
 import           Test.Pos.Util.Tripping (discoverRoundTrip)
 

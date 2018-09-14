@@ -26,11 +26,11 @@ import           Pos.Chain.Block (BlockHeader (..), BlockSignature (..),
                      MainExtraHeaderData (..), MainToSign (..), headerHash,
                      mkBodyProof, mkGenericHeader, mkGenesisHeader)
 import qualified Pos.Chain.Block as Block
+import           Pos.Chain.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
 import           Pos.Chain.Genesis (GenesisHash (..))
 import           Pos.Core (EpochIndex (..), SlotId (..), difficultyL)
 import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Core.Chrono (NewestFirst (..))
-import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
 import           Pos.Crypto (ProtocolMagic (..), ProxySecretKey (pskIssuerPk),
                      SecretKey, SignTag (..), createPsk, proxySign, sign,
                      toPublic)

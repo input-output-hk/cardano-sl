@@ -15,9 +15,9 @@ import           Universum
 import           Data.Time.Units (Second, convertUnit)
 import           Test.QuickCheck (Arbitrary (..), choose, sized, suchThat)
 
+import           Pos.Chain.Delegation (HeavyDlgIndex (..))
 import           Pos.Chain.Genesis
 import           Pos.Core (Timestamp (..), TxFeePolicy (..), maxCoinVal)
-import           Pos.Core.Delegation (HeavyDlgIndex (..))
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
                      VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Ssc (mkVssCertificatesMapLossy)

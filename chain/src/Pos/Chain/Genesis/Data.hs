@@ -51,7 +51,7 @@ instance Monad m => ToJSON m GenesisData where
             , ("ftsSeed", toJSON gdFtsSeed)
             ]
 
-instance (Monad m, MonadError SchemaError m) => FromJSON m GenesisData where
+instance MonadError SchemaError m => FromJSON m GenesisData where
     fromJSON obj = do
         gdBootStakeholders <- fromJSField obj "bootStakeholders"
         gdHeavyDelegation <- fromJSField obj "heavyDelegation"

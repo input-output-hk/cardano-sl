@@ -16,6 +16,7 @@ import           Formatting (build, sformat, (%))
 
 import           Pos.Chain.Block (Block, BlockHeader, HasBlockConfiguration,
                      HeaderHash)
+import           Pos.Chain.Delegation (ProxySKHeavy)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlkSecurityParam, configEpochSlots)
 import           Pos.Chain.Security (SecurityParams, shouldIgnorePkAddress)
@@ -28,7 +29,6 @@ import           Pos.Chain.Txp (MemPool (..), TxAux (..), TxMsgContents (..),
 import           Pos.Communication (NodeId)
 import           Pos.Core (StakeholderId, addressHash)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
-import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Ssc (getCertId, getCommitmentsMap, lookupVss)
 import           Pos.Core.Update (BlockVersionData, UpdateProposal (..),
                      UpdateVote (..))

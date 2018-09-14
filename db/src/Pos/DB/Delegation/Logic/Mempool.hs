@@ -27,14 +27,13 @@ import           UnliftIO (MonadUnliftIO)
 import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (headerHash)
 import           Pos.Chain.Delegation (DlgMemPool, DlgPayload (..),
-                     MonadDelegation, cmPskMods, dwMessageCache, dwPoolSize,
-                     dwProxySKPool, dwTip, emptyCedeModifier, isRevokePsk,
-                     pskToDlgEdgeAction)
+                     MonadDelegation, ProxySKHeavy, cmPskMods, dwMessageCache,
+                     dwPoolSize, dwProxySKPool, dwTip, emptyCedeModifier,
+                     isRevokePsk, pskToDlgEdgeAction)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlockVersionData)
 import           Pos.Core (addressHash, epochIndexL)
 import           Pos.Core.Conc (currentTime)
-import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Update (bvdMaxBlockSize)
 import           Pos.Crypto (ProxySecretKey (..), PublicKey)
 import           Pos.DB (MonadDBRead, MonadGState)

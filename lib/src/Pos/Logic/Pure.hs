@@ -19,13 +19,13 @@ import           Pos.Chain.Block (Block, BlockHeader (..),
                      MainBlockHeader, MainBlockchain, MainBody (..),
                      MainConsensusData (..), MainExtraBodyData (..),
                      MainExtraHeaderData (..), MainProof (..))
+import           Pos.Chain.Delegation (DlgPayload (..))
 import           Pos.Chain.Txp (TxProof (..), emptyTxPayload)
 import           Pos.Core (StakeholderId, TxFeePolicy (..),
                      unsafeCoinPortionFromDouble)
 import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Common (BlockCount (..), ChainDifficulty (..))
-import           Pos.Core.Delegation (DlgPayload (..))
 import           Pos.Core.Merkle (MerkleRoot (..))
 import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..),
                      SlotId (..))

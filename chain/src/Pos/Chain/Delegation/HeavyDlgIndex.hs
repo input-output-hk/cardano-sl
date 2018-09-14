@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Pos.Core.Delegation.HeavyDlgIndex
+module Pos.Chain.Delegation.HeavyDlgIndex
        ( HeavyDlgIndex (..)
        , ProxySigHeavy
        , ProxySKHeavy
@@ -9,16 +9,18 @@ module Pos.Core.Delegation.HeavyDlgIndex
 
 import           Universum
 
+import           Control.Monad.Except (MonadError)
 import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
 import           Data.SafeCopy (SafeCopy (..), contain, safeGet, safePut)
 import           Formatting (bprint, build)
 import qualified Formatting.Buildable
 import           Text.JSON.Canonical (FromJSON (..), Int54, JSValue (..),
-                     ReportSchemaErrors, ToJSON (..), fromJSField, mkObject)
+                     ToJSON (..), fromJSField, mkObject)
 
 import           Pos.Binary.Class (Bi (..))
 import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Crypto (ProxySecretKey (..), ProxySignature, PublicKey)
+import           Pos.Util.Json.Canonical (SchemaError)
 
 -- | Witness for heavy delegation signature -- epoch in which
 -- certificate starts being active. It is needed for replay attack
@@ -65,7 +67,7 @@ instance Monad m => ToJSON m ProxySKHeavy where
             , ("cert", toJSON $ pskCert psk)
             ]
 
-instance ReportSchemaErrors m => FromJSON m ProxySKHeavy where
+instance MonadError SchemaError m => FromJSON m ProxySKHeavy where
     fromJSON obj = do
         pskOmega <- HeavyDlgIndex . fromIntegral @Int54 <$> fromJSField obj "omega"
         pskIssuerPk <- fromJSField obj "issuerPk"

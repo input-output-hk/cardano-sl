@@ -23,9 +23,8 @@ import qualified Formatting.Buildable as B
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Delegation (DelegationWrap (..), MonadDelegation,
-                     askDelegationState, getPsk)
+                     ProxySKHeavy, askDelegationState, getPsk)
 import           Pos.Core (StakeholderId)
-import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Exception (cardanoExceptionFromException,
                      cardanoExceptionToException)
 import           Pos.Crypto (ProxySecretKey (..), PublicKey)

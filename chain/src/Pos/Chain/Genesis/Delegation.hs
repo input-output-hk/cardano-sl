@@ -15,12 +15,12 @@ import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
 import qualified Data.HashMap.Strict as HM
 import           Formatting (build, sformat, (%))
 import           Serokell.Util (allDistinct)
-import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
-                     ToJSON (..))
+import           Text.JSON.Canonical (FromJSON (..), ToJSON (..))
 
+import           Pos.Chain.Delegation (ProxySKHeavy)
 import           Pos.Core.Common (StakeholderId, addressHash)
-import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Crypto.Signing (ProxySecretKey (..), isSelfSignedPsk)
+import           Pos.Util.Json.Canonical (SchemaError)
 import           Pos.Util.Json.Parse (wrapConstructor)
 import           Pos.Util.Util (toAesonError)
 
@@ -39,7 +39,7 @@ newtype GenesisDelegation = UnsafeGenesisDelegation
 instance Monad m => ToJSON m GenesisDelegation where
     toJSON = toJSON . unGenesisDelegation
 
-instance ReportSchemaErrors m => FromJSON m GenesisDelegation where
+instance MonadError SchemaError m => FromJSON m GenesisDelegation where
     fromJSON val = do
         psks <- fromJSON val
         wrapConstructor $ recreateGenesisDelegation psks

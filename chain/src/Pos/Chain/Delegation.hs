@@ -1,13 +1,14 @@
 -- | Reexport module
 
 module Pos.Chain.Delegation
-       ( module Pos.Chain.Delegation.Types
-       , module Pos.Chain.Delegation.Configuration
-       , module Pos.Chain.Delegation.Class
-       , module Pos.Chain.Delegation.Cede
+       ( module X
        ) where
 
-import           Pos.Chain.Delegation.Cede
-import           Pos.Chain.Delegation.Class
-import           Pos.Chain.Delegation.Configuration
-import           Pos.Chain.Delegation.Types
+import           Pos.Chain.Delegation.Cede as X
+import           Pos.Chain.Delegation.Class as X
+import           Pos.Chain.Delegation.Configuration as X
+import           Pos.Chain.Delegation.HeavyDlgIndex as X
+import           Pos.Chain.Delegation.LightDlgIndices as X
+import           Pos.Chain.Delegation.Payload as X
+import           Pos.Chain.Delegation.Proof as X
+import           Pos.Chain.Delegation.Types as X

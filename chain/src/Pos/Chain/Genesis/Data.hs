@@ -10,9 +10,9 @@ import           Control.Monad.Except (MonadError (..))
 import           Text.JSON.Canonical (FromJSON (..), ToJSON (..), fromJSField,
                      mkObject)
 
+import           Pos.Chain.Ssc.VssCertificatesMap (VssCertificatesMap)
 import           Pos.Core.Common (SharedSeed)
 import           Pos.Core.Slotting (Timestamp)
-import           Pos.Core.Ssc (VssCertificatesMap)
 import           Pos.Core.Update (BlockVersionData)
 
 import           Pos.Chain.Genesis.AvvmBalances

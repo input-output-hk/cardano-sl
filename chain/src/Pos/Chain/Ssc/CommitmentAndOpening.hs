@@ -1,4 +1,4 @@
-module Pos.Core.Ssc.CommitmentAndOpening
+module Pos.Chain.Ssc.CommitmentAndOpening
        ( randCommitmentAndOpening
        ) where
 
@@ -10,8 +10,8 @@ import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat, (%))
 
 import           Pos.Binary.Class (asBinary)
-import           Pos.Core.Ssc.Commitment (Commitment (..))
-import           Pos.Core.Ssc.Opening (Opening (..))
+import           Pos.Chain.Ssc.Commitment (Commitment (..))
+import           Pos.Chain.Ssc.Opening (Opening (..))
 import           Pos.Crypto (Threshold, VssPublicKey, genSharedSecret)
 
 

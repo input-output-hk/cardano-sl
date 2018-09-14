@@ -14,9 +14,8 @@ import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Chain.Ssc (SscGlobalState (..))
+import           Pos.Chain.Ssc (SscGlobalState (..), VssCertificatesMap)
 import qualified Pos.Chain.Ssc as VCD
-import           Pos.Core.Ssc (VssCertificatesMap)
 import           Pos.DB (MonadDB, MonadDBRead, RocksBatchOp (..))
 import           Pos.DB.Error (DBError (DBMalformed))
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi)

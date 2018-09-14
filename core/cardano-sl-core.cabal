@@ -51,7 +51,6 @@ library
 
                        Pos.Core.Script
                        Pos.Core.Slotting
-                       Pos.Core.Ssc
                        Pos.Core.Update
 
                        Pos.Core.Util.LogSafe
@@ -109,19 +108,6 @@ library
                        Pos.Core.Reporting.MemState
                        Pos.Core.Reporting.Methods
                        Pos.Core.Reporting.Metrics
-
-                       -- SSC
-                       Pos.Core.Ssc.Commitment
-                       Pos.Core.Ssc.CommitmentsMap
-                       Pos.Core.Ssc.Opening
-                       Pos.Core.Ssc.OpeningsMap
-                       Pos.Core.Ssc.CommitmentAndOpening
-                       Pos.Core.Ssc.Payload
-                       Pos.Core.Ssc.Proof
-                       Pos.Core.Ssc.SharesDistribution
-                       Pos.Core.Ssc.SharesMap
-                       Pos.Core.Ssc.VssCertificate
-                       Pos.Core.Ssc.VssCertificatesMap
 
                        -- Update
                        Pos.Core.Update.ApplicationName

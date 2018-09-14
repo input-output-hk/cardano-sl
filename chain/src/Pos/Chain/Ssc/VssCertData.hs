@@ -38,10 +38,11 @@ import qualified Data.Set as S
 import           Formatting (build, sformat, (%))
 
 import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
+import           Pos.Chain.Ssc.VssCertificate (VssCertificate (..), getCertId)
+import           Pos.Chain.Ssc.VssCertificatesMap (VssCertificatesMap (..),
+                     deleteVss, insertVss, lookupVss, memberVss)
 import           Pos.Core (EpochIndex (..), EpochOrSlot (..), SlotId (..),
                      StakeholderId)
-import           Pos.Core.Ssc (VssCertificate (..), VssCertificatesMap (..),
-                     deleteVss, getCertId, insertVss, lookupVss, memberVss)
 
 -- | Wrapper around 'VssCertificate' with TTL.
 -- Every 'VssCertificate' has own TTL.

@@ -28,13 +28,16 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
 import           Pos.Chain.Lrc (RichmenStakes)
 import           Pos.Chain.Security (SecurityParams)
 import           Pos.Chain.Ssc (HasSscConfiguration, HasSscContext (..),
-                     MonadSscMem, SscBehavior (..), SscOpeningParams (..),
-                     SscSharesParams (..), SscTag (..), computeParticipants,
-                     computeSharesDistrPure, getOurShares, hasCommitment,
-                     hasOpening, hasShares, isCommitmentIdx, isOpeningIdx,
-                     isSharesIdx, mkSignedCommitment, mpcSendInterval,
-                     scBehavior, scParticipateSsc, scVssKeyPair,
-                     sgsCommitments, vssThreshold)
+                     InnerSharesMap, MonadSscMem, Opening, SignedCommitment,
+                     SscBehavior (..), SscOpeningParams (..),
+                     SscSharesParams (..), SscTag (..), VssCertificate (..),
+                     VssCertificatesMap (..), computeParticipants,
+                     computeSharesDistrPure, getCommitmentsMap, getOurShares,
+                     hasCommitment, hasOpening, hasShares, isCommitmentIdx,
+                     isOpeningIdx, isSharesIdx, lookupVss, memberVss,
+                     mkSignedCommitment, mkVssCertificate, mpcSendInterval,
+                     randCommitmentAndOpening, scBehavior, scParticipateSsc,
+                     scVssKeyPair, sgsCommitments, vssThreshold)
 import           Pos.Core (BlockCount, EpochIndex, HasPrimaryKey, SlotId (..),
                      StakeholderId, Timestamp (..), getOurSecretKey,
                      getOurStakeholderId, getSlotIndex, kEpochSlots,
@@ -43,10 +46,6 @@ import           Pos.Core.Conc (currentTime, delay)
 import           Pos.Core.JsonLog (CanJsonLog)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..), MonadReporting)
-import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
-                     VssCertificate (..), VssCertificatesMap (..),
-                     getCommitmentsMap, lookupVss, memberVss, mkVssCertificate,
-                     randCommitmentAndOpening)
 import           Pos.Core.Update (BlockVersionData (..))
 import           Pos.Crypto (SecretKey, VssKeyPair, VssPublicKey, randomNumber,
                      randomNumberInRange, runSecureRandom, vssKeyGen)

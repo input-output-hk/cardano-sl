@@ -28,11 +28,14 @@ import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi,
 import           Pos.Chain.Ssc.Base (deleteSignedCommitment,
                      insertSignedCommitment, isCommitmentId, isCommitmentIdx,
                      isOpeningId, isOpeningIdx, isSharesId, isSharesIdx)
+import           Pos.Chain.Ssc.CommitmentsMap (CommitmentsMap)
+import           Pos.Chain.Ssc.OpeningsMap (OpeningsMap)
+import           Pos.Chain.Ssc.SharesMap (SharesMap)
 import           Pos.Chain.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..),
                      MonadTossRead (..))
+import           Pos.Chain.Ssc.VssCertificatesMap (VssCertificatesMap,
+                     insertVss)
 import           Pos.Core (BlockCount, LocalSlotIndex, SlotId)
-import           Pos.Core.Ssc (CommitmentsMap, OpeningsMap, SharesMap,
-                     VssCertificatesMap, insertVss)
 import           Pos.Util.Util (cborError, ether)
 
 -- | Tag corresponding to SSC data.

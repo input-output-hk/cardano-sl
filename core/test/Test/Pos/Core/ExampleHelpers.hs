@@ -10,14 +10,8 @@ module Test.Pos.Core.ExampleHelpers
         , exampleBlockVersion
         , exampleBlockVersionData
         , exampleBlockVersionModifier
-        , exampleCommitment
-        , exampleCommitmentsMap
-        , exampleCommitmentSignature
         , exampleChainDifficulty
         , exampleEpochIndex
-        , exampleInnerSharesMap
-        , exampleOpening
-        , exampleOpeningsMap
         , examplePublicKey
         , examplePublicKeys
         , exampleRedeemPublicKey
@@ -25,13 +19,9 @@ module Test.Pos.Core.ExampleHelpers
         , exampleSecretKey
         , exampleSecretKeys
         , exampleSharedSeed
-        , exampleSharesDistribution
-        , exampleSignedCommitment
         , exampleSlotId
         , exampleSlotLeaders
         , exampleSoftwareVersion
-        , exampleSscPayload
-        , exampleSscProof
         , exampleStakeholderId
         , exampleStakeholderIds
         , exampleStakesList
@@ -45,9 +35,6 @@ module Test.Pos.Core.ExampleHelpers
         , exampleUpAttributes
         , exampleUpId
         , exampleVoteId
-        , exampleVssCertificate
-        , exampleVssCertificatesHash
-        , exampleVssCertificatesMap
         , exampleVssPublicKeys
         , staticSafeSigners
 
@@ -61,8 +48,6 @@ module Test.Pos.Core.ExampleHelpers
 
 import           Universum
 
-import qualified Crypto.SCRAPE as Scrape
-import           Data.Coerce (coerce)
 import           Data.Fixed (Fixed (..))
 import qualified Data.HashMap.Strict as HM
 import           Data.List ((!!))
@@ -75,25 +60,18 @@ import qualified Hedgehog as H
 import           Serokell.Data.Memory.Units (Byte)
 
 import qualified Cardano.Crypto.Wallet as CC
-import           Pos.Binary.Class (Raw (..), asBinary)
+import           Pos.Binary.Class (Raw (..))
 import           Pos.Core.Attributes (Attributes, mkAttributes)
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                      AddrStakeDistribution (..), Address (..), BlockCount (..),
                      ChainDifficulty (..), Coeff (..), Coin (..),
                      CoinPortion (..), Script (..), ScriptVersion,
                      SharedSeed (..), SlotLeaders, StakeholderId, StakesList,
-                     TxFeePolicy (..), TxSizeLinear (..), addressHash,
+                     TxFeePolicy (..), TxSizeLinear (..),
                      coinPortionDenominator, makeAddress, mkMultiKeyDistr)
 import           Pos.Core.ProtocolConstants (ProtocolConstants, pcEpochSlots)
 import           Pos.Core.Slotting (EpochIndex (..), FlatSlotId,
                      LocalSlotIndex (..), SlotCount, SlotId (..))
-import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap,
-                     InnerSharesMap, Opening, OpeningsMap, SharesDistribution,
-                     SignedCommitment, SscPayload (..), SscProof (..),
-                     VssCertificate (..), VssCertificatesHash,
-                     VssCertificatesMap (..), mkCommitmentsMap,
-                     mkVssCertificate, mkVssCertificatesMap,
-                     randCommitmentAndOpening)
 import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
                      BlockVersionData (..), BlockVersionModifier (..),
                      SoftforkRule (..), SoftwareVersion (..), SystemTag (..),
@@ -101,12 +79,10 @@ import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
                      UpdateProof, UpdateProposal, UpdateProposalToSign (..),
                      UpdateVote (..), VoteId, mkUpdateProof,
                      mkUpdateProposalWSign, mkUpdateVoteSafe)
-import           Pos.Crypto (EncShare (..), HDAddressPayload (..),
-                     ProtocolMagic (..), RedeemPublicKey, SafeSigner (..),
-                     Secret (..), SecretKey (..), SecretProof (..),
-                     SignTag (..), VssKeyPair, VssPublicKey (..), abstractHash,
-                     decryptShare, deterministic, deterministicVssKeyGen, hash,
-                     redeemDeterministicKeyGen, sign, toVssPublicKey)
+import           Pos.Crypto (HDAddressPayload (..), ProtocolMagic (..),
+                     RedeemPublicKey, SafeSigner (..), SecretKey (..),
+                     VssPublicKey (..), abstractHash, deterministicVssKeyGen,
+                     hash, redeemDeterministicKeyGen, toVssPublicKey)
 import           Pos.Crypto.Signing (PublicKey (..))
 
 import           Test.Pos.Core.Gen (genProtocolConstants)
@@ -173,74 +149,17 @@ exampleBlockVersionData = BlockVersionData
 exampleChainDifficulty :: ChainDifficulty
 exampleChainDifficulty = ChainDifficulty (BlockCount 9999)
 
-exampleCommitment :: Commitment
-exampleCommitment = fst exampleCommitmentOpening
-
-exampleCommitmentOpening :: (Commitment, Opening)
-exampleCommitmentOpening =
-  let numKeys   = 128 :: Int
-      -- parties   = 20 :: Integer
-      threshold = 15 :: Integer
-      vssKeys   = replicate numKeys exampleVssPublicKey
-  in  deterministic "commitmentOpening"
-      $ randCommitmentAndOpening threshold (fromList vssKeys)
-
-exampleCommitmentSignature :: CommitmentSignature
-exampleCommitmentSignature =
-    sign
-      (ProtocolMagic 0)
-      SignForTestingOnly
-      exampleSecretKey
-      (exampleEpochIndex, exampleCommitment)
-
-exampleCommitmentsMap :: CommitmentsMap
-exampleCommitmentsMap =
-    let numCommitments = 1
-        signedCommitments = replicate numCommitments exampleSignedCommitment
-    in  mkCommitmentsMap signedCommitments
-
 exampleEpochIndex :: EpochIndex
 exampleEpochIndex = EpochIndex 14
 
-exampleOpening :: Opening
-exampleOpening = snd exampleCommitmentOpening
-
-exampleOpeningsMap :: OpeningsMap
-exampleOpeningsMap =
-    let mapSize = 1
-        stakeholderIds = replicate mapSize exampleStakeholderId
-        openings = replicate mapSize exampleOpening
-    in  HM.fromList $ zip stakeholderIds openings
-
 exampleSafeSigner :: Int -> SafeSigner
 exampleSafeSigner offset = staticSafeSigners!!offset
-
-exampleSharesDistribution :: SharesDistribution
-exampleSharesDistribution =
-    let mapSize = 1
-        stakeholderIds = replicate mapSize exampleStakeholderId
-        word16s = [1337]
-    in  HM.fromList $ zip stakeholderIds word16s
-
-exampleSignedCommitment :: SignedCommitment
-exampleSignedCommitment =
-    (examplePublicKey, exampleCommitment, exampleCommitmentSignature)
 
 exampleStakeholderId :: StakeholderId
 exampleStakeholderId = abstractHash examplePublicKey :: StakeholderId
 
 exampleStakeholderIds :: Int -> Int -> [StakeholderId]
 exampleStakeholderIds offset l = map abstractHash $ examplePublicKeys offset l
-
-exampleVssKeyPairs :: Int -> Int -> [VssKeyPair]
-exampleVssKeyPairs offset count = map (toPair . (*offset)) [0..count]
-    where
-        toPair start = deterministicVssKeyGen (getBytes start 32)
-
-exampleVssPublicKey :: VssPublicKey
-exampleVssPublicKey = toVssPublicKey mkVssKeyPair
-  where
-    mkVssKeyPair = deterministicVssKeyGen $ (getBytes 0 32)
 
 exampleVssPublicKeys :: Int -> Int -> [VssPublicKey]
 exampleVssPublicKeys offset count = map (toKey . (*offset)) [0..count]
@@ -298,45 +217,6 @@ exampleSecretKeys offset count = map (toKey . (*offset)) [0..count-1]
   where
     toKey start = let Right sk = SecretKey <$> CC.xprv (getBytes start 128)
                    in sk
-
--- Lifted from genSharedSecret in `Pos.Crypto.SecretSharing`.
--- added `deterministic` in third guard.
-
-exampleSharedSecret
-    :: Scrape.Threshold -> NonEmpty VssPublicKey -> (Secret, SecretProof, [(VssPublicKey, EncShare)])
-exampleSharedSecret t ps
-    | t <= 1     = error "genSharedSecret: threshold must be > 1"
-    | t >= n - 1 = error "genSharedSecret: threshold must be > n-1"
-    | otherwise  = convertRes . deterministic "ss" $ Scrape.escrow t (coerce sorted)
-  where
-    n = fromIntegral (length ps)
-    sorted = sort (toList ps)
-    convertRes (gen, secret, shares, comms, proof, pproofs) =
-        (coerce secret,
-         SecretProof gen proof pproofs comms,
-         zip sorted (coerce shares))
-
--- Not sure why you don't use `VssPublicKey` for the `InnerSharesMap`
--- as you use `VssPublicKey`s to generate `DecShare`s.
-
-exampleInnerSharesMap :: Scrape.Threshold -> Int -> InnerSharesMap
-exampleInnerSharesMap count offset =
-    HM.fromList $ zipWith
-                      (\x y -> ((addressHash x), fromList [asBinary y]))
-                          (pubKeys)
-                          (decShares)
-        where
-          -- generate VssPublicKey and VssSecretKey pairs.
-          vssKeyPairs = exampleVssKeyPairs offset $ fromIntegral (count+1)
-          -- generate SharedSecrets from the VssPublicKeys generated above.
-          ss = exampleSharedSecret (count) (fromList $ map toVssPublicKey vssKeyPairs)
-          -- filter `VssPublicKeys`s and their corresponding `EncShare`s.
-          encShares (_, _, pKeSlist) = map snd pKeSlist
-          -- generate `PublicKey`s
-          pubKeys = examplePublicKeys 1 $ fromIntegral (count+1)
-          -- generate `DecShares`
-          decShares =
-            [deterministic "ss" $ decryptShare pr es | pr <- vssKeyPairs, es <- encShares ss]
 
 exampleScript :: Script
 exampleScript = Script 601 (getBytes 4 32)
@@ -409,32 +289,6 @@ exampleUpdateVote = mkUpdateVoteSafe pm ss ui ar
 exampleVoteId :: VoteId
 exampleVoteId = (exampleUpId, examplePublicKey, False)
 
-exampleVssCertificate :: VssCertificate
-exampleVssCertificate =
-    mkVssCertificate
-        (ProtocolMagic 0)
-        exampleSecretKey
-        (asBinary (toVssPublicKey $ deterministicVssKeyGen ("golden" :: ByteString)))
-        (EpochIndex 11)
-
-exampleVssCertificates :: Int -> Int -> [VssCertificate]
-exampleVssCertificates offset num =  map vssCert [0..num-1]
-    where
-        secretKeyList = (exampleSecretKeys offset num)
-        vssCert index = mkVssCertificate
-                           (ProtocolMagic 0)
-                           (secretKeyList !! index)
-                           (asBinary (toVssPublicKey $ deterministicVssKeyGen (getBytes index 128)))
-                           (EpochIndex 122)
-
-exampleVssCertificatesMap :: Int -> Int -> VssCertificatesMap
-exampleVssCertificatesMap offset num = mkVssCertificatesMap $ exampleVssCertificates offset num
-
-
-exampleVssCertificatesHash :: Int -> Int -> VssCertificatesHash
-exampleVssCertificatesHash offset len =
-    hash . getVssCertificatesMap $ exampleVssCertificatesMap offset len
-
 staticSafeSigners :: [SafeSigner]
 staticSafeSigners = map FakeSigner (exampleSecretKeys 1 6)
 
@@ -454,15 +308,6 @@ getText offset len = T.take len $ T.drop offset staticText
 
 exampleSoftwareVersion :: SoftwareVersion
 exampleSoftwareVersion = SoftwareVersion (ApplicationName "Golden") 99
-
-exampleSscProof :: SscProof
-exampleSscProof = CommitmentsProof (hash exampleCommitmentsMap)
-                                   (exampleVssCertificatesHash 10 4)
-
-exampleSscPayload :: SscPayload
-exampleSscPayload = SharesPayload exampleSharesMap (exampleVssCertificatesMap 10 4)
-  where
-    exampleSharesMap = HM.fromList $ [(exampleStakeholderId, exampleInnerSharesMap 3 1)]
 
 exampleAddress :: Address
 exampleAddress = makeAddress exampleAddrSpendingData_PubKey attrs

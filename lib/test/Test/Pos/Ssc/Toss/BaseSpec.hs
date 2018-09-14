@@ -22,21 +22,20 @@ import           Test.QuickCheck (Arbitrary (..), Gen, NonEmptyList (..),
 
 import           Pos.Binary (AsBinary)
 import           Pos.Chain.Lrc (RichmenStakes)
-import           Pos.Chain.Ssc (MultiRichmenStakes, PureTossWithEnv,
-                     SscGlobalState (..), SscVerifyError (..),
-                     VssCertData (..), checkCertificatesPayload,
-                     checkCommitmentsPayload, checkOpeningsPayload,
-                     checkSharesPayload, deleteSignedCommitment, runPureToss,
-                     sgsCommitments, sgsOpenings, sgsShares,
+import           Pos.Chain.Ssc (Commitment, CommitmentSignature,
+                     CommitmentsMap (..), InnerSharesMap, MultiRichmenStakes,
+                     Opening, OpeningsMap, PureTossWithEnv, SharesMap,
+                     SignedCommitment, SscGlobalState (..),
+                     SscVerifyError (..), VssCertData (..),
+                     VssCertificate (..), VssCertificatesMap (..),
+                     checkCertificatesPayload, checkCommitmentsPayload,
+                     checkOpeningsPayload, checkSharesPayload,
+                     deleteSignedCommitment, insertVss, mkCommitmentsMapUnsafe,
+                     runPureToss, sgsCommitments, sgsOpenings, sgsShares,
                      sgsVssCertificates, supplyPureTossEnv, verifyCommitment,
-                     verifyCommitmentSignature, verifyOpening)
+                     verifyCommitmentSignature, verifyOpening, _vcVssKey)
 import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), StakeholderId,
                      addressHash, crucialSlot, mkCoin)
-import           Pos.Core.Ssc (Commitment, CommitmentSignature,
-                     CommitmentsMap (..), InnerSharesMap, Opening, OpeningsMap,
-                     SharesMap, SignedCommitment, VssCertificate (..),
-                     VssCertificatesMap (..), insertVss,
-                     mkCommitmentsMapUnsafe, _vcVssKey)
 import           Pos.Crypto (DecShare, PublicKey, SecretKey,
                      SignTag (SignCommitment), sign, toPublic)
 import           Test.Pos.Chain.Lrc.Arbitrary (GenesisMpcThd,

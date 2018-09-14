@@ -131,6 +131,8 @@ import           Pos.Chain.Block.Main.Types (BlockBodyAttributes,
 import           Pos.Chain.Delegation.HeavyDlgIndex (ProxySigHeavy)
 import           Pos.Chain.Delegation.LightDlgIndices (ProxySigLight)
 import           Pos.Chain.Delegation.Payload (DlgPayload)
+import           Pos.Chain.Ssc.Payload (SscPayload)
+import           Pos.Chain.Ssc.Proof (mkSscProof)
 import           Pos.Chain.Txp.Tx (Tx)
 import           Pos.Chain.Txp.TxPayload (TxPayload, txpTxs, txpWitnesses)
 import           Pos.Chain.Txp.TxProof (mkTxProof)
@@ -138,7 +140,6 @@ import           Pos.Chain.Txp.TxWitness (TxWitness)
 import           Pos.Core.Common (ChainDifficulty, HasDifficulty (..))
 import           Pos.Core.Slotting (EpochOrSlot (..), HasEpochIndex (..),
                      HasEpochOrSlot (..), SlotId (..), slotIdF)
-import           Pos.Core.Ssc (SscPayload, mkSscProof)
 import           Pos.Core.Update (BlockVersion, HasBlockVersion (..),
                      HasSoftwareVersion (..), SoftwareVersion, UpdatePayload,
                      mkUpdateProof)

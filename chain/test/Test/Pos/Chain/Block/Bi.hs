@@ -30,13 +30,14 @@ import           Test.Pos.Binary.Helpers.GoldenRoundTrip (goldenTestBi,
 import           Test.Pos.Chain.Block.Gen
 import           Test.Pos.Chain.Delegation.Example (exampleLightDlgIndices,
                      staticHeavyDlgIndexes, staticProxySKHeavys)
+import           Test.Pos.Chain.Ssc.Example (exampleSscPayload, exampleSscProof)
 import           Test.Pos.Chain.Txp.Example (exampleTxPayload, exampleTxProof)
 import           Test.Pos.Core.ExampleHelpers (exampleBlockVersion,
                      exampleChainDifficulty, exampleEpochIndex,
                      examplePublicKey, exampleSecretKey, exampleSecretKeys,
                      exampleSlotId, exampleSlotLeaders, exampleSoftwareVersion,
-                     exampleSscPayload, exampleSscProof, exampleUpdatePayload,
-                     exampleUpdateProof, feedPM, feedPMEpochSlots)
+                     exampleUpdatePayload, exampleUpdateProof, feedPM,
+                     feedPMEpochSlots)
 import           Test.Pos.Util.Golden (discoverGolden, eachOf)
 import           Test.Pos.Util.Tripping (discoverRoundTrip)
 

@@ -50,17 +50,23 @@ import           Pos.Binary.Class (AsBinary, fromBinary)
 import           Pos.Chain.Genesis as Genesis (Config)
 import           Pos.Chain.Lrc (RichmenSet, RichmenStakes)
 import           Pos.Chain.Ssc.Base (verifyOpening, vssThreshold)
+import           Pos.Chain.Ssc.Commitment (Commitment (..), SignedCommitment,
+                     commShares, getCommShares)
+import           Pos.Chain.Ssc.CommitmentsMap
+                     (CommitmentsMap (getCommitmentsMap))
 import           Pos.Chain.Ssc.Error (SscVerifyError (..))
+import           Pos.Chain.Ssc.Opening (Opening (..))
+import           Pos.Chain.Ssc.OpeningsMap (OpeningsMap)
+import           Pos.Chain.Ssc.Payload (SscPayload (..), spVss)
+import           Pos.Chain.Ssc.SharesDistribution (SharesDistribution)
+import           Pos.Chain.Ssc.SharesMap (InnerSharesMap, SharesMap)
 import           Pos.Chain.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..),
                      MonadTossRead (..))
+import           Pos.Chain.Ssc.VssCertificate (vcSigningKey, vcVssKey)
+import           Pos.Chain.Ssc.VssCertificatesMap (VssCertificatesMap (..),
+                     lookupVss, memberVss)
 import           Pos.Core (CoinPortion, EpochIndex, StakeholderId, addressHash,
                      coinPortionDenominator, getCoinPortion, unsafeGetCoin)
-import           Pos.Core.Ssc (Commitment (..),
-                     CommitmentsMap (getCommitmentsMap), InnerSharesMap,
-                     Opening (..), OpeningsMap, SharesDistribution, SharesMap,
-                     SignedCommitment, SscPayload (..),
-                     VssCertificatesMap (..), commShares, getCommShares,
-                     lookupVss, memberVss, spVss, vcSigningKey, vcVssKey)
 import           Pos.Core.Update (bvdMpcThd)
 import           Pos.Crypto (DecShare, verifyDecShare, verifyEncShares)
 import           Pos.Util.Util (getKeys)

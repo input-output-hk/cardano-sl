@@ -20,6 +20,8 @@ import           Pos.Chain.Block (Block, BlockHeader (..),
                      MainConsensusData (..), MainExtraBodyData (..),
                      MainExtraHeaderData (..), MainProof (..))
 import           Pos.Chain.Delegation (DlgPayload (..))
+import           Pos.Chain.Ssc (SscPayload (..), SscProof (..),
+                     VssCertificatesMap (..))
 import           Pos.Chain.Txp (TxProof (..), emptyTxPayload)
 import           Pos.Core (StakeholderId, TxFeePolicy (..),
                      unsafeCoinPortionFromDouble)
@@ -29,8 +31,6 @@ import           Pos.Core.Common (BlockCount (..), ChainDifficulty (..))
 import           Pos.Core.Merkle (MerkleRoot (..))
 import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..),
                      SlotId (..))
-import           Pos.Core.Ssc (SscPayload (..), SscProof (..),
-                     VssCertificatesMap (..))
 import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
                      BlockVersionData (..), SoftforkRule (..),
                      SoftwareVersion (..), UpdatePayload (..), UpdateProof)

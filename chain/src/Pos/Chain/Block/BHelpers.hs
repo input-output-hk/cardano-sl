@@ -32,10 +32,9 @@ import           Pos.Chain.Block.Union (Block, BlockHeader (..),
                      mainBlockEBDataProof)
 import           Pos.Chain.Delegation (LightDlgIndices (..), checkDlgPayload)
 import           Pos.Chain.Genesis as Genesis (Config (..))
-import           Pos.Chain.Ssc (verifySscPayload)
+import           Pos.Chain.Ssc (checkSscPayload, verifySscPayload)
 import           Pos.Chain.Txp (checkTxPayload)
 import           Pos.Core.Slotting (SlotId (..))
-import           Pos.Core.Ssc (checkSscPayload)
 import           Pos.Core.Update (checkSoftwareVersion, checkUpdatePayload)
 import           Pos.Crypto (ProtocolMagic, ProxySignature (..), SignTag (..),
                      checkSig, hash, isSelfSignedPsk, proxyVerify)

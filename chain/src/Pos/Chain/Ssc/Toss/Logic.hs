@@ -20,21 +20,25 @@ import qualified Data.HashMap.Strict as HM
 import           Pos.Chain.Block.Union (IsMainHeader, headerSlotL)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configSlotSecurityParam)
+import           Pos.Chain.Ssc.Commitment (SignedCommitment)
+import           Pos.Chain.Ssc.CommitmentsMap (CommitmentsMap (..),
+                     getCommitmentsMap, mkCommitmentsMapUnsafe)
 import           Pos.Chain.Ssc.Error (SscVerifyError (..))
 import           Pos.Chain.Ssc.Functions (verifySscPayload)
+import           Pos.Chain.Ssc.Opening (Opening)
+import           Pos.Chain.Ssc.Payload (SscPayload (..), checkSscPayload, spVss)
+import           Pos.Chain.Ssc.SharesMap (InnerSharesMap)
 import           Pos.Chain.Ssc.Toss.Base (checkPayload)
 import           Pos.Chain.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..))
 import           Pos.Chain.Ssc.Toss.Types (TossModifier (..))
+import           Pos.Chain.Ssc.VssCertificate (VssCertificate)
+import           Pos.Chain.Ssc.VssCertificatesMap (getVssCertificatesMap,
+                     mkVssCertificatesMapSingleton)
 import           Pos.Core (EpochIndex, EpochOrSlot (..), LocalSlotIndex,
                      SlotCount, SlotId (siSlot), StakeholderId, epochIndexL,
                      epochOrSlot, epochOrSlotPred, epochOrSlotToEnum,
                      getEpochOrSlot, getSlotIndex, mkCoin)
 import           Pos.Core.Chrono (NewestFirst (..))
-import           Pos.Core.Ssc (CommitmentsMap (..), InnerSharesMap, Opening,
-                     SignedCommitment, SscPayload (..), VssCertificate,
-                     checkSscPayload, getCommitmentsMap, getVssCertificatesMap,
-                     mkCommitmentsMapUnsafe, mkVssCertificatesMapSingleton,
-                     spVss)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Some (Some)
 import           Pos.Util.Util (sortWithMDesc)

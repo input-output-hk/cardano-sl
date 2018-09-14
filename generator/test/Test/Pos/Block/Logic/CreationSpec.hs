@@ -19,13 +19,13 @@ import           Test.QuickCheck (Gen, Property, Testable, arbitrary, choose,
 import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (BlockHeader, MainBlock)
 import           Pos.Chain.Delegation (DlgPayload, ProxySKBlockInfo)
-import           Pos.Chain.Ssc (defaultSscPayload)
+import           Pos.Chain.Ssc (SscPayload (..), defaultSscPayload,
+                     mkVssCertificatesMapLossy)
 import           Pos.Chain.Txp (TxAux)
 import           Pos.Chain.Update (HasUpdateConfiguration)
 import qualified Pos.Communication ()
 import           Pos.Core (SlotId (..), localSlotIndexMinBound,
                      unsafeMkLocalSlotIndex)
-import           Pos.Core.Ssc (SscPayload (..), mkVssCertificatesMapLossy)
 import           Pos.Core.Update (BlockVersionData (..), UpdatePayload (..))
 import           Pos.Crypto (SecretKey)
 import           Pos.DB.Block (RawPayload (..), createMainBlockPure)

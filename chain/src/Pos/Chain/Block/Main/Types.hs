@@ -23,10 +23,11 @@ import qualified Formatting.Buildable as Buildable
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
                      deriveSimpleBi, encodeListLen, enforceSize)
 import           Pos.Chain.Delegation.Payload (DlgPayload)
+import           Pos.Chain.Ssc.Payload (SscPayload)
+import           Pos.Chain.Ssc.Proof (SscProof)
 import           Pos.Chain.Txp.TxPayload (TxPayload)
 import           Pos.Chain.Txp.TxProof (TxProof)
 import           Pos.Core.Attributes (Attributes, areAttributesKnown)
-import           Pos.Core.Ssc (SscPayload, SscProof)
 import           Pos.Core.Update (BlockVersion, SoftwareVersion, UpdatePayload,
                      UpdateProof)
 import           Pos.Crypto (Hash)

@@ -35,8 +35,9 @@ import           System.Random (newStdGen)
 import           Pos.Chain.Block (Block, BlockHeader, HeaderHash,
                      MainBlockHeader)
 import           Pos.Chain.Delegation (ProxySKHeavy)
-import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
-                     MCShares (..), MCVssCertificate (..))
+import           Pos.Chain.Ssc (InnerSharesMap, MCCommitment (..),
+                     MCOpening (..), MCShares (..), MCVssCertificate (..),
+                     Opening, SignedCommitment, VssCertificate)
 import           Pos.Chain.Txp (TxAux)
 import           Pos.Communication (EnqueueMsg, HandlerSpecs, InSpecs (..),
                      InvOrDataTK, Listener, MkListeners (..), Msg,
@@ -47,8 +48,6 @@ import           Pos.Communication (EnqueueMsg, HandlerSpecs, InSpecs (..),
 import           Pos.Core (ProtocolConstants (..), StakeholderId)
 import           Pos.Core.Chrono (OldestFirst)
 import           Pos.Core.Metrics.Constants (withCardanoNamespace)
-import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
-                     VssCertificate)
 import           Pos.Core.Update (BlockVersion, BlockVersionData (..), UpId,
                      UpdateProposal, UpdateVote)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))

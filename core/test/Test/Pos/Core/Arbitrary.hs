@@ -19,7 +19,6 @@ module Test.Pos.Core.Arbitrary
        , SafeCoinPairSub (..)
        , UnreasonableEoS (..)
 
-       , genVssCertificate
        , genSlotId
        , genLocalSlotIndex
        ) where
@@ -54,17 +53,13 @@ import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
 import           Pos.Core.Constants (sharedSeedLength)
 import           Pos.Core.Merkle (MerkleTree, mkMerkleTree)
 import           Pos.Core.ProtocolConstants (pcEpochSlots)
-import           Pos.Core.Ssc (VssCertificate, mkVssCertificate)
 import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
                      BlockVersionData (..), SoftforkRule (..),
                      SoftwareVersion (..), applicationNameMaxLength)
-import           Pos.Crypto (ProtocolMagic)
 import           Pos.Util.Util (leftToPanic)
 
 import           Test.Pos.Core.Dummy (dummyProtocolConstants)
 import           Test.Pos.Crypto.Arbitrary ()
-import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
-import           Test.Pos.Util.Orphans ()
 
 
 {- NOTE: Deriving an 'Arbitrary' instance
@@ -509,20 +504,6 @@ instance Arbitrary Timestamp where
     shrink = shrinkIntegral
 
 deriving instance Arbitrary TimeDiff
-
-----------------------------------------------------------------------------
--- SSC
-----------------------------------------------------------------------------
-
-genVssCertificate :: ProtocolMagic -> Gen VssCertificate
-genVssCertificate pm =
-    mkVssCertificate pm <$> arbitrary -- secret key
-                        <*> arbitrary -- AsBinary VssPublicKey
-                        <*> arbitrary -- EpochIndex
-
-instance Arbitrary VssCertificate where
-    arbitrary = genVssCertificate dummyProtocolMagic
-    -- The 'shrink' method wasn't implement to avoid breaking the datatype's invariant.
 
 ----------------------------------------------------------------------------
 -- Merkle

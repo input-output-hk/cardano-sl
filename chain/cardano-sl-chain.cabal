@@ -108,24 +108,35 @@ library
                        Pos.Chain.Security.Util
 
                        Pos.Chain.Ssc.Base
+                       Pos.Chain.Ssc.Behavior
+                       Pos.Chain.Ssc.Commitment
+                       Pos.Chain.Ssc.CommitmentAndOpening
+                       Pos.Chain.Ssc.CommitmentsMap
+                       Pos.Chain.Ssc.Configuration
                        Pos.Chain.Ssc.Error
                        Pos.Chain.Ssc.Error.Seed
                        Pos.Chain.Ssc.Error.Verify
-                       Pos.Chain.Ssc.Types
-                       Pos.Chain.Ssc.Message
-                       Pos.Chain.Ssc.Mem
                        Pos.Chain.Ssc.Functions
-                       Pos.Chain.Ssc.VssCertData
+                       Pos.Chain.Ssc.Mem
+                       Pos.Chain.Ssc.Message
+                       Pos.Chain.Ssc.Opening
+                       Pos.Chain.Ssc.OpeningsMap
+                       Pos.Chain.Ssc.Payload
+                       Pos.Chain.Ssc.Proof
                        Pos.Chain.Ssc.Seed
-                       Pos.Chain.Ssc.Configuration
-                       Pos.Chain.Ssc.Behavior
                        Pos.Chain.Ssc.Shares
+                       Pos.Chain.Ssc.SharesDistribution
+                       Pos.Chain.Ssc.SharesMap
                        Pos.Chain.Ssc.Toss
                        Pos.Chain.Ssc.Toss.Logic
                        Pos.Chain.Ssc.Toss.Pure
                        Pos.Chain.Ssc.Toss.Base
                        Pos.Chain.Ssc.Toss.Class
                        Pos.Chain.Ssc.Toss.Types
+                       Pos.Chain.Ssc.Types
+                       Pos.Chain.Ssc.VssCertData
+                       Pos.Chain.Ssc.VssCertificate
+                       Pos.Chain.Ssc.VssCertificatesMap
 
                        Pos.Chain.Update.BlockVersion
                        Pos.Chain.Update.Configuration
@@ -158,6 +169,7 @@ library
                      , ekg-core
                      , ether
                      , exceptions
+                     , extra
                      , filepath
                      , fmt >= 0.4
                      , formatting
@@ -237,9 +249,12 @@ test-suite test
                        Test.Pos.Chain.Genesis.Gen
                        Test.Pos.Chain.Genesis.Json
                        Test.Pos.Chain.Lrc.FtsSpec
+                       Test.Pos.Chain.Ssc.Arbitrary
+                       Test.Pos.Chain.Ssc.Bi
+                       Test.Pos.Chain.Ssc.CborSpec
+                       Test.Pos.Chain.Ssc.Example
                        Test.Pos.Chain.Ssc.Gen
                        Test.Pos.Chain.Ssc.Json
-                       Test.Pos.Chain.Ssc.Arbitrary
                        Test.Pos.Chain.Txp.Arbitrary
                        Test.Pos.Chain.Txp.Arbitrary.Unsafe
                        Test.Pos.Chain.Txp.Bi
@@ -273,6 +288,7 @@ test-suite test
                      , hspec
                      , lens
                      , mtl
+                     , pvss
                      , QuickCheck
                      , random
                      , serokell-util

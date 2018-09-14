@@ -26,15 +26,16 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlkSecurityParam, configVssCerts)
 import           Pos.Chain.Ssc.Base (checkCertTTL, isCommitmentId, isOpeningId,
                      isSharesId, verifySignedCommitment, vssThreshold)
+import           Pos.Chain.Ssc.CommitmentsMap (CommitmentsMap (..))
 import           Pos.Chain.Ssc.Error (SscVerifyError (..))
+import           Pos.Chain.Ssc.Payload (SscPayload (..))
 import           Pos.Chain.Ssc.Toss.Base (verifyEntriesGuardM)
 import           Pos.Chain.Ssc.Types (SscGlobalState (..))
 import qualified Pos.Chain.Ssc.VssCertData as VCD
+import           Pos.Chain.Ssc.VssCertificatesMap (VssCertificatesMap)
 import           Pos.Core (EpochIndex (..), SlotId (..), StakeholderId,
                      pcBlkSecurityParam)
 import           Pos.Core.Slotting (crucialSlot)
-import           Pos.Core.Ssc (CommitmentsMap (..), SscPayload (..),
-                     VssCertificatesMap)
 import           Pos.Util.Some (Some)
 
 ----------------------------------------------------------------------------

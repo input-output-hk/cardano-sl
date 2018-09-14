@@ -38,11 +38,12 @@ import           Pos.Crypto (ProtocolMagic)
 
 import           Test.Pos.Chain.Delegation.Gen (genDlgPayload, genHeavyDlgIndex,
                      genLightDlgIndices)
+import           Test.Pos.Chain.Ssc.Gen (genSscPayload, genSscProof)
 import           Test.Pos.Chain.Txp.Gen (genTxPayload, genTxProof)
 import           Test.Pos.Core.Gen (genBlockVersion, genChainDifficulty,
                      genEpochIndex, genSlotId, genSlotLeaders,
-                     genSoftwareVersion, genSscPayload, genSscProof,
-                     genTextHash, genUpdatePayload, genUpdateProof)
+                     genSoftwareVersion, genTextHash, genUpdatePayload,
+                     genUpdateProof)
 import           Test.Pos.Crypto.Gen (genAbstractHash, genProxySignature,
                      genPublicKey, genSecretKey, genSignature)
 

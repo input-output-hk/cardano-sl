@@ -19,10 +19,10 @@ import           System.Metrics.Gauge (Gauge)
 import           Pos.Chain.Block (Block, BlockHeader, HeaderHash,
                      MainBlockHeader)
 import           Pos.Chain.Delegation (ProxySKHeavy)
+import           Pos.Chain.Ssc (InnerSharesMap, Opening, SignedCommitment,
+                     VssCertificate)
 import           Pos.Chain.Txp (TxAux)
 import           Pos.Core.Chrono (OldestFirst (..))
-import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
-                     VssCertificate)
 import           Pos.Core.Update (UpId, UpdateProposal, UpdateVote)
 import           Pos.Infra.Communication.Types.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates,

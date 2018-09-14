@@ -7,6 +7,7 @@ import           Spec (spec)
 import qualified Test.Pos.Chain.Block.Bi
 import qualified Test.Pos.Chain.Delegation.Bi
 import qualified Test.Pos.Chain.Genesis.Json
+import qualified Test.Pos.Chain.Ssc.Bi
 import qualified Test.Pos.Chain.Ssc.Json
 import qualified Test.Pos.Chain.Txp.Bi
 import qualified Test.Pos.Chain.Txp.Json
@@ -19,6 +20,7 @@ main = do
         [ Test.Pos.Chain.Block.Bi.tests
         , Test.Pos.Chain.Delegation.Bi.tests
         , Test.Pos.Chain.Genesis.Json.tests
+        , Test.Pos.Chain.Ssc.Bi.tests
         , Test.Pos.Chain.Ssc.Json.tests
         , Test.Pos.Chain.Txp.Bi.tests
         , Test.Pos.Chain.Txp.Json.tests

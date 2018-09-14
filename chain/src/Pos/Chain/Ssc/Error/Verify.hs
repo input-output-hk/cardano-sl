@@ -11,8 +11,8 @@ import           Formatting (bprint, build, ords, stext, (%))
 import qualified Formatting.Buildable
 import           Serokell.Util (listJson)
 
+import           Pos.Chain.Ssc.VssCertificate (VssCertificate)
 import           Pos.Core (EpochIndex, SlotId, StakeholderId)
-import           Pos.Core.Ssc (VssCertificate)
 
 type NEStIds = NonEmpty StakeholderId
 

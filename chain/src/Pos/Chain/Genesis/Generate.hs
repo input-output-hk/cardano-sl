@@ -31,6 +31,9 @@ import           Serokell.Util.Verify (VerificationRes (..), formatAllErrors,
 
 import           Pos.Binary.Class (asBinary, serialize')
 import           Pos.Chain.Delegation (HeavyDlgIndex (..), ProxySKHeavy)
+import           Pos.Chain.Ssc.VssCertificate (VssCertificate, mkVssCertificate)
+import           Pos.Chain.Ssc.VssCertificatesMap (VssCertificatesMap,
+                     mkVssCertificatesMap)
 import           Pos.Core.Common (Address, Coin, IsBootstrapEraAddr (..),
                      StakeholderId, addressHash, applyCoinPortionDown,
                      coinToInteger, deriveFirstHDAddress,
@@ -38,8 +41,6 @@ import           Pos.Core.Common (Address, Coin, IsBootstrapEraAddr (..),
                      unsafeIntegerToCoin)
 import           Pos.Core.ProtocolConstants (ProtocolConstants, vssMaxTTL,
                      vssMinTTL)
-import           Pos.Core.Ssc (VssCertificate, VssCertificatesMap,
-                     mkVssCertificate, mkVssCertificatesMap)
 import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic, RedeemPublicKey,
                      SecretKey, VssKeyPair, createPsk, deterministic,
                      emptyPassphrase, encToSecret, keyGen, noPassEncrypt,

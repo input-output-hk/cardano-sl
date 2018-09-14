@@ -1,4 +1,4 @@
-module Pos.Core.Ssc.SharesMap
+module Pos.Chain.Ssc.SharesMap
        ( SharesMap
        , InnerSharesMap
        ) where

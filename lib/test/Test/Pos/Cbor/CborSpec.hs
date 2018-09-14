@@ -23,6 +23,7 @@ import           Test.QuickCheck (Arbitrary (..))
 
 import           Pos.Binary.Communication ()
 import           Pos.Chain.Delegation (DlgPayload, DlgUndo, ProxySKHeavy)
+import           Pos.Chain.Ssc (VssCertificate)
 import qualified Pos.Chain.Ssc as Ssc
 import           Pos.Chain.Txp (TxMsgContents (..))
 import qualified Pos.Chain.Txp as T
@@ -31,8 +32,6 @@ import qualified Pos.Communication as C
 import           Pos.Communication.Limits (mlOpening, mlUpdateVote,
                      mlVssCertificate)
 import           Pos.Core (StakeholderId)
-import           Pos.Core.Ssc (VssCertificate)
-import qualified Pos.Core.Ssc as Ssc
 import           Pos.Crypto.Signing (EncryptedSecretKey)
 import           Pos.Infra.Communication.Limits.Instances (mlDataMsg, mlInvMsg,
                      mlMempoolMsg, mlReqMsg)

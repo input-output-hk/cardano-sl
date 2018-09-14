@@ -15306,6 +15306,7 @@ license = stdenv.lib.licenses.mit;
 , ekg-core
 , ether
 , exceptions
+, extra
 , filepath
 , fmt
 , formatting
@@ -15323,6 +15324,7 @@ license = stdenv.lib.licenses.mit;
 , neat-interpolation
 , parsec
 , plutus-prototype
+, pvss
 , QuickCheck
 , random
 , reflection
@@ -15372,6 +15374,7 @@ deepseq
 ekg-core
 ether
 exceptions
+extra
 filepath
 fmt
 formatting
@@ -15423,6 +15426,7 @@ hedgehog
 hspec
 lens
 mtl
+pvss
 QuickCheck
 random
 serokell-util
@@ -15477,6 +15481,7 @@ license = stdenv.lib.licenses.mit;
 , formatting
 , generic-arbitrary
 , hedgehog
+, pvss
 , QuickCheck
 , random
 , reflection
@@ -15516,6 +15521,7 @@ data-default
 formatting
 generic-arbitrary
 hedgehog
+pvss
 QuickCheck
 random
 reflection
@@ -16040,6 +16046,7 @@ license = stdenv.lib.licenses.mit;
 , bytestring
 , cardano-sl-binary
 , cardano-sl-chain
+, cardano-sl-chain-test
 , cardano-sl-core
 , cardano-sl-core-test
 , cardano-sl-crypto
@@ -16134,6 +16141,7 @@ cpphs
 testHaskellDepends = [
 base
 cardano-sl-binary
+cardano-sl-chain-test
 cardano-sl-core
 cardano-sl-core-test
 cardano-sl-util

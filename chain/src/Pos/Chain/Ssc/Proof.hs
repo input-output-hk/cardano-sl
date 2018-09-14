@@ -1,4 +1,4 @@
-module Pos.Core.Ssc.Proof
+module Pos.Chain.Ssc.Proof
        ( SscProof (..)
        , mkSscProof
        , VssCertificatesHash
@@ -10,17 +10,16 @@ import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Fmt (genericF)
 import qualified Formatting.Buildable as Buildable
 
-import           Pos.Binary.Class (Bi, Cons (..), Field (..), deriveIndexedBi)
+import           Pos.Binary.Class (Cons (..), Field (..), deriveIndexedBi)
 import           Pos.Core.Common (StakeholderId)
 import           Pos.Crypto (Hash, hash)
 
-import           Pos.Core.Ssc.CommitmentsMap
-import           Pos.Core.Ssc.Opening
-import           Pos.Core.Ssc.OpeningsMap
-import           Pos.Core.Ssc.Payload
-import           Pos.Core.Ssc.SharesMap
-import           Pos.Core.Ssc.VssCertificate
-import           Pos.Core.Ssc.VssCertificatesMap
+import           Pos.Chain.Ssc.CommitmentsMap
+import           Pos.Chain.Ssc.OpeningsMap
+import           Pos.Chain.Ssc.Payload
+import           Pos.Chain.Ssc.SharesMap
+import           Pos.Chain.Ssc.VssCertificate
+import           Pos.Chain.Ssc.VssCertificatesMap
 import           Pos.Util.Util (cborError)
 
 -- Note: we can't use 'VssCertificatesMap', because we serialize it as
@@ -53,10 +52,7 @@ instance Buildable SscProof where
 instance NFData SscProof
 
 -- | Create proof (for inclusion into block header) from 'SscPayload'.
-mkSscProof
-    :: ( Bi Opening
-       , Bi VssCertificate
-       ) => SscPayload -> SscProof
+mkSscProof :: SscPayload -> SscProof
 mkSscProof payload =
     case payload of
         CommitmentsPayload comms certs ->

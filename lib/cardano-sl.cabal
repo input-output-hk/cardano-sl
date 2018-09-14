@@ -120,9 +120,6 @@ library
                         -- NodeContext
                         Pos.Context.Context
 
-                        -- Crypto
-                        Pos.Crypto.HDDiscovery
-
                         -- GState
                         Pos.GState.Context
                         Pos.GState.GState
@@ -408,7 +405,6 @@ benchmark cardano-bench-criterion
                      , network-transport
                      , network-transport-inmemory
                      , optparse-applicative
-                     , time-units
                      , universum >= 0.1.11
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts

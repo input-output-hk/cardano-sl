@@ -5037,28 +5037,15 @@ license = stdenv.lib.licenses.publicDomain;
 ({
   mkDerivation
 , acid-state
-, array
 , base
-, bytestring
-, cereal
-, containers
 , directory
 , exceptions
-, extensible-exceptions
 , extra
-, filelock
 , filepath
-, hashable
 , mtl
-, network
 , safecopy
 , stdenv
-, stm
-, template-haskell
-, th-expand-syns
 , time-units
-, unix
-, unordered-containers
 }:
 mkDerivation {
 
@@ -5067,27 +5054,14 @@ version = "0.14.2";
 src = ./../acid-state-exts;
 libraryHaskellDepends = [
 acid-state
-array
 base
-bytestring
-cereal
-containers
 directory
 exceptions
-extensible-exceptions
 extra
-filelock
 filepath
-hashable
 mtl
-network
 safecopy
-stm
-template-haskell
-th-expand-syns
 time-units
-unix
-unordered-containers
 ];
 doHaddock = false;
 homepage = "https://github.com/acid-state/acid-state";
@@ -14954,7 +14928,6 @@ network-transport
 network-transport-inmemory
 optparse-applicative
 QuickCheck
-time-units
 universum
 ];
 doHaddock = false;
@@ -15093,7 +15066,6 @@ base
 cardano-sl
 cardano-sl-chain
 cardano-sl-core
-cardano-sl-crypto
 cardano-sl-db
 cardano-sl-infra
 cardano-sl-networking
@@ -15103,7 +15075,6 @@ network-transport-tcp
 safe-exceptions
 temporary
 universum
-unix
 ];
 executableToolDepends = [
 cpphs
@@ -15137,15 +15108,7 @@ license = stdenv.lib.licenses.mit;
 , cereal
 , containers
 , cpphs
-, cryptonite
-, data-default
 , digest
-, directory
-, extra
-, file-embed
-, filelock
-, filepath
-, fmt
 , formatting
 , generic-arbitrary
 , half
@@ -15197,7 +15160,6 @@ formatting
 hashable
 lens
 micro-recursion-schemes
-mtl
 safe-exceptions
 safecopy
 serokell-util
@@ -15214,21 +15176,12 @@ libraryToolDepends = [
 cpphs
 ];
 testHaskellDepends = [
-aeson
 base
 bytestring
 cardano-sl-util-test
 cborg
 cereal
 containers
-cryptonite
-data-default
-directory
-extra
-file-embed
-filelock
-filepath
-fmt
 formatting
 generic-arbitrary
 half
@@ -15241,7 +15194,6 @@ quickcheck-instances
 safecopy
 serokell-util
 tagged
-template-haskell
 text
 time-units
 universum
@@ -15258,7 +15210,6 @@ license = stdenv.lib.licenses.mit;
 "cardano-sl-binary-test" = callPackage
 ({
   mkDerivation
-, aeson
 , base
 , bytestring
 , cardano-sl-binary
@@ -15268,8 +15219,6 @@ license = stdenv.lib.licenses.mit;
 , containers
 , cpphs
 , cryptonite
-, directory
-, filepath
 , formatting
 , half
 , hedgehog
@@ -15281,7 +15230,6 @@ license = stdenv.lib.licenses.mit;
 , safecopy
 , serokell-util
 , stdenv
-, template-haskell
 , text
 , universum
 }:
@@ -15297,7 +15245,6 @@ configureFlags = [
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
-aeson
 base
 bytestring
 cardano-sl-binary
@@ -15306,8 +15253,6 @@ cborg
 cereal
 containers
 cryptonite
-directory
-filepath
 formatting
 half
 hedgehog
@@ -15318,7 +15263,6 @@ QuickCheck
 quickcheck-instances
 safecopy
 serokell-util
-template-haskell
 text
 universum
 ];
@@ -15679,9 +15623,7 @@ license = stdenv.lib.licenses.mit;
 , aeson
 , aeson-options
 , ansi-terminal
-, async
 , base
-, base16-bytestring
 , base58-bytestring
 , bytestring
 , Cabal
@@ -15702,7 +15644,6 @@ license = stdenv.lib.licenses.mit;
 , data-default
 , deepseq
 , deriving-compat
-, ed25519
 , ekg-core
 , ether
 , exceptions
@@ -15745,7 +15686,6 @@ license = stdenv.lib.licenses.mit;
 , unliftio
 , unliftio-core
 , unordered-containers
-, vector
 }:
 mkDerivation {
 
@@ -15762,7 +15702,6 @@ libraryHaskellDepends = [
 aeson
 aeson-options
 ansi-terminal
-async
 base
 base58-bytestring
 bytestring
@@ -15814,15 +15753,12 @@ universum
 unliftio
 unliftio-core
 unordered-containers
-vector
 ];
 libraryToolDepends = [
 cpphs
 ];
 testHaskellDepends = [
-aeson
 base
-base16-bytestring
 bytestring
 cardano-crypto
 cardano-sl-binary
@@ -15833,8 +15769,6 @@ cardano-sl-util
 cardano-sl-util-test
 containers
 cryptonite
-deepseq
-ed25519
 formatting
 generic-arbitrary
 hedgehog
@@ -15848,7 +15782,6 @@ text
 time-units
 universum
 unordered-containers
-vector
 ];
 testToolDepends = [
 cpphs
@@ -15861,9 +15794,7 @@ license = stdenv.lib.licenses.mit;
 "cardano-sl-core-test" = callPackage
 ({
   mkDerivation
-, aeson
 , base
-, base16-bytestring
 , bytestring
 , cardano-crypto
 , cardano-sl-binary
@@ -15875,9 +15806,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-util-test
 , containers
 , cryptonite
-, data-default
-, ed25519
-, formatting
 , generic-arbitrary
 , hedgehog
 , pvss
@@ -15890,7 +15818,6 @@ license = stdenv.lib.licenses.mit;
 , time-units
 , universum
 , unordered-containers
-, vector
 }:
 mkDerivation {
 
@@ -15904,9 +15831,7 @@ configureFlags = [
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
-aeson
 base
-base16-bytestring
 bytestring
 cardano-crypto
 cardano-sl-binary
@@ -15918,9 +15843,6 @@ cardano-sl-util
 cardano-sl-util-test
 containers
 cryptonite
-data-default
-ed25519
-formatting
 generic-arbitrary
 hedgehog
 pvss
@@ -15932,7 +15854,6 @@ text
 time-units
 universum
 unordered-containers
-vector
 ];
 doHaddock = false;
 description = "Cardano SL - core functionality (tests)";
@@ -16108,7 +16029,6 @@ license = stdenv.lib.licenses.mit;
 , binary
 , bytestring
 , cardano-sl-binary
-, cardano-sl-binary-test
 , cardano-sl-chain
 , cardano-sl-core
 , cardano-sl-core-test
@@ -16133,7 +16053,6 @@ license = stdenv.lib.licenses.mit;
 , memory
 , mmorph
 , mtl
-, reflection
 , resourcet
 , rocksdb-haskell-ng
 , safe-exceptions
@@ -16186,7 +16105,6 @@ lrucache
 memory
 mmorph
 mtl
-reflection
 resourcet
 rocksdb-haskell-ng
 safe-exceptions
@@ -16206,7 +16124,6 @@ cpphs
 testHaskellDepends = [
 base
 cardano-sl-binary
-cardano-sl-binary-test
 cardano-sl-core
 cardano-sl-core-test
 cardano-sl-util
@@ -16229,7 +16146,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-binary
 , cardano-sl-chain
 , cardano-sl-chain-test
-, cardano-sl-core
 , cardano-sl-core-test
 , cardano-sl-crypto-test
 , cardano-sl-db
@@ -16256,7 +16172,6 @@ base
 cardano-sl-binary
 cardano-sl-chain
 cardano-sl-chain-test
-cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto-test
 cardano-sl-db
@@ -16289,7 +16204,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-db
 , cardano-sl-generator
 , cardano-sl-infra
-, cardano-sl-networking
 , cardano-sl-util
 , conduit
 , containers
@@ -16369,7 +16283,6 @@ cardano-sl-crypto-test
 cardano-sl-db
 cardano-sl-generator
 cardano-sl-infra
-cardano-sl-networking
 cardano-sl-util
 conduit
 containers
@@ -16418,9 +16331,7 @@ bytestring
 cardano-sl
 cardano-sl-chain
 cardano-sl-core
-cardano-sl-crypto
 cardano-sl-infra
-cardano-sl-networking
 cardano-sl-util
 lens
 optparse-applicative
@@ -16480,7 +16391,6 @@ license = stdenv.lib.licenses.mit;
 "cardano-sl-generator" = callPackage
 ({
   mkDerivation
-, async
 , base
 , bytestring
 , cardano-sl
@@ -16494,7 +16404,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto-test
 , cardano-sl-db
 , cardano-sl-infra
-, cardano-sl-networking
 , cardano-sl-util
 , cardano-sl-util-test
 , containers
@@ -16510,10 +16419,8 @@ license = stdenv.lib.licenses.mit;
 , hspec
 , lens
 , log-warper
-, lrucache
 , monad-control
 , MonadRandom
-, mtl
 , optparse-applicative
 , QuickCheck
 , random
@@ -16525,7 +16432,6 @@ license = stdenv.lib.licenses.mit;
 , transformers-base
 , universum
 , unliftio
-, unliftio-core
 , unordered-containers
 , vector
 }:
@@ -16551,7 +16457,6 @@ cardano-sl-client
 cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto
-cardano-sl-crypto-test
 cardano-sl-db
 cardano-sl-infra
 cardano-sl-util
@@ -16580,7 +16485,6 @@ libraryToolDepends = [
 cpphs
 ];
 executableHaskellDepends = [
-async
 base
 bytestring
 cardano-sl
@@ -16589,29 +16493,18 @@ cardano-sl-chain
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-db
-cardano-sl-infra
-cardano-sl-networking
 cardano-sl-util
 containers
-criterion
 cryptonite
-data-default
 deepseq
 directory
-ether
 formatting
-lens
-lrucache
 MonadRandom
-mtl
 optparse-applicative
-QuickCheck
 random
 text
 time-units
 universum
-unliftio-core
-unordered-containers
 ];
 executableToolDepends = [
 cpphs
@@ -16646,34 +16539,21 @@ testToolDepends = [
 cpphs
 ];
 benchmarkHaskellDepends = [
-async
 base
 cardano-sl
-cardano-sl-binary
 cardano-sl-chain
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-db
-cardano-sl-infra
-cardano-sl-networking
 cardano-sl-util
-containers
 criterion
-cryptonite
-data-default
-ether
-lens
 log-warper
-lrucache
 MonadRandom
-mtl
 QuickCheck
 random
 serokell-util
 time-units
 universum
-unliftio-core
-unordered-containers
 ];
 benchmarkToolDepends = [
 cpphs
@@ -16817,11 +16697,9 @@ libraryToolDepends = [
 cpphs
 ];
 testHaskellDepends = [
-aeson
 async
 base
 bytestring
-cardano-sl-binary
 cardano-sl-binary-test
 cardano-sl-chain
 cardano-sl-chain-test
@@ -16840,7 +16718,6 @@ iproute
 kademlia
 QuickCheck
 universum
-unordered-containers
 ];
 doHaddock = false;
 description = "Cardano SL - infrastructural";
@@ -16850,11 +16727,9 @@ license = stdenv.lib.licenses.mit;
 "cardano-sl-infra-test" = callPackage
 ({
   mkDerivation
-, aeson
 , async
 , base
 , bytestring
-, cardano-sl-binary
 , cardano-sl-binary-test
 , cardano-sl-chain
 , cardano-sl-chain-test
@@ -16875,7 +16750,6 @@ license = stdenv.lib.licenses.mit;
 , QuickCheck
 , stdenv
 , universum
-, unordered-containers
 }:
 mkDerivation {
 
@@ -16883,11 +16757,9 @@ pname = "cardano-sl-infra-test";
 version = "1.3.0";
 src = ./../infra/test;
 libraryHaskellDepends = [
-aeson
 async
 base
 bytestring
-cardano-sl-binary
 cardano-sl-binary-test
 cardano-sl-chain
 cardano-sl-chain-test
@@ -16907,7 +16779,6 @@ iproute
 kademlia
 QuickCheck
 universum
-unordered-containers
 ];
 doHaddock = false;
 description = "Cardano SL - generators for cardano-sl-infra";
@@ -16929,16 +16800,13 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-util
 , containers
 , contravariant
-, cryptonite
 , ekg-core
-, exceptions
 , formatting
 , hashable
 , hspec
 , hspec-core
 , kademlia
 , lens
-, monad-control
 , mtl
 , mwc-random
 , network
@@ -16947,7 +16815,6 @@ license = stdenv.lib.licenses.mit;
 , network-transport-tcp
 , QuickCheck
 , random
-, resourcet
 , safe-exceptions
 , scientific
 , serokell-util
@@ -16959,7 +16826,6 @@ license = stdenv.lib.licenses.mit;
 , time
 , time-units
 , universum
-, unordered-containers
 , vector
 }:
 mkDerivation {
@@ -16986,20 +16852,16 @@ cardano-sl-chain
 cardano-sl-core
 cardano-sl-util
 containers
-cryptonite
 ekg-core
-exceptions
 formatting
 hashable
 kademlia
 lens
-monad-control
 mtl
 network
 network-transport
 network-transport-tcp
 random
-resourcet
 safe-exceptions
 scientific
 stm
@@ -17008,7 +16870,6 @@ these
 time
 time-units
 universum
-unordered-containers
 ];
 executableHaskellDepends = [
 async
@@ -17065,8 +16926,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl
 , cardano-sl-chain
 , cardano-sl-core
-, cardano-sl-crypto
-, cardano-sl-infra
 , cardano-sl-networking
 , cardano-sl-util
 , cpphs
@@ -17091,8 +16950,6 @@ base
 cardano-sl
 cardano-sl-chain
 cardano-sl-core
-cardano-sl-crypto
-cardano-sl-infra
 cardano-sl-networking
 cardano-sl-util
 universum
@@ -17798,7 +17655,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-crypto
 , cardano-sl
 , cardano-sl-binary
-, cardano-sl-binary-test
 , cardano-sl-chain
 , cardano-sl-chain-test
 , cardano-sl-client
@@ -17823,7 +17679,6 @@ license = stdenv.lib.licenses.mit;
 , data-default
 , data-default-class
 , directory
-, ed25519
 , exceptions
 , filepath
 , foldl
@@ -17920,7 +17775,6 @@ cardano-crypto
 cardano-sl
 cardano-sl-binary
 cardano-sl-chain
-cardano-sl-chain-test
 cardano-sl-client
 cardano-sl-core
 cardano-sl-core-test
@@ -17939,7 +17793,6 @@ cryptonite
 data-default
 data-default-class
 directory
-ed25519
 exceptions
 filepath
 foldl
@@ -18002,7 +17855,6 @@ bytestring
 cardano-sl
 cardano-sl-chain
 cardano-sl-core
-cardano-sl-crypto
 cardano-sl-db
 cardano-sl-infra
 cardano-sl-networking
@@ -18037,7 +17889,6 @@ bytestring
 cardano-crypto
 cardano-sl
 cardano-sl-binary
-cardano-sl-binary-test
 cardano-sl-chain
 cardano-sl-chain-test
 cardano-sl-client
@@ -18046,7 +17897,6 @@ cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-db
-cardano-sl-networking
 cardano-sl-util
 cardano-sl-util-test
 cardano-sl-wallet

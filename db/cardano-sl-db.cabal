@@ -148,7 +148,6 @@ library
                      , memory
                      , mmorph
                      , mtl
-                     , reflection
                      , resourcet
                      , rocksdb-haskell-ng
                      , safe-exceptions
@@ -202,7 +201,6 @@ test-suite test
   type:                exitcode-stdio-1.0
   build-depends:       base
                      , cardano-sl-binary
-                     , cardano-sl-binary-test
                      , cardano-sl-core
                      , cardano-sl-core-test
                      , cardano-sl-db

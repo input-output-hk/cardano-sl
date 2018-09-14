@@ -163,7 +163,6 @@ library
   build-depends:       aeson
                      , aeson-options
                      , ansi-terminal
-                     , async
                      , base
                      , base58-bytestring
                      , bytestring
@@ -215,7 +214,6 @@ library
                      , unliftio
                      , unliftio-core
                      , unordered-containers
-                     , vector
 
   default-language:    Haskell2010
 
@@ -280,9 +278,7 @@ test-suite test
                        Test.Pos.Core.Arbitrary.Unsafe
                        Test.Pos.Core.Dummy
 
-  build-depends:       aeson
-                     , base
-                     , base16-bytestring
+  build-depends:       base
                      , bytestring
                      , cardano-crypto
                      , cardano-sl-binary
@@ -294,8 +290,6 @@ test-suite test
                      , cardano-sl-util-test
                      , containers
                      , cryptonite
-                     , deepseq
-                     , ed25519
                      , formatting
                      , generic-arbitrary
                      , hedgehog
@@ -310,7 +304,6 @@ test-suite test
                      , time-units
                      , universum >= 0.1.11
                      , unordered-containers
-                     , vector
 
   ghc-options:
                        -threaded

@@ -134,6 +134,7 @@ library
                        Cardano.Wallet.Orphans.Bi
                        Cardano.Wallet.Server
                        Cardano.Wallet.Server.CLI
+                       Cardano.Wallet.Server.Middlewares
                        Cardano.Wallet.Server.Plugins
                        Cardano.Wallet.Server.Plugins.AcidState
                        Cardano.Wallet.Server.LegacyPlugins
@@ -244,7 +245,6 @@ library
                      , unordered-containers
                      , vector
                      , wai
-                     , wai-cors
                      , wai-middleware-throttle
                      , warp
                      , x509

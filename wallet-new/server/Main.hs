@@ -20,7 +20,7 @@ import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Txp (txpGlobalSettings)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Launcher (NodeParams (..), NodeResources (..),
-                     WalletConfiguration, bpLoggingParams,
+                     WalletConfiguration (..), bpLoggingParams,
                      bracketNodeResources, loggerBracket, lpDefaultName,
                      runNode, withConfigurations)
 import           Pos.Launcher.Configuration (AssetLockPath (..),
@@ -45,11 +45,12 @@ import qualified Cardano.Wallet.Kernel.Internal as Kernel.Internal
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as NodeStateAdaptor
 import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..),
-                     NewWalletBackendParams (..), WalletBackendParams (..),
+                     NewWalletBackendParams, WalletBackendParams (..),
                      WalletStartupOptions (..), getWalletDbOptions,
                      getWalletNodeOptions, walletDbPath, walletFlushDb,
                      walletRebuildDb)
 import qualified Cardano.Wallet.Server.LegacyPlugins as LegacyPlugins
+import           Cardano.Wallet.Server.Middlewares (throttleMiddleware)
 import qualified Cardano.Wallet.Server.Plugins as Plugins
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer.Kernel as WalletLayer.Kernel
@@ -106,7 +107,9 @@ actionWithLegacyWallet coreConfig walletConfig txpConfig sscParams nodeParams nt
     plugins :: TVar NtpStatus -> LegacyPlugins.Plugin WalletWebMode
     plugins ntpStatus =
         mconcat [ LegacyPlugins.conversation wArgs
-                , LegacyPlugins.legacyWalletBackend coreConfig walletConfig txpConfig wArgs ntpStatus
+                , LegacyPlugins.legacyWalletBackend coreConfig txpConfig wArgs ntpStatus
+                    [ throttleMiddleware (ccThrottle walletConfig)
+                    ]
                 , LegacyPlugins.walletDocumentation wArgs
                 , LegacyPlugins.acidCleanupWorker wArgs
                 , LegacyPlugins.syncWalletWorker coreConfig
@@ -117,13 +120,14 @@ actionWithLegacyWallet coreConfig walletConfig txpConfig sscParams nodeParams nt
 -- | The "workhorse" responsible for starting a Cardano edge node plus a number of extra plugins.
 actionWithWallet :: (HasConfigurations, HasCompileInfo)
                  => Core.Config
+                 -> WalletConfiguration
                  -> TxpConfiguration
                  -> SscParams
                  -> NodeParams
                  -> NtpConfiguration
                  -> NewWalletBackendParams
                  -> IO ()
-actionWithWallet coreConfig txpConfig sscParams nodeParams ntpConfig params =
+actionWithWallet coreConfig walletConfig txpConfig sscParams nodeParams ntpConfig params =
     bracketNodeResources
         coreConfig
         nodeParams
@@ -171,6 +175,9 @@ actionWithWallet coreConfig txpConfig sscParams nodeParams ntpConfig params =
     plugins w dbMode = mconcat
         -- The actual wallet backend server.
         [ Plugins.apiServer pm params w
+            -- Throttle requests.
+            [ throttleMiddleware (ccThrottle walletConfig)
+            ]
 
         -- The corresponding wallet documention, served as a different
         -- server which doesn't require client x509 certificates to
@@ -217,6 +224,7 @@ startEdgeNode wso =
                 legacyParams
             WalletNew newParams -> actionWithWallet
                 coreConfig
+                walletConfig
                 txpConfig
                 sscParams
                 nodeParams

@@ -6,12 +6,17 @@
 module Cardano.Wallet.Server.Middlewares
     ( withMiddlewares
     , throttleMiddleware
+    , withDefaultHeader
     ) where
 
 import           Universum
 
 import           Data.Aeson (encode)
-import           Network.Wai (Application, Middleware, responseLBS)
+import qualified Data.List as List
+import           Network.HTTP.Types.Header (Header)
+import           Network.HTTP.Types.Method (methodPatch, methodPost, methodPut)
+import           Network.Wai (Application, Middleware, ifRequest,
+                     requestHeaders, requestMethod, responseLBS)
 import qualified Network.Wai.Middleware.Throttle as Throttle
 
 import           Cardano.Wallet.API.V1.Headers (applicationJson)
@@ -19,9 +24,16 @@ import qualified Cardano.Wallet.API.V1.Types as V1
 
 import           Pos.Launcher.Configuration (ThrottleSettings (..))
 
+
 -- | "Attaches" the middlewares to this 'Application'.
 withMiddlewares :: [Middleware] -> Application -> Application
 withMiddlewares = flip $ foldr ($)
+
+-- | Only apply a @Middleware@ to request with bodies (we don't consider
+-- "DELETE" as one of them).
+ifRequestWithBody :: Middleware -> Middleware
+ifRequestWithBody =
+    ifRequest ((`List.elem` [methodPost, methodPut, methodPatch]) . requestMethod)
 
 -- | A @Middleware@ to throttle requests.
 throttleMiddleware :: Maybe ThrottleSettings -> Middleware
@@ -40,3 +52,18 @@ throttleMiddleware (Just ts) app = \req respond -> do
         , Throttle.throttlePeriod = fromIntegral $ tsPeriod ts
         , Throttle.throttleBurst = fromIntegral $ tsBurst ts
         }
+
+-- | A @Middleware@ to default a specific Header when not provided
+withDefaultHeader :: Header -> Middleware
+withDefaultHeader header = ifRequestWithBody $ \app req send ->
+    let
+        headers =
+            requestHeaders req
+
+        req' =
+            if any (on (==) fst header) headers then
+                req
+            else
+                req { requestHeaders = header : headers }
+    in
+        app req' send

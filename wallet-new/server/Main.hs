@@ -39,6 +39,7 @@ import           Pos.Wallet.Web.Tracking.Sync (syncWallet)
 
 import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
 
+import qualified Cardano.Wallet.API.V1.Headers as Headers
 import           Cardano.Wallet.Kernel (PassiveWallet)
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Internal as Kernel.Internal
@@ -50,7 +51,8 @@ import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..),
                      getWalletNodeOptions, walletDbPath, walletFlushDb,
                      walletRebuildDb)
 import qualified Cardano.Wallet.Server.LegacyPlugins as LegacyPlugins
-import           Cardano.Wallet.Server.Middlewares (throttleMiddleware)
+import           Cardano.Wallet.Server.Middlewares (throttleMiddleware,
+                     withDefaultHeader)
 import qualified Cardano.Wallet.Server.Plugins as Plugins
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer.Kernel as WalletLayer.Kernel
@@ -109,6 +111,7 @@ actionWithLegacyWallet genesisConfig walletConfig txpConfig sscParams nodeParams
         mconcat [ LegacyPlugins.conversation wArgs
                 , LegacyPlugins.legacyWalletBackend genesisConfig txpConfig wArgs ntpStatus
                     [ throttleMiddleware (ccThrottle walletConfig)
+                    , withDefaultHeader Headers.applicationJson
                     ]
                 , LegacyPlugins.walletDocumentation wArgs
                 , LegacyPlugins.acidCleanupWorker wArgs
@@ -177,6 +180,7 @@ actionWithWallet genesisConfig walletConfig txpConfig sscParams nodeParams ntpCo
         [ Plugins.apiServer pm params w
             -- Throttle requests.
             [ throttleMiddleware (ccThrottle walletConfig)
+            , withDefaultHeader Headers.applicationJson
             ]
 
         -- The corresponding wallet documention, served as a different

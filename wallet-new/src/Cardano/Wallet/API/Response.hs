@@ -229,7 +229,7 @@ instance FromJSON a => MimeUnrender ValidJSON a where
         Right v  -> return v
 
 instance Accept ValidJSON where
-    contentType _ = contentType (Proxy @ JSON)
+    contentTypes _ = contentTypes (Proxy @ JSON)
 
 instance ToJSON a => MimeRender ValidJSON a where
     mimeRender _ = mimeRender (Proxy @ JSON)

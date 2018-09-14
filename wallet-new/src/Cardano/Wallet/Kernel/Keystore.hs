@@ -32,7 +32,7 @@ module Cardano.Wallet.Kernel.Keystore (
 
 import           Universum
 
-import           Control.Concurrent (modifyMVar, modifyMVar_, withMVar)
+import           Control.Concurrent (modifyMVar, withMVar)
 import qualified Data.List
 import           System.Directory (getTemporaryDirectory, removeFile)
 import           System.IO (hClose, openTempFile)
@@ -185,19 +185,36 @@ release (InternalStorage us) = do
     return fp
 
 {-------------------------------------------------------------------------------
+  Modifying the Keystore
+  We wrap each operation which modifies the underlying `InternalStorage` into
+  a combinator which also writes the updated `UserSecret` to file.
+-------------------------------------------------------------------------------}
+
+-- | Modifies the 'Keystore' by applying the transformation 'f' on the
+-- underlying 'UserSecret'.
+modifyKeystore_ :: Keystore -> (UserSecret -> UserSecret) -> IO ()
+modifyKeystore_ ks f =
+    let f' us = (f us, ())
+    in modifyKeystore ks f'
+
+-- | Like 'modifyKeystore_', but it returns a result at the end.
+modifyKeystore :: Keystore -> (UserSecret -> (UserSecret, a)) -> IO a
+modifyKeystore (Keystore ks) f =
+    modifyMVar ks $ \(InternalStorage us) -> do
+        let (us', a) = f us
+        -- This is a safe operation to be because we acquired the exclusive
+        -- lock on this file when we initialised the keystore, and as we are
+        -- using 'bracket', we are the sole owner of this lock.
+        writeRaw us'
+        return (InternalStorage us', a)
+
+{-------------------------------------------------------------------------------
   Inserting things inside a keystore
 -------------------------------------------------------------------------------}
 
 -- | Insert a new 'EncryptedSecretKey' indexed by the input 'WalletId'.
-insert :: WalletId
-       -> EncryptedSecretKey
-       -> Keystore
-       -> IO ()
-insert _walletId esk (Keystore ks) =
-    modifyMVar_ ks $ \(InternalStorage us) -> do
-        let us' = insertKey esk us
-        writeRaw us'
-        return (InternalStorage us')
+insert :: WalletId -> EncryptedSecretKey -> Keystore -> IO ()
+insert _walletId esk ks = modifyKeystore_ ks (insertKey esk)
 
 -- | Insert a new 'EncryptedSecretKey' directly inside the 'UserSecret'.
 insertKey :: EncryptedSecretKey -> UserSecret -> UserSecret
@@ -227,16 +244,16 @@ compareAndReplace :: WalletId
                   -> EncryptedSecretKey
                   -> Keystore
                   -> IO ReplaceResult
-compareAndReplace walletId predicateOnOldKey newKey (Keystore ks) =
-    modifyMVar ks $ \(InternalStorage us) -> do
+compareAndReplace walletId predicateOnOldKey newKey ks =
+    modifyKeystore ks $ \us ->
         let mbOldKey = lookupKey us walletId
-        case predicateOnOldKey <$> mbOldKey of
-            Nothing    -> return (InternalStorage us, OldKeyLookupFailed)
-            Just False -> return (InternalStorage us, PredicateFailed)
-            Just True  -> do
-                let us' = insertKey newKey . deleteKey walletId $ us
-                writeRaw us'
-                return (InternalStorage us', Replaced)
+        in case predicateOnOldKey <$> mbOldKey of
+              Nothing    ->
+                  (us, OldKeyLookupFailed)
+              Just False ->
+                  (us, PredicateFailed)
+              Just True  ->
+                  (insertKey newKey . deleteKey walletId $ us, Replaced)
 
 {-------------------------------------------------------------------------------
   Looking up things inside a keystore
@@ -261,11 +278,7 @@ lookupKey us (WalletIdHdRnd walletId) =
 -- | Deletes an element from the 'Keystore'. This is an idempotent operation
 -- as in case a key was not present, no error would be thrown.
 delete :: WalletId -> Keystore -> IO ()
-delete walletId (Keystore ks) = do
-    modifyMVar_ ks $ \(InternalStorage us) -> do
-        let us' = deleteKey walletId us
-        writeRaw us'
-        return (InternalStorage us')
+delete walletId ks = modifyKeystore_ ks (deleteKey walletId)
 
 -- | Delete a key directly inside the 'UserSecret'.
 deleteKey :: WalletId -> UserSecret -> UserSecret

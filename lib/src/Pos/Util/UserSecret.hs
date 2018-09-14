@@ -36,6 +36,8 @@ module Pos.Util.UserSecret
 
        , UserSecretDecodingError (..)
        , ensureModeIs600
+       -- * Internal API
+       , writeRaw
        ) where
 
 import qualified Prelude

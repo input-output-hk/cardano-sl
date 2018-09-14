@@ -63,8 +63,6 @@ instance Buildable CreateAccountError where
 instance Show CreateAccountError where
     show = formatToString build
 
-instance Exception CreateAccountError
-
 -- | Creates a new 'Account' for the input wallet.
 -- Note: @it does not@ generate a new 'Address' to go in tandem with this
 -- 'Account'. This will be responsibility of the wallet layer.

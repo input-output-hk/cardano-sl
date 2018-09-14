@@ -1,5 +1,5 @@
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
 
 module Cardano.Wallet.API.V1.ReifyWalletError (
@@ -13,13 +13,14 @@ import           Universum
 
 import           Pos.Core (decodeTextAddress)
 
-import qualified Cardano.Wallet.API.V1.Types as V1
 import           Cardano.Wallet.API.V1.Types (V1 (..))
+import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
-import           Cardano.Wallet.Kernel.CoinSelection.Generic (CoinSelHardErr (..))
-import           Cardano.Wallet.Kernel.DB.AcidState (NewPendingError (..),
-    NewForeignError (..))
+import           Cardano.Wallet.Kernel.CoinSelection.Generic
+                     (CoinSelHardErr (..))
+import           Cardano.Wallet.Kernel.DB.AcidState (NewForeignError (..),
+                     NewPendingError (..))
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
 import qualified Cardano.Wallet.Kernel.Transactions as Kernel
@@ -104,26 +105,23 @@ createAccountError e = case e of
     (CreateAccountWalletIdDecodingFailed _txt) ->
         V1.WalletNotFound
 
-    (CreateAccountFirstAddressGenerationFailed e'') ->
-        createAddressErrorKernel e''
-
 getAccountError :: GetAccountError -> V1.WalletError
 getAccountError e = case e of
-    (GetAccountError (V1 e')) ->
+    (GetAccountError e') ->
         unknownHdAccount e'
     (GetAccountWalletIdDecodingFailed _txt) ->
         V1.WalletNotFound
 
 updateAccountError :: UpdateAccountError -> V1.WalletError
 updateAccountError e = case e of
-    (UpdateAccountError (V1 e')) ->
+    (UpdateAccountError e') ->
         unknownHdAccount e'
     (UpdateAccountWalletIdDecodingFailed _txt) ->
         V1.WalletNotFound
 
 deleteAccountError :: DeleteAccountError -> V1.WalletError
 deleteAccountError e = case e of
-    (DeleteAccountError (V1 e')) ->
+    (DeleteAccountError e') ->
         unknownHdAccount e'
     (DeleteAccountWalletIdDecodingFailed _txt) ->
         V1.WalletNotFound
@@ -137,19 +135,21 @@ getAccountsError e = case e of
         V1.WalletNotFound
 
 createWalletError :: CreateWalletError -> V1.WalletError
-createWalletError e = case e of
-    (CreateWalletError
-        (Kernel.CreateWalletFailed
-            (HD.CreateHdRootExists rootId))) ->
+createWalletError (CreateWalletError e) = case e of
+        (Kernel.CreateWalletFailed e') -> case e' of
+            (HD.CreateHdRootExists rootId) ->
                 V1.WalletAlreadyExists $ toRootId rootId
+            HD.CreateHdRootDefaultAddressDerivationFailed ->
+                V1.CannotCreateAddress $
+                    T.pack "CreateHdRootDefaultAddressDerivationFailed"
 
-    (CreateWalletFirstAccountCreationFailed e') ->
-                createAccountErrorKernel e'
+        Kernel.CreateWalletDefaultAddressDerivationFailed ->
+                V1.CannotCreateAddress $
+                    T.pack "CreateWalletDefaultAddressDerivationFailed"
 
 getWalletError :: GetWalletError -> V1.WalletError
 getWalletError e = case e of
-    (GetWalletError
-        (V1 (HD.UnknownHdRoot _rootId))) ->
+    (GetWalletError (HD.UnknownHdRoot _rootId)) ->
             V1.WalletNotFound
     (GetWalletErrorNotFound _wid) ->
             V1.WalletNotFound
@@ -158,8 +158,7 @@ getWalletError e = case e of
 
 updateWalletError :: UpdateWalletError -> V1.WalletError
 updateWalletError e = case e of
-    (UpdateWalletError
-        (V1 (HD.UnknownHdRoot _rootId))) ->
+    (UpdateWalletError (HD.UnknownHdRoot _rootId)) ->
             V1.WalletNotFound
     (UpdateWalletErrorNotFound _wid) ->
             V1.WalletNotFound
@@ -189,8 +188,7 @@ deleteWalletError e = case e of
     (DeleteWalletWalletIdDecodingFailed _txt) ->
             V1.WalletNotFound
 
-    (DeleteWalletError
-        (V1 (HD.UnknownHdRoot _rootId))) ->
+    (DeleteWalletError (HD.UnknownHdRoot _rootId)) ->
             V1.WalletNotFound
 
 importWalletError :: ImportWalletError -> V1.WalletError

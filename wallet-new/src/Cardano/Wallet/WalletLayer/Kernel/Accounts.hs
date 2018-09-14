@@ -102,7 +102,7 @@ getAccount wId accIx snapshot = runExcept $ do
     accId <- withExceptT GetAccountWalletIdDecodingFailed $
                fromAccountId wId accIx
     fmap (toAccount snapshot) $
-      withExceptT (GetAccountError . V1) $ exceptT $
+      withExceptT GetAccountError $ exceptT $
         Kernel.lookupHdAccountId snapshot accId
 
 getAccountBalance :: V1.WalletId
@@ -113,7 +113,7 @@ getAccountBalance wId accIx snapshot = runExcept $ do
     accId <- withExceptT GetAccountWalletIdDecodingFailed $
                fromAccountId wId accIx
     fmap (V1.AccountBalance . V1) $
-      withExceptT (GetAccountError . V1) $ exceptT $
+      withExceptT GetAccountError $ exceptT $
         Kernel.currentTotalBalance snapshot accId
 
 deleteAccount :: MonadIO m
@@ -124,7 +124,7 @@ deleteAccount :: MonadIO m
 deleteAccount wallet wId accIx = runExceptT $ do
     accId <- withExceptT DeleteAccountWalletIdDecodingFailed $
                fromAccountId wId accIx
-    withExceptT (DeleteAccountError . V1) $ ExceptT $ liftIO $
+    withExceptT DeleteAccountError $ ExceptT $ liftIO $
       Kernel.deleteAccount accId wallet
 
 updateAccount :: MonadIO m
@@ -137,7 +137,7 @@ updateAccount wallet wId accIx (V1.AccountUpdate newName) = runExceptT $ do
     accId <- withExceptT UpdateAccountWalletIdDecodingFailed $
                fromAccountId wId accIx
     fmap (uncurry toAccount) $
-      withExceptT (UpdateAccountError . V1) $ ExceptT $ liftIO $
+      withExceptT UpdateAccountError $ ExceptT $ liftIO $
         Kernel.updateAccount accId (HD.AccountName newName) wallet
 
 getAccountAddresses :: V1.WalletId
@@ -149,7 +149,7 @@ getAccountAddresses :: V1.WalletId
 getAccountAddresses wId accIx rp fo snapshot = runExcept $ do
     accId <- withExceptT GetAccountWalletIdDecodingFailed $
                fromAccountId wId accIx
-    acc   <- withExceptT (GetAccountError . V1) $ exceptT $
+    acc   <- withExceptT GetAccountError $ exceptT $
                Kernel.lookupHdAccountId snapshot accId
     let allAddrs = Kernel.addressesByAccountId snapshot accId
     resp  <- respondWith rp (filterHdAddress fo) NoSorts $ return allAddrs

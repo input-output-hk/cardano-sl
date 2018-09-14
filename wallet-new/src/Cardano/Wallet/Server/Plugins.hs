@@ -15,22 +15,24 @@ module Cardano.Wallet.Server.Plugins
 import           Universum
 
 import           Data.Acid (AcidState)
+import           Data.Aeson (encode)
 import qualified Data.ByteString.Char8 as BS8
-import           Data.Aeson(encode)
 import qualified Data.Text as T
 import           Data.Typeable (typeOf)
 
+import           Network.HTTP.Types.Status (badRequest400)
 import           Network.Wai (Application, Middleware, Response, responseLBS)
-import           Network.Wai.Handler.Warp (defaultSettings, setOnExceptionResponse)
+import           Network.Wai.Handler.Warp (defaultSettings,
+                     setOnExceptionResponse)
 import           Network.Wai.Middleware.Cors (cors, corsMethods,
                      corsRequestHeaders, simpleCorsResourcePolicy,
                      simpleMethods)
-import           Network.HTTP.Types.Status (badRequest400)
 
 import           Cardano.NodeIPC (startNodeJsIPC)
 import           Cardano.Wallet.API as API
-import           Cardano.Wallet.API.V1.ReifyWalletError (translateWalletLayerErrors)
 import           Cardano.Wallet.API.V1.Headers (applicationJson)
+import           Cardano.Wallet.API.V1.ReifyWalletError
+                     (translateWalletLayerErrors)
 import qualified Cardano.Wallet.API.V1.Types as V1
 import           Cardano.Wallet.Kernel (DatabaseMode (..), PassiveWallet)
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
@@ -42,7 +44,7 @@ import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..),
 import           Cardano.Wallet.Server.Plugins.AcidState
                      (createAndArchiveCheckpoints)
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer,
-                  PassiveWalletLayer)
+                     PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
 import qualified Cardano.Wallet.WalletLayer.Kernel as WalletLayer.Kernel
 

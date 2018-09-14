@@ -74,8 +74,6 @@ instance Buildable CreateWalletError where
 instance Show CreateWalletError where
     show = formatToString build
 
-instance Exception CreateWalletError
-
 data UpdateWalletPasswordError =
       UpdateWalletPasswordOldPasswordMismatch HD.HdRootId
       -- ^ When trying to update the wallet password, there was a mismatch
@@ -105,8 +103,6 @@ instance Buildable UpdateWalletPasswordError where
 
 instance Show UpdateWalletPasswordError where
     show = formatToString build
-
-instance Exception UpdateWalletPasswordError
 
 {-------------------------------------------------------------------------------
   Wallet Creation

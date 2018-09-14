@@ -50,6 +50,7 @@ module Cardano.Wallet.API.V1.Types (
   , AddressValidity (..)
   , AddressAsBase58
   , mkAddressAsBase58
+  , mkAddressFromBase58
   -- * Accounts
   , Account (..)
   , accountsHaveSameId
@@ -81,9 +82,11 @@ module Cardano.Wallet.API.V1.Types (
   , TransactionStatus(..)
   , TransactionAsBase16
   , mkTransactionAsBase16
+  , rawTransactionAsBase16
   , TransactionHashAsBase16
   , mkTransactionHashAsBase16
   , TransactionSignatureAsBase16 (..)
+  , rawTransactionSignatureAsBase16
   , EstimatedFees (..)
   , AddressAndPath (..)
   , RawTransaction (..)
@@ -680,6 +683,10 @@ instance BuildableSafeGen AddressAsBase58 where
 mkAddressAsBase58 :: Core.Address -> AddressAsBase58
 mkAddressAsBase58 = AddressAsBase58Unsafe . decodeUtf8 . Core.addrToBase58
 
+-- | Decode Base58-address to real Address.
+mkAddressFromBase58 :: AddressAsBase58 -> Either Text Core.Address
+mkAddressFromBase58 (AddressAsBase58Unsafe txtAddr) = Core.decodeTextAddress txtAddr
+
 -- | Type for representation of serialized transaction in Base16-format.
 -- We use it for external wallets (to send/receive raw transaction during
 -- external signing).
@@ -741,6 +748,9 @@ mkTransactionHashAsBase16 txHash = TransactionHashAsBase16Unsafe encodedTxHash
 newtype TransactionSignatureAsBase16 = TransactionSignatureAsBase16
     { ewalTransactionSignatureAsBase16 :: Text
     } deriving (Eq, Generic, Ord, Show)
+
+rawTransactionSignatureAsBase16 :: TransactionSignatureAsBase16 -> Text
+rawTransactionSignatureAsBase16 (TransactionSignatureAsBase16 txtSig) = txtSig
 
 deriveJSON Serokell.defaultOptions ''TransactionSignatureAsBase16
 instance Arbitrary TransactionSignatureAsBase16 where
@@ -2054,6 +2064,9 @@ mkTransactionAsBase16 :: Txp.Tx -> TransactionAsBase16
 mkTransactionAsBase16 =
     TransactionAsBase16Unsafe . Base16.encode . Bi.serialize'
 
+rawTransactionAsBase16 :: TransactionAsBase16 -> Text
+rawTransactionAsBase16 (TransactionAsBase16Unsafe txtTx) = txtTx
+
 instance Buildable [AddressLevel] where
     build = bprint listJson
 
@@ -2126,8 +2139,8 @@ instance BuildableSafeGen RawTransaction where
         rtxSigDataHex
         rtxSrcAddresses
 
--- | After external wallet signed raw transaction, it returns to us
--- source address, a signature and derived PK for each input of transaction.
+-- | After external wallet signed raw transaction, it returns source address,
+-- a signature and derived PK for each input of transaction.
 -- This is a proof that external wallet has a right to spend this money.
 data AddressWithProof = AddressWithProof
     { awsSrcAddress  :: !AddressAsBase58

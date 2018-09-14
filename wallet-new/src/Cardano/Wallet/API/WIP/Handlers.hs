@@ -25,7 +25,7 @@ checkExternalWallet :: PassiveWalletLayer IO
                     -> PublicKeyAsBase58
                     -> Handler (WalletResponse WalletAndTxHistory)
 checkExternalWallet _pwl _encodedRootPK =
-    error "[CHW-54], Cardano Hardware Wallet feature, , check external wallet, unimplemented yet."
+    error "[CHW-54], Cardano Hardware Wallet feature, check external wallet, unimplemented yet."
 
 newExternalWallet :: PassiveWalletLayer IO
                   -> NewExternalWallet
@@ -37,7 +37,7 @@ deleteExternalWallet :: PassiveWalletLayer IO
                      -> PublicKeyAsBase58
                      -> Handler NoContent
 deleteExternalWallet _pwl _encodedRootPK =
-    error "[CHW-106], Cardano Hardware Wallet feature, , delete external wallet, unimplemented yet."
+    error "[CHW-106], Cardano Hardware Wallet feature, delete external wallet, unimplemented yet."
 
 newUnsignedTransaction :: ActiveWalletLayer IO
                        -> PaymentWithChangeAddress

@@ -17504,6 +17504,7 @@ license = stdenv.lib.licenses.mit;
 , unix
 , unliftio
 , unordered-containers
+, vector
 , wai
 , wai-websockets
 , warp
@@ -17581,6 +17582,7 @@ universum
 unix
 unliftio
 unordered-containers
+vector
 wai
 wai-websockets
 warp

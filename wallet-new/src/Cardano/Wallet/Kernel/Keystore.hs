@@ -40,7 +40,7 @@ import           System.IO (hClose, openTempFile)
 import           Pos.Crypto (EncryptedSecretKey, hash)
 import           Pos.Util.UserSecret (UserSecret, getUSPath, isEmptyUserSecret,
                      readUserSecret, takeUserSecret, usKeys, usWallet,
-                     writeUserSecretRelease, _wusRootKey)
+                     writeRaw, writeUserSecretRelease, _wusRootKey)
 import           Pos.Util.Wlog (CanLog (..), HasLoggerName (..),
                      LoggerName (..), logMessage)
 
@@ -195,7 +195,9 @@ insert :: WalletId
        -> IO ()
 insert _walletId esk (Keystore ks) =
     modifyMVar_ ks $ \(InternalStorage us) -> do
-        return . InternalStorage . insertKey esk $ us
+        let us' = insertKey esk us
+        writeRaw us'
+        return (InternalStorage us')
 
 -- | Insert a new 'EncryptedSecretKey' directly inside the 'UserSecret'.
 insertKey :: EncryptedSecretKey -> UserSecret -> UserSecret
@@ -231,12 +233,10 @@ compareAndReplace walletId predicateOnOldKey newKey (Keystore ks) =
         case predicateOnOldKey <$> mbOldKey of
             Nothing    -> return (InternalStorage us, OldKeyLookupFailed)
             Just False -> return (InternalStorage us, PredicateFailed)
-            Just True  ->
-                return ( InternalStorage . insertKey newKey
-                                         . deleteKey walletId
-                                         $ us
-                       , Replaced
-                       )
+            Just True  -> do
+                let us' = insertKey newKey . deleteKey walletId $ us
+                writeRaw us'
+                return (InternalStorage us', Replaced)
 
 {-------------------------------------------------------------------------------
   Looking up things inside a keystore
@@ -263,7 +263,9 @@ lookupKey us (WalletIdHdRnd walletId) =
 delete :: WalletId -> Keystore -> IO ()
 delete walletId (Keystore ks) = do
     modifyMVar_ ks $ \(InternalStorage us) -> do
-        return (InternalStorage $ deleteKey walletId us)
+        let us' = deleteKey walletId us
+        writeRaw us'
+        return (InternalStorage us')
 
 -- | Delete a key directly inside the 'UserSecret'.
 deleteKey :: WalletId -> UserSecret -> UserSecret

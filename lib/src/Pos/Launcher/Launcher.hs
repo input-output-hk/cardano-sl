@@ -5,54 +5,75 @@
 
 module Pos.Launcher.Launcher
        ( -- * Node launcher.
-         runNodeRealSimple
+       launchNode
        ) where
 
 import           Universum
 
+import           Ntp.Client (NtpConfiguration)
 import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Ssc (SscParams)
 import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), NodeArgs (..))
+import           Pos.Client.CLI.Options (configurationOptions)
+import           Pos.Client.CLI.Params (getNodeParams)
 import           Pos.DB.DB (initNodeDBs)
-import           Pos.DB.Txp (txpGlobalSettings)
-import           Pos.Infra.Diffusion.Types (Diffusion)
-import           Pos.Launcher.Configuration (HasConfigurations)
-import           Pos.Launcher.Param (NodeParams (..))
-import           Pos.Launcher.Resource (NodeResources (..),
-                     bracketNodeResources)
-import           Pos.Launcher.Runner (runRealMode)
-import           Pos.Launcher.Scenario (runNode)
-import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.WorkMode (EmptyMempoolExt, RealMode)
+import           Pos.DB.Txp.Logic (txpGlobalSettings)
+import           Pos.Launcher.Configuration (AssetLockPath (..),
+                     HasConfigurations, WalletConfiguration,
+                     withConfigurations)
+import           Pos.Launcher.Param (LoggingParams (..), NodeParams (..))
+import           Pos.Launcher.Resource (NodeResources, bracketNodeResources,
+                     loggerBracket)
+import           Pos.Util.Util (logException)
+import           Pos.WorkMode (EmptyMempoolExt)
 
------------------------------------------------------------------------------
--- Main launchers
------------------------------------------------------------------------------
+-- import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 
--- | Run full node in real mode.
--- This function is *only* used by `cardano-node-simple`, the node without
--- wallet functionality.
-runNodeRealSimple
-    :: (HasConfigurations, HasCompileInfo)
-    => Genesis.Config
-    -> TxpConfiguration
-    -> NodeParams
-    -> SscParams
-    -> [  Diffusion (RealMode EmptyMempoolExt)
-       -> RealMode EmptyMempoolExt ()
-       ]
+
+-- | Run a given action from a bunch of static arguments
+launchNode
+    :: NodeArgs
+    -> CommonNodeArgs
+    -> LoggingParams
+    -> (  HasConfigurations
+       => Genesis.Config
+       -> WalletConfiguration
+       -> TxpConfiguration
+       -> NtpConfiguration
+       -> NodeParams
+       -> SscParams
+       -> NodeResources EmptyMempoolExt
+       -> IO ()
+       )
     -> IO ()
-runNodeRealSimple genesisConfig txpConfig np sscnp plugins = bracketNodeResources
-    genesisConfig
-    np
-    sscnp
-    (txpGlobalSettings genesisConfig txpConfig)
-    (initNodeDBs genesisConfig)
-    action
-  where
-    action :: NodeResources EmptyMempoolExt -> IO ()
-    action nr@NodeResources {..} = runRealMode
-        genesisConfig
-        txpConfig
-        nr
-        (runNode genesisConfig txpConfig nr plugins)
+launchNode nArgs cArgs lArgs action = do
+    let withLogger' = loggerBracket lArgs . logException (lpDefaultName lArgs)
+    let withConfigurations' = withConfigurations
+            (AssetLockPath <$> cnaAssetLockPath cArgs)
+            (cnaDumpGenesisDataPath cArgs)
+            (cnaDumpConfiguration cArgs)
+            (configurationOptions (commonArgs cArgs))
+
+    withLogger' $ withConfigurations' $ \genesisConfig walletConfig txpConfig ntpConfig -> do
+        (nodeParams, Just sscParams) <- getNodeParams
+            (lpDefaultName lArgs)
+            cArgs
+            nArgs
+            (configGeneratedSecrets genesisConfig)
+
+        let action' = action
+                genesisConfig
+                walletConfig
+                txpConfig
+                ntpConfig
+                nodeParams
+                sscParams
+
+        bracketNodeResources
+            genesisConfig
+            nodeParams
+            sscParams
+            (txpGlobalSettings genesisConfig txpConfig)
+            (initNodeDBs genesisConfig)
+            action'

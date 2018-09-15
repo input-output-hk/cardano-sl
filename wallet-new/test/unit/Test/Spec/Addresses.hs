@@ -137,7 +137,7 @@ prepareAddressesFixture acn adn = do
         let newAcc (n :: Int) = (V1.NewAccount spendingPassword ("My Account " <> show n))
         Right v1Wallet <- Wallets.createWallet pw newWalletRq
         forM_ [1..acn] $ \n ->
-            Accounts.createAccount pw (V1.walId v1Wallet) (WalletLayer.CreateHdAccountRandomIndex $ newAcc n)
+            Accounts.createAccount pw (V1.walId v1Wallet) (newAcc n)
         -- Get all the available accounts
         db <- Kernel.getWalletSnapshot pw
         let Right accs = Accounts.getAccounts (V1.walId v1Wallet) db
@@ -468,9 +468,8 @@ spec = describe "Addresses" $ do
                                 let con = wrData wr1 <> wrData wr2 <> wrData wr3
                                 length con `shouldBe` expectedTotal
                                 S.fromList con `shouldBe` S.fromList (wrData wr)
-    --                                The following test fails:
-    --                                (addrRoot . V1.unV1 . V1.addrId <$> con)
-    --                                    `shouldBe` (addrRoot . V1.unV1 . V1.addrId <$> wrData wr)
+                                (addrRoot . V1.unV1 . V1.addrId <$> con)
+                                        `shouldBe` (addrRoot . V1.unV1 . V1.addrId <$> wrData wr)
                             _        -> fail ("Got " ++ show res)
 
             prop "yields the correct ordered resutls when there is one account" $ withMaxSuccess 20 $ do
@@ -498,6 +497,31 @@ spec = describe "Addresses" $ do
                                 (addrRoot . V1.unV1 . V1.addrId <$> con)
                                     `shouldBe` (addrRoot . V1.unV1 . V1.addrId <$> wrData wr)
                             _        -> fail ("Got " ++ show res)
+
+
+            prop "yields the correct ordered resutls" $ withMaxSuccess 20 $ do
+                monadicIO $ do
+                    withAddressesFixtures 4 8 $ \_ layer _ _ -> do
+                        forM_ [2..10] $ \k -> do
+                            let indexes = [1..k]
+                            let (expectedTotal :: Int) = (4 + 1)*(8 + 1)
+                            let pagesParams = map (\i -> PaginationParams (Page i) (PerPage (quot expectedTotal k + 1)))
+                                              indexes
+                            let pp = PaginationParams (Page 1) (PerPage 50)
+                            res <- runExceptT $ runHandler' $ do
+                                Handlers.listAddresses layer (RequestParams pp)
+                            eiResultsArray <- forM pagesParams $ \ppi -> runExceptT $ runHandler' $ do
+                                Handlers.listAddresses layer (RequestParams ppi)
+                            let resultsArray = sequence eiResultsArray
+                            case (res, resultsArray) of
+                                (Right wr, Right wrList) -> do
+                                    let con = mconcat $ map wrData wrList
+                                    length (wrData wr) `shouldBe` expectedTotal
+                                    length con `shouldBe` expectedTotal
+                                    S.fromList con `shouldBe` S.fromList (wrData wr)
+                                    (addrRoot . V1.unV1 . V1.addrId <$> con)
+                                            `shouldBe` (addrRoot . V1.unV1 . V1.addrId <$> wrData wr)
+                                _        -> fail ("Got " ++ show res)
 
     describe "ValidateAddress" $ do
         describe "Address validation (wallet layer)" $ do

@@ -15003,7 +15003,9 @@ devnet: &devnet
           slotDuration:      20000 # set to desired value
         protocolConstants:
           <<: *mainnet_base_protocolConstants
-          protocolMagic: 170987650
+          protocolMagic:
+            pm: 123456789
+            requiresNetworkMagic: NMMustBeJust
           k: 6 # set to desired value
         avvmDistr: *mainnet_avvmDistr
         initializer:

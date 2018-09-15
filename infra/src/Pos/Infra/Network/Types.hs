@@ -72,7 +72,7 @@ import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Infra.Util.TimeWarp (addressToNodeId)
 import           Pos.Util.Trace (wlogTrace)
 import           Pos.Util.Util (HasLens', lensOf)
-import           Pos.Util.Wlog (LoggerName (..))
+import           Pos.Util.Wlog (LoggerName)
 
 {-------------------------------------------------------------------------------
   Network configuration
@@ -455,7 +455,7 @@ initQueue :: (MonadIO m, FormatMsg msg)
           -> m (OutboundQ msg NodeId Bucket)
 initQueue NetworkConfig{..} loggerName mStore = liftIO $ do
     let NodeName selfName = fromMaybe (NodeName "self") ncSelfName
-        oqTrace           = wlogTrace (loggerName <> LoggerName selfName)
+        oqTrace           = wlogTrace (loggerName <> "." <> selfName)
     oq <- OQ.new oqTrace
                  ncEnqueuePolicy
                  ncDequeuePolicy

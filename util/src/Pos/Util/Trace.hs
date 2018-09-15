@@ -13,6 +13,7 @@ module Pos.Util.Trace
     , Wlog.Severity (..)
     -- * trace setup
     , setupLogging
+    , wsetupLogging
     , logTrace
     -- * log messages
     , logDebug
@@ -49,6 +50,13 @@ setupLogging :: MonadIO m
 setupLogging lc ln = do
     lh <- Log.setupLogging lc
     return $ logTrace lh ln
+
+wsetupLogging :: Wlog.LoggerConfig
+              -> Wlog.LoggerName
+              -> IO (Trace IO (Wlog.Severity, Text))
+wsetupLogging lc ln = do
+    Wlog.setupLogging lc
+    return $ wlogTrace ln
 
 trace :: Trace m s -> s -> m ()
 trace = getOp . runTrace

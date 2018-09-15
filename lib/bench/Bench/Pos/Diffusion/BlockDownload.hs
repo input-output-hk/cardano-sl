@@ -21,7 +21,6 @@ import qualified Criterion.Main.Options as Criterion
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Conduit.Combinators (yieldMany)
 import           Data.List.NonEmpty (NonEmpty ((:|)))
-import           Data.Semigroup ((<>))
 import qualified Options.Applicative as Opt (execParser)
 
 import qualified Network.Broadcast.OutboundQueue as OQ
@@ -124,7 +123,7 @@ withServer transport logic k = do
     -- Morally, the server shouldn't need an outbound queue, but we have to
     -- give one.
     oq <- liftIO $ OQ.new
-                 (wlogTrace ("server" <> "outboundqueue"))
+                 (wlogTrace ("server.outboundqueue"))
                  Policy.defaultEnqueuePolicyRelay
                  --Policy.defaultDequeuePolicyRelay
                  (const (OQ.Dequeue OQ.NoRateLimiting (OQ.MaxInFlight maxBound)))
@@ -152,7 +151,7 @@ withServer transport logic k = do
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
         , fdcStreamWindow = 65536
-        , fdcTrace = wlogTrace ("server" <> "diffusion")
+        , fdcTrace = wlogTrace ("server.diffusion")
         }
 
 -- Like 'withServer' but we must set up the outbound queue so that it will
@@ -167,7 +166,7 @@ withClient transport logic serverAddress@(Node.NodeId _) k = do
     -- Morally, the server shouldn't need an outbound queue, but we have to
     -- give one.
     oq <- OQ.new
-                 (wlogTrace ("client" <> "outboundqueue"))
+                 (wlogTrace ("client.outboundqueue"))
                  Policy.defaultEnqueuePolicyRelay
                  --Policy.defaultDequeuePolicyRelay
                  (const (OQ.Dequeue OQ.NoRateLimiting (OQ.MaxInFlight maxBound)))
@@ -197,7 +196,7 @@ withClient transport logic serverAddress@(Node.NodeId _) k = do
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
         , fdcStreamWindow = 65536
-        , fdcTrace = wlogTrace ("client" <> "diffusion")
+        , fdcTrace = wlogTrace ("client.diffusion")
         }
 
 

@@ -1,19 +1,3 @@
-{-# LANGUAGE ConstraintKinds            #-}
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE ExistentialQuantification  #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GADTs                      #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE KindSignatures             #-}
-{-# LANGUAGE LambdaCase                 #-}
-{-# LANGUAGE Rank2Types                 #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE TypeApplications           #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE UndecidableInstances       #-}
-
 -- | Safe/secure logging
 
 module Pos.Core.Util.LogSafe
@@ -61,6 +45,7 @@ module Pos.Core.Util.LogSafe
        , buildUnsecure
        , getSecuredText
        , deriveSafeBuildable
+       , logMCond
        ) where
 
 -- Universum has its own Rube Goldberg variant of 'Foldable' which we do not
@@ -72,8 +57,7 @@ module Pos.Core.Util.LogSafe
 import           Universum
 
 import           Control.Monad.Trans (MonadTrans)
-import           Data.Foldable (Foldable, length, null)
-import           Data.List (isSuffixOf)
+import           Data.Foldable (length, null)
 import           Data.Reflection (Reifies (..), reify)
 import           Data.Text.Lazy.Builder (Builder)
 import           Formatting (bprint, build, fconst, later, mapf, (%))
@@ -84,8 +68,10 @@ import qualified Language.Haskell.TH as TH
 import           Pos.Core (Timestamp)
 import           Pos.Core.Common (Address, Coin)
 import           Pos.Crypto (PassPhrase)
-import           Pos.Util.Wlog (CanLog (..), HasLoggerName (..),
-                     LogHandlerTag (HandlerFilelike), Severity (..), logMCond)
+
+import           Pos.Util.Log.LoggerConfig (LogSecurityLevel (..))
+import           Pos.Util.Wlog.Compatibility (CanLog (..), HasLoggerName (..),
+                     SelectionMode, Severity (..), logMCond)
 
 ----------------------------------------------------------------------------
 -- Logging
@@ -99,13 +85,10 @@ newtype SelectiveLogWrapped s m a = SelectiveLogWrapped
 instance MonadTrans (SelectiveLogWrapped s) where
     lift = SelectiveLogWrapped
 
--- | Whether to log to given log handler.
-type SelectionMode = LogHandlerTag -> Bool
-
 selectPublicLogs :: SelectionMode
 selectPublicLogs = \case
-    HandlerFilelike p -> ".pub" `isSuffixOf` p
-    _ -> False
+    PublicLogLevel -> True
+    _              -> False
 
 selectSecretLogs :: SelectionMode
 selectSecretLogs = not . selectPublicLogs
@@ -133,8 +116,7 @@ logNoticeS  = logMessageS Notice
 logWarningS = logMessageS Warning
 logErrorS   = logMessageS Error
 
--- | Same as 'logMesssage', but log to secret logs, put only insecure
--- version to memmode (to terminal).
+-- | Same as 'logMesssage', but log to secret logs.
 logMessageS
     :: (HasLoggerName m, MonadIO m)
     => Severity
@@ -180,11 +162,6 @@ logMessageS severity t =
 newtype SecureLog a = SecureLog
     { getSecureLog :: a
     } deriving (Eq, Ord)
-
-data LogSecurityLevel
-    = SecretLogLevel
-    | PublicLogLevel
-    deriving (Eq)
 
 secure :: LogSecurityLevel
 secure = PublicLogLevel

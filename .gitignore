@@ -5,6 +5,10 @@
 # From daedalus-bridge
 node_modules/*
 
+# tags
+*.tags
+tags
+
 # Config files
 .ghci
 

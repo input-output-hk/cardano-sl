@@ -26,11 +26,12 @@ import           Pos.Crypto (EncryptedSecretKey (..), SecretKey (..),
                      VssKeyPair, fullPublicKeyF, hashHexF, noPassEncrypt,
                      redeemPkB64F, toPublic, toVssPublicKey)
 import           Pos.Launcher (dumpGenesisData, withConfigurations)
+import           Pos.Util.Log.LoggerConfig (defaultInteractiveConfiguration)
 import           Pos.Util.UserSecret (readUserSecret, takeUserSecret, usKeys,
                      usPrimKey, usVss, usWallet, writeUserSecretRelease,
                      wusRootKey)
-import           Pos.Util.Wlog (WithLogger, debugPlus, logInfo, productionB,
-                     setupLogging, termSeveritiesOutB, usingLoggerName)
+import           Pos.Util.Wlog (Severity (Debug), WithLogger, logInfo,
+                     setupLogging, usingLoggerName)
 
 import           Dump (dumpFakeAvvmSeed, dumpGeneratedGenesisData,
                      dumpRichSecrets)
@@ -155,7 +156,7 @@ genVssCert genesisConfig path = do
 main :: IO ()
 main = do
     KeygenOptions {..} <- getKeygenOptions
-    setupLogging Nothing $ productionB <> termSeveritiesOutB debugPlus
+    setupLogging $ defaultInteractiveConfiguration Debug
     usingLoggerName "keygen"
         $ withConfigurations Nothing Nothing False koConfigurationOptions
         $ \genesisConfig _ _ _ -> do

@@ -10,7 +10,7 @@ import           Universum
 import           Data.Default (def)
 import           Formatting (sformat, (%))
 import           Serokell.Data.Memory.Units (memory)
-import           Test.Hspec (Spec, describe)
+import           Test.Hspec (Spec, beforeAll_, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Discard (..), arbitrary)
 import           Test.QuickCheck.Monadic (pick, stop)
@@ -20,6 +20,8 @@ import           Pos.Client.Txp.Addresses (getFakeChangeAddress, getNewAddress)
 import           Pos.Core.Common (Address)
 import           Pos.Crypto (PassPhrase)
 
+import           Pos.Util.Log.LoggerConfig (defaultTestConfiguration)
+import           Pos.Util.Wlog (Severity (Debug), setupLogging)
 import           Pos.Wallet.Web.Account (GenSeed (..), genUniqueAddress)
 import           Pos.Wallet.Web.ClientTypes (AccountId, CAccountInit (..), caId)
 import           Pos.Wallet.Web.Error (WalletError (..))
@@ -35,13 +37,14 @@ import           Test.Pos.Wallet.Web.Util (importSingleWallet,
                      mostlyEmptyPassphrases)
 
 spec :: Spec
-spec = withDefConfigurations $ \_ _ _ ->
-    describe "Fake address has maximal possible size" $
-    modifyMaxSuccess (const 10) $ do
-        prop "getNewAddress" $
-            fakeAddressHasMaxSizeTest changeAddressGenerator
-        prop "genUniqueAddress" $
-            fakeAddressHasMaxSizeTest commonAddressGenerator
+spec = beforeAll_ (setupLogging (defaultTestConfiguration Debug)) $
+            withDefConfigurations $ \_ _ _ ->
+                describe "Fake address has maximal possible size" $
+                modifyMaxSuccess (const 10) $ do
+                    prop "getNewAddress" $
+                        fakeAddressHasMaxSizeTest changeAddressGenerator
+                    prop "genUniqueAddress" $
+                        fakeAddressHasMaxSizeTest commonAddressGenerator
 
 type AddressGenerator = AccountId -> PassPhrase -> WalletProperty Address
 

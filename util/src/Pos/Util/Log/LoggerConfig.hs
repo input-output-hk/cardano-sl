@@ -16,7 +16,7 @@ module Pos.Util.Log.LoggerConfig
        , defaultStdErrConfiguration
        , jsonInteractiveConfiguration
        -- * access
-       , lcLoggerTree
+       , lcLoggerTree, lcTree
        , lcRotation
        , lcBasePath
        , ltHandlers
@@ -143,21 +143,21 @@ instance FromJSON LoggerTree where
                             _lhBackend = StdoutBE,
                             _lhFpath = Nothing,
                             _lhSecurityLevel = Just PublicLogLevel,
-                            _lhMinSeverity = Just Info }
+                            _lhMinSeverity = Just Debug }
         let fileHandlers =
               map (\fp ->
                 let name = T.pack fp in
                 LogHandler { _lhName=name
                            , _lhFpath=Just fp
                            , _lhBackend=FileTextBE
-                           , _lhMinSeverity=Just Info
+                           , _lhMinSeverity=Just Debug
                            , _lhSecurityLevel=case ".pub" `T.isSuffixOf` name of
                                 True -> Just PublicLogLevel
                                 _    -> Just SecretLogLevel
                            }) $
                 maybeToList singleFile ++ manyFiles
         let _ltHandlers = fileHandlers <> handlers <> [consoleHandler]
-        (_ltMinSeverity :: Severity) <- o .: "severity" .!= Info
+        (_ltMinSeverity :: Severity) <- o .: "severity" .!= Debug
         -- everything else is considered a severity filter
         (_ltNamedSeverity :: NamedSeverity) <- for (filterKnowns o) parseJSON
         return LoggerTree{..}
@@ -180,10 +180,10 @@ instance Semigroup LoggerTree where
                 , _ltNamedSeverity = _ltNamedSeverity lt1 <> _ltNamedSeverity lt2
                 }
 instance Monoid LoggerTree where
-    mempty = LoggerTree { _ltMinSeverity = Info
+    mempty = LoggerTree { _ltMinSeverity = Debug
                    , _ltHandlers = [LogHandler { _lhName="console", _lhFpath=Nothing
                                                , _lhBackend=StdoutBE
-                                               , _lhMinSeverity=Just Info
+                                               , _lhMinSeverity=Just Debug
                                                , _lhSecurityLevel=Just PublicLogLevel}]
                    , _ltNamedSeverity = HM.empty
                    }
@@ -211,7 +211,10 @@ instance Semigroup LoggerConfig where
     lc1 <> lc2 = LoggerConfig {
                   _lcRotation = _lcRotation  lc1
                 , _lcLoggerTree = _lcLoggerTree lc1 <> _lcLoggerTree lc2
-                , _lcBasePath = _lcBasePath lc1
+                , _lcBasePath = let basePath1 = _lcBasePath lc1 in
+                                case basePath1 of
+                                    Nothing -> _lcBasePath lc2
+                                    _       -> basePath1
                 }
 instance Monoid LoggerConfig where
     mempty = LoggerConfig { _lcRotation = Just RotationParameters {
@@ -335,3 +338,7 @@ defaultTestConfiguration minSeverity =
           }
     in
     LoggerConfig{..}
+
+lcTree :: Functor f => (LoggerTree -> f LoggerTree) -> LoggerConfig -> f LoggerConfig
+lcTree = lcLoggerTree
+

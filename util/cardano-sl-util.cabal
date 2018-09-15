@@ -39,6 +39,7 @@ library
                        Pos.Util.Log.LoggerConfig
                        Pos.Util.Log.LoggerName
                        Pos.Util.Log.Severity
+                       Pos.Util.Wlog.Compatibility
                        Pos.Util.LoggerName
                        Pos.Util.LRU
                        Pos.Util.Modifier
@@ -78,9 +79,10 @@ library
                      , hashable
                      , katip
                      , lens
-                     , log-warper >= 1.0.3
                      , lrucache
                      , megaparsec
+                     , mmorph
+                     , monad-control
                      , mtl
                      , optparse-applicative
                      , parsec
@@ -96,6 +98,7 @@ library
                      , time
                      , time-units
                      , transformers
+                     , transformers-base
                      , transformers-lift
                      , universum
                      , unliftio-core
@@ -154,6 +157,7 @@ test-suite test
                        Test.Pos.Util.TimerSpec
                        Test.Pos.Util.TraceSpec
                        Test.Pos.Util.Tripping
+                       Test.Pos.Util.WlogSpec
 
   build-depends:       aeson
                      , base

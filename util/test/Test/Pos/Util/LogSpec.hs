@@ -48,9 +48,9 @@ prop_lines =
     monadicIO $ do
         let n0 = 20
             n1 = 1
-        (_, linesLogged) <- run (run_logging Debug 10 n0 n1)
+        (_, lineslogged) <- run (run_logging Debug 10 n0 n1)
         -- multiply by 5 because we log 5 different messages (n0 * n1) times
-        assert (linesLogged == n0 * n1 * 5)
+        assert (lineslogged == n0 * n1 * 5)
 
 -- | Count as many lines as you intended to log.
 prop_sev :: Property
@@ -58,9 +58,9 @@ prop_sev =
     monadicIO $ do
         let n0 = 20
             n1 = 1
-        (_, linesLogged) <- run (run_logging Warning 10 n0 n1)
+        (_, lineslogged) <- run (run_logging Warning 10 n0 n1)
         -- multiply by 2 because Debug, Info and Notice messages must not be logged
-        assert (linesLogged == n0 * n1 * 2)
+        assert (lineslogged == n0 * n1 * 2)
 
 run_logging :: Severity -> Int -> Integer -> Integer -> IO (Microsecond, Integer)
 run_logging sev n n0 n1= do
@@ -78,9 +78,9 @@ run_logging sev n n0 n1= do
         threadDelay $ fromIntegral (5000 * n0)
         let diffTime = nominalDiffTimeToMicroseconds (endTime - startTime)
         putStrLn $ "  time for " ++ (show (n0*n1)) ++ " iterations: " ++ (show diffTime)
-        linesLogged <- getLinesLogged lh
-        putStrLn $ "  lines logged :" ++ (show linesLogged)
-        return (diffTime, linesLogged)
+        lineslogged <- getLinesLogged lh
+        putStrLn $ "  lines logged :" ++ (show lineslogged)
+        return (diffTime, lineslogged)
         where msg :: Text
               msg = replicate n "abcdefghijklmnopqrstuvwxyz"
 
@@ -89,9 +89,9 @@ prop_sevS =
     monadicIO $ do
         let n0 = 200
             n1 = 1
-        (_, linesLogged) <- run (run_loggingS Warning 10 n0 n1)
+        (_, lineslogged) <- run (run_loggingS Warning 10 n0 n1)
         -- multiply by 2 because Debug, Info and Notice messages must not be logged
-        assert (linesLogged == 0)
+        assert (lineslogged == 0)
 
 run_loggingS :: Severity -> Int -> Integer -> Integer-> IO (Microsecond, Integer)
 run_loggingS sev n n0 n1= do
@@ -109,9 +109,9 @@ run_loggingS sev n n0 n1= do
         threadDelay 0500000
         let diffTime = nominalDiffTimeToMicroseconds (endTime - startTime)
         putStrLn $ "  time for " ++ (show (n0*n1)) ++ " iterations: " ++ (show diffTime)
-        linesLogged <- getLinesLogged lh
-        putStrLn $ "  lines logged :" ++ (show linesLogged)
-        return (diffTime, linesLogged)
+        lineslogged <- getLinesLogged lh
+        putStrLn $ "  lines logged :" ++ (show lineslogged)
+        return (diffTime, lineslogged)
         where msg :: Text
               msg = replicate n "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
@@ -228,6 +228,6 @@ spec = describe "Logging" $ do
             lift $ threadDelay 0300000
             lift $ usingLoggerName lh "verbose" $ do { logWarning "now you read this!" }
             lift $ threadDelay 0300000
-            linesLogged <- lift $ getLinesLogged lh
-            assert (linesLogged == 1)
+            lineslogged <- lift $ getLinesLogged lh
+            assert (lineslogged == 1)
 

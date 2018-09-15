@@ -41,7 +41,6 @@ import           Pos.Launcher.Configuration (ConfigurationOptions (..),
                      withConfigurationsM)
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Util.Util (realTime)
-import           Pos.Util.Wlog (LoggerName (..))
 
 import           Test.Pos.Block.Logic.Emulation (runEmulation, sudoLiftIO)
 import           Test.Pos.Block.Logic.Mode (BlockTestContext, BlockTestMode,
@@ -228,7 +227,7 @@ runBenchmark = do
             , cfoSystemStart = Just (Timestamp startTime)
             }
     withCompileInfo
-        $ withConfigurationsM (LoggerName "verifyBenchmark") Nothing Nothing False cfo
+        $ withConfigurationsM "verifyBenchmark" Nothing Nothing False cfo
         $ \genesisConfig _ txpConfig _ -> do
             let tp = TestParams
                     { _tpStartTime = Timestamp (convertUnit startTime)

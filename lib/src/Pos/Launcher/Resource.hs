@@ -26,9 +26,6 @@ import           Control.Exception.Base (ErrorCall (..))
 import           Data.Default (Default)
 import qualified Data.Time as Time
 import           Formatting (sformat, shown, (%))
-import           Pos.Util.Wlog (LoggerConfig (..), WithLogger, consoleActionB,
-                     defaultHandleAction, logDebug, logInfo, maybeLogsDirB,
-                     productionB, removeAllHandlers, setupLogging, showTidB)
 import           System.IO (BufferMode (..), hClose, hSetBuffering)
 import qualified System.Metrics as Metrics
 
@@ -39,7 +36,6 @@ import           Pos.Chain.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Chain.Genesis as Genesis (Config, configBlkSecurityParam,
                      configEpochSlots, configStartTime)
 import           Pos.Chain.Ssc (SscParams, SscState, createSscContext)
-import           Pos.Client.CLI.Util (readLoggerConfig)
 import           Pos.Configuration
 import           Pos.Context (ConnectedPeers (..), NodeContext (..),
                      StartTime (..))
@@ -69,6 +65,10 @@ import           Pos.Launcher.Mode (InitMode, InitModeContext (..), runInitMode)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
                      NodeParams (..))
 import           Pos.Util (bracketWithLogging, newInitFuture)
+import           Pos.Util.Log.LoggerConfig (defaultInteractiveConfiguration)
+import           Pos.Util.Wlog (LoggerConfig (..), Severity (..), WithLogger,
+                     logDebug, logInfo, parseLoggerConfig, removeAllHandlers,
+                     setupLogging)
 
 #ifdef linux_HOST_OS
 import qualified Pos.Util.Wlog as Logger
@@ -231,20 +231,24 @@ bracketNodeResources genesisConfig np sp txp initDB action = do
 
 getRealLoggerConfig :: MonadIO m => LoggingParams -> m LoggerConfig
 getRealLoggerConfig LoggingParams{..} = do
-    let cfgBuilder = productionB
-                  <> showTidB
-                  <> maybeLogsDirB lpHandlerPrefix
-    cfg <- readLoggerConfig lpConfigPath
-    pure $ overrideConsoleLog $ cfg <> cfgBuilder
+    case lpConfigPath of
+        Just configPath -> parseLoggerConfig configPath
+        Nothing         -> return (mempty :: LoggerConfig)
+    >>= \lc -> return $ (overridePrefixPath . overrideConsoleLog) lc
   where
+    overridePrefixPath :: LoggerConfig -> LoggerConfig
+    overridePrefixPath = case lpHandlerPrefix of
+        Nothing -> identity
+        Just _  -> \lc -> lc { _lcBasePath = lpHandlerPrefix }
     overrideConsoleLog :: LoggerConfig -> LoggerConfig
-    overrideConsoleLog src = case lpConsoleLog of
-        Nothing    -> src
-        Just True  -> src <> consoleActionB defaultHandleAction
-        Just False -> src <> consoleActionB (\_ _ -> pass)
+    overrideConsoleLog = case lpConsoleLog of
+        Nothing    -> identity
+        Just True  -> (<>) (defaultInteractiveConfiguration Info)
+                      -- add output to the console with severity filter >= Info
+        Just False -> identity
 
 setupLoggers :: MonadIO m => LoggingParams -> m ()
-setupLoggers params = setupLogging Nothing =<< getRealLoggerConfig params
+setupLoggers params = setupLogging =<< getRealLoggerConfig params
 
 -- | RAII for Logging.
 loggerBracket :: LoggingParams -> IO a -> IO a

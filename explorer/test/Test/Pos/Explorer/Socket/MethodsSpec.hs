@@ -15,8 +15,8 @@ import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 import           Network.EngineIO (SocketId)
 
-import           Test.Hspec (Spec, anyException, describe, it, shouldBe,
-                     shouldThrow)
+import           Test.Hspec (Spec, anyException, beforeAll_, describe, it,
+                     shouldBe, shouldThrow)
 import           Test.Hspec.QuickCheck (modifyMaxSize, prop)
 import           Test.QuickCheck (Property, arbitrary, forAll)
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
@@ -37,6 +37,8 @@ import           Pos.Explorer.Socket.Methods (addrSubParam, addressSetByTxs,
                      unsubscribeTxs)
 import           Pos.Explorer.TestUtil (secretKeyToAddress)
 import           Pos.Explorer.Web.ClientTypes (CAddress (..), toCAddress)
+import           Pos.Util.Log.LoggerConfig (defaultTestConfiguration)
+import           Pos.Util.Wlog (Severity (Debug), setupLogging)
 
 import           Test.Pos.Explorer.MockFactory (mkTxOut)
 
@@ -48,7 +50,7 @@ import           Test.Pos.Explorer.MockFactory (mkTxOut)
 -- stack test cardano-sl-explorer --fast --test-arguments "-m Test.Pos.Explorer.Socket"
 
 spec :: Spec
-spec =
+spec = beforeAll_ (setupLogging (defaultTestConfiguration Debug)) $
     describe "Methods" $ do
         describe "fromCAddressOrThrow" $
             it "throws an exception if a given CAddress is invalid" $

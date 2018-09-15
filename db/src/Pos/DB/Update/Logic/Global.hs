@@ -79,7 +79,7 @@ type USGlobalApplyMode ctx m =
 ----------------------------------------------------------------------------
 
 withUSLogger :: WithLogger m => m a -> m a
-withUSLogger = modifyLoggerName (<> "us")
+withUSLogger = modifyLoggerName (<> ".us")
 
 -- | Apply chain of /definitely/ valid blocks to US part of GState DB
 -- and to US local data. This function assumes that no other thread

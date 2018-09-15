@@ -1,23 +1,58 @@
+{-# LANGUAGE Rank2Types #-}
+
+-- | a compatible interface to 'log-warper'
+--   logging output is directed to 'katip'
+
 module Pos.Util.Wlog
-        ( module System.Wlog
-        , module System.Wlog.LogHandler
-        , module System.Wlog.Formatter
+        ( -- * CanLog
+          CanLog (..)
+        , WithLogger
+          -- * Pure logging
+        , dispatchEvents
+        , LogEvent (..)
+        , NamedPureLogger (..)
+        , launchNamedPureLog
+        , runNamedPureLog
+          -- * Setup
+        , setupLogging
+          -- * Logging functions
+        , logDebug
+        , logError
+        , logInfo
+        , logNotice
+        , logWarning
+        , logMessage
+          -- * LoggerName
+        , LoggerName
+        , LoggerNameBox (..)
+        , HasLoggerName (..)
+        , usingLoggerName
+          -- * LoggerConfig
+        , LoggerConfig (..)
+        , lcTree
+        , parseLoggerConfig
+          -- * Builders for 'LoggerConfig'
+        , productionB
+          -- * Severity
+        , Severity (..)
+          -- * Saving Changes
+        , retrieveLogContent
+          -- * Logging messages with a condition
+        , logMCond
+          -- * Utility functions
+        , removeAllHandlers
+        , centiUtcTimeF
+        , setLogPrefix
+        , getLinesLogged
         ) where
 
-import           System.Wlog (CanLog (..), HandlerWrap (..), HasLoggerName (..),
-                     LogEvent (..), LoggerConfig (..), LoggerName (..),
-                     LoggerNameBox (..), NamedPureLogger (..), Severity (..),
-                     WithLogger, consoleActionB, debugPlus,
-                     defaultHandleAction, dispatchEvents, errorPlus,
-                     fromScratch, hwFilePath, infoPlus, launchNamedPureLog,
-                     lcLogsDirectory, lcTermSeverityOut, lcTree, logDebug,
-                     logError, logInfo, logMCond, logMessage, logNotice,
-                     logWarning, ltFiles, ltSeverity, ltSubloggers,
-                     maybeLogsDirB, modifyLoggerName, noticePlus,
-                     parseLoggerConfig, productionB, removeAllHandlers,
-                     retrieveLogContent, runNamedPureLog, setLevel,
-                     setupLogging, showTidB, termSeveritiesOutB,
-                     updateGlobalLogger, usingLoggerName, warningPlus,
-                     zoomLogger)
-import           System.Wlog.Formatter (centiUtcTimeF)
-import           System.Wlog.LogHandler (LogHandlerTag (HandlerFilelike))
+import           Pos.Util.Log (LoggerName, Severity (..))
+import           Pos.Util.Log.LoggerConfig (LoggerConfig (..), lcTree,
+                     parseLoggerConfig, setLogPrefix)
+import           Pos.Util.Wlog.Compatibility (CanLog (..), HasLoggerName (..),
+                     LogEvent (..), LoggerNameBox (..), NamedPureLogger (..),
+                     WithLogger, centiUtcTimeF, dispatchEvents, getLinesLogged,
+                     launchNamedPureLog, logDebug, logError, logInfo, logMCond,
+                     logMessage, logNotice, logWarning, productionB,
+                     removeAllHandlers, retrieveLogContent, runNamedPureLog,
+                     setupLogging, usingLoggerName)

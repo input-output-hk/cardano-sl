@@ -154,6 +154,9 @@ prepareAddressesFixture acn adn = do
         res <- mapM insertAddresses accounts
         return $ M.fromList res
 
+expectedNumber :: Int -> Int -> Int
+expectedNumber acc adr = (acc + 1)*(adr + 1) - acc
+
 
 withFixture :: (  Keystore.Keystore
                -> PassiveWalletLayer IO
@@ -414,13 +417,13 @@ spec = describe "Addresses" $ do
                                 -- this takes into account that there is an initial account
                                 -- and each account has an initial address (but not the initial
                                 -- account thus the -1)
-                                length (wrData wr) `shouldBe` (3 + 1)*(4 + 1)
+                                length (wrData wr) `shouldBe` expectedNumber 3 4
                             _        -> fail ("Got " ++ show res)
 
             prop "is deterministic" $ withMaxSuccess 20 $ do
                 monadicIO $
                     withAddressesFixtures 3 8 $ \_ layer _ _ -> do
-                        let (expectedTotal :: Int) = (3 + 1)*(8 + 1)
+                        let (expectedTotal :: Int) = expectedNumber 3 8
                         let pp = PaginationParams (Page 1) (PerPage 40)
                         let pp1 = PaginationParams (Page 1) (PerPage (quot expectedTotal 3 + 1))
                         let pp2 = PaginationParams (Page 2) (PerPage (quot expectedTotal 3 + 1))
@@ -449,7 +452,7 @@ spec = describe "Addresses" $ do
             prop "yields the correct set of resutls" $ withMaxSuccess 20 $ do
                 monadicIO $
                     withAddressesFixtures 4 8 $ \_ layer _ _ -> do
-                        let (expectedTotal :: Int) = (4 + 1)*(8 + 1)
+                        let (expectedTotal :: Int) = expectedNumber 4 8
                         let pp = PaginationParams (Page 1) (PerPage 50)
                         let pp1 = PaginationParams (Page 1) (PerPage (quot expectedTotal 3 + 1))
                         let pp2 = PaginationParams (Page 2) (PerPage (quot expectedTotal 3 + 1))
@@ -475,7 +478,7 @@ spec = describe "Addresses" $ do
             prop "yields the correct ordered resutls when there is one account" $ withMaxSuccess 20 $ do
                 monadicIO $
                     withAddressesFixtures 0 15 $ \_ layer _ _ -> do
-                        let (expectedTotal :: Int) = (0 + 1)*(15 + 1)
+                        let (expectedTotal :: Int) = expectedNumber 0 15
                         let pp = PaginationParams (Page 1) (PerPage 50)
                         let pp1 = PaginationParams (Page 1) (PerPage (quot expectedTotal 3 + 1))
                         let pp2 = PaginationParams (Page 2) (PerPage (quot expectedTotal 3 + 1))
@@ -501,10 +504,11 @@ spec = describe "Addresses" $ do
 
             prop "yields the correct ordered resutls" $ withMaxSuccess 20 $ do
                 monadicIO $ do
-                    withAddressesFixtures 4 8 $ \_ layer _ _ -> do
+                  forM_ [(4,8), (6,6), (5,7)] $ \(acc,adr) ->
+                    withAddressesFixtures acc adr $ \_ layer _ _ -> do
                         forM_ [2..10] $ \k -> do
                             let indexes = [1..k]
-                            let (expectedTotal :: Int) = (4 + 1)*(8 + 1)
+                            let (expectedTotal :: Int) = expectedNumber acc adr
                             let pagesParams = map (\i -> PaginationParams (Page i) (PerPage (quot expectedTotal k + 1)))
                                               indexes
                             let pp = PaginationParams (Page 1) (PerPage 50)

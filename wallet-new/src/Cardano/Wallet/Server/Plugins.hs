@@ -19,14 +19,12 @@ import           Data.Aeson (encode)
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.Text as T
 import           Data.Typeable (typeOf)
+import qualified Servant
 
 import           Network.HTTP.Types.Status (badRequest400)
 import           Network.Wai (Application, Middleware, Response, responseLBS)
 import           Network.Wai.Handler.Warp (defaultSettings,
                      setOnExceptionResponse)
-import           Network.Wai.Middleware.Cors (cors, corsMethods,
-                     corsRequestHeaders, simpleCorsResourcePolicy,
-                     simpleMethods)
 
 import           Cardano.NodeIPC (startNodeJsIPC)
 import           Cardano.Wallet.API as API
@@ -39,8 +37,9 @@ import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
 import qualified Cardano.Wallet.Kernel.Mode as Kernel
 import qualified Cardano.Wallet.Server as Server
 import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..),
-                     RunMode, WalletBackendParams (..), getWalletDbOptions,
-                     isDebugMode, walletAcidInterval)
+                     WalletBackendParams (..), getWalletDbOptions, isDebugMode,
+                     walletAcidInterval)
+import           Cardano.Wallet.Server.Middlewares (withMiddlewares)
 import           Cardano.Wallet.Server.Plugins.AcidState
                      (createAndArchiveCheckpoints)
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer,
@@ -59,9 +58,6 @@ import           Pos.Util.Wlog (logInfo, modifyLoggerName, usingLoggerName)
 import           Pos.Web (serveDocImpl, serveImpl)
 import qualified Pos.Web.Server
 
-import qualified Servant
-
-
 -- Needed for Orphan Instance 'Buildable Servant.NoContent' :|
 import           Pos.Wallet.Web ()
 
@@ -75,8 +71,9 @@ apiServer
     :: ProtocolMagic
     -> NewWalletBackendParams
     -> (PassiveWalletLayer IO, PassiveWallet)
+    -> [Middleware]
     -> Plugin Kernel.WalletMode
-apiServer protocolMagic (NewWalletBackendParams WalletBackendParams{..}) (passiveLayer, passiveWallet) =
+apiServer protocolMagic (NewWalletBackendParams WalletBackendParams{..}) (passiveLayer, passiveWallet) middlewares =
     pure $ \diffusion -> do
         env <- ask
         let diffusion' = Kernel.fromDiffusion (lower env) diffusion
@@ -113,9 +110,11 @@ apiServer protocolMagic (NewWalletBackendParams WalletBackendParams{..}) (passiv
 
     getApplication :: ActiveWalletLayer IO -> Kernel.WalletMode Application
     getApplication active = do
-      logInfo "New wallet API has STARTED!"
-      return $ withMiddleware walletRunMode $
-        Servant.serve API.newWalletAPI $ Server.walletServer active walletRunMode
+        logInfo "New wallet API has STARTED!"
+        return
+            $ withMiddlewares middlewares
+            $ Servant.serve API.newWalletAPI
+            $ Server.walletServer active walletRunMode
 
     lower :: env -> ReaderT env IO a -> IO a
     lower env m = runReaderT m env
@@ -123,23 +122,6 @@ apiServer protocolMagic (NewWalletBackendParams WalletBackendParams{..}) (passiv
     portCallback :: ShutdownContext -> Word16 -> IO ()
     portCallback ctx =
         usingLoggerName "NodeIPC" . flip runReaderT ctx . startNodeJsIPC
-
-    -- | "Attaches" the middleware to this 'Application', if any.
-    -- When running in debug mode, chances are we want to at least allow CORS to test the API
-    -- with a Swagger editor, locally.
-    withMiddleware :: RunMode -> Application -> Application
-    withMiddleware wrm app
-      | isDebugMode wrm = corsMiddleware app
-      | otherwise = app
-
-    corsMiddleware :: Middleware
-    corsMiddleware = cors (const $ Just policy)
-        where
-          policy = simpleCorsResourcePolicy
-            { corsRequestHeaders = ["Content-Type"]
-            , corsMethods = "PUT" : simpleMethods
-            }
-
 
 -- | A @Plugin@ to serve the wallet documentation
 docServer

@@ -41,6 +41,9 @@
 
 - Small refactor of wallet Errors implementation to be more maintainable (CBR-26)
 
+- Content-Type parser is now more lenient and accepts `application/json`, `application/json;charset=utf-8` and 
+  no Content-Type at all (defaulting to `application/json`).
+
 ### Specifications
 
 ### Documentation

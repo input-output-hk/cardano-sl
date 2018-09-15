@@ -27,10 +27,11 @@ and set up [GPG signing of commits](https://help.github.com/articles/signing-com
 in the Cardano repo itself.
 
 You can then clone the Cardano repo using:
+
 ```
 git clone https://github.com/input-output-hk/cardano-sl
 ```
-```
+
 After you change directory into that cloned repository, you may want to tell
 git to use the SSH protocol for the "git push" command, keeping the HTTPS
 protocol for the "git pull" and "git fetch" commands by issuing the following
@@ -42,28 +43,35 @@ git remote set-url --push origin git@github.com:input-output-hk/cardano-sl
 
 This may also be a good time to run the following (replacing XXXXXXXXXXXXXXXX
 with your GPG key fingerprint):
+
 ```
 git config --local commit.gpgsign true
 git config --local user.signingkey XXXXXXXXXXXXXXXX
 ```
+
 to make sure that all commits you make are GPG signed.
 
 If you make a commit and then run:
+
 ```
 git log --format=raw
 ```
+
 it should be obvious if your commits are GPG signed.
 
 ## Branching from develop
 
 Cardano development happens on the "develop" branch. You can find out what
 branch you are one by running:
+
 ```
 git branch
 ```
+
 which will list all the branches in your local repository and print an asterisk
 to the left of the current branch. You can list all the branches in the
 Github repository using:
+
 ```
 git branch --all
 ```
@@ -73,38 +81,49 @@ to work on that feature. To name space things correctly, its best to name the
 branch with a combination of your username and the YouTrack ticket name. Assuming
 you are on the "develop" branch, to create the new branch and then change to
 it:
+
 ```
 git branch username/YT-1234
 git checkout username/YT-1234
 ```
+
 You can then work on your changes and commit them using something like:
+
 ```
 git commit --message="YT-1234: Fixed the wibble"
 ```
+
 which includes the YouTrack ticket number in the commit message. Its a good
 idea not to put too much information in the title of the git commit message.
 If you want to add more information you can run:
+
 ```
 git commit --amend
 ```
+
 which will bring up you text editor allowing you to add a message body to
 the text after the commit message title like for instance
 [this commit](https://github.com/input-output-hk/cardano-sl/commit/ddc58940e5ddec357cc94097df2951359cb37ed5)
 
 Once you have committed your change you can use:
+
 ```
 git show
 ```
+
 to show the contents of the commit. Similarly, you can use something like
+
 ```
 git show ddc58940e5
 ```
+
 to show the contents of the commit whose hash begins with "ddc58940e5"
 
 
 ## Customizing Git
 
 Git has a configuration file at `${HOME}/.gitconfig` which might look like this:
+
 ```
 [user]
   name = My Name
@@ -160,7 +179,6 @@ branch on Github:
 function git-rebase-develop
 {
   git fetch origin && git rebase --preserve-merges origin/develop
-}
 }
 ```
 

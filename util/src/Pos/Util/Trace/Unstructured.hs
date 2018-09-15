@@ -132,9 +132,9 @@ logWarningSP logTrace = traceLogItemSP logTrace Log.Warning
 logErrorSP logTrace   = traceLogItemSP logTrace Log.Error
 
 -- | setup logging and return a Trace
-setupLogging :: MonadIO m => Log.LoggerConfig -> Log.LoggerName -> IO (Trace m LogItem)
-setupLogging lc ln = do
-    lh <- Log.setupLogging lc
+setupLogging :: MonadIO m => Text -> Log.LoggerConfig -> Log.LoggerName -> IO (Trace m LogItem)
+setupLogging cfoKey lc ln = do
+    lh <- Log.setupLogging cfoKey lc
     return $ unstructuredTrace ln lh
 
 unstructuredTrace :: MonadIO m => Log.LoggerName -> Log.LoggingHandler -> Trace m LogItem

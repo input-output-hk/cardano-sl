@@ -50,7 +50,7 @@ import           Test.Pos.Explorer.MockFactory (mkTxOut)
 -- stack test cardano-sl-explorer --fast --test-arguments "-m Test.Pos.Explorer.Socket"
 
 spec :: Spec
-spec = beforeAll_ (setupLogging (defaultTestConfiguration Debug)) $
+spec = beforeAll_ (setupLogging "test" (defaultTestConfiguration Debug)) $
     describe "Methods" $ do
         describe "fromCAddressOrThrow" $
             it "throws an exception if a given CAddress is invalid" $

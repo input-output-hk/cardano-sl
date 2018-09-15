@@ -106,7 +106,7 @@ loadLogConfig logsPrefix configFile = do
         Nothing  -> return defaultLogConfig
         Just lc0 -> parseLoggerConfig lc0
     lc <- liftIO $ setLogPrefix logsPrefix lc1
-    setupLogging lc
+    setupLogging "bench" lc
 
 
 -- * Logging & parsing

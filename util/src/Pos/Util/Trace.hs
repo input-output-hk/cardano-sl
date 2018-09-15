@@ -44,18 +44,20 @@ natTrace nat (Trace (Op tr)) = Trace $ Op $ nat . tr
 
 -- | setup logging and return a Trace
 setupLogging :: MonadIO m
-             => Log.LoggerConfig
+             => Text
+             -> Log.LoggerConfig
              -> Log.LoggerName
              -> IO (Trace m (Log.Severity, Text))
-setupLogging lc ln = do
-    lh <- Log.setupLogging lc
+setupLogging cfoKey lc ln = do
+    lh <- Log.setupLogging cfoKey lc
     return $ logTrace lh ln
 
-wsetupLogging :: Wlog.LoggerConfig
+wsetupLogging :: Text
+              -> Wlog.LoggerConfig
               -> Wlog.LoggerName
               -> IO (Trace IO (Wlog.Severity, Text))
-wsetupLogging lc ln = do
-    Wlog.setupLogging lc
+wsetupLogging cfoKey lc ln = do
+    Wlog.setupLogging cfoKey lc
     return $ wlogTrace ln
 
 trace :: Trace m s -> s -> m ()

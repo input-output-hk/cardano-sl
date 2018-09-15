@@ -63,7 +63,7 @@ deriving instance Eq CTx
 
 -- TODO remove HasCompileInfo when MonadWalletWebMode will be splitted.
 spec :: Spec
-spec = beforeAll_ (setupLogging (defaultTestConfiguration Debug)) $
+spec = beforeAll_ (setupLogging "test" (defaultTestConfiguration Debug)) $
     withCompileInfo $
        withDefConfigurations $ \_ txpConfig _ ->
        describe "Wallet.Web.Methods.Payment" $ modifyMaxSuccess (const 10) $ do

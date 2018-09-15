@@ -169,7 +169,7 @@ main = withCompileInfo $ do
             | otherwise = identity
         loggingParams = disableConsoleLog $
             CLI.loggingParams loggerName (aoCommonNodeArgs opts)
-    loggerBracket loggingParams . logException "auxx" $ do
+    loggerBracket "auxx" loggingParams . logException "auxx" $ do
         let runAction a = action opts a
         case aoAction opts of
             Repl    -> withAuxxRepl $ \c -> runAction (Left c)

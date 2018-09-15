@@ -18,7 +18,7 @@ spec :: Spec
 spec = describe "Pos.Launcher.Configuration" $ do
     describe "withConfigurationsM" $ do
         it "should parse `lib/configuration.yaml` file" $ do
-            liftIO $ setupLogging (defaultTestConfiguration Debug)
+            liftIO $ setupLogging "test" (defaultTestConfiguration Debug)
             startTime <- Timestamp . round . (* 1000000) <$> liftIO getPOSIXTime
             let cfo = defaultConfigurationOptions
                         { cfoFilePath = "./configuration.yaml"

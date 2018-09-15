@@ -247,12 +247,12 @@ getRealLoggerConfig LoggingParams{..} = do
                       -- add output to the console with severity filter >= Info
         Just False -> identity
 
-setupLoggers :: MonadIO m => LoggingParams -> m ()
-setupLoggers params = setupLogging =<< getRealLoggerConfig params
+setupLoggers :: MonadIO m => Text -> LoggingParams -> m ()
+setupLoggers cfoKey params = setupLogging cfoKey =<< getRealLoggerConfig params
 
 -- | RAII for Logging.
-loggerBracket :: LoggingParams -> IO a -> IO a
-loggerBracket lp = bracket_ (setupLoggers lp) removeAllHandlers
+loggerBracket :: Text -> LoggingParams -> IO a -> IO a
+loggerBracket cfoKey lp = bracket_ (setupLoggers cfoKey lp) removeAllHandlers
 
 ----------------------------------------------------------------------------
 -- NodeContext

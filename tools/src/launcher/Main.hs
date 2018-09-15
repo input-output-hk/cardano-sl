@@ -306,7 +306,7 @@ main =
             case loNodeLogConfig of
                 Nothing -> loNodeArgs
                 Just lc -> loNodeArgs ++ ["--log-config", toText lc]
-    setupLogging $
+    setupLogging (cfoKey loConfiguration) $
         defaultInteractiveConfiguration Info
             & lcBasePath .~ launcherLogsPrefix
             & lcLoggerTree %~ case launcherLogsPrefix of

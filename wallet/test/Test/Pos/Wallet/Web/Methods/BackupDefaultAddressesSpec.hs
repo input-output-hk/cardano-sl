@@ -23,7 +23,7 @@ import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Monadic (pick)
 
 spec :: Spec
-spec = beforeAll_ (setupLogging (defaultTestConfiguration Debug)) $
+spec = beforeAll_ (setupLogging "test" (defaultTestConfiguration Debug)) $
             withDefConfigurations $ \_ _ _ ->
                 describe "restoreAddressFromWalletBackup" $ modifyMaxSuccess (const 10) $ do
                     restoreWalletAddressFromBackupSpec

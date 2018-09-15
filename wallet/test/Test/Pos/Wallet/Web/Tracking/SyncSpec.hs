@@ -51,7 +51,7 @@ import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
 import           Test.Pos.Wallet.Web.Util (importSomeWallets, wpGenBlocks)
 
 spec :: Spec
-spec = beforeAll_ (setupLogging (defaultTestConfiguration Debug)) $
+spec = beforeAll_ (setupLogging "test" (defaultTestConfiguration Debug)) $
     withDefConfigurations $ \_ _ _ -> do
         describe "Pos.Wallet.Web.Tracking.BListener" $ modifyMaxSuccess (const 10) $ do
             describe "Two applications and rollbacks" twoApplyTwoRollbacksSpec

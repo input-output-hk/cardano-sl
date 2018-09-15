@@ -72,7 +72,7 @@ deserializeSerilizedMsgSerializedBlockSpec = do
     descNoBlock = "deserialization of a serialized MsgNoSerializedBlock message should give back corresponding MsgNoBlock"
 
 spec :: Spec
-spec = beforeAll_ (setupLogging (defaultTestConfiguration Debug)) $
+spec = beforeAll_ (setupLogging "test" (defaultTestConfiguration Debug)) $
     withStaticConfigurations $ \_ _ -> withCompileInfo $
         describe "Pos.Binary.Communication" $ do
             describe "serializeMsgSerializedBlock" serializeMsgSerializedBlockSpec

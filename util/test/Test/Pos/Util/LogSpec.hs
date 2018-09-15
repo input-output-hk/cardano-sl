@@ -65,7 +65,7 @@ prop_sev =
 run_logging :: Severity -> Int -> Integer -> Integer -> IO (Microsecond, Integer)
 run_logging sev n n0 n1= do
         startTime <- getPOSIXTime
-        lh <- setupLogging $ defaultTestConfiguration sev
+        lh <- setupLogging "test" $ defaultTestConfiguration sev
         forM_ [1..n0] $ \_ ->
             usingLoggerName lh "test_log" $
                 forM_ [1..n1] $ \_ -> do
@@ -96,7 +96,7 @@ prop_sevS =
 run_loggingS :: Severity -> Int -> Integer -> Integer-> IO (Microsecond, Integer)
 run_loggingS sev n n0 n1= do
         startTime <- getPOSIXTime
-        lh <- setupLogging $ defaultTestConfiguration sev
+        lh <- setupLogging "test" $ defaultTestConfiguration sev
         forM_ [1..n0] $ \_ ->
             usingLoggerName lh "test_log" $
                 forM_ [1..n1] $ \_ -> do
@@ -118,7 +118,7 @@ run_loggingS sev n n0 n1= do
 -- | example: setup logging
 example_setup :: IO ()
 example_setup = do
-    lh <- setupLogging (defaultTestConfiguration Debug)
+    lh <- setupLogging "test" (defaultTestConfiguration Debug)
     usingLoggerName lh "processXYZ" $ do
         logInfo "entering"
         complexWork "42"
@@ -132,7 +132,7 @@ example_setup = do
 -- | example: bracket logging
 example_bracket :: IO ()
 example_bracket = do
-    lh <- setupLogging (defaultTestConfiguration Debug)
+    lh <- setupLogging "test" (defaultTestConfiguration Debug)
     loggerBracket lh "processXYZ" $ do
         logInfo "entering"
         complexWork "42"
@@ -223,7 +223,7 @@ spec = describe "Logging" $ do
             let lc0 = defaultTestConfiguration Info
                 newlt = lc0 ^. lcLoggerTree & ltNamedSeverity .~ HM.fromList [("cardano-sl.silent", Error)]
                 lc = lc0 & lcLoggerTree .~ newlt
-            lh <- setupLogging lc
+            lh <- setupLogging "test" lc
             lift $ usingLoggerName lh "silent" $ do { logWarning "you won't see this!" }
             lift $ threadDelay 0300000
             lift $ usingLoggerName lh "verbose" $ do { logWarning "now you read this!" }

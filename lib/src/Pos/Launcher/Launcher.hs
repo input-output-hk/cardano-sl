@@ -20,7 +20,7 @@ import           Pos.Client.CLI.Params (getNodeParams)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Txp.Logic (txpGlobalSettings)
 import           Pos.Launcher.Configuration (AssetLockPath (..),
-                     HasConfigurations, WalletConfiguration,
+                     HasConfigurations, WalletConfiguration, cfoKey,
                      withConfigurations)
 import           Pos.Launcher.Param (LoggingParams (..), NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources, bracketNodeResources,
@@ -48,12 +48,14 @@ launchNode
        )
     -> IO ()
 launchNode nArgs cArgs lArgs action = do
-    let withLogger' = loggerBracket lArgs . logException (lpDefaultName lArgs)
+    let confOpts = configurationOptions (commonArgs cArgs)
+    let confKey = cfoKey confOpts
+    let withLogger' = loggerBracket confKey lArgs . logException (lpDefaultName lArgs)
     let withConfigurations' = withConfigurations
             (AssetLockPath <$> cnaAssetLockPath cArgs)
             (cnaDumpGenesisDataPath cArgs)
             (cnaDumpConfiguration cArgs)
-            (configurationOptions (commonArgs cArgs))
+            confOpts
 
     withLogger' $ withConfigurations' $ \genesisConfig walletConfig txpConfig ntpConfig -> do
         (nodeParams, Just sscParams) <- getNodeParams

@@ -109,11 +109,11 @@ addLoggerName t f =
 
 -- | setup logging according to configuration @LoggerConfig@
 --   the backends (scribes) will be registered with katip
-setupLogging :: MonadIO m => LoggerConfig -> m LoggingHandler
-setupLogging lc = do
+setupLogging :: MonadIO m => Text -> LoggerConfig -> m LoggingHandler
+setupLogging cfoKey lc = do
     lh <- liftIO $ Internal.newConfig lc
     scribes <- liftIO $ meta lh lc
-    liftIO $ Internal.registerBackends lh scribes
+    liftIO $ Internal.registerBackends cfoKey lh scribes
     return lh
       where
         -- returns a list of: (name, Scribe, finalizer)
@@ -130,7 +130,7 @@ setupLogging lc = do
                                      (_lc ^. lcRotation)
             forM lhs (\lh -> case (lh ^. lhBackend) of
                     FileJsonBE -> do
-                        let bp = fromMaybe "." basepath
+                        let bp = fromMaybe "./" basepath
                             fp = fromMaybe "node.json" $ lh ^. lhFpath
                             fdesc = Internal.mkFileDescription bp fp
                             nm = lh ^. lhName
@@ -142,8 +142,8 @@ setupLogging lc = do
                                       K.V0
                         return (nm, scribe)
                     FileTextBE -> do
-                        let bp = fromMaybe "." basepath
-                            fp = (fromMaybe "node.log" $ lh ^. lhFpath)
+                        let bp = fromMaybe "./" basepath
+                            fp = fromMaybe "node.log" $ lh ^. lhFpath
                             fdesc = Internal.mkFileDescription bp fp
                             nm = lh ^. lhName
                         scribe <- mkTextFileScribe
@@ -179,7 +179,7 @@ setupLogging lc = do
 * example
 
     @
-      lh <- setupLogging logconf
+      lh <- setupLogging "test" logconf
       usingLoggerName lh "processXYZ" $
           logInfo "entering"
           complexWork "42"
@@ -208,7 +208,7 @@ usingLoggerNames lh names action = do
 * example
 
     @
-      lh <- setupLogging logconf
+      lh <- setupLogging "test" logconf
       loggerBracket lh "processXYZ" $
           logInfo "entering"
           complexWork "42"
@@ -236,22 +236,22 @@ loggerBracket lh name action = do
 {- |
    * interactive tests
 
-   >>> lh <- setupLogging $ defaultInteractiveConfiguration Info
+   >>> lh <- setupLogging "test" $ defaultInteractiveConfiguration Info
    >>> loggerBracket lh "testtest" $ do { logInfo "This is a message" }
 
-   >>> lh <- setupLogging $ defaultInteractiveConfiguration Info
+   >>> lh <- setupLogging "test" $ defaultInteractiveConfiguration Info
    >>> loggerBracket lh "testtest" $ do { logDebug "You won't see this message" }
 
-   >>> lh <- setupLogging $ defaultInteractiveConfiguration Info
+   >>> lh <- setupLogging "test" $ defaultInteractiveConfiguration Info
    >>> loggerBracket lh "testtest" $ do { logWarning "Attention!"; addLoggerName "levelUp" $ do { logError "..now it happened" } }
 
-   >>> lh <- setupLogging $ defaultInteractiveConfiguration Info
+   >>> lh <- setupLogging "test" $ defaultInteractiveConfiguration Info
    >>> usingLoggerName lh "testmore" $ do { logInfo "hello..." }
 
    >>> lc0 <- return $ defaultInteractiveConfiguration Info
    >>> newlt <- return $ lc0 ^. lcLoggerTree & ltNamedSeverity .~ Data.HashMap.Strict.fromList [("cardano-sl.silent", Error)]
    >>> lc <- return $ lc0 & lcLoggerTree .~ newlt
-   >>> lh <- setupLogging lc
+   >>> lh <- setupLogging "test" lc
    >>> usingLoggerName lh "silent" $ do { logWarning "you won't see this!" }
    >>> usingLoggerName lh "verbose" $ do { logWarning "now you read this!" }
 -}

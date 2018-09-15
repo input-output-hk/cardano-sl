@@ -122,7 +122,7 @@ clientLogic = pureLogic
 
 withServer :: Transport -> Logic IO -> (NodeId -> IO t) -> IO t
 withServer transport logic k = do
-    logTrace <- liftIO $ wsetupLogging (defaultTestConfiguration Debug) ("server.outboundqueue")
+    logTrace <- liftIO $ wsetupLogging "test" (defaultTestConfiguration Debug) ("server.outboundqueue")
     -- Morally, the server shouldn't need an outbound queue, but we have to
     -- give one.
     oq <- liftIO $ OQ.new

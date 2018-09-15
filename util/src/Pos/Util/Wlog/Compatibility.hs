@@ -228,9 +228,9 @@ loggingHandler = unsafePerformIO $ do
 
 -- | setup logging according to configuration @LoggerConfig@
 --   the backends (scribes) will be registered with katip
-setupLogging :: MonadIO m => LoggerConfig -> m ()
-setupLogging lc = liftIO $
-    modifyMVar_ loggingHandler $ const $ Log.setupLogging lc
+setupLogging :: MonadIO m => Text -> LoggerConfig -> m ()
+setupLogging cfoKey lc = liftIO $
+    modifyMVar_ loggingHandler $ const $ Log.setupLogging cfoKey lc
 
 
 -- | Whether to log to given log handler.

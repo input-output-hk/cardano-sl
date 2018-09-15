@@ -28,8 +28,8 @@ import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import           Cardano.Wallet.WalletLayer
 import           Cardano.Wallet.WalletLayer.Kernel.Conv (toRootId)
 
--- | Translates all kernel exceptions to the WalletError sum type and returns
---   Nothing for non-kernel exceptions.
+-- | Translates all wallet-layer exceptions to the WalletError sum type and returns
+--   Nothing for non-layer exceptions.
 translateWalletLayerErrors :: SomeException -> Maybe V1.WalletError
 translateWalletLayerErrors ex = do
        (    try' @CreateAddressError createAddressError

@@ -70,8 +70,6 @@ instance Buildable CreateAddressError where
 instance Show CreateAddressError where
     show = formatToString build
 
-instance Exception CreateAddressError
-
 -- | Creates a new 'Address' for the input account.
 createAddress :: PassPhrase
               -- ^ The 'Passphrase' (a.k.a the \"Spending Password\").

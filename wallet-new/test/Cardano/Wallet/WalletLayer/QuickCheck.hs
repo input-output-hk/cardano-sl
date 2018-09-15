@@ -18,8 +18,6 @@ import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),
                      UpdateAccountError (..), UpdateWalletError (..),
                      UpdateWalletPasswordError (..), ValidateAddressError (..))
 
-import           Cardano.Wallet.API.V1.Types (V1 (..))
-
 import           Pos.Chain.Update (ConfirmedProposalState)
 import           Pos.Core ()
 import           Test.Pos.Chain.Txp.Arbitrary ()
@@ -110,7 +108,7 @@ bracketActiveWallet walletPassiveLayer _walletDiffusion =
 ------------------------------------------------------------------------------}
 
 instance Arbitrary GetAccountError where
-    arbitrary = oneof [ GetAccountError . V1 <$> arbitrary
+    arbitrary = oneof [ GetAccountError <$> arbitrary
                       , GetAccountWalletIdDecodingFailed <$> arbitrary
                       ]
 
@@ -120,18 +118,18 @@ instance Arbitrary GetAccountsError where
                       ]
 
 instance Arbitrary UpdateAccountError where
-    arbitrary = oneof [ UpdateAccountError . V1 <$> arbitrary
+    arbitrary = oneof [ UpdateAccountError <$> arbitrary
                       , UpdateAccountWalletIdDecodingFailed <$> arbitrary
                       ]
 
 instance Arbitrary DeleteAccountError where
-    arbitrary = oneof [ DeleteAccountError . V1 <$> arbitrary
+    arbitrary = oneof [ DeleteAccountError <$> arbitrary
                       , DeleteAccountWalletIdDecodingFailed <$> arbitrary
                       ]
 
 instance Arbitrary GetWalletError where
     arbitrary = oneof [ GetWalletWalletIdDecodingFailed <$> arbitrary
-                      , GetWalletError . V1 <$> arbitrary
+                      , GetWalletError <$> arbitrary
                       ]
 
 instance Arbitrary GetUtxosError where

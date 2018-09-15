@@ -162,7 +162,7 @@ spec = describe "Wallets" $ do
                                                          hdAssuranceLevel
                                                          (WalletName newwalName)
                             case res of
-                                 Left e -> throwM e
+                                 Left e -> fail (show e)
                                  Right hdRoot -> do
                                      --  Check that the key is in the keystore
                                      let wid = WalletIdHdRnd (hdRoot ^. hdRootId)
@@ -254,7 +254,7 @@ spec = describe "Wallets" $ do
                         liftIO $ do
                             res <- WalletLayer.deleteWallet layer wId
                             case res of
-                                 Left (WalletLayer.DeleteWalletError (V1 (UnknownHdRoot _))) ->
+                                 Left (WalletLayer.DeleteWalletError (UnknownHdRoot _)) ->
                                      return ()
                                  Left unexpectedErr ->
                                      fail $ "expecting different failure than " <> show unexpectedErr
@@ -320,7 +320,7 @@ spec = describe "Wallets" $ do
                                                      (unV1 fixtureSpendingPassword)
                                                      newPwd
                         case res of
-                             Left e -> throwM e
+                             Left e -> fail (show e)
                              Right (_db, _newRoot) -> do
                                  --  Check that the key was replaced in the keystore correctly.
                                  newKey <- Keystore.lookup wid keystore
@@ -357,7 +357,7 @@ spec = describe "Wallets" $ do
                     withLayer $ \ layer _ -> do
                             res <- WalletLayer.getWallet layer wId
                             case res of
-                                 Left (WalletLayer.GetWalletError (V1 (UnknownHdRoot _))) ->
+                                 Left (WalletLayer.GetWalletError (UnknownHdRoot _)) ->
                                      return ()
                                  Left unexpectedErr ->
                                      fail $ "expecting different failure than " <> show unexpectedErr
@@ -409,7 +409,7 @@ spec = describe "Wallets" $ do
                     withLayer $ \ layer _ -> do
                             res <- WalletLayer.updateWallet layer wId  (V1.WalletUpdate lvl name)
                             case res of
-                                 Left (WalletLayer.UpdateWalletError (V1 (UnknownHdRoot _))) ->
+                                 Left (WalletLayer.UpdateWalletError (UnknownHdRoot _)) ->
                                      return ()
                                  Left unexpectedErr ->
                                      fail $ "expecting different failure than " <> show unexpectedErr

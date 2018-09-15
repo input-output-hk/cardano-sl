@@ -172,7 +172,7 @@ updateWallet :: MonadIO m
 updateWallet wallet wId (V1.WalletUpdate v1Level v1Name) = runExceptT $ do
     rootId <- withExceptT UpdateWalletWalletIdDecodingFailed $ fromRootId wId
     v1wal <- fmap (uncurry toWallet) $
-               withExceptT (UpdateWalletError . V1) $ ExceptT $ liftIO $
+               withExceptT UpdateWalletError $ ExceptT $ liftIO $
                  Kernel.updateHdWallet wallet rootId newLevel newName
     updateSyncState wallet (WalletIdHdRnd rootId) v1wal
   where
@@ -204,7 +204,7 @@ deleteWallet :: MonadIO m
              -> m (Either DeleteWalletError ())
 deleteWallet wallet wId = runExceptT $ do
     rootId <- withExceptT DeleteWalletWalletIdDecodingFailed $ fromRootId wId
-    withExceptT (DeleteWalletError . V1) $ ExceptT $ liftIO $
+    withExceptT DeleteWalletError $ ExceptT $ liftIO $
       Kernel.deleteHdWallet wallet rootId
 
 -- | Gets a specific wallet.
@@ -216,7 +216,7 @@ getWallet :: MonadIO m
 getWallet wallet wId db = runExceptT $ do
     rootId <- withExceptT GetWalletWalletIdDecodingFailed (fromRootId wId)
     v1wal <- fmap (toWallet db) $
-                withExceptT (GetWalletError . V1) $ exceptT $
+                withExceptT GetWalletError $ exceptT $
                     Kernel.lookupHdRootId db rootId
     updateSyncState wallet (WalletIdHdRnd rootId) v1wal
 

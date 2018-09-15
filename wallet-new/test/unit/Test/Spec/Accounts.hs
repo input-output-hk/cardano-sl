@@ -141,7 +141,7 @@ spec = describe "Accounts" $ do
                              (V1.unsafeMkAccountIndex firstHardened)
                     case res of
                          Left (WalletLayer.DeleteAccountError
-                                  (V1 (Kernel.UnknownHdAccountRoot _))) ->
+                                  (Kernel.UnknownHdAccountRoot _)) ->
                              return ()
                          Left unexpectedErr ->
                              fail $ "expecting different failure than " <> show unexpectedErr
@@ -162,7 +162,7 @@ spec = describe "Accounts" $ do
                              (V1.unsafeMkAccountIndex (firstHardened + 1))
                     case res of
                          Left (WalletLayer.DeleteAccountError
-                                  (V1 (Kernel.UnknownHdAccount _))) ->
+                                  (Kernel.UnknownHdAccount _)) ->
                              return ()
                          Left unexpectedErr ->
                              fail $ "expecting different failure than " <> show unexpectedErr
@@ -240,7 +240,7 @@ spec = describe "Accounts" $ do
                              (V1.AccountUpdate "new account")
                     case res of
                          Left (WalletLayer.UpdateAccountError
-                                (V1 (Kernel.UnknownHdAccountRoot _))) ->
+                                (Kernel.UnknownHdAccountRoot _)) ->
                              return ()
                          Left unexpectedErr ->
                              fail $ "expecting different failure than " <> show unexpectedErr
@@ -263,7 +263,7 @@ spec = describe "Accounts" $ do
                              (V1.AccountUpdate "new account")
                     case res of
                          Left (WalletLayer.UpdateAccountError
-                                (V1 (Kernel.UnknownHdAccount _))) ->
+                                (Kernel.UnknownHdAccount _)) ->
                              return ()
                          Left unexpectedErr ->
                              fail $ "expecting different failure than " <> show unexpectedErr
@@ -308,7 +308,7 @@ spec = describe "Accounts" $ do
                              wId
                              (V1.unsafeMkAccountIndex 2147483648)
                     case res of
-                         Left (WalletLayer.GetAccountError (V1 (Kernel.UnknownHdAccountRoot _))) ->
+                         Left (WalletLayer.GetAccountError (Kernel.UnknownHdAccountRoot _)) ->
                              return ()
                          Left unexpectedErr ->
                              fail $ "expecting different failure than " <> show unexpectedErr
@@ -328,7 +328,7 @@ spec = describe "Accounts" $ do
                              (V1.walId fixtureV1Wallet)
                              (V1.unsafeMkAccountIndex (firstHardened + 1))
                     case res of
-                         Left (WalletLayer.GetAccountError (V1 (Kernel.UnknownHdAccount _))) ->
+                         Left (WalletLayer.GetAccountError (Kernel.UnknownHdAccount _)) ->
                              return ()
                          Left unexpectedErr ->
                              fail $ "expecting different failure than " <> show unexpectedErr
@@ -412,7 +412,7 @@ spec = describe "Accounts" $ do
                              params
                              filters
                     case res of
-                         Left (WalletLayer.GetAccountError (V1 (Kernel.UnknownHdAccount _))) ->
+                         Left (WalletLayer.GetAccountError (Kernel.UnknownHdAccount _)) ->
                              return ()
                          Left unexpectedErr ->
                              fail $ "expecting different failure than " <> show unexpectedErr
@@ -527,7 +527,7 @@ spec = describe "Accounts" $ do
                              (V1.walId fixtureV1Wallet)
                              (V1.unsafeMkAccountIndex (firstHardened + 1))
                     case res of
-                         Left (WalletLayer.GetAccountError (V1 (Kernel.UnknownHdAccount _))) ->
+                         Left (WalletLayer.GetAccountError (Kernel.UnknownHdAccount _)) ->
                              return ()
                          Left unexpectedErr ->
                              fail $ "expecting different failure than " <> show unexpectedErr

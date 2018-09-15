@@ -71,7 +71,7 @@ data CreateWallet =
   | ImportWalletFromESK EncryptedSecretKey (Maybe SpendingPassword)
 
 data CreateWalletError =
-      CreateWalletError Kernel.CreateWalletError
+    CreateWalletError Kernel.CreateWalletError
 
 -- | Unsound show instance needed for the 'Exception' instance.
 instance Show CreateWalletError where
@@ -88,7 +88,7 @@ instance Buildable CreateWalletError where
         bprint ("CreateWalletError " % build) kernelError
 
 data GetWalletError =
-      GetWalletError (V1 Kernel.UnknownHdRoot)
+      GetWalletError Kernel.UnknownHdRoot
     | GetWalletErrorNotFound WalletId
     -- ^ Error thrown by the legacy wallet layer, isomorphic to the one above,
     -- which is new-data-layer specific.
@@ -102,7 +102,7 @@ instance Show GetWalletError where
 instance Exception GetWalletError
 
 instance Buildable GetWalletError where
-    build (GetWalletError (V1 kernelError)) =
+    build (GetWalletError kernelError) =
         bprint ("GetWalletError " % build) kernelError
     build (GetWalletErrorNotFound walletId) =
         bprint ("GetWalletErrorNotFound " % build) walletId
@@ -110,7 +110,7 @@ instance Buildable GetWalletError where
         bprint ("GetWalletWalletIdDecodingFailed " % build) txt
 
 data UpdateWalletError =
-      UpdateWalletError (V1 Kernel.UnknownHdRoot)
+      UpdateWalletError Kernel.UnknownHdRoot
     | UpdateWalletErrorNotFound WalletId
     -- ^ Error thrown by the legacy wallet layer, isomorphic to the one above,
     -- which is new-data-layer specific.
@@ -124,7 +124,7 @@ instance Show UpdateWalletError where
 instance Exception UpdateWalletError
 
 instance Buildable UpdateWalletError where
-    build (UpdateWalletError (V1 kernelError)) =
+    build (UpdateWalletError kernelError) =
         bprint ("UpdateWalletError " % build) kernelError
     build (UpdateWalletErrorNotFound walletId) =
         bprint ("UpdateWalletErrorNotFound " % build) walletId
@@ -149,7 +149,7 @@ instance Buildable UpdateWalletPasswordError where
 
 data DeleteWalletError =
       DeleteWalletWalletIdDecodingFailed Text
-    | DeleteWalletError (V1 Kernel.UnknownHdRoot)
+    | DeleteWalletError Kernel.UnknownHdRoot
 
 -- | Unsound show instance needed for the 'Exception' instance.
 instance Show DeleteWalletError where
@@ -255,7 +255,7 @@ instance Buildable CreateAccountError where
         bprint ("CreateAccountWalletIdDecodingFailed " % build) txt
 
 data GetAccountError =
-      GetAccountError (V1 Kernel.UnknownHdAccount)
+      GetAccountError Kernel.UnknownHdAccount
     | GetAccountWalletIdDecodingFailed Text
     deriving Eq
 
@@ -272,7 +272,7 @@ instance Buildable GetAccountError where
         bprint ("GetAccountWalletIdDecodingFailed " % build) txt
 
 data DeleteAccountError =
-      DeleteAccountError (V1 Kernel.UnknownHdAccount)
+      DeleteAccountError Kernel.UnknownHdAccount
     | DeleteAccountWalletIdDecodingFailed Text
     deriving Eq
 
@@ -306,7 +306,7 @@ instance Buildable GetAccountsError where
         bprint ("GetAccountsWalletIdDecodingFailed " % build) txt
 
 data UpdateAccountError =
-      UpdateAccountError (V1 Kernel.UnknownHdAccount)
+      UpdateAccountError Kernel.UnknownHdAccount
     | UpdateAccountWalletIdDecodingFailed Text
     deriving Eq
 

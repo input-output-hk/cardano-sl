@@ -8,12 +8,13 @@ module Infrastructure.Generator
   , seeds
   , mInCommitmentPhase
   , chainAddresses
-  , asAbstractChain
   ) where
 
 import           Universum hiding (head, tail, (^.))
 
 import           Control.Lens (to, (^.))
+import           Control.Monad.Except (ExceptT (ExceptT), MonadError,
+                     runExceptT, throwError)
 import           Data.Functor.Identity (runIdentity)
 import           Data.List (findIndex, scanl', (!!))
 import qualified Data.Map as Map
@@ -45,11 +46,16 @@ import           Chain.Abstract.Translate.FromUTxO (ChainValidity, IntException 
                      TransState, translate, tsCheckpoints, _tsCurrentSlot)
 import qualified UTxO.DSL as DSL
 
-
 data GeneratorModel h a = GeneratorModel
-  { gmBoot         :: DSL.Transaction h a
-  , gmAllAddresses :: [a]
-  , gmEstimateFee  :: Int -> [Value] -> Value
+  { -- | TODO: this was originally a 'DSL.Tansaction'. Do we want this to be an
+    -- 'Abstract.Transaction'?
+    gmBoot                  :: DSL.Transaction h a
+  , gmAllAddresses          :: [a]
+  -- | TODO: if this is what we want it would be better to use smart
+  -- constructors to make sure the set of bootstrapStakeholders is a subset of
+  -- all addresses.
+  , gmBootstrapStakeholders :: [a]
+  , gmEstimateFee           :: Int -> [Value] -> Value
   }
 
 genChainUsingModel :: (Hash h a, Ord a) => GeneratorModel h a -> Gen (DSL.Chain h a)
@@ -59,6 +65,57 @@ genChainUsingModel GeneratorModel{gmBoot, gmAllAddresses, gmEstimateFee} =
     params    = defChainParams gmEstimateFee gmAllAddresses
     initUtxo  = utxoRestrictToAddr (`elem` gmAllAddresses) $ trUtxo gmBoot
     initState = initTrState initUtxo 1
+
+-- | Generate an abstract chain using the generator model passed as parameter.
+genAbstractChain
+  :: forall h . (Hash h Addr)
+  => GeneratorModel h Addr
+  -> Gen (Either IntException (Chain h Addr, ChainValidity))
+genAbstractChain gm = do
+    dslChain <- genChainUsingModel gm
+    runExceptT $ asAbstractChain' dslChain
+    where
+      asAbstractChain'
+        :: DSL.Chain h Addr
+        -> ExceptT IntException Gen (Chain h Addr, ChainValidity)
+      asAbstractChain' ch = do
+        addrs  <- getAddrs ch
+        params <- getParams addrs
+        ExceptT $ translate addrs ch [] params
+
+      getParams
+        :: NonEmpty Addr
+        -> ExceptT IntException Gen (Parameters (TransState h) h Addr)
+      getParams addrs = do
+        bootTransaction <- dslTransactionToAbstract addrs (gmBoot gm)
+        return Parameters
+          { slotLeader = mSlotLeader
+          , currentSeed = mCurrentSeed
+          , currentSlot = _tsCurrentSlot
+          , height = mHeight
+          , quality = mQuality
+          , inCommitmentPhase = mInCommitmentPhase
+          , inOpenPhase = mInOpenPhase
+          , inRecoveryPhase = mInRecoveryPhase
+          , maxMempoolSize = 200
+          , k = 2160
+          , initialStakeDistribution = mInitialStakeDistribution addrs
+          , initialSeed = Seed 0
+          , minFee = const 0 -- TODO: QUESTION: what properties should 'minFee' satisfy?
+          , initTransactions = [bootTransaction]
+          , bootstrapStakeholders = Set.fromList $ gmBootstrapStakeholders gm
+          }
+
+      -- | Try to get a non-empty list of addresses from the chain.
+      getAddrs
+        :: Monad m
+        => DSL.Chain h Addr
+        -> ExceptT IntException m (NonEmpty Addr)
+      getAddrs ch = case chainAddresses ch of
+        []   -> throwError  IntEmptyAddresses
+        a:as -> return (a :| as)
+
+
 
 {-------------------------------------------------------------------------------
   Simple model
@@ -71,6 +128,7 @@ simpleModel :: GeneratorModel GivenHash Addr
 simpleModel = GeneratorModel {
       gmAllAddresses  = addrs
     , gmEstimateFee   = \_ _ -> 0
+    , gmBootstrapStakeholders = Addr <$> [0..3]
     , gmBoot          = DSL.Transaction {
                             trFresh = fromIntegral (length addrs) * initBal
                           , trIns   = Set.empty
@@ -88,21 +146,21 @@ simpleModel = GeneratorModel {
     initBal = 10000
 
 -- | Instantiate a simple generator
-simpleGen :: Gen (DSL.Chain GivenHash Addr)
-simpleGen = genChainUsingModel simpleModel
+simpleGen :: Gen (Either IntException (Chain GivenHash Addr, ChainValidity))
+simpleGen = genAbstractChain simpleModel
 
--- | Simple instance of a 'DSL.Chain' to an 'Abstract.Chain' translation.
-asAbstractChain
-  :: DSL.Chain GivenHash Addr
-  -> Either IntException (Chain GivenHash Addr, ChainValidity)
-asAbstractChain ch = do
-  addrs <- case chainAddresses ch of
-    []   -> Left  IntEmptyAddresses
-    a:as -> Right (a :| as)
-  params <- simpleParams addrs initTs
-  runIdentity $ translate addrs ch [] params
-  where
-    initTs = fromMaybe [] . safeHead . map toList . toList $ ch
+-- -- | Simple instance of a 'DSL.Chain' to an 'Abstract.Chain' translation.
+-- asAbstractChain
+--   :: DSL.Chain GivenHash Addr
+--   -> Either IntException (Chain GivenHash Addr, ChainValidity)
+-- asAbstractChain ch = do
+--   addrs <- case chainAddresses ch of
+--     []   -> Left  IntEmptyAddresses
+--     a:as -> Right (a :| as)
+--   params <- simpleParams addrs initTs
+--   runIdentity $ translate addrs ch [] params
+--   where
+--     initTs = fromMaybe [] . safeHead . map toList . toList $ ch
 
 simpleParams
   :: NonEmpty Addr
@@ -195,14 +253,14 @@ numGen i (Seed s) = (s `mod` i, Seed (s + 1))
 -- computation, which uses the stake distribution and the VSS payloads (which
 -- should be tracked in the state).
 --
-mCurrentSeed :: TransState GivenHash -> Seed
+mCurrentSeed :: TransState h -> Seed
 mCurrentSeed = const (Seed 15)
 
 -- | Compute the number of blocks as the height of the chain (See Section 7.1).
 -- The number of blocks can be obtained from the list of checkpoints in the
 -- translation state, which contains a checkpoint for each block that we
 -- translate.
-mHeight :: TransState GivenHash -> Int
+mHeight :: TransState h -> Int
 mHeight st = st ^. tsCheckpoints . to length
 
 -- | Quality of a chain. It maps a number of blocks into a number of blocks.
@@ -241,21 +299,22 @@ chainAddresses = map DSL.outAddr
 --
 -- TODO: this isn't right. How to translate one into the other?
 dslTransactionToAbstract
-  :: Ord a
-  => NonEmpty a
+  :: (Ord a, MonadError IntException m)
+  => NonEmpty a -- ^ TODO: we're using a list of addresses to make up the
+                -- witnesses. Where do we want to get this from?
   -> DSL.Transaction h a
-  -> Either IntException (Transaction h a)
+  -> m (Transaction h a)
 dslTransactionToAbstract addrs tx = do
-  neIns <- case ins of
-    []   -> Left IntEmptyInputs
-    i:is -> Right $  i :| is
+  -- neIns <- case ins of
+  --   []   -> throwError $ IntEmptyInputs
+  --   i:is -> return $  i :| is
   outs <- traverse dslOutputToAbstract (DSL.trOuts tx)
   neOuts <- case outs of
-    []   -> Left IntEmptyOutputs
-    o:os -> Right $ o :| os
+    []   -> throwError IntEmptyOutputs
+    o:os -> return $ o :| os
   return Transaction
     { trFresh = DSL.trFresh tx
-    , trIns = neIns
+    , trIns = undefined -- neIns -- TODO: I think we need 'Transaction's  with empty inputs.
     , trOuts = neOuts
     , trFee = DSL.trFee tx
     , trHash = DSL.trHash tx
@@ -264,11 +323,10 @@ dslTransactionToAbstract addrs tx = do
     }
   where ins = Set.toList (DSL.trIns tx)
 
-
 -- TODO: we need to unify this with 'FromUTxO.intOutput'!
 dslOutputToAbstract
-  :: (Ord a)
-  => DSL.Output h a -> Either IntException (Output h1 a)
+  :: (Ord a, MonadError IntException m)
+  => DSL.Output h a -> m (Output h1 a)
 dslOutputToAbstract out = do
   r <- mkRepartitionT (const IntLogicError) [(DSL.outAddr out, DSL.outVal out)]
   return Output

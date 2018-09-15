@@ -154,6 +154,8 @@ data Parameters st h a = Parameters
     -- paper. After this many blocks, a block is considered stable and may not
     -- be rolled back.
   , k                        :: Int
+  -- | TODO: Should the support of the initial stake distribution be a subset
+  -- of the bootstrapStakeholders?
   , initialStakeDistribution :: StakeDistribution a
   , initialSeed              :: Seed
   , minFee                   :: Transaction h a -> Int

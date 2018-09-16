@@ -16406,6 +16406,176 @@ description = "Cardano explorer";
 license = stdenv.lib.licenses.mit;
 
 }) {};
+"cardano-sl-faucet" = callPackage
+({
+  mkDerivation
+, aeson
+, aeson-pretty
+, base
+, base16-bytestring
+, bytestring
+, cardano-sl-chain
+, cardano-sl-core
+, cardano-sl-crypto
+, cardano-sl-infra
+, cardano-sl-util
+, cardano-sl-wallet
+, cardano-sl-wallet-new
+, connection
+, cryptonite
+, data-default
+, directory
+, ekg
+, ekg-core
+, ekg-statsd
+, exceptions
+, filepath
+, generic-arbitrary
+, hspec
+, http-api-data
+, http-client
+, http-client-tls
+, http-types
+, lens
+, log-warper
+, memory
+, mmorph
+, mtl
+, neat-interpolation
+, optparse-applicative
+, QuickCheck
+, random
+, safe-exceptions
+, serokell-util
+, servant
+, servant-client
+, servant-client-core
+, servant-server
+, servant-swagger
+, servant-swagger-ui
+, stdenv
+, stm
+, swagger2
+, tagged
+, text
+, text-format
+, time
+, tls
+, universum
+, wai
+, wai-app-static
+, wai-cors
+, wai-extra
+, warp
+, wreq
+}:
+mkDerivation {
+
+pname = "cardano-sl-faucet";
+version = "0.1.0.0";
+src = ./../faucet;
+isLibrary = true;
+isExecutable = true;
+libraryHaskellDepends = [
+aeson
+aeson-pretty
+base
+base16-bytestring
+bytestring
+cardano-sl-chain
+cardano-sl-core
+cardano-sl-crypto
+cardano-sl-util
+cardano-sl-wallet
+cardano-sl-wallet-new
+connection
+cryptonite
+data-default
+directory
+ekg-core
+ekg-statsd
+exceptions
+filepath
+generic-arbitrary
+http-api-data
+http-client
+http-client-tls
+http-types
+lens
+log-warper
+memory
+mmorph
+mtl
+neat-interpolation
+QuickCheck
+random
+safe-exceptions
+serokell-util
+servant
+servant-client
+servant-client-core
+servant-server
+servant-swagger
+servant-swagger-ui
+stm
+swagger2
+tagged
+text
+text-format
+time
+tls
+universum
+wai
+wai-app-static
+wreq
+];
+executableHaskellDepends = [
+aeson
+base
+bytestring
+cardano-sl-chain
+cardano-sl-core
+cardano-sl-infra
+cardano-sl-util
+cardano-sl-wallet
+cardano-sl-wallet-new
+ekg
+ekg-core
+ekg-statsd
+exceptions
+lens
+log-warper
+mmorph
+mtl
+optparse-applicative
+safe-exceptions
+servant
+servant-client
+servant-server
+text
+universum
+wai
+wai-cors
+wai-extra
+warp
+];
+testHaskellDepends = [
+aeson
+base
+bytestring
+cardano-sl-core
+cardano-sl-wallet
+cardano-sl-wallet-new
+hspec
+mtl
+QuickCheck
+time
+universum
+];
+doHaddock = false;
+license = stdenv.lib.licenses.mit;
+
+}) {};
 "cardano-sl-generator" = callPackage
 ({
   mkDerivation

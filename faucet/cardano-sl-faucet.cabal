@@ -1,0 +1,143 @@
+-- This file has been generated from package.yaml by hpack version 0.18.1.
+--
+-- see: https://github.com/sol/hpack
+
+name:           cardano-sl-faucet
+version:        0.1.0.0
+description:    Cardano SL - faucet
+license:        MIT
+author:         Ben Ford
+maintainer:     ben.ford@tweag.io
+copyright:      2018 IOHK
+build-type:     Simple
+cabal-version:  >= 1.10
+
+library
+  hs-source-dirs:
+      src
+  build-depends:
+                      base
+                    , QuickCheck
+                    , aeson
+                    , aeson-pretty
+                    , base16-bytestring
+                    , bytestring
+                    , cardano-sl-core
+                    , cardano-sl-crypto
+                    , cardano-sl-chain
+                    , cardano-sl-util
+                    , cardano-sl-wallet
+                    , cardano-sl-wallet-new
+                    , connection
+                    , cryptonite
+                    , data-default
+                    , directory
+                    , ekg-core
+                    , ekg-statsd
+                    , exceptions
+                    , filepath
+                    , generic-arbitrary
+                    , http-api-data
+                    , http-client
+                    , http-client-tls
+                    , http-types
+                    , lens
+                    , log-warper
+                    , memory
+                    , mmorph
+                    , mtl
+                    , neat-interpolation
+                    , random
+                    , safe-exceptions
+                    , serokell-util
+                    , servant
+                    , servant-client
+                    , servant-client-core
+                    , servant-server
+                    , servant-swagger
+                    , servant-swagger-ui
+                    , stm
+                    , swagger2
+                    , tagged
+                    , text
+                    , text-format
+                    , time
+                    , tls
+                    , universum
+                    , wai
+                    , wai-app-static
+                    , wreq
+  exposed-modules:
+                      Cardano.Faucet
+                    , Cardano.Faucet.Endpoints
+                    , Cardano.Faucet.Swagger
+                    , Cardano.Faucet.Types.Config
+                    , Cardano.Faucet.Types.API
+                    , Cardano.Faucet.Types.Recaptcha
+                    , Cardano.Faucet.Types
+                    , Cardano.Faucet.Metrics
+                    , Cardano.Faucet.Init
+                    , Cardano.WalletClient
+  default-language: Haskell2010
+  default-extensions:  NoImplicitPrelude
+  ghc-options: -Wall
+
+executable cardano-faucet
+  main-is: Main.hs
+  hs-source-dirs:
+      server
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall
+  build-depends:
+                     base
+                   , aeson
+                   , bytestring
+                   , cardano-sl-core
+                   , cardano-sl-faucet
+                   , cardano-sl-infra
+                   , cardano-sl-chain
+                   , cardano-sl-util
+                   , cardano-sl-wallet
+                   , cardano-sl-wallet-new
+                   , ekg
+                   , ekg-core
+                   , ekg-statsd
+                   , exceptions
+                   , lens
+                   , log-warper
+                   , mmorph
+                   , mtl
+                   , optparse-applicative
+                   , safe-exceptions
+                   , servant
+                   , servant-client
+                   , servant-server
+                   , text
+                   , universum
+                   , wai
+                   , wai-cors
+                   , wai-extra
+                   , warp
+  default-language: Haskell2010
+  default-extensions:  NoImplicitPrelude
+
+test-suite faucet-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall
+  build-depends:
+                     base
+                   , QuickCheck
+                   , aeson
+                   , bytestring
+                   , cardano-sl-core
+                   , cardano-sl-faucet
+                   , cardano-sl-wallet
+                   , cardano-sl-wallet-new
+                   , hspec
+                   , mtl
+                   , time
+                   , universum
+  default-language: Haskell2010
+  default-extensions:  NoImplicitPrelude

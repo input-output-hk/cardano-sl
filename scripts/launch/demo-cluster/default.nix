@@ -23,7 +23,7 @@ with localLib;
 
 let
   stackExec = optionalString useStackBinaries "stack exec -- ";
-  cardanoDeps = with iohkPkgs; [ cardano-sl-tools-static cardano-sl-wallet-new-static cardano-sl-node-static ];
+  cardanoDeps = with iohkPkgs; [ cardano-sl-tools cardano-sl-wallet-new-static cardano-sl-node-static ];
   demoClusterDeps = with pkgs; [ jq coreutils curl gnused openssl ];
   allDeps =  demoClusterDeps ++ (optionals (!useStackBinaries ) cardanoDeps);
   walletConfig = {

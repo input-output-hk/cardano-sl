@@ -16945,6 +16945,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl
 , cardano-sl-chain
 , cardano-sl-core
+, cardano-sl-db
 , cardano-sl-networking
 , cardano-sl-util
 , cpphs
@@ -16969,6 +16970,7 @@ base
 cardano-sl
 cardano-sl-chain
 cardano-sl-core
+cardano-sl-db
 cardano-sl-networking
 cardano-sl-util
 universum

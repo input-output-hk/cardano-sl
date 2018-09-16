@@ -8,7 +8,6 @@ module Cardano.Wallet.Kernel (
       -- * Passive wallet
       PassiveWallet -- opaque
     , bracketPassiveWallet
-    , init
     -- * Configuration
     , DatabaseMode(..)
     , DatabasePaths(..)
@@ -25,7 +24,7 @@ module Cardano.Wallet.Kernel (
     , bracketActiveWallet
     ) where
 
-import           Universum hiding (State, init)
+import           Universum hiding (State)
 
 import           Control.Concurrent.Async (async, cancel)
 import           Control.Concurrent.MVar (modifyMVar, modifyMVar_)
@@ -175,14 +174,6 @@ initPassiveWallet logMessage keystore handles node = do
             pendings <- pendingByAccount <$> getWalletSnapshot pw_
             modifyMVar_ (_walletSubmission pw_) $
                 return . addPendings pendings
-
--- | Initialize the Passive wallet (specified by the ESK) with the given Utxo
---
--- This is separate from allocating the wallet resources, and will only be
--- called when the node is initialized (when run in the node proper).
-init :: PassiveWallet -> IO ()
-init PassiveWallet{..} = do
-    _walletLogMessage Info $ "Passive Wallet kernel initialized."
 
 {-------------------------------------------------------------------------------
   Active wallet

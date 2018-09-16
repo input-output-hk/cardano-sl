@@ -112,6 +112,7 @@ library
                        Cardano.Wallet.Kernel.Internal
                        Cardano.Wallet.Kernel.Invariants
                        Cardano.Wallet.Kernel.Keystore
+                       Cardano.Wallet.Kernel.Migration
                        Cardano.Wallet.Kernel.Mode
                        Cardano.Wallet.Kernel.NodeStateAdaptor
                        Cardano.Wallet.Kernel.Pending

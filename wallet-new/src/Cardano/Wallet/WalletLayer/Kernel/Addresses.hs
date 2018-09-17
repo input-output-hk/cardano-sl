@@ -71,9 +71,9 @@ createAddress wallet
 --    1     2                       ..                          100
 -- <deletion of an account happens, leaving a hole in the indices>
 --
---                         /               /
--- +-----+-----+----------/---------------/-------------------+------+
--- | A1  | A2  | ...    X              \/                     | A100 |
+--                        /              /
+-- +-----+-----+---------/--------------/---------------------+------+
+-- | A1  | A2  | ...    X              X                      | A100 |
 -- |     |     |         \              \                     |      |
 -- +-----+-----+----------\--------------\--------------------+------+
 --    1     2    ..    10  \              \ 30      ..          100
@@ -149,7 +149,7 @@ takeIndexed db n acc (currentIndex, (a:as))
             new = map (toV1 a) . sortBy autoKey . IxSet.toList $ slice
             in  -- For the next iterations, the index will always be 0 as we
                 -- are hopping from one ixset to the other, collecting addresses.
-                takeIndexed db (n - IxSet.size slice) (new <> acc) (0, as)
+                takeIndexed db (n - IxSet.size slice) (acc <> new) (0, as)
   where
     toV1 :: HD.HdAccount -> Indexed HD.HdAddress -> V1.WalletAddress
     toV1 hdAccount ixed = toAddress hdAccount (ixed ^. ixedIndexed)

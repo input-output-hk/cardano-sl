@@ -70,6 +70,7 @@ _showContext = do
 
 tests :: Spec
 tests = parallel $ describe "Wallet unit tests" $ do
+    Test.Spec.Addresses.spec
     DeltaCompressionSpecs.spec
     Test.Spec.Kernel.spec
     Test.Spec.GetTransactions.spec
@@ -80,7 +81,6 @@ tests = parallel $ describe "Wallet unit tests" $ do
     txMetaStorageSpecs
     Test.Spec.CoinSelection.spec
     Test.Spec.Keystore.spec
-    Test.Spec.Addresses.spec
     Test.Spec.Wallets.spec
     Test.Spec.NewPayment.spec
     Test.Spec.Accounts.spec

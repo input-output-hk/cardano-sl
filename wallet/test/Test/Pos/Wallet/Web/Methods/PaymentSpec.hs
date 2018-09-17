@@ -44,9 +44,8 @@ import qualified Pos.Wallet.Web.State.State as WS
 import           Pos.Wallet.Web.State.Storage (AddressInfo (..), wamAddress)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow)
 
-import           Pos.Util.Log.LoggerConfig (defaultTestConfiguration)
 import           Pos.Util.Servant (encodeCType)
-import           Pos.Util.Wlog (Severity (Debug), setupLogging)
+import           Pos.Util.Wlog (setupTestLogging)
 
 import           Test.Pos.Chain.Genesis.Dummy (dummyConfig, dummyGenesisData)
 import           Test.Pos.Configuration (withDefConfigurations)
@@ -63,7 +62,7 @@ deriving instance Eq CTx
 
 -- TODO remove HasCompileInfo when MonadWalletWebMode will be splitted.
 spec :: Spec
-spec = beforeAll_ (setupLogging "test" (defaultTestConfiguration Debug)) $
+spec = beforeAll_ setupTestLogging $
     withCompileInfo $
        withDefConfigurations $ \_ txpConfig _ ->
        describe "Wallet.Web.Methods.Payment" $ modifyMaxSuccess (const 10) $ do

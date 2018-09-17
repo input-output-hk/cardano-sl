@@ -10,8 +10,7 @@ import           Universum
 import           Test.Hspec (Spec, beforeAll_, describe)
 import           Test.Hspec.QuickCheck (prop)
 
-import           Pos.Util.Log.LoggerConfig (defaultTestConfiguration)
-import           Pos.Util.Wlog (Severity (Debug), setupLogging)
+import           Pos.Util.Wlog (setupTestLogging)
 import           Pos.Wallet.Web.Methods.Logic (getAccounts, getWallets)
 
 import           Test.Pos.Configuration (withDefConfigurations)
@@ -20,7 +19,7 @@ import           Test.Pos.Wallet.Web.Mode (WalletProperty)
 
 -- TODO remove HasCompileInfo when MonadWalletWebMode will be splitted.
 spec :: Spec
-spec = beforeAll_ (setupLogging "test" (defaultTestConfiguration Debug)) $
+spec = beforeAll_ setupTestLogging $
             withDefConfigurations $ \_ _ _ ->
                 describe "Pos.Wallet.Web.Methods" $ do
                     prop emptyWalletOnStarts emptyWallet

@@ -13,7 +13,7 @@ module Pos.Util.Trace
     , Wlog.Severity (..)
     -- * trace setup
     , setupLogging
-    , wsetupLogging
+    , setupTestTrace
     , logTrace
     -- * log messages
     , logDebug
@@ -26,6 +26,7 @@ module Pos.Util.Trace
 import           Data.Functor.Contravariant (Contravariant (..), Op (..))
 import qualified Data.Text.IO as TIO
 import qualified Pos.Util.Log as Log
+import           Pos.Util.Log.LoggerConfig (defaultTestConfiguration)
 import qualified Pos.Util.Wlog as Wlog
 import           Universum hiding (trace)
 
@@ -59,6 +60,10 @@ wsetupLogging :: Text
 wsetupLogging cfoKey lc ln = do
     Wlog.setupLogging cfoKey lc
     return $ wlogTrace ln
+
+setupTestTrace :: IO (Trace IO (Wlog.Severity, Text))
+setupTestTrace =
+    wsetupLogging "test" (defaultTestConfiguration Wlog.Debug) "testing"
 
 trace :: Trace m s -> s -> m ()
 trace = getOp . runTrace

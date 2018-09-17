@@ -35,9 +35,7 @@ import           Test.QuickCheck.Modifiers (NonEmptyList (..), getNonEmpty)
 
 import           Node
 import           Node.Message.Binary (binaryPacking)
-import           Pos.Util.Log.LoggerConfig (defaultTestConfiguration)
-import           Pos.Util.Trace (wsetupLogging)
-import           Pos.Util.Wlog (Severity (Debug))
+import           Pos.Util.Trace (setupTestTrace)
 import           Test.Util (HeavyParcel (..), Parcel (..), Payload (..),
                      TestState, deliveryTest, expected, makeInMemoryTransport,
                      makeTCPTransport, mkTestState, modifyTestState,
@@ -46,7 +44,7 @@ import           Test.Util (HeavyParcel (..), Parcel (..), Payload (..),
 spec :: Spec
 spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
 
-    logTrace <- runIO $ wsetupLogging "test" (defaultTestConfiguration Debug) "nodespec"
+    logTrace <- runIO $ setupTestTrace
 
         -- Take at most 25000 bytes for each Received message.
         -- We want to ensure that the MTU works, but not make the tests too

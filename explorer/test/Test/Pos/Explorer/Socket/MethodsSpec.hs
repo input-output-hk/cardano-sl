@@ -37,8 +37,7 @@ import           Pos.Explorer.Socket.Methods (addrSubParam, addressSetByTxs,
                      unsubscribeTxs)
 import           Pos.Explorer.TestUtil (secretKeyToAddress)
 import           Pos.Explorer.Web.ClientTypes (CAddress (..), toCAddress)
-import           Pos.Util.Log.LoggerConfig (defaultTestConfiguration)
-import           Pos.Util.Wlog (Severity (Debug), setupLogging)
+import           Pos.Util.Wlog (setupTestLogging)
 
 import           Test.Pos.Explorer.MockFactory (mkTxOut)
 
@@ -50,7 +49,7 @@ import           Test.Pos.Explorer.MockFactory (mkTxOut)
 -- stack test cardano-sl-explorer --fast --test-arguments "-m Test.Pos.Explorer.Socket"
 
 spec :: Spec
-spec = beforeAll_ (setupLogging "test" (defaultTestConfiguration Debug)) $
+spec = beforeAll_ setupTestLogging $
     describe "Methods" $ do
         describe "fromCAddressOrThrow" $
             it "throws an exception if a given CAddress is invalid" $

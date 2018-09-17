@@ -41,8 +41,7 @@ import           Pos.Generator.BlockEvent.DSL (BlockApplyResult (..),
                      runBlockEventGenT)
 import qualified Pos.GState as GS
 import           Pos.Launcher (HasConfigurations)
-import           Pos.Util.Log.LoggerConfig (defaultTestConfiguration)
-import           Pos.Util.Wlog (Severity (Debug), setupLogging)
+import           Pos.Util.Wlog (setupTestLogging)
 
 import           Test.Pos.Block.Logic.Event (BlockScenarioResult (..),
                      DbNotEquivalentToSnapshot (..), runBlockScenario)
@@ -61,7 +60,7 @@ import           Test.Pos.Util.QuickCheck.Property (splitIntoChunks,
 spec :: Spec
 -- Unfortunatelly, blocks generation is quite slow nowdays.
 -- See CSL-1382.
-spec = beforeAll_ (setupLogging "test" (defaultTestConfiguration Debug)) $ withStaticConfigurations $ \txpConfig _ ->
+spec = beforeAll_ setupTestLogging $ withStaticConfigurations $ \txpConfig _ ->
     describe "Block.Logic.VAR" $ modifyMaxSuccess (min 4) $ do
         describe "verifyBlocksPrefix" $ verifyBlocksPrefixSpec txpConfig
         describe "verifyAndApplyBlocks" $ verifyAndApplyBlocksSpec txpConfig

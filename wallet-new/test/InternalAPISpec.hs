@@ -20,8 +20,7 @@ import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Wallet.Web.Account (genSaveRootKey)
 
 import           Pos.Launcher (HasConfigurations)
-import           Pos.Util.Log.LoggerConfig (defaultTestConfiguration)
-import           Pos.Util.Wlog (Severity (Debug), setupLogging)
+import           Pos.Util.Wlog (setupTestLogging)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty)
 
 import           Test.Hspec (Spec, beforeAll_, describe)
@@ -37,7 +36,7 @@ import           Servant
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 spec :: Spec
-spec = beforeAll_ (setupLogging "test" (defaultTestConfiguration Debug)) $
+spec = beforeAll_ setupTestLogging $
     withDefConfigurations $ \_ _ _ ->
         describe "development endpoint" $
         describe "secret-keys" $ modifyMaxSuccess (const 10) deleteAllSecretKeysSpec

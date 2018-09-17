@@ -45,9 +45,7 @@ import           Pos.Infra.Network.Types (Bucket (..))
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Logic.Pure (pureLogic)
 import           Pos.Logic.Types as Logic (Logic (..))
-import           Pos.Util.Log.LoggerConfig (defaultTestConfiguration)
-import           Pos.Util.Trace (wlogTrace, wsetupLogging)
-import           Pos.Util.Wlog (Severity (Debug))
+import           Pos.Util.Trace (setupTestTrace, wlogTrace)
 
 import           Test.Pos.Chain.Block.Arbitrary.Generate (generateMainBlock)
 
@@ -122,7 +120,7 @@ clientLogic = pureLogic
 
 withServer :: Transport -> Logic IO -> (NodeId -> IO t) -> IO t
 withServer transport logic k = do
-    logTrace <- liftIO $ wsetupLogging "test" (defaultTestConfiguration Debug) ("server.outboundqueue")
+    logTrace <- liftIO $ setupTestTrace
     -- Morally, the server shouldn't need an outbound queue, but we have to
     -- give one.
     oq <- liftIO $ OQ.new

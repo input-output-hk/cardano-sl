@@ -76,7 +76,7 @@ data TLSConfiguration = TLSConfiguration
     { tlsCa      :: CertConfiguration
     , tlsServer  :: ServerConfiguration
     , tlsClients :: [CertConfiguration]
-    } deriving (Generic)
+    } deriving (Generic, Show, Eq)
 
 instance FromJSON TLSConfiguration where
     parseJSON = Aeson.genericParseJSON (aesonDropPrefix "tls")
@@ -86,14 +86,14 @@ data DirConfiguration = DirConfiguration
     { outDirServer  :: FilePath
     , outDirClients :: FilePath
     , outDirCA      :: Maybe FilePath
-    }
+    } deriving (Generic, Show, Eq)
 
 -- | Foreign Certificate Configuration
 data CertConfiguration = CertConfiguration
     { certOrganization :: String
     , certCommonName   :: String
     , certExpiryDays   :: Int
-    } deriving (Generic)
+    } deriving (Generic, Show, Eq)
 
 instance FromJSON CertConfiguration where
     parseJSON = Aeson.genericParseJSON (aesonDropPrefix "cert")
@@ -102,7 +102,7 @@ instance FromJSON CertConfiguration where
 data ServerConfiguration = ServerConfiguration
     { serverConfiguration :: CertConfiguration
     , serverAltNames      :: NonEmpty String
-    }
+    } deriving (Generic, Show, Eq)
 
 -- NOTE We keep the declaration structure 'flat' such that servers config
 -- are simply client config with an extra field 'altDNS'

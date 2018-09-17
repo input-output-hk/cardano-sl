@@ -46,3 +46,22 @@ library
 
   exposed-modules: Data.X509.Extra
                    Cardano.X509.Configuration
+
+test-suite cardano-sl-x509-test
+  default-language:   Haskell2010
+  default-extensions: DeriveGeneric
+                      NoImplicitPrelude
+                      OverloadedStrings
+                      TupleSections
+                      TypeApplications
+  type:               exitcode-stdio-1.0
+
+  hs-source-dirs:     test
+  main-is:            Main.hs
+  other-modules:      Test.Cardano.X509.Configuration.Arbitrary
+
+  build-depends:      base
+                    , QuickCheck
+                    , cardano-sl-x509
+                    , universum
+

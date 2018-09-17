@@ -192,6 +192,7 @@ library
                      , cardano-sl-node-ipc
                      , cardano-sl-util
                      , cardano-sl-wallet
+                     , cardano-sl-x509
                      , cereal
                      , conduit
                      , connection

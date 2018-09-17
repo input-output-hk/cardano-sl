@@ -34,7 +34,6 @@ library
                , filepath
                , hourglass
                , ip
-               , network-transport
                , optparse-applicative
                , text
                , universum
@@ -54,6 +53,7 @@ test-suite cardano-sl-x509-test
                       OverloadedStrings
                       TupleSections
                       TypeApplications
+
   type:               exitcode-stdio-1.0
 
   hs-source-dirs:     test
@@ -64,4 +64,3 @@ test-suite cardano-sl-x509-test
                     , QuickCheck
                     , cardano-sl-x509
                     , universum
-

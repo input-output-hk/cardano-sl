@@ -16,7 +16,7 @@ import           Cardano.X509.Configuration (CertDescription (..),
                      ServerConfiguration (..), TLSConfiguration (..),
                      decodeConfigFile, fromConfiguration, genCertificate)
 import           Data.X509.Extra (failIfReasons, genRSA256KeyPair,
-                     validateSHA256, writeCertificate, writeCredentials)
+                     validateCertificate, writeCertificate, writeCredentials)
 
 
 data Command = Command
@@ -79,7 +79,7 @@ main = do
 
     forM_ descs $ \desc -> do
         (key, cert) <- genCertificate desc
-        failIfReasons =<< validateSHA256
+        failIfReasons =<< validateCertificate
             caCert
             (certChecks desc)
             (serverHost, serverPort)

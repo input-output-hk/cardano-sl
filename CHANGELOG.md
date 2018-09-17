@@ -19,6 +19,12 @@
   `configuration.yaml` file under the `wallet` section. The API will now return
   a 429 error containing the microseconds to wait until retry.
 
+- We can force an NTP-check when getting node-info via the API (`?force_ntp_check` query flag) (CO-325)
+
+- The API provides an endpoint to retrieve basic statistics on the UTxO distribution of a wallet 
+  (`/api/v1/wallets/{walletId}/statistics`). (CO-325)
+
+
 ### Fixes
 
 - #### Make productionReporter more robust
@@ -33,6 +39,9 @@
 - The Swagger specification had names with illegal characters. These names
   where changed to be URL friendly. [PR #3595](https://github.com/input-output-hk/cardano-sl/pull/3595)
 
+- The creation of mnemonic doesn't throw anymore when provided words outside of the BIP39 English dictionnary.
+  Instead, it returns an error value gracefully (CO-325)
+
 ### Improvements
 
 - Friendly error mistakes from deserializing invalid addresses instead of brutal 500 (CBR-283)
@@ -44,12 +53,16 @@
 - Content-Type parser is now more lenient and accepts `application/json`, `application/json;charset=utf-8` and 
   no Content-Type at all (defaulting to `application/json`).
 
+- The codebase now relies on the package `cryptonite` (instead of `ed25519`) for Ed25519 implementation (CO-325)
+
+
 ### Specifications
 
 ### Documentation
 
 - Make an inventory of existing wallet errors and exceptions (CBR-307)
 
+- wallet-new README has been improved (especially on sections about testing) and updated (CO-325)
 
 ## Cardano SL 1.3.0
 

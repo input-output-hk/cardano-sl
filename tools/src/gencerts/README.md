@@ -57,46 +57,7 @@ date.
 
 ## Configuration
 
-| Configuration Key   | Description                                        |
-| ------------------- | -------------                                      |
-| \*.\*.organization  | Organization name identified by the certificate    |
-| \*.\*.commonName    | Name of the service identified by the certificate  |
-| \*.\*.expiryDays    | Number of days after which the certificate expires |
-| tls.server.altDNS   | Alternative Subject Names for the server           |
-
-Note that the `clients` section requires (and accepts) a list of clients. You may define more
-than one client certificates at once.
-
-For example:
-
-<details>
-<summary><strong>configuration.yaml</strong></summary>
-
-```yaml
-dev: 
-  tls: 
-    ca:
-      organization: Input Output HK
-      commonName: Cardano SL Self-Signed Root CA
-      expiryDays: 3650
-
-    server:
-      organization: Input Output HK
-      commonName: Cardano SL Server Node
-      expiryDays: 365
-      altDNS:
-        - "localhost"
-        - "localhost.localdomain"
-        - "127.0.0.1"
-        - "::1"
-
-    clients:
-      - organization: Input Output HK
-        commonName: Daedalus Wallet
-        expiryDays: 365
-```
-</details>
-
+See [x509/README.md](https://github.com/input-output-hk/cardano-sl/x509/README.md)
 
 ## Human-Readable Output
 

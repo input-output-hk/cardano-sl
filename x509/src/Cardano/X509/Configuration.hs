@@ -1,25 +1,48 @@
-{-# LANGUAGE RecordWildCards #-}
+--
+-- | Configuration for generating X509 certificates
+--
+-- Users are expected to provide configuration (from file or by hand) and use
+-- 'fromConfiguration' to turn them into description.
+-- Then, full description can be turned into certificates via 'genCertificate'
+--
+-- Configuration --fromConfiguration--> Description --genCertificate--> Certificate
 
-module Configuration
-    ( decodeConfigFile
-    , fromConfiguration
-    , ConfigurationKey(..)
-    , TLSConfiguration(..)
-    , DirConfiguration(..)
+module Cardano.X509.Configuration
+    (
+    -- * Configuration for Certificates
+      TLSConfiguration(..)
     , ServerConfiguration(..)
     , CertConfiguration(..)
+    , DirConfiguration(..)
+
+    -- * Description of Certificates
     , CertDescription(..)
+    , fromConfiguration
+
+    -- * Effectful Functions
+    , ConfigurationKey(..)
+    , decodeConfigFile
+    , genCertificate
     ) where
 
 import           Universum
 
 import           Control.Monad ((>=>))
+import           Crypto.PubKey.RSA (PrivateKey, PublicKey)
 import           Data.Aeson (FromJSON (..))
 import           Data.ASN1.OID (OIDable (..))
+import           Data.Hourglass (Minutes (..), Period (..), dateAddPeriod,
+                     timeAdd)
 import           Data.List (stripPrefix)
 import           Data.Semigroup ((<>))
 import           Data.String (fromString)
-import           Data.X509
+import           Data.X509 (AltName (..), DistinguishedName (..),
+                     DnElement (..), ExtAuthorityKeyId (..),
+                     ExtBasicConstraints (..), ExtExtendedKeyUsage (..),
+                     ExtKeyUsage (..), ExtKeyUsageFlag (..),
+                     ExtKeyUsagePurpose (..), ExtSubjectAltName (..),
+                     ExtSubjectKeyId (..), ExtensionRaw, Extensions (..),
+                     PubKey (..), SignedCertificate, extensionEncode, hashDN)
 import           Data.X509.Validation (ValidationChecks (..), defaultChecks)
 import           Data.Yaml (decodeFileEither, parseMonad, withObject)
 import           GHC.Generics (Generic)
@@ -28,6 +51,10 @@ import           Net.IPv4 (IPv4 (..))
 import           Net.IPv6 (IPv6 (..))
 import           Network.Transport.Internal (encodeWord32)
 import           System.IO (FilePath)
+import           Time.System (dateCurrent)
+import           Time.Types (DateTime (..))
+
+import           Data.X509.Extra (signAlgRSA256, signCertificate)
 
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
@@ -37,12 +64,12 @@ import qualified Data.Char as Char
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Text as T
+import qualified Data.X509 as X509
 
 
--- | Type-alias for signature readability
-newtype ConfigurationKey = ConfigurationKey
-    { getConfigurationKey :: String
-    } deriving (Eq, Show)
+--
+-- Configuration of Certificates
+--
 
 -- | Foreign Configuration, pulled from within a .yaml file
 data TLSConfiguration = TLSConfiguration
@@ -91,6 +118,10 @@ instance FromJSON ServerConfiguration where
                 maybe (fail errMsg) parseJSON . HM.lookup "altDNS"
 
 
+--
+-- Description of Certificates
+--
+
 -- | Internal full-representation of a certificate
 data CertDescription m pub priv outdir = CertDescription
     { certConfiguration :: CertConfiguration
@@ -105,6 +136,79 @@ data CertDescription m pub priv outdir = CertDescription
     , certChecks        :: ValidationChecks
     }
 
+
+-- | Describe a list of certificates to generate & sign from a foreign config
+--
+-- Description can then be used with @genCertificate@ to obtain corresponding
+-- certificate
+fromConfiguration
+    :: Applicative m
+    => TLSConfiguration -- ^ Foreign TLS configuration / setup
+    -> DirConfiguration -- ^ Output directories configuration
+    -> m (pub, priv)    -- ^ Key pair generator
+    -> (pub, priv)      -- ^ Initial / Root key pair
+    -> (CertDescription m pub priv (Maybe String), [CertDescription m pub priv String])
+    -- ^ PKI description matching provided conf, fst = CA, snd = server & clients
+fromConfiguration tlsConf dirConf genKeys (caPub, caPriv) =
+    let
+        caDN = mkDistinguishedName (tlsCa tlsConf)
+
+        caConfig = CertDescription
+            { certConfiguration = tlsCa tlsConf
+            , certSerial        = 1
+            , certExtensions    = caExtensionsV3 caDN
+            , certIssuer        = caDN
+            , certSubject       = caDN
+            , certGenKeys       = pure (caPub, caPriv)
+            , certSigningKey    = caPriv
+            , certOutDir        = outDirCA dirConf
+            , certFilename      = "ca"
+            , certChecks        = defaultChecks
+            }
+
+        ServerConfiguration tlsServer' serverAltDNS = tlsServer tlsConf
+        svDN = mkDistinguishedName tlsServer'
+        svConfig = CertDescription
+            { certConfiguration = tlsServer'
+            , certSerial        = 2
+            , certExtensions    = svExtensionsV3 svDN caDN serverAltDNS
+            , certIssuer        = caDN
+            , certSubject       = svDN
+            , certGenKeys       = genKeys
+            , certSigningKey    = caPriv
+            , certOutDir        = outDirServer dirConf
+            , certFilename      = "server"
+            , certChecks        = defaultChecks
+            }
+
+        clConfigs = forEach (tlsClients tlsConf) $ \(i, tlsClient) ->
+            let
+                clDN = mkDistinguishedName tlsClient
+                suffix = if i == 0 then "" else "_" <> show i
+            in CertDescription
+                { certConfiguration = tlsClient
+                , certSerial        = 3 + i
+                , certExtensions    = clExtensionsV3 clDN caDN
+                , certIssuer        = caDN
+                , certSubject       = clDN
+                , certGenKeys       = genKeys
+                , certSigningKey    = caPriv
+                , certOutDir        = outDirClients dirConf
+                , certFilename      = "client" <> suffix
+                , certChecks        = defaultChecks { checkFQHN = False }
+                }
+    in
+        (caConfig, svConfig : clConfigs)
+
+
+--
+-- Effectful Functions
+--
+
+-- | Type-alias for signature readability
+newtype ConfigurationKey = ConfigurationKey
+    { getConfigurationKey :: String
+    } deriving (Eq, Show)
 
 -- | Decode a configuration file (.yaml). The expected file structure is:
 --     <configuration-key>:
@@ -134,69 +238,38 @@ decodeConfigFile (ConfigurationKey cKey) filepath =
     parseK key = maybe (fail $ errMsg key) parseJSON . HM.lookup (toText key)
 
 
--- | Describe a list of certificates to generate & sign from a foreign config
-fromConfiguration
-    :: Applicative m
-    => TLSConfiguration -- ^ Foreign TLS configuration / setup
-    -> DirConfiguration -- ^ Output directories configuration
-    -> m (pub, priv)    -- ^ Key pair generator
-    -> (pub, priv)      -- ^ Initial / Root key pair
-    -> (CertDescription m pub priv (Maybe String), [CertDescription m pub priv String])
-    -- ^ PKI description matching provided conf, fst = CA, snd = server & clients
-fromConfiguration TLSConfiguration{..} DirConfiguration{..} certGenKeys (caPub, caPriv) =
-    let
-        caDN = mkDistinguishedName tlsCa
+-- | Generate & sign a certificate from a certificate description
+genCertificate
+    :: CertDescription IO PublicKey PrivateKey filename
+    -> IO (PrivateKey, SignedCertificate)
+genCertificate desc = do
+    ((pub, priv), now) <- (,) <$> (certGenKeys desc) <*> dateCurrent
 
-        caConfig = CertDescription
-            { certConfiguration = tlsCa
-            , certSerial        = 1
-            , certExtensions    = caExtensionsV3 caDN
-            , certIssuer        = caDN
-            , certSubject       = caDN
-            , certGenKeys       = pure (caPub, caPriv)
-            , certSigningKey    = caPriv
-            , certOutDir        = outDirCA
-            , certFilename      = "ca"
-            , certChecks        = defaultChecks
+    let conf = certConfiguration desc
+    let cert = X509.Certificate
+            { X509.certVersion      = 2
+            , X509.certSerial       = fromIntegral (certSerial desc)
+            , X509.certSignatureAlg = signAlgRSA256
+            , X509.certValidity     = (addMinutes (-1) now, addDays (certExpiryDays conf) now)
+            , X509.certPubKey       = PubKeyRSA pub
+            , X509.certExtensions   = Extensions (Just $ certExtensions desc)
+            , X509.certIssuerDN     = certIssuer desc
+            , X509.certSubjectDN    = certSubject desc
             }
 
-        ServerConfiguration tlsServer' serverAltDNS = tlsServer
-        svDN = mkDistinguishedName tlsServer'
-        svConfig = CertDescription
-            { certConfiguration = tlsServer'
-            , certSerial        = 2
-            , certExtensions    = svExtensionsV3 svDN caDN serverAltDNS
-            , certIssuer        = caDN
-            , certSubject       = svDN
-            , certGenKeys       = certGenKeys
-            , certSigningKey    = caPriv
-            , certOutDir        = outDirServer
-            , certFilename      = "server"
-            , certChecks        = defaultChecks
-            }
+    (priv,) <$> signCertificate (certSigningKey desc) cert
+  where
+    addDays :: Int -> DateTime -> DateTime
+    addDays n time@(DateTime date _) =
+        time { dtDate = dateAddPeriod date (mempty { periodDays = n }) }
 
-        clConfigs = forEach tlsClients $ \(i, tlsClient) ->
-            let
-                clDN = mkDistinguishedName tlsClient
-                suffix = if i == 0 then "" else "_" <> show i
-            in CertDescription
-                { certConfiguration = tlsClient
-                , certSerial        = 3 + i
-                , certExtensions    = clExtensionsV3 clDN caDN
-                , certIssuer        = caDN
-                , certSubject       = clDN
-                , certGenKeys       = certGenKeys
-                , certSigningKey    = caPriv
-                , certOutDir        = outDirClients
-                , certFilename      = "client" <> suffix
-                , certChecks        = defaultChecks { checkFQHN = False }
-                }
-    in
-        (caConfig, svConfig : clConfigs)
+    addMinutes :: Int -> DateTime -> DateTime
+    addMinutes n time =
+        timeAdd time (Minutes $ fromIntegral n)
 
 
 --
--- INTERNALS / UTILS
+-- Internals
 --
 
 caExtensionsV3 :: DistinguishedName -> [ExtensionRaw]
@@ -273,7 +346,7 @@ forEach xs fn =
 
 
 mkDistinguishedName :: CertConfiguration -> DistinguishedName
-mkDistinguishedName CertConfiguration{..} = DistinguishedName
-    [ (getObjectID DnOrganization, fromString certOrganization)
-    , (getObjectID DnCommonName, fromString certCommonName)
+mkDistinguishedName conf = DistinguishedName
+    [ (getObjectID DnOrganization, fromString $ certOrganization conf)
+    , (getObjectID DnCommonName, fromString $ certCommonName conf)
     ]

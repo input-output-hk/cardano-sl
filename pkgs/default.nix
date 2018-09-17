@@ -17201,12 +17201,9 @@ license = stdenv.lib.licenses.mit;
 , aeson-options
 , ansi-terminal
 , ansi-wl-pprint
-, asn1-encoding
-, asn1-types
 , async
 , base
 , base58-bytestring
-, base64-bytestring
 , bytestring
 , canonical-json
 , cardano-report-server
@@ -17225,24 +17222,21 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-util
 , cardano-sl-util-test
 , cardano-sl-wallet
+, cardano-sl-x509
 , containers
 , cpphs
 , cryptonite
 , data-default
-, data-default-class
 , directory
 , filepath
 , formatting
 , Glob
 , hedgehog
-, hourglass
 , hspec
-, ip
 , lens
 , lifted-async
 , mtl
 , neat-interpolation
-, network-transport
 , network-transport-tcp
 , optparse-applicative
 , optparse-generic
@@ -17266,9 +17260,6 @@ license = stdenv.lib.licenses.mit;
 , unix
 , unix-compat
 , unordered-containers
-, x509
-, x509-store
-, x509-validation
 , yaml
 }:
 mkDerivation {
@@ -17324,12 +17315,9 @@ acid-state-exts
 aeson
 aeson-options
 ansi-wl-pprint
-asn1-encoding
-asn1-types
 async
 base
 base58-bytestring
-base64-bytestring
 bytestring
 canonical-json
 cardano-report-server
@@ -17346,21 +17334,18 @@ cardano-sl-infra
 cardano-sl-networking
 cardano-sl-util
 cardano-sl-wallet
+cardano-sl-x509
 containers
 cryptonite
 data-default
-data-default-class
 directory
 filepath
 formatting
 Glob
-hourglass
-ip
 lens
 lifted-async
 mtl
 neat-interpolation
-network-transport
 network-transport-tcp
 optparse-applicative
 optparse-generic
@@ -17378,9 +17363,6 @@ universum
 unix
 unix-compat
 unordered-containers
-x509
-x509-store
-x509-validation
 yaml
 ];
 executableToolDepends = [
@@ -18192,6 +18174,70 @@ universum
 ];
 doHaddock = false;
 description = "Cardano SL - wallet (Arbitrary instances)";
+license = stdenv.lib.licenses.mit;
+
+}) {};
+"cardano-sl-x509" = callPackage
+({
+  mkDerivation
+, aeson
+, asn1-encoding
+, asn1-types
+, base
+, base64-bytestring
+, bytestring
+, cryptonite
+, data-default-class
+, filepath
+, hourglass
+, ip
+, network-transport
+, optparse-applicative
+, stdenv
+, text
+, universum
+, unordered-containers
+, x509
+, x509-store
+, x509-validation
+, yaml
+}:
+mkDerivation {
+
+pname = "cardano-sl-x509";
+version = "1.0.0";
+src = ./../x509;
+configureFlags = [
+"--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
+"--ghc-option=-Werror"
+];
+libraryHaskellDepends = [
+aeson
+asn1-encoding
+asn1-types
+base
+base64-bytestring
+bytestring
+cryptonite
+data-default-class
+filepath
+hourglass
+ip
+network-transport
+optparse-applicative
+text
+universum
+unordered-containers
+x509
+x509-store
+x509-validation
+yaml
+];
+doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl/x509/README.md";
+description = "Tool-suite for generating x509 certificates specialized for RSA with SHA-256";
 license = stdenv.lib.licenses.mit;
 
 }) {};

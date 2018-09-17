@@ -15,8 +15,8 @@ import           Universum hiding (head, tail, (^.))
 import           Control.Lens (to, (^.))
 import           Control.Monad.Except (ExceptT (ExceptT), MonadError,
                      runExceptT, throwError)
-import           Data.Functor.Identity (runIdentity)
 import           Data.List (findIndex, scanl', (!!))
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as Map
 import           Data.Maybe (fromMaybe)
 import           Data.Monoid (Sum (Sum), getSum)
@@ -37,20 +37,18 @@ import           Chain.Abstract (Addr (Addr), Chain, Output (Output),
                      inOpenPhase, inRecoveryPhase, initTransactions,
                      initialSeed, initialStakeDistribution, k, maxMempoolSize,
                      minFee, outAddr, outRepartition, outVal, quality,
-                     slotLeader, trExtra, trFee, trFresh, trHash, trIns,
+                     slotLeader, trDSL, trExtra, trFee, trFresh, trHash, trIns,
                      trOuts, trWitness)
 import           Chain.Abstract.FinitelySupportedFunction (fApply, fSum,
                      fSupport)
-import           Chain.Abstract.Repartition (Repartition, mkRepartitionT)
-import           Chain.Abstract.Translate.FromUTxO (ChainValidity, IntException (IntEmptyAddresses, IntEmptyInputs, IntEmptyOutputs, IntLogicError),
+import           Chain.Abstract.Repartition (balanceStake, mkRepartitionT)
+import           Chain.Abstract.Translate.FromUTxO (ChainValidity, IntException (IntEmptyAddresses, IntEmptyOutputs, IntLogicError),
                      TransState, translate, tsCheckpoints, _tsCurrentSlot)
 import qualified UTxO.DSL as DSL
 
 data GeneratorModel h a = GeneratorModel
-  { -- | TODO: this was originally a 'DSL.Tansaction'. Do we want this to be an
-    -- 'Abstract.Transaction'?
-    gmBoot                  :: DSL.Transaction h a
-  , gmAllAddresses          :: [a]
+  { gmBoot                  :: Transaction h a
+  , gmAllAddresses          :: NonEmpty a
   -- | TODO: if this is what we want it would be better to use smart
   -- constructors to make sure the set of bootstrapStakeholders is a subset of
   -- all addresses.
@@ -62,8 +60,8 @@ genChainUsingModel :: (Hash h a, Ord a) => GeneratorModel h a -> Gen (DSL.Chain 
 genChainUsingModel GeneratorModel{gmBoot, gmAllAddresses, gmEstimateFee} =
     evalStateT (genChain params) initState
   where
-    params    = defChainParams gmEstimateFee gmAllAddresses
-    initUtxo  = utxoRestrictToAddr (`elem` gmAllAddresses) $ trUtxo gmBoot
+    params    = defChainParams gmEstimateFee $ toList gmAllAddresses
+    initUtxo  = utxoRestrictToAddr (`elem` gmAllAddresses) . trUtxo  . trDSL $ gmBoot
     initState = initTrState initUtxo 1
 
 -- | Generate an abstract chain using the generator model passed as parameter.
@@ -87,7 +85,6 @@ genAbstractChain gm = do
         :: NonEmpty Addr
         -> ExceptT IntException Gen (Parameters (TransState h) h Addr)
       getParams addrs = do
-        bootTransaction <- dslTransactionToAbstract addrs (gmBoot gm)
         return Parameters
           { slotLeader = mSlotLeader
           , currentSeed = mCurrentSeed
@@ -102,7 +99,7 @@ genAbstractChain gm = do
           , initialStakeDistribution = mInitialStakeDistribution addrs
           , initialSeed = Seed 0
           , minFee = const 0 -- TODO: QUESTION: what properties should 'minFee' satisfy?
-          , initTransactions = [bootTransaction]
+          , initTransactions = [gmBoot gm]
           , bootstrapStakeholders = Set.fromList $ gmBootstrapStakeholders gm
           }
 
@@ -129,18 +126,19 @@ simpleModel = GeneratorModel {
       gmAllAddresses  = addrs
     , gmEstimateFee   = \_ _ -> 0
     , gmBootstrapStakeholders = Addr <$> [0..3]
-    , gmBoot          = DSL.Transaction {
+    , gmBoot          = Transaction {
                             trFresh = fromIntegral (length addrs) * initBal
-                          , trIns   = Set.empty
-                          , trOuts  = [DSL.Output a initBal | a <- addrs]
+                          , trIns   = error "Boot inputs"
+                          , trOuts  = (\a -> Output a initBal (balanceStake (a :| []))) <$> addrs
                           , trFee   = 0
                           , trHash  = 0
                           , trExtra = ["Simple bootstrap"]
+                          , trWitness = addrs
                           }
     }
   where
-    addrs :: [Addr]
-    addrs = Addr <$> [0 .. 7]
+    addrs :: NonEmpty Addr
+    addrs = NE.fromList $ Addr <$> [0 .. 7]
 
     initBal :: Value
     initBal = 10000
@@ -164,10 +162,9 @@ simpleGen = genAbstractChain simpleModel
 
 simpleParams
   :: NonEmpty Addr
-  -> [DSL.Transaction GivenHash Addr]
+  -> [Transaction GivenHash Addr]
   -> Either IntException (Parameters (TransState GivenHash) GivenHash Addr)
 simpleParams addrs initTs = do
-  abstractInitTs <- traverse (dslTransactionToAbstract addrs) initTs
   return Parameters
     { slotLeader = mSlotLeader
     , currentSeed = mCurrentSeed
@@ -182,7 +179,7 @@ simpleParams addrs initTs = do
     , initialStakeDistribution = mInitialStakeDistribution addrs
     , initialSeed = Seed 0
     , minFee = const 0 -- TODO: QUESTION: what properties should 'minFee' satisfy?
-    , initTransactions = abstractInitTs
+    , initTransactions = initTs
     -- TODO: how do we want to determine the bootstrap stakeholders?
     , bootstrapStakeholders = Set.fromList $ toList addrs
     }
@@ -294,44 +291,3 @@ chainAddresses = map DSL.outAddr
                . concatMap DSL.trOuts
                . concatMap toList
                . toList
-
--- | Translation of DSL transactions onto Abstract transactions
---
--- TODO: this isn't right. How to translate one into the other?
-dslTransactionToAbstract
-  :: (Ord a, MonadError IntException m)
-  => NonEmpty a -- ^ TODO: we're using a list of addresses to make up the
-                -- witnesses. Where do we want to get this from?
-  -> DSL.Transaction h a
-  -> m (Transaction h a)
-dslTransactionToAbstract addrs tx = do
-  -- neIns <- case ins of
-  --   []   -> throwError $ IntEmptyInputs
-  --   i:is -> return $  i :| is
-  outs <- traverse dslOutputToAbstract (DSL.trOuts tx)
-  neOuts <- case outs of
-    []   -> throwError IntEmptyOutputs
-    o:os -> return $ o :| os
-  return Transaction
-    { trFresh = DSL.trFresh tx
-    , trIns = undefined -- neIns -- TODO: I think we need 'Transaction's  with empty inputs.
-    , trOuts = neOuts
-    , trFee = DSL.trFee tx
-    , trHash = DSL.trHash tx
-    , trExtra = DSL.trExtra tx
-    , trWitness = addrs
-    }
-  where ins = Set.toList (DSL.trIns tx)
-
--- TODO: we need to unify this with 'FromUTxO.intOutput'!
-dslOutputToAbstract
-  :: (Ord a, MonadError IntException m)
-  => DSL.Output h a -> m (Output h1 a)
-dslOutputToAbstract out = do
-  r <- mkRepartitionT (const IntLogicError) [(DSL.outAddr out, DSL.outVal out)]
-  return Output
-    { outAddr = DSL.outAddr out
-    , outVal = DSL.outVal out
-    -- TODO: how do we want to determine this properly?
-    , outRepartition = r
-    }

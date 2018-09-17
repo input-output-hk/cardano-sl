@@ -13,6 +13,7 @@
 --
 module Chain.Abstract.Repartition
   ( Repartition
+  , balanceStake
   , mkRepartition
   , mkRepartitionT
   )
@@ -67,3 +68,8 @@ mkRepartitionT
 mkRepartitionT liftErr rs =
   validation (throwError . liftErr) return (mkRepartition rs)
 
+balanceStake
+  :: forall a. Ord a
+  => NonEmpty a
+  -> Repartition a
+balanceStake addrs = Repartition $ Map.fromList (toList addrs `zip` repeat 1)

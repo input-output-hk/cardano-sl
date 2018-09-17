@@ -65,9 +65,9 @@ import           Pos.Chain.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..),
 import           Pos.Chain.Ssc.VssCertificate (vcSigningKey, vcVssKey)
 import           Pos.Chain.Ssc.VssCertificatesMap (VssCertificatesMap (..),
                      lookupVss, memberVss)
+import           Pos.Chain.Update (bvdMpcThd)
 import           Pos.Core (CoinPortion, EpochIndex, StakeholderId, addressHash,
                      coinPortionDenominator, getCoinPortion, unsafeGetCoin)
-import           Pos.Core.Update (bvdMpcThd)
 import           Pos.Crypto (DecShare, verifyDecShare, verifyEncShares)
 import           Pos.Util.Util (getKeys)
 import           Pos.Util.Wlog (logWarning)

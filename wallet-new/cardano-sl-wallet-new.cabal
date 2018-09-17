@@ -181,6 +181,7 @@ library
                      , cardano-sl
                      , cardano-sl-binary
                      , cardano-sl-chain
+                     , cardano-sl-chain-test
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-core-test
@@ -326,6 +327,7 @@ executable cardano-generate-swagger-file
                      , bytestring
                      , aeson
                      , cardano-sl-util
+                     , cardano-sl-chain
                      , cardano-sl-core
                      , cardano-sl-wallet-new
                      , optparse-applicative

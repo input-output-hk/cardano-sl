@@ -13,10 +13,9 @@ import           Universum
 
 import qualified Network.Broadcast.OutboundQueue as OQ
 
-import           Pos.Chain.Update ()
+import           Pos.Chain.Update (UpId, UpdateProposal, UpdateVote, mkVoteId)
 import           Pos.Communication.Limits (mlUpdateProposalAndVotes,
                      mlUpdateVote)
-import           Pos.Core.Update (UpId, UpdateProposal, UpdateVote, mkVoteId)
 import           Pos.Infra.Communication.Protocol (EnqueueMsg, MkListeners,
                      MsgType (..), NodeId, Origin (..), OutSpecs)
 import           Pos.Infra.Communication.Relay (InvReqDataParams (..),

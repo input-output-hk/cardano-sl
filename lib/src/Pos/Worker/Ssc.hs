@@ -38,6 +38,7 @@ import           Pos.Chain.Ssc (HasSscConfiguration, HasSscContext (..),
                      mkSignedCommitment, mkVssCertificate, mpcSendInterval,
                      randCommitmentAndOpening, scBehavior, scParticipateSsc,
                      scVssKeyPair, sgsCommitments, vssThreshold)
+import           Pos.Chain.Update (BlockVersionData (..))
 import           Pos.Core (BlockCount, EpochIndex, HasPrimaryKey, SlotId (..),
                      StakeholderId, Timestamp (..), getOurSecretKey,
                      getOurStakeholderId, getSlotIndex, kEpochSlots,
@@ -46,7 +47,6 @@ import           Pos.Core.Conc (currentTime, delay)
 import           Pos.Core.JsonLog (CanJsonLog)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..), MonadReporting)
-import           Pos.Core.Update (BlockVersionData (..))
 import           Pos.Crypto (SecretKey, VssKeyPair, VssPublicKey, randomNumber,
                      randomNumberInRange, runSecureRandom, vssKeyGen)
 import           Pos.Crypto.SecretSharing (toVssPublicKey)

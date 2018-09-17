@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Pos.Core.Update.SoftwareVersion
+module Pos.Chain.Update.SoftwareVersion
        ( SoftwareVersion (..)
        , HasSoftwareVersion (..)
        , NumSoftwareVersion
@@ -19,7 +19,7 @@ import qualified Prelude
 import           Pos.Util.Some (Some, liftLensSome)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Core.Update.ApplicationName
+import           Pos.Chain.Update.ApplicationName
 
 -- | Numeric software version associated with ApplicationName.
 type NumSoftwareVersion = Word32

@@ -27,11 +27,11 @@ import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
                      tmCommitments, tmOpenings, tmShares)
 import           Pos.Chain.Txp (MemPool (..), TxAux (..), TxMsgContents (..),
                      TxpConfiguration)
+import           Pos.Chain.Update (BlockVersionData, UpdateProposal (..),
+                     UpdateVote (..))
 import           Pos.Communication (NodeId)
 import           Pos.Core (StakeholderId, addressHash)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
-import           Pos.Core.Update (BlockVersionData, UpdateProposal (..),
-                     UpdateVote (..))
 import           Pos.Crypto (hash)
 import qualified Pos.DB.Block as Block
 import qualified Pos.DB.Block as DB (getTipBlock)

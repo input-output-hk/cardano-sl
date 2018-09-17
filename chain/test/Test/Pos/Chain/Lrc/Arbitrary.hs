@@ -21,9 +21,9 @@ import           Test.QuickCheck (Arbitrary (..), Gen, choose, vector)
 import           Test.QuickCheck.Arbitrary.Generic (genericShrink)
 
 import           Pos.Chain.Lrc (RichmenStakes)
+import           Pos.Chain.Update (BlockVersionData (bvdMpcThd))
 import           Pos.Core.Common (Coin, CoinPortion, coinPortionToDouble,
                      mkCoin, unsafeAddCoin, unsafeGetCoin, unsafeSubCoin)
-import           Pos.Core.Update (BlockVersionData (bvdMpcThd))
 
 import           Test.Pos.Chain.Genesis.Dummy (dummyBlockVersionData)
 import           Test.Pos.Core.Arbitrary ()

@@ -53,14 +53,15 @@ import           Text.Megaparsec.Char (anyChar, char, satisfy, spaceChar,
 import           Text.Megaparsec.Char.Lexer (decimal, scientific, signed)
 
 import           Lang.Name (Letter, Name (..), unsafeMkLetter)
-import           Pos.Core (Address, StakeholderId, decodeTextAddress)
-import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
+import           Pos.Chain.Update (ApplicationName (..), BlockVersion (..),
                      SoftwareVersion (..))
+import           Pos.Core (Address, StakeholderId, decodeTextAddress)
 import           Pos.Crypto (AHash (..), PublicKey, decodeAbstractHash,
                      fullPublicKeyF, hashHexF, parseFullPublicKey,
                      unsafeCheatingHashCoerce)
 import           Pos.Util.Util (toParsecError)
 
+import           Test.Pos.Chain.Update.Arbitrary ()
 import           Test.Pos.Core.Arbitrary ()
 
 data BracketSide = BracketSideOpening | BracketSideClosing

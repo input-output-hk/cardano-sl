@@ -22,11 +22,11 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
                      TestnetBalanceOptions (..), configBlockVersionData,
                      configBootStakeholders, configEpochSlots,
                      configGeneratedSecretsThrow, gsSecretKeys)
+import           Pos.Chain.Update (BlockVersionData (..))
 import           Pos.Core.Chrono (NE, OldestFirst (..), nonEmptyNewestFirst)
 import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)
 import           Pos.Core.Slotting (EpochOrSlot (..), SlotId, Timestamp (..),
                      epochIndexL, getEpochOrSlot)
-import           Pos.Core.Update (BlockVersionData (..))
 import           Pos.Crypto (SecretKey)
 import           Pos.DB (getTipHeader)
 import           Pos.DB.Block (rollbackBlocks, verifyAndApplyBlocks,

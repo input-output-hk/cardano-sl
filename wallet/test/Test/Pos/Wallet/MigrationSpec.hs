@@ -32,6 +32,7 @@ import           Pos.Wallet.Web.State.State (askWalletSnapshot)
 import           Pos.Wallet.Web.State.Storage
 
 import           Test.Pos.Chain.Txp.Arbitrary ()
+import           Test.Pos.Chain.Update.Arbitrary ()
 import           Test.Pos.Core.Arbitrary ()
 
 --------------------------------------------------------------------------------

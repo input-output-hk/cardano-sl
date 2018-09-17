@@ -22,8 +22,8 @@ import           Pos.Chain.Delegation (ProxySKHeavy)
 import           Pos.Chain.Ssc (InnerSharesMap, Opening, SignedCommitment,
                      VssCertificate)
 import           Pos.Chain.Txp (TxAux)
+import           Pos.Chain.Update (UpId, UpdateProposal, UpdateVote)
 import           Pos.Core.Chrono (OldestFirst (..))
-import           Pos.Core.Update (UpId, UpdateProposal, UpdateVote)
 import           Pos.Infra.Communication.Types.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates,
                      emptySubscriptionStates)

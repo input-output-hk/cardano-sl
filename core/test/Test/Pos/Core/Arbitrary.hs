@@ -26,7 +26,6 @@ module Test.Pos.Core.Arbitrary
 import           Universum
 
 import qualified Data.ByteString as BS (pack)
-import           Data.List ((!!))
 import qualified Data.Map as M
 import           Data.Time.Units (TimeUnit (..))
 import           System.Random (Random)
@@ -53,9 +52,6 @@ import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
 import           Pos.Core.Constants (sharedSeedLength)
 import           Pos.Core.Merkle (MerkleTree, mkMerkleTree)
 import           Pos.Core.ProtocolConstants (pcEpochSlots)
-import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
-                     BlockVersionData (..), SoftforkRule (..),
-                     SoftwareVersion (..), applicationNameMaxLength)
 import           Pos.Util.Util (leftToPanic)
 
 import           Test.Pos.Core.Dummy (dummyProtocolConstants)
@@ -438,35 +434,6 @@ instance Arbitrary SharedSeed where
     arbitrary = do
         bs <- replicateM sharedSeedLength (choose (0, 255))
         return $ SharedSeed $ BS.pack bs
-
-instance Arbitrary SoftforkRule where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-instance Arbitrary BlockVersionData where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-----------------------------------------------------------------------------
--- Arbitrary types from MainExtra[header/body]data
-----------------------------------------------------------------------------
-
-instance Arbitrary ApplicationName where
-    arbitrary =
-        ApplicationName .
-        toText . map selectAlpha . take applicationNameMaxLength <$>
-        arbitrary
-      where
-        selectAlpha n = alphabet !! (n `mod` length alphabet)
-        alphabet = "-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-instance Arbitrary BlockVersion where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-instance Arbitrary SoftwareVersion where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
 
 ----------------------------------------------------------------------------
 -- Arbitrary types from 'Pos.Core.Fee'

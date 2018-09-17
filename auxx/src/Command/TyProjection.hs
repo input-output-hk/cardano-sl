@@ -37,12 +37,12 @@ import           Data.Time.Units (Microsecond, TimeUnit, convertUnit,
 import           Serokell.Data.Memory.Units (Byte, fromBytes)
 
 import           Pos.Chain.Txp (TxOut (..))
-import           Pos.Chain.Update (ApplicationName (..),
-                     BlockVersionModifier (..), SystemTag (..))
+import           Pos.Chain.Update (ApplicationName (..), BlockVersion,
+                     BlockVersionModifier (..), SoftwareVersion,
+                     SystemTag (..))
 import           Pos.Core (AddrStakeDistribution (..), Address, Coin,
                      CoinPortion, EpochIndex, ScriptVersion, StakeholderId,
                      mkCoin, unsafeCoinPortionFromDouble, unsafeGetCoin)
-import           Pos.Core.Update (BlockVersion, SoftwareVersion)
 import           Pos.Crypto (AHash (..), Hash, PublicKey)
 
 import           Lang.Argument (TyProjection (..), TypeName (..))

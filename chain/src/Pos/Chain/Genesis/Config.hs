@@ -64,12 +64,12 @@ import           Pos.Chain.Genesis.ProtocolConstants
 import           Pos.Chain.Genesis.Spec (GenesisSpec (..))
 import           Pos.Chain.Genesis.WStakeholders (GenesisWStakeholders)
 import           Pos.Chain.Ssc.VssCertificatesMap (VssCertificatesMap)
+import           Pos.Chain.Update (BlockVersionData)
 import           Pos.Core.Common (BlockCount, SharedSeed)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
                      pcBlkSecurityParam, pcChainQualityThreshold, pcEpochSlots,
                      pcSlotSecurityParam, vssMaxTTL, vssMinTTL)
 import           Pos.Core.Slotting (SlotCount, Timestamp)
-import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Crypto.Hashing (Hash, hashRaw, unsafeHash)
 import           Pos.Util.Json.Canonical (SchemaError)

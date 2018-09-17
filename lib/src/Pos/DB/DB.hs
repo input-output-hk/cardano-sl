@@ -10,7 +10,7 @@ import           Universum
 import           Pos.Chain.Block (genesisBlock0, headerHash)
 import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Lrc (genesisLeaders)
-import           Pos.Core.Update (BlockVersionData)
+import           Pos.Chain.Update (BlockVersionData)
 import           Pos.DB.Block (prepareBlockDB)
 import           Pos.DB.Class (MonadDB, MonadDBRead (..))
 import           Pos.DB.Lrc (prepareLrcDB)

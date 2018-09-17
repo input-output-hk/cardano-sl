@@ -32,11 +32,11 @@ import           Pos.Chain.Block (BlockHeader (..), HeaderHash,
                      headerSlotL, prevBlockL, verifyHeader)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlkSecurityParam, configEpochSlots)
+import           Pos.Chain.Update (bvdMaxHeaderSize)
 import           Pos.Core (difficultyL, epochIndexL, getEpochOrSlot)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst (..),
                      toNewestFirst, toOldestFirst, _NewestFirst, _OldestFirst)
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
-import           Pos.Core.Update (bvdMaxHeaderSize)
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB.Block.GState.BlockExtra as GS
 import           Pos.DB.Block.Load (loadHeadersByDepth)

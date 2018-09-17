@@ -25,6 +25,7 @@ import           Pos.Infra.Communication.Types.Relay (DataMsg (..), InvMsg (..),
 import           Pos.Infra.DHT (DHTData (..), DHTKey (..))
 
 import           Test.Pos.Chain.Delegation.Arbitrary ()
+import           Test.Pos.Chain.Update.Arbitrary ()
 
 deriving instance Arbitrary DHTData
 

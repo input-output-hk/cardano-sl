@@ -59,12 +59,16 @@ import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
                      decodeListLenCanonical, deriveIndexedBi, deriveSimpleBi,
                      encodeListLen)
 import           Pos.Chain.Block.Union (HeaderHash)
+import           Pos.Chain.Update.ApplicationName (ApplicationName)
+import           Pos.Chain.Update.BlockVersion (BlockVersion)
+import           Pos.Chain.Update.BlockVersionModifier
+                     (BlockVersionModifier (..))
+import           Pos.Chain.Update.SoftwareVersion (NumSoftwareVersion,
+                     SoftwareVersion)
+import           Pos.Chain.Update.Vote (UpId, UpdateProposal (..), UpdateVote)
 import           Pos.Core (ChainDifficulty, Coin, ScriptVersion, StakeholderId,
                      mkCoin)
 import           Pos.Core.Slotting (EpochIndex, SlotId, SlottingData)
-import           Pos.Core.Update (ApplicationName, BlockVersion,
-                     BlockVersionModifier (..), NumSoftwareVersion,
-                     SoftwareVersion, UpId, UpdateProposal (..), UpdateVote)
 import           Pos.Crypto (PublicKey)
 import           Pos.Util.Util (cborError)
 

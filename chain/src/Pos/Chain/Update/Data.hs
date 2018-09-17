@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Pos.Core.Update.Data
+module Pos.Chain.Update.Data
        ( UpdateData (..)
        ) where
 

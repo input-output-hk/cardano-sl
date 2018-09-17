@@ -39,33 +39,13 @@ module Test.Pos.Core.Gen
         , genTimeDiff
         , genTimestamp
 
-        -- Pos.Core.Update Generators
-        , genApplicationName
-        , genBlockVersion
-        , genBlockVersionData
-        , genBlockVersionModifier
-        , genHashRaw
-        , genSoftforkRule
-        , genSoftwareVersion
-        , genSystemTag
-        , genUpAttributes
-        , genUpdateData
-        , genUpdatePayload
-        , genUpdateProof
-        , genUpdateProposal
-        , genUpdateProposals
-        , genUpdateProposalToSign
-        , genUpdateVote
-        , genUpId
-        , genUpsData
-        , genVoteId
-
         -- Pos.Core.Attributes Generators
         , genAttributes
 
         -- Pos.Merkle Generators
         , genMerkleRoot
         , genMerkleTree
+        , genHashRaw
 
         -- Helpers
         , genCustomHashMap
@@ -76,6 +56,7 @@ module Test.Pos.Core.Gen
         , genWord16
         , genWord32
         , gen32Bytes
+        , genMillisecond
        ) where
 
 import           Universum
@@ -107,20 +88,12 @@ import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..),
                      FlatSlotId, LocalSlotIndex (..), SlotCount (..),
                      SlotId (..), TimeDiff (..), Timestamp (..),
                      localSlotIndexMaxBound, localSlotIndexMinBound)
-import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
-                     BlockVersionData (..), BlockVersionModifier (..),
-                     SoftforkRule (..), SoftwareVersion (..), SystemTag (..),
-                     UpAttributes, UpId, UpdateData (..), UpdatePayload (..),
-                     UpdateProof, UpdateProposal (..),
-                     UpdateProposalToSign (..), UpdateProposals,
-                     UpdateVote (..), VoteId, mkUpdateVote)
-import           Pos.Crypto (Hash, ProtocolMagic, hash)
+import           Pos.Crypto (Hash, hash)
 import           Pos.Util.Util (leftToPanic)
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Test.Pos.Crypto.Gen (genAbstractHash, genHDAddressPayload,
-                     genPublicKey, genRedeemPublicKey, genSecretKey,
-                     genSignature)
+                     genPublicKey, genRedeemPublicKey)
 
 ----------------------------------------------------------------------------
 -- Pos.Core.Common Generators
@@ -335,138 +308,6 @@ genTimestamp :: Gen Timestamp
 genTimestamp = Timestamp <$> genMicrosecond
 
 ----------------------------------------------------------------------------
--- Pos.Core.Update Generators
-----------------------------------------------------------------------------
-
-genApplicationName :: Gen ApplicationName
-genApplicationName =
-    ApplicationName <$> Gen.text (Range.constant 0 10) Gen.alphaNum
-
-genBlockVersion :: Gen BlockVersion
-genBlockVersion =
-    BlockVersion
-        <$> Gen.word16 Range.constantBounded
-        <*> Gen.word16 Range.constantBounded
-        <*> Gen.word8 Range.constantBounded
-
-genBlockVersionData :: Gen BlockVersionData
-genBlockVersionData =
-    BlockVersionData
-        <$> genScriptVersion
-        <*> genMillisecond
-        <*> genByte
-        <*> genByte
-        <*> genByte
-        <*> genByte
-        <*> genCoinPortion
-        <*> genCoinPortion
-        <*> genCoinPortion
-        <*> genCoinPortion
-        <*> genFlatSlotId
-        <*> genSoftforkRule
-        <*> genTxFeePolicy
-        <*> genEpochIndex
-
-
-genBlockVersionModifier :: Gen BlockVersionModifier
-genBlockVersionModifier =
-    BlockVersionModifier
-        <$> Gen.maybe genScriptVersion
-        <*> Gen.maybe genMillisecond
-        <*> Gen.maybe genByte
-        <*> Gen.maybe genByte
-        <*> Gen.maybe genByte
-        <*> Gen.maybe genByte
-        <*> Gen.maybe genCoinPortion
-        <*> Gen.maybe genCoinPortion
-        <*> Gen.maybe genCoinPortion
-        <*> Gen.maybe genCoinPortion
-        <*> Gen.maybe genFlatSlotId
-        <*> Gen.maybe genSoftforkRule
-        <*> Gen.maybe genTxFeePolicy
-        <*> Gen.maybe genEpochIndex
-
-genHashRaw :: Gen (Hash Raw)
-genHashRaw = genAbstractHash $ Raw <$> gen32Bytes
-
-genSoftforkRule :: Gen SoftforkRule
-genSoftforkRule =
-    SoftforkRule <$> genCoinPortion <*> genCoinPortion <*> genCoinPortion
-
-genSoftwareVersion :: Gen SoftwareVersion
-genSoftwareVersion =
-    SoftwareVersion
-        <$> genApplicationName
-        <*> Gen.word32 Range.constantBounded
-
-genSystemTag :: Gen SystemTag
-genSystemTag = SystemTag <$> Gen.text (Range.constant 0 10) Gen.alphaNum
-
-genUpAttributes :: Gen UpAttributes
-genUpAttributes = pure $ mkAttributes ()
-
-genUpdateData :: Gen UpdateData
-genUpdateData =
-    UpdateData
-        <$> genHashRaw
-        <*> genHashRaw
-        <*> genHashRaw
-        <*> genHashRaw
-
-genUpdatePayload :: ProtocolMagic -> Gen UpdatePayload
-genUpdatePayload pm =
-    UpdatePayload
-        <$> Gen.maybe (genUpdateProposal pm)
-        <*> Gen.list (Range.linear 0 10) (genUpdateVote pm)
-
-genUpdateProof :: ProtocolMagic -> Gen UpdateProof
-genUpdateProof pm = genAbstractHash (genUpdatePayload pm)
-
-genUpdateProposal :: ProtocolMagic -> Gen UpdateProposal
-genUpdateProposal pm = do
-    UnsafeUpdateProposal
-        <$> genBlockVersion
-        <*> genBlockVersionModifier
-        <*> genSoftwareVersion
-        <*> genUpsData
-        <*> genUpAttributes
-        <*> genPublicKey
-        <*> genSignature pm genUpdateProposalToSign
-
-genUpdateProposals :: ProtocolMagic -> Gen UpdateProposals
-genUpdateProposals pm = genCustomHashMap (genUpId pm) (genUpdateProposal pm)
-
-genUpdateProposalToSign :: Gen UpdateProposalToSign
-genUpdateProposalToSign =
-    UpdateProposalToSign
-        <$> genBlockVersion
-        <*> genBlockVersionModifier
-        <*> genSoftwareVersion
-        <*> genUpsData
-        <*> genUpAttributes
-
-genUpId :: ProtocolMagic -> Gen UpId
-genUpId pm = genAbstractHash (genUpdateProposal pm)
-
-genUpsData :: Gen (HM.HashMap SystemTag UpdateData)
-genUpsData = do
-    hMapSize <- Gen.int (Range.linear 0 20)
-    sysTagList <- Gen.list (Range.singleton hMapSize) genSystemTag
-    upDataList <- Gen.list (Range.singleton hMapSize) genUpdateData
-    pure $ HM.fromList $ zip sysTagList upDataList
-
-genUpdateVote :: ProtocolMagic -> Gen UpdateVote
-genUpdateVote pm = mkUpdateVote pm <$> genSecretKey <*> genUpId pm <*> Gen.bool
-        -- <$> genSecretKey
-        -- <*> genUpId
-        -- <*> Gen.bool
-        -- <*> genSignature ((,) <$> genUpId <*> Gen.bool)
--- genUpdateVote pm = mkUpdateVote pm <$> arbitrary <*> arbitrary <*> arbitrary
-
-genVoteId :: ProtocolMagic -> Gen VoteId
-genVoteId pm = (,,) <$> genUpId pm <*> genPublicKey <*> Gen.bool
-
-----------------------------------------------------------------------------
 -- Pos.Core.Attributes Generators
 ----------------------------------------------------------------------------
 
@@ -476,6 +317,9 @@ genAttributes genA =  mkAttributes <$> genA
 ----------------------------------------------------------------------------
 -- Pos.Merkle Generators
 ----------------------------------------------------------------------------
+
+genHashRaw :: Gen (Hash Raw)
+genHashRaw = genAbstractHash $ Raw <$> gen32Bytes
 
 -- slow
 genMerkleTree :: Bi a => Gen a -> Gen (MerkleTree a)

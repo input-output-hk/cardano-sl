@@ -67,12 +67,12 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
                      gsSecretKeys, mkConfig)
 import           Pos.Chain.Ssc (SscMemTag, SscState)
 import           Pos.Chain.Txp (TxpConfiguration (..))
+import           Pos.Chain.Update (BlockVersionData)
 import           Pos.Core (SlotId, Timestamp (..))
 import           Pos.Core.Conc (currentTime)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MonadReporting (..))
 import           Pos.Core.Slotting (MonadSlotsData)
-import           Pos.Core.Update (BlockVersionData)
 import           Pos.DB (DBPure, MonadDB (..), MonadDBRead (..),
                      MonadGState (..))
 import qualified Pos.DB as DB

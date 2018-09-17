@@ -13,8 +13,8 @@ import           Control.Lens (iso, makeLenses, (%=), _Wrapped)
 import           Data.Coerce (coerce)
 import           Data.SafeCopy (base, deriveSafeCopy)
 
+import           Pos.Chain.Update (SoftwareVersion (..))
 import           Pos.Core.Chrono
-import           Pos.Core.Update (SoftwareVersion (..))
 
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Util.AcidState

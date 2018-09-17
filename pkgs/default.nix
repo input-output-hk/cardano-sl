@@ -14946,6 +14946,7 @@ license = stdenv.lib.licenses.mit;
 , canonical-json
 , cardano-sl
 , cardano-sl-chain
+, cardano-sl-chain-test
 , cardano-sl-client
 , cardano-sl-core
 , cardano-sl-core-test
@@ -15016,6 +15017,7 @@ bytestring
 canonical-json
 cardano-sl
 cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-client
 cardano-sl-core
 cardano-sl-core-test
@@ -15080,6 +15082,7 @@ executableToolDepends = [
 cpphs
 ];
 testHaskellDepends = [
+cardano-sl-chain
 cardano-sl-core
 cardano-sl-crypto
 hspec
@@ -15430,6 +15433,7 @@ pvss
 QuickCheck
 random
 serokell-util
+time-units
 universum
 unordered-containers
 vector
@@ -15485,6 +15489,7 @@ license = stdenv.lib.licenses.mit;
 , QuickCheck
 , random
 , reflection
+, serokell-util
 , stdenv
 , time-units
 , universum
@@ -15525,6 +15530,7 @@ pvss
 QuickCheck
 random
 reflection
+serokell-util
 time-units
 universum
 unordered-containers
@@ -17971,6 +17977,7 @@ cardano-crypto
 cardano-sl
 cardano-sl-binary
 cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-client
 cardano-sl-core
 cardano-sl-core-test

@@ -34,10 +34,9 @@ import           Pos.Chain.Genesis as Genesis (Config, GenesisSpec (..),
                      StaticConfig (..), mkConfig)
 import           Pos.Chain.Ssc (HasSscConfiguration, withSscConfiguration)
 import           Pos.Chain.Txp (TxpConfiguration (..))
-import           Pos.Chain.Update (HasUpdateConfiguration,
+import           Pos.Chain.Update (BlockVersionData, HasUpdateConfiguration,
                      withUpdateConfiguration)
 import           Pos.Configuration (HasNodeConfiguration, withNodeConfiguration)
-import           Pos.Core.Update (BlockVersionData)
 import           Pos.Launcher.Configuration (Configuration (..),
                      HasConfigurations)
 import           Pos.Util.Config (embedYamlConfigCT)

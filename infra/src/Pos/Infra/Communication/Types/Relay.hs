@@ -30,8 +30,8 @@ import           Pos.Chain.Delegation (ProxySKHeavy)
 import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..))
 import           Pos.Chain.Txp (TxMsgContents (..))
+import           Pos.Chain.Update (UpdateProposal, UpdateVote, uvProposalId)
 import           Pos.Core (StakeholderId)
-import           Pos.Core.Update (UpdateProposal, UpdateVote, uvProposalId)
 import           Pos.Crypto (hash)
 import           Pos.Util.Util (cborError)
 

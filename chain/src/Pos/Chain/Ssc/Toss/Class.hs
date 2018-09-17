@@ -22,8 +22,8 @@ import           Pos.Chain.Ssc.OpeningsMap (OpeningsMap)
 import           Pos.Chain.Ssc.SharesMap (InnerSharesMap, SharesMap)
 import           Pos.Chain.Ssc.VssCertificate (VssCertificate)
 import           Pos.Chain.Ssc.VssCertificatesMap (VssCertificatesMap)
+import           Pos.Chain.Update (BlockVersionData)
 import           Pos.Core (EpochIndex, EpochOrSlot, StakeholderId)
-import           Pos.Core.Update (BlockVersionData)
 import           Pos.Util.Wlog (WithLogger)
 
 ----------------------------------------------------------------------------

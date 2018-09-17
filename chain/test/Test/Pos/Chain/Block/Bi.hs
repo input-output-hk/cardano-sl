@@ -32,12 +32,13 @@ import           Test.Pos.Chain.Delegation.Example (exampleLightDlgIndices,
                      staticHeavyDlgIndexes, staticProxySKHeavys)
 import           Test.Pos.Chain.Ssc.Example (exampleSscPayload, exampleSscProof)
 import           Test.Pos.Chain.Txp.Example (exampleTxPayload, exampleTxProof)
-import           Test.Pos.Core.ExampleHelpers (exampleBlockVersion,
-                     exampleChainDifficulty, exampleEpochIndex,
-                     examplePublicKey, exampleSecretKey, exampleSecretKeys,
-                     exampleSlotId, exampleSlotLeaders, exampleSoftwareVersion,
-                     exampleUpdatePayload, exampleUpdateProof, feedPM,
-                     feedPMEpochSlots)
+import           Test.Pos.Chain.Update.Example (exampleBlockVersion,
+                     exampleSoftwareVersion, exampleUpdatePayload,
+                     exampleUpdateProof)
+import           Test.Pos.Core.ExampleHelpers (exampleChainDifficulty,
+                     exampleEpochIndex, examplePublicKey, exampleSecretKey,
+                     exampleSecretKeys, exampleSlotId, exampleSlotLeaders,
+                     feedPM, feedPMEpochSlots)
 import           Test.Pos.Util.Golden (discoverGolden, eachOf)
 import           Test.Pos.Util.Tripping (discoverRoundTrip)
 

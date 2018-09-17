@@ -30,7 +30,10 @@ import qualified Data.HashSet as HS
 import qualified Data.List as List (find)
 import qualified Ether
 
-import           Pos.Chain.Update.BlockVersion (applyBVM)
+import           Pos.Chain.Update.ApplicationName (ApplicationName)
+import           Pos.Chain.Update.BlockVersion (BlockVersion)
+import           Pos.Chain.Update.BlockVersionData (BlockVersionData)
+import           Pos.Chain.Update.BlockVersionModifier (applyBVM)
 import           Pos.Chain.Update.Poll.Modifier (PollModifier (..),
                      pmActivePropsL, pmAdoptedBVFullL, pmBVsL, pmConfirmedL,
                      pmConfirmedPropsL, pmEpochProposersL, pmSlottingDataL)
@@ -41,12 +44,12 @@ import           Pos.Chain.Update.Poll.Types (BlockVersionState,
                      cpsSoftwareVersion, maybeToPrev, psProposal, unChangedBVL,
                      unChangedConfPropsL, unChangedPropsL, unChangedSVL,
                      unLastAdoptedBVL, unPrevProposersL, unSlottingDataL)
+import           Pos.Chain.Update.SoftwareVersion (NumSoftwareVersion,
+                     SoftwareVersion (..))
+import           Pos.Chain.Update.Vote (UpId, UpdateProposal (..))
 import           Pos.Core (ChainDifficulty, Coin, EpochIndex, SlotId,
                      StakeholderId, addressHash)
 import           Pos.Core.Slotting (SlottingData)
-import           Pos.Core.Update (ApplicationName, BlockVersion,
-                     BlockVersionData, NumSoftwareVersion,
-                     SoftwareVersion (..), UpId, UpdateProposal (..))
 import           Pos.Crypto (hash)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Util (ether)

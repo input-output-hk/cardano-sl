@@ -37,7 +37,7 @@ import           Node.Message.Decoder (Decoder, hoistDecoder)
 import           Pos.Chain.Ssc (MCCommitment, MCOpening, MCShares,
                      MCVssCertificate)
 import           Pos.Chain.Txp (TxMsgContents)
-import           Pos.Core.Update (UpdateProposal, UpdateVote)
+import           Pos.Chain.Update (UpdateProposal, UpdateVote)
 
 -- * Message name
 

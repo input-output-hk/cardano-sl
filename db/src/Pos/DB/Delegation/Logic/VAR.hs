@@ -37,10 +37,10 @@ import           Pos.Chain.Delegation (CedeModifier (..), DlgBlund,
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlockVersionData)
 import           Pos.Chain.Lrc (RichmenSet)
+import           Pos.Chain.Update (BlockVersionData)
 import           Pos.Core (EpochIndex (..), StakeholderId, addressHash,
                      epochIndexL, siEpoch)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (ProxySecretKey (..), shortHashF)
 import           Pos.DB (DBError (DBMalformed), MonadDBRead, SomeBatchOp (..))
 import qualified Pos.DB as DB

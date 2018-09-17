@@ -3,7 +3,7 @@
 -- Daedalus client, and aren't useful for wallets, exchanges, and other users.
 module Cardano.Wallet.API.Internal where
 
-import           Pos.Core.Update (SoftwareVersion)
+import           Pos.Chain.Update (SoftwareVersion)
 
 import           Servant
 

@@ -26,8 +26,8 @@ import           Pos.Chain.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..),
 import           Pos.Chain.Ssc.Types (SscGlobalState, sgsCommitments,
                      sgsOpenings, sgsShares, sgsVssCertificates)
 import qualified Pos.Chain.Ssc.VssCertData as VCD
+import           Pos.Chain.Update (BlockVersionData)
 import           Pos.Core (EpochIndex)
-import           Pos.Core.Update (BlockVersionData)
 import           Pos.Util.Wlog (CanLog, HasLoggerName (..), LogEvent,
                      NamedPureLogger (..), WithLogger, dispatchEvents,
                      runNamedPureLog)

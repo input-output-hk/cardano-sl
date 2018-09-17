@@ -18,8 +18,8 @@ module Pos.DB.Lrc.Consumer.Delegation
 import           Universum
 
 import           Pos.Chain.Lrc (RichmenComponent (..), RichmenSet)
+import           Pos.Chain.Update (BlockVersionData (..))
 import           Pos.Core (EpochIndex)
-import           Pos.Core.Update (BlockVersionData (..))
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState)
 import           Pos.DB.Lrc.Consumer (LrcConsumer,
                      lrcConsumerFromComponentSimple)

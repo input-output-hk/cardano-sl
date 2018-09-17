@@ -12,8 +12,8 @@ import           Universum
 import qualified Data.HashMap.Strict as HM
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Chain.Update (LocalVotes)
-import           Pos.Core.Update (UpdatePayload (..), UpdateVote (..))
+import           Pos.Chain.Update (LocalVotes, UpdatePayload (..),
+                     UpdateVote (..))
 import           Pos.Crypto (PublicKey, hash)
 import           Pos.DB.GState.Lock (Priority (..), StateLock,
                      withStateLockNoMetrics)

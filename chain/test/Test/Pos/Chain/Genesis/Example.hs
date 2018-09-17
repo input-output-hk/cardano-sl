@@ -28,8 +28,8 @@ import           Pos.Crypto (ProtocolMagic (..), ProxyCert (..),
                      redeemDeterministicKeyGen)
 import           Pos.Crypto.Signing (PublicKey (..))
 
-import           Test.Pos.Core.ExampleHelpers (exampleBlockVersionData,
-                     exampleSharedSeed)
+import           Test.Pos.Chain.Update.Example (exampleBlockVersionData)
+import           Test.Pos.Core.ExampleHelpers (exampleSharedSeed)
 import           Test.Pos.Crypto.Bi (getBytes)
 
 

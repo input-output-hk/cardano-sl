@@ -7,10 +7,9 @@ import           Pos.Core.JsonLog.LogEvents (InvReqDataFlowLog (..))
 
 import           Test.Pos.Core.ExampleHelpers (exampleAddress, exampleAddress1,
                      exampleAddress2, exampleAddress3, exampleAddress4)
-import           Test.Pos.Core.Gen (genAddress, genBlockVersionData, genByte,
-                     genCoin, genCoinPortion, genEpochIndex, genFlatSlotId,
-                     genInvReqDataFlowLog, genSharedSeed, genSoftforkRule,
-                     genTxFeePolicy)
+import           Test.Pos.Core.Gen (genAddress, genByte, genCoin,
+                     genCoinPortion, genEpochIndex, genFlatSlotId,
+                     genInvReqDataFlowLog, genSharedSeed, genTxFeePolicy)
 import           Test.Pos.Crypto.Gen (genRedeemPublicKey)
 import           Test.Pos.Util.Gen (genMillisecond)
 import           Test.Pos.Util.Golden (discoverGolden, eachOf, goldenTestJSON)
@@ -82,14 +81,6 @@ roundTripSharedSeed :: Property
 roundTripSharedSeed = eachOf 1000 genSharedSeed roundTripsAesonBuildable
 
 --------------------------------------------------------------------------------
--- BlockVersionData
---------------------------------------------------------------------------------
-
-roundTripBlockVersionData :: Property
-roundTripBlockVersionData =
-    eachOf 1000 genBlockVersionData roundTripsAesonBuildable
-
---------------------------------------------------------------------------------
 -- Millisecond
 --------------------------------------------------------------------------------
 
@@ -116,13 +107,6 @@ roundTripCoinPortion = eachOf 1000 genCoinPortion roundTripsAesonBuildable
 
 roundTripFlatSlotId :: Property
 roundTripFlatSlotId = eachOf 1000 genFlatSlotId roundTripsAesonShow
-
---------------------------------------------------------------------------------
--- SoftforkRule
---------------------------------------------------------------------------------
-
-roundTripSoftforkRule :: Property
-roundTripSoftforkRule = eachOf 1000 genSoftforkRule roundTripsAesonBuildable
 
 --------------------------------------------------------------------------------
 -- TxFeePolicy

@@ -16,13 +16,13 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Formatting (build, sformat, (%))
 
-import           Pos.Chain.Update (DecidedProposalState (..), LocalVotes,
-                     MonadPoll (..), MonadPollRead (..), PollVerFailure (..),
-                     ProposalState (..), UndecidedProposalState (..))
+import           Pos.Chain.Update (BlockVersionData (..),
+                     DecidedProposalState (..), LocalVotes, MonadPoll (..),
+                     MonadPollRead (..), PollVerFailure (..),
+                     ProposalState (..), UndecidedProposalState (..), UpId,
+                     UpdateProposal, UpdateProposals, UpdateVote (..))
 import           Pos.Core (Coin, EpochIndex, SlotId (siEpoch), addressHash,
                      applyCoinPortionUp, mkCoin, unsafeAddCoin)
-import           Pos.Core.Update (BlockVersionData (..), UpId, UpdateProposal,
-                     UpdateProposals, UpdateVote (..))
 import           Pos.Crypto (PublicKey, hash)
 import           Pos.DB.Update.Poll.Logic.Apply (verifyAndApplyProposal,
                      verifyAndApplyVoteDo)

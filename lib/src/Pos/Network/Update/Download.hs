@@ -28,10 +28,9 @@ import           System.Directory (doesFileExist)
 
 import           Pos.Binary.Class (Raw)
 import           Pos.Chain.Update (ConfirmedProposalState (..),
-                     UpdateParams (..), curSoftwareVersion, ourSystemTag)
+                     SoftwareVersion (..), UpdateData (..), UpdateParams (..),
+                     UpdateProposal (..), curSoftwareVersion, ourSystemTag)
 import           Pos.Core.Exception (reportFatalError)
-import           Pos.Core.Update (SoftwareVersion (..), UpdateData (..),
-                     UpdateProposal (..))
 import           Pos.Crypto (Hash, castHash, hash)
 import           Pos.DB.Update (UpdateContext (..), isUpdateInstalled)
 import           Pos.Infra.Reporting (reportOrLogW)

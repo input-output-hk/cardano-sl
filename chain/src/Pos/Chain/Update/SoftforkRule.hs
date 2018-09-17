@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Pos.Core.Update.SoftforkRule
+module Pos.Chain.Update.SoftforkRule
        ( SoftforkRule (..)
        , softforkRuleF
        , checkSoftforkRule
@@ -14,12 +14,12 @@ import           Data.Aeson.TH (deriveJSON)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (Format, bprint, build, (%))
 import qualified Formatting.Buildable as Buildable
-import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
-                     ToJSON (..), fromJSField, mkObject)
+import           Text.JSON.Canonical (FromJSON (..), ToJSON (..), fromJSField,
+                     mkObject)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core.Common (CoinPortion, checkCoinPortion)
-import           Pos.Util.Json.Canonical ()
+import           Pos.Util.Json.Canonical (SchemaError)
 
 -- | Values defining softfork resolution rule.
 -- If a proposal is confirmed at the 's'-th epoch, softfork resolution threshold
@@ -55,7 +55,7 @@ instance Monad m => ToJSON m SoftforkRule where
             , ("thdDecrement", toJSON srThdDecrement)
             ]
 
-instance ReportSchemaErrors m => FromJSON m SoftforkRule where
+instance MonadError SchemaError m => FromJSON m SoftforkRule where
     fromJSON obj = do
         srInitThd <- fromJSField obj "initThd"
         srMinThd <- fromJSField obj "minThd"

@@ -32,9 +32,9 @@ import           Pos.Chain.Delegation (DlgMemPool, DlgPayload (..),
                      isRevokePsk, pskToDlgEdgeAction)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlockVersionData)
+import           Pos.Chain.Update (bvdMaxBlockSize)
 import           Pos.Core (addressHash, epochIndexL)
 import           Pos.Core.Conc (currentTime)
-import           Pos.Core.Update (bvdMaxBlockSize)
 import           Pos.Crypto (ProxySecretKey (..), PublicKey)
 import           Pos.DB (MonadDBRead, MonadGState)
 import qualified Pos.DB as DB

@@ -52,21 +52,20 @@ import           UnliftIO (MonadUnliftIO)
 import           Pos.Binary.Class (serialize')
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlockVersionData, configEpochSlots)
-import           Pos.Chain.Update (BlockVersionState (..),
+import           Pos.Chain.Update (ApplicationName, BlockVersion,
+                     BlockVersionData (..), BlockVersionState (..),
                      ConfirmedProposalState (..),
                      DecidedProposalState (dpsDifficulty),
-                     HasUpdateConfiguration, ProposalState (..),
-                     UndecidedProposalState (upsSlot), bvsIsConfirmed,
-                     cpsSoftwareVersion, genesisBlockVersion,
-                     genesisSoftwareVersions, ourAppName, ourSystemTag,
-                     psProposal)
+                     HasUpdateConfiguration, NumSoftwareVersion,
+                     ProposalState (..), SoftwareVersion (..),
+                     UndecidedProposalState (upsSlot), UpId,
+                     UpdateProposal (..), bvsIsConfirmed, cpsSoftwareVersion,
+                     genesisBlockVersion, genesisSoftwareVersions, ourAppName,
+                     ourSystemTag, psProposal)
 import           Pos.Core (ChainDifficulty, SlotId, StakeholderId,
                      TimeDiff (..))
 import           Pos.Core.Slotting (EpochSlottingData (..), SlottingData,
                      createInitSlottingData)
-import           Pos.Core.Update (ApplicationName, BlockVersion,
-                     BlockVersionData (..), NumSoftwareVersion,
-                     SoftwareVersion (..), UpId, UpdateProposal (..))
 import           Pos.Crypto (hash)
 import           Pos.DB (DBIteratorClass (..), DBTag (..), IterType, MonadDB,
                      MonadDBRead (..), RocksBatchOp (..), encodeWithKeyPrefix)

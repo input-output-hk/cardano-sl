@@ -20,9 +20,12 @@ import           UnliftIO (MonadUnliftIO)
 import           Pos.Chain.Block (ComponentBlock (..), headerHashG,
                      headerLeaderKeyL, headerSlotL)
 import           Pos.Chain.Genesis as Genesis (Config, configBlkSecurityParam)
-import           Pos.Chain.Update (BlockVersionState, ConfirmedProposalState,
-                     HasUpdateConfiguration, MonadPoll, PollModifier (..),
-                     PollT, PollVerFailure, ProposalState, USUndo, execPollT,
+import           Pos.Chain.Update (ApplicationName, BlockVersion,
+                     BlockVersionData, BlockVersionState,
+                     ConfirmedProposalState, HasUpdateConfiguration, MonadPoll,
+                     NumSoftwareVersion, PollModifier (..), PollT,
+                     PollVerFailure, ProposalState, SoftwareVersion (..),
+                     USUndo, UpId, UpdatePayload, blockVersionL, execPollT,
                      execRollT, getAdoptedBV, lastKnownBlockVersion,
                      reportUnexpectedError, runPollT)
 import           Pos.Core (StakeholderId, addressHash, epochIndexL)
@@ -30,9 +33,6 @@ import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Exception (reportFatalError)
 import           Pos.Core.Reporting (MonadReporting)
 import           Pos.Core.Slotting (MonadSlotsData, SlottingData, slottingVar)
-import           Pos.Core.Update (ApplicationName, BlockVersion,
-                     BlockVersionData, NumSoftwareVersion,
-                     SoftwareVersion (..), UpId, UpdatePayload, blockVersionL)
 import qualified Pos.DB.BatchOp as DB
 import qualified Pos.DB.Class as DB
 import           Pos.DB.Lrc (HasLrcContext)

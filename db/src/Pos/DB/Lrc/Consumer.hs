@@ -12,8 +12,8 @@ import           Universum
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Chain.Lrc (RichmenComponent (..), RichmenStakes)
+import           Pos.Chain.Update (BlockVersionData)
 import           Pos.Core (Coin, CoinPortion, EpochIndex, applyCoinPortionUp)
-import           Pos.Core.Update (BlockVersionData)
 import           Pos.DB.Class (MonadDB, MonadGState, gsAdoptedBVData)
 import           Pos.DB.Lrc.RichmenBase (getRichmen, putRichmen)
 

@@ -34,13 +34,13 @@ import           Pos.Chain.Genesis (Config (..), FakeAvvmOptions (..),
                      genesisProtocolConstantsFromProtocolConstants,
                      gsSecretKeys, gsSecretKeysPoor, gsSecretKeysRich,
                      mkConfig, noGenesisDelegation)
+import           Pos.Chain.Update (BlockVersionData (..), SoftforkRule (..))
 import           Pos.Core (BlockCount, Coeff (..), EpochIndex (..),
                      ProtocolConstants (..), SharedSeed (..), SlotCount,
                      Timestamp, TxFeePolicy (..), TxSizeLinear (..),
                      VssMaxTTL (..), VssMinTTL (..), kEpochSlots,
                      kSlotSecurityParam, pcBlkSecurityParam,
                      unsafeCoinPortionFromDouble)
-import           Pos.Core.Update (BlockVersionData (..), SoftforkRule (..))
 import           Pos.Crypto (SecretKey)
 
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)

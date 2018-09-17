@@ -16,8 +16,8 @@ import           Formatting (build, sformat, (%))
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Genesis as Genesis (Config)
-import           Pos.Chain.Update (HasUpdateConfiguration, UpdateParams)
-import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
+import           Pos.Chain.Update (HasUpdateConfiguration, UpdateParams,
+                     UpdateProposal (..), UpdateVote (..))
 import           Pos.DB.Class (MonadDB, MonadGState)
 import           Pos.DB.Lrc (HasLrcContext)
 import           Pos.DB.Update (UpdateContext, processProposal, processVote)

@@ -11,6 +11,8 @@ import qualified Test.Pos.Chain.Ssc.Bi
 import qualified Test.Pos.Chain.Ssc.Json
 import qualified Test.Pos.Chain.Txp.Bi
 import qualified Test.Pos.Chain.Txp.Json
+import qualified Test.Pos.Chain.Update.Bi
+import qualified Test.Pos.Chain.Update.Json
 import           Test.Pos.Util.Tripping (runTests)
 
 main :: IO ()
@@ -24,4 +26,6 @@ main = do
         , Test.Pos.Chain.Ssc.Json.tests
         , Test.Pos.Chain.Txp.Bi.tests
         , Test.Pos.Chain.Txp.Json.tests
+        , Test.Pos.Chain.Update.Bi.tests
+        , Test.Pos.Chain.Update.Json.tests
         ]

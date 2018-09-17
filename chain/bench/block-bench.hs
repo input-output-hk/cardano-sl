@@ -18,7 +18,7 @@ import           Pos.Chain.Block (Body, BodyProof, ConsensusData, ExtraBodyData,
 import           Pos.Chain.Delegation (DlgPayload)
 import           Pos.Chain.Ssc (SscPayload)
 import           Pos.Chain.Txp (TxPayload (..))
-import           Pos.Core.Update (UpdatePayload)
+import           Pos.Chain.Update (UpdatePayload)
 import           Pos.Crypto (ProtocolMagic (..))
 
 import           Test.Pos.Chain.Block.Arbitrary.Generate (generateMainBlock)

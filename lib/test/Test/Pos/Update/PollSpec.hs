@@ -17,12 +17,11 @@ import           Test.QuickCheck (Arbitrary (..), Gen, Property, conjoin,
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
-import           Pos.Chain.Update (applyBVM)
+import           Pos.Chain.Update (ApplicationName, BlockVersion (..),
+                     BlockVersionData (..), SoftwareVersion (..), UpId,
+                     UpdateProposal (..), applyBVM)
 import qualified Pos.Chain.Update as Poll
 import           Pos.Core (StakeholderId, addressHash)
-import           Pos.Core.Update (ApplicationName, BlockVersion (..),
-                     BlockVersionData (..), SoftwareVersion (..), UpId,
-                     UpdateProposal (..))
 import           Pos.Crypto (hash)
 import qualified Pos.DB.Update as Poll
 import           Pos.Infra.Slotting.Types (SlottingData)

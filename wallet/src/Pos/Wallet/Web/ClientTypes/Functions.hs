@@ -18,14 +18,13 @@ import           Data.Text (Text)
 import           Formatting (build, sformat)
 
 import           Pos.Chain.Txp (Tx (..), TxOut (..), txOutAddress, txOutValue)
-import           Pos.Chain.Update (ConfirmedProposalState (..),
-                     StakeholderVotes, isPositiveVote)
+import           Pos.Chain.Update (BlockVersionData (..),
+                     BlockVersionModifier (..), ConfirmedProposalState (..),
+                     StakeholderVotes, UpdateProposal (..), isPositiveVote)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Core (Address, ChainDifficulty, decodeTextAddress,
                      makePubKeyAddressBoot, sumCoins, unsafeAddCoin,
                      unsafeIntegerToCoin)
-import           Pos.Core.Update (BlockVersionData (..),
-                     BlockVersionModifier (..), UpdateProposal (..))
 import           Pos.Crypto (EncryptedSecretKey, encToPublic)
 import           Pos.Util.Servant
 import           Pos.Wallet.Web.ClientTypes.Instances ()

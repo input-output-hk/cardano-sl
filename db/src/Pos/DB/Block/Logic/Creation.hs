@@ -36,8 +36,8 @@ import           Pos.Chain.Ssc (MonadSscMem, SscPayload, defaultSscPayload,
                      stripSscPayload)
 import           Pos.Chain.Txp (TxAux (..), TxpConfiguration, emptyTxPayload,
                      mkTxPayload)
-import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion,
-                     lastKnownBlockVersion)
+import           Pos.Chain.Update (HasUpdateConfiguration, UpdatePayload (..),
+                     curSoftwareVersion, lastKnownBlockVersion)
 import           Pos.Core (BlockCount, EpochIndex, EpochOrSlot (..),
                      SlotId (..), epochIndexL, flattenSlotId, getEpochOrSlot,
                      kChainQualityThreshold, kEpochSlots,
@@ -48,7 +48,6 @@ import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.JsonLog.LogEvents (MemPoolModifyReason (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics, reportError)
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
-import           Pos.Core.Update (UpdatePayload (..))
 import           Pos.Core.Util.LogSafe (logInfoS)
 import           Pos.Crypto (SecretKey)
 import           Pos.DB.Block.Logic.Internal (MonadBlockApply,

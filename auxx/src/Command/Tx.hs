@@ -37,6 +37,7 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlockVersionData, configEpochSlots)
 import           Pos.Chain.Txp (TxAux (..), TxIn (TxInUtxo), TxOut (..),
                      TxOutAux (..), topsortTxAuxes, txaF)
+import           Pos.Chain.Update (BlockVersionData (..))
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getOwnUtxoForPk)
 import           Pos.Client.Txp.Network (prepareMTx, submitTxRaw)
@@ -45,7 +46,6 @@ import           Pos.Core (IsBootstrapEraAddr (..), Timestamp (..),
                      deriveFirstHDAddress, makePubKeyAddress, mkCoin)
 import           Pos.Core.Conc (concurrently, currentTime, delay,
                      forConcurrently, modifySharedAtomic, newSharedAtomic)
-import           Pos.Core.Update (BlockVersionData (..))
 import           Pos.Crypto (EncryptedSecretKey, SecretKey, emptyPassphrase,
                      encToPublic, fakeSigner, hash, safeToPublic, toPublic,
                      withSafeSigners)

@@ -32,8 +32,8 @@ library
                        Test.Pos.Chain.Txp.Example
                        Test.Pos.Chain.Txp.Gen
                        Test.Pos.Chain.Update.Arbitrary
-
-  other-modules:       Test.Pos.Chain.Update.Arbitrary.Core
+                       Test.Pos.Chain.Update.Example
+                       Test.Pos.Chain.Update.Gen
 
   build-depends:       base
                      , base16-bytestring
@@ -57,6 +57,7 @@ library
                      , QuickCheck
                      , random
                      , reflection
+                     , serokell-util
                      , time-units
                      , universum
                      , unordered-containers

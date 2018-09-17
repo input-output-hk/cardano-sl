@@ -38,13 +38,12 @@ import           Pos.Chain.Delegation (DlgPayload, DlgUndo (..),
                      ProxySKBlockInfo)
 import           Pos.Chain.Ssc (SscPayload, defaultSscPayload)
 import           Pos.Chain.Txp (TxAux)
-import           Pos.Chain.Update (HasUpdateConfiguration)
+import           Pos.Chain.Update (HasUpdateConfiguration, UpdatePayload (..))
 import qualified Pos.Communication ()
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
                      EpochIndex (..), LocalSlotIndex (..), SlotId (..),
                      SlotLeaders, StakeholderId, difficultyL,
                      makePubKeyAddressBoot)
-import           Pos.Core.Update (UpdatePayload (..))
 import           Pos.Crypto (SecretKey, toPublic)
 import           Pos.DB.Block (RawPayload (..), createMainBlockPure)
 import           Pos.Explorer.BListener (createPagedHeaderHashesPair)

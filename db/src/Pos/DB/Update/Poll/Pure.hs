@@ -17,9 +17,10 @@ import qualified Data.HashSet as HS
 
 import           Pos.Chain.Update (BlockVersionState (..),
                      DecidedProposalState (..), MonadPoll (..),
-                     MonadPollRead (..), UndecidedProposalState (..), applyBVM,
-                     cpsSoftwareVersion, propStateToEither, psProposal)
-import           Pos.Core.Update (SoftwareVersion (..), UpdateProposal (..))
+                     MonadPollRead (..), SoftwareVersion (..),
+                     UndecidedProposalState (..), UpdateProposal (..),
+                     applyBVM, cpsSoftwareVersion, propStateToEither,
+                     psProposal)
 import           Pos.Crypto (hash)
 import qualified Pos.DB.Update.Poll.PollState as Poll
 import           Pos.Util.Wlog (CanLog, HasLoggerName (..), LogEvent,

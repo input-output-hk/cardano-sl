@@ -90,7 +90,6 @@ test-suite property-tests
                      , cardano-sl-util
                      , cardano-sl-wallet-new
                      , cardano-sl
-                     , constraints
                      , data-default >= 0.7
                      , hashable
                      , hspec

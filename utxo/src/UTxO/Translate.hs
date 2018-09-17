@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module UTxO.Translate (
     -- * Monadic context for the translation from the DSL to Cardano
-    TranslateT
+    TranslateT(..)
   , Translate
   , runTranslateT
   , runTranslateTNoErrors

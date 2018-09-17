@@ -20,6 +20,7 @@ library
                        UTxO.Crypto
                        UTxO.Generator
                        UTxO.Interpreter
+                       UTxO.IntTrans
                        UTxO.Translate
                        UTxO.Verify
 

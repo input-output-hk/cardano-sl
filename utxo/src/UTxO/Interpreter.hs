@@ -8,10 +8,8 @@
 
 -- | Interpreter from the DSL to Cardano types
 module UTxO.Interpreter (
-    -- * Interpretation errors
-    IntException(..)
     -- * Interpretation context
-  , IntCtxt -- opaque
+    IntCtxt -- opaque
   , initIntCtxt
     -- * Interpretation monad
   , IntT
@@ -23,6 +21,8 @@ module UTxO.Interpreter (
   , Interpretation(..)
   , Interpret(..)
   , IntRollback(..)
+  , popIntCheckpoint
+  , pushCheckpoint
   ) where
 
 import           Universum hiding (id)
@@ -67,44 +67,15 @@ import           UTxO.Bootstrap
 import           UTxO.Context
 import           UTxO.Crypto
 import qualified UTxO.DSL as DSL
+import           UTxO.IntTrans
+                 ( IntCheckpoint(..)
+                 , IntException(..)
+                 , ConIntT(..)
+                 , createEpochBoundary
+                 , constants
+                 , magic
+                 , mkCheckpoint )
 import           UTxO.Translate
-
-{-------------------------------------------------------------------------------
-  Errors that may occur during interpretation
--------------------------------------------------------------------------------}
-
--- | Interpretation error
-data IntException =
-    IntExNonOrdinaryAddress
-  | IntExClassifyInputs Text
-  | IntExMkDlg          Text
-  | IntExCreateBlock    Text
-  | IntExMkSlot         Text
-  | IntExTx             TxError -- ^ Occurs during fee calculation
-  | IntUnknownHash      Text
-  | IntIndexOutOfRange  Text Word32 -- ^ During input resolution (hash and index)
-
-    -- | Unknown stake holder during stake calculation
-  | IntUnknownStakeholder StakeholderId
-
-    -- | Coin overflow during stake calculation
-    --
-    -- We record the old stake and the stake we were suppose to add
-  | IntStakeOverflow StakeholderId Coin Coin
-
-    -- | Coin underflow during stake calculatino
-    --
-    -- We record the old stake and the stake we were supposed to subtract
-  | IntStakeUnderflow StakeholderId Coin Coin
-
-    -- | Attempt to rollback without previous checkpoints
-  | IntCannotRollback
-  deriving (Show)
-
-instance Exception IntException
-
-instance Buildable IntException where
-  build = bprint shown
 
 {-------------------------------------------------------------------------------
   Interpretation context
@@ -122,27 +93,6 @@ data TxMeta h = TxMeta {
       -- This is intentionally not a strict field because for the bootstrap
       -- transaction there is no corresponding TxId and this will be an error term.
     , tmHash :: TxId
-    }
-
--- | Checkpoint (we create one for each block we translate)
-data IntCheckpoint = IntCheckpoint {
-      -- | Slot number of this checkpoint
-      icSlotId        :: !SlotId
-
-      -- | Header of the block in this slot
-      --
-      -- Will be initialized to the header of the genesis block.
-    , icBlockHeader   :: !BlockHeader
-
-      -- | Slot leaders for the current epoch
-    , icEpochLeaders  :: !SlotLeaders
-
-      -- | Running stakes
-    , icStakes        :: !StakesMap
-
-      -- | Snapshot of the stakes at the 'crucial' slot in the current epoch; in
-      -- other words, the stakes used to compute the slot leaders for the next epoch.
-    , icCrucialStakes :: !StakesMap
     }
 
 -- | Interpretation context
@@ -181,43 +131,13 @@ initIntCtxt boot = do
         }
 
 {-------------------------------------------------------------------------------
-  Extract some values we need from the translation context
--------------------------------------------------------------------------------}
-
-constants :: TransCtxt -> ProtocolConstants
-constants = genesisProtocolConstantsToProtocolConstants
-          . gdProtocolConsts
-          . ccData
-          . tcCardano
-
-weights :: TransCtxt -> GenesisWStakeholders
-weights = gdBootStakeholders . ccData . tcCardano
-
-magic :: TransCtxt -> ProtocolMagic
-magic = ccMagic . tcCardano
-
-{-------------------------------------------------------------------------------
   The interpretation monad
 
   NOTE: It is important to limit the scope of 'IntM'. See comments below
   about the instances of 'Interpret' that update the state.
 -------------------------------------------------------------------------------}
 
--- | Interpretation monad
-newtype IntT h e m a = IntT {
-    unIntT :: StateT (IntCtxt h) (TranslateT (Either IntException e) m) a
-  }
-  deriving ( Functor
-           , Applicative
-           , Monad
-           , MonadReader TransCtxt
-           , MonadError (Either IntException e)
-           )
-
--- | Evaluate state strictly
-instance Monad m => MonadState (IntCtxt h) (IntT h e m) where
-  get    = IntT $ get
-  put !s = IntT $ put s
+type IntT = ConIntT IntCtxt
 
 -- | Run the interpreter monad
 runIntT :: IntCtxt h
@@ -327,113 +247,6 @@ pushCheckpoint f = do
     icCheckpoints .= c' :| c : cs
     return a
 
-{-------------------------------------------------------------------------------
-  Constructing checkpoints
--------------------------------------------------------------------------------}
-
-mkCheckpoint :: Monad m
-             => IntCheckpoint    -- ^ Previous checkpoint
-             -> SlotId           -- ^ Slot of the new block just created
-             -> RawResolvedBlock -- ^ The block just created
-             -> TranslateT IntException m IntCheckpoint
-mkCheckpoint prev slot raw@(UnsafeRawResolvedBlock block _inputs) = do
-    pc <- asks constants
-    gs <- asks weights
-    let isCrucial = give pc $ slot == crucialSlot (siEpoch slot)
-    newStakes <- updateStakes gs (fromRawResolvedBlock raw) (icStakes prev)
-    return IntCheckpoint {
-        icSlotId        = slot
-      , icBlockHeader   = BlockHeaderMain $ block ^. gbHeader
-      , icEpochLeaders  = icEpochLeaders prev
-      , icStakes        = newStakes
-      , icCrucialStakes = if isCrucial
-                            then newStakes
-                            else icCrucialStakes prev
-      }
-
--- | Update the stakes map as a result of a block.
---
--- We follow the 'Stakes modification' section of the txp.md document.
-updateStakes :: forall m. MonadError IntException m
-             => GenesisWStakeholders
-             -> ResolvedBlock
-             -> StakesMap -> m StakesMap
-updateStakes gs (ResolvedBlock txs _) =
-    foldr (>=>) return $ map go txs
-  where
-    go :: ResolvedTx -> StakesMap -> m StakesMap
-    go (ResolvedTx ins outs) =
-        subStake >=> addStake
-      where
-        subStakes, addStakes :: [(StakeholderId, Coin)]
-        subStakes = concatMap txOutStake' $ toList     (_fromDb ins)
-        addStakes = concatMap txOutStake' $ Map.toList (_fromDb outs)
-
-        subStake, addStake :: StakesMap -> m StakesMap
-        subStake sm = foldM (flip subStake1) sm subStakes
-        addStake sm = foldM (flip addStake1) sm addStakes
-
-    subStake1, addStake1 :: (StakeholderId, Coin) -> StakesMap -> m StakesMap
-    subStake1 (id, c) sm = do
-        stake <- stakeOf id sm
-        case stake `subCoin` c of
-          Just stake' -> return $! HM.insert id stake' sm
-          Nothing     -> throwError $ IntStakeUnderflow id stake c
-    addStake1 (id, c) sm = do
-        stake <- stakeOf id sm
-        case stake `addCoin` c of
-          Just stake' -> return $! HM.insert id stake' sm
-          Nothing     -> throwError $ IntStakeOverflow id stake c
-
-    stakeOf :: StakeholderId -> StakesMap -> m Coin
-    stakeOf id sm =
-        case HM.lookup id sm of
-          Just s  -> return s
-          Nothing -> throwError $ IntUnknownStakeholder id
-
-    txOutStake' :: (TxIn, TxOutAux) -> StakesList
-    txOutStake' = txOutStake gs . toaOut . snd
-
--- | Create an epoch boundary block
---
--- In between each epoch there is an epoch boundary block (or EBB), that records
--- the stakes for the next epoch (in the Cardano codebase is referred to as a
--- "genesis block", and indeed the types are the same; we follow the terminology
--- from the spec here).
---
--- We /update/ the most recent checkpoint so that when we rollback, we effectively
--- rollback /two/ blocks. This is important, because the DSL has no concept of these
--- EBBs.
-createEpochBoundary :: Monad m
-                    => IntCheckpoint
-                    -> TranslateT IntException m (IntCheckpoint, GenesisBlock)
-createEpochBoundary ic = do
-    pm    <- asks magic
-    pc    <- asks constants
-    slots <- asks (ccEpochSlots . tcCardano)
-    let newLeaders = give pc $ followTheSatoshi
-                                 slots
-                                 boringSharedSeed
-                                 (HM.toList $ icCrucialStakes ic)
-        ebb = mkGenesisBlock
-                pm
-                (Right     $ icBlockHeader ic)
-                (nextEpoch $ icSlotId      ic)
-                newLeaders
-    return (
-        ic { icEpochLeaders = ebb ^. genBlockLeaders
-           , icBlockHeader  = BlockHeaderGenesis $ ebb ^. gbHeader
-           }
-      , ebb
-      )
-  where
-    -- This is a shared seed which never changes. Obviously it is not an
-    -- accurate reflection of how Cardano works.
-    boringSharedSeed :: SharedSeed
-    boringSharedSeed = SharedSeed "Static shared seed"
-
-    nextEpoch :: SlotId -> EpochIndex
-    nextEpoch (SlotId (EpochIndex i) _) = EpochIndex $ i + 1
 
 {-------------------------------------------------------------------------------
   Translate the DSL UTxO definitions to Cardano types

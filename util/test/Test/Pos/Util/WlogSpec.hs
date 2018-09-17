@@ -61,12 +61,13 @@ run_logging _ n n0 n1= do
                     logWarning msg
                     logError msg
         endTime <- getPOSIXTime
-        threadDelay $ fromIntegral (5000 * n0)
+        threadDelay $ fromIntegral (8000 * n0)
         let diffTime = nominalDiffTimeToMicroseconds (endTime - startTime)
         putStrLn $ "  time for " ++ (show (n0*n1)) ++ " iterations: " ++ (show diffTime)
         lineslogged1 <- getLinesLogged
         let lineslogged = lineslogged1 - lineslogged0
         putStrLn $ "  lines logged :" ++ (show lineslogged)
+        threadDelay 0500000   -- wait for empty queue
         return (diffTime, lineslogged)
         where msg :: Text
               msg = replicate n "abcdefghijklmnopqrstuvwxyz"
@@ -102,6 +103,19 @@ spec = describe "Logging" $ do
                 lc = lc0 & lcLoggerTree .~ newlt
             setupLogging "test" lc
 
+    modifyMaxSuccess (const 2) $ modifyMaxSize (const 2) $
+      it "change minimum severity filter for a specific context" $
+        monadicIO $ do
+            lineslogged0 <- lift $ getLinesLogged
+            lift $ usingLoggerName "silent" $ do { logWarning "you won't see this!" }
+            lift $ threadDelay 0300000
+            lift $ usingLoggerName "verbose" $ do { logWarning "now you read this!" }
+            lift $ threadDelay 0300000
+            lineslogged1 <- lift $ getLinesLogged
+            let lineslogged = lineslogged1 - lineslogged0
+            putStrLn $ "lines logged: " ++ (show lineslogged)
+            assert (lineslogged == 1)
+
     modifyMaxSuccess (const 1) $ modifyMaxSize (const 1) $
       it "demonstrate logging" $
         monadicIO $ lift $ someLogging
@@ -117,17 +131,4 @@ spec = describe "Logging" $ do
     modifyMaxSuccess (const 2) $ modifyMaxSize (const 2) $
       it "lines counted as logged must be equal to how many was intended to be written" $
         property prop_lines
-
-    modifyMaxSuccess (const 2) $ modifyMaxSize (const 2) $
-      it "change minimum severity filter for a specific context" $
-        monadicIO $ do
-            lineslogged0 <- lift $ getLinesLogged
-            lift $ usingLoggerName "silent" $ do { logWarning "you won't see this!" }
-            lift $ threadDelay 0300000
-            lift $ usingLoggerName "verbose" $ do { logWarning "now you read this!" }
-            lift $ threadDelay 0300000
-            lineslogged1 <- lift $ getLinesLogged
-            let lineslogged = lineslogged1 - lineslogged0
-            putStrLn $ "lines logged: " ++ (show lineslogged)
-            assert (lineslogged == 1)
 

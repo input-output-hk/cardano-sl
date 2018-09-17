@@ -252,9 +252,7 @@ mainnet_base: &mainnet_base
           unlockStakeEpoch: 18446744073709551615 # last epoch (maxBound @Word64)
         protocolConstants: &mainnet_base_protocolConstants
           k: 2160
-          protocolMagic:
-            pm: 10000000 # arbitrary protocolMagic, to be overridden in actual configs
-            requiresNetworkMagic: NMMustBeNothing
+          protocolMagic: 10000000 # arbitrary protocolMagic, to be overridden in actual configs
           vssMinTTL: 2
           vssMaxTTL: 6
         ftsSeed: "dmFzYSBvcGFzYSBza292b3JvZGEgR2d1cmRhIGJvcm9kYSBwcm92b2Rh"
@@ -14872,10 +14870,12 @@ testnet_launch: &testnet_launch
       spec:
         <<: *mainnet_base_spec
         protocolConstants:
-          <<: *mainnet_base_protocolConstants
+          k: 2160
           protocolMagic:
             pm: 1097911063
             requiresNetworkMagic: NMMustBeJust
+          vssMinTTL: 2
+          vssMaxTTL: 6
         avvmDistr: {}
         initializer:
           testBalance:

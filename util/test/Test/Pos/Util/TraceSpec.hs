@@ -74,7 +74,7 @@ run_logging :: Log.Severity -> Int -> Integer -> Integer -> IO (Microsecond, Int
 run_logging sev n n0 n1= do
     startTime <- getPOSIXTime
 {- -}
-    lh <- Log.setupLogging (defaultTestConfiguration sev)
+    lh <- Log.setupLogging "test" (defaultTestConfiguration sev)
     let logTrace' = Tr.logTrace lh "processXYZ"
     forM_ [1..n0] $ \_ ->
         forM_ [1..n1] $ \_ -> do
@@ -98,7 +98,7 @@ run_loggingS :: Log.Severity -> Int -> Integer -> Integer -> IO (Microsecond, In
 run_loggingS sev n n0 n1= do
     startTime <- getPOSIXTime
 {- -}
-    lh <- Log.setupLogging (defaultTestConfiguration sev)
+    lh <- Log.setupLogging "test" (defaultTestConfiguration sev)
     let logTrace' = Tn.appendName "run_loggingS" $ Tn.namedTrace lh
 
     Tn.logInfo logTrace' "entering"
@@ -123,7 +123,7 @@ run_loggingS sev n n0 n1= do
 -- | example: setup trace
 example_setup :: IO ()
 example_setup = do
-    logTrace' <- Tr.setupLogging (defaultTestConfiguration Log.Debug) "example"
+    logTrace' <- Tr.setupLogging "test" (defaultTestConfiguration Log.Debug) "example"
     Tr.traceWith logTrace' (Log.Info, "entering")
     complexWork logTrace' "42"
     Tr.traceWith logTrace' (Log.Info, "done.")
@@ -135,7 +135,7 @@ example_setup = do
 -- | example: unstructured trace
 example_unstructured :: IO ()
 example_unstructured = do
-    logTrace' <- Tu.setupLogging (defaultTestConfiguration Log.Debug) "unstructured"
+    logTrace' <- Tu.setupLogging "test" (defaultTestConfiguration Log.Debug) "unstructured"
     Tu.logInfo logTrace' "entering"
     complexWork logTrace' "42"
     Tu.logInfo logTrace' "done."
@@ -147,7 +147,7 @@ example_unstructured = do
 -- | example: named context trace
 example_named :: IO ()
 example_named = do
-    logTrace' <- Tn.setupLogging (defaultInteractiveConfiguration Log.Debug) "named"
+    logTrace' <- Tn.setupLogging "test" (defaultInteractiveConfiguration Log.Debug) "named"
     Tn.logInfo logTrace' "entering"
     complexWork (Tn.appendName "complex" logTrace') "42"
     -- ^ the named context will include "complex" in the logged message

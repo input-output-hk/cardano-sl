@@ -111,9 +111,9 @@ named = contramap (LogNamed mempty)
 -- | setup logging and return a Trace
 setupLogging
     :: MonadIO m
-    => Log.LoggerConfig -> Log.LoggerName -> m (TraceNamed m)
-setupLogging lc ln = do
-    lh <- liftIO $ Log.setupLogging lc
+    => Text -> Log.LoggerConfig -> Log.LoggerName -> m (TraceNamed m)
+setupLogging cfoKey lc ln = do
+    lh <- liftIO $ Log.setupLogging cfoKey lc
     let nt = namedTrace lh
     return $ appendName ln nt
 
@@ -145,7 +145,7 @@ namedTrace lh = Trace $ Op $ \namedLogitem ->
 
 {- testing:
 
-logTrace' <- setupLogging (Pos.Util.LoggerConfig.defaultInteractiveConfiguration Log.Debug) "named"
+logTrace' <- setupLogging "test" (Pos.Util.LoggerConfig.defaultInteractiveConfiguration Log.Debug) "named"
 let li = publicLogItem (Log.Debug, "testing")
     ni = namedItem "Tests" li
 
@@ -153,7 +153,7 @@ traceWith logTrace' ni
 traceWith (named $ appendName "more" logTrace') li
 
 
-logTrace' <- setupLogging (Pos.Util.LoggerConfig.jsonInteractiveConfiguration Log.Debug) "named"
+logTrace' <- setupLogging "test" (Pos.Util.LoggerConfig.jsonInteractiveConfiguration Log.Debug) "named"
 logDebug logTrace' "hello"
 logDebug (appendName "blabla" logTrace') "hello"
 -}

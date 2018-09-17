@@ -17,8 +17,7 @@ import           Pos.DB.Class (Serialized (..))
 import           Pos.Network.Block.Types (MsgBlock (..),
                      MsgSerializedBlock (..))
 import           Pos.Util.CompileInfo (withCompileInfo)
-import           Pos.Util.Log.LoggerConfig (defaultTestConfiguration)
-import           Pos.Util.Wlog (Severity (Debug), setupLogging)
+import           Pos.Util.Wlog (setupTestLogging)
 
 import           Test.Pos.Block.Logic.Mode (blockPropertyTestable)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..),
@@ -72,7 +71,7 @@ deserializeSerilizedMsgSerializedBlockSpec = do
     descNoBlock = "deserialization of a serialized MsgNoSerializedBlock message should give back corresponding MsgNoBlock"
 
 spec :: Spec
-spec = beforeAll_ (setupLogging (defaultTestConfiguration Debug)) $
+spec = beforeAll_ setupTestLogging $
     withStaticConfigurations $ \_ _ -> withCompileInfo $
         describe "Pos.Binary.Communication" $ do
             describe "serializeMsgSerializedBlock" serializeMsgSerializedBlockSpec

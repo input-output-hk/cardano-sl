@@ -25,8 +25,7 @@ import           Pos.Core.Chrono (nonEmptyOldestFirst, toNewestFirst)
 import           Pos.Crypto (emptyPassphrase)
 import           Pos.DB.Block (rollbackBlocks)
 import           Pos.Launcher (HasConfigurations)
-import           Pos.Util.Log.LoggerConfig (defaultTestConfiguration)
-import           Pos.Util.Wlog (Severity (Debug), setupLogging)
+import           Pos.Util.Wlog (setupTestLogging)
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.State.Storage (WalletStorage (..))
 import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentialsKey (..),
@@ -51,7 +50,7 @@ import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
 import           Test.Pos.Wallet.Web.Util (importSomeWallets, wpGenBlocks)
 
 spec :: Spec
-spec = beforeAll_ (setupLogging (defaultTestConfiguration Debug)) $
+spec = beforeAll_ setupTestLogging $
     withDefConfigurations $ \_ _ _ -> do
         describe "Pos.Wallet.Web.Tracking.BListener" $ modifyMaxSuccess (const 10) $ do
             describe "Two applications and rollbacks" twoApplyTwoRollbacksSpec

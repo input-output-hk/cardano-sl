@@ -55,6 +55,7 @@ library
                        Pos.Util.Wlog
 
   other-modules:
+                       Paths_cardano_sl_util
                        Pos.Util.CompileInfoGit
                        Pos.Util.Log.Scribes
                        Pos.Util.Log.Rotator

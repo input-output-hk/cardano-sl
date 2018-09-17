@@ -26,6 +26,8 @@ import           Control.Concurrent.MVar (modifyMVar_, newMVar, withMVar)
 
 import qualified Data.Text as T
 import           Data.Time (UTCTime, getCurrentTime)
+import           Data.Version (showVersion)
+import           Paths_cardano_sl_util (version)
 import           System.FilePath (splitFileName, (</>))
 import           Universum hiding (newMVar)
 
@@ -112,10 +114,10 @@ newConfig lc = do
     return $ LoggingHandler mv
 
 -- | register scribes in `katip`
-registerBackends :: LoggingHandler -> [(T.Text, K.Scribe)] -> IO ()
-registerBackends lh scribes = do
+registerBackends :: Text -> LoggingHandler -> [(T.Text, K.Scribe)] -> IO ()
+registerBackends cfoKey lh scribes = do
     LoggingHandlerInternal cfg _ ctx counter <- takeMVar (getLSI lh)
-    le0 <- K.initLogEnv (s2kname "cardano-sl") "production"
+    le0 <- K.initLogEnv (s2kname "cardano-sl") $ fromString $ (T.unpack cfoKey) <> ":" <> showVersion version
     -- use 'getCurrentTime' to get a more precise timestamp
     -- as katip uses per default some internal buffered time variable
     timer <- mkAutoUpdate defaultUpdateSettings { updateAction = getCurrentTime, updateFreq = 10000 }

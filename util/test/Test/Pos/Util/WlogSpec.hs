@@ -100,7 +100,7 @@ spec = describe "Logging" $ do
             let lc0 = defaultTestConfiguration Debug
                 newlt = lc0 ^. lcLoggerTree & ltNamedSeverity .~ HM.fromList [("cardano-sl.silent", Error)]
                 lc = lc0 & lcLoggerTree .~ newlt
-            setupLogging lc
+            setupLogging "test" lc
 
     modifyMaxSuccess (const 1) $ modifyMaxSize (const 1) $
       it "demonstrate logging" $

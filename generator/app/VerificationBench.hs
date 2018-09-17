@@ -183,7 +183,7 @@ readBlocks path = do
 
 main :: IO ()
 main = do
-    setupLogging loggerConfig
+    setupLogging "generator" loggerConfig
     args <- Opts.execParser
         $ Opts.info
             (benchArgsParser <**> Opts.helper)

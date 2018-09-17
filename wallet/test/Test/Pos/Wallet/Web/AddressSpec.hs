@@ -20,8 +20,7 @@ import           Pos.Client.Txp.Addresses (getFakeChangeAddress, getNewAddress)
 import           Pos.Core.Common (Address)
 import           Pos.Crypto (PassPhrase)
 
-import           Pos.Util.Log.LoggerConfig (defaultTestConfiguration)
-import           Pos.Util.Wlog (Severity (Debug), setupLogging)
+import           Pos.Util.Wlog (setupTestLogging)
 import           Pos.Wallet.Web.Account (GenSeed (..), genUniqueAddress)
 import           Pos.Wallet.Web.ClientTypes (AccountId, CAccountInit (..), caId)
 import           Pos.Wallet.Web.Error (WalletError (..))
@@ -37,7 +36,7 @@ import           Test.Pos.Wallet.Web.Util (importSingleWallet,
                      mostlyEmptyPassphrases)
 
 spec :: Spec
-spec = beforeAll_ (setupLogging (defaultTestConfiguration Debug)) $
+spec = beforeAll_ setupTestLogging $
             withDefConfigurations $ \_ _ _ ->
                 describe "Fake address has maximal possible size" $
                 modifyMaxSuccess (const 10) $ do

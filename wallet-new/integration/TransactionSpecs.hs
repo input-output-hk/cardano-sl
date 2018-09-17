@@ -31,7 +31,7 @@ ppShowT :: Show a => a -> Text
 ppShowT = fromString . ppShow
 
 transactionSpecs :: WalletRef -> WalletClient IO -> Spec
-transactionSpecs wRef wc = beforeAll_ (setupLogging (defaultTestConfiguration Debug)) $
+transactionSpecs wRef wc = beforeAll_ (setupLogging "wallet-new_transactionSpecs" (defaultTestConfiguration Debug)) $
     describe "Transactions" $ do
 
         randomTest "posted transactions appear in the index" 1 $ do

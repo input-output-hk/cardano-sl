@@ -9,6 +9,7 @@ module Pos.Util.Wlog.Compatibility
          , dispatchEvents
          , LogEvent (..)
          , setupLogging
+         , setupTestLogging
            -- * Logging functions
          , logDebug
          , logError
@@ -56,8 +57,8 @@ import qualified Pos.Util.Log as Log
 import qualified Pos.Util.Log.Internal as Internal
 import           Pos.Util.Log.LoggerConfig (LogHandler (..),
                      LogSecurityLevel (..), LoggerConfig (..),
-                     defaultInteractiveConfiguration, lcLoggerTree, lhName,
-                     ltHandlers)
+                     defaultInteractiveConfiguration, defaultTestConfiguration,
+                     lcLoggerTree, lhName, ltHandlers)
 import           System.IO.Unsafe (unsafePerformIO)
 
 import           Universum
@@ -226,11 +227,15 @@ loggingHandler :: MVar LoggingHandler
 loggingHandler = unsafePerformIO $ do
     newMVar $ error "LoggingHandler MVar is not initialized."
 
+-- | setup logging used in tests
+setupTestLogging :: IO ()
+setupTestLogging = setupLogging "test" (defaultTestConfiguration Debug)
+
 -- | setup logging according to configuration @LoggerConfig@
 --   the backends (scribes) will be registered with katip
-setupLogging :: MonadIO m => LoggerConfig -> m ()
-setupLogging lc = liftIO $
-    modifyMVar_ loggingHandler $ const $ Log.setupLogging lc
+setupLogging :: MonadIO m => Text -> LoggerConfig -> m ()
+setupLogging cfoKey lc = liftIO $
+    modifyMVar_ loggingHandler $ const $ Log.setupLogging cfoKey lc
 
 
 -- | Whether to log to given log handler.

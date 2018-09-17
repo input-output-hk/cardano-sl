@@ -49,7 +49,7 @@ main :: IO ()
 main = do
     args <- getExplorerNodeOptions
     let loggingParams = CLI.loggingParams loggerName (enaCommonNodeArgs args)
-    loggerBracket loggingParams . logException "node" $ do
+    loggerBracket "explorer" loggingParams . logException "node" $ do
         logInfo "[Attention] Software is built with explorer part"
         action args
 

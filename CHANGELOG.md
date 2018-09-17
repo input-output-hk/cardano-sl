@@ -24,6 +24,9 @@
 - The API provides an endpoint to retrieve basic statistics on the UTxO distribution of a wallet 
   (`/api/v1/wallets/{walletId}/statistics`). (CO-325)
 
+- cardano-sl exposes a new package `x509` with tooling for defining a PKI infrastructure from 
+  pure Haskell. This is basically an export of the internals of the tool `cardano-sl-x509-generate` (CO-387)
+
 
 ### Fixes
 

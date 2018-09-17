@@ -13,7 +13,6 @@ import           Universum
 import           Data.Aeson ((.:), (.=))
 import qualified Data.Aeson as A
 import           Data.Aeson.Types (typeMismatch)
-import           Data.Function (on)
 import           Text.JSON.Canonical (FromJSON (..), JSValue (..), ReportSchemaErrors, ToJSON (..),
                                       expected)
 
@@ -81,18 +80,12 @@ newtype ProtocolMagicId = ProtocolMagicId
 data ProtocolMagic = ProtocolMagic
     { getProtocolMagicId      :: !ProtocolMagicId
     , getRequiresNetworkMagic :: !RequiresNetworkMagic
-    } deriving (Show, Generic)
+    } deriving (Eq, Show, Generic)
 
 -- mhueschen: For backwards-compatibility reasons, I redefine this function
 -- in terms of the two record accessors.
 getProtocolMagic :: ProtocolMagic -> Int32
 getProtocolMagic = unProtocolMagicId . getProtocolMagicId
-
--- Since ProtocolMagic is widely used and we want to maintain backwards
--- compatibility of equality checks between the Int32 identifier, we only
--- compare Eq on `getProtocolMagicId`.
-instance Eq ProtocolMagic where
-    (==) = (==) `on` getProtocolMagicId
 
 instance NFData ProtocolMagic
 

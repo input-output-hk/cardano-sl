@@ -20,6 +20,7 @@ module Pos.Core.JsonLog.LogEvents
        , JLTimedEvent (..)
        , JsonLogConfig (..)
        , MemPoolModifyReason (..)
+       , JLCQPeriod (..)
        , appendJL
        , jsonLogConfigFromHandle
        , jsonLogDefault
@@ -108,6 +109,7 @@ data JLEvent = JLCreatedBlock !JLBlock
              | JLTxSent !JLTxS
              | JLTxReceived !JLTxR
              | JLMemPoolEvent !JLMemPool
+             | JLChainQuality !JLCQPeriod !Double
   deriving (Show, Generic)
 
 -- | 'JLEvent' with 'Timestamp' -- corresponding time of this event.
@@ -116,6 +118,7 @@ data JLTimedEvent = JLTimedEvent
     , jlEvent     :: !JLEvent
     } deriving Show
 
+data JLCQPeriod = CQLastK | CQLastF | CQOverall deriving (Show, Generic)
 -- -----------------------------------------------------------------------------
 -- This type was originally in Pos.Infra.Communication.Relay.Logic but was moved
 -- here so the package dependency graph could be re-arranged.
@@ -174,6 +177,7 @@ $(deriveJSON defaultOptions ''JLTimedEvent)
 $(deriveJSON defaultOptions ''JLTxS)
 $(deriveJSON defaultOptions ''JLTxR)
 $(deriveJSON defaultOptions ''JLMemPool)
+$(deriveJSON defaultOptions ''JLCQPeriod)
 
 -- | Get 'SlotId' from 'JLSlotId'.
 fromJLSlotId :: MonadError Text m => SlotCount -> JLSlotId -> m SlotId

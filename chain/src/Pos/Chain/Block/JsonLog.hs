@@ -3,6 +3,7 @@
 module Pos.Chain.Block.JsonLog
        ( jlCreatedBlock
        , jlAdoptedBlock
+       , jlRecordCQ
        ) where
 
 import           Universum
@@ -16,7 +17,7 @@ import           Pos.Chain.Block.Union (Block, HeaderHash, headerHash,
 import           Pos.Chain.Txp (txpTxs)
 import           Pos.Core (SlotCount, SlotId (..), getEpochIndex, getSlotIndex,
                      mkLocalSlotIndex)
-import           Pos.Core.JsonLog.LogEvents (JLBlock (..), JLEvent (..))
+import           Pos.Core.JsonLog.LogEvents (JLBlock (..), JLEvent (..), JLCQPeriod(..))
 import           Pos.Crypto (hash, hashHexF)
 
 -- | Return event of created block.
@@ -39,6 +40,9 @@ jlCreatedBlock epochSlots block = JLCreatedBlock $ JLBlock {..}
                     in SlotId (gB ^. genBlockEpoch) slotZero
         Right mB -> mB ^. mainBlockSlot
     fromTx = sformat hashHexF . hash
+
+jlRecordCQ :: JLCQPeriod -> Double -> JLEvent
+jlRecordCQ period quality = JLChainQuality period quality
 
 -- | Returns event of created 'Block'.
 jlAdoptedBlock :: Block -> JLEvent

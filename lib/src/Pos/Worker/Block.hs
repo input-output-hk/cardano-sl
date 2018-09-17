@@ -24,11 +24,12 @@ import           Pos.Chain.Block (HasBlockConfiguration, criticalCQ,
                      criticalCQBootstrap, fixedTimeCQSec, gbHeader,
                      networkDiameter, nonCriticalCQ, nonCriticalCQBootstrap,
                      scCQFixedMonitorState, scCQOverallMonitorState,
-                     scCQkMonitorState, scCrucialValuesLabel,
+                     scCQkMonitorState, scCrucialValuesLabel, jlRecordCQ,
                      scDifficultyMonitorState, scEpochMonitorState,
                      scGlobalSlotMonitorState, scLocalSlotMonitorState)
 import           Pos.Chain.Delegation (ProxySKBlockInfo)
 import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Core.JsonLog.LogEvents (JLCQPeriod(CQLastK))
 import           Pos.Core as Core (BlockCount, ChainDifficulty, Config (..),
                      FlatSlotId, SlotCount, SlotId (..), Timestamp (Timestamp),
                      addressHash, configBlkSecurityParam, configEpochSlots,
@@ -398,7 +399,9 @@ chainQualityChecker k curSlot kThSlot = do
     let monitorK = cqkMetricMonitor k monitorStateK isBootstrapEra
     monitorOverall <- cqOverallMetricMonitor <$> view scCQOverallMonitorState
     monitorFixed <- cqFixedMetricMonitor <$> view scCQFixedMonitorState
-    whenJustM (calcChainQualityM k curFlatSlot) (recordValue monitorK)
+    whenJustM (calcChainQualityM k curFlatSlot) $ \cq -> do
+      recordValue monitorK cq
+      jsonLog $ jlRecordCQ CQLastK cq
     whenJustM (calcOverallChainQuality epochSlots) $ recordValue monitorOverall
     whenJustM (calcChainQualityFixedTime epochSlots) $ recordValue monitorFixed
   where

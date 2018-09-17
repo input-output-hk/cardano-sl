@@ -17,6 +17,8 @@ import           Pos.Core.Chrono (OldestFirst (..))
 import           Universum
 import qualified UTxO.DSL as DSL
 
+import           Chain.Abstract.Repartition (mkRepartitionT)
+
 {-------------------------------------------------------------------------------
   Chain validity
 -------------------------------------------------------------------------------}
@@ -24,6 +26,7 @@ import qualified UTxO.DSL as DSL
 data ChainValidity
     = ValidChain
     | InvalidChain [(SlotId, PolicyViolation)]
+    deriving (Show)
 
 {-------------------------------------------------------------------------------
   Translation context
@@ -73,12 +76,17 @@ makeLenses ''TransCtxt
 
 -- | Interpretation error
 data IntException =
-    -- | A UTxO transcation has an empty input list.
+    -- | A UTxO transaction has an empty input list.
     IntEmptyInputs
     -- | A UTxO transaction has an empty output list.
   | IntEmptyOutputs
   | IntUnknownHash      Text
   | IntIndexOutOfRange  Text Word32 -- ^ During input resolution (hash and index)
+    -- | A DSL chain has an empty set of addresses.
+  | IntEmptyAddresses
+    -- | Some error with the interpretation logic
+    -- TODO: if this makes sense we'd want to add more information.
+  | IntLogicError
   deriving (Show, Eq)
 
 instance Exception IntException
@@ -188,15 +196,17 @@ translate addrs chain policies params = runExceptT . fmap fst $ runTranslateT in
             [] -> ValidChain
             xs -> InvalidChain xs
 
-
-    intOutput :: (Ord a, Monad n) => DSL.Output h a -> n (Output h1 a)
+    intOutput
+      :: (Ord a, MonadError IntException n)
+      => DSL.Output h a -> n (Output h1 a)
     intOutput out =  do
+        r <- mkRepartitionT (const IntLogicError) [(DSL.outAddr out, DSL.outVal out)]
         -- Compute the stake repartition function. At present, this is fixed to
         -- assign all stake to the bootstrap stakeholders.
         return $ Output
           { outAddr = DSL.outAddr out
           , outVal = DSL.outVal out
-          , outRepartition = Repartition $ Map.empty
+          , outRepartition = r
           }
 
     intTransaction :: DSL.Transaction h Addr -> TranslateT h IntException m (Transaction h Addr)

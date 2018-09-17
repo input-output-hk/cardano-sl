@@ -70,16 +70,20 @@ test-suite property-tests
                        Translation
 
                        Chain.Abstract
+                       Chain.Abstract.FinitelySupportedFunction
+                       Chain.Abstract.Repartition
                        Chain.Abstract.Translate.FromUTxO
                        Chain.Abstract.Translate.ToCardano
                        Chain.Abstract.Translate.Policies
                        Chain.Policy
                        Infrastructure.Generator
+
   default-language:    Haskell2010
   type:                exitcode-stdio-1.0
   build-depends:       base
-                     , containers
+                     , HUnit
                      , QuickCheck
+                     , cardano-sl
                      , cardano-sl-chain
                      , cardano-sl-client
                      , cardano-sl-core
@@ -89,19 +93,19 @@ test-suite property-tests
                      , cardano-sl-networking
                      , cardano-sl-util
                      , cardano-sl-wallet-new
-                     , cardano-sl
+                     , constraints
+                     , containers
                      , data-default >= 0.7
                      , hashable
                      , hspec
-                     , HUnit
                      , lens
                      , mtl
                      , reflection
                      , safe-exceptions >= 0.1
                      , text
                      , universum >= 0.1.11
-                     , unordered-containers
                      , utxo
+                     , validation
   ghc-options:
                        -threaded
                        -rtsopts

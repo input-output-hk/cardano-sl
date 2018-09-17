@@ -15,7 +15,9 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Cardano.Wallet.API
+  exposed-modules:     Cardano.Wallet.Action
+                       Cardano.Wallet.LegacyAction
+                       Cardano.Wallet.API
                        Cardano.Wallet.API.Indices
                        Cardano.Wallet.API.Internal
                        Cardano.Wallet.API.Internal.Handlers

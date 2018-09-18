@@ -32,7 +32,7 @@ import           Pos.Block.Error
 import           Pos.Block.Types
 import           Pos.Core
 import           Pos.Core.Chrono
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.Txp.Toil
@@ -101,7 +101,7 @@ runTranslateT :: Monad m => Exception e
 runTranslateT pm (TranslateT ta) =
     withProvidedMagicConfig pm $
     withDefUpdateConfiguration $
-      let nm = NMNothing
+      let nm = makeNetworkMagic pm
           env :: TranslateEnv
           env = TranslateEnv {
                     teContext       = initContext nm (initCardanoContext pm)

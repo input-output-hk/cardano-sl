@@ -23,16 +23,19 @@ import qualified Cardano.Wallet.WalletLayer.Kernel as Kernel
 import qualified Cardano.Wallet.WalletLayer.Legacy as Legacy
 import qualified Cardano.Wallet.WalletLayer.QuickCheck as QuickCheck
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..),
-                                                  applyBlocks, rollbackBlocks)
+                                                   applyBlocks, rollbackBlocks)
+
+import           Pos.Crypto (ProtocolMagic)
 
 ------------------------------------------------------------
 -- Kernel
 ------------------------------------------------------------
 bracketKernelPassiveWallet
     :: forall m n a. (MonadIO m, MonadIO n, MonadMask n)
-    => (Severity -> Text -> IO ())
+    => ProtocolMagic
+    -> (Severity -> Text -> IO ())
     -> (PassiveWalletLayer m -> n a) -> n a
-bracketKernelPassiveWallet = Kernel.bracketPassiveWallet
+bracketKernelPassiveWallet pm = Kernel.bracketPassiveWallet pm
 
 bracketKernelActiveWallet
     :: forall m n a. (MonadIO n, MonadMask n)
@@ -45,8 +48,8 @@ bracketKernelActiveWallet  = Kernel.bracketActiveWallet
 
 bracketLegacyPassiveWallet
     :: forall ctx m n a. (MonadMask n, Legacy.MonadLegacyWallet ctx m)
-    => (PassiveWalletLayer m -> n a) -> n a
-bracketLegacyPassiveWallet = Legacy.bracketPassiveWallet
+    => ProtocolMagic -> (PassiveWalletLayer m -> n a) -> n a
+bracketLegacyPassiveWallet pm = Legacy.bracketPassiveWallet pm
 
 bracketLegacyActiveWallet
     :: forall m n a. (MonadMask n)

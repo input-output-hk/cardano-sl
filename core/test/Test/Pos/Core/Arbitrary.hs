@@ -64,7 +64,6 @@ import           Pos.Merkle (MerkleTree, mkMerkleTree)
 import           Pos.Util.Util (leftToPanic)
 
 import           Test.Pos.Crypto.Arbitrary ()
-import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.Orphans ()
 import           Test.Pos.Util.QuickCheck.Arbitrary (nonrepeating)
 
@@ -525,7 +524,8 @@ instance Arbitrary G.FakeAvvmOptions where
         return G.FakeAvvmOptions {..}
 
 instance Arbitrary G.GenesisDelegation where
-    arbitrary =
+    arbitrary = do
+        pm <- arbitrary
         leftToPanic "arbitrary@GenesisDelegation" . G.mkGenesisDelegation <$> do
             secretKeys <- sized (nonrepeating . min 10) -- we generate at most tens keys,
                                                         -- because 'nonrepeating' fails when
@@ -534,9 +534,9 @@ instance Arbitrary G.GenesisDelegation where
             return $
                 case secretKeys of
                     []                 -> []
-                    (delegate:issuers) -> mkCert (toPublic delegate) <$> issuers
+                    (delegate:issuers) -> mkCert pm (toPublic delegate) <$> issuers
       where
-        mkCert delegatePk issuer = createPsk dummyProtocolMagic issuer delegatePk (HeavyDlgIndex 0)
+        mkCert pm delegatePk issuer = createPsk pm issuer delegatePk (HeavyDlgIndex 0)
 
 instance Arbitrary G.GenesisWStakeholders where
     arbitrary = G.GenesisWStakeholders <$> arbitrary
@@ -558,7 +558,9 @@ instance Arbitrary ProtocolConstants where
         ProtocolConstants <$> choose (1, 20000) <*> pure vssMin <*> pure vssMax
 
 instance Arbitrary G.GenesisProtocolConstants where
-    arbitrary = flip G.genesisProtocolConstantsFromProtocolConstants dummyProtocolMagic <$> arbitrary
+    arbitrary = do
+        pm <- arbitrary
+        flip G.genesisProtocolConstantsFromProtocolConstants pm <$> arbitrary
 
 instance (HasProtocolConstants) => Arbitrary G.GenesisData where
     arbitrary = G.GenesisData
@@ -606,7 +608,7 @@ genVssCertificate pm =
                         <*> arbitrary -- EpochIndex
 
 instance Arbitrary VssCertificate where
-    arbitrary = genVssCertificate dummyProtocolMagic
+    arbitrary = genVssCertificate =<< arbitrary
     -- The 'shrink' method wasn't implement to avoid breaking the datatype's invariant.
 
 ----------------------------------------------------------------------------

@@ -49,10 +49,10 @@ specBody pm = withProvidedMagicConfig pm $
     emptyWalletOnStarts = "wallet must be empty on start"
 
 emptyWallet :: HasConfigurations => NetworkMagic -> WalletProperty ()
-emptyWallet _nm = do
-    wallets <- lift getWallets
+emptyWallet nm = do
+    wallets <- lift (getWallets nm)
     unless (null wallets) $
         stopProperty "Wallets aren't empty"
-    accounts <- lift $ getAccounts Nothing
+    accounts <- lift $ getAccounts nm Nothing
     unless (null accounts) $
         stopProperty "Accounts aren't empty"

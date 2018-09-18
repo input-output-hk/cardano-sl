@@ -38,7 +38,7 @@ runWithMagic rnm = replicateM_ testMultiple $
             specBody (makeNetworkMagic pm)
 
 specBody :: NetworkMagic -> Spec
-specBody _nm = do
+specBody nm = do
     it "No example mnemonic" $
         fromMnemonic defMnemonic `shouldSatisfy` isLeft
 
@@ -71,7 +71,7 @@ specBody _nm = do
 
             cid = either
                 (error . (<>) "Couldn't create keys from generated BackupPhrase" . show)
-                (encToCId . fst)
+                (encToCId nm . fst)
                 (safeKeysFromPhrase mempty backupPhrase)
 
 

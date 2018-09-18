@@ -138,7 +138,7 @@ sampleAddress = V1 $ Core.Address
     { Core.addrRoot =
         Crypto.unsafeAbstractHash ("asdfasdf" :: String)
     , Core.addrAttributes =
-        Core.mkAttributes $ Core.AddrAttributes Nothing Core.BootstrapEraDistr fixedNM
+        Core.mkAttributes $ Core.AddrAttributes Nothing Core.BootstrapEraDistr NMNothing
     , Core.addrType =
         Core.ATPubKey
     }
@@ -245,7 +245,3 @@ applicationJson :: HTTP.Header
 applicationJson =
     let [hdr] = getHeaders (addHeader "application/json" mempty :: (Headers '[Header "Content-Type" String] String))
     in hdr
-
-
-fixedNM :: NetworkMagic
-fixedNM = NMNothing

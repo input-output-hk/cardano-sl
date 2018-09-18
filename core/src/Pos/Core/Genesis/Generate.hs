@@ -33,7 +33,7 @@ import           Pos.Core.Common (Address, Coin, IsBootstrapEraAddr (..), Stakeh
                                   unsafeIntegerToCoin)
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants, vssMaxTTL, vssMinTTL)
 import           Pos.Core.Delegation (HeavyDlgIndex (..), ProxySKHeavy)
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Core.Ssc (VssCertificate, mkVssCertificate, mkVssCertificatesMap)
 import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic, RedeemPublicKey, SecretKey,
                              VssKeyPair, createPsk, deterministic, emptyPassphrase, encToSecret,
@@ -159,7 +159,7 @@ generateGenesisData pm (GenesisInitializer{..}) realAvvmBalances = deterministic
     let toVss = mkVssCertificatesMap
         vssCerts = GenesisVssCertificatesMap $ toVss vssCertsList
 
-    let nm = fixedNM
+    let nm = makeNetworkMagic pm
 
     -- Non AVVM balances
     ---- Addresses
@@ -303,7 +303,3 @@ genTestnetDistribution TestnetBalanceOptions {..} testBalance =
 
     getShare :: Double -> Integer -> Integer
     getShare sh n = round $ sh * fromInteger n
-
-
-fixedNM :: NetworkMagic
-fixedNM = NMNothing

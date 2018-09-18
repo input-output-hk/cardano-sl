@@ -30,6 +30,7 @@ import           Ntp.Client (NtpStatus)
 
 import           Pos.Client.Txp.Network (sendTxOuts)
 import           Pos.Communication (OutSpecs)
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion (sendTx))
 import           Pos.Infra.Util.TimeWarp (NetworkAddress)
@@ -87,7 +88,8 @@ walletServer
     -> (forall x. m x -> Handler x)
     -> m (Server WalletSwaggerApi)
 walletServer pm diffusion ntpStatus nat = do
-    mapM_ (findKey >=> syncWallet . eskToWalletDecrCredentials) =<< myRootAddresses
+    let nm = makeNetworkMagic pm
+    mapM_ (findKey nm >=> syncWallet . eskToWalletDecrCredentials nm) =<< myRootAddresses nm
     return $ servantHandlersWithSwagger pm ntpStatus submitTx nat
   where
     -- Diffusion layer takes care of submitting transactions.

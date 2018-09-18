@@ -27,7 +27,7 @@ import           Pos.Client.Txp.Util (InputSelectionPolicy (..), TxError (..), c
                                       makeMPubKeyTxAddrs)
 import           Pos.Core (AddrSpendingData (..), Address (..), Coin, SlotId (..), addressHash,
                            coinToInteger, makePubKeyAddressBoot, unsafeIntegerToCoin)
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto (ProtocolMagic, SecretKey, WithHash (..), fakeSigner, hash, toPublic)
 import           Pos.Generator.Block.Error (BlockGenError (..))
@@ -133,7 +133,7 @@ genTxPayload pm = do
         txsN <- fromIntegral <$> getRandomR (a, a + d)
         void $ replicateM txsN genTransaction
   where
-    nm = fixedNM
+    nm = makeNetworkMagic pm
     genTransaction :: StateT GenTxData (BlockGenRandMode ext g m) ()
     genTransaction = do
         utxo <- use gtdUtxo
@@ -247,7 +247,3 @@ genPayload
     -> SlotId
     -> BlockGenRandMode ext g m ()
 genPayload pm _ = genTxPayload pm
-
-
-fixedNM :: NetworkMagic
-fixedNM = NMNothing

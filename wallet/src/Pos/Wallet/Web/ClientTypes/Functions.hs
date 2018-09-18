@@ -48,8 +48,8 @@ cIdToAddress (CId (CHash h)) = decodeTextAddress h
 -- TODO: pass extra information to this function and choose
 -- distribution based on this information. Currently it's always
 -- bootstrap era distribution.
-encToCId :: EncryptedSecretKey -> CId w
-encToCId = encodeCType . makePubKeyAddressBoot fixedNM . encToPublic
+encToCId :: NetworkMagic -> EncryptedSecretKey -> CId w
+encToCId nm = encodeCType . makePubKeyAddressBoot nm . encToPublic
 
 mergeTxOuts :: [TxOut] -> [TxOut]
 mergeTxOuts = map stick . NE.groupWith txOutAddress
@@ -128,7 +128,3 @@ toCUpdateInfo bvd ConfirmedProposalState {..} =
         cuiPositiveStake    = encodeCType cpsPositiveStake
         cuiNegativeStake    = encodeCType cpsNegativeStake
     in CUpdateInfo {..}
-
-
-fixedNM :: NetworkMagic
-fixedNM = NMNothing

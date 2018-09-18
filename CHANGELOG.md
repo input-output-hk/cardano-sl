@@ -42,6 +42,8 @@
 - The creation of mnemonic doesn't throw anymore when provided words outside of the BIP39 English dictionnary.
   Instead, it returns an error value gracefully (CO-325)
 
+- Response from `JSONValidationError` are now also encoded inline (instead of a pretty-encoding with newlines) (DDW-318)
+
 ### Improvements
 
 - Friendly error mistakes from deserializing invalid addresses instead of brutal 500 (CBR-283)

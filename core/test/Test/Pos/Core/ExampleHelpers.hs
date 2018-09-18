@@ -25,6 +25,7 @@ module Test.Pos.Core.ExampleHelpers
         , exampleGenesisAvvmBalances0
         , exampleGenesisAvvmBalances1
         , exampleGenesisAvvmBalances2
+        , exampleGenesisConfiguration_GCSpec0YesNetworkMagic
         , exampleGenesisConfiguration_GCSpec0
         , exampleGenesisConfiguration_GCSpec1
         , exampleGenesisConfiguration_GCSpec2
@@ -41,6 +42,7 @@ module Test.Pos.Core.ExampleHelpers
         , exampleLightDlgIndices
         , exampleOpening
         , exampleOpeningsMap
+        , exampleGenesisProtocolConstants0YesNetworkMagic
         , exampleGenesisProtocolConstants0
         , exampleGenesisProtocolConstants1
         , exampleGenesisProtocolConstants2
@@ -743,6 +745,16 @@ exampleGenesisConfiguration_GCSrc :: GenesisConfiguration
 exampleGenesisConfiguration_GCSrc =
     GCSrc "dRaMwdYsH3QA3dChe" (abstractHash (Raw "Test"))
 
+exampleGenesisConfiguration_GCSpec0YesNetworkMagic :: GenesisConfiguration
+exampleGenesisConfiguration_GCSpec0YesNetworkMagic =
+    GCSpec $ UnsafeGenesisSpec
+        exampleGenesisAvvmBalances0
+        exampleSharedSeed0
+        exampleGenesisDelegation
+        exampleBlockVersionData0
+        exampleGenesisProtocolConstants0YesNetworkMagic
+        exampleGenesisInitializer0
+
 exampleGenesisConfiguration_GCSpec0 :: GenesisConfiguration
 exampleGenesisConfiguration_GCSpec0 =
     GCSpec $ UnsafeGenesisSpec
@@ -950,11 +962,20 @@ exampleGenesisDelegation = UnsafeGenesisDelegation (HM.fromList
     pskDelChainCode = CC.ChainCode (hexToBS "55163b178e999b9fd50637b2edab8c85\
                                             \8a879ac3c4bd3e610095419a19696573")
 
+exampleGenesisProtocolConstants0YesNetworkMagic :: GenesisProtocolConstants
+exampleGenesisProtocolConstants0YesNetworkMagic = GenesisProtocolConstants
+    { gpcK = 37
+    , gpcProtocolMagic = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 1783847074
+                                       , getRequiresNetworkMagic = NMMustBeNothing
+                                       }
+    , gpcVssMaxTTL = VssMaxTTL {getVssMaxTTL = 1477558317}
+    , gpcVssMinTTL = VssMinTTL {getVssMinTTL = 744040476}}
+
 exampleGenesisProtocolConstants0 :: GenesisProtocolConstants
 exampleGenesisProtocolConstants0 = GenesisProtocolConstants
     { gpcK = 37
     , gpcProtocolMagic = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 1783847074
-                                       , getRequiresNetworkMagic = NMMustBeNothing
+                                       , getRequiresNetworkMagic = NMMustBeJust
                                        }
     , gpcVssMaxTTL = VssMaxTTL {getVssMaxTTL = 1477558317}
     , gpcVssMinTTL = VssMinTTL {getVssMinTTL = 744040476}}
@@ -963,7 +984,7 @@ exampleGenesisProtocolConstants1 :: GenesisProtocolConstants
 exampleGenesisProtocolConstants1 = GenesisProtocolConstants
     { gpcK = 64
     , gpcProtocolMagic = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 135977977
-                                       , getRequiresNetworkMagic = NMMustBeNothing
+                                       , getRequiresNetworkMagic = NMMustBeJust
                                        }
     , gpcVssMaxTTL = VssMaxTTL {getVssMaxTTL = 126106167}
     , gpcVssMinTTL = VssMinTTL {getVssMinTTL = 310228653}}
@@ -972,7 +993,7 @@ exampleGenesisProtocolConstants2 :: GenesisProtocolConstants
 exampleGenesisProtocolConstants2 = GenesisProtocolConstants
     { gpcK = 2
     , gpcProtocolMagic = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 1780893186
-                                       , getRequiresNetworkMagic = NMMustBeNothing
+                                       , getRequiresNetworkMagic = NMMustBeJust
                                        }
     , gpcVssMaxTTL = VssMaxTTL {getVssMaxTTL = 402296078}
     , gpcVssMinTTL = VssMinTTL {getVssMinTTL = 1341799941}}

@@ -12,12 +12,14 @@ import           Pos.Aeson.Genesis ()
 import           Test.Pos.Core.ExampleHelpers (exampleAddress, exampleAddress1, exampleAddress2,
                                                exampleAddress3, exampleAddress4,
                                                exampleGenesisConfiguration_GCSpec0,
+                                               exampleGenesisConfiguration_GCSpec0YesNetworkMagic,
                                                exampleGenesisConfiguration_GCSpec1,
                                                exampleGenesisConfiguration_GCSpec2,
                                                exampleGenesisConfiguration_GCSrc,
                                                exampleGenesisData0, exampleGenesisData1,
                                                exampleGenesisData2,
                                                exampleGenesisProtocolConstants0,
+                                               exampleGenesisProtocolConstants0YesNetworkMagic,
                                                exampleGenesisProtocolConstants1,
                                                exampleGenesisProtocolConstants2, feedPM)
 import           Test.Pos.Core.Gen (genAddress, genBlockVersionData, genByte, genCoin,
@@ -82,8 +84,8 @@ roundTripAddressBuildable =
 golden_GenesisConfiguration_GCSpec0 :: Property
 golden_GenesisConfiguration_GCSpec0 =
     goldenTestJSON
-        exampleGenesisConfiguration_GCSpec0
-            "test/golden/json/GenesisConfiguration_GCSpec0"
+        exampleGenesisConfiguration_GCSpec0YesNetworkMagic
+            "test/golden/json/GenesisConfiguration_GCSpec0_YesNetworkMagic"
 
 -- Test only decoding (for ensuring backwards compatibility with
 -- old GenesisConfiguration format).
@@ -240,8 +242,8 @@ roundTripEpochIndex = eachOf 1000 genEpochIndex roundTripsAesonBuildable
 golden_GenesisProtocolConstants0 :: Property
 golden_GenesisProtocolConstants0 =
     goldenTestJSON
-        exampleGenesisProtocolConstants0
-            "test/golden/json/GenesisProtocolConstants0"
+        exampleGenesisProtocolConstants0YesNetworkMagic
+            "test/golden/json/GenesisProtocolConstants0_YesNetworkMagic"
 
 -- Test only decoding (for ensuring backwards compatibility with
 -- old GenesisProtocolConstants format).

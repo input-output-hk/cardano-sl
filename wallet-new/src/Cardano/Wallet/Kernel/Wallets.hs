@@ -384,7 +384,15 @@ updatePassword pw hdRootId oldPassword newPassword = do
                                -- was set.
                                -- Fix this properly as part of [CBR-404].
                                lastUpdateNow <- InDb <$> getCurrentTimestamp
-                               let hasSpendingPassword = HD.HasSpendingPassword lastUpdateNow
+
+                               -- There is no such thing as "removing" the spending password.
+                               -- However, it can be set to the empty string. We check for that
+                               -- here and update 'hasSpendingPassword' on 'HdRoot' accordingly.
+                               let hasSpendingPassword =
+                                       if newPassword == emptyPassphrase
+                                       then HD.NoSpendingPassword
+                                       else HD.HasSpendingPassword lastUpdateNow
+
                                res <- update' (pw ^. wallets)
                                               (UpdateHdRootPassword hdRootId hasSpendingPassword)
                                case res of

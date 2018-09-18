@@ -38,6 +38,9 @@ import           System.Directory (getTemporaryDirectory, removeFile)
 import           System.IO (hClose, openTempFile)
 
 import           Pos.Crypto (EncryptedSecretKey, hash)
+import           Pos.Util.UserPublic () --UserSecret, getUSPath, isEmptyUserSecret,
+                     --readUserSecret, takeUserSecret, usKeys, usWallet,
+                     --writeRaw, writeUserSecretRelease, _wusRootKey)
 import           Pos.Util.UserSecret (UserSecret, getUSPath, isEmptyUserSecret,
                      readUserSecret, takeUserSecret, usKeys, usWallet,
                      writeRaw, writeUserSecretRelease, _wusRootKey)

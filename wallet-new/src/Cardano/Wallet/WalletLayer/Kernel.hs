@@ -67,6 +67,7 @@ bracketPassiveWallet mode logFunction keystore node f = do
         , updateWallet         = Wallets.updateWallet         w
         , updateWalletPassword = Wallets.updateWalletPassword w
         , deleteWallet         = Wallets.deleteWallet         w
+        , deleteExternalWallet = Wallets.deleteExternalWallet w
         , createAccount        = Accounts.createAccount       w
         , updateAccount        = Accounts.updateAccount       w
         , deleteAccount        = Accounts.deleteAccount       w

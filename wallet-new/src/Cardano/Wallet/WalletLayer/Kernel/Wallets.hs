@@ -4,6 +4,7 @@ module Cardano.Wallet.WalletLayer.Kernel.Wallets (
     , updateWallet
     , updateWalletPassword
     , deleteWallet
+    , deleteExternalWallet
     , getWallet
     , getWallets
     , getWalletUtxos
@@ -201,7 +202,7 @@ updateWalletPassword wallet
                 Kernel.updatePassword wallet rootId oldPwd newPwd
     updateSyncState wallet (WalletIdHdRnd rootId) v1wal
 
--- | Updates the 'SpendingPassword' for this wallet.
+-- | Deletes this wallet.
 deleteWallet :: MonadIO m
              => Kernel.PassiveWallet
              -> V1.WalletId
@@ -210,6 +211,16 @@ deleteWallet wallet wId = runExceptT $ do
     rootId <- withExceptT DeleteWalletWalletIdDecodingFailed $ fromRootId wId
     withExceptT DeleteWalletError $ ExceptT $ liftIO $
       Kernel.deleteHdWallet wallet rootId
+
+-- | Deletes this external wallet.
+deleteExternalWallet :: MonadIO m
+                     => Kernel.PassiveWallet
+                     -> V1.WalletId
+                     -> m (Either DeleteWalletError ())
+deleteExternalWallet wallet wId = runExceptT $ do
+    rootId <- withExceptT DeleteWalletWalletIdDecodingFailed $ fromRootId wId
+    withExceptT DeleteWalletError $ ExceptT $ liftIO $
+      Kernel.deleteExternalHdWallet wallet rootId
 
 -- | Gets a specific wallet.
 getWallet :: MonadIO m

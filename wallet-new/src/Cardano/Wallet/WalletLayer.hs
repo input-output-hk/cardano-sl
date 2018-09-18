@@ -45,10 +45,11 @@ import           Cardano.Wallet.API.Request.Sort (SortOperations (..))
 import           Cardano.Wallet.API.Response (SliceOf (..), WalletResponse)
 import           Cardano.Wallet.API.V1.Types (Account, AccountBalance,
                      AccountIndex, AccountUpdate, Address, ForceNtpCheck,
-                     NewAccount, NewAddress, NewWallet, NodeInfo, NodeSettings,
-                     PasswordUpdate, Payment, Redemption, SpendingPassword,
-                     Transaction, V1 (..), Wallet, WalletAddress, WalletId,
-                     WalletImport, WalletUpdate)
+                     NewAccount, NewAddress, NewWallet,
+                     NodeInfo, NodeSettings, PasswordUpdate, Payment,
+                     Redemption, SpendingPassword, Transaction, V1 (..),
+                     Wallet, WalletAddress, WalletId, WalletImport,
+                     WalletUpdate)
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
@@ -395,6 +396,7 @@ data PassiveWalletLayer m = PassiveWalletLayer
                            -> PasswordUpdate
                            -> m (Either UpdateWalletPasswordError Wallet)
     , deleteWallet         :: WalletId -> m (Either DeleteWalletError ())
+    , deleteExternalWallet :: WalletId -> m (Either DeleteWalletError ())
     , getUtxos             :: WalletId
                            -> m (Either GetUtxosError [(Account, Utxo)])
     -- accounts

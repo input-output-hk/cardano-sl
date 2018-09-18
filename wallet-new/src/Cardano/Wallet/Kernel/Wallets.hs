@@ -3,6 +3,7 @@ module Cardano.Wallet.Kernel.Wallets (
     , updateHdWallet
     , updatePassword
     , deleteHdWallet
+    , deleteExternalHdWallet
     , defaultHdAccountId
     , defaultHdAddressId
     , defaultHdAddress
@@ -311,6 +312,21 @@ deleteHdWallet wallet rootId = do
             -- an 'HdRoot' without any associated keys in the keystore is
             -- unusable.
             -- Fix properly as part of [CBR-404].
+            Keystore.delete (WalletIdHdRnd rootId) (wallet ^. walletKeystore)
+            return $ Right ()
+
+deleteExternalHdWallet :: PassiveWallet
+               -> HD.HdRootId
+               -> IO (Either HD.UnknownHdRoot ())
+deleteExternalHdWallet wallet rootId = do
+    -- STEP 1: Remove the HdRoot via an acid-state transaction which will
+    --         also delete any associated accounts and addresses.
+    res <- update' (wallet ^. wallets) $ DeleteHdRoot rootId
+    case res of
+        Left err -> return (Left err)
+        Right () -> do
+            -- STEP 2: Purge the root public key from the keystore (since we
+            -- don't store root secret key for external wallets).
             Keystore.delete (WalletIdHdRnd rootId) (wallet ^. walletKeystore)
             return $ Right ()
 

@@ -60,8 +60,11 @@ newtype Update' e st a = Update' (StrictStateT st (Except e) a)
 instance Z.Zoomable (Update' e) where
   type Result (Update' e) = Z.UpdResult e
 
-  wrap   = coerce
   unwrap = coerce
+
+  -- Almost coerce, but make sure that we cannot sneak in functions that leave
+  -- the state in non-whnf.
+  wrap f = Update' $ strictStateT $ Z.getUpdResult . f
 
 mapUpdateErrors :: (e -> e') -> Update' e st a -> Update' e' st a
 mapUpdateErrors f (Update' upd) = Update' $

@@ -11,6 +11,7 @@ import           Universum hiding (State)
 
 import           Control.Concurrent.MVar (modifyMVar_)
 import           Data.Acid.Advanced (update')
+import qualified Data.Map.Strict as Map
 
 import           Pos.Crypto (EncryptedSecretKey)
 
@@ -57,13 +58,16 @@ applyBlock pw@PassiveWallet{..} b = do
     k <- Node.getSecurityParameter _walletNode
     ((ctxt, blocksByAccount), metas) <- prefilterBlock' pw b
     -- apply block to all Accounts in all Wallets
-    mConfirmed <- update' _wallets $ ApplyBlock k ctxt blocksByAccount
-    case mConfirmed of
-      Left  err       -> return $ Left err
-      Right confirmed -> do
-        modifyMVar_ _walletSubmission $ return . Submission.remPending confirmed
-        mapM_ (putTxMeta _walletMeta) metas
-        return $ Right ()
+    if Map.null blocksByAccount
+      then return $ Right () -- Nothing to do (avoid writing to DB log)
+      else do
+        mConfirmed <- update' _wallets $ ApplyBlock k ctxt blocksByAccount
+        case mConfirmed of
+          Left  err       -> return $ Left err
+          Right confirmed -> do
+            modifyMVar_ _walletSubmission $ return . Submission.remPending confirmed
+            mapM_ (putTxMeta _walletMeta) metas
+            return $ Right ()
 
 -- | Switch to a new fork
 --

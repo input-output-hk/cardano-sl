@@ -317,6 +317,11 @@ instance DSL.Hash h Addr => Interpret Abstract2Cardano h (Block h Addr) where
         let updPayload = def
 
         -- figure out who needs to sign the block
+        --
+        -- TODO: I think we shouldn't use record wild cards as it makes the
+        -- code hard to understand (where do the bindings came from), and also
+        -- it implicitly introduce bindings that we don't need (which can
+        -- conflict with existing names in the current name space).
         BlockSignInfo{..} <- asks $ blockSignInfoForSlot leaders slotId
 
         pm <- asks magic

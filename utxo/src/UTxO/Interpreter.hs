@@ -257,6 +257,12 @@ pushCheckpoint f = do
 -- and a target language.
 class Interpretation i where
   -- | Denotes an interpretation context, typically a monad transformer
+  --
+  -- - The first kind (* -> *) usually represents hash functions.
+  -- - The second kind usually represents error types.
+  -- - The third kind usually represents monad instances.
+  -- - The fourth kind usually represents source types (the source of the
+  --   translation).
   type IntCtx i :: (* -> *) -> * -> (* -> *) -> * -> *
 
 data DSL2Cardano

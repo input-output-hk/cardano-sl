@@ -1,6 +1,11 @@
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE RecordWildCards #-}
 
 -- | monitor log files for max age and max size
+
+#if !defined(mingw32_HOST_OS)
+#define POSIX
+#endif
 
 module Pos.Util.Log.Rotator
        ( cleanupRotator
@@ -11,20 +16,25 @@ module Pos.Util.Log.Rotator
 import           Universum
 
 import           Control.Exception.Safe (Exception (..), catchIO)
-
 import qualified Data.List.NonEmpty as NE
 import           Data.Time (UTCTime, addUTCTime, diffUTCTime, getCurrentTime,
                      parseTimeM)
 import           Data.Time.Format (defaultTimeLocale, formatTime)
-
-import           Pos.Util.Log.Internal (FileDescription (..))
-import           Pos.Util.Log.LoggerConfig
-
 import           System.Directory (listDirectory, removeFile)
 import           System.FilePath ((</>))
 import           System.IO (BufferMode (LineBuffering), Handle,
                      IOMode (WriteMode), hFileSize, hSetBuffering, stdout)
 
+import           Pos.Util.Log.Internal (FileDescription (..))
+import           Pos.Util.Log.LoggerConfig
+
+#ifdef POSIX
+import           System.Directory (createFileLink)
+import           System.FilePath (takeFileName)
+#endif
+
+-- Because of the System.Directory and System.FilePath
+{-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
 
 -- | format of a timestamp
 tsformat :: String
@@ -39,7 +49,7 @@ nameLogFile FileDescription{..} = do
 
 -- | open a new log file
 evalRotator :: RotationParameters -> FileDescription -> IO (Handle, Integer, UTCTime)
-evalRotator rotation fdesc = do
+evalRotator rotation fdesc@FileDescription{..} = do
     let maxAge   = toInteger $ rotation ^. rpMaxAgeHours
         maxSize  = toInteger $ rotation ^. rpLogLimitBytes
 
@@ -50,6 +60,22 @@ evalRotator rotation fdesc = do
                    prtoutException fpath e
                    return stdout    -- fallback to standard output in case of exception
     hSetBuffering hdl LineBuffering
+
+#ifdef POSIX
+    -- restrict symbolic links only for unix-like OS
+    let symLinkPath = prefixpath </> filename
+    -- delete a symlink if already exists and create a new
+    -- one that points to the correct file.
+    (removeFile symLinkPath) `catchIO`
+        \e -> case isDoesNotExistError e of
+            True  -> putStrLn ("No other symlinks already existed. Creating a new one, named:"
+                        ++ show symLinkPath)
+            False -> prtoutException symLinkPath e
+    catchIO (createFileLink fpath symLinkPath) (\e ->
+        do
+            putStrLn $ "error while creating symlink: " ++ symLinkPath ++ " for " ++ fpath
+            putStrLn $ "exception: " ++ displayException e)
+#endif
 
     -- compute next rotation time
     now <- getCurrentTime

@@ -39,6 +39,7 @@ packages:
 - node-ipc
 - faucet
 - acid-state-exts
+- x509
 
 # IOHK projects:
 
@@ -321,3 +322,4 @@ ghc-options:
   cardano-sl-wallet:      -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-wallet-new:  -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-node-ipc:    -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-x509:        -Wall -Werror -Wcompat -fwarn-redundant-constraints

@@ -1,26 +1,22 @@
-{-# LANGUAGE RecordWildCards #-}
-
 -- | Generate X.509 Certificates for TLS Client/Server authentication
 
 module Main where
 
 import           Universum
 
-import           Crypto.PubKey.RSA (PrivateKey, PublicKey)
-import           Data.Hourglass (Minutes (..), Period (..), dateAddPeriod,
-                     timeAdd)
-import           Data.Semigroup ((<>))
-import           Data.X509 (Certificate (..), Extensions (..),
-                     PubKey (PubKeyRSA), SignedCertificate)
-import           Options.Applicative
-import           System.FilePath.Posix (FilePath, (</>))
-import           Time.System (dateCurrent)
-import           Time.Types (DateTime (..))
-
-import           Configuration
-import           Data.X509.Extra
-
 import qualified Data.List.NonEmpty as NonEmpty
+import           Data.Semigroup ((<>))
+import           Options.Applicative (Parser, execParser, fullDesc, header,
+                     help, helper, info, long, metavar, progDesc, short,
+                     strOption, (<**>))
+import           System.FilePath.Posix (FilePath, (</>))
+
+import           Cardano.X509.Configuration (CertDescription (..),
+                     ConfigurationKey (..), DirConfiguration (..),
+                     ServerConfiguration (..), TLSConfiguration (..),
+                     decodeConfigFile, fromConfiguration, genCertificate)
+import           Data.X509.Extra (failIfReasons, genRSA256KeyPair,
+                     validateSHA256, writeCertificate, writeCredentials)
 
 
 data Command = Command
@@ -29,92 +25,64 @@ data Command = Command
     , configFile     :: FilePath         -- ^ External Config file
     }
 
+
+-- | opt-applicative Parser for the 'Command' above
+cmdParser :: Parser Command
+cmdParser = Command
+    <$> (DirConfiguration
+        <$> strOption (long "server-out-dir" <> metavar "FILEPATH"
+            <> help "Output directory for Server certificate & private key")
+
+        <*> strOption (long "clients-out-dir" <> metavar "FILEPATH"
+            <> help "Output directory for Client certificate(s) & private key")
+
+        <*> optional (strOption (long "ca-out-dir" <> metavar "FILEPATH"
+            <> help "Optional, output directory for the CA certificate & private key"))
+    )
+
+    <*> (ConfigurationKey
+        <$> strOption (short 'k' <> long "configuration-key" <> metavar "KEY"
+            <> help "Configuration key within the config file (e.g. 'dev' or 'test')")
+    )
+
+    <*> strOption (short 'c' <> long "configuration-file" <> metavar "FILEPATH"
+        <> help "Configuration file describing the PKI")
+
+
 main :: IO ()
-main =
-    let
-        opts :: ParserInfo Command
-        opts =
-            info (cmdParser <**> helper)
-                ( fullDesc
-                <> header "X.509 Certificates Generation"
-                <> progDesc "Pure Haskell 'replacement' for OpenSSL to generate certificates for a TLS Private Key Infrastructure"
-                )
+main = do
+    cmd <- execParser $
+        info (cmdParser <**> helper)
+        (  fullDesc
+        <> header "X.509 Certificates Generation"
+        <> progDesc "Pure Haskell 'replacement' for OpenSSL to generate certificates for a TLS Private Key Infrastructure"
+        )
 
-        cmdParser :: Parser Command
-        cmdParser = Command
-            <$> (DirConfiguration
-                <$> strOption (long "server-out-dir" <> metavar "FILEPATH"
-                    <> help "Output directory for Server certificate & private key")
+    tlsConfig <-
+        decodeConfigFile (configKey cmd) (configFile cmd)
 
-                <*> strOption (long "clients-out-dir" <> metavar "FILEPATH"
-                    <> help "Output directory for Client certificate(s) & private key")
+    (caDesc, descs) <-
+        fromConfiguration tlsConfig (outDirectories cmd) genRSA256KeyPair <$> genRSA256KeyPair
 
-                <*> optional (strOption (long "ca-out-dir" <> metavar "FILEPATH"
-                    <> help "Optional, output directory for the CA certificate & private key"))
-            )
+    let caName =
+            certFilename caDesc
 
-            <*> (ConfigurationKey
-                <$> strOption (short 'k' <> long "configuration-key" <> metavar "KEY"
-                    <> help "Configuration key within the config file (e.g. 'dev' or 'test')")
-            )
+    let (serverHost, serverPort) =
+            (NonEmpty.head $ serverAltNames $ tlsServer tlsConfig, "")
 
-            <*> strOption (short 'c' <> long "configuration-file" <> metavar "FILEPATH"
-                <> help "Configuration file describing the PKI")
-    in do
-        Command{..} <-
-            execParser opts
+    (caKey, caCert) <-
+        genCertificate caDesc
 
-        tlsConfig <-
-            decodeConfigFile configKey configFile
+    case certOutDir caDesc of
+        Nothing  -> return ()
+        Just dir -> writeCredentials (dir </> caName) (caKey, caCert)
 
-        (caDesc, descs) <-
-            fromConfiguration tlsConfig outDirectories genRSA256KeyPair <$> genRSA256KeyPair
-
-        let caName =
-                certFilename caDesc
-
-        let (serverHost, serverPort) =
-                (NonEmpty.head $ serverAltNames $ tlsServer tlsConfig, "")
-
-        (caKey, caCert) <-
-            genCertificate caDesc
-
-        case certOutDir caDesc of
-            Nothing  -> return ()
-            Just dir -> writeCredentials (dir </> caName) (caKey, caCert)
-
-        forM_ descs $ \desc@CertDescription{..} -> do
-            (key, cert) <- genCertificate desc
-            validateSHA256 caCert certChecks (serverHost, serverPort) cert >>= failIfReasons
-            writeCredentials (certOutDir </> certFilename) (key, cert)
-            writeCertificate (certOutDir </> caName)       caCert
-
-
--- | Generate & sign a certificate from a certificate description
-genCertificate
-    :: CertDescription IO PublicKey PrivateKey filename
-    -> IO (PrivateKey, SignedCertificate)
-genCertificate CertDescription{..} = do
-    ((pub, priv), now) <- (,) <$> certGenKeys <*> dateCurrent
-
-    let CertConfiguration{..} = certConfiguration
-    let cert = Certificate
-            { certVersion      = 2
-            , certSerial       = fromIntegral certSerial
-            , certSignatureAlg = signAlgRSA256
-            , certValidity     = (addMinutes (-1) now, addDays certExpiryDays now)
-            , certPubKey       = PubKeyRSA pub
-            , certExtensions   = Extensions (Just certExtensions)
-            , certIssuerDN     = certIssuer
-            , certSubjectDN    = certSubject
-            }
-
-    (priv,) <$> signCertificate certSigningKey cert
-  where
-    addDays :: Int -> DateTime -> DateTime
-    addDays n time@(DateTime dtDate _) =
-        time { dtDate = dateAddPeriod dtDate (mempty { periodDays = n }) }
-
-    addMinutes :: Int -> DateTime -> DateTime
-    addMinutes n time =
-        timeAdd time (Minutes $ fromIntegral n)
+    forM_ descs $ \desc -> do
+        (key, cert) <- genCertificate desc
+        failIfReasons =<< validateSHA256
+            caCert
+            (certChecks desc)
+            (serverHost, serverPort)
+            cert
+        writeCredentials (certOutDir desc </> certFilename desc) (key, cert)
+        writeCertificate (certOutDir desc </> caName) caCert

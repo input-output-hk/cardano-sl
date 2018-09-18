@@ -1,0 +1,48 @@
+name:                cardano-sl-x509
+version:             1.0.0
+synopsis:            Tool-suite for generating x509 certificates specialized for RSA with SHA-256
+description:         See README
+homepage:            https://github.com/input-output-hk/cardano-sl/x509/README.md
+author:              IOHK Engineering Team
+maintainer:          operations@iohk.io
+copyright:           2018 IOHK
+license:             MIT
+license-file:        LICENSE
+category:            Data
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+
+library
+  default-language:   Haskell2010
+  default-extensions: DeriveGeneric
+                      NoImplicitPrelude
+                      OverloadedStrings
+                      TupleSections
+                      TypeApplications
+
+  hs-source-dirs:     src
+
+  build-depends: base >=4.7 && <5
+               , aeson
+               , asn1-encoding
+               , asn1-types
+               , base64-bytestring
+               , bytestring
+               , cryptonite
+               , data-default-class
+               , filepath
+               , hourglass
+               , ip
+               , network-transport
+               , optparse-applicative
+               , text
+               , universum
+               , unordered-containers
+               , x509
+               , x509-store
+               , x509-validation
+               , yaml
+
+  exposed-modules: Data.X509.Extra
+                   Cardano.X509.Configuration

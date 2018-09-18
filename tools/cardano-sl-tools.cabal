@@ -465,29 +465,12 @@ executable cardano-blockchain-analyser
 executable cardano-x509-certificates
   hs-source-dirs: src/gencerts
   main-is: Main.hs
-  other-modules: Data.X509.Extra
-               , Configuration
 
   build-depends: base >=4.7 && <5
-               , aeson
-               , asn1-encoding
-               , asn1-types
-               , base64-bytestring
-               , bytestring
-               , cryptonite
-               , data-default-class
+               , cardano-sl-x509
                , filepath
-               , hourglass
-               , ip
-               , network-transport
                , optparse-applicative
-               , text
                , universum
-               , unordered-containers
-               , x509
-               , x509-store
-               , x509-validation
-               , yaml
 
   default-extensions:   DeriveGeneric
                         NoImplicitPrelude

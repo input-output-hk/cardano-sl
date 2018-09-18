@@ -1,4 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes        #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ImplicitParams             #-}
 {-# LANGUAGE InstanceSigs               #-}
@@ -18,9 +17,6 @@ module UTxO.Interpreter (
   , runIntBoot
   , runIntBoot'
     -- * Interpreter proper
-  , Interpretation(..)
-  , Interpret(..)
-  , IntRollback(..)
   , popIntCheckpoint
   , pushCheckpoint
   ) where
@@ -68,6 +64,7 @@ import           UTxO.Context
 import           UTxO.Crypto
 import qualified UTxO.DSL as DSL
 import           UTxO.IntTrans (ConIntT (..), IntCheckpoint (..),
+                     Interpretation(..), Interpret(..), IntRollback(..),
                      IntException (..), constants, createEpochBoundary, magic,
                      mkCheckpoint)
 import           UTxO.Translate
@@ -251,32 +248,11 @@ pushCheckpoint f = do
   <cardano-sl-articles/delegation/pdf/article.pdf>.
 -------------------------------------------------------------------------------}
 
--- | Gives a type for an interpretation context.
---
--- 'i' is a parameter binding interpretations for a given pair of a source
--- and a target language.
-class Interpretation i where
-  -- | Denotes an interpretation context, typically a monad transformer
-  type IntCtx i :: (* -> *) -> * -> (* -> *) -> * -> *
 
 data DSL2Cardano
 
 instance Interpretation DSL2Cardano where
   type IntCtx DSL2Cardano = IntT
-
--- | Interpretation of a source language to a target language, e.g. from
--- the UTxO DSL into Cardano.
---
--- 'fromTo' is a parameter binding interpretations for a given pair of a source
--- and a target language.
--- 'h' is a hash type.
--- 'a' is the source language's type being interpreted.
--- 'Interpreted fromTo a' is the target language's type being interpreted to.
-class Interpretation fromTo => Interpret fromTo h a where
-  type Interpreted fromTo a :: *
-
-  -- | The single method of the type class that performs the interpretation
-  int :: Monad m => a -> IntCtx fromTo h e m (Interpreted fromTo a)
 
 {-------------------------------------------------------------------------------
   Instances that read, but not update, the state
@@ -467,11 +443,6 @@ instance DSL.Hash h Addr => Interpret DSL2Cardano h (DSL.Chain h Addr) where
       flatten :: (RawResolvedBlock, Maybe GenesisBlock) -> [Block]
       flatten (b, Nothing)  = [Right (rawResolvedBlock b)]
       flatten (b, Just ebb) = [Right (rawResolvedBlock b), Left ebb]
-
--- | For convenience, we provide an event that corresponds to rollback
---
--- This makes interpreting DSL blocks and these "pseudo-DSL" rollbacks uniform.
-data IntRollback = IntRollback
 
 instance Interpret DSL2Cardano h IntRollback where
   type Interpreted DSL2Cardano IntRollback = ()

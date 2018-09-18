@@ -63,6 +63,7 @@ data WalletBackendParams = WalletBackendParams
     -- ^ The mode this node is running in.
     , walletDbOptions     :: !WalletDBOptions
     -- ^ DB-specific options.
+    , forceFullMigration  :: !Bool
     } deriving Show
 
 -- | Start up parameters for the new wallet backend
@@ -74,6 +75,10 @@ data NewWalletBackendParams = NewWalletBackendParams WalletBackendParams
 getWalletDbOptions :: NewWalletBackendParams -> WalletDBOptions
 getWalletDbOptions (NewWalletBackendParams WalletBackendParams{..}) =
     walletDbOptions
+
+getFullMigrationFlag :: NewWalletBackendParams -> Bool
+getFullMigrationFlag (NewWalletBackendParams WalletBackendParams{..}) =
+    forceFullMigration
 
 -- | A richer type to specify in which mode we are running this node.
 data RunMode = ProductionMode
@@ -139,6 +144,7 @@ walletBackendParamsParser = WalletBackendParams <$> enableMonitoringApiParser
                                                 <*> docAddressParser
                                                 <*> runModeParser
                                                 <*> dbOptionsParser
+                                                <*> forceFullMigrationParser
   where
     enableMonitoringApiParser :: Parser Bool
     enableMonitoringApiParser = switch (long "monitoring-api" <>
@@ -160,6 +166,14 @@ walletBackendParamsParser = WalletBackendParams <$> enableMonitoringApiParser
                 help "Run wallet with debug params (e.g. include \
                      \all the genesis keys in the set of secret keys)."
                )
+
+    forceFullMigrationParser :: Parser Bool
+    forceFullMigrationParser = switch $
+                          long "force-full-wallet-migration" <>
+                          help "Enforces a non-lenient migration. \
+                               \If something fails (for example a wallet fails to decode from the old format) \
+                               \migration will stop and the node will crash, \
+                               \instead of just logging the error."
 
 tlsParamsParser :: Parser (Maybe TlsParams)
 tlsParamsParser = constructTlsParams <$> certPathParser

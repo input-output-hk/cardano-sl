@@ -26,7 +26,7 @@ import           Cardano.Wallet.Kernel.Migration (migrateLegacyDataLayer)
 import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
 import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as NodeStateAdaptor
 import           Cardano.Wallet.Server.CLI (NewWalletBackendParams,
-                     getWalletDbOptions, walletDbPath)
+                     getFullMigrationFlag, getWalletDbOptions, walletDbPath)
 import           Cardano.Wallet.Server.Middlewares (throttleMiddleware,
                      withDefaultHeader)
 import qualified Cardano.Wallet.Server.Plugins as Plugins
@@ -61,7 +61,7 @@ actionWithWallet params genesisConfig walletConfig txpConfig ntpConfig nodeParam
             , Kernel.dbPathMetadata  = dbPath <> "-sqlite.sqlite3"
             })
         WalletLayer.Kernel.bracketPassiveWallet dbMode logMessage' keystore nodeState $ \walletLayer passiveWallet -> do
-            migrateLegacyDataLayer passiveWallet dbPath
+            migrateLegacyDataLayer passiveWallet dbPath (getFullMigrationFlag params)
 
             let plugs = plugins (walletLayer, passiveWallet) dbMode
 

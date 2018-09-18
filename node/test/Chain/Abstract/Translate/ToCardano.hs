@@ -8,13 +8,15 @@
 -- For instance we could point to the `UTxO.Interpreter` module.
 module Chain.Abstract.Translate.ToCardano
   (
+    -- * Needed so interpretation intstances can be used with type annotations
+    Abstract2Cardano
   ) where
 
 import           Cardano.Wallet.Kernel.Types (RawResolvedBlock,
                      RawResolvedTx (..), mkRawResolvedBlock, mkRawResolvedTx)
 import           Chain.Abstract (Block (..), Output (..), Transaction (..),
                      hash, outAddr)
-import           Control.Lens (ix, use, (%=), (.=))
+import           Control.Lens (ix, (%=), (.=))
 import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Except
 import           Data.Default (def)
@@ -36,15 +38,16 @@ import           Pos.Core.Slotting (localSlotIndexMaxBound)
 import qualified Pos.Crypto (hash)
 import           Pos.Crypto.Signing.Safe (SafeSigner (FakeSigner))
 import           Pos.DB.Block (RawPayload (..), createMainBlockPure)
-import           Universum hiding (use)
+import           Universum (use)
+import           Universum
 import           UTxO.Context (Addr, AddrInfo (..), BlockSignInfo (..),
                      blockSignInfoForSlot, resolveAddr)
 import           UTxO.Crypto (ClassifiedInputs (InputsRedeem, InputsRegular),
                      RedeemKeyPair (..), RegularKeyPair (..), SomeKeyPair,
                      TxOwnedInput, classifyInputs)
 import qualified UTxO.DSL as DSL (Hash, Input (..), Transaction, Value)
-import           UTxO.Interpreter (Interpret (..), Interpretation (..))
 import           UTxO.IntTrans (ConIntT (..), IntCheckpoint (..),
+                     Interpret (..), Interpretation (..),
                      IntException (..), constants, createEpochBoundary, magic,
                      mkCheckpoint)
 import           UTxO.Translate (TranslateT (..), mapTranslateErrors,

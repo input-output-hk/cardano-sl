@@ -55,6 +55,7 @@ import qualified Data.Map.Strict as Map
 import           Data.SafeCopy (base, deriveSafeCopy)
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
+import           Serokell.Util (listJson, mapJson)
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
 import           Pos.Chain.Txp (TxAux, TxId, Utxo)
@@ -741,6 +742,35 @@ instance Buildable NewForeignError where
         bprint ("NewForeignUnknown " % build) unknownAccount
     build (NewForeignFailed npf) =
         bprint ("NewForeignFailed " % build) npf
+
+instance Buildable (AccountUpdate e a) where
+    build AccountUpdate{..} = bprint
+        ( "AccountUpdate "
+        % "{ updateId:    " % build
+        % ", updateNew:   " % build
+        % ", updateAddrs: " % listJson
+        % ", update:      <update>"
+        % "}"
+        )
+        accountUpdateId
+        accountUpdateNew
+        accountUpdateAddrs
+
+instance Buildable AccountUpdateNew where
+    build (AccountUpdateNewUpToDate cur) = bprint
+        ( "AccountUpdateNewUpToDate "
+        % "{ cur: " % mapJson
+        % "}"
+        )
+        cur
+    build (AccountUpdateNewIncomplete cur gen) = bprint
+        ( "AccountUpdateNewUpToDate "
+        % "{ cur: " % mapJson
+        % "{ gen: " % mapJson
+        % "}"
+        )
+        cur
+        gen
 
 {-------------------------------------------------------------------------------
   Arbitrary

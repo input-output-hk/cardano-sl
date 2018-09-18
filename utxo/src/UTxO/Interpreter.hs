@@ -258,8 +258,6 @@ pushCheckpoint f = do
 class Interpretation i where
   -- | Denotes an interpretation context, typically a monad transformer
   type IntCtx i :: (* -> *) -> * -> (* -> *) -> * -> *
-  -- TODO: QUESTION: Could we add some comments about what an instance of the
-  -- kind above is supposed to represent?
 
 data DSL2Cardano
 

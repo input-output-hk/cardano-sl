@@ -132,12 +132,9 @@ instance ToJSON DistributionAmount
 data FakeUtxoCoinDistribution
     = NoDistribution
     -- ^ Do not distribute the coins.
-    | RangeDistribution
-        AddressRange
-        -- ^ Distributes to only XX addresses.
-        DistributionAmount
-        -- ^ The amount we want to distribute to those addresses.
-    -- ^ TODO(adn): For now we KISS, later we can add more type constructors
+    | RangeDistribution AddressRange DistributionAmount
+    -- ^ Distribute @DistributionAmount@ to addresses in @AddressRange@
+    --   TODO(adn): For now we KISS, later we can add more type constructors
     deriving (Show, Eq, Generic)
 
 {-
@@ -175,10 +172,10 @@ data FakeTxsHistory
     -- ^ Do not generate fake history.
     | SimpleTxsHistory
         !Integer
-        -- ^ Number of txs we want to generate.
         !NumOfOutgoingAddresses
-        -- ^ Number of outgoing addreses of a single @Tx@.
     -- ^ Simple tx history generation.
+    --   @Integer@: Number of txs we want to generate.
+    --   @NumOfOutgoingAddresses@: Number of outgoing addreses of a single @Tx@.
     -- TODO(ks): For now KISS, we can add more generation strategies.
     deriving (Show, Eq, Generic)
 

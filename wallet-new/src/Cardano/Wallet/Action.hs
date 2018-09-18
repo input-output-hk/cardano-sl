@@ -96,7 +96,7 @@ actionWithWallet params genesisConfig walletConfig txpConfig ntpConfig nodeParam
         -- Periodically compact & snapshot the acid-state database.
         , Plugins.acidStateSnapshots (view Kernel.Internal.wallets (snd w)) params dbMode
 
-        -- | A @Plugin@ to watch and store incoming update proposals
+        -- A @Plugin@ to watch and store incoming update proposals
         , Plugins.updateWatcher
         ]
 

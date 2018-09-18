@@ -262,8 +262,8 @@ newTransaction ActiveWallet{..} spendingPassword options accountId payees = runE
 -- This actually returns a function because we don`t know yet our outputs.
 createNewMeta :: HdAccountId -> TxId -> Core.Timestamp -> NonEmpty (TxIn, TxOutAux) -> NonEmpty TxOut -> Bool -> Coin -> IO PartialTxMeta
 createNewMeta hdId txId time inp out allInOurs spentInputsCoins = do
+    -- this partially applied function indicates the lack of all TxMeta at this stage.
     return $ metaForNewTx time hdId txId inp out allInOurs spentInputsCoins
-    -- ^ this partially applied function indicates the lack of all TxMeta at this stage.
 
 metaForNewTx  :: Core.Timestamp -> HdAccountId -> TxId -> NonEmpty (TxIn, TxOutAux) -> NonEmpty TxOut -> Bool -> Coin -> Bool -> Coin -> TxMeta
 metaForNewTx time accountId txId inputs outputs allInpOurs spentInputsCoins allOutOurs gainedOutputsCoins =

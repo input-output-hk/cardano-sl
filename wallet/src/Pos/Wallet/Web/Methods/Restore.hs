@@ -161,7 +161,7 @@ restoreWallet :: ( L.MonadWalletLogic ctx m
                  ) => Genesis.Config -> EncryptedSecretKey -> m CWallet
 restoreWallet genesisConfig sk = restoreWith genesisConfig $ KeyForRegular sk
 
- -- | Restore a history related to given external wallet, using its root PK.
+-- | Restore a history related to given external wallet, using its root PK.
 restoreExternalWallet :: ( L.MonadWalletLogic ctx m
                          , MonadUnliftIO m
                          , HasLens SyncQueue ctx SyncQueue

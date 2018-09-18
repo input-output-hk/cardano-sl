@@ -58,7 +58,7 @@ import qualified Pos.Util.Log.Internal as Internal
 import           Pos.Util.Log.LoggerConfig (LogHandler (..),
                      LogSecurityLevel (..), LoggerConfig (..),
                      defaultInteractiveConfiguration, defaultTestConfiguration,
-                     lcLoggerTree, lhName, ltHandlers)
+                     lcLoggerTree, lhName, ltHandlers, ltMinSeverity)
 import           System.IO.Unsafe (unsafePerformIO)
 
 import           Universum
@@ -90,12 +90,17 @@ instance CanLog IO where
         mayEnv <- Internal.getLogEnv lh
         case mayEnv of
             Nothing -> error "logging not yet initialized. Abort."
-            Just env -> Log.logItem' ()
-                                     (K.Namespace (T.split (=='.') name))
-                                     env
-                                     Nothing
-                                     (Internal.sev2klog severity)
-                                     (K.logStr msg)
+            Just env -> do
+                mayConfig <- Internal.getConfig lh
+                case mayConfig of
+                    Nothing -> error "no logging configuration. Abort."
+                    Just lc -> when (severity >= lc ^. lcLoggerTree ^. ltMinSeverity)
+                                 $ Log.logItem' ()
+                                       (K.Namespace (T.split (=='.') name))
+                                       env
+                                       Nothing
+                                       (Internal.sev2klog severity)
+                                       (K.logStr msg)
 
 type WithLogger m = (CanLog m, HasLoggerName m)
 
@@ -262,7 +267,9 @@ logItemS lhandler a ns loc sev cond msg = do
             let cfg = case maycfg of
                     Nothing -> error "No Configuration for logging found. Abort."
                     Just c  -> c
-            liftIO $ do
+            let sevmin = Internal.sev2klog $ cfg ^. lcLoggerTree ^. ltMinSeverity
+            when (sev >= sevmin)
+              $ liftIO $ do
                 item <- K.Item
                     <$> pure (K._logEnvApp le)
                     <*> pure (K._logEnvEnv le)

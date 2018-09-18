@@ -27,33 +27,25 @@ import           Control.Arrow ((&&&))
 import           Control.Lens ((%=), (.=))
 import           Control.Lens.TH (makeLenses)
 import           Data.Default (def)
-import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
-import           Data.Reflection (give)
-import           Formatting (bprint, build, shown, (%))
+import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
-import           Prelude (Show (..))
 import           Serokell.Util (listJson, mapJson)
 
-import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Resolved
 import           Cardano.Wallet.Kernel.Types
 import           Cardano.Wallet.Kernel.Util (at)
 
-import           Pos.Chain.Block (Block, BlockHeader (..), GenesisBlock,
-                     MainBlock, gbHeader, genBlockLeaders, mkGenesisBlock)
-import           Pos.Chain.Lrc (followTheSatoshi)
+import           Pos.Chain.Block (Block, BlockHeader(BlockHeaderGenesis),
+                     GenesisBlock, MainBlock)
 import           Pos.Chain.Ssc (defaultSscPayload)
-import           Pos.Chain.Txp (Utxo, txOutStake)
+import           Pos.Chain.Txp (Utxo)
 import           Pos.Chain.Update
 import           Pos.Client.Txp
 import           Pos.Core
 import           Pos.Core.Chrono
 import           Pos.Core.Delegation (DlgPayload (..))
-import           Pos.Core.Genesis (GenesisWStakeholders, gdBootStakeholders,
-                     gdProtocolConsts,
-                     genesisProtocolConstantsToProtocolConstants)
 import           Pos.Core.Txp (TxAux (..), TxId, TxIn (..), TxOut (..),
                      TxOutAux (..))
 import           Pos.Crypto

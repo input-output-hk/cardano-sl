@@ -14,10 +14,14 @@ let
   iohkPkgs = import ./../../.. { inherit config system pkgs gitrev; };
 
   cardanoDeps = with iohkPkgs; [ cardano-sl-tools cardano-sl-wallet-new ];
-  demoClusterDeps = with pkgs; [ jq coreutils curl gnused openssl ];
+  demoClusterDeps = with pkgs; [ jq coreutils curl gnused openssl time ];
   allDeps =  demoClusterDeps ++ cardanoDeps;
 
-  wallet = pkgs.callPackage ../../launch/connect-to-cluster { inherit gitrev stateDir environment; };
+  wallet = pkgs.callPackage ../../launch/connect-to-cluster {
+    inherit gitrev stateDir environment;
+    # This will limit heap size to 1GB, along with the usual RTS options.
+    ghcRuntimeArgs = "-N2 -qg -A1m -I0 -T -M1G";
+  };
 
 in
   pkgs.writeScript "acceptance-tests-${environment}" ''
@@ -46,7 +50,7 @@ in
 
     ${utf8LocaleSetting}
     echo Launching wallet node: ${wallet}
-    ${wallet} &> ${stateDir}/logs/wallet.log &
+    ${pkgs.time}/bin/time -v ${wallet} &> ${stateDir}/logs/wallet.log &
     wallet_pid=$!
 
     start_time=$(date +%s)
@@ -75,7 +79,15 @@ in
       fi
 
       if ! kill -0 $wallet_pid; then
-        echo "Wallet is no longer running -- exiting"
+        echo
+        echo "***"
+        echo "*** Here are the last 200 lines of ${stateDir}/logs/wallet.log"
+        echo "***"
+        tail -n200 ${stateDir}/logs/wallet.log
+        echo
+        echo "***"
+        echo "*** Wallet is no longer running -- exiting"
+        echo "***"
         exit 1
       fi
     done

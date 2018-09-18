@@ -14532,7 +14532,10 @@
     "ftsSeed": "76617361206f7061736120736b6f766f726f64612047677572646120626f726f64612070726f766f6461",
     "protocolConsts": {
         "k": 2160,
-        "protocolMagic": 764824073,
+        "protocolMagic": {
+            "pm": 764824073,
+            "requiresNetworkMagic": "NMMustBeNothing"
+        },
         "vssMaxTTL": 6,
         "vssMinTTL": 2
     },

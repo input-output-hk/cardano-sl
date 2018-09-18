@@ -14461,7 +14461,10 @@
     "nonAvvmBalances": {},
     "protocolConsts": {
         "k": 2160,
-        "protocolMagic": 633343913,
+        "protocolMagic": {
+            "pm": 633343913,
+            "requiresNetworkMagic": "NMMustBeNothing"
+        },
         "vssMaxTTL": 6,
         "vssMinTTL": 2
     },

@@ -14774,7 +14774,14 @@ mainnet_full: &mainnet_full
     genesis:
       src:
         file: mainnet-genesis.json
-        hash: 5f20df933584822601f9e3f8c024eb5eb252fe8cefb24d1317dc3d432e940ebb
+        hash: 204beb98e6589cdc5cbc98b99a62fdc877dd01c35c66f6d4f85a576c949cc018
+      spec:
+        <<: *mainnet_base_spec
+        protocolConstants:
+          <<: *mainnet_base_protocolConstants
+          protocolMagic:
+            pm: 764824073
+            requiresNetworkMagic: NMMustBeNothing
 
 mainnet_wallet_win64: &mainnet_wallet_win64
   <<: *mainnet_full
@@ -14898,7 +14905,7 @@ mainnet_dryrun_full: &mainnet_dryrun_full
     genesis:
       src:
         file: mainnet-genesis-dryrun-with-stakeholders.json
-        hash: c6a004d3d178f600cd8caa10abbebe1549bef878f0665aea2903472d5abf7323
+        hash: 5ef5266386a01f598dfa9de92c2bfc655db1cb522ec7c76463b9fa61d1cd5c16
 
 mainnet_dryrun_wallet_win64: &mainnet_dryrun_wallet_win64
   <<: *mainnet_dryrun_full

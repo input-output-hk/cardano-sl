@@ -13,9 +13,10 @@ module Chain.Abstract.Translate.ToCardano
   ) where
 
 import           Cardano.Wallet.Kernel.Types (RawResolvedBlock,
-                     RawResolvedTx (..), mkRawResolvedBlock, mkRawResolvedTx)
-import           Chain.Abstract (Block (..), Output (..), Transaction (..),
-                     hash, outAddr)
+                     RawResolvedTx (..), mkRawResolvedBlock, mkRawResolvedTx,
+                     rawResolvedBlock)
+import           Chain.Abstract (Block (..), Chain, Output (..),
+                     Transaction (..), hash, outAddr)
 import           Control.Lens (ix, (%=), (.=))
 import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Except
@@ -24,6 +25,7 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import           Pos.Chain.Block (BlockHeader, GenesisBlock, MainBlock)
+import qualified Pos.Chain.Block as PosChain (Block)
 import           Pos.Chain.Ssc (defaultSscPayload)
 import           Pos.Chain.Txp (TxAux (..), TxId, TxIn (..), TxOut (..),
                      TxOutAux (..))
@@ -48,8 +50,8 @@ import           UTxO.Crypto (ClassifiedInputs (InputsRedeem, InputsRegular),
 import qualified UTxO.DSL as DSL (Hash, Input (..), Transaction, Value)
 import           UTxO.IntTrans (ConIntT (..), IntCheckpoint (..),
                      Interpret (..), Interpretation (..),
-                     IntException (..), constants, createEpochBoundary, magic,
-                     mkCheckpoint)
+                     IntException (..), IntRollback (..), constants,
+                     createEpochBoundary, magic, mkCheckpoint)
 import           UTxO.Translate (TranslateT (..), mapTranslateErrors,
                      translateNextSlot, withConfig)
 
@@ -153,6 +155,14 @@ inpSpentOutput' (DSL.Input h idx) =  do
 {-------------------------------------------------------------------------------
   Dealing with checkpoints
 -------------------------------------------------------------------------------}
+
+-- | Pop off a checkpoint (in response to a rollback event)
+popIntCheckpoint :: Monad m => IntT h e m ()
+popIntCheckpoint = do
+    st <- get
+    case st ^. icCheckpoints of
+      _c :| []     -> throwError $ Left IntCannotRollback
+      _c :| c : cs -> put $ st & icCheckpoints .~ c :| cs
 
 -- | Push a new checkpoint
 --
@@ -344,3 +354,22 @@ instance DSL.Hash h Addr => Interpret Abstract2Cardano h (Block h Addr) where
 
       -- TODO: Get this value from somewhere rather than hardcoding it
       blockSizeLimit = 2 * 1024 * 1024 -- 2 MB
+
+instance DSL.Hash h Addr => Interpret Abstract2Cardano h (Chain h Addr) where
+  type Interpreted Abstract2Cardano (Chain h Addr) = OldestFirst [] PosChain.Block
+
+  int :: forall e m. Monad m
+      => Chain h Addr -> IntT h e m (OldestFirst [] PosChain.Block)
+  int (OldestFirst blocks) =
+      OldestFirst . concatMap flatten <$> mapM (int @Abstract2Cardano) blocks
+    where
+      flatten :: (RawResolvedBlock, Maybe GenesisBlock) -> [PosChain.Block]
+      flatten (b, Nothing)  = [Right (rawResolvedBlock b)]
+      flatten (b, Just ebb) = [Right (rawResolvedBlock b), Left ebb]
+
+
+instance Interpret Abstract2Cardano h IntRollback where
+  type Interpreted Abstract2Cardano IntRollback = ()
+
+  int :: Monad m => IntRollback -> IntT h e m ()
+  int IntRollback = popIntCheckpoint

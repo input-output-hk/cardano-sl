@@ -14815,11 +14815,48 @@ mainnet_wallet_linux64: &mainnet_wallet_linux64
 ##                                                                          ##
 ##############################################################################
 
-testnet_full: &testnet_full
+# Should be used to generate genesis
+testnet_launch: &testnet_launch
   <<: *mainnet_base
-  core: &testnet_full_core
+  core: &testnet_gen_core
     <<: *mainnet_base_core
+    genesis: &testnet_gen_genesis
+      <<: *mainnet_base_genesis
+      spec: &testnet_gen_spec
+        <<: *mainnet_base_spec
+        protocolConstants:
+          k: 2160
+          protocolMagic:
+            pm: 1097911063
+            requiresNetworkMagic: NMMustBeJust
+          vssMinTTL: 2
+          vssMaxTTL: 6
+        avvmDistr: {}
+        initializer:
+          testBalance:
+            poors:        100
+            richmen:      7
+            richmenShare: 0.95
+            totalBalance: 42000000000000000 # 42e9 ADA
+            useHDAddresses: True
+          fakeAvvmBalance:
+            count: 100
+            oneBalance: 20000000000000 # 2e7 ADA
+          avvmBalanceFactor: 1
+          useHeavyDlg: True
+          seed: 0 # should be overridden using --configuration-seed
+        blockVersionData:
+          <<: *mainnet_base_blockVersionData
+          maxHeaderSize:      2000
+          maxProposalSize:   70000 # 70KB
+          maxTxSize:         65536 # 64KiB
+
+testnet_full: &testnet_full
+  <<: *testnet_launch
+  core: &testnet_full_core
+    <<: *testnet_gen_core
     genesis:
+      <<: *testnet_gen_genesis
       src:
         file: testnet-genesis.json
         hash: f0204568043f6cb8068a81ddc1e9ca575615aed12a3a815678afc5ca12a94eb8
@@ -14860,41 +14897,6 @@ testnet_wallet_linux64: &testnet_wallet_linux64
     <<: *testnet_wallet_update
     systemTag: linux
 
-# Should be used to generate genesis
-testnet_launch: &testnet_launch
-  <<: *testnet_full
-  core: &testnet_gen_core
-    <<: *testnet_full_core
-    genesis:
-      <<: *mainnet_base_genesis
-      spec:
-        <<: *mainnet_base_spec
-        protocolConstants:
-          k: 2160
-          protocolMagic:
-            pm: 1097911063
-            requiresNetworkMagic: NMMustBeJust
-          vssMinTTL: 2
-          vssMaxTTL: 6
-        avvmDistr: {}
-        initializer:
-          testBalance:
-            poors:        100
-            richmen:      7
-            richmenShare: 0.95
-            totalBalance: 42000000000000000 # 42e9 ADA
-            useHDAddresses: True
-          fakeAvvmBalance:
-            count: 100
-            oneBalance: 20000000000000 # 2e7 ADA
-          avvmBalanceFactor: 1
-          useHeavyDlg: True
-          seed: 0 # should be overridden using --configuration-seed
-        blockVersionData:
-          <<: *mainnet_base_blockVersionData
-          maxHeaderSize:      2000
-          maxProposalSize:   70000 # 70KB
-          maxTxSize:         65536 # 64KiB
 
 ##############################################################################
 ##                                                                          ##

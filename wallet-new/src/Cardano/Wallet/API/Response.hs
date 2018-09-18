@@ -25,7 +25,6 @@ import           Universum (Buildable, Exception, Text, decodeUtf8, toText,
 
 import           Control.Lens hiding (Indexable)
 import           Data.Aeson (FromJSON (..), ToJSON (..), eitherDecode, encode)
-import           Data.Aeson.Encode.Pretty (encodePretty)
 import qualified Data.Aeson.Options as Serokell
 import           Data.Aeson.TH
 import qualified Data.Char as Char
@@ -225,7 +224,7 @@ data ValidJSON deriving Typeable
 
 instance FromJSON a => MimeUnrender ValidJSON a where
     mimeUnrender _ bs = case eitherDecode bs of
-        Left err -> Left $ decodeUtf8 $ encodePretty (JSONValidationFailed $ toText err)
+        Left err -> Left $ decodeUtf8 $ encode (JSONValidationFailed $ toText err)
         Right v  -> return v
 
 instance Accept ValidJSON where

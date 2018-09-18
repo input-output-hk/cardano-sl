@@ -14850,6 +14850,7 @@ formatting
 generic-arbitrary
 hspec
 lens
+log-warper
 mtl
 network-transport
 network-transport-inmemory

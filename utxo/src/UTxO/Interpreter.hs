@@ -256,7 +256,12 @@ pushCheckpoint f = do
   <cardano-sl-articles/delegation/pdf/article.pdf>.
 -------------------------------------------------------------------------------}
 
+-- | Gives a type for an interpretation context.
+--
+-- 'i' is a parameter binding interpretations for a given pair of a source
+-- and a target language.
 class Interpretation i where
+  -- | Denotes an interpretation context, typically a monad transformer
   type IntCtx i :: (* -> *) -> * -> (* -> *) -> * -> *
 
 data DSL2Cardano

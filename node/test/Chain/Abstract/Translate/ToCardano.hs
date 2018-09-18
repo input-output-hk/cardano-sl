@@ -18,7 +18,7 @@ import           Chain.Abstract
                  , Transaction(..)
                  , hash
                  , outAddr )
-import           Control.Lens ((%=), (.=), ix)
+import           Control.Lens ((%=), (.=), ix, use)
 import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Except
 import           Data.Default (def)
@@ -52,7 +52,7 @@ import           Pos.Core.Slotting (localSlotIndexMaxBound)
 import           Pos.Crypto.Signing.Safe (SafeSigner(FakeSigner))
 import qualified Pos.Crypto (hash)
 import           Pos.DB.Block (RawPayload(..), createMainBlockPure)
-import           Universum
+import           Universum hiding (use)
 import           UTxO.Context
                  ( Addr
                  , AddrInfo(..)

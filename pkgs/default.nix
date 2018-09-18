@@ -17853,6 +17853,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-util
 , cardano-sl-util-test
 , cardano-sl-wallet
+, cardano-sl-x509
 , cassava
 , cereal
 , conduit
@@ -17970,6 +17971,7 @@ cardano-sl-networking
 cardano-sl-node-ipc
 cardano-sl-util
 cardano-sl-wallet
+cardano-sl-x509
 cereal
 conduit
 connection
@@ -18198,8 +18200,8 @@ license = stdenv.lib.licenses.mit;
 , filepath
 , hourglass
 , ip
-, network-transport
 , optparse-applicative
+, QuickCheck
 , stdenv
 , text
 , universum
@@ -18232,7 +18234,6 @@ data-default-class
 filepath
 hourglass
 ip
-network-transport
 optparse-applicative
 text
 universum
@@ -18241,6 +18242,11 @@ x509
 x509-store
 x509-validation
 yaml
+];
+testHaskellDepends = [
+base
+QuickCheck
+universum
 ];
 doHaddock = false;
 homepage = "https://github.com/input-output-hk/cardano-sl/x509/README.md";

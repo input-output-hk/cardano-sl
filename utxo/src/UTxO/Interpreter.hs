@@ -251,7 +251,12 @@ pushCheckpoint f = do
   <cardano-sl-articles/delegation/pdf/article.pdf>.
 -------------------------------------------------------------------------------}
 
+-- | Gives a type for an interpretation context.
+--
+-- 'i' is a parameter binding interpretations for a given pair of a source
+-- and a target language.
 class Interpretation i where
+  -- | Denotes an interpretation context, typically a monad transformer
   type IntCtx i :: (* -> *) -> * -> (* -> *) -> * -> *
   -- TODO: QUESTION: Could we add some comments about what an instance of the
   -- kind above is supposed to represent?
@@ -261,11 +266,19 @@ data DSL2Cardano
 instance Interpretation DSL2Cardano where
   type IntCtx DSL2Cardano = IntT
 
--- | Interpretation of the UTxO DSL
-class Interpretation to => Interpret to h a where
-  type Interpreted to a :: *
+-- | Interpretation of a source language to a target language, e.g. from
+-- the UTxO DSL into Cardano.
+--
+-- 'fromTo' is a parameter binding interpretations for a given pair of a source
+-- and a target language.
+-- 'h' is a hash type.
+-- 'a' is the source language's type being interpreted.
+-- 'Interpreted fromTo a' is the target language's type being interpreted to.
+class Interpretation fromTo => Interpret fromTo h a where
+  type Interpreted fromTo a :: *
 
-  int :: Monad m => a -> IntCtx to h e m (Interpreted to a)
+  -- | The single method of the type class that performs the interpretation
+  int :: Monad m => a -> IntCtx fromTo h e m (Interpreted fromTo a)
 
 {-------------------------------------------------------------------------------
   Instances that read, but not update, the state

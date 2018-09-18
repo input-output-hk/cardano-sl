@@ -14774,9 +14774,17 @@ mainnet_full: &mainnet_full
   core:
     <<: *mainnet_base_core
     genesis:
+      <<: *mainnet_base_genesis
       src:
         file: mainnet-genesis.json
         hash: 5f20df933584822601f9e3f8c024eb5eb252fe8cefb24d1317dc3d432e940ebb
+      spec:
+        <<: *mainnet_base_spec
+        protocolConstants:
+          <<: *mainnet_base_protocolConstants
+          protocolMagic:
+            pm: 764824073
+            requiresNetworkMagic: NMMustBeNothing
 
 mainnet_wallet_win64: &mainnet_wallet_win64
   <<: *mainnet_full

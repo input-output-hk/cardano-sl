@@ -32,7 +32,11 @@ data ChainValidity
   Translation context
 -------------------------------------------------------------------------------}
 
--- | Checkpoint (we create one for each block we translate)
+-- | Checkpoint (we create one for each block we translate).
+--
+-- TODO: QUESTION: does it make sense to explain the idea behind the
+-- 'IntCheckPoint' data type? My guess is that it serves as a sort of cache for
+-- information that is already contained in the blockchain.
 data IntCheckpoint = IntCheckpoint {
       -- | Slot number of this checkpoint
       icSlotId    :: !SlotId
@@ -43,7 +47,7 @@ data IntCheckpoint = IntCheckpoint {
       -- | Running stakes
     , icStakes    :: !(StakeDistribution Addr)
 
-      -- | Delegation graph. This is instantiated to the identify function.
+      -- | Delegation graph. This is instantiated to the identity function.
     , icDlg       :: Addr -> Addr
     }
 

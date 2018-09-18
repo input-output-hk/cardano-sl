@@ -1,90 +1,54 @@
-{-# LANGUAGE InstanceSigs           #-}
-{-# LANGUAGE Rank2Types             #-}
-{-# LANGUAGE TypeFamilies           #-}
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE Rank2Types   #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Translation of an abstract chain into Cardano.
+--
+-- TODO: Maybe it'd be nice to explain why do we only export instances here.
+-- For instance we could point to the `UTxO.Interpreter` module.
 module Chain.Abstract.Translate.ToCardano
   (
   ) where
 
-import           Cardano.Wallet.Kernel.Types
-                 ( RawResolvedBlock
-                 , RawResolvedTx(..)
-                 , mkRawResolvedBlock
-                 , mkRawResolvedTx )
-import           Chain.Abstract
-                 ( Block(..)
-                 , Output(..)
-                 , Transaction(..)
-                 , hash
-                 , outAddr )
-import           Control.Lens ((%=), (.=), ix)
+import           Cardano.Wallet.Kernel.Types (RawResolvedBlock,
+                     RawResolvedTx (..), mkRawResolvedBlock, mkRawResolvedTx)
+import           Chain.Abstract (Block (..), Output (..), Transaction (..),
+                     hash, outAddr)
+import           Control.Lens (ix, (%=), (.=))
 import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Except
 import           Data.Default (def)
 import qualified Data.List.NonEmpty as NE
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import           Pos.Chain.Block
-                 ( BlockHeader
-                 , GenesisBlock
-                 , MainBlock )
+import           Pos.Chain.Block (BlockHeader, GenesisBlock, MainBlock)
 import           Pos.Chain.Ssc (defaultSscPayload)
-import           Pos.Chain.Txp
-                 ( TxAux(..)
-                 , TxId
-                 , TxIn(..)
-                 , TxOut(..)
-                 , TxOutAux(..) )
+import           Pos.Chain.Txp (TxAux (..), TxId, TxIn (..), TxOut (..),
+                     TxOutAux (..))
 import           Pos.Chain.Update (HasUpdateConfiguration)
 import           Pos.Client.Txp.Util (makeMPubKeyTx, makeRedemptionTx)
-import qualified Pos.Core as Core
-                 ( HasConfiguration
-                 , ProtocolConstants
-                 , SlotId(..) )
+import qualified Pos.Core as Core (HasConfiguration, ProtocolConstants,
+                     SlotId (..))
 import           Pos.Core.Chrono (OldestFirst (..))
-import           Pos.Core.Common
-                 ( Coin(..)
-                 , SlotLeaders
-                 , mkCoin )
-import           Pos.Core.Delegation (DlgPayload(UnsafeDlgPayload))
+import           Pos.Core.Common (Coin (..), SlotLeaders, mkCoin)
+import           Pos.Core.Delegation (DlgPayload (UnsafeDlgPayload))
 import           Pos.Core.Slotting (localSlotIndexMaxBound)
-import           Pos.Crypto.Signing.Safe (SafeSigner(FakeSigner))
 import qualified Pos.Crypto (hash)
-import           Pos.DB.Block (RawPayload(..), createMainBlockPure)
+import           Pos.Crypto.Signing.Safe (SafeSigner (FakeSigner))
+import           Pos.DB.Block (RawPayload (..), createMainBlockPure)
 import           Universum
-import           UTxO.Context
-                 ( Addr
-                 , AddrInfo(..)
-                 , BlockSignInfo(..)
-                 , blockSignInfoForSlot
-                 , resolveAddr )
-import           UTxO.Crypto
-                 ( ClassifiedInputs(InputsRegular, InputsRedeem)
-                 , RedeemKeyPair(..)
-                 , RegularKeyPair(..)
-                 , SomeKeyPair
-                 , TxOwnedInput
-                 , classifyInputs )
-import qualified UTxO.DSL as DSL
-                 ( Hash
-                 , Input(..)
-                 , Transaction
-                 , Value )
-import           UTxO.Interpreter (Interpretation(..), Interpret(..))
-import           UTxO.IntTrans
-                 ( IntCheckpoint(..)
-                 , IntException(..)
-                 , ConIntT(..)
-                 , createEpochBoundary
-                 , constants
-                 , magic
-                 , mkCheckpoint )
-import           UTxO.Translate
-                 ( TranslateT(..)
-                 , mapTranslateErrors
-                 , translateNextSlot
-                 , withConfig )
+import           UTxO.Context (Addr, AddrInfo (..), BlockSignInfo (..),
+                     blockSignInfoForSlot, resolveAddr)
+import           UTxO.Crypto (ClassifiedInputs (InputsRedeem, InputsRegular),
+                     RedeemKeyPair (..), RegularKeyPair (..), SomeKeyPair,
+                     TxOwnedInput, classifyInputs)
+import qualified UTxO.DSL as DSL (Hash, Input (..), Transaction, Value)
+import           UTxO.Interpreter (Interpret (..), Interpretation (..))
+import           UTxO.IntTrans (ConIntT (..), IntCheckpoint (..),
+                     IntException (..), constants, createEpochBoundary, magic,
+                     mkCheckpoint)
+import           UTxO.Translate (TranslateT (..), mapTranslateErrors,
+                     translateNextSlot, withConfig)
 
 
 {-------------------------------------------------------------------------------
@@ -106,6 +70,8 @@ data TxMeta h = TxMeta {
 }
 
 -- | Interpretation context
+--
+-- TODO: QUESTION: What do we need the interpretation context for?
 data IntCtxt h = IntCtxt {
   -- | Transaction map
   _icTx          :: !(Map (h (DSL.Transaction h Addr)) (TxMeta h))
@@ -124,12 +90,23 @@ makeLenses ''IntCtxt
 type IntT = ConIntT IntCtxt
 
 -- | Convenience function to list actions in the 'Translate' monad
+--
+-- TODO: QUESTION: if the meaning of the type above is the same as:
+--
+-- > liftTranslateInt
+-- >   :: ( Monad m
+-- >      , Core.HasConfiguration
+-- >      , HasUpdateConfiguration )
+-- >   => TranslateT IntException m a -> IntT h e m a
+-- >
+--
+-- I'd rather have the latter, since it involves less nesting and makes it
+-- easier to read. But it is just my personal preference.
 liftTranslateInt :: Monad m
                  => (   (Core.HasConfiguration, HasUpdateConfiguration)
                      => TranslateT IntException m a)
                  -> IntT h e m a
 liftTranslateInt ta =  IntT $ lift $ mapTranslateErrors Left $ withConfig $ ta
-
 
 {-------------------------------------------------------------------------------
   Dealing with transactions

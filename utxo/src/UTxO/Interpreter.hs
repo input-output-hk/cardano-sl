@@ -1,10 +1,10 @@
+{-# LANGUAGE AllowAmbiguousTypes        #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ImplicitParams             #-}
 {-# LANGUAGE InstanceSigs               #-}
 {-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE UndecidableInstances       #-}
-{-# LANGUAGE AllowAmbiguousTypes        #-}
 {-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE UndecidableInstances       #-}
 
 -- | Interpreter from the DSL to Cardano types
 module UTxO.Interpreter (
@@ -67,14 +67,9 @@ import           UTxO.Bootstrap
 import           UTxO.Context
 import           UTxO.Crypto
 import qualified UTxO.DSL as DSL
-import           UTxO.IntTrans
-                 ( IntCheckpoint(..)
-                 , IntException(..)
-                 , ConIntT(..)
-                 , createEpochBoundary
-                 , constants
-                 , magic
-                 , mkCheckpoint )
+import           UTxO.IntTrans (ConIntT (..), IntCheckpoint (..),
+                     IntException (..), constants, createEpochBoundary, magic,
+                     mkCheckpoint)
 import           UTxO.Translate
 
 {-------------------------------------------------------------------------------
@@ -258,6 +253,8 @@ pushCheckpoint f = do
 
 class Interpretation i where
   type IntCtx i :: (* -> *) -> * -> (* -> *) -> * -> *
+  -- TODO: QUESTION: Could we add some comments about what an instance of the
+  -- kind above is supposed to represent?
 
 data DSL2Cardano
 

@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE UndecidableInstances       #-}
 
 -- | A common interpretation for the UTxO DSL and abstract chain into Cardano
 module UTxO.IntTrans
@@ -19,13 +19,12 @@ module UTxO.IntTrans
   )
   where
 
-import           Cardano.Wallet.Kernel.DB.InDb (InDb(..))
-import           Cardano.Wallet.Kernel.DB.Resolved
-                 ( ResolvedBlock(..)
-                 , ResolvedTx(..) )
+import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
+import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock (..),
+                     ResolvedTx (..))
 import           Cardano.Wallet.Kernel.Types
-                 ( RawResolvedBlock(UnsafeRawResolvedBlock)
-                 , fromRawResolvedBlock )
+                     (RawResolvedBlock (UnsafeRawResolvedBlock),
+                     fromRawResolvedBlock)
 import           Control.Monad.Except (MonadError, throwError)
 import qualified Data.HashMap.Strict as HM
 import           Data.Map.Strict (Map)
@@ -33,38 +32,21 @@ import qualified Data.Map.Strict as Map
 import           Data.Reflection (give)
 import qualified Formatting.Buildable
 import           Pos.Chain.Block (BlockHeader)
-import           Pos.Client.Txp.Util (TxError(..))
 import           Pos.Chain.Block
-                 ( BlockHeader(BlockHeaderMain, BlockHeaderGenesis)
-                 , GenesisBlock
-                 , gbHeader
-                 , genBlockLeaders
-                 , mkGenesisBlock )
+                     (BlockHeader (BlockHeaderGenesis, BlockHeaderMain),
+                     GenesisBlock, gbHeader, genBlockLeaders, mkGenesisBlock)
 import           Pos.Chain.Lrc (followTheSatoshi)
-import           Pos.Chain.Txp
-                 ( TxIn(..)
-                 , TxOutAux(..)
-                 , txOutStake )
-import           Pos.Core (ProtocolConstants, ProtocolMagic, SlotId(..))
-import           Pos.Core.Common
-                 ( Coin
-                 , SharedSeed(..)
-                 , SlotLeaders
-                 , StakeholderId
-                 , StakesList
-                 , StakesMap
-                 , addCoin
-                 , subCoin )
-import           Pos.Core.Genesis
-                 ( GenesisWStakeholders
-                 , gdBootStakeholders
-                 , gdProtocolConsts
-                 , genesisProtocolConstantsToProtocolConstants )
-import           Pos.Core.Slotting
-                 ( EpochIndex(..)
-                 , crucialSlot )
+import           Pos.Chain.Txp (TxIn (..), TxOutAux (..), txOutStake)
+import           Pos.Client.Txp.Util (TxError (..))
+import           Pos.Core (ProtocolConstants, ProtocolMagic, SlotId (..))
+import           Pos.Core.Common (Coin, SharedSeed (..), SlotLeaders,
+                     StakeholderId, StakesList, StakesMap, addCoin, subCoin)
+import           Pos.Core.Genesis (GenesisWStakeholders, gdBootStakeholders,
+                     gdProtocolConsts,
+                     genesisProtocolConstantsToProtocolConstants)
+import           Pos.Core.Slotting (EpochIndex (..), crucialSlot)
 import           Universum
-import           UTxO.Context (CardanoContext(..), TransCtxt(..))
+import           UTxO.Context (CardanoContext (..), TransCtxt (..))
 import           UTxO.Translate (TranslateT, withConfig)
 
 

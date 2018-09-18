@@ -53,7 +53,7 @@ let
         inherit enableProfiling;
       };
     });
-    cardano-sl-wallet-static = justStaticExecutablesGitRev super.cardano-sl-wallet;
+    cardano-sl-wallet-static = justStaticExecutablesGitRev self.cardano-sl-wallet;
     cardano-sl-client = addRealTimeTestLogs super.cardano-sl-client;
     cardano-sl-generator = addRealTimeTestLogs super.cardano-sl-generator;
     cardano-sl-auxx-static = justStaticExecutablesGitRev self.cardano-sl-auxx;

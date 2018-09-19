@@ -44,7 +44,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 import           Data.STRef (newSTRef, readSTRef, writeSTRef)
-import           Formatting (ords, sformat, (%))
+import           Formatting (sformat, (%))
 
 import           Pos.Binary.Class (AsBinary, fromBinary)
 import           Pos.Chain.Genesis as Genesis (Config)
@@ -66,10 +66,11 @@ import           Pos.Chain.Ssc.VssCertificate (vcSigningKey, vcVssKey)
 import           Pos.Chain.Ssc.VssCertificatesMap (VssCertificatesMap (..),
                      lookupVss, memberVss)
 import           Pos.Chain.Update.BlockVersionData (bvdMpcThd)
-import           Pos.Core (CoinPortion, EpochIndex, StakeholderId, addressHash,
-                     coinPortionDenominator, getCoinPortion, unsafeGetCoin)
+import           Pos.Core (CoinPortion, EpochIndex (..), StakeholderId,
+                     addressHash, coinPortionDenominator, getCoinPortion,
+                     unsafeGetCoin)
 import           Pos.Crypto (DecShare, verifyDecShare, verifyEncShares)
-import           Pos.Util.Util (getKeys)
+import           Pos.Util.Util (getKeys, intords)
 import           Pos.Util.Wlog (logWarning)
 
 ----------------------------------------------------------------------------
@@ -131,9 +132,9 @@ checkShares
     -> m Bool
 checkShares genesisConfig epoch (id, sh) = do
     certs <- getStableCertificates genesisConfig epoch
-    let warnFmt = ("checkShares: no richmen for "%ords%" epoch")
+    let warnFmt = ("checkShares: no richmen for "%intords%" epoch")
     getRichmen epoch >>= \case
-        Nothing -> False <$ logWarning (sformat warnFmt epoch)
+        Nothing -> False <$ logWarning (sformat warnFmt (getEpochIndex epoch))
         Just richmen -> do
             let parts = computeParticipants (getKeys richmen) certs
             coms <- getCommitments

@@ -57,24 +57,20 @@ evalRotator rotation fdesc@FileDescription{..} = do
     fpath <- nameLogFile fdesc
     hdl <- catchIO (openFile fpath WriteMode) $
                \e -> do
-                   prtoutException fpath e
+                   prtoutException ("error while opening log: " ++ fpath) e
                    return stdout    -- fallback to standard output in case of exception
     hSetBuffering hdl LineBuffering
 
 #ifdef POSIX
     -- restrict symbolic links only for unix-like OS
     let symLinkPath = prefixpath </> filename
+    let logfilePath = takeFileName fpath
     -- delete a symlink if already exists and create a new
     -- one that points to the correct file.
-    (removeFile symLinkPath) `catchIO`
-        \e -> case isDoesNotExistError e of
-            True  -> putStrLn ("No other symlinks already existed. Creating a new one, named:"
-                        ++ show symLinkPath)
-            False -> prtoutException symLinkPath e
-    catchIO (createFileLink fpath symLinkPath) (\e ->
-        do
-            putStrLn $ "error while creating symlink: " ++ symLinkPath ++ " for " ++ fpath
-            putStrLn $ "exception: " ++ displayException e)
+    (removeFile symLinkPath)
+        `catchIO` (prtoutException ("cannot remove symlink: " ++ symLinkPath))
+    (createFileLink logfilePath symLinkPath)
+        `catchIO` (prtoutException ("cannot create symlink: " ++ symLinkPath))
 #endif
 
     -- compute next rotation time
@@ -83,10 +79,10 @@ evalRotator rotation fdesc@FileDescription{..} = do
 
     return (hdl, maxSize, rottime)
 
-prtoutException :: Exception e => FilePath -> e -> IO ()
-prtoutException fp e = do
-    putStrLn $ "error while opening log @ " ++ fp
-    putStrLn $ "exception: " ++ displayException e
+prtoutException :: Exception e => String -> e -> IO ()
+prtoutException msg e = do
+    putStrLn msg
+    putStrLn ("exception: " ++ displayException e)
 
 -- | list filenames in prefix dir which match 'filename'
 listLogFiles :: FileDescription -> IO (Maybe (NonEmpty FilePath))

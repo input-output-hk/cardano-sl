@@ -171,7 +171,7 @@ translate
      -- give different validating and non-validating chains.
   -> [Policy h (TranslateT h IntException m)]
   -> Parameters (TransState h) h Addr
- -> m (Either IntException (Chain h Addr, ChainValidity))
+  -> m (Either IntException (Chain h Addr, ChainValidity))
 translate addrs chain policies params = runExceptT . fmap fst $ runTranslateT initCtx initState go
   where
     initCtx = TransCtxt

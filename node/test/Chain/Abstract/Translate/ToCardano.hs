@@ -305,7 +305,7 @@ instance DSL.Hash h Addr => Interpret Abstract2Cardano h (Block h Addr) where
                    slot
                    txs'
         let raw = mkRawResolvedBlock block resolvedTxInputs
-        checkpoint <- mkCheckpoint prev slot raw
+        checkpoint <- mkCheckpoint prev slot block (fmap toaOut <$> resolvedTxInputs)
         if isEpochBoundary pc slot
           then second (\ebb -> (raw, Just ebb)) <$> createEpochBoundary checkpoint
           else return (checkpoint, (raw, Nothing))

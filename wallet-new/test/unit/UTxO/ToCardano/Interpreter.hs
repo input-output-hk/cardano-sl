@@ -6,7 +6,7 @@
 {-# LANGUAGE UndecidableInstances       #-}
 
 -- | Interpreter from the DSL to Cardano types
-module UTxO.Interpreter (
+module UTxO.ToCardano.Interpreter (
     -- * Interpretation context
     IntCtxt -- opaque
   , initIntCtxt
@@ -17,8 +17,13 @@ module UTxO.Interpreter (
   , runIntBoot
   , runIntBoot'
     -- * Interpreter proper
+  , DSL2Cardano
   , popIntCheckpoint
   , pushCheckpoint
+    -- * Re-exported
+  , IntException (..)
+  , Interpret(..)
+  , IntRollback(..)
   ) where
 
 import           Universum hiding (id)
@@ -29,13 +34,13 @@ import           Control.Lens.TH (makeLenses)
 import           Data.Default (def)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
-import           Formatting (bprint, build, (%))
+import           Formatting (bprint, (%))
 import qualified Formatting.Buildable
-import           Serokell.Util (listJson, mapJson)
+import           Serokell.Util (listJson)
 
 import           Cardano.Wallet.Kernel.DB.Resolved
 import           Cardano.Wallet.Kernel.Types
-import           Cardano.Wallet.Kernel.Util (at)
+import           UTxO.Util (at)
 
 import           Pos.Chain.Block (Block, BlockHeader (BlockHeaderGenesis),
                      GenesisBlock, MainBlock)
@@ -378,7 +383,7 @@ instance DSL.Hash h Addr => Interpret DSL2Cardano h (DSL.Block h Addr) where
                    slot
                    txs'
         let raw = mkRawResolvedBlock block resolvedTxInputs
-        checkpoint <- mkCheckpoint prev slot raw
+        checkpoint <- mkCheckpoint prev slot block (fmap toaOut <$> resolvedTxInputs)
         if isEpochBoundary pc slot
           then second (\ebb -> (raw, Just ebb)) <$> createEpochBoundary checkpoint
           else return (checkpoint, (raw, Nothing))
@@ -461,12 +466,3 @@ instance Buildable (IntCtxt h) where
     % "}"
     )
     _icCheckpoints
-
-instance Buildable IntCheckpoint where
-  build IntCheckpoint{..} = bprint
-    ( "Checkpoint {"
-    % "  slotId: " % build
-    % ", stakes: " % mapJson
-    )
-    icSlotId
-    icStakes

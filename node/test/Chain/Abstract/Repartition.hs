@@ -28,7 +28,7 @@ import           Data.Monoid (Sum (Sum))
 import           Data.Validation (Validation (Failure), validation)
 
 import           Chain.Abstract.FinitelySupportedFunction
-                     (FinitelySupportedFunction, fSum)
+                     (FinitelySupportedFunction)
 
 -- | The stake repartition is a function that assigns stake to addresses.
 --

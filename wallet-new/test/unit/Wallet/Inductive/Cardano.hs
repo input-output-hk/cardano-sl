@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE TypeApplications          #-}
 {-# LANGUAGE UndecidableInstances      #-}
 
 module Wallet.Inductive.Cardano (
@@ -35,12 +36,12 @@ import qualified Cardano.Wallet.Kernel.Read as Kernel
 import           Cardano.Wallet.Kernel.Types
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 
-import           Util.Buildable
 import           Data.Validated
+import           Util.Buildable
 import           UTxO.Context (Addr)
 import           UTxO.DSL (Hash)
 import qualified UTxO.DSL as DSL
-import           UTxO.Interpreter
+import           UTxO.ToCardano.Interpreter
 import           UTxO.Translate
 import           Wallet.Abstract
 import           Wallet.Inductive
@@ -160,12 +161,12 @@ interpretT injIntEx mkWallet EventCallbacks{..} Inductive{..} =
             withConfig $ walletRollbackT indCtxt accountId
             go ic' hist'' w' es
 
-    int' :: Interpret h a
+    int' :: Interpret DSL2Cardano h a
          => History
          -> IntCtxt h
          -> a
-         -> TranslateT e m (Interpreted a, IntCtxt h)
-    int' hist ic = mapTranslateErrors (injIntEx hist) . runIntT' ic . int
+         -> TranslateT e m (Interpreted DSL2Cardano a, IntCtxt h)
+    int' hist ic = mapTranslateErrors (injIntEx hist) . runIntT' ic . int @DSL2Cardano
 
 {-------------------------------------------------------------------------------
   Equivalence check between the real implementation and (a) pure wallet
@@ -269,14 +270,14 @@ equivalentT activeWallet esk = \mkWallet w ->
         cmp "totalBalance"  totalBalance (snapshot `Kernel.accountTotalBalance` accountId)
         -- TODO: check other properties
       where
-        cmp :: ( Interpret h a
-               , Eq (Interpreted a)
+        cmp :: ( Interpret DSL2Cardano h a
+               , Eq (Interpreted DSL2Cardano a)
                , Buildable a
-               , Buildable (Interpreted a)
+               , Buildable (Interpreted DSL2Cardano a)
                )
             => Text
             -> (Wallet h Addr -> a)
-            -> Interpreted a
+            -> Interpreted DSL2Cardano a
             -> TranslateT EquivalenceViolation m ()
         cmp fld f kernel = do
           let dsl = f inductiveCtxtWallet
@@ -292,12 +293,12 @@ equivalentT activeWallet esk = \mkWallet w ->
                   }
               inductiveCtxtEvents
 
-    toCardano :: Interpret h a
+    toCardano :: Interpret DSL2Cardano h a
               => InductiveCtxt h
               -> Text
-              -> a -> TranslateT EquivalenceViolation m (Interpreted a)
+              -> a -> TranslateT EquivalenceViolation m (Interpreted DSL2Cardano a)
     toCardano InductiveCtxt{..} fld a = do
-        ma' <- catchTranslateErrors $ runIntT' inductiveCtxtInt $ int a
+        ma' <- catchTranslateErrors $ runIntT' inductiveCtxtInt $ int @DSL2Cardano a
         case ma' of
           Left err -> throwError
               $ EquivalenceNotChecked fld err inductiveCtxtEvents
@@ -331,10 +332,10 @@ data EquivalenceViolation =
       }
 
 data EquivalenceViolationEvidence =
-    forall a. (Buildable a, Buildable (Interpreted a)) => NotEquivalent {
+    forall a. (Buildable a, Buildable (Interpreted DSL2Cardano a)) => NotEquivalent {
         notEquivalentDsl        :: a
-      , notEquivalentTranslated :: Interpreted a
-      , notEquivalentKernel     :: Interpreted a
+      , notEquivalentTranslated :: Interpreted DSL2Cardano a
+      , notEquivalentKernel     :: Interpreted DSL2Cardano a
       }
 
 {-------------------------------------------------------------------------------

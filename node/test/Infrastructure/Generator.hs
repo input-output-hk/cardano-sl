@@ -5,6 +5,7 @@ module Infrastructure.Generator
   , genChainUsingModel
   , simpleModel
   , simpleGen
+  , simpleParams
   , seeds
   , mInCommitmentPhase
   , chainAddresses
@@ -13,8 +14,8 @@ module Infrastructure.Generator
 import           Universum hiding (head, tail, (^.))
 
 import           Control.Lens (to, (^.))
-import           Control.Monad.Except (ExceptT (ExceptT), MonadError,
-                     runExceptT, throwError)
+import           Control.Monad.Except (ExceptT (ExceptT), runExceptT,
+                     throwError)
 import           Data.List (findIndex, scanl', (!!))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as Map
@@ -22,7 +23,6 @@ import           Data.Maybe (fromMaybe)
 import           Data.Monoid (Sum (Sum), getSum)
 import           Data.Semigroup ((<>))
 import qualified Data.Set as Set
-import           Data.Traversable (traverse)
 import           Test.QuickCheck (Gen)
 
 
@@ -36,13 +36,12 @@ import           Chain.Abstract (Addr (Addr), Chain, Output (Output),
                      currentSeed, currentSlot, height, inCommitmentPhase,
                      inOpenPhase, inRecoveryPhase, initTransactions,
                      initialSeed, initialStakeDistribution, k, maxMempoolSize,
-                     minFee, outAddr, outRepartition, outVal, quality,
-                     slotLeader, trDSL, trExtra, trFee, trFresh, trHash, trIns,
-                     trOuts, trWitness)
+                     minFee, quality, slotLeader, trDSL, trExtra, trFee,
+                     trFresh, trHash, trIns, trOuts, trWitness)
 import           Chain.Abstract.FinitelySupportedFunction (fApply, fSum,
                      fSupport)
-import           Chain.Abstract.Repartition (balanceStake, mkRepartitionT)
-import           Chain.Abstract.Translate.FromUTxO (ChainValidity, IntException (IntEmptyAddresses, IntEmptyOutputs, IntLogicError),
+import           Chain.Abstract.Repartition (balanceStake)
+import           Chain.Abstract.Translate.FromUTxO (ChainValidity, IntException (IntEmptyAddresses),
                      TransState, translate, tsCheckpoints, _tsCurrentSlot)
 import qualified UTxO.DSL as DSL
 

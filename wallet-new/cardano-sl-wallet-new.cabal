@@ -108,7 +108,6 @@ library
                        Cardano.Wallet.Kernel.Submission.Worker
                        Cardano.Wallet.Kernel.Transactions
                        Cardano.Wallet.Kernel.Types
-                       Cardano.Wallet.Kernel.Util
                        Cardano.Wallet.Kernel.Util.Core
                        Cardano.Wallet.Kernel.Util.StrictStateT
                        Cardano.Wallet.Kernel.Wallets
@@ -220,6 +219,7 @@ library
                      , unliftio
                      , unliftio-core
                      , unordered-containers
+                     , utxo
                      , vector
                      , wai
                      , wai-cors
@@ -423,6 +423,7 @@ test-suite wallet-unit-tests
                       Util.MultiSet
                       Util.QuickCheck
                       Util.Range
+                      UTxO.ToCardano.Interpreter
                       Wallet.Abstract
                       Wallet.Basic
                       Wallet.Incremental

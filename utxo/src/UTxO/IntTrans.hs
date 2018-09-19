@@ -24,24 +24,21 @@ module UTxO.IntTrans
   )
   where
 
-import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
-import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock (..),
-                     ResolvedTx (..))
-import           Cardano.Wallet.Kernel.Types
-                     (RawResolvedBlock (UnsafeRawResolvedBlock),
-                     fromRawResolvedBlock)
 import           Control.Monad.Except (MonadError, throwError)
 import qualified Data.HashMap.Strict as HM
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import           Data.Reflection (give)
+import           Formatting (bprint, build, shown, (%))
 import qualified Formatting.Buildable
 import           Pos.Chain.Block (BlockHeader)
 import           Pos.Chain.Block
                      (BlockHeader (BlockHeaderGenesis, BlockHeaderMain),
-                     GenesisBlock, gbHeader, genBlockLeaders, mkGenesisBlock)
+                     GenesisBlock, MainBlock, gbBody, gbHeader,
+                     genBlockLeaders, mbTxs, mbWitnesses, mkGenesisBlock)
 import           Pos.Chain.Lrc (followTheSatoshi)
-import           Pos.Chain.Txp (TxIn (..), TxOutAux (..), txOutStake)
+import           Pos.Chain.Txp (Tx (..), TxAux (..), TxIn (..), TxOut (..),
+                     txInputs, txOutStake, txOutputs)
 import           Pos.Client.Txp.Util (TxError (..))
 import           Pos.Core (ProtocolConstants, ProtocolMagic, SlotId (..))
 import           Pos.Core.Common (Coin, SharedSeed (..), SlotLeaders,
@@ -50,6 +47,7 @@ import           Pos.Core.Genesis (GenesisWStakeholders, gdBootStakeholders,
                      gdProtocolConsts,
                      genesisProtocolConstantsToProtocolConstants)
 import           Pos.Core.Slotting (EpochIndex (..), crucialSlot)
+import           Serokell.Util (mapJson)
 import           Universum
 import           UTxO.Context (CardanoContext (..), TransCtxt (..))
 import           UTxO.Translate (TranslateT, withConfig)
@@ -89,8 +87,8 @@ data IntException =
 
 instance Exception IntException
 
--- instance Buildable IntException where
---   build = bprint shown
+instance Buildable IntException where
+  build = bprint shown
 
 {-------------------------------------------------------------------------------
   Interpretation context
@@ -161,13 +159,14 @@ magic = ccMagic . tcCardano
 mkCheckpoint :: Monad m
              => IntCheckpoint    -- ^ Previous checkpoint
              -> SlotId           -- ^ Slot of the new block just created
-             -> RawResolvedBlock -- ^ The block just created
+             -> MainBlock        -- ^ The block just created
+             -> [NonEmpty TxOut] -- ^ Resolved inputs
              -> TranslateT IntException m IntCheckpoint
-mkCheckpoint prev slot raw@(UnsafeRawResolvedBlock block _inputs) = do
+mkCheckpoint prev slot block inputs = do
     pc <- asks constants
     gs <- asks weights
     let isCrucial = give pc $ slot == crucialSlot (siEpoch slot)
-    newStakes <- updateStakes gs (fromRawResolvedBlock raw) (icStakes prev)
+    newStakes <- updateStakes gs block inputs (icStakes prev)
     return IntCheckpoint {
         icSlotId        = slot
       , icBlockHeader   = BlockHeaderMain $ block ^. gbHeader
@@ -183,18 +182,19 @@ mkCheckpoint prev slot raw@(UnsafeRawResolvedBlock block _inputs) = do
 -- We follow the 'Stakes modification' section of the txp.md document.
 updateStakes :: forall m. MonadError IntException m
              => GenesisWStakeholders
-             -> ResolvedBlock
+             -> MainBlock
+             -> [NonEmpty TxOut] -- ^ Resolved inputs
              -> StakesMap -> m StakesMap
-updateStakes gs (ResolvedBlock txs _) =
-    foldr (>=>) return $ map go txs
+updateStakes gs b resolvedInputs =
+    foldr (>=>) return $ map go (zip (b ^. gbBody . mbTxs) resolvedInputs)
   where
-    go :: ResolvedTx -> StakesMap -> m StakesMap
-    go (ResolvedTx ins outs) =
+    go :: (Tx, NonEmpty TxOut) -> StakesMap -> m StakesMap
+    go (tx, ris) =
         subStake >=> addStake
       where
         subStakes, addStakes :: [(StakeholderId, Coin)]
-        subStakes = concatMap txOutStake' $ toList     (_fromDb ins)
-        addStakes = concatMap txOutStake' $ Map.toList (_fromDb outs)
+        subStakes = concatMap txOutStake' $ toList ris
+        addStakes = concatMap txOutStake' $ tx ^. txOutputs
 
         subStake, addStake :: StakesMap -> m StakesMap
         subStake sm = foldM (opStake subCoin IntStakeUnderflow) sm subStakes
@@ -217,8 +217,8 @@ updateStakes gs (ResolvedBlock txs _) =
           Just s  -> return s
           Nothing -> throwError $ IntUnknownStakeholder hId
 
-    txOutStake' :: (TxIn, TxOutAux) -> StakesList
-    txOutStake' = txOutStake gs . toaOut . snd
+    txOutStake' :: TxOut -> StakesList
+    txOutStake' = txOutStake gs
 
 -- | Create an epoch boundary block
 --
@@ -294,3 +294,12 @@ class Interpretation fromTo => Interpret fromTo h a where
 --
 -- This makes interpreting DSL blocks and these "pseudo-DSL" rollbacks uniform.
 data IntRollback = IntRollback
+
+instance Buildable IntCheckpoint where
+  build IntCheckpoint{..} = bprint
+    ( "Checkpoint {"
+    % "  slotId: " % build
+    % ", stakes: " % mapJson
+    )
+    icSlotId
+    icStakes

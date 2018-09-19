@@ -17,8 +17,8 @@ import qualified Formatting.Buildable
 import           Pos.Core.Chrono
 import           Serokell.Util (listJson)
 
-import           Cardano.Wallet.Kernel.Util
 import           UTxO.DSL
+import           UTxO.Util
 
 {-------------------------------------------------------------------------------
   Wallet events

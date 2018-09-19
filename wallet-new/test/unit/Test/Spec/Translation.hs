@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 module Test.Spec.Translation (
     spec
   ) where
@@ -15,15 +16,16 @@ import qualified Pos.Chain.Block as Cardano
 import qualified Pos.Chain.Txp as Cardano
 import           Pos.Core (Coeff (..), TxSizeLinear (..))
 
+import           Data.Validated
 import           Test.Infrastructure.Generator
 import           Test.Infrastructure.Genesis
 import           Util.Buildable.Hspec
 import           Util.Buildable.QuickCheck
-import           Data.Validated
 import           UTxO.Bootstrap
 import           UTxO.Context
 import           UTxO.DSL
-import           UTxO.Interpreter
+import           UTxO.IntTrans
+import           UTxO.ToCardano.Interpreter
 import           UTxO.Translate
 
 {-------------------------------------------------------------------------------
@@ -263,7 +265,7 @@ intAndVerifyChain pc = runTranslateT $ do
     let ledger      = chainToLedger boot chain
         dslIsValid  = ledgerIsValid ledger
         dslUtxo     = ledgerUtxo    ledger
-    intResult <- catchTranslateErrors $ runIntBoot' boot $ int chain
+    intResult <- catchTranslateErrors $ runIntBoot' boot $ int @DSL2Cardano chain
     case intResult of
       Left e ->
         case dslIsValid of
@@ -279,7 +281,7 @@ intAndVerifyChain pc = runTranslateT $ do
           (Invalid _ e' , Valid     _) -> return $ Disagreement ledger (UnexpectedValid e')
           (Valid     () , Invalid _ e) -> return $ Disagreement ledger (UnexpectedInvalid e)
           (Valid     () , Valid (_undo, finalUtxo)) -> do
-            (finalUtxo', _) <- runIntT' ctxt $ int dslUtxo
+            (finalUtxo', _) <- runIntT' ctxt $ int @DSL2Cardano dslUtxo
             if finalUtxo == finalUtxo'
               then return $ ExpectedValid
               else return . Disagreement ledger

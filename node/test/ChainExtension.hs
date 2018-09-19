@@ -3,10 +3,7 @@ module ChainExtension
   ) where
 
 import Universum
-import Test.Pos.Configuration (withDefConfiguration)
-import           Test.Hspec.QuickCheck
 import Test.Hspec
-import Infrastructure.Generator
 
 spec :: Spec
 spec = do

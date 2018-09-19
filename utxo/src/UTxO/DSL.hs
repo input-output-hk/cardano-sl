@@ -94,7 +94,7 @@ import           Prelude (Show (..))
 import           Serokell.Util (listJson, mapJson)
 import           Universum hiding (Foldable, foldr, sum, tail, toList)
 
-import           Cardano.Wallet.Kernel.Util (at, restrictKeys, withoutKeys)
+import           UTxO.Util (at, restrictKeys, withoutKeys)
 
 {-------------------------------------------------------------------------------
   Parameters

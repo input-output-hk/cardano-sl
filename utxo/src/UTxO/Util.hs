@@ -1,5 +1,5 @@
 -- | General purpose utility functions
-module Cardano.Wallet.Kernel.Util (
+module UTxO.Util (
     -- * Lists
     at
   , neHead

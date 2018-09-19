@@ -28,9 +28,9 @@ import           Data.Tree
 import           Pos.Core.Chrono
 import           Test.QuickCheck
 
-import           Cardano.Wallet.Kernel.Util
 import           UTxO.DSL
 import           UTxO.Generator
+import           UTxO.Util
 import           Wallet.Inductive
 
 {-------------------------------------------------------------------------------

@@ -66,11 +66,11 @@ import           Cardano.Wallet.Kernel.DB.Compression
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec.Pending (Pending)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
-import           Cardano.Wallet.Kernel.Util
 import           Cardano.Wallet.Kernel.Util.Core as Core
 import qualified Cardano.Wallet.Kernel.Util.StrictList as SL
 import           Cardano.Wallet.Kernel.Util.StrictNonEmpty (StrictNonEmpty (..))
 import qualified Cardano.Wallet.Kernel.Util.StrictNonEmpty as SNE
+import           UTxO.Util
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 

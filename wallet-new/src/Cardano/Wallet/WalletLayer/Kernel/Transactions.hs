@@ -27,7 +27,7 @@ import qualified Cardano.Wallet.Kernel.DB.TxMeta as TxMeta
 import qualified Cardano.Wallet.Kernel.Internal as Kernel
 import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as Node
 import qualified Cardano.Wallet.Kernel.Read as Kernel
-import           Cardano.Wallet.Kernel.Util (exceptT)
+import           UTxO.Util (exceptT)
 import           Cardano.Wallet.WalletLayer (GetTxError (..))
 
 getTransactions :: MonadIO m

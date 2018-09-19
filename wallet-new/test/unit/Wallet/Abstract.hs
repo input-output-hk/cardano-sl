@@ -29,7 +29,7 @@ import qualified Formatting.Buildable
 import           Pos.Core.Chrono
 import           Serokell.Util (mapJson)
 
-import           Cardano.Wallet.Kernel.Util (disjoint)
+import           UTxO.Util (disjoint)
 import           UTxO.DSL
 
 {-------------------------------------------------------------------------------

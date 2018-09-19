@@ -44,7 +44,7 @@ import           Cardano.Wallet.Kernel.DB.Spec.Read
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (SecurityParameter (..))
 import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..))
-import           Cardano.Wallet.Kernel.Util (liftNewestFirst)
+import           UTxO.Util (liftNewestFirst)
 import qualified Cardano.Wallet.Kernel.Util.Core as Core
 import qualified Cardano.Wallet.Kernel.Util.StrictList as SL
 import           Cardano.Wallet.Kernel.Util.StrictNonEmpty (StrictNonEmpty (..))

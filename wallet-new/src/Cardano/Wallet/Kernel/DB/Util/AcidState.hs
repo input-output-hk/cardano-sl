@@ -41,8 +41,8 @@ import           Cardano.Wallet.Kernel.DB.Util.IxSet (HasPrimKey, Indexable,
                      IxSet, PrimKey)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import qualified Cardano.Wallet.Kernel.DB.Util.Zoomable as Z
-import           Cardano.Wallet.Kernel.Util (mustBeRight)
 import           Cardano.Wallet.Kernel.Util.StrictStateT
+import           UTxO.Util (mustBeRight)
 
 {-------------------------------------------------------------------------------
   Acid-state updates

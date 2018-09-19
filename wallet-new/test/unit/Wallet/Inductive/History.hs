@@ -17,11 +17,10 @@ import qualified Formatting.Buildable
 import           Pos.Core.Chrono
 import           Serokell.Util (listJson)
 
-import           Cardano.Wallet.Kernel.Util
-
 import           UTxO.Context (Addr)
 import           UTxO.DSL (Hash)
-import           UTxO.Interpreter (IntCtxt)
+import           UTxO.ToCardano.Interpreter (IntCtxt)
+import           UTxO.Util
 import           Wallet.Abstract
 import           Wallet.Inductive
 import           Wallet.Inductive.ExtWalletEvent

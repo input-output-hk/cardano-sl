@@ -85,6 +85,7 @@ import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import           Data.Set (Set)
 import qualified Data.Set as Set
+import           Data.Validated
 import           Formatting (bprint, build, sformat, (%))
 import qualified Formatting.Buildable
 import           Pos.Core.Chrono (NewestFirst (NewestFirst),
@@ -93,9 +94,8 @@ import           Prelude (Show (..))
 import           Serokell.Util (listJson, mapJson)
 import           Universum hiding (Foldable, foldr, sum, tail, toList)
 
-import           Cardano.Wallet.Kernel.Util (at, restrictKeys, withoutKeys)
-
-import           Util.Validated
+import           Data.Validated
+import           UTxO.Util (at, restrictKeys, withoutKeys)
 
 {-------------------------------------------------------------------------------
   Parameters
@@ -139,7 +139,7 @@ data Transaction h a = Transaction {
     -- ^ The hash of this transaction. Must be unique in the entire chain.
     , trExtra :: [Text]
     -- ^ Free-form comments, used for debugging
-    }
+    } deriving (Show)
 
 -- | The inputs as a list
 --
@@ -263,7 +263,7 @@ data Output (h :: * -> *) a = Output {
       outAddr :: a
     , outVal  :: Value
     }
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Show)
 
 {-------------------------------------------------------------------------------
   Inputs
@@ -281,6 +281,10 @@ data Input h a = Input
 
 deriving instance Hash h a => Eq  (Input h a)
 deriving instance Hash h a => Ord (Input h a)
+
+-- TODO(md): This should be a temporary instance
+instance Universum.Show (Input h a) where
+    show i = Universum.show $ inpIndex i
 
 -- | Obtain the 'Transaction' to which 'Input' refers.
 --

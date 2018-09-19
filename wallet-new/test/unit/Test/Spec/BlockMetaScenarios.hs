@@ -31,7 +31,7 @@ import           Pos.Core.Chrono
 import           Test.Infrastructure.Genesis
 import           UTxO.Context
 import           UTxO.DSL
-import           UTxO.Interpreter (BlockMeta' (..))
+import           UTxO.ToCardano.Interpreter (BlockMeta' (..))
 import           Wallet.Inductive
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}

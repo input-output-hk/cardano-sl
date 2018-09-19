@@ -23,9 +23,9 @@ import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 import           Serokell.Util (listJson)
 
-import           Cardano.Wallet.Kernel.Util (disjoint)
+import           UTxO.Util (disjoint)
 
-import           Util.Validated
+import           Data.Validated
 import           UTxO.DSL
 import           Wallet.Abstract
 import           Wallet.Inductive

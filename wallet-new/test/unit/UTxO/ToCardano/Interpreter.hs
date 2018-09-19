@@ -3,14 +3,13 @@
 {-# LANGUAGE InstanceSigs               #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TupleSections              #-}
+{-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
 -- | Interpreter from the DSL to Cardano types
-module UTxO.Interpreter (
-    -- * Interpretation errors
-    IntException(..)
+module UTxO.ToCardano.Interpreter (
     -- * Interpretation context
-  , IntCtxt -- opaque
+    IntCtxt -- opaque
   , initIntCtxt
     -- * Interpretation monad
   , IntT
@@ -19,6 +18,11 @@ module UTxO.Interpreter (
   , runIntBoot
   , runIntBoot'
     -- * Interpreter proper
+  , DSL2Cardano
+  , popIntCheckpoint
+  , pushCheckpoint
+    -- * Re-exported
+  , IntException (..)
   , Interpret(..)
   , IntRollback(..)
   , IntSwitchToFork(..)
@@ -28,21 +32,6 @@ module UTxO.Interpreter (
 
 import           Universum hiding (id)
 
-import           Control.Arrow ((&&&))
-import           Control.Lens ((%=), (.=))
-import           Control.Lens.TH (makeLenses)
-import           Data.Default (def)
-import qualified Data.HashMap.Strict as HM
-import qualified Data.List.NonEmpty as NE
-import qualified Data.Map.Strict as Map
-import           Data.Reflection (give)
-import           Data.Time.Units (fromMicroseconds)
-import           Formatting (bprint, build, shown, (%))
-import qualified Formatting.Buildable
-import           Prelude (Show (..))
-import           Serokell.Data.Memory.Units (Byte)
-import           Serokell.Util (listJson, mapJson)
-
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (boundAddrAttrSize, boundTxAttrSize)
 import           Cardano.Wallet.Kernel.DB.BlockContext
@@ -51,91 +40,41 @@ import           Cardano.Wallet.Kernel.DB.BlockMeta (AddressMeta,
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Resolved
 import           Cardano.Wallet.Kernel.Types
-import           Cardano.Wallet.Kernel.Util (at)
-
+import           Control.Arrow ((&&&))
+import           Control.Lens ((%=), (.=))
+import           Control.Lens.TH (makeLenses)
+import           Data.Default (def)
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Map.Strict as Map
+import           Data.Time.Units (fromMicroseconds)
+import           Formatting (bprint, (%))
+import qualified Formatting.Buildable
 import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (Block, BlockHeader (..), GenesisBlock,
-                     HeaderHash, MainBlock, gbHeader, genBlockLeaders,
-                     headerHash, mkGenesisBlock)
+                     MainBlock, headerHash)
 import           Pos.Chain.Delegation (DlgPayload (..))
-import           Pos.Chain.Genesis (GenesisWStakeholders, gdBootStakeholders,
-                     gdProtocolConsts,
-                     genesisProtocolConstantsToProtocolConstants)
-import           Pos.Chain.Lrc (followTheSatoshi)
 import           Pos.Chain.Ssc (defaultSscPayload)
 import           Pos.Chain.Txp (TxAux (..), TxId, TxIn (..), TxOut (..),
-                     TxOutAux (..), Utxo, txAttributes, txOutStake)
+                     TxOutAux (..), Utxo, txAttributes)
 import           Pos.Chain.Update
 import           Pos.Client.Txp
 import           Pos.Core
 import           Pos.Core.Chrono
 import           Pos.Crypto
 import           Pos.DB.Block (RawPayload (..), createMainBlockPure)
-
+import           Serokell.Util (listJson)
+import           Test.Pos.Chain.Genesis.Dummy (dummyConfig, dummyEpochSlots,
+                     dummyK)
 import           UTxO.Bootstrap
 import           UTxO.Context
 import           UTxO.Crypto
 import qualified UTxO.DSL as DSL
+import           UTxO.IntTrans (ConIntT (..), IntCheckpoint (..),
+                     IntException (..), IntRollback (..), Interpret (..),
+                     Interpretation (..), createEpochBoundary,
+                     magic, mkCheckpoint)
 import           UTxO.Translate
-
-import           Test.Pos.Chain.Genesis.Dummy (dummyConfig, dummyEpochSlots,
-                     dummyK)
-
-{-------------------------------------------------------------------------------
-  Errors that may occur during interpretation
--------------------------------------------------------------------------------}
-
--- | Interpretation error
-data IntException =
-    IntExNonOrdinaryAddress
-  | IntExClassifyInputs Text
-  | IntExMkDlg          Text
-  | IntExCreateBlock    Text
-  | IntExMkSlot         Text
-  | IntExTx             TxError -- ^ Occurs during fee calculation
-  | IntUnknownHash      Text
-  | IntIndexOutOfRange  Text Word32 -- ^ During input resolution (hash and index)
-
-    -- | Unknown stake holder during stake calculation
-  | IntUnknownStakeholder StakeholderId
-
-    -- | Coin overflow during stake calculation
-    --
-    -- We record the old stake and the stake we were suppose to add
-  | IntStakeOverflow StakeholderId Coin Coin
-
-    -- | Coin underflow during stake calculatino
-    --
-    -- We record the old stake and the stake we were supposed to subtract
-  | IntStakeUnderflow StakeholderId Coin Coin
-
-    -- | Attempt to rollback without previous checkpoints
-  | IntCannotRollback
-
-    -- | The size of the attributes in the transaction exceeded our bounds
-    --
-    -- In order to estimate transaction size we use two values
-    -- `boundAddrAttrSize` and `boundTxAttrSize`. If the attributes in an actual
-    -- transaction exceeds these values, we will end up underestimating the fees
-    -- we need to pay. This isn't really a problem for the interpreter, but it's
-    -- a problem elsewhere and when this happens various tests will fail. So we
-    -- check this right at the point where we generate a transaction, and fail
-    -- early if the bounds are exceeded.
-    --
-    -- We record the size of the attributes on the transaction as well as the
-    -- size of the attributes of all addresses in the outputs.
-  | IntTxAttrBoundsExceeded Byte
-
-    -- | The size of the attributes of an address exceeded our bounds
-    --
-    -- See 'IntTxAttrBoundsExceeded' for details.
-  | IntAddrAttrBoundsExceeded Byte
-  deriving (Show)
-
-instance Exception IntException
-
-instance Buildable IntException where
-  build = bprint shown
+import           UTxO.Util (at)
 
 {-------------------------------------------------------------------------------
   Interpretation context
@@ -153,35 +92,6 @@ data TxMeta h = TxMeta {
       -- This is intentionally not a strict field because for the bootstrap
       -- transaction there is no corresponding TxId and this will be an error term.
     , tmHash :: TxId
-    }
-
--- | Checkpoint (we create one for each block we translate)
-data IntCheckpoint = IntCheckpoint {
-      -- | Slot number of this checkpoint
-      icSlotId        :: !SlotId
-
-      -- | Header of the block in this slot
-      --
-      -- Will be initialized to the header of the genesis block.
-    , icBlockHeader   :: !BlockHeader
-
-      -- | The header of the /main/ block in this slot
-      --
-      -- This may be different at epoch boundaries, when 'icBlockHeader' will
-      -- be set to the header of the EBB.
-      --
-      -- Set to 'Nothing' for the first checkpoint.
-    , icMainBlockHdr  :: !(Maybe HeaderHash)
-
-      -- | Slot leaders for the current epoch
-    , icEpochLeaders  :: !SlotLeaders
-
-      -- | Running stakes
-    , icStakes        :: !StakesMap
-
-      -- | Snapshot of the stakes at the 'crucial' slot in the current epoch; in
-      -- other words, the stakes used to compute the slot leaders for the next epoch.
-    , icCrucialStakes :: !StakesMap
     }
 
 -- | Interpretation context
@@ -221,43 +131,13 @@ initIntCtxt boot = do
         }
 
 {-------------------------------------------------------------------------------
-  Extract some values we need from the translation context
--------------------------------------------------------------------------------}
-
-constants :: TransCtxt -> ProtocolConstants
-constants = genesisProtocolConstantsToProtocolConstants
-          . gdProtocolConsts
-          . ccData
-          . tcCardano
-
-weights :: TransCtxt -> GenesisWStakeholders
-weights = gdBootStakeholders . ccData . tcCardano
-
-magic :: TransCtxt -> ProtocolMagic
-magic = ccMagic . tcCardano
-
-{-------------------------------------------------------------------------------
   The interpretation monad
 
   NOTE: It is important to limit the scope of 'IntM'. See comments below
   about the instances of 'Interpret' that update the state.
 -------------------------------------------------------------------------------}
 
--- | Interpretation monad
-newtype IntT h e m a = IntT {
-    unIntT :: StateT (IntCtxt h) (TranslateT (Either IntException e) m) a
-  }
-  deriving ( Functor
-           , Applicative
-           , Monad
-           , MonadReader TransCtxt
-           , MonadError (Either IntException e)
-           )
-
--- | Evaluate state strictly
-instance Monad m => MonadState (IntCtxt h) (IntT h e m) where
-  get    = IntT $ get
-  put !s = IntT $ put s
+type IntT = ConIntT IntCtxt
 
 -- | Run the interpreter monad
 runIntT :: IntCtxt h
@@ -366,114 +246,6 @@ pushCheckpoint f = do
     icCheckpoints .= c' :| c : cs
     return a
 
-{-------------------------------------------------------------------------------
-  Constructing checkpoints
--------------------------------------------------------------------------------}
-
-mkCheckpoint :: Monad m
-             => IntCheckpoint    -- ^ Previous checkpoint
-             -> RawResolvedBlock -- ^ The block just created
-             -> TranslateT IntException m IntCheckpoint
-mkCheckpoint prev raw@(UnsafeRawResolvedBlock block _inputs _ ctxt) = do
-    gs <- asks weights
-    let isCrucial = slot == crucialSlot dummyK (siEpoch slot)
-    newStakes <- updateStakes gs (fromRawResolvedBlock raw) (icStakes prev)
-    return IntCheckpoint {
-        icSlotId        = slot
-      , icBlockHeader   = BlockHeaderMain $ block ^. gbHeader
-      , icMainBlockHdr  = Just $ headerHash block
-      , icEpochLeaders  = icEpochLeaders prev
-      , icStakes        = newStakes
-      , icCrucialStakes = if isCrucial
-                            then newStakes
-                            else icCrucialStakes prev
-      }
-  where
-    slot = ctxt ^. bcSlotId . fromDb
-
--- | Update the stakes map as a result of a block.
---
--- We follow the 'Stakes modification' section of the txp.md document.
-updateStakes :: forall m. MonadError IntException m
-             => GenesisWStakeholders
-             -> ResolvedBlock
-             -> StakesMap -> m StakesMap
-updateStakes gs (ResolvedBlock txs _ _) =
-    foldr ((>=>) . go) return txs
-  where
-    go :: ResolvedTx -> StakesMap -> m StakesMap
-    go (ResolvedTx ins outs _) =
-        subStake >=> addStake
-      where
-        subStakes, addStakes :: [(StakeholderId, Coin)]
-        subStakes = concatMap txOutStake' $ toList     (_fromDb ins)
-        addStakes = concatMap txOutStake' $ Map.toList (_fromDb outs)
-
-        subStake, addStake :: StakesMap -> m StakesMap
-        subStake sm = foldM (flip subStake1) sm subStakes
-        addStake sm = foldM (flip addStake1) sm addStakes
-
-    subStake1, addStake1 :: (StakeholderId, Coin) -> StakesMap -> m StakesMap
-    subStake1 (id, c) sm = do
-        stake <- stakeOf id sm
-        case stake `subCoin` c of
-          Just stake' -> return $! HM.insert id stake' sm
-          Nothing     -> throwError $ IntStakeUnderflow id stake c
-    addStake1 (id, c) sm = do
-        stake <- stakeOf id sm
-        case stake `addCoin` c of
-          Just stake' -> return $! HM.insert id stake' sm
-          Nothing     -> throwError $ IntStakeOverflow id stake c
-
-    stakeOf :: StakeholderId -> StakesMap -> m Coin
-    stakeOf id sm =
-        case HM.lookup id sm of
-          Just s  -> return s
-          Nothing -> throwError $ IntUnknownStakeholder id
-
-    txOutStake' :: (TxIn, TxOutAux) -> StakesList
-    txOutStake' = txOutStake gs . toaOut . snd
-
--- | Create an epoch boundary block
---
--- In between each epoch there is an epoch boundary block (or EBB), that records
--- the stakes for the next epoch (in the Cardano codebase is referred to as a
--- "genesis block", and indeed the types are the same; we follow the terminology
--- from the spec here).
---
--- We /update/ the most recent checkpoint so that when we rollback, we effectively
--- rollback /two/ blocks. This is important, because the DSL has no concept of these
--- EBBs.
-createEpochBoundary :: Monad m
-                    => IntCheckpoint
-                    -> TranslateT IntException m (IntCheckpoint, GenesisBlock)
-createEpochBoundary ic = do
-    pm    <- asks magic
-    pc    <- asks constants
-    slots <- asks (ccEpochSlots . tcCardano)
-    let newLeaders = give pc $ followTheSatoshi
-                                 slots
-                                 boringSharedSeed
-                                 (HM.toList $ icCrucialStakes ic)
-        ebb = mkGenesisBlock
-                pm
-                (Right     $ icBlockHeader ic)
-                (nextEpoch $ icSlotId      ic)
-                newLeaders
-    return (
-        ic { icEpochLeaders = ebb ^. genBlockLeaders
-           , icBlockHeader  = BlockHeaderGenesis $ ebb ^. gbHeader
-           }
-      , ebb
-      )
-  where
-    -- This is a shared seed which never changes. Obviously it is not an
-    -- accurate reflection of how Cardano works.
-    boringSharedSeed :: SharedSeed
-    boringSharedSeed = SharedSeed "Static shared seed"
-
-    nextEpoch :: SlotId -> EpochIndex
-    nextEpoch (SlotId (EpochIndex i) _) = EpochIndex $ i + 1
 
 {-------------------------------------------------------------------------------
   Translate the DSL UTxO definitions to Cardano types
@@ -483,66 +255,66 @@ createEpochBoundary ic = do
   <cardano-sl-articles/delegation/pdf/article.pdf>.
 -------------------------------------------------------------------------------}
 
--- | Interpretation of the UTxO DSL
-class Interpret h a where
-  type Interpreted a :: *
+data DSL2Cardano
 
-  int :: Monad m => a -> IntT h e m (Interpreted a)
+instance Interpretation DSL2Cardano where
+  type IntCtx DSL2Cardano = IntT
 
 {-------------------------------------------------------------------------------
   Instances that read, but not update, the state
 -------------------------------------------------------------------------------}
 
-instance Interpret h DSL.Value where
-  type Interpreted DSL.Value = Coin
+instance Interpret DSL2Cardano h DSL.Value where
+  type Interpreted DSL2Cardano DSL.Value = Coin
 
   int :: Monad m => DSL.Value -> IntT h e m Coin
   int = return . mkCoin
 
-instance Interpret h Addr where
-  type Interpreted Addr = AddrInfo
+instance Interpret DSL2Cardano h Addr where
+  type Interpreted DSL2Cardano Addr = AddrInfo
 
   int :: Monad m => Addr -> IntT h e m AddrInfo
   int = asks . resolveAddr
 
-instance DSL.Hash h Addr => Interpret h (DSL.Input h Addr) where
-  type Interpreted (DSL.Input h Addr) = (TxOwnedInput SomeKeyPair, ResolvedInput)
+instance DSL.Hash h Addr => Interpret DSL2Cardano h (DSL.Input h Addr) where
+  type Interpreted DSL2Cardano (DSL.Input h Addr) = (TxOwnedInput SomeKeyPair, ResolvedInput)
 
   int :: Monad m
       => DSL.Input h Addr -> IntT h e m (TxOwnedInput SomeKeyPair, ResolvedInput)
   int inp@DSL.Input{..} = do
       -- We figure out who must sign the input by looking at the output
       spentOutput   <- inpSpentOutput' inp
-      resolvedInput <- int spentOutput
+      resolvedInput <- (int @DSL2Cardano) spentOutput
       isBootstrap   <- isBootstrapTransaction <$> findHash' inpTrans
 
       if isBootstrap
         then do
-          AddrInfo{..} <- int $ DSL.outAddr spentOutput
+          AddrInfo{..} <- (int @DSL2Cardano) $ DSL.outAddr spentOutput
           -- See explanation at 'bootstrapTransaction'
           return (
                    (addrInfoAddrKey, TxInUtxo (unsafeHash addrInfoCardano) 0)
                  , resolvedInput
                  )
         else do
-          AddrInfo{..} <- int     $ DSL.outAddr spentOutput
+          AddrInfo{..} <- (int @DSL2Cardano) $ DSL.outAddr spentOutput
           inpTrans'    <- intHash $ inpTrans
           return (
                    (addrInfoAddrKey, TxInUtxo inpTrans' inpIndex)
                  , resolvedInput
                  )
 
-instance Interpret h (DSL.Output h Addr) where
-  type Interpreted (DSL.Output h Addr) = TxOutAux
+instance Interpret DSL2Cardano h (DSL.Output h Addr) where
+  type Interpreted DSL2Cardano (DSL.Output h Addr) = TxOutAux
 
   int :: Monad m
       => DSL.Output h Addr -> IntT h e m TxOutAux
   int DSL.Output{..} = do
-      AddrInfo{..} <- int outAddr
-      outVal'      <- int outVal
+      AddrInfo{..} <- (int @DSL2Cardano) outAddr
+      outVal'      <- (int @DSL2Cardano) outVal
       let addrAttrSize = biSize (addrAttributes addrInfoCardano)
       unless (addrAttrSize <= boundAddrAttrSize) $
         throwError $ Left $ IntAddrAttrBoundsExceeded addrAttrSize
+
       return TxOutAux {
           toaOut = TxOut {
               txOutAddress = addrInfoCardano
@@ -550,8 +322,8 @@ instance Interpret h (DSL.Output h Addr) where
             }
         }
 
-instance DSL.Hash h Addr => Interpret h (DSL.Utxo h Addr) where
-  type Interpreted (DSL.Utxo h Addr) = Utxo
+instance DSL.Hash h Addr => Interpret DSL2Cardano h (DSL.Utxo h Addr) where
+  type Interpreted DSL2Cardano (DSL.Utxo h Addr) = Utxo
 
   int :: forall e m. Monad m
       => DSL.Utxo h Addr -> IntT h e m Utxo
@@ -560,8 +332,8 @@ instance DSL.Hash h Addr => Interpret h (DSL.Utxo h Addr) where
       aux :: (DSL.Input h Addr, DSL.Output h Addr)
           -> IntT h e m (TxIn, TxOutAux)
       aux (inp, out) = do
-          ((_key, inp'), _) <- int inp
-          out'              <- int out
+          ((_key, inp'), _) <- (int @DSL2Cardano) inp
+          out'              <- (int @DSL2Cardano) out
           return (inp', out')
 
 {-------------------------------------------------------------------------------
@@ -587,8 +359,8 @@ data BlockMeta' h = BlockMeta' {
 -- | Interpretation of block metadata
 --
 -- NOTE: BlockMeta' has a mix of DSL and Cardano values, only the DSL values are translated
-instance DSL.Hash h Addr => Interpret h (BlockMeta' h) where
-  type Interpreted (BlockMeta' h) = BlockMeta
+instance DSL.Hash h Addr => Interpret DSL2Cardano h (BlockMeta' h) where
+  type Interpreted DSL2Cardano (BlockMeta' h) = BlockMeta
 
   int :: forall e m. Monad m
       => BlockMeta' h -> IntT h e m BlockMeta
@@ -602,7 +374,7 @@ instance DSL.Hash h Addr => Interpret h (BlockMeta' h) where
 
           -- Interpret only the key, leaving the indexed value AddressMeta unchanged
           intAddrMeta :: (Addr,AddressMeta) -> IntT h e m (InDb Address, AddressMeta)
-          intAddrMeta (addr,addrMeta) = (,addrMeta) . InDb . addrInfoCardano <$> int addr
+          intAddrMeta (addr,addrMeta) = (,addrMeta) . InDb . addrInfoCardano <$> (int @DSL2Cardano) addr
 
           intTxIds :: Map (h (DSL.Transaction h Addr)) SlotId -> IntT h e m (InDb (Map TxId SlotId))
           intTxIds txIds = InDb . Map.fromList <$> mapM intTxId (Map.toList txIds)
@@ -620,15 +392,15 @@ instance DSL.Hash h Addr => Interpret h (BlockMeta' h) where
 -------------------------------------------------------------------------------}
 
 -- | Interpretation of transactions
-instance DSL.Hash h Addr => Interpret h (DSL.Transaction h Addr) where
-  type Interpreted (DSL.Transaction h Addr) = RawResolvedTx
+instance DSL.Hash h Addr => Interpret DSL2Cardano h (DSL.Transaction h Addr) where
+  type Interpreted DSL2Cardano (DSL.Transaction h Addr) = RawResolvedTx
 
   int :: forall e m. Monad m
       => DSL.Transaction h Addr -> IntT h e m RawResolvedTx
   int t = do
       let currentTime = getSomeTimestamp -- Pos.Core.Timestamp $ minBound
-      (trIns', resolvedInputs) <- unzip <$> mapM int (DSL.trIns' t)
-      trOuts'                  <-           mapM int (DSL.trOuts t)
+      (trIns', resolvedInputs) <- unzip <$> mapM (int @DSL2Cardano) (DSL.trIns' t)
+      trOuts'                  <-           mapM (int @DSL2Cardano) (DSL.trOuts t)
       txAux   <- liftTranslateInt $ mkTx trIns' trOuts'
       let txAttrSize = biSize (taTx txAux ^. txAttributes)
       unless (txAttrSize <= boundTxAttrSize) $
@@ -660,14 +432,14 @@ instance DSL.Hash h Addr => Interpret h (DSL.Transaction h Addr) where
                 (NE.fromList outs)
 
 -- | Interpretation of a block of transactions, oldest first
-instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
+instance DSL.Hash h Addr => Interpret DSL2Cardano h (DSL.Block h Addr) where
   -- The block and the EBB, if any
-  type Interpreted (DSL.Block h Addr) = (RawResolvedBlock, Maybe GenesisBlock)
+  type Interpreted DSL2Cardano (DSL.Block h Addr) = (RawResolvedBlock, Maybe GenesisBlock)
 
   int :: forall e m. Monad m
       => DSL.Block h Addr -> IntT h e m (RawResolvedBlock, Maybe GenesisBlock)
   int (OldestFirst txs) = do
-      (txs', resolvedTxInputs) <- unpack <$> mapM int txs
+      (txs', resolvedTxInputs) <- unpack <$> mapM (int @DSL2Cardano) txs
       pushCheckpoint $ \prev slot -> do
         block <- mkBlock
                    (icEpochLeaders prev)
@@ -681,7 +453,7 @@ instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
                      , _bcPrevMain = InDb <$> icMainBlockHdr prev
                      }
         let raw = mkRawResolvedBlock block resolvedTxInputs currentTime ctxt
-        checkpoint <- mkCheckpoint prev raw
+        checkpoint <- mkCheckpoint prev slot block (fmap toaOut <$> resolvedTxInputs)
         if isEpochBoundary slot
           then second (\ebb -> (raw, Just ebb)) <$> createEpochBoundary checkpoint
           else return (checkpoint, (raw, Nothing))
@@ -725,29 +497,20 @@ instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
       -- TODO: Get this value from somewhere rather than hardcoding it
       blockSizeLimit = 2 * 1024 * 1024 -- 2 MB
 
-instance DSL.Hash h Addr => Interpret h (DSL.Chain h Addr) where
-  type Interpreted (DSL.Chain h Addr) = OldestFirst [] Block
+instance DSL.Hash h Addr => Interpret DSL2Cardano h (DSL.Chain h Addr) where
+  type Interpreted DSL2Cardano (DSL.Chain h Addr) = OldestFirst [] Block
 
   int :: forall e m. Monad m
       => DSL.Chain h Addr -> IntT h e m (OldestFirst [] Block)
   int (OldestFirst blocks) =
-      OldestFirst . concatMap flatten <$> mapM int blocks
+      OldestFirst . concatMap flatten <$> mapM (int @DSL2Cardano) blocks
     where
       flatten :: (RawResolvedBlock, Maybe GenesisBlock) -> [Block]
       flatten (b, Nothing)  = [Right (rawResolvedBlock b)]
       flatten (b, Just ebb) = [Right (rawResolvedBlock b), Left ebb]
 
-{-------------------------------------------------------------------------------
-  Wallet events
--------------------------------------------------------------------------------}
-
--- | For convenience, we provide an event that corresponds to rollback
---
--- This makes interpreting DSL blocks and these "pseudo-DSL" rollbacks uniform.
-data IntRollback = IntRollback
-
-instance Interpret h IntRollback where
-  type Interpreted IntRollback = ()
+instance Interpret DSL2Cardano h IntRollback where
+  type Interpreted DSL2Cardano IntRollback = ()
 
   int :: Monad m => IntRollback -> IntT h e m ()
   int IntRollback = popIntCheckpoint
@@ -756,14 +519,14 @@ instance Interpret h IntRollback where
 data IntSwitchToFork h = IntSwitchToFork Int (DSL.Chain h Addr)
 
 -- | When we interpret 'IntSwitchToFork' we ignore EBBs
-instance DSL.Hash h Addr => Interpret h (IntSwitchToFork h) where
-  type Interpreted (IntSwitchToFork h) = OldestFirst [] RawResolvedBlock
+instance DSL.Hash h Addr => Interpret DSL2Cardano h (IntSwitchToFork h) where
+  type Interpreted DSL2Cardano (IntSwitchToFork h) = OldestFirst [] RawResolvedBlock
 
   int (IntSwitchToFork 0 (OldestFirst blocks)) = do
-      OldestFirst . map fst <$> mapM int blocks
+      OldestFirst . map fst <$> mapM (int @DSL2Cardano) blocks
   int (IntSwitchToFork n bs) = do
-      int $ IntRollback
-      int $ IntSwitchToFork (n - 1) bs
+      int @DSL2Cardano $ IntRollback
+      int @DSL2Cardano $ IntSwitchToFork (n - 1) bs
 
 {-------------------------------------------------------------------------------
   Auxiliary
@@ -789,13 +552,3 @@ instance Buildable (IntCtxt h) where
     % "}"
     )
     _icCheckpoints
-
-instance Buildable IntCheckpoint where
-  build IntCheckpoint{..} = bprint
-    ( "Checkpoint {"
-    % "  slotId: " % build
-    % ", stakes: " % mapJson
-    % "}"
-    )
-    icSlotId
-    icStakes

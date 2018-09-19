@@ -115,10 +115,10 @@ import           Cardano.Wallet.Kernel.DB.Util.IxSet
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet hiding (Indexable)
 import qualified Cardano.Wallet.Kernel.DB.Util.Zoomable as Z
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (SecurityParameter (..))
-import           Cardano.Wallet.Kernel.Util (liftNewestFirst, modifyAndGetOld)
 import qualified Cardano.Wallet.Kernel.Util.StrictList as SL
 import           Cardano.Wallet.Kernel.Util.StrictNonEmpty (StrictNonEmpty (..))
 import qualified Cardano.Wallet.Kernel.Util.StrictNonEmpty as SNE
+import           UTxO.Util (liftNewestFirst, modifyAndGetOld)
 
 {-------------------------------------------------------------------------------
   Supporting types

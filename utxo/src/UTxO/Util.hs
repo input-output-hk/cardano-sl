@@ -1,8 +1,9 @@
 {-# LANGUAGE BangPatterns           #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE StandaloneDeriving     #-}
+{-# LANGUAGE UndecidableInstances   #-}
 -- | General purpose utility functions
-module Cardano.Wallet.Kernel.Util (
+module UTxO.Util (
     -- * Lists
     at
   , neHead

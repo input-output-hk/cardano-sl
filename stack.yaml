@@ -33,6 +33,7 @@ packages:
 - explorer
 - node
 - tools
+- utxo
 - wallet
 - wallet/test
 - wallet-new # The new (unreleased) version of the wallet

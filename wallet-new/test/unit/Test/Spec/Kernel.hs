@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Test.Spec.Kernel (
     spec
@@ -20,6 +21,7 @@ import           Pos.Chain.Genesis (Config (..))
 import           Pos.Core (Coeff (..), TxSizeLinear (..))
 import           Pos.Core.Chrono
 
+import           Data.Validated
 import           Test.Infrastructure.Generator
 import           Test.Infrastructure.Genesis
 import           Test.Pos.Configuration (withDefConfiguration)
@@ -27,13 +29,12 @@ import           Test.Spec.BlockMetaScenarios
 import           Test.Spec.TxMetaScenarios
 import           Util.Buildable.Hspec
 import           Util.Buildable.QuickCheck
-import           Util.Validated
 import           UTxO.Bootstrap
 import           UTxO.Context
 import           UTxO.Crypto
 import           UTxO.DSL
-import           UTxO.Interpreter (BlockMeta' (..), IntCtxt, IntException,
-                     Interpret, int, runIntT')
+import           UTxO.ToCardano.Interpreter (BlockMeta' (..), DSL2Cardano,
+                     IntCtxt, IntException, Interpret, int, runIntT')
 import           UTxO.Translate
 import           Wallet.Abstract
 import           Wallet.Inductive
@@ -154,12 +155,12 @@ spec = do
     mkWallet = walletBoot Full.walletEmpty
 
     -- | Translates the DSL BlockMeta' value to BlockMeta
-    intBlockMeta :: forall h. (Interpret h (BlockMeta' h))
+    intBlockMeta :: forall h. (Interpret DSL2Cardano h (BlockMeta' h))
                  => IntCtxt h
                  -> (BlockMeta' h)
                  -> TranslateT IntException IO BlockMeta
     intBlockMeta intCtxt a = do
-        ma' <- catchTranslateErrors $ runIntT' intCtxt $ int a
+        ma' <- catchTranslateErrors $ runIntT' intCtxt $ (int @DSL2Cardano) a
         case ma' of
           Left err         -> liftIO $ throwM err
           Right (a', _ic') -> return a'

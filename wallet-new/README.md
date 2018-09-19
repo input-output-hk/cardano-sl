@@ -92,6 +92,13 @@ $ curl https://localhost:8090/api/v1/node-info \
 > client certificate.
 
 
+## Migration
+
+We provide the possibility to migrate from the legacy wallet-db.
+Migration will start automatically if the old db path is found. However the default
+migration is lenient, in the sense that if some wallet fails to decode or a restoration fails,
+we simply log an error and continue. If you want to enforce all-or-nothing for the migration the flag `--force-full-wallet-migration` should be set. With this flag, the node crashes in case of any migration failure. If you want to restart the Migration, you should delete the newly created db, find the root of the problem and try again.
+
 ## Local Cluster
 
 Running a node against `mainnet_staging` may not be ideal for testing. The node will also need

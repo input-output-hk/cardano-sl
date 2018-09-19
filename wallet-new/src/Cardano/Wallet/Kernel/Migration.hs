@@ -165,39 +165,55 @@ resolveDbPath fp = do
 -- | Migrates the wallet database created with the legacy data layer onto the
 -- new format. It does that by extract the metadata not deriveable from the
 -- blockchain first, and then kicking-off the async restoration process.
+--
+-- When @forced@ is False we are lenient in logging any error and continuing
+-- rather than crashing the node. The rationale is that if
+-- we live the node running, we would give the user a chance
+-- to submit a bug report from the Daedalus interface.
+--
+-- However when @forced@ is True the migration is a all-or-nothing.
+-- If anything fails (e.g. wallet decoding, resotartion etc) the node crashes.
 migrateLegacyDataLayer :: Kernel.PassiveWallet
                        -> FilePath
+                       -> Bool
                        -> IO ()
-migrateLegacyDataLayer pw unresolvedDbPath = do
+migrateLegacyDataLayer pw unresolvedDbPath forced = do
     let logMsg = pw ^. Kernel.walletLogMessage
     logMsg Info "Starting acid state migration"
     resolved <- resolveDbPath unresolvedDbPath
     case resolved of
        Nothing -> -- We assume no migration is needed and we move along
-           logMsg Info $ "No legacy DB at " <> pack unresolvedDbPath <> " , migration is not needed."
+            case forced of
+                True -> do
+                    logMsg Error $ "Migration failed! Legacy DB was not found at " <> pack unresolvedDbPath <> ", but migration is forced"
+                    exitFailure
+                False -> do
+                    logMsg Info $ "No legacy DB at " <> pack unresolvedDbPath <> ", migration is not needed."
        Just legacyDbPath -> do
            bracketLegacyDB legacyDbPath $ \st -> do
                 let  (unavailable, available) = partitionEithers (metadataFromWalletStorage st)
                      unavailableLen = length unavailable
                      availableLen   = length available
 
-                -- Here we are lenient in logging any error and continuing
-                -- rather than crashing the node. The rationale is that if
-                -- we live the node running, we would give the user a chance
-                -- to submit a bug report from the Daedalus interface.
                 when (unavailableLen > 0) $ do
-                    logMsg Error $ show unavailableLen
-                        <> " out of "
-                        <> show unavailableLen
-                        <> " wallets failed to be converted into the metadata "
-                        <> "information needed for migration."
+                    let msg = show unavailableLen
+                              <> " out of "
+                              <> show (unavailableLen + availableLen)
+                              <> " wallets failed to be converted into the metadata "
+                              <> "information needed for migration."
+                    case forced of
+                        True -> do
+                            logMsg Error $ "Migration failed! " <> msg
+                            exitFailure
+                        False -> do
+                            logMsg Error msg
 
                 when (availableLen > 0) $ do
                     logMsg Info $ "Found "
                         <> show availableLen
                         <> " rootAddress(es) to migrate."
 
-                mapM_ (restore pw) available
+                mapM_ (restore pw forced) available
 
            -- Now that we have closed the DB, we can move the directory
            backupPath <- moveLegacyDB legacyDbPath
@@ -207,9 +223,10 @@ migrateLegacyDataLayer pw unresolvedDbPath = do
 
 
 restore :: Kernel.PassiveWallet
+        -> Bool
         -> MigrationMetadata
         -> IO ()
-restore pw metadata = do
+restore pw forced metadata = do
     let logMsg = pw ^. Kernel.walletLogMessage
         keystore = pw ^. Kernel.walletKeystore
         wId = WalletIdHdRnd (metadata ^. mmHdRootId)
@@ -225,17 +242,27 @@ restore pw metadata = do
                                  (prefilter esk pw wId)
             case res of
                  Right (restoredRoot, balance) -> do
-                     let errMsg = "Migrating " % F.build
+                     let msg = "Migrating " % F.build
                                 % " with balance " % F.build
-                     logMsg Info (F.sformat errMsg restoredRoot balance)
+                     logMsg Info (F.sformat msg restoredRoot balance)
                  Left err -> do
                      let errMsg = "Couldn't migrate " % F.build
-                                % " due to : " % F.build
-                     logMsg Error (F.sformat errMsg wId err)
+                                % " due to : " % F.build % "."
+                         msg = F.sformat errMsg wId err
+                     case forced of
+                        False -> logMsg Error msg
+                        True  -> do
+                            logMsg Error ("Migration failed! " <> msg <> " You are advised to delete the newly created db and try again.")
+                            exitFailure
         Nothing -> do
             let errMsg = "Couldn't migrate " % F.build
                        % " : the key was not found in the keystore."
-            logMsg Error (F.sformat errMsg wId)
+                msg = F.sformat errMsg wId
+            case forced of
+                False -> logMsg Error msg
+                True  -> do
+                    logMsg Error ("Migration failed! " <> msg <> " You are advised to delete the newly created db and try again.")
+                    exitFailure
 
 -- PRECONDITION: The 'FilePath' should exist. This is checked at the call site.
 bracketLegacyDB :: FilePath -> (WS.WalletStorage -> IO a) -> IO a

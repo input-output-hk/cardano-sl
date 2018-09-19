@@ -18,6 +18,7 @@ module Pos.Client.Txp.Util
        -- * Tx creation
        , TxCreateMode
        , makeAbstractTx
+       , makeUnsignedAbstractTx
        , runTxCreator
        , makePubKeyTx
        , makeMPubKeyTx

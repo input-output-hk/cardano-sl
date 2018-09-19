@@ -233,8 +233,7 @@ spec = describe "NewPayment" $ do
             prop "estimating fees works (SenderPaysFee)" $ withMaxSuccess 50 $ do
                 monadicIO $
                     withPayment (InitialADA 10000) (PayLovelace 10) $ \activeLayer newPayment -> do
-                        res <- liftIO ((WalletLayer.estimateFees activeLayer) mempty
-                                                                              IgnoreGrouping
+                        res <- liftIO ((WalletLayer.estimateFees activeLayer) IgnoreGrouping
                                                                               SenderPaysFee
                                                                               newPayment
                                       )
@@ -254,7 +253,6 @@ spec = describe "NewPayment" $ do
                         let (AccountIdHdRnd hdAccountId) = fixtureAccountId
 
                         res <- liftIO (Kernel.estimateFees aw
-                                                           mempty
                                                            opts
                                                            hdAccountId
                                                            fixturePayees
@@ -274,7 +272,6 @@ spec = describe "NewPayment" $ do
                         let (AccountIdHdRnd hdAccountId) = fixtureAccountId
 
                         res <- liftIO (Kernel.estimateFees aw
-                                                           mempty
                                                            opts
                                                            hdAccountId
                                                            fixturePayees
@@ -295,7 +292,6 @@ spec = describe "NewPayment" $ do
                         let (AccountIdHdRnd hdAccountId) = fixtureAccountId
 
                         res <- liftIO (Kernel.estimateFees aw
-                                                           mempty
                                                            opts
                                                            hdAccountId
                                                            fixturePayees

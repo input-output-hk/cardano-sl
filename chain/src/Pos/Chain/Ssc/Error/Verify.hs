@@ -7,12 +7,13 @@ module Pos.Chain.Ssc.Error.Verify
 
 import           Universum
 
-import           Formatting (bprint, build, ords, stext, (%))
+import           Formatting (bprint, build, stext, (%))
 import qualified Formatting.Buildable
 import           Serokell.Util (listJson)
 
 import           Pos.Chain.Ssc.VssCertificate (VssCertificate)
-import           Pos.Core (EpochIndex, SlotId, StakeholderId)
+import           Pos.Core (EpochIndex (..), SlotId, StakeholderId)
+import           Pos.Util.Util (intords)
 
 type NEStIds = NonEmpty StakeholderId
 
@@ -66,7 +67,7 @@ instance Buildable SscVerifyError where
     build (NoRichmen epoch) =
         bprint ("no richmen for epoch"%build) epoch
     build (TossUnknownRichmen epoch) =
-        bprint ("richmen aren't know for "%ords%" epoch") epoch
+        bprint ("richmen aren't know for "%intords%" epoch") (getEpochIndex epoch)
 
     build (CommitmentInvalid ids) =
         bprint ("verifySignedCommitment has failed for some commitments: "%listJson) ids

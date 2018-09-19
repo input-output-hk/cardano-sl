@@ -19,7 +19,7 @@ import           Data.Coerce (coerce)
 import           Data.Conduit (ConduitT, runConduitRes, (.|))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
-import           Formatting (build, ords, sformat, (%))
+import           Formatting (build, sformat, (%))
 import qualified System.Metrics.Counter as Metrics
 import           UnliftIO (MonadUnliftIO)
 
@@ -31,7 +31,7 @@ import           Pos.Chain.Lrc (LrcError (..), RichmenStakes,
                      followTheSatoshiM)
 import           Pos.Chain.Ssc (MonadSscMem, noReportNoSecretsForEpoch1)
 import           Pos.Chain.Update (BlockVersionState (..))
-import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), SharedSeed,
+import           Pos.Core (Coin, EpochIndex (..), EpochOrSlot (..), SharedSeed,
                      SlotCount, StakeholderId, crucialSlot, epochIndexL,
                      getEpochOrSlot)
 import           Pos.Core.Chrono (NE, NewestFirst (..), toOldestFirst)
@@ -56,7 +56,7 @@ import           Pos.DB.Ssc (sscCalculateSeed)
 import qualified Pos.DB.Txp.Stakes as GS
 import           Pos.DB.Update (getCompetingBVStates)
 import           Pos.Util (maybeThrow)
-import           Pos.Util.Util (HasLens (..))
+import           Pos.Util.Util (HasLens (..), intords)
 import           Pos.Util.Wlog (logDebug, logInfo, logWarning)
 
 
@@ -90,7 +90,7 @@ lrcSingleShot genesisConfig epoch = do
     tryAcquireExclusiveLock epoch lock onAcquiredLock
   where
     consumers = allLrcConsumers @ctx @m (configBlockVersionData genesisConfig)
-    for_thEpochMsg = sformat (" for "%ords%" epoch") epoch
+    for_thEpochMsg = sformat (" for "%intords%" epoch") (getEpochIndex epoch)
     onAcquiredLock = do
         logDebug "lrcSingleShot has acquired LRC lock"
         (need, filteredConsumers) <-

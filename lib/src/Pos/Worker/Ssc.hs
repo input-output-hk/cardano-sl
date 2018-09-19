@@ -13,7 +13,7 @@ import           Control.Monad.Except (runExceptT)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond, Millisecond, convertUnit)
-import           Formatting (build, ords, sformat, shown, (%))
+import           Formatting (build, sformat, shown, (%))
 import           Serokell.Util.Exceptions ()
 import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Metrics
@@ -66,7 +66,7 @@ import           Pos.Infra.Slotting (MonadSlots, defaultOnNewSlotParams,
 import           Pos.Infra.Util.LogSafe (logDebugS, logErrorS, logInfoS,
                      logWarningS)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Util.Util (HasLens (..), getKeys, leftToPanic)
+import           Pos.Util.Util (HasLens (..), getKeys, intords, leftToPanic)
 import           Pos.Util.Wlog (WithLogger)
 
 
@@ -219,12 +219,12 @@ onNewSlotCommitment genesisConfig slotId@SlotId {..} sendCommitment
 
     onNewSlotCommDo = do
         ourSk <- getOurSecretKey
-        logDebugS $ sformat ("Generating secret for "%ords%" epoch") siEpoch
+        logDebugS $ sformat ("Generating secret for "%intords%" epoch") siEpoch
         generated <- generateAndSetNewSecret genesisConfig ourSk slotId
         case generated of
             Nothing -> logWarningS "I failed to generate secret for SSC"
             Just comm -> do
-              logInfoS (sformat ("Generated secret for "%ords%" epoch") siEpoch)
+              logInfoS (sformat ("Generated secret for "%intords%" epoch") siEpoch)
               sendOurCommitment comm
 
     sendOurCommitment comm = do

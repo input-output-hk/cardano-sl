@@ -10,7 +10,7 @@ module Cardano.Wallet.Kernel (
     , bracketPassiveWallet
     -- * Configuration
     , DatabaseMode(..)
-    , DatabasePaths(..)
+    , DatabaseOptions(..)
     , useDefaultPaths
     , defaultAcidStatePath
     , defaultSqlitePath
@@ -32,6 +32,7 @@ import           Data.Acid (AcidState, createArchive, createCheckpoint,
                      openLocalStateFrom)
 import           Data.Acid.Memory (openMemoryState)
 import qualified Data.Map.Strict as Map
+import           System.Directory (doesDirectoryExist, removeDirectoryRecursive)
 
 import           Pos.Chain.Txp (TxAux (..))
 import           Pos.Crypto (ProtocolMagic)
@@ -60,23 +61,25 @@ data DatabaseMode
     -- ^ This constructor is used when you want to run the database in memory.
     -- This is useful for testing as it does not require a disk. The database
     -- will start out with the fresh, default, uninitialized state.
-    | UseFilePath DatabasePaths
+    | UseFilePath DatabaseOptions
     -- ^ Load the databases from the given paths.
 
 -- | A configuration type for specifying where to load the databases from.
-data DatabasePaths
-    = DatabasePaths
+data DatabaseOptions
+    = DatabaseOptions
     { dbPathAcidState :: FilePath
     -- ^ The path for the @acid-state@ database.
     , dbPathMetadata  :: FilePath
     -- ^ This path is used for the SQLite database that contains the transaction
     -- metadata.
+    , dbRebuild       :: Bool
+    -- ^ Whether we want to rebuild the db in case it exists.
     } deriving (Eq, Show)
 
--- | Use the default paths on disk. See 'DatabasePaths' for more details.
+-- | Use the default paths on disk. See 'DatabaseOptions' for more details.
 useDefaultPaths :: DatabaseMode
 useDefaultPaths =
-    UseFilePath $ DatabasePaths defaultAcidStatePath defaultSqlitePath
+    UseFilePath $ DatabaseOptions defaultAcidStatePath defaultSqlitePath False
 
 defaultAcidStatePath :: FilePath
 defaultAcidStatePath = "wallet-db-acid"
@@ -119,8 +122,14 @@ handlesOpen mode =
             metadb <- openMetaDB ":memory:"
             migrateMetaDB metadb
             return $ Handles db metadb
-        UseFilePath (DatabasePaths acidDb sqliteDb) -> do
+        UseFilePath (DatabaseOptions acidDb sqliteDb rebuildDB) -> do
+            let deleteMaybe fp = do
+                    when rebuildDB $ do
+                        itsHere <- doesDirectoryExist fp
+                        when itsHere $ removeDirectoryRecursive fp
+            deleteMaybe acidDb
             db <- openLocalStateFrom acidDb defDB
+            deleteMaybe sqliteDb
             metadb <- openMetaDB sqliteDb
             migrateMetaDB metadb
             return $ Handles db metadb
@@ -131,7 +140,7 @@ handlesClose dbMode (Handles acidDb meta) = do
     case dbMode of
         UseInMemory ->
             pure ()
-        UseFilePath (DatabasePaths _ _) -> do
+        UseFilePath (DatabaseOptions _ _ _) -> do
             createCheckpoint acidDb
             createArchive acidDb
 

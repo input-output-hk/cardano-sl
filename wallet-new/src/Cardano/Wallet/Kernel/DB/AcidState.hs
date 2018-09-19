@@ -7,6 +7,8 @@ module Cardano.Wallet.Kernel.DB.AcidState (
     DB(..)
   , dbHdWallets
   , defDB
+  , DiskFlushCounter -- opaque
+  , needsDiskFlush
     -- * Acid-state operations
     -- ** Snapshot
   , Snapshot(..)
@@ -79,11 +81,16 @@ import qualified Cardano.Wallet.Kernel.DB.Util.Zoomable as Z
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (SecurityParameter (..))
 import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId,
                      PrefilteredBlock (..), emptyPrefilteredBlock)
-import           Cardano.Wallet.Kernel.Util (markMissingMapEntries)
+import           Cardano.Wallet.Kernel.Util (markMissingMapEntries,
+                     modifyAndGetOld)
 
 {-------------------------------------------------------------------------------
   Top-level database
 -------------------------------------------------------------------------------}
+
+newtype DiskFlushCounter = DiskFlushCounter { getCounter :: Int }
+
+deriveSafeCopy 1 'base ''DiskFlushCounter
 
 -- | Full state of the wallet, with the exception of transaction metadata
 --
@@ -98,18 +105,37 @@ import           Cardano.Wallet.Kernel.Util (markMissingMapEntries)
 --  * V1 API defined in "Cardano.Wallet.API.V1.*" (in @src/@)
 data DB = DB {
       -- | HD wallets with randomly assigned account and address indices
-      _dbHdWallets :: !HdWallets
+      _dbHdWallets        :: !HdWallets
+
+    -- | Interim fix, see CBR-438 and
+    -- https://github.com/acid-state/acid-state/issues/103. In brief, when
+    -- the note initially syncs and lots of blocks gets passed to the wallet
+    -- worker, a new `ApplyBlock` acidic transaction will be committed on the
+    -- transaction log but not written to disk _yet_ (that's what checkpoints
+    -- are for). However, this might lead to memory leaks if such checkpointing
+    -- step doesn't happen fast enough. Therefore, every time we apply a block,
+    -- we decrement this counter and when it reaches 0, we enforce a new
+    -- checkpoint.
+    , _dbDiskFlushCounter :: !DiskFlushCounter
 
       -- | Available updates
-    , _dbUpdates   :: !Updates
+    , _dbUpdates          :: !Updates
     }
 
 makeLenses ''DB
 deriveSafeCopy 1 'base ''DB
 
+-- The number of calls to 'applyBlock' after which we enforce a
+-- @disk flush@, i.e. we create an acidic checkpoint on disk.
+initialDiskFlushCounter :: DiskFlushCounter
+initialDiskFlushCounter = DiskFlushCounter 1024
+
+needsDiskFlush :: DiskFlushCounter -> Bool
+needsDiskFlush = (<= 0) . getCounter
+
 -- | Default DB
 defDB :: DB
-defDB = DB initHdWallets noUpdates
+defDB = DB initHdWallets initialDiskFlushCounter noUpdates
 
 {-------------------------------------------------------------------------------
   Custom errors
@@ -205,6 +231,15 @@ cancelPending cancelled = void . runUpdate' . zoom dbHdWallets $
         handleError :: MonadError e m => (e -> m a) -> m a -> m a
         handleError = flip catchError
 
+-- | Updates the '_dbDiskFlushCounter' and resets it if it goes to 0 or below.
+updateAndReturnDiskFlushCounter :: Update' e DB DiskFlushCounter
+updateAndReturnDiskFlushCounter =
+    zoom dbDiskFlushCounter $ modifyAndGetOld $
+        \oldCounter -> case getCounter oldCounter of
+                            0 -> initialDiskFlushCounter
+                            c -> DiskFlushCounter $ max 0 (c - 1)
+
+
 -- | Apply prefiltered block (indexed by HdAccountId) to the matching accounts.
 --
 -- The prefiltered block should be indexed by AccountId, with each prefiltered
@@ -234,9 +269,13 @@ cancelPending cancelled = void . runUpdate' . zoom dbHdWallets $
 applyBlock :: SecurityParameter
            -> BlockContext
            -> Map HdAccountId PrefilteredBlock
-           -> Update DB (Either Spec.ApplyBlockFailed (Map HdAccountId (Set TxId)))
-applyBlock k context blocks = runUpdateDiscardSnapshot $ zoom dbHdWallets $
-    updateAccounts =<< mkUpdates <$> use hdWalletsAccounts
+           -> Update DB (Either Spec.ApplyBlockFailed (Map HdAccountId (Set TxId), DiskFlushCounter))
+applyBlock k context blocks = runUpdateDiscardSnapshot $ do
+    diskFlushCounter <- updateAndReturnDiskFlushCounter
+    accs <- zoom dbHdWallets $
+                updateAccounts =<< mkUpdates <$> use hdWalletsAccounts
+    return (accs, diskFlushCounter)
+
   where
     mkUpdates :: IxSet HdAccount
               -> [AccountUpdate Spec.ApplyBlockFailed (Set TxId)]

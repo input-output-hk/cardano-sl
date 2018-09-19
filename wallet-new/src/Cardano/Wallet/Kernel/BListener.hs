@@ -10,13 +10,15 @@ module Cardano.Wallet.Kernel.BListener (
 import           Universum hiding (State)
 
 import           Control.Concurrent.MVar (modifyMVar_)
+import           Data.Acid (createCheckpoint)
 import           Data.Acid.Advanced (update')
 
 import           Pos.Crypto (EncryptedSecretKey)
+import           Pos.Util.Log (Severity (Info))
 
 import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..),
                      ObservableRollbackUseInTestsOnly (..), SwitchToFork (..),
-                     SwitchToForkError (..))
+                     SwitchToForkError (..), needsDiskFlush)
 import           Cardano.Wallet.Kernel.DB.BlockContext
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock, rbContext)
@@ -54,15 +56,19 @@ applyBlock :: PassiveWallet
            -> ResolvedBlock
            -> IO (Either ApplyBlockFailed ())
 applyBlock pw@PassiveWallet{..} b = do
+    let logMsg = _walletLogMessage
     k <- Node.getSecurityParameter _walletNode
     ((ctxt, blocksByAccount), metas) <- prefilterBlock' pw b
     -- apply block to all Accounts in all Wallets
     mConfirmed <- update' _wallets $ ApplyBlock k ctxt blocksByAccount
     case mConfirmed of
       Left  err       -> return $ Left err
-      Right confirmed -> do
+      Right (confirmed, flushCounter) -> do
         modifyMVar_ _walletSubmission $ return . Submission.remPending confirmed
         mapM_ (putTxMeta _walletMeta) metas
+        when (needsDiskFlush flushCounter) $ do
+            logMsg Info "applyBlock: Creating a new acid-state checkpoint..."
+            createCheckpoint _wallets
         return $ Right ()
 
 -- | Switch to a new fork

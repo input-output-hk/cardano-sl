@@ -111,7 +111,7 @@ import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
 import           Cardano.Wallet.Kernel.DB.Util.IxSet
-import           Cardano.Wallet.Kernel.Util (modifyAndGetOld, neHead)
+import           UTxO.Util (modifyAndGetOld, neHead)
 
 {-------------------------------------------------------------------------------
   Supporting types

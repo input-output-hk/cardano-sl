@@ -64,7 +64,7 @@ import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId,
                      PrefilteredBlock (..), emptyPrefilteredBlock)
-import           Cardano.Wallet.Kernel.Util (markMissingMapEntries)
+import           UTxO.Util (markMissingMapEntries)
 
 {-------------------------------------------------------------------------------
   Top-level database

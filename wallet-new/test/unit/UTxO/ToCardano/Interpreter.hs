@@ -35,7 +35,7 @@ import           Serokell.Util (listJson, mapJson)
 
 import           Cardano.Wallet.Kernel.DB.Resolved
 import           Cardano.Wallet.Kernel.Types
-import           Cardano.Wallet.Kernel.Util (at)
+import           UTxO.Util (at)
 
 import           Pos.Chain.Block (Block, BlockHeader (BlockHeaderGenesis),
                      GenesisBlock, MainBlock)

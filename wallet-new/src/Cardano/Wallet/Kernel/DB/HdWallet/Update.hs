@@ -9,7 +9,7 @@ import           Universum
 
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
-import           Cardano.Wallet.Kernel.Util (modifyAndGetNew)
+import           UTxO.Util (modifyAndGetNew)
 
 {-------------------------------------------------------------------------------
   UPDATE

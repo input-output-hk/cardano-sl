@@ -24,12 +24,6 @@ module UTxO.IntTrans
   )
   where
 
-import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
-import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock (..),
-                     ResolvedTx (..))
-import           Cardano.Wallet.Kernel.Types
-                     (RawResolvedBlock (UnsafeRawResolvedBlock),
-                     fromRawResolvedBlock)
 import           Control.Monad.Except (MonadError, throwError)
 import qualified Data.HashMap.Strict as HM
 import           Data.Map.Strict (Map)
@@ -39,7 +33,7 @@ import qualified Formatting.Buildable
 import           Pos.Chain.Block (BlockHeader)
 import           Pos.Chain.Block
                      (BlockHeader (BlockHeaderGenesis, BlockHeaderMain),
-                     GenesisBlock, gbHeader, genBlockLeaders, mkGenesisBlock)
+                     GenesisBlock, MainBlock, gbHeader, genBlockLeaders, mkGenesisBlock)
 import           Pos.Chain.Lrc (followTheSatoshi)
 import           Pos.Chain.Txp (TxIn (..), TxOutAux (..), txOutStake)
 import           Pos.Client.Txp.Util (TxError (..))
@@ -161,9 +155,9 @@ magic = ccMagic . tcCardano
 mkCheckpoint :: Monad m
              => IntCheckpoint    -- ^ Previous checkpoint
              -> SlotId           -- ^ Slot of the new block just created
-             -> RawResolvedBlock -- ^ The block just created
+             -> MainBlock        -- ^ The block just created
              -> TranslateT IntException m IntCheckpoint
-mkCheckpoint prev slot raw@(UnsafeRawResolvedBlock block _inputs) = do
+mkCheckpoint prev slot block = do
     pc <- asks constants
     gs <- asks weights
     let isCrucial = give pc $ slot == crucialSlot (siEpoch slot)

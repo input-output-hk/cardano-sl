@@ -423,6 +423,8 @@ test-suite wallet-unit-tests
                       Util.MultiSet
                       Util.QuickCheck
                       Util.Range
+                      UTxO.ToCardano.Interpreter
+                      UTxO.ToCardano.Translate
                       Wallet.Abstract
                       Wallet.Basic
                       Wallet.Incremental

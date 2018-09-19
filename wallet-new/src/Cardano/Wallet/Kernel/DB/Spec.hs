@@ -54,7 +54,7 @@ import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec.Pending (Pending)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
-import           Cardano.Wallet.Kernel.Util (neHead)
+import           UTxO.Util (neHead)
 import           Cardano.Wallet.Kernel.Util.Core as Core
 
 {-------------------------------------------------------------------------------

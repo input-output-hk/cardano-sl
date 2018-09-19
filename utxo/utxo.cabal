@@ -22,6 +22,7 @@ library
                        UTxO.Interpreter
                        UTxO.IntTrans
                        UTxO.Translate
+                       UTxO.Util
                        UTxO.Verify
 
                        Data.Validated
@@ -35,7 +36,6 @@ library
                      , cardano-sl-crypto
                      , cardano-sl-db
                      , cardano-sl-util
-                     , cardano-sl-wallet-new
                      , constraints
                      , containers
                      , data-default >= 0.7

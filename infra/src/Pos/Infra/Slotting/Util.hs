@@ -39,20 +39,21 @@ import           Pos.Core (LocalSlotIndex, SlotCount, SlotId (..),
 import           Pos.Core.Conc (delay, timeout)
 import           Pos.Core.Slotting (ActionTerminationPolicy (..),
                      EpochSlottingData (..), MonadSlotsData,
-                     OnNewSlotParams (..), SlottingData, computeSlotStart,
-                     defaultOnNewSlotParams, getCurrentNextEpochSlottingDataM,
-                     getCurrentSlotFlat, getEpochSlottingDataM,
-                     getSystemStartM, lookupEpochSlottingData)
+                     OnNewSlotParams (..), SlottingData, TimeDiff (..),
+                     computeSlotStart, defaultOnNewSlotParams,
+                     getCurrentNextEpochSlottingDataM, getCurrentSlotFlat,
+                     getEpochSlottingDataM, getSystemStartM,
+                     lookupEpochSlottingData)
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo, recoveryInProgress)
 import           Pos.Infra.Reporting (MonadReporting, reportOrLogE)
 import           Pos.Infra.Shutdown (HasShutdownContext)
 import           Pos.Infra.Slotting.Class (MonadSlots (..))
 import           Pos.Infra.Slotting.Error (SlottingError (..))
 import           Pos.Infra.Slotting.Impl.Util (slotFromTimestamp)
+import           Pos.Util.Log.Structured (logInfoX)
 import           Pos.Util.Util (maybeThrow)
 import           Pos.Util.Wlog (WithLogger, logDebug, logInfo, logNotice,
                      logWarning, modifyLoggerName)
-
 
 
 -- | Get timestamp when given slot starts.
@@ -189,8 +190,9 @@ onNewSlotDo epochSlots withLogging expectedSlotId onsp action = do
     shortDelay = 42
     recoveryRefreshDelay :: Millisecond
     recoveryRefreshDelay = 150
-    logTTW timeToWait = modifyLoggerName (<> ".slotting") $ logDebug $
-                 sformat ("Waiting for "%shown%" before new slot") timeToWait
+    logTTW timeToWait = modifyLoggerName (<> ".slotting") $ do
+        logDebug $ sformat ("Waiting for "%shown%" before new slot") timeToWait
+        logInfoX $ TimeDiff timeToWait
 
 logNewSlotWorker :: MonadOnNewSlot ctx m => SlotCount -> m ()
 logNewSlotWorker epochSlots =

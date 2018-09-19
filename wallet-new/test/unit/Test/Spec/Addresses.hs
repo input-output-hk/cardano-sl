@@ -129,7 +129,7 @@ prepareAddressFixture n = do
 prepareAddressesFixture
     :: Int  -- ^ Number of Accounts to create.
     -> Int  -- ^ Number of 'Address per account to create.
-    -> Fixture.GenPassiveWalletFixture (M.Map V1.AccountIndex [V1.WalletAddress])
+    -> Fixture.GenPassiveWalletFixture (M.Map V1.AccountIndex [V1.WalletAddress], Int)
 prepareAddressesFixture acn adn = do
     spendingPassword <- Fixture.genSpendingPassword
     newWalletRq <- WalletLayer.CreateWallet <$> Wallets.genNewWalletRq spendingPassword
@@ -152,11 +152,9 @@ prepareAddressesFixture acn adn = do
                     Left e     -> error (show e)
                     Right addr -> return (accId, addr)
         res <- mapM insertAddresses accounts
-        return $ M.fromList res
-
-expectedNumber :: Int -> Int -> Int
-expectedNumber acc adr = (acc + 1)*(adr + 1) - acc
-
+        -- This takes into account that each wallet creates by default one account, which has
+        -- one address.
+        return $ (M.fromList res, (acn + 1)*(adn + 1) - acn)
 
 withFixture :: (  Keystore.Keystore
                -> PassiveWalletLayer IO
@@ -184,7 +182,7 @@ withAddressesFixtures :: Int -> Int ->
        (  Keystore.Keystore
     -> PassiveWalletLayer IO
     -> PassiveWallet
-    -> M.Map V1.AccountIndex [V1.WalletAddress]
+    -> (M.Map V1.AccountIndex [V1.WalletAddress], Int)
     -> IO a
     )
     -> PropertyM IO a
@@ -396,6 +394,8 @@ spec = describe "Addresses" $ do
                         pure (toBeCheckedAddresses === correctAddresses)
 
         describe "Address listing with multiple Accounts (Servant)" $ do
+            let rootId = addrRoot . V1.unV1 . V1.addrId
+
             prop "page 0, per page 0" $ withMaxSuccess 20 $ do
                 monadicIO $
                     withAddressesFixtures 4 4 $ \_ layer _ _ -> do
@@ -408,55 +408,50 @@ spec = describe "Addresses" $ do
 
             prop "it yields the correct number of results" $ withMaxSuccess 20 $ do
                 monadicIO $
-                    withAddressesFixtures 3 4 $ \_ layer _ _ -> do
+                    withAddressesFixtures 3 4 $ \_ layer _ (_, total) -> do
                         let pp = PaginationParams (Page 1) (PerPage 40)
                         res <- runExceptT $ runHandler' $ do
                             Handlers.listAddresses layer (RequestParams pp)
                         case res of
                             Right wr -> do
-                                -- this takes into account that there is an initial account
-                                -- and each account has an initial address (but not the initial
-                                -- account thus the -1)
-                                length (wrData wr) `shouldBe` expectedNumber 3 4
+                                length (wrData wr) `shouldBe` min 40 total
                             _        -> fail ("Got " ++ show res)
 
             prop "is deterministic" $ withMaxSuccess 20 $ do
                 monadicIO $
-                    withAddressesFixtures 3 8 $ \_ layer _ _ -> do
-                        let (expectedTotal :: Int) = expectedNumber 3 8
-                        let pp = PaginationParams (Page 1) (PerPage 40)
-                        let pp1 = PaginationParams (Page 1) (PerPage (quot expectedTotal 3 + 1))
-                        let pp2 = PaginationParams (Page 2) (PerPage (quot expectedTotal 3 + 1))
-                        let pp3 = PaginationParams (Page 3) (PerPage (quot expectedTotal 3 + 1))
-                        res <- runExceptT $ runHandler' $ do
-                            Handlers.listAddresses layer (RequestParams pp)
-                        res' <- runExceptT $ runHandler' $ do
-                            Handlers.listAddresses layer (RequestParams pp)
-                        res1 <- runExceptT $ runHandler' $ do
-                            Handlers.listAddresses layer (RequestParams pp1)
-                        res1' <- runExceptT $ runHandler' $ do
-                            Handlers.listAddresses layer (RequestParams pp1)
-                        res2 <- runExceptT $ runHandler' $ do
-                            Handlers.listAddresses layer (RequestParams pp2)
-                        res2' <- runExceptT $ runHandler' $ do
-                            Handlers.listAddresses layer (RequestParams pp2)
-                        res3 <- runExceptT $ runHandler' $ do
-                            Handlers.listAddresses layer (RequestParams pp3)
-                        res3' <- runExceptT $ runHandler' $ do
-                            Handlers.listAddresses layer (RequestParams pp3)
-                        res `shouldBe` res'
-                        res1 `shouldBe` res1'
-                        res2 `shouldBe` res2'
-                        res3 `shouldBe` res3'
+                    withAddressesFixtures 3 8 $ \_ layer _ (_, expectedTotal) -> do
+                        let ppSplit = quot expectedTotal 3 + 1
+                            pp = PaginationParams (Page 1) (PerPage 40)
+                            pp1 = PaginationParams (Page 1) (PerPage ppSplit)
+                            pp2 = PaginationParams (Page 2) (PerPage ppSplit)
+                            pp3 = PaginationParams (Page 3) (PerPage ppSplit)
+                            mkRequest mypp = Handlers.listAddresses layer (RequestParams mypp)
+                        _ <- runExceptT $ runHandler' $ do
+                            r1 <- mkRequest pp
+                            r2 <- mkRequest pp
+                            return $ r1 `shouldBe` r2
+                        _ <- runExceptT $ runHandler' $ do
+                            r1 <- mkRequest pp1
+                            r2 <- mkRequest pp1
+                            return $ r1 `shouldBe` r2
+                        _ <- runExceptT $ runHandler' $ do
+                            r1 <- mkRequest pp2
+                            r2 <- mkRequest pp2
+                            return $ r1 `shouldBe` r2
+                        _ <- runExceptT $ runHandler' $ do
+                            r1 <- mkRequest pp3
+                            r2 <- mkRequest pp3
+                            return $ r1 `shouldBe` r2
+                        return ()
 
             prop "yields the correct set of resutls" $ withMaxSuccess 20 $ do
                 monadicIO $
-                    withAddressesFixtures 4 8 $ \_ layer _ _ -> do
-                        let (expectedTotal :: Int) = expectedNumber 4 8
-                        let pp = PaginationParams (Page 1) (PerPage 50)
-                        let pp1 = PaginationParams (Page 1) (PerPage (quot expectedTotal 3 + 1))
-                        let pp2 = PaginationParams (Page 2) (PerPage (quot expectedTotal 3 + 1))
-                        let pp3 = PaginationParams (Page 3) (PerPage (quot expectedTotal 3 + 1))
+                    withAddressesFixtures 4 8 $ \_ layer _ (_, expectedTotal) -> do
+                        let ppSplit = quot expectedTotal 3 + 1
+                            pp = PaginationParams (Page 1) (PerPage 50)
+                            pp1 = PaginationParams (Page 1) (PerPage ppSplit)
+                            pp2 = PaginationParams (Page 2) (PerPage ppSplit)
+                            pp3 = PaginationParams (Page 3) (PerPage ppSplit)
                         res <- runExceptT $ runHandler' $ do
                             Handlers.listAddresses layer (RequestParams pp)
                         res1 <- runExceptT $ runHandler' $ do
@@ -467,22 +462,21 @@ spec = describe "Addresses" $ do
                             Handlers.listAddresses layer (RequestParams pp3)
                         case (res, res1, res2, res3) of
                             (Right wr, Right wr1, Right wr2, Right wr3) -> do
-                                length (wrData wr) `shouldBe` expectedTotal
                                 let con = wrData wr1 <> wrData wr2 <> wrData wr3
+                                length (wrData wr) `shouldBe` expectedTotal
                                 length con `shouldBe` expectedTotal
                                 S.fromList con `shouldBe` S.fromList (wrData wr)
-                                (addrRoot . V1.unV1 . V1.addrId <$> con)
-                                        `shouldBe` (addrRoot . V1.unV1 . V1.addrId <$> wrData wr)
+                                (rootId <$> con) `shouldBe` (rootId <$> wrData wr)
                             _        -> fail ("Got " ++ show res)
 
             prop "yields the correct ordered resutls when there is one account" $ withMaxSuccess 20 $ do
                 monadicIO $
-                    withAddressesFixtures 0 15 $ \_ layer _ _ -> do
-                        let (expectedTotal :: Int) = expectedNumber 0 15
-                        let pp = PaginationParams (Page 1) (PerPage 50)
-                        let pp1 = PaginationParams (Page 1) (PerPage (quot expectedTotal 3 + 1))
-                        let pp2 = PaginationParams (Page 2) (PerPage (quot expectedTotal 3 + 1))
-                        let pp3 = PaginationParams (Page 3) (PerPage (quot expectedTotal 3 + 1))
+                    withAddressesFixtures 0 15 $ \_ layer _ (_, expectedTotal) -> do
+                        let ppSplit = quot expectedTotal 3 + 1
+                            pp = PaginationParams (Page 1) (PerPage 50)
+                            pp1 = PaginationParams (Page 1) (PerPage ppSplit)
+                            pp2 = PaginationParams (Page 2) (PerPage ppSplit)
+                            pp3 = PaginationParams (Page 3) (PerPage ppSplit)
                         res <- runExceptT $ runHandler' $ do
                             Handlers.listAddresses layer (RequestParams pp)
                         res1 <- runExceptT $ runHandler' $ do
@@ -493,25 +487,23 @@ spec = describe "Addresses" $ do
                             Handlers.listAddresses layer (RequestParams pp3)
                         case (res, res1, res2, res3) of
                             (Right wr, Right wr1, Right wr2, Right wr3) -> do
-                                length (wrData wr) `shouldBe` expectedTotal
                                 let con = wrData wr1 <> wrData wr2 <> wrData wr3
+                                length (wrData wr) `shouldBe` expectedTotal
                                 length con `shouldBe` expectedTotal
                                 S.fromList con `shouldBe` S.fromList (wrData wr)
-                                (addrRoot . V1.unV1 . V1.addrId <$> con)
-                                    `shouldBe` (addrRoot . V1.unV1 . V1.addrId <$> wrData wr)
+                                (rootId <$> con) `shouldBe` (rootId <$> wrData wr)
                             _        -> fail ("Got " ++ show res)
 
 
             prop "yields the correct ordered resutls" $ withMaxSuccess 20 $ do
                 monadicIO $ do
                   forM_ [(4,8), (6,6), (5,7)] $ \(acc,adr) ->
-                    withAddressesFixtures acc adr $ \_ layer _ _ -> do
+                    withAddressesFixtures acc adr $ \_ layer _ (_, expectedTotal) -> do
                         forM_ [2..10] $ \k -> do
                             let indexes = [1..k]
-                            let (expectedTotal :: Int) = expectedNumber acc adr
-                            let pagesParams = map (\i -> PaginationParams (Page i) (PerPage (quot expectedTotal k + 1)))
+                                pagesParams = map (\i -> PaginationParams (Page i) (PerPage (quot expectedTotal k + 1)))
                                               indexes
-                            let pp = PaginationParams (Page 1) (PerPage 50)
+                                pp = PaginationParams (Page 1) (PerPage 50)
                             res <- runExceptT $ runHandler' $ do
                                 Handlers.listAddresses layer (RequestParams pp)
                             eiResultsArray <- forM pagesParams $ \ppi -> runExceptT $ runHandler' $ do
@@ -523,8 +515,7 @@ spec = describe "Addresses" $ do
                                     length (wrData wr) `shouldBe` expectedTotal
                                     length con `shouldBe` expectedTotal
                                     S.fromList con `shouldBe` S.fromList (wrData wr)
-                                    (addrRoot . V1.unV1 . V1.addrId <$> con)
-                                            `shouldBe` (addrRoot . V1.unV1 . V1.addrId <$> wrData wr)
+                                    (rootId <$> con)`shouldBe` (rootId <$> wrData wr)
                                 _        -> fail ("Got " ++ show res)
 
     describe "ValidateAddress" $ do

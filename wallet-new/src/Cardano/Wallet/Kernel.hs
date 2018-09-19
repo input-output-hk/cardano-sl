@@ -140,7 +140,7 @@ handlesClose dbMode (Handles acidDb meta) = do
     case dbMode of
         UseInMemory ->
             pure ()
-        UseFilePath (DatabaseOptions _ _ _) -> do
+        UseFilePath DatabaseOptions{} -> do
             createCheckpoint acidDb
             createArchive acidDb
 

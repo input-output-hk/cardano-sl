@@ -18,7 +18,7 @@ import           GHC.TypeLits (TypeError)
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util (listJson)
 
-import           Pos.Chain.Block.Union (HeaderHash)
+import           Pos.Chain.Block.Header (HeaderHash)
 import           Pos.Chain.Script (PlutusError)
 import           Pos.Chain.Txp.Toil.Types (TxFee)
 import           Pos.Chain.Txp.Tx (TxIn, TxOut (..))

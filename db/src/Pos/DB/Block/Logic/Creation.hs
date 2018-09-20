@@ -23,9 +23,9 @@ import           Formatting (build, fixed, ords, sformat, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Chain.Block (BlockHeader (..), Blockchain (..),
-                     GenesisBlock, HasSlogGState (..), HeaderHash, MainBlock,
-                     MainBlockchain, headerHash, mkGenesisBlock, mkMainBlock)
+import           Pos.Chain.Block (BlockHeader (..), GenesisBlock,
+                     HasSlogGState (..), HeaderHash, MainBlock, MainBody,
+                     headerHash, mkGenesisBlock, mkMainBlock)
 import qualified Pos.Chain.Block as BC
 import           Pos.Chain.Delegation (DelegationVar, DlgPayload (..),
                      ProxySKBlockInfo)
@@ -457,7 +457,7 @@ createMainBody
     -> Byte  -- ^ Body limit
     -> SlotId
     -> RawPayload
-    -> m (Body MainBlockchain)
+    -> m MainBody
 createMainBody k bodyLimit sId payload =
     flip evalStateT bodyLimit $ do
         let defSsc :: SscPayload

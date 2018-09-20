@@ -26,14 +26,15 @@ import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util (VerificationRes (..), verifyGeneric)
 
 import qualified Pos.Binary.Class as Bi
-import qualified Pos.Chain.Block.BHelpers as BHelpers
-import           Pos.Chain.Block.Blockchain (gbExtra, gbhExtra)
-import           Pos.Chain.Block.Genesis (gebAttributes, gehAttributes,
-                     genBlockLeaders)
-import           Pos.Chain.Block.Union (Block, BlockHeader (..),
-                     HasHeaderHash (..), HeaderHash, blockHeaderProtocolMagic,
-                     getBlockHeader, headerSlotL, mainHeaderLeaderKey,
-                     mebAttributes, mehAttributes, prevBlockL)
+import           Pos.Chain.Block.Block (Block, gbExtra, genBlockLeaders,
+                     getBlockHeader, verifyBlockInternal)
+import           Pos.Chain.Block.Genesis (gebAttributes, gehAttributes)
+import           Pos.Chain.Block.HasPrevBlock (prevBlockL)
+import           Pos.Chain.Block.Header (BlockHeader (..), HasHeaderHash (..),
+                     HeaderHash, blockHeaderProtocolMagic, gbhExtra,
+                     mainHeaderLeaderKey, verifyBlockHeader)
+import           Pos.Chain.Block.IsHeader (headerSlotL)
+import           Pos.Chain.Block.Main (mebAttributes, mehAttributes)
 import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Update (BlockVersionData (..))
 import           Pos.Core (ChainDifficulty, EpochOrSlot, HasDifficulty (..),
@@ -94,7 +95,7 @@ verifyFromEither txt (Right _)     = verifyGeneric [(True, txt)]
 verifyHeader
     :: ProtocolMagic -> VerifyHeaderParams -> BlockHeader -> VerificationRes
 verifyHeader pm VerifyHeaderParams {..} h =
-       verifyFromEither "internal header consistency" (BHelpers.verifyBlockHeader pm h)
+       verifyFromEither "internal header consistency" (verifyBlockHeader pm h)
     <> verifyGeneric checks
   where
     checks =
@@ -272,7 +273,7 @@ verifyBlock
     -> VerificationRes
 verifyBlock genesisConfig VerifyBlockParams {..} blk = mconcat
     [ verifyFromEither "internal block consistency"
-                       (BHelpers.verifyBlock genesisConfig blk)
+                       (verifyBlockInternal genesisConfig blk)
     , verifyHeader (configProtocolMagic genesisConfig)
                    vbpVerifyHeader
                    (getBlockHeader blk)

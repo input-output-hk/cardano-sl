@@ -9,10 +9,10 @@ import           Universum
 
 import           Formatting (sformat)
 
-import           Pos.Chain.Block.Blockchain (gbHeader, gbhPrevBlock)
-import           Pos.Chain.Block.Genesis (genBlockEpoch)
-import           Pos.Chain.Block.Union (Block, HeaderHash, headerHash,
-                     headerHashF, mainBlockSlot, mainBlockTxPayload)
+import           Pos.Chain.Block.Block (Block, gbHeader, genBlockEpoch,
+                     mainBlockSlot, mainBlockTxPayload)
+import           Pos.Chain.Block.Header (HeaderHash, gbhPrevBlock, headerHash,
+                     headerHashF)
 import           Pos.Chain.Txp (txpTxs)
 import           Pos.Core (SlotCount, SlotId (..), getEpochIndex, getSlotIndex,
                      mkLocalSlotIndex)

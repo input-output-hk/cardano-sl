@@ -48,7 +48,7 @@ import           Serokell.Util.Base16 (base16F)
 import           Universum
 
 import           Pos.Chain.Block (BlockHeader (..), GenesisBlock, HeaderHash,
-                     blockHeaderHash, genesisBlock0, _gbHeader)
+                     blockHeaderHash, gbHeader, genesisBlock0)
 import           Pos.Chain.Delegation (ProxySKHeavy)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      GeneratedSecrets (..), GenesisData (..),
@@ -104,7 +104,7 @@ initCardanoContext genesisConfig = CardanoContext
     , ccMagic       = ccMagic
     , ccInitLeaders = ccLeaders
     , ccBalances    = utxoToAddressCoinPairs ccUtxo
-    , ccHash0       = (blockHeaderHash . BlockHeaderGenesis . _gbHeader) ccBlock0
+    , ccHash0       = blockHeaderHash . BlockHeaderGenesis $ ccBlock0 ^. gbHeader
     , ccEpochSlots  = configEpochSlots genesisConfig
     }
   where

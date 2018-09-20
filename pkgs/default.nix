@@ -15452,6 +15452,7 @@ data-default
 deepseq
 formatting
 generic-arbitrary
+lens
 QuickCheck
 random
 text

@@ -47,7 +47,7 @@ import           Universum
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi,
                      deriveSimpleBiCxt)
-import           Pos.Chain.Block.Union (ComponentBlock (..))
+import           Pos.Chain.Block.ComponentBlock (ComponentBlock (..))
 import           Pos.Chain.Ssc.Behavior (SscBehavior)
 import           Pos.Chain.Ssc.Commitment (SignedCommitment)
 import           Pos.Chain.Ssc.CommitmentsMap

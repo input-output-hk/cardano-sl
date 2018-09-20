@@ -58,7 +58,7 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
                      decodeListLenCanonical, deriveIndexedBi, deriveSimpleBi,
                      encodeListLen)
-import           Pos.Chain.Block.Union (HeaderHash)
+import           Pos.Chain.Block.Header (HeaderHash)
 import           Pos.Chain.Update.ApplicationName (ApplicationName)
 import           Pos.Chain.Update.BlockVersion (BlockVersion)
 import           Pos.Chain.Update.BlockVersionModifier

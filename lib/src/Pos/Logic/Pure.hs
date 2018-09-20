@@ -13,12 +13,11 @@ import           Data.Default (def)
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Chain.Block (Block, BlockHeader (..),
-                     BlockHeaderAttributes, BlockSignature (..), ExtraBodyData,
-                     ExtraHeaderData, GenericBlock (..),
-                     GenericBlockHeader (..), HeaderHash, MainBlock,
-                     MainBlockHeader, MainBlockchain, MainBody (..),
+                     BlockHeaderAttributes, BlockSignature (..), HeaderHash,
+                     MainBlock, MainBlockHeader, MainBody (..),
                      MainConsensusData (..), MainExtraBodyData (..),
-                     MainExtraHeaderData (..), MainProof (..))
+                     MainExtraHeaderData (..), MainProof (..),
+                     mkGenericBlockHeaderUnsafe, mkGenericBlockUnsafe)
 import           Pos.Chain.Delegation (DlgPayload (..))
 import           Pos.Chain.Ssc (SscPayload (..), SscProof (..),
                      VssCertificatesMap (..))
@@ -138,11 +137,7 @@ serializedBlock :: SerializedBlock
 serializedBlock = Serialized $ serialize' block
 
 mainBlock :: MainBlock
-mainBlock = UnsafeGenericBlock
-    { _gbHeader = mainBlockHeader
-    , _gbBody   = blockBody
-    , _gbExtra  = extraBodyData
-    }
+mainBlock = mkGenericBlockUnsafe mainBlockHeader blockBody extraBodyData
 
 blockBody :: MainBody
 blockBody = MainBody
@@ -172,7 +167,7 @@ emptyUpdatePayload = UpdatePayload
     , upVotes    = []
     }
 
-extraBodyData :: ExtraBodyData MainBlockchain
+extraBodyData :: MainExtraBodyData
 extraBodyData = MainExtraBodyData
     { _mebAttributes = Attributes
           { attrData   = ()
@@ -184,13 +179,12 @@ blockHeader :: BlockHeader
 blockHeader = BlockHeaderMain mainBlockHeader
 
 mainBlockHeader :: MainBlockHeader
-mainBlockHeader = UnsafeGenericBlockHeader
-    { _gbhProtocolMagic = protocolMagic
-    , _gbhPrevBlock = mainBlockHeaderHash
-    , _gbhBodyProof = bodyProof
-    , _gbhConsensus = consensusData
-    , _gbhExtra     = extraHeaderData
-    }
+mainBlockHeader = mkGenericBlockHeaderUnsafe
+    protocolMagic
+    mainBlockHeaderHash
+    bodyProof
+    consensusData
+    extraHeaderData
 
 mainBlockHeaderHash :: HeaderHash
 mainBlockHeaderHash = unsafeMkAbstractHash mempty
@@ -250,7 +244,7 @@ blockSignature = BlockSignature (coerce (signRaw protocolMagic Nothing secretKey
 protocolMagic :: ProtocolMagic
 protocolMagic = ProtocolMagic 0
 
-extraHeaderData :: ExtraHeaderData MainBlockchain
+extraHeaderData :: MainExtraHeaderData
 extraHeaderData = MainExtraHeaderData
     { _mehBlockVersion    = blockVersion
     , _mehSoftwareVersion = softwareVersion

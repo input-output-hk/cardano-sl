@@ -30,7 +30,7 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Chain.Block (HeaderHash)
+import           Pos.Chain.Block (HeaderHash, mkMainBlock, mkMainBlockExplicit)
 import qualified Pos.Chain.Block as Block
 import qualified Pos.Chain.Delegation as Core
 import           Pos.Chain.Genesis (GenesisHash (..))
@@ -38,7 +38,7 @@ import           Pos.Core (localSlotIndexMaxBound, localSlotIndexMinBound)
 import qualified Pos.Core as Core
 import           Pos.Core.Attributes (areAttributesKnown)
 import           Pos.Crypto (ProtocolMagic, PublicKey, SecretKey, createPsk,
-                     hash, toPublic)
+                     toPublic)
 
 import           Test.Pos.Chain.Delegation.Arbitrary (genDlgPayload)
 import           Test.Pos.Chain.Genesis.Dummy (dummyEpochSlots,
@@ -50,8 +50,8 @@ import           Test.Pos.Chain.Update.Arbitrary (genUpdatePayload)
 import           Test.Pos.Core.Arbitrary (genSlotId)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
-newtype BodyDependsOnSlot b = BodyDependsOnSlot
-    { genBodyDepsOnSlot :: Core.SlotId -> Gen (Block.Body b)
+newtype BodyDependsOnSlot body = BodyDependsOnSlot
+    { genBodyDepsOnSlot :: Core.SlotId -> Gen body
     }
 
 ------------------------------------------------------------------------------------------
@@ -90,7 +90,7 @@ instance Arbitrary Block.GenesisConsensusData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary (BodyDependsOnSlot Block.GenesisBlockchain) where
+instance Arbitrary (BodyDependsOnSlot Block.GenesisBody) where
     arbitrary = pure $ BodyDependsOnSlot $ \_ -> arbitrary
 
 instance Arbitrary Block.GenesisBody where
@@ -192,7 +192,7 @@ genMainBlockBodyForSlot pm slotId = do
     updPayload <- genUpdatePayload pm
     pure $ Block.MainBody txpPayload sscPayload dlgPayload updPayload
 
-instance Arbitrary (BodyDependsOnSlot Block.MainBlockchain) where
+instance Arbitrary (BodyDependsOnSlot Block.MainBody) where
     arbitrary = pure $ BodyDependsOnSlot $ \slotId -> do
         txPayload   <- arbitrary
         generator   <- genPayloadDependsOnSlot <$> arbitrary
@@ -219,42 +219,24 @@ genMainBlock
     -> HeaderHash
     -> Core.ChainDifficulty
     -> Gen Block.MainBlock
-genMainBlock pm  prevHash difficulty = do
+genMainBlock pm prevHash difficulty = do
+    bv <- arbitrary
+    sv <- arbitrary
     slot <- genSlotId dummyEpochSlots
+    sk <- arbitrary
     body <- genMainBlockBodyForSlot pm slot
-    extraBodyData <- arbitrary
-    extraHeaderData <- Block.MainExtraHeaderData
-        <$> arbitrary
-        <*> arbitrary
-        <*> arbitrary
-        <*> pure (hash extraBodyData)
-    header <- Block.mkMainHeaderExplicit pm prevHash difficulty slot
-        <$> arbitrary
-        <*> pure Nothing
-        <*> pure body
-        <*> pure extraHeaderData
-    pure $ Block.UnsafeGenericBlock header body extraBodyData
+    pure $ mkMainBlockExplicit pm bv sv prevHash difficulty slot sk Nothing body
 
 instance Arbitrary Block.MainBlock where
     arbitrary = do
         slot <- arbitrary
-        BodyDependsOnSlot {..} <- arbitrary :: Gen (BodyDependsOnSlot Block.MainBlockchain)
+        bv <- arbitrary
+        sv <- arbitrary
+        prevHeader <- maybe (Left dummyGenesisHash) Right <$> arbitrary
+        sk <- arbitrary
+        BodyDependsOnSlot {..} <- arbitrary :: Gen (BodyDependsOnSlot Block.MainBody)
         body <- genBodyDepsOnSlot slot
-        extraBodyData <- arbitrary
-        extraHeaderData <- Block.MainExtraHeaderData
-            <$> arbitrary
-            <*> arbitrary
-            <*> arbitrary
-            <*> pure (hash extraBodyData)
-        header <-
-            Block.mkMainHeader dummyProtocolMagic
-                <$> (maybe (Left dummyGenesisHash) Right <$> arbitrary)
-                <*> pure slot
-                <*> arbitrary
-                <*> pure Nothing
-                <*> pure body
-                <*> pure extraHeaderData
-        return $ Block.UnsafeGenericBlock header body extraBodyData
+        pure $ mkMainBlock dummyProtocolMagic bv sv prevHeader slot sk Nothing body
     shrink = genericShrink
 
 instance Buildable (Block.BlockHeader, PublicKey) where

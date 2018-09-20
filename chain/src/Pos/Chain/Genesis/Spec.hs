@@ -11,7 +11,7 @@ import           Data.Aeson.TH (deriveJSON)
 import qualified Data.HashMap.Strict as HM
 import           Serokell.Util (allDistinct)
 
-import           Pos.Chain.Update (BlockVersionData)
+import           Pos.Chain.Update.BlockVersionData (BlockVersionData)
 import           Pos.Core.Common (SharedSeed)
 
 import           Pos.Chain.Genesis.AvvmBalances

@@ -19,7 +19,7 @@ import qualified Formatting.Buildable as Buildable
 import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Chain.Block.Union (ComponentBlock (..))
+import           Pos.Chain.Block.ComponentBlock (ComponentBlock (..))
 import           Pos.Chain.Delegation.HeavyDlgIndex (ProxySKHeavy)
 import           Pos.Chain.Delegation.Payload (DlgPayload (..))
 import           Pos.Core (StakeholderId)

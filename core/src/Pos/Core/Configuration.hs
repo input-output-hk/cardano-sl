@@ -102,7 +102,9 @@ withCoreConfigurations conf@CoreConfiguration{..} confDir mSystemStart mSeed act
             Left str -> throwM $ GenesisDataParseFailure (fromString str)
             Right it -> return it
 
-        theGenesisData <- case Canonical.fromJSON gdataJSON of
+        -- Override the RequiresNetworkMagic in GenesisData with the value
+        -- specified in CoreConfiguration.
+        theGenesisData <- updateGD <$> case Canonical.fromJSON gdataJSON of
             Left err -> throwM $ GenesisDataSchemaError err
             Right it -> return it
 
@@ -134,7 +136,9 @@ withCoreConfigurations conf@CoreConfiguration{..} confDir mSystemStart mSeed act
         let overrideSeed :: Integer -> GenesisInitializer -> GenesisInitializer
             overrideSeed newSeed gi = gi {giSeed = newSeed}
 
-        let theSpec = case mSeed of
+        -- Override the RequiresNetworkMagic in GenesisSpec with the value
+        -- specified in CoreConfiguration.
+        let theSpec = updateGS $ case mSeed of
                 Nothing -> spec
                 Just newSeed -> spec
                     { gsInitializer = overrideSeed newSeed (gsInitializer spec)
@@ -143,6 +147,18 @@ withCoreConfigurations conf@CoreConfiguration{..} confDir mSystemStart mSeed act
         let theConf = conf {ccGenesis = GCSpec theSpec}
 
         withGenesisSpec theSystemStart theConf act
+  where
+    updateGD :: GenesisData -> GenesisData
+    updateGD gd = gd { gdProtocolConsts = updateGPC (gdProtocolConsts gd) }
+    --
+    updateGS :: GenesisSpec -> GenesisSpec
+    updateGS gs = gs { gsProtocolConstants = updateGPC (gsProtocolConstants gs) }
+    --
+    updateGPC :: GenesisProtocolConstants -> GenesisProtocolConstants
+    updateGPC gpc = gpc { gpcProtocolMagic = updatePM (gpcProtocolMagic gpc) }
+    --
+    updatePM :: ProtocolMagic -> ProtocolMagic
+    updatePM pm = pm { getRequiresNetworkMagic = ccRequiresNetworkMagic }
 
 withGenesisSpec
     :: Timestamp

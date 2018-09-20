@@ -196,12 +196,7 @@ instance Monad m => ToJSON m GenesisProtocolConstants where
             ]
 
 instance Monad m => ToJSON m ProtocolMagic where
-    toJSON (ProtocolMagic (ProtocolMagicId ident) rnm) = do
-        (\jsIdent jsRNM -> JSObject
-            [ ("pm", jsIdent)
-            , ("requiresNetworkMagic", jsRNM) ])
-        <$> toJSON ident
-        <*> toJSON rnm
+    toJSON (ProtocolMagic (ProtocolMagicId ident) _rnm) = toJSON ident
 
 instance Monad m => ToJSON m GenesisAvvmBalances where
     toJSON = toJSON . getGenesisAvvmBalances

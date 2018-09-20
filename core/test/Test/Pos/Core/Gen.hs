@@ -219,8 +219,9 @@ import           Serokell.Data.Memory.Units (Byte)
 
 import           Test.Pos.Crypto.Gen (genAbstractHash, genDecShare, genHDAddressPayload,
                                       genProtocolMagic, genProxySignature, genPublicKey,
-                                      genRedeemPublicKey, genRedeemSignature, genSafeSigner,
-                                      genSecretKey, genSignTag, genSignature, genVssPublicKey)
+                                      genRedeemPublicKey, genRedeemSignature,
+                                      genRequiresNetworkMagic, genSafeSigner, genSecretKey,
+                                      genSignTag, genSignature, genVssPublicKey)
 
 
 ----------------------------------------------------------------------------
@@ -494,6 +495,7 @@ genCoreConfiguration pm =
     CoreConfiguration
         <$> genGenesisConfiguration pm
         <*> genWord8
+        <*> genRequiresNetworkMagic
 
 ----------------------------------------------------------------------------
 -- Pos.Core.Delegation Generators

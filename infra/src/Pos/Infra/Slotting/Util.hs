@@ -50,7 +50,7 @@ import           Pos.Infra.Shutdown (HasShutdownContext)
 import           Pos.Infra.Slotting.Class (MonadSlots (..))
 import           Pos.Infra.Slotting.Error (SlottingError (..))
 import           Pos.Infra.Slotting.Impl.Util (slotFromTimestamp)
-import           Pos.Util.Log.Structured (logInfoX)
+import           Pos.Util.Log.Structured (logInfoSX)
 import           Pos.Util.Util (maybeThrow)
 import           Pos.Util.Wlog (WithLogger, logDebug, logInfo, logNotice,
                      logWarning, modifyLoggerName)
@@ -192,7 +192,7 @@ onNewSlotDo epochSlots withLogging expectedSlotId onsp action = do
     recoveryRefreshDelay = 150
     logTTW timeToWait = modifyLoggerName (<> ".slotting") $ do
         logDebug $ sformat ("Waiting for "%shown%" before new slot") timeToWait
-        logInfoX $ TimeDiff timeToWait
+        logInfoSX $ TimeDiff timeToWait
 
 logNewSlotWorker :: MonadOnNewSlot ctx m => SlotCount -> m ()
 logNewSlotWorker epochSlots =

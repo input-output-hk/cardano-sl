@@ -233,8 +233,7 @@ spec = describe "NewPayment" $ do
             prop "estimating fees works (SenderPaysFee)" $ withMaxSuccess 50 $ do
                 monadicIO $
                     withPayment (InitialADA 10000) (PayLovelace 10) $ \activeLayer newPayment -> do
-                        res <- liftIO ((WalletLayer.estimateFees activeLayer) mempty
-                                                                              IgnoreGrouping
+                        res <- liftIO ((WalletLayer.estimateFees activeLayer) IgnoreGrouping
                                                                               SenderPaysFee
                                                                               newPayment
                                       )
@@ -254,7 +253,6 @@ spec = describe "NewPayment" $ do
                         let (AccountIdHdRnd hdAccountId) = fixtureAccountId
 
                         res <- liftIO (Kernel.estimateFees aw
-                                                           mempty
                                                            opts
                                                            hdAccountId
                                                            fixturePayees
@@ -274,7 +272,6 @@ spec = describe "NewPayment" $ do
                         let (AccountIdHdRnd hdAccountId) = fixtureAccountId
 
                         res <- liftIO (Kernel.estimateFees aw
-                                                           mempty
                                                            opts
                                                            hdAccountId
                                                            fixturePayees
@@ -295,7 +292,6 @@ spec = describe "NewPayment" $ do
                         let (AccountIdHdRnd hdAccountId) = fixtureAccountId
 
                         res <- liftIO (Kernel.estimateFees aw
-                                                           mempty
                                                            opts
                                                            hdAccountId
                                                            fixturePayees
@@ -310,4 +306,17 @@ spec = describe "NewPayment" $ do
                 monadicIO $
                     withPayment (InitialADA 1000) (PayADA 1) $ \activeLayer newPayment -> do
                         res <- liftIO (runExceptT . runHandler' $ Handlers.estimateFees activeLayer newPayment)
+                        liftIO ((bimap identity STB res) `shouldSatisfy` isRight)
+
+            -- The 'estimateFee' endpoint doesn't require a spendingPassword, but
+            -- the 'Payment' type does come with an optional 'spendingPassword' field.
+            -- Here we want to check this is completely ignored.
+            prop "ignores completely the spending password in Payment" $ withMaxSuccess 50 $
+                monadicIO $ do
+                    randomPass <- pick arbitrary
+                    withPayment (InitialADA 1000) (PayADA 1) $ \activeLayer newPayment -> do
+                        -- mangle the spending password to be something arbitrary, check
+                        -- that this doesn't hinder our ability to estimate fees.
+                        let pmt = newPayment { V1.pmtSpendingPassword = randomPass }
+                        res <- liftIO (runExceptT . runHandler' $ Handlers.estimateFees activeLayer pmt)
                         liftIO ((bimap identity STB res) `shouldSatisfy` isRight)

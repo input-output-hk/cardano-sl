@@ -477,9 +477,7 @@ data ActiveWalletLayer m = ActiveWalletLayer {
           -> m (Either NewPaymentError (Tx, TxMeta))
 
       -- | Estimates the fees for a payment.
-    , estimateFees :: PassPhrase
-                   -- The \"spending password\" to decrypt the 'EncryptedSecretKey'.
-                   -> InputGrouping
+    , estimateFees :: InputGrouping
                    -- An preference on how to group inputs during coin selection
                    -> ExpenseRegulation
                    -- Who pays the fee, if the sender or the receivers.

@@ -48,19 +48,18 @@ pay activeWallet pw grouping regulation payment = liftIO $ do
 -- | Estimates the fees for a payment.
 estimateFees :: MonadIO m
              => Kernel.ActiveWallet
-             -> PassPhrase
              -> InputGrouping
              -> ExpenseRegulation
              -> V1.Payment
              -> m (Either EstimateFeesError Coin)
-estimateFees activeWallet pw grouping regulation payment = liftIO $ do
+estimateFees activeWallet grouping regulation payment = liftIO $ do
     policy <- Node.getFeePolicy (Kernel.walletPassive activeWallet ^. Kernel.walletNode)
     limitExecutionTimeTo (60 :: Second) EstimateFeesTimeLimitReached $ do
       runExceptT $ do
         (opts, accId, payees) <- withExceptT EstimateFeesWalletIdDecodingFailed $
                                    setupPayment policy grouping regulation payment
         withExceptT EstimateFeesError $ ExceptT $
-          Kernel.estimateFees activeWallet pw opts accId payees
+          Kernel.estimateFees activeWallet opts accId payees
 
 -- | Redeem an Ada voucher
 --

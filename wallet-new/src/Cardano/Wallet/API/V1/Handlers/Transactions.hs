@@ -95,9 +95,7 @@ estimateFees :: ActiveWalletLayer IO
              -> Payment
              -> Handler (WalletResponse EstimatedFees)
 estimateFees aw payment@Payment{..} = do
-    let spendingPassword = maybe mempty coerce pmtSpendingPassword
-    res <- liftIO $ (WalletLayer.estimateFees aw) spendingPassword
-                                                  (toInputGrouping pmtGroupingPolicy)
+    res <- liftIO $ (WalletLayer.estimateFees aw) (toInputGrouping pmtGroupingPolicy)
                                                   SenderPaysFee
                                                   payment
     case res of

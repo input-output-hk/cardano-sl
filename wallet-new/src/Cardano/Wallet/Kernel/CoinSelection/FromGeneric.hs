@@ -12,7 +12,12 @@ module Cardano.Wallet.Kernel.CoinSelection.FromGeneric (
   , newOptions
     -- * Transaction building
   , CoinSelFinalResult(..)
+  , UnsignedTx -- opaque
+  , utxOwnedInputs
+  , utxOutputs
+  , utxChange
   , mkStdTx
+  , mkStdUnsignedTx
     -- * Coin selection policies
   , random
   , largestFirst
@@ -178,6 +183,27 @@ feeOptions CoinSelectionOptions{..} = FeeOptions{
   Building transactions
 -------------------------------------------------------------------------------}
 
+-- | Our notion of @unsigned transaction@. Unfortunately we cannot reuse
+-- directly the 'Tx' from @Core@ as that discards the information about
+-- "ownership" of inputs, which is instead required when dealing with the
+-- Core Txp.Util API.
+data UnsignedTx = UnsignedTx {
+    utxOwnedInputs :: NonEmpty (Core.TxIn, Core.TxOutAux)
+  , utxOutputs     :: NonEmpty Core.TxOutAux
+  , utxChange      :: [Core.Coin]
+}
+
+-- | Creates a "standard" unsigned transaction.
+mkStdUnsignedTx :: NonEmpty (Core.TxIn, Core.TxOutAux)
+                -- ^ Selected inputs
+                -> NonEmpty Core.TxOutAux
+                -- ^ Selected outputs
+                -> [Core.Coin]
+                -- ^ Change coins
+                -> UnsignedTx
+mkStdUnsignedTx inps outs change = UnsignedTx inps outs change
+
+
 -- | Build a transaction
 
 -- | Construct a standard transaction
@@ -200,11 +226,12 @@ mkStdTx :: Monad m
 mkStdTx pm shuffle hdwSigners inps outs change = do
     allOuts <- shuffle $ foldl' (flip NE.cons) outs change
     return $ CTxp.makeMPubKeyTxAddrs pm hdwSigners (fmap repack inps) allOuts
-  where
-    -- Repack a utxo-derived tuple into a format suitable for
-    -- 'TxOwnedInputs'.
-    repack :: (Core.TxIn, Core.TxOutAux) -> (Core.TxOut, Core.TxIn)
-    repack (txIn, aux) = (Core.toaOut aux, txIn)
+
+-- | Repacks a utxo-derived tuple into a format suitable for
+-- 'TxOwnedInputs'.
+repack :: (Core.TxIn, Core.TxOutAux) -> (Core.TxOut, Core.TxIn)
+repack (txIn, aux) = (Core.toaOut aux, txIn)
+
 
 {-------------------------------------------------------------------------------
   Coin selection policy top-level entry point

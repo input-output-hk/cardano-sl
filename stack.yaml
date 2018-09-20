@@ -294,6 +294,9 @@ extra-deps:
 - servant-swagger-ui-0.3.0.3.13.2
 - servant-swagger-ui-redoc-0.3.0.1.21.2
 
+- fsnotify-0.2.1.2
+- hinotify-0.3.10
+
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
 

@@ -16,7 +16,6 @@ module Cardano.Wallet.Kernel.CoinSelection.FromGeneric (
   , utxOwnedInputs
   , utxOutputs
   , utxChange
-  , utxAttributes
   , mkStdTx
   , mkStdUnsignedTx
     -- * Coin selection policies
@@ -192,24 +191,17 @@ data UnsignedTx = UnsignedTx {
     utxOwnedInputs :: NonEmpty (Core.TxIn, Core.TxOutAux)
   , utxOutputs     :: NonEmpty Core.TxOutAux
   , utxChange      :: [Core.Coin]
-  , utxAttributes  :: Core.TxAttributes
 }
 
 -- | Creates a "standard" unsigned transaction.
-mkStdUnsignedTx :: Monad m
-             => (forall a. NonEmpty a -> m (NonEmpty a))
-             -- ^ Shuffle function
-             -> NonEmpty (Core.TxIn, Core.TxOutAux)
-             -- ^ Selected inputs
-             -> NonEmpty Core.TxOutAux
-             -- ^ Selected outputs
-             -> [Core.Coin]
-             -- ^ Change coins
-             -> m UnsignedTx
-mkStdUnsignedTx shuffle inps outs change = do
-    allOuts <- shuffle outs
-    let Core.UnsafeTx{..} = CTxp.makeUnsignedAbstractTx (fmap repack inps) allOuts
-    return $ UnsignedTx inps (fmap Core.TxOutAux _txOutputs) change _txAttributes
+mkStdUnsignedTx :: NonEmpty (Core.TxIn, Core.TxOutAux)
+                -- ^ Selected inputs
+                -> NonEmpty Core.TxOutAux
+                -- ^ Selected outputs
+                -> [Core.Coin]
+                -- ^ Change coins
+                -> UnsignedTx
+mkStdUnsignedTx inps outs change = UnsignedTx inps outs change
 
 
 -- | Build a transaction

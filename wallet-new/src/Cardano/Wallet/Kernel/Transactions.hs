@@ -26,7 +26,6 @@ import           Crypto.Random (MonadRandom (..))
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as B
 import qualified Data.List.NonEmpty as NonEmpty
-import qualified Data.Set as Set
 import qualified Data.Vector as V
 import           System.Random.MWC (GenIO, asGenIO, initialize, uniformVector)
 import           Test.QuickCheck (Arbitrary (..), oneof)
@@ -37,8 +36,7 @@ import qualified Formatting.Buildable
 import           Pos.Chain.Txp (Tx (..), TxAux (..), TxId, TxIn (..),
                      TxOut (..), TxOutAux (..), Utxo)
 import qualified Pos.Client.Txp.Util as CTxp
-import           Pos.Core (Address, Coin, TxFeePolicy (..), unsafeIntegerToCoin,
-                     unsafeSubCoin)
+import           Pos.Core (Address, Coin, TxFeePolicy (..), unsafeSubCoin)
 import qualified Pos.Core as Core
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, RedeemSecretKey,
                      SafeSigner (..), ShouldCheckPassphrase (..), hash,
@@ -207,8 +205,7 @@ newUnsignedTransaction ActiveWallet{..} options accountId payees = runExceptT $ 
 
     -- STEP 2: Assemble the unsigned transactions, @without@ generating the
     -- change addresses, as that would require the spending password.
-
-    tx <- liftIO $ mkStdUnsignedTx shuffleNE inputs outputs coins
+    let tx = mkStdUnsignedTx inputs outputs coins
     return (snapshot, tx, availableUtxo)
   where
     -- Generate an initial seed for the random generator using the hash of
@@ -391,7 +388,7 @@ estimateFees activeWallet@ActiveWallet{..} options accountId payees = do
     res <- newUnsignedTransaction activeWallet options accountId payees
     case res of
          Left e  -> return . Left . EstFeesTxCreationFailed $ e
-         Right (_db, tx, originalUtxo) -> do
+         Right (_db, tx, _originalUtxo) -> do
              let change = utxChange tx
              -- calculate the fee as the difference between inputs and outputs. The
              -- final 'sumOfOutputs' must be augmented by the change, which we have
@@ -402,7 +399,7 @@ estimateFees activeWallet@ActiveWallet{..} options accountId payees = do
              -- to be able to pay the fee, which would, in turn, also increase the fee due to
              -- the extra input being picked.
              return $ Right
-                    $ sumOfInputs tx originalUtxo
+                    $ sumOfInputs tx
                     `unsafeSubCoin`
                     (repeatedly Core.unsafeAddCoin change (sumOfOutputs tx))
   where
@@ -412,11 +409,10 @@ estimateFees activeWallet@ActiveWallet{..} options accountId payees = do
 
     -- Unlike a block, a /single transaction/ cannot have inputs that sum to
     -- more than maxCoinVal
-    sumOfInputs :: UnsignedTx -> Utxo -> Coin
-    sumOfInputs tx utxo =
-        let inputs = Set.fromList $ map fst . toList . utxOwnedInputs $ tx
-        in unsafeIntegerToCoin $
-             utxoBalance (utxo `utxoRestrictToInputs` inputs)
+    sumOfInputs :: UnsignedTx -> Coin
+    sumOfInputs tx =
+        let inputs = fmap (toaOut . snd) . utxOwnedInputs $ tx
+        in paymentAmount inputs
 
     sumOfOutputs :: UnsignedTx -> Coin
     sumOfOutputs tx =

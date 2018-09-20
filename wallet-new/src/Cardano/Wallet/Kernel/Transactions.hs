@@ -163,6 +163,69 @@ pay activeWallet spendingPassword opts accountId payees = do
         shouldRetry _ (Left (PaymentNewTransactionError _)) = return False
         shouldRetry _ _                                     = return True
 
+{-----------------------------------------------------------------------------
+  Creating transactions (low-level API)
+------------------------------------------------------------------------------}
+
+-- | Creates a new unsigned 'Tx', without submitting it to the network. Please
+-- note that this is a low-level API. Considering using 'pay' and 'estimateFee'
+-- in user's code.
+--
+-- For testing purposes, if successful this additionally returns the utxo
+-- that coin selection was run against.
+newUnsignedTransaction :: ActiveWallet
+                       -- ^ An Active wallet.
+                       -> CoinSelectionOptions
+                       -- ^ The options describing how to tune the coin selection.
+                       -> HdAccountId
+                       -- ^ The source HD account from where the payment should originate
+                       -> NonEmpty (Address, Coin)
+                       -- ^ The payees
+                       -> IO (Either NewTransactionError (DB, UnsignedTx, Utxo))
+                       -- ^ Returns the state of the world (i.e. the DB snapshot)
+                       -- at the time of the coin selection, so that it can later
+                       -- on be used to sign the addresses.
+newUnsignedTransaction ActiveWallet{..} options accountId payees = runExceptT $ do
+    snapshot <- liftIO $ getWalletSnapshot walletPassive
+    initialEnv <- liftIO $ newEnvironment
+    maxTxSize  <- liftIO $ Node.getMaxTxSize (walletPassive ^. walletNode)
+    -- TODO: We should cache this maxInputs value
+    let maxInputs = estimateMaxTxInputs maxTxSize
+
+    -- STEP 0: Get available UTxO
+    availableUtxo <- withExceptT NewTransactionUnknownAccount $ exceptT $
+                       currentAvailableUtxo snapshot accountId
+
+    -- STEP 1: Run coin selection.
+    CoinSelFinalResult inputs outputs coins <-
+      withExceptT NewTransactionErrorCoinSelectionFailed $ ExceptT $
+        flip runReaderT initialEnv . buildPayment $
+          CoinSelection.random options
+                               maxInputs
+                               (fmap toTxOut payees)
+                               availableUtxo
+
+    -- STEP 2: Assemble the unsigned transactions, @without@ generating the
+    -- change addresses, as that would require the spending password.
+
+    tx <- liftIO $ mkStdUnsignedTx shuffleNE inputs outputs coins
+    return (snapshot, tx, availableUtxo)
+  where
+    -- Generate an initial seed for the random generator using the hash of
+    -- the payees, which ensure that the coin selection (and the fee estimation)
+    -- is \"pseudo deterministic\" and replicable.
+    newEnvironment :: IO Env
+    newEnvironment =
+        let initialSeed = V.fromList . map fromIntegral
+                                     . B.unpack
+                                     . encodeUtf8 @Text @ByteString
+                                     . sformat build
+                                     $ hash payees
+        in Env <$> initialize initialSeed
+
+    toTxOut :: (Address, Coin) -> TxOutAux
+    toTxOut (a, c) = TxOutAux (TxOut a c)
+
 -- | Creates a new 'TxAux' and corresponding 'TxMeta',
 -- without submitting it to the network.
 --
@@ -199,6 +262,8 @@ newTransaction aw@ActiveWallet{..} spendingPassword options accountId payees = d
                  signAddress = mkSigner spendingPassword mbEsk db
                  mkTx        = mkStdTx walletProtocolMagic shuffleNE signAddress
 
+             -- STEP 3: Creates the @signed@ transaction using data from the
+             --         unsigned one.
              txAux <- withExceptT NewTransactionErrorSignTxFailed $ ExceptT $
                           mkTx inputs outputs changeAddresses
 
@@ -529,66 +594,4 @@ redeemAda w@ActiveWallet{..} accId pw rsk = runExceptT $ do
             guard $ addr == redeemAddr
             return (inp, coin)
 
-{-----------------------------------------------------------------------------
-  Creating unsigned tranasctions
-------------------------------------------------------------------------------}
-
--- | Creates a new unsigned 'Tx', without submitting it to the network. Please
--- note that this is a low-level API. Considering using 'pay' and 'estimateFee'
--- in user's code.
---
--- For testing purposes, if successful this additionally returns the utxo
--- that coin selection was run against.
-newUnsignedTransaction :: ActiveWallet
-                       -- ^ An Active wallet.
-                       -> CoinSelectionOptions
-                       -- ^ The options describing how to tune the coin selection.
-                       -> HdAccountId
-                       -- ^ The source HD account from where the payment should originate
-                       -> NonEmpty (Address, Coin)
-                       -- ^ The payees
-                       -> IO (Either NewTransactionError (DB, UnsignedTx, Utxo))
-                       -- ^ Returns the state of the world (i.e. the DB snapshot)
-                       -- at the time of the coin selection, so that it can later
-                       -- on be used to sign the addresses.
-newUnsignedTransaction ActiveWallet{..} options accountId payees = runExceptT $ do
-    snapshot <- liftIO $ getWalletSnapshot walletPassive
-    initialEnv <- liftIO $ newEnvironment
-    maxTxSize  <- liftIO $ Node.getMaxTxSize (walletPassive ^. walletNode)
-    -- TODO: We should cache this maxInputs value
-    let maxInputs = estimateMaxTxInputs maxTxSize
-
-    -- STEP 0: Get available UTxO
-    availableUtxo <- withExceptT NewTransactionUnknownAccount $ exceptT $
-                       currentAvailableUtxo snapshot accountId
-
-    -- STEP 1: Run coin selection.
-    CoinSelFinalResult inputs outputs coins <-
-      withExceptT NewTransactionErrorCoinSelectionFailed $ ExceptT $
-        flip runReaderT initialEnv . buildPayment $
-          CoinSelection.random options
-                               maxInputs
-                               (fmap toTxOut payees)
-                               availableUtxo
-
-    -- STEP 2: Assemble the unsigned transactions, @without@ generating the
-    -- change addresses, as that would require the spending password.
-
-    tx <- liftIO $ mkStdUnsignedTx shuffleNE inputs outputs coins
-    return (snapshot, tx, availableUtxo)
-  where
-    -- Generate an initial seed for the random generator using the hash of
-    -- the payees, which ensure that the coin selection (and the fee estimation)
-    -- is \"pseudo deterministic\" and replicable.
-    newEnvironment :: IO Env
-    newEnvironment =
-        let initialSeed = V.fromList . map fromIntegral
-                                     . B.unpack
-                                     . encodeUtf8 @Text @ByteString
-                                     . sformat build
-                                     $ hash payees
-        in Env <$> initialize initialSeed
-
-    toTxOut :: (Address, Coin) -> TxOutAux
-    toTxOut (a, c) = TxOutAux (TxOut a c)
 

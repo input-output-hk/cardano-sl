@@ -307,3 +307,16 @@ spec = describe "NewPayment" $ do
                     withPayment (InitialADA 1000) (PayADA 1) $ \activeLayer newPayment -> do
                         res <- liftIO (runExceptT . runHandler' $ Handlers.estimateFees activeLayer newPayment)
                         liftIO ((bimap identity STB res) `shouldSatisfy` isRight)
+
+            -- The 'estimateFee' endpoint doesn't require a spendingPassword, but
+            -- the 'Payment' type does come with an optional 'spendingPassword' field.
+            -- Here we want to check this is completely ignored.
+            prop "ignores completely the spending password in Payment" $ withMaxSuccess 50 $
+                monadicIO $ do
+                    randomPass <- pick arbitrary
+                    withPayment (InitialADA 1000) (PayADA 1) $ \activeLayer newPayment -> do
+                        -- mangle the spending password to be something arbitrary, check
+                        -- that this doesn't hinder our ability to estimate fees.
+                        let pmt = newPayment { V1.pmtSpendingPassword = Just randomPass }
+                        res <- liftIO (runExceptT . runHandler' $ Handlers.estimateFees activeLayer pmt)
+                        liftIO ((bimap identity STB res) `shouldSatisfy` isRight)

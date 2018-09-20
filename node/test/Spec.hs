@@ -5,10 +5,10 @@ module Main where
 
 import           Universum
 
-import           Data.Typeable (typeRep)
+-- import           Data.Typeable (typeRep)
 import           Test.Hspec
-import           Test.Hspec.QuickCheck
-import           Test.QuickCheck
+-- import           Test.Hspec.QuickCheck
+-- import           Test.QuickCheck
 
 import qualified ChainExtension as CE
 import qualified Translation as Tr

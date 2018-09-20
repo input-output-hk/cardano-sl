@@ -12,11 +12,8 @@ module Chain.Abstract.Translate.ToCardano
     Abstract2Cardano
   ) where
 
-import           Cardano.Wallet.Kernel.Types (RawResolvedBlock,
-                     RawResolvedTx (..), mkRawResolvedBlock, mkRawResolvedTx,
-                     rawResolvedBlock)
-import           Chain.Abstract (Block (..), Chain, Output (..),
-                     Transaction (..), hash, outAddr)
+import           Universum
+
 import           Control.Lens (ix, (%=), (.=))
 import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Except
@@ -24,8 +21,15 @@ import           Data.Default (def)
 import qualified Data.List.NonEmpty as NE
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+
+import           Cardano.Wallet.Kernel.Types (RawResolvedBlock,
+                     RawResolvedTx (..), mkRawResolvedBlock, mkRawResolvedTx,
+                     rawResolvedBlock)
+import           Chain.Abstract (Block (..), Chain, Output (..),
+                     Transaction (..), hash, outAddr)
 import           Pos.Chain.Block (BlockHeader, GenesisBlock, MainBlock)
 import qualified Pos.Chain.Block as PosChain (Block)
+import           Pos.Chain.Delegation (DlgPayload (UnsafeDlgPayload))
 import           Pos.Chain.Ssc (defaultSscPayload)
 import           Pos.Chain.Txp (TxAux (..), TxId, TxIn (..), TxOut (..),
                      TxOutAux (..))
@@ -34,13 +38,10 @@ import           Pos.Client.Txp.Util (makeMPubKeyTx, makeRedemptionTx)
 import qualified Pos.Core as Core (ProtocolConstants, SlotId (..))
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Common (Coin (..), SlotLeaders, mkCoin)
-import           Pos.Chain.Delegation (DlgPayload (UnsafeDlgPayload))
 import           Pos.Core.Slotting (localSlotIndexMaxBound)
 import qualified Pos.Crypto (hash)
 import           Pos.Crypto.Signing.Safe (SafeSigner (FakeSigner))
 import           Pos.DB.Block (RawPayload (..), createMainBlockPure)
-import           Universum (use)
-import           Universum
 import           UTxO.Context (Addr, AddrInfo (..), BlockSignInfo (..),
                      blockSignInfoForSlot, resolveAddr)
 import           UTxO.Crypto (ClassifiedInputs (InputsRedeem, InputsRegular),

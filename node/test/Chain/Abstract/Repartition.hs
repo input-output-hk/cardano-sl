@@ -49,7 +49,7 @@ mkRepartition
   => [(a, Word64)]
   -> Validation [RepartitionError a] (Repartition a)
 mkRepartition rs =
-  pure (Repartition rMap) <* nonEmptySupport
+  Repartition rMap <$ nonEmptySupport
   where
     rMap :: Map a (Sum Word64)
     rMap = Map.fromList $ fmap (second Sum) rs

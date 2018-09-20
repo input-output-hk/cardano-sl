@@ -11,7 +11,7 @@ module Infrastructure.Generator
   , chainAddresses
   ) where
 
-import           Universum hiding (head, tail, (^.))
+import           Universum hiding ((^.))
 
 import           Control.Lens (to, (^.))
 import           Control.Monad.Except (ExceptT (ExceptT), runExceptT,
@@ -41,8 +41,9 @@ import           Chain.Abstract (Addr (Addr), Chain, Output (Output),
 import           Chain.Abstract.FinitelySupportedFunction (fApply, fSum,
                      fSupport)
 import           Chain.Abstract.Repartition (balanceStake)
-import           Chain.Abstract.Translate.FromUTxO (ChainValidity, IntException (IntEmptyAddresses),
-                     TransState, translate, tsCheckpoints, _tsCurrentSlot)
+import           Chain.Abstract.Translate.FromUTxO (ChainValidity,
+                     IntException (IntEmptyAddresses), TransState, translate,
+                     tsCheckpoints, _tsCurrentSlot)
 import qualified UTxO.DSL as DSL
 
 data GeneratorModel h a = GeneratorModel

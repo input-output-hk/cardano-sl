@@ -63,8 +63,9 @@ data WalletRestorationInfo = WalletRestorationInfo
      -- it is finished and the wallet is up-to-date.
   , _wriThroughput  :: MeasuredIn 'BlocksPerSecond BlockCount
     -- ^ Speed of restoration.
-  , _wriCancel      :: IO ()
+  , _wriCancel      :: IO Bool
     -- ^ The action that can be used to cancel the restoration task.
+    -- This may fail, so we return a Bool.
   }
 
 {-------------------------------------------------------------------------------

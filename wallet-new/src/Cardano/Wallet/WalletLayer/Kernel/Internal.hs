@@ -90,7 +90,7 @@ resetWalletState w = liftIO $ do
     -- stop restoration and empty it`s state.
     -- TODO: A restoration may start between this call and the db modification
     -- but as this is for testing only we keep it that way for now. (CBR-415)
-    Restore.stopAllRestorations w
+    _ <- Restore.stopAllRestorations w
 
     -- This pauses any effect the Submission worker can have.
     -- We don`t actually stop and restart the thread, but once

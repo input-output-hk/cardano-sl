@@ -93,7 +93,7 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
 
 import           Universum hiding ((:|))
 
-import           Control.Lens (Getter, at, to, (+~), _Wrapped)
+import           Control.Lens (Getter, at, lazy, to, (+~), _Wrapped)
 import           Control.Lens.TH (makeLenses)
 import qualified Data.ByteString as BS
 import qualified Data.IxSet.Typed as IxSet (Indexable (..))
@@ -401,7 +401,7 @@ finishRestoration (SecurityParameter k) (HdAccountIncomplete (Checkpoints partia
         HdAccountUpToDate $ Checkpoints $ takeNewest k $ NewestFirst $
           (mostRecentHistorical :| olderHistorical)
       Just secondLast -> let checkpoint = secondLast ^. pcheckpointContext in
-        if checkpoint `blockContextSucceeds` (mostRecentHistorical ^. checkpointContext)
+        if checkpoint `blockContextSucceeds` (mostRecentHistorical ^. checkpointContext . lazy)
           then HdAccountUpToDate $ Checkpoints $ takeNewest k $ NewestFirst $
                  SNE.prependList
                    (mkFull <$> initPartial)

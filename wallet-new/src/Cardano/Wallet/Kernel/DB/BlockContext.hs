@@ -12,6 +12,9 @@ module Cardano.Wallet.Kernel.DB.BlockContext (
 
 import           Universum
 
+import qualified Cardano.Wallet.Kernel.Util.Strict as Strict
+import           Control.Lens (lazy, strict)
+
 import           Control.Lens (makeLenses)
 import           Data.SafeCopy (base, deriveSafeCopy)
 import           Formatting (bprint, build, (%))
@@ -43,7 +46,7 @@ data BlockContext = BlockContext {
       -- it is important that if the raw block's previous pointer to an EBB,
       -- we do some work to figure out what the previous /main/ block was.
       -- See 'mostRecentMainBlock'.
-    , _bcPrevMain :: !(Maybe (InDb Core.HeaderHash))
+    , _bcPrevMain :: !(Strict.Maybe (InDb Core.HeaderHash))
     } deriving Eq
 
 makeLenses ''BlockContext
@@ -57,7 +60,7 @@ deriveSafeCopy 1 'base ''BlockContext
 blockContextSucceeds :: BlockContext -> Maybe BlockContext -> Bool
 _ `blockContextSucceeds` Nothing  = True
 a `blockContextSucceeds` (Just b) =
-    case a ^. bcPrevMain of
+    case a ^. bcPrevMain . lazy of
       Nothing   -> False -- Previous checkpoint must have been the initial one
       Just prev -> prev == b ^. bcHash
 
@@ -68,7 +71,8 @@ a `blockContextSucceeds` (Just b) =
 mainBlockContext :: (NodeConstraints, MonadIO m, MonadCatch m)
                  => GenesisHash -> Core.MainBlock -> WithNodeState m BlockContext
 mainBlockContext genesisHash mb = do
-    mPrev <- mostRecentMainBlock genesisHash (mb ^. Core.mainBlockPrevBlock)
+    mPrev <- view strict <$>
+        mostRecentMainBlock genesisHash (mb ^. Core.mainBlockPrevBlock)
     return BlockContext {
         _bcSlotId   = InDb $ mb ^. Core.mainBlockSlot
       , _bcHash     = InDb $ Core.headerHash mb

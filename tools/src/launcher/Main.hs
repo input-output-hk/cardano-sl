@@ -300,7 +300,7 @@ main =
     Sys.setCurrentDirectory loWorkingDir
 
     -- Launcher logs should be in public directory
-    let launcherLogsPrefix = (</> "pub") <$> loLogsPrefix
+    let launcherLogsPrefix = loLogsPrefix
     -- Add options specified in loConfiguration but not in loNodeArgs to loNodeArgs.
     let realNodeArgs = propagateOptions loReportServer loNodeDbPath loLogsPrefix loConfiguration $
             case loNodeLogConfig of

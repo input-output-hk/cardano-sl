@@ -1042,6 +1042,15 @@ endpoint is during API integration testing. Note also that this will fail by
 default unless the node is running in debug mode.
 |]
 
+estimateFeesDescription :: Text
+estimateFeesDescription = [text|
+Estimate the fees which would incur from the input payment. This endpoint
+**does not** require a _spending password_ to be supplied as it generates
+under the hood an unsigned transaction. Therefore, callers can simply set
+the `spendingPassword` field to `null` as that won't influence the fee
+calculation.
+|]
+
 
 --
 -- The API
@@ -1077,3 +1086,4 @@ api (compileInfo, curSoftwareVersion) walletAPI mkDescription = toSwagger wallet
   & paths %~ (POST, "/api/internal/apply-update") `setDescription` applyUpdateDescription
   & paths %~ (POST, "/api/internal/postpone-update") `setDescription` postponeUpdateDescription
   & paths %~ (DELETE, "/api/internal/reset-wallet-state") `setDescription` resetWalletStateDescription
+  & paths %~ (POST, "/api/v1/transactions/fees") `setDescription` estimateFeesDescription

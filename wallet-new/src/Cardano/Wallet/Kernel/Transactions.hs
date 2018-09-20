@@ -66,9 +66,9 @@ import           Cardano.Wallet.Kernel.Pending (PartialTxMeta, newForeign,
 import           Cardano.Wallet.Kernel.Read (getWalletSnapshot)
 import           Cardano.Wallet.Kernel.Types (AccountId (..),
                      RawResolvedTx (..), WalletId (..))
-import           UTxO.Util (shuffleNE)
 import           Cardano.Wallet.Kernel.Util.Core
 import           Cardano.Wallet.WalletLayer.Kernel.Conv (exceptT)
+import           UTxO.Util (shuffleNE)
 
 {-------------------------------------------------------------------------------
   Generating payments and estimating fees

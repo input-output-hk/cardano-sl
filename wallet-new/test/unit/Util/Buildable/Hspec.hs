@@ -27,8 +27,8 @@ module Util.Buildable.Hspec (
 import qualified Test.Hspec as H
 import           Universum
 
-import           Util.Buildable
 import           Data.Validated
+import           Util.Buildable
 
 {-------------------------------------------------------------------------------
   Wrappers around Test.HSpec.Expectations

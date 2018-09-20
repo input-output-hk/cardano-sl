@@ -29,8 +29,8 @@ import qualified Formatting.Buildable
 import           Pos.Core.Chrono
 import           Serokell.Util (mapJson)
 
-import           UTxO.Util (disjoint)
 import           UTxO.DSL
+import           UTxO.Util (disjoint)
 
 {-------------------------------------------------------------------------------
   Wallet type class

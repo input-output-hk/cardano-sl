@@ -2,8 +2,8 @@ module ChainExtension
   ( spec
   ) where
 
-import Universum
-import Test.Hspec
+import           Test.Hspec
+import           Universum
 
 spec :: Spec
 spec = do

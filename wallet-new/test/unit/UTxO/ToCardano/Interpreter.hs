@@ -71,8 +71,8 @@ import           UTxO.Crypto
 import qualified UTxO.DSL as DSL
 import           UTxO.IntTrans (ConIntT (..), IntCheckpoint (..),
                      IntException (..), IntRollback (..), Interpret (..),
-                     Interpretation (..), createEpochBoundary,
-                     magic, mkCheckpoint)
+                     Interpretation (..), createEpochBoundary, magic,
+                     mkCheckpoint)
 import           UTxO.Translate
 import           UTxO.Util (at)
 

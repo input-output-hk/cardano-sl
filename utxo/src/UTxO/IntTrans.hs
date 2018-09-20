@@ -31,11 +31,9 @@ import qualified Data.Map.Strict as Map
 import           Data.Reflection (give)
 import           Formatting (bprint, build, shown, (%))
 import qualified Formatting.Buildable
-import           Pos.Chain.Block (BlockHeader, headerHash)
-import           Pos.Chain.Block
-                     (BlockHeader (BlockHeaderGenesis, BlockHeaderMain),
-                     GenesisBlock, HeaderHash, MainBlock, gbBody, gbHeader,
-                     genBlockLeaders, mbTxs, mbWitnesses, mkGenesisBlock)
+import           Pos.Chain.Block (BlockHeader (..), GenesisBlock, HeaderHash,
+                     MainBlock, gbBody, gbHeader, genBlockLeaders, headerHash,
+                     mbTxs, mbWitnesses, mkGenesisBlock)
 import           Pos.Chain.Genesis (GenesisWStakeholders, gdBootStakeholders,
                      gdProtocolConsts,
                      genesisProtocolConstantsToProtocolConstants)
@@ -46,11 +44,11 @@ import           Pos.Client.Txp.Util (TxError (..))
 import           Pos.Core (ProtocolConstants, SlotId (..))
 import           Pos.Core.Common (Coin, SharedSeed (..), SlotLeaders,
                      StakeholderId, StakesList, StakesMap, addCoin, subCoin)
-import           Test.Pos.Core.Dummy (dummyK)
 import           Pos.Core.Slotting (EpochIndex (..), crucialSlot)
 import           Pos.Crypto (ProtocolMagic)
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util (mapJson)
+import           Test.Pos.Core.Dummy (dummyK)
 import           Universum
 import           UTxO.Context (CardanoContext (..), TransCtxt (..))
 import           UTxO.Translate (TranslateT, withConfig)
@@ -216,7 +214,7 @@ updateStakes :: forall m. MonadError IntException m
              -> [NonEmpty TxOut] -- ^ Resolved inputs
              -> StakesMap -> m StakesMap
 updateStakes gs b resolvedInputs =
-    foldr (>=>) return $ map go (zip (b ^. gbBody . mbTxs) resolvedInputs)
+    foldr ((>=>) . go) return (zip (b ^. gbBody . mbTxs) resolvedInputs)
   where
     go :: (Tx, NonEmpty TxOut) -> StakesMap -> m StakesMap
     go (tx, ris) =

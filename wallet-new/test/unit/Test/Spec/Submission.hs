@@ -33,12 +33,12 @@ import           Pos.Crypto.Signing.Safe (safeDeterministicKeyGen)
 import           Serokell.Util.Text (listJsonIndent)
 import qualified Test.Pos.Chain.Txp.Arbitrary as Txp
 
-import           UTxO.Util (disjoint)
 import           Test.QuickCheck (Gen, Property, arbitrary, choose, conjoin,
                      forAll, listOf, shuffle, vectorOf, (===))
 import           Test.QuickCheck.Property (counterexample)
 import           Util.Buildable (ShowThroughBuild (..))
 import           Util.Buildable.Hspec
+import           UTxO.Util (disjoint)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 

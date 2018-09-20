@@ -17255,6 +17255,7 @@ license = stdenv.lib.licenses.mit;
 , ansi-terminal
 , ansi-wl-pprint
 , async
+, attoparsec
 , base
 , base58-bytestring
 , bytestring
@@ -17276,26 +17277,38 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-util-test
 , cardano-sl-wallet
 , cardano-sl-x509
+, cassava
+, Chart
+, Chart-diagrams
 , containers
 , cpphs
 , cryptonite
 , data-default
 , directory
+, fgl
 , filepath
+, foldl
 , formatting
 , Glob
+, graphviz
 , hedgehog
 , hspec
 , lens
 , lifted-async
+, MonadRandom
 , mtl
 , neat-interpolation
 , network-transport-tcp
 , optparse-applicative
 , optparse-generic
 , parsers
+, pipes
+, pipes-bytestring
+, pipes-interleave
+, pipes-safe
 , process
 , QuickCheck
+, random
 , safe-exceptions
 , serokell-util
 , silently
@@ -17369,6 +17382,7 @@ aeson
 aeson-options
 ansi-wl-pprint
 async
+attoparsec
 base
 base58-bytestring
 bytestring
@@ -17388,21 +17402,33 @@ cardano-sl-networking
 cardano-sl-util
 cardano-sl-wallet
 cardano-sl-x509
+cassava
+Chart
+Chart-diagrams
 containers
 cryptonite
 data-default
 directory
+fgl
 filepath
+foldl
 formatting
 Glob
+graphviz
 lens
 lifted-async
+MonadRandom
 mtl
 neat-interpolation
 network-transport-tcp
 optparse-applicative
 optparse-generic
+pipes
+pipes-bytestring
+pipes-interleave
+pipes-safe
 process
+random
 safe-exceptions
 serokell-util
 silently

@@ -16,7 +16,7 @@ import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.Compression
 import           Cardano.Wallet.Kernel.DB.Spec
 import           Cardano.Wallet.Kernel.DB.Spec.Pending
-import           Cardano.Wallet.Kernel.Util
+import           UTxO.Util
 
 import           Util.Buildable (ShowThroughBuild (..))
 

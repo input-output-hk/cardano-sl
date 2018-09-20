@@ -18,9 +18,9 @@ import           Pos.Core.Chrono
 
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
-import           Cardano.Wallet.Kernel.Util (modifyAndGetNew)
 import           Cardano.Wallet.Kernel.Util.StrictList (StrictList)
 import qualified Cardano.Wallet.Kernel.Util.StrictList as SL
+import           UTxO.Util (modifyAndGetNew)
 
 -- | Available updates
 --

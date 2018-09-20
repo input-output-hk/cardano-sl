@@ -56,7 +56,7 @@ import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Internal (WalletRestorationInfo,
                      wriCurrentSlot, wriTargetSlot, wriThroughput)
 import qualified Cardano.Wallet.Kernel.Read as Kernel
-import           Cardano.Wallet.Kernel.Util (exceptT)
+import           UTxO.Util (exceptT)
 -- import           Cardano.Wallet.WalletLayer (InvalidRedemptionCode (..))
 
 {-------------------------------------------------------------------------------

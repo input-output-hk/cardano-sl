@@ -75,8 +75,8 @@ import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 import           Test.QuickCheck (Arbitrary (..))
 
-import           Cardano.Wallet.Kernel.Util (withoutKeys)
 import           Cardano.Wallet.Kernel.Util.StrictStateT
+import           UTxO.Util (withoutKeys)
 
 {-------------------------------------------------------------------------------
   Abstract domain

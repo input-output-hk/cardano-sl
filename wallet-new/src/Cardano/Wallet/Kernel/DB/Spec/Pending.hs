@@ -49,8 +49,8 @@ import qualified Pos.Core as Core
 import           Pos.Crypto.Hashing (hash)
 
 import           Cardano.Wallet.Kernel.DB.InDb
-import qualified Cardano.Wallet.Kernel.Util as Util
 import qualified Cardano.Wallet.Kernel.Util.Core as Core
+import qualified UTxO.Util as Util
 
 {-------------------------------------------------------------------------------
   Pending transactions

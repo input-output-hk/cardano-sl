@@ -19,7 +19,7 @@ import           Cardano.Wallet.Kernel.DB.BlockContext
 import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec.Pending (PendingDiff)
-import           Cardano.Wallet.Kernel.Util
+import           UTxO.Util
 
 import           Test.Pos.Core.Arbitrary ()
 

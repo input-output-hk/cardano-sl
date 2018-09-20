@@ -59,7 +59,8 @@ genChainUsingModel GeneratorModel{..} =
     initState = initTrState initUtxo 1
 
 genInductiveUsingModel :: (Hash h a, Ord a)
-                       => GeneratorModel h a -> Gen (Inductive h a)
+                       => GeneratorModel h a
+                       -> Gen (Inductive h a)
 genInductiveUsingModel GeneratorModel{..} = do
     events <- evalStateT (genWalletEvents (params gmOurs)) initState
     return Inductive {

@@ -35,7 +35,7 @@ import qualified Pos.Core.Attributes as Core
 import qualified Pos.Crypto as Core
 
 import qualified Cardano.Crypto.Wallet as CCW
-import           Cardano.Wallet.Kernel.Util
+import           UTxO.Util
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 

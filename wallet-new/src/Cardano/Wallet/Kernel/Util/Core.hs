@@ -39,7 +39,7 @@ import qualified Pos.Chain.Txp as Core
 import qualified Pos.Core as Core
 import           Pos.Crypto.Hashing (hash)
 
-import           Cardano.Wallet.Kernel.Util
+import           UTxO.Util
 
 {-------------------------------------------------------------------------------
   General-utility functions

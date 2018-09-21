@@ -8,6 +8,7 @@ module Cardano.Wallet.Client.Http
     , module Servant.Client
     -- * Helper to load X509 certificates and private key
     , credentialLoadX509
+    , readSignedObject
     , newManager
     , Manager
     ) where
@@ -20,6 +21,8 @@ import           Data.ByteString (ByteString)
 import           Data.Default.Class (Default (..))
 import           Data.X509 (CertificateChain, SignedCertificate)
 import           Data.X509.CertificateStore (makeCertificateStore)
+import           Data.X509.Extra (validateDefaultWithIP)
+import           Data.X509.File (readSignedObject)
 import           Network.Connection (TLSSettings (..))
 import           Network.HTTP.Client (Manager, ManagerSettings,
                      defaultManagerSettings, newManager)
@@ -73,6 +76,7 @@ mkHttpsManagerSettings serverId caChain credentials =
         }
     clientHooks = def
         { onCertificateRequest = const . return . Just $ credentials
+        , onServerCertificate  = validateDefaultWithIP
         }
     clientSupported = def
         { supportedCiphers = ciphersuite_default

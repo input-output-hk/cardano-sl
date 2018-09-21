@@ -14,12 +14,14 @@ import           Data.X509.Extra (genRSA256KeyPair)
 
 main :: IO ()
 main = do
+    confFile <-
+        decodeConfigFile "dev" "lib/configuration.yaml"
+
+    let dirConf =
+          DirConfiguration "server" "client" Nothing
+
     (caDesc, certDescs) <-
-        fromConfiguration 
-            <$> decodeConfigFile "dev" "lib/configuration.yaml"
-            <*> pure (DirConfiguration "server" "client" Nothing)
-            <*> pure genRSA256KeyPair 
-            <*> genRSA256KeyPair
+        fromConfiguration confFile dirConf genRSA256KeyPair <$> genRSA256KeyPair
 
     (caKey, caCert) <- 
         genCertificate caDesc
@@ -34,7 +36,7 @@ main = do
   where
     findCert 
       :: String 
-      -> [CertDescription IO PublicKey PrivateKey String] 
+      -> [CertDescription IO PublicKey PrivateKey String]
       -> CertDescription IO PublicKey PrivateKey String
     findCert outDir =
         head . find ((== outDir) . certOutDir)

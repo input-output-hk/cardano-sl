@@ -34,6 +34,7 @@ module Pos.Util.Log.LoggerConfig
        , parseLoggerConfig
        , retrieveLogFiles
        , setLogPrefix
+       , isWritingToConsole
        ) where
 
 import           Data.Yaml as Y
@@ -124,6 +125,12 @@ filterKnowns = HM.filterWithKey (\k _ -> k `notElem` known)
   where
     known = ["file","files","severity","handlers"]
 
+
+isWritingToConsole :: LogHandler -> Bool
+isWritingToConsole lh =
+    _lhBackend lh `elem` [StderrBE, StdoutBE]
+
+
 -- | @'LoggerTree'@ contains the actual logging configuration,
 --    'Severity' and 'LogHandler'
 data LoggerTree = LoggerTree
@@ -171,7 +178,7 @@ mkUniq handlers = mkUniq' handlers []
             any (\lh' -> _lhName lh == _lhName lh') lhs
         mkUniq' [] acc = acc
         mkUniq' (lh:lhs) acc | lh `containedIn` acc = mkUniq' lhs acc
-                             | otherwise            = mkUniq' lhs (lh:acc)
+                             | otherwise            = mkUniq' lhs (acc ++ [lh])
 
 instance Semigroup LoggerTree where
     lt1 <> lt2 = LoggerTree {

@@ -65,7 +65,8 @@ import           Pos.Launcher.Mode (InitMode, InitModeContext (..), runInitMode)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
                      NodeParams (..))
 import           Pos.Util (bracketWithLogging, newInitFuture)
-import           Pos.Util.Log.LoggerConfig (defaultInteractiveConfiguration)
+import           Pos.Util.Log.LoggerConfig (defaultInteractiveConfiguration,
+                     isWritingToConsole, lcLoggerTree, ltHandlers)
 import           Pos.Util.Wlog (LoggerConfig (..), Severity (..), WithLogger,
                      logDebug, logInfo, parseLoggerConfig, removeAllHandlers,
                      setupLogging)
@@ -243,9 +244,9 @@ getRealLoggerConfig LoggingParams{..} = do
     overrideConsoleLog :: LoggerConfig -> LoggerConfig
     overrideConsoleLog = case lpConsoleLog of
         Nothing    -> identity
-        Just True  -> (<>) (defaultInteractiveConfiguration Info)
+        Just True  -> (<> defaultInteractiveConfiguration Info)
                       -- add output to the console with severity filter >= Info
-        Just False -> identity
+        Just False -> lcLoggerTree . ltHandlers %~ filter (not . isWritingToConsole)
 
 setupLoggers :: MonadIO m => Text -> LoggingParams -> m ()
 setupLoggers cfoKey params = setupLogging cfoKey =<< getRealLoggerConfig params

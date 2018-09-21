@@ -60,3 +60,30 @@ library
   exposed-modules: Cardano.Cluster
                    Cardano.Cluster.Environment
                    Cardano.Cluster.Util
+
+
+executable cardano-sl-demo
+  ghc-options:        -threaded -O2 -rtsopts
+  default-language:   Haskell2010
+  default-extensions: DeriveGeneric
+                      LambdaCase
+                      NoImplicitPrelude
+                      OverloadedStrings
+                      TupleSections
+                      TypeApplications
+                      ScopedTypeVariables
+
+  hs-source-dirs:     demo
+  main-is:            Main.hs
+
+  build-depends:      base
+
+                    , cardano-sl-cluster
+                    , cardano-sl-wallet-new
+
+                    , ansi-terminal
+                    , async
+                    , containers
+                    , docopt
+                    , formatting
+                    , universum

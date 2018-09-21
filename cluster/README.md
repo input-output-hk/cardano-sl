@@ -15,22 +15,22 @@ Cluster is starting (4 core(s), 1 relay(s), 1 edge(s))...
 ......address:       127.0.0.1:3000
 ......locked assets: -
 ...core1 has no health-check API.
-......system start:  1539179288
+......system start:  1539179287
 ......address:       127.0.0.1:3001
 ......locked assets: -
 ...core2 has no health-check API.
-......system start:  1539179289
+......system start:  1539179287
 ......address:       127.0.0.1:3002
 ......locked assets: -
 ...core3 has no health-check API.
-......system start:  1539179291
+......system start:  1539179287
 ......address:       127.0.0.1:3003
 ......locked assets: -
 ...relay has no health-check API.
-......system start:  1539179292
+......system start:  1539179287
 ......address:       127.0.0.1:3100
 ...wallet OK!
-......system start:  1539179292
+......system start:  1539179287
 ......api address:   127.0.0.1:8090
 ......doc address:   127.0.0.1:8190
 Cluster is (probably) ready!
@@ -112,7 +112,7 @@ cardano-sl-cluster-demo
 Spawn a demo cluster of nodes running cardano-sl, ready-to-use
 
 Usage:
-  cardano-sl-cluster-demo [options]
+  cardano-sl-cluster-demo [--no-genesis-wallets] [options]
   cardano-sl-cluster-demo --help
 
 Options:

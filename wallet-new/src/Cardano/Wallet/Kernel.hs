@@ -27,7 +27,6 @@ module Cardano.Wallet.Kernel (
 import           Universum hiding (State)
 
 import           Control.Concurrent.Async (async, cancel)
-import           Control.Concurrent.MVar (modifyMVar, modifyMVar_)
 import           Data.Acid (AcidState, createArchive, createCheckpoint,
                      openLocalStateFrom)
 import           Data.Acid.Memory (openMemoryState)
@@ -50,6 +49,7 @@ import           Cardano.Wallet.Kernel.Read (getWalletSnapshot)
 import           Cardano.Wallet.Kernel.Submission (WalletSubmission,
                      addPendings, emptyWalletSubmission, tick)
 import           Cardano.Wallet.Kernel.Submission.Worker (tickSubmissionLayer)
+import qualified Cardano.Wallet.Kernel.Util.Strict as Strict
 
 {-------------------------------------------------------------------------------
   Passive Wallet Resource Management
@@ -181,7 +181,7 @@ initPassiveWallet logMessage keystore handles node = do
         initSubmission :: PassiveWallet -> IO ()
         initSubmission pw_  = do
             pendings <- pendingByAccount <$> getWalletSnapshot pw_
-            modifyMVar_ (_walletSubmission pw_) $
+            Strict.modifyMVar_ (_walletSubmission pw_) $
                 return . addPendings pendings
 
 {-------------------------------------------------------------------------------
@@ -224,7 +224,7 @@ bracketActiveWallet walletProtocolMagic
         tickFunction :: MVar WalletSubmission -> IO ()
         tickFunction submissionLayer = do
             toSend <-
-                modifyMVar submissionLayer $ \layer -> do
+                Strict.modifyMVar submissionLayer $ \layer -> do
                     let (e, s, state') = tick layer
                     -- cancelPending is called in the MVar IO action so that we can reset the
                     -- state of the wallet using the MVar to block this thread.

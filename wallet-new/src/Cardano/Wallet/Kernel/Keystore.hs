@@ -32,7 +32,6 @@ module Cardano.Wallet.Kernel.Keystore (
 
 import           Universum
 
-import           Control.Concurrent (modifyMVar, withMVar)
 import qualified Data.List
 import           System.Directory (getTemporaryDirectory, removeFile)
 import           System.IO (hClose, openTempFile)
@@ -45,12 +44,18 @@ import           Pos.Util.Wlog (CanLog (..), HasLoggerName (..), logMessage)
 
 import           Cardano.Wallet.Kernel.DB.HdWallet (eskToHdRootId)
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
+import qualified Cardano.Wallet.Kernel.Util.Strict as Strict
 
 -- Internal storage necessary to smooth out the legacy 'UserSecret' API.
 data InternalStorage = InternalStorage !UserSecret
 
+-- | We are not really interested in fully-forcing the 'UserSecret'. We are
+-- happy here with the operations on the keystore being applied not lazily.
+instance NFData InternalStorage where
+    rnf x = x `seq` ()
+
 -- A 'Keystore'.
-data Keystore = Keystore (MVar InternalStorage)
+data Keystore = Keystore (Strict.MVar InternalStorage)
 
 -- | Internal monad used to smooth out the 'WithLogger' dependency imposed
 -- by 'Pos.Util.UserSecret', to not commit to any way of logging things just yet.
@@ -100,7 +105,7 @@ bracketKeystore deletePolicy fp withKeystore =
 newKeystore :: FilePath -> IO Keystore
 newKeystore fp = fromKeystore $ do
     us <- takeUserSecret fp
-    Keystore <$> newMVar (InternalStorage us)
+    liftIO (Keystore <$> Strict.newMVar (InternalStorage us))
 
 -- | Reads the legacy root key stored in the specified keystore. This is
 -- useful only for importing a wallet using the legacy '.key' format.
@@ -111,7 +116,7 @@ readWalletSecret fp = importKeystore >>= lookupLegacyRootKey
   where
     lookupLegacyRootKey :: Keystore -> IO (Maybe EncryptedSecretKey)
     lookupLegacyRootKey (Keystore ks) =
-        withMVar ks $ \(InternalStorage us) ->
+        Strict.withMVar ks $ \(InternalStorage us) ->
             case us ^. usWallet of
                  Nothing -> return Nothing
                  Just w  -> return (Just $ _wusRootKey w)
@@ -119,14 +124,14 @@ readWalletSecret fp = importKeystore >>= lookupLegacyRootKey
     importKeystore :: IO Keystore
     importKeystore = fromKeystore $ do
         us <- readUserSecret fp
-        Keystore <$> newMVar (InternalStorage us)
+        liftIO (Keystore <$> Strict.newMVar (InternalStorage us))
 
 
 
 -- | Creates a legacy 'Keystore' by reading the 'UserSecret' from a 'NodeContext'.
 -- Hopefully this function will go in the near future.
 newLegacyKeystore :: UserSecret -> IO Keystore
-newLegacyKeystore us = Keystore <$> newMVar (InternalStorage us)
+newLegacyKeystore us = Keystore <$> Strict.newMVar (InternalStorage us)
 
 -- | Creates a legacy 'Keystore' using a 'bracket' pattern, where the
 -- initalisation and teardown of the resource are wrapped in 'bracket'.
@@ -160,14 +165,14 @@ newTestKeystore = liftIO $ fromKeystore $ do
     (tempFile, hdl) <- liftIO $ openTempFile tempDir "keystore.key"
     liftIO $ hClose hdl
     us <- takeUserSecret tempFile
-    Keystore <$> newMVar (InternalStorage us)
+    liftIO (Keystore <$> Strict.newMVar (InternalStorage us))
 
 -- | Release the resources associated with this 'Keystore'.
 releaseKeystore :: DeletePolicy -> Keystore -> IO ()
 releaseKeystore dp (Keystore ks) =
     -- We are not modifying the 'MVar' content, because this function is
     -- not exported and called exactly once from the bracket de-allocation.
-    withMVar ks $ \internalStorage@(InternalStorage us) -> do
+    Strict.withMVar ks $ \internalStorage@(InternalStorage us) -> do
         fp <- release internalStorage
         case dp of
              KeepKeystoreIfEmpty   -> return ()
@@ -199,7 +204,7 @@ modifyKeystore_ ks f =
 -- | Like 'modifyKeystore_', but it returns a result at the end.
 modifyKeystore :: Keystore -> (UserSecret -> (UserSecret, a)) -> IO a
 modifyKeystore (Keystore ks) f =
-    modifyMVar ks $ \(InternalStorage us) -> do
+    Strict.modifyMVar ks $ \(InternalStorage us) -> do
         let (us', a) = f us
         -- This is a safe operation to be because we acquired the exclusive
         -- lock on this file when we initialised the keystore, and as we are
@@ -263,7 +268,7 @@ lookup :: WalletId
        -> Keystore
        -> IO (Maybe EncryptedSecretKey)
 lookup wId (Keystore ks) =
-    withMVar ks $ \(InternalStorage us) -> return $ lookupKey us wId
+    Strict.withMVar ks $ \(InternalStorage us) -> return $ lookupKey us wId
 
 -- | Lookup a key directly inside the 'UserSecret'.
 lookupKey :: UserSecret -> WalletId -> Maybe EncryptedSecretKey

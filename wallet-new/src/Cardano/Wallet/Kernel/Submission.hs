@@ -1,5 +1,6 @@
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE RankNTypes   #-}
+{-# LANGUAGE BangPatterns  #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE RankNTypes    #-}
 -- We are exporting Lens' 'Getters', which has a redundant constraint on
 -- \"contravariant\".
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
@@ -89,7 +90,9 @@ data WalletSubmission = WalletSubmission {
     -- to modify it, as that should be done only via this layer's public API.
     -- What we export are some 'Getter's to some interesting bits of the state,
     -- like the local 'Pending' set or the current slot.
-    }
+    } deriving Generic
+
+instance NFData WalletSubmission
 
 instance Buildable WalletSubmission where
     build ws = bprint ("WalletSubmission { rho = <function> , state = " % F.build % " }") (_wsState ws)
@@ -106,7 +109,9 @@ data WalletSubmissionState = WalletSubmissionState {
       _wssPendingMap  ::  M.Map HdAccountId Pending
     , _wssSchedule    ::  Schedule
     , _wssCurrentSlot :: !Slot
-    }
+    } deriving Generic
+
+instance NFData WalletSubmissionState
 
 instance Buildable WalletSubmissionState where
     build wss = bprint ("{ pendingMap = " % (F.later mapBuilder) %
@@ -136,17 +141,25 @@ data Schedule = Schedule {
     -- @N.B@ It should be the wallet's responsibility (not the submission layer's)
     -- to make sure that when it gives up on a transaction @A@, it also gives
     -- up on all transactions @Bs@ that depend on @A@.
-    }
+    } deriving Generic
+
+instance NFData Schedule
 
 -- | A type representing an item (in this context, a transaction) scheduled
 -- to be regularly sent in a given slot (computed by a given 'RetryPolicy').
-data ScheduleSend = ScheduleSend HdAccountId Txp.TxId Txp.TxAux SubmissionCount deriving Eq
+data ScheduleSend = ScheduleSend HdAccountId Txp.TxId Txp.TxAux SubmissionCount
+                  deriving (Eq, Generic)
+
+instance NFData ScheduleSend
 
 -- | A type representing an item (in this context, a transaction @ID@) which
 -- needs to be checked against the blockchain for inclusion. In other terms,
 -- we need to confirm that indeed the transaction identified by the given 'TxId' has
 -- been adopted, i.e. it's not in the local pending set anymore.
-data ScheduleEvictIfNotConfirmed = ScheduleEvictIfNotConfirmed HdAccountId Txp.TxId deriving Eq
+data ScheduleEvictIfNotConfirmed = ScheduleEvictIfNotConfirmed HdAccountId Txp.TxId
+                                 deriving (Eq, Generic)
+
+instance NFData ScheduleEvictIfNotConfirmed
 
 -- | All the events we can schedule for a given 'Slot', partitioned into
 -- 'ScheduleSend' and 'ScheduleEvictIfNotConfirmed'.
@@ -156,7 +169,9 @@ data ScheduleEvents = ScheduleEvents {
     , _seToConfirm :: [ScheduleEvictIfNotConfirmed]
     -- ^ A list of transactions which we need to check if they have been
     -- confirmed (i.e. adopted) by the blockchain.
-    }
+    } deriving Generic
+
+instance NFData ScheduleEvents
 
 instance Semigroup ScheduleEvents where
     (ScheduleEvents s1 c1) <> (ScheduleEvents s2 c2) =
@@ -193,7 +208,9 @@ instance Buildable ScheduleEvents where
 -- implication of a possible overflow: in practice, none, as in case we overflow
 -- the 'Int' positive capacity we will effectively treat this as a \"circular buffer\",
 -- storing the elements for slots @(maxBound :: Int) + 1@ in negative positions.
-newtype Slot = Slot { getSlot :: Word } deriving (Eq, Ord, Show)
+newtype Slot = Slot { getSlot :: Word } deriving (Eq, Ord, Show, Generic)
+
+instance NFData Slot
 
 instance Buildable Slot where
     build (Slot s) = bprint ("Slot " % F.build) s
@@ -216,7 +233,10 @@ mapSlot f (Slot w) = Slot (f w)
 -- Note that when the @Core@ layer will introduce the concept of \"Time to
 -- Live\" for transactions, we will be able to remove the 'maxRetries' value
 -- and simply use the @TTL@ to judge whether or not we should retry.
-newtype SubmissionCount = SubmissionCount { getSubmissionCount :: Int } deriving Eq
+newtype SubmissionCount = SubmissionCount { getSubmissionCount :: Int }
+    deriving (Eq, Generic)
+
+instance NFData SubmissionCount
 
 instance Buildable SubmissionCount where
     build (SubmissionCount s) = bprint F.build s

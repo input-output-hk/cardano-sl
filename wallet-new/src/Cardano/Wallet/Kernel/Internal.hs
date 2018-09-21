@@ -43,7 +43,7 @@ module Cardano.Wallet.Kernel.Internal (
 
 import           Universum hiding (State)
 
-import           Control.Concurrent.MVar (modifyMVar_)
+import qualified Control.Concurrent.MVar.Strict as Strict
 import           Control.Lens (to)
 import           Control.Lens.TH
 import           Data.Acid (AcidState)
@@ -111,7 +111,7 @@ data PassiveWallet = PassiveWallet {
       -- the active part actually sends stuff across the network. Fortunately,
       -- we already have this split: the submission layer itself is just a
       -- pure data structure, and the sending happens in a separate thread.
-    , _walletSubmission      :: MVar WalletSubmission
+    , _walletSubmission      :: Strict.MVar WalletSubmission
 
       -- | Wallet restoration tasks. Wallets that are in the midst of a restoration
       -- will be doing background work to restore the history. This map holds a
@@ -128,7 +128,7 @@ data PassiveWallet = PassiveWallet {
 -------------------------------------------------------------------------------}
 
 newtype WalletRestorationTask =
-    WalletRestorationTask { _wrt :: MVar (Map WalletId WalletRestorationInfo) }
+    WalletRestorationTask { _wrt :: Strict.MVar (Map WalletId WalletRestorationInfo) }
 
 newRestorationTasks :: IO WalletRestorationTask
 newRestorationTasks = WalletRestorationTask <$> newMVar Map.empty
@@ -147,6 +147,10 @@ data WalletRestorationInfo = WalletRestorationInfo
   , _wriRestart  :: IO ()
     -- ^ Restart the restoration task from scratch, using the current tip.
   }
+
+-- Where is really nothing to force here.
+instance NFData WalletRestorationInfo where
+    rnf _ = ()
 
 -- | Data needed to assess the progress of a wallet restoration.
 data WalletRestorationProgress = WalletRestorationProgress
@@ -168,7 +172,7 @@ lookupRestorationInfo pw wid = Map.lookup wid <$> currentRestorations pw
 
 addOrReplaceRestoration :: PassiveWallet -> WalletId -> WalletRestorationInfo -> IO ()
 addOrReplaceRestoration pw wId restoreInfo =
-    modifyMVar_ (pw ^. walletRestorationTask . to _wrt) $ \wrt -> do
+    Strict.modifyMVar_ (pw ^. walletRestorationTask . to _wrt) $ \wrt -> do
         -- Cancel any other restorations currently running for this wallet.
        whenJust (Map.lookup wId wrt) cancelRestoration
        -- Register this restoration task with the wallet.
@@ -177,7 +181,7 @@ addOrReplaceRestoration pw wId restoreInfo =
 removeRestoration :: PassiveWallet -> WalletId -> IO ()
 removeRestoration pw wId = do
     wri <- lookupRestorationInfo pw wId
-    modifyMVar_ (pw ^. walletRestorationTask . to _wrt) (pure . Map.delete wId)
+    Strict.modifyMVar_ (pw ^. walletRestorationTask . to _wrt) (pure . Map.delete wId)
     whenJust wri cancelRestoration
 
 currentRestorations :: PassiveWallet -> IO (Map WalletId WalletRestorationInfo)
@@ -191,7 +195,7 @@ restartRestoration = _wriRestart
 
 stopAllRestorations :: PassiveWallet -> IO ()
 stopAllRestorations pw = do
-    modifyMVar_ (pw ^. walletRestorationTask . to _wrt) $ \mp -> do
+    Strict.modifyMVar_ (pw ^. walletRestorationTask . to _wrt) $ \mp -> do
         for_ mp cancelRestoration
         return Map.empty
 

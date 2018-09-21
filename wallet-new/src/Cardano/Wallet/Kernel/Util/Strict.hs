@@ -13,6 +13,7 @@ import           Test.QuickCheck (Arbitrary, Gen, arbitrary)
 import           Data.SafeCopy (SafeCopy (..), contain, safeGet, safePut)
 import qualified Formatting.Buildable
 
+import           Control.Concurrent.MVar.Strict as Strict
 import           Data.Strict.Maybe as Strict
 
 {--

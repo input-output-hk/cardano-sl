@@ -272,7 +272,7 @@ newTransaction aw@ActiveWallet{..} spendingPassword options accountId payees = d
              -- to compute the createdAt timestamp for `TxMeta`
              txMetaCreatedAt_  <- liftIO $ Node.getCreationTimestamp (walletPassive ^. walletNode)
              -- partially applied, because we don`t know here which outputs are ours
-             partialMeta <- liftIO $ createNewMeta accountId txId txMetaCreatedAt_ inputs (toaOut <$> outputs) True spentInputCoins
+             partialMeta <- liftIO $ createNewMeta accountId txId txMetaCreatedAt_ inputs (_txOutputs . taTx $ txAux) True spentInputCoins
              return (txAux, partialMeta, availableUtxo)
   where
     -- | Generates the list of change outputs from a list of change coins.

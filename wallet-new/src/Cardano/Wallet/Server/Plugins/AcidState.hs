@@ -16,7 +16,7 @@ import           System.FilePath ((</>))
 
 import           Pos.Util.Wlog (logError, logInfo)
 
-import           Cardano.Wallet.Kernel (DatabaseMode (..), DatabasePaths (..))
+import           Cardano.Wallet.Kernel (DatabaseMode (..), DatabaseOptions (..))
 import qualified Cardano.Wallet.Kernel.Mode as Kernel
 
 

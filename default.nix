@@ -213,8 +213,8 @@ let
     acceptanceTests = let
       acceptanceTest = pkgs.callPackage ./scripts/test/acceptance;
       mkTest = { environment, ...}: {
-        full  = acceptanceTest { inherit environment; resume = false; };
-        quick = acceptanceTest { inherit environment; resume = true; };
+        full  = acceptanceTest { inherit environment gitrev; resume = false; };
+        quick = acceptanceTest { inherit environment gitrev; resume = true; };
       };
     in localLib.forEnvironments mkTest;
 

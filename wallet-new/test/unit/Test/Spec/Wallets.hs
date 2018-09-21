@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds        #-}
+{-# LANGUAGE LambdaCase       #-}
 {-# LANGUAGE TypeApplications #-}
 module Test.Spec.Wallets (
       spec
@@ -23,6 +24,7 @@ import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
 import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel (..),
                      HdRootId (..), UnknownHdRoot (..), WalletName (..),
                      hdRootId)
+import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.HdWallet.Create
                      (CreateHdRootError (..))
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
@@ -326,6 +328,24 @@ spec = describe "Wallets" $ do
                                  newKey <- Keystore.lookup wid keystore
                                  newKey `shouldSatisfy` isJust
                                  (fmap hash newKey) `shouldSatisfy` (not . (==) (fmap hash oldKey))
+
+            prop "correctly updates hdRootHasPassword" $ do
+                monadicIO $ do
+                    newPwd <- pick arbitrary
+                    withNewWalletFixture $ \ _ _ wallet Fixture{..} -> do
+                        res <- Kernel.updatePassword wallet
+                                                     fixtureHdRootId
+                                                     (unV1 fixtureSpendingPassword)
+                                                     newPwd
+                        let passphraseIsEmpty = newPwd == emptyPassphrase
+                        let satisfied = \case
+                                        HD.NoSpendingPassword    -> passphraseIsEmpty
+                                        HD.HasSpendingPassword _ -> not passphraseIsEmpty
+                        case res of
+                             Left e -> fail (show e)
+                             Right (_, newRoot) -> do
+                                 (newRoot ^. HD.hdRootHasPassword) `shouldSatisfy` satisfied
+
 
         describe "Wallet update password (Servant)" $ do
             prop "works as expected in the happy path scenario" $ withMaxSuccess 50 $ do

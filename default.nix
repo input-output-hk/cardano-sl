@@ -172,6 +172,7 @@ let
       stylishHaskell = pkgs.callPackage ./scripts/test/stylish.nix { inherit (cardanoPkgs) stylish-haskell; inherit src localLib; };
       walletIntegration = pkgs.callPackage ./scripts/test/wallet/integration/build-test.nix { inherit walletIntegrationTests; };
       swaggerSchemaValidation = pkgs.callPackage ./scripts/test/wallet/swaggerSchemaValidation.nix { inherit gitrev; };
+      yamlValidation = pkgs.callPackage ./scripts/test/yamlValidation.nix { inherit cardanoPkgs; inherit (localLib) runHaskell; };
     };
     cardano-sl-explorer-frontend = (import ./explorer/frontend {
       inherit system config gitrev pkgs;

@@ -2,10 +2,17 @@
 
 rotation:
     logLimit: 5242880 # 5MB
-    keepFiles: 20
+    keepFiles: 10
 loggerTree:
-  severity: Debug+
-  syncWalletWorker: Error+
+  severity: Info+
+  cardano-sl.syncWalletWorker: Error+
   files:
-    - pub/node.pub
     - node
+
+  handlers:
+    - { name: "JSON"
+      , filepath: "pub/node.json"
+      , logsafety: PublicLogLevel
+      , severity: Info
+      , backend: FileJsonBE }
+

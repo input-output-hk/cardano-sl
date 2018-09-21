@@ -21,6 +21,7 @@ module Cardano.Wallet.Kernel.DB.Spec.Update (
 
 import           Universum hiding ((:|))
 
+import           Control.Lens (_Just)
 import qualified Data.Map.Strict as Map
 import           Data.SafeCopy (base, deriveSafeCopy)
 import qualified Data.Set as Set
@@ -284,7 +285,12 @@ switchToFork :: SecurityParameter
                         (Checkpoints Checkpoint)
                         (Pending, Set Txp.TxId)
 switchToFork k oldest blocksToApply = do
-    reintroduced <- rollbacks Pending.empty
+    -- Unless we are already at 'oldest', roll back until we find it.
+    curCtx <- use currentContext
+    reintroduced <- if curCtx ^? _Just . bcHash . fromDb /= oldest
+                   then rollbacks Pending.empty
+                   else return    Pending.empty
+    -- Now apply the blocks for new fork.
     applyBlocks reintroduced Set.empty (getOldestFirst blocksToApply)
   where
     rollbacks :: Pending -- Accumulator: reintroduced pending transactions

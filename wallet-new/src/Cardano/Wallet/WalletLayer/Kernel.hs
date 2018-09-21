@@ -13,7 +13,7 @@ import qualified Control.Concurrent.STM as STM
 import qualified Data.List.NonEmpty as NE
 
 import           Pos.Chain.Block (Blund, blockHeader, headerHash, prevBlockL)
-import qualified Pos.Core as Core
+import           Pos.Chain.Genesis (Config (..))
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Util.Wlog (Severity (Debug))
@@ -78,7 +78,7 @@ bracketPassiveWallet mode logFunction keystore node f = do
                  , Actions.switchToFork = \_ (OldestFirst blunds) -> do
                      -- Get the hash of the last main block before this fork.
                      let almostOldest = fst (NE.head blunds)
-                     gh     <- Core.configGenesisHash <$> getCoreConfig node
+                     gh     <- configGenesisHash <$> getCoreConfig node
                      oldest <- withNodeState node $ \_lock ->
                                  mostRecentMainBlock gh
                                    (almostOldest ^. blockHeader . prevBlockL)

@@ -23,8 +23,9 @@ import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 
 import           Pos.Chain.Block (HeaderHash)
+import           Pos.Chain.Genesis (Config (..))
 import           Pos.Chain.Txp (TxId)
-import           Pos.Core (Config (..), getSlotIndex, siSlotL)
+import           Pos.Core (getSlotIndex, siSlotL)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.DB.Block (getBlund)

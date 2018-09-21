@@ -59,13 +59,16 @@ import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..),
 import           Cardano.Wallet.Kernel.Util.Core (utxoBalance)
 import           Cardano.Wallet.Kernel.Wallets (createWalletHdRnd)
 
-import           Pos.Chain.Block (Block, Blund, HeaderHash, Undo, headerHash,
-                     mainBlockSlot, undoTx)
+import           Pos.Chain.Block (Block, Blund, HeaderHash, Undo, mainBlockSlot,
+                     undoTx)
+import           Pos.Chain.Genesis (GenesisHash, configGenesisData,
+                     configGenesisHash)
+import qualified Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Txp (TxIn (..), TxOut (..), TxOutAux (..), Utxo,
                      genesisUtxo)
-import           Pos.Core as Core (Address, BlockCount (..), Coin, Config (..),
-                     GenesisHash, SlotId, flattenSlotId, getCurrentTimestamp,
-                     mkCoin, unsafeIntegerToCoin)
+import           Pos.Core as Core (Address, BlockCount (..), Coin, SlotId,
+                     flattenSlotId, getCurrentTimestamp, mkCoin,
+                     unsafeIntegerToCoin)
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.DB.Block (getFirstGenesisBlockHash, getUndo,
                      resolveForwardLink)
@@ -260,7 +263,7 @@ getWalletInitInfo :: NodeConstraints
                   -> WalletKey
                   -> Lock (WithNodeState IO)
                   -> WithNodeState IO WalletInitInfo
-getWalletInitInfo genesisConfig wKey@(wId, wdc) lock = do
+getWalletInitInfo coreConfig wKey@(wId, wdc) lock = do
     -- Find all of the current UTXO that this wallet owns.
     -- We lock the node state to be sure the tip header and the UTxO match
     (tipHeader, curUtxo :: Map HD.HdAccountId (Utxo, [AddrWithId])) <-
@@ -271,7 +274,7 @@ getWalletInitInfo genesisConfig wKey@(wId, wdc) lock = do
     let genUtxo :: Map HD.HdAccountId (Utxo, [AddrWithId])
         genUtxo = fmap toPrefilteredUtxo . snd $
                     prefilterUtxo' wKey
-                                   (genesisUtxo $ configGenesisData genesisConfig)
+                                   (genesisUtxo $ configGenesisData coreConfig)
 
     -- Get the tip
     let gh = configGenesisHash coreConfig

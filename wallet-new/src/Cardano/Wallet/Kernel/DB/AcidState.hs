@@ -81,10 +81,10 @@ import qualified Cardano.Wallet.Kernel.DB.Util.Zoomable as Z
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (SecurityParameter (..))
 import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId,
                      PrefilteredBlock (..), emptyPrefilteredBlock)
-import           Cardano.Wallet.Kernel.Util (markMissingMapEntries)
 import           Cardano.Wallet.Kernel.Util.NonEmptyMap (NonEmptyMap)
 import qualified Cardano.Wallet.Kernel.Util.NonEmptyMap as NEM
 import           Test.QuickCheck (Arbitrary (..), oneof)
+import           UTxO.Util (markMissingMapEntries)
 
 {-------------------------------------------------------------------------------
   Top-level database

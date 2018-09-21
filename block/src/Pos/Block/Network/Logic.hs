@@ -52,7 +52,7 @@ import           Pos.Infra.Reporting.MemState (HasMisbehaviorMetrics (..), Misbe
 import           Pos.Infra.StateLock (Priority (..), modifyStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..), jlAdoptedBlock)
 import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
-import           Pos.Util (buildListBounds, multilineBounds, _neLast)
+import           Pos.Util (buildListBounds, multilineBounds, multilineList, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Util (lensOf)
 
@@ -257,7 +257,7 @@ applyWithoutRollback
     -> OldestFirst NE Block
     -> m ()
 applyWithoutRollback pm diffusion blocks = do
-    logInfo . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
+    logInfo . sformat ("Trying to apply blocks w/o rollback. " % multilineList)
        . getOldestFirst . map (view blockHeader) $ blocks
     modifyStateLock HighPriority ApplyBlock applyWithoutRollbackDo >>= \case
         Left (pretty -> err) ->
@@ -266,8 +266,8 @@ applyWithoutRollback pm diffusion blocks = do
             when (newTip /= newestTip) $
                 logWarning $ sformat
                     ("Only blocks up to "%shortHashF%" were applied, "%
-                     "newer were considered invalid")
-                    newTip
+                     "newer were considered invalid. Expected tip "%shortHashF)
+                    newTip newestTip
             let toRelay =
                     fromMaybe (error "Listeners#applyWithoutRollback is broken") $
                     find (\b -> headerHash b == newTip) blocks
@@ -287,8 +287,11 @@ applyWithoutRollback pm diffusion blocks = do
         logInfo "Verifying and applying blocks..."
         res <- verifyAndApplyBlocks pm False blocks
         logInfo "Verifying and applying blocks done"
-        let newTip = either (const curTip) identity res
-        pure (newTip, res)
+        case res of
+            Right newTip -> pure (newTip, res)
+            Left err -> do
+                logWarning $ sformat ("applyWithoutRollbackDo: "%build) err
+                pure (curTip, res)
 
 applyWithRollback
     :: ( BlockWorkMode ctx m
@@ -301,7 +304,7 @@ applyWithRollback
     -> NewestFirst NE Blund
     -> m ()
 applyWithRollback pm diffusion toApply lca toRollback = do
-    logInfo . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
+    logInfo . sformat ("Trying to apply blocks with rollback. " % multilineBounds 6)
        . getOldestFirst . map (view blockHeader) $ toApply
     logInfo $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
     res <- modifyStateLock HighPriority ApplyBlockWithRollback $ \curTip -> do

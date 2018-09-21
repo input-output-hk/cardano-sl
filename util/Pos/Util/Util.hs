@@ -54,6 +54,7 @@ module Pos.Util.Util
        -- * Logging helpers
        , buildListBounds
        , multilineBounds
+       , multilineList
        , logException
        , bracketWithLogging
 
@@ -316,6 +317,10 @@ multilineBounds maxSize = F.later formatList
    maxSize' = max 2 maxSize -- splitting list into two with maximum size below 2 doesn't make sense
    half = maxSize' `div` 2
    remaining = maxSize' - half
+
+multilineList :: Buildable a => F.Format r (NonEmpty a -> r)
+multilineList = F.later (F.bprint listJson)
+
 
 -- | Catch and log an exception, then rethrow it
 logException :: LoggerName -> IO a -> IO a

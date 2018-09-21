@@ -10,6 +10,7 @@ module Cardano.Wallet.Kernel.Transactions (
     , EstimateFeesError(..)
     , RedeemAdaError(..)
     , cardanoFee
+    , prepareUnsignedTxWithSources
     -- * Internal & testing use only low-level APIs
     , newTransaction
     , newUnsignedTransaction
@@ -25,6 +26,7 @@ import           Control.Retry (RetryPolicyM, RetryStatus, applyPolicy,
 import           Crypto.Random (MonadRandom (..))
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as B
+import           Data.Default (def)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Vector as V
 import           System.Random.MWC (GenIO, asGenIO, initialize, uniformVector)
@@ -33,8 +35,8 @@ import           Test.QuickCheck (Arbitrary (..), oneof)
 import           Formatting (bprint, build, sformat, (%))
 import qualified Formatting.Buildable
 
-import           Pos.Chain.Txp (Tx (..), TxAux (..), TxId, TxIn (..),
-                     TxOut (..), TxOutAux (..), Utxo)
+import           Pos.Chain.Txp (Tx (..), TxAttributes, TxAux (..), TxId,
+                     TxIn (..), TxOut (..), TxOutAux (..), Utxo)
 import qualified Pos.Client.Txp.Util as CTxp
 import           Pos.Core (Address, Coin, TxFeePolicy (..), unsafeSubCoin)
 import qualified Pos.Core as Core
@@ -44,7 +46,7 @@ import           Pos.Crypto (EncryptedSecretKey, PassPhrase, RedeemSecretKey,
 
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
-                     (CoinSelFinalResult (..), CoinSelectionOptions,
+                     (CoinSelFinalResult (..), CoinSelectionOptions (..),
                      UnsignedTx (utxChange, utxOutputs, utxOwnedInputs),
                      estimateCardanoFee, estimateMaxTxInputs, mkStdTx,
                      mkStdUnsignedTx)
@@ -58,7 +60,8 @@ import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Read as Getters
 import           Cardano.Wallet.Kernel.DB.TxMeta.Types
-import           Cardano.Wallet.Kernel.Internal (ActiveWallet (..), walletNode)
+import           Cardano.Wallet.Kernel.Internal (ActiveWallet (..),
+                     PassiveWallet (..), walletNode)
 import qualified Cardano.Wallet.Kernel.Internal as Internal
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as Node
@@ -226,6 +229,84 @@ newUnsignedTransaction ActiveWallet{..} options accountId payees = runExceptT $ 
     toTxOut :: (Address, Coin) -> TxOutAux
     toTxOut (a, c) = TxOutAux (TxOut a c)
 
+-- | Creates a new unsigned transaction.
+--
+-- NOTE: this function does /not/ perform a payment, it just creates a new
+-- transaction which will be signed and submitted to the blockchain later.
+-- It returns a transaction and a list of source addresses with corresponding
+-- derivation paths.
+prepareUnsignedTxWithSources :: ActiveWallet
+                             -> CoinSelectionOptions
+                             -- ^ The options describing how to tune the coin selection.
+                             -> HdAccountId
+                             -- ^ The source HD account from where the payment should originate
+                             -> NonEmpty (Address, Coin)
+                             -- ^ The payees
+                             -> PassPhrase
+                             -> IO (Either NewTransactionError
+                                           ( Tx
+                                           , NonEmpty (Address, [Word32])
+                                           )
+                                   )
+prepareUnsignedTxWithSources activeWallet opts srcAccId payees spendingPassword = do
+    tx <- newUnsignedTransaction activeWallet opts srcAccId payees
+    case tx of
+        Left e -> return (Left e)
+        Right (db, unsignedTx, _availableUtxo) -> runExceptT $ do
+            -- Now we have to generate the change addresses needed,
+            -- because 'newUnsignedTransaction' function cannot do it by itself.
+            changeAddresses <- withExceptT NewTransactionErrorCreateAddressFailed $
+                genChangeOuts (utxChange unsignedTx)
+                              srcAccId
+                              spendingPassword
+                              (walletPassive activeWallet)
+            -- We have to provide source addresses and derivation paths for this transaction.
+            -- It will be used by external party to provide a proof that it has a right to
+            -- spend this money.
+            let srcAddresses         = extractSrcAddressesFrom unsignedTx
+                srcHdAddresses       = NonEmpty.map (toHdAddress db) srcAddresses
+                derivationPaths      = buildDerivationPathsFor srcHdAddresses srcAccId
+                allOutputs           = (NonEmpty.toList $ utxOutputs unsignedTx) ++ changeAddresses
+                unsignedTxWithChange = unsignedTx { utxOutputs = NonEmpty.fromList allOutputs }
+                finalTx              = toRegularTx unsignedTxWithChange
+            return (finalTx, NonEmpty.zip srcAddresses derivationPaths)
+  where
+    -- Take addresses that correspond to inputs of transaction.
+    extractSrcAddressesFrom :: UnsignedTx -> NonEmpty Address
+    extractSrcAddressesFrom unsignedTx =
+        NonEmpty.map (\(_, outAux) -> txOutAddress . toaOut $ outAux) $ utxOwnedInputs unsignedTx
+
+    buildDerivationPathsFor :: NonEmpty HD.HdAddress
+                            -> HD.HdAccountId
+                            -> NonEmpty [Word32]
+    buildDerivationPathsFor srcAddresses srcAccountId =
+        flip NonEmpty.map srcAddresses $ \(HD.HdAddress srcAddressId _) ->
+            let HD.HdAccountId _ (HD.HdAccountIx srcAccIndex)  = srcAccountId
+                HD.HdAddressId _ (HD.HdAddressIx srcAddrIndex) = srcAddressId
+            in [srcAccIndex, srcAddrIndex]
+
+    toHdAddress :: DB
+                -> Address
+                -> HD.HdAddress
+    toHdAddress db srcAddress =
+        -- Sine 'srcAddress' is returned by 'newUnsignedTransaction'
+        -- we assume that this address is valid so we definitely have
+        -- corresponding 'HdAddress'.
+        either (error "Impossible happened: source address doesn't have corresponding HD-address!")
+               id
+               (lookupCardanoAddress db srcAddress)
+
+    -- Convert 'UnsignedTx' to 'Tx', this regular 'Tx'
+    -- will be signed later (technically - the hash of the
+    -- transaction will be signed).
+    toRegularTx :: UnsignedTx -> Tx
+    toRegularTx unsignedTx =
+        let inputs  = NonEmpty.map fst $ utxOwnedInputs unsignedTx
+            outputs = NonEmpty.map toaOut $ utxOutputs unsignedTx
+            -- Currently all transactions have default (actually - empty) attributes.
+            attribs = def :: TxAttributes
+        in UnsafeTx inputs outputs attribs
+
 -- | Creates a new 'TxAux' and corresponding 'TxMeta',
 -- without submitting it to the network.
 --
@@ -256,6 +337,9 @@ newTransaction aw@ActiveWallet{..} spendingPassword options accountId payees = d
              -- STEP 2: Generate the change addresses needed.
              changeAddresses <- withExceptT NewTransactionErrorCreateAddressFailed $
                                   genChangeOuts (utxChange unsignedTx)
+                                                accountId
+                                                spendingPassword
+                                                walletPassive
 
              let inputs      = utxOwnedInputs unsignedTx
                  outputs     = utxOutputs unsignedTx
@@ -277,29 +361,6 @@ newTransaction aw@ActiveWallet{..} spendingPassword options accountId payees = d
              -- partially applied, because we don`t know here which outputs are ours
              partialMeta <- liftIO $ createNewMeta accountId txId txMetaCreatedAt_ inputs (_txOutputs . taTx $ txAux) True spentInputCoins
              return (txAux, partialMeta, availableUtxo)
-  where
-    -- | Generates the list of change outputs from a list of change coins.
-    genChangeOuts :: MonadIO m
-                  => [Coin]
-                  -> ExceptT Kernel.CreateAddressError m [TxOutAux]
-    genChangeOuts css = forM css $ \change -> do
-        changeAddr <- genChangeAddr
-        return TxOutAux {
-            toaOut = TxOut {
-                txOutAddress = changeAddr
-              , txOutValue   = change
-              }
-          }
-
-    -- | Monadic computation to generate a new change 'Address'. This will
-    -- run after coin selection, when we create the final transaction as
-    -- part of 'mkTx'.
-    genChangeAddr :: MonadIO m
-                  => ExceptT Kernel.CreateAddressError m Address
-    genChangeAddr = ExceptT $ liftIO $
-        Kernel.createAddress spendingPassword
-                             (AccountIdHdRnd accountId)
-                             walletPassive
 
 -- | This is called when we create a new Pending Transaction.
 -- This actually returns a function because we don`t know yet our outputs.
@@ -595,3 +656,27 @@ redeemAda w@ActiveWallet{..} accId pw rsk = runExceptT $ do
         isOutput (inp, TxOutAux (TxOut addr coin)) = do
             guard $ addr == redeemAddr
             return (inp, coin)
+
+-- | Generates the list of change outputs from a list of change coins.
+genChangeOuts :: MonadIO m
+              => [Coin]
+              -> HD.HdAccountId
+              -> PassPhrase
+              -> PassiveWallet
+              -> ExceptT Kernel.CreateAddressError m [TxOutAux]
+genChangeOuts changeCoins srcAccountId spendingPassword walletPassive =
+    forM changeCoins $ \change -> do
+        changeAddr <- genChangeAddr
+        return TxOutAux {
+            toaOut = TxOut
+                { txOutAddress = changeAddr
+                , txOutValue   = change
+                }
+        }
+  where
+    genChangeAddr :: MonadIO m
+                  => ExceptT Kernel.CreateAddressError m Address
+    genChangeAddr = ExceptT $ liftIO $
+        Kernel.createAddress spendingPassword
+                             (AccountIdHdRnd srcAccountId)
+                             walletPassive

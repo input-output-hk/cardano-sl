@@ -22,6 +22,7 @@ module Cardano.Wallet.WalletLayer
     , DeleteAccountError(..)
     , UpdateAccountError(..)
     , ImportWalletError(..)
+    , NewUnsignedTransactionError(..)
     ) where
 
 import           Universum
@@ -485,6 +486,25 @@ data ActiveWalletLayer m = ActiveWalletLayer {
                    -- The payment we need to perform.
                    -> m (Either EstimateFeesError Coin)
 
+      -- | Prepares unsigned transaction. Please note that this function does /not/
+      -- perform a payment, it just creates a new transaction which will be signed
+      -- and submitted to the blockchain later.
+      --
+      -- It returns transaction and list of the source addresses with corresponding
+      -- derivation paths. These addresses and paths will be used by third party to
+      -- provide a proof that it has a right to spend money from these addresses.
+    , createUnsignedTx :: InputGrouping
+                       -- An preference on how to group inputs during coin selection
+                       -> ExpenseRegulation
+                       -- Who pays the fee, if the sender or the receivers.
+                       -> Payment
+                       -- The payment we need to perform.
+                       -> m (Either NewUnsignedTransactionError
+                                    ( Tx
+                                    , NonEmpty (Address, [Word32])
+                                    )
+                            )
+
       -- | Redeem ada
     , redeemAda :: Redemption -> m (Either RedeemAdaError (Tx, TxMeta))
 
@@ -563,3 +583,19 @@ instance Buildable RedeemAdaError where
         bprint ("RedeemAdaWalletIdDecodingFailed " % build) txt
     build (RedeemAdaInvalidRedemptionCode txt) =
         bprint ("RedeemAdaInvalidRedemptionCode " % build) txt
+
+data NewUnsignedTransactionError =
+      NewUnsignedTransactionError Kernel.NewTransactionError
+    | NewTransactionWalletIdDecodingFailed Text
+
+instance Show NewUnsignedTransactionError where
+    show = formatToString build
+
+instance Exception NewUnsignedTransactionError
+
+instance Buildable NewUnsignedTransactionError where
+    build (NewUnsignedTransactionError err) =
+        bprint ("NewUnsignedTransactionError " % build) err
+    build (NewTransactionWalletIdDecodingFailed txt) =
+        bprint ("NewTransactionWalletIdDecodingFailed " % build) txt
+

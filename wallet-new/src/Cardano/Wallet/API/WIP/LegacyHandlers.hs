@@ -252,12 +252,10 @@ mkPublicKeyOrFail encodedRootPK =
         Right rootPK -> return rootPK
 
 newUnsignedTransaction
-    :: -- forall ctx m . (V0.MonadWalletTxFull ctx m)
-       -- =>
-    PaymentWithChangeAddress
-    -> m (WalletResponse RawTransaction)
-newUnsignedTransaction _paymentWithChangeAddress =
-    error "[CHW-57], Cardano Hardware Wallet, unimplemented yet."
+    :: Payment
+    -> m (WalletResponse UnsignedTransaction)
+newUnsignedTransaction _payment =
+    error "[CHW-57], Cardano Hardware Wallet, legacy handler. Please see new one."
 
 -- | It is assumed that we received a transaction which was signed
 -- on the client side (mobile client or hardware wallet).

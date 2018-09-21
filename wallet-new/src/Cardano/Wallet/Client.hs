@@ -101,7 +101,7 @@ data WalletClient m
     , deleteExternalWallet
          :: PublicKeyAsBase58 -> m (Either ClientError ())
     , postUnsignedTransaction
-         :: PaymentWithChangeAddress -> Resp m RawTransaction
+         :: Payment -> Resp m UnsignedTransaction
     , postSignedTransaction
          :: SignedTransaction -> Resp m Transaction
     -- account endpoints

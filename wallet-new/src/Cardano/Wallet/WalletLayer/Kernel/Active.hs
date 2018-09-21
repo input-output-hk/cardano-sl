@@ -1,14 +1,16 @@
 module Cardano.Wallet.WalletLayer.Kernel.Active (
     pay
   , estimateFees
+  , createUnsignedTx
   , redeemAda
   ) where
 
 import           Universum
 
+import           Data.Coerce (coerce)
 import           Data.Time.Units (Second)
 
-import           Pos.Chain.Txp (Tx)
+import           Pos.Chain.Txp (Tx (..))
 import           Pos.Core (Address, Coin, TxFeePolicy)
 import           Pos.Crypto (PassPhrase)
 
@@ -23,7 +25,8 @@ import           Cardano.Wallet.Kernel.DB.TxMeta.Types
 import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as Node
 import qualified Cardano.Wallet.Kernel.Transactions as Kernel
 import           Cardano.Wallet.WalletLayer (EstimateFeesError (..),
-                     NewPaymentError (..), RedeemAdaError (..))
+                     NewPaymentError (..), NewUnsignedTransactionError (..),
+                     RedeemAdaError (..))
 import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
                      (limitExecutionTimeTo)
 import           Cardano.Wallet.WalletLayer.Kernel.Conv
@@ -60,6 +63,35 @@ estimateFees activeWallet grouping regulation payment = liftIO $ do
                                    setupPayment policy grouping regulation payment
         withExceptT EstimateFeesError $ ExceptT $
           Kernel.estimateFees activeWallet opts accId payees
+
+-- | Creates a raw transaction.
+--
+-- NOTE: this function does /not/ perform a payment, it just creates a new
+-- transaction which will be signed and submitted to the blockchain later.
+-- It returns a transaction and a list of source addresses with corresponding
+-- derivation paths.
+createUnsignedTx :: MonadIO m
+                 => Kernel.ActiveWallet
+                 -> InputGrouping
+                 -> ExpenseRegulation
+                 -> V1.Payment
+                 -> m (Either NewUnsignedTransactionError
+                             ( Tx
+                             , NonEmpty (Address, [Word32])
+                             )
+                      )
+createUnsignedTx activeWallet grouping regulation payment = liftIO $ do
+    policy <- Node.getFeePolicy (Kernel.walletPassive activeWallet ^. Kernel.walletNode)
+    let spendingPassword = maybe mempty coerce $ V1.pmtSpendingPassword payment
+    runExceptT $ do
+        (opts, accId, payees) <- withExceptT NewTransactionWalletIdDecodingFailed $
+            setupPayment policy grouping regulation payment
+        withExceptT NewUnsignedTransactionError $ ExceptT $
+            Kernel.prepareUnsignedTxWithSources activeWallet
+                                                opts
+                                                accId
+                                                payees
+                                                spendingPassword
 
 -- | Redeem an Ada voucher
 --

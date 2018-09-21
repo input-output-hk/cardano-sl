@@ -75,19 +75,16 @@ module Cardano.Wallet.API.V1.Types (
   , Payment (..)
   , PaymentSource (..)
   , PaymentDistribution (..)
-  , PaymentWithChangeAddress (..)
   , Transaction (..)
   , TransactionType (..)
   , TransactionDirection (..)
   , TransactionStatus(..)
   , TransactionAsBase16
   , mkTransactionAsBase16
-  , TransactionHashAsBase16
-  , mkTransactionHashAsBase16
   , TransactionSignatureAsBase16 (..)
   , EstimatedFees (..)
   , AddressAndPath (..)
-  , RawTransaction (..)
+  , UnsignedTransaction (..)
   , AddressWithProof (..)
   , SignedTransaction (..)
   -- * Updates
@@ -194,7 +191,7 @@ import qualified Pos.Chain.Update as Core
 import qualified Pos.Client.Txp.Util as Core
 import           Pos.Core (addressF)
 import qualified Pos.Core as Core
-import           Pos.Crypto (Hash, PublicKey (..), decodeHash, hashHexF)
+import           Pos.Crypto (PublicKey (..), decodeHash, hashHexF)
 import qualified Pos.Crypto.Signing as Core
 import           Pos.Infra.Communication.Types.Protocol ()
 import           Pos.Infra.Diffusion.Subscription.Status
@@ -713,36 +710,6 @@ instance BuildableSafeGen TransactionAsBase16 where
         %" transactionAsBase16="%buildSafe sl
         %" }")
         ewalTransactionAsBase16
-
--- | Type for representation of transaction hash in Base16-format.
--- We use it for external wallet: transaction hash is the data external
--- wallet actually signs.
-newtype TransactionHashAsBase16 = TransactionHashAsBase16Unsafe
-    { ewalTransactionHashAsBase16 :: Text
-    } deriving (Eq, Generic, Ord, Show)
-
-deriveJSON Serokell.defaultOptions ''TransactionHashAsBase16
-instance Arbitrary TransactionHashAsBase16 where
-    arbitrary = TransactionHashAsBase16Unsafe <$> pure
-        "582070081eeb1f312ec75af1b4f94a7963db3b264f2451369e4ea244a54de5d06e36"
-
-instance ToSchema TransactionHashAsBase16 where
-    declareNamedSchema =
-        genericSchemaDroppingPrefix "ewal" (\(--^) props -> props
-            & ("transactionHashAsBase16" --^ "Hash of transaction in Base16-format.")
-        )
-
-deriveSafeBuildable ''TransactionHashAsBase16
-instance BuildableSafeGen TransactionHashAsBase16 where
-    buildSafeGen sl TransactionHashAsBase16Unsafe{..} = bprint ("{"
-        %" transactionHashAsBase16="%buildSafe sl
-        %" }")
-        ewalTransactionHashAsBase16
-
-mkTransactionHashAsBase16 :: Hash Txp.Tx -> TransactionHashAsBase16
-mkTransactionHashAsBase16 txHash = TransactionHashAsBase16Unsafe encodedTxHash
-  where
-    encodedTxHash = Base16.encode . Bi.serialize' $ Txp.TxSigData txHash
 
 -- | Type for representation of transaction signature in Base16-format.
 -- We use it for external wallet. Please note that technically there's no
@@ -1837,36 +1804,6 @@ instance BuildableSafeGen Payment where
         pmtGroupingPolicy
         pmtSpendingPassword
 
--- | This is for external wallets, specifically for unsigned transaction.
--- If the payment will require the change 'TxOut' (and it mostly will),
--- provided change address will be used for it.
-data PaymentWithChangeAddress = PaymentWithChangeAddress
-    { pmtwcaPayment       :: !Payment
-    , pmtwcaChangeAddress :: !AddressAsBase58
-    } deriving (Show, Eq, Generic)
-
-deriveJSON Serokell.defaultOptions ''PaymentWithChangeAddress
-
-instance Arbitrary PaymentWithChangeAddress where
-    arbitrary = PaymentWithChangeAddress <$> arbitrary
-                                         <*> arbitrary
-
-instance ToSchema PaymentWithChangeAddress where
-    declareNamedSchema =
-        genericSchemaDroppingPrefix "pmtwca" (\(--^) props -> props
-            & ("payment"       --^ "Payment for unsigned transaction.")
-            & ("changeAddress" --^ "Change address that will be used for this payment.")
-        )
-
-deriveSafeBuildable ''PaymentWithChangeAddress
-instance BuildableSafeGen PaymentWithChangeAddress where
-    buildSafeGen sl (PaymentWithChangeAddress{..}) = bprint ("{"
-        %" payment="%buildSafe sl
-        %" changeAddress="%buildSafe sl
-        %" }")
-        pmtwcaPayment
-        pmtwcaChangeAddress
-
 ----------------------------------------------------------------------------
 -- TxId
 ----------------------------------------------------------------------------
@@ -2100,9 +2037,9 @@ instance Buildable [AddressLevel] where
 
 -- | Source address and corresponding derivation path, for external wallet.
 data AddressAndPath = AddressAndPath
-    { aapSrcAddress :: !AddressAsBase58
+    { aapSrcAddress     :: !AddressAsBase58
     -- ^ Source address in Base58-format.
-    , aapDerPath    :: ![AddressLevel]
+    , aapDerivationPath :: ![AddressLevel]
     -- ^ Derivation path used during generation of this address.
     } deriving (Show, Ord, Eq, Generic)
 
@@ -2111,8 +2048,8 @@ deriveJSON Serokell.defaultOptions ''AddressAndPath
 instance ToSchema AddressAndPath where
     declareNamedSchema =
         genericSchemaDroppingPrefix "aap" (\(--^) props -> props
-            & ("srcAddress" --^ "Source address that corresponds to transaction input.")
-            & ("derPath"    --^ "Derivation path corresponding to this address.")
+            & ("srcAddress"     --^ "Source address that corresponds to transaction input.")
+            & ("derivationPath" --^ "Derivation path corresponding to this address.")
         )
 
 instance Arbitrary AddressAndPath where
@@ -2123,48 +2060,42 @@ deriveSafeBuildable ''AddressAndPath
 instance BuildableSafeGen AddressAndPath where
     buildSafeGen sl AddressAndPath{..} = bprint ("{"
         %" srcAddress="%buildSafe sl
-        %" derPath="%buildSafe sl
+        %" derivationPath="%buildSafe sl
         %" }")
         aapSrcAddress
-        aapDerPath
+        aapDerivationPath
 
 instance Buildable [AddressAndPath] where
     build = bprint listJson
 
--- | A 'Wallet''s 'RawTransaction'.
-data RawTransaction = RawTransaction
+-- | A 'Wallet''s 'UnsignedTransaction'.
+data UnsignedTransaction = UnsignedTransaction
     { rtxHex          :: !TransactionAsBase16
     -- ^ Serialized transaction in Base16-format.
-    , rtxSigDataHex   :: !TransactionHashAsBase16
-    -- ^ Base16-encoded transaction data that will be signed externally.
     , rtxSrcAddresses :: ![AddressAndPath]
     -- ^ Addresses (with derivation paths) which will be used as a sources of money.
     } deriving (Show, Ord, Eq, Generic)
 
-deriveJSON Serokell.defaultOptions ''RawTransaction
+deriveJSON Serokell.defaultOptions ''UnsignedTransaction
 
-instance ToSchema RawTransaction where
+instance ToSchema UnsignedTransaction where
     declareNamedSchema =
         genericSchemaDroppingPrefix "rtx" (\(--^) props -> props
             & ("hex"          --^ "New raw transaction in Base16-format.")
-            & ("sigDataHex"   --^ "Transaction data that will be signed externally, in Base16-format.")
             & ("srcAddresses" --^ "Source addresses (with derivation paths), correspond to transaction inputs.")
         )
 
-instance Arbitrary RawTransaction where
-    arbitrary = RawTransaction <$> arbitrary
-                               <*> arbitrary
-                               <*> arbitrary
+instance Arbitrary UnsignedTransaction where
+    arbitrary = UnsignedTransaction <$> arbitrary
+                                    <*> arbitrary
 
-deriveSafeBuildable ''RawTransaction
-instance BuildableSafeGen RawTransaction where
-    buildSafeGen sl RawTransaction{..} = bprint ("{"
+deriveSafeBuildable ''UnsignedTransaction
+instance BuildableSafeGen UnsignedTransaction where
+    buildSafeGen sl UnsignedTransaction{..} = bprint ("{"
         %" hex="%buildSafe sl
-        %" sigDataHex="%buildSafe sl
         %" srcAddresses="%buildSafe sl
         %" }")
         rtxHex
-        rtxSigDataHex
         rtxSrcAddresses
 
 -- | After external wallet signed raw transaction, it returns to us
@@ -2883,10 +2814,6 @@ instance Example TransactionAsBase16 where
     example = TransactionAsBase16Unsafe <$> pure
         "839f8200d8185826825820de3151a2d9cd8e2bbe292a6153d679d123892ddcfbee869c4732a5c504a7554d19386cff9f8282d818582183581caeb153a5809a084507854c9f3e5795bcca89781f9c386d957748cd42a0001a87236a1f1b00780aa6c7d62110ffa0"
 
-instance Example TransactionHashAsBase16 where
-    example = TransactionHashAsBase16Unsafe <$> pure
-        "582070081eeb1f312ec75af1b4f94a7963db3b264f2451369e4ea244a54de5d06e36"
-
 instance Example TransactionSignatureAsBase16 where
     example = TransactionSignatureAsBase16 <$> pure
         "5840709cc240ac9ad78cbf47c3eec76df917423943e34339277593e8e2b8c9f9f2e59583023bfbd8e26c40dff6a7fa424600f9b942819533d8afee37a5ac6d813207"
@@ -2914,10 +2841,6 @@ instance Example Payment where
                       <*> example -- TODO: will produce `Just groupingPolicy`
                       <*> example
 
-instance Example PaymentWithChangeAddress where
-    example = PaymentWithChangeAddress <$> example
-                                       <*> example
-
 instance Example Redemption where
     example = Redemption <$> example
                          <*> pure Nothing
@@ -2929,10 +2852,9 @@ instance Example AddressAndPath where
     example = AddressAndPath <$> example
                              <*> example
 
-instance Example RawTransaction where
-    example = RawTransaction <$> example
-                             <*> example
-                             <*> example
+instance Example UnsignedTransaction where
+    example = UnsignedTransaction <$> example
+                                  <*> example
 
 instance Example WalletAndTxHistory where
     example = WalletAndTxHistory <$> example

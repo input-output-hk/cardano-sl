@@ -93,10 +93,11 @@ bracketActiveWallet walletPassiveLayer _walletDiffusion =
     activeWalletLayer :: ActiveWalletLayer n
     activeWalletLayer = ActiveWalletLayer {
           walletPassiveLayer = walletPassiveLayer
-        , pay          = \_ _ _ -> error "unimplemented"
-        , estimateFees = \_ _ _ -> error "unimplemented"
-        , redeemAda    = \_ -> error "unimplemented"
-        , getNodeInfo  = error "unimplemented"
+        , pay               = \_ _ _ -> error "unimplemented"
+        , estimateFees      = \_ _ _ -> error "unimplemented"
+        , createUnsignedTx  = \_ _ _ -> error "unimplemented"
+        , redeemAda         = \_     -> error "unimplemented"
+        , getNodeInfo       =           error "unimplemented"
         }
 
 

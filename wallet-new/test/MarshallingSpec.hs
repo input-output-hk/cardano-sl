@@ -87,6 +87,7 @@ spec = parallel $ describe "Marshalling & Unmarshalling" $ do
         aesonRoundtripProp @SyncProgress Proxy
         aesonRoundtripProp @SyncThroughput Proxy
         aesonRoundtripProp @AccountIndex Proxy
+        aesonRoundtripProp @(V1 AddressOwnership) Proxy
 
         -- HttpApiData roundtrips
         httpApiDataRoundtripProp @AccountIndex Proxy

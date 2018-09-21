@@ -1051,6 +1051,19 @@ the `spendingPassword` field to `null` as that won't influence the fee
 calculation.
 |]
 
+getAddressDescription :: Text
+getAddressDescription = [text|
+The previous version of this endpoint failed with an HTTP error when the given
+address was unknown to the wallet.
+
+This was misleading since an address that is unknown to the wallet may still
+belong to the wallet (since it could be part of a pending transaction in
+another instance of the same wallet).
+
+To reflect this, the V1 endpoint does not fail when an address is not recognised
+and returns a new field 'is-ours' which indicates either that an address is ours,
+or that it is 'not-recognised' (which may mean 'not recognised yet').
+|]
 
 --
 -- The API
@@ -1083,7 +1096,8 @@ api (compileInfo, curSoftwareVersion) walletAPI mkDescription = toSwagger wallet
     , deSoftwareVersion       = fromString $ show curSoftwareVersion
     }
   & info.license ?~ ("MIT" & url ?~ URL "https://raw.githubusercontent.com/input-output-hk/cardano-sl/develop/lib/LICENSE")
-  & paths %~ (POST, "/api/internal/apply-update") `setDescription` applyUpdateDescription
-  & paths %~ (POST, "/api/internal/postpone-update") `setDescription` postponeUpdateDescription
+  & paths %~ (POST,   "/api/internal/apply-update")       `setDescription` applyUpdateDescription
+  & paths %~ (POST,   "/api/internal/postpone-update")    `setDescription` postponeUpdateDescription
   & paths %~ (DELETE, "/api/internal/reset-wallet-state") `setDescription` resetWalletStateDescription
-  & paths %~ (POST, "/api/v1/transactions/fees") `setDescription` estimateFeesDescription
+  & paths %~ (POST,   "/api/v1/transactions/fees")        `setDescription` estimateFeesDescription
+  & paths %~ (GET,    "/api/v1/addresses/{address}")      `setDescription` getAddressDescription

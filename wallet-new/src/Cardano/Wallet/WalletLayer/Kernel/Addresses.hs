@@ -51,7 +51,7 @@ createAddress wallet
     -- | Creates a new 'WalletAddress'. As this is a brand new, fresh Address,
     -- it's fine to have 'False' for both 'isUsed' and 'isChange'.
     mkAddress :: Address -> WalletAddress
-    mkAddress addr = WalletAddress (V1 addr) False False
+    mkAddress addr = WalletAddress (V1 addr) False False (V1 V1.AddressIsOurs)
 
 
 
@@ -179,11 +179,10 @@ validateAddress rawText db = runExcept $ do
         -- If the address is unknown to the wallet, it's possible that it's ours
         -- but not yet used (at least as far as we know, it may be pending in
         -- another instance of the same wallet of course), or it may be that
-        -- it's not even ours. In both cases we return that it is "not used"
-        -- (here) and "not a change address" (here). In the future we may want
-        -- to extend this endpoint with an "is ours" field.
+        -- it's not even ours. In both cases we return 'V1.AddressAmbiguousOwnership'.
         return V1.WalletAddress {
             addrId            = V1 cardanoAddress
           , addrUsed          = False
           , addrChangeAddress = False
+          , addrOwnership     = (V1 V1.AddressAmbiguousOwnership)
           }

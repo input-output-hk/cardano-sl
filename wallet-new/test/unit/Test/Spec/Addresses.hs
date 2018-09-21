@@ -534,6 +534,7 @@ spec = describe "Addresses" $ do
                             addrId            = V1.V1 randomAddr
                           , addrUsed          = False
                           , addrChangeAddress = False
+                          , addrOwnership     = V1.V1 V1.AddressAmbiguousOwnership
                           }
                     withAddressFixtures 1 $ \_ layer _ _ -> do
                         res <- WalletLayer.validateAddress layer (sformat build randomAddr)

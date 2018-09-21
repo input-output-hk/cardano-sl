@@ -560,7 +560,7 @@ runAction wc action = do
 
             let changeAddress = toList (txOutputs newTx) \\ toList paymentDestinations
                 -- NOTE: instead of this manual conversion we could filter WalletAddress from getAddressIndex
-                pdToChangeAddress PaymentDistribution{..} = WalletAddress pdAddress True True
+                pdToChangeAddress PaymentDistribution{..} = WalletAddress pdAddress True True (V1 AddressIsOurs)
                 realChangeAddressId = map addrId addressesAfterTransaction \\ map addrId addressesBeforeTransaction
                 changeWalletAddresses = filter ((`elem` realChangeAddressId) . addrId) addressesAfterTransaction
 

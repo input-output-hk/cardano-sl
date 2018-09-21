@@ -193,9 +193,17 @@ toAddress acc hdAddress =
     V1.WalletAddress (V1 cardanoAddress)
                      (addressMeta ^. addressMetaIsUsed)
                      (addressMeta ^. addressMetaIsChange)
+                     (V1 addressOwnership)
   where
-    cardanoAddress = hdAddress ^. HD.hdAddressAddress . fromDb
-    addressMeta    = acc ^. HD.hdAccountState . HD.hdAccountStateCurrent . cpAddressMeta cardanoAddress
+    cardanoAddress   = hdAddress ^. HD.hdAddressAddress . fromDb
+    addressMeta      = acc ^. HD.hdAccountState . HD.hdAccountStateCurrent .  cpAddressMeta cardanoAddress
+    -- NOTE
+    -- In this particular case, the address had to be known by us. As a matter
+    -- of fact, to construct a 'WalletAddress', we have to be aware of pieces
+    -- of informations we can only have if the address is ours (like the
+    -- parent's account derivation index required to build the 'HdAddress' in
+    -- a first place)!
+    addressOwnership = V1.AddressIsOurs
 
 -- | Converts a Kernel 'HdAddress' into a Cardano 'Address'.
 toCardanoAddress :: HD.HdAddress -> Address

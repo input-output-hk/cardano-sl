@@ -15641,6 +15641,114 @@ description = "Cardano SL client modules";
 license = stdenv.lib.licenses.mit;
 
 }) {};
+"cardano-sl-cluster" = callPackage
+({
+  mkDerivation
+, aeson
+, ansi-terminal
+, async
+, attoparsec
+, base
+, bytestring
+, cardano-sl
+, cardano-sl-chain
+, cardano-sl-core
+, cardano-sl-infra
+, cardano-sl-networking
+, cardano-sl-util
+, cardano-sl-wallet-new
+, cardano-sl-x509
+, containers
+, cryptonite
+, directory
+, docopt
+, filepath
+, formatting
+, iproute
+, lens
+, optparse-applicative
+, parsec
+, QuickCheck
+, safe
+, servant-client
+, stdenv
+, temporary
+, text
+, time
+, tls
+, universum
+}:
+mkDerivation {
+
+pname = "cardano-sl-cluster";
+version = "1.0.0";
+src = ./../cluster;
+configureFlags = [
+"--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
+"--ghc-option=-Werror"
+];
+isLibrary = true;
+isExecutable = true;
+libraryHaskellDepends = [
+aeson
+async
+attoparsec
+base
+bytestring
+cardano-sl
+cardano-sl-chain
+cardano-sl-core
+cardano-sl-infra
+cardano-sl-networking
+cardano-sl-util
+cardano-sl-wallet-new
+cardano-sl-x509
+containers
+cryptonite
+directory
+filepath
+formatting
+iproute
+lens
+optparse-applicative
+parsec
+safe
+servant-client
+temporary
+text
+time
+tls
+universum
+];
+executableHaskellDepends = [
+ansi-terminal
+async
+base
+cardano-sl-wallet-new
+containers
+docopt
+formatting
+universum
+];
+testHaskellDepends = [
+async
+base
+cardano-sl-core
+cardano-sl-infra
+containers
+lens
+QuickCheck
+time
+universum
+];
+doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl/cluster/README.md";
+description = "Utilities to generate and run cluster of nodes";
+license = stdenv.lib.licenses.mit;
+
+}) {};
 "cardano-sl-core" = callPackage
 ({
   mkDerivation

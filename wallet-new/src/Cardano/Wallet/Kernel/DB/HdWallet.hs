@@ -473,7 +473,7 @@ hdAccountRestorationState :: HdAccount -> Maybe (Maybe BlockContext, BlockContex
 hdAccountRestorationState a = case a ^. hdAccountState of
     HdAccountStateUpToDate   _                      -> Nothing
     HdAccountStateIncomplete HdAccountIncomplete{..} -> Just $
-      ( _hdIncompleteHistorical ^. currentCheckpoint . cpContext,
+      ( _hdIncompleteHistorical ^. currentCheckpoint . cpContext . lazy,
         _hdIncompleteCurrent    ^. oldestCheckpoint  . pcheckpointContext)
 
 

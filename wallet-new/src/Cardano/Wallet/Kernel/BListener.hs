@@ -12,7 +12,7 @@ module Cardano.Wallet.Kernel.BListener (
 import           Universum hiding (State)
 
 import           Control.Concurrent.MVar (modifyMVar_)
-import           Control.Lens (_Just)
+import           Control.Lens (lazy, _Just)
 import           Control.Monad.Except (throwError)
 import           Data.Acid.Advanced (update')
 import           Data.List (scanl')
@@ -226,7 +226,7 @@ applyBlock pw@PassiveWallet{..} b = do
             return (OldestFirst acc)
         else do
             rb   <- hashToBlock (cur ^. bcHash . fromDb)
-            prev <- traverse hashToBlock (rb ^? rbContext . bcPrevMain . _Just . fromDb)
+            prev <- traverse hashToBlock (rb ^? rbContext . bcPrevMain . lazy . _Just . fromDb)
             findMissing (prev ^? _Just . rbContext) tgt (rb : acc)
 
       -- Find and resolve the block with a given hash.

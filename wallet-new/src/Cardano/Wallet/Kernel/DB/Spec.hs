@@ -48,7 +48,6 @@ module Cardano.Wallet.Kernel.DB.Spec (
 
 import           Universum
 
-import qualified Cardano.Wallet.Kernel.Util.Strict as Strict
 import           Control.Lens (Getter, from, lazy, strict, to, _Wrapped)
 import           Control.Lens.TH (makeLenses)
 import           Data.Coerce (coerce)
@@ -68,6 +67,7 @@ import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec.Pending (Pending)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
 import           Cardano.Wallet.Kernel.Util.Core as Core
+import qualified Cardano.Wallet.Kernel.Util.Strict as Strict
 import qualified Cardano.Wallet.Kernel.Util.StrictList as SL
 import           Cardano.Wallet.Kernel.Util.StrictNonEmpty (StrictNonEmpty (..))
 import qualified Cardano.Wallet.Kernel.Util.StrictNonEmpty as SNE
@@ -202,19 +202,19 @@ fromFullCheckpoint ctx Checkpoint{..} = PartialCheckpoint {
         , _pcheckpointPending     =        _checkpointPending
         , _pcheckpointBlockMeta   = coerce _checkpointBlockMeta
         , _pcheckpointForeign     =        _checkpointForeign
-        , _pcheckpointContext     = fromMaybe ctx _checkpointContext
+        , _pcheckpointContext     = fromMaybe ctx (_checkpointContext ^. lazy)
         }
 
 -- | Construct a full checkpoint from a partial checkpoint and the block meta
 -- of chain before the first partial checkpoint.
 toFullCheckpoint :: BlockMeta -> PartialCheckpoint -> Checkpoint
 toFullCheckpoint prevBlockMeta PartialCheckpoint{..} = Checkpoint {
-      _checkpointUtxo        =          _pcheckpointUtxo
-    , _checkpointUtxoBalance =          _pcheckpointUtxoBalance
-    , _checkpointPending     =          _pcheckpointPending
-    , _checkpointBlockMeta   = withPrev _pcheckpointBlockMeta
-    , _checkpointContext     =     Just _pcheckpointContext
-    , _checkpointForeign     =          _pcheckpointForeign
+      _checkpointUtxo        =             _pcheckpointUtxo
+    , _checkpointUtxoBalance =             _pcheckpointUtxoBalance
+    , _checkpointPending     =             _pcheckpointPending
+    , _checkpointBlockMeta   =    withPrev _pcheckpointBlockMeta
+    , _checkpointContext     = Strict.Just _pcheckpointContext
+    , _checkpointForeign     =             _pcheckpointForeign
     }
   where
     withPrev :: LocalBlockMeta -> BlockMeta
@@ -331,7 +331,7 @@ instance IsCheckpoint PartialCheckpoint where
     cpPending     = pcheckpointPending
     cpBlockMeta   = pcheckpointBlockMeta
     cpForeign     = pcheckpointForeign
-    cpContext     = pcheckpointContext . to Just
+    cpContext     = pcheckpointContext . to Strict.Just
 
 instance Differentiable Checkpoint DeltaCheckpoint where
     findDelta = findDeltaCheckpoint

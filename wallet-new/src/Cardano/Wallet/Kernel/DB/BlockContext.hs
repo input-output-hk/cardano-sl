@@ -12,10 +12,8 @@ module Cardano.Wallet.Kernel.DB.BlockContext (
 
 import           Universum
 
-import qualified Cardano.Wallet.Kernel.Util.Strict as Strict
-import           Control.Lens (lazy, strict)
+import           Control.Lens (lazy, makeLenses, strict)
 
-import           Control.Lens (makeLenses)
 import           Data.SafeCopy (base, deriveSafeCopy)
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
@@ -26,6 +24,7 @@ import qualified Pos.Core as Core
 
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.NodeStateAdaptor
+import qualified Cardano.Wallet.Kernel.Util.Strict as Strict
 
 {-------------------------------------------------------------------------------
   Block context

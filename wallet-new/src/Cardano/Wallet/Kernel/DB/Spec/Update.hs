@@ -21,7 +21,7 @@ module Cardano.Wallet.Kernel.DB.Spec.Update (
 
 import           Universum hiding ((:|))
 
-import           Control.Lens (_Just, lazy)
+import           Control.Lens (lazy, _Just)
 import qualified Data.Map.Strict as Map
 import           Data.SafeCopy (base, deriveSafeCopy)
 import qualified Data.Set as Set
@@ -227,7 +227,7 @@ applyBlockPartial pb = do
         (pending', rem1)  = updatePending        pb (current ^. pcheckpointPending)
         blockMeta'        = updateLocalBlockMeta pb (current ^. pcheckpointBlockMeta)
         (foreign', rem2)  = updatePending        pb (current ^. pcheckpointForeign)
-    if (pfbContext pb) `blockContextSucceeds` (current ^. cpContext) then do
+    if (pfbContext pb) `blockContextSucceeds` (current ^. cpContext . lazy) then do
       put $ Checkpoints $ NewestFirst $ PartialCheckpoint {
           _pcheckpointUtxo        = InDb utxo'
         , _pcheckpointUtxoBalance = InDb balance'
@@ -240,7 +240,7 @@ applyBlockPartial pb = do
     else
       throwError $ ApplyBlockNotSuccessor
                      (pfbContext pb)
-                     (current ^. cpContext)
+                     (current ^. cpContext . lazy)
 
 -- | Rollback
 --
@@ -302,7 +302,9 @@ switchToFork k oldest blocksToApply = do
         curCtx <- use currentContext
         reintroduced <- rollback
         let acc = Pending.union accNew reintroduced
-            prev = join (curCtx <&> _bcPrevMain) <&> _fromDb
+            prev = do ctx      <- curCtx
+                      prevMain <- ctx ^. bcPrevMain . lazy
+                      return $ prevMain ^. fromDb
 
         case (prev == oldest, prev) of
             (True, _)        -> return acc    -- We rolled back everything we needed to.

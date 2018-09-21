@@ -46,6 +46,7 @@ import           Cardano.Wallet.API.V1.Migration.Types (Migrate (..),
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.Kernel.DB.HdWallet (HdRoot)
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
+import qualified Cardano.Wallet.Kernel.Util.Strict as Strict
 import           Cardano.Wallet.Orphans ()
 import qualified Cardano.Wallet.Util as Util
 
@@ -109,6 +110,7 @@ spec = parallel $ describe "Marshalling & Unmarshalling" $ do
         migrateRoundtripProp @EstimatedFees @V0.TxFee Proxy Proxy
 
         -- SafeCopy roundtrips
+        safeCopyRoundTrip @(Strict.Maybe Int)
         safeCopyRoundTrip @(InDb Core.Address)
         safeCopyRoundTrip @(InDb Core.AddrAttributes)
         safeCopyRoundTrip @(InDb Core.AddrStakeDistribution)

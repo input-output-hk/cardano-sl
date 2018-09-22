@@ -4,7 +4,7 @@
 2. Make sure you’re on latest `master` branch
 3. To build a script that will contain everything needed to connect to mainnet: `$ nix-build -A connectScripts.mainnet.wallet -o connect-to-mainnet`
 4. Alternatively you can connect to different environments and different executables by building the scripts:
-- Explorer node with mainnet: `$ nix-build -A connectScripts.mainnet.explorer -o connect-explorer-to-mainnet
+- Explorer node with mainnet: `$ nix-build -A connectScripts.mainnet.explorer -o connect-explorer-to-mainnet`
 - Wallet to staging: `$ nix-build -A connectScripts.staging.wallet -o connect-to-staging`
 - Explorer to staging: `$ nix-build -A connectScripts.staging.explorer -o connect-explorer-to-staging`
 3. A runtime state folder will be automatically created relative to your current

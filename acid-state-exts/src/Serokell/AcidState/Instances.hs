@@ -11,6 +11,7 @@ import           Control.Monad.Catch (MonadThrow (throwM))
 import           Data.Acid (Update)
 import           Data.SafeCopy (SafeCopy (..), contain, safeGet, safePut)
 import qualified Data.Time.Units as Time
+import           Prelude
 
 instance MonadThrow (Update s) where
     throwM = throw

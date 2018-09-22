@@ -103,8 +103,7 @@ createSlottingDataUnsafe epochSlottingDataMap =
         then SlottingData epochSlottingDataMap
         else criticalError
   where
-    criticalError = error "It's impossible to create slotting data without at least\
-    \ two epochs. Epochs need to be sequential."
+    criticalError = error "It's impossible to create slotting data without at least two epochs. Epochs need to be sequential."
 
 -- | The validation for the @SlottingData@. It's visible since it's needed externally.
 isValidSlottingDataMap :: Map EpochIndex EpochSlottingData -> Bool

@@ -1,0 +1,17 @@
+name:          cabal-merger
+version:       0.0.1
+build-type:    Simple
+cabal-version: >=1.10
+license:       MIT
+
+executable cabal-merger
+  hs-source-dirs: src
+  build-depends:       base
+                     , Cabal == 1.20.* || == 1.24.* || >= 2.2
+                     , containers
+                     , system-filepath
+                     , text
+  default-extensions:  OverloadedStrings
+  main-is:             Main.hs
+  default-language:    Haskell2010
+  ghc-options:         -Weverything -Wno-unsafe

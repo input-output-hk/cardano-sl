@@ -14,6 +14,7 @@ import           Control.Concurrent.STM
 import           Data.Time.Units (Microsecond)
 import           Network.Transport (EndPointAddress)
 import           Network.Transport.TCP (QDisc (..))
+import           Prelude
 
 -- | Make a fair 'QDisc'. It's called fair, but it can also be unfair if you
 --   want it to be, by having some 'EndPointAddress's delay before writing.

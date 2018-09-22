@@ -37,6 +37,11 @@ let
     testTarget = "--show-details=streaming";
   });
 
+  justHsAndCabal = name: type:
+    let
+      baseName = baseNameOf (toString name);
+    in (type == "directory" || hasSuffix ".hs" name || hasSuffix ".cabal" name || baseName == "configuration.yaml");
+
   requiredOverlay = self: super: {
     inherit pkgs;
     srcroot = ./.;
@@ -45,6 +50,9 @@ let
         "-f-asserts"
       ];
     });
+    # cabal-merger needs cabal 2.2.0.0
+    # but if that is in the stack file, the windows build breaks
+    Cabal = self.callPackage ./cabal-merger/cabal.nix {};
     cardano-sl = overrideCabal super.cardano-sl (drv: {
       # production full nodes shouldn't use wallet as it means different constants
       configureFlags = (drv.configureFlags or []) ++ [
@@ -54,6 +62,12 @@ let
         inherit enableProfiling;
       };
     });
+    everythingCabal = pkgs.callPackage ./cabal-merger/mergeFiles.nix { inherit (self) cabal-merger srcroot; };
+    everything = overrideCabal (self.callPackage ./everything.nix {}) (_: {
+      src = cleanSourceWith { filter=justHsAndCabal; src= ./.; };
+    });
+    everything-static = justStaticExecutablesGitRev self.everything;
+    cabal-merger = self.callCabal2nix "cabal-merger" ./cabal-merger {};
     cardano-sl-wallet-static = justStaticExecutablesGitRev self.cardano-sl-wallet;
     cardano-sl-client = addRealTimeTestLogs super.cardano-sl-client;
     cardano-sl-generator = addRealTimeTestLogs super.cardano-sl-generator;

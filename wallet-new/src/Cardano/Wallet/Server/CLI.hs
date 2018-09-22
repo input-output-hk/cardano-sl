@@ -6,11 +6,10 @@ module Cardano.Wallet.Server.CLI where
 import           Universum
 
 import           Data.Time.Units (Minute)
-import           Data.Version (showVersion)
+import           Data.Version (Version (Version), showVersion)
 import           Options.Applicative (Parser, auto, execParser, footerDoc,
                      fullDesc, header, help, helper, info, infoOption, long,
                      metavar, option, progDesc, strOption, switch, value)
-import           Paths_cardano_sl (version)
 import           Pos.Client.CLI (CommonNodeArgs (..))
 import qualified Pos.Client.CLI as CLI
 import           Pos.Core.NetworkAddress (NetworkAddress, localhost)
@@ -102,7 +101,7 @@ getWalletNodeOptions = execParser programInfo
                  <> footerDoc CLI.usageExample
 
     versionOption = infoOption
-        ("cardano-node-" <> showVersion version <>
+        ("cardano-node-" <> showVersion (Version [ 1, 3, 0 ] []) <>
          ", git revision " <> toString (ctiGitRevision compileInfo))
         (long "version" <> help "Show version.")
 

@@ -22,6 +22,7 @@ import           Data.Acid (AcidState, EventResult, EventState, IsAcidic,
 import           Data.Acid.Advanced (query', update')
 import           Data.Acid.Memory (openMemoryState)
 import           Data.Typeable (Typeable)
+import           Prelude
 
 import           System.Directory (doesDirectoryExist, removeDirectoryRecursive)
 

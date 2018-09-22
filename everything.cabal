@@ -1,0 +1,1595 @@
+cabal-version: >=1.10
+name: everything
+version: 1.3.0
+license: MIT
+maintainer: operations@iohk.io
+homepage: https://github.com/input-output-hk/cardano-sl/#readme
+build-type: Simple
+
+library
+    exposed-modules:
+        Serokell.AcidState.ExtendedState
+        Serokell.AcidState.Instances
+        Serokell.AcidState.Util
+        Pos.Binary.Class
+        Pos.Binary.Limit
+        Pos.Binary.SafeCopy
+        Test.Pos.Binary.Helpers
+        Test.Pos.Binary.Helpers.GoldenRoundTrip
+        Test.Pos.Cbor.Canonicity
+        Test.Pos.Cbor.RefImpl
+        Pos.Chain.Block
+        Pos.Chain.Delegation
+        Pos.Chain.Genesis
+        Pos.Chain.Lrc
+        Pos.Chain.Security
+        Pos.Chain.Ssc
+        Pos.Chain.Script
+        Pos.Chain.Script.Examples
+        Pos.Chain.Txp
+        Pos.Chain.Update
+        Test.Pos.Chain.Block.Arbitrary
+        Test.Pos.Chain.Block.Arbitrary.Generate
+        Test.Pos.Chain.Block.Bi
+        Test.Pos.Chain.Block.Gen
+        Test.Pos.Chain.Delegation.Arbitrary
+        Test.Pos.Chain.Delegation.Example
+        Test.Pos.Chain.Delegation.Gen
+        Test.Pos.Chain.Genesis.Arbitrary
+        Test.Pos.Chain.Genesis.Dummy
+        Test.Pos.Chain.Lrc.Arbitrary
+        Test.Pos.Chain.Ssc.Arbitrary
+        Test.Pos.Chain.Ssc.Example
+        Test.Pos.Chain.Ssc.Gen
+        Test.Pos.Chain.Ssc.Json
+        Test.Pos.Chain.Txp.Arbitrary
+        Test.Pos.Chain.Txp.Arbitrary.Unsafe
+        Test.Pos.Chain.Txp.Bi
+        Test.Pos.Chain.Txp.Example
+        Test.Pos.Chain.Txp.Gen
+        Test.Pos.Chain.Update.Arbitrary
+        Test.Pos.Chain.Update.Example
+        Test.Pos.Chain.Update.Gen
+        Pos.Client.Txp
+        Pos.Client.Txp.Addresses
+        Pos.Client.Txp.Balances
+        Pos.Client.Txp.History
+        Pos.Client.Txp.Network
+        Pos.Client.Txp.Util
+        Pos.Client.Update
+        Pos.Client.Update.Network
+        Pos.Client.KeyStorage
+        Pos.Core
+        Pos.Core.Aeson
+        Pos.Core.Binary
+        Pos.Core.Chrono
+        Pos.Core.Limits
+        Pos.Core.ProtocolConstants
+        Pos.Core.NetworkAddress
+        Pos.Core.Common
+        Pos.Core.Constants
+        Pos.Core.Context
+        Pos.Core.JsonLog
+        Pos.Core.JsonLog.CanJsonLog
+        Pos.Core.JsonLog.Event
+        Pos.Core.JsonLog.JsonLogT
+        Pos.Core.JsonLog.LogEvents
+        Pos.Core.Conc
+        Pos.Core.Reporting
+        Pos.Core.Script
+        Pos.Core.Slotting
+        Pos.Core.Util.LogSafe
+        Pos.Core.Util.TimeLimit
+        Pos.Core.Attributes
+        Pos.Core.Exception
+        Pos.Core.Merkle
+        Pos.Core.Metrics.Constants
+        Test.Pos.Core.Bi
+        Test.Pos.Core.Chrono
+        Test.Pos.Core.Dummy
+        Test.Pos.Core.ExampleHelpers
+        Test.Pos.Core.Gen
+        Test.Pos.Core.Arbitrary
+        Test.Pos.Core.Arbitrary.Unsafe
+        Test.Pos.Core.Arbitrary.Slotting
+        Test.Pos.Core.Json
+        Pos.Crypto
+        Pos.Crypto.Configuration
+        Pos.Crypto.Hashing
+        Pos.Crypto.HD
+        Pos.Crypto.Limits
+        Pos.Crypto.Orphans
+        Pos.Crypto.Random
+        Pos.Crypto.SecretSharing
+        Pos.Crypto.Signing
+        Pos.Crypto.Signing.Redeem
+        Pos.Crypto.Signing.Safe
+        Pos.Crypto.Signing.Signing
+        Test.Pos.Crypto.Arbitrary
+        Test.Pos.Crypto.Bi
+        Test.Pos.Crypto.Dummy
+        Test.Pos.Crypto.Gen
+        Pos.DB
+        Pos.DB.BatchOp
+        Pos.DB.Class
+        Pos.DB.Error
+        Pos.DB.Functions
+        Pos.DB.BlockIndex
+        Pos.DB.GState.Common
+        Pos.DB.GState.Lock
+        Pos.DB.GState.Stakes
+        Pos.DB.Misc.Common
+        Pos.DB.Pure
+        Pos.DB.Sum
+        Pos.DB.Rocks
+        Pos.DB.Rocks.Functions
+        Pos.DB.Rocks.Types
+        Pos.DB.Txp
+        Pos.DB.Txp.Logic
+        Pos.DB.Txp.MemState
+        Pos.DB.Txp.Settings
+        Pos.DB.Txp.Stakes
+        Pos.DB.Txp.Utxo
+        Pos.DB.Lrc
+        Pos.DB.Delegation
+        Pos.DB.Ssc
+        Pos.DB.Ssc.SecretStorage
+        Pos.DB.Update
+        Pos.DB.Block
+        Pos.DB.Epoch.Index
+        Pos.Generator
+        Pos.Generator.Block
+        Pos.Generator.BlockEvent
+        Pos.Generator.BlockEvent.DSL
+        Test.Pos.Block.Logic.Mode
+        Test.Pos.Block.Logic.Emulation
+        Test.Pos.Block.Logic.Util
+        Test.Pos.Block.Logic.Event
+        Pos.Infra.Diffusion.Transport.TCP
+        Pos.Infra.Diffusion.Types
+        Pos.Infra.Diffusion.Subscription.Common
+        Pos.Infra.Diffusion.Subscription.Dns
+        Pos.Infra.Diffusion.Subscription.Dht
+        Pos.Infra.Diffusion.Subscription.Status
+        Pos.Infra.Diffusion.Subscription.Subscriber
+        Pos.Infra.Reporting
+        Pos.Infra.Reporting.Ekg
+        Pos.Infra.Reporting.Exceptions
+        Pos.Infra.Reporting.Health.Types
+        Pos.Infra.Reporting.Http
+        Pos.Infra.Reporting.Methods
+        Pos.Infra.Reporting.NodeInfo
+        Pos.Infra.Reporting.Statsd
+        Pos.Infra.Reporting.Wlog
+        Pos.Infra.StateLock
+        Pos.Infra.Slotting
+        Pos.Infra.Slotting.Class
+        Pos.Infra.Slotting.Impl
+        Pos.Infra.Slotting.Impl.Simple
+        Pos.Infra.Slotting.Impl.Util
+        Pos.Infra.Slotting.Types
+        Pos.Infra.Slotting.Error
+        Pos.Infra.Slotting.Util
+        Pos.Infra.DHT
+        Pos.Infra.DHT.Constants
+        Pos.Infra.DHT.Model
+        Pos.Infra.DHT.Model.Types
+        Pos.Infra.DHT.Real
+        Pos.Infra.DHT.Real.Real
+        Pos.Infra.DHT.Real.Types
+        Pos.Infra.DHT.Real.Param
+        Pos.Infra.DHT.Real.CLI
+        Pos.Infra.DHT.Workers
+        Pos.Infra.Communication.Constants
+        Pos.Infra.Communication.Types.Protocol
+        Pos.Infra.Communication.Types.Relay
+        Pos.Infra.Communication.BiP
+        Pos.Infra.Communication.Limits.Instances
+        Pos.Infra.Communication.Listener
+        Pos.Infra.Communication.Protocol
+        Pos.Infra.Communication.Specs
+        Pos.Infra.Communication.Relay
+        Pos.Infra.Communication.Relay.Class
+        Pos.Infra.Communication.Relay.Logic
+        Pos.Infra.Communication.Relay.Types
+        Pos.Infra.Communication.Relay.Util
+        Pos.Infra.HealthCheck.Route53
+        Pos.Infra.Network.DnsDomains
+        Pos.Infra.Network.Policy
+        Pos.Infra.Network.Types
+        Pos.Infra.Network.Yaml
+        Pos.Infra.Network.CLI
+        Pos.Infra.Recovery.Info
+        Pos.Infra.Recovery.Types
+        Pos.Infra.Shutdown
+        Pos.Infra.Shutdown.Class
+        Pos.Infra.Shutdown.Logic
+        Pos.Infra.Shutdown.Types
+        Pos.Infra.Statistics
+        Pos.Infra.Statistics.Ekg
+        Pos.Infra.Statistics.Statsd
+        Pos.Infra.Binary
+        Pos.Infra.Binary.DHTModel
+        Pos.Infra.Util.JsonLog.Events
+        Pos.Infra.Util.LogSafe
+        Pos.Infra.Util.Monitor
+        Pos.Infra.Util.TimeLimit
+        Pos.Infra.Util.TimeWarp
+        Pos.AllSecrets
+        Pos.Binary
+        Pos.Context
+        Pos.Communication
+        Pos.Configuration
+        Pos.Constants
+        Pos.DB.DB
+        Pos.Diffusion.Full
+        Pos.Diffusion.Full.Block
+        Pos.Diffusion.Full.Delegation
+        Pos.Diffusion.Full.Ssc
+        Pos.Diffusion.Full.Txp
+        Pos.Diffusion.Full.Update
+        Pos.GState
+        Pos.Logic.Types
+        Pos.Logic.Full
+        Pos.Logic.Pure
+        Pos.Behavior
+        Pos.Launcher
+        Pos.Launcher.Configuration
+        Pos.Launcher.Resource
+        Pos.Launcher.Runner
+        Pos.Listener.Delegation
+        Pos.Listener.Txp
+        Pos.Listener.Update
+        Pos.Network.Update.Download
+        Pos.Network.Block.Logic
+        Pos.Network.Block.Retrieval
+        Pos.Network.Block.RetrievalQueue
+        Pos.Network.Block.Types
+        Pos.Network.Block.WorkMode
+        Pos.Communication.Limits
+        Pos.Communication.Types
+        Pos.Recovery
+        Pos.Recovery.Types
+        Pos.Client.CLI
+        Pos.Client.CLI.NodeOptions
+        Pos.Client.CLI.Options
+        Pos.Client.CLI.Params
+        Pos.Client.CLI.Secrets
+        Pos.Client.CLI.Util
+        Pos.Reporting.Production
+        Pos.Util.Config
+        Pos.Util.OutboundQueue
+        Pos.Util.UserKeyError
+        Pos.Util.UserPublic
+        Pos.Util.UserSecret
+        Pos.Web
+        Pos.Web.Api
+        Pos.Web.Mode
+        Pos.Web.Server
+        Pos.Web.Types
+        Pos.Worker
+        Pos.Worker.Block
+        Pos.Worker.Delegation
+        Pos.Worker.Ssc
+        Pos.Worker.Update
+        Pos.WorkMode
+        Pos.WorkMode.Class
+        Pos.Binary.Communication
+        Test.Pos.Helpers
+        Test.Pos.Configuration
+        Pos.Util.Servant
+        Network.QDisc.Fair
+        Network.Discovery.Abstract
+        Network.Discovery.Transport.Kademlia
+        Network.Broadcast.OutboundQueue
+        Network.Broadcast.OutboundQueue.Types
+        Network.Broadcast.OutboundQueue.ConcurrentMultiQueue
+        Network.Broadcast.OutboundQueue.Demo
+        Node
+        Node.Internal
+        Node.Conversation
+        Node.Message.Decoder
+        Node.Message.Class
+        Node.Message.Binary
+        Node.Util.Monitor
+        Ntp.Client
+        Ntp.Util
+        Ntp.Packet
+        Bench.Network.Commons
+        Cardano.NodeIPC
+        Pos.Tools.Launcher.Environment
+        Pos.Tools.Launcher.Logging
+        Pos.Tools.Dbgen.CLI
+        Pos.Tools.Dbgen.Lib
+        Pos.Tools.Dbgen.Rendering
+        Pos.Tools.Dbgen.Stats
+        Pos.Tools.Dbgen.Types
+        Pos.Util
+        Pos.Util.CompileInfo
+        Pos.Util.Concurrent
+        Pos.Util.Concurrent.PriorityLock
+        Pos.Util.Concurrent.RWLock
+        Pos.Util.AssertMode
+        Pos.Util.Filesystem
+        Pos.Util.Future
+        Pos.Util.Json.Canonical
+        Pos.Util.Json.Parse
+        Pos.Util.Justify
+        Pos.Util.Lens
+        Pos.Util.Log
+        Pos.Util.Log.Internal
+        Pos.Util.Log.LogSafe
+        Pos.Util.Log.LoggerConfig
+        Pos.Util.Log.LoggerName
+        Pos.Util.Log.Severity
+        Pos.Util.Wlog.Compatibility
+        Pos.Util.LoggerName
+        Pos.Util.LRU
+        Pos.Util.Modifier
+        Pos.Util.Orphans
+        Pos.Util.OptParse
+        Pos.Util.Queue
+        Pos.Util.Some
+        Pos.Util.Timer
+        Pos.Util.Trace
+        Pos.Util.Trace.Unstructured
+        Pos.Util.Trace.Named
+        Pos.Util.Util
+        Pos.Util.Wlog
+        Test.Pos.Util.Base16
+        Test.Pos.Util.Gen
+        Test.Pos.Util.Golden
+        Test.Pos.Util.Modifier
+        Test.Pos.Util.Orphans
+        Test.Pos.Util.Parallel.Parallelize
+        Test.Pos.Util.QuickCheck
+        Test.Pos.Util.QuickCheck.Property
+        Test.Pos.Util.QuickCheck.Arbitrary
+        Test.Pos.Util.Tripping
+        UTxO.DSL
+        UTxO.Bootstrap
+        UTxO.Context
+        UTxO.Crypto
+        UTxO.Generator
+        UTxO.IntTrans
+        UTxO.Translate
+        UTxO.Util
+        UTxO.Verify
+        Data.Validated
+        Cardano.Wallet.Action
+        Cardano.Wallet.LegacyAction
+        Cardano.Wallet.API
+        Cardano.Wallet.API.Indices
+        Cardano.Wallet.API.Internal
+        Cardano.Wallet.API.Internal.Handlers
+        Cardano.Wallet.API.Internal.LegacyHandlers
+        Cardano.Wallet.API.Request
+        Cardano.Wallet.API.Request.Filter
+        Cardano.Wallet.API.Request.Pagination
+        Cardano.Wallet.API.Request.Parameters
+        Cardano.Wallet.API.Request.Sort
+        Cardano.Wallet.API.Response
+        Cardano.Wallet.API.Response.Filter.IxSet
+        Cardano.Wallet.API.Response.JSend
+        Cardano.Wallet.API.Response.Sort.IxSet
+        Cardano.Wallet.API.Types
+        Cardano.Wallet.API.Types.UnitOfMeasure
+        Cardano.Wallet.API.V0
+        Cardano.Wallet.API.V0.Handlers
+        Cardano.Wallet.API.V0.Types
+        Cardano.Wallet.API.V1
+        Cardano.Wallet.API.V1.Accounts
+        Cardano.Wallet.API.V1.Addresses
+        Cardano.Wallet.API.V1.Errors
+        Cardano.Wallet.API.V1.Generic
+        Cardano.Wallet.API.V1.Handlers
+        Cardano.Wallet.API.V1.Handlers.Accounts
+        Cardano.Wallet.API.V1.Handlers.Addresses
+        Cardano.Wallet.API.V1.Handlers.Info
+        Cardano.Wallet.API.V1.Handlers.Settings
+        Cardano.Wallet.API.V1.Handlers.Transactions
+        Cardano.Wallet.API.V1.Handlers.Wallets
+        Cardano.Wallet.API.V1.Headers
+        Cardano.Wallet.API.V1.Info
+        Cardano.Wallet.API.V1.LegacyHandlers
+        Cardano.Wallet.API.V1.LegacyHandlers.Accounts
+        Cardano.Wallet.API.V1.LegacyHandlers.Addresses
+        Cardano.Wallet.API.V1.LegacyHandlers.Info
+        Cardano.Wallet.API.V1.LegacyHandlers.Instances
+        Cardano.Wallet.API.V1.LegacyHandlers.Settings
+        Cardano.Wallet.API.V1.LegacyHandlers.Transactions
+        Cardano.Wallet.API.V1.LegacyHandlers.Wallets
+        Cardano.Wallet.API.V1.Migration
+        Cardano.Wallet.API.V1.Migration.Monads
+        Cardano.Wallet.API.V1.Migration.Types
+        Cardano.Wallet.API.V1.Parameters
+        Cardano.Wallet.API.V1.ReifyWalletError
+        Cardano.Wallet.API.V1.Settings
+        Cardano.Wallet.API.V1.Swagger
+        Cardano.Wallet.API.V1.Swagger.Example
+        Cardano.Wallet.API.V1.Transactions
+        Cardano.Wallet.API.V1.Types
+        Cardano.Wallet.API.V1.Wallets
+        Cardano.Wallet.API.WIP
+        Cardano.Wallet.API.WIP.Handlers
+        Cardano.Wallet.API.WIP.LegacyHandlers
+        Cardano.Wallet.Kernel
+        Cardano.Wallet.Kernel.Accounts
+        Cardano.Wallet.Kernel.Actions
+        Cardano.Wallet.Kernel.Addresses
+        Cardano.Wallet.Kernel.BIP39
+        Cardano.Wallet.Kernel.BListener
+        Cardano.Wallet.Kernel.CoinSelection
+        Cardano.Wallet.Kernel.CoinSelection.FromGeneric
+        Cardano.Wallet.Kernel.CoinSelection.Generic
+        Cardano.Wallet.Kernel.CoinSelection.Generic.Fees
+        Cardano.Wallet.Kernel.CoinSelection.Generic.Grouped
+        Cardano.Wallet.Kernel.CoinSelection.Generic.LargestFirst
+        Cardano.Wallet.Kernel.CoinSelection.Generic.Random
+        Cardano.Wallet.Kernel.DB.AcidState
+        Cardano.Wallet.Kernel.DB.BlockContext
+        Cardano.Wallet.Kernel.DB.BlockMeta
+        Cardano.Wallet.Kernel.DB.Compression
+        Cardano.Wallet.Kernel.DB.HdWallet
+        Cardano.Wallet.Kernel.DB.HdWallet.Create
+        Cardano.Wallet.Kernel.DB.HdWallet.Delete
+        Cardano.Wallet.Kernel.DB.HdWallet.Derivation
+        Cardano.Wallet.Kernel.DB.HdWallet.Read
+        Cardano.Wallet.Kernel.DB.HdWallet.Update
+        Cardano.Wallet.Kernel.DB.InDb
+        Cardano.Wallet.Kernel.DB.Read
+        Cardano.Wallet.Kernel.DB.Resolved
+        Cardano.Wallet.Kernel.DB.Spec
+        Cardano.Wallet.Kernel.DB.Spec.Pending
+        Cardano.Wallet.Kernel.DB.Spec.Read
+        Cardano.Wallet.Kernel.DB.Spec.Update
+        Cardano.Wallet.Kernel.DB.Sqlite
+        Cardano.Wallet.Kernel.DB.TxMeta
+        Cardano.Wallet.Kernel.DB.TxMeta.Types
+        Cardano.Wallet.Kernel.DB.Updates
+        Cardano.Wallet.Kernel.DB.Util.AcidState
+        Cardano.Wallet.Kernel.DB.Util.IxSet
+        Cardano.Wallet.Kernel.DB.Util.Zoomable
+        Cardano.Wallet.Kernel.Decrypt
+        Cardano.Wallet.Kernel.Diffusion
+        Cardano.Wallet.Kernel.Internal
+        Cardano.Wallet.Kernel.Invariants
+        Cardano.Wallet.Kernel.Keystore
+        Cardano.Wallet.Kernel.Migration
+        Cardano.Wallet.Kernel.Mode
+        Cardano.Wallet.Kernel.NodeStateAdaptor
+        Cardano.Wallet.Kernel.Pending
+        Cardano.Wallet.Kernel.PrefilterTx
+        Cardano.Wallet.Kernel.Read
+        Cardano.Wallet.Kernel.Restore
+        Cardano.Wallet.Kernel.Submission
+        Cardano.Wallet.Kernel.Submission.Worker
+        Cardano.Wallet.Kernel.Transactions
+        Cardano.Wallet.Kernel.Types
+        Cardano.Wallet.Kernel.Util.Core
+        Cardano.Wallet.Kernel.Util.StrictList
+        Cardano.Wallet.Kernel.Util.StrictNonEmpty
+        Cardano.Wallet.Kernel.Util.StrictStateT
+        Cardano.Wallet.Kernel.Wallets
+        Cardano.Wallet.LegacyServer
+        Cardano.Wallet.Orphans
+        Cardano.Wallet.Orphans.Aeson
+        Cardano.Wallet.Orphans.Arbitrary
+        Cardano.Wallet.Orphans.Bi
+        Cardano.Wallet.Server
+        Cardano.Wallet.Server.CLI
+        Cardano.Wallet.Server.Middlewares
+        Cardano.Wallet.Server.Plugins
+        Cardano.Wallet.Server.Plugins.AcidState
+        Cardano.Wallet.Server.LegacyPlugins
+        Cardano.Wallet.TypeLits
+        Cardano.Wallet.Types.UtxoStatistics
+        Cardano.Wallet.Client
+        Cardano.Wallet.Client.Http
+        Cardano.Wallet.Util
+        Cardano.Wallet.WalletLayer
+        Cardano.Wallet.WalletLayer.ExecutionTimeLimit
+        Cardano.Wallet.WalletLayer.Kernel.Accounts
+        Cardano.Wallet.WalletLayer.Kernel.Active
+        Cardano.Wallet.WalletLayer.Kernel.Addresses
+        Cardano.Wallet.WalletLayer.Kernel.Conv
+        Cardano.Wallet.WalletLayer.Kernel.Info
+        Cardano.Wallet.WalletLayer.Kernel.Internal
+        Cardano.Wallet.WalletLayer.Kernel.Settings
+        Cardano.Wallet.WalletLayer.Kernel.Transactions
+        Cardano.Wallet.WalletLayer.Kernel.Wallets
+        Cardano.Wallet.WalletLayer.Kernel
+        Pos.Wallet
+        Pos.Wallet.Redirect
+        Pos.Wallet.WalletMode
+        Pos.Wallet.Aeson
+        Pos.Wallet.Aeson.ClientTypes
+        Pos.Wallet.Aeson.Options
+        Pos.Wallet.Aeson.Storage
+        Pos.Wallet.Aeson.WalletBackup
+        Pos.Wallet.Web
+        Pos.Wallet.Web.Account
+        Pos.Wallet.Web.Assurance
+        Pos.Wallet.Web.Api
+        Pos.Wallet.Web.Backup
+        Pos.Wallet.Web.ClientTypes
+        Pos.Wallet.Web.ClientTypes.Functions
+        Pos.Wallet.Web.ClientTypes.Instances
+        Pos.Wallet.Web.ClientTypes.Types
+        Pos.Wallet.Web.Error
+        Pos.Wallet.Web.Error.Types
+        Pos.Wallet.Web.Error.Util
+        Pos.Wallet.Web.Mode
+        Pos.Wallet.Web.Methods
+        Pos.Wallet.Web.Methods.Backup
+        Pos.Wallet.Web.Methods.History
+        Pos.Wallet.Web.Methods.Info
+        Pos.Wallet.Web.Methods.Logic
+        Pos.Wallet.Web.Methods.Misc
+        Pos.Wallet.Web.Methods.Payment
+        Pos.Wallet.Web.Methods.Redeem
+        Pos.Wallet.Web.Methods.Reporting
+        Pos.Wallet.Web.Methods.Restore
+        Pos.Wallet.Web.Methods.Txp
+        Pos.Wallet.Web.Pending
+        Pos.Wallet.Web.Pending.Types
+        Pos.Wallet.Web.Pending.Submission
+        Pos.Wallet.Web.Pending.Functions
+        Pos.Wallet.Web.Pending.Util
+        Pos.Wallet.Web.Pending.Worker
+        Pos.Wallet.Web.Server
+        Pos.Wallet.Web.Server.Handlers
+        Pos.Wallet.Web.Server.Launcher
+        Pos.Wallet.Web.Server.Runner
+        Pos.Wallet.Web.Sockets
+        Pos.Wallet.Web.Sockets.ConnSet
+        Pos.Wallet.Web.Sockets.Connection
+        Pos.Wallet.Web.Sockets.Notifier
+        Pos.Wallet.Web.Sockets.Types
+        Pos.Wallet.Web.State
+        Pos.Wallet.Web.State.Acidic
+        Pos.Wallet.Web.State.State
+        Pos.Wallet.Web.State.Storage
+        Pos.Wallet.Web.State.Transactions
+        Pos.Wallet.Web.State.Util
+        Pos.Wallet.Web.Swagger
+        Pos.Wallet.Web.Swagger.Instances.Schema
+        Pos.Wallet.Web.Swagger.Instances.Swagger
+        Pos.Wallet.Web.Swagger.Spec
+        Pos.Wallet.Web.Tracking
+        Pos.Wallet.Web.Tracking.BListener
+        Pos.Wallet.Web.Tracking.Decrypt
+        Pos.Wallet.Web.Tracking.Sync
+        Pos.Wallet.Web.Tracking.Restore
+        Pos.Wallet.Web.Tracking.Modifier
+        Pos.Wallet.Web.Tracking.Types
+        Pos.Wallet.Web.Util
+        Pos.Util.Mnemonic
+        Test.Pos.Wallet.Web.Mode
+        Data.X509.Extra
+        Cardano.X509.Configuration
+    hs-source-dirs: acid-state-exts/src binary/src binary/test
+                    chain/src chain/test client/src core/src core/test crypto
+                    crypto/test db/src generator/src infra/src lib/src networking/src
+                    node-ipc/src tools/src util/src util/test utxo/src wallet-new/src
+                    wallet/src wallet/test x509/src
+    other-modules:
+        Data.NonEmptySet
+        Pos.Binary.Class.Core
+        Pos.Binary.Class.Primitive
+        Pos.Binary.Class.TH
+        Pos.Chain.Block.Block
+        Pos.Chain.Block.ComponentBlock
+        Pos.Chain.Block.Configuration
+        Pos.Chain.Block.Error
+        Pos.Chain.Block.Genesis
+        Pos.Chain.Block.HasPrevBlock
+        Pos.Chain.Block.Header
+        Pos.Chain.Block.IsHeader
+        Pos.Chain.Block.JsonLog
+        Pos.Chain.Block.Logic
+        Pos.Chain.Block.Logic.Integrity
+        Pos.Chain.Block.Main
+        Pos.Chain.Block.Slog
+        Pos.Chain.Block.Slog.Types
+        Pos.Chain.Block.Types
+        Pos.Chain.Block.Util
+        Pos.Chain.Delegation.Cede
+        Pos.Chain.Delegation.Cede.Class
+        Pos.Chain.Delegation.Cede.Types
+        Pos.Chain.Delegation.Class
+        Pos.Chain.Delegation.Configuration
+        Pos.Chain.Delegation.HeavyDlgIndex
+        Pos.Chain.Delegation.LightDlgIndices
+        Pos.Chain.Delegation.Payload
+        Pos.Chain.Delegation.Proof
+        Pos.Chain.Delegation.Types
+        Pos.Chain.Genesis.AvvmBalances
+        Pos.Chain.Genesis.Config
+        Pos.Chain.Genesis.Data
+        Pos.Chain.Genesis.Delegation
+        Pos.Chain.Genesis.Generate
+        Pos.Chain.Genesis.Hash
+        Pos.Chain.Genesis.Initializer
+        Pos.Chain.Genesis.NonAvvmBalances
+        Pos.Chain.Genesis.ProtocolConstants
+        Pos.Chain.Genesis.Spec
+        Pos.Chain.Genesis.WStakeholders
+        Pos.Chain.Lrc.Core
+        Pos.Chain.Lrc.Error
+        Pos.Chain.Lrc.Fts
+        Pos.Chain.Lrc.Genesis
+        Pos.Chain.Lrc.RichmenComponent
+        Pos.Chain.Lrc.Types
+        Pos.Chain.Security.Params
+        Pos.Chain.Security.Util
+        Pos.Chain.Ssc.Base
+        Pos.Chain.Ssc.Behavior
+        Pos.Chain.Ssc.Commitment
+        Pos.Chain.Ssc.CommitmentAndOpening
+        Pos.Chain.Ssc.CommitmentsMap
+        Pos.Chain.Ssc.Configuration
+        Pos.Chain.Ssc.Error
+        Pos.Chain.Ssc.Error.Seed
+        Pos.Chain.Ssc.Error.Verify
+        Pos.Chain.Ssc.Functions
+        Pos.Chain.Ssc.Mem
+        Pos.Chain.Ssc.Message
+        Pos.Chain.Ssc.Opening
+        Pos.Chain.Ssc.OpeningsMap
+        Pos.Chain.Ssc.Payload
+        Pos.Chain.Ssc.Proof
+        Pos.Chain.Ssc.Seed
+        Pos.Chain.Ssc.Shares
+        Pos.Chain.Ssc.SharesDistribution
+        Pos.Chain.Ssc.SharesMap
+        Pos.Chain.Ssc.Toss
+        Pos.Chain.Ssc.Toss.Base
+        Pos.Chain.Ssc.Toss.Class
+        Pos.Chain.Ssc.Toss.Logic
+        Pos.Chain.Ssc.Toss.Pure
+        Pos.Chain.Ssc.Toss.Types
+        Pos.Chain.Ssc.Types
+        Pos.Chain.Ssc.VssCertData
+        Pos.Chain.Ssc.VssCertificate
+        Pos.Chain.Ssc.VssCertificatesMap
+        Pos.Chain.Txp.Base
+        Pos.Chain.Txp.Configuration
+        Pos.Chain.Txp.Error
+        Pos.Chain.Txp.GenesisUtxo
+        Pos.Chain.Txp.Toil
+        Pos.Chain.Txp.Toil.Failure
+        Pos.Chain.Txp.Toil.Logic
+        Pos.Chain.Txp.Toil.Monad
+        Pos.Chain.Txp.Toil.Stakes
+        Pos.Chain.Txp.Toil.Types
+        Pos.Chain.Txp.Toil.Utxo
+        Pos.Chain.Txp.Toil.Utxo.Functions
+        Pos.Chain.Txp.Toil.Utxo.Util
+        Pos.Chain.Txp.Topsort
+        Pos.Chain.Txp.Tx
+        Pos.Chain.Txp.TxAux
+        Pos.Chain.Txp.TxMsg
+        Pos.Chain.Txp.TxOutAux
+        Pos.Chain.Txp.TxPayload
+        Pos.Chain.Txp.TxProof
+        Pos.Chain.Txp.TxWitness
+        Pos.Chain.Txp.Undo
+        Pos.Chain.Update.ApplicationName
+        Pos.Chain.Update.BlockVersion
+        Pos.Chain.Update.BlockVersionData
+        Pos.Chain.Update.BlockVersionModifier
+        Pos.Chain.Update.Configuration
+        Pos.Chain.Update.Constants
+        Pos.Chain.Update.Data
+        Pos.Chain.Update.Params
+        Pos.Chain.Update.Payload
+        Pos.Chain.Update.Poll
+        Pos.Chain.Update.Poll.Class
+        Pos.Chain.Update.Poll.Failure
+        Pos.Chain.Update.Poll.Modifier
+        Pos.Chain.Update.Poll.Types
+        Pos.Chain.Update.Proof
+        Pos.Chain.Update.SoftforkRule
+        Pos.Chain.Update.SoftwareVersion
+        Pos.Chain.Update.SystemTag
+        Pos.Chain.Update.Vote
+        Pos.Communication.Server
+        Pos.Context.Context
+        Pos.Core.Aeson.Orphans
+        Pos.Core.Binary.Orphans
+        Pos.Core.Common.AddrAttributes
+        Pos.Core.Common.AddrSpendingData
+        Pos.Core.Common.AddrStakeDistribution
+        Pos.Core.Common.Address
+        Pos.Core.Common.AddressHash
+        Pos.Core.Common.BlockCount
+        Pos.Core.Common.ChainDifficulty
+        Pos.Core.Common.Coeff
+        Pos.Core.Common.Coin
+        Pos.Core.Common.CoinPortion
+        Pos.Core.Common.Script
+        Pos.Core.Common.SharedSeed
+        Pos.Core.Common.SlotLeaders
+        Pos.Core.Common.StakeholderId
+        Pos.Core.Common.Stakes
+        Pos.Core.Common.TxFeePolicy
+        Pos.Core.Common.TxSizeLinear
+        Pos.Core.Context.PrimaryKey
+        Pos.Core.Reporting.MemState
+        Pos.Core.Reporting.Methods
+        Pos.Core.Reporting.Metrics
+        Pos.Core.Slotting.Class
+        Pos.Core.Slotting.EpochIndex
+        Pos.Core.Slotting.EpochOrSlot
+        Pos.Core.Slotting.LocalSlotIndex
+        Pos.Core.Slotting.MemState
+        Pos.Core.Slotting.SlotCount
+        Pos.Core.Slotting.SlotId
+        Pos.Core.Slotting.TimeDiff
+        Pos.Core.Slotting.Timestamp
+        Pos.Core.Slotting.Types
+        Pos.Core.Slotting.Util
+        Pos.Crypto.Encryption
+        Pos.Crypto.Scrypt
+        Pos.Crypto.Signing.Check
+        Pos.Crypto.Signing.Tag
+        Pos.Crypto.Signing.Types
+        Pos.Crypto.Signing.Types.Redeem
+        Pos.Crypto.Signing.Types.Safe
+        Pos.Crypto.Signing.Types.Signing
+        Pos.Crypto.Signing.Types.Tag
+        Pos.DB.Block.BListener
+        Pos.DB.Block.Epoch
+        Pos.DB.Block.GState.BlockExtra
+        Pos.DB.Block.GState.SanityCheck
+        Pos.DB.Block.Internal
+        Pos.DB.Block.Load
+        Pos.DB.Block.Logic.Creation
+        Pos.DB.Block.Logic.Header
+        Pos.DB.Block.Logic.Internal
+        Pos.DB.Block.Logic.Util
+        Pos.DB.Block.Logic.VAR
+        Pos.DB.Block.Lrc
+        Pos.DB.Block.Slog.Context
+        Pos.DB.Block.Slog.Logic
+        Pos.DB.Delegation.Cede.Holders
+        Pos.DB.Delegation.Cede.Logic
+        Pos.DB.Delegation.Core
+        Pos.DB.Delegation.Logic.Common
+        Pos.DB.Delegation.Logic.Mempool
+        Pos.DB.Delegation.Logic.VAR
+        Pos.DB.Delegation.Var
+        Pos.DB.Lrc.Common
+        Pos.DB.Lrc.Consumer
+        Pos.DB.Lrc.Consumer.Delegation
+        Pos.DB.Lrc.Consumer.Ssc
+        Pos.DB.Lrc.Consumer.Update
+        Pos.DB.Lrc.Consumers
+        Pos.DB.Lrc.Context
+        Pos.DB.Lrc.Issuers
+        Pos.DB.Lrc.Leaders
+        Pos.DB.Lrc.Lrc
+        Pos.DB.Lrc.Mode
+        Pos.DB.Lrc.Richmen
+        Pos.DB.Lrc.RichmenBase
+        Pos.DB.Lrc.Seed
+        Pos.DB.Ssc.GState
+        Pos.DB.Ssc.Logic
+        Pos.DB.Ssc.Logic.Global
+        Pos.DB.Ssc.Logic.Local
+        Pos.DB.Ssc.Logic.VAR
+        Pos.DB.Ssc.State
+        Pos.DB.Ssc.State.Global
+        Pos.DB.Ssc.State.Local
+        Pos.DB.Txp.Logic.Common
+        Pos.DB.Txp.Logic.Global
+        Pos.DB.Txp.Logic.Local
+        Pos.DB.Txp.MemState.Class
+        Pos.DB.Txp.MemState.Holder
+        Pos.DB.Txp.MemState.Metrics
+        Pos.DB.Txp.MemState.Types
+        Pos.DB.Update.Context
+        Pos.DB.Update.GState
+        Pos.DB.Update.GState.Misc
+        Pos.DB.Update.Logic
+        Pos.DB.Update.Logic.Global
+        Pos.DB.Update.Logic.Local
+        Pos.DB.Update.MemState
+        Pos.DB.Update.MemState.Functions
+        Pos.DB.Update.MemState.Types
+        Pos.DB.Update.Poll.DBPoll
+        Pos.DB.Update.Poll.Logic
+        Pos.DB.Update.Poll.Logic.Apply
+        Pos.DB.Update.Poll.Logic.Base
+        Pos.DB.Update.Poll.Logic.Normalize
+        Pos.DB.Update.Poll.Logic.Rollback
+        Pos.DB.Update.Poll.Logic.Softfork
+        Pos.DB.Update.Poll.Logic.Version
+        Pos.DB.Update.Poll.PollState
+        Pos.DB.Update.Poll.Pure
+        Pos.GState.Context
+        Pos.GState.GState
+        Pos.Generator.Block.Error
+        Pos.Generator.Block.Logic
+        Pos.Generator.Block.Mode
+        Pos.Generator.Block.Orphans
+        Pos.Generator.Block.Param
+        Pos.Generator.Block.Payload
+        Pos.Launcher.Launcher
+        Pos.Launcher.Mode
+        Pos.Launcher.Param
+        Pos.Launcher.Scenario
+        Pos.Util.CompileInfoGit
+        Pos.Util.Log.Rotator
+        Pos.Util.Log.Scribes
+        Test.Pos.Crypto.Arbitrary.Unsafe
+        Pos.Infra.Util.SigHandler
+        Paths_everything
+    default-language: Haskell2010
+    default-extensions: UndecidableInstances MultiParamTypeClasses
+                        FunctionalDependencies RankNTypes ScopedTypeVariables
+                        FlexibleContexts FlexibleInstances BangPatterns TemplateHaskell
+                        GeneralizedNewtypeDeriving TypeFamilies StandaloneDeriving
+                        TypeOperators RecordWildCards OverloadedStrings GADTs
+                        DeriveDataTypeable DeriveGeneric DefaultSignatures InstanceSigs
+                        ViewPatterns TupleSections MultiWayIf LambdaCase DeriveFunctor
+                        DeriveTraversable DeriveFoldable ConstraintKinds DataKinds
+                        TypeApplications MonadFailDesugaring NoImplicitPrelude
+    build-depends:
+        Cabal -any,
+        MonadRandom -any,
+        QuickCheck -any,
+        acid-state -any,
+        aeson -any,
+        aeson-options -any,
+        aeson-pretty -any,
+        ansi-terminal -any,
+        ansi-wl-pprint -any,
+        array -any,
+        asn1-encoding -any,
+        asn1-types -any,
+        async -any,
+        attoparsec -any,
+        auto-update -any,
+        base >=4 && <5,
+        base16-bytestring -any,
+        base58-bytestring -any,
+        base64-bytestring -any,
+        basement -any,
+        beam-core -any,
+        beam-migrate -any,
+        beam-sqlite -any,
+        bifunctors -any,
+        binary -any,
+        bytestring -any,
+        canonical-json -any,
+        cardano-crypto -any,
+        cardano-report-server >=0.4.5,
+        cborg -any,
+        cereal -any,
+        clock -any,
+        concurrent-extra -any,
+        conduit -any,
+        connection -any,
+        constraints -any,
+        containers -any,
+        contravariant -any,
+        cpphs -any,
+        cryptonite -any,
+        cryptonite-openssl -any,
+        data-default -any,
+        data-default-class -any,
+        deepseq -any,
+        deriving-compat -any,
+        digest -any,
+        directory -any,
+        dlist -any,
+        dns -any,
+        ekg-core -any,
+        ekg-statsd -any,
+        ekg-wai -any,
+        ether -any,
+        exceptions -any,
+        extra -any,
+        file-embed -any,
+        filelock >=0.1.0.1,
+        filepath -any,
+        fmt >=0.4,
+        foldl -any,
+        formatting -any,
+        free -any,
+        generic-arbitrary -any,
+        generics-sop -any,
+        half -any,
+        hashable -any,
+        hedgehog -any,
+        hourglass -any,
+        hspec -any,
+        http-api-data -any,
+        http-client -any,
+        http-client-tls -any,
+        http-conduit -any,
+        http-types -any,
+        ip -any,
+        iproute -any,
+        ixset-typed -any,
+        kademlia -any,
+        katip -any,
+        lens -any,
+        lifted-async -any,
+        log-warper >=1.8,
+        lrucache -any,
+        lzma-conduit -any,
+        megaparsec -any,
+        memory -any,
+        micro-recursion-schemes -any,
+        mmorph -any,
+        monad-control -any,
+        mono-traversable -any,
+        mtl -any,
+        mwc-random -any,
+        neat-interpolation -any,
+        network -any,
+        network-info -any,
+        network-transport -any,
+        network-transport-tcp -any,
+        optparse-applicative -any,
+        optparse-generic -any,
+        parsec -any,
+        parsers -any,
+        plutus-prototype -any,
+        pretty-show -any,
+        process -any,
+        pvss -any,
+        quickcheck-instances -any,
+        random -any,
+        reflection -any,
+        resourcet -any,
+        retry -any,
+        rocksdb-haskell-ng -any,
+        safe-exceptions -any,
+        safecopy >=0.9.4,
+        scientific -any,
+        scrypt -any,
+        semver -any,
+        serokell-util -any,
+        servant >=0.8.1,
+        servant-client >=0.8.1,
+        servant-client-core >=0.8.1,
+        servant-generic -any,
+        servant-multipart >=0.10,
+        servant-server >=0.8.1,
+        servant-swagger -any,
+        servant-swagger-ui -any,
+        servant-swagger-ui-core -any,
+        servant-swagger-ui-redoc -any,
+        sqlite-simple -any,
+        sqlite-simple-errors -any,
+        stm -any,
+        streaming-commons -any,
+        string-conv -any,
+        swagger2 -any,
+        tagged -any,
+        tar -any,
+        template-haskell -any,
+        text -any,
+        th-lift-instances -any,
+        th-utilities -any,
+        these -any,
+        time -any,
+        time-units -any,
+        tls -any,
+        transformers -any,
+        transformers-base -any,
+        transformers-lift -any,
+        trifecta -any,
+        universum -any,
+        unliftio -any,
+        unliftio-core -any,
+        unordered-containers -any,
+        vector -any,
+        wai -any,
+        wai-middleware-throttle -any,
+        wai-websockets -any,
+        warp -any,
+        warp-tls -any,
+        websockets -any,
+        x509 -any,
+        x509-store -any,
+        x509-validation -any,
+        yaml -any,
+        unix -any,
+        systemd -any
+
+executable cardano-sl-verification-bench-exe
+    main-is: VerificationBench.hs
+    build-tools: cpphs >=1.19
+    hs-source-dirs: ./generator/app
+    default-language: Haskell2010
+    default-extensions: DeriveDataTypeable DeriveGeneric
+                        GeneralizedNewtypeDeriving StandaloneDeriving FlexibleContexts
+                        FlexibleInstances MultiParamTypeClasses FunctionalDependencies
+                        DefaultSignatures NoImplicitPrelude OverloadedStrings
+                        TypeApplications TypeFamilies TupleSections ViewPatterns LambdaCase
+                        MultiWayIf ConstraintKinds UndecidableInstances BangPatterns
+                        TemplateHaskell ScopedTypeVariables GADTs MonadFailDesugaring
+    ghc-options: -threaded -rtsopts -Wall -main-is VerificationBench
+                 -O2 -threaded -pgmP cpphs -optP "--cpp"
+    build-depends:
+        base -any,
+        bytestring -any,
+        containers -any,
+        cryptonite -any,
+        deepseq -any,
+        directory -any,
+        formatting -any,
+        MonadRandom -any,
+        optparse-applicative -any,
+        random -any,
+        text -any,
+        time-units -any,
+        universum >=0.1.11,
+        everything -any
+    
+    if os(linux)
+        ld-options: -fuse-ld=gold
+        ghc-options: -optl-fuse-ld=gold
+
+executable discovery
+    main-is: Discovery.hs
+    hs-source-dirs: ./networking/examples
+    default-language: Haskell2010
+    default-extensions: DeriveDataTypeable DeriveGeneric
+                        GeneralizedNewtypeDeriving OverloadedStrings MonadFailDesugaring
+    ghc-options: -threaded -Wall
+    build-depends:
+        base >=4.8 && <5,
+        binary -any,
+        bytestring -any,
+        containers -any,
+        contravariant -any,
+        network-transport -any,
+        network-transport-tcp -any,
+        random -any,
+        everything -any
+
+executable ping-pong
+    main-is: PingPong.hs
+    hs-source-dirs: ./networking/examples
+    default-language: Haskell2010
+    default-extensions: DeriveGeneric DeriveDataTypeable
+                        GeneralizedNewtypeDeriving OverloadedStrings MonadFailDesugaring
+    ghc-options: -threaded -Wall
+    build-depends:
+        base >=4.8 && <5,
+        async -any,
+        binary -any,
+        bytestring -any,
+        contravariant -any,
+        network-transport -any,
+        network-transport-tcp -any,
+        random -any,
+        everything -any
+
+executable bench-sender
+    main-is: Main.hs
+    hs-source-dirs: ./networking/bench/Sender
+    other-modules:
+        SenderOptions
+    default-language: Haskell2010
+    default-extensions: OverloadedStrings DeriveDataTypeable
+                        GeneralizedNewtypeDeriving MonadFailDesugaring
+    ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall
+    build-depends:
+        async -any,
+        base -any,
+        contravariant -any,
+        lens -any,
+        MonadRandom -any,
+        mtl -any,
+        network-transport -any,
+        network-transport-tcp -any,
+        optparse-simple >=0.0.3,
+        random -any,
+        safe-exceptions -any,
+        serokell-util -any,
+        time -any,
+        time-units -any,
+        everything -any
+    
+    if flag(benchmarks)
+    else
+        buildable: False
+
+executable bench-receiver
+    main-is: Main.hs
+    hs-source-dirs: ./networking/bench/Receiver
+    other-modules:
+        ReceiverOptions
+    default-language: Haskell2010
+    default-extensions: OverloadedStrings DeriveDataTypeable
+                        GeneralizedNewtypeDeriving MonadFailDesugaring
+    ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall
+    build-depends:
+        base -any,
+        contravariant -any,
+        network-transport-tcp -any,
+        optparse-simple -any,
+        random -any,
+        safe-exceptions -any,
+        serokell-util -any,
+        text -any,
+        everything -any
+    
+    if flag(benchmarks)
+    else
+        buildable: False
+
+executable bench-log-reader
+    main-is: Main.hs
+    hs-source-dirs: ./networking/bench/LogReader
+    other-modules:
+        LogReaderOptions
+    default-language: Haskell2010
+    default-extensions: OverloadedStrings DeriveDataTypeable
+                        GeneralizedNewtypeDeriving MonadFailDesugaring
+    ghc-options: -threaded -Wall
+    build-depends:
+        base ==4.*,
+        attoparsec -any,
+        conduit -any,
+        conduit-extra -any,
+        containers -any,
+        lens -any,
+        mtl -any,
+        optparse-simple -any,
+        resourcet -any,
+        safe-exceptions -any,
+        text -any,
+        formatting -any,
+        unliftio-core -any,
+        everything -any
+    
+    if flag(benchmarks)
+    else
+        buildable: False
+
+executable dbgen
+    main-is: Main.hs
+    build-tools: cpphs >=1.19
+    hs-source-dirs: ./tools/src/dbgen
+    default-language: Haskell2010
+    default-extensions: DeriveDataTypeable DeriveGeneric
+                        GeneralizedNewtypeDeriving StandaloneDeriving FlexibleContexts
+                        FlexibleInstances MultiParamTypeClasses FunctionalDependencies
+                        DefaultSignatures NoImplicitPrelude OverloadedStrings
+                        TypeApplications TupleSections ViewPatterns LambdaCase MultiWayIf
+                        ConstraintKinds UndecidableInstances BangPatterns
+                        ScopedTypeVariables
+    ghc-options: -threaded -rtsopts -Wall -O2 -pgmP cpphs -optP "--cpp"
+    build-depends:
+        base >=4.7 && <5,
+        containers -any,
+        data-default -any,
+        network-transport-tcp >=0.6,
+        optparse-generic -any,
+        stm -any,
+        text -any,
+        time -any,
+        time-units -any,
+        universum >=0.1.11,
+        unordered-containers -any,
+        everything -any
+    
+    if os(linux)
+        ld-options: -fuse-ld=gold
+        ghc-options: -optl-fuse-ld=gold
+    
+    if flag(for-installer)
+        buildable: False
+
+executable cardano-genupdate
+    main-is: Main.hs
+    hs-source-dirs: ./tools/src/genupdate
+    default-language: Haskell2010
+    default-extensions: OverloadedStrings NoImplicitPrelude
+                        BangPatterns ApplicativeDo ScopedTypeVariables MonadFailDesugaring
+    ghc-options: -threaded -Wall -O2
+    build-depends:
+        base -any,
+        ansi-wl-pprint -any,
+        bytestring -any,
+        cryptonite -any,
+        neat-interpolation -any,
+        optparse-applicative -any,
+        filepath -any,
+        formatting -any,
+        process -any,
+        tar -any,
+        text -any,
+        universum -any,
+        unix-compat -any,
+        everything -any
+    
+    if os(linux)
+        ld-options: -fuse-ld=gold
+        ghc-options: -optl-fuse-ld=gold
+
+executable cardano-keygen
+    main-is: Main.hs
+    hs-source-dirs: ./tools/src/keygen
+    other-modules:
+        KeygenOptions
+        Dump
+    default-language: Haskell2010
+    default-extensions: DeriveDataTypeable DeriveGeneric
+                        GeneralizedNewtypeDeriving StandaloneDeriving FlexibleContexts
+                        FlexibleInstances MultiParamTypeClasses FunctionalDependencies
+                        DefaultSignatures NoImplicitPrelude OverloadedStrings
+                        TypeApplications TupleSections ViewPatterns LambdaCase MultiWayIf
+                        ConstraintKinds UndecidableInstances BangPatterns
+                        ScopedTypeVariables MonadFailDesugaring
+    ghc-options: -threaded -rtsopts -Wall -O2
+    build-depends:
+        everything -any
+    
+    if !flag(for-installer)
+        build-depends:
+            base -any,
+            base58-bytestring -any,
+            bytestring >=0.10,
+            canonical-json -any,
+            cardano-sl -any,
+            cardano-sl-chain -any,
+            cardano-sl-core -any,
+            cardano-sl-crypto -any,
+            cardano-sl-util -any,
+            directory -any,
+            filepath -any,
+            formatting -any,
+            Glob -any,
+            lens -any,
+            optparse-applicative >=0.12,
+            serokell-util >=0.1,
+            text -any,
+            universum >=0.1
+    
+    if os(linux)
+        ld-options: -fuse-ld=gold
+        ghc-options: -optl-fuse-ld=gold
+    
+    if flag(for-installer)
+        buildable: False
+    else
+
+executable cardano-launcher
+    main-is: Main.hs
+    hs-source-dirs: ./tools/src/launcher
+    default-language: Haskell2010
+    default-extensions: OverloadedStrings TupleSections
+                        TypeApplications BangPatterns ScopedTypeVariables
+                        MonadFailDesugaring
+    ghc-options: -threaded -Wall -O2
+    build-depends:
+        aeson -any,
+        aeson-options -any,
+        ansi-wl-pprint -any,
+        async -any,
+        base -any,
+        bytestring -any,
+        cardano-report-server >=0.2.1,
+        directory -any,
+        filepath -any,
+        formatting -any,
+        lens -any,
+        lifted-async -any,
+        neat-interpolation -any,
+        optparse-applicative -any,
+        process -any,
+        safe-exceptions -any,
+        serokell-util -any,
+        silently -any,
+        text -any,
+        time-units -any,
+        universum -any,
+        unordered-containers -any,
+        yaml -any,
+        everything -any
+    
+    if !os(windows)
+        build-depends:
+            unix -any
+    
+    if os(linux)
+        ld-options: -fuse-ld=gold
+        ghc-options: -optl-fuse-ld=gold
+    
+    if os(windows)
+        ld-options: -mwindows
+
+executable cardano-addr-convert
+    main-is: Main.hs
+    hs-source-dirs: ./tools/src/addr-convert
+    default-language: Haskell2010
+    default-extensions: DeriveDataTypeable DeriveGeneric
+                        GeneralizedNewtypeDeriving StandaloneDeriving FlexibleContexts
+                        FlexibleInstances MultiParamTypeClasses FunctionalDependencies
+                        DefaultSignatures NoImplicitPrelude OverloadedStrings
+                        TypeApplications TupleSections ViewPatterns LambdaCase MultiWayIf
+                        ConstraintKinds UndecidableInstances ApplicativeDo
+                        ScopedTypeVariables MonadFailDesugaring
+    ghc-options: -threaded -Wall -O2
+    build-depends:
+        base -any,
+        ansi-wl-pprint -any,
+        neat-interpolation -any,
+        optparse-applicative -any,
+        text -any,
+        universum -any,
+        everything -any
+    
+    if os(linux)
+        ld-options: -fuse-ld=gold
+        ghc-options: -optl-fuse-ld=gold
+
+executable cardano-cli-docs
+    main-is: Main.hs
+    build-tools: cpphs >=1.19
+    hs-source-dirs: ./tools/src/cli-docs
+    default-language: Haskell2010
+    default-extensions: NoImplicitPrelude BangPatterns
+                        OverloadedStrings ApplicativeDo ScopedTypeVariables
+                        MonadFailDesugaring
+    ghc-options: -threaded -rtsopts -Wall -O2 -pgmP cpphs -optP "--cpp"
+    build-depends:
+        base -any,
+        directory -any,
+        filepath -any,
+        neat-interpolation -any,
+        optparse-applicative -any,
+        process -any,
+        text -any,
+        universum >=0.1.11,
+        everything -any
+    
+    if os(linux)
+        ld-options: -fuse-ld=gold
+        ghc-options: -optl-fuse-ld=gold
+    
+    if flag(for-installer)
+        buildable: False
+
+executable cardano-post-mortem
+    main-is: Main.hs
+    hs-source-dirs: ./tools/src/post-mortem
+    other-modules:
+        JSONLog
+        Options
+        Statistics
+        Statistics.Block
+        Statistics.Chart
+        Statistics.CSV
+        Statistics.Focus
+        Statistics.Graph
+        Statistics.MemPool
+        Statistics.Report
+        Statistics.Throughput
+        Statistics.Tx
+        Types
+        Util.Aeson
+        Util.Pipes
+        Util.Safe
+    default-language: Haskell2010
+    default-extensions: DeriveDataTypeable DeriveGeneric
+                        GeneralizedNewtypeDeriving StandaloneDeriving FlexibleContexts
+                        FlexibleInstances MultiParamTypeClasses FunctionalDependencies
+                        DefaultSignatures NoImplicitPrelude OverloadedStrings
+                        TypeApplications TupleSections ViewPatterns LambdaCase MultiWayIf
+                        ConstraintKinds UndecidableInstances ScopedTypeVariables
+                        ScopedTypeVariables BangPatterns MonadFailDesugaring
+    ghc-options: -threaded -Wall -O2
+    build-depends:
+        everything -any
+    
+    if (flag(postmortem) && !flag(for-installer))
+        build-depends:
+            Chart -any,
+            Chart-diagrams -any,
+            MonadRandom -any,
+            aeson -any,
+            attoparsec -any,
+            base -any,
+            bytestring -any,
+            cardano-sl -any,
+            cardano-sl-chain -any,
+            cardano-sl-core -any,
+            cardano-sl-infra -any,
+            cardano-sl-chain -any,
+            cardano-sl-util -any,
+            containers -any,
+            cassava -any,
+            directory -any,
+            fgl -any,
+            filepath -any,
+            foldl -any,
+            graphviz -any,
+            optparse-applicative -any,
+            pipes -any,
+            pipes-bytestring -any,
+            pipes-interleave -any,
+            pipes-safe -any,
+            process -any,
+            random -any,
+            text -any,
+            time-units -any,
+            universum >=0.1.11
+    else
+        buildable: False
+    
+    if os(linux)
+        ld-options: -fuse-ld=gold
+        ghc-options: -optl-fuse-ld=gold
+
+executable cardano-blockchain-analyser
+    main-is: Main.hs
+    build-tools: cpphs >=1.19
+    hs-source-dirs: ./tools/src/blockchain-analyser
+    other-modules:
+        Options
+        Types
+        Rendering
+    default-language: Haskell2010
+    default-extensions: NoImplicitPrelude OverloadedStrings
+                        TypeApplications ScopedTypeVariables FlexibleContexts
+                        MonadFailDesugaring
+    ghc-options: -threaded -rtsopts -Wall -O2 -pgmP cpphs -optP "--cpp"
+    build-depends:
+        everything -any
+    
+    if !flag(for-installer)
+        build-depends:
+            ansi-wl-pprint -any,
+            base -any,
+            cardano-sl -any,
+            cardano-sl-binary -any,
+            cardano-sl-chain -any,
+            cardano-sl-core -any,
+            cardano-sl-crypto -any,
+            cardano-sl-db -any,
+            cardano-sl-util -any,
+            directory -any,
+            formatting -any,
+            lens -any,
+            mtl -any,
+            neat-interpolation -any,
+            optparse-applicative -any,
+            serokell-util -any,
+            tabl -any,
+            text -any,
+            universum >=0.1.11
+    
+    if os(linux)
+        ld-options: -fuse-ld=gold
+        ghc-options: -optl-fuse-ld=gold
+    
+    if flag(for-installer)
+        buildable: False
+
+executable cardano-x509-certificates
+    main-is: Main.hs
+    hs-source-dirs: ./tools/src/gencerts
+    default-language: Haskell2010
+    default-extensions: DeriveGeneric NoImplicitPrelude
+                        OverloadedStrings TupleSections TypeApplications
+    ghc-options: -threaded -rtsopts -Wall -O2
+    build-depends:
+        base >=4.7 && <5,
+        filepath -any,
+        optparse-applicative -any,
+        universum -any,
+        everything -any
+
+executable genesis-hash
+    main-is: Main.hs
+    hs-source-dirs: ./tools/src/genesis-hash
+    default-language: Haskell2010
+    ghc-options: -threaded -rtsopts -Wall -O2
+    build-depends:
+        base -any,
+        universum -any,
+        bytestring -any,
+        cryptonite -any,
+        canonical-json -any,
+        everything -any
+    
+    if os(linux)
+        ld-options: -fuse-ld=gold
+        ghc-options: -optl-fuse-ld=gold
+    
+    if flag(for-installer)
+        buildable: False
+    else
+
+executable cardano-node
+    main-is: Main.hs
+    hs-source-dirs: ./wallet-new/server
+    default-language: Haskell2010
+    default-extensions: TypeOperators DataKinds DefaultSignatures
+                        NoImplicitPrelude MultiParamTypeClasses OverloadedStrings
+                        ScopedTypeVariables FlexibleInstances FlexibleContexts TypeFamilies
+                        TypeApplications TypeOperators TemplateHaskell RecordWildCards
+                        ScopedTypeVariables UndecidableInstances MonadFailDesugaring
+    ghc-options: -threaded -rtsopts -Wall -O2
+    build-depends:
+        base -any,
+        stm -any,
+        text -any,
+        universum -any,
+        everything -any
+
+executable cardano-generate-swagger-file
+    main-is: Main.hs
+    hs-source-dirs: ./wallet-new/generate-swagger-file
+    default-language: Haskell2010
+    default-extensions: RecordWildCards NoImplicitPrelude
+                        OverloadedStrings TypeApplications ScopedTypeVariables
+                        FlexibleContexts MonadFailDesugaring TypeOperators
+    ghc-options: -threaded -rtsopts -Wall -fno-warn-orphans -O2
+    build-depends:
+        base -any,
+        bytestring -any,
+        aeson -any,
+        optparse-applicative -any,
+        servant-server -any,
+        swagger2 -any,
+        universum >=0.1.11,
+        everything -any
+
+executable wal-integr-test
+    main-is: Main.hs
+    hs-source-dirs: ./wallet-new/integration
+    other-modules:
+        CLI
+        Types
+        Functions
+        Error
+        Util
+        WalletSpecs
+        AccountSpecs
+        AddressSpecs
+        TransactionSpecs
+        QuickCheckSpecs
+    default-language: Haskell2010
+    default-extensions: TypeOperators DataKinds DefaultSignatures
+                        NoImplicitPrelude MultiParamTypeClasses OverloadedStrings
+                        ScopedTypeVariables FlexibleInstances FlexibleContexts TypeFamilies
+                        TypeApplications TypeOperators TemplateHaskell RecordWildCards
+                        ScopedTypeVariables UndecidableInstances MonadFailDesugaring
+    ghc-options: -threaded -rtsopts -Wall -O2
+    build-depends:
+        base -any,
+        QuickCheck -any,
+        aeson -any,
+        aeson-diff -any,
+        aeson-pretty -any,
+        bytestring -any,
+        containers -any,
+        exceptions -any,
+        formatting -any,
+        hspec -any,
+        http-client -any,
+        http-types -any,
+        lens -any,
+        mtl -any,
+        optparse-applicative -any,
+        pretty-show -any,
+        servant -any,
+        servant-client -any,
+        servant-quickcheck -any,
+        servant-server -any,
+        text -any,
+        formatting -any,
+        universum -any,
+        x509-store -any,
+        everything -any

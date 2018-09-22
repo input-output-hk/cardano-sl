@@ -12,13 +12,6 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
-Flag for-installer
-  default:     False
-  manual:      True
-
-  description: Build a reduced set of components (only what is needed for the
-               installer)
-
 library
   hs-source-dirs:     src test
   exposed-modules:    Pos.Wallet

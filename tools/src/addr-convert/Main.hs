@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE QuasiQuotes     #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -13,7 +14,11 @@ import           Options.Applicative (Parser, execParser, footerDoc, fullDesc,
 import           Options.Applicative.Types (readerAsk)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
+#ifdef VERSION_everything
+import           Paths_everything (version)
+#else
 import           Paths_cardano_sl (version)
+#endif
 import           Pos.Core (makeRedeemAddress)
 import           Pos.Crypto.Signing (fromAvvmPk)
 import           Pos.Util.Util (eitherToThrow)

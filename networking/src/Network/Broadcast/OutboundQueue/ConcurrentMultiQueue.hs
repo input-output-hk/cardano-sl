@@ -81,6 +81,7 @@ import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import           Data.Maybe (fromMaybe, isJust)
 import           GHC.Stack
+import           Prelude
 
 {-------------------------------------------------------------------------------
   Concurrent multi-queue

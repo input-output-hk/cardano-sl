@@ -42,6 +42,7 @@ packages:
 - faucet
 - acid-state-exts
 - x509
+- cabal-merger
 
 # IOHK projects:
 

@@ -20,6 +20,7 @@ import           Control.Monad.State (State, runState, state)
 import           Control.Monad.Trans (MonadIO (liftIO))
 import           Data.Acid (AcidState, Query, Update, createArchive,
                      createCheckpoint)
+import           Prelude
 import           System.Directory (removeDirectoryRecursive)
 import           System.FilePath ((</>))
 

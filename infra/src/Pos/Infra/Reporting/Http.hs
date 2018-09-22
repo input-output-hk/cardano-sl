@@ -23,7 +23,7 @@ import           Pos.ReportServer.Report (ReportInfo (..), ReportType (..))
 import           System.FilePath (takeFileName)
 import           System.Info (arch, os)
 
-import           Paths_cardano_sl_infra (version)
+import           Data.Version (Version (Version))
 import           Pos.Core.Reporting ()
 import           Pos.Crypto (ProtocolMagic (..))
 import           Pos.Infra.Reporting.Exceptions (ReportingError (..))
@@ -71,7 +71,7 @@ sendReport pm compileInfo mLogFile reportType appName reportServerUri = do
         -- We are using version of 'cardano-sl-infra' here. We agreed
         -- that the version of 'cardano-sl' and it subpackages should
         -- be same.
-        , rVersion = version
+        , rVersion = Version [ 1,3,0 ] []
         , rBuild = pretty compileInfo
         , rOS = toText (os <> "-" <> arch)
         , rMagic = getProtocolMagic pm

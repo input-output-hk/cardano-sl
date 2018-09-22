@@ -22,6 +22,7 @@ import qualified Data.Text as T
 import           Node.Message.Class (Packing (..), PackingType (..),
                      Serializable (..))
 import           Node.Message.Decoder (Decoder (..), DecoderStep (..))
+import           Prelude
 
 data BinaryP
 

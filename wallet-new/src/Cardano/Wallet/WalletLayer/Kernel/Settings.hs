@@ -14,15 +14,15 @@ import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel.Internal as Kernel
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (NodeStateAdaptor)
 import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as Node
+import           Data.Version (Version (Version))
 
-import           Paths_cardano_sl_wallet_new (version)
 
 getNodeSettings :: MonadIO m => Kernel.PassiveWallet -> m V1.NodeSettings
 getNodeSettings w = liftIO $
     V1.NodeSettings
       <$> (mkSlotDuration <$> Node.getNextEpochSlotDuration node)
       <*> (V1 <$> Node.curSoftwareVersion node)
-      <*> pure version
+      <*> pure (Version [ 1, 3, 0 ] [])
       <*> (mkGitRevision <$> Node.compileInfo node)
   where
     mkSlotDuration :: Millisecond -> V1.SlotDuration

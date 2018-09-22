@@ -13,7 +13,6 @@ module Ntp.Packet
     , ntpToRealMcs
     ) where
 
-
 import           Control.Monad (replicateM_)
 import           Data.Binary (Binary (..))
 import           Data.Binary.Get (getInt8, getWord32be, getWord8, skip)
@@ -23,6 +22,7 @@ import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           Data.Time.Units (Microsecond, TimeUnit, fromMicroseconds,
                      toMicroseconds)
 import           Data.Word (Word32, Word8)
+import           Prelude
 
 data NtpPacket = NtpPacket
     { ntpParams       :: Word8        -- ^ some magic parameters

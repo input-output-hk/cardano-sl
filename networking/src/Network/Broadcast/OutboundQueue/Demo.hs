@@ -27,6 +27,7 @@ import           Pos.Util.Wlog
 import           Network.Broadcast.OutboundQueue (OutboundQ)
 import qualified Network.Broadcast.OutboundQueue as OutQ
 import           Network.Broadcast.OutboundQueue.Types hiding (simplePeers)
+import           Prelude
 
 type Enqueue = IO
 

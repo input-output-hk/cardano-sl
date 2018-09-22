@@ -239,7 +239,6 @@ library
                      , sqlite-simple
                      , sqlite-simple-errors
                      , stm
-                     , stm
                      , swagger2
                      , text
                      , time

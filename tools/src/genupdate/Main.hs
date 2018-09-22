@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP              #-}
 {-# LANGUAGE QuasiQuotes      #-}
 {-# LANGUAGE RecordWildCards  #-}
 {-# LANGUAGE TypeApplications #-}
@@ -26,7 +27,11 @@ import qualified System.PosixCompat as PosixCompat
 import           System.Process (readProcess)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
+#ifdef VERSION_everything
+import           Paths_everything (version)
+#else
 import           Paths_cardano_sl (version)
+#endif
 import           Pos.Util (directory, ls, withTempDir)
 
 data UpdateGenOptions = UpdateGenOptions

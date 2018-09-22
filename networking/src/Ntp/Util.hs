@@ -50,6 +50,7 @@ import           Network.Socket (AddrInfo,
                      addrFlags, addrSocketType)
 import qualified Network.Socket as Socket
 import qualified Network.Socket.ByteString as Socket.ByteString (sendTo)
+import           Prelude
 
 import           Ntp.Packet (NtpPacket)
 import           Pos.Util.Trace (Trace, traceWith, wlogTrace)

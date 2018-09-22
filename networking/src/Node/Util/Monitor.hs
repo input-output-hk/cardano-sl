@@ -7,6 +7,7 @@ module Node.Util.Monitor (
 import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import           Node
+import           Prelude
 import qualified System.Metrics as Monitoring
 import qualified System.Metrics.Distribution as Monitoring.Distribution
 import qualified System.Metrics.Gauge as Gauge

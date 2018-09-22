@@ -17,14 +17,12 @@ module Pos.Client.CLI.NodeOptions
 
 import           Universum
 
-import           Data.Version (showVersion)
+import           Data.Version (Version (Version), showVersion)
 import           NeatInterpolation (text)
 import           Options.Applicative (Parser, auto, execParser, footerDoc,
                      fullDesc, header, help, helper, info, infoOption, long,
                      metavar, option, progDesc, strOption, switch, value)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
-
-import           Paths_cardano_sl (version)
 
 import           Pos.Client.CLI.Options (CommonArgs (..), commonArgsParser,
                      optionalJSONPath)
@@ -63,20 +61,18 @@ commonNodeArgsParser = do
     dbPath <- optional $ strOption $
         long    "db-path" <>
         metavar "FILEPATH" <>
-        help    "Path to directory with all DBs used by the node. \
-                \If specified path doesn't exist, a directory will be created."
+        help    "Path to directory with all DBs used by the node. If specified path doesn't exist, a directory will be created."
     rebuildDB <- switch $
         long "rebuild-db" <>
-        help "If node's database already exists, discard its contents \
-             \and create a new one from scratch."
+        help "If node's database already exists, discard its contents and create a new one from scratch."
 
     cnaAssetLockPath <- optional $ strOption $
         long    "asset-lock-file" <>
         metavar "FILEPATH" <>
-        help    "Path to list of assetLocked source addresses. Funds at these \
-                \addresses are not able to be spent. This will only be effective \
-                \while Cardano is centrally mined/minted. Addresses should be listed \
-                \one per line. Lines beginning with '#' are comments."
+        help    (concat [ "Path to list of assetLocked source addresses. Funds at these ",
+                "addresses are not able to be spent. This will only be effective ",
+                "while Cardano is centrally mined/minted. Addresses should be listed ",
+                "one per line. Lines beginning with '#' are comments." ])
 
     devGenesisSecretI <-
         optional $ option auto $
@@ -101,8 +97,7 @@ commonNodeArgsParser = do
         long    "update-latest-path" <>
         metavar "FILEPATH" <>
         value   "update-installer.exe" <>
-        help    "Path to update installer file, \
-                \which should be downloaded by Update System."
+        help    "Path to update installer file, which should be downloaded by Update System."
     updateWithPackage <- switch $
         long "update-with-package" <>
         help "Enable updating via installer."
@@ -152,7 +147,7 @@ getSimpleNodeOptions = execParser programInfo
                  <> footerDoc usageExample
 
     versionOption = infoOption
-        ("cardano-node-" <> showVersion version <>
+        ("cardano-node-" <> showVersion (Version [ 1, 3, 0 ] []) <>
          ", git revision " <> toString (ctiGitRevision compileInfo))
         (long "version" <> help "Show version.")
 

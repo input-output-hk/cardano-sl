@@ -26,8 +26,7 @@ Flag for-installer
 executable dbgen
   hs-source-dirs:      src/dbgen
   main-is:             Main.hs
-  if !flag(for-installer)
-   build-depends:      base >= 4.7 && < 5
+  build-depends:       base >= 4.7 && < 5
                      , acid-state-exts
                      , cardano-sl
                      , cardano-sl-chain-test
@@ -289,8 +288,7 @@ executable cardano-addr-convert
 executable cardano-cli-docs
   hs-source-dirs:      src/cli-docs
   main-is:             Main.hs
-  if !flag(for-installer)
-   build-depends:      base
+  build-depends:       base
                      , cardano-sl
                      , directory
                      , filepath
@@ -395,8 +393,7 @@ executable cardano-x509-certificates
 executable genesis-hash
   hs-source-dirs:      src/genesis-hash
   main-is:             Main.hs
-  if !flag(for-installer)
-   build-depends:      base
+  build-depends:       base
                      , universum
                      , bytestring
                      , cryptonite

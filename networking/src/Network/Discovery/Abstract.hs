@@ -13,6 +13,7 @@ import           Data.Set (Set)
 import           Data.Typeable (Typeable)
 import           GHC.Generics (Generic)
 import           Network.Transport (EndPointAddress)
+import           Prelude
 
 -- Note: we'll need a way to be notified of new peers.
 

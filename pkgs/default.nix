@@ -14145,6 +14145,34 @@ description = "The command-line interface for Cabal and Hackage";
 license = stdenv.lib.licenses.bsd3;
 
 }) {};
+"cabal-merger" = callPackage
+({
+  mkDerivation
+, base
+, Cabal
+, containers
+, stdenv
+, system-filepath
+, text
+}:
+mkDerivation {
+
+pname = "cabal-merger";
+version = "0.0.1";
+src = ./../cabal-merger;
+isLibrary = false;
+isExecutable = true;
+executableHaskellDepends = [
+base
+Cabal
+containers
+system-filepath
+text
+];
+doHaddock = false;
+license = stdenv.lib.licenses.mit;
+
+}) {};
 "cabal-rpm" = callPackage
 ({
   mkDerivation

@@ -13,6 +13,7 @@ import           Data.Foldable (foldrM)
 import           Data.List.NonEmpty (NonEmpty ((:|)))
 import           Data.Set (Set)
 import qualified Data.Set as S
+import           Prelude
 
 -- | A set (no duplicates) with at least one element.
 data NonEmptySet t = NonEmptySet !t !(Set t)

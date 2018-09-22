@@ -115,7 +115,6 @@ test_script:
       --no-haddock-deps
       --flag cardano-sl-core:-asserts
       --flag cardano-sl-tools:for-installer
-      --flag cardano-sl-wallet:for-installer
       --extra-include-dirs="C:\OpenSSL-Win64-v102\include"
       --extra-lib-dirs="C:\OpenSSL-Win64-v102"
       --extra-include-dirs="C:\xz_extracted\include"

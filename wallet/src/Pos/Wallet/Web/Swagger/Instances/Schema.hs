@@ -18,6 +18,7 @@ import           Data.Swagger (NamedSchema (..), SwaggerType (..),
                      name, properties, required, sketchSchema, type_)
 import           Data.Swagger.Internal.Schema (named)
 import qualified Data.Swagger.Lens as Swagger
+import qualified Data.Text as T
 import           Data.Typeable (Typeable, typeRep)
 
 #if !(MIN_VERSION_swagger2(2,2,2))
@@ -137,13 +138,13 @@ instance ToSchema CT.CFilePath where
                 & example ?~ "keys/1.key"
         return $ named "FilePath" schema'
       where
-        desc = "Path to file.\n \
-               \Note that it is represented as JSON-string, \
-               \one may need to properly escape content. For instance:\n \
-               \curl ... -X \"\\\\\"1.key\"\\\\\".\n\
-               \Also, when on Windows, don't forget to double-escape \
-               \ backslashes, e.g. \
-               \ \"C:\\\\\\\\\\\\\\\\keys\\\\\\\\1.key\""
+        desc = T.concat $ [ "Path to file.\n ",
+               "Note that it is represented as JSON-string, ",
+               "one may need to properly escape content. For instance:\n ",
+               "curl ... -X \"\\\\\"1.key\"\\\\\".\n",
+               "Also, when on Windows, don't forget to double-escape ",
+               " backslashes, e.g. ",
+               " \"C:\\\\\\\\\\\\\\\\keys\\\\\\\\1.key\""]
 
 instance ToSchema CT.NewBatchPayment where
     declareNamedSchema _ = do

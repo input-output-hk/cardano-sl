@@ -155,8 +155,7 @@ instance Buildable TxError where
     build (NotEnoughMoney coin) =
         bprint ("Transaction creation error: not enough money, need "%build%" more") coin
     build (NotEnoughAllowedMoney coin) =
-        bprint ("Transaction creation error: not enough money on addresses which are not included \
-                \in output addresses set, need "%build%" more") coin
+        bprint ("Transaction creation error: not enough money on addresses which are not included in output addresses set, need "%build%" more") coin
     build FailedToStabilize =
         "Transaction creation error: failed to stabilize fee"
     build (OutputIsRedeem addr) =

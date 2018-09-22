@@ -23,6 +23,7 @@ import qualified Network.Kademlia as K
 
 import           Network.Discovery.Abstract
 import           Network.Transport
+import           Prelude
 
 -- | Wrapper which provides a 'K.Serialize' instance for any type with a
 --   'Binary' instance.

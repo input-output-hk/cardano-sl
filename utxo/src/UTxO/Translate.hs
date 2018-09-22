@@ -238,7 +238,7 @@ verifyBlocksPrefix blocks =
         (ebb ^. headerHashG)
         Nothing
         (ebb ^. gbBody . gbLeaders)
-        (OldestFirst []) -- ^ TODO pass these?
+        (OldestFirst []) -- TODO pass these?
         (Right <$> emb)
 
 -- | Blocks inside an epoch

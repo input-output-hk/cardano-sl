@@ -1,4 +1,5 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE LambdaCase   #-}
 -- | React to BListener events
 module Cardano.Wallet.Kernel.BListener (
     -- * Respond to block chain events
@@ -242,15 +243,15 @@ applyBlock pw@PassiveWallet{..} b = do
                   -> Maybe BlockContext
                   -> [ResolvedBlock]
                   -> ExceptT BackfillFailed IO (OldestFirst [] ResolvedBlock)
-      findMissing Nothing    Nothing    acc = return (OldestFirst acc)
+      findMissing Nothing    Nothing   !acc = return (OldestFirst acc)
       findMissing Nothing    (Just cp) _acc = throwError (CouldNotReachCheckpoint cp)
-      findMissing (Just cur) tgt        acc =
+      findMissing (Just cur) tgt       !acc =
         if (Just (cur ^. bcHash)) == (tgt ^? _Just . bcHash) then
             return (OldestFirst acc)
         else do
             rb   <- hashToBlock (cur ^. bcHash . fromDb)
             prev <- traverse hashToBlock (rb ^? rbContext . bcPrevMain . _Just . fromDb)
-            rb `seq` findMissing (prev ^? _Just . rbContext) tgt (rb : acc)
+            findMissing (prev ^? _Just . rbContext) tgt (rb : acc)
 
       -- Find and resolve the block with a given hash.
       hashToBlock :: HeaderHash -> ExceptT BackfillFailed IO ResolvedBlock

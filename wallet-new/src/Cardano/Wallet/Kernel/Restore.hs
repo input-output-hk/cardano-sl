@@ -259,15 +259,6 @@ beginRestoration pw wId prefilter root cur tgt restart = do
                            , _wrpTargetSlot  = toSlotId tgtSlot
                            , _wrpThroughput  = MeasuredIn 0
                            }
-    theTask <- newEmptyMVar
-
-    let restoreInfo = WalletRestorationInfo
-                      { _wriProgress = readIORef progress
-                      , _wriCancel   = readMVar theTask >>= cancel
-                      , _wriRestart  = restart
-                      }
-
-    addOrReplaceRestoration pw wId restoreInfo
 
     -- Begin restoring the wallet history in the background.
     restoreTask <- async $
@@ -284,7 +275,12 @@ beginRestoration pw wId prefilter root cur tgt restart = do
                                          (tgtTip, tgtSlot)) $ \(e :: SomeException) ->
               (pw ^. walletLogMessage) Error ("Exception during restoration: " <> show e)
 
-    void $ swapMVar theTask restoreTask
+    theTask <- newMVar restoreTask
+    addOrReplaceRestoration pw wId $ WalletRestorationInfo
+        { _wriProgress = readIORef progress
+        , _wriCancel   = readMVar theTask >>= cancel
+        , _wriRestart  = restart
+        }
 
 -- | Information we need to start the restoration process
 data WalletInitInfo =
@@ -362,8 +358,8 @@ restoreWalletHistoryAsync :: Kernel.PassiveWallet
                           -> (Blund -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta]))
                           -> IORef WalletRestorationProgress
                           -> Maybe HeaderHash
-                            -- ^ The hash to start from, or Nothing to start from the
-                            -- genesis block's successor.
+                            -- ^ The last hash that this wallet has already restored,
+                            -- or Nothing to start from the genesis block's successor.
                           -> (HeaderHash, SlotId)
                             -- ^ The block that we are trying to reach via restoration.
                           -> IO ()
@@ -371,8 +367,9 @@ restoreWalletHistoryAsync wallet rootId prefilter progress start (tgtHash, tgtSl
     genesisHash <- configGenesisHash <$> getCoreConfig (wallet ^. walletNode)
     -- 'getFirstGenesisBlockHash' is confusingly named: it returns the hash of
     -- the first block /after/ the genesis block.
-    startingPoint <- fromMaybe (withNode $ getFirstGenesisBlockHash genesisHash)
-                               (pure <$> start)
+    startingPoint <- case start of
+        Nothing -> withNode $ getFirstGenesisBlockHash genesisHash
+        Just sh -> nextHistoricalHash sh >>= maybe (throwM $ RestorationSuccessorNotFound sh) pure
     restore genesisHash startingPoint NoTimingData
   where
     wId :: WalletId
@@ -487,6 +484,7 @@ perSecond (Rate n dt) = fromInteger $ round (toRational n / toRational dt)
 -- | Exception during restoration
 data RestorationException =
     RestorationBlockNotFound HeaderHash
+  | RestorationSuccessorNotFound HeaderHash
   | RestorationUndoNotFound HeaderHash
   | RestorationApplyHistoricalBlockFailed Spec.ApplyBlockFailed
   | RestorationFinishUnreachable HeaderHash HeaderHash
@@ -494,6 +492,8 @@ data RestorationException =
 instance Buildable RestorationException where
     build (RestorationBlockNotFound hash) =
       bprint ("RestorationBlockNotFound " % build) hash
+    build (RestorationSuccessorNotFound hash) =
+      bprint ("RestorationSuccessorNotFound " % build) hash
     build (RestorationUndoNotFound hash) =
       bprint ("RestorationUndoNotFound " % build) hash
     build (RestorationApplyHistoricalBlockFailed err) =

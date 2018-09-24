@@ -16,10 +16,8 @@ import           Universum
 import           Control.Monad.Except (throwError)
 import           Data.Coerce (coerce)
 import qualified Data.Map.Strict as Map
-import           Data.Maybe (fromJust)
 
-import           Pos.Chain.Block (Blund, mainBlockSlot, undoTx)
-import           Pos.Chain.Genesis (Config (..))
+import           Pos.Chain.Block (Blund)
 import           Pos.Chain.Txp (Utxo)
 import           Pos.Core (mkCoin)
 import           Pos.Core.Slotting (Timestamp)
@@ -30,24 +28,20 @@ import qualified Cardano.Wallet.API.V1.Types as V1
 import           Cardano.Wallet.Kernel.Addresses (newHdAddress)
 import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
 import           Cardano.Wallet.Kernel.DB.AcidState (dbHdWallets)
-import           Cardano.Wallet.Kernel.DB.BlockContext
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
-import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import           Cardano.Wallet.Kernel.DB.TxMeta (TxMeta)
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Internal (walletKeystore, _wriProgress)
 import qualified Cardano.Wallet.Kernel.Internal as Kernel
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
-import           Cardano.Wallet.Kernel.NodeStateAdaptor (NodeStateAdaptor)
-import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as Node
 import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock,
                      prefilterBlock)
 import qualified Cardano.Wallet.Kernel.Read as Kernel
-import           Cardano.Wallet.Kernel.Restore (restoreWallet)
-import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..),
-                     WalletId (..), fromRawResolvedBlock)
+import           Cardano.Wallet.Kernel.Restore (blundToResolvedBlock,
+                     restoreWallet)
+import           Cardano.Wallet.Kernel.Types (WalletId (..))
 import           Cardano.Wallet.Kernel.Util.Core (getCurrentTimestamp)
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import           Cardano.Wallet.WalletLayer (CreateWallet (..),
@@ -262,36 +256,6 @@ getWalletUtxos wId db = runExcept $ do
         withExceptT GetUtxosCurrentAvailableUtxoError $ exceptT $ do
             utxo <- Kernel.currentAvailableUtxo db (account ^. HD.hdAccountId)
             return (toAccount db account, utxo)
-
--- | The use of the unsafe constructor 'UnsafeRawResolvedBlock' is justified
--- by the invariants established in the 'Blund'.
-blundToResolvedBlock :: NodeStateAdaptor IO -> Blund -> IO (Maybe ResolvedBlock)
-blundToResolvedBlock node (b,u) = do
-    genesisHash <- configGenesisHash <$> Node.getCoreConfig node
-    case b of
-      Left  _ebb      -> return Nothing
-      Right mainBlock -> Node.withNodeState node $ \_lock -> do
-        ctxt  <- mainBlockContext genesisHash mainBlock
-        mTime <- getTimestamp (mainBlock ^. mainBlockSlot)
-        return $ Just $ fromRawResolvedBlock UnsafeRawResolvedBlock {
-            rawResolvedBlock       = mainBlock
-          , rawResolvedBlockInputs = map (map fromJust) $ undoTx u
-          , rawTimestamp           = mTime
-          , rawResolvedContext     = ctxt
-          }
-    where
-        -- | Get the timestamp to associate with the raw resolved block.
-        --   This timestamp becomes the createdAt time for all transactions
-        --   confirmed in this block.
-        --
-        --   Note: We use time derived from the block slot, otherwise we
-        --   rely on `getCreationTimestamp` provided by the node.
-        getTimestamp slotId = do
-            slotTime  <- Node.defaultGetSlotStart slotId
-            nodeTime  <- liftIO $ Node.getCreationTimestamp node
-
-            return $ either (const nodeTime) identity slotTime
-
 
 updateSyncState :: MonadIO m
                 => Kernel.PassiveWallet

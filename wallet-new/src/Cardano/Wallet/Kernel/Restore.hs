@@ -4,6 +4,7 @@
 module Cardano.Wallet.Kernel.Restore
     ( restoreWallet
     , restoreKnownWallet
+    , blundToResolvedBlock
     ) where
 
 import           Universum
@@ -462,7 +463,7 @@ instance Show RestorationException where
 instance Exception RestorationException
 
 {-------------------------------------------------------------------------------
-  TODO (@mn): duplicated from Cardano.Wallet.WalletLayer.Kernel.Wallets
+  Shared with Cardano.Wallet.WalletLayer.Kernel.Wallets
 -------------------------------------------------------------------------------}
 
 -- | The use of the unsafe constructor 'UnsafeRawResolvedBlock' is justified

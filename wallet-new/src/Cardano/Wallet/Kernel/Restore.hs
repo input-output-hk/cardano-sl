@@ -409,9 +409,9 @@ restoreWalletHistoryAsync wallet rootId prefilter progress start (tgtHash, tgtSl
                 blockPerSec      = MeasuredIn . BlockCount . perSecond <$> rate
                 throughputUpdate = maybe identity (set wrpThroughput) blockPerSec
                 slotId           = mb ^. mainBlockSlot
-            modifyIORef progress ( (wrpCurrentSlot .~ flat slotId)
-                                 . (wrpTargetSlot  .~ flat tgtSlot)
-                                 . throughputUpdate )
+            modifyIORef' progress ( (wrpCurrentSlot .~ flat slotId)
+                                  . (wrpTargetSlot  .~ flat tgtSlot)
+                                  . throughputUpdate )
             -- Store the TxMetas
             forM_ txMetas (putTxMeta (wallet ^. walletMeta))
 

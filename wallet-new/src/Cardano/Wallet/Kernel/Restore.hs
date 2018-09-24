@@ -25,8 +25,9 @@ import           Cardano.Wallet.API.Types.UnitOfMeasure
 import           Cardano.Wallet.Kernel (walletLogMessage)
 import qualified Cardano.Wallet.Kernel as Kernel
 import           Cardano.Wallet.Kernel.DB.AcidState (ApplyHistoricalBlock (..),
-                     CreateHdWallet (..), RestorationComplete (..),
-                     RestoreHdWallet (..), dbHdWallets)
+                     CreateHdWallet (..), ResetAllHdWalletAccounts (..),
+                     RestorationComplete (..), RestoreHdWallet (..),
+                     dbHdWallets)
 import           Cardano.Wallet.Kernel.DB.BlockContext
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.HdWallet.Create (CreateHdRootError)
@@ -141,8 +142,12 @@ restoreWallet pw hasSpendingPassword defaultCardanoAddress name assurance esk = 
         coreConfig <- getCoreConfig (pw ^. walletNode)
         walletInitInfo <- withNodeState (pw ^. walletNode) $ getWalletInitInfo coreConfig wkey
         case walletInitInfo of
-            WalletCreate _utxos -> return ()
-            WalletRestore _utxos tgt ->
+            WalletCreate _utxos ->
+                -- This can only happen if the node has no main blocks,
+                -- which is quite unlikely. For now, silently fail.
+                return ()
+            WalletRestore utxos tgt -> do
+                update (pw ^. wallets) $ ResetAllHdWalletAccounts tgt utxos
                 beginRestoration pw wId prefilter root tgt (restart root)
 
     wId    = WalletIdHdRnd (HD.eskToHdRootId esk)
@@ -185,9 +190,14 @@ restoreKnownWallet pw rootId = do
                     Nothing   -> return () -- TODO (@mn): this really shouldn't happen
                     Just root ->
                       let restart =
-                              withNodeState (pw ^. walletNode) (getWalletInitInfo coreConfig wkey) >>= \case
-                                  WalletCreate  _utxos     -> return ()
-                                  WalletRestore _utxos tgt ->
+                              withNodeState (pw ^. walletNode)
+                                            (getWalletInitInfo coreConfig wkey) >>= \case
+                                  WalletCreate  _utxos    ->
+                                    -- This can only happen if the node has no main blocks,
+                                    -- which is quite unlikely. For now, silently fail.
+                                    return ()
+                                  WalletRestore utxos tgt -> do
+                                    update (pw ^. wallets) $ ResetAllHdWalletAccounts tgt utxos
                                     beginRestoration pw wId prefilter root tgt restart
                       in restart
 

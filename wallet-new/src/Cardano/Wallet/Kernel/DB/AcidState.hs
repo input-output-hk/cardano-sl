@@ -29,6 +29,7 @@ module Cardano.Wallet.Kernel.DB.AcidState (
   , UpdateHdWallet(..)
   , UpdateHdRootPassword(..)
   , UpdateHdAccountName(..)
+  , ResetAllHdWalletAccounts(..)
     -- *** DELETE
   , DeleteHdRoot(..)
   , DeleteHdAccount(..)
@@ -49,6 +50,7 @@ module Cardano.Wallet.Kernel.DB.AcidState (
 
 import           Universum
 
+import           Control.Lens ((.=))
 import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Except (MonadError, catchError)
 import           Data.Acid (Query, Update, makeAcidic)
@@ -84,7 +86,7 @@ import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId,
 import           Cardano.Wallet.Kernel.Util.NonEmptyMap (NonEmptyMap)
 import qualified Cardano.Wallet.Kernel.Util.NonEmptyMap as NEM
 import           Test.QuickCheck (Arbitrary (..), oneof)
-import           UTxO.Util (markMissingMapEntries)
+import           UTxO.Util (markMissingMapEntries, mustBeRight)
 
 {-------------------------------------------------------------------------------
   Top-level database
@@ -721,6 +723,35 @@ deleteAllHdAccounts :: HdRootId -> Update DB (Either UnknownHdRoot ())
 deleteAllHdAccounts rootId = runUpdateDiscardSnapshot . zoom dbHdWallets $
     HD.deleteAllHdAccounts rootId
 
+resetAllHdWalletAccounts :: BlockContext -> Map HdAccountId (Utxo, Utxo, [AddrWithId]) -> Update DB ()
+resetAllHdWalletAccounts context utxoByAccount = mustBeRight <$> do
+    runUpdateDiscardSnapshot $ zoom dbHdWallets $
+      updateAccounts_ =<< mkUpdates <$> use hdWalletsAccounts
+  where
+    mkUpdates :: IxSet HdAccount -> [AccountUpdate Void ()]
+    mkUpdates existingAccounts =
+          map mkUpdate
+        . Map.toList
+        . markMissingMapEntries (IxSet.toMap existingAccounts)
+        $ utxoByAccount
+
+    -- The account update: set every account back to the incomplete state.
+    mkUpdate :: (HdAccountId, Maybe (Utxo, Utxo, [AddrWithId]))
+             -> AccountUpdate Void ()
+    mkUpdate (accId, utxos) = AccountUpdate {
+          accountUpdateId    = accId
+        , accountUpdateAddrs = []
+        , accountUpdateNew   = AccountUpdateNewIncomplete mempty mempty context
+        , accountUpdate      =
+                let (curUtxo, genUtxo) = maybe (mempty, mempty) (\(u,u',_) -> (u,u')) utxos
+                    s = HdAccountIncomplete
+                      { _hdIncompleteCurrent    = Checkpoints $ one $ initPartialCheckpoint context curUtxo
+                      , _hdIncompleteHistorical = Checkpoints $ one $ initCheckpoint        genUtxo
+                      }
+                in hdAccountState .= HdAccountStateIncomplete s
+        }
+
+
 {-------------------------------------------------------------------------------
   DB cleaning
 -------------------------------------------------------------------------------}
@@ -778,6 +809,7 @@ makeAcidic ''DB [
     , 'deleteHdRoot
     , 'deleteHdAccount
     , 'deleteAllHdAccounts
+    , 'resetAllHdWalletAccounts
     , 'clearDB
     , 'restoreHdWallet
       -- Software updates

@@ -16,6 +16,7 @@ import           Control.Monad.Except (throwError)
 import           Data.Acid (createCheckpoint)
 import           Data.Acid.Advanced (update')
 import           Data.List (scanl')
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
 import           Data.SafeCopy (base, deriveSafeCopy)
 import qualified Data.Set as Set
@@ -193,11 +194,14 @@ applyBlock pw@PassiveWallet{..} b = do
 
           -- Beginning with the oldest missing block, update each lagging account.
           let applyOne (block, toAccts) = runExceptT (applyOneBlock k (Just toAccts) block)
-          failures <- mapM applyOne (getOldestFirst $ gatherAcctsPerBlock toApply)
+          case toApply of
+              []       -> return () -- nothing to do!
+              (bk:bks) -> do
+                  failures <- mapM applyOne (getOldestFirst $ gatherAcctsPerBlock (bk :| bks))
 
-          case NEM.fromMap . Map.unions . map NEM.toMap . lefts $ failures of
-              Nothing       -> return ()                         -- OK, no failures, we are done!
-              Just moreErrs -> handleApplyBlockErrors k moreErrs -- Try again, better luck next time.
+                  case NEM.fromMap . Map.unions . map NEM.toMap . lefts $ failures of
+                      Nothing       -> return ()                         -- OK, no failures, we are done!
+                      Just moreErrs -> handleApplyBlockErrors k moreErrs -- Try again, better luck next time.
 
       -- Try to apply a single block, failing if it does not fit onto the most recent checkpoint.
       applyOneBlock :: Node.SecurityParameter
@@ -262,20 +266,24 @@ applyBlock pw@PassiveWallet{..} b = do
       -- Compute the list of blocks that must be applied, along with the accounts that
       -- should be updated for each block.
       -- PRECONDITION: Each list of blocks should eminate from the same "newest" block.
-      gatherAcctsPerBlock :: [(HdAccountId, OldestFirst [] ResolvedBlock)]
+      gatherAcctsPerBlock :: NonEmpty (HdAccountId, OldestFirst [] ResolvedBlock)
                           -> OldestFirst [] (ResolvedBlock, Set HdAccountId)
       gatherAcctsPerBlock a2bs =
         let firstAppearedIn :: Map Int (Set HdAccountId)
             firstAppearedIn = Map.fromListWith Set.union
-                              $ map (\(a, bs) -> (longestLength - length bs, Set.singleton a)) a2bs
+                              $ map (\(a, bs) -> (longestLength - length bs, Set.singleton a))
+                              $ NE.toList a2bs
 
             -- The longest sequence of blocks; due to the precondition on gatherAcctsPerBlock,
             -- every sequence of blocks appearing in a2bs is a suffix of this sequence.
             longest :: OldestFirst [] ResolvedBlock
-            longest = maximumBy (comparing length) $ map snd a2bs
+            longest = neMaximumBy (comparing length) $ map snd a2bs
 
             longestLength :: Int
             longestLength = length longest
+
+            neMaximumBy :: (a -> a -> Ordering) -> NonEmpty a -> a
+            neMaximumBy cmp = maximumBy cmp . NE.toList
 
             -- The accounts to update for each block in 'longest'.
             updateSets :: [Set HdAccountId]

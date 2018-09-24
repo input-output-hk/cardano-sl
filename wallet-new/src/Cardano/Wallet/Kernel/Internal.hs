@@ -25,7 +25,7 @@ module Cardano.Wallet.Kernel.Internal (
   , WalletRestorationProgress(..)
     -- ** Utility functions
   , newRestorationTasks
-  , addRestoration
+  , addOrReplaceRestoration
   , removeRestoration
   , lookupRestorationInfo
   , currentRestorations
@@ -166,8 +166,8 @@ makeLenses ''WalletRestorationProgress
 lookupRestorationInfo :: PassiveWallet -> WalletId -> IO (Maybe WalletRestorationInfo)
 lookupRestorationInfo pw wid = Map.lookup wid <$> currentRestorations pw
 
-addRestoration :: PassiveWallet -> WalletId -> WalletRestorationInfo -> IO ()
-addRestoration pw wId restoreInfo =
+addOrReplaceRestoration :: PassiveWallet -> WalletId -> WalletRestorationInfo -> IO ()
+addOrReplaceRestoration pw wId restoreInfo =
     modifyMVar_ (pw ^. walletRestorationTask . to _wrt) $ \wrt -> do
         -- Cancel any other restorations currently running for this wallet.
        whenJust (Map.lookup wId wrt) cancelRestoration

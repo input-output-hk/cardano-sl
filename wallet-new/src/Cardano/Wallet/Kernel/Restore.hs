@@ -38,7 +38,7 @@ import           Cardano.Wallet.Kernel.DB.TxMeta.Types
 import           Cardano.Wallet.Kernel.Decrypt (WalletDecrCredentialsKey (..),
                      decryptAddress, keyToWalletDecrCredentials)
 import           Cardano.Wallet.Kernel.Internal (WalletRestorationInfo (..),
-                     WalletRestorationProgress (..), addRestoration,
+                     WalletRestorationProgress (..), addOrReplaceRestoration,
                      cancelRestoration, lookupRestorationInfo,
                      removeRestoration, restartRestoration, walletKeystore,
                      walletMeta, walletNode, wallets, wrpCurrentSlot,
@@ -228,7 +228,7 @@ beginRestoration pw wId prefilter root tgt restart = do
                       , _wriRestart  = restart
                       }
 
-    addRestoration pw wId restoreInfo
+    addOrReplaceRestoration pw wId restoreInfo
 
     -- Begin restoring the wallet history in the background.
     restoreTask <- async $

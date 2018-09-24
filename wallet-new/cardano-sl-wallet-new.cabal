@@ -649,6 +649,7 @@ benchmark cardano-sl-wallet-new-bench
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-wallet
+                     , cardano-sl-wallet-new
                      , cassava
                      , connection
                      , data-default

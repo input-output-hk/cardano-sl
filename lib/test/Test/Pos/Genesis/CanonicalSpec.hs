@@ -6,43 +6,35 @@ module Test.Pos.Genesis.CanonicalSpec
 
 import           Universum
 
-import           Test.Hspec (Spec, describe, runIO)
+import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
-import           Test.QuickCheck (generate)
 
-import           Pos.Core.Genesis (GenesisAvvmBalances, GenesisData, GenesisDelegation,
-                                   GenesisProtocolConstants, GenesisWStakeholders)
-import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
+import           Pos.Core.Genesis (GenesisAvvmBalances, GenesisDelegation, GenesisWStakeholders)
+import           Pos.Crypto (RequiresNetworkMagic (..))
 
-import           Test.Pos.Configuration (withProvidedMagicConfig)
-import           Test.Pos.Core.Arbitrary ()
+import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Core.Arbitrary (genGenesisData, genGenesisProtocolConstants)
 import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
-import           Test.Pos.Helpers (canonicalJsonTest)
-
-
--- We run the tests this number of times, with different `ProtocolMagics`, to get increased
--- coverage. We should really do this inside of the `prop`, but it is difficult to do that
--- without significant rewriting of the testsuite.
-testMultiple :: Int
-testMultiple = 3
+import           Test.Pos.Helpers (canonicalJsonTest, canonicalJsonTest')
 
 spec :: Spec
-spec = do
-    runWithMagic NMMustBeNothing
-    runWithMagic NMMustBeJust
-
-runWithMagic :: RequiresNetworkMagic -> Spec
-runWithMagic rnm = replicateM_ testMultiple $
-    modifyMaxSuccess (`div` testMultiple) $ do
-        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
-        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
-            specBody pm
-
-specBody :: ProtocolMagic -> Spec
-specBody pm = withProvidedMagicConfig pm $ describe "Genesis" $ modifyMaxSuccess (const 10) $ do
+spec = withDefConfiguration $ \_ -> describe "Genesis" $ modifyMaxSuccess (const 10) $ do
     describe "Canonical encoding" $ do
-        canonicalJsonTest @GenesisProtocolConstants
-        canonicalJsonTest @GenesisAvvmBalances
-        canonicalJsonTest @GenesisWStakeholders
-        canonicalJsonTest @GenesisDelegation
-        canonicalJsonTest @GenesisData
+
+        -- Restricted canonical JSON identity tests for those types which
+        -- include `ProtocolMagic`.
+        --
+        -- This must be done since the canonical `ToJSON` instance of
+        -- `ProtocolMagic` does not output the `RequiresNetworkMagic` field
+        -- and the canonical `FromJSON` instance defaults its value to
+        -- `NMMustBeJust`.
+        describe "Generator restricted to only use NMMustBeJust" $ do
+            let genPM = genProtocolMagicUniformWithRNM NMMustBeJust
+            canonicalJsonTest' $ genGenesisProtocolConstants genPM
+            canonicalJsonTest' $ genGenesisData (genGenesisProtocolConstants genPM)
+
+        -- Unrestricted canonical JSON identity tests
+        describe "Unrestricted tests" $ do
+            canonicalJsonTest @GenesisAvvmBalances
+            canonicalJsonTest @GenesisWStakeholders
+            canonicalJsonTest @GenesisDelegation

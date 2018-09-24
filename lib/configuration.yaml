@@ -259,6 +259,7 @@ mainnet_base: &mainnet_base
         avvmDistr: {}
 
     dbSerializeVersion: 0
+    requiresNetworkMagic: NMMustBeNothing
 
   ntp:
     responseTimeout: 30000000 # 30 sec

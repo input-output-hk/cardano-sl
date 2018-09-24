@@ -12,32 +12,34 @@ in
 { system ? builtins.currentSystem
 , config ? {}
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; overlays = [ jemallocOverlay ]; })
+, cardanoPkgs ? import ./. {inherit config system pkgs; }
 }:
 with pkgs;
 let
   hsPkgs = haskell.packages.ghc822;
-  iohkPkgs = import ./. {inherit config system pkgs; };
   cardanoSL = haskell.lib.buildStackProject {
-     name = "cardano-sl";
+     name = "cardano-sl-env";
      ghc = hsPkgs.ghc;
      buildInputs = [
        zlib openssh autoreconfHook openssl
        gmp rocksdb git bsdiff ncurses
        hsPkgs.happy hsPkgs.cpphs lzma
        perl bash
-       iohkPkgs.stylish-haskell
+       cardanoPkgs.stylish-haskell
        hlint
      # cabal-install and stack pull in lots of dependencies on OSX so skip them
      # See https://github.com/NixOS/nixpkgs/issues/21200
      ] ++ (lib.optionals stdenv.isLinux [ cabal-install stack ])
        ++ (lib.optionals stdenv.isDarwin (with darwin.apple_sdk.frameworks; [ Cocoa CoreServices libcxx libiconv ]));
+    phases = ["nobuildPhase"];
+    nobuildPhase = "mkdir -p $out";
   };
   fixStylishHaskell = stdenv.mkDerivation {
     name = "fix-stylish-haskell";
-    buildInputs = [ iohkPkgs.stylish-haskell git ];
+    buildInputs = [ cardanoPkgs.stylish-haskell git ];
     shellHook = ''
       git diff > pre-stylish.diff
-      find . -type f -name "*hs" -not -path '.git' -not -path '*.stack-work*' -not -name 'HLint.hs' -exec stylish-haskell -i {} \;
+      find . -type f -not -path '.git' -not -path '*.stack-work*' -name "*.hs" -not -name 'HLint.hs' -exec stylish-haskell -i {} \;
       git diff > post-stylish.diff
       diff pre-stylish.diff post-stylish.diff > /dev/null
       if [ $? != 0 ]

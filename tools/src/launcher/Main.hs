@@ -315,14 +315,10 @@ main =
                   Nothing ->
                       identity
                   Just _  ->
-                    (ltHandlers %~ (\xs -> [LogHandler { _lhName="node", _lhFpath=Just "node.log"
-                                                       , _lhBackend=FileTextBE
-                                                       , _lhMinSeverity=Just Info
-                                                       , _lhSecurityLevel=Just SecretLogLevel}
-                                           ,LogHandler { _lhName="json", _lhFpath=Just "pub/node.pub"
-                                                       , _lhBackend=FileJsonBE
-                                                       , _lhMinSeverity=Just Info
-                                                       , _lhSecurityLevel=Just PublicLogLevel}] ++ xs)) .
+                    (ltHandlers %~ (\xs -> LogHandler { _lhName="launcher", _lhFpath=Just "pub/launcher"
+                                                      , _lhBackend=FileTextBE
+                                                      , _lhMinSeverity=Just Info
+                                                      , _lhSecurityLevel=Just PublicLogLevel} : xs)) .
                     set ltMinSeverity Info
     logException loggerName . usingLoggerName loggerName $
         withConfigurations Nothing Nothing False loConfiguration $ \genesisConfig _ _ _ -> do

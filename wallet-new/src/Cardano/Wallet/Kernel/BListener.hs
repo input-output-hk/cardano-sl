@@ -250,7 +250,7 @@ applyBlock pw@PassiveWallet{..} b = do
         else do
             rb   <- hashToBlock (cur ^. bcHash . fromDb)
             prev <- traverse hashToBlock (rb ^? rbContext . bcPrevMain . _Just . fromDb)
-            findMissing (prev ^? _Just . rbContext) tgt (rb : acc)
+            rb `seq` findMissing (prev ^? _Just . rbContext) tgt (rb : acc)
 
       -- Find and resolve the block with a given hash.
       hashToBlock :: HeaderHash -> ExceptT BackfillFailed IO ResolvedBlock

@@ -190,6 +190,7 @@ library
                      , cardano-sl-networking
                      , cardano-sl-node-ipc
                      , cardano-sl-util
+                     , cardano-sl-utxo
                      , cardano-sl-wallet
                      , cardano-sl-x509
                      , cereal
@@ -248,7 +249,6 @@ library
                      , unliftio
                      , unliftio-core
                      , unordered-containers
-                     , utxo
                      , vector
                      , wai
                      , wai-middleware-throttle
@@ -512,6 +512,7 @@ test-suite wallet-unit-tests
                     , cardano-sl-db
                     , cardano-sl-util
                     , cardano-sl-util-test
+                    , cardano-sl-utxo
                     , cardano-sl-wallet-new
                     , cereal
                     , constraints
@@ -536,7 +537,6 @@ test-suite wallet-unit-tests
                     , formatting
                     , universum
                     , unordered-containers
-                    , utxo
                     , vector
                       -- needed only for input selection evaluation
                     , bytestring

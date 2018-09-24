@@ -33,7 +33,6 @@ module Cardano.Wallet.Kernel.DB.AcidState (
     -- *** DELETE
   , DeleteHdRoot(..)
   , DeleteHdAccount(..)
-  , DeleteAllHdAccounts(..)
     -- *** CLEARING
   , ClearDB (..)
     -- ** Software updates
@@ -719,10 +718,6 @@ recreateHdRoot hdRoot = do
     -- Now create it again.
     HD.createHdRoot hdRoot
 
-deleteAllHdAccounts :: HdRootId -> Update DB (Either UnknownHdRoot ())
-deleteAllHdAccounts rootId = runUpdateDiscardSnapshot . zoom dbHdWallets $
-    HD.deleteAllHdAccounts rootId
-
 resetAllHdWalletAccounts :: BlockContext -> Map HdAccountId (Utxo, Utxo, [AddrWithId]) -> Update DB ()
 resetAllHdWalletAccounts context utxoByAccount = mustBeRight <$> do
     runUpdateDiscardSnapshot $ zoom dbHdWallets $
@@ -808,7 +803,6 @@ makeAcidic ''DB [
     , 'updateHdAccountName
     , 'deleteHdRoot
     , 'deleteHdAccount
-    , 'deleteAllHdAccounts
     , 'resetAllHdWalletAccounts
     , 'clearDB
     , 'restoreHdWallet

@@ -329,7 +329,7 @@ switchToFork pw@PassiveWallet{..} oldest bs = do
                 -- Now that the problematic wallets are in restoration, try again.
                 trySwitchingToFork k blockssByAccount
 
-            Right changes                       -> do
+            Right changes -> do
                 -- Restart the restorations, and return the changes.
                 mapM_ restartRestoration restorations
                 return changes

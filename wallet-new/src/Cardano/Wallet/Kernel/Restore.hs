@@ -4,13 +4,14 @@
 module Cardano.Wallet.Kernel.Restore
     ( restoreWallet
     , restoreKnownWallet
+    , continueRestoration
     , blundToResolvedBlock
     ) where
 
 import           Universum
 
 import           Control.Concurrent.Async (async, cancel)
-import           Control.Lens (at)
+import           Control.Lens (at, _Just)
 import           Data.Acid (update)
 import qualified Data.Map.Merge.Strict as M
 import qualified Data.Map.Strict as M
@@ -123,7 +124,7 @@ restoreWallet pw hasSpendingPassword defaultCardanoAddress name assurance esk = 
               Left  err  -> return (Left err)
               Right root -> do
                   -- Start the restoration task.
-                  beginRestoration pw wId prefilter root tgt (restart root)
+                  beginRestoration pw wId prefilter root Nothing tgt (restart root)
 
                   -- Return the wallet's current balance.
                   let coins = unsafeIntegerToCoin
@@ -149,7 +150,7 @@ restoreWallet pw hasSpendingPassword defaultCardanoAddress name assurance esk = 
                 return ()
             WalletRestore utxos tgt -> do
                 update (pw ^. wallets) $ ResetAllHdWalletAccounts tgt utxos
-                beginRestoration pw wId prefilter root tgt (restart root)
+                beginRestoration pw wId prefilter root Nothing tgt (restart root)
 
     wId    = WalletIdHdRnd (HD.eskToHdRootId esk)
     wkey   = (wId, keyToWalletDecrCredentials (KeyForRegular esk))
@@ -199,26 +200,63 @@ restoreKnownWallet pw rootId = do
                                     return ()
                                   WalletRestore utxos tgt -> do
                                     update (pw ^. wallets) $ ResetAllHdWalletAccounts tgt utxos
-                                    beginRestoration pw wId prefilter root tgt restart
+                                    beginRestoration pw wId prefilter root Nothing tgt restart
                       in restart
 
+-- | Take a wallet that is in an incomplete state but not restoring, and
+-- start up a restoration task for it. This is used to bring up restoration
+-- tasks for any accounts in incomplete states when the wallet starts up.
+continueRestoration :: Kernel.PassiveWallet
+                    -> HD.HdRoot
+                    -> Maybe BlockContext
+                    -> BlockContext
+                    -> IO ()
+continueRestoration pw root cur tgt = do
+    let wId = WalletIdHdRnd (root ^. HD.hdRootId)
+    Keystore.lookup wId (pw ^. walletKeystore) >>= \case
+        Nothing  ->
+            -- TODO (@mn): raise an error, trying to continue
+            -- restoration of an unknown wallet
+            return ()
+        Just esk -> do
+            let prefilter = mkPrefilter pw wId esk
+                wkey      = (wId, keyToWalletDecrCredentials (KeyForRegular esk))
+                restart   = do
+                    coreConfig <- getCoreConfig (pw ^. walletNode)
+                    wii <- withNodeState (pw ^. walletNode)
+                                        (getWalletInitInfo coreConfig wkey)
+                    case wii of
+                      WalletCreate  _utxos    ->
+                          -- This can only happen if the node has no main blocks,
+                          -- which is quite unlikely. For now, silently fail.
+                          return ()
+                      WalletRestore utxos tgt' -> do
+                          update (pw ^. wallets) $ ResetAllHdWalletAccounts tgt' utxos
+                          beginRestoration pw wId prefilter root Nothing tgt' restart
+            beginRestoration pw wId prefilter root cur tgt restart
+
+-- | Register and start up a background restoration task.
 beginRestoration  :: Kernel.PassiveWallet
                   -> WalletId
                   -> (Blund -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta]))
                   -> HD.HdRoot
+                  -> Maybe BlockContext
+                     -- ^ The block to start from, or Nothing to
+                     -- start from the genesis block.
                   -> BlockContext
                   -> IO ()
                   -> IO ()
-beginRestoration pw wId prefilter root tgt restart = do
+beginRestoration pw wId prefilter root cur tgt restart = do
 
     let tgtTip  = tgt ^. bcHash   . fromDb
         tgtSlot = tgt ^. bcSlotId . fromDb
 
     -- Set the wallet's restoration information
     slotCount <- getSlotCount (pw ^. walletNode)
+    let toSlotId = flattenSlotId slotCount
     progress <- newIORef $ WalletRestorationProgress
-                           { _wrpCurrentSlot = 0
-                           , _wrpTargetSlot  = flattenSlotId slotCount tgtSlot
+                           { _wrpCurrentSlot = maybe 0 (toSlotId . view (bcSlotId . fromDb)) cur
+                           , _wrpTargetSlot  = toSlotId tgtSlot
                            , _wrpThroughput  = MeasuredIn 0
                            }
     theTask <- newEmptyMVar
@@ -242,6 +280,7 @@ beginRestoration pw wId prefilter root tgt restart = do
                                          (root ^. HD.hdRootId)
                                          prefilter
                                          progress
+                                         (cur ^? _Just . bcHash . fromDb)
                                          (tgtTip, tgtSlot)) $ \(e :: SomeException) ->
               (pw ^. walletLogMessage) Error ("Exception during restoration: " <> show e)
 
@@ -322,13 +361,18 @@ restoreWalletHistoryAsync :: Kernel.PassiveWallet
                           -> HD.HdRootId
                           -> (Blund -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta]))
                           -> IORef WalletRestorationProgress
+                          -> Maybe HeaderHash
+                            -- ^ The hash to start from, or Nothing to start from the
+                            -- genesis block's successor.
                           -> (HeaderHash, SlotId)
+                            -- ^ The block that we are trying to reach via restoration.
                           -> IO ()
-restoreWalletHistoryAsync wallet rootId prefilter progress (tgtHash, tgtSlot) = do
+restoreWalletHistoryAsync wallet rootId prefilter progress start (tgtHash, tgtSlot) = do
     genesisHash <- configGenesisHash <$> getCoreConfig (wallet ^. walletNode)
     -- 'getFirstGenesisBlockHash' is confusingly named: it returns the hash of
     -- the first block /after/ the genesis block.
-    startingPoint <- withNode $ getFirstGenesisBlockHash genesisHash
+    startingPoint <- fromMaybe (withNode $ getFirstGenesisBlockHash genesisHash)
+                               (pure <$> start)
     restore genesisHash startingPoint NoTimingData
   where
     wId :: WalletId

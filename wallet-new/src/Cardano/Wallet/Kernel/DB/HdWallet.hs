@@ -53,6 +53,7 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
   , hdAccountState
   , hdAccountStateCurrent
   , hdAccountStateUpToDate
+  , hdAccountRestorationState
     -- *** Account state: up to date
   , hdUpToDateCheckpoints
     -- *** Account state: under restoration
@@ -460,13 +461,21 @@ hdAccountStateCurrent g = to $ \case
       st ^. hdIncompleteCurrent   . unCheckpoints . _Wrapped . SNE.head . g
 
 {-------------------------------------------------------------------------------
-  Predicates
+  Predicates and tests
 -------------------------------------------------------------------------------}
 
 hdAccountStateUpToDate :: HdAccount -> Bool
 hdAccountStateUpToDate a = case a ^. hdAccountState of
     HdAccountStateUpToDate   _ -> True
     HdAccountStateIncomplete _ -> False
+
+hdAccountRestorationState :: HdAccount -> Maybe (Maybe BlockContext, BlockContext)
+hdAccountRestorationState a = case a ^. hdAccountState of
+    HdAccountStateUpToDate   _                      -> Nothing
+    HdAccountStateIncomplete HdAccountIncomplete{..} -> Just $
+      ( _hdIncompleteHistorical ^. currentCheckpoint . cpContext,
+        _hdIncompleteCurrent    ^. oldestCheckpoint  . pcheckpointContext)
+
 
 {-------------------------------------------------------------------------------
   Unknown identifiers

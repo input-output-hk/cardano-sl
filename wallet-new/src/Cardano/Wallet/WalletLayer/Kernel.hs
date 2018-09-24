@@ -21,7 +21,9 @@ import           Pos.Util.Wlog (Severity (Debug))
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Actions as Actions
 import qualified Cardano.Wallet.Kernel.BListener as Kernel
-import           Cardano.Wallet.Kernel.DB.HdWallet (hdAccountStateUpToDate)
+import           Cardano.Wallet.Kernel.DB.AcidState (dbHdWallets)
+import           Cardano.Wallet.Kernel.DB.HdWallet (hdAccountRestorationState,
+                     hdRootId, hdWalletsRoots)
 import qualified Cardano.Wallet.Kernel.DB.Read as Kernel
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
@@ -29,7 +31,6 @@ import           Cardano.Wallet.Kernel.Keystore (Keystore)
 import           Cardano.Wallet.Kernel.NodeStateAdaptor
 import qualified Cardano.Wallet.Kernel.Read as Kernel
 import qualified Cardano.Wallet.Kernel.Restore as Kernel
-import           Cardano.Wallet.Kernel.Types (WalletId (..))
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),
                      PassiveWalletLayer (..))
 import qualified Cardano.Wallet.WalletLayer.Kernel.Accounts as Accounts
@@ -57,15 +58,12 @@ bracketPassiveWallet mode logFunction keystore node f = do
       -- restoration tasks.
       liftIO $ do
           snapshot <- Kernel.getWalletSnapshot w
-          let restoringWallets = catMaybes $ Kernel.walletIds snapshot <&> \case
-                  WalletIdHdRnd rootId ->
-                    let accts       = Kernel.accountsByRootId snapshot rootId
-                        isRestoring = not . hdAccountStateUpToDate
-                    in if IxSet.any isRestoring accts
-                       then Just rootId
-                       else Nothing
+          let wallets = IxSet.toList (snapshot ^. dbHdWallets . hdWalletsRoots)
+          for_ wallets $ \root -> do
+              let accts      = Kernel.accountsByRootId snapshot (root ^. hdRootId)
+                  restoring  = IxSet.findWithEvidence hdAccountRestorationState accts
 
-          for_ restoringWallets (Kernel.restoreKnownWallet w)
+              whenJust restoring $ uncurry (Kernel.continueRestoration w root)
 
       -- Start the wallet worker
       let wai = Actions.WalletActionInterp

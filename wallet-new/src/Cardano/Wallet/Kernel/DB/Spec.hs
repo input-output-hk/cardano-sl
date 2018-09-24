@@ -419,8 +419,8 @@ currentAddressMeta addr = currentCheckpoint . cpAddressMeta addr
   Convenience: accessors for other checkpoints
 -------------------------------------------------------------------------------}
 
-oldestCheckpoint :: Getter (NewestFirst StrictNonEmpty c) c
-oldestCheckpoint = _Wrapped . to SNE.last
+oldestCheckpoint :: Getter (Checkpoints c) c
+oldestCheckpoint = unCheckpoints . _Wrapped . to SNE.last
 
 {-------------------------------------------------------------------------------
   Pretty-printing

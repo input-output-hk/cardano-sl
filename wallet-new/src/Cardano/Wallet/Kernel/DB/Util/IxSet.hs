@@ -63,6 +63,7 @@ module Cardano.Wallet.Kernel.DB.Util.IxSet (
   , otraversal
   , foldl'
   , any
+  , findWithEvidence
     -- * Destruction
   , toList
   , toAscList
@@ -424,6 +425,11 @@ foldl' f initialValue (WrapIxSet nativeSet) =
 -- | Test if any elements satisfy the predicate, via foldl'.
 any :: (a -> Bool) -> IxSet a -> Bool
 any p = foldl' (\acc x -> acc || p x) False
+
+-- | @findWithEvidence f@ returns @f x@ for some element @x@ such that
+-- @isJust (f x)@ holds, or else 'Nothing'.
+findWithEvidence :: (a -> Maybe b) -> IxSet a -> Maybe b
+findWithEvidence p = foldrIxSet (\x acc -> maybe acc Just (p x)) Nothing
 
 -- | Right fold
 foldrIxSet :: (a -> acc -> acc)

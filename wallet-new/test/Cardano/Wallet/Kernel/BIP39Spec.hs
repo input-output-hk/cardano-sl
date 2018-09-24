@@ -1,7 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Test.Pos.Util.MnemonicSpec where
+module Cardano.Wallet.Kernel.BIP39Spec where
 
 import           Universum
 

@@ -48,8 +48,7 @@ import           Cardano.Wallet.Kernel.NodeStateAdaptor (NodeStateAdaptor)
 import           Cardano.Wallet.Kernel.Pending (cancelPending)
 import           Cardano.Wallet.Kernel.Read (getWalletSnapshot)
 import           Cardano.Wallet.Kernel.Submission (WalletSubmission,
-                     addPendings, defaultResubmitFunction, exponentialBackoff,
-                     newWalletSubmission, tick)
+                     addPendings, emptyWalletSubmission, tick)
 import           Cardano.Wallet.Kernel.Submission.Worker (tickSubmissionLayer)
 
 {-------------------------------------------------------------------------------
@@ -165,7 +164,7 @@ initPassiveWallet logMessage keystore handles node = do
         -- access to the PassiveWallet state
         preparePassiveWallet :: IO PassiveWallet
         preparePassiveWallet = do
-            submission <- newMVar (newWalletSubmission rho)
+            submission <- newMVar emptyWalletSubmission
             restore    <- newRestorationTasks
             return PassiveWallet {
                   _walletLogMessage      = logMessage
@@ -176,8 +175,6 @@ initPassiveWallet logMessage keystore handles node = do
                 , _walletSubmission      = submission
                 , _walletRestorationTask = restore
                 }
-          where
-            rho = defaultResubmitFunction (exponentialBackoff 255 1.25)
 
         -- | Since the submission layer state is not persisted, we need to initialise
         -- the submission layer with all pending transactions present in the wallet state.

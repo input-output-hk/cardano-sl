@@ -15,7 +15,7 @@ module Pos.Util.Log.Rotator
 
 import           Universum
 
-import           Control.Exception.Safe (Exception (..), catchIO)
+import           Control.Exception.Safe (catchIO)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time (UTCTime, addUTCTime, diffUTCTime, getCurrentTime,
                      parseTimeM)
@@ -25,7 +25,7 @@ import           System.FilePath ((</>))
 import           System.IO (BufferMode (LineBuffering), Handle,
                      IOMode (WriteMode), hFileSize, hSetBuffering, stdout)
 
-import           Pos.Util.Log.Internal (FileDescription (..))
+import           Pos.Util.Log.Internal (FileDescription (..), prtoutException)
 import           Pos.Util.Log.LoggerConfig
 
 #ifdef POSIX
@@ -78,11 +78,6 @@ evalRotator rotation fdesc@FileDescription{..} = do
     let rottime = addUTCTime (fromInteger $ maxAge * 3600) now
 
     return (hdl, maxSize, rottime)
-
-prtoutException :: Exception e => String -> e -> IO ()
-prtoutException msg e = do
-    putStrLn msg
-    putStrLn ("exception: " ++ displayException e)
 
 -- | list filenames in prefix dir which match 'filename'
 listLogFiles :: FileDescription -> IO (Maybe (NonEmpty FilePath))

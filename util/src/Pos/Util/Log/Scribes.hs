@@ -16,6 +16,7 @@ import           Universum
 import           Control.AutoUpdate (UpdateSettings (..), defaultUpdateSettings,
                      mkAutoUpdate)
 import           Control.Concurrent.MVar (modifyMVar_)
+import           Control.Exception.Safe (catchIO)
 
 import           Data.Aeson.Text (encodeToLazyText)
 import qualified Data.HashMap.Strict as HM
@@ -35,6 +36,7 @@ import           Pos.Util.Log.Rotator (cleanupRotator, evalRotator,
                      initializeRotator)
 import qualified Pos.Util.Log.Severity as Log (Severity (..))
 
+import           System.Directory (createDirectoryIfMissing)
 import           System.IO (BufferMode (LineBuffering), Handle,
                      IOMode (WriteMode), hClose, hSetBuffering, stderr, stdout)
 
@@ -71,6 +73,9 @@ mkFileScribe
     -> Log.Severity -> Verbosity
     -> IO Scribe
 mkFileScribe rot sevfilter fdesc formatter colorize s v = do
+    let prefixDir = Internal.prefixpath fdesc
+    (createDirectoryIfMissing True prefixDir)
+        `catchIO` (Internal.prtoutException ("cannot log prefix directory: " ++ prefixDir))
     trp <- initializeRotator rot fdesc
     scribestate <- newMVar trp    -- triple of (handle), (bytes remaining), (rotate time)
     -- sporadically remove old log files - every 10 seconds

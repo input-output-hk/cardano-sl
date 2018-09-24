@@ -532,7 +532,7 @@ restoreHdWallet :: HdRoot
 restoreHdWallet newRoot defaultHdAccountId defaultHdAddress ctx utxoByAccount =
     runUpdateDiscardSnapshot $ do
       zoom dbHdWallets $ do
-          recreateHdRoot newRoot
+          HD.createHdRoot newRoot
           updateAccounts_ $ map mkUpdate (Map.toList (insertDefault utxoByAccount))
   where
     mkUpdate :: (HdAccountId, (Utxo, Utxo, [AddrWithId]))
@@ -711,13 +711,8 @@ deleteHdAccount :: HdAccountId -> Update DB (Either UnknownHdAccount ())
 deleteHdAccount accId = runUpdateDiscardSnapshot . zoom dbHdWallets $
     HD.deleteHdAccount accId
 
-recreateHdRoot :: HdRoot -> Update' HD.CreateHdRootError HdWallets ()
-recreateHdRoot hdRoot = do
-    -- Delete the wallet, if it exists.
-    discardUpdateErrors (HD.deleteHdRoot (hdRoot ^. hdRootId))
-    -- Now create it again.
-    HD.createHdRoot hdRoot
-
+-- | Set all accounts in the map back to an incomplete state. This is used to
+-- put an existing wallet back into an initial state for restoration.
 resetAllHdWalletAccounts :: BlockContext -> Map HdAccountId (Utxo, Utxo, [AddrWithId]) -> Update DB ()
 resetAllHdWalletAccounts context utxoByAccount = mustBeRight <$> do
     runUpdateDiscardSnapshot $ zoom dbHdWallets $

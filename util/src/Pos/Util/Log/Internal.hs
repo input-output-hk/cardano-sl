@@ -18,11 +18,13 @@ module Pos.Util.Log.Internal
        , LoggingHandler      --  only export name
        , FileDescription (..)
        , mkFileDescription
+       , prtoutException
        ) where
 
 import           Control.AutoUpdate (UpdateSettings (..), defaultUpdateSettings,
                      mkAutoUpdate)
 import           Control.Concurrent.MVar (modifyMVar_, newMVar, withMVar)
+import           Control.Exception.Safe (Exception (..))
 
 import qualified Data.Text as T
 import           Data.Time (UTCTime, getCurrentTime)
@@ -37,6 +39,12 @@ import qualified Katip.Core as KC
 import           Pos.Util.Log.LoggerConfig (LoggerConfig (..))
 import           Pos.Util.Log.Severity
 
+
+-- | display message and stack trace of exception on stdout
+prtoutException :: Exception e => String -> e -> IO ()
+prtoutException msg e = do
+    putStrLn msg
+    putStrLn ("exception: " ++ displayException e)
 
 -- | translate Severity to @Katip.Severity@
 sev2klog :: Severity -> K.Severity

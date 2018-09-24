@@ -46,18 +46,16 @@ import           Data.X509
 import           Data.X509.CertificateStore (CertificateStore,
                      makeCertificateStore)
 import           Data.X509.Validation
-import           Net.IP (IP)
+import           Net.IPv4 (IPv4 (..))
+import           Net.IPv6 (IPv6 (..))
 
 import qualified Crypto.PubKey.RSA.Types as RSA
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base64 as Base64
+import qualified Data.ByteString.Builder as BS
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Lazy as BL
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
 import qualified Net.IP as IP
-import qualified Net.IPv4 as IPv4
-import qualified Net.IPv6 as IPv6
 
 
 --
@@ -175,10 +173,34 @@ parseSAN :: String -> AltName
 parseSAN name =
     case IP.decode (toText name) of
         Just ip ->
-            AltNameIP . T.encodeUtf8 $ IP.case_ IPv4.encode IPv6.encode ip
+            AltNameIP $ IP.case_ ipv4ToBS ipv6ToBS ip
 
         Nothing ->
             AltNameDNS name
+  where
+    -- NOTE
+    -- Here, we define custom encoding functions and aren't using the ones
+    -- defined in `Net.IP`, `Net.IPv4` or `Net.IPv6`.
+    -- Those methods lead to invalid encodings for the underlying x509 certificates.
+    --
+    -- From the RFC 3779 (https://datatracker.ietf.org/doc/rfc3779):
+    --
+    -- > IP v4 address - a 32-bit identifier written as four decimal numbers,
+    -- >    each in the range 0 to 255, separated by a ".".  10.5.0.5 is an
+    -- >    example of an IPv4 address.
+    -- >
+    -- > IP v6 address - a 128-bit identifier written as eight hexadecimal
+    -- >    quantities, each in the range 0 to ffff, separated by a ":".
+    -- >    2001:0:200:3:0:0:0:1 is an example of an IPv6 address.  One string
+    -- >    of :0: fields may be replaced by "::", thus 2001:0:200:3::1
+    -- >    represents the same address as the immediately preceding example.
+    ipv4ToBS :: IPv4 -> ByteString
+    ipv4ToBS (IPv4 bytes) =
+        BL.toStrict $ BS.toLazyByteString (BS.word32BE bytes)
+
+    ipv6ToBS :: IPv6 -> ByteString
+    ipv6ToBS (IPv6 a b) =
+        BL.toStrict $ BS.toLazyByteString (BS.word64BE a <> BS.word64BE b)
 
 
 --
@@ -234,21 +256,13 @@ encodeDERRSAPrivateKey =
         ]
 
 
--- | Helper to decode an IP address from raw bytes
-ipFromBytes :: ByteString -> Maybe IP
-ipFromBytes =
-    IP.decode . T.decodeUtf8
-
-
 -- | Hook to validate a certificate name. It only validates DNS and IPs names
 -- against the provided hostname. It fails otherwise.
 validateCertificateName :: HostName -> Certificate -> [FailedReason]
 validateCertificateName fqhn =
     case parseSAN fqhn of
         AltNameIP bytes ->
-            case ipFromBytes bytes of
-                Nothing -> const [InvalidName fqhn]
-                Just ip -> validateCertificateIP ip
+            validateCertificateIP bytes
         _ ->
             validateCertificateDNS fqhn
 
@@ -261,28 +275,28 @@ validateCertificateDNS =
 
 
 -- | Basic validation against the host if it turns out to be an IP address
-validateCertificateIP :: IP -> Certificate -> [FailedReason]
+validateCertificateIP :: ByteString -> Certificate -> [FailedReason]
 validateCertificateIP ip cert =
     let
-        commonName :: Maybe IP
+        commonName :: Maybe ByteString
         commonName =
             toCommonName =<< getDnElement DnCommonName (certSubjectDN cert)
 
-        altNames :: [IP]
+        altNames :: [ByteString]
         altNames =
             maybe [] toAltName $ extensionGet $ certExtensions cert
 
-        toAltName :: ExtSubjectAltName -> [IP]
+        toAltName :: ExtSubjectAltName -> [ByteString]
         toAltName (ExtSubjectAltName sans) =
             catMaybes $ flip map sans $ \case
-                AltNameIP bytes -> ipFromBytes bytes
+                AltNameIP bytes -> Just bytes
                 _               -> Nothing
 
-        toCommonName :: ASN1CharacterString -> Maybe IP
+        toCommonName :: ASN1CharacterString -> Maybe ByteString
         toCommonName =
-            asn1CharacterToString >=> (ipFromBytes . B8.pack)
+            fmap B8.pack . asn1CharacterToString
     in
-        if any (== ip) (maybeToList commonName ++ altNames) then
+        if ip `elem` (maybeToList commonName ++ altNames) then
             []
         else
-            [NameMismatch $ T.unpack $ IP.encode ip]
+            [NameMismatch $ B8.unpack ip]

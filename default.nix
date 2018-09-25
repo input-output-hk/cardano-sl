@@ -11,14 +11,14 @@ let
 in
 { system ? builtins.currentSystem
 , config ? {}
-, gitrev ? localLib.commitIdFromGitRepo ./.git
+, gitrev ? "123456"
 , buildId ? null
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; overlays = [ jemallocOverlay ]; })
 # profiling slows down performance by 50% so we don't enable it by default
-, forceDontCheck ? false
+, forceDontCheck ? true
 , enableProfiling ? false
 , enableDebugging ? false
-, enableBenchmarks ? true
+, enableBenchmarks ? false
 , allowCustomConfig ? true
 }:
 
@@ -71,7 +71,7 @@ let
           "-f-asserts"
         ];
         # waiting on load-command size fix in dyld
-        doCheck = ! pkgs.stdenv.isDarwin;
+        doCheck = ! forceDontCheck && ! pkgs.stdenv.isDarwin;
         passthru = {
           inherit enableProfiling;
         };
@@ -90,7 +90,7 @@ let
       cardano-sl-wallet-new-static = addGitRev (justStaticExecutables (buildWithBenchmarks super.cardano-sl-wallet-new));
       cardano-sl-tools = addGitRev (justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
         # waiting on load-command size fix in dyld
-        doCheck = ! pkgs.stdenv.isDarwin;
+        doCheck =  ! forceDontCheck && ! pkgs.stdenv.isDarwin;
       })));
 
       cardano-sl-node-static = justStaticExecutables self.cardano-sl-node;
@@ -160,10 +160,10 @@ let
       args: pkgs.callPackage ./scripts/launch/connect-to-cluster (args // { inherit gitrev; } // walletConfig );
   other = rec {
     validateJson = pkgs.callPackage ./tools/src/validate-json {};
-    demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev; };
+    demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev forceDontCheck; };
     demoClusterDaedalusDev = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev; disableClientAuth = true; numImportedWallets = 0; };
     demoClusterLaunchGenesis = pkgs.callPackage ./scripts/launch/demo-cluster {
-      inherit gitrev;
+      inherit gitrev forceDontCheck;
       launchGenesis = true;
       configurationKey = "testnet_full";
       runWallet = false;

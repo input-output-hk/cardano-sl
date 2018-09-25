@@ -16,6 +16,7 @@
 , disableClientAuth ? false
 , launchGenesis ? false
 , configurationKey ? "default"
+, forceDontCheck ? false
 }:
 
 with localLib;
@@ -45,7 +46,7 @@ let
   demoWallet = pkgs.callPackage ./../connect-to-cluster ({ inherit gitrev; } // walletEnvironment // walletConfig);
   ifWallet = localLib.optionalString (runWallet);
   ifKeepAlive = localLib.optionalString (keepAlive);
-  iohkPkgs = import ./../../.. { inherit config system pkgs gitrev; };
+  iohkPkgs = import ./../../.. { inherit config system pkgs gitrev forceDontCheck; };
   src = ./../../..;
   topologyFile = import ./make-topology.nix { inherit (pkgs) lib; cores = numCoreNodes; relays = numRelayNodes; };
   walletTopologyFile = builtins.toFile "wallet-topology.yaml" (builtins.toJSON {

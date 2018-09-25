@@ -1,18 +1,23 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE InstanceSigs               #-}
+{-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
 
 -- | Some utilities for working with acid-state
 module Cardano.Wallet.Kernel.DB.Util.AcidState (
     -- * Updates
     Update' -- opaque
-  , mapUpdateErrors
     -- ** Running updates
   , runUpdate'
   , runUpdateDiscardSnapshot
   , runUpdate_
   , runUpdateNoErrors
-    -- * Queries
+  , tryUpdate
+  , tryUpdate'
+  , mapUpdateErrors
+  , discardUpdateErrors
+    -- * Queries (to be run on a snapshot)
   , Query' -- opaque
   , mapQueryErrors
   , localQuery
@@ -42,6 +47,7 @@ import           Cardano.Wallet.Kernel.DB.Util.IxSet (HasPrimKey, Indexable,
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import qualified Cardano.Wallet.Kernel.DB.Util.Zoomable as Z
 import           Cardano.Wallet.Kernel.Util.StrictStateT
+import           Cardano.Wallet.Orphans ()
 import           UTxO.Util (mustBeRight)
 
 {-------------------------------------------------------------------------------
@@ -66,6 +72,25 @@ instance Z.Zoomable (Update' e) where
 mapUpdateErrors :: (e -> e') -> Update' e st a -> Update' e' st a
 mapUpdateErrors f (Update' upd) = Update' $
     strictStateT $ withExcept f . runStrictStateT upd
+
+discardUpdateErrors :: Update' e st a -> Update' e' st ()
+discardUpdateErrors (Update' upd) = Update' $
+    strictStateT $ \s -> ExceptT $ do
+        runExceptT (runStrictStateT (void upd) s) <&> \case
+            Left  _       -> return ((), s)
+            Right (_, s') -> return ((), s')
+
+tryUpdate :: Update' e st a -> Update' e' st (Either e a)
+tryUpdate = mapUpdateErrors absurd . tryUpdate'
+
+tryUpdate' :: forall st e a. Update' e st a -> Update' Void st (Either e a)
+tryUpdate' (Update' action) = do
+    state0 <- get
+    let convert :: Either e (a, st) -> Either Void (Either e a, st)
+        convert = Right . \case
+            Left  e           -> (Left  e, state0)
+            Right (x, state1) -> (Right x, state1)
+    Update' $ mapStrictStateT (mapExcept convert) action
 
 {-------------------------------------------------------------------------------
   Queries

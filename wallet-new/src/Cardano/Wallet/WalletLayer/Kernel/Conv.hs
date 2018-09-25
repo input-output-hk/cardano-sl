@@ -53,8 +53,8 @@ import           Cardano.Wallet.Kernel.DB.Spec (cpAddressMeta)
 import           Cardano.Wallet.Kernel.DB.Spec.Read
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (ixedIndexed)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
-import           Cardano.Wallet.Kernel.Internal (WalletRestorationInfo,
-                     wriCurrentSlot, wriTargetSlot, wriThroughput)
+import           Cardano.Wallet.Kernel.Internal (WalletRestorationProgress,
+                     wrpCurrentSlot, wrpTargetSlot, wrpThroughput)
 import qualified Cardano.Wallet.Kernel.Read as Kernel
 import           UTxO.Util (exceptT)
 -- import           Cardano.Wallet.WalletLayer (InvalidRedemptionCode (..))
@@ -146,7 +146,7 @@ toAccount snapshot account = V1.Account {
     }
   where
     -- NOTE(adn): Perhaps we want the minimum or expected balance here?
-    accountAvailableBalance = cpAvailableBalance (account ^. HD.hdAccountState . HD.hdAccountStateCurrent)
+    accountAvailableBalance = account ^. HD.hdAccountState . HD.hdAccountStateCurrent (to cpAvailableBalance)
     hdAccountId  = account ^. HD.hdAccountId
     accountIndex = toAccountId (account ^. HD.hdAccountId)
     hdAddresses  = Kernel.addressesByAccountId snapshot hdAccountId
@@ -195,7 +195,7 @@ toAddress acc hdAddress =
                      (addressMeta ^. addressMetaIsChange)
   where
     cardanoAddress = hdAddress ^. HD.hdAddressAddress . fromDb
-    addressMeta    = acc ^. HD.hdAccountState . HD.hdAccountStateCurrent . cpAddressMeta cardanoAddress
+    addressMeta    = acc ^. HD.hdAccountState . HD.hdAccountStateCurrent (cpAddressMeta cardanoAddress)
 
 -- | Converts a Kernel 'HdAddress' into a Cardano 'Address'.
 toCardanoAddress :: HD.HdAddress -> Address
@@ -235,21 +235,21 @@ instance Show InvalidRedemptionCode where
     show = formatToString build
 
 -- | Calculate the 'SyncState' from data about the wallet's restoration.
-toSyncState :: Maybe WalletRestorationInfo -> V1.SyncState
+toSyncState :: Maybe WalletRestorationProgress -> V1.SyncState
 toSyncState = \case
     Nothing   -> V1.Synced
-    Just info -> let MeasuredIn (BlockCount blocksPerSec) = info ^. wriThroughput
+    Just info -> let MeasuredIn (BlockCount blocksPerSec) = info ^. wrpThroughput
       in V1.Restoring $
            V1.SyncProgress
              { spEstimatedCompletionTime =
-                     let blocksToGo = (info ^. wriTargetSlot) - (info ^. wriCurrentSlot)
+                     let blocksToGo = (info ^. wrpTargetSlot) - (info ^. wrpCurrentSlot)
                          bps = max blocksPerSec 1
                      in V1.mkEstimatedCompletionTime (fromIntegral ((1000 * blocksToGo) `div` bps))
              , spThroughput = V1.mkSyncThroughput (BlockCount blocksPerSec)
              , spPercentage =
-                     let tgtSlot = info ^. wriTargetSlot
+                     let tgtSlot = info ^. wrpTargetSlot
                          pct = if tgtSlot /= 0
-                               then (100 * (info ^. wriCurrentSlot)) `div` tgtSlot
+                               then (100 * (info ^. wrpCurrentSlot)) `div` tgtSlot
                                else 0
                      in V1.mkSyncPercentage (fromIntegral pct)
              }

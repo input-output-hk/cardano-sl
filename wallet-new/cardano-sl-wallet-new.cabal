@@ -126,6 +126,7 @@ library
                        Cardano.Wallet.Kernel.Transactions
                        Cardano.Wallet.Kernel.Types
                        Cardano.Wallet.Kernel.Util.Core
+                       Cardano.Wallet.Kernel.Util.NonEmptyMap
                        Cardano.Wallet.Kernel.Util.StrictList
                        Cardano.Wallet.Kernel.Util.StrictNonEmpty
                        Cardano.Wallet.Kernel.Util.StrictStateT

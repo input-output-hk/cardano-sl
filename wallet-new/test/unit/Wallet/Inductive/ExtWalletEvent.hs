@@ -34,7 +34,7 @@ data ExtWalletEvent h a =
   | ExtRollback
 
     -- | Switch to fork
-  | ExtSwitchToFork Int (OldestFirst [] (DSL.Block h a))
+  | ExtSwitchToFork Int (OldestFirst NE (DSL.Block h a))
 
 -- | Inject 'WalletEvent' into 'ExtWalletEvent' without using 'ExtSwitchToFork'
 extSimple :: OldestFirst [] (WalletEvent h a)

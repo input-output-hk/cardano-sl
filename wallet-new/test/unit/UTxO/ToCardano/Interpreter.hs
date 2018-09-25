@@ -124,6 +124,7 @@ initIntCtxt boot = do
               icSlotId        = translateFirstSlot
             , icBlockHeader   = genesis
             , icMainBlockHdr  = Nothing
+            , icPrevMainHH    = Nothing
             , icEpochLeaders  = leaders
             , icStakes        = initStakes
             , icCrucialStakes = initStakes

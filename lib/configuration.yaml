@@ -51,15 +51,13 @@ dev: &dev
           unlockStakeEpoch: 18446744073709551615 # last epoch (maxBound @Word64)
         protocolConstants: &dev_core_genesis_spec_protocolConstants
           k: 2
-          protocolMagic:
-            pm: 55550001
-            requiresNetworkMagic: NMMustBeNothing
+          protocolMagic: 55550001
           vssMinTTL: 2
           vssMaxTTL: 6
         ftsSeed: "c2tvdm9yb2RhIEdndXJkYSBib3JvZGEgcHJvdm9kYSA="
         heavyDelegation: {}
         avvmDistr: {}
-
+    requiresNetworkMagic: NMMustBeNothing
     dbSerializeVersion: 0
 
   ntp: &dev_ntp
@@ -14774,17 +14772,10 @@ mainnet_full: &mainnet_full
   core:
     <<: *mainnet_base_core
     genesis:
-      <<: *mainnet_base_genesis
       src:
         file: mainnet-genesis.json
         hash: 5f20df933584822601f9e3f8c024eb5eb252fe8cefb24d1317dc3d432e940ebb
-      spec:
-        <<: *mainnet_base_spec
-        protocolConstants:
-          <<: *mainnet_base_protocolConstants
-          protocolMagic:
-            pm: 764824073
-            requiresNetworkMagic: NMMustBeNothing
+    requiresNetworkMagic: NMMustBeNothing
 
 mainnet_wallet_win64: &mainnet_wallet_win64
   <<: *mainnet_full
@@ -14834,9 +14825,7 @@ testnet_launch: &testnet_launch
         <<: *mainnet_base_spec
         protocolConstants:
           k: 2160
-          protocolMagic:
-            pm: 1097911063
-            requiresNetworkMagic: NMMustBeJust
+          protocolMagic: 1097911063
           vssMinTTL: 2
           vssMaxTTL: 6
         avvmDistr: {}
@@ -14920,6 +14909,7 @@ mainnet_dryrun_full: &mainnet_dryrun_full
       src:
         file: mainnet-genesis-dryrun-with-stakeholders.json
         hash: c6a004d3d178f600cd8caa10abbebe1549bef878f0665aea2903472d5abf7323
+    requiresNetworkMagic: NMMustBeNothing
 
 mainnet_dryrun_wallet_win64: &mainnet_dryrun_wallet_win64
   <<: *mainnet_dryrun_full
@@ -15024,9 +15014,7 @@ devnet: &devnet
           slotDuration:      20000 # set to desired value
         protocolConstants:
           <<: *mainnet_base_protocolConstants
-          protocolMagic:
-            pm: 170987650
-            requiresNetworkMagic: NMMustBeNothing
+          protocolMagic: 170987650
           k: 6 # set to desired value
         avvmDistr: *mainnet_avvmDistr
         initializer:
@@ -15045,6 +15033,7 @@ devnet: &devnet
           avvmBalanceFactor: 1
           useHeavyDlg: True
           seed: 0
+    requiresNetworkMagic: NMMustBeNothing
 
   update: &devnet_update
     applicationName: cardano-sl

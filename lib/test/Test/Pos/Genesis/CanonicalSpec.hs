@@ -15,7 +15,7 @@ import           Pos.Crypto (RequiresNetworkMagic (..))
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Core.Arbitrary (genGenesisData, genGenesisProtocolConstants)
 import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
-import           Test.Pos.Helpers (canonicalJsonTest, canonicalJsonTest')
+import           Test.Pos.Helpers (canonicalJsonTest, canonicalJsonTestWithGen)
 
 spec :: Spec
 spec = withDefConfiguration $ \_ -> describe "Genesis" $ modifyMaxSuccess (const 10) $ do
@@ -30,8 +30,8 @@ spec = withDefConfiguration $ \_ -> describe "Genesis" $ modifyMaxSuccess (const
         -- `NMMustBeJust`.
         describe "Generator restricted to only use NMMustBeJust" $ do
             let genPM = genProtocolMagicUniformWithRNM NMMustBeJust
-            canonicalJsonTest' $ genGenesisProtocolConstants genPM
-            canonicalJsonTest' $ genGenesisData (genGenesisProtocolConstants genPM)
+            canonicalJsonTestWithGen $ genGenesisProtocolConstants genPM
+            canonicalJsonTestWithGen $ genGenesisData (genGenesisProtocolConstants genPM)
 
         -- Unrestricted canonical JSON identity tests
         describe "Unrestricted tests" $ do

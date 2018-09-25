@@ -7,7 +7,7 @@
 
 module Test.Pos.Helpers
        ( canonicalJsonTest
-       , canonicalJsonTest'
+       , canonicalJsonTestWithGen
        ) where
 
 import           Universum
@@ -41,11 +41,11 @@ canonicalJsonTest =
         canonicalJsonRenderAndDecode x .&&. canonicalJsonPrettyAndDecode x
 
 -- | Basically the same as `canonicalJsonTest` but tests a given `Gen a`.
-canonicalJsonTest'
+canonicalJsonTestWithGen
     :: forall a. (IdTestingRequiredClassesAlmost a, ToAndFromCanonicalJson a)
     => Gen a
     -> Spec
-canonicalJsonTest' genA =
+canonicalJsonTestWithGen genA =
     prop (typeName @a) $ forAll genA $ \x ->
         canonicalJsonRenderAndDecode x .&&. canonicalJsonPrettyAndDecode x
   where

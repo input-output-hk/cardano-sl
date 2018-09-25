@@ -9,7 +9,7 @@ runHaskell "yamlValidation" cardanoPkgs (ps: with ps; [
     #../../log-configs/greppable.yaml
     ../../log-configs/connect-to-cluster.yaml
     ../../log-configs/cluster.yaml
-    #../../log-configs/template-demo.yaml
+    ../../log-configs/template-demo.yaml
   ];
 } ''
   import Pos.Util.Log.LoggerConfig (LoggerConfig)

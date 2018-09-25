@@ -14,8 +14,8 @@ in
 , gitrev ? localLib.commitIdFromGitRepo ./.git
 , buildId ? null
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; overlays = [ jemallocOverlay ]; })
-# profiling slows down performance by 50% so we don't enable it by default
 , forceDontCheck ? false
+# profiling slows down performance by 50% so we don't enable it by default
 , enableProfiling ? false
 , enableDebugging ? false
 , enableBenchmarks ? true

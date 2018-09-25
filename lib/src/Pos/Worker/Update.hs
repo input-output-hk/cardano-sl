@@ -31,8 +31,8 @@ import           Pos.Util.Wlog (logDebug, logInfo)
 
 -- | Update System related workers.
 usWorkers
-    :: forall ctx m . UpdateMode ctx m => Genesis.Config -> [Diffusion m -> m ()]
-usWorkers genesisConfig = [processNewSlotWorker, checkForUpdateWorker]
+    :: forall ctx m . UpdateMode ctx m => Genesis.Config -> [ (Text, Diffusion m -> m ()) ]
+usWorkers genesisConfig = [ ("us new slot", processNewSlotWorker), ("us check updates", checkForUpdateWorker) ]
   where
     epochSlots = configEpochSlots genesisConfig
     k = configBlkSecurityParam genesisConfig

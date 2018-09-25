@@ -36,8 +36,8 @@ type DlgWorkerConstraint ctx m
 
 
 -- | All workers specific to proxy sertificates processing.
-dlgWorkers :: (DlgWorkerConstraint ctx m) => [Diffusion m -> m ()]
-dlgWorkers = [\_ -> dlgInvalidateCaches]
+dlgWorkers :: (DlgWorkerConstraint ctx m) => [ (Text, Diffusion m -> m ()) ]
+dlgWorkers = [ ("delegation worker", \_ -> dlgInvalidateCaches) ]
 
 -- | Runs proxy caches invalidating action every second.
 dlgInvalidateCaches :: DlgWorkerConstraint ctx m => m ()

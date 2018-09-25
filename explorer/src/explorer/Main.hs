@@ -64,11 +64,11 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
             nodeArgs
             (configGeneratedSecrets genesisConfig)
 
-        let plugins :: [Diffusion ExplorerProd -> ExplorerProd ()]
+        let plugins :: [ (Text, Diffusion ExplorerProd -> ExplorerProd ()) ]
             plugins =
-                [ explorerPlugin genesisConfig webPort
-                , notifierPlugin genesisConfig NotifierSettings {nsPort = notifierPort}
-                , updateTriggerWorker
+                [ ("explorer plugin", explorerPlugin genesisConfig webPort)
+                , ("explorer notifier", notifierPlugin genesisConfig NotifierSettings {nsPort = notifierPort})
+                , ("explorer update trigger", updateTriggerWorker)
                 ]
         bracketNodeResources
             genesisConfig

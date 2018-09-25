@@ -18,7 +18,7 @@ main = withCompileInfo $ do
     let lArgs = loggingParams "node" cArgs
 
     launchNode nArgs cArgs lArgs $ \genesisConfig _ txpConfig _ _ _ nodeRes -> do
-        let plugins = [ updateTriggerWorker ]
+        let plugins = [ ("update trigger", updateTriggerWorker) ]
 
         logInfo "Wallet is disabled, because software is built w/o it"
 

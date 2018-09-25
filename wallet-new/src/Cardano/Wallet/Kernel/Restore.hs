@@ -273,7 +273,11 @@ beginRestoration pw wId prefilter root cur tgt restart = do
                                          progress
                                          (cur ^? _Just . bcHash . fromDb)
                                          (tgtTip, tgtSlot)) $ \(e :: SomeException) ->
-              (pw ^. walletLogMessage) Error ("Exception during restoration: " <> show e)
+              (pw ^. walletLogMessage) Error ("Exception during restoration of wallet"
+                                              <> show (root ^. HD.hdRootId)
+                                              <> " when starting from " <> maybe "genesis" pretty cur
+                                              <> " with target " <> pretty tgt
+                                              <> ". Exception: " <> show e)
 
     theTask <- newMVar restoreTask
     addOrReplaceRestoration pw wId $ WalletRestorationInfo

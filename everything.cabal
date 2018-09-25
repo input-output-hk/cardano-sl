@@ -137,6 +137,8 @@ library
         Pos.DB.Update
         Pos.DB.Block
         Pos.DB.Epoch.Index
+        Test.Pos.DB.Update.Arbitrary
+        Test.Pos.DB.Block.Arbitrary
         Pos.Generator
         Pos.Generator.Block
         Pos.Generator.BlockEvent
@@ -215,6 +217,17 @@ library
         Pos.Infra.Util.Monitor
         Pos.Infra.Util.TimeLimit
         Pos.Infra.Util.TimeWarp
+        Test.Pos.Infra.Arbitrary
+        Test.Pos.Infra.Arbitrary.Communication
+        Test.Pos.Infra.Arbitrary.Slotting
+        Test.Pos.Infra.Arbitrary.Ssc
+        Test.Pos.Infra.Arbitrary.Txp
+        Test.Pos.Infra.Arbitrary.Update
+        Test.Pos.Infra.Bi
+        Test.Pos.Infra.Diffusion.Subscription.StatusSpec
+        Test.Pos.Infra.Diffusion.Subscription.SubscriptionSpec
+        Test.Pos.Infra.Gen
+        Test.Pos.Infra.Json
         Pos.AllSecrets
         Pos.Binary
         Pos.Context
@@ -570,9 +583,9 @@ library
         Cardano.X509.Configuration
     hs-source-dirs: acid-state-exts/src binary/src binary/test
                     chain/src chain/test client/src core/src core/test crypto
-                    crypto/test db/src generator/src infra/src lib/src networking/src
-                    node-ipc/src tools/src util/src util/test utxo/src wallet-new/src
-                    wallet/src wallet/test x509/src
+                    crypto/test db/src db/test generator/src infra/src infra/test
+                    lib/src networking/src node-ipc/src tools/src util/src util/test
+                    utxo/src wallet-new/src wallet/src wallet/test x509/src
     other-modules:
         Data.NonEmptySet
         Pos.Binary.Class.Core
@@ -824,6 +837,8 @@ library
         Pos.Util.Log.Rotator
         Pos.Util.Log.Scribes
         Test.Pos.Crypto.Arbitrary.Unsafe
+        Test.Pos.DB.Update.Arbitrary.MemState
+        Test.Pos.DB.Update.Arbitrary.Poll
         Pos.Infra.Util.SigHandler
         Paths_everything
     default-language: Haskell2010
@@ -1592,4 +1607,773 @@ executable wal-integr-test
         formatting -any,
         universum -any,
         x509-store -any,
+        everything -any
+
+test-suite binary-test
+    type: exitcode-stdio-1.0
+    main-is: test.hs
+    build-tools: cpphs >=1.19
+    hs-source-dirs: ./binary/test
+    other-modules:
+        Spec
+        Test.Pos.Binary.BiSerialize
+        Test.Pos.Binary.BiSizeBounds
+        Test.Pos.Binary.Cbor.CborSpec
+        Test.Pos.Binary.Helpers
+        Test.Pos.Binary.Helpers.GoldenRoundTrip
+        Test.Pos.Cbor.RefImpl
+        Test.Pos.Cbor.Canonicity
+    default-language: Haskell2010
+    default-extensions: DeriveDataTypeable DeriveGeneric
+                        GeneralizedNewtypeDeriving StandaloneDeriving FlexibleContexts
+                        FlexibleInstances MultiParamTypeClasses FunctionalDependencies
+                        DefaultSignatures NoImplicitPrelude OverloadedStrings
+                        TypeApplications TupleSections ViewPatterns LambdaCase MultiWayIf
+                        ConstraintKinds UndecidableInstances BangPatterns TemplateHaskell
+                        ScopedTypeVariables GADTs MonadFailDesugaring
+    ghc-options: -threaded -rtsopts -Wall -pgmP cpphs -optP "--cpp"
+    build-depends:
+        QuickCheck -any,
+        base -any,
+        bytestring -any,
+        cborg -any,
+        cereal -any,
+        containers -any,
+        formatting -any,
+        generic-arbitrary -any,
+        half -any,
+        hedgehog -any,
+        hspec -any,
+        mtl -any,
+        pretty-show -any,
+        quickcheck-instances -any,
+        safecopy -any,
+        serokell-util >=0.1.3.4,
+        tagged -any,
+        text -any,
+        formatting -any,
+        time-units -any,
+        universum >=0.1.11,
+        unordered-containers -any,
+        everything -any
+    
+    if os(linux)
+        ld-options: -fuse-ld=gold
+        ghc-options: -optl-fuse-ld=gold
+
+test-suite chain-test
+    type: exitcode-stdio-1.0
+    main-is: test.hs
+    hs-source-dirs: ./chain/test
+    other-modules:
+        Spec
+        Test.Pos.Chain.Block.Arbitrary
+        Test.Pos.Chain.Block.Bi
+        Test.Pos.Chain.Block.BlockSpec
+        Test.Pos.Chain.Block.CborSpec
+        Test.Pos.Chain.Block.Gen
+        Test.Pos.Chain.Block.SafeCopySpec
+        Test.Pos.Chain.Delegation.Arbitrary
+        Test.Pos.Chain.Delegation.Bi
+        Test.Pos.Chain.Delegation.Example
+        Test.Pos.Chain.Delegation.Gen
+        Test.Pos.Chain.Genesis.Dummy
+        Test.Pos.Chain.Genesis.Example
+        Test.Pos.Chain.Genesis.Gen
+        Test.Pos.Chain.Genesis.Json
+        Test.Pos.Chain.Lrc.FtsSpec
+        Test.Pos.Chain.Ssc.Arbitrary
+        Test.Pos.Chain.Ssc.Bi
+        Test.Pos.Chain.Ssc.CborSpec
+        Test.Pos.Chain.Ssc.Example
+        Test.Pos.Chain.Ssc.Gen
+        Test.Pos.Chain.Ssc.Json
+        Test.Pos.Chain.Txp.Arbitrary
+        Test.Pos.Chain.Txp.Arbitrary.Unsafe
+        Test.Pos.Chain.Txp.Bi
+        Test.Pos.Chain.Txp.CoreSpec
+        Test.Pos.Chain.Txp.Gen
+        Test.Pos.Chain.Txp.Json
+        Test.Pos.Chain.Txp.Example
+        Test.Pos.Chain.Txp.Toil.UtxoSpec
+        Test.Pos.Chain.Update.Arbitrary
+        Test.Pos.Chain.Update.Bi
+        Test.Pos.Chain.Update.CborSpec
+        Test.Pos.Chain.Update.Example
+        Test.Pos.Chain.Update.Gen
+        Test.Pos.Chain.Update.Json
+    default-language: Haskell2010
+    default-extensions: NoImplicitPrelude OverloadedStrings
+    ghc-options: -Wall
+    build-depends:
+        base -any,
+        base16-bytestring -any,
+        bytestring -any,
+        cardano-crypto -any,
+        containers -any,
+        data-default -any,
+        fmt -any,
+        formatting -any,
+        generic-arbitrary -any,
+        hedgehog -any,
+        hspec -any,
+        lens -any,
+        mtl -any,
+        pvss -any,
+        QuickCheck -any,
+        random -any,
+        serokell-util -any,
+        formatting -any,
+        time-units -any,
+        universum -any,
+        unordered-containers -any,
+        vector -any,
+        everything -any
+
+test-suite cardano-client-test
+    type: exitcode-stdio-1.0
+    main-is: Test.hs
+    build-tools: cpphs >=1.19
+    hs-source-dirs: ./client/test
+    other-modules:
+        Spec
+        Test.Pos.Client.Txp.Mode
+        Test.Pos.Client.Txp.UtilSpec
+    default-language: Haskell2010
+    default-extensions: DeriveDataTypeable DeriveGeneric
+                        GeneralizedNewtypeDeriving StandaloneDeriving FlexibleContexts
+                        FlexibleInstances MultiParamTypeClasses FunctionalDependencies
+                        DefaultSignatures NoImplicitPrelude OverloadedStrings
+                        TypeApplications TupleSections ViewPatterns LambdaCase MultiWayIf
+                        ConstraintKinds UndecidableInstances BangPatterns TemplateHaskell
+                        ScopedTypeVariables GADTs MonadFailDesugaring
+    ghc-options: -threaded -rtsopts -Wall -pgmP cpphs -optP "--cpp"
+    build-depends:
+        base -any,
+        bytestring -any,
+        containers -any,
+        formatting -any,
+        hspec -any,
+        QuickCheck -any,
+        universum >=0.1.11,
+        unordered-containers -any,
+        everything -any
+    
+    if os(linux)
+        ld-options: -fuse-ld=gold
+        ghc-options: -optl-fuse-ld=gold
+
+test-suite core-test
+    type: exitcode-stdio-1.0
+    main-is: test.hs
+    build-tools: cpphs >=1.19
+    hs-source-dirs: ./core/test
+    other-modules:
+        Spec
+        Test.Pos.Core.AddressSpec
+        Test.Pos.Core.Bi
+        Test.Pos.Core.CborSpec
+        Test.Pos.Core.Chrono
+        Test.Pos.Core.ChronoSpec
+        Test.Pos.Core.CoinSpec
+        Test.Pos.Core.ExampleHelpers
+        Test.Pos.Core.Gen
+        Test.Pos.Core.Json
+        Test.Pos.Core.LimitsSpec
+        Test.Pos.Core.SeedSpec
+        Test.Pos.Core.SlottingSpec
+        Test.Pos.Core.Arbitrary
+        Test.Pos.Core.Arbitrary.Slotting
+        Test.Pos.Core.Arbitrary.Unsafe
+        Test.Pos.Core.Dummy
+    default-language: Haskell2010
+    default-extensions: DeriveDataTypeable DeriveGeneric
+                        GeneralizedNewtypeDeriving StandaloneDeriving FlexibleContexts
+                        FlexibleInstances MultiParamTypeClasses FunctionalDependencies
+                        DefaultSignatures NoImplicitPrelude OverloadedStrings
+                        TypeApplications TupleSections ViewPatterns LambdaCase MultiWayIf
+                        ConstraintKinds UndecidableInstances BangPatterns TemplateHaskell
+                        ScopedTypeVariables GADTs MonadFailDesugaring
+    ghc-options: -threaded -rtsopts -Wall -pgmP cpphs -optP "--cpp"
+    build-depends:
+        base -any,
+        bytestring -any,
+        cardano-crypto -any,
+        containers -any,
+        cryptonite -any,
+        formatting -any,
+        generic-arbitrary -any,
+        hedgehog -any,
+        hspec -any,
+        hedgehog -any,
+        pvss -any,
+        QuickCheck -any,
+        quickcheck-instances -any,
+        random -any,
+        serokell-util >=0.1.3.4,
+        text -any,
+        time-units -any,
+        universum >=0.1.11,
+        unordered-containers -any,
+        everything -any
+    
+    if os(linux)
+        ld-options: -fuse-ld=gold
+        ghc-options: -optl-fuse-ld=gold
+
+test-suite crypto-test
+    type: exitcode-stdio-1.0
+    main-is: test.hs
+    hs-source-dirs: ./crypto/test
+    other-modules:
+        Spec
+        Test.Pos.Crypto.Bi
+        Test.Pos.Crypto.Arbitrary
+        Test.Pos.Crypto.Arbitrary.Unsafe
+        Test.Pos.Crypto.CborSpec
+        Test.Pos.Crypto.CryptoSpec
+        Test.Pos.Crypto.CryptoSpec2
+        Test.Pos.Crypto.Dummy
+        Test.Pos.Crypto.Gen
+    default-language: Haskell2010
+    default-extensions: DeriveDataTypeable DeriveGeneric
+                        GeneralizedNewtypeDeriving StandaloneDeriving FlexibleContexts
+                        FlexibleInstances MultiParamTypeClasses FunctionalDependencies
+                        DefaultSignatures NoImplicitPrelude OverloadedStrings
+                        TypeApplications TupleSections ViewPatterns LambdaCase MultiWayIf
+                        ConstraintKinds UndecidableInstances BangPatterns TemplateHaskell
+                        ScopedTypeVariables GADTs MonadFailDesugaring
+    ghc-options: -threaded -rtsopts -Wall
+    build-depends:
+        QuickCheck -any,
+        base -any,
+        bytestring -any,
+        cardano-crypto -any,
+        cryptonite -any,
+        formatting -any,
+        generic-arbitrary -any,
+        hedgehog -any,
+        hspec -any,
+        memory -any,
+        quickcheck-instances -any,
+        text -any,
+        universum >=0.1.11,
+        unordered-containers -any,
+        everything -any
+    
+    if os(linux)
+        ld-options: -fuse-ld=gold
+        ghc-options: -optl-fuse-ld=gold
+
+test-suite db-test
+    type: exitcode-stdio-1.0
+    main-is: test.hs
+    hs-source-dirs: ./db/test
+    other-modules:
+        Test.Pos.DB.Epoch.Index
+        Test.Pos.DB.Functions
+        Test.Pos.DB.Mode
+    default-language: Haskell2010
+    default-extensions: NoImplicitPrelude OverloadedStrings
+    ghc-options: -Wall
+    build-depends:
+        base -any,
+        filepath -any,
+        hedgehog -any,
+        lens -any,
+        temporary -any,
+        universum -any,
+        everything -any
+
+test-suite cardano-generator-test
+    type: exitcode-stdio-1.0
+    main-is: Test.hs
+    build-tools: cpphs >=1.19
+    hs-source-dirs: ./generator/test
+    other-modules:
+        Spec
+        Test.Pos.Binary.CommunicationSpec
+        Test.Pos.Block.Logic.CreationSpec
+        Test.Pos.Block.Logic.VarSpec
+        Test.Pos.Block.Property
+        Test.Pos.Generator.Block.LrcSpec
+    default-language: Haskell2010
+    default-extensions: DeriveDataTypeable DeriveGeneric
+                        GeneralizedNewtypeDeriving StandaloneDeriving FlexibleContexts
+                        FlexibleInstances MultiParamTypeClasses FunctionalDependencies
+                        DefaultSignatures NoImplicitPrelude OverloadedStrings
+                        TypeApplications TupleSections ViewPatterns LambdaCase MultiWayIf
+                        ConstraintKinds UndecidableInstances BangPatterns TemplateHaskell
+                        ScopedTypeVariables GADTs MonadFailDesugaring
+    ghc-options: -threaded -rtsopts -Wall -pgmP cpphs -optP "--cpp"
+    build-depends:
+        MonadRandom -any,
+        QuickCheck -any,
+        base -any,
+        bytestring -any,
+        containers -any,
+        data-default -any,
+        formatting -any,
+        hspec -any,
+        lens -any,
+        safe-exceptions -any,
+        serokell-util -any,
+        universum >=0.1.11,
+        unordered-containers -any,
+        everything -any
+    
+    if os(linux)
+        ld-options: -fuse-ld=gold
+        ghc-options: -optl-fuse-ld=gold
+
+test-suite infra-test
+    type: exitcode-stdio-1.0
+    main-is: test.hs
+    hs-source-dirs: ./infra/test
+    other-modules:
+        Spec
+        Test.Pos.Infra.Arbitrary
+        Test.Pos.Infra.Arbitrary.Communication
+        Test.Pos.Infra.Arbitrary.Slotting
+        Test.Pos.Infra.Arbitrary.Ssc
+        Test.Pos.Infra.Arbitrary.Txp
+        Test.Pos.Infra.Arbitrary.Update
+        Test.Pos.Infra.Bi
+        Test.Pos.Infra.Diffusion.Subscription.StatusSpec
+        Test.Pos.Infra.Diffusion.Subscription.SubscriptionSpec
+        Test.Pos.Infra.Gen
+        Test.Pos.Infra.Json
+    default-language: Haskell2010
+    default-extensions: NoImplicitPrelude
+    ghc-options: -Wall -O2 -threaded
+    build-depends:
+        QuickCheck -any,
+        async -any,
+        base -any,
+        bytestring -any,
+        containers -any,
+        dns -any,
+        generic-arbitrary -any,
+        hedgehog -any,
+        hspec -any,
+        iproute -any,
+        kademlia -any,
+        universum -any,
+        everything -any
+
+test-suite cardano-test
+    type: exitcode-stdio-1.0
+    main-is: Test.hs
+    build-tools: cpphs >=1.19
+    hs-source-dirs: ./lib/test
+    other-modules:
+        Spec
+        Test.Pos.Slotting.TypesSpec
+        Test.Pos.Ssc.ComputeSharesSpec
+        Test.Pos.Ssc.Identity.SafeCopySpec
+        Test.Pos.Ssc.SeedSpec
+        Test.Pos.Ssc.Toss.BaseSpec
+        Test.Pos.Ssc.VssCertDataSpec
+        Test.Pos.Ssc.Toss.PureSpec
+        Test.Pos.Block.Arbitrary.Message
+        Test.Pos.Block.CborSpec
+        Test.Pos.Cbor.Arbitrary.UserPublic
+        Test.Pos.Cbor.Arbitrary.UserSecret
+        Test.Pos.Cbor.CborSpec
+        Test.Pos.ConstantsSpec
+        Test.Pos.Diffusion.BlockSpec
+        Test.Pos.Genesis.CanonicalSpec
+        Test.Pos.Launcher.ConfigurationSpec
+        Test.Pos.MerkleSpec
+        Test.Pos.Infra.Slotting.TypesSpec
+        Test.Pos.Types.Identity.SafeCopySpec
+        Test.Pos.Types.Identity.ShowReadSpec
+        Test.Pos.Update.Identity.SafeCopySpec
+        Test.Pos.Update.MemStateSpec
+        Test.Pos.Update.PollSpec
+    default-language: Haskell2010
+    default-extensions: DeriveDataTypeable DeriveGeneric
+                        GeneralizedNewtypeDeriving StandaloneDeriving FlexibleContexts
+                        FlexibleInstances MultiParamTypeClasses FunctionalDependencies
+                        DefaultSignatures NoImplicitPrelude OverloadedStrings
+                        TypeApplications TupleSections ViewPatterns LambdaCase MultiWayIf
+                        ConstraintKinds UndecidableInstances BangPatterns TemplateHaskell
+                        ScopedTypeVariables GADTs MonadFailDesugaring
+    ghc-options: -threaded -rtsopts -Wall -pgmP cpphs -optP "--cpp"
+    build-depends:
+        QuickCheck -any,
+        base -any,
+        bytestring -any,
+        cardano-crypto -any,
+        conduit -any,
+        containers -any,
+        cryptonite -any,
+        data-default -any,
+        deepseq -any,
+        extra -any,
+        filelock -any,
+        formatting -any,
+        generic-arbitrary -any,
+        hspec -any,
+        lens -any,
+        network-transport -any,
+        network-transport-inmemory -any,
+        pvss -any,
+        random -any,
+        reflection -any,
+        serokell-util >=0.1.3.4,
+        tagged -any,
+        text -any,
+        time -any,
+        time-units -any,
+        universum >=0.1.11,
+        unordered-containers -any,
+        everything -any
+    
+    if os(linux)
+        ld-options: -fuse-ld=gold
+        ghc-options: -optl-fuse-ld=gold
+
+test-suite cardano-sl-networking-test
+    type: exitcode-stdio-1.0
+    main-is: Test.hs
+    hs-source-dirs: ./networking/test
+    other-modules:
+        Spec
+        Test.NodeSpec
+        Test.NtpSpec
+        Test.Network.Broadcast.OutboundQueueSpec
+        Test.Util
+    default-language: Haskell2010
+    default-extensions: OverloadedStrings DeriveDataTypeable
+                        GeneralizedNewtypeDeriving MonadFailDesugaring
+    ghc-options: -threaded -rtsopts -Wall -with-rtsopts=-N
+    build-depends:
+        async -any,
+        base >=4.8 && <5,
+        binary -any,
+        bytestring >=0.10.8,
+        containers >=0.5.7,
+        hspec >=2.1.10,
+        hspec-core -any,
+        lens >=4.14,
+        mtl >=2.2.1,
+        network-transport -any,
+        network-transport-tcp -any,
+        network-transport-inmemory -any,
+        QuickCheck -any,
+        random -any,
+        serokell-util >=0.1.2.3,
+        stm -any,
+        time-units -any,
+        everything -any
+
+test-suite cardano-sl-tools-test
+    type: exitcode-stdio-1.0
+    main-is: Test.hs
+    build-tools: cpphs >=1.19
+    hs-source-dirs: ./tools/test
+    other-modules:
+        Spec
+        Test.Pos.Tools.Launcher.Environment
+        Test.Pos.Tools.Dbgen.Gen
+        Test.Pos.Tools.Dbgen.Json
+    default-language: Haskell2010
+    ghc-options: -threaded -rtsopts -Wall -pgmP cpphs -optP "--cpp"
+    build-depends:
+        aeson -any,
+        base -any,
+        directory -any,
+        hedgehog -any,
+        hspec -any,
+        temporary -any,
+        universum -any,
+        everything -any
+    
+    if os(linux)
+        ld-options: -fuse-ld=gold
+        ghc-options: -optl-fuse-ld=gold
+
+test-suite util-test
+    type: exitcode-stdio-1.0
+    main-is: test.hs
+    build-tools: cpphs >=1.19
+    hs-source-dirs: ./util/test
+    other-modules:
+        Spec
+        Test.Pos.Util.Golden
+        Test.Pos.Util.LogSpec
+        Test.Pos.Util.Modifier
+        Test.Pos.Util.ModifierSpec
+        Test.Pos.Util.Parallel.Parallelize
+        Test.Pos.Util.QuickCheck.Property
+        Test.Pos.Util.TimerSpec
+        Test.Pos.Util.TraceSpec
+        Test.Pos.Util.Tripping
+        Test.Pos.Util.WlogSpec
+    default-language: Haskell2010
+    default-extensions: DeriveDataTypeable DeriveGeneric
+                        GeneralizedNewtypeDeriving StandaloneDeriving FlexibleContexts
+                        FlexibleInstances MultiParamTypeClasses FunctionalDependencies
+                        DefaultSignatures NoImplicitPrelude OverloadedStrings
+                        TypeApplications TupleSections ViewPatterns LambdaCase MultiWayIf
+                        ConstraintKinds UndecidableInstances BangPatterns TemplateHaskell
+                        ScopedTypeVariables GADTs MonadFailDesugaring
+    ghc-options: -threaded -rtsopts -Wall -pgmP cpphs -optP "--cpp"
+    build-depends:
+        aeson -any,
+        base -any,
+        bytestring -any,
+        async -any,
+        directory -any,
+        file-embed -any,
+        filepath -any,
+        formatting -any,
+        hedgehog -any,
+        hspec -any,
+        pretty-show -any,
+        QuickCheck -any,
+        quickcheck-instances -any,
+        stm -any,
+        template-haskell -any,
+        text -any,
+        time -any,
+        time-units -any,
+        universum >=1.1.0,
+        unordered-containers -any,
+        everything -any
+    
+    if os(linux)
+        ld-options: -fuse-ld=gold
+        ghc-options: -optl-fuse-ld=gold
+
+test-suite wallet-unit-tests
+    type: exitcode-stdio-1.0
+    main-is: WalletUnitTest.hs
+    hs-source-dirs: ./wallet-new/server ./wallet-new/test/unit
+    other-modules:
+        Arbitrary
+        DeltaCompressionSpecs
+        InputSelection.Evaluation
+        InputSelection.Evaluation.Events
+        InputSelection.Evaluation.Generic
+        InputSelection.Evaluation.Options
+        InputSelection.Evaluation.Replot
+        InputSelection.Evaluation.TimeSeries
+        InputSelection.FromGeneric
+        InputSelection.SortedUtxo
+        InputSelection.TxStats
+        Test.Infrastructure.Generator
+        Test.Infrastructure.Genesis
+        Test.Spec.Accounts
+        Test.Spec.BlockMetaScenarios
+        Test.Spec.CoinSelection
+        Test.Spec.CoinSelection.Generators
+        Test.Spec.Addresses
+        Test.Spec.Fixture
+        Test.Spec.GetTransactions
+        Test.Spec.Kernel
+        Test.Spec.Keystore
+        Test.Spec.Models
+        Test.Spec.NewPayment
+        Test.Spec.Submission
+        Test.Spec.Translation
+        Test.Spec.TxMetaScenarios
+        Test.Spec.Wallets
+        Test.Spec.WalletWorker
+        TxMetaStorageSpecs
+        Util.Buildable
+        Util.Buildable.Hspec
+        Util.Buildable.QuickCheck
+        Util.Distr
+        Util.GenHash
+        Util.Histogram
+        Util.MultiSet
+        Util.QuickCheck
+        Util.Range
+        UTxO.ToCardano.Interpreter
+        Wallet.Abstract
+        Wallet.Basic
+        Wallet.Incremental
+        Wallet.Inductive
+        Wallet.Inductive.Cardano
+        Wallet.Inductive.ExtWalletEvent
+        Wallet.Inductive.Generator
+        Wallet.Inductive.History
+        Wallet.Inductive.Interpreter
+        Wallet.Inductive.Invariants
+        Wallet.Inductive.Validation
+        Wallet.Prefiltered
+        Wallet.Rollback.Basic
+        Wallet.Rollback.Full
+    default-language: Haskell2010
+    default-extensions: BangPatterns ConstraintKinds DeriveGeneric
+                        FlexibleContexts FlexibleInstances GADTs InstanceSigs LambdaCase
+                        MultiParamTypeClasses MultiWayIf NoImplicitPrelude
+                        OverloadedStrings RankNTypes RecordWildCards ScopedTypeVariables
+                        StandaloneDeriving TypeFamilies
+    other-extensions: DeriveAnyClass GeneralizedNewtypeDeriving
+                      UndecidableInstances
+    ghc-options: -Wall -O2 -threaded
+    build-depends:
+        acid-state -any,
+        base -any,
+        bytestring -any,
+        cardano-crypto -any,
+        cereal -any,
+        constraints -any,
+        containers -any,
+        cryptonite -any,
+        data-default -any,
+        formatting -any,
+        hspec -any,
+        hspec-core -any,
+        lens -any,
+        mtl -any,
+        QuickCheck -any,
+        quickcheck-instances -any,
+        safe-exceptions -any,
+        safecopy -any,
+        reflection -any,
+        serokell-util -any,
+        servant-server -any,
+        tabl -any,
+        text -any,
+        time-units -any,
+        formatting -any,
+        universum -any,
+        unordered-containers -any,
+        vector -any,
+        bytestring -any,
+        conduit -any,
+        directory -any,
+        filepath -any,
+        normaldistribution -any,
+        optparse-applicative -any,
+        random -any,
+        time -any,
+        everything -any
+
+test-suite wallet-new-specs
+    type: exitcode-stdio-1.0
+    main-is: Spec.hs
+    hs-source-dirs: ./wallet-new/test ./wallet-new/test/unit
+    other-modules:
+        APISpec
+        InternalAPISpec
+        MarshallingSpec
+        SwaggerSpec
+        RequestSpec
+        WalletHandlersSpec
+        WalletNewJson
+        Cardano.Wallet.WalletLayer.QuickCheck
+    default-language: Haskell2010
+    default-extensions: BangPatterns ConstraintKinds DeriveGeneric
+                        FlexibleContexts FlexibleInstances GADTs InstanceSigs LambdaCase
+                        MultiParamTypeClasses MultiWayIf NoImplicitPrelude
+                        OverloadedStrings RankNTypes RecordWildCards ScopedTypeVariables
+                        StandaloneDeriving TypeFamilies TypeApplications TypeOperators
+                        DataKinds TemplateHaskell
+    other-extensions: DeriveAnyClass GeneralizedNewtypeDeriving
+                      UndecidableInstances MonadFailDesugaring
+    ghc-options: -Wall -O2 -threaded -rtsopts
+    build-depends:
+        base -any,
+        aeson -any,
+        bytestring -any,
+        cardano-crypto -any,
+        cereal -any,
+        data-default -any,
+        directory -any,
+        directory -any,
+        formatting -any,
+        hedgehog -any,
+        hspec -any,
+        insert-ordered-containers -any,
+        lens -any,
+        QuickCheck -any,
+        quickcheck-instances -any,
+        safecopy -any,
+        safe-exceptions -any,
+        servant -any,
+        servant-server -any,
+        servant-swagger -any,
+        string-conv -any,
+        swagger2 -any,
+        text -any,
+        time -any,
+        universum -any,
+        everything -any
+
+test-suite cardano-wallet-test
+    type: exitcode-stdio-1.0
+    main-is: Test.hs
+    build-tools: cpphs >=1.19
+    hs-source-dirs: ./wallet/test
+    other-modules:
+        Spec
+        Test.Pos.Wallet.Arbitrary.Web.ClientTypes
+        Test.Pos.Util.MnemonicSpec
+        Test.Pos.Wallet.Web.Mode
+        Test.Pos.Wallet.Web.Util
+        Test.Pos.Wallet.Web.AddressSpec
+        Test.Pos.Wallet.Web.Methods.LogicSpec
+        Test.Pos.Wallet.Web.Methods.PaymentSpec
+        Test.Pos.Wallet.Web.Methods.BackupDefaultAddressesSpec
+        Test.Pos.Wallet.Web.Tracking.SyncSpec
+        Test.Pos.Wallet.MigrationSpec
+    default-language: Haskell2010
+    default-extensions: DeriveDataTypeable DeriveGeneric
+                        GeneralizedNewtypeDeriving StandaloneDeriving FlexibleContexts
+                        FlexibleInstances MultiParamTypeClasses FunctionalDependencies
+                        DefaultSignatures NoImplicitPrelude OverloadedStrings
+                        RecordWildCards TypeApplications TupleSections ViewPatterns
+                        LambdaCase MultiWayIf ConstraintKinds UndecidableInstances
+                        BangPatterns TemplateHaskell ScopedTypeVariables
+                        MonadFailDesugaring
+    ghc-options: -threaded -rtsopts -Wall -pgmP cpphs -optP "--cpp"
+    build-depends:
+        base -any,
+        aeson -any,
+        bytestring -any,
+        cardano-crypto -any,
+        containers -any,
+        safe-exceptions -any,
+        data-default -any,
+        servant -any,
+        servant-server -any,
+        deepseq -any,
+        ekg-core -any,
+        ether -any,
+        formatting -any,
+        hspec -any,
+        lens -any,
+        MonadRandom -any,
+        mtl -any,
+        pvss -any,
+        QuickCheck -any,
+        safecopy -any,
+        serokell-util -any,
+        stm -any,
+        universum >=0.1.11,
+        unordered-containers -any,
+        everything -any
+    
+    if os(linux)
+        ld-options: -fuse-ld=gold
+        ghc-options: -optl-fuse-ld=gold
+
+test-suite cardano-sl-x509-test
+    type: exitcode-stdio-1.0
+    main-is: Main.hs
+    hs-source-dirs: ./x509/test
+    other-modules:
+        Test.Cardano.X509.Configuration.Arbitrary
+    default-language: Haskell2010
+    default-extensions: DeriveGeneric NoImplicitPrelude
+                        OverloadedStrings TupleSections TypeApplications
+    build-depends:
+        base -any,
+        QuickCheck -any,
+        universum -any,
         everything -any

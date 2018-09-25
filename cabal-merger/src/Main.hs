@@ -14,16 +14,17 @@ import           Distribution.Package (Dependency (Dependency),
 import           Distribution.PackageDescription (BuildInfo (buildable, defaultExtensions, defaultLanguage, hsSourceDirs, otherModules, targetBuildDepends),
                      BuildType (Simple),
                      CondTree (CondNode, condTreeComponents, condTreeConstraints, condTreeData),
-                     ConfVar, Executable (buildInfo),
+                     ConfVar, Executable (buildInfo, Executable, modulePath),
                      Library (exposedModules, libBuildInfo),
                      PackageDescription (buildTypeRaw, homepage, licenseRaw, maintainer, package, specVersionRaw),
                      emptyBuildInfo, emptyLibrary, emptyPackageDescription,
                      executables)
+import Distribution.Types.TestSuite
 import           Distribution.PackageDescription.Parsec
                      (readGenericPackageDescription)
 import           Distribution.PackageDescription.PrettyPrint
                      (writeGenericPackageDescription)
-import           Distribution.Types.GenericPackageDescription (GenericPackageDescription (condExecutables, condLibrary, packageDescription),
+import           Distribution.Types.GenericPackageDescription (GenericPackageDescription (condExecutables, condLibrary, packageDescription, condTestSuites),
                      emptyGenericPackageDescription)
 import           Distribution.Types.UnqualComponentName (UnqualComponentName)
 import           Distribution.Verbosity (silent)
@@ -43,6 +44,7 @@ data State =
   , sLibOtherModules :: S.Set ModuleName
   , sExecutables     :: [ Executable ]
   , sCondExecutables :: [(UnqualComponentName, CondTree ConfVar [Dependency] Executable)]
+  , sConfTestSuites  :: [ (UnqualComponentName, CondTree ConfVar [Dependency] TestSuite) ]
   } deriving Show
 
 instance Ord Dependency where
@@ -86,11 +88,25 @@ go state cabalFile = do
   print cabalFile
   let
     prefix = directory (fromText $ T.pack cabalFile)
+    finalPrefix = T.unpack $ fromRight undefined $ toText prefix
   middle <- goLibrary state pkg
-  final <- foldlM (goExecutable $ T.unpack $ fromRight undefined $ toText prefix) middle (condExecutables pkg)
+  withExecutables <- foldlM (goExecutable finalPrefix) middle (condExecutables pkg)
+  final <- foldlM (goTest finalPrefix) withExecutables (condTestSuites pkg)
   pure $ final {
       sExecutables = (sExecutables final) <> (executables $ packageDescription pkg)
     }
+
+goTest :: String -> State -> (UnqualComponentName, CondTree ConfVar [Dependency] TestSuite) -> IO State
+goTest prefix state (name, CondNode test a b ) = do
+  let
+    newTest = test {
+      testBuildInfo = (testBuildInfo test) {
+        hsSourceDirs = map (prefix <>) (hsSourceDirs $ testBuildInfo test)
+      }
+    }
+  pure $ state {
+    sConfTestSuites = (sConfTestSuites state) <> [ (name, CondNode newTest a b) ]
+  }
 
 exeFilter :: State -> Executable -> Executable
 exeFilter result exe = exe {
@@ -105,11 +121,24 @@ libFilter result dep = notElem (depPkgName dep) (sNamesToExclude result)
 filterCondExecutables :: State -> [(UnqualComponentName, CondTree ConfVar [Dependency] Executable)] -> [(UnqualComponentName, CondTree ConfVar [Dependency] Executable)]
 filterCondExecutables result = map $ exeFilter2 result
 
+filterCondTests :: State -> [(UnqualComponentName, CondTree ConfVar [Dependency] TestSuite)] -> [(UnqualComponentName, CondTree ConfVar [Dependency] TestSuite)]
+filterCondTests result = map $ testFilter2 result
+
 filterExecutables :: State -> [ Executable ] -> [ Executable ]
 filterExecutables result = map (exeFilter result)
 
 exeFilter2 :: State -> (UnqualComponentName, CondTree ConfVar [Dependency] Executable) -> (UnqualComponentName, CondTree ConfVar [Dependency] Executable)
 exeFilter2 result (name, CondNode exe deps conf) = (name, CondNode (exeFilter result exe) (filter (libFilter result) deps) conf)
+
+testFilter2 :: State -> (UnqualComponentName, CondTree ConfVar [Dependency] TestSuite) -> (UnqualComponentName, CondTree ConfVar [Dependency] TestSuite)
+testFilter2 result (name, CondNode test a b) = do
+  let
+    newTest = test {
+      testBuildInfo = (testBuildInfo test) {
+        targetBuildDepends = (filter (libFilter result) (targetBuildDepends (testBuildInfo test))) <> [ Dependency "everything" anyVersion ]
+      }
+    }
+  (name, CondNode newTest a b)
 
 filteredLibDepends :: State -> [Dependency]
 filteredLibDepends result = filter (libFilter result) (S.toList $ sLibDepends result)
@@ -119,7 +148,7 @@ pathsFilter = not . isPrefixOf "Paths_" . toFilePath
 
 main :: IO ()
 main = do
-  result <- getArgs >>= foldlM go (State [] S.empty [] S.empty S.empty [] [])
+  result <- getArgs >>= foldlM go (State [] S.empty [] S.empty S.empty [] [] [])
   let
     mergedLib = emptyLibrary {
         exposedModules = filter pathsFilter $ sExposedModules result
@@ -140,8 +169,10 @@ main = do
             , "crypto"
             , "crypto/test"
             , "db/src"
+            , "db/test"
             , "generator/src"
             , "infra/src"
+            , "infra/test"
             , "lib/src"
             , "networking/src"
             , "node-ipc/src"
@@ -176,5 +207,6 @@ main = do
         packageDescription = pkgDesc
       , condLibrary = Just libNode
       , condExecutables = filterCondExecutables result $ sCondExecutables result
+      , condTestSuites = filterCondTests result $ sConfTestSuites result
       }
   writeGenericPackageDescription "output" genPackage

@@ -12,7 +12,8 @@ in
 { system ? builtins.currentSystem
 , config ? {}
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; overlays = [ jemallocOverlay ]; })
-, cardanoPkgs ? import ./. {inherit config system pkgs; }
+, enableProfiling ? false
+, cardanoPkgs ? import ./. { inherit config system pkgs enableProfiling; }
 }:
 with pkgs;
 let
@@ -72,7 +73,7 @@ let
     name = "updateEverythingCabal";
     buildInputs = [ pkgs.cabal2nix ];
     shellHook = ''
-      cp ${iohkPkgs.everythingCabal} everything.cabal
+      cp ${cardanoPkgs.everythingCabal} everything.cabal
       cabal2nix ./. > everything.nix
       cabal2nix cabal://Cabal-2.2.0.0 > cabal-merger/cabal.nix
       exit

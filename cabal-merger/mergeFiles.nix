@@ -18,9 +18,11 @@ cabal-merger \
   ./core/test/cardano-sl-core-test.cabal \
   ./crypto/cardano-sl-crypto.cabal \
   ./crypto/test/cardano-sl-crypto-test.cabal \
-  ./db/cardano-sl-db.cabal  \
+  ./db/cardano-sl-db.cabal \
+  ./db/test/cardano-sl-db-test.cabal \
   ./generator/cardano-sl-generator.cabal \
   ./infra/cardano-sl-infra.cabal  \
+  ./infra/test/cardano-sl-infra-test.cabal \
   ./lib/cardano-sl.cabal \
   ./networking/cardano-sl-networking.cabal \
   ./node-ipc/cardano-sl-node-ipc.cabal \

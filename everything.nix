@@ -11,13 +11,15 @@
 , dlist, dns, ekg-core, ekg-statsd, ekg-wai, ether, exceptions
 , extra, file-embed, filelock, filepath, fmt, foldl, formatting
 , free, generic-arbitrary, generics-sop, half, hashable, hedgehog
-, hourglass, hspec, http-api-data, http-client, http-client-tls
-, http-conduit, http-types, ip, iproute, ixset-typed, kademlia
+, hourglass, hspec, hspec-core, http-api-data, http-client
+, http-client-tls, http-conduit, http-types
+, insert-ordered-containers, ip, iproute, ixset-typed, kademlia
 , katip, lens, lifted-async, log-warper, lrucache, lzma-conduit
 , megaparsec, memory, micro-recursion-schemes, mmorph
 , monad-control, MonadRandom, mono-traversable, mtl, mwc-random
 , neat-interpolation, network, network-info, network-transport
-, network-transport-tcp, optparse-applicative, optparse-generic
+, network-transport-inmemory, network-transport-tcp
+, normaldistribution, optparse-applicative, optparse-generic
 , parsec, parsers, plutus-prototype, pretty-show, process, pvss
 , QuickCheck, quickcheck-instances, random, reflection, resourcet
 , retry, rocksdb-haskell-ng, safe-exceptions, safecopy, scientific
@@ -27,9 +29,9 @@
 , servant-swagger-ui, servant-swagger-ui-core
 , servant-swagger-ui-redoc, silently, sqlite-simple
 , sqlite-simple-errors, stdenv, stm, streaming-commons, string-conv
-, swagger2, systemd, tagged, tar, template-haskell, text
-, th-lift-instances, th-utilities, these, time, time-units, tls
-, transformers, transformers-base, transformers-lift, trifecta
+, swagger2, systemd, tabl, tagged, tar, template-haskell, temporary
+, text, th-lift-instances, th-utilities, these, time, time-units
+, tls, transformers, transformers-base, transformers-lift, trifecta
 , universum, unix, unix-compat, unliftio, unliftio-core
 , unordered-containers, vector, wai, wai-middleware-throttle
 , wai-websockets, warp, warp-tls, websockets, x509, x509-store
@@ -85,6 +87,20 @@ mkDerivation {
     servant-client servant-quickcheck servant-server silently stm
     swagger2 tar text time-units universum unix unix-compat
     unordered-containers x509-store yaml
+  ];
+  testHaskellDepends = [
+    acid-state aeson async base base16-bytestring binary bytestring
+    cardano-crypto cborg cereal conduit constraints containers
+    cryptonite data-default deepseq directory dns ekg-core ether extra
+    file-embed filelock filepath fmt formatting generic-arbitrary half
+    hedgehog hspec hspec-core insert-ordered-containers iproute
+    kademlia lens memory MonadRandom mtl network-transport
+    network-transport-inmemory network-transport-tcp normaldistribution
+    optparse-applicative pretty-show pvss QuickCheck
+    quickcheck-instances random reflection safe-exceptions safecopy
+    serokell-util servant servant-server servant-swagger stm
+    string-conv swagger2 tabl tagged template-haskell temporary text
+    time time-units universum unordered-containers vector
   ];
   homepage = "https://github.com/input-output-hk/cardano-sl/#readme";
   license = stdenv.lib.licenses.mit;

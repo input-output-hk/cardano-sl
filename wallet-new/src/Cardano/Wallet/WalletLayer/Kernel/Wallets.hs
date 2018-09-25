@@ -204,7 +204,8 @@ deleteWallet :: MonadIO m
              -> m (Either DeleteWalletError ())
 deleteWallet wallet wId = runExceptT $ do
     rootId <- withExceptT DeleteWalletWalletIdDecodingFailed $ fromRootId wId
-    withExceptT DeleteWalletError $ ExceptT $ liftIO $
+    withExceptT DeleteWalletError $ ExceptT $ liftIO $ do
+      Kernel.removeRestoration wallet (WalletIdHdRnd rootId)
       Kernel.deleteHdWallet wallet rootId
 
 -- | Gets a specific wallet.

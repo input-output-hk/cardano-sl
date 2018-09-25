@@ -175,7 +175,9 @@ addOrReplaceRestoration pw wId restoreInfo =
        return (Map.insert wId restoreInfo wrt)
 
 removeRestoration :: PassiveWallet -> WalletId -> IO ()
-removeRestoration pw wId =
+removeRestoration pw wId = do
+    wri <- lookupRestorationInfo pw wId
+    whenJust wri cancelRestoration
     modifyMVar_ (pw ^. walletRestorationTask . to _wrt) (pure . Map.delete wId)
 
 currentRestorations :: PassiveWallet -> IO (Map WalletId WalletRestorationInfo)

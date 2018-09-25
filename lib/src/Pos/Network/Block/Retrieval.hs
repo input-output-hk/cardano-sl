@@ -9,8 +9,8 @@ module Pos.Network.Block.Retrieval
 
 import           Universum
 
-import           Control.Concurrent.STM (putTMVar, swapTMVar, tryReadTBQueue,
-                     tryReadTMVar, tryTakeTMVar)
+import           Control.Concurrent.STM (TVar, newTVar, putTMVar, swapTMVar,
+                     swapTVar, tryReadTBQueue, tryReadTMVar, tryTakeTMVar)
 import           Control.Exception.Safe (handleAny)
 import           Control.Lens (to)
 import           Control.Monad.STM (retry)
@@ -341,16 +341,37 @@ streamProcessBlocks
     -> m ()
 streamProcessBlocks genesisConfig txpConfig diffusion nodeId desired checkpoints = do
     logInfo "streaming start"
-    r <- Diffusion.streamBlocks diffusion nodeId desired checkpoints writeCallback
+    mostDifficultBlock <- atomically $ newTVar Nothing
+    r <- Diffusion.streamBlocks diffusion nodeId desired checkpoints (writeCallback mostDifficultBlock)
     case r of
          Nothing -> do
              logInfo "streaming not supported, reverting to batch mode"
              getProcessBlocks genesisConfig txpConfig diffusion nodeId desired checkpoints
          Just _  -> do
              logInfo "streaming done"
-             return ()
+
+             recHeaderVar <- view (lensOf @RecoveryHeaderTag)
+             exitedRecovery <- atomically $ do
+                 mbMostDifficult <- readTVar mostDifficultBlock
+                 mbRecHeader <- tryReadTMVar recHeaderVar
+                 case (mbMostDifficult, mbRecHeader) of
+                      (Nothing, _)                 -> pure False -- We have not gotten a single block
+                      (Just _, Nothing)            -> pure False -- We where not in recovery?
+                      (Just mostDifficult, Just (_, recHeader)) ->
+                          if (mostDifficult ^. difficultyL) >= (recHeader ^. difficultyL)
+                             then isJust <$> tryTakeTMVar recHeaderVar
+                             else pure False
+
+             if exitedRecovery
+                then do
+                    logInfo "Recovery mode exited gracefully on receiving block we needed"
+                    return ()
+                else do -- Streaming stopped but we didn't make any progress
+                    _ <- dropRecoveryHeaderAndRepeat genesisConfig diffusion nodeId
+                    return ()
   where
-    writeCallback :: [Block] -> m ()
-    writeCallback [] = return ()
-    writeCallback (block:blocks) =
+    writeCallback :: (TVar (Maybe Block)) -> [Block] -> m ()
+    writeCallback _ [] = return ()
+    writeCallback mostDifficultBlock (block:blocks) = do
+        _ <- atomically $ swapTVar mostDifficultBlock (Just block)
         handleBlocks genesisConfig txpConfig (OldestFirst (NE.reverse $ block :| blocks)) diffusion

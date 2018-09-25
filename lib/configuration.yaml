@@ -14856,7 +14856,7 @@ testnet_full: &testnet_full
       <<: *testnet_gen_genesis
       src:
         file: testnet-genesis.json
-        hash: 33c4e311ccfe8c3944bfb5448edf46737c52b4ff3bcd777017d2ff75c4f9954f
+        hash: 71cfe115a8e4f7f3bbfc5aeb2c341032af2b477940e4c36f036d968d89e627e2
 
   update: &testnet_full_update
     applicationName: cardano-sl

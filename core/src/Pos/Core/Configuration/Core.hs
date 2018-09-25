@@ -42,7 +42,7 @@ import           Pos.Core.Genesis (FakeAvvmOptions (..), GenesisAvvmBalances (..
 import           Pos.Core.ProtocolConstants (VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Slotting (EpochIndex (..))
 import           Pos.Core.Update (BlockVersionData (..), SoftforkRule (..))
-import           Pos.Crypto (ProtocolMagic (..))
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 import           Pos.Crypto.Hashing (Hash)
 
 data GenesisConfiguration
@@ -123,17 +123,22 @@ instance FromJSON GenesisConfiguration where
 data CoreConfiguration = CoreConfiguration
     {
       -- | Specifies the genesis
-      ccGenesis            :: !GenesisConfiguration
+      ccGenesis              :: !GenesisConfiguration
 
       -- | Versioning for values in node's DB
-    , ccDbSerializeVersion :: !Word8
+    , ccDbSerializeVersion   :: !Word8
+
+      -- | Specifies whether address discrimination takes place on this chain
+    , ccRequiresNetworkMagic :: !RequiresNetworkMagic
 
     }
     deriving (Show, Generic)
 
 
 defaultCoreConfiguration :: ProtocolMagic -> CoreConfiguration
-defaultCoreConfiguration pm = CoreConfiguration (GCSpec (defaultGenesisSpec pm))  0
+defaultCoreConfiguration pm = CoreConfiguration (GCSpec (defaultGenesisSpec pm))
+                                                0
+                                                NMMustBeJust
 
 defaultGenesisSpec :: ProtocolMagic -> GenesisSpec
 defaultGenesisSpec pm = UnsafeGenesisSpec

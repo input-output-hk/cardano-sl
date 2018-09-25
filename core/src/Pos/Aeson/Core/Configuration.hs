@@ -6,9 +6,21 @@ module Pos.Aeson.Core.Configuration
     (
     ) where
 
-import           Data.Aeson.TH (deriveJSON)
+import           Universum
+
+import           Data.Aeson (FromJSON, parseJSON, withObject, (.!=), (.:), (.:?))
+import           Data.Aeson.TH (deriveToJSON)
 import           Serokell.Aeson.Options (defaultOptions)
 
 import           Pos.Core.Configuration.Core (CoreConfiguration (..))
+import           Pos.Crypto (RequiresNetworkMagic (..))
 
-deriveJSON defaultOptions ''CoreConfiguration
+deriveToJSON defaultOptions ''CoreConfiguration
+
+instance FromJSON CoreConfiguration where
+    parseJSON = withObject "core" $ \obj -> do
+        ccg   <- obj .: "genesis"
+        ccdsv <- obj .: "dbSerializeVersion"
+        -- If "requiresNetworkMagic" is not specified, default to NMMustBeJust
+        ccrnm <- obj .:? "requiresNetworkMagic" .!= NMMustBeJust
+        pure $ CoreConfiguration ccg ccdsv ccrnm

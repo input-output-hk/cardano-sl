@@ -21,6 +21,8 @@ module Test.Pos.Core.Arbitrary
        , genVssCertificate
        , genSlotId
        , genLocalSlotIndex
+       , genGenesisData
+       , genGenesisProtocolConstants
        ) where
 
 import           Universum
@@ -558,15 +560,22 @@ instance Arbitrary ProtocolConstants where
         ProtocolConstants <$> choose (1, 20000) <*> pure vssMin <*> pure vssMax
 
 instance Arbitrary G.GenesisProtocolConstants where
-    arbitrary = do
-        pm <- arbitrary
-        flip G.genesisProtocolConstantsFromProtocolConstants pm <$> arbitrary
+    arbitrary = genGenesisProtocolConstants arbitrary
+
+genGenesisProtocolConstants
+    :: Gen ProtocolMagic
+    -> Gen G.GenesisProtocolConstants
+genGenesisProtocolConstants genPM =
+    flip G.genesisProtocolConstantsFromProtocolConstants <$> genPM <*> arbitrary
 
 instance (HasProtocolConstants) => Arbitrary G.GenesisData where
-    arbitrary = G.GenesisData
+    arbitrary = genGenesisData arbitrary
+
+genGenesisData :: Gen G.GenesisProtocolConstants -> Gen G.GenesisData
+genGenesisData genGPC = G.GenesisData
         <$> arbitrary <*> arbitrary <*> arbitraryStartTime
         <*> arbitraryVssCerts <*> arbitrary <*> arbitraryBVD
-        <*> arbitrary <*> arbitrary <*> arbitrary
+        <*> genGPC <*> arbitrary <*> arbitrary
       where
         -- System start time should be multiple of a second.
         arbitraryStartTime = Timestamp . convertUnit @Second <$> arbitrary
@@ -576,6 +585,7 @@ instance (HasProtocolConstants) => Arbitrary G.GenesisData where
             True
         hasKnownFeePolicy _ = False
         arbitraryVssCerts = G.GenesisVssCertificatesMap . mkVssCertificatesMapLossy <$> arbitrary
+
 ----------------------------------------------------------------------------
 -- Arbitrary miscellaneous types
 ----------------------------------------------------------------------------

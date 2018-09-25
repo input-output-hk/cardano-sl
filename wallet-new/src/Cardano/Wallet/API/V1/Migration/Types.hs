@@ -177,8 +177,13 @@ instance Migrate V0.CAddress V1.WalletAddress where
     eitherMigrate V0.CAddress{..} = do
         addrId <- eitherMigrate cadId
         let addrUsed = cadIsUsed
-        let addrChangeAddress = cadIsChange
+            addrChangeAddress = cadIsChange
+            addrOwnership = addressOwnershipFromUsed addrUsed
         return V1.WalletAddress{..}
+      where
+        addressOwnershipFromUsed :: Bool -> V1 V1.AddressOwnership
+        addressOwnershipFromUsed used =
+            V1 $ if used then V1.AddressIsOurs else V1.AddressAmbiguousOwnership
 
 -- | Migrates to a V1 `SyncProgress` by computing the percentage as
 -- coded here: https://github.com/input-output-hk/daedalus/blob/master/app/stores/NetworkStatusStore.js#L108

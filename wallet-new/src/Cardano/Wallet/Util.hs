@@ -27,7 +27,7 @@ headToLower []     = Nothing
 headToLower (x:xs) = Just $ toLower x : xs
 
 stripFieldPrefix :: String -> String
-stripFieldPrefix = dropWhile (not . isUpper)
+stripFieldPrefix = dropWhile (not . isUpper) . drop 1
 
 mkJsonKey :: String -> String
 mkJsonKey s = fromMaybe s . headToLower $ stripFieldPrefix s

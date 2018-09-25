@@ -16,7 +16,7 @@ import           Pos.Chain.Block (Blund, blockHeader, headerHash, prevBlockL)
 import           Pos.Chain.Genesis (Config (..))
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (ProtocolMagic)
-import           Pos.Util.Wlog (Severity (Debug))
+import           Pos.Util.Wlog (Severity (Debug, Warning))
 
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Actions as Actions
@@ -63,7 +63,13 @@ bracketPassiveWallet mode logFunction keystore node f = do
               let accts      = Kernel.accountsByRootId snapshot (root ^. hdRootId)
                   restoring  = IxSet.findWithEvidence hdAccountRestorationState accts
 
-              whenJust restoring $ uncurry (Kernel.continueRestoration w root)
+              whenJust restoring $ \(src, tgt) -> do
+                  (w ^. Kernel.walletLogMessage) Warning
+                      ("bracketPassiveWallet: continuing restoration of "
+                       <> show (root ^. hdRootId)
+                       <> " from checkpoint " <> maybe "(genesis)" pretty src
+                       <> " with target "     <> pretty tgt)
+                  Kernel.continueRestoration w root src tgt
 
       -- Start the wallet worker
       let wai = Actions.WalletActionInterp

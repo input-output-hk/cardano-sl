@@ -31,7 +31,7 @@ import           Pos.Core (getSlotIndex, siSlotL)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.DB.Block (getBlund)
-import           Pos.Util.Log (Severity (Info))
+import           Pos.Util.Log (Severity (Info, Warning))
 
 import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..),
                      ObservableRollbackUseInTestsOnly (..), SwitchToFork (..),
@@ -191,7 +191,11 @@ applyBlock pw@PassiveWallet{..} b = do
                              Just (Left (acctId ^. hdAccountIdParent))
 
           -- Start restoring each wallet that was incomparable to this block.
-          for_ (Set.fromList toRestore) $ restoreKnownWallet pw
+          for_ (Set.fromList toRestore) $ \rootId -> do
+              _walletLogMessage Warning
+                                ("applyBlock: block was incomparable to wallet checkpoint, "
+                                 <> "restoring " <> show rootId)
+              restoreKnownWallet pw rootId
 
           -- Beginning with the oldest missing block, update each lagging account.
           let applyOne (block, toAccts) = runExceptT (applyOneBlock k (Just toAccts) block)
@@ -333,7 +337,10 @@ switchToFork pw@PassiveWallet{..} oldest bs = do
             Left badAccts -> do
                 -- Some wallets need to enter restoration before we can continue.
                 let badWallets = Set.fromList $ map _hdAccountIdParent badAccts
-                mapM_ (restoreKnownWallet pw) (Set.toList badWallets)
+                for_ (Set.toList badWallets) $ \rootId -> do
+                    _walletLogMessage Warning
+                      ("switchToFork: wallet " <> show rootId <> " must enter restoration.")
+                    restoreKnownWallet pw rootId
 
                 -- Now that the problematic wallets are in restoration, try again.
                 trySwitchingToFork k blockssByAccount

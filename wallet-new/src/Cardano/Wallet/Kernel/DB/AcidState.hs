@@ -298,10 +298,9 @@ applyHistoricalBlock k context blocks =
       updateAccounts_ =<< mkUpdates <$> use hdWalletsAccounts
   where
     mkUpdates :: IxSet HdAccount -> [AccountUpdate Spec.ApplyBlockFailed ()]
-    mkUpdates existingAccounts =
+    mkUpdates _existingAccounts =
           map mkUpdate
         . Map.toList
-        . markMissingMapEntries (IxSet.toMap existingAccounts)
         $ blocks
 
     -- The account update
@@ -311,9 +310,9 @@ applyHistoricalBlock k context blocks =
     -- have an empty genesis UTxO and an empty current UTxO. (It can't have
     -- a non-empty genesis UTxO because if it did we would already have
     -- known about this account).
-    mkUpdate :: (HdAccountId, Maybe PrefilteredBlock)
+    mkUpdate :: (HdAccountId, PrefilteredBlock)
              -> AccountUpdate Spec.ApplyBlockFailed ()
-    mkUpdate (accId, mPB) = AccountUpdate {
+    mkUpdate (accId, pb) = AccountUpdate {
           accountUpdateId    = accId
         , accountUpdateAddrs = pfbAddrs pb
         , accountUpdateNew   = AccountUpdateNewIncomplete mempty mempty context
@@ -345,9 +344,6 @@ applyHistoricalBlock k context blocks =
                 second (updateHistory current) $
                   Z.unwrap (Spec.applyBlock k pb) history
         }
-      where
-        pb :: PrefilteredBlock
-        pb = fromMaybe (emptyPrefilteredBlock context) mPB
 
 -- | Finish restoration of a wallet
 --

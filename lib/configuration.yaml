@@ -259,7 +259,6 @@ mainnet_base: &mainnet_base
         avvmDistr: {}
 
     dbSerializeVersion: 0
-    requiresNetworkMagic: NMMustBeNothing
 
   ntp:
     responseTimeout: 30000000 # 30 sec
@@ -14777,6 +14776,8 @@ mainnet_full: &mainnet_full
         file: mainnet-genesis.json
         hash: 5f20df933584822601f9e3f8c024eb5eb252fe8cefb24d1317dc3d432e940ebb
 
+    requiresNetworkMagic: NMMustBeNothing
+
 mainnet_wallet_win64: &mainnet_wallet_win64
   <<: *mainnet_full
   update:
@@ -14900,6 +14901,8 @@ mainnet_dryrun_full: &mainnet_dryrun_full
       src:
         file: mainnet-genesis-dryrun-with-stakeholders.json
         hash: c6a004d3d178f600cd8caa10abbebe1549bef878f0665aea2903472d5abf7323
+
+    requiresNetworkMagic: NMMustBeNothing
 
 mainnet_dryrun_wallet_win64: &mainnet_dryrun_wallet_win64
   <<: *mainnet_dryrun_full

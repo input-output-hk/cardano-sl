@@ -464,9 +464,12 @@ mkSigner spendingPassword (Just esk) snapshot addr =
                                              esk
                                              accountIndex
                                              addressIndex
+            -- eks address fix - we need to use the esk as returned
+            -- from Core.deriveLvl2KeyPair rather than rely on the
+            -- one from encrypted secret key delivered to mkSigner
             in case res of
-                 Just (a, _) | a == addr ->
-                     Right (SafeSigner esk spendingPassword)
+                 Just (a, eskAddr) | a == addr ->
+                     Right (SafeSigner eskAddr spendingPassword)
                  _otherwise              ->
                      Left (SignTransactionErrorNotOwned addr)
 
@@ -589,5 +592,3 @@ redeemAda w@ActiveWallet{..} accId pw rsk = runExceptT $ do
         isOutput (inp, TxOutAux (TxOut addr coin)) = do
             guard $ addr == redeemAddr
             return (inp, coin)
-
-

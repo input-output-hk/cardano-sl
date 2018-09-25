@@ -65,7 +65,8 @@ let
   '';
   configFiles = iohkPkgs.cardano-sl-config;
   configurationArgs = pkgs.lib.concatStringsSep " " [
-    "--configuration-file ${environments.${environment}.confFile or "${configFiles}/lib/configuration.yaml"}"
+    # "--configuration-file ${environments.${environment}.confFile or "${configFiles}/lib/configuration.yaml"}"
+    "--configuration-file testing-configuration.yaml"
     "--configuration-key ${environments.${environment}.confKey}"
   ];
 in pkgs.writeScript "${executable}-connect-to-${environment}" ''

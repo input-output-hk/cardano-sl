@@ -46,7 +46,7 @@ in
 
     ${utf8LocaleSetting}
     echo Launching wallet node: ${wallet}
-    ${wallet} &> ${stateDir}/logs/wallet.log &
+    ${wallet}  --runtime-args " --legacy-wallet +RTS -M6G" &> ${stateDir}/logs/wallet.log &
     wallet_pid=$!
 
     start_time=$(date +%s)

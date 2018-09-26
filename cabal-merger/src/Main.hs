@@ -24,8 +24,8 @@ import           Distribution.PackageDescription.Parsec
 import           Distribution.PackageDescription.PrettyPrint
                      (writeGenericPackageDescription)
 import           Distribution.Types.CondTree
-import           Distribution.Types.GenericPackageDescription (GenericPackageDescription (condExecutables, condLibrary, condTestSuites, packageDescription),
-                     emptyGenericPackageDescription)
+import           Distribution.Types.GenericPackageDescription (GenericPackageDescription (condExecutables, condLibrary, condTestSuites, packageDescription, genPackageFlags),
+                     emptyGenericPackageDescription, Flag(flagName))
 import           Distribution.Types.TestSuite
 import           Distribution.Types.UnqualComponentName (UnqualComponentName)
 import           Distribution.Verbosity (silent)
@@ -47,10 +47,14 @@ data State =
   , sCondExecutables :: [(UnqualComponentName, CondTree ConfVar [Dependency] Executable)]
   , sConfTestSuites  :: [ (UnqualComponentName, CondTree ConfVar [Dependency] TestSuite) ]
   , sLibConditions   :: [ CondBranch ConfVar [Dependency] Library ]
+  , sFlags           :: S.Set Flag
   } deriving Show
 
 instance Ord Dependency where
   compare a b = compare (depPkgName a) (depPkgName b)
+
+instance Ord Flag where
+  compare a b = compare (flagName a) (flagName b)
 
 fixExecutableSrc :: String -> Executable -> Executable
 fixExecutableSrc prefix exe = exe {
@@ -100,6 +104,7 @@ go state cabalFile = do
   final <- foldlM (goTest finalPrefix) withExecutables (condTestSuites pkg)
   pure $ final {
       sExecutables = (sExecutables final) <> (executables $ packageDescription pkg)
+    , sFlags = (sFlags final) <> S.fromList (genPackageFlags pkg)
     }
 
 goTest :: String -> State -> (UnqualComponentName, CondTree ConfVar [Dependency] TestSuite) -> IO State
@@ -154,7 +159,7 @@ pathsFilter = not . isPrefixOf "Paths_" . toFilePath
 
 main :: IO ()
 main = do
-  result <- getArgs >>= foldlM go (State S.empty S.empty [] S.empty S.empty [] [] [] [])
+  result <- getArgs >>= foldlM go (State S.empty S.empty [] S.empty S.empty [] [] [] [] S.empty)
   let
     mergedLib = emptyLibrary {
         exposedModules = filter pathsFilter $ S.toList $ sExposedModules result
@@ -162,7 +167,7 @@ main = do
             buildable = True
           , defaultLanguage = Just Haskell2010
           , defaultExtensions = S.toList $ sLibExtensions result
-          , otherModules = (filter pathsFilter $ S.toList $ sLibOtherModules result) <> [ "Pos.Infra.Util.SigHandler", "Paths_everything" ]
+          , otherModules = (filter pathsFilter $ S.toList $ sLibOtherModules result) <> [ "Paths_everything" ]
           , hsSourceDirs = [
               "acid-state-exts/src"
             , "binary/src"
@@ -214,5 +219,6 @@ main = do
       , condLibrary = Just libNode
       , condExecutables = filterCondExecutables result $ sCondExecutables result
       , condTestSuites = filterCondTests result $ sConfTestSuites result
+      , genPackageFlags = S.toList $ sFlags result
       }
   writeGenericPackageDescription "output" genPackage

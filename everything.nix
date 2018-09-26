@@ -4,18 +4,20 @@
 , base16-bytestring, base58-bytestring, base64-bytestring, basement
 , beam-core, beam-migrate, beam-sqlite, bifunctors, binary
 , bytestring, Cabal, canonical-json, cardano-crypto
-, cardano-report-server, cborg, cereal, clock, concurrent-extra
-, conduit, connection, constraints, containers, contravariant
-, cpphs, cryptonite, cryptonite-openssl, data-default
-, data-default-class, deepseq, deriving-compat, digest, directory
-, dlist, dns, ekg-core, ekg-statsd, ekg-wai, ether, exceptions
-, extra, file-embed, filelock, filepath, fmt, foldl, formatting
-, free, generic-arbitrary, generics-sop, half, hashable, hedgehog
-, hourglass, hspec, hspec-core, http-api-data, http-client
-, http-client-tls, http-conduit, http-types
-, insert-ordered-containers, ip, iproute, ixset-typed, kademlia
-, katip, lens, lifted-async, log-warper, lrucache, lzma-conduit
-, megaparsec, memory, micro-recursion-schemes, mmorph
+, cardano-report-server, cardano-sl, cardano-sl-binary
+, cardano-sl-chain, cardano-sl-core, cardano-sl-crypto
+, cardano-sl-db, cardano-sl-util, cborg, cereal, clock
+, concurrent-extra, conduit, connection, constraints, containers
+, contravariant, cpphs, cryptonite, cryptonite-openssl
+, data-default, data-default-class, deepseq, deriving-compat
+, digest, directory, dlist, dns, ekg-core, ekg-statsd, ekg-wai
+, ether, exceptions, extra, file-embed, filelock, filepath, fmt
+, foldl, formatting, free, generic-arbitrary, generics-sop, Glob
+, half, hashable, hedgehog, hourglass, hspec, hspec-core
+, http-api-data, http-client, http-client-tls, http-conduit
+, http-types, insert-ordered-containers, ip, iproute, ixset-typed
+, kademlia, katip, lens, lifted-async, log-warper, lrucache
+, lzma-conduit, megaparsec, memory, micro-recursion-schemes, mmorph
 , monad-control, MonadRandom, mono-traversable, mtl, mwc-random
 , neat-interpolation, network, network-info, network-transport
 , network-transport-inmemory, network-transport-tcp
@@ -78,14 +80,17 @@ mkDerivation {
   ];
   executableHaskellDepends = [
     aeson aeson-diff aeson-options aeson-pretty ansi-wl-pprint async
-    base binary bytestring cardano-report-server containers
-    contravariant cryptonite deepseq directory exceptions filepath
-    formatting hspec http-client http-types lens lifted-async
-    MonadRandom mtl neat-interpolation network-transport
-    network-transport-tcp optparse-applicative pretty-show process
-    QuickCheck random safe-exceptions serokell-util servant
-    servant-client servant-quickcheck servant-server silently stm
-    swagger2 tar text time-units universum unix unix-compat
+    base base58-bytestring binary bytestring canonical-json
+    cardano-report-server cardano-sl cardano-sl-binary cardano-sl-chain
+    cardano-sl-core cardano-sl-crypto cardano-sl-db cardano-sl-util
+    containers contravariant cryptonite data-default deepseq directory
+    exceptions filepath formatting Glob hspec http-client http-types
+    lens lifted-async MonadRandom mtl neat-interpolation
+    network-transport network-transport-tcp optparse-applicative
+    optparse-generic pretty-show process QuickCheck random
+    safe-exceptions serokell-util servant servant-client
+    servant-quickcheck servant-server silently stm swagger2 tabl tar
+    text time time-units universum unix unix-compat
     unordered-containers x509-store yaml
   ];
   testHaskellDepends = [

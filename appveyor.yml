@@ -63,6 +63,9 @@ before_test:
     $env:PATH="$env:PATH;C:\ghc\ghc-8.2.2\bin"
 
     dir c:\ghc\ghc-8.2.2\bin\ghc.exe
+
+    c:\ghc\ghc-8.2.2\bin\ghc.exe --version
+
     ghc --version
 
 # Install OpenSSL 1.0.2 (see https://github.com/appveyor/ci/issues/1665)

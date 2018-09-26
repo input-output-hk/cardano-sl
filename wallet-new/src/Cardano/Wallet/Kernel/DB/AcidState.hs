@@ -288,7 +288,10 @@ applyBlock k context restriction blocks = runUpdateDiscardSnapshot $ do
         pb = fromMaybe (emptyPrefilteredBlock context) mPB
 
 -- | Apply a block, as in 'applyBlock', but on the historical
--- checkpoints of an account rather than the current checkpoints.
+-- checkpoints of an account rather than the current checkpoints. It takes
+-- the parent 'HdRoot' as input as unlike 'applyBlock' we do not want to update
+-- historical data to all the accounts known to this node, because we might have
+-- different restoration threads all started at different point in time.
 --
 -- NOTE: In order to allow the restoration to resume correctly, we @have to@
 -- write historical checkpoints to all the accounts even if this block is
@@ -297,11 +300,12 @@ applyBlock k context restriction blocks = runUpdateDiscardSnapshot $ do
 -- make the process restart from the genesis block every time.
 applyHistoricalBlock :: SecurityParameter
                      -> BlockContext
+                     -> HdRootId
                      -> Map HdAccountId PrefilteredBlock
                      -> Update DB (Either Spec.ApplyBlockFailed ())
-applyHistoricalBlock k context blocks =
+applyHistoricalBlock k context rootId blocks =
     runUpdateDiscardSnapshot $ zoom dbHdWallets $
-      updateAccounts_ =<< mkUpdates <$> use hdWalletsAccounts
+      updateAccounts_ =<< mkUpdates . IxSet.getEQ rootId <$> use hdWalletsAccounts
   where
     mkUpdates :: IxSet HdAccount -> [AccountUpdate Spec.ApplyBlockFailed ()]
     mkUpdates existingAccounts =

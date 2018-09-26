@@ -404,7 +404,7 @@ restoreWalletHistoryAsync wallet rootId prefilter progress start (tgtHash, tgtSl
             k    <- getSecurityParameter (wallet ^. walletNode)
             ctxt <- withNode $ mainBlockContext genesisHash mb
             mErr <- update (wallet ^. wallets) $
-                   ApplyHistoricalBlock k ctxt prefilteredBlocks
+                   ApplyHistoricalBlock k ctxt rootId prefilteredBlocks
             case mErr of
                 Left err -> throwM $ RestorationApplyHistoricalBlockFailed err
                 Right () -> return ()

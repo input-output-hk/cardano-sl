@@ -23,6 +23,7 @@ module Cardano.Wallet.WalletLayer
     , UpdateAccountError(..)
     , ImportWalletError(..)
     , NewUnsignedTransactionError(..)
+    , SubmitSignedTransactionError(..)
     ) where
 
 import           Universum
@@ -46,9 +47,10 @@ import           Cardano.Wallet.API.Response (SliceOf (..), WalletResponse)
 import           Cardano.Wallet.API.V1.Types (Account, AccountBalance,
                      AccountIndex, AccountUpdate, Address, ForceNtpCheck,
                      NewAccount, NewAddress, NewWallet, NodeInfo, NodeSettings,
-                     PasswordUpdate, Payment, Redemption, SpendingPassword,
-                     Transaction, V1 (..), Wallet, WalletAddress, WalletId,
-                     WalletImport, WalletUpdate)
+                     PasswordUpdate, Payment, Redemption, SignedTransaction,
+                     SpendingPassword, Transaction, UnsignedTransaction,
+                     V1 (..), Wallet, WalletAddress, WalletId, WalletImport,
+                     WalletUpdate)
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
@@ -499,11 +501,12 @@ data ActiveWalletLayer m = ActiveWalletLayer {
                        -- Who pays the fee, if the sender or the receivers.
                        -> Payment
                        -- The payment we need to perform.
-                       -> m (Either NewUnsignedTransactionError
-                                    ( Tx
-                                    , NonEmpty (Address, [Word32])
-                                    )
-                            )
+                       -> m (Either NewUnsignedTransactionError UnsignedTransaction)
+
+      -- | Takes externally-signed transaction and submits it to the blockchain.
+      -- The result of 'submitSignedTx' is equal to 'pay'.
+    , submitSignedTx :: SignedTransaction
+                     -> m (Either SubmitSignedTransactionError (Tx, TxMeta))
 
       -- | Redeem ada
     , redeemAda :: Redemption -> m (Either RedeemAdaError (Tx, TxMeta))
@@ -599,3 +602,35 @@ instance Buildable NewUnsignedTransactionError where
     build (NewTransactionWalletIdDecodingFailed txt) =
         bprint ("NewTransactionWalletIdDecodingFailed " % build) txt
 
+data SubmitSignedTransactionError =
+      SubmitSignedTransactionError Kernel.PaymentError
+    | SubmitSignedTransactionWalletIdDecodingFailed Text
+    | SubmitSignedTransactionNotBase16Format
+    | SubmitSignedTransactionUnableToDecode
+    | SubmitSignedTransactionInvalidSrcAddress
+    | SubmitSignedTransactionSigNotBase16Format
+    | SubmitSignedTransactionInvalidSig
+    | SubmitSignedTransactionInvalidPK
+
+instance Show SubmitSignedTransactionError where
+    show = formatToString build
+
+instance Exception SubmitSignedTransactionError
+
+instance Buildable SubmitSignedTransactionError where
+    build (SubmitSignedTransactionError err) =
+        bprint ("NewUnsignedTransactionError " % build) err
+    build (SubmitSignedTransactionWalletIdDecodingFailed txt) =
+        bprint ("NewTransactionWalletIdDecodingFailed " % build) txt
+    build SubmitSignedTransactionNotBase16Format =
+        bprint ("SubmitSignedTransactionNotBase16Format")
+    build SubmitSignedTransactionUnableToDecode =
+        bprint ("SubmitSignedTransactionUnableToDecode")
+    build SubmitSignedTransactionInvalidSrcAddress =
+        bprint ("SubmitSignedTransactionInvalidSrcAddress")
+    build SubmitSignedTransactionSigNotBase16Format =
+        bprint ("SubmitSignedTransactionSigNotBase16Format")
+    build SubmitSignedTransactionInvalidSig =
+        bprint ("SubmitSignedTransactionInvalidSig")
+    build SubmitSignedTransactionInvalidPK =
+        bprint ("SubmitSignedTransactionInvalidPK")

@@ -51,6 +51,7 @@ module Cardano.Wallet.API.V1.Types (
   , AddressValidity (..)
   , AddressAsBase58
   , mkAddressAsBase58
+  , mkAddressFromBase58
   -- * Accounts
   , Account (..)
   , accountsHaveSameId
@@ -81,7 +82,10 @@ module Cardano.Wallet.API.V1.Types (
   , TransactionStatus(..)
   , TransactionAsBase16
   , mkTransactionAsBase16
-  , TransactionSignatureAsBase16 (..)
+  , rawTransactionAsBase16
+  , TransactionSignatureAsBase16
+  , mkTransactionSignatureAsBase16
+  , rawTransactionSignatureAsBase16
   , EstimatedFees (..)
   , AddressAndPath (..)
   , UnsignedTransaction (..)
@@ -686,6 +690,10 @@ instance BuildableSafeGen AddressAsBase58 where
 mkAddressAsBase58 :: Core.Address -> AddressAsBase58
 mkAddressAsBase58 = AddressAsBase58Unsafe . decodeUtf8 . Core.addrToBase58
 
+-- | Decode Base58-address to real Address.
+mkAddressFromBase58 :: AddressAsBase58 -> Either Text Core.Address
+mkAddressFromBase58 (AddressAsBase58Unsafe txtAddr) = Core.decodeTextAddress txtAddr
+
 -- | Type for representation of serialized transaction in Base16-format.
 -- We use it for external wallets (to send/receive raw transaction during
 -- external signing).
@@ -714,13 +722,13 @@ instance BuildableSafeGen TransactionAsBase16 where
 -- | Type for representation of transaction signature in Base16-format.
 -- We use it for external wallet. Please note that technically there's no
 -- signature of transaction, but signature of the hash of transaction.
-newtype TransactionSignatureAsBase16 = TransactionSignatureAsBase16
+newtype TransactionSignatureAsBase16 = TransactionSignatureAsBase16Unsafe
     { ewalTransactionSignatureAsBase16 :: Text
     } deriving (Eq, Generic, Ord, Show)
 
 deriveJSON Serokell.defaultOptions ''TransactionSignatureAsBase16
 instance Arbitrary TransactionSignatureAsBase16 where
-    arbitrary = TransactionSignatureAsBase16 <$> pure
+    arbitrary = TransactionSignatureAsBase16Unsafe <$> pure
         "5840709cc240ac9ad78cbf47c3eec76df917423943e34339277593e8e2b8c9f9f2e59583023bfbd8e26c40dff6a7fa424600f9b942819533d8afee37a5ac6d813207"
 
 instance ToSchema TransactionSignatureAsBase16 where
@@ -731,10 +739,19 @@ instance ToSchema TransactionSignatureAsBase16 where
 
 deriveSafeBuildable ''TransactionSignatureAsBase16
 instance BuildableSafeGen TransactionSignatureAsBase16 where
-    buildSafeGen sl TransactionSignatureAsBase16{..} = bprint ("{"
+    buildSafeGen sl TransactionSignatureAsBase16Unsafe{..} = bprint ("{"
         %" transactionSignatureAsBase16="%buildSafe sl
         %" }")
         ewalTransactionSignatureAsBase16
+
+-- | Makes tx signature as Base16-text. Please note that technically we sign the hash
+-- of the transaction, not transaction itself.
+mkTransactionSignatureAsBase16 :: Core.Signature Txp.TxSigData -> TransactionSignatureAsBase16
+mkTransactionSignatureAsBase16 (Core.Signature txSig) =
+    TransactionSignatureAsBase16Unsafe . Base16.encode . CC.unXSignature $ txSig
+
+rawTransactionSignatureAsBase16 :: TransactionSignatureAsBase16 -> Text
+rawTransactionSignatureAsBase16 (TransactionSignatureAsBase16Unsafe txtSig) = txtSig
 
 -- | A type modelling the request for a new 'ExternalWallet',
 -- on the mobile client or hardware wallet.
@@ -2032,6 +2049,9 @@ mkTransactionAsBase16 :: Txp.Tx -> TransactionAsBase16
 mkTransactionAsBase16 =
     TransactionAsBase16Unsafe . Base16.encode . Bi.serialize'
 
+rawTransactionAsBase16 :: TransactionAsBase16 -> Text
+rawTransactionAsBase16 (TransactionAsBase16Unsafe txtTx) = txtTx
+
 instance Buildable [AddressLevel] where
     build = bprint listJson
 
@@ -2143,36 +2163,30 @@ instance Buildable [AddressWithProof] where
 -- that this transaction was signed on the client-side
 -- (mobile client or hardware wallet).
 data SignedTransaction = SignedTransaction
-    { stxSrcWalletRootPK :: !PublicKeyAsBase58
-    -- ^ Root PK of the source wallet.
-    , stxTransaction     :: !TransactionAsBase16
+    { stxTransaction     :: !TransactionAsBase16
     -- ^ Serialized transaction in base16-format.
     , stxAddrsWithProofs :: ![AddressWithProof]
-    -- ^ Addresses with proofs for inputs.
+    -- ^ Addresses with proofs for inputs of this transaction.
     } deriving (Show, Ord, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''SignedTransaction
 instance ToSchema SignedTransaction where
     declareNamedSchema =
         genericSchemaDroppingPrefix "stx" (\(--^) props -> props
-            & ("srcWalletRootPK" --^ "Root PK of the wallet we'll send money from.")
-            & ("transaction"     --^ "New transaction that wasn't submitted yet.")
+            & ("transaction"     --^ "New transaction that wasn't submitted in the blockchain yet.")
             & ("addrsWithProofs" --^ "Source addresses with proofs for inputs.")
         )
 
 instance Arbitrary SignedTransaction where
     arbitrary = SignedTransaction <$> arbitrary
                                   <*> arbitrary
-                                  <*> arbitrary
 
 deriveSafeBuildable ''SignedTransaction
 instance BuildableSafeGen SignedTransaction where
     buildSafeGen sl SignedTransaction{..} = bprint ("{"
-        %" srcWalletRootPK="%buildSafe sl
         %" transaction="%buildSafe sl
         %" addrsWithProofs="%buildSafe sl
         %" }")
-        stxSrcWalletRootPK
         stxTransaction
         stxAddrsWithProofs
 
@@ -2815,7 +2829,7 @@ instance Example TransactionAsBase16 where
         "839f8200d8185826825820de3151a2d9cd8e2bbe292a6153d679d123892ddcfbee869c4732a5c504a7554d19386cff9f8282d818582183581caeb153a5809a084507854c9f3e5795bcca89781f9c386d957748cd42a0001a87236a1f1b00780aa6c7d62110ffa0"
 
 instance Example TransactionSignatureAsBase16 where
-    example = TransactionSignatureAsBase16 <$> pure
+    example = TransactionSignatureAsBase16Unsafe <$> pure
         "5840709cc240ac9ad78cbf47c3eec76df917423943e34339277593e8e2b8c9f9f2e59583023bfbd8e26c40dff6a7fa424600f9b942819533d8afee37a5ac6d813207"
 
 instance Example NewExternalWallet where
@@ -2867,7 +2881,6 @@ instance Example AddressWithProof where
 
 instance Example SignedTransaction where
     example = SignedTransaction <$> example
-                                <*> example
                                 <*> example
 
 instance Example WalletImport where

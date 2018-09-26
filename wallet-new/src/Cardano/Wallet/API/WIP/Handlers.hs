@@ -3,7 +3,6 @@ where
 
 import           Universum
 
-import qualified Data.List.NonEmpty as NE
 import           Servant
 
 import           Pos.Client.Txp.Util (defaultInputSelectionPolicy)
@@ -13,6 +12,8 @@ import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.WIP as WIP (API)
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (ExpenseRegulation (..))
+import           Cardano.Wallet.Kernel.DB.HdWallet (UnknownHdAccount)
+import           Cardano.Wallet.Kernel.DB.TxMeta (TxMeta)
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),
                      PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
@@ -60,19 +61,28 @@ newUnsignedTransaction aw payment@Payment{..} = do
                                                       SenderPaysFee
                                                       payment
     case res of
-        Left err -> throwM err
-        Right (tx, addrsAndPaths) -> do
-            let txInHexFormat = mkTransactionAsBase16 tx
-                srcAddrsWithDerivationPaths = NE.toList $
-                    NE.map (\(addr, path) -> AddressAndPath (mkAddressAsBase58 addr)
-                                                            (map word32ToAddressLevel path))
-                           addrsAndPaths
-                unsignedTx = UnsignedTransaction txInHexFormat
-                                                 srcAddrsWithDerivationPaths
-            return $ single unsignedTx
+        Left err         -> throwM err
+        Right unsignedTx -> return $ single unsignedTx
 
+-- | Submits externally-signed transaction to the blockchain.
 submitSignedTransaction :: ActiveWalletLayer IO
                         -> SignedTransaction
                         -> Handler (WalletResponse Transaction)
-submitSignedTransaction _awl _signedTx =
-    error "[CHW-57], Cardano Hardware Wallet, unimplemented yet."
+submitSignedTransaction aw signedTx = liftIO $ do
+    res <- liftIO $ (WalletLayer.submitSignedTx aw) signedTx
+    case res of
+        Left err -> throwM err
+        Right (_, meta) -> txFromMeta aw WalletLayer.NewPaymentUnknownAccountId meta
+
+-- | TODO: Remove duplication, because we already have
+-- such a function in 'V1.Handlers.Transaction'.
+txFromMeta :: Exception e
+           => ActiveWalletLayer IO
+           -> (UnknownHdAccount -> e)
+           -> TxMeta
+           -> IO (WalletResponse Transaction)
+txFromMeta aw embedErr meta = do
+    mTx <- WalletLayer.getTxFromMeta (WalletLayer.walletPassiveLayer aw) meta
+    case mTx of
+      Left err -> throwM (embedErr err)
+      Right tx -> return $ single tx

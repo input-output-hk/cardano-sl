@@ -96,6 +96,7 @@ bracketActiveWallet walletPassiveLayer _walletDiffusion =
         , pay               = \_ _ _ -> error "unimplemented"
         , estimateFees      = \_ _ _ -> error "unimplemented"
         , createUnsignedTx  = \_ _ _ -> error "unimplemented"
+        , submitSignedTx    = \_     -> error "unimplemented"
         , redeemAda         = \_     -> error "unimplemented"
         , getNodeInfo       =           error "unimplemented"
         }

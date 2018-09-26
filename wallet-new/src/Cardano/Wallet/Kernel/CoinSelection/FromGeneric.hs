@@ -15,6 +15,7 @@ module Cardano.Wallet.Kernel.CoinSelection.FromGeneric (
   , UnsignedTx -- opaque
   , utxOwnedInputs
   , utxOutputs
+  , utxAttributes
   , utxChange
   , mkStdTx
   , mkStdUnsignedTx
@@ -188,9 +189,10 @@ feeOptions CoinSelectionOptions{..} = FeeOptions{
 -- "ownership" of inputs, which is instead required when dealing with the
 -- Core Txp.Util API.
 data UnsignedTx = UnsignedTx {
-    utxOwnedInputs :: NonEmpty (Core.TxIn, Core.TxOutAux)
-  , utxOutputs     :: NonEmpty Core.TxOutAux
-  , utxChange      :: [Core.Coin]
+    utxOwnedInputs :: !(NonEmpty (Core.TxIn, Core.TxOutAux))
+  , utxOutputs     :: !(NonEmpty Core.TxOutAux)
+  , utxAttributes  :: !Core.TxAttributes
+  , utxChange      :: ![Core.Coin]
 }
 
 -- | Creates a "standard" unsigned transaction.
@@ -198,11 +200,12 @@ mkStdUnsignedTx :: NonEmpty (Core.TxIn, Core.TxOutAux)
                 -- ^ Selected inputs
                 -> NonEmpty Core.TxOutAux
                 -- ^ Selected outputs
+                -> Core.TxAttributes
+                -- ^ Transaction attributes
                 -> [Core.Coin]
                 -- ^ Change coins
                 -> UnsignedTx
-mkStdUnsignedTx inps outs change = UnsignedTx inps outs change
-
+mkStdUnsignedTx inps outs attrs change = UnsignedTx inps outs attrs change
 
 -- | Build a transaction
 

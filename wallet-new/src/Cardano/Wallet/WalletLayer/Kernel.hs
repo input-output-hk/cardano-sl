@@ -171,6 +171,7 @@ bracketActiveWallet pm walletPassiveLayer passiveWallet walletDiffusion runActiv
         , pay                = Active.pay              w
         , estimateFees       = Active.estimateFees     w
         , createUnsignedTx   = Active.createUnsignedTx w
+        , submitSignedTx     = Active.submitSignedTx   w
         , redeemAda          = Active.redeemAda        w
         , getNodeInfo        = Info.getNodeInfo        w
         }

@@ -1,19 +1,26 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Cardano.Wallet.WalletLayer.Kernel.Active (
     pay
   , estimateFees
   , createUnsignedTx
+  , submitSignedTx
   , redeemAda
   ) where
 
+import qualified Serokell.Util.Base16 as B16
 import           Universum
 
 import           Data.Coerce (coerce)
+import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Second)
 
-import           Pos.Chain.Txp (Tx (..))
+import           Pos.Binary.Class (decodeFull')
+import           Pos.Chain.Txp (Tx (..), TxSigData (..))
 import           Pos.Core (Address, Coin, TxFeePolicy)
-import           Pos.Crypto (PassPhrase)
+import           Pos.Crypto (PassPhrase, PublicKey, Signature (..))
 
+import           Cardano.Crypto.Wallet (xsignature)
 import           Cardano.Wallet.API.V1.Types (unV1)
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel as Kernel
@@ -26,7 +33,7 @@ import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as Node
 import qualified Cardano.Wallet.Kernel.Transactions as Kernel
 import           Cardano.Wallet.WalletLayer (EstimateFeesError (..),
                      NewPaymentError (..), NewUnsignedTransactionError (..),
-                     RedeemAdaError (..))
+                     RedeemAdaError (..), SubmitSignedTransactionError (..))
 import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
                      (limitExecutionTimeTo)
 import           Cardano.Wallet.WalletLayer.Kernel.Conv
@@ -75,15 +82,11 @@ createUnsignedTx :: MonadIO m
                  -> InputGrouping
                  -> ExpenseRegulation
                  -> V1.Payment
-                 -> m (Either NewUnsignedTransactionError
-                             ( Tx
-                             , NonEmpty (Address, [Word32])
-                             )
-                      )
+                 -> m (Either NewUnsignedTransactionError V1.UnsignedTransaction)
 createUnsignedTx activeWallet grouping regulation payment = liftIO $ do
     policy <- Node.getFeePolicy (Kernel.walletPassive activeWallet ^. Kernel.walletNode)
     let spendingPassword = maybe mempty coerce $ V1.pmtSpendingPassword payment
-    runExceptT $ do
+    res <- runExceptT $ do
         (opts, accId, payees) <- withExceptT NewTransactionWalletIdDecodingFailed $
             setupPayment policy grouping regulation payment
         withExceptT NewUnsignedTransactionError $ ExceptT $
@@ -92,6 +95,68 @@ createUnsignedTx activeWallet grouping regulation payment = liftIO $ do
                                                 accId
                                                 payees
                                                 spendingPassword
+    case res of
+        Left e -> return $ Left e
+        Right (tx, addrsAndPaths) -> do
+            let txInHexFormat = V1.mkTransactionAsBase16 tx
+                srcAddrsWithDerivationPaths = NE.toList $
+                    NE.map (\(addr, path) -> V1.AddressAndPath (V1.mkAddressAsBase58 addr)
+                                                               (map V1.word32ToAddressLevel path))
+                           addrsAndPaths
+            return $ Right $ V1.UnsignedTransaction txInHexFormat
+                                                    srcAddrsWithDerivationPaths
+
+-- | Submits externally-signed transaction to the blockchain.
+submitSignedTx :: MonadIO m
+               => Kernel.ActiveWallet
+               -> V1.SignedTransaction
+               -> m (Either SubmitSignedTransactionError (Tx, TxMeta))
+submitSignedTx activeWallet (V1.SignedTransaction encodedTx encodedSrcAddrsWithProofs) = liftIO $
+    case decodeTx of
+        Left e -> pure (Left e)
+        Right tx -> do
+            let srcAddrsWithProofs = map decodeAddrAndProof encodedSrcAddrsWithProofs
+                problems = lefts srcAddrsWithProofs
+            if not . null $ problems then
+                let (firstProblem:_) = problems in pure (Left firstProblem)
+            else
+                let validSrcAddrsWithProofs = rights srcAddrsWithProofs in
+                runExceptT $ withExceptT SubmitSignedTransactionError $
+                    ExceptT $ Kernel.submitSignedTx activeWallet
+                                                    tx
+                                                    (NE.fromList validSrcAddrsWithProofs)
+  where
+    decodeTx :: Either SubmitSignedTransactionError Tx
+    decodeTx = case B16.decode (V1.rawTransactionAsBase16 encodedTx) of
+        Left _ -> Left SubmitSignedTransactionNotBase16Format
+        Right txAsBytes -> case decodeFull' txAsBytes of
+            Left _           -> Left SubmitSignedTransactionUnableToDecode
+            Right (tx :: Tx) -> pure tx
+
+    decodeAddrAndProof :: V1.AddressWithProof
+                       -> Either SubmitSignedTransactionError (Address, Signature TxSigData, PublicKey)
+    decodeAddrAndProof (V1.AddressWithProof encSrcAddr encSig encDerivedPK) =
+        case decodeSrcAddress encSrcAddr of
+            Left e -> Left e
+            Right srcAddress -> case decodeTxSig encSig of
+                Left e -> Left e
+                Right txSignature -> case decodeDerivedPK encDerivedPK of
+                    Left e -> Left e
+                    Right derivedPK -> pure (srcAddress, txSignature, derivedPK)
+      where
+        decodeSrcAddress encoded = case V1.mkAddressFromBase58 encoded of
+            Left _        -> Left SubmitSignedTransactionInvalidSrcAddress
+            Right srcAddr -> pure srcAddr
+
+        decodeTxSig encoded = case B16.decode (V1.rawTransactionSignatureAsBase16 encoded) of
+            Left _ -> Left SubmitSignedTransactionSigNotBase16Format
+            Right txSigItself -> case xsignature txSigItself of
+                Left _ -> Left SubmitSignedTransactionInvalidSig
+                Right realTxSig -> pure (Signature realTxSig :: Signature TxSigData)
+
+        decodeDerivedPK encoded = case V1.mkPublicKeyFromBase58 encoded of
+            Left _          -> Left SubmitSignedTransactionInvalidPK
+            Right derivedPK -> pure derivedPK
 
 -- | Redeem an Ada voucher
 --

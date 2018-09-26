@@ -8,7 +8,6 @@ mkDerivation {
     url = "https://github.com/luite/hfsevents.git";
     sha256 = "0smpq3yd5m9jd9fpanaqvhadv6qcyp9y5bz0dya0rnxqg909m973";
     rev = "25a53d417d7c7a8fc3116b63e3ba14ca7c8f188f";
-    fetchSubmodules = true;
   };
   libraryHaskellDepends = [ base bytestring cereal mtl text unix ];
   librarySystemDepends = [ Cocoa ];

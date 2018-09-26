@@ -11,6 +11,7 @@ module Cardano.Wallet.Kernel.Transactions (
     , RedeemAdaError(..)
     , cardanoFee
     , prepareUnsignedTxWithSources
+    , submitSignedTx
     -- * Internal & testing use only low-level APIs
     , newTransaction
     , newUnsignedTransaction
@@ -28,6 +29,7 @@ import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as B
 import           Data.Default (def)
 import qualified Data.List.NonEmpty as NonEmpty
+import qualified Data.Map.Strict as Map
 import qualified Data.Vector as V
 import           System.Random.MWC (GenIO, asGenIO, initialize, uniformVector)
 import           Test.QuickCheck (Arbitrary (..), oneof)
@@ -36,18 +38,21 @@ import           Formatting (bprint, build, sformat, (%))
 import qualified Formatting.Buildable
 
 import           Pos.Chain.Txp (Tx (..), TxAttributes, TxAux (..), TxId,
-                     TxIn (..), TxOut (..), TxOutAux (..), Utxo)
+                     TxIn (..), TxInWitness (..), TxOut (..), TxOutAux (..),
+                     TxSigData (..), Utxo)
 import qualified Pos.Client.Txp.Util as CTxp
 import           Pos.Core (Address, Coin, TxFeePolicy (..), unsafeSubCoin)
 import qualified Pos.Core as Core
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, RedeemSecretKey,
-                     SafeSigner (..), ShouldCheckPassphrase (..), hash,
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, PublicKey,
+                     RedeemSecretKey, SafeSigner (..),
+                     ShouldCheckPassphrase (..), Signature (..), hash,
                      redeemToPublic)
 
+import           Cardano.Crypto.Wallet (DerivationIndex)
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (CoinSelFinalResult (..), CoinSelectionOptions (..),
-                     UnsignedTx (utxChange, utxOutputs, utxOwnedInputs),
+                     UnsignedTx (utxAttributes, utxChange, utxOutputs, utxOwnedInputs),
                      estimateCardanoFee, estimateMaxTxInputs, mkStdTx,
                      mkStdUnsignedTx)
 import qualified Cardano.Wallet.Kernel.CoinSelection.FromGeneric as CoinSelection
@@ -155,17 +160,17 @@ pay activeWallet spendingPassword opts accountId payees = do
                                Just _  ->
                                    PaymentNewPendingError e
                       Right meta -> return $ Right (taTx $ txAux, meta)
-    where
-        -- See <https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter>
-        retryPolicy :: RetryPolicyM IO
-        retryPolicy = fullJitterBackoff 5000000 <> limitRetries 6
 
-        -- If this is a hard coin selection error we cannot recover, stop
-        -- retrying. If we get a 'Tx' as output, stop retrying immediately.
-        shouldRetry :: RetryStatus -> Either PaymentError a -> IO Bool
-        shouldRetry _ (Right _)                             = return False
-        shouldRetry _ (Left (PaymentNewTransactionError _)) = return False
-        shouldRetry _ _                                     = return True
+-- See <https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter>
+retryPolicy :: RetryPolicyM IO
+retryPolicy = fullJitterBackoff 5000000 <> limitRetries 6
+
+-- If this is a hard coin selection error we cannot recover, stop
+-- retrying. If we get a 'Tx' as output, stop retrying immediately.
+shouldRetry :: RetryStatus -> Either PaymentError a -> IO Bool
+shouldRetry _ (Right _)                             = return False
+shouldRetry _ (Left (PaymentNewTransactionError _)) = return False
+shouldRetry _ _                                     = return True
 
 {-----------------------------------------------------------------------------
   Creating transactions (low-level API)
@@ -211,7 +216,10 @@ newUnsignedTransaction ActiveWallet{..} options accountId payees = runExceptT $ 
 
     -- STEP 2: Assemble the unsigned transactions, @without@ generating the
     -- change addresses, as that would require the spending password.
-    let tx = mkStdUnsignedTx inputs outputs coins
+    -- Currently all transactions has default (empty) attributes. Please note
+    -- that it may change in the future.
+    let attributes = def :: TxAttributes
+    let tx = mkStdUnsignedTx inputs outputs attributes coins
     return (snapshot, tx, availableUtxo)
   where
     -- Generate an initial seed for the random generator using the hash of
@@ -245,7 +253,7 @@ prepareUnsignedTxWithSources :: ActiveWallet
                              -> PassPhrase
                              -> IO (Either NewTransactionError
                                            ( Tx
-                                           , NonEmpty (Address, [Word32])
+                                           , NonEmpty (Address, [DerivationIndex])
                                            )
                                    )
 prepareUnsignedTxWithSources activeWallet opts srcAccId payees spendingPassword = do
@@ -264,7 +272,7 @@ prepareUnsignedTxWithSources activeWallet opts srcAccId payees spendingPassword 
             -- It will be used by external party to provide a proof that it has a right to
             -- spend this money.
             let srcAddresses         = extractSrcAddressesFrom unsignedTx
-                srcHdAddresses       = NonEmpty.map (toHdAddress db) srcAddresses
+                srcHdAddresses       = NonEmpty.map (srcAddressToHdAddress db) srcAddresses
                 derivationPaths      = buildDerivationPathsFor srcHdAddresses srcAccId
                 allOutputs           = (NonEmpty.toList $ utxOutputs unsignedTx) ++ changeAddresses
                 unsignedTxWithChange = unsignedTx { utxOutputs = NonEmpty.fromList allOutputs }
@@ -278,34 +286,102 @@ prepareUnsignedTxWithSources activeWallet opts srcAccId payees spendingPassword 
 
     buildDerivationPathsFor :: NonEmpty HD.HdAddress
                             -> HD.HdAccountId
-                            -> NonEmpty [Word32]
+                            -> NonEmpty [DerivationIndex]
     buildDerivationPathsFor srcAddresses srcAccountId =
         flip NonEmpty.map srcAddresses $ \(HD.HdAddress srcAddressId _) ->
             let HD.HdAccountId _ (HD.HdAccountIx srcAccIndex)  = srcAccountId
                 HD.HdAddressId _ (HD.HdAddressIx srcAddrIndex) = srcAddressId
             in [srcAccIndex, srcAddrIndex]
 
-    toHdAddress :: DB
-                -> Address
-                -> HD.HdAddress
-    toHdAddress db srcAddress =
-        -- Sine 'srcAddress' is returned by 'newUnsignedTransaction'
-        -- we assume that this address is valid so we definitely have
-        -- corresponding 'HdAddress'.
-        either (error "Impossible happened: source address doesn't have corresponding HD-address!")
-               id
-               (lookupCardanoAddress db srcAddress)
-
     -- Convert 'UnsignedTx' to 'Tx', this regular 'Tx'
     -- will be signed later (technically - the hash of the
     -- transaction will be signed).
     toRegularTx :: UnsignedTx -> Tx
-    toRegularTx unsignedTx =
-        let inputs  = NonEmpty.map fst $ utxOwnedInputs unsignedTx
-            outputs = NonEmpty.map toaOut $ utxOutputs unsignedTx
-            -- Currently all transactions have default (actually - empty) attributes.
-            attribs = def :: TxAttributes
-        in UnsafeTx inputs outputs attribs
+    toRegularTx unsignedTx = UnsafeTx inputs outputs attribs
+      where
+        inputs  = NonEmpty.map fst $ utxOwnedInputs unsignedTx
+        outputs = NonEmpty.map toaOut $ utxOutputs unsignedTx
+        attribs = utxAttributes unsignedTx
+
+-- | Converts source address to 'HdAddress'.
+-- Since 'srcAddress' is returned by 'newUnsignedTransaction'
+-- we assume that this address is valid so we definitely have
+-- corresponding 'HdAddress'.
+srcAddressToHdAddress :: DB
+                      -> Address
+                      -> HD.HdAddress
+srcAddressToHdAddress db srcAddress =
+    either (error "Impossible happened: source address doesn't have corresponding HD-address!")
+           id
+           (lookupCardanoAddress db srcAddress)
+
+-- | Submits extrenally-signed transaction to the blockchain.
+-- The result of this function is equal to the result of 'pay' function.
+submitSignedTx :: ActiveWallet
+               -> Tx
+               -> NonEmpty (Address, Signature TxSigData, PublicKey)
+               -> IO (Either PaymentError (Tx, TxMeta))
+submitSignedTx aw@ActiveWallet{..} tx srcAddrsWithProofs = do
+    retrying retryPolicy shouldRetry $ \rs -> do
+        -- STEP 1: create witnesses.
+        -- Since we already received inputs signatures with corresponding derived PKs,
+        -- just form witnesses from them.
+        let witnesses = V.fromList . NonEmpty.toList $ flip NonEmpty.map srcAddrsWithProofs $
+                \(_srcAddr, txSig, derivedPK) -> PkWitness derivedPK txSig
+
+        -- STEP 2: make 'TxAux'.
+        let txAux = TxAux tx witnesses
+
+        -- STEP 3: Compute metadata
+        let txId = hash tx
+        -- Currently it's assumed that all source addresses belong to 'the same/ account,
+        -- so we can just take the first source address to find our 'HdAccountId'.
+        let (firstSrcAddress, _, _) = NonEmpty.head srcAddrsWithProofs
+        snapshot <- liftIO $ getWalletSnapshot walletPassive
+        let (HD.HdAddress (HD.HdAddressId srcAccountId _) _) = srcAddressToHdAddress snapshot firstSrcAddress
+        -- We use `getCreationTimestamp` provided by the `NodeStateAdaptor`
+        -- to compute the createdAt timestamp for `TxMeta`.
+        txMetaCreatedAt_ <- liftIO $ Node.getCreationTimestamp (walletPassive ^. walletNode)
+
+        -- STEP 4: Get available UTxO
+        availableUtxo <- runExceptT $ withExceptT NewTransactionUnknownAccount $ exceptT $
+            currentAvailableUtxo snapshot srcAccountId
+        case availableUtxo of
+            Left _ ->
+                return . Left . PaymentNewTransactionError . NewTransactionUnknownAccount . UnknownHdAccount $
+                    srcAccountId
+            Right utxo -> do
+                let inputsWithCoins = NonEmpty.map (collectInputCoins utxo) $ _txInputs tx
+                -- We have to calculate the sum of input coins.
+                let spentInputCoins = paymentAmount (toaOut . snd <$> inputsWithCoins)
+
+                -- STEP 5: form meta-data.
+                partialMeta <- liftIO $ createNewMeta srcAccountId
+                                                      txId
+                                                      txMetaCreatedAt_
+                                                      inputsWithCoins
+                                                      (_txOutputs tx)
+                                                      True
+                                                      spentInputCoins
+                succeeded <- newPending aw srcAccountId txAux partialMeta
+                case succeeded of
+                    Left e -> do
+                        -- If the next retry would bring us to the
+                        -- end of our allowed retries, we fail with
+                        -- a proper error
+                        retriesLeft <- applyPolicy retryPolicy rs
+                        return . Left $ case retriesLeft of
+                            Nothing -> PaymentSubmissionMaxAttemptsReached
+                            Just _  -> PaymentNewPendingError e
+                    Right meta ->
+                        return $ Right (tx, meta)
+  where
+    collectInputCoins :: Utxo
+                      -> TxIn
+                      -> (TxIn, TxOutAux)
+    collectInputCoins utxo txInput = case Map.lookup txInput utxo of
+        Nothing -> error "Impossible happened: tx input doesn't have corresponding tx output!"
+        Just txOutput -> (txInput, txOutput)
 
 -- | Creates a new 'TxAux' and corresponding 'TxMeta',
 -- without submitting it to the network.

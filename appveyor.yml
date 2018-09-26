@@ -10,7 +10,7 @@ environment:
     STACK_WORK: ".w"
     WORK_DIR: "c:\\w"
     CACHE_S3_VERSION: v0.1.4
-    CACHE_S3_MAX_SIZE: 1600MB  # AppVeyor limits the amount uploaded to approx 2GB
+    CACHE_S3_MAX_SIZE: 1000MB  # AppVeyor limits the amount uploaded to approx 2GB
     AWS_REGION: us-west-1
     S3_BUCKET: appveyor-ci-cache
     AWS_ACCESS_KEY_ID:

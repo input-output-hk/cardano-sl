@@ -25,7 +25,7 @@ import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..))
 -- Cardano monad because they just interfact with the Wallet object.
 walletServer :: ActiveWalletLayer IO
              -> RunMode
-             -> Server NewWalletAPI
+             -> Server WalletAPI
 walletServer w _ =
     v1Handler
     :<|> internalHandler
@@ -35,10 +35,10 @@ walletServer w _ =
     internalHandler = Internal.handlers (walletPassiveLayer w)
     wipHandler      = WIP.handlers w
 
-walletDocServer :: (HasCompileInfo, HasUpdateConfiguration) => Server NewWalletDocAPI
+walletDocServer :: (HasCompileInfo, HasUpdateConfiguration) => Server WalletDoc
 walletDocServer =
     v1DocHandler
   where
     infos        = (compileInfo, curSoftwareVersion)
     v1DocHandler = swaggerSchemaUIServer
-        (Swagger.api infos newWalletAPI Swagger.highLevelDescription)
+        (Swagger.api infos walletDocAPI Swagger.highLevelDescription)

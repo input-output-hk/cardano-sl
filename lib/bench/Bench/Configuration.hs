@@ -5,7 +5,8 @@ module Bench.Configuration
 
 import           Pos.Core (ProtocolConstants (..), VssMaxTTL (..),
                      VssMinTTL (..))
-import           Pos.Crypto (ProtocolMagic (..))
+import           Pos.Crypto (ProtocolMagic (..), ProtocolMagicId (..),
+                     RequiresNetworkMagic (..))
 
 benchProtocolConstants :: ProtocolConstants
 benchProtocolConstants = ProtocolConstants
@@ -15,4 +16,4 @@ benchProtocolConstants = ProtocolConstants
     }
 
 benchProtocolMagic :: ProtocolMagic
-benchProtocolMagic = ProtocolMagic 55550001
+benchProtocolMagic = ProtocolMagic (ProtocolMagicId 55550001) NMMustBeNothing

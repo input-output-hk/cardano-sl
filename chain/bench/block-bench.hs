@@ -20,7 +20,8 @@ import           Pos.Chain.Delegation (DlgPayload)
 import           Pos.Chain.Ssc (SscPayload)
 import           Pos.Chain.Txp (TxPayload (..))
 import           Pos.Chain.Update (UpdatePayload)
-import           Pos.Crypto (ProtocolMagic (..))
+import           Pos.Crypto (ProtocolMagic (..), ProtocolMagicId (..),
+                     RequiresNetworkMagic (..))
 
 import           Test.Pos.Chain.Block.Arbitrary.Generate (generateMainBlock)
 
@@ -28,7 +29,7 @@ import           Test.Pos.Chain.Block.Arbitrary.Generate (generateMainBlock)
 -- 'MainBlock'.
 
 pm :: ProtocolMagic
-pm = ProtocolMagic 0
+pm = ProtocolMagic (ProtocolMagicId 0) NMMustBeNothing
 
 -- | A test subject: a MainBlock, and its various components, each paired with
 -- its serialization.

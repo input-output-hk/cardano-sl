@@ -156,6 +156,8 @@ spec = parallel $ describe "Marshalling & Unmarshalling" $ do
         safeCopyRoundTrip @(InDb Core.BlockCount)
         safeCopyRoundTrip @(InDb Core.GenesisBlockHeader)
         safeCopyRoundTrip @(InDb Core.ProtocolMagic)
+        safeCopyRoundTrip @(InDb Core.ProtocolMagicId)
+        safeCopyRoundTrip @(InDb Core.RequiresNetworkMagic)
         safeCopyRoundTrip @(InDb Core.GenesisProof)
         safeCopyRoundTrip @(InDb Core.GenesisConsensusData)
         safeCopyRoundTrip @(InDb Core.GenesisExtraHeaderData)

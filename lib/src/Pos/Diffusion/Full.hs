@@ -50,7 +50,7 @@ import           Pos.Communication (EnqueueMsg, HandlerSpecs, InSpecs (..),
 import           Pos.Core (ProtocolConstants (..), StakeholderId)
 import           Pos.Core.Chrono (OldestFirst)
 import           Pos.Core.Metrics.Constants (withCardanoNamespace)
-import           Pos.Crypto.Configuration (ProtocolMagic (..))
+import           Pos.Crypto.Configuration (ProtocolMagic (..), getProtocolMagic)
 import qualified Pos.Diffusion.Full.Block as Diffusion.Block
 import qualified Pos.Diffusion.Full.Delegation as Diffusion.Delegation
 import qualified Pos.Diffusion.Full.Ssc as Diffusion.Ssc

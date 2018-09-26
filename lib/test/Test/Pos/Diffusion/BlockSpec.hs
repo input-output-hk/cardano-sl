@@ -32,7 +32,8 @@ import qualified Pos.Chain.Block as Block (getBlockHeader)
 import           Pos.Chain.Update (BlockVersion (..))
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
-import           Pos.Crypto (ProtocolMagic (..))
+import           Pos.Crypto (ProtocolMagic (..), ProtocolMagicId (..),
+                     RequiresNetworkMagic (..))
 import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
 import           Pos.DB.Class (Serialized (..), SerializedBlock)
 import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
@@ -54,7 +55,7 @@ import           Test.Pos.Chain.Block.Arbitrary.Generate (generateMainBlock)
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 protocolMagic :: ProtocolMagic
-protocolMagic = ProtocolMagic 0
+protocolMagic = ProtocolMagic (ProtocolMagicId 0) NMMustBeNothing
 
 protocolConstants :: ProtocolConstants
 protocolConstants = ProtocolConstants

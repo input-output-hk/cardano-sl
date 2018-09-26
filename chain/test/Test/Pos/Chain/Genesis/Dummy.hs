@@ -49,7 +49,7 @@ dummyConfig :: Config
 dummyConfig = dummyConfigStartTime 0
 
 dummyConfigStartTime :: Timestamp -> Config
-dummyConfigStartTime = flip mkConfig dummyGenesisSpec
+dummyConfigStartTime ts = mkConfig ts dummyGenesisSpec
 
 dummyProtocolConstants :: ProtocolConstants
 dummyProtocolConstants = ProtocolConstants

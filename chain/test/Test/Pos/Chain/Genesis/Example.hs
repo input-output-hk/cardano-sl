@@ -42,10 +42,10 @@ import           Pos.Chain.Genesis (FakeAvvmOptions (..),
                      GenesisWStakeholders (..), StaticConfig (..),
                      TestnetBalanceOptions (..))
 import           Pos.Core (Coin (..), CoinPortion (..), EpochIndex (..),
-                     Timestamp (..), VssMaxTTL (..), VssMinTTL (..),
-                     addressHash)
-import           Pos.Crypto (ProtocolMagic (..), ProxyCert (..),
-                     ProxySecretKey (..), RedeemPublicKey, abstractHash,
+                     VssMaxTTL (..), VssMinTTL (..), addressHash)
+import           Pos.Crypto (ProtocolMagic (..), ProtocolMagicId (..),
+                     ProxyCert (..), ProxySecretKey (..), RedeemPublicKey,
+                     RequiresNetworkMagic (..), abstractHash,
                      redeemDeterministicKeyGen)
 import           Pos.Crypto.Signing (PublicKey (..), RedeemPublicKey (..))
 
@@ -271,7 +271,8 @@ exampleGenesisDelegation = UnsafeGenesisDelegation (HM.fromList
 exampleGenesisProtocolConstants0 :: GenesisProtocolConstants
 exampleGenesisProtocolConstants0 = GenesisProtocolConstants
     { gpcK = 37
-    , gpcProtocolMagic = ProtocolMagic {getProtocolMagic = 1783847074}
+    , gpcProtocolMagic = ProtocolMagic (ProtocolMagicId 1783847074)
+                                       NMMustBeNothing
     , gpcVssMaxTTL = VssMaxTTL {getVssMaxTTL = 1477558317}
     , gpcVssMinTTL = VssMinTTL {getVssMinTTL = 744040476}}
 

@@ -2,9 +2,18 @@
 
 module Test.Pos.Crypto.Dummy
        ( dummyProtocolMagic
+       , dummyProtocolMagicId
+       , dummyRequiresNetworkMagic
        ) where
 
-import           Pos.Crypto (ProtocolMagic (..))
+import           Pos.Crypto (ProtocolMagic (..), ProtocolMagicId (..),
+                     RequiresNetworkMagic (..))
 
 dummyProtocolMagic :: ProtocolMagic
-dummyProtocolMagic = ProtocolMagic 55550001
+dummyProtocolMagic = ProtocolMagic dummyProtocolMagicId NMMustBeNothing
+
+dummyProtocolMagicId :: ProtocolMagicId
+dummyProtocolMagicId = ProtocolMagicId 55550001
+
+dummyRequiresNetworkMagic :: RequiresNetworkMagic
+dummyRequiresNetworkMagic = NMMustBeNothing

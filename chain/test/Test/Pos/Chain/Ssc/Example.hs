@@ -31,8 +31,9 @@ import           Pos.Chain.Ssc (Commitment, CommitmentSignature, CommitmentsMap,
                      mkVssCertificate, mkVssCertificatesMap,
                      randCommitmentAndOpening)
 import           Pos.Core (EpochIndex (..), addressHash)
-import           Pos.Crypto (EncShare (..), ProtocolMagic (..), Secret (..),
-                     SecretProof (..), SignTag (..), VssKeyPair,
+import           Pos.Crypto (EncShare (..), ProtocolMagic (..),
+                     ProtocolMagicId (..), RequiresNetworkMagic (..),
+                     Secret (..), SecretProof (..), SignTag (..), VssKeyPair,
                      VssPublicKey (..), decryptShare, deterministic,
                      deterministicVssKeyGen, hash, sign, toVssPublicKey)
 
@@ -56,7 +57,9 @@ exampleCommitmentOpening =
 exampleCommitmentSignature :: CommitmentSignature
 exampleCommitmentSignature =
     sign
-      (ProtocolMagic 0)
+      (ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
+                     , getRequiresNetworkMagic = NMMustBeNothing
+                     })
       SignForTestingOnly
       exampleSecretKey
       (exampleEpochIndex, exampleCommitment)
@@ -140,7 +143,9 @@ exampleVssPublicKey = toVssPublicKey mkVssKeyPair
 exampleVssCertificate :: VssCertificate
 exampleVssCertificate =
     mkVssCertificate
-        (ProtocolMagic 0)
+       (ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
+                      , getRequiresNetworkMagic = NMMustBeNothing
+                      })
         exampleSecretKey
         (asBinary (toVssPublicKey $ deterministicVssKeyGen ("golden" :: ByteString)))
         (EpochIndex 11)
@@ -150,7 +155,9 @@ exampleVssCertificates offset num =  map vssCert [0..num-1]
     where
         secretKeyList = (exampleSecretKeys offset num)
         vssCert index = mkVssCertificate
-                           (ProtocolMagic 0)
+                           (ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
+                                          , getRequiresNetworkMagic = NMMustBeNothing
+                                          })
                            (secretKeyList !! index)
                            (asBinary (toVssPublicKey $ deterministicVssKeyGen (getBytes index 128)))
                            (EpochIndex 122)

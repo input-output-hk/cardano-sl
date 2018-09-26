@@ -5,7 +5,7 @@
 
 module Pos.Chain.Block.Header
        ( BlockHeader (..)
-       , blockHeaderProtocolMagic
+       , blockHeaderProtocolMagicId
        , blockHeaderHash
        , choosingBlockHeader
        , _BlockHeaderGenesis
@@ -22,7 +22,7 @@ module Pos.Chain.Block.Header
 
        , GenericBlockHeader
        , mkGenericBlockHeaderUnsafe
-       , gbhProtocolMagic
+       , gbhProtocolMagicId
        , gbhPrevBlock
        , gbhBodyProof
        , gbhConsensus
@@ -102,10 +102,10 @@ import           Pos.Core.Common (ChainDifficulty, HasDifficulty (..))
 import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..),
                      HasEpochIndex (..), HasEpochOrSlot (..), SlotId (..),
                      slotIdF)
-import           Pos.Crypto (Hash, ProtocolMagic (..), PublicKey, SecretKey,
-                     SignTag (..), Signature, checkSig, hashHexF,
-                     isSelfSignedPsk, proxySign, proxyVerify, psigPsk, sign,
-                     toPublic, unsafeHash)
+import           Pos.Crypto (Hash, ProtocolMagic (..), ProtocolMagicId (..),
+                     PublicKey, SecretKey, SignTag (..), Signature, checkSig,
+                     hashHexF, isSelfSignedPsk, proxySign, proxyVerify,
+                     psigPsk, sign, toPublic, unsafeHash)
 import           Pos.Util.Some (Some, applySome)
 import           Pos.Util.Util (cborError, cerealError)
 
@@ -159,9 +159,9 @@ instance Bi BlockHeader where
            _ -> cborError $ "decode@BlockHeader: unknown tag " <> pretty t
 
 -- | The 'ProtocolMagic' in a 'BlockHeader'.
-blockHeaderProtocolMagic :: BlockHeader -> ProtocolMagic
-blockHeaderProtocolMagic (BlockHeaderGenesis gbh) = _gbhProtocolMagic gbh
-blockHeaderProtocolMagic (BlockHeaderMain mbh)    = _gbhProtocolMagic mbh
+blockHeaderProtocolMagicId :: BlockHeader -> ProtocolMagicId
+blockHeaderProtocolMagicId (BlockHeaderGenesis gbh) = _gbhProtocolMagicId gbh
+blockHeaderProtocolMagicId (BlockHeaderMain mbh)    = _gbhProtocolMagicId mbh
 
 -- | Verify a BlockHeader in isolation. There is nothing to be done for
 -- genesis headers.
@@ -227,15 +227,15 @@ blockHeaderHash = unsafeHash
 -- general there may be some invariants which must hold for the
 -- contents of header.
 data GenericBlockHeader bodyProof consensus extra = GenericBlockHeader
-    { _gbhProtocolMagic :: !ProtocolMagic
+    { _gbhProtocolMagicId :: !ProtocolMagicId
       -- | Pointer to the header of the previous block.
-    , _gbhPrevBlock     :: !HeaderHash
+    , _gbhPrevBlock       :: !HeaderHash
     , -- | Proof of body.
-      _gbhBodyProof     :: !bodyProof
+      _gbhBodyProof       :: !bodyProof
     , -- | Consensus data to verify consensus algorithm.
-      _gbhConsensus     :: !consensus
+      _gbhConsensus       :: !consensus
     , -- | Any extra data.
-      _gbhExtra         :: !extra
+      _gbhExtra           :: !extra
     } deriving (Eq, Show, Generic, NFData)
 
 instance
@@ -243,14 +243,14 @@ instance
     => Bi (GenericBlockHeader bodyProof consensus extra)
   where
     encode bh =  encodeListLen 5
-              <> encode (getProtocolMagic (_gbhProtocolMagic bh))
+              <> encode (unProtocolMagicId (_gbhProtocolMagicId bh))
               <> encode (_gbhPrevBlock bh)
               <> encode (_gbhBodyProof bh)
               <> encode (_gbhConsensus bh)
               <> encode (_gbhExtra bh)
     decode = do
         enforceSize "GenericBlockHeader b" 5
-        _gbhProtocolMagic <- ProtocolMagic <$> decode
+        _gbhProtocolMagicId <- ProtocolMagicId <$> decode
         _gbhPrevBlock <- decode
         _gbhBodyProof <- decode
         _gbhConsensus <- decode
@@ -263,7 +263,7 @@ instance
   where
     getCopy =
         contain $
-        do _gbhProtocolMagic <- safeGet
+        do _gbhProtocolMagicId <- safeGet
            _gbhPrevBlock <- safeGet
            _gbhBodyProof <- safeGet
            _gbhConsensus <- safeGet
@@ -271,7 +271,7 @@ instance
            return $! GenericBlockHeader {..}
     putCopy GenericBlockHeader {..} =
         contain $
-        do safePut _gbhProtocolMagic
+        do safePut _gbhProtocolMagicId
            safePut _gbhPrevBlock
            safePut _gbhBodyProof
            safePut _gbhConsensus
@@ -285,7 +285,9 @@ mkGenericBlockHeaderUnsafe
     -> consensus
     -> extra
     -> GenericBlockHeader bodyProof consensus extra
-mkGenericBlockHeaderUnsafe = GenericBlockHeader
+mkGenericBlockHeaderUnsafe pm = GenericBlockHeader pmi
+  where
+    pmi = getProtocolMagicId pm
 
 
 --------------------------------------------------------------------------------
@@ -328,12 +330,13 @@ mkGenesisHeader
     -> GenesisBlockHeader
 mkGenesisHeader pm prevHeader epoch body =
     GenericBlockHeader
-        pm
+        pmi
         (either getGenesisHash headerHash prevHeader)
         (mkGenesisProof body)
         consensus
         (GenesisExtraHeaderData $ mkAttributes ())
   where
+    pmi = getProtocolMagicId pm
     difficulty = either (const 0) (view difficultyL) prevHeader
     consensus = GenesisConsensusData {_gcdEpoch = epoch, _gcdDifficulty = difficulty}
 
@@ -399,8 +402,9 @@ mkMainHeaderExplicit
     -> MainExtraHeaderData
     -> MainBlockHeader
 mkMainHeaderExplicit pm prevHash difficulty slotId sk pske body extra =
-    GenericBlockHeader pm prevHash proof consensus extra
+    GenericBlockHeader pmi prevHash proof consensus extra
   where
+    pmi = getProtocolMagicId pm
     proof = mkMainProof body
     makeSignature toSign (psk,_) =
         BlockPSignatureHeavy $ proxySign pm SignMainBlockHeavy sk psk toSign

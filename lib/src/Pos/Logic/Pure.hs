@@ -33,7 +33,8 @@ import           Pos.Core.Common (BlockCount (..), ChainDifficulty (..))
 import           Pos.Core.Merkle (MerkleRoot (..))
 import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..),
                      SlotId (..))
-import           Pos.Crypto.Configuration (ProtocolMagic (..))
+import           Pos.Crypto.Configuration (ProtocolMagic (..),
+                     ProtocolMagicId (..), RequiresNetworkMagic (..))
 import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
 import           Pos.Crypto.Signing (PublicKey (..), SecretKey (..),
                      Signature (..), deterministicKeyGen, signRaw)
@@ -241,8 +242,11 @@ chainDifficulty = ChainDifficulty
 blockSignature :: BlockSignature
 blockSignature = BlockSignature (coerce (signRaw protocolMagic Nothing secretKey mempty))
 
+protocolMagicId :: ProtocolMagicId
+protocolMagicId = ProtocolMagicId 0
+
 protocolMagic :: ProtocolMagic
-protocolMagic = ProtocolMagic 0
+protocolMagic = ProtocolMagic protocolMagicId NMMustBeNothing
 
 extraHeaderData :: MainExtraHeaderData
 extraHeaderData = MainExtraHeaderData

@@ -21,7 +21,7 @@ import           Pos.Chain.Block (BlockHeader (..), BlockSignature (..),
                      GenesisBody (..), GenesisConsensusData (..),
                      GenesisExtraHeaderData (..), MainBody (..),
                      MainConsensusData (..), MainExtraHeaderData (..),
-                     MainToSign (..), gbhProtocolMagic, headerHash,
+                     MainToSign (..), gbhProtocolMagicId, headerHash,
                      mkGenericBlockHeaderUnsafe, mkGenesisHeader,
                      mkGenesisProof, mkMainHeader, mkMainProof)
 import qualified Pos.Chain.Block as Block
@@ -30,9 +30,9 @@ import           Pos.Chain.Genesis (GenesisHash (..))
 import           Pos.Core (EpochIndex (..), SlotId (..), difficultyL)
 import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Core.Chrono (NewestFirst (..))
-import           Pos.Crypto (ProtocolMagic (..), ProxySecretKey (pskIssuerPk),
-                     SecretKey, SignTag (..), createPsk, proxySign, sign,
-                     toPublic)
+import           Pos.Crypto (ProtocolMagicId (..), ProxySecretKey (pskIssuerPk),
+                     SecretKey, SignTag (..), createPsk, getProtocolMagic,
+                     proxySign, sign, toPublic)
 
 import           Test.Pos.Chain.Block.Arbitrary as BT
 import           Test.Pos.Chain.Genesis.Dummy (dummyGenesisHash)
@@ -161,10 +161,10 @@ validateGoodMainHeader (BT.getHAndP -> (params, header)) =
 -- reason.
 validateBadProtocolMagicMainHeader :: BT.HeaderAndParams -> Bool
 validateBadProtocolMagicMainHeader (BT.getHAndP -> (params, header)) =
-    let protocolMagic' = ProtocolMagic (getProtocolMagic dummyProtocolMagic + 1)
+    let protocolMagicId' = ProtocolMagicId (getProtocolMagic dummyProtocolMagic + 1)
         header' = case header of
-            BlockHeaderGenesis h -> BlockHeaderGenesis (h & gbhProtocolMagic .~ protocolMagic')
-            BlockHeaderMain h    -> BlockHeaderMain    (h & gbhProtocolMagic .~ protocolMagic')
+            BlockHeaderGenesis h -> BlockHeaderGenesis (h & gbhProtocolMagicId .~ protocolMagicId')
+            BlockHeaderMain h    -> BlockHeaderMain    (h & gbhProtocolMagicId .~ protocolMagicId')
     in  not $ isVerSuccess $ Block.verifyHeader dummyProtocolMagic params header'
 
 validateGoodHeaderChain :: BT.BlockHeaderList -> Bool

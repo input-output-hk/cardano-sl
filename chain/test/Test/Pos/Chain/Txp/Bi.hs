@@ -20,7 +20,8 @@ import           Pos.Chain.Txp (Tx (..), TxAux (..), TxIn (..),
                      TxSigData (..))
 import           Pos.Core.Attributes (Attributes (..), mkAttributes)
 import           Pos.Core.Common (AddrAttributes (..), Script (..))
-import           Pos.Crypto (ProtocolMagic (..), SignTag (..), Signature, sign)
+import           Pos.Crypto (ProtocolMagic (..), ProtocolMagicId (..),
+                     RequiresNetworkMagic (..), SignTag (..), Signature, sign)
 
 import           Test.Pos.Binary.Helpers (SizeTestConfig (..), scfg, sizeTest)
 import           Test.Pos.Binary.Helpers.GoldenRoundTrip (goldenTestBi,
@@ -201,8 +202,11 @@ roundTripTxProof = eachOf 50 (feedPM genTxProof) roundTripsBiBuildable
 golden_TxSig :: Property
 golden_TxSig = goldenTestBi txSigGold "test/golden/TxSig"
     where
-        txSigGold = sign (ProtocolMagic 0) SignForTestingOnly
+        txSigGold = sign pm SignForTestingOnly
                          exampleSecretKey exampleTxSigData
+        pm = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
+                           , getRequiresNetworkMagic = NMMustBeNothing
+                           }
 
 roundTripTxSig :: Property
 roundTripTxSig = eachOf 50 (feedPM genTxSig) roundTripsBiBuildable
@@ -231,7 +235,9 @@ sizeEstimates :: H.Group
 sizeEstimates =
   let check :: (Show a, Bi a) => Gen a -> Property
       check g = sizeTest $ scfg { gen = g }
-      pm = ProtocolMagic 0
+      pm = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
+                         , getRequiresNetworkMagic = NMMustBeNothing
+                         }
       knownTxIn (TxInUnknown _ _) = False
       knownTxIn _                 = True
 

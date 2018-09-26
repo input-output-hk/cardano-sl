@@ -16,7 +16,7 @@ import           Text.JSON.Canonical (FromJSON (..), Int54, JSValue (..),
 
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
                      VssMaxTTL (..), VssMinTTL (..))
-import           Pos.Crypto.Configuration (ProtocolMagic (..))
+import           Pos.Crypto.Configuration (ProtocolMagic)
 import           Pos.Util.Json.Canonical (SchemaError)
 
 -- | 'GensisProtocolConstants' are not really part of genesis global state,
@@ -38,7 +38,7 @@ instance Monad m => ToJSON m GenesisProtocolConstants where
         mkObject
             -- 'k' definitely won't exceed the limit
             [ ("k", pure . JSNum . fromIntegral $ gpcK)
-            , ("protocolMagic", toJSON (getProtocolMagic gpcProtocolMagic))
+            , ("protocolMagic", toJSON gpcProtocolMagic)
             , ("vssMaxTTL", toJSON gpcVssMaxTTL)
             , ("vssMinTTL", toJSON gpcVssMinTTL)
             ]
@@ -46,7 +46,7 @@ instance Monad m => ToJSON m GenesisProtocolConstants where
 instance MonadError SchemaError m => FromJSON m GenesisProtocolConstants where
     fromJSON obj = do
         gpcK <- fromIntegral @Int54 <$> fromJSField obj "k"
-        gpcProtocolMagic <- ProtocolMagic <$> fromJSField obj "protocolMagic"
+        gpcProtocolMagic <- fromJSField obj "protocolMagic"
         gpcVssMaxTTL <- fromJSField obj "vssMaxTTL"
         gpcVssMinTTL <- fromJSField obj "vssMinTTL"
         return GenesisProtocolConstants {..}

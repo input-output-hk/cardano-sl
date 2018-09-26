@@ -289,6 +289,12 @@ applyBlock k context restriction blocks = runUpdateDiscardSnapshot $ do
 
 -- | Apply a block, as in 'applyBlock', but on the historical
 -- checkpoints of an account rather than the current checkpoints.
+--
+-- NOTE: In order to allow the restoration to resume correctly, we @have to@
+-- write historical checkpoints to all the accounts even if this block is
+-- uninteresting to us. Otherwise, in case of accounts with a sparse history,
+-- we would never write such checkpoints and resuming a restoration would
+-- make the process restart from the genesis block every time.
 applyHistoricalBlock :: SecurityParameter
                      -> BlockContext
                      -> Map HdAccountId PrefilteredBlock
@@ -298,9 +304,10 @@ applyHistoricalBlock k context blocks =
       updateAccounts_ =<< mkUpdates <$> use hdWalletsAccounts
   where
     mkUpdates :: IxSet HdAccount -> [AccountUpdate Spec.ApplyBlockFailed ()]
-    mkUpdates _existingAccounts =
+    mkUpdates existingAccounts =
           map mkUpdate
         . Map.toList
+        . markMissingMapEntries (IxSet.toMap existingAccounts)
         $ blocks
 
     -- The account update
@@ -310,9 +317,9 @@ applyHistoricalBlock k context blocks =
     -- have an empty genesis UTxO and an empty current UTxO. (It can't have
     -- a non-empty genesis UTxO because if it did we would already have
     -- known about this account).
-    mkUpdate :: (HdAccountId, PrefilteredBlock)
+    mkUpdate :: (HdAccountId, Maybe PrefilteredBlock)
              -> AccountUpdate Spec.ApplyBlockFailed ()
-    mkUpdate (accId, pb) = AccountUpdate {
+    mkUpdate (accId, mPb) = AccountUpdate {
           accountUpdateId    = accId
         , accountUpdateAddrs = pfbAddrs pb
         , accountUpdateNew   = AccountUpdateNewIncomplete mempty mempty context
@@ -323,27 +330,42 @@ applyHistoricalBlock k context blocks =
             -- and now during a regular call to 'applyBlock' (not
             -- 'applyBlockHistorical') we discover a new account. Since
             -- 'applyBlock' is not aware that we are restoring, it will create a
-            -- new account in up-to-date state. If this happens, we rectify the
-            -- situation here.
-            let updateHistory :: Checkpoints PartialCheckpoint
-                              -> Checkpoints Checkpoint
-                              -> HdAccount
-                updateHistory current history' =
-                  acc & hdAccountState .~ HdAccountStateIncomplete
-                    (HdAccountIncomplete {
-                        _hdIncompleteCurrent    = current
-                      , _hdIncompleteHistorical = history'
-                      })
+            -- new account in up-to-date state. If this happens, we would ideally
+            -- rectify the situation here, but this is tricky without keeping some
+            -- extra information around; doing this blindly would incur in having
+            -- perfectly up-to-date accounts being reverted back to "incomplete"
+            -- for no good reason. Furthermore, as we rely on this information to
+            -- resume restoration, this would lead to restoration restarting from
+            -- scratch for synced wallet.
+            -- The above is a valid concern, but can happen only if we created
+            -- an account outside this wallet node, and currently neither Daedalus
+            -- nor exchanges do this. Fix as an improvement as part of [CBR-XXX].
             case acc ^. hdAccountState of
-              HdAccountStateUpToDate (HdAccountUpToDate upToDate) -> do
-                let current = liftCheckpoints (fmap (fromFullCheckpoint context)) upToDate
-                    history = Checkpoints $ one $ initCheckpoint mempty
-                second (updateHistory current) $
-                  Z.unwrap (Spec.applyBlock k pb) history
-              HdAccountStateIncomplete (HdAccountIncomplete current history) ->
-                second (updateHistory current) $
-                  Z.unwrap (Spec.applyBlock k pb) history
+                -- Don't do anything for up-to-date accounts. That's not our
+                -- responsibility to apply full checkpoints (that will be done by
+                -- 'applyBlock').
+                HdAccountStateUpToDate (HdAccountUpToDate _upToDate) -> do
+                    let history = Checkpoints $ one $ initCheckpoint mempty
+                    second (\_ -> acc) $
+                        Z.unwrap (Spec.applyBlock k pb) history
+                HdAccountStateIncomplete (HdAccountIncomplete current history) ->
+                    second (updateHistory acc current) $
+                        Z.unwrap (Spec.applyBlock k pb) history
         }
+      where
+        pb :: PrefilteredBlock
+        pb = fromMaybe (emptyPrefilteredBlock context) mPb
+
+        updateHistory :: HdAccount
+                      -> Checkpoints PartialCheckpoint
+                      -> Checkpoints Checkpoint
+                      -> HdAccount
+        updateHistory acc current newHistory =
+          acc & hdAccountState .~ HdAccountStateIncomplete
+            (HdAccountIncomplete {
+                _hdIncompleteCurrent    = current
+              , _hdIncompleteHistorical = newHistory
+              })
 
 -- | Finish restoration of a wallet
 --

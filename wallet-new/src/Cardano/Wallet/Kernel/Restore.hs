@@ -18,7 +18,7 @@ import qualified Data.Map.Strict as M
 import           Data.Maybe (fromJust)
 import           Data.Time.Clock (NominalDiffTime, UTCTime, diffUTCTime,
                      getCurrentTime)
-import           Formatting (bprint, build, formatToString, (%))
+import           Formatting (bprint, build, formatToString, sformat, (%))
 import qualified Formatting.Buildable
 
 import qualified Prelude
@@ -123,7 +123,7 @@ restoreWallet pw hasSpendingPassword defaultCardanoAddress name assurance esk = 
           case mRoot of
               Left  err  -> return (Left err)
               Right root -> do
-                  -- Start the restoration task.
+                  -- Start the restoration task, from the genesis block up to @tgt@.
                   beginRestoration pw wId prefilter root Nothing tgt (restart root)
 
                   -- Return the wallet's current balance.
@@ -273,11 +273,16 @@ beginRestoration pw wId prefilter root cur tgt restart = do
                                          progress
                                          (cur ^? _Just . bcHash . fromDb)
                                          (tgtTip, tgtSlot)) $ \(e :: SomeException) ->
-              (pw ^. walletLogMessage) Error ("Exception during restoration of wallet"
-                                              <> show (root ^. HD.hdRootId)
-                                              <> " when starting from " <> maybe "genesis" pretty cur
-                                              <> " with target " <> pretty tgt
-                                              <> ". Exception: " <> show e)
+              (pw ^. walletLogMessage) Error $
+                  sformat ( "Exception during restoration of wallet"
+                          % build
+                          % " when starting from " % build
+                          % " with target " % build
+                          % ". Exception: " % build
+                          ) (root ^. HD.hdRootId)
+                            (maybe "genesis" pretty cur)
+                            (pretty tgt)
+                            e
 
     theTask <- newMVar restoreTask
     addOrReplaceRestoration pw wId $ WalletRestorationInfo

@@ -7,10 +7,14 @@ module Cardano.Wallet.WalletLayer.Kernel
     , bracketActiveWallet
     ) where
 
-import           Universum
+import           Universum hiding (for_)
 
 import qualified Control.Concurrent.STM as STM
 import qualified Data.List.NonEmpty as NE
+
+import           Data.Foldable (for_)
+import           Formatting ((%))
+import qualified Formatting as F
 
 import           Pos.Chain.Block (Blund, blockHeader, headerHash, prevBlockL)
 import           Pos.Chain.Genesis (Config (..))
@@ -58,17 +62,18 @@ bracketPassiveWallet mode logFunction keystore node f = do
       -- restoration tasks.
       liftIO $ do
           snapshot <- Kernel.getWalletSnapshot w
-          let wallets = IxSet.toList (snapshot ^. dbHdWallets . hdWalletsRoots)
+          let wallets = snapshot ^. dbHdWallets . hdWalletsRoots
           for_ wallets $ \root -> do
               let accts      = Kernel.accountsByRootId snapshot (root ^. hdRootId)
                   restoring  = IxSet.findWithEvidence hdAccountRestorationState accts
 
               whenJust restoring $ \(src, tgt) -> do
-                  (w ^. Kernel.walletLogMessage) Warning
-                      ("bracketPassiveWallet: continuing restoration of "
-                       <> show (root ^. hdRootId)
-                       <> " from checkpoint " <> maybe "(genesis)" pretty src
-                       <> " with target "     <> pretty tgt)
+                  (w ^. Kernel.walletLogMessage) Warning $
+                      F.sformat ("bracketPassiveWallet: continuing restoration of " %
+                       F.build %
+                       " from checkpoint " % F.build %
+                       " with target "     % F.build)
+                       (root ^. hdRootId) (maybe "(genesis)" pretty src) (pretty tgt)
                   Kernel.continueRestoration w root src tgt
 
       -- Start the wallet worker

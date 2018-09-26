@@ -9,6 +9,7 @@ module Pos.Util.Wlog.Compatibility
          , dispatchEvents
          , LogEvent (..)
          , setupLogging
+         , setupLogging'
          , setupTestLogging
            -- * Logging functions
          , logDebug
@@ -36,6 +37,10 @@ module Pos.Util.Wlog.Compatibility
          , removeAllHandlers
          , centiUtcTimeF
          , getLinesLogged
+           -- * Structured logging
+         , logMX
+         -- * Safe structured logging
+         , logXCond
          ) where
 
 import           Control.Concurrent (modifyMVar_, myThreadId)
@@ -55,8 +60,8 @@ import qualified Language.Haskell.TH as TH
 import           Pos.Util.Log (LoggingHandler, Severity (..))
 import qualified Pos.Util.Log as Log
 import qualified Pos.Util.Log.Internal as Internal
-import           Pos.Util.Log.LoggerConfig (LogHandler (..),
-                     LogSecurityLevel (..), LoggerConfig (..),
+import           Pos.Util.Log.LoggerConfig (BackendKind (FileJsonBE),
+                     LogHandler (..), LogSecurityLevel (..), LoggerConfig (..),
                      defaultInteractiveConfiguration, defaultTestConfiguration,
                      lcLoggerTree, lhName, ltHandlers, ltMinSeverity)
 import           System.IO.Unsafe (unsafePerformIO)
@@ -242,63 +247,11 @@ setupLogging :: MonadIO m => Text -> LoggerConfig -> m ()
 setupLogging cfoKey lc = liftIO $
     modifyMVar_ loggingHandler $ const $ Log.setupLogging cfoKey lc
 
-
--- | Whether to log to given log handler.
-type SelectionMode = LogSecurityLevel -> Bool
-
--- | this emulates katip's 'logItem' function, but only outputs the message
---   to scribes which match the 'SelectionMode'
-logItemS
-    :: (K.LogItem a, MonadIO m)
-    => LoggingHandler
-    -> a
-    -> K.Namespace
-    -> Maybe TH.Loc
-    -> K.Severity
-    -> SelectionMode
-    -> K.LogStr
-    -> m ()
-logItemS lhandler a ns loc sev cond msg = do
-    mayle <- liftIO $ Internal.getLogEnv lhandler
-    case mayle of
-        Nothing -> error "logging not yet initialized. Abort."
-        Just le -> do
-            maycfg <- liftIO $ Internal.getConfig lhandler
-            let cfg = case maycfg of
-                    Nothing -> error "No Configuration for logging found. Abort."
-                    Just c  -> c
-            let sevmin = Internal.sev2klog $ cfg ^. lcLoggerTree ^. ltMinSeverity
-            when (sev >= sevmin)
-              $ liftIO $ do
-                item <- K.Item
-                    <$> pure (K._logEnvApp le)
-                    <*> pure (K._logEnvEnv le)
-                    <*> pure sev
-                    <*> (KC.mkThreadIdText <$> myThreadId)
-                    <*> pure (K._logEnvHost le)
-                    <*> pure (K._logEnvPid le)
-                    <*> pure a
-                    <*> pure msg
-                    <*> (K._logEnvTimer le)
-                    <*> pure ((K._logEnvApp le) <> ns)
-                    <*> pure loc
-                let lhs = cfg ^. lcLoggerTree ^. ltHandlers ^.. each
-                forM_ (filterWithSafety cond lhs) (\ lh -> do
-                    case lookup (lh ^. lhName) (K._logEnvScribes le) of
-                        Nothing -> error ("Not found Scribe with name: " <> lh ^. lhName)
-                        Just scribeH -> atomically
-                            (KC.tryWriteTBQueue (KC.shChan scribeH) (KC.NewItem item)))
-            where
-              filterWithSafety :: SelectionMode -> [LogHandler] -> [LogHandler]
-              filterWithSafety condition = filter (\lh -> case _lhSecurityLevel lh of
-                  Nothing -> False
-                  Just s  -> condition s)
-
-logMCond :: MonadIO m => LoggerName -> Severity -> Text -> SelectionMode -> m ()
-logMCond name severity msg cond = do
-    let ns = K.Namespace (T.split (=='.') name)
-    lh <- liftIO $ readMVar loggingHandler
-    logItemS lh () ns Nothing (Internal.sev2klog severity) cond $ K.logStr msg
+--  | Same with 'setupLogging' but also returns the 'LoggingHandler'
+setupLogging' :: MonadIO m => Text -> LoggerConfig -> m LoggingHandler
+setupLogging' cfoKey lc = liftIO $ do
+    modifyMVar_ loggingHandler $ const $ Log.setupLogging cfoKey lc
+    readMVar loggingHandler
 
 getLinesLogged :: IO Integer
 getLinesLogged = do
@@ -326,3 +279,102 @@ centiUtcTimeF utc =
 removeAllHandlers :: IO ()
 removeAllHandlers = pure ()
 
+-- Safe and structured logging.
+
+-- | Whether to log to given log handler.
+type SelectionMode = LogSecurityLevel -> Bool
+type LogHandlerExclusion = [LogHandler] -> [LogHandler]
+
+logMCond :: MonadIO m => LoggerName -> Severity -> Text -> SelectionMode -> m ()
+logMCond name severity msg cond = do
+    let ns = K.Namespace (T.split (=='.') name)
+    lh <- liftIO $ readMVar loggingHandler
+    logItemCond lh
+                ()
+                ns
+                Nothing
+                (Internal.sev2klog severity)
+                (filterWithSafety cond)
+                (Just msg)
+
+-- | Keeps only 'Scribes' which match the 'SelectionMode'.
+filterWithSafety :: SelectionMode -> LogHandlerExclusion
+filterWithSafety condition = filter (\lh -> case _lhSecurityLevel lh of
+    Nothing -> False
+    Just s  -> condition s)
+
+-- | Logs an item only into JSON 'Scribes'.
+--   Also, ToJSON a => KC.LogItem (see Pos.Util.Log).
+logMX :: (MonadIO m, Log.ToObject a) => LoggerName -> Severity -> a -> m ()
+logMX name severity a = do
+    let ns = K.Namespace [name]
+    lh <- liftIO $ readMVar loggingHandler
+    logItemCond lh
+                a
+                ns
+                Nothing
+                (Internal.sev2klog severity)
+                filterJsonScribes
+                Nothing
+
+-- | Filters out 'Scribes' that are not JSON 'Scribes'.
+filterJsonScribes :: LogHandlerExclusion
+filterJsonScribes = filter (\lh -> _lhBackend lh == FileJsonBE)
+
+-- | Logs an item only into JSON 'Scribes' which match the 'SelectionMode'.
+logXCond :: (MonadIO m, Log.ToObject a) => LoggerName -> Severity -> a -> SelectionMode -> m ()
+logXCond name severity a cond = do
+    let ns = K.Namespace [name]
+    lh <- liftIO $ readMVar loggingHandler
+    logItemCond lh
+                a
+                ns
+                Nothing
+                (Internal.sev2klog severity)
+                ((filterWithSafety cond) . filterJsonScribes)
+                Nothing
+
+--  | Writes only to 'Scribes's filtered with 'LogHandlerExclusion' function.
+logItemCond
+    :: (Log.ToObject a, MonadIO m)
+    => LoggingHandler
+    -> a
+    -> K.Namespace
+    -> Maybe TH.Loc
+    -> K.Severity
+    -> LogHandlerExclusion
+    -> Maybe Text
+    -> m ()
+logItemCond lhandler a ns loc sev strainer mayMsg = do
+    mayle <- liftIO $ Internal.getLogEnv lhandler
+    case mayle of
+        Nothing -> error "logging not yet initialized. Abort."
+        Just le -> do
+            maycfg <- liftIO $ Internal.getConfig lhandler
+            let cfg = case maycfg of
+                    Nothing -> error "No Configuration for logging found. Abort."
+                    Just c  -> c
+            let sevmin = Internal.sev2klog $ cfg ^. lcLoggerTree ^. ltMinSeverity
+            when (sev >= sevmin)
+              $ liftIO $ do
+                threadId <- myThreadId
+                time <- K._logEnvTimer le
+                let item = K.Item {
+                      K._itemApp       = K._logEnvApp le
+                    , K._itemEnv       = K._logEnvEnv le
+                    , K._itemSeverity  = sev
+                    , K._itemThread    = KC.mkThreadIdText threadId
+                    , K._itemHost      = K._logEnvHost le
+                    , K._itemProcess   = K._logEnvPid le
+                    , K._itemPayload   = a
+                    , K._itemMessage   = maybe mempty K.logStr mayMsg
+                    , K._itemTime      = time
+                    , K._itemNamespace = (K._logEnvApp le) <> ns
+                    , K._itemLoc       = loc
+                    }
+                let lhs = cfg ^. lcLoggerTree ^. ltHandlers ^.. each
+                forM_ (strainer lhs) (\ lh -> do
+                    case lookup (lh ^. lhName) (K._logEnvScribes le) of
+                        Nothing -> error ("Not found Scribe with name: " <> lh ^. lhName)
+                        Just scribeH -> atomically
+                            (KC.tryWriteTBQueue (KC.shChan scribeH) (KC.NewItem item)))

@@ -11,6 +11,7 @@ module Pos.Util.Log.Rotator
        ( cleanupRotator
        , evalRotator
        , initializeRotator
+       , latestLogFile
        ) where
 
 import           Universum

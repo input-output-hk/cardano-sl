@@ -196,12 +196,24 @@ instance Monad m => ToJSON m GenesisProtocolConstants where
             ]
 
 instance Monad m => ToJSON m ProtocolMagic where
-    toJSON (ProtocolMagic (ProtocolMagicId ident) rnm) = do
-        (\jsIdent jsRNM -> JSObject
-            [ ("pm", jsIdent)
-            , ("requiresNetworkMagic", jsRNM) ])
-        <$> toJSON ident
-        <*> toJSON rnm
+    -- | We only output the `ProtocolMagicId` such that we don't alter the
+    -- resulting hash digest of the genesis block.
+    --
+    -- In the function, `withCoreConfigurations`, we compare the hash of the
+    -- canonical JSON representation of a hardcoded genesis block with an
+    -- accompanying hardcoded hash of that same genesis block at its inception
+    -- (both of which can be found in lib/configuration.yaml). This allows us
+    -- to verify the integrity of the genesis block and ensure that it hasn't
+    -- been altered.
+    --
+    -- As a result of this addition of the `RequiresNetworkMagic` field to
+    -- `ProtocolMagic`, we cannot include the newly introduced
+    -- `RequiresNetworkMagic` field of `ProtocolMagic` as it would produce
+    -- invalid hashes for previously existing genesis blocks.
+    --
+    -- See the implementation of `withCoreConfigurations` for more detail on
+    -- how this works.
+    toJSON (ProtocolMagic (ProtocolMagicId ident) _rnm) = toJSON ident
 
 instance Monad m => ToJSON m GenesisAvvmBalances where
     toJSON = toJSON . getGenesisAvvmBalances

@@ -96,6 +96,7 @@ module Test.Pos.Core.ExampleHelpers
 
         -- Helpers
         , feedPM
+        , feedPMWithNMMustBeJust
         , feedPC
         , feedPMC
        ) where
@@ -168,7 +169,7 @@ import           Pos.Merkle (mkMerkleTree, mtRoot)
 
 import           Test.Pos.Core.Gen (genProtocolConstants)
 import           Test.Pos.Crypto.Bi (getBytes)
-import           Test.Pos.Crypto.Gen (genProtocolMagic)
+import           Test.Pos.Crypto.Gen (genProtocolMagic, genProtocolMagicId)
 
 --------------------------------------------------------------------------------
 -- Helpers
@@ -176,6 +177,11 @@ import           Test.Pos.Crypto.Gen (genProtocolMagic)
 
 feedPM :: (ProtocolMagic -> H.Gen a) -> H.Gen a
 feedPM genA = genA =<< genProtocolMagic
+
+feedPMWithNMMustBeJust :: (ProtocolMagic -> H.Gen a) -> H.Gen a
+feedPMWithNMMustBeJust genA = do
+    pm <- flip ProtocolMagic NMMustBeJust <$> genProtocolMagicId
+    genA pm
 
 feedPC :: (ProtocolConstants -> H.Gen a) -> H.Gen a
 feedPC genA = genA =<< genProtocolConstants

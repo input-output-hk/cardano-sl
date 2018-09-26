@@ -218,8 +218,8 @@ import           Pos.Util.Util (leftToPanic)
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Test.Pos.Crypto.Gen (genAbstractHash, genDecShare, genHDAddressPayload,
-                                      genProtocolMagic, genProxySignature, genPublicKey,
-                                      genRedeemPublicKey, genRedeemSignature, genSafeSigner,
+                                      genProxySignature, genPublicKey, genRedeemPublicKey,
+                                      genRedeemSignature, genRequiresNetworkMagic, genSafeSigner,
                                       genSecretKey, genSignTag, genSignature, genVssPublicKey)
 
 
@@ -494,6 +494,7 @@ genCoreConfiguration pm =
     CoreConfiguration
         <$> genGenesisConfiguration pm
         <*> genWord8
+        <*> genRequiresNetworkMagic
 
 ----------------------------------------------------------------------------
 -- Pos.Core.Delegation Generators
@@ -542,7 +543,7 @@ genGenesisData pm =
         <*> genGenesisVssCertificatesMap pm
         <*> genGenesisNonAvvmBalances
         <*> genBlockVersionDataByTxFP genLinearTxFP
-        <*> genGenesisProtocolConstants
+        <*> genGenesisProtocolConstants pm
         <*> genGenesisAvvmBalances
         <*> genSharedSeed
   where
@@ -586,11 +587,11 @@ genGenesisInitializer =
         <*> Gen.bool
         <*> Gen.integral (Range.constant 0 10)
 
-genGenesisProtocolConstants :: Gen GenesisProtocolConstants
-genGenesisProtocolConstants =
+genGenesisProtocolConstants :: ProtocolMagic -> Gen GenesisProtocolConstants
+genGenesisProtocolConstants pm =
     GenesisProtocolConstants
         <$> Gen.int (Range.constant 0 100)
-        <*> genProtocolMagic
+        <*> pure pm
         <*> genVssMaxTTL
         <*> genVssMinTTL
 
@@ -602,7 +603,7 @@ genGenesisSpec pm = mkGenSpec >>=  either (error . toText) pure
                       <*> genSharedSeed
                       <*> genGenesisDelegation pm
                       <*> genBlockVersionData
-                      <*> genGenesisProtocolConstants
+                      <*> genGenesisProtocolConstants pm
                       <*> genGenesisInitializer
 
 genTestnetBalanceOptions :: Gen TestnetBalanceOptions

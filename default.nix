@@ -38,6 +38,7 @@ let
   });
 
   requiredOverlay = self: super: {
+    inherit pkgs;
     srcroot = ./.;
     cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
       configureFlags = (drv.configureFlags or []) ++ [
@@ -152,10 +153,13 @@ let
     testlist = innerClosePropagation [] [ cardanoPkgs.cardano-sl ];
     walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev useStackBinaries; };
     validateJson = pkgs.callPackage ./tools/src/validate-json {};
-    demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev useStackBinaries; };
-    demoClusterDaedalusDev = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev useStackBinaries; disableClientAuth = true; numImportedWallets = 0; };
+    demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster {
+      inherit gitrev useStackBinaries;
+      iohkPkgs = cardanoPkgs;
+    };
     demoClusterLaunchGenesis = pkgs.callPackage ./scripts/launch/demo-cluster {
       inherit gitrev useStackBinaries;
+      iohkPkgs = cardanoPkgs;
       launchGenesis = true;
       configurationKey = "testnet_full";
       runWallet = false;

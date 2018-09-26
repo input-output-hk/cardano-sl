@@ -8,7 +8,8 @@
 , numImportedWallets ? 11
 , assetLockAddresses ? []
 , system ? builtins.currentSystem
-, pkgs ? import localLib.fetchNixPkgs { inherit system config; }
+, iohkPkgs ? import ./../../.. { inherit config system gitrev; }
+, pkgs ? iohkPkgs.pkgs
 , gitrev ? localLib.commitIdFromGitRepo ./../../../.git
 , ghcRuntimeArgs ? "-N2 -qg -A1m -I0 -T"
 , additionalNodeArgs ? ""
@@ -42,7 +43,6 @@ let
   demoWallet = pkgs.callPackage ./../connect-to-cluster ({ inherit gitrev useStackBinaries; debug = false; } // walletEnvironment // walletConfig);
   ifWallet = optionalString (runWallet);
   ifKeepAlive = optionalString (keepAlive);
-  iohkPkgs = import ./../../.. { inherit config system pkgs gitrev; };
   src = ./../../..;
   topologyFile = import ./make-topology.nix { inherit (pkgs) lib; cores = numCoreNodes; relays = numRelayNodes; };
   walletTopologyFile = builtins.toFile "wallet-topology.yaml" (builtins.toJSON {
@@ -180,6 +180,7 @@ in pkgs.writeScript "demo-cluster" ''
     fi
   ''}
   ${ifKeepAlive ''
+    echo "The demo cluster has started and will stop when you exit with Ctrl-C. Log files are in ${stateDir}/logs."
     sleep infinity
   ''}
 ''

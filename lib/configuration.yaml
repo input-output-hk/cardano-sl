@@ -57,7 +57,7 @@ dev: &dev
         ftsSeed: "c2tvdm9yb2RhIEdndXJkYSBib3JvZGEgcHJvdm9kYSA="
         heavyDelegation: {}
         avvmDistr: {}
-    requiresNetworkMagic: NMMustBeNothing
+    requiresNetworkMagic: RequiresNoMagic
     dbSerializeVersion: 0
 
   ntp: &dev_ntp
@@ -14833,7 +14833,7 @@ mainnet_full: &mainnet_full
       src:
         file: mainnet-genesis.json
         hash: 5f20df933584822601f9e3f8c024eb5eb252fe8cefb24d1317dc3d432e940ebb
-    requiresNetworkMagic: NMMustBeNothing
+    requiresNetworkMagic: RequiresNoMagic
 
 mainnet_wallet_win64: &mainnet_wallet_win64
   <<: *mainnet_full
@@ -14905,7 +14905,7 @@ testnet_launch: &testnet_launch
           maxHeaderSize:      2000
           maxProposalSize:   70000 # 70KB
           maxTxSize:         65536 # 64KiB
-    requiresNetworkMagic: NMMustBeJust
+    requiresNetworkMagic: RequiresMagic
 
 testnet_full: &testnet_full
   <<: *testnet_launch
@@ -14967,7 +14967,7 @@ mainnet_dryrun_full: &mainnet_dryrun_full
       src:
         file: mainnet-genesis-dryrun-with-stakeholders.json
         hash: c6a004d3d178f600cd8caa10abbebe1549bef878f0665aea2903472d5abf7323
-    requiresNetworkMagic: NMMustBeNothing
+    requiresNetworkMagic: RequiresNoMagic
 
 mainnet_dryrun_wallet_win64: &mainnet_dryrun_wallet_win64
   <<: *mainnet_dryrun_full
@@ -15094,7 +15094,7 @@ devnet: &devnet
           avvmBalanceFactor: 1
           useHeavyDlg: True
           seed: 0
-    requiresNetworkMagic: NMMustBeNothing
+    requiresNetworkMagic: RequiresNoMagic
 
   update: &devnet_update
     applicationName: cardano-sl

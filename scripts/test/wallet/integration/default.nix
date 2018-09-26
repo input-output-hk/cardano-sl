@@ -7,18 +7,18 @@
 , gitrev ? "123456" # Dummy git revision to prevent mass rebuilds
 , ghcRuntimeArgs ? "-N2 -qg -A1m -I0 -T"
 , additionalNodeArgs ? ""
-, useStackBinaries ? false
+, binaryMethod
 }:
 
 with localLib;
 
 let
-  stackExec = optionalString useStackBinaries "stack exec -- ";
+  stackExec = optionalString (binaryMethod == "stack") "stack exec -- ";
   cardanoDeps = with iohkPkgs; [ cardano-sl-tools ];
   integrationTestDeps = with pkgs; [ gnugrep ];
-  allDeps = integrationTestDeps ++ (optionals (!useStackBinaries ) cardanoDeps);
+  allDeps = integrationTestDeps ++ (optionals (binaryMethod == "nix") cardanoDeps);
   demo-cluster = iohkPkgs.demoCluster.override {
-    inherit gitrev numCoreNodes stateDir useStackBinaries;
+    inherit gitrev numCoreNodes stateDir binaryMethod;
     keepAlive = false;
     assetLockAddresses = [ "DdzFFzCqrhswMWoTiWaqXUDZJuYUx63qB6Aq8rbVbhFbc8NWqhpZkC7Lhn5eVA7kWf4JwKvJ9PqQF78AewMCzDZLabkzm99rFzpNDKp5" ];
   };

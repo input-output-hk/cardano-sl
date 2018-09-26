@@ -11,38 +11,39 @@ extra-package-dbs: []
 # `stack dot` to construct a graph which represents the current state exactly.
 
 packages:
-- util
-- util/test
-- networking
+- .
+- acid-state-exts
+- auxx
 - binary
 - binary/test
-- crypto
-- crypto/test
-- core
-- core/test
-- db
-- db/test
-- infra
-- infra/test
+- cabal-merger
 - chain
 - chain/test
-- lib
-- generator
 - client
-- auxx
+- core
+- core/test
+- crypto
+- crypto/test
+- db
+- db/test
 - explorer
+- faucet
+- generator
+- infra
+- infra/test
+- lib
+- networking
 - node
+- node-ipc
 - tools
 - tools/post-mortem
+- util
+- util/test
 - utxo
 - wallet
-- wallet/test
 - wallet-new # The new (unreleased) version of the wallet
-- node-ipc
-- faucet
-- acid-state-exts
+- wallet/test
 - x509
-- cabal-merger
 
 # IOHK projects:
 

@@ -65,6 +65,7 @@ let
     everythingCabal = pkgs.callPackage ./cabal-merger/mergeFiles.nix { inherit (self) cabal-merger srcroot; };
     everything = overrideCabal (self.callPackage ./everything.nix {}) (_: {
       src = cleanSourceWith { filter=justHsAndCabal; src= ./.; };
+      doCheck = false;
     });
     everything-static = justStaticExecutablesGitRev self.everything;
     cabal-merger = self.callCabal2nix "cabal-merger" ./cabal-merger {};
@@ -165,10 +166,10 @@ let
       args: pkgs.callPackage ./scripts/launch/connect-to-cluster (args // { inherit gitrev useStackBinaries; } // walletConfig );
   other = rec {
     testlist = innerClosePropagation [] [ cardanoPkgs.cardano-sl ];
-    walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev useStackBinaries; };
+    walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev binaryMethod; };
     validateJson = pkgs.callPackage ./tools/src/validate-json {};
     demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster {
-      inherit gitrev useStackBinaries;
+      inherit gitrev binaryMethod;
       iohkPkgs = cardanoPkgs;
     };
     demoClusterLaunchGenesis = pkgs.callPackage ./scripts/launch/demo-cluster {

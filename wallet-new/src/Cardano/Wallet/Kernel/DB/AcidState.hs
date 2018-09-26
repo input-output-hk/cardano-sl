@@ -731,12 +731,15 @@ deleteHdAccount :: HdAccountId -> Update DB (Either UnknownHdAccount ())
 deleteHdAccount accId = runUpdateDiscardSnapshot . zoom dbHdWallets $
     HD.deleteHdAccount accId
 
--- | Set all accounts in the map back to an incomplete state. This is used to
+-- | For the given HD root, set all accounts back to an incomplete state. This is used to
 -- put an existing wallet back into an initial state for restoration.
-resetAllHdWalletAccounts :: BlockContext -> Map HdAccountId (Utxo, Utxo, [AddrWithId]) -> Update DB ()
-resetAllHdWalletAccounts context utxoByAccount = mustBeRight <$> do
+--
+-- NOTE: for accounts of this root that do /not/ have an entry in the 'utxoByAccount' map,
+--       we "fill in" a corresponding 'AccountUpdate' using 'markMissingMapEntries'
+resetAllHdWalletAccounts :: HdRootId -> BlockContext -> Map HdAccountId (Utxo, Utxo, [AddrWithId]) -> Update DB ()
+resetAllHdWalletAccounts rootId context utxoByAccount = mustBeRight <$> do
     runUpdateDiscardSnapshot $ zoom dbHdWallets $
-      updateAccounts_ =<< mkUpdates <$> use hdWalletsAccounts
+        updateAccounts_ =<< mkUpdates <$> IxSet.getEQ rootId <$> use hdWalletsAccounts
   where
     mkUpdates :: IxSet HdAccount -> [AccountUpdate Void ()]
     mkUpdates existingAccounts =

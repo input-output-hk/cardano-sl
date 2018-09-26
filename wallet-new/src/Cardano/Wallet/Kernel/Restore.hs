@@ -149,7 +149,7 @@ restoreWallet pw hasSpendingPassword defaultCardanoAddress name assurance esk = 
                 -- which is quite unlikely. For now, silently fail.
                 return ()
             WalletRestore utxos tgt -> do
-                update (pw ^. wallets) $ ResetAllHdWalletAccounts tgt utxos
+                update (pw ^. wallets) $ ResetAllHdWalletAccounts (root ^. HD.hdRootId) tgt utxos
                 beginRestoration pw wId prefilter root Nothing tgt (restart root)
 
     wId    = WalletIdHdRnd (HD.eskToHdRootId esk)
@@ -199,7 +199,7 @@ restoreKnownWallet pw rootId = do
                                     -- which is quite unlikely. For now, silently fail.
                                     return ()
                                   WalletRestore utxos tgt -> do
-                                    update (pw ^. wallets) $ ResetAllHdWalletAccounts tgt utxos
+                                    update (pw ^. wallets) $ ResetAllHdWalletAccounts rootId tgt utxos
                                     beginRestoration pw wId prefilter root Nothing tgt restart
                       in restart
 
@@ -231,7 +231,7 @@ continueRestoration pw root cur tgt = do
                           -- which is quite unlikely. For now, silently fail.
                           return ()
                       WalletRestore utxos tgt' -> do
-                          update (pw ^. wallets) $ ResetAllHdWalletAccounts tgt' utxos
+                          update (pw ^. wallets) $ ResetAllHdWalletAccounts (root ^. HD.hdRootId) tgt' utxos
                           beginRestoration pw wId prefilter root Nothing tgt' restart
             beginRestoration pw wId prefilter root cur tgt restart
 

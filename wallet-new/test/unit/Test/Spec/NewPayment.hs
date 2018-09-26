@@ -5,6 +5,7 @@ module Test.Spec.NewPayment (
     -- Public to be used by other testing modules.
     , Fixture (..)
     , withFixture
+    , withPayment
   ) where
 
 import           Universum

@@ -8,8 +8,9 @@ module Cardano.Wallet.Kernel.Restore
 
 import           Universum
 
+import           Control.Concurrent (threadDelay)
 import           Control.Concurrent.Async (async, cancel)
-import           Control.Concurrent.MVar (modifyMVar_)
+import           Control.Concurrent.MVar (modifyMVar, modifyMVar_)
 import           Data.Acid (update)
 import qualified Data.Map.Merge.Strict as M
 import qualified Data.Map.Strict as M
@@ -111,7 +112,7 @@ restoreWallet pw hasSpendingPassword defaultCardanoAddress name assurance esk pr
                   { _wriCurrentSlot = 0
                   , _wriTargetSlot  = flattenSlotId slotCount tgtSlot
                   , _wriThroughput  = MeasuredIn 0
-                  , _wriCancel      = return ()
+                  , _wriCancel      = return False
                   }
             modifyMVar_ (pw ^. walletRestorationTask) (pure . M.insert wId restoreInfo)
 
@@ -126,7 +127,7 @@ restoreWallet pw hasSpendingPassword defaultCardanoAddress name assurance esk pr
                 (pw ^. walletLogMessage) Error ("Exception during restoration: " <> show e)
 
             -- Set up the cancellation action
-            updateRestorationInfo pw wId (wriCancel .~ cancel restoreTask)
+            updateRestorationInfo pw wId (wriCancel .~ (cancel restoreTask >> return True))
 
             -- Return the wallet's current balance.
             let balance = unsafeIntegerToCoin
@@ -312,13 +313,37 @@ updateRestorationInfo :: Kernel.PassiveWallet
 updateRestorationInfo wallet wId upd =
   modifyMVar_ (wallet ^. walletRestorationTask) (pure . M.adjust upd wId)
 
--- | Clears the restoration state and stops and threads.
-stopAllRestorations :: Kernel.PassiveWallet -> IO ()
-stopAllRestorations pw = do
-    modifyMVar_ (pw ^. walletRestorationTask) $ \mp -> do
-      let vals = M.elems mp
-      mapM_ _wriCancel vals
-      return M.empty
+-- | Clears the restoration state and stops the threads.
+stopAllRestorations :: Kernel.PassiveWallet -> IO Bool
+stopAllRestorations pw = go 0
+  where
+    -- We keep taking the MVar, until we manage to cancel all restorations.
+    -- A restoration may fail when the cancel function hasn't been updated yet.
+    -- So we give some time for the threads that initate the restoration to
+    -- take the MVar and update it.
+    go :: Int -> IO Bool
+    go 100 = return False
+    go n = do
+      newMap <- modifyMVar (pw ^. walletRestorationTask) $ \mp -> do
+        let pairs = M.toList mp
+        newMap <- foldM cancelAndClean mp pairs
+        return (newMap, newMap)
+      case M.null newMap of
+        False  -> do
+          threadDelay 500000
+          go $ n + 1
+        True  -> do
+          return True
+
+cancelAndClean :: Map WalletId WalletRestorationInfo
+               -> (WalletId, WalletRestorationInfo)
+               -> IO (Map WalletId WalletRestorationInfo)
+cancelAndClean mp (w, info) = do
+    b <- _wriCancel info
+    let newMap = case b of
+          True  -> M.delete w mp
+          False -> mp
+    return newMap
 
 {-------------------------------------------------------------------------------
   Timing information (for throughput calculations)

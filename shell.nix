@@ -28,6 +28,7 @@ let
     gmp rocksdb git bsdiff ncurses lzma
     perl bash
   ];
+  # TODO: add cabal-install (2.0.0.1 won't work)
   devTools = [ hlint cardanoPkgs.stylish-haskell ];
 
   cardanoSL = haskell.lib.buildStackProject {
@@ -37,7 +38,7 @@ let
     buildInputs = devTools ++ stackDeps
       # cabal-install and stack pull in lots of dependencies on OSX so skip them
       # See https://github.com/NixOS/nixpkgs/issues/21200
-      ++ (lib.optionals stdenv.isLinux [ cabal-install stack ])
+      ++ (lib.optionals stdenv.isLinux [ stack ])
       ++ (lib.optionals stdenv.isDarwin (with darwin.apple_sdk.frameworks; [ Cocoa CoreServices libcxx libiconv ]));
 
     shellHook = lib.optionalString lib.inNixShell ''

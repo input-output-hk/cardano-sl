@@ -197,7 +197,9 @@ updateWalletPassword wallet
                 Kernel.updatePassword wallet rootId oldPwd newPwd
     updateSyncState wallet (WalletIdHdRnd rootId) v1wal
 
--- | Updates the 'SpendingPassword' for this wallet.
+-- | Deletes a wallet, together with every account & addresses belonging to it.
+-- If this wallet was restoring, then the relevant async worker is correctly
+-- canceled.
 deleteWallet :: MonadIO m
              => Kernel.PassiveWallet
              -> V1.WalletId

@@ -343,15 +343,13 @@ applyHistoricalBlock k context rootId blocks =
             -- scratch for synced wallet.
             -- The above is a valid concern, but can happen only if we created
             -- an account outside this wallet node, and currently neither Daedalus
-            -- nor exchanges do this. Fix as an improvement as part of [CBR-XXX].
+            -- nor exchanges do this. Fix as an improvement as part of [CBR-450].
             case acc ^. hdAccountState of
                 -- Don't do anything for up-to-date accounts. That's not our
                 -- responsibility to apply full checkpoints (that will be done by
                 -- 'applyBlock').
                 HdAccountStateUpToDate (HdAccountUpToDate _upToDate) -> do
-                    let history = Checkpoints $ one $ initCheckpoint mempty
-                    second (\_ -> acc) $
-                        Z.unwrap (Spec.applyBlock k pb) history
+                    Z.UpdResult $ return (mempty, acc)
                 HdAccountStateIncomplete (HdAccountIncomplete current history) ->
                     second (updateHistory acc current) $
                         Z.unwrap (Spec.applyBlock k pb) history

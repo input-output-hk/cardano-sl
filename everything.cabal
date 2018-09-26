@@ -1013,9 +1013,12 @@ library
         x509 -any,
         x509-store -any,
         x509-validation -any,
-        yaml -any,
-        unix -any,
-        systemd -any
+        yaml -any
+
+    if !os(windows)
+        build-depends:
+            unix -any,
+            systemd -any
 
 executable cardano-sl-verification-bench-exe
     main-is: VerificationBench.hs
@@ -1224,8 +1227,11 @@ executable cardano-genupdate
         tar -any,
         text -any,
         universum -any,
-        unix-compat -any,
         everything -any
+
+    if !os(windows)
+        build-depends:
+            unix-compat -any
     
     if os(linux)
         ld-options: -fuse-ld=gold
@@ -1255,11 +1261,6 @@ executable cardano-keygen
             base58-bytestring -any,
             bytestring >=0.10,
             canonical-json -any,
-            cardano-sl -any,
-            cardano-sl-chain -any,
-            cardano-sl-core -any,
-            cardano-sl-crypto -any,
-            cardano-sl-util -any,
             directory -any,
             filepath -any,
             formatting -any,
@@ -1416,12 +1417,6 @@ executable cardano-post-mortem
             attoparsec -any,
             base -any,
             bytestring -any,
-            cardano-sl -any,
-            cardano-sl-chain -any,
-            cardano-sl-core -any,
-            cardano-sl-infra -any,
-            cardano-sl-chain -any,
-            cardano-sl-util -any,
             containers -any,
             cassava -any,
             directory -any,
@@ -1466,13 +1461,6 @@ executable cardano-blockchain-analyser
         build-depends:
             ansi-wl-pprint -any,
             base -any,
-            cardano-sl -any,
-            cardano-sl-binary -any,
-            cardano-sl-chain -any,
-            cardano-sl-core -any,
-            cardano-sl-crypto -any,
-            cardano-sl-db -any,
-            cardano-sl-util -any,
             directory -any,
             formatting -any,
             lens -any,

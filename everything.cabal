@@ -1117,8 +1117,7 @@ executable bench-sender
         time-units -any,
         everything -any
     
-    if flag(benchmarks)
-    else
+    if !flag(benchmarks)
         buildable: False
 
 executable bench-receiver
@@ -1141,8 +1140,7 @@ executable bench-receiver
         text -any,
         everything -any
     
-    if flag(benchmarks)
-    else
+    if !flag(benchmarks)
         buildable: False
 
 executable bench-log-reader
@@ -1170,8 +1168,7 @@ executable bench-log-reader
         unliftio-core -any,
         everything -any
     
-    if flag(benchmarks)
-    else
+    if !flag(benchmarks)
         buildable: False
 
 executable dbgen
@@ -1278,7 +1275,6 @@ executable cardano-keygen
     
     if flag(for-installer)
         buildable: False
-    else
 
 executable cardano-launcher
     main-is: Main.hs
@@ -1513,7 +1509,6 @@ executable genesis-hash
     
     if flag(for-installer)
         buildable: False
-    else
 
 executable cardano-node
     main-is: Main.hs

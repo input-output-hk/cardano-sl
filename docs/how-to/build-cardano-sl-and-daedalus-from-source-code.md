@@ -87,6 +87,65 @@ corresponding Nix attribute for it -- `PACKAGE`, and sometimes, in case of
 packages providing executables, the `PACKAGE-static` also provides a
 statically-linked variation.
 
+### Developing across multiple packages
+
+A merge tool `cabal-merger` takes multiple cabal files and generates a single
+top-level `everything.cabal` file that can be used for fast development across
+the entire project with nix. When a cabal file is updated, running
+`nix-shell -A updateEverythingCabal` will re-merge all the cabal files into
+`everything.hs`.
+
+To develop across all packages in cardano-sl, run
+`nix-shell default.nix -A everything.env`. This will run a nix-shell with all of
+cardano-sl in scope. Then the following step is used to configure cabal:
+
+    runhaskell Setup.hs configure --enable-tests
+
+Optionally, profiling can be enabled to track down performance issues using a couple more flags:
+
+    runhaskell Setup.hs configure --enable-tests --enable-library-profiling --enable-profiling
+
+A repl can be opened with:
+
+    runhaskell Setup.hs repl everything
+
+And `ghcid` can monitor code for type errors as you edit it using:
+
+    ghcid -c "runhaskell Setup.hs repl everything
+
+### Running Tests during development
+
+All tests can be ran during development using:
+
+    runhaskell Setup.hs build
+    runhaskell Setup.hs test --show-details=always
+
+Tests can also be ran in smaller pieces using the repl:
+
+    runhaskell Setup.hs repl
+
+### Developing a single package
+
+A single package can be debugged in the same way to speed up building
+using the following commands for example for `wallet-new`:
+
+    nix-shell default.nix -A cardano-sl-wallet-new.env
+    cd wallet-new
+    runhaskell Setup.hs configure --enable-tests
+    ghcid -c "runhaskell Setup.hs repl wallet-new
+
+Note: ghcid isn't included in the shell. It needs to be in your PATH.
+
+### Profiling
+
+Optionally, profiling can be enabled to track down performance issues using a couple more flags. For example, to profile wallet unit tests:
+
+    nix-shell -A everything.env default.nix --arg enableProfiling true
+    runhaskell Setup.hs configure --enable-tests --enable-library-profiling --enable-profiling
+    runhaskell Setup.hs build -j10 wallet-unit-tests
+    ./dist/build/wallet-unit-tests/wallet-unit-tests +RTS -p
+
+
 ## Stack with Nix for system libraries (mixed mode)
 
 Please, see the previous section on how to enable use of the IOHK binary cache.

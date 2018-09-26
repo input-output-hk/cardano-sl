@@ -167,6 +167,45 @@ Run the building script:
     $ cd cardano-sl
     [~/cardano-sl]$ ./scripts/build/cardano-sl.sh
 
+## `cabal new-build` and Nix (experimental, for developers)
+
+This type of build gives you a multi-package project with incremental
+builds, where the all of the build dependencies (Haskell packages and
+system libraries) are downloaded from the binary cache and available
+in the shell.
+
+See the previous section on how to set up the IOHK binary cache.
+
+Before you start, install a recent version of `cabal` into your
+profile. The package set used by cardano-sl (nixpkgs 18.03) only has
+cabal 2.0.0.1 which doesn't work.
+
+    [nix-shell:~]$ nix-env -f channel:nixos-18.09 -iA pkgs.cabal-install
+
+Enter the `nix-shell`:
+
+    [nix-shell:~/cardano-sl]$ nix-shell
+
+Let cabal find its dependencies (already provided by the `nix-shell`):
+
+    [nix-shell:~/cardano-sl]$ cabal new-configure
+
+After that, to build all cardano-sl packages:
+
+    [nix-shell:~/cardano-sl]$ cabal new-build all
+
+To start a GHCi session for a component (wallet-new for example), run:
+
+    [nix-shell:~/cardano-sl]$ cabal new-repl cardano-sl-wallet-new
+
+### Known issues
+
+ - `cabal-install` is not provided by the Nix shell environment. You
+   have to install it yourself.
+ - There needs to be a package version override in `cabal.project` for
+   some unknown reason.
+
+
 ## Daedalus Wallet
 
 Let's proceed with building the wallet.

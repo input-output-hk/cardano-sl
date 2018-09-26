@@ -17128,6 +17128,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-infra
 , cardano-sl-networking
 , cardano-sl-util
+, cardano-sl-utxo
 , cardano-sl-wallet-new
 , constraints
 , containers
@@ -17144,7 +17145,6 @@ license = stdenv.lib.licenses.mit;
 , stdenv
 , text
 , universum
-, utxo
 , validation
 }:
 mkDerivation {
@@ -17184,6 +17184,7 @@ cardano-sl-db
 cardano-sl-infra
 cardano-sl-networking
 cardano-sl-util
+cardano-sl-utxo
 cardano-sl-wallet-new
 constraints
 containers
@@ -17198,7 +17199,6 @@ reflection
 safe-exceptions
 text
 universum
-utxo
 validation
 ];
 doHaddock = false;
@@ -17663,6 +17663,82 @@ description = "Cardano SL - general utilities (tests)";
 license = stdenv.lib.licenses.mit;
 
 }) {};
+"cardano-sl-utxo" = callPackage
+({
+  mkDerivation
+, base
+, cardano-crypto
+, cardano-sl
+, cardano-sl-binary
+, cardano-sl-chain
+, cardano-sl-chain-test
+, cardano-sl-client
+, cardano-sl-core
+, cardano-sl-core-test
+, cardano-sl-crypto
+, cardano-sl-crypto-test
+, cardano-sl-db
+, cardano-sl-util
+, constraints
+, containers
+, cryptonite
+, data-default
+, formatting
+, lens
+, log-warper
+, mtl
+, QuickCheck
+, reflection
+, safe-exceptions
+, safecopy
+, serokell-util
+, stdenv
+, universum
+, unordered-containers
+, vector
+}:
+mkDerivation {
+
+pname = "cardano-sl-utxo";
+version = "0.1.0.0";
+src = ./../utxo;
+libraryHaskellDepends = [
+base
+cardano-crypto
+cardano-sl
+cardano-sl-binary
+cardano-sl-chain
+cardano-sl-chain-test
+cardano-sl-client
+cardano-sl-core
+cardano-sl-core-test
+cardano-sl-crypto
+cardano-sl-crypto-test
+cardano-sl-db
+cardano-sl-util
+constraints
+containers
+cryptonite
+data-default
+formatting
+lens
+log-warper
+mtl
+QuickCheck
+reflection
+safe-exceptions
+safecopy
+serokell-util
+universum
+unordered-containers
+vector
+];
+doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl/#readme";
+description = "Abstract definitions of UTxO based accounting";
+license = stdenv.lib.licenses.mit;
+
+}) {};
 "cardano-sl-wallet" = callPackage
 ({
   mkDerivation
@@ -17899,6 +17975,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-node-ipc
 , cardano-sl-util
 , cardano-sl-util-test
+, cardano-sl-utxo
 , cardano-sl-wallet
 , cardano-sl-x509
 , cassava
@@ -17969,7 +18046,6 @@ license = stdenv.lib.licenses.mit;
 , unliftio
 , unliftio-core
 , unordered-containers
-, utxo
 , vector
 , wai
 , wai-middleware-throttle
@@ -18018,6 +18094,7 @@ cardano-sl-infra
 cardano-sl-networking
 cardano-sl-node-ipc
 cardano-sl-util
+cardano-sl-utxo
 cardano-sl-wallet
 cardano-sl-x509
 cereal
@@ -18073,7 +18150,6 @@ universum
 unliftio
 unliftio-core
 unordered-containers
-utxo
 vector
 wai
 wai-middleware-throttle
@@ -18134,6 +18210,7 @@ cardano-sl-crypto-test
 cardano-sl-db
 cardano-sl-util
 cardano-sl-util-test
+cardano-sl-utxo
 cardano-sl-wallet
 cereal
 conduit
@@ -18170,7 +18247,6 @@ time
 time-units
 universum
 unordered-containers
-utxo
 vector
 ];
 benchmarkHaskellDepends = [
@@ -83005,82 +83081,6 @@ doHaddock = false;
 doCheck = false;
 description = "Various small helper functions for Lists, Maybes, Tuples, Functions";
 license = stdenv.lib.licenses.bsd3;
-
-}) {};
-"utxo" = callPackage
-({
-  mkDerivation
-, base
-, cardano-crypto
-, cardano-sl
-, cardano-sl-binary
-, cardano-sl-chain
-, cardano-sl-chain-test
-, cardano-sl-client
-, cardano-sl-core
-, cardano-sl-core-test
-, cardano-sl-crypto
-, cardano-sl-crypto-test
-, cardano-sl-db
-, cardano-sl-util
-, constraints
-, containers
-, cryptonite
-, data-default
-, formatting
-, lens
-, log-warper
-, mtl
-, QuickCheck
-, reflection
-, safe-exceptions
-, safecopy
-, serokell-util
-, stdenv
-, universum
-, unordered-containers
-, vector
-}:
-mkDerivation {
-
-pname = "utxo";
-version = "0.1.0.0";
-src = ./../utxo;
-libraryHaskellDepends = [
-base
-cardano-crypto
-cardano-sl
-cardano-sl-binary
-cardano-sl-chain
-cardano-sl-chain-test
-cardano-sl-client
-cardano-sl-core
-cardano-sl-core-test
-cardano-sl-crypto
-cardano-sl-crypto-test
-cardano-sl-db
-cardano-sl-util
-constraints
-containers
-cryptonite
-data-default
-formatting
-lens
-log-warper
-mtl
-QuickCheck
-reflection
-safe-exceptions
-safecopy
-serokell-util
-universum
-unordered-containers
-vector
-];
-doHaddock = false;
-homepage = "https://github.com/input-output-hk/cardano-sl/#readme";
-description = "Abstract definitions of UTxO based accounting";
-license = stdenv.lib.licenses.mit;
 
 }) {};
 "uuid" = callPackage

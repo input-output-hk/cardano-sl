@@ -16,24 +16,40 @@ in
 }:
 with pkgs;
 let
-  hsPkgs = haskell.packages.ghc822;
+  getCardanoSLDeps = with lib;
+    ps: filter (drv: !(localLib.isCardanoSL drv.name))
+    (concatMap haskell.lib.getHaskellBuildInputs
+     (attrValues (filterAttrs isWantedDep ps)));
+  isWantedDep = name: drv: localLib.isCardanoSL name && !(drv ? "gitrev");
+  ghc = cardanoPkgs.ghc.withPackages getCardanoSLDeps;
+
+  stackDeps = [
+    zlib openssh autoreconfHook openssl
+    gmp rocksdb git bsdiff ncurses lzma
+    perl bash
+  ];
+  # TODO: add cabal-install (2.0.0.1 won't work)
+  devTools = [ hlint cardanoPkgs.stylish-haskell ];
+
   cardanoSL = haskell.lib.buildStackProject {
-     name = "cardano-sl-env";
-     ghc = hsPkgs.ghc;
-     buildInputs = [
-       zlib openssh autoreconfHook openssl
-       gmp rocksdb git bsdiff ncurses
-       hsPkgs.happy hsPkgs.cpphs lzma
-       perl bash
-       cardanoPkgs.stylish-haskell
-       hlint
-     # cabal-install and stack pull in lots of dependencies on OSX so skip them
-     # See https://github.com/NixOS/nixpkgs/issues/21200
-     ] ++ (lib.optionals stdenv.isLinux [ cabal-install stack ])
-       ++ (lib.optionals stdenv.isDarwin (with darwin.apple_sdk.frameworks; [ Cocoa CoreServices libcxx libiconv ]));
+    inherit ghc;
+    name = "cardano-sl-env";
+
+    buildInputs = devTools ++ stackDeps
+      # cabal-install and stack pull in lots of dependencies on OSX so skip them
+      # See https://github.com/NixOS/nixpkgs/issues/21200
+      ++ (lib.optionals stdenv.isLinux [ stack ])
+      ++ (lib.optionals stdenv.isDarwin (with darwin.apple_sdk.frameworks; [ Cocoa CoreServices libcxx libiconv ]));
+
+    shellHook = lib.optionalString lib.inNixShell ''
+      eval "$(egrep ^export ${ghc}/bin/ghc)"
+      export PATH=${ghc}/bin:$PATH
+    '';
+
     phases = ["nobuildPhase"];
     nobuildPhase = "mkdir -p $out";
   };
+
   fixStylishHaskell = stdenv.mkDerivation {
     name = "fix-stylish-haskell";
     buildInputs = [ cardanoPkgs.stylish-haskell git ];

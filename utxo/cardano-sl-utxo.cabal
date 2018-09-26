@@ -1,4 +1,4 @@
-name:                utxo
+name:                cardano-sl-utxo
 version:             0.1.0.0
 synopsis:            Abstract definitions of UTxO based accounting
 -- description:

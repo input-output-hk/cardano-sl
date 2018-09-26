@@ -37,7 +37,7 @@ import           System.Environment (getArgs)
 
 data State =
   State {
-    sExposedModules  :: [ ModuleName ]
+    sExposedModules  :: S.Set ModuleName
   , sLibDepends      :: S.Set Dependency
   , sNamesToExclude  :: [ PackageName ]
   , sLibExtensions   :: S.Set Extension
@@ -72,7 +72,7 @@ goLibrary state pkg = do
         pkgname = pkgName $ package $ packageDescription pkg
         eModules = exposedModules $ condTreeData node
         newState = state {
-            sExposedModules = (sExposedModules state) <> eModules
+            sExposedModules = (sExposedModules state) <> (S.fromList eModules)
           , sLibDepends = (sLibDepends state) <> (S.fromList $ targetBuildDepends $ libBuildInfo $ condTreeData node)
           , sNamesToExclude = (sNamesToExclude state) <> [ pkgname ]
           , sLibExtensions = (sLibExtensions state) <> (S.fromList $ defaultExtensions $ libBuildInfo $ condTreeData node)
@@ -148,10 +148,10 @@ pathsFilter = not . isPrefixOf "Paths_" . toFilePath
 
 main :: IO ()
 main = do
-  result <- getArgs >>= foldlM go (State [] S.empty [] S.empty S.empty [] [] [])
+  result <- getArgs >>= foldlM go (State S.empty S.empty [] S.empty S.empty [] [] [])
   let
     mergedLib = emptyLibrary {
-        exposedModules = filter pathsFilter $ sExposedModules result
+        exposedModules = filter pathsFilter $ S.toList $ sExposedModules result
       , libBuildInfo = emptyBuildInfo {
             buildable = True
           , defaultLanguage = Just Haskell2010

@@ -8,369 +8,8 @@ build-type: Simple
 
 library
     exposed-modules:
-        Serokell.AcidState.ExtendedState
-        Serokell.AcidState.Instances
-        Serokell.AcidState.Util
-        Pos.Binary.Class
-        Pos.Binary.Limit
-        Pos.Binary.SafeCopy
-        Test.Pos.Binary.Helpers
-        Test.Pos.Binary.Helpers.GoldenRoundTrip
-        Test.Pos.Cbor.Canonicity
-        Test.Pos.Cbor.RefImpl
-        Pos.Chain.Block
-        Pos.Chain.Delegation
-        Pos.Chain.Genesis
-        Pos.Chain.Lrc
-        Pos.Chain.Security
-        Pos.Chain.Ssc
-        Pos.Chain.Script
-        Pos.Chain.Script.Examples
-        Pos.Chain.Txp
-        Pos.Chain.Update
-        Test.Pos.Chain.Block.Arbitrary
-        Test.Pos.Chain.Block.Arbitrary.Generate
-        Test.Pos.Chain.Block.Bi
-        Test.Pos.Chain.Block.Gen
-        Test.Pos.Chain.Delegation.Arbitrary
-        Test.Pos.Chain.Delegation.Example
-        Test.Pos.Chain.Delegation.Gen
-        Test.Pos.Chain.Genesis.Arbitrary
-        Test.Pos.Chain.Genesis.Dummy
-        Test.Pos.Chain.Lrc.Arbitrary
-        Test.Pos.Chain.Ssc.Arbitrary
-        Test.Pos.Chain.Ssc.Example
-        Test.Pos.Chain.Ssc.Gen
-        Test.Pos.Chain.Ssc.Json
-        Test.Pos.Chain.Txp.Arbitrary
-        Test.Pos.Chain.Txp.Arbitrary.Unsafe
-        Test.Pos.Chain.Txp.Bi
-        Test.Pos.Chain.Txp.Example
-        Test.Pos.Chain.Txp.Gen
-        Test.Pos.Chain.Update.Arbitrary
-        Test.Pos.Chain.Update.Example
-        Test.Pos.Chain.Update.Gen
-        Pos.Client.Txp
-        Pos.Client.Txp.Addresses
-        Pos.Client.Txp.Balances
-        Pos.Client.Txp.History
-        Pos.Client.Txp.Network
-        Pos.Client.Txp.Util
-        Pos.Client.Update
-        Pos.Client.Update.Network
-        Pos.Client.KeyStorage
-        Pos.Core
-        Pos.Core.Aeson
-        Pos.Core.Binary
-        Pos.Core.Chrono
-        Pos.Core.Limits
-        Pos.Core.ProtocolConstants
-        Pos.Core.NetworkAddress
-        Pos.Core.Common
-        Pos.Core.Constants
-        Pos.Core.Context
-        Pos.Core.JsonLog
-        Pos.Core.JsonLog.CanJsonLog
-        Pos.Core.JsonLog.Event
-        Pos.Core.JsonLog.JsonLogT
-        Pos.Core.JsonLog.LogEvents
-        Pos.Core.Conc
-        Pos.Core.Reporting
-        Pos.Core.Script
-        Pos.Core.Slotting
-        Pos.Core.Util.LogSafe
-        Pos.Core.Util.TimeLimit
-        Pos.Core.Attributes
-        Pos.Core.Exception
-        Pos.Core.Merkle
-        Pos.Core.Metrics.Constants
-        Test.Pos.Core.Bi
-        Test.Pos.Core.Chrono
-        Test.Pos.Core.Dummy
-        Test.Pos.Core.ExampleHelpers
-        Test.Pos.Core.Gen
-        Test.Pos.Core.Arbitrary
-        Test.Pos.Core.Arbitrary.Unsafe
-        Test.Pos.Core.Arbitrary.Slotting
-        Test.Pos.Core.Json
-        Pos.Crypto
-        Pos.Crypto.Configuration
-        Pos.Crypto.Hashing
-        Pos.Crypto.HD
-        Pos.Crypto.Limits
-        Pos.Crypto.Orphans
-        Pos.Crypto.Random
-        Pos.Crypto.SecretSharing
-        Pos.Crypto.Signing
-        Pos.Crypto.Signing.Redeem
-        Pos.Crypto.Signing.Safe
-        Pos.Crypto.Signing.Signing
-        Test.Pos.Crypto.Arbitrary
-        Test.Pos.Crypto.Bi
-        Test.Pos.Crypto.Dummy
-        Test.Pos.Crypto.Gen
-        Pos.DB
-        Pos.DB.BatchOp
-        Pos.DB.Class
-        Pos.DB.Error
-        Pos.DB.Functions
-        Pos.DB.BlockIndex
-        Pos.DB.GState.Common
-        Pos.DB.GState.Lock
-        Pos.DB.GState.Stakes
-        Pos.DB.Misc.Common
-        Pos.DB.Pure
-        Pos.DB.Sum
-        Pos.DB.Rocks
-        Pos.DB.Rocks.Functions
-        Pos.DB.Rocks.Types
-        Pos.DB.Txp
-        Pos.DB.Txp.Logic
-        Pos.DB.Txp.MemState
-        Pos.DB.Txp.Settings
-        Pos.DB.Txp.Stakes
-        Pos.DB.Txp.Utxo
-        Pos.DB.Lrc
-        Pos.DB.Delegation
-        Pos.DB.Ssc
-        Pos.DB.Ssc.SecretStorage
-        Pos.DB.Update
-        Pos.DB.Block
-        Pos.DB.Epoch.Index
-        Test.Pos.DB.Update.Arbitrary
-        Test.Pos.DB.Block.Arbitrary
-        Pos.Generator
-        Pos.Generator.Block
-        Pos.Generator.BlockEvent
-        Pos.Generator.BlockEvent.DSL
-        Test.Pos.Block.Logic.Mode
-        Test.Pos.Block.Logic.Emulation
-        Test.Pos.Block.Logic.Util
-        Test.Pos.Block.Logic.Event
-        Pos.Infra.Diffusion.Transport.TCP
-        Pos.Infra.Diffusion.Types
-        Pos.Infra.Diffusion.Subscription.Common
-        Pos.Infra.Diffusion.Subscription.Dns
-        Pos.Infra.Diffusion.Subscription.Dht
-        Pos.Infra.Diffusion.Subscription.Status
-        Pos.Infra.Diffusion.Subscription.Subscriber
-        Pos.Infra.Reporting
-        Pos.Infra.Reporting.Ekg
-        Pos.Infra.Reporting.Exceptions
-        Pos.Infra.Reporting.Health.Types
-        Pos.Infra.Reporting.Http
-        Pos.Infra.Reporting.Methods
-        Pos.Infra.Reporting.NodeInfo
-        Pos.Infra.Reporting.Statsd
-        Pos.Infra.Reporting.Wlog
-        Pos.Infra.StateLock
-        Pos.Infra.Slotting
-        Pos.Infra.Slotting.Class
-        Pos.Infra.Slotting.Impl
-        Pos.Infra.Slotting.Impl.Simple
-        Pos.Infra.Slotting.Impl.Util
-        Pos.Infra.Slotting.Types
-        Pos.Infra.Slotting.Error
-        Pos.Infra.Slotting.Util
-        Pos.Infra.DHT
-        Pos.Infra.DHT.Constants
-        Pos.Infra.DHT.Model
-        Pos.Infra.DHT.Model.Types
-        Pos.Infra.DHT.Real
-        Pos.Infra.DHT.Real.Real
-        Pos.Infra.DHT.Real.Types
-        Pos.Infra.DHT.Real.Param
-        Pos.Infra.DHT.Real.CLI
-        Pos.Infra.DHT.Workers
-        Pos.Infra.Communication.Constants
-        Pos.Infra.Communication.Types.Protocol
-        Pos.Infra.Communication.Types.Relay
-        Pos.Infra.Communication.BiP
-        Pos.Infra.Communication.Limits.Instances
-        Pos.Infra.Communication.Listener
-        Pos.Infra.Communication.Protocol
-        Pos.Infra.Communication.Specs
-        Pos.Infra.Communication.Relay
-        Pos.Infra.Communication.Relay.Class
-        Pos.Infra.Communication.Relay.Logic
-        Pos.Infra.Communication.Relay.Types
-        Pos.Infra.Communication.Relay.Util
-        Pos.Infra.HealthCheck.Route53
-        Pos.Infra.Network.DnsDomains
-        Pos.Infra.Network.Policy
-        Pos.Infra.Network.Types
-        Pos.Infra.Network.Yaml
-        Pos.Infra.Network.CLI
-        Pos.Infra.Recovery.Info
-        Pos.Infra.Recovery.Types
-        Pos.Infra.Shutdown
-        Pos.Infra.Shutdown.Class
-        Pos.Infra.Shutdown.Logic
-        Pos.Infra.Shutdown.Types
-        Pos.Infra.Statistics
-        Pos.Infra.Statistics.Ekg
-        Pos.Infra.Statistics.Statsd
-        Pos.Infra.Binary
-        Pos.Infra.Binary.DHTModel
-        Pos.Infra.Util.JsonLog.Events
-        Pos.Infra.Util.LogSafe
-        Pos.Infra.Util.Monitor
-        Pos.Infra.Util.TimeLimit
-        Pos.Infra.Util.TimeWarp
-        Test.Pos.Infra.Arbitrary
-        Test.Pos.Infra.Arbitrary.Communication
-        Test.Pos.Infra.Arbitrary.Slotting
-        Test.Pos.Infra.Arbitrary.Ssc
-        Test.Pos.Infra.Arbitrary.Txp
-        Test.Pos.Infra.Arbitrary.Update
-        Test.Pos.Infra.Bi
-        Test.Pos.Infra.Diffusion.Subscription.StatusSpec
-        Test.Pos.Infra.Diffusion.Subscription.SubscriptionSpec
-        Test.Pos.Infra.Gen
-        Test.Pos.Infra.Json
-        Pos.AllSecrets
-        Pos.Binary
-        Pos.Context
-        Pos.Communication
-        Pos.Configuration
-        Pos.Constants
-        Pos.DB.DB
-        Pos.Diffusion.Full
-        Pos.Diffusion.Full.Block
-        Pos.Diffusion.Full.Delegation
-        Pos.Diffusion.Full.Ssc
-        Pos.Diffusion.Full.Txp
-        Pos.Diffusion.Full.Update
-        Pos.GState
-        Pos.Logic.Types
-        Pos.Logic.Full
-        Pos.Logic.Pure
-        Pos.Behavior
-        Pos.Launcher
-        Pos.Launcher.Configuration
-        Pos.Launcher.Resource
-        Pos.Launcher.Runner
-        Pos.Listener.Delegation
-        Pos.Listener.Txp
-        Pos.Listener.Update
-        Pos.Network.Update.Download
-        Pos.Network.Block.Logic
-        Pos.Network.Block.Retrieval
-        Pos.Network.Block.RetrievalQueue
-        Pos.Network.Block.Types
-        Pos.Network.Block.WorkMode
-        Pos.Communication.Limits
-        Pos.Communication.Types
-        Pos.Recovery
-        Pos.Recovery.Types
-        Pos.Client.CLI
-        Pos.Client.CLI.NodeOptions
-        Pos.Client.CLI.Options
-        Pos.Client.CLI.Params
-        Pos.Client.CLI.Secrets
-        Pos.Client.CLI.Util
-        Pos.Reporting.Production
-        Pos.Util.Config
-        Pos.Util.OutboundQueue
-        Pos.Util.UserKeyError
-        Pos.Util.UserPublic
-        Pos.Util.UserSecret
-        Pos.Web
-        Pos.Web.Api
-        Pos.Web.Mode
-        Pos.Web.Server
-        Pos.Web.Types
-        Pos.Worker
-        Pos.Worker.Block
-        Pos.Worker.Delegation
-        Pos.Worker.Ssc
-        Pos.Worker.Update
-        Pos.WorkMode
-        Pos.WorkMode.Class
-        Pos.Binary.Communication
-        Test.Pos.Helpers
-        Test.Pos.Configuration
-        Pos.Util.Servant
-        Network.QDisc.Fair
-        Network.Discovery.Abstract
-        Network.Discovery.Transport.Kademlia
-        Network.Broadcast.OutboundQueue
-        Network.Broadcast.OutboundQueue.Types
-        Network.Broadcast.OutboundQueue.ConcurrentMultiQueue
-        Network.Broadcast.OutboundQueue.Demo
-        Node
-        Node.Internal
-        Node.Conversation
-        Node.Message.Decoder
-        Node.Message.Class
-        Node.Message.Binary
-        Node.Util.Monitor
-        Ntp.Client
-        Ntp.Util
-        Ntp.Packet
         Bench.Network.Commons
         Cardano.NodeIPC
-        Pos.Tools.Launcher.Environment
-        Pos.Tools.Launcher.Logging
-        Pos.Tools.Dbgen.CLI
-        Pos.Tools.Dbgen.Lib
-        Pos.Tools.Dbgen.Rendering
-        Pos.Tools.Dbgen.Stats
-        Pos.Tools.Dbgen.Types
-        Pos.Util
-        Pos.Util.CompileInfo
-        Pos.Util.Concurrent
-        Pos.Util.Concurrent.PriorityLock
-        Pos.Util.Concurrent.RWLock
-        Pos.Util.AssertMode
-        Pos.Util.Filesystem
-        Pos.Util.Future
-        Pos.Util.Json.Canonical
-        Pos.Util.Json.Parse
-        Pos.Util.Justify
-        Pos.Util.Lens
-        Pos.Util.Log
-        Pos.Util.Log.Internal
-        Pos.Util.Log.LogSafe
-        Pos.Util.Log.LoggerConfig
-        Pos.Util.Log.LoggerName
-        Pos.Util.Log.Severity
-        Pos.Util.Wlog.Compatibility
-        Pos.Util.LoggerName
-        Pos.Util.LRU
-        Pos.Util.Modifier
-        Pos.Util.Orphans
-        Pos.Util.OptParse
-        Pos.Util.Queue
-        Pos.Util.Some
-        Pos.Util.Timer
-        Pos.Util.Trace
-        Pos.Util.Trace.Unstructured
-        Pos.Util.Trace.Named
-        Pos.Util.Util
-        Pos.Util.Wlog
-        Test.Pos.Util.Base16
-        Test.Pos.Util.Gen
-        Test.Pos.Util.Golden
-        Test.Pos.Util.Modifier
-        Test.Pos.Util.Orphans
-        Test.Pos.Util.Parallel.Parallelize
-        Test.Pos.Util.QuickCheck
-        Test.Pos.Util.QuickCheck.Property
-        Test.Pos.Util.QuickCheck.Arbitrary
-        Test.Pos.Util.Tripping
-        UTxO.DSL
-        UTxO.Bootstrap
-        UTxO.Context
-        UTxO.Crypto
-        UTxO.Generator
-        UTxO.IntTrans
-        UTxO.Translate
-        UTxO.Util
-        UTxO.Verify
-        Data.Validated
-        Cardano.Wallet.Action
-        Cardano.Wallet.LegacyAction
         Cardano.Wallet.API
         Cardano.Wallet.API.Indices
         Cardano.Wallet.API.Internal
@@ -426,6 +65,9 @@ library
         Cardano.Wallet.API.WIP
         Cardano.Wallet.API.WIP.Handlers
         Cardano.Wallet.API.WIP.LegacyHandlers
+        Cardano.Wallet.Action
+        Cardano.Wallet.Client
+        Cardano.Wallet.Client.Http
         Cardano.Wallet.Kernel
         Cardano.Wallet.Kernel.Accounts
         Cardano.Wallet.Kernel.Actions
@@ -484,6 +126,7 @@ library
         Cardano.Wallet.Kernel.Util.StrictNonEmpty
         Cardano.Wallet.Kernel.Util.StrictStateT
         Cardano.Wallet.Kernel.Wallets
+        Cardano.Wallet.LegacyAction
         Cardano.Wallet.LegacyServer
         Cardano.Wallet.Orphans
         Cardano.Wallet.Orphans.Aeson
@@ -491,17 +134,16 @@ library
         Cardano.Wallet.Orphans.Bi
         Cardano.Wallet.Server
         Cardano.Wallet.Server.CLI
+        Cardano.Wallet.Server.LegacyPlugins
         Cardano.Wallet.Server.Middlewares
         Cardano.Wallet.Server.Plugins
         Cardano.Wallet.Server.Plugins.AcidState
-        Cardano.Wallet.Server.LegacyPlugins
         Cardano.Wallet.TypeLits
         Cardano.Wallet.Types.UtxoStatistics
-        Cardano.Wallet.Client
-        Cardano.Wallet.Client.Http
         Cardano.Wallet.Util
         Cardano.Wallet.WalletLayer
         Cardano.Wallet.WalletLayer.ExecutionTimeLimit
+        Cardano.Wallet.WalletLayer.Kernel
         Cardano.Wallet.WalletLayer.Kernel.Accounts
         Cardano.Wallet.WalletLayer.Kernel.Active
         Cardano.Wallet.WalletLayer.Kernel.Addresses
@@ -511,19 +153,290 @@ library
         Cardano.Wallet.WalletLayer.Kernel.Settings
         Cardano.Wallet.WalletLayer.Kernel.Transactions
         Cardano.Wallet.WalletLayer.Kernel.Wallets
-        Cardano.Wallet.WalletLayer.Kernel
+        Cardano.X509.Configuration
+        Data.Validated
+        Data.X509.Extra
+        Network.Broadcast.OutboundQueue
+        Network.Broadcast.OutboundQueue.ConcurrentMultiQueue
+        Network.Broadcast.OutboundQueue.Demo
+        Network.Broadcast.OutboundQueue.Types
+        Network.Discovery.Abstract
+        Network.Discovery.Transport.Kademlia
+        Network.QDisc.Fair
+        Node
+        Node.Conversation
+        Node.Internal
+        Node.Message.Binary
+        Node.Message.Class
+        Node.Message.Decoder
+        Node.Util.Monitor
+        Ntp.Client
+        Ntp.Packet
+        Ntp.Util
+        Pos.AllSecrets
+        Pos.Behavior
+        Pos.Binary
+        Pos.Binary.Class
+        Pos.Binary.Communication
+        Pos.Binary.Limit
+        Pos.Binary.SafeCopy
+        Pos.Chain.Block
+        Pos.Chain.Delegation
+        Pos.Chain.Genesis
+        Pos.Chain.Lrc
+        Pos.Chain.Script
+        Pos.Chain.Script.Examples
+        Pos.Chain.Security
+        Pos.Chain.Ssc
+        Pos.Chain.Txp
+        Pos.Chain.Update
+        Pos.Client.CLI
+        Pos.Client.CLI.NodeOptions
+        Pos.Client.CLI.Options
+        Pos.Client.CLI.Params
+        Pos.Client.CLI.Secrets
+        Pos.Client.CLI.Util
+        Pos.Client.KeyStorage
+        Pos.Client.Txp
+        Pos.Client.Txp.Addresses
+        Pos.Client.Txp.Balances
+        Pos.Client.Txp.History
+        Pos.Client.Txp.Network
+        Pos.Client.Txp.Util
+        Pos.Client.Update
+        Pos.Client.Update.Network
+        Pos.Communication
+        Pos.Communication.Limits
+        Pos.Communication.Types
+        Pos.Configuration
+        Pos.Constants
+        Pos.Context
+        Pos.Core
+        Pos.Core.Aeson
+        Pos.Core.Attributes
+        Pos.Core.Binary
+        Pos.Core.Chrono
+        Pos.Core.Common
+        Pos.Core.Conc
+        Pos.Core.Constants
+        Pos.Core.Context
+        Pos.Core.Exception
+        Pos.Core.JsonLog
+        Pos.Core.JsonLog.CanJsonLog
+        Pos.Core.JsonLog.Event
+        Pos.Core.JsonLog.JsonLogT
+        Pos.Core.JsonLog.LogEvents
+        Pos.Core.Limits
+        Pos.Core.Merkle
+        Pos.Core.Metrics.Constants
+        Pos.Core.NetworkAddress
+        Pos.Core.ProtocolConstants
+        Pos.Core.Reporting
+        Pos.Core.Script
+        Pos.Core.Slotting
+        Pos.Core.Util.LogSafe
+        Pos.Core.Util.TimeLimit
+        Pos.Crypto
+        Pos.Crypto.Configuration
+        Pos.Crypto.HD
+        Pos.Crypto.Hashing
+        Pos.Crypto.Limits
+        Pos.Crypto.Orphans
+        Pos.Crypto.Random
+        Pos.Crypto.SecretSharing
+        Pos.Crypto.Signing
+        Pos.Crypto.Signing.Redeem
+        Pos.Crypto.Signing.Safe
+        Pos.Crypto.Signing.Signing
+        Pos.DB
+        Pos.DB.BatchOp
+        Pos.DB.Block
+        Pos.DB.BlockIndex
+        Pos.DB.Class
+        Pos.DB.DB
+        Pos.DB.Delegation
+        Pos.DB.Epoch.Index
+        Pos.DB.Error
+        Pos.DB.Functions
+        Pos.DB.GState.Common
+        Pos.DB.GState.Lock
+        Pos.DB.GState.Stakes
+        Pos.DB.Lrc
+        Pos.DB.Misc.Common
+        Pos.DB.Pure
+        Pos.DB.Rocks
+        Pos.DB.Rocks.Functions
+        Pos.DB.Rocks.Types
+        Pos.DB.Ssc
+        Pos.DB.Ssc.SecretStorage
+        Pos.DB.Sum
+        Pos.DB.Txp
+        Pos.DB.Txp.Logic
+        Pos.DB.Txp.MemState
+        Pos.DB.Txp.Settings
+        Pos.DB.Txp.Stakes
+        Pos.DB.Txp.Utxo
+        Pos.DB.Update
+        Pos.Diffusion.Full
+        Pos.Diffusion.Full.Block
+        Pos.Diffusion.Full.Delegation
+        Pos.Diffusion.Full.Ssc
+        Pos.Diffusion.Full.Txp
+        Pos.Diffusion.Full.Update
+        Pos.GState
+        Pos.Generator
+        Pos.Generator.Block
+        Pos.Generator.BlockEvent
+        Pos.Generator.BlockEvent.DSL
+        Pos.Infra.Binary
+        Pos.Infra.Binary.DHTModel
+        Pos.Infra.Communication.BiP
+        Pos.Infra.Communication.Constants
+        Pos.Infra.Communication.Limits.Instances
+        Pos.Infra.Communication.Listener
+        Pos.Infra.Communication.Protocol
+        Pos.Infra.Communication.Relay
+        Pos.Infra.Communication.Relay.Class
+        Pos.Infra.Communication.Relay.Logic
+        Pos.Infra.Communication.Relay.Types
+        Pos.Infra.Communication.Relay.Util
+        Pos.Infra.Communication.Specs
+        Pos.Infra.Communication.Types.Protocol
+        Pos.Infra.Communication.Types.Relay
+        Pos.Infra.DHT
+        Pos.Infra.DHT.Constants
+        Pos.Infra.DHT.Model
+        Pos.Infra.DHT.Model.Types
+        Pos.Infra.DHT.Real
+        Pos.Infra.DHT.Real.CLI
+        Pos.Infra.DHT.Real.Param
+        Pos.Infra.DHT.Real.Real
+        Pos.Infra.DHT.Real.Types
+        Pos.Infra.DHT.Workers
+        Pos.Infra.Diffusion.Subscription.Common
+        Pos.Infra.Diffusion.Subscription.Dht
+        Pos.Infra.Diffusion.Subscription.Dns
+        Pos.Infra.Diffusion.Subscription.Status
+        Pos.Infra.Diffusion.Subscription.Subscriber
+        Pos.Infra.Diffusion.Transport.TCP
+        Pos.Infra.Diffusion.Types
+        Pos.Infra.HealthCheck.Route53
+        Pos.Infra.Network.CLI
+        Pos.Infra.Network.DnsDomains
+        Pos.Infra.Network.Policy
+        Pos.Infra.Network.Types
+        Pos.Infra.Network.Yaml
+        Pos.Infra.Recovery.Info
+        Pos.Infra.Recovery.Types
+        Pos.Infra.Reporting
+        Pos.Infra.Reporting.Ekg
+        Pos.Infra.Reporting.Exceptions
+        Pos.Infra.Reporting.Health.Types
+        Pos.Infra.Reporting.Http
+        Pos.Infra.Reporting.Methods
+        Pos.Infra.Reporting.NodeInfo
+        Pos.Infra.Reporting.Statsd
+        Pos.Infra.Reporting.Wlog
+        Pos.Infra.Shutdown
+        Pos.Infra.Shutdown.Class
+        Pos.Infra.Shutdown.Logic
+        Pos.Infra.Shutdown.Types
+        Pos.Infra.Slotting
+        Pos.Infra.Slotting.Class
+        Pos.Infra.Slotting.Error
+        Pos.Infra.Slotting.Impl
+        Pos.Infra.Slotting.Impl.Simple
+        Pos.Infra.Slotting.Impl.Util
+        Pos.Infra.Slotting.Types
+        Pos.Infra.Slotting.Util
+        Pos.Infra.StateLock
+        Pos.Infra.Statistics
+        Pos.Infra.Statistics.Ekg
+        Pos.Infra.Statistics.Statsd
+        Pos.Infra.Util.JsonLog.Events
+        Pos.Infra.Util.LogSafe
+        Pos.Infra.Util.Monitor
+        Pos.Infra.Util.TimeLimit
+        Pos.Infra.Util.TimeWarp
+        Pos.Launcher
+        Pos.Launcher.Configuration
+        Pos.Launcher.Resource
+        Pos.Launcher.Runner
+        Pos.Listener.Delegation
+        Pos.Listener.Txp
+        Pos.Listener.Update
+        Pos.Logic.Full
+        Pos.Logic.Pure
+        Pos.Logic.Types
+        Pos.Network.Block.Logic
+        Pos.Network.Block.Retrieval
+        Pos.Network.Block.RetrievalQueue
+        Pos.Network.Block.Types
+        Pos.Network.Block.WorkMode
+        Pos.Network.Update.Download
+        Pos.Recovery
+        Pos.Recovery.Types
+        Pos.Reporting.Production
+        Pos.Tools.Dbgen.CLI
+        Pos.Tools.Dbgen.Lib
+        Pos.Tools.Dbgen.Rendering
+        Pos.Tools.Dbgen.Stats
+        Pos.Tools.Dbgen.Types
+        Pos.Tools.Launcher.Environment
+        Pos.Tools.Launcher.Logging
+        Pos.Util
+        Pos.Util.AssertMode
+        Pos.Util.CompileInfo
+        Pos.Util.Concurrent
+        Pos.Util.Concurrent.PriorityLock
+        Pos.Util.Concurrent.RWLock
+        Pos.Util.Config
+        Pos.Util.Filesystem
+        Pos.Util.Future
+        Pos.Util.Json.Canonical
+        Pos.Util.Json.Parse
+        Pos.Util.Justify
+        Pos.Util.LRU
+        Pos.Util.Lens
+        Pos.Util.Log
+        Pos.Util.Log.Internal
+        Pos.Util.Log.LogSafe
+        Pos.Util.Log.LoggerConfig
+        Pos.Util.Log.LoggerName
+        Pos.Util.Log.Rotator
+        Pos.Util.Log.Severity
+        Pos.Util.Log.Structured
+        Pos.Util.LoggerName
+        Pos.Util.Mnemonic
+        Pos.Util.Modifier
+        Pos.Util.OptParse
+        Pos.Util.Orphans
+        Pos.Util.OutboundQueue
+        Pos.Util.Queue
+        Pos.Util.Servant
+        Pos.Util.Some
+        Pos.Util.Timer
+        Pos.Util.Trace
+        Pos.Util.Trace.Named
+        Pos.Util.Trace.Unstructured
+        Pos.Util.UserKeyError
+        Pos.Util.UserPublic
+        Pos.Util.UserSecret
+        Pos.Util.Util
+        Pos.Util.Wlog
+        Pos.Util.Wlog.Compatibility
         Pos.Wallet
-        Pos.Wallet.Redirect
-        Pos.Wallet.WalletMode
         Pos.Wallet.Aeson
         Pos.Wallet.Aeson.ClientTypes
         Pos.Wallet.Aeson.Options
         Pos.Wallet.Aeson.Storage
         Pos.Wallet.Aeson.WalletBackup
+        Pos.Wallet.Redirect
+        Pos.Wallet.WalletMode
         Pos.Wallet.Web
         Pos.Wallet.Web.Account
-        Pos.Wallet.Web.Assurance
         Pos.Wallet.Web.Api
+        Pos.Wallet.Web.Assurance
         Pos.Wallet.Web.Backup
         Pos.Wallet.Web.ClientTypes
         Pos.Wallet.Web.ClientTypes.Functions
@@ -532,7 +445,6 @@ library
         Pos.Wallet.Web.Error
         Pos.Wallet.Web.Error.Types
         Pos.Wallet.Web.Error.Util
-        Pos.Wallet.Web.Mode
         Pos.Wallet.Web.Methods
         Pos.Wallet.Web.Methods.Backup
         Pos.Wallet.Web.Methods.History
@@ -544,10 +456,11 @@ library
         Pos.Wallet.Web.Methods.Reporting
         Pos.Wallet.Web.Methods.Restore
         Pos.Wallet.Web.Methods.Txp
+        Pos.Wallet.Web.Mode
         Pos.Wallet.Web.Pending
-        Pos.Wallet.Web.Pending.Types
-        Pos.Wallet.Web.Pending.Submission
         Pos.Wallet.Web.Pending.Functions
+        Pos.Wallet.Web.Pending.Submission
+        Pos.Wallet.Web.Pending.Types
         Pos.Wallet.Web.Pending.Util
         Pos.Wallet.Web.Pending.Worker
         Pos.Wallet.Web.Server
@@ -572,15 +485,104 @@ library
         Pos.Wallet.Web.Tracking
         Pos.Wallet.Web.Tracking.BListener
         Pos.Wallet.Web.Tracking.Decrypt
-        Pos.Wallet.Web.Tracking.Sync
-        Pos.Wallet.Web.Tracking.Restore
         Pos.Wallet.Web.Tracking.Modifier
+        Pos.Wallet.Web.Tracking.Restore
+        Pos.Wallet.Web.Tracking.Sync
         Pos.Wallet.Web.Tracking.Types
         Pos.Wallet.Web.Util
-        Pos.Util.Mnemonic
+        Pos.Web
+        Pos.Web.Api
+        Pos.Web.Mode
+        Pos.Web.Server
+        Pos.Web.Types
+        Pos.WorkMode
+        Pos.WorkMode.Class
+        Pos.Worker
+        Pos.Worker.Block
+        Pos.Worker.Delegation
+        Pos.Worker.Ssc
+        Pos.Worker.Update
+        Serokell.AcidState.ExtendedState
+        Serokell.AcidState.Instances
+        Serokell.AcidState.Util
+        Test.Pos.Binary.Helpers
+        Test.Pos.Binary.Helpers.GoldenRoundTrip
+        Test.Pos.Block.Logic.Emulation
+        Test.Pos.Block.Logic.Event
+        Test.Pos.Block.Logic.Mode
+        Test.Pos.Block.Logic.Util
+        Test.Pos.Cbor.Canonicity
+        Test.Pos.Cbor.RefImpl
+        Test.Pos.Chain.Block.Arbitrary
+        Test.Pos.Chain.Block.Arbitrary.Generate
+        Test.Pos.Chain.Block.Bi
+        Test.Pos.Chain.Block.Gen
+        Test.Pos.Chain.Delegation.Arbitrary
+        Test.Pos.Chain.Delegation.Example
+        Test.Pos.Chain.Delegation.Gen
+        Test.Pos.Chain.Genesis.Arbitrary
+        Test.Pos.Chain.Genesis.Dummy
+        Test.Pos.Chain.Lrc.Arbitrary
+        Test.Pos.Chain.Ssc.Arbitrary
+        Test.Pos.Chain.Ssc.Example
+        Test.Pos.Chain.Ssc.Gen
+        Test.Pos.Chain.Ssc.Json
+        Test.Pos.Chain.Txp.Arbitrary
+        Test.Pos.Chain.Txp.Arbitrary.Unsafe
+        Test.Pos.Chain.Txp.Bi
+        Test.Pos.Chain.Txp.Example
+        Test.Pos.Chain.Txp.Gen
+        Test.Pos.Chain.Update.Arbitrary
+        Test.Pos.Chain.Update.Example
+        Test.Pos.Chain.Update.Gen
+        Test.Pos.Configuration
+        Test.Pos.Core.Arbitrary
+        Test.Pos.Core.Arbitrary.Slotting
+        Test.Pos.Core.Arbitrary.Unsafe
+        Test.Pos.Core.Bi
+        Test.Pos.Core.Chrono
+        Test.Pos.Core.Dummy
+        Test.Pos.Core.ExampleHelpers
+        Test.Pos.Core.Gen
+        Test.Pos.Core.Json
+        Test.Pos.Crypto.Arbitrary
+        Test.Pos.Crypto.Bi
+        Test.Pos.Crypto.Dummy
+        Test.Pos.Crypto.Gen
+        Test.Pos.DB.Block.Arbitrary
+        Test.Pos.DB.Update.Arbitrary
+        Test.Pos.Helpers
+        Test.Pos.Infra.Arbitrary
+        Test.Pos.Infra.Arbitrary.Communication
+        Test.Pos.Infra.Arbitrary.Slotting
+        Test.Pos.Infra.Arbitrary.Ssc
+        Test.Pos.Infra.Arbitrary.Txp
+        Test.Pos.Infra.Arbitrary.Update
+        Test.Pos.Infra.Bi
+        Test.Pos.Infra.Diffusion.Subscription.StatusSpec
+        Test.Pos.Infra.Diffusion.Subscription.SubscriptionSpec
+        Test.Pos.Infra.Gen
+        Test.Pos.Infra.Json
+        Test.Pos.Util.Base16
+        Test.Pos.Util.Gen
+        Test.Pos.Util.Golden
+        Test.Pos.Util.Modifier
+        Test.Pos.Util.Orphans
+        Test.Pos.Util.Parallel.Parallelize
+        Test.Pos.Util.QuickCheck
+        Test.Pos.Util.QuickCheck.Arbitrary
+        Test.Pos.Util.QuickCheck.Property
+        Test.Pos.Util.Tripping
         Test.Pos.Wallet.Web.Mode
-        Data.X509.Extra
-        Cardano.X509.Configuration
+        UTxO.Bootstrap
+        UTxO.Context
+        UTxO.Crypto
+        UTxO.DSL
+        UTxO.Generator
+        UTxO.IntTrans
+        UTxO.Translate
+        UTxO.Util
+        UTxO.Verify
     hs-source-dirs: acid-state-exts/src binary/src binary/test
                     chain/src chain/test client/src core/src core/test crypto
                     crypto/test db/src db/test generator/src infra/src infra/test
@@ -834,7 +836,6 @@ library
         Pos.Launcher.Param
         Pos.Launcher.Scenario
         Pos.Util.CompileInfoGit
-        Pos.Util.Log.Rotator
         Pos.Util.Log.Scribes
         Test.Pos.Crypto.Arbitrary.Unsafe
         Test.Pos.DB.Update.Arbitrary.MemState
@@ -2099,6 +2100,7 @@ test-suite util-test
         Test.Pos.Util.TraceSpec
         Test.Pos.Util.Tripping
         Test.Pos.Util.WlogSpec
+        Test.Pos.Util.LogStructuredSpec
     default-language: Haskell2010
     default-extensions: DeriveDataTypeable DeriveGeneric
                         GeneralizedNewtypeDeriving StandaloneDeriving FlexibleContexts

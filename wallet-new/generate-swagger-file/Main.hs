@@ -6,9 +6,8 @@ import           Universum
 
 import           Data.Swagger (Swagger)
 import           Options.Applicative
-import           Servant ((:<|>))
 
-import           Cardano.Wallet.API (InternalAPI, V1API, v0API)
+import           Cardano.Wallet.API (walletDocAPI)
 import           Pos.Chain.Update (ApplicationName (..), SoftwareVersion (..))
 import           Pos.Util.CompileInfo (CompileTimeInfo (CompileTimeInfo),
                      gitRev)
@@ -26,7 +25,6 @@ data Command = Command
 
 data TargetAPI
     = TargetWalletV1
-    | TargetWalletV0
     deriving (Show)
 
 
@@ -48,14 +46,13 @@ main =
         cmdParser :: Parser Command
         cmdParser = Command
             <$> targetAPIOption (short 't' <> long "target" <> metavar "API"
-                  <> help "Target API with version (e.g. 'wallet@v1', 'wallet@v0')")
+                  <> help "Target API with version (e.g. 'wallet@v1')")
 
             <*> optional (strOption (short 'o' <> long "output-file" <> metavar "FILEPATH"
                     <> help ("Output file, default to: " <> defaultOutputFilename)))
 
         targetAPIOption :: Mod OptionFields TargetAPI -> Parser TargetAPI
         targetAPIOption = option $ maybeReader $ \case
-            "wallet@v0"  -> Just TargetWalletV0
             "wallet@v1"  -> Just TargetWalletV1
             _            -> Nothing
     in do
@@ -69,12 +66,8 @@ main =
 
 mkSwagger :: (CompileTimeInfo, SoftwareVersion) -> TargetAPI -> Swagger
 mkSwagger details = \case
-    TargetWalletV0 ->
-        Swagger.api details v0API  Swagger.highLevelShortDescription
     TargetWalletV1  ->
-        Swagger.api details v1API' Swagger.highLevelDescription
-  where
-    v1API' = Proxy :: Proxy (V1API :<|> InternalAPI)
+        Swagger.api details walletDocAPI Swagger.highLevelDescription
 
 
 -- NOTE The software version is hard-coded here. Do determine the SoftwareVersion,

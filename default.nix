@@ -162,6 +162,12 @@ let
     validateJson = pkgs.callPackage ./tools/src/validate-json {};
     demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev; };
     demoClusterDaedalusDev = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev; disableClientAuth = true; numImportedWallets = 0; };
+    demoClusterLaunchGenesis = pkgs.callPackage ./scripts/launch/demo-cluster {
+      inherit gitrev;
+      launchGenesis = true;
+      configurationKey = "testnet_full";
+      runWallet = false;
+    };
     shellcheckTests = pkgs.callPackage ./scripts/test/shellcheck.nix { src = ./.; };
     swaggerSchemaValidation = pkgs.callPackage ./scripts/test/wallet/swaggerSchemaValidation.nix { inherit gitrev; };
     walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev; };

@@ -1015,11 +1015,31 @@ library
         x509-store -any,
         x509-validation -any,
         yaml -any
-
+    
+    if os(windows)
+        build-depends:
+            Win32 -any
+    
+    if flag(asserts)
+        cpp-options: -DASSERTS_ON
+    
+    if !os(windows)
+        exposed-modules:
+            Pos.Infra.Util.SigHandler
+        build-depends:
+            unix -any
+    
     if !os(windows)
         build-depends:
-            unix -any,
+            unix -any
+    
+    if (!os(windows) && !os(freebsd))
+        build-depends:
             systemd -any
+    
+    if !os(windows)
+        build-depends:
+            unix -any
 
 executable cardano-sl-verification-bench-exe
     main-is: VerificationBench.hs
@@ -1225,11 +1245,8 @@ executable cardano-genupdate
         tar -any,
         text -any,
         universum -any,
+        unix-compat -any,
         everything -any
-
-    if !os(windows)
-        build-depends:
-            unix-compat -any
     
     if os(linux)
         ld-options: -fuse-ld=gold

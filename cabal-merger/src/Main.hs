@@ -14,18 +14,19 @@ import           Distribution.Package (Dependency (Dependency),
 import           Distribution.PackageDescription (BuildInfo (buildable, defaultExtensions, defaultLanguage, hsSourceDirs, otherModules, targetBuildDepends),
                      BuildType (Simple),
                      CondTree (CondNode, condTreeComponents, condTreeConstraints, condTreeData),
-                     ConfVar, Executable (buildInfo, Executable, modulePath),
+                     ConfVar, Executable (Executable, buildInfo, modulePath),
                      Library (exposedModules, libBuildInfo),
                      PackageDescription (buildTypeRaw, homepage, licenseRaw, maintainer, package, specVersionRaw),
                      emptyBuildInfo, emptyLibrary, emptyPackageDescription,
                      executables)
-import Distribution.Types.TestSuite
 import           Distribution.PackageDescription.Parsec
                      (readGenericPackageDescription)
 import           Distribution.PackageDescription.PrettyPrint
                      (writeGenericPackageDescription)
-import           Distribution.Types.GenericPackageDescription (GenericPackageDescription (condExecutables, condLibrary, packageDescription, condTestSuites),
+import           Distribution.Types.CondTree
+import           Distribution.Types.GenericPackageDescription (GenericPackageDescription (condExecutables, condLibrary, condTestSuites, packageDescription),
                      emptyGenericPackageDescription)
+import           Distribution.Types.TestSuite
 import           Distribution.Types.UnqualComponentName (UnqualComponentName)
 import           Distribution.Verbosity (silent)
 import           Distribution.Version (anyVersion, mkVersion, orLaterVersion,
@@ -45,6 +46,7 @@ data State =
   , sExecutables     :: [ Executable ]
   , sCondExecutables :: [(UnqualComponentName, CondTree ConfVar [Dependency] Executable)]
   , sConfTestSuites  :: [ (UnqualComponentName, CondTree ConfVar [Dependency] TestSuite) ]
+  , sLibConditions   :: [ CondBranch ConfVar [Dependency] Library ]
   } deriving Show
 
 instance Ord Dependency where
@@ -68,16 +70,20 @@ goLibrary state pkg = do
   case (condLibrary pkg) of
     Just node -> do
       let
+        lib :: Library
+        lib = condTreeData node
         pkgname :: PackageName
         pkgname = pkgName $ package $ packageDescription pkg
         eModules = exposedModules $ condTreeData node
         newState = state {
             sExposedModules = (sExposedModules state) <> (S.fromList eModules)
-          , sLibDepends = (sLibDepends state) <> (S.fromList $ targetBuildDepends $ libBuildInfo $ condTreeData node)
+          , sLibDepends = (sLibDepends state) <> (S.fromList $ targetBuildDepends $ libBuildInfo lib)
           , sNamesToExclude = (sNamesToExclude state) <> [ pkgname ]
-          , sLibExtensions = (sLibExtensions state) <> (S.fromList $ defaultExtensions $ libBuildInfo $ condTreeData node)
-          , sLibOtherModules = (sLibOtherModules state) <> (S.fromList $ otherModules $ libBuildInfo $ condTreeData node)
+          , sLibExtensions = (sLibExtensions state) <> (S.fromList $ defaultExtensions $ libBuildInfo lib)
+          , sLibOtherModules = (sLibOtherModules state) <> (S.fromList $ otherModules $ libBuildInfo lib)
+          , sLibConditions = (sLibConditions state) <> condTreeComponents node
           }
+      print $ condTreeComponents node
       pure newState
     Nothing -> do
       pure state
@@ -148,7 +154,7 @@ pathsFilter = not . isPrefixOf "Paths_" . toFilePath
 
 main :: IO ()
 main = do
-  result <- getArgs >>= foldlM go (State S.empty S.empty [] S.empty S.empty [] [] [])
+  result <- getArgs >>= foldlM go (State S.empty S.empty [] S.empty S.empty [] [] [] [])
   let
     mergedLib = emptyLibrary {
         exposedModules = filter pathsFilter $ S.toList $ sExposedModules result
@@ -185,12 +191,12 @@ main = do
             , "wallet/test"
             , "x509/src"
             ]
-          , targetBuildDepends = (filteredLibDepends result) <> ([ Dependency "unix" anyVersion, Dependency "systemd" anyVersion ])
+          , targetBuildDepends = filteredLibDepends result
           }
       }
     libNode :: CondTree ConfVar [Dependency] Library
     libNode = CondNode {
-        condTreeComponents = []
+        condTreeComponents = sLibConditions result
       , condTreeData = mergedLib
       , condTreeConstraints = []
       }

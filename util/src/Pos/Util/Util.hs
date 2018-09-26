@@ -70,6 +70,7 @@ module Pos.Util.Util
        , (<//>)
        , divRoundUp
        , sleep
+       , intords
 
        , tMeasureLog
        , tMeasureIO
@@ -96,6 +97,8 @@ import qualified Data.Map as M
 import           Data.Ratio ((%))
 import qualified Data.Semigroup as Smg
 import qualified Data.Serialize as Cereal
+import           Data.Text (pack)
+import           Data.Text.Lazy.Builder (fromText)
 import           Data.Time.Clock (NominalDiffTime, UTCTime, diffUTCTime,
                      getCurrentTime)
 import           Data.Time.Clock.POSIX (getPOSIXTime, posixSecondsToUTCTime)
@@ -433,6 +436,23 @@ median l = NE.sort l NE.!! middle
 -}
 sleep :: MonadIO m => NominalDiffTime -> m ()
 sleep n = liftIO (threadDelay (truncate (n * 10^(6::Int))))
+
+-- | temporary reimplementation of 'ords' from "Formatting"
+--   because the original function converts the integer value to a real number
+intords :: (Show n, Integral n) => F.Format r (n -> r)
+intords = F.later go
+  where
+    fmt = fromText . pack . show
+    go n
+      | tens > 3 && tens < 21 = fmt n <> "th"
+      | otherwise =
+            fmt n <>
+            case n `mod` 10 of
+              1 -> "st"
+              2 -> "nd"
+              3 -> "rd"
+              _ -> "th"
+      where tens = n `mod` 100
 
 -- | 'tMeasure' with 'logDebug'.
 tMeasureLog :: (MonadIO m, WithLogger m) => Text -> m a -> m a

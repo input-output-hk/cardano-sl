@@ -115,6 +115,7 @@ test_script:
 # Retry transient failures due to https://github.com/haskell/cabal/issues/4005
   # We intentionally don't build auxx here, because this build is for installer.
   - scripts\ci\appveyor-retry call stack --dump-logs install everything
+      --ghc-options=-v3
       -j 3
       --no-terminal
       --local-bin-path %WORK_DIR%

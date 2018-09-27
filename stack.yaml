@@ -33,6 +33,7 @@ packages:
 - explorer
 - node
 - tools
+- tools/post-mortem
 - utxo
 - wallet
 - wallet/test
@@ -294,33 +295,37 @@ extra-deps:
 - servant-swagger-ui-0.3.0.3.13.2
 - servant-swagger-ui-redoc-0.3.0.1.21.2
 
+- fsnotify-0.2.1.2
+- hinotify-0.3.10
+
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
 
 # If you find it too restrictive, you can use `scripts/build/cardano-sl.sh' script
 ghc-options:
-  cardano-sl:             -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-auxx:        -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-binary:      -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-binary-test: -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-chain:       -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-chain-test:  -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-client:      -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-core:        -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-core-test:   -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-crypto:      -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-crypto-test: -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-db:          -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-db-test:     -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-explorer:    -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-generator:   -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-infra:       -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-networking:  -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-node:        -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-tools:       -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-util:        -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-util-test:   -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-wallet:      -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-wallet-new:  -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-node-ipc:    -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-x509:        -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl:                   -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-auxx:              -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-binary:            -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-binary-test:       -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-chain:             -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-chain-test:        -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-client:            -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-core:              -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-core-test:         -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-crypto:            -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-crypto-test:       -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-db:                -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-db-test:           -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-explorer:          -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-generator:         -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-infra:             -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-networking:        -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-node:              -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-tools:             -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-tools-post-mortem: -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-util:              -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-util-test:         -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-wallet:            -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-wallet-new:        -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-node-ipc:          -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-x509:              -Wall -Werror -Wcompat -fwarn-redundant-constraints

@@ -17440,6 +17440,89 @@ description = "Cardano SL - Tools";
 license = stdenv.lib.licenses.mit;
 
 }) {};
+"cardano-sl-tools-post-mortem" = callPackage
+({
+  mkDerivation
+, aeson
+, attoparsec
+, base
+, bytestring
+, cardano-sl
+, cardano-sl-chain
+, cardano-sl-core
+, cardano-sl-infra
+, cardano-sl-util
+, cassava
+, Chart
+, Chart-diagrams
+, containers
+, directory
+, fgl
+, filepath
+, foldl
+, graphviz
+, MonadRandom
+, optparse-applicative
+, pipes
+, pipes-bytestring
+, pipes-interleave
+, pipes-safe
+, process
+, random
+, stdenv
+, text
+, time-units
+, universum
+}:
+mkDerivation {
+
+pname = "cardano-sl-tools-post-mortem";
+version = "1.3.0";
+src = ./../tools/post-mortem;
+configureFlags = [
+"--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
+"--ghc-option=-Werror"
+];
+isLibrary = false;
+isExecutable = true;
+executableHaskellDepends = [
+aeson
+attoparsec
+base
+bytestring
+cardano-sl
+cardano-sl-chain
+cardano-sl-core
+cardano-sl-infra
+cardano-sl-util
+cassava
+Chart
+Chart-diagrams
+containers
+directory
+fgl
+filepath
+foldl
+graphviz
+MonadRandom
+optparse-applicative
+pipes
+pipes-bytestring
+pipes-interleave
+pipes-safe
+process
+random
+text
+time-units
+universum
+];
+doHaddock = false;
+description = "Cardano SL - post-mortem tool";
+license = stdenv.lib.licenses.mit;
+
+}) {};
 "cardano-sl-util" = callPackage
 ({
   mkDerivation

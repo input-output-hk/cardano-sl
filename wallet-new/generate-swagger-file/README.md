@@ -11,13 +11,13 @@ $ cardano-generate-swagger-file --help
 Usage: cardano-generate-swagger-file (-t|--target API) [-o|--output-file FILEPATH]
 
 Available options:
-  -t,--target API           Target API with version (e.g. 'wallet@v1', 'wallet@v0', 'wallet@dev'...)
+  -t,--target API           Target API with version (e.g. 'wallet@v1'...)
   -o,--output-file FILEPATH Output file, default to: swagger.json
   -h,--help                 Show this help text
 
 Examples:
   cardano-generate-swagger-file --target wallet@v1
-  cardano-generate-swagger-file -t wallet@dev -o dev.json
+  cardano-generate-swagger-file -t wallet@v1 -o v1.json
 ```
 
 

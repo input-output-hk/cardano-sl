@@ -92,19 +92,22 @@ newTx :: forall e. ActiveWallet
       -> IO (Either e TxMeta)
 newTx ActiveWallet{..} accountId tx partialMeta upd = do
     -- run the update
-    allOurs' <- allOurs <$> getWalletCredentials walletPassive
-    let (addrsOurs',ourOutputCoins) = unzip allOurs'
-        gainedOutputCoins = sumCoinsUnsafe ourOutputCoins
-        allOutsOurs = length allOurs' == length txOut
-    res <- upd $ addrsOurs'
+    allCredentials <- getWalletCredentials walletPassive
+    let allOurAddresses = fst <$> allOurs allCredentials
+    res <- upd $ allOurAddresses
     case res of
         Left e   -> return (Left e)
         Right () -> do
             -- process transaction on success
-            let meta = partialMeta allOutsOurs gainedOutputCoins
-            putTxMeta (walletPassive ^. walletMeta) meta
+            -- myCredentials should be a list with a single element.
+            let myCredentials = filter (\(WalletIdHdRnd hdRoot, _) -> accountId ^. hdAccountIdParent == hdRoot) allCredentials
+                ourOutputCoins = snd <$> allOurs myCredentials
+                gainedOutputCoins = sumCoinsUnsafe ourOutputCoins
+                allOutsOurs = length ourOutputCoins == length txOut
+                txMeta = partialMeta allOutsOurs gainedOutputCoins
+            putTxMeta (walletPassive ^. walletMeta) txMeta
             submitTx
-            return (Right meta)
+            return (Right txMeta)
     where
         (txOut :: [TxOut]) = NE.toList $ (_txOutputs . taTx $ tx)
         wid   = WalletIdHdRnd (accountId ^. hdAccountIdParent)

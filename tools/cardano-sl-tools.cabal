@@ -23,12 +23,6 @@ Flag for-installer
   description: Build a reduced set of components (only what is needed for the
                installer)
 
-Flag postmortem
-  default:     False
-  manual:      True
-  description: Build the post-mortem analysis tool (ignored if for-installer is
-               true)
-
 executable dbgen
   hs-source-dirs:      src/dbgen
   main-is:             Main.hs
@@ -347,7 +341,7 @@ executable cardano-post-mortem
                      , Util.Aeson
                      , Util.Pipes
                      , Util.Safe
-  if flag(postmortem) && !flag(for-installer)
+  if !flag(for-installer)
     buildable: True
     build-depends:       Chart
                        , Chart-diagrams

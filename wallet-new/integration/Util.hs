@@ -127,6 +127,10 @@ shouldPrism a b = do
     let Just x = a ^? b
     pure x
 
+shouldPrismFlipped :: Show s => Prism' s a -> s -> IO a
+shouldPrismFlipped p s =
+    shouldPrism s p
+
 infixr 8 `shouldPrism`
 
 shouldPrism_ :: Show s => s -> Prism' s a -> IO ()

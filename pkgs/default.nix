@@ -29505,6 +29505,7 @@ license = stdenv.lib.licenses.bsd3;
 , free
 , generic-arbitrary
 , generics-sop
+, Glob
 , half
 , hashable
 , hedgehog
@@ -29799,17 +29800,21 @@ aeson-pretty
 ansi-wl-pprint
 async
 base
+base58-bytestring
 binary
 bytestring
+canonical-json
 cardano-report-server
 containers
 contravariant
 cryptonite
+data-default
 deepseq
 directory
 exceptions
 filepath
 formatting
+Glob
 hspec
 http-client
 http-types
@@ -29821,6 +29826,7 @@ neat-interpolation
 network-transport
 network-transport-tcp
 optparse-applicative
+optparse-generic
 pretty-show
 process
 QuickCheck
@@ -29834,8 +29840,10 @@ servant-server
 silently
 stm
 swagger2
+tabl
 tar
 text
+time
 time-units
 universum
 unix

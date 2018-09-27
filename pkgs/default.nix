@@ -18161,6 +18161,7 @@ executableHaskellDepends = [
 aeson
 aeson-diff
 aeson-pretty
+async
 base
 bytestring
 cardano-sl

@@ -371,6 +371,7 @@ executable wal-integr-test
                      , aeson
                      , aeson-diff
                      , aeson-pretty
+                     , async
                      , bytestring
                      , cardano-sl
                      , cardano-sl-core

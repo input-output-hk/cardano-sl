@@ -37,22 +37,23 @@ let
     explorer = wrapImage images."${cluster}".explorer;
   };
   platforms = {
+    all-cardano-sl = supportedSystems;
+    cardano-report-server = [ "x86_64-linux" ];
+    cardano-report-server-static = [ "x86_64-linux" ];
     cardano-sl = supportedSystems;
     cardano-sl-auxx = supportedSystems;
-    cardano-sl-node-static = supportedSystems;
-    cardano-sl-tools = supportedSystems;
-    cardano-sl-wallet = supportedSystems;
-    cardano-sl-wallet-new = supportedSystems;
-    all-cardano-sl = supportedSystems;
-    cardano-sl-explorer-static = [ "x86_64-linux" ];
     cardano-sl-explorer = [ "x86_64-linux" ];
     cardano-sl-explorer-frontend = [ "x86_64-linux" ];
-    cardano-report-server-static = [ "x86_64-linux" ];
-    cardano-report-server = [ "x86_64-linux" ];
-    stack2nix = supportedSystems;
-    purescript = supportedSystems;
+    cardano-sl-explorer-static = [ "x86_64-linux" ];
+    cardano-sl-node-static = supportedSystems;
+    cardano-sl-tools = supportedSystems;
+    cardano-sl-tools-post-mortem = supportedSystems;
+    cardano-sl-wallet = supportedSystems;
+    cardano-sl-wallet-new = supportedSystems;
     daedalus-bridge = supportedSystems;
+    purescript = supportedSystems;
     shell = supportedSystems;
+    stack2nix = supportedSystems;
   };
   platforms' = {
     connectScripts.mainnet.wallet   = [ "x86_64-linux" "x86_64-darwin" ];

@@ -8,7 +8,7 @@ import           Universum
 import           Cardano.Wallet.Client.Http
 import           Control.Concurrent (threadDelay)
 import           Control.Lens
-import           Functions (randomTest)
+import           Functions (randomTest, randomTestPending)
 import           Test.Hspec
 import           Test.QuickCheck.Monadic (PropertyM, run)
 import           Text.Show.Pretty (ppShow)
@@ -34,7 +34,7 @@ transactionSpecs :: WalletRef -> WalletClient IO -> Spec
 transactionSpecs wRef wc = beforeAll_ (setupLogging "wallet-new_transactionSpecs" (defaultTestConfiguration Debug)) $
     describe "Transactions" $ do
 
-        randomTest "posted transactions appear in the index" 1 $ do
+        randomTestPending "posted transactions appear in the index" 1 $ do
             genesis <- run $ genesisWallet wc
             (fromAcct, _) <- run $ firstAccountAndId wc genesis
 
@@ -71,7 +71,7 @@ transactionSpecs wRef wc = beforeAll_ (setupLogging "wallet-new_transactionSpecs
 
             liftIO $ map txId resp `shouldContain` [txId txn]
 
-        randomTest ( "asset-locked wallets can receive funds and transactions are "
+        randomTestPending ( "asset-locked wallets can receive funds and transactions are "
            <> "confirmed in index") 1 $ do
             genesis <- run $ genesisWallet wc
             (fromAcct, _) <- run $ firstAccountAndId wc genesis
@@ -107,7 +107,7 @@ transactionSpecs wRef wc = beforeAll_ (setupLogging "wallet-new_transactionSpecs
             log $ "Resp   : " <> ppShowT txnEntry
             liftIO $ txConfirmations txnEntry `shouldNotBe` 0
 
-        randomTest "sending from asset-locked address in wallet with no ther addresses gets 0 confirmations from core nodes" 1 $ do
+        randomTestPending "sending from asset-locked address in wallet with no ther addresses gets 0 confirmations from core nodes" 1 $ do
             genesis <- run $ genesisAssetLockedWallet wc
             (fromAcct, _) <- run $ firstAccountAndId wc genesis
 
@@ -199,7 +199,7 @@ transactionSpecs wRef wc = beforeAll_ (setupLogging "wallet-new_transactionSpecs
 
             liftIO $ void $ etxn `shouldPrism` _Left
 
-        randomTest "posted transactions gives rise to nonempty Utxo histogram" 1 $ do
+        randomTestPending "posted transactions gives rise to nonempty Utxo histogram" 1 $ do
             genesis <- run $ genesisWallet wc
             (fromAcct, _) <- run $ firstAccountAndId wc genesis
 

@@ -11,6 +11,7 @@ module Functions
     ( runActionCheck
     , printT
     , randomTest
+    , randomTestPending
     ) where
 
 import           Universum hiding (init, throwM, uncons)
@@ -25,10 +26,10 @@ import           Data.Coerce (coerce)
 import           Data.List (isInfixOf, nub, uncons, (!!), (\\))
 import           Servant.Client (GenResponse (..))
 import           Test.Hspec (Spec, describe, expectationFailure, hspec,
-                     shouldBe, shouldContain)
+                     shouldBe, shouldContain, xit)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (arbitrary, choose, elements, frequency,
-                     quickCheck, suchThat, withMaxSuccess)
+                     property, quickCheck, suchThat, withMaxSuccess)
 import           Test.QuickCheck.Monadic (PropertyM, monadic, monadicIO, pick,
                      pre, run, stop)
 import           Test.QuickCheck.Property (Property, Testable, ioProperty,
@@ -746,3 +747,7 @@ walletIdIsNotGenesis walletId = do
 randomTest :: (Testable a) => String -> Int -> PropertyM IO a -> Spec
 randomTest msg maxSuccesses =
     prop msg . withMaxSuccess maxSuccesses . monadicIO
+
+randomTestPending :: (Testable a) => String -> Int -> PropertyM IO a -> Spec
+randomTestPending msg maxSuccesses =
+    xit msg . property . withMaxSuccess maxSuccesses . monadicIO

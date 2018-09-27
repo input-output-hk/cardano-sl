@@ -24,8 +24,8 @@ import           Distribution.PackageDescription.Parsec
 import           Distribution.PackageDescription.PrettyPrint
                      (writeGenericPackageDescription)
 import           Distribution.Types.CondTree
-import           Distribution.Types.GenericPackageDescription (GenericPackageDescription (condExecutables, condLibrary, condTestSuites, packageDescription, genPackageFlags),
-                     emptyGenericPackageDescription, Flag(flagName))
+import           Distribution.Types.GenericPackageDescription (Flag (flagName), GenericPackageDescription (condExecutables, condLibrary, condTestSuites, genPackageFlags, packageDescription),
+                     emptyGenericPackageDescription)
 import           Distribution.Types.TestSuite
 import           Distribution.Types.UnqualComponentName (UnqualComponentName)
 import           Distribution.Verbosity (silent)

@@ -82,4 +82,14 @@ in lib // (rec {
   forEnvironments = f: lib.mapAttrs'
     (name: env: lib.nameValuePair env.attr (f (env // { environment = name; })))
     (lib.filterAttrs (name: env: !env.private) environments);
+
+  runHaskell = name: hspkgs: deps: env: code: let
+    ghc = hspkgs.ghcWithPackages deps;
+    builtBinary = pkgs.runCommand "${name}-binary" { buildInputs = [ ghc ]; } ''
+      mkdir -p $out/bin/
+      ghc ${pkgs.writeText "${name}.hs" code} -o $out/bin/${name}
+    '';
+  in pkgs.runCommand name env ''
+    ${builtBinary}/bin/$name
+  '';
 })

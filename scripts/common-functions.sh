@@ -65,8 +65,8 @@ function logs {
 
   local conf_file="$conf_dir/$log_file.yaml"
   # log files are named under the $logs_dir directory
-  # sed "s|{{file}}|$logs_dir/$log_file|g" "$template" > "$conf_file"
-  sed "s|{{file}}|$log_file|g" "$template" > "$conf_file"
+  # sed "s|tmpFileName|$logs_dir/$log_file|g" "$template" > "$conf_file"
+  sed "s|tmpFileName|$log_file|g" "$template" > "$conf_file"
   echo -n " --json-log=$logs_dir/logs/node$i.json "
   echo -n " --logs-prefix $logs_dir/logs --log-config $conf_file "
 }

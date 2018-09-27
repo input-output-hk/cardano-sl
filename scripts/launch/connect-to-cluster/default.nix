@@ -19,6 +19,7 @@
 , disableClientAuth ? false
 , extraParams ? ""
 , useStackBinaries ? false
+, forceDontCheck ? false
 }:
 
 with localLib;
@@ -39,7 +40,7 @@ let
     x509gen = if useStackBinaries then "stack exec -- cardano-x509-certificates" else "${iohkPkgs.cardano-sl-tools-static}/bin/cardano-x509-certificates";
   };
   ifWallet = localLib.optionalString (executable == "wallet");
-  iohkPkgs = import ./../../../default.nix { inherit config system pkgs gitrev; };
+  iohkPkgs = import ./../../../default.nix { inherit config system pkgs gitrev forceDontCheck; };
   src = ./../../../.;
   topologyFileDefault = pkgs.writeText "topology-${environment}" ''
     wallet:

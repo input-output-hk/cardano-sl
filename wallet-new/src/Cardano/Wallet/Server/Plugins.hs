@@ -63,7 +63,7 @@ import           Pos.Wallet.Web ()
 
 
 -- A @Plugin@ running in the monad @m@.
-type Plugin m = [Diffusion m -> m ()]
+type Plugin m = Diffusion m -> m ()
 
 
 -- | A @Plugin@ to start the wallet REST server
@@ -73,8 +73,7 @@ apiServer
     -> (PassiveWalletLayer IO, PassiveWallet)
     -> [Middleware]
     -> Plugin Kernel.WalletMode
-apiServer protocolMagic (NewWalletBackendParams WalletBackendParams{..}) (passiveLayer, passiveWallet) middlewares =
-    pure $ \diffusion -> do
+apiServer protocolMagic (NewWalletBackendParams WalletBackendParams{..}) (passiveLayer, passiveWallet) middlewares diffusion = do
         env <- ask
         let diffusion' = Kernel.fromDiffusion (lower env) diffusion
         WalletLayer.Kernel.bracketActiveWallet protocolMagic passiveLayer passiveWallet diffusion' $ \active _ -> do
@@ -128,7 +127,7 @@ docServer
     :: (HasConfigurations, HasCompileInfo)
     => NewWalletBackendParams
     -> Plugin Kernel.WalletMode
-docServer (NewWalletBackendParams WalletBackendParams{..}) = pure $ \_ ->
+docServer (NewWalletBackendParams WalletBackendParams{..}) = const $
     serveDocImpl
         application
         (BS8.unpack ip)
@@ -146,34 +145,37 @@ docServer (NewWalletBackendParams WalletBackendParams{..}) = pure $ \_ ->
 -- | A @Plugin@ to serve the node monitoring API.
 monitoringServer :: HasConfigurations
                  => NewWalletBackendParams
-                 -> Plugin Kernel.WalletMode
+                 -> [ (Text, Plugin Kernel.WalletMode) ]
 monitoringServer (NewWalletBackendParams WalletBackendParams{..}) =
     case enableMonitoringApi of
-         True  -> pure $ \_ -> do
-             serveImpl Pos.Web.Server.application
+         True  -> [ ("monitoring worker", const worker) ]
+         False -> []
+  where
+    worker = serveImpl Pos.Web.Server.application
                        "127.0.0.1"
                        monitoringApiPort
                        walletTLSParams
                        Nothing
                        Nothing
-         False -> []
 
 -- | A @Plugin@ to periodically compact & snapshot the acid-state database.
 acidStateSnapshots :: AcidState db
                    -> NewWalletBackendParams
                    -> DatabaseMode
                    -> Plugin Kernel.WalletMode
-acidStateSnapshots dbRef params dbMode = pure $ \_diffusion -> do
-    let opts = getWalletDbOptions params
-    modifyLoggerName (const "acid-state-checkpoint-plugin") $
-        createAndArchiveCheckpoints
-            dbRef
-            (walletAcidInterval opts)
-            dbMode
+acidStateSnapshots dbRef params dbMode = const worker
+  where
+    worker = do
+      let opts = getWalletDbOptions params
+      modifyLoggerName (const "acid-state-checkpoint-plugin") $
+          createAndArchiveCheckpoints
+              dbRef
+              (walletAcidInterval opts)
+              dbMode
 
 -- | A @Plugin@ to store updates proposal received from the blockchain
 updateWatcher :: Plugin Kernel.WalletMode
-updateWatcher = pure $ \_diffusion -> do
+updateWatcher = const $ do
     modifyLoggerName (const "update-watcher-plugin") $ do
         w <- Kernel.getWallet
         forever $ liftIO $ do

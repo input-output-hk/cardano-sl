@@ -31,13 +31,13 @@ allWorkers
     => Genesis.Config
     -> TxpConfiguration
     -> NodeResources ext
-    -> [Diffusion m -> m ()]
+    -> [ (Text, Diffusion m -> m ()) ]
 allWorkers genesisConfig txpConfig NodeResources {..} = mconcat
     [ sscWorkers genesisConfig
     , usWorkers genesisConfig
     , blkWorkers genesisConfig txpConfig
     , dlgWorkers
-    , [properSlottingWorker, staticConfigMonitoringWorker]
+    , [ ("proper slotting", properSlottingWorker), ("static config", staticConfigMonitoringWorker) ]
     ]
   where
     topology = ncTopology ncNetworkConfig

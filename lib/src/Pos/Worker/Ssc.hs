@@ -97,10 +97,10 @@ sscWorkers
      , HasMisbehaviorMetrics ctx
      )
   => Genesis.Config
-  -> [Diffusion m -> m ()]
+  -> [ (Text, Diffusion m -> m ()) ]
 sscWorkers genesisConfig =
-    [ onNewSlotSsc genesisConfig
-    , checkForIgnoredCommitmentsWorker genesisConfig
+    [ ("ssc on new slot", onNewSlotSsc genesisConfig)
+    , ("ssc check for ignored", checkForIgnoredCommitmentsWorker genesisConfig)
     ]
 
 shouldParticipate :: SscMode ctx m => BlockVersionData -> EpochIndex -> m Bool

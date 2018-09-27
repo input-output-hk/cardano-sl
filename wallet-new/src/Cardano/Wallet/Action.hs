@@ -80,28 +80,29 @@ actionWithWallet params genesisConfig walletConfig txpConfig ntpConfig nodeParam
 
     plugins :: (PassiveWalletLayer IO, PassiveWallet)
             -> Kernel.DatabaseMode
-            -> Plugins.Plugin Kernel.Mode.WalletMode
-    plugins w dbMode = mconcat
-        -- The actual wallet backend server.
-        [ Plugins.apiServer pm params w
-            -- Throttle requests.
-            [ throttleMiddleware (ccThrottle walletConfig)
-            , withDefaultHeader Headers.applicationJson
+            -> [ (Text, Plugins.Plugin Kernel.Mode.WalletMode) ]
+    plugins w dbMode = concat [
+            -- The actual wallet backend server.
+            [
+                ("wallet-new api worker", Plugins.apiServer pm params w
+                -- Throttle requests.
+                [ throttleMiddleware (ccThrottle walletConfig)
+                , withDefaultHeader Headers.applicationJson
+                ])
+
+            -- The corresponding wallet documention, served as a different
+            -- server which doesn't require client x509 certificates to
+            -- connect, but still serves the doc through TLS
+            , ("doc worker", Plugins.docServer params)
+
+            -- Periodically compact & snapshot the acid-state database.
+            , ("acid state cleanup", Plugins.acidStateSnapshots (view Kernel.Internal.wallets (snd w)) params dbMode)
+
+            -- A @Plugin@ to watch and store incoming update proposals
+            , ("update watcher", Plugins.updateWatcher)
             ]
-
-        -- The corresponding wallet documention, served as a different
-        -- server which doesn't require client x509 certificates to
-        -- connect, but still serves the doc through TLS
-        , Plugins.docServer params
-
         -- The monitoring API for the Core node.
         , Plugins.monitoringServer params
-
-        -- Periodically compact & snapshot the acid-state database.
-        , Plugins.acidStateSnapshots (view Kernel.Internal.wallets (snd w)) params dbMode
-
-        -- A @Plugin@ to watch and store incoming update proposals
-        , Plugins.updateWatcher
         ]
 
     -- Extract the logger name from node parameters

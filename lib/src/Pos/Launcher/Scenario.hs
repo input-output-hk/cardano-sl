@@ -49,8 +49,8 @@ runNode'
        )
     => Genesis.Config
     -> NodeResources ext
-    -> [Diffusion m -> m ()]
-    -> [Diffusion m -> m ()]
+    -> [ (Text, Diffusion m -> m ()) ]
+    -> [ (Text, Diffusion m -> m ()) ]
     -> Diffusion m -> m ()
 runNode' genesisConfig NodeResources {..} workers' plugins' = \diffusion -> do
     logInfo $ "Built with: " <> pretty compileInfo
@@ -87,17 +87,19 @@ runNode' genesisConfig NodeResources {..} workers' plugins' = \diffusion -> do
     logInfo $ sformat ("Current tip header: "%build) tipHeader
 
     waitSystemStart
-    let runWithReportHandler action =
-            action diffusion `catch` reportHandler
+    let
+      runWithReportHandler :: (Text, Diffusion m -> m ()) -> m ()
+      runWithReportHandler (workerName, action) = action diffusion `catch` (reportHandler workerName)
 
     void (mapConcurrently runWithReportHandler (workers' ++ plugins'))
 
     exitFailure
   where
-    reportHandler (SomeException e) = do
+    reportHandler :: Text -> SomeException -> m b
+    reportHandler action (SomeException e) = do
         loggerName <- askLoggerName
-        let msg = "Worker/plugin with logger name "%shown%" failed with exception: "%shown
-        reportError $ sformat msg loggerName e
+        let msg = "Worker/plugin with work name "%shown%" and logger name "%shown%" failed with exception: "%shown
+        reportError $ sformat msg action loggerName e
         exitFailure
 
 -- | Entry point of full node.
@@ -109,7 +111,7 @@ runNode
     => Genesis.Config
     -> TxpConfiguration
     -> NodeResources ext
-    -> [Diffusion m -> m ()]
+    -> [ (Text, Diffusion m -> m ()) ]
     -> Diffusion m -> m ()
 runNode genesisConfig txpConfig nr plugins =
     runNode' genesisConfig nr workers' plugins

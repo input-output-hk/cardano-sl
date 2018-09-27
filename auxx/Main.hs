@@ -83,7 +83,7 @@ runNodeWithSinglePlugin ::
     -> (Diffusion AuxxMode -> AuxxMode ())
     -> Diffusion AuxxMode -> AuxxMode ()
 runNodeWithSinglePlugin genesisConfig txpConfig nr plugin =
-    runNode genesisConfig txpConfig nr [plugin]
+    runNode genesisConfig txpConfig nr [ ("runNodeWithSinglePlugin", plugin) ]
 
 action :: HasCompileInfo => AuxxOptions -> Either WithCommandAction Text -> IO ()
 action opts@AuxxOptions {..} command = do

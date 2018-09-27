@@ -83,12 +83,12 @@ blkWorkers
        )
     => Genesis.Config
     -> TxpConfiguration
-    -> [Diffusion m -> m ()]
+    -> [ (Text, Diffusion m -> m ()) ]
 blkWorkers genesisConfig txpConfig =
-    [ blkCreatorWorker genesisConfig txpConfig
-    , informerWorker $ configBlkSecurityParam genesisConfig
-    , retrievalWorker genesisConfig txpConfig
-    , recoveryTriggerWorker genesisConfig
+    [ ("block creator", blkCreatorWorker genesisConfig txpConfig)
+    , ("block informer", informerWorker $ configBlkSecurityParam genesisConfig)
+    , ("block retrieval", retrievalWorker genesisConfig txpConfig)
+    , ("block recovery trigger", recoveryTriggerWorker genesisConfig)
     ]
 
 informerWorker

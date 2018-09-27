@@ -736,10 +736,13 @@ deleteHdAccount accId = runUpdateDiscardSnapshot . zoom dbHdWallets $
 --
 -- NOTE: for accounts of this root that do /not/ have an entry in the 'utxoByAccount' map,
 --       we "fill in" a corresponding 'AccountUpdate' using 'markMissingMapEntries'
-resetAllHdWalletAccounts :: HdRootId -> BlockContext -> Map HdAccountId (Utxo, Utxo, [AddrWithId]) -> Update DB ()
+resetAllHdWalletAccounts :: HdRootId
+                         -> BlockContext
+                         -> Map HdAccountId (Utxo, Utxo, [AddrWithId])
+                         -> Update DB ()
 resetAllHdWalletAccounts rootId context utxoByAccount = mustBeRight <$> do
     runUpdateDiscardSnapshot $ zoom dbHdWallets $
-        updateAccounts_ =<< mkUpdates <$> IxSet.getEQ rootId <$> use hdWalletsAccounts
+        updateAccounts_ =<< mkUpdates . IxSet.getEQ rootId <$> use hdWalletsAccounts
   where
     mkUpdates :: IxSet HdAccount -> [AccountUpdate Void ()]
     mkUpdates existingAccounts =

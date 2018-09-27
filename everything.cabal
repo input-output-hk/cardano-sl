@@ -1254,6 +1254,7 @@ executable cardano-genupdate
     default-extensions: OverloadedStrings NoImplicitPrelude
                         BangPatterns ApplicativeDo ScopedTypeVariables MonadFailDesugaring
     ghc-options: -threaded -Wall -O2
+    other-modules: Paths_everything
     build-depends:
         base -any,
         ansi-wl-pprint -any,

@@ -110,15 +110,14 @@ newTx ActiveWallet{..} accountId tx partialMeta upd = do
             return (Right txMeta)
     where
         (txOut :: [TxOut]) = NE.toList $ (_txOutputs . taTx $ tx)
-        wid   = WalletIdHdRnd (accountId ^. hdAccountIdParent)
 
         -- | NOTE: we recognise addresses in the transaction outputs that belong to _all_ wallets,
         --  not only for the wallet to which this transaction is being submitted
         allOurs :: [(WalletId, EncryptedSecretKey)] -> [(HdAddress,Coin)]
-        allOurs = concatMap (ourAddrs . snd)
+        allOurs = concatMap ourAddrs
 
-        ourAddrs :: EncryptedSecretKey -> [(HdAddress,Coin)]
-        ourAddrs esk =
+        ourAddrs :: (WalletId, EncryptedSecretKey) -> [(HdAddress,Coin)]
+        ourAddrs (wid, esk) =
             map f $ filterOurs wKey txOutAddress txOut
             where
                 f (txOut',addressId) = (initHdAddress addressId (txOutAddress txOut'), txOutValue txOut')

@@ -64,6 +64,7 @@ import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
 import qualified Cardano.Wallet.WalletLayer.Kernel.Accounts as Accounts
 import qualified Cardano.Wallet.WalletLayer.Kernel.Conv as Kernel.Conv
+import           Cardano.Wallet.WalletLayer.Kernel.Transactions (toTransaction)
 
 import qualified Test.Spec.Addresses as Addresses
 import           Test.Spec.CoinSelection.Generators (InitialBalance (..),
@@ -152,6 +153,49 @@ withFixture :: MonadIO m
 withFixture initialBalance cc =
     Fixture.withActiveWalletFixture (prepareFixtures initialBalance) cc
 
+-- | Returns the address that is automatically created with the wallet.
+getFixedAddress :: WalletLayer.ActiveWalletLayer IO -> Fix -> IO Core.Address
+getFixedAddress layer Fix{..} = do
+    let params = RequestParams (PaginationParams (Page 1) (PerPage 10))
+    let filters = NoFilters
+    Right wr <- WalletLayer.getAccountAddresses (walletPassiveLayer layer)
+            (Kernel.Conv.toRootId fixtureHdRootId)
+            (V1.unsafeMkAccountIndex firstHardened)
+            params
+            filters
+    -- the defaut account of the wallet should have a unique address.
+    let [address] = wrData wr
+    return $ V1.unV1 . V1.addrId $ address
+
+-- | Returns an address from the account we explicitely create.
+getNonFixedAddress :: WalletLayer.ActiveWalletLayer IO -> Fix -> IO Core.Address
+getNonFixedAddress layer Fix{..} = do
+    let params = RequestParams (PaginationParams (Page 1) (PerPage 10))
+    let filters = NoFilters
+    let (AccountIdHdRnd hdAccountId) = fixtureAccountId
+    let index = getHdAccountIx $ hdAccountId ^. hdAccountIdIx
+    Right wr <- WalletLayer.getAccountAddresses (walletPassiveLayer layer)
+            (Kernel.Conv.toRootId fixtureHdRootId)
+            (V1.unsafeMkAccountIndex index)
+            params
+            filters
+    -- the account we create in the fixture should also have an address
+    let (address : _) = wrData wr
+    return $ V1.unV1 . V1.addrId $ address
+
+getAccountBalanceNow :: Kernel.PassiveWallet -> Fix -> IO Word64
+getAccountBalanceNow pw Fix{..} = do
+    let (AccountIdHdRnd hdAccountId) = fixtureAccountId
+    let index = getHdAccountIx $ hdAccountId ^. hdAccountIdIx
+    db <- Kernel.getWalletSnapshot pw
+    let res =
+            Accounts.getAccountBalance
+            (Kernel.Conv.toRootId fixtureHdRootId)
+            (V1.unsafeMkAccountIndex index)
+            db
+    bimap STB STB res `shouldSatisfy` isRight
+    let Right (V1.AccountBalance (V1.V1 (Coin coins))) = res
+    return coins
 
 -- | A constant fee calculation.
 constantFee :: Word64 -> Int -> NonEmpty Coin -> Coin
@@ -300,82 +344,129 @@ spec = do
             monadicIO $
                 NewPayment.withFixture @IO (InitialADA 10000) (PayLovelace 100) $ \_ _ aw NewPayment.Fixture{..} -> do
                     -- we use constant fees here, to have predictable txAmount.
-                    let opts = (newOptions (constantFee 200)) {
-                                  csoExpenseRegulation = SenderPaysFee
-                                , csoInputGrouping     = IgnoreGrouping
-                                }
                     let (AccountIdHdRnd hdAccountId) = fixtureAccountId
-                    res <- liftIO (Kernel.pay aw
-                                              mempty
-                                              opts
-                                              hdAccountId
-                                              fixturePayees
-                                  )
-                    case res of
-                        Left _ -> expectationFailure $ "Kernel.pay failed"
-                        Right (_tx, txMeta) -> do
-                            txMeta ^. txMetaAmount `shouldBe` Coin 300
+                    (_tx, txMeta) <- payAux aw hdAccountId fixturePayees 200
+                    txMeta ^. txMetaAmount `shouldBe` Coin 300
 
-    describe "GetTransactions with multiple wallets and accounts" $ do
+    describe "Transactions with multiple wallets" $ do
         prop "test fixture has all the wanted properies" $ withMaxSuccess 5 $
-            monadicIO $ withFixture @IO (InitialADA 10000) $ \_ _layer aw (Fixture [w1, _w2] _) -> do
+            monadicIO $ withFixture @IO (InitialADA 10000) $ \_ layer aw (Fixture [w1, w2] _) -> do
                 db <- Kernel.getWalletSnapshot (Kernel.walletPassive aw)
-                let Right accs = Accounts.getAccounts (Kernel.Conv.toRootId $ fixtureHdRootId w1) db
-                length (IxSet.toList accs) `shouldBe` 2
+                let Right accs1 = Accounts.getAccounts (Kernel.Conv.toRootId $ fixtureHdRootId w1) db
+                length (IxSet.toList accs1) `shouldBe` 2
+                let Right accs2 = Accounts.getAccounts (Kernel.Conv.toRootId $ fixtureHdRootId w2) db
+                length (IxSet.toList accs2) `shouldBe` 2
+                _ <- getFixedAddress layer w1
+                _ <- getFixedAddress layer w2
+                _ <- getNonFixedAddress layer w1
+                _ <- getNonFixedAddress layer w2
+                return ()
 
         prop "TxMeta from pay between two wallets has the correct txAmount" $ withMaxSuccess 5 $
             monadicIO $ withFixture @IO (InitialADA 10000) $ \_ layer aw (Fixture [w1, w2] _) -> do
-                let params = RequestParams (PaginationParams (Page 1) (PerPage 10))
-                let filters = NoFilters
-                Right wr <- WalletLayer.getAccountAddresses (walletPassiveLayer layer)
-                        (Kernel.Conv.toRootId . fixtureHdRootId $ w2)
-                        (V1.unsafeMkAccountIndex firstHardened)
-                        params
-                        filters
-                -- the defaut account of the wallet should have a unique address.
-                let [address] = wrData wr
+                let pw = Kernel.walletPassive aw
+                address <- getFixedAddress layer w2
                 let (AccountIdHdRnd hdAccountId1) = fixtureAccountId w1
-                let opts = (newOptions (constantFee 200)) {
-                            csoExpenseRegulation = SenderPaysFee
-                        , csoInputGrouping     = IgnoreGrouping
-                        }
-                payRes <- liftIO (Kernel.pay aw
-                        mempty
-                        opts
-                        hdAccountId1
-                        (NonEmpty.fromList [(V1.unV1 . V1.addrId $ address, Coin 100)])
-                        )
-                bimap STB STB payRes `shouldSatisfy` isRight
-                case payRes of
-                    Left _ -> expectationFailure $ "Kernel.pay failed"
-                    Right (_tx, txMeta) -> do
-                        txMeta ^. txMetaAmount `shouldBe` Coin 300
+                let payees = (NonEmpty.fromList [(address, Coin 100)])
+                (_tx, txMeta) <- payAux aw hdAccountId1 payees 200
+                txMeta ^. txMetaAmount `shouldBe` Coin 300
+                txMeta ^. txMetaIsOutgoing `shouldBe` True
+                txMeta ^. txMetaIsLocal `shouldBe` False
+                res <- toTransaction pw txMeta
+                bimap STB STB res `shouldSatisfy` isRight
+                let Right tx = res
+                V1.txStatus tx `shouldBe` V1.Applying
+                V1.txConfirmations tx `shouldBe` 0
 
+        prop "as above but now we pay to the explicitely created account" $ withMaxSuccess 5 $
+            monadicIO $ withFixture @IO (InitialADA 10000) $ \_ layer aw (Fixture [w1, w2] _) -> do
+                address <- getNonFixedAddress layer w2
+                let (AccountIdHdRnd hdAccountId1) = fixtureAccountId w1
+                let payees = (NonEmpty.fromList [(address, Coin 100)])
+                (_tx, txMeta) <- payAux aw hdAccountId1 payees 200
+                txMeta ^. txMetaAmount `shouldBe` Coin 300
+
+        prop "payment to different wallet changes the balance the same as txAmount" $ withMaxSuccess 5 $
+            monadicIO $ withFixture @IO (InitialADA 10000) $ \_ layer aw (Fixture [w1, w2] _) -> do
+                let pw = Kernel.walletPassive aw
+                -- get the balance before the payment
+                coinsBefore <- getAccountBalanceNow pw w1
+                -- do the payment
+                let (AccountIdHdRnd hdAccountId1) = fixtureAccountId w1
+                address <- getFixedAddress layer w2
+                let payees = (NonEmpty.fromList [(address, Coin 100)])
+                (_tx, txMeta) <- payAux aw hdAccountId1 payees 200
+                txMeta ^. txMetaAmount `shouldBe` Coin 300
+                -- get the balance after the payment
+                coinsAfter <- getAccountBalanceNow pw w1
+                coinsBefore - coinsAfter `shouldBe` 300
+
+        prop "as above but now we pay to the explicitely created account" $ withMaxSuccess 5 $
+            monadicIO $ withFixture @IO (InitialADA 10000) $ \_ layer aw (Fixture [w1, w2] _) -> do
+                let pw = Kernel.walletPassive aw
+                let (AccountIdHdRnd hdAccountId1) = fixtureAccountId w1
+                -- get the balance before the payment
+                coinsBefore <- getAccountBalanceNow pw w1
+                -- do the payment
+                address <- getNonFixedAddress layer w2
+                let payees = (NonEmpty.fromList [(address, Coin 100)])
+                (_tx, txMeta) <- payAux aw hdAccountId1 payees 200
+                txMeta ^. txMetaAmount `shouldBe` Coin 300
+                -- get the balance after the payment
+                coinsAfter <- getAccountBalanceNow pw w1
+                coinsBefore - coinsAfter `shouldBe` 300
+
+        prop "2 consecutive payments" $ withMaxSuccess 5 $
+            monadicIO $ withFixture @IO (InitialADA 10000) $ \_ layer aw (Fixture [w1, w2] _) -> do
+                let pw = Kernel.walletPassive aw
+                -- get the balance before the payment
+                coinsBefore <- getAccountBalanceNow pw w1
+                -- do the payment
+                let (AccountIdHdRnd hdAccountId1) = fixtureAccountId w1
+                address1 <- getFixedAddress layer w2
+                address2 <- getNonFixedAddress layer w2
+                let payees1 = (NonEmpty.fromList [(address1, Coin 100)])
+                (_, txMeta1) <- payAux aw hdAccountId1 payees1 200
+                txMeta1 ^. txMetaAmount `shouldBe` Coin 300
+                -- do the second payment
+                let payees2 = (NonEmpty.fromList [(address2, Coin 400)])
+                (_, txMeta2) <- payAux aw hdAccountId1 payees2 800
+                txMeta2 ^. txMetaAmount `shouldBe` Coin 1200
+                -- get the balance after the payment
+                coinsAfter <- getAccountBalanceNow pw w1
+                coinsBefore - coinsAfter `shouldBe` 1500
+
+    describe "Transactions with multiple accounts" $ do
         prop "TxMeta from pay between two accounts of the same wallet has the correct txAmount" $ withMaxSuccess 5 $
             monadicIO $ withFixture @IO (InitialADA 10000) $ \_ layer aw (Fixture [w1, _] _) -> do
-                let params = RequestParams (PaginationParams (Page 1) (PerPage 10))
-                let filters = NoFilters
-                Right wr <- WalletLayer.getAccountAddresses (walletPassiveLayer layer)
-                        (Kernel.Conv.toRootId . fixtureHdRootId $ w1)
-                        (V1.unsafeMkAccountIndex firstHardened)
-                        params
-                        filters
-                -- the defaut account of the wallet should have a unique address.
-                let [address] = wrData wr
+                let pw = Kernel.walletPassive aw
+                -- get the balance before the payment
+                coinsBefore <- getAccountBalanceNow pw w1
+                -- do the payment
+                address <- getFixedAddress layer w1
                 let (AccountIdHdRnd hdAccountId1) = fixtureAccountId w1
-                let opts = (newOptions (constantFee 200)) {
-                            csoExpenseRegulation = SenderPaysFee
-                        , csoInputGrouping     = IgnoreGrouping
+                let payees = (NonEmpty.fromList [(address, Coin 100)])
+                (_, txMeta) <- payAux aw hdAccountId1 payees 200
+                -- this is 200 because the outputs is at the same wallet.
+                txMeta ^. txMetaAmount `shouldBe` Coin 200
+                txMeta ^. txMetaIsOutgoing `shouldBe` True
+                txMeta ^. txMetaIsLocal `shouldBe` True
+                -- get the balance after the payment
+                coinsAfter <- getAccountBalanceNow pw w1
+                coinsBefore - coinsAfter `shouldBe` 300
+
+payAux :: Kernel.ActiveWallet -> HdAccountId -> NonEmpty (Address, Coin) -> Word64 -> IO (Core.Tx, TxMeta)
+payAux aw hdAccountId payees fees = do
+    let opts = (newOptions (constantFee fees)) {
+                          csoExpenseRegulation = SenderPaysFee
+                        , csoInputGrouping = IgnoreGrouping
                         }
-                payRes <- liftIO (Kernel.pay aw
+    payRes <- (Kernel.pay aw
                         mempty
                         opts
-                        hdAccountId1
-                        (NonEmpty.fromList [(V1.unV1 . V1.addrId $ address, Coin 100)])
+                        hdAccountId
+                        payees
                         )
-                bimap STB STB payRes `shouldSatisfy` isRight
-                case payRes of
-                    Left _ -> expectationFailure $ "Kernel.pay failed"
-                    Right (_tx, txMeta) -> do
-                        -- this is 200 because the outputs is at the same wallet.
-                        txMeta ^. txMetaAmount `shouldBe` Coin 200
+    bimap STB STB payRes `shouldSatisfy` isRight
+    let Right t = payRes
+    return t

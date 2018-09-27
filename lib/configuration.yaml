@@ -14932,7 +14932,7 @@ testnet_wallet: &testnet_wallet
     applicationVersion: 0
     lastKnownBlockVersion:
       bvMajor: 0
-      bvMinor: 1
+      bvMinor: 0
       bvAlt: 0
 
 testnet_wallet_win64: &testnet_wallet_win64

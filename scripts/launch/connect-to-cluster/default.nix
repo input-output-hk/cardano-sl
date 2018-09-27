@@ -18,8 +18,8 @@
 , debug ? false
 , disableClientAuth ? false
 , extraParams ? ""
-, useStackBinaries ? false
 , forceDontCheck ? false
+, binaryMethod
 }:
 
 with localLib;
@@ -35,10 +35,22 @@ let
     then { inherit relays confKey confFile; }
     else environments.${environment};
   executables =  {
-    wallet = if useStackBinaries then "stack exec -- cardano-node" else "${iohkPkgs.cardano-sl-wallet-new-static}/bin/cardano-node";
-    explorer = if useStackBinaries then "stack exec -- cardano-explorer" else "${iohkPkgs.cardano-sl-explorer-static}/bin/cardano-explorer";
-    x509gen = if useStackBinaries then "stack exec -- cardano-x509-certificates" else "${iohkPkgs.cardano-sl-tools-static}/bin/cardano-x509-certificates";
-  };
+    nix = {
+      wallet = "${iohkPkgs.cardano-sl-wallet-new-static}/bin/cardano-node";
+      explorer = "${iohkPkgs.cardano-sl-explorer-static}/bin/cardano-explorer";
+      x509gen = "${iohkPkgs.cardano-sl-tools-static}/bin/cardano-x509-certificates";
+    };
+    stack = {
+      wallet = "stack exec -- cardano-node";
+      explorer = "stack exec -- cardano-explorer";
+      x509gen = "stack exec -- cardano-x509-certificates";
+    };
+    path = {
+      wallet = "cardano-node";
+      explorer = "cardano-explorer";
+      x509gen = "cardano-x509-certificates";
+    };
+  }."${binaryMethod}";
   ifWallet = localLib.optionalString (executable == "wallet");
   iohkPkgs = import ./../../../default.nix { inherit config system pkgs gitrev forceDontCheck; };
   src = ./../../../.;

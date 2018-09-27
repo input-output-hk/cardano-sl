@@ -22,9 +22,11 @@ in
 , enablePhaseMetrics ? true
 , allowCustomConfig ? true
 , useStackBinaries ? false
+, binaryMethod ? if useStackBinaries then "stack" else "nix"
 , fasterBuild ? false
 }:
 
+assert !useStackBinaries || (binaryMethod == "stack" && useStackBinaries);
 with pkgs.lib;
 with pkgs.haskell.lib;
 
@@ -163,7 +165,7 @@ let
       walletConfigFile = ./custom-wallet-config.nix;
       walletConfig = if allowCustomConfig then (if builtins.pathExists walletConfigFile then import walletConfigFile else {}) else {};
     in
-      args: pkgs.callPackage ./scripts/launch/connect-to-cluster (args // { inherit gitrev useStackBinaries; } // walletConfig );
+      args: pkgs.callPackage ./scripts/launch/connect-to-cluster (args // { inherit gitrev binaryMethod; } // walletConfig );
   other = rec {
     testlist = innerClosePropagation [] [ cardanoPkgs.cardano-sl ];
     walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev binaryMethod; };

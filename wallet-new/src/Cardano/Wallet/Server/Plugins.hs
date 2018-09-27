@@ -112,7 +112,7 @@ apiServer protocolMagic (NewWalletBackendParams WalletBackendParams{..}) (passiv
         logInfo "New wallet API has STARTED!"
         return
             $ withMiddlewares middlewares
-            $ Servant.serve API.newWalletAPI
+            $ Servant.serve API.walletAPI
             $ Server.walletServer active walletRunMode
 
     lower :: env -> ReaderT env IO a -> IO a
@@ -140,7 +140,7 @@ docServer (NewWalletBackendParams WalletBackendParams{..}) = const $
 
     application :: Kernel.WalletMode Application
     application =
-        return $ Servant.serve API.newWalletDocAPI Server.walletDocServer
+        return $ Servant.serve API.walletDoc Server.walletDocServer
 
 -- | A @Plugin@ to serve the node monitoring API.
 monitoringServer :: HasConfigurations

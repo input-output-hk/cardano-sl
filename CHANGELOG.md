@@ -4,17 +4,17 @@
 
 ### Features
 
-- Add genesis data for the Cardano SL public Testnet. ([#3265](https://github.com/input-output-hk/cardano-sl/pull/3265), [#3349](https://github.com/input-output-hk/cardano-sl/pull/3349), DEVOPS-398)
+- Add genesis data for the Cardano SL public Testnet. ([#3265](https://github.com/input-output-hk/cardano-sl/pull/3265), [#3349](https://github.com/input-output-hk/cardano-sl/pull/3349), [#3585](https://github.com/input-output-hk/cardano-sl/pull/3585), DEVOPS-398)
 
 - Add a "faucet" API to dispense Testnet Ada to users. ([#2939](https://github.com/input-output-hk/cardano-sl/pull/2939), DEVOPS-834)
-
-- Adjust the address format so that Testnet addresses are not valid on Mainnet. (TBA, CO-354)
 
 - Support additional fields for Daedalus bug reports in the report server. ([#3394](https://github.com/input-output-hk/cardano-sl/pull/3394), TSD-116)
 
 ### Fixes
 
 - Fix a case where the error reporting system can cause the node to stop syncing. ([#3294](https://github.com/input-output-hk/cardano-sl/pull/3294), CDEC-469, CDEC-439)
+
+- Adjust the address format to distinguish testnet and mainnet addresses. ([#3540](https://github.com/input-output-hk/cardano-sl/pull/3540), [#3556](https://github.com/input-output-hk/cardano-sl/pull/3556), [#3558](https://github.com/input-output-hk/cardano-sl/pull/3558), [#3561](https://github.com/input-output-hk/cardano-sl/pull/3561), [#3578](https://github.com/input-output-hk/cardano-sl/pull/3578), [#3618](https://github.com/input-output-hk/cardano-sl/pull/3618), [#3659](https://github.com/input-output-hk/cardano-sl/pull/3659), CO-353, CO-354)
 
 - Add a workaround for the RocksDB issue which prevented Daedalus Windows users with non-ASCII usernames from starting the wallet. ([#3465](https://github.com/input-output-hk/cardano-sl/pull/3465), CBR-391)
 
@@ -25,6 +25,8 @@
 - Fix display of the git version in Cardano Explorer. ([#3386](https://github.com/input-output-hk/cardano-sl/pull/3386), DEVOPS-999)
 
 - Update Windows build script to use a newer openssl version. ([#3397](https://github.com/input-output-hk/cardano-sl/pull/3397), DEVOPS-1003)
+
+- Fix a build system issue which caused slow builds. ([#3622](https://github.com/input-output-hk/cardano-sl/pull/3622), DEVOPS-916)
 
 
 ## Cardano SL 1.3.0 (Mainnet)

@@ -3,6 +3,7 @@ module Cardano.Wallet.Kernel.DB.HdWallet.Delete (
     deleteHdRoot
   , deleteHdAccount
   , deleteHdAddress
+  , deleteAllHdAccounts
   ) where
 
 import           Universum
@@ -22,6 +23,16 @@ import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 -- and transitively all its addresses.
 deleteHdRoot :: HdRootId -> Update' UnknownHdRoot HdWallets ()
 deleteHdRoot rootId = do
+    -- Delete all of the accounts and addresses related to this wallet.
+    deleteAllHdAccounts rootId
+
+    -- Finally, delete the wallet.
+    zoom hdWalletsRoots $ do
+        at rootId .= Nothing
+
+-- | Delete all accounts and addresses associated with a wallet.
+deleteAllHdAccounts :: HdRootId -> Update' UnknownHdRoot HdWallets ()
+deleteAllHdAccounts rootId = do
     -- Check that the root exists to begin with
     zoomHdRootId identity rootId $
         return ()
@@ -35,11 +46,6 @@ deleteHdRoot rootId = do
     zoom hdWalletsAccounts $ do
         rootAccounts <- gets (IxSet.toList . IxSet.getEQ rootId)
         forM_ rootAccounts (\account -> at (account ^. hdAccountId) .= Nothing)
-
-    -- Finally, delete the wallet.
-    zoom hdWalletsRoots $ do
-        at rootId .= Nothing
-
 
 -- | Delete an account
 deleteHdAccount :: HdAccountId -> Update' UnknownHdAccount HdWallets ()

@@ -45,7 +45,7 @@ data WalletAction b
 --   underlying wallet.
 data WalletActionInterp m b = WalletActionInterp
     { applyBlocks  :: OldestFirst NE b -> m ()
-    , switchToFork :: Int -> OldestFirst [] b -> m ()
+    , switchToFork :: Int -> OldestFirst NE b -> m ()
     , emit         :: Text -> m ()
     }
 
@@ -54,7 +54,7 @@ data WalletActionInterp m b = WalletActionInterp
 -- Used for 'interpStep'
 data WalletInterpAction b
     = InterpApplyBlocks (OldestFirst NE b)
-    | InterpSwitchToFork Int (OldestFirst [] b)
+    | InterpSwitchToFork Int (OldestFirst NE b)
     | InterpLogMessage Text
 
 -- | Internal state of the wallet worker.
@@ -103,22 +103,23 @@ interp walletInterp action = do
         lengthPendingBlocks += length bs
 
         -- If we have seen more blocks than rollbacks, switch to the new fork.
-        when (numPendingBlocks + length bs > numPendingRollbacks) $ do
+        (nonEmptyOldestFirst . toOldestFirst) <$> use pendingBlocks >>= \case
+            Just pb | numPendingBlocks + length bs > numPendingRollbacks -> do
 
-          pb <- toOldestFirst <$> use pendingBlocks
-          switchToFork numPendingRollbacks pb
+                switchToFork numPendingRollbacks pb
 
-          -- Reset state to "no fork in progress"
-          pendingRollbacks    .= 0
-          lengthPendingBlocks .= 0
-          pendingBlocks       .= NewestFirst []
+                -- Reset state to "no fork in progress"
+                pendingRollbacks    .= 0
+                lengthPendingBlocks .= 0
+                pendingBlocks       .= NewestFirst []
+            _ -> return ()
 
       -- If we are in the midst of a fork and have seen some new blocks,
       -- roll back some of those blocks. If there are more rollbacks requested
       -- than the number of new blocks, see the next case below.
       RollbackBlocks n | n <= numPendingBlocks -> do
-                            lengthPendingBlocks -= n
-                            pendingBlocks %= NewestFirst . drop n . getNewestFirst
+        lengthPendingBlocks -= n
+        pendingBlocks %= NewestFirst . drop n . getNewestFirst
 
       -- If we are in the midst of a fork and are asked to rollback more than
       -- the number of new blocks seen so far, clear out the list of new
@@ -255,7 +256,7 @@ instance Show b => Buildable (WalletAction b) where
     build wa = case wa of
       ApplyBlocks bs    -> bprint ("ApplyBlocks " % shown) bs
       RollbackBlocks bs -> bprint ("RollbackBlocks " % shown) bs
-      LogMessage bs     -> bprint ("LogMessage " % shown) bs
+      LogMessage msg    -> bprint ("LogMessage " % shown) msg
 
 instance Show b => Buildable [WalletAction b] where
     build was = case was of

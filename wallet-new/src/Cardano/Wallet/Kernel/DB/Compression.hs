@@ -2,6 +2,7 @@
 
 module Cardano.Wallet.Kernel.DB.Compression (
     DeltaCheckpoint (..)
+  , DeltaPartialCheckpoint (..)
   , UtxoDiff
   , BlockMetaDiff
   , BlockMetaSlotIdDiff
@@ -28,7 +29,6 @@ import           Test.Pos.Core.Arbitrary ()
 -- To achieve this we first define diff types for the building blocks of Checkpoint:
 -- Map, Pending, BlockMeta and eventually Checkpoint.
 
--- | This is the Delta type for both Checkpoint and PartialCheckpoint
 data DeltaCheckpoint = DeltaCheckpoint {
     dcUtxo        :: !(InDb UtxoDiff)
   , dcUtxoBalance :: !(InDb Core.Coin)
@@ -36,6 +36,15 @@ data DeltaCheckpoint = DeltaCheckpoint {
   , dcBlockMeta   :: !BlockMetaDiff
   , dcForeign     :: !PendingDiff
   , dcContext     :: !(Maybe BlockContext)
+}
+
+data DeltaPartialCheckpoint = DeltaPartialCheckpoint {
+    dcpUtxo        :: !(InDb UtxoDiff)
+  , dcpUtxoBalance :: !(InDb Core.Coin)
+  , dcpPending     :: !PendingDiff
+  , dcpBlockMeta   :: !BlockMetaDiff
+  , dcpForeign     :: !PendingDiff
+  , dcpContext     :: !BlockContext
 }
 
 type UtxoDiff = MapDiff Core.TxIn Core.TxOutAux
@@ -66,3 +75,4 @@ applyDeltaBlockMeta (BlockMeta bmsi bms) (dbmsi, dbms) =
   BlockMeta (applyDelta <$> bmsi <*> dbmsi) (applyDelta bms dbms)
 
 SC.deriveSafeCopy 1 'SC.base ''DeltaCheckpoint
+SC.deriveSafeCopy 1 'SC.base ''DeltaPartialCheckpoint

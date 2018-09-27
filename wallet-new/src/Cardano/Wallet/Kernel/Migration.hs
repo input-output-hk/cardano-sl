@@ -27,7 +27,6 @@ import qualified Cardano.Wallet.Kernel.Internal as Kernel
 import           Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.Restore (restoreWallet)
 import           Cardano.Wallet.Kernel.Types
-import           Cardano.Wallet.WalletLayer.Kernel.Wallets (prefilter)
 
 {-------------------------------------------------------------------------------
   Pure helper functions for migration. This include only data that are not
@@ -239,7 +238,6 @@ restore pw forced metadata = do
                                  (metadata ^. mmWalletName)
                                  (metadata ^. mmAssuranceLevel)
                                  esk
-                                 (prefilter esk pw wId)
             case res of
                  Right (restoredRoot, balance) -> do
                      let msg = "Migrating " % F.build

@@ -5,4 +5,4 @@
 
 set -euo pipefail
 cd "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
-exec $(nix-build --no-out-link regen.nix) "$@"
+exec "$(nix-build --no-out-link regen.nix)" "$@"

@@ -11,6 +11,7 @@ import           Cardano.Wallet.Client.Http
 import           Control.Concurrent (threadDelay)
 import           Control.Concurrent.Async (race)
 import           Control.Lens
+import qualified Data.Text as T
 import           Functions (randomTest)
 import           Pos.Core.Common (mkCoin)
 import           Test.Hspec
@@ -54,21 +55,35 @@ accountSpecs wRef wc =
                 eresp <- run $ getAccountAddresses wc walId accIndex page perPage filters
                 liftIO $ expectations . acaAddresses . wrData =<< eresp `shouldPrism` _Right
 
+
         randomTest ("can retrieve initial and updated balances of several accounts from getAccountBalances"
               <> "that are equivalent to what is obtained from getAccounts") 1 $ do
+
             genesis <- run $ genesisWallet wc
             (fromAcct, _) <- run $ firstAccountAndId wc genesis
 
             wallet <- run $ sampleWallet wRef wc
-            -- We create 4 accounts, plus one is created automatically
+
+            -- We create 4 additional accounts, plus one is created automatically
             -- by the 'sampleWallet', for a total of 5.
-            randomNewAccount <- forM [1..4] $ \(_i :: Int) ->
-                pick (arbitrary @NewAccount)
-            forM_ randomNewAccount $ \(rAcc :: NewAccount) ->
+
+            -- Making sure new account has the same spending password as corresponding wallet
+            randomNewAccounts <- forM [1..4] $ \(i :: Int) ->
+                pure $ NewAccount Nothing (T.pack $ "account" ++ show i)
+            forM_ randomNewAccounts $ \(rAcc :: NewAccount) ->
                 run $ postAccount wc (walId wallet) rAcc
 
             accResp' <- run $ getAccounts wc (walId wallet)
-            accs <- run $ wrData <$> accResp' `shouldPrism` _Right
+
+            accs' <- run $ wrData <$> accResp' `shouldPrism` _Right
+
+            -- we create for each newly created account address as in new data layer they are created without it
+            -- This is in contrast to old data layer
+            forM_ (map accIndex accs') $ \(accIndex :: AccountIndex) ->
+                run $ postAddress wc (NewAddress Nothing accIndex (walId wallet))
+
+            accResp <- run $ getAccounts wc (walId wallet)
+            accs <- run $ wrData <$> accResp `shouldPrism` _Right
 
             balancesPartialResp' <- forM (map accIndex accs) $ \(accIndex :: AccountIndex) ->
                 run $ getAccountBalance wc (walId wallet) accIndex
@@ -91,11 +106,14 @@ accountSpecs wRef wc =
                     , pmtSpendingPassword = Nothing
                     }
             amounts <- pick $ shuffle [1..5]
+
             let addrAndAmount = zip (map (\(addr : _) -> addr) $ map accAddresses accs) amounts
-            forM_  addrAndAmount $ \(addr, amount) ->
+
+            etxnsResp <- forM addrAndAmount $ \(addr, amount) -> do
+                -- we have to wait until the previous transaction is accommodated in the blockchain
+                liftIO $ threadDelay 120000000
                 run $ postTransaction wc (payment amount addr)
 
-            liftIO $ threadDelay 90000000
 
             accUpdatedResp' <- run $ getAccounts wc (walId wallet)
             accsUpdated <- run $ wrData <$> accUpdatedResp' `shouldPrism` _Right
@@ -108,6 +126,19 @@ accountSpecs wRef wc =
 
             liftIO $ map (AccountBalance . accAmount) accsUpdated `shouldBe` balancesPartialUpdated
 
+            txns <- run $ mapM (\resp -> wrData <$> resp `shouldPrism` _Right) etxnsResp
+
+            let ((theAccount, theTxn): _) = zip accsUpdated txns
+
+            eresp <- run $ getTransactionIndex
+                wc
+                (Just (walId wallet))
+                (Just (accIndex theAccount))
+                Nothing
+
+            resp <- run $ fmap wrData eresp `shouldPrism` _Right
+
+            liftIO $ map txId resp `shouldContain` [txId theTxn]
 
         randomTest "redeeming avvm key gives rise to the corresponding increase of balance of wallet'account - mnemonic not used" 1 $ do
 

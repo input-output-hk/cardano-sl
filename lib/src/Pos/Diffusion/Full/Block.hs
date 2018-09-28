@@ -397,11 +397,11 @@ streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoint
         -> Word32
         -> IO ()
     retrieveBlocks bvd blockChan conv window = do
-        window' <- if window < halfStreamWindow
+        window' <- if window <= halfStreamWindow
             then do
-                let w' = streamWindow
+                let w' = window + halfStreamWindow
                 traceWith logTrace (Debug, sformat ("Updating Window: "%int%" to "%int) window w')
-                send conv $ MsgUpdate $ MsgStreamUpdate $ w'
+                send conv $ MsgUpdate $ MsgStreamUpdate halfStreamWindow
                 return (w' - 1)
             else return $ window - 1
         block <- retrieveBlock bvd conv

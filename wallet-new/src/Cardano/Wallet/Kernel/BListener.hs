@@ -27,7 +27,7 @@ import qualified Formatting.Buildable
 import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Genesis (Config (..))
 import           Pos.Chain.Txp (TxId)
-import           Pos.Core (getSlotIndex, siSlotL)
+import           Pos.Core (ChainDifficulty, getSlotIndex, siSlotL)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.DB.Block (getBlund)
@@ -215,15 +215,21 @@ applyBlock pw@PassiveWallet{..} b = do
                     -> ExceptT (NonEmptyMap HdAccountId ApplyBlockFailed) IO ()
       applyOneBlock k accts b' = ExceptT $ do
           ((ctxt, blocksByAccount), metas) <- prefilterBlock' pw b'
-          -- apply block to all Accounts in all Wallets
-          mConfirmed <- update' _wallets $ ApplyBlock k ctxt accts blocksByAccount
-          case mConfirmed of
-              Left  errs      -> return (Left errs)
-              Right confirmed -> do
-                  modifyMVar_ _walletSubmission (return . Submission.remPending confirmed)
-                  mapM_ (putTxMeta _walletMeta) metas
-                  createCheckpointIfNeeded
-                  return $ Right ()
+          -- apply block to all Accounts in all Wallets, but only if we do
+          -- have matching accounts.
+          case Map.null blocksByAccount of
+               True  -> return $ Right ()
+               False -> do
+                   mConfirmed <-
+                     update' _wallets $ ApplyBlock k ctxt accts blocksByAccount
+                   case mConfirmed of
+                       Left  errs      -> return (Left errs)
+                       Right confirmed -> do
+                           modifyMVar_ _walletSubmission $
+                               return . Submission.remPending confirmed
+                           mapM_ (putTxMeta _walletMeta) metas
+                           createCheckpointIfNeeded
+                           return $ Right ()
 
       -- Determine if a failure in 'ApplyBlock' was due to the account being ahead, behind,
       -- or incomparable with the provided block.
@@ -301,7 +307,8 @@ applyBlock pw@PassiveWallet{..} b = do
 -- NOTE: The Ouroboros protocol says that this is only valid if the number of
 -- resolved blocks exceeds the length of blocks to roll back.
 switchToFork :: PassiveWallet
-             -> Maybe HeaderHash -- ^ Roll back until we meet this hash.
+             -> Maybe ChainDifficulty
+             -- ^ Roll back until we meet this block height.
              -> [ResolvedBlock] -- ^ Blocks in the new fork
              -> IO ()
 switchToFork pw@PassiveWallet{..} oldest bs = do
@@ -313,11 +320,9 @@ switchToFork pw@PassiveWallet{..} oldest bs = do
 
     -- Update the metadata
     mapM_ (putTxMeta _walletMeta) $ concat metas
-    modifyMVar_ _walletSubmission $
-      return . Submission.addPendings (fst <$> changes)
-    modifyMVar_ _walletSubmission $
+    modifyMVar_ _walletSubmission $ do
       return . Submission.remPending (snd <$> changes)
-    return ()
+             . Submission.addPendings (fst <$> changes)
   where
 
     trySwitchingToFork :: Node.SecurityParameter

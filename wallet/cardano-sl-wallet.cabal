@@ -216,9 +216,6 @@ test-suite cardano-wallet-test
                        -- Arbitrary Instances
                        Test.Pos.Wallet.Arbitrary.Web.ClientTypes
 
-                       -- Basic QC checks
-                       Test.Pos.Util.MnemonicSpec
-
                        -- Basic mocks and instances
                        Test.Pos.Wallet.Web.Mode
                        Test.Pos.Wallet.Web.Util

@@ -17364,7 +17364,6 @@ universum
 unordered-containers
 ];
 executableHaskellDepends = [
-acid-state-exts
 aeson
 aeson-options
 ansi-wl-pprint
@@ -17377,20 +17376,13 @@ cardano-report-server
 cardano-sl
 cardano-sl-binary
 cardano-sl-chain
-cardano-sl-chain-test
-cardano-sl-client
 cardano-sl-core
-cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-db
 cardano-sl-infra
-cardano-sl-networking
 cardano-sl-util
-cardano-sl-wallet
 cardano-sl-x509
-containers
 cryptonite
-data-default
 directory
 filepath
 formatting
@@ -17399,18 +17391,14 @@ lens
 lifted-async
 mtl
 neat-interpolation
-network-transport-tcp
 optparse-applicative
-optparse-generic
 process
 safe-exceptions
 serokell-util
 silently
-stm
 tabl
 tar
 text
-time
 time-units
 universum
 unix
@@ -18037,6 +18025,7 @@ license = stdenv.lib.licenses.mit;
 , async
 , base
 , base58-bytestring
+, basement
 , beam-core
 , beam-migrate
 , beam-sqlite
@@ -18162,6 +18151,7 @@ aeson-pretty
 async
 base
 base58-bytestring
+basement
 beam-core
 beam-migrate
 beam-sqlite

@@ -632,7 +632,8 @@ getTxMetas conn (Offset offset) (Limit limit) accountFops mbAddress fopTxId fopT
         metaQuery = do
             let query = SQL.all_ $ _mDbMeta metaDB
             meta <- case mbSorting of
-                    Nothing -> query
+                    Nothing ->
+                        SQL.orderBy_ (SQL.desc_ . _txMetaTableCreatedAt) query
                     Just (Sorting SortByCreationAt dir) ->
                         SQL.orderBy_ (toBeamSortDirection dir . _txMetaTableCreatedAt) query
                     Just (Sorting SortByAmount     dir) ->

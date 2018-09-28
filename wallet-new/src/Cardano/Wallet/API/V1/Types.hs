@@ -8,6 +8,7 @@
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE PolyKinds                  #-}
+{-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE StrictData                 #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
@@ -119,6 +120,7 @@ module Cardano.Wallet.API.V1.Types (
   , RedemptionMnemonic(..)
   , BackupPhrase(..)
   , ShieldedRedemptionCode(..)
+  , WAddressMeta (..)
   -- * Some types for the API
   , CaptureWalletId
   , CaptureAccountId
@@ -404,6 +406,9 @@ instance FromHttpApiData (V1 Core.Address) where
 instance ToHttpApiData (V1 Core.Address) where
     toQueryParam (V1 a) = sformat build a
 
+deriving instance Hashable (V1 Core.Address)
+deriving instance NFData (V1 Core.Address)
+
 -- | Represents according to 'apiTimeFormat' format.
 instance ToJSON (V1 Core.Timestamp) where
     toJSON timestamp =
@@ -513,6 +518,8 @@ instance FromHttpApiData WalletId where
 instance ToHttpApiData WalletId where
     toQueryParam (WalletId wid) = wid
 
+instance Hashable WalletId
+instance NFData WalletId
 
 -- | A Wallet Operation
 data WalletOperation =
@@ -1228,6 +1235,21 @@ instance Arbitrary (V1 AddressOwnership) where
         , pure AddressAmbiguousOwnership
         ]
 
+-- | Address with associated metadata locating it in an account in a wallet.
+data WAddressMeta = WAddressMeta
+    { _wamWalletId     :: !WalletId
+    , _wamAccountIndex :: !Word32
+    , _wamAddressIndex :: !Word32
+    , _wamAddress      :: !(V1 Core.Address)
+    } deriving (Eq, Ord, Show, Generic, Typeable)
+
+instance Hashable WAddressMeta
+instance NFData WAddressMeta
+
+instance Buildable WAddressMeta where
+    build WAddressMeta{..} =
+        bprint (build%"@"%build%"@"%build%" ("%build%")")
+        _wamWalletId _wamAccountIndex _wamAddressIndex _wamAddress
 --------------------------------------------------------------------------------
 -- Accounts
 --------------------------------------------------------------------------------

@@ -32,7 +32,7 @@ in pkgs.writeScript "integration-tests" ''
   set -e
   source ${demo-cluster}
   ${stackExec}wal-integr-test --tls-ca-cert ${stateDir}/tls/client/ca.crt --tls-client-cert ${stateDir}/tls/client/client.pem --tls-key ${stateDir}/tls/client/client.key "$@" 2>&1 | tee state-demo/logs/test.output
-  EXIT_STATUS=$?
+  EXIT_STATUS=$PIPESTATUS
   # Verify we see "transaction list is empty after filtering out asset-locked source addresses" in at least 1 core node log file
   if [[ $EXIT_STATUS -eq 0 ]]
   then

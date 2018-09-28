@@ -60,17 +60,15 @@ data BlockContext = BlockContext {
 makeLenses ''BlockContext
 deriveSafeCopy 1 'base ''BlockContext
 
--- | Check if one checkpoint succeeds another
+-- | Check if one checkpoint succeeds another. One checkpoint succeeds another
+-- if it has an bigger depth of the predecessor.
 --
 -- The second argument is a 'Maybe', because the first checkpoint in an account
 -- will have no context. The first argument is /not/ a 'Maybe' because /ONLY/
 -- the first checkpoint in an account can have no context.
 blockContextSucceeds :: BlockContext -> Maybe BlockContext -> Bool
 _ `blockContextSucceeds` Nothing  = True
-a `blockContextSucceeds` (Just b) =
-    case a ^. bcPrevMain of
-      Nothing   -> False -- Previous checkpoint must have been the initial one
-      Just prev -> prev == b ^. bcHash
+a `blockContextSucceeds` (Just b) = a ^. bcHeight > b ^. bcHeight
 
 {-------------------------------------------------------------------------------
   Construction

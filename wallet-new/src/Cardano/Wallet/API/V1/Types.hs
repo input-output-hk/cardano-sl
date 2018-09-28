@@ -204,7 +204,6 @@ import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
                      buildSafe, buildSafeList, buildSafeMaybe,
                      deriveSafeBuildable, plainOrSecureF)
 import           Pos.Util.Servant (Flaggable (..))
-import           Pos.Wallet.Web.ClientTypes.Instances ()
 import           Test.Pos.Core.Arbitrary ()
 
 -- | Declare generic schema, while documenting properties

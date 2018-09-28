@@ -32,6 +32,7 @@ import           Cardano.Wallet.API.V1.Generic (jsendErrorGenericParseJSON,
                      jsendErrorGenericToJSON)
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
+import           Cardano.Wallet.Kernel.BIP39 (Mnemonic)
 import qualified Pos.Chain.Txp as V0
 import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Client.Txp.Util as V0
@@ -39,7 +40,6 @@ import           Pos.Core (addressF)
 import qualified Pos.Core.Common as Core
 import qualified Pos.Core.Slotting as Core
 import           Pos.Crypto (decodeHash)
-import           Pos.Util.Mnemonic (Mnemonic)
 import qualified Pos.Util.Servant as V0
 import           Pos.Wallet.Web.ClientTypes.Instances ()
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
@@ -150,8 +150,7 @@ instance Migrate (V1 Core.Coin) V0.CCoin where
 
 instance (n ~ m, n ~ 12)
     => Migrate (Mnemonic n) (V0.CBackupPhrase m) where
-    eitherMigrate =
-        Right . V0.CBackupPhrase
+    eitherMigrate = error "TODO: This file should be removed"
 
 instance Migrate (V0.CId V0.Wal) V1.WalletId where
     eitherMigrate (V0.CId (V0.CHash h)) = pure (V1.WalletId h)

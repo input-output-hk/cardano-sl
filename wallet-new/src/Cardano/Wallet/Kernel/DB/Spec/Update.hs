@@ -30,7 +30,6 @@ import qualified Formatting.Buildable
 import           Serokell.Util (listJsonIndent)
 import           Test.QuickCheck (Arbitrary (..), elements)
 
-import qualified Pos.Chain.Block as Core
 import           Pos.Chain.Txp (Utxo)
 import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Core as Core
@@ -279,15 +278,19 @@ observableRollbackUseInTestsOnly = rollback
 -- (to the rollback) and the transactions that got removed from pending
 -- (since they are new confirmed).
 switchToFork :: SecurityParameter
-             -> Maybe Core.HeaderHash  -- ^ Roll back until we meet this block.
+             -> Maybe Core.ChainDifficulty
+             -- ^ Roll back until we meet or surpass this height. Conceptually
+             -- we are given the target depth of the blockchain, and we unpick
+             -- checkpoints up until we found one whose height is less or equal
+             -- the target one.
              -> OldestFirst [] PrefilteredBlock -- ^ Blocks to apply
              -> Update' ApplyBlockFailed
                         (Checkpoints Checkpoint)
                         (Pending, Set Txp.TxId)
-switchToFork k oldest blocksToApply = do
+switchToFork k oldestHeight blocksToApply = do
     -- Unless we are already at 'oldest', roll back until we find it.
     curCtx <- use currentContext
-    reintroduced <- if curCtx ^? _Just . bcHash . fromDb /= oldest
+    reintroduced <- if curCtx ^? _Just . bcHeight . fromDb > oldestHeight
                    then rollbacks Pending.empty
                    else return    Pending.empty
     -- Now apply the blocks for new fork.
@@ -300,10 +303,11 @@ switchToFork k oldest blocksToApply = do
     rollbacks !accNew = do
         curCtx <- use currentContext
         reintroduced <- rollback
-        let acc = Pending.union accNew reintroduced
-            prev = join (curCtx <&> _bcPrevMain) <&> _fromDb
+        let acc        = Pending.union accNew reintroduced
+            prevHeight = join (curCtx <&> _bcPrevMainHeight) <&> _fromDb
+            rollbackDone = prevHeight <= oldestHeight
 
-        case (prev == oldest, prev) of
+        case (rollbackDone, prevHeight) of
             (True, _)        -> return acc    -- We rolled back everything we needed to.
             (False, Nothing) -> return acc    -- The checkpoints began after the fork point.
             (False, Just _)  -> rollbacks acc -- Keep going

@@ -59,9 +59,9 @@ import qualified Data.Set as Set
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 
-import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Txp (TxAux, TxId, Utxo)
 import           Pos.Chain.Update (SoftwareVersion)
+import           Pos.Core (ChainDifficulty)
 import           Pos.Core.Chrono (OldestFirst (..))
 
 import           Cardano.Wallet.Kernel.DB.BlockContext
@@ -412,9 +412,9 @@ restorationComplete k rootId = runUpdateNoErrors $ zoom dbHdWallets $
                                   `blocks`
 -}
 switchToFork :: SecurityParameter
-             -> Maybe HeaderHash
-                -- ^ 'Nothing' for genesis block, or else @Just hh@ where @hh@
-                -- is the hash of some main block.
+             -> Maybe ChainDifficulty
+                -- ^ 'Nothing' for genesis block, or else @Just ch@ where
+                -- is the height of some main block.
              -> [(BlockContext, Map HdAccountId PrefilteredBlock)]
              -> Set HdRootId
              -> Update DB (Either [HdAccountId]

@@ -16,8 +16,9 @@ import           Data.Foldable (for_)
 import           Formatting ((%))
 import qualified Formatting as F
 
-import           Pos.Chain.Block (Blund, blockHeader, headerHash, prevBlockL)
+import           Pos.Chain.Block (Blund, blockHeader, prevBlockL)
 import           Pos.Chain.Genesis (Config (..))
+import           Pos.Core (difficultyL)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Util.Wlog (Severity (Debug, Warning))
@@ -95,7 +96,7 @@ bracketPassiveWallet mode logFunction keystore node f = do
                      bs <- catMaybes <$> mapM (Wallets.blundToResolvedBlock node)
                                              (NE.toList blunds)
 
-                     Kernel.switchToFork w (headerHash <$> oldest) bs
+                     Kernel.switchToFork w (view difficultyL <$> oldest) bs
 
                  , Actions.emit = logFunction Debug
                  }

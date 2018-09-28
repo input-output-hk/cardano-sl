@@ -124,7 +124,6 @@ initIntCtxt boot = do
               icSlotId           = translateFirstSlot
             , icBlockHeader      = genesis
             , icMainBlockHdr     = Nothing
-            , icMainBlockHeight  = Nothing
             , icPrevMainHH       = Nothing
             , icEpochLeaders     = leaders
             , icStakes           = initStakes
@@ -454,7 +453,6 @@ instance DSL.Hash h Addr => Interpret DSL2Cardano h (DSL.Block h Addr) where
                      , _bcHash           = InDb  $  headerHash block
                      , _bcHeight         = InDb  $  block ^. difficultyL
                      , _bcPrevMain       = InDb <$> icMainBlockHdr prev
-                     , _bcPrevMainHeight = InDb <$> icMainBlockHeight prev
                      }
         let raw = mkRawResolvedBlock block resolvedTxInputs currentTime ctxt
         checkpoint <- mkCheckpoint prev slot block (fmap toaOut <$> resolvedTxInputs)

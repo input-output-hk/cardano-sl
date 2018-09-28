@@ -27,11 +27,11 @@ import qualified Formatting.Buildable
 import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Genesis (Config (..))
 import           Pos.Chain.Txp (TxId)
-import           Pos.Core (ChainDifficulty, getSlotIndex, siSlotL)
+import           Pos.Core (getSlotIndex, siSlotL)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.DB.Block (getBlund)
-import           Pos.Util.Log (Severity (Debug, Info, Warning))
+import           Pos.Util.Log (Severity (Info, Warning))
 
 import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..),
                      ObservableRollbackUseInTestsOnly (..), SwitchToFork (..),
@@ -227,7 +227,6 @@ applyBlock pw@PassiveWallet{..} b = do
                -- for rollback we can use sparse checkpoints anyway.
                True | not withinK -> pure $ Right ()
                _ -> do
-                   _walletLogMessage Debug "applyOneBlock: applying block.."
                    mConfirmed <-
                      update' _wallets $ ApplyBlock k ctxt accts blocksByAccount
                    case mConfirmed of
@@ -315,8 +314,7 @@ applyBlock pw@PassiveWallet{..} b = do
 -- NOTE: The Ouroboros protocol says that this is only valid if the number of
 -- resolved blocks exceeds the length of blocks to roll back.
 switchToFork :: PassiveWallet
-             -> Maybe ChainDifficulty
-             -- ^ Roll back until we meet this block height.
+             -> Maybe HeaderHash -- ^ Roll back until we meet this hash.
              -> [ResolvedBlock] -- ^ Blocks in the new fork
              -> IO ()
 switchToFork pw@PassiveWallet{..} oldest bs = do

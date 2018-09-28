@@ -3,6 +3,9 @@
      a particular monad, at some point in time.
 -}
 
+-- Orphan instance for Buildable Servant.NoContent
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Cardano.Wallet.Server.Plugins
     ( Plugin
     , apiServer
@@ -19,6 +22,7 @@ import           Data.Aeson (encode)
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.Text as T
 import           Data.Typeable (typeOf)
+import           Formatting.Buildable (build)
 import qualified Servant
 
 import           Network.HTTP.Types.Status (badRequest400)
@@ -58,13 +62,8 @@ import           Pos.Util.Wlog (logInfo, modifyLoggerName, usingLoggerName)
 import           Pos.Web (serveDocImpl, serveImpl)
 import qualified Pos.Web.Server
 
--- Needed for Orphan Instance 'Buildable Servant.NoContent' :|
-import           Pos.Wallet.Web ()
-
-
 -- A @Plugin@ running in the monad @m@.
 type Plugin m = Diffusion m -> m ()
-
 
 -- | A @Plugin@ to start the wallet REST server
 apiServer
@@ -182,3 +181,6 @@ updateWatcher = const $ do
             newUpdate <- WalletLayer.waitForUpdate w
             logInfo "A new update was found!"
             WalletLayer.addUpdate w . cpsSoftwareVersion $ newUpdate
+
+instance Buildable Servant.NoContent where
+    build Servant.NoContent = build ()

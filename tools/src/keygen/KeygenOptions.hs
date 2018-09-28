@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE ApplicativeDo   #-}
 {-# LANGUAGE QuasiQuotes     #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -25,7 +26,11 @@ import           Pos.Chain.Genesis (FakeAvvmOptions (..),
 import           Pos.Client.CLI (configurationOptionsParser)
 import           Pos.Launcher (ConfigurationOptions)
 
+#ifdef VERSION_everything
+import           Paths_everything (version)
+#else
 import           Paths_cardano_sl (version)
+#endif
 
 data KeygenOptions = KeygenOptions
     { koCommand              :: KeygenCommand
@@ -127,8 +132,7 @@ keysBySpecParser = do
         long    "file-pattern" <>
         metavar "PATTERN" <>
         value   "key{}.sk" <>
-        help    "Filename pattern for generated keyfiles \
-                \(`{}` is a place for number). E.g. key{}.sk"
+        help    "Filename pattern for generated keyfiles (`{}` is a place for number). E.g. key{}.sk"
     pure $ GenKeysOptions {..}
 
 getKeygenOptions :: IO KeygenOptions

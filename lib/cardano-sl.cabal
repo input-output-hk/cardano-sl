@@ -287,6 +287,7 @@ test-suite cardano-test
                        Test.Pos.MerkleSpec
                        Test.Pos.Infra.Slotting.TypesSpec
                        Test.Pos.Types.BlockSpec
+                       Test.Pos.Types.Golden.SafeCopy
                        Test.Pos.Types.Identity.SafeCopySpec
                        Test.Pos.Types.Identity.ShowReadSpec
                        Test.Pos.Update.Identity.SafeCopySpec
@@ -321,6 +322,7 @@ test-suite cardano-test
                      , cardano-sl-util
                      , cardano-sl-util-test
                      , cborg
+                     , cereal
                      , containers
                      , cryptonite
                      , data-default
@@ -330,6 +332,7 @@ test-suite cardano-test
                      , fmt
                      , formatting
                      , generic-arbitrary
+                     , hedgehog
                      , hspec
                      , lens
                      , log-warper

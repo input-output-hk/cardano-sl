@@ -48,6 +48,7 @@ specBody pm = withProvidedMagicConfig pm $ describe "Types" $ do
         safeCopyTest @Core.SlotId
         safeCopyTest @Core.Coin
         safeCopyTest @Core.Address
+        safeCopyTest @Core.Address'
         safeCopyTest @Core.SharedSeed
         safeCopyTest @Core.ChainDifficulty
         safeCopyTest @Core.VssCertificate

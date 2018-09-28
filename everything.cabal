@@ -1068,6 +1068,8 @@ executable cardano-sl-verification-bench-exe
     main-is: VerificationBench.hs
     build-tools: cpphs >=1.19
     hs-source-dirs: ./generator/app
+    other-modules:
+        Paths_everything
     default-language: Haskell2010
     default-extensions: DeriveDataTypeable DeriveGeneric
                         GeneralizedNewtypeDeriving StandaloneDeriving FlexibleContexts
@@ -1101,6 +1103,8 @@ executable cardano-sl-verification-bench-exe
 executable discovery
     main-is: Discovery.hs
     hs-source-dirs: ./networking/examples
+    other-modules:
+        Paths_everything
     default-language: Haskell2010
     default-extensions: DeriveDataTypeable DeriveGeneric
                         GeneralizedNewtypeDeriving OverloadedStrings MonadFailDesugaring
@@ -1119,6 +1123,8 @@ executable discovery
 executable ping-pong
     main-is: PingPong.hs
     hs-source-dirs: ./networking/examples
+    other-modules:
+        Paths_everything
     default-language: Haskell2010
     default-extensions: DeriveGeneric DeriveDataTypeable
                         GeneralizedNewtypeDeriving OverloadedStrings MonadFailDesugaring
@@ -1139,6 +1145,7 @@ executable bench-sender
     hs-source-dirs: ./networking/bench/Sender
     other-modules:
         SenderOptions
+        Paths_everything
     default-language: Haskell2010
     default-extensions: OverloadedStrings DeriveDataTypeable
                         GeneralizedNewtypeDeriving MonadFailDesugaring
@@ -1168,6 +1175,7 @@ executable bench-receiver
     hs-source-dirs: ./networking/bench/Receiver
     other-modules:
         ReceiverOptions
+        Paths_everything
     default-language: Haskell2010
     default-extensions: OverloadedStrings DeriveDataTypeable
                         GeneralizedNewtypeDeriving MonadFailDesugaring
@@ -1191,6 +1199,7 @@ executable bench-log-reader
     hs-source-dirs: ./networking/bench/LogReader
     other-modules:
         LogReaderOptions
+        Paths_everything
     default-language: Haskell2010
     default-extensions: OverloadedStrings DeriveDataTypeable
                         GeneralizedNewtypeDeriving MonadFailDesugaring
@@ -1218,6 +1227,8 @@ executable dbgen
     main-is: Main.hs
     build-tools: cpphs >=1.19
     hs-source-dirs: ./tools/src/dbgen
+    other-modules:
+        Paths_everything
     default-language: Haskell2010
     default-extensions: DeriveDataTypeable DeriveGeneric
                         GeneralizedNewtypeDeriving StandaloneDeriving FlexibleContexts
@@ -1251,11 +1262,12 @@ executable dbgen
 executable cardano-genupdate
     main-is: Main.hs
     hs-source-dirs: ./tools/src/genupdate
+    other-modules:
+        Paths_everything
     default-language: Haskell2010
     default-extensions: OverloadedStrings NoImplicitPrelude
                         BangPatterns ApplicativeDo ScopedTypeVariables MonadFailDesugaring
     ghc-options: -threaded -Wall -O2
-    other-modules: Paths_everything
     build-depends:
         base -any,
         ansi-wl-pprint -any,
@@ -1282,6 +1294,7 @@ executable cardano-keygen
     other-modules:
         KeygenOptions
         Dump
+        Paths_everything
     default-language: Haskell2010
     default-extensions: DeriveDataTypeable DeriveGeneric
                         GeneralizedNewtypeDeriving StandaloneDeriving FlexibleContexts
@@ -1320,6 +1333,8 @@ executable cardano-keygen
 executable cardano-launcher
     main-is: Main.hs
     hs-source-dirs: ./tools/src/launcher
+    other-modules:
+        Paths_everything
     default-language: Haskell2010
     default-extensions: OverloadedStrings TupleSections
                         TypeApplications BangPatterns ScopedTypeVariables
@@ -1365,6 +1380,8 @@ executable cardano-launcher
 executable cardano-addr-convert
     main-is: Main.hs
     hs-source-dirs: ./tools/src/addr-convert
+    other-modules:
+        Paths_everything
     default-language: Haskell2010
     default-extensions: DeriveDataTypeable DeriveGeneric
                         GeneralizedNewtypeDeriving StandaloneDeriving FlexibleContexts
@@ -1391,6 +1408,8 @@ executable cardano-cli-docs
     main-is: Main.hs
     build-tools: cpphs >=1.19
     hs-source-dirs: ./tools/src/cli-docs
+    other-modules:
+        Paths_everything
     default-language: Haskell2010
     default-extensions: NoImplicitPrelude BangPatterns
                         OverloadedStrings ApplicativeDo ScopedTypeVariables
@@ -1434,6 +1453,7 @@ executable cardano-post-mortem
         Util.Aeson
         Util.Pipes
         Util.Safe
+        Paths_everything
     default-language: Haskell2010
     default-extensions: DeriveDataTypeable DeriveGeneric
                         GeneralizedNewtypeDeriving StandaloneDeriving FlexibleContexts
@@ -1487,6 +1507,7 @@ executable cardano-blockchain-analyser
         Options
         Types
         Rendering
+        Paths_everything
     default-language: Haskell2010
     default-extensions: NoImplicitPrelude OverloadedStrings
                         TypeApplications ScopedTypeVariables FlexibleContexts
@@ -1520,6 +1541,8 @@ executable cardano-blockchain-analyser
 executable cardano-x509-certificates
     main-is: Main.hs
     hs-source-dirs: ./tools/src/gencerts
+    other-modules:
+        Paths_everything
     default-language: Haskell2010
     default-extensions: DeriveGeneric NoImplicitPrelude
                         OverloadedStrings TupleSections TypeApplications
@@ -1534,6 +1557,8 @@ executable cardano-x509-certificates
 executable genesis-hash
     main-is: Main.hs
     hs-source-dirs: ./tools/src/genesis-hash
+    other-modules:
+        Paths_everything
     default-language: Haskell2010
     ghc-options: -threaded -rtsopts -Wall -O2
     build-depends:
@@ -1554,6 +1579,8 @@ executable genesis-hash
 executable cardano-node
     main-is: Main.hs
     hs-source-dirs: ./wallet-new/server
+    other-modules:
+        Paths_everything
     default-language: Haskell2010
     default-extensions: TypeOperators DataKinds DefaultSignatures
                         NoImplicitPrelude MultiParamTypeClasses OverloadedStrings
@@ -1571,6 +1598,8 @@ executable cardano-node
 executable cardano-generate-swagger-file
     main-is: Main.hs
     hs-source-dirs: ./wallet-new/generate-swagger-file
+    other-modules:
+        Paths_everything
     default-language: Haskell2010
     default-extensions: RecordWildCards NoImplicitPrelude
                         OverloadedStrings TypeApplications ScopedTypeVariables
@@ -1600,6 +1629,7 @@ executable wal-integr-test
         AddressSpecs
         TransactionSpecs
         QuickCheckSpecs
+        Paths_everything
     default-language: Haskell2010
     default-extensions: TypeOperators DataKinds DefaultSignatures
                         NoImplicitPrelude MultiParamTypeClasses OverloadedStrings
@@ -1613,6 +1643,7 @@ executable wal-integr-test
         aeson -any,
         aeson-diff -any,
         aeson-pretty -any,
+        async -any,
         bytestring -any,
         containers -any,
         exceptions -any,

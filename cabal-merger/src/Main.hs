@@ -123,6 +123,7 @@ exeFilter :: State -> Executable -> Executable
 exeFilter result exe = exe {
   buildInfo = (buildInfo exe) {
     targetBuildDepends = (filter (libFilter result) (targetBuildDepends (buildInfo exe))) <> [ Dependency "everything" anyVersion ]
+  , otherModules = (otherModules (buildInfo exe)) <> [ "Paths_everything" ]
   }
 }
 

@@ -215,15 +215,21 @@ applyBlock pw@PassiveWallet{..} b = do
                     -> ExceptT (NonEmptyMap HdAccountId ApplyBlockFailed) IO ()
       applyOneBlock k accts b' = ExceptT $ do
           ((ctxt, blocksByAccount), metas) <- prefilterBlock' pw b'
-          -- apply block to all Accounts in all Wallets
-          mConfirmed <- update' _wallets $ ApplyBlock k ctxt accts blocksByAccount
-          case mConfirmed of
-              Left  errs      -> return (Left errs)
-              Right confirmed -> do
-                  modifyMVar_ _walletSubmission (return . Submission.remPending confirmed)
-                  mapM_ (putTxMeta _walletMeta) metas
-                  createCheckpointIfNeeded
-                  return $ Right ()
+          -- apply block to all Accounts in all Wallets, but only if we do
+          -- have matching accounts.
+          case Map.null blocksByAccount of
+               True  -> return $ Right ()
+               False -> do
+                   mConfirmed <-
+                     update' _wallets $ ApplyBlock k ctxt accts blocksByAccount
+                   case mConfirmed of
+                       Left  errs      -> return (Left errs)
+                       Right confirmed -> do
+                           modifyMVar_ _walletSubmission $
+                               return . Submission.remPending confirmed
+                           mapM_ (putTxMeta _walletMeta) metas
+                           createCheckpointIfNeeded
+                           return $ Right ()
 
       -- Determine if a failure in 'ApplyBlock' was due to the account being ahead, behind,
       -- or incomparable with the provided block.

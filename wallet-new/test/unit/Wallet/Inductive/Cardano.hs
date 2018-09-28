@@ -310,8 +310,8 @@ equivalentT useWW activeWallet esk = \mkWallet w ->
     walletSwitchToForkT ctxt accountId _n bs = do
         -- We assume the wallet is not in restoration mode
         let rbs@(oldest:_) = map fromRawResolvedBlock (toList bs)
-            hh = _fromDb <$> (oldest ^. DB.rbContext . DB.bcPrevMain)
-        liftIO $ Kernel.switchToFork passiveWallet hh rbs
+            bh = _fromDb <$> (oldest ^. DB.rbContext . DB.bcPrevMainHeight)
+        liftIO $ Kernel.switchToFork passiveWallet bh rbs
         checkWalletState ctxt accountId
 
     checkWalletState :: InductiveCtxt h

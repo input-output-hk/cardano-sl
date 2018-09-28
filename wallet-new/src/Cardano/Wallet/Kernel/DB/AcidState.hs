@@ -234,9 +234,10 @@ cancelPending cancelled = void . runUpdate' . zoom dbHdWallets $
 -- * For every address encountered in the block outputs, create an HdAddress if
 --   it does not already exist.
 --
--- * 'applyBlock' should be called /even if the map of prefiltered blocks is
---   empty/. This is important because for blocks that don't change we still
---   need to push a new checkpoint.
+-- * 'applyBlock' should NOT be called if the map of prefiltered blocks is
+--   empty. This is because we perform rollbacks based on a target blockchain
+--   height, and thus we don't require linear succession of checkpoints to
+--   be stored in memory. This allows for sparse checkpoints.
 applyBlock :: SecurityParameter
            -> BlockContext
            -> Maybe (Set HdAccountId)

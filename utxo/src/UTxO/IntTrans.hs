@@ -41,7 +41,8 @@ import           Pos.Chain.Lrc (followTheSatoshi)
 import           Pos.Chain.Txp (Tx (..), TxAux (..), TxIn (..), TxOut (..),
                      txInputs, txOutStake, txOutputs)
 import           Pos.Client.Txp.Util (TxError (..))
-import           Pos.Core (ProtocolConstants, SlotId (..))
+import           Pos.Core (ChainDifficulty, ProtocolConstants, SlotId (..),
+                     difficultyL)
 import           Pos.Core.Common (Coin, SharedSeed (..), SlotLeaders,
                      StakeholderId, StakesList, StakesMap, addCoin, subCoin)
 import           Pos.Core.Slotting (EpochIndex (..), crucialSlot)
@@ -117,12 +118,12 @@ instance Buildable IntException where
 -- | Checkpoint (we create one for each block we translate)
 data IntCheckpoint = IntCheckpoint {
       -- | Slot number of this checkpoint
-      icSlotId        :: !SlotId
+      icSlotId          :: !SlotId
 
       -- | Header of the block in this slot
       --
       -- Will be initialized to the header of the genesis block.
-    , icBlockHeader   :: !BlockHeader
+    , icBlockHeader     :: !BlockHeader
 
       -- | The header of the /main/ block in this slot
       --
@@ -130,20 +131,24 @@ data IntCheckpoint = IntCheckpoint {
       -- be set to the header of the EBB.
       --
       -- Set to 'Nothing' for the first checkpoint.
-    , icMainBlockHdr  :: !(Maybe HeaderHash)
+    , icMainBlockHdr    :: !(Maybe HeaderHash)
+
+      -- | The height of the /main/ block in this slot
+      --
+    , icMainBlockHeight :: !(Maybe ChainDifficulty)
 
        -- | The header hash of the previous /main/ block.
-    , icPrevMainHH    :: !(Maybe HeaderHash)
+    , icPrevMainHH      :: !(Maybe HeaderHash)
 
      -- | Slot leaders for the current epoch
-    , icEpochLeaders  :: !SlotLeaders
+    , icEpochLeaders    :: !SlotLeaders
 
       -- | Running stakes
-    , icStakes        :: !StakesMap
+    , icStakes          :: !StakesMap
 
       -- | Snapshot of the stakes at the 'crucial' slot in the current epoch; in
       -- other words, the stakes used to compute the slot leaders for the next epoch.
-    , icCrucialStakes :: !StakesMap
+    , icCrucialStakes   :: !StakesMap
     }
 
 {-------------------------------------------------------------------------------
@@ -198,15 +203,16 @@ mkCheckpoint prev slot block inputs = do
     let isCrucial = slot == crucialSlot dummyK (siEpoch slot)
     newStakes <- updateStakes gs block inputs (icStakes prev)
     return IntCheckpoint {
-        icSlotId        = slot
-      , icBlockHeader   = BlockHeaderMain $ block ^. gbHeader
-      , icMainBlockHdr  = Just $ headerHash block
-      , icPrevMainHH    = Just $ headerHash (icBlockHeader prev)
-      , icEpochLeaders  = icEpochLeaders prev
-      , icStakes        = newStakes
-      , icCrucialStakes = if isCrucial
-                            then newStakes
-                            else icCrucialStakes prev
+        icSlotId           = slot
+      , icBlockHeader      = BlockHeaderMain $ block ^. gbHeader
+      , icMainBlockHdr     = Just $ headerHash block
+      , icMainBlockHeight  = Just $ block ^. difficultyL
+      , icPrevMainHH       = Just $ headerHash (icBlockHeader prev)
+      , icEpochLeaders     = icEpochLeaders prev
+      , icStakes           = newStakes
+      , icCrucialStakes    = if isCrucial
+                               then newStakes
+                               else icCrucialStakes prev
       }
 
 -- | Update the stakes map as a result of a block.

@@ -17440,6 +17440,89 @@ description = "Cardano SL - Tools";
 license = stdenv.lib.licenses.mit;
 
 }) {};
+"cardano-sl-tools-post-mortem" = callPackage
+({
+  mkDerivation
+, aeson
+, attoparsec
+, base
+, bytestring
+, cardano-sl
+, cardano-sl-chain
+, cardano-sl-core
+, cardano-sl-infra
+, cardano-sl-util
+, cassava
+, Chart
+, Chart-diagrams
+, containers
+, directory
+, fgl
+, filepath
+, foldl
+, graphviz
+, MonadRandom
+, optparse-applicative
+, pipes
+, pipes-bytestring
+, pipes-interleave
+, pipes-safe
+, process
+, random
+, stdenv
+, text
+, time-units
+, universum
+}:
+mkDerivation {
+
+pname = "cardano-sl-tools-post-mortem";
+version = "1.3.0";
+src = ./../tools/post-mortem;
+configureFlags = [
+"--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
+"--ghc-option=-Werror"
+];
+isLibrary = false;
+isExecutable = true;
+executableHaskellDepends = [
+aeson
+attoparsec
+base
+bytestring
+cardano-sl
+cardano-sl-chain
+cardano-sl-core
+cardano-sl-infra
+cardano-sl-util
+cassava
+Chart
+Chart-diagrams
+containers
+directory
+fgl
+filepath
+foldl
+graphviz
+MonadRandom
+optparse-applicative
+pipes
+pipes-bytestring
+pipes-interleave
+pipes-safe
+process
+random
+text
+time-units
+universum
+];
+doHaddock = false;
+description = "Cardano SL - post-mortem tool";
+license = stdenv.lib.licenses.mit;
+
+}) {};
 "cardano-sl-util" = callPackage
 ({
   mkDerivation
@@ -31917,6 +32000,7 @@ license = stdenv.lib.licenses.mit;
   mkDerivation
 , async
 , base
+, bytestring
 , containers
 , directory
 , filepath
@@ -31929,13 +32013,12 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "fsnotify";
-version = "0.2.1.1";
-sha256 = "175a75962ad07c30c031fa8931f8d3e32abc06a96676e73e65cb7207e9d2dc90";
-revision = "1";
-editedCabalFile = "0kag32lqkjmv03bycf6ip2vd6vzpcpq4iqs6ivyjh93v40252xxp";
+version = "0.2.1.2";
+sha256 = "d7cb2fcbb60b1acdb217ecd560ccab98438560cf51310bd7d239ecf2f4f4048d";
 libraryHaskellDepends = [
 async
 base
+bytestring
 containers
 directory
 filepath
@@ -39243,23 +39326,23 @@ license = stdenv.lib.licenses.bsd3;
   mkDerivation
 , async
 , base
+, bytestring
 , containers
-, directory
 , stdenv
 , unix
 }:
 mkDerivation {
 
 pname = "hinotify";
-version = "0.3.9";
-sha256 = "f2480e4c08a516831c2221eebc6a9d3242e892932d9315c34cbe92a101c5df99";
+version = "0.3.10";
+sha256 = "af2b7d5733ab52ca38f0d9aed1ec37304f1d6964caa0fb556b8215858c1d5d9d";
 revision = "1";
-editedCabalFile = "0df5pak0586626k3ryzg2lb26ys562l3i94jr9vpa0krs8iia209";
+editedCabalFile = "07z0n5rvki3w0kjr190bwv7sq8p3myspv8999ilz9rlsqf5a0324";
 libraryHaskellDepends = [
 async
 base
+bytestring
 containers
-directory
 unix
 ];
 doHaddock = false;

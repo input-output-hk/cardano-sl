@@ -4,14 +4,41 @@ build-type:    Simple
 cabal-version: >=1.10
 license:       MIT
 
-executable cabal-merger
+library
   hs-source-dirs: src
+  exposed-modules:     Common
+  default-language:    Haskell2010
+  ghc-options:         -Weverything -Wno-unsafe -Wno-implicit-prelude -Wno-orphans
+  build-depends:       base
+                     , Cabal == 1.20.* || == 1.24.* || >= 2.2
+                     , system-filepath
+                     , text
+                     , containers
+
+executable cabal-merger
+  hs-source-dirs: cabal-merger
   build-depends:       base
                      , Cabal == 1.20.* || == 1.24.* || >= 2.2
                      , containers
                      , system-filepath
                      , text
-  default-extensions:  OverloadedStrings
+                     , cabal-merger
   main-is:             Main.hs
   default-language:    Haskell2010
-  ghc-options:         -Weverything -Wno-unsafe
+  ghc-options:         -Weverything -Wno-unsafe -Wno-implicit-prelude -Wno-orphans
+
+executable cabal-to-snack
+  hs-source-dirs:   cabal-to-snack
+  build-depends:       base
+                     , hnix
+                     , serialise
+                     , data-fix
+                     , megaparsec
+                     , cabal-merger
+                     , text
+                     , containers
+                     , Cabal == 1.20.* || == 1.24.* || >= 2.2
+                     , system-filepath
+  main-is:             Main.hs
+  default-language:    Haskell2010
+  ghc-options:         -Weverything -Wno-unsafe -Wno-implicit-prelude -Wno-orphans

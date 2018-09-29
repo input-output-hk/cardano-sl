@@ -73,9 +73,10 @@ let
     name = "updateEverythingCabal";
     buildInputs = [ pkgs.cabal2nix ];
     shellHook = ''
-      cp ${cardanoPkgs.everythingCabal} everything.cabal
+      cp ${cardanoPkgs.mergedResults}/everything.cabal .
+      cp ${cardanoPkgs.mergedResults}/snack.nix .
+      chmod +w everything.cabal snack.nix
       cabal2nix ./. > everything.nix
-      cabal2nix cabal://Cabal-2.2.0.0 > cabal-merger/cabal.nix
       exit
     '';
   };

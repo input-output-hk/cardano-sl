@@ -10,7 +10,7 @@
 , concurrent-extra, conduit, connection, constraints, containers
 , contravariant, cpphs, cryptonite, cryptonite-openssl
 , data-default, data-default-class, deepseq, deriving-compat
-, digest, directory, dlist, dns, ekg-core, ekg-statsd, ekg-wai
+, digest, directory, dlist, dns, ekg, ekg-core, ekg-statsd, ekg-wai
 , ether, exceptions, extra, file-embed, filelock, filepath, fmt
 , foldl, formatting, free, generic-arbitrary, generics-sop, Glob
 , half, hashable, hedgehog, hourglass, hspec, hspec-core
@@ -35,9 +35,10 @@
 , text, th-lift-instances, th-utilities, these, time, time-units
 , tls, transformers, transformers-base, transformers-lift, trifecta
 , universum, unix, unix-compat, unliftio, unliftio-core
-, unordered-containers, vector, wai, wai-middleware-throttle
-, wai-websockets, warp, warp-tls, websockets, x509, x509-store
-, x509-validation, yaml
+, unordered-containers, vector, wai, wai-app-static, wai-cors
+, wai-extra, wai-middleware-throttle, wai-websockets, warp
+, warp-tls, websockets, wreq, x509, x509-store, x509-validation
+, yaml
 }:
 mkDerivation {
   pname = "everything";
@@ -75,8 +76,8 @@ mkDerivation {
     th-lift-instances th-utilities these time time-units tls
     transformers transformers-base transformers-lift trifecta universum
     unix unliftio unliftio-core unordered-containers vector wai
-    wai-middleware-throttle wai-websockets warp warp-tls websockets
-    x509 x509-store x509-validation yaml
+    wai-app-static wai-middleware-throttle wai-websockets warp warp-tls
+    websockets wreq x509 x509-store x509-validation yaml
   ];
   executableHaskellDepends = [
     aeson aeson-diff aeson-options aeson-pretty ansi-wl-pprint async
@@ -84,14 +85,15 @@ mkDerivation {
     cardano-report-server cardano-sl cardano-sl-binary cardano-sl-chain
     cardano-sl-core cardano-sl-crypto cardano-sl-db cardano-sl-util
     containers contravariant cryptonite data-default deepseq directory
-    exceptions filepath formatting Glob hspec http-client http-types
-    lens lifted-async MonadRandom mtl neat-interpolation
-    network-transport network-transport-tcp optparse-applicative
-    optparse-generic pretty-show process QuickCheck random
-    safe-exceptions serokell-util servant servant-client
-    servant-quickcheck servant-server silently stm swagger2 tabl tar
-    text time time-units universum unix unix-compat
-    unordered-containers x509-store yaml
+    ekg ekg-core ekg-statsd exceptions filepath formatting Glob hspec
+    http-client http-types lens lifted-async log-warper mmorph
+    MonadRandom mtl neat-interpolation network-transport
+    network-transport-tcp optparse-applicative optparse-generic
+    pretty-show process QuickCheck random safe-exceptions serokell-util
+    servant servant-client servant-quickcheck servant-server silently
+    stm swagger2 tabl tar text time time-units universum unix
+    unix-compat unordered-containers wai wai-cors wai-extra warp
+    x509-store yaml
   ];
   testHaskellDepends = [
     acid-state aeson async base base16-bytestring binary bytestring

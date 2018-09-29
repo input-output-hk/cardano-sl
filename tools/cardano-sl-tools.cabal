@@ -150,6 +150,8 @@ executable cardano-keygen
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -O2
+                       -pgmP cpphs -optP --cpp
+  build-tools: cpphs >= 1.19
 
   -- linker speed up for linux
   if os(linux)

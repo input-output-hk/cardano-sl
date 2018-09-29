@@ -32,6 +32,15 @@ flag postmortem
 library
     exposed-modules:
         Bench.Network.Commons
+        Cardano.Faucet
+        Cardano.Faucet.Endpoints
+        Cardano.Faucet.Init
+        Cardano.Faucet.Metrics
+        Cardano.Faucet.Swagger
+        Cardano.Faucet.Types
+        Cardano.Faucet.Types.API
+        Cardano.Faucet.Types.Config
+        Cardano.Faucet.Types.Recaptcha
         Cardano.NodeIPC
         Cardano.Wallet.API
         Cardano.Wallet.API.Indices
@@ -177,6 +186,7 @@ library
         Cardano.Wallet.WalletLayer.Kernel.Settings
         Cardano.Wallet.WalletLayer.Kernel.Transactions
         Cardano.Wallet.WalletLayer.Kernel.Wallets
+        Cardano.WalletClient
         Cardano.X509.Configuration
         Data.Validated
         Data.X509.Extra
@@ -609,9 +619,9 @@ library
         UTxO.Verify
     hs-source-dirs: acid-state-exts/src binary/src binary/test
                     chain/src chain/test client/src core/src core/test crypto
-                    crypto/test db/src db/test generator/src infra/src infra/test
-                    lib/src networking/src node-ipc/src tools/src util/src util/test
-                    utxo/src wallet-new/src wallet/src wallet/test x509/src
+                    crypto/test db/src db/test faucet/src generator/src infra/src
+                    infra/test lib/src networking/src node-ipc/src tools/src util/src
+                    util/test utxo/src wallet-new/src wallet/src wallet/test x509/src
     other-modules:
         Data.NonEmptySet
         Pos.Binary.Class.Core
@@ -957,7 +967,7 @@ library
         katip -any,
         lens -any,
         lifted-async -any,
-        log-warper >=1.8,
+        log-warper -any,
         lrucache -any,
         lzma-conduit -any,
         megaparsec -any,
@@ -994,11 +1004,11 @@ library
         semver -any,
         serokell-util -any,
         servant >=0.8.1,
-        servant-client >=0.8.1,
-        servant-client-core >=0.8.1,
+        servant-client -any,
+        servant-client-core -any,
         servant-generic -any,
         servant-multipart >=0.10,
-        servant-server >=0.8.1,
+        servant-server -any,
         servant-swagger -any,
         servant-swagger-ui -any,
         servant-swagger-ui-core -any,
@@ -1029,11 +1039,13 @@ library
         unordered-containers -any,
         vector -any,
         wai -any,
+        wai-app-static -any,
         wai-middleware-throttle -any,
         wai-websockets -any,
         warp -any,
         warp-tls -any,
         websockets -any,
+        wreq -any,
         x509 -any,
         x509-store -any,
         x509-validation -any,
@@ -1063,6 +1075,39 @@ library
     if !os(windows)
         build-depends:
             unix -any
+
+executable cardano-faucet
+    main-is: Main.hs
+    hs-source-dirs: ./faucet/server
+    other-modules:
+        Paths_everything
+    default-language: Haskell2010
+    default-extensions: NoImplicitPrelude
+    ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall
+    build-depends:
+        base -any,
+        aeson -any,
+        bytestring -any,
+        ekg -any,
+        ekg-core -any,
+        ekg-statsd -any,
+        exceptions -any,
+        lens -any,
+        log-warper -any,
+        mmorph -any,
+        mtl -any,
+        optparse-applicative -any,
+        safe-exceptions -any,
+        servant -any,
+        servant-client -any,
+        servant-server -any,
+        text -any,
+        universum -any,
+        wai -any,
+        wai-cors -any,
+        wai-extra -any,
+        warp -any,
+        everything -any
 
 executable cardano-sl-verification-bench-exe
     main-is: VerificationBench.hs
@@ -1290,6 +1335,7 @@ executable cardano-genupdate
 
 executable cardano-keygen
     main-is: Main.hs
+    build-tools: cpphs >=1.19
     hs-source-dirs: ./tools/src/keygen
     other-modules:
         KeygenOptions
@@ -1303,7 +1349,7 @@ executable cardano-keygen
                         TypeApplications TupleSections ViewPatterns LambdaCase MultiWayIf
                         ConstraintKinds UndecidableInstances BangPatterns
                         ScopedTypeVariables MonadFailDesugaring
-    ghc-options: -threaded -rtsopts -Wall -O2
+    ghc-options: -threaded -rtsopts -Wall -O2 -pgmP cpphs -optP "--cpp"
     build-depends:
         everything -any
     
@@ -1938,6 +1984,24 @@ test-suite db-test
         hedgehog -any,
         lens -any,
         temporary -any,
+        universum -any,
+        everything -any
+
+test-suite faucet-test
+    type: exitcode-stdio-1.0
+    main-is: Spec.hs
+    hs-source-dirs: ./faucet/test
+    default-language: Haskell2010
+    default-extensions: NoImplicitPrelude
+    ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall
+    build-depends:
+        base -any,
+        QuickCheck -any,
+        aeson -any,
+        bytestring -any,
+        hspec -any,
+        mtl -any,
+        time -any,
         universum -any,
         everything -any
 

@@ -5004,8 +5004,8 @@ version = "0.15.0";
 src = fetchgit {
 
 url = "https://github.com/parsonsmatt/acid-state";
-sha256 = "0a0j3wx0zycb8r4ng8i7s99868vd6q2q39m81wpl3n05sxmlgkfm";
-rev = "63ac55ae020655104936d8a90ccc6a939642cd0d";
+sha256 = "0mgdk8252g7wbb0afyn21pcn3bwh4vainy3h2d0xsv4hlpgqgnw8";
+rev = "a1b23e2056f134e53f705a694ab85deeecabec5c";
 
 };
 libraryHaskellDepends = [

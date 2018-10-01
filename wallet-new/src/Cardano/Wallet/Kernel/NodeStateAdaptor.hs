@@ -20,6 +20,7 @@ module Cardano.Wallet.Kernel.NodeStateAdaptor (
     -- * Specific queries
   , getTipSlotId
   , getSecurityParameter
+  , withinK
   , getMaxTxSize
   , getFeePolicy
   , getSlotCount
@@ -244,6 +245,9 @@ data NodeStateAdaptor m = Adaptor {
       -- | Get the security parameter (@k@)
     , getSecurityParameter :: m SecurityParameter
 
+      -- | Are we within @k@ slots from the tip?
+    , withinK :: LockContext -> m Bool
+
       -- | Get number of slots per epoch
       --
       -- This can be used as an input to 'flattenSlotIdExplicit'.
@@ -384,7 +388,8 @@ newNodeStateAdaptor genesisConfig nr ntpStatus = Adaptor
     , getSlotStart             = \slotId -> run $ \_lock -> defaultGetSlotStart slotId
     , getNextEpochSlotDuration =            run $ \_lock -> defaultGetNextEpochSlotDuration
     , getNodeSyncProgress      = \lockCtx -> run $ defaultSyncProgress lockCtx
-    , getSecurityParameter     = return . SecurityParameter $ configK genesisConfig
+    , getSecurityParameter     = return $ defaultSecurityParameter genesisConfig
+    , withinK                  = \lockCtx -> run $ defaultWithinK genesisConfig lockCtx
     , getSlotCount             = return $ configEpochSlots genesisConfig
     , getCoreConfig            = return genesisConfig
     , curSoftwareVersion       = return $ Upd.curSoftwareVersion
@@ -444,6 +449,24 @@ defaultGetSlotStart slotId =
 
 defaultGetNextEpochSlotDuration :: MonadIO m => WithNodeState m Millisecond
 defaultGetNextEpochSlotDuration = Slotting.getNextEpochSlotDuration
+
+defaultSecurityParameter :: Config -> SecurityParameter
+defaultSecurityParameter = SecurityParameter . configK
+
+-- | Computes whether or not we are within @k@ blocks from the tip of the
+-- blockchain, where @k@ is the security parameter.
+defaultWithinK :: (MonadIO m, MonadMask m, NodeConstraints)
+               => Config
+               -> LockContext
+               -> Lock (WithNodeState m)
+               -> WithNodeState m Bool
+defaultWithinK genesisConfig lockContext lock = do
+    (globalHeight, localHeight) <- defaultSyncProgress lockContext lock
+    return $ case globalHeight of
+         Nothing      -> False
+         Just gHeight ->
+           let (SecurityParameter k) = defaultSecurityParameter genesisConfig
+           in gHeight - localHeight < fromIntegral k
 
 defaultSyncProgress :: (MonadIO m, MonadMask m, NodeConstraints)
                     => LockContext
@@ -601,6 +624,7 @@ mockNodeState MockNodeStateParams{..} =
           withNodeState            = \_ -> throwM $ NodeStateUnavailable callStack
         , getTipSlotId             = return mockNodeStateTipSlotId
         , getSecurityParameter     = return mockNodeStateSecurityParameter
+        , withinK                  = \_ -> return mockNodeStateWithinK
         , getNextEpochSlotDuration = return mockNodeStateNextEpochSlotDuration
         , getNodeSyncProgress      = \_ -> return mockNodeStateSyncProgress
         , getSlotStart             = return . mockNodeStateSlotStart
@@ -631,6 +655,9 @@ data MockNodeStateParams = NodeConstraints => MockNodeStateParams {
 
         -- | Value for 'getSecurityParameter'
       , mockNodeStateSecurityParameter :: SecurityParameter
+
+        -- | Value for 'withinK'
+      , mockNodeStateWithinK :: Bool
 
         -- | Value for 'getNextEpochSlotDuration'
       , mockNodeStateNextEpochSlotDuration :: Millisecond
@@ -666,6 +693,7 @@ defMockNodeStateParams =
         , mockNodeStateNextEpochSlotDuration = notDefined "mockNodeStateNextEpochSlotDuration"
         , mockNodeStateSyncProgress          = notDefined "mockNodeStateSyncProgress"
         , mockNodeStateSecurityParameter     = SecurityParameter 2160
+        , mockNodeStateWithinK               = True
         , mockNodeStateNtpDrift              = const (V1.TimeInfo Nothing)
         , mockNodeStateCreationTimestamp     = getSomeTimestamp
         }

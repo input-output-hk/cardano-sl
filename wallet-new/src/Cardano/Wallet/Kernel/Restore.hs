@@ -51,6 +51,7 @@ import           Cardano.Wallet.Kernel.NodeStateAdaptor (Lock, LockContext (..),
                      defaultGetSlotStart, filterUtxo, getCoreConfig,
                      getSecurityParameter, getSlotCount, mostRecentMainBlock,
                      withNodeState)
+import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as Node
 import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId,
                      PrefilteredBlock, UtxoWithAddrId, WalletKey,
                      prefilterBlock, prefilterUtxo', toHdAddressId,
@@ -401,10 +402,32 @@ restoreWalletHistoryAsync wallet rootId prefilter progress start (tgtHash, tgtSl
             (prefilteredBlocks, txMetas) <- prefilter blund
 
             -- Apply the block
-            k    <- getSecurityParameter (wallet ^. walletNode)
+            k        <- getSecurityParameter (wallet ^. walletNode)
+            withinK  <- Node.withinK (wallet ^. walletNode) AlreadyLocked
             ctxt <- withNode $ mainBlockContext genesisHash mb
-            mErr <- update (wallet ^. wallets) $
-                   ApplyHistoricalBlock k ctxt rootId prefilteredBlocks
+            -- * When we have to apply an historical block, if this block is
+            --   relevant to any of our accounts, do apply it. This means
+            --   if we need to resume, we resume from this last checkpoint.
+            --
+            -- * If the block is not relevant to us, /if/
+            --   `reselved_block_height `mod` 10000 == 0` do apply it. This means
+            --   roughly we will apply at least one historical checkpoint every 10k blocks,
+            --   which means we have at least /some/ anchor point in case we need
+            --   to resume (here 10k can be tweaked at leisure).
+            --
+            -- * If the block is not relevant to us but we are within `k` blocks,
+            --   we apply it. Albeit this is potentiall not necessary as we support
+            --   rollbacks on sparse checkpoint, it simplify certain operations and
+            --   gives the whole checkpoint system more linearity.
+            let updateAll = update (wallet ^. wallets) $
+                                ApplyHistoricalBlock k ctxt rootId prefilteredBlocks
+            mErr <- case M.null prefilteredBlocks of
+               True | not withinK ->
+                   if ctxt ^. bcHeight . fromDb `mod` 10000 == 0
+                      then updateAll
+                      else return $ Right ()
+               _ -> updateAll
+
             case mErr of
                 Left err -> throwM $ RestorationApplyHistoricalBlockFailed err
                 Right () -> return ()

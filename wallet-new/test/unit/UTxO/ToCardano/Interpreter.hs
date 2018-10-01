@@ -121,13 +121,14 @@ initIntCtxt boot = do
              , tmHash = error "initIntCtxt: bootstrap transaction has no Cardano hash"
              }
         , _icCheckpoints = IntCheckpoint {
-              icSlotId        = translateFirstSlot
-            , icBlockHeader   = genesis
-            , icMainBlockHdr  = Nothing
-            , icPrevMainHH    = Nothing
-            , icEpochLeaders  = leaders
-            , icStakes        = initStakes
-            , icCrucialStakes = initStakes
+              icSlotId           = translateFirstSlot
+            , icBlockHeader      = genesis
+            , icMainBlockHdr     = Nothing
+            , icMainBlockHeight  = Nothing
+            , icPrevMainHH       = Nothing
+            , icEpochLeaders     = leaders
+            , icStakes           = initStakes
+            , icCrucialStakes    = initStakes
             } :| []
         }
 
@@ -449,9 +450,11 @@ instance DSL.Hash h Addr => Interpret DSL2Cardano h (DSL.Block h Addr) where
                    txs'
         let currentTime = getSomeTimestamp
         let ctxt = BlockContext {
-                       _bcSlotId   = InDb  $  slot
-                     , _bcHash     = InDb  $  headerHash block
-                     , _bcPrevMain = InDb <$> icMainBlockHdr prev
+                       _bcSlotId         = InDb  $  slot
+                     , _bcHash           = InDb  $  headerHash block
+                     , _bcHeight         = InDb  $  block ^. difficultyL
+                     , _bcPrevMain       = InDb <$> icMainBlockHdr prev
+                     , _bcPrevMainHeight = InDb <$> icMainBlockHeight prev
                      }
         let raw = mkRawResolvedBlock block resolvedTxInputs currentTime ctxt
         checkpoint <- mkCheckpoint prev slot block (fmap toaOut <$> resolvedTxInputs)

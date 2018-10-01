@@ -27,11 +27,11 @@ import qualified Formatting.Buildable
 import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Genesis (Config (..))
 import           Pos.Chain.Txp (TxId)
-import           Pos.Core (getSlotIndex, siSlotL)
+import           Pos.Core (ChainDifficulty, getSlotIndex, siSlotL)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.DB.Block (getBlund)
-import           Pos.Util.Log (Severity (Info, Warning))
+import           Pos.Util.Log (Severity (Debug, Info, Warning))
 
 import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..),
                      ObservableRollbackUseInTestsOnly (..), SwitchToFork (..),
@@ -136,8 +136,10 @@ applyBlock :: PassiveWallet
            -> ResolvedBlock
            -> IO ()
 applyBlock pw@PassiveWallet{..} b = do
-    k <- Node.getSecurityParameter _walletNode
-    runExceptT (applyOneBlock k Nothing b) >>= either (handleApplyBlockErrors k) pure
+    k       <- Node.getSecurityParameter _walletNode
+    withinK <- Node.withinK _walletNode Node.AlreadyLocked
+    runExceptT (applyOneBlock k withinK Nothing b)
+        >>= either (handleApplyBlockErrors k withinK) pure
 
   where
       -- | Interim fix, see CBR-438 and
@@ -165,9 +167,10 @@ applyBlock pw@PassiveWallet{..} b = do
               createCheckpoint _wallets
 
       handleApplyBlockErrors :: Node.SecurityParameter
+                             -> Bool
                              -> NonEmptyMap HdAccountId ApplyBlockFailed
                              -> IO ()
-      handleApplyBlockErrors k errs = do
+      handleApplyBlockErrors k withinK errs = do
           -- If we could not apply this block to all accounts in all wallets, there are
           -- three things that could have gone wrong:
           --   1. An account has fallen behind the node and is missing blocks.
@@ -198,32 +201,43 @@ applyBlock pw@PassiveWallet{..} b = do
               restoreKnownWallet pw rootId
 
           -- Beginning with the oldest missing block, update each lagging account.
-          let applyOne (block, toAccts) = runExceptT (applyOneBlock k (Just toAccts) block)
+          let applyOne (block, toAccts) = runExceptT (applyOneBlock k withinK (Just toAccts) block)
           case toApply of
               []       -> return () -- nothing to do!
               (bk:bks) -> do
                   failures <- mapM applyOne (getOldestFirst $ gatherAcctsPerBlock (bk :| bks))
 
                   case NEM.fromMap . Map.unions . map NEM.toMap . lefts $ failures of
-                      Nothing       -> return ()                         -- OK, no failures, we are done!
-                      Just moreErrs -> handleApplyBlockErrors k moreErrs -- Try again, better luck next time.
+                      Nothing       -> return ()                                 -- OK, no failures, we are done!
+                      Just moreErrs -> handleApplyBlockErrors k withinK moreErrs -- Try again, better luck next time.
 
       -- Try to apply a single block, failing if it does not fit onto the most recent checkpoint.
       applyOneBlock :: Node.SecurityParameter
+                    -> Bool
                     -> Maybe (Set HdAccountId)
                     -> ResolvedBlock
                     -> ExceptT (NonEmptyMap HdAccountId ApplyBlockFailed) IO ()
-      applyOneBlock k accts b' = ExceptT $ do
+      applyOneBlock k withinK accts b' = ExceptT $ do
           ((ctxt, blocksByAccount), metas) <- prefilterBlock' pw b'
           -- apply block to all Accounts in all Wallets
-          mConfirmed <- update' _wallets $ ApplyBlock k ctxt accts blocksByAccount
-          case mConfirmed of
-              Left  errs      -> return (Left errs)
-              Right confirmed -> do
-                  modifyMVar_ _walletSubmission (return . Submission.remPending confirmed)
-                  mapM_ (putTxMeta _walletMeta) metas
-                  createCheckpointIfNeeded
-                  return $ Right ()
+          case Map.null blocksByAccount of
+               -- If this 'ResolvedBlock' is not relevant to us @and@ we are
+               -- very far from the tip (more than @k@ blocks) there is no
+               -- point applying this block, even just for the checkpoint, as
+               -- for rollback we can use sparse checkpoints anyway.
+               True | not withinK -> pure $ Right ()
+               _ -> do
+                   _walletLogMessage Debug "applyOneBlock: applying block.."
+                   mConfirmed <-
+                     update' _wallets $ ApplyBlock k ctxt accts blocksByAccount
+                   case mConfirmed of
+                       Left  errs      -> return (Left errs)
+                       Right confirmed -> do
+                           modifyMVar_ _walletSubmission $
+                               return . Submission.remPending confirmed
+                           mapM_ (putTxMeta _walletMeta) metas
+                           createCheckpointIfNeeded
+                           pure $ Right ()
 
       -- Determine if a failure in 'ApplyBlock' was due to the account being ahead, behind,
       -- or incomparable with the provided block.
@@ -301,7 +315,8 @@ applyBlock pw@PassiveWallet{..} b = do
 -- NOTE: The Ouroboros protocol says that this is only valid if the number of
 -- resolved blocks exceeds the length of blocks to roll back.
 switchToFork :: PassiveWallet
-             -> Maybe HeaderHash -- ^ Roll back until we meet this hash.
+             -> Maybe ChainDifficulty
+             -- ^ Roll back until we meet this block height.
              -> [ResolvedBlock] -- ^ Blocks in the new fork
              -> IO ()
 switchToFork pw@PassiveWallet{..} oldest bs = do
@@ -313,11 +328,9 @@ switchToFork pw@PassiveWallet{..} oldest bs = do
 
     -- Update the metadata
     mapM_ (putTxMeta _walletMeta) $ concat metas
-    modifyMVar_ _walletSubmission $
-      return . Submission.addPendings (fst <$> changes)
-    modifyMVar_ _walletSubmission $
+    modifyMVar_ _walletSubmission $ do
       return . Submission.remPending (snd <$> changes)
-    return ()
+             . Submission.addPendings (fst <$> changes)
   where
 
     trySwitchingToFork :: Node.SecurityParameter

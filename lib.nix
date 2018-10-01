@@ -92,4 +92,6 @@ in lib // (rec {
   in pkgs.runCommand name env ''
     ${builtBinary}/bin/$name
   '';
+
+  commitIdFromGitRepo = import ./nix/commit-id.nix { inherit lib; };
 })

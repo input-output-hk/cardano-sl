@@ -38,9 +38,11 @@ import           Pos.Generator.Block (BlockGenParams (..), TxGenParams (..),
                      genBlockNoApply, genBlocks, mkBlockGenContext)
 import           Pos.Launcher.Configuration (ConfigurationOptions (..),
                      HasConfigurations, defaultConfigurationOptions,
-                     withConfigurationsM)
+                     withConfigurations)
 import           Pos.Util.CompileInfo (withCompileInfo)
+import           Pos.Util.Log.LoggerConfig (defaultInteractiveConfiguration)
 import           Pos.Util.Util (realTime)
+import           Pos.Util.Wlog (Severity (Debug), setupLogging)
 
 import           Test.Pos.Block.Logic.Emulation (runEmulation, sudoLiftIO)
 import           Test.Pos.Block.Logic.Mode (BlockTestContext, BlockTestMode,
@@ -220,6 +222,8 @@ verifyHeaderBenchmark !genesisConfig !secretKeys !tp = env (runBlockTestMode gen
 
 runBenchmark :: IO ()
 runBenchmark = do
+    let loggerConfig = defaultInteractiveConfiguration Debug
+    setupLogging "verifyBenchmark" loggerConfig
     startTime <- realTime
     let cfo = defaultConfigurationOptions
             { cfoFilePath = "../lib/configuration.yaml"
@@ -227,7 +231,7 @@ runBenchmark = do
             , cfoSystemStart = Just (Timestamp startTime)
             }
     withCompileInfo
-        $ withConfigurationsM "verifyBenchmark" Nothing Nothing False cfo
+        $ withConfigurations Nothing Nothing False cfo
         $ \genesisConfig _ txpConfig _ -> do
             let tp = TestParams
                     { _tpStartTime = Timestamp (convertUnit startTime)

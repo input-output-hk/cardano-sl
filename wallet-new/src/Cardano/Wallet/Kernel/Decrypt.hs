@@ -25,8 +25,10 @@ decryptHdLvl2DerivationPath :: HDPassphrase
 decryptHdLvl2DerivationPath hdPass addr = do
     hdPayload <- aaPkDerivationPath $ addrAttributesUnwrapped addr
     derPath <- unpackHDAddressAttr hdPass hdPayload
-    guard $ length derPath == 2
-    pure (HdAccountIx (derPath !! 0), HdAddressIx (derPath !! 1))
+    case derPath of
+        [a,b] -> Just (HdAccountIx a, HdAddressIx b)
+        _     -> Nothing
+
 
 
 type WalletDecrCredentials = (HDPassphrase, V1.WalletId)
@@ -63,5 +65,6 @@ decryptAddress :: WalletDecrCredentials -> Address -> Maybe V1.WAddressMeta
 decryptAddress (hdPass, wCId) addr = do
     hdPayload <- aaPkDerivationPath $ addrAttributesUnwrapped addr
     derPath <- unpackHDAddressAttr hdPass hdPayload
-    guard $ length derPath == 2
-    pure $ WAddressMeta wCId (derPath !! 0) (derPath !! 1) (V1 addr)
+    case derPath of
+        [a,b] -> Just $ WAddressMeta wCId a b (V1 addr)
+        _     -> Nothing

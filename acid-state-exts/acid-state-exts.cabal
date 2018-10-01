@@ -36,7 +36,7 @@ Library
   if os(windows)
      Build-depends:       Win32
 
-  Hs-Source-Dirs:      src/
+  Hs-Source-Dirs:      src
 
   default-language:    Haskell2010
   GHC-Options:         -fwarn-unused-imports -fwarn-unused-binds

@@ -33,7 +33,6 @@ executable cabal-to-snack
                      , hnix
                      , serialise
                      , data-fix
-                     , megaparsec
                      , cabal-merger
                      , text
                      , containers

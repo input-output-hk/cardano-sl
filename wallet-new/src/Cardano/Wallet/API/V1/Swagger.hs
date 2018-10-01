@@ -28,7 +28,6 @@ import           Cardano.Wallet.TypeLits (KnownSymbols (..))
 import           Pos.Chain.Update (SoftwareVersion)
 import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
 import           Pos.Util.Servant (CustomQueryFlag, LoggingApi)
-import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
 import           Control.Lens (At, Index, IxValue, at, (?~))
 import           Data.Aeson (encode)

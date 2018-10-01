@@ -233,7 +233,7 @@ library
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-test-suite test
+test-suite chain-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             test.hs

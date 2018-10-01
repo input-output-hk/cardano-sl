@@ -200,7 +200,7 @@ library
   if flag(asserts)
     cpp-options: -DASSERTS_ON
 
-test-suite test
+test-suite core-test
   main-is:             test.hs
   hs-source-dirs:      test
   default-language:    Haskell2010

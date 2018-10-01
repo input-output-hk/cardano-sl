@@ -192,7 +192,7 @@ library
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-test-suite test
+test-suite db-test
   hs-source-dirs:      test
   main-is:             test.hs
   other-modules:       Test.Pos.DB.Epoch.Index

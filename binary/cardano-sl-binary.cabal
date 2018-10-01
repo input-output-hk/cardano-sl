@@ -83,7 +83,7 @@ library
   ghc-options: -pgmP cpphs -optP --cpp
 
 
-test-suite test
+test-suite binary-test
   main-is:             test.hs
   other-modules:
                        Spec

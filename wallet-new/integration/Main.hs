@@ -117,8 +117,8 @@ initialWalletState wc = do
 
 deterministicTests :: WalletRef -> WalletClient IO -> Manager -> Spec
 deterministicTests wref wc manager = do
+    transactionSpecs wref wc
     accountSpecs wref wc
     addressSpecs wref wc
     walletSpecs wref wc
-    transactionSpecs wref wc
     QuickCheck.mkSpec manager

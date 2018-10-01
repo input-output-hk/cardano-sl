@@ -10,6 +10,9 @@ stylish: ## Run stylish-haskell on the entire project
 build-all: ## Build everything, including benchmarks and tests, but don't run them
 	stack build --fast --bench --no-run-benchmarks --test --no-run-tests
 
+build-profile: ## Build with profiling in a special .stack-work directory.
+	stack build --profile --work-dir .stack-work-profile
+
 ghcid: ## Pass DIR=package-directory to run that directory's ghcid command.
 ifeq ($(DIR),)
 	echo "You must specify the package directory for this command."

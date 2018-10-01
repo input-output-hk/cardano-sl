@@ -12,9 +12,8 @@ module Cardano.Wallet.Kernel.BListener (
 import           Universum hiding (State)
 
 import           Control.Concurrent.MVar (modifyMVar_)
-import           Control.Lens (to, _Just)
+import           Control.Lens (_Just)
 import           Control.Monad.Except (throwError)
-import           Data.Acid (createCheckpoint)
 import           Data.Acid.Advanced (update')
 import           Data.List (scanl')
 import qualified Data.List.NonEmpty as NE
@@ -27,11 +26,10 @@ import qualified Formatting.Buildable
 import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Genesis (Config (..))
 import           Pos.Chain.Txp (TxId)
-import           Pos.Core (getSlotIndex, siSlotL)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.DB.Block (getBlund)
-import           Pos.Util.Log (Severity (Info, Warning))
+import           Pos.Util.Log (Severity (..))
 
 import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..),
                      ObservableRollbackUseInTestsOnly (..), SwitchToFork (..),
@@ -138,32 +136,7 @@ applyBlock :: PassiveWallet
 applyBlock pw@PassiveWallet{..} b = do
     k <- Node.getSecurityParameter _walletNode
     runExceptT (applyOneBlock k Nothing b) >>= either (handleApplyBlockErrors k) pure
-
   where
-      -- | Interim fix, see CBR-438 and
-      -- https://github.com/acid-state/acid-state/issues/103. In brief, when
-      -- the note initially syncs and lots of blocks gets passed to the wallet
-      -- worker, a new `ApplyBlock` acidic transaction will be committed on the
-      -- transaction log but not written to disk _yet_ (that's what checkpoints
-      -- are for). However, this might lead to memory leaks if such checkpointing
-      -- step doesn't happen fast enough. Therefore, every time we apply a block,
-      -- we decrement this counter and when it reaches 0, we enforce a new
-      -- checkpoint.
-      createCheckpointIfNeeded :: IO ()
-      createCheckpointIfNeeded = do
-          -- Look at the 'ResolvedBlock' 's 'SlotId', and assess if a new
-          -- checkpoint is needed by doing @localBlockIx `modulo` someConstant@
-          -- where @someConstant@ is chosen to be 1000.
-          let blockSlotIx = b ^. rbContext
-                               . bcSlotId
-                               . fromDb
-                               . siSlotL
-                               . to getSlotIndex
-              checkpointNeeded = (blockSlotIx - 1) `mod` 1000 == 0
-          when checkpointNeeded $ do
-              _walletLogMessage Info "applyBlock: making an acid-state DB checkpoint..."
-              createCheckpoint _wallets
-
       handleApplyBlockErrors :: Node.SecurityParameter
                              -> NonEmptyMap HdAccountId ApplyBlockFailed
                              -> IO ()
@@ -222,7 +195,6 @@ applyBlock pw@PassiveWallet{..} b = do
               Right confirmed -> do
                   modifyMVar_ _walletSubmission (return . Submission.remPending confirmed)
                   mapM_ (putTxMeta _walletMeta) metas
-                  createCheckpointIfNeeded
                   return $ Right ()
 
       -- Determine if a failure in 'ApplyBlock' was due to the account being ahead, behind,

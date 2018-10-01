@@ -1,5 +1,6 @@
 # Cabal & Stack
 .stack-work/
+.stack-work-profile/
 */dist
 dist-newstyle/
 .ghc.environment.*

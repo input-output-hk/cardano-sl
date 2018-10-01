@@ -125,11 +125,11 @@ packages:
       commit: 5d8ff2b07b9df35cf61329a3d975e2c8cf95c12a
   extra-dep: true
 
-# Waiting on the flexible types PR to be merged:
-# https://github.com/acid-state/acid-state/pull/94
+# Waiting on the space leak bug fix PR to be merged:
+# https://github.com/acid-state/acid-state/pull/104
 - location:
     git: https://github.com/parsonsmatt/acid-state
-    commit: 63ac55ae020655104936d8a90ccc6a939642cd0d
+    commit: a1b23e2056f134e53f705a694ab85deeecabec5c
   extra-dep: true
 
 # Required for explorer.

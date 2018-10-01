@@ -14,7 +14,7 @@
 
 - Fix a case where the error reporting system can cause the node to stop syncing. ([#3294](https://github.com/input-output-hk/cardano-sl/pull/3294), CDEC-469, CDEC-439)
 
-- Adjust the address format to distinguish testnet and mainnet addresses. ([#3540](https://github.com/input-output-hk/cardano-sl/pull/3540), [#3556](https://github.com/input-output-hk/cardano-sl/pull/3556), [#3558](https://github.com/input-output-hk/cardano-sl/pull/3558), [#3561](https://github.com/input-output-hk/cardano-sl/pull/3561), [#3578](https://github.com/input-output-hk/cardano-sl/pull/3578), [#3618](https://github.com/input-output-hk/cardano-sl/pull/3618), [#3659](https://github.com/input-output-hk/cardano-sl/pull/3659), CO-353, CO-354)
+- Adjust the address format to distinguish testnet and mainnet addresses. ([#3540](https://github.com/input-output-hk/cardano-sl/pull/3540), [#3556](https://github.com/input-output-hk/cardano-sl/pull/3556), [#3558](https://github.com/input-output-hk/cardano-sl/pull/3558), [#3561](https://github.com/input-output-hk/cardano-sl/pull/3561), [#3578](https://github.com/input-output-hk/cardano-sl/pull/3578), [#3583](https://github.com/input-output-hk/cardano-sl/pull/3583), [#3618](https://github.com/input-output-hk/cardano-sl/pull/3618), [#3659](https://github.com/input-output-hk/cardano-sl/pull/3659), [#3685](https://github.com/input-output-hk/cardano-sl/pull/3685), CO-353, CO-354)
 
 - Add a workaround for the RocksDB issue which prevented Daedalus Windows users with non-ASCII usernames from starting the wallet. ([#3465](https://github.com/input-output-hk/cardano-sl/pull/3465), CBR-391)
 

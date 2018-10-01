@@ -300,7 +300,7 @@ switchToFork k oldest blocksToApply = do
     rollbacks !accNew = do
         curCtx <- use currentContext
         reintroduced <- rollback
-        let acc = Pending.union accNew reintroduced
+        let acc  = Pending.union accNew reintroduced
             prev = join (curCtx <&> _bcPrevMain) <&> _fromDb
 
         case (prev == oldest, prev) of

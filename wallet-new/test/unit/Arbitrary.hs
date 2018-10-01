@@ -26,8 +26,9 @@ instance Arbitrary BlockContext where
     arbitrary = do
         slotId <- slotIdGen
         hh <- arbitrary
-        mhh <- arbitrary
-        pure $ BlockContext (InDb slotId) hh mhh
+        bh <- arbitrary
+        mbh <- arbitrary
+        pure $ BlockContext (InDb slotId) hh bh mbh
 
 slotIdGen :: Gen Core.SlotId
 slotIdGen = do

@@ -5,6 +5,7 @@ module Cardano.Wallet.Kernel.DB.BlockContext (
     -- ** Lenses
   , bcSlotId
   , bcHash
+  , bcHeight
   , bcPrevMain
     -- * Construction
   , mainBlockContext
@@ -36,6 +37,12 @@ data BlockContext = BlockContext {
       -- | Header hash of this block
     , _bcHash     :: !(InDb Core.HeaderHash)
 
+    -- | The height of this block. The height is generally just a number
+    -- measuring how "far" we are from the genesis block. For example, the
+    -- genesis block has an height of 0, the block immediately following it
+    -- 1 etc etc.
+    , _bcHeight   :: !(InDb Core.ChainDifficulty)
+
       -- | Header hash of the previous /main/ block
       --
       -- NOTE: Since this is used in 'applyBlock' to check whether or not
@@ -44,6 +51,7 @@ data BlockContext = BlockContext {
       -- we do some work to figure out what the previous /main/ block was.
       -- See 'mostRecentMainBlock'.
     , _bcPrevMain :: !(Maybe (InDb Core.HeaderHash))
+
     } deriving Eq
 
 makeLenses ''BlockContext
@@ -70,9 +78,10 @@ mainBlockContext :: (NodeConstraints, MonadIO m, MonadCatch m)
 mainBlockContext genesisHash mb = do
     mPrev <- mostRecentMainBlock genesisHash (mb ^. Core.mainBlockPrevBlock)
     return BlockContext {
-        _bcSlotId   = InDb $ mb ^. Core.mainBlockSlot
-      , _bcHash     = InDb $ Core.headerHash mb
-      , _bcPrevMain = (InDb . Core.headerHash) <$> mPrev
+        _bcSlotId         = InDb $ mb ^. Core.mainBlockSlot
+      , _bcHash           = InDb $ Core.headerHash mb
+      , _bcHeight         = InDb $ mb ^. Core.difficultyL
+      , _bcPrevMain       = (InDb . Core.headerHash) <$> mPrev
       }
 
 {-------------------------------------------------------------------------------
@@ -84,9 +93,11 @@ instance Buildable BlockContext where
       ( "BlockContext "
       % "{ slotId " % build
       % ", hash   " % build
+      % ", height " % build
       % ", prev   " % build
       % "}"
       )
       _bcSlotId
       _bcHash
+      _bcHeight
       _bcPrevMain

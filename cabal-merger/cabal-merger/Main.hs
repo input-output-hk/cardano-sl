@@ -2,6 +2,8 @@
 
 module Main (main) where
 
+import           Common (State (State, sCondExecutables, sCondTestSuites, sExecutables, sExposedModules, sFlags, sLibConditions, sLibDepends, sLibExtensions, sLibOtherModules, sNamesToExclude),
+                     filteredLibDepends, go, libFilter)
 import           Data.Foldable (foldlM)
 import           Data.List (isPrefixOf)
 import           Data.Monoid ((<>))
@@ -14,7 +16,7 @@ import           Distribution.Package (Dependency (Dependency),
 import           Distribution.PackageDescription (BuildInfo (buildable, defaultExtensions, defaultLanguage, hsSourceDirs, otherModules, targetBuildDepends),
                      BuildType (Simple),
                      CondTree (CondNode, condTreeComponents, condTreeConstraints, condTreeData),
-                     ConfVar, Executable ( buildInfo),
+                     ConfVar, Executable (buildInfo),
                      Library (exposedModules, libBuildInfo),
                      PackageDescription (buildTypeRaw, homepage, licenseRaw, maintainer, package, specVersionRaw),
                      emptyBuildInfo, emptyLibrary, emptyPackageDescription,
@@ -23,12 +25,11 @@ import           Distribution.PackageDescription.PrettyPrint
                      (writeGenericPackageDescription)
 import           Distribution.Types.GenericPackageDescription (GenericPackageDescription (condExecutables, condLibrary, condTestSuites, genPackageFlags, packageDescription),
                      emptyGenericPackageDescription)
-import           Distribution.Types.TestSuite (TestSuite(testBuildInfo))
+import           Distribution.Types.TestSuite (TestSuite (testBuildInfo))
 import           Distribution.Types.UnqualComponentName (UnqualComponentName)
 import           Distribution.Version (anyVersion, mkVersion, orLaterVersion)
 import           Language.Haskell.Extension (Language (Haskell2010))
 import           System.Environment (getArgs)
-import Common (State(State, sNamesToExclude, sExposedModules, sLibExtensions, sLibDepends, sLibOtherModules, sCondExecutables, sCondTestSuites, sExecutables, sLibConditions, sFlags), libFilter, go, filteredLibDepends)
 
 exeFilter :: State -> Executable -> Executable
 exeFilter result exe = exe {

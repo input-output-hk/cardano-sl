@@ -2,15 +2,18 @@
 
 module Main (main) where
 
-import Nix.Expr.Types (Binding(NamedVar), NExprF(NSelect), NKeyName(StaticKey), Params(Param), nullPos, NExpr)
-import Nix.Pretty (prettyNix)
-import Data.Fix (Fix(Fix))
+import           Common (Package (pkgDependencies, pkgExtensions, pkgMainIs, pkgName, pkgPackages, pkgSrc),
+                     cabalFilesToPackages)
+import           Data.Fix (Fix (Fix))
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Set as Set
-import Common (Package(pkgSrc, pkgDependencies, pkgExtensions, pkgMainIs, pkgPackages, pkgName), cabalFilesToPackages)
+import           Data.Text (unpack)
+import           Nix.Expr.Shorthands (mkFunction, mkList, mkNonRecSet, mkPath,
+                     mkStr, mkSym, ($=))
+import           Nix.Expr.Types (Binding (NamedVar), NExpr, NExprF (NSelect),
+                     NKeyName (StaticKey), Params (Param), nullPos)
+import           Nix.Pretty (prettyNix)
 import           System.Environment (getArgs)
-import Nix.Expr.Shorthands (($=), mkPath, mkStr, mkList, mkSym, mkFunction, mkNonRecSet)
-import Data.Text (unpack)
 
 packageToExpr :: Package -> (Binding NExpr)
 packageToExpr pkg = NamedVar (NonEmpty.fromList [ StaticKey $ pkgName pkg ]) set nullPos

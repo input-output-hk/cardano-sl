@@ -276,18 +276,18 @@ to distinguish different networks.
 
 *  `"pm"` - is the protocol magic number, is included in serialized
    blocks and headers, and is part of signed data.
-*  `"requiresNetworkMagic"` - has two options:
-   * `"NMMustBeNothing"` (mainnet setting) - means that the protocol
-     magic value will *not* be included in the address format or
-     transactions.
-   * `"NMMustBeJust"` (public testnet setting) - means that the
-     protocol magic value will be included in the address format and
-     hence transactions.
+*  `"requiresNetworkMagic"` - will be either
+   `"NMMustBeNothing"` or `"NMMustBeJust"`
 
 The `"protocolMagic"` value can either be an object with the two
 fields described above, or just a plain integer. In the latter case,
 `"requiresNetworkMagic"` will take the default value of
 `"NMMustBeJust"`.
+
+The `"requiresNetworkMagic"` setting forms part of the genesis
+data. However it is configured in the
+[core section](#core-configuration-besides-genesis).
+
 
 Section `"heavyDelegation"` contains an information about heavyweight delegation:
 
@@ -592,7 +592,16 @@ to this file already.
 
 ### Core configuration besides genesis
 
-**TODO**
+* `requiresNetworkMagic` — influences both the genesis data and the
+  address format that the node uses. It can be either:
+   * `"NMMustBeNothing"` (mainnet setting) — means that the protocol
+     magic value will *not* be included in the address format or
+     transactions.
+   * `"NMMustBeJust"` (public testnet setting, the default) — means
+     that the protocol magic value will be included in the address
+     format and hence transactions.
+
+* `dbSerializeVersion` — **TODO**
 
 ### Infra configuration
 

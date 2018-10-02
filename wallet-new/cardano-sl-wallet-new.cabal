@@ -241,6 +241,7 @@ library
                      , stm
                      , stm
                      , swagger2
+                     , tar
                      , text
                      , time
                      , time-units
@@ -256,6 +257,7 @@ library
                      , warp
                      , x509
                      , x509-store
+                     , zlib
 
   default-language:    Haskell2010
   default-extensions: TypeOperators

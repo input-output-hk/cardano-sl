@@ -18120,6 +18120,7 @@ license = stdenv.lib.licenses.mit;
 , string-conv
 , swagger2
 , tabl
+, tar
 , text
 , time
 , time-units
@@ -18136,6 +18137,7 @@ license = stdenv.lib.licenses.mit;
 , x509
 , x509-store
 , yaml
+, zlib
 }:
 mkDerivation {
 
@@ -18224,6 +18226,7 @@ sqlite-simple
 sqlite-simple-errors
 stm
 swagger2
+tar
 text
 time
 time-units
@@ -18239,6 +18242,7 @@ wai-middleware-throttle
 warp
 x509
 x509-store
+zlib
 ];
 executableHaskellDepends = [
 aeson

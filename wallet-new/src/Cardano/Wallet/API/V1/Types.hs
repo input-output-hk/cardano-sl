@@ -117,6 +117,7 @@ module Cardano.Wallet.API.V1.Types (
   , RedemptionMnemonic(..)
   , BackupPhrase(..)
   , ShieldedRedemptionCode(..)
+  , WAddressMeta (..)
   -- * Some types for the API
   , CaptureWalletId
   , CaptureAccountId
@@ -1235,6 +1236,25 @@ instance Arbitrary (V1 AddressOwnership) where
         , pure AddressAmbiguousOwnership
         ]
 
+-- | Address with associated metadata locating it in an account in a wallet.
+data WAddressMeta = WAddressMeta
+    { _wamWalletId     :: WalletId
+    , _wamAccountIndex :: Word32
+    , _wamAddressIndex :: Word32
+    , _wamAddress      :: Core.Address
+    } deriving (Eq, Ord, Show, Generic, Typeable)
+
+
+-- 'WAddressMeta' was migrated from 'Pos.Wallet.Web.ClientTypes.Types' to here.
+-- 'CId Wal' became 'V1.WalletId'. It no longer has the following instances:
+-- instance Hashable WAddressMeta
+-- instance NFData WAddressMeta
+
+
+instance Buildable WAddressMeta where
+    build WAddressMeta{..} =
+        bprint (build%"@"%build%"@"%build%" ("%build%")")
+        _wamWalletId _wamAccountIndex _wamAddressIndex _wamAddress
 --------------------------------------------------------------------------------
 -- Accounts
 --------------------------------------------------------------------------------

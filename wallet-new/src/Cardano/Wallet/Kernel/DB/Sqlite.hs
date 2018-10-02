@@ -214,7 +214,7 @@ Txp.TxId    | Word32       | Core.Address   | Core.Coin
 
 --}
 
--- | The outputs' table. Order of fields is important for right Ord instance.
+-- | The outputs' table.
 data TxOutputT f = TxOutputT {
           _outputTableTxId    :: Beam.Columnar f Txp.TxId
         , _outputTableIndex   :: Beam.Columnar f Word32 -- The order of output.
@@ -224,6 +224,7 @@ data TxOutputT f = TxOutputT {
 
 type TxOutput = TxOutputT Identity
 
+-- | A workaround to define Ord for TxOutput.
 forOrder :: TxOutputT f0
          -> (Beam.Columnar f0 Txp.TxId, Beam.Columnar f0 Word32,
              Beam.Columnar f0 Core.Address, Beam.Columnar f0 Core.Coin)
@@ -261,7 +262,7 @@ mkOutputs Kernel.TxMeta{..} = toTxOutput <$> NonEmpty.zip _txMetaOutputs (NonEmp
             , _outputTableCoin = coin
             }
 
--- | The invarint here is that the list of TxOutput should have all the same
+-- | The invariant here is that the list of TxOutput should have all the same
 -- TxId and include all indexes starting from 0.
 fromOutputs :: NonEmpty TxOutput -> NonEmpty (Core.Address, Core.Coin)
 fromOutputs ls = go <$> NonEmpty.sort ls
@@ -325,7 +326,6 @@ instance FromField Core.Address where
            Right a -> pure a
 
 instance FromBackendRow Sqlite Core.Address
-
 
 -- | Creates new 'DatabaseSettings' for the 'MetaDB', locking the backend to
 -- be 'Sqlite'.
@@ -426,7 +426,7 @@ unsafeMigrateMetaDB conn = do
 -- | Simply a conveniency wrapper to avoid 'Kernel.TxMeta' to explicitly
 -- import Sqlite modules.
 newConnection :: FilePath -> IO Sqlite.Connection
-newConnection path = Sqlite.open path
+newConnection = Sqlite.open
 
 -- | Closes an open 'Connection' to the @Sqlite@ database stored in the
 -- input 'MetaDBHandle'.
@@ -632,7 +632,8 @@ getTxMetas conn (Offset offset) (Limit limit) accountFops mbAddress fopTxId fopT
         metaQuery = do
             let query = SQL.all_ $ _mDbMeta metaDB
             meta <- case mbSorting of
-                    Nothing -> query
+                    Nothing ->
+                        SQL.orderBy_ (SQL.desc_ . _txMetaTableCreatedAt) query
                     Just (Sorting SortByCreationAt dir) ->
                         SQL.orderBy_ (toBeamSortDirection dir . _txMetaTableCreatedAt) query
                     Just (Sorting SortByAmount     dir) ->
@@ -660,7 +661,8 @@ getTxMetas conn (Offset offset) (Limit limit) accountFops mbAddress fopTxId fopT
 
         metaQueryWithAddr addr = do
             meta <- case mbSorting of
-                Nothing -> findAndUnion addr
+                Nothing ->
+                    SQL.orderBy_ (SQL.desc_ . _txMetaTableCreatedAt) (findAndUnion addr)
                 Just (Sorting SortByCreationAt dir) ->
                     SQL.orderBy_ (toBeamSortDirection dir . _txMetaTableCreatedAt) (findAndUnion addr)
                 Just (Sorting SortByAmount     dir) ->

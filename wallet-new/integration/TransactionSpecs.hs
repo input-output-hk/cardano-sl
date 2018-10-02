@@ -6,7 +6,6 @@ module TransactionSpecs (transactionSpecs) where
 import           Universum
 
 import           Cardano.Wallet.Client.Http
-import           Control.Concurrent (threadDelay)
 import           Control.Lens
 import           Functions (randomTest)
 import           Test.Hspec
@@ -50,26 +49,23 @@ transactionSpecs wRef wc = beforeAll_ (setupLogging "wallet-new_transactionSpecs
                         }
                     , pmtDestinations = pure PaymentDistribution
                         { pdAddress = addrId toAddr
-                        , pdAmount = tenthOf (accAmount fromAcct)
+                        , pdAmount = V1 (Core.mkCoin 10)
                         }
                     , pmtGroupingPolicy = Nothing
                     , pmtSpendingPassword = Nothing
                     }
-                tenthOf (V1 c) =
-                    V1 (Core.mkCoin (max 1 (Core.getCoin c `div` 10)))
 
             etxn <- run $ postTransaction wc payment
 
             txn <- run $ fmap wrData etxn `shouldPrism` _Right
 
-            eresp <- run $ getTransactionIndex
-                wc
-                (Just (walId wallet))
-                (Just (accIndex toAcct))
-                Nothing
+            eresp <- run $ getTransactionIndex wc Nothing Nothing Nothing
             resp <- run $ fmap wrData eresp `shouldPrism` _Right
 
             liftIO $ map txId resp `shouldContain` [txId txn]
+
+            -- have to wait until it is accomodated in order not to interfere with other tests
+            run $ pollTransactions wc (walId wallet) (accIndex toAcct) (txId txn)
 
         randomTest ( "asset-locked wallets can receive funds and transactions are "
            <> "confirmed in index") 1 $ do
@@ -86,20 +82,19 @@ transactionSpecs wRef wc = beforeAll_ (setupLogging "wallet-new_transactionSpecs
                         }
                     , pmtDestinations = pure PaymentDistribution
                         { pdAddress = addrId toAddr
-                        , pdAmount = tenthOf (accAmount fromAcct)
+                        , pdAmount = V1 (Core.mkCoin 11)
                         }
                     , pmtGroupingPolicy = Nothing
                     , pmtSpendingPassword = Nothing
                     }
-                tenthOf (V1 c) = V1 (Core.mkCoin (Core.getCoin c `div` 10))
 
             etxn <- run $ postTransaction wc payment
 
             txn <- run $ fmap wrData etxn `shouldPrism` _Right
 
-            liftIO $ threadDelay 120000000
+            run $ pollTransactions wc (walId wallet) (accIndex toAcct) (txId txn)
 
-            eresp <- run $ getTransactionIndex wc (Just (walId wallet)) (Just (accIndex toAcct)) Nothing
+            eresp <- run $ getTransactionIndex wc Nothing Nothing Nothing
             resp <- run $ fmap wrData eresp `shouldPrism` _Right
 
             liftIO $ map txId resp `shouldContain` [txId txn]
@@ -107,12 +102,12 @@ transactionSpecs wRef wc = beforeAll_ (setupLogging "wallet-new_transactionSpecs
             log $ "Resp   : " <> ppShowT txnEntry
             liftIO $ txConfirmations txnEntry `shouldNotBe` 0
 
-        randomTest "sending from asset-locked address in wallet with no ther addresses gets 0 confirmations from core nodes" 1 $ do
+        randomTest "sending from asset-locked address gets 0 confirmations from core nodes" 1 $ do
             genesis <- run $ genesisAssetLockedWallet wc
             (fromAcct, _) <- run $ firstAccountAndId wc genesis
 
             wallet <- run $ sampleWallet wRef wc
-            (toAcct, toAddr) <- run $ firstAccountAndId wc wallet
+            (_, toAddr) <- run $ firstAccountAndId wc wallet
 
             let payment = Payment
                     { pmtSource =  PaymentSource
@@ -121,21 +116,19 @@ transactionSpecs wRef wc = beforeAll_ (setupLogging "wallet-new_transactionSpecs
                         }
                     , pmtDestinations = pure PaymentDistribution
                         { pdAddress = addrId toAddr
-                        , pdAmount = tenthOf (accAmount fromAcct)
+                        , pdAmount = V1 (Core.mkCoin 12)
                         }
                     , pmtGroupingPolicy = Nothing
                     , pmtSpendingPassword = Nothing
                     }
-                tenthOf (V1 c) = V1 (Core.mkCoin (Core.getCoin c `div` 10))
 
             etxn <- run $ postTransaction wc payment
 
             txn <- run $ fmap wrData etxn `shouldPrism` _Right
 
-            liftIO $ threadDelay 120000000
+            eresp <- run $ getTransactionIndex wc Nothing Nothing Nothing
+            resp <- run $ fmap wrData eresp `shouldPrism` _Right :: PropertyM IO [Transaction]
 
-            eresp <- run $ getTransactionIndex wc (Just (walId wallet)) (Just (accIndex toAcct)) Nothing
-            resp <- run $ fmap wrData eresp `shouldPrism` _Right :: PropertyM IO [ Transaction]
             let txnEntry : _ = filter ( \x -> (txId x) == (txId txn)) resp
             log $ "Resp   : " <> ppShowT txnEntry
             liftIO $ txConfirmations txnEntry `shouldBe` 0
@@ -149,7 +142,7 @@ transactionSpecs wRef wc = beforeAll_ (setupLogging "wallet-new_transactionSpecs
                 <$> firstAccountAndId wc (fst ws)
                 <*> firstAccountAndId wc (snd ws)
 
-            let amount = V1 (Core.mkCoin 42)
+            let amount = V1 (Core.mkCoin 13)
 
             let payment = Payment
                     { pmtSource = PaymentSource
@@ -203,8 +196,9 @@ transactionSpecs wRef wc = beforeAll_ (setupLogging "wallet-new_transactionSpecs
             genesis <- run $ genesisWallet wc
             (fromAcct, _) <- run $ firstAccountAndId wc genesis
 
-            wallet <- run $ sampleWallet wRef wc
-            (_, toAddr) <- run $ firstAccountAndId wc wallet
+            newWallet <- run $ randomWallet CreateWallet
+            wallet <- run $ createWalletCheck wc newWallet
+            (toAcct, toAddr) <- run $ firstAccountAndId wc wallet
 
             let payment val = Payment
                     { pmtSource =  PaymentSource
@@ -224,8 +218,10 @@ transactionSpecs wRef wc = beforeAll_ (setupLogging "wallet-new_transactionSpecs
             let utxoStatistics0Expected = computeUtxoStatistics log10 []
             liftIO $ utxoStatistics0 `shouldBe` utxoStatistics0Expected
 
-            liftIO $ void $ postTransaction wc (payment 1)
-            liftIO $ threadDelay 120000000
+            etxn <- run $ postTransaction wc (payment 1)
+            txn <- run $ fmap wrData etxn `shouldPrism` _Right
+
+            run $ pollTransactions wc (walId wallet) (accIndex toAcct) (txId txn)
 
             let txIn  = Txp.TxInUnknown 0 "test"
             let txOut = Txp.TxOutAux Txp.TxOut

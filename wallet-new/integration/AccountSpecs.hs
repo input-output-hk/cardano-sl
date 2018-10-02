@@ -8,8 +8,6 @@ import           Universum
 
 import           Cardano.Wallet.API.Indices (accessIx)
 import           Cardano.Wallet.Client.Http
-import           Control.Concurrent (threadDelay)
-import           Control.Concurrent.Async (race)
 import           Control.Lens
 import qualified Data.Text as T
 import           Functions (randomTest)
@@ -20,7 +18,6 @@ import           Test.QuickCheck.Monadic (pick, run)
 
 import           Util
 
-import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Core as Core
 import qualified Prelude
 
@@ -107,13 +104,13 @@ accountSpecs wRef wc =
                     }
             amounts <- pick $ shuffle [1..5]
 
-            let addrAndAmount = zip (map (\(addr : _) -> addr) $ map accAddresses accs) amounts
+            let addrAmountAcct = zip3 (map (\(addr : _) -> addr) $ map accAddresses accs) amounts accs
 
-            etxnsResp <- forM addrAndAmount $ \(addr, amount) -> do
-                -- we have to wait until the previous transaction is accommodated in the blockchain
-                liftIO $ threadDelay 120000000
-                run $ postTransaction wc (payment amount addr)
-
+            etxnsResp <- run $ forM addrAmountAcct $ \(addr, amount, acct) -> do
+                etxn <- postTransaction wc (payment amount addr)
+                txn  <- fmap wrData etxn `shouldPrism` _Right
+                pollTransactions wc (walId wallet) (accIndex acct) (txId txn)
+                return etxn
 
             accUpdatedResp' <- run $ getAccounts wc (walId wallet)
             accsUpdated <- run $ wrData <$> accUpdatedResp' `shouldPrism` _Right
@@ -177,8 +174,7 @@ accountSpecs wRef wc =
             txn <- run $ fmap wrData etxn `shouldPrism` _Right
 
             --checking if redemption give rise to transaction indexing
-            let poll = pollTransactions walId (accIndex newAcct) (txId txn)
-            run $ ("waiting for Tx to be accepted", poll) `noLongerThan` (120 * oneSecond)
+            run $ pollTransactions wc walId (accIndex newAcct) (txId txn)
 
             --balance for the previously zero-balance account should increase by 100000
             balancePartialResp <- run $ getAccountBalance wc walId (accIndex newAcct)
@@ -194,26 +190,6 @@ accountSpecs wRef wc =
                 `shouldBe`
                     ClientWalletError TxRedemptionDepleted
   where
-    pollTransactions :: WalletId -> AccountIndex -> V1 Txp.TxId -> IO ()
-    pollTransactions wid cid tid = do
-        resp <- getTransactionIndex wc (Just wid) (Just cid) Nothing
-            >>= shouldPrismFlipped _Right
-        let Just tx = find ((== tid) . txId) (wrData resp)
-        if (txStatus tx `elem` [InNewestBlocks, Persisted]) then
-            return ()
-        else
-            threadDelay oneSecond >> pollTransactions wid cid tid
-
-    oneSecond :: Int
-    oneSecond = 1000000
-
-    noLongerThan :: (String, IO a) -> Int -> IO a
-    noLongerThan (msg, action) maxWaitingTime = do
-        res <- race (threadDelay maxWaitingTime) action
-        case res of
-            Left _  -> fail ("Waiting too long for action: " <> msg)
-            Right a -> return a
-
     filterByAddress :: WalletAddress -> FilterOperations '[V1 Address] WalletAddress
     filterByAddress addr =
         FilterOp (FilterByIndex $ accessIx @_ @(V1 Core.Address) addr) NoFilters

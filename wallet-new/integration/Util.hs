@@ -5,11 +5,14 @@ module Util where
 import           Universum hiding ((^?))
 
 import           Cardano.Wallet.Client.Http
+import           Control.Concurrent (threadDelay)
+import           Control.Concurrent.Async (race)
 import           Control.Lens
 import           System.IO.Unsafe (unsafePerformIO)
 import           Test.Hspec
 import           Test.QuickCheck (arbitrary, generate)
 
+import qualified Pos.Chain.Txp as Txp
 
 type WalletRef = MVar Wallet
 
@@ -138,3 +141,28 @@ shouldPrism_ a b =
     a `shouldSatisfy` has b
 
 infixr 8 `shouldPrism_`
+
+pollTransactions :: WalletClient IO -> WalletId -> AccountIndex -> V1 Txp.TxId -> IO ()
+pollTransactions wc wid cid tid = do
+    res <- trial `noLongerThan` (120 * oneSecond)
+    case res of
+        Nothing -> fail "transactions didn't complete on time: this is unexpected"
+        Just a  -> return a
+    where
+        trial = do
+            resp <- getTransactionIndex wc (Just wid) (Just cid) Nothing >>= shouldPrismFlipped _Right
+            let tx = find ((== tid) . txId) (wrData resp)
+            if ((txStatus <$> tx) `elem` (Just <$> [InNewestBlocks, Persisted])) then
+                return ()
+            else
+                threadDelay (5 * oneSecond) >> trial
+
+oneSecond :: Int
+oneSecond = 1000000
+
+noLongerThan :: IO a -> Int -> IO (Maybe a)
+noLongerThan action maxWaitingTime = do
+    res <- race (threadDelay maxWaitingTime) action
+    case res of
+        Left _  -> return Nothing
+        Right a -> return $ Just a

@@ -71,7 +71,7 @@ pruneAndCompress n dbPath = liftIO $ do
         sequence [(f,) <$> getModificationTime (fullRelPath f) | f <- archives]
 
     -- Partition the files into @toPrune@ and @toCompress@ (the @n@ newest).
-    -- Filter from the second subset any previously-created tarball.
+    -- Filter from the first subset any previously-created tarball.
     let (toCompress, toPrune) = first (filter (not . isTarball))
                               . splitAt n
                               $ newestFirst

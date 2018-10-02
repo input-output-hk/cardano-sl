@@ -15,6 +15,7 @@ import           Test.QuickCheck
 import           Cardano.Wallet.API.V1.Types
 
 import qualified APISpec as API
+import qualified DecryptSpec as Decrypt
 import qualified MarshallingSpec as Marshalling
 import qualified RequestSpec as ReqSpec
 import qualified SwaggerSpec as Swagger
@@ -32,6 +33,7 @@ main = do
         parallel $ API.spec
         parallel $ Swagger.spec
         parallel $ ReqSpec.spec
+        parallel $ Decrypt.spec
 
         parallel $ eqProps @WalletAddress
         parallel $ eqProps @Address

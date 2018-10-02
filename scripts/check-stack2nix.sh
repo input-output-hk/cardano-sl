@@ -1,5 +1,4 @@
-#!/usr/bin/env nix-shell
-#!nix-shell -i bash -p git bash nixStable
+#!/usr/bin/env bash
 
 # check and warn if `pkgs/default.nix` is out of date
 

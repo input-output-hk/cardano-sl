@@ -4,3 +4,8 @@
 *.out
 *.tdo
 *.toc
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+auto

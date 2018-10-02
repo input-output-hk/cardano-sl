@@ -26,7 +26,6 @@ in
 }:
 
 with pkgs.lib;
-with pkgs.haskell.lib;
 
 let
   # the GHC we are using
@@ -36,14 +35,13 @@ let
   });
 
   # Overlay logic for *haskell* packages.
-  requiredOverlay    = import ./nix/overlays/required.nix     pkgs localLib enableProfiling gitrev ghc;
-  benchmarkOverlay   = import ./nix/overlays/benchmark.nix    pkgs localLib;
-  debugOverlay       = import ./nix/overlays/debug.nix        pkgs;
-  # Disabling optimization for cardano-sl packages will
-  # return a build ~20% faster (measured in DEVOPS-1032).
-  fasterBuildOverlay = import ./nix/overlays/faster-build.nix pkgs localLib;
-  dontCheckOverlay   = import ./nix/overlays/dont-check.nix   pkgs;
-  metricOverlay      = import ./nix/overlays/metric.nix       pkgs;
+  requiredOverlay    = import ./nix/overlays/required.nix     { inherit pkgs localLib enableProfiling gitrev;
+                                                                inherit (cardanoPkgs) ghc; };
+  benchmarkOverlay   = import ./nix/overlays/benchmark.nix    { inherit pkgs localLib; };
+  debugOverlay       = import ./nix/overlays/debug.nix        { inherit pkgs; };
+  fasterBuildOverlay = import ./nix/overlays/faster-build.nix { inherit pkgs localLib; };
+  dontCheckOverlay   = import ./nix/overlays/dont-check.nix   { inherit pkgs; };
+  metricOverlay      = import ./nix/overlays/metric.nix       { inherit pkgs; };
 
   # This will yield a set of haskell packages, based on the given compiler.
   cardanoPkgsBase = ((import ./pkgs { inherit pkgs; }).override {
@@ -64,6 +62,7 @@ let
     in
       args: pkgs.callPackage ./scripts/launch/connect-to-cluster (args // { inherit gitrev useStackBinaries; } // walletConfig );
   other = rec {
+    inherit pkgs;
     testlist = innerClosePropagation [] [ cardanoPkgs.cardano-sl ];
     walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev useStackBinaries; };
     validateJson = pkgs.callPackage ./tools/src/validate-json {};

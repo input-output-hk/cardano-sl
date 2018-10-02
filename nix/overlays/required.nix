@@ -1,6 +1,8 @@
-pkgs: localLib: enableProfiling: gitrev: ghc:
-self: super:
-with pkgs.haskell.lib; with pkgs.lib;
+{ pkgs, localLib, enableProfiling, gitrev, ghc }:
+
+with pkgs.haskell.lib;
+with localLib;
+
 let
   justStaticExecutablesGitRev = import ../../scripts/set-git-rev {
     inherit pkgs gitrev ghc;
@@ -8,8 +10,13 @@ let
   addRealTimeTestLogs = drv: overrideCabal drv (attrs: {
     testTarget = "--show-details=streaming";
   });
-in {
-    srcroot = ./.;
+in
+
+self: super: {
+
+    ########################################################################
+    # Overides of Cardano SL packages
+
     cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
       configureFlags = (drv.configureFlags or []) ++ [
         "-f-asserts"
@@ -35,6 +42,25 @@ in {
     cardano-report-server-static = justStaticExecutablesGitRev self.cardano-report-server;
     cardano-sl-faucet-static = justStaticExecutablesGitRev self.cardano-sl-faucet;
     cardano-sl-tools-static = justStaticExecutablesGitRev super.cardano-sl-tools;
+
+    ########################################################################
+    # The base Haskell package builder
+
+    mkDerivation = args: super.mkDerivation (args // {
+      enableLibraryProfiling = enableProfiling;
+      enableExecutableProfiling = enableProfiling;
+      # Static linking for everything to work around
+      # https://ghc.haskell.org/trac/ghc/ticket/14444
+      # This will be the default in nixpkgs since
+      # https://github.com/NixOS/nixpkgs/issues/29011
+      enableSharedExecutables = false;
+    } // optionalAttrs (args ? src) {
+      src = localLib.cleanSourceTree args.src;
+    });
+
+    ########################################################################
+    # Configuration of overrides for other dependencies
+
     # Undo configuration-nix.nix change to hardcode security binary on darwin
     # This is needed for macOS binary not to fail during update system (using http-client-tls)
     # Instead, now the binary is just looked up in $PATH as it should be installed on any macOS
@@ -48,15 +74,4 @@ in {
 
     # Due to https://github.com/input-output-hk/stack2nix/issues/56
     hfsevents = self.callPackage ../../pkgs/hfsevents.nix { inherit (pkgs.darwin.apple_sdk.frameworks) Cocoa CoreServices; };
-    mkDerivation = args: super.mkDerivation (args // {
-      enableLibraryProfiling = enableProfiling;
-      enableExecutableProfiling = enableProfiling;
-      # Static linking for everything to work around
-      # https://ghc.haskell.org/trac/ghc/ticket/14444
-      # This will be the default in nixpkgs since
-      # https://github.com/NixOS/nixpkgs/issues/29011
-      enableSharedExecutables = false;
-    } // optionalAttrs (args ? src) {
-      src = localLib.cleanSourceTree args.src;
-    });
   }

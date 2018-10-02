@@ -29,6 +29,7 @@ import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                                   Coin, CoinPortion (..), Script (..), SharedSeed (..),
                                   TxFeePolicy (..), TxSizeLinear (..))
 import           Pos.Core.Delegation (DlgPayload (..), HeavyDlgIndex (..), LightDlgIndices (..))
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..), LocalSlotIndex (..),
                                     SlotCount (..), SlotId (..))
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), SscPayload (..),
@@ -48,7 +49,7 @@ import           Pos.Crypto.Signing.Redeem (RedeemPublicKey (..), RedeemSecretKe
 import           Pos.Crypto.Signing.Signing (ProxyCert (..), ProxySecretKey (..),
                                              ProxySignature (..), PublicKey (..), SecretKey (..),
                                              Signature (..), Signed (..))
-import           Pos.Data.Attributes (Attributes (..), UnparsedFields)
+import           Pos.Data.Attributes (Attributes (..), UnparsedFields, mkAttributes)
 import           Pos.Merkle (MerkleNode (..), MerkleRoot (..), MerkleTree (..))
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Util (cerealError, toCerealError)
@@ -137,7 +138,30 @@ deriveSafeCopySimple 0 'base ''HDAddressPayload
 deriveSafeCopySimple 0 'base ''AddrType -- ☃
 deriveSafeCopySimple 0 'base ''AddrStakeDistribution
 deriveSafeCopySimple 0 'base ''AddrSpendingData
-deriveSafeCopySimple 0 'base ''AddrAttributes
+
+instance SafeCopy AddrAttributes where
+    -- Since there is only a Bi instance for (Attributes AddrAttributes),
+    -- we wrap our AddrAttributes before we serialize it.
+    putCopy aa = contain $ do
+        let bs = Bi.serialize (mkAttributes aa)
+        safePut bs
+
+    -- Try decoding as a BSL.ByteString containing the new format, but if that
+    -- fails go for the legacy format.
+    getCopy = contain $ label $ getNonLegacy <|> getLegacy
+      where
+        label = Cereal.label "Pos.Core.Common.AddrAttributes.AddrAttributes:"
+        --
+        getNonLegacy = do
+            eAAA <- Bi.decodeFull <$> safeGet
+            case eAAA of
+                Left  err -> fail (show err)
+                Right aaa -> pure (attrData aaa)
+        --
+        getLegacy = AddrAttributes <$> safeGet
+                                   <*> safeGet
+                                   <*> pure NMNothing
+
 deriveSafeCopySimple 0 'base ''Address'
 deriveSafeCopySimple 0 'base ''Address
 deriveSafeCopySimple 0 'base ''TxInWitness

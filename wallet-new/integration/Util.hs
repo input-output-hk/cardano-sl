@@ -84,7 +84,7 @@ genesisAssetLockedWallet wc = do
 
 lockedWallet :: WalletId
 lockedWallet =
-    WalletId "2cWKMJemoBakxGHgy85BN6JJooy54EmWxCoobAXe3NRfyEbuMnJAZSr5oAzD5F5aoodRD"
+    WalletId "Ae2tdPwUPEZ5YjF9WuDoWfCZLPQ56MdQC6CZa2VKwMVRVqBBfTLPNcPvET4"
 
 genesisRef :: WalletRef
 genesisRef = unsafePerformIO newEmptyMVar

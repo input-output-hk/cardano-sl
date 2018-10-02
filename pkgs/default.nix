@@ -14659,6 +14659,7 @@ license = stdenv.lib.licenses.bsd3;
 , formatting
 , generic-arbitrary
 , hashable
+, hedgehog
 , hspec
 , lens
 , log-warper
@@ -14839,6 +14840,7 @@ cardano-sl-update
 cardano-sl-util
 cardano-sl-util-test
 cborg
+cereal
 containers
 cryptonite
 data-default
@@ -14848,6 +14850,7 @@ filelock
 fmt
 formatting
 generic-arbitrary
+hedgehog
 hspec
 lens
 log-warper
@@ -18010,6 +18013,7 @@ license = stdenv.lib.licenses.mit;
 , bytestring
 , canonical-json
 , cardano-sl-util
+, cereal
 , cpphs
 , cryptonite
 , directory
@@ -18022,6 +18026,7 @@ license = stdenv.lib.licenses.mit;
 , pretty-show
 , QuickCheck
 , quickcheck-instances
+, safecopy
 , stdenv
 , tagged
 , template-haskell
@@ -18048,6 +18053,7 @@ base16-bytestring
 bytestring
 canonical-json
 cardano-sl-util
+cereal
 cryptonite
 directory
 file-embed
@@ -18059,6 +18065,7 @@ mtl
 pretty-show
 QuickCheck
 quickcheck-instances
+safecopy
 tagged
 template-haskell
 text

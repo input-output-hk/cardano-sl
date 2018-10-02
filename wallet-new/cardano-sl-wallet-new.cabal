@@ -551,6 +551,7 @@ test-suite wallet-new-specs
                     MarshallingSpec
                     SwaggerSpec
                     RequestSpec
+                    DecryptSpec
                     WalletNewJson
                     Cardano.Wallet.WalletLayer.QuickCheck
                     Cardano.Wallet.Kernel.BIP39Spec

@@ -66,5 +66,5 @@ decryptAddress (hdPass, wCId) addr = do
     hdPayload <- aaPkDerivationPath $ addrAttributesUnwrapped addr
     derPath <- unpackHDAddressAttr hdPass hdPayload
     case derPath of
-        [a,b] -> Just $ WAddressMeta wCId a b addr
+        [a,b] -> Just $ WAddressMeta wCId a b (V1 addr)
         _     -> Nothing

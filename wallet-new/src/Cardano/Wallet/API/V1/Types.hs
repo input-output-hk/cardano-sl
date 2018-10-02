@@ -8,6 +8,7 @@
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE PolyKinds                  #-}
+{-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE StrictData                 #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
@@ -400,6 +401,9 @@ instance FromHttpApiData (V1 Core.Address) where
 instance ToHttpApiData (V1 Core.Address) where
     toQueryParam (V1 a) = sformat build a
 
+deriving instance Hashable (V1 Core.Address)
+deriving instance NFData (V1 Core.Address)
+
 -- | Represents according to 'apiTimeFormat' format.
 instance ToJSON (V1 Core.Timestamp) where
     toJSON timestamp =
@@ -509,6 +513,8 @@ instance FromHttpApiData WalletId where
 instance ToHttpApiData WalletId where
     toQueryParam (WalletId wid) = wid
 
+instance Hashable WalletId
+instance NFData WalletId
 
 -- | A Wallet Operation
 data WalletOperation =
@@ -1238,18 +1244,14 @@ instance Arbitrary (V1 AddressOwnership) where
 
 -- | Address with associated metadata locating it in an account in a wallet.
 data WAddressMeta = WAddressMeta
-    { _wamWalletId     :: WalletId
-    , _wamAccountIndex :: Word32
-    , _wamAddressIndex :: Word32
-    , _wamAddress      :: Core.Address
+    { _wamWalletId     :: !WalletId
+    , _wamAccountIndex :: !Word32
+    , _wamAddressIndex :: !Word32
+    , _wamAddress      :: !(V1 Core.Address)
     } deriving (Eq, Ord, Show, Generic, Typeable)
 
-
--- 'WAddressMeta' was migrated from 'Pos.Wallet.Web.ClientTypes.Types' to here.
--- 'CId Wal' became 'V1.WalletId'. It no longer has the following instances:
--- instance Hashable WAddressMeta
--- instance NFData WAddressMeta
-
+instance Hashable WAddressMeta
+instance NFData WAddressMeta
 
 instance Buildable WAddressMeta where
     build WAddressMeta{..} =

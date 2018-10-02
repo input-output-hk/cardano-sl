@@ -5,4 +5,5 @@
 
 set -euo pipefail
 cd "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
+source ../scripts/set_nixpath.sh
 exec "$(nix-build --no-out-link regen.nix)" "$@"

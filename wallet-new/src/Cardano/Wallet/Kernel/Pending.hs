@@ -27,15 +27,14 @@ import           Cardano.Wallet.Kernel.DB.HdWallet.Create (initHdAddress)
 import           Cardano.Wallet.Kernel.DB.InDb
 import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
 import           Cardano.Wallet.Kernel.DB.TxMeta (TxMeta, putTxMeta)
+import           Cardano.Wallet.Kernel.Decrypt (WalletDecrCredentialsKey (..),
+                     keyToWalletDecrCredentials)
 import           Cardano.Wallet.Kernel.Internal
 import           Cardano.Wallet.Kernel.PrefilterTx (filterOurs)
 import           Cardano.Wallet.Kernel.Read (getWalletCredentials)
 import           Cardano.Wallet.Kernel.Submission (Cancelled, addPending)
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
 import           Cardano.Wallet.Kernel.Util.Core
-
-import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentialsKey (..),
-                     keyToWalletDecrCredentials)
 
 {-------------------------------------------------------------------------------
   Submit pending transactions

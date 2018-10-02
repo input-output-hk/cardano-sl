@@ -249,7 +249,7 @@ dbOptionsParser = WalletDBOptions <$> dbPathParser
                           \action (create checkpoint and archive and \
                           \cleanup archive partially)" <>
                      metavar "MINUTES" <>
-                     value (12 * 60)
+                     value 5
                     )
 
     flushDbParser :: Parser Bool

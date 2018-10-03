@@ -466,12 +466,14 @@ works in exactly the same way, using a stake key, and delegating, but
 using a private stake pool.
 
 Figure~\ref{fig:overview-delegation} shows some of the concepts involved in the
-delegation, and their relationships.
+delegation, and their relationships. The light blue nodes represent concepts, which
+do not have a representation in the system, whereas light brown nodes represent
+system entities.
 
 \begin{figure}[h]
   \centering
   \begin{tikzpicture}[ align = center
-                     , node distance = 5em and 8em
+                     , node distance = 8em and 10em
                      , text width = 5em
                      , every node/.style = { rectangle
                                          , rounded corners
@@ -480,39 +482,118 @@ delegation, and their relationships.
                                          , minimum height = 4em }
                      ]
 
-    %% 
+
+    \tikzset{ concept/.style = {fill=blue!10}
+            , entity/.style = {fill=brown!10}}
+    %%
     %% Nodes
     %%
-    \node (owner) {Owner};
-    \node (skey) [below = of owner] {Staking key};
-    \node (pkey) [left = of skey] {Payment key  (address?)};
-    \node (racc)  [right = of skey] {Rewards account (address?)};
-    \node (rewards) [below = of racc] {Rewards};
-    \node (funds) [below = of pkey] {Funds};
-    \node (srights) [below = of skey] {Staking rights};
-    \node (spool) [below = of srights] {Stake pool};
-    \node (pos) [right = of spool] {PoS};    
-  
-    \tikzset{every node/.style={align=center, text width=4em, text=brown}}
-    %% 
+    \node (owner) [concept] {Owner};
+    \node (addr) [entity, left = of owner] {Address (base or pointer)};
+    \node (skey) [entity, below = of owner] {Staking key};
+    \node (pkey) [entity, left = of skey] {Payment key};
+    \node (racc)  [entity, right = of skey] {Rewards account (\textbf{address?})};
+    \node (rewards) [concept, below = of racc] {Rewards};
+    \node (funds) [concept, below = of pkey] {Funds};
+    \node (srights) [concept, below = of skey] {Staking rights};
+    \node (spool) [entity, below = of srights] {Stake pool};
+    \node (pos) [concept, right = of spool] {PoS};
+
+    \tikzset{every node/.style={align=center, text width=6em, text=brown}}
+    %%
     %% Relationship between nodes (arrows)
     %%
-    \draw[->] (owner) -- node[anchor=east] {owns} (pkey);
-    \draw[->] (owner) -- node[anchor=east] {owns} (skey);
-    \draw[->] (owner) -- node[anchor=east] {owns} (racc);    
-    \draw[->] (pkey) -- node[anchor=south] {has a} (skey);
-    \draw[->] (skey) -- node[anchor=south] {has a} (racc);
-    \draw[->] (racc) -- node[anchor=west] {collects} (rewards);
+    \draw[->] (owner) -- node[above] {owns}
+              (addr);
+    \draw[->] (addr) -- node[left] {contains a}
+              (pkey);
+    \draw[->] (addr) -- node [above, rotate=-40]{contains a} (skey);
+    \draw[->] (owner) -- node[left] {owns} (skey);
+    \draw[->] (owner) -- node[left] {owns} (racc);
+    \draw[->] (pkey) -- node[anchor=south] {is associated with a} (skey);
+    \draw[->] (skey) -- node[anchor=south] {is associated with a} (racc);
+    \draw[->] (racc) -- node[above, rotate=90] {collects} (rewards);
     \draw[->] (pkey) -- node[anchor=west] {has} (funds);
     \draw[->] (skey) -- node[anchor=west] {has} (srights);
     \draw[->] (srights) -- node[anchor=north] {associated with} (funds);
-    \draw[->] (spool) -- node[anchor=south, rotate=45] {pays to} (racc);
+    \draw[->] (spool) -- node[anchor=south, rotate=50] {pays to} (racc);
     \draw[->] (srights) -- node[anchor=east] {delegated to} (spool);
-    \draw[->] (spool) -- node[anchor=south] {participates in} (pos);    
+    \draw[->] (spool) -- node[anchor=south] {participates in} (pos);
   \end{tikzpicture}
   \caption{Overview of delegation}
   \label{fig:overview-delegation}
 \end{figure}
+
+Figure~\ref{fig:er-relationship-delegation} shows the entity-relationship
+diagram of the system level entities involved in the implementation of
+delegation:
+\begin{itemize}
+\item Each address contains a single payment key. However the same payment key
+  can be used by multiple addresses (where addresses differ among each other in
+  the delegation information).
+\item Many addresses can refer to the same stake key. For instance, different
+  outputs of a transaction can specify the that the stake associated with those
+  output should be transferred to the same stake key.
+\item Each stake key have a unique reward account associated with it, and a
+  reward account can be associated to only one stake key.
+\item There can be many UTxO entries (funds) for a single address. However a
+  UTxO entry refers to an input and an output address, unless it is a special
+  kind of transaction (for instance those that forge value, and have no
+  corresponding input).
+\item A stake key is associated to exactly zero or one stake pool at any point
+  in time. A stake pool can contain multiple stake keys.
+\end{itemize}
+
+\begin{figure*}[h]
+  \centering
+  \begin{tikzpicture}[ align = center
+                     , node distance = 8em and 10em
+                     , text width = 5em
+                     , every node/.style = { rectangle
+                                           , rounded corners
+                                           , draw = black
+                                           , align = center
+                                           , minimum height = 4em }
+                     ]
+
+  %%
+  %% Nodes
+  %%
+  \node (addr) [] {Address (base or pointer)};
+  \node (utxo) [left = of addr] {UTxO};
+  \node (pkey) [right = of addr] {Payment key};
+  \node (skey) [below = of addr] {Stake key};
+  \node (spool) [left = of skey] {Stake pool};
+  \node (racc) [right = of skey] {Reward account};
+
+  \tikzset{every node/.style={align=center, text width=6em, above}}
+  %%
+  %% Relationship between nodes (arrows)
+  %%
+  % Horizontal lines. By grouping all the horizontal lines we do not need to set
+  % the node attributes (such as `align`) every time.
+  \draw[-] (utxo) -- node[pos=0.1] {$n$}
+                     node[pos=0.85] {$1 \ldots 2$}
+           (addr);
+  \draw[-] (addr) -- node[pos=0.1] {$n$}
+                     node[pos=0.9] {$1$}
+           (pkey);
+  \draw[-] (skey) -- node[pos=0.1] {$n$}
+                     node[pos=0.85] {$0 \ldots 1$}
+           (spool);
+  \draw[-] (skey) -- node[pos=0.1] {$1$}
+                     node[pos=0.9] {$1$}
+           (racc);           
+  % Horizontal lines.
+  \tikzset{every node/.style={align=left, right}}
+  \draw[-] (addr) -- node[pos=0.1] {$n$}
+                     node[pos=0.9] {$1$}
+           (skey);
+  \end{tikzpicture}
+
+  \caption{Entity-relationship diagram for delegation}
+  \label{fig:er-relationship-delegation}
+\end{figure*}
 
 \subsection{Address Structure}
 \label{address-structure}

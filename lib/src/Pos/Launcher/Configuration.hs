@@ -23,7 +23,6 @@ module Pos.Launcher.Configuration
 
        -- Exposed mostly for testing.
        , readAssetLockedSrcAddrs
-       , withConfigurationsM
        ) where
 
 import           Universum
@@ -53,8 +52,7 @@ import           Pos.Core.Conc (currentTime)
 import           Pos.Core.Slotting (Timestamp (..))
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Config (parseYamlConfig)
-import           Pos.Util.Wlog (LoggerName, WithLogger, askLoggerName, logInfo,
-                     usingLoggerName)
+import           Pos.Util.Wlog (WithLogger, logInfo)
 
 import           Pos.Chain.Block
 import           Pos.Chain.Delegation
@@ -174,17 +172,16 @@ instance Default ConfigurationOptions where
 
 -- | Parse some big yaml file to 'MultiConfiguration' and then use the
 -- configuration at a given key.
-withConfigurationsM
-    :: forall m r. (MonadThrow m, MonadIO m)
-    => LoggerName
-    -> Maybe AssetLockPath
+withConfigurations
+    :: (WithLogger m, MonadThrow m, MonadIO m)
+    => Maybe AssetLockPath
     -> Maybe FilePath
     -> Bool
     -> ConfigurationOptions
     -> (HasConfigurations => Genesis.Config -> WalletConfiguration -> TxpConfiguration -> NtpConfiguration -> m r)
     -> m r
-withConfigurationsM logName mAssetLockPath dumpGenesisPath dumpConfig cfo act = do
-    logInfo' ("using configurations: " <> show cfo)
+withConfigurations mAssetLockPath dumpGenesisPath dumpConfig cfo act = do
+    logInfo ("using configurations: " <> show cfo)
     cfg <- parseYamlConfig (cfoFilePath cfo) (cfoKey cfo)
     assetLock <- case mAssetLockPath of
         Nothing -> pure mempty
@@ -201,7 +198,7 @@ withConfigurationsM logName mAssetLockPath dumpGenesisPath dumpConfig cfo act = 
         withBlockConfiguration (ccBlock cfg) $
         withNodeConfiguration (ccNode cfg) $ do
             let txpConfig = addAssetLock assetLock $ ccTxp cfg
-            liftIO . usingLoggerName logName $ printInfoOnStart
+            printInfoOnStart
                 dumpGenesisPath
                 dumpConfig
                 (configGenesisData genesisConfig)
@@ -210,28 +207,6 @@ withConfigurationsM logName mAssetLockPath dumpGenesisPath dumpConfig cfo act = 
                 (ccWallet cfg)
                 txpConfig
             act genesisConfig (ccWallet cfg) txpConfig (ccNtp cfg)
-
-    where
-    logInfo' :: Text -> m ()
-    logInfo' = liftIO . usingLoggerName logName . logInfo
-
-withConfigurations
-    :: (WithLogger m, MonadThrow m, MonadIO m)
-    => Maybe AssetLockPath
-    -> Maybe FilePath
-    -> Bool
-    -> ConfigurationOptions
-    -> (HasConfigurations => Genesis.Config-> WalletConfiguration -> TxpConfiguration -> NtpConfiguration -> m r)
-    -> m r
-withConfigurations mAssetLockPath dumpGenesisPath dumpConfig cfo act = do
-    loggerName <- askLoggerName
-    withConfigurationsM
-        loggerName
-        mAssetLockPath
-        dumpGenesisPath
-        dumpConfig
-        cfo
-        act
 
 addAssetLock :: Set Address -> TxpConfiguration -> TxpConfiguration
 addAssetLock bset tcfg =

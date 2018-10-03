@@ -32,6 +32,7 @@ module Pos.Util.Wlog.Compatibility
            -- * Named Pure logging
          , NamedPureLogger (..)
          , launchNamedPureLog
+         , usingNamedPureLogger
          , runNamedPureLog
            -- * reimplementations
          , removeAllHandlers
@@ -219,6 +220,8 @@ instance Monad m => CanLog (NamedPureLogger m) where
         NamedPureLogger $ dispatchMessage name sev msg
 instance MFunctor NamedPureLogger where
     hoist f = NamedPureLogger . hoist (hoist f) . runNamedPureLogger
+instance MonadIO m => MonadIO (NamedPureLogger m) where
+    liftIO = lift . liftIO
 
 runNamedPureLog
     :: (Monad m, HasLoggerName m)

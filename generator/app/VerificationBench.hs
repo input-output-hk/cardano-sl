@@ -38,7 +38,7 @@ import           Pos.Generator.Block (BlockGenParams (..), TxGenParams (..),
                      genBlocks)
 import           Pos.Launcher.Configuration (ConfigurationOptions (..),
                      HasConfigurations, defaultConfigurationOptions,
-                     withConfigurationsM)
+                     withConfigurations)
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Util.Log.LoggerConfig (defaultInteractiveConfiguration)
 import           Pos.Util.Util (realTime)
@@ -183,7 +183,7 @@ readBlocks path = do
 
 main :: IO ()
 main = do
-    setupLogging "generator" loggerConfig
+    setupLogging "verification-bench" loggerConfig
     args <- Opts.execParser
         $ Opts.info
             (benchArgsParser <**> Opts.helper)
@@ -198,7 +198,7 @@ main = do
             , cfoSystemStart = Just (Timestamp startTime)
             }
     withCompileInfo $
-        withConfigurationsM "verification-bench" Nothing Nothing False cfo $ \ !genesisConfig !_ !txpConfig !_ -> do
+        withConfigurations Nothing Nothing False cfo $ \ !genesisConfig !_ !txpConfig !_ -> do
             let genesisConfig' = genesisConfig
                     { configProtocolConstants =
                         (configProtocolConstants genesisConfig) { pcK = baK args }

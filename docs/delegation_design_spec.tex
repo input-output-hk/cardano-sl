@@ -26,6 +26,9 @@
 \usepackage{float}
 \floatstyle{boxed}
 \restylefloat{figure}
+% For making figures
+\usepackage{tikz}
+\usetikzlibrary{positioning}
 
 \DeclareMathOperator{\dom}{dom}
 \DeclareMathOperator{\range}{range}
@@ -443,7 +446,7 @@ at the address. To exercise these stake rights, and to receive staking
 rewards, each address must be associated with a \emph{registered} stake
 key. This involves registering a stake key on the chain and using
 addresses that refer to this stake key. Each registered stake key has a
-corresponding \emph{reward account} which is used to collect and claim
+corresponding \emph{rewards account} which is used to collect and claim
 staking rewards. To exercise stake rights associated with a registered
 stake key, those rights must be \emph{delegated} to a registered stake pool.
 This involves posting a delegation certificate on the chain identifying
@@ -461,6 +464,55 @@ associated with a stake key, and the stake key delegates to a stake
 pool, and the stake pool takes part in the PoS protocol. Private staking
 works in exactly the same way, using a stake key, and delegating, but
 using a private stake pool.
+
+Figure~\ref{fig:overview-delegation} shows some of the concepts involved in the
+delegation, and their relationships.
+
+\begin{figure}[h]
+  \centering
+  \begin{tikzpicture}[ align = center
+                     , node distance = 5em and 8em
+                     , text width = 5em
+                     , every node/.style = { rectangle
+                                         , rounded corners
+                                         , draw = black
+                                         , align = center
+                                         , minimum height = 4em }
+                     ]
+
+    %% 
+    %% Nodes
+    %%
+    \node (owner) {Owner};
+    \node (skey) [below = of owner] {Staking key};
+    \node (pkey) [left = of skey] {Payment key  (address?)};
+    \node (racc)  [right = of skey] {Rewards account (address?)};
+    \node (rewards) [below = of racc] {Rewards};
+    \node (funds) [below = of pkey] {Funds};
+    \node (srights) [below = of skey] {Staking rights};
+    \node (spool) [below = of srights] {Stake pool};
+    \node (pos) [right = of spool] {PoS};    
+  
+    \tikzset{every node/.style={align=center, text width=4em, text=brown}}
+    %% 
+    %% Relationship between nodes (arrows)
+    %%
+    \draw[->] (owner) -- node[anchor=east] {owns} (pkey);
+    \draw[->] (owner) -- node[anchor=east] {owns} (skey);
+    \draw[->] (owner) -- node[anchor=east] {owns} (racc);    
+    \draw[->] (pkey) -- node[anchor=south] {has a} (skey);
+    \draw[->] (skey) -- node[anchor=south] {has a} (racc);
+    \draw[->] (racc) -- node[anchor=west] {collects} (rewards);
+    \draw[->] (pkey) -- node[anchor=west] {has} (funds);
+    \draw[->] (skey) -- node[anchor=west] {has} (srights);
+    \draw[->] (srights) -- node[anchor=north] {associated with} (funds);
+    \draw[->] (spool) -- node[anchor=south, rotate=45] {pays to} (racc);
+    \draw[->] (srights) -- node[anchor=east] {delegated to} (spool);
+    \draw[->] (spool) -- node[anchor=south] {participates in} (pos);    
+  \end{tikzpicture}
+  \caption{Overview of delegation}
+  \label{fig:overview-delegation}
+\end{figure}
 
 \subsection{Address Structure}
 \label{address-structure}

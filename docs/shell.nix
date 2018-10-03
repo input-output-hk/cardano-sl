@@ -15,6 +15,9 @@ stdenv.mkDerivation {
                       # libraries for marginal notes
                       xargs todonotes
 
+                      # drawing
+                      pgf
+                      
                       # build tools
                       latexmk
 

@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes        #-}
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE ExistentialQuantification  #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase                 #-}
@@ -68,6 +69,7 @@ import           Universum
 import           Control.Monad.Except (Except, MonadError (..))
 import           Crypto.Number.Generate (generateBetween)
 import           Crypto.Random (MonadRandom (..))
+import           Data.Aeson (FromJSON, ToJSON)
 import           Data.Coerce (coerce)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
@@ -304,6 +306,10 @@ data CoinSelHardErr =
 
     -- | UTxO depleted using input selection
   | CoinSelHardErrUtxoDepleted
+  deriving (Generic, Eq, Show)
+
+instance ToJSON CoinSelHardErr
+instance FromJSON CoinSelHardErr
 
 instance Arbitrary CoinSelHardErr where
     arbitrary = pure CoinSelHardErrUtxoDepleted

@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Cardano.Wallet.Kernel.Types (
     -- * Input resolution
     -- ** Raw types
@@ -20,6 +22,7 @@ module Cardano.Wallet.Kernel.Types (
 
 import           Universum
 
+import qualified Data.Aeson as Aeson
 import qualified Data.List.NonEmpty as NE
 import           Formatting.Buildable (Buildable (..))
 
@@ -35,6 +38,8 @@ import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Resolved
 import qualified Cardano.Wallet.Kernel.Util.Core as Core
+
+import           Test.QuickCheck (Arbitrary (..), oneof)
 
 {-------------------------------------------------------------------------------
   Abstract WalletId and AccountId
@@ -56,11 +61,17 @@ data WalletId =
     | WalletIdExt ...
     -}
 
-    deriving (Eq, Ord)
+    deriving (Generic, Eq, Ord)
+
+instance Aeson.ToJSON WalletId
+instance Aeson.FromJSON WalletId
 
 instance Buildable WalletId where
     build (WalletIdHdRnd rootId) =
         bprint ("WalletIdHdRnd " % F.build) rootId
+
+instance Arbitrary WalletId where
+    arbitrary = WalletIdHdRnd <$> arbitrary
 
 accountToWalletId :: HD.HdAccountId -> WalletId
 accountToWalletId accountId
@@ -73,11 +84,17 @@ accountToWalletId accountId
 data AccountId =
     -- | HD wallet with randomly generated (hardened) index.
     AccountIdHdRnd HD.HdAccountId
-    deriving (Eq, Ord)
+    deriving (Generic, Eq, Ord)
+
+instance Aeson.ToJSON AccountId
+instance Aeson.FromJSON AccountId
 
 instance Buildable AccountId where
     build (AccountIdHdRnd accountId) =
         bprint ("AccountIdHdRnd " % F.build) accountId
+
+instance Arbitrary AccountId where
+    arbitrary = oneof [ AccountIdHdRnd <$> arbitrary ]
 
 {-------------------------------------------------------------------------------
   Input resolution: raw types

@@ -1,3 +1,6 @@
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE LambdaCase    #-}
+
 module Cardano.Wallet.Kernel.Wallets (
       createHdWallet
     , updateHdWallet
@@ -21,6 +24,7 @@ import qualified Formatting as F
 import qualified Formatting.Buildable
 
 import           Data.Acid.Advanced (update')
+import qualified Data.Aeson as Aeson
 
 import           Pos.Core (Address, Timestamp)
 import           Pos.Crypto (EncryptedSecretKey, HDPassphrase, PassPhrase,
@@ -61,9 +65,13 @@ data CreateWalletError =
     | CreateWalletDefaultAddressDerivationFailed
     -- ^ When generating the default address for the companion 'HdAddress',
     -- the derivation failed
+      deriving (Generic, Eq)
+
+instance Aeson.ToJSON CreateWalletError
+instance Aeson.FromJSON CreateWalletError
 
 instance Arbitrary CreateWalletError where
-    arbitrary = oneof []
+    arbitrary = oneof [ CreateWalletFailed <$> arbitrary ]
 
 instance Buildable CreateWalletError where
     build (CreateWalletFailed dbOperation) =
@@ -87,9 +95,17 @@ data UpdateWalletPasswordError =
       -- ^ When trying to update the password inside the keystore, the
       -- previous 'PassPhrase' didn't match or it was deleted, which means
       -- this operation is not valid anymore.
+    deriving (Generic, Eq)
+
+instance Aeson.ToJSON UpdateWalletPasswordError
+instance Aeson.FromJSON UpdateWalletPasswordError
 
 instance Arbitrary UpdateWalletPasswordError where
-    arbitrary = oneof []
+    arbitrary = oneof [ UpdateWalletPasswordOldPasswordMismatch <$> arbitrary
+                      , UpdateWalletPasswordKeyNotFound <$> arbitrary
+                      , UpdateWalletPasswordUnknownHdRoot <$> arbitrary
+                      , UpdateWalletPasswordKeystoreChangedInTheMeantime <$> arbitrary
+                      ]
 
 instance Buildable UpdateWalletPasswordError where
     build (UpdateWalletPasswordOldPasswordMismatch hdRootId) =

@@ -90,18 +90,26 @@ senderPaysFee pickUtxo totalFee css = do
     let (css', remainingFee) = feeFromChange totalFee css
     (css', ) <$> coverRemainingFee pickUtxo remainingFee
 
-coverRemainingFee :: forall utxo e m. (Monad m, CoinSelDom (Dom utxo))
-                  => (Value (Dom utxo) -> CoinSelT utxo e m (UtxoEntry (Dom utxo)))
+coverRemainingFee :: forall utxo m. (Monad m, CoinSelDom (Dom utxo))
+                  => (Value (Dom utxo) -> CoinSelT utxo CoinSelHardErr m (UtxoEntry (Dom utxo)))
                   -> Fee (Dom utxo)
-                  -> CoinSelT utxo e m (SelectedUtxo (Dom utxo))
+                  -> CoinSelT utxo CoinSelHardErr m (SelectedUtxo (Dom utxo))
 coverRemainingFee pickUtxo fee = go emptySelection
   where
+    -- | In this context, @CoinSelHardErrUtxoDepleted@ might be thrown by
+    -- `pickUtxo` as we iterate which here means that we are running out of
+    -- UTxOs to cover the fee, and therefore, remap the error accordingly.
+    remapUtxoDepleted :: CoinSelHardErr -> CoinSelHardErr
+    remapUtxoDepleted CoinSelHardErrUtxoDepleted = CoinSelHardErrCannotCoverFee
+    remapUtxoDepleted err                        = err
+
     go :: SelectedUtxo (Dom utxo)
-       -> CoinSelT utxo e m (SelectedUtxo (Dom utxo))
+       -> CoinSelT utxo CoinSelHardErr m (SelectedUtxo (Dom utxo))
     go !acc
       | selectedBalance acc >= getFee fee = return acc
       | otherwise = do
-          io <- pickUtxo $ unsafeValueSub (getFee fee) (selectedBalance acc)
+          io <- (pickUtxo $ unsafeValueSub (getFee fee) (selectedBalance acc))
+                `catchError` (throwError . remapUtxoDepleted)
           go (select io acc)
 
 -- | Attempt to pay the fee from change outputs, returning any fee remaining

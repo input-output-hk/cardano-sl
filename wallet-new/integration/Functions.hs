@@ -21,8 +21,8 @@ import           Control.Monad.Catch (throwM)
 import           Data.Aeson (toJSON)
 import           Data.Aeson.Diff (diff)
 import           Data.Aeson.Encode.Pretty (encodePretty)
-import           Data.Coerce (coerce)
 import           Data.List (isInfixOf, nub, uncons, (!!), (\\))
+import           Formatting (sformat)
 import           Servant.Client (GenResponse (..))
 import           Test.Hspec (Spec, describe, expectationFailure, hspec,
                      shouldBe, shouldContain)
@@ -36,15 +36,14 @@ import           Test.QuickCheck.Property (Property, Testable, ioProperty,
 import           Text.Show.Pretty (ppShow)
 
 import           Cardano.Wallet.API.Response (WalletResponse (..))
-import           Cardano.Wallet.API.V1.Migration.Types (migrate)
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.Client (ClientError (..), ServantError (..),
                      WalletClient (..), WalletError (..), getAccounts,
                      getAddressIndex, getTransactionIndex, getWallets,
                      hoistClient)
 
-import           Pos.Core (getCoin, mkCoin, unsafeAddCoin, unsafeSubCoin)
-import qualified Pos.Wallet.Web.ClientTypes.Types as V0
+import           Pos.Core (addressF, getCoin, mkCoin, unsafeAddCoin,
+                     unsafeSubCoin)
 
 import           Error (WalletTestError (..))
 import           Types
@@ -457,15 +456,11 @@ runAction wc action = do
 
         GetAddress -> do
             -- We choose one address.
-            address <-  fmap addrId . pickRandomElement =<< use addresses
+            (V1 address) <-  fmap addrId . pickRandomElement =<< use addresses
 
-            -- If we can't switch to @Text@ something is obviously wrong.
-            let cAddress :: (MonadThrow m) => m (V0.CId V0.Addr)
-                cAddress = either throwM pure (migrate address)
+            let textAddress = sformat addressF address
 
-            textAddress <- coerce <$> cAddress
-
-            log $ "Requesting: " <> show textAddress
+            log $ "Requesting: " <> textAddress
 
             -- If the address exists, it is valid.
             void . respToRes $ getAddress wc textAddress

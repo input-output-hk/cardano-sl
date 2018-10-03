@@ -16,6 +16,8 @@ module Wallet.Inductive.Cardano (
 import qualified Prelude (show)
 import           Universum
 
+import           Control.Lens (lazy)
+
 import           Cardano.Wallet.Kernel.Types
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import qualified Data.Map.Strict as Map
@@ -310,7 +312,7 @@ equivalentT useWW activeWallet esk = \mkWallet w ->
     walletSwitchToForkT ctxt accountId _n bs = do
         -- We assume the wallet is not in restoration mode
         let rbs@(oldest:_) = map fromRawResolvedBlock (toList bs)
-            hh = _fromDb <$> (oldest ^. DB.rbContext . DB.bcPrevMain)
+            hh = _fromDb <$> (oldest ^. DB.rbContext . DB.bcPrevMain . lazy)
         liftIO $ Kernel.switchToFork passiveWallet hh rbs
         checkWalletState ctxt accountId
 

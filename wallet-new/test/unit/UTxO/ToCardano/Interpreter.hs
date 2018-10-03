@@ -41,7 +41,7 @@ import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Resolved
 import           Cardano.Wallet.Kernel.Types
 import           Control.Arrow ((&&&))
-import           Control.Lens ((%=), (.=))
+import           Control.Lens (strict, (%=), (.=))
 import           Control.Lens.TH (makeLenses)
 import           Data.Default (def)
 import qualified Data.List.NonEmpty as NE
@@ -451,7 +451,7 @@ instance DSL.Hash h Addr => Interpret DSL2Cardano h (DSL.Block h Addr) where
         let ctxt = BlockContext {
                        _bcSlotId   = InDb  $  slot
                      , _bcHash     = InDb  $  headerHash block
-                     , _bcPrevMain = InDb <$> icMainBlockHdr prev
+                     , _bcPrevMain = view strict $ InDb <$> icMainBlockHdr prev
                      }
         let raw = mkRawResolvedBlock block resolvedTxInputs currentTime ctxt
         checkpoint <- mkCheckpoint prev slot block (fmap toaOut <$> resolvedTxInputs)

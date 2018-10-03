@@ -18117,6 +18117,7 @@ license = stdenv.lib.licenses.mit;
 , sqlite-simple-errors
 , stdenv
 , stm
+, strict
 , string-conv
 , swagger2
 , tabl
@@ -18225,6 +18226,7 @@ servant-swagger-ui-redoc
 sqlite-simple
 sqlite-simple-errors
 stm
+strict
 swagger2
 tar
 text

@@ -126,7 +126,7 @@ exactlyEqualTo t1 t2 =
         ]
 
 -- | Lenient equality for two 'TxMeta': two 'TxMeta' are equal if they have
--- the same data, same outputs in the same and same inputs even if in different order.
+-- the same data, same outputs in the same order and same inputs even if in different order.
 -- NOTE: This check might be slightly expensive as it's nlogn in the
 -- number of inputs, as it requires sorting.
 isomorphicTo :: TxMeta -> TxMeta -> Bool
@@ -156,22 +156,17 @@ type WalletId = Core.Address
 data AccountFops = Everything | AccountFops WalletId (Maybe AccountIx)
 
 data InvariantViolation =
-        DuplicatedTransactionWithDifferentValues Txp.TxId Core.Address Word32
-        -- ^ When attempting to insert a new 'MetaTx', the Primary key
+        TxIdInvariantViolated Txp.TxId
+        -- ^ When attempting to insert a new 'MetaTx', the TxId
         -- identifying this transaction was already present in the storage,
-        -- but  these values were not the same, meaning somebody is trying to
-        -- re-insert the same 'Tx' in the storage with different values (i.e.
-        -- different inputs/outputs etc) and this is effectively an invariant
-        -- violation.
-      | DuplicatedInputIn  Txp.TxId
-      | DuplicatedOutputIn Txp.TxId
+        -- but with different values (i.e. different inputs/outputs etc)
+        -- and this is effectively an invariant violation.
       | UndisputableLookupFailed Text
         -- ^ The db works in a try-catch style: it always first tries to
         -- insert data and if the PrimaryKey is already there, we catch the
         -- exception and do the lookup. This lookup should never fail, because
         -- the db is append only and if it`s found once, it should always
         -- be there.
-      | TxIdInvariantViolated Txp.TxId
       deriving Show
 
 -- | A domain-specific collection of things which might go wrong when
@@ -275,6 +270,11 @@ data FilterOrdering =
     | LesserThanEqual
     deriving (Show, Eq, Enum, Bounded)
 
+-- This is used mainly for testing and indicates, what happening
+-- at the internals of SQlite during a putTxMetaT operation
+-- @Tx@ means a new Tx was inserted
+-- @Meta@ means the Tx was there but from a different Account, so a new TxMeta entry was created.
+-- @No@ means the Tx was there from the same Account. This means nothing happens internally.
 data PutReturn = Tx | Meta | No
     deriving (Show, Eq, Enum, Bounded)
 

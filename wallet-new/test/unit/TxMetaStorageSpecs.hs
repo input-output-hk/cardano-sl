@@ -31,17 +31,6 @@ import           Util.Buildable (ShowThroughBuild (..))
 import           Util.Buildable.Hspec
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
-{-}
-chunksOf :: Int -> [e] -> [[e]]
-chunksOf i ls = map (take i) (buildCons (splitter ls))
-    where
-        splitter :: [e] -> ([e] -> a -> a) -> a -> a
-        splitter [] _ n = n
-        splitter l c n  = l `c` splitter (drop i l) c n
-
-        buildCons :: ((a -> [a] -> [a]) -> [a] -> [a]) -> [a]
-        buildCons g = g (:) []
--}
 
 -- | Handy combinator which yields a fresh database to work with on each spec.
 withTemporaryDb :: forall m a. (MonadIO m, MonadMask m) => (MetaDBHandle -> m a) -> m a
@@ -56,11 +45,12 @@ withTemporaryDb action = bracket acquire release action
        release :: MetaDBHandle -> m ()
        release = liftIO . closeMetaDB
 
--- | Generates two 'TxMeta' which are @almost@ identical, if not in the
--- arrangement of their inputs.
+-- | Generates two 'TxMeta' which are @almost@ identical (not in the
+-- arrangement of their inputs). This means that isomorphicTo should
+-- succeed, while exactlyEqualTo not.
 genSimilarTxMetas :: Gen (ShowThroughBuild TxMeta, ShowThroughBuild TxMeta)
 genSimilarTxMetas = do
-    inputs  <- uniqueElements 5
+    inputs  <- fmap getInput <$> uniqueElements 5
     outputs <- NonEmpty.fromList <$> vectorOf 5 arbitrary
     blueprint <- unSTB <$> genMeta
     let t1 = blueprint & over txMetaInputs  (const inputs)
@@ -73,19 +63,18 @@ genSimilarTxMetas = do
 -- 'genMetas'. The reason why it is necessary is because the stock implementation
 -- of 'Eq' would of course declare two tuples equal if their elements are.
 -- However, this is too \"strong\" for our 'uniqueElements' generator.
-
 newtype Input = Input { getInput :: (TxId, Word32, Core.Address, Core.Coin) }
-    deriving (Eq, Ord, Show)
-{-}
+    deriving (Show)
+
 -- | Eq is defined on the primary keys of Inputs.
 instance Eq Input where
-    (Input (_, _, id1, ix1)) == (Input (_, _, id2, ix2)) = (id1, ix1) == (id2, ix2)
+    (Input (id1, ix1, _, _)) == (Input (id2, ix2, _, _)) = (id1, ix1) == (id2, ix2)
 
 -- | This ensures that Inputs generated for the same Tx from getMetas, do not
 -- double spend as they don`t use the same output.
 instance Ord Input where
-    compare (Input (_, _, id1, ix1)) (Input (_, _, id2, ix2)) = compare (id1, ix1) (id2, ix2)
--}
+    compare (Input (id1, ix1, _, _)) (Input (id2, ix2, _, _)) = compare (id1, ix1) (id2, ix2)
+
 instance Arbitrary Input where
     arbitrary = Input <$> arbitrary
 
@@ -105,6 +94,8 @@ instance Arbitrary Output where
 
 -- | Handy generator which make sure we are generating 'TxMeta' which all
 -- have distinct txids and valid Inputs.
+-- This gives the promise that all @size@ number of TxMeta can succesfully be
+-- inserted in an empty db, with no violation.
 genMetas :: Int -> Gen [ShowThroughBuild TxMeta]
 genMetas size = do
     txids <- uniqueElements size
@@ -113,6 +104,8 @@ genMetas size = do
     return $ map STB metas
 
 -- | Generator for an arbitrary 'TxMeta' with valid Inputs.
+-- This gives the promise that it can succesfully be inserted in an empty db,
+-- with no violation.
 genMeta :: Gen (ShowThroughBuild TxMeta)
 genMeta = do
     meta <- TxMeta <$> arbitrary
@@ -225,7 +218,6 @@ txMetaStorageSpecs = do
             meta <- unSTB <$> pick genMeta
             let ls = SQlite.fromInputs . SQlite.mkInputs $ meta
             return $ Isomorphic meta{_txMetaInputs = ls} `shouldBe` Isomorphic meta
-
 
         it "fromOutputs . mkOutputs should keep the same ordered outputs" $ monadicIO $ do
             meta <- unSTB <$> pick genMeta
@@ -436,6 +428,14 @@ txMetaStorageSpecs = do
                 (result, _) <- (getTxMetas hdl) (Offset 0) (Limit 10) Everything Nothing NoFilterOp NoFilterOp (Just $ Sorting SortByCreationAt Descending)
                 map Isomorphic result `shouldBe` sortByCreationAt Descending (map Isomorphic metas)
 
+        it "implicit sorting is by creation time descenting" $ monadicIO $ do
+            testMetasSTB <- pick (genMetas 5)
+            run $ withTemporaryDb $ \hdl -> do
+                let metas = map unSTB testMetasSTB
+                forM_ metas (putTxMeta hdl)
+                (result, _) <- (getTxMetas hdl) (Offset 0) (Limit 10) Everything Nothing NoFilterOp NoFilterOp Nothing
+                map Isomorphic result `shouldBe` sortByCreationAt Descending (map Isomorphic metas)
+
         it "metadb counts total Entries properly" $ monadicIO $ do
             testMetasSTB <- pick (genMetas 10)
             run $ withTemporaryDb $ \hdl -> do
@@ -512,6 +512,7 @@ txMetaStorageSpecs = do
                 case getAddressTransform' metas of
                     Nothing -> error "txMeta was found with less elements than it should"
                     Just (metasA, addr, m1, m2) -> do
+                        -- m2 has addr in both inputs and outputs.
                         forM_ metasA (putTxMeta hdl)
                         (result, count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything (Just addr) NoFilterOp NoFilterOp Nothing
                         let iso = map Isomorphic result
@@ -589,6 +590,26 @@ txMetaStorageSpecs = do
                         count1 `shouldBe` count2
                         map Isomorphic result `shouldBe` sortByCreationAt Descending (map Isomorphic [m1, m2])
 
+        it "like above, but we test implicit sorting" $ monadicIO $ do
+            testMetasSTB <- pick (genMetas 5)
+            run $ withTemporaryDb $ \hdl -> do
+                let metas = map unSTB testMetasSTB
+                case getAddressTransform metas of
+                    Nothing -> expectationFailure "txMeta was found with less elements than it should"
+                    Just (metasA, addr, m1, m2) -> do
+                        forM_ metasA (putTxMeta hdl)
+                        (result1, count1) <- (getTxMetas hdl) (Offset 0) (Limit 1) Everything (Just addr) NoFilterOp NoFilterOp Nothing
+                        (result2, count2) <- (getTxMetas hdl) (Offset 1) (Limit 4) Everything (Just addr) NoFilterOp NoFilterOp Nothing
+                        let result = filter (\m -> _txMetaId m `elem` map _txMetaId [m1, m2] ) (result1 <> result2)
+                        length result1 `shouldBe` 1
+                        length result `shouldBe` 2
+                        -- it`s possible that the generator created the
+                        -- same address more than once. So we may expect more than 2 results here.
+                        count1 `shouldSatisfy` (justbeq 2)
+                        count2 `shouldSatisfy` (justbeq 2)
+                        count1 `shouldBe` count2
+                        map Isomorphic result `shouldBe` sortByCreationAt Descending (map Isomorphic [m1, m2])
+
         it "applying all filters succeeds when it should" $ monadicIO $ do
             testMetasSTB <- pick (genMetas 5)
             run $ withTemporaryDb $ \hdl -> do
@@ -606,7 +627,7 @@ txMetaStorageSpecs = do
                                 (FilterByPredicate GreaterThanEqual _txMetaCreationAt)
                                 (Just $ Sorting SortByCreationAt Descending)
                         map Isomorphic result `shouldMatchList` [Isomorphic m]
-                        total `shouldBe` (Just $ 1)
+                        total `shouldBe` (Just 1)
 
         it "applying all filters rejects everything when it should" $ monadicIO $ do
             testMetasSTB <- pick (genMetas 5)
@@ -625,7 +646,7 @@ txMetaStorageSpecs = do
                                 (FilterByPredicate GreaterThan _txMetaCreationAt)
                                 (Just $ Sorting SortByCreationAt Descending)
                         map Isomorphic result `shouldBe` []
-                        total `shouldBe` (Just $ 0)
+                        total `shouldBe` (Just 0)
 
 -- Tests that the values is there and is Bigger or Equal to n.
 justbeq :: Int -> Maybe Int -> Bool

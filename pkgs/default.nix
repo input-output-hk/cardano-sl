@@ -18118,6 +18118,7 @@ license = stdenv.lib.licenses.mit;
 , stdenv
 , stm
 , strict
+, strict-concurrency
 , string-conv
 , swagger2
 , tabl
@@ -18227,6 +18228,7 @@ sqlite-simple
 sqlite-simple-errors
 stm
 strict
+strict-concurrency
 swagger2
 tar
 text

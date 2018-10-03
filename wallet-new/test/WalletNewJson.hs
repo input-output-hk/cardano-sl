@@ -9,8 +9,8 @@ import           Hedgehog (Property)
 import           Cardano.Wallet.API.Response (JSONValidationError (..))
 import           Cardano.Wallet.API.V1.Migration.Types (MigrationError (..))
 import           Cardano.Wallet.API.V1.Swagger.Example (genExample)
-import           Cardano.Wallet.API.V1.Types (V1 (..), WalletError (..),
-                     exampleWalletId)
+import           Cardano.Wallet.API.V1.Types (ErrNotEnoughMoney (..), V1 (..),
+                     WalletError (..), exampleWalletId)
 
 import           Test.Pos.Core.ExampleHelpers (exampleAddress)
 import           Test.Pos.Util.Golden (discoverGolden, goldenTestJSON)
@@ -30,11 +30,18 @@ tests =
 -- WalletError
 -------------------------------------------------------------------------------
 
-golden_WalletError_NotEnoughMoney :: Property
-golden_WalletError_NotEnoughMoney =
+golden_WalletError_NotEnoughMoneyAvailableBalanceIsInsufficient :: Property
+golden_WalletError_NotEnoughMoneyAvailableBalanceIsInsufficient =
     goldenTestJSON
-        (NotEnoughMoney 10)
-            "test/golden/WalletError_NotEnoughMoney"
+        (NotEnoughMoney (ErrAvailableBalanceIsInsufficient 14))
+            "test/golden/WalletError_NotEnoughMoneyAvailableBalanceIsInsufficient"
+
+golden_WalletError_NotEnoughMoneyCannotCoverFee :: Property
+golden_WalletError_NotEnoughMoneyCannotCoverFee =
+    goldenTestJSON
+        (NotEnoughMoney ErrCannotCoverFee)
+            "test/golden/WalletError_NotEnoughMoneyCannotCoverFee"
+
 
 golden_WalletError_OutputIsRedeem :: Property
 golden_WalletError_OutputIsRedeem =

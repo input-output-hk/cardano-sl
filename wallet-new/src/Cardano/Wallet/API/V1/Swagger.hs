@@ -350,7 +350,7 @@ $errors
   errors = T.intercalate "\n" rows
   rows =
     -- 'WalletError'
-    [ mkRow fmtErr $ NotEnoughMoney 1400
+    [ mkRow fmtErr $ NotEnoughMoney (ErrAvailableBalanceIsInsufficient 1400)
     , mkRow fmtErr $ OutputIsRedeem sampleAddress
     , mkRow fmtErr $ UnknownError "Unknown error."
     , mkRow fmtErr $ InvalidAddressFormat "Invalid Base58 representation."

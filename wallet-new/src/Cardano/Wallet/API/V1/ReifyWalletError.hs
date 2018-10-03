@@ -250,12 +250,8 @@ newTransactionError e = case e of
         unknownHdAccount e'
 
     (Kernel.NewTransactionErrorCoinSelectionFailed e') -> case e' of
-          ex@(CoinSelHardErrOutputCannotCoverFee _outputs fee) ->
-                case (readMaybe $ T.unpack fee) of
-                    Just coin ->
-                        V1.NotEnoughMoney coin
-                    Nothing ->
-                        V1.UnknownError $ (sformat build ex)
+          CoinSelHardErrOutputCannotCoverFee _outputs _fee ->
+                V1.NotEnoughMoney V1.ErrCannotCoverFee
 
           ex@(CoinSelHardErrOutputIsRedeemAddress addr) ->
                 case (decodeTextAddress addr) of
@@ -265,7 +261,7 @@ newTransactionError e = case e of
                         V1.UnknownError $ (sformat build ex)
 
           CoinSelHardErrCannotCoverFee ->
-                V1.NotEnoughMoney (-1)
+                V1.NotEnoughMoney V1.ErrCannotCoverFee
 
           (CoinSelHardErrMaxInputsReached _txt) ->
                 V1.TooBigTransaction
@@ -273,12 +269,12 @@ newTransactionError e = case e of
           ex@(CoinSelHardErrUtxoExhausted balance _payment) ->
               case (readMaybe $ T.unpack balance) of
                   Just coin ->
-                      V1.NotEnoughMoney coin
+                      V1.NotEnoughMoney (V1.ErrAvailableBalanceIsInsufficient coin)
                   Nothing ->
                       V1.UnknownError $ (sformat build ex)
 
           CoinSelHardErrUtxoDepleted ->
-            V1.NotEnoughMoney (-1)
+            V1.NotEnoughMoney (V1.ErrAvailableBalanceIsInsufficient 0)
 
     (Kernel.NewTransactionErrorCreateAddressFailed e') ->
         createAddressErrorKernel e'

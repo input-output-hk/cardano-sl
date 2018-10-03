@@ -60,6 +60,7 @@
 
 - The codebase now relies on the package `cryptonite` (instead of `ed25519`) for Ed25519 implementation (CO-325)
 
+- **[API BREAKING CHANGE]** Improve diagnostic for `NotEnoughMoney` error (CBR-461)
 
 ### Specifications
 

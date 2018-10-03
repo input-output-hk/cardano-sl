@@ -302,7 +302,11 @@ data CoinSelHardErr =
     -- See also 'CoinSelHardErrCannotCoverFee'
   | CoinSelHardErrUtxoExhausted Text Text
 
-    -- | UTxO depleted using input selection
+    -- | UTxO depleted using input selection.
+    --
+    -- This occurs when there's actually no UTxO to pick from in a first place,
+    -- like an edge-case of CoinSelHardErrUtxoExhausted (which suggests that we
+    -- could at least start selecting UTxO).
   | CoinSelHardErrUtxoDepleted
 
 instance Arbitrary CoinSelHardErr where

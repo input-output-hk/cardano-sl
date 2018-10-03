@@ -288,6 +288,7 @@ runCoinSelT opts pickUtxo policy request utxo = do
     policy' :: CoinSelT Core.Utxo CoinSelHardErr m
                  ([CoinSelResult Cardano], SelectedUtxo Cardano)
     policy' = do
+        when (Map.null utxo) $ throwError CoinSelHardErrUtxoDepleted
         mapM_ validateOutput request
         css <- intInputGrouping (csoInputGrouping opts)
         -- We adjust for fees /after/ potentially dealing with grouping

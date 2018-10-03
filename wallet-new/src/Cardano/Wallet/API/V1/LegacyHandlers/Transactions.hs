@@ -33,10 +33,10 @@ import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 
 convertTxError :: V0.TxError -> WalletError
 convertTxError err = case err of
-    V0.NotEnoughMoney coin ->
-        NotEnoughMoney . fromIntegral . Core.getCoin $ coin
-    V0.NotEnoughAllowedMoney coin ->
-        NotEnoughMoney . fromIntegral . Core.getCoin $ coin
+    V0.NotEnoughMoney _coin ->
+        NotEnoughMoney ErrCannotCoverFee
+    V0.NotEnoughAllowedMoney _coin ->
+        NotEnoughMoney (ErrAvailableBalanceIsInsufficient (-1))
     V0.FailedToStabilize ->
         TxFailedToStabilize
     V0.OutputIsRedeem addr ->

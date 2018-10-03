@@ -124,6 +124,7 @@ module Cardano.Wallet.API.V1.Types (
   , Core.Address
   -- * Wallet Errors
   , WalletError(..)
+  , ErrNotEnoughMoney(..)
   , toServantError
   , toHttpErrorStatus
 
@@ -139,7 +140,8 @@ import           Control.Lens (At, Index, IxValue, at, ix, makePrisms, to, (?~))
 import           Data.Aeson
 import qualified Data.Aeson.Options as Serokell
 import           Data.Aeson.TH as A
-import           Data.Aeson.Types (Value (..), toJSONKeyText, typeMismatch)
+import           Data.Aeson.Types (Parser, Value (..), toJSONKeyText,
+                     typeMismatch)
 import           Data.Bifunctor (first)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
@@ -206,7 +208,6 @@ import           Pos.Wallet.Web.ClientTypes.Instances ()
 import qualified Pos.Wallet.Web.State.Storage as OldStorage
 import           Test.Pos.Core.Arbitrary ()
 
-
 -- | Declare generic schema, while documenting properties
 --   For instance:
 --
@@ -267,8 +268,10 @@ genericSchemaDroppingPrefix prfx extraDoc proxy = do
 
 
 optsADTCamelCase :: A.Options
-optsADTCamelCase =
-    defaultOptions { A.constructorTagModifier = mkJsonKey }
+optsADTCamelCase = defaultOptions
+    { A.constructorTagModifier = mkJsonKey
+    , A.sumEncoding            = A.ObjectWithSingleField
+    }
 
 
 --
@@ -2953,6 +2956,53 @@ instance Example WalletImport where
 -- Wallet Errors
 --
 
+-- | Details about what 'NotEnoughMoney' means
+data ErrNotEnoughMoney
+    -- | UTxO exhausted whilst trying to pick inputs to cover remaining fee
+    = ErrCannotCoverFee
+
+    -- | UTxO exhausted during input selection
+    --
+    -- We record the available balance of the UTxO
+    | ErrAvailableBalanceIsInsufficient Int
+
+    deriving (Eq, Show, Generic)
+
+instance Buildable ErrNotEnoughMoney where
+    build = \case
+        ErrCannotCoverFee ->
+             bprint "Not enough coins to cover fee."
+        ErrAvailableBalanceIsInsufficient _ ->
+             bprint "Not enough available coins to proceed."
+
+instance ToJSON ErrNotEnoughMoney where
+    toJSON = \case
+        e@ErrCannotCoverFee -> object
+            [ "msg" .= sformat build e
+            ]
+        e@(ErrAvailableBalanceIsInsufficient balance) -> object
+            [ "msg"              .= sformat build e
+            , "availableBalance" .= balance
+            ]
+
+instance FromJSON ErrNotEnoughMoney where
+    parseJSON v =
+            withObject "AvailableBalanceIsInsufficient" availableBalanceIsInsufficientParser v
+        <|> withObject "CannotCoverFee" cannotCoverFeeParser v
+      where
+        cannotCoverFeeParser :: Object -> Parser ErrNotEnoughMoney
+        cannotCoverFeeParser o = do
+            msg <- o .: "msg"
+            when (msg /= sformat build ErrCannotCoverFee) mempty
+            pure ErrCannotCoverFee
+
+        availableBalanceIsInsufficientParser :: Object -> Parser ErrNotEnoughMoney
+        availableBalanceIsInsufficientParser o = do
+            msg <- o .: "msg"
+            when (msg /= sformat build (ErrAvailableBalanceIsInsufficient 0)) mempty
+            ErrAvailableBalanceIsInsufficient <$> (o .: "availableBalance")
+
+
 -- | Type representing any error which might be thrown by wallet.
 --
 -- Errors are represented in JSON in the JSend format (<https://labs.omniti.com/labs/jsend>):
@@ -2982,7 +3032,7 @@ instance Example WalletImport where
 -- TODO: change fields' types to actual Cardano core types, like `Coin` and `Address`
 data WalletError =
     -- | NotEnoughMoney weNeedMore
-      NotEnoughMoney !Int
+      NotEnoughMoney !ErrNotEnoughMoney
     -- | OutputIsRedeem weAddress
     | OutputIsRedeem !(V1 Core.Address)
     -- | UnknownError weMsg
@@ -3034,7 +3084,10 @@ instance FromJSON WalletError where
 
 instance Arbitrary WalletError where
     arbitrary = Gen.oneof
-        [ NotEnoughMoney <$> Gen.choose (1, 1000)
+        [ NotEnoughMoney <$> Gen.oneof
+            [ pure ErrCannotCoverFee
+            , ErrAvailableBalanceIsInsufficient <$> Gen.choose (1, 1000)
+            ]
         , OutputIsRedeem . V1 <$> arbitrary
         , UnknownError <$> arbitraryText
         , InvalidAddressFormat <$> arbitraryText
@@ -3075,8 +3128,8 @@ instance Arbitrary WalletError where
 -- | Give a short description of an error
 instance Buildable WalletError where
     build = \case
-        NotEnoughMoney _ ->
-             bprint "Not enough available coins to proceed."
+        NotEnoughMoney x ->
+             bprint build x
         OutputIsRedeem _ ->
              bprint "One of the TX outputs is a redemption address."
         UnknownError _ ->
@@ -3161,7 +3214,7 @@ instance ToServantError WalletError where
 instance HasDiagnostic WalletError where
     getDiagnosticKey = \case
         NotEnoughMoney{} ->
-            "needMore"
+            "details"
         OutputIsRedeem{} ->
             "address"
         UnknownError{} ->

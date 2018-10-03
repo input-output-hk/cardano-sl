@@ -29,6 +29,7 @@
 % For making figures
 \usepackage{tikz}
 \usetikzlibrary{positioning}
+\usetikzlibrary{arrows}
 
 \DeclareMathOperator{\dom}{dom}
 \DeclareMathOperator{\range}{range}
@@ -516,7 +517,7 @@ system entities.
     \draw[->] (pkey) -- node[anchor=west] {has} (funds);
     \draw[->] (skey) -- node[anchor=west] {has} (srights);
     \draw[->] (srights) -- node[anchor=north] {associated with} (funds);
-    \draw[->] (spool) -- node[anchor=south, rotate=50] {pays to} (racc);
+    \draw[->] (pos) edge[bend left] node[left] {pays to} (racc);
     \draw[->] (srights) -- node[anchor=east] {delegated to} (spool);
     \draw[->] (spool) -- node[anchor=south] {participates in} (pos);
   \end{tikzpicture}
@@ -537,9 +538,7 @@ delegation:
 \item Each stake key have a unique reward account associated with it, and a
   reward account can be associated to only one stake key.
 \item There can be many UTxO entries (funds) for a single address. However a
-  UTxO entry refers to an input and an output address, unless it is a special
-  kind of transaction (for instance those that forge value, and have no
-  corresponding input).
+  UTxO entry refers an available input address to use.
 \item A stake key is associated to exactly zero or one stake pool at any point
   in time. A stake pool can contain multiple stake keys.
 \end{itemize}
@@ -573,10 +572,10 @@ delegation:
   % Horizontal lines. By grouping all the horizontal lines we do not need to set
   % the node attributes (such as `align`) every time.
   \draw[-] (utxo) -- node[pos=0.1] {$n$}
-                     node[pos=0.85] {$1 \ldots 2$}
+                     node[pos=0.85] {$1$}
            (addr);
   \draw[-] (addr) -- node[pos=0.1] {$n$}
-                     node[pos=0.9] {$1$}
+                     node[pos=0.85] {$0 \ldots 1$}
            (pkey);
   \draw[-] (skey) -- node[pos=0.1] {$n$}
                      node[pos=0.85] {$0 \ldots 1$}
@@ -587,7 +586,7 @@ delegation:
   % Horizontal lines.
   \tikzset{every node/.style={align=left, right}}
   \draw[-] (addr) -- node[pos=0.1] {$n$}
-                     node[pos=0.9] {$1$}
+                     node[pos=0.9] {$0 \ldots 1$}
            (skey);
   \end{tikzpicture}
 

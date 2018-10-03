@@ -8,7 +8,6 @@ import           Hedgehog (Property)
 
 import           Cardano.Wallet.API.Response (JSONValidationError (..),
                      UnsupportedMimeTypeError (..))
-import           Cardano.Wallet.API.V1.Migration.Types (MigrationError (..))
 import           Cardano.Wallet.API.V1.Swagger.Example (genExample)
 import           Cardano.Wallet.API.V1.Types (ErrNotEnoughMoney (..), V1 (..),
                      WalletError (..), exampleWalletId)
@@ -145,17 +144,6 @@ golden_WalletError_CannotCreateAddress =
     goldenTestJSON
         (CannotCreateAddress "test")
             "test/golden/WalletError_CannotCreateAddress"
-
-
--------------------------------------------------------------------------------
--- MigrationError
--------------------------------------------------------------------------------
-
-golden_MigrationError_MigrationFailed :: Property
-golden_MigrationError_MigrationFailed =
-    goldenTestJSON
-        (MigrationFailed "test")
-            "test/golden/MigrationError_MigrationFailed"
 
 
 -------------------------------------------------------------------------------

@@ -623,12 +623,14 @@ This check protects against the malleability attack in
 \subsubsection{Certificates on the Blockchain}
 \label{certificates-on-the-blockchain}
 
-The registering of stake keys and stake pools, and delegating between
-them involves posting appropriate signed registration or delegation
-certificates to the blockchain as part of transaction metadata.
+The registering of stake keys and stake pools, and delegating between them
+involves posting appropriate signed registration or delegation certificates to
+the blockchain as part of the set of certificates included in transaction (See
+Figure~\ref{fig:utxo_style_certificates}). This makes the certificates part of
+the blockchain, which means that they are are publicly announced to all
+participants.
 
-Certificates can be publicly announced to all participants by posting
-them to the blockchain, as transaction metadata. They will remain valid
+Certificates will remain valid
 until explicitly overwritten or revoked, as an automatic expiry would
 likely increase the amount of undelegated, offline stake. The following
 certificates can be posted to the blockchain:
@@ -711,7 +713,7 @@ The certificate must be signed by \(sks\).
 
 Registering a stake key introduces a corresponding stake reward account.
 The account is deleted when the stake key is de-registered. See
-\cref{stake-reward-accounts} for details on reward accounts.
+\cref{reward-accounts-per-stake-key} for details on reward accounts.
 
 Registering a stake key attracts a special fee that must be included
 into the transaction that posts the certificate. This fee is in fact a

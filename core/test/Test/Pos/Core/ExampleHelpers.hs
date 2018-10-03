@@ -36,6 +36,7 @@ module Test.Pos.Core.ExampleHelpers
 
         -- Helpers
         , feedPM
+        , feedPMWithNMMustBeJust
         , feedPC
         , feedPMC
         , feedEpochSlots
@@ -66,14 +67,15 @@ import           Pos.Core.Slotting (EpochIndex (..), EpochSlottingData (..),
                      LocalSlotIndex (..), SlotCount, SlotId (..), SlottingData,
                      createSlottingDataUnsafe)
 import           Pos.Crypto (HDAddressPayload (..), ProtocolMagic (..),
-                     RedeemPublicKey, SafeSigner (..), SecretKey (..),
-                     VssPublicKey (..), abstractHash, deterministicVssKeyGen,
+                     RedeemPublicKey, RequiresNetworkMagic (..),
+                     SafeSigner (..), SecretKey (..), VssPublicKey (..),
+                     abstractHash, deterministicVssKeyGen,
                      redeemDeterministicKeyGen, toVssPublicKey)
 import           Pos.Crypto.Signing (PublicKey (..))
 
 import           Test.Pos.Core.Gen (genProtocolConstants)
 import           Test.Pos.Crypto.Bi (getBytes)
-import           Test.Pos.Crypto.Gen (genProtocolMagic)
+import           Test.Pos.Crypto.Gen (genProtocolMagic, genProtocolMagicId)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
@@ -83,6 +85,11 @@ import           Test.Pos.Crypto.Gen (genProtocolMagic)
 
 feedPM :: (ProtocolMagic -> H.Gen a) -> H.Gen a
 feedPM genA = genA =<< genProtocolMagic
+
+feedPMWithNMMustBeJust :: (ProtocolMagic -> H.Gen a) -> H.Gen a
+feedPMWithNMMustBeJust genA = do
+    pm <- flip ProtocolMagic NMMustBeJust <$> genProtocolMagicId
+    genA pm
 
 feedPC :: (ProtocolConstants -> H.Gen a) -> H.Gen a
 feedPC genA = genA =<< genProtocolConstants

@@ -101,7 +101,7 @@ instance ToJSON StaticConfig where
 instance FromJSON StaticConfig where
     parseJSON (Object o)
         | HM.member "src" o  = GCSrc <$> ((o .: "src") >>= (.: "file"))
-                                      <*> ((o .: "src") >>= (.: "hash"))
+                                     <*> ((o .: "src") >>= (.: "hash"))
         | HM.member "spec" o = do
               -- GCSpec Object
               specO <- o .: "spec"

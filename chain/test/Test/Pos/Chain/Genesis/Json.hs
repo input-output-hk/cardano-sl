@@ -20,7 +20,7 @@ import           Test.Pos.Chain.Genesis.Gen (genGenesisAvvmBalances,
                      genGenesisData, genGenesisDelegation,
                      genGenesisInitializer, genGenesisProtocolConstants,
                      genStaticConfig)
-import           Test.Pos.Core.ExampleHelpers (feedPM)
+import           Test.Pos.Core.ExampleHelpers (feedPM, feedPMWithNMMustBeJust)
 import           Test.Pos.Util.Golden (discoverGolden, eachOf,
                      goldenTestCanonicalJSONDec, goldenTestJSON,
                      goldenTestJSONDec)
@@ -91,7 +91,7 @@ golden_GenesisDataDec2 =
 
 roundTripGenesisData :: Property
 roundTripGenesisData =
-    eachOf 100 (feedPM genGenesisData) roundTripsCanonicalJSONShow
+    eachOf 100 (feedPMWithNMMustBeJust genGenesisData) roundTripsCanonicalJSONShow
 
 --------------------------------------------------------------------------------
 -- GenesisAvvmBalances

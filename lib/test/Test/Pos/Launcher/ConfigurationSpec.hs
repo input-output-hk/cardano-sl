@@ -5,22 +5,48 @@ module Test.Pos.Launcher.ConfigurationSpec
 import           Universum
 
 import           Data.Time.Clock.POSIX (getPOSIXTime)
-import           Test.Hspec (Spec, describe, it, shouldSatisfy)
+import           Test.Hspec (Spec, describe, it, shouldBe, shouldSatisfy)
 
+import           Ntp.Client (NtpConfiguration)
+import qualified Pos.Chain.Genesis as Genesis (Config (..))
+import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Core.Slotting (Timestamp (..))
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 import           Pos.Launcher.Configuration (ConfigurationOptions (..),
-                     defaultConfigurationOptions, withConfigurations)
+                     WalletConfiguration, defaultConfigurationOptions,
+                     withConfigurations)
 import           Pos.Util.Config (ConfigurationException)
 import           Pos.Util.Wlog (setupTestLogging)
+
+configFilePath :: FilePath
+configFilePath = "configuration.yaml"
+
+checkYamlSection :: Text -> Spec
+checkYamlSection key = describe ("key: " ++ show key) $ do
+    it "should be NMMustBeNothing" $ do
+        liftIO $ setupTestLogging
+        startTime <- Timestamp . round . (* 1000000) <$> liftIO getPOSIXTime
+        let cfo = ConfigurationOptions configFilePath key (Just startTime) Nothing
+        rnm  <- liftIO (withConfigurations Nothing Nothing False cfo getRNM)
+        rnm `shouldBe` NMMustBeNothing
+
+getRNM
+    :: Genesis.Config
+    -> WalletConfiguration
+    -> TxpConfiguration
+    -> NtpConfiguration
+    -> IO RequiresNetworkMagic
+getRNM cfg _ _ _ =
+    pure $ getRequiresNetworkMagic $ Genesis.configProtocolMagic cfg
 
 spec :: Spec
 spec = describe "Pos.Launcher.Configuration" $ do
     describe "withConfigurations" $ do
-        it "should parse `lib/configuration.yaml` file" $ do
-            liftIO setupTestLogging
+        it ("should parse `" <> configFilePath <> "` file") $ do
+            liftIO $ setupTestLogging
             startTime <- Timestamp . round . (* 1000000) <$> liftIO getPOSIXTime
             let cfo = defaultConfigurationOptions
-                        { cfoFilePath = "./configuration.yaml"
+                        { cfoFilePath = configFilePath
                         , cfoSystemStart = Just startTime
                         }
             let catchFn :: ConfigurationException -> IO (Maybe ConfigurationException)
@@ -29,3 +55,17 @@ spec = describe "Pos.Launcher.Configuration" $ do
                 (withConfigurations Nothing Nothing False cfo (\_ _ _ _ -> return Nothing))
                 catchFn
             res `shouldSatisfy` isNothing
+
+    -- Ensuring that all of the config objects mapped to each of the specified
+    -- keys contain NMMustBeNothing.
+    mapM_ checkYamlSection
+        [ "mainnet_full" -- mainnet core/relay nodes and exchange wallets
+        , "mainnet_dryrun_full" -- staging core/relay nodes and exchange wallets
+        , "mainnet_wallet_win64" -- mainnet wallets (daedalus)
+        , "mainnet_wallet_macos64"
+        , "mainnet_wallet_linux64"
+        , "mainnet_dryrun_wallet_win64" -- staging wallets (daedalus)
+        , "mainnet_dryrun_wallet_macos64"
+        , "mainnet_dryrun_wallet_linux64"
+        ]
+

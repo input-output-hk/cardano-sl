@@ -7,13 +7,14 @@
 -- | Arbitrary instances for core.
 
 module Test.Pos.Chain.Genesis.Arbitrary
-       (
+       ( genGenesisData
+       , genGenesisProtocolConstants
        ) where
 
 import           Universum
 
 import           Data.Time.Units (Second, convertUnit)
-import           Test.QuickCheck (Arbitrary (..), choose, sized, suchThat)
+import           Test.QuickCheck (Arbitrary (..), Gen, choose, sized, suchThat)
 
 import           Pos.Chain.Delegation (HeavyDlgIndex (..))
 import           Pos.Chain.Genesis
@@ -22,7 +23,7 @@ import           Pos.Chain.Update (BlockVersionData (..))
 import           Pos.Core (Timestamp (..), TxFeePolicy (..), maxCoinVal)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
                      VssMaxTTL (..), VssMinTTL (..))
-import           Pos.Crypto (createPsk, toPublic)
+import           Pos.Crypto (ProtocolMagic, createPsk, toPublic)
 import           Pos.Util.Util (leftToPanic)
 
 import           Test.Pos.Chain.Ssc.Arbitrary ()
@@ -82,19 +83,28 @@ instance Arbitrary ProtocolConstants where
         ProtocolConstants <$> choose (1, 20000) <*> pure vssMin <*> pure vssMax
 
 instance Arbitrary GenesisProtocolConstants where
-    arbitrary = flip genesisProtocolConstantsFromProtocolConstants dummyProtocolMagic <$> arbitrary
+    arbitrary = genGenesisProtocolConstants arbitrary
+
+genGenesisProtocolConstants
+    :: Gen ProtocolMagic
+    -> Gen GenesisProtocolConstants
+genGenesisProtocolConstants genPM =
+    genesisProtocolConstantsFromProtocolConstants <$> arbitrary <*> genPM
 
 instance Arbitrary GenesisData where
-    arbitrary = GenesisData
+    arbitrary = genGenesisData arbitrary
+
+genGenesisData :: Gen GenesisProtocolConstants -> Gen GenesisData
+genGenesisData genGPC =
+    GenesisData
         <$> arbitrary <*> arbitrary <*> arbitraryStartTime
         <*> arbitraryVssCerts <*> arbitrary <*> arbitraryBVD
-        <*> arbitrary <*> arbitrary <*> arbitrary
-      where
-        -- System start time should be multiple of a second.
-        arbitraryStartTime = Timestamp . convertUnit @Second <$> arbitrary
-        -- Unknown tx fee policy in genesis is not ok.
-        arbitraryBVD = arbitrary `suchThat` hasKnownFeePolicy
-        hasKnownFeePolicy BlockVersionData {bvdTxFeePolicy = TxFeePolicyTxSizeLinear {}} =
-            True
-        hasKnownFeePolicy _ = False
-        arbitraryVssCerts = mkVssCertificatesMapLossy <$> arbitrary
+        <*> genGPC <*> arbitrary <*> arbitrary
+  where
+    -- System start time should be multiple of a second.
+    arbitraryStartTime = Timestamp . convertUnit @Second <$> arbitrary
+    -- Unknown tx fee policy in genesis is not ok.
+    arbitraryBVD = arbitrary `suchThat` hasKnownFeePolicy
+    hasKnownFeePolicy BlockVersionData {bvdTxFeePolicy = TxFeePolicyTxSizeLinear {}} = True
+    hasKnownFeePolicy _ = False
+    arbitraryVssCerts = mkVssCertificatesMapLossy <$> arbitrary

@@ -42,7 +42,8 @@ import           Pos.Chain.Genesis (FakeAvvmOptions (..),
                      GenesisWStakeholders (..), StaticConfig (..),
                      TestnetBalanceOptions (..))
 import           Pos.Core (Coin (..), CoinPortion (..), EpochIndex (..),
-                     VssMaxTTL (..), VssMinTTL (..), addressHash)
+                     Timestamp (..), VssMaxTTL (..), VssMinTTL (..),
+                     addressHash)
 import           Pos.Crypto (ProtocolMagic (..), ProtocolMagicId (..),
                      ProxyCert (..), ProxySecretKey (..), RedeemPublicKey,
                      RequiresNetworkMagic (..), abstractHash,
@@ -272,21 +273,27 @@ exampleGenesisProtocolConstants0 :: GenesisProtocolConstants
 exampleGenesisProtocolConstants0 = GenesisProtocolConstants
     { gpcK = 37
     , gpcProtocolMagic = ProtocolMagic (ProtocolMagicId 1783847074)
-                                       NMMustBeNothing
+                                       NMMustBeJust
     , gpcVssMaxTTL = VssMaxTTL {getVssMaxTTL = 1477558317}
     , gpcVssMinTTL = VssMinTTL {getVssMinTTL = 744040476}}
 
 exampleGenesisProtocolConstants1 :: GenesisProtocolConstants
 exampleGenesisProtocolConstants1 = GenesisProtocolConstants
     { gpcK = 64
-    , gpcProtocolMagic = ProtocolMagic {getProtocolMagic = 135977977}
+    , gpcProtocolMagic = ProtocolMagic
+        { getProtocolMagicId = ProtocolMagicId 135977977
+        , getRequiresNetworkMagic = NMMustBeJust
+        }
     , gpcVssMaxTTL = VssMaxTTL {getVssMaxTTL = 126106167}
     , gpcVssMinTTL = VssMinTTL {getVssMinTTL = 310228653}}
 
 exampleGenesisProtocolConstants2 :: GenesisProtocolConstants
 exampleGenesisProtocolConstants2 = GenesisProtocolConstants
     { gpcK = 2
-    , gpcProtocolMagic = ProtocolMagic {getProtocolMagic = 1780893186}
+    , gpcProtocolMagic = ProtocolMagic
+        { getProtocolMagicId = ProtocolMagicId 1780893186
+        , getRequiresNetworkMagic = NMMustBeJust
+        }
     , gpcVssMaxTTL = VssMaxTTL {getVssMaxTTL = 402296078}
     , gpcVssMinTTL = VssMinTTL {getVssMinTTL = 1341799941}}
 

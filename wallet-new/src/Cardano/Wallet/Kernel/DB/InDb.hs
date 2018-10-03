@@ -69,6 +69,9 @@ import           UTxO.Util
 newtype InDb a = InDb { _fromDb :: a }
     deriving (Eq, Show, Ord, Buildable)
 
+instance NFData a => NFData (InDb a) where
+    rnf (InDb a) = rnf a
+
 instance Functor InDb where
     fmap f = InDb . f . _fromDb
 

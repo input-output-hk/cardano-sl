@@ -241,6 +241,7 @@ library
                      , sqlite-simple-errors
                      , stm
                      , strict
+                     , strict-concurrency
                      , swagger2
                      , tar
                      , text

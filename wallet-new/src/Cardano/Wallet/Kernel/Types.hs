@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 module Cardano.Wallet.Kernel.Types (
     -- * Input resolution
     -- ** Raw types
@@ -56,7 +57,9 @@ data WalletId =
     | WalletIdExt ...
     -}
 
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Generic)
+
+instance NFData WalletId
 
 instance Buildable WalletId where
     build (WalletIdHdRnd rootId) =

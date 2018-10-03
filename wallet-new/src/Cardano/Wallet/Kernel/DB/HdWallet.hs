@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE RankNTypes                 #-}
@@ -136,7 +137,9 @@ newtype AccountName = AccountName { getAccountName :: Text }
 
 -- | Account index
 newtype HdAccountIx = HdAccountIx { getHdAccountIx :: Word32 }
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Generic)
+
+instance NFData HdAccountIx
 
 -- NOTE(adn) if we need to generate only @hardened@ account indexes, we
 -- need to extend this arbitrary instance accordingly.
@@ -228,7 +231,9 @@ eskToHdRootId = HdRootId . InDb . Core.makePubKeyAddressBoot . Core.encToPublic
 -- as a primary key. This however is a slightly larger refactoring we don't
 -- currently have time for.
 newtype HdRootId = HdRootId { getHdRootId :: InDb Core.Address }
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic)
+
+instance NFData HdRootId
 
 
 instance Arbitrary HdRootId where
@@ -242,7 +247,9 @@ data HdAccountId = HdAccountId {
       _hdAccountIdParent :: !HdRootId
     , _hdAccountIdIx     :: !HdAccountIx
     }
-  deriving (Eq)
+  deriving (Eq, Generic)
+
+instance NFData HdAccountId
 
 -- | We make sure to compare the account index first to avoid doing an
 -- unnecessary comparison of the root ID

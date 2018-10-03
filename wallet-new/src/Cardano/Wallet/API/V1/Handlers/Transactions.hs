@@ -6,6 +6,8 @@ module Cardano.Wallet.API.V1.Handlers.Transactions (
     , newTransaction
     , getTransactionsHistory
     , estimateFees
+    -- | Helper converter.
+    , txFromMeta
     ) where
 
 import           Universum

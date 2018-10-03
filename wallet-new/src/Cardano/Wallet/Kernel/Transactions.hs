@@ -85,6 +85,7 @@ import           UTxO.Util (shuffleNE)
 
 data NewTransactionError =
     NewTransactionUnknownAccount UnknownHdAccount
+  | NewTransactionUnknownAddress UnknownHdAddress
   | NewTransactionErrorCoinSelectionFailed CoinSelHardErr
   | NewTransactionErrorCreateAddressFailed Kernel.CreateAddressError
   | NewTransactionErrorSignTxFailed SignTransactionError
@@ -93,6 +94,8 @@ data NewTransactionError =
 instance Buildable NewTransactionError where
     build (NewTransactionUnknownAccount err) =
         bprint ("NewTransactionUnknownAccount " % build) err
+    build (NewTransactionUnknownAddress err) =
+        bprint ("NewTransactionUnknownAddress " % build) err
     build (NewTransactionErrorCoinSelectionFailed err) =
         bprint ("NewTransactionErrorCoinSelectionFailed " % build) err
     build (NewTransactionErrorCreateAddressFailed err) =
@@ -120,6 +123,9 @@ data PaymentError = PaymentNewTransactionError NewTransactionError
                   -- ^ When trying to send the newly-created transaction via
                   -- 'newPending' and the submission layer, we hit the number
                   -- of retries/max time allocated for the operation.
+                  | PaymentNoHdAddressForSrcAddress HD.UnknownHdAddress
+                  -- ^ When we don't have HD-address corresponding to source
+                  -- address of transaction.
 
 instance Buildable PaymentError where
     build (PaymentNewTransactionError txErr) =
@@ -128,6 +134,8 @@ instance Buildable PaymentError where
         bprint ("PaymentNewPendingError " % build) npe
     build PaymentSubmissionMaxAttemptsReached =
         bprint "PaymentSubmissionMaxAttemptsReached"
+    build (PaymentNoHdAddressForSrcAddress addrErr) =
+        bprint ("PaymentNoHdAddressForSrcAddress" % build) addrErr
 
 -- | Workhorse kernel function to perform a payment. It includes logic to
 -- stop trying to perform a payment if the payment would take more than 30
@@ -256,28 +264,35 @@ prepareUnsignedTxWithSources :: ActiveWallet
                                            , NonEmpty (Address, [DerivationIndex])
                                            )
                                    )
-prepareUnsignedTxWithSources activeWallet opts srcAccId payees spendingPassword = do
-    tx <- newUnsignedTransaction activeWallet opts srcAccId payees
-    case tx of
-        Left e -> return (Left e)
-        Right (db, unsignedTx, _availableUtxo) -> runExceptT $ do
-            -- Now we have to generate the change addresses needed,
-            -- because 'newUnsignedTransaction' function cannot do it by itself.
-            changeAddresses <- withExceptT NewTransactionErrorCreateAddressFailed $
-                genChangeOuts (utxChange unsignedTx)
-                              srcAccId
-                              spendingPassword
-                              (walletPassive activeWallet)
-            -- We have to provide source addresses and derivation paths for this transaction.
-            -- It will be used by external party to provide a proof that it has a right to
-            -- spend this money.
-            let srcAddresses         = extractSrcAddressesFrom unsignedTx
-                srcHdAddresses       = NonEmpty.map (srcAddressToHdAddress db) srcAddresses
-                derivationPaths      = buildDerivationPathsFor srcHdAddresses srcAccId
+prepareUnsignedTxWithSources activeWallet opts srcAccId payees spendingPassword = runExceptT $ do
+    (db, unsignedTx, _availableUtxo) <- ExceptT $
+        newUnsignedTransaction activeWallet opts srcAccId payees
+
+    -- Now we have to generate the change addresses needed,
+    -- because 'newUnsignedTransaction' function cannot do it by itself.
+    changeAddresses <- withExceptT NewTransactionErrorCreateAddressFailed $
+        genChangeOuts (utxChange unsignedTx)
+                      srcAccId
+                      spendingPassword
+                      (walletPassive activeWallet)
+    -- We have to provide source addresses and derivation paths for this transaction.
+    -- It will be used by external party to provide a proof that it has a right to
+    -- spend this money.
+    let srcAddresses = extractSrcAddressesFrom unsignedTx
+    srcHdAddressesOrErrors <- forM (NonEmpty.toList srcAddresses) $ \srcAddr ->
+        runExceptT $ withExceptT NewTransactionUnknownAddress $ exceptT $
+            lookupCardanoAddress db srcAddr
+    let srcHdAddresses = rights srcHdAddressesOrErrors
+        problems       = lefts  srcHdAddressesOrErrors
+    ExceptT $ return $
+        if not . null $ problems then
+            let (firstProblem:_) = problems in Left firstProblem
+        else
+            let derivationPaths      = buildDerivationPathsFor (NonEmpty.fromList srcHdAddresses) srcAccId
                 allOutputs           = (NonEmpty.toList $ utxOutputs unsignedTx) ++ changeAddresses
                 unsignedTxWithChange = unsignedTx { utxOutputs = NonEmpty.fromList allOutputs }
                 finalTx              = toRegularTx unsignedTxWithChange
-            return (finalTx, NonEmpty.zip srcAddresses derivationPaths)
+            in Right (finalTx, NonEmpty.zip srcAddresses derivationPaths)
   where
     -- Take addresses that correspond to inputs of transaction.
     extractSrcAddressesFrom :: UnsignedTx -> NonEmpty Address
@@ -303,55 +318,53 @@ prepareUnsignedTxWithSources activeWallet opts srcAccId payees spendingPassword 
         outputs = NonEmpty.map toaOut $ utxOutputs unsignedTx
         attribs = utxAttributes unsignedTx
 
--- | Converts source address to 'HdAddress'.
--- Since 'srcAddress' is returned by 'newUnsignedTransaction'
--- we assume that this address is valid so we definitely have
--- corresponding 'HdAddress'.
-srcAddressToHdAddress :: DB
-                      -> Address
-                      -> HD.HdAddress
-srcAddressToHdAddress db srcAddress =
-    either (error "Impossible happened: source address doesn't have corresponding HD-address!")
-           id
-           (lookupCardanoAddress db srcAddress)
-
--- | Submits extrenally-signed transaction to the blockchain.
+-- | Submits externally-signed transaction to the blockchain.
 -- The result of this function is equal to the result of 'pay' function.
 submitSignedTx :: ActiveWallet
                -> Tx
                -> NonEmpty (Address, Signature TxSigData, PublicKey)
                -> IO (Either PaymentError (Tx, TxMeta))
-submitSignedTx aw@ActiveWallet{..} tx srcAddrsWithProofs = do
+submitSignedTx aw@ActiveWallet{..} tx srcAddrsWithProofs =
     retrying retryPolicy shouldRetry $ \rs -> do
-        -- STEP 1: create witnesses.
-        -- Since we already received inputs signatures with corresponding derived PKs,
-        -- just form witnesses from them.
-        let witnesses = V.fromList . NonEmpty.toList $ flip NonEmpty.map srcAddrsWithProofs $
-                \(_srcAddr, txSig, derivedPK) -> PkWitness derivedPK txSig
+        res <- runExceptT $ do
+            -- STEP 0: get wallet snapshot.
+            snapshot <- liftIO $ getWalletSnapshot walletPassive
+            -- STEP 1: create witnesses.
+            -- Since we already received inputs signatures with corresponding derived PKs,
+            -- just form witnesses from them.
+            let witnesses = V.fromList . NonEmpty.toList $ flip NonEmpty.map srcAddrsWithProofs $
+                    \(_srcAddr, txSig, derivedPK) -> PkWitness derivedPK txSig
 
-        -- STEP 2: make 'TxAux'.
-        let txAux = TxAux tx witnesses
+            -- STEP 2: make 'TxAux'.
+            let txAux = TxAux tx witnesses
 
-        -- STEP 3: Compute metadata
-        let txId = hash tx
-        -- Currently it's assumed that all source addresses belong to 'the same/ account,
-        -- so we can just take the first source address to find our 'HdAccountId'.
-        let (firstSrcAddress, _, _) = NonEmpty.head srcAddrsWithProofs
-        snapshot <- liftIO $ getWalletSnapshot walletPassive
-        let (HD.HdAddress (HD.HdAddressId srcAccountId _) _) = srcAddressToHdAddress snapshot firstSrcAddress
-        -- We use `getCreationTimestamp` provided by the `NodeStateAdaptor`
-        -- to compute the createdAt timestamp for `TxMeta`.
-        txMetaCreatedAt_ <- liftIO $ Node.getCreationTimestamp (walletPassive ^. walletNode)
+            -- STEP 3: Compute metadata
+            let txId = hash tx
+            -- Currently it's assumed that all source addresses belong to 'the same/ account,
+            -- so we can just take the first source address to find our 'HdAccountId'.
+            let (firstSrcAddress, _, _) = NonEmpty.head srcAddrsWithProofs
+            firstSrcHdAddress <- withExceptT PaymentNoHdAddressForSrcAddress $ exceptT $
+                lookupCardanoAddress snapshot firstSrcAddress
+            let (HD.HdAddress (HD.HdAddressId srcAccountId _) _) = firstSrcHdAddress
+            -- We use `getCreationTimestamp` provided by the `NodeStateAdaptor`
+            -- to compute the createdAt timestamp for `TxMeta`.
+            txMetaCreatedAt_ <- liftIO $ Node.getCreationTimestamp (walletPassive ^. walletNode)
 
-        -- STEP 4: Get available UTxO
-        availableUtxo <- runExceptT $ withExceptT NewTransactionUnknownAccount $ exceptT $
-            currentAvailableUtxo snapshot srcAccountId
-        case availableUtxo of
-            Left _ ->
-                return . Left . PaymentNewTransactionError . NewTransactionUnknownAccount . UnknownHdAccount $
-                    srcAccountId
-            Right utxo -> do
-                let inputsWithCoins = NonEmpty.map (collectInputCoins utxo) $ _txInputs tx
+            -- STEP 4: Get available UTxO
+            utxo <- withExceptT (PaymentNewTransactionError . NewTransactionUnknownAccount) $ exceptT $
+                currentAvailableUtxo snapshot srcAccountId
+
+            let inputs = NonEmpty.toList $ _txInputs tx
+                maybeInputsWithCoins = map (collectInputCoins utxo) inputs
+                inputsWithCoins = NonEmpty.fromList $ catMaybes maybeInputsWithCoins
+            -- If 'tx' is valid (i.e. contains correct inputs), we already have
+            -- all inputs with corresponding coins.
+            let numberOfValidInputs = NonEmpty.length inputsWithCoins
+                numberOfAllInputs = length maybeInputsWithCoins
+            if numberOfValidInputs /= numberOfAllInputs then
+                -- Something is wrong with inputs, this 'tx' should be rejected.
+                ExceptT $ return $ Left $ PaymentNewTransactionError NewTransactionInvalidTxIn
+            else do
                 -- We have to calculate the sum of input coins.
                 let spentInputCoins = paymentAmount (toaOut . snd <$> inputsWithCoins)
 
@@ -363,25 +376,27 @@ submitSignedTx aw@ActiveWallet{..} tx srcAddrsWithProofs = do
                                                       (_txOutputs tx)
                                                       True
                                                       spentInputCoins
-                succeeded <- newPending aw srcAccountId txAux partialMeta
-                case succeeded of
-                    Left e -> do
-                        -- If the next retry would bring us to the
-                        -- end of our allowed retries, we fail with
-                        -- a proper error
-                        retriesLeft <- applyPolicy retryPolicy rs
-                        return . Left $ case retriesLeft of
-                            Nothing -> PaymentSubmissionMaxAttemptsReached
-                            Just _  -> PaymentNewPendingError e
-                    Right meta ->
-                        return $ Right (tx, meta)
+                -- STEP 6: our new pending tx.
+                withExceptT PaymentNewPendingError $ ExceptT $
+                    newPending aw srcAccountId txAux partialMeta
+        case res of
+            Left e -> do
+                -- If the next retry would bring us to the end of our allowed retries,
+                -- we fail with a proper error
+                retriesLeft <- applyPolicy retryPolicy rs
+                return $ case retriesLeft of
+                    Nothing -> Left PaymentSubmissionMaxAttemptsReached
+                    Just _  -> Left e
+            Right meta ->
+                return $ Right (tx, meta)
   where
+    -- If utxo is valid, we definitely know that .
     collectInputCoins :: Utxo
                       -> TxIn
-                      -> (TxIn, TxOutAux)
+                      -> Maybe (TxIn, TxOutAux)
     collectInputCoins utxo txInput = case Map.lookup txInput utxo of
-        Nothing -> error "Impossible happened: tx input doesn't have corresponding tx output!"
-        Just txOutput -> (txInput, txOutput)
+        Nothing       -> Nothing
+        Just txOutput -> Just (txInput, txOutput)
 
 -- | Creates a new 'TxAux' and corresponding 'TxMeta',
 -- without submitting it to the network.

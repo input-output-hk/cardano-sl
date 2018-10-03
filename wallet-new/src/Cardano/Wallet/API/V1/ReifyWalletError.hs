@@ -237,6 +237,20 @@ newPendingError e = case e of
     (NewPendingFailed e') ->
         V1.UnknownError $ (sformat build e')
 
+noHdAddressForSrcAddress :: HD.UnknownHdAddress -> V1.WalletError
+noHdAddressForSrcAddress e = case e of
+    (HD.UnknownHdAddressRoot _rootId) ->
+        V1.WalletNotFound
+
+    ex@(HD.UnknownHdAddressAccount _accId) ->
+        V1.UnknownError $ (sformat build ex)
+
+    (HD.UnknownHdAddress _addrId) ->
+        V1.AddressNotFound
+
+    (HD.UnknownHdCardanoAddress _coreAddr) ->
+        V1.AddressNotFound
+
 newForeignError :: NewForeignError -> V1.WalletError
 newForeignError e = case e of
     (NewForeignUnknown e') ->
@@ -249,6 +263,9 @@ newTransactionError :: Kernel.NewTransactionError -> V1.WalletError
 newTransactionError e = case e of
     (Kernel.NewTransactionUnknownAccount e') ->
         unknownHdAccount e'
+
+    (Kernel.NewTransactionUnknownAddress _addrId) ->
+        V1.AddressNotFound
 
     (Kernel.NewTransactionErrorCoinSelectionFailed e') -> case e' of
           CoinSelHardErrOutputCannotCoverFee _outputs _fee ->
@@ -333,6 +350,8 @@ newPaymentError e = case e of
             newPendingError e''
         ex@(Kernel.PaymentSubmissionMaxAttemptsReached) ->
             V1.UnknownError $ (sformat build ex)
+        (Kernel.PaymentNoHdAddressForSrcAddress e'') ->
+            noHdAddressForSrcAddress e''
 
     ex@(NewPaymentTimeLimitReached _) ->
             V1.UnknownError $ (sformat build ex)

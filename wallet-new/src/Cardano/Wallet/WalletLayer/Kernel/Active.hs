@@ -111,52 +111,42 @@ submitSignedTx :: MonadIO m
                => Kernel.ActiveWallet
                -> V1.SignedTransaction
                -> m (Either SubmitSignedTransactionError (Tx, TxMeta))
-submitSignedTx activeWallet (V1.SignedTransaction encodedTx encodedSrcAddrsWithProofs) = liftIO $
-    case decodeTx of
-        Left e -> pure (Left e)
-        Right tx -> do
-            let srcAddrsWithProofs = map decodeAddrAndProof encodedSrcAddrsWithProofs
-                problems = lefts srcAddrsWithProofs
-            if not . null $ problems then
-                let (firstProblem:_) = problems in pure (Left firstProblem)
-            else
-                let validSrcAddrsWithProofs = rights srcAddrsWithProofs in
-                runExceptT $ withExceptT SubmitSignedTransactionError $
-                    ExceptT $ Kernel.submitSignedTx activeWallet
-                                                    tx
-                                                    (NE.fromList validSrcAddrsWithProofs)
+submitSignedTx activeWallet (V1.SignedTransaction encodedTx encodedSrcAddrsWithProofs) = runExceptT $ do
+    txAsBytes <- withExceptT (const SubmitSignedTransactionNotBase16Format) $ ExceptT $
+        pure $ B16.decode (V1.rawTransactionAsBase16 encodedTx)
+    tx :: Tx <- withExceptT (const SubmitSignedTransactionUnableToDecode) $ ExceptT $
+        pure $ decodeFull' txAsBytes
+
+    srcAddrsWithProofs <- mapM decodeAddrAndProof encodedSrcAddrsWithProofs
+    let problems = lefts srcAddrsWithProofs
+    if not . null $ problems then
+        -- Something is wrong with proofs, take the first problem we know about.
+        let (firstProblem:_) = problems in
+        ExceptT $ pure $ Left firstProblem
+    else
+        let validSrcAddrsWithProofs = rights srcAddrsWithProofs in
+        withExceptT SubmitSignedTransactionError $ ExceptT $ liftIO $
+            Kernel.submitSignedTx activeWallet
+                                  tx
+                                  (NE.fromList validSrcAddrsWithProofs)
   where
-    decodeTx :: Either SubmitSignedTransactionError Tx
-    decodeTx = case B16.decode (V1.rawTransactionAsBase16 encodedTx) of
-        Left _ -> Left SubmitSignedTransactionNotBase16Format
-        Right txAsBytes -> case decodeFull' txAsBytes of
-            Left _           -> Left SubmitSignedTransactionUnableToDecode
-            Right (tx :: Tx) -> pure tx
+    decodeAddrAndProof :: Monad m
+                       => V1.AddressWithProof
+                       -> m (Either SubmitSignedTransactionError (Address, Signature TxSigData, PublicKey))
+    decodeAddrAndProof (V1.AddressWithProof encSrcAddr encSig encDerivedPK) = runExceptT $ do
+        srcAddress <- withExceptT (const SubmitSignedTransactionInvalidSrcAddress) $ ExceptT $
+            pure $ V1.mkAddressFromBase58 encSrcAddr
 
-    decodeAddrAndProof :: V1.AddressWithProof
-                       -> Either SubmitSignedTransactionError (Address, Signature TxSigData, PublicKey)
-    decodeAddrAndProof (V1.AddressWithProof encSrcAddr encSig encDerivedPK) =
-        case decodeSrcAddress encSrcAddr of
-            Left e -> Left e
-            Right srcAddress -> case decodeTxSig encSig of
-                Left e -> Left e
-                Right txSignature -> case decodeDerivedPK encDerivedPK of
-                    Left e -> Left e
-                    Right derivedPK -> pure (srcAddress, txSignature, derivedPK)
-      where
-        decodeSrcAddress encoded = case V1.mkAddressFromBase58 encoded of
-            Left _        -> Left SubmitSignedTransactionInvalidSrcAddress
-            Right srcAddr -> pure srcAddr
+        txSigItself <- withExceptT (const SubmitSignedTransactionSigNotBase16Format) $ ExceptT $
+            pure $ B16.decode (V1.rawTransactionSignatureAsBase16 encSig)
+        realTxSig <- withExceptT (const SubmitSignedTransactionInvalidSig) $ ExceptT $
+            pure $ xsignature txSigItself
+        let txSignature = Signature realTxSig :: Signature TxSigData
 
-        decodeTxSig encoded = case B16.decode (V1.rawTransactionSignatureAsBase16 encoded) of
-            Left _ -> Left SubmitSignedTransactionSigNotBase16Format
-            Right txSigItself -> case xsignature txSigItself of
-                Left _ -> Left SubmitSignedTransactionInvalidSig
-                Right realTxSig -> pure (Signature realTxSig :: Signature TxSigData)
+        derivedPK <- withExceptT (const SubmitSignedTransactionInvalidPK) $ ExceptT $
+            pure $ V1.mkPublicKeyFromBase58 encDerivedPK
 
-        decodeDerivedPK encoded = case V1.mkPublicKeyFromBase58 encoded of
-            Left _          -> Left SubmitSignedTransactionInvalidPK
-            Right derivedPK -> pure derivedPK
+        ExceptT $ pure $ Right (srcAddress, txSignature, derivedPK)
 
 -- | Redeem an Ada voucher
 --

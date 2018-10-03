@@ -829,8 +829,42 @@ source stake key is de-registered.
 \subsubsection{Lightweight Delegation Certificates}
 \label{lightweight-delegation-certificates}
 
-Lightweight delegation certificates are used by stake pools at the point
-of exercising stake rights including:
+% On the need for a hot/cold key arrangement.
+The stake pool operators can use a \emph{hot}/\emph{cold} key arrangement to
+mitigate key exposure (see~\cref{mitigate-key-exposure}). The \emph{hot} keys
+are kept online, while the \emph{cold} key is kept securely offline. This
+requires a \emph{delegation certificate} to transfer the rights to participate
+in the \emph{PoS} protocol from the \emph{hot} to the \emph{cold} key.
+
+% The problems with using in-ledger certificates.
+If the above mentioned type of delegation certificates would be included in the
+ledger, as the other certificates are, this would present a problem for blocks
+validation. Consider the following example: suppose that the network layer
+wants to validate a batch of 10 block headers from the current epoch, before
+deciding if it wants to also download the block bodies. Can it tell if those
+block headers are signed by the right actors?
+
+In this situation the network layer has the state of the ledger up to but not
+including these next 10 block headers. So it cannot rely on any information in
+the 10 corresponding block bodies.
+
+In this situation, the validity of the pools-staking keys cannot be verified.
+If the network layer sees one of the 10 new blocks signed by a key it doesn't
+recognise, it might be because there is a delegation certificate in the blocks
+bodies (which the network layer has not seen yet), that shows tha tht key is
+valid because some other key delegated its staking rights to it. Similarly, if
+the network layer sees a known staking key, how can it know that it is still
+valid? There could be a new certificate in the block body that delegates the
+rights of this key to a different one (which would invalidate the key the
+network layer saw).
+
+To address this problem, a new type of certificate is introduced:
+\emph{lightweight delegation} certificates. These certificates are provided in
+the block itself (and not in the block body), thus solving the problem of
+determining the validity of staking keys. In other words, \emph{lightweight
+  delegation} certificates are \textbf{not included in the ledger}, but instead
+they \textbf{included in blocks} by
+stake pools at the point of exercising stake rights including:
 
 \begin{itemize}
 \item
@@ -841,12 +875,7 @@ of exercising stake rights including:
   signing votes for protocol update proposals
 \end{itemize}
 
-The purpose of lightweight certificates is to enable stake pool
-operators to mitigate key exposure, see \cref{mitigate-key-exposure}.
-They allow stake pools to use a
-\emph{hot}/\emph{cold} key arrangement: operational (or \emph{hot}) keys
-are kept on the operational nodes that take part in the protocols, while
-the main (or \emph{cold}) is kept securely offline. A lightweight
+A lightweight
 certificate, signed by the stake pool's cold key, delegates to the hot
 key that is used to sign messages in the protocols (block header, VSS
 message or vote). This lightweight certificate is included in the

@@ -6,6 +6,9 @@ import           Data.Aeson (FromJSON, ToJSON, eitherDecode, encode)
 import qualified Data.ByteString.Lazy as LB
 import           Data.FileEmbed (embedStringFile)
 import qualified Data.List as List
+import qualified Data.Text.Lazy as LT (unpack)
+import           Data.Text.Lazy.Builder (toLazyText)
+import           Formatting.Buildable (build)
 import           Hedgehog (Gen, Group, Property, PropertyT, TestLimit,
                      discoverPrefix, forAll, property, withTests, (===))
 import           Hedgehog.Internal.Property (failWith)
@@ -14,7 +17,9 @@ import           Language.Haskell.TH (ExpQ, Q, loc_filename, runIO)
 import           Language.Haskell.TH.Syntax (qLocation)
 import           System.Directory (canonicalizePath)
 import           System.FilePath (takeDirectory, (</>))
+import qualified Text.JSON.Canonical as Canonical
 
+import           Pos.Util.Json.Canonical (SchemaError (..))
 
 discoverGolden :: TExpQ Group
 discoverGolden = discoverPrefix "golden_"
@@ -47,6 +52,25 @@ goldenTestJSONDec x path = withFrozenCallStack $ do
         case eitherDecode bs of
             Left err -> failWith Nothing $ "could not decode: " <> show err
             Right x' -> x === x'
+
+goldenTestCanonicalJSONDec
+    :: ( Eq a
+       , Canonical.FromJSON (Either SchemaError) a
+       , HasCallStack
+       , Show a
+       )
+    => a
+    -> FilePath
+    -> Property
+goldenTestCanonicalJSONDec x path = withFrozenCallStack $ do
+    withTests 1 . property $ do
+        bs <- liftIO (LB.readFile path)
+        case Canonical.parseCanonicalJSON bs of
+             Left err  -> failWith Nothing $ "could not parse: " <> show err
+             Right jsv -> case Canonical.fromJSON jsv of
+                Left (schErr :: SchemaError) ->
+                    failWith Nothing $ LT.unpack $ toLazyText $ build schErr
+                Right x'    -> x === x'
 
 makeRelativeToTestDir :: FilePath -> Q FilePath
 makeRelativeToTestDir rel = do

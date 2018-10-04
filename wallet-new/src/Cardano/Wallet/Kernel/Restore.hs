@@ -16,12 +16,8 @@ import           Data.Acid (update)
 import qualified Data.Map.Merge.Strict as M
 import qualified Data.Map.Strict as M
 import           Data.Maybe (fromJust)
-import           Data.Time.Clock (NominalDiffTime, UTCTime, diffUTCTime,
-                     getCurrentTime)
-import           Formatting (bprint, build, formatToString, sformat, (%))
-import qualified Formatting.Buildable
+import           Formatting (build, sformat, (%))
 
-import qualified Prelude
 
 import           Cardano.Wallet.API.Types.UnitOfMeasure
 import           Cardano.Wallet.Kernel (walletLogMessage)
@@ -35,7 +31,6 @@ import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.HdWallet.Create (CreateHdRootError)
 import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
-import qualified Cardano.Wallet.Kernel.DB.Spec.Update as Spec
 import           Cardano.Wallet.Kernel.DB.TxMeta.Types
 import           Cardano.Wallet.Kernel.Decrypt (WalletDecrCredentialsKey (..),
                      decryptAddress, keyToWalletDecrCredentials)
@@ -56,6 +51,8 @@ import           Cardano.Wallet.Kernel.PrefilterTx (AddrWithId,
                      prefilterBlock, prefilterUtxo', toHdAddressId,
                      toPrefilteredUtxo)
 import           Cardano.Wallet.Kernel.Read (getWalletSnapshot)
+import qualified Cardano.Wallet.Kernel.Restore.Parallel as Experimental
+import           Cardano.Wallet.Kernel.Restore.Types
 import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..),
                      WalletId (..), fromRawResolvedBlock, rawResolvedBlock,
                      rawResolvedBlockInputs, rawResolvedContext, rawTimestamp)
@@ -261,17 +258,19 @@ beginRestoration pw wId prefilter root cur tgt restart = do
                            }
 
     -- Begin restoring the wallet history in the background.
-    restoreTask <- async $
+    restoreTask <- async $ do
         -- We are starting this async /from/ a thread that runs in response
         -- to a REST request. Linking the async to that REST request thread
         -- is pointless, because that thread will probably be long gone if
         -- an exception ever happens in the restoration worker. Therefore
         -- we just log any errors.
-        catch (restoreWalletHistoryAsync pw
+        let start = (,) <$> (cur ^? _Just . bcHash . fromDb)
+                        <*> (cur ^? _Just . bcSlotId . fromDb)
+        catch (Experimental.restoreWalletHistoryAsync pw
                                          (root ^. HD.hdRootId)
                                          prefilter
                                          progress
-                                         (cur ^? _Just . bcHash . fromDb)
+                                         start
                                          (tgtTip, tgtSlot)) $ \(e :: SomeException) ->
               (pw ^. walletLogMessage) Error $
                   sformat ( "Exception during restoration of wallet"
@@ -362,7 +361,7 @@ getWalletInitInfo coreConfig wKey@(wId, wdc) lock = do
 -- | Restore a wallet's transaction history.
 --
 -- TODO: Think about what we should do if a 'RestorationException' is thrown.
-restoreWalletHistoryAsync :: Kernel.PassiveWallet
+_restoreWalletHistoryAsync :: Kernel.PassiveWallet
                           -> HD.HdRootId
                           -> (Blund -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta]))
                           -> IORef WalletRestorationProgress
@@ -372,7 +371,7 @@ restoreWalletHistoryAsync :: Kernel.PassiveWallet
                           -> (HeaderHash, SlotId)
                             -- ^ The block that we are trying to reach via restoration.
                           -> IO ()
-restoreWalletHistoryAsync wallet rootId prefilter progress start (tgtHash, tgtSlot) = do
+_restoreWalletHistoryAsync wallet rootId prefilter progress start (tgtHash, tgtSlot) = do
     genesisHash <- configGenesisHash <$> getCoreConfig (wallet ^. walletNode)
     -- 'getFirstGenesisBlockHash' is confusingly named: it returns the hash of
     -- the first block /after/ the genesis block.
@@ -458,62 +457,6 @@ restoreWalletHistoryAsync wallet rootId prefilter progress start (tgtHash, tgtSl
 
     withNode :: forall a. (NodeConstraints => WithNodeState IO a) -> IO a
     withNode action = withNodeState (wallet ^. walletNode) (\_lock -> action)
-
-{-------------------------------------------------------------------------------
-  Timing information (for throughput calculations)
--------------------------------------------------------------------------------}
-
--- | Keep track of how many events have happened since a given start time.
-data TimingData
-  = NoTimingData
-  | Timing Integer UTCTime
-
--- | A rate, represented as an event count over a time interval.
-data Rate = Rate Integer NominalDiffTime
-
--- | Log an event; once k' events have been seen, return the event rate
--- and start the count over again.
-tickTiming :: Integer -> TimingData -> IO (Maybe Rate, TimingData)
-tickTiming _  NoTimingData     = (Nothing,) . Timing 0 <$> getCurrentTime
-tickTiming k' (Timing k start)
-  | k == k' = do
-        now <- getCurrentTime
-        let rate = Rate k (now `diffUTCTime` start)
-        return (Just rate, Timing 0 now)
-  | otherwise = return (Nothing, Timing (k + 1) start)
-
--- | Convert a rate to a number of events per second.
-perSecond :: Rate -> Word64
-perSecond (Rate n dt) = fromInteger $ round (toRational n / toRational dt)
-
-{-------------------------------------------------------------------------------
-  Exceptions
--------------------------------------------------------------------------------}
-
--- | Exception during restoration
-data RestorationException =
-    RestorationBlockNotFound HeaderHash
-  | RestorationSuccessorNotFound HeaderHash
-  | RestorationUndoNotFound HeaderHash
-  | RestorationApplyHistoricalBlockFailed Spec.ApplyBlockFailed
-  | RestorationFinishUnreachable HeaderHash HeaderHash
-
-instance Buildable RestorationException where
-    build (RestorationBlockNotFound hash) =
-      bprint ("RestorationBlockNotFound " % build) hash
-    build (RestorationSuccessorNotFound hash) =
-      bprint ("RestorationSuccessorNotFound " % build) hash
-    build (RestorationUndoNotFound hash) =
-      bprint ("RestorationUndoNotFound " % build) hash
-    build (RestorationApplyHistoricalBlockFailed err) =
-      bprint ("RestorationApplyHistoricalBlockFailed " % build) err
-    build (RestorationFinishUnreachable target final) =
-      bprint ("RestorationFinishUnreachable " % build % " " % build) target final
-
-instance Show RestorationException where
-    show = formatToString build
-
-instance Exception RestorationException
 
 {-------------------------------------------------------------------------------
   Shared with Cardano.Wallet.WalletLayer.Kernel.Wallets

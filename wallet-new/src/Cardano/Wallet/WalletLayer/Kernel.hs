@@ -46,7 +46,7 @@ import qualified Cardano.Wallet.WalletLayer.Kernel.Settings as Settings
 import qualified Cardano.Wallet.WalletLayer.Kernel.Transactions as Transactions
 import qualified Cardano.Wallet.WalletLayer.Kernel.Wallets as Wallets
 
-import qualified Cardano.Wallet.Kernel.RestorePar as Experimental
+import qualified Cardano.Wallet.Kernel.Restore.Parallel as Experimental
 
 -- | Initialize the passive wallet.
 -- The passive wallet cannot send new transactions.

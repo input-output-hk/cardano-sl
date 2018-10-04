@@ -82,7 +82,7 @@ bracketPassiveWallet mode logFunction keystore node f = do
       let wai = Actions.WalletActionInterp
                  { Actions.applyBlocks = \blunds -> do
                     mp <- Experimental.blundsToResolvedBlocks node (toList (getOldestFirst blunds))
-                    mapM_ (Kernel.applyBlock w) mp
+                    Kernel.applyBlocks w mp
 
                  , Actions.switchToFork = \_ (OldestFirst blunds) -> do
                      -- Get the hash of the last main block before this fork.
@@ -92,9 +92,7 @@ bracketPassiveWallet mode logFunction keystore node f = do
                                  mostRecentMainBlock gh
                                    (almostOldest ^. blockHeader . prevBlockL)
 
-                     bs <- catMaybes <$> mapM (Wallets.blundToResolvedBlock node)
-                                             (NE.toList blunds)
-
+                     bs <- Experimental.blundsToResolvedBlocks node (NE.toList blunds)
                      Kernel.switchToFork w (headerHash <$> oldest) bs
 
                  , Actions.emit = logFunction Debug

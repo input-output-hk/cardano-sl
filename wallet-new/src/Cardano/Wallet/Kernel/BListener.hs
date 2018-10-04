@@ -3,7 +3,7 @@
 -- | React to BListener events
 module Cardano.Wallet.Kernel.BListener (
     -- * Respond to block chain events
-    applyBlock
+    applyBlocks
   , switchToFork
     -- * Testing
   , observableRollbackUseInTestsOnly
@@ -22,6 +22,9 @@ import           Data.SafeCopy (base, deriveSafeCopy)
 import qualified Data.Set as Set
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
+
+import           Data.Conduit as CL
+import qualified Data.Conduit.Combinators as CL
 
 import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Genesis (Config (..))
@@ -122,20 +125,24 @@ data ApplyBlockErrorCase
     | AccountIsAheadOfBlock
     | AccountIsOnWrongFork
 
--- | Notify all the wallets in the PassiveWallet of a new block
+-- | Notify all the wallets in the PassiveWallet of new blocks.
 --
--- NOTE: Multiple concurrent or parallel calls to 'applyBlock' are not allowed.
+-- NOTE: Multiple concurrent or parallel calls to 'applyBlocks' are not allowed.
 -- Without this constraint, two concurrent backfill operations could conflict
 -- with each other and cause both to fail.
--- The serialization of calls to 'applyBlock' is handled by the wallet worker,
+-- The serialization of calls to 'applyBlocks' is handled by the wallet worker,
 -- which should carry the sole responsibility for applying blocks to a wallet.
-{-# ANN applyBlock ("HLint: ignore Use forM_" :: Text) #-}
-applyBlock :: PassiveWallet
-           -> ResolvedBlock
-           -> IO ()
-applyBlock pw@PassiveWallet{..} b = do
+{-# ANN applyBlocks ("HLint: ignore Use forM_" :: Text) #-}
+applyBlocks :: PassiveWallet
+            -> [ResolvedBlock]
+            -> IO ()
+applyBlocks pw@PassiveWallet{..} blks = do
     k <- Node.getSecurityParameter _walletNode
-    runExceptT (applyOneBlock k Nothing b) >>= either (handleApplyBlockErrors k) pure
+    CL.runConduit $ do
+           CL.yieldMany blks
+        .| CL.iterM (\b -> do  runExceptT (applyOneBlock k Nothing b)
+                           >>= either (handleApplyBlockErrors k) pure)
+        .| CL.sinkNull
   where
       handleApplyBlockErrors :: Node.SecurityParameter
                              -> NonEmptyMap HdAccountId ApplyBlockFailed

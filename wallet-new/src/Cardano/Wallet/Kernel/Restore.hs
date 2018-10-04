@@ -258,19 +258,17 @@ beginRestoration pw wId prefilter root cur tgt restart = do
                            }
 
     -- Begin restoring the wallet history in the background.
-    restoreTask <- async $ do
+    restoreTask <- async $
         -- We are starting this async /from/ a thread that runs in response
         -- to a REST request. Linking the async to that REST request thread
         -- is pointless, because that thread will probably be long gone if
         -- an exception ever happens in the restoration worker. Therefore
         -- we just log any errors.
-        let start = (,) <$> (cur ^? _Just . bcHash . fromDb)
-                        <*> (cur ^? _Just . bcSlotId . fromDb)
         catch (Experimental.restoreWalletHistoryAsync pw
                                          (root ^. HD.hdRootId)
                                          prefilter
                                          progress
-                                         start
+                                         (cur ^? _Just . bcHash . fromDb)
                                          (tgtTip, tgtSlot)) $ \(e :: SomeException) ->
               (pw ^. walletLogMessage) Error $
                   sformat ( "Exception during restoration of wallet"

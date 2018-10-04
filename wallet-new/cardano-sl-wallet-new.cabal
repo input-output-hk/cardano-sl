@@ -289,6 +289,7 @@ executable cardano-node
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -O2
+                       "-with-rtsopts=-N"
   build-depends:       base
                      , cardano-sl
                      , cardano-sl-chain

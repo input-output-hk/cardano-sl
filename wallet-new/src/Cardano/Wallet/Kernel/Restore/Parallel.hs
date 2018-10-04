@@ -1,9 +1,7 @@
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE LambdaCase   #-}
-{-# LANGUAGE RankNTypes   #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE RankNTypes #-}
 module Cardano.Wallet.Kernel.Restore.Parallel (
       resolveMainBlocks
-    , allBlundsForEpoch
     , blundsToResolvedBlocks
     , restoreWalletHistoryAsync
     ) where
@@ -11,18 +9,15 @@ module Cardano.Wallet.Kernel.Restore.Parallel (
 import           Universum
 
 import qualified Control.Concurrent.Async as Async
-import           Control.Lens (to, _Right, _head)
 import           Data.Acid (update)
 import           Data.Maybe (fromJust)
 
 import           Pos.Chain.Block (Block, Blund, HeaderHash, MainBlock, Undo,
-                     headerHash, mainBlockSlot, undoTx)
+                     mainBlockSlot, undoTx)
 import           Pos.Chain.Genesis (GenesisHash, configGenesisHash)
 import           Pos.Core (BlockCount (..), getCurrentTimestamp)
-import           Pos.Core.Chrono (NewestFirst, toOldestFirst)
-import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..),
-                     SlotId (..), flattenSlotId, getEpochOrSlot)
-import           Pos.DB.Block (getFirstGenesisBlockHash, loadBlundsWhile,
+import           Pos.Core.Slotting (SlotId (..), flattenSlotId)
+import           Pos.DB.Block (getBlock, getFirstGenesisBlockHash, getUndo,
                      resolveForwardLink)
 
 import           Data.Conduit as CL
@@ -56,16 +51,17 @@ blundsToResolvedBlocks :: NodeStateAdaptor IO
 blundsToResolvedBlocks node blunds =
     let blocks = CL.runConduit $ do
                     CL.yieldMany blunds
-                 .| CL.mapWhile mainBlock
+                 .| yieldMainBlock
                  .| CL.sinkList
     in resolveMainBlocks node (runIdentity blocks)
 
--- Returns 'Just' if the given 'Blund' is relative to a 'MainBlock', 'Nothing'
--- otherwise.
-mainBlock :: Blund -> Maybe (MainBlock, Undo)
-mainBlock (Left _, _)   = Nothing
-mainBlock (Right mb, u) = Just (mb, u)
-
+yieldMainBlock :: Monad m => ConduitT Blund (MainBlock, Undo) m ()
+yieldMainBlock = do
+    b <- CL.await
+    case b of
+         Nothing           -> pure ()
+         Just (Left _, _)  -> pure ()
+         Just (Right m, u) -> CL.yield (m, u)
 
 resolveMainBlocks :: NodeStateAdaptor IO
                   -> [(MainBlock, Undo)]
@@ -84,32 +80,11 @@ resolveMainBlocks node blocks = do
               , rawResolvedContext     = ctxt
               }
 
--- | When given as input an 'EpochIndex' and the 'HeaderHash' of where this
--- 'EpochIndex' starts, returns all the 'Blund's between 'EpochIndex' and
--- 'EpochIndex + 1'.
-allBlundsForEpoch :: NodeStateAdaptor IO
-                  -> EpochIndex
-                  -> HeaderHash
-                  -> IO (NewestFirst [] Blund)
-allBlundsForEpoch node targetEpoch epochStart = do
-    genesisHash <- configGenesisHash <$> getCoreConfig node
-    withNodeState node $ \_lock -> do
-        loadBlundsWhile genesisHash thisEpoch epochStart
-  where
-      thisEpoch :: Block -> Bool
-      thisEpoch b =
-          case getEpochOrSlot b of
-               (EpochOrSlot (Left epochIndex)) ->
-                   epochIndex == targetEpoch
-               (EpochOrSlot (Right slotId))    ->
-                   (siEpoch slotId) == targetEpoch
-
-
 restoreWalletHistoryAsync :: Kernel.PassiveWallet
                           -> HD.HdRootId
                           -> (Blund -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta]))
                           -> IORef WalletRestorationProgress
-                          -> Maybe (HeaderHash, SlotId)
+                          -> Maybe HeaderHash
                             -- ^ The last hash that this wallet has already restored,
                             -- or Nothing to start from the genesis block's successor.
                           -> (HeaderHash, SlotId)
@@ -120,32 +95,22 @@ restoreWalletHistoryAsync wallet rootId prefilter progress start (tgtHash, tgtSl
     -- 'getFirstGenesisBlockHash' is confusingly named: it returns the hash of
     -- the first block /after/ the genesis block.
     startingPoint <- case start of
-        Nothing -> (genesisEpoch,) <$> withNode (getFirstGenesisBlockHash genesisHash)
-        -- TODO(adn): Can 'nextHistoricalHash' bring us into the next Epoch?
-        Just (sh, sid) ->
+        Nothing -> withNode (getFirstGenesisBlockHash genesisHash)
+        Just sh ->
             nextHistoricalHash sh >>=
-            maybe (throwM $ RestorationSuccessorNotFound sh)
-                  (pure . (siEpoch sid,))
+            maybe (throwM $ RestorationSuccessorNotFound sh) pure
     restore genesisHash startingPoint NoTimingData
   where
     wId :: WalletId
     wId = WalletIdHdRnd rootId
 
-    genesisEpoch :: EpochIndex
-    genesisEpoch = EpochIndex 0
-
     -- Process the restoration of the blocks within the 'EpochIndex' supplied
     -- as input, starting from the given 'HeaderHash'.
-    restore :: GenesisHash -> (EpochIndex, HeaderHash) -> TimingData -> IO ()
-    restore genesisHash (!epoch, startingPointWithinEpoch) timing = do
-
-        -- Updating the average rate every 5 blocks.
-        (rate, timing') <- tickTiming 5 timing
+    restore :: GenesisHash -> HeaderHash -> TimingData -> IO ()
+    restore genesisHash hh timing = do
 
         -- Update each account's historical checkpoints
-        blunds <- allBlundsForEpoch (wallet ^. walletNode) epoch startingPointWithinEpoch
-
-        let applyHistorical (mb, prefilteredBlocks, txMetas) = do
+        let applyHistorical (mb, prefilteredBlocks, txMetas, rate) = do
                 -- Apply the block
                 k    <- getSecurityParameter (wallet ^. walletNode)
                 ctxt <- withNode $ mainBlockContext genesisHash mb
@@ -167,23 +132,14 @@ restoreWalletHistoryAsync wallet rootId prefilter progress start (tgtHash, tgtSl
                 forM_ txMetas (putTxMeta (wallet ^. walletMeta))
 
         CL.runConduit $ do
-               CL.yieldMany (toList . toOldestFirst $ blunds)
-            .| CL.mapWhile mainBlock
-            .| CL.mapM (\(mb,u) -> let b = (Right mb, u)
-                                       in do (bks, metas) <- prefilter (b :: Blund)
-                                             pure (mb, bks, metas))
+               streamMainBlunds genesisHash hh timing
+            .| CL.mapM (\(mb,u, rate) ->
+                          let b = (Right mb, u)
+                          in do (bks, metas) <- prefilter b
+                                pure (mb, bks, metas, rate)
+                       )
             .| CL.iterM applyHistorical
             .| CL.sinkNull
-
-        -- Decide how to proceed.
-        case (toList blunds) ^? _head . _1 . _Right . to headerHash of
-             Nothing -> throwM (RestorationFinishUnreachable tgtHash startingPointWithinEpoch)
-             Just lastH ->
-                 if tgtHash == lastH then
-                     finish
-                   else nextHistoricalHash lastH >>= \case
-                     Nothing  -> throwM (RestorationFinishUnreachable tgtHash lastH)
-                     Just hh' -> restore genesisHash (epoch + 1, hh') timing'
 
     -- TODO (@mn): probably should use some kind of bracket to ensure this cleanup happens.
     finish :: IO ()
@@ -198,3 +154,45 @@ restoreWalletHistoryAsync wallet rootId prefilter progress start (tgtHash, tgtSl
 
     withNode :: forall a. (NodeConstraints => WithNodeState IO a) -> IO a
     withNode action = withNodeState (wallet ^. walletNode) (\_lock -> action)
+
+    -- Get a block
+    getBlockOrThrow :: GenesisHash -> HeaderHash -> IO Block
+    getBlockOrThrow genesisHash hh = do
+        mBlock <- withNode $ getBlock genesisHash hh
+        case mBlock of
+           Nothing -> throwM $ RestorationBlockNotFound hh
+           Just b  -> return b
+
+    -- Get undo for a mainblock
+    -- NOTE: We use this undo information only for input resolution.
+    getUndoOrThrow :: GenesisHash -> HeaderHash -> IO Undo
+    getUndoOrThrow genesisHash hh = do
+        mBlock <- withNode $ getUndo genesisHash hh
+        case mBlock of
+           Nothing -> throwM $ RestorationUndoNotFound hh
+           Just b  -> return b
+
+    -- Get a blund
+    getBlundOrThrow :: GenesisHash -> HeaderHash -> IO Blund
+    getBlundOrThrow genesisHash hh = do
+        b <- Async.async $ getBlockOrThrow genesisHash hh
+        u <- Async.async $ getUndoOrThrow genesisHash hh
+        Async.waitBoth b u
+
+    streamMainBlunds :: GenesisHash
+                     -> HeaderHash
+                     -> TimingData
+                     -> ConduitT () (MainBlock, Undo, Maybe Rate) IO ()
+    streamMainBlunds gh current timer = do
+        (rate, timer') <- liftIO (tickTiming 5 timer)
+        blund <- liftIO (getBlundOrThrow gh current)
+
+        case blund of
+           (Left _, _)  -> pure ()
+           (Right m, u) -> CL.yield (m, u, rate)
+
+        if tgtHash == current then
+            liftIO finish
+          else liftIO (nextHistoricalHash current) >>= \case
+            Nothing  -> throwM (RestorationFinishUnreachable tgtHash current)
+            Just hh' -> streamMainBlunds gh hh' timer'

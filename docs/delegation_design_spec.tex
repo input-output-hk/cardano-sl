@@ -493,37 +493,35 @@ system entities.
     %%
     %% Nodes
     %%
-    \node (owner) [concept] {Owner};
-    \node (addr) [entity, left = of owner] {Address (base or pointer)};
-    \node (skey) [entity, below = of owner] {Staking key};
-    \node (pkey) [entity, left = of skey] {Payment key};
-    \node (racc)  [entity, right = of skey] {Rewards account (\textbf{address?})};
-    \node (rewards) [concept, below = of racc] {Rewards};
-    \node (funds) [concept, below = of pkey] {Funds};
-    \node (srights) [concept, below = of skey] {Staking rights};
-    \node (spool) [entity, below = of srights] {Stake pool};
-    \node (pos) [concept, right = of spool] {PoS};
+    \node (owner)   [concept]                    {Owner};
+    \node (addr)    [entity, left = of owner]    {Address (base or pointer)};
+    \node (skey)    [entity, below = of owner]   {Staking key};
+    \node (pkey)    [entity, left = of skey]     {Payment key};
+    \node (racc)    [entity, right = of skey]    {Rewards account (\textbf{address?})};
+    \node (rewards) [concept, below = of racc]   {Rewards};
+    \node (funds)   [concept, below = of pkey]   {Funds};
+    \node (srights) [concept, below = of skey]   {Staking rights};
+    \node (spool)   [entity, below = of srights] {Stake pool};
+    \node (pos)     [concept, right = of spool]  {PoS};
 
     \tikzset{every node/.style={align=center, text width=6em, text=brown}}
     %%
     %% Relationship between nodes (arrows)
     %%
-    \draw[->] (owner) -- node[above] {owns}
-              (addr);
-    \draw[->] (addr) -- node[left] {contains a}
-              (pkey);
-    \draw[->] (addr) -- node [above, rotate=-40]{contains a} (skey);
-    \draw[->] (owner) -- node[left] {owns} (skey);
-    \draw[->] (owner) -- node[left] {owns} (racc);
-    \draw[->] (pkey) -- node[anchor=south] {is associated\\ with a} (skey);
-    \draw[->] (skey) -- node[anchor=south] {is associated\\ with a} (racc);
-    \draw[->] (racc) -- node[above, rotate=90] {collects} (rewards);
-    \draw[->] (pkey) -- node[anchor=west] {has} (funds);
-    \draw[->] (skey) -- node[anchor=west] {has} (srights);
-    \draw[->] (srights) -- node[anchor=north] {associated with} (funds);
+    \draw[->] (owner) edge node[above] {owns} (addr);
+    \draw[->] (addr) edge node[left] {contains a} (pkey);
+    \draw[->] (addr) edge node [above, rotate=-40]{contains a} (skey);
+    \draw[->] (owner) edge node[left] {owns} (skey);
+    \draw[->] (owner) edge node[left] {owns} (racc);
+    \draw[->] (pkey) edge node[anchor=south] {is associated\\ with a} (skey);
+    \draw[->] (skey) edge node[anchor=south] {is associated\\ with a} (racc);
+    \draw[->] (racc) edge node[above, rotate=90] {collects} (rewards);
+    \draw[->] (pkey) edge node[anchor=west] {has} (funds);
+    \draw[->] (skey) edge node[anchor=west] {has} (srights);
+    \draw[->] (srights) edge node[anchor=north] {associated with} (funds);
     \draw[->] (pos) edge[bend left] node[left] {pays to} (racc);
-    \draw[->] (srights) -- node[anchor=east] {delegated to} (spool);
-    \draw[->] (spool) -- node[anchor=south] {participates in} (pos);
+    \draw[->] (srights) edge node[anchor=east] {delegated to} (spool);
+    \draw[->] (spool) edge node[anchor=south] {participates in} (pos);
   \end{tikzpicture}
   \caption{Overview of delegation}
   \label{fig:overview-delegation}
@@ -577,22 +575,22 @@ delegation:
   %%
   % Horizontal lines. By grouping all the horizontal lines we do not need to set
   % the node attributes (such as `align`) every time.
-  \draw[-] (utxo) -- node[pos=0.1] {$n$}
-                     node[pos=0.85] {$1$}
+  \draw[-] (utxo) edge node[pos=0.1]  {$n$}
+                       node[pos=0.85] {$1$}
            (addr);
-  \draw[-] (addr) -- node[pos=0.1] {$n$}
-                     node[pos=0.85] {$0 \ldots 1$}
+  \draw[-] (addr) edge node[pos=0.1]  {$n$}
+                       node[pos=0.85] {$0 \ldots 1$}
            (pkey);
-  \draw[-] (skey) -- node[pos=0.1] {$n$}
-                     node[pos=0.85] {$0 \ldots 1$}
+  \draw[-] (skey) edge node[pos=0.1]  {$n$}
+                       node[pos=0.85] {$0 \ldots 1$}
            (spool);
-  \draw[-] (skey) -- node[pos=0.1] {$1$}
-                     node[pos=0.9] {$1$}
+  \draw[-] (skey) edge node[pos=0.1] {$1$}
+                       node[pos=0.9] {$1$}
            (racc);           
   % Horizontal lines.
   \tikzset{every node/.style={align=left, right}}
-  \draw[-] (addr) -- node[pos=0.1] {$n$}
-                     node[pos=0.9] {$0 \ldots 1$}
+  \draw[-] (addr) edge node[pos=0.1] {$n$}
+                       node[pos=0.9] {$0 \ldots 1$}
            (skey);
   \end{tikzpicture}
 

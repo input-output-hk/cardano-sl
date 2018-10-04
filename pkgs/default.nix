@@ -15421,6 +15421,7 @@ cardano-sl-crypto-test
 cardano-sl-util
 cardano-sl-util-test
 containers
+cryptonite
 data-default
 fmt
 formatting
@@ -15800,6 +15801,7 @@ pvss
 QuickCheck
 quickcheck-instances
 random
+safecopy
 serokell-util
 text
 time-units
@@ -17565,6 +17567,7 @@ license = stdenv.lib.licenses.mit;
 , reflection
 , resourcet
 , safe-exceptions
+, safecopy
 , serokell-util
 , stdenv
 , stm
@@ -17647,6 +17650,8 @@ aeson
 async
 base
 bytestring
+canonical-json
+cereal
 directory
 file-embed
 filepath
@@ -17656,6 +17661,7 @@ hspec
 pretty-show
 QuickCheck
 quickcheck-instances
+safecopy
 stm
 template-haskell
 text
@@ -17681,7 +17687,9 @@ license = stdenv.lib.licenses.mit;
 , base
 , base16-bytestring
 , bytestring
+, canonical-json
 , cardano-sl-util
+, cereal
 , cpphs
 , cryptonite
 , directory
@@ -17694,6 +17702,7 @@ license = stdenv.lib.licenses.mit;
 , pretty-show
 , QuickCheck
 , quickcheck-instances
+, safecopy
 , stdenv
 , tagged
 , template-haskell
@@ -17719,7 +17728,9 @@ attoparsec
 base
 base16-bytestring
 bytestring
+canonical-json
 cardano-sl-util
+cereal
 cryptonite
 directory
 file-embed
@@ -17731,6 +17742,7 @@ mtl
 pretty-show
 QuickCheck
 quickcheck-instances
+safecopy
 tagged
 template-haskell
 text

@@ -11,7 +11,7 @@
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE StrictData                 #-}
 {-# LANGUAGE TemplateHaskell            #-}
-
+{-# LANGUAGE ViewPatterns               #-}
 -- The hlint parser fails on the `pattern` function, so we disable the
 -- language extension here.
 {-# LANGUAGE NoPatternSynonyms          #-}
@@ -162,8 +162,9 @@ import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape,
                      GenericShape)
 import           Data.Text (Text, dropEnd, toLower)
 import qualified Data.Text as T
-import           Data.Version (Version)
-import           Formatting (bprint, build, fconst, int, sformat, stext, (%))
+import           Data.Version (Version (..), parseVersion, showVersion)
+import           Formatting (bprint, build, fconst, int, sformat, shown, stext,
+                     (%))
 import qualified Formatting.Buildable
 import           Generics.SOP.TH (deriveGeneric)
 import           GHC.Generics (Generic, Rep)
@@ -187,7 +188,6 @@ import           Cardano.Wallet.API.V1.Generic (jsendErrorGenericParseJSON,
                      jsendErrorGenericToJSON)
 import           Cardano.Wallet.API.V1.Swagger.Example (Example, example,
                      genExample)
-import           Cardano.Wallet.Orphans.Aeson ()
 import           Cardano.Wallet.Types.UtxoStatistics
 import           Cardano.Wallet.Util (mkJsonKey, showApiUtcTime)
 
@@ -196,7 +196,6 @@ import qualified Pos.Binary.Class as Bi
 import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Chain.Update as Core
 import qualified Pos.Client.Txp.Util as Core
-import           Pos.Core (addressF)
 import qualified Pos.Core as Core
 import           Pos.Crypto (PublicKey (..), decodeHash, hashHexF)
 import qualified Pos.Crypto.Signing as Core
@@ -207,7 +206,9 @@ import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
                      buildSafe, buildSafeList, buildSafeMaybe,
                      deriveSafeBuildable, plainOrSecureF)
 import           Pos.Util.Servant (Flaggable (..))
+import           Test.Pos.Chain.Update.Arbitrary ()
 import           Test.Pos.Core.Arbitrary ()
+import           Text.ParserCombinators.ReadP (readP_to_S)
 
 -- | Declare generic schema, while documenting properties
 --   For instance:
@@ -313,7 +314,7 @@ instance Bounded a => Bounded (V1 a) where
     minBound = V1 $ minBound @a
     maxBound = V1 $ maxBound @a
 
-instance Buildable a => Buildable (V1 a) where
+instance {-# OVERLAPPABLE #-} Buildable a => Buildable (V1 a) where
     build (V1 x) = bprint build x
 
 instance Buildable (SecureLog a) => Buildable (SecureLog (V1 a)) where
@@ -321,7 +322,6 @@ instance Buildable (SecureLog a) => Buildable (SecureLog (V1 a)) where
 
 instance (Buildable a, Buildable b) => Buildable (a, b) where
     build (a, b) = bprint ("("%build%", "%build%")") a b
-
 
 --
 -- Benign instances
@@ -381,8 +381,17 @@ instance ToSchema (V1 Core.Coin) where
             & type_ .~ SwaggerNumber
             & maximum_ .~ Just (fromIntegral Core.maxCoinVal)
 
+instance ToHttpApiData Core.Coin where
+    toQueryParam = pretty . Core.coinToInteger
+
+instance FromHttpApiData Core.Coin where
+    parseUrlPiece p = do
+        c <- Core.Coin <$> parseQueryParam p
+        Core.checkCoin c
+        pure c
+
 instance ToJSON (V1 Core.Address) where
-    toJSON (V1 c) = String $ sformat addressF c
+    toJSON (V1 c) = String $ sformat Core.addressF c
 
 instance FromJSON (V1 Core.Address) where
     parseJSON (String a) = case Core.decodeTextAddress a of
@@ -2346,16 +2355,35 @@ instance BuildableSafeGen SlotDuration where
 data NodeSettings = NodeSettings {
      setSlotDuration   :: !SlotDuration
    , setSoftwareInfo   :: !(V1 Core.SoftwareVersion)
-   , setProjectVersion :: !Version
+   , setProjectVersion :: !(V1 Version)
    , setGitRevision    :: !Text
    } deriving (Show, Eq, Generic)
 
 #if !(MIN_VERSION_swagger2(2,2,2))
 -- See note [Version Orphan]
-instance ToSchema Version where
+instance ToSchema (V1 Version) where
     declareNamedSchema _ =
-        pure $ NamedSchema (Just "Version") $ mempty
+        pure $ NamedSchema (Just "V1Version") $ mempty
             & type_ .~ SwaggerString
+
+instance Buildable (V1 Version) where
+    build (V1 v) = bprint shown v
+
+instance Buildable (SecureLog (V1 Version)) where
+    build (SecureLog x) = Formatting.Buildable.build x
+
+instance ToJSON (V1 Version) where
+    toJSON (V1 v) = toJSON (showVersion v)
+
+instance FromJSON (V1 Version) where
+    parseJSON (String v) = case readP_to_S parseVersion (T.unpack v) of
+        (reverse -> ((ver,_):_)) -> pure (V1 ver)
+        _                        -> mempty
+    parseJSON x                  = typeMismatch "Not a valid Version" x
+
+instance Arbitrary (V1 Version) where
+    arbitrary = fmap V1 arbitrary
+
 
 -- Note [Version Orphan]
 -- I have opened a PR to add an instance of 'Version' to the swagger2

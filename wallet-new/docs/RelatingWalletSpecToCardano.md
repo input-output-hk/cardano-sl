@@ -1520,6 +1520,14 @@ Note: the above code was added shortly after this document was pinned to a git h
 
 Cardano does not implement transaction TTL yet and instead relies on submission count and a maximum retry limit.
 
+Currently, a transaction TTL may be estimated based on the creation timestamp of the transaction.
+The process has a constant number of submission attempts per transaction as well as a constant submission attempt rate.
+We attempt to run the submission function every five seconds, and the maximum attempt count is 255.
+This indicates a TTL of `255 * 5`, which is 1,275 seconds (or 21 minutes and 15 seconds).
+
+The `resubmitFunction` that is used currently lives in `Cardano.Wallet.Kernel.Submission` and includes the 255 count of resubmission limit.
+The 5 second tick rate is currently hardcoded in `Cardano.Wallet.Kernel.Submission.Worker`.
+
 **Fig 14 - Wallet Spec**
 
 ```haskell

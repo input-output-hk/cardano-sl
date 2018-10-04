@@ -111,18 +111,27 @@ atLeastNoFallback :: forall utxo m. (PickFromUtxo utxo, MonadRandom m)
                   => Word64
                   -> Value (Dom utxo)
                   -> CoinSelT utxo CoinSelErr m (SelectedUtxo (Dom utxo))
-atLeastNoFallback maxNumInputs targetMin = go emptySelection
+atLeastNoFallback maxNumInputs targetMin = do
+    utxo <- get
+    go emptySelection utxo
   where
     go :: SelectedUtxo (Dom utxo)
+       -> utxo
        -> CoinSelT utxo CoinSelErr m (SelectedUtxo (Dom utxo))
-    go selected
+    go selected utxo
       | sizeToWord (selectedSize selected) > maxNumInputs =
           throwError $ CoinSelErrSoft CoinSelSoftErr
       | selectedBalance selected >= targetMin =
           return selected
       | otherwise = do
-          io <- mapCoinSelErr CoinSelErrHard $ findRandomOutput
-          go $ select io selected
+          io <- findRandomOutput >>= maybe (throwError $ errUtxoExhausted utxo) return
+          go (select io selected) utxo
+
+    errUtxoExhausted :: utxo -> CoinSelErr
+    errUtxoExhausted utxo =
+        CoinSelErrHard $ CoinSelHardErrUtxoExhausted
+            (pretty $ utxoBalance utxo)
+            (pretty targetMin)
 
 -- | Select random additional inputs with the aim of improving the change amount
 --

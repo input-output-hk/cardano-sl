@@ -116,10 +116,6 @@ library
                        Cardano.Wallet.Kernel.Util.StrictNonEmpty
                        Cardano.Wallet.Kernel.Util.StrictStateT
                        Cardano.Wallet.Kernel.Wallets
-                       Cardano.Wallet.Orphans
-                       Cardano.Wallet.Orphans.Aeson
-                       Cardano.Wallet.Orphans.Arbitrary
-                       Cardano.Wallet.Orphans.Bi
                        Cardano.Wallet.Server
                        Cardano.Wallet.Server.CLI
                        Cardano.Wallet.Server.Middlewares

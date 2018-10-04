@@ -22,7 +22,7 @@ getNodeSettings w = liftIO $
     V1.NodeSettings
       <$> (mkSlotDuration <$> Node.getNextEpochSlotDuration node)
       <*> (V1 <$> Node.curSoftwareVersion node)
-      <*> pure version
+      <*> pure (V1 version)
       <*> (mkGitRevision <$> Node.compileInfo node)
   where
     mkSlotDuration :: Millisecond -> V1.SlotDuration

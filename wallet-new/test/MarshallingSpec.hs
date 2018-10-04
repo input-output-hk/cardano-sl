@@ -9,11 +9,12 @@ import           Universum
 import           Control.Lens (from, to)
 import           Data.Aeson
 import qualified Data.ByteString as BS
-import           Data.SafeCopy hiding (Migrate)
+import           Data.SafeCopy hiding (Migrate, Version)
 import           Data.Serialize (runGet, runPut)
 import           Data.Time (UTCTime (..), fromGregorian)
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Typeable (typeRep)
+import           Data.Version (Version)
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import qualified Pos.Crypto as Crypto
@@ -45,7 +46,6 @@ import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.Kernel.DB.HdWallet (HdRoot)
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..))
 import qualified Cardano.Wallet.Kernel.Util.Strict as Strict
-import           Cardano.Wallet.Orphans ()
 import qualified Cardano.Wallet.Util as Util
 
 -- | Tests whether or not some instances (JSON, Bi, etc) roundtrips.
@@ -87,6 +87,7 @@ spec = parallel $ describe "Marshalling & Unmarshalling" $ do
         aesonRoundtripProp @SyncThroughput Proxy
         aesonRoundtripProp @AccountIndex Proxy
         aesonRoundtripProp @(V1 AddressOwnership) Proxy
+        aesonRoundtripProp @(V1 Version) Proxy
 
         -- HttpApiData roundtrips
         httpApiDataRoundtripProp @AccountIndex Proxy

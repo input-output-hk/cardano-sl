@@ -47,7 +47,6 @@ import           Cardano.Wallet.Kernel.DB.Util.IxSet (HasPrimKey, Indexable,
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import qualified Cardano.Wallet.Kernel.DB.Util.Zoomable as Z
 import           Cardano.Wallet.Kernel.Util.StrictStateT
-import           Cardano.Wallet.Orphans ()
 import           UTxO.Util (mustBeRight)
 
 {-------------------------------------------------------------------------------

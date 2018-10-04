@@ -30,6 +30,8 @@
 \usepackage{tikz}
 \usetikzlibrary{positioning}
 \usetikzlibrary{arrows}
+\usetikzlibrary{arrows.meta}
+\usetikzlibrary{calc}
 
 \DeclareMathOperator{\dom}{dom}
 \DeclareMathOperator{\range}{range}
@@ -476,6 +478,8 @@ system entities.
   \begin{tikzpicture}[ align = center
                      , node distance = 8em and 10em
                      , text width = 5em
+                     , font = \footnotesize
+                     , >={Latex[width=0.5em, length=0.5em]}                     
                      , every node/.style = { rectangle
                                          , rounded corners
                                          , draw = black
@@ -511,8 +515,8 @@ system entities.
     \draw[->] (addr) -- node [above, rotate=-40]{contains a} (skey);
     \draw[->] (owner) -- node[left] {owns} (skey);
     \draw[->] (owner) -- node[left] {owns} (racc);
-    \draw[->] (pkey) -- node[anchor=south] {is associated with a} (skey);
-    \draw[->] (skey) -- node[anchor=south] {is associated with a} (racc);
+    \draw[->] (pkey) -- node[anchor=south] {is associated\\ with a} (skey);
+    \draw[->] (skey) -- node[anchor=south] {is associated\\ with a} (racc);
     \draw[->] (racc) -- node[above, rotate=90] {collects} (rewards);
     \draw[->] (pkey) -- node[anchor=west] {has} (funds);
     \draw[->] (skey) -- node[anchor=west] {has} (srights);
@@ -548,6 +552,8 @@ delegation:
   \begin{tikzpicture}[ align = center
                      , node distance = 8em and 10em
                      , text width = 5em
+                     , font = \footnotesize
+                     , >={Latex[width=0.5em, length=0.5em]}                     
                      , every node/.style = { rectangle
                                            , rounded corners
                                            , draw = black
@@ -786,6 +792,71 @@ in advance, but is presented when it is used:
 Although this last kind is a delegation certificate it is quite
 different from the others which are used to define the delegation
 relation.
+
+\begin{figure}[h]
+  \centering
+  \begin{tikzpicture}[ align = center
+                     , node distance = 6em and 10em
+                     , text width = 5em
+                     , font = \footnotesize
+                     , >={Latex[width=0.5em, length=0.5em]}
+                     , every node/.style = { rectangle
+                                         , rounded corners
+                                         , draw = black
+                                         , align = center
+                                         , minimum height = 4em }
+                     ]
+
+  %%
+  %% Nodes
+  %%
+  \tikzset{ key/.style={fill=red!10}
+          , cert/.style={fill=green!10}
+          , dummy/.style={draw=none}
+          }
+  
+  \node (skeys) [key] {Staking keys};
+  \node (scold) [key, right = of skeys] {Stake pool keys (cold)};
+  \node (shot) [key, right = of scold] {Stake pool keys (hot)};
+  \node (skeyr) [cert, above = of skeys] {Stake key registration};
+  \node (skeyd) [cert, below = of skeys] {Stake key deregistration};
+  \node (pr) [cert, above = of scold] {Pool registration};
+  \node (pd) [cert, below = of scold] {Pool deregistration};
+  \node (dcert) [cert] at ($(skeyr)!0.5!(pr)$) {Delegation cert (HW)};
+  \node (dummy) [dummy, above = of shot] {};
+  \node (lwdcert) [cert] at ($(pr)!0.5!(dummy)$) {Delegation cert (LW)};  
+
+  \tikzset{every node/.style={align=center, text width=7em, text=brown}}
+  %%
+  %% Relationship between nodes (arrows)
+  %%
+  % Horizontal lines.
+  \draw[dashed, ->] (skeys) edge node[above] {HW delegation}
+  (scold);
+  \draw[dashed, <-] (scold) edge node[above] {LW delegation}
+            (shot);
+  % Vertical lines.
+  \draw[->] (skeys) edge 
+            (skeyr);
+  \draw[->] (skeys) edge 
+            (skeyd);
+  \draw[->] (scold) edge 
+            (pr);
+  \draw[->] (scold) edge 
+            (pd);            
+  \draw[->] (skeys) edge 
+            (dcert);
+  \draw[->] (scold) edge 
+            (dcert);
+  \draw[->] (scold) edge 
+            (lwdcert);
+  \draw[->] (shot) edge 
+            (lwdcert);                            
+  \end{tikzpicture}
+                   
+  \caption{Relation between the different keys and certificates}
+  \label{fig:relationship-keys-certificates}
+\end{figure}
 
 \subsubsection{Certificate Replay Prevention}
 \label{certificate-replay-prevention}

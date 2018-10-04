@@ -11,22 +11,47 @@ module Cardano.Wallet.Kernel.CoinSelection.FromGeneric (
   , CoinSelectionOptions(..)
   , newOptions
     -- * Transaction building
-  , MkTx
+  , CoinSelFinalResult(..)
+  , UnsignedTx -- opaque
+  , utxOwnedInputs
+  , utxOutputs
+  , utxChange
   , mkStdTx
+  , mkStdUnsignedTx
     -- * Coin selection policies
   , random
   , largestFirst
+    -- * Estimating fees
+  , estimateCardanoFee
+  , boundAddrAttrSize
+  , boundTxAttrSize
+    -- * Estimating transaction limits
+  , estimateMaxTxInputs
+    -- * Testing & internal use only
+  , estimateSize
+  , estimateMaxTxInputsExplicitBounds
+  , estimateHardMaxTxInputsExplicitBounds
   ) where
 
 import           Universum hiding (Sum (..))
 
+import qualified Data.ByteString.Lazy as LBS
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
+import           Data.Typeable (TypeRep, typeRep)
 
-import qualified Pos.Client.Txp.Util as Core
+import           Pos.Binary.Class (LengthOf, Range (..), SizeOverride (..),
+                     encode, szSimplify, szWithCtx, toLazyByteString)
+import           Pos.Chain.Txp (TxAux, TxIn, TxInWitness, TxOut, TxSigData)
+import qualified Pos.Chain.Txp as Core
+import qualified Pos.Client.Txp.Util as CTxp
+import           Pos.Core (AddrAttributes, Coin (..), TxSizeLinear,
+                     calculateTxSizeLinear)
 import qualified Pos.Core as Core
+import           Pos.Core.Attributes (Attributes)
+import           Pos.Crypto (Signature)
 import qualified Pos.Crypto as Core
-import qualified Pos.Txp as Core
+import           Serokell.Data.Memory.Units (Byte, toBytes)
 
 import           Cardano.Wallet.Kernel.CoinSelection.Generic
 import           Cardano.Wallet.Kernel.CoinSelection.Generic.Fees
@@ -158,10 +183,28 @@ feeOptions CoinSelectionOptions{..} = FeeOptions{
   Building transactions
 -------------------------------------------------------------------------------}
 
+-- | Our notion of @unsigned transaction@. Unfortunately we cannot reuse
+-- directly the 'Tx' from @Core@ as that discards the information about
+-- "ownership" of inputs, which is instead required when dealing with the
+-- Core Txp.Util API.
+data UnsignedTx = UnsignedTx {
+    utxOwnedInputs :: NonEmpty (Core.TxIn, Core.TxOutAux)
+  , utxOutputs     :: NonEmpty Core.TxOutAux
+  , utxChange      :: [Core.Coin]
+}
+
+-- | Creates a "standard" unsigned transaction.
+mkStdUnsignedTx :: NonEmpty (Core.TxIn, Core.TxOutAux)
+                -- ^ Selected inputs
+                -> NonEmpty Core.TxOutAux
+                -- ^ Selected outputs
+                -> [Core.Coin]
+                -- ^ Change coins
+                -> UnsignedTx
+mkStdUnsignedTx inps outs change = UnsignedTx inps outs change
+
+
 -- | Build a transaction
-type MkTx m = NonEmpty (Core.TxIn, Core.TxOutAux) -- ^ Transaction inputs
-           -> NonEmpty Core.TxOutAux              -- ^ Transaction outputs
-           -> m (Either CoinSelHardErr Core.TxAux)
 
 -- | Construct a standard transaction
 --
@@ -169,15 +212,26 @@ type MkTx m = NonEmpty (Core.TxIn, Core.TxOutAux) -- ^ Transaction inputs
 -- multisignature transactions, etc.
 mkStdTx :: Monad m
         => Core.ProtocolMagic
-        -> (Core.Address -> Either CoinSelHardErr Core.SafeSigner)
-        -> MkTx m
-mkStdTx pm hdwSigners inps outs =
-    return $ Core.makeMPubKeyTxAddrs pm hdwSigners (fmap repack inps) outs
-  where
-    -- Repack a utxo-derived tuple into a format suitable for
-    -- 'TxOwnedInputs'.
-    repack :: (Core.TxIn, Core.TxOutAux) -> (Core.TxOut, Core.TxIn)
-    repack (txIn, aux) = (Core.toaOut aux, txIn)
+        -> (forall a. NonEmpty a -> m (NonEmpty a))
+        -- ^ Shuffle function
+        -> (Core.Address -> Either e Core.SafeSigner)
+        -- ^ Signer for each input of the transaction
+        -> NonEmpty (Core.TxIn, Core.TxOutAux)
+        -- ^ Selected inputs
+        -> NonEmpty Core.TxOutAux
+        -- ^ Selected outputs
+        -> [Core.TxOutAux]
+        -- ^ Change outputs
+        -> m (Either e Core.TxAux)
+mkStdTx pm shuffle hdwSigners inps outs change = do
+    allOuts <- shuffle $ foldl' (flip NE.cons) outs change
+    return $ CTxp.makeMPubKeyTxAddrs pm hdwSigners (fmap repack inps) allOuts
+
+-- | Repacks a utxo-derived tuple into a format suitable for
+-- 'TxOwnedInputs'.
+repack :: (Core.TxIn, Core.TxOutAux) -> (Core.TxOut, Core.TxIn)
+repack (txIn, aux) = (Core.toaOut aux, txIn)
+
 
 {-------------------------------------------------------------------------------
   Coin selection policy top-level entry point
@@ -186,6 +240,14 @@ mkStdTx pm hdwSigners inps outs =
 -- | Pick an element from the UTxO to cover any remaining fee
 type PickUtxo m = Core.Coin  -- ^ Fee to still cover
                -> CoinSelT Core.Utxo CoinSelHardErr m (Core.TxIn, Core.TxOutAux)
+
+data CoinSelFinalResult = CoinSelFinalResult {
+      csrInputs  :: NonEmpty (Core.TxIn, Core.TxOutAux)
+      -- ^ Picked inputs
+    , csrOutputs :: NonEmpty Core.TxOutAux
+      -- ^ Picked outputs
+    , csrChange  :: [Core.Coin]
+    }
 
 -- | Run coin selection
 --
@@ -199,14 +261,12 @@ type PickUtxo m = Core.Coin  -- ^ Fee to still cover
 -- just be run again on a new snapshot of the wallet DB.
 runCoinSelT :: forall m. Monad m
             => CoinSelectionOptions
-            -> m Core.Address
             -> PickUtxo m
-            -> MkTx m
             -> (forall utxo. PickFromUtxo utxo
                   => NonEmpty (Output (Dom utxo))
                   -> CoinSelT utxo CoinSelHardErr m [CoinSelResult (Dom utxo)])
-            -> CoinSelPolicy Core.Utxo m Core.TxAux
-runCoinSelT opts genChangeAddr pickUtxo mkTx policy request utxo = do
+            -> CoinSelPolicy Core.Utxo m CoinSelFinalResult
+runCoinSelT opts pickUtxo policy request utxo = do
     mSelection <- unwrapCoinSelT policy' utxo
     case mSelection of
       Left err -> return (Left err)
@@ -215,26 +275,20 @@ runCoinSelT opts genChangeAddr pickUtxo mkTx policy request utxo = do
             inps = concatMap selectedEntries
                      (additionalUtxo : map coinSelInputs css)
             outs = map coinSelOutput css
-        changeOuts <- forM (concatMap coinSelChange css) $ \change -> do
-                        changeAddr <- genChangeAddr
-                        return Core.TxOutAux {
-                            Core.toaOut = Core.TxOut {
-                                Core.txOutAddress = changeAddr
-                              , Core.txOutValue   = change
-                              }
-                          }
         let allInps = case inps of
                         []   -> error "runCoinSelT: empty list of inputs"
                         i:is -> i :| is
-            allOuts = case outs ++ changeOuts of
-                        []   -> error "runCoinSelT: empty list of outputs"
-                        o:os -> o :| os
-        -- TODO: We should shuffle allOuts
-        mkTx allInps allOuts
+            originalOuts = case outs of
+                               []   -> error "runCoinSelT: empty list of outputs"
+                               o:os -> o :| os
+        return . Right $ CoinSelFinalResult allInps
+                                            originalOuts
+                                            (concatMap coinSelChange css)
   where
     policy' :: CoinSelT Core.Utxo CoinSelHardErr m
                  ([CoinSelResult Cardano], SelectedUtxo Cardano)
     policy' = do
+        when (Map.null utxo) $ throwError CoinSelHardErrUtxoDepleted
         mapM_ validateOutput request
         css <- intInputGrouping (csoInputGrouping opts)
         -- We adjust for fees /after/ potentially dealing with grouping
@@ -299,7 +353,7 @@ validateOutput :: Monad m
                -> CoinSelT utxo CoinSelHardErr m ()
 validateOutput out =
     when (Core.isRedeemAddress . Core.txOutAddress . Core.toaOut $ out) $
-      throwError $ CoinSelHardErrOutputIsRedeemAddress out
+      throwError $ CoinSelHardErrOutputIsRedeemAddress (pretty out)
 
 {-------------------------------------------------------------------------------
   Top-level entry points
@@ -308,12 +362,10 @@ validateOutput out =
 -- | Random input selection policy
 random :: forall m. MonadRandom m
        => CoinSelectionOptions
-       -> m Core.Address  -- ^ Generate change address
-       -> MkTx m          -- ^ Build and sign transaction
        -> Word64          -- ^ Maximum number of inputs
-       -> CoinSelPolicy Core.Utxo m Core.TxAux
-random opts changeAddr mkTx maxInps =
-      runCoinSelT opts changeAddr pickUtxo mkTx
+       -> CoinSelPolicy Core.Utxo m CoinSelFinalResult
+random opts maxInps =
+      runCoinSelT opts pickUtxo
     $ Random.random Random.PrivacyModeOn maxInps . NE.toList
   where
     -- We ignore the size of the fee, and just pick randomly
@@ -325,12 +377,10 @@ random opts changeAddr mkTx maxInps =
 -- NOTE: Not for production use.
 largestFirst :: forall m. Monad m
              => CoinSelectionOptions
-             -> m Core.Address
-             -> MkTx m
              -> Word64
-             -> CoinSelPolicy Core.Utxo m Core.TxAux
-largestFirst opts changeAddr mkTx maxInps =
-      runCoinSelT opts changeAddr pickUtxo mkTx
+             -> CoinSelPolicy Core.Utxo m CoinSelFinalResult
+largestFirst opts maxInps =
+      runCoinSelT opts pickUtxo
     $ LargestFirst.largestFirst maxInps . NE.toList
   where
     pickUtxo :: PickUtxo m
@@ -342,3 +392,166 @@ largestFirst opts changeAddr mkTx maxInps =
         search ((i, o):ios)
           | Core.txOutValue (Core.toaOut o) >= val = return (i, o)
           | otherwise                              = search ios
+
+
+{-------------------------------------------------------------------------------
+  Cardano-specific fee-estimation.
+-------------------------------------------------------------------------------}
+
+-- | Estimate the size of a transaction, in bytes.
+estimateSize :: Byte     -- ^ Average size of @Attributes AddrAttributes@.
+             -> Byte     -- ^ Size of transaction's @Attributes ()@.
+             -> Int      -- ^ Number of inputs to the transaction.
+             -> [Word64] -- ^ Coin value of each output to the transaction.
+             -> Range Byte -- ^ Estimated size bounds of the resulting transaction.
+estimateSize saa sta ins outs =
+    -- This error case should not be possible unless the structure of `TxAux` changes
+    -- in such a way that it depends on a new type with no override for `Bi`'s
+    -- `encodedSizeExpr`. In that case, the size expression for `TxAux` will be symbolic,
+    -- and cannot be simplified to a concrete size range. However, the `Bi` unit tests
+    -- in `core` include a test that `TxAux`'s size reduces to a concrete range, and the
+    -- range encloses the correct encoded size.
+    --
+    -- In other words, either the unit test in `core` gives a concrete range and this
+    -- always yields a `Right`, or the unit test gives fails due to a symbolic range
+    -- and this always yields a `Left`.
+    case szSimplify (szWithCtx ctx (Proxy @TxAux)) of
+        Left  sz    -> error ("Size estimate failed to simplify: " <> pretty sz)
+        Right range -> range
+
+  where
+
+    ctx = sizeEstimateCtx
+        -- Number of outputs
+        & insert (Proxy @(LengthOf [TxOut])) (toSize (length outs))
+        -- Average size of an encoded Coin for this transaction.
+        & insert (Proxy @Coin) (toSize (avgCoinSize outs))
+        -- Number of inputs.
+        & insert (Proxy @(LengthOf [TxIn]))               (toSize ins)
+        & insert (Proxy @(LengthOf (Vector TxInWitness))) (toSize ins)
+        -- Set attribute sizes to reasonable dummy values.
+        & insert (Proxy @(Attributes AddrAttributes)) (toSize (toBytes saa))
+        & insert (Proxy @(Attributes ()))             (toSize (toBytes sta))
+
+    insert k = Map.insert (typeRep k)
+
+    avgCoinSize [] = 0
+    avgCoinSize cs = case sum (map encodedCoinSize cs) `quotRem` length cs of
+        (avg, 0) -> avg
+        (avg, _) -> avg + 1
+
+    encodedCoinSize = fromIntegral . LBS.length . toLazyByteString . encode . Coin
+
+-- | Estimate the fee for a transaction that has @ins@ inputs
+--   and @length outs@ outputs. The @outs@ lists holds the coin value
+--   of each output.
+--
+--   NOTE: The average size of @Attributes AddrAttributes@ and
+--         the transaction attributes @Attributes ()@ are both hard-coded
+--         here with some (hopefully) realistic values.
+estimateCardanoFee :: TxSizeLinear -> Int -> [Word64] -> Word64
+estimateCardanoFee linearFeePolicy ins outs
+    = round $ calculateTxSizeLinear linearFeePolicy
+            $ hi $ estimateSize boundAddrAttrSize boundTxAttrSize ins outs
+
+-- | Size to use for a value of type @Attributes AddrAttributes@ when estimating
+--   encoded transaction sizes. The minimum possible value is 2.
+--
+-- NOTE: When the /actual/ size exceeds this bounds, we may underestimate
+-- tranasction fees and potentially generate invalid transactions.
+boundAddrAttrSize :: Byte
+boundAddrAttrSize = 34
+
+-- | Size to use for a value of type @Attributes ()@ when estimating
+--   encoded transaction sizes. The minimum possible value is 2.
+--
+-- NOTE: When the /actual/ size exceeds this bounds, we may underestimate
+-- tranasction fees and potentially generate invalid transactions.
+boundTxAttrSize :: Byte
+boundTxAttrSize = 2
+
+-- | For a given transaction size, and sizes for @Attributes AddrAttributes@ and
+--   @Attributes ()@, compute the maximum possible number of inputs a transaction
+--   can have. The formula for this value is not linear, so we just do a binary
+--   search here. A decent first guess makes this search relatively quick.
+--
+--   We use a conservative over-estimate for the encoded transaction sizes, so the
+--   number of transaction inputs computed here is a lower bound on the true
+--   maximum.
+--
+-- NOTE: This function takes explicit bounds for tx and addr sizes. For most
+-- purposes you probably want 'estimateMaxTxInputs' instead.
+estimateMaxTxInputsExplicitBounds
+  :: Byte -- ^ Size of @Attributes AddrAttributes@
+  -> Byte -- ^ Size of @Attributes ()@
+  -> Byte -- ^ Maximum size of a transaction
+  -> Word64
+estimateMaxTxInputsExplicitBounds addrAttrSize txAttrSize maxSize =
+    fromIntegral (searchUp estSize maxSize 7)
+  where
+    estSize txins = hi $ estimateSize
+                           addrAttrSize
+                           txAttrSize
+                           txins
+                           [Core.maxCoinVal]
+
+-- | Variation on 'estimateMaxTxInputsExplicitBounds' that uses the bounds
+-- we use throughout the codebase
+estimateMaxTxInputs
+  :: Byte -- ^ Maximum size of a transaction
+  -> Word64
+estimateMaxTxInputs = estimateMaxTxInputsExplicitBounds
+                        boundAddrAttrSize
+                        boundTxAttrSize
+
+-- | For a given transaction size, and sizes for @Attributes AddrAttributes@ and
+--   @Attributes ()@, compute the maximum possible number of inputs a transaction
+--   can have, as in @estimateMaxTxInputs@. The difference is that this function
+--   tries to find the absolute highest number of possible inputs, by minimizing the
+--   size of the transaction. This gives a hard upper bound on the number of
+--   possible inputs a transaction can have; by comparison, @estimateMaxTxInputs@
+--   gives an upper bound on the number of inputs you can put into a transaction,
+--   if you do not have /a priori/ control over the size of those inputs.
+--
+-- Used only in testing. See 'estimateMaxTxInputs'.
+estimateHardMaxTxInputsExplicitBounds
+  :: Byte -- ^ Size of @Attributes AddrAttributes@
+  -> Byte -- ^ Size of @Attributes ()@
+  -> Byte -- ^ Maximum size of a transaction
+  -> Word64
+estimateHardMaxTxInputsExplicitBounds addrAttrSize txAttrSize maxSize =
+    fromIntegral (searchUp estSize maxSize 7)
+  where
+    estSize txins = lo $ estimateSize
+                           addrAttrSize
+                           txAttrSize
+                           txins
+                           [minBound]
+
+-- | Substitutions for certain sizes and lengths in the size estimates.
+sizeEstimateCtx :: Map TypeRep SizeOverride
+sizeEstimateCtx = Map.fromList
+      -- For this estimate, assume all input witnesses use the `PkWitness` constructor.
+    [ (typeRep (Proxy @TxInWitness)           , SelectCases ["PkWitness"])
+
+    -- The magic number 66 is the encoded size of a `TxSigData` signature:
+    -- 64 bytes for the payload, plus two bytes of ByteString overhead.
+    , (typeRep (Proxy @(Signature TxSigData)) , SizeConstant 66)
+    ]
+
+-- | Helper function for creating size constants.
+toSize :: Integral a => a -> SizeOverride
+toSize = SizeConstant . fromIntegral
+
+-- | For a monotonic @f@ and a value @y@, @searchUp f y k@ will find the
+--   largest @x@ such that @f x <= y@ by walking up from zero using steps
+--   of size @2^k@, reduced by a factor of 2 whenever we overshoot the target.
+searchUp :: (Integral a, Ord b) => (a -> b) -> b -> a -> a
+searchUp f y k = go 0 (2^k)
+  where
+    go x step = case compare (f x) y of
+        LT -> go (x + step) step
+        EQ -> x
+        GT | step == 1 -> x - 1
+           | otherwise -> let step' = step `div` 2
+                          in go (x - step') step'

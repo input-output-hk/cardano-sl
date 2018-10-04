@@ -15,9 +15,9 @@ import qualified Options.Applicative as Opt
 import           Pos.Util.OptParse (fromParsec)
 import           Text.Parsec (eof, parse)
 
+import           Pos.Core.NetworkAddress (NetworkAddress, addrParser)
 import           Pos.Infra.DHT.Model.Types (DHTKey, DHTNode, dhtKeyParser,
                      dhtNodeParser)
-import           Pos.Infra.Util.TimeWarp (NetworkAddress, addrParser)
 
 dhtExplicitInitialOption :: Opt.Parser Bool
 dhtExplicitInitialOption =

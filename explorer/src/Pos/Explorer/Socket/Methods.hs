@@ -2,6 +2,7 @@
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 
@@ -63,22 +64,20 @@ import qualified Data.Set as S
 import           Formatting (sformat, shown, stext, (%))
 import           Network.EngineIO (SocketId)
 import           Network.SocketIO (Socket, socketId)
-import qualified Pos.Block.Logic as DB
-import           Pos.Block.Types (Blund)
-import           Pos.Core (Address, HeaderHash)
-import           Pos.Core.Block (Block, mainBlockTxPayload)
+import           Pos.Chain.Block (Block, Blund, HeaderHash, mainBlockTxPayload)
+import           Pos.Chain.Genesis (GenesisHash)
+import           Pos.Chain.Txp (Tx (..), TxOut (..), TxOutAux (..),
+                     txOutAddress, txpTxs)
+import           Pos.Core (Address, SlotCount)
 import           Pos.Core.Chrono (getOldestFirst)
-import           Pos.Core.Txp (Tx (..), TxOut (..), TxOutAux (..), txOutAddress,
-                     txpTxs)
 import           Pos.Crypto (hash, withHash)
 import           Pos.DB.Block (getBlund)
+import qualified Pos.DB.Block as DB
 import           Pos.DB.Class (MonadDBRead)
+import           Pos.DB.Txp (getTxOut)
 import           Pos.Explorer.Core (TxExtra (..))
 import qualified Pos.Explorer.DB as DB
-import qualified Pos.GState as DB
 import           Pos.Util (maybeThrow)
-import           System.Wlog (WithLogger, logDebug, logWarning,
-                     modifyLoggerName)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.ExplorerMode (ExplorerMode)
@@ -95,6 +94,8 @@ import           Pos.Explorer.Web.ClientTypes (CAddress, CTxBrief,
 import           Pos.Explorer.Web.Error (ExplorerError (..))
 import           Pos.Explorer.Web.Server (getBlocksLastPage, getEpochPage,
                      getEpochPagesOrThrow, topsortTxsOrFail)
+import           Pos.Util.Wlog (WithLogger, logDebug, logWarning,
+                     modifyLoggerName)
 
 
 -- * Event names
@@ -330,11 +331,10 @@ notifyAddrSubscribers addr cTxEntries = do
     whenJust mRecipients $ broadcast @ctx AddrUpdated cTxEntries
 
 notifyBlocksLastPageSubscribers
-    :: forall ctx m . ExplorerMode ctx m
-    => ExplorerSockets m ()
-notifyBlocksLastPageSubscribers = do
+    :: forall ctx m . ExplorerMode ctx m => SlotCount -> ExplorerSockets m ()
+notifyBlocksLastPageSubscribers epochSlots = do
     recipients <- view csBlocksPageSubscribers
-    blocks     <- lift $ getBlocksLastPage @ctx
+    blocks     <- lift $ getBlocksLastPage @ctx epochSlots
     broadcast @ctx BlocksLastPageUpdated blocks recipients
 
 notifyTxsSubscribers
@@ -344,15 +344,18 @@ notifyTxsSubscribers cTxEntries =
     view csTxsSubscribers >>= broadcast @ctx TxsUpdated cTxEntries
 
 notifyEpochsLastPageSubscribers
-    :: forall ctx m . ExplorerMode ctx m
-    => EpochIndex -> ExplorerSockets m ()
-notifyEpochsLastPageSubscribers currentEpoch = do
+    :: forall ctx m
+     . ExplorerMode ctx m
+    => SlotCount
+    -> EpochIndex
+    -> ExplorerSockets m ()
+notifyEpochsLastPageSubscribers epochSlots currentEpoch = do
     -- subscriber
     recipients <- view $ csEpochsLastPageSubscribers
     -- last epoch page
     lastPage <- lift $ getEpochPagesOrThrow currentEpoch
     -- epochs of last page
-    epochs <- lift $ getEpochPage @ctx currentEpoch $ Just lastPage
+    epochs <- lift $ getEpochPage @ctx epochSlots currentEpoch $ Just lastPage
     broadcast @ctx EpochsLastPageUpdated epochs recipients
 
 -- * Helpers
@@ -360,12 +363,12 @@ notifyEpochsLastPageSubscribers currentEpoch = do
 -- | Gets blocks from recent inclusive to old one exclusive.
 getBlundsFromTo
     :: forall ctx m . ExplorerMode ctx m
-    => HeaderHash -> HeaderHash -> m (Maybe [Blund])
-getBlundsFromTo recentBlock oldBlock =
+    => GenesisHash -> HeaderHash -> HeaderHash -> m (Maybe [Blund])
+getBlundsFromTo genesisHash recentBlock oldBlock =
     DB.getHashesRange Nothing oldBlock recentBlock >>= \case
         Left _ -> pure Nothing
         Right (getOldestFirst -> hashes) ->
-            Just . catMaybes <$> forM (NE.tail hashes) getBlund
+            Just . catMaybes <$> forM (NE.tail hashes) (getBlund genesisHash)
 
 addrsTouchedByTx
     :: MonadDBRead m
@@ -373,7 +376,7 @@ addrsTouchedByTx
 addrsTouchedByTx tx = do
       -- for each transaction, get its OutTx
       -- and transactions from InTx
-      inTxs <- forM (_txInputs tx) $ DB.getTxOut >=> \case
+      inTxs <- forM (_txInputs tx) $ getTxOut >=> \case
       -- inTxs :: NonEmpty [TxOut]
           -- TODO [CSM-153]: lookup mempool as well
           Nothing       -> return mempty

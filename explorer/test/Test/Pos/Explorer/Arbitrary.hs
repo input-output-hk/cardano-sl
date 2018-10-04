@@ -10,8 +10,8 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
 
 import           Pos.Explorer.Core (TxExtra (..))
 
+import           Test.Pos.Chain.Txp.Arbitrary ()
 import           Test.Pos.Core.Arbitrary ()
-import           Test.Pos.Core.Arbitrary.Txp ()
 
 instance Arbitrary TxExtra where
     arbitrary = genericArbitrary

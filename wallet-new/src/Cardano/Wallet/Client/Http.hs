@@ -8,6 +8,7 @@ module Cardano.Wallet.Client.Http
     , module Servant.Client
     -- * Helper to load X509 certificates and private key
     , credentialLoadX509
+    , readSignedObject
     , newManager
     , Manager
     ) where
@@ -20,6 +21,8 @@ import           Data.ByteString (ByteString)
 import           Data.Default.Class (Default (..))
 import           Data.X509 (CertificateChain, SignedCertificate)
 import           Data.X509.CertificateStore (makeCertificateStore)
+import           Data.X509.Extra (validateDefaultWithIP)
+import           Data.X509.File (readSignedObject)
 import           Network.Connection (TLSSettings (..))
 import           Network.HTTP.Client (Manager, ManagerSettings,
                      defaultManagerSettings, newManager)
@@ -32,6 +35,7 @@ import           Servant ((:<|>) (..), (:>))
 import           Servant.Client (BaseUrl (..), ClientEnv (..), ClientM,
                      Scheme (..), ServantError (..), client, runClientM)
 
+import           Cardano.Wallet.API (WIPAPI)
 import qualified Cardano.Wallet.API.V1 as V1
 import           Cardano.Wallet.Client
 
@@ -72,6 +76,7 @@ mkHttpsManagerSettings serverId caChain credentials =
         }
     clientHooks = def
         { onCertificateRequest = const . return . Just $ credentials
+        , onServerCertificate  = validateDefaultWithIP
         }
     clientSupported = def
         { supportedCiphers = ciphersuite_default
@@ -105,6 +110,18 @@ mkHttpClient baseUrl manager = WalletClient
         = run . getWalletR
     , updateWallet
         = \x -> run . updateWalletR x
+    , getUtxoStatistics
+        = run . getUtxoStatisticsR
+    , postCheckExternalWallet
+        = run . postCheckExternalWalletR
+    , postExternalWallet
+        = run . postExternalWalletR
+    , deleteExternalWallet
+        = unNoContent . run . deleteExternalWalletR
+    , postUnsignedTransaction
+        = run . postUnsignedTransactionR
+    , postSignedTransaction
+        = run . postSignedTransactionR
     -- account endpoints
     , deleteAccount
         = \x -> unNoContent . run . deleteAccountR x
@@ -116,6 +133,10 @@ mkHttpClient baseUrl manager = WalletClient
         = \w -> run . postAccountR w
     , updateAccount
         = \x y -> run . updateAccountR x y
+    , getAccountAddresses
+        = \x y p pp filters -> run $ getAccountAddressesR x y p pp filters
+    , getAccountBalance
+        = \x -> run . getAccountBalanceR x
     -- transactions endpoints
     , postTransaction
         = run . postTransactionR
@@ -124,12 +145,14 @@ mkHttpClient baseUrl manager = WalletClient
              run . getTransactionIndexFilterSortsR walletId mAccountIndex mAddress mPage mpp filters
     , getTransactionFee
         = run . getTransactionFeeR
+    , redeemAda
+        = run ... redeemAdaR
     -- settings
     , getNodeSettings
         = run getNodeSettingsR
     -- info
     , getNodeInfo
-        = run getNodeInfoR
+        = run . getNodeInfoR
     }
 
   where
@@ -159,18 +182,29 @@ mkHttpClient baseUrl manager = WalletClient
         :<|> deleteWalletR
         :<|> getWalletR
         :<|> updateWalletR
+        :<|> getUtxoStatisticsR
         = walletsAPI
+
+    postCheckExternalWalletR
+        :<|> postExternalWalletR
+        :<|> deleteExternalWalletR
+        :<|> postUnsignedTransactionR
+        :<|> postSignedTransactionR
+        = client (Proxy @ WIPAPI)
 
     deleteAccountR
         :<|> getAccountR
         :<|> getAccountIndexPagedR
         :<|> postAccountR
         :<|> updateAccountR
+        :<|> getAccountAddressesR
+        :<|> getAccountBalanceR
         = accountsAPI
 
     postTransactionR
         :<|> getTransactionIndexFilterSortsR
         :<|> getTransactionFeeR
+        :<|> redeemAdaR
         = transactionsAPI
 
     addressesAPI

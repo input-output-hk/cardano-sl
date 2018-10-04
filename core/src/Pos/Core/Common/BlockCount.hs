@@ -4,6 +4,7 @@ module Pos.Core.Common.BlockCount
 
 import           Universum
 
+import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           System.Random (Random (..))
 
@@ -16,5 +17,8 @@ newtype BlockCount = BlockCount {getBlockCount :: Word64}
 instance Bi BlockCount where
     encode = encode . getBlockCount
     decode = BlockCount <$> decode
+    encodedSizeExpr size pxy = size (getBlockCount <$> pxy)
+
+deriveJSON defaultOptions ''BlockCount
 
 deriveSafeCopySimple 0 'base ''BlockCount

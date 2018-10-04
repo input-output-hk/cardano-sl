@@ -74,13 +74,13 @@ kademliaDiscovery configuration peer myAddress = do
     -- A TVar to cache the set of known peers at the last use of 'discoverPeers'
     peersTVar :: TVar.TVar (M.Map (K.Node (KSerialize i)) EndPointAddress)
         <- TVar.newTVarIO $ M.empty
-    let knownPeers = fmap (S.fromList . M.elems) . TVar.readTVarIO $ peersTVar
-    let discoverPeers = kademliaDiscoverPeers kademliaInst peersTVar
-    let close = K.close kademliaInst
+    let knownPeers' = fmap (S.fromList . M.elems) . TVar.readTVarIO $ peersTVar
+    let discoverPeers' = kademliaDiscoverPeers kademliaInst peersTVar
+    let close' = K.close kademliaInst
     -- Join the network and store the local 'EndPointAddress'.
     _ <- kademliaJoinAndUpdate kademliaInst peersTVar peer
     K.store kademliaInst kid (KSerialize myAddress)
-    pure $ NetworkDiscovery knownPeers discoverPeers close
+    pure $ NetworkDiscovery knownPeers' discoverPeers' close'
 
 -- | Join a Kademlia network (using a given known node address) and update the
 --   known peers cache.
@@ -165,7 +165,7 @@ kademliaLookupEndPointAddress kademliaInst recordedPeers peer@(K.Node _ nid) =
             pure $ case outcome of
                 Nothing                              -> Nothing
                 Just (KSerialize endPointAddress, _) -> Just endPointAddress
-        Just address -> pure (Just address)
+        Just address' -> pure (Just address')
 
 data KademliaDiscoveryErrorCode
     = KademliaIdClash

@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | Functionality related to 'Address' data type and related types.
 
@@ -18,6 +18,7 @@ module Pos.Core.Common.Address
        , checkRedeemAddress
 
        -- * Encoding
+       , addrToBase58
        , encodeAddr
        , encodeAddrCRC32
 
@@ -57,18 +58,27 @@ module Pos.Core.Common.Address
 import           Universum
 
 import           Control.Lens (makePrisms)
+import qualified Data.Aeson as Aeson (FromJSON (..), FromJSONKey (..),
+                     FromJSONKeyFunction (..), ToJSON (toJSON), ToJSONKey (..))
+import qualified Data.Aeson.Types as Aeson (toJSONKeyText)
 import qualified Data.ByteString as BS
 import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet,
                      decodeBase58, encodeBase58)
 import           Data.Hashable (Hashable (..))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
-import           Formatting (Format, bprint, build, builder, later, (%))
+import           Formatting (Format, bprint, build, builder, formatToString,
+                     later, sformat, (%))
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Util (listJson)
+import           Text.JSON.Canonical (FromJSON (..), FromObjectKey (..),
+                     JSValue (..), ReportSchemaErrors, ToJSON (..),
+                     ToObjectKey (..))
 
 import           Pos.Binary.Class (Bi (..), Encoding, biSize,
-                     encodeCrcProtected)
+                     encodeCrcProtected, encodedCrcProtectedSizeExpr)
 import qualified Pos.Binary.Class as Bi
+import           Pos.Core.Attributes (Attributes (..), attrData, mkAttributes)
 import           Pos.Core.Common.Coin ()
 import           Pos.Core.Constants (accountGenesisIndex, wAddressGenesisIndex)
 import           Pos.Crypto.Hashing (hashHexF)
@@ -78,7 +88,9 @@ import           Pos.Crypto.HD (HDAddressPayload, HDPassphrase,
 import           Pos.Crypto.Signing (EncryptedSecretKey, PassPhrase, PublicKey,
                      RedeemPublicKey, SecretKey, deterministicKeyGen,
                      emptyPassphrase, encToPublic, noPassEncrypt)
-import           Pos.Data.Attributes (Attributes (..), attrData, mkAttributes)
+import           Pos.Util.Json.Canonical ()
+import           Pos.Util.Json.Parse (tryParseString)
+import           Pos.Util.Util (toAesonError)
 
 import           Pos.Core.Common.AddrAttributes
 import           Pos.Core.Common.AddressHash
@@ -124,11 +136,40 @@ instance Bi Address where
         (addrRoot, addrAttributes, addrType) <- Bi.decodeCrcProtected
         let res = Address {..}
         pure res
+    encodedSizeExpr size pxy =
+        encodedCrcProtectedSizeExpr size ( (,,) <$> (addrRoot       <$> pxy)
+                                                <*> (addrAttributes <$> pxy)
+                                                <*> (addrType       <$> pxy) )
+
+instance Buildable [Address] where
+    build = bprint listJson
 
 instance Hashable Address where
     hashWithSalt s = hashWithSalt s . Bi.serialize
 
-makePrisms ''Address
+instance Monad m => ToObjectKey m Address where
+    toObjectKey = pure . formatToString addressF
+
+instance ReportSchemaErrors m => FromObjectKey m Address where
+    fromObjectKey = fmap Just . tryParseString decodeTextAddress . JSString
+
+instance Monad m => ToJSON m Address where
+    toJSON = fmap JSString . toObjectKey
+
+instance ReportSchemaErrors m => FromJSON m Address where
+    fromJSON = tryParseString decodeTextAddress
+
+instance Aeson.FromJSONKey Address where
+    fromJSONKey = Aeson.FromJSONKeyTextParser (toAesonError . decodeTextAddress)
+
+instance Aeson.ToJSONKey Address where
+    toJSONKey = Aeson.toJSONKeyText (sformat addressF)
+
+instance Aeson.FromJSON Address where
+    parseJSON = toAesonError . decodeTextAddress <=< Aeson.parseJSON
+
+instance Aeson.ToJSON Address where
+    toJSON = Aeson.toJSON . sformat addressF
 
 ----------------------------------------------------------------------------
 -- Formatting, pretty-printing
@@ -435,6 +476,8 @@ encodeAddr Address {..} =
 
 encodeAddrCRC32 :: Address -> Encoding
 encodeAddrCRC32 Address{..} = encodeCrcProtected (addrRoot, addrAttributes, addrType)
+
+makePrisms ''Address
 
 deriveSafeCopySimple 0 'base ''Address'
 deriveSafeCopySimple 0 'base ''Address

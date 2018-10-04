@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes       #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE RecordWildCards           #-}
 
 module Pos.Infra.Network.Types
        ( -- * Network configuration
@@ -48,8 +49,11 @@ module Pos.Infra.Network.Types
 
 import           Universum
 
+import           Data.Aeson
+import           Data.Aeson.Encoding.Internal as A
 import           Data.IP (IPv4)
 import qualified Data.Set as Set (null)
+import qualified Data.Text as T
 import           Network.Broadcast.OutboundQueue (OutboundQ)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types
@@ -59,23 +63,34 @@ import qualified Network.Transport.TCP as TCP
 import           Node.Internal (NodeId (..))
 import qualified Prelude
 import qualified System.Metrics as Monitoring
-import           System.Wlog (LoggerName (..))
 
+import           Pos.Core.Metrics.Constants (cardanoNamespace)
 import           Pos.Infra.Network.DnsDomains (DnsDomains (..), NodeAddr)
 import qualified Pos.Infra.Network.DnsDomains as DnsDomains
 import qualified Pos.Infra.Network.Policy as Policy
+import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Infra.Util.TimeWarp (addressToNodeId)
-import           Pos.Sinbin.Reporting (HealthStatus (..))
-import           Pos.System.Metrics.Constants (cardanoNamespace)
 import           Pos.Util.Trace (wlogTrace)
 import           Pos.Util.Util (HasLens', lensOf)
+import           Pos.Util.Wlog (LoggerName)
 
 {-------------------------------------------------------------------------------
   Network configuration
 -------------------------------------------------------------------------------}
 
 newtype NodeName = NodeName Text
-    deriving (Show, Ord, Eq, IsString)
+    deriving (Show, Generic, Ord, Eq, IsString)
+
+instance ToJSON NodeName where
+    toEncoding (NodeName name) = A.text name
+
+instance ToJSONKey NodeName where
+  toJSONKey = ToJSONKeyText f g
+    where f = T.pack . toString
+          g = A.text . T.pack . toString
+
+instance FromJSON NodeName where
+    parseJSON = fmap NodeName . parseJSON
 
 instance ToString NodeName where
     toString (NodeName txt) = toString txt
@@ -440,7 +455,7 @@ initQueue :: (MonadIO m, FormatMsg msg)
           -> m (OutboundQ msg NodeId Bucket)
 initQueue NetworkConfig{..} loggerName mStore = liftIO $ do
     let NodeName selfName = fromMaybe (NodeName "self") ncSelfName
-        oqTrace           = wlogTrace (loggerName <> LoggerName selfName)
+        oqTrace           = wlogTrace (loggerName <> "." <> selfName)
     oq <- OQ.new oqTrace
                  ncEnqueuePolicy
                  ncDequeuePolicy

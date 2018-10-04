@@ -36,23 +36,22 @@ import           Test.QuickCheck (Arbitrary (..), choose, frequency, sublistOf,
 import           Test.QuickCheck.Gen (Gen (MkGen))
 import           Test.QuickCheck.Monadic (assert, pick)
 
-import           Pos.Block.Types (Blund, LastKnownHeaderTag)
+import           Pos.Chain.Block (Blund, LastKnownHeaderTag, blockHeader,
+                     headerHashG)
+import           Pos.Chain.Genesis (poorSecretToEncKey)
+import           Pos.Chain.Txp (TxIn, TxOut (..), TxOutAux (..),
+                     TxpConfiguration, Utxo)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
-import           Pos.Core (Address, BlockCount, Coin, HasConfiguration,
-                     genesisSecretsPoor, headerHashG)
-import           Pos.Core.Block (blockHeader)
+import           Pos.Core (Address, BlockCount, Coin)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Common (IsBootstrapEraAddr (..), deriveLvl2KeyPair)
-import           Pos.Core.Genesis (poorSecretToEncKey)
-import           Pos.Core.Txp (TxIn, TxOut (..), TxOutAux (..))
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ProtocolMagic,
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase,
                      ShouldCheckPassphrase (..), emptyPassphrase,
                      firstHardened)
 import           Pos.Generator.Block (genBlocks)
 import           Pos.Infra.StateLock (Priority (..), modifyStateLock)
 import           Pos.Launcher (HasConfigurations)
-import           Pos.Txp.Toil (Utxo)
 import           Pos.Util (HasLens (..), _neLast)
 
 import           Pos.Util.Servant (encodeCType)
@@ -64,7 +63,9 @@ import           Pos.Infra.Util.JsonLog.Events
                      (MemPoolModifyReason (ApplyBlock))
 import           Test.Pos.Block.Logic.Util (EnableTxPayload, InplaceDB,
                      genBlockGenParams)
-import           Test.Pos.Core.Arbitrary.Txp ()
+import           Test.Pos.Chain.Genesis.Dummy (dummyConfig, dummyGenesisData,
+                     dummyGenesisSecretsPoor)
+import           Test.Pos.Chain.Txp.Arbitrary ()
 import           Test.Pos.Util.QuickCheck.Property (assertProperty,
                      maybeStopProperty)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty)
@@ -76,16 +77,16 @@ import           Test.Pos.Wallet.Web.Mode (WalletProperty)
 -- | Gen blocks in WalletProperty
 wpGenBlocks
     :: HasConfigurations
-    => ProtocolMagic
+    => TxpConfiguration
     -> Maybe BlockCount
     -> EnableTxPayload
     -> InplaceDB
     -> WalletProperty (OldestFirst [] Blund)
-wpGenBlocks pm blkCnt enTxPayload inplaceDB = do
-    params <- genBlockGenParams pm blkCnt enTxPayload inplaceDB
+wpGenBlocks txpConfig blkCnt enTxPayload inplaceDB = do
+    params <- genBlockGenParams dummyConfig blkCnt enTxPayload inplaceDB
     g <- pick $ MkGen $ \qc _ -> qc
     lift $ modifyStateLock HighPriority ApplyBlock $ \prevTip -> do -- FIXME is ApplyBlock the right one?
-        blunds <- OldestFirst <$> evalRandT (genBlocks pm params maybeToList) g
+        blunds <- OldestFirst <$> evalRandT (genBlocks dummyConfig txpConfig params maybeToList) g
         case nonEmpty $ getOldestFirst blunds of
             Just nonEmptyBlunds -> do
                 let tipBlockHeader = nonEmptyBlunds ^. _neLast . _1 . blockHeader
@@ -96,11 +97,11 @@ wpGenBlocks pm blkCnt enTxPayload inplaceDB = do
 
 wpGenBlock
     :: HasConfigurations
-    => ProtocolMagic
+    => TxpConfiguration
     -> EnableTxPayload
     -> InplaceDB
     -> WalletProperty Blund
-wpGenBlock pm = fmap (Data.List.head . toList) ... wpGenBlocks pm (Just 1)
+wpGenBlock txpConfig = fmap (Data.List.head . toList) ... wpGenBlocks txpConfig (Just 1)
 
 ----------------------------------------------------------------------------
 -- Wallet test helpers
@@ -108,32 +109,24 @@ wpGenBlock pm = fmap (Data.List.head . toList) ... wpGenBlocks pm (Just 1)
 
 -- | Import some nonempty set, but not bigger than given number of elements, of genesis secrets.
 -- Returns corresponding passphrases.
-importWallets
-    :: HasConfigurations
-    => Int -> Gen PassPhrase -> WalletProperty [PassPhrase]
+importWallets :: Int -> Gen PassPhrase -> WalletProperty [PassPhrase]
 importWallets numLimit passGen = do
-    let secrets =
-            map poorSecretToEncKey $
-            fromMaybe (error "Generated secrets are unknown") genesisSecretsPoor
+    let secrets = map poorSecretToEncKey dummyGenesisSecretsPoor
     (encSecrets, passphrases) <- pick $ do
         seks <- take numLimit <$> sublistOf secrets `suchThat` (not . null)
         let l = length seks
         passwds <- vectorOf l passGen
         pure (seks, passwds)
     let wuses = map mkGenesisWalletUserSecret encSecrets
-    lift $ mapM_ (uncurry importWalletDo) (zip passphrases wuses)
+    lift $ mapM_ (uncurry $ importWalletDo dummyConfig) (zip passphrases wuses)
     skeys <- lift getSecretKeysPlain
     assertProperty (not (null skeys)) "Empty set of imported keys"
     pure passphrases
 
-importSomeWallets
-    :: HasConfigurations
-    => Gen PassPhrase -> WalletProperty [PassPhrase]
+importSomeWallets :: Gen PassPhrase -> WalletProperty [PassPhrase]
 importSomeWallets = importWallets 10
 
-importSingleWallet
-    :: HasConfigurations
-    => Gen PassPhrase -> WalletProperty PassPhrase
+importSingleWallet :: Gen PassPhrase -> WalletProperty PassPhrase
 importSingleWallet passGen =
     fromMaybe (error "No wallets imported") . (fmap fst . uncons) <$> importWallets 1 passGen
 
@@ -214,9 +207,9 @@ genWalletUtxo sk psw size =
 -- Useful properties
 
 -- | Checks that balance of address is positive and returns it.
-expectedAddrBalance :: HasConfiguration => Address -> Coin -> WalletProperty ()
+expectedAddrBalance :: Address -> Coin -> WalletProperty ()
 expectedAddrBalance addr expected = do
-    balance <- lift $ getBalance addr
+    balance <- lift $ getBalance dummyGenesisData addr
     assertProperty (balance == expected) $
         sformat ("balance for address "%build
                     %" mismatched, expected: "%build

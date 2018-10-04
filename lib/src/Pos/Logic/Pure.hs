@@ -12,33 +12,32 @@ import           Data.Coerce (coerce)
 import           Data.Default (def)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Core (ApplicationName (..), Block, BlockHeader (..),
-                     BlockVersion (..), BlockVersionData (..), ExtraBodyData,
-                     ExtraHeaderData, GenericBlock (..),
-                     GenericBlockHeader (..), HeaderHash, SoftforkRule (..),
-                     SoftwareVersion (..), StakeholderId, TxFeePolicy (..),
-                     unsafeCoinPortionFromDouble)
-import           Pos.Core.Block (BlockHeaderAttributes, BlockSignature (..),
-                     MainBlock, MainBlockHeader, MainBlockchain, MainBody (..),
+import           Pos.Chain.Block (Block, BlockHeader (..),
+                     BlockHeaderAttributes, BlockSignature (..), HeaderHash,
+                     MainBlock, MainBlockHeader, MainBody (..),
                      MainConsensusData (..), MainExtraBodyData (..),
-                     MainExtraHeaderData (..), MainProof (..))
+                     MainExtraHeaderData (..), MainProof (..),
+                     mkGenericBlockHeaderUnsafe, mkGenericBlockUnsafe)
+import           Pos.Chain.Delegation (DlgPayload (..))
+import           Pos.Chain.Ssc (SscPayload (..), SscProof (..),
+                     VssCertificatesMap (..))
+import           Pos.Chain.Txp (TxProof (..), emptyTxPayload)
+import           Pos.Chain.Update (ApplicationName (..), BlockVersion (..),
+                     BlockVersionData (..), SoftforkRule (..),
+                     SoftwareVersion (..), UpdatePayload (..), UpdateProof)
+import           Pos.Core (StakeholderId, TxFeePolicy (..),
+                     unsafeCoinPortionFromDouble)
+import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Common (BlockCount (..), ChainDifficulty (..))
-import           Pos.Core.Delegation (DlgPayload (..))
+import           Pos.Core.Merkle (MerkleRoot (..))
 import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..),
                      SlotId (..))
-import           Pos.Core.Ssc (SscPayload (..), SscProof (..),
-                     VssCertificatesMap (..))
-import           Pos.Core.Txp (TxProof (..))
-import           Pos.Core.Update (UpdatePayload (..), UpdateProof)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
 import           Pos.Crypto.Signing (PublicKey (..), SecretKey (..),
                      Signature (..), deterministicKeyGen, signRaw)
-import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
 import           Pos.DB.Class (Serialized (..), SerializedBlock)
-import           Pos.Merkle (MerkleRoot (..))
-import           Pos.Txp.Base (emptyTxPayload)
 
 import           Pos.Logic.Types (KeyVal (..), Logic (..))
 
@@ -54,7 +53,9 @@ pureLogic = Logic
     , getBlockHeader     = \_ -> pure (Just blockHeader)
     , getHashesRange     = \_ _ _ -> pure (Right (OldestFirst (pure mainBlockHeaderHash)))
     , getBlockHeaders    = \_ _ _ -> pure (Right (NewestFirst (pure blockHeader)))
-    , getLcaMainChain    = \_ -> pure (OldestFirst [])
+      -- This definition of getLcaMainChain decides that all of the input
+      -- hashes are *not* in the chain.
+    , getLcaMainChain    = \hashes -> pure (NewestFirst [], hashes)
     , getTip             = pure block
     , getTipHeader       = pure blockHeader
     , getAdoptedBVData   = pure blockVersionData
@@ -136,11 +137,7 @@ serializedBlock :: SerializedBlock
 serializedBlock = Serialized $ serialize' block
 
 mainBlock :: MainBlock
-mainBlock = UnsafeGenericBlock
-    { _gbHeader = mainBlockHeader
-    , _gbBody   = blockBody
-    , _gbExtra  = extraBodyData
-    }
+mainBlock = mkGenericBlockUnsafe mainBlockHeader blockBody extraBodyData
 
 blockBody :: MainBody
 blockBody = MainBody
@@ -170,7 +167,7 @@ emptyUpdatePayload = UpdatePayload
     , upVotes    = []
     }
 
-extraBodyData :: ExtraBodyData MainBlockchain
+extraBodyData :: MainExtraBodyData
 extraBodyData = MainExtraBodyData
     { _mebAttributes = Attributes
           { attrData   = ()
@@ -182,13 +179,12 @@ blockHeader :: BlockHeader
 blockHeader = BlockHeaderMain mainBlockHeader
 
 mainBlockHeader :: MainBlockHeader
-mainBlockHeader = UnsafeGenericBlockHeader
-    { _gbhProtocolMagic = protocolMagic
-    , _gbhPrevBlock = mainBlockHeaderHash
-    , _gbhBodyProof = bodyProof
-    , _gbhConsensus = consensusData
-    , _gbhExtra     = extraHeaderData
-    }
+mainBlockHeader = mkGenericBlockHeaderUnsafe
+    protocolMagic
+    mainBlockHeaderHash
+    bodyProof
+    consensusData
+    extraHeaderData
 
 mainBlockHeaderHash :: HeaderHash
 mainBlockHeaderHash = unsafeMkAbstractHash mempty
@@ -248,7 +244,7 @@ blockSignature = BlockSignature (coerce (signRaw protocolMagic Nothing secretKey
 protocolMagic :: ProtocolMagic
 protocolMagic = ProtocolMagic 0
 
-extraHeaderData :: ExtraHeaderData MainBlockchain
+extraHeaderData :: MainExtraHeaderData
 extraHeaderData = MainExtraHeaderData
     { _mehBlockVersion    = blockVersion
     , _mehSoftwareVersion = softwareVersion

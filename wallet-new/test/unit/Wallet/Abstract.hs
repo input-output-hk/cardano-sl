@@ -10,6 +10,7 @@ module Wallet.Abstract (
   , mkDefaultWallet
   , walletBoot
   , applyBlocks
+  , switchToFork
     -- * Auxiliary operations
   , txIns
   , txOuts
@@ -21,6 +22,7 @@ module Wallet.Abstract (
 import           Universum
 
 import qualified Data.Foldable as Fold
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import           Formatting (bprint)
@@ -28,8 +30,8 @@ import qualified Formatting.Buildable
 import           Pos.Core.Chrono
 import           Serokell.Util (mapJson)
 
-import           Cardano.Wallet.Kernel.Util (disjoint)
 import           UTxO.DSL
+import           UTxO.Util (disjoint)
 
 {-------------------------------------------------------------------------------
   Wallet type class
@@ -96,6 +98,11 @@ data Wallet h a = Wallet {
 -- | Apply multiple blocks
 applyBlocks :: Wallet h a -> Chain h a -> Wallet h a
 applyBlocks w0 bs = foldl' applyBlock w0 bs
+
+-- | Switch to a fork
+switchToFork :: Wallet h a -> Int -> OldestFirst NE (Block h a) -> Wallet h a
+switchToFork w 0 bs = applyBlocks w (OldestFirst . NE.toList . getOldestFirst $ bs)
+switchToFork w n bs = switchToFork (rollback w) (n - 1) bs
 
 -- | Type of a wallet constructor
 --

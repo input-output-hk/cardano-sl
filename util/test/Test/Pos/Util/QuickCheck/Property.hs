@@ -1,3 +1,7 @@
+-- We have (Semigroup m, Monoid m) constraints in the Semigroup/Monoid laws section.
+-- this is redundant with 8.4+
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
+
 module Test.Pos.Util.QuickCheck.Property
        ( -- * Various properties and predicates
          qcIsJust

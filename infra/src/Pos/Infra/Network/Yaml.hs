@@ -1,4 +1,5 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes      #-}
+{-# LANGUAGE RecordWildCards #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -32,16 +33,16 @@ import           Universum
 import           Data.Aeson (FromJSON (..), ToJSON (..), (.!=), (.:), (.:?),
                      (.=))
 import qualified Data.Aeson as A
+import qualified Data.Aeson.Encoding.Internal as A
 import qualified Data.Aeson.Types as A
-import qualified Data.ByteString.Char8 as BS.C8
 import qualified Data.HashMap.Lazy as HM
-import           Data.IP (IP)
 import qualified Data.Map.Strict as M
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types
 import qualified Network.DNS as DNS
 
-import           Pos.Infra.Network.DnsDomains (DnsDomains (..), NodeAddr (..))
+import           Pos.Infra.Network.DnsDomains (DnsDomains (..), NodeAddr (..),
+                     extractNodeAddr)
 import           Pos.Infra.Network.Types (Fallbacks, NodeName (..), Valency)
 import           Pos.Util.Util (aesonError, toAesonError)
 
@@ -51,39 +52,70 @@ import           Pos.Util.Util (aesonError, toAesonError)
 -- describes the entire network topology (all statically known nodes), not just
 -- the topology from the point of view of the current node.
 data Topology =
-    TopologyStatic {
-        topologyAllPeers :: !AllStaticallyKnownPeers
-      }
+    -- | TopologyStatic topologyAllPeers
+    TopologyStatic !AllStaticallyKnownPeers
 
-  | TopologyBehindNAT {
-        topologyValency    :: !Valency
-      , topologyFallbacks  :: !Fallbacks
-      , topologyDnsDomains :: !(DnsDomains DNS.Domain)
-      }
+    -- | TopologyBehindNAT
+    --       topologyValency
+    --       topologyFallbacks
+    --       topologyDnsDomains
+  | TopologyBehindNAT
+        !Valency
+        !Fallbacks
+        !(DnsDomains DNS.Domain)
 
-  | TopologyP2P {
-        topologyValency    :: !Valency
-      , topologyFallbacks  :: !Fallbacks
-      , topologyMaxSubscrs :: !OQ.MaxBucketSize
-      }
+    -- | TopologyP2P
+    --       topologyValency
+    --       topologyFallbacks
+    --       topologyMaxSubscrs
+  | TopologyP2P
+        !Valency
+        !Fallbacks
+        !OQ.MaxBucketSize
 
-  | TopologyTraditional {
-        topologyValency    :: !Valency
-      , topologyFallbacks  :: !Fallbacks
-      , topologyMaxSubscrs :: !OQ.MaxBucketSize
-      }
-  deriving (Show)
+    -- | TopologyTraditional
+    --       topologyValency
+    --       topologyFallbacks
+    --       topologyMaxSubscrs
+  | TopologyTraditional
+        !Valency
+        !Fallbacks
+        !OQ.MaxBucketSize
+  deriving (Eq, Generic, Show)
 
 -- | All statically known peers in the newtork
 newtype AllStaticallyKnownPeers = AllStaticallyKnownPeers
     { allStaticallyKnownPeers :: Map NodeName NodeMetadata
-    } deriving (Show)
+    } deriving (Eq, Generic, Show)
+
+instance ToJSON AllStaticallyKnownPeers where
+    toEncoding (AllStaticallyKnownPeers pMap) = toEncoding pMap
+
+instance FromJSON AllStaticallyKnownPeers where
+    parseJSON = A.withObject "AllStaticallyKnownPeers" $ \obj ->
+        AllStaticallyKnownPeers . M.fromList <$> mapM aux (HM.toList obj)
+      where
+        aux :: (Text, A.Value) -> A.Parser (NodeName, NodeMetadata)
+        aux (name, val) = (NodeName name, ) <$> parseJSON val
 
 newtype NodeRegion = NodeRegion Text
-    deriving (Show, Ord, Eq, IsString)
+    deriving (Show, Generic, Ord, Eq, IsString)
+
+instance ToJSON NodeRegion where
+    toEncoding (NodeRegion text) = A.text text
+
+instance FromJSON NodeRegion where
+    parseJSON = fmap NodeRegion . parseJSON
 
 newtype NodeRoutes = NodeRoutes [[NodeName]]
-    deriving (Show)
+    deriving (Eq, Generic, Show)
+
+instance ToJSON NodeRoutes where
+    toEncoding (NodeRoutes nameList) = A.list toEncoding nameList
+
+instance FromJSON NodeRoutes where
+    parseJSON = fmap NodeRoutes . parseJSON
+
 
 data NodeMetadata = NodeMetadata
     { -- | Node type
@@ -115,7 +147,7 @@ data NodeMetadata = NodeMetadata
       -- | Maximum number of subscribers (only relevant for relays)
     , nmMaxSubscrs :: !OQ.MaxBucketSize
     }
-    deriving (Show)
+    deriving (Eq, Generic, Show)
 
 type RunKademlia = Bool
 type InPublicDNS = Bool
@@ -187,76 +219,83 @@ instance ToJSON KademliaAddress where
         ]
 
 ----------------------------------------------------------------------------
--- FromJSON instances
+-- JSON instances
 ----------------------------------------------------------------------------
 
-instance FromJSON NodeRegion where
-    parseJSON = fmap NodeRegion . parseJSON
-
-instance FromJSON NodeName where
-    parseJSON = fmap NodeName . parseJSON
-
-instance FromJSON NodeRoutes where
-    parseJSON = fmap NodeRoutes . parseJSON
-
-instance FromJSON NodeType where
-    parseJSON = A.withText "NodeType" $ \typ -> do
-        toAesonError $ case toString typ of
-          "core"     -> Right NodeCore
-          "edge"     -> Right NodeEdge
-          "relay"    -> Right NodeRelay
-          _otherwise -> Left $ "Invalid NodeType " <> show typ
-
-instance FromJSON OQ.Precedence where
-    parseJSON = A.withText "Precedence" $ \typ -> do
-        toAesonError $ case toString typ of
-          "lowest"   -> Right OQ.PLowest
-          "low"      -> Right OQ.PLow
-          "medium"   -> Right OQ.PMedium
-          "high"     -> Right OQ.PHigh
-          "highest"  -> Right OQ.PHighest
-          _otherwise -> Left $ "Invalid Precedence" <> show typ
-
-instance FromJSON (DnsDomains DNS.Domain) where
-    parseJSON = fmap DnsDomains . parseJSON
-
-instance FromJSON (NodeAddr DNS.Domain) where
-    parseJSON = A.withObject "NodeAddr" $ extractNodeAddr (toAesonError . aux)
-      where
-        aux :: Maybe DNS.Domain -> Either Text DNS.Domain
-        aux Nothing    = Left "Missing domain name or address"
-        aux (Just dom) = Right dom
-
--- Useful when we have a 'NodeAddr' as part of a larger object
-extractNodeAddr :: forall a. (Maybe DNS.Domain -> A.Parser a)
-                -> A.Object
-                -> A.Parser (NodeAddr a)
-extractNodeAddr mkA obj = do
-    mAddr <- obj .:? "addr"
-    mHost <- obj .:? "host"
-    mPort <- obj .:? "port"
-    case (mAddr, mHost) of
-      (Just ipAddr, Nothing) -> do
-          -- Make sure `addr` is a proper IP address
-          toAesonError $ case readMaybe ipAddr of
-              Nothing   -> Left "The value specified in 'addr' is not a valid IP address."
-              Just addr -> Right $ NodeAddrExact addr mPort
-      (Nothing,  _)        -> do
-          -- Make sure 'host' is not a valid IP address (which is disallowed)
-          case mHost of
-              Nothing  -> mkNodeAddrDNS mHost mPort -- User didn't specify a 'host', proceed normally.
-              Just mbH -> case readMaybe @IP mbH of
-                  Nothing -> mkNodeAddrDNS mHost mPort -- mHost is not an IP, allow it.
-                  Just _  -> aesonError "The value specified in 'host' is not a valid hostname, but an IP."
-      (Just _, Just _)    -> aesonError "Cannot use both 'addr' and 'host'"
-  where
-    aux :: String -> DNS.Domain
-    aux = BS.C8.pack
-
-    mkNodeAddrDNS :: Maybe String -> Maybe Word16 -> A.Parser (NodeAddr a)
-    mkNodeAddrDNS mHost mPort = do
-          a <- mkA (aux <$> mHost)
-          return $ NodeAddrDNS a mPort
+instance ToJSON NodeMetadata where
+    toEncoding
+        (NodeMetadata
+            nmType
+            nmRegion
+            nmRoutes
+            nmSubscribe
+            nmValency
+            nmFallbacks
+            nmAddress
+            nmKademlia
+            nmPublicDNS
+            nmMaxSubscrs) = do
+                case nmAddress of
+                    NodeAddrExact ip (Just port) ->
+                        A.pairs $
+                             A.pairStr "type" (toEncoding nmType)
+                         <>  A.pairStr "region" (toEncoding nmRegion)
+                         <>  A.pairStr "static-routes" (toEncoding nmRoutes)
+                         <>  A.pairStr
+                                "dynamic-subscribe" (toEncoding nmSubscribe)
+                         <>  A.pairStr "valency" (toEncoding nmValency)
+                         <>  A.pairStr "fallbacks" (toEncoding nmFallbacks)
+                         <>  A.pairStr "addr" (toEncoding ip)
+                         <>  A.pairStr "port" (toEncoding port)
+                         <>  A.pairStr "kademlia" (toEncoding nmKademlia)
+                         <>  A.pairStr "public" (toEncoding nmPublicDNS)
+                         <>  A.pairStr "maxSubscrs" (toEncoding nmMaxSubscrs)
+                    NodeAddrExact ip Nothing ->
+                        A.pairs $
+                            A.pairStr "type" (toEncoding nmType)
+                         <> A.pairStr "region" (toEncoding nmRegion)
+                         <> A.pairStr "static-routes" (toEncoding nmRoutes)
+                         <> A.pairStr
+                                "dynamic-subscribe" (toEncoding nmSubscribe)
+                         <> A.pairStr "valency" (toEncoding nmValency)
+                         <> A.pairStr "fallbacks" (toEncoding nmFallbacks)
+                         <> A.pairStr "addr" (toEncoding ip)
+                         <> A.pairStr "port" (A.string "3000")
+                         <> A.pairStr "kademlia" (toEncoding nmKademlia)
+                         <> A.pairStr "public" (toEncoding nmPublicDNS)
+                         <> A.pairStr "maxSubscrs" (toEncoding nmMaxSubscrs)
+                    NodeAddrDNS (Just host) (Just port) -> do
+                        let converted = decodeUtf8 @Text @ByteString host
+                        A.pairs $
+                            A.pairStr "type" (toEncoding nmType)
+                         <> A.pairStr "region" (toEncoding nmRegion)
+                         <> A.pairStr "static-routes" (toEncoding nmRoutes)
+                         <> A.pairStr
+                                "dynamic-subscribe" (toEncoding nmSubscribe)
+                         <> A.pairStr "valency" (toEncoding nmValency)
+                         <> A.pairStr "fallbacks" (toEncoding nmFallbacks)
+                         <> A.pairStr "host" (toEncoding converted)
+                         <> A.pairStr "port" (toEncoding port)
+                         <> A.pairStr "kademlia" (toEncoding nmKademlia)
+                         <> A.pairStr "public" (toEncoding nmPublicDNS)
+                         <> A.pairStr "maxSubscrs" (toEncoding nmMaxSubscrs)
+                    NodeAddrDNS (Just host) Nothing -> do
+                        let converted = decodeUtf8 @Text @ByteString host
+                        A.pairs $
+                            A.pairStr "type" (toEncoding nmType)
+                         <> A.pairStr "region" (toEncoding nmRegion)
+                         <> A.pairStr "static-routes" (toEncoding nmRoutes)
+                         <> A.pairStr
+                            "dynamic-subscribe" (toEncoding nmSubscribe)
+                         <> A.pairStr "valency" (toEncoding nmValency)
+                         <> A.pairStr "fallbacks" (toEncoding nmFallbacks)
+                         <> A.pairStr "host" (toEncoding converted)
+                         <> A.pairStr "port" (A.string "3000")
+                         <> A.pairStr "kademlia" (toEncoding nmKademlia)
+                         <> A.pairStr "public" (toEncoding nmPublicDNS)
+                         <> A.pairStr "maxSubscrs" (toEncoding nmMaxSubscrs)
+                    NodeAddrDNS Nothing _ ->
+                        error "Please enter a hostname"
 
 instance FromJSON NodeMetadata where
     parseJSON = A.withObject "NodeMetadata" $ \obj -> do
@@ -269,7 +308,7 @@ instance FromJSON NodeMetadata where
         nmAddress    <- extractNodeAddr return obj
         nmKademlia   <- obj .:? "kademlia" .!= defaultRunKademlia nmType
         nmPublicDNS  <- obj .:? "public"   .!= defaultInPublicDNS nmType
-        nmMaxSubscrs <- maybeBucketSize <$> obj .:? "maxSubscrs"
+        nmMaxSubscrs <- mBucketSize <$> obj .:? "maxSubscrs"
         case (nmRoutes, nmSubscribe) of
             (NodeRoutes [], DnsDomains []) ->
               aesonError "One of 'static-routes' or 'dynamic-subscribe' must be given"
@@ -288,12 +327,80 @@ instance FromJSON NodeMetadata where
        defaultInPublicDNS NodeRelay = True
        defaultInPublicDNS NodeEdge  = False
 
-instance FromJSON AllStaticallyKnownPeers where
-    parseJSON = A.withObject "AllStaticallyKnownPeers" $ \obj ->
-        AllStaticallyKnownPeers . M.fromList <$> mapM aux (HM.toList obj)
-      where
-        aux :: (Text, A.Value) -> A.Parser (NodeName, NodeMetadata)
-        aux (name, val) = (NodeName name, ) <$> parseJSON val
+instance FromJSON OQ.Precedence where
+    parseJSON = A.withText "Precedence" $ \typ -> do
+        toAesonError $ case toString typ of
+          "lowest"   -> Right OQ.PLowest
+          "low"      -> Right OQ.PLow
+          "medium"   -> Right OQ.PMedium
+          "high"     -> Right OQ.PHigh
+          "highest"  -> Right OQ.PHighest
+          _otherwise -> Left $ "Invalid Precedence" <> show typ
+
+instance ToJSON Topology where
+    toEncoding (TopologyStatic (AllStaticallyKnownPeers pMap)) =
+        A.pairs $ A.pairStr "nodes" (toEncoding (AllStaticallyKnownPeers pMap) )
+    toEncoding (TopologyBehindNAT
+                   topologyValency
+                   topologyFallbacks
+                   topologyDnsDomains) =
+                       A.pairs $ A.pairStr "wallet"
+                           $ A.pairs $ A.pairStr "relays"
+                                           (toEncoding topologyDnsDomains)
+                                    <> A.pairStr "valency"
+                                           (toEncoding topologyValency)
+                                    <> A.pairStr "fallbacks"
+                                           (toEncoding topologyFallbacks)
+    toEncoding (TopologyTraditional
+                   topologyValency
+                   topologyFallbacks
+                   topologyMaxSubscrs) = do
+                       case topologyMaxSubscrs of
+                           OQ.BucketSizeMax int ->
+                               A.pairs $ A.pairStr "p2p"
+                                   $ A.pairs $ A.pairStr "variant"
+                                                   (A.text "traditional")
+                                            <> A.pairStr "valency"
+                                                   (toEncoding topologyValency)
+                                            <> A.pairStr "fallbacks"
+                                                   (toEncoding topologyFallbacks)
+                                            <> A.pairStr "maxSubscrs"
+                                                   (toEncoding int)
+                           OQ.BucketSizeUnlimited ->
+                               A.pairs $ A.pairStr "p2p"
+                                   $ A.pairs $ A.pairStr "variant"
+                                                   (A.text "traditional")
+                                            <> A.pairStr "valency"
+                                                   (toEncoding topologyValency)
+                                            <> A.pairStr "fallbacks"
+                                                   (toEncoding topologyFallbacks)
+                                            <> A.pairStr "maxSubscrs"
+                                                   A.null_
+    toEncoding (TopologyP2P
+                   topologyValency
+                   topologyFallbacks
+                   topologyMaxSubscrs) = do
+                       case topologyMaxSubscrs of
+                           OQ.BucketSizeMax int ->
+                               A.pairs $ A.pairStr "p2p"
+                                   $ A.pairs $ A.pairStr "variant"
+                                                   (A.text "normal")
+                                            <> A.pairStr "valency"
+                                                   (toEncoding topologyValency)
+                                            <> A.pairStr "fallbacks"
+                                                   (toEncoding topologyFallbacks)
+                                            <> A.pairStr "maxSubscrs"
+                                                   (toEncoding int)
+                           OQ.BucketSizeUnlimited ->
+                               A.pairs $ A.pairStr "p2p"
+                                   $ A.pairs $ A.pairStr "variant"
+                                                   (A.text "normal")
+                                            <> A.pairStr "valency"
+                                                   (toEncoding topologyValency)
+                                            <> A.pairStr "fallbacks"
+                                                   (toEncoding topologyFallbacks)
+                                            <> A.pairStr "maxSubscrs"
+                                                   A.null_
 
 instance FromJSON Topology where
     parseJSON = A.withObject "Topology" $ \obj -> do
@@ -303,26 +410,39 @@ instance FromJSON Topology where
         case (mNodes, mWallet, mP2p) of
           (Just nodes, Nothing, Nothing) ->
               TopologyStatic <$> parseJSON nodes
-          (Nothing, Just wallet, Nothing) -> flip (A.withObject "wallet") wallet $ \walletObj -> do
-              topologyDnsDomains <- walletObj .:  "relays"
-              topologyValency    <- walletObj .:? "valency"   .!= 1
-              topologyFallbacks  <- walletObj .:? "fallbacks" .!= 1
-              return TopologyBehindNAT{..}
-          (Nothing, Nothing, Just p2p) -> flip (A.withObject "P2P") p2p $ \p2pObj -> do
-              variantTxt         <- p2pObj .: "variant"
-              topologyValency    <- p2pObj .:? "valency"   .!= 3
-              topologyFallbacks  <- p2pObj .:? "fallbacks" .!= 1
-              topologyMaxSubscrs <- maybeBucketSize <$> p2pObj .:? "maxSubscrs"
-              flip (A.withText "P2P variant") variantTxt $ toAesonError . \case
-                  "traditional" -> Right TopologyTraditional{..}
-                  "normal"      -> Right TopologyP2P{..}
-                  _             -> Left "P2P variant: expected 'traditional' or 'normal'"
+          (Nothing, Just wallet, Nothing) ->
+              flip (A.withObject "wallet") wallet $ \walletObj -> do
+                  topologyDnsDomains <- walletObj .:  "relays"
+                  topologyValency    <- walletObj .:? "valency"   .!= 1
+                  topologyFallbacks  <- walletObj .:? "fallbacks" .!= 1
+                  return $ TopologyBehindNAT
+                              topologyValency
+                              topologyFallbacks
+                              topologyDnsDomains
+          (Nothing, Nothing, Just p2p) ->
+              flip (A.withObject "P2P") p2p $ \p2pObj -> do
+                  variantTxt         <- p2pObj .: "variant"
+                  topologyValency    <- p2pObj .:? "valency"   .!= 3
+                  topologyFallbacks  <- p2pObj .:? "fallbacks" .!= 1
+                  topologyMaxSubscrs <- mBucketSize <$> p2pObj .:? "maxSubscrs"
+                  flip (A.withText "P2P variant") variantTxt $ toAesonError . \case
+                      "traditional" -> Right $ TopologyTraditional
+                                                   topologyValency
+                                                   topologyFallbacks
+                                                   topologyMaxSubscrs
+                      "normal"      -> Right $ TopologyP2P
+                                                   topologyValency
+                                                   topologyFallbacks
+                                                   topologyMaxSubscrs
+                      _             -> Left "P2P variant: expected \
+                                            \'traditional' or 'normal'"
           _ ->
-            aesonError "Topology: expected exactly one of 'nodes', 'wallet', 'relays', or 'p2p'"
+            aesonError "Topology: expected exactly one of 'nodes', 'wallet',\
+                       \'relays', or 'p2p'"
 
-maybeBucketSize :: Maybe Int -> OQ.MaxBucketSize
-maybeBucketSize Nothing  = OQ.BucketSizeUnlimited
-maybeBucketSize (Just n) = OQ.BucketSizeMax n
+mBucketSize :: Maybe Int -> OQ.MaxBucketSize
+mBucketSize Nothing  = OQ.BucketSizeUnlimited
+mBucketSize (Just n) = OQ.BucketSizeMax n
 
 {-------------------------------------------------------------------------------
   Policies described in JSON/YAML.
@@ -465,22 +585,14 @@ instance FromJSON OQ.Enqueue where
             nodeType   <- obj .: "nodeType"
             maxAhead   <- obj .: "maxAhead"
             precedence <- obj .: "precedence"
-            return $ OQ.EnqueueAll {
-                  enqNodeType   = nodeType
-                , enqMaxAhead   = maxAhead
-                , enqPrecedence = precedence
-                }
+            return $ OQ.EnqueueAll nodeType maxAhead precedence
 
         parseEnqueueOne :: A.Object -> A.Parser OQ.Enqueue
         parseEnqueueOne obj = do
             nodeTypes  <- obj .: "nodeTypes"
             maxAhead   <- obj .: "maxAhead"
             precedence <- obj .: "precedence"
-            return $ OQ.EnqueueOne {
-                  enqNodeTypes  = nodeTypes
-                , enqMaxAhead   = maxAhead
-                , enqPrecedence = precedence
-                }
+            return $ OQ.EnqueueOne nodeTypes maxAhead precedence
 
 instance FromJSON OQ.Dequeue where
     parseJSON = A.withObject "Dequeue" $ \obj -> do

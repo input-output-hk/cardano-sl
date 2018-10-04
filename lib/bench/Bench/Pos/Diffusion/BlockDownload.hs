@@ -5,7 +5,6 @@
 -- later if need be.
 -- Currently only the batched block requests are wired up. The streaming
 -- definition is not yet available.
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE BangPatterns        #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -20,22 +19,22 @@ import qualified Criterion
 import qualified Criterion.Main as Criterion
 import qualified Criterion.Main.Options as Criterion
 import qualified Data.ByteString.Lazy as LBS
-import           Data.Semigroup ((<>))
+import           Data.Conduit.Combinators (yieldMany)
+import           Data.List.NonEmpty (NonEmpty ((:|)))
 import qualified Options.Applicative as Opt (execParser)
 
-import           Data.List.NonEmpty (NonEmpty ((:|)))
-import           Data.Time.Units (Microsecond)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Network.Broadcast.OutboundQueue.Types as OQ
-import           Network.Transport (Transport)
-import qualified Network.Transport.TCP as TCP
+import           Network.Transport (Transport, closeTransport)
+import qualified Network.Transport.InMemory as InMemory
 import           Node (NodeId)
 import qualified Node
-import           Pipes (each)
 
 import           Pos.Binary (serialize, serialize')
-import           Pos.Core (Block, BlockHeader, BlockVersion (..), HeaderHash)
-import qualified Pos.Core as Core (getBlockHeader)
+import           Pos.Chain.Block (Block, BlockHeader, HeaderHash)
+import qualified Pos.Chain.Block as Block (getBlockHeader)
+import           Pos.Chain.Update (BlockVersion (..))
+import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
 import           Pos.Crypto (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
@@ -44,18 +43,15 @@ import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
                      FullDiffusionInternals (..),
                      RunFullDiffusionInternals (..),
                      diffusionLayerFullExposeInternals)
-import qualified Pos.Infra.Diffusion.Transport.TCP as Diffusion
-                     (bracketTransportTCP)
 import           Pos.Infra.Diffusion.Types as Diffusion (Diffusion (..))
 import qualified Pos.Infra.Network.Policy as Policy
 import           Pos.Infra.Network.Types (Bucket (..))
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Logic.Pure (pureLogic)
 import           Pos.Logic.Types as Logic (Logic (..))
+import           Pos.Util.Trace (wlogTrace)
 
-import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
-import           Pos.Util.Trace (noTrace, wlogTrace)
-import           Test.Pos.Block.Arbitrary.Generate (generateMainBlock)
+import           Test.Pos.Chain.Block.Arbitrary.Generate (generateMainBlock)
 
 -- TODO
 --
@@ -90,21 +86,8 @@ someHash = unsafeMkAbstractHash LBS.empty
 someOtherHash :: forall a . Hash a
 someOtherHash = unsafeMkAbstractHash (LBS.pack [0x00])
 
--- | Grab a TCP transport at 127.0.0.1:0 with 15s timeout.
--- Uses the stock parameters from 'Pos.Diffusion.Transport.bracketTransportTCP'
--- which are also used in production (fair QDisc etc.).
 withTransport :: (Transport -> IO t) -> IO t
-withTransport k =
-    Diffusion.bracketTransportTCP noTrace connectionTimeout tcpAddr k
-  where
-    connectionTimeout :: Microsecond
-    connectionTimeout = 15000000
-    tcpAddr :: TCP.TCPAddr
-    tcpAddr = TCP.Addressable $ TCP.TCPAddrInfo
-        { TCP.tcpBindHost = "127.0.0.1"
-        , TCP.tcpBindPort = "0"
-        , TCP.tcpExternalAddress = (,) "127.0.0.1"
-        }
+withTransport k = bracket InMemory.createTransport closeTransport k
 
 serverLogic
     :: IORef [Block] -- ^ For streaming, so we can control how many are given.
@@ -114,14 +97,14 @@ serverLogic
     -> Logic IO
 serverLogic streamIORef arbitraryBlock arbitraryHashes arbitraryHeaders = pureLogic
     { getSerializedBlock = const (pure (Just $ serializedBlock arbitraryBlock))
-    , getBlockHeader = const (pure (Just (Core.getBlockHeader arbitraryBlock)))
+    , getBlockHeader = const (pure (Just (Block.getBlockHeader arbitraryBlock)))
     , getHashesRange = \_ _ _ -> pure (Right (OldestFirst arbitraryHashes))
     , getBlockHeaders = \_ _ _ -> pure (Right (NewestFirst arbitraryHeaders))
     , getTip = pure arbitraryBlock
-    , getTipHeader = pure (Core.getBlockHeader arbitraryBlock)
+    , getTipHeader = pure (Block.getBlockHeader arbitraryBlock)
     , Logic.streamBlocks = \_ -> do
           bs <-  readIORef streamIORef
-          each $ map serializedBlock bs
+          yieldMany $ map serializedBlock bs
     }
 
 serializedBlock :: Block -> SerializedBlock
@@ -132,7 +115,7 @@ serializedBlock = Serialized . serialize'
 -- always ask for the entire chain (and not throw an exception).
 clientLogic :: Logic IO
 clientLogic = pureLogic
-    { getLcaMainChain = \headers -> pure headers
+    { getLcaMainChain = \headers -> pure (NewestFirst [], headers)
     }
 
 withServer :: Transport -> Logic IO -> (NodeId -> IO t) -> IO t
@@ -140,7 +123,7 @@ withServer transport logic k = do
     -- Morally, the server shouldn't need an outbound queue, but we have to
     -- give one.
     oq <- liftIO $ OQ.new
-                 (wlogTrace ("server" <> "outboundqueue"))
+                 (wlogTrace ("server.outboundqueue"))
                  Policy.defaultEnqueuePolicyRelay
                  --Policy.defaultDequeuePolicyRelay
                  (const (OQ.Dequeue OQ.NoRateLimiting (OQ.MaxInFlight maxBound)))
@@ -168,7 +151,7 @@ withServer transport logic k = do
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
         , fdcStreamWindow = 65536
-        , fdcTrace = wlogTrace ("server" <> "diffusion")
+        , fdcTrace = wlogTrace ("server.diffusion")
         }
 
 -- Like 'withServer' but we must set up the outbound queue so that it will
@@ -183,7 +166,7 @@ withClient transport logic serverAddress@(Node.NodeId _) k = do
     -- Morally, the server shouldn't need an outbound queue, but we have to
     -- give one.
     oq <- OQ.new
-                 (wlogTrace ("client" <> "outboundqueue"))
+                 (wlogTrace ("client.outboundqueue"))
                  Policy.defaultEnqueuePolicyRelay
                  --Policy.defaultDequeuePolicyRelay
                  (const (OQ.Dequeue OQ.NoRateLimiting (OQ.MaxInFlight maxBound)))
@@ -213,7 +196,7 @@ withClient transport logic serverAddress@(Node.NodeId _) k = do
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
         , fdcStreamWindow = 65536
-        , fdcTrace = wlogTrace ("client" <> "diffusion")
+        , fdcTrace = wlogTrace ("client.diffusion")
         }
 
 
@@ -230,7 +213,6 @@ blockDownloadBatch serverAddress client ~(blockHeader, checkpoints) batches =  d
     -- a lower bound on the real speedup).
     forM_ [1..batches] $ \_ ->
         getBlocks client serverAddress blockHeader checkpoints
-    pure ()
 
 -- Final parameter, like for 'blockDownloadBatch', is the number of batches to
 -- do. Here, in streaming, we multiply by 2200 to make a fair comparison with
@@ -296,9 +278,9 @@ runBenchmark = do
     streamIORef <- newIORef []
     let seed = 0
         size = 4
-        !arbitraryBlock = force $ Right (generateMainBlock protocolMagic protocolConstants seed size)
+        !arbitraryBlock = force $ Right (generateMainBlock protocolMagic seed size)
         !arbitraryHashes = force $ someHash :| replicate 2199 someHash
-        !arbitraryHeader = force $ Core.getBlockHeader arbitraryBlock
+        !arbitraryHeader = force $ Block.getBlockHeader arbitraryBlock
         !arbitraryHeaders = force $ arbitraryHeader :| replicate 2199 arbitraryHeader
         blockSize = LBS.length $ serialize arbitraryBlock
         setStreamIORef = \n -> writeIORef streamIORef (replicate n arbitraryBlock)

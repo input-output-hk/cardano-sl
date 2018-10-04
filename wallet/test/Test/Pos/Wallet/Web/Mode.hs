@@ -35,7 +35,6 @@ import           Data.Default (def)
 import           Formatting (bprint, build, formatToString, (%))
 import qualified Formatting.Buildable
 import qualified Prelude
-import           System.Wlog (HasLoggerName (..), LoggerName)
 import           Test.Hspec (Spec)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Arbitrary (..), Property, Testable (..),
@@ -44,31 +43,39 @@ import           Test.QuickCheck.Gen (Gen)
 import           Test.QuickCheck.Monadic (PropertyM (..), monadic)
 
 import           Pos.AllSecrets (HasAllSecrets (..))
-import           Pos.Block.BListener (MonadBListener (..))
-import           Pos.Block.Slog (HasSlogGState (..))
-import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag,
-                     RecoveryHeader, RecoveryHeaderTag)
+import           Pos.Chain.Block (HasSlogGState (..), LastKnownHeader,
+                     LastKnownHeaderTag)
+import           Pos.Chain.Delegation (DelegationVar, HasDlgConfiguration)
+import           Pos.Chain.Ssc (SscMemTag, SscState)
+import           Pos.Chain.Txp (TxAux)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..),
-                     getSecretDefault, modifySecretPureDefault)
+                     getPublicDefault, getSecretDefault,
+                     modifyPublicPureDefault, modifySecretPureDefault)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Balances (MonadBalances (..))
 import           Pos.Client.Txp.History (MonadTxHistory (..),
                      getBlockHistoryDefault, getLocalHistoryDefault,
                      saveTxDefault)
 import           Pos.Context (ConnectedPeers (..))
-import           Pos.Core (HasConfiguration, Timestamp (..),
-                     largestHDAddressBoot)
-import           Pos.Core.Txp (TxAux)
+import           Pos.Core (Timestamp (..), largestHDAddressBoot)
+import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Crypto (PassPhrase)
 import           Pos.DB (MonadDB (..), MonadDBRead (..), MonadGState (..))
 import qualified Pos.DB as DB
+import           Pos.DB.Block (MonadBListener (..))
 import qualified Pos.DB.Block as DB
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
+import           Pos.DB.Lrc (LrcContext)
 import           Pos.DB.Pure (DBPureVar)
-import           Pos.Delegation (DelegationVar, HasDlgConfiguration)
+import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
+                     MonadTxpLocal (..), TxpGlobalSettings, TxpHolderTag,
+                     recordTxpMetrics, txNormalize, txProcessTransactionNoLock,
+                     txpMemPool, txpTip)
+import           Pos.DB.Update (UpdateContext)
 import           Pos.Generator.Block (BlockGenMode)
 import qualified Pos.GState as GS
 import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
+import           Pos.Infra.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Infra.Reporting (MonadReporting (..))
 import           Pos.Infra.Shutdown (HasShutdownContext (..),
                      ShutdownContext (..))
@@ -79,21 +86,14 @@ import           Pos.Infra.StateLock (StateLock, StateLockMetrics (..),
                      newStateLock)
 import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
                      JsonLogConfig (..), MemPoolModifyReason, jsonLogDefault)
-import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Launcher (HasConfigurations)
-import           Pos.Lrc (LrcContext)
-import           Pos.Ssc.Mem (SscMemTag)
-import           Pos.Ssc.Types (SscState)
-import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..),
-                     TxpGlobalSettings, TxpHolderTag, recordTxpMetrics,
-                     txNormalize, txProcessTransactionNoLock, txpMemPool,
-                     txpTip)
-import           Pos.Update.Context (UpdateContext)
 import           Pos.Util (postfixLFields)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                      modifyLoggerNameDefault)
+import           Pos.Util.UserPublic (HasUserPublic (..), UserPublic)
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret)
 import           Pos.Util.Util (HasLens (..))
+import           Pos.Util.Wlog (HasLoggerName (..), LoggerName)
 import           Pos.Wallet.Redirect (applyLastUpdateWebWallet,
                      blockchainSlotDurationWebWallet, connectedPeersWebWallet,
                      localChainDifficultyWebWallet,
@@ -119,6 +119,8 @@ import           Test.Pos.Block.Logic.Mode (BlockTestContext (..),
                      getCurrentSlotBlockingTestDefault,
                      getCurrentSlotInaccurateTestDefault,
                      getCurrentSlotTestDefault, initBlockTestContext)
+import           Test.Pos.Chain.Genesis.Dummy (dummyConfig)
+import           Test.Pos.Core.Dummy (dummyEpochSlots)
 
 ----------------------------------------------------------------------------
 -- Parameters
@@ -154,6 +156,8 @@ instance Show WalletTestParams where
 data WalletTestContext = WalletTestContext
     { wtcBlockTestContext :: !BlockTestContext
     , wtcWalletState      :: !WalletDB
+    , wtcUserPublic       :: !(TVar UserPublic)
+    -- ^ Public keys which are used to identify external wallets
     , wtcUserSecret       :: !(TVar UserSecret)
     -- ^ Secret keys which are used to send transactions
     , wtcRecoveryHeader   :: !RecoveryHeader
@@ -187,40 +191,37 @@ getSentTxs = atomically . readTVar =<< view wtcSentTxs_L
 -- Initialization
 ----------------------------------------------------------------------------
 
-initWalletTestContext ::
-       ( HasConfiguration
-       , HasDlgConfiguration
-       )
+initWalletTestContext
+    :: HasDlgConfiguration
     => WalletTestParams
     -> (WalletTestContext -> Emulation a)
     -> Emulation a
 initWalletTestContext WalletTestParams {..} callback =
-    initBlockTestContext _wtpBlockTestParams $ \wtcBlockTestContext -> do
-        wtc <- liftIO $ do
-            wtcWalletState <- openMemState
-            wtcUserSecret <- STM.newTVarIO def
-            wtcRecoveryHeader <- STM.newEmptyTMVarIO
-            -- some kind of kostil to get tip
-            tip <- readTVarIO $ txpTip $ btcTxpMem wtcBlockTestContext
-            wtcStateLock <- newStateLock tip
-            store <- liftIO $ Metrics.newStore
-            wtcStateLockMetrics <- liftIO $ recordTxpMetrics store (txpMemPool $ btcTxpMem wtcBlockTestContext)
-            wtcShutdownContext <- ShutdownContext <$> STM.newTVarIO False
-            wtcConnectedPeers <- ConnectedPeers <$> STM.newTVarIO mempty
-            wtcLastKnownHeader <- STM.newTVarIO Nothing
-            wtcSentTxs <- STM.newTVarIO mempty
-            wtcSyncQueue <- STM.newTQueueIO
-            wtcSlottingStateVar <- mkSimpleSlottingStateVar
-            pure WalletTestContext {..}
-        callback wtc
+    initBlockTestContext dummyConfig _wtpBlockTestParams
+        $ \wtcBlockTestContext -> do
+            wtc <- liftIO $ do
+                wtcWalletState <- openMemState
+                wtcUserPublic <- STM.newTVarIO def
+                wtcUserSecret <- STM.newTVarIO def
+                wtcRecoveryHeader <- STM.newEmptyTMVarIO
+                -- some kind of kostil to get tip
+                tip <- readTVarIO $ txpTip $ btcTxpMem wtcBlockTestContext
+                wtcStateLock <- newStateLock tip
+                store <- liftIO $ Metrics.newStore
+                wtcStateLockMetrics <- liftIO $ recordTxpMetrics
+                    store
+                    (txpMemPool $ btcTxpMem wtcBlockTestContext)
+                wtcShutdownContext <- ShutdownContext <$> STM.newTVarIO False
+                wtcConnectedPeers <- ConnectedPeers <$> STM.newTVarIO mempty
+                wtcLastKnownHeader <- STM.newTVarIO Nothing
+                wtcSentTxs <- STM.newTVarIO mempty
+                wtcSyncQueue <- STM.newTQueueIO
+                wtcSlottingStateVar <- mkSimpleSlottingStateVar dummyEpochSlots
+                pure WalletTestContext {..}
+            callback wtc
 
-runWalletTestMode ::
-       ( HasConfiguration
-       , HasDlgConfiguration
-       )
-    => WalletTestParams
-    -> WalletTestMode a
-    -> IO a
+runWalletTestMode
+    :: HasDlgConfiguration => WalletTestParams -> WalletTestMode a -> IO a
 runWalletTestMode wtp action =
     runEmulation (getTimestamp $ wtp ^. wtpBlockTestParams . tpStartTime) $
     initWalletTestContext wtp $
@@ -236,7 +237,7 @@ type WalletProperty = PropertyM WalletTestMode
 -- | Convert 'WalletProperty' to 'Property' using given generator of
 -- 'WalletTestParams'.
 walletPropertyToProperty
-    :: (HasConfiguration, HasDlgConfiguration, Testable a)
+    :: (HasDlgConfiguration, Testable a)
     => Gen WalletTestParams
     -> WalletProperty a
     -> Property
@@ -244,14 +245,13 @@ walletPropertyToProperty wtpGen walletProperty =
     forAll wtpGen $ \wtp ->
         monadic (ioProperty . runWalletTestMode wtp) walletProperty
 
-instance (HasConfiguration, HasDlgConfiguration, Testable a)
-        => Testable (WalletProperty a) where
+instance (HasDlgConfiguration, Testable a) => Testable (WalletProperty a) where
     property = walletPropertyToProperty arbitrary
 
 walletPropertySpec ::
-       (HasConfiguration, HasDlgConfiguration, Testable a)
+       (HasDlgConfiguration, Testable a)
     => String
-    -> (HasConfiguration => WalletProperty a)
+    -> WalletProperty a
     -> Spec
 walletPropertySpec description wp =
     prop description (walletPropertyToProperty arbitrary wp)
@@ -294,12 +294,14 @@ instance HasLens DelegationVar WalletTestContext DelegationVar where
 instance HasLens SscMemTag WalletTestContext SscState where
     lensOf = wtcBlockTestContext_L . lensOf @SscMemTag
 
-instance (HasConfiguration, MonadSlotsData ctx WalletTestMode)
-       => MonadSlots ctx WalletTestMode where
-    getCurrentSlot = getCurrentSlotTestDefault
-    getCurrentSlotBlocking = getCurrentSlotBlockingTestDefault
-    getCurrentSlotInaccurate = getCurrentSlotInaccurateTestDefault
+instance MonadSlotsData ctx WalletTestMode => MonadSlots ctx WalletTestMode where
+    getCurrentSlot _ = getCurrentSlotTestDefault
+    getCurrentSlotBlocking _ = getCurrentSlotBlockingTestDefault
+    getCurrentSlotInaccurate _ = getCurrentSlotInaccurateTestDefault
     currentTimeSlotting = currentTimeSlottingTestDefault
+
+instance HasUserPublic WalletTestContext where
+    userPublic = wtcUserPublic_L
 
 instance HasUserSecret WalletTestContext where
     userSecret = wtcUserSecret_L
@@ -326,19 +328,20 @@ instance {-# OVERLAPPING #-} HasLoggerName WalletTestMode where
     askLoggerName = askLoggerNameDefault
     modifyLoggerName = modifyLoggerNameDefault
 
-instance HasConfiguration => MonadDBRead WalletTestMode where
+instance MonadDBRead WalletTestMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault
-    dbGetSerBlock = DB.dbGetSerBlockPureDefault
-    dbGetSerUndo = DB.dbGetSerUndoPureDefault
+    dbGetSerBlock = const DB.dbGetSerBlockPureDefault
+    dbGetSerUndo = const DB.dbGetSerUndoPureDefault
+    dbGetSerBlund = const DB.dbGetSerBlundPureDefault
 
-instance HasConfiguration => MonadDB WalletTestMode where
+instance MonadDB WalletTestMode where
     dbPut = DB.dbPutPureDefault
     dbWriteBatch = DB.dbWriteBatchPureDefault
     dbDelete = DB.dbDeletePureDefault
     dbPutSerBlunds = DB.dbPutSerBlundsPureDefault
 
-instance HasConfiguration => MonadGState WalletTestMode where
+instance MonadGState WalletTestMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault
 
 ----------------------------------------------------------------------------
@@ -378,35 +381,37 @@ instance HasLens (StateLockMetrics MemPoolModifyReason) WalletTestContext (State
 -- This never made any sense. WalletDbReader is a type synonym.
 -- instance WalletDbReader WalletTestContext WalletTestMode
 
-instance HasConfigurations => MonadAddresses WalletTestMode where
+instance MonadAddresses WalletTestMode where
     type AddrData WalletTestMode = (AccountId, PassPhrase)
-    getNewAddress = getNewAddressWebWallet
-    getFakeChangeAddress = pure largestHDAddressBoot
+    getNewAddress _ = getNewAddressWebWallet
+    getFakeChangeAddress _ = pure largestHDAddressBoot
 
 instance MonadKeysRead WalletTestMode where
+    getPublic = getPublicDefault
     getSecret = getSecretDefault
 
 instance MonadKeys WalletTestMode where
+    modifyPublic = modifyPublicPureDefault
     modifySecret = modifySecretPureDefault
 
-instance (HasConfigurations) => MonadTxHistory WalletTestMode where
+instance MonadTxHistory WalletTestMode where
     getBlockHistory = getBlockHistoryDefault
     getLocalHistory = getLocalHistoryDefault
     saveTx = saveTxDefault
 
-instance HasConfiguration => MonadBalances WalletTestMode where
-    getOwnUtxos = getOwnUtxosDefault
-    getBalance = getBalanceDefault
+instance MonadBalances WalletTestMode where
+    getOwnUtxos = const $ getOwnUtxosDefault
+    getBalance = const $ getBalanceDefault
 
 instance MonadUpdates WalletTestMode where
     waitForUpdate = waitForUpdateWebWallet
     applyLastUpdate = applyLastUpdateWebWallet
 
-instance (HasConfigurations) => MonadBListener WalletTestMode where
+instance MonadBListener WalletTestMode where
     onApplyBlocks = onApplyBlocksWebWallet
     onRollbackBlocks = onRollbackBlocksWebWallet
 
-instance HasConfiguration => MonadBlockchainInfo WalletTestMode where
+instance MonadBlockchainInfo WalletTestMode where
     networkChainDifficulty = networkChainDifficultyWebWallet
     localChainDifficulty = localChainDifficultyWebWallet
     blockchainSlotDuration = blockchainSlotDurationWebWallet
@@ -420,7 +425,7 @@ instance (HasConfigurations)
     txpProcessTx = txProcessTransactionNoLock
 
 
-instance (HasConfigurations) => MonadTxpLocal WalletTestMode where
+instance MonadTxpLocal WalletTestMode where
     txpNormalize = txpNormalizeWebWallet
     txpProcessTx = txpProcessTxWebWallet
 

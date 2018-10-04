@@ -46,6 +46,12 @@ let
     nodejs = pkgs.nodejs-6_x;
   };
 
+  regen-script = pkgs.writeScriptBin "regen" ''
+    export PATH=${makeBinPath [oldHaskellPackages.purescript-derive-lenses cardano-sl-explorer]}:$PATH
+    cardano-explorer-hs2purs --bridge-path src/Generated/
+    scripts/generate-explorer-lenses.sh
+  '';
+
   frontend = { stdenv, python, purescript, mkYarnPackage }:
     mkYarnPackage {
       name = "cardano-explorer-frontend";
@@ -56,14 +62,14 @@ let
         oldHaskellPackages.purescript-derive-lenses
         cardano-sl-explorer
         purescript
+        regen-script
       ];
       passthru = { inherit bowerComponents; };
       postConfigure = ''
         rm -rf .psci_modules .pulp-cache bower_components output result
 
         # Purescript code generation
-        cardano-explorer-hs2purs --bridge-path src/Generated/
-        scripts/generate-explorer-lenses.sh
+        regen
 
         # Frontend dependencies
         ln -s ${bowerComponents}/bower_components .
@@ -85,8 +91,29 @@ let
       '';
     };
 
+  # Stamps the frontend with the git revision in a way that avoids
+  # a webpack rebuild when the git revision changes.
+  # This will just replace @GITREV@ in all javascript files.
+  # See also: cardano-sl/scripts/set-git-rev/default.nix
+  withGitRev = drvOut: let
+    drvOutOutputs = drvOut.outputs or ["out"];
+  in
+    pkgs.runCommand drvOut.name {
+      outputs  = drvOutOutputs;
+      passthru = drvOut.drvAttrs
+        // (drvOut.passthru or {})
+        // { inherit gitrev; };
+    }
+    (concatMapStrings (output: ''
+      cp -a "${drvOut.${output}}" "${"$"}${output}"
+      chmod -R +w "${"$"}${output}"
+      find "${"$"}${output}" -type f -name '*.js' \
+        -exec echo Setting gitrev in {} ';' \
+        -exec sed -i 's/@GITREV@/${gitrev}/g' {} ';'
+    '') drvOutOutputs);
+
 in
 
-  pkgs.callPackage frontend {
+  withGitRev (pkgs.callPackage frontend {
     inherit (yarn2nix) mkYarnPackage;
-  }
+  })

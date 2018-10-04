@@ -1,4 +1,5 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 module Pos.Infra.DHT.Real.Real
        ( kademliaJoinNetwork
@@ -31,6 +32,7 @@ import           Serokell.Util (listJson)
 import           System.Directory (doesFileExist)
 
 import           Pos.Binary.Class (decodeFull)
+import           Pos.Core.NetworkAddress (NetworkAddress)
 import           Pos.Infra.Binary.DHTModel ()
 import           Pos.Infra.DHT.Constants (enhancedMessageBroadcast,
                      enhancedMessageTimeout)
@@ -38,7 +40,6 @@ import           Pos.Infra.DHT.Model.Types (DHTException (..), DHTKey,
                      DHTNode (..), randomDHTKey)
 import           Pos.Infra.DHT.Real.Param (KademliaParams (..))
 import           Pos.Infra.DHT.Real.Types (KademliaDHTInstance (..))
-import           Pos.Infra.Util.TimeWarp (NetworkAddress)
 import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 
 kademliaConfig :: K.KademliaConfig
@@ -147,7 +148,7 @@ toDHTNode :: K.Node DHTKey -> DHTNode
 toDHTNode n = DHTNode (fromKPeer . K.peer $ n) $ K.nodeId n
 
 fromKPeer :: K.Peer -> NetworkAddress
-fromKPeer K.Peer{..} = (encodeUtf8 peerHost, fromIntegral peerPort)
+fromKPeer (K.Peer pHost pPort) = (encodeUtf8 pHost, fromIntegral pPort)
 
 toKPeer :: NetworkAddress -> K.Peer
 toKPeer (peerHost, peerPort) = K.Peer (decodeUtf8 peerHost) (fromIntegral peerPort)

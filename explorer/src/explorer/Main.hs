@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TupleSections       #-}
@@ -11,19 +12,15 @@ module Main
 
 import           Universum
 
-import           Data.Maybe (fromJust)
-import           Mockable (Production (..), runProduction)
-import           System.Wlog (LoggerName, logInfo)
-
 import           ExplorerNodeOptions (ExplorerArgs (..), ExplorerNodeArgs (..),
                      getExplorerNodeOptions)
 import           Pos.Binary ()
+import           Pos.Chain.Genesis as Genesis (Config (..))
+import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..),
                      getNodeParams)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (NodeContext (..))
-import           Pos.Core (epochSlots)
-import           Pos.Crypto (ProtocolMagic)
 import           Pos.Explorer.DB (explorerInitDB)
 import           Pos.Explorer.ExtraContext (makeExtraCtx)
 import           Pos.Explorer.Socket (NotifierSettings (..))
@@ -33,12 +30,12 @@ import           Pos.Explorer.Web (ExplorerProd, explorerPlugin, notifierPlugin,
                      runExplorerProd)
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations,
-                     NodeParams (..), NodeResources (..), bracketNodeResources,
-                     loggerBracket, runNode, runRealMode, withConfigurations)
+                     NodeResources (..), bracketNodeResources, loggerBracket,
+                     runNode, runRealMode, withConfigurations)
 import           Pos.Launcher.Configuration (AssetLockPath (..))
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
-import           Pos.Util.UserSecret (usVss)
+import           Pos.Util.Wlog (LoggerName, logInfo)
 import           Pos.Worker.Update (updateTriggerWorker)
 
 loggerName :: LoggerName
@@ -52,31 +49,34 @@ main :: IO ()
 main = do
     args <- getExplorerNodeOptions
     let loggingParams = CLI.loggingParams loggerName (enaCommonNodeArgs args)
-    loggerBracket loggingParams . logException "node" . runProduction $ do
+    loggerBracket "explorer" loggingParams . logException "node" $ do
         logInfo "[Attention] Software is built with explorer part"
         action args
 
-action :: ExplorerNodeArgs -> Production ()
+action :: ExplorerNodeArgs -> IO ()
 action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
-    withConfigurations blPath conf $ \ntpConfig pm ->
+    withConfigurations blPath cnaDumpGenesisDataPath cnaDumpConfiguration conf $ \genesisConfig _ txpConfig _ntpConfig ->
     withCompileInfo $ do
-        CLI.printInfoOnStart cArgs ntpConfig
         logInfo $ "Explorer is enabled!"
-        currentParams <- getNodeParams loggerName cArgs nodeArgs
+        (currentParams, Just sscParams) <- getNodeParams
+            loggerName
+            cArgs
+            nodeArgs
+            (configGeneratedSecrets genesisConfig)
 
-        let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-        let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
-
-        let plugins :: [Diffusion ExplorerProd -> ExplorerProd ()]
+        let plugins :: [ (Text, Diffusion ExplorerProd -> ExplorerProd ()) ]
             plugins =
-                [ explorerPlugin webPort
-                , notifierPlugin NotifierSettings{ nsPort = notifierPort }
-                , updateTriggerWorker
+                [ ("explorer plugin", explorerPlugin genesisConfig webPort)
+                , ("explorer notifier", notifierPlugin genesisConfig NotifierSettings {nsPort = notifierPort})
+                , ("explorer update trigger", updateTriggerWorker)
                 ]
-        bracketNodeResources currentParams sscParams
-            (explorerTxpGlobalSettings pm)
-            (explorerInitDB pm epochSlots) $ \nr@NodeResources {..} ->
-                Production (runExplorerRealMode pm nr (runNode pm nr plugins))
+        bracketNodeResources
+            genesisConfig
+            currentParams
+            sscParams
+            (explorerTxpGlobalSettings genesisConfig txpConfig)
+            (explorerInitDB genesisConfig) $ \nr@NodeResources {..} ->
+                runExplorerRealMode genesisConfig txpConfig nr (runNode genesisConfig txpConfig nr plugins)
   where
 
     blPath :: Maybe AssetLockPath
@@ -87,15 +87,16 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
 
     runExplorerRealMode
         :: (HasConfigurations,HasCompileInfo)
-        => ProtocolMagic
+        => Genesis.Config
+        -> TxpConfiguration
         -> NodeResources ExplorerExtraModifier
         -> (Diffusion ExplorerProd -> ExplorerProd ())
         -> IO ()
-    runExplorerRealMode pm nr@NodeResources{..} go =
+    runExplorerRealMode genesisConfig txpConfig nr@NodeResources{..} go =
         let NodeContext {..} = nrContext
-            extraCtx = makeExtraCtx
+            extraCtx = makeExtraCtx genesisConfig
             explorerModeToRealMode  = runExplorerProd extraCtx
-         in runRealMode pm nr $ \diffusion ->
+         in runRealMode genesisConfig txpConfig nr $ \diffusion ->
                 explorerModeToRealMode (go (hoistDiffusion (lift . lift) explorerModeToRealMode diffusion))
 
     nodeArgs :: NodeArgs

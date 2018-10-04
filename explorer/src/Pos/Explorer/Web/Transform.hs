@@ -19,20 +19,18 @@ import           Universum
 import qualified Control.Exception.Safe as E
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
-import           Mockable (runProduction)
 import           Servant.Server (Handler, hoistServer)
 
-import           Pos.Block.Configuration (HasBlockConfiguration)
+import           Pos.Chain.Block (HasBlockConfiguration)
+import           Pos.Chain.Genesis as Genesis (Config (..))
+import           Pos.Chain.Ssc (HasSscConfiguration)
+import           Pos.Chain.Update (HasUpdateConfiguration)
 import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core (HasConfiguration)
+import           Pos.DB.Txp (MempoolExt, MonadTxpLocal (..))
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Reporting (MonadReporting (..))
 import           Pos.Recovery ()
-import           Pos.Ssc.Configuration (HasSscConfiguration)
-import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..))
-import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Util.Mockable ()
 import           Pos.WorkMode (RealMode, RealModeContext (..))
 
 import           Pos.Explorer.BListener (ExplorerBListener,
@@ -55,15 +53,13 @@ type ExplorerProd = ExtraContextT (ExplorerBListener RealModeE)
 
 type instance MempoolExt ExplorerProd = ExplorerExtraModifier
 
-instance (HasConfiguration, HasTxpConfiguration) =>
-         MonadTxpLocal RealModeE where
+instance MonadTxpLocal RealModeE where
     txpNormalize = eTxNormalize
     txpProcessTx = eTxProcessTransaction
 
-instance (HasConfiguration, HasTxpConfiguration) =>
-         MonadTxpLocal ExplorerProd where
-    txpNormalize = lift . lift . txpNormalize
-    txpProcessTx pm = lift . lift . txpProcessTx pm
+instance MonadTxpLocal ExplorerProd where
+    txpNormalize pm = lift . lift . txpNormalize pm
+    txpProcessTx genesisConfig txpConfig = lift . lift . txpProcessTx genesisConfig txpConfig
 
 -- | Use the 'RealMode' instance.
 -- FIXME instance on a type synonym.
@@ -77,8 +73,7 @@ liftToExplorerProd :: RealModeE a -> ExplorerProd a
 liftToExplorerProd = lift . lift
 
 type HasExplorerConfiguration =
-    ( HasConfiguration
-    , HasBlockConfiguration
+    ( HasBlockConfiguration
     , HasNodeConfiguration
     , HasUpdateConfiguration
     , HasSscConfiguration
@@ -87,44 +82,50 @@ type HasExplorerConfiguration =
 
 notifierPlugin
     :: HasExplorerConfiguration
-    => NotifierSettings
+    => Genesis.Config
+    -> NotifierSettings
     -> Diffusion ExplorerProd
     -> ExplorerProd ()
-notifierPlugin settings _ = notifierApp settings
+notifierPlugin genesisConfig settings _ = notifierApp genesisConfig settings
 
 explorerPlugin
     :: HasExplorerConfiguration
-    => Word16
+    => Genesis.Config
+    -> Word16
     -> Diffusion ExplorerProd
     -> ExplorerProd ()
-explorerPlugin = flip explorerServeWebReal
+explorerPlugin genesisConfig = flip $ explorerServeWebReal genesisConfig
 
 explorerServeWebReal
     :: HasExplorerConfiguration
-    => Diffusion ExplorerProd
+    => Genesis.Config
+    -> Diffusion ExplorerProd
     -> Word16
     -> ExplorerProd ()
-explorerServeWebReal diffusion port = do
+explorerServeWebReal genesisConfig diffusion port = do
     rctx <- ask
-    let handlers = explorerHandlers diffusion
-        server = hoistServer explorerApi (convertHandler rctx) handlers
+    let handlers = explorerHandlers genesisConfig diffusion
+        server   = hoistServer
+            explorerApi
+            (convertHandler genesisConfig rctx)
+            handlers
         app = explorerApp (pure server)
     explorerServeImpl app port
 
 convertHandler
-    :: HasConfiguration
-    => RealModeContext ExplorerExtraModifier
+    :: Genesis.Config
+    -> RealModeContext ExplorerExtraModifier
     -> ExplorerProd a
     -> Handler a
-convertHandler rctx handler =
-    let extraCtx = makeExtraCtx
+convertHandler genesisConfig rctx handler =
+    let extraCtx = makeExtraCtx genesisConfig
         ioAction = realRunner $
                    runExplorerProd extraCtx
                    handler
     in liftIO ioAction `E.catches` excHandlers
   where
     realRunner :: forall t . RealModeE t -> IO t
-    realRunner act = runProduction $ Mtl.runReaderT act rctx
+    realRunner act = Mtl.runReaderT act rctx
 
     excHandlers = [E.Handler catchServant]
     catchServant = throwError

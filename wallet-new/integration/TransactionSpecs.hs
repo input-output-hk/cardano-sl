@@ -5,15 +5,21 @@ module TransactionSpecs (transactionSpecs) where
 
 import           Universum
 
-import           Cardano.Wallet.API.V1.Errors hiding (describe)
 import           Cardano.Wallet.Client.Http
 import           Control.Lens
-import qualified Pos.Core as Core
+import           Functions (randomTest)
 import           Test.Hspec
-
-import           Control.Concurrent (threadDelay)
+import           Test.QuickCheck.Monadic (PropertyM, run)
 import           Text.Show.Pretty (ppShow)
+
 import           Util
+
+import qualified Data.Map.Strict as Map
+import qualified Pos.Chain.Txp as Txp
+import qualified Pos.Core as Core
+import           Pos.Util.Log.LoggerConfig (defaultTestConfiguration)
+import           Pos.Util.Wlog (Severity (Debug), setupLogging)
+
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
@@ -24,44 +30,17 @@ ppShowT :: Show a => a -> Text
 ppShowT = fromString . ppShow
 
 transactionSpecs :: WalletRef -> WalletClient IO -> Spec
-transactionSpecs wRef wc = do
+transactionSpecs wRef wc = beforeAll_ (setupLogging "wallet-new_transactionSpecs" (defaultTestConfiguration Debug)) $
     describe "Transactions" $ do
-        it "posted transactions appear in the index" $ do
-            genesis <- genesisWallet wc
-            (fromAcct, _) <- firstAccountAndId wc genesis
 
-            wallet <- sampleWallet wRef wc
-            (toAcct, toAddr) <- firstAccountAndId wc wallet
+        randomTest "posted transactions appear in the index" 1 $ do
+            genesis <- run $ genesisWallet wc
+            (fromAcct, _) <- run $ firstAccountAndId wc genesis
 
-            let payment = Payment
-                    { pmtSource =  PaymentSource
-                        { psWalletId = walId genesis
-                        , psAccountIndex = accIndex fromAcct
-                        }
-                    , pmtDestinations = pure PaymentDistribution
-                        { pdAddress = addrId toAddr
-                        , pdAmount = tenthOf (accAmount fromAcct)
-                        }
-                    , pmtGroupingPolicy = Nothing
-                    , pmtSpendingPassword = Nothing
-                    }
-                tenthOf (V1 c) = V1 (Core.mkCoin (Core.getCoin c `div` 10))
+            log $ show fromAcct
 
-            etxn <- postTransaction wc payment
-
-            txn <- fmap wrData etxn `shouldPrism` _Right
-
-            eresp <- getTransactionIndex wc (Just (walId wallet)) (Just (accIndex toAcct)) Nothing
-            resp <- fmap wrData eresp `shouldPrism` _Right
-
-            map txId resp `shouldContain` [txId txn]
-
-        it "asset-locked wallets can receive funds and transaction are confirmed in index" $ do
-            genesis <- genesisWallet wc
-            (fromAcct, _) <- firstAccountAndId wc genesis
-
-            wallet <- genesisAssetLockedWallet wc
-            (toAcct, toAddr) <- firstAccountAndId wc wallet
+            wallet <- run $ sampleWallet wRef wc
+            (toAcct, toAddr) <- run $ firstAccountAndId wc wallet
 
             let payment = Payment
                     { pmtSource =  PaymentSource
@@ -70,32 +49,65 @@ transactionSpecs wRef wc = do
                         }
                     , pmtDestinations = pure PaymentDistribution
                         { pdAddress = addrId toAddr
-                        , pdAmount = tenthOf (accAmount fromAcct)
+                        , pdAmount = V1 (Core.mkCoin 10)
                         }
                     , pmtGroupingPolicy = Nothing
                     , pmtSpendingPassword = Nothing
                     }
-                tenthOf (V1 c) = V1 (Core.mkCoin (Core.getCoin c `div` 10))
 
-            etxn <- postTransaction wc payment
+            etxn <- run $ postTransaction wc payment
 
-            txn <- fmap wrData etxn `shouldPrism` _Right
+            txn <- run $ fmap wrData etxn `shouldPrism` _Right
 
-            threadDelay 120000000
-            eresp <- getTransactionIndex wc (Just (walId wallet)) (Just (accIndex toAcct)) Nothing
-            resp <- fmap wrData eresp `shouldPrism` _Right
+            eresp <- run $ getTransactionIndex wc Nothing Nothing Nothing
+            resp <- run $ fmap wrData eresp `shouldPrism` _Right
 
-            map txId resp `shouldContain` [txId txn]
+            liftIO $ map txId resp `shouldContain` [txId txn]
+
+            -- have to wait until it is accomodated in order not to interfere with other tests
+            run $ pollTransactions wc (walId wallet) (accIndex toAcct) (txId txn)
+
+        randomTest ( "asset-locked wallets can receive funds and transactions are "
+           <> "confirmed in index") 1 $ do
+            genesis <- run $ genesisWallet wc
+            (fromAcct, _) <- run $ firstAccountAndId wc genesis
+
+            wallet <- run $ genesisAssetLockedWallet wc
+            (toAcct, toAddr) <- run $ firstAccountAndId wc wallet
+
+            let payment = Payment
+                    { pmtSource =  PaymentSource
+                        { psWalletId = walId genesis
+                        , psAccountIndex = accIndex fromAcct
+                        }
+                    , pmtDestinations = pure PaymentDistribution
+                        { pdAddress = addrId toAddr
+                        , pdAmount = V1 (Core.mkCoin 11)
+                        }
+                    , pmtGroupingPolicy = Nothing
+                    , pmtSpendingPassword = Nothing
+                    }
+
+            etxn <- run $ postTransaction wc payment
+
+            txn <- run $ fmap wrData etxn `shouldPrism` _Right
+
+            run $ pollTransactions wc (walId wallet) (accIndex toAcct) (txId txn)
+
+            eresp <- run $ getTransactionIndex wc Nothing Nothing Nothing
+            resp <- run $ fmap wrData eresp `shouldPrism` _Right
+
+            liftIO $ map txId resp `shouldContain` [txId txn]
             let txnEntry: _ = filter ( \x -> (txId x) == (txId txn)) resp
             log $ "Resp   : " <> ppShowT txnEntry
-            txConfirmations txnEntry `shouldNotBe` 0
+            liftIO $ txConfirmations txnEntry `shouldNotBe` 0
 
-        it "sending from asset-locked address in wallet with no ther addresses gets 0 confirmations from core nodes" $ do
-            genesis <- genesisAssetLockedWallet wc
-            (fromAcct, _) <- firstAccountAndId wc genesis
+        randomTest "sending from asset-locked address gets 0 confirmations from core nodes" 1 $ do
+            genesis <- run $ genesisAssetLockedWallet wc
+            (fromAcct, _) <- run $ firstAccountAndId wc genesis
 
-            wallet <- sampleWallet wRef wc
-            (toAcct, toAddr) <- firstAccountAndId wc wallet
+            wallet <- run $ sampleWallet wRef wc
+            (_, toAddr) <- run $ firstAccountAndId wc wallet
 
             let payment = Payment
                     { pmtSource =  PaymentSource
@@ -104,34 +116,33 @@ transactionSpecs wRef wc = do
                         }
                     , pmtDestinations = pure PaymentDistribution
                         { pdAddress = addrId toAddr
-                        , pdAmount = tenthOf (accAmount fromAcct)
+                        , pdAmount = V1 (Core.mkCoin 12)
                         }
                     , pmtGroupingPolicy = Nothing
                     , pmtSpendingPassword = Nothing
                     }
-                tenthOf (V1 c) = V1 (Core.mkCoin (Core.getCoin c `div` 10))
 
-            etxn <- postTransaction wc payment
+            etxn <- run $ postTransaction wc payment
 
-            txn <- fmap wrData etxn `shouldPrism` _Right
+            txn <- run $ fmap wrData etxn `shouldPrism` _Right
 
-            threadDelay 120000000
-            eresp <- getTransactionIndex wc (Just (walId wallet)) (Just (accIndex toAcct)) Nothing
-            resp <- fmap wrData eresp `shouldPrism` _Right :: IO [ Transaction]
+            eresp <- run $ getTransactionIndex wc Nothing Nothing Nothing
+            resp <- run $ fmap wrData eresp `shouldPrism` _Right :: PropertyM IO [Transaction]
+
             let txnEntry : _ = filter ( \x -> (txId x) == (txId txn)) resp
             log $ "Resp   : " <> ppShowT txnEntry
-            txConfirmations txnEntry `shouldBe` 0
+            liftIO $ txConfirmations txnEntry `shouldBe` 0
 
-        it "estimate fees of a well-formed transaction" $ do
-            ws <- (,)
+        randomTest "estimate fees of a well-formed transaction" 1 $ do
+            ws <- run $ (,)
                 <$> (randomCreateWallet >>= createWalletCheck wc)
                 <*> (randomCreateWallet >>= createWalletCheck wc)
 
-            ((fromAcct, _), (_toAcct, toAddr)) <- (,)
+            ((fromAcct, _), (_toAcct, toAddr)) <- run $ (,)
                 <$> firstAccountAndId wc (fst ws)
                 <*> firstAccountAndId wc (snd ws)
 
-            let amount = V1 (Core.mkCoin 42)
+            let amount = V1 (Core.mkCoin 13)
 
             let payment = Payment
                     { pmtSource = PaymentSource
@@ -146,23 +157,23 @@ transactionSpecs wRef wc = do
                     , pmtSpendingPassword = Nothing
                     }
 
-            efee <- getTransactionFee wc payment
+            efee <- run $ getTransactionFee wc payment
             case efee of
                 Right fee ->
-                    feeEstimatedAmount (wrData fee)
+                    liftIO $ feeEstimatedAmount (wrData fee)
                         `shouldSatisfy`
                             (> amount)
                 Left (ClientWalletError (NotEnoughMoney _)) ->
-                    pure ()
+                    liftIO $ pure ()
                 Left err ->
-                    expectationFailure $
+                    liftIO $ expectationFailure $
                         "Expected either a successful fee or a NotEnoughMoney "
                         <> " error, got: "
                         <> show err
 
-        it "fails if you spend too much money" $ do
-            wallet <- sampleWallet wRef wc
-            (toAcct, toAddr) <- firstAccountAndId wc wallet
+        randomTest "fails if you spend more money than your available balance" 1 $ do
+            wallet <- run $ sampleWallet wRef wc
+            (toAcct, toAddr) <- run $ firstAccountAndId wc wallet
 
             let payment = Payment
                     { pmtSource =  PaymentSource
@@ -177,6 +188,113 @@ transactionSpecs wRef wc = do
                     , pmtSpendingPassword = Nothing
                     }
                 tooMuchCash (V1 c) = V1 (Core.mkCoin (Core.getCoin c * 2))
-            etxn <- postTransaction wc payment
+            etxn <- run $ postTransaction wc payment
+            err <- liftIO (etxn `shouldPrism` _Left)
+            case err of
+                ClientWalletError (NotEnoughMoney (ErrAvailableBalanceIsInsufficient _)) ->
+                    return ()
 
-            void $ etxn `shouldPrism` _Left
+                _ ->
+                    liftIO $ expectationFailure $
+                        "Expected 'NotEnoughMoney ~ ErrAvailableBalanceIsInsufficient', got: "
+                        <> show err
+
+        randomTest "fails if you can't cover fee with a transaction" 1 $ run $ do
+            let makePayment
+                    :: Core.Coin
+                    -> (Wallet, Account)
+                    -> Core.Address
+                    -> IO (Either ClientError Transaction)
+                makePayment amount (sourceW, sourceA) destination = do
+                    let payment = Payment
+                            { pmtSource = PaymentSource
+                                { psWalletId     = walId sourceW
+                                , psAccountIndex = accIndex sourceA
+                                }
+                            , pmtDestinations = pure PaymentDistribution
+                                { pdAddress = V1 destination
+                                , pdAmount  = V1 amount
+                                }
+                            , pmtGroupingPolicy   = Nothing
+                            , pmtSpendingPassword = Nothing
+                            }
+                    fmap (fmap wrData) $ postTransaction wc payment
+
+            let getRandomAddress
+                    :: IO Core.Address
+                getRandomAddress = do
+                    wallet <- randomWallet CreateWallet >>= createWalletCheck wc
+                    (_, toAddr) <- firstAccountAndId wc wallet
+                    return (unV1 $ addrId toAddr)
+
+            let fixtureWallet
+                    :: Core.Coin
+                    -> IO (Wallet, Account)
+                fixtureWallet coin = do
+                    genesis <- genesisWallet wc
+                    (genesisAccount, _) <- firstAccountAndId wc genesis
+                    wallet <- randomWallet CreateWallet >>= createWalletCheck wc
+                    (account, address) <- firstAccountAndId wc wallet
+                    txn <- makePayment coin (genesis, genesisAccount) (unV1 $ addrId address) >>= shouldPrismFlipped _Right
+                    pollTransactions wc (walId wallet) (accIndex account) (txId txn)
+                    return (wallet, account)
+
+            let expectFailure
+                    :: Show a
+                    => ClientError
+                    -> Either ClientError a
+                    -> IO ()
+                expectFailure want eresp = do
+                    resp <- eresp `shouldPrism` _Left
+                    want `shouldBe` resp
+
+            --
+            -- Actual test
+            --
+            (wallet, account) <- fixtureWallet (Core.mkCoin 42)
+            resp <- makePayment (Core.mkCoin 42) (wallet, account) =<< getRandomAddress
+            let err = NotEnoughMoney ErrCannotCoverFee
+            expectFailure (ClientWalletError err) resp
+
+        randomTest "posted transactions gives rise to nonempty Utxo histogram" 1 $ do
+            genesis <- run $ genesisWallet wc
+            (fromAcct, _) <- run $ firstAccountAndId wc genesis
+
+            newWallet <- run $ randomWallet CreateWallet
+            wallet <- run $ createWalletCheck wc newWallet
+            (toAcct, toAddr) <- run $ firstAccountAndId wc wallet
+
+            let payment val = Payment
+                    { pmtSource =  PaymentSource
+                        { psWalletId = walId genesis
+                        , psAccountIndex = accIndex fromAcct
+                        }
+                    , pmtDestinations = pure PaymentDistribution
+                        { pdAddress = addrId toAddr
+                        , pdAmount = V1 (Core.mkCoin val)
+                        }
+                    , pmtGroupingPolicy = Nothing
+                    , pmtSpendingPassword = Nothing
+                    }
+
+            eresp0 <- run $ getUtxoStatistics wc (walId wallet)
+            utxoStatistics0 <- run $ fmap wrData eresp0 `shouldPrism` _Right
+            let utxoStatistics0Expected = computeUtxoStatistics log10 []
+            liftIO $ utxoStatistics0 `shouldBe` utxoStatistics0Expected
+
+            etxn <- run $ postTransaction wc (payment 1)
+            txn <- run $ fmap wrData etxn `shouldPrism` _Right
+
+            run $ pollTransactions wc (walId wallet) (accIndex toAcct) (txId txn)
+
+            let txIn  = Txp.TxInUnknown 0 "test"
+            let txOut = Txp.TxOutAux Txp.TxOut
+                    { Txp.txOutAddress = unV1 (addrId toAddr)
+                    , Txp.txOutValue = Core.mkCoin 1
+                    }
+            let utxos = [Map.fromList [(txIn, txOut)]]
+
+            eresp <- run $ getUtxoStatistics wc (walId wallet)
+            utxoStatistics <- run $ fmap wrData eresp `shouldPrism` _Right
+            let utxoStatisticsExpected = computeUtxoStatistics log10 utxos
+            liftIO $ utxoStatistics `shouldBe` utxoStatisticsExpected

@@ -35,6 +35,7 @@ module Pos.Wallet.Web.State.State
        , getWalletMetaIncludeUnready
        , getWalletPassLU
        , getWalletInfo
+       , getUnreadyWalletInfo
        , getWalletSyncState
        , getWalletAddresses
        , doesWAddressExist
@@ -57,6 +58,7 @@ module Pos.Wallet.Web.State.State
        , testReset
        , createAccount
        , createAccountWithAddress
+       , createAccountWithoutAddresses
        , createWallet
        , addWAddress
        , addCustomAddress
@@ -96,10 +98,10 @@ module Pos.Wallet.Web.State.State
 
 import           Data.Acid (EventResult, EventState, QueryEvent, UpdateEvent)
 import qualified Data.Map as Map
+import           Pos.Chain.Block (HeaderHash)
+import           Pos.Chain.Txp (TxId, Utxo, UtxoModifier)
 import           Pos.Client.Txp.History (TxHistoryEntry)
-import           Pos.Core (Address, ChainDifficulty, HasProtocolConstants,
-                     HeaderHash, SlotId, protocolConstants)
-import           Pos.Txp (TxId, Utxo, UtxoModifier)
+import           Pos.Core (Address, ChainDifficulty, ProtocolConstants, SlotId)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (HasLens', lensOf)
 import           Pos.Wallet.Web.ClientTypes (AccountId, CAccountMeta, CId,
@@ -193,6 +195,9 @@ getWalletPassLU ws wid = queryValue ws (S.getWalletPassLU wid)
 getWalletInfo :: WalletSnapshot -> CId Wal -> Maybe WalletInfo
 getWalletInfo ws wid = queryValue ws (S.getWalletInfo wid)
 
+getUnreadyWalletInfo :: WalletSnapshot -> WalletInfo
+getUnreadyWalletInfo ws = queryValue ws S.getUnreadyWalletInfo
+
 getWalletSyncState :: WalletSnapshot -> CId Wal -> Maybe WalletSyncState
 getWalletSyncState ws wid = queryValue ws (S.getWalletSyncState wid)
 
@@ -275,6 +280,15 @@ createAccountWithAddress :: (MonadIO m)
                          -> m ()
 createAccountWithAddress db accId accMeta addrMeta =
     updateDisk (A.CreateAccountWithAddress accId accMeta addrMeta) db
+
+createAccountWithoutAddresses
+    :: (MonadIO m)
+    => WalletDB
+    -> AccountId
+    -> CAccountMeta
+    -> m ()
+createAccountWithoutAddresses db accId accMeta =
+    updateDisk (A.CreateAccountWithoutAddresses accId accMeta) db
 
 createWallet :: (MonadIO m)
              => WalletDB
@@ -481,14 +495,15 @@ removeOnlyCreatingPtx db walletId txId =
     updateDisk (A.RemoveOnlyCreatingPtx walletId txId) db
 
 ptxUpdateMeta
-    :: (MonadIO m, HasProtocolConstants)
-    => WalletDB
+    :: MonadIO m
+    => ProtocolConstants
+    -> WalletDB
     -> CId Wal
     -> TxId
     -> PtxMetaUpdate
     -> m ()
-ptxUpdateMeta db walletId txId metaUpdate =
-    updateDisk (A.PtxUpdateMeta protocolConstants walletId txId metaUpdate) db
+ptxUpdateMeta pc db walletId txId metaUpdate =
+    updateDisk (A.PtxUpdateMeta pc walletId txId metaUpdate) db
 
 addOnlyNewPendingTx :: (MonadIO m)
                     => WalletDB
@@ -501,19 +516,18 @@ cancelApplyingPtxs :: (MonadIO m)
                    -> m ()
 cancelApplyingPtxs = updateDisk A.CancelApplyingPtxs
 
-cancelSpecificApplyingPtx :: (MonadIO m)
-                          => WalletDB -> TxId  -> m ()
-cancelSpecificApplyingPtx db txid = updateDisk (A.CancelSpecificApplyingPtx txid) db
+cancelSpecificApplyingPtx :: (MonadIO m) => WalletDB -> TxId -> m ()
+cancelSpecificApplyingPtx db txid =
+    updateDisk (A.CancelSpecificApplyingPtx txid) db
 
-resetFailedPtxs :: (MonadIO m, HasProtocolConstants)
-                => WalletDB
+resetFailedPtxs :: MonadIO m
+                => ProtocolConstants
+                -> WalletDB
                 -> SlotId
                 -> m ()
-resetFailedPtxs db slotId = updateDisk (A.ResetFailedPtxs protocolConstants slotId) db
+resetFailedPtxs pc db slotId = updateDisk (A.ResetFailedPtxs pc slotId) db
 
-flushWalletStorage :: (MonadIO m)
-                   => WalletDB
-                   -> m ()
+flushWalletStorage :: MonadIO m => WalletDB -> m ()
 flushWalletStorage = updateDisk A.FlushWalletStorage
 
 applyModifierToWallet
@@ -540,8 +554,9 @@ applyModifierToWallet db walId wAddrs custAddrs utxoMod
       db
 
 rollbackModifierFromWallet
-  :: (MonadIO m, HasProtocolConstants)
-  => WalletDB
+  :: MonadIO m
+  => ProtocolConstants
+  -> WalletDB
   -> CId Wal
   -> [S.WAddressMeta] -- ^ Addresses to remove
   -> [(S.CustomAddressType, [(Address, HeaderHash)])] -- ^ Custom addresses to remove
@@ -552,11 +567,11 @@ rollbackModifierFromWallet
   -> [(TxId, PtxCondition, S.PtxMetaUpdate)] -- ^ Deleted PTX candidates
   -> WalletSyncState -- ^ New 'WalletSyncState'
   -> m ()
-rollbackModifierFromWallet db walId wAddrs custAddrs utxoMod
+rollbackModifierFromWallet pc db walId wAddrs custAddrs utxoMod
                             historyEntries ptxConditions
                             syncState =
     updateDisk
-      ( A.RollbackModifierFromWallet2 protocolConstants
+      ( A.RollbackModifierFromWallet2 pc
           walId wAddrs custAddrs utxoMod
           historyEntries' ptxConditions syncState
       )

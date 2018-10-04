@@ -12,24 +12,23 @@ module Pos.Logic.Types
 
 import           Universum
 
+import           Data.Conduit (ConduitT, transPipe)
 import           Data.Default (def)
 import           Data.Tagged (Tagged)
-import           Pipes (Producer)
-import           Pipes.Internal (unsafeHoist)
 
-import           Pos.Block.Logic (GetHashesRangeError,
-                     GetHeadersFromManyToError)
-import           Pos.Communication (NodeId)
-import           Pos.Core (HeaderHash, ProxySKHeavy, StakeholderId)
-import           Pos.Core.Block (Block, BlockHeader)
-import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst (..))
-import           Pos.Core.Txp (TxId, TxMsgContents)
-import           Pos.Core.Update (BlockVersionData, UpId, UpdateProposal,
-                     UpdateVote, VoteId)
-import           Pos.DB.Class (SerializedBlock)
-import           Pos.Security.Params (SecurityParams (..))
-import           Pos.Ssc.Message (MCCommitment, MCOpening, MCShares,
+import           Pos.Chain.Block (Block, BlockHeader, HeaderHash)
+import           Pos.Chain.Delegation (ProxySKHeavy)
+import           Pos.Chain.Security (SecurityParams (..))
+import           Pos.Chain.Ssc (MCCommitment, MCOpening, MCShares,
                      MCVssCertificate)
+import           Pos.Chain.Txp (TxId, TxMsgContents)
+import           Pos.Chain.Update (BlockVersionData, UpId, UpdateProposal,
+                     UpdateVote, VoteId)
+import           Pos.Communication (NodeId)
+import           Pos.Core (StakeholderId)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.DB.Block (GetHashesRangeError, GetHeadersFromManyToError)
+import           Pos.DB.Class (SerializedBlock)
 
 -- | The interface to a logic layer, i.e. some component which encapsulates
 -- blockchain / crypto logic.
@@ -38,28 +37,28 @@ data Logic m = Logic
       ourStakeholderId   :: StakeholderId
       -- | Get serialized block, perhaps from a database.
     , getSerializedBlock :: HeaderHash -> m (Maybe SerializedBlock)
-    , streamBlocks       :: HeaderHash -> Producer SerializedBlock m ()
+    , streamBlocks       :: HeaderHash -> ConduitT () SerializedBlock m ()
       -- | Get a block header.
     , getBlockHeader     :: HeaderHash -> m (Maybe BlockHeader)
       -- TODO CSL-2089 use conduits in this and the following methods
       -- | Retrieve block header hashes from specified interval.
-    , getHashesRange     :: Maybe Word -- ^ Optional limit on how many to bring in.
+    , getHashesRange     :: Maybe Word -- Optional limit on how many to bring in.
                          -> HeaderHash
                          -> HeaderHash
                          -> m (Either GetHashesRangeError (OldestFirst NE HeaderHash))
       -- | Interface for 'getHeadersFromManyTo'. Retrieves blocks from
       -- the checkpoints to some particular point (or tip, if
       -- 'Nothing').
-    , getBlockHeaders    :: Maybe Word -- ^ Optional limit on how many to bring in.
+    , getBlockHeaders    :: Maybe Word -- Optional limit on how many to bring in.
                          -> NonEmpty HeaderHash
                          -> Maybe HeaderHash
                          -> m (Either GetHeadersFromManyToError (NewestFirst NE BlockHeader))
-      -- | Compute LCA with the main chain.
-      -- FIXME rename.
-      -- In fact, it computes the suffix of the input list such that all of them
-      -- are not in the current main chain (hazards w.r.t. DB consistency
-      -- obviously in play depending on the implementation...).
-    , getLcaMainChain    :: OldestFirst [] BlockHeader -> m (OldestFirst [] BlockHeader)
+      -- | Compute LCA with the main chain: the first component are those hashes
+      -- which are in the main chain, second is those which are not.
+      -- Input is assumed to be a valid chain: if some element is not in the
+      -- chain, then none of the later elements are.
+    , getLcaMainChain    :: OldestFirst [] HeaderHash
+                         -> m (NewestFirst [] HeaderHash, OldestFirst [] HeaderHash)
       -- | Get the current tip of chain.
     , getTip             :: m Block
       -- | Cheaper version of 'headerHash <$> getTip'.
@@ -102,11 +101,15 @@ data Logic m = Logic
     , securityParams     :: SecurityParams
     }
 
--- | We have to hoist a pipes producer, so the Monad constraint arises.
+-- | The Monad constraint arises due to `transPipe` from Conduit.
+--   The transformation function `foo :: (forall x. m x -> n x)` must be a
+--   *monad morphism* and not just any natural transformation. This means,
+--   roughly, that `foo a >> foo b` should behave the same as `foo (a >> b)`.
+--   `foo = flip evalState 1`, for example, does not satisfy this requirement.
 hoistLogic :: Monad m => (forall x . m x -> n x) -> Logic m -> Logic n
 hoistLogic nat logic = logic
     { getSerializedBlock = nat . getSerializedBlock logic
-    , streamBlocks = unsafeHoist nat . streamBlocks logic
+    , streamBlocks = transPipe nat . streamBlocks logic
     , getBlockHeader = nat . getBlockHeader logic
     , getHashesRange = \a b c -> nat (getHashesRange logic a b c)
     , getBlockHeaders = \a b c -> nat (getBlockHeaders logic a b c)
@@ -187,7 +190,7 @@ dummyLogic = Logic
     , streamBlocks       = \_ -> pure ()
     , getBlockHeader     = \_ -> pure (error "dummy: can't get header")
     , getBlockHeaders    = \_ _ _ -> pure (error "dummy: can't get block headers")
-    , getLcaMainChain    = \_ -> pure (OldestFirst [])
+    , getLcaMainChain    = \_ -> pure (NewestFirst [], OldestFirst [])
     , getHashesRange     = \_ _ _ -> pure (error "dummy: can't get hashes range")
     , getTip             = pure (error "dummy: can't get tip")
     , getTipHeader       = pure (error "dummy: can't get tip header")

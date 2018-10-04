@@ -11,22 +11,19 @@ import           Data.Aeson (encode)
 import qualified Data.ByteString.Lazy as BSL
 import           Data.List (genericTake)
 import           Formatting (build, int, sformat, string, (%))
-import           System.Wlog (logInfo)
 
-import           Pos.Block.Logic (BypassSecurityCheck (..),
-                     rollbackBlocksUnsafe)
-import           Pos.Block.Slog (ShouldCallBListener (..))
-import           Pos.Block.Types (Blund)
+import           Pos.Chain.Block (Blund, mainBlockTxPayload)
+import           Pos.Chain.Genesis as Genesis (Config (..))
+import           Pos.Chain.Txp (TxAux, flattenTxPayload)
 import           Pos.Core (difficultyL, epochIndexL)
-import           Pos.Core.Block (mainBlockTxPayload)
 import           Pos.Core.Chrono (NewestFirst, _NewestFirst)
-import           Pos.Core.Txp (TxAux)
-import           Pos.Crypto (ProtocolMagic)
-import qualified Pos.DB.Block.Load as DB
+import           Pos.DB.Block (BypassSecurityCheck (..),
+                     ShouldCallBListener (..), rollbackBlocksUnsafe)
+import qualified Pos.DB.Block as DB
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.Infra.StateLock (Priority (..), withStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
-import           Pos.Txp (flattenTxPayload)
+import           Pos.Util.Wlog (logInfo)
 
 import           Mode (MonadAuxxMode)
 
@@ -34,14 +31,15 @@ import           Mode (MonadAuxxMode)
 -- from it to the given file.
 rollbackAndDump
     :: MonadAuxxMode m
-    => ProtocolMagic
+    => Genesis.Config
     -> Word
     -> FilePath
     -> m ()
-rollbackAndDump pm numToRollback outFile = withStateLock HighPriority ApplyBlockWithRollback $ \_ -> do
+rollbackAndDump genesisConfig numToRollback outFile = withStateLock HighPriority ApplyBlockWithRollback $ \_ -> do
     printTipDifficulty
-    blundsMaybeEmpty <- modifyBlunds <$>
-        DB.loadBlundsFromTipByDepth (fromIntegral numToRollback)
+    blundsMaybeEmpty <- modifyBlunds <$> DB.loadBlundsFromTipByDepth
+        (configGenesisHash genesisConfig)
+        (fromIntegral numToRollback)
     logInfo $ sformat ("Loaded "%int%" blunds") (length blundsMaybeEmpty)
     case _Wrapped nonEmpty blundsMaybeEmpty of
         Nothing -> pass
@@ -55,7 +53,7 @@ rollbackAndDump pm numToRollback outFile = withStateLock HighPriority ApplyBlock
             liftIO $ BSL.writeFile outFile (encode allTxs)
             logInfo $ sformat ("Dumped "%int%" transactions to "%string)
                       (length allTxs) (outFile)
-            rollbackBlocksUnsafe pm (BypassSecurityCheck True) (ShouldCallBListener True) blunds
+            rollbackBlocksUnsafe genesisConfig (BypassSecurityCheck True) (ShouldCallBListener True) blunds
             logInfo $ sformat ("Rolled back "%int%" blocks") (length blunds)
             printTipDifficulty
   where

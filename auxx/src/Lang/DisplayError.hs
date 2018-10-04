@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module Lang.DisplayError
     ( ppArgumentError
     , ppEvalError
@@ -100,7 +102,7 @@ renderFullLine :: Text -> Doc
 renderFullLine str = renderLine 0 (length str) str
 
 ppParseError :: ParseError -> Doc
-ppParseError (ParseError str (Report {..})) =
+ppParseError (ParseError str (Report _ expected unconsumed)) =
       "Parse error at" <+> text (show span)
   <$> "Unexpected" <+> text unconsumedDesc `mappend` ", expected"
   <+> hcat (punctuate (text ", or ") $ map text expected)

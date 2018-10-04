@@ -19,7 +19,10 @@ openMetaDB fp = do
     return MetaDBHandle {
           closeMetaDB   = ConcreteStorage.closeMetaDB conn
         , migrateMetaDB = ConcreteStorage.unsafeMigrateMetaDB conn
+        , clearMetaDB   = ConcreteStorage.clearMetaDB conn
         , getTxMeta     = ConcreteStorage.getTxMeta conn
         , putTxMeta     = ConcreteStorage.putTxMeta conn
+        , putTxMetaT    = ConcreteStorage.putTxMetaT conn
+        , getAllTxMetas = ConcreteStorage.getAllTxMetas conn
         , getTxMetas    = ConcreteStorage.getTxMetas conn
         }

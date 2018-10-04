@@ -1,4 +1,5 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes      #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | Logic related to downloading update.
 
@@ -24,22 +25,19 @@ import           Network.HTTP.Simple (getResponseBody, getResponseStatus,
 import qualified Serokell.Util.Base16 as B16
 import           Serokell.Util.Text (listJsonIndent, mapJson)
 import           System.Directory (doesFileExist)
-import           System.Wlog (WithLogger, logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Class (Raw)
-import           Pos.Core.Update (SoftwareVersion (..), UpdateData (..),
-                     UpdateProposal (..))
+import           Pos.Chain.Update (ConfirmedProposalState (..),
+                     SoftwareVersion (..), UpdateData (..), UpdateParams (..),
+                     UpdateProposal (..), curSoftwareVersion, ourSystemTag)
+import           Pos.Core.Exception (reportFatalError)
 import           Pos.Crypto (Hash, castHash, hash)
-import           Pos.Exception (reportFatalError)
+import           Pos.DB.Update (UpdateContext (..), isUpdateInstalled)
 import           Pos.Infra.Reporting (reportOrLogW)
 import           Pos.Listener.Update (UpdateMode)
-import           Pos.Update.Configuration (curSoftwareVersion, ourSystemTag)
-import           Pos.Update.Context (UpdateContext (..))
-import           Pos.Update.DB.Misc (isUpdateInstalled)
-import           Pos.Update.Params (UpdateParams (..))
-import           Pos.Update.Poll.Types (ConfirmedProposalState (..))
 import           Pos.Util.Concurrent (withMVar)
 import           Pos.Util.Util (HasLens (..), (<//>))
+import           Pos.Util.Wlog (WithLogger, logDebug, logInfo, logWarning)
 
 -- | Compute hash of installer, this is hash is 'udPkgHash' from 'UpdateData'.
 --

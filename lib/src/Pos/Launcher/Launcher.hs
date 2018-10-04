@@ -1,50 +1,81 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes      #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | Applications of runners to scenarios.
 
 module Pos.Launcher.Launcher
        ( -- * Node launcher.
-         runNodeReal
+       launchNode
        ) where
 
 import           Universum
 
--- FIXME we use Production in here only because it gives a 'HasLoggerName'
--- instance so that 'bracketNodeResources' can log.
--- Get rid of production and use a 'Trace IO' instead.
-import           Mockable.Production (Production (..))
-
-import           Pos.Core.Configuration (epochSlots)
-import           Pos.Crypto (ProtocolMagic)
+import           Ntp.Client (NtpConfiguration)
+import           Pos.Chain.Genesis as Genesis (Config (..))
+import           Pos.Chain.Ssc (SscParams)
+import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), NodeArgs (..))
+import           Pos.Client.CLI.Options (configurationOptions)
+import           Pos.Client.CLI.Params (getNodeParams)
 import           Pos.DB.DB (initNodeDBs)
-import           Pos.Infra.Diffusion.Types (Diffusion)
-import           Pos.Launcher.Configuration (HasConfigurations)
-import           Pos.Launcher.Param (NodeParams (..))
-import           Pos.Launcher.Resource (NodeResources (..),
-                     bracketNodeResources)
-import           Pos.Launcher.Runner (runRealMode)
-import           Pos.Launcher.Scenario (runNode)
-import           Pos.Ssc.Types (SscParams)
-import           Pos.Txp (txpGlobalSettings)
-import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.WorkMode (EmptyMempoolExt, RealMode)
+import           Pos.DB.Txp.Logic (txpGlobalSettings)
+import           Pos.Launcher.Configuration (AssetLockPath (..),
+                     HasConfigurations, WalletConfiguration, cfoKey,
+                     withConfigurations)
+import           Pos.Launcher.Param (LoggingParams (..), NodeParams (..))
+import           Pos.Launcher.Resource (NodeResources, bracketNodeResources,
+                     loggerBracket)
+import           Pos.Util.Util (logException)
+import           Pos.WorkMode (EmptyMempoolExt)
 
------------------------------------------------------------------------------
--- Main launchers
------------------------------------------------------------------------------
+-- import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 
--- | Run full node in real mode.
-runNodeReal
-    :: ( HasConfigurations
-       , HasCompileInfo
+
+-- | Run a given action from a bunch of static arguments
+launchNode
+    :: NodeArgs
+    -> CommonNodeArgs
+    -> LoggingParams
+    -> (  HasConfigurations
+       => Genesis.Config
+       -> WalletConfiguration
+       -> TxpConfiguration
+       -> NtpConfiguration
+       -> NodeParams
+       -> SscParams
+       -> NodeResources EmptyMempoolExt
+       -> IO ()
        )
-    => ProtocolMagic
-    -> NodeParams
-    -> SscParams
-    -> [Diffusion (RealMode EmptyMempoolExt) -> RealMode EmptyMempoolExt ()]
     -> IO ()
-runNodeReal pm np sscnp plugins = runProduction $
-    bracketNodeResources np sscnp (txpGlobalSettings pm) (initNodeDBs pm epochSlots) (Production . action)
-  where
-    action :: NodeResources EmptyMempoolExt -> IO ()
-    action nr@NodeResources {..} = runRealMode pm nr (runNode pm nr plugins)
+launchNode nArgs cArgs lArgs action = do
+    let confOpts = configurationOptions (commonArgs cArgs)
+    let confKey = cfoKey confOpts
+    let withLogger' = loggerBracket confKey lArgs . logException (lpDefaultName lArgs)
+    let withConfigurations' = withConfigurations
+            (AssetLockPath <$> cnaAssetLockPath cArgs)
+            (cnaDumpGenesisDataPath cArgs)
+            (cnaDumpConfiguration cArgs)
+            confOpts
+
+    withLogger' $ withConfigurations' $ \genesisConfig walletConfig txpConfig ntpConfig -> do
+        (nodeParams, Just sscParams) <- getNodeParams
+            (lpDefaultName lArgs)
+            cArgs
+            nArgs
+            (configGeneratedSecrets genesisConfig)
+
+        let action' = action
+                genesisConfig
+                walletConfig
+                txpConfig
+                ntpConfig
+                nodeParams
+                sscParams
+
+        bracketNodeResources
+            genesisConfig
+            nodeParams
+            sscParams
+            (txpGlobalSettings genesisConfig txpConfig)
+            (initNodeDBs genesisConfig)
+            action'

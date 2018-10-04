@@ -25,20 +25,18 @@ import qualified Data.Vector as V
 import qualified Ether
 
 import           Data.Default (Default (..), def)
-import           Pos.Block.Types (Blund)
-import           Pos.Core.Block (Block)
+import           Pos.Chain.Block (Block, Blund, HeaderHash)
 import qualified Pos.DB.Block as DB
 import           Pos.DB.Class (MonadDBRead)
-
 import           Pos.Explorer.DB (Epoch, Page, getEpochBlocks, getEpochPages,
                      getPageBlocks)
 
-import           Pos.Core (Address, Coin, EpochIndex, HasConfiguration,
-                     HeaderHash, SlotId (..), SlotLeaders, Timestamp,
-                     isRedeemAddress)
+import           Pos.Chain.Genesis as Genesis (Config (..), GenesisHash)
+import           Pos.Chain.Txp (genesisUtxo, utxoToAddressCoinPairs)
+import           Pos.Core (Address, Coin, EpochIndex, SlotId (..), SlotLeaders,
+                     Timestamp, isRedeemAddress)
+import           Pos.DB.Lrc (getLeadersForEpoch)
 import           Pos.Infra.Slotting (MonadSlotsData, getSlotStart)
-import           Pos.Lrc (getLeadersForEpoch)
-import           Pos.Txp (GenesisUtxo (..), genesisUtxo, utxoToAddressCoinPairs)
 
 
 -------------------------------------------------------------------------------------
@@ -55,13 +53,14 @@ data ExtraContext = ExtraContext
     , ecExplorerMockableMode :: !ExplorerMockableMode
     }
 
-makeExtraCtx :: HasConfiguration => ExtraContext
-makeExtraCtx =
-    let addressCoinPairs = utxoToAddressCoinPairs $ unGenesisUtxo genesisUtxo
+makeExtraCtx :: Genesis.Config -> ExtraContext
+makeExtraCtx genesisConfig =
+    let addressCoinPairs =
+            utxoToAddressCoinPairs $ genesisUtxo $ configGenesisData genesisConfig
         redeemOnly = filter (isRedeemAddress . fst) addressCoinPairs
     in ExtraContext
         { ecAddressCoinPairs     = V.fromList redeemOnly
-        , ecExplorerMockableMode = prodMode
+        , ecExplorerMockableMode = prodMode $ configGenesisHash genesisConfig
         }
 
 -- | For mocking we mostly need to replace just the external CSL functions.
@@ -111,11 +110,11 @@ data ExplorerMockableMode = ExplorerMockableMode
     }
 
 -- | This is what we use in production when we run Explorer.
-prodMode :: ExplorerMockableMode
-prodMode = ExplorerMockableMode {
-      emmGetTipBlock            = DB.getTipBlock,
+prodMode :: GenesisHash -> ExplorerMockableMode
+prodMode genesisHash = ExplorerMockableMode {
+      emmGetTipBlock            = DB.getTipBlock genesisHash,
       emmGetPageBlocks          = getPageBlocks,
-      emmGetBlundFromHH         = DB.getBlund,
+      emmGetBlundFromHH         = DB.getBlund genesisHash,
       emmGetSlotStart           = getSlotStart,
       emmGetLeadersFromEpoch    = getLeadersForEpoch,
       emmGetEpochBlocks         = getEpochBlocks,
@@ -194,4 +193,3 @@ instance (Monad m, MonadDBRead m, MonadSlotsData ctx m) =>
         extraCtx <- Ether.ask @ExtraContext
         let explorerMockMode = ecExplorerMockableMode extraCtx
         emmGetEpochPages explorerMockMode epoch
-

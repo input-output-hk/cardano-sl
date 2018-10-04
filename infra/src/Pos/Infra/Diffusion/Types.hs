@@ -1,4 +1,5 @@
 {-# LANGUAGE RankNTypes         #-}
+{-# LANGUAGE RecordWildCards    #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
 module Pos.Infra.Diffusion.Types
@@ -15,17 +16,18 @@ import           Data.Map.Strict (Map)
 import           Formatting (Format, stext)
 import           System.Metrics.Gauge (Gauge)
 
-import           Pos.Core (HeaderHash, ProxySKHeavy)
-import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader)
-import           Pos.Core.Chrono (OldestFirst (..))
-import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
+import           Pos.Chain.Block (Block, BlockHeader, HeaderHash,
+                     MainBlockHeader)
+import           Pos.Chain.Delegation (ProxySKHeavy)
+import           Pos.Chain.Ssc (InnerSharesMap, Opening, SignedCommitment,
                      VssCertificate)
-import           Pos.Core.Txp (TxAux)
-import           Pos.Core.Update (UpId, UpdateProposal, UpdateVote)
+import           Pos.Chain.Txp (TxAux)
+import           Pos.Chain.Update (UpId, UpdateProposal, UpdateVote)
+import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Infra.Communication.Types.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates,
                      emptySubscriptionStates)
-import           Pos.Sinbin.Reporting (HealthStatus (..))
+import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 
 
 data DiffusionHealth = DiffusionHealth {

@@ -16,8 +16,8 @@ library
                      , binary
                      , bytestring
                      , cardano-sl-infra
+                     , cardano-sl-util
                      , Cabal
-                     , log-warper
                      , mtl
                      , universum
   default-extensions:  NoImplicitPrelude

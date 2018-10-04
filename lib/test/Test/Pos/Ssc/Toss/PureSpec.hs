@@ -1,4 +1,4 @@
--- | Specification for Pos.Ssc.GodTossing.Toss.Pure
+-- | Specification for Pos.Chain.Ssc.GodTossing.Toss.Pure
 
 module Test.Pos.Ssc.Toss.PureSpec
        ( spec
@@ -15,19 +15,16 @@ import           Test.QuickCheck (Arbitrary (..), Gen, Property, forAll, listOf,
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
-import           Pos.Core (EpochOrSlot, HasConfiguration, InnerSharesMap,
-                     Opening, SignedCommitment, StakeholderId,
-                     VssCertificate (..), addressHash)
-import qualified Pos.Ssc.Toss.Class as Toss
-import qualified Pos.Ssc.Toss.Pure as Toss
-import qualified Pos.Ssc.Types as Toss
+import           Pos.Chain.Ssc (InnerSharesMap, Opening, SignedCommitment,
+                     VssCertificate (..))
+import qualified Pos.Chain.Ssc as Toss
+import           Pos.Core (EpochOrSlot, StakeholderId, addressHash)
 
-import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Core.Arbitrary ()
-import           Test.Pos.Ssc.Arbitrary ()
+import           Test.Pos.Infra.Arbitrary.Ssc ()
 
 spec :: Spec
-spec = withDefConfiguration $ \_ -> describe "Toss" $ do
+spec = describe "Toss" $ do
     let smaller n = modifyMaxSuccess (const n)
     describe "PureToss" $ smaller 30 $ do
         prop "Adding and deleting a signed commitment in the 'PureToss' monad is the\
@@ -53,7 +50,7 @@ data TossAction
     | SetEpochOrSlot EpochOrSlot
     deriving (Show, Eq, Generic)
 
-instance HasConfiguration => Arbitrary TossAction where
+instance Arbitrary TossAction where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -72,7 +69,7 @@ actionToMonad (SetEpochOrSlot eos) = Toss.setEpochOrSlot eos
 emptyTossSt :: Toss.SscGlobalState
 emptyTossSt = def
 
-perform :: HasConfiguration => [TossAction] -> Toss.PureToss ()
+perform :: [TossAction] -> Toss.PureToss ()
 perform = mapM_ actionToMonad
 
 -- | Type synonym used for convenience. This quintuple is used to pass the randomness
@@ -82,8 +79,7 @@ type TossTestInfo = (Word64, Word64, Word64, Word64, Word64)
 -- | Operational equivalence operator in the 'PureToss' monad. To be used when
 -- equivalence between two sequences of actions in 'PureToss' is to be tested/proved.
 (==^)
-    :: HasConfiguration
-    => [TossAction]
+    :: [TossAction]
     -> [TossAction]
     -> Gen TossAction
     -> TossTestInfo
@@ -125,7 +121,7 @@ As such, prefixes with an insertion with the same key as the action being tested
 property will cause it to fail.
 -}
 
-putDelCommitment :: HasConfiguration => SignedCommitment -> TossTestInfo -> Property
+putDelCommitment :: SignedCommitment -> TossTestInfo -> Property
 putDelCommitment sc =
     let actionPrefixGen = arbitrary `suchThat` (\case
             PutCommitment sc' -> sc ^. _1 /= sc'^. _1
@@ -133,8 +129,7 @@ putDelCommitment sc =
     in ([PutCommitment sc, DelCommitment $ addressHash $ sc ^. _1] ==^ []) actionPrefixGen
 
 putDelOpening
-    :: HasConfiguration
-    => StakeholderId
+    :: StakeholderId
     -> Opening
     -> TossTestInfo
     -> Property
@@ -145,8 +140,7 @@ putDelOpening sid o =
     in ([PutOpening sid o, DelOpening sid] ==^ []) actionPrefixGen
 
 putDelShare
-    :: HasConfiguration
-    => StakeholderId
+    :: StakeholderId
     -> InnerSharesMap
     -> TossTestInfo
     -> Property

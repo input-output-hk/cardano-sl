@@ -1,0 +1,1 @@
+{"status":"error","diagnostic":{"stillRestoring":{"throughput":{"quantity":400,"unit":"blocksPerSecond"},"percentage":{"quantity":14,"unit":"percent"},"estimatedCompletionTime":{"quantity":3000,"unit":"milliseconds"}}},"message":"WalletIsNotReadyToProcessPayments"}

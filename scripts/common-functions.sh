@@ -3,15 +3,19 @@
 base_common="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 function find_binary {
+  local nix=""
+  [[ -z $2 ]] || nix="--nix"
   pushd "$base_common/.." > /dev/null || exit
-  binpath=$(stack path --local-install-root)/bin
+  binpath=$(stack ${nix} path --local-install-root)/bin
   popd > /dev/null || exit
   echo "$binpath/$1"
 }
 
 function find_build_binary {
+  local nix=""
+  [[ -z $2 ]] || nix="--nix"
   pushd "$base_common/.." > /dev/null || exit
-  binpath=$(stack path --dist-dir)/build
+  binpath=$(stack ${nix} path --dist-dir)/build
   popd > /dev/null || exit
   echo "$binpath/$1/$1"
 }
@@ -35,7 +39,7 @@ function ensure_logs {
   else
     logs_dir=$1
   fi
-  mkdir -p "$logs_dir"
+  mkdir -p "${logs_dir}/logs"
 }
 
 function dump_path {
@@ -60,9 +64,11 @@ function logs {
   mkdir -p "$logs_dir/dump"
 
   local conf_file="$conf_dir/$log_file.yaml"
-  sed "s|{{file}}|$logs_dir/$log_file|g" "$template" > "$conf_file"
-  echo -n " --json-log=$logs_dir/node$i.json "
-  echo -n " --logs-prefix $logs_dir --log-config $conf_file "
+  # log files are named under the $logs_dir directory
+  # sed "s|tmpFileName|$logs_dir/$log_file|g" "$template" > "$conf_file"
+  sed "s|tmpFileName|$log_file|g" "$template" > "$conf_file"
+  echo -n " --json-log=$logs_dir/logs/node$i.json "
+  echo -n " --logs-prefix $logs_dir/logs --log-config $conf_file "
 }
 
 function get_port {
@@ -243,10 +249,10 @@ function node_cmd {
   export statsd_server="127.0.0.1:$((8125+i))"
 
   # A sloppy test but it'll do for now.
-  topology_first_six_bytes=$(head -c 6 "$topology_file" )
   local topology_first_six_bytes
+  topology_first_six_bytes=$(head -c 6 "$topology_file" )
   if [[ "$topology_first_six_bytes" != "wallet" ]]; then
-    #echo -n " --address 127.0.0.1:"`get_port $i`
+    # 'wallet' may not bind, otherwise throws error "BehindNAT topology is used, no bind address is expected"
     echo -n " --listen 127.0.0.1:$(get_port "$i")"
   fi
   if [[ "$configuration" != "" ]]; then
@@ -293,7 +299,7 @@ function bench_cmd {
   # First arg is the number of transactions with input from genesis block and
   # the second is the total number of transactions to be sent.
   echo -n " cmd --commands \"send-to-all-genesis $time $time $conc $delay ./tps-sent.csv\""
-  echo -n " --configuration-key bench "
+  echo -n " --configuration-key smallbench "
   echo -n " --rebuild-db "
 
   echo ''

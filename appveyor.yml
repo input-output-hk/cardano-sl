@@ -63,7 +63,7 @@ before_test:
     $env:PATH="$env:PATH;C:\ghc\ghc-8.2.2\bin"
 
 # Install OpenSSL 1.0.2 (see https://github.com/appveyor/ci/issues/1665)
-- ps: (New-Object Net.WebClient).DownloadFile('https://slproweb.com/download/Win64OpenSSL-1_0_2o.exe', "$($env:USERPROFILE)\Win64OpenSSL.exe")
+- ps: (New-Object Net.WebClient).DownloadFile('https://slproweb.com/download/Win64OpenSSL-1_0_2p.exe', "$($env:USERPROFILE)\Win64OpenSSL.exe")
 - ps: cmd /c start /wait "$($env:USERPROFILE)\Win64OpenSSL.exe" /silent /verysilent /sp- /suppressmsgboxes /DIR=C:\OpenSSL-Win64-v102
 - ps: Install-Product node 6
 # Install stack
@@ -73,7 +73,7 @@ before_test:
 
 # Install rocksdb
 - git clone https://github.com/facebook/rocksdb.git --branch v4.13.5
-- ps: Start-FileDownload 'https://ci.appveyor.com/api/buildjobs/kbpteb8j55p6sa2m/artifacts/rocksdb%2Fbuild%2FRocksdb.zip' -FileName rocksdb.zip
+- ps: Start-FileDownload 'https://s3.eu-central-1.amazonaws.com/ci-static/serokell-rocksdb-haskell-325427fc709183c8fdf777ad5ea09f8d92bf8585.zip' -FileName rocksdb.zip
 - 7z x rocksdb.zip
 
 # CSL-1509: After moving the 'cardano-sl' project itself into a separate folder ('lib/'), the 'cardano-text.exe' executable fails on AppVeyor CI.

@@ -1,4 +1,5 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 -- | Access to all secrets in the system. It's needed mostly for
 -- testing. Not for production.

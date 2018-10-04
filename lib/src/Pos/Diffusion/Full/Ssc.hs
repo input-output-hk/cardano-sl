@@ -17,11 +17,11 @@ import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Limit (Limit)
 -- Message instances for various types.
 -- TODO should move these into the Diffusion module subtree.
+import           Pos.Chain.Ssc (MCCommitment (..), MCOpening (..),
+                     MCShares (..), MCVssCertificate (..))
 import           Pos.Communication.Limits (mlMCCommitment, mlMCOpening,
                      mlMCShares, mlMCVssCertificate)
-import           Pos.Communication.Message ()
 import           Pos.Core (StakeholderId)
-import           Pos.Infra.Binary ()
 import           Pos.Infra.Communication.Relay (DataMsg, InvOrData,
                      InvReqDataParams (..), MempoolParams (NoMempool),
                      Relay (..), ReqMsg, ReqOrRes, relayListeners,
@@ -31,8 +31,6 @@ import           Pos.Infra.Communication.Types.Protocol (EnqueueMsg,
 import           Pos.Infra.Network.Types (Bucket)
 import           Pos.Logic.Types (Logic (..))
 import qualified Pos.Logic.Types as KV (KeyVal (..))
-import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
-                     MCShares (..), MCVssCertificate (..))
 import           Pos.Util.Trace (Severity, Trace)
 
 sscListeners

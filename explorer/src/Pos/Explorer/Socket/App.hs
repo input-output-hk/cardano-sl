@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeOperators       #-}
@@ -22,7 +23,6 @@ import           Data.Time.Units (Millisecond)
 import           Ether.TaggedTrans ()
 import           Formatting (int, sformat, (%))
 import qualified GHC.Exts as Exts
-import           Mockable (withAsync)
 import           Network.EngineIO (SocketId)
 import           Network.EngineIO.Wai (WaiMonad, toWaiApplication, waiAPI)
 import           Network.HTTP.Types.Status (status404)
@@ -35,14 +35,16 @@ import           Network.Wai.Handler.Warp (Settings, defaultSettings,
 import           Network.Wai.Middleware.Cors (CorsResourcePolicy, Origin, cors,
                      corsOrigins, simpleCorsResourcePolicy)
 import           Serokell.Util.Text (listJson)
-import           System.Wlog (CanLog, HasLoggerName, LoggerName,
-                     NamedPureLogger, WithLogger, askLoggerName, logDebug,
-                     logInfo, logWarning, modifyLoggerName, usingLoggerName)
 
-import           Pos.Block.Types (Blund)
+import           Pos.Chain.Block (Blund)
+import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots)
 import           Pos.Core (addressF, siEpoch)
+import           Pos.Core.Conc (withAsync)
 import qualified Pos.GState as DB
 import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
+import           Pos.Util.Wlog (CanLog, HasLoggerName, LoggerName,
+                     NamedPureLogger, WithLogger, askLoggerName, logDebug,
+                     logInfo, logWarning, modifyLoggerName, usingLoggerName)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.ExplorerMode (ExplorerMode)
@@ -161,12 +163,12 @@ notifierServer notifierSettings connVar = do
         "404 - Not Found"
 
 periodicPollChanges
-    :: forall ctx m.
-       (ExplorerMode ctx m)
-    => ConnectionsVar -> m ()
-periodicPollChanges connVar =
+    :: forall ctx m . ExplorerMode ctx m => Genesis.Config -> ConnectionsVar -> m ()
+periodicPollChanges genesisConfig connVar =
     -- Runs every 5 seconds.
     runPeriodically (5000 :: Millisecond) (Nothing, mempty) $ do
+        let epochSlots = configEpochSlots genesisConfig
+
         curBlock   <- DB.getTip
         mempoolTxs <- lift $ S.fromList <$> getMempoolTxs @ctx
 
@@ -178,7 +180,10 @@ periodicPollChanges connVar =
                 if mWasBlock == Just curBlock
                     then return Nothing
                     else forM mWasBlock $ \wasBlock -> do
-                        mBlocks <- lift $ getBlundsFromTo @ctx curBlock wasBlock
+                        mBlocks <- lift $ getBlundsFromTo @ctx
+                            (configGenesisHash genesisConfig)
+                            curBlock
+                            wasBlock
                         case mBlocks of
                             Nothing     -> do
                                 logWarning "Failed to fetch blocks from db"
@@ -189,10 +194,10 @@ periodicPollChanges connVar =
             -- notify changes depending on new blocks
             unless (null newBlunds) $ do
                 -- 1. last page of blocks
-                notifyBlocksLastPageSubscribers
+                notifyBlocksLastPageSubscribers epochSlots
                 -- 2. last page of epochs
-                mSlotId <- lift $ getCurrentSlot @ctx
-                whenJust mSlotId $ notifyEpochsLastPageSubscribers . siEpoch
+                mSlotId <- lift $ getCurrentSlot @ctx epochSlots
+                whenJust mSlotId $ notifyEpochsLastPageSubscribers epochSlots . siEpoch
                 logDebug $ sformat ("Blockchain updated ("%int%" blocks)")
                     (length newBlunds)
 
@@ -217,11 +222,14 @@ periodicPollChanges connVar =
 
 -- | Starts notification server. Kill current thread to stop it.
 notifierApp
-    :: forall ctx m.
-       (ExplorerMode ctx m)
-    => NotifierSettings -> m ()
-notifierApp settings = modifyLoggerName (<> "notifier.socket-io") $ do
-    logInfo "Starting"
-    connVar <- liftIO $ STM.newTVarIO mkConnectionsState
-    withAsync (periodicPollChanges connVar)
-              (\_async -> notifierServer settings connVar)
+    :: forall ctx m
+     . ExplorerMode ctx m
+    => Genesis.Config
+    -> NotifierSettings
+    -> m ()
+notifierApp genesisConfig settings =
+    modifyLoggerName (<> ".notifier.socket-io") $ do
+        logInfo "Starting"
+        connVar <- liftIO $ STM.newTVarIO mkConnectionsState
+        withAsync (periodicPollChanges genesisConfig connVar)
+                  (\_async -> notifierServer settings connVar)

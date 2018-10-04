@@ -19,6 +19,9 @@ module Cardano.Wallet.Kernel.CoinSelection.Generic (
   , unsafeValueSub
   , unsafeValueSum
   , unsafeValueAdjust
+    -- * Addresses
+  , HasAddress(..)
+  , utxoEntryAddr
     -- * Monad
   , CoinSelT -- opaque
   , coinSelLiftExcept
@@ -70,9 +73,10 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
+import           Test.QuickCheck (Arbitrary (..))
 
-import           Cardano.Wallet.Kernel.Util (withoutKeys)
 import           Cardano.Wallet.Kernel.Util.StrictStateT
+import           UTxO.Util (withoutKeys)
 
 {-------------------------------------------------------------------------------
   Abstract domain
@@ -176,6 +180,22 @@ unsafeValueAdjust r x y = fromMaybe (error "unsafeValueAdjust: out of range") $
     valueAdjust r x y
 
 {-------------------------------------------------------------------------------
+  Describing domains which have addresses
+-------------------------------------------------------------------------------}
+
+class ( CoinSelDom dom
+      , Buildable (Address dom)
+      , Ord (Address dom)
+      ) => HasAddress dom where
+  type Address dom :: *
+
+  outAddr :: Output dom -> Address dom
+
+utxoEntryAddr :: HasAddress dom => UtxoEntry dom -> Address dom
+utxoEntryAddr = outAddr . utxoEntryOut
+
+
+{-------------------------------------------------------------------------------
   Coin selection monad
 -------------------------------------------------------------------------------}
 
@@ -262,19 +282,17 @@ data CoinSelHardErr =
     -- We record the original output and the fee it needed to cover.
     --
     -- Only applicable using 'ReceiverPaysFees' regulation
-    forall dom. CoinSelDom dom =>
-      CoinSelHardErrOutputCannotCoverFee (Output dom) (Fee dom)
+    CoinSelHardErrOutputCannotCoverFee Text Text
 
     -- | Attempt to pay into a redeem-only address
-  | forall dom. CoinSelDom dom =>
-      CoinSelHardErrOutputIsRedeemAddress (Output dom)
+  | CoinSelHardErrOutputIsRedeemAddress Text
 
     -- | UTxO exhausted whilst trying to pick inputs to cover remaining fee
   | CoinSelHardErrCannotCoverFee
 
     -- | When trying to construct a transaction, the max number of allowed
     -- inputs was reached.
-  | CoinSelHardErrMaxInputsReached Word64
+  | CoinSelHardErrMaxInputsReached Text
 
     -- | UTxO exhausted during input selection
     --
@@ -282,11 +300,17 @@ data CoinSelHardErr =
     -- we tried to make.
     --
     -- See also 'CoinSelHardErrCannotCoverFee'
-  | forall dom. CoinSelDom dom =>
-      CoinSelHardErrUtxoExhausted (Value dom) (Value dom)
+  | CoinSelHardErrUtxoExhausted Text Text
 
-    -- | UTxO depleted using input selection
+    -- | UTxO depleted using input selection.
+    --
+    -- This occurs when there's actually no UTxO to pick from in a first place,
+    -- like an edge-case of CoinSelHardErrUtxoExhausted (which suggests that we
+    -- could at least start selecting UTxO).
   | CoinSelHardErrUtxoDepleted
+
+instance Arbitrary CoinSelHardErr where
+    arbitrary = pure CoinSelHardErrUtxoDepleted
 
 -- | The input selection request failed
 --
@@ -566,16 +590,30 @@ nLargestFromListBy f n = \xs ->
     dropOne (Just [_])    = Nothing
     dropOne (Just (_:as)) = Just as
 
--- | Proportionally divide the fee over each output
+-- | Proportionally divide the fee over each output.
+--
+-- There's a special 'edge-case' when the given input is a singleton list
+-- with one 0 coin. This is artifically created during input selection when
+-- the transaction's amount matches exactly the source's balance.
+-- In such case, we can't really compute any ratio for fees and simply return
+-- the whole fee back with the given change value.
 divvyFee :: forall dom a. CoinSelDom dom
           => (a -> Value dom) -> Fee dom -> [a] -> [(Fee dom, a)]
-divvyFee _ _   [] = error "divvyFee: empty list"
-divvyFee f fee as = map (\a -> (feeForOut a, a)) as
+divvyFee _ _   []                     = error "divvyFee: empty list"
+divvyFee f fee [a] | f a == valueZero = [(fee, a)]
+divvyFee f fee as                     = map (\a -> (feeForOut a, a)) as
   where
     -- All outputs are selected from well-formed UTxO, so their sum cannot
     -- overflow
     totalOut :: Value dom
-    totalOut = unsafeValueSum (map f as)
+    totalOut =
+        let
+            total = unsafeValueSum (map f as)
+        in
+            if total == valueZero then
+                error "divyyFee: invalid set of coins, total is 0"
+            else
+                total
 
     -- The ratio will be between 0 and 1 so cannot overflow
     feeForOut :: a -> Fee dom

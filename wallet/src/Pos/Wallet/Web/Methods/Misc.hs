@@ -15,6 +15,7 @@ module Pos.Wallet.Web.Methods.Misc
 
        , syncProgress
        , localTimeDifference
+       , localTimeDifferencePure
 
        , requestShutdown
 
@@ -36,26 +37,27 @@ import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.Time.Units (Second, toMicroseconds)
 import           Formatting (bprint, build, sformat, (%))
 import qualified Formatting.Buildable
-import           Mockable (Delay, LowLevelAsync, Mockables, async, delay)
 import           Serokell.Util (listJson)
 import           Servant.API.ContentTypes (MimeRender (..), NoContent (..),
                      OctetStream)
-import           System.Wlog (WithLogger)
+import           UnliftIO (MonadUnliftIO)
 
 import           Ntp.Client (NtpStatus (..))
 
+import           Pos.Chain.Txp (TxId, TxIn, TxOut)
+import           Pos.Chain.Update (HasUpdateConfiguration, SoftwareVersion (..),
+                     curSoftwareVersion)
 import           Pos.Client.KeyStorage (MonadKeys (..), deleteAllSecretKeys)
 import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core (HasConfiguration, SlotId, SoftwareVersion (..))
+import           Pos.Core (ProtocolConstants, SlotId, pcEpochSlots)
+import           Pos.Core.Conc (async, delay)
 import           Pos.Crypto (hashHexF)
 import           Pos.Infra.Shutdown (HasShutdownContext, triggerShutdown)
 import           Pos.Infra.Slotting (MonadSlots, getCurrentSlotBlocking)
 import           Pos.Infra.Util.LogSafe (logInfoUnsafeP)
-import           Pos.Txp (TxId, TxIn, TxOut)
-import           Pos.Update.Configuration (HasUpdateConfiguration,
-                     curSoftwareVersion)
 import           Pos.Util (maybeThrow)
 import           Pos.Util.Servant (HasTruncateLogPolicy (..))
+import           Pos.Util.Wlog (WithLogger)
 import           Pos.Wallet.Aeson.ClientTypes ()
 import           Pos.Wallet.Aeson.Storage ()
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo, MonadUpdates,
@@ -100,7 +102,6 @@ isValidAddress = pure . isRight . cIdToAddress
 -- | Get last update info
 nextUpdate
     :: ( MonadIO m
-       , HasConfiguration
        , MonadThrow m
        , WalletDbReader ctx m
        , HasUpdateConfiguration
@@ -140,10 +141,10 @@ applyUpdate = askWalletDB >>= removeNextUpdate
 -- needed in order for http request to succeed.
 requestShutdown ::
        ( MonadIO m
+       , MonadUnliftIO m
        , MonadReader ctx m
        , WithLogger m
        , HasShutdownContext ctx
-       , Mockables m [Delay, LowLevelAsync]
        )
     => m NoContent
 requestShutdown = NoContent <$ async (delay (1 :: Second) >> triggerShutdown)
@@ -169,14 +170,13 @@ syncProgress = do
 -- NTP (Network Time Protocol) based time difference
 ----------------------------------------------------------------------------
 
+localTimeDifferencePure :: NtpStatus -> Maybe Integer
+localTimeDifferencePure (NtpDrift time)    = Just (toMicroseconds time)
+localTimeDifferencePure NtpSyncPending     = Nothing
+localTimeDifferencePure NtpSyncUnavailable = Nothing
+
 localTimeDifference :: MonadIO m => TVar NtpStatus -> m (Maybe Integer)
-localTimeDifference ntpStatus = diff <$> readTVarIO ntpStatus
-  where
-    diff :: NtpStatus -> Maybe Integer
-    diff = \case
-        NtpDrift time -> Just (toMicroseconds time)
-        NtpSyncPending -> Nothing
-        NtpSyncUnavailable -> Nothing
+localTimeDifference ntpStatus = localTimeDifferencePure <$> readTVarIO ntpStatus
 
 ----------------------------------------------------------------------------
 -- Reset
@@ -214,10 +214,13 @@ dumpState = WalletStateSnapshot <$> askWalletSnapshot
 -- Tx resubmitting
 ----------------------------------------------------------------------------
 
-resetAllFailedPtxs :: (HasConfiguration, MonadSlots ctx m, WalletDbReader ctx m) => m NoContent
-resetAllFailedPtxs = do
+resetAllFailedPtxs
+    :: (MonadSlots ctx m, WalletDbReader ctx m)
+    => ProtocolConstants
+    -> m NoContent
+resetAllFailedPtxs pc = do
     db <- askWalletDB
-    getCurrentSlotBlocking >>= resetFailedPtxs db
+    getCurrentSlotBlocking (pcEpochSlots pc) >>= resetFailedPtxs pc db
     return NoContent
 
 ----------------------------------------------------------------------------

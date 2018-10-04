@@ -60,22 +60,23 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Pos.Binary.Class (AsBinary (..))
 import           Pos.Binary.Limit (Limit (..), mlBool, mlEither, mlMaybe,
                      mlTriple, mlTuple, vectorOf, vectorOfNE, (<+>))
-import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..),
-                     MsgGetHeaders (..), MsgHeaders (..), MsgStream (..),
-                     MsgStreamBlock (..))
-import           Pos.Core (BlockCount, BlockVersionData (..), EpochIndex,
-                     StakeholderId, UpId, VssCertificate, coinPortionToDouble)
-import           Pos.Core.Block (Block, BlockHeader (..), GenesisBlock,
+import           Pos.Chain.Block (Block, BlockHeader (..), GenesisBlock,
                      GenesisBlockHeader, MainBlock, MainBlockHeader)
-import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
-import           Pos.Core.Ssc (Commitment (..), InnerSharesMap, Opening (..),
-                     SignedCommitment)
-import           Pos.Core.Txp (TxAux, TxMsgContents (..))
-import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
+import           Pos.Chain.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
+import           Pos.Chain.Ssc (Commitment (..), InnerSharesMap,
+                     MCCommitment (..), MCOpening (..), MCShares (..),
+                     MCVssCertificate (..), Opening (..), SignedCommitment,
+                     VssCertificate)
+import           Pos.Chain.Txp (TxAux, TxMsgContents (..))
+import           Pos.Chain.Update (BlockVersionData (..), UpId,
+                     UpdateProposal (..), UpdateVote (..))
+import           Pos.Core (BlockCount, EpochIndex, StakeholderId,
+                     coinPortionToDouble)
 import           Pos.Crypto (ProxyCert (..), ProxySecretKey (..),
                      SecretProof (..))
-import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
-                     MCShares (..), MCVssCertificate (..))
+import           Pos.Network.Block.Types (MsgBlock (..), MsgGetBlocks (..),
+                     MsgGetHeaders (..), MsgHeaders (..), MsgStream (..),
+                     MsgStreamBlock (..))
 
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Crypto.Limits (mlAbstractHash, mlDecShare, mlEncShare,

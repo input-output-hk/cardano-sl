@@ -11,7 +11,6 @@ module Cardano.Wallet.API.V1.Migration.Monads (
 import           Universum
 
 import qualified Control.Monad.Catch as Catch
-import           Mockable (runProduction)
 import           Servant
 
 import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext)
@@ -32,6 +31,6 @@ lowerV1Monad ctx handler =
   where
 
     hoistHandler :: forall a . MonadV1 a -> IO a
-    hoistHandler = runProduction . flip runReaderT ctx
+    hoistHandler = flip runReaderT ctx
 
     excHandlers = [Catch.Handler throwError]

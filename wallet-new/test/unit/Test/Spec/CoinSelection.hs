@@ -1,18 +1,22 @@
 {-# OPTIONS_GHC -fno-warn-orphans       #-}
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE ViewPatterns  #-}
+
 module Test.Spec.CoinSelection (
     spec
   ) where
 
 import           Universum
 
+import qualified Data.ByteString.Lazy as LBS
 import qualified Data.List
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Gen, Property, arbitrary, conjoin,
+import           Test.QuickCheck (Gen, Property, arbitrary, choose, conjoin,
                      counterexample, forAll)
 
 import           Formatting (bprint, sformat, (%))
@@ -20,22 +24,29 @@ import qualified Formatting as F
 import           Formatting.Buildable (Buildable (..))
 import qualified Text.Tabl as Tabl
 
-import           Pos.Core (Coeff (..), TxSizeLinear (..))
+import           Pos.Binary.Class (Bi (encode), toLazyByteString)
+import           Pos.Chain.Genesis as Genesis (Config (..))
+import qualified Pos.Chain.Txp as Core
+import           Pos.Core (Coeff (..), TxSizeLinear (..), unsafeIntegerToCoin)
 import qualified Pos.Core as Core
-import           Pos.Crypto (SecretKey)
-import qualified Pos.Txp as Core
+import           Pos.Core.Attributes (mkAttributes)
+import           Pos.Crypto (ProtocolMagic, SecretKey)
+import           Serokell.Data.Memory.Units (Byte, fromBytes)
 import           Serokell.Util.Text (listJsonIndent)
 
 import           Util.Buildable
 
-import           Cardano.Wallet.Kernel.CoinSelection (CoinSelHardErr (..),
-                     CoinSelPolicy, CoinSelectionOptions (..),
-                     ExpenseRegulation (..), InputGrouping (..), MkTx,
+import           Cardano.Wallet.Kernel.CoinSelection (CoinSelFinalResult (..),
+                     CoinSelHardErr (..), CoinSelPolicy,
+                     CoinSelectionOptions (..), ExpenseRegulation (..),
+                     InputGrouping (..), estimateMaxTxInputsExplicitBounds,
                      largestFirst, mkStdTx, newOptions, random)
-import           Cardano.Wallet.Kernel.Util (paymentAmount, utxoBalance,
+import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
+                     (estimateCardanoFee,
+                     estimateHardMaxTxInputsExplicitBounds)
+import           Cardano.Wallet.Kernel.Util.Core (paymentAmount, utxoBalance,
                      utxoRestrictToInputs)
 import           Pos.Crypto.Signing.Safe (fakeSigner)
-import           Test.Infrastructure.Generator (estimateCardanoFee)
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Spec.CoinSelection.Generators (InitialBalance (..),
                      Pay (..), genFiddlyPayees, genFiddlyUtxo, genGroupedUtxo,
@@ -129,7 +140,7 @@ renderUtxoAndPayees utxo outputs =
                                    (sortedPayees $ toList outputs) <> footer
 
       footer :: [Row]
-      footer = ["Total", "Total"] : [[T.pack . show . Core.getCoin . utxoBalance $ utxo
+      footer = ["Total", "Total"] : [[T.pack . show . utxoBalance $ utxo
                                     , T.pack . show . Core.getCoin . paymentAmount $ outputs
                                     ]]
 
@@ -150,7 +161,7 @@ renderTx payees utxo tx =
       txOutputs = Core._txOutputs . Core.taTx $ tx
 
       pickedInputs :: Core.Utxo
-      pickedInputs = utxoRestrictToInputs (Set.fromList $ toList . Core._txInputs . Core.taTx $ tx) utxo
+      pickedInputs = utxo `utxoRestrictToInputs` (Set.fromList $ toList . Core._txInputs . Core.taTx $ tx)
 
       alignments :: [Tabl.Alignment]
       alignments = map (const Tabl.AlignCentre) cells
@@ -177,9 +188,9 @@ renderTx payees utxo tx =
           in header : (subTable1 `mergeRows` subTable2) <> footer
 
       footer :: [Row]
-      footer = replicate 4 "Total" : [[T.pack . show . Core.getCoin . utxoBalance $ utxo
+      footer = replicate 4 "Total" : [[T.pack . show . utxoBalance $ utxo
                                      , T.pack . show . Core.getCoin . paymentAmount $ payees
-                                     , T.pack . show . Core.getCoin . utxoBalance $ pickedInputs
+                                     , T.pack . show . utxoBalance $ pickedInputs
                                      , T.pack . show . Core.getCoin . paymentAmount $ txOutputs
                                      ]]
 
@@ -315,7 +326,7 @@ feeWasPayed SenderPaysFee originalUtxo originalOutputs tx =
                     T.unpack (renderTx originalOutputs originalUtxo tx) <>
                     "\n\n"
               )
-              (< utxoBalance originalUtxo)
+              (< unsafeIntegerToCoin (utxoBalance originalUtxo))
               (paymentAmount txOutputs)
 feeWasPayed ReceiverPaysFee _ originalOutputs tx =
     let txOutputs = Core._txOutputs . Core.taTx $ tx
@@ -386,14 +397,58 @@ errorWas predicate _ _ (STB hardErr) =
     failIf "This is not the error type we were expecting!" predicate hardErr
 
 {-------------------------------------------------------------------------------
+  Generator for transactions with as many inputs as possible.
+-------------------------------------------------------------------------------}
+
+-- | Generate a random maximum transaction size, then create a transaction with
+--   as many inputs as possible. The @estimator@ parameter is used to compute the
+--   number of inputs, as a function of the maximum transaction size and the sizes
+--   of @Attributes AddrAttributes@ and @Attributes ()@.
+genMaxInputTx :: (Byte -> Byte -> Byte -> Word64) -> Gen (Either Text (Byte, Byte))
+genMaxInputTx estimator = do
+    -- Generate the output and compute the attribute sizes.
+    let genIn  = Core.TxInUtxo <$> arbitrary <*> pure maxBound
+
+    output <- genOutAux
+    let addrAttrSize = getAddrAttrSize output
+
+    -- Select the maximum transaction size and compute the number of inputs.
+    maxTxSize <- genMaxTxSize
+    let maxInputs = fromIntegral (estimator addrAttrSize txAttrSize maxTxSize)
+
+    -- Now build the transaction, attempting to make the encoded size of the transaction
+    -- as large as possible.
+    bimap pretty ((,maxTxSize) . encodedSize) <$> (
+        withDefConfiguration $ \genesisConfig -> do
+            key    <- arbitrary
+            inputs <- replicateM maxInputs ((,) <$> genIn <*> genOutAux)
+            mkTx (configProtocolMagic genesisConfig)
+                 key
+                 (NE.fromList inputs)
+                 (NE.fromList [output]) [])
+
+genMaxTxSize :: Gen Byte
+genMaxTxSize = fromBytes <$> choose (4000, 100000)
+
+genOutAux :: Gen Core.TxOutAux
+genOutAux = Core.TxOutAux <$> (Core.TxOut <$> arbitrary <*> arbitrary)
+
+getAddrAttrSize :: Core.TxOutAux -> Byte
+getAddrAttrSize = encodedSize . Core.addrAttributes . Core.txOutAddress . Core.toaOut
+
+txAttrSize :: Byte
+txAttrSize = encodedSize (mkAttributes ())
+
+encodedSize :: Bi a => a -> Byte
+encodedSize = fromBytes . fromIntegral . LBS.length . toLazyByteString . encode
+
+{-------------------------------------------------------------------------------
   Combinators to assemble properties easily
 -------------------------------------------------------------------------------}
 
 type Policy = CoinSelectionOptions
-           -> Gen Core.Address
-           -> MkTx Gen
            -> Word64
-           -> CoinSelPolicy Core.Utxo Gen Core.TxAux
+           -> CoinSelPolicy Core.Utxo Gen CoinSelFinalResult
 
 type RunResult = ( Core.Utxo
                  , NonEmpty Core.TxOut
@@ -403,8 +458,30 @@ type RunResult = ( Core.Utxo
 maxNumInputs :: Word64
 maxNumInputs = 300
 
-mkTx :: Core.ProtocolMagic -> SecretKey -> MkTx Gen
-mkTx pm key = mkStdTx pm (\_addr -> Right (fakeSigner key))
+genChange :: Core.Utxo
+          -> NonEmpty Core.TxOut
+          -> [Core.Coin]
+          -> Gen [Core.TxOutAux]
+genChange utxo payee css = forM css $ \change -> do
+    changeAddr <- genUniqueChangeAddress utxo payee
+    return Core.TxOutAux {
+        Core.toaOut = Core.TxOut {
+            Core.txOutAddress = changeAddr
+          , Core.txOutValue   = change
+          }
+      }
+
+mkTx :: ProtocolMagic
+     -> SecretKey
+     -> NonEmpty (Core.TxIn, Core.TxOutAux)
+     -- ^ Selected inputs
+     -> NonEmpty Core.TxOutAux
+     -- ^ Selected outputs
+     -> [Core.TxOutAux]
+     -- ^ A list of change addresess, in the form of 'TxOutAux'(s).
+     -> Gen (Either CoinSelHardErr Core.TxAux)
+mkTx pm key = mkStdTx pm return (\_addr -> Right (fakeSigner key))
+
 
 payRestrictInputsTo :: Word64
                     -> (InitialBalance -> Gen Core.Utxo)
@@ -416,20 +493,25 @@ payRestrictInputsTo :: Word64
                     -> Policy
                     -> Gen RunResult
 payRestrictInputsTo maxInputs genU genP feeFunction adjustOptions bal amount policy =
-    withDefConfiguration $ \pm -> do
+    withDefConfiguration $ \genesisConfig -> do
         utxo  <- genU bal
         payee <- genP utxo amount
         key   <- arbitrary
         let options = adjustOptions (newOptions feeFunction)
-        res <- bimap STB identity <$>
-                 policy
-                   options
-                   (genUniqueChangeAddress utxo payee)
-                   (mkTx pm key)
-                   maxInputs
-                   (fmap Core.TxOutAux payee)
-                   utxo
-        return (utxo, payee, res)
+        res <- policy options
+                      maxInputs
+                      (fmap Core.TxOutAux payee)
+                      utxo
+        case res of
+             Left e -> return (utxo, payee, Left (STB e))
+             Right (CoinSelFinalResult inputs outputs coins) -> do
+                    change <- genChange utxo payee coins
+                    txAux  <- mkTx (configProtocolMagic genesisConfig)
+                                   key
+                                   inputs
+                                   outputs
+                                   change
+                    return (utxo, payee, bimap STB identity txAux)
 
 pay :: (InitialBalance -> Gen Core.Utxo)
     -> (Core.Utxo -> Pay -> Gen (NonEmpty Core.TxOut))
@@ -631,3 +713,23 @@ spec =
                 pay (genGroupedUtxo 1) genPayee freeLunch ignoreGrouping (InitialLovelace 1000) (PayLovelace 10) random
                 ) $ \(utxo, payee, res) -> do
                   paymentSucceededWith utxo payee res [utxoWasNotDepleted]
+
+        describe "Estimating the maximum number of inputs" $ do
+            prop "estimateMaxTxInputs yields a lower bound." $
+                forAll (genMaxInputTx estimateMaxTxInputsExplicitBounds) $ \case
+                    Left _err        -> False
+                    Right (lhs, rhs) -> lhs <= rhs
+
+            prop "estimateMaxTxInputs yields a relatively tight bound." $
+                forAll (genMaxInputTx $ \x y z -> 1 + estimateHardMaxTxInputsExplicitBounds x y z) $ \case
+                    Left _err        -> False
+                    Right (lhs, rhs) -> lhs > rhs
+
+            withMaxSuccess 1000 $ prop "estimateHardMaxTxInputs is close to estimateMaxTxInputs." $
+                forAll ((,) <$> genMaxTxSize
+                            <*> (getAddrAttrSize <$> genOutAux)) $
+                \(maxTxSize, addrAttrSize) ->
+                    let safeMax = estimateMaxTxInputsExplicitBounds     addrAttrSize txAttrSize maxTxSize
+                        hardMax = estimateHardMaxTxInputsExplicitBounds addrAttrSize txAttrSize maxTxSize
+                        threshold = 5 -- percent
+                    in (hardMax * 100) `div` safeMax <= 100 + threshold

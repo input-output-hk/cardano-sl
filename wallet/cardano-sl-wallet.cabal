@@ -21,8 +21,7 @@ Flag for-installer
 
 library
   hs-source-dirs:     src test
-  exposed-modules:    Pos.Arbitrary.Wallet.Web.ClientTypes
-                      Pos.Wallet
+  exposed-modules:    Pos.Wallet
                       Pos.Wallet.Redirect
                       Pos.Wallet.WalletMode
 
@@ -117,21 +116,17 @@ library
                       , bytestring
                       , cardano-crypto
                       , cardano-sl
-                      , cardano-sl-block
+                      , cardano-sl-chain
+                      , cardano-sl-chain-test
                       , cardano-sl-client
                       , cardano-sl-core
                       , cardano-sl-core-test
                       , cardano-sl-crypto
-                      , cardano-sl-delegation
                       , cardano-sl-generator
                       , cardano-sl-db
                       , cardano-sl-infra
-                      , cardano-sl-lrc
-                      , cardano-sl-ssc
-                      , cardano-sl-txp
                       , cardano-sl-networking
                       , cardano-sl-node-ipc
-                      , cardano-sl-update
                       , cardano-sl-util
                       , containers
                       , cryptonite
@@ -146,11 +141,9 @@ library
                       , hashable
                       , hspec
                       , lens
-                      , log-warper
                       , memory
                       , monad-control
                       , mtl
-                      , quickcheck-instances
                       , random
                       , reflection
                       , safe-exceptions
@@ -166,8 +159,6 @@ library
                       , stm
                       , swagger2
                       , text
-                      , text
-                      , formatting
                       , time
                       , time-units
                       , transformers
@@ -222,6 +213,9 @@ test-suite cardano-wallet-test
                        -- Standard module with some magic
                        Spec
 
+                       -- Arbitrary Instances
+                       Test.Pos.Wallet.Arbitrary.Web.ClientTypes
+
                        -- Basic QC checks
                        Test.Pos.Util.MnemonicSpec
 
@@ -242,50 +236,41 @@ test-suite cardano-wallet-test
 
   type:                exitcode-stdio-1.0
   build-depends:       base
-                     , MonadRandom
-                     , QuickCheck
                      , aeson
                      , bytestring
                      , cardano-crypto
                      , cardano-sl
-                     , cardano-sl-block
+                     , cardano-sl-chain
+                     , cardano-sl-chain-test
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-core-test
                      , cardano-sl-crypto
-                     , cardano-sl-crypto-test
                      , cardano-sl-db
-                     , cardano-sl-delegation
                      , cardano-sl-generator
                      , cardano-sl-infra
-                     , cardano-sl-lrc
-                     , cardano-sl-networking
-                     , cardano-sl-ssc
-                     , cardano-sl-txp
-                     , cardano-sl-txp-test
-                     , cardano-sl-update
                      , cardano-sl-util
                      , cardano-sl-util-test
                      , cardano-sl-wallet
+                     , cardano-sl-crypto-test
                      , containers
-                     , cryptonite
+                     , safe-exceptions
                      , data-default
+                     , servant
+                     , servant-server
                      , deepseq
                      , ekg-core
                      , ether
                      , formatting
                      , hspec
                      , lens
-                     , log-warper
-                     , memory
+                     , MonadRandom
                      , mtl
-                     , quickcheck-instances
-                     , safe-exceptions
+                     , pvss
+                     , QuickCheck
                      , safecopy
-                     , serokell-util >= 0.1.3.4
-                     , servant-server
+                     , serokell-util
                      , stm
-                     , formatting
                      , universum >= 0.1.11
                      , unordered-containers
 

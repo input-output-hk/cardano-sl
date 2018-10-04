@@ -6,6 +6,9 @@ module Test.Spec.CoinSelection.Generators (
     , genFiddlyPayees
     , genUtxo
     , genFiddlyUtxo
+    , StakeGenOptions(..)
+    , GenerationTarget(..)
+    , toLovelaces
     , InitialBalance(..)
     , Pay(..)
     , genUniqueChangeAddress
@@ -18,20 +21,15 @@ import           Universum
 import qualified Data.List
 import qualified Data.Map as Map
 import           Formatting (sformat)
+import qualified Formatting as F
 import           Test.QuickCheck (Gen, arbitrary, choose, suchThat)
 
-import qualified Formatting as F
-
-import           Pos.Core ()
+import qualified Pos.Chain.Txp as Core
 import qualified Pos.Core as Core
-import           Pos.Crypto ()
-import qualified Pos.Txp as Core
 
-import           Util.Buildable ()
+import           Cardano.Wallet.Kernel.Util.Core (paymentAmount, utxoBalance)
 
-import           Cardano.Wallet.Kernel.CoinSelection ()
-import           Cardano.Wallet.Kernel.Util (paymentAmount, utxoBalance)
-
+-- type class instances
 import           Test.Pos.Core.Arbitrary ()
 
 {-------------------------------------------------------------------------------
@@ -164,7 +162,7 @@ genUtxo o = do
           addr <- arbitraryAddress o
           let txOutAux = Core.TxOutAux (Core.TxOut addr coins)
           return $ Map.singleton txIn txOutAux
-    fromStakeOptions o genValue utxoBalance
+    fromStakeOptions o genValue (Core.unsafeIntegerToCoin . utxoBalance)
 
 -- | Generate some Utxo with @at least@ the supplied amount of money.
 genFiddlyUtxo :: InitialBalance -> Gen Core.Utxo

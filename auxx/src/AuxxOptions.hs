@@ -1,5 +1,6 @@
-{-# LANGUAGE ApplicativeDo #-}
-{-# LANGUAGE QuasiQuotes   #-}
+{-# LANGUAGE ApplicativeDo   #-}
+{-# LANGUAGE QuasiQuotes     #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | Command line options of cardano-auxx
 
@@ -48,7 +49,7 @@ data AuxxStartMode
 
 data AuxxAction
     = Repl
-    | Cmd { cmd :: !Text }
+    | Cmd !Text
 
 ----------------------------------------------------------------------------
 -- Parse action

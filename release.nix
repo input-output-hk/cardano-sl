@@ -4,9 +4,11 @@ in
   { supportedSystems ? [ "x86_64-linux" "x86_64-darwin" ]
   , scrubJobs ? true
   , cardano ? { outPath = ./.; rev = "abcdef"; }
+  , fasterBuild ? false
   , nixpkgsArgs ? {
       config = { allowUnfree = false; inHydra = true; };
       gitrev = cardano.rev;
+      inherit fasterBuild;
     }
   }:
 
@@ -18,32 +20,49 @@ with (import (fixedNixpkgs + "/pkgs/top-level/release-lib.nix") {
 let
   iohkPkgs = import ./. { gitrev = cardano.rev; };
   pkgs = import fixedNixpkgs { config = {}; };
+  shellEnv = import ./shell.nix { };
   wrapDockerImage = cluster: let
     images = {
-      mainnet = iohkPkgs.dockerImages.mainnet.wallet;
-      staging = iohkPkgs.dockerImages.staging.wallet;
+      mainnet = iohkPkgs.dockerImages.mainnet;
+      staging = iohkPkgs.dockerImages.staging;
     };
-    image = images."${cluster}";
-  in pkgs.runCommand "${image.name}-hydra" {} ''
-    mkdir -pv $out/nix-support/
-    cat <<EOF > $out/nix-support/hydra-build-products
-    file dockerimage ${image}
-    EOF
-  '';
+    wrapImage = image: pkgs.runCommand "${image.name}-hydra" {} ''
+      mkdir -pv $out/nix-support/
+      cat <<EOF > $out/nix-support/hydra-build-products
+      file dockerimage ${image}
+      EOF
+    '';
+  in {
+    wallet = wrapImage images."${cluster}".wallet;
+    explorer = wrapImage images."${cluster}".explorer;
+  };
   platforms = {
+    all-cardano-sl = supportedSystems;
+    cardano-report-server = [ "x86_64-linux" ];
+    cardano-report-server-static = [ "x86_64-linux" ];
     cardano-sl = supportedSystems;
     cardano-sl-auxx = supportedSystems;
+    cardano-sl-chain = supportedSystems;
+    cardano-sl-core = supportedSystems;
+    cardano-sl-crypto = supportedSystems;
+    cardano-sl-db = supportedSystems;
+    cardano-sl-explorer = [ "x86_64-linux" ];
+    cardano-sl-explorer-frontend = [ "x86_64-linux" ];
+    cardano-sl-explorer-static = [ "x86_64-linux" ];
+    cardano-sl-generator = supportedSystems;
+    cardano-sl-infra = supportedSystems;
+    cardano-sl-networking = supportedSystems;
     cardano-sl-node-static = supportedSystems;
     cardano-sl-tools = supportedSystems;
+    cardano-sl-tools-post-mortem = supportedSystems;
+    cardano-sl-util = supportedSystems;
     cardano-sl-wallet = supportedSystems;
     cardano-sl-wallet-new = supportedSystems;
-    all-cardano-sl = supportedSystems;
-    cardano-sl-explorer-static = [ "x86_64-linux" ];
-    cardano-sl-explorer-frontend = [ "x86_64-linux" ];
-    cardano-report-server-static = [ "x86_64-linux" ];
-    stack2nix = supportedSystems;
-    purescript = supportedSystems;
+    cardano-sl-x509 = supportedSystems;
     daedalus-bridge = supportedSystems;
+    purescript = supportedSystems;
+    shell = supportedSystems;
+    stack2nix = supportedSystems;
   };
   platforms' = {
     connectScripts.mainnet.wallet   = [ "x86_64-linux" "x86_64-darwin" ];
@@ -70,6 +89,7 @@ let
   };
 in mapped // {
   inherit tests;
+  inherit (pkgs) cabal2nix;
   nixpkgs = let
     wrapped = pkgs.runCommand "nixpkgs" {} ''
       ln -sv ${fixedNixpkgs} $out

@@ -22,15 +22,15 @@ import qualified Data.Set as S
 import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
 import           Formatting (sformat, stext, (%))
 import           Serokell.Util (listChunkedJson, listJsonIndent)
-import           System.Wlog (WithLogger, logDebug)
 
+import           Pos.Chain.Txp (TxId)
 import           Pos.Client.Txp.History (MonadTxHistory, TxHistoryEntry (..),
                      txHistoryListToMap)
 import           Pos.Core (Address, ChainDifficulty, timestampToPosix)
-import           Pos.Core.Txp (TxId)
 import           Pos.Infra.Util.LogSafe (logInfoSP, secureListF)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (eitherToThrow)
+import           Pos.Util.Wlog (WithLogger, logDebug)
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..),
                      getLocalHistory)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
@@ -157,7 +157,7 @@ getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit = do
         (Nothing, Nothing)      -> throwM errorSpecifySomething
         (Just _, Just _)        -> throwM errorDontSpecifyBoth
         (Just cWalId', Nothing) ->
-            let accIds' = \ws -> getWalletAccountIds ws cWalId'
+            let accIds' = (`getWalletAccountIds` cWalId')
              in pure (cWalId', accIds')
         (Nothing, Just accId)   -> pure (aiWId accId, const [accId])
     (WalletHistory unsortedThs, WalletHistorySize n)

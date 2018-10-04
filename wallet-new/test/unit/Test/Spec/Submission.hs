@@ -11,11 +11,10 @@ import           Universum hiding (elems)
 
 import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountId (..),
                      HdAccountIx (..), HdRootId (..), eskToHdRootId)
-import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
-import           Cardano.Wallet.Kernel.DB.Spec (Pending (..), emptyPending,
-                     pendingTransactions, removePending)
+import           Cardano.Wallet.Kernel.DB.Spec.Pending (Pending)
+import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
 import           Cardano.Wallet.Kernel.Submission
-import           Control.Lens (at, non, to)
+import           Control.Lens (anon, at, to)
 import qualified Data.ByteString as BS
 import qualified Data.List as List
 import qualified Data.List.NonEmpty as NonEmpty
@@ -26,19 +25,20 @@ import qualified Data.Vector as V
 import           Formatting (bprint, (%))
 import qualified Formatting as F
 import           Formatting.Buildable (build)
-import qualified Pos.Core as Core
+import qualified Pos.Chain.Txp as Txp
+import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
+import           Pos.Crypto (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (hash)
 import           Pos.Crypto.Signing.Safe (safeDeterministicKeyGen)
-import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
 import           Serokell.Util.Text (listJsonIndent)
-import qualified Test.Pos.Core.Arbitrary.Txp as Core
+import qualified Test.Pos.Chain.Txp.Arbitrary as Txp
 
-import           Cardano.Wallet.Kernel.Util (disjoint)
 import           Test.QuickCheck (Gen, Property, arbitrary, choose, conjoin,
                      forAll, listOf, shuffle, vectorOf, (===))
 import           Test.QuickCheck.Property (counterexample)
 import           Util.Buildable (ShowThroughBuild (..))
 import           Util.Buildable.Hspec
+import           UTxO.Util (disjoint)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
@@ -47,15 +47,13 @@ import           Util.Buildable.Hspec
   modules without having `wallet-new` depends from `cardano-sl-txp-test`.
 -------------------------------------------------------------------------------}
 
-genPending :: Core.ProtocolMagic -> Gen Pending
+genPending :: ProtocolMagic -> Gen Pending
 genPending pMagic = do
-    elems <- listOf (do tx  <- Core.genTx
-                        wit <- (V.fromList <$> listOf (Core.genTxInWitness pMagic))
-                        aux <- Core.TxAux <$> pure tx <*> pure wit
-                        pure (hash tx, aux)
+    elems <- listOf (do tx  <- Txp.genTx
+                        wit <- (V.fromList <$> listOf (Txp.genTxInWitness pMagic))
+                        Txp.TxAux <$> pure tx <*> pure wit
                     )
-    return $ emptyPending & over pendingTransactions (fmap (M.union (M.fromList elems)))
-
+    return $ Pending.fromTransactions elems
 
 -- | An hardcoded 'HdAccountId'.
 myAccountId :: HdAccountId
@@ -77,9 +75,8 @@ myAccountId = HdAccountId {
 genSchedule :: MaxRetries -> Map HdAccountId Pending -> Slot -> Gen Schedule
 genSchedule maxRetries pending (Slot lowerBound) = do
     let pendingTxs  = pending ^. at myAccountId
-                               . non emptyPending
-                               . pendingTransactions
-                               . fromDb . to M.toList
+                               . anon Pending.empty Pending.null
+                               . to Pending.toList
     slots    <- vectorOf (length pendingTxs) (fmap Slot (choose (lowerBound, lowerBound + 10)))
     retries  <- vectorOf (length pendingTxs) (choose (0, maxRetries))
     let events = List.foldl' updateFn mempty (zip3 slots pendingTxs retries)
@@ -92,8 +89,8 @@ genSchedule maxRetries pending (Slot lowerBound) = do
 
 genWalletSubmissionState :: HdAccountId -> MaxRetries -> Gen WalletSubmissionState
 genWalletSubmissionState accId maxRetries = do
-    pending   <- M.singleton accId <$> genPending (Core.ProtocolMagic 0)
-    slot      <- pure (Slot 0) -- Make the layer always start from 0, to make running the specs predictable.
+    pending   <- M.singleton accId <$> genPending (ProtocolMagic 0)
+    let slot  = Slot 0 -- Make the layer always start from 0, to make running the specs predictable.
     scheduler <- genSchedule maxRetries pending slot
     return $ WalletSubmissionState pending scheduler slot
 
@@ -107,9 +104,6 @@ genWalletSubmission accId maxRetries rho =
 {-------------------------------------------------------------------------------
   Submission layer tests
 -------------------------------------------------------------------------------}
-
-instance (Buildable a, Buildable b) => Buildable (a,b) where
-    build (a,b) = bprint ("(" % F.build % "," % F.build % ")") a b
 
 instance Buildable [LabelledTxAux] where
     build xs = bprint (listJsonIndent 4) xs
@@ -133,9 +127,9 @@ shouldContainPending :: Pending
                      -> M.Map HdAccountId Pending
                      -> Bool
 shouldContainPending p1 p2 =
-    let pending1 = p1 ^. pendingTransactions . fromDb
-        pending2 = p2 ^. at myAccountId . non emptyPending . pendingTransactions . fromDb
-    in pending2 `M.isSubmapOf` pending1
+    let pending1 = p1
+        pending2 = p2 ^. at myAccountId . anon Pending.empty Pending.null
+    in pending2 `Pending.isSubsetOf` pending1
 
 -- | Checks that @any@ of the input transactions (in the pending set) appears
 -- in the local pending set of the given 'WalletSubmission'.
@@ -143,75 +137,70 @@ doesNotContainPending :: M.Map HdAccountId Pending
                       -> WalletSubmission
                       -> Bool
 doesNotContainPending p ws =
-    let pending      = p ^. at myAccountId . non emptyPending . pendingTransactions . fromDb
-        localPending = ws ^. localPendingSet myAccountId . pendingTransactions . fromDb
-    in M.intersection localPending pending == mempty
+    let pending      = p ^. at myAccountId . anon Pending.empty Pending.null
+        localPending = ws ^. localPendingSet myAccountId
+    in Pending.disjoint localPending pending
 
-toTxIdSet :: Pending -> Set Core.TxId
-toTxIdSet p = S.fromList $ map fst (p ^. pendingTransactions . fromDb . to M.toList)
+toTxIdSet :: Pending -> Set Txp.TxId
+toTxIdSet = Pending.transactionIds
 
-toTxIdSet' :: M.Map HdAccountId Pending -> Set Core.TxId
-toTxIdSet' p =
-    S.fromList $ map fst (p ^. at myAccountId
-                             . non emptyPending
-                             . pendingTransactions
-                             . fromDb . to M.toList
-                         )
+toTxIdSet' :: M.Map HdAccountId Pending -> Set Txp.TxId
+toTxIdSet' p = p ^. at myAccountId
+                  . anon Pending.empty Pending.null
+                  . to Pending.transactionIds
 
-toTxIdSet'' :: M.Map HdAccountId (Set Core.TxId) -> Set Core.TxId
-toTxIdSet'' p = p ^. at myAccountId . non mempty
+toTxIdSet'' :: M.Map HdAccountId (Set Txp.TxId) -> Set Txp.TxId
+toTxIdSet'' p = p ^. at myAccountId . anon S.empty S.null
 
-pendingFromTxs :: [Core.TxAux] -> Pending
-pendingFromTxs txs =
-    let entries = map (\t -> (hash (Core.taTx t), t)) txs
-    in emptyPending & (pendingTransactions . fromDb) .~ (M.fromList entries)
+pendingFromTxs :: [Txp.TxAux] -> Pending
+pendingFromTxs = Pending.fromTransactions
 
 data LabelledTxAux = LabelledTxAux {
       labelledTxLabel :: String
-    , labelledTxAux   :: Core.TxAux
+    , labelledTxAux   :: Txp.TxAux
     }
 
 instance Buildable LabelledTxAux where
     build labelled =
-         let tx = Core.taTx (labelledTxAux labelled)
+         let tx = Txp.taTx (labelledTxAux labelled)
          in bprint (F.shown % " [" % F.build % "] -> " % listJsonIndent 4) (labelledTxLabel labelled) (hash tx) (inputsOf tx)
       where
-          inputsOf :: Core.Tx -> [Core.TxIn]
-          inputsOf tx = NonEmpty.toList (Core._txInputs tx)
+          inputsOf :: Txp.Tx -> [Txp.TxIn]
+          inputsOf tx = NonEmpty.toList (Txp._txInputs tx)
 
 -- Generates 4 transactions A, B, C, D such that
 -- D -> C -> B -> A (C depends on B which depends on A)
 dependentTransactions :: Gen (LabelledTxAux, LabelledTxAux, LabelledTxAux, LabelledTxAux)
 dependentTransactions = do
     let emptyAttributes = Attributes () (UnparsedFields mempty)
-    inputForA  <- (Core.TxInUtxo <$> arbitrary <*> arbitrary)
-    outputForA <- (Core.TxOut <$> arbitrary <*> arbitrary)
-    outputForB <- (Core.TxOut <$> arbitrary <*> arbitrary)
-    outputForC <- (Core.TxOut <$> arbitrary <*> arbitrary)
-    outputForD <- (Core.TxOut <$> arbitrary <*> arbitrary)
-    [a,b,c,d] <- vectorOf 4 (Core.genTxAux (Core.ProtocolMagic 0))
-    let a' = a { Core.taTx = (Core.taTx a) {
-                     Core._txInputs  = inputForA :| mempty
-                   , Core._txOutputs = outputForA :| mempty
-                   , Core._txAttributes = emptyAttributes
+    inputForA  <- (Txp.TxInUtxo <$> arbitrary <*> arbitrary)
+    outputForA <- (Txp.TxOut <$> arbitrary <*> arbitrary)
+    outputForB <- (Txp.TxOut <$> arbitrary <*> arbitrary)
+    outputForC <- (Txp.TxOut <$> arbitrary <*> arbitrary)
+    outputForD <- (Txp.TxOut <$> arbitrary <*> arbitrary)
+    [a,b,c,d] <- vectorOf 4 (Txp.genTxAux (ProtocolMagic 0))
+    let a' = a { Txp.taTx = (Txp.taTx a) {
+                     Txp._txInputs  = inputForA :| mempty
+                   , Txp._txOutputs = outputForA :| mempty
+                   , Txp._txAttributes = emptyAttributes
                    }
                }
-    let b' = b { Core.taTx = (Core.taTx b) {
-                     Core._txInputs = Core.TxInUtxo (hash (Core.taTx a')) 0 :| mempty
-                   , Core._txOutputs = outputForB :| mempty
-                   , Core._txAttributes = emptyAttributes
+    let b' = b { Txp.taTx = (Txp.taTx b) {
+                     Txp._txInputs = Txp.TxInUtxo (hash (Txp.taTx a')) 0 :| mempty
+                   , Txp._txOutputs = outputForB :| mempty
+                   , Txp._txAttributes = emptyAttributes
                    }
                }
-    let c' = c { Core.taTx = (Core.taTx c) {
-                     Core._txInputs = Core.TxInUtxo (hash (Core.taTx b')) 0 :| mempty
-                   , Core._txOutputs = outputForC :| mempty
-                   , Core._txAttributes = emptyAttributes
+    let c' = c { Txp.taTx = (Txp.taTx c) {
+                     Txp._txInputs = Txp.TxInUtxo (hash (Txp.taTx b')) 0 :| mempty
+                   , Txp._txOutputs = outputForC :| mempty
+                   , Txp._txAttributes = emptyAttributes
                    }
                }
-    let d' = d { Core.taTx = (Core.taTx d) {
-                     Core._txInputs = Core.TxInUtxo (hash (Core.taTx c')) 0 :| mempty
-                   , Core._txOutputs = outputForD :| mempty
-                   , Core._txAttributes = emptyAttributes
+    let d' = d { Txp.taTx = (Txp.taTx d) {
+                     Txp._txInputs = Txp.TxInUtxo (hash (Txp.taTx c')) 0 :| mempty
+                   , Txp._txOutputs = outputForD :| mempty
+                   , Txp._txAttributes = emptyAttributes
                    }
                }
     return ( LabelledTxAux "B" b'
@@ -230,15 +219,15 @@ genPureWalletSubmission accId =
 genPurePair :: Gen (ShowThroughBuild (WalletSubmission, M.Map HdAccountId Pending))
 genPurePair = do
     STB layer <- genPureWalletSubmission myAccountId
-    pending <- genPending (Core.ProtocolMagic 0)
-    let pending' = removePending (toTxIdSet $ layer ^. localPendingSet myAccountId) pending
+    pending <- genPending (ProtocolMagic 0)
+    let pending' = Pending.delete (toTxIdSet $ layer ^. localPendingSet myAccountId) pending
     pure $ STB (layer, M.singleton myAccountId pending')
 
 class ToTxIds a where
-    toTxIds :: a -> [Core.TxId]
+    toTxIds :: a -> [Txp.TxId]
 
-instance ToTxIds Core.TxAux where
-    toTxIds tx = [hash (Core.taTx tx)]
+instance ToTxIds Txp.TxAux where
+    toTxIds tx = [hash (Txp.taTx tx)]
 
 instance ToTxIds LabelledTxAux where
     toTxIds (LabelledTxAux _ txAux) = toTxIds txAux
@@ -247,7 +236,7 @@ instance ToTxIds a => ToTxIds [a] where
     toTxIds = mconcat . map toTxIds
 
 instance ToTxIds Pending where
-    toTxIds p = map fst . M.toList $ p ^. pendingTransactions . fromDb
+    toTxIds = S.toList . Pending.transactionIds
 
 instance ToTxIds ScheduleSend where
     toTxIds (ScheduleSend _ txId _ _) = [txId]
@@ -266,21 +255,21 @@ isSubsetOf = failIf "not infix of" S.isSubsetOf
 includeEvent :: String -> ScheduleEvents -> LabelledTxAux -> Property
 includeEvent label se tx =
     failIf (label <> ": doesn't include event")
-           (\t s -> hash (Core.taTx (labelledTxAux t)) `List.elem` toTxIds (s ^. seToSend)) tx se
+           (\t s -> hash (Txp.taTx (labelledTxAux t)) `List.elem` toTxIds (s ^. seToSend)) tx se
 
 includeEvents :: String -> ScheduleEvents -> [LabelledTxAux] -> Property
 includeEvents label se txs = failIf (label <> ": not includes all of") checkEvent se txs
     where
         checkEvent :: ScheduleEvents -> [LabelledTxAux] -> Bool
         checkEvent (ScheduleEvents toSend _) =
-          all (\t -> hash (Core.taTx (labelledTxAux t)) `List.elem` toTxIds toSend)
+          all (\t -> hash (Txp.taTx (labelledTxAux t)) `List.elem` toTxIds toSend)
 
 mustNotIncludeEvents :: String -> ScheduleEvents -> [LabelledTxAux] -> Property
 mustNotIncludeEvents label se txs = failIf (label <> ": does include one of") checkEvent se txs
     where
         checkEvent :: ScheduleEvents -> [LabelledTxAux] -> Bool
         checkEvent (ScheduleEvents toSend _) =
-          all (\t -> not $ hash (Core.taTx (labelledTxAux t)) `List.elem` toTxIds toSend)
+          all (\t -> not $ hash (Txp.taTx (labelledTxAux t)) `List.elem` toTxIds toSend)
 
 addPending' :: M.Map HdAccountId Pending
             -> WalletSubmission
@@ -315,7 +304,7 @@ spec = do
                                                            (toTxIdSet' pending)
                                                            (addPending' pending submission)
                                            )
-              in failIf "the two pending set are not equal" (==) originallyPending currentlyPending
+              in failIf "the two pending set are not equal" ((==) `on` Pending.transactions) originallyPending currentlyPending
 
       it "increases its internal slot after ticking" $ do
           forAll (genPureWalletSubmission myAccountId) $ \(unSTB -> submission) ->

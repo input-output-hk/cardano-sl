@@ -17,20 +17,21 @@ import           Control.Exception.Safe (try)
 import           Data.List ((!!), (\\))
 import           Data.List.NonEmpty (fromList)
 import           Formatting (build, sformat, (%))
-import           Test.Hspec (Spec, describe, shouldBe)
+import           Test.Hspec (Spec, beforeAll_, describe, shouldBe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import           Test.QuickCheck (arbitrary, choose, generate)
 import           Test.QuickCheck.Monadic (pick)
 
+import           Pos.Chain.Txp (Tx (..), TxAux (..), TxFee (..),
+                     TxpConfiguration, _TxOut)
+import           Pos.Chain.Update (bvdTxFeePolicy)
 import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), txToLinearFee)
-import           Pos.Core (Address, Coin, TxFeePolicy (..), bvdTxFeePolicy,
-                     mkCoin, sumCoins, unsafeGetCoin, unsafeSubCoin)
-import           Pos.Core.Txp (Tx (..), TxAux (..), _TxOut)
+import           Pos.Core (Address, Coin, TxFeePolicy (..), mkCoin, sumCoins,
+                     unsafeGetCoin, unsafeSubCoin)
 import           Pos.Crypto (PassPhrase)
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.Launcher (HasConfigurations)
-import           Pos.Txp (TxFee (..))
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Wallet.Web.Account (myRootAddresses)
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccount (..), CId, CTx (..),
@@ -44,14 +45,14 @@ import           Pos.Wallet.Web.State.Storage (AddressInfo (..), wamAddress)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow)
 
 import           Pos.Util.Servant (encodeCType)
+import           Pos.Util.Wlog (setupTestLogging)
 
+import           Test.Pos.Chain.Genesis.Dummy (dummyConfig, dummyGenesisData)
 import           Test.Pos.Configuration (withDefConfigurations)
-import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty, expectedOne,
                      maybeStopProperty, splitWord, stopProperty)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty, getSentTxs,
                      submitTxTestMode, walletPropertySpec)
-
 import           Test.Pos.Wallet.Web.Util (deriveRandomAddress,
                      expectedAddrBalance, importSomeWallets,
                      mostlyEmptyPassphrases)
@@ -61,12 +62,13 @@ deriving instance Eq CTx
 
 -- TODO remove HasCompileInfo when MonadWalletWebMode will be splitted.
 spec :: Spec
-spec = withCompileInfo $
-       withDefConfigurations $ \_ _ ->
+spec = beforeAll_ setupTestLogging $
+    withCompileInfo $
+       withDefConfigurations $ \_ txpConfig _ ->
        describe "Wallet.Web.Methods.Payment" $ modifyMaxSuccess (const 10) $ do
     describe "newPaymentBatch" $ do
-        describe "Submitting a payment when restoring" rejectPaymentIfRestoringSpec
-        describe "One payment" oneNewPaymentBatchSpec
+        describe "Submitting a payment when restoring" (rejectPaymentIfRestoringSpec txpConfig)
+        describe "One payment" (oneNewPaymentBatchSpec txpConfig)
 
 data PaymentFixture = PaymentFixture {
       pswd        :: PassPhrase
@@ -81,7 +83,7 @@ data PaymentFixture = PaymentFixture {
 }
 
 -- | Generic block of code to be reused across all the different payment specs.
-newPaymentFixture :: HasConfigurations => WalletProperty PaymentFixture
+newPaymentFixture :: WalletProperty PaymentFixture
 newPaymentFixture = do
     passphrases <- importSomeWallets mostlyEmptyPassphrases
     let l = length passphrases
@@ -101,7 +103,7 @@ newPaymentFixture = do
     ws <- WS.askWalletSnapshot
     srcAddr <- getAddress ws srcAccId
     -- Dunno how to get account's balances without CAccModifier
-    initBalance <- getBalance srcAddr
+    initBalance <- getBalance dummyGenesisData srcAddr
     -- `div` 2 to leave money for tx fee
     let topBalance = unsafeGetCoin initBalance `div` 2
     coins <- pick $ map mkCoin <$> splitWord topBalance (fromIntegral destLen)
@@ -120,15 +122,15 @@ newPaymentFixture = do
 
 -- | Assess that if we try to submit a payment when the wallet is restoring,
 -- the backend prevents us from doing that.
-rejectPaymentIfRestoringSpec :: HasConfigurations => Spec
-rejectPaymentIfRestoringSpec = walletPropertySpec "should fail with 403" $ do
+rejectPaymentIfRestoringSpec :: HasConfigurations => TxpConfiguration -> Spec
+rejectPaymentIfRestoringSpec txpConfig = walletPropertySpec "should fail with 403" $ do
     PaymentFixture{..} <- newPaymentFixture
-    res <- lift $ try (newPaymentBatch dummyProtocolMagic submitTxTestMode pswd batch)
+    res <- lift $ try (newPaymentBatch dummyConfig txpConfig submitTxTestMode pswd batch)
     liftIO $ shouldBe res (Left (err403 { errReasonPhrase = "Transaction creation is disabled when the wallet is restoring." }))
 
 -- | Test one single, successful payment.
-oneNewPaymentBatchSpec :: HasConfigurations => Spec
-oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
+oneNewPaymentBatchSpec :: HasConfigurations => TxpConfiguration -> Spec
+oneNewPaymentBatchSpec txpConfig = walletPropertySpec oneNewPaymentBatchDesc $ do
     PaymentFixture{..} <- newPaymentFixture
 
     -- Force the wallet to be in a (fake) synced state
@@ -136,7 +138,7 @@ oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
     randomSyncTip <- liftIO $ generate arbitrary
     WS.setWalletSyncTip db walId randomSyncTip
 
-    void $ lift $ newPaymentBatch dummyProtocolMagic submitTxTestMode pswd batch
+    void $ lift $ newPaymentBatch dummyConfig txpConfig submitTxTestMode pswd batch
     dstAddrs <- lift $ mapM decodeCTypeOrFail dstCAddrs
     txLinearPolicy <- lift $ (bvdTxFeePolicy <$> gsAdoptedBVData) <&> \case
         TxFeePolicyTxSizeLinear linear -> linear
@@ -154,7 +156,8 @@ oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
     mapM_ (uncurry expectedAddrBalance) $ zip dstAddrs coins
     when (policy == OptimizeForSecurity) $
         expectedAddrBalance srcAddr (mkCoin 0)
-    changeBalance <- mkCoin . fromIntegral . sumCoins <$> mapM getBalance changeAddrs
+    changeBalance <- mkCoin . fromIntegral . sumCoins
+        <$> mapM (getBalance dummyGenesisData) changeAddrs
     assertProperty (changeBalance <= initBalance `unsafeSubCoin` fee) $
         "Minimal tx fee isn't satisfied"
 

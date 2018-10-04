@@ -1,5 +1,6 @@
-{-# LANGUAGE ApplicativeDo #-}
-{-# LANGUAGE QuasiQuotes   #-}
+{-# LANGUAGE ApplicativeDo   #-}
+{-# LANGUAGE QuasiQuotes     #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module KeygenOptions
        ( KeygenOptions (..)
@@ -19,9 +20,9 @@ import           Options.Applicative (Parser, auto, command, execParser,
                      metavar, option, progDesc, short, strOption, subparser,
                      switch, value)
 
-import           Pos.Client.CLI (configurationOptionsParser)
-import           Pos.Core.Genesis (FakeAvvmOptions (..),
+import           Pos.Chain.Genesis (FakeAvvmOptions (..),
                      TestnetBalanceOptions (..))
+import           Pos.Client.CLI (configurationOptionsParser)
 import           Pos.Launcher (ConfigurationOptions)
 
 import           Paths_cardano_sl (version)

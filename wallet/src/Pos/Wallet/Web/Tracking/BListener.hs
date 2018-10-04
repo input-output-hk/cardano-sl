@@ -17,17 +17,15 @@ import           Control.Lens (to)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (convertUnit)
 import           Formatting (build, sformat, (%))
-import           System.Wlog (HasLoggerName (modifyLoggerName), WithLogger)
 
-import           Pos.Block.BListener (MonadBListener (..))
-import           Pos.Block.Types (Blund, undoTx)
-import           Pos.Core (HeaderHash, Timestamp, difficultyL, headerSlotL,
-                     prevBlockL)
-import           Pos.Core.Block (BlockHeader (..), blockHeader, getBlockHeader,
-                     mainBlockTxPayload)
+import           Pos.Chain.Block (BlockHeader (..), Blund, HeaderHash,
+                     blockHeader, getBlockHeader, headerSlotL,
+                     mainBlockTxPayload, prevBlockL, undoTx)
+import           Pos.Chain.Txp (TxAux (..), TxUndo, flattenTxPayload)
+import           Pos.Core (ProtocolConstants, Timestamp, difficultyL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.Core.Txp (TxAux (..), TxUndo)
 import           Pos.DB.BatchOp (SomeBatchOp)
+import           Pos.DB.Block (MonadBListener (..))
 import           Pos.DB.Class (MonadDBRead)
 import qualified Pos.GState as GS
 import           Pos.Infra.Reporting (MonadReporting, reportOrLogE)
@@ -37,10 +35,10 @@ import           Pos.Infra.Slotting (MonadSlots, MonadSlotsData,
 import           Pos.Infra.Util.LogSafe (buildSafe, logInfoSP, logWarningSP,
                      secretOnlyF, secure)
 import           Pos.Infra.Util.TimeLimit (CanLogInParallel, logWarningWaitInf)
-import           Pos.Txp.Base (flattenTxPayload)
-import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
+import           Pos.Util.Wlog (HasLoggerName (modifyLoggerName), WithLogger)
+import           Pos.Wallet.Web.Tracking.Decrypt (keyToWalletDecrCredentials)
 
-import           Pos.Wallet.Web.Account (AccountMode, getSKById)
+import           Pos.Wallet.Web.Account (AccountMode, getKeyById)
 import           Pos.Wallet.Web.ClientTypes (CId, Wal)
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..))
@@ -107,9 +105,8 @@ onApplyBlocksWebWallet blunds = setLogger . reportTimeouts "apply" $ do
         -> m ()
     syncWallet db ws curTip newTipH blkTxsWUndo wAddr = walletGuard ws curTip wAddr $ do
         blkHeaderTs <- blkHeaderTsGetter
-        encSK <- getSKById wAddr
+        credentials <- keyToWalletDecrCredentials <$> getKeyById wAddr
 
-        let credentials = eskToWalletDecrCredentials encSK
         let dbUsed = WS.getCustomAddresses ws WS.UsedAddr
         let applyBlockWith trackingOp = do
               let mapModifier = trackingApplyTxs credentials dbUsed gbDiff blkHeaderTs ptxBlkInfo blkTxsWUndo
@@ -125,16 +122,18 @@ onApplyBlocksWebWallet blunds = setLogger . reportTimeouts "apply" $ do
 
 -- Perform this action under block lock.
 onRollbackBlocksWebWallet
-    :: forall ctx m .
-    ( AccountMode ctx m
-    , WS.WalletDbReader ctx m
-    , MonadDBRead m
-    , MonadSlots ctx m
-    , MonadReporting m
-    , CanLogInParallel m
-    )
-    => NewestFirst NE Blund -> m SomeBatchOp
-onRollbackBlocksWebWallet blunds = setLogger . reportTimeouts "rollback" $ do
+    :: forall ctx m
+     . ( AccountMode ctx m
+       , WS.WalletDbReader ctx m
+       , MonadDBRead m
+       , MonadSlots ctx m
+       , MonadReporting m
+       , CanLogInParallel m
+       )
+    => ProtocolConstants
+    -> NewestFirst NE Blund
+    -> m SomeBatchOp
+onRollbackBlocksWebWallet pc blunds = setLogger . reportTimeouts "rollback" $ do
     db <- WS.askWalletDB
     ws <- WS.getWalletSnapshot db
     let newestFirst = getNewestFirst blunds
@@ -157,13 +156,13 @@ onRollbackBlocksWebWallet blunds = setLogger . reportTimeouts "rollback" $ do
         -> CId Wal
         -> m ()
     syncWallet db ws curTip newTip txs wid = walletGuard ws curTip wid $ do
-        encSK <- getSKById wid
+        credentials <- keyToWalletDecrCredentials <$> getKeyById wid
         blkHeaderTs <- blkHeaderTsGetter
 
         let rollbackBlockWith trackingOperation = do
               let dbUsed = WS.getCustomAddresses ws WS.UsedAddr
-                  mapModifier = trackingRollbackTxs (eskToWalletDecrCredentials encSK) dbUsed gbDiff blkHeaderTs txs
-              rollbackModifierFromWallet db trackingOperation wid newTip mapModifier
+                  mapModifier = trackingRollbackTxs credentials dbUsed gbDiff blkHeaderTs txs
+              rollbackModifierFromWallet pc db trackingOperation wid newTip mapModifier
               logMsg "Rolled back" (getNewestFirst blunds) wid mapModifier
 
         rollbackBlockWith SyncWallet

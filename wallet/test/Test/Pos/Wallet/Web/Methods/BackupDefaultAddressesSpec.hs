@@ -9,10 +9,12 @@ import           Universum
 
 import           Pos.Launcher (HasConfigurations)
 
+import           Pos.Util.Wlog (setupTestLogging)
 import           Pos.Wallet.Web.ClientTypes (CWallet (..))
 import           Pos.Wallet.Web.Methods.Restore (restoreWalletFromBackup)
-import           Test.Hspec (Spec, describe)
+import           Test.Hspec (Spec, beforeAll_, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
+import           Test.Pos.Chain.Genesis.Dummy (dummyConfig)
 import           Test.Pos.Configuration (withDefConfigurations)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty)
 import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
@@ -20,15 +22,17 @@ import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Monadic (pick)
 
 spec :: Spec
-spec = withDefConfigurations $ \_ _ ->
-       describe "restoreAddressFromWalletBackup" $ modifyMaxSuccess (const 10) $ do
-           restoreWalletAddressFromBackupSpec
+spec = beforeAll_ setupTestLogging $
+            withDefConfigurations $ \_ _ _ ->
+                describe "restoreAddressFromWalletBackup" $ modifyMaxSuccess (const 10) $ do
+                    restoreWalletAddressFromBackupSpec
 
 restoreWalletAddressFromBackupSpec :: HasConfigurations => Spec
 restoreWalletAddressFromBackupSpec =
     walletPropertySpec restoreWalletAddressFromBackupDesc $ do
         walletBackup   <- pick arbitrary
-        restoredWallet <- lift $ restoreWalletFromBackup walletBackup
+        restoredWallet <- lift
+            $ restoreWalletFromBackup dummyConfig walletBackup
         let noOfAccounts = cwAccountsNumber restoredWallet
         assertProperty (noOfAccounts > 0) $ "Exported wallet has no accounts!"
   where

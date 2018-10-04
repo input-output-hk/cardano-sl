@@ -26,13 +26,15 @@ import           Universum
 
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
-import           Mockable.Production (Production)
 
-import           Pos.Core (HasConfiguration, Timestamp)
+import           Pos.Core (Timestamp)
+import           Pos.Core.Slotting (MonadSlotsData)
 import           Pos.DB (NodeDBs)
 import           Pos.DB.Block (dbGetSerBlockRealDefault,
-                     dbGetSerUndoRealDefault, dbPutSerBlundsRealDefault)
+                     dbGetSerBlundRealDefault, dbGetSerUndoRealDefault,
+                     dbPutSerBlundsRealDefault)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
+import           Pos.DB.Lrc (LrcContext)
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault,
                      dbIterSourceDefault, dbPutDefault, dbWriteBatchDefault)
 import           Pos.Infra.Slotting (HasSlottingVar (..))
@@ -40,9 +42,7 @@ import           Pos.Infra.Slotting.Class (MonadSlots (..))
 import           Pos.Infra.Slotting.Impl (SimpleSlottingStateVar,
                      currentTimeSlottingSimple, getCurrentSlotBlockingSimple,
                      getCurrentSlotInaccurateSimple, getCurrentSlotSimple)
-import           Pos.Infra.Slotting.MemState (MonadSlotsData)
 import           Pos.Infra.Slotting.Types (SlottingData)
-import           Pos.Lrc.Context (LrcContext)
 import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.Util (HasLens (..))
 
@@ -57,9 +57,9 @@ data InitModeContext = InitModeContext
 
 makeLensesWith postfixLFields ''InitModeContext
 
-type InitMode = Mtl.ReaderT InitModeContext Production
+type InitMode = Mtl.ReaderT InitModeContext IO
 
-runInitMode :: InitModeContext -> InitMode a -> Production a
+runInitMode :: InitModeContext -> InitMode a -> IO a
 runInitMode = flip Mtl.runReaderT
 
 instance HasLens NodeDBs InitModeContext NodeDBs where
@@ -75,21 +75,20 @@ instance HasSlottingVar InitModeContext where
     slottingTimestamp = imcSlottingVar_L . _1
     slottingVar = imcSlottingVar_L . _2
 
-instance HasConfiguration => MonadDBRead InitMode where
+instance MonadDBRead InitMode where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
     dbGetSerBlock = dbGetSerBlockRealDefault
     dbGetSerUndo = dbGetSerUndoRealDefault
+    dbGetSerBlund = dbGetSerBlundRealDefault
 
-instance HasConfiguration => MonadDB InitMode where
+instance MonadDB InitMode where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
     dbPutSerBlunds = dbPutSerBlundsRealDefault
 
-instance (HasConfiguration, MonadSlotsData ctx InitMode) =>
-         MonadSlots ctx InitMode
-  where
+instance MonadSlotsData ctx InitMode => MonadSlots ctx InitMode where
     getCurrentSlot           = getCurrentSlotSimple
     getCurrentSlotBlocking   = getCurrentSlotBlockingSimple
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple

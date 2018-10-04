@@ -1,4 +1,5 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 -- | Explorer's version of Toil logic.
 
@@ -17,14 +18,17 @@ import qualified Data.HashSet as HS
 import           Data.List (delete)
 import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat, (%))
-import           System.Wlog (logError)
 
-import           Pos.Core (Address, BlockVersionData, Coin, EpochIndex,
-                     HasConfiguration, HeaderHash, Timestamp, mkCoin, sumCoins,
-                     unsafeAddCoin, unsafeSubCoin)
+import           Pos.Chain.Block (HeaderHash)
+import           Pos.Chain.Genesis (GenesisWStakeholders)
+import           Pos.Chain.Txp (ToilVerFailure (..), Tx (..), TxAux (..), TxId,
+                     TxOut (..), TxOutAux (..), TxUndo, TxpConfiguration,
+                     extendGlobalToilM, extendLocalToilM, topsortTxs, _TxOut)
+import qualified Pos.Chain.Txp as Txp
+import           Pos.Chain.Update (BlockVersionData)
+import           Pos.Core (Address, Coin, EpochIndex, Timestamp, mkCoin,
+                     sumCoins, unsafeAddCoin, unsafeSubCoin)
 import           Pos.Core.Chrono (NewestFirst (..))
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxOut (..),
-                     TxOutAux (..), TxUndo, _TxOut)
 import           Pos.Crypto (ProtocolMagic, WithHash (..), hash)
 import           Pos.Explorer.Core (AddrHistory, TxExtra (..))
 import           Pos.Explorer.Txp.Toil.Monad (EGlobalToilM, ELocalToilM,
@@ -32,12 +36,8 @@ import           Pos.Explorer.Txp.Toil.Monad (EGlobalToilM, ELocalToilM,
                      explorerExtraMToEGlobalToilM, explorerExtraMToELocalToilM,
                      getAddrBalance, getAddrHistory, getTxExtra, getUtxoSum,
                      putAddrBalance, putTxExtra, putUtxoSum, updateAddrHistory)
-import           Pos.Txp.Configuration (HasTxpConfiguration)
-import           Pos.Txp.Toil (ToilVerFailure (..), extendGlobalToilM,
-                     extendLocalToilM)
-import qualified Pos.Txp.Toil as Txp
-import           Pos.Txp.Topsort (topsortTxs)
 import           Pos.Util.Util (Sign (..))
+import           Pos.Util.Wlog (logError)
 
 ----------------------------------------------------------------------------
 -- Global
@@ -45,14 +45,14 @@ import           Pos.Util.Util (Sign (..))
 
 -- | Apply transactions from one block. They must be valid (for
 -- example, it implies topological sort).
-eApplyToil ::
-       HasConfiguration
-    => Maybe Timestamp
+eApplyToil
+    :: GenesisWStakeholders
+    -> Maybe Timestamp
     -> [(TxAux, TxUndo)]
     -> HeaderHash
     -> EGlobalToilM ()
-eApplyToil mTxTimestamp txun hh = do
-    extendGlobalToilM $ Txp.applyToil txun
+eApplyToil bootStakeholders mTxTimestamp txun hh = do
+    extendGlobalToilM $ Txp.applyToil bootStakeholders txun
     explorerExtraMToEGlobalToilM $ mapM_ applier $ zip [0..] txun
   where
     applier :: (Word32, (TxAux, TxUndo)) -> ExplorerExtraM ()
@@ -67,9 +67,9 @@ eApplyToil mTxTimestamp txun hh = do
         updateUtxoSumFromBalanceUpdate balanceUpdate
 
 -- | Rollback transactions from one block.
-eRollbackToil :: HasConfiguration => [(TxAux, TxUndo)] -> EGlobalToilM ()
-eRollbackToil txun = do
-    extendGlobalToilM $ Txp.rollbackToil txun
+eRollbackToil :: GenesisWStakeholders -> [(TxAux, TxUndo)] -> EGlobalToilM ()
+eRollbackToil bootStakeholders txun = do
+    extendGlobalToilM $ Txp.rollbackToil bootStakeholders txun
     explorerExtraMToEGlobalToilM $ mapM_ extraRollback $ reverse txun
   where
     extraRollback :: (TxAux, TxUndo) -> ExplorerExtraM ()
@@ -91,15 +91,15 @@ eRollbackToil txun = do
 -- | Verify one transaction and also add it to mem pool and apply to utxo
 -- if transaction is valid.
 eProcessTx
-    :: HasTxpConfiguration
-    => ProtocolMagic
+    :: ProtocolMagic
+    -> TxpConfiguration
     -> BlockVersionData
     -> EpochIndex
     -> (TxId, TxAux)
     -> (TxUndo -> TxExtra)
     -> ExceptT ToilVerFailure ELocalToilM ()
-eProcessTx pm bvd curEpoch tx@(id, aux) createExtra = do
-    undo <- mapExceptT extendLocalToilM $ Txp.processTx pm bvd mempty curEpoch tx
+eProcessTx pm txpConfig bvd curEpoch tx@(id, aux) createExtra = do
+    undo <- mapExceptT extendLocalToilM $ Txp.processTx pm txpConfig bvd curEpoch tx
     lift $ explorerExtraMToELocalToilM $ do
         let extra = createExtra undo
         putTxExtraWithHistory id extra $ getTxRelatedAddrs aux undo
@@ -110,17 +110,17 @@ eProcessTx pm bvd curEpoch tx@(id, aux) createExtra = do
 -- | Get rid of invalid transactions.
 -- All valid transactions will be added to mem pool and applied to utxo.
 eNormalizeToil
-    :: HasTxpConfiguration
-    => ProtocolMagic
+    :: ProtocolMagic
+    -> TxpConfiguration
     -> BlockVersionData
     -> EpochIndex
     -> [(TxId, (TxAux, TxExtra))]
     -> ELocalToilM ()
-eNormalizeToil pm bvd curEpoch txs = mapM_ normalize ordered
+eNormalizeToil pm txpConfig bvd curEpoch txs = mapM_ normalize ordered
   where
     ordered = fromMaybe txs $ topsortTxs wHash txs
     wHash (i, (txAux, _)) = WithHash (taTx txAux) i
-    normalize = runExceptT . uncurry (eProcessTx pm bvd curEpoch) . repair
+    normalize = runExceptT . uncurry (eProcessTx pm txpConfig bvd curEpoch) . repair
     repair (i, (txAux, extra)) = ((i, txAux), const extra)
 
 ----------------------------------------------------------------------------

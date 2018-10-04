@@ -53,10 +53,11 @@ Two steps remain, then:
         $ sudo mkdir -p /etc/nix
         $ sudo vi /etc/nix/nix.conf       # ..or any other editor, if you prefer
 
-    ..and then add two following lines:
+    and then add the following lines:
 
-        binary-caches            = https://cache.nixos.org https://hydra.iohk.io
-        binary-cache-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
+        substituters = https://hydra.iohk.io https://cache.nixos.org/
+        trusted-substituters =
+        trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
 
 2.  Actually building the Cardano SL node (or, most likely, simply obtaining it
     from the IOHK's binary caches) can be performed by building the attribute `cardano-sl-node-static`:
@@ -165,6 +166,45 @@ Run the building script:
 
     $ cd cardano-sl
     [~/cardano-sl]$ ./scripts/build/cardano-sl.sh
+
+## `cabal new-build` and Nix (experimental, for developers)
+
+This type of build gives you a multi-package project with incremental
+builds, where the all of the build dependencies (Haskell packages and
+system libraries) are downloaded from the binary cache and available
+in the shell.
+
+See the previous section on how to set up the IOHK binary cache.
+
+Before you start, install a recent version of `cabal` into your
+profile. The package set used by cardano-sl (nixpkgs 18.03) only has
+cabal 2.0.0.1 which doesn't work.
+
+    [nix-shell:~]$ nix-env -f channel:nixos-18.09 -iA pkgs.cabal-install
+
+Enter the `nix-shell`:
+
+    [nix-shell:~/cardano-sl]$ nix-shell
+
+Let cabal find its dependencies (already provided by the `nix-shell`):
+
+    [nix-shell:~/cardano-sl]$ cabal new-configure
+
+After that, to build all cardano-sl packages:
+
+    [nix-shell:~/cardano-sl]$ cabal new-build all
+
+To start a GHCi session for a component (wallet-new for example), run:
+
+    [nix-shell:~/cardano-sl]$ cabal new-repl cardano-sl-wallet-new
+
+### Known issues
+
+ - `cabal-install` is not provided by the Nix shell environment. You
+   have to install it yourself.
+ - There needs to be a package version override in `cabal.project` for
+   some unknown reason.
+
 
 ## Daedalus Wallet
 

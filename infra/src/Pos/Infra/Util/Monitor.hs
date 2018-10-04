@@ -11,7 +11,7 @@ import           Universum
 import           Control.Concurrent (killThread)
 import           Node (Node)
 import           Node.Util.Monitor (registerMetrics)
-import           Pos.System.Metrics.Constants (cardanoNamespace)
+import           Pos.Core.Metrics.Constants (cardanoNamespace)
 import qualified System.Metrics as Monitoring
 import qualified System.Remote.Monitoring.Wai as Monitoring
 

@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns     #-}
+{-# LANGUAGE RecordWildCards  #-}
 {-# LANGUAGE TypeApplications #-}
 
 import           Control.Applicative (empty)
@@ -27,8 +28,7 @@ import           Bench.Network.Commons (LogMessage (..), MeasureEvent (..),
                      logMessageParser, measureInfoParser)
 import           LogReaderOptions (Args (..), argsParser)
 import           Pos.Util.Trace (Severity (..), Trace, traceWith, wlogTrace)
-import           System.Wlog (productionB, setupLogging)
-import           System.Wlog.Formatter (centiUtcTimeF)
+import           Pos.Util.Wlog (centiUtcTimeF, productionB, setupLogging)
 
 
 type Measures = M.Map MsgId (Payload, [(MeasureEvent, Timestamp)])

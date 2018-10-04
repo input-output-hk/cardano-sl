@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" integrity="sha384-WskhaSGFgHYWDcbwN70/dfYBj47jz9qbsMId/iRN3ewGhXQFZCSftd1LZCfmhktB" crossorigin="anonymous">
+    <title>Cardano SL Testnet Faucet</title>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.5.16/dist/vue.min.js" integrity="sha256-TaLceMwjWRqe4yhbqPOJH6V7UGt5AvvdNfpaIXJWbFU=" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@0.18.0/dist/axios.min.js" integrity="sha256-mpnrJ5DpEZZkwkE1ZgkEQQJW/46CSEh/STrZKOB/qoM=" crossorigin="anonymous"></script>
+  </head>
+
+  <body>
+    <main role="main" class="container" id="app">
+      <h1 class="mt-5">Cardano SL Testnet Faucet</h1>
+      <p class="lead">
+        To access the faucet, perform the following steps:
+        <ol>
+          <li>Enter the testnet address you want to top up in the field below.</li>
+          <li>Click 'Withdraw'.</li>
+          <li>Funds will be accessible soon after.</li>
+          <li v-if="returnAddress">
+            When finished with your testnet Ada, please send it back to
+            <csl-address :address="returnAddress"></csl-address>
+          </li>
+        </ol>
+      </p>
+
+      <div class="row">
+        <div class="col">
+          <form class="form">
+            <div class="form-group">
+              <label for="address">Address</label>
+              <input type="text" class="form-control" id="address" v-model="withdrawAddress">
+              <small class="form-text text-muted">The wallet address to be deposited with funds.</small>
+            </div>
+
+            <div id="faucet-recaptcha"></div>
+
+            <button type="submit" class="btn btn-primary" v-on:click.stop.prevent="withdraw" :disabled="buttonDisabled">Withdraw</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="row" v-for="withdrawal in withdrawals">
+        <csl-withdrawal :wd="withdrawal"></csl-withdrawal>
+      </div>
+    </main>
+
+    <script>
+      const config = {
+        apiBaseURL: '',
+        explorerURL: 'http://cardano-explorer/',
+        recaptchaSiteKey: '',
+      };
+
+      Vue.component('csl-withdrawal', {
+        props: ['wd'],
+        template: `<div>
+          <div v-if="!wd.status">
+             Requesting withdrawal to address {{ wd.address }}.
+          </div>
+          <div v-if="wd.status === 'success'">
+             Transaction <csl-tx :txid="wd.txid"></csl-tx></a>
+             withdrawal of {{ wd.amount }} lovelace to
+             <csl-address :address="wd.address"></csl-address>.
+          </div>
+          <div v-if="wd.status === 'failure'">
+             Failed to withdraw. The response was:
+             <pre>{{ wd.failure }}</pre>
+          </div>
+          <div v-if="wd.status === 'error'">
+            Failed to withdraw: {{ wd.error }}.
+          </div>
+        </div>`
+      });
+
+      Vue.component('csl-tx', {
+        props: ['txid'],
+        computed: {
+          url() {
+            return config.explorerURL + 'tx/' + this.txid;
+          }
+        },
+        template: `<a :href="url">{{ txid }}</a>`
+      });
+
+      Vue.component('csl-address', {
+        props: ['address'],
+        computed: {
+          url() {
+            return config.explorerURL + 'address/' + this.address;
+          }
+        },
+        template: `<a :href="url">{{ address }}</a>`
+      });
+
+      var app = new Vue({
+        el: '#app',
+        data: {
+          withdrawals: [],
+          withdrawAddress: '',
+          recaptchaToken: null,
+          returnAddress: null,
+        },
+        methods: {
+          withdraw() {
+            const req = { address: this.withdrawAddress };
+            const wd = {
+              status: "",
+              amount: 0,
+              address: req.address,
+              txid: "",
+              failure: {}
+            };
+            this.withdrawals.unshift(wd);
+
+            if (this.recaptchaToken) {
+              req["g-recaptcha-response"] = this.recaptchaToken;
+            }
+
+            axios.post(config.apiBaseURL + 'withdraw', req)
+              .then(response => {
+                const r = response.data.success;
+                if (r) {
+                  wd.status = "success";
+                  wd.amount = r.outputs.filter(r => r.address === req.address).map(r => r.amount)[0];
+                  wd.txid = r.id;
+                } else {
+                  wd.status = "failure";
+                  wd.failure = response.data;
+                }
+                this.resetRecaptcha();
+              })
+              .catch(error => {
+                wd.status = "error";
+                wd.error = error;
+                this.resetRecaptcha();
+              });
+          },
+          initRecaptcha() {
+            if (config.recaptchaSiteKey && window.grecaptcha && this.isMounted) {
+              grecaptcha.render('faucet-recaptcha', {
+                sitekey: config.recaptchaSiteKey,
+                callback: token => {
+                  this.recaptchaToken = token;
+                }
+              });
+            }
+          },
+          resetRecaptcha() {
+            if (config.recaptchaSiteKey) {
+              grecaptcha.reset();
+            }
+            this.recaptchaToken = null;
+          }
+        },
+        computed: {
+          buttonDisabled() {
+            return !this.withdrawAddress || (!!config.recaptchaSiteKey && !this.recaptchaToken);
+          }
+        },
+        mounted() {
+          this.isMounted = true;
+          this.initRecaptcha();
+        },
+        created() {
+          axios.get(config.apiBaseURL + 'return-address')
+            .then(response => {
+              this.returnAddress = response.data;
+            });
+        }
+      });
+
+      var recaptchaOnload = function() {
+        app.initRecaptcha();
+      };
+    </script>
+
+    <script src="https://www.google.com/recaptcha/api.js?onload=recaptchaOnload&render=explicit" async defer></script>
+  </body>
+</html>

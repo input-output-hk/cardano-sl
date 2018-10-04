@@ -56,6 +56,9 @@ nodeLogConfig: log-configs/connect-to-cluster.yaml
 # File where wallet stdout/err will be redirected.
 # walletLogPath: /tmp/wallet-log
 
+# Directory to change into at startup
+# workingDir: ./
+
 # Path to the updater executable. Should be specified only when
 # there is an update available.
 updaterPath: binaries/cardano-updater

@@ -38,9 +38,9 @@ import           Network.EngineIO (SocketId)
 import           Network.SocketIO (Socket)
 
 import           Serokell.Util.Concurrent (modifyTVarS)
-import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog)
 
 import           Pos.Core (Address)
+import           Pos.Util.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog)
 
 data ExplorerSocket
     = ProdSocket Socket

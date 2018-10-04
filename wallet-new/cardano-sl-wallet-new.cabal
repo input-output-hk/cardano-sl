@@ -121,6 +121,7 @@ library
                        Cardano.Wallet.Kernel.PrefilterTx
                        Cardano.Wallet.Kernel.Read
                        Cardano.Wallet.Kernel.Restore
+                       Cardano.Wallet.Kernel.RestorePar
                        Cardano.Wallet.Kernel.Submission
                        Cardano.Wallet.Kernel.Submission.Worker
                        Cardano.Wallet.Kernel.Transactions

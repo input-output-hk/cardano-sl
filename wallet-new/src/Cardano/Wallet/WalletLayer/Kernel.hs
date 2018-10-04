@@ -46,6 +46,8 @@ import qualified Cardano.Wallet.WalletLayer.Kernel.Settings as Settings
 import qualified Cardano.Wallet.WalletLayer.Kernel.Transactions as Transactions
 import qualified Cardano.Wallet.WalletLayer.Kernel.Wallets as Wallets
 
+import qualified Cardano.Wallet.Kernel.RestorePar as Experimental
+
 -- | Initialize the passive wallet.
 -- The passive wallet cannot send new transactions.
 bracketPassiveWallet
@@ -79,9 +81,7 @@ bracketPassiveWallet mode logFunction keystore node f = do
       -- Start the wallet worker
       let wai = Actions.WalletActionInterp
                  { Actions.applyBlocks = \blunds -> do
-                    ls <- mapM (Wallets.blundToResolvedBlock node)
-                        (toList (getOldestFirst blunds))
-                    let mp = catMaybes ls
+                    mp <- Experimental.blundsToResolvedBlocks node (toList (getOldestFirst blunds))
                     mapM_ (Kernel.applyBlock w) mp
 
                  , Actions.switchToFork = \_ (OldestFirst blunds) -> do

@@ -47,6 +47,13 @@
 
 - Response from `JSONValidationError` are now also encoded inline (instead of a pretty-encoding with newlines) (DDW-318)
 
+- **[API BREAKING CHANGE]** The behavior of `/api/v1/addresses/{address}` has been adjusted to reflect more accurately
+  the meaning of ownership regarding addresses.
+  The previous version of this endpoint failed with an HTTP error when the given address was unknown to the wallet.
+  This was misleading since an address that is unknown to the wallet may still belong to the wallet. To reflect this, 
+  the V1 endpoint does not fail anymore as it used to when an address is not recognised and returns instead a new field 
+  'is-ours' which indicates either that an address is ours, or that it is 'not-recognised'. (CBR-401)
+
 ### Improvements
 
 - Friendly error mistakes from deserializing invalid addresses instead of brutal 500 (CBR-283)

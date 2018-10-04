@@ -273,9 +273,6 @@ newTransactionError e = case e of
                   Nothing ->
                       V1.UnknownError $ (sformat build ex)
 
-          CoinSelHardErrUtxoDepleted ->
-            V1.NotEnoughMoney (V1.ErrAvailableBalanceIsInsufficient 0)
-
     (Kernel.NewTransactionErrorCreateAddressFailed e') ->
         createAddressErrorKernel e'
 

@@ -2,6 +2,7 @@ module Test.Pos.Chain.Update.Gen
        ( genApplicationName
        , genBlockVersion
        , genBlockVersionData
+       , genBlockVersionDataByTxFP
        , genBlockVersionModifier
        , genHashRaw
        , genSoftforkRule
@@ -34,6 +35,7 @@ import           Pos.Chain.Update (ApplicationName (..), BlockVersion (..),
                      UpdateProof, UpdateProposal (..),
                      UpdateProposalToSign (..), UpdateProposals,
                      UpdateVote (..), VoteId, mkUpdateVote)
+import           Pos.Core (TxFeePolicy)
 import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Crypto (ProtocolMagic)
 
@@ -56,7 +58,10 @@ genBlockVersion =
         <*> Gen.word8 Range.constantBounded
 
 genBlockVersionData :: Gen BlockVersionData
-genBlockVersionData =
+genBlockVersionData = genBlockVersionDataByTxFP genTxFeePolicy
+
+genBlockVersionDataByTxFP :: Gen TxFeePolicy -> Gen BlockVersionData
+genBlockVersionDataByTxFP genTxFP =
     BlockVersionData
         <$> genScriptVersion
         <*> genMillisecond
@@ -70,7 +75,7 @@ genBlockVersionData =
         <*> genCoinPortion
         <*> genFlatSlotId
         <*> genSoftforkRule
-        <*> genTxFeePolicy
+        <*> genTxFP
         <*> genEpochIndex
 
 genBlockVersionModifier :: Gen BlockVersionModifier

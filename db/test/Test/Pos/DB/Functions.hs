@@ -15,7 +15,7 @@ import           Pos.Binary.Class (Bi)
 import           Pos.DB (DBTag (..), dbGetBi, dbPutBi)
 
 import           Test.Pos.Chain.Ssc.Example (exampleSscPayload)
-import           Test.Pos.Chain.Update.Example (exampleBlockVersionData)
+import           Test.Pos.Chain.Update.Example (exampleBlockVersionData0)
 import           Test.Pos.DB.Mode (runTestMode)
 
 
@@ -36,7 +36,7 @@ prop_putGet = withTests 1 . property $ do
     putGetProperty "test/bool" True
     putGetProperty "test/int" (10000 :: Int)
     putGetProperty "test/bytestring" ("testing" :: ByteString)
-    putGetProperty "test/blockversiondata" exampleBlockVersionData
+    putGetProperty "test/blockversiondata" exampleBlockVersionData0
     putGetProperty "test/sscpayload" exampleSscPayload
 
 
@@ -50,7 +50,7 @@ prop_putGetExplicitVersion = withTests 1 . property $ do
     putGetExplicitVersionProperty "test/bytestring" ("testing" :: ByteString)
     putGetExplicitVersionProperty
         "test/blockversiondata"
-        exampleBlockVersionData
+        exampleBlockVersionData0
     putGetExplicitVersionProperty "test/sscpayload" exampleSscPayload
 
 
@@ -63,7 +63,7 @@ prop_putGetWord8Tuple = withTests 1 . property $ do
     putGetWord8TupleProperty "test/bool"             True
     putGetWord8TupleProperty "test/int"              (10000 :: Int)
     putGetWord8TupleProperty "test/bytestring"       ("testing" :: ByteString)
-    putGetWord8TupleProperty "test/blockversiondata" exampleBlockVersionData
+    putGetWord8TupleProperty "test/blockversiondata" exampleBlockVersionData0
     putGetWord8TupleProperty "test/sscpayload"       exampleSscPayload
 
 

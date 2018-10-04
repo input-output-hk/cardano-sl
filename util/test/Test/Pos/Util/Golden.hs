@@ -6,6 +6,8 @@ import           Data.Aeson (FromJSON, ToJSON, eitherDecode, encode)
 import qualified Data.ByteString.Lazy as LB
 import           Data.FileEmbed (embedStringFile)
 import qualified Data.List as List
+import           Data.SafeCopy (SafeCopy, safeGet, safePut)
+import           Data.Serialize (runGetLazy, runPutLazy)
 import qualified Data.Text.Lazy as LT (unpack)
 import           Data.Text.Lazy.Builder (toLazyText)
 import           Formatting.Buildable (build)
@@ -71,6 +73,25 @@ goldenTestCanonicalJSONDec x path = withFrozenCallStack $ do
                 Left (schErr :: SchemaError) ->
                     failWith Nothing $ LT.unpack $ toLazyText $ build schErr
                 Right x'    -> x === x'
+
+goldenTestSafeCopy :: (Eq a, SafeCopy a, HasCallStack, Show a)
+               => a -> FilePath -> Property
+goldenTestSafeCopy x path = withFrozenCallStack $ do
+    withTests 1 . property $ do
+        bs <- liftIO (LB.readFile path)
+        runPutLazy (safePut x) === bs
+        case runGetLazy safeGet bs of
+            Left err -> failWith Nothing $ "could not safeGet: " <> show err
+            Right x' -> x === x'
+
+goldenTestSafeCopyDec :: (Eq a, SafeCopy a, HasCallStack, Show a)
+               => a -> FilePath -> Property
+goldenTestSafeCopyDec x path = withFrozenCallStack $ do
+    withTests 1 . property $ do
+        bs <- liftIO (LB.readFile path)
+        case runGetLazy safeGet bs of
+            Left err -> failWith Nothing $ "could not safeGet: " <> show err
+            Right x' -> x === x'
 
 makeRelativeToTestDir :: FilePath -> Q FilePath
 makeRelativeToTestDir rel = do

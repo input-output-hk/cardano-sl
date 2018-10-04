@@ -115,7 +115,9 @@ test-suite crypto-test
                        Test.Pos.Crypto.CryptoSpec
                        Test.Pos.Crypto.CryptoSpec2
                        Test.Pos.Crypto.Dummy
+                       Test.Pos.Crypto.Example
                        Test.Pos.Crypto.Gen
+                       Test.Pos.Crypto.Json
 
   build-depends:       QuickCheck
                      , base

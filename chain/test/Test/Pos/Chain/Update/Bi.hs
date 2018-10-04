@@ -18,7 +18,7 @@ import           Pos.Crypto (Hash, abstractHash)
 import           Test.Pos.Binary.Helpers.GoldenRoundTrip (goldenTestBi,
                      roundTripsBiBuildable, roundTripsBiShow)
 import           Test.Pos.Chain.Update.Example (exampleBlockVersion,
-                     exampleBlockVersionData, exampleBlockVersionModifier,
+                     exampleBlockVersionData0, exampleBlockVersionModifier,
                      exampleSoftwareVersion, exampleSystemTag,
                      exampleUpAttributes, exampleUpId, exampleUpdateData,
                      exampleUpdatePayload, exampleUpdateProof,
@@ -63,7 +63,7 @@ roundTripBlockVersion = eachOf 50 genBlockVersion roundTripsBiBuildable
 
 golden_BlockVersionData :: Property
 golden_BlockVersionData = goldenTestBi bVerDat "test/golden/BlockVersionData"
-    where bVerDat = exampleBlockVersionData
+    where bVerDat = exampleBlockVersionData0
 
 roundTripBlockVersionData :: Property
 roundTripBlockVersionData = eachOf 50 genBlockVersionData roundTripsBiBuildable

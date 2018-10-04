@@ -1,5 +1,7 @@
 module Test.Pos.Core.Json where
 
+import           Universum
+
 import           Hedgehog (Property)
 import qualified Hedgehog as H
 
@@ -15,7 +17,6 @@ import           Test.Pos.Util.Gen (genMillisecond)
 import           Test.Pos.Util.Golden (discoverGolden, eachOf, goldenTestJSON)
 import           Test.Pos.Util.Tripping (discoverRoundTrip,
                      roundTripsAesonBuildable, roundTripsAesonShow)
-import           Universum
 
 --------------------------------------------------------------------------------
 -- Address

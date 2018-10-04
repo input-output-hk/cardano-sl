@@ -35,6 +35,7 @@ module Pos.Core.Common.Address
        -- * Construction
        , IsBootstrapEraAddr (..)
        , makeAddress
+       , makeAddress'
        , makePubKeyAddress
        , makePubKeyAddressBoot
        , makeRootPubKeyAddress
@@ -217,6 +218,8 @@ decodeTextAddress = decodeAddress . encodeUtf8
 ----------------------------------------------------------------------------
 -- Constructors
 ----------------------------------------------------------------------------
+{-# ANN makeAddress  ("HLint: ignore Reduce duplication" :: Text) #-}
+{-# ANN makeAddress' ("HLint: ignore Reduce duplication" :: Text) #-}
 
 -- | Make an 'Address' from spending data and attributes.
 makeAddress :: AddrSpendingData -> AddrAttributes -> Address
@@ -226,6 +229,14 @@ makeAddress spendingData attributesUnwrapped =
     , addrAttributes = attributes
     , addrType = addrType'
     }
+  where
+    addrType' = addrSpendingDataToType spendingData
+    attributes = mkAttributes attributesUnwrapped
+    address' = Address' (addrType', spendingData, attributes)
+
+-- | Make an 'Address'' from spending data and attributes.
+makeAddress' :: AddrSpendingData -> AddrAttributes -> Address'
+makeAddress' spendingData attributesUnwrapped = address'
   where
     addrType' = addrSpendingDataToType spendingData
     attributes = mkAttributes attributesUnwrapped

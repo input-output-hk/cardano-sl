@@ -7,6 +7,11 @@ module Test.Pos.Core.ExampleHelpers
         , exampleAddress2
         , exampleAddress3
         , exampleAddress4
+        , exampleAddress'
+        , exampleAddress'1
+        , exampleAddress'2
+        , exampleAddress'3
+        , exampleAddress'4
         , exampleAttributes
         , exampleChainDifficulty
         , exampleEpochIndex
@@ -17,7 +22,9 @@ module Test.Pos.Core.ExampleHelpers
         , exampleScript
         , exampleSecretKey
         , exampleSecretKeys
-        , exampleSharedSeed
+        , exampleSharedSeed0
+        , exampleSharedSeed1
+        , exampleSharedSeed2
         , exampleSlotId
         , exampleSlotLeaders
         , exampleStakeholderId
@@ -47,10 +54,11 @@ import qualified Hedgehog as H
 import qualified Cardano.Crypto.Wallet as CC
 import           Pos.Core.Attributes (Attributes, mkAttributes)
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
-                     AddrStakeDistribution (..), Address (..), BlockCount (..),
-                     ChainDifficulty (..), Coin (..), CoinPortion (..),
-                     Script (..), SharedSeed (..), SlotLeaders, StakeholderId,
-                     StakesList, coinPortionDenominator, makeAddress,
+                     AddrStakeDistribution (..), Address (..), Address',
+                     BlockCount (..), ChainDifficulty (..), Coin (..),
+                     CoinPortion (..), Script (..), SharedSeed (..),
+                     SlotLeaders, StakeholderId, StakesList,
+                     coinPortionDenominator, makeAddress, makeAddress',
                      mkMultiKeyDistr)
 import           Pos.Core.ProtocolConstants (ProtocolConstants, pcEpochSlots)
 import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..),
@@ -64,6 +72,8 @@ import           Pos.Crypto.Signing (PublicKey (..))
 import           Test.Pos.Core.Gen (genProtocolConstants)
 import           Test.Pos.Crypto.Bi (getBytes)
 import           Test.Pos.Crypto.Gen (genProtocolMagic)
+
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 --------------------------------------------------------------------------------
 -- Helpers
@@ -212,6 +222,42 @@ exampleAddress4 = makeAddress easd attrs
     attrs = AddrAttributes Nothing (SingleKeyDistr sId)
     [sId] = exampleStakeholderIds 7 1
 
+exampleAddress' :: Address'
+exampleAddress' = makeAddress' exampleAddrSpendingData_PubKey attrs
+  where
+    attrs = AddrAttributes hap BootstrapEraDistr
+    hap = Just (HDAddressPayload (getBytes 32 32))
+
+exampleAddress'1 :: Address'
+exampleAddress'1 = makeAddress' easd attrs
+  where
+    easd = PubKeyASD pk
+    [pk] = examplePublicKeys 24 1
+    attrs = AddrAttributes hap BootstrapEraDistr
+    hap = Nothing
+
+exampleAddress'2 :: Address'
+exampleAddress'2 = makeAddress' easd attrs
+  where
+    easd = RedeemASD exampleRedeemPublicKey
+    attrs = AddrAttributes hap asd
+    hap = Just (HDAddressPayload (getBytes 15 32))
+    asd = SingleKeyDistr exampleStakeholderId
+
+exampleAddress'3 :: Address'
+exampleAddress'3 = makeAddress' easd attrs
+  where
+    easd = ScriptASD exampleScript
+    attrs = AddrAttributes hap exampleMultiKeyDistr
+    hap = Just (HDAddressPayload (getBytes 17 32))
+
+exampleAddress'4 :: Address'
+exampleAddress'4 = makeAddress' easd attrs
+  where
+    easd = UnknownASD 7 "test value"
+    attrs = AddrAttributes Nothing (SingleKeyDistr sId)
+    [sId] = exampleStakeholderIds 7 1
+
 exampleMultiKeyDistr :: AddrStakeDistribution
 exampleMultiKeyDistr = case mkMultiKeyDistr (M.fromList pairs) of
     Left err -> error $
@@ -226,5 +272,11 @@ exampleMultiKeyDistr = case mkMultiKeyDistr (M.fromList pairs) of
                    ]
     remainderCP = coinPortionDenominator - sum coinPortions
 
-exampleSharedSeed :: SharedSeed
-exampleSharedSeed = SharedSeed (getBytes 8 32)
+exampleSharedSeed0 :: SharedSeed
+exampleSharedSeed0 = SharedSeed (getBytes 8 32)
+
+exampleSharedSeed1 :: SharedSeed
+exampleSharedSeed1 = SharedSeed (getBytes 16 32)
+
+exampleSharedSeed2 :: SharedSeed
+exampleSharedSeed2 = SharedSeed (getBytes 24 32)

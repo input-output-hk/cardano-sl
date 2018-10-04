@@ -267,7 +267,7 @@ utxoSmallestEntry utxo =
 genPayees :: Core.Utxo -> Pay -> Gen (NonEmpty Core.TxOut)
 genPayees utxo payment = do
     let balance            = toLovelaces payment
-        halfOfUtxoSmallest = (Core.getCoin $ utxoSmallestEntry utxo) `div` 2
+        halfOfUtxoSmallest = max 1 $ (Core.getCoin $ utxoSmallestEntry utxo) `div` 2
     genTxOut StakeGenOptions {
                stakeMaxValue         = Just (Core.mkCoin halfOfUtxoSmallest)
              , stakeGenerationTarget = AtLeast

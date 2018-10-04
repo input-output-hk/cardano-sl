@@ -124,7 +124,7 @@ feeFromChange :: forall dom. CoinSelDom dom
               -> [CoinSelResult dom]
               -> ([CoinSelResult dom], Fee dom)
 feeFromChange totalFee =
-      bimap identity unsafeFeeSum
+    bimap identity unsafeFeeSum
     . unzip
     . map go
     . divvyFee (outVal . coinSelRequest) totalFee
@@ -143,13 +143,15 @@ feeFromChange totalFee =
 -- as unchanged as possible
 reduceChangeOutputs :: forall dom. CoinSelDom dom
                     => Fee dom -> [Value dom] -> ([Value dom], Fee dom)
-reduceChangeOutputs totalFee [] = ([], totalFee)
 reduceChangeOutputs totalFee cs =
-      bimap identity unsafeFeeSum
-    . unzip
-    . map go
-    . divvyFee identity totalFee
-    $ cs
+    case divvyFeeSafe identity totalFee cs of
+        Nothing ->
+            (cs, totalFee)
+        Just xs ->
+            bimap identity unsafeFeeSum
+            . unzip
+            . map go
+            $ xs
   where
     -- Reduce single change output, returning remaining fee
     go :: (Fee dom, Value dom) -> (Value dom, Fee dom)
@@ -170,6 +172,19 @@ feeUpperBound FeeOptions{..} css =
   where
     numInputs = fromIntegral $ sum (map (sizeToWord . coinSelInputSize) css)
     outputs   = concatMap coinSelOutputs css
+
+-- | divvy fee across outputs, discarding zero-output if any. Returns `Nothing`
+-- when there's no more outputs after filtering, in which case, we just can't
+-- divvy fee.
+divvyFeeSafe
+    :: forall dom a. CoinSelDom dom
+    => (a -> Value dom)
+    -> Fee dom
+    -> [a]
+    -> Maybe [(Fee dom, a)]
+divvyFeeSafe f fee as = case filter ((/= valueZero) . f) as of
+    []  -> Nothing
+    as' -> Just (divvyFee f fee as')
 
 {-------------------------------------------------------------------------------
   Pretty-printing

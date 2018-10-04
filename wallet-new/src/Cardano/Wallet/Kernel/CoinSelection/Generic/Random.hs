@@ -33,23 +33,10 @@ random :: forall utxo m. (MonadRandom m, PickFromUtxo utxo)
        -> Word64              -- ^ Maximum number of inputs
        -> [Output (Dom utxo)] -- ^ Outputs to include
        -> CoinSelT utxo CoinSelHardErr m [CoinSelResult (Dom utxo)]
-random privacyMode initMaxNumInputs goals = do
-    balance <- gets utxoBalance
-    when (balance == valueZero) $ throwError (errUtxoExhausted balance)
-    coinSelPerGoal selection initMaxNumInputs goals
+random privacyMode = coinSelPerGoal $ \maxNumInputs goal ->
+    defCoinSelResult goal <$>
+      inRange maxNumInputs (target privacyMode (outVal goal))
   where
-    errUtxoExhausted :: Value (Dom utxo) -> CoinSelHardErr
-    errUtxoExhausted balance = CoinSelHardErrUtxoExhausted
-        (pretty balance)
-        (pretty $ unsafeValueSum $ map outVal goals)
-
-    selection
-        :: Word64
-        -> Output (Dom utxo)
-        -> CoinSelT utxo CoinSelHardErr m (CoinSelResult (Dom utxo))
-    selection maxNumInputs goal = defCoinSelResult goal
-        <$> inRange maxNumInputs (target privacyMode (outVal goal))
-
     target :: PrivacyMode -> Value (Dom utxo) -> TargetRange (Dom utxo)
     target PrivacyModeOn  val = fromMaybe (target PrivacyModeOff val)
                                           (idealRange val)
@@ -111,18 +98,27 @@ atLeastNoFallback :: forall utxo m. (PickFromUtxo utxo, MonadRandom m)
                   => Word64
                   -> Value (Dom utxo)
                   -> CoinSelT utxo CoinSelErr m (SelectedUtxo (Dom utxo))
-atLeastNoFallback maxNumInputs targetMin = go emptySelection
+atLeastNoFallback maxNumInputs targetMin = do
+    balance <- gets utxoBalance
+    go emptySelection balance
   where
     go :: SelectedUtxo (Dom utxo)
+       -> Value (Dom utxo)
        -> CoinSelT utxo CoinSelErr m (SelectedUtxo (Dom utxo))
-    go selected
+    go selected balance
       | sizeToWord (selectedSize selected) > maxNumInputs =
           throwError $ CoinSelErrSoft CoinSelSoftErr
       | selectedBalance selected >= targetMin =
           return selected
       | otherwise = do
-          io <- mapCoinSelErr CoinSelErrHard $ findRandomOutput
-          go $ select io selected
+          io <- findRandomOutput >>= maybe (throwError $ errUtxoExhausted balance) return
+          go (select io selected) balance
+
+    errUtxoExhausted :: Value (Dom utxo) -> CoinSelErr
+    errUtxoExhausted balance =
+        CoinSelErrHard $ CoinSelHardErrUtxoExhausted
+            (pretty balance)
+            (pretty targetMin)
 
 -- | Select random additional inputs with the aim of improving the change amount
 --

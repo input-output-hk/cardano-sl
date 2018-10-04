@@ -41,7 +41,7 @@ data FeeOptions dom = FeeOptions {
 adjustForFees :: forall utxo m. (CoinSelDom (Dom utxo), Monad m)
               => FeeOptions (Dom utxo)
               -> (Value (Dom utxo) ->
-                   CoinSelT utxo CoinSelHardErr m (UtxoEntry (Dom utxo)))
+                   CoinSelT utxo CoinSelHardErr m (Maybe (UtxoEntry (Dom utxo))))
               -> [CoinSelResult (Dom utxo)]
               -> CoinSelT utxo CoinSelHardErr m
                    ([CoinSelResult (Dom utxo)], SelectedUtxo (Dom utxo))
@@ -81,7 +81,7 @@ receiverPaysFee totalFee =
 
 senderPaysFee :: (Monad m, CoinSelDom (Dom utxo))
               => (Value (Dom utxo) ->
-                   CoinSelT utxo CoinSelHardErr m (UtxoEntry (Dom utxo)))
+                   CoinSelT utxo CoinSelHardErr m (Maybe (UtxoEntry (Dom utxo))))
               -> Fee (Dom utxo)
               -> [CoinSelResult (Dom utxo)]
               -> CoinSelT utxo CoinSelHardErr m
@@ -91,25 +91,18 @@ senderPaysFee pickUtxo totalFee css = do
     (css', ) <$> coverRemainingFee pickUtxo remainingFee
 
 coverRemainingFee :: forall utxo m. (Monad m, CoinSelDom (Dom utxo))
-                  => (Value (Dom utxo) -> CoinSelT utxo CoinSelHardErr m (UtxoEntry (Dom utxo)))
+                  => (Value (Dom utxo) -> CoinSelT utxo CoinSelHardErr m (Maybe (UtxoEntry (Dom utxo))))
                   -> Fee (Dom utxo)
                   -> CoinSelT utxo CoinSelHardErr m (SelectedUtxo (Dom utxo))
 coverRemainingFee pickUtxo fee = go emptySelection
   where
-    -- | In this context, @CoinSelHardErrUtxoDepleted@ might be thrown by
-    -- `pickUtxo` as we iterate which here means that we are running out of
-    -- UTxOs to cover the fee, and therefore, remap the error accordingly.
-    remapUtxoDepleted :: CoinSelHardErr -> CoinSelHardErr
-    remapUtxoDepleted CoinSelHardErrUtxoDepleted = CoinSelHardErrCannotCoverFee
-    remapUtxoDepleted err                        = err
-
     go :: SelectedUtxo (Dom utxo)
        -> CoinSelT utxo CoinSelHardErr m (SelectedUtxo (Dom utxo))
     go !acc
       | selectedBalance acc >= getFee fee = return acc
       | otherwise = do
-          io <- (pickUtxo $ unsafeValueSub (getFee fee) (selectedBalance acc))
-                `catchError` (throwError . remapUtxoDepleted)
+          mio <- (pickUtxo $ unsafeValueSub (getFee fee) (selectedBalance acc))
+          io  <- maybe (throwError CoinSelHardErrCannotCoverFee) return mio
           go (select io acc)
 
 -- | Attempt to pay the fee from change outputs, returning any fee remaining

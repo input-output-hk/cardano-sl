@@ -239,7 +239,7 @@ repack (txIn, aux) = (Core.toaOut aux, txIn)
 
 -- | Pick an element from the UTxO to cover any remaining fee
 type PickUtxo m = Core.Coin  -- ^ Fee to still cover
-               -> CoinSelT Core.Utxo CoinSelHardErr m (Core.TxIn, Core.TxOutAux)
+               -> CoinSelT Core.Utxo CoinSelHardErr m (Maybe (Core.TxIn, Core.TxOutAux))
 
 data CoinSelFinalResult = CoinSelFinalResult {
       csrInputs  :: NonEmpty (Core.TxIn, Core.TxOutAux)
@@ -288,7 +288,6 @@ runCoinSelT opts pickUtxo policy request utxo = do
     policy' :: CoinSelT Core.Utxo CoinSelHardErr m
                  ([CoinSelResult Cardano], SelectedUtxo Cardano)
     policy' = do
-        when (Map.null utxo) $ throwError CoinSelHardErrUtxoDepleted
         mapM_ validateOutput request
         css <- intInputGrouping (csoInputGrouping opts)
         -- We adjust for fees /after/ potentially dealing with grouping
@@ -387,10 +386,10 @@ largestFirst opts maxInps =
     pickUtxo val = search . Map.toList =<< get
       where
         search :: [(Core.TxIn, Core.TxOutAux)]
-               -> CoinSelT Core.Utxo CoinSelHardErr m (Core.TxIn, Core.TxOutAux)
+               -> CoinSelT Core.Utxo CoinSelHardErr m (Maybe (Core.TxIn, Core.TxOutAux))
         search [] = throwError CoinSelHardErrCannotCoverFee
         search ((i, o):ios)
-          | Core.txOutValue (Core.toaOut o) >= val = return (i, o)
+          | Core.txOutValue (Core.toaOut o) >= val = return $ Just (i, o)
           | otherwise                              = search ios
 
 

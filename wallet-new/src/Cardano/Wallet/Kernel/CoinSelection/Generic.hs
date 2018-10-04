@@ -73,7 +73,6 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
-import           Test.QuickCheck (Arbitrary (..))
 
 import           Cardano.Wallet.Kernel.Util.StrictStateT
 import           UTxO.Util (withoutKeys)
@@ -302,15 +301,6 @@ data CoinSelHardErr =
     -- See also 'CoinSelHardErrCannotCoverFee'
   | CoinSelHardErrUtxoExhausted Text Text
 
-    -- | UTxO depleted using input selection.
-    --
-    -- This occurs when there's actually no UTxO to pick from in a first place,
-    -- like an edge-case of CoinSelHardErrUtxoExhausted (which suggests that we
-    -- could at least start selecting UTxO).
-  | CoinSelHardErrUtxoDepleted
-
-instance Arbitrary CoinSelHardErr where
-    arbitrary = pure CoinSelHardErrUtxoDepleted
 
 -- | The input selection request failed
 --
@@ -656,8 +646,6 @@ instance Buildable CoinSelHardErr where
     )
     bal
     val
-  build (CoinSelHardErrUtxoDepleted) = bprint
-    ( "CoinSelHardErrUtxoDepleted" )
 
 instance CoinSelDom dom => Buildable (Fee dom) where
   build = bprint build . getFee

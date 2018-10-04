@@ -72,8 +72,9 @@ testLog = do
     logInfo "info"
     logInfoX item
 
-    logNotice "notice"
-    logNoticeX item
+    addLoggerName "note" $ do
+        logNotice "notice"
+        logNoticeX item
 
     logWarning "warning"
     logWarningX item
@@ -98,4 +99,5 @@ spec = describe "Strucutured logging" $ do
                     contents <- readFile logFile
                     putStrLn contents
                     liftIO $ removeFile logFile
+                    liftIO $ removeFile "node.json"
                 Nothing -> putStrLn ("JSON file NOT found:" :: Text)

@@ -22,6 +22,8 @@ module Pos.Util.Wlog.Compatibility
          , LoggerNameBox (..)
          , HasLoggerName (..)
          , usingLoggerName
+         , addLoggerName
+         , setLoggerName
          , Severity (..)
            -- * LoggerConfig
          , productionB
@@ -171,6 +173,12 @@ instance Monad m => HasLoggerName (LoggerNameBox m) where
   askLoggerName = LoggerNameBox ask
   modifyLoggerName how = LoggerNameBox . local how . loggerNameBoxEntry
 
+addLoggerName :: HasLoggerName m => LoggerName -> m a -> m a
+addLoggerName m = modifyLoggerName (<> ("." `T.append` m))
+
+setLoggerName :: HasLoggerName m => LoggerName -> m a -> m a
+setLoggerName m = modifyLoggerName (const m)
+
 launchNamedPureLog
     :: (WithLogger n, Monad m)
     => (forall f. Functor f => m (f a) -> n (f b))
@@ -310,7 +318,7 @@ filterWithSafety condition = filter (\lh -> case _lhSecurityLevel lh of
 --   Also, ToJSON a => KC.LogItem (see Pos.Util.Log).
 logMX :: (MonadIO m, Log.ToObject a) => LoggerName -> Severity -> a -> m ()
 logMX name severity a = do
-    let ns = K.Namespace [name]
+    let ns = K.Namespace (T.split (=='.') name)
     lh <- liftIO $ readMVar loggingHandler
     logItemCond lh
                 a
@@ -327,7 +335,7 @@ filterJsonScribes = filter (\lh -> _lhBackend lh == FileJsonBE)
 -- | Logs an item only into JSON 'Scribes' which match the 'SelectionMode'.
 logXCond :: (MonadIO m, Log.ToObject a) => LoggerName -> Severity -> a -> SelectionMode -> m ()
 logXCond name severity a cond = do
-    let ns = K.Namespace [name]
+    let ns = K.Namespace (T.split (=='.') name)
     lh <- liftIO $ readMVar loggingHandler
     logItemCond lh
                 a

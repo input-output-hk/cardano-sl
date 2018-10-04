@@ -4,12 +4,9 @@
 
 module Pos.Wallet.Web.Methods.Restore
        ( newWallet
-       , newWalletNoThrow
        , importWallet
        , restoreWalletFromSeed
-       , restoreWalletFromSeedNoThrow
        , restoreWalletFromBackup
-       , restoreExternalWallet
        , addInitialRichAccount
 
        -- For testing
@@ -21,22 +18,21 @@ import           Universum
 import qualified Control.Exception.Safe as E
 import           Control.Lens (each, ix, traversed)
 import           Data.Default (Default (def))
-import           Data.Traversable (for)
 import           Formatting (build, sformat, (%))
 import           System.IO.Error (isDoesNotExistError)
+import           System.Wlog (logDebug)
 
 import qualified Data.HashMap.Strict as HM
-import           Pos.Chain.Genesis as Genesis (Config (..))
-import           Pos.Chain.Genesis (PoorSecret, poorSecretToEncKey)
 import           Pos.Client.KeyStorage (addSecretKey)
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, PublicKey,
-                     emptyPassphrase, firstHardened)
+import           Pos.Core.Configuration (genesisSecretsPoor)
+import           Pos.Core.Genesis (poorSecretToEncKey)
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, emptyPassphrase,
+                     firstHardened)
 import           Pos.Infra.StateLock (Priority (..), withStateLockNoMetrics)
 import           Pos.Util (HasLens (..), maybeThrow)
 import           Pos.Util.UserSecret (UserSecretDecodingError (..),
                      WalletUserSecret (..), mkGenesisWalletUserSecret,
                      readUserSecret, usWallet, wusAccounts, wusWalletName)
-import           Pos.Util.Wlog (logDebug)
 import           Pos.Wallet.Web.Account (GenSeed (..), genSaveRootKey,
                      genUniqueAccountId)
 import           Pos.Wallet.Web.Backup (AccountMetaBackup (..),
@@ -51,8 +47,7 @@ import           Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.State (AddressLookupMode (Ever), askWalletDB,
                      askWalletSnapshot, createAccount, getAccountWAddresses,
                      getWalletMeta, removeHistoryCache, setWalletSyncTip)
-import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentialsKey (..),
-                     keyToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 import qualified Pos.Wallet.Web.Tracking.Restore as Restore
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.Wallet.Web.Util (getWalletAccountIds)
@@ -63,127 +58,64 @@ import           UnliftIO (MonadUnliftIO)
 initialAccAddrIdxs :: Word32
 initialAccAddrIdxs = firstHardened
 
-mnemonicExists :: Text
-mnemonicExists = "Wallet with that mnemonics already exists"
-
--- | Creates a wallet. If the wallet with the given passphrase already exists,
--- then we return 'Left' of the wallet's ID.
 mkWallet
     :: L.MonadWalletLogic ctx m
-    => PassPhrase
-    -> CWalletInit
-    -> Bool
-    -> m (Either (CId Wal) (EncryptedSecretKey, CId Wal))
+    => PassPhrase -> CWalletInit -> Bool -> m (EncryptedSecretKey, CId Wal)
 mkWallet passphrase CWalletInit {..} isReady = do
     let CWalletMeta {..} = cwInitMeta
 
     skey <- genSaveRootKey passphrase (bpToList cwBackupPhrase)
     let cAddr = encToCId skey
 
-    eresult <- fmap Right (L.createWalletSafe cAddr cwInitMeta isReady)
-        `catch` \(e :: WalletError) ->
-            case e of
-                RequestError msg | msg == mnemonicExists ->
-                    pure (Left cAddr)
-                _ ->
-                    throwM e
+    CWallet{..} <- L.createWalletSafe cAddr cwInitMeta isReady
+    -- can't return this result, since balances can change
 
-    for eresult $ \CWallet{..} -> do
+    let accMeta = CAccountMeta { caName = "Initial account" }
+        accInit = CAccountInit { caInitWId = cwId, caInitMeta = accMeta }
+    () <$ L.newAccountIncludeUnready True (DeterminedSeed initialAccAddrIdxs) passphrase accInit
 
-        -- can't return this result, since balances can change
-
-        let accMeta = CAccountMeta { caName = "Initial account" }
-            accInit = CAccountInit { caInitWId = cwId, caInitMeta = accMeta }
-        () <$ L.newAccountIncludeUnready True (DeterminedSeed initialAccAddrIdxs) passphrase accInit
-
-        return (skey, cAddr)
-
+    return (skey, cAddr)
 
 newWallet :: L.MonadWalletLogic ctx m => PassPhrase -> CWalletInit -> m CWallet
-newWallet = throwMnemonicExists ... newWalletNoThrow
-
-newWalletNoThrow
-    :: L.MonadWalletLogic ctx m
-    => PassPhrase
-    -> CWalletInit
-    -> m (Either (CId Wal) CWallet)
-newWalletNoThrow passphrase cwInit = do
+newWallet passphrase cwInit = do
     db <- askWalletDB
     -- A brand new wallet doesn't need any syncing, so we mark isReady=True
-    eresult <- mkWallet passphrase cwInit True
-    for eresult $ \(_, wId) -> do
-        removeHistoryCache db wId
-        -- BListener checks current syncTip before applying update,
-        -- thus setting it up to date manually here
-        withStateLockNoMetrics HighPriority $ \tip -> setWalletSyncTip db wId tip
-        L.getWallet wId
-
+    (_, wId) <- mkWallet passphrase cwInit True
+    removeHistoryCache db wId
+    -- BListener checks current syncTip before applying update,
+    -- thus setting it up to date manually here
+    withStateLockNoMetrics HighPriority $ \tip -> setWalletSyncTip db wId tip
+    L.getWallet wId
 
 {- | Restores a wallet from a seed. The process is conceptually divided into
 -- two parts:
 -- 1. Recover this wallet balance from the global Utxo (fast, and synchronous);
 -- 2. Recover the full transaction history from the blockchain (slow, asynchronous).
 -}
-restoreWalletFromSeed
-    :: ( L.MonadWalletLogic ctx m
-       , MonadUnliftIO m
-       , HasLens SyncQueue ctx SyncQueue
-       )
-    => Genesis.Config
-    -> PassPhrase
-    -> CWalletInit
-    -> m CWallet
-restoreWalletFromSeed = throwMnemonicExists ... restoreWalletFromSeedNoThrow
-
-throwMnemonicExists :: MonadThrow m => m (Either (CId Wal) a) -> m a
-throwMnemonicExists m = m >>= \case
-    Left _ -> throwM (RequestError mnemonicExists)
-    Right a -> pure a
-
--- | Restores a wallet without throwing an exception if the wallet already
--- exists.
-restoreWalletFromSeedNoThrow
-    :: ( L.MonadWalletLogic ctx m
-      , MonadUnliftIO m
-      , HasLens SyncQueue ctx SyncQueue
-      )
-    => Genesis.Config
-    -> PassPhrase
-    -> CWalletInit
-    -> m (Either (CId Wal) CWallet)
-restoreWalletFromSeedNoThrow genesisConfig passphrase cwInit = do
-    eresult <- mkWallet passphrase cwInit False
-    for eresult $ \(sk, _) -> restoreWallet genesisConfig sk
+restoreWalletFromSeed :: ( L.MonadWalletLogic ctx m
+                         , MonadUnliftIO m
+                         , HasLens SyncQueue ctx SyncQueue
+                         ) => PassPhrase -> CWalletInit -> m CWallet
+restoreWalletFromSeed passphrase cwInit = do
+    (sk, _) <- mkWallet passphrase cwInit False
+    restoreWallet sk
 
 restoreWallet :: ( L.MonadWalletLogic ctx m
                  , MonadUnliftIO m
                  , HasLens SyncQueue ctx SyncQueue
-                 ) => Genesis.Config -> EncryptedSecretKey -> m CWallet
-restoreWallet genesisConfig sk = restoreWith genesisConfig $ KeyForRegular sk
-
--- | Restore a history related to given external wallet, using its root PK.
-restoreExternalWallet :: ( L.MonadWalletLogic ctx m
-                         , MonadUnliftIO m
-                         , HasLens SyncQueue ctx SyncQueue
-                         ) => Genesis.Config -> PublicKey -> m CWallet
-restoreExternalWallet genesisConfig pk = restoreWith genesisConfig $ KeyForExternal pk
-
-restoreWith :: ( L.MonadWalletLogic ctx m
-               , MonadUnliftIO m
-               , HasLens SyncQueue ctx SyncQueue
-               ) => Genesis.Config -> WalletDecrCredentialsKey -> m CWallet
-restoreWith genesisConfig key = do
-    let credentials@(_, wId) = keyToWalletDecrCredentials key
-    Restore.restoreWallet genesisConfig credentials
+                 ) => EncryptedSecretKey -> m CWallet
+restoreWallet sk = do
     db <- WS.askWalletDB
+    let credentials@(_, wId) = eskToWalletDecrCredentials sk
+    Restore.restoreWallet credentials
     WS.setWalletReady db wId True
     L.getWallet wId
 
 restoreWalletFromBackup :: ( L.MonadWalletLogic ctx m
                            , MonadUnliftIO m
                            , HasLens SyncQueue ctx SyncQueue
-                           ) => Genesis.Config -> WalletBackup -> m CWallet
-restoreWalletFromBackup genesisConfig WalletBackup {..} = do
+                           ) => WalletBackup -> m CWallet
+restoreWalletFromBackup WalletBackup {..} = do
     db <- askWalletDB
     ws <- getWalletSnapshot db
     let wId = encToCId wbSecretKey
@@ -227,24 +159,23 @@ restoreWalletFromBackup genesisConfig WalletBackup {..} = do
                     Just [] -> void $ L.newAddress defaultAccAddrIdx emptyPassphrase accId
                     Just _  -> pure ()
 
-            restoreWallet genesisConfig wbSecretKey
+            restoreWallet wbSecretKey
 
 importWallet
     :: ( L.MonadWalletLogic ctx m
        , MonadUnliftIO m
        , HasLens SyncQueue ctx SyncQueue
        )
-    => Genesis.Config
-    -> PassPhrase
+    => PassPhrase
     -> CFilePath
     -> m CWallet
-importWallet genesisConfig passphrase (CFilePath (toString -> fp)) = do
+importWallet passphrase (CFilePath (toString -> fp)) = do
     secret <-
         rewrapToWalletError isDoesNotExistError noFile $
         rewrapToWalletError (\UserSecretDecodingError{} -> True) decodeFailed $
         readUserSecret fp
     wSecret <- maybeThrow noWalletSecret (secret ^. usWallet)
-    importWalletDo genesisConfig passphrase wSecret
+    importWalletDo passphrase wSecret
   where
     noWalletSecret = RequestError "This key doesn't contain HD wallet info"
     noFile _ = RequestError "File doesn't exist"
@@ -256,12 +187,11 @@ importWalletDo
        , MonadUnliftIO m
        , HasLens SyncQueue ctx SyncQueue
        )
-    => Genesis.Config
-    -> PassPhrase
+    => PassPhrase
     -> WalletUserSecret
     -> m CWallet
-importWalletDo genesisConfig passphrase wSecret = do
-    wId <- cwId <$> importWalletSecret genesisConfig emptyPassphrase wSecret
+importWalletDo passphrase wSecret = do
+    wId <- cwId <$> importWalletSecret emptyPassphrase wSecret
     _ <- L.changeWalletPassphrase wId emptyPassphrase passphrase
     L.getWallet wId
 
@@ -270,11 +200,10 @@ importWalletSecret
        , MonadUnliftIO m
        , HasLens SyncQueue ctx SyncQueue
        )
-    => Genesis.Config
-    -> PassPhrase
+    => PassPhrase
     -> WalletUserSecret
     -> m CWallet
-importWalletSecret genesisConfig passphrase WalletUserSecret{..} = do
+importWalletSecret passphrase WalletUserSecret{..} = do
     let key    = _wusRootKey
         wid    = encToCId key
         wMeta  = def { cwName = _wusWalletName }
@@ -294,23 +223,19 @@ importWalletSecret genesisConfig passphrase WalletUserSecret{..} = do
         let accId = AccountId wid walletIndex
         L.newAddress (DeterminedSeed accountIndex) passphrase accId
 
-    restoreWallet genesisConfig key
+    restoreWallet key
 
 -- | Creates wallet with given genesis hd-wallet key.
 -- For debug purposes
-addInitialRichAccount
-    :: ( L.MonadWalletLogic ctx m
-       , MonadUnliftIO m
-       , HasLens SyncQueue ctx SyncQueue
-       )
-    => Int
-    -> Genesis.Config
-    -> [PoorSecret]
-    -> m ()
-addInitialRichAccount keyId genesisConfig hdwSecretKeys =
+addInitialRichAccount :: ( L.MonadWalletLogic ctx m
+                         , MonadUnliftIO m
+                         , HasLens SyncQueue ctx SyncQueue
+                         ) => Int -> m ()
+addInitialRichAccount keyId =
     E.handleAny wSetExistsHandler $ do
+        let hdwSecretKeys = fromMaybe (error "Hdw secrets keys are unknown") genesisSecretsPoor
         key <- maybeThrow noKey (map poorSecretToEncKey $ hdwSecretKeys ^? ix keyId)
-        void $ importWalletSecret genesisConfig emptyPassphrase $
+        void $ importWalletSecret emptyPassphrase $
             mkGenesisWalletUserSecret key
                 & wusWalletName .~ "Precreated wallet full of money"
                 & wusAccounts . traversed . _2 .~ "Initial account"

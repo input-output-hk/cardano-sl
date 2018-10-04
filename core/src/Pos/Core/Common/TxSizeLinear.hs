@@ -6,8 +6,6 @@ module Pos.Core.Common.TxSizeLinear
 
 import           Universum
 
-import           Data.Aeson (object, (.=))
-import qualified Data.Aeson as Aeson
 import           Data.Fixed (Nano)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, build, (%))
@@ -38,18 +36,6 @@ instance Bi TxSizeLinear where
         return $ TxSizeLinear a b
 
 instance Hashable TxSizeLinear
-
-instance Aeson.ToJSON TxSizeLinear where
-    toJSON (TxSizeLinear a b) = object [
-        "a" .= a,
-        "b" .= b
-        ]
-
-instance Aeson.FromJSON TxSizeLinear where
-    parseJSON = Aeson.withObject "TxSizeLinear" $ \o -> do
-        TxSizeLinear
-            <$> (o Aeson..: "a")
-            <*> (o Aeson..: "b")
 
 calculateTxSizeLinear :: TxSizeLinear -> Byte -> Nano
 calculateTxSizeLinear

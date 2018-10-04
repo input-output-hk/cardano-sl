@@ -1,5 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
-
 -- | 'SubscriptionTarget' backed by DNS.
 
 module Pos.Infra.Diffusion.Subscription.Dns
@@ -23,7 +21,8 @@ import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Network.DNS as DNS
 
 import           Pos.Infra.Communication.Protocol (SendActions)
-import           Pos.Infra.Diffusion.Subscription.Common (networkSubscribeTo')
+import           Pos.Infra.Diffusion.Subscription.Common
+                     (SubscriptionMessageConstraints, networkSubscribeTo')
 import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates)
 import           Pos.Infra.Diffusion.Subscription.Subscriber (SubscribeTo,
                      SubscriptionTarget (..), subscriber)
@@ -123,8 +122,9 @@ retryInterval d slotDur =
 -- and 'networkSubscribeTo''. Spawns a thread for each conjunct in the
 -- 'DnsDomains' which cycles through alternatives.
 dnsSubscriptionWorker
-    :: forall pack.
-       Trace IO (Severity, Text)
+    :: forall pack .
+       ( SubscriptionMessageConstraints )
+    => Trace IO (Severity, Text)
     -> OQ.OutboundQ pack NodeId Bucket
     -> Word16 -- ^ Default port to use for addresses resolved from DNS domains.
     -> DnsDomains DNS.Domain

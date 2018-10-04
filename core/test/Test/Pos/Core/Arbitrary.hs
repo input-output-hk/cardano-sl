@@ -1,4 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -19,6 +18,7 @@ module Test.Pos.Core.Arbitrary
        , SafeCoinPairSub (..)
        , UnreasonableEoS (..)
 
+       , genVssCertificate
        , genSlotId
        , genLocalSlotIndex
        ) where
@@ -26,11 +26,13 @@ module Test.Pos.Core.Arbitrary
 import           Universum
 
 import qualified Data.ByteString as BS (pack)
+import           Data.List ((!!))
 import qualified Data.Map as M
-import           Data.Time.Units (TimeUnit (..))
+import           Data.Time.Units (Second, TimeUnit (..), convertUnit)
 import           System.Random (Random)
 import           Test.QuickCheck (Arbitrary (..), Gen, choose, oneof, scale,
                      shrinkIntegral, sized, suchThat)
+
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 import           Test.QuickCheck.Instances ()
@@ -38,24 +40,37 @@ import           Test.QuickCheck.Instances ()
 import           Pos.Binary.Class (Bi)
 import           Pos.Core (AddrAttributes (..), AddrSpendingData (..),
                      AddrStakeDistribution (..), AddrType (..), Address (..),
-                     Address' (..), BlockCount (..), ChainDifficulty (..),
-                     Coeff (..), Coin (..), CoinPortion (..), EpochIndex (..),
-                     EpochOrSlot (..), LocalSlotIndex (..), Script (..),
-                     SharedSeed (..), SlotCount (..), SlotId (..),
-                     StakeholderId, TimeDiff (..), Timestamp (..),
-                     TxFeePolicy (..), TxSizeLinear (..),
+                     Address' (..), ApplicationName (..), BlockCount (..),
+                     BlockVersion (..), BlockVersionData (..),
+                     ChainDifficulty (..), Coeff (..), Coin (..),
+                     CoinPortion (..), EpochIndex (..), EpochOrSlot (..),
+                     LocalSlotIndex (..), Script (..), SharedSeed (..),
+                     SlotCount (..), SlotId (..), SoftforkRule (..),
+                     SoftwareVersion (..), StakeholderId, TimeDiff (..),
+                     Timestamp (..), TxFeePolicy (..), TxSizeLinear (..),
+                     VssCertificate, applicationNameMaxLength,
                      coinPortionDenominator, coinToInteger, divCoin,
                      localSlotIndexMaxBound, localSlotIndexMinBound,
-                     makeAddress, mkCoin, mkLocalSlotIndex, mkMultiKeyDistr,
-                     unsafeCoinPortionFromDouble, unsafeGetCoin, unsafeSubCoin)
-import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
+                     makeAddress, maxCoinVal, mkCoin, mkLocalSlotIndex,
+                     mkMultiKeyDistr, mkVssCertificate,
+                     mkVssCertificatesMapLossy, unsafeCoinPortionFromDouble,
+                     unsafeGetCoin, unsafeSubCoin)
+import           Pos.Core.Configuration (HasGenesisBlockVersionData,
+                     HasProtocolConstants, epochSlots, protocolConstants)
 import           Pos.Core.Constants (sharedSeedLength)
-import           Pos.Core.Merkle (MerkleTree, mkMerkleTree)
-import           Pos.Core.ProtocolConstants (pcEpochSlots)
+import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
+import qualified Pos.Core.Genesis as G
+import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
+                     VssMaxTTL (..), VssMinTTL (..))
+import           Pos.Crypto (ProtocolMagic, createPsk, toPublic)
+import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
+import           Pos.Merkle (MerkleTree, mkMerkleTree)
 import           Pos.Util.Util (leftToPanic)
 
-import           Test.Pos.Core.Dummy (dummyProtocolConstants)
 import           Test.Pos.Crypto.Arbitrary ()
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
+import           Test.Pos.Util.Orphans ()
+import           Test.Pos.Util.QuickCheck.Arbitrary (nonrepeating)
 
 
 {- NOTE: Deriving an 'Arbitrary' instance
@@ -106,24 +121,24 @@ instance Arbitrary EpochIndex where
     arbitrary = choose (0, maxReasonableEpoch)
     shrink = genericShrink
 
-genLocalSlotIndex :: SlotCount -> Gen LocalSlotIndex
-genLocalSlotIndex epochSlots = UnsafeLocalSlotIndex <$>
+genLocalSlotIndex :: ProtocolConstants -> Gen LocalSlotIndex
+genLocalSlotIndex pc = UnsafeLocalSlotIndex <$>
     choose ( getSlotIndex localSlotIndexMinBound
-           , getSlotIndex $ localSlotIndexMaxBound epochSlots
+           , getSlotIndex (localSlotIndexMaxBound pc)
            )
 
-instance Arbitrary LocalSlotIndex where
-    arbitrary = genLocalSlotIndex $ pcEpochSlots dummyProtocolConstants
+instance HasProtocolConstants => Arbitrary LocalSlotIndex where
+    arbitrary = genLocalSlotIndex protocolConstants
     shrink = genericShrink
 
-genSlotId :: SlotCount -> Gen SlotId
-genSlotId epochSlots = SlotId <$> arbitrary <*> genLocalSlotIndex epochSlots
+genSlotId :: ProtocolConstants -> Gen SlotId
+genSlotId pc = SlotId <$> arbitrary <*> genLocalSlotIndex pc
 
-instance Arbitrary SlotId where
+instance HasProtocolConstants => Arbitrary SlotId where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary EpochOrSlot where
+instance HasProtocolConstants => Arbitrary EpochOrSlot where
     arbitrary = oneof [
           EpochOrSlot . Left <$> arbitrary
         , EpochOrSlot . Right <$> arbitrary
@@ -136,17 +151,16 @@ newtype EoSToIntOverflow = EoSToIntOverflow
     { getEoS :: EpochOrSlot
     } deriving (Show, Eq, Generic)
 
-instance Arbitrary EoSToIntOverflow where
+instance HasProtocolConstants => Arbitrary EoSToIntOverflow where
     arbitrary = EoSToIntOverflow <$> do
-        let epochSlots = pcEpochSlots dummyProtocolConstants
-            maxIntAsInteger = toInteger (maxBound :: Int)
+        let maxIntAsInteger = toInteger (maxBound :: Int)
             maxW64 = toInteger (maxBound :: Word64)
             (minDiv, minMod) = maxIntAsInteger `divMod` (fromIntegral $ succ epochSlots)
             maxDiv = maxW64 `div` (1 + fromIntegral epochSlots)
         leftEpoch <- EpochIndex . fromIntegral <$> choose (minDiv + 1, maxDiv)
         localSlot <-
             leftToPanic "arbitrary@EoSToIntOverflow" .
-            mkLocalSlotIndex epochSlots .
+            mkLocalSlotIndex .
             fromIntegral <$> choose (minMod, toInteger epochSlots)
         let rightEpoch = EpochIndex . fromIntegral $ minDiv
         EpochOrSlot <$>
@@ -164,9 +178,8 @@ newtype UnreasonableEoS = Unreasonable
     { getUnreasonable :: EpochOrSlot
     } deriving (Show, Eq, Generic)
 
-instance Arbitrary UnreasonableEoS where
+instance HasProtocolConstants => Arbitrary UnreasonableEoS where
     arbitrary = Unreasonable . EpochOrSlot <$> do
-        let epochSlots = pcEpochSlots dummyProtocolConstants
         let maxI = (maxBound :: Int) `div` (1 + fromIntegral epochSlots)
         localSlot <- arbitrary
         let lsIntegral = fromIntegral . getSlotIndex $ localSlot
@@ -435,6 +448,35 @@ instance Arbitrary SharedSeed where
         bs <- replicateM sharedSeedLength (choose (0, 255))
         return $ SharedSeed $ BS.pack bs
 
+instance Arbitrary SoftforkRule where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary BlockVersionData where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+----------------------------------------------------------------------------
+-- Arbitrary types from MainExtra[header/body]data
+----------------------------------------------------------------------------
+
+instance Arbitrary ApplicationName where
+    arbitrary =
+        ApplicationName .
+        toText . map selectAlpha . take applicationNameMaxLength <$>
+        arbitrary
+      where
+        selectAlpha n = alphabet !! (n `mod` length alphabet)
+        alphabet = "-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+instance Arbitrary BlockVersion where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary SoftwareVersion where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
 ----------------------------------------------------------------------------
 -- Arbitrary types from 'Pos.Core.Fee'
 ----------------------------------------------------------------------------
@@ -463,6 +505,77 @@ instance Arbitrary TxFeePolicy where
             TxFeePolicyUnknown v <$> shrink a
 
 ----------------------------------------------------------------------------
+-- Arbitrary types from 'Pos.Core.Genesis'
+----------------------------------------------------------------------------
+
+instance HasGenesisBlockVersionData => Arbitrary G.TestnetBalanceOptions where
+    arbitrary = do
+        -- We have at least 2 owned addresses in system so we can send
+        -- transactions in block-gen/tests.
+        tboPoors <- choose (1, 100)
+        tboRichmen <- choose (1, 12)
+        tboTotalBalance <- choose (1000, maxCoinVal)
+        tboRichmenShare <- choose (0.55, 0.996)
+        let tboUseHDAddresses = False
+        return G.TestnetBalanceOptions {..}
+
+instance Arbitrary G.FakeAvvmOptions where
+    arbitrary = do
+        faoCount <- choose (0, 10)
+        faoOneBalance <- choose (5, 30)
+        return G.FakeAvvmOptions {..}
+
+instance Arbitrary G.GenesisDelegation where
+    arbitrary =
+        leftToPanic "arbitrary@GenesisDelegation" . G.mkGenesisDelegation <$> do
+            secretKeys <- sized (nonrepeating . min 10) -- we generate at most tens keys,
+                                                        -- because 'nonrepeating' fails when
+                                                        -- we want too many items, because
+                                                        -- life is hard
+            return $
+                case secretKeys of
+                    []                 -> []
+                    (delegate:issuers) -> mkCert (toPublic delegate) <$> issuers
+      where
+        mkCert delegatePk issuer = createPsk dummyProtocolMagic issuer delegatePk (HeavyDlgIndex 0)
+
+instance Arbitrary G.GenesisWStakeholders where
+    arbitrary = G.GenesisWStakeholders <$> arbitrary
+
+instance Arbitrary G.GenesisAvvmBalances where
+    arbitrary = G.GenesisAvvmBalances <$> arbitrary
+
+instance Arbitrary G.GenesisNonAvvmBalances where
+    arbitrary = G.GenesisNonAvvmBalances <$> arbitrary
+
+
+instance Arbitrary ProtocolConstants where
+    arbitrary = do
+        vssA <- arbitrary
+        vssB <- arbitrary
+        let (vssMin, vssMax) = if vssA > vssB
+                               then (VssMinTTL vssB, VssMaxTTL vssA)
+                               else (VssMinTTL vssA, VssMaxTTL vssB)
+        ProtocolConstants <$> choose (1, 20000) <*> pure vssMin <*> pure vssMax
+
+instance Arbitrary G.GenesisProtocolConstants where
+    arbitrary = flip G.genesisProtocolConstantsFromProtocolConstants dummyProtocolMagic <$> arbitrary
+
+instance (HasProtocolConstants) => Arbitrary G.GenesisData where
+    arbitrary = G.GenesisData
+        <$> arbitrary <*> arbitrary <*> arbitraryStartTime
+        <*> arbitraryVssCerts <*> arbitrary <*> arbitraryBVD
+        <*> arbitrary <*> arbitrary <*> arbitrary
+      where
+        -- System start time should be multiple of a second.
+        arbitraryStartTime = Timestamp . convertUnit @Second <$> arbitrary
+        -- Unknown tx fee policy in genesis is not ok.
+        arbitraryBVD = arbitrary `suchThat` hasKnownFeePolicy
+        hasKnownFeePolicy BlockVersionData {bvdTxFeePolicy = TxFeePolicyTxSizeLinear {}} =
+            True
+        hasKnownFeePolicy _ = False
+        arbitraryVssCerts = G.GenesisVssCertificatesMap . mkVssCertificatesMapLossy <$> arbitrary
+----------------------------------------------------------------------------
 -- Arbitrary miscellaneous types
 ----------------------------------------------------------------------------
 
@@ -471,6 +584,31 @@ instance Arbitrary Timestamp where
     shrink = shrinkIntegral
 
 deriving instance Arbitrary TimeDiff
+
+instance Arbitrary HeavyDlgIndex where
+    arbitrary = HeavyDlgIndex <$> arbitrary
+    shrink = genericShrink
+
+instance Arbitrary LightDlgIndices where
+    arbitrary = do
+        l <- arbitrary
+        r <- arbitrary
+        pure $ LightDlgIndices $ if r >= l then (l,r) else (r,l)
+    shrink = genericShrink
+
+----------------------------------------------------------------------------
+-- SSC
+----------------------------------------------------------------------------
+
+genVssCertificate :: ProtocolMagic -> Gen VssCertificate
+genVssCertificate pm =
+    mkVssCertificate pm <$> arbitrary -- secret key
+                        <*> arbitrary -- AsBinary VssPublicKey
+                        <*> arbitrary -- EpochIndex
+
+instance Arbitrary VssCertificate where
+    arbitrary = genVssCertificate dummyProtocolMagic
+    -- The 'shrink' method wasn't implement to avoid breaking the datatype's invariant.
 
 ----------------------------------------------------------------------------
 -- Merkle

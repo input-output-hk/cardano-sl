@@ -1,6 +1,5 @@
-{-# LANGUAGE ApplicativeDo   #-}
-{-# LANGUAGE CPP             #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE CPP           #-}
 
 -- | Module for command-line options and flags
 
@@ -30,9 +29,8 @@ import           Pos.Util.OptParse (fromParsec)
 
 import           Pos.Communication (NodeId)
 import           Pos.Core (Timestamp (..))
-import           Pos.Core.NetworkAddress (NetworkAddress, addrParser,
-                     addrParserNoWildcard)
-import           Pos.Infra.Util.TimeWarp (addressToNodeId)
+import           Pos.Infra.Util.TimeWarp (NetworkAddress, addrParser,
+                     addrParserNoWildcard, addressToNodeId)
 import           Pos.Launcher.Configuration (ConfigurationOptions (..))
 
 data CommonArgs = CommonArgs

@@ -1,5 +1,4 @@
 {-# LANGUAGE QuasiQuotes      #-}
-{-# LANGUAGE RecordWildCards  #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Main

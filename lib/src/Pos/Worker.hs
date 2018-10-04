@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE RecordWildCards     #-}
 
 -- | High level workers.
 
@@ -12,14 +11,15 @@ import           Universum
 
 import           Pos.Worker.Block (blkWorkers)
 -- Message instances.
-import           Pos.Chain.Genesis as Genesis (Config, configEpochSlots)
-import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Communication.Message ()
 import           Pos.Context (NodeContext (..))
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Network.CLI (launchStaticConfigMonitoring)
 import           Pos.Infra.Network.Types (NetworkConfig (..))
 import           Pos.Infra.Slotting (logNewSlotWorker)
 import           Pos.Launcher.Resource (NodeResources (..))
+import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Worker.Delegation (dlgWorkers)
 import           Pos.Worker.Ssc (sscWorkers)
 import           Pos.Worker.Update (usWorkers)
@@ -27,21 +27,20 @@ import           Pos.WorkMode (WorkMode)
 
 -- | All, but in reality not all, workers used by full node.
 allWorkers
-    :: forall ext ctx m . WorkMode ctx m
-    => Genesis.Config
-    -> TxpConfiguration
+    :: forall ext ctx m .
+       (HasTxpConfiguration, WorkMode ctx m)
+    => ProtocolMagic
     -> NodeResources ext
-    -> [ (Text, Diffusion m -> m ()) ]
-allWorkers genesisConfig txpConfig NodeResources {..} = mconcat
-    [ sscWorkers genesisConfig
-    , usWorkers genesisConfig
-    , blkWorkers genesisConfig txpConfig
+    -> [Diffusion m -> m ()]
+allWorkers pm NodeResources {..} = mconcat
+    [ sscWorkers pm
+    , usWorkers
+    , blkWorkers pm
     , dlgWorkers
-    , [ ("proper slotting", properSlottingWorker), ("static config", staticConfigMonitoringWorker) ]
+    , [properSlottingWorker, staticConfigMonitoringWorker]
     ]
   where
     topology = ncTopology ncNetworkConfig
     NodeContext {..} = nrContext
-    properSlottingWorker =
-        const $ logNewSlotWorker $ configEpochSlots genesisConfig
+    properSlottingWorker = const logNewSlotWorker
     staticConfigMonitoringWorker = const (launchStaticConfigMonitoring topology)

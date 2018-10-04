@@ -11,18 +11,16 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (NonNegative (..), Positive (..), Property,
                      (===), (==>))
 
-import           Pos.Core (EpochOrSlot, SlotId (..), epochOrSlotFromEnum,
-                     epochOrSlotMaxBound, epochOrSlotMinBound, epochOrSlotPred,
-                     epochOrSlotSucc, epochOrSlotToEnum, flattenSlotId,
-                     unflattenSlotId)
+import           Pos.Core (EpochOrSlot, HasConfiguration, SlotId (..),
+                     defaultCoreConfiguration, flattenSlotId, unflattenSlotId,
+                     withGenesisSpec)
 
 import           Test.Pos.Core.Arbitrary (EoSToIntOverflow (..),
                      UnreasonableEoS (..))
-import           Test.Pos.Core.Dummy (dummyEpochSlots)
 import           Test.Pos.Util.QuickCheck.Property (shouldThrowException, (.=.))
 
 spec :: Spec
-spec = describe "Slotting" $ do
+spec = withGenesisSpec 0 defaultCoreConfiguration $ \_ -> describe "Slotting" $ do
     describe "SlotId" $ do
         describe "Ord" $ do
             prop "is consistent with flatten/unflatten"
@@ -48,65 +46,40 @@ spec = describe "Slotting" $ do
         prop "calling 'toEnum' with a negative number will raise an exception"
             toEnumNegative
 
-flattenOrdConsistency :: SlotId -> SlotId -> Property
-flattenOrdConsistency a b =
-    a
-        `compare` b
-        ===       flattenSlotId dummyEpochSlots a
-        `compare` flattenSlotId dummyEpochSlots b
+flattenOrdConsistency :: HasConfiguration => SlotId -> SlotId -> Property
+flattenOrdConsistency a b = a `compare` b === flattenSlotId a `compare` flattenSlotId b
 
-flattenThenUnflatten :: SlotId -> Property
-flattenThenUnflatten si =
-    si === unflattenSlotId dummyEpochSlots (flattenSlotId dummyEpochSlots si)
+flattenThenUnflatten :: HasConfiguration => SlotId -> Property
+flattenThenUnflatten si = si === unflattenSlotId (flattenSlotId si)
 
-predThenSucc :: EpochOrSlot -> Property
-predThenSucc eos =
-    eos
-        >   epochOrSlotMinBound
-        ==> epochOrSlotSucc dummyEpochSlots
-                            (epochOrSlotPred dummyEpochSlots eos)
-        === eos
+predThenSucc :: HasConfiguration => EpochOrSlot -> Property
+predThenSucc eos = eos > minBound ==> succ (pred eos) === eos
 
-predToMinBound :: Expectation
-predToMinBound = shouldThrowException (epochOrSlotPred dummyEpochSlots)
-                                      anyErrorCall
-                                      epochOrSlotMinBound
+predToMinBound :: HasConfiguration => Expectation
+predToMinBound =
+    shouldThrowException pred anyErrorCall (minBound :: EpochOrSlot)
 
-succThenPred :: EpochOrSlot -> Property
-succThenPred eos =
-    eos
-        <   epochOrSlotMaxBound dummyEpochSlots
-        ==> epochOrSlotPred dummyEpochSlots
-                            (epochOrSlotSucc dummyEpochSlots eos)
-        === eos
+succThenPred :: HasConfiguration => EpochOrSlot -> Property
+succThenPred eos = eos < maxBound ==> pred (succ eos) === eos
 
-succToMaxBound :: Expectation
-succToMaxBound = shouldThrowException (epochOrSlotSucc dummyEpochSlots)
-                                      anyErrorCall
-                                      (epochOrSlotMaxBound dummyEpochSlots)
+succToMaxBound :: HasConfiguration => Expectation
+succToMaxBound = shouldThrowException succ anyErrorCall (maxBound :: EpochOrSlot)
 
 -- It is not necessary to check that 'int < fromEnum (maxBound :: EpochOrSlot)' because
 -- this is not possible with the current implementation of the type.
-toFromEnum :: NonNegative Int -> Property
-toFromEnum (getNonNegative -> int) =
-    epochOrSlotFromEnum dummyEpochSlots (epochOrSlotToEnum dummyEpochSlots int)
-        === int
+toFromEnum :: HasConfiguration => NonNegative Int -> Property
+toFromEnum (getNonNegative -> int) = fromEnum (toEnum @EpochOrSlot int) === int
 
-fromToEnum :: EpochOrSlot -> Property
-fromToEnum =
-    epochOrSlotToEnum dummyEpochSlots
-        .   epochOrSlotFromEnum dummyEpochSlots
-        .=. identity
+fromToEnum :: HasConfiguration => EpochOrSlot -> Property
+fromToEnum = toEnum . fromEnum .=. identity
 
-fromToEnumLargeEpoch :: UnreasonableEoS -> Property
-fromToEnumLargeEpoch (getUnreasonable -> eos) =
-    epochOrSlotToEnum dummyEpochSlots (epochOrSlotFromEnum dummyEpochSlots eos)
-        === eos
+fromToEnumLargeEpoch :: HasConfiguration => UnreasonableEoS -> Property
+fromToEnumLargeEpoch (getUnreasonable -> eos) = toEnum (fromEnum eos) === eos
 
-fromEnumOverflow :: EoSToIntOverflow -> Expectation
+fromEnumOverflow :: HasConfiguration => EoSToIntOverflow-> Expectation
 fromEnumOverflow (getEoS -> eos) =
-    shouldThrowException (epochOrSlotFromEnum dummyEpochSlots) anyErrorCall eos
+    shouldThrowException (fromEnum @EpochOrSlot) anyErrorCall eos
 
-toEnumNegative :: Positive Int -> Expectation
+toEnumNegative :: HasConfiguration => Positive Int -> Expectation
 toEnumNegative (negate . getPositive -> int) =
-    shouldThrowException (epochOrSlotToEnum dummyEpochSlots) anyErrorCall int
+    shouldThrowException (toEnum @EpochOrSlot) anyErrorCall int

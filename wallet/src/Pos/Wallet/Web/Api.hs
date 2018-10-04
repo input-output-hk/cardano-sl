@@ -1,6 +1,5 @@
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE KindSignatures      #-}
-{-# LANGUAGE PolyKinds           #-}
 {-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
@@ -59,9 +58,8 @@ import           Servant.API.ContentTypes (NoContent, OctetStream)
 import           Servant.Generic ((:-), AsApi, ToServant)
 import           Servant.Swagger.UI (SwaggerSchemaUI)
 
-import           Pos.Chain.Update (SoftwareVersion)
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
-import           Pos.Core (Coin)
+import           Pos.Core (Coin, SoftwareVersion)
 import           Pos.Util.Servant (ApiLoggingConfig (..), CCapture, CQueryParam,
                      CReqBody, DCQueryParam, DReqBody, LoggingApi,
                      ModifiesApiRes (..), ReportDecodeError (..), VerbMod,

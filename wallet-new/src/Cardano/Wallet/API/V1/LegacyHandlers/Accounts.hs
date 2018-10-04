@@ -5,29 +5,27 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Accounts
 
 import           Universum
 
-import           Servant
+import           Cardano.Wallet.API.Request
+import           Cardano.Wallet.API.Response
+import qualified Cardano.Wallet.API.V1.Accounts as Accounts
+import           Cardano.Wallet.API.V1.Migration
+import           Cardano.Wallet.API.V1.Types
+import qualified Data.IxSet.Typed as IxSet
 
 import qualified Pos.Wallet.Web.Account as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods.Logic as V0
+import           Servant
 
-import           Cardano.Wallet.API.Request
-import           Cardano.Wallet.API.Response
-import qualified Cardano.Wallet.API.V1.Accounts as Accounts
-import           Cardano.Wallet.API.V1.LegacyHandlers.Instances ()
-import           Cardano.Wallet.API.V1.Migration
-import           Cardano.Wallet.API.V1.Types
-import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
-
-handlers :: ServerT Accounts.API MonadV1
+handlers
+    :: HasConfigurations
+    => ServerT Accounts.API MonadV1
 handlers =
          deleteAccount
     :<|> getAccount
     :<|> listAccounts
     :<|> newAccount
     :<|> updateAccount
-    :<|> getAccountAddresses
-    :<|> getAccountBalance
 
 deleteAccount
     :: (V0.MonadWalletLogic ctx m)
@@ -49,7 +47,7 @@ listAccounts wId params = do
     oldAccounts <- V0.getAccounts (Just wid')
     newAccounts <- migrate @[V0.CAccount] @[Account] oldAccounts
     respondWith params
-        (NoFilters :: FilterOperations '[] Account)
+        (NoFilters :: FilterOperations Account)
         (NoSorts :: SortOperations Account)
         (IxSet.fromList <$> pure newAccounts)
 
@@ -70,26 +68,3 @@ updateAccount wId accIdx accUpdate = do
     accMeta <- migrate accUpdate
     cAccount <- V0.updateAccount newAccId accMeta
     single <$> (migrate cAccount)
-
-getAccountAddresses
-    :: (V0.MonadWalletLogic ctx m)
-    => WalletId
-    -> AccountIndex
-    -> RequestParams
-    -> FilterOperations '[V1 Address] WalletAddress
-    -> m (WalletResponse AccountAddresses)
-getAccountAddresses wId accIdx pagination filters = do
-    resp <- respondWith pagination filters NoSorts (getAddresses <$> getAccount wId accIdx)
-    return resp { wrData = AccountAddresses . wrData $ resp }
-  where
-    getAddresses =
-        IxSet.fromList . accAddresses . wrData
-
-getAccountBalance
-    :: (V0.MonadWalletLogic ctx m)
-    => WalletId
-    -> AccountIndex
-    -> m (WalletResponse AccountBalance)
-getAccountBalance wId accIdx = do
-    resp <- getAccount wId accIdx
-    return resp { wrData = AccountBalance . accAmount . wrData $ resp }

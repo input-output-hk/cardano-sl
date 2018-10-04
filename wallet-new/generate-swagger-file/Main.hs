@@ -1,4 +1,5 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase      #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Main where
 
@@ -6,10 +7,9 @@ import           Universum
 
 import           Data.Swagger (Swagger)
 import           Options.Applicative
-import           Servant ((:<|>))
 
-import           Cardano.Wallet.API (InternalAPI, V1API, v0API)
-import           Pos.Chain.Update (ApplicationName (..), SoftwareVersion (..))
+import           Cardano.Wallet.API (devAPI, v0API, v1API)
+import           Pos.Core (ApplicationName (..), SoftwareVersion (..))
 import           Pos.Util.CompileInfo (CompileTimeInfo (CompileTimeInfo),
                      gitRev)
 
@@ -27,6 +27,7 @@ data Command = Command
 data TargetAPI
     = TargetWalletV1
     | TargetWalletV0
+    | TargetWalletDev
     deriving (Show)
 
 
@@ -48,7 +49,7 @@ main =
         cmdParser :: Parser Command
         cmdParser = Command
             <$> targetAPIOption (short 't' <> long "target" <> metavar "API"
-                  <> help "Target API with version (e.g. 'wallet@v1', 'wallet@v0')")
+                  <> help "Target API with version (e.g. 'wallet@v1', 'wallet@v0', 'wallet@dev'...)")
 
             <*> optional (strOption (short 'o' <> long "output-file" <> metavar "FILEPATH"
                     <> help ("Output file, default to: " <> defaultOutputFilename)))
@@ -57,6 +58,7 @@ main =
         targetAPIOption = option $ maybeReader $ \case
             "wallet@v0"  -> Just TargetWalletV0
             "wallet@v1"  -> Just TargetWalletV1
+            "wallet@dev" -> Just TargetWalletDev
             _            -> Nothing
     in do
         Command{..} <-
@@ -69,12 +71,12 @@ main =
 
 mkSwagger :: (CompileTimeInfo, SoftwareVersion) -> TargetAPI -> Swagger
 mkSwagger details = \case
+    TargetWalletDev ->
+        Swagger.api details devAPI Swagger.highLevelShortDescription
     TargetWalletV0 ->
         Swagger.api details v0API  Swagger.highLevelShortDescription
     TargetWalletV1  ->
-        Swagger.api details v1API' Swagger.highLevelDescription
-  where
-    v1API' = Proxy :: Proxy (V1API :<|> InternalAPI)
+        Swagger.api details v1API  Swagger.highLevelDescription
 
 
 -- NOTE The software version is hard-coded here. Do determine the SoftwareVersion,

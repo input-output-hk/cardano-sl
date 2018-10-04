@@ -16,10 +16,11 @@ import           Universum
 
 import           Formatting (build, sformat, (%))
 
-import           Pos.Chain.Txp (ToilVerFailure (..), TxAux (..), TxId)
 import           Pos.Client.Txp.History (SaveTxException (..), TxHistoryEntry)
-import           Pos.Core (ProtocolConstants, pcEpochSlots)
+import           Pos.Core (HasConfiguration, protocolConstants)
+import           Pos.Core.Txp (TxAux (..), TxId)
 import           Pos.Infra.Slotting.Class (MonadSlots (..))
+import           Pos.Txp (ToilVerFailure (..))
 import           Pos.Util.Util (maybeThrow)
 import           Pos.Wallet.Web.ClientTypes (CId, Wal)
 import           Pos.Wallet.Web.Error (WalletError (RequestError))
@@ -44,28 +45,23 @@ isPtxInBlocks :: PtxCondition -> Bool
 isPtxInBlocks = isNothing . ptxPoolInfo
 
 mkPendingTx
-    :: (MonadThrow m, MonadSlots ctx m)
-    => ProtocolConstants
-    -> WalletSnapshot
-    -> CId Wal
-    -> TxId
-    -> TxAux
-    -> TxHistoryEntry
-    -> m PendingTx
-mkPendingTx pc ws wid _ptxTxId _ptxTxAux th = do
+    :: (HasConfiguration, MonadThrow m, MonadSlots ctx m)
+    => WalletSnapshot
+    -> CId Wal -> TxId -> TxAux -> TxHistoryEntry -> m PendingTx
+mkPendingTx ws wid _ptxTxId _ptxTxAux th = do
     void $ maybeThrow noWallet $ getWalletMeta ws wid
 
-    _ptxCreationSlot <- getCurrentSlotInaccurate $ pcEpochSlots pc
+    _ptxCreationSlot <- getCurrentSlotInaccurate
     return PendingTx
-        { _ptxCond         = PtxCreating th
-        , _ptxWallet       = wid
-        , _ptxPeerAck      = False
-        , _ptxSubmitTiming = mkPtxSubmitTiming pc _ptxCreationSlot
+        { _ptxCond = PtxCreating th
+        , _ptxWallet = wid
+        , _ptxPeerAck = False
+        , _ptxSubmitTiming = mkPtxSubmitTiming protocolConstants _ptxCreationSlot
         , ..
         }
   where
     noWallet =
-        RequestError $ sformat ("Failed to get meta of wallet " % build) wid
+        RequestError $ sformat ("Failed to get meta of wallet "%build) wid
 
 -- | Whether formed transaction ('TxAux') has reasonable chances to be applied
 -- later after specified error.

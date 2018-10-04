@@ -23,22 +23,24 @@ module Test.Pos.Configuration
 import           Universum
 
 import qualified Data.Aeson as J
-import qualified Data.Set as Set
 
-import           Ntp.Client (NtpConfiguration)
-
-import           Pos.Chain.Block (HasBlockConfiguration, withBlockConfiguration)
-import           Pos.Chain.Delegation (HasDlgConfiguration,
-                     withDlgConfiguration)
-import           Pos.Chain.Genesis as Genesis (Config, GenesisSpec (..),
-                     StaticConfig (..), mkConfig)
-import           Pos.Chain.Ssc (HasSscConfiguration, withSscConfiguration)
-import           Pos.Chain.Txp (TxpConfiguration (..))
-import           Pos.Chain.Update (BlockVersionData, HasUpdateConfiguration,
-                     withUpdateConfiguration)
+import           Pos.Block.Configuration (HasBlockConfiguration,
+                     withBlockConfiguration)
 import           Pos.Configuration (HasNodeConfiguration, withNodeConfiguration)
+import           Pos.Core (BlockVersionData, HasConfiguration, withGenesisSpec)
+import           Pos.Core.Configuration (CoreConfiguration (..),
+                     GenesisConfiguration (..))
+import           Pos.Core.Genesis (GenesisSpec (..))
+import           Pos.Crypto (ProtocolMagic)
+import           Pos.Delegation (HasDlgConfiguration, withDlgConfiguration)
+import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
 import           Pos.Launcher.Configuration (Configuration (..),
                      HasConfigurations)
+import           Pos.Ssc.Configuration (HasSscConfiguration,
+                     withSscConfiguration)
+import           Pos.Txp (HasTxpConfiguration, withTxpConfiguration)
+import           Pos.Update.Configuration (HasUpdateConfiguration,
+                     withUpdateConfiguration)
 import           Pos.Util.Config (embedYamlConfigCT)
 
 -- | This configuration is embedded into binary and is used by default
@@ -51,9 +53,10 @@ defaultTestConf = case J.fromJSON $ J.Object jobj of
     jobj = $(embedYamlConfigCT (Proxy @J.Object) "configuration.yaml" "configuration.yaml" "test")
 
 defaultTestGenesisSpec :: GenesisSpec
-defaultTestGenesisSpec = case ccGenesis defaultTestConf of
-    GCSpec spec -> spec
-    _           -> error "unexpected genesis type in test"
+defaultTestGenesisSpec =
+    case ccGenesis (ccCore defaultTestConf) of
+        GCSpec spec -> spec
+        _           -> error "unexpected genesis type in test"
 
 defaultTestBlockVersionData :: BlockVersionData
 defaultTestBlockVersionData = gsBlockVersionData defaultTestGenesisSpec
@@ -66,6 +69,7 @@ type HasStaticConfigurations =
     , HasBlockConfiguration
     , HasNodeConfiguration
     , HasDlgConfiguration
+    , HasTxpConfiguration
     )
 
 withDefNodeConfiguration :: (HasNodeConfiguration => r) -> r
@@ -86,25 +90,23 @@ withDefBlockConfiguration = withBlockConfiguration (ccBlock defaultTestConf)
 withDefDlgConfiguration :: (HasDlgConfiguration => r) -> r
 withDefDlgConfiguration = withDlgConfiguration (ccDlg defaultTestConf)
 
-withDefConfiguration :: (Genesis.Config -> r) -> r
-withDefConfiguration f = f $ mkConfig 0 defaultTestGenesisSpec
+withDefTxpConfiguration :: (HasTxpConfiguration => r) -> r
+withDefTxpConfiguration = withTxpConfiguration (ccTxp defaultTestConf)
 
-withStaticConfigurations :: (HasStaticConfigurations => TxpConfiguration -> NtpConfiguration -> r) -> r
+withDefConfiguration :: (HasConfiguration => ProtocolMagic -> r) -> r
+withDefConfiguration = withGenesisSpec 0 (ccCore defaultTestConf)
+
+withStaticConfigurations :: (HasStaticConfigurations => NtpConfiguration -> r) -> r
 withStaticConfigurations patak =
     withDefNodeConfiguration $
     withDefSscConfiguration $
     withDefUpdateConfiguration $
     withDefBlockConfiguration $
     withDefDlgConfiguration $
-    withDefNtpConfiguration (patak $ TxpConfiguration 200 Set.empty)
+    withDefTxpConfiguration $
+    withDefNtpConfiguration patak
 
 withDefConfigurations
-    :: (  HasConfigurations
-       => Genesis.Config
-       -> TxpConfiguration
-       -> NtpConfiguration
-       -> r
-       )
-    -> r
-withDefConfigurations bardaq = withDefConfiguration
-    $ \genesisConfig -> withStaticConfigurations (bardaq genesisConfig)
+    :: (HasConfigurations => NtpConfiguration -> ProtocolMagic -> r) -> r
+withDefConfigurations bardaq =
+    withDefConfiguration $ withStaticConfigurations bardaq

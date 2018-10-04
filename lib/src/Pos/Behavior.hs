@@ -1,8 +1,5 @@
-{-# LANGUAGE RecordWildCards #-}
-
 -- | A way to customize node's behavior (e.g. change SSC algorithm
 -- parameters).
-
 module Pos.Behavior
        ( BehaviorConfig(..)
        ) where
@@ -12,8 +9,8 @@ import           Universum
 import qualified Data.Aeson as A
 import           Data.Default (Default (..))
 
-import           Pos.Chain.Security (SecurityParams)
-import           Pos.Chain.Ssc (SscBehavior)
+import           Pos.Security.Params (SecurityParams)
+import           Pos.Ssc.Behavior (SscBehavior)
 
 data BehaviorConfig = BehaviorConfig
     { bcSecurityParams :: !SecurityParams    -- ^ network

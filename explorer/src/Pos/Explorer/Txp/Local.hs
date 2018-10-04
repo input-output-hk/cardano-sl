@@ -8,24 +8,23 @@ module Pos.Explorer.Txp.Local
        , eTxNormalize
        ) where
 
+import           JsonLog (CanJsonLog (..))
 import           Universum
 
 import qualified Data.HashMap.Strict as HM
 
-import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots)
-import           Pos.Chain.Txp (ToilVerFailure (..), TxAux (..), TxId,
-                     TxpConfiguration, Utxo)
-import           Pos.Chain.Update (BlockVersionData)
-import           Pos.Core (EpochIndex, Timestamp)
-import           Pos.Core.JsonLog (CanJsonLog (..))
-import           Pos.DB.Txp.Logic (txNormalizeAbstract,
-                     txProcessTransactionAbstract)
-import           Pos.DB.Txp.MemState (MempoolExt, TxpLocalWorkMode, getTxpExtra,
-                     withTxpLocalData)
+import           Pos.Core (BlockVersionData, EpochIndex, Timestamp)
+import           Pos.Core.Txp (TxAux (..), TxId)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot), getSlotStart)
 import           Pos.Infra.StateLock (Priority (..), StateLock,
                      StateLockMetrics, withStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
+import           Pos.Txp.Logic.Local (txNormalizeAbstract,
+                     txProcessTransactionAbstract)
+import           Pos.Txp.MemState (MempoolExt, TxpLocalWorkMode, getTxpExtra,
+                     withTxpLocalData)
+import           Pos.Txp.Toil (ToilVerFailure (..), Utxo)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Util (HasLens')
 
@@ -47,32 +46,25 @@ eTxProcessTransaction ::
        , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
        , CanJsonLog m
        )
-    => Genesis.Config
-    -> TxpConfiguration
+    => ProtocolMagic
     -> (TxId, TxAux)
     -> m (Either ToilVerFailure ())
-eTxProcessTransaction genesisConfig txpConfig itw =
-    withStateLock LowPriority ProcessTransaction
-        $ \__tip -> eTxProcessTransactionNoLock genesisConfig txpConfig itw
+eTxProcessTransaction pm itw =
+    withStateLock LowPriority ProcessTransaction $ \__tip -> eTxProcessTransactionNoLock pm itw
 
 eTxProcessTransactionNoLock ::
        forall ctx m. (ETxpLocalWorkMode ctx m)
-    => Genesis.Config
-    -> TxpConfiguration
+    => ProtocolMagic
     -> (TxId, TxAux)
     -> m (Either ToilVerFailure ())
-eTxProcessTransactionNoLock genesisConfig txpConfig itw = getCurrentSlot epochSlots >>= \case
+eTxProcessTransactionNoLock pm itw = getCurrentSlot >>= \case
     Nothing   -> pure $ Left ToilSlotUnknown
     Just slot -> do
         -- First get the current @SlotId@ so we can calculate the time.
         -- Then get when that @SlotId@ started and use that as a time for @Tx@.
         mTxTimestamp <- getSlotStart slot
-        txProcessTransactionAbstract epochSlots
-                                     buildContext
-                                     (processTx' mTxTimestamp)
-                                     itw
+        txProcessTransactionAbstract buildContext (processTx' mTxTimestamp) itw
   where
-    epochSlots = configEpochSlots genesisConfig
     buildContext :: Utxo -> TxAux -> m ExplorerExtraLookup
     buildContext utxo = buildExplorerExtraLookup utxo . one
 
@@ -82,27 +74,17 @@ eTxProcessTransactionNoLock genesisConfig txpConfig itw = getCurrentSlot epochSl
         -> EpochIndex
         -> (TxId, TxAux)
         -> ExceptT ToilVerFailure ELocalToilM ()
-    processTx' mTxTimestamp bvd epoch tx = eProcessTx
-        (configProtocolMagic genesisConfig)
-        txpConfig
-        bvd
-        epoch
-        tx
-        (TxExtra Nothing mTxTimestamp)
+    processTx' mTxTimestamp bvd epoch tx =
+        eProcessTx pm bvd epoch tx (TxExtra Nothing mTxTimestamp)
 
 -- | 1. Recompute UtxoView by current MemPool
 --   2. Remove invalid transactions from MemPool
 --   3. Set new tip to txp local data
 eTxNormalize
-    :: forall ctx m . (ETxpLocalWorkMode ctx m)
-    => Genesis.Config
-    -> TxpConfiguration
-    -> m ()
-eTxNormalize genesisConfig txpConfig = do
+    :: forall ctx m . (ETxpLocalWorkMode ctx m) => ProtocolMagic -> m ()
+eTxNormalize pm = do
     extras <- MM.insertionsMap . view eemLocalTxsExtra <$> withTxpLocalData getTxpExtra
-    txNormalizeAbstract (configEpochSlots genesisConfig)
-                        buildExplorerExtraLookup
-                        (normalizeToil' extras)
+    txNormalizeAbstract buildExplorerExtraLookup (normalizeToil' extras)
   where
     normalizeToil' ::
            HashMap TxId TxExtra
@@ -112,8 +94,4 @@ eTxNormalize genesisConfig txpConfig = do
         -> ELocalToilM ()
     normalizeToil' extras bvd epoch txs =
         let toNormalize = HM.toList $ HM.intersectionWith (,) txs extras
-        in eNormalizeToil (configProtocolMagic genesisConfig)
-                          txpConfig
-                          bvd
-                          epoch
-                          toNormalize
+        in eNormalizeToil pm bvd epoch toNormalize

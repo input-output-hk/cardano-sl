@@ -3,9 +3,8 @@ module Bench.Configuration
     , benchProtocolMagic
     ) where
 
-import           Pos.Core (ProtocolConstants (..), VssMaxTTL (..),
-                     VssMinTTL (..))
-import           Pos.Crypto (ProtocolMagic (..))
+import           Pos.Core (ProtocolConstants (..), ProtocolMagic (..),
+                     VssMaxTTL (..), VssMinTTL (..))
 
 benchProtocolConstants :: ProtocolConstants
 benchProtocolConstants = ProtocolConstants

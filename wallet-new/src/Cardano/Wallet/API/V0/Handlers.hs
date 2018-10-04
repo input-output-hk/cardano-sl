@@ -3,8 +3,7 @@ module Cardano.Wallet.API.V0.Handlers where
 
 import qualified Cardano.Wallet.API.V0 as V0
 import           Ntp.Client (NtpStatus)
-import           Pos.Chain.Genesis as Genesis (Config)
-import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion (sendTx))
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Wallet.Web.Mode (MonadFullWalletWebMode)
@@ -20,12 +19,11 @@ import           Universum
 -- a Servant's @Handler@, I can give you back a "plain old" Server.
 handlers :: ( MonadFullWalletWebMode ctx m, HasCompileInfo )
          => (forall a. m a -> Handler a)
-         -> Genesis.Config
-         -> TxpConfiguration
+         -> ProtocolMagic
          -> Diffusion m
          -> TVar NtpStatus
          -> Server V0.API
-handlers naturalTransformation genesisConfig txpConfig diffusion ntpStatus = hoistServer
+handlers naturalTransformation pm diffusion ntpStatus = hoistServer
     (Proxy @V0.API)
     naturalTransformation
-    (V0.servantHandlers genesisConfig txpConfig ntpStatus (sendTx diffusion))
+    (V0.servantHandlers pm ntpStatus (sendTx diffusion))

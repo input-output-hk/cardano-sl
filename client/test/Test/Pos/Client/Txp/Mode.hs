@@ -7,6 +7,7 @@
 module Test.Pos.Client.Txp.Mode
        ( TxpTestProperty
        , TxpTestMode
+       , HasTxpConfigurations
        , withBVData
        ) where
 
@@ -16,13 +17,28 @@ import qualified Data.ByteString as BS
 import           Test.QuickCheck (Testable (..), ioProperty)
 import           Test.QuickCheck.Monadic (PropertyM, monadic)
 
-import           Pos.Chain.Update (BlockVersionData)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
-import           Pos.Core (Address, makePubKeyAddressBoot)
+import           Pos.Configuration (HasNodeConfiguration)
+import           Pos.Core (Address, BlockVersionData, HasConfiguration,
+                     makePubKeyAddressBoot)
+import           Pos.Core.Configuration (HasGenesisBlockVersionData,
+                     genesisBlockVersionData)
 import           Pos.Crypto (deterministicKeyGen)
 import           Pos.DB (MonadGState (..))
+import           Pos.Ssc.Configuration (HasSscConfiguration)
+import           Pos.Update.Configuration (HasUpdateConfiguration)
 
-import           Test.Pos.Chain.Genesis.Dummy (dummyBlockVersionData)
+----------------------------------------------------------------------------
+-- Configuration propagation
+----------------------------------------------------------------------------
+
+type HasTxpConfigurations =
+       ( HasNodeConfiguration
+       , HasSscConfiguration
+       , HasConfiguration
+       , HasUpdateConfiguration
+       , HasGenesisBlockVersionData
+       )
 
 ----------------------------------------------------------------------------
 -- Mock for TxCreateMode
@@ -39,8 +55,8 @@ instance MonadGState TxpTestMode where
 
 instance MonadAddresses TxpTestMode where
     type AddrData TxpTestMode = ()
-    getNewAddress _ _ = pure fakeAddressForMonadAddresses
-    getFakeChangeAddress _ = pure fakeAddressForMonadAddresses
+    getNewAddress _ = pure fakeAddressForMonadAddresses
+    getFakeChangeAddress = pure fakeAddressForMonadAddresses
 
 fakeAddressForMonadAddresses :: Address
 fakeAddressForMonadAddresses = address
@@ -67,8 +83,8 @@ type TxpTestProperty = PropertyM TxpTestMode
 -- type families cannot be OVERLAPPABLE.
 instance MonadAddresses TxpTestProperty where
     type AddrData TxpTestProperty = AddrData TxpTestMode
-    getNewAddress epochSlots = lift . getNewAddress epochSlots
-    getFakeChangeAddress = lift . getFakeChangeAddress
+    getNewAddress = lift . getNewAddress
+    getFakeChangeAddress = lift getFakeChangeAddress
 
-instance Testable a => Testable (TxpTestProperty a) where
-    property = monadic (ioProperty . flip runReaderT dummyBlockVersionData)
+instance (HasTxpConfigurations, Testable a) => Testable (TxpTestProperty a) where
+    property = monadic (ioProperty . flip runReaderT genesisBlockVersionData)

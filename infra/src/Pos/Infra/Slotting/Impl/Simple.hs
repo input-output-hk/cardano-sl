@@ -19,12 +19,15 @@ module Pos.Infra.Slotting.Impl.Simple
 
 import           Universum
 
-import           Pos.Core.Conc (currentTime)
-import           Pos.Core.Slotting (MonadSlotsData, SlotCount, SlotId (..),
-                     Timestamp (..), getCurrentNextEpochIndexM,
-                     unflattenSlotId, waitCurrentEpochEqualsM)
+import           Mockable (CurrentTime, Mockable, currentTime)
+
+import           Pos.Core.Configuration (HasProtocolConstants)
+import           Pos.Core.Slotting (SlotId (..), Timestamp (..),
+                     unflattenSlotId)
 import           Pos.Infra.Slotting.Impl.Util (approxSlotUsingOutdated,
                      slotFromTimestamp)
+import           Pos.Infra.Slotting.MemState (MonadSlotsData,
+                     getCurrentNextEpochIndexM, waitCurrentEpochEqualsM)
 import           Pos.Util (HasLens (..))
 
 ----------------------------------------------------------------------------
@@ -32,7 +35,8 @@ import           Pos.Util (HasLens (..))
 ----------------------------------------------------------------------------
 
 type SimpleSlottingMode ctx m
-    = ( MonadSlotsData ctx m
+    = ( Mockable CurrentTime m
+      , MonadSlotsData ctx m
       , MonadIO m
       )
 
@@ -52,67 +56,64 @@ data SimpleSlottingState = SimpleSlottingState
 
 type SimpleSlottingStateVar = TVar SimpleSlottingState
 
-mkSimpleSlottingStateVar :: MonadIO m => SlotCount -> m SimpleSlottingStateVar
-mkSimpleSlottingStateVar epochSlots =
-    atomically $ newTVar $ SimpleSlottingState $ unflattenSlotId epochSlots 0
+mkSimpleSlottingStateVar :: (MonadIO m, HasProtocolConstants) => m SimpleSlottingStateVar
+mkSimpleSlottingStateVar = atomically $ newTVar $ SimpleSlottingState $ unflattenSlotId 0
 
 ----------------------------------------------------------------------------
 -- Implementation
 ----------------------------------------------------------------------------
 
 getCurrentSlotSimple'
-    :: SimpleSlottingMode ctx m
-    => SlotCount
-    -> SimpleSlottingStateVar
+    :: (SimpleSlottingMode ctx m, HasProtocolConstants)
+    => SimpleSlottingStateVar
     -> m (Maybe SlotId)
-getCurrentSlotSimple' epochSlots var =
+getCurrentSlotSimple' var =
         currentTimeSlottingSimple
-    >>= slotFromTimestamp epochSlots
+    >>= slotFromTimestamp
     >>= traverse (updateLastSlot var)
 
 getCurrentSlotSimple
-    :: MonadSimpleSlotting ctx m => SlotCount -> m (Maybe SlotId)
-getCurrentSlotSimple epochSlots =
-    view (lensOf @SimpleSlottingStateVar) >>= getCurrentSlotSimple' epochSlots
+    :: (MonadSimpleSlotting ctx m, HasProtocolConstants)
+    => m (Maybe SlotId)
+getCurrentSlotSimple = view (lensOf @SimpleSlottingStateVar) >>= getCurrentSlotSimple'
 
 getCurrentSlotBlockingSimple'
-    :: SimpleSlottingMode ctx m
-    => SlotCount
-    -> SimpleSlottingStateVar
+    :: (SimpleSlottingMode ctx m, HasProtocolConstants)
+    => SimpleSlottingStateVar
     -> m SlotId
-getCurrentSlotBlockingSimple' epochSlots var = do
+getCurrentSlotBlockingSimple' var = do
     (_, nextEpochIndex) <- getCurrentNextEpochIndexM
-    getCurrentSlotSimple' epochSlots var >>= \case
+    getCurrentSlotSimple' var >>= \case
         Just slot -> pure slot
-        Nothing   -> do
+        Nothing -> do
             waitCurrentEpochEqualsM nextEpochIndex
-            getCurrentSlotBlockingSimple' epochSlots var
+            getCurrentSlotBlockingSimple' var
 
 getCurrentSlotBlockingSimple
-    :: MonadSimpleSlotting ctx m => SlotCount -> m SlotId
-getCurrentSlotBlockingSimple epochSlots = view (lensOf @SimpleSlottingStateVar)
-    >>= getCurrentSlotBlockingSimple' epochSlots
+    :: (MonadSimpleSlotting ctx m, HasProtocolConstants)
+    => m SlotId
+getCurrentSlotBlockingSimple =
+    view (lensOf @SimpleSlottingStateVar) >>= getCurrentSlotBlockingSimple'
 
 getCurrentSlotInaccurateSimple'
-    :: SimpleSlottingMode ctx m
-    => SlotCount
-    -> SimpleSlottingStateVar
+    :: (SimpleSlottingMode ctx m, HasProtocolConstants)
+    => SimpleSlottingStateVar
     -> m SlotId
-getCurrentSlotInaccurateSimple' epochSlots var =
-    getCurrentSlotSimple' epochSlots var >>= \case
+getCurrentSlotInaccurateSimple' var =
+    getCurrentSlotSimple' var >>= \case
         Just slot -> pure slot
         Nothing   -> do
-            lastSlot <- _sssLastSlot <$> readTVarIO var
+            lastSlot <- _sssLastSlot <$> atomically (readTVar var)
             max lastSlot <$> (currentTimeSlottingSimple >>=
-                approxSlotUsingOutdated epochSlots)
+                approxSlotUsingOutdated)
 
 getCurrentSlotInaccurateSimple
-    :: MonadSimpleSlotting ctx m => SlotCount -> m SlotId
-getCurrentSlotInaccurateSimple epochSlots =
-    view (lensOf @SimpleSlottingStateVar)
-        >>= getCurrentSlotInaccurateSimple' epochSlots
+    :: (MonadSimpleSlotting ctx m, HasProtocolConstants)
+    => m SlotId
+getCurrentSlotInaccurateSimple =
+    view (lensOf @SimpleSlottingStateVar) >>= getCurrentSlotInaccurateSimple'
 
-currentTimeSlottingSimple :: SimpleSlottingMode ctx m => m Timestamp
+currentTimeSlottingSimple :: (SimpleSlottingMode ctx m) => m Timestamp
 currentTimeSlottingSimple = Timestamp <$> currentTime
 
 updateLastSlot :: MonadIO m => SimpleSlottingStateVar -> SlotId -> m SlotId

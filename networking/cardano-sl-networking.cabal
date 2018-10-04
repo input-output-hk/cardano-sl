@@ -24,6 +24,19 @@ Library
                         Network.Broadcast.OutboundQueue.Demo
 
                         Node
+
+                        Mockable
+                        Mockable.Channel
+                        Mockable.Class
+                        Mockable.Concurrent
+                        Mockable.CurrentTime
+                        Mockable.Instances
+                        Mockable.Monad
+                        Mockable.Production
+                        Mockable.SharedAtomic
+                        Mockable.SharedExclusive
+                        Mockable.Metrics
+
                         Node.Internal
                         Node.Conversation
                         Node.Message.Decoder
@@ -33,45 +46,55 @@ Library
                         Node.Util.Monitor
 
                         Ntp.Client
-                        Ntp.Util
-                        Ntp.Packet
 
                         Bench.Network.Commons
 
-  other-modules:        Data.NonEmptySet
+                        JsonLog
+                        JsonLog.CanJsonLog
+                        JsonLog.Event
+                        JsonLog.JsonLogT
+
+  other-modules:        Ntp.Packet
+                        Ntp.Util
+                        Data.NonEmptySet
 
   build-depends:        aeson
-                      , aeson-options
                       , async
                       , attoparsec
                       , base
-                      , binary >= 0.8
-                      , bytestring
-                      , cardano-sl-chain
-                      , cardano-sl-core
                       , cardano-sl-util
                       , containers
-                      , ekg-core
-                      , formatting
+                      , cryptonite
+                      , binary >= 0.8
+                      , bytestring
+                      , exceptions
                       , formatting
                       , hashable
                       , kademlia
                       , lens
+                      , log-warper
+                      , mmorph
+                      , monad-control
                       , mtl
-                      , mtl >= 2.2.1
                       , network
                       , network-transport
                       , network-transport-tcp
+                      , mtl >= 2.2.1
                       , random
+                      , resourcet
+                      , transformers-lift
+                      , universum
+                      , unliftio-core
                       , safe-exceptions
-                      , scientific
+                      , serokell-util
                       , stm
                       , text
-                      , these
+                      , formatting
                       , time
                       , time-units
-                      , universum
-                      , unordered-containers
+                      , transformers
+                      , transformers-base
+                      , ekg-core
 
   hs-source-dirs:       src
   default-language:     Haskell2010
@@ -80,6 +103,7 @@ Library
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
                         OverloadedStrings
+                        RecordWildCards
                         MonadFailDesugaring
 
 executable discovery
@@ -102,6 +126,7 @@ executable discovery
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
                         OverloadedStrings
+                        RecordWildCards
                         MonadFailDesugaring
 
 executable ping-pong
@@ -124,6 +149,7 @@ executable ping-pong
                        DeriveDataTypeable
                        GeneralizedNewtypeDeriving
                        OverloadedStrings
+                       RecordWildCards
                        MonadFailDesugaring
 
 executable bench-sender
@@ -131,9 +157,11 @@ executable bench-sender
   other-modules:       SenderOptions
   build-depends:       async
                      , base
+                     , cardano-sl-networking
                      , cardano-sl-util
                      , contravariant
                      , lens
+                     , log-warper
                      , MonadRandom
                      , mtl
                      , network-transport
@@ -152,6 +180,7 @@ executable bench-sender
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
   default-extensions:  OverloadedStrings
+                       RecordWildCards
                        DeriveDataTypeable
                        GeneralizedNewtypeDeriving
                        MonadFailDesugaring
@@ -160,6 +189,7 @@ executable bench-receiver
   main-is:             Main.hs
   other-modules:       ReceiverOptions
   build-depends:       base
+                     , cardano-sl-networking
                      , cardano-sl-util
                      , contravariant
                      , network-transport-tcp
@@ -176,6 +206,7 @@ executable bench-receiver
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
   default-extensions:  OverloadedStrings
+                     , RecordWildCards
                      , DeriveDataTypeable
                      , GeneralizedNewtypeDeriving
                      , MonadFailDesugaring
@@ -185,11 +216,14 @@ executable bench-log-reader
   other-modules:       LogReaderOptions
   build-depends:       base == 4.*
                      , attoparsec
+                     , cardano-sl-networking
                      , cardano-sl-util
                      , conduit
                      , conduit-extra
                      , containers
+                     , formatting
                      , lens
+                     , log-warper
                      , mtl
                      , optparse-simple
                      , resourcet
@@ -205,6 +239,7 @@ executable bench-log-reader
   default-language:    Haskell2010
   ghc-options:         -threaded -Wall
   default-extensions:  OverloadedStrings
+                     , RecordWildCards
                      , DeriveDataTypeable
                      , GeneralizedNewtypeDeriving
                      , MonadFailDesugaring
@@ -213,7 +248,6 @@ test-suite cardano-sl-networking-test
   main-is:             Test.hs
   other-modules:       Spec
                        Test.NodeSpec
-                       Test.NtpSpec
                        Test.Network.Broadcast.OutboundQueueSpec
                        Test.Util
   type:                exitcode-stdio-1.0
@@ -227,6 +261,7 @@ test-suite cardano-sl-networking-test
                      , hspec >= 2.1.10
                      , hspec-core
                      , lens >= 4.14
+                     , log-warper
                      , mtl >= 2.2.1
                      , network-transport
                      , network-transport-tcp
@@ -243,6 +278,7 @@ test-suite cardano-sl-networking-test
                        -Wall
                        -with-rtsopts=-N
   default-extensions:  OverloadedStrings
+                     , RecordWildCards
                      , DeriveDataTypeable
                      , GeneralizedNewtypeDeriving
                      , MonadFailDesugaring

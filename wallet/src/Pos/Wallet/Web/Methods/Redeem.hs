@@ -12,12 +12,10 @@ import           Universum
 import           Data.ByteString.Base58 (bitcoinAlphabet, decodeBase58)
 import qualified Serokell.Util.Base64 as B64
 
-import           Pos.Chain.Genesis as Genesis (Config (..))
-import           Pos.Chain.Txp (TxAux (..), TxOut (..), TxpConfiguration)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Client.Txp.Network (prepareRedemptionTx)
-import           Pos.Core (getCurrentTimestamp)
-import           Pos.Crypto (PassPhrase, aesDecrypt, hash,
+import           Pos.Core (TxAux (..), TxOut (..), getCurrentTimestamp)
+import           Pos.Crypto (PassPhrase, ProtocolMagic, aesDecrypt, hash,
                      redeemDeterministicKeyGen)
 import           Pos.Util (maybeThrow)
 import           Pos.Util.Mnemonic (mnemonicToAesKey)
@@ -38,17 +36,12 @@ import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getWalletAddrsDetector)
 
 redeemAda
     :: MonadWalletTxFull ctx m
-    => Genesis.Config
-    -> TxpConfiguration
-    -> (TxAux -> m Bool)
-    -> PassPhrase
-    -> CWalletRedeem
-    -> m CTx
-redeemAda genesisConfig txpConfig submitTx passphrase CWalletRedeem {..} = do
+    => ProtocolMagic -> (TxAux -> m Bool) -> PassPhrase -> CWalletRedeem -> m CTx
+redeemAda pm submitTx passphrase CWalletRedeem {..} = do
     seedBs <- maybe invalidBase64 pure
         -- NOTE: this is just safety measure
         $ rightToMaybe (B64.decode crSeed) <|> rightToMaybe (B64.decodeUrl crSeed)
-    redeemAdaInternal genesisConfig txpConfig submitTx passphrase crWalletId seedBs
+    redeemAdaInternal pm submitTx passphrase crWalletId seedBs
   where
     invalidBase64 =
         throwM . RequestError $ "Seed is invalid base64(url) string: " <> crSeed
@@ -58,19 +51,18 @@ redeemAda genesisConfig txpConfig submitTx passphrase CWalletRedeem {..} = do
 --  * https://github.com/input-output-hk/postvend-app/blob/master/src/CertGen.hs#L160
 redeemAdaPaperVend
     :: MonadWalletTxFull ctx m
-    => Genesis.Config
-    -> TxpConfiguration
+    => ProtocolMagic
     -> (TxAux -> m Bool)
     -> PassPhrase
     -> CPaperVendWalletRedeem
     -> m CTx
-redeemAdaPaperVend genesisConfig txpConfig submitTx passphrase CPaperVendWalletRedeem {..} = do
+redeemAdaPaperVend pm submitTx passphrase CPaperVendWalletRedeem {..} = do
     seedEncBs <- maybe invalidBase58 pure
         $ decodeBase58 bitcoinAlphabet $ encodeUtf8 pvSeed
     let aesKey = mnemonicToAesKey (bpToList pvBackupPhrase)
     seedDecBs <- either decryptionFailed pure
         $ aesDecrypt seedEncBs aesKey
-    redeemAdaInternal genesisConfig txpConfig submitTx passphrase pvWalletId seedDecBs
+    redeemAdaInternal pm submitTx passphrase pvWalletId seedDecBs
   where
     invalidBase58 =
         throwM . RequestError $ "Seed is invalid base58 string: " <> pvSeed
@@ -80,14 +72,13 @@ redeemAdaPaperVend genesisConfig txpConfig submitTx passphrase CPaperVendWalletR
 
 redeemAdaInternal
     :: MonadWalletTxFull ctx m
-    => Genesis.Config
-    -> TxpConfiguration
+    => ProtocolMagic
     -> (TxAux -> m Bool)
     -> PassPhrase
     -> CAccountId
     -> ByteString
     -> m CTx
-redeemAdaInternal genesisConfig txpConfig submitTx passphrase cAccId seedBs = do
+redeemAdaInternal pm submitTx passphrase cAccId seedBs = do
     (_, redeemSK) <- maybeThrow (RequestError "Seed is not 32-byte long") $
                      redeemDeterministicKeyGen seedBs
     accId <- decodeCTypeOrFail cAccId
@@ -99,10 +90,8 @@ redeemAdaInternal genesisConfig txpConfig submitTx passphrase cAccId seedBs = do
     dstAddr <- decodeCTypeOrFail . cadId =<< L.newAddress RandomSeed passphrase accId
     ws <- getWalletSnapshot db
     th <- rewrapTxError "Cannot send redemption transaction" $ do
-        (txAux, redeemAddress, redeemBalance) <- prepareRedemptionTx
-            genesisConfig
-            redeemSK
-            dstAddr
+        (txAux, redeemAddress, redeemBalance) <-
+                prepareRedemptionTx pm redeemSK dstAddr
 
         ts <- Just <$> getCurrentTimestamp
         let tx = taTx txAux
@@ -110,14 +99,9 @@ redeemAdaInternal genesisConfig txpConfig submitTx passphrase cAccId seedBs = do
             txInputs = [TxOut redeemAddress redeemBalance]
             th = THEntry txHash tx Nothing txInputs [dstAddr] ts
             dstWallet = aiWId accId
-        ptx <- mkPendingTx (configProtocolConstants genesisConfig)
-                           ws
-                           dstWallet
-                           txHash
-                           txAux
-                           th
+        ptx <- mkPendingTx ws dstWallet txHash txAux th
 
-        th <$ submitAndSaveNewPtx genesisConfig txpConfig db submitTx ptx
+        th <$ submitAndSaveNewPtx pm db submitTx ptx
 
     -- add redemption transaction to the history of new wallet
     let cWalId = aiWId accId

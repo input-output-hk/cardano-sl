@@ -6,13 +6,15 @@
 
 module Test.Pos.Infra.Arbitrary.Txp () where
 
+import           Universum
+
 import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
-import           Pos.Chain.Txp (TxMsgContents (..))
+import           Pos.Core.Txp (TxMsgContents (..))
 
-import           Test.Pos.Chain.Txp.Arbitrary ()
+import           Test.Pos.Core.Arbitrary.Txp ()
 
 instance Arbitrary TxMsgContents where
     arbitrary = genericArbitrary

@@ -4,14 +4,13 @@ module Pos.Infra.Discovery.Model.Class
        , withPeersConcurrently
        ) where
 
-import           Universum
-
 import           Data.Proxy (Proxy)
 import           Data.Set (Set)
 import qualified Data.Set as Set (toList)
-
-import           Pos.Core.Conc (forConcurrently)
+import           Mockable (Mockable)
+import           Mockable.Concurrent (Concurrently, forConcurrently)
 import           Pos.Infra.Communication.Protocol (NodeId)
+import           Universum
 
 -- | Provides a set of known peers.
 class Discovery which m where
@@ -30,6 +29,7 @@ withPeers which k = fmap k (peers which)
 --   The target monad must be capable of concurrency.
 withPeersConcurrently
     :: ( Discovery which m
+       , Mockable Concurrently m
        )
     => Proxy which
     -> (Set NodeId -> m (NodeId -> m t))

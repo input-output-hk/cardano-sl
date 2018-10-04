@@ -1,5 +1,4 @@
-{-# LANGUAGE CPP             #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE CPP #-}
 
 -- | Wrappers around functions from pvss-haskell which implement a
 -- Verifiable Secret Sharing (VSS) algorithm called Scrape.

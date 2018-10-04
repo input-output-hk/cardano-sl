@@ -39,6 +39,7 @@ import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (initialState)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), PageNumber(..), State)
+import Explorer.Util.Config (testNetVersion)
 import Explorer.Util.DOM (enterKeyPressed)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkCoin)
 import Explorer.Util.String (formatADA)
@@ -361,7 +362,7 @@ logoView' mRoute isTestnet =
                 ! S.className "logo__img bg-logo"
                 $ S.div
                     ! S.className ("testnet-icon" <> iconHiddenClazz)
-                    $ S.text ("Testnet")
+                    $ S.text ("TN " <> testNetVersion)
 
 logoView :: Boolean -> P.HTML Action
 logoView isTestnet = logoView' Nothing isTestnet

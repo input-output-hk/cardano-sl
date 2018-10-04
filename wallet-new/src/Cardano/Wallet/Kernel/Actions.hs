@@ -1,25 +1,19 @@
-{-# LANGUAGE LambdaCase #-}
 module Cardano.Wallet.Kernel.Actions
     ( WalletAction(..)
     , WalletActionInterp(..)
-    , WalletInterpAction(..)
-    , withWalletWorker
-    , WalletWorkerExpiredError(..)
+    , forkWalletWorker
+    , walletWorker
     , interp
     , interpList
-    , interpStep
     , WalletWorkerState
-    , initialWorkerState
     , isInitialState
     , hasPendingFork
     , isValidState
     ) where
 
-import qualified Control.Concurrent.Async as Async
-import qualified Control.Concurrent.STM as STM
-import qualified Control.Exception.Safe as Ex
+import           Control.Concurrent.Async (async, link)
+import           Control.Concurrent.Chan
 import           Control.Lens (makeLenses, (%=), (+=), (-=), (.=))
-import           Control.Monad.Writer.Strict (Writer, runWriter, tell)
 import           Formatting (bprint, build, shown, (%))
 import qualified Formatting.Buildable
 import           Universum
@@ -36,7 +30,7 @@ import           Pos.Core.Chrono
 --   batched into a single operation on the actual wallet.
 data WalletAction b
     = ApplyBlocks    (OldestFirst NE b)
-    | RollbackBlocks Int
+    | RollbackBlocks (NewestFirst NE b)
     | LogMessage Text
 
 -- | Interface abstraction for the wallet worker.
@@ -45,17 +39,9 @@ data WalletAction b
 --   underlying wallet.
 data WalletActionInterp m b = WalletActionInterp
     { applyBlocks  :: OldestFirst NE b -> m ()
-    , switchToFork :: Int -> OldestFirst NE b -> m ()
+    , switchToFork :: Int -> OldestFirst [] b -> m ()
     , emit         :: Text -> m ()
     }
-
--- | An interpreted action
---
--- Used for 'interpStep'
-data WalletInterpAction b
-    = InterpApplyBlocks (OldestFirst NE b)
-    | InterpSwitchToFork Int (OldestFirst NE b)
-    | InterpLogMessage Text
 
 -- | Internal state of the wallet worker.
 data WalletWorkerState b = WalletWorkerState
@@ -103,29 +89,28 @@ interp walletInterp action = do
         lengthPendingBlocks += length bs
 
         -- If we have seen more blocks than rollbacks, switch to the new fork.
-        (nonEmptyOldestFirst . toOldestFirst) <$> use pendingBlocks >>= \case
-            Just pb | numPendingBlocks + length bs > numPendingRollbacks -> do
+        when (numPendingBlocks + length bs > numPendingRollbacks) $ do
 
-                switchToFork numPendingRollbacks pb
+          pb <- toOldestFirst <$> use pendingBlocks
+          switchToFork numPendingRollbacks pb
 
-                -- Reset state to "no fork in progress"
-                pendingRollbacks    .= 0
-                lengthPendingBlocks .= 0
-                pendingBlocks       .= NewestFirst []
-            _ -> return ()
+          -- Reset state to "no fork in progress"
+          pendingRollbacks    .= 0
+          lengthPendingBlocks .= 0
+          pendingBlocks       .= NewestFirst []
 
       -- If we are in the midst of a fork and have seen some new blocks,
       -- roll back some of those blocks. If there are more rollbacks requested
       -- than the number of new blocks, see the next case below.
-      RollbackBlocks n | n <= numPendingBlocks -> do
-        lengthPendingBlocks -= n
-        pendingBlocks %= NewestFirst . drop n . getNewestFirst
+      RollbackBlocks bs | length bs <= numPendingBlocks -> do
+                            lengthPendingBlocks -= length bs
+                            pendingBlocks %= NewestFirst . drop (length bs) . getNewestFirst
 
       -- If we are in the midst of a fork and are asked to rollback more than
       -- the number of new blocks seen so far, clear out the list of new
       -- blocks and add any excess to the number of pending rollback operations.
-      RollbackBlocks n -> do
-        pendingRollbacks    += n - numPendingBlocks
+      RollbackBlocks bs -> do
+        pendingRollbacks    += length bs - numPendingBlocks
         lengthPendingBlocks .= 0
         pendingBlocks       .= NewestFirst []
 
@@ -135,42 +120,17 @@ interp walletInterp action = do
     WalletActionInterp{..} = lifted walletInterp
     prependNewestFirst bs = \nf -> NewestFirst (getNewestFirst bs <> getNewestFirst nf)
 
--- | Connect a wallet action interpreter to a source of actions. This function
--- returns as soon as the given action returns 'Nothing'.
-walletWorker
-  :: Ex.MonadMask m
-  => WalletActionInterp m b
-  -> m (Maybe (WalletAction b))
-  -> m ()
-walletWorker wai getWA = Ex.bracket_
-  (emit wai "Starting wallet worker.")
-  (evalStateT
-     (fix $ \next -> lift getWA >>= \case
-        Nothing -> pure ()
-        Just wa -> interp wai wa >> next)
-     initialWorkerState)
-  (emit wai "Stopping wallet worker.")
+-- | Connect a wallet action interpreter to a channel of actions.
+walletWorker :: Chan (WalletAction b) -> WalletActionInterp IO b -> IO ()
+walletWorker chan ops = do
+    emit ops "Starting wallet worker."
+    void $ (`evalStateT` initialWorkerState) $ forever $
+      lift (readChan chan) >>= interp ops
+    emit ops "Finishing wallet worker."
 
 -- | Connect a wallet action interpreter to a stream of actions.
 interpList :: Monad m => WalletActionInterp m b -> [WalletAction b] -> m (WalletWorkerState b)
 interpList ops actions = execStateT (forM_ actions $ interp ops) initialWorkerState
-
--- | Step the wallet worker in a pure context
---
--- This is useful for testing purposes.
--- interp :: Monad m => WalletActionInterp m b -> WalletAction b -> StateT (WalletWorkerState b) m ()
-interpStep :: forall b. WalletAction b -> WalletWorkerState b -> (WalletWorkerState b, [WalletInterpAction b])
-interpStep act st = runWriter (execStateT (interp wai act) st)
-  where
-    -- Writer should not be used in production code as it has a memory leak. For
-    -- this use case however it is perfect: we only accumulate a tiny list here,
-    -- and anyway only use this in testing.
-    wai :: WalletActionInterp (Writer [WalletInterpAction b]) b
-    wai = WalletActionInterp {
-          applyBlocks  = \bs   -> tell [InterpApplyBlocks bs]
-        , switchToFork = \n bs -> tell [InterpSwitchToFork n bs]
-        , emit         = \msg  -> tell [InterpLogMessage msg]
-        }
 
 initialWorkerState :: WalletWorkerState b
 initialWorkerState = WalletWorkerState
@@ -179,51 +139,13 @@ initialWorkerState = WalletWorkerState
     , _lengthPendingBlocks = 0
     }
 
--- | Thrown by 'withWalletWorker''s continuation in case it's used outside of
--- its intended scope.
-data WalletWorkerExpiredError = WalletWorkerExpiredError deriving (Show)
-instance Ex.Exception WalletWorkerExpiredError
-
--- | Start a wallet worker in backround who will react to input provided via the
--- 'STM' function, in FIFO order.
---
--- After the given continuation returns (successfully or due to some exception),
--- the worker will continue processing any pending input before returning,
--- re-throwing the continuation's exception if any. Async exceptions from any
--- source will always be prioritized.
---
--- Usage of the obtained 'STM' action after the given continuation has returned
--- is not possible. It will throw 'WalletWorkerExpiredError'.
-withWalletWorker
-  :: (MonadIO m, Ex.MonadMask m)
-  => WalletActionInterp IO a
-  -> ((WalletAction a -> STM ()) -> m b)
-  -> m b
-withWalletWorker wai k = do
-  -- 'tmq' keeps items to be processed by the worker in FIFO order.
-  tmq :: TMQueue (WalletAction a) <- liftIO newTMQueueIO
-  -- 'getWA' gets the next action to be processed.
-  let getWA :: STM (Maybe (WalletAction a))
-      getWA = readTMQueue tmq
-  -- 'pushWA' adds an action to queue, unless it's been closed already.
-  let pushWA :: WalletAction a -> STM ()
-      pushWA = writeTMQueue tmq >=> \case
-         True -> pure ()
-         False -> Ex.throwM WalletWorkerExpiredError
-  -- Run the worker in the background, ensuring that any exceptions from it
-  -- get thrown to the current thread.
-  Ex.bracket
-     (liftIO $ do
-        as1 <- Async.async (walletWorker wai (STM.atomically getWA))
-        Async.link as1
-        pure as1)
-     (\as1 -> liftIO $ do
-        -- Prevent new input.
-        STM.atomically (closeTMQueue tmq)
-        -- Wait for the worker to finish, re-throwing any exceptions from it.
-        Async.wait as1)
-     (\_ -> k pushWA)
-
+-- | Start up a wallet worker; the worker will respond to actions issued over the
+--   returned channel.
+forkWalletWorker :: (MonadIO m, MonadIO m') => WalletActionInterp IO b -> m (WalletAction b -> m' ())
+forkWalletWorker ops = liftIO $ do
+    c <- newChan
+    link =<< async (walletWorker c ops)
+    return (liftIO . writeChan c)
 
 -- | Check if this is the initial worker state.
 isInitialState :: Eq b => WalletWorkerState b -> Bool
@@ -256,58 +178,9 @@ instance Show b => Buildable (WalletAction b) where
     build wa = case wa of
       ApplyBlocks bs    -> bprint ("ApplyBlocks " % shown) bs
       RollbackBlocks bs -> bprint ("RollbackBlocks " % shown) bs
-      LogMessage msg    -> bprint ("LogMessage " % shown) msg
+      LogMessage bs     -> bprint ("LogMessage " % shown) bs
 
 instance Show b => Buildable [WalletAction b] where
     build was = case was of
       []     -> bprint "[]"
       (x:xs) -> bprint (build % ":" % build) x xs
-
---------------------------------------------------------------------------------
--- STM closeable queue.
-
--- | A FIFO queue that can be closed, preventing new input from being writen to
--- it.
---
--- This is similar to 'Control.Concurrent.STM.TMQueue', redefined here with some
--- of its API to avoid a dependency on the 'stm-chans' library.
-data TMQueue a
-  = UnsafeTMQueue !(STM.TVar TMQueueOpen) !(STM.TQueue a)
-  -- ^ Don't use this constructor directly. It's internal. It carries the queue
-  -- itself, and whether this 'TMQueue' is open or not.
-
-data TMQueueOpen = TMQueueOpen | TMQueueNotOpen
-
--- | Creates a new empty and open 'TMQueue'.
-newTMQueueIO :: IO (TMQueue a)
-newTMQueueIO = UnsafeTMQueue <$> STM.newTVarIO TMQueueOpen <*> STM.newTQueueIO
-
--- | Closes the 'TMQueue'. After this, any elements already in the 'TMQueue'
--- will continue to be successfully returned by 'readTMQueue'. However, any
--- new writes with 'writeTMQueue' will fail as described by its documentation.
-closeTMQueue :: TMQueue a -> STM ()
-closeTMQueue (UnsafeTMQueue to _) = STM.writeTVar to TMQueueNotOpen
-
--- | Writes a new input to the 'TMQueue', in FIFO order.
---
--- It returns 'True' if the 'TMQueue' was open and it was possible to write to
--- it. Otherwise, if the 'TMQueue' was closed, it returns 'False', meaning
--- nothing has been writen to the queue.
-writeTMQueue :: TMQueue a -> a -> STM Bool
-writeTMQueue (UnsafeTMQueue to tq) a = do
-  STM.readTVar to >>= \case
-     TMQueueOpen -> STM.writeTQueue tq a >> pure True
-     TMQueueNotOpen -> pure False
-
--- | Read a value from the 'TMQueue', in FIFO order.
---
--- If the 'TMQueue' is empty and closed, then this function returns 'Nothing'.
--- Otherwise, if the 'TMQueue' is not closed, this function will block waiting
--- for new input.
-readTMQueue :: TMQueue a -> STM (Maybe a)
-readTMQueue (UnsafeTMQueue to tq) = do
-  STM.tryReadTQueue tq >>= \case
-     Just a -> pure (Just a)
-     Nothing -> STM.readTVar to >>= \case
-        TMQueueOpen -> Just <$> STM.readTQueue tq
-        TMQueueNotOpen -> pure Nothing

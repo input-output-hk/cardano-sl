@@ -1,5 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
-
 module Main
        ( main
        ) where
@@ -13,25 +11,23 @@ import           Formatting (build, sformat, stext, string, (%))
 import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath ((</>))
 import           System.FilePath.Glob (glob)
+import           System.Wlog (WithLogger, debugPlus, logInfo, productionB,
+                     setupLogging, termSeveritiesOutB, usingLoggerName)
 import qualified Text.JSON.Canonical as CanonicalJSON
 
 import           Pos.Binary (asBinary, serialize')
-import           Pos.Chain.Genesis as Genesis (Config (..),
-                     GeneratedSecrets (..), RichSecrets (..),
-                     configGeneratedSecretsThrow, configVssMaxTTL,
-                     generateFakeAvvm, generateRichSecrets)
-import           Pos.Chain.Ssc (mkVssCertificate, vcSigningKey)
-import           Pos.Core (addressHash)
+import qualified Pos.Client.CLI as CLI
+import           Pos.Core (CoreConfiguration (..), GenesisConfiguration (..),
+                     ProtocolMagic, RichSecrets (..), addressHash, ccGenesis,
+                     coreConfiguration, generateFakeAvvm, generateRichSecrets,
+                     mkVssCertificate, vcSigningKey, vssMaxTTL)
 import           Pos.Crypto (EncryptedSecretKey (..), SecretKey (..),
                      VssKeyPair, fullPublicKeyF, hashHexF, noPassEncrypt,
                      redeemPkB64F, toPublic, toVssPublicKey)
-import           Pos.Launcher (dumpGenesisData, withConfigurations)
-import           Pos.Util.Log.LoggerConfig (defaultInteractiveConfiguration)
+import           Pos.Launcher (HasConfigurations, withConfigurations)
 import           Pos.Util.UserSecret (readUserSecret, takeUserSecret, usKeys,
                      usPrimKey, usVss, usWallet, writeUserSecretRelease,
                      wusRootKey)
-import           Pos.Util.Wlog (Severity (Debug), WithLogger, logInfo,
-                     setupLogging, usingLoggerName)
 
 import           Dump (dumpFakeAvvmSeed, dumpGeneratedGenesisData,
                      dumpRichSecrets)
@@ -122,26 +118,28 @@ dumpAvvmSeeds DumpAvvmSeedsOptions{..} = do
     logInfo $ "Seeds were generated"
 
 generateKeysByGenesis
-    :: (MonadIO m, WithLogger m, MonadThrow m)
-    => GeneratedSecrets -> GenKeysOptions -> m ()
-generateKeysByGenesis generatedSecrets GenKeysOptions{..} = do
-    dumpGeneratedGenesisData generatedSecrets (gkoOutDir, gkoKeyPattern)
-    logInfo (toText gkoOutDir <> " generated successfully")
+    :: (HasConfigurations, MonadIO m, WithLogger m, MonadThrow m)
+    => GenKeysOptions -> m ()
+generateKeysByGenesis GenKeysOptions{..} = do
+    case ccGenesis coreConfiguration of
+        GCSrc {} ->
+            error $ "Launched source file conf"
+        GCSpec {} -> do
+            dumpGeneratedGenesisData (gkoOutDir, gkoKeyPattern)
+            logInfo (toText gkoOutDir <> " generated successfully")
 
 genVssCert
-    :: (WithLogger m, MonadIO m)
-    => Genesis.Config
-    -> FilePath
-    -> m ()
-genVssCert genesisConfig path = do
+    :: (HasConfigurations, WithLogger m, MonadIO m)
+    => ProtocolMagic -> FilePath -> m ()
+genVssCert pm path = do
     us <- readUserSecret path
     let primKey = fromMaybe (error "No primary key") (us ^. usPrimKey)
         vssKey  = fromMaybe (error "No VSS key") (us ^. usVss)
     let cert = mkVssCertificate
-                 (configProtocolMagic genesisConfig)
+                 pm
                  primKey
                  (asBinary (toVssPublicKey vssKey))
-                 (configVssMaxTTL genesisConfig - 1)
+                 (vssMaxTTL - 1)
     putText $ sformat ("JSON: key "%hashHexF%", value "%stext)
               (addressHash $ vcSigningKey cert)
               (decodeUtf8 $
@@ -155,22 +153,16 @@ genVssCert genesisConfig path = do
 
 main :: IO ()
 main = do
-    KeygenOptions {..} <- getKeygenOptions
-    setupLogging "keygen" $ defaultInteractiveConfiguration Debug
-    usingLoggerName "keygen"
-        $ withConfigurations Nothing Nothing False koConfigurationOptions
-        $ \genesisConfig _ _ _ -> do
-              logInfo "Processing command"
-              generatedSecrets <- configGeneratedSecretsThrow genesisConfig
-              case koCommand of
-                  RearrangeMask msk  -> rearrange msk
-                  GenerateKey   path -> genPrimaryKey path
-                  GenerateVss   path -> genVssCert genesisConfig path
-                  ReadKey       path -> readKey path
-                  DumpAvvmSeeds opts -> dumpAvvmSeeds opts
-                  GenerateKeysBySpec gkbg ->
-                      generateKeysByGenesis generatedSecrets gkbg
-                  DumpGenesisData dgdPath dgdCanonical -> dumpGenesisData
-                      (configGenesisData genesisConfig)
-                      dgdCanonical
-                      dgdPath
+    KeygenOptions{..} <- getKeygenOptions
+    setupLogging Nothing $ productionB <> termSeveritiesOutB debugPlus
+    usingLoggerName "keygen" $ withConfigurations Nothing koConfigurationOptions $ \_ pm -> do
+        logInfo "Processing command"
+        case koCommand of
+            RearrangeMask msk       -> rearrange msk
+            GenerateKey path        -> genPrimaryKey path
+            GenerateVss path        -> genVssCert pm path
+            ReadKey path            -> readKey path
+            DumpAvvmSeeds opts      -> dumpAvvmSeeds opts
+            GenerateKeysBySpec gkbg -> generateKeysByGenesis gkbg
+            DumpGenesisData dgdPath dgdCanonical
+                                    -> CLI.dumpGenesisData dgdCanonical dgdPath

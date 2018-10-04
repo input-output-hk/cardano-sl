@@ -1,6 +1,4 @@
-{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-
 module Test.Network.Broadcast.OutboundQueueSpec
        ( spec
        -- TODO define elsewhere.
@@ -18,14 +16,13 @@ import           Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Network.Broadcast.OutboundQueue as OutQ
 import           Network.Broadcast.OutboundQueue.Demo
-import           Network.Broadcast.OutboundQueue.Types
+import           Network.Broadcast.OutboundQueue.Types hiding (simplePeers)
+import           System.Wlog
 import           Test.Hspec (Spec, describe, it)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import           Test.QuickCheck (Gen, Property, choose, forAll, ioProperty,
                      property, suchThat, (===))
 import qualified Test.QuickCheck as QC
-
-import           Pos.Util.Wlog
 
 arbitraryNodeType :: Gen NodeType
 arbitraryNodeType = QC.elements [minBound .. maxBound]
@@ -131,7 +128,7 @@ prop_removePeer = forAll (arbitraryPeers arbitraryFiniteInt arbitraryNodeType) $
         in  forAll (QC.choose (0, Set.size (peersRouteSet peers) - 1)) $ \idx ->
             let toRemove = ints !! idx
                 Peers{..} = removePeer toRemove peers
-            in all checkProp [_routesCore peersRoutes, _routesEdge peersRoutes , _routesRelay peersRoutes]
+            in and $ map checkProp [_routesCore peersRoutes, _routesEdge peersRoutes , _routesRelay peersRoutes]
   where
     checkProp = all (not . null)
 

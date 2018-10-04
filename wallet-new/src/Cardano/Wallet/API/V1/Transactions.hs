@@ -5,7 +5,6 @@ import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.Types
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
-import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Core as Core
 
 import           Servant
@@ -19,7 +18,7 @@ type API = Tags '["Transactions"] :>
                         :> QueryParam "account_index" AccountIndex
                         :> QueryParam "address" (V1 Core.Address)
                         :> WalletRequestParams
-                        :> FilterBy '[ V1 Txp.TxId
+                        :> FilterBy '[ V1 Core.TxId
                                      , V1 Core.Timestamp
                                      ] Transaction
                         :> SortBy   '[ V1 Core.Timestamp
@@ -29,8 +28,4 @@ type API = Tags '["Transactions"] :>
                         :> Summary "Estimate the fees which would originate from the payment."
                         :> ReqBody '[ValidJSON] Payment
                         :> Post '[ValidJSON] (WalletResponse EstimatedFees)
-    :<|> "transactions" :> "certificates"
-                        :> Summary "Redeem a certificate"
-                        :> ReqBody '[ValidJSON] Redemption
-                        :> Post '[ValidJSON] (WalletResponse Transaction)
     )

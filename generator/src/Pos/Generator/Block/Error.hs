@@ -10,11 +10,11 @@ import           Control.Exception.Safe (Exception (..))
 import           Formatting (bprint, build, stext, (%))
 import qualified Formatting.Buildable
 
-import           Pos.Chain.Block (VerifyBlocksException)
+import           Pos.Block.Error (VerifyBlocksException)
 import           Pos.Core (Address, StakeholderId, addressF)
-import           Pos.Core.Exception (cardanoExceptionFromException,
-                     cardanoExceptionToException)
 import           Pos.Crypto (shortHashF)
+import           Pos.Exception (cardanoExceptionFromException,
+                     cardanoExceptionToException)
 
 -- | Errors which can happen during blockchain generation.
 data BlockGenError

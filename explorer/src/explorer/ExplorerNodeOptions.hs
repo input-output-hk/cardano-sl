@@ -1,7 +1,6 @@
-{-# LANGUAGE ApplicativeDo   #-}
-{-# LANGUAGE CPP             #-}
-{-# LANGUAGE QuasiQuotes     #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE CPP           #-}
+{-# LANGUAGE QuasiQuotes   #-}
 
 -- | Command line options of explorer node.
 

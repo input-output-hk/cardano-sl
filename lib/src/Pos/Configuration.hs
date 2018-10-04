@@ -17,9 +17,6 @@ module Pos.Configuration
        , pendingTxResubmitionPeriod
        , walletProductionApi
        , walletTxCreationDisabled
-
-       -- * Explorer constants
-       , explorerExtendedApi
        ) where
 
 import           Universum
@@ -55,9 +52,6 @@ data NodeConfiguration = NodeConfiguration
     , ccWalletTxCreationDisabled     :: !Bool
       -- ^ Disallow transaction creation or re-submission of
       -- pending transactions by the wallet
-    , ccExplorerExtendedApi          :: !Bool
-      -- ^ Enable explorer extended API for fetching more
-      -- info about addresses (like utxos) and bulk endpoints
     } deriving (Show, Generic)
 
 instance ToJSON NodeConfiguration where
@@ -97,12 +91,3 @@ walletProductionApi = ccWalletProductionApi $ nodeConfiguration
 -- existing pending transactions.
 walletTxCreationDisabled :: HasNodeConfiguration => Bool
 walletTxCreationDisabled = ccWalletTxCreationDisabled $ nodeConfiguration
-
-----------------------------------------------------------------------------
--- Explorer parameters
-----------------------------------------------------------------------------
-
--- | If 'True', explorer extended API, like fetching utxos for address is enabled.
--- WARNING Those endpoints are potentially expensive!
-explorerExtendedApi :: HasNodeConfiguration => Bool
-explorerExtendedApi = ccExplorerExtendedApi $ nodeConfiguration

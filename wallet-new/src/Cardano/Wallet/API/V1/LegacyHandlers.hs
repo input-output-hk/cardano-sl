@@ -10,8 +10,7 @@ module Cardano.Wallet.API.V1.LegacyHandlers where
 import           Universum
 
 import           Ntp.Client (NtpStatus)
-import           Pos.Chain.Genesis as Genesis (Config)
-import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion (sendTx))
 
 import qualified Cardano.Wallet.API.V1 as V1
@@ -41,23 +40,14 @@ handlers :: ( HasConfigurations
             , HasCompileInfo
             )
             => (forall a. MonadV1 a -> Handler a)
-            -> Genesis.Config
-            -> TxpConfiguration
+            -> ProtocolMagic
             -> Diffusion MonadV1
             -> TVar NtpStatus
             -> Server V1.API
-handlers naturalTransformation genesisConfig txpConfig diffusion ntpStatus =
-         hoist' (Proxy @Addresses.API) Addresses.handlers
-    :<|> hoist' (Proxy @Wallets.API) (Wallets.handlers genesisConfig)
-    :<|> hoist' (Proxy @Accounts.API) Accounts.handlers
-    :<|> hoist' (Proxy @Transactions.API) (Transactions.handlers genesisConfig txpConfig sendTx')
-    :<|> hoist' (Proxy @Settings.API) Settings.handlers
-    :<|> hoist' (Proxy @Info.API) (Info.handlers diffusion ntpStatus)
-  where
-    hoist'
-        :: forall (api :: *). HasServer api '[]
-        => Proxy api
-        -> ServerT api MonadV1
-        -> Server api
-    hoist' p = hoistServer p naturalTransformation
-    sendTx' = sendTx diffusion
+handlers naturalTransformation pm diffusion ntpStatus =
+         hoistServer (Proxy @Addresses.API) naturalTransformation Addresses.handlers
+    :<|> hoistServer (Proxy @Wallets.API) naturalTransformation Wallets.handlers
+    :<|> hoistServer (Proxy @Accounts.API) naturalTransformation Accounts.handlers
+    :<|> hoistServer (Proxy @Transactions.API) naturalTransformation (Transactions.handlers pm (sendTx diffusion))
+    :<|> hoistServer (Proxy @Settings.API) naturalTransformation Settings.handlers
+    :<|> hoistServer (Proxy @Info.API) naturalTransformation (Info.handlers diffusion ntpStatus)

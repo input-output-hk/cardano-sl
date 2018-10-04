@@ -8,116 +8,51 @@ import           Universum
 
 import qualified Cardano.Crypto.Wallet as CC
 import qualified Cardano.Crypto.Wallet.Encrypted as CC
-import qualified Codec.CBOR.Encoding as E
-import           Crypto.Error (CryptoFailable (..))
-import qualified Crypto.PubKey.Ed25519 as Ed25519
 import qualified Crypto.SCRAPE as Scrape
 import           Crypto.Scrypt (EncryptedPass (..))
+import qualified Crypto.Sign.Ed25519 as Ed25519
 import           Data.Aeson (FromJSON (..), ToJSON (..))
-import qualified Data.ByteArray as BA
-import qualified Data.ByteString as BS
 import           Data.Hashable (Hashable)
-import           Data.SafeCopy (SafeCopy (..), base, contain,
-                     deriveSafeCopySimple, safeGet, safePut)
-import qualified Data.Text as T
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Serokell.Util.Base64 (JsonByteString (..))
 
-import           Pos.Binary.Class (Bi (..), Size, decodeBinary, encodeBinary,
-                     withWordSize)
+import           Pos.Binary.Class (Bi (..), decodeBinary, encodeBinary)
 
+instance Hashable Ed25519.PublicKey
+instance Hashable Ed25519.SecretKey
+instance Hashable Ed25519.Signature
 
-fromByteStringToBytes :: BS.ByteString -> BA.Bytes
-fromByteStringToBytes = BA.convert
-
-fromByteStringToScrubbedBytes :: BS.ByteString -> BA.ScrubbedBytes
-fromByteStringToScrubbedBytes = BA.convert
-
-toByteString :: (BA.ByteArrayAccess bin) => bin -> BS.ByteString
-toByteString = BA.convert
-
-
-instance Hashable Ed25519.PublicKey where
-    hashWithSalt salt pk = hashWithSalt salt $ toByteString pk
-
-instance Hashable Ed25519.SecretKey where
-    hashWithSalt salt pk = hashWithSalt salt $ toByteString pk
-
-instance Hashable Ed25519.Signature where
-    hashWithSalt salt pk = hashWithSalt salt $ toByteString pk
-
-
-instance Ord Ed25519.PublicKey where
-    compare x1 x2 = compare (toByteString x1) (toByteString x2)
-
-instance Ord Ed25519.SecretKey where
-    compare x1 x2 = compare (toByteString x1) (toByteString x2)
-
-instance Ord Ed25519.Signature where
-    compare x1 x2 = compare (toByteString x1) (toByteString x2)
-
-
-
-instance SafeCopy BA.Bytes where
-    putCopy s = contain $ safePut (toByteString s)
-    getCopy = contain $ fromByteStringToBytes <$> safeGet
-
-instance SafeCopy BA.ScrubbedBytes where
-    putCopy s = contain $ safePut (toByteString s)
-    getCopy = contain $ fromByteStringToScrubbedBytes <$> safeGet
-
+instance NFData Ed25519.PublicKey
+instance NFData Ed25519.SecretKey
+instance NFData Ed25519.Signature
 
 deriveSafeCopySimple 0 'base ''Ed25519.PublicKey
 deriveSafeCopySimple 0 'base ''Ed25519.SecretKey
 deriveSafeCopySimple 0 'base ''Ed25519.Signature
 
-
-fromCryptoFailable :: MonadFail m => T.Text -> CryptoFailable a -> m a
-fromCryptoFailable item (CryptoFailed e) = fail $ T.unpack $ "Pos.Crypto.Orphan." <> item <> " failed because " <> show e
-fromCryptoFailable _ (CryptoPassed r) = return r
-
-
 instance FromJSON Ed25519.PublicKey where
-    parseJSON v = do
-        res <- Ed25519.publicKey . fromByteStringToBytes . getJsonByteString <$> parseJSON v
-        fromCryptoFailable "parseJSON Ed25519.PublicKey" res
+    parseJSON v = Ed25519.PublicKey . getJsonByteString <$> parseJSON v
 
 instance ToJSON Ed25519.PublicKey where
-    toJSON = toJSON . JsonByteString . toByteString
+    toJSON = toJSON . JsonByteString . Ed25519.openPublicKey
 
 instance FromJSON Ed25519.Signature where
-    parseJSON v = do
-        res <- Ed25519.signature . fromByteStringToBytes . getJsonByteString <$> parseJSON v
-        fromCryptoFailable "parseJSON Ed25519.Signature" res
+    parseJSON v = Ed25519.Signature . getJsonByteString <$> parseJSON v
 
 instance ToJSON Ed25519.Signature where
-    toJSON = toJSON . JsonByteString . toByteString
-
-
+    toJSON = toJSON . JsonByteString . Ed25519.unSignature
 
 instance Bi Ed25519.PublicKey where
-    encodedSizeExpr _ _ = bsSize 32
-    encode =  E.encodeBytes . toByteString
-    decode = do
-        res <- Ed25519.publicKey . fromByteStringToBytes <$> decode
-        fromCryptoFailable "decode Ed25519.PublicKey" res
+    encode (Ed25519.PublicKey k) = encode k
+    decode = Ed25519.PublicKey <$> decode
 
 instance Bi Ed25519.SecretKey where
-    encodedSizeExpr _ _ = bsSize 64
-    encode sk = E.encodeBytes $ BS.append (toByteString sk) (toByteString $ Ed25519.toPublic sk)
-    decode = do
-        res <- Ed25519.secretKey . fromByteStringToScrubbedBytes . BS.take Ed25519.secretKeySize <$> decode
-        fromCryptoFailable "decode Ed25519.SecretKey" res
+    encode (Ed25519.SecretKey k) = encode k
+    decode = Ed25519.SecretKey <$> decode
 
 instance Bi Ed25519.Signature where
-    encodedSizeExpr _ _ = bsSize 64
-    encode =  E.encodeBytes . toByteString
-    decode = do
-        res <- Ed25519.signature . fromByteStringToBytes <$> decode
-        fromCryptoFailable "decode Ed25519.Signature" res
-
--- Helper for encodedSizeExpr in Bi instances
-bsSize :: Int -> Size
-bsSize x = fromIntegral (x + withWordSize x)
+    encode (Ed25519.Signature s) = encode s
+    decode = Ed25519.Signature <$> decode
 
 ----------------------------------------------------------------------------
 -- Bi instances for Scrape
@@ -170,3 +105,5 @@ deriveSafeCopySimple 0 'base ''CC.EncryptedKey
 deriveSafeCopySimple 0 'base ''CC.XSignature
 deriveSafeCopySimple 0 'base ''CC.XPub
 deriveSafeCopySimple 0 'base ''CC.XPrv
+
+

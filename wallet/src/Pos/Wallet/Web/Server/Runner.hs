@@ -19,24 +19,22 @@ import           Universum
 import qualified Control.Exception.Safe as E
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
+import           Mockable (Production (..), runProduction)
 import           Network.Wai (Application)
-import           Servant.Server (Handler)
-
 import           Ntp.Client (NtpStatus)
+import           Servant.Server (Handler)
+import           System.Wlog (logInfo, usingLoggerName)
 
 import           Cardano.NodeIPC (startNodeJsIPC)
-import           Pos.Chain.Genesis as Genesis (Config (..),
-                     configGeneratedSecretsThrow, gsPoorSecrets)
-import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Core.NetworkAddress (NetworkAddress)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
 import           Pos.Infra.Shutdown.Class (HasShutdownContext (shutdownContext))
+import           Pos.Infra.Util.TimeWarp (NetworkAddress)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Launcher.Runner (runRealMode)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.Util (HasLens (..))
-import           Pos.Util.Wlog (logInfo, usingLoggerName)
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Methods (addInitialRichAccount)
 import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext (..),
@@ -51,18 +49,19 @@ import           Pos.Web (TlsParams)
 
 -- | 'WalletWebMode' runner.
 runWRealMode
-    :: forall a
-     . (HasConfigurations, HasCompileInfo)
-    => Genesis.Config
-    -> TxpConfiguration
+    :: forall a .
+       ( HasConfigurations
+       , HasCompileInfo
+       )
+    => ProtocolMagic
     -> WalletDB
     -> ConnectionsVar
     -> SyncQueue
     -> NodeResources WalletMempoolExt
     -> (Diffusion WalletWebMode -> WalletWebMode a)
-    -> IO a
-runWRealMode genesisConfig txpConfig db conn syncRequests res action =
-    runRealMode genesisConfig txpConfig res $ \diffusion ->
+    -> Production a
+runWRealMode pm db conn syncRequests res action = Production $
+    runRealMode pm res $ \diffusion ->
         walletWebModeToRealMode db conn syncRequests $
             action (hoistDiffusion realModeToWalletWebMode (walletWebModeToRealMode db conn syncRequests) diffusion)
 
@@ -70,15 +69,14 @@ walletServeWebFull
     :: ( HasConfigurations
        , HasCompileInfo
        )
-    => Genesis.Config
-    -> TxpConfiguration
+    => ProtocolMagic
     -> Diffusion WalletWebMode
     -> TVar NtpStatus
     -> Bool                    -- ^ whether to include genesis keys
     -> NetworkAddress          -- ^ IP and Port to listen
     -> Maybe TlsParams
     -> WalletWebMode ()
-walletServeWebFull genesisConfig txpConfig diffusion ntpStatus debug address mTlsParams = do
+walletServeWebFull pm diffusion ntpStatus debug address mTlsParams = do
     ctx <- view shutdownContext
     let
       portCallback :: Word16 -> IO ()
@@ -88,18 +86,11 @@ walletServeWebFull genesisConfig txpConfig diffusion ntpStatus debug address mTl
     action :: WalletWebMode Application
     action = do
         logInfo "Wallet Web API has STARTED!"
-        when debug $ do
-          generatedSecrets <- gsPoorSecrets
-              <$> configGeneratedSecretsThrow genesisConfig
-          addInitialRichAccount 0 genesisConfig generatedSecrets
+        when debug $ addInitialRichAccount 0
 
         wwmc <- walletWebModeContext
-        walletApplication $ walletServer @WalletWebModeContext @WalletWebMode
-            genesisConfig
-            txpConfig
-            diffusion
-            ntpStatus
-            (convertHandler wwmc)
+        walletApplication $
+            walletServer @WalletWebModeContext @WalletWebMode pm diffusion ntpStatus (convertHandler wwmc)
 
 walletWebModeContext :: WalletWebMode WalletWebModeContext
 walletWebModeContext = view (lensOf @WalletWebModeContextTag)
@@ -113,13 +104,13 @@ convertHandler wwmc handler =
   where
 
     walletRunner :: forall a . WalletWebMode a -> IO a
-    walletRunner act =
+    walletRunner act = runProduction $
         Mtl.runReaderT act wwmc
 
     excHandlers = [E.Handler catchServant]
     catchServant = throwError
 
-notifierPlugin :: WalletWebMode ()
+notifierPlugin :: (HasConfigurations) => WalletWebMode ()
 notifierPlugin = do
     wwmc <- walletWebModeContext
     launchNotifier (convertHandler wwmc)

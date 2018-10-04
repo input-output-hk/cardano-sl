@@ -1,6 +1,5 @@
 {-# LANGUAGE GADTs            #-}
 {-# LANGUAGE RankNTypes       #-}
-{-# LANGUAGE RecordWildCards  #-}
 {-# LANGUAGE TypeApplications #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -70,7 +69,7 @@ import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
                      deriveSimpleBi, encodeKnownCborDataItem, encodeListLen,
                      encodeUnknownCborDataItem, enforceSize)
 import           Pos.Binary.Limit (Limit (..))
-import           Pos.Chain.Update (BlockVersion)
+import           Pos.Core.Update (BlockVersion)
 import           Pos.Infra.Communication.BiP (BiP)
 import           Pos.Infra.Network.Types (MsgType (..), NodeId (..),
                      NodeType (..), Origin (..))
@@ -187,9 +186,8 @@ buildBS :: ByteString -> B.Builder
 buildBS = bprint base16F
 
 data HandlerSpec
-    -- | ConvHandler hsReplyType
-    = ConvHandler !MessageCode
-    | UnknownHandler !Word8 !ByteString
+    = ConvHandler { hsReplyType :: MessageCode }
+    | UnknownHandler Word8 ByteString
     deriving (Show, Generic, Eq)
 
 instance Bi HandlerSpec where
@@ -366,10 +364,6 @@ instance Bi MsgSubscribe where
         43 -> pure MsgSubscribeKeepAlive
         n  -> cborError $ "MsgSubscribe wrong byte: " <> show n
 
-instance Message MsgSubscribe where
-    messageCode _ = 14
-    formatMessage _ = "Subscribe"
-
 -- | Old version of MsgSubscribe.
 data MsgSubscribe1 = MsgSubscribe1
     deriving (Generic, Show, Eq)
@@ -382,10 +376,6 @@ instance Bi MsgSubscribe1 where
     decode = decode @Word8 >>= \case
         42 -> pure MsgSubscribe1
         n  -> cborError $ "MsgSubscribe1 wrong byte:" <> show n
-
-instance Message MsgSubscribe1 where
-    messageCode _ = 13
-    formatMessage _ = "Subscribe1"
 
 mlMsgSubscribe :: Limit MsgSubscribe
 mlMsgSubscribe = 0

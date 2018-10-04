@@ -1,5 +1,4 @@
 {-# LANGUAGE Rank2Types      #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies    #-}
 
@@ -25,7 +24,7 @@ module Pos.Infra.Communication.Relay.Logic
        , invReqDataFlowTK
        , dataFlow
 
-       -- Re-export Core-ed type.
+       -- Re-export Sinbin-ned type.
        , InvReqDataFlowLog (..)
        ) where
 
@@ -41,7 +40,6 @@ import           Universum
 
 import           Pos.Binary.Class (Bi (..))
 import           Pos.Binary.Limit (Limit, mlEither)
-import           Pos.Core.JsonLog.LogEvents (InvReqDataFlowLog (..))
 import           Pos.Infra.Communication.Limits.Instances (mlDataMsg, mlInvMsg,
                      mlMempoolMsg, mlReqMsg, mlResMsg)
 import           Pos.Infra.Communication.Listener (listenerConv)
@@ -58,6 +56,7 @@ import           Pos.Infra.Communication.Types.Relay (DataMsg (..), InvMsg (..),
                      InvOrData, MempoolMsg (..), ReqMsg (..), ReqOrRes,
                      ResMsg (..))
 import           Pos.Infra.Network.Types (Bucket)
+import           Pos.Sinbin.Util.JsonLog.Events (InvReqDataFlowLog (..))
 import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 
 
@@ -130,6 +129,7 @@ handleMempoolL logTrace oq (KeyMempool tagP handleMempool) = pure $ listenerConv
 handleDataOnlyL
     :: forall pack contents.
        ( Bi (DataMsg contents)
+       , Message Void
        , Message (DataMsg contents)
        , Buildable contents
        )
@@ -167,6 +167,7 @@ handleDataDo
        , Message (ReqOrRes key)
        , Bi (InvOrData key contents)
        , Bi (ReqOrRes key)
+       , Message Void
        )
     => Trace IO (Severity, Text)
     -> NodeId
@@ -187,7 +188,8 @@ handleDataDo logTrace provenance mkMsg enqueue contentsToKey handleData dmConten
 
 -- | Synchronously propagate data.
 relayMsg
-    :: Trace IO (Severity, Text)
+    :: ( Message Void )
+    => Trace IO (Severity, Text)
     -> EnqueueMsg
     -> PropagationMsg
     -> IO ()
@@ -195,7 +197,8 @@ relayMsg logTrace enqueue pm = void $ propagateData logTrace enqueue pm >>= wait
 
 -- | Asynchronously propagate data.
 propagateData
-    :: Trace IO (Severity, Text)
+    :: ( Message Void )
+    => Trace IO (Severity, Text)
     -> EnqueueMsg
     -> PropagationMsg
     -> IO (Map NodeId (IO ()))
@@ -241,7 +244,8 @@ handleInvDo logTrace handleInv imKey =
 
 relayListenersOne
     :: forall pack.
-       Trace IO (Severity, Text)
+       ( Message Void )
+    => Trace IO (Severity, Text)
     -> OQ.OutboundQ pack NodeId Bucket
     -> EnqueueMsg
     -> Relay
@@ -255,7 +259,8 @@ relayListenersOne logTrace oq enqueue (Data DataParams{..}) =
 
 relayListeners
     :: forall pack.
-       Trace IO (Severity, Text)
+       ( Message Void )
+    => Trace IO (Severity, Text)
     -> OQ.OutboundQ pack NodeId Bucket
     -> EnqueueMsg
     -> [Relay]
@@ -271,6 +276,7 @@ invDataListener
      , Buildable contents
      , Buildable key
      , Eq key
+     , Message Void
      )
   => Trace IO (Severity, Text)
   -> OQ.OutboundQ pack NodeId Bucket
@@ -299,10 +305,10 @@ invDataListener logTrace oq enqueue InvReqDataParams{..} = listenerConv logTrace
                               -- And check data we are sent is what we expect (currently not)
     in handlingLoop
 
-relayPropagateOut :: [Relay] -> OutSpecs
+relayPropagateOut :: Message Void => [Relay] -> OutSpecs
 relayPropagateOut = mconcat . map propagateOutImpl
 
-propagateOutImpl :: Relay -> OutSpecs
+propagateOutImpl :: Message Void => Relay -> OutSpecs
 propagateOutImpl (InvReqData _ irdp) = toOutSpecs
       [ convH invProxy reqResProxy ]
   where
@@ -368,6 +374,7 @@ dataFlow
        ( Message (DataMsg contents)
        , Bi (DataMsg contents)
        , Buildable contents
+       , Message Void
        )
     => Trace IO (Severity, Text) -> Text -> EnqueueMsg -> Msg -> contents -> IO ()
 dataFlow logTrace what enqueue msg dt = handleAny handleE $ do

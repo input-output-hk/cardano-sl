@@ -1,7 +1,6 @@
-{-# LANGUAGE ApplicativeDo   #-}
-{-# LANGUAGE CPP             #-}
-{-# LANGUAGE NamedFieldPuns  #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ApplicativeDo  #-}
+{-# LANGUAGE CPP            #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 -- following Pos.Util.UserSecret
 #if !defined(mingw32_HOST_OS)
@@ -35,13 +34,15 @@ import qualified Data.Map.Strict as M
 import           Data.Maybe (fromJust, mapMaybe)
 import qualified Data.Yaml as Yaml
 import           Formatting (build, sformat, shown, (%))
+import           Mockable.Concurrent ()
 import           Network.Broadcast.OutboundQueue (Alts, Peers, peersFromList)
 import qualified Network.DNS as DNS
 import qualified Network.Transport.TCP as TCP
 import qualified Options.Applicative as Opt
+import           Pos.Util.OptParse (fromParsec)
+import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName,
+                     logError, logNotice, usingLoggerName)
 
-import           Pos.Core.NetworkAddress (NetworkAddress, addrParser,
-                     addrParserNoWildcard)
 import qualified Pos.Infra.DHT.Real.Param as DHT (KademliaParams (..),
                      MalformedDHTKey (..), fromYamlConfig)
 import           Pos.Infra.Network.DnsDomains (DnsDomains (..), NodeAddr (..))
@@ -49,10 +50,8 @@ import           Pos.Infra.Network.Types (NodeId, NodeName (..))
 import qualified Pos.Infra.Network.Types as T
 import           Pos.Infra.Network.Yaml (NodeMetadata (..))
 import qualified Pos.Infra.Network.Yaml as Y
-import           Pos.Infra.Util.TimeWarp (addressToNodeId)
-import           Pos.Util.OptParse (fromParsec)
-import           Pos.Util.Wlog (LoggerNameBox, WithLogger, askLoggerName,
-                     logError, logNotice, usingLoggerName)
+import           Pos.Infra.Util.TimeWarp (NetworkAddress, addrParser,
+                     addrParserNoWildcard, addressToNodeId)
 
 #ifdef POSIX
 import           Pos.Infra.Util.SigHandler (Signal (..), installHandler)
@@ -160,7 +159,11 @@ listenNetworkAddressOption na =
 -- | The topology we assume when no topology file is specified
 defaultTopology :: Y.Topology
 defaultTopology =
-    Y.TopologyBehindNAT 1 1 defaultDnsDomains
+    Y.TopologyBehindNAT
+    { topologyValency = 1
+    , topologyFallbacks = 1
+    , topologyDnsDomains = defaultDnsDomains
+    }
 
 -- | The default DNS domains used for relay discovery
 --
@@ -281,18 +284,8 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
             Nothing -> pure defaultTopology
             Just fp -> liftIO $ readTopology fp
     (ourTopology, tcpAddr) <- case parsedTopology of
-        Y.TopologyStatic topologyAllPeers -> do
-            (md@(NodeMetadata
-                     nmType
-                     _
-                     _
-                     nmSubscribe
-                     nmValency
-                     nmFallbacks
-                     _
-                     nmKademlia
-                     _
-                     nmMaxSubscrs), initPeers, kademliaPeers) <-
+        Y.TopologyStatic{..} -> do
+            (md@NodeMetadata{..}, initPeers, kademliaPeers) <-
                 liftIO $ fromPovOf cfg topologyAllPeers
             loggerName <- askLoggerName
             topologyStaticPeers <-
@@ -329,10 +322,7 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
                 T.NodeEdge  -> throwM NetworkConfigSelfEdge
             tcpAddr <- createTcpAddr topologyOptKademlia
             pure (topology, tcpAddr)
-        Y.TopologyBehindNAT
-              topologyValency
-              topologyFallbacks
-              topologyDnsDomains -> do
+        Y.TopologyBehindNAT{..} -> do
           -- Behind-NAT topology claims no address for the transport, and also
           -- throws an exception if the --listen parameter is given, to avoid
           -- confusion: if a user gives a --listen parameter then they probably
@@ -345,18 +335,12 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
           when (isJust ncoExternalAddress) $ throwM $ RedundantCliParameter $
               "BehindNAT topology is used, no external address is expected"
           pure (T.TopologyBehindNAT{..}, TCP.Unaddressable)
-        Y.TopologyP2P
-              topologyValency
-              topologyFallbacks
-              topologyMaxSubscrs -> do
+        Y.TopologyP2P{..} -> do
           kparams <- either throwM return =<< liftIO getKademliaParamsFromFile
           tcpAddr <- createTcpAddr (Just kparams)
           pure ( T.TopologyP2P{topologyKademlia = kparams, ..}
                , tcpAddr )
-        Y.TopologyTraditional
-              topologyValency
-              topologyFallbacks
-              topologyMaxSubscrs -> do
+        Y.TopologyTraditional{..} -> do
               kparams <- either throwM return =<< liftIO getKademliaParamsFromFile
               tcpAddr <- createTcpAddr (Just kparams)
               pure ( T.TopologyTraditional{topologyKademlia = kparams, ..}

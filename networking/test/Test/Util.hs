@@ -4,7 +4,6 @@
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
-{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE RecursiveDo           #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE StandaloneDeriving    #-}
@@ -207,7 +206,7 @@ receiveAll
 -- The sender awaits a response for each message. This ensures that the
 -- sender doesn't finish before the conversation SYN/ACK completes.
 receiveAll handler =
-    Listener @_ @_ @_ $ \_ _ cactions ->
+    Listener @_ @_ @Bool $ \_ _ cactions ->
         let loop = do mmsg <- recv cactions maxBound
                       case mmsg of
                           Nothing -> pure ()

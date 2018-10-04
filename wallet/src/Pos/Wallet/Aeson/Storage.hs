@@ -15,6 +15,7 @@ import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.Aeson.Types (toJSONKeyText)
 import qualified Data.Text as T
 
+import           Pos.Aeson.Txp ()
 import           Pos.Client.Txp.History (TxHistoryEntry)
 import           Pos.Util.Util (toAesonError)
 

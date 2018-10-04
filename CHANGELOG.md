@@ -1,173 +1,10 @@
 # CHANGELOG
 
-
-## Cardano SL vNext [1.4.0]
-
-### Features
-
-- #### Reduce number of files on disk
-  Blund files (containing blocks and their undos) for older epochs (from zero up to current
-  epoch minus two) are now consolidated into epoch/index file pairs. That means that the number
-  of files to store the block chain for a single epoch is reduced from 21600 (one blund file for
-  each slot in an epoch) to an epoch/index file pair. Consolidation happens on-the-fly in a
-  background process.
-
-- #### Add bouncing and throttling to the API
-  Previously, exchanges could accidentally overload their wallet servers. We
-  have added configurable throttling to the API service to prevent this
-  problem. To configure this, setting, view the changes in the
-  `configuration.yaml` file under the `wallet` section. The API will now return
-  a 429 error containing the microseconds to wait until retry.
-
-- We can force an NTP-check when getting node-info via the API (`?force_ntp_check` query flag) (CO-325)
-
-- The API provides an endpoint to retrieve basic statistics on the UTxO distribution of a wallet 
-  (`/api/v1/wallets/{walletId}/statistics`). (CO-325)
-
-- cardano-sl exposes a new package `x509` with tooling for defining a PKI infrastructure from 
-  pure Haskell. This is basically an export of the internals of the tool `cardano-sl-x509-generate` (CO-387)
-
-
-### Fixes
-
-- #### Make productionReporter more robust
-  Add exception handling code in reporting exception handler, to prevent IOExceptions from killing
-  the main thread. This was noticed when the network connection was interrupted, and the reporter
-  died when it tried to report over the down network. (CDEC-470 / [PR 3365])
-
-[PR 3365]: https://github.com/input-output-hk/cardano-sl/pull/3365
-
-- Improve type safety (and as a consequence, API documentation) of account indexes (CBR-306)
-
-- The Swagger specification had names with illegal characters. These names
-  where changed to be URL friendly. [PR #3595](https://github.com/input-output-hk/cardano-sl/pull/3595)
-
-- The creation of mnemonic doesn't throw anymore when provided words outside of the BIP39 English dictionnary.
-  Instead, it returns an error value gracefully (CO-325)
-
-- Response from `JSONValidationError` are now also encoded inline (instead of a pretty-encoding with newlines) (DDW-318)
-
-- **[API BREAKING CHANGE]** The behavior of `/api/v1/addresses/{address}` has been adjusted to reflect more accurately
-  the meaning of ownership regarding addresses.
-  The previous version of this endpoint failed with an HTTP error when the given address was unknown to the wallet.
-  This was misleading since an address that is unknown to the wallet may still belong to the wallet. To reflect this, 
-  the V1 endpoint does not fail anymore as it used to when an address is not recognised and returns instead a new field 
-  'is-ours' which indicates either that an address is ours, or that it is 'not-recognised'. (CBR-401)
-
-### Improvements
-
-- Friendly error mistakes from deserializing invalid addresses instead of brutal 500 (CBR-283)
-
-- **[API BREAKING CHANGE]** Add `walletId` to `WalletAlreadyExists` WalletLayerError (CBR-254)
-
-- Small refactor of wallet Errors implementation to be more maintainable (CBR-26)
-
-- Content-Type parser is now more lenient and accepts `application/json`, `application/json;charset=utf-8` and 
-  no Content-Type at all (defaulting to `application/json`).
-
-- The codebase now relies on the package `cryptonite` (instead of `ed25519`) for Ed25519 implementation (CO-325)
-
-- **[API BREAKING CHANGE]** Improve diagnostic for `NotEnoughMoney` error (CBR-461)
-
-### Specifications
-
-### Documentation
-
-- Make an inventory of existing wallet errors and exceptions (CBR-307)
-
-- wallet-new README has been improved (especially on sections about testing) and updated (CO-325)
-
-## Cardano SL 1.3.0
-
-### Features
-
-- #### Cardano wallet API v1 for the exchanges
-  A subset of endpoints from the Cardano wallet API, used by cryptocurrency exchanges, was moved to the new
-  Cardano REST API v1. The remaining endpoints will move from v0 to v1 in the next iteration of work.
-  Cryptocurrency exchanges using the API are encouraged to update their integrations and move to API v1
-  because the old API is now regarded as deprecated and will be removed in future versions. (CBR-101)
-
-- #### Subscription status added to node information
-  The endpoint that provides information about the node (`/api/v1/node-info`) was expanded to include
-  information about the node subscription status, which can be used to check if the Cardano node is
-  connected to the network or not. (CBR-186)
-
-- #### Improved error message for missing charset in API calls
-  The generic message returned from Cardano node endpoint calls when the charset was not specified is replaced with
-  a more descriptive error message to help users of the API troubleshoot the problem. (Wallet Backend - CBR-223)
-
-- #### Support for sending raw data on the network
-  It is now possible to send raw, CBOR serialized data to the network using the diffusion layer. Previously, the data
-  had to be serialized before sending it to the network, which had a negative impact on performance. (CBR-277)
-
-### Specifications & documentation
-
-- #### Formal specification for new wallet backend
-  The formal specification of a wallet for Cardano (or any UTXO-based cryptocurrency) has been written and it is
-  available [here](https://cardanodocs.com/technical/formal-specification-for-a-cardano-wallet/). (CBR-60)
-
-- Feedback about the current Wallet API has been collected from Exchanges (CBR-104).
-
-- Complete Peer Discovery (P2P) design (CDEC-157).
-
-- Specification of shared seed generation via VSS (CDEC-180).
-
-- Specification of Randomness Generation (CDEC-208).
-
-- As-is specifications of ATRedeem addresses (CDEC-366).
-
-### Fixes and improvements
-
-- #### Performance improvements for sending and receiving blocks
-  Sending and receiving blocks on the network now works better because of the following changes. First,
-  deserialization performance has been improved by optimizing memory usage. Next, blocks are now downloaded
-  concurrently without batching. Finally, block traversal is optimized by the introduction of 'forward links' which
-  remove the need for header retrieval and serialization. (CDEC-49)
-
-- #### Optimised block storage
-  Block storage is now optimized by consolidating block and undo data in a single file. This change reduces
-  disk use and improves performance when reading and writing blocks. In later Cardano versions, much greater
-  optimizations for the storage of blocks will be introduced, so this is only an interim solution. (CDEC-293)
-
-- #### High (and recurrent) I/O traffic in wallet
-  I/O spikes in traffic were being caused by large logs being flushed. This issue has been fixed. (CBR-83)
-
-- #### Failure to reconnect to the network
-  Due to improper handling of DNS failures, Cardano node would sometimes fail to reconnect to the network after an
-  internet connection was interrupted and would need to be restarted. This issue has been fixed. (CDEC-259)
-
-- #### Wrong time difference calculation between user’s computer and the network
-  The endpoint (`/api/settings/time/difference`) for calculating the time difference between a user’s computer and
-  Cardano network was returning an incorrect value in some cases. This was because the calculation was not properly
-  handling the time needed to request current time from NTP servers and to get the response. As a result, some Daedalus
-  users were prevented from using their wallet since Daedalus cannot be used if there is a time difference of more
-  han 15 seconds. This issue has been fixed. (TSD-42)
-
-### Testing
-
-- Implement WalletActiveLayer & WalletPassiveLayer for wallet testing purposes (CBR-163).
-
-- Add integration deterministic tests for the Transaction endpoints (CBR-184).
-
-### Chores
-
-- Back port Timer to Pos.Diffusion.Subscription.Common (CDEC-243).
-
-- Message size limits should not be configurable (CDEC-260).
-
-- Upgrade to GHC 8.2.2 (CBR-51).
-
-- Fix AppVeyor hard limitation on Windows (CBR-268).
-
-- Fix tmux versions in demo-script (CO-295).
-
-- Clean script fails if file is missing (CO-316).
-
-## Cardano SL 1.2.1
+## Cardano SL 1.2.1 (Mainnet)
 
 Bug fix release.
 
-- The Wallet Launcher now uses a lock file. This prevents problems on
+- The wallet launcher now uses a lock file. This prevents problems on
   Windows if upgrading Daedalus while the old version is still
   running. (DEVOPS-872)
 
@@ -175,7 +12,7 @@ Bug fix release.
   image. (DEVOPS-877)
 
 
-## Cardano SL 1.2.0
+## Cardano SL 1.2.0 (Mainnet)
 
 These are the most important code changes which were included in release 1.2.0.
 
@@ -201,12 +38,6 @@ These are the most important code changes which were included in release 1.2.0.
 
 - Add sorting and filtering capabilities to the wallet V1 API (CBR-20).
 
-### Specifications & documentation
-
-- Document the new Wallet V1 API (CBR-102, CBR-183, CO-105 & CBR-278).
-
-- Write a devops guide for the Exchanges (CBR-137).
-
 ### Bug fixes
 
 - Fix wallet creation and backup when there are non-latin characters in wallet name (R120-4).
@@ -214,7 +45,7 @@ These are the most important code changes which were included in release 1.2.0.
 - Fix issue where Daedalus remains stuck at "Connecting to network..." screen after updating version (CBR-282, R120-17).
 
 
-## Cardano SL 1.1.1
+## Cardano SL 1.1.1 (Mainnet)
 
 Bug fix release.
 
@@ -225,7 +56,7 @@ Bug fix release.
    infrastructure, which fixes some issues in receiving bug reports.
 
 
-## Cardano SL 1.1.0
+## Cardano SL 1.1.0 (Mainnet)
 
 Most important code changes which made to release 1.1.0.
 

@@ -8,20 +8,17 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 
-import           Pos.Chain.Block (ComponentBlock (..), HeaderHash, headerHash,
-                     headerSlotL)
-import           Pos.Chain.Genesis as Genesis (Config (..),
-                     configBootStakeholders)
-import           Pos.Chain.Genesis (GenesisWStakeholders)
-import           Pos.Chain.Txp (TxAux, TxUndo, TxpConfiguration)
-import           Pos.Core (SlotId (..), epochIndexL, localSlotIndexMinBound)
+import           Pos.Core (ComponentBlock (..), HasConfiguration, HeaderHash,
+                     SlotId (..), epochIndexL, headerHash, headerSlotL)
 import           Pos.Core.Chrono (NewestFirst (..))
+import           Pos.Core.Txp (TxAux, TxUndo)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (SomeBatchOp (..))
-import           Pos.DB.Txp (ProcessBlundsSettings (..), TxpBlund,
+import           Pos.Infra.Slotting (getSlotStart)
+import           Pos.Txp (ProcessBlundsSettings (..), TxpBlund,
                      TxpGlobalApplyMode, TxpGlobalRollbackMode,
                      TxpGlobalSettings (..), applyBlocksWith, blundToAuxNUndo,
                      processBlunds, txpGlobalSettings)
-import           Pos.Infra.Slotting (getSlotStart)
 import qualified Pos.Util.Modifier as MM
 
 import qualified Pos.Explorer.DB as GS
@@ -30,27 +27,20 @@ import           Pos.Explorer.Txp.Toil (EGlobalToilM, ExplorerExtraLookup (..),
                      ExplorerExtraModifier (..), eApplyToil, eRollbackToil)
 
 -- | Settings used for global transactions data processing used by explorer.
-explorerTxpGlobalSettings :: Genesis.Config
-                          -> TxpConfiguration
-                          -> TxpGlobalSettings
-explorerTxpGlobalSettings genesisConfig txpConfig =
+explorerTxpGlobalSettings :: HasConfiguration => ProtocolMagic -> TxpGlobalSettings
+explorerTxpGlobalSettings pm =
     -- verification is same
-    (txpGlobalSettings genesisConfig txpConfig)
-        { tgsApplyBlocks    = applyBlocksWith (configProtocolMagic genesisConfig)
-                                              txpConfig
-                                              (applySettings bootStakeholders)
-        , tgsRollbackBlocks = processBlunds (rollbackSettings bootStakeholders)
-            . getNewestFirst
-        }
-    where bootStakeholders = configBootStakeholders genesisConfig
+    (txpGlobalSettings pm)
+    { tgsApplyBlocks = applyBlocksWith pm applySettings
+    , tgsRollbackBlocks = processBlunds rollbackSettings . getNewestFirst
+    }
 
 applySettings ::
        (TxpGlobalApplyMode ctx m)
-    => GenesisWStakeholders
-    -> ProcessBlundsSettings ExplorerExtraLookup ExplorerExtraModifier m
-applySettings bootStakeholders =
+    => ProcessBlundsSettings ExplorerExtraLookup ExplorerExtraModifier m
+applySettings =
     ProcessBlundsSettings
-        { pbsProcessSingle = applySingle bootStakeholders
+        { pbsProcessSingle = applySingle
         , pbsCreateEnv = buildExplorerExtraLookup
         , pbsExtraOperations = extraOps
         , pbsIsRollback = False
@@ -58,20 +48,19 @@ applySettings bootStakeholders =
 
 rollbackSettings ::
        (TxpGlobalRollbackMode m)
-    => GenesisWStakeholders
-    -> ProcessBlundsSettings ExplorerExtraLookup ExplorerExtraModifier m
-rollbackSettings bootStakeholders =
+    => ProcessBlundsSettings ExplorerExtraLookup ExplorerExtraModifier m
+rollbackSettings =
     ProcessBlundsSettings
-        { pbsProcessSingle = return . eRollbackToil bootStakeholders . blundToAuxNUndo
+        { pbsProcessSingle = return . eRollbackToil . blundToAuxNUndo
         , pbsCreateEnv = buildExplorerExtraLookup
         , pbsExtraOperations = extraOps
         , pbsIsRollback = True
         }
 
 applySingle ::
-       forall ctx m . TxpGlobalApplyMode ctx m
-    => GenesisWStakeholders -> TxpBlund -> m (EGlobalToilM ())
-applySingle bootStakeholders txpBlund = do
+       forall ctx m. (HasConfiguration, TxpGlobalApplyMode ctx m)
+    => TxpBlund -> m (EGlobalToilM ())
+applySingle txpBlund = do
     -- @TxpBlund@ is a block/blund with a reduced set of information required for
     -- transaction processing. We use it to determine at which slot did a transaction
     -- occur. TxpBlund has TxpBlock inside. If it's Left, it's a genesis block which
@@ -85,7 +74,7 @@ applySingle bootStakeholders txpBlund = do
     let slotId   = case txpBlock of
             ComponentBlockGenesis genesisBlock -> SlotId
                                   { siEpoch = genesisBlock ^. epochIndexL
-                                  , siSlot  = localSlotIndexMinBound
+                                  , siSlot  = minBound
                                   -- Genesis block doesn't have a slot, set to minBound
                                   }
             ComponentBlockMain mainHeader _  -> mainHeader ^. headerSlotL
@@ -94,9 +83,9 @@ applySingle bootStakeholders txpBlund = do
     mTxTimestamp <- getSlotStart slotId
 
     let (txAuxesAndUndos, hHash) = blundToAuxNUndoWHash txpBlund
-    return $ eApplyToil bootStakeholders mTxTimestamp txAuxesAndUndos hHash
+    return $ eApplyToil mTxTimestamp txAuxesAndUndos hHash
 
-extraOps :: ExplorerExtraModifier -> SomeBatchOp
+extraOps :: HasConfiguration => ExplorerExtraModifier -> SomeBatchOp
 extraOps (ExplorerExtraModifier em (HM.toList -> histories) balances utxoNewSum) =
     SomeBatchOp $
     map GS.DelTxExtra (MM.deletions em) ++

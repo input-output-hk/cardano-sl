@@ -1,5 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
-
 -- | Wrapper over scrypt library.
 --
 -- Scrypt is a password-based key derivation function — that is,

@@ -44,7 +44,6 @@ module Pos.Wallet.Web.State.Storage
        , getWalletAddresses
        , getWalletInfos
        , getWalletInfo
-       , getUnreadyWalletInfo
        , getAccountWAddresses
        , getWAddresses
        , doesWAddressExist
@@ -119,18 +118,19 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as M
 import           Data.SafeCopy (Migrate (..), base, deriveSafeCopySimple,
                      extension)
-import           Data.Time.Clock (nominalDay)
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting ((%))
 import qualified Formatting as F
 import qualified Formatting.Buildable
-import           Pos.Chain.Block (HeaderHash)
-import           Pos.Chain.Txp (AddrCoinMap, TxAux, TxId, Utxo, UtxoModifier,
-                     applyUtxoModToAddrCoinMap, utxoToAddressCoinMap)
 import           Pos.Client.Txp.History (TxHistoryEntry, txHistoryListToMap)
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
-                     ProtocolConstants (..), SlotId, Timestamp, VssMaxTTL (..),
-                     VssMinTTL (..))
+                     HeaderHash, ProtocolConstants (..), SlotId, Timestamp,
+                     VssMaxTTL (..), VssMinTTL (..))
+-- import           Pos.Binary.SafeCopy ()
+import           Pos.Core.Binary ()
+import           Pos.Core.Txp (TxAux, TxId)
+import           Pos.Txp (AddrCoinMap, Utxo, UtxoModifier,
+                     applyUtxoModToAddrCoinMap, utxoToAddressCoinMap)
 import qualified Pos.Util.Modifier as MM
 import qualified Pos.Wallet.Web.ClientTypes as WebTypes
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition,
@@ -310,7 +310,7 @@ makeLenses ''WalletInfo
 -- | Maps addresses to their first occurrence in the blockchain
 type CustomAddresses = HashMap Address HeaderHash
 
--- | Alias for 'Pos.Chain.Txp.AddrCoinMap' storing balances for wallet's addresses.
+-- | Alias for 'Pos.Txp.AddrCoinMap' storing balances for wallet's addresses.
 type WalletBalances = AddrCoinMap
 type WalBalancesAndUtxo = (WalletBalances, Utxo)
 
@@ -458,22 +458,6 @@ getWalletMetaIncludeUnready includeUnready cWalId = fmap _wiMeta . applyFilter <
 -- | Retrieve the wallet info.
 getWalletInfo :: WebTypes.CId WebTypes.Wal -> Query (Maybe WalletInfo)
 getWalletInfo cid = view (wsWalletInfos . at cid)
-
--- | Provide default wallet info, because this wallet is not ready yet
--- (because of restoring). If user wants to get the real and complete wallet
--- info, he must wait until wallet will be ready.
-getUnreadyWalletInfo :: Query WalletInfo
-getUnreadyWalletInfo = do
-    -- It's a fake 'POSIXTime' value, real one can be obtained from ready wallet.
-    let lastUpdateOfPassphrase = nominalDay
-        creationTime = lastUpdateOfPassphrase
-    return $ WalletInfo (def :: WebTypes.CWalletMeta)
-                        lastUpdateOfPassphrase
-                        creationTime
-                        NotSynced
-                        noSyncStatistics
-                        HM.empty
-                        False
 
 -- | Get wallet meta info regardless of wallet sync status.
 getWalletMeta :: WebTypes.CId WebTypes.Wal -> Query (Maybe WebTypes.CWalletMeta)

@@ -27,9 +27,10 @@ import           Pos.Explorer.Web.Server (getBlockDifficulty, getBlocksLastPage,
                      getEpochPage, getEpochSlot)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util (divRoundUp)
+-- Orphan mockable instances.
+import           Pos.Util.Mockable ()
 
-import           Test.Pos.Chain.Block.Arbitrary ()
-import           Test.Pos.Chain.Genesis.Dummy (dummyConfig, dummyEpochSlots)
+import           Test.Pos.Block.Arbitrary ()
 import           Test.Pos.Configuration (withDefConfigurations)
 
 
@@ -41,7 +42,7 @@ import           Test.Pos.Configuration (withDefConfigurations)
 
 -- stack test cardano-sl-explorer --fast --test-arguments "-m Pos.Explorer.Web.Server"
 spec :: Spec
-spec = withDefConfigurations $ \_ _ _ -> do
+spec = withDefConfigurations $ \_ _ -> do
     describe "Pos.Explorer.Web.Server" $ do
         blocksTotalSpec
         blocksPagesTotalSpec
@@ -191,7 +192,7 @@ blocksPageUnitSpec =
                   let blockExecution :: IO (Integer, [CBlockEntry])
                       blockExecution =
                           runExplorerTestMode testParams extraContext
-                              $ getBlocksPage dummyEpochSlots Nothing (Just 10)
+                              $ getBlocksPage Nothing (Just 10)
 
                   -- We finally run it as @PropertyM@ and check if it holds.
                   pagesTotal    <- fst <$> run blockExecution
@@ -233,7 +234,7 @@ blocksLastPageUnitSpec =
                   -- a million instances.
                   let blocksLastPageM :: IO (Integer, [CBlockEntry])
                       blocksLastPageM =
-                          runExplorerTestMode testParams extraContext (getBlocksLastPage dummyEpochSlots)
+                          runExplorerTestMode testParams extraContext getBlocksLastPage
 
                   -- We run the function in @BlockTestMode@ so we don't need to define
                   -- a million instances.
@@ -241,7 +242,7 @@ blocksLastPageUnitSpec =
                   let blocksPageM :: IO (Integer, [CBlockEntry])
                       blocksPageM =
                           runExplorerTestMode testParams extraContext
-                              $ getBlocksPage dummyEpochSlots Nothing (Just 10)
+                              $ getBlocksPage Nothing (Just 10)
 
                   -- We finally run it as @PropertyM@ and check if it holds.
                   blocksLastPage <- run blocksLastPageM
@@ -277,7 +278,6 @@ epochSlotUnitSpec = do
                       epochSlotM =
                           runExplorerTestMode testParams extraContext
                               $ getEpochSlot
-                                  dummyEpochSlots
                                   (EpochIndex 0)
                                   1
 
@@ -315,7 +315,6 @@ epochPageUnitSpec = do
                       epochPageM =
                           runExplorerTestMode testParams extraContext
                               $ getEpochPage
-                                  dummyEpochSlots
                                   (EpochIndex 0)
                                   Nothing
 
@@ -341,7 +340,7 @@ blocksTotalFunctionalSpec =
 
                   -- The extra context so we can mock the functions.
                   let extraContext :: ExtraContext
-                      extraContext = makeExtraCtx dummyConfig
+                      extraContext = makeExtraCtx
 
                   -- We run the function in @ExplorerTestMode@ so we don't need to define
                   -- a million instances.

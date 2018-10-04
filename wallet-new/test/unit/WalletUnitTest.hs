@@ -4,30 +4,23 @@ module Main (main) where
 import           Universum
 
 import           Formatting (build, sformat)
-import           Test.Hspec (Spec, describe, hspec, parallel)
+import           Test.Hspec (Spec, describe, hspec)
 
 import           InputSelection.Evaluation (evalUsingGenData, evalUsingReplay)
 import           InputSelection.Evaluation.Options (Command (..), evalCommand,
                      getEvalOptions)
 import           InputSelection.Evaluation.Replot (replot)
-import           Test.Pos.Util.Parallel.Parallelize (parallelizeAllCores)
 import           UTxO.Bootstrap (bootstrapTransaction)
 import           UTxO.Context (Addr, TransCtxt)
 import           UTxO.DSL (GivenHash, Transaction)
 import           UTxO.Translate (runTranslateNoErrors, withConfig)
 
-import qualified DeltaCompressionSpecs
-import qualified Test.Spec.Accounts
-import qualified Test.Spec.Addresses
 import qualified Test.Spec.CoinSelection
-import qualified Test.Spec.GetTransactions
 import qualified Test.Spec.Kernel
 import qualified Test.Spec.Keystore
 import qualified Test.Spec.Models
-import qualified Test.Spec.NewPayment
 import qualified Test.Spec.Submission
 import qualified Test.Spec.Translation
-import qualified Test.Spec.Wallets
 import qualified Test.Spec.WalletWorker
 import           TxMetaStorageSpecs (txMetaStorageSpecs)
 
@@ -37,12 +30,11 @@ import           TxMetaStorageSpecs (txMetaStorageSpecs)
 
 main :: IO ()
 main = do
-    parallelizeAllCores
     mEvalOptions <- getEvalOptions
     case mEvalOptions of
       Nothing -> do
         -- _showContext
-        runTranslateNoErrors $ withConfig $ return $ hspec $ tests
+        runTranslateNoErrors $ withConfig $ return $ hspec tests
       Just evalOptions ->
         -- NOTE: The coin selection must be invoked with @eval@
         -- Run @wallet-unit-tests eval --help@ for details.
@@ -69,18 +61,12 @@ _showContext = do
 -------------------------------------------------------------------------------}
 
 tests :: Spec
-tests = parallel $ describe "Wallet unit tests" $ do
-    Test.Spec.Addresses.spec
-    DeltaCompressionSpecs.spec
-    Test.Spec.Kernel.spec
-    Test.Spec.GetTransactions.spec
+tests = describe "Wallet unit tests" $ do
     Test.Spec.Translation.spec
     Test.Spec.Models.spec
+    Test.Spec.Kernel.spec
     Test.Spec.WalletWorker.spec
     Test.Spec.Submission.spec
     txMetaStorageSpecs
     Test.Spec.CoinSelection.spec
     Test.Spec.Keystore.spec
-    Test.Spec.Wallets.spec
-    Test.Spec.NewPayment.spec
-    Test.Spec.Accounts.spec

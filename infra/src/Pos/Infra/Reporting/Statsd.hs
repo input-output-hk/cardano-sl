@@ -1,5 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
-
 -- | Statsd reporting.
 
 module Pos.Infra.Reporting.Statsd

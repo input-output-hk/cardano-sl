@@ -9,13 +9,6 @@ if ! [ -n "$TMUX" ]; then
   exit 1
 fi
 
-# Check the `--nix` option (must be first option)
-nix=""
-if [[ $1 == "--nix" ]]; then
-  shift
-  nix="--nix"
-fi
-
 # Make sure we're using proper version of tmux.
 tmux_actual_version=$(tmux -V | awk '{print $2}')
 # All tmux versions contain two numbers only.
@@ -143,7 +136,7 @@ while [[ $i -lt $panesCnt ]]; do
   conf_file=$CONFIG
   wallet_args=''
   exec_name='cardano-node-simple'
-  x509GenTool=$(find_binary cardano-x509-certificates ${nix})
+  x509GenTool=$(find_binary cardano-x509-certificates)
   if [[ $WALLET_TEST != "" ]] && [[ $i == $((n-1)) ]]; then
       if [[ $WALLET_CONFIG != "" ]]; then
           conf_file=$WALLET_CONFIG
@@ -158,7 +151,7 @@ while [[ $i -lt $panesCnt ]]; do
           --configuration-file lib/configuration.yaml
       fi
 
-      wallet_args=" --tlscert $config_dir/tls-files/server.crt --tlskey $config_dir/tls-files/server.key --tlsca $config_dir/tls-files/ca.crt $wallet_flush --wallet-db-path $run_dir/wallet-db-$i" # --wallet-rebuild-db'
+      wallet_args=" --tlscert $config_dir/tls-files/server.crt --tlskey $config_dir/tls-files/server.key --tlsca $config_dir/tls-files/ca.crt $wallet_flush" # --wallet-rebuild-db'
       wallet_args="$WALLET_EXTRA_ARGS $wallet_args --wallet-address 127.0.0.1:8090"
       exec_name="$WALLET_EXE_NAME"
       if [[ $WALLET_DEBUG != "" ]]; then
@@ -170,7 +163,7 @@ while [[ $i -lt $panesCnt ]]; do
           conf_file=$WALLET_CONFIG
       fi
       wallet_args=" --tlscert $base/../tls-files/server.crt --tlskey $base/../tls-files/server.key --tlsca $base/../tls-files/ca.crt $wallet_flush" # --wallet-rebuild-db'
-      wallet_args="$WALLET_EXTRA_ARGS $wallet_args --wallet-address 127.0.0.1:8091"
+      wallet_args="$WALLET_EXTRA_ARGS --new-wallet $wallet_args --wallet-address 127.0.0.1:8091"
       exec_name="$WALLET_EXE_NAME"
       if [[ $WALLET_DEBUG != "" ]]; then
           wallet_args="$wallet_args --wallet-debug"
@@ -178,10 +171,10 @@ while [[ $i -lt $panesCnt ]]; do
   fi
   if [[ $i -lt $n ]]; then
     node_args="$(node_cmd $i "$wallet_args" "$system_start" "$config_dir" "$conf_file" "$run_dir" "$run_dir/logs")"
-    node_=$(find_binary $exec_name $nix)
+    node_=$(find_binary $exec_name)
     if [[ $WALLET_TEST != "" ]] && [[ $i -ge $((n-2)) ]]; then
         updater_file="$config_dir/updater$i.sh"
-        launcher_=$(find_binary cardano-launcher $nix)
+        launcher_=$(find_binary cardano-launcher)
 
         ensure_run $run_dir
 
@@ -219,7 +212,7 @@ while [[ $i -lt $panesCnt ]]; do
             echo "  key: default"
             # The following is required by `withConfigurations`
             # (specifically, `withCoreConfigurations`). See
-            # Pos.Genesis.Configuration for more details.
+            # Pos.Core.Configuration for more details.
             echo "  systemStart: 0"
         } > $CONFIG_PATH
 

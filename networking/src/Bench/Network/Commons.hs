@@ -2,7 +2,6 @@
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE TypeFamilies          #-}
 
 module Bench.Network.Commons
@@ -23,16 +22,16 @@ module Bench.Network.Commons
        ) where
 
 import           Control.Applicative ((<|>))
-import           Control.Lens ((&), (.~), (^.))
+import           Control.Lens (zoom, (?=))
 import           Control.Monad (join)
 import           Control.Monad.Trans (MonadIO (..))
 
 import           Data.Attoparsec.Text (Parser, char, decimal, string, takeWhile)
+import           Data.Binary (Binary)
 import           Data.Binary (Binary (..))
 import qualified Data.ByteString.Lazy as BL
 import           Data.Data (Data)
 import           Data.Functor (($>))
-import qualified Data.HashMap.Strict as HM
 import           Data.Int (Int64)
 import           Data.Monoid ((<>))
 import           Data.Text (Text)
@@ -42,14 +41,14 @@ import           Formatting.Buildable (Buildable (build))
 import qualified Formatting as F
 import           GHC.Generics (Generic)
 import           Prelude hiding (takeWhile)
+import           System.Wlog (LoggerConfig (..), errorPlus, fromScratch,
+                     infoPlus, lcTree, ltSeverity, maybeLogsDirB,
+                     parseLoggerConfig, productionB, setupLogging, warningPlus,
+                     zoomLogger)
 
+import           Mockable.CurrentTime (realTime)
 import           Node (Message (..))
-import           Pos.Util (realTime)
-import           Pos.Util.Log.LoggerConfig (defaultInteractiveConfiguration,
-                     lcLoggerTree, ltMinSeverity, ltNamedSeverity)
 import           Pos.Util.Trace (Trace, traceWith)
-import           Pos.Util.Wlog (LoggerConfig (..), Severity (..),
-                     parseLoggerConfig, setLogPrefix, setupLogging)
 
 -- * Transfered data types
 
@@ -87,26 +86,22 @@ logMeasure logTrace miEvent miId miPayload = do
     liftIO $ traceWith logTrace $ F.sformat F.build $ LogMessage MeasureInfo{..}
 
 defaultLogConfig :: LoggerConfig
-defaultLogConfig =
-    let lc0   = defaultInteractiveConfiguration Info
-        newlt = lc0 ^. lcLoggerTree
-                    & ltMinSeverity .~ Info
-                    & ltNamedSeverity .~
-                        HM.fromList [ ("cardano-sl.sender", Info)
-                                    , ("cardano-sl.sender.comm", Error)
-                                    , ("cardano-sl.receiver", Info)
-                                    , ("cardano-sl.receiver.comm", Error) ]
-    in
-    lc0 & lcLoggerTree .~ newlt
-
+defaultLogConfig = fromScratch $ zoom lcTree $ do
+    ltSeverity ?= warningPlus
+    zoomLogger "sender" $ do
+        ltSeverity ?= infoPlus
+        commLogger
+    zoomLogger "receiver" $ do
+        ltSeverity ?= infoPlus
+        commLogger
+  where
+    commLogger = zoomLogger "comm" $ ltSeverity ?= errorPlus
 
 loadLogConfig :: MonadIO m => Maybe FilePath -> Maybe FilePath -> m ()
 loadLogConfig logsPrefix configFile = do
-    lc1 <- case configFile of
-        Nothing  -> return defaultLogConfig
-        Just lc0 -> parseLoggerConfig lc0
-    lc <- liftIO $ setLogPrefix logsPrefix lc1
-    setupLogging "bench" lc
+    let cfgBuilder = productionB <> maybeLogsDirB logsPrefix
+    loggerConfig <- maybe (return defaultLogConfig) parseLoggerConfig configFile
+    setupLogging Nothing $ loggerConfig <> cfgBuilder
 
 
 -- * Logging & parsing
@@ -180,5 +175,5 @@ instance Buildable a => Buildable (LogMessage a) where
 
 logMessageParser :: Parser a -> Parser (Maybe (LogMessage a))
 logMessageParser p = (takeWhile (/= '#') >>) . join $ do
-        (char '#' $> (Just . LogMessage <$> p))
+        (char '#' *> pure (Just . LogMessage <$> p))
     <|> pure (pure Nothing)

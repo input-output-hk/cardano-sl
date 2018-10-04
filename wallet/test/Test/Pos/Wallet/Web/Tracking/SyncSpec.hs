@@ -11,25 +11,23 @@ import           Universum
 
 import qualified Data.HashSet as HS
 import           Data.List (intersect, (\\))
-import qualified Data.Set as Set
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
-import           Test.Hspec (Spec, beforeAll_, describe, xdescribe)
+import           Test.Hspec (Spec, describe, xdescribe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Arbitrary (..), Property, choose, oneof,
                      sublistOf, suchThat, vectorOf, (===))
 import           Test.QuickCheck.Monadic (pick)
 
-import           Pos.Chain.Txp (TxpConfiguration (..))
-import           Pos.Core (Address, BlockCount (..))
+import           Pos.Arbitrary.Wallet.Web.ClientTypes ()
+import           Pos.Block.Logic (rollbackBlocks)
+import           Pos.Core (Address, BlockCount (..), blkSecurityParam)
 import           Pos.Core.Chrono (nonEmptyOldestFirst, toNewestFirst)
 import           Pos.Crypto (emptyPassphrase)
-import           Pos.DB.Block (rollbackBlocks)
 import           Pos.Launcher (HasConfigurations)
-import           Pos.Util.Wlog (setupTestLogging)
+
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.State.Storage (WalletStorage (..))
-import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentialsKey (..),
-                     keyToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 import           Pos.Wallet.Web.Tracking.Sync (evalChange,
                      syncWalletWithBlockchain)
 import           Pos.Wallet.Web.Tracking.Types (newSyncRequest)
@@ -42,48 +40,44 @@ import           Pos.Wallet.Web.Tracking.Types (newSyncRequest)
 
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..),
                      InplaceDB (..))
-import           Test.Pos.Chain.Genesis.Dummy (dummyConfig, dummyK)
 import           Test.Pos.Configuration (withDefConfigurations)
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty)
-import           Test.Pos.Wallet.Arbitrary.Web.ClientTypes ()
 import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
 import           Test.Pos.Wallet.Web.Util (importSomeWallets, wpGenBlocks)
 
 spec :: Spec
-spec = beforeAll_ setupTestLogging $
-    withDefConfigurations $ \_ _ _ -> do
-        describe "Pos.Wallet.Web.Tracking.BListener" $ modifyMaxSuccess (const 10) $ do
-            describe "Two applications and rollbacks" twoApplyTwoRollbacksSpec
-        xdescribe "Pos.Wallet.Web.Tracking.evalChange (pending, CSL-2473)" $ do
-            prop evalChangeDiffAccountsDesc evalChangeDiffAccounts
-            prop evalChangeSameAccountsDesc evalChangeSameAccounts
-      where
-        evalChangeDiffAccountsDesc =
-          "An outgoing transaction to another account."
-        evalChangeSameAccountsDesc =
-          "Outgoing transaction from account to the same account."
+spec = withDefConfigurations $ \_ _ -> do
+    describe "Pos.Wallet.Web.Tracking.BListener" $ modifyMaxSuccess (const 10) $ do
+        describe "Two applications and rollbacks" twoApplyTwoRollbacksSpec
+    xdescribe "Pos.Wallet.Web.Tracking.evalChange (pending, CSL-2473)" $ do
+        prop evalChangeDiffAccountsDesc evalChangeDiffAccounts
+        prop evalChangeSameAccountsDesc evalChangeSameAccounts
+  where
+    evalChangeDiffAccountsDesc =
+      "An outgoing transaction to another account."
+    evalChangeSameAccountsDesc =
+      "Outgoing transaction from account to the same account."
 
 twoApplyTwoRollbacksSpec :: HasConfigurations => Spec
 twoApplyTwoRollbacksSpec = walletPropertySpec twoApplyTwoRollbacksDesc $ do
-    let k = fromIntegral dummyK :: Word64
+    let k = fromIntegral blkSecurityParam :: Word64
     -- During these tests we need to manually switch back to the old synchronous
     -- way of restoring.
     void $ importSomeWallets (pure emptyPassphrase)
-    secretKeys <- lift getSecretKeysPlain
-    lift $ forM_ secretKeys $ \sk ->
-        syncWalletWithBlockchain dummyConfig . newSyncRequest . keyToWalletDecrCredentials $ KeyForRegular sk
+    sks <- lift getSecretKeysPlain
+    lift $ forM_ sks $ \s -> syncWalletWithBlockchain (newSyncRequest (eskToWalletDecrCredentials s))
 
     -- Testing starts here
     genesisWalletDB <- lift WS.askWalletSnapshot
     applyBlocksCnt1 <- pick $ choose (1, k `div` 2)
     applyBlocksCnt2 <- pick $ choose (1, k `div` 2)
-    let txpConfig = TxpConfiguration 200 Set.empty
-    blunds1 <- wpGenBlocks txpConfig
+    blunds1 <- wpGenBlocks dummyProtocolMagic
                            (Just $ BlockCount applyBlocksCnt1)
                            (EnableTxPayload True)
                            (InplaceDB True)
     after1ApplyDB <- lift WS.askWalletSnapshot
-    blunds2 <- wpGenBlocks txpConfig
+    blunds2 <- wpGenBlocks dummyProtocolMagic
                            (Just $ BlockCount applyBlocksCnt2)
                            (EnableTxPayload True)
                            (InplaceDB True)
@@ -91,9 +85,9 @@ twoApplyTwoRollbacksSpec = walletPropertySpec twoApplyTwoRollbacksDesc $ do
     let toNE = fromMaybe (error "sequence of blocks are empty") . nonEmptyOldestFirst
     let to1Rollback = toNewestFirst $ toNE blunds2
     let to2Rollback = toNewestFirst $ toNE blunds1
-    lift $ rollbackBlocks dummyConfig to1Rollback
+    lift $ rollbackBlocks dummyProtocolMagic to1Rollback
     after1RollbackDB <- lift WS.askWalletSnapshot
-    lift $ rollbackBlocks dummyConfig to2Rollback
+    lift $ rollbackBlocks dummyProtocolMagic to2Rollback
     after2RollbackDB <- lift WS.askWalletSnapshot
     assertProperty (after1RollbackDB == after1ApplyDB)
         "wallet-db after first apply doesn't equal to wallet-db after first rollback"

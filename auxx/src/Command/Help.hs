@@ -1,5 +1,4 @@
-{-# LANGUAGE GADTs           #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE GADTs #-}
 
 module Command.Help
        ( mkHelpMessage

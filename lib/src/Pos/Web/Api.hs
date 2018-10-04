@@ -16,9 +16,8 @@ import           Universum
 import           Servant.API ((:<|>), (:>), Capture, Get, JSON, PlainText, Post,
                      QueryParam)
 
-import           Pos.Chain.Block (HeaderHash)
-import           Pos.Chain.Txp (TxOut)
-import           Pos.Core (EpochIndex, SlotLeaders)
+import           Pos.Core (EpochIndex, HeaderHash, SlotLeaders)
+import           Pos.Core.Txp (TxOut)
 import           Pos.Crypto (PublicKey)
 import           Pos.Web.Types (CConfirmedProposalState)
 

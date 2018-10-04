@@ -11,37 +11,39 @@ module Cardano.Wallet.Kernel.Mode
 import           Control.Lens (makeLensesWith)
 import           Universum
 
-import           Pos.Chain.Block
-import           Pos.Chain.Genesis as Genesis (Config)
-import           Pos.Chain.Txp
+import           Mockable
+import           Pos.Block.BListener
+import           Pos.Block.Slog
+import           Pos.Block.Types
 import           Pos.Context
+import           Pos.Core
 import           Pos.Core.Chrono
-import           Pos.Core.JsonLog (CanJsonLog (..))
-import           Pos.Core.Reporting (HasMisbehaviorMetrics (..))
 import           Pos.DB
-import           Pos.DB.Block hiding (applyBlocks, rollbackBlocks)
+import           Pos.DB.Block
 import           Pos.DB.DB
-import           Pos.DB.Txp.Logic
-import           Pos.DB.Txp.MemState
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
 import           Pos.Infra.Network.Types
 import           Pos.Infra.Reporting
 import           Pos.Infra.Shutdown
 import           Pos.Infra.Slotting
 import           Pos.Infra.Util.JsonLog.Events
+import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Launcher
+import           Pos.Txp.Configuration
+import           Pos.Txp.Logic
+import           Pos.Txp.MemState
 import           Pos.Util
 import           Pos.WorkMode
 
-import           Cardano.Wallet.WalletLayer (PassiveWalletLayer, applyBlocks,
-                     rollbackBlocks)
+import           Cardano.Wallet.WalletLayer (PassiveWalletLayer (..),
+                     applyBlocks, rollbackBlocks)
 
 {-------------------------------------------------------------------------------
   The wallet context and monad
 -------------------------------------------------------------------------------}
 
 data WalletContext = WalletContext {
-      wcWallet          :: !(PassiveWalletLayer IO)
+      wcWallet          :: !(PassiveWalletLayer Production)
     , wcRealModeContext :: !(RealModeContext EmptyMempoolExt)
     }
 
@@ -49,11 +51,11 @@ data WalletContext = WalletContext {
 --
 -- NOTE: I'd prefer to @newtype@ this but it's just too painful (too many
 -- constraints cannot be derived, there are a /lot/ of them).
-type WalletMode = ReaderT WalletContext IO
+type WalletMode = ReaderT WalletContext Production
 
 makeLensesWith postfixLFields ''WalletContext
 
-getWallet :: WalletMode (PassiveWalletLayer IO)
+getWallet :: WalletMode (PassiveWalletLayer Production)
 getWallet = view wcWallet_L
 
 {-------------------------------------------------------------------------------
@@ -61,45 +63,50 @@ getWallet = view wcWallet_L
 -------------------------------------------------------------------------------}
 
 -- | Callback for new blocks
-walletApplyBlocks :: PassiveWalletLayer IO
+--
+-- TODO: This should wrap the functionality in "Cardano.Wallet.Core" to
+-- wrap things in Cardano specific types.
+walletApplyBlocks :: PassiveWalletLayer Production
                   -> OldestFirst NE Blund
                   -> WalletMode SomeBatchOp
-walletApplyBlocks w bs = do
-    lift $ applyBlocks w bs
+walletApplyBlocks _w _bs = do
+    lift $ applyBlocks _w _bs
 
     -- We don't make any changes to the DB so we always return 'mempty'.
     return mempty
 
 -- | Callback for rollbacks
-walletRollbackBlocks :: PassiveWalletLayer IO
+--
+-- TODO: This should wrap the functionality in "Cardano.Wallet.Core" to
+-- wrap things in Cardano specific types.
+walletRollbackBlocks :: PassiveWalletLayer Production
                      -> NewestFirst NE Blund
                      -> WalletMode SomeBatchOp
-walletRollbackBlocks w bs = do
-    lift $ rollbackBlocks w bs
+walletRollbackBlocks _w _bs = do
+    lift $ rollbackBlocks _w _bs
 
     -- We don't make any changes to the DB so we always return 'mempty'.
     return mempty
 
 instance MonadBListener WalletMode where
-  onApplyBlocks      bs = getWallet >>= (`walletApplyBlocks`    bs)
-  onRollbackBlocks _ bs = getWallet >>= (`walletRollbackBlocks` bs)
+  onApplyBlocks    bs = getWallet >>= (`walletApplyBlocks`    bs)
+  onRollbackBlocks bs = getWallet >>= (`walletRollbackBlocks` bs)
 
 {-------------------------------------------------------------------------------
   Run the wallet
 -------------------------------------------------------------------------------}
 
 runWalletMode :: forall a. (HasConfigurations, HasCompileInfo)
-              => Genesis.Config
-              -> TxpConfiguration
+              => ProtocolMagic
               -> NodeResources ()
-              -> PassiveWalletLayer IO
+              -> PassiveWalletLayer Production
               -> (Diffusion WalletMode -> WalletMode a)
-              -> IO a
-runWalletMode genesisConfig txpConfig nr wallet action =
-    runRealMode genesisConfig txpConfig nr $ \diffusion ->
+              -> Production a
+runWalletMode pm nr wallet action =
+    Production $ runRealMode pm nr $ \diffusion ->
         walletModeToRealMode wallet (action (hoistDiffusion realModeToWalletMode (walletModeToRealMode wallet) diffusion))
 
-walletModeToRealMode :: forall a. PassiveWalletLayer IO -> WalletMode a -> RealMode () a
+walletModeToRealMode :: forall a. PassiveWalletLayer Production -> WalletMode a -> RealMode () a
 walletModeToRealMode wallet ma = do
     rmc <- ask
     let env = WalletContext {
@@ -164,34 +171,33 @@ instance {-# OVERLAPPABLE #-}
 
 type instance MempoolExt WalletMode = EmptyMempoolExt
 
-instance MonadDBRead WalletMode where
+instance HasConfiguration => MonadDBRead WalletMode where
   dbGet         = dbGetDefault
   dbIterSource  = dbIterSourceDefault
   dbGetSerBlock = dbGetSerBlockRealDefault
   dbGetSerUndo  = dbGetSerUndoRealDefault
-  dbGetSerBlund  = dbGetSerBlundRealDefault
 
-instance MonadDB WalletMode where
+instance HasConfiguration => MonadDB WalletMode where
   dbPut         = dbPutDefault
   dbWriteBatch  = dbWriteBatchDefault
   dbDelete      = dbDeleteDefault
   dbPutSerBlunds = dbPutSerBlundsRealDefault
 
-instance MonadSlotsData ctx WalletMode => MonadSlots ctx WalletMode where
+instance ( HasConfiguration
+         , MonadSlotsData ctx WalletMode
+         ) => MonadSlots ctx WalletMode where
   getCurrentSlot           = getCurrentSlotSimple
   getCurrentSlotBlocking   = getCurrentSlotBlockingSimple
   getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple
   currentTimeSlotting      = currentTimeSlottingSimple
 
-instance MonadGState WalletMode where
+instance HasConfiguration => MonadGState WalletMode where
   gsAdoptedBVData = gsAdoptedBVDataDefault
 
 instance {-# OVERLAPPING #-} CanJsonLog WalletMode where
   jsonLog = jsonLogDefault
 
-instance MonadTxpLocal WalletMode where
+instance (HasConfiguration, HasTxpConfiguration)
+      => MonadTxpLocal WalletMode where
   txpNormalize = txNormalize
   txpProcessTx = txProcessTransaction
-
-instance HasNodeContext WalletContext where
-    nodeContext = wcRealModeContext_L . lensOf @NodeContext

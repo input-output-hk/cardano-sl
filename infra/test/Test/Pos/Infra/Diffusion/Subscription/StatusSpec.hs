@@ -9,10 +9,10 @@ import           Prelude
 import           Data.List ((\\))
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import           Test.Hspec (SpecWith, describe)
+import           Test.Hspec (describe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Gen, Property, elements, forAllShrink,
-                     ioProperty, shrinkList, sized, (===))
+                     ioProperty, listOf, shrinkList, sized, (===))
 
 import           Pos.Infra.Diffusion.Subscription.Status (Changes,
                      SubscriptionStates, SubscriptionStatus (..), changes,
@@ -27,7 +27,9 @@ newtype Inputs = Inputs
     }
     deriving (Show)
 
-newtype Expectations = Expectations [Map Key SubscriptionStatus]
+newtype Expectations = Expectations
+    { getExpectations :: [Map Key SubscriptionStatus]
+    }
     deriving (Eq, Show)
 
 type Observations = Expectations
@@ -90,9 +92,9 @@ getObservations (Inputs inputs) = do
         -> Changes Key
         -> IO Observations
     start [] _ _ = pure (Expectations [])
-    start (initial : rest) states changes' = do
+    start (initial : rest) states changes = do
         feedInput initial states
-        (_, observed) <- withChanges changes' step (rest, states, [])
+        (_, observed) <- withChanges changes step (rest, states, [])
         pure (Expectations (reverse observed))
 
     step
@@ -101,7 +103,7 @@ getObservations (Inputs inputs) = do
         -> IO ( Either ([(Key, Maybe SubscriptionStatus)], SubscriptionStates Key, [Map Key SubscriptionStatus])
                        [Map Key SubscriptionStatus]
               )
-    step ([], _, observed) m = pure (Right (m : observed))
+    step ([], states, observed) m = pure (Right (m : observed))
     step ((input : rest), states, observed) m = do
         feedInput input states
         pure (Left (rest, states, m : observed))
@@ -112,5 +114,4 @@ getObservations (Inputs inputs) = do
         Just Subscribing -> subscribing states key
         Just Subscribed  -> subscribed states key
 
-spec :: SpecWith ()
 spec = describe "Status" $ prop "state change consistency" property

@@ -8,6 +8,8 @@ module Cardano.Wallet.Kernel.CoinSelection.Generic.Grouped (
   , Sum(..)
   , Size(..)
     -- * Conditions for grouping
+  , HasAddress(..)
+  , utxoEntryAddr
   , CanGroup(..)
   , unsafeUtxoLookup
     -- * Grouped UTxO
@@ -72,6 +74,14 @@ instance CoinSelDom dom => CoinSelDom (Grouped dom) where
 {-------------------------------------------------------------------------------
   Conditions under which we can group UTxOs
 -------------------------------------------------------------------------------}
+
+class (CoinSelDom dom, Ord (Address dom)) => HasAddress dom where
+  type Address dom :: *
+
+  outAddr :: Output dom -> Address dom
+
+utxoEntryAddr :: HasAddress dom => UtxoEntry dom -> Address dom
+utxoEntryAddr = outAddr . utxoEntryOut
 
 class (PickFromUtxo utxo, HasAddress (Dom utxo)) => CanGroup utxo where
   -- | Lookup a specific entry

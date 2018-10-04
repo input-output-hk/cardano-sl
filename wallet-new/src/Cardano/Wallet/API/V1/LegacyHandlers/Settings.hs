@@ -9,7 +9,7 @@ import           Cardano.Wallet.API.V1.Types as V1
 import qualified Data.Text as T
 import           Paths_cardano_sl_wallet_new (version)
 
-import           Pos.Chain.Update (curSoftwareVersion)
+import           Pos.Update.Configuration (curSoftwareVersion)
 import           Pos.Util.CompileInfo (compileInfo, ctiGitRevision)
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo,
                      blockchainSlotDuration)

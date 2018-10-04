@@ -76,9 +76,9 @@ import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Typeable (Typeable)
 import           Data.Version (Version)
 import           Formatting (bprint, build, builder, later, shown, (%))
-import           Pos.Chain.Update (BlockVersion, SoftwareVersion)
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
-import           Pos.Core (ChainDifficulty, Coin, ScriptVersion, unsafeGetCoin)
+import           Pos.Core (BlockVersion, ChainDifficulty, Coin, ScriptVersion,
+                     SoftwareVersion, unsafeGetCoin)
 import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
                      buildUnsecure, deriveSafeBuildable, secretOnlyF,
                      secureListF)

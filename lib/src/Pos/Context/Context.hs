@@ -24,20 +24,20 @@ import           Universum
 
 import           Control.Lens (lens, makeLensesWith)
 import           Data.Time.Clock (UTCTime)
+import           System.Wlog (LoggerConfig)
 
-import           Pos.Chain.Block (HasSlogContext (..), HasSlogGState (..),
-                     LastKnownHeader, LastKnownHeaderTag, SlogContext (..))
-import           Pos.Chain.Ssc (HasSscContext (..), SscContext)
+import           Pos.Block.RetrievalQueue (BlockRetrievalQueue,
+                     BlockRetrievalQueueTag)
+import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..),
+                     SlogContext (..))
+import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag,
+                     RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Communication.Types (NodeId)
 import           Pos.Core (HasPrimaryKey (..), Timestamp)
-import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
-                     MisbehaviorMetrics (..))
-import           Pos.DB.Lrc (LrcContext)
-import           Pos.DB.Txp.Settings (TxpGlobalSettings)
-import           Pos.DB.Update (UpdateContext)
 import           Pos.Infra.DHT.Real.Param (KademliaParams)
 import           Pos.Infra.Network.Types (NetworkConfig (..))
-import           Pos.Infra.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
+import           Pos.Infra.Reporting.MemState (HasMisbehaviorMetrics (..),
+                     MisbehaviorMetrics (..))
 import           Pos.Infra.Shutdown (HasShutdownContext (..),
                      ShutdownContext (..))
 import           Pos.Infra.Slotting (HasSlottingVar (..),
@@ -46,13 +46,13 @@ import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Infra.StateLock (StateLock, StateLockMetrics)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Launcher.Param (BaseParams (..), NodeParams (..))
-import           Pos.Network.Block.RetrievalQueue (BlockRetrievalQueue,
-                     BlockRetrievalQueueTag)
+import           Pos.Lrc.Context (LrcContext)
+import           Pos.Ssc.Types (HasSscContext (..), SscContext)
+import           Pos.Txp.Settings (TxpGlobalSettings)
+import           Pos.Update.Context (UpdateContext)
 import           Pos.Util.Lens (postfixLFields)
-import           Pos.Util.UserPublic (HasUserPublic (..), UserPublic)
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret)
 import           Pos.Util.Util (HasLens (..))
-import           Pos.Util.Wlog (LoggerConfig)
 
 ----------------------------------------------------------------------------
 -- NodeContext
@@ -84,8 +84,6 @@ data NodeContext = NodeContext
     -- Stored hash is a hash of last applied block.
     , ncStateLockMetrics    :: !(StateLockMetrics MemPoolModifyReason)
     -- ^ A set of callbacks for 'StateLock'.
-    , ncUserPublic          :: !(TVar UserPublic)
-    -- ^ Public keys (and path to file) which are used to identify external wallets.
     , ncUserSecret          :: !(TVar UserSecret)
     -- ^ Secret keys (and path to file) which are used to send transactions
     , ncBlockRetrievalQueue :: !BlockRetrievalQueue
@@ -155,9 +153,6 @@ instance HasShutdownContext NodeContext where
 
 instance HasLens UpdateContext NodeContext UpdateContext where
     lensOf = ncUpdateContext_L
-
-instance HasUserPublic NodeContext where
-    userPublic = ncUserPublic_L
 
 instance HasUserSecret NodeContext where
     userSecret = ncUserSecret_L

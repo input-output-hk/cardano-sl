@@ -8,7 +8,7 @@ import           Control.Concurrent (threadDelay)
 import           Formatting (sformat, (%))
 import qualified Formatting as F
 
-import           Pos.Util.Wlog (Severity (..))
+import           System.Wlog (Severity (..))
 
 
 tickSubmissionLayer :: forall m. (MonadCatch m, MonadIO m)

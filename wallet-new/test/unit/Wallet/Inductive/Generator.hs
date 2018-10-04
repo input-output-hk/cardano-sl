@@ -28,9 +28,9 @@ import           Data.Tree
 import           Pos.Core.Chrono
 import           Test.QuickCheck
 
+import           Cardano.Wallet.Kernel.Util
 import           UTxO.DSL
 import           UTxO.Generator
-import           UTxO.Util (Probability, toss, withoutKeys)
 import           Wallet.Inductive
 
 {-------------------------------------------------------------------------------
@@ -95,7 +95,7 @@ data GenEventsParams h a = GenEventsParams {
     , gepMaxNumForks          :: Int
     }
 
-defEventsParams :: (Int -> Int -> Value) -- ^ Fee model
+defEventsParams :: (Int -> [Value] -> Value) -- ^ Fee model
                 -> [a]             -- ^ Addresses we can generate outputs to
                 -> Set a           -- ^ Addresses that belong to the wallet
                 -> Utxo h a        -- ^ Initial UTxO
@@ -132,10 +132,11 @@ data GenEventsGlobalState h a = GenEventsGlobalState {
       -- transactions once submitted into the system "stay out there".
     , _gegsPending   :: Transactions h a
 
-      -- | Lengths of the forks created previously (not including current)
-      --
-      -- This list should be strictly increasing.
-    , _gegsPrevForks :: [Int]
+      -- | Maximum height of any path through the tree generated so far
+    , _gegsMaxLength :: Int
+
+      -- | Number of forks created so far
+    , _gegsNumForks  :: Int
     }
 
 -- | Branch local state
@@ -173,7 +174,8 @@ initEventsGlobalState :: Int   -- ^ First available hash
 initEventsGlobalState nextHash = GenEventsGlobalState {
       _gegsNextHash  = nextHash
     , _gegsPending   = Map.empty
-    , _gegsPrevForks = []
+    , _gegsMaxLength = 0
+    , _gegsNumForks  = 0
     }
 
 -- | Lens to the system UTxO
@@ -234,16 +236,8 @@ genEventTree GenEventsParams{..} =
   where
     buildTree :: GenSeeds h a (WalletEvent h a)
     buildTree ls = do
-        prevForks <- use gegsPrevForks
-        -- We cannot submit pending transactions until a switch-to-fork is
-        -- complete (a rollback of @N@ blocks and the subsequent @N + 1@
-        -- blocks will happen atomically).
-        let ourLength        = ls ^. gelsLength
-            canSubmitPending = case prevForks of
-                                 []     -> True
-                                 prev:_ -> ourLength > prev
         shouldSubmitPending <- lift $ toss gepPendingProb
-        if canSubmitPending && shouldSubmitPending
+        if shouldSubmitPending
           then submitPending ls
           else generateBlock ls
 
@@ -340,12 +334,11 @@ genEventTree GenEventsParams{..} =
         -- because we only ever switch to a fork when the new fork is longer
         -- than the current
         let ourLength = ls'' ^. gelsLength
-        prevForks <- use gegsPrevForks
+        maxLength <- use gegsMaxLength
+        numForks  <- use gegsNumForks
         let allowedTerminate, allowedFork :: Bool
-            allowedTerminate = case prevForks of
-                                 []       -> True
-                                 (prev:_) -> ourLength > prev
-            allowedFork      = length prevForks < gepMaxNumForks
+            allowedTerminate = ourLength > maxLength
+            allowedFork      = numForks < gepMaxNumForks
 
             -- Is a particular branching factor applicable?
             applicable :: (Int, Int) -> Bool
@@ -359,9 +352,8 @@ genEventTree GenEventsParams{..} =
 
         branchingFactor <- lift $ frequency $ map (second pure) freqs
 
-        -- If we are done with this fork, record our length
-        when (branchingFactor == 0) $
-          gegsPrevForks %= (ourLength :)
+        gegsMaxLength %= max ourLength
+        gegsNumForks  += if branchingFactor > 1 then 1 else 0
 
         return (ev, replicate branchingFactor ls'')
 

@@ -1,6 +1,5 @@
 {-# LANGUAGE BangPatterns        #-}
 {-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Diffusion.Full.Block
@@ -20,7 +19,6 @@ import           Control.Exception (Exception (..), throwIO)
 import           Control.Lens (to)
 import           Control.Monad.Except (ExceptT, runExceptT, throwError)
 import qualified Data.ByteString.Lazy as BSL
-import           Data.Conduit (await, runConduit, (.|))
 import           Data.List.NonEmpty (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
@@ -29,25 +27,29 @@ import           Formatting (bprint, build, int, sformat, shown, stext, (%))
 import qualified Formatting.Buildable as B
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Node.Conversation (sendRaw)
+import           Pipes (await, runEffect, (>->))
 import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Gauge
 
 import           Pos.Binary.Communication (serializeMsgSerializedBlock,
                      serializeMsgStreamBlock)
-import           Pos.Chain.Block (Block, BlockHeader (..), HeaderHash,
-                     MainBlockHeader, blockHeader, headerHash, prevBlockL)
-import           Pos.Chain.Update (BlockVersionData, bvdSlotDuration)
+import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..),
+                     MsgGetHeaders (..), MsgHeaders (..),
+                     MsgSerializedBlock (..), MsgStream (..),
+                     MsgStreamBlock (..), MsgStreamStart (..),
+                     MsgStreamUpdate (..))
 import           Pos.Communication.Limits (mlMsgBlock, mlMsgGetBlocks,
                      mlMsgGetHeaders, mlMsgHeaders, mlMsgStream,
                      mlMsgStreamBlock)
-import           Pos.Core (ProtocolConstants (..), difficultyL)
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
-                     toOldestFirst, _NewestFirst, _OldestFirst)
-import           Pos.Core.Exception (cardanoExceptionFromException,
-                     cardanoExceptionToException)
-import           Pos.Core.NetworkAddress (NetworkAddress)
+import           Pos.Communication.Message ()
+import           Pos.Core (BlockVersionData, HeaderHash, ProtocolConstants (..),
+                     bvdSlotDuration, difficultyL, headerHash, prevBlockL)
+import           Pos.Core.Block (Block, BlockHeader (..), MainBlockHeader,
+                     blockHeader)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (DBMalformed))
+import           Pos.Exception (cardanoExceptionFromException,
+                     cardanoExceptionToException)
 import           Pos.Infra.Communication.Listener (listenerConv)
 import           Pos.Infra.Communication.Protocol (Conversation (..),
                      ConversationActions (..), EnqueueMsg, ListenerSpec,
@@ -56,16 +58,13 @@ import           Pos.Infra.Communication.Protocol (Conversation (..),
                      waitForConversations, waitForDequeues)
 import           Pos.Infra.Diffusion.Types (DiffusionHealth (..))
 import           Pos.Infra.Network.Types (Bucket)
-import           Pos.Infra.Util.TimeWarp (nodeIdToAddress)
+import           Pos.Infra.Util.TimeWarp (NetworkAddress, nodeIdToAddress)
 import           Pos.Logic.Types (Logic)
 import qualified Pos.Logic.Types as Logic
-import           Pos.Network.Block.Types (MsgBlock (..), MsgGetBlocks (..),
-                     MsgGetHeaders (..), MsgHeaders (..),
-                     MsgSerializedBlock (..), MsgStream (..),
-                     MsgStreamBlock (..), MsgStreamStart (..),
-                     MsgStreamUpdate (..))
 -- Dubious having this security stuff in here.
-import           Pos.Chain.Security (AttackTarget (..), AttackType (..),
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
+                     toOldestFirst, _NewestFirst, _OldestFirst)
+import           Pos.Security.Params (AttackTarget (..), AttackType (..),
                      NodeAttackedError (..), SecurityParams (..))
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.Timer (Timer, startTimer)
@@ -136,17 +135,17 @@ getBlocks logTrace logic recoveryHeadersMessage enqueue nodeId tipHeaderHash che
     bvd <- Logic.getAdoptedBVData logic
     blocks <- if singleBlockHeader
               then requestBlocks bvd (OldestFirst (one tipHeaderHash))
-              else requestAndClassifyHeaders bvd >>= requestBlocks bvd
+              else requestAndClassifyHeaders bvd >>= requestBlocks bvd . fmap headerHash
     pure (OldestFirst (reverse (toList blocks)))
   where
 
-    requestAndClassifyHeaders :: BlockVersionData -> IO (OldestFirst [] HeaderHash)
+    requestAndClassifyHeaders :: BlockVersionData -> IO (OldestFirst [] BlockHeader)
     requestAndClassifyHeaders bvd = do
         OldestFirst headers <- toOldestFirst <$> requestHeaders bvd
         -- Logic layer gives us the suffix of the chain that we don't have.
         -- Possibly empty.
         -- 'requestHeaders' gives a NonEmpty; we drop it to a [].
-        fmap snd (Logic.getLcaMainChain logic (OldestFirst (toList (fmap headerHash headers))))
+        Logic.getLcaMainChain logic (OldestFirst (toList headers))
 
     singleBlockHeader :: Bool
     singleBlockHeader = case checkpoints of
@@ -397,11 +396,11 @@ streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoint
         -> Word32
         -> IO ()
     retrieveBlocks bvd blockChan conv window = do
-        window' <- if window <= halfStreamWindow
+        window' <- if window < halfStreamWindow
             then do
-                let w' = window + halfStreamWindow
+                let w' = streamWindow
                 traceWith logTrace (Debug, sformat ("Updating Window: "%int%" to "%int) window w')
-                send conv $ MsgUpdate $ MsgStreamUpdate halfStreamWindow
+                send conv $ MsgUpdate $ MsgStreamUpdate $ w'
                 return (w' - 1)
             else return $ window - 1
         block <- retrieveBlock bvd conv
@@ -477,7 +476,7 @@ announceBlockHeader logTrace logic protocolConstants recoveryHeadersMessage enqu
         -- TODO figure out what this security stuff is doing and judge whether
         -- it needs to change / be removed.
         let sparams = Logic.securityParams logic
-        -- Copied from Pos.Chain.Security but made pure. The existing
+        -- Copied from Pos.Security.Util but made pure. The existing
         -- implementation was tied to a reader rather than taking a
         -- SecurityParams value as a function argument.
             shouldIgnoreAddress :: NetworkAddress -> Bool
@@ -674,23 +673,21 @@ handleStreamStart logTrace logic oq = listenerConv logTrace oq $ \__ourVerInfo n
         traceWith logTrace (Debug, sformat ("MsgStreamStart with empty from chain from node "%build) nodeId)
         return ()
     stream nodeId conv (cl:cxs) _ window = do
-        -- Find the newest checkpoint which is in our chain (checkpoints are
-        -- oldest first).
-        (prefix, _) <- Logic.getLcaMainChain logic (OldestFirst (fmap headerHash (cl:cxs)))
-        case getNewestFirst prefix of
-             [] -> do
+        -- Ideally we want a function that only returns the oldest blockheader derived from the
+        -- list of checkpoints, not a list of blockheaders.
+        headersE <- Logic.getBlockHeaders logic Nothing (cl:|cxs) Nothing
+        case headersE of
+             Left e        -> do
                 send conv $ MsgStreamNoBlock "handleStreamStart:strean Failed to find lca"
-                traceWith logTrace (Debug, sformat ("handleStreamStart:strean getBlockHeaders from "%shown%" failed for "%listJson) nodeId (cl:cxs))
+                traceWith logTrace (Debug, sformat ("handleStreamStart:strean getBlockHeaders from "%shown%" failed with "%shown%" for "%listJson) nodeId e (cl:cxs))
                 return ()
-             -- 'lca' is the newest client-supplied checkpoint that we have.
-             -- We need to begin streaming from its child, which is what
-             -- 'Logic.streamBlocks' does.
-             lca : _ -> do
-                let producer = do
-                        Logic.streamBlocks logic lca
+             Right headers -> do
+                let lca = headers ^. _NewestFirst . _neLast
+                    producer = do
+                        Logic.streamBlocks logic $ headerHash lca
                         lift $ send conv MsgStreamEnd
                     consumer = loop nodeId conv window
-                runConduit $ producer .| consumer
+                runEffect $ producer >-> consumer
 
     loop nodeId conv 0 = do
         lift $ traceWith logTrace (Debug, "handleStreamStart:loop waiting on window update")
@@ -704,10 +701,10 @@ handleStreamStart logTrace logic oq = listenerConv logTrace oq $ \__ourVerInfo n
                   MsgUpdate u -> do
                       lift $ traceWith logTrace (Debug, sformat ("handleStreamStart:loop new window "%shown%" from "%build) u nodeId)
                       loop nodeId conv (msuWindow u)
-    loop nodeId conv window =
-        whenJustM await $ \b -> do
-            lift $ sendRaw conv $ serializeMsgStreamBlock $ MsgSerializedBlock b
-            loop nodeId conv (window - 1)
+    loop nodeId conv window = do
+        b <- await
+        lift $ sendRaw conv $ serializeMsgStreamBlock $ MsgSerializedBlock b
+        loop nodeId conv (window - 1)
 
 ----------------------------------------------------------------------------
 -- Header propagation

@@ -18,6 +18,9 @@ foreign import versionImpl :: String
 version :: String
 version = versionImpl
 
+testNetVersion :: String
+testNetVersion = "0.5"
+
 foreign import commitHashImpl :: String
 
 commitHash :: String

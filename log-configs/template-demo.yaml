@@ -5,10 +5,6 @@ rotation:
     keepFiles: 20
 loggerTree:
   severity: Debug+
-  file: tmpFileName
-  handlers:
-    - { name: "json"
-      , filepath: "tmpFileName.json"
-      , logsafety: PublicLogLevel
-      , severity: Debug
-      , backend: FileJsonBE }
+  files:
+    - {{file}}.pub
+    - {{file}}

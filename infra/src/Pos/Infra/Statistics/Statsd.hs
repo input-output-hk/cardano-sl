@@ -6,7 +6,7 @@ module Pos.Infra.Statistics.Statsd
        ) where
 
 import qualified Options.Applicative as Opt
-import           Pos.Core.NetworkAddress (NetworkAddress, addrParserNoWildcard)
+import           Pos.Infra.Util.TimeWarp (NetworkAddress, addrParserNoWildcard)
 import           Pos.Util.OptParse (fromParsec)
 import           Universum
 

@@ -1,5 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
-
 -- | Signing done with public/private keys.
 
 module Pos.Crypto.Signing.Signing

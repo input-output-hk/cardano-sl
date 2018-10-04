@@ -15,7 +15,6 @@ import           Pos.Wallet.Web.ClientTypes.Types
 import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot (..))
 import           Pos.Wallet.Web.State.Storage (WalletStorage (..))
 
-import           Test.Pos.Chain.Update.Arbitrary ()
 import           Test.Pos.Core.Arbitrary ()
 
 instance Arbitrary NoContent where

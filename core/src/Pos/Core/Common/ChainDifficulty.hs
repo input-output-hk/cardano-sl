@@ -6,7 +6,6 @@ module Pos.Core.Common.ChainDifficulty
 
 import           Universum
 
-import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
@@ -27,8 +26,6 @@ instance HasDifficulty (Some HasDifficulty) where
 
 isMoreDifficult :: HasDifficulty a => a -> a -> Bool
 a `isMoreDifficult` b = a ^. difficultyL > b ^. difficultyL
-
-deriveJSON defaultOptions ''ChainDifficulty
 
 deriveSimpleBi ''ChainDifficulty [
     Cons 'ChainDifficulty [

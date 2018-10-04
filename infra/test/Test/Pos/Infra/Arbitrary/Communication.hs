@@ -10,9 +10,10 @@ module Test.Pos.Infra.Arbitrary.Communication () where
 import           Universum
 
 import           Test.QuickCheck (Arbitrary (..))
-import           Test.QuickCheck.Arbitrary.Generic (genericShrink)
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
+                     genericShrink)
 
-import           Pos.Chain.Txp (TxMsgContents (..))
+import           Pos.Core.Txp (TxMsgContents (..))
 import           Pos.Infra.Communication.Types.Relay (DataMsg (..))
 
 import           Test.Pos.Infra.Arbitrary.Txp ()

@@ -153,7 +153,7 @@ instance Buildable PaginationMetadata where
 -- | `PaginationParams` is datatype which combines request params related
 -- to pagination together.
 data PaginationParams = PaginationParams
-    { ppPage    :: Page -- ^ Greater than 0.
+    { ppPage    :: Page
     , ppPerPage :: PerPage
     } deriving (Show, Eq, Generic)
 

@@ -1,8 +1,0 @@
-packages:
-  */*.cabal
-  */test/*.cabal
-
--- not sure why the cabal solver wants to download and build a newer beam-sqlite
-constraints: beam-sqlite == 0.3.2.1
--- allow-newer: all
--- allow-older: all

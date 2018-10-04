@@ -1,5 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
-
 -- | Parameters used by blockchain generator.
 
 module Pos.Generator.Block.Param
@@ -19,9 +17,8 @@ import qualified Prelude
 import           Serokell.Util (pairF)
 
 import           Pos.AllSecrets (AllSecrets, HasAllSecrets (..))
-import           Pos.Chain.Genesis (GenesisWStakeholders)
-import           Pos.Core (BlockCount)
-import           Pos.DB.Txp (TxpGlobalSettings)
+import           Pos.Core (BlockCount, GenesisWStakeholders)
+import           Pos.Txp (TxpGlobalSettings)
 
 -- | Parameters for transactions payload generation.
 data TxGenParams = TxGenParams

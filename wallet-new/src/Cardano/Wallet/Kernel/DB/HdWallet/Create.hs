@@ -18,7 +18,7 @@ module Cardano.Wallet.Kernel.DB.HdWallet.Create (
 
 import           Universum
 
-import           Control.Lens (at, (+~), (.=))
+import           Control.Lens (at, (.=))
 import           Data.SafeCopy (base, deriveSafeCopy)
 
 import           Formatting (bprint, build, sformat, (%))
@@ -28,9 +28,8 @@ import qualified Pos.Core as Core
 
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.InDb
+import           Cardano.Wallet.Kernel.DB.Spec
 import           Cardano.Wallet.Kernel.DB.Util.AcidState
-import           Cardano.Wallet.Kernel.DB.Util.IxSet (AutoIncrementKey (..),
-                     Indexed (..))
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 
 {-------------------------------------------------------------------------------
@@ -41,7 +40,6 @@ import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 data CreateHdRootError =
     -- | We already have a wallet with the specified ID
     CreateHdRootExists HdRootId
-  | CreateHdRootDefaultAddressDerivationFailed
 
 -- | Errors thrown by 'createHdAccount'
 data CreateHdAccountError =
@@ -58,7 +56,6 @@ data CreateHdAddressError =
 
     -- | Address already used
   | CreateHdAddressExists HdAddressId
-  deriving Eq
 
 deriveSafeCopy 1 'base ''CreateHdRootError
 deriveSafeCopy 1 'base ''CreateHdAccountError
@@ -68,9 +65,9 @@ deriveSafeCopy 1 'base ''CreateHdAddressError
   CREATE
 -------------------------------------------------------------------------------}
 
--- | Create a new wallet.
-createHdRoot :: HdRoot -> Update' CreateHdRootError HdWallets ()
-createHdRoot hdRoot = do
+-- | Create a new wallet
+createHdRoot :: HdRoot -> Update' HdWallets CreateHdRootError ()
+createHdRoot hdRoot =
     zoom hdWalletsRoots $ do
       exists <- gets $ IxSet.member rootId
       when exists $ throwError $ CreateHdRootExists rootId
@@ -79,9 +76,9 @@ createHdRoot hdRoot = do
     rootId = hdRoot ^. hdRootId
 
 -- | Create a new account
-createHdAccount :: HdAccount -> Update' CreateHdAccountError HdWallets ()
+createHdAccount :: HdAccount -> Update' HdWallets CreateHdAccountError ()
 createHdAccount hdAccount = do
-    -- Check that the root ID exists
+    -- Check that the root ID exiwests
     zoomHdRootId CreateHdAccountUnknownRoot rootId $
       return ()
 
@@ -94,26 +91,16 @@ createHdAccount hdAccount = do
     rootId    = accountId ^. hdAccountIdParent
 
 -- | Create a new address
-createHdAddress :: HdAddress -> Update' CreateHdAddressError HdWallets ()
+createHdAddress :: HdAddress -> Update' HdWallets CreateHdAddressError ()
 createHdAddress hdAddress = do
     -- Check that the account ID exists
-    currentPkCounter <-
-        zoomHdAccountId CreateHdAddressUnknown (addrId ^. hdAddressIdParent) $ do
-            acc <- get
-            return (acc ^. hdAccountAutoPkCounter)
-
+    zoomHdAccountId CreateHdAddressUnknown (addrId ^. hdAddressIdParent) $
+      return ()
     -- Create the new address
     zoom hdWalletsAddresses $ do
       exists <- gets $ IxSet.member addrId
       when exists $ throwError $ CreateHdAddressExists addrId
-      at addrId .= Just (Indexed currentPkCounter hdAddress)
-
-    -- Finally, persist the index inside the account. Don't do this earlier
-    -- as the creation could still fail, and only here we are sure it will
-    -- succeed.
-    zoomHdAccountId CreateHdAddressUnknown (addrId ^. hdAddressIdParent) $ do
-        modify (hdAccountAutoPkCounter +~ 1)
-
+      at addrId .= Just hdAddress
   where
     addrId = hdAddress ^. hdAddressId
 
@@ -147,14 +134,16 @@ initHdRoot rootId name hasPass assurance created = HdRoot {
 --
 -- It is the responsibility of the caller to check the wallet's spending
 -- password.
+--
+-- TODO: If any key derivation is happening when creating accounts, should we
+-- store a public key or an address or something?
 initHdAccount :: HdAccountId
-              -> HdAccountState
+              -> Checkpoint
               -> HdAccount
-initHdAccount accountId st = HdAccount {
-      _hdAccountId    = accountId
-    , _hdAccountName  = defName
-    , _hdAccountState = st
-    , _hdAccountAutoPkCounter = AutoIncrementKey 0
+initHdAccount accountId checkpoint = HdAccount {
+      _hdAccountId          = accountId
+    , _hdAccountName        = defName
+    , _hdAccountCheckpoints = checkpoint :| []
     }
   where
     defName = AccountName $ sformat ("Account: " % build)
@@ -170,11 +159,13 @@ initHdAccount accountId st = HdAccount {
 -- Similarly, it will be the responsibility of the caller to pick a random
 -- address index, as we do not have access to a random number generator here.
 initHdAddress :: HdAddressId
-              -> Core.Address
+              -> InDb Core.Address
               -> HdAddress
 initHdAddress addrId address = HdAddress {
-      _hdAddressId      = addrId
-    , _hdAddressAddress = InDb address
+      _hdAddressId       = addrId
+    , _hdAddressAddress  = address
+    , _hdAddressIsUsed   = error "TODO: _hdAddressIsUsed"
+    , _hdAddressIsChange = error "TODO: _hdAddressIsChange"
     }
 
 {-------------------------------------------------------------------------------
@@ -184,8 +175,6 @@ initHdAddress addrId address = HdAddress {
 instance Buildable CreateHdRootError where
     build (CreateHdRootExists rootId)
         = bprint ("CreateHdRootError::CreateHdRootExists "%build) rootId
-    build CreateHdRootDefaultAddressDerivationFailed
-        = bprint "CreateHdRootError::CreateHdRootDefaultAddressDerivationFailed"
 
 instance Buildable CreateHdAccountError where
     build (CreateHdAccountUnknownRoot (UnknownHdRoot rootId))

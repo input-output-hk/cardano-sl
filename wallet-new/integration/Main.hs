@@ -6,6 +6,7 @@ module Main where
 import           Universum
 
 import           Cardano.Wallet.Client.Http
+import qualified Data.ByteString.Char8 as B8
 import           Data.Map (fromList)
 import           Data.Traversable (for)
 import           Data.X509.File (readSignedObject)
@@ -14,23 +15,20 @@ import           System.Environment (withArgs)
 import           System.IO (hSetEncoding, stdout, utf8)
 import           Test.Hspec
 
-import           AccountSpecs (accountSpecs)
 import           AddressSpecs (addressSpecs)
 import           CLI
 import           Functions
+import qualified QuickCheckSpecs as QuickCheck
 import           TransactionSpecs (transactionSpecs)
 import           Types
 import           Util (WalletRef, newWalletRef)
 import           WalletSpecs (walletSpecs)
 
-import qualified Data.ByteString.Char8 as B8
-import qualified QuickCheckSpecs as QuickCheck
-
-
 -- | Here we want to run main when the (local) nodes
 -- have started.
 main :: IO ()
 main = do
+
     hSetEncoding stdout utf8
     CLOptions {..} <- getOptions
 
@@ -47,9 +45,17 @@ main = do
     let baseUrl = BaseUrl Https serverHost serverPort mempty
 
     let walletClient :: MonadIO m => WalletClient m
-        walletClient = withThrottlingRetry
-            . liftClient
-            $ mkHttpClient baseUrl manager
+        walletClient = liftClient $ mkHttpClient baseUrl manager
+
+    walletState <- initialWalletState walletClient
+
+    printT $ "Initial wallet state: " <> show walletState
+
+    -- some monadic fold or smth similar
+    _ <- runActionCheck
+        walletClient
+        walletState
+        actionDistribution
 
     -- Acquire the initial state for the deterministic tests
     wRef <- newWalletRef
@@ -61,41 +67,18 @@ main = do
     --     Try `cardano-integration-test --help' for more information.
     --
     -- See also: https://github.com/hspec/hspec/issues/135
-
-    let optionsFromAbove = case (testRunnerMatch, testRunnerSeed) of
-            (Nothing, Nothing)      -> []
-            (Nothing, Just seed)    -> ["--seed", show seed]
-            (Just match, Nothing)   -> ["-m", match]
-            (Just match, Just seed) -> ["-m", match, "--seed", show seed]
-
-    withArgs optionsFromAbove  $ do
-        printT "Starting deterministic tests."
-        printT $ "match from options: " <> show testRunnerMatch
-        printT $ "seed from options: " <> show testRunnerSeed
-
-        hspec $ deterministicTests wRef walletClient manager
-
-        printT $ "The 'runActionCheck' tests were disabled because they were highly un-reliable."
-        when False $ do
-            walletState <- initialWalletState walletClient
-
-            printT $ "Initial wallet state: " <> show walletState
-
-            -- some monadic fold or smth similar
-            void $ runActionCheck
-                walletClient
-                walletState
-                actionDistribution
+    printT "Starting deterministic tests."
+    withArgs [] . hspec $ deterministicTests wRef walletClient manager
   where
     orFail :: MonadFail m => Either String a -> m a
     orFail =
         either (fail . ("Error decoding X509 certificates: " <>)) return
 
     actionDistribution :: ActionProbabilities
-    actionDistribution =
+    actionDistribution = do
         (PostWallet, Weight 2)
             :| (PostTransaction, Weight 5)
-            : fmap (, Weight 1) [minBound .. maxBound]
+            : fmap (\x -> (x, Weight 1)) [minBound .. maxBound]
 
 initialWalletState :: WalletClient IO -> IO WalletState
 initialWalletState wc = do
@@ -111,13 +94,12 @@ initialWalletState wc = do
         _transactions     = mempty
         _actionsNum       = 0
         _successActions   = mempty
-    return WalletState {..}
+    pure $ WalletState {..}
   where
     fromResp = (either throwM (pure . wrData) =<<)
 
 deterministicTests :: WalletRef -> WalletClient IO -> Manager -> Spec
 deterministicTests wref wc manager = do
-    accountSpecs wref wc
     addressSpecs wref wc
     walletSpecs wref wc
     transactionSpecs wref wc

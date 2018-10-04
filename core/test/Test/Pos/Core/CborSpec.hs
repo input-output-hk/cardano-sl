@@ -22,9 +22,9 @@ import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
 import           Pos.Core
 import           Pos.Core.Common (ScriptVersion)
 
-import           Pos.Core.Attributes (Attributes (..), decodeAttributes,
+import           Pos.Data.Attributes (Attributes (..), decodeAttributes,
                      encodeAttributes)
-import           Pos.Core.Merkle (MerkleTree)
+import           Pos.Merkle (MerkleTree)
 
 import           Test.Pos.Binary.Helpers (binaryTest)
 import           Test.Pos.Core.Arbitrary ()
@@ -79,7 +79,8 @@ instance Bi (Attributes X2) where
 
 
 spec :: Spec
-spec = describe "Cbor Bi instances" $ do
+spec = withGenesisSpec 0 defaultCoreConfiguration $ \_ ->
+    describe "Cbor Bi instances" $ do
         describe "Core.Address" $ do
             binaryTest @Address
             binaryTest @Address'
@@ -97,6 +98,8 @@ spec = describe "Cbor Bi instances" $ do
             binaryTest @EpochOrSlot
             binaryTest @SharedSeed
             binaryTest @ChainDifficulty
+            binaryTest @SoftforkRule
+            binaryTest @BlockVersionData
             binaryTest @(Attributes ())
             binaryTest @(Attributes AddrAttributes)
         describe "Core.Fee" $ do
@@ -105,5 +108,11 @@ spec = describe "Cbor Bi instances" $ do
             binaryTest @TxFeePolicy
         describe "Core.Script" $ do
             binaryTest @Script
+        describe "Core.Vss" $ do
+            binaryTest @VssCertificate
+        describe "Core.Version" $ do
+            binaryTest @ApplicationName
+            binaryTest @SoftwareVersion
+            binaryTest @BlockVersion
         describe "Merkle" $ do
             binaryTest @(MerkleTree Int32)

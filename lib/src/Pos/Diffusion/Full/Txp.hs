@@ -12,8 +12,9 @@ import qualified Network.Broadcast.OutboundQueue as OQ
 import           Universum
 
 import           Pos.Binary.Communication ()
-import           Pos.Chain.Txp (TxAux (..), TxId, TxMsgContents (..))
 import           Pos.Communication.Limits (mlTxMsgContents)
+import           Pos.Communication.Message ()
+import           Pos.Core.Txp (TxAux (..), TxId, TxMsgContents (..))
 import           Pos.Crypto (hash)
 import           Pos.Infra.Communication.Protocol (EnqueueMsg, MkListeners,
                      MsgType (..), NodeId, Origin (..), OutSpecs)

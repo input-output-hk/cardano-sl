@@ -1,12 +1,10 @@
-{-# LANGUAGE RecordWildCards #-}
-
 -- | Tests for 'VssCertData': certificates with TTL.
 
 module Test.Pos.Ssc.VssCertDataSpec
        ( spec
        ) where
 
-import           Universum hiding (id)
+import           Universum hiding (empty, filter, id, keys)
 
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
@@ -19,21 +17,21 @@ import           Test.QuickCheck (Arbitrary (..), Gen, Property, choose,
                      conjoin, counterexample, suchThat, vectorOf, (.&&.),
                      (==>))
 
-import           Pos.Chain.Ssc (SscGlobalState (..), VssCertData (..),
-                     VssCertificate (..), expiryEoS, getCertId,
-                     getVssCertificatesMap, mkVssCertificate, rollbackSsc,
-                     runPureToss, setLastKnownSlot, sgsVssCertificates)
-import qualified Pos.Chain.Ssc as Ssc
-import           Pos.Core (EpochIndex (..), EpochOrSlot (..), SlotId (..))
+import           Pos.Core (EpochIndex (..), EpochOrSlot (..), HasConfiguration,
+                     SlotId (..), VssCertificate (..), getCertId,
+                     getVssCertificatesMap, mkVssCertificate,
+                     slotSecurityParam)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Slotting (flattenEpochOrSlot, unflattenSlotId)
+import           Pos.Ssc (SscGlobalState (..), VssCertData (..), delete, empty,
+                     expiryEoS, filter, insert, keys, lookup, member,
+                     rollbackSsc, runPureToss, setLastKnownSlot,
+                     sgsVssCertificates)
 
-import           Test.Pos.Chain.Genesis.Dummy (dummyEpochSlots,
-                     dummySlotSecurityParam)
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
-import           Test.Pos.Infra.Arbitrary.Ssc ()
+import           Test.Pos.Ssc.Arbitrary ()
 import           Test.Pos.Util.QuickCheck.Property (qcIsJust)
 
 spec :: Spec
@@ -85,14 +83,14 @@ newtype CorrectVssCertData = CorrectVssCertData
     { getVssCertData :: VssCertData
     } deriving (Show)
 
-instance Arbitrary CorrectVssCertData where
+instance HasConfiguration => Arbitrary CorrectVssCertData where
     arbitrary = (CorrectVssCertData <$>) $ do
         certificatesToAdd <- choose (0, 100)
         lkeos             <- arbitrary :: Gen EpochOrSlot
         let notExpiredGen  = arbitrary `suchThat` (`expiresAfter` lkeos)
         vssCertificates   <- vectorOf @VssCertificate certificatesToAdd notExpiredGen
-        let dataUpdaters   = map Ssc.insert vssCertificates
-        pure $ foldl' (&) (Ssc.empty {lastKnownEoS = lkeos}) dataUpdaters
+        let dataUpdaters   = map insert vssCertificates
+        pure $ foldl' (&) (empty {lastKnownEoS = lkeos}) dataUpdaters
 
 ----------------------------------------------------------------------------
 -- Properties for VssCertData
@@ -103,18 +101,18 @@ verifyInsertVssCertData certificate certData =
     certificate `canBeIn` certData ==>
     counterexample
         ("expected " <> show shid <> " to be in certdata")
-        (shid `Ssc.member` Ssc.insert certificate certData)
+        (shid `member` insert certificate certData)
   where
     shid = getCertId certificate
 
 verifyDeleteVssCertData :: VssCertificate -> VssCertData -> Property
 verifyDeleteVssCertData certificate certData =
     let shid = getCertId certificate
-        certWithShid    = Ssc.insert certificate certData
-        certWithoutShid = Ssc.delete shid certWithShid
+        certWithShid    = insert certificate certData
+        certWithoutShid = delete shid certWithShid
     in  counterexample
             ("expected " <> show shid <> " not to be in certdata")
-            (not (shid `Ssc.member` certWithoutShid))
+            (not (shid `member` certWithoutShid))
 
 -- | This function checks all imaginable properties for correctly created 'VssCertData'.
 -- TODO: some checks are not assimptotically efficient but nobody cares untill time is reasonable
@@ -166,29 +164,29 @@ verifySetLastKnownSlot newLks (CorrectVssCertData vssCertData) =
 -- TODO: add more checks here?
 verifyDeleteAndFilter :: CorrectVssCertData -> Bool
 verifyDeleteAndFilter (getVssCertData -> vcd@VssCertData{..}) =
-    let certificatesHolders = Ssc.keys vcd
+    let certificatesHolders = keys vcd
         holdersLength       = length certificatesHolders
         halfOfHolders       = take (holdersLength `div` 2) certificatesHolders
         setFromHalf         = HS.fromList halfOfHolders
-        resultVcd           = Ssc.filter (`HS.member` setFromHalf) vcd
+        resultVcd           = filter (`HS.member` setFromHalf) vcd
         resultCorrectVcd    = CorrectVssCertData resultVcd
     in isConsistent resultCorrectVcd
 
 data RollbackData = Rollback SscGlobalState EpochOrSlot [VssCertificate]
     deriving (Show, Eq)
 
-instance Arbitrary RollbackData where
+instance HasConfiguration => Arbitrary RollbackData where
     arbitrary = do
         goodVssCertData@(VssCertData {..}) <- getVssCertData <$> arbitrary
         certsToRollbackN <- choose (0, 100) >>= choose . (0,)
-        slotsToRollback <- choose (1, dummySlotSecurityParam)
-        let lastKEoSWord = flattenEpochOrSlot dummyEpochSlots lastKnownEoS
+        slotsToRollback <- choose (1, slotSecurityParam)
+        let lastKEoSWord = flattenEpochOrSlot lastKnownEoS
             rollbackFrom = fromIntegral slotsToRollback + lastKEoSWord
             rollbackGen = do
                 sk <- arbitrary
                 binVssPK <- arbitrary
                 thisEpoch <-
-                    siEpoch . unflattenSlotId dummyEpochSlots <$>
+                    siEpoch . unflattenSlotId <$>
                         choose (succ lastKEoSWord, rollbackFrom)
                 return $ mkVssCertificate dummyProtocolMagic sk binVssPK thisEpoch
         certsToRollback <- nubOrdOn vcVssKey <$>
@@ -197,21 +195,22 @@ instance Arbitrary RollbackData where
                           lastKnownEoS
                           certsToRollback
 
-verifyRollback :: RollbackData -> Gen Property
+verifyRollback
+    :: HasConfiguration => RollbackData -> Gen Property
 verifyRollback (Rollback oldSscGlobalState rollbackEoS vssCerts) = do
-    let certAdder vcd = foldl' (flip Ssc.insert) vcd vssCerts
+    let certAdder vcd = foldl' (flip insert) vcd vssCerts
         newSscGlobalState@(SscGlobalState _ _ _ newVssCertData) =
             oldSscGlobalState & sgsVssCertificates %~ certAdder
     (_, SscGlobalState _ _ _ rolledVssCertData, _) <-
         runPureToss newSscGlobalState $
-        rollbackSsc dummyEpochSlots rollbackEoS (NewestFirst [])
+        rollbackSsc rollbackEoS (NewestFirst [])
     pure $ conjoin $ vssCerts <&> \cert ->
         let id = getCertId cert in
         counterexample ("haven't found cert with id " <>
                         show id <> " in newVssCertData")
-            (qcIsJust (Ssc.lookup id newVssCertData))
+            (qcIsJust (lookup id newVssCertData))
         .&&.
         counterexample ("expected a " <> show (Just cert) <>
-                        ", got " <> show (Ssc.lookup id rolledVssCertData) <>
+                        ", got " <> show (lookup id rolledVssCertData) <>
                         " in rolledVssCertData")
-            ((/= Just cert) (Ssc.lookup id rolledVssCertData))
+            ((/= Just cert) (lookup id rolledVssCertData))

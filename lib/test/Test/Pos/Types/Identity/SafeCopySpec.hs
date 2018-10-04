@@ -8,17 +8,16 @@ import           Universum
 
 import           Test.Hspec (Spec, describe)
 
-import qualified Pos.Chain.Ssc as Ssc
-import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Core as Core
+import qualified Pos.Core.Txp as Txp
 
 import           Test.Pos.Binary.Helpers (safeCopyTest)
-import           Test.Pos.Chain.Ssc.Arbitrary ()
-import           Test.Pos.Chain.Txp.Arbitrary ()
+import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Core.Arbitrary.Txp ()
 import           Test.Pos.Infra.Arbitrary.Txp ()
 
 spec :: Spec
-spec = describe "Types" $ do
+spec = withDefConfiguration $ \_ -> describe "Types" $ do
     describe "SafeCopy instances" $ do
         safeCopyTest @Core.EpochIndex
         safeCopyTest @Core.LocalSlotIndex
@@ -27,7 +26,7 @@ spec = describe "Types" $ do
         safeCopyTest @Core.Address
         safeCopyTest @Core.SharedSeed
         safeCopyTest @Core.ChainDifficulty
-        safeCopyTest @Ssc.VssCertificate
+        safeCopyTest @Core.VssCertificate
 
         safeCopyTest @Txp.TxInWitness
         safeCopyTest @Txp.TxIn

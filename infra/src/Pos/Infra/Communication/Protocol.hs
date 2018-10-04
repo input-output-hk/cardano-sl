@@ -29,16 +29,18 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
 import           Formatting (bprint, build, sformat, (%))
 import qualified Formatting.Buildable as B
+import           Mockable (Async, Delay, Mockable, Mockables, SharedAtomic)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Node as N
 import           Node.Message.Class (Message (..), MessageCode, messageCode)
 import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 import           Serokell.Util.Text (listJson)
 
-import           Pos.Core.Slotting (MonadSlots)
 import           Pos.Infra.Communication.Types.Protocol
-import           Pos.Infra.Reporting (MonadReporting)
+import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
 import           Pos.Infra.Shutdown (HasShutdownContext)
+import           Pos.Sinbin.Reporting (MonadReporting)
+import           Pos.Sinbin.Slotting (MonadSlots)
 
 mapListener
     :: (forall t. IO t -> IO t) -> Listener -> Listener
@@ -141,14 +143,14 @@ data SpecError
 instance Exception SpecError
 
 instance Buildable SpecError where
-    build (OutSpecNotReported outSpecs' spec) =
+    build (OutSpecNotReported outSpecs spec) =
         bprint
           ("Sending "%build%": endpoint not reported to be used for sending. Our out specs: "%build)
-          spec outSpecs'
-    build (PeerInSpecNotReported inSpecs' nodeId spec) =
+          spec outSpecs
+    build (PeerInSpecNotReported inSpecs nodeId spec) =
         bprint
           ("Attempting to send to "%build%": endpoint unsupported by peer "%build%". In specs: "%build)
-          spec nodeId inSpecs'
+          spec nodeId inSpecs
 
 data MismatchedProtocolMagic
     = MismatchedProtocolMagic Int32 Int32
@@ -167,13 +169,16 @@ type LocalOnNewSlotComm ctx m =
     , MonadReader ctx m
     , MonadSlots ctx m
     , MonadMask m
+    , Mockables m [Async, Delay]
     , MonadReporting m
     , HasShutdownContext ctx
+    , MonadRecoveryInfo m
     )
 
 type OnNewSlotComm ctx m =
     ( LocalOnNewSlotComm ctx m
     , MonadThrow m
+    , Mockable SharedAtomic m
     )
 
 -- FIXME network layer is not concerned with this.

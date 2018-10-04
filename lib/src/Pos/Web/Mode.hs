@@ -10,17 +10,18 @@ import           Universum
 
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
+import           Mockable (Production)
 
 import           Pos.Context (HasPrimaryKey (..), HasSscContext (..),
                      NodeContext)
+import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.DB (NodeDBs)
 import           Pos.DB.Block (dbGetSerBlockRealDefault,
-                     dbGetSerBlundRealDefault, dbGetSerUndoRealDefault,
-                     dbPutSerBlundsRealDefault)
+                     dbGetSerUndoRealDefault, dbPutSerBlundsRealDefault)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault,
                      dbIterSourceDefault, dbPutDefault, dbWriteBatchDefault)
-import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt, TxpHolderTag)
+import           Pos.Txp (GenericTxpLocalData, MempoolExt, TxpHolderTag)
 import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.Util (HasLens (..))
 
@@ -50,16 +51,15 @@ instance HasSscContext (WebModeContext ext) where
 instance HasPrimaryKey (WebModeContext ext) where
     primaryKey = wmcNodeContext_L . primaryKey
 
-type WebMode ext = Mtl.ReaderT (WebModeContext ext) IO
+type WebMode ext = Mtl.ReaderT (WebModeContext ext) Production
 
-instance MonadDBRead (WebMode ext) where
+instance HasConfiguration => MonadDBRead (WebMode ext) where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
     dbGetSerBlock = dbGetSerBlockRealDefault
     dbGetSerUndo = dbGetSerUndoRealDefault
-    dbGetSerBlund = dbGetSerBlundRealDefault
 
-instance MonadDB (WebMode ext) where
+instance HasConfiguration => MonadDB (WebMode ext) where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault

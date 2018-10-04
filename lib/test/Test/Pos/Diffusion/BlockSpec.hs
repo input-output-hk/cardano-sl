@@ -10,27 +10,25 @@ import           Universum
 
 import           Control.DeepSeq (force)
 import           Control.Monad.IO.Class (liftIO)
-import           Data.Bits
 import qualified Data.ByteString.Lazy as LBS
-import           Data.Conduit.Combinators (yieldMany)
-import           Data.List.NonEmpty (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty as NE
 import           Data.Semigroup ((<>))
 import           Test.Hspec (Spec, describe, it, shouldBe)
 
+import           Data.Bits
+import           Data.List.NonEmpty (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty as NE
 import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Network.Broadcast.OutboundQueue.Types as OQ
 import           Network.Transport (Transport, closeTransport)
 import qualified Network.Transport.InMemory as InMemory
 import           Node (NodeId)
 import qualified Node
+import           Pipes (each)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Chain.Block (Block, BlockHeader, HeaderHash,
+import           Pos.Core (Block, BlockHeader, BlockVersion (..), HeaderHash,
                      blockHeaderHash)
-import qualified Pos.Chain.Block as Block (getBlockHeader)
-import           Pos.Chain.Update (BlockVersion (..))
-import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
+import qualified Pos.Core as Core (getBlockHeader)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
 import           Pos.Crypto (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
@@ -45,9 +43,10 @@ import           Pos.Infra.Network.Types (Bucket (..))
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Logic.Pure (pureLogic)
 import           Pos.Logic.Types as Logic (Logic (..))
-import           Pos.Util.Trace (setupTestTrace, wlogTrace)
 
-import           Test.Pos.Chain.Block.Arbitrary.Generate (generateMainBlock)
+import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
+import           Pos.Util.Trace (wlogTrace)
+import           Test.Pos.Block.Arbitrary.Generate (generateMainBlock)
 
 -- HLint warning disabled since I ran into https://ghc.haskell.org/trac/ghc/ticket/13106
 -- when trying to resolve it.
@@ -91,20 +90,14 @@ serverLogic
     -> Logic IO
 serverLogic streamIORef arbitraryBlock arbitraryHashes arbitraryHeaders = pureLogic
     { getSerializedBlock = const (pure (Just $ serializedBlock arbitraryBlock))
-    , getBlockHeader = const (pure (Just (Block.getBlockHeader arbitraryBlock)))
+    , getBlockHeader = const (pure (Just (Core.getBlockHeader arbitraryBlock)))
     , getHashesRange = \_ _ _ -> pure (Right (OldestFirst arbitraryHashes))
     , getBlockHeaders = \_ _ _ -> pure (Right (NewestFirst arbitraryHeaders))
-      -- 'pureLogic' always gives an empty first component list, meaning all
-      -- of the input is *not* in the main chain. This would cause streaming
-      -- to fail, as it must have an intersection with the main chain from
-      -- which to start.
-    , getLcaMainChain = \(OldestFirst headers) ->
-          pure (NewestFirst (reverse headers), OldestFirst [])
     , getTip = pure arbitraryBlock
-    , getTipHeader = pure (Block.getBlockHeader arbitraryBlock)
+    , getTipHeader = pure (Core.getBlockHeader arbitraryBlock)
     , Logic.streamBlocks = \_ -> do
           bs <-  readIORef streamIORef
-          yieldMany $ map serializedBlock bs
+          each $ map serializedBlock bs
     }
 
 serializedBlock :: Block -> SerializedBlock
@@ -115,16 +108,15 @@ serializedBlock = Serialized . serialize'
 -- always ask for the entire chain (and not throw an exception).
 clientLogic :: Logic IO
 clientLogic = pureLogic
-    { getLcaMainChain = \headers -> pure (NewestFirst [], headers)
+    { getLcaMainChain = \headers -> pure headers
     }
 
 withServer :: Transport -> Logic IO -> (NodeId -> IO t) -> IO t
 withServer transport logic k = do
-    logTrace <- liftIO $ setupTestTrace
     -- Morally, the server shouldn't need an outbound queue, but we have to
     -- give one.
     oq <- liftIO $ OQ.new
-                 logTrace
+                 (wlogTrace ("server" <> "outboundqueue"))
                  Policy.defaultEnqueuePolicyRelay
                  --Policy.defaultDequeuePolicyRelay
                  (const (OQ.Dequeue OQ.NoRateLimiting (OQ.MaxInFlight maxBound)))
@@ -152,7 +144,7 @@ withServer transport logic k = do
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
         , fdcStreamWindow = 2048
-        , fdcTrace = wlogTrace ("server.diffusion")
+        , fdcTrace = wlogTrace ("server" <> "diffusion")
         }
 
 -- Like 'withServer' but we must set up the outbound queue so that it will
@@ -168,7 +160,7 @@ withClient streamWindow transport logic serverAddress@(Node.NodeId _) k = do
     -- Morally, the server shouldn't need an outbound queue, but we have to
     -- give one.
     oq <- OQ.new
-                 (wlogTrace ("client.outboundqueue"))
+                 (wlogTrace ("client" <> "outboundqueue"))
                  Policy.defaultEnqueuePolicyRelay
                  --Policy.defaultDequeuePolicyRelay
                  (const (OQ.Dequeue OQ.NoRateLimiting (OQ.MaxInFlight maxBound)))
@@ -198,7 +190,7 @@ withClient streamWindow transport logic serverAddress@(Node.NodeId _) k = do
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
         , fdcStreamWindow = streamWindow
-        , fdcTrace = wlogTrace ("client.diffusion")
+        , fdcTrace = wlogTrace ("client" <> "diffusion")
         }
 
 
@@ -233,7 +225,7 @@ generateBlocks blocks =
     doGenerateBlock :: Int -> Block
     doGenerateBlock seed =
         let size = 4 in
-        force $ Right (generateMainBlock protocolMagic seed size)
+        force $ Right (generateMainBlock protocolMagic protocolConstants seed size)
 
     doGenerateBlocks :: Int -> [Block]
     doGenerateBlocks 0 = []
@@ -245,7 +237,7 @@ streamSimple streamWindow blocks = do
     streamIORef <- newIORef []
     resultIORef <- newIORef False
     let arbitraryBlocks = generateBlocks (blocks - 1)
-        arbitraryHeaders = NE.map Block.getBlockHeader arbitraryBlocks
+        arbitraryHeaders = NE.map Core.getBlockHeader arbitraryBlocks
         arbitraryHashes = NE.map blockHeaderHash arbitraryHeaders
         !arbitraryBlock = NE.head arbitraryBlocks
         tipHash = NE.head arbitraryHashes
@@ -262,7 +254,7 @@ batchSimple :: Int -> IO Bool
 batchSimple blocks = do
     streamIORef <- newIORef []
     let arbitraryBlocks = generateBlocks (blocks - 1)
-        arbitraryHeaders = NE.map Block.getBlockHeader arbitraryBlocks
+        arbitraryHeaders = NE.map Core.getBlockHeader arbitraryBlocks
         arbitraryHashes = NE.map blockHeaderHash arbitraryHeaders
         arbitraryBlock = NE.head arbitraryBlocks
         !checkPoints = if blocks == 1 then [someHash]
@@ -293,3 +285,4 @@ spec = describe "Blockdownload" $ do
     it "Batch of blocks" $ do
         r <- batchSimple 2200
         r `shouldBe` True
+

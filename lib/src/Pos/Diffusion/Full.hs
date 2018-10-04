@@ -32,24 +32,22 @@ import qualified System.Metrics as Monitoring
 
 import           System.Random (newStdGen)
 
-import           Pos.Chain.Block (Block, BlockHeader, HeaderHash,
-                     MainBlockHeader)
-import           Pos.Chain.Delegation (ProxySKHeavy)
-import           Pos.Chain.Ssc (InnerSharesMap, MCCommitment (..),
-                     MCOpening (..), MCShares (..), MCVssCertificate (..),
-                     Opening, SignedCommitment, VssCertificate)
-import           Pos.Chain.Txp (TxAux)
-import           Pos.Chain.Update (BlockVersion, BlockVersionData (..), UpId,
-                     UpdateProposal, UpdateVote)
+import           Pos.Block.Network (MsgBlock, MsgGetBlocks, MsgGetHeaders,
+                     MsgHeaders, MsgStream, MsgStreamBlock)
 import           Pos.Communication (EnqueueMsg, HandlerSpecs, InSpecs (..),
                      InvOrDataTK, Listener, MkListeners (..), Msg,
                      MsgSubscribe, MsgSubscribe1, NodeId, OutSpecs (..),
                      PackingType, PeerData, SendActions, VerInfo (..),
                      bipPacking, convH, createOutSpecs, makeEnqueueMsg,
                      makeSendActions, toOutSpecs)
-import           Pos.Core (ProtocolConstants (..), StakeholderId)
+import           Pos.Core (BlockVersion, BlockVersionData (..), HeaderHash,
+                     ProtocolConstants (..), ProxySKHeavy, StakeholderId)
+import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader)
 import           Pos.Core.Chrono (OldestFirst)
-import           Pos.Core.Metrics.Constants (withCardanoNamespace)
+import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment,
+                     VssCertificate)
+import           Pos.Core.Txp (TxAux)
+import           Pos.Core.Update (UpId, UpdateProposal, UpdateVote)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import qualified Pos.Diffusion.Full.Block as Diffusion.Block
 import qualified Pos.Diffusion.Full.Delegation as Diffusion.Delegation
@@ -77,8 +75,9 @@ import           Pos.Infra.Reporting.Ekg (EkgNodeMetrics (..),
                      registerEkgNodeMetrics)
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Logic.Types (Logic (..))
-import           Pos.Network.Block.Types (MsgBlock, MsgGetBlocks, MsgGetHeaders,
-                     MsgHeaders, MsgStream, MsgStreamBlock)
+import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
+                     MCShares (..), MCVssCertificate (..))
+import           Pos.System.Metrics.Constants (withCardanoNamespace)
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
 import           Pos.Util.Timer (Timer, newTimer)
 import           Pos.Util.Trace (Severity (Error), Trace)
@@ -128,7 +127,7 @@ diffusionLayerFull fdconf networkConfig mEkgNodeMetrics mkLogic k = do
     oq :: OQ.OutboundQ EnqueuedConversation NodeId Bucket <-
         -- NB: <> it's not Text semigroup append, it's LoggerName append, which
         -- puts a "." in the middle.
-        initQueue networkConfig ("diffusion.outboundqueue") (enmStore <$> mEkgNodeMetrics)
+        initQueue networkConfig ("diffusion" <> "outboundqueue") (enmStore <$> mEkgNodeMetrics)
     let topology = ncTopology networkConfig
         mSubscriptionWorker = topologySubscriptionWorker topology
         mSubscribers = topologySubscribers topology
@@ -266,7 +265,7 @@ diffusionLayerFullExposeInternals fdconf
             ]
 
         -- A single worker checkForReceivedBlocksWorker with
-        -- requestTipOuts from Pos.Network.Block.Types
+        -- requestTipOuts from Pos.Block.Network.
         securityWorkerOutSpecs = toOutSpecs
             [ convH (Proxy :: Proxy MsgGetHeaders)
                     (Proxy :: Proxy MsgHeaders)

@@ -1,5 +1,4 @@
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Pos.Explorer.ExplorerMode
     ( -- Explorer
@@ -18,30 +17,30 @@ module Pos.Explorer.ExplorerMode
 import           Universum
 
 import           Control.Lens (lens, makeLensesWith)
+import           System.Wlog (CanLog, HasLoggerName (..), LoggerName (..))
 
 import           Test.QuickCheck (Gen, Property, Testable (..), arbitrary,
                      forAll, ioProperty)
 import           Test.QuickCheck.Monadic (PropertyM, monadic)
 
-import           Pos.Core (SlotId, Timestamp (..))
-import           Pos.Core.Conc (currentTime)
+import           Pos.Block.Slog (mkSlogGState)
+import           Pos.Core (SlotId, Timestamp (..), epochSlots)
 import           Pos.DB (MonadGState (..))
 import qualified Pos.DB as DB
-import           Pos.DB.Block (mkSlogGState)
 import qualified Pos.DB.Block as DB
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.DB as DB
-import           Pos.DB.Lrc (LrcContext (..), mkLrcSyncData)
-import           Pos.DB.Txp (GenericTxpLocalData (..), MempoolExt, MonadTxpMem,
-                     TxpHolderTag, mkTxpLocalData)
 import qualified Pos.GState as GS
 import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
                      MonadSlotsData, SimpleSlottingStateVar,
                      mkSimpleSlottingStateVar)
 import qualified Pos.Infra.Slotting as Slot
+import           Pos.Lrc (LrcContext (..), mkLrcSyncData)
+import           Pos.Txp (GenericTxpLocalData (..), MempoolExt, MonadTxpMem,
+                     TxpHolderTag, mkTxpLocalData)
 import           Pos.Util (postfixLFields)
+import           Pos.Util.Mockable ()
 import           Pos.Util.Util (HasLens (..))
-import           Pos.Util.Wlog (CanLog, HasLoggerName (..), LoggerName)
 
 import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT,
                      HasExplorerCSLInterface, HasGenesisRedeemAddressInfo,
@@ -49,18 +48,19 @@ import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT,
 import           Pos.Explorer.Socket.Holder (ConnectionsState)
 import           Pos.Explorer.Txp (ExplorerExtraModifier (..))
 
-import           Pos.Core.JsonLog (CanJsonLog (..))
+-- Need Emulation because it has instance Mockable CurrentTime
+import           Mockable (Production, currentTime, runProduction)
 import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
                      jsonLogDefault)
+import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                      modifyLoggerNameDefault)
 import           Pos.WorkMode (MinWorkMode)
 
--- Need Emulation because it has instance Mockable CurrentTime
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation)
 import           Test.Pos.Block.Logic.Mode (TestParams (..))
-import           Test.Pos.Chain.Genesis.Dummy (dummyConfig, dummyEpochSlots)
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 
 -------------------------------------------------------------------------------------
@@ -133,10 +133,10 @@ data ExplorerTestInitContext = ExplorerTestInitContext
 
 makeLensesWith postfixLFields ''ExplorerTestInitContext
 
-type ExplorerTestInitMode = ReaderT ExplorerTestInitContext IO
+type ExplorerTestInitMode = ReaderT ExplorerTestInitContext Production
 
 runTestInitMode :: ExplorerTestInitContext -> ExplorerTestInitMode a -> IO a
-runTestInitMode ctx = usingReaderT ctx
+runTestInitMode ctx = runProduction . usingReaderT ctx
 
 initExplorerTestContext
     :: (HasConfigurations, MonadIO m)
@@ -148,13 +148,13 @@ initExplorerTestContext tp@TestParams {..} = do
             { eticDBPureVar      = dbPureVar
             }
     liftIO $ runTestInitMode initCtx $ do
-        DB.initNodeDBs dummyConfig
+        DB.initNodeDBs dummyProtocolMagic epochSlots
         lcLrcSync <- newTVarIO =<< mkLrcSyncData
         let _gscLrcContext = LrcContext {..}
         _gscSlogGState <- mkSlogGState
         _gscSlottingVar <- newTVarIO =<< GS.getSlottingData
         let etcGState = GS.GStateContext {_gscDB = DB.PureDB dbPureVar, ..}
-        etcSSlottingVar <- mkSimpleSlottingStateVar dummyEpochSlots
+        etcSSlottingVar <- mkSimpleSlottingStateVar
         etcSystemStart <- Timestamp <$> currentTime
         etcTxpLocalData <- mkTxpLocalData
 
@@ -186,12 +186,11 @@ instance HasLens DB.DBPureVar ExplorerTestInitContext DB.DBPureVar where
 -- Boilerplate ExplorerTestInitMode instances
 ----------------------------------------------------------------------------
 
-instance DB.MonadDBRead ExplorerTestInitMode where
+instance HasConfigurations => DB.MonadDBRead ExplorerTestInitMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault
-    dbGetSerBlock = const DB.dbGetSerBlockPureDefault
-    dbGetSerUndo = const DB.dbGetSerUndoPureDefault
-    dbGetSerBlund = const DB.dbGetSerBlundPureDefault
+    dbGetSerBlock = DB.dbGetSerBlockPureDefault
+    dbGetSerUndo = DB.dbGetSerUndoPureDefault
 
 instance HasConfigurations => DB.MonadDB ExplorerTestInitMode where
     dbPut = DB.dbPutPureDefault
@@ -239,32 +238,31 @@ instance HasJsonLogConfig ExplorerTestContext where
 -- Boilerplate ExplorerTestMode instances
 ----------------------------------------------------------------------------
 
-instance MonadGState ExplorerTestMode where
+instance HasConfigurations => MonadGState ExplorerTestMode where
     gsAdoptedBVData = DB.gsAdoptedBVDataDefault
 
-instance MonadSlotsData ctx ExplorerTestMode
+instance (HasConfigurations, MonadSlotsData ctx ExplorerTestMode)
       => MonadSlots ctx ExplorerTestMode
   where
-    getCurrentSlot epochSlots = do
+    getCurrentSlot = do
         view etcSlotId_L >>= \case
-            Nothing -> Slot.getCurrentSlotSimple epochSlots
+            Nothing -> Slot.getCurrentSlotSimple
             Just slot -> pure (Just slot)
-    getCurrentSlotBlocking epochSlots =
+    getCurrentSlotBlocking =
         view etcSlotId_L >>= \case
-            Nothing -> Slot.getCurrentSlotBlockingSimple epochSlots
+            Nothing -> Slot.getCurrentSlotBlockingSimple
             Just slot -> pure slot
-    getCurrentSlotInaccurate epochSlots = do
+    getCurrentSlotInaccurate = do
         view etcSlotId_L >>= \case
-            Nothing -> Slot.getCurrentSlotInaccurateSimple epochSlots
+            Nothing -> Slot.getCurrentSlotInaccurateSimple
             Just slot -> pure slot
     currentTimeSlotting = Slot.currentTimeSlottingSimple
 
-instance DB.MonadDBRead ExplorerTestMode where
+instance HasConfigurations => DB.MonadDBRead ExplorerTestMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault
-    dbGetSerBlock = const DB.dbGetSerBlockPureDefault
-    dbGetSerUndo = const DB.dbGetSerUndoPureDefault
-    dbGetSerBlund = const DB.dbGetSerBlundPureDefault
+    dbGetSerBlock = DB.dbGetSerBlockPureDefault
+    dbGetSerUndo = DB.dbGetSerUndoPureDefault
 
 instance HasConfigurations => DB.MonadDB ExplorerTestMode where
     dbPut = DB.dbPutPureDefault
@@ -309,7 +307,7 @@ explorerPropertyToProperty
     -> Property
 explorerPropertyToProperty tpGen explorerTestProperty =
     forAll tpGen $ \tp ->
-        monadic (ioProperty . (runExplorerTestMode tp (makeExtraCtx dummyConfig))) explorerTestProperty
+        monadic (ioProperty . (runExplorerTestMode tp makeExtraCtx)) explorerTestProperty
 
 instance (Testable a, HasConfigurations) => Testable (ExplorerProperty a) where
     property = explorerPropertyToProperty arbitrary

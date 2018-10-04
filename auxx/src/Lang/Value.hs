@@ -36,12 +36,11 @@ import           Universum
 import           Control.Lens (makePrisms)
 import           Data.Scientific (Scientific)
 
-import           Pos.Chain.Txp (TxOut)
-import           Pos.Chain.Update (BlockVersion, BlockVersionData,
-                     BlockVersionModifier, SoftwareVersion, SystemTag)
-import           Pos.Core (AddrStakeDistribution, Address, CoinPortion,
-                     StakeholderId)
+import           Pos.Core (AddrStakeDistribution, Address, BlockVersion,
+                     CoinPortion, SoftwareVersion, StakeholderId)
+import           Pos.Core.Txp (TxOut)
 import           Pos.Crypto (AHash, PublicKey)
+import           Pos.Update (BlockVersionData, BlockVersionModifier, SystemTag)
 
 data AddrDistrPart = AddrDistrPart
     { adpStakeholderId :: !StakeholderId

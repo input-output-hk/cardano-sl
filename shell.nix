@@ -12,50 +12,30 @@ in
 { system ? builtins.currentSystem
 , config ? {}
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; overlays = [ jemallocOverlay ]; })
-, cardanoPkgs ? import ./. {inherit config system pkgs; }
 }:
 with pkgs;
 let
-  getCardanoSLDeps = with lib;
-    ps: filter (drv: !(localLib.isCardanoSL drv.name))
-    (concatMap haskell.lib.getHaskellBuildInputs
-     (attrValues (filterAttrs isWantedDep ps)));
-  isWantedDep = name: drv: localLib.isCardanoSL name && !(drv ? "gitrev");
-  ghc = cardanoPkgs.ghc.withPackages getCardanoSLDeps;
-
-  stackDeps = [
-    zlib openssh autoreconfHook openssl
-    gmp rocksdb git bsdiff ncurses lzma
-    perl bash
-  ];
-  # TODO: add cabal-install (2.0.0.1 won't work)
-  devTools = [ hlint cardanoPkgs.stylish-haskell ];
-
+  hsPkgs = haskell.packages.ghc822;
+  iohkPkgs = import ./. {inherit config system pkgs; };
   cardanoSL = haskell.lib.buildStackProject {
-    inherit ghc;
-    name = "cardano-sl-env";
-
-    buildInputs = devTools ++ stackDeps
-      # cabal-install and stack pull in lots of dependencies on OSX so skip them
-      # See https://github.com/NixOS/nixpkgs/issues/21200
-      ++ (lib.optionals stdenv.isLinux [ stack ])
-      ++ (lib.optionals stdenv.isDarwin (with darwin.apple_sdk.frameworks; [ Cocoa CoreServices libcxx libiconv ]));
-
-    shellHook = lib.optionalString lib.inNixShell ''
-      eval "$(egrep ^export ${ghc}/bin/ghc)"
-      export PATH=${ghc}/bin:$PATH
-    '';
-
-    phases = ["nobuildPhase"];
-    nobuildPhase = "mkdir -p $out";
+     name = "cardano-sl";
+     ghc = hsPkgs.ghc;
+     buildInputs = [
+       zlib openssh autoreconfHook openssl
+       gmp rocksdb git bsdiff ncurses
+       hsPkgs.happy hsPkgs.cpphs lzma
+       perl bash
+     # cabal-install and stack pull in lots of dependencies on OSX so skip them
+     # See https://github.com/NixOS/nixpkgs/issues/21200
+     ] ++ (lib.optionals stdenv.isLinux [ cabal-install stack ])
+       ++ (lib.optionals stdenv.isDarwin (with darwin.apple_sdk.frameworks; [ Cocoa CoreServices libcxx libiconv ]));
   };
-
   fixStylishHaskell = stdenv.mkDerivation {
     name = "fix-stylish-haskell";
-    buildInputs = [ cardanoPkgs.stylish-haskell git ];
+    buildInputs = [ iohkPkgs.stylish-haskell git ];
     shellHook = ''
       git diff > pre-stylish.diff
-      find . -type f -not -path '.git' -not -path '*.stack-work*' -name "*.hs" -not -name 'HLint.hs' -exec stylish-haskell -i {} \;
+      find . -type f -name "*hs" -not -path '.git' -not -path '*.stack-work*' -not -name 'HLint.hs' -exec stylish-haskell -i {} \;
       git diff > post-stylish.diff
       diff pre-stylish.diff post-stylish.diff > /dev/null
       if [ $? != 0 ]

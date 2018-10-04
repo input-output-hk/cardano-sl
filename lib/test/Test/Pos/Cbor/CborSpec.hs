@@ -22,42 +22,39 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Arbitrary (..))
 
 import           Pos.Binary.Communication ()
-import           Pos.Chain.Delegation (DlgPayload, DlgUndo, ProxySKHeavy)
-import           Pos.Chain.Ssc (VssCertificate)
-import qualified Pos.Chain.Ssc as Ssc
-import           Pos.Chain.Txp (TxMsgContents (..))
-import qualified Pos.Chain.Txp as T
-import qualified Pos.Chain.Update as U
 import qualified Pos.Communication as C
 import           Pos.Communication.Limits (mlOpening, mlUpdateVote,
                      mlVssCertificate)
-import           Pos.Core (StakeholderId)
+import           Pos.Core (ProxySKHeavy, StakeholderId, VssCertificate)
+import qualified Pos.Core.Ssc as Ssc
+import           Pos.Core.Txp (TxMsgContents (..))
 import           Pos.Crypto.Signing (EncryptedSecretKey)
+import           Pos.Delegation (DlgPayload, DlgUndo)
+import           Pos.Infra.Binary ()
 import           Pos.Infra.Communication.Limits.Instances (mlDataMsg, mlInvMsg,
                      mlMempoolMsg, mlReqMsg)
 import qualified Pos.Infra.Communication.Relay as R
 import           Pos.Infra.Communication.Types.Relay (DataMsg (..))
 import qualified Pos.Infra.DHT.Model as DHT
 import           Pos.Infra.Slotting.Types (SlottingData)
-import           Pos.Util.UserPublic (UserPublic, WalletUserPublic)
+import qualified Pos.Ssc as Ssc
+import qualified Pos.Txp as T
+import qualified Pos.Update as U
 import           Pos.Util.UserSecret (UserSecret, WalletUserSecret)
 
 import           Test.Pos.Binary.Helpers (U, binaryTest, extensionProperty,
                      msgLenLimitedTest)
-import           Test.Pos.Cbor.Arbitrary.UserPublic ()
-import           Test.Pos.Cbor.Arbitrary.UserSecret ()
-import           Test.Pos.Chain.Delegation.Arbitrary ()
-import           Test.Pos.Chain.Ssc.Arbitrary ()
-import           Test.Pos.Chain.Update.Arbitrary ()
+import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Arbitrary ()
-import           Test.Pos.DB.Update.Arbitrary ()
+import           Test.Pos.Delegation.Arbitrary ()
 import           Test.Pos.Infra.Arbitrary ()
 import           Test.Pos.Infra.Arbitrary.Communication ()
 import           Test.Pos.Infra.Arbitrary.Slotting ()
-import           Test.Pos.Infra.Arbitrary.Ssc ()
-import           Test.Pos.Infra.Arbitrary.Update ()
+import           Test.Pos.Ssc.Arbitrary ()
+import           Test.Pos.Update.Arbitrary ()
 import           Test.Pos.Util.QuickCheck (SmallGenerator)
+
 
 type VoteId' = Tagged U.UpdateVote U.VoteId
 type UpId' = Tagged (U.UpdateProposal, [U.UpdateVote])U.UpId
@@ -65,14 +62,12 @@ type UpId' = Tagged (U.UpdateProposal, [U.UpdateVote])U.UpId
 ----------------------------------------
 
 spec :: Spec
-spec = do
+spec = withDefConfiguration $ \_ -> do
     describe "Cbor.Bi instances" $ do
         modifyMaxSuccess (const 1000) $ do
             describe "Lib/core instances" $ do
-                brokenDisabled $ binaryTest @UserPublic
                 brokenDisabled $ binaryTest @UserSecret
                 modifyMaxSuccess (min 50) $ do
-                    binaryTest @WalletUserPublic
                     binaryTest @WalletUserSecret
                     binaryTest @EncryptedSecretKey
 

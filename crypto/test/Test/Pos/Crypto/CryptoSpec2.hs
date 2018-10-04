@@ -1,5 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
-
 -- | Pos.Crypto specification
 
 module Test.Pos.Crypto.CryptoSpec2

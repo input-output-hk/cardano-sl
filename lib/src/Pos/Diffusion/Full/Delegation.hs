@@ -13,8 +13,9 @@ import           Universum
 import qualified Network.Broadcast.OutboundQueue as OQ
 
 import           Pos.Binary ()
-import           Pos.Chain.Delegation (ProxySKHeavy)
 import           Pos.Communication.Limits (mlHeavyDlgIndex, mlProxySecretKey)
+import           Pos.Communication.Message ()
+import           Pos.Core (ProxySKHeavy)
 import           Pos.Infra.Communication.Protocol (EnqueueMsg, MkListeners,
                      MsgType (..), NodeId, OutSpecs)
 import           Pos.Infra.Communication.Relay (DataParams (..), Relay (..),

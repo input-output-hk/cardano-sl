@@ -6,9 +6,8 @@ description:         This package contains utility functions not specific
                      something from scratch.
 license:             MIT
 license-file:        LICENSE
-homepage:            https://github.com/input-output-hk/cardano-sl
-author:              IOHK
-maintainer:          support@iohk.io
+author:              Serokell
+maintainer:          hi@serokell.io
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
@@ -16,7 +15,6 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
-  hs-source-dirs:      src
   exposed-modules:
                        Pos.Util
 
@@ -29,18 +27,8 @@ library
                        Pos.Util.AssertMode
                        Pos.Util.Filesystem
                        Pos.Util.Future
-                       Pos.Util.Json.Canonical
-                       Pos.Util.Json.Parse
                        Pos.Util.Justify
                        Pos.Util.Lens
-                       Pos.Util.Log
-                       Pos.Util.Log.Internal
-                       Pos.Util.Log.LogSafe
-                       Pos.Util.Log.LoggerConfig
-                       Pos.Util.Log.LoggerName
-                       Pos.Util.Log.Severity
-                       Pos.Util.Log.Structured
-                       Pos.Util.Wlog.Compatibility
                        Pos.Util.LoggerName
                        Pos.Util.LRU
                        Pos.Util.Modifier
@@ -50,27 +38,21 @@ library
                        Pos.Util.Some
                        Pos.Util.Timer
                        Pos.Util.Trace
-                       Pos.Util.Trace.Unstructured
-                       Pos.Util.Trace.Named
                        Pos.Util.Util
-                       Pos.Util.Wlog
-                       Pos.Util.Log.Rotator
 
   other-modules:
-                       Paths_cardano_sl_util
                        Pos.Util.CompileInfoGit
-                       Pos.Util.Log.Scribes
 
   build-depends:       aeson
-                     , auto-update
                      , base
-                     , canonical-json
+                     , binary
                      , cborg
                      , cereal
                      , containers
                      , concurrent-extra
                      , contravariant
                      , cryptonite
+                     , data-default
                      , deepseq
                      , directory
                      , ether
@@ -79,12 +61,10 @@ library
                      , filepath
                      , formatting
                      , hashable
-                     , katip
                      , lens
+                     , log-warper >= 1.0.3
                      , lrucache
                      , megaparsec
-                     , mmorph
-                     , monad-control
                      , mtl
                      , optparse-applicative
                      , parsec
@@ -97,6 +77,8 @@ library
                      , tagged
                      , template-haskell
                      , text
+                     , formatting
+                     , th-lift-instances
                      , time
                      , time-units
                      , transformers
@@ -105,7 +87,6 @@ library
                      , universum
                      , unliftio-core
                      , unordered-containers
-                     , yaml
 
   default-language:    Haskell2010
 
@@ -123,6 +104,7 @@ library
                        DefaultSignatures
                        NoImplicitPrelude
                        OverloadedStrings
+                       RecordWildCards
                        TypeApplications
                        TupleSections
                        ViewPatterns
@@ -142,7 +124,7 @@ library
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-test-suite util-test
+test-suite test
   main-is:             test.hs
   hs-source-dirs:      test
   default-language:    Haskell2010
@@ -150,34 +132,19 @@ test-suite util-test
 
   other-modules:
                        Spec
-                       Test.Pos.Util.Golden
-                       Test.Pos.Util.LogSpec
                        Test.Pos.Util.Modifier
                        Test.Pos.Util.ModifierSpec
-                       Test.Pos.Util.Parallel.Parallelize
                        Test.Pos.Util.QuickCheck.Property
                        Test.Pos.Util.TimerSpec
-                       Test.Pos.Util.TraceSpec
-                       Test.Pos.Util.Tripping
-                       Test.Pos.Util.WlogSpec
-                       Test.Pos.Util.LogStructuredSpec
 
-  build-depends:       aeson
-                     , base
-                     , bytestring
+  build-depends:       base
                      , async
                      , cardano-sl-util
-                     , directory
-                     , file-embed
-                     , filepath
-                     , formatting
-                     , hedgehog
                      , hspec
-                     , pretty-show
                      , QuickCheck
                      , quickcheck-instances
+                     , serokell-util >= 0.1.3.4
                      , stm
-                     , template-haskell
                      , text
                      , time
                      , time-units
@@ -204,6 +171,7 @@ test-suite util-test
                         DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
+                        RecordWildCards
                         TypeApplications
                         TupleSections
                         ViewPatterns

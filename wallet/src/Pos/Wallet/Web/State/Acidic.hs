@@ -62,7 +62,6 @@ module Pos.Wallet.Web.State.Acidic
        , UpdateHistoryCache (..)
        -- * Grouped transactions
        , CreateAccountWithAddress (..)
-       , CreateAccountWithoutAddresses (..)
        , RemoveWallet2 (..)
        , ApplyModifierToWallet (..)
        , ApplyModifierToWallet2 (..)
@@ -160,7 +159,6 @@ makeAcidic ''WalletStorage
     , 'WS.flushWalletStorage
     , 'WS.getWalletStorage
     , 'WST.createAccountWithAddress
-    , 'WST.createAccountWithoutAddresses
     , 'WST.removeWallet2
     , 'WST.applyModifierToWallet
     , 'WST.applyModifierToWallet2

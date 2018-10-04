@@ -17,29 +17,27 @@ import           Universum
 import           Control.Exception.Safe (fromException)
 import qualified Data.Map as Map
 import qualified Data.Text as T
-import qualified GHC.Exts as IL
 
-import           Pos.Chain.Block (Blund, HeaderHash)
-import           Pos.Chain.Genesis as Genesis (Config (..))
-import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
-import           Pos.Core.Exception (CardanoFatalError (..))
-import           Pos.Core.Slotting (EpochOrSlot (..), SlotId, getEpochOrSlot)
-import           Pos.DB.Block (BlockLrcMode, rollbackBlocks,
+import           Pos.Block.Logic.VAR (BlockLrcMode, rollbackBlocks,
                      verifyAndApplyBlocks)
+import           Pos.Block.Types (Blund)
+import           Pos.Core (HasConfiguration, HeaderHash)
+import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.DB.Pure (DBPureDiff, MonadPureDB, dbPureDiff, dbPureDump,
                      dbPureReset)
-import           Pos.DB.Txp (MonadTxpLocal)
+import           Pos.Exception (CardanoFatalError (..))
 import           Pos.Generator.BlockEvent (BlockApplyResult (..), BlockEvent,
                      BlockEvent' (..), BlockRollbackFailure (..),
                      BlockRollbackResult (..), BlockScenario,
                      BlockScenario' (..), SnapshotId, SnapshotOperation (..),
                      beaInput, beaOutValid, berInput, berOutValid)
+import           Pos.Txp (MonadTxpLocal)
 import           Pos.Util.Util (eitherToThrow, lensOf)
 
 import           Test.Pos.Block.Logic.Mode (BlockTestContext,
                      PureDBSnapshotsVar (..))
 import           Test.Pos.Block.Logic.Util (satisfySlotCheck)
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 data SnapshotMissingEx = SnapshotMissingEx SnapshotId
     deriving (Show)
@@ -59,43 +57,30 @@ data BlockEventResult
     | BlockEventDbChanged DbNotEquivalentToSnapshot
 
 verifyAndApplyBlocks' ::
-       ( BlockLrcMode BlockTestContext m
+       ( HasConfiguration
+       , BlockLrcMode BlockTestContext m
        , MonadTxpLocal m
        )
-    => Genesis.Config
-    -> TxpConfiguration
-    -> OldestFirst NE Blund
+    => OldestFirst NE Blund
     -> m ()
-verifyAndApplyBlocks' genesisConfig txpConfig blunds = do
-    let -- We cannot simply take `getCurrentSlot` since blocks are generated in
-        --`MonadBlockGen` which locally changes its current slot.  We just take
-        -- the last slot of all generated blocks.
-        curSlot :: Maybe SlotId
-        curSlot
-            = case mapMaybe
-                    (either (const Nothing) Just . unEpochOrSlot . getEpochOrSlot . fst)
-                    . IL.toList
-                    $ blunds of
-                [] -> Nothing
-                ss -> Just $ maximum ss
+verifyAndApplyBlocks' blunds = do
     satisfySlotCheck blocks $ do
         _ :: (HeaderHash, NewestFirst [] Blund) <- eitherToThrow =<<
-            verifyAndApplyBlocks genesisConfig txpConfig curSlot True blocks
+            verifyAndApplyBlocks dummyProtocolMagic True blocks
         return ()
-    where blocks = fst <$> blunds
+  where
+    blocks = fst <$> blunds
 
 -- | Execute a single block event.
 runBlockEvent ::
        ( BlockLrcMode BlockTestContext m
        , MonadTxpLocal m
        )
-    => Genesis.Config
-    -> TxpConfiguration
-    -> BlockEvent
+    => BlockEvent
     -> m BlockEventResult
 
-runBlockEvent genesisConfig txpConfig (BlkEvApply ev) =
-    (onSuccess <$ verifyAndApplyBlocks' genesisConfig txpConfig (ev ^. beaInput))
+runBlockEvent (BlkEvApply ev) =
+    (onSuccess <$ verifyAndApplyBlocks' (ev ^. beaInput))
         `catch` (return . onFailure)
   where
     onSuccess = case ev ^. beaOutValid of
@@ -105,8 +90,8 @@ runBlockEvent genesisConfig txpConfig (BlkEvApply ev) =
         BlockApplySuccess -> BlockEventFailure (IsExpected False) e
         BlockApplyFailure -> BlockEventFailure (IsExpected True) e
 
-runBlockEvent genesisConfig _ (BlkEvRollback ev) =
-    (onSuccess <$ rollbackBlocks genesisConfig (ev ^. berInput))
+runBlockEvent (BlkEvRollback ev) =
+    (onSuccess <$ rollbackBlocks dummyProtocolMagic (ev ^. berInput))
        `catch` (return . onFailure)
   where
     onSuccess = case ev ^. berOutValid of
@@ -127,7 +112,7 @@ runBlockEvent genesisConfig _ (BlkEvRollback ev) =
             in
                 BlockEventFailure (IsExpected isExpected) e
 
-runBlockEvent _ _ (BlkEvSnap ev) =
+runBlockEvent (BlkEvSnap ev) =
     (onSuccess <$ runSnapshotOperation ev)
         `catch` (return . onFailure)
   where
@@ -173,17 +158,15 @@ runBlockScenario ::
        , BlockLrcMode BlockTestContext m
        , MonadTxpLocal m
        )
-    => Genesis.Config
-    -> TxpConfiguration
-    -> BlockScenario
+    => BlockScenario
     -> m BlockScenarioResult
-runBlockScenario _ _ (BlockScenario []) =
+runBlockScenario (BlockScenario []) =
     return BlockScenarioFinishedOk
-runBlockScenario genesisConfig txpConfig (BlockScenario (ev:evs)) = do
-    runBlockEvent genesisConfig txpConfig ev >>= \case
+runBlockScenario (BlockScenario (ev:evs)) = do
+    runBlockEvent ev >>= \case
         BlockEventSuccess (IsExpected isExp) ->
             if isExp
-                then runBlockScenario genesisConfig txpConfig (BlockScenario evs)
+                then runBlockScenario (BlockScenario evs)
                 else return BlockScenarioUnexpectedSuccess
         BlockEventFailure (IsExpected isExp) e ->
             return $ if isExp

@@ -12,7 +12,7 @@ module Pos.Infra.Diffusion.Subscription.Subscriber
 import           Universum
 
 -- | Generate subscription targets in some monad.
--- TBD any value in using a streaming solution like conduit?
+-- TBD any value in using a streaming solution like pipes?
 newtype SubscriptionTarget m target = SubscriptionTarget
     { getSubscriptionTarget :: m (Maybe (target, SubscriptionTarget m target))
     }

@@ -283,7 +283,7 @@ equivalentT useWW activeWallet esk = \mkWallet w ->
                       -> TranslateT EquivalenceViolation m ()
     walletApplyBlockT ctxt accountId block = do
         -- We assume the wallet is not behind
-        liftIO $ Kernel.applyBlock passiveWallet (fromRawResolvedBlock block)
+        liftIO $ Kernel.applyBlocks passiveWallet [fromRawResolvedBlock block]
         checkWalletState ctxt accountId
 
     walletNewPendingT :: InductiveCtxt h

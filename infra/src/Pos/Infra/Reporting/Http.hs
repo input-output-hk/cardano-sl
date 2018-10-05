@@ -20,8 +20,8 @@ import           Formatting (sformat, shown, string, (%))
 import           Network.HTTP.Client (httpLbs, newManager, parseUrlThrow)
 import qualified Network.HTTP.Client.MultipartFormData as Form
 import           Network.HTTP.Client.TLS (tlsManagerSettings)
-import           Pos.ReportServer.Report (BackendVersion (..), ReportInfo (..), ReportType (..),
-                                          Version (..))
+import           Pos.ReportServer.Report (BackendVersion (..), ReportInfo (..),
+                     ReportType (..), Version (..))
 import           System.FilePath (takeFileName)
 import           System.Info (arch, os)
 

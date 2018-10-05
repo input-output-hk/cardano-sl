@@ -495,7 +495,7 @@ announceBlockHeader logTrace logic protocolConstants recoveryHeadersMessage enqu
         when (AttackNoBlocks `elem` spAttackTypes sparams) (throwOnIgnored nodeId)
         traceWith logTrace (Debug,
             sformat
-                ("Announcing block"%shortHashF%" to "%build)
+                ("Announcing block "%shortHashF%" to "%build)
                 (headerHash header)
                 nodeId)
         send cA $ MsgHeaders (one (BlockHeaderMain header))

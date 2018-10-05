@@ -723,7 +723,7 @@ instance BuildableSafeGen TransactionAsBase16 where
 -- We use it for external wallet. Please note that technically there's no
 -- signature of transaction, but signature of the hash of transaction.
 newtype TransactionSignatureAsBase16 = TransactionSignatureAsBase16Unsafe
-    { ewalTransactionSignatureAsBase16 :: Text
+    { rawTransactionSignatureAsBase16 :: Text
     } deriving (Eq, Generic, Ord, Show)
 
 deriveJSON Serokell.defaultOptions ''TransactionSignatureAsBase16
@@ -733,7 +733,7 @@ instance Arbitrary TransactionSignatureAsBase16 where
 
 instance ToSchema TransactionSignatureAsBase16 where
     declareNamedSchema =
-        genericSchemaDroppingPrefix "ewal" (\(--^) props -> props
+        genericSchemaDroppingPrefix "raw" (\(--^) props -> props
             & ("transactionSignatureAsBase16" --^ "Signature of the hash of transaction in Base16-format.")
         )
 
@@ -742,16 +742,12 @@ instance BuildableSafeGen TransactionSignatureAsBase16 where
     buildSafeGen sl TransactionSignatureAsBase16Unsafe{..} = bprint ("{"
         %" transactionSignatureAsBase16="%buildSafe sl
         %" }")
-        ewalTransactionSignatureAsBase16
+        rawTransactionSignatureAsBase16
 
--- | Makes tx signature as Base16-text. Please note that technically we sign the hash
--- of the transaction, not transaction itself.
+-- | Makes tx signature as Base16-text.
 mkTransactionSignatureAsBase16 :: Core.Signature Txp.TxSigData -> TransactionSignatureAsBase16
 mkTransactionSignatureAsBase16 (Core.Signature txSig) =
     TransactionSignatureAsBase16Unsafe . Base16.encode . CC.unXSignature $ txSig
-
-rawTransactionSignatureAsBase16 :: TransactionSignatureAsBase16 -> Text
-rawTransactionSignatureAsBase16 (TransactionSignatureAsBase16Unsafe txtSig) = txtSig
 
 -- | A type modelling the request for a new 'ExternalWallet',
 -- on the mobile client or hardware wallet.
@@ -2118,15 +2114,15 @@ instance BuildableSafeGen UnsignedTransaction where
         rtxHex
         rtxSrcAddresses
 
--- | After external wallet signed raw transaction, it returns to us
--- source address, a signature and derived PK for each input of transaction.
--- This is a proof that external wallet has a right to spend this money.
+-- | To proof that the external wallet has the right to spend the input,
+-- it returns the source address, the signature and the derived PK of
+-- the transaction input.
 data AddressWithProof = AddressWithProof
-    { awsSrcAddress  :: !AddressAsBase58
+    { awpSrcAddress  :: !AddressAsBase58
     -- ^ Base58-encoded source address.
-    , awsTxSignature :: !TransactionSignatureAsBase16
+    , awpTxSignature :: !TransactionSignatureAsBase16
     -- ^ Base16-encoded signature of transaction (made by derived SK).
-    , awsDerivedPK   :: !PublicKeyAsBase58
+    , awpDerivedPK   :: !PublicKeyAsBase58
     -- ^ Base58-encoded derived PK (corresponding to derived SK).
     } deriving (Show, Ord, Eq, Generic)
 
@@ -2134,7 +2130,7 @@ deriveJSON Serokell.defaultOptions ''AddressWithProof
 
 instance ToSchema AddressWithProof where
     declareNamedSchema =
-        genericSchemaDroppingPrefix "aws" (\(--^) props -> props
+        genericSchemaDroppingPrefix "awp" (\(--^) props -> props
             & ("srcAddress"  --^ "Source address in Base58-format.")
             & ("txSignature" --^ "Transaction signature by derived SK.")
             & ("derivedPK"   --^ "Derived PK in Base58-format.")
@@ -2152,9 +2148,9 @@ instance BuildableSafeGen AddressWithProof where
         %" txSignature="%buildSafe sl
         %" derivedPK="%buildSafe sl
         %" }")
-        awsSrcAddress
-        awsTxSignature
-        awsDerivedPK
+        awpSrcAddress
+        awpTxSignature
+        awpDerivedPK
 
 instance Buildable [AddressWithProof] where
     build = bprint listJson

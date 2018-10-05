@@ -60,7 +60,6 @@ library
                     , swagger2
                     , tagged
                     , text
-                    , text-format
                     , time
                     , tls
                     , universum

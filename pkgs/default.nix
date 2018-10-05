@@ -16465,7 +16465,6 @@ license = stdenv.lib.licenses.mit;
 , swagger2
 , tagged
 , text
-, text-format
 , time
 , tls
 , universum
@@ -16528,7 +16527,6 @@ stm
 swagger2
 tagged
 text
-text-format
 time
 tls
 universum

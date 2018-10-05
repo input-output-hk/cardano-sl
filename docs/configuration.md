@@ -266,7 +266,7 @@ Section `"protocolConsts"` contains basic protocol constants:
 *  `"k"` - security parameter from the paper,
 *  `"protocolMagic"` - protocol magic section, described fully below:
    * `"pm"` - protocol magic number,
-   * `"requiresNetworkMagic"` - either `"NMMustBeNothing"` or `"NMMustBeJust"`,
+   * `"requiresNetworkMagic"` - either `"RequiresNoMagic"` or `"RequiresMagic"`,
 *  `"vssMaxTTL"` - VSS certificates maximum timeout to live (number of epochs),
 *  `"vssMinTTL"` - VSS certificates minimum timeout to live (number of epochs).
 
@@ -277,12 +277,12 @@ to distinguish different networks.
 *  `"pm"` - is the protocol magic number, is included in serialized
    blocks and headers, and is part of signed data.
 *  `"requiresNetworkMagic"` - will be either
-   `"NMMustBeNothing"` or `"NMMustBeJust"`
+   `"RequiresNoMagic"` or `"RequiresMagic"`
 
 The `"protocolMagic"` value can either be an object with the two
 fields described above, or just a plain integer. In the latter case,
 `"requiresNetworkMagic"` will take the default value of
-`"NMMustBeJust"`.
+`"RequiresMagic"`.
 
 The `"requiresNetworkMagic"` setting forms part of the genesis
 data. However it is configured in the
@@ -594,10 +594,10 @@ to this file already.
 
 * `requiresNetworkMagic` — influences both the genesis data and the
   address format that the node uses. It can be either:
-   * `"NMMustBeNothing"` (mainnet setting) — means that the protocol
+   * `"RequiresNoMagic"` (mainnet setting) — means that the protocol
      magic value will *not* be included in the address format or
      transactions.
-   * `"NMMustBeJust"` (public testnet setting, the default) — means
+   * `"RequiresMagic"` (public testnet setting, the default) — means
      that the protocol magic value will be included in the address
      format and hence transactions.
 

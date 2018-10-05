@@ -1067,7 +1067,7 @@ golden_TxSig :: Property
 golden_TxSig = goldenTestBi txSigGold "test/golden/TxSig"
     where
         txSigGold = sign (ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
-                                        , getRequiresNetworkMagic = NMMustBeNothing
+                                        , getRequiresNetworkMagic = RequiresNoMagic
                                         })
                          SignForTestingOnly
                          exampleSecretKey
@@ -1247,7 +1247,7 @@ exampleBlockHeaderGenesis = (BlockHeaderGenesis exampleGenesisBlockHeader)
 exampleBlockHeaderMain :: MainBlockHeader
 exampleBlockHeaderMain =
   mkMainHeaderExplicit (ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
-                                      , getRequiresNetworkMagic = NMMustBeNothing
+                                      , getRequiresNetworkMagic = RequiresNoMagic
                                       })
                        exampleHeaderHash
                        exampleChainDifficulty
@@ -1264,7 +1264,7 @@ exampleBlockSignature = BlockSignature (sign pm
                                              exampleMainToSign)
   where
     pm = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 7
-                       , getRequiresNetworkMagic = NMMustBeNothing
+                       , getRequiresNetworkMagic = RequiresNoMagic
                        }
 
 exampleBlockPSignatureLight :: BlockSignature
@@ -1274,7 +1274,7 @@ exampleBlockPSignatureLight = BlockPSignatureLight sig
     [delegateSk, issuerSk] = exampleSecretKeys 5 2
     psk = createPsk pm issuerSk (toPublic delegateSk) exampleLightDlgIndices
     pm = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 2
-                       , getRequiresNetworkMagic = NMMustBeNothing
+                       , getRequiresNetworkMagic = RequiresNoMagic
                        }
 
 exampleBlockPSignatureHeavy :: BlockSignature
@@ -1284,7 +1284,7 @@ exampleBlockPSignatureHeavy = BlockPSignatureHeavy sig
     [delegateSk, issuerSk] = exampleSecretKeys 5 2
     psk = createPsk pm issuerSk (toPublic delegateSk) (staticHeavyDlgIndexes !! 0)
     pm = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 2
-                       , getRequiresNetworkMagic = NMMustBeNothing
+                       , getRequiresNetworkMagic = RequiresNoMagic
                        }
 
 exampleMainConsensusData :: MainConsensusData
@@ -1307,7 +1307,7 @@ exampleGenesisBlockHeader = mkGenesisHeader pm
                                             exampleGenesisBody
   where
     pm = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
-                       , getRequiresNetworkMagic = NMMustBeNothing
+                       , getRequiresNetworkMagic = RequiresNoMagic
                        }
     prevHash = coerce (hash ("genesisHash" :: Text)) :: Hash a
 
@@ -1324,7 +1324,7 @@ exampleMainBlockHeader = mkMainHeaderExplicit pm
                                               exampleMainExtraHeaderData
   where
     pm = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 7
-                       , getRequiresNetworkMagic = NMMustBeNothing
+                       , getRequiresNetworkMagic = RequiresNoMagic
                        }
 
 exampleMainProof :: MainProof

@@ -160,7 +160,7 @@ instance SafeCopy AddrAttributes where
         --
         getLegacy = AddrAttributes <$> safeGet
                                    <*> safeGet
-                                   <*> pure NMNothing
+                                   <*> pure NetworkMainOrStage
 
 deriveSafeCopySimple 0 'base ''Address'
 deriveSafeCopySimple 0 'base ''Address

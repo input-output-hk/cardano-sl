@@ -82,8 +82,8 @@ instance Bi (Attributes AddrAttributes) where
 
         networkMagicListWithIndices =
             case networkMagic of
-                NMNothing -> []
-                NMJust x  ->
+                NetworkMainOrStage -> []
+                NetworkTestnet x  ->
                     [(2, \_ -> Bi.serialize x)]
 
         unsafeFromJust =
@@ -96,11 +96,11 @@ instance Bi (Attributes AddrAttributes) where
             AddrAttributes
             { aaPkDerivationPath = Nothing
             , aaStakeDistribution = BootstrapEraDistr
-            , aaNetworkMagic = NMNothing
+            , aaNetworkMagic = NetworkMainOrStage
             }
         go n v acc =
             case n of
                 0 -> (\distr -> Just $ acc {aaStakeDistribution = distr }    ) <$> Bi.deserialize v
                 1 -> (\deriv -> Just $ acc {aaPkDerivationPath = Just deriv }) <$> Bi.deserialize v
-                2 -> (\deriv -> Just $ acc {aaNetworkMagic = NMJust deriv }    ) <$> Bi.deserialize v
+                2 -> (\deriv -> Just $ acc {aaNetworkMagic = NetworkTestnet deriv }    ) <$> Bi.deserialize v
                 _ -> pure Nothing

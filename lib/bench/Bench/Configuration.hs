@@ -14,4 +14,4 @@ benchProtocolConstants = ProtocolConstants
     }
 
 benchProtocolMagic :: ProtocolMagic
-benchProtocolMagic = ProtocolMagic (ProtocolMagicId 55550001) NMMustBeNothing
+benchProtocolMagic = ProtocolMagic (ProtocolMagicId 55550001) RequiresNoMagic

@@ -72,13 +72,13 @@ convertAddr nm addr =
     pretty . (makeRedeemAddress nm) <$>
     (eitherToThrow . fromAvvmPk) (toText addr)
 
--- Both mainnet & staging use NMNothing. We explicity disallow provision of
--- their integer values, so as to avoid confusion with NMJust.
+-- Both mainnet & staging use NetworkMainOrStage. We explicity disallow provision of
+-- their integer values, so as to avoid confusion with NetworkTestnet.
 toNetworkMagic :: Text -> Either Text NetworkMagic
 toNetworkMagic txt =
     case txt of
-        "mainnet" -> Right NMNothing
-        "staging" -> Right NMNothing
+        "mainnet" -> Right NetworkMainOrStage
+        "staging" -> Right NetworkMainOrStage
 
         num -> case decimal num of
             Right (pm, _)
@@ -90,7 +90,7 @@ toNetworkMagic txt =
                         \ please enter 'mainnet' instead"
             Right (ident, _) ->
                 Right (makeNetworkMagic (ProtocolMagic (ProtocolMagicId ident)
-                                        NMMustBeJust))
+                                        RequiresMagic))
             Left err -> Left $ toText ("Please enter either 'mainnet', 'staging', or\
                                       \ an Int32 value: " ++ err)
 

@@ -95,7 +95,7 @@ instance Arbitrary WalletUserSecret where
 makeLenses ''WalletUserSecret
 
 fixedNM :: NetworkMagic
-fixedNM = NMNothing
+fixedNM = NetworkMainOrStage
 
 instance Buildable WalletUserSecret where
     build WalletUserSecret{..} =
@@ -103,7 +103,7 @@ instance Buildable WalletUserSecret where
                 ", wallets = "%pairsF%", accounts = "%pairsF%" }")
         -- TODO mhueschen |
         -- TODO @intricate: Will probably have to add NetworkMagic to WalletUserSecret
-        -- instead of using NMNothing here :/
+        -- instead of using NetworkMainOrStage here :/
         (makeRootPubKeyAddress fixedNM $ encToPublic _wusRootKey)
         _wusWalletName
         _wusAccounts

@@ -345,8 +345,8 @@ genAddrAttributes :: Gen AddrAttributes
 genAddrAttributes = AddrAttributes <$> hap <*> genAddrStakeDistribution <*> nm
   where
     hap = Gen.maybe genHDAddressPayload
-    nm  = Gen.choice [ pure NMNothing
-                     , NMJust <$> genInt32
+    nm  = Gen.choice [ pure NetworkMainOrStage
+                     , NetworkTestnet <$> genInt32
                      ]
 
 genAddress :: Gen Address

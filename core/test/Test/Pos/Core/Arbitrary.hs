@@ -256,7 +256,7 @@ instance Arbitrary AddrStakeDistribution where
                     genPortions (n - 1) (portion : res)
 
 instance Arbitrary NetworkMagic where
-    arbitrary = oneof [pure NMNothing, NMJust <$> arbitrary]
+    arbitrary = oneof [pure NetworkMainOrStage, NetworkTestnet <$> arbitrary]
 
 instance Arbitrary AddrAttributes where
     arbitrary = genericArbitrary

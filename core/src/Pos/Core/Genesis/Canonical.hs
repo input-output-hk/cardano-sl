@@ -446,20 +446,20 @@ instance ReportSchemaErrors m => FromJSON m GenesisProtocolConstants where
         gpcVssMinTTL <- fromJSField obj "vssMinTTL"
         return GenesisProtocolConstants {..}
 
--- Here we default to `NMMustBeJust` (what testnets use) if only
+-- Here we default to `RequiresMagic` (what testnets use) if only
 -- a ProtocolMagic identifier is provided.
 instance ReportSchemaErrors m => FromJSON m ProtocolMagic where
     fromJSON = \case
         (JSNum n) -> pure (ProtocolMagic (ProtocolMagicId (fromIntegral n))
-                                         NMMustBeJust)
+                                         RequiresMagic)
         (JSObject dict) -> ProtocolMagic
             <$> (ProtocolMagicId <$> expectLookup "pm: <int>" "pm" dict)
-            <*> expectLookup "requiresNetworkMagic: <NMMustBeNothing | \
-                             \NMMustBeJust>"
+            <*> expectLookup "requiresNetworkMagic: <RequiresNoMagic | \
+                             \RequiresMagic>"
                              "requiresNetworkMagic"
                              dict
         other ->
-            expected "NMMustBeNothing | NMMustBeJust" (Just (show other))
+            expected "RequiresNoMagic | RequiresMagic" (Just (show other))
 
 instance ReportSchemaErrors m => FromJSON m GenesisAvvmBalances where
     fromJSON = fmap GenesisAvvmBalances . fromJSON

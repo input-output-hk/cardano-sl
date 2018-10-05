@@ -21,6 +21,6 @@ instance FromJSON CoreConfiguration where
     parseJSON = withObject "core" $ \obj -> do
         ccg   <- obj .: "genesis"
         ccdsv <- obj .: "dbSerializeVersion"
-        -- If "requiresNetworkMagic" is not specified, default to NMMustBeJust
-        ccrnm <- obj .:? "requiresNetworkMagic" .!= NMMustBeJust
+        -- If "requiresNetworkMagic" is not specified, default to RequiresMagic
+        ccrnm <- obj .:? "requiresNetworkMagic" .!= RequiresMagic
         pure $ CoreConfiguration ccg ccdsv ccrnm

@@ -53,8 +53,8 @@ testMultiple = 3
 
 spec :: Spec
 spec = do
-    runWithMagic NMMustBeNothing
-    runWithMagic NMMustBeJust
+    runWithMagic RequiresNoMagic
+    runWithMagic RequiresMagic
 
 runWithMagic :: RequiresNetworkMagic -> Spec
 runWithMagic rnm = replicateM_ testMultiple $

@@ -250,7 +250,7 @@ protocolMagicId :: ProtocolMagicId
 protocolMagicId = ProtocolMagicId 0
 
 protocolMagic :: ProtocolMagic
-protocolMagic = ProtocolMagic protocolMagicId NMMustBeNothing
+protocolMagic = ProtocolMagic protocolMagicId RequiresNoMagic
 
 extraHeaderData :: ExtraHeaderData MainBlockchain
 extraHeaderData = MainExtraHeaderData

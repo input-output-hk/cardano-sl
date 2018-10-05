@@ -26,8 +26,8 @@ import           Pos.Util.Util (toAesonError)
 -- | Bool-isomorphic flag indicating whether we're on testnet
 -- or mainnet/staging.
 data RequiresNetworkMagic
-    = NMMustBeNothing
-    | NMMustBeJust
+    = RequiresNoMagic
+    | RequiresMagic
     deriving (Show, Eq, Generic)
 
 -- TODO mhueschen : grok NFData
@@ -38,27 +38,27 @@ instance NFData RequiresNetworkMagic
 -- They should only be used from a parent instance which handles the
 -- `requiresNetworkMagic` key.
 instance A.ToJSON RequiresNetworkMagic where
-    toJSON NMMustBeNothing = A.String "NMMustBeNothing"
-    toJSON NMMustBeJust    = A.String "NMMustBeJust"
+    toJSON RequiresNoMagic = A.String "RequiresNoMagic"
+    toJSON RequiresMagic    = A.String "RequiresMagic"
 
 instance A.FromJSON RequiresNetworkMagic where
     parseJSON = A.withText "requiresNetworkMagic" $ toAesonError . \case
-        "NMMustBeNothing" -> Right NMMustBeNothing
-        "NMMustBeJust"    -> Right NMMustBeJust
+        "RequiresNoMagic" -> Right RequiresNoMagic
+        "RequiresMagic"    -> Right RequiresMagic
         other   -> Left ("invalid value " <> show other <>
-                         ", acceptable values are NMMustBeNothing | NMMustBeJust")
+                         ", acceptable values are RequiresNoMagic | RequiresMagic")
 
 -- Canonical JSON instances
 instance Monad m => ToJSON m RequiresNetworkMagic where
-    toJSON NMMustBeNothing = pure (JSString "NMMustBeNothing")
-    toJSON NMMustBeJust    = pure (JSString "NMMustBeJust")
+    toJSON RequiresNoMagic = pure (JSString "RequiresNoMagic")
+    toJSON RequiresMagic    = pure (JSString "RequiresMagic")
 
 instance ReportSchemaErrors m => FromJSON m RequiresNetworkMagic where
     fromJSON = \case
-        (JSString "NMMustBeNothing") -> pure NMMustBeNothing
-        (JSString "NMMustBeJust")    -> pure NMMustBeJust
+        (JSString "RequiresNoMagic") -> pure RequiresNoMagic
+        (JSString "RequiresMagic")    -> pure RequiresMagic
         other ->
-            expected "NMMustBeNothing | NMMustBeJust" (Just (show other))
+            expected "RequiresNoMagic | RequiresMagic" (Just (show other))
 
 
 --------------------------------------------------------------------------------
@@ -93,12 +93,12 @@ instance A.ToJSON ProtocolMagic where
     toJSON (ProtocolMagic (ProtocolMagicId ident) rnm) =
         A.object ["pm" .= ident, "requiresNetworkMagic" .= rnm]
 
--- Here we default to `NMMustBeJust` (what testnets use) if only
+-- Here we default to `RequiresMagic` (what testnets use) if only
 -- a ProtocolMagic identifier is provided.
 instance A.FromJSON ProtocolMagic where
     parseJSON v@(A.Number _) = ProtocolMagic
         <$> (ProtocolMagicId <$> A.parseJSON v)
-        <*> pure NMMustBeJust
+        <*> pure RequiresMagic
     parseJSON (A.Object o) = ProtocolMagic
         <$> (ProtocolMagicId <$> o .: "pm")
         <*> o .: "requiresNetworkMagic"
@@ -116,6 +116,6 @@ and the new format
 ```
 protocolMagic:
     pm: 12345678
-    requiresNetworkMagic: NMMustBeNothing
+    requiresNetworkMagic: RequiresNoMagic
 ```
 -}

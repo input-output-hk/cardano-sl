@@ -12,10 +12,10 @@ import           Pos.Crypto (ProtocolMagic (..), ProtocolMagicId (..),
 --------------------------------------------------------------------------------
 
 exampleProtocolMagic0 :: ProtocolMagic
-exampleProtocolMagic0 = ProtocolMagic (ProtocolMagicId 31337) NMMustBeJust
+exampleProtocolMagic0 = ProtocolMagic (ProtocolMagicId 31337) RequiresMagic
 
 exampleProtocolMagic1 :: ProtocolMagic
-exampleProtocolMagic1 = ProtocolMagic (ProtocolMagicId 2147000001) NMMustBeJust
+exampleProtocolMagic1 = ProtocolMagic (ProtocolMagicId 2147000001) RequiresMagic
 
 exampleProtocolMagic2 :: ProtocolMagic
-exampleProtocolMagic2 = ProtocolMagic (ProtocolMagicId (- 58952)) NMMustBeJust
+exampleProtocolMagic2 = ProtocolMagic (ProtocolMagicId (- 58952)) RequiresMagic

@@ -95,7 +95,7 @@ genProtocolMagicId :: Gen ProtocolMagicId
 genProtocolMagicId = ProtocolMagicId <$> Gen.int32 Range.constantBounded
 
 genRequiresNetworkMagic :: Gen RequiresNetworkMagic
-genRequiresNetworkMagic = Gen.element [NMMustBeNothing, NMMustBeJust]
+genRequiresNetworkMagic = Gen.element [RequiresNoMagic, RequiresMagic]
 
 ----------------------------------------------------------------------------
 -- Sign Tag Generator

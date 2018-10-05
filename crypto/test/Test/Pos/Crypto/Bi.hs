@@ -399,7 +399,7 @@ constantByteString
     \7nZqcXdoi4XGTCgSGcGp8N0SDVhvkVh0QF1RVpWPnOMyYISJvuaHfo1zXMdq9tEdtJfID"
 
 exampleProtocolMagic :: ProtocolMagic
-exampleProtocolMagic = ProtocolMagic (ProtocolMagicId 0) NMMustBeNothing
+exampleProtocolMagic = ProtocolMagic (ProtocolMagicId 0) RequiresNoMagic
 
 --------------------------------------------------------------------------------
 

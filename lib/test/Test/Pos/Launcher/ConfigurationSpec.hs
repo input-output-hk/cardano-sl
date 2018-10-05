@@ -23,12 +23,12 @@ configFilePath = "configuration.yaml"
 
 checkYamlSection :: Text -> Spec
 checkYamlSection key = describe ("key: " ++ show key) $ do
-    it "should be NMMustBeNothing" $ do
+    it "should be RequiresNoMagic" $ do
         liftIO $ setupTestLogging
         startTime <- Timestamp . round . (* 1000000) <$> liftIO getPOSIXTime
         let cfo = ConfigurationOptions configFilePath key (Just startTime) Nothing
         rnm  <- liftIO (withConfigurations Nothing Nothing False cfo getRNM)
-        rnm `shouldBe` NMMustBeNothing
+        rnm `shouldBe` RequiresNoMagic
 
 getRNM
     :: Genesis.Config
@@ -57,7 +57,7 @@ spec = describe "Pos.Launcher.Configuration" $ do
             res `shouldSatisfy` isNothing
 
     -- Ensuring that all of the config objects mapped to each of the specified
-    -- keys contain NMMustBeNothing.
+    -- keys contain RequiresNoMagic.
     mapM_ checkYamlSection
         [ "mainnet_full" -- mainnet core/relay nodes and exchange wallets
         , "mainnet_dryrun_full" -- staging core/relay nodes and exchange wallets

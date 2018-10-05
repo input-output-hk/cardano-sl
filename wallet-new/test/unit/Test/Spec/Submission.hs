@@ -438,4 +438,4 @@ spec = do
 
 
 protocolMagic :: ProtocolMagic
-protocolMagic = ProtocolMagic (ProtocolMagicId 0) NMMustBeNothing
+protocolMagic = ProtocolMagic (ProtocolMagicId 0) RequiresNoMagic

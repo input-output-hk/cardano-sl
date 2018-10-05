@@ -55,7 +55,7 @@ import           Test.Pos.Chain.Block.Arbitrary.Generate (generateMainBlock)
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 protocolMagic :: ProtocolMagic
-protocolMagic = ProtocolMagic (ProtocolMagicId 0) NMMustBeNothing
+protocolMagic = ProtocolMagic (ProtocolMagicId 0) RequiresNoMagic
 
 protocolConstants :: ProtocolConstants
 protocolConstants = ProtocolConstants

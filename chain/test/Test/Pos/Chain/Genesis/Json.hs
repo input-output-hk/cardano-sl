@@ -20,7 +20,7 @@ import           Test.Pos.Chain.Genesis.Gen (genGenesisAvvmBalances,
                      genGenesisData, genGenesisDelegation,
                      genGenesisInitializer, genGenesisProtocolConstants,
                      genStaticConfig)
-import           Test.Pos.Core.ExampleHelpers (feedPM, feedPMWithNMMustBeJust)
+import           Test.Pos.Core.ExampleHelpers (feedPM, feedPMWithRequiresMagic)
 import           Test.Pos.Util.Golden (discoverGolden, eachOf,
                      goldenTestCanonicalJSONDec, goldenTestJSON,
                      goldenTestJSONDec)
@@ -33,7 +33,7 @@ import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonShow,
 
 -- Decode-only golden tests for ensuring that, when decoding the legacy
 -- `StaticConfig` JSON format, the `RequiresNetworkMagic` field defaults to
--- `NMMustBeJust`.
+-- `RequiresMagic`.
 
 golden_StaticConfig_GCSpec0Dec :: Property
 golden_StaticConfig_GCSpec0Dec =
@@ -69,7 +69,7 @@ roundTripStaticConfig =
 
 -- Decode-only golden tests for ensuring that, when decoding the legacy
 -- `GenesisData` canonical JSON format, the `RequiresNetworkMagic` field
--- defaults to `NMMustBeJust`.
+-- defaults to `RequiresMagic`.
 
 golden_GenesisData0Dec :: Property
 golden_GenesisData0Dec =
@@ -91,7 +91,7 @@ golden_GenesisDataDec2 =
 
 roundTripGenesisData :: Property
 roundTripGenesisData =
-    eachOf 100 (feedPMWithNMMustBeJust genGenesisData) roundTripsCanonicalJSONShow
+    eachOf 100 (feedPMWithRequiresMagic genGenesisData) roundTripsCanonicalJSONShow
 
 --------------------------------------------------------------------------------
 -- GenesisAvvmBalances
@@ -115,7 +115,7 @@ roundTripGenesisDelegation =
 
 -- Decode-only golden tests for ensuring that, when decoding the legacy
 -- `GenesisProtocolConstants` JSON format, the `RequiresNetworkMagic` field
--- defaults to `NMMustBeJust`.
+-- defaults to `RequiresMagic`.
 
 golden_GenesisProtocolConstants0Dec :: Property
 golden_GenesisProtocolConstants0Dec =

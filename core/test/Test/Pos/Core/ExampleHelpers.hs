@@ -36,7 +36,7 @@ module Test.Pos.Core.ExampleHelpers
 
         -- Helpers
         , feedPM
-        , feedPMWithNMMustBeJust
+        , feedPMWithRequiresMagic
         , feedPC
         , feedPMC
         , feedEpochSlots
@@ -86,9 +86,9 @@ import           Test.Pos.Crypto.Gen (genProtocolMagic, genProtocolMagicId)
 feedPM :: (ProtocolMagic -> H.Gen a) -> H.Gen a
 feedPM genA = genA =<< genProtocolMagic
 
-feedPMWithNMMustBeJust :: (ProtocolMagic -> H.Gen a) -> H.Gen a
-feedPMWithNMMustBeJust genA = do
-    pm <- flip ProtocolMagic NMMustBeJust <$> genProtocolMagicId
+feedPMWithRequiresMagic :: (ProtocolMagic -> H.Gen a) -> H.Gen a
+feedPMWithRequiresMagic genA = do
+    pm <- flip ProtocolMagic RequiresMagic <$> genProtocolMagicId
     genA pm
 
 feedPC :: (ProtocolConstants -> H.Gen a) -> H.Gen a

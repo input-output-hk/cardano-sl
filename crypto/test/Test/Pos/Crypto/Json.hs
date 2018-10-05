@@ -15,7 +15,7 @@ import           Test.Pos.Util.Golden (discoverGolden, goldenTestJSONDec)
 
 -- Decode-only golden tests for ensuring that, when decoding the legacy
 -- `ProtocolMagic` JSON format, the `RequiresNetworkMagic` field defaults to
--- `NMMustBeJust`.
+-- `RequiresMagic`.
 
 golden_ProtocolMagic0AesonDec :: Property
 golden_ProtocolMagic0AesonDec =

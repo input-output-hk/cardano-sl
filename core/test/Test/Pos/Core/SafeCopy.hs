@@ -17,7 +17,7 @@ import           Test.Pos.Util.Golden (discoverGolden, goldenTestSafeCopyDec)
 
 -- Decode-only golden tests for ensuring that, when decoding the legacy
 -- `Address` `SafeCopy` format, the `RequiresNetworkMagic` field defaults to
--- `NMMustBeNothing`.
+-- `RequiresNoMagic`.
 
 golden_Address0 :: Property
 golden_Address0 =
@@ -55,7 +55,7 @@ golden_Address4 =
 
 -- Decode-only golden tests for ensuring that, when decoding the legacy
 -- `Address'` `SafeCopy` format, the `RequiresNetworkMagic` field defaults to
--- `NMMustBeNothing`.
+-- `RequiresNoMagic`.
 
 golden_Address'0 :: Property
 golden_Address'0 =

@@ -228,7 +228,7 @@ exampleUpdateProposalToSign :: UpdateProposalToSign
     , UpdateProposalToSign bv bvm sv hm ua )
   where
     pm  = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
-                        , getRequiresNetworkMagic = NMMustBeNothing
+                        , getRequiresNetworkMagic = RequiresNoMagic
                         }
     bv  = exampleBlockVersion
     bvm = exampleBlockVersionModifier
@@ -241,7 +241,7 @@ exampleUpdateVote :: UpdateVote
 exampleUpdateVote = mkUpdateVoteSafe pm ss ui ar
   where
     pm  = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
-                        , getRequiresNetworkMagic = NMMustBeNothing
+                        , getRequiresNetworkMagic = RequiresNoMagic
                         }
     ss = exampleSafeSigner 0
     ui = exampleUpId

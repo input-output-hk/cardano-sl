@@ -29,7 +29,7 @@ import           Test.Pos.Chain.Block.Arbitrary.Generate (generateMainBlock)
 -- 'MainBlock'.
 
 pm :: ProtocolMagic
-pm = ProtocolMagic (ProtocolMagicId 0) NMMustBeNothing
+pm = ProtocolMagic (ProtocolMagicId 0) RequiresNoMagic
 
 -- | A test subject: a MainBlock, and its various components, each paired with
 -- its serialization.

@@ -205,7 +205,7 @@ golden_TxSig = goldenTestBi txSigGold "test/golden/TxSig"
         txSigGold = sign pm SignForTestingOnly
                          exampleSecretKey exampleTxSigData
         pm = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
-                           , getRequiresNetworkMagic = NMMustBeNothing
+                           , getRequiresNetworkMagic = RequiresNoMagic
                            }
 
 roundTripTxSig :: Property
@@ -236,7 +236,7 @@ sizeEstimates =
   let check :: (Show a, Bi a) => Gen a -> Property
       check g = sizeTest $ scfg { gen = g }
       pm = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
-                         , getRequiresNetworkMagic = NMMustBeNothing
+                         , getRequiresNetworkMagic = RequiresNoMagic
                          }
       knownTxIn (TxInUnknown _ _) = False
       knownTxIn _                 = True

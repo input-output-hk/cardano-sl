@@ -100,13 +100,13 @@ instance FromJSON Configuration where
             -- (for backward-compat with the old CoreConfiguration format)
             -- else if the "core" key is specified and the
             -- "requiresNetworkMagic" key is specified within its mapped
-            -- object, use that value. Otherwise, default to NMMustBeJust
+            -- object, use that value. Otherwise, default to RequiresMagic
             | HM.member "core" o -> do
                 coreO <- o .: "core"
-                coreO .:? "requiresNetworkMagic" .!= NMMustBeJust
+                coreO .:? "requiresNetworkMagic" .!= RequiresMagic
 
-            -- else default to NMMustBeJust
-            | otherwise -> pure NMMustBeJust
+            -- else default to RequiresMagic
+            | otherwise -> pure RequiresMagic
         pure $ Configuration {..}
 
 instance ToJSON Configuration where

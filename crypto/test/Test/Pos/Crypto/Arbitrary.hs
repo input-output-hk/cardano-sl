@@ -58,7 +58,7 @@ instance Arbitrary ProtocolMagicId where
     arbitrary = ProtocolMagicId <$> arbitrary
 
 instance Arbitrary RequiresNetworkMagic where
-    arbitrary = elements [NMMustBeNothing, NMMustBeJust]
+    arbitrary = elements [RequiresNoMagic, RequiresMagic]
 
 genProtocolMagicUniformWithRNM :: RequiresNetworkMagic -> Gen ProtocolMagic
 genProtocolMagicUniformWithRNM rnm =

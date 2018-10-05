@@ -10,10 +10,10 @@ import           Pos.Crypto (ProtocolMagic (..), ProtocolMagicId (..),
                      RequiresNetworkMagic (..))
 
 dummyProtocolMagic :: ProtocolMagic
-dummyProtocolMagic = ProtocolMagic dummyProtocolMagicId NMMustBeNothing
+dummyProtocolMagic = ProtocolMagic dummyProtocolMagicId RequiresNoMagic
 
 dummyProtocolMagicId :: ProtocolMagicId
 dummyProtocolMagicId = ProtocolMagicId 55550001
 
 dummyRequiresNetworkMagic :: RequiresNetworkMagic
-dummyRequiresNetworkMagic = NMMustBeNothing
+dummyRequiresNetworkMagic = RequiresNoMagic

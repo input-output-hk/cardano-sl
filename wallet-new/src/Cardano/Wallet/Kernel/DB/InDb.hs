@@ -452,7 +452,7 @@ instance SC.SafeCopy (InDb Core.MainBlockHeader) where
         InDb extra <- SC.safeGet
         pure . InDb $
             Core.mkGenericBlockHeaderUnsafe
-                (Core.ProtocolMagic protocolMagicId Core.NMMustBeNothing)
+                (Core.ProtocolMagic protocolMagicId Core.RequiresNoMagic)
                 prevBlock
                 bodyProof
                 consensus
@@ -750,7 +750,7 @@ instance SC.SafeCopy (InDb Core.GenesisBlockHeader) where
         InDb extra <- SC.safeGet
         pure . InDb $
             Core.mkGenericBlockHeaderUnsafe
-                (Core.ProtocolMagic protocolMagic Core.NMMustBeNothing)
+                (Core.ProtocolMagic protocolMagic Core.RequiresNoMagic)
                 prevBlock
                 bodyProof
                 consensus
@@ -785,15 +785,15 @@ instance SC.SafeCopy (InDb Core.ProtocolMagicId) where
 instance SC.SafeCopy (InDb Core.RequiresNetworkMagic) where
     getCopy = SC.contain $
         SC.safeGet >>= \case
-            0 -> pure (InDb Core.NMMustBeNothing)
-            1 -> pure (InDb Core.NMMustBeJust)
+            0 -> pure (InDb Core.RequiresNoMagic)
+            1 -> pure (InDb Core.RequiresMagic)
             (n :: Word8) -> fail
                 $  "Expected one of 0,1 for RequiresNetworkMagic tag,\
                   \ got: "
                 <> show n
     putCopy (InDb rnm) = SC.contain $ case rnm of
-        Core.NMMustBeNothing -> SC.safePut (0 :: Word8)
-        Core.NMMustBeJust    -> SC.safePut (1 :: Word8)
+        Core.RequiresNoMagic -> SC.safePut (0 :: Word8)
+        Core.RequiresMagic   -> SC.safePut (1 :: Word8)
 
 instance SC.SafeCopy (InDb Core.GenesisProof) where
     getCopy = SC.contain $ do

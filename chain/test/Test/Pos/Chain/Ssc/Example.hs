@@ -58,7 +58,7 @@ exampleCommitmentSignature :: CommitmentSignature
 exampleCommitmentSignature =
     sign
       (ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
-                     , getRequiresNetworkMagic = NMMustBeNothing
+                     , getRequiresNetworkMagic = RequiresNoMagic
                      })
       SignForTestingOnly
       exampleSecretKey
@@ -144,7 +144,7 @@ exampleVssCertificate :: VssCertificate
 exampleVssCertificate =
     mkVssCertificate
        (ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
-                      , getRequiresNetworkMagic = NMMustBeNothing
+                      , getRequiresNetworkMagic = RequiresNoMagic
                       })
         exampleSecretKey
         (asBinary (toVssPublicKey $ deterministicVssKeyGen ("golden" :: ByteString)))
@@ -156,7 +156,7 @@ exampleVssCertificates offset num =  map vssCert [0..num-1]
         secretKeyList = (exampleSecretKeys offset num)
         vssCert index = mkVssCertificate
                            (ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
-                                          , getRequiresNetworkMagic = NMMustBeNothing
+                                          , getRequiresNetworkMagic = RequiresNoMagic
                                           })
                            (secretKeyList !! index)
                            (asBinary (toVssPublicKey $ deterministicVssKeyGen (getBytes index 128)))

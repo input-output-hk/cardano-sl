@@ -280,7 +280,7 @@ exampleBlockHeaderMain =
                        exampleMainBody exampleMainExtraHeaderData
   where
     pm = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
-                       , getRequiresNetworkMagic = NMMustBeNothing
+                       , getRequiresNetworkMagic = RequiresNoMagic
                        }
 
 exampleBlockSignature :: BlockSignature
@@ -290,7 +290,7 @@ exampleBlockSignature = BlockSignature (sign pm
                                              exampleMainToSign)
   where
     pm = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 7
-                       , getRequiresNetworkMagic = NMMustBeNothing
+                       , getRequiresNetworkMagic = RequiresNoMagic
                        }
 
 exampleBlockPSignatureLight :: BlockSignature
@@ -300,7 +300,7 @@ exampleBlockPSignatureLight = BlockPSignatureLight sig
     [delegateSk, issuerSk] = exampleSecretKeys 5 2
     psk = createPsk pm issuerSk (toPublic delegateSk) exampleLightDlgIndices
     pm = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 2
-                       , getRequiresNetworkMagic = NMMustBeNothing
+                       , getRequiresNetworkMagic = RequiresNoMagic
                        }
 
 exampleBlockPSignatureHeavy :: BlockSignature
@@ -310,7 +310,7 @@ exampleBlockPSignatureHeavy = BlockPSignatureHeavy sig
     [delegateSk, issuerSk] = exampleSecretKeys 5 2
     psk = createPsk pm issuerSk (toPublic delegateSk) (staticHeavyDlgIndexes !! 0)
     pm = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 2
-                       , getRequiresNetworkMagic = NMMustBeNothing
+                       , getRequiresNetworkMagic = RequiresNoMagic
                        }
 
 exampleMainConsensusData :: MainConsensusData
@@ -334,7 +334,7 @@ exampleGenesisBlockHeader = mkGenesisHeader pm
   where
     prevHash = coerce (hash ("genesisHash" :: Text)) :: Hash a
     pm = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
-                       , getRequiresNetworkMagic = NMMustBeNothing
+                       , getRequiresNetworkMagic = RequiresNoMagic
                        }
 
 -- We use `Nothing` as the ProxySKBlockInfo to avoid clashing key errors
@@ -350,7 +350,7 @@ exampleMainBlockHeader = mkMainHeaderExplicit pm
                                               exampleMainExtraHeaderData
   where
     pm = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 7
-                       , getRequiresNetworkMagic = NMMustBeNothing
+                       , getRequiresNetworkMagic = RequiresNoMagic
                        }
 
 exampleMainProof :: MainProof

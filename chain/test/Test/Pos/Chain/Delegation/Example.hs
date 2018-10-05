@@ -30,7 +30,7 @@ staticProtocolMagics = map mkPm [0..5]
   where
     mkPm :: Int32 -> ProtocolMagic
     mkPm x = ProtocolMagic { getProtocolMagicId = ProtocolMagicId x
-                           , getRequiresNetworkMagic = NMMustBeNothing
+                           , getRequiresNetworkMagic = RequiresNoMagic
                            }
 
 staticProxySKHeavys :: [ProxySKHeavy]

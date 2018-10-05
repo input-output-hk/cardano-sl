@@ -273,7 +273,7 @@ exampleGenesisProtocolConstants0 :: GenesisProtocolConstants
 exampleGenesisProtocolConstants0 = GenesisProtocolConstants
     { gpcK = 37
     , gpcProtocolMagic = ProtocolMagic (ProtocolMagicId 1783847074)
-                                       NMMustBeJust
+                                       RequiresMagic
     , gpcVssMaxTTL = VssMaxTTL {getVssMaxTTL = 1477558317}
     , gpcVssMinTTL = VssMinTTL {getVssMinTTL = 744040476}}
 
@@ -282,7 +282,7 @@ exampleGenesisProtocolConstants1 = GenesisProtocolConstants
     { gpcK = 64
     , gpcProtocolMagic = ProtocolMagic
         { getProtocolMagicId = ProtocolMagicId 135977977
-        , getRequiresNetworkMagic = NMMustBeJust
+        , getRequiresNetworkMagic = RequiresMagic
         }
     , gpcVssMaxTTL = VssMaxTTL {getVssMaxTTL = 126106167}
     , gpcVssMinTTL = VssMinTTL {getVssMinTTL = 310228653}}
@@ -292,7 +292,7 @@ exampleGenesisProtocolConstants2 = GenesisProtocolConstants
     { gpcK = 2
     , gpcProtocolMagic = ProtocolMagic
         { getProtocolMagicId = ProtocolMagicId 1780893186
-        , getRequiresNetworkMagic = NMMustBeJust
+        , getRequiresNetworkMagic = RequiresMagic
         }
     , gpcVssMaxTTL = VssMaxTTL {getVssMaxTTL = 402296078}
     , gpcVssMinTTL = VssMinTTL {getVssMinTTL = 1341799941}}

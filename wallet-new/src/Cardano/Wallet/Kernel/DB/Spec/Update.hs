@@ -28,6 +28,7 @@ import qualified Data.Set as Set
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 import           Serokell.Util (listJsonIndent)
+import           Serokell.Util.Text (listBuilderJSON)
 import           Test.QuickCheck (Arbitrary (..), elements)
 
 import qualified Pos.Chain.Block as Core
@@ -110,6 +111,9 @@ instance Buildable ApplyBlockFailed where
         )
         context
         checkpoint
+
+instance Buildable [ApplyBlockFailed] where
+   build = listBuilderJSON
 
 instance Arbitrary ApplyBlockFailed where
    arbitrary = elements []

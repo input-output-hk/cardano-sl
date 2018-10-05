@@ -11,15 +11,15 @@ import           Universum
 
 import           Control.Concurrent.STM (TVar, newTVar, putTMVar, swapTMVar,
                      swapTVar, tryReadTBQueue, tryReadTMVar, tryTakeTMVar)
-import           Control.Exception.Safe (handleAny)
+import           Control.Exception.Safe (IOException, handleAny)
 import           Control.Lens (to)
 import           Control.Monad.STM (retry)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Second)
-import           Formatting (build, int, sformat, (%))
+import           Formatting (build, int, sformat, shown, (%))
 
 import           Pos.Chain.Block (Block, BlockHeader, HasHeaderHash (..),
-                     HeaderHash)
+                     HeaderHash, headerHashF)
 import           Pos.Chain.Genesis as Genesis (Config)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Core (difficultyL, isMoreDifficult)
@@ -155,10 +155,14 @@ retrievalWorker genesisConfig txpConfig diffusion = do
     -- again.
     handleRecoveryE nodeId rHeader e = do
         -- REPORT:ERROR 'reportOrLogW' in block retrieval worker/recovery.
-        reportOrLogW (sformat
-            ("handleRecoveryE: error handling nodeId="%build%", header="%build%": ")
-            nodeId (headerHash rHeader)) e
+        reportOrLogW (sformat errfmt nodeId (headerHash rHeader)) e
+            `catch` handleIOException
         dropRecoveryHeaderAndRepeat genesisConfig diffusion nodeId
+        where
+            errfmt = "handleRecoveryE: error handling nodeId="%build%", header="%headerHashF%": "
+
+            handleIOException :: IOException -> m ()
+            handleIOException _ = logError $ sformat (errfmt%shown) nodeId (headerHash rHeader) e
 
     -- Recovery handling. We assume that header in the recovery variable is
     -- appropriate and just query headers/blocks.

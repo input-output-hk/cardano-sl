@@ -28,6 +28,8 @@ module Pos.Util.Wlog
         , LoggerNameBox (..)
         , HasLoggerName (..)
         , usingLoggerName
+        , addLoggerName
+        , setLoggerName
           -- * LoggerConfig
         , LoggerConfig (..)
         , lcTree
@@ -52,8 +54,10 @@ import           Pos.Util.Log.LoggerConfig (LoggerConfig (..), lcTree,
                      parseLoggerConfig, setLogPrefix)
 import           Pos.Util.Wlog.Compatibility (CanLog (..), HasLoggerName (..),
                      LogEvent (..), LoggerNameBox (..), NamedPureLogger (..),
-                     WithLogger, centiUtcTimeF, dispatchEvents, getLinesLogged,
-                     launchNamedPureLog, logDebug, logError, logInfo, logMCond,
-                     logMessage, logNotice, logWarning, productionB,
-                     removeAllHandlers, retrieveLogContent, runNamedPureLog,
-                     setupLogging, setupTestLogging, usingLoggerName)
+                     WithLogger, addLoggerName, centiUtcTimeF, dispatchEvents,
+                     getLinesLogged, launchNamedPureLog, logDebug, logError,
+                     logInfo, logMCond, logMessage, logNotice, logWarning,
+                     productionB, removeAllHandlers, retrieveLogContent,
+                     runNamedPureLog, setLoggerName, setupLogging,
+                     setupTestLogging, usingLoggerName)
+

@@ -145,7 +145,7 @@ namedTrace lh = Trace $ Op $ \namedLogitem ->
 
 {- testing:
 
-logTrace' <- setupLogging "test" (Pos.Util.LoggerConfig.defaultInteractiveConfiguration Log.Debug) "named"
+logTrace' <- setupLogging "test" (Pos.Util.Log.LoggerConfig.defaultInteractiveConfiguration Log.Debug) "named"
 let li = publicLogItem (Log.Debug, "testing")
     ni = namedItem "Tests" li
 
@@ -153,7 +153,7 @@ traceWith logTrace' ni
 traceWith (named $ appendName "more" logTrace') li
 
 
-logTrace' <- setupLogging "test" (Pos.Util.LoggerConfig.jsonInteractiveConfiguration Log.Debug) "named"
+logTrace' <- setupLogging "test" (Pos.Util.Log.LoggerConfig.jsonInteractiveConfiguration Log.Debug) "named"
 logDebug logTrace' "hello"
 logDebug (appendName "blabla" logTrace') "hello"
 -}

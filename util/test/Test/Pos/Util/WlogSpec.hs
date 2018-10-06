@@ -17,9 +17,9 @@ import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
 import           Pos.Util.Log.LoggerConfig (defaultTestConfiguration,
                      lcLoggerTree, ltNamedSeverity)
-import           Pos.Util.Wlog (Severity (..), WithLogger, getLinesLogged,
-                     logDebug, logError, logInfo, logNotice, logWarning,
-                     modifyLoggerName, setupLogging, usingLoggerName)
+import           Pos.Util.Wlog (Severity (..), WithLogger, addLoggerName,
+                     getLinesLogged, logDebug, logError, logInfo, logNotice,
+                     logWarning, setLoggerName, setupLogging, usingLoggerName)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: String) #-}
 
@@ -78,10 +78,10 @@ someLogging = do
     usingLoggerName "testing" $ do
         testLog
         -- context: cardano-sl.testing.more
-        modifyLoggerName (<> ".more") $ do
+        addLoggerName "more" $ do
             testLog
             -- context: cardano-sl.final
-            modifyLoggerName (const "final") $ do
+            setLoggerName "final" $ do
                 testLog
 
 testLog :: (MonadIO m, WithLogger m) => m ()

@@ -35,6 +35,9 @@ let
   });
 
   # Overlay logic for *haskell* packages.
+  recBreakerOverlay  = import ./nix/overlays/rec-breaker.nix  { inherit pkgs; };
+  brokenTestsOverlay = import ./nix/overlays/broken-tests.nix { inherit pkgs; };
+  dontHaddock        = import ./nix/overlays/dont-haddock.nix { inherit pkgs; };
   requiredOverlay    = import ./nix/overlays/required.nix     { inherit pkgs localLib enableProfiling gitrev;
                                                                 inherit (cardanoPkgs) ghc; };
   benchmarkOverlay   = import ./nix/overlays/benchmark.nix    { inherit pkgs localLib; };
@@ -44,11 +47,11 @@ let
   metricOverlay      = import ./nix/overlays/metric.nix       { inherit pkgs; };
 
   # This will yield a set of haskell packages, based on the given compiler.
-  cardanoPkgsBase = ((import ./pkgs { inherit pkgs; }).override {
+  cardanoPkgsBase = ((import ./pkgs.nix { inherit pkgs localLib; }).override {
     inherit ghc;
   });
 
-  activeOverlays = [ requiredOverlay ]
+  activeOverlays = [ requiredOverlay recBreakerOverlay brokenTestsOverlay dontHaddock ]
       ++ optional enablePhaseMetrics metricOverlay
       ++ optional enableBenchmarks benchmarkOverlay
       ++ optional enableDebugging debugOverlay

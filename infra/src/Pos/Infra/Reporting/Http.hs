@@ -15,11 +15,13 @@ import           Control.Exception.Safe (catchAny, try)
 import           Data.Aeson (encode)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Clock (getCurrentTime)
+import           Data.Version (showVersion)
 import           Formatting (sformat, shown, string, (%))
 import           Network.HTTP.Client (httpLbs, newManager, parseUrlThrow)
 import qualified Network.HTTP.Client.MultipartFormData as Form
 import           Network.HTTP.Client.TLS (tlsManagerSettings)
-import           Pos.ReportServer.Report (ReportInfo (..), ReportType (..))
+import           Pos.ReportServer.Report (BackendVersion (..), ReportInfo (..),
+                     ReportType (..), Version (..))
 import           System.FilePath (takeFileName)
 import           System.Info (arch, os)
 
@@ -71,7 +73,7 @@ sendReport pm compileInfo mLogFile reportType appName reportServerUri = do
         -- We are using version of 'cardano-sl-infra' here. We agreed
         -- that the version of 'cardano-sl' and it subpackages should
         -- be same.
-        , rVersion = version
+        , rVersion = BackendVersion . Version . fromString . showVersion $ version
         , rBuild = pretty compileInfo
         , rOS = toText (os <> "-" <> arch)
         , rMagic = getProtocolMagic pm

@@ -107,7 +107,7 @@ module Test.Pos.Core.ExampleHelpers
 
         -- Helpers
         , feedPM
-        , feedPMWithNMMustBeJust
+        , feedPMWithRequiresMagic
         , feedPC
         , feedPMC
        ) where
@@ -191,9 +191,9 @@ import           Test.Pos.Crypto.Gen (genProtocolMagic, genProtocolMagicId)
 feedPM :: (ProtocolMagic -> H.Gen a) -> H.Gen a
 feedPM genA = genA =<< genProtocolMagic
 
-feedPMWithNMMustBeJust :: (ProtocolMagic -> H.Gen a) -> H.Gen a
-feedPMWithNMMustBeJust genA = do
-    pm <- flip ProtocolMagic NMMustBeJust <$> genProtocolMagicId
+feedPMWithRequiresMagic :: (ProtocolMagic -> H.Gen a) -> H.Gen a
+feedPMWithRequiresMagic genA = do
+    pm <- flip ProtocolMagic RequiresMagic <$> genProtocolMagicId
     genA pm
 
 feedPC :: (ProtocolConstants -> H.Gen a) -> H.Gen a
@@ -337,7 +337,7 @@ exampleCommitmentSignature :: CommitmentSignature
 exampleCommitmentSignature =
     sign
       (ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
-                     , getRequiresNetworkMagic = NMMustBeNothing
+                     , getRequiresNetworkMagic = RequiresNoMagic
                      })
       SignForTestingOnly
       exampleSecretKey
@@ -441,7 +441,7 @@ exampleRedeemPublicKey = fromJust (fst <$> redeemDeterministicKeyGen (getBytes 0
 exampleRedeemSignature :: RedeemSignature TxSigData
 exampleRedeemSignature =
     redeemSign (ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
-                              , getRequiresNetworkMagic = NMMustBeNothing
+                              , getRequiresNetworkMagic = RequiresNoMagic
                               })
                SignForTestingOnly
                rsk
@@ -537,7 +537,7 @@ exampleTxInUtxo :: TxIn
 exampleTxInUtxo = TxInUtxo exampleHashTx 47 -- TODO: loop here
 
 exampleTxOut :: TxOut
-exampleTxOut = TxOut (makePubKeyAddress NMNothing
+exampleTxOut = TxOut (makePubKeyAddress NetworkMainOrStage
                                         (IsBootstrapEraAddr True)
                                         pkey)
                      (Coin 47)
@@ -555,7 +555,7 @@ exampleTxProof = TxProof 32 mroot hashWit
 
 exampleTxSig :: TxSig
 exampleTxSig = sign (ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
-                                   , getRequiresNetworkMagic = NMMustBeNothing
+                                   , getRequiresNetworkMagic = RequiresNoMagic
                                    })
                     SignForTestingOnly
                     exampleSecretKey
@@ -599,7 +599,7 @@ exampleUpdateProposalToSign :: UpdateProposalToSign
     , UpdateProposalToSign bv bvm sv hm ua )
   where
     pm  = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
-                        , getRequiresNetworkMagic = NMMustBeNothing
+                        , getRequiresNetworkMagic = RequiresNoMagic
                         }
     bv  = exampleBlockVersion
     bvm = exampleBlockVersionModifier
@@ -612,7 +612,7 @@ exampleUpdateVote :: UpdateVote
 exampleUpdateVote = mkUpdateVoteSafe pm ss ui ar
   where
     pm = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
-                       , getRequiresNetworkMagic = NMMustBeNothing
+                       , getRequiresNetworkMagic = RequiresNoMagic
                        }
     ss = exampleSafeSigner 0
     ui = exampleUpId
@@ -626,7 +626,7 @@ exampleVssCertificate :: VssCertificate
 exampleVssCertificate =
     mkVssCertificate
         (ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
-                       , getRequiresNetworkMagic = NMMustBeNothing
+                       , getRequiresNetworkMagic = RequiresNoMagic
                        })
         exampleSecretKey
         (asBinary (toVssPublicKey $ deterministicVssKeyGen ("golden" :: ByteString)))
@@ -638,7 +638,7 @@ exampleVssCertificates offset num =  map vssCert [0..num-1]
         secretKeyList = (exampleSecretKeys offset num)
         vssCert index = mkVssCertificate
                            (ProtocolMagic { getProtocolMagicId = ProtocolMagicId 0
-                                          , getRequiresNetworkMagic = NMMustBeNothing
+                                          , getRequiresNetworkMagic = RequiresNoMagic
                                           })
                            (secretKeyList !! index)
                            (asBinary (toVssPublicKey $ deterministicVssKeyGen (getBytes index 128)))
@@ -661,7 +661,7 @@ staticProtocolMagics = map mkPm [0..5]
   where
     mkPm :: Int32 -> ProtocolMagic
     mkPm x = ProtocolMagic { getProtocolMagicId = ProtocolMagicId x
-                           , getRequiresNetworkMagic = NMMustBeNothing
+                           , getRequiresNetworkMagic = RequiresNoMagic
                            }
 
 staticProxySKHeavys :: [ProxySKHeavy]
@@ -713,7 +713,7 @@ exampleLightDlgIndices = LightDlgIndices (EpochIndex 7, EpochIndex 88)
 exampleAddress :: Address
 exampleAddress = makeAddress exampleAddrSpendingData_PubKey attrs
   where
-    attrs = AddrAttributes hap BootstrapEraDistr NMNothing
+    attrs = AddrAttributes hap BootstrapEraDistr NetworkMainOrStage
     hap = Just (HDAddressPayload (getBytes 32 32))
 
 exampleAddress1 :: Address
@@ -721,14 +721,14 @@ exampleAddress1 = makeAddress easd attrs
   where
     easd = PubKeyASD pk
     [pk] = examplePublicKeys 24 1
-    attrs = AddrAttributes hap BootstrapEraDistr NMNothing
+    attrs = AddrAttributes hap BootstrapEraDistr NetworkMainOrStage
     hap = Nothing
 
 exampleAddress2 :: Address
 exampleAddress2 = makeAddress easd attrs
   where
     easd = RedeemASD exampleRedeemPublicKey
-    attrs = AddrAttributes hap asd NMNothing
+    attrs = AddrAttributes hap asd NetworkMainOrStage
     hap = Just (HDAddressPayload (getBytes 15 32))
     asd = SingleKeyDistr exampleStakeholderId
 
@@ -736,28 +736,28 @@ exampleAddress3 :: Address
 exampleAddress3 = makeAddress easd attrs
   where
     easd = ScriptASD exampleScript
-    attrs = AddrAttributes hap exampleMultiKeyDistr NMNothing
+    attrs = AddrAttributes hap exampleMultiKeyDistr NetworkMainOrStage
     hap = Just (HDAddressPayload (getBytes 17 32))
 
 exampleAddress4 :: Address
 exampleAddress4 = makeAddress easd attrs
   where
     easd = UnknownASD 7 "test value"
-    attrs = AddrAttributes Nothing (SingleKeyDistr sId) NMNothing
+    attrs = AddrAttributes Nothing (SingleKeyDistr sId) NetworkMainOrStage
     [sId] = exampleStakeholderIds 7 1
 
 exampleAddress5 :: Address
 exampleAddress5 = makeAddress easd attrs
   where
     easd = ScriptASD exampleScript
-    attrs = AddrAttributes hap exampleMultiKeyDistr (NMJust 12345)
+    attrs = AddrAttributes hap exampleMultiKeyDistr (NetworkTestnet 12345)
     hap = Just (HDAddressPayload (getBytes 10 32))
 
 exampleAddress6 :: Address
 exampleAddress6 = makeAddress easd attrs
   where
     easd = UnknownASD 200 "test value"
-    attrs = AddrAttributes Nothing (SingleKeyDistr sId) (NMJust 31337)
+    attrs = AddrAttributes Nothing (SingleKeyDistr sId) (NetworkTestnet 31337)
     [sId] = exampleStakeholderIds 10 1
 
 exampleAddress7 :: Address
@@ -765,13 +765,13 @@ exampleAddress7 = makeAddress easd attrs
   where
     easd = PubKeyASD pk
     [pk] = examplePublicKeys 16 1
-    attrs = AddrAttributes hap BootstrapEraDistr (NMJust (- 559038737))
+    attrs = AddrAttributes hap BootstrapEraDistr (NetworkTestnet (- 559038737))
     hap = Nothing
 
 exampleAddress' :: Address'
 exampleAddress' = makeAddress' exampleAddrSpendingData_PubKey attrs
   where
-    attrs = AddrAttributes hap BootstrapEraDistr NMNothing
+    attrs = AddrAttributes hap BootstrapEraDistr NetworkMainOrStage
     hap = Just (HDAddressPayload (getBytes 32 32))
 
 exampleAddress'1 :: Address'
@@ -779,14 +779,14 @@ exampleAddress'1 = makeAddress' easd attrs
   where
     easd = PubKeyASD pk
     [pk] = examplePublicKeys 24 1
-    attrs = AddrAttributes hap BootstrapEraDistr NMNothing
+    attrs = AddrAttributes hap BootstrapEraDistr NetworkMainOrStage
     hap = Nothing
 
 exampleAddress'2 :: Address'
 exampleAddress'2 = makeAddress' easd attrs
   where
     easd = RedeemASD exampleRedeemPublicKey
-    attrs = AddrAttributes hap asd NMNothing
+    attrs = AddrAttributes hap asd NetworkMainOrStage
     hap = Just (HDAddressPayload (getBytes 15 32))
     asd = SingleKeyDistr exampleStakeholderId
 
@@ -794,28 +794,28 @@ exampleAddress'3 :: Address'
 exampleAddress'3 = makeAddress' easd attrs
   where
     easd = ScriptASD exampleScript
-    attrs = AddrAttributes hap exampleMultiKeyDistr NMNothing
+    attrs = AddrAttributes hap exampleMultiKeyDistr NetworkMainOrStage
     hap = Just (HDAddressPayload (getBytes 17 32))
 
 exampleAddress'4 :: Address'
 exampleAddress'4 = makeAddress' easd attrs
   where
     easd = UnknownASD 7 "test value"
-    attrs = AddrAttributes Nothing (SingleKeyDistr sId) NMNothing
+    attrs = AddrAttributes Nothing (SingleKeyDistr sId) NetworkMainOrStage
     [sId] = exampleStakeholderIds 7 1
 
 exampleAddress'5 :: Address'
 exampleAddress'5 = makeAddress' easd attrs
   where
     easd = ScriptASD exampleScript
-    attrs = AddrAttributes hap exampleMultiKeyDistr (NMJust 12345)
+    attrs = AddrAttributes hap exampleMultiKeyDistr (NetworkTestnet 12345)
     hap = Just (HDAddressPayload (getBytes 10 32))
 
 exampleAddress'6 :: Address'
 exampleAddress'6 = makeAddress' easd attrs
   where
     easd = UnknownASD 200 "test value"
-    attrs = AddrAttributes Nothing (SingleKeyDistr sId) (NMJust 31337)
+    attrs = AddrAttributes Nothing (SingleKeyDistr sId) (NetworkTestnet 31337)
     [sId] = exampleStakeholderIds 10 1
 
 exampleAddress'7 :: Address'
@@ -823,7 +823,7 @@ exampleAddress'7 = makeAddress' easd attrs
   where
     easd = PubKeyASD pk
     [pk] = examplePublicKeys 16 1
-    attrs = AddrAttributes hap BootstrapEraDistr (NMJust (- 559038737))
+    attrs = AddrAttributes hap BootstrapEraDistr (NetworkTestnet (- 559038737))
     hap = Nothing
 
 exampleMultiKeyDistr :: AddrStakeDistribution
@@ -1065,7 +1065,7 @@ exampleGenesisProtocolConstants0YesNetworkMagic :: GenesisProtocolConstants
 exampleGenesisProtocolConstants0YesNetworkMagic = GenesisProtocolConstants
     { gpcK = 37
     , gpcProtocolMagic = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 1783847074
-                                       , getRequiresNetworkMagic = NMMustBeNothing
+                                       , getRequiresNetworkMagic = RequiresNoMagic
                                        }
     , gpcVssMaxTTL = VssMaxTTL {getVssMaxTTL = 1477558317}
     , gpcVssMinTTL = VssMinTTL {getVssMinTTL = 744040476}}
@@ -1074,7 +1074,7 @@ exampleGenesisProtocolConstants0 :: GenesisProtocolConstants
 exampleGenesisProtocolConstants0 = GenesisProtocolConstants
     { gpcK = 37
     , gpcProtocolMagic = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 1783847074
-                                       , getRequiresNetworkMagic = NMMustBeJust
+                                       , getRequiresNetworkMagic = RequiresMagic
                                        }
     , gpcVssMaxTTL = VssMaxTTL {getVssMaxTTL = 1477558317}
     , gpcVssMinTTL = VssMinTTL {getVssMinTTL = 744040476}}
@@ -1083,7 +1083,7 @@ exampleGenesisProtocolConstants1 :: GenesisProtocolConstants
 exampleGenesisProtocolConstants1 = GenesisProtocolConstants
     { gpcK = 64
     , gpcProtocolMagic = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 135977977
-                                       , getRequiresNetworkMagic = NMMustBeJust
+                                       , getRequiresNetworkMagic = RequiresMagic
                                        }
     , gpcVssMaxTTL = VssMaxTTL {getVssMaxTTL = 126106167}
     , gpcVssMinTTL = VssMinTTL {getVssMinTTL = 310228653}}
@@ -1092,7 +1092,7 @@ exampleGenesisProtocolConstants2 :: GenesisProtocolConstants
 exampleGenesisProtocolConstants2 = GenesisProtocolConstants
     { gpcK = 2
     , gpcProtocolMagic = ProtocolMagic { getProtocolMagicId = ProtocolMagicId 1780893186
-                                       , getRequiresNetworkMagic = NMMustBeJust
+                                       , getRequiresNetworkMagic = RequiresMagic
                                        }
     , gpcVssMaxTTL = VssMaxTTL {getVssMaxTTL = 402296078}
     , gpcVssMinTTL = VssMinTTL {getVssMinTTL = 1341799941}}

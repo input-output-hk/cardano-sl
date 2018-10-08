@@ -22,7 +22,7 @@ overridden.
 
  * `protocolMagic` -- this number is different from mainnet's magic to
    ensure that signatures from testnet are different to mainnet.
- * `requiresNetworkMagic` -- `NMMustBeJust` (the default) -- will
+ * `requiresNetworkMagic` -- `RequiresMagic` (the default) -- will
    ensure that the format of addresses and hence transactions are
    different and incompatible to those of mainnet.
  * `totalBalance` -- 42,000,000,000 Ada -- is close to the maximum

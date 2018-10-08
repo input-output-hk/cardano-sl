@@ -38,8 +38,8 @@ testMultiple = 3
 
 spec :: Spec
 spec = do
-    runWithMagic NMMustBeNothing
-    runWithMagic NMMustBeJust
+    runWithMagic RequiresNoMagic
+    runWithMagic RequiresMagic
 
 runWithMagic :: RequiresNetworkMagic -> Spec
 runWithMagic rnm = replicateM_ testMultiple $
@@ -103,11 +103,11 @@ specBody pm = do
 
 networkMagicExtraBytes :: ProtocolMagic -> Byte
 networkMagicExtraBytes pm = case makeNetworkMagic pm of
-    NMNothing -> 0
+    NetworkMainOrStage -> 0
     -- Encoding size:
     -- Map key: 2 bytes (1 for header, 1 for Word8)
     -- Map val: 1-5 bytes (1 for header, 0-4 for Int32)
-    NMJust v  -> 2 + biSize v
+    NetworkTestnet v   -> 2 + biSize v
 
 pkAndHdwAreShownDifferently :: NetworkMagic -> Bool -> PublicKey -> Bool
 pkAndHdwAreShownDifferently nm isBootstrap pk =

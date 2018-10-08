@@ -138,7 +138,7 @@ data CoreConfiguration = CoreConfiguration
 defaultCoreConfiguration :: ProtocolMagic -> CoreConfiguration
 defaultCoreConfiguration pm = CoreConfiguration (GCSpec (defaultGenesisSpec pm))
                                                 0
-                                                NMMustBeJust
+                                                RequiresMagic
 
 defaultGenesisSpec :: ProtocolMagic -> GenesisSpec
 defaultGenesisSpec pm = UnsafeGenesisSpec

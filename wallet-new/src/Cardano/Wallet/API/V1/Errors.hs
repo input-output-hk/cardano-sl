@@ -138,7 +138,7 @@ sampleAddress = V1 $ Core.Address
     { Core.addrRoot =
         Crypto.unsafeAbstractHash ("asdfasdf" :: String)
     , Core.addrAttributes =
-        Core.mkAttributes $ Core.AddrAttributes Nothing Core.BootstrapEraDistr NMNothing
+        Core.mkAttributes $ Core.AddrAttributes Nothing Core.BootstrapEraDistr NetworkMainOrStage
     , Core.addrType =
         Core.ATPubKey
     }

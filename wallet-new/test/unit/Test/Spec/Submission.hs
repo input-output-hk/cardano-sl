@@ -404,4 +404,4 @@ spec = do
 
 
 protocolMagic :: Core.ProtocolMagic
-protocolMagic = Core.ProtocolMagic (Core.ProtocolMagicId 0) Core.NMMustBeNothing
+protocolMagic = Core.ProtocolMagic (Core.ProtocolMagicId 0) Core.RequiresNoMagic

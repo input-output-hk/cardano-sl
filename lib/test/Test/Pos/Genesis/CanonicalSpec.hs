@@ -27,9 +27,9 @@ spec = withDefConfiguration $ \_ -> describe "Genesis" $ modifyMaxSuccess (const
         -- This must be done since the canonical `ToJSON` instance of
         -- `ProtocolMagic` does not output the `RequiresNetworkMagic` field
         -- and the canonical `FromJSON` instance defaults its value to
-        -- `NMMustBeJust`.
-        describe "Generator restricted to only use NMMustBeJust" $ do
-            let genPM = genProtocolMagicUniformWithRNM NMMustBeJust
+        -- `RequiresMagic`.
+        describe "Generator restricted to only use RequiresMagic" $ do
+            let genPM = genProtocolMagicUniformWithRNM RequiresMagic
             canonicalJsonTestWithGen $ genGenesisProtocolConstants genPM
             canonicalJsonTestWithGen $ genGenesisData (genGenesisProtocolConstants genPM)
 

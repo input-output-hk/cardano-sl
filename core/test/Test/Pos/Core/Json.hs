@@ -22,7 +22,7 @@ import           Test.Pos.Core.ExampleHelpers (exampleAddress, exampleAddress1, 
                                                exampleGenesisProtocolConstants0YesNetworkMagic,
                                                exampleGenesisProtocolConstants1,
                                                exampleGenesisProtocolConstants2, feedPM,
-                                               feedPMWithNMMustBeJust)
+                                               feedPMWithRequiresMagic)
 import           Test.Pos.Core.Gen (genAddress, genBlockVersionData, genByte, genCoin,
                                     genCoinPortion, genEpochIndex, genFlatSlotId,
                                     genGenesisAvvmBalances, genGenesisConfiguration, genGenesisData,
@@ -139,7 +139,7 @@ golden_GenesisDataDec2 =
 
 roundTripGenesisData :: Property
 roundTripGenesisData =
-    eachOf 100 (feedPMWithNMMustBeJust genGenesisData) roundTripsCanonicalJSONShow
+    eachOf 100 (feedPMWithRequiresMagic genGenesisData) roundTripsCanonicalJSONShow
 
 --------------------------------------------------------------------------------
 -- GenesisAvvmBalances

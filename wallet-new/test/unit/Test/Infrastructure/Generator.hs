@@ -183,8 +183,8 @@ estimateCardanoFee :: TxSizeLinear -> RequiresNetworkMagic -> Int -> [Value] -> 
 estimateCardanoFee linearFeePolicy rnm ins outs
     = round (calculateTxSizeLinear linearFeePolicy (estimateSize addrAttrSize 16 ins outs))
   where
-    addrAttrSize = 128 + (case rnm of NMMustBeNothing -> 0
-                                      NMMustBeJust    -> 7)
+    addrAttrSize = 128 + (case rnm of RequiresNoMagic -> 0
+                                      RequiresMagic    -> 7)
 
 {-------------------------------------------------------------------------------
   Auxiliary

@@ -30,8 +30,8 @@ checkYamlSection key = describe ("key: " ++ show key) $ do
     startTime <- runIO (runProduction getCurrentTimestamp)
     let opts = ConfigurationOptions configFilePath key (Just startTime) Nothing
     rnm <- runIO (withConfigurations Nothing opts getRNM)
-    it "should be NMMustBeNothing" $
-        rnm `shouldBe` NMMustBeNothing
+    it "should be RequiresNoMagic" $
+        rnm `shouldBe` RequiresNoMagic
 
 getRNM :: NtpConfiguration -> ProtocolMagic -> IO RequiresNetworkMagic
 getRNM _ pm = pure (getRequiresNetworkMagic pm)

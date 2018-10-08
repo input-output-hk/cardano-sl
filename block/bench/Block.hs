@@ -34,7 +34,7 @@ import           Test.Pos.Block.Arbitrary.Generate (generateMainBlock)
 -- 'MainBlock'.
 
 pm :: ProtocolMagic
-pm = ProtocolMagic (ProtocolMagicId 0) NMMustBeNothing
+pm = ProtocolMagic (ProtocolMagicId 0) RequiresNoMagic
 
 pc :: ProtocolConstants
 pc = ProtocolConstants

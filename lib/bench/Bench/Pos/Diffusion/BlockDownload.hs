@@ -67,7 +67,7 @@ import           Test.Pos.Block.Arbitrary.Generate (generateMainBlock)
 --   no subscription connection, we would see this problem.
 
 protocolMagic :: ProtocolMagic
-protocolMagic = ProtocolMagic (ProtocolMagicId 0) NMMustBeNothing
+protocolMagic = ProtocolMagic (ProtocolMagicId 0) RequiresNoMagic
 
 protocolConstants :: ProtocolConstants
 protocolConstants = ProtocolConstants

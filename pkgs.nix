@@ -2,14 +2,37 @@
 , localLib
 }:
 let
+  overrideWith = override: default:
+   let
+     try = builtins.tryEval (builtins.findFile builtins.nixPath override);
+   in if try.success then
+     builtins.trace "using search host <${override}>" try.value
+   else
+     default;
+in
+let
   # all packages from hackage as nix expressions
-  hackage = import localLib.fetchHackage;
+  hackage = import (overrideWith "hackage"
+                    (pkgs.fetchFromGitHub { owner  = "angerman";
+                                            repo   = "hackage.nix";
+                                            rev    = "20ad44ecdd5475c8adbe0e129638f729a26ca120";
+                                            sha256 = "0bh0p58i9w9nw2mcjgx6j9qyi6x5xg8pn5x37a696kw1bgwm8wzn"; }))
+                   ;
   # a different haskell infrastructure
-  haskell = import localLib.fetchHaskell hackage;
+  haskell = import (overrideWith "haskell"
+                    (pkgs.fetchFromGitHub { owner  = "angerman";
+                                            repo   = "haskell.nix";
+                                            rev    = "3b2cff33565e31e31a8a33eb5ebfa20a19aa70d6";
+                                            sha256 = "1hjqppxh9vmvlfbfpkg7gcijjhq4hhlx4xah87ma0w1nw7vk7nda"; }))
+                   hackage;
 
   # the set of all stackage snapshots
-  stackage = import localLib.fetchStackage { inherit pkgs hackage haskell; };
-
+  stackage = import (overrideWith "stackage"
+                     (pkgs.fetchFromGitHub { owner  = "angerman";
+                                             repo   = "stackage.nix";
+                                             rev    = "01a2d822f32c64c271121da32864aa2d10350c22";
+                                             sha256 = "08z92icwsh58ha0kslr1f0n5qyg5zdyp7kbhby0b619awp9acwh3"; }))
+                    { inherit pkgs hackage haskell; };
   # our packages
   stack-pkgs = import ./stack-pkgs.nix;
 

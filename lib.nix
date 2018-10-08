@@ -1,22 +1,9 @@
 let
-  fixme = override: json: let
-     try = builtins.tryEval (builtins.findFile builtins.nixPath override);
-     cfg = builtins.fromJSON (builtins.readFile json);
-   in if try.success then
-     builtins.trace "using search host <${override}>" try.value
-   else
-     pkgs.fetchFromGitHub {
-       inherit (cfg) owner repo rev sha256;
-     };
   # Allow overriding pinned nixpkgs for debugging purposes via cardano_pkgs
   fetchNixPkgs = let try = builtins.tryEval <cardano_pkgs>;
     in if try.success
     then builtins.trace "using host <cardano_pkgs>" try.value
     else import ./fetch-nixpkgs.nix;
-
-  fetchHaskell = fixme "haskell" ./haskell.json;
-  fetchHackage = fixme "hackage" ./hackage.json;
-  fetchStackage = fixme "stackage" ./stackage.json;
 
   maybeEnv = env: default:
     let
@@ -51,7 +38,7 @@ let
   pkgs = import fetchNixPkgs {};
   lib = pkgs.lib;
 in lib // (rec {
-  inherit fetchNixPkgs cleanSourceTree fetchHaskell fetchHackage fetchStackage;
+  inherit fetchNixPkgs cleanSourceTree;
   isCardanoSL = lib.hasPrefix "cardano-sl";
   isBenchmark = args: !((args.isExecutable or false) || (args.isLibrary or true));
 

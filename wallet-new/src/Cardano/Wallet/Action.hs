@@ -29,7 +29,7 @@ import           Cardano.Wallet.Server.CLI (NewWalletBackendParams,
                      getFullMigrationFlag, getWalletDbOptions, walletDbPath,
                      walletRebuildDb)
 import           Cardano.Wallet.Server.Middlewares (throttleMiddleware,
-                     withDefaultHeader)
+                     unsupportedMimeTypeMiddleware, withDefaultHeader)
 import qualified Cardano.Wallet.Server.Plugins as Plugins
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer.Kernel as WalletLayer.Kernel
@@ -88,6 +88,7 @@ actionWithWallet params genesisConfig walletConfig txpConfig ntpConfig nodeParam
                 -- Throttle requests.
                 [ throttleMiddleware (ccThrottle walletConfig)
                 , withDefaultHeader Headers.applicationJson
+                , unsupportedMimeTypeMiddleware
                 ])
 
             -- The corresponding wallet documention, served as a different

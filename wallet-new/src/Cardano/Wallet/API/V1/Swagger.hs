@@ -376,6 +376,9 @@ $errors
     -- 'JSONValidationError'
     , mkRow fmtErr $ JSONValidationFailed "Expected String, found Null."
 
+    -- 'UnsupportedMimeTypeError'
+    , mkRow fmtErr $ UnsupportedMimeTypePresent "Expected Content-Type's main MIME-type to be 'application/json'."
+
     -- TODO 'MnemonicError' ?
     ]
   mkRow fmt err = T.intercalate "|" (fmt err)
@@ -860,8 +863,8 @@ curl -X POST \
   --cacert ./scripts/tls-files/ca.crt \
   --cert ./scripts/tls-files/client.pem \
   -d '{
-	"walletId": "Ae2tdPwUPE...V3AVTnqGZ4",
-	"accountIndex": 2147483648
+        "walletId": "Ae2tdPwUPE...V3AVTnqGZ4",
+        "accountIndex": 2147483648
 }'
 ```
 

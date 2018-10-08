@@ -6,7 +6,8 @@ import           Universum
 
 import           Hedgehog (Property)
 
-import           Cardano.Wallet.API.Response (JSONValidationError (..))
+import           Cardano.Wallet.API.Response (JSONValidationError (..),
+                     UnsupportedMimeTypeError (..))
 import           Cardano.Wallet.API.V1.Migration.Types (MigrationError (..))
 import           Cardano.Wallet.API.V1.Swagger.Example (genExample)
 import           Cardano.Wallet.API.V1.Types (ErrNotEnoughMoney (..), V1 (..),
@@ -165,3 +166,12 @@ golden_JSONValidationError_JSONValidationFailed =
     goldenTestJSON
         (JSONValidationFailed "test")
             "test/golden/JSONValidationError_JSONValidationFailed"
+
+-------------------------------------------------------------------------------
+-- UnsupportedMimeTypeError
+-------------------------------------------------------------------------------
+golden_UnsupportedMimeTypeError_UnsupportedMimeTypePresent :: Property
+golden_UnsupportedMimeTypeError_UnsupportedMimeTypePresent =
+    goldenTestJSON
+        (UnsupportedMimeTypePresent "test")
+            "test/golden/UnsupportedMimeTypeError_UnsupportedMimeTypePresent"

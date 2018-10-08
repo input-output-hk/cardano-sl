@@ -21,10 +21,10 @@
 
 - We can force an NTP-check when getting node-info via the API (`?force_ntp_check` query flag) (CO-325)
 
-- The API provides an endpoint to retrieve basic statistics on the UTxO distribution of a wallet 
+- The API provides an endpoint to retrieve basic statistics on the UTxO distribution of a wallet
   (`/api/v1/wallets/{walletId}/statistics`). (CO-325)
 
-- cardano-sl exposes a new package `x509` with tooling for defining a PKI infrastructure from 
+- cardano-sl exposes a new package `x509` with tooling for defining a PKI infrastructure from
   pure Haskell. This is basically an export of the internals of the tool `cardano-sl-x509-generate` (CO-387)
 
 
@@ -50,8 +50,8 @@
 - **[API BREAKING CHANGE]** The behavior of `/api/v1/addresses/{address}` has been adjusted to reflect more accurately
   the meaning of ownership regarding addresses.
   The previous version of this endpoint failed with an HTTP error when the given address was unknown to the wallet.
-  This was misleading since an address that is unknown to the wallet may still belong to the wallet. To reflect this, 
-  the V1 endpoint does not fail anymore as it used to when an address is not recognised and returns instead a new field 
+  This was misleading since an address that is unknown to the wallet may still belong to the wallet. To reflect this,
+  the V1 endpoint does not fail anymore as it used to when an address is not recognised and returns instead a new field
   'is-ours' which indicates either that an address is ours, or that it is 'not-recognised'. (CBR-401)
 
 ### Improvements
@@ -62,12 +62,14 @@
 
 - Small refactor of wallet Errors implementation to be more maintainable (CBR-26)
 
-- Content-Type parser is now more lenient and accepts `application/json`, `application/json;charset=utf-8` and 
+- Content-Type parser is now more lenient and accepts `application/json`, `application/json;charset=utf-8` and
   no Content-Type at all (defaulting to `application/json`).
 
 - The codebase now relies on the package `cryptonite` (instead of `ed25519`) for Ed25519 implementation (CO-325)
 
 - **[API BREAKING CHANGE]** Improve diagnostic for `NotEnoughMoney` error (CBR-461)
+
+- When Content-Type's main MIME-type cannot fall back to 'application/json' then UnsupportedMimeTypeError is returned
 
 ### Specifications
 

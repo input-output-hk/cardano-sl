@@ -167,6 +167,7 @@ library
   ghc-options:         -Wall
 
   build-depends:       base
+                     , binary
                      , acid-state
                      , aeson
                      , aeson-options

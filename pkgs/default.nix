@@ -18051,6 +18051,7 @@ license = stdenv.lib.licenses.mit;
 , beam-migrate
 , beam-sqlite
 , bifunctors
+, binary
 , bytestring
 , cardano-crypto
 , cardano-sl
@@ -18176,6 +18177,7 @@ beam-core
 beam-migrate
 beam-sqlite
 bifunctors
+binary
 bytestring
 cardano-crypto
 cardano-sl

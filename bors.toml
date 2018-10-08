@@ -1,0 +1,18 @@
+status = [
+  # Hydra: Cardano SL build for Linux
+  "ci/hydra:serokell:cardano-sl:all-cardano-sl.x86_64-linux",
+
+  # Hydra: Wallet build for macOS
+  "ci/hydra:serokell:cardano-sl:daedalus-bridge.x86_64-darwin",
+
+  # Buildkite: stack2nix checks, etc.
+  "buildkite/cardano-sl",
+
+  # Windows: builds are too unreliable to use at present
+  # "continuous-integration/appveyor/branch",
+]
+timeout_sec = 7200
+required_approvals = 1
+cut_body_after = "## Type of change"
+delete_merged_branches = true
+block_labels = [ "DO NOT MERGE", "wip" ]

@@ -32,3 +32,8 @@
 
 ## Screenshots (if available)
 <!--- Upload a GIF, an asciinema video or an image demoing the feature -->
+
+## How to merge
+
+Send the message `bors r+` to merge this PR. For more information, see
+[`docs/how-to/bors.md`](https://github.com/input-output-hk/cardano-sl/blob/develop/docs/how-to/bors.md).

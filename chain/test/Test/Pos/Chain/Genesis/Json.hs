@@ -15,14 +15,14 @@ import           Test.Pos.Chain.Genesis.Example (exampleGenesisData0,
                      exampleGenesisProtocolConstants1,
                      exampleGenesisProtocolConstants2,
                      exampleStaticConfig_GCSpec0, exampleStaticConfig_GCSpec1,
-                     exampleStaticConfig_GCSpec2, exampleStaticConfig_GCSrc)
+                     exampleStaticConfig_GCSpec2)--, exampleStaticConfig_GCSrc)
 import           Test.Pos.Chain.Genesis.Gen (genGenesisAvvmBalances,
                      genGenesisData, genGenesisDelegation,
                      genGenesisInitializer, genGenesisProtocolConstants,
                      genStaticConfig)
 import           Test.Pos.Core.ExampleHelpers (feedPM, feedPMWithRequiresMagic)
 import           Test.Pos.Util.Golden (discoverGolden, eachOf,
-                     goldenTestCanonicalJSONDec, goldenTestJSON,
+                     goldenTestCanonicalJSONDec, --goldenTestJSON,
                      goldenTestJSONDec)
 import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonShow,
                      roundTripsCanonicalJSONShow)
@@ -52,13 +52,13 @@ golden_StaticConfig_GCSpec2Dec =
     goldenTestJSONDec
         exampleStaticConfig_GCSpec2
             "test/golden/json/StaticConfig_GCSpec2_Legacy_HasNetworkMagic"
-
+{-
 golden_StaticConfig_GCSrc :: Property
 golden_StaticConfig_GCSrc =
     goldenTestJSON
         exampleStaticConfig_GCSrc
             "test/golden/json/StaticConfig_GCSrc"
-
+-}
 roundTripStaticConfig :: Property
 roundTripStaticConfig =
     eachOf 100 (feedPM genStaticConfig) roundTripsAesonShow

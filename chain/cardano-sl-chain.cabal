@@ -275,7 +275,8 @@ test-suite chain-test
                        Test.Pos.Chain.Update.Gen
                        Test.Pos.Chain.Update.Json
 
-  build-depends:       base
+  build-depends:       aeson
+                     , base
                      , base16-bytestring
                      , bytestring
                      , cardano-crypto

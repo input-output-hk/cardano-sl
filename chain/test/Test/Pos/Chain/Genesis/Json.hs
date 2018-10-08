@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 module Test.Pos.Chain.Genesis.Json
        ( tests
@@ -6,8 +7,12 @@ module Test.Pos.Chain.Genesis.Json
 
 import           Universum
 
-import           Hedgehog (Property)
+import           Data.Aeson (eitherDecode)
+import qualified Data.ByteString.Lazy as LB
+import           Hedgehog (Property, assert, withTests)
 import qualified Hedgehog as H
+import           Hedgehog.Internal.Property (failWith)
+import           Pos.Chain.Genesis (StaticConfig)
 
 import           Test.Pos.Chain.Genesis.Example (exampleGenesisData0,
                      exampleGenesisData1, exampleGenesisData2,
@@ -15,15 +20,15 @@ import           Test.Pos.Chain.Genesis.Example (exampleGenesisData0,
                      exampleGenesisProtocolConstants1,
                      exampleGenesisProtocolConstants2,
                      exampleStaticConfig_GCSpec0, exampleStaticConfig_GCSpec1,
-                     exampleStaticConfig_GCSpec2)--, exampleStaticConfig_GCSrc)
+                     exampleStaticConfig_GCSpec2, exampleStaticConfig_GCSrc)
 import           Test.Pos.Chain.Genesis.Gen (genGenesisAvvmBalances,
                      genGenesisData, genGenesisDelegation,
                      genGenesisInitializer, genGenesisProtocolConstants,
                      genStaticConfig)
 import           Test.Pos.Core.ExampleHelpers (feedPM, feedPMWithRequiresMagic)
 import           Test.Pos.Util.Golden (discoverGolden, eachOf,
-                     goldenTestCanonicalJSONDec, --goldenTestJSON,
-                     goldenTestJSONDec)
+                     goldenTestCanonicalJSONDec, goldenTestJSONDec,
+                     goldenTestJSONPretty, goldenValueEquiv)
 import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonShow,
                      roundTripsCanonicalJSONShow)
 
@@ -52,16 +57,77 @@ golden_StaticConfig_GCSpec2Dec =
     goldenTestJSONDec
         exampleStaticConfig_GCSpec2
             "test/golden/json/StaticConfig_GCSpec2_Legacy_HasNetworkMagic"
-{-
+
 golden_StaticConfig_GCSrc :: Property
 golden_StaticConfig_GCSrc =
-    goldenTestJSON
+    goldenTestJSONPretty
         exampleStaticConfig_GCSrc
             "test/golden/json/StaticConfig_GCSrc"
--}
+
 roundTripStaticConfig :: Property
 roundTripStaticConfig =
     eachOf 100 (feedPM genStaticConfig) roundTripsAesonShow
+
+-- Pretty print format equivalence tests. The test reads and decodes the
+-- non-prettified JSON (from oldJson dir) and the prettified JSON
+-- (from json dir). If the decoding is successful the two values are compared.
+
+golden_prettyEquivalence_StaticConfig_GCSrc :: Property
+golden_prettyEquivalence_StaticConfig_GCSrc = withFrozenCallStack $ do
+    withTests 1 . H.property $ do
+        prettyJ <- liftIO $ LB.readFile "test/golden/json/StaticConfig_GCSrc"
+        oldJ <- liftIO $ LB.readFile "test/golden/oldJson/StaticConfig_GCSrc"
+        let equivTest = goldenValueEquiv
+                            (eitherDecode prettyJ :: Either String StaticConfig)
+                            (eitherDecode oldJ :: Either String StaticConfig)
+        case equivTest of
+            Left err    -> failWith Nothing $ "could not decode: " <> show err
+            Right bool' -> assert bool'
+
+golden_prettyEquivalence_StaticConfig_GCSrc0 :: Property
+golden_prettyEquivalence_StaticConfig_GCSrc0 = withFrozenCallStack $ do
+    withTests 1 . H.property $ do
+        prettyJ <- liftIO $ LB.readFile pFile
+        oldJ <- liftIO $ LB.readFile oFile
+        let equivTest = goldenValueEquiv
+                            (eitherDecode prettyJ :: Either String StaticConfig)
+                            (eitherDecode oldJ :: Either String StaticConfig)
+        case equivTest of
+            Left err    -> failWith Nothing $ "could not decode: " <> show err
+            Right bool' -> assert bool'
+   where
+      pFile = "test/golden/json/StaticConfig_GCSpec0_Legacy_HasNetworkMagic"
+      oFile = "test/golden/oldJson/StaticConfig_GCSpec0_Legacy_HasNetworkMagic"
+
+golden_prettyEquivalence_StaticConfig_GCSrc1 :: Property
+golden_prettyEquivalence_StaticConfig_GCSrc1 = withFrozenCallStack $ do
+    withTests 1 . H.property $ do
+        prettyJ <- liftIO $ LB.readFile pFile
+        oldJ <- liftIO $ LB.readFile oFile
+        let equivTest = goldenValueEquiv
+                            (eitherDecode prettyJ :: Either String StaticConfig)
+                            (eitherDecode oldJ :: Either String StaticConfig)
+        case equivTest of
+            Left err    -> failWith Nothing $ "could not decode: " <> show err
+            Right bool' -> assert bool'
+   where
+      pFile = "test/golden/json/StaticConfig_GCSpec1_Legacy_HasNetworkMagic"
+      oFile = "test/golden/oldJson/StaticConfig_GCSpec1_Legacy_HasNetworkMagic"
+
+golden_prettyEquivalence_StaticConfig_GCSrc2 :: Property
+golden_prettyEquivalence_StaticConfig_GCSrc2 = withFrozenCallStack $ do
+    withTests 1 . H.property $ do
+        prettyJ <- liftIO $ LB.readFile pFile
+        oldJ <- liftIO $ LB.readFile oFile
+        let equivTest = goldenValueEquiv
+                            (eitherDecode prettyJ :: Either String StaticConfig)
+                            (eitherDecode oldJ :: Either String StaticConfig)
+        case equivTest of
+            Left err    -> failWith Nothing $ "could not decode: " <> show err
+            Right bool' -> assert bool'
+   where
+      pFile = "test/golden/json/StaticConfig_GCSpec2_Legacy_HasNetworkMagic"
+      oFile = "test/golden/oldJson/StaticConfig_GCSpec2_Legacy_HasNetworkMagic"
 
 --------------------------------------------------------------------------------
 -- GenesisData (Canonical JSON)

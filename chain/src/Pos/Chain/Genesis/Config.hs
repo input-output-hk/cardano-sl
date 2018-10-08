@@ -98,10 +98,10 @@ instance ToJSON StaticConfig where
     toJSON (GCSpec value) = object ["spec" .= (toJSON value)]
 
     toEncoding (GCSrc gcsFile gcsHash) =
-        pairs $ mconcat [ "src" `pair`
-                              (pairs $ mconcat [ "file" .= gcsFile
-                                               , "hash" .= gcsHash
-                                               ])                   ]
+        pairs $ "src" `pair`
+            (pairs $ mconcat [ "file" .= gcsFile
+                             , "hash" .= gcsHash
+                             ])
     toEncoding (GCSpec value) = pairs $ pairStr "spec" (toEncoding value)
 
 instance FromJSON StaticConfig where

@@ -10,7 +10,7 @@ let
   };
 in
 { system ? builtins.currentSystem
-, config ? {}
+, config ? import ./config.nix
 , gitrev ? localLib.commitIdFromGitRepo ./.git
 , buildId ? null
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; overlays = [ jemallocOverlay ]; })
@@ -28,12 +28,6 @@ in
 with pkgs.lib;
 
 let
-  # the GHC we are using
-  # at some point use: pkgs.haskell.compiler.ghc843;
-  ghc = overrideDerivation pkgs.haskell.compiler.ghc822 (drv: {
-    patches = drv.patches ++ [ ./ghc-8.0.2-darwin-rec-link.patch ];
-  });
-
   # Overlay logic for *haskell* packages.
   recBreakerOverlay  = import ./nix/overlays/rec-breaker.nix  { inherit pkgs; };
   brokenTestsOverlay = import ./nix/overlays/broken-tests.nix { inherit pkgs; };
@@ -47,9 +41,7 @@ let
   metricOverlay      = import ./nix/overlays/metric.nix       { inherit pkgs; };
 
   # This will yield a set of haskell packages, based on the given compiler.
-  cardanoPkgsBase = ((import ./pkgs.nix { inherit pkgs localLib; }).override {
-    inherit ghc;
-  });
+  cardanoPkgsBase = import ./pkgs.nix { inherit pkgs localLib; };
 
   activeOverlays = [ requiredOverlay recBreakerOverlay brokenTestsOverlay dontHaddock ]
       ++ optional enablePhaseMetrics metricOverlay

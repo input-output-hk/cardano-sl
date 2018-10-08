@@ -6,7 +6,7 @@ in
   , cardano ? { outPath = ./.; rev = "abcdef"; }
   , fasterBuild ? false
   , nixpkgsArgs ? {
-      config = { allowUnfree = false; inHydra = true; };
+      config = (import ./config.nix // { allowUnfree = false; inHydra = true; });
       gitrev = cardano.rev;
       inherit fasterBuild;
     }

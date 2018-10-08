@@ -7,6 +7,10 @@ with pkgs.haskell.lib;
 # This file makes me very sad.
 #
 self: super: {
+  time = dontCheck super.time;
+  containers = dontCheck super.containers;
+  bytestring = dontCheck super.bytestring;
+  binary = dontCheck super.binary;
   # hspec -> HUnit -> call-stack -> nanospec -> hspec
   #   '-------------------^
   call-stack = dontCheck super.call-stack;
@@ -35,4 +39,6 @@ self: super: {
   servant-client = dontCheck super.servant-client;
   servant-server = dontCheck super.servant-server;
   system-filepath = dontCheck super.system-filepath;
+
+  vector-builder = dontCheck super.vector-builder;
 }

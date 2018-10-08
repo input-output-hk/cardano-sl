@@ -15,6 +15,8 @@ self: super: {
   attoparsec = dontCheck super.attoparsec;
   vector-algorithms = dontCheck super.vector-algorithms;
   HTF = dontCheck super.HTF;
+  # missing quickcheck-classes
+  ip = dontCheck super.ip;
 
   # doctest
   network = dontCheck super.network;
@@ -39,4 +41,7 @@ self: super: {
   fmt = dontCheck super.fmt;
   universum = dontCheck super.universum;
   ed25519 = dontCheck super.ed25519;
+  servant-swagger = dontCheck super.servant-swagger;
+  aeson-diff = dontCheck super.aeson-diff;
+  trifecta = dontCheck super.trifecta;
 }

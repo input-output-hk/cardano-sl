@@ -15,6 +15,7 @@
       "lens-sop" = hsPkgs.lens-sop."0.2.0.2";
       "lzma-clib" = hsPkgs.lzma-clib."5.2.2";
       "micro-recursion-schemes" = hsPkgs.micro-recursion-schemes."5.0.2.2";
+      "directory" = hsPkgs.directory."1.3.1.1";
       "happy" = hsPkgs.happy."1.19.5";
       "criterion" = hsPkgs.criterion."1.4.0.0";
       "katip" = hsPkgs.katip."0.5.5.1";

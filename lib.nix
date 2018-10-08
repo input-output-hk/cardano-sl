@@ -1,13 +1,13 @@
 let
   fixme = override: json: let
-    try = builtins.tryEval (builtins.findFile builtins.nixPath override);
-    cfg = builtins.fromJSON (builtins.readFile json);
-  in if try.success then
-    builtins.trace "using search host <${override}>" try.value
-  else
-    pkgs.fetchFromGitHub {
-      inherit (cfg) owner repo rev sha256;
-    };
+     try = builtins.tryEval (builtins.findFile builtins.nixPath override);
+     cfg = builtins.fromJSON (builtins.readFile json);
+   in if try.success then
+     builtins.trace "using search host <${override}>" try.value
+   else
+     pkgs.fetchFromGitHub {
+       inherit (cfg) owner repo rev sha256;
+     };
   # Allow overriding pinned nixpkgs for debugging purposes via cardano_pkgs
   fetchNixPkgs = let try = builtins.tryEval <cardano_pkgs>;
     in if try.success
@@ -17,6 +17,13 @@ let
   fetchHaskell = fixme "haskell" ./haskell.json;
   fetchHackage = fixme "hackage" ./hackage.json;
   fetchStackage = fixme "stackage" ./stackage.json;
+
+  maybeEnv = env: default:
+    let
+      result = builtins.getEnv env;
+    in if result != ""
+       then result
+       else default;
 
   # Removes files within a Haskell source tree which won't change the
   # result of building the package.
@@ -31,6 +38,7 @@ let
             # Filter out cabal build products.
             baseName == "dist" || baseName == "dist-newstyle" ||
             baseName == "cabal.project.local" ||
+            lib.hasPrefix ".ghc.environment" baseName ||
             # Filter out stack build products.
             lib.hasPrefix ".stack-work" baseName ||
             # Filter out files which are commonly edited but don't
@@ -43,7 +51,7 @@ let
   pkgs = import fetchNixPkgs {};
   lib = pkgs.lib;
 in lib // (rec {
-  inherit fetchNixPkgs fetchHaskell fetchHackage fetchStackage cleanSourceTree;
+  inherit fetchNixPkgs cleanSourceTree fetchHaskell fetchHackage fetchStackage;
   isCardanoSL = lib.hasPrefix "cardano-sl";
   isBenchmark = args: !((args.isExecutable or false) || (args.isLibrary or true));
 
@@ -53,4 +61,50 @@ in lib // (rec {
     export LC_ALL=en_GB.UTF-8
     export LANG=en_GB.UTF-8
   '';
+
+  # Blockchain networks and their configuration keys
+  environments = {
+    mainnet = {
+      attr = "mainnet";
+      relays = "relays.cardano-mainnet.iohk.io";
+      confKey = "mainnet_full";
+      private = false;
+    };
+    mainnet-staging = {
+      attr = "staging";
+      relays = "relays.awstest.iohkdev.io";
+      confKey = "mainnet_dryrun_full";
+      private = false;
+    };
+    testnet = {
+      attr = "testnet";
+      relays = "relays.cardano-testnet.iohkdev.io";
+      confKey = "testnet_full";
+      private = false;
+    };
+    demo = {
+      attr = "demo";
+      confKey = "dev";
+      relays = "127.0.0.1";
+      private = true;
+    };
+  };
+
+  # Generates an attrset for the three cardano-sl networks by applying
+  # the given function to each environment.
+  forEnvironments = f: lib.mapAttrs'
+    (name: env: lib.nameValuePair env.attr (f (env // { environment = name; })))
+    (lib.filterAttrs (name: env: !env.private) environments);
+
+  runHaskell = name: hspkgs: deps: env: code: let
+    ghc = hspkgs.ghcWithPackages deps;
+    builtBinary = pkgs.runCommand "${name}-binary" { buildInputs = [ ghc ]; } ''
+      mkdir -p $out/bin/
+      ghc ${pkgs.writeText "${name}.hs" code} -o $out/bin/${name}
+    '';
+  in pkgs.runCommand name env ''
+    ${builtBinary}/bin/$name
+  '';
+
+  commitIdFromGitRepo = import ./nix/commit-id.nix { inherit lib; };
 })

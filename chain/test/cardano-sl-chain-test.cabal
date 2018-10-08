@@ -20,6 +20,7 @@ library
                        Test.Pos.Chain.Delegation.Example
                        Test.Pos.Chain.Delegation.Gen
                        Test.Pos.Chain.Genesis.Arbitrary
+                       Test.Pos.Chain.Genesis.Example
                        Test.Pos.Chain.Genesis.Dummy
                        Test.Pos.Chain.Lrc.Arbitrary
                        Test.Pos.Chain.Ssc.Arbitrary
@@ -31,6 +32,7 @@ library
                        Test.Pos.Chain.Txp.Bi
                        Test.Pos.Chain.Txp.Example
                        Test.Pos.Chain.Txp.Gen
+                       Test.Pos.Chain.Txp.Json
                        Test.Pos.Chain.Update.Arbitrary
                        Test.Pos.Chain.Update.Example
                        Test.Pos.Chain.Update.Gen
@@ -49,6 +51,7 @@ library
                      , cardano-sl-util
                      , cardano-sl-util-test
                      , containers
+                     , cryptonite
                      , data-default
                      , formatting
                      , generic-arbitrary

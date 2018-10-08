@@ -27,6 +27,7 @@ library
 
   build-depends:       QuickCheck
                      , aeson
+                     , aeson-pretty
                      , attoparsec
                      , base
                      , base16-bytestring

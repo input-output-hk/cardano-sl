@@ -16,7 +16,7 @@ import           Pos.Chain.Txp (TxpConfiguration (..))
 import           Test.Pos.Chain.Txp.Gen (genTxpConfiguration)
 import           Test.Pos.Core.ExampleHelpers (exampleAddress, exampleAddress1,
                      exampleAddress2, exampleAddress3, exampleAddress4)
-import           Test.Pos.Util.Golden (discoverGolden, eachOf, goldenTestJSON)
+import           Test.Pos.Util.Golden (discoverGolden, eachOf, goldenTestJSONPretty)
 import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonShow)
 
 -------------------------------------------------------------------------------
@@ -25,17 +25,17 @@ import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonShow)
 
 golden_TxpConfiguration0 :: Property
 golden_TxpConfiguration0 =
-    goldenTestJSON exampleTxpConfiguration0
+    goldenTestJSONPretty exampleTxpConfiguration0
         "test/golden/json/TxpConfiguration0"
 
 golden_TxpConfiguration1 :: Property
 golden_TxpConfiguration1 =
-    goldenTestJSON exampleTxpConfiguration1
+    goldenTestJSONPretty exampleTxpConfiguration1
         "test/golden/json/TxpConfiguration1"
 
 golden_TxpConfiguration2 :: Property
 golden_TxpConfiguration2 =
-    goldenTestJSON exampleTxpConfiguration2
+    goldenTestJSONPretty exampleTxpConfiguration2
         "test/golden/json/TxpConfiguration2"
 
 roundTripTxpConfiguration :: Property

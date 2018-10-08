@@ -14,7 +14,8 @@ import           Pos.Chain.Security (AttackTarget (..))
 import           Pos.Crypto.Hashing (abstractHash)
 import           Pos.Crypto.Signing (PublicKey (..))
 import           Test.Pos.Chain.Ssc.Gen (genAttackTarget)
-import           Test.Pos.Util.Golden (discoverGolden, eachOf, goldenTestJSON)
+import           Test.Pos.Util.Golden (discoverGolden, eachOf,
+                     goldenTestJSONPretty)
 import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonShow)
 
 -------------------------------------------------------------------------------
@@ -22,16 +23,16 @@ import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonShow)
 -------------------------------------------------------------------------------
 golden_AttackTarget_NetworkAddressTarget :: Property
 golden_AttackTarget_NetworkAddressTarget =
-    goldenTestJSON exampleAttackTarget_NetworkAddressTarget
+    goldenTestJSONPretty exampleAttackTarget_NetworkAddressTarget
         "test/golden/AttackTarget_NetworkAddressTarget"
-  where
-    exampleAttackTarget_NetworkAddressTarget =
-        NetworkAddressTarget ("ggv", 32313)
+
+exampleAttackTarget_NetworkAddressTarget :: AttackTarget
+exampleAttackTarget_NetworkAddressTarget = NetworkAddressTarget ("ggv", 32313)
 
 
 golden_AttackTarget_PubKeyAddressTarget :: Property
 golden_AttackTarget_PubKeyAddressTarget =
-    goldenTestJSON exampleAttackTarget_PubKeyAddressTarget
+    goldenTestJSONPretty exampleAttackTarget_PubKeyAddressTarget
         "test/golden/AttackTarget_PubKeyAddressTarget"
 
 exampleAttackTarget_PubKeyAddressTarget :: AttackTarget

@@ -3,6 +3,7 @@ module Test.Pos.Util.Golden where
 import           Universum
 
 import           Data.Aeson (FromJSON, ToJSON, eitherDecode, encode)
+import           Data.Aeson.Encode.Pretty (encodePretty)
 import qualified Data.ByteString.Lazy as LB
 import           Data.FileEmbed (embedStringFile)
 import qualified Data.List as List
@@ -41,6 +42,16 @@ goldenTestJSON x path = withFrozenCallStack $ do
     withTests 1 . property $ do
         bs <- liftIO (LB.readFile path)
         encode x === bs
+        case eitherDecode bs of
+            Left err -> failWith Nothing $ "could not decode: " <> show err
+            Right x' -> x === x'
+
+goldenTestJSONPretty :: (Eq a, FromJSON a, HasCallStack, Show a, ToJSON a)
+               => a -> FilePath -> Property
+goldenTestJSONPretty x path = withFrozenCallStack $ do
+    withTests 1 . property $ do
+        bs <- liftIO (LB.readFile path)
+        encodePretty x === bs
         case eitherDecode bs of
             Left err -> failWith Nothing $ "could not decode: " <> show err
             Right x' -> x === x'

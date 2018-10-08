@@ -20,7 +20,7 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
 import           Data.SafeCopy (base, deriveSafeCopy)
 import qualified Data.Set as Set
-import           Formatting (bprint, build, (%))
+import           Formatting (bprint, build, sformat, (%))
 import qualified Formatting.Buildable
 
 import           Pos.Chain.Block (HeaderHash)
@@ -170,20 +170,34 @@ applyBlock pw@PassiveWallet{..} b = do
                                  <> "restoring " <> show rootId)
               restoreKnownWallet pw rootId
 
-          -- Beginning with the oldest missing block, update each lagging account.
-          let applyOne (block, toAccts) = runExceptT (applyOneBlock k (Just toAccts) block)
           case toApply of
               []       -> return () -- nothing to do!
-              (bk:bks) -> do
-                  failures <- mapM applyOne (getOldestFirst $ gatherAcctsPerBlock (bk :| bks))
+              (bk:bks) -> backfilling k $ gatherAcctsPerBlock (bk :| bks)
 
-                  case NEM.fromMap . Map.unions . map NEM.toMap . lefts $ failures of
-                      Nothing       -> return ()                         -- OK, no failures, we are done!
-                      Just moreErrs -> handleApplyBlockErrors k moreErrs -- Try again, better luck next time.
+      -- Beginning with the oldest missing block, update each lagging account.
+      backfilling :: Node.SecurityParameter
+                  -> OldestFirst [] (ResolvedBlock, Set HdAccountId)
+                  -> IO ()
+      backfilling k acctsPerBlock = do
+          _walletLogMessage Info $ "Wallet is behind node by "
+                                   <> (sformat build (length acctsPerBlock))
+                                   <> " blocks - begin backfilling..."
+
+          let applyOne (block, toAccts) = runExceptT $ applyOneBlock k (NE.nonEmpty (Set.toList toAccts)) block
+          failures <- mapM applyOne (getOldestFirst acctsPerBlock)
+
+          case NEM.fromMap . Map.unions . map NEM.toMap . lefts $ failures of
+              Nothing       -> do
+                  _walletLogMessage Info "Wallet has caught up with node"
+                  return ()
+              Just moreErrs -> do
+                  _walletLogMessage Warning $ "More failures during backfilling - trying to handle them now: "
+                                              <> (sformat build (Map.elems . NEM.toMap $ moreErrs))
+                  handleApplyBlockErrors k moreErrs -- Try again, better luck next time.
 
       -- Try to apply a single block, failing if it does not fit onto the most recent checkpoint.
       applyOneBlock :: Node.SecurityParameter
-                    -> Maybe (Set HdAccountId)
+                    -> Maybe (NE.NonEmpty HdAccountId)
                     -> ResolvedBlock
                     -> ExceptT (NonEmptyMap HdAccountId ApplyBlockFailed) IO ()
       applyOneBlock k accts b' = ExceptT $ do
@@ -264,8 +278,11 @@ applyBlock pw@PassiveWallet{..} b = do
 
             -- The accounts to update for each block in 'longest'.
             updateSets :: [Set HdAccountId]
-            updateSets = scanl' Set.union Set.empty
-                         $ map (\n -> Map.findWithDefault Set.empty n firstAppearedIn) [0..]
+            updateSets = drop 1 -- we're not interested in the first empty set returned by scanl'
+                         $ scanl' Set.union
+                                  Set.empty
+                                  (map (\n -> Map.findWithDefault Set.empty n firstAppearedIn) [0..])
+
         in OldestFirst $ zip (getOldestFirst longest) updateSets
 
 -- | Switch to a new fork

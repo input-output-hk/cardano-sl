@@ -53,6 +53,7 @@ import           Control.Lens ((.=))
 import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Except (MonadError, catchError)
 import           Data.Acid (Query, Update, makeAcidic)
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
 import           Data.SafeCopy (base, deriveSafeCopy)
 import qualified Data.Set as Set
@@ -239,7 +240,7 @@ cancelPending cancelled = void . runUpdate' . zoom dbHdWallets $
 --   need to push a new checkpoint.
 applyBlock :: SecurityParameter
            -> BlockContext
-           -> Maybe (Set HdAccountId)
+           -> Maybe (NE.NonEmpty HdAccountId) -- ^ optionally restrict accounts receiving the block
            -> Map HdAccountId PrefilteredBlock
            -> Update DB (Either (NonEmptyMap HdAccountId Spec.ApplyBlockFailed) (Map HdAccountId (Set TxId)))
 applyBlock k context restriction blocks = runUpdateDiscardSnapshot $ do
@@ -252,7 +253,7 @@ applyBlock k context restriction blocks = runUpdateDiscardSnapshot $ do
 
   where
     acctFilter :: HdAccountId -> Bool
-    acctFilter = maybe (const True) (flip elem) restriction
+    acctFilter = maybe (const True) (flip elem) (Set.fromList . NE.toList <$> restriction)
 
     mkUpdates :: IxSet HdAccount
               -> [AccountUpdate Void (Either Spec.ApplyBlockFailed (Set TxId))]

@@ -40,10 +40,15 @@ let
   dontCheckOverlay   = import ./nix/overlays/dont-check.nix   { inherit pkgs; };
   metricOverlay      = import ./nix/overlays/metric.nix       { inherit pkgs; };
 
+  flagsOverlay       = self: super: {
+    # this is so bananas.
+    cassava = super.cassava.override { flags = { bytestring--lt-0_10_4 = false; }; };
+  };
+
   # This will yield a set of haskell packages, based on the given compiler.
   cardanoPkgsBase = import ./pkgs.nix { inherit pkgs localLib; };
 
-  activeOverlays = [ requiredOverlay recBreakerOverlay brokenTestsOverlay dontHaddock ]
+  activeOverlays = [ requiredOverlay recBreakerOverlay brokenTestsOverlay dontHaddock flagsOverlay ]
       ++ optional enablePhaseMetrics metricOverlay
       ++ optional enableBenchmarks benchmarkOverlay
       ++ optional enableDebugging debugOverlay

@@ -41,4 +41,6 @@ self: super: {
   system-filepath = dontCheck super.system-filepath;
 
   vector-builder = dontCheck super.vector-builder;
+
+  http-streams = dontCheck super.http-streams;
 }

@@ -44,4 +44,17 @@ self: super: {
   servant-swagger = dontCheck super.servant-swagger;
   aeson-diff = dontCheck super.aeson-diff;
   trifecta = dontCheck super.trifecta;
+  bytes = dontCheck super.bytes;
+  heaps = dontCheck super.heaps;
+  intervals = dontCheck super.intervals;
+  loc = dontCheck super.loc;
+
+  # missing fgl-arbitrary
+  graphviz = dontCheck super.graphviz;
+
+  hspec-expectations-pretty-diff = dontCheck super.hspec-expectations-pretty-diff;
+  linear = dontCheck super.linear;
+  pipes-group = dontCheck super.pipes-group;
+
+  wai-cors = dontCheck super.wai-cors;
 }

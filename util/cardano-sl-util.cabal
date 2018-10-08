@@ -166,7 +166,9 @@ test-suite util-test
                      , base
                      , bytestring
                      , async
+                     , canonical-json
                      , cardano-sl-util
+                     , cereal
                      , directory
                      , file-embed
                      , filepath
@@ -176,6 +178,7 @@ test-suite util-test
                      , pretty-show
                      , QuickCheck
                      , quickcheck-instances
+                     , safecopy
                      , stm
                      , template-haskell
                      , text

@@ -38,6 +38,7 @@ module Test.Pos.Core.Gen
         , genSlotId
         , genTimeDiff
         , genTimestamp
+        , genTimestampRoundedToSecond
 
         -- Pos.Core.Attributes Generators
         , genAttributes
@@ -306,6 +307,12 @@ genTimeDiff = TimeDiff <$> genMicrosecond
 
 genTimestamp :: Gen Timestamp
 genTimestamp = Timestamp <$> genMicrosecond
+
+-- Microseconds are rounded to the nearest second when enc/decoded to/from
+-- JSON. So here we round to the nearest 10^6.
+genTimestampRoundedToSecond :: Gen Timestamp
+genTimestampRoundedToSecond =
+    Timestamp . (* 1000000) . (`rem` 1000000) <$> genMicrosecond
 
 ----------------------------------------------------------------------------
 -- Pos.Core.Attributes Generators

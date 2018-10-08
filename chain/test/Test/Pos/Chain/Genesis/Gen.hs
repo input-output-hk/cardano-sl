@@ -2,6 +2,7 @@ module Test.Pos.Chain.Genesis.Gen
        ( genGenesisHash
        , genFakeAvvmOptions
        , genGenesisAvvmBalances
+       , genGenesisData
        , genGenesisDelegation
        , genGenesisInitializer
        , genGenesisProtocolConstants
@@ -14,24 +15,32 @@ import           Universum
 
 import           Data.Coerce (coerce)
 import qualified Data.HashMap.Strict as HM
+import qualified Data.Map as M
 
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
 import           Pos.Chain.Genesis (FakeAvvmOptions (..),
-                     GenesisAvvmBalances (..), GenesisDelegation (..),
-                     GenesisHash (..), GenesisInitializer (..),
+                     GenesisAvvmBalances (..), GenesisData (..),
+                     GenesisDelegation (..), GenesisHash (..),
+                     GenesisInitializer (..), GenesisNonAvvmBalances (..),
                      GenesisProtocolConstants (..), GenesisSpec (..),
-                     StaticConfig (..), TestnetBalanceOptions (..),
-                     mkGenesisDelegation, mkGenesisSpec)
+                     GenesisWStakeholders (..), StaticConfig (..),
+                     TestnetBalanceOptions (..), mkGenesisDelegation,
+                     mkGenesisSpec)
+import           Pos.Core (TxFeePolicy (..))
 import           Pos.Crypto (ProtocolMagic)
 
 import           Test.Pos.Chain.Delegation.Gen (genProxySKHeavy)
-import           Test.Pos.Chain.Update.Gen (genBlockVersionData)
-import           Test.Pos.Core.Gen (genCoin, genCoinPortion, genHashRaw,
-                     genSharedSeed, genTextHash, genVssMaxTTL, genVssMinTTL)
-import           Test.Pos.Crypto.Gen (genProtocolMagic, genRedeemPublicKey)
+import           Test.Pos.Chain.Ssc.Gen (genVssCertificatesMap)
+import           Test.Pos.Chain.Update.Gen (genBlockVersionData,
+                     genBlockVersionDataByTxFP)
+import           Test.Pos.Core.Gen (genAddress, genCoin, genCoinPortion,
+                     genHashRaw, genSharedSeed, genStakeholderId, genTextHash,
+                     genTimestampRoundedToSecond, genTxSizeLinear,
+                     genVssMaxTTL, genVssMinTTL, genWord16)
+import           Test.Pos.Crypto.Gen (genRedeemPublicKey)
 
 genGenesisHash :: Gen GenesisHash
 genGenesisHash = do
@@ -52,6 +61,37 @@ genFakeAvvmOptions =
         <$> Gen.word Range.constantBounded
         <*> Gen.word64 Range.constantBounded
 
+genGenesisData :: ProtocolMagic -> Gen GenesisData
+genGenesisData pm =
+    GenesisData
+        <$> genGenesisWStakeholders
+        <*> genGenesisDelegation pm
+        <*> genTimestampRoundedToSecond
+        <*> genVssCertificatesMap pm
+        <*> genGenesisNonAvvmBalances
+        <*> genBlockVersionDataByTxFP genLinearTxFP
+        <*> genGenesisProtocolConstants pm
+        <*> genGenesisAvvmBalances
+        <*> genSharedSeed
+  where
+    -- @TxFeePolicy@s ToJSON instance crashes if we have a
+    -- TxFeePolicyUnknown value.
+    genLinearTxFP = TxFeePolicyTxSizeLinear <$> genTxSizeLinear
+
+genGenesisWStakeholders :: Gen GenesisWStakeholders
+genGenesisWStakeholders = do
+    mapSize <- Gen.int $ Range.linear 1 10
+    sids    <- Gen.list (Range.singleton mapSize) genStakeholderId
+    w16s    <- Gen.list (Range.singleton mapSize) genWord16
+    pure $ GenesisWStakeholders $ M.fromList $ zip sids w16s
+
+genGenesisNonAvvmBalances :: Gen GenesisNonAvvmBalances
+genGenesisNonAvvmBalances = do
+    hmSize    <- Gen.int $ Range.linear 1 10
+    addresses <- Gen.list (Range.singleton hmSize) genAddress
+    coins     <- Gen.list (Range.singleton hmSize) genCoin
+    pure $ GenesisNonAvvmBalances $ HM.fromList $ zip addresses coins
+
 genGenesisDelegation :: ProtocolMagic -> Gen (GenesisDelegation)
 genGenesisDelegation pm = do
     proxySKHeavyList <- Gen.list (Range.linear 1 10) $ genProxySKHeavy pm
@@ -68,11 +108,11 @@ genGenesisInitializer =
         <*> Gen.bool
         <*> Gen.integral (Range.constant 0 10)
 
-genGenesisProtocolConstants :: Gen GenesisProtocolConstants
-genGenesisProtocolConstants =
+genGenesisProtocolConstants :: ProtocolMagic -> Gen GenesisProtocolConstants
+genGenesisProtocolConstants pm =
     GenesisProtocolConstants
         <$> Gen.int (Range.constant 0 100)
-        <*> genProtocolMagic
+        <*> pure pm
         <*> genVssMaxTTL
         <*> genVssMinTTL
 
@@ -84,7 +124,7 @@ genGenesisSpec pm = mkGenSpec >>=  either (error . toText) pure
                       <*> genSharedSeed
                       <*> genGenesisDelegation pm
                       <*> genBlockVersionData
-                      <*> genGenesisProtocolConstants
+                      <*> genGenesisProtocolConstants pm
                       <*> genGenesisInitializer
 
 genTestnetBalanceOptions :: Gen TestnetBalanceOptions

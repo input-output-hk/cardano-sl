@@ -1,6 +1,8 @@
 module Test.Pos.Chain.Update.Example
        ( exampleBlockVersion
-       , exampleBlockVersionData
+       , exampleBlockVersionData0
+       , exampleBlockVersionData1
+       , exampleBlockVersionData2
        , exampleBlockVersionModifier
        , exampleSoftwareVersion
        , exampleSystemTag
@@ -43,8 +45,8 @@ import           Test.Pos.Crypto.Bi (getBytes)
 exampleBlockVersion :: BlockVersion
 exampleBlockVersion = BlockVersion 1 1 1
 
-exampleBlockVersionData :: BlockVersionData
-exampleBlockVersionData = BlockVersionData
+exampleBlockVersionData0 :: BlockVersionData
+exampleBlockVersionData0 = BlockVersionData
                               (999 :: ScriptVersion)
                               (999 :: Millisecond)
                               (999 :: Byte)
@@ -64,6 +66,86 @@ exampleBlockVersionData = BlockVersionData
         c1' = Coeff (MkFixed 999)
         c2' = Coeff (MkFixed 77)
         sfrule = (SoftforkRule (CoinPortion 99) (CoinPortion 99) (CoinPortion 99))
+
+exampleBlockVersionData1 :: BlockVersionData
+exampleBlockVersionData1 = BlockVersionData
+    { bvdScriptVersion = 56903
+    , bvdSlotDuration = 379 :: Millisecond
+    , bvdMaxBlockSize = 0 :: Byte
+    , bvdMaxHeaderSize = 2 :: Byte
+    , bvdMaxTxSize = 8 :: Byte
+    , bvdMaxProposalSize = 0 :: Byte
+    , bvdMpcThd = CoinPortion
+        { getCoinPortion = 340531572846619
+        }
+    , bvdHeavyDelThd = CoinPortion
+        { getCoinPortion = 136666896062087
+        }
+    , bvdUpdateVoteThd = CoinPortion
+        { getCoinPortion = 6813701006338
+        }
+    , bvdUpdateProposalThd = CoinPortion
+        { getCoinPortion = 497008830503149
+        }
+    , bvdUpdateImplicit = 6473853538638325423
+    , bvdSoftforkRule = SoftforkRule
+        { srInitThd = CoinPortion
+            { getCoinPortion = 960317883358477
+            }
+        , srMinThd = CoinPortion
+            { getCoinPortion = 532535816427207
+            }
+        , srThdDecrement = CoinPortion
+            { getCoinPortion = 329013992078399
+            }
+        }
+    , bvdTxFeePolicy =
+        TxFeePolicyTxSizeLinear $
+        TxSizeLinear (Coeff $ MkFixed 172) (Coeff $ MkFixed 8)
+    , bvdUnlockStakeEpoch = EpochIndex
+        { getEpochIndex = 13346688070232230243
+        }
+    }
+
+exampleBlockVersionData2 :: BlockVersionData
+exampleBlockVersionData2 = BlockVersionData
+    { bvdScriptVersion = 9061
+    , bvdSlotDuration = 734 :: Millisecond
+    , bvdMaxBlockSize = 4 :: Byte
+    , bvdMaxHeaderSize = 5 :: Byte
+    , bvdMaxTxSize = 6 :: Byte
+    , bvdMaxProposalSize = 0 :: Byte
+    , bvdMpcThd = CoinPortion
+        { getCoinPortion = 236107662480767
+        }
+    , bvdHeavyDelThd = CoinPortion
+        { getCoinPortion = 433334544134126
+        }
+    , bvdUpdateVoteThd = CoinPortion
+        { getCoinPortion = 934785458282543
+        }
+    , bvdUpdateProposalThd = CoinPortion
+        { getCoinPortion = 642506074573997
+        }
+    , bvdUpdateImplicit = 13112058965239099249
+    , bvdSoftforkRule = SoftforkRule
+        { srInitThd = CoinPortion
+            { getCoinPortion = 46944805160625
+            }
+        , srMinThd = CoinPortion
+            { getCoinPortion = 195823507728266
+            }
+        , srThdDecrement = CoinPortion
+            { getCoinPortion = 747866672432320
+            }
+        }
+    , bvdTxFeePolicy =
+        TxFeePolicyTxSizeLinear $
+        TxSizeLinear (Coeff $ MkFixed 31) (Coeff $ MkFixed 84)
+    , bvdUnlockStakeEpoch = EpochIndex
+        { getEpochIndex = 3647707432224754741
+        }
+    }
 
 exampleBlockVersionModifier :: BlockVersionModifier
 exampleBlockVersionModifier = BlockVersionModifier

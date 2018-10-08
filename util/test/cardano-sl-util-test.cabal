@@ -31,7 +31,9 @@ library
                      , base
                      , base16-bytestring
                      , bytestring
+                     , canonical-json
                      , cardano-sl-util
+                     , cereal
                      , cryptonite
                      , directory
                      , file-embed
@@ -42,6 +44,7 @@ library
                      , mtl
                      , pretty-show
                      , quickcheck-instances
+                     , safecopy
                      , tagged
                      , template-haskell
                      , text

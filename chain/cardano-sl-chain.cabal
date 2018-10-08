@@ -289,6 +289,7 @@ test-suite chain-test
                      , cardano-sl-util
                      , cardano-sl-util-test
                      , containers
+                     , cryptonite
                      , data-default
                      , fmt
                      , formatting

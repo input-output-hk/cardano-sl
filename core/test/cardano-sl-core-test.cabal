@@ -23,6 +23,7 @@ library
                        Test.Pos.Core.Arbitrary.Unsafe
                        Test.Pos.Core.Arbitrary.Slotting
                        Test.Pos.Core.Json
+                       Test.Pos.Core.SafeCopy
 
   build-depends:       QuickCheck
                      , base

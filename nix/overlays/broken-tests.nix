@@ -57,4 +57,7 @@ self: super: {
   pipes-group = dontCheck super.pipes-group;
 
   wai-cors = dontCheck super.wai-cors;
+
+  # https://hydra.iohk.io/build/272394/nixlog/1
+  mockery = dontCheck super.mockery;
 }

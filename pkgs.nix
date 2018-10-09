@@ -1,5 +1,4 @@
 { pkgs ? import <nixpkgs> {}
-, localLib
 }:
 let
   overrideWith = override: default:
@@ -34,7 +33,7 @@ let
                                              sha256 = "08z92icwsh58ha0kslr1f0n5qyg5zdyp7kbhby0b619awp9acwh3"; }))
                     { inherit pkgs hackage haskell; };
   # our packages
-  stack-pkgs = import ./stack-pkgs.nix;
+  stack-pkgs = import ./nix/stack-pkgs.nix;
 
   # pick the repsective stackage version here
   # and augment them with out packages

@@ -46,7 +46,7 @@ let
   };
 
   # This will yield a set of haskell packages, based on the given compiler.
-  cardanoPkgsBase = import ./pkgs.nix { inherit pkgs localLib; };
+  cardanoPkgsBase = import ./pkgs.nix { inherit pkgs; };
 
   activeOverlays = [ requiredOverlay recBreakerOverlay brokenTestsOverlay dontHaddock flagsOverlay ]
       ++ optional enablePhaseMetrics metricOverlay

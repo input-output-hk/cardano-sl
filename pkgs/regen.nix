@@ -39,4 +39,9 @@ in
     # Generate cardano-sl package set
     stack2nix --platform x86_64-linux --hackage-snapshot "${hackageSnapshot}" -j8 --test --bench --no-indent ./.. > default.nix.new
     mv default.nix.new default.nix
+
+    # Generate cabal new-freeze file from package set
+    cp --remove-destination --no-preserve=mode \
+        $(nix-build ../shell.nix -A cabalProjectFreeze --no-out-link) \
+        ../cabal.project.freeze
   ''

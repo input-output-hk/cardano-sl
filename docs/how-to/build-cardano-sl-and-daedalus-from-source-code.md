@@ -186,24 +186,18 @@ Enter the `nix-shell`:
 
     [nix-shell:~/cardano-sl]$ nix-shell
 
-Let cabal find its dependencies (already provided by the `nix-shell`):
-
-    [nix-shell:~/cardano-sl]$ cabal new-configure
-
-After that, to build all cardano-sl packages:
+Then build all cardano-sl packages:
 
     [nix-shell:~/cardano-sl]$ cabal new-build all
+
+All dependencies necessary for the Cabal build are provided by the
+`nix-shell`. The package versions are pinned in the
+`cabal.project.freeze` file, which is automatically generated from
+`stack.yaml` (via `stack2nix`).
 
 To start a GHCi session for a component (wallet-new for example), run:
 
     [nix-shell:~/cardano-sl]$ cabal new-repl cardano-sl-wallet-new
-
-### Known issues
-
- - `cabal-install` is not provided by the Nix shell environment. You
-   have to install it yourself.
- - There needs to be a package version override in `cabal.project` for
-   some unknown reason.
 
 
 ## Daedalus Wallet

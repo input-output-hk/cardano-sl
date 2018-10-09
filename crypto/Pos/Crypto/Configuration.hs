@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Pos.Crypto.Configuration
        ( ProtocolMagic (..)
        , ProtocolMagicId (..)
@@ -45,7 +47,9 @@ instance A.ToJSON RequiresNetworkMagic where
 instance A.FromJSON RequiresNetworkMagic where
     parseJSON = A.withText "requiresNetworkMagic" $ toAesonError . \case
         "RequiresNoMagic" -> Right RequiresNoMagic
-        "RequiresMagic"    -> Right RequiresMagic
+        "RequiresMagic"   -> Right RequiresMagic
+        "NMMustBeNothing" -> Right RequiresNoMagic
+        "NMMustBeJust"    -> Right RequiresMagic
         other   -> Left ("invalid value " <> show other <>
                          ", acceptable values are RequiresNoMagic | RequiresMagic")
 
@@ -105,7 +109,7 @@ instance A.FromJSON ProtocolMagic where
     parseJSON (A.Object o) = ProtocolMagic
         <$> (ProtocolMagicId <$> o .: "pm")
         <*> o .: "requiresNetworkMagic"
-    parseJSON invalid = typeMismatch "Coord" invalid
+    parseJSON invalid = typeMismatch "ProtocolMagic" invalid
 
 -- Canonical JSON instances
 instance Monad m => ToJSON m ProtocolMagic where

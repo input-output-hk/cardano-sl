@@ -10,4 +10,7 @@ self: super: {
   bytestring-builder = dontHaddock super.bytestring-builder;
   fail = dontHaddock super.fail;
   nats = dontHaddock super.nats;
+
+  # https://hydra.iohk.io/build/273445/nixlog/1
+  cardano-sl-utxo = dontHaddock super.cardano-sl-utxo;
 }

@@ -60,4 +60,7 @@ self: super: {
 
   # https://hydra.iohk.io/build/272394/nixlog/1
   mockery = dontCheck super.mockery;
+
+  # Use --quickcheck-replay=923601 to reproduce.
+  diagrams-solve = dontCheck super.diagrams-solve;
 }

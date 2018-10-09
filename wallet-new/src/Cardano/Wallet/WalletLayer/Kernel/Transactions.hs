@@ -115,13 +115,13 @@ castFilterOrd pr = case pr of
 
 metaToTx :: Monad m => Kernel.DB -> SlotCount -> SlotId -> TxMeta -> ExceptT HD.UnknownHdAccount m V1.Transaction
 metaToTx db slotCount current TxMeta{..} = do
-    mSlot          <- withExceptT identity $ exceptT $
+    mSlotwithState <- withExceptT identity $ exceptT $
                         Kernel.currentTxSlotId db _txMetaId hdAccountId
     isPending      <- withExceptT identity $ exceptT $
                         Kernel.currentTxIsPending db _txMetaId hdAccountId
     assuranceLevel <- withExceptT HD.embedUnknownHdRoot $ exceptT $
                         Kernel.rootAssuranceLevel db hdRootId
-    let (status, confirmations) = buildDynamicTxMeta assuranceLevel slotCount mSlot current isPending
+    let (status, confirmations) = buildDynamicTxMeta assuranceLevel slotCount mSlotwithState current isPending
     return V1.Transaction {
         txId = V1 _txMetaId,
         txConfirmations = fromIntegral confirmations,
@@ -143,19 +143,23 @@ metaToTx db slotCount current TxMeta{..} = do
             outputsToPayDistr :: (Address, Coin) -> V1.PaymentDistribution
             outputsToPayDistr (addr, c) = V1.PaymentDistribution (V1 addr) (V1 c)
 
-buildDynamicTxMeta :: HD.AssuranceLevel -> SlotCount -> Maybe SlotId -> SlotId -> Bool -> (V1.TransactionStatus, Word64)
-buildDynamicTxMeta assuranceLevel slotCount mSlot currentSlot isPending = case isPending of
-    True  -> (V1.Applying, 0)
-    False ->
-        case mSlot of
-        Nothing     -> (V1.WontApply, 0)
-        Just confirmedIn ->
-            let currentSlot'  = flattenSlotId slotCount currentSlot
-                confirmedIn'  = flattenSlotId slotCount confirmedIn
+buildDynamicTxMeta :: HD.AssuranceLevel -> SlotCount -> HD.CombinedWithAccountState (Maybe SlotId) -> SlotId -> Bool -> (V1.TransactionStatus, Word64)
+buildDynamicTxMeta assuranceLevel slotCount mSlotwithState currentSlot isPending =
+    let currentSlot' = flattenSlotId slotCount currentSlot
+        goWithSlot confirmedIn =
+            let confirmedIn'  = flattenSlotId slotCount confirmedIn
                 confirmations = currentSlot' - confirmedIn'
             in case (confirmations < getBlockCount (HD.assuredBlockDepth assuranceLevel)) of
-               True  -> (V1.InNewestBlocks, confirmations)
-               False -> (V1.Persisted, confirmations)
+                True  -> (V1.InNewestBlocks, confirmations)
+                False -> (V1.Persisted, confirmations)
+    in case isPending of
+        True  -> (V1.Applying, 0)
+        False ->
+            case mSlotwithState of
+                HD.UpToDate Nothing     -> (V1.WontApply, 0)
+                HD.Incomplete Nothing   -> (V1.Applying, 0)  -- during restoration, we report txs not found yet as Applying.
+                HD.UpToDate (Just sl)   -> goWithSlot sl
+                HD.Incomplete (Just sl) -> goWithSlot sl
 
 -- | We don`t fitler in memory, so totalEntries is unknown, unless TxMeta Database counts them for us.
 -- It is possible due to some error, to have length ls < Page.

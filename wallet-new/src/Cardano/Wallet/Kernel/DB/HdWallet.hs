@@ -27,6 +27,8 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
   , HdAccountState(..)
   , HdAccountUpToDate(..)
   , HdAccountIncomplete(..)
+  , WithAccountState(..)
+  , CombinedWithAccountState
   , finishRestoration
     -- ** Initialiser
   , initHdWallets
@@ -81,6 +83,7 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
   , matchHdAccountState
   , zoomHdAccountCheckpoints
   , zoomHdAccountCurrent
+  , zoomHdAccountCurrentCombine
   , matchHdAccountCheckpoints
     -- * Zoom variations that create on request
   , zoomOrCreateHdRoot
@@ -380,6 +383,11 @@ data HdAccountIncomplete = HdAccountIncomplete {
 
 makeLenses ''HdAccountUpToDate
 makeLenses ''HdAccountIncomplete
+
+data WithAccountState a b = UpToDate a | Incomplete b
+
+type CombinedWithAccountState a = WithAccountState a a
+
 
 -- | Restoration is complete when we have all historical checkpoints
 --
@@ -686,12 +694,35 @@ zoomHdAccountCheckpoints :: CanZoom f
                          -> f e HdAccount a
 zoomHdAccountCheckpoints upd = matchHdAccountCheckpoints upd upd
 
+-- | Zoom to the current checkpoints of the wallet. If the account is under
+--   restoration we combine the current historical and partial checkpoint.
+zoomHdAccountCheckpointsCombine :: CanZoom f
+                                => (a -> a -> a)
+                                -> (   forall c. IsCheckpoint c
+                                    => f e (Checkpoints c) a )
+                                -> f e HdAccount (CombinedWithAccountState a)
+zoomHdAccountCheckpointsCombine combine upd =
+    matchHdAccountCheckpointsCombine combine upd upd
+
 -- | Zoom to the most recent checkpoint
 zoomHdAccountCurrent :: CanZoom f
                      => (forall c. IsCheckpoint c => f e c a)
                      -> f e HdAccount a
 zoomHdAccountCurrent upd = withZoomableConstraints $
     zoomHdAccountCheckpoints $
+      Z.wrap $ \cps -> do
+        let l :: Lens' (Checkpoints c) c
+            l = unCheckpoints . _Wrapped . SNE.head
+        second (\cp' -> cps & l .~ cp') $ Z.unwrap upd (cps ^. l)
+
+-- | Zoom to the most recent checkpoint. If the account is under
+--   restoration we combine the current historical and partial checkpoint.
+zoomHdAccountCurrentCombine :: CanZoom f
+                          => (a -> a -> a)
+                          -> (forall c. IsCheckpoint c => f e c a)
+                          -> f e HdAccount (CombinedWithAccountState a)
+zoomHdAccountCurrentCombine combine upd = withZoomableConstraints $
+    zoomHdAccountCheckpointsCombine combine $
       Z.wrap $ \cps -> do
         let l :: Lens' (Checkpoints c) c
             l = unCheckpoints . _Wrapped . SNE.head
@@ -708,6 +739,22 @@ matchHdAccountCheckpoints updFull updPartial =
     matchHdAccountState
       (zoom hdUpToDateCheckpoints updFull)
       (zoom hdIncompleteCurrent   updPartial)
+
+-- | Like matchHdAccountCheckpoints, but if also returns the state and if
+--   the account is under restoration we combine the current historical
+--   and partial checkpoint.
+matchHdAccountCheckpointsCombine :: CanZoom f
+                               => (a -> a -> a)
+                               -> f e (Checkpoints Checkpoint)        a
+                               -> f e (Checkpoints PartialCheckpoint) a
+                               -> f e HdAccount (CombinedWithAccountState a)
+matchHdAccountCheckpointsCombine combine updFull updPartial =
+    matchHdAccountState
+      (withZoomableConstraints $
+          UpToDate <$> zoom hdUpToDateCheckpoints updFull)
+      (withZoomableConstraints $
+          Incomplete <$> (combine <$> zoom hdIncompleteCurrent updPartial
+                                  <*> zoom hdIncompleteHistorical updFull))
 
 {-------------------------------------------------------------------------------
   Zoom to parts of the wallet, creating them if they don't exist

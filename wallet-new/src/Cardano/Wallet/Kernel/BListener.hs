@@ -179,17 +179,16 @@ applyBlock pw@PassiveWallet{..} b = do
                   -> OldestFirst [] (ResolvedBlock, Set HdAccountId)
                   -> IO ()
       backfilling k acctsPerBlock = do
-          _walletLogMessage Info $ "Wallet is behind node by "
-                                   <> (sformat build (length acctsPerBlock))
-                                   <> " blocks - begin backfilling..."
+          _walletLogMessage Warning $ "Wallet is behind node by "
+                                    <> (sformat build (length acctsPerBlock))
+                                    <> " blocks - begin backfilling..."
 
           let applyOne (block, toAccts) = runExceptT $ applyOneBlock k (NE.nonEmpty (Set.toList toAccts)) block
           failures <- mapM applyOne (getOldestFirst acctsPerBlock)
 
           case NEM.fromMap . Map.unions . map NEM.toMap . lefts $ failures of
-              Nothing       -> do
+              Nothing ->
                   _walletLogMessage Info "Wallet has caught up with node"
-                  return ()
               Just moreErrs -> do
                   _walletLogMessage Warning $ "More failures during backfilling - trying to handle them now: "
                                               <> (sformat build (Map.elems . NEM.toMap $ moreErrs))

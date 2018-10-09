@@ -163,11 +163,24 @@ library
                        Cardano.Wallet.WalletLayer.Kernel.Wallets
                        Cardano.Wallet.WalletLayer.Kernel
 
+                       Cardano.Wallet.Compatibility.ClientTypes
+                       Cardano.Wallet.Compatibility.ClientTypes.Functions
+                       Cardano.Wallet.Compatibility.ClientTypes.Instances
+                       Cardano.Wallet.Compatibility.ClientTypes.Types
+                       Cardano.Wallet.Compatibility.State.State
+                       Cardano.Wallet.Compatibility.State.Acidic
+                       Cardano.Wallet.Compatibility.State.Storage
+                       Cardano.Wallet.Compatibility.State.Transactions
+                       Cardano.Wallet.Compatibility.State.Util
+                       Cardano.Wallet.Compatibility.Pending.Types
+                       Cardano.Wallet.Compatibility.Pending.Util
+
   other-modules:       Paths_cardano_sl_wallet_new
   ghc-options:         -Wall
 
   build-depends:       base
                      , acid-state
+                     , acid-state-exts
                      , aeson
                      , aeson-options
                      , aeson-pretty
@@ -209,6 +222,7 @@ library
                      , formatting
                      , filepath
                      , generics-sop
+                     , hashable
                      , http-api-data
                      , http-client
                      , http-client-tls
@@ -237,6 +251,7 @@ library
                      , servant-swagger-ui
                      , servant-swagger-ui-core
                      , servant-swagger-ui-redoc
+                     , servant-multipart
                      , sqlite-simple
                      , sqlite-simple-errors
                      , stm

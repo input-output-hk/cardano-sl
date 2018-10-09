@@ -29,15 +29,15 @@ let
   stackage = import (overrideWith "stackage"
                      (pkgs.fetchFromGitHub { owner  = "angerman";
                                              repo   = "stackage.nix";
-                                             rev    = "01a2d822f32c64c271121da32864aa2d10350c22";
-                                             sha256 = "08z92icwsh58ha0kslr1f0n5qyg5zdyp7kbhby0b619awp9acwh3"; }))
+                                             rev    = "385609120d6f20a67f79e5120a93b4524d8c8862";
+                                             sha256 = "1l3k5qpbj6w2mg6rgmg0af2jk0bq1wwrijrn66grbw7kbbi4h9nx"; }))
                     { inherit pkgs hackage haskell; };
   # our packages
   stack-pkgs = import ./nix/stack-pkgs.nix;
 
   # pick the repsective stackage version here
   # and augment them with out packages
-  stackPackages = stackage.lts-11_13 {
+  stackPackages = stackage.${stack-pkgs.resolver} {
     extraDeps = hsPkgs: (stack-pkgs.extraDeps hsPkgs
                       // stack-pkgs.packages  hsPkgs); };
 in stackPackages

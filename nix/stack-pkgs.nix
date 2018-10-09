@@ -103,4 +103,5 @@
       universum = ./.stack.nix/universum.nix;
       serokell-util = ./.stack.nix/serokell-util.nix;
     };
+  resolver = "lts-11.13";
 }

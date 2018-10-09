@@ -104,7 +104,7 @@ currentAvailableBalance = liftHd1 HD.currentAvailableBalance
 currentAddressMeta :: DB -> HdAddress -> Either UnknownHdAccount AddressMeta
 currentAddressMeta = liftHd1 HD.currentAddressMeta
 
-currentTxSlotId :: DB -> TxId -> HdAccountId -> Either UnknownHdAccount (Maybe SlotId)
+currentTxSlotId :: DB -> TxId -> HdAccountId -> Either UnknownHdAccount (CombinedWithAccountState (Maybe SlotId))
 currentTxSlotId = liftHd2 HD.currentTxSlotId
 
 currentTxIsPending :: DB -> TxId -> HdAccountId -> Either UnknownHdAccount Bool

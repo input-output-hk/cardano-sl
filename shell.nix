@@ -1,27 +1,18 @@
-let
-  localLib = import ./lib.nix;
-  jemallocOverlay = self: super: {
-    # jemalloc has a bug that caused cardano-sl-db to fail to link (via
-    # rocksdb, which can use jemalloc).
-    # https://github.com/jemalloc/jemalloc/issues/937
-    # Using jemalloc 510 with the --disable-initial-exec-tls flag seems to
-    # fix it.
-    jemalloc = self.callPackage ./nix/jemalloc/jemalloc510.nix {};
-  };
-in
 { system ? builtins.currentSystem
 , config ? {}
-, pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; overlays = [ jemallocOverlay ]; })
-, cardanoPkgs ? import ./. {inherit config system pkgs; }
+, iohkPkgs ? import ./. {inherit config system; }
+, pkgs ? iohkPkgs.pkgs
 }:
 with pkgs;
 let
+  localLib = import ./lib.nix;
+
   getCardanoSLDeps = with lib;
     ps: filter (drv: !(localLib.isCardanoSL drv.name))
     (concatMap haskell.lib.getHaskellBuildInputs
      (attrValues (filterAttrs isWantedDep ps)));
   isWantedDep = name: drv: localLib.isCardanoSL name && !(drv ? "gitrev");
-  ghc = cardanoPkgs.ghc.withPackages getCardanoSLDeps;
+  ghc = iohkPkgs.ghc.withPackages getCardanoSLDeps;
 
   stackDeps = [
     zlib openssh autoreconfHook openssl
@@ -29,7 +20,7 @@ let
     perl bash
   ];
   # TODO: add cabal-install (2.0.0.1 won't work)
-  devTools = [ hlint cardanoPkgs.stylish-haskell ];
+  devTools = [ hlint iohkPkgs.stylish-haskell ];
 
   cardanoSL = haskell.lib.buildStackProject {
     inherit ghc;
@@ -52,7 +43,7 @@ let
 
   fixStylishHaskell = stdenv.mkDerivation {
     name = "fix-stylish-haskell";
-    buildInputs = [ cardanoPkgs.stylish-haskell git ];
+    buildInputs = [ iohkPkgs.stylish-haskell git ];
     shellHook = ''
       git diff > pre-stylish.diff
       find . -type f -not -path '.git' -not -path '*.stack-work*' -name "*.hs" -not -name 'HLint.hs' -exec stylish-haskell -i {} \;

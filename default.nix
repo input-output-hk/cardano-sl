@@ -137,7 +137,7 @@ let
       };
     in localLib.forEnvironments mkTest;
 
-    shell = import ./shell.nix { inherit system config pkgs cardanoPkgs; };
+    shell = import ./shell.nix { inherit system config pkgs; iohkPkgs = cardanoPkgs; };
 
     cardano-sl-config = pkgs.runCommand "cardano-sl-config" {} ''
       mkdir -p $out/lib

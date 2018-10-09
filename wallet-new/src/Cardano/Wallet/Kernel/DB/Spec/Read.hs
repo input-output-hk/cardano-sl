@@ -56,9 +56,7 @@ cpAvailableBalance :: IsCheckpoint c => c -> Core.Coin
 cpAvailableBalance c =
     fromMaybe subCoinErr balance'
   where
-    pendingIns   = Set.union
-        (Pending.txIns $ c ^. cpPending)
-        (Pending.txIns $ c ^. cpForeign)
+    pendingIns   = Pending.txIns $ c ^. cpPending
     spentUtxo    = Core.utxoRestrictToInputs (c ^. cpUtxo) pendingIns
     spentBalance = Core.unsafeIntegerToCoin $ Core.utxoBalance spentUtxo
     balance'     = Core.subCoin (c ^. cpUtxoBalance) spentBalance

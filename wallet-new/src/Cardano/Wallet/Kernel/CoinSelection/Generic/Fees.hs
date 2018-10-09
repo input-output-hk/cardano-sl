@@ -41,7 +41,7 @@ data FeeOptions dom = FeeOptions {
 adjustForFees :: forall utxo m. (CoinSelDom (Dom utxo), Monad m)
               => FeeOptions (Dom utxo)
               -> (Value (Dom utxo) ->
-                   CoinSelT utxo CoinSelHardErr m (UtxoEntry (Dom utxo)))
+                   CoinSelT utxo CoinSelHardErr m (Maybe (UtxoEntry (Dom utxo))))
               -> [CoinSelResult (Dom utxo)]
               -> CoinSelT utxo CoinSelHardErr m
                    ([CoinSelResult (Dom utxo)], SelectedUtxo (Dom utxo))
@@ -81,7 +81,7 @@ receiverPaysFee totalFee =
 
 senderPaysFee :: (Monad m, CoinSelDom (Dom utxo))
               => (Value (Dom utxo) ->
-                   CoinSelT utxo CoinSelHardErr m (UtxoEntry (Dom utxo)))
+                   CoinSelT utxo CoinSelHardErr m (Maybe (UtxoEntry (Dom utxo))))
               -> Fee (Dom utxo)
               -> [CoinSelResult (Dom utxo)]
               -> CoinSelT utxo CoinSelHardErr m
@@ -91,25 +91,18 @@ senderPaysFee pickUtxo totalFee css = do
     (css', ) <$> coverRemainingFee pickUtxo remainingFee
 
 coverRemainingFee :: forall utxo m. (Monad m, CoinSelDom (Dom utxo))
-                  => (Value (Dom utxo) -> CoinSelT utxo CoinSelHardErr m (UtxoEntry (Dom utxo)))
+                  => (Value (Dom utxo) -> CoinSelT utxo CoinSelHardErr m (Maybe (UtxoEntry (Dom utxo))))
                   -> Fee (Dom utxo)
                   -> CoinSelT utxo CoinSelHardErr m (SelectedUtxo (Dom utxo))
 coverRemainingFee pickUtxo fee = go emptySelection
   where
-    -- | In this context, @CoinSelHardErrUtxoDepleted@ might be thrown by
-    -- `pickUtxo` as we iterate which here means that we are running out of
-    -- UTxOs to cover the fee, and therefore, remap the error accordingly.
-    remapUtxoDepleted :: CoinSelHardErr -> CoinSelHardErr
-    remapUtxoDepleted CoinSelHardErrUtxoDepleted = CoinSelHardErrCannotCoverFee
-    remapUtxoDepleted err                        = err
-
     go :: SelectedUtxo (Dom utxo)
        -> CoinSelT utxo CoinSelHardErr m (SelectedUtxo (Dom utxo))
     go !acc
       | selectedBalance acc >= getFee fee = return acc
       | otherwise = do
-          io <- (pickUtxo $ unsafeValueSub (getFee fee) (selectedBalance acc))
-                `catchError` (throwError . remapUtxoDepleted)
+          mio <- (pickUtxo $ unsafeValueSub (getFee fee) (selectedBalance acc))
+          io  <- maybe (throwError CoinSelHardErrCannotCoverFee) return mio
           go (select io acc)
 
 -- | Attempt to pay the fee from change outputs, returning any fee remaining
@@ -131,7 +124,7 @@ feeFromChange :: forall dom. CoinSelDom dom
               -> [CoinSelResult dom]
               -> ([CoinSelResult dom], Fee dom)
 feeFromChange totalFee =
-      bimap identity unsafeFeeSum
+    bimap identity unsafeFeeSum
     . unzip
     . map go
     . divvyFee (outVal . coinSelRequest) totalFee
@@ -150,13 +143,15 @@ feeFromChange totalFee =
 -- as unchanged as possible
 reduceChangeOutputs :: forall dom. CoinSelDom dom
                     => Fee dom -> [Value dom] -> ([Value dom], Fee dom)
-reduceChangeOutputs totalFee [] = ([], totalFee)
 reduceChangeOutputs totalFee cs =
-      bimap identity unsafeFeeSum
-    . unzip
-    . map go
-    . divvyFee identity totalFee
-    $ cs
+    case divvyFeeSafe identity totalFee cs of
+        Nothing ->
+            (cs, totalFee)
+        Just xs ->
+            bimap identity unsafeFeeSum
+            . unzip
+            . map go
+            $ xs
   where
     -- Reduce single change output, returning remaining fee
     go :: (Fee dom, Value dom) -> (Value dom, Fee dom)
@@ -177,6 +172,19 @@ feeUpperBound FeeOptions{..} css =
   where
     numInputs = fromIntegral $ sum (map (sizeToWord . coinSelInputSize) css)
     outputs   = concatMap coinSelOutputs css
+
+-- | divvy fee across outputs, discarding zero-output if any. Returns `Nothing`
+-- when there's no more outputs after filtering, in which case, we just can't
+-- divvy fee.
+divvyFeeSafe
+    :: forall dom a. CoinSelDom dom
+    => (a -> Value dom)
+    -> Fee dom
+    -> [a]
+    -> Maybe [(Fee dom, a)]
+divvyFeeSafe f fee as = case filter ((/= valueZero) . f) as of
+    []  -> Nothing
+    as' -> Just (divvyFee f fee as')
 
 {-------------------------------------------------------------------------------
   Pretty-printing

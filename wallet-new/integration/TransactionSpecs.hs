@@ -171,87 +171,20 @@ transactionSpecs wRef wc = beforeAll_ (setupLogging "wallet-new_transactionSpecs
                         <> " error, got: "
                         <> show err
 
-        randomTest "fails if you spend more money than your available balance" 1 $ do
-            wallet <- run $ sampleWallet wRef wc
-            (toAcct, toAddr) <- run $ firstAccountAndId wc wallet
+        randomTest "fails if you don't have any money" 1 $ run $ do
+            (wallet, account) <- fixtureWallet Nothing
+            resp <- makePayment (Core.mkCoin 14) (wallet, account) =<< getRandomAddress
+            let err = NotEnoughMoney (ErrAvailableBalanceIsInsufficient 0)
+            expectFailure (ClientWalletError err) resp
 
-            let payment = Payment
-                    { pmtSource =  PaymentSource
-                        { psWalletId = walId wallet
-                        , psAccountIndex = accIndex toAcct
-                        }
-                    , pmtDestinations = pure PaymentDistribution
-                        { pdAddress = addrId toAddr
-                        , pdAmount = tooMuchCash (accAmount toAcct)
-                        }
-                    , pmtGroupingPolicy = Nothing
-                    , pmtSpendingPassword = Nothing
-                    }
-                tooMuchCash (V1 c) = V1 (Core.mkCoin (Core.getCoin c * 2))
-            etxn <- run $ postTransaction wc payment
-            err <- liftIO (etxn `shouldPrism` _Left)
-            case err of
-                ClientWalletError (NotEnoughMoney (ErrAvailableBalanceIsInsufficient _)) ->
-                    return ()
-
-                _ ->
-                    liftIO $ expectationFailure $
-                        "Expected 'NotEnoughMoney ~ ErrAvailableBalanceIsInsufficient', got: "
-                        <> show err
+        randomTest "fails if you spend more money than your available balance" 1 $ run $ do
+            (wallet, account) <- fixtureWallet (Just $ Core.mkCoin 42)
+            resp <- makePayment (Core.mkCoin 10000) (wallet, account) =<< getRandomAddress
+            let err = NotEnoughMoney (ErrAvailableBalanceIsInsufficient 42)
+            expectFailure (ClientWalletError err) resp
 
         randomTest "fails if you can't cover fee with a transaction" 1 $ run $ do
-            let makePayment
-                    :: Core.Coin
-                    -> (Wallet, Account)
-                    -> Core.Address
-                    -> IO (Either ClientError Transaction)
-                makePayment amount (sourceW, sourceA) destination = do
-                    let payment = Payment
-                            { pmtSource = PaymentSource
-                                { psWalletId     = walId sourceW
-                                , psAccountIndex = accIndex sourceA
-                                }
-                            , pmtDestinations = pure PaymentDistribution
-                                { pdAddress = V1 destination
-                                , pdAmount  = V1 amount
-                                }
-                            , pmtGroupingPolicy   = Nothing
-                            , pmtSpendingPassword = Nothing
-                            }
-                    fmap (fmap wrData) $ postTransaction wc payment
-
-            let getRandomAddress
-                    :: IO Core.Address
-                getRandomAddress = do
-                    wallet <- randomWallet CreateWallet >>= createWalletCheck wc
-                    (_, toAddr) <- firstAccountAndId wc wallet
-                    return (unV1 $ addrId toAddr)
-
-            let fixtureWallet
-                    :: Core.Coin
-                    -> IO (Wallet, Account)
-                fixtureWallet coin = do
-                    genesis <- genesisWallet wc
-                    (genesisAccount, _) <- firstAccountAndId wc genesis
-                    wallet <- randomWallet CreateWallet >>= createWalletCheck wc
-                    (account, address) <- firstAccountAndId wc wallet
-                    txn <- makePayment coin (genesis, genesisAccount) (unV1 $ addrId address) >>= shouldPrismFlipped _Right
-                    pollTransactions wc (walId wallet) (accIndex account) (txId txn)
-                    return (wallet, account)
-
-            let expectFailure
-                    :: Show a
-                    => ClientError
-                    -> Either ClientError a
-                    -> IO ()
-                expectFailure want eresp = do
-                    resp <- eresp `shouldPrism` _Left
-                    want `shouldBe` resp
-
-            --
-            -- Actual test
-            --
-            (wallet, account) <- fixtureWallet (Core.mkCoin 42)
+            (wallet, account) <- fixtureWallet (Just $ Core.mkCoin 42)
             resp <- makePayment (Core.mkCoin 42) (wallet, account) =<< getRandomAddress
             let err = NotEnoughMoney ErrCannotCoverFee
             expectFailure (ClientWalletError err) resp
@@ -298,3 +231,55 @@ transactionSpecs wRef wc = beforeAll_ (setupLogging "wallet-new_transactionSpecs
             utxoStatistics <- run $ fmap wrData eresp `shouldPrism` _Right
             let utxoStatisticsExpected = computeUtxoStatistics log10 utxos
             liftIO $ utxoStatistics `shouldBe` utxoStatisticsExpected
+
+  where
+    makePayment
+        :: Core.Coin
+        -> (Wallet, Account)
+        -> Core.Address
+        -> IO (Either ClientError Transaction)
+    makePayment amount (sourceW, sourceA) destination = do
+        let payment = Payment
+                { pmtSource = PaymentSource
+                    { psWalletId     = walId sourceW
+                    , psAccountIndex = accIndex sourceA
+                    }
+                , pmtDestinations = pure PaymentDistribution
+                    { pdAddress = V1 destination
+                    , pdAmount  = V1 amount
+                    }
+                , pmtGroupingPolicy   = Nothing
+                , pmtSpendingPassword = Nothing
+                }
+        fmap (fmap wrData) $ postTransaction wc payment
+
+    getRandomAddress
+        :: IO Core.Address
+    getRandomAddress = do
+        wallet <- randomWallet CreateWallet >>= createWalletCheck wc
+        (_, toAddr) <- firstAccountAndId wc wallet
+        return (unV1 $ addrId toAddr)
+
+    fixtureWallet
+        :: Maybe Core.Coin
+        -> IO (Wallet, Account)
+    fixtureWallet mcoin = do
+        genesis <- genesisWallet wc
+        (genesisAccount, _) <- firstAccountAndId wc genesis
+        wallet <- randomWallet CreateWallet >>= createWalletCheck wc
+        (account, address) <- firstAccountAndId wc wallet
+        case mcoin of
+            Nothing   -> return ()
+            Just coin -> do
+                txn <- makePayment coin (genesis, genesisAccount) (unV1 $ addrId address) >>= shouldPrismFlipped _Right
+                pollTransactions wc (walId wallet) (accIndex account) (txId txn)
+        return (wallet, account)
+
+    expectFailure
+        :: Show a
+        => ClientError
+        -> Either ClientError a
+        -> IO ()
+    expectFailure want eresp = do
+        resp <- eresp `shouldPrism` _Left
+        resp `shouldBe` want

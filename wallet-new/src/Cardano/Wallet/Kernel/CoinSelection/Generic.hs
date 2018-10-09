@@ -73,7 +73,6 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
-import           Test.QuickCheck (Arbitrary (..))
 
 import           Cardano.Wallet.Kernel.Util.StrictStateT
 import           UTxO.Util (withoutKeys)
@@ -302,15 +301,6 @@ data CoinSelHardErr =
     -- See also 'CoinSelHardErrCannotCoverFee'
   | CoinSelHardErrUtxoExhausted Text Text
 
-    -- | UTxO depleted using input selection.
-    --
-    -- This occurs when there's actually no UTxO to pick from in a first place,
-    -- like an edge-case of CoinSelHardErrUtxoExhausted (which suggests that we
-    -- could at least start selecting UTxO).
-  | CoinSelHardErrUtxoDepleted
-
-instance Arbitrary CoinSelHardErr where
-    arbitrary = pure CoinSelHardErrUtxoDepleted
 
 -- | The input selection request failed
 --
@@ -592,28 +582,18 @@ nLargestFromListBy f n = \xs ->
 
 -- | Proportionally divide the fee over each output.
 --
--- There's a special 'edge-case' when the given input is a singleton list
--- with one 0 coin. This is artifically created during input selection when
--- the transaction's amount matches exactly the source's balance.
--- In such case, we can't really compute any ratio for fees and simply return
--- the whole fee back with the given change value.
+-- Pre-condition 1: The given outputs list shouldn't be empty
+-- Pre-condition 2: None of the outputs should be null
 divvyFee :: forall dom a. CoinSelDom dom
           => (a -> Value dom) -> Fee dom -> [a] -> [(Fee dom, a)]
-divvyFee _ _   []                     = error "divvyFee: empty list"
-divvyFee f fee [a] | f a == valueZero = [(fee, a)]
-divvyFee f fee as                     = map (\a -> (feeForOut a, a)) as
+divvyFee _ _   []                             = error "divvyFee: empty list"
+divvyFee f _ as | any ((== valueZero) . f) as = error "divvyFee: some outputs are null"
+divvyFee f fee as                             = map (\a -> (feeForOut a, a)) as
   where
     -- All outputs are selected from well-formed UTxO, so their sum cannot
     -- overflow
     totalOut :: Value dom
-    totalOut =
-        let
-            total = unsafeValueSum (map f as)
-        in
-            if total == valueZero then
-                error "divyyFee: invalid set of coins, total is 0"
-            else
-                total
+    totalOut = unsafeValueSum (map f as)
 
     -- The ratio will be between 0 and 1 so cannot overflow
     feeForOut :: a -> Fee dom
@@ -656,8 +636,6 @@ instance Buildable CoinSelHardErr where
     )
     bal
     val
-  build (CoinSelHardErrUtxoDepleted) = bprint
-    ( "CoinSelHardErrUtxoDepleted" )
 
 instance CoinSelDom dom => Buildable (Fee dom) where
   build = bprint build . getFee

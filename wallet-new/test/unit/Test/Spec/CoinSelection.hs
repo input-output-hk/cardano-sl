@@ -377,7 +377,6 @@ paymentFailedWith utxo payees res extraChecks =
 
 notEnoughMoney :: CoinSelHardErr -> Bool
 notEnoughMoney (CoinSelHardErrUtxoExhausted _ _) = True
-notEnoughMoney CoinSelHardErrUtxoDepleted        = True
 notEnoughMoney _                                 = False
 
 outputWasRedeem :: CoinSelHardErr -> Bool

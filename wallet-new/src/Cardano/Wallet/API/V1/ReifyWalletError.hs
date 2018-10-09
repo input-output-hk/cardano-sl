@@ -11,6 +11,7 @@ import qualified Data.Text as T
 import           Formatting (build, sformat)
 import           Universum
 
+import qualified Data.Char as C
 import           Pos.Core (decodeTextAddress)
 
 import           Cardano.Wallet.API.V1.Types (V1 (..))
@@ -267,14 +268,12 @@ newTransactionError e = case e of
                 V1.TooBigTransaction
 
           ex@(CoinSelHardErrUtxoExhausted balance _payment) ->
-              case (readMaybe $ T.unpack balance) of
+              -- NOTE balance & payment are "prettified" coins representation (e.g. "42 coin(s)")
+              case (readMaybe $ T.unpack $ T.dropWhileEnd (not . C.isDigit) balance) of
                   Just coin ->
                       V1.NotEnoughMoney (V1.ErrAvailableBalanceIsInsufficient coin)
                   Nothing ->
                       V1.UnknownError $ (sformat build ex)
-
-          CoinSelHardErrUtxoDepleted ->
-            V1.NotEnoughMoney (V1.ErrAvailableBalanceIsInsufficient 0)
 
     (Kernel.NewTransactionErrorCreateAddressFailed e') ->
         createAddressErrorKernel e'

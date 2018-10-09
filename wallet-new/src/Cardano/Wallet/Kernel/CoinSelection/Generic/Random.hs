@@ -98,18 +98,27 @@ atLeastNoFallback :: forall utxo m. (PickFromUtxo utxo, MonadRandom m)
                   => Word64
                   -> Value (Dom utxo)
                   -> CoinSelT utxo CoinSelErr m (SelectedUtxo (Dom utxo))
-atLeastNoFallback maxNumInputs targetMin = go emptySelection
+atLeastNoFallback maxNumInputs targetMin = do
+    balance <- gets utxoBalance
+    go emptySelection balance
   where
     go :: SelectedUtxo (Dom utxo)
+       -> Value (Dom utxo)
        -> CoinSelT utxo CoinSelErr m (SelectedUtxo (Dom utxo))
-    go selected
+    go selected balance
       | sizeToWord (selectedSize selected) > maxNumInputs =
           throwError $ CoinSelErrSoft CoinSelSoftErr
       | selectedBalance selected >= targetMin =
           return selected
       | otherwise = do
-          io <- mapCoinSelErr CoinSelErrHard $ findRandomOutput
-          go $ select io selected
+          io <- findRandomOutput >>= maybe (throwError $ errUtxoExhausted balance) return
+          go (select io selected) balance
+
+    errUtxoExhausted :: Value (Dom utxo) -> CoinSelErr
+    errUtxoExhausted balance =
+        CoinSelErrHard $ CoinSelHardErrUtxoExhausted
+            (pretty balance)
+            (pretty targetMin)
 
 -- | Select random additional inputs with the aim of improving the change amount
 --
@@ -183,12 +192,9 @@ improve maxNumInputs targetAim targetMax = go
 
 -- | Select a random output
 findRandomOutput :: (MonadRandom m, PickFromUtxo utxo)
-                 => CoinSelT utxo CoinSelHardErr m (UtxoEntry (Dom utxo))
-findRandomOutput = do
-    mIO <- tryFindRandomOutput Just
-    case mIO of
-      Just io -> return io
-      Nothing -> throwError CoinSelHardErrUtxoDepleted
+                 => CoinSelT utxo e m (Maybe (UtxoEntry (Dom utxo)))
+findRandomOutput =
+    tryFindRandomOutput Just
 
 -- | Find a random output, and return it if it satisfies the predicate
 --

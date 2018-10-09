@@ -642,4 +642,4 @@ resubmitFunction =
 -- @RelatingWalletSpecToCardano.md@ document in section 10.4. If this value is
 -- altered, then that document should be updated.
 defaultResubmissionLimit :: Int
-defaultResubmissionLimit = 255
+defaultResubmissionLimit = 23

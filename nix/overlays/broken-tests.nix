@@ -63,4 +63,7 @@ self: super: {
 
   # Use --quickcheck-replay=923601 to reproduce.
   diagrams-solve = dontCheck super.diagrams-solve;
+
+  # https://hydra.iohk.io/build/273493/nixlog/1
+  threads = dontCheck super.threads;
 }

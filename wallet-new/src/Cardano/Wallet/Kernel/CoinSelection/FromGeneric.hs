@@ -1,4 +1,5 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes   #-}
+{-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Cardano.Wallet.Kernel.CoinSelection.FromGeneric (
@@ -266,7 +267,23 @@ runCoinSelT :: forall m. Monad m
                   => NonEmpty (Output (Dom utxo))
                   -> CoinSelT utxo CoinSelHardErr m [CoinSelResult (Dom utxo)])
             -> CoinSelPolicy Core.Utxo m CoinSelFinalResult
-runCoinSelT opts pickUtxo policy request utxo = do
+runCoinSelT opts pickUtxo policy (NE.sortBy (flip (comparing outVal)) -> request) utxo = do
+    -- NOTE: we sort the payees by output value, to maximise our chances of succees.
+    -- In particular, let's consider a scenario where:
+    --
+    -- 1. We have a payment request with two outputs, one smaller and one
+    --    larger (but both relatively large)
+    -- 2. Random selection tries to cover the smaller one first, fail because
+    --    it exceeds the maximum number of inputs, fall back on largest first,
+    --    which will pick the n largest outputs, and then traverse from from
+    --    small to large to cover the payment.
+    -- 3. It then tries to deal with the larger output, and fail because in
+    --    step (2) we picked an output we needed due to only consider the n
+    --    largest outputs (rather than sorting the entire UTxO,
+    --    which would be much too expensive).
+    --
+    -- Therefore, just always considering them in order from large to small
+    -- is probably a good idea.
     mSelection <- unwrapCoinSelT policy' utxo
     case mSelection of
       Left err -> return (Left err)

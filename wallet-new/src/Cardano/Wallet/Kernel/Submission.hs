@@ -204,7 +204,7 @@ instance Buildable ScheduleEvents where
 -- the lifetime of the wallet, as it will reset to 0 each time we restart it (the entire
 -- 'WalletSubmission' is ephimeral and not persisted on disk).
 --
--- The acute reader might ask why we are casting to 'Int' and what is the
+-- The astute reader might ask why we are casting to 'Int' and what is the
 -- implication of a possible overflow: in practice, none, as in case we overflow
 -- the 'Int' positive capacity we will effectively treat this as a \"circular buffer\",
 -- storing the elements for slots @(maxBound :: Int) + 1@ in negative positions.
@@ -635,4 +635,11 @@ emptyWalletSubmission :: WalletSubmission
 emptyWalletSubmission = newWalletSubmission resubmitFunction
 
 resubmitFunction :: ResubmissionFunction
-resubmitFunction = defaultResubmitFunction (exponentialBackoff 255 1.25)
+resubmitFunction =
+    defaultResubmitFunction (exponentialBackoff defaultResubmissionLimit 1.25)
+
+-- | This value is the default resubmission limit. It is referred to in the
+-- @RelatingWalletSpecToCardano.md@ document in section 10.4. If this value is
+-- altered, then that document should be updated.
+defaultResubmissionLimit :: Int
+defaultResubmissionLimit = 23

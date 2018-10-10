@@ -1518,7 +1518,26 @@ Note: the above code was added shortly after this document was pinned to a git h
 
 ### 10.4 Transactions with TTL
 
-Cardano does not implement transaction TTL yet and instead relies on submission count and a maximum retry limit.
+Cardano does not implement transaction TTL directly.
+Instead, we have a retry policy that determines whether or not we retry submitting a transaction.
+The current retry policy is an exponential backoff, where we delay a failed transaction submission by a number of slots equal to `1.25 ^ submissionCount`.
+After completing a slot, the process sleeps for five seconds.
+Transactions have a maximum of 23 attempts.
+
+This allows us to estimate the lower bound TTL for a transaction at 4150 seconds, which works out to one hour, nine minutes, and ten seconds.
+We arrive at this with the following calculation:
+
+```haskell
+>>> sum $ map ((* 5) . floor . (1.25 **)) [1..23]
+4150
+```
+
+For each resubmission attempt, we calculate the number of slot delays with `floor . (1.25 **)` (where `**` is the operator for floating point exponentiation).
+We then multiply each slot delay by 5, corresponding to the sleep delay between slots, to arrive at the number of seconds of delay.
+Finally, we sum these delays to get the total number of seconds of delay before a transaction will be dropped.
+
+The `resubmitFunction` that is used currently lives in `Cardano.Wallet.Kernel.Submission` and includes the 23 count of resubmission limit.
+The 5 second tick rate is currently hardcoded in `Cardano.Wallet.Kernel.Submission.Worker`.
 
 **Fig 14 - Wallet Spec**
 

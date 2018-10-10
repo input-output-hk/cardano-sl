@@ -35,5 +35,11 @@ tickSubmissionLayer logFunction tick =
           -- is completely independent by the time of the underlying blockchain,
           -- and this arbitrary choice of 5 seconds delay is yet another witness
           -- of such independence.
-          liftIO $ threadDelay 5000000
+          liftIO $ threadDelay tickRate
           go
+
+-- | The tick rate for resubmitting transactions. This value is documented in
+-- @docs/RelatingWalletSpecToCardano.md@, and if this value is changed, then
+-- section 10.4 should be updated.
+tickRate :: Int
+tickRate = 5000000

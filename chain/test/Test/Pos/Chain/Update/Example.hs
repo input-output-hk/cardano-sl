@@ -6,6 +6,7 @@ module Test.Pos.Chain.Update.Example
        , exampleBlockVersionModifier
        , exampleSoftwareVersion
        , exampleSystemTag
+       , exampleUndo
        , exampleUpdateData
        , exampleUpdatePayload
        , exampleUpdateProof
@@ -28,9 +29,10 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Pos.Binary.Class (Raw (..))
 import           Pos.Chain.Update (ApplicationName (..), BlockVersion (..),
                      BlockVersionData (..), BlockVersionModifier (..),
-                     SoftforkRule (..), SoftwareVersion (..), SystemTag (..),
-                     UpAttributes, UpId, UpdateData (..), UpdatePayload (..),
-                     UpdateProof, UpdateProposal, UpdateProposalToSign (..),
+                     PrevValue (..), SoftforkRule (..), SoftwareVersion (..),
+                     SystemTag (..), USUndo (..), UpAttributes, UpId,
+                     UpdateData (..), UpdatePayload (..), UpdateProof,
+                     UpdateProposal, UpdateProposalToSign (..),
                      UpdateVote (..), VoteId, mkUpdateProof,
                      mkUpdateProposalWSign, mkUpdateVoteSafe)
 import           Pos.Core (Coeff (..), CoinPortion (..), EpochIndex (..),
@@ -39,8 +41,13 @@ import           Pos.Core (Coeff (..), CoinPortion (..), EpochIndex (..),
 import           Pos.Crypto (ProtocolMagic (..), hash)
 
 import           Test.Pos.Core.ExampleHelpers (exampleAttributes,
-                     examplePublicKey, exampleSafeSigner, getText)
+                     examplePublicKey, exampleSafeSigner, exampleSlottingData,
+                     getText)
 import           Test.Pos.Crypto.Bi (getBytes)
+
+
+exampleApplicationName :: ApplicationName
+exampleApplicationName = ApplicationName "Golden"
 
 exampleBlockVersion :: BlockVersion
 exampleBlockVersion = BlockVersion 1 1 1
@@ -177,6 +184,17 @@ exampleSystemTags offset count = map (toSystemTag . (*offset)) [0..count-1]
   where
     toSystemTag start = SystemTag (getText start 16)
 
+exampleUndo :: USUndo
+exampleUndo = USUndo
+    { unChangedBV        = HM.singleton exampleBlockVersion NoExist
+    , unLastAdoptedBV    = Just exampleBlockVersion
+    , unChangedProps     = HM.singleton exampleUpId NoExist
+    , unChangedSV        = HM.singleton exampleApplicationName NoExist
+    , unChangedConfProps = HM.singleton exampleSoftwareVersion NoExist
+    , unPrevProposers    = Nothing
+    , unSlottingData     = Just exampleSlottingData
+    }
+
 exampleUpAttributes :: UpAttributes
 exampleUpAttributes = exampleAttributes
 
@@ -229,4 +247,4 @@ exampleVoteId :: VoteId
 exampleVoteId = (exampleUpId, examplePublicKey, False)
 
 exampleSoftwareVersion :: SoftwareVersion
-exampleSoftwareVersion = SoftwareVersion (ApplicationName "Golden") 99
+exampleSoftwareVersion = SoftwareVersion exampleApplicationName 99

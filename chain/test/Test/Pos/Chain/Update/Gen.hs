@@ -8,6 +8,7 @@ module Test.Pos.Chain.Update.Gen
        , genSoftforkRule
        , genSoftwareVersion
        , genSystemTag
+       , genUndo
        , genUpAttributes
        , genUpdateData
        , genUpdatePayload
@@ -23,27 +24,36 @@ module Test.Pos.Chain.Update.Gen
 
 import           Universum
 
-import qualified Data.HashMap.Strict as HM
+import           Data.Coerce (coerce)
+
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
+import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Update (ApplicationName (..), BlockVersion (..),
                      BlockVersionData (..), BlockVersionModifier (..),
-                     SoftforkRule (..), SoftwareVersion (..), SystemTag (..),
-                     UpAttributes, UpId, UpdateData (..), UpdatePayload (..),
-                     UpdateProof, UpdateProposal (..),
-                     UpdateProposalToSign (..), UpdateProposals,
-                     UpdateVote (..), VoteId, mkUpdateVote)
-import           Pos.Core (TxFeePolicy)
+                     BlockVersionState (..), ConfirmedProposalState (..),
+                     DecidedProposalState (..), DpsExtra (..), PrevValue,
+                     ProposalState (..), SoftforkRule (..),
+                     SoftwareVersion (..), SystemTag (..), USUndo (..),
+                     UndecidedProposalState (..), UpAttributes, UpId,
+                     UpdateData (..), UpdatePayload (..), UpdateProof,
+                     UpdateProposal (..), UpdateProposalToSign (..),
+                     UpdateProposals, UpdateVote (..), UpsExtra (..), VoteId,
+                     VoteState (..), maybeToPrev, mkUpdateVote)
+import           Pos.Core (SlotCount, TxFeePolicy)
 import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Crypto (ProtocolMagic)
 
-import           Test.Pos.Core.Gen (genByte, genCoinPortion, genCustomHashMap,
-                     genEpochIndex, genFlatSlotId, genHashRaw, genMillisecond,
-                     genScriptVersion, genTxFeePolicy)
+import           Test.Pos.Core.Gen (genByte, genChainDifficulty, genCoin,
+                     genCoinPortion, genEpochIndex, genFlatSlotId, genHashRaw,
+                     genMillisecond, genScriptVersion, genSlotId,
+                     genSlottingData, genStakeholderId, genTextHash,
+                     genTxFeePolicy)
 import           Test.Pos.Crypto.Gen (genAbstractHash, genPublicKey,
                      genSecretKey, genSignature)
+import           Test.Pos.Util.Gen (genHashMap, genHashSet)
 
 
 genApplicationName :: Gen ApplicationName
@@ -96,6 +106,46 @@ genBlockVersionModifier =
         <*> Gen.maybe genTxFeePolicy
         <*> Gen.maybe genEpochIndex
 
+genBlockVersionState :: Gen BlockVersionState
+genBlockVersionState = BlockVersionState
+    <$> genBlockVersionModifier
+    <*> Gen.maybe genEpochIndex
+    <*> genHashSet genStakeholderId
+    <*> genHashSet genStakeholderId
+    <*> Gen.maybe genHeaderHash
+    <*> Gen.maybe genHeaderHash
+
+genConfirmedProposalState :: ProtocolMagic -> Gen ConfirmedProposalState
+genConfirmedProposalState pm = ConfirmedProposalState
+    <$> genUpdateProposal pm
+    <*> Gen.bool
+    <*> genHeaderHash
+    <*> genHeaderHash
+    <*> genHeaderHash
+    <*> Gen.maybe genHeaderHash
+    <*> genHashMap (Range.linear 1 10) genPublicKey genVoteState
+    <*> genCoin
+    <*> genCoin
+
+genDecidedProposalState :: ProtocolMagic -> SlotCount -> Gen DecidedProposalState
+genDecidedProposalState pm epochSlots = DecidedProposalState
+    <$> Gen.bool
+    <*> genUndecidedProposalState pm epochSlots
+    <*> Gen.maybe genChainDifficulty
+    <*> Gen.maybe genDpsExtra
+
+genDpsExtra :: Gen DpsExtra
+genDpsExtra = DpsExtra <$> genHeaderHash <*> Gen.bool
+
+genPrevValue :: Gen a -> Gen (PrevValue a)
+genPrevValue = fmap maybeToPrev . Gen.maybe
+
+genProposalState :: ProtocolMagic -> SlotCount -> Gen ProposalState
+genProposalState pm epochSlots = Gen.choice
+  [ PSUndecided <$> genUndecidedProposalState pm epochSlots
+  , PSDecided <$> genDecidedProposalState pm epochSlots
+  ]
+
 genSoftforkRule :: Gen SoftforkRule
 genSoftforkRule =
     SoftforkRule <$> genCoinPortion <*> genCoinPortion <*> genCoinPortion
@@ -108,6 +158,36 @@ genSoftwareVersion =
 
 genSystemTag :: Gen SystemTag
 genSystemTag = SystemTag <$> Gen.text (Range.constant 0 10) Gen.alphaNum
+
+genUndecidedProposalState
+  :: ProtocolMagic -> SlotCount -> Gen UndecidedProposalState
+genUndecidedProposalState pm epochSlots = UndecidedProposalState
+    <$> genHashMap (Range.linear 0 10) genPublicKey genVoteState
+    <*> genUpdateProposal pm
+    <*> genSlotId epochSlots
+    <*> genCoin
+    <*> genCoin
+    <*> Gen.maybe genUpsExtra
+
+genUndo :: ProtocolMagic -> SlotCount -> Gen USUndo
+genUndo pm epochSlots = USUndo
+    <$> genHashMap hmRange genBlockVersion (genPrevValue genBlockVersionState)
+    <*> Gen.maybe genBlockVersion
+    <*> genHashMap
+          hmRange
+          (genUpId pm)
+          (genPrevValue $ genProposalState pm epochSlots)
+    <*> genHashMap
+          hmRange
+          genApplicationName
+          (genPrevValue (Gen.word32 Range.constantBounded))
+    <*> genHashMap
+          hmRange
+          genSoftwareVersion
+          (genPrevValue $ genConfirmedProposalState pm)
+    <*> Gen.maybe (genHashSet genStakeholderId)
+    <*> Gen.maybe genSlottingData
+  where hmRange = Range.linear 0 10
 
 genUpAttributes :: Gen UpAttributes
 genUpAttributes = pure $ mkAttributes ()
@@ -141,7 +221,8 @@ genUpdateProposal pm = do
         <*> genSignature pm genUpdateProposalToSign
 
 genUpdateProposals :: ProtocolMagic -> Gen UpdateProposals
-genUpdateProposals pm = genCustomHashMap (genUpId pm) (genUpdateProposal pm)
+genUpdateProposals pm =
+  genHashMap (Range.linear 0 10) (genUpId pm) (genUpdateProposal pm)
 
 genUpdateProposalToSign :: Gen UpdateProposalToSign
 genUpdateProposalToSign =
@@ -155,15 +236,22 @@ genUpdateProposalToSign =
 genUpId :: ProtocolMagic -> Gen UpId
 genUpId pm = genAbstractHash (genUpdateProposal pm)
 
-genUpsData :: Gen (HM.HashMap SystemTag UpdateData)
-genUpsData = do
-    hMapSize <- Gen.int (Range.linear 0 20)
-    sysTagList <- Gen.list (Range.singleton hMapSize) genSystemTag
-    upDataList <- Gen.list (Range.singleton hMapSize) genUpdateData
-    pure $ HM.fromList $ zip sysTagList upDataList
+genUpsData :: Gen (HashMap SystemTag UpdateData)
+genUpsData = genHashMap (Range.linear 0 20) genSystemTag genUpdateData
+
+genUpsExtra :: Gen UpsExtra
+genUpsExtra = UpsExtra <$> genHeaderHash
 
 genUpdateVote :: ProtocolMagic -> Gen UpdateVote
 genUpdateVote pm = mkUpdateVote pm <$> genSecretKey <*> genUpId pm <*> Gen.bool
 
 genVoteId :: ProtocolMagic -> Gen VoteId
 genVoteId pm = (,,) <$> genUpId pm <*> genPublicKey <*> Gen.bool
+
+genVoteState :: Gen VoteState
+genVoteState =
+    Gen.element [PositiveVote, NegativeVote, PositiveRevote, NegativeRevote]
+
+-- | Copied here from "Test.Pos.Chain.Block.Gen" to avoid module cycles
+genHeaderHash :: Gen HeaderHash
+genHeaderHash = coerce <$> genTextHash

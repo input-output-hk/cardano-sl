@@ -16,10 +16,12 @@ module Test.Pos.Chain.Txp.Gen
        , genTxOut
        , genTxOutAux
        , genTxOutList
+       , genTxpUndo
        , genTxPayload
        , genTxProof
        , genTxSig
        , genTxSigData
+       , genTxUndo
        , genTxWitness
        , genUnknownWitnessType
        ) where
@@ -36,8 +38,8 @@ import qualified Hedgehog.Range as Range
 
 import           Pos.Chain.Txp (Tx (..), TxAttributes, TxAux (..), TxId,
                      TxIn (..), TxInWitness (..), TxOut (..), TxOutAux (..),
-                     TxPayload, TxProof (..), TxSig, TxSigData (..), TxWitness,
-                     TxpConfiguration (..), mkTxPayload)
+                     TxPayload, TxProof (..), TxSig, TxSigData (..), TxUndo,
+                     TxWitness, TxpConfiguration (..), TxpUndo, mkTxPayload)
 import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Crypto (Hash, ProtocolMagic, decodeHash, sign)
 
@@ -107,6 +109,9 @@ genTxOutAux = TxOutAux <$> genTxOut
 genTxOutList :: Gen (NonEmpty TxOut)
 genTxOutList = Gen.nonEmpty (Range.linear 1 100) genTxOut
 
+genTxpUndo :: Gen TxpUndo
+genTxpUndo = Gen.list (Range.linear 1 50) genTxUndo
+
 genTxPayload :: ProtocolMagic -> Gen TxPayload
 genTxPayload pm = mkTxPayload <$> (Gen.list (Range.linear 0 10) (genTxAux pm))
 
@@ -132,6 +137,9 @@ genTxInWitness pm = Gen.choice gens
            , genScriptWitness
            , genUnknownWitnessType
            ]
+
+genTxUndo :: Gen TxUndo
+genTxUndo = Gen.nonEmpty (Range.linear 1 10) $ Gen.maybe genTxOutAux
 
 genTxWitness :: ProtocolMagic -> Gen TxWitness
 genTxWitness pm = V.fromList <$> Gen.list (Range.linear 1 10) (genTxInWitness pm)

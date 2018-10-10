@@ -9,6 +9,7 @@ module Test.Pos.Chain.Txp.Example
        , exampleTxOutList
        , exampleTxSig
        , exampleTxSigData
+       , exampleTxpUndo
        , exampleTxWitness
        , exampleRedeemSignature
        , exampleHashTx
@@ -23,9 +24,9 @@ import qualified Data.Vector as V
 
 import qualified Cardano.Crypto.Wallet as CC
 import           Pos.Chain.Txp (Tx (..), TxAux (..), TxId, TxIn (..),
-                     TxInWitness (..), TxOut (..), TxPayload (..),
-                     TxProof (..), TxSig, TxSigData (..), TxWitness,
-                     mkTxPayload)
+                     TxInWitness (..), TxOut (..), TxOutAux (..),
+                     TxPayload (..), TxProof (..), TxSig, TxSigData (..),
+                     TxWitness, TxpUndo, mkTxPayload)
 import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Core.Common (Coin (..), IsBootstrapEraAddr (..),
                      makePubKeyAddress)
@@ -77,6 +78,9 @@ exampleTxSig = sign (ProtocolMagic 0) SignForTestingOnly exampleSecretKey exampl
 
 exampleTxSigData :: TxSigData
 exampleTxSigData = TxSigData exampleHashTx
+
+exampleTxpUndo :: TxpUndo
+exampleTxpUndo = [Just . TxOutAux <$> exampleTxOutList]
 
 exampleTxWitness :: TxWitness
 exampleTxWitness = V.fromList [(PkWitness examplePublicKey exampleTxSig)]

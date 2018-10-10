@@ -41,6 +41,8 @@ import           Test.Pos.Core.Gen (genAddress, genCoin, genCoinPortion,
                      genTimestampRoundedToSecond, genTxSizeLinear,
                      genVssMaxTTL, genVssMinTTL, genWord16)
 import           Test.Pos.Crypto.Gen (genRedeemPublicKey)
+import           Test.Pos.Util.Gen (genHashMap)
+
 
 genGenesisHash :: Gen GenesisHash
 genGenesisHash = do
@@ -137,15 +139,5 @@ genTestnetBalanceOptions =
         <*> Gen.bool
 
 genGenesisAvvmBalances :: Gen GenesisAvvmBalances
-genGenesisAvvmBalances = GenesisAvvmBalances <$> customHashMapGen genRedeemPublicKey genCoin
-
-----------------------------------------------------------------------------
--- Helper Generators
-----------------------------------------------------------------------------
-
-customHashMapGen
-    :: (Hashable k, Eq k)
-    => Gen k -> Gen v -> Gen (HM.HashMap k v)
-customHashMapGen keyGen valGen =
-    HM.fromList
-        <$> (Gen.list (Range.linear 1 10) $ (,) <$> keyGen <*> valGen)
+genGenesisAvvmBalances = GenesisAvvmBalances
+    <$> genHashMap (Range.linear 1 10) genRedeemPublicKey genCoin

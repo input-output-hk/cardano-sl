@@ -41,7 +41,7 @@ data FeeOptions dom = FeeOptions {
 adjustForFees :: forall utxo m. (CoinSelDom (Dom utxo), Monad m)
               => FeeOptions (Dom utxo)
               -> (Value (Dom utxo) ->
-                   CoinSelT utxo CoinSelHardErr m (UtxoEntry (Dom utxo)))
+                   CoinSelT utxo CoinSelHardErr m (Maybe (UtxoEntry (Dom utxo))))
               -> [CoinSelResult (Dom utxo)]
               -> CoinSelT utxo CoinSelHardErr m
                    ([CoinSelResult (Dom utxo)], SelectedUtxo (Dom utxo))
@@ -81,7 +81,7 @@ receiverPaysFee totalFee =
 
 senderPaysFee :: (Monad m, CoinSelDom (Dom utxo))
               => (Value (Dom utxo) ->
-                   CoinSelT utxo CoinSelHardErr m (UtxoEntry (Dom utxo)))
+                   CoinSelT utxo CoinSelHardErr m (Maybe (UtxoEntry (Dom utxo))))
               -> Fee (Dom utxo)
               -> [CoinSelResult (Dom utxo)]
               -> CoinSelT utxo CoinSelHardErr m
@@ -90,18 +90,19 @@ senderPaysFee pickUtxo totalFee css = do
     let (css', remainingFee) = feeFromChange totalFee css
     (css', ) <$> coverRemainingFee pickUtxo remainingFee
 
-coverRemainingFee :: forall utxo e m. (Monad m, CoinSelDom (Dom utxo))
-                  => (Value (Dom utxo) -> CoinSelT utxo e m (UtxoEntry (Dom utxo)))
+coverRemainingFee :: forall utxo m. (Monad m, CoinSelDom (Dom utxo))
+                  => (Value (Dom utxo) -> CoinSelT utxo CoinSelHardErr m (Maybe (UtxoEntry (Dom utxo))))
                   -> Fee (Dom utxo)
-                  -> CoinSelT utxo e m (SelectedUtxo (Dom utxo))
+                  -> CoinSelT utxo CoinSelHardErr m (SelectedUtxo (Dom utxo))
 coverRemainingFee pickUtxo fee = go emptySelection
   where
     go :: SelectedUtxo (Dom utxo)
-       -> CoinSelT utxo e m (SelectedUtxo (Dom utxo))
+       -> CoinSelT utxo CoinSelHardErr m (SelectedUtxo (Dom utxo))
     go !acc
       | selectedBalance acc >= getFee fee = return acc
       | otherwise = do
-          io <- pickUtxo $ unsafeValueSub (getFee fee) (selectedBalance acc)
+          mio <- (pickUtxo $ unsafeValueSub (getFee fee) (selectedBalance acc))
+          io  <- maybe (throwError CoinSelHardErrCannotCoverFee) return mio
           go (select io acc)
 
 -- | Attempt to pay the fee from change outputs, returning any fee remaining

@@ -97,7 +97,10 @@ instance Buildable NewTransactionError where
 instance Arbitrary NewTransactionError where
     arbitrary = oneof [
         NewTransactionUnknownAccount <$> arbitrary
-      , NewTransactionErrorCoinSelectionFailed <$> arbitrary
+      , NewTransactionErrorCoinSelectionFailed <$> oneof
+            [ pure $ CoinSelHardErrUtxoExhausted "0 coin(s)" "14 coin(s)"
+            , pure CoinSelHardErrCannotCoverFee
+            ]
       , NewTransactionErrorCreateAddressFailed <$> arbitrary
       , NewTransactionErrorSignTxFailed <$> arbitrary
       , pure NewTransactionInvalidTxIn

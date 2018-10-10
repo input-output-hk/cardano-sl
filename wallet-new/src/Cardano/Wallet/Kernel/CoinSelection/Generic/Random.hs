@@ -33,10 +33,23 @@ random :: forall utxo m. (MonadRandom m, PickFromUtxo utxo)
        -> Word64              -- ^ Maximum number of inputs
        -> [Output (Dom utxo)] -- ^ Outputs to include
        -> CoinSelT utxo CoinSelHardErr m [CoinSelResult (Dom utxo)]
-random privacyMode = coinSelPerGoal $ \maxNumInputs goal ->
-    defCoinSelResult goal <$>
-      inRange maxNumInputs (target privacyMode (outVal goal))
+random privacyMode initMaxNumInputs goals = do
+    balance <- gets utxoBalance
+    when (balance == valueZero) $ throwError (errUtxoExhausted balance)
+    coinSelPerGoal selection initMaxNumInputs goals
   where
+    errUtxoExhausted :: Value (Dom utxo) -> CoinSelHardErr
+    errUtxoExhausted balance = CoinSelHardErrUtxoExhausted
+        (pretty balance)
+        (pretty $ unsafeValueSum $ map outVal goals)
+
+    selection
+        :: Word64
+        -> Output (Dom utxo)
+        -> CoinSelT utxo CoinSelHardErr m (CoinSelResult (Dom utxo))
+    selection maxNumInputs goal = defCoinSelResult goal
+        <$> inRange maxNumInputs (target privacyMode (outVal goal))
+
     target :: PrivacyMode -> Value (Dom utxo) -> TargetRange (Dom utxo)
     target PrivacyModeOn  val = fromMaybe (target PrivacyModeOff val)
                                           (idealRange val)
@@ -98,18 +111,27 @@ atLeastNoFallback :: forall utxo m. (PickFromUtxo utxo, MonadRandom m)
                   => Word64
                   -> Value (Dom utxo)
                   -> CoinSelT utxo CoinSelErr m (SelectedUtxo (Dom utxo))
-atLeastNoFallback maxNumInputs targetMin = go emptySelection
+atLeastNoFallback maxNumInputs targetMin = do
+    utxo <- get
+    go emptySelection utxo
   where
     go :: SelectedUtxo (Dom utxo)
+       -> utxo
        -> CoinSelT utxo CoinSelErr m (SelectedUtxo (Dom utxo))
-    go selected
+    go selected utxo
       | sizeToWord (selectedSize selected) > maxNumInputs =
           throwError $ CoinSelErrSoft CoinSelSoftErr
       | selectedBalance selected >= targetMin =
           return selected
       | otherwise = do
-          io <- mapCoinSelErr CoinSelErrHard $ findRandomOutput
-          go $ select io selected
+          io <- findRandomOutput >>= maybe (throwError $ errUtxoExhausted utxo) return
+          go (select io selected) utxo
+
+    errUtxoExhausted :: utxo -> CoinSelErr
+    errUtxoExhausted utxo =
+        CoinSelErrHard $ CoinSelHardErrUtxoExhausted
+            (pretty $ utxoBalance utxo)
+            (pretty targetMin)
 
 -- | Select random additional inputs with the aim of improving the change amount
 --
@@ -183,12 +205,9 @@ improve maxNumInputs targetAim targetMax = go
 
 -- | Select a random output
 findRandomOutput :: (MonadRandom m, PickFromUtxo utxo)
-                 => CoinSelT utxo CoinSelHardErr m (UtxoEntry (Dom utxo))
-findRandomOutput = do
-    mIO <- tryFindRandomOutput Just
-    case mIO of
-      Just io -> return io
-      Nothing -> throwError CoinSelHardErrUtxoDepleted
+                 => CoinSelT utxo e m (Maybe (UtxoEntry (Dom utxo)))
+findRandomOutput =
+    tryFindRandomOutput Just
 
 -- | Find a random output, and return it if it satisfies the predicate
 --

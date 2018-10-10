@@ -205,7 +205,7 @@ import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
                      buildSafe, buildSafeList, buildSafeMaybe,
                      deriveSafeBuildable, plainOrSecureF)
 import           Pos.Util.Servant (Flaggable (..))
-import           Test.Pos.Chain.Update.Arbitrary ()
+
 import           Test.Pos.Core.Arbitrary ()
 import           Text.ParserCombinators.ReadP (readP_to_S)
 

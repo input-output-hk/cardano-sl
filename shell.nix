@@ -28,7 +28,7 @@ let
   devTools = [ hlint iohkPkgs.stylish-haskell ];
 
   cardanoSL = haskell.lib.buildStackProject {
-    inherit ghc;
+    inherit (haskell.packages.ghc822) ghc;
     name = "cardano-sl-env";
 
     buildInputs = devTools ++ stackDeps
@@ -37,10 +37,10 @@ let
       ++ (lib.optionals stdenv.isLinux [ stack ])
       ++ (lib.optionals stdenv.isDarwin (with darwin.apple_sdk.frameworks; [ Cocoa CoreServices libcxx libiconv ]));
 
-    shellHook = lib.optionalString lib.inNixShell ''
-      eval "$(egrep ^export ${ghc}/bin/ghc)"
-      export PATH=${ghc}/bin:$PATH
-    '';
+    # shellHook = lib.optionalString lib.inNixShell ''
+    #   eval "$(egrep ^export ${ghc}/bin/ghc)"
+    #   export PATH=${ghc}/bin:$PATH
+    # '';
 
     phases = ["nobuildPhase"];
     nobuildPhase = "mkdir -p $out";

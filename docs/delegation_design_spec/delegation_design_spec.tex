@@ -114,7 +114,7 @@ order to support and incentivise delegation.
   ``VSS message'', and ``VSS committee'' refer to this use of VSS within
   Ouroboros.
 
-\item[Shared Secret Computation (SCC)] is a term that means essentially the
+\item[Shared Secret Computation (SSC)] is a term that means essentially the
   same thing as VSS. In this document to avoid confusion we use the term VSS.
 
 \item[Multiparty Computation (MPC)] as defined in Wikipedia, is ``a subfield
@@ -300,7 +300,7 @@ cold wallet without using its spending key.
 All the changes to delegation are changes in the rules that define what
 it means to be a valid Cardano blockchain. These rules must be
 computable, and must be computable with reasonable space and time
-complexity. In particular this requires an
+complexity.
 
 \subsubsection{Minimise economic attacks}
 \label{minimise-economic-attacks}
@@ -992,10 +992,8 @@ It contains
   operate
 \end{itemize}
 
-It must be signed by the staking key \(sks_\text{pool}\) of the pool.
-\todo{Which key is this? Is this the public staking key
-\(vks_\text{pool}\) or the original owner? What if we have multiple
-signers for the cert?}
+It must be signed by the staking key \(sks_\text{pool}\) of the pool
+(particularly, it need not be signed by any of the pool owners).
 
 After the retirement epoch, any stake that is delegated to this stake
 pool will be disregarded for the PoS protocol. It will not take part in
@@ -1005,6 +1003,24 @@ address is not considered during the election process).
 Stakeholders who delegated to this pool should be notified and asked to
 redelegate by their wallet the next time they are online.
 \end{description}
+
+Note that a stake pool can have multiple owners. This is to allow
+people to coordinate and form a stake pool even if none of them had
+enough stake on their own to make a deposit that would make the stake
+pool competitive.
+
+Still, there will only be one operator, the person holding the key of
+the stake pool itself. In addition to signing blocks, this key also
+holds the power to retire the stake pool, or to post updated
+registration certificates without the keys of all owners (in which
+case some of the owners are kicked off the stake pool). That is a
+conscious design decision: collaborating to form a stake pool should
+require some trust between the participants. Otherwise, everyone could
+choose to become a co-owner of a stake pool instead of delegation,
+which would render the mechanism of deposits ineffective. Allowing the
+operator to shut down the pool, or to kick owners off, raises the
+threshold of necessary trust that owners of the pool must have in the
+operator.
 
 \subsubsection{Heavyweight Delegation Certificates}
 \label{heavyweight-delegation-certificates}

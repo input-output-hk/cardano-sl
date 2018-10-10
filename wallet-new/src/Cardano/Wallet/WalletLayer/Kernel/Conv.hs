@@ -16,6 +16,7 @@ module Cardano.Wallet.WalletLayer.Kernel.Conv (
   , toCardanoAddress
   , toAssuranceLevel
   , toSyncState
+  , toInputGrouping
     -- * Custom errors
   , InvalidRedemptionCode(..)
     -- * Convenience re-exports
@@ -37,6 +38,7 @@ import           Formatting (bprint, build, formatToString, sformat, shown, (%))
 import qualified Formatting.Buildable
 import qualified Serokell.Util.Base64 as B64
 
+import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
 import           Pos.Core (Address, BlockCount (..), decodeTextAddress)
 import           Pos.Crypto (AesKey, RedeemSecretKey, aesDecrypt,
                      redeemDeterministicKeyGen)
@@ -45,6 +47,8 @@ import           Cardano.Wallet.API.Types.UnitOfMeasure
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
 import           Cardano.Wallet.Kernel.BIP39 (mnemonicToAesKey)
+import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
+                     (InputGrouping (..))
 import           Cardano.Wallet.Kernel.DB.BlockMeta (addressMetaIsChange,
                      addressMetaIsUsed)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
@@ -261,3 +265,9 @@ toSyncState = \case
                                else 0
                      in V1.mkSyncPercentage (fromIntegral pct)
              }
+
+-- Matches the input InputGroupingPolicy with the Kernel's 'InputGrouping'
+toInputGrouping :: V1 InputSelectionPolicy -> InputGrouping
+toInputGrouping (V1 policy) = case policy of
+    OptimizeForSecurity       -> PreferGrouping
+    OptimizeForHighThroughput -> IgnoreGrouping

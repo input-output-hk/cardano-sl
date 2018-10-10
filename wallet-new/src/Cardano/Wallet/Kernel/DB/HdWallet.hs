@@ -534,6 +534,13 @@ data UnknownHdAddress =
     -- | Unknown address (implies it was not derived from the given Address)
   | UnknownHdCardanoAddress Core.Address
 
+instance Arbitrary UnknownHdAddress where
+    arbitrary = oneof [ UnknownHdAddressRoot <$> arbitrary
+                      , UnknownHdAddressAccount <$> arbitrary
+                      , UnknownHdAddress <$> arbitrary
+                      , UnknownHdCardanoAddress <$> arbitrary
+                      ]
+
 embedUnknownHdRoot :: UnknownHdRoot -> UnknownHdAccount
 embedUnknownHdRoot = go
   where
@@ -938,3 +945,13 @@ instance Buildable UnknownHdAccount where
       bprint ("UnknownHdAccountRoot " % build) rootId
     build (UnknownHdAccount accountId) =
       bprint ("UnknownHdAccount accountId " % build) accountId
+
+instance Buildable UnknownHdAddress where
+    build (UnknownHdAddressRoot rootId) =
+        bprint ("UnknownHdAddressRoot " % build) rootId
+    build (UnknownHdAddressAccount accountId) =
+        bprint ("UnknownHdAddress accountId " % build) accountId
+    build (UnknownHdAddress addressId) =
+        bprint ("UnknownHdAddress " % build) addressId
+    build (UnknownHdCardanoAddress coreAddress) =
+        bprint ("UnknownHdCardanoAddress " % build) coreAddress

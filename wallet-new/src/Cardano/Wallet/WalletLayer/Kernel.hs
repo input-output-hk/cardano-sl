@@ -168,8 +168,10 @@ bracketActiveWallet pm walletPassiveLayer passiveWallet walletDiffusion runActiv
     activeWalletLayer :: Kernel.ActiveWallet -> ActiveWalletLayer n
     activeWalletLayer w = ActiveWalletLayer {
           walletPassiveLayer = walletPassiveLayer
-        , pay                = Active.pay          w
-        , estimateFees       = Active.estimateFees w
-        , redeemAda          = Active.redeemAda    w
-        , getNodeInfo        = Info.getNodeInfo    w
+        , pay                = Active.pay              w
+        , estimateFees       = Active.estimateFees     w
+        , createUnsignedTx   = Active.createUnsignedTx w
+        , submitSignedTx     = Active.submitSignedTx   w
+        , redeemAda          = Active.redeemAda        w
+        , getNodeInfo        = Info.getNodeInfo        w
         }

@@ -6,6 +6,8 @@ module Cardano.Wallet.API.V1.Handlers.Transactions (
     , newTransaction
     , getTransactionsHistory
     , estimateFees
+    -- | Helper converter.
+    , txFromMeta
     ) where
 
 import           Universum
@@ -15,8 +17,7 @@ import           Servant
 import           Data.Coerce (coerce)
 
 import           Pos.Chain.Txp (TxId)
-import           Pos.Client.Txp.Util (InputSelectionPolicy (..),
-                     defaultInputSelectionPolicy)
+import           Pos.Client.Txp.Util (defaultInputSelectionPolicy)
 import           Pos.Core (Address, Timestamp)
 
 import           Cardano.Wallet.API.Request
@@ -24,27 +25,20 @@ import           Cardano.Wallet.API.Response
 import qualified Cardano.Wallet.API.V1.Transactions as Transactions
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
-                     (ExpenseRegulation (..), InputGrouping (..))
+                     (ExpenseRegulation (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet (UnknownHdAccount)
 import           Cardano.Wallet.Kernel.DB.TxMeta (TxMeta)
 import qualified Cardano.Wallet.Kernel.Transactions as Kernel
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer,
                      NewPaymentError (..), PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
+import           Cardano.Wallet.WalletLayer.Kernel.Conv (toInputGrouping)
 
 handlers :: ActiveWalletLayer IO -> ServerT Transactions.API Handler
 handlers aw = newTransaction aw
          :<|> getTransactionsHistory (WalletLayer.walletPassiveLayer aw)
          :<|> estimateFees aw
          :<|> redeemAda aw
-
--- Matches the input InputGroupingPolicy with the Kernel's 'InputGrouping'
-toInputGrouping :: Maybe (V1 InputSelectionPolicy) -> InputGrouping
-toInputGrouping v1GroupingPolicy =
-    let (V1 policy) = fromMaybe (V1 defaultInputSelectionPolicy) v1GroupingPolicy
-    in case policy of
-            OptimizeForSecurity       -> PreferGrouping
-            OptimizeForHighThroughput -> IgnoreGrouping
 
 -- | Given a 'Payment' as input, tries to generate a new 'Transaction', submitting
 -- it to the network eventually.
@@ -55,8 +49,10 @@ newTransaction aw payment@Payment{..} = liftIO $ do
 
     -- NOTE(adn) The 'SenderPaysFee' option will become configurable as part
     -- of CBR-291.
+    let inputGrouping = toInputGrouping $ fromMaybe (V1 defaultInputSelectionPolicy)
+                                                    pmtGroupingPolicy
     res <- liftIO $ (WalletLayer.pay aw) (maybe mempty coerce pmtSpendingPassword)
-                                         (toInputGrouping pmtGroupingPolicy)
+                                         inputGrouping
                                          SenderPaysFee
                                          payment
     case res of
@@ -95,7 +91,9 @@ estimateFees :: ActiveWalletLayer IO
              -> Payment
              -> Handler (WalletResponse EstimatedFees)
 estimateFees aw payment@Payment{..} = do
-    res <- liftIO $ (WalletLayer.estimateFees aw) (toInputGrouping pmtGroupingPolicy)
+    let inputGrouping = toInputGrouping $ fromMaybe (V1 defaultInputSelectionPolicy)
+                                                    pmtGroupingPolicy
+    res <- liftIO $ (WalletLayer.estimateFees aw) inputGrouping
                                                   SenderPaysFee
                                                   payment
     case res of

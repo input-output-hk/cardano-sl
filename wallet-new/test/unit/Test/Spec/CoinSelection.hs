@@ -40,10 +40,11 @@ import           Cardano.Wallet.Kernel.CoinSelection (CoinSelFinalResult (..),
                      CoinSelHardErr (..), CoinSelPolicy,
                      CoinSelectionOptions (..), ExpenseRegulation (..),
                      InputGrouping (..), estimateMaxTxInputsExplicitBounds,
-                     largestFirst, mkStdTx, newOptions, random)
+                     largestFirst, newOptions, random)
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (estimateCardanoFee,
                      estimateHardMaxTxInputsExplicitBounds)
+import           Cardano.Wallet.Kernel.Transactions (mkStdTx)
 import           Cardano.Wallet.Kernel.Util.Core (paymentAmount, utxoBalance,
                      utxoRestrictToInputs)
 import           Pos.Crypto.Signing.Safe (fakeSigner)

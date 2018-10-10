@@ -12,12 +12,6 @@ module Cardano.Wallet.Kernel.CoinSelection.FromGeneric (
   , newOptions
     -- * Transaction building
   , CoinSelFinalResult(..)
-  , UnsignedTx -- opaque
-  , utxOwnedInputs
-  , utxOutputs
-  , utxChange
-  , mkStdTx
-  , mkStdUnsignedTx
     -- * Coin selection policies
   , random
   , largestFirst
@@ -43,14 +37,15 @@ import           Data.Typeable (TypeRep, typeRep)
 import           Pos.Binary.Class (LengthOf, Range (..), SizeOverride (..),
                      encode, szSimplify, szWithCtx, toLazyByteString)
 import           Pos.Chain.Txp (TxAux, TxIn, TxInWitness, TxOut, TxSigData)
-import qualified Pos.Chain.Txp as Core
-import qualified Pos.Client.Txp.Util as CTxp
-import           Pos.Core (AddrAttributes, Coin (..), TxSizeLinear,
-                     calculateTxSizeLinear)
-import qualified Pos.Core as Core
+import           Pos.Chain.Txp as Core (TxIn, TxOutAux, Utxo, toaOut,
+                     txOutAddress, txOutValue)
+import           Pos.Core as Core (AddrAttributes, Address, Coin (..),
+                     TxSizeLinear, addCoin, calculateTxSizeLinear, checkCoin,
+                     isRedeemAddress, maxCoinVal, mkCoin, subCoin,
+                     unsafeSubCoin)
+
 import           Pos.Core.Attributes (Attributes)
 import           Pos.Crypto (Signature)
-import qualified Pos.Crypto as Core
 import           Serokell.Data.Memory.Units (Byte, toBytes)
 
 import           Cardano.Wallet.Kernel.CoinSelection.Generic
@@ -178,60 +173,6 @@ feeOptions CoinSelectionOptions{..} = FeeOptions{
                         []   -> error "feeOptions: empty list"
                         o:os -> Fee $ csoEstimateFee numInputs (o :| os)
     }
-
-{-------------------------------------------------------------------------------
-  Building transactions
--------------------------------------------------------------------------------}
-
--- | Our notion of @unsigned transaction@. Unfortunately we cannot reuse
--- directly the 'Tx' from @Core@ as that discards the information about
--- "ownership" of inputs, which is instead required when dealing with the
--- Core Txp.Util API.
-data UnsignedTx = UnsignedTx {
-    utxOwnedInputs :: NonEmpty (Core.TxIn, Core.TxOutAux)
-  , utxOutputs     :: NonEmpty Core.TxOutAux
-  , utxChange      :: [Core.Coin]
-}
-
--- | Creates a "standard" unsigned transaction.
-mkStdUnsignedTx :: NonEmpty (Core.TxIn, Core.TxOutAux)
-                -- ^ Selected inputs
-                -> NonEmpty Core.TxOutAux
-                -- ^ Selected outputs
-                -> [Core.Coin]
-                -- ^ Change coins
-                -> UnsignedTx
-mkStdUnsignedTx inps outs change = UnsignedTx inps outs change
-
-
--- | Build a transaction
-
--- | Construct a standard transaction
---
--- " Standard " here refers to the fact that we do not deal with redemption,
--- multisignature transactions, etc.
-mkStdTx :: Monad m
-        => Core.ProtocolMagic
-        -> (forall a. NonEmpty a -> m (NonEmpty a))
-        -- ^ Shuffle function
-        -> (Core.Address -> Either e Core.SafeSigner)
-        -- ^ Signer for each input of the transaction
-        -> NonEmpty (Core.TxIn, Core.TxOutAux)
-        -- ^ Selected inputs
-        -> NonEmpty Core.TxOutAux
-        -- ^ Selected outputs
-        -> [Core.TxOutAux]
-        -- ^ Change outputs
-        -> m (Either e Core.TxAux)
-mkStdTx pm shuffle hdwSigners inps outs change = do
-    allOuts <- shuffle $ foldl' (flip NE.cons) outs change
-    return $ CTxp.makeMPubKeyTxAddrs pm hdwSigners (fmap repack inps) allOuts
-
--- | Repacks a utxo-derived tuple into a format suitable for
--- 'TxOwnedInputs'.
-repack :: (Core.TxIn, Core.TxOutAux) -> (Core.TxOut, Core.TxIn)
-repack (txIn, aux) = (Core.toaOut aux, txIn)
-
 
 {-------------------------------------------------------------------------------
   Coin selection policy top-level entry point

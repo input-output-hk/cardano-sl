@@ -6,9 +6,12 @@ steps:
       S3_BUCKET: appveyor-ci-cache
       CACHE_S3_MAX_SIZE: 2500MB
     command:
-      - "rm -rf /build/cardano-sl"
-      - "git clone . /build/cardano-sl"
-      - "cd /build/cardano-sl"
+      # cache-s3 needs a build directory that is the same across all buildkite agents.
+      # so copy the source into /tmp/build/cardano-sl
+      - "rm -rf /tmp/build/cardano-sl"
+      - "mkdir -p /tmp/build"
+      - "git clone . /tmp/build/cardano-sl"
+      - "cd /tmp/build/cardano-sl"
       - "nix-build scripts/ci/buildkite -o stack-rebuild"
       - "./stack-rebuild"
     agents:

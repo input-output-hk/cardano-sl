@@ -36,6 +36,7 @@ import           Servant.Client (BaseUrl (..), ClientEnv (..), ClientM,
                      Scheme (..), ServantError (..), client, runClientM)
 
 import           Cardano.Wallet.API (WIPAPI)
+import qualified Cardano.Wallet.API.Internal as Internal
 import qualified Cardano.Wallet.API.V1 as V1
 import           Cardano.Wallet.Client
 
@@ -153,6 +154,23 @@ mkHttpClient baseUrl manager = WalletClient
     -- info
     , getNodeInfo
         = run . getNodeInfoR
+
+    -- Internal API
+
+    , nextUpdate
+        = run $ nextUpdateR
+
+    , applyUpdate
+        = unNoContent $ run $ applyUpdateR
+
+    , postponeUpdate
+        = unNoContent $ run $ postponeUpdateR
+
+    , resetWalletState
+        = unNoContent $ run $ resetWalletStateR
+
+    , importWallet
+        = run . importWalletR
     }
 
   where
@@ -207,10 +225,23 @@ mkHttpClient baseUrl manager = WalletClient
         :<|> redeemAdaR
         = transactionsAPI
 
+
+    nextUpdateR
+        :<|> applyUpdateR
+        :<|> postponeUpdateR
+        :<|> resetWalletStateR
+        :<|> importWalletR
+        = internalAPI
+
     addressesAPI
         :<|> walletsAPI
         :<|> accountsAPI
         :<|> transactionsAPI
         :<|> getNodeSettingsR
         :<|> getNodeInfoR
-        = client (Proxy @("api" :> "v1" :> V1.API))
+        = v1API
+
+    v1API :<|> internalAPI = client (Proxy @(V1API :<|> InternalAPI))
+
+type V1API = "api" :> "v1" :> V1.API
+type InternalAPI = "api" :> "internal" :> Internal.API

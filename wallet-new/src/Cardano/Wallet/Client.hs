@@ -40,6 +40,7 @@ import           Control.Exception (Exception (..))
 import           Servant.Client (GenResponse (..), Response, ServantError (..))
 
 import qualified Pos.Chain.Txp as Core
+import           Pos.Chain.Update (SoftwareVersion)
 import qualified Pos.Core as Core
 
 import           Cardano.Wallet.API.Request.Filter
@@ -146,6 +147,18 @@ data WalletClient m
     -- info
     , getNodeInfo
          :: ForceNtpCheck -> Resp m NodeInfo
+
+    -- Internal API
+    , nextUpdate
+        :: m (Either ClientError (V1 SoftwareVersion))
+    , applyUpdate
+        :: m (Either ClientError ())
+    , postponeUpdate
+        :: m (Either ClientError ())
+    , resetWalletState
+        :: m (Either ClientError ())
+    , importWallet
+        :: WalletImport -> Resp m Wallet
     } deriving Generic
 
 -- | Paginates through all request pages and concatenates the result.
@@ -270,6 +283,16 @@ natMapClient phi f wc = WalletClient
         f $ phi $ getNodeSettings wc
     , getNodeInfo =
         f . phi . getNodeInfo wc
+    , nextUpdate =
+        f $ phi $ nextUpdate wc
+    , applyUpdate =
+        f $ phi $ applyUpdate wc
+    , postponeUpdate =
+        f $ phi $ postponeUpdate wc
+    , resetWalletState =
+        f $ phi $ resetWalletState wc
+    , importWallet =
+        f . phi . importWallet wc
     }
 
 -- | Run the given natural transformation over the 'WalletClient'.

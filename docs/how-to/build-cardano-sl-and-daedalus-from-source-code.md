@@ -184,7 +184,7 @@ cabal 2.0.0.1 which doesn't work.
 
 Enter the `nix-shell`:
 
-    [nix-shell:~/cardano-sl]$ nix-shell
+    [nix-shell:~/cardano-sl]$ nix-shell -A forCabal
 
 Then build all cardano-sl packages:
 

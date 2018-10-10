@@ -26,6 +26,12 @@
 \usepackage{float}
 \floatstyle{boxed}
 \restylefloat{figure}
+% For making figures
+\usepackage{tikz}
+\usetikzlibrary{positioning}
+\usetikzlibrary{arrows}
+\usetikzlibrary{arrows.meta}
+\usetikzlibrary{calc}
 
 \DeclareMathOperator{\dom}{dom}
 \DeclareMathOperator{\range}{range}
@@ -443,7 +449,7 @@ at the address. To exercise these stake rights, and to receive staking
 rewards, each address must be associated with a \emph{registered} stake
 key. This involves registering a stake key on the chain and using
 addresses that refer to this stake key. Each registered stake key has a
-corresponding \emph{reward account} which is used to collect and claim
+corresponding \emph{rewards account} which is used to collect and claim
 staking rewards. To exercise stake rights associated with a registered
 stake key, those rights must be \emph{delegated} to a registered stake pool.
 This involves posting a delegation certificate on the chain identifying
@@ -462,6 +468,136 @@ pool, and the stake pool takes part in the PoS protocol. Private staking
 works in exactly the same way, using a stake key, and delegating, but
 using a private stake pool.
 
+Figure~\ref{fig:overview-delegation} shows some of the concepts involved in the
+delegation, and their relationships. The light-blue nodes represent concepts, which
+do not have a representation in the system, whereas light-brown nodes represent
+system entities.
+
+\begin{figure}[h]
+  \centering
+  \begin{tikzpicture}[ align = center
+                     , node distance = 8em and 10em
+                     , text width = 5em
+                     , font = \footnotesize
+                     , >={Latex[width=0.5em, length=0.5em]}                     
+                     , every node/.style = { rectangle
+                                         , rounded corners
+                                         , draw = black
+                                         , align = center
+                                         , minimum height = 4em }
+                     ]
+
+
+    \tikzset{ concept/.style = {fill=blue!10}
+            , entity/.style = {fill=brown!10}}
+    %%
+    %% Nodes
+    %%
+    \node (owner)   [concept]                    {Owner};
+    \node (addr)    [entity, left = of owner]    {Address (base or pointer)};
+    \node (skey)    [entity, below = of owner]   {Staking key};
+    \node (pkey)    [entity, left = of skey]     {Payment key};
+    \node (racc)    [entity, right = of skey]    {Rewards account (\textbf{address?})};
+    \node (rewards) [concept, below = of racc]   {Rewards};
+    \node (funds)   [concept, below = of pkey]   {Funds};
+    \node (srights) [concept, below = of skey]   {Staking rights};
+    \node (spool)   [entity, below = of srights] {Stake pool};
+    \node (pos)     [concept, right = of spool]  {PoS};
+
+    \tikzset{every node/.style={align=center, text width=6em, text=brown}}
+    %%
+    %% Relationship between nodes (arrows)
+    %%
+    \draw[->] (owner) edge node[above] {owns} (addr);
+    \draw[->] (addr) edge node[left] {contains a} (pkey);
+    \draw[->] (addr) edge node [above, rotate=-40]{contains a} (skey);
+    \draw[->] (owner) edge node[left] {owns} (skey);
+    \draw[->] (owner) edge node[left] {owns} (racc);
+    \draw[->] (pkey) edge node[anchor=south] {is associated\\ with a} (skey);
+    \draw[->] (skey) edge node[anchor=south] {is associated\\ with a} (racc);
+    \draw[->] (racc) edge node[above, rotate=90] {collects} (rewards);
+    \draw[->] (pkey) edge node[anchor=west] {has} (funds);
+    \draw[->] (skey) edge node[anchor=west] {has} (srights);
+    \draw[->] (srights) edge node[anchor=north] {associated with} (funds);
+    \draw[->] (pos) edge[bend left] node[left] {pays to} (racc);
+    \draw[->] (srights) edge node[anchor=east] {delegated to} (spool);
+    \draw[->] (spool) edge node[anchor=south] {participates in} (pos);
+  \end{tikzpicture}
+  \caption{Overview of delegation}
+  \label{fig:overview-delegation}
+\end{figure}
+
+Figure~\ref{fig:er-relationship-delegation} shows the entity-relationship
+diagram of the system level entities involved in the implementation of
+delegation:
+\begin{itemize}
+\item Each address contains a single payment key. However the same payment key
+  can be used by multiple addresses (where addresses differ among each other in
+  the delegation information).
+\item Many addresses can refer to the same stake key. For instance, different
+  outputs of a transaction can specify the that the stake associated with those
+  output should be transferred to the same stake key.
+\item Each stake key have a unique reward account associated with it, and a
+  reward account can be associated to only one stake key.
+\item There can be many UTxO entries (funds) for a single address. However a
+  UTxO entry refers an available input address to use.
+\item A stake key is associated to exactly zero or one stake pool at any point
+  in time. A stake pool can contain multiple stake keys.
+\end{itemize}
+
+\begin{figure*}[h]
+  \centering
+  \begin{tikzpicture}[ align = center
+                     , node distance = 8em and 10em
+                     , text width = 5em
+                     , font = \footnotesize
+                     , >={Latex[width=0.5em, length=0.5em]}                     
+                     , every node/.style = { rectangle
+                                           , rounded corners
+                                           , draw = black
+                                           , align = center
+                                           , minimum height = 4em }
+                     ]
+
+  %%
+  %% Nodes
+  %%
+  \node (addr) [] {Address (base or pointer)};
+  \node (utxo) [left = of addr] {UTxO};
+  \node (pkey) [right = of addr] {Payment key};
+  \node (skey) [below = of addr] {Stake key};
+  \node (spool) [left = of skey] {Stake pool};
+  \node (racc) [right = of skey] {Reward account};
+
+  \tikzset{every node/.style={align=center, text width=6em, above}}
+  %%
+  %% Relationship between nodes (arrows)
+  %%
+  % Horizontal lines. By grouping all the horizontal lines we do not need to set
+  % the node attributes (such as `align`) every time.
+  \draw[-] (utxo) edge node[pos=0.1]  {$n$}
+                       node[pos=0.85] {$1$}
+           (addr);
+  \draw[-] (addr) edge node[pos=0.1]  {$n$}
+                       node[pos=0.85] {$0 \ldots 1$}
+           (pkey);
+  \draw[-] (skey) edge node[pos=0.1]  {$n$}
+                       node[pos=0.85] {$0 \ldots 1$}
+           (spool);
+  \draw[-] (skey) edge node[pos=0.1] {$1$}
+                       node[pos=0.9] {$1$}
+           (racc);           
+  % Horizontal lines.
+  \tikzset{every node/.style={align=left, right}}
+  \draw[-] (addr) edge node[pos=0.1] {$n$}
+                       node[pos=0.9] {$0 \ldots 1$}
+           (skey);
+  \end{tikzpicture}
+
+  \caption{Entity-relationship diagram for delegation}
+  \label{fig:er-relationship-delegation}
+\end{figure*}
+
 \subsection{Address Structure}
 \label{address-structure}
 
@@ -475,6 +611,10 @@ where \(\hash{vkp}\) is a cryptographic hash of the public spending
 key, and \(||\) denotes string concatenation. The types of addresses
 differ in the \emph{staking object} \(\beta\), which carries the
 staking information.
+
+A staking object is used to identify a \emph{staking key} (see
+Section~\ref{overview-of-delegation}) to which staking rights are delegated,
+and provide a proof for this delegation.
 
 In addition to those new addresses, the system will continue to support
 \emph{bootstrap addresses} and \emph{script addresses} as introduced in
@@ -623,12 +763,14 @@ This check protects against the malleability attack in
 \subsubsection{Certificates on the Blockchain}
 \label{certificates-on-the-blockchain}
 
-The registering of stake keys and stake pools, and delegating between
-them involves posting appropriate signed registration or delegation
-certificates to the blockchain as part of transaction metadata.
+The registering of stake keys and stake pools, and delegating between them
+involves posting appropriate signed registration or delegation certificates to
+the blockchain as part of the set of certificates included in transaction (See
+Figure~\ref{fig:utxo_style_certificates}). This makes the certificates part of
+the blockchain, which means that they are are publicly announced to all
+participants.
 
-Certificates can be publicly announced to all participants by posting
-them to the blockchain, as transaction metadata. They will remain valid
+Certificates will remain valid
 until explicitly overwritten or revoked, as an automatic expiry would
 likely increase the amount of undelegated, offline stake. The following
 certificates can be posted to the blockchain:
@@ -648,6 +790,75 @@ in advance, but is presented when it is used:
 Although this last kind is a delegation certificate it is quite
 different from the others which are used to define the delegation
 relation.
+
+Figure~\ref{fig:relationship-keys-certificates} shows the relationships between
+the different types of certificates and keys. Subsequent sections provide more
+details.
+
+\begin{figure}[h]
+  \centering
+  \begin{tikzpicture}[ align = center
+                     , node distance = 6em and 10em
+                     , text width = 5em
+                     , font = \footnotesize
+                     , >={Latex[width=0.5em, length=0.5em]}
+                     , every node/.style = { rectangle
+                                         , rounded corners
+                                         , draw = black
+                                         , align = center
+                                         , minimum height = 4em }
+                     ]
+
+  %%
+  %% Nodes
+  %%
+  \tikzset{ key/.style={fill=red!10}
+          , cert/.style={fill=green!10}
+          , dummy/.style={draw=none}
+          }
+  
+  \node (skeys) [key] {Staking keys};
+  \node (scold) [key, right = of skeys] {Stake pool keys (cold)};
+  \node (shot) [key, right = of scold] {Stake pool keys (hot)};
+  \node (skeyr) [cert, above = of skeys] {Stake key registration};
+  \node (skeyd) [cert, below = of skeys] {Stake key deregistration};
+  \node (pr) [cert, above = of scold] {Pool registration};
+  \node (pd) [cert, below = of scold] {Pool deregistration};
+  \node (dcert) [cert] at ($(skeyr)!0.5!(pr)$) {Delegation cert (HW)};
+  \node (dummy) [dummy, above = of shot] {};
+  \node (lwdcert) [cert] at ($(pr)!0.5!(dummy)$) {Delegation cert (LW)};  
+
+  \tikzset{every node/.style={align=center, text width=7em, text=brown}}
+  %%
+  %% Relationship between nodes (arrows)
+  %%
+  % Horizontal lines.
+  \draw[dashed, ->] (skeys) edge node[above] {HW delegation}
+  (scold);
+  \draw[dashed, <-] (scold) edge node[above] {LW delegation}
+            (shot);
+  % Vertical lines.
+  \draw[->] (skeys) edge 
+            (skeyr);
+  \draw[->] (skeys) edge 
+            (skeyd);
+  \draw[->] (scold) edge 
+            (pr);
+  \draw[->] (scold) edge 
+            (pd);            
+  \draw[->] (skeys) edge 
+            (dcert);
+  \draw[->] (scold) edge 
+            (dcert);
+  \draw[->] (scold) edge 
+            (lwdcert);
+  \draw[->] (shot) edge 
+            (lwdcert);                            
+  \end{tikzpicture}
+                   
+  \caption{Relation between the different keys and certificates}
+  \label{fig:relationship-keys-certificates}
+\end{figure}
 
 \subsubsection{Certificate Replay Prevention}
 \label{certificate-replay-prevention}
@@ -711,7 +922,7 @@ The certificate must be signed by \(sks\).
 
 Registering a stake key introduces a corresponding stake reward account.
 The account is deleted when the stake key is de-registered. See
-\cref{stake-reward-accounts} for details on reward accounts.
+\cref{reward-accounts-per-stake-key} for details on reward accounts.
 
 Registering a stake key attracts a special fee that must be included
 into the transaction that posts the certificate. This fee is in fact a
@@ -827,8 +1038,42 @@ source stake key is de-registered.
 \subsubsection{Lightweight Delegation Certificates}
 \label{lightweight-delegation-certificates}
 
-Lightweight delegation certificates are used by stake pools at the point
-of exercising stake rights including:
+% On the need for a hot/cold key arrangement.
+The stake pool operators can use a \emph{hot}/\emph{cold} key arrangement to
+mitigate key exposure (see~\cref{mitigate-key-exposure}). The \emph{hot} keys
+are kept online, while the \emph{cold} key is kept securely offline. This
+requires a \emph{delegation certificate} to transfer the rights to participate
+in the \emph{PoS} protocol from the \emph{hot} to the \emph{cold} key.
+
+% The problems with using in-ledger certificates.
+If the above mentioned type of delegation certificates would be included in the
+ledger, as the other certificates are, this would present a problem for blocks
+validation. Consider the following example: suppose that the network layer
+wants to validate a batch of 10 block headers from the current epoch, before
+deciding if it wants to also download the block bodies. Can it tell if those
+block headers are signed by the right actors?
+
+In this situation the network layer has the state of the ledger up to but not
+including these next 10 block headers. So it cannot rely on any information in
+the 10 corresponding block bodies.
+
+In this situation, the validity of the pools-staking keys cannot be verified.
+If the network layer sees one of the 10 new blocks signed by a key it doesn't
+recognise, it might be because there is a delegation certificate in the blocks
+bodies (which the network layer has not seen yet), that shows tha tht key is
+valid because some other key delegated its staking rights to it. Similarly, if
+the network layer sees a known staking key, how can it know that it is still
+valid? There could be a new certificate in the block body that delegates the
+rights of this key to a different one (which would invalidate the key the
+network layer saw).
+
+To address this problem, a new type of certificate is introduced:
+\emph{lightweight delegation} certificates. These certificates are provided in
+the block itself (and not in the block body), thus solving the problem of
+determining the validity of staking keys. In other words, \emph{lightweight
+  delegation} certificates are \textbf{not included in the ledger}, but instead
+they \textbf{included in blocks} by
+stake pools at the point of exercising stake rights including:
 
 \begin{itemize}
 \item
@@ -839,12 +1084,7 @@ of exercising stake rights including:
   signing votes for protocol update proposals
 \end{itemize}
 
-The purpose of lightweight certificates is to enable stake pool
-operators to mitigate key exposure, see \cref{mitigate-key-exposure}.
-They allow stake pools to use a
-\emph{hot}/\emph{cold} key arrangement: operational (or \emph{hot}) keys
-are kept on the operational nodes that take part in the protocols, while
-the main (or \emph{cold}) is kept securely offline. A lightweight
+A lightweight
 certificate, signed by the stake pool's cold key, delegates to the hot
 key that is used to sign messages in the protocols (block header, VSS
 message or vote). This lightweight certificate is included in the
@@ -858,7 +1098,7 @@ Specifically, a lightweight delegation certificate specifies that the
 staking rights are transferred from a source key \(vks_\text{source}\)
 to a delegate key \(vks_\text{delegate}\). They are included in the
 message (e.g.~block header) and the message itself is signed with
-\(sks_\text{delegate}\).
+\(sks_\text{source}\).
 
 In detail, the hot/cold key setup is as follows:
 

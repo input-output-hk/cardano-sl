@@ -45,9 +45,6 @@ library
                        Cardano.Wallet.API.V1.Handlers.Wallets
                        Cardano.Wallet.API.V1.Headers
                        Cardano.Wallet.API.V1.Info
-                       Cardano.Wallet.API.V1.Migration
-                       Cardano.Wallet.API.V1.Migration.Monads
-                       Cardano.Wallet.API.V1.Migration.Types
                        Cardano.Wallet.API.V1.Parameters
                        Cardano.Wallet.API.V1.ReifyWalletError
                        Cardano.Wallet.API.V1.Settings

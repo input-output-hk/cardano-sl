@@ -158,6 +158,7 @@ library
                      , aeson-pretty
                      , async
                      , base58-bytestring
+                     , basement
                      , beam-core
                      , beam-migrate
                      , beam-sqlite
@@ -559,6 +560,7 @@ test-suite wallet-new-specs
                     RequestSpec
                     WalletNewJson
                     Cardano.Wallet.WalletLayer.QuickCheck
+                    Cardano.Wallet.Kernel.BIP39Spec
 
   default-language: Haskell2010
   default-extensions: BangPatterns
@@ -660,6 +662,7 @@ benchmark cardano-sl-wallet-new-bench
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-wallet
+                     , cardano-sl-wallet-new
                      , cassava
                      , connection
                      , data-default

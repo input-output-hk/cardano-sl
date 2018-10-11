@@ -16,12 +16,10 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Cardano.Wallet.Action
-                       Cardano.Wallet.LegacyAction
                        Cardano.Wallet.API
                        Cardano.Wallet.API.Indices
                        Cardano.Wallet.API.Internal
                        Cardano.Wallet.API.Internal.Handlers
-                       Cardano.Wallet.API.Internal.LegacyHandlers
                        Cardano.Wallet.API.Request
                        Cardano.Wallet.API.Request.Filter
                        Cardano.Wallet.API.Request.Pagination
@@ -33,9 +31,6 @@ library
                        Cardano.Wallet.API.Response.Sort.IxSet
                        Cardano.Wallet.API.Types
                        Cardano.Wallet.API.Types.UnitOfMeasure
-                       Cardano.Wallet.API.V0
-                       Cardano.Wallet.API.V0.Handlers
-                       Cardano.Wallet.API.V0.Types
                        Cardano.Wallet.API.V1
                        Cardano.Wallet.API.V1.Accounts
                        Cardano.Wallet.API.V1.Addresses
@@ -50,14 +45,6 @@ library
                        Cardano.Wallet.API.V1.Handlers.Wallets
                        Cardano.Wallet.API.V1.Headers
                        Cardano.Wallet.API.V1.Info
-                       Cardano.Wallet.API.V1.LegacyHandlers
-                       Cardano.Wallet.API.V1.LegacyHandlers.Accounts
-                       Cardano.Wallet.API.V1.LegacyHandlers.Addresses
-                       Cardano.Wallet.API.V1.LegacyHandlers.Info
-                       Cardano.Wallet.API.V1.LegacyHandlers.Instances
-                       Cardano.Wallet.API.V1.LegacyHandlers.Settings
-                       Cardano.Wallet.API.V1.LegacyHandlers.Transactions
-                       Cardano.Wallet.API.V1.LegacyHandlers.Wallets
                        Cardano.Wallet.API.V1.Migration
                        Cardano.Wallet.API.V1.Migration.Monads
                        Cardano.Wallet.API.V1.Migration.Types
@@ -132,7 +119,6 @@ library
                        Cardano.Wallet.Kernel.Util.StrictNonEmpty
                        Cardano.Wallet.Kernel.Util.StrictStateT
                        Cardano.Wallet.Kernel.Wallets
-                       Cardano.Wallet.LegacyServer
                        Cardano.Wallet.Orphans
                        Cardano.Wallet.Orphans.Aeson
                        Cardano.Wallet.Orphans.Arbitrary
@@ -142,7 +128,6 @@ library
                        Cardano.Wallet.Server.Middlewares
                        Cardano.Wallet.Server.Plugins
                        Cardano.Wallet.Server.Plugins.AcidState
-                       Cardano.Wallet.Server.LegacyPlugins
                        Cardano.Wallet.TypeLits
                        Cardano.Wallet.Types.UtxoStatistics
                        Cardano.Wallet.Client
@@ -565,11 +550,9 @@ test-suite wallet-new-specs
   hs-source-dirs:   test test/unit
 
   other-modules:    APISpec
-                    InternalAPISpec
                     MarshallingSpec
                     SwaggerSpec
                     RequestSpec
-                    WalletHandlersSpec
                     WalletNewJson
                     Cardano.Wallet.WalletLayer.QuickCheck
 

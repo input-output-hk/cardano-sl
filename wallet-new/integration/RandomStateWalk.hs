@@ -7,11 +7,8 @@
 {-# LANGUAGE TypeApplications           #-}
 
 
-module Functions
-    ( runActionCheck
-    , printT
-    , randomTest
-    ) where
+module RandomStateWalk (randomStateWalkTest)
+where
 
 import           Universum hiding (init, throwM, uncons)
 
@@ -23,16 +20,18 @@ import           Data.Aeson.Diff (diff)
 import           Data.Aeson.Encode.Pretty (encodePretty)
 import           Data.Coerce (coerce)
 import           Data.List (isInfixOf, nub, uncons, (!!), (\\))
+import           Data.Map (fromList)
+import           Data.Traversable (for)
+
 import           Servant.Client (GenResponse (..))
-import           Test.Hspec (Spec, describe, expectationFailure, hspec,
-                     shouldBe, shouldContain)
+import           Test.Hspec (describe, expectationFailure, hspec, shouldBe,
+                     shouldContain)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (arbitrary, choose, elements, frequency,
                      quickCheck, suchThat, withMaxSuccess)
 import           Test.QuickCheck.Monadic (PropertyM, monadic, monadicIO, pick,
                      pre, run, stop)
-import           Test.QuickCheck.Property (Property, Testable, ioProperty,
-                     rejected)
+import           Test.QuickCheck.Property (Property, ioProperty, rejected)
 import           Text.Show.Pretty (ppShow)
 
 import           Cardano.Wallet.API.Response (WalletResponse (..))
@@ -49,6 +48,13 @@ import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import           Error (WalletTestError (..))
 import           Types
 import           Util
+
+randomStateWalkTest :: WalletClient IO -> IO ()
+randomStateWalkTest walletClient = do
+    printT "Starting the integration testing for wallet."
+    walletState <- initialWalletState walletClient
+    printT $ "Initial wallet state: " <> show walletState
+    void $ runActionCheck walletClient walletState actionDistribution
 
 newtype RefT s m a
     = RefT
@@ -722,12 +728,32 @@ checkInvariant
 checkInvariant True  _             = pure ()
 checkInvariant False walletTestErr = liftIO $ throwM walletTestErr
 
+actionDistribution :: ActionProbabilities
+actionDistribution =
+        (PostWallet, Weight 2)
+            :| (PostTransaction, Weight 5)
+            : fmap (, Weight 1) [minBound .. maxBound]
+
+initialWalletState :: WalletClient IO -> IO WalletState
+initialWalletState wc = do
+    -- We will have single genesis wallet in intial state that was imported from launching script
+    _wallets <- fromResp $ getWallets wc
+    _accounts <- concat <$> for _wallets (fromResp . getAccounts wc . walId)
+    -- Lets set all wallet passwords for initial wallets (genesis) to default (emptyPassphrase)
+    let _lastAction       = NoOp
+        _walletsPass      = fromList $ map ((, V1 mempty) . walId) _wallets
+        _addresses        = concatMap accAddresses _accounts
+        -- TODO(akegalj): I am not sure does importing a genesis wallet (which we do prior launching integration tests) creates a transaction
+        -- If it does, we should add this transaction to the list
+        _transactions     = mempty
+        _actionsNum       = 0
+        _successActions   = mempty
+    return WalletState {..}
+  where
+    fromResp = (either throwM (pure . wrData) =<<)
+
 log :: MonadIO m => Text -> m ()
 log = putStrLn . mappend "[TEST-LOG] "
-
--- | Output for @Text@.
-printT :: Text -> IO ()
-printT = putStrLn
 
 ppShowT :: Show a => a -> Text
 ppShowT = fromString . ppShow
@@ -741,8 +767,3 @@ walletIdIsNotGenesis walletId = do
     mwallet <- (fmap fst . uncons) . filter ((walletId ==) . walId) <$> use wallets
     whenJust mwallet $ \wal ->
         pre (walName wal /= "Genesis wallet")
-
-
-randomTest :: (Testable a) => String -> Int -> PropertyM IO a -> Spec
-randomTest msg maxSuccesses =
-    prop msg . withMaxSuccess maxSuccesses . monadicIO

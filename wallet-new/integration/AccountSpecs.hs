@@ -10,7 +10,6 @@ import           Cardano.Wallet.API.Indices (accessIx)
 import           Cardano.Wallet.Client.Http
 import           Control.Lens
 import qualified Data.Text as T
-import           Functions (randomTest)
 import           Pos.Core.Common (mkCoin)
 import           Test.Hspec
 import           Test.QuickCheck (arbitrary, shuffle)

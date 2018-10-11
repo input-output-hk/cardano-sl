@@ -14,6 +14,7 @@ module Pos.Diffusion.Full.Block
 
 import           Universum
 
+import           Control.Concurrent (threadDelay)
 import           Control.Concurrent.Async (cancel)
 import qualified Control.Concurrent.STM as Conc
 import           Control.Exception (Exception (..), throwIO)
@@ -335,7 +336,23 @@ streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoint
                          processBlocks batchSize n' (block : blocks) blockChan
 
     writeStreamEnd :: Conc.TBQueue StreamEntry -> IO ()
-    writeStreamEnd blockChan = atomically $ Conc.writeTBQueue blockChan StreamEnd
+    writeStreamEnd blockChan = writeBlock 1024 blockChan StreamEnd
+
+    -- It is possible that the reader of the TBQueue stops unexpectedly which
+    -- means that we we will have to use a timeout instead of blocking forever
+    -- while attempting to write to a full queue.
+    writeBlock :: Int -> Conc.TBQueue StreamEntry -> StreamEntry -> IO ()
+    writeBlock delay _ _ | delay >= 4000000 = do
+        let msg = "Error write timeout to local reader"
+        traceWith logTrace (Warning, msg)
+        throwM $ DialogUnexpected msg
+    writeBlock delay blockChan b = do
+        isFull <- atomically $ Conc.isFullTBQueue blockChan
+        if isFull
+            then do
+                threadDelay delay
+                writeBlock (delay * 2) blockChan b
+            else atomically $ Conc.writeTBQueue blockChan b
 
     mkStreamStart :: [HeaderHash] -> HeaderHash -> MsgStream
     mkStreamStart chain wantedBlock =
@@ -348,7 +365,7 @@ streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoint
     requestBlocks :: Conc.TVar Bool -> Conc.TBQueue StreamEntry -> IO (Conc.TVar (OQ.PacketStatus ()))
     requestBlocks fallBack blockChan = do
         convMap <- enqueue (MsgRequestBlocks (S.singleton nodeId))
-                            (\_ _ -> (Conversation $ \it -> requestBlocksConversation blockChan it `finally` writeStreamEnd blockChan) :|
+                            (\_ _ -> (Conversation $ \it -> requestBlocksConversation blockChan it `onException` writeStreamEnd blockChan) :|
                                       [(Conversation $ \it -> requestBatch fallBack blockChan it `finally` writeStreamEnd blockChan)]
                                      )
         case M.lookup nodeId convMap of
@@ -368,6 +385,8 @@ streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoint
         -- The peer doesn't support streaming, we need to fall back to batching but
         -- the current conversation is unusable since there is no way for us to learn
         -- which blocks we shall fetch.
+        -- We will always have room to write a singel StreamEnd so there is no need to
+        -- differentiate between normal execution and when we get an expection.
         atomically $ writeTVar fallBack True
         return ()
 
@@ -384,6 +403,7 @@ streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoint
         send conv $ mkStreamStart checkpoints newestHash
         bvd <- Logic.getAdoptedBVData logic
         retrieveBlocks bvd blockChan conv streamWindow
+        atomically $ Conc.writeTBQueue blockChan StreamEnd
         return ()
 
     halfStreamWindow = max 1 $ streamWindow `div` 2

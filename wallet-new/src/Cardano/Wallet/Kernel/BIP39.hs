@@ -55,25 +55,16 @@ import           Pos.Binary (serialize')
 import           Pos.Crypto (AesKey (..))
 import           Pos.Infra.Util.LogSafe (SecureLog)
 import           Test.QuickCheck (Arbitrary (..))
---import           Test.QuickCheck.Gen (vectorOf)
+import           Test.QuickCheck.Gen (vectorOf)
 
 import qualified Basement.Compat.Base as Basement
 import qualified Basement.String as Basement
 import qualified Basement.UArray as Basement
 import qualified Crypto.Encoding.BIP39.English as Dictionary
 import qualified Crypto.Random.Entropy as Crypto
---import qualified Data.ByteString.Char8 as B8
+import qualified Data.ByteString.Char8 as B8
 import qualified Formatting.Buildable
 
-
--- This module the new (and identical) Pos.Util.Mnemonic
--- Dependency on the old wallet is not fully removed yet, so we get problems
--- with duplicate instance declarations. The easiest solution was to comment
--- instances here and import the ones from the old wallet.
---
--- TODO: Uncomment instances in this module and remove this import when
--- possible.
-import           Pos.Util.Mnemonic ()
 
 --
 -- TYPES
@@ -257,21 +248,21 @@ fromUtf8String =
     toText . Basement.toList
 
 
---- | The initial seed has to be vector or length multiple of 4 bytes and shorter
---- than 64 bytes. Not that this is good for testing or examples, but probably
---- not for generating truly random Mnemonic words.
----
---- See 'Crypto.Random.Entropy (getEntropy)'
--- instance
---     ( ValidEntropySize n
---     , ValidChecksumSize n csz
---     ) => Arbitrary (Entropy n) where
---     arbitrary =
---         let
---             size    = fromIntegral $ natVal (Proxy @n)
---             entropy = mkEntropy  @n . B8.pack <$> vectorOf (size `quot` 8) arbitrary
---         in
---             either (error . show . UnexpectedEntropyError) identity <$> entropy
+-- | The initial seed has to be vector or length multiple of 4 bytes and shorter
+-- than 64 bytes. Not that this is good for testing or examples, but probably
+-- not for generating truly random Mnemonic words.
+--
+-- See 'Crypto.Random.Entropy (getEntropy)'
+instance
+    ( ValidEntropySize n
+    , ValidChecksumSize n csz
+    ) => Arbitrary (Entropy n) where
+    arbitrary =
+        let
+            size    = fromIntegral $ natVal (Proxy @n)
+            entropy = mkEntropy  @n . B8.pack <$> vectorOf (size `quot` 8) arbitrary
+        in
+            either (error . show . UnexpectedEntropyError) identity <$> entropy
 
 
 -- Same remark from 'Arbitrary Entropy' applies here.

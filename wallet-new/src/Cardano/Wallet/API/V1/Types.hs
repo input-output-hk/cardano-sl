@@ -205,8 +205,6 @@ import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
                      buildSafe, buildSafeList, buildSafeMaybe,
                      deriveSafeBuildable, plainOrSecureF)
 import           Pos.Util.Servant (Flaggable (..))
-import           Pos.Wallet.Web.ClientTypes.Instances ()
-import qualified Pos.Wallet.Web.State.Storage as OldStorage
 import           Test.Pos.Core.Arbitrary ()
 
 -- | Declare generic schema, while documenting properties
@@ -911,31 +909,31 @@ instance ToSchema EstimatedCompletionTime where
                     )
                 )
 
-
-newtype SyncThroughput = SyncThroughput (MeasuredIn 'BlocksPerSecond OldStorage.SyncThroughput)
+newtype SyncThroughput
+    = SyncThroughput (MeasuredIn 'BlocksPerSecond Core.BlockCount)
   deriving (Show, Eq)
 
 mkSyncThroughput :: Core.BlockCount -> SyncThroughput
-mkSyncThroughput = SyncThroughput . MeasuredIn . OldStorage.SyncThroughput
+mkSyncThroughput = SyncThroughput . MeasuredIn
 
 instance Ord SyncThroughput where
-    compare (SyncThroughput (MeasuredIn (OldStorage.SyncThroughput (Core.BlockCount b1))))
-            (SyncThroughput (MeasuredIn (OldStorage.SyncThroughput (Core.BlockCount b2)))) =
+    compare (SyncThroughput (MeasuredIn (Core.BlockCount b1)))
+            (SyncThroughput (MeasuredIn (Core.BlockCount b2))) =
         compare b1 b2
 
 instance Arbitrary SyncThroughput where
-    arbitrary = SyncThroughput . MeasuredIn . OldStorage.SyncThroughput <$> arbitrary
+    arbitrary = SyncThroughput . MeasuredIn <$> arbitrary
 
 deriveSafeBuildable ''SyncThroughput
 instance BuildableSafeGen SyncThroughput where
-    buildSafeGen _ (SyncThroughput (MeasuredIn (OldStorage.SyncThroughput (Core.BlockCount blocks)))) = bprint ("{"
+    buildSafeGen _ (SyncThroughput (MeasuredIn (Core.BlockCount blocks))) = bprint ("{"
         %" quantity="%build
         %" unit=blocksPerSecond"
         %" }")
         blocks
 
 instance ToJSON SyncThroughput where
-    toJSON (SyncThroughput (MeasuredIn (OldStorage.SyncThroughput (Core.BlockCount blocks)))) =
+    toJSON (SyncThroughput (MeasuredIn (Core.BlockCount blocks))) =
       object [ "quantity" .= toJSON blocks
              , "unit"     .= String "blocksPerSecond"
              ]

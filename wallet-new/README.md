@@ -188,14 +188,17 @@ $ nix-build -A walletIntegrationTests --arg useStackBinaries true
 > test, you can pass the `--check` flag to force the test to run again. `--check`
 > is used to confirm that results from one test match the results again.
 
-Wallet integration tests can be used also with seed/match options that behave like hspec test runner (and are passed to).
---match PATTERN - behave exactly like Hspec's --match allowing to run only a subset of tests
---seed SEED - enable passing an external, predictable seed to the test runner
-Example allowing the use of concrete seed and testing Address related tests only:
-
+The wallet integration tests support --hspec-options to pass options to HSpec.
+This can be used to set a seed for the PRNG, only run a matching set of tests or to
+skip some tests.
+Examples:
 ```
 $ nix-build -A walletIntegrationTests -o launch_integration_tests
-$ ./launch_integration_tests --match 'Address' --seed 47286650
+$ ./launch_integration_tests --hspec-options '--skip Address --seed 47286650'
+
+$ nix-build -A walletIntegrationTests -o launch_integration_tests
+$ ./launch_integration_tests --hspec-options '--match Address --seed 47286650'
+
 ```
 
 

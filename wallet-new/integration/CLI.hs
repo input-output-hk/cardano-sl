@@ -3,17 +3,16 @@
 -- | Functions for working with command-line options.
 
 module CLI
-    ( CLOptions (..)
+    ( CLIOptions (..)
     , getOptions
     ) where
 
+import           Data.String (words)
+import           Options.Applicative
 import           Universum
 
-import           Options.Applicative
-
-
 -- | Parser for command-line options.
-optionsParser :: Parser CLOptions
+optionsParser :: Parser CLIOptions
 optionsParser = do
     tlsClientCertPath <- strOption $
         long        "tls-client-cert"
@@ -44,24 +43,18 @@ optionsParser = do
        <> help      "Server port"
        <> showDefault
 
-    testRunnerMatch <- optional . strOption $
-        long        "match"
-        <> metavar  "PATTERN"
-        <> help     "Only tests that match PATTERN will be run"
+    hSpecOptions <- fmap Data.String.words $ strOption $
+        long        "hspec-options"
+        <> metavar  "OPTIONS"
+        <> value    ""
+        <> help     "extra options to pass to HSpec"
         <> showDefault
 
-    testRunnerSeed <- optional . option auto $
-        long        "seed"
-        <> metavar  "SEED"
-        <> help     "Seed for a test runner"
-        <> showDefault
-
-
-    pure CLOptions{..}
+    pure CLIOptions{..}
 
 
 -- | Get command-line options.
-getOptions :: IO CLOptions
+getOptions :: IO CLIOptions
 getOptions = execParser programInfo
   where
     programInfo = info (helper <*> optionsParser) $
@@ -70,12 +63,11 @@ getOptions = execParser programInfo
 
 
 -- | The configuration for the application.
-data CLOptions = CLOptions
+data CLIOptions = CLIOptions
     { tlsClientCertPath :: FilePath
     , tlsPrivKeyPath    :: FilePath
     , tlsCACertPath     :: FilePath
     , serverHost        :: String
     , serverPort        :: Int
-    , testRunnerMatch   :: Maybe String
-    , testRunnerSeed    :: Maybe Integer
+    , hSpecOptions      :: [String]
     } deriving (Show, Eq)

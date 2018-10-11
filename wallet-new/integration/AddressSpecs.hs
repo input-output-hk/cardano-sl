@@ -7,13 +7,10 @@ import           Universum
 
 import           Cardano.Wallet.Client.Http
 import           Control.Lens
-import           Functions (randomTest)
 import           Test.Hspec
 import           Test.QuickCheck.Monadic (run)
 
-
 import           Util
-
 
 addressSpecs :: WalletRef -> WalletClient IO -> Spec
 addressSpecs wRef wc = do

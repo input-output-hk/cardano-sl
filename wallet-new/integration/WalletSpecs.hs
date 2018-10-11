@@ -7,7 +7,6 @@ import           Universum
 
 import           Cardano.Wallet.Client.Http
 import           Control.Lens
-import           Functions (randomTest)
 import           Test.Hspec
 import           Test.QuickCheck.Monadic (run)
 

@@ -35,7 +35,7 @@ before_test:
       $c.AutomaticManagedPagefile = $false
       $c.Put() | Out-Null
     } ;
-    $new_page_size=50000 ;
+    $new_page_size=25000 ;
     $CurrentPageFile = Get-WmiObject -Class Win32_PageFileSetting ;
     if ($CurrentPageFile.InitialSize -ne $new_page_size) {
       Write-Host "setting new page file size to $new_page_size"
@@ -43,6 +43,9 @@ before_test:
       $CurrentPageFile.MaximumSize=$new_page_size
       $CurrentPageFile.Put() | Out-Null
     } ;
+    $CurrentPageFile = Get-WmiObject -Class Win32_PageFileSetting ;
+    Write-Host "initial page size is now $CurrentPageFile.InitialSize" ;
+    Write-Host "maximum page size is now $CurrentPageFile.MaximumSize" ;
     if ( $env:CACHE_S3_READY -eq $true ) {
       Start-FileDownload https://github.com/fpco/cache-s3/releases/download/$env:CACHE_S3_VERSION/cache-s3-$env:CACHE_S3_VERSION-windows-x86_64.zip -FileName cache-s3.zip
       7z x cache-s3.zip cache-s3.exe

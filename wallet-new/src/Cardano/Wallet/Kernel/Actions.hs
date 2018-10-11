@@ -144,12 +144,12 @@ walletWorker
   -> m ()
 walletWorker wai getWA = Ex.bracket_
   (emit wai "Starting wallet worker.")
+  (emit wai "Stopping wallet worker.")
   (evalStateT
      (fix $ \next -> lift getWA >>= \case
         Nothing -> pure ()
         Just wa -> interp wai wa >> next)
      initialWorkerState)
-  (emit wai "Stopping wallet worker.")
 
 -- | Connect a wallet action interpreter to a stream of actions.
 interpList :: Monad m => WalletActionInterp m b -> [WalletAction b] -> m (WalletWorkerState b)

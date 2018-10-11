@@ -55,7 +55,7 @@ data UpdateConfiguration = UpdateConfiguration
       -- | System tag.
     , ccSystemTag             :: !SystemTag
     }
-    deriving (Show, Generic)
+    deriving (Eq, Generic, Show)
 
 instance ToJSON UpdateConfiguration where
     toJSON = genericToJSON defaultOptions

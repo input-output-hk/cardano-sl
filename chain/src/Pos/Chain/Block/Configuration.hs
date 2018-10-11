@@ -74,7 +74,7 @@ data BlockConfiguration = BlockConfiguration
       -- | Chain quality will be also calculated for this amount of seconds.
     , ccFixedTimeCQ            :: !Second
 
-    } deriving (Show, Generic)
+    } deriving (Eq, Generic, Show)
 
 instance ToJSON BlockConfiguration where
     toJSON = genericToJSON defaultOptions

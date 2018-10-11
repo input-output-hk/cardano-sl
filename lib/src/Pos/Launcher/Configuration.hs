@@ -74,7 +74,7 @@ data Configuration = Configuration
     , ccNode        :: !NodeConfiguration
     , ccWallet      :: !WalletConfiguration
     , ccReqNetMagic :: !RequiresNetworkMagic
-    } deriving (Show, Generic)
+    } deriving (Eq, Generic , Show)
 
 instance FromJSON Configuration where
     parseJSON = withObject "Configuration" $ \o -> do
@@ -114,7 +114,7 @@ instance ToJSON Configuration where
 
 data WalletConfiguration = WalletConfiguration
     { ccThrottle :: !(Maybe ThrottleSettings)
-    } deriving (Show, Generic)
+    } deriving (Eq, Generic, Show)
 
 defaultWalletConfiguration :: WalletConfiguration
 defaultWalletConfiguration = WalletConfiguration
@@ -131,7 +131,7 @@ data ThrottleSettings = ThrottleSettings
     { tsRate   :: !Word64
     , tsPeriod :: !Word64
     , tsBurst  :: !Word64
-    } deriving (Show, Generic)
+    } deriving (Eq, Generic, Show)
 
 defaultThrottleSettings :: ThrottleSettings
 defaultThrottleSettings = ThrottleSettings

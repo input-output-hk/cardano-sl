@@ -37,7 +37,7 @@ data SscConfiguration = SscConfiguration
       -- | Don't print “SSC couldn't compute seed” for the first epoch.
     , ccNoReportNoSecretsForEpoch1    :: !Bool
     }
-    deriving (Show, Generic)
+    deriving (Eq, Generic, Show)
 
 instance FromJSON SscConfiguration where
     parseJSON = genericParseJSON defaultOptions

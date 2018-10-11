@@ -58,7 +58,7 @@ data NodeConfiguration = NodeConfiguration
     , ccExplorerExtendedApi          :: !Bool
       -- ^ Enable explorer extended API for fetching more
       -- info about addresses (like utxos) and bulk endpoints
-    } deriving (Show, Generic)
+    } deriving (Eq, Generic, Show)
 
 instance ToJSON NodeConfiguration where
     toJSON = genericToJSON defaultOptions

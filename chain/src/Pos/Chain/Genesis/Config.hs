@@ -148,9 +148,9 @@ instance FromJSON StaticConfig where
                           avvmBalanceFactor
                           useHeavyDlg
                           seed)
-        | otherwise = fail "Incorrect JSON encoding for GenesisConfiguration"
+        | otherwise = fail "Incorrect JSON encoding for StaticConfig"
 
-    parseJSON invalid = typeMismatch "GenesisConfiguration" invalid
+    parseJSON invalid = typeMismatch "StaticConfig" invalid
 
 --------------------------------------------------------------------------------
 -- Config

@@ -31,9 +31,6 @@ module Cardano.Wallet.Kernel.BIP39
        , mnemonicToAesKey
        , entropyToMnemonic
        , entropyToByteString
-
-       -- * Helper (FIXME: Move to a separated module)
-       , eitherToParser
        ) where
 
 import           Universum
@@ -44,18 +41,19 @@ import           Control.Lens ((?~))
 import           Crypto.Encoding.BIP39
 import           Crypto.Hash (Blake2b_256, Digest, hash)
 import           Data.Aeson (FromJSON (..), ToJSON (..))
-import           Data.Aeson.Types (Parser)
 import           Data.ByteArray (constEq, convert)
 import           Data.ByteString (ByteString)
 import           Data.Default (Default (def))
 import           Data.Swagger (NamedSchema (..), ToSchema (..), maxItems,
                      minItems)
-import           Formatting (bprint, build, formatToString, (%))
+import           Formatting (bprint, build, (%))
+import           Test.QuickCheck (Arbitrary (..))
+import           Test.QuickCheck.Gen (vectorOf)
+
+import           Cardano.Wallet.Util (eitherToParser)
 import           Pos.Binary (serialize')
 import           Pos.Crypto (AesKey (..))
 import           Pos.Infra.Util.LogSafe (SecureLog)
-import           Test.QuickCheck (Arbitrary (..))
-import           Test.QuickCheck.Gen (vectorOf)
 
 import qualified Basement.Compat.Base as Basement
 import qualified Basement.String as Basement
@@ -358,10 +356,6 @@ instance
     ) => FromJSON (Mnemonic mw) where
     parseJSON =
         parseJSON >=> (eitherToParser . mkMnemonic)
-
-eitherToParser :: Buildable a => Either a b -> Parser b
-eitherToParser =
-    either (fail . formatToString build) pure
 
 
 instance ToJSON (Mnemonic mw) where

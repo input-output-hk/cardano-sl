@@ -19,7 +19,6 @@ import           Cardano.Wallet.API.Request.Sort
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.Types
 import           Cardano.Wallet.API.V1.Generic (gconsName)
-import           Cardano.Wallet.API.V1.Migration.Types (MigrationError (..))
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Swagger.Example
 import           Cardano.Wallet.API.V1.Types
@@ -369,9 +368,6 @@ $errors
     , mkRow fmtErr $ NodeIsStillSyncing genExample
     , mkRow fmtErr $ CannotCreateAddress "Cannot create derivation path for new address in external wallet."
     , mkRow fmtErr $ RequestThrottled 42
-
-    -- 'MigrationError'
-    , mkRow fmtErr $ MigrationFailed "Migration failed."
 
     -- 'JSONValidationError'
     , mkRow fmtErr $ JSONValidationFailed "Expected String, found Null."

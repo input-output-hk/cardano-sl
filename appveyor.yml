@@ -46,6 +46,7 @@ before_test:
     $CurrentPageFile = Get-WmiObject -Class Win32_PageFileSetting ;
     Write-Host "initial page size is now $CurrentPageFile.InitialSize" ;
     Write-Host "maximum page size is now $CurrentPageFile.MaximumSize" ;
+    systeminfo | find "Virtual Memory"
     if ( $env:CACHE_S3_READY -eq $true ) {
       Start-FileDownload https://github.com/fpco/cache-s3/releases/download/$env:CACHE_S3_VERSION/cache-s3-$env:CACHE_S3_VERSION-windows-x86_64.zip -FileName cache-s3.zip
       7z x cache-s3.zip cache-s3.exe

@@ -7,6 +7,7 @@ module Cardano.Wallet.API.Response (
   , ResponseStatus(..)
   , WalletResponse(..)
   , JSONValidationError(..)
+  , UnsupportedMimeTypeError(..)
   -- * Generating responses for collections
   , respondWith
   , fromSlice
@@ -34,7 +35,7 @@ import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
 import           Generics.SOP.TH (deriveGeneric)
 import           GHC.Generics (Generic)
-import           Servant (err400)
+import           Servant (err400, err415)
 import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..),
                      MimeUnrender (..), OctetStream)
 import           Test.QuickCheck
@@ -269,3 +270,36 @@ instance HasDiagnostic JSONValidationError where
 instance ToServantError JSONValidationError where
     declareServantError _ =
         err400
+
+
+newtype UnsupportedMimeTypeError
+    = UnsupportedMimeTypePresent Text
+    deriving (Eq, Show, Generic)
+
+deriveGeneric ''UnsupportedMimeTypeError
+
+instance ToJSON UnsupportedMimeTypeError where
+    toJSON =
+        jsendErrorGenericToJSON
+
+instance FromJSON UnsupportedMimeTypeError where
+    parseJSON =
+        jsendErrorGenericParseJSON
+
+instance Exception UnsupportedMimeTypeError
+
+instance Arbitrary UnsupportedMimeTypeError where
+    arbitrary =
+        pure (UnsupportedMimeTypePresent "Delivered MIME-type is not supported.")
+
+instance Buildable UnsupportedMimeTypeError where
+    build (UnsupportedMimeTypePresent txt) =
+        bprint build txt
+
+instance HasDiagnostic UnsupportedMimeTypeError where
+    getDiagnosticKey _ =
+        "mimeContentTypeError"
+
+instance ToServantError UnsupportedMimeTypeError where
+    declareServantError _ =
+        err415

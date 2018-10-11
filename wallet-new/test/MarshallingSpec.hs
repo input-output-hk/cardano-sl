@@ -40,7 +40,8 @@ import           Test.Pos.Core.Arbitrary ()
 
 import           Cardano.Wallet.API.Indices
 import           Cardano.Wallet.API.Request.Pagination (Page, PerPage)
-import           Cardano.Wallet.API.Response (JSONValidationError)
+import           Cardano.Wallet.API.Response (JSONValidationError,
+                     UnsupportedMimeTypeError)
 import           Cardano.Wallet.API.V1.Migration.Types (Migrate (..),
                      MigrationError)
 import           Cardano.Wallet.API.V1.Types
@@ -75,6 +76,7 @@ spec = parallel $ describe "Marshalling & Unmarshalling" $ do
         aesonRoundtripProp @TransactionStatus Proxy
         aesonRoundtripProp @WalletError Proxy
         aesonRoundtripProp @JSONValidationError Proxy
+        aesonRoundtripProp @UnsupportedMimeTypeError Proxy
         aesonRoundtripProp @MigrationError Proxy
         aesonRoundtripProp @WalletId Proxy
         aesonRoundtripProp @Wallet Proxy

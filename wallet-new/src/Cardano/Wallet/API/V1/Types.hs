@@ -189,6 +189,7 @@ import           Cardano.Wallet.Orphans.Aeson ()
 import           Cardano.Wallet.Types.UtxoStatistics
 import           Cardano.Wallet.Util (mkJsonKey, showApiUtcTime)
 
+import           Cardano.Wallet.Kernel.BIP39 (Mnemonic)
 import qualified Pos.Binary.Class as Bi
 import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Chain.Update as Core
@@ -203,7 +204,6 @@ import           Pos.Infra.Diffusion.Subscription.Status
 import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
                      buildSafe, buildSafeList, buildSafeMaybe,
                      deriveSafeBuildable, plainOrSecureF)
-import           Pos.Util.Mnemonic (Mnemonic)
 import           Pos.Util.Servant (Flaggable (..))
 import           Pos.Wallet.Web.ClientTypes.Instances ()
 import qualified Pos.Wallet.Web.State.Storage as OldStorage

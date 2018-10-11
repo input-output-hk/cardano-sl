@@ -39,9 +39,11 @@ buildStep = do
   where
     cfg = ["--dump-logs", "--color", "always"]
     stackBuild args = run "stack" $ cfg ++ ["build", "--fast"] ++ args
-    build = stackBuild ["--bench", "--no-run-benchmarks", "--no-haddock-deps"]
-    test = stackBuild ["--test", "--jobs", "1"]
-    -- test = eprintf "Not executing tests because they are really really slow for some reason.\n" >> pure ExitSuccess
+    buildArgs = ["--bench", "--no-run-benchmarks", "--no-haddock-deps"]
+    buildAndTest = stackBuild $ ["--tests"] ++ buildArgs
+    build = stackBuild $ ["--no-run-tests"] ++ buildArgs
+    -- test = stackBuild ["--test", "--jobs", "1"]
+    test = eprintf "Not executing tests because they are really really slow.\n" >> pure ExitSuccess
 
 -- buildkite agents have S3 creds installed, but under different names
 awsCreds :: IO ()

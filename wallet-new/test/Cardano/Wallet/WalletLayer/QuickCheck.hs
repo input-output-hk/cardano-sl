@@ -9,7 +9,6 @@ module Cardano.Wallet.WalletLayer.QuickCheck
 import           Universum
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
-import           Cardano.Wallet.Orphans.Arbitrary ()
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),
                      DeleteAccountError (..), DeleteWalletError (..),
                      GetAccountError (..), GetAccountsError (..),

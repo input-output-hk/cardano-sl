@@ -35,7 +35,7 @@ before_test:
       $c.AutomaticManagedPagefile = $false
       $c.Put() | Out-Null
     } ;
-    $new_page_size=25000 ;
+    $new_page_size=50000 ;
     $CurrentPageFile = Get-WmiObject -Class Win32_PageFileSetting ;
     if ($CurrentPageFile.InitialSize -ne $new_page_size) {
       Write-Host "setting new page file size to $new_page_size"

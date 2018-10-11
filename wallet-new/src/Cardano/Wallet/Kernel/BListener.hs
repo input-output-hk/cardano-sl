@@ -44,7 +44,7 @@ import           Cardano.Wallet.Kernel.DB.TxMeta.Types
 import           Cardano.Wallet.Kernel.Internal
 import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as Node
 import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..),
-                     prefilterBlock)
+                     prefilterBlockForWallets)
 import           Cardano.Wallet.Kernel.Read (getWalletCredentials)
 import           Cardano.Wallet.Kernel.Restore
 import qualified Cardano.Wallet.Kernel.Submission as Submission
@@ -70,7 +70,7 @@ prefilterBlock' pw b = do
     aux :: [(WalletId, EncryptedSecretKey)]
         -> ((BlockContext, Map HdAccountId PrefilteredBlock), [TxMeta])
     aux ws =
-      let (conMap, conMeta) = mconcat $ map (uncurry (prefilterBlock b)) ws
+      let (conMap, conMeta) = prefilterBlockForWallets b ws
       in ((b ^. rbContext, conMap), conMeta)
 
 data BackfillFailed

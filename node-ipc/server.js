@@ -3,16 +3,22 @@ const fs = require('fs');
 
 console.log(new Date(), "in parent")
 
-logfile = fs.createWriteStream("cardano-node.log", { flags: "a" });
+fs.mkdirSync("test-state");
+logfile = fs.createWriteStream("test-state/cardano-node.log", { flags: "a" });
 
 logfile.on("open", function () {
+  var timerid;
   console.log(new Date(), "log file opened");
 
   const subprocess = child_process.spawn("cardano-node", [
     "--wallet-address", "127.0.0.1:0",
     "--no-tls",
-    "--configuration-file", "../lib/configuration.yaml",
-    "--configuration-key", "mainnet_full"
+    "--configuration-key", "mainnet_dryrun_full",
+    "--topology", "node-ipc/wallet-topology.yaml",
+    "--wallet-db-path", "test-state/wallet",
+    "--db-path", "test-state/db",
+    "--keyfile", "test-state/secret",
+    "--pubkeyfile", "test-state/public"
     ], {
     stdio: [ "inherit", logfile, logfile, "ipc" ]
   });
@@ -30,12 +36,23 @@ logfile.on("open", function () {
   });
   subprocess.on("exit", function (code, signal) {
     console.log(new Date(), "child exited", code, signal);
+    clearTimeout(timerid);
+    if (code == 20) {
+      process.exit(0);
+    } else {
+      process.exit(-1);
+    }
   });
 
   subprocess.send({ QueryPort:[]})
 
-  setTimeout(function () {
+  timerid = setTimeout(function () {
     //process.exit();
+    console.log(new Date(), "sending disconnect");
     subprocess.disconnect();
+    timerid = setTimeout(function () {
+      console.log(new Date(), "it failed to exit, killing");
+      subprocess.kill();
+    },30000);
   }, 30000);
 });

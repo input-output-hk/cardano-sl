@@ -13,3 +13,8 @@ steps:
     command: "cd explorer/frontend && ./nix/generate-frontend-deps.hs --test"
     agents:
       system: x86_64-linux
+
+  - label: 'triggerShutdown test'
+    command: "rm -rf test-state ; nix-shell node-ipc/shell.nix --run 'node node-ipc/server.js'"
+    agents:
+      system: x86_64-linux

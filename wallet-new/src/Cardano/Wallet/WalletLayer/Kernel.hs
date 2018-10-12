@@ -10,6 +10,7 @@ module Cardano.Wallet.WalletLayer.Kernel
 import           Universum hiding (for_)
 
 import qualified Control.Concurrent.STM as STM
+import           Control.Monad.IO.Unlift (MonadUnliftIO)
 import qualified Data.List.NonEmpty as NE
 
 import           Data.Foldable (for_)
@@ -49,7 +50,7 @@ import qualified Cardano.Wallet.WalletLayer.Kernel.Wallets as Wallets
 -- | Initialize the passive wallet.
 -- The passive wallet cannot send new transactions.
 bracketPassiveWallet
-    :: forall m n a. (MonadIO n, MonadIO m, MonadMask m)
+    :: forall m n a. (MonadIO n, MonadUnliftIO m, MonadMask m)
     => Kernel.DatabaseMode
     -> (Severity -> Text -> IO ())
     -> Keystore

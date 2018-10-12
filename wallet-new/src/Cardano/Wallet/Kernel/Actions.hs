@@ -19,6 +19,8 @@ import qualified Control.Concurrent.Async as Async
 import qualified Control.Concurrent.STM as STM
 import qualified Control.Exception.Safe as Ex
 import           Control.Lens (makeLenses, (%=), (+=), (-=), (.=))
+import           Control.Monad.IO.Unlift (MonadUnliftIO, UnliftIO (unliftIO),
+                     withUnliftIO)
 import           Control.Monad.Writer.Strict (Writer, runWriter, tell)
 import           Formatting (bprint, build, shown, (%))
 import qualified Formatting.Buildable
@@ -144,12 +146,12 @@ walletWorker
   -> m ()
 walletWorker wai getWA = Ex.bracket_
   (emit wai "Starting wallet worker.")
+  (emit wai "Stopping wallet worker.")
   (evalStateT
      (fix $ \next -> lift getWA >>= \case
         Nothing -> pure ()
         Just wa -> interp wai wa >> next)
      initialWorkerState)
-  (emit wai "Stopping wallet worker.")
 
 -- | Connect a wallet action interpreter to a stream of actions.
 interpList :: Monad m => WalletActionInterp m b -> [WalletAction b] -> m (WalletWorkerState b)
@@ -195,7 +197,8 @@ instance Ex.Exception WalletWorkerExpiredError
 -- Usage of the obtained 'STM' action after the given continuation has returned
 -- is not possible. It will throw 'WalletWorkerExpiredError'.
 withWalletWorker
-  :: (MonadIO m, Ex.MonadMask m)
+  :: forall m a b .
+     (MonadUnliftIO m)
   => WalletActionInterp IO a
   -> ((WalletAction a -> STM ()) -> m b)
   -> m b
@@ -210,20 +213,13 @@ withWalletWorker wai k = do
       pushWA = writeTMQueue tmq >=> \case
          True -> pure ()
          False -> Ex.throwM WalletWorkerExpiredError
-  -- Run the worker in the background, ensuring that any exceptions from it
-  -- get thrown to the current thread.
-  Ex.bracket
-     (liftIO $ do
-        as1 <- Async.async (walletWorker wai (STM.atomically getWA))
-        Async.link as1
-        pure as1)
-     (\as1 -> liftIO $ do
-        -- Prevent new input.
-        STM.atomically (closeTMQueue tmq)
-        -- Wait for the worker to finish, re-throwing any exceptions from it.
-        Async.wait as1)
-     (\_ -> k pushWA)
-
+  fmap snd $ withUnliftIO $ \(unlift :: UnliftIO m) -> Async.concurrently
+    -- Queue reader. If it dies, the writer dies too.
+    (walletWorker wai (STM.atomically getWA))
+    -- Queue writer. If it finishes, it closes the queue, causing the reader
+    -- to terminate normally. If it dies, forget about closing the queue, just
+    -- kill the reader.
+    (unliftIO unlift (k pushWA) <* STM.atomically (closeTMQueue tmq))
 
 -- | Check if this is the initial worker state.
 isInitialState :: Eq b => WalletWorkerState b -> Bool
@@ -303,11 +299,15 @@ writeTMQueue (UnsafeTMQueue to tq) a = do
 --
 -- If the 'TMQueue' is empty and closed, then this function returns 'Nothing'.
 -- Otherwise, if the 'TMQueue' is not closed, this function will block waiting
--- for new input.
+-- for new input, or for the queue to be closed.
 readTMQueue :: TMQueue a -> STM (Maybe a)
 readTMQueue (UnsafeTMQueue to tq) = do
-  STM.tryReadTQueue tq >>= \case
-     Just a -> pure (Just a)
-     Nothing -> STM.readTVar to >>= \case
-        TMQueueOpen -> Just <$> STM.readTQueue tq
-        TMQueueNotOpen -> pure Nothing
+  open <- STM.readTVar to
+  mItem <- STM.tryReadTQueue tq
+  case (open, mItem) of
+    -- Not empty: doesn't matter whether it's closed.
+    (_, Just a)               -> pure (Just a)
+    -- Open and empty: wait
+    (TMQueueOpen, Nothing)    -> STM.retry
+    -- Closed and empty: exhausted
+    (TMQueueNotOpen, Nothing) -> pure Nothing

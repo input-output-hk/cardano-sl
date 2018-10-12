@@ -1322,7 +1322,7 @@ addresses.
 This set is updated when keys are registered and de-registered. This
 state is consulted when validating and applying transactions that
 withdraw from stake accounts, to retrieve the stake key for a stake
-account address. It is also
+account address.
 
 \subsubsection{Stake Accounts}
 \label{stake-accounts}
@@ -1427,22 +1427,33 @@ how to keep track of it in the design document at all. Nevertheless, I'm
 leaving the obsolete contents here as comments, as a basis to rewrite
 this section, if it is needed.}
 
-\subsection{Slot leader schedule and VSS committee selection}
-\label{slot-leader-schedule-and-vss-committee-selection}
+\subsection{Slot leader schedule}
+\label{slot-leader-schedule}
 
 The process of leader election has to be modified to take delegation
 into account.
 
+While adding blocks to their chain, nodes will keep track of the stake
+that each registered stake key controls, and of all valid
+(heavyweight) delegation certificates.
+
 When the schedule for the next epoch has to be constructed, the nodes
-will compute the stake per staking key, taking into account all pointer
-addresses and valid heavyweight delegation certificates. The result is
-passed to the Follow the Satoshi (\emph{FtS}) algorithm to choose a
-leader for each slot in the next epoch\footnote{This can be done
+will compute the stake per registered stake pool. This is called the
+\emph{Stake Distribution}. For each slot, a leader is determined by
+pseudo-randomly sampling the stake pools, weighted by the stake that
+each pool controls.
+
+In order to ensure consensus on the leader schedule between all nodes,
+the stake distribution is calculated from the state of the chain $2k$
+slots before the end of the epoch.\footnote{This can be done
   traversing the stake distribution only once, if we generate a list of
   \emph{sorted} random numbers, traverse it in lockstep with the stake
   distribution, and then shuffle the resulting list of leaders).}.
 
-Most stake pool leaders will use lightweight certificates in order to
+\subsection{Block Validity and Lightweight Certificates}
+\label{block-validity-and-lightweight-certificates}
+
+Most stake pool operators will use lightweight certificates in order to
 protect the key to which their members delegated. A block for a slot
 where the key \(vks_\text{leader}\) has been elected as leader will be
 considered valid by all nodes if either
@@ -1460,9 +1471,13 @@ In case there are more than one block for the current slot, each of
 which are signed using a lightweight certificate, the newest certificate
 (as per the included counter) takes precedence.
 
-The committee for the randomness generation will be chosen in the same
-way as the slot leaders, by running FtS algorithm on the stake
-distribution.
+Note that nodes take the precedence amongst lightweight certificates
+into account only for the \emph{newest} block. In particular, it is
+not possible to force a node to do a rollback by sending it a block
+from a past slot signed using a newer certificate than the block that
+the node already has in its chain for that slot. Otherwise, this would
+open up an attack where a stake pool operator could force nodes to do
+arbitrary rollbacks.
 
 \subsection{Transition from Bootstrap Phase}
 \label{transition-from-bootstrap-phase}

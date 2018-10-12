@@ -41,7 +41,7 @@ set -o pipefail
 # * Pass --bench-mode to use the configuration used by modern benchmarks.
 
 # Note: this list should be topologically sorted.
-projects="networking binary util crypto core db chain infra lib node client generator auxx tools explorer wallet wallet-new"
+projects="networking binary util crypto core db chain infra lib node client generator auxx tools explorer wallet-new"
 
 # Returns name of a stack project to build, given the alias.
 function pkgNameToProject {
@@ -199,8 +199,6 @@ if [[ "$spec_prj" == "" ]]; then
     pkgName=$(pkgNameToProject "$prj")
     to_build="$to_build $pkgName"
   done
-elif [[ "$spec_prj" == "wallet" ]]; then
-  to_build="cardano-sl-node cardano-sl-wallet"
 elif [[ "$spec_prj" == "wallet-new" ]]; then
   to_build="cardano-sl-node cardano-sl-wallet-new"
 elif [[ "$spec_prj" == "explorer" ]]; then

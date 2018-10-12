@@ -32,10 +32,12 @@ module Test.Pos.Core.Gen
         -- Pos.Core.Slotting Generators
         , genEpochIndex
         , genEpochOrSlot
+        , genEpochSlottingData
         , genFlatSlotId
         , genLocalSlotIndex
         , genSlotCount
         , genSlotId
+        , genSlottingData
         , genTimeDiff
         , genTimestamp
         , genTimestampRoundedToSecond
@@ -49,7 +51,6 @@ module Test.Pos.Core.Gen
         , genHashRaw
 
         -- Helpers
-        , genCustomHashMap
         , genTextHash
         , genByte
         , genBytes
@@ -63,7 +64,6 @@ module Test.Pos.Core.Gen
 import           Universum
 
 import           Data.Fixed (Fixed (..))
-import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as M
 import           Data.Maybe
 import           Data.Time.Units (Microsecond, Millisecond, fromMicroseconds)
@@ -86,8 +86,9 @@ import           Pos.Core.Merkle (MerkleRoot (..), MerkleTree (..),
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
                      VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..),
-                     FlatSlotId, LocalSlotIndex (..), SlotCount (..),
-                     SlotId (..), TimeDiff (..), Timestamp (..),
+                     EpochSlottingData (..), FlatSlotId, LocalSlotIndex (..),
+                     SlotCount (..), SlotId (..), SlottingData, TimeDiff (..),
+                     Timestamp (..), createSlottingDataUnsafe,
                      localSlotIndexMaxBound, localSlotIndexMinBound)
 import           Pos.Crypto (Hash, hash)
 import           Pos.Util.Util (leftToPanic)
@@ -95,6 +96,7 @@ import           Serokell.Data.Memory.Units (Byte)
 
 import           Test.Pos.Crypto.Gen (genAbstractHash, genHDAddressPayload,
                      genPublicKey, genRedeemPublicKey)
+import           Test.Pos.Util.Gen (genHashMap)
 
 ----------------------------------------------------------------------------
 -- Pos.Core.Common Generators
@@ -219,7 +221,7 @@ genStakesList = Gen.list range gen
     range = Range.linear 0 10
 
 genStakesMap :: Gen StakesMap
-genStakesMap = genCustomHashMap genStakeholderId genCoin
+genStakesMap = genHashMap (Range.linear 0 10) genStakeholderId genCoin
 
 genTxFeePolicy :: Gen TxFeePolicy
 genTxFeePolicy =
@@ -286,6 +288,9 @@ genEpochOrSlot epochSlots =
                , EpochOrSlot . Right <$> genSlotId epochSlots
                ]
 
+genEpochSlottingData :: Gen EpochSlottingData
+genEpochSlottingData = EpochSlottingData <$> genMillisecond <*> genTimeDiff
+
 genFlatSlotId :: Gen FlatSlotId
 genFlatSlotId = Gen.word64 Range.constantBounded
 
@@ -301,6 +306,12 @@ genSlotCount = SlotCount <$> Gen.word64 Range.constantBounded
 
 genSlotId :: SlotCount -> Gen SlotId
 genSlotId epochSlots = SlotId <$> genEpochIndex <*> genLocalSlotIndex epochSlots
+
+genSlottingData :: Gen SlottingData
+genSlottingData = createSlottingDataUnsafe <$> do
+    mapSize <- Gen.int $ Range.linear 2 10
+    epochSlottingDatas <- Gen.list (Range.singleton mapSize) genEpochSlottingData
+    pure $ M.fromList $ zip [0..fromIntegral mapSize - 1] epochSlottingDatas
 
 genTimeDiff :: Gen TimeDiff
 genTimeDiff = TimeDiff <$> genMicrosecond
@@ -351,14 +362,6 @@ genByte = Gen.integral (Range.constant 0 10)
 
 gen32Bytes :: Gen ByteString
 gen32Bytes = genBytes 32
-
-genCustomHashMap
-    :: (Hashable k, Eq k)
-    => Gen k -> Gen v -> Gen (HM.HashMap k v)
-genCustomHashMap genK genV = HM.fromList <$> Gen.list range gen
-  where
-    gen = (,) <$> genK <*> genV
-    range = Range.linear 0 10
 
 genMillisecond :: Gen Millisecond
 genMillisecond = fromMicroseconds <$> Gen.integral (Range.constant 0 1000000)

@@ -26,6 +26,7 @@ module Test.Pos.Core.ExampleHelpers
         , exampleSharedSeed1
         , exampleSharedSeed2
         , exampleSlotId
+        , exampleSlottingData
         , exampleSlotLeaders
         , exampleStakeholderId
         , exampleStakeholderIds
@@ -61,8 +62,9 @@ import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                      coinPortionDenominator, makeAddress, makeAddress',
                      mkMultiKeyDistr)
 import           Pos.Core.ProtocolConstants (ProtocolConstants, pcEpochSlots)
-import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..),
-                     SlotCount, SlotId (..))
+import           Pos.Core.Slotting (EpochIndex (..), EpochSlottingData (..),
+                     LocalSlotIndex (..), SlotCount, SlotId (..), SlottingData,
+                     createSlottingDataUnsafe)
 import           Pos.Crypto (HDAddressPayload (..), ProtocolMagic (..),
                      RedeemPublicKey, SafeSigner (..), SecretKey (..),
                      VssPublicKey (..), abstractHash, deterministicVssKeyGen,
@@ -280,3 +282,17 @@ exampleSharedSeed1 = SharedSeed (getBytes 16 32)
 
 exampleSharedSeed2 :: SharedSeed
 exampleSharedSeed2 = SharedSeed (getBytes 24 32)
+
+exampleSlottingData :: SlottingData
+exampleSlottingData =
+  createSlottingDataUnsafe
+    $   M.fromList
+    $   (,)
+    <$> [0 .. 9]
+    <*> pure exampleEpochSlottingData
+
+exampleEpochSlottingData :: EpochSlottingData
+exampleEpochSlottingData = EpochSlottingData
+    { esdSlotDuration = 100
+    , esdStartDiff = 100
+    }

@@ -15,6 +15,7 @@ module Test.Pos.Chain.Block.Gen
        , genMainExtraHeaderData
        , genMainProof
        , genMainToSign
+       , genUndo
        ) where
 
 import           Universum
@@ -29,20 +30,18 @@ import           Pos.Chain.Block (BlockBodyAttributes, BlockHeader (..),
                      GenesisConsensusData (..), GenesisProof (..), HeaderHash,
                      MainBlockHeader, MainBody (..), MainConsensusData (..),
                      MainExtraBodyData (..), MainExtraHeaderData (..),
-                     MainProof (..), MainToSign (..), mkGenesisHeader,
-                     mkMainHeaderExplicit)
+                     MainProof (..), MainToSign (..), SlogUndo (..), Undo (..),
+                     mkGenesisHeader, mkMainHeaderExplicit)
 import           Pos.Core (SlotCount)
 import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Crypto (ProtocolMagic)
 
-import           Test.Pos.Chain.Delegation.Gen (genDlgPayload, genHeavyDlgIndex,
-                     genLightDlgIndices)
+import qualified Test.Pos.Chain.Delegation.Gen as Delegation
 import           Test.Pos.Chain.Ssc.Gen (genSscPayload, genSscProof)
-import           Test.Pos.Chain.Txp.Gen (genTxPayload, genTxProof)
-import           Test.Pos.Chain.Update.Gen (genBlockVersion, genSoftwareVersion,
-                     genUpdatePayload, genUpdateProof)
+import           Test.Pos.Chain.Txp.Gen (genTxPayload, genTxProof, genTxpUndo)
+import qualified Test.Pos.Chain.Update.Gen as Update
 import           Test.Pos.Core.Gen (genChainDifficulty, genEpochIndex,
-                     genSlotId, genSlotLeaders, genTextHash)
+                     genFlatSlotId, genSlotId, genSlotLeaders, genTextHash)
 import           Test.Pos.Crypto.Gen (genAbstractHash, genProxySignature,
                      genPublicKey, genSecretKey, genSignature)
 
@@ -64,9 +63,9 @@ genBlockSignature pm epochSlots = do
         [ BlockSignature
               <$> genSignature pm mts
         , BlockPSignatureLight
-              <$> genProxySignature pm mts genLightDlgIndices
+              <$> genProxySignature pm mts Delegation.genLightDlgIndices
         , BlockPSignatureHeavy
-              <$> genProxySignature pm mts genHeavyDlgIndex
+              <$> genProxySignature pm mts Delegation.genHeavyDlgIndex
         ]
   where
     mts = genMainToSign pm epochSlots
@@ -98,8 +97,8 @@ genMainBody pm =
     MainBody
         <$> genTxPayload pm
         <*> genSscPayload pm
-        <*> genDlgPayload pm
-        <*> genUpdatePayload pm
+        <*> Delegation.genDlgPayload pm
+        <*> Update.genUpdatePayload pm
 
 -- We use `Nothing` as the ProxySKBlockInfo to avoid clashing key errors
 -- (since we use example keys which aren't related to each other)
@@ -129,8 +128,8 @@ genMainExtraBodyData = MainExtraBodyData <$> genBlockBodyAttributes
 genMainExtraHeaderData :: Gen MainExtraHeaderData
 genMainExtraHeaderData =
     MainExtraHeaderData
-        <$> genBlockVersion
-        <*> genSoftwareVersion
+        <$> Update.genBlockVersion
+        <*> Update.genSoftwareVersion
         <*> genBlockHeaderAttributes
         <*> genAbstractHash genMainExtraBodyData
 
@@ -139,8 +138,8 @@ genMainProof pm =
     MainProof
         <$> genTxProof pm
         <*> genSscProof pm
-        <*> genAbstractHash (genDlgPayload pm)
-        <*> genUpdateProof pm
+        <*> genAbstractHash (Delegation.genDlgPayload pm)
+        <*> Update.genUpdateProof pm
 
 genMainToSign :: ProtocolMagic -> SlotCount -> Gen MainToSign
 genMainToSign pm epochSlots =
@@ -150,3 +149,13 @@ genMainToSign pm epochSlots =
         <*> genSlotId epochSlots
         <*> genChainDifficulty
         <*> genMainExtraHeaderData
+
+genSlogUndo :: Gen SlogUndo
+genSlogUndo = SlogUndo <$> Gen.maybe genFlatSlotId
+
+genUndo :: ProtocolMagic -> SlotCount -> Gen Undo
+genUndo pm epochSlots = Undo
+    <$> genTxpUndo
+    <*> Delegation.genUndo pm
+    <*> Update.genUndo pm epochSlots
+    <*> genSlogUndo

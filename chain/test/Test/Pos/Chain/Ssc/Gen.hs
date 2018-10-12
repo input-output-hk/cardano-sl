@@ -37,10 +37,10 @@ import           Pos.Chain.Ssc (Commitment, CommitmentSignature, CommitmentsMap,
                      randCommitmentAndOpening)
 import           Pos.Crypto (ProtocolMagic, deterministic, hash)
 
-import           Test.Pos.Core.Gen (genCustomHashMap, genEpochIndex,
-                     genStakeholderId, genWord16)
+import           Test.Pos.Core.Gen (genEpochIndex, genStakeholderId, genWord16)
 import           Test.Pos.Crypto.Gen (genDecShare, genPublicKey, genSecretKey,
                      genSignature, genVssPublicKey)
+import           Test.Pos.Util.Gen (genHashMap)
 
 genCommitment :: Gen Commitment
 genCommitment = fst <$> genCommitmentOpening
@@ -82,7 +82,8 @@ genOpeningsMap = do
     pure $ HM.fromList $ zip stakeholderId opening
 
 genSharesDistribution :: Gen SharesDistribution
-genSharesDistribution = genCustomHashMap genStakeholderId genWord16
+genSharesDistribution =
+    genHashMap (Range.linear 1 10) genStakeholderId genWord16
 
 genSharesMap :: Gen SharesMap
 genSharesMap = do
@@ -117,8 +118,8 @@ genVssCertificate pm =
         <*> genEpochIndex
 
 genVssCertificatesHash :: ProtocolMagic -> Gen VssCertificatesHash
-genVssCertificatesHash pm =
-    hash <$> genCustomHashMap genStakeholderId (genVssCertificate pm)
+genVssCertificatesHash pm = hash
+    <$> genHashMap (Range.linear 1 10) genStakeholderId (genVssCertificate pm)
 
 genVssCertificatesMap :: ProtocolMagic -> Gen VssCertificatesMap
 genVssCertificatesMap pm =

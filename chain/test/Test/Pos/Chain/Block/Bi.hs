@@ -16,8 +16,8 @@ import           Pos.Chain.Block (BlockHeader (..), BlockHeaderAttributes,
                      GenesisConsensusData (..), GenesisProof (..), HeaderHash,
                      MainBlockHeader, MainBody (..), MainConsensusData (..),
                      MainExtraBodyData (..), MainExtraHeaderData (..),
-                     MainProof (..), MainToSign (..), mkGenesisHeader,
-                     mkMainHeaderExplicit)
+                     MainProof (..), MainToSign (..), SlogUndo (..), Undo (..),
+                     mkGenesisHeader, mkMainHeaderExplicit)
 import           Pos.Chain.Delegation (DlgPayload (..))
 import           Pos.Chain.Genesis (GenesisHash (..))
 import           Pos.Core (EpochIndex (..))
@@ -30,11 +30,14 @@ import           Test.Pos.Binary.Helpers.GoldenRoundTrip (goldenTestBi,
 import           Test.Pos.Chain.Block.Gen
 import           Test.Pos.Chain.Delegation.Example (exampleLightDlgIndices,
                      staticHeavyDlgIndexes, staticProxySKHeavys)
+import qualified Test.Pos.Chain.Delegation.Example as Delegation
 import           Test.Pos.Chain.Ssc.Example (exampleSscPayload, exampleSscProof)
-import           Test.Pos.Chain.Txp.Example (exampleTxPayload, exampleTxProof)
+import           Test.Pos.Chain.Txp.Example (exampleTxPayload, exampleTxProof,
+                     exampleTxpUndo)
 import           Test.Pos.Chain.Update.Example (exampleBlockVersion,
                      exampleSoftwareVersion, exampleUpdatePayload,
                      exampleUpdateProof)
+import qualified Test.Pos.Chain.Update.Example as Update
 import           Test.Pos.Core.ExampleHelpers (exampleChainDifficulty,
                      exampleEpochIndex, examplePublicKey, exampleSecretKey,
                      exampleSecretKeys, exampleSlotId, exampleSlotLeaders,
@@ -42,9 +45,11 @@ import           Test.Pos.Core.ExampleHelpers (exampleChainDifficulty,
 import           Test.Pos.Util.Golden (discoverGolden, eachOf)
 import           Test.Pos.Util.Tripping (discoverRoundTrip)
 
+
 --------------------------------------------------------------------------------
 -- BlockBodyAttributes
 --------------------------------------------------------------------------------
+
 golden_BlockBodyAttributes :: Property
 golden_BlockBodyAttributes = goldenTestBi bba "test/golden/BlockBodyAttributes"
   where
@@ -53,9 +58,11 @@ golden_BlockBodyAttributes = goldenTestBi bba "test/golden/BlockBodyAttributes"
 roundTripBlockBodyAttributesBi :: Property
 roundTripBlockBodyAttributesBi = eachOf 1000 genBlockBodyAttributes roundTripsBiBuildable
 
+
 --------------------------------------------------------------------------------
 -- BlockHeader
 --------------------------------------------------------------------------------
+
 golden_BlockHeader_Genesis :: Property
 golden_BlockHeader_Genesis =
     goldenTestBi exampleBlockHeaderGenesis "test/golden/BlockHeader_Genesis"
@@ -70,9 +77,11 @@ roundTripBlockHeaderBi :: Property
 roundTripBlockHeaderBi =
     eachOf 10 (feedPMEpochSlots genBlockHeader) roundTripsBiBuildable
 
+
 --------------------------------------------------------------------------------
 -- BlockHeaderAttributes
 --------------------------------------------------------------------------------
+
 golden_BlockHeaderAttributes :: Property
 golden_BlockHeaderAttributes = goldenTestBi (mkAttributes () :: BlockHeaderAttributes)
                                             "test/golden/BlockHeaderAttributes"
@@ -80,9 +89,11 @@ golden_BlockHeaderAttributes = goldenTestBi (mkAttributes () :: BlockHeaderAttri
 roundTripBlockHeaderAttributesBi :: Property
 roundTripBlockHeaderAttributesBi = eachOf 1000 genBlockHeaderAttributes roundTripsBiBuildable
 
+
 --------------------------------------------------------------------------------
 -- BlockSignature
 --------------------------------------------------------------------------------
+
 golden_BlockSignature :: Property
 golden_BlockSignature = goldenTestBi exampleBlockSignature "test/golden/BlockSignature"
 
@@ -98,9 +109,11 @@ roundTripBlockSignatureBi :: Property
 roundTripBlockSignatureBi =
     eachOf 10 (feedPMEpochSlots genBlockSignature) roundTripsBiBuildable
 
+
 --------------------------------------------------------------------------------
 -- GenesisBlockHeader
 --------------------------------------------------------------------------------
+
 golden_GenesisBlockHeader :: Property
 golden_GenesisBlockHeader = goldenTestBi exampleGenesisBlockHeader
                                          "test/golden/GenesisBlockHeader"
@@ -109,18 +122,22 @@ roundTripGenesisBlockHeaderBi :: Property
 roundTripGenesisBlockHeaderBi =
     eachOf 20 (feedPMEpochSlots genGenesisBlockHeader) roundTripsBiBuildable
 
+
 --------------------------------------------------------------------------------
 -- GenesisBody
 --------------------------------------------------------------------------------
+
 golden_GenesisBody :: Property
 golden_GenesisBody = goldenTestBi exampleGenesisBody "test/golden/GenesisBody"
 
 roundTripGenesisBodyBi :: Property
 roundTripGenesisBodyBi = eachOf 1000 genGenesisBody roundTripsBiShow
 
+
 --------------------------------------------------------------------------------
 -- GenesisConsensusData
 --------------------------------------------------------------------------------
+
 golden_GenesisConsensusData :: Property
 golden_GenesisConsensusData = goldenTestBi cd "test/golden/GenesisConsensusData"
   where cd = GenesisConsensusData exampleEpochIndex exampleChainDifficulty
@@ -128,18 +145,22 @@ golden_GenesisConsensusData = goldenTestBi cd "test/golden/GenesisConsensusData"
 roundTripGenesisConsensusDataBi :: Property
 roundTripGenesisConsensusDataBi = eachOf 1000 genGenesisConsensusData roundTripsBiShow
 
+
 --------------------------------------------------------------------------------
 -- HeaderHash
 --------------------------------------------------------------------------------
+
 golden_HeaderHash :: Property
 golden_HeaderHash = goldenTestBi exampleHeaderHash "test/golden/HeaderHash"
 
 roundTripHeaderHashBi :: Property
 roundTripHeaderHashBi = eachOf 1000 genHeaderHash roundTripsBiBuildable
 
+
 --------------------------------------------------------------------------------
 -- GenesisProof
 --------------------------------------------------------------------------------
+
 golden_GenesisProof :: Property
 golden_GenesisProof = goldenTestBi gp "test/golden/GenesisProof"
   where gp = GenesisProof (abstractHash exampleSlotLeaders)
@@ -147,9 +168,11 @@ golden_GenesisProof = goldenTestBi gp "test/golden/GenesisProof"
 roundTripGenesisProofBi :: Property
 roundTripGenesisProofBi = eachOf 1000 genGenesisProof roundTripsBiBuildable
 
+
 --------------------------------------------------------------------------------
 -- MainBlockHeader
 --------------------------------------------------------------------------------
+
 golden_MainBlockHeader :: Property
 golden_MainBlockHeader = goldenTestBi exampleMainBlockHeader "test/golden/MainBlockHeader"
 
@@ -157,18 +180,22 @@ roundTripMainBlockHeaderBi :: Property
 roundTripMainBlockHeaderBi =
     eachOf 20 (feedPMEpochSlots genMainBlockHeader) roundTripsBiBuildable
 
+
 --------------------------------------------------------------------------------
 -- MainBody
 --------------------------------------------------------------------------------
+
 golden_MainBody :: Property
 golden_MainBody = goldenTestBi exampleMainBody "test/golden/MainBody"
 
 roundTripMainBodyBi :: Property
 roundTripMainBodyBi = eachOf 20 (feedPM genMainBody) roundTripsBiShow
 
+
 --------------------------------------------------------------------------------
 -- MainConsensusData
 --------------------------------------------------------------------------------
+
 golden_MainConsensusData :: Property
 golden_MainConsensusData = goldenTestBi mcd "test/golden/MainConsensusData"
   where mcd = MainConsensusData exampleSlotId examplePublicKey
@@ -178,9 +205,11 @@ roundTripMainConsensusData :: Property
 roundTripMainConsensusData =
     eachOf 20 (feedPMEpochSlots genMainConsensusData) roundTripsBiShow
 
+
 --------------------------------------------------------------------------------
 -- MainExtraBodyData
 --------------------------------------------------------------------------------
+
 golden_MainExtraBodyData :: Property
 golden_MainExtraBodyData = goldenTestBi mebd "test/golden/MainExtraBodyData"
   where mebd = MainExtraBodyData (mkAttributes ())
@@ -188,8 +217,10 @@ golden_MainExtraBodyData = goldenTestBi mebd "test/golden/MainExtraBodyData"
 roundTripMainExtraBodyDataBi :: Property
 roundTripMainExtraBodyDataBi = eachOf 1000 genMainExtraBodyData roundTripsBiBuildable
 
+
 --------------------------------------------------------------------------------
 -- MainExtraHeaderData
+
 --------------------------------------------------------------------------------
 golden_MainExtraHeaderData :: Property
 golden_MainExtraHeaderData = goldenTestBi exampleMainExtraHeaderData
@@ -198,24 +229,40 @@ golden_MainExtraHeaderData = goldenTestBi exampleMainExtraHeaderData
 roundTripMainExtraHeaderDataBi :: Property
 roundTripMainExtraHeaderDataBi = eachOf 1000 genMainExtraHeaderData roundTripsBiBuildable
 
+
 --------------------------------------------------------------------------------
 -- MainProof
 --------------------------------------------------------------------------------
+
 golden_MainProof :: Property
 golden_MainProof = goldenTestBi exampleMainProof "test/golden/MainProof"
 
 roundTripMainProofBi :: Property
 roundTripMainProofBi = eachOf 20 (feedPM genMainProof) roundTripsBiBuildable
 
+
 --------------------------------------------------------------------------------
 -- MainToSign
 --------------------------------------------------------------------------------
+
 golden_MainToSign :: Property
 golden_MainToSign = goldenTestBi exampleMainToSign "test/golden/MainToSign"
 
 roundTripMainToSignBi :: Property
 roundTripMainToSignBi =
     eachOf 20 (feedPMEpochSlots genMainToSign) roundTripsBiShow
+
+
+--------------------------------------------------------------------------------
+-- Undo
+--------------------------------------------------------------------------------
+
+golden_Undo :: Property
+golden_Undo = goldenTestBi exampleUndo "test/golden/Undo"
+
+roundTripUndo :: Property
+roundTripUndo = eachOf 20 (feedPMEpochSlots genUndo) roundTripsBiShow
+
 
 --------------------------------------------------------------------------------
 -- Example golden datatypes
@@ -308,9 +355,21 @@ exampleMainToSign :: MainToSign
 exampleMainToSign = MainToSign (abstractHash (BlockHeaderGenesis exampleGenesisBlockHeader))
                     exampleMainProof exampleSlotId exampleChainDifficulty exampleMainExtraHeaderData
 
------------------------------------------------------------------------
+exampleSlogUndo :: SlogUndo
+exampleSlogUndo = SlogUndo $ Just 999
+
+exampleUndo :: Undo
+exampleUndo = Undo
+  { undoTx = exampleTxpUndo
+  , undoDlg = Delegation.exampleUndo
+  , undoUS = Update.exampleUndo
+  , undoSlog = exampleSlogUndo
+  }
+
+
+--------------------------------------------------------------------------------
 -- Main test export
------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
 tests :: IO Bool
 tests = and <$> sequence

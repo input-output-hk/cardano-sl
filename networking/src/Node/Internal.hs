@@ -705,9 +705,13 @@ killNode node = do
         if _nodeStateClosed nodeState
         then throwIO $ userError "killNode : already killed"
         else pure (nodeState { _nodeStateClosed = True }, ())
-    uninterruptibleCancel (nodeDispatcherThread node)
-    killRunningHandlers node
+    -- Closing the end point will cause the dispatcher thread to end when it
+    -- gets the EndPointClosed event, so we don't cancel that thread.
+    -- Cancelling that thread before closing the end point can lead to deadlock,
+    -- in particular if this is backed by a TCP transport with a QDisc which
+    -- may block on write.
     nodeCloseEndPoint node
+    killRunningHandlers node
 
 data ConnectionState peerData =
 

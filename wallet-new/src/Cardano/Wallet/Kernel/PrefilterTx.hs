@@ -7,7 +7,6 @@ module Cardano.Wallet.Kernel.PrefilterTx
        , emptyPrefilteredBlock
        , AddrWithId
        , prefilterBlock
-       , prefilterBlockForWallets
        , prefilterUtxo
        , UtxoWithAddrId
        , prefilterUtxo'
@@ -282,10 +281,10 @@ extendWithSummary (onlyOurInps,onlyOurOuts) utxoWithAddrId
 -- | Prefilter the transactions of a resolved block for the given wallets.
 --
 --   Returns prefiltered blocks indexed by HdAccountId.
-prefilterBlockForWallets :: ResolvedBlock
-                         -> [(WalletId, EncryptedSecretKey)]
-                         -> (Map HdAccountId PrefilteredBlock, [TxMeta])
-prefilterBlockForWallets block rawKeys =
+prefilterBlock :: ResolvedBlock
+               -> [(WalletId, EncryptedSecretKey)]
+               -> (Map HdAccountId PrefilteredBlock, [TxMeta])
+prefilterBlock block rawKeys =
       (Map.fromList
     $ map (mkPrefBlock (block ^. rbContext) inpAll outAll)
     $ Set.toList accountIds
@@ -309,14 +308,6 @@ prefilterBlockForWallets block rawKeys =
 
     toWalletKey :: (WalletId, EncryptedSecretKey) -> WalletKey
     toWalletKey (wid, esk) = (wid, keyToWalletDecrCredentials $ KeyForRegular esk)
-
--- Prefilter a block for a single wallet
-prefilterBlock :: ResolvedBlock
-               -> WalletId
-               -> EncryptedSecretKey
-               -> (Map HdAccountId PrefilteredBlock, [TxMeta])
-prefilterBlock block wid esk =
-    prefilterBlockForWallets block [(wid, esk)]
 
 mkPrefBlock :: BlockContext
             -> Map HdAccountId (Set TxIn)

@@ -14716,6 +14716,7 @@ license = stdenv.lib.licenses.bsd3;
 , filepath
 , formatting
 , generic-arbitrary
+, hedgehog
 , hspec
 , http-client
 , http-client-tls
@@ -14890,6 +14891,7 @@ extra
 filelock
 formatting
 generic-arbitrary
+hedgehog
 hspec
 lens
 network-transport

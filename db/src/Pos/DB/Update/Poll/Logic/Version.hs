@@ -9,6 +9,7 @@
 
 module Pos.DB.Update.Poll.Logic.Version
        ( verifyAndApplyProposalBVS
+       , verifyBlockAndSoftwareVersions
        , verifyBlockVersion
        , verifySoftwareVersion
        ) where
@@ -153,6 +154,13 @@ bvmMatchesBVD
     , maybe True (== bvdTxFeePolicy)       bvmTxFeePolicy
     , maybe True (== bvdUnlockStakeEpoch)  bvmUnlockStakeEpoch
     ]
+
+verifyBlockAndSoftwareVersions
+    :: (MonadError PollVerFailure m, MonadPollRead m)
+    => UpId -> UpdateProposal -> m ()
+verifyBlockAndSoftwareVersions upId up = do
+    verifyBlockVersion upId up
+    verifySoftwareVersion upId up
 
 -- Here we verify that proposed protocol version could be proposed.
 -- See documentation of 'Logic.Base.canBeProposedBV' for details.

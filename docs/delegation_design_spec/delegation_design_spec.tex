@@ -1387,6 +1387,11 @@ their last active epoch have been distributed.
 \subsubsection{Addresses and Associated Balances per Staking Key}
 \label{addresses-and-associated-balances-per-staking-key}
 
+\todo{This section needs to be updated. In particular, with the stake
+  account mechanism for sharing rewards, we no longer need to know
+  each address that belongs to a staking key, only the total stake for
+  each staking key.}
+
 \todo{Verify that we indeed have to do this. It should also be
 possible to traverse the UTxO directly in the Follow-the-Satoshi
 algorithm, and then follow any delegation indirections.}
@@ -1481,6 +1486,10 @@ arbitrary rollbacks.
 
 \subsection{Transition from Bootstrap Phase}
 \label{transition-from-bootstrap-phase}
+
+\todo{This section needs to be updated, to reflect the new plan for
+  handover (BFT and the slider to determine the fraction of blocks
+  created by the bootstrap nodes).}
 
 As of the time this document is written, Cardano is in the ``bootstrap
 phase'', where the network is not decentralised, but federated. All
@@ -1629,6 +1638,10 @@ meet this level of resistance.
 
 \subsection{Rewards}
 \label{rewards}
+
+\todo{This section needs to be updated. In particular, the mechanism
+  for distributing rewards has changed to use stake accounts instead
+  of automatic UTxO updates.}
 
 For the smooth operation of the system, it is beneficial to have a large
 portion of the stake delegated to a set of reliable stake pools. Thus,

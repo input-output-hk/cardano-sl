@@ -241,6 +241,7 @@ library
                      , sqlite-simple
                      , sqlite-simple-errors
                      , stm
+                     , stm-chans
                      , strict
                      , strict-concurrency
                      , swagger2

@@ -17,6 +17,7 @@ module Cardano.Wallet.Kernel.Actions
 
 import qualified Control.Concurrent.Async as Async
 import qualified Control.Concurrent.STM as STM
+import qualified Control.Concurrent.STM.TMQueue as STM
 import qualified Control.Exception.Safe as Ex
 import           Control.Lens (makeLenses, (%=), (+=), (-=), (.=))
 import           Control.Monad.IO.Unlift (MonadUnliftIO, UnliftIO (unliftIO),
@@ -204,22 +205,20 @@ withWalletWorker
   -> m b
 withWalletWorker wai k = do
   -- 'tmq' keeps items to be processed by the worker in FIFO order.
-  tmq :: TMQueue (WalletAction a) <- liftIO newTMQueueIO
+  tmq :: STM.TMQueue (WalletAction a) <- liftIO STM.newTMQueueIO
   -- 'getWA' gets the next action to be processed.
   let getWA :: STM (Maybe (WalletAction a))
-      getWA = readTMQueue tmq
+      getWA = STM.readTMQueue tmq
   -- 'pushWA' adds an action to queue, unless it's been closed already.
   let pushWA :: WalletAction a -> STM ()
-      pushWA = writeTMQueue tmq >=> \case
-         True -> pure ()
-         False -> Ex.throwM WalletWorkerExpiredError
+      pushWA = STM.writeTMQueue tmq
   fmap snd $ withUnliftIO $ \(unlift :: UnliftIO m) -> Async.concurrently
     -- Queue reader. If it dies, the writer dies too.
     (walletWorker wai (STM.atomically getWA))
     -- Queue writer. If it finishes, it closes the queue, causing the reader
     -- to terminate normally. If it dies, forget about closing the queue, just
     -- kill the reader.
-    (unliftIO unlift (k pushWA) <* STM.atomically (closeTMQueue tmq))
+    (unliftIO unlift (k pushWA) <* STM.atomically (STM.closeTMQueue tmq))
 
 -- | Check if this is the initial worker state.
 isInitialState :: Eq b => WalletWorkerState b -> Bool
@@ -258,56 +257,3 @@ instance Show b => Buildable [WalletAction b] where
     build was = case was of
       []     -> bprint "[]"
       (x:xs) -> bprint (build % ":" % build) x xs
-
---------------------------------------------------------------------------------
--- STM closeable queue.
-
--- | A FIFO queue that can be closed, preventing new input from being writen to
--- it.
---
--- This is similar to 'Control.Concurrent.STM.TMQueue', redefined here with some
--- of its API to avoid a dependency on the 'stm-chans' library.
-data TMQueue a
-  = UnsafeTMQueue !(STM.TVar TMQueueOpen) !(STM.TQueue a)
-  -- ^ Don't use this constructor directly. It's internal. It carries the queue
-  -- itself, and whether this 'TMQueue' is open or not.
-
-data TMQueueOpen = TMQueueOpen | TMQueueNotOpen
-
--- | Creates a new empty and open 'TMQueue'.
-newTMQueueIO :: IO (TMQueue a)
-newTMQueueIO = UnsafeTMQueue <$> STM.newTVarIO TMQueueOpen <*> STM.newTQueueIO
-
--- | Closes the 'TMQueue'. After this, any elements already in the 'TMQueue'
--- will continue to be successfully returned by 'readTMQueue'. However, any
--- new writes with 'writeTMQueue' will fail as described by its documentation.
-closeTMQueue :: TMQueue a -> STM ()
-closeTMQueue (UnsafeTMQueue to _) = STM.writeTVar to TMQueueNotOpen
-
--- | Writes a new input to the 'TMQueue', in FIFO order.
---
--- It returns 'True' if the 'TMQueue' was open and it was possible to write to
--- it. Otherwise, if the 'TMQueue' was closed, it returns 'False', meaning
--- nothing has been writen to the queue.
-writeTMQueue :: TMQueue a -> a -> STM Bool
-writeTMQueue (UnsafeTMQueue to tq) a = do
-  STM.readTVar to >>= \case
-     TMQueueOpen -> STM.writeTQueue tq a >> pure True
-     TMQueueNotOpen -> pure False
-
--- | Read a value from the 'TMQueue', in FIFO order.
---
--- If the 'TMQueue' is empty and closed, then this function returns 'Nothing'.
--- Otherwise, if the 'TMQueue' is not closed, this function will block waiting
--- for new input, or for the queue to be closed.
-readTMQueue :: TMQueue a -> STM (Maybe a)
-readTMQueue (UnsafeTMQueue to tq) = do
-  open <- STM.readTVar to
-  mItem <- STM.tryReadTQueue tq
-  case (open, mItem) of
-    -- Not empty: doesn't matter whether it's closed.
-    (_, Just a)               -> pure (Just a)
-    -- Open and empty: wait
-    (TMQueueOpen, Nothing)    -> STM.retry
-    -- Closed and empty: exhausted
-    (TMQueueNotOpen, Nothing) -> pure Nothing

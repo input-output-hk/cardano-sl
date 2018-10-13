@@ -170,6 +170,35 @@ hasDupes xs = length (Set.fromList xs) /= List.length xs
 -- | Specs which tests the persistent storage and API provided by 'TxMeta'.
 txMetaStorageSpecs :: Spec
 txMetaStorageSpecs = do
+
+    describe "SQlite transactions" $ do
+        it "throws an exception when tx with double spending" $ monadicIO $ do
+            testMetaSTB <- pick genMeta
+            run $ withTemporaryDb $ \hdl -> do
+                let testMeta = unSTB testMetaSTB
+                let ins = testMeta ^. txMetaInputs
+                let doubleSpendTx = testMeta {_txMetaInputs = ins <> ins}
+                putTxMetaT hdl doubleSpendTx `shouldThrow`
+                    (\(StorageFailure _) -> True)
+
+        it "rolls back if an insertion fails" $ monadicIO $ do
+            testMetaSTB <- pick genMeta
+            let testMeta = unSTB testMetaSTB
+            let ins = testMeta ^. txMetaInputs
+            let doubleSpendTx = testMeta {_txMetaInputs = ins <> ins}
+            liftIO $ do
+                conn <- SQlite.newConnection ":memory:"
+                SQlite.unsafeMigrateMetaDB conn
+                SQlite.putTxMetaT conn doubleSpendTx `shouldThrow`
+                    (\(StorageFailure _) -> True)
+                metasTable <- SQlite.getTxMetasTable conn
+                inputsTable <- SQlite.getInputsTable conn
+                outputsTable <- SQlite.getOutputsTable conn
+                length metasTable `shouldBe` 0
+                length inputsTable `shouldBe` 0
+                length outputsTable `shouldBe` 0
+                SQlite.closeMetaDB conn
+
     describe "migrations" $ do
         it "calling migration second time does nothing" $ monadicIO $ do
             testMetaSTB <- pick genMeta

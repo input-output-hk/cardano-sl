@@ -29,6 +29,9 @@ module Cardano.Wallet.Kernel.DB.Sqlite (
     , fromOutputs
     , putTxMetaT
     , getAllTxMetas
+    , getTxMetasTable
+    , getInputsTable
+    , getOutputsTable
     ) where
 
 import           Universum
@@ -456,7 +459,7 @@ putTxMetaT conn txMeta =
         accountIx = _txMetaTableAccountIx tMeta
         walletId = _txMetaTableWalletId tMeta
     in do
-        res1 <- Sqlite.withTransaction conn  $ Sqlite.runDBAction $ runBeamSqlite conn $ do
+        res1 <- Sqlite.runDBAction $ Sqlite.withTransaction conn  $ runBeamSqlite conn $ do
             -- The order here is important. If Outputs succeed everything else should also succeed.
             SQL.runInsert $ SQL.insert (_mDbOutputs metaDB) $ SQL.insertValues (NonEmpty.toList outputs)
             SQL.runInsert $ SQL.insert (_mDbMeta metaDB)    $ SQL.insertValues [tMeta]
@@ -469,8 +472,8 @@ putTxMetaT conn txMeta =
                 case (Kernel.txIdIsomorphic txMeta <$> t) of
                     Nothing   ->
                         -- Output is there but not TxMeta. This should never happen.
-                        -- This could be improved with foregn keys, which indicate
-                        -- the existence of a least one Output for each Meta.
+                        -- This could be improved with foreign keys, which indicate
+                        -- the existence of at least one Meta entry for each Output.
                         throwIO $ Kernel.InvariantViolated (Kernel.UndisputableLookupFailed "txId")
                     Just False ->
                         -- This violation means the Tx has same TxId but different
@@ -727,3 +730,25 @@ toBeamSortDirection :: SortDirection
                     -> SQL.QOrd (Sql92SelectOrderingSyntax SqliteSelectSyntax) s a
 toBeamSortDirection Ascending  = SQL.asc_
 toBeamSortDirection Descending = SQL.desc_
+
+
+-- Lower level api intended for testing
+
+getTxMetasTable :: Sqlite.Connection
+                -> IO [TxMeta]
+getTxMetasTable conn = do
+    runBeamSqlite conn $ do
+        SQL.runSelectReturningList $ SQL.select $
+            SQL.all_ $ _mDbMeta metaDB
+
+getInputsTable ::  Sqlite.Connection
+               -> IO [TxInput]
+getInputsTable conn =
+    runBeamSqlite conn $ SQL.runSelectReturningList $ SQL.select $
+        SQL.all_ $ _mDbInputs metaDB
+
+getOutputsTable :: Sqlite.Connection
+                -> IO [TxOutput]
+getOutputsTable conn =
+    runBeamSqlite conn $ SQL.runSelectReturningList $ SQL.select $
+        SQL.all_ $ _mDbOutputs metaDB

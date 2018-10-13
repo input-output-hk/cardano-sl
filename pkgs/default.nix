@@ -18128,6 +18128,7 @@ license = stdenv.lib.licenses.mit;
 , sqlite-simple-errors
 , stdenv
 , stm
+, stm-chans
 , strict
 , strict-concurrency
 , string-conv
@@ -18239,6 +18240,7 @@ servant-swagger-ui-redoc
 sqlite-simple
 sqlite-simple-errors
 stm
+stm-chans
 strict
 strict-concurrency
 swagger2

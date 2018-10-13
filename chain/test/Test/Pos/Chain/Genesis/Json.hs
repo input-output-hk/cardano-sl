@@ -67,6 +67,8 @@ roundTripStaticConfig :: Property
 roundTripStaticConfig =
     eachOf 100 (feedPM genStaticConfig) roundTripsAesonShow
 
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
+
 -- Pretty print format equivalence tests. The test reads and decodes the
 -- non-prettified JSON (from oldJson dir) and the prettified JSON
 -- (from json dir). If the decoding is successful the two values are compared.

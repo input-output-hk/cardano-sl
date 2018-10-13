@@ -22,6 +22,8 @@ library
                        Test.Pos.Chain.Genesis.Arbitrary
                        Test.Pos.Chain.Genesis.Example
                        Test.Pos.Chain.Genesis.Dummy
+                       Test.Pos.Chain.Genesis.Gen
+                       Test.Pos.Chain.Genesis.Json
                        Test.Pos.Chain.Lrc.Arbitrary
                        Test.Pos.Chain.Ssc.Arbitrary
                        Test.Pos.Chain.Ssc.Example
@@ -37,7 +39,8 @@ library
                        Test.Pos.Chain.Update.Example
                        Test.Pos.Chain.Update.Gen
 
-  build-depends:       base
+  build-depends:       aeson
+                     , base
                      , base16-bytestring
                      , bytestring
                      , cardano-crypto

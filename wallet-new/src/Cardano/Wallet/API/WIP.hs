@@ -12,11 +12,7 @@ import           Cardano.Wallet.API.V1.Types
 type API = Tags '["WIP"] :>
     (
          "external-wallets"
-                   :> Capture "rootPK" PublicKeyAsBase58
-                   :> Summary "Check if this external wallet is presented in the node."
-                   :> PostCreated '[ValidJSON] (WalletResponse WalletAndTxHistory)
-    :<|> "external-wallets"
-                   :> Summary "Creates a new or restores an existing external wallet (mobile client or hardware wallet)."
+                   :> Summary "Creates a new external wallet (mobile client or hardware wallet)."
                    :> ReqBody '[ValidJSON] (New ExternalWallet)
                    :> PostCreated '[ValidJSON] (WalletResponse Wallet)
     :<|> "external-wallets"

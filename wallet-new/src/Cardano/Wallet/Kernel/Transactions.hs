@@ -75,8 +75,8 @@ import qualified Pos.Client.Txp.Util as CTxp
 import           Pos.Core (Address, Coin, TxFeePolicy (..), unsafeSubCoin)
 import qualified Pos.Core as Core
 import           Pos.Core.NetworkMagic (NetworkMagic (..), makeNetworkMagic)
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ProtocolMagic,
-                     PublicKey, RedeemSecretKey, SafeSigner (..),
+import           Pos.Crypto (PassPhrase, ProtocolMagic, PublicKey,
+                     RedeemSecretKey, SafeSigner (..),
                      ShouldCheckPassphrase (..), Signature (..), hash,
                      redeemToPublic)
 import           UTxO.Util (shuffleNE)
@@ -570,6 +570,7 @@ data SignTransactionError =
     SignTransactionMissingKey Address
   | SignTransactionErrorUnknownAddress Address
   | SignTransactionErrorNotOwned Address
+  | SignTransactionUnableForExternalWallet
 
 instance Buildable SignTransactionError where
     build (SignTransactionMissingKey addr) =
@@ -578,6 +579,8 @@ instance Buildable SignTransactionError where
         bprint ("SignTransactionErrorUnknownAddress " % build) addr
     build (SignTransactionErrorNotOwned addr) =
         bprint ("SignTransactionErrorNotOwned " % build) addr
+    build (SignTransactionUnableForExternalWallet) =
+        bprint ("SignTransactionUnableForExternalWallet")
 
 -- in order to be able to generate an Arbitrary address we'd need to use
 -- the cardano-sl-core test package
@@ -586,12 +589,13 @@ instance Arbitrary SignTransactionError where
 
 mkSigner :: NetworkMagic
          -> PassPhrase
-         -> Maybe EncryptedSecretKey
+         -> Maybe Keystore.WalletUserKey
          -> DB
          -> Address
          -> Either SignTransactionError SafeSigner
 mkSigner _ _ Nothing _ addr = Left (SignTransactionMissingKey addr)
-mkSigner nm spendingPassword (Just esk) snapshot addr =
+mkSigner _ _ (Just (Keystore.ExternalWalletKey _pk)) _ _ = Left SignTransactionUnableForExternalWallet
+mkSigner nm spendingPassword (Just (Keystore.RegularWalletKey esk)) snapshot addr =
     case Getters.lookupCardanoAddress snapshot addr of
         Left _ -> Left (SignTransactionErrorUnknownAddress addr)
         Right hdAddr ->

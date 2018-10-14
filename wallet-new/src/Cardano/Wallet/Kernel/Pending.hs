@@ -18,7 +18,6 @@ import           Data.Acid.Advanced (update')
 import           Pos.Chain.Txp (Tx (..), TxAux (..), TxOut (..))
 import           Pos.Core (Coin (..))
 import           Pos.Core.NetworkMagic (makeNetworkMagic)
-import           Pos.Crypto (EncryptedSecretKey)
 
 import           Cardano.Wallet.Kernel.DB.AcidState (CancelPending (..),
                      NewForeign (..), NewForeignError (..), NewPending (..),
@@ -29,6 +28,7 @@ import           Cardano.Wallet.Kernel.DB.InDb
 import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
 import           Cardano.Wallet.Kernel.DB.TxMeta (TxMeta, putTxMeta)
 import           Cardano.Wallet.Kernel.Internal
+import           Cardano.Wallet.Kernel.Keystore (WalletUserKey (..))
 import           Cardano.Wallet.Kernel.PrefilterTx (filterOurs)
 import           Cardano.Wallet.Kernel.Read (getWalletCredentials)
 import           Cardano.Wallet.Kernel.Submission (Cancelled, addPending)
@@ -109,25 +109,27 @@ newTx ActiveWallet{..} accountId tx partialMeta upd = do
             putTxMeta (walletPassive ^. walletMeta) txMeta
             submitTx
             return (Right txMeta)
-    where
-        (txOut :: [TxOut]) = NE.toList $ (_txOutputs . taTx $ tx)
+  where
+    (txOut :: [TxOut]) = NE.toList $ (_txOutputs . taTx $ tx)
 
-        -- | NOTE: we recognise addresses in the transaction outputs that belong to _all_ wallets,
-        --  not only for the wallet to which this transaction is being submitted
-        allOurs :: [(WalletId, EncryptedSecretKey)] -> [(HdAddress,Coin)]
-        allOurs = concatMap ourAddrs
+    -- | NOTE: we recognise addresses in the transaction outputs that belong to _all_ wallets,
+    --  not only for the wallet to which this transaction is being submitted
+    allOurs :: [(WalletId, WalletUserKey)] -> [(HdAddress,Coin)]
+    allOurs = concatMap ourAddrs
 
-        ourAddrs :: (WalletId, EncryptedSecretKey) -> [(HdAddress,Coin)]
-        ourAddrs (wid, esk) =
-            map f $ filterOurs wKey txOutAddress txOut
-            where
-                nm = makeNetworkMagic $ walletPassive ^. walletProtocolMagic
-                f (txOut',addressId) = (initHdAddress addressId (txOutAddress txOut'), txOutValue txOut')
-                wKey = (wid, keyToWalletDecrCredentials nm $ KeyForRegular esk)
+    ourAddrs :: (WalletId, WalletUserKey) -> [(HdAddress,Coin)]
+    ourAddrs (wid, walletUserKey) =
+        map f $ filterOurs wKey txOutAddress txOut
+      where
+        nm = makeNetworkMagic $ walletPassive ^. walletProtocolMagic
+        f (txOut',addressId) = (initHdAddress addressId (txOutAddress txOut'), txOutValue txOut')
+        wKey = case walletUserKey of
+                   RegularWalletKey esk -> (wid, keyToWalletDecrCredentials nm $ KeyForRegular esk)
+                   ExternalWalletKey pk -> (wid, keyToWalletDecrCredentials nm $ KeyForExternal pk)
 
-        submitTx :: IO ()
-        submitTx = modifyMVar_ (walletPassive ^. walletSubmission) $
-                    return . addPending accountId (Pending.singleton tx)
+    submitTx :: IO ()
+    submitTx = modifyMVar_ (walletPassive ^. walletSubmission) $
+                return . addPending accountId (Pending.singleton tx)
 
 -- | Cancel a pending transaction
 --

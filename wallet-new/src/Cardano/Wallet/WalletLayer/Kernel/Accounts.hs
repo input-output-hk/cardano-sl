@@ -13,7 +13,6 @@ import           Universum
 import           Data.Coerce (coerce)
 
 import qualified Pos.Core as Core
-import           Pos.Crypto.Signing
 
 import           Cardano.Wallet.API.Request (RequestParams, SortOperations (..))
 import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
@@ -41,20 +40,17 @@ createAccount :: MonadIO m
               -> V1.WalletId
               -> V1.NewAccount
               -> m (Either CreateAccountError V1.Account)
-createAccount wallet wId (V1.NewAccount mbSpendingPassword accountName) = liftIO $ runExceptT $  do
+createAccount wallet wId (V1.NewAccount _ accountName) = liftIO $ runExceptT $  do
     rootId <- withExceptT CreateAccountWalletIdDecodingFailed $
                 fromRootId wId
     (db, acc) <- withExceptT CreateAccountError $ ExceptT $ liftIO $
-                     Kernel.createAccount passPhrase
-                                          (HD.AccountName accountName)
+                     Kernel.createAccount (HD.AccountName accountName)
                                           (WalletIdHdRnd rootId)
                                           wallet
     let accId = acc ^. HD.hdAccountId
     let accountAddresses = addressesByAccountId db accId
     pure $ mkAccount acc (IxSet.toList accountAddresses)
   where
-    passPhrase = maybe mempty coerce mbSpendingPassword
-
     mkAccount :: HD.HdAccount -> [Indexed HD.HdAddress] -> V1.Account
     mkAccount account addresses = V1.Account {
         accIndex     = toAccountId (account ^. HD.hdAccountId)

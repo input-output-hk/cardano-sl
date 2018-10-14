@@ -72,6 +72,8 @@ createAddressErrorKernel e = case e of
         V1.CannotCreateAddress (sformat build e)
     (Kernel.CreateAddressHdRndAddressSpaceSaturated _accId) ->
         V1.CannotCreateAddress (sformat build e)
+    (Kernel.CreateAddressUnableForExternalWallet _accId) ->
+        V1.CannotCreateAddress (sformat build e)
 
 unknownHdAccount :: HD.UnknownHdAccount -> V1.WalletError
 unknownHdAccount e = case e of
@@ -136,7 +138,8 @@ getAccountsError e = case e of
         V1.WalletNotFound
 
 createWalletError :: CreateWalletError -> V1.WalletError
-createWalletError (CreateWalletError e) = case e of
+createWalletError err = case err of
+    (CreateWalletError e) -> case e of
         (Kernel.CreateWalletFailed e') -> case e' of
             (HD.CreateHdRootExists rootId) ->
                 V1.WalletAlreadyExists $ toRootId rootId
@@ -147,6 +150,9 @@ createWalletError (CreateWalletError e) = case e of
         Kernel.CreateWalletDefaultAddressDerivationFailed ->
                 V1.CannotCreateAddress $
                     T.pack "CreateWalletDefaultAddressDerivationFailed"
+
+    (CreateWalletInvalidRootPK pkError) ->
+        V1.InvalidPublicKey (sformat build pkError)
 
 getWalletError :: GetWalletError -> V1.WalletError
 getWalletError e = case e of
@@ -184,13 +190,20 @@ updateWalletPasswordError e = case e of
         ex@(Kernel.UpdateWalletPasswordKeystoreChangedInTheMeantime _rootId) ->
                 V1.UnknownError (sformat build ex)
 
+        ex@Kernel.UpdateWalletPasswordUnableForExternalWallet ->
+            V1.UnknownError (sformat build ex)
+
 deleteWalletError :: DeleteWalletError -> V1.WalletError
 deleteWalletError e = case e of
     (DeleteWalletWalletIdDecodingFailed _txt) ->
-            V1.WalletNotFound
+        V1.WalletNotFound
 
     (DeleteWalletError (HD.UnknownHdRoot _rootId)) ->
-            V1.WalletNotFound
+        V1.WalletNotFound
+
+    (DeleteWalletInvalidRootPK pkError) ->
+        V1.InvalidPublicKey (sformat build pkError)
+
 
 importWalletError :: ImportWalletError -> V1.WalletError
 importWalletError e = case e of
@@ -302,6 +315,8 @@ newTransactionError e = case e of
             V1.AddressNotFound
         (Kernel.SignTransactionErrorNotOwned addr) ->
             V1.TxSafeSignerNotFound (V1 addr)
+        ex@Kernel.SignTransactionUnableForExternalWallet ->
+            V1.UnknownError (sformat build ex)
 
     Kernel.NewTransactionInvalidTxIn ->
             V1.SignedTxSubmitError "NewTransactionInvalidTxIn"

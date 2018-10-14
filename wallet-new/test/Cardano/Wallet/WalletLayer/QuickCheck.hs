@@ -42,6 +42,7 @@ bracketPassiveWallet =
         , updateWallet         = \_ _   -> liftedGen
         , updateWalletPassword = \_ _   -> liftedGen
         , deleteWallet         = \_     -> liftedGen
+        , deleteExternalWallet = \_     -> liftedGen
         , getUtxos             = \_     -> liftedGen
 
         , createAccount        = \_ _   -> liftedGen

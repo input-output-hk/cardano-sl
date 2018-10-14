@@ -231,15 +231,15 @@ restore pw forced metadata = do
         logMsg   = pw ^. Kernel.walletLogMessage
         keystore = pw ^. Kernel.walletKeystore
         wId      = WalletIdHdRnd (metadata ^. mmHdRootId)
-    mEsk <- Keystore.lookup nm wId keystore
-    case mEsk of
-        Just esk -> do
+    mbKey <- Keystore.lookup nm wId keystore
+    case mbKey of
+        Just walletUserKey -> do
             res <- restoreWallet pw
                                  (metadata ^. mmHasSpendingPassword)
                                  (metadata ^. mmDefaultAddress)
                                  (metadata ^. mmWalletName)
                                  (metadata ^. mmAssuranceLevel)
-                                 esk
+                                 walletUserKey
             case res of
                  Right (restoredRoot, balance) -> do
                      let msg = "Migrating " % F.build

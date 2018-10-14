@@ -4,6 +4,7 @@ module Cardano.Wallet.WalletLayer.Kernel.Wallets (
     , updateWallet
     , updateWalletPassword
     , deleteWallet
+    , deleteExternalWallet
     , getWallet
     , getWallets
     , getWalletUtxos
@@ -64,6 +65,8 @@ createWallet wallet newWalletRequest = liftIO $ do
             case newwalOperation of
                 V1.RestoreWallet -> restore nm newWallet now
                 V1.CreateWallet  -> create newWallet now
+        CreateExternalWallet newExtWallet ->
+            createExternal newExtWallet now
         ImportWalletFromESK esk mbSpendingPassword ->
             restoreFromESK nm
                            esk
@@ -81,6 +84,19 @@ createWallet wallet newWalletRequest = liftIO $ do
                                       (fromAssuranceLevel newwalAssuranceLevel)
                                       (HD.WalletName newwalName)
       return (mkRoot newwalName newwalAssuranceLevel now root)
+
+    createExternal :: V1.NewExternalWallet
+                   -> Timestamp
+                   -> IO (Either CreateWalletError V1.Wallet)
+    createExternal V1.NewExternalWallet{..} now = runExceptT $ do
+        rootPK <- withExceptT CreateWalletInvalidRootPK $ ExceptT $
+            pure $ V1.mkPublicKeyFromBase58 newewalRootPK
+        root <- withExceptT CreateWalletError $ ExceptT $
+            Kernel.createExternalHdWallet wallet
+                                          rootPK
+                                          (fromAssuranceLevel newewalAssuranceLevel)
+                                          (HD.WalletName newewalName)
+        return (mkRoot newewalName newewalAssuranceLevel now root)
 
     restore :: NetworkMagic
             -> V1.NewWallet
@@ -109,7 +125,7 @@ createWallet wallet newWalletRequest = liftIO $ do
             wId    = WalletIdHdRnd rootId
 
         -- Insert the 'EncryptedSecretKey' into the 'Keystore'
-        liftIO $ Keystore.insert wId esk (wallet ^. walletKeystore)
+        liftIO $ Keystore.insert (Keystore.RegularWalletKey esk) (wallet ^. walletKeystore)
 
         -- Synchronously restore the wallet balance, and begin to
         -- asynchronously reconstruct the wallet's history.
@@ -128,7 +144,7 @@ createWallet wallet newWalletRequest = liftIO $ do
                       (hdAddress ^. HD.hdAddressAddress . fromDb)
                       (HD.WalletName walletName)
                       hdAssuranceLevel
-                      esk
+                      (Keystore.RegularWalletKey esk)
 
                 -- Return the wallet information, with an updated balance.
                 let root' = mkRoot walletName (toAssuranceLevel hdAssuranceLevel) now root
@@ -170,7 +186,7 @@ prefilter :: NetworkMagic
 prefilter nm esk wallet wId blund =
     blundToResolvedBlock (wallet ^. Kernel.walletNode) blund <&> \case
         Nothing -> (Map.empty, [])
-        Just rb -> prefilterBlock nm rb [(wId,esk)]
+        Just rb -> prefilterBlock nm rb [(wId,(Keystore.RegularWalletKey esk))]
 
 -- | Updates the 'SpendingPassword' for this wallet.
 updateWallet :: MonadIO m
@@ -219,6 +235,21 @@ deleteWallet wallet wId = runExceptT $ do
       let nm = makeNetworkMagic (wallet ^. walletProtocolMagic)
       Kernel.removeRestoration wallet (WalletIdHdRnd rootId)
       Kernel.deleteHdWallet nm wallet rootId
+
+-- | Deletes an external wallet, together with every account & addresses belonging to it.
+-- If this wallet was restoring, then the relevant async worker is correctly canceled.
+deleteExternalWallet :: MonadIO m
+                     => Kernel.PassiveWallet
+                     -> V1.PublicKeyAsBase58
+                     -> m (Either DeleteWalletError ())
+deleteExternalWallet wallet encodedRootPK = runExceptT $ do
+    rootPK <- withExceptT DeleteWalletInvalidRootPK $ ExceptT $
+        pure $ V1.mkPublicKeyFromBase58 encodedRootPK
+    let nm = makeNetworkMagic (wallet ^. walletProtocolMagic)
+        rootId  = HD.pkToHdRootId nm rootPK
+    withExceptT DeleteWalletError $ ExceptT $ liftIO $ do
+        Kernel.removeRestoration wallet (WalletIdHdRnd rootId)
+        Kernel.deleteHdWallet nm wallet rootId
 
 -- | Gets a specific wallet.
 getWallet :: MonadIO m

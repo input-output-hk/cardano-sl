@@ -251,7 +251,7 @@ equivalentT useWW activeWallet esk = \mkWallet w ->
              Left e -> createWalletErr (STB e)
              Right hdRoot -> do
                  let keystore = passiveWallet ^. Internal.walletKeystore
-                 liftIO $ Keystore.insert (WalletIdHdRnd $ hdRoot ^. HD.hdRootId) esk keystore
+                 liftIO $ Keystore.insert (Keystore.RegularWalletKey esk) keystore
                  checkWalletAccountState ctxt accountIds
 
         where

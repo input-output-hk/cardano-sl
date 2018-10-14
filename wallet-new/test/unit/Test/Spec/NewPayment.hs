@@ -113,7 +113,7 @@ prepareFixtures nm initialBalance toPay = do
     payees <- fmap (\(TxOut addr coin) -> (addr, coin)) <$> pick (genPayee utxo toPay)
 
     return $ \keystore aw -> do
-        liftIO $ Keystore.insert (WalletIdHdRnd newRootId) esk keystore
+        liftIO $ Keystore.insert (Keystore.RegularWalletKey esk) keystore
         let pw = Kernel.walletPassive aw
 
         let accounts         = Kernel.prefilterUtxo nm newRootId esk utxo'
@@ -161,7 +161,7 @@ withPayment :: MonadIO n
             -> PropertyM IO ()
 withPayment pm initialBalance toPay action = do
     withFixture pm initialBalance toPay $ \keystore activeLayer _ Fixture{..} -> do
-        liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore
+        liftIO $ Keystore.insert (Keystore.RegularWalletKey fixtureESK) keystore
         let (AccountIdHdRnd hdAccountId)  = fixtureAccountId
         let (HdRootId (InDb rootAddress)) = fixtureHdRootId
         let sourceWallet = V1.WalletId (sformat build rootAddress)

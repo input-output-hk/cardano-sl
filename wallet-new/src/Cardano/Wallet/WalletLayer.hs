@@ -45,12 +45,13 @@ import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
 import           Cardano.Wallet.API.Request.Sort (SortOperations (..))
 import           Cardano.Wallet.API.Response (SliceOf (..), WalletResponse)
 import           Cardano.Wallet.API.V1.Types (Account, AccountBalance,
-                     AccountIndex, AccountUpdate, Address, ForceNtpCheck,
-                     NewAccount, NewAddress, NewWallet, NodeInfo, NodeSettings,
-                     PasswordUpdate, Payment, Redemption, SignedTransaction,
-                     SpendingPassword, Transaction, UnsignedTransaction,
-                     V1 (..), Wallet, WalletAddress, WalletId, WalletImport,
-                     WalletUpdate)
+                     AccountIndex, AccountUpdate, Address,
+                     Base58PublicKeyError (..), ForceNtpCheck, NewAccount,
+                     NewAddress, NewExternalWallet, NewWallet, NodeInfo,
+                     NodeSettings, PasswordUpdate, Payment, PublicKeyAsBase58,
+                     Redemption, SignedTransaction, SpendingPassword,
+                     Transaction, UnsignedTransaction, V1 (..), Wallet,
+                     WalletAddress, WalletId, WalletImport, WalletUpdate)
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
@@ -70,10 +71,12 @@ import           Cardano.Wallet.WalletLayer.Kernel.Conv (InvalidRedemptionCode)
 
 data CreateWallet =
     CreateWallet NewWallet
+  | CreateExternalWallet NewExternalWallet
   | ImportWalletFromESK EncryptedSecretKey (Maybe SpendingPassword)
 
 data CreateWalletError =
     CreateWalletError Kernel.CreateWalletError
+  | CreateWalletInvalidRootPK Base58PublicKeyError
 
 -- | Unsound show instance needed for the 'Exception' instance.
 instance Show CreateWalletError where
@@ -83,11 +86,14 @@ instance Exception CreateWalletError
 
 instance Arbitrary CreateWalletError where
     arbitrary = oneof [ CreateWalletError <$> arbitrary
+                      , pure (CreateWalletInvalidRootPK PublicKeyNotInBase58Form)
                       ]
 
 instance Buildable CreateWalletError where
     build (CreateWalletError kernelError) =
         bprint ("CreateWalletError " % build) kernelError
+    build (CreateWalletInvalidRootPK pkError) =
+        bprint ("CreateWalletInvalidRootPK " % build) pkError
 
 data GetWalletError =
       GetWalletError Kernel.UnknownHdRoot
@@ -152,6 +158,7 @@ instance Buildable UpdateWalletPasswordError where
 data DeleteWalletError =
       DeleteWalletWalletIdDecodingFailed Text
     | DeleteWalletError Kernel.UnknownHdRoot
+    | DeleteWalletInvalidRootPK Base58PublicKeyError
 
 -- | Unsound show instance needed for the 'Exception' instance.
 instance Show DeleteWalletError where
@@ -164,6 +171,8 @@ instance Buildable DeleteWalletError where
         bprint ("DeleteWalletWalletIdDecodingFailed " % build) txt
     build (DeleteWalletError kernelError) =
         bprint ("DeleteWalletError " % build) kernelError
+    build (DeleteWalletInvalidRootPK pkError) =
+        bprint ("DeleteWalletInvalidRootPK " % build) pkError
 
 data GetUtxosError =
       GetUtxosWalletIdDecodingFailed Text
@@ -397,6 +406,7 @@ data PassiveWalletLayer m = PassiveWalletLayer
                            -> PasswordUpdate
                            -> m (Either UpdateWalletPasswordError Wallet)
     , deleteWallet         :: WalletId -> m (Either DeleteWalletError ())
+    , deleteExternalWallet :: PublicKeyAsBase58 -> m (Either DeleteWalletError ())
     , getUtxos             :: WalletId
                            -> m (Either GetUtxosError [(Account, Utxo)])
     -- accounts

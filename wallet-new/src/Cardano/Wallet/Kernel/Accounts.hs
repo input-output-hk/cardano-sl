@@ -17,7 +17,6 @@ import           System.Random.MWC (GenIO, createSystemRandom, uniformR)
 import           Data.Acid (update)
 
 import           Pos.Core.NetworkMagic (makeNetworkMagic)
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase)
 
 import           Cardano.Wallet.Kernel.DB.AcidState (CreateHdAccount (..), DB,
                      DeleteHdAccount (..), UpdateHdAccountName (..))
@@ -67,40 +66,31 @@ instance Show CreateAccountError where
 -- | Creates a new 'Account' for the input wallet.
 -- Note: @it does not@ generate a new 'Address' to go in tandem with this
 -- 'Account'. This will be responsibility of the wallet layer.
-createAccount :: PassPhrase
-              -- ^ The 'Passphrase' (a.k.a the \"Spending Password\").
-              -> AccountName
+createAccount :: AccountName
               -- ^ The name for this account.
               -> WalletId
               -- ^ An abstract notion of a 'Wallet identifier
               -> PassiveWallet
               -> IO (Either CreateAccountError (DB, HdAccount))
-createAccount spendingPassword accountName walletId pw = do
+createAccount accountName walletId pw = do
     let nm = makeNetworkMagic (pw ^. walletProtocolMagic)
         keystore = pw ^. walletKeystore
     case walletId of
          WalletIdHdRnd hdRootId -> do
-             mbEsk <- Keystore.lookup nm (WalletIdHdRnd hdRootId) keystore
-             case mbEsk of
-                  Nothing  -> return (Left $ CreateAccountKeystoreNotFound walletId)
-                  Just esk ->
-                      createHdRndAccount spendingPassword
-                                         accountName
-                                         esk
-                                         hdRootId
-                                         pw
+             mbKey <- Keystore.lookup nm (WalletIdHdRnd hdRootId) keystore
+             case mbKey of
+                  Nothing -> return (Left $ CreateAccountKeystoreNotFound walletId)
+                  Just _  -> createHdRndAccount accountName hdRootId pw
 
 -- | Creates a new 'Account' using the random HD derivation under the hood.
 -- This code follows the same pattern of 'createHdRndAddress', but the two
 -- functions are "similarly different" enough to not make convenient generalise
 -- the code.
-createHdRndAccount :: PassPhrase
-                   -> AccountName
-                   -> EncryptedSecretKey
+createHdRndAccount :: AccountName
                    -> HdRootId
                    -> PassiveWallet
                    -> IO (Either CreateAccountError (DB, HdAccount))
-createHdRndAccount _spendingPassword accountName _esk rootId pw = do
+createHdRndAccount accountName rootId pw = do
     gen <- createSystemRandom
     go gen 0
     where

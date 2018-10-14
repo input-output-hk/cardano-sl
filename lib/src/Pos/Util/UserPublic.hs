@@ -16,13 +16,17 @@ module Pos.Util.UserPublic
 
        , UserPublic
        , upKeys
+       , upPath
        , upWallet
        , HasUserPublic(..)
+       , getUPPath
        , initializeUserPublic
+       , isEmptyUserPublic
        , peekUserPublic
        , takeUserPublic
        , writeUserPublic
        , writeUserPublicRelease
+       , writeRaw
        ) where
 
 import qualified Prelude
@@ -97,6 +101,9 @@ data UserPublic = UserPublic
 
 makeLenses ''UserPublic
 
+isEmptyUserPublic :: UserPublic -> Bool
+isEmptyUserPublic up = null (_upKeys up)
+
 class HasUserPublic ctx where
     -- if you're going to mock this TVar, look how it's done for peer state.
     userPublic :: Lens' ctx (TVar UserPublic)
@@ -120,6 +127,9 @@ lockFilePath = (<> ".lock")
 -- will result in error.
 canWrite :: UserPublic -> Bool
 canWrite up = up ^. upLock . to isJust
+
+getUPPath :: UserPublic -> FilePath
+getUPPath up = up ^. upPath
 
 instance Default UserPublic where
     def = UserPublic [] Nothing "" Nothing

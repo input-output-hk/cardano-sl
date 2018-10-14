@@ -29,8 +29,9 @@ import           Cardano.Wallet.API.Types.UnitOfMeasure
 import           Cardano.Wallet.Kernel (walletLogMessage)
 import qualified Cardano.Wallet.Kernel as Kernel
 import           Cardano.Wallet.Kernel.DB.AcidState (ApplyHistoricalBlocks (..),
-                     CreateHdWallet (..), ResetAllHdWalletAccounts (..),
-                     RestorationComplete (..), RestoreHdWallet (..),
+                     CreateHdWallet (..),
+                     ResetAllHdWalletAccounts (..), RestorationComplete (..),
+                     RestoreHdWallet (..),
                      dbHdWallets)
 import           Cardano.Wallet.Kernel.DB.BlockContext
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
@@ -62,7 +63,8 @@ import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..),
                      WalletId (..), fromRawResolvedBlock, rawResolvedBlock,
                      rawResolvedBlockInputs, rawResolvedContext, rawTimestamp)
 import           Cardano.Wallet.Kernel.Util.Core (utxoBalance)
-import           Cardano.Wallet.Kernel.Wallets (createWalletHdRnd)
+import           Cardano.Wallet.Kernel.Wallets (
+                     createWalletHdRnd)
 
 import           Pos.Chain.Block (Block, Blund, HeaderHash, Undo, mainBlockSlot,
                      undoTx)
@@ -74,8 +76,7 @@ import           Pos.Chain.Txp (TxIn (..), TxOut (..), TxOutAux (..), Utxo,
 import           Pos.Core as Core (Address, BlockCount (..), Coin, SlotId,
                      flattenSlotId, getCurrentTimestamp, mkCoin,
                      unsafeIntegerToCoin)
-import           Pos.Core.NetworkMagic (makeNetworkMagic)
-import           Pos.Crypto (EncryptedSecretKey)
+import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
 import           Pos.DB.Block (getFirstGenesisBlockHash, getUndo,
                      resolveForwardLink)
 import           Pos.DB.Class (getBlock)
@@ -106,11 +107,15 @@ restoreWallet :: Kernel.PassiveWallet
               -- ^ The stock address to use for the companion 'HdAccount'.
               -> HD.WalletName
               -> HD.AssuranceLevel
-              -> EncryptedSecretKey
+              -> Keystore.WalletUserKey
               -> IO (Either CreateHdRootError (HD.HdRoot, Coin))
-restoreWallet pw hasSpendingPassword defaultCardanoAddress name assurance esk = do
+restoreWallet pw hasSpendingPassword defaultCardanoAddress name assurance walletUserKey = do
     coreConfig <- getCoreConfig (pw ^. walletNode)
     walletInitInfo <- withNodeState (pw ^. walletNode) $ getWalletInitInfo coreConfig wkey
+
+    -- We definitely know that this function is using for regular wallets only.
+    let Keystore.RegularWalletKey esk = walletUserKey
+
     case walletInitInfo of
       WalletCreate utxos -> do
         root <- createWalletHdRnd pw hasSpendingPassword defaultCardanoAddress name assurance esk $
@@ -125,50 +130,76 @@ restoreWallet pw hasSpendingPassword defaultCardanoAddress name assurance esk = 
                       Right $ RestoreHdWallet root defaultHdAccount defaultHdAddress tgt utxos
           case mRoot of
               Left  err  -> return (Left err)
-              Right root -> do
+              Right root ->
                   -- Start the restoration task, from the genesis block up to @tgt@.
-                  beginRestoration pw wId prefilter root Nothing tgt (restart root)
-
-                  -- Return the wallet's current balance.
-                  let coins = unsafeIntegerToCoin
-                            . utxoBalance
-                            . M.unions
-                            . M.elems
-                            . fmap (\(cur, _gen, _addrs) -> cur)
-                            $ utxos
-                  return (Right (root, coins))
-
+                  restoreAndGetCoins pw wId wkey (mkPrefilter pw wId walletUserKey) root tgt utxos
   where
     nm = makeNetworkMagic (pw ^. walletProtocolMagic)
+    (wId, wkey) = walletIdAndKeyForRestoring nm walletUserKey
 
-    prefilter :: Blund -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta])
-    prefilter = mkPrefilter pw wId esk
+walletIdAndKeyForRestoring :: NetworkMagic
+                           -> Keystore.WalletUserKey
+                           -> (WalletId, WalletKey)
+walletIdAndKeyForRestoring nm walletUserKey = case walletUserKey of
+    Keystore.RegularWalletKey esk ->
+        let wId = WalletIdHdRnd (HD.eskToHdRootId nm esk)
+            wKey = (wId, keyToWalletDecrCredentials nm (KeyForRegular esk))
+        in (wId, wKey)
+    Keystore.ExternalWalletKey pk ->
+        let wId = WalletIdHdRnd (HD.pkToHdRootId nm pk)
+            wKey = (wId, keyToWalletDecrCredentials nm (KeyForExternal pk))
+        in (wId, wKey)
 
-    restart :: HD.HdRoot -> IO ()
-    restart root = do
-        coreConfig <- getCoreConfig (pw ^. walletNode)
-        walletInitInfo <- withNodeState (pw ^. walletNode) $ getWalletInitInfo coreConfig wkey
-        case walletInitInfo of
-            WalletCreate _utxos ->
-                -- This can only happen if the node has no main blocks,
-                -- which is quite unlikely. For now, silently fail.
-                return ()
-            WalletRestore utxos tgt -> do
-                update (pw ^. wallets) $ ResetAllHdWalletAccounts (root ^. HD.hdRootId) tgt utxos
-                beginRestoration pw wId prefilter root Nothing tgt (restart root)
 
-    wId    = WalletIdHdRnd (HD.eskToHdRootId nm esk)
-    wkey   = (wId, keyToWalletDecrCredentials nm (KeyForRegular esk))
+restoreAndGetCoins :: Kernel.PassiveWallet
+                   -> WalletId
+                   -> WalletKey
+                   -> (Blund -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta]))
+                   -> HD.HdRoot
+                   -> BlockContext
+                   -> (Map HD.HdAccountId (Utxo, Utxo, [AddrWithId]))
+                   -> IO (Either CreateHdRootError (HD.HdRoot, Coin))
+restoreAndGetCoins pw wId wkey prefilter root tgt utxos = do
+    beginRestoration pw wId prefilter root Nothing tgt $
+        restartForRestoring pw wId wkey root prefilter
+
+    -- Return the wallet's current balance.
+    let coins = unsafeIntegerToCoin
+              . utxoBalance
+              . M.unions
+              . M.elems
+              . fmap (\(cur, _gen, _addrs) -> cur)
+              $ utxos
+    return (Right (root, coins))
+
+
+restartForRestoring :: Kernel.PassiveWallet
+                    -> WalletId
+                    -> WalletKey
+                    -> HD.HdRoot
+                    -> (Blund -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta]))
+                    -> IO ()
+restartForRestoring pw wId wkey root prefilter = do
+    coreConfig <- getCoreConfig (pw ^. walletNode)
+    walletInitInfo <- withNodeState (pw ^. walletNode) $ getWalletInitInfo coreConfig wkey
+    case walletInitInfo of
+        WalletCreate _utxos ->
+            -- This can only happen if the node has no main blocks,
+            -- which is quite unlikely. For now, silently fail.
+            return ()
+        WalletRestore utxos tgt -> do
+            update (pw ^. wallets) $ ResetAllHdWalletAccounts (root ^. HD.hdRootId) tgt utxos
+            beginRestoration pw wId prefilter root Nothing tgt (restartForRestoring pw wId wkey root prefilter)
 
 
 mkPrefilter :: Kernel.PassiveWallet
             -> WalletId
-            -> EncryptedSecretKey
+            -> Keystore.WalletUserKey
             -> Blund
             -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta])
-mkPrefilter pw wId esk blund = blundToResolvedBlock (pw ^. walletNode) blund <&> \case
+mkPrefilter pw wId walletUserKey blund = blundToResolvedBlock (pw ^. walletNode) blund <&> \case
     Nothing -> (M.empty, [])
-    Just rb -> prefilterBlock nm rb [(wId,esk)]
+    Just rb -> prefilterBlock nm rb [(wId,walletUserKey)]
   where
     nm = makeNetworkMagic (pw ^. walletProtocolMagic)
 
@@ -190,9 +221,9 @@ restoreKnownWallet pw rootId = do
         -- Start a new restoration of a seemingly up-to-date wallet.
         Nothing -> Keystore.lookup nm wId (pw ^. walletKeystore) >>= \case
             Nothing  -> return () -- TODO (@mn): raise an error
-            Just esk -> do
-                let prefilter = mkPrefilter pw wId esk
-                    wkey      = (wId, keyToWalletDecrCredentials nm (KeyForRegular esk))
+            Just walletUserKey -> do
+                let prefilter = mkPrefilter pw wId walletUserKey
+                    (_, wkey) = walletIdAndKeyForRestoring nm walletUserKey
 
                 coreConfig <- getCoreConfig (pw ^. walletNode)
                 db <- getWalletSnapshot pw
@@ -227,9 +258,10 @@ continueRestoration pw root cur tgt = do
             -- TODO (@mn): raise an error, trying to continue
             -- restoration of an unknown wallet
             return ()
-        Just esk -> do
-            let prefilter = mkPrefilter pw wId esk
-                wkey      = (wId, keyToWalletDecrCredentials nm (KeyForRegular esk))
+        Just walletUserKey -> do
+            let prefilter = mkPrefilter pw wId walletUserKey
+                (_, wkey) = walletIdAndKeyForRestoring nm walletUserKey
+
                 restart   = do
                     coreConfig <- getCoreConfig (pw ^. walletNode)
                     wii <- withNodeState (pw ^. walletNode)

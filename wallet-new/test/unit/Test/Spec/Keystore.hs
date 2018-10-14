@@ -65,7 +65,7 @@ spec =
                 nm <- pick arbitrary
                 forAllM (genKeypair nm) $ \(STB wid, STB esk) -> run $ do
                     withKeystore $ \ks -> do
-                        Keystore.insert wid esk ks
+                        Keystore.insert (Keystore.RegularWalletKey esk) ks
                         mbKey <- Keystore.lookup nm wid ks
                         (fmap hash mbKey) `shouldBe` (Just (hash esk))
 
@@ -73,7 +73,7 @@ spec =
                 nm <- pick arbitrary
                 forAllM (genKeys nm) $ \(STB wid, STB oldKey, STB newKey) -> run $ do
                     withKeystore $ \ks -> do
-                        Keystore.insert wid oldKey ks
+                        Keystore.insert (Keystore.RegularWalletKey oldKey) ks
                         mbOldKey <- Keystore.lookup nm wid ks
                         result <- Keystore.compareAndReplace nm wid (const True) newKey ks
                         mbNewKey <- Keystore.lookup nm wid ks
@@ -84,7 +84,7 @@ spec =
                 nm <- pick arbitrary
                 forAllM (genKeypair nm) $ \(STB wid, STB esk) -> run $ do
                     withKeystore $ \ks -> do
-                        Keystore.insert wid esk ks
+                        Keystore.insert (Keystore.RegularWalletKey esk) ks
                         Keystore.delete nm wid ks
                         mbKey <- Keystore.lookup nm wid ks
                         (fmap hash mbKey) `shouldBe` Nothing
@@ -110,7 +110,7 @@ spec =
                 run $ do
                     nukeKeystore "test_keystore.key"
                     Keystore.bracketKeystore KeepKeystoreIfEmpty "test_keystore.key" $ \keystore1 ->
-                        Keystore.insert wid esk keystore1
+                        Keystore.insert (Keystore.RegularWalletKey esk) keystore1
                     Keystore.bracketKeystore KeepKeystoreIfEmpty "test_keystore.key" $ \keystore2 -> do
                         mbKey <- Keystore.lookup nm wid keystore2
                         (fmap hash mbKey) `shouldBe` (Just (hash esk))
@@ -121,7 +121,7 @@ spec =
                 run $ do
                     nukeKeystore "test_keystore.key"
                     Keystore.bracketKeystore KeepKeystoreIfEmpty "test_keystore.key" $ \keystore1 -> do
-                        Keystore.insert wid esk keystore1
+                        Keystore.insert (Keystore.RegularWalletKey esk) keystore1
                         Keystore.delete nm wid keystore1
                     Keystore.bracketKeystore KeepKeystoreIfEmpty "test_keystore.key" $ \keystore2 -> do
                         mbKey <- Keystore.lookup nm wid keystore2

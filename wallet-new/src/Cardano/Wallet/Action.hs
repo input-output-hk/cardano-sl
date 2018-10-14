@@ -7,7 +7,7 @@ import           Ntp.Client (NtpConfiguration, ntpClientSettings, withNtpClient)
 import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Ssc (SscParams)
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Context (ncUserSecret)
+import           Pos.Context (ncUserPublic, ncUserSecret)
 import           Pos.Launcher (NodeParams (..), NodeResources (..),
                      WalletConfiguration (..), bpLoggingParams, lpDefaultName,
                      runNode)
@@ -51,12 +51,13 @@ actionWithWallet
 actionWithWallet params genesisConfig walletConfig txpConfig ntpConfig nodeParams _ nodeRes = do
     logInfo "[Attention] Software is built with the wallet backend"
     ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
+    userPublic <- readTVarIO (ncUserPublic $ nrContext nodeRes)
     userSecret <- readTVarIO (ncUserSecret $ nrContext nodeRes)
     let nodeState = NodeStateAdaptor.newNodeStateAdaptor
             genesisConfig
             nodeRes
             ntpStatus
-    liftIO $ Keystore.bracketLegacyKeystore userSecret $ \keystore -> do
+    liftIO $ Keystore.bracketLegacyKeystore userPublic userSecret $ \keystore -> do
         let dbOptions = getWalletDbOptions params
         let dbPath = walletDbPath dbOptions
         let rebuildDB = walletRebuildDb dbOptions

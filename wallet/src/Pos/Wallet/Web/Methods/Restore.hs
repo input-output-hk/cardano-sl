@@ -9,7 +9,6 @@ module Pos.Wallet.Web.Methods.Restore
        , restoreWalletFromSeed
        , restoreWalletFromSeedNoThrow
        , restoreWalletFromBackup
-       , restoreExternalWallet
        , addInitialRichAccount
 
        -- For testing
@@ -30,7 +29,7 @@ import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Genesis (PoorSecret, poorSecretToEncKey)
 import           Pos.Client.KeyStorage (addSecretKey)
 import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, PublicKey,
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase,
                      emptyPassphrase, firstHardened)
 import           Pos.Infra.StateLock (Priority (..), withStateLockNoMetrics)
 import           Pos.Util (HasLens (..), maybeThrow)
@@ -169,13 +168,6 @@ restoreWallet :: ( L.MonadWalletLogic ctx m
                  , HasLens SyncQueue ctx SyncQueue
                  ) => Genesis.Config -> EncryptedSecretKey -> m CWallet
 restoreWallet genesisConfig sk = restoreWith genesisConfig $ KeyForRegular sk
-
--- | Restore a history related to given external wallet, using its root PK.
-restoreExternalWallet :: ( L.MonadWalletLogic ctx m
-                         , MonadUnliftIO m
-                         , HasLens SyncQueue ctx SyncQueue
-                         ) => Genesis.Config -> PublicKey -> m CWallet
-restoreExternalWallet genesisConfig pk = restoreWith genesisConfig $ KeyForExternal pk
 
 restoreWith :: ( L.MonadWalletLogic ctx m
                , MonadUnliftIO m

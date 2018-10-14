@@ -1,5 +1,6 @@
 module Cardano.Wallet.Kernel.Wallets (
       createHdWallet
+    , createExternalHdWallet
     , updateHdWallet
     , updatePassword
     , deleteHdWallet
@@ -11,6 +12,7 @@ module Cardano.Wallet.Kernel.Wallets (
     , UpdateWalletPasswordError(..)
     -- * Internal & testing use only
     , createWalletHdRnd
+    , createExternalWalletHdRnd
     ) where
 
 import qualified Prelude
@@ -25,19 +27,21 @@ import           Data.Acid.Advanced (update')
 import           Pos.Core (Address, Timestamp)
 import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
 import           Pos.Crypto (EncryptedSecretKey, HDPassphrase, PassPhrase,
-                     changeEncPassphrase, checkPassMatches, emptyPassphrase,
-                     firstHardened, safeDeterministicKeyGen)
+                     PublicKey, changeEncPassphrase, checkPassMatches,
+                     emptyPassphrase, firstHardened, safeDeterministicKeyGen)
 
 import           Cardano.Wallet.Kernel.Addresses (newHdAddress)
 import           Cardano.Wallet.Kernel.BIP39 (Mnemonic)
 import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
-import           Cardano.Wallet.Kernel.DB.AcidState (CreateHdWallet (..),
-                     DeleteHdRoot (..), RestoreHdWallet,
-                     UpdateHdRootPassword (..), UpdateHdWallet (..))
+import           Cardano.Wallet.Kernel.DB.AcidState
+                     (CreateExternalHdWallet (..), CreateHdWallet (..),
+                     DeleteHdRoot (..),
+                     RestoreHdWallet, UpdateHdRootPassword (..),
+                     UpdateHdWallet (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel,
                      HdAccountId (..), HdAccountIx (..), HdAddress,
                      HdAddressId (..), HdAddressIx (..), HdRoot, HdRootId,
-                     WalletName, eskToHdRootId)
+                     WalletName, eskToHdRootId, pkToHdRootId)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
@@ -88,6 +92,8 @@ data UpdateWalletPasswordError =
       -- ^ When trying to update the password inside the keystore, the
       -- previous 'PassPhrase' didn't match or it was deleted, which means
       -- this operation is not valid anymore.
+    | UpdateWalletPasswordUnableForExternalWallet
+      -- External wallets don't have spending password by definition.
 
 instance Arbitrary UpdateWalletPasswordError where
     arbitrary = oneof []
@@ -101,6 +107,8 @@ instance Buildable UpdateWalletPasswordError where
         bprint ("UpdateWalletPasswordUnknownHdRoot " % F.build) uRoot
     build (UpdateWalletPasswordKeystoreChangedInTheMeantime uRoot) =
         bprint ("UpdateWalletPasswordKeystoreChangedInTheMeantime " % F.build) uRoot
+    build (UpdateWalletPasswordUnableForExternalWallet) =
+        bprint ("UpdateWalletPasswordUnableForExternalWallet")
 
 instance Show UpdateWalletPasswordError where
     show = formatToString build
@@ -155,7 +163,7 @@ createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
     -- We can fix this properly as part of [CBR-404].
     let nm = makeNetworkMagic (pw ^. walletProtocolMagic)
         newRootId = eskToHdRootId nm esk
-    Keystore.insert (WalletIdHdRnd newRootId) esk (pw ^. walletKeystore)
+    Keystore.insert (Keystore.RegularWalletKey esk) (pw ^. walletKeystore)
 
     -- STEP 2.5: Generate the fresh Cardano Address which will be used for the
     -- companion 'HdAddress'
@@ -210,6 +218,48 @@ createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
 
                  Right hdRoot -> return (Right hdRoot)
 
+-- | Creates a new external HD 'Wallet'.
+createExternalHdWallet :: PassiveWallet
+               -> PublicKey
+               -- ^ Extended public key that corresponds to the root secret key of
+               -- this external wallet (assumed that root secret key is storing
+               -- externally, for example in the memory of Ledger device).
+               -> AssuranceLevel
+               -- ^ The 'AssuranceLevel' for this wallet, namely after how many
+               -- blocks each transaction is considered 'adopted'. This translates
+               -- in the frontend with a different threshold for the confirmation
+               -- range (@low@, @medium@, @high@).
+               -> WalletName
+               -- ^ The name for this wallet.
+               -> IO (Either CreateWalletError HdRoot)
+createExternalHdWallet pw rootPK assuranceLevel walletName = do
+    -- STEP 1: Insert the root public key into the keystore.
+    Keystore.insert (Keystore.ExternalWalletKey rootPK) (pw ^. walletKeystore)
+
+    res <- createExternalWalletHdRnd pw
+                                     walletName
+                                     assuranceLevel
+                                     rootPK
+                                     (\hdRoot hdAccountId ->
+                                         CreateExternalHdWallet hdRoot
+                                                                hdAccountId
+                                                                mempty
+                                     )
+    case res of
+         -- NOTE(adinapoli): This is the @only@ error the DB can return,
+         -- so we are pattern matching directly on it. In the
+         -- case of more errors being added, carefully thinking would have to
+         -- be put into whether or not we should remove the key from the keystore
+         -- at this point. Surely we don't want to do this in the case the
+         -- wallet already exists, or we would end up deleting the key of the
+         -- existing wallet!
+         -- Fix properly as part of [CBR-404].
+         Left e@(HD.CreateHdRootExists _) ->
+             return . Left $ CreateWalletFailed e
+         Left e@(HD.CreateHdRootDefaultAddressDerivationFailed) ->
+             return . Left $ CreateWalletFailed e
+
+         Right hdRoot -> return (Right hdRoot)
 
 -- | Creates an HD wallet where new accounts and addresses are generated
 -- via random index derivation.
@@ -261,6 +311,31 @@ createWalletHdRnd pw hasSpendingPassword defaultCardanoAddress name assuranceLev
         hdSpendingPassword created =
             if hasSpendingPassword then HD.HasSpendingPassword created
                                    else HD.NoSpendingPassword
+
+createExternalWalletHdRnd :: PassiveWallet
+                          -> HD.WalletName
+                          -> AssuranceLevel
+                          -> PublicKey
+                          -> (  HdRoot
+                             -> HdAccountId
+                             -> CreateExternalHdWallet
+                             )
+                          -> IO (Either HD.CreateHdRootError HdRoot)
+createExternalWalletHdRnd pw name assuranceLevel pk createExtWallet = do
+    created <- InDb <$> getCurrentTimestamp
+    let nm      = makeNetworkMagic (pw ^. walletProtocolMagic)
+        rootId  = pkToHdRootId nm pk
+        newRoot = HD.initHdRoot rootId
+                                name
+                                HD.NoSpendingPassword
+                                assuranceLevel
+                                created
+
+    -- We now have all the data we need to atomically generate a new
+    -- external wallet with a default account.
+    let res' = createExtWallet newRoot (defaultHdAccountId rootId)
+    res <- update' (pw ^. wallets) res'
+    return $ either Left (const (Right newRoot)) res
 
 -- | Creates a default 'HdAddress' at a fixed derivation path. This is
 -- useful for tests, but otherwise you may want to use 'defaultHdAddressWith'.
@@ -349,8 +424,10 @@ updatePassword pw hdRootId oldPassword newPassword = do
     -- STEP 1: Lookup the key from the keystore
     mbKey <- Keystore.lookup nm wId keystore
     case mbKey of
-         Nothing -> return $ Left $ UpdateWalletPasswordKeyNotFound hdRootId
-         Just oldKey -> do
+        Nothing -> return $ Left $ UpdateWalletPasswordKeyNotFound hdRootId
+        Just (Keystore.ExternalWalletKey _pk) ->
+            return $ Left $ UpdateWalletPasswordUnableForExternalWallet
+        Just (Keystore.RegularWalletKey oldKey) -> do
 
              -- Predicate to check that the 2 password matches. It gets passed
              -- down to the 'Keystore' to ensure atomicity.

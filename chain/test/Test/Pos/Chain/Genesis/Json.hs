@@ -1,5 +1,4 @@
 {-# LANGUAGE TemplateHaskell #-}
-{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 module Test.Pos.Chain.Genesis.Json
        ( tests

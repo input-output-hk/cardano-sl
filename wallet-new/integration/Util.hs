@@ -10,7 +10,10 @@ import           Control.Concurrent.Async (race)
 import           Control.Lens
 import           System.IO.Unsafe (unsafePerformIO)
 import           Test.Hspec
-import           Test.QuickCheck (arbitrary, generate)
+import           Test.Hspec.QuickCheck (prop)
+import           Test.QuickCheck (arbitrary, generate, withMaxSuccess)
+import           Test.QuickCheck.Monadic (PropertyM, monadicIO)
+import           Test.QuickCheck.Property (Testable)
 
 import qualified Pos.Chain.Txp as Txp
 
@@ -166,3 +169,12 @@ noLongerThan action maxWaitingTime = do
     case res of
         Left _  -> return Nothing
         Right a -> return $ Just a
+
+
+-- | Output for @Text@.
+printT :: Text -> IO ()
+printT = putStrLn
+
+randomTest :: (Testable a) => String -> Int -> PropertyM IO a -> Spec
+randomTest msg maxSuccesses =
+    prop msg . withMaxSuccess maxSuccesses . monadicIO

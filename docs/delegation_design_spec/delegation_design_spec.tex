@@ -2269,28 +2269,27 @@ security risk.
 \subsection{Individual Staking}
 \label{individual-staking}
 
-Stakeholders are not required to delegate their stake to a pool. If they
-wish to run their own node, they should use base addresses with a common
-staking key, and use that key to sign blocks with their node.
+Stakeholders should not be forced to delegate their stake to a
+pool. Instead, they should have the option of running their own node,
+using their own stake.
 
-In addition, they \emph{can} post a stake pool registration certificate,
-with a margin of \(m=1\) (for which they are not required to upload any
-personal information). Usually, this should not be necessary. However,
-without the registration certificate, it is possible for a third party
-to piggy-back on such a private node, by using addresses in their wallet
-that use the same staking key. The rewards distribution mechanism will
-not be able to discern which addresses truly belong to the stakeholder
-operating the node, so the third party will get some rewards for this
-not-asked-for delegation.
+Technically, such stakeholders will create a \emph{private pool},
+which is just a stake pool with margin \(m=1\). Such pools will
+pay all rewards to the pool operator (which is not a special rule, but
+just the effect of havin a margin of 1), and they should not be shown
+in the stake pool directory in Daedalus (although even if they were,
+they would always be listed at the very bottom, since they would not
+yield any rewards to their members).
 
-Posting a ``private'' registration certificate with \(m=1\) will ensure
-that all rewards are sent to the address specified in the certificate.
-
-\todo{We might want to consider \emph{not} giving rewards to
-people managing their own stake without a private staking pool, since
-that could make the implementation simpler (not having two mechanisms
-for the same thing). It would also give us a mechanism, for free, to
-exclude the core nodes from getting rewards.}
+We had looked at other options that would not require individual
+stakeholders to register a pool, but they either complicated the
+design, or made it possible for free riders to contribute stake and
+get a share of the rewards by using suitably chosen addresses. The
+mechanism of private pools adds no additional complexity to the
+delegation system (the only added work is to suppress their listing in
+Daedalus). Optionally, the front-end could even set up (and retire) a
+private pool at the press of a button, but this is not a must-have
+feature for the initial release.
 
 \section{Design of Incentives}
 \label{design-of-incentives}

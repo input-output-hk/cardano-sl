@@ -49,6 +49,16 @@ prop_valid3 =
     mkProperty (mkBV 7 3 4, Just $ mkSV 9) (mkBV 7 4 0, mkSV 10)
                (Right ())
 
+prop_protocolOnly0 :: Property
+prop_protocolOnly0 =
+    mkProperty (mkBV 0 3 3, Just $ mkSV 0) (mkBV 0 4 0, mkSV 0)
+               (Right ())
+
+prop_protocolOnly1 :: Property
+prop_protocolOnly1 =
+    mkProperty (mkBV 0 0 1, Just $ mkSV 1) (mkBV 0 1 0, mkSV 1)
+               (Right ())
+
 prop_invalidBvBump0 :: Property
 prop_invalidBvBump0 =
     mkProperty (mkBV 0 3 1, Just $ mkSV 9) (mkBV 0 3 0, mkSV 9)
@@ -94,26 +104,6 @@ prop_invalidBvBump4 =
                        "59177181f10e2de7d32ce2c4d5f63fd22a0dcbba71e369b74b0a0e480e5c3325")
                    (mkBV 7 3 1)
                    (mkBV 7 3 0)))
-
-prop_noProtocolOnly0 :: Property
-prop_noProtocolOnly0 =
-    mkProperty (mkBV 0 3 3, Just $ mkSV 0) (mkBV 0 4 0, mkSV 0)
-               (Left (PollBadBlockVersion
-                   (decodeOrError
-                       "5da2ab2d393b72fa29c5a055740e53dd5e5ca37acad2767add693c2609343fa4")
-                   (mkBV 0 0 1)
-                   (mkBV 0 0 0)))
-
-prop_noProtocolOnly1 :: Property
-prop_noProtocolOnly1 =
-    mkProperty (mkBV 0 0 1, Just $ mkSV 1) (mkBV 0 1 0, mkSV 1)
-               (Left
-                  (PollWrongSoftwareVersion
-                     (Just 1)
-                     ApplicationName { getApplicationName = "cardano-sl" }
-                     1
-                     (decodeOrError
-                         "d8730c72142a53d835b13e8313c9b7902f782d1f51cf448fbe0ed14f42578de5")))
 
 prop_badSvBump :: Property
 prop_badSvBump =

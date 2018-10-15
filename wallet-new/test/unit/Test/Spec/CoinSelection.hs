@@ -495,16 +495,7 @@ payRestrictInputsTo :: Word64
 payRestrictInputsTo maxInputs genU genP feeFunction adjustOptions bal amount policy =
     withDefConfiguration $ \genesisConfig -> do
         utxo  <- genU bal
-        -- Sort the payees by amount, so that biggest entries comes first. This
-        -- is to mitigate some pathological generator's corner cases in
-        -- @largestFirst@ where the selection would pick the largest to cover
-        -- the smallest inputs, not having enough Utxo to cover the rest. We do
-        -- this here in the tests and not by modifying the coin selection code
-        -- because we never run @largestFirst@ in production; in @random@ we
-        -- merely piggyback on the @atLeast@ function (a low-level API used
-        --for @largestFirst') but the @random@ policy doesn't require outputs
-        -- to be sorted, and doing so every time would be a waste of CPU cycles.
-        payee <- sortByAmount <$> genP utxo amount
+        payee <- genP utxo amount
         key   <- arbitrary
         let options = adjustOptions (newOptions feeFunction)
         res <- policy options
@@ -521,9 +512,6 @@ payRestrictInputsTo maxInputs genU genP feeFunction adjustOptions bal amount pol
                                    outputs
                                    change
                     return (utxo, payee, bimap STB identity txAux)
-    where
-        sortByAmount :: NonEmpty Core.TxOut -> NonEmpty Core.TxOut
-        sortByAmount = NE.sort
 
 pay :: (InitialBalance -> Gen Core.Utxo)
     -> (Core.Utxo -> Pay -> Gen (NonEmpty Core.TxOut))

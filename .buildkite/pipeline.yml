@@ -18,3 +18,11 @@ steps:
     command: "git submodule update --init --recursive ; rm -rf test-state ; nix-shell node-ipc/shell.nix --run 'node node-ipc/server.js'"
     agents:
       system: x86_64-linux
+
+  - label: 'Docker image build and push to hub'
+    command:
+      - "nix-build scripts/ci/docker-build-push --argstr dockerHubRepoName inputoutput/cardano-sl -o docker-build-push"
+      - "./docker-build-push"
+    agents:
+      system: x86_64-linux
+    branches: "master develop release/* devops-1091-docker-hub"

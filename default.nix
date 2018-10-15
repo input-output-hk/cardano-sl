@@ -154,7 +154,10 @@ let
 
     dockerImages = let
       build = args: self.callPackage ./nix/docker.nix ({
-        inherit (self.cardanoPackages) cardano-sl-node-static;
+        inherit (self.cardanoPackages)
+          cardano-sl-node-static
+          cardano-wallet-static
+          cardano-sl-explorer-static;
       } // args);
       makeDockerImage = { environment, ...}:
         build { inherit environment; } // {
@@ -232,7 +235,9 @@ let
     demoCluster = self.callPackage ./scripts/launch/demo-cluster {
       inherit useStackBinaries;
       inherit (self.cardanoPackages)
-        cardano-sl cardano-sl-cluster cardano-wallet;
+        cardano-sl
+        cardano-sl-cluster
+        cardano-wallet;
     };
 
     ####################################################################

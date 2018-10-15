@@ -127,6 +127,7 @@ data PollVerFailure
     | PollTipMismatch !HeaderHash !HeaderHash
     | PollInvalidUpdatePayload !Text
     | PollInternalError !Text
+    | PollUpdateVersionNoChange !BlockVersion !NumSoftwareVersion
 
 instance Buildable PollVerFailure where
     build (PollInconsistentBVM pibExpected pibFound pibUpId) =
@@ -219,6 +220,10 @@ instance Buildable PollVerFailure where
         bprint ("invalid update payload: "%stext) msg
     build (PollInternalError msg) =
         bprint ("internal error: "%stext) msg
+    build (PollUpdateVersionNoChange blockVer softVer) =
+        bprint ("update did not increment the block version ("%build
+               %") or the software version ("%build%").")
+               blockVer softVer
 
 -- | Report an error if it's unexpected.
 --

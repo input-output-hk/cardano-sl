@@ -11,6 +11,7 @@ module Pos.DB.Update.Poll.Logic.Base
        , mkTotNegative
        , mkTotSum
 
+       , BVChange (..)
        , adoptBlockVersion
        , canBeAdoptedBV
        , canBeProposedBV
@@ -89,6 +90,11 @@ canCreateBlockBV lastAdopted bv = do
     pure (bv == lastAdopted || isCompeting)
 
 
+-- | @BVChange@ encodes the validity of a BlockVersion update
+data BVChange = BVIncrement
+              | BVNoChange
+              | BVInvalid
+
 -- | Check whether given 'BlockVersion' can be proposed according to
 -- current Poll.
 --
@@ -112,12 +118,12 @@ canCreateBlockBV lastAdopted bv = do
 -- (let's call this set 'X').
 -- If 'X' is empty, given alternative version must be 0.
 -- Otherwise it must be in 'X' or greater than maximum from 'X' by one.
-canBeProposedBV :: MonadPollRead m => BlockVersion -> m Bool
+canBeProposedBV :: MonadPollRead m => BlockVersion -> m BVChange
 canBeProposedBV bv =
     canBeProposedPure bv <$> getAdoptedBV <*>
     (S.fromList <$> getProposedBVs)
 
-canBeProposedPure :: BlockVersion -> BlockVersion -> Set BlockVersion -> Bool
+canBeProposedPure :: BlockVersion -> BlockVersion -> Set BlockVersion -> BVChange
 canBeProposedPure BlockVersion { bvMajor = givenMajor
                                , bvMinor = givenMinor
                                , bvAlt = givenAlt
@@ -125,19 +131,26 @@ canBeProposedPure BlockVersion { bvMajor = givenMajor
                                               , bvMinor = adoptedMinor
                                               , bvAlt = adoptedAlt
                                               } proposed
-    | givenMajor < adoptedMajor = False
-    | givenMajor > adoptedMajor + 1 = False
-    | givenMajor == adoptedMajor + 1 && givenMinor /= 0 = False
+    | givenMajor < adoptedMajor = BVInvalid
+    | givenMajor > adoptedMajor + 1 = BVInvalid
+    | givenMajor == adoptedMajor + 1 && givenMinor /= 0 = BVInvalid
     | givenMajor == adoptedMajor &&
-          givenMinor /= adoptedMinor && givenMinor /= adoptedMinor + 1 = False
+          givenMinor /= adoptedMinor && givenMinor /= adoptedMinor + 1 = BVInvalid
     | (givenMajor, givenMinor) == (adoptedMajor, adoptedMinor) =
-        givenAlt == adoptedAlt
+        if givenAlt == adoptedAlt
+           then BVNoChange
+           else BVInvalid
     -- At this point we know that
     -- '(givenMajor, givenMinor) > (adoptedMajor, adoptedMinor)'
-    | null relevantProposed = givenAlt == 0
+    | null relevantProposed =
+        if givenAlt == 0
+           then BVIncrement
+           else BVInvalid
     | otherwise =
-        givenAlt == (S.findMax relevantProposed + 1) ||
-        givenAlt `S.member` relevantProposed
+        if (givenAlt == (S.findMax relevantProposed + 1) ||
+            givenAlt `S.member` relevantProposed)
+           then BVIncrement
+           else BVInvalid
   where
     -- Here we can use mapMonotonic, even though 'bvAlt' itself is not
     -- necessary monotonic.

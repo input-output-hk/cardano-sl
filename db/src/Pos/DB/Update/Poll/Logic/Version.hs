@@ -10,8 +10,6 @@
 module Pos.DB.Update.Poll.Logic.Version
        ( verifyAndApplyProposalBVS
        , verifyBlockAndSoftwareVersions
-       , verifyBlockVersion
-       , verifySoftwareVersion
        ) where
 
 import           Control.Monad.Except (MonadError, throwError)
@@ -19,10 +17,11 @@ import           Universum
 
 import           Pos.Chain.Update (BlockVersionData (..),
                      BlockVersionModifier (..), BlockVersionState (..),
-                     MonadPoll (..), MonadPollRead (..), PollVerFailure (..),
-                     SoftwareVersion (..), UpId, UpdateProposal (..))
+                     MonadPoll (..), MonadPollRead (..), NumSoftwareVersion,
+                     PollVerFailure (..), SoftwareVersion (..), UpId,
+                     UpdateProposal (..))
 import           Pos.Core (EpochIndex)
-import           Pos.DB.Update.Poll.Logic.Base (canBeProposedBV,
+import           Pos.DB.Update.Poll.Logic.Base (BVChange (..), canBeProposedBV,
                      verifyNextBVMod)
 
 
@@ -155,44 +154,67 @@ bvmMatchesBVD
     , maybe True (== bvdUnlockStakeEpoch)  bvmUnlockStakeEpoch
     ]
 
+-- | @SVChange@ encodes the validity of a SoftwareVersion update
+data SVChange = SVIncrement
+              | SVNoChange
+              | SVInvalid
+
+-- | Here we verify that the proposed SoftwareVersion and BlockVersion
+-- are suitable. Since we now have protocol-only updates, it is possible
+-- to increment the BlockVersion without the SoftwareVersion. We disallow
+-- Updates which increment neither. We continue to support the previous
+-- validation rules, which disallow decrements or increments that are too
+-- large.
 verifyBlockAndSoftwareVersions
     :: (MonadError PollVerFailure m, MonadPollRead m)
     => UpId -> UpdateProposal -> m ()
 verifyBlockAndSoftwareVersions upId up = do
-    verifyBlockVersion upId up
-    verifySoftwareVersion upId up
+    mAdoptedSV <- getLastConfirmedSV app
+    bvc <- canBeProposedBV proposedBV
+    svc <- flip verifySoftwareVersionPure proposedSV <$> getLastConfirmedSV app
+    --
+    -- This case expression covers 3x3=9 cases total.
+    case (bvc, svc) of
+        -- This covers 3 error cases.
+        -- We choose (arbitrarily) to give preference to BlockVersion errors.
+        (BVInvalid, _) -> do
+            lastAdopted <- getAdoptedBV
+            throwError
+                $ PollBadBlockVersion upId (upBlockVersion up) lastAdopted
+        -- This covers 2 error cases.
+        (_, SVInvalid) -> do
+            throwError
+                $ PollWrongSoftwareVersion mAdoptedSV app
+                                           (svNumber proposedSV) upId
+        -- This covers 1 error case.
+        (BVNoChange, SVNoChange) ->
+            throwError
+                $ PollUpdateVersionNoChange proposedBV (svNumber proposedSV)
+        -- These cover the 3 remaining valid cases.
+        (BVNoChange,  SVIncrement) -> pass
+        (BVIncrement, SVNoChange)  -> pass
+        (BVIncrement, SVIncrement) -> pass
 
--- Here we verify that proposed protocol version could be proposed.
--- See documentation of 'Logic.Base.canBeProposedBV' for details.
-verifyBlockVersion
-    :: (MonadError PollVerFailure m, MonadPollRead m)
-    => UpId -> UpdateProposal -> m ()
-verifyBlockVersion upId UnsafeUpdateProposal {..} = do
-    lastAdopted <- getAdoptedBV
-    unlessM (canBeProposedBV upBlockVersion) $
-        throwError
-            $ PollBadBlockVersion upId upBlockVersion lastAdopted
+  where
+    proposedSV = upSoftwareVersion up
+    app = svAppName proposedSV
+    proposedBV = upBlockVersion up
 
--- Here we check that software version is 1 more than last confirmed
--- version of given application. Or 0 if it's new application.
-verifySoftwareVersion
-    :: (MonadError PollVerFailure m, MonadPollRead m)
-    => UpId -> UpdateProposal -> m ()
-verifySoftwareVersion upId UnsafeUpdateProposal {..} =
-    getLastConfirmedSV app >>= \case
+-- Here we check that a software version is either equal to, or 1
+-- greater than, the last confirmed version of the given application.
+verifySoftwareVersionPure
+    :: Maybe NumSoftwareVersion
+    -> SoftwareVersion
+    -> SVChange
+verifySoftwareVersionPure mAdoptedSVNum proposedSV =
+    case mAdoptedSVNum of
         -- If there is no confirmed versions for given application,
         -- We check that version is 0.
-        Nothing | svNumber sv == 0 -> pass
-                | otherwise ->
-                  throwError
-                      $ PollWrongSoftwareVersion Nothing app (svNumber sv) upId
+        Nothing | svNumber proposedSV == 0 -> SVIncrement
+                | otherwise                -> SVInvalid
         -- Otherwise we check that version is 1 more than stored
         -- version.
         Just n
-            | svNumber sv == n + 1 -> pass
-            | otherwise ->
-                throwError
-                    $ PollWrongSoftwareVersion (Just n) app (svNumber sv) upId
-  where
-    sv = upSoftwareVersion
-    app = svAppName sv
+            | svNumber proposedSV == n + 1 -> SVIncrement
+            | svNumber proposedSV == n     -> SVNoChange
+            | otherwise                    -> SVInvalid

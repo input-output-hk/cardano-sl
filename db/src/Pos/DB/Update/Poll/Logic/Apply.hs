@@ -41,7 +41,7 @@ import           Pos.DB.Update.Poll.Logic.Base (canBeAdoptedBV,
                      mkTotNegative, mkTotPositive, mkTotSum, putNewProposal,
                      voteToUProposalState)
 import           Pos.DB.Update.Poll.Logic.Version (verifyAndApplyProposalBVS,
-                     verifyBlockVersion, verifySoftwareVersion)
+                     verifyBlockAndSoftwareVersions)
 import           Pos.Util.Some (Some (..))
 import           Pos.Util.Wlog (logDebug, logInfo, logNotice)
 
@@ -189,11 +189,8 @@ verifyAndApplyProposal genesisBvd verifyAllIsKnown slotOrHeader votes
     -- Here we verify consistency with regards to data from 'BlockVersionState'
     -- and update relevant state if necessary.
     verifyAndApplyProposalBVS upId epoch up
-    -- Then we verify that protocol version from proposal can follow last
-    -- adopted protocol version.
-    verifyBlockVersion upId up
-    -- We also verify that software version is expected one.
-    verifySoftwareVersion upId up
+    -- Then we verify the block and software versions from proposal are valid
+    verifyBlockAndSoftwareVersions upId up
     -- After that we resolve stakes of all votes.
     totalStake <- note (PollUnknownStakes epoch)
         =<< getEpochTotalStake genesisBvd epoch

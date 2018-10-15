@@ -30,6 +30,8 @@ import           Control.Monad.Except (runExceptT)
 import           Servant.Server
 
 import           Pos.Core.Common (mkCoin)
+import           Pos.Crypto (ProtocolMagic (..), ProtocolMagicId (..),
+                     RequiresNetworkMagic (..))
 import           Pos.Crypto.HD (firstHardened)
 
 import           Test.Spec.Fixture (GenPassiveWalletFixture,
@@ -68,7 +70,7 @@ withFixture :: MonadIO m
                -> IO a
                )
             -> PropertyM IO a
-withFixture cc = withPassiveWalletFixture prepareFixtures cc
+withFixture cc = withPassiveWalletFixture (ProtocolMagic (ProtocolMagicId 1337) RequiresNoMagic) prepareFixtures cc
 
 
 spec :: Spec
@@ -88,7 +90,8 @@ spec = describe "Accounts" $ do
                 wId <- pick arbitrary
                 pwd <- genSpendingPassword
                 request <- genNewAccountRq pwd
-                withLayer $ \layer _ -> do
+                pm <- pick arbitrary
+                withLayer pm $ \layer _ -> do
                     res <- WalletLayer.createAccount layer wId request
                     case res of
                          Left (WalletLayer.CreateAccountError (CreateAccountKeystoreNotFound _)) ->
@@ -136,7 +139,8 @@ spec = describe "Accounts" $ do
         prop "fails if the parent wallet doesn't exists" $ withMaxSuccess 50 $ do
             monadicIO $ do
                 wId <- pick arbitrary
-                withLayer $ \layer _ -> do
+                pm  <- pick arbitrary
+                withLayer pm $ \layer _ -> do
                     res <- WalletLayer.deleteAccount layer wId
                              (V1.unsafeMkAccountIndex firstHardened)
                     case res of
@@ -189,7 +193,8 @@ spec = describe "Accounts" $ do
         prop "Servant handler fails if the parent wallet doesn't exist" $ withMaxSuccess 50 $ do
             monadicIO $ do
                 wId <- pick arbitrary
-                withLayer $ \layer _ -> do
+                pm  <- pick arbitrary
+                withLayer pm $ \layer _ -> do
                     let delete = Handlers.deleteAccount layer
                             wId
                             (V1.unsafeMkAccountIndex 2147483648)
@@ -233,7 +238,8 @@ spec = describe "Accounts" $ do
         prop "fails if the parent wallet doesn't exists" $ withMaxSuccess 50 $ do
             monadicIO $ do
                 wId <- pick arbitrary
-                withLayer $ \layer _ -> do
+                pm  <- pick arbitrary
+                withLayer pm $ \layer _ -> do
                     res <- WalletLayer.updateAccount layer
                              wId
                              (V1.unsafeMkAccountIndex 2147483648)
@@ -303,7 +309,8 @@ spec = describe "Accounts" $ do
         prop "fails if the parent wallet doesn't exists" $ withMaxSuccess 50 $ do
             monadicIO $ do
                 wId <- pick arbitrary
-                withLayer $ \layer _ -> do
+                pm  <- pick arbitrary
+                withLayer pm $ \layer _ -> do
                     res <- WalletLayer.getAccount layer
                              wId
                              (V1.unsafeMkAccountIndex 2147483648)
@@ -368,7 +375,8 @@ spec = describe "Accounts" $ do
         prop "fails if the parent wallet doesn't exists" $ withMaxSuccess 25 $ do
             monadicIO $ do
                 wId <- pick arbitrary
-                withLayer $ \layer _ -> do
+                pm  <- pick arbitrary
+                withLayer pm $ \layer _ -> do
                     res <- WalletLayer.getAccounts layer wId
                     case res of
                          Left (WalletLayer.GetAccountsError (Kernel.UnknownHdRoot _)) ->

@@ -17,9 +17,9 @@ import           Universum
 import qualified Cardano.Crypto.Wallet as CC
 import           Data.Tagged (Tagged)
 import           System.FileLock (FileLock)
-import           Test.Hspec (Spec, describe)
+import           Test.Hspec (Spec, describe, runIO)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Arbitrary (..))
+import           Test.QuickCheck (Arbitrary (..), arbitrary, generate)
 
 import           Pos.Binary.Communication ()
 import           Pos.Chain.Delegation (DlgPayload, DlgUndo, ProxySKHeavy)
@@ -32,6 +32,7 @@ import qualified Pos.Communication as C
 import           Pos.Communication.Limits (mlOpening, mlUpdateVote,
                      mlVssCertificate)
 import           Pos.Core (StakeholderId)
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 import           Pos.Crypto.Signing (EncryptedSecretKey)
 import           Pos.Infra.Communication.Limits.Instances (mlDataMsg, mlInvMsg,
                      mlMempoolMsg, mlReqMsg)
@@ -49,6 +50,7 @@ import           Test.Pos.Cbor.Arbitrary.UserSecret ()
 import           Test.Pos.Chain.Delegation.Arbitrary ()
 import           Test.Pos.Chain.Ssc.Arbitrary ()
 import           Test.Pos.Chain.Update.Arbitrary ()
+import           Test.Pos.Configuration (withProvidedMagicConfig)
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Arbitrary ()
 import           Test.Pos.DB.Update.Arbitrary ()
@@ -66,6 +68,17 @@ type UpId' = Tagged (U.UpdateProposal, [U.UpdateVote])U.UpId
 
 spec :: Spec
 spec = do
+    runWithMagic RequiresNoMagic
+    runWithMagic RequiresMagic
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm = withProvidedMagicConfig pm $ \_ _ _ -> do
     describe "Cbor.Bi instances" $ do
         modifyMaxSuccess (const 1000) $ do
             describe "Lib/core instances" $ do

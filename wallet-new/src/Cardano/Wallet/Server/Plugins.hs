@@ -48,7 +48,6 @@ import qualified Cardano.Wallet.WalletLayer as WalletLayer
 import qualified Cardano.Wallet.WalletLayer.Kernel as WalletLayer.Kernel
 
 import           Pos.Chain.Update (cpsSoftwareVersion)
-import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Infra.Shutdown (HasShutdownContext (shutdownContext),
                      ShutdownContext)
@@ -68,15 +67,14 @@ type Plugin m = Diffusion m -> m ()
 
 -- | A @Plugin@ to start the wallet REST server
 apiServer
-    :: ProtocolMagic
-    -> NewWalletBackendParams
+    :: NewWalletBackendParams
     -> (PassiveWalletLayer IO, PassiveWallet)
     -> [Middleware]
     -> Plugin Kernel.WalletMode
-apiServer protocolMagic (NewWalletBackendParams WalletBackendParams{..}) (passiveLayer, passiveWallet) middlewares diffusion = do
+apiServer (NewWalletBackendParams WalletBackendParams{..}) (passiveLayer, passiveWallet) middlewares diffusion = do
         env <- ask
         let diffusion' = Kernel.fromDiffusion (lower env) diffusion
-        WalletLayer.Kernel.bracketActiveWallet protocolMagic passiveLayer passiveWallet diffusion' $ \active _ -> do
+        WalletLayer.Kernel.bracketActiveWallet passiveLayer passiveWallet diffusion' $ \active _ -> do
           ctx <- view shutdownContext
           serveImpl
             (getApplication active)

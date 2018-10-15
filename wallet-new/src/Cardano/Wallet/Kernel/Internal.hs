@@ -13,6 +13,7 @@ module Cardano.Wallet.Kernel.Internal (
   , walletKeystore
   , walletMeta
   , wallets
+  , walletProtocolMagic
   , walletLogMessage
   , walletNode
   , walletSubmission
@@ -83,6 +84,10 @@ data PassiveWallet = PassiveWallet {
 
       -- | An opaque handle to a place where we store the 'EncryptedSecretKey'.
     , _wallets               :: AcidState DB
+
+      -- | The protocol magic used by an `ActiveWallet` to make transactions.
+      -- TODO @intricate: is it suitable to move this here from `ActiveWallet`?
+    , _walletProtocolMagic   :: ProtocolMagic
 
       -- | Database handle
     , _walletMeta            :: MetaDBHandle
@@ -214,9 +219,7 @@ stopAllRestorations pw = do
 -- send new transactions.
 data ActiveWallet = ActiveWallet {
       -- | The underlying passive wallet
-      walletPassive       :: PassiveWallet
+      walletPassive   :: PassiveWallet
       -- | The wallet diffusion layer
-    , walletDiffusion     :: WalletDiffusion
-      -- | The protocol magic used to make transactions.
-    , walletProtocolMagic :: ProtocolMagic
+    , walletDiffusion :: WalletDiffusion
     }

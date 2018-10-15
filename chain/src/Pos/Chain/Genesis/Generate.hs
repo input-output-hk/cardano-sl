@@ -40,7 +40,7 @@ import           Pos.Core.Common (Address, Coin, IsBootstrapEraAddr (..),
                      coinToInteger, deriveFirstHDAddress,
                      makePubKeyAddressBoot, mkCoin, sumCoins,
                      unsafeIntegerToCoin)
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Core.ProtocolConstants (ProtocolConstants, vssMaxTTL,
                      vssMinTTL)
 import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic, RedeemPublicKey,
@@ -176,7 +176,7 @@ generateGenesisData pm pc (GenesisInitializer{..}) realAvvmBalances = determinis
     vssCerts <- mkVssCertificatesMap
         <$> mapM (generateVssCert pm pc) richmenSecrets
 
-    let nm = fixedNM
+    let nm = makeNetworkMagic pm
 
     -- Non AVVM balances
     ---- Addresses
@@ -321,7 +321,3 @@ genTestnetDistribution TestnetBalanceOptions {..} testBalance =
 
     getShare :: Double -> Integer -> Integer
     getShare sh n = round $ sh * fromInteger n
-
-
-fixedNM :: NetworkMagic
-fixedNM = NetworkMainOrStage

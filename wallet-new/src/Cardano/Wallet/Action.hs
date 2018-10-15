@@ -65,7 +65,8 @@ actionWithWallet params genesisConfig walletConfig txpConfig ntpConfig nodeParam
             , Kernel.dbPathMetadata  = dbPath <> "-sqlite.sqlite3"
             , Kernel.dbRebuild       = rebuildDB
             })
-        WalletLayer.Kernel.bracketPassiveWallet dbMode logMessage' keystore nodeState (npFInjects nodeParams) $ \walletLayer passiveWallet -> do
+        let pm = configProtocolMagic genesisConfig
+        WalletLayer.Kernel.bracketPassiveWallet pm dbMode logMessage' keystore nodeState (npFInjects nodeParams) $ \walletLayer passiveWallet -> do
             migrateLegacyDataLayer passiveWallet dbPath (getFullMigrationFlag params)
 
             let plugs = plugins (walletLayer, passiveWallet) dbMode
@@ -77,15 +78,13 @@ actionWithWallet params genesisConfig walletConfig txpConfig ntpConfig nodeParam
                 walletLayer
                 (runNode genesisConfig txpConfig nodeRes plugs)
   where
-    pm = configProtocolMagic genesisConfig
-
     plugins :: (PassiveWalletLayer IO, PassiveWallet)
             -> Kernel.DatabaseMode
             -> [ (Text, Plugins.Plugin Kernel.Mode.WalletMode) ]
     plugins w dbMode = concat [
             -- The actual wallet backend server.
             [
-              ("wallet-new api worker", Plugins.apiServer pm params w
+              ("wallet-new api worker", Plugins.apiServer params w
                 [ faultInjectionHandleIgnoreAPI (npFInjects nodeParams) -- This allows dynamic control of fault injection
                 , throttleMiddleware (ccThrottle walletConfig)          -- Throttle requests
                 , withDefaultHeader Headers.applicationJson

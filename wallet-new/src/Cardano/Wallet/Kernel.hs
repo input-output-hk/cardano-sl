@@ -94,18 +94,19 @@ defaultSqlitePath = "./wallet-db-sqlite.sqlite3"
 -- it shouldn't be too specific.
 bracketPassiveWallet
     :: (MonadMask m, MonadIO m)
-    => DatabaseMode
+    => ProtocolMagic
+    -> DatabaseMode
     -> (Severity -> Text -> IO ())
     -> Keystore
     -> NodeStateAdaptor IO
     -> FInjects IO
     -> (PassiveWallet -> m a) -> m a
-bracketPassiveWallet mode logMsg keystore node fInjects f =
+bracketPassiveWallet pm mode logMsg keystore node fInjects f =
     bracket (liftIO $ handlesOpen mode)
             (liftIO . handlesClose mode)
             (\ handles ->
                 bracket
-                  (liftIO $ initPassiveWallet logMsg keystore handles node fInjects)
+                  (liftIO $ initPassiveWallet pm logMsg keystore handles node fInjects)
                   (\_ -> return ())
                   f)
 
@@ -151,13 +152,14 @@ handlesClose dbMode (Handles acidDb meta) = do
 -------------------------------------------------------------------------------}
 
 -- | Initialise Passive Wallet
-initPassiveWallet :: (Severity -> Text -> IO ())
+initPassiveWallet :: ProtocolMagic
+                  -> (Severity -> Text -> IO ())
                   -> Keystore
                   -> WalletHandles
                   -> NodeStateAdaptor IO
                   -> FInjects IO
                   -> IO PassiveWallet
-initPassiveWallet logMessage keystore handles node fInjects = do
+initPassiveWallet pm logMessage keystore handles node fInjects = do
     pw <- preparePassiveWallet
     initSubmission pw
     return pw
@@ -173,6 +175,7 @@ initPassiveWallet logMessage keystore handles node fInjects = do
                   _walletLogMessage      = logMessage
                 , _walletKeystore        = keystore
                 , _wallets               = hAcid handles
+                , _walletProtocolMagic   = pm
                 , _walletMeta            = hMeta handles
                 , _walletNode            = node
                 , _walletSubmission      = submission
@@ -194,12 +197,10 @@ initPassiveWallet logMessage keystore handles node fInjects = do
 
 -- | Initialize the active wallet
 bracketActiveWallet :: (MonadMask m, MonadIO m)
-                    => ProtocolMagic
-                    -> PassiveWallet
+                    => PassiveWallet
                     -> WalletDiffusion
                     -> (ActiveWallet -> m a) -> m a
-bracketActiveWallet walletProtocolMagic
-                    walletPassive
+bracketActiveWallet walletPassive
                     walletDiffusion
                     runActiveWallet = do
     submissionLayerTicker <- liftIO $ async $

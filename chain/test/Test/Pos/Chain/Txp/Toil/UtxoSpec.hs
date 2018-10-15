@@ -41,7 +41,7 @@ import           Pos.Core (addressHash, checkPubKeyAddress,
                      makePubKeyAddressBoot, makeScriptAddress, mkCoin,
                      sumCoins)
 import           Pos.Core.Attributes (mkAttributes)
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (SignTag (SignTx), checkSig, fakeSigner, hash,
                      toPublic, unsafeHash, withHash)
 import qualified Pos.Util.Modifier as MM
@@ -112,7 +112,7 @@ verifyTxInUtxo (SmallGenerator (GoodTx ls)) =
             let id = hash tx
             (idx, out) <- zip [0..] (toList _txOutputs)
             pure ((TxInUtxo id idx), TxOutAux out)
-        vtxContext = VTxContext False fixedNM
+        vtxContext = VTxContext False (makeNetworkMagic dummyProtocolMagic)
         txAux = TxAux newTx witness
     in counterexample ("\n"+|nameF "txs" (blockListF' "-" genericF txs)|+""
                            +|nameF "transaction" (B.build txAux)|+"") $
@@ -122,7 +122,7 @@ badSigsTx :: SmallGenerator BadSigsTx -> Property
 badSigsTx (SmallGenerator (getBadSigsTx -> ls)) =
     let (tx@UnsafeTx {..}, utxo, extendedInputs, txWits) =
             getTxFromGoodTx ls
-        ctx = VTxContext False fixedNM
+        ctx = VTxContext False (makeNetworkMagic dummyProtocolMagic)
         transactionVerRes =
             verifyTxUtxoSimple ctx utxo $ TxAux tx txWits
         notAllSignaturesAreValid =
@@ -135,7 +135,7 @@ doubleInputTx :: SmallGenerator DoubleInputTx -> Property
 doubleInputTx (SmallGenerator (getDoubleInputTx -> ls)) =
     let ((tx@UnsafeTx {..}), utxo, _extendedInputs, txWits) =
             getTxFromGoodTx ls
-        ctx = VTxContext False fixedNM
+        ctx = VTxContext False (makeNetworkMagic dummyProtocolMagic)
         transactionVerRes =
             verifyTxUtxoSimple ctx utxo $ TxAux tx txWits
         someInputsAreDuplicated =
@@ -145,7 +145,7 @@ doubleInputTx (SmallGenerator (getDoubleInputTx -> ls)) =
 validateGoodTx :: SmallGenerator GoodTx -> Property
 validateGoodTx (SmallGenerator (getGoodTx -> ls)) =
     let quadruple@(tx, utxo, _, txWits) = getTxFromGoodTx ls
-        ctx = VTxContext False fixedNM
+        ctx = VTxContext False (makeNetworkMagic dummyProtocolMagic)
         transactionVerRes =
             verifyTxUtxoSimple ctx utxo $ TxAux tx txWits
         transactionReallyIsGood = individualTxPropertyVerifier quadruple
@@ -419,10 +419,11 @@ scriptTxSpec = describe "script transactions" $ do
                 "Out of petrol."
 
   where
+    nm = makeNetworkMagic dummyProtocolMagic
     -- Some random stuff we're going to use when building transactions
     randomPkOutput = runGen $ do
         key <- arbitrary
-        return (TxOut (makePubKeyAddressBoot fixedNM key) (mkCoin 1))
+        return (TxOut (makePubKeyAddressBoot nm key) (mkCoin 1))
     -- Make utxo with a single output; return utxo, the output, and an
     -- input that can be used to spend that output
     mkUtxo :: TxOut -> (TxIn, TxOut, Utxo)
@@ -431,7 +432,7 @@ scriptTxSpec = describe "script transactions" $ do
         in  (TxInUtxo txid 0, outp, one ((TxInUtxo txid 0), (TxOutAux outp)))
 
     -- Do not verify versions
-    vtxContext = VTxContext False fixedNM
+    vtxContext = VTxContext False nm
 
     -- Try to apply a transaction (with given utxo as context) and say
     -- whether it applied successfully
@@ -448,7 +449,7 @@ scriptTxSpec = describe "script transactions" $ do
                   -> Either ToilVerFailure ()
     checkScriptTx val mkWit =
         let (inp, _, utxo) = mkUtxo $
-                TxOut (makeScriptAddress fixedNM Nothing val) (mkCoin 1)
+                TxOut (makeScriptAddress nm Nothing val) (mkCoin 1)
             tx = UnsafeTx (one inp) (one randomPkOutput) $ mkAttributes ()
             txSigData = TxSigData { txSigTxHash = hash tx }
             txAux = TxAux tx (one (mkWit txSigData))
@@ -482,7 +483,3 @@ txShouldFailWithPlutus res err = case res of
     other -> expectationFailure $
         "expected: Left ...: " <> show (WitnessScriptError err) <> "\n" <>
         " but got: " <> show other
-
-
-fixedNM :: NetworkMagic
-fixedNM = NetworkMainOrStage

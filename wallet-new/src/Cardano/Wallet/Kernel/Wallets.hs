@@ -23,6 +23,7 @@ import qualified Formatting.Buildable
 import           Data.Acid.Advanced (update')
 
 import           Pos.Core (Address, Timestamp)
+import           Pos.Core.NetworkMagic (NetworkMagic)
 import           Pos.Crypto (EncryptedSecretKey, HDPassphrase, PassPhrase,
                      changeEncPassphrase, checkPassMatches, emptyPassphrase,
                      firstHardened, safeDeterministicKeyGen)
@@ -113,7 +114,8 @@ instance Show UpdateWalletPasswordError where
 -- PRECONDITION: The input 'Mnemonic' should be supplied by the frontend such
 -- that this is a brand new 'Mnemonic' never used before on the blockchain. For
 -- other wallets restoration should be used.
-createHdWallet :: PassiveWallet
+createHdWallet :: NetworkMagic
+               -> PassiveWallet
                -> Mnemonic nat
                -- ^ The set of words (i.e the mnemonic) to generate the initial seed.
                -- See <https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#From_mnemonic_to_seed>
@@ -132,7 +134,7 @@ createHdWallet :: PassiveWallet
                -> WalletName
                -- ^ The name for this wallet.
                -> IO (Either CreateWalletError HdRoot)
-createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
+createHdWallet nm pw mnemonic spendingPassword assuranceLevel walletName = do
     -- STEP 1: Generate the 'EncryptedSecretKey' outside any acid-state
     -- transaction, to not leak it into acid-state's transaction logs.
     let (_, esk) = safeDeterministicKeyGen (BIP39.mnemonicToSeed mnemonic) spendingPassword
@@ -158,7 +160,8 @@ createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
     -- STEP 2.5: Generate the fresh Cardano Address which will be used for the
     -- companion 'HdAddress'
     let mbHdAddress =
-            newHdAddress esk
+            newHdAddress nm
+                         esk
                          spendingPassword
                          (defaultHdAccountId newRootId)
                          (defaultHdAddressId newRootId)
@@ -260,14 +263,15 @@ createWalletHdRnd pw hasSpendingPassword defaultCardanoAddress name assuranceLev
 
 -- | Creates a default 'HdAddress' at a fixed derivation path. This is
 -- useful for tests, but otherwise you may want to use 'defaultHdAddressWith'.
-defaultHdAddress :: EncryptedSecretKey
+defaultHdAddress :: NetworkMagic
+                 -> EncryptedSecretKey
                  -> PassPhrase
                  -> HD.HdRootId
                  -> Maybe HdAddress
-defaultHdAddress esk spendingPassword rootId =
+defaultHdAddress nm esk spendingPassword rootId =
     let hdAccountId = defaultHdAccountId rootId
         hdAddressId = HdAddressId hdAccountId (HdAddressIx firstHardened)
-    in newHdAddress esk spendingPassword hdAccountId hdAddressId
+    in newHdAddress nm esk spendingPassword hdAccountId hdAddressId
 
 -- | Given a Cardano 'Address', it returns a default 'HdAddress' at a fixed
 -- and predictable generation path.

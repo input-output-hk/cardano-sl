@@ -20,12 +20,13 @@ import qualified Cardano.Wallet.Kernel.Read as Kernel
 import           Pos.Chain.Genesis (Config (..))
 import           Pos.Core (Coeff (..), TxSizeLinear (..))
 import           Pos.Core.Chrono
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 import           Pos.Infra.InjectFail (mkFInjects)
 
 import           Data.Validated
 import           Test.Infrastructure.Generator
 import           Test.Infrastructure.Genesis
-import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Configuration (withProvidedMagicConfig)
 import           Test.Spec.BlockMetaScenarios
 import           Test.Spec.TxMetaScenarios
 import           Util.Buildable.Hspec
@@ -56,35 +57,46 @@ withWithoutWW specWith = do
 
 spec :: Spec
 spec = do
+    -- runWithMagic RequiresNoMagic
+    runWithMagic RequiresMagic
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm = do
     describe "test TxMeta insertion" $ do
       withWithoutWW $ \useWW -> do
-        it "TxMetaScenarioA" $ bracketTxMeta useWW (txMetaScenarioA genesis)
-        it "TxMetaScenarioB" $ bracketTxMeta useWW (txMetaScenarioB genesis)
-        it "TxMetaScenarioC" $ bracketTxMeta useWW (txMetaScenarioC genesis)
-        it "TxMetaScenarioD" $ bracketTxMeta useWW (txMetaScenarioD genesis)
-        it "TxMetaScenarioE" $ bracketTxMeta useWW (txMetaScenarioE genesis)
-        it "TxMetaScenarioF" $ bracketTxMeta useWW (txMetaScenarioF genesis)
+        it "TxMetaScenarioA" $ bracketTxMeta useWW (txMetaScenarioA pm genesis)
+        it "TxMetaScenarioB" $ bracketTxMeta useWW (txMetaScenarioB pm genesis)
+        it "TxMetaScenarioC" $ bracketTxMeta useWW (txMetaScenarioC pm genesis)
+        it "TxMetaScenarioD" $ bracketTxMeta useWW (txMetaScenarioD pm genesis)
+        it "TxMetaScenarioE" $ bracketTxMeta useWW (txMetaScenarioE pm genesis)
+        it "TxMetaScenarioF" $ bracketTxMeta useWW (txMetaScenarioF pm genesis)
         it "TxMetaScenarioG" $ bracketTxMeta useWW (txMetaScenarioG genesis)
-        it "TxMetaScenarioH" $ bracketTxMeta useWW (txMetaScenarioH genesis)
-        it "TxMetaScenarioI" $ bracketTxMeta useWW (txMetaScenarioI genesis)
-        it "TxMetaScenarioJ" $ bracketTxMeta useWW (txMetaScenarioJ genesis)
+        it "TxMetaScenarioH" $ bracketTxMeta useWW (txMetaScenarioH pm genesis)
+        it "TxMetaScenarioI" $ bracketTxMeta useWW (txMetaScenarioI pm genesis)
+        it "TxMetaScenarioJ" $ bracketTxMeta useWW (txMetaScenarioJ pm genesis)
 
     describe "Compare wallet kernel to pure model" $ do
       describe "Using hand-written inductive wallets, computes the expected block metadata for" $ do
         withWithoutWW $ \useWW -> do
-          it "...blockMetaScenarioA" $ bracketActiveWallet $ checkBlockMeta' useWW (blockMetaScenarioA genesis)
-          it "...blockMetaScenarioB" $ bracketActiveWallet $ checkBlockMeta' useWW (blockMetaScenarioB genesis)
-          it "...blockMetaScenarioC" $ bracketActiveWallet $ checkBlockMeta' useWW (blockMetaScenarioC genesis)
-          it "...blockMetaScenarioD" $ bracketActiveWallet $ checkBlockMeta' useWW (blockMetaScenarioD genesis)
-          it "...blockMetaScenarioE" $ bracketActiveWallet $ checkBlockMeta' useWW (blockMetaScenarioE genesis)
-          it "...blockMetaScenarioF" $ bracketActiveWallet $ checkBlockMeta' useWW (blockMetaScenarioF genesis)
-          it "...blockMetaScenarioG" $ bracketActiveWallet $ checkBlockMeta' useWW (blockMetaScenarioG genesis)
-          it "...blockMetaScenarioH" $ bracketActiveWallet $ checkBlockMeta' useWW (blockMetaScenarioH genesis)
+          it "...blockMetaScenarioA" $ bracketActiveWallet pm $ checkBlockMeta' useWW (blockMetaScenarioA genesis)
+          it "...blockMetaScenarioB" $ bracketActiveWallet pm $ checkBlockMeta' useWW (blockMetaScenarioB genesis)
+          it "...blockMetaScenarioC" $ bracketActiveWallet pm $ checkBlockMeta' useWW (blockMetaScenarioC genesis)
+          it "...blockMetaScenarioD" $ bracketActiveWallet pm $ checkBlockMeta' useWW (blockMetaScenarioD genesis)
+          it "...blockMetaScenarioE" $ bracketActiveWallet pm $ checkBlockMeta' useWW (blockMetaScenarioE genesis)
+          it "...blockMetaScenarioF" $ bracketActiveWallet pm $ checkBlockMeta' useWW (blockMetaScenarioF genesis)
+          it "...blockMetaScenarioG" $ bracketActiveWallet pm $ checkBlockMeta' useWW (blockMetaScenarioG genesis)
+          it "...blockMetaScenarioH" $ bracketActiveWallet pm $ checkBlockMeta' useWW (blockMetaScenarioH genesis)
 
       describe "Using hand-written inductive wallets" $ do
         withWithoutWW $ \useWW ->
           it "computes identical results in presence of dependent pending transactions" $
-            bracketActiveWallet $ \activeWallet -> do
+            bracketActiveWallet pm $ \activeWallet -> do
               checkEquivalent useWW activeWallet (dependentPending genesis)
 
       withWithoutWW $ \useWW ->
@@ -92,12 +104,12 @@ spec = do
           forAll (genInductiveUsingModel model) $ \ind -> do
             conjoin [
                 shouldBeValidated $ void (inductiveIsValid ind)
-              , bracketActiveWallet $ \activeWallet -> do
+              , bracketActiveWallet pm $ \activeWallet -> do
                   checkEquivalent useWW activeWallet ind
               ]
 
   where
-    transCtxt = runTranslateNoErrors ask
+    transCtxt = runTranslateNoErrors pm ask
     boot      = bootstrapTransaction transCtxt
 
     ourActorIx   = 0
@@ -127,7 +139,7 @@ spec = do
              -> Inductive h Addr
              -> IO (Validated EquivalenceViolation (IntCtxt h))
     evaluate useWW activeWallet ind = do
-       fmap (fmap snd) $ runTranslateTNoErrors $ do
+       fmap (fmap snd) $ runTranslateTNoErrors pm $ do
          equivalentT useWW activeWallet esk (mkWallet ours') ind
       where
         esk = deriveRootEsk (IxPoor ourActorIx)
@@ -177,7 +189,7 @@ spec = do
             intCtxt <- evaluate' useWW activeWallet ind
 
             -- translate DSL BlockMeta' to Cardano BlockMeta
-            expected' <- runTranslateT $ intBlockMeta intCtxt blockMeta'
+            expected' <- runTranslateT pm $ intBlockMeta intCtxt blockMeta'
 
             -- grab a snapshot of the wallet state to get the BlockMeta produced by evaluating the inductive
             snapshot <- liftIO (Kernel.getWalletSnapshot (Kernel.walletPassive activeWallet))
@@ -190,7 +202,7 @@ spec = do
                   -> TxScenarioRet h
                   -> IO ()
     bracketTxMeta useWW (nodeState, ind, check) =
-      bracketActiveWalletTxMeta nodeState bracketAction
+      bracketActiveWalletTxMeta pm nodeState bracketAction
         where
           bracketAction activeWallet = do
             _ <- evaluate' useWW activeWallet ind
@@ -257,11 +269,12 @@ dependentPending GenesisValues{..} = Inductive {
 -------------------------------------------------------------------------------}
 
 -- | Initialize passive wallet in a manner suitable for the unit tests
-bracketPassiveWallet :: (Kernel.PassiveWallet -> IO a) -> IO a
-bracketPassiveWallet postHook = do
+bracketPassiveWallet :: ProtocolMagic -> (Kernel.PassiveWallet -> IO a) -> IO a
+bracketPassiveWallet pm postHook = do
     Keystore.bracketTestKeystore $ \keystore -> do
         mockFInjects <- mkFInjects mempty
         Kernel.bracketPassiveWallet
+            pm
             Kernel.UseInMemory
             logMessage
             keystore
@@ -276,11 +289,10 @@ bracketPassiveWallet postHook = do
     logMessage _ _  = return ()
 
 -- | Initialize active wallet in a manner suitable for generator-based testing
-bracketActiveWallet :: (Kernel.ActiveWallet -> IO a) -> IO a
-bracketActiveWallet test = withDefConfiguration $ \genesisConfig -> do
-    bracketPassiveWallet $ \passive ->
-        Kernel.bracketActiveWallet (configProtocolMagic genesisConfig)
-                                   passive
+bracketActiveWallet :: ProtocolMagic -> (Kernel.ActiveWallet -> IO a) -> IO a
+bracketActiveWallet pm test = withProvidedMagicConfig pm $ \genesisConfig _ _ -> do
+    bracketPassiveWallet (configProtocolMagic genesisConfig) $ \passive ->
+        Kernel.bracketActiveWallet passive
                                    diffusion
                                    test
 

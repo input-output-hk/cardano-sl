@@ -20,6 +20,7 @@ import qualified Data.Map.Strict as Map
 import           Pos.Chain.Block (Blund)
 import           Pos.Chain.Txp (Utxo)
 import           Pos.Core (mkCoin)
+import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
 import           Pos.Core.Slotting (Timestamp)
 import           Pos.Crypto.Signing
 
@@ -33,7 +34,8 @@ import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
 import           Cardano.Wallet.Kernel.DB.TxMeta (TxMeta)
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
-import           Cardano.Wallet.Kernel.Internal (walletKeystore, _wriProgress)
+import           Cardano.Wallet.Kernel.Internal (walletKeystore,
+                     walletProtocolMagic, _wriProgress)
 import qualified Cardano.Wallet.Kernel.Internal as Kernel
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock,
@@ -55,49 +57,55 @@ createWallet :: MonadIO m
              -> CreateWallet
              -> m (Either CreateWalletError V1.Wallet)
 createWallet wallet newWalletRequest = liftIO $ do
+    let nm = makeNetworkMagic $ wallet ^. walletProtocolMagic
     now  <- liftIO getCurrentTimestamp
     case newWalletRequest of
         CreateWallet newWallet@V1.NewWallet{..} ->
             case newwalOperation of
-                V1.RestoreWallet -> restore newWallet now
-                V1.CreateWallet  -> create  newWallet now
+                V1.RestoreWallet -> restore nm newWallet now
+                V1.CreateWallet  -> create  nm newWallet now
         ImportWalletFromESK esk mbSpendingPassword ->
-            restoreFromESK esk
+            restoreFromESK nm
+                           esk
                            (spendingPassword mbSpendingPassword)
                            now
                            "Imported Wallet"
                            HD.AssuranceLevelNormal
   where
-    create :: V1.NewWallet -> Timestamp -> IO (Either CreateWalletError V1.Wallet)
-    create newWallet@V1.NewWallet{..} now = runExceptT $ do
+    create :: NetworkMagic -> V1.NewWallet -> Timestamp -> IO (Either CreateWalletError V1.Wallet)
+    create nm newWallet@V1.NewWallet{..} now = runExceptT $ do
       root <- withExceptT CreateWalletError $ ExceptT $
-                Kernel.createHdWallet wallet
+                Kernel.createHdWallet nm
+                                      wallet
                                       (mnemonic newWallet)
                                       (spendingPassword newwalSpendingPassword)
                                       (fromAssuranceLevel newwalAssuranceLevel)
                                       (HD.WalletName newwalName)
       return (mkRoot newwalName newwalAssuranceLevel now root)
 
-    restore :: V1.NewWallet
+    restore :: NetworkMagic
+            -> V1.NewWallet
             -> Timestamp
             -> IO (Either CreateWalletError V1.Wallet)
-    restore newWallet@V1.NewWallet{..} now = do
+    restore nm newWallet@V1.NewWallet{..} now = do
         let esk    = snd $ safeDeterministicKeyGen
                              (BIP39.mnemonicToSeed (mnemonic newWallet))
                              (spendingPassword newwalSpendingPassword)
-        restoreFromESK esk
+        restoreFromESK nm
+                       esk
                        (spendingPassword newwalSpendingPassword)
                        now
                        newwalName
                        (fromAssuranceLevel newwalAssuranceLevel)
 
-    restoreFromESK :: EncryptedSecretKey
+    restoreFromESK :: NetworkMagic
+                   -> EncryptedSecretKey
                    -> PassPhrase
                    -> Timestamp
                    -> Text
                    -> HD.AssuranceLevel
                    -> IO (Either CreateWalletError V1.Wallet)
-    restoreFromESK esk pwd now walletName hdAssuranceLevel = runExceptT $ do
+    restoreFromESK nm esk pwd now walletName hdAssuranceLevel = runExceptT $ do
         let rootId = HD.eskToHdRootId esk
             wId    = WalletIdHdRnd rootId
 
@@ -106,7 +114,8 @@ createWallet wallet newWalletRequest = liftIO $ do
 
         -- Synchronously restore the wallet balance, and begin to
         -- asynchronously reconstruct the wallet's history.
-        let mbHdAddress = newHdAddress esk
+        let mbHdAddress = newHdAddress nm
+                                       esk
                                        pwd
                                        (Kernel.defaultHdAccountId rootId)
                                        (Kernel.defaultHdAddressId rootId)

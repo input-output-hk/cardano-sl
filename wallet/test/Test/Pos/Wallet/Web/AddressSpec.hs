@@ -17,6 +17,7 @@ import           Test.QuickCheck.Monadic (pick, stop)
 
 import           Pos.Binary (biSize)
 import           Pos.Client.Txp.Addresses (getFakeChangeAddress, getNewAddress)
+import           Pos.Configuration ()
 import           Pos.Core.Common (Address)
 import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (PassPhrase)
@@ -46,18 +47,18 @@ spec = beforeAll_ setupTestLogging $
                     prop "genUniqueAddress" $
                         fakeAddressHasMaxSizeTest commonAddressGenerator
 
-type AddressGenerator = AccountId -> PassPhrase -> WalletProperty Address
+type AddressGenerator = NetworkMagic -> AccountId -> PassPhrase -> WalletProperty Address
 
-fakeAddressHasMaxSizeTest :: AddressGenerator -> Word32 -> WalletProperty ()
-fakeAddressHasMaxSizeTest generator accSeed = do
+fakeAddressHasMaxSizeTest :: AddressGenerator -> Word32 -> NetworkMagic -> WalletProperty ()
+fakeAddressHasMaxSizeTest generator accSeed nm = do
     passphrase <- importSingleWallet mostlyEmptyPassphrases
     ws <- askWalletSnapshot
     wid <- expectedOne "wallet addresses" $ getWalletAddresses ws
     accId <- lift $ decodeCTypeOrFail . caId
          =<< newAccount (DeterminedSeed accSeed) passphrase (CAccountInit def wid)
-    address <- generator accId passphrase
+    address <- generator nm accId passphrase
 
-    largeAddress <- lift (getFakeChangeAddress fixedNM dummyEpochSlots)
+    largeAddress <- lift (getFakeChangeAddress nm dummyEpochSlots)
 
     assertProperty
         (biSize largeAddress >= biSize address)
@@ -67,12 +68,12 @@ fakeAddressHasMaxSizeTest generator accSeed = do
 -- Unfortunatelly, its randomness doesn't depend on QuickCheck seed,
 -- so another proper generator is helpful.
 changeAddressGenerator :: AddressGenerator
-changeAddressGenerator accId passphrase =
-    lift $ getNewAddress fixedNM dummyEpochSlots (accId, passphrase)
+changeAddressGenerator nm accId passphrase =
+    lift $ getNewAddress nm dummyEpochSlots (accId, passphrase)
 
 -- | Generator which is directly used in endpoints.
 commonAddressGenerator :: AddressGenerator
-commonAddressGenerator accId passphrase = do
+commonAddressGenerator _nm accId passphrase = do
     ws <- askWalletSnapshot
     addrSeed <- pick arbitrary
     let genAddress = genUniqueAddress ws (DeterminedSeed addrSeed) passphrase accId
@@ -84,7 +85,3 @@ commonAddressGenerator accId passphrase = do
     seedBusyHandler (InternalError "address generation: this index is already taken")
                       = pure Nothing
     seedBusyHandler e = throwM e
-
-
-fixedNM :: NetworkMagic
-fixedNM = NetworkMainOrStage

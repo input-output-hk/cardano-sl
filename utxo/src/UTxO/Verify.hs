@@ -1,5 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE UndecidableInstances       #-}
+
 -- | Pure versions of the Cardano verification functions
 module UTxO.Verify
     (
@@ -32,6 +33,7 @@ import           Pos.Chain.Txp
 import           Pos.Chain.Update
 import           Pos.Core
 import           Pos.Core.Chrono
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Block (toTxpBlock)
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.DB.Txp (TxpBlock)
@@ -43,7 +45,6 @@ import           Serokell.Util.Verify
 
 import           Test.Pos.Chain.Genesis.Dummy (dummyBlockVersionData,
                      dummyConfig, dummyEpochSlots, dummyGenesisData, dummyK)
-import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 {-------------------------------------------------------------------------------
   Verification environment
@@ -227,13 +228,14 @@ mapVerifyErrors f (Verify ma) = Verify $ mapStateT (withExceptT f) ma
 -- corresponding functions from the Cardano core. This didn't look very easy
 -- so I skipped it for now.
 verifyBlocksPrefix
-    :: HeaderHash    -- ^ Expected tip
+    :: ProtocolMagic -- ^ Protocol magic
+    -> HeaderHash    -- ^ Expected tip
     -> Maybe SlotId  -- ^ Current slot
     -> SlotLeaders   -- ^ Slot leaders for this epoch
     -> LastBlkSlots  -- ^ Last block slots
     -> OldestFirst NE Block
     -> Verify VerifyBlocksException (OldestFirst NE Undo)
-verifyBlocksPrefix tip curSlot leaders lastSlots blocks = do
+verifyBlocksPrefix pm tip curSlot leaders lastSlots blocks = do
     when (tip /= blocks ^. _Wrapped . _neHead . prevBlockL) $
         throwError $ VerifyBlocksError "the first block isn't based on the tip"
 
@@ -251,7 +253,7 @@ verifyBlocksPrefix tip curSlot leaders lastSlots blocks = do
 
     -- Verify transactions
     txUndo <- mapVerifyErrors (VerifyBlocksError . pretty) $
-        tgsVerifyBlocks $ map toTxpBlock blocks
+        tgsVerifyBlocks pm $ map toTxpBlock blocks
 
     -- Skip delegation verification
     {-
@@ -355,15 +357,16 @@ slogVerifyBlocks curSlot leaders lastSlots blocks = do
 -- * We include teh transaction in the failure
 --   I don't fully grasp the consequences of this.
 tgsVerifyBlocks
-    :: OldestFirst NE TxpBlock
+    :: ProtocolMagic
+    -> OldestFirst NE TxpBlock
     -> Verify VerifyBlockFailure (OldestFirst NE TxpUndo)
-tgsVerifyBlocks newChain = do
+tgsVerifyBlocks pm newChain = do
     bvd <- gsAdoptedBVData
     let epoch = NE.last (getOldestFirst newChain) ^. epochIndexL
     let verifyPure :: [TxAux] -> Verify VerifyBlockFailure TxpUndo
         verifyPure txs = nat $
           withExceptT (verifyBlockFailure txs) $
-            verifyToil dummyProtocolMagic bvd mempty epoch dataMustBeKnown txs
+            verifyToil pm bvd mempty epoch dataMustBeKnown txs
     mapM (verifyPure . convertPayload) newChain
   where
     convertPayload :: TxpBlock -> [TxAux]

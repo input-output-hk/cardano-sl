@@ -420,8 +420,10 @@ estimateCardanoFee linearFeePolicy ins outs
 --
 -- NOTE: When the /actual/ size exceeds this bounds, we may underestimate
 -- tranasction fees and potentially generate invalid transactions.
+--
+-- TODO @intricate: Ensure this makes sense.
 boundAddrAttrSize :: Byte
-boundAddrAttrSize = 34
+boundAddrAttrSize = 34 + 7 -- 7 bytes for potential NetworkMagic
 
 -- | Size to use for a value of type @Attributes ()@ when estimating
 --   encoded transaction sizes. The minimum possible value is 2.

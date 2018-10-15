@@ -11,9 +11,9 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 import           Data.Reflection (Reifies (..))
-import           Test.Hspec (Expectation, Spec, describe, shouldBe)
+import           Test.Hspec (Expectation, Spec, describe, runIO, shouldBe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Property, (.&&.), (===))
+import           Test.QuickCheck (Property, arbitrary, generate, (.&&.), (===))
 
 import           Pos.Chain.Lrc (RichmenStakes)
 import           Pos.Chain.Ssc (SharesDistribution, SscVerifyError,
@@ -23,15 +23,27 @@ import           Pos.Core (Coin, CoinPortion, StakeholderId, mkCoin,
                      unsafeAddressHash, unsafeCoinPortionFromDouble,
                      unsafeGetCoin, unsafeSubCoin)
 import           Pos.Core.Common (applyCoinPortionDown, sumCoins)
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 import           Pos.DB.Lrc (RichmenType (..), findRichmenPure)
 
 import           Test.Pos.Chain.Lrc.Arbitrary (GenesisMpcThd,
                      InvalidRichmenStakes (..), ValidRichmenStakes (..))
-import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Configuration (withProvidedMagicConfig)
 import           Test.Pos.Util.QuickCheck.Property (qcIsLeft)
 
 spec :: Spec
-spec = withDefConfiguration $ \_ -> describe "computeSharesDistr" $ do
+spec = do
+    runWithMagic RequiresNoMagic
+    runWithMagic RequiresMagic
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm = withProvidedMagicConfig pm $ \_ _ _ -> describe "computeSharesDistr" $ do
     prop emptyRichmenStakesDesc emptyRichmenStakes
     modifyMaxSuccess (const 3) $
         prop invalidStakeErrorsDesc invalidStakeErrors

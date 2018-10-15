@@ -17,7 +17,7 @@ import           Control.Exception.Safe (try)
 import           Data.List ((!!), (\\))
 import           Data.List.NonEmpty (fromList)
 import           Formatting (build, sformat, (%))
-import           Test.Hspec (Spec, beforeAll_, describe, shouldBe)
+import           Test.Hspec (Spec, beforeAll_, describe, runIO, shouldBe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import           Test.QuickCheck (arbitrary, choose, generate)
 import           Test.QuickCheck.Monadic (pick)
@@ -29,7 +29,8 @@ import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), txToLinearFee)
 import           Pos.Core (Address, Coin, TxFeePolicy (..), mkCoin, sumCoins,
                      unsafeGetCoin, unsafeSubCoin)
-import           Pos.Crypto (PassPhrase)
+import           Pos.Crypto (PassPhrase, ProtocolMagic (..),
+                     RequiresNetworkMagic (..))
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Util.CompileInfo (withCompileInfo)
@@ -48,7 +49,7 @@ import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Wlog (setupTestLogging)
 
 import           Test.Pos.Chain.Genesis.Dummy (dummyConfig, dummyGenesisData)
-import           Test.Pos.Configuration (withDefConfigurations)
+import           Test.Pos.Configuration (withProvidedMagicConfig)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty, expectedOne,
                      maybeStopProperty, splitWord, stopProperty)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty, getSentTxs,
@@ -62,13 +63,20 @@ deriving instance Eq CTx
 
 -- TODO remove HasCompileInfo when MonadWalletWebMode will be splitted.
 spec :: Spec
-spec = beforeAll_ setupTestLogging $
-    withCompileInfo $
-       withDefConfigurations $ \_ txpConfig _ ->
-       describe "Wallet.Web.Methods.Payment" $ modifyMaxSuccess (const 10) $ do
-    describe "newPaymentBatch" $ do
-        describe "Submitting a payment when restoring" (rejectPaymentIfRestoringSpec txpConfig)
-        describe "One payment" (oneNewPaymentBatchSpec txpConfig)
+spec = do
+    runWithMagic RequiresNoMagic
+    runWithMagic RequiresMagic
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = beforeAll_ setupTestLogging $
+    withCompileInfo $ do
+        pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+            withProvidedMagicConfig pm $ \_ txpConfig _ ->
+                describe "Wallet.Web.Methods.Payment" $ modifyMaxSuccess (const 10) $ do
+                describe "newPaymentBatch" $ do
+                    describe "Submitting a payment when restoring" (rejectPaymentIfRestoringSpec txpConfig)
+                    describe "One payment" (oneNewPaymentBatchSpec txpConfig)
 
 data PaymentFixture = PaymentFixture {
       pswd        :: PassPhrase

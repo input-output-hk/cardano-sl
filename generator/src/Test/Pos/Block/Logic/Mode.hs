@@ -62,17 +62,19 @@ import           Pos.AllSecrets (AllSecrets (..), HasAllSecrets (..),
 import           Pos.Chain.Block (HasSlogGState (..))
 import           Pos.Chain.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Chain.Genesis as Genesis (Config (..),
-                     GenesisInitializer (..), GenesisSpec (..),
-                     configEpochSlots, configGeneratedSecretsThrow,
-                     gsSecretKeys, mkConfig)
+                     GenesisInitializer (..), GenesisProtocolConstants (..),
+                     GenesisSpec (..), configEpochSlots,
+                     configGeneratedSecretsThrow, gsSecretKeys, mkConfig)
 import           Pos.Chain.Ssc (SscMemTag, SscState)
 import           Pos.Chain.Txp (TxpConfiguration (..))
 import           Pos.Chain.Update (BlockVersionData)
 import           Pos.Core (SlotId, Timestamp (..))
 import           Pos.Core.Conc (currentTime)
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MonadReporting (..))
 import           Pos.Core.Slotting (MonadSlotsData)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (DBPure, MonadDB (..), MonadDBRead (..),
                      MonadGState (..))
 import qualified Pos.DB as DB
@@ -134,6 +136,7 @@ data TestParams = TestParams
     -- ^ 'GenesisInitializer' in 'TestParams' allows one to use custom
     -- genesis data.
     , _tpTxpConfiguration   :: !TxpConfiguration
+    , _tpProtocolMagic      :: !ProtocolMagic
     }
 
 makeClassy ''TestParams
@@ -156,6 +159,7 @@ instance Arbitrary TestParams where
         let _tpBlockVersionData = defaultTestBlockVersionData
         let _tpTxpConfiguration = TxpConfiguration 200 Set.empty
         _tpGenesisInitializer <- genGenesisInitializer
+        _tpProtocolMagic <- arbitrary
         return TestParams {..}
 
 genGenesisInitializer :: Gen GenesisInitializer
@@ -173,9 +177,15 @@ withTestParams :: TestParams -> (Genesis.Config -> r) -> r
 withTestParams TestParams {..} f = f $ mkConfig _tpStartTime genesisSpec
   where
     genesisSpec = defaultTestGenesisSpec
-        { gsInitializer      = _tpGenesisInitializer
-        , gsBlockVersionData = _tpBlockVersionData
+        { gsInitializer       = _tpGenesisInitializer
+        , gsBlockVersionData  = _tpBlockVersionData
+        , gsProtocolConstants =
+            updateGPC (gsProtocolConstants defaultTestGenesisSpec)
         }
+    --
+    updateGPC :: GenesisProtocolConstants -> GenesisProtocolConstants
+    updateGPC gpc = gpc { gpcProtocolMagic = _tpProtocolMagic }
+
 
 ----------------------------------------------------------------------------
 -- Init mode with instances
@@ -252,7 +262,8 @@ initBlockTestContext genesisConfig tp@TestParams {..} callback = do
     let epochSlots = configEpochSlots genesisConfig
     slottingState <- mkSimpleSlottingStateVar epochSlots
     genesisSecretKeys <- gsSecretKeys <$> configGeneratedSecretsThrow genesisConfig
-    let initCtx =
+    let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
+        initCtx =
             TestInitModeContext
                 dbPureVar
                 futureSlottingVar
@@ -277,7 +288,7 @@ initBlockTestContext genesisConfig tp@TestParams {..} callback = do
             let btcGState = GS.GStateContext {_gscDB = DB.PureDB dbPureVar, ..}
             btcDelegation <- mkDelegationVar
             btcPureDBSnapshots <- PureDBSnapshotsVar <$> newIORef Map.empty
-            let btcAllSecrets = mkAllSecretsSimple genesisSecretKeys
+            let btcAllSecrets = mkAllSecretsSimple nm genesisSecretKeys
             let btCtx = BlockTestContext {btcSystemStart = systemStart, btcSSlottingStateVar = slottingState, ..}
             liftIO $ flip runReaderT clockVar $ unEmulation $ callback btCtx
     sudoLiftIO $ runTestInitMode initCtx $ initBlockTestContextDo

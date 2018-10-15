@@ -299,8 +299,8 @@ data Avvm = Avvm {
 -------------------------------------------------------------------------------}
 
 -- | Compute generated actors
-initActors :: CardanoContext -> Actors
-initActors CardanoContext{..} = Actors{..}
+initActors :: NetworkMagic -> CardanoContext -> Actors
+initActors nm CardanoContext{..} = Actors{..}
   where
     actorsRich  :: Map PublicKey Rich
     actorsPoor  :: Map PublicKey Poor
@@ -323,7 +323,7 @@ initActors CardanoContext{..} = Actors{..}
         richKey = regularKeyPair richSec
 
         richAddr :: Address
-        richAddr = makePubKeyAddressBoot fixedNM (toPublic richSec)
+        richAddr = makePubKeyAddressBoot nm (toPublic richSec)
 
     mkPoor :: PoorSecret -> (PublicKey, Poor)
     mkPoor (PoorSecret _) = error err
@@ -366,7 +366,7 @@ initActors CardanoContext{..} = Actors{..}
         avvmKey = RedeemKeyPair{..}
 
         avvmAddr :: Address
-        avvmAddr = makeRedeemAddress fixedNM redKpPub
+        avvmAddr = makeRedeemAddress nm redKpPub
 
         Just (redKpPub, redKpSec) = redeemDeterministicKeyGen avvmSeed
 
@@ -439,8 +439,8 @@ data AddrMap = AddrMap {
     }
 
 -- | Compute initial address mapping
-initAddrMap :: Actors -> AddrMap
-initAddrMap Actors{..} = AddrMap{
+initAddrMap :: NetworkMagic -> Actors -> AddrMap
+initAddrMap nm Actors{..} = AddrMap{
       addrMap    = Map.fromList mkMap
     , addrRevMap = Map.fromList $ map (swap . second addrInfoCardano) mkMap
     }
@@ -495,7 +495,7 @@ initAddrMap Actors{..} = AddrMap{
                              -> Word32 -- ^ address index
                              -> (EncKeyPair, Address)
             deriveHDAddress' esk accIx' addrIx'
-                = case deriveLvl2KeyPair fixedNM bootstrapEra scp emptyPassphrase esk accIx' addrIx' of
+                = case deriveLvl2KeyPair nm bootstrapEra scp emptyPassphrase esk accIx' addrIx' of
                     Nothing          -> error "impossible"
                     Just (addr, key) -> (encKeyPair key, addr)
                 where
@@ -525,11 +525,11 @@ data TransCtxt = TransCtxt {
     , tcAddrMap :: AddrMap
     }
 
-initContext :: CardanoContext -> TransCtxt
-initContext tcCardano = TransCtxt{..}
+initContext :: NetworkMagic -> CardanoContext -> TransCtxt
+initContext nm tcCardano = TransCtxt{..}
   where
-    tcActors  = initActors  tcCardano
-    tcAddrMap = initAddrMap tcActors
+    tcActors  = initActors nm tcCardano
+    tcAddrMap = initAddrMap nm tcActors
 
 -- | All actor addresses present in the translation context
 transCtxtAddrs :: TransCtxt -> [Addr]
@@ -716,6 +716,3 @@ instance Buildable GenesisData where
       % "}"
       )
       gdBootStakeholders
-
-fixedNM :: NetworkMagic
-fixedNM = NetworkMainOrStage

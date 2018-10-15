@@ -1,9 +1,11 @@
 -- | Wallet unit tests
+
+{-# OPTIONS_GHC -fno-warn-unused-imports #-}
+
 module Main (main) where
 
 import           Universum
 
-import           Formatting (build, sformat)
 import           Test.Hspec (Spec, describe, hspec, parallel)
 
 import           InputSelection.Evaluation (evalUsingGenData, evalUsingReplay)
@@ -11,10 +13,10 @@ import           InputSelection.Evaluation.Options (Command (..), evalCommand,
                      getEvalOptions)
 import           InputSelection.Evaluation.Replot (replot)
 import           Test.Pos.Util.Parallel.Parallelize (parallelizeAllCores)
-import           UTxO.Bootstrap (bootstrapTransaction)
-import           UTxO.Context (Addr, TransCtxt)
-import           UTxO.DSL (GivenHash, Transaction)
 import           UTxO.Translate (runTranslateNoErrors, withConfig)
+
+import           Pos.Crypto (ProtocolMagic (..), ProtocolMagicId (..),
+                     RequiresNetworkMagic (..))
 
 import qualified DeltaCompressionSpecs
 import qualified Test.Spec.Accounts
@@ -42,7 +44,9 @@ main = do
     case mEvalOptions of
       Nothing -> do
         -- _showContext
-        runTranslateNoErrors $ withConfig $ return $ hspec $ tests
+        -- TODO @intricate: Not sure how I should handle this usage of `ProtocolMagic`, tbh.
+        let pm = ProtocolMagic (ProtocolMagicId 1) RequiresNoMagic
+        runTranslateNoErrors pm $ withConfig $ return $ hspec $ tests
       Just evalOptions ->
         -- NOTE: The coin selection must be invoked with @eval@
         -- Run @wallet-unit-tests eval --help@ for details.
@@ -55,14 +59,14 @@ main = do
             replot evalOptions replotOpts
 
 -- | Debugging: show the translation context
-_showContext :: IO ()
-_showContext = do
-    putStrLn $ runTranslateNoErrors $ withConfig $
-      sformat build <$> ask
-    putStrLn $ runTranslateNoErrors $
-      let bootstrapTransaction' :: TransCtxt -> Transaction GivenHash Addr
-          bootstrapTransaction' = bootstrapTransaction
-      in sformat build . bootstrapTransaction' <$> ask
+-- _showContext :: IO ()
+-- _showContext = do
+--     putStrLn $ runTranslateNoErrors $ withConfig $
+--       sformat build <$> ask
+--     putStrLn $ runTranslateNoErrors $
+--       let bootstrapTransaction' :: TransCtxt -> Transaction GivenHash Addr
+--           bootstrapTransaction' = bootstrapTransaction
+--       in sformat build . bootstrapTransaction' <$> ask
 
 {-------------------------------------------------------------------------------
   Tests proper

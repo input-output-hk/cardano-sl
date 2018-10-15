@@ -17411,6 +17411,7 @@ license = stdenv.lib.licenses.mit;
 , silently
 , stdenv
 , stm
+, stm-chans
 , string-conv
 , tabl
 , tar
@@ -17517,6 +17518,7 @@ safe-exceptions
 serokell-util
 silently
 stm
+stm-chans
 tabl
 tar
 text

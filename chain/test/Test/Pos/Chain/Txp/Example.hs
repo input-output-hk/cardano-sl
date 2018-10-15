@@ -58,7 +58,7 @@ exampleTxInUtxo :: TxIn
 exampleTxInUtxo = TxInUtxo exampleHashTx 47 -- TODO: loop here
 
 exampleTxOut :: TxOut
-exampleTxOut = TxOut (makePubKeyAddress fixedNM (IsBootstrapEraAddr True) pkey) (Coin 47)
+exampleTxOut = TxOut (makePubKeyAddress NetworkMainOrStage (IsBootstrapEraAddr True) pkey) (Coin 47)
     where
         Right pkey = PublicKey <$> CC.xpub (getBytes 0 64)
 
@@ -93,6 +93,3 @@ exampleRedeemSignature = redeemSign exampleProtocolMagic SignForTestingOnly rsk 
 
 exampleHashTx :: Hash Tx
 exampleHashTx = coerce (hash "golden" :: Hash Text)
-
-fixedNM :: NetworkMagic
-fixedNM = NetworkMainOrStage

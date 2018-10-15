@@ -22,6 +22,7 @@ import           Servant.Swagger.UI (swaggerSchemaUIServer)
 import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Txp (TxAux, TxpConfiguration)
 import           Pos.Chain.Update (curSoftwareVersion)
+import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 
 import           Pos.Wallet.WalletMode (blockchainSlotDuration)
@@ -64,21 +65,23 @@ servantHandlers
     -> TVar NtpStatus
     -> (TxAux -> m Bool)
     -> ServerT A.WalletApi m
-servantHandlers genesisConfig txpConfig ntpStatus submitTx = toServant' A.WalletApiRecord
-    { _test        = testHandlers
-    , _wallets     = walletsHandlers genesisConfig
-    , _accounts    = accountsHandlers
-    , _addresses   = addressesHandlers
-    , _profile     = profileHandlers
-    , _txs         = txsHandlers genesisConfig txpConfig submitTx
-    , _update      = updateHandlers
-    , _redemptions = redemptionsHandlers genesisConfig txpConfig submitTx
-    , _reporting   = reportingHandlers
-    , _settings    = settingsHandlers ntpStatus
-    , _backup      = backupHandlers genesisConfig
-    , _info        = infoHandlers
-    , _system      = systemHandlers
-    }
+servantHandlers genesisConfig txpConfig ntpStatus submitTx = do
+    let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
+    toServant' A.WalletApiRecord
+        { _test        = testHandlers
+        , _wallets     = walletsHandlers genesisConfig
+        , _accounts    = accountsHandlers nm
+        , _addresses   = addressesHandlers nm
+        , _profile     = profileHandlers
+        , _txs         = txsHandlers genesisConfig txpConfig submitTx
+        , _update      = updateHandlers
+        , _redemptions = redemptionsHandlers genesisConfig txpConfig submitTx
+        , _reporting   = reportingHandlers
+        , _settings    = settingsHandlers ntpStatus
+        , _backup      = backupHandlers genesisConfig
+        , _info        = infoHandlers
+        , _system      = systemHandlers
+        }
 
 -- branches of the API
 
@@ -90,29 +93,37 @@ testHandlers = toServant' A.WTestApiRecord
 
 walletsHandlers
     :: MonadFullWalletWebMode ctx m => Genesis.Config -> ServerT A.WWalletsApi m
-walletsHandlers genesisConfig = toServant' A.WWalletsApiRecord
-    { _getWallet              = M.getWallet
-    , _getWallets             = M.getWallets
-    , _newWallet              = M.newWallet
-    , _updateWallet           = M.updateWallet
-    , _restoreWallet          = M.restoreWalletFromSeed genesisConfig
-    , _deleteWallet           = M.deleteWallet
-    , _importWallet           = M.importWallet genesisConfig
-    , _changeWalletPassphrase = M.changeWalletPassphrase
-    }
+walletsHandlers genesisConfig = do
+    let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
+    toServant' A.WWalletsApiRecord
+        { _getWallet              = M.getWallet nm
+        , _getWallets             = M.getWallets nm
+        , _newWallet              = M.newWallet nm
+        , _updateWallet           = M.updateWallet nm
+        , _restoreWallet          = M.restoreWalletFromSeed genesisConfig
+        , _deleteWallet           = M.deleteWallet nm
+        , _importWallet           = M.importWallet genesisConfig
+        , _changeWalletPassphrase = M.changeWalletPassphrase nm
+        }
 
-accountsHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WAccountsApi m
-accountsHandlers = toServant' A.WAccountsApiRecord
-    { _getAccount    = M.getAccount
-    , _getAccounts   = M.getAccounts
-    , _updateAccount = M.updateAccount
-    , _newAccount    = M.newAccount RandomSeed
+accountsHandlers
+    :: MonadFullWalletWebMode ctx m
+    => NetworkMagic
+    -> ServerT A.WAccountsApi m
+accountsHandlers nm = toServant' A.WAccountsApiRecord
+    { _getAccount    = M.getAccount nm
+    , _getAccounts   = M.getAccounts nm
+    , _updateAccount = M.updateAccount nm
+    , _newAccount    = M.newAccount nm RandomSeed
     , _deleteAccount = M.deleteAccount
     }
 
-addressesHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WAddressesApi m
-addressesHandlers = toServant' A.WAddressesApiRecord
-    { _newAddress     = M.newAddress RandomSeed
+addressesHandlers
+    :: MonadFullWalletWebMode ctx m
+    => NetworkMagic
+    -> ServerT A.WAddressesApi m
+addressesHandlers nm = toServant' A.WAddressesApiRecord
+    { _newAddress     = M.newAddress nm RandomSeed
     , _isValidAddress = M.isValidAddress
     }
 
@@ -174,7 +185,7 @@ settingsHandlers ntpStatus = toServant' A.WSettingsApiRecord
 backupHandlers :: MonadFullWalletWebMode ctx m => Genesis.Config -> ServerT A.WBackupApi m
 backupHandlers genesisConfig = toServant' A.WBackupApiRecord
     { _importBackupJSON = M.importWalletJSON genesisConfig
-    , _exportBackupJSON = M.exportWalletJSON
+    , _exportBackupJSON = M.exportWalletJSON genesisConfig
     }
 
 infoHandlers :: (MonadFullWalletWebMode ctx m, HasCompileInfo) => ServerT A.WInfoApi m

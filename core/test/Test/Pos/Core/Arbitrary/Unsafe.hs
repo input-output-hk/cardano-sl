@@ -29,12 +29,13 @@ instance ArbitraryUnsafe Coin where
 instance ArbitraryUnsafe Address where
     arbitraryUnsafe = do
         addrRoot <- arbitraryUnsafe
+        aaNM <- arbitraryUnsafe
         let addrAttributes =
                 mkAttributes $
                 AddrAttributes
                 { aaPkDerivationPath = Nothing
                 , aaStakeDistribution = BootstrapEraDistr
-                , aaNetworkMagic = fixedNM
+                , aaNetworkMagic = aaNM
                 }
         let addrType = ATPubKey
         return Address {..}
@@ -43,7 +44,3 @@ instance ArbitraryUnsafe SlotId where
     arbitraryUnsafe = SlotId <$> arbitraryUnsafe <*> arbitraryUnsafe
 
 instance ArbitraryUnsafe NetworkMagic
-
-
-fixedNM :: NetworkMagic
-fixedNM = NetworkMainOrStage

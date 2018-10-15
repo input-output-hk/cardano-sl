@@ -26,6 +26,7 @@ import qualified Formatting as F
 import           Formatting.Buildable (build)
 import qualified Pos.Chain.Txp as Txp
 import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 import           Pos.Crypto.Hashing (hash)
 import           Pos.Crypto.Signing.Safe (safeDeterministicKeyGen)
@@ -62,7 +63,7 @@ myAccountId = HdAccountId {
     }
     where
         myHdRootId :: HdRootId
-        myHdRootId = eskToHdRootId .
+        myHdRootId = (eskToHdRootId NetworkMainOrStage) .
                                snd .
                                safeDeterministicKeyGen (BS.pack (replicate 32 0)) $ mempty
 

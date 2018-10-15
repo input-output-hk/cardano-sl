@@ -27,11 +27,12 @@ import qualified Data.ByteString.Char8 as BS8
 
 import           Ntp.Client (NtpStatus)
 
-import           Pos.Chain.Genesis as Genesis (Config)
+import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Client.Txp.Network (sendTxOuts)
 import           Pos.Communication (OutSpecs)
 import           Pos.Core.NetworkAddress (NetworkAddress)
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion (sendTx))
 import           Pos.Util (bracketWithLogging)
 import           Pos.Util.CompileInfo (HasCompileInfo)
@@ -90,7 +91,8 @@ walletServer
     -> (forall x . m x -> Handler x)
     -> m (Server WalletSwaggerApi)
 walletServer genesisConfig txpConfig diffusion ntpStatus nat = do
-    mapM_ (findKey >=> syncWallet . keyToWalletDecrCredentials) =<< myRootAddresses
+    let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
+    mapM_ (findKey nm >=> syncWallet . keyToWalletDecrCredentials nm) =<< myRootAddresses nm
     return $ servantHandlersWithSwagger genesisConfig txpConfig ntpStatus submitTx nat
   where
     -- Diffusion layer takes care of submitting transactions.

@@ -13,7 +13,8 @@ import qualified Data.Aeson as A
 import qualified Data.ByteString.Lazy as BSL
 import           Formatting (sformat, stext, (%))
 
-import           Pos.Chain.Genesis as Genesis (Config)
+import           Pos.Chain.Genesis as Genesis (Config (..))
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Util (HasLens (..))
 import           Pos.Wallet.Web.Backup (TotalBackup (..), getWalletBackup)
 import           Pos.Wallet.Web.ClientTypes (CFilePath (..), CId, CWallet, Wal)
@@ -40,9 +41,15 @@ importWalletJSON genesisConfig (CFilePath (toString -> fp)) = do
         sformat ("Error while reading JSON backup file: "%stext) $
         toText err
 
-exportWalletJSON :: MonadWalletBackup ctx m => CId Wal -> CFilePath -> m NoContent
-exportWalletJSON wid (CFilePath (toString -> fp)) = do
+exportWalletJSON
+    :: MonadWalletBackup ctx m
+    => Genesis.Config
+    -> CId Wal
+    -> CFilePath
+    -> m NoContent
+exportWalletJSON genesisConfig wid (CFilePath (toString -> fp)) = do
     ws <- askWalletSnapshot
-    wBackup <- TotalBackup <$> getWalletBackup ws wid
+    let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
+    wBackup <- TotalBackup <$> getWalletBackup nm ws wid
     liftIO $ BSL.writeFile fp $ A.encode wBackup
     return NoContent

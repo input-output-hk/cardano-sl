@@ -409,6 +409,7 @@ newTransaction aw@ActiveWallet{..} spendingPassword options accountId payees = d
 
              -- STEP 1: Perform the signing and forge the final TxAux.
              mbEsk <- liftIO $ Keystore.lookup
+                        nm
                         (WalletIdHdRnd $ accountId ^. hdAccountIdParent)
                         (walletPassive ^. Internal.walletKeystore)
 

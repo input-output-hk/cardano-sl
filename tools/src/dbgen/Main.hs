@@ -24,6 +24,7 @@ import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Client.CLI (CommonArgs (..), CommonNodeArgs (..),
                      NodeArgs (..), getNodeParams)
 import           Pos.Core (Timestamp (..))
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Rocks.Functions (openNodeDBs)
 import           Pos.DB.Rocks.Types (NodeDBs)
@@ -180,7 +181,8 @@ main = do
         spec <- loadGenSpec config
         ws   <- newWalletState (isJust addTo) walletPath -- Recreate or not
 
-        let generatedWallet = generateWalletDB cli spec
+        let nm              = makeNetworkMagic $ configProtocolMagic genesisConfig
+            generatedWallet = generateWalletDB nm cli spec
         walletRunner genesisConfig txpConfig cfg dbs publicKeyPath secretKeyPath ws generatedWallet
         closeState ws
 

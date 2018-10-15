@@ -46,7 +46,7 @@ import           Pos.Core (IsBootstrapEraAddr (..), Timestamp (..),
                      deriveFirstHDAddress, makePubKeyAddress, mkCoin)
 import           Pos.Core.Conc (concurrently, currentTime, delay,
                      forConcurrently, modifySharedAtomic, newSharedAtomic)
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (EncryptedSecretKey, SecretKey, emptyPassphrase,
                      encToPublic, fakeSigner, hash, safeToPublic, toPublic,
                      withSafeSigners)
@@ -111,13 +111,14 @@ sendToAllGenesis genesisConfig keysToSend diffusion (SendToAllGenesisParams gene
         logInfo $ sformat ("Found "%shown%" keys in the genesis block.") (length keysToSend)
         startAtTxt <- liftIO $ lookupEnv "AUXX_START_AT"
         let startAt = fromMaybe 0 . readMaybe . fromMaybe "" $ startAtTxt :: Int
+        let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
         -- construct a transaction, and add it to the queue
         let addTx secretKey = do
                 let signer = fakeSigner secretKey
                     publicKey = toPublic secretKey
                 -- construct transaction output
                 outAddr <- makePubKeyAddressAuxx
-                    fixedNM
+                    nm
                     (configEpochSlots genesisConfig)
                     publicKey
                 let txOut1 = TxOut {
@@ -234,11 +235,12 @@ send
     -> m ()
 send genesisConfig diffusion idx outputs = do
     skey <- takeSecret
+    let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
     let curPk = encToPublic skey
-    let plainAddresses = map (flip (makePubKeyAddress fixedNM) curPk . IsBootstrapEraAddr) [False, True]
+    let plainAddresses = map (flip (makePubKeyAddress nm) curPk . IsBootstrapEraAddr) [False, True]
     let (hdAddresses, hdSecrets) = unzip $ map
             (\ibea -> fromMaybe (error "send: pass mismatch") $
-                    deriveFirstHDAddress fixedNM (IsBootstrapEraAddr ibea) emptyPassphrase skey) [False, True]
+                    deriveFirstHDAddress nm (IsBootstrapEraAddr ibea) emptyPassphrase skey) [False, True]
     let allAddresses = hdAddresses ++ plainAddresses
     let allSecrets = hdSecrets ++ [skey, skey]
     etx <- withSafeSigners allSecrets (pure emptyPassphrase) $ \signers -> runExceptT @AuxxException $ do
@@ -286,6 +288,3 @@ sendTxsFromFile diffusion txsFile = do
                 (topsortTxAuxes txAuxes)
         let submitOne = submitTxRaw diffusion
         mapM_ submitOne sortedTxAuxes
-
-fixedNM :: NetworkMagic
-fixedNM = NetworkMainOrStage

@@ -29,6 +29,7 @@ import qualified Data.HashMap.Strict as HM
 import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Genesis (PoorSecret, poorSecretToEncKey)
 import           Pos.Client.KeyStorage (addSecretKey)
+import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, PublicKey,
                      emptyPassphrase, firstHardened)
 import           Pos.Infra.StateLock (Priority (..), withStateLockNoMetrics)
@@ -70,17 +71,18 @@ mnemonicExists = "Wallet with that mnemonics already exists"
 -- then we return 'Left' of the wallet's ID.
 mkWallet
     :: L.MonadWalletLogic ctx m
-    => PassPhrase
+    => NetworkMagic
+    -> PassPhrase
     -> CWalletInit
     -> Bool
     -> m (Either (CId Wal) (EncryptedSecretKey, CId Wal))
-mkWallet passphrase CWalletInit {..} isReady = do
+mkWallet nm passphrase CWalletInit {..} isReady = do
     let CWalletMeta {..} = cwInitMeta
 
     skey <- genSaveRootKey passphrase (bpToList cwBackupPhrase)
-    let cAddr = encToCId skey
+    let cAddr = encToCId nm skey
 
-    eresult <- fmap Right (L.createWalletSafe cAddr cwInitMeta isReady)
+    eresult <- fmap Right (L.createWalletSafe nm cAddr cwInitMeta isReady)
         `catch` \(e :: WalletError) ->
             case e of
                 RequestError msg | msg == mnemonicExists ->
@@ -94,29 +96,35 @@ mkWallet passphrase CWalletInit {..} isReady = do
 
         let accMeta = CAccountMeta { caName = "Initial account" }
             accInit = CAccountInit { caInitWId = cwId, caInitMeta = accMeta }
-        () <$ L.newAccountIncludeUnready True (DeterminedSeed initialAccAddrIdxs) passphrase accInit
+        () <$ L.newAccountIncludeUnready nm True (DeterminedSeed initialAccAddrIdxs) passphrase accInit
 
         return (skey, cAddr)
 
 
-newWallet :: L.MonadWalletLogic ctx m => PassPhrase -> CWalletInit -> m CWallet
+newWallet
+    :: L.MonadWalletLogic ctx m
+    => NetworkMagic
+    -> PassPhrase
+    -> CWalletInit
+    -> m CWallet
 newWallet = throwMnemonicExists ... newWalletNoThrow
 
 newWalletNoThrow
     :: L.MonadWalletLogic ctx m
-    => PassPhrase
+    => NetworkMagic
+    -> PassPhrase
     -> CWalletInit
     -> m (Either (CId Wal) CWallet)
-newWalletNoThrow passphrase cwInit = do
+newWalletNoThrow nm passphrase cwInit = do
     db <- askWalletDB
     -- A brand new wallet doesn't need any syncing, so we mark isReady=True
-    eresult <- mkWallet passphrase cwInit True
+    eresult <- mkWallet nm passphrase cwInit True
     for eresult $ \(_, wId) -> do
         removeHistoryCache db wId
         -- BListener checks current syncTip before applying update,
         -- thus setting it up to date manually here
         withStateLockNoMetrics HighPriority $ \tip -> setWalletSyncTip db wId tip
-        L.getWallet wId
+        L.getWallet nm wId
 
 
 {- | Restores a wallet from a seed. The process is conceptually divided into
@@ -152,7 +160,8 @@ restoreWalletFromSeedNoThrow
     -> CWalletInit
     -> m (Either (CId Wal) CWallet)
 restoreWalletFromSeedNoThrow genesisConfig passphrase cwInit = do
-    eresult <- mkWallet passphrase cwInit False
+    let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
+    eresult <- mkWallet nm passphrase cwInit False
     for eresult $ \(sk, _) -> restoreWallet genesisConfig sk
 
 restoreWallet :: ( L.MonadWalletLogic ctx m
@@ -173,20 +182,22 @@ restoreWith :: ( L.MonadWalletLogic ctx m
                , HasLens SyncQueue ctx SyncQueue
                ) => Genesis.Config -> WalletDecrCredentialsKey -> m CWallet
 restoreWith genesisConfig key = do
-    let credentials@(_, wId) = keyToWalletDecrCredentials key
+    let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
+        credentials@(_, wId) = keyToWalletDecrCredentials nm key
     Restore.restoreWallet genesisConfig credentials
     db <- WS.askWalletDB
     WS.setWalletReady db wId True
-    L.getWallet wId
+    L.getWallet nm wId
 
 restoreWalletFromBackup :: ( L.MonadWalletLogic ctx m
                            , MonadUnliftIO m
                            , HasLens SyncQueue ctx SyncQueue
                            ) => Genesis.Config -> WalletBackup -> m CWallet
 restoreWalletFromBackup genesisConfig WalletBackup {..} = do
+    let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
     db <- askWalletDB
     ws <- getWalletSnapshot db
-    let wId = encToCId wbSecretKey
+    let wId = encToCId nm wbSecretKey
     let wExists = isJust (getWalletMeta ws wId)
 
     if wExists
@@ -205,7 +216,7 @@ restoreWalletFromBackup genesisConfig WalletBackup {..} = do
                 then do
                     let accMeta = CAccountMeta { caName = "Initial account" }
                         accInit = CAccountInit { caInitWId = wId, caInitMeta = accMeta }
-                    () <$ L.newAccountIncludeUnready True defaultAccAddrIdx emptyPassphrase accInit
+                    () <$ L.newAccountIncludeUnready nm True defaultAccAddrIdx emptyPassphrase accInit
                 else for_ accList $ \(idx, meta) -> do
                     let aIdx = fromInteger $ fromIntegral idx
                         seedGen = DeterminedSeed aIdx
@@ -213,7 +224,7 @@ restoreWalletFromBackup genesisConfig WalletBackup {..} = do
                     createAccount db accId meta
 
             -- TODO(adn): Review the readyness story.
-            void $ L.createWalletSafe wId wMeta False
+            void $ L.createWalletSafe nm wId wMeta False
 
             ws' <- askWalletSnapshot
 
@@ -224,7 +235,7 @@ restoreWalletFromBackup genesisConfig WalletBackup {..} = do
                 case getAccountWAddresses ws' Ever accId of
                     Nothing -> throwM $ InternalError "restoreWalletFromBackup: fatal: cannot find \
                                                       \an existing account of newly imported wallet"
-                    Just [] -> void $ L.newAddress defaultAccAddrIdx emptyPassphrase accId
+                    Just [] -> void $ L.newAddress nm defaultAccAddrIdx emptyPassphrase accId
                     Just _  -> pure ()
 
             restoreWallet genesisConfig wbSecretKey
@@ -262,8 +273,9 @@ importWalletDo
     -> m CWallet
 importWalletDo genesisConfig passphrase wSecret = do
     wId <- cwId <$> importWalletSecret genesisConfig emptyPassphrase wSecret
-    _ <- L.changeWalletPassphrase wId emptyPassphrase passphrase
-    L.getWallet wId
+    let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
+    _ <- L.changeWalletPassphrase nm wId emptyPassphrase passphrase
+    L.getWallet nm wId
 
 importWalletSecret
     :: ( L.MonadWalletLogic ctx m
@@ -275,12 +287,13 @@ importWalletSecret
     -> WalletUserSecret
     -> m CWallet
 importWalletSecret genesisConfig passphrase WalletUserSecret{..} = do
-    let key    = _wusRootKey
-        wid    = encToCId key
+    let nm     = makeNetworkMagic $ configProtocolMagic genesisConfig
+        key    = _wusRootKey
+        wid    = encToCId nm key
         wMeta  = def { cwName = _wusWalletName }
     addSecretKey key
     -- TODO(adinapoli): Review the readiness story.
-    void $ L.createWalletSafe wid wMeta False
+    void $ L.createWalletSafe nm wid wMeta False
 
     db <- askWalletDB
     for_ _wusAccounts $ \(walletIndex, walletName) -> do
@@ -292,7 +305,7 @@ importWalletSecret genesisConfig passphrase WalletUserSecret{..} = do
 
     for_ _wusAddrs $ \(walletIndex, accountIndex) -> do
         let accId = AccountId wid walletIndex
-        L.newAddress (DeterminedSeed accountIndex) passphrase accId
+        L.newAddress nm (DeterminedSeed accountIndex) passphrase accId
 
     restoreWallet genesisConfig key
 

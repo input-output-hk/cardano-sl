@@ -48,6 +48,7 @@ import           Pos.Chain.Update (PollModifier)
 import           Pos.Core (epochIndexL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Exception (assertionFailed)
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Core.Reporting (MonadReporting)
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState, SomeBatchOp (..))
 import           Pos.DB.Block.BListener (MonadBListener)
@@ -187,7 +188,11 @@ applyBlocksDbUnsafeDo genesisConfig scb blunds pModifier = do
     let blocks = fmap fst blunds
     -- Note: it's important to do 'slogApplyBlocks' first, because it
     -- puts blocks in DB.
-    slogBatch <- slogApplyBlocks (configBlkSecurityParam genesisConfig) scb blunds
+    let nm = makeNetworkMagic (configProtocolMagic genesisConfig)
+    slogBatch <- slogApplyBlocks nm
+                                 (configBlkSecurityParam genesisConfig)
+                                 scb
+                                 blunds
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
     usBatch <- SomeBatchOp <$> usApplyBlocks genesisConfig (map toUpdateBlock blocks) pModifier
     delegateBatch <- SomeBatchOp <$> dlgApplyBlocks (map toDlgBlund blunds)
@@ -214,7 +219,8 @@ rollbackBlocksUnsafe
     -> NewestFirst NE Blund
     -> m ()
 rollbackBlocksUnsafe genesisConfig bsc scb toRollback = do
-    slogRoll <- slogRollbackBlocks (configProtocolConstants genesisConfig)
+    slogRoll <- slogRollbackBlocks (makeNetworkMagic $ configProtocolMagic genesisConfig)
+                                   (configProtocolConstants genesisConfig)
                                    bsc
                                    scb
                                    toRollback

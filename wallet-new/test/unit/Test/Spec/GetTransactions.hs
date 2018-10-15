@@ -100,7 +100,7 @@ prepareFixtures :: NetworkMagic
 prepareFixtures nm initialBalance = do
     fixt <- forM [0x11, 0x22] $ \b -> do
         let (_, esk) = safeDeterministicKeyGen (B.pack $ replicate 32 b) mempty
-        let newRootId = eskToHdRootId esk
+        let newRootId = eskToHdRootId nm esk
         newRoot <- initHdRoot <$> pure newRootId
                             <*> pure (WalletName "A wallet")
                             <*> pure NoSpendingPassword
@@ -135,7 +135,7 @@ prepareFixtures nm initialBalance = do
         forM_ fixt $ \Fix{..} -> do
             liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore
 
-            let accounts         = Kernel.prefilterUtxo fixtureHdRootId fixtureESK fixtureUtxo
+            let accounts         = Kernel.prefilterUtxo nm fixtureHdRootId fixtureESK fixtureUtxo
                 hdAccountId      = Kernel.defaultHdAccountId fixtureHdRootId
                 (Just hdAddress) = Kernel.defaultHdAddress nm fixtureESK emptyPassphrase fixtureHdRootId
 

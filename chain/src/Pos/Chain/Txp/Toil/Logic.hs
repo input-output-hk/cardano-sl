@@ -145,8 +145,7 @@ verifyAndApplyTx ::
     -> ExceptT ToilVerFailure UtxoM TxUndo
 verifyAndApplyTx pm adoptedBVD lockedAssets curEpoch verifyVersions tx@(_, txAux) = do
     whenLeft (checkTxAux txAux) (throwError . ToilInconsistentTxAux)
-    let nm = makeNetworkMagic pm
-        ctx = Utxo.VTxContext verifyVersions nm
+    let ctx = Utxo.VTxContext verifyVersions (makeNetworkMagic pm)
     vtur@VerifyTxUtxoRes {..} <- Utxo.verifyTxUtxo pm ctx lockedAssets txAux
     liftEither $ verifyGState adoptedBVD curEpoch txAux vtur
     lift $ applyTxToUtxo' tx

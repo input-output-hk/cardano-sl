@@ -17,6 +17,7 @@ import           Data.Acid.Advanced (update')
 
 import           Pos.Chain.Txp (Tx (..), TxAux (..), TxOut (..))
 import           Pos.Core (Coin (..))
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (EncryptedSecretKey)
 
 import           Cardano.Wallet.Kernel.DB.AcidState (CancelPending (..),
@@ -120,8 +121,9 @@ newTx ActiveWallet{..} accountId tx partialMeta upd = do
         ourAddrs (wid, esk) =
             map f $ filterOurs wKey txOutAddress txOut
             where
+                nm = makeNetworkMagic $ walletPassive ^. walletProtocolMagic
                 f (txOut',addressId) = (initHdAddress addressId (txOutAddress txOut'), txOutValue txOut')
-                wKey = (wid, keyToWalletDecrCredentials $ KeyForRegular esk)
+                wKey = (wid, keyToWalletDecrCredentials nm $ KeyForRegular esk)
 
         submitTx :: IO ()
         submitTx = modifyMVar_ (walletPassive ^. walletSubmission) $

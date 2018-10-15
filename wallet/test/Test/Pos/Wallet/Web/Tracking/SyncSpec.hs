@@ -23,6 +23,7 @@ import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Txp (TxpConfiguration (..))
 import           Pos.Core (Address, pcBlkSecurityParam)
 import           Pos.Core.Chrono (nonEmptyOldestFirst, toNewestFirst)
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..),
                      emptyPassphrase)
 import           Pos.DB.Block (rollbackBlocks)
@@ -53,9 +54,7 @@ import           Test.Pos.Wallet.Web.Util (importSomeWallets, wpGenBlocks)
 spec :: Spec
 spec = do
     runWithMagic RequiresNoMagic
-    -- Not running with `RequiresMagic` until `NetworkMagic` logic
-    -- has been fully implemented.
-    -- runWithMagic RequiresMagic
+    runWithMagic RequiresMagic
 
 runWithMagic :: RequiresNetworkMagic -> Spec
 runWithMagic rnm = do
@@ -83,22 +82,25 @@ twoApplyTwoRollbacksSpec genesisConfig = walletPropertySpec genesisConfig twoApp
         k                 = pcBlkSecurityParam protocolConstants
     -- During these tests we need to manually switch back to the old synchronous
     -- way of restoring.
-    void $ importSomeWallets (pure emptyPassphrase)
+    void $ importSomeWallets genesisConfig (pure emptyPassphrase)
     secretKeys <- lift getSecretKeysPlain
+    let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
     lift $ forM_ secretKeys $ \sk ->
-        syncWalletWithBlockchain genesisConfig . newSyncRequest . keyToWalletDecrCredentials $ KeyForRegular sk
+        syncWalletWithBlockchain genesisConfig . newSyncRequest . (keyToWalletDecrCredentials nm) $ KeyForRegular sk
 
     -- Testing starts here
     genesisWalletDB <- lift WS.askWalletSnapshot
     applyBlocksCnt1 <- pick $ choose (1, k `div` 2)
     applyBlocksCnt2 <- pick $ choose (1, k `div` 2)
     let txpConfig = TxpConfiguration 200 Set.empty
-    blunds1 <- wpGenBlocks txpConfig
+    blunds1 <- wpGenBlocks genesisConfig
+                           txpConfig
                            (Just $ applyBlocksCnt1)
                            (EnableTxPayload True)
                            (InplaceDB True)
     after1ApplyDB <- lift WS.askWalletSnapshot
-    blunds2 <- wpGenBlocks txpConfig
+    blunds2 <- wpGenBlocks genesisConfig
+                           txpConfig
                            (Just $ applyBlocksCnt2)
                            (EnableTxPayload True)
                            (InplaceDB True)

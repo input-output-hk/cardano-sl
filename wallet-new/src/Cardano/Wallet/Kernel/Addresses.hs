@@ -79,7 +79,8 @@ createAddress :: PassPhrase
               -> PassiveWallet
               -> IO (Either CreateAddressError Address)
 createAddress spendingPassword accId pw = do
-    let keystore = pw ^. walletKeystore
+    let nm       = makeNetworkMagic (pw ^. walletProtocolMagic)
+        keystore = pw ^. walletKeystore
     case accId of
          -- \"Standard\" HD random derivation. The strategy is as follows:
          --
@@ -98,7 +99,8 @@ createAddress spendingPassword accId pw = do
          -- 'EncryptedSecretKey' and the 'PassPhrase', and we do not want
          -- these exposed in the acid-state transaction log.
          (AccountIdHdRnd hdAccId) -> do
-             mbEsk <- Keystore.lookup (WalletIdHdRnd (hdAccId ^. hdAccountIdParent))
+             mbEsk <- Keystore.lookup nm
+                                      (WalletIdHdRnd (hdAccId ^. hdAccountIdParent))
                                       keystore
              case mbEsk of
                   Nothing  -> return (Left $ CreateAddressKeystoreNotFound accId)

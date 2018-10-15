@@ -75,7 +75,7 @@ data AddressFixture = AddressFixture {
 prepareFixtures :: NetworkMagic -> Fixture.GenPassiveWalletFixture Fixture
 prepareFixtures nm = do
     let (_, esk) = safeDeterministicKeyGen (B.pack $ replicate 32 0x42) mempty
-    let newRootId = eskToHdRootId esk
+    let newRootId = eskToHdRootId nm esk
     newRoot <- initHdRoot <$> pure newRootId
                           <*> pure (WalletName "A wallet")
                           <*> pure NoSpendingPassword

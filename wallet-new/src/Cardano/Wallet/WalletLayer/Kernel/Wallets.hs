@@ -63,7 +63,7 @@ createWallet wallet newWalletRequest = liftIO $ do
         CreateWallet newWallet@V1.NewWallet{..} ->
             case newwalOperation of
                 V1.RestoreWallet -> restore nm newWallet now
-                V1.CreateWallet  -> create  nm newWallet now
+                V1.CreateWallet  -> create newWallet now
         ImportWalletFromESK esk mbSpendingPassword ->
             restoreFromESK nm
                            esk
@@ -72,11 +72,10 @@ createWallet wallet newWalletRequest = liftIO $ do
                            "Imported Wallet"
                            HD.AssuranceLevelNormal
   where
-    create :: NetworkMagic -> V1.NewWallet -> Timestamp -> IO (Either CreateWalletError V1.Wallet)
-    create nm newWallet@V1.NewWallet{..} now = runExceptT $ do
+    create :: V1.NewWallet -> Timestamp -> IO (Either CreateWalletError V1.Wallet)
+    create newWallet@V1.NewWallet{..} now = runExceptT $ do
       root <- withExceptT CreateWalletError $ ExceptT $
-                Kernel.createHdWallet nm
-                                      wallet
+                Kernel.createHdWallet wallet
                                       (mnemonic newWallet)
                                       (spendingPassword newwalSpendingPassword)
                                       (fromAssuranceLevel newwalAssuranceLevel)
@@ -106,7 +105,7 @@ createWallet wallet newWalletRequest = liftIO $ do
                    -> HD.AssuranceLevel
                    -> IO (Either CreateWalletError V1.Wallet)
     restoreFromESK nm esk pwd now walletName hdAssuranceLevel = runExceptT $ do
-        let rootId = HD.eskToHdRootId esk
+        let rootId = HD.eskToHdRootId nm esk
             wId    = WalletIdHdRnd rootId
 
         -- Insert the 'EncryptedSecretKey' into the 'Keystore'
@@ -162,15 +161,16 @@ createWallet wallet newWalletRequest = liftIO $ do
 
 -- Synchronously restore the wallet balance, and begin to
 -- asynchronously reconstruct the wallet's history.
-prefilter :: EncryptedSecretKey
+prefilter :: NetworkMagic
+          -> EncryptedSecretKey
           -> Kernel.PassiveWallet
           -> WalletId
           -> Blund
           -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta])
-prefilter esk wallet wId blund =
+prefilter nm esk wallet wId blund =
     blundToResolvedBlock (wallet ^. Kernel.walletNode) blund <&> \case
         Nothing -> (Map.empty, [])
-        Just rb -> prefilterBlock rb [(wId,esk)]
+        Just rb -> prefilterBlock nm rb [(wId,esk)]
 
 -- | Updates the 'SpendingPassword' for this wallet.
 updateWallet :: MonadIO m
@@ -216,8 +216,9 @@ deleteWallet :: MonadIO m
 deleteWallet wallet wId = runExceptT $ do
     rootId <- withExceptT DeleteWalletWalletIdDecodingFailed $ fromRootId wId
     withExceptT DeleteWalletError $ ExceptT $ liftIO $ do
+      let nm = makeNetworkMagic (wallet ^. walletProtocolMagic)
       Kernel.removeRestoration wallet (WalletIdHdRnd rootId)
-      Kernel.deleteHdWallet wallet rootId
+      Kernel.deleteHdWallet nm wallet rootId
 
 -- | Gets a specific wallet.
 getWallet :: MonadIO m

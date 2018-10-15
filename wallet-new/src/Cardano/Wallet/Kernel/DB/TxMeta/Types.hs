@@ -299,6 +299,7 @@ data MetaDBHandle = MetaDBHandle {
                     -> FilterOperation Txp.TxId -- Filters on the TxId of the Tx.
                     -> FilterOperation Core.Timestamp -- Filters on the creation timestamp of the Tx.
                     -> Maybe Sorting -- Sorting of the results.
+                    -> Bool  -- whether we want to count total Entries (ignoring pagination Offset and Limit)
                     -> IO ([TxMeta], Maybe Int) -- the result in the form (results, totalEntries).
                                                 -- totalEntries may be Nothing, because counting can
                                                 -- be an expensive operation.

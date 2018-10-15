@@ -546,11 +546,11 @@ getTxMeta conn txid walletId accountIx = do
 
 getTxMetasById :: Sqlite.Connection -> Txp.TxId -> IO (Maybe Kernel.TxMeta)
 getTxMetasById conn txId = safeHead . fst <$> getTxMetas conn (Offset 0)
-    (Limit 10) Everything Nothing (FilterByIndex txId) NoFilterOp Nothing
+    (Limit 10) Everything Nothing (FilterByIndex txId) NoFilterOp Nothing False
 
 getAllTxMetas :: Sqlite.Connection -> IO [Kernel.TxMeta]
 getAllTxMetas conn =  fst <$> getTxMetas conn (Offset 0)
-    (Limit $ fromIntegral (maxBound :: Int)) Everything Nothing NoFilterOp NoFilterOp Nothing
+    (Limit $ fromIntegral (maxBound :: Int)) Everything Nothing NoFilterOp NoFilterOp Nothing False
 
 getTxMetas :: Sqlite.Connection
            -> Offset
@@ -560,8 +560,9 @@ getTxMetas :: Sqlite.Connection
            -> FilterOperation Txp.TxId
            -> FilterOperation Core.Timestamp
            -> Maybe Sorting
+           -> Bool
            -> IO ([Kernel.TxMeta], Maybe Int)
-getTxMetas conn (Offset offset) (Limit limit) accountFops mbAddress fopTxId fopTimestamp mbSorting = do
+getTxMetas conn (Offset offset) (Limit limit) accountFops mbAddress fopTxId fopTimestamp mbSorting countTotal = do
     res <- Sqlite.runDBAction $ runBeamSqlite conn $ do
 
         -- The following 3 queries are disjointed and both fetches, respectively,
@@ -600,10 +601,12 @@ getTxMetas conn (Offset offset) (Limit limit) accountFops mbAddress fopTxId fopT
         Left e -> throwIO $ Kernel.StorageFailure (toException e)
         Right Nothing -> return ([], Just 0)
         Right (Just (meta, inputs, outputs)) ->  do
-            eiCount <- limitExecutionTimeTo (25 :: Second) (\ _ -> ()) $ ignoreLeft $ Sqlite.runDBAction $ runBeamSqlite conn $
-                case mbAddress of
-                    Nothing   -> SQL.runSelectReturningOne $ SQL.select metaQueryC
-                    Just addr -> SQL.runSelectReturningOne $ SQL.select $ metaQueryWithAddrC addr
+            eiCount <- if countTotal
+                then limitExecutionTimeTo (25 :: Second) (\ _ -> ()) $ ignoreLeft $ Sqlite.runDBAction $ runBeamSqlite conn $
+                        case mbAddress of
+                            Nothing   -> SQL.runSelectReturningOne $ SQL.select metaQueryC
+                            Just addr -> SQL.runSelectReturningOne $ SQL.select $ metaQueryWithAddrC addr
+                else return $ Right Nothing
             let mapWithInputs  = transform $ map (\inp -> (_inputTableTxId inp, inp)) inputs
             let mapWithOutputs = transform $ map (\out -> (_outputTableTxId out, out)) outputs
             let txMeta = toValidKernelTxMeta mapWithInputs mapWithOutputs $ NonEmpty.toList meta

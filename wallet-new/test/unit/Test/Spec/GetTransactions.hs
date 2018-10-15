@@ -219,7 +219,7 @@ spec = do
                     case decodeTextAddress wId of
                         Left _         -> expectationFailure "decodeTextAddress failed"
                         Right rootAddr -> do
-                            let meta = testMeta {_txMetaWalletId = rootAddr, _txMetaAccountIx = accIdx}
+                            let meta = testMeta {_txMetaWalletId = rootAddr, _txMetaAccountIx = accIdx, _txMetaIsOutgoing = True}
                             _ <- liftIO $ WalletLayer.createAddress layer
                                     (V1.NewAddress
                                         Nothing
@@ -227,7 +227,7 @@ spec = do
                                         (V1.WalletId wId)
                                     )
                             putTxMeta (pwallet ^. Kernel.walletMeta) meta
-                            (result, mbCount) <- (getTxMetas hdl) (Offset 0) (Limit 10) Everything Nothing NoFilterOp NoFilterOp Nothing
+                            (result, mbCount) <- (getTxMetas hdl) (Offset 0) (Limit 10) Everything Nothing NoFilterOp NoFilterOp Nothing True
                             map Isomorphic result `shouldMatchList` [Isomorphic meta]
                             let check WalletResponse{..} = do
                                     let PaginationMetadata{..} = metaPagination wrMeta
@@ -294,7 +294,7 @@ spec = do
                                 Right False -> expectationFailure "txid not found in Acid State from Kernel"
                                 Right True -> pure ()
                             _ <- liftIO (WalletLayer.createAddress layer (V1.NewAddress Nothing accIdx (V1.WalletId wId)))
-                            (result, mbCount) <- (getTxMetas hdl) (Offset 0) (Limit 10) Everything Nothing NoFilterOp NoFilterOp Nothing
+                            (result, mbCount) <- (getTxMetas hdl) (Offset 0) (Limit 10) Everything Nothing NoFilterOp NoFilterOp Nothing True
                             map Isomorphic result `shouldMatchList` [Isomorphic meta]
                             let check WalletResponse{..} = do
                                     let PaginationMetadata{..} = metaPagination wrMeta

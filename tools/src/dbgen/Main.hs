@@ -12,7 +12,7 @@ module Main where
 
 import           Universum
 
-import           Control.Concurrent.STM (newTQueueIO)
+import           Control.Concurrent.STM.TBQueue (newTBQueueIO)
 import           Data.Default (def)
 import           Data.Maybe (isJust)
 import           Data.Time.Units (fromMicroseconds)
@@ -143,7 +143,7 @@ walletRunner
 walletRunner genesisConfig txpConfig confOpts dbs publicKeyPath secretKeyPath ws act = do
     wwmc <- WalletWebModeContext <$> pure ws
                                  <*> newTVarIO def
-                                 <*> liftIO newTQueueIO
+                                 <*> liftIO (newTBQueueIO 64)
                                  <*> newRealModeContext genesisConfig txpConfig dbs confOpts publicKeyPath secretKeyPath
     runReaderT act wwmc
 

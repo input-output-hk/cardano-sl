@@ -163,7 +163,7 @@ mkPrefilter :: Kernel.PassiveWallet
             -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta])
 mkPrefilter pw wId esk blund = blundToResolvedBlock (pw ^. walletNode) blund <&> \case
     Nothing -> (M.empty, [])
-    Just rb -> prefilterBlock rb wId esk
+    Just rb -> prefilterBlock rb [(wId,esk)]
 
 -- | Begin a restoration for a wallet that is already known. This is used
 -- to put an existing wallet back into a restoration state when something has

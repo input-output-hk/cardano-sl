@@ -70,7 +70,7 @@ prefilterBlock' pw b = do
     aux :: [(WalletId, EncryptedSecretKey)]
         -> ((BlockContext, Map HdAccountId PrefilteredBlock), [TxMeta])
     aux ws =
-      let (conMap, conMeta) = mconcat $ map (uncurry (prefilterBlock b)) ws
+      let (conMap, conMeta) = prefilterBlock b ws
       in ((b ^. rbContext, conMap), conMeta)
 
 data BackfillFailed

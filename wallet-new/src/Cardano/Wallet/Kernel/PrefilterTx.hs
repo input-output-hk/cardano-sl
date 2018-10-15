@@ -159,10 +159,23 @@ prefilterTx wKey tx = ((prefInps',prefOuts'),metas)
             (nothingToZero acc prefOutCoins)
             (onlyOurInps && onlyOurOuts) acc) allAccounts
 
+-- | Prefilter the transaction with each wallet key respectively and
+--   combine the results.
+--
+-- NOTE: we can rely on a Monoidal fold here to combine the maps
+-- 'Map HdAccountId a' since the accounts will be unique accross wallet keys.
+prefilterTxForWallets :: [WalletKey]
+                      -> ResolvedTx
+                      -> ((Map HdAccountId (Set TxIn)
+                         , Map HdAccountId UtxoSummaryRaw)
+                         , [TxMeta])
+prefilterTxForWallets wKeys tx =
+    mconcat $ map ((flip prefilterTx) tx) wKeys
+
 -- | Prefilter inputs of a transaction
 prefilterInputs :: WalletKey
-          -> [(TxIn, ResolvedInput)]
-          -> (Bool, Map HdAccountId (Set (TxIn,Coin)))
+                -> [(TxIn, ResolvedInput)]
+                -> (Bool, Map HdAccountId (Set (TxIn,Coin)))
 prefilterInputs wKey inps
     = prefilterResolvedTxPairs wKey mergeF inps
     where
@@ -265,26 +278,24 @@ extendWithSummary (onlyOurInps,onlyOurOuts) utxoWithAddrId
  and Transaction metadata.
 -------------------------------------------------------------------------------}
 
--- | Prefilter the transactions of a resolved block for the given wallet.
+-- | Prefilter the transactions of a resolved block for the given wallets.
 --
 --   Returns prefiltered blocks indexed by HdAccountId.
 prefilterBlock :: ResolvedBlock
-               -> WalletId
-               -> EncryptedSecretKey
+               -> [(WalletId, EncryptedSecretKey)]
                -> (Map HdAccountId PrefilteredBlock, [TxMeta])
-prefilterBlock block wid esk =
+prefilterBlock block rawKeys =
       (Map.fromList
     $ map (mkPrefBlock (block ^. rbContext) inpAll outAll)
     $ Set.toList accountIds
     , metas)
   where
-    wdc :: WalletDecrCredentials
-    wdc  = keyToWalletDecrCredentials $ KeyForRegular esk
-    wKey = (wid, wdc)
+    wKeys :: [WalletKey]
+    wKeys = map toWalletKey rawKeys
 
     inps :: [Map HdAccountId (Set TxIn)]
     outs :: [Map HdAccountId UtxoSummaryRaw]
-    (ios, conMetas) = unzip $ map (prefilterTx wKey) (block ^. rbTxs)
+    (ios, conMetas) = unzip $ map (prefilterTxForWallets wKeys) (block ^. rbTxs)
     (inps, outs) = unzip ios
     metas = concat conMetas
 
@@ -294,6 +305,9 @@ prefilterBlock block wid esk =
     outAll = Map.unionsWith Map.union outs
 
     accountIds = Map.keysSet inpAll `Set.union` Map.keysSet outAll
+
+    toWalletKey :: (WalletId, EncryptedSecretKey) -> WalletKey
+    toWalletKey (wid, esk) = (wid, keyToWalletDecrCredentials $ KeyForRegular esk)
 
 mkPrefBlock :: BlockContext
             -> Map HdAccountId (Set TxIn)

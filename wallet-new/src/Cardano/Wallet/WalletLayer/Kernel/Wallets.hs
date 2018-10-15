@@ -161,7 +161,7 @@ prefilter :: EncryptedSecretKey
 prefilter esk wallet wId blund =
     blundToResolvedBlock (wallet ^. Kernel.walletNode) blund <&> \case
         Nothing -> (Map.empty, [])
-        Just rb -> prefilterBlock rb wId esk
+        Just rb -> prefilterBlock rb [(wId,esk)]
 
 -- | Updates the 'SpendingPassword' for this wallet.
 updateWallet :: MonadIO m

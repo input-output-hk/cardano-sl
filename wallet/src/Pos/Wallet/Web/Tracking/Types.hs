@@ -15,7 +15,7 @@ module Pos.Wallet.Web.Tracking.Types
 
 import           Universum
 
-import           Control.Concurrent.STM (TQueue, writeTQueue)
+import           Control.Concurrent.STM (TBQueue, writeTBQueue)
 
 import           Pos.DB.Class (MonadDBRead (..))
 import           Pos.Infra.Slotting (MonadSlotsData)
@@ -48,7 +48,7 @@ type WalletTrackingEnv ctx m =
 
 -- | A 'SyncQueue' is a bounded queue where we store incoming 'SyncRequest', and
 -- we process them asynchronously.
-type SyncQueue = TQueue SyncRequest
+type SyncQueue = TBQueue SyncRequest
 
 -- | A 'SyncRequest' model the interaction the user (or more generally the system)
 -- has with the wallet.
@@ -105,5 +105,5 @@ submitSyncRequest :: ( MonadIO m
                      , HasLens SyncQueue ctx SyncQueue
                      ) => SyncRequest -> m ()
 submitSyncRequest syncRequest = do
-    requestQueue <- view (lensOf @(TQueue SyncRequest))
-    atomically $ writeTQueue requestQueue syncRequest
+    requestQueue <- view (lensOf @(TBQueue SyncRequest))
+    atomically $ writeTBQueue requestQueue syncRequest

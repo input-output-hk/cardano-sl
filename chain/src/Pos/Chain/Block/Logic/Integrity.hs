@@ -31,7 +31,7 @@ import           Pos.Chain.Block.Block (Block, gbExtra, genBlockLeaders,
 import           Pos.Chain.Block.Genesis (gebAttributes, gehAttributes)
 import           Pos.Chain.Block.HasPrevBlock (prevBlockL)
 import           Pos.Chain.Block.Header (BlockHeader (..), HasHeaderHash (..),
-                     HeaderHash, blockHeaderProtocolMagic, gbhExtra,
+                     HeaderHash, blockHeaderProtocolMagicId, gbhExtra,
                      mainHeaderLeaderKey, verifyBlockHeader)
 import           Pos.Chain.Block.IsHeader (headerSlotL)
 import           Pos.Chain.Block.Main (mebAttributes, mehAttributes)
@@ -43,7 +43,8 @@ import           Pos.Core (ChainDifficulty, EpochOrSlot, HasDifficulty (..),
 import           Pos.Core.Attributes (areAttributesKnown)
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst)
 import           Pos.Core.Slotting (EpochIndex)
-import           Pos.Crypto (ProtocolMagic (..))
+import           Pos.Crypto (ProtocolMagic (..), ProtocolMagicId (..),
+                     getProtocolMagic)
 
 ----------------------------------------------------------------------------
 -- Header
@@ -100,7 +101,7 @@ verifyHeader pm VerifyHeaderParams {..} h =
   where
     checks =
         mconcat
-            [ checkProtocolMagic
+            [ checkProtocolMagicId
             , maybe mempty relatedToPrevHeader vhpPrevHeader
             , maybe mempty relatedToCurrentSlot vhpCurrentSlot
             , maybe mempty relatedToLeaders vhpLeaders
@@ -135,11 +136,11 @@ verifyHeader pm VerifyHeaderParams {..} h =
               ("two adjacent blocks are from different epochs ("%build%" != "%build%")")
               oldEpoch newEpoch
         )
-    checkProtocolMagic =
-        [ ( pm == blockHeaderProtocolMagic h
+    checkProtocolMagicId =
+        [ ( getProtocolMagicId pm == blockHeaderProtocolMagicId h
           , sformat
                 ("protocol magic number mismatch: got "%int%" but expected "%int)
-                (getProtocolMagic (blockHeaderProtocolMagic h))
+                (unProtocolMagicId (blockHeaderProtocolMagicId h))
                 (getProtocolMagic pm)
           )
         ]

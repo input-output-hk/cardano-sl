@@ -445,20 +445,20 @@ instance SC.SafeCopy (InDb Core.BlockHeader) where
 -- class for the actual fields, so they are actually totally different types.
 instance SC.SafeCopy (InDb Core.MainBlockHeader) where
     getCopy = SC.contain $ do
-        InDb protocolMagic <- SC.safeGet
+        InDb protocolMagicId <- SC.safeGet
         InDb prevBlock <- SC.safeGet
         InDb bodyProof <- SC.safeGet
         InDb consensus <- SC.safeGet
         InDb extra <- SC.safeGet
         pure . InDb $
             Core.mkGenericBlockHeaderUnsafe
-                protocolMagic
+                (Core.ProtocolMagic protocolMagicId Core.RequiresNoMagic)
                 prevBlock
                 bodyProof
                 consensus
                 extra
     putCopy (InDb header) = SC.contain $ do
-        safePutDb $ header ^. Core.gbhProtocolMagic
+        safePutDb $ header ^. Core.gbhProtocolMagicId
         safePutDb $ header ^. Core.gbhPrevBlock
         safePutDb $ header ^. Core.gbhBodyProof
         safePutDb $ header ^. Core.gbhConsensus
@@ -750,14 +750,14 @@ instance SC.SafeCopy (InDb Core.GenesisBlockHeader) where
         InDb extra <- SC.safeGet
         pure . InDb $
             Core.mkGenericBlockHeaderUnsafe
-                protocolMagic
+                (Core.ProtocolMagic protocolMagic Core.RequiresNoMagic)
                 prevBlock
                 bodyProof
                 consensus
                 extra
 
     putCopy (InDb header) = SC.contain $ do
-        safePutDb $ header ^. Core.gbhProtocolMagic
+        safePutDb $ header ^. Core.gbhProtocolMagicId
         safePutDb $ header ^. Core.gbhPrevBlock
         safePutDb $ header ^. Core.gbhBodyProof
         safePutDb $ header ^. Core.gbhConsensus
@@ -765,10 +765,35 @@ instance SC.SafeCopy (InDb Core.GenesisBlockHeader) where
 
 instance SC.SafeCopy (InDb Core.ProtocolMagic) where
     getCopy = SC.contain $ do
-        InDb . Core.ProtocolMagic <$> SC.safeGet
+        i <- SC.safeGet
+        rnm <- SC.safeGet
+        pure $ Core.ProtocolMagic
+            <$> i
+            <*> rnm
 
-    putCopy (InDb (Core.ProtocolMagic i)) = SC.contain $ do
+    putCopy (InDb (Core.ProtocolMagic i rnm)) = SC.contain $ do
+        safePutDb i
+        safePutDb rnm
+
+instance SC.SafeCopy (InDb Core.ProtocolMagicId) where
+    getCopy = SC.contain $ do
+        InDb . Core.ProtocolMagicId <$> SC.safeGet
+
+    putCopy (InDb (Core.ProtocolMagicId i)) = SC.contain $ do
         SC.safePut i
+
+instance SC.SafeCopy (InDb Core.RequiresNetworkMagic) where
+    getCopy = SC.contain $
+        SC.safeGet >>= \case
+            0 -> pure (InDb Core.RequiresNoMagic)
+            1 -> pure (InDb Core.RequiresMagic)
+            (n :: Word8) -> fail
+                $  "Expected one of 0,1 for RequiresNetworkMagic tag,\
+                  \ got: "
+                <> show n
+    putCopy (InDb rnm) = SC.contain $ case rnm of
+        Core.RequiresNoMagic -> SC.safePut (0 :: Word8)
+        Core.RequiresMagic   -> SC.safePut (1 :: Word8)
 
 instance SC.SafeCopy (InDb Core.GenesisProof) where
     getCopy = SC.contain $ do

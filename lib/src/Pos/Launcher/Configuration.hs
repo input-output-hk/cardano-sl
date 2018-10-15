@@ -28,7 +28,7 @@ module Pos.Launcher.Configuration
 import           Universum
 
 import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON,
-                     genericToJSON, withObject, (.:), (.:?))
+                     genericToJSON, withObject, (.!=), (.:), (.:?))
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default (Default (..))
 import qualified Data.HashMap.Strict as HM
@@ -50,6 +50,7 @@ import           Pos.Chain.Genesis as Genesis (Config (..), GenesisData (..),
 import           Pos.Core (Address, decodeTextAddress)
 import           Pos.Core.Conc (currentTime)
 import           Pos.Core.Slotting (Timestamp (..))
+import           Pos.Crypto (RequiresNetworkMagic (..))
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Config (parseYamlConfig)
 import           Pos.Util.Wlog (WithLogger, logInfo)
@@ -63,16 +64,17 @@ import           Pos.Configuration
 
 -- | Product of all configurations required to run a node.
 data Configuration = Configuration
-    { ccGenesis :: !StaticConfig
-    , ccNtp     :: !NtpConfiguration
-    , ccUpdate  :: !UpdateConfiguration
-    , ccSsc     :: !SscConfiguration
-    , ccDlg     :: !DlgConfiguration
-    , ccTxp     :: !TxpConfiguration
-    , ccBlock   :: !BlockConfiguration
-    , ccNode    :: !NodeConfiguration
-    , ccWallet  :: !WalletConfiguration
-    } deriving (Show, Generic)
+    { ccGenesis     :: !StaticConfig
+    , ccNtp         :: !NtpConfiguration
+    , ccUpdate      :: !UpdateConfiguration
+    , ccSsc         :: !SscConfiguration
+    , ccDlg         :: !DlgConfiguration
+    , ccTxp         :: !TxpConfiguration
+    , ccBlock       :: !BlockConfiguration
+    , ccNode        :: !NodeConfiguration
+    , ccWallet      :: !WalletConfiguration
+    , ccReqNetMagic :: !RequiresNetworkMagic
+    } deriving (Eq, Generic , Show)
 
 instance FromJSON Configuration where
     parseJSON = withObject "Configuration" $ \o -> do
@@ -90,6 +92,21 @@ instance FromJSON Configuration where
         ccBlock  <- o .: "block"
         ccNode   <- o .: "node"
         ccWallet <- o .: "wallet"
+        ccReqNetMagic <- if
+            -- If the "requiresNetworkMagic" key is specified, use the
+            -- mapped value.
+            | HM.member "requiresNetworkMagic" o -> o .: "requiresNetworkMagic"
+
+            -- (for backward-compat with the old CoreConfiguration format)
+            -- else if the "core" key is specified and the
+            -- "requiresNetworkMagic" key is specified within its mapped
+            -- object, use that value. Otherwise, default to RequiresMagic
+            | HM.member "core" o -> do
+                coreO <- o .: "core"
+                coreO .:? "requiresNetworkMagic" .!= RequiresMagic
+
+            -- else default to RequiresMagic
+            | otherwise -> pure RequiresMagic
         pure $ Configuration {..}
 
 instance ToJSON Configuration where
@@ -97,7 +114,7 @@ instance ToJSON Configuration where
 
 data WalletConfiguration = WalletConfiguration
     { ccThrottle :: !(Maybe ThrottleSettings)
-    } deriving (Show, Generic)
+    } deriving (Eq, Generic, Show)
 
 defaultWalletConfiguration :: WalletConfiguration
 defaultWalletConfiguration = WalletConfiguration
@@ -114,7 +131,7 @@ data ThrottleSettings = ThrottleSettings
     { tsRate   :: !Word64
     , tsPeriod :: !Word64
     , tsBurst  :: !Word64
-    } deriving (Show, Generic)
+    } deriving (Eq, Generic, Show)
 
 defaultThrottleSettings :: ThrottleSettings
 defaultThrottleSettings = ThrottleSettings
@@ -191,6 +208,7 @@ withConfigurations mAssetLockPath dumpGenesisPath dumpConfig cfo act = do
         configDir
         (cfoSystemStart cfo)
         (cfoSeed cfo)
+        (ccReqNetMagic cfg)
         (ccGenesis cfg)
     withUpdateConfiguration (ccUpdate cfg) $
         withSscConfiguration (ccSsc cfg) $
@@ -206,6 +224,7 @@ withConfigurations mAssetLockPath dumpGenesisPath dumpConfig cfo act = do
                 (ccNtp cfg)
                 (ccWallet cfg)
                 txpConfig
+                (ccReqNetMagic cfg)
             act genesisConfig (ccWallet cfg) txpConfig (ccNtp cfg)
 
 addAssetLock :: Set Address -> TxpConfiguration -> TxpConfiguration
@@ -233,10 +252,11 @@ printInfoOnStart ::
     -> NtpConfiguration
     -> WalletConfiguration
     -> TxpConfiguration
+    -> RequiresNetworkMagic
     -> m ()
-printInfoOnStart dumpGenesisPath dumpConfig genesisData genesisConfig ntpConfig walletConfig txpConfig = do
+printInfoOnStart dumpGenesisPath dumpConfig genesisData genesisConfig ntpConfig walletConfig txpConfig rnm = do
     whenJust dumpGenesisPath $ dumpGenesisData genesisData True
-    when dumpConfig $ dumpConfiguration genesisConfig ntpConfig walletConfig txpConfig
+    when dumpConfig $ dumpConfiguration genesisConfig ntpConfig walletConfig txpConfig rnm
     printFlags
     t <- currentTime
     mapM_ logInfo $
@@ -266,8 +286,9 @@ dumpConfiguration
     -> NtpConfiguration
     -> WalletConfiguration
     -> TxpConfiguration
+    -> RequiresNetworkMagic
     -> m ()
-dumpConfiguration genesisConfig ntpConfig walletConfig txpConfig = do
+dumpConfiguration genesisConfig ntpConfig walletConfig txpConfig rnm = do
     let conf =
             Configuration
             { ccGenesis = genesisConfig
@@ -279,6 +300,7 @@ dumpConfiguration genesisConfig ntpConfig walletConfig txpConfig = do
             , ccBlock = blockConfiguration
             , ccNode = nodeConfiguration
             , ccWallet = walletConfig
+            , ccReqNetMagic = rnm
             }
     putText . decodeUtf8 . Yaml.encode $ conf
     exitSuccess

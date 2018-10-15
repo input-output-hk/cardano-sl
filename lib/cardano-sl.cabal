@@ -283,6 +283,7 @@ test-suite cardano-test
                        Test.Pos.Diffusion.BlockSpec
                        Test.Pos.Genesis.CanonicalSpec
                        Test.Pos.Launcher.ConfigurationSpec
+                       Test.Pos.Launcher.Json
                        Test.Pos.MerkleSpec
                        Test.Pos.Infra.Slotting.TypesSpec
                        Test.Pos.Types.Identity.SafeCopySpec
@@ -322,6 +323,7 @@ test-suite cardano-test
                      , filelock
                      , formatting
                      , generic-arbitrary
+                     , hedgehog
                      , hspec
                      , lens
                      , network-transport

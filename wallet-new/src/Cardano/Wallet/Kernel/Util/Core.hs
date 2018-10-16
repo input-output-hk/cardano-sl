@@ -19,6 +19,7 @@ module Cardano.Wallet.Kernel.Util.Core (
   , utxoRestrictToInputs
   , utxoRemoveInputs
   , utxoUnions
+  , toAddress
     -- * Transactions
   , paymentAmount
   , toCoin

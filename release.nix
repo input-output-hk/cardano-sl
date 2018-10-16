@@ -92,7 +92,13 @@ let
       dockerImage = wrapDockerImage cluster;
     };
   };
-in mapped // {
+  makeCardanoTestRuns = system:
+  let
+    pred = name: value: fixedLib.isCardanoSL name && value ? testrun;
+    cardanoPkgs = import ./. { inherit system; };
+    f = name: value: builtins.trace name value.testrun;
+  in pkgs.lib.mapAttrs f (lib.filterAttrs pred cardanoPkgs);
+in pkgs.lib.fix (jobsets: mapped // {
   inherit tests;
   inherit (pkgs) cabal2nix;
   nixpkgs = let
@@ -100,4 +106,21 @@ in mapped // {
       ln -sv ${fixedNixpkgs} $out
     '';
   in if 0 <= builtins.compareVersions builtins.nixVersion "1.12" then wrapped else fixedNixpkgs;
-} // (builtins.listToAttrs (map makeRelease [ "mainnet" "staging" ]))
+  new-all-cardano.x86_64-linux = makeCardanoTestRuns "x86_64-linux";
+  required = pkgs.lib.hydraJob (pkgs.releaseTools.aggregate {
+    name = "cardano-required-checks";
+    constituents =
+      let
+        all = x: map (system: builtins.trace x.${system}.name x.${system}) supportedSystems;
+      in
+    [
+      (all jobsets.all-cardano-sl)
+      (all jobsets.daedalus-bridge)
+      jobsets.mainnet.connectScripts.wallet.x86_64-linux
+      jobsets.tests.hlint
+      jobsets.tests.shellcheck
+      jobsets.tests.stylishHaskell
+      jobsets.tests.swaggerSchemaValidation
+    ];
+  });
+} // (builtins.listToAttrs (map makeRelease [ "mainnet" "staging" ])))

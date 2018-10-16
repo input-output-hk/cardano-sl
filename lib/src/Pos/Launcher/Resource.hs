@@ -53,6 +53,7 @@ import           Pos.DB.Update (mkUpdateContext)
 import qualified Pos.DB.Update as GState
 import qualified Pos.GState as GS
 import           Pos.Infra.DHT.Real (KademliaParams (..))
+import           Pos.Infra.InjectFail (FInjects)
 import           Pos.Infra.Network.Types (NetworkConfig (..))
 import           Pos.Infra.Shutdown.Types (ShutdownContext (..))
 import           Pos.Infra.Slotting (SimpleSlottingStateVar,
@@ -91,6 +92,7 @@ data NodeResources ext = NodeResources
     -- ^ Config for optional JSON logging.
     , nrEkgStore      :: !Metrics.Store
     , nrConsolidate   :: !(Async ())
+    , nrFInjects      :: !FInjects
     }
 
 ----------------------------------------------------------------------------
@@ -183,6 +185,7 @@ allocateNodeResources genesisConfig np@NodeParams {..} sscnp txpSettings initDB 
             , nrDlgState = dlgVar
             , nrJsonLogConfig = jsonLogConfig
             , nrConsolidate = consAsync
+            , nrFInjects = npFInjects
             , ..
             }
 
@@ -336,7 +339,7 @@ allocateNodeContext genesisConfig ancd txpSettings ekgStore = do
             NodeContext
             { ncConnectedPeers = ConnectedPeers peersVar
             , ncLrcContext = LrcContext {..}
-            , ncShutdownContext = ShutdownContext ncShutdownFlag
+            , ncShutdownContext = ShutdownContext ncShutdownFlag npFInjects
             , ncNodeParams = np
             , ncTxpGlobalSettings = txpSettings
             , ncNetworkConfig = networkConfig

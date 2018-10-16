@@ -23,6 +23,7 @@ import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), NodeArgs (..))
 import           Pos.Client.CLI.Options (CommonArgs (..))
 import           Pos.Client.CLI.Secrets (prepareUserSecret)
 import           Pos.Crypto (VssKeyPair)
+import           Pos.Infra.InjectFail (mkFInjects)
 import           Pos.Infra.Network.CLI (intNetworkConfigOpts)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
                      NodeParams (..))
@@ -76,6 +77,7 @@ getNodeParams defaultLoggerName cArgs@CommonNodeArgs{..} NodeArgs{..} mGenerated
     npBehaviorConfig <- case behaviorConfigPath of
         Nothing -> pure def
         Just fp -> eitherToThrow =<< liftIO (Yaml.decodeFileEither fp)
+    npFInjects <- mkFInjects cnaFInjects
 
     let nodeParams = NodeParams
             { npDbPathM = dbPath

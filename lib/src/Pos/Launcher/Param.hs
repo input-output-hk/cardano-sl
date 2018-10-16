@@ -21,6 +21,7 @@ import           Pos.Core (HasPrimaryKey (..))
 import           Pos.Core.NetworkAddress (NetworkAddress)
 import           Pos.Crypto (SecretKey)
 import           Pos.Infra.DHT.Real.Param (KademliaParams)
+import           Pos.Infra.InjectFail (FInjects)
 import           Pos.Infra.Network.Types (NetworkConfig)
 import           Pos.Infra.Statistics (EkgParams, StatsdParams)
 import           Pos.Util.Lens (postfixLFields)
@@ -65,6 +66,7 @@ data NodeParams = NodeParams
     , npNetworkConfig  :: !(NetworkConfig KademliaParams)
     , npBehaviorConfig :: !BehaviorConfig       -- ^ Behavior (e.g. SSC settings)
     , npAssetLockPath  :: !(Maybe FilePath)     -- ^ Path to assetLocked source address file.
+    , npFInjects       :: !FInjects             -- ^ Failure injection handle
     } -- deriving (Show)
 
 makeLensesWith postfixLFields ''NodeParams

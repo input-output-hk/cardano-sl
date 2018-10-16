@@ -74,6 +74,7 @@ import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
 import           Pos.DB.Update (UpdateContext)
 import           Pos.Generator.Block (BlockGenMode)
 import qualified Pos.GState as GS
+import           Pos.Infra.InjectFail (mkFInjects)
 import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
 import           Pos.Infra.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Infra.Reporting (MonadReporting (..))
@@ -211,7 +212,7 @@ initWalletTestContext WalletTestParams {..} callback =
                 wtcStateLockMetrics <- liftIO $ recordTxpMetrics
                     store
                     (txpMemPool $ btcTxpMem wtcBlockTestContext)
-                wtcShutdownContext <- ShutdownContext <$> STM.newTVarIO False
+                wtcShutdownContext <- ShutdownContext <$> STM.newTVarIO False <*> mkFInjects mempty
                 wtcConnectedPeers <- ConnectedPeers <$> STM.newTVarIO mempty
                 wtcLastKnownHeader <- STM.newTVarIO Nothing
                 wtcSentTxs <- STM.newTVarIO mempty

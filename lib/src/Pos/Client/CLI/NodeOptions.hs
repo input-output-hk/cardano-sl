@@ -30,6 +30,7 @@ import           Pos.Client.CLI.Options (CommonArgs (..), commonArgsParser,
                      optionalJSONPath)
 import           Pos.Core.NetworkAddress (NetworkAddress)
 import           Pos.Infra.HealthCheck.Route53 (route53HealthCheckOption)
+import           Pos.Infra.InjectFail (FInject, parseFInjectsSpec)
 import           Pos.Infra.Network.CLI (NetworkConfigOpts, networkConfigOption)
 import           Pos.Infra.Statistics (EkgParams, StatsdParams, ekgParamsOption,
                      statsdParamsOption)
@@ -56,6 +57,7 @@ data CommonNodeArgs = CommonNodeArgs
     , statsdParams           :: !(Maybe StatsdParams)
     , cnaDumpGenesisDataPath :: !(Maybe FilePath)
     , cnaDumpConfiguration   :: !Bool
+    , cnaFInjects            :: !(Set FInject)
     } deriving Show
 
 commonNodeArgsParser :: Parser CommonNodeArgs
@@ -123,6 +125,8 @@ commonNodeArgsParser = do
     cnaDumpConfiguration <- switch $
         long "dump-configuration" <>
         help "Dump configuration and exit."
+
+    cnaFInjects <- parseFInjectsSpec
 
     pure CommonNodeArgs{..}
 

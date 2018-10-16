@@ -106,6 +106,7 @@ newRealModeContext genesisConfig txpConfig dbs confOpts publicKeyPath secretKeyP
          , statsdParams           = Nothing
          , cnaDumpGenesisDataPath = Nothing
          , cnaDumpConfiguration   = False
+         , cnaFInjects            = mempty
          }
     loggerName <- askLoggerName
     (nodeParams, Just gtParams) <- getNodeParams

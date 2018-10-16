@@ -7,6 +7,7 @@
 , gitrev ? "123456" # Dummy git revision to prevent mass rebuilds
 , ghcRuntimeArgs ? "-N2 -qg -A1m -I0 -T"
 , additionalNodeArgs ? ""
+, forceDontCheck ? false
 , useStackBinaries ? false
 }:
 
@@ -18,14 +19,14 @@ let
   integrationTestDeps = with pkgs; [ gnugrep ];
   allDeps = integrationTestDeps ++ (optionals (!useStackBinaries ) cardanoDeps);
   demo-cluster = iohkPkgs.demoCluster.override {
-    inherit gitrev numCoreNodes stateDir useStackBinaries;
+    inherit gitrev forceDontCheck numCoreNodes stateDir useStackBinaries;
     keepAlive = false;
     assetLockAddresses = [ "DdzFFzCqrhswMWoTiWaqXUDZJuYUx63qB6Aq8rbVbhFbc8NWqhpZkC7Lhn5eVA7kWf4JwKvJ9PqQF78AewMCzDZLabkzm99rFzpNDKp5" ];
   };
   executables =  {
     integration-test = "${iohkPkgs.cardano-sl-wallet-new}/bin/wal-integr-test";
   };
-  iohkPkgs = import ./../../../.. { inherit config system pkgs gitrev; };
+  iohkPkgs = import ./../../../.. { inherit config system pkgs gitrev forceDontCheck; };
 in pkgs.writeScript "integration-tests" ''
   #!${pkgs.stdenv.shell}
   export PATH=${pkgs.lib.makeBinPath allDeps}:$PATH

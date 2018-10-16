@@ -56,7 +56,7 @@ let
   other = rec {
     inherit pkgs;
     testlist = innerClosePropagation [] [ cardanoPkgs.cardano-sl ];
-    walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev useStackBinaries; };
+    walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev forceDontCheck useStackBinaries; };
     validateJson = pkgs.callPackage ./tools/src/validate-json {};
     demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster {
       inherit gitrev useStackBinaries;

@@ -11,6 +11,8 @@ module Cardano.Wallet.Kernel.Mode
 import           Control.Lens (makeLensesWith)
 import           Universum
 
+import qualified Data.List.NonEmpty as NE
+
 import           Pos.Chain.Block
 import           Pos.Chain.Genesis as Genesis (Config)
 import           Pos.Chain.Txp
@@ -32,6 +34,8 @@ import           Pos.Infra.Util.JsonLog.Events
 import           Pos.Launcher
 import           Pos.Util
 import           Pos.WorkMode
+
+import           Evil
 
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer, applyBlocks,
                      rollbackBlocks)
@@ -65,7 +69,11 @@ walletApplyBlocks :: PassiveWalletLayer IO
                   -> OldestFirst NE Blund
                   -> WalletMode SomeBatchOp
 walletApplyBlocks w bs = do
-    lift $ applyBlocks w bs
+
+    forM_ bs $ \b -> do
+        lift $ applyBlocks w (OldestFirst $ NE.fromList [b])
+        liftIO evilTick
+    --
 
     -- We don't make any changes to the DB so we always return 'mempty'.
     return mempty

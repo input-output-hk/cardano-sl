@@ -12,6 +12,7 @@ import           Pos.Launcher (NodeParams (..), NodeResources (..),
                      WalletConfiguration (..), bpLoggingParams, lpDefaultName,
                      runNode)
 import           Pos.Launcher.Configuration (HasConfigurations)
+import           Pos.Launcher.Resource (releaseNodeResources)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.Wlog (LoggerName, Severity (..), logInfo, logMessage,
                      usingLoggerName)
@@ -34,6 +35,8 @@ import qualified Cardano.Wallet.Server.Plugins as Plugins
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer.Kernel as WalletLayer.Kernel
 
+import qualified Control.Concurrent.Async as Async
+import           Evil
 
 -- | The "workhorse" responsible for starting a Cardano edge node plus a number of extra plugins.
 actionWithWallet
@@ -48,33 +51,34 @@ actionWithWallet
     -> NodeResources EmptyMempoolExt
     -> IO ()
 actionWithWallet params genesisConfig walletConfig txpConfig ntpConfig nodeParams _ nodeRes = do
-    logInfo "[Attention] Software is built with the wallet backend"
-    ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
-    userSecret <- readTVarIO (ncUserSecret $ nrContext nodeRes)
-    let nodeState = NodeStateAdaptor.newNodeStateAdaptor
-            genesisConfig
-            nodeRes
-            ntpStatus
-    liftIO $ Keystore.bracketLegacyKeystore userSecret $ \keystore -> do
-        let dbOptions = getWalletDbOptions params
-        let dbPath = walletDbPath dbOptions
-        let rebuildDB = walletRebuildDb dbOptions
-        let dbMode = Kernel.UseFilePath (Kernel.DatabaseOptions {
-              Kernel.dbPathAcidState = dbPath <> "-acid"
-            , Kernel.dbPathMetadata  = dbPath <> "-sqlite.sqlite3"
-            , Kernel.dbRebuild       = rebuildDB
-            })
-        WalletLayer.Kernel.bracketPassiveWallet dbMode logMessage' keystore nodeState $ \walletLayer passiveWallet -> do
-            migrateLegacyDataLayer passiveWallet dbPath (getFullMigrationFlag params)
-
-            let plugs = plugins (walletLayer, passiveWallet) dbMode
-
-            Kernel.Mode.runWalletMode
+    Async.race_ (takeMVar evilMustTerminate >> releaseNodeResources nodeRes) $ do
+        logInfo "[Attention] Software is built with the wallet backend"
+        ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
+        userSecret <- readTVarIO (ncUserSecret $ nrContext nodeRes)
+        let nodeState = NodeStateAdaptor.newNodeStateAdaptor
                 genesisConfig
-                txpConfig
                 nodeRes
-                walletLayer
-                (runNode genesisConfig txpConfig nodeRes plugs)
+                ntpStatus
+        liftIO $ Keystore.bracketLegacyKeystore userSecret $ \keystore -> do
+            let dbOptions = getWalletDbOptions params
+            let dbPath = walletDbPath dbOptions
+            let rebuildDB = walletRebuildDb dbOptions
+            let dbMode = Kernel.UseFilePath (Kernel.DatabaseOptions {
+                  Kernel.dbPathAcidState = dbPath <> "-acid"
+                , Kernel.dbPathMetadata  = dbPath <> "-sqlite.sqlite3"
+                , Kernel.dbRebuild       = rebuildDB
+                })
+            WalletLayer.Kernel.bracketPassiveWallet dbMode logMessage' keystore nodeState $ \walletLayer passiveWallet -> do
+                migrateLegacyDataLayer passiveWallet dbPath (getFullMigrationFlag params)
+
+                let plugs = plugins (walletLayer, passiveWallet) dbMode
+
+                Kernel.Mode.runWalletMode
+                    genesisConfig
+                    txpConfig
+                    nodeRes
+                    walletLayer
+                    (runNode genesisConfig txpConfig nodeRes plugs)
   where
     pm = configProtocolMagic genesisConfig
 

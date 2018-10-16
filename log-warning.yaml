@@ -1,0 +1,4 @@
+# A very low-frill logging.
+
+loggerTree:
+  severity: Warning+

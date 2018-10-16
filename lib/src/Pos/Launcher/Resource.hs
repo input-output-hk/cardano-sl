@@ -12,6 +12,7 @@ module Pos.Launcher.Resource
          NodeResources (..)
 
        , bracketNodeResources
+       , releaseNodeResources
 
          -- * Smaller resources
        , loggerBracket

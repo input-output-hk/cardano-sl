@@ -163,6 +163,8 @@ library
                        Cardano.Wallet.WalletLayer.Kernel.Wallets
                        Cardano.Wallet.WalletLayer.Kernel
 
+                       Evil
+
   other-modules:       Paths_cardano_sl_wallet_new
   ghc-options:         -Wall
 
@@ -290,6 +292,7 @@ executable cardano-node
                        -Wall
                        -O2
   build-depends:       base
+                     , async
                      , cardano-sl
                      , cardano-sl-chain
                      , cardano-sl-core

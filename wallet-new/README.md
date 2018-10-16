@@ -198,6 +198,15 @@ $ nix-build -A walletIntegrationTests -o launch_integration_tests
 $ ./launch_integration_tests --match 'Address' --seed 47286650
 ```
 
+## Fault injection
+
+The wallet executable supports injection of faults, which is currently controlled
+via command-line arguments:
+
+- `--ignoreapi`                 Return a hard-coded string for all registered Wallet API endpoints
+- `--ignoreshutdown`            Ignore the shutdown request
+- `--applyupdatenoexit`         Don't exit after handling the 'update/apply' endpoint
+- `--applyupdatewrongexitcode`  Exit with a wrong exit code as response to the 'update/apply' request
 
 ## Developing
 

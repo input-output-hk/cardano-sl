@@ -127,6 +127,10 @@ commonNodeArgsParser = do
         help "Dump configuration and exit."
 
     cnaFInjects <- parseFInjectsSpec
+        -- The fault injection CLI switches are generated in infra/src/Pos/Infra/InjectFail.hs
+        -- from the FInject ADT, by:  1) lowercasing and 2) dropping the 4-letter prefix.
+        -- I.e.
+        --     FInjIgnoreShutdown → --ignoreshutdown
 
     pure CommonNodeArgs{..}
 

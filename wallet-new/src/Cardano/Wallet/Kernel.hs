@@ -27,11 +27,9 @@ module Cardano.Wallet.Kernel (
 import           Universum hiding (State)
 
 import           Control.Concurrent.Async (async, cancel)
-import           Data.Acid (AcidState, createArchive, createCheckpoint,
-                     openLocalStateFrom)
+import           Data.Acid (AcidState)
 import           Data.Acid.Memory (openMemoryState)
 import qualified Data.Map.Strict as Map
-import           System.Directory (doesDirectoryExist, removeDirectoryRecursive)
 
 import           Pos.Chain.Txp (TxAux (..))
 import           Pos.Crypto (ProtocolMagic)
@@ -115,7 +113,12 @@ data WalletHandles = Handles {
 -- TODO(kde): this will be run with asynchronous exceptions masked.
 -- and we should rethink if migrateMetaDB should happen here.
 handlesOpen :: DatabaseMode -> IO WalletHandles
-handlesOpen mode =
+handlesOpen _ = do
+   db <- openMemoryState defDB
+   metadb <- openMetaDB ":memory:"
+   migrateMetaDB metadb
+   return $ Handles db metadb
+{-handlesOpen mode =
     case mode of
         UseInMemory -> do
             db <- openMemoryState defDB
@@ -133,9 +136,11 @@ handlesOpen mode =
             metadb <- openMetaDB sqliteDb
             migrateMetaDB metadb
             return $ Handles db metadb
+    -}
 
 handlesClose :: DatabaseMode -> WalletHandles -> IO ()
-handlesClose dbMode (Handles acidDb meta) = do
+handlesClose _ _ = pure ()
+{-handlesClose dbMode (Handles acidDb meta) = do
     closeMetaDB meta
     case dbMode of
         UseInMemory ->
@@ -143,6 +148,7 @@ handlesClose dbMode (Handles acidDb meta) = do
         UseFilePath DatabaseOptions{} -> do
             createCheckpoint acidDb
             createArchive acidDb
+-}
 
 {-------------------------------------------------------------------------------
   Wallet Initialisers

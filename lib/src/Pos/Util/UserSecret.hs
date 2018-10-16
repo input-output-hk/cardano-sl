@@ -24,8 +24,10 @@ module Pos.Util.UserSecret
        , usVss
        , usWallet
        , usPrimKey
+       , usPath
        , HasUserSecret(..)
        , getUSPath
+       , defaultUserSecret
        , simpleUserSecret
        , initializeUserSecret
        , readUserSecret
@@ -175,6 +177,10 @@ canWrite u = u ^. usLock . to isJust
 
 getUSPath :: UserSecret -> FilePath
 getUSPath = flip (^.) usPath
+
+-- | Default User secret (avoid caller to import Data.Default)
+defaultUserSecret :: UserSecret
+defaultUserSecret = def
 
 -- | Create a simple UserSecret from secret key and file path
 simpleUserSecret :: SecretKey -> FilePath -> UserSecret

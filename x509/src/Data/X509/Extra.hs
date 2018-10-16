@@ -16,6 +16,8 @@ module Data.X509.Extra
     -- * Utils
     , failIfReasons
     , parseSAN
+    , isServerCertificate
+    , isClientCertificate
 
     -- * RSA Encode PEM
     , EncodePEM (..)
@@ -110,6 +112,22 @@ validateCertificate caCert checks sid cert =
     hooks = defaultHooks { hookValidateName = validateCertificateName }
     store = makeCertificateStore [caCert]
     chain = CertificateChain [cert]
+
+
+-- | Tell whether a Certificate is a Server certificate
+isServerCertificate
+    :: SignedCertificate
+    -> Bool
+isServerCertificate =
+    elem KeyUsagePurpose_ServerAuth . getKeyUsagePurposes
+
+
+-- | Tell whether a Certificate is  Client certificate
+isClientCertificate
+    :: SignedCertificate
+    -> Bool
+isClientCertificate =
+    elem KeyUsagePurpose_ClientAuth . getKeyUsagePurposes
 
 
 -- | Generate a new RSA-256 key pair
@@ -254,6 +272,18 @@ encodeDERRSAPrivateKey =
         , IntVal qInv
         , End Sequence
         ]
+
+
+-- | Extract KeyUsagePurpose from a certificate, if any
+getKeyUsagePurposes
+    :: SignedCertificate
+    -> [ExtKeyUsagePurpose]
+getKeyUsagePurposes =
+    fromMaybe []
+    . fmap (\(ExtExtendedKeyUsage ps) -> ps)
+    . extensionGet
+    . certExtensions
+    . getCertificate
 
 
 -- | Hook to validate a certificate name. It only validates DNS and IPs names

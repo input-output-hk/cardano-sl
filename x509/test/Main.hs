@@ -6,7 +6,6 @@ module Main where
 import           Universum
 
 import qualified Data.List.NonEmpty as NonEmpty
-import           Data.Maybe (fromJust)
 import           Test.QuickCheck (Property, Result (..), conjoin,
                      counterexample, ioProperty, label, property,
                      quickCheckResult, withMaxSuccess, (===))
@@ -15,11 +14,9 @@ import           Cardano.X509.Configuration (CertDescription (..),
                      DirConfiguration (..), ErrInvalidExpiryDays,
                      ServerConfiguration (..), TLSConfiguration (..),
                      fromConfiguration, genCertificate)
-import           Data.X509.Extra (ExtExtendedKeyUsage (..),
-                     ExtKeyUsagePurpose (..), FailedReason, ServiceID,
-                     extensionGet, genRSA256KeyPair, getCertificate,
+import           Data.X509.Extra (FailedReason, ServiceID, SignedCertificate,
+                     genRSA256KeyPair, isServerCertificate,
                      validateCertificate)
-import qualified Data.X509.Extra as X509
 import           Test.Cardano.X509.Configuration.Arbitrary (AltNames (..),
                      Invalid (..), Unknown (..))
 
@@ -81,7 +78,7 @@ propInvalidExpiryDays (Invalid tlsConf, dirConf) =
 
 -- | Check that there's no validation FailedReason
 propAllCertsValid
-    :: ExtExtendedKeyUsage
+    :: SignedCertificate
     -> [FailedReason]
     -> Property
 propAllCertsValid _ =
@@ -91,21 +88,18 @@ propAllCertsValid _ =
 -- | Check that there are actually some validation FailedReason for non-client
 -- certificate
 propServerCertsInvalid
-    :: ExtExtendedKeyUsage
+    :: SignedCertificate
     -> [FailedReason]
     -> Property
-propServerCertsInvalid (ExtExtendedKeyUsage purposes) =
-    if KeyUsagePurpose_ClientAuth `elem` purposes then
-        const (property True)
-    else
-        (=/= [])
+propServerCertsInvalid cert | isServerCertificate cert = (=/=) []
+propServerCertsInvalid _    = const (property True)
 
 
 -- | Actually generate certificates and validate them with the given property
 -- Throws on error.
 generateAndValidate
     :: (TLSConfiguration -> ServiceID)
-    -> (ExtExtendedKeyUsage -> [FailedReason] -> Property)
+    -> (SignedCertificate -> [FailedReason] -> Property)
     -> (TLSConfiguration, DirConfiguration)
     -> IO (Property)
 generateAndValidate getServiceID predicate (tlsConf, dirConf) = do
@@ -116,11 +110,7 @@ generateAndValidate getServiceID predicate (tlsConf, dirConf) = do
 
     fmap conjoin $ forM certDescs $ \desc -> do
         (_, cert) <- genCertificate desc
-
-        let extendedKeyUsage =
-                fromJust $ extensionGet $ X509.certExtensions $ getCertificate cert
-
-        predicate extendedKeyUsage <$>
+        predicate cert <$>
             validateCertificate caCert (certChecks desc) (getServiceID tlsConf) cert
 
 

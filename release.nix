@@ -43,6 +43,7 @@ let
     cardano-sl = supportedSystems;
     cardano-sl-auxx = supportedSystems;
     cardano-sl-chain = supportedSystems;
+    cardano-sl-cluster = [ "x86_64-linux" ];
     cardano-sl-core = supportedSystems;
     cardano-sl-crypto = supportedSystems;
     cardano-sl-db = supportedSystems;

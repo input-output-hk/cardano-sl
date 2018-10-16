@@ -4,9 +4,12 @@
 -- | Applications of runners to scenarios.
 
 module Pos.Launcher.Launcher
-       ( -- * Node launcher.
-       launchNode
-       ) where
+    ( -- * Node launcher.
+      launchNode
+
+     -- * Actions
+    , actionWithCoreNode
+    ) where
 
 import           Universum
 
@@ -25,10 +28,13 @@ import           Pos.Launcher.Configuration (AssetLockPath (..),
 import           Pos.Launcher.Param (LoggingParams (..), NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources, bracketNodeResources,
                      loggerBracket)
+import           Pos.Launcher.Runner (runRealMode)
+import           Pos.Launcher.Scenario (runNode)
+import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.Util (logException)
+import           Pos.Util.Wlog (logInfo)
+import           Pos.Worker.Update (updateTriggerWorker)
 import           Pos.WorkMode (EmptyMempoolExt)
-
--- import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 
 
 -- | Run a given action from a bunch of static arguments
@@ -79,3 +85,26 @@ launchNode nArgs cArgs lArgs action = do
             (txpGlobalSettings genesisConfig txpConfig)
             (initNodeDBs genesisConfig)
             action'
+
+
+-- | Run basic core node
+actionWithCoreNode
+    :: (HasConfigurations, HasCompileInfo)
+    => Genesis.Config
+    -> WalletConfiguration
+    -> TxpConfiguration
+    -> NtpConfiguration
+    -> NodeParams
+    -> SscParams
+    -> NodeResources EmptyMempoolExt
+    -> IO ()
+actionWithCoreNode genesisConfig _ txpConfig _ _ _ nodeRes = do
+    let plugins = [ ("update trigger", updateTriggerWorker) ]
+
+    logInfo "Wallet is disabled, because software is built w/o it"
+
+    runRealMode
+        genesisConfig
+        txpConfig
+        nodeRes
+        (runNode genesisConfig txpConfig nodeRes plugins)

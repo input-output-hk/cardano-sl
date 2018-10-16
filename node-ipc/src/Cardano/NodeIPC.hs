@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE StandaloneDeriving  #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wall            #-}
 
@@ -28,12 +29,14 @@ import           System.IO (hFlush, hGetLine, hSetNewlineMode,
 import           System.IO.Error (IOError, isEOFError)
 import           Universum
 
+import           Pos.Infra.InjectFail (FInject, setFInject)
 import           Pos.Infra.Shutdown.Class (HasShutdownContext (..))
 import           Pos.Infra.Shutdown.Logic (triggerShutdown)
-import           Pos.Infra.Shutdown.Types (ShutdownContext)
+import           Pos.Infra.Shutdown.Types (ShutdownContext(..), shdnFInjects)
 import           Pos.Util.Wlog (WithLogger, logError, logInfo, usingLoggerName)
 
-data Packet = Started | QueryPort | ReplyPort Word16 | Ping | Pong | ParseError Text deriving (Show, Eq, Generic)
+data Packet = Started | QueryPort | ReplyPort Word16 | Ping | Pong | ParseError Text | SetFInject FInject Bool
+  deriving (Show, Eq, Generic)
 
 opts :: Options
 opts = defaultOptions { sumEncoding = ObjectWithSingleField }
@@ -111,13 +114,15 @@ ipcListener ::
     => Handle -> Word16 -> m ()
 ipcListener handle port = do
   liftIO $ hSetNewlineMode handle noNewlineTranslation
+  shutCtx <- view shutdownContext
   let
     send :: Packet -> m ()
     send cmd = liftIO $ sendMessage handle $ encode cmd
     action :: Packet -> m ()
-    action QueryPort = send $ ReplyPort port
-    action Ping      = send Pong
-    action foo       = logInfo $ "Unhandled IPC msg: " <> show foo
+    action QueryPort          = send $ ReplyPort port
+    action Ping               = send Pong
+    action (SetFInject fi en) = setFInject (shutCtx ^. shdnFInjects) fi en
+    action foo                = logInfo $ "Unhandled IPC msg: " <> show foo
   let
     loop :: m ()
     loop = do

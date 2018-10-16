@@ -44,9 +44,7 @@ main = do
     case mEvalOptions of
       Nothing -> do
         -- _showContext
-        -- TODO @intricate: Not sure how I should handle this usage of `ProtocolMagic`, tbh.
-        let pm = ProtocolMagic (ProtocolMagicId 1) RequiresNoMagic
-        runTranslateNoErrors pm $ withConfig $ return $ hspec $ tests
+        hspec $ tests
       Just evalOptions ->
         -- NOTE: The coin selection must be invoked with @eval@
         -- Run @wallet-unit-tests eval --help@ for details.

@@ -39,7 +39,7 @@ import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
                      diffusionLayerFull)
 import           Pos.Infra.Diffusion.Types (Diffusion (..), DiffusionLayer (..),
                      hoistDiffusion)
-import           Pos.Infra.InjectFail (FInject(..), testLogFInject)
+import           Pos.Infra.InjectFail (FInject (..), testLogFInject)
 import           Pos.Infra.Network.Types (NetworkConfig (..),
                      topologyRoute53HealthCheckEnabled)
 import           Pos.Infra.Reporting.Ekg (EkgNodeMetrics (..),

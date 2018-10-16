@@ -28,9 +28,9 @@ import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as NodeStateAdaptor
 import           Cardano.Wallet.Server.CLI (NewWalletBackendParams,
                      getFullMigrationFlag, getWalletDbOptions, walletDbPath,
                      walletRebuildDb)
-import           Cardano.Wallet.Server.Middlewares (throttleMiddleware,
-                     unsupportedMimeTypeMiddleware, withDefaultHeader,
-                     faultInjectionHandleIgnoreAPI)
+import           Cardano.Wallet.Server.Middlewares
+                     (faultInjectionHandleIgnoreAPI, throttleMiddleware,
+                     unsupportedMimeTypeMiddleware, withDefaultHeader)
 import qualified Cardano.Wallet.Server.Plugins as Plugins
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer.Kernel as WalletLayer.Kernel

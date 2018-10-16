@@ -1,8 +1,8 @@
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE StandaloneDeriving  #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving  #-}
 {-# OPTIONS_GHC -Wall            #-}
 
 module Cardano.NodeIPC (startNodeJsIPC) where
@@ -32,7 +32,7 @@ import           Universum
 import           Pos.Infra.InjectFail (FInject, setFInject)
 import           Pos.Infra.Shutdown.Class (HasShutdownContext (..))
 import           Pos.Infra.Shutdown.Logic (triggerShutdown)
-import           Pos.Infra.Shutdown.Types (ShutdownContext(..), shdnFInjects)
+import           Pos.Infra.Shutdown.Types (ShutdownContext (..), shdnFInjects)
 import           Pos.Util.Wlog (WithLogger, logError, logInfo, usingLoggerName)
 
 data Packet = Started | QueryPort | ReplyPort Word16 | Ping | Pong | ParseError Text | SetFInject FInject Bool

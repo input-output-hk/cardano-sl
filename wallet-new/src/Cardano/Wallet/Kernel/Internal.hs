@@ -125,7 +125,7 @@ data PassiveWallet = PassiveWallet {
     , _walletRestorationTask :: WalletRestorationTask
 
       -- | Failure injection handle:  a stateful set of active fault injections.
-    , _walletFInjects :: FInjects
+    , _walletFInjects        :: FInjects
     }
 
 {-------------------------------------------------------------------------------

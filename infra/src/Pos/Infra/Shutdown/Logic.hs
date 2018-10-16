@@ -9,10 +9,10 @@ import           Universum
 
 import           Control.Concurrent.STM (check, readTVar, writeTVar)
 
-import           Pos.Infra.InjectFail (FInject(..), testLogFInject)
+import           Pos.Infra.InjectFail (FInject (..), testLogFInject)
 import           Pos.Infra.Shutdown.Class (HasShutdownContext (..))
-import           Pos.Infra.Shutdown.Types (ShutdownContext (..),
-                     shdnIsTriggered, shdnFInjects)
+import           Pos.Infra.Shutdown.Types (ShutdownContext (..), shdnFInjects,
+                     shdnIsTriggered)
 import           Pos.Util.Wlog (WithLogger, logInfo)
 
 triggerShutdown

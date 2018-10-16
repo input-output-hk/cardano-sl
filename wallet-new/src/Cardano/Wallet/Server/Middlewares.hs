@@ -19,7 +19,7 @@ import           Data.ByteString.Lazy (toStrict)
 import qualified Data.List as List
 import           Network.HTTP.Types.Header (Header)
 import           Network.HTTP.Types.Method (methodPatch, methodPost, methodPut)
-import           Network.HTTP.Types.Status (status415, status200)
+import           Network.HTTP.Types.Status (status200, status415)
 import           Network.Wai (Application, Middleware, Response, ifRequest,
                      modifyResponse, requestHeaders, requestMethod,
                      responseBuilder, responseLBS, responseStatus)
@@ -30,7 +30,7 @@ import           Cardano.Wallet.API.Response (UnsupportedMimeTypeError (..))
 import           Cardano.Wallet.API.V1.Headers (applicationJson)
 import qualified Cardano.Wallet.API.V1.Types as V1
 
-import           Pos.Infra.InjectFail (FInject(..), FInjects, testLogFInject)
+import           Pos.Infra.InjectFail (FInject (..), FInjects, testLogFInject)
 import           Pos.Launcher.Configuration (ThrottleSettings (..))
 
 

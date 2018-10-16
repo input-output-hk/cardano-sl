@@ -16,7 +16,7 @@ import           Data.Acid.Advanced (update')
 import           System.IO.Error (isDoesNotExistError)
 
 import           Pos.Chain.Update (ConfirmedProposalState, SoftwareVersion)
-import           Pos.Infra.InjectFail (FInject(..), testLogFInject)
+import           Pos.Infra.InjectFail (FInject (..), testLogFInject)
 
 import           Cardano.Wallet.API.V1.Types (V1 (..), Wallet,
                      WalletImport (..))

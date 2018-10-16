@@ -1,5 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings          #-}
 -- | Fault injection, strategically placed at the root of CSL dependency graph.
 
 module Pos.Infra.InjectFail
@@ -16,16 +16,17 @@ module Pos.Infra.InjectFail
 import           Universum
 
 import           Data.Aeson (FromJSON, ToJSON)
-import           Data.Char                   (toLower)
-import           Data.Maybe                  (catMaybes)
-import qualified Data.Set                  as Set
-import           Data.Set                    (Set)
-import qualified Data.Text                 as T
+import           Data.Char (toLower)
+import           Data.Maybe (catMaybes)
+import           Data.Set (Set)
+import qualified Data.Set as Set
+import qualified Data.Text as T
 import           Options.Applicative
 
-import           Pos.Util.Wlog               (CanLog, HasLoggerName, logError, modifyLoggerName)
+import           Pos.Util.Wlog (CanLog, HasLoggerName, logError,
+                     modifyLoggerName)
 
-
+
 
 data FInject
   = FInjIgnoreAPI                     -- ^ Return a hard-coded string for all registered Wallet API endpoints

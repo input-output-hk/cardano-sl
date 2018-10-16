@@ -17,6 +17,7 @@ import           Universum
 import           Pos.Util.Wlog (Severity)
 
 import           Pos.Chain.Genesis (Config (..))
+import           Pos.Infra.InjectFail (mkFInjects)
 
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.QuickCheck (arbitrary, frequency)
@@ -45,11 +46,13 @@ withLayer :: MonadIO m
           -> PropertyM IO a
 withLayer cc = do
     liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
+        mockFInjects <- mkFInjects mempty
         WalletLayer.Kernel.bracketPassiveWallet
             Kernel.UseInMemory
             devNull
             keystore
             mockNodeStateDef
+            mockFInjects
             $ \layer wallet -> cc layer wallet
 
 type GenPassiveWalletFixture x = PropertyM IO (PassiveWallet -> IO x)
@@ -62,11 +65,13 @@ withPassiveWalletFixture :: MonadIO m
 withPassiveWalletFixture prepareFixtures cc = do
     generateFixtures <- prepareFixtures
     liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
+        mockFInjects <- mkFInjects mempty
         WalletLayer.Kernel.bracketPassiveWallet
             Kernel.UseInMemory
             devNull
             keystore
             mockNodeStateDef
+            mockFInjects
             $ \layer wallet -> do
                 fixtures <- generateFixtures wallet
                 cc keystore layer wallet fixtures
@@ -78,7 +83,8 @@ withActiveWalletFixture :: MonadIO m
 withActiveWalletFixture prepareFixtures cc = do
     generateFixtures <- prepareFixtures
     liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
-        WalletLayer.Kernel.bracketPassiveWallet Kernel.UseInMemory devNull keystore mockNodeStateDef $ \passiveLayer passiveWallet -> do
+        mockFInjects <- mkFInjects mempty
+        WalletLayer.Kernel.bracketPassiveWallet Kernel.UseInMemory devNull keystore mockNodeStateDef mockFInjects $ \passiveLayer passiveWallet -> do
             withDefConfiguration $ \genesisConfig -> do
                 WalletLayer.Kernel.bracketActiveWallet
                         (configProtocolMagic genesisConfig)

@@ -20,6 +20,7 @@ import qualified Cardano.Wallet.Kernel.Read as Kernel
 import           Pos.Chain.Genesis (Config (..))
 import           Pos.Core (Coeff (..), TxSizeLinear (..))
 import           Pos.Core.Chrono
+import           Pos.Infra.InjectFail (mkFInjects)
 
 import           Data.Validated
 import           Test.Infrastructure.Generator
@@ -258,12 +259,14 @@ dependentPending GenesisValues{..} = Inductive {
 -- | Initialize passive wallet in a manner suitable for the unit tests
 bracketPassiveWallet :: (Kernel.PassiveWallet -> IO a) -> IO a
 bracketPassiveWallet postHook = do
-    Keystore.bracketTestKeystore $ \keystore ->
+    Keystore.bracketTestKeystore $ \keystore -> do
+        mockFInjects <- mkFInjects mempty
         Kernel.bracketPassiveWallet
             Kernel.UseInMemory
             logMessage
             keystore
             mockNodeStateDef
+            mockFInjects
             postHook
   where
    -- TODO: Decide what to do with logging.

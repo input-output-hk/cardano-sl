@@ -122,10 +122,10 @@ let
       testnet.explorer = mkDocker { environment = "testnet"; name = "explorer"; connectArgs = { executable = "explorer"; }; };
     };
     acceptanceTests = let
-      acceptanceTest = pkgs.callPackage ./scripts/test/acceptance;
+      acceptanceTest = args: pkgs.callPackage ./scripts/test/acceptance (args // { inherit gitrev forceDontCheck; });
       mkTest = { environment, ...}: {
-        full  = acceptanceTest { inherit environment gitrev; resume = false; };
-        quick = acceptanceTest { inherit environment gitrev; resume = true; };
+        full  = acceptanceTest { inherit environment; resume = false; };
+        quick = acceptanceTest { inherit environment; resume = true; };
       };
     in localLib.forEnvironments mkTest;
 

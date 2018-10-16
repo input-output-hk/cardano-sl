@@ -1,8 +1,9 @@
-{ localLib ? import ./../../../lib.nix
+{ localLib ? import ../../../lib.nix
 , config ? {}
 , system ? builtins.currentSystem
 , pkgs ? import localLib.fetchNixPkgs { inherit system config; }
 , gitrev ? localLib.commitIdFromGitRepo ../../../.git
+, forceDontCheck ? false
 , stateDir ? localLib.maybeEnv "CARDANO_STATE_DIR" "./state-acceptance-test-${environment}"
 , environment ? "mainnet"
 , resume ? true
@@ -11,14 +12,14 @@
 with localLib;
 
 let
-  iohkPkgs = import ./../../.. { inherit config system pkgs gitrev; };
+  iohkPkgs = import ../../.. { inherit config system pkgs gitrev forceDontCheck; };
 
   cardanoDeps = with iohkPkgs; [ cardano-sl-tools cardano-sl-wallet-new ];
   demoClusterDeps = with pkgs; [ jq coreutils curl gnused openssl time ];
   allDeps =  demoClusterDeps ++ cardanoDeps;
 
   wallet = pkgs.callPackage ../../launch/connect-to-cluster {
-    inherit gitrev stateDir environment;
+    inherit gitrev stateDir environment forceDontCheck;
 
     # This will limit heap size to 1GB, along with the usual RTS options.
     ghcRuntimeArgs = "-N2 -qg -A1m -I0 -T -M1G";

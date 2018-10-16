@@ -100,6 +100,8 @@ library
 
                       Pos.Util.Mnemonic
 
+                      Evil
+
                       -- shared test sources needed by tests of wallet-new
                       Test.Pos.Wallet.Web.Mode
 

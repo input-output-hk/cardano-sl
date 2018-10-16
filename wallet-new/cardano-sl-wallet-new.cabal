@@ -163,8 +163,6 @@ library
                        Cardano.Wallet.WalletLayer.Kernel.Wallets
                        Cardano.Wallet.WalletLayer.Kernel
 
-                       Evil
-
   other-modules:       Paths_cardano_sl_wallet_new
   ghc-options:         -Wall
 

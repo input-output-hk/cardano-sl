@@ -27,8 +27,12 @@ import           Crypto.Random (MonadRandom)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Data.List (partition)
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as M
 import           UnliftIO (MonadUnliftIO)
+
+import           Evil
+import           Pos.Core.Chrono (OldestFirst (..))
 
 import           Pos.Chain.Block (HasSlogContext (..), HasSlogGState (..))
 import           Pos.Chain.Ssc (HasSscContext (..))
@@ -268,7 +272,11 @@ instance MonadGState WalletWebMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault
 
 instance MonadBListener WalletWebMode where
-    onApplyBlocks = onApplyBlocksWebWallet
+    onApplyBlocks bs = do
+      forM_ bs $ \b -> do
+          onApplyBlocksWebWallet (OldestFirst $ NE.fromList [b])
+          liftIO evilTick
+      return mempty
     onRollbackBlocks = onRollbackBlocksWebWallet
 
 instance MonadUpdates WalletWebMode where

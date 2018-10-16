@@ -9,7 +9,7 @@ in
   # generating files in frontend will cause a rebuild of explorer
   # backend. You will just have to wait a little wait to get a shell.
 
-  frontend.overrideAttrs (oldAttrs: {
+  frontend.build.overrideAttrs (oldAttrs: {
 
     shellHook = ''
       help() {

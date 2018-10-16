@@ -112,8 +112,11 @@ let
         -exec sed -i 's/@GITREV@/${gitrev}/g' {} ';'
     '') drvOutOutputs);
 
+  build = pkgs.callPackage frontend {
+    inherit (yarn2nix) mkYarnPackage;
+  };
+
 in
 
-  withGitRev (pkgs.callPackage frontend {
-    inherit (yarn2nix) mkYarnPackage;
-  })
+  withGitRev build // { inherit build; }
+

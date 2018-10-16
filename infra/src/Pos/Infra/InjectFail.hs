@@ -15,6 +15,7 @@ module Pos.Infra.InjectFail
 
 import           Universum
 
+import           Data.Aeson (FromJSON, ToJSON)
 import           Data.Char                   (toLower)
 import           Data.Maybe                  (catMaybes)
 import qualified Data.Set                  as Set
@@ -31,7 +32,9 @@ data FInject
   | FInjIgnoreShutdown                -- ^ Ignore the shutdown request
   | FInjApplyUpdateNoExit             -- ^ Don't exit after handling the 'update/apply' endpoint
   | FInjApplyUpdateWrongExitCode      -- ^ Exit with a wrong exit code as response to the 'update/apply' request
-  deriving (Bounded, Enum, Eq, Ord, Show)
+  deriving (Bounded, Enum, Eq, Generic, Ord, Show)
+instance FromJSON FInject
+instance ToJSON   FInject
 
 desc :: FInject -> String
 desc = \case

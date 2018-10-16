@@ -13,7 +13,7 @@ import Explorer.I18n.Lenses (footer, fooCardanoOpenSource, fooCardanoHub
   , fooDaedalusPlatform, fooWhyCardano, fooCardanoRoadmap, fooCardanoReddit, fooCardanoCommunity
   , fooIOHK, fooIOHKBlog, fooIOHKYoutube, fooTwitter, fooProject, fooFoundation
   , fooLearnMore, fooProtocol) as I18nL
-import Explorer.Lenses.State (lang)
+import Explorer.Lenses.State (lang, testnet)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
 import Explorer.Util.Config (commitHash, version)
@@ -27,8 +27,10 @@ import Text.Smolder.Markup (text) as S
 
 footerView :: State -> P.HTML Action
 footerView state =
-    let lang' = state ^. lang in
-    S.div ! S.className "explorer-footer" $ do
+    let lang' = state ^. lang
+        footerHiddenClazz = if (state ^. testnet) then " hide" else ""
+    in
+    S.div ! S.className ("explorer-footer" <> footerHiddenClazz) $ do
         S.div ! S.className "explorer-footer__top" $ do
             S.div ! S.className "explorer-footer__container" $ do
                 S.div ! S.className "explorer-footer__top--content" $ do

@@ -11,6 +11,7 @@ import           UTxO.Context
 import           UTxO.DSL
 
 import           Pos.Core (TxSizeLinear)
+import           Pos.Crypto (RequiresNetworkMagic)
 import           Test.Infrastructure.Generator (estimateCardanoFee)
 
 {-------------------------------------------------------------------------------
@@ -35,12 +36,13 @@ data GenesisValues h = GenesisValues {
     , hashBoot :: h (Transaction h Addr)
 
       -- | Fee policy
-    , txFee :: Int -> [Value] -> Value
+    , txFee    :: Int -> [Value] -> Value
     }
 
 -- | Compute genesis values from the bootstrap transaction
-genesisValues :: (Hash h Addr) => TxSizeLinear -> Transaction h Addr -> GenesisValues h
-genesisValues txSizeLinear boot@Transaction{..} = GenesisValues{..}
+genesisValues :: (Hash h Addr) => TxSizeLinear
+              -> RequiresNetworkMagic -> Transaction h Addr -> GenesisValues h
+genesisValues txSizeLinear rnm boot@Transaction{..} = GenesisValues{..}
   where
     initR0 = unsafeHead [val | Output a val <- trOuts, a == r0]
 
@@ -52,7 +54,7 @@ genesisValues txSizeLinear boot@Transaction{..} = GenesisValues{..}
 
     hashBoot = hash boot
 
-    txFee = estimateCardanoFee  txSizeLinear
+    txFee = estimateCardanoFee txSizeLinear rnm
 
 {-------------------------------------------------------------------------------
   Auxiliary

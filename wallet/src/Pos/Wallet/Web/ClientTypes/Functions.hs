@@ -20,6 +20,7 @@ import           Formatting (build, sformat)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Core (Address, ChainDifficulty, decodeTextAddress, makePubKeyAddressBoot,
                            sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Core.Txp (Tx (..), TxOut (..), txOutAddress, txOutValue)
 import           Pos.Core.Update (BlockVersionData (..), BlockVersionModifier (..),
                                   UpdateProposal (..))
@@ -47,8 +48,8 @@ cIdToAddress (CId (CHash h)) = decodeTextAddress h
 -- TODO: pass extra information to this function and choose
 -- distribution based on this information. Currently it's always
 -- bootstrap era distribution.
-encToCId :: EncryptedSecretKey -> CId w
-encToCId = encodeCType . makePubKeyAddressBoot . encToPublic
+encToCId :: NetworkMagic -> EncryptedSecretKey -> CId w
+encToCId nm = encodeCType . makePubKeyAddressBoot nm . encToPublic
 
 mergeTxOuts :: [TxOut] -> [TxOut]
 mergeTxOuts = map stick . NE.groupWith txOutAddress

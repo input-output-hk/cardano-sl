@@ -21,6 +21,8 @@ module Test.Pos.Core.Arbitrary
        , genVssCertificate
        , genSlotId
        , genLocalSlotIndex
+       , genGenesisData
+       , genGenesisProtocolConstants
        ) where
 
 import           Universum
@@ -56,6 +58,7 @@ import           Pos.Core.Configuration (HasGenesisBlockVersionData, HasProtocol
 import           Pos.Core.Constants (sharedSeedLength)
 import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
 import qualified Pos.Core.Genesis as G
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..), VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Crypto (ProtocolMagic, createPsk, toPublic)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
@@ -63,7 +66,6 @@ import           Pos.Merkle (MerkleTree, mkMerkleTree)
 import           Pos.Util.Util (leftToPanic)
 
 import           Test.Pos.Crypto.Arbitrary ()
-import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.Orphans ()
 import           Test.Pos.Util.QuickCheck.Arbitrary (nonrepeating)
 
@@ -252,6 +254,9 @@ instance Arbitrary AddrStakeDistribution where
                     portion <-
                         CoinPortion <$> choose (1, max 1 (limit - 1))
                     genPortions (n - 1) (portion : res)
+
+instance Arbitrary NetworkMagic where
+    arbitrary = oneof [pure NMNothing, NMJust <$> arbitrary]
 
 instance Arbitrary AddrAttributes where
     arbitrary = genericArbitrary
@@ -521,7 +526,8 @@ instance Arbitrary G.FakeAvvmOptions where
         return G.FakeAvvmOptions {..}
 
 instance Arbitrary G.GenesisDelegation where
-    arbitrary =
+    arbitrary = do
+        pm <- arbitrary
         leftToPanic "arbitrary@GenesisDelegation" . G.mkGenesisDelegation <$> do
             secretKeys <- sized (nonrepeating . min 10) -- we generate at most tens keys,
                                                         -- because 'nonrepeating' fails when
@@ -530,9 +536,9 @@ instance Arbitrary G.GenesisDelegation where
             return $
                 case secretKeys of
                     []                 -> []
-                    (delegate:issuers) -> mkCert (toPublic delegate) <$> issuers
+                    (delegate:issuers) -> mkCert pm (toPublic delegate) <$> issuers
       where
-        mkCert delegatePk issuer = createPsk dummyProtocolMagic issuer delegatePk (HeavyDlgIndex 0)
+        mkCert pm delegatePk issuer = createPsk pm issuer delegatePk (HeavyDlgIndex 0)
 
 instance Arbitrary G.GenesisWStakeholders where
     arbitrary = G.GenesisWStakeholders <$> arbitrary
@@ -554,13 +560,22 @@ instance Arbitrary ProtocolConstants where
         ProtocolConstants <$> choose (1, 20000) <*> pure vssMin <*> pure vssMax
 
 instance Arbitrary G.GenesisProtocolConstants where
-    arbitrary = flip G.genesisProtocolConstantsFromProtocolConstants dummyProtocolMagic <$> arbitrary
+    arbitrary = genGenesisProtocolConstants arbitrary
+
+genGenesisProtocolConstants
+    :: Gen ProtocolMagic
+    -> Gen G.GenesisProtocolConstants
+genGenesisProtocolConstants genPM =
+    flip G.genesisProtocolConstantsFromProtocolConstants <$> genPM <*> arbitrary
 
 instance (HasProtocolConstants) => Arbitrary G.GenesisData where
-    arbitrary = G.GenesisData
+    arbitrary = genGenesisData arbitrary
+
+genGenesisData :: Gen G.GenesisProtocolConstants -> Gen G.GenesisData
+genGenesisData genGPC = G.GenesisData
         <$> arbitrary <*> arbitrary <*> arbitraryStartTime
         <*> arbitraryVssCerts <*> arbitrary <*> arbitraryBVD
-        <*> arbitrary <*> arbitrary <*> arbitrary
+        <*> genGPC <*> arbitrary <*> arbitrary
       where
         -- System start time should be multiple of a second.
         arbitraryStartTime = Timestamp . convertUnit @Second <$> arbitrary
@@ -570,6 +585,7 @@ instance (HasProtocolConstants) => Arbitrary G.GenesisData where
             True
         hasKnownFeePolicy _ = False
         arbitraryVssCerts = G.GenesisVssCertificatesMap . mkVssCertificatesMapLossy <$> arbitrary
+
 ----------------------------------------------------------------------------
 -- Arbitrary miscellaneous types
 ----------------------------------------------------------------------------
@@ -602,7 +618,7 @@ genVssCertificate pm =
                         <*> arbitrary -- EpochIndex
 
 instance Arbitrary VssCertificate where
-    arbitrary = genVssCertificate dummyProtocolMagic
+    arbitrary = genVssCertificate =<< arbitrary
     -- The 'shrink' method wasn't implement to avoid breaking the datatype's invariant.
 
 ----------------------------------------------------------------------------

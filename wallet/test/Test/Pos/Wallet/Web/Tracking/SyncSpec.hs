@@ -12,17 +12,18 @@ import           Universum
 import qualified Data.HashSet as HS
 import           Data.List (intersect, (\\))
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
-import           Test.Hspec (Spec, describe, xdescribe)
+import           Test.Hspec (Spec, describe, runIO, xdescribe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Arbitrary (..), Property, choose, oneof, sublistOf, suchThat,
-                                  vectorOf, (===))
+import           Test.QuickCheck (Arbitrary (..), Property, arbitrary, choose, generate, oneof,
+                                  sublistOf, suchThat, vectorOf, (===))
 import           Test.QuickCheck.Monadic (pick)
 
 import           Pos.Arbitrary.Wallet.Web.ClientTypes ()
 import           Pos.Block.Logic (rollbackBlocks)
 import           Pos.Core (Address, BlockCount (..), blkSecurityParam)
 import           Pos.Core.Chrono (nonEmptyOldestFirst, toNewestFirst)
-import           Pos.Crypto (emptyPassphrase)
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..), emptyPassphrase)
 import           Pos.Launcher (HasConfigurations)
 
 import qualified Pos.Wallet.Web.State as WS
@@ -38,16 +39,35 @@ import           Pos.Wallet.Web.Tracking.Types (newSyncRequest)
 
 
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..))
-import           Test.Pos.Configuration (withDefConfigurations)
-import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
+import           Test.Pos.Configuration (withProvidedMagicConfig)
+import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty)
 import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
 import           Test.Pos.Wallet.Web.Util (importSomeWallets, wpGenBlocks)
 
+
+-- We run the tests this number of times, with different `ProtocolMagics`, to get increased
+-- coverage. We should really do this inside of the `prop`, but it is difficult to do that
+-- without significant rewriting of the testsuite.
+testMultiple :: Int
+testMultiple = 1
+
 spec :: Spec
-spec = withDefConfigurations $ \_ _ -> do
+spec = do
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = replicateM_ testMultiple $
+    modifyMaxSuccess (`div` testMultiple) $ do
+        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
+        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+            specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm = withProvidedMagicConfig pm $ do
     describe "Pos.Wallet.Web.Tracking.BListener" $ modifyMaxSuccess (const 10) $ do
-        describe "Two applications and rollbacks" twoApplyTwoRollbacksSpec
+        describe "Two applications and rollbacks" (twoApplyTwoRollbacksSpec pm)
     xdescribe "Pos.Wallet.Web.Tracking.evalChange (pending, CSL-2473)" $ do
         prop evalChangeDiffAccountsDesc evalChangeDiffAccounts
         prop evalChangeSameAccountsDesc evalChangeSameAccounts
@@ -57,25 +77,26 @@ spec = withDefConfigurations $ \_ _ -> do
     evalChangeSameAccountsDesc =
       "Outgoing transaction from account to the same account."
 
-twoApplyTwoRollbacksSpec :: HasConfigurations => Spec
-twoApplyTwoRollbacksSpec = walletPropertySpec twoApplyTwoRollbacksDesc $ do
+twoApplyTwoRollbacksSpec :: HasConfigurations => ProtocolMagic -> Spec
+twoApplyTwoRollbacksSpec pm = walletPropertySpec twoApplyTwoRollbacksDesc $ do
     let k = fromIntegral blkSecurityParam :: Word64
     -- During these tests we need to manually switch back to the old synchronous
     -- way of restoring.
-    void $ importSomeWallets (pure emptyPassphrase)
+    let nm = makeNetworkMagic pm
+    void $ importSomeWallets nm (pure emptyPassphrase)
     sks <- lift getSecretKeysPlain
-    lift $ forM_ sks $ \s -> syncWalletWithBlockchain (newSyncRequest (eskToWalletDecrCredentials s))
+    lift $ forM_ sks $ \s -> syncWalletWithBlockchain (newSyncRequest (eskToWalletDecrCredentials nm s))
 
     -- Testing starts here
     genesisWalletDB <- lift WS.askWalletSnapshot
     applyBlocksCnt1 <- pick $ choose (1, k `div` 2)
     applyBlocksCnt2 <- pick $ choose (1, k `div` 2)
-    blunds1 <- wpGenBlocks dummyProtocolMagic
+    blunds1 <- wpGenBlocks pm
                            (Just $ BlockCount applyBlocksCnt1)
                            (EnableTxPayload True)
                            (InplaceDB True)
     after1ApplyDB <- lift WS.askWalletSnapshot
-    blunds2 <- wpGenBlocks dummyProtocolMagic
+    blunds2 <- wpGenBlocks pm
                            (Just $ BlockCount applyBlocksCnt2)
                            (EnableTxPayload True)
                            (InplaceDB True)
@@ -83,9 +104,9 @@ twoApplyTwoRollbacksSpec = walletPropertySpec twoApplyTwoRollbacksDesc $ do
     let toNE = fromMaybe (error "sequence of blocks are empty") . nonEmptyOldestFirst
     let to1Rollback = toNewestFirst $ toNE blunds2
     let to2Rollback = toNewestFirst $ toNE blunds1
-    lift $ rollbackBlocks dummyProtocolMagic to1Rollback
+    lift $ rollbackBlocks pm to1Rollback
     after1RollbackDB <- lift WS.askWalletSnapshot
-    lift $ rollbackBlocks dummyProtocolMagic to2Rollback
+    lift $ rollbackBlocks pm to2Rollback
     after2RollbackDB <- lift WS.askWalletSnapshot
     assertProperty (after1RollbackDB == after1ApplyDB)
         "wallet-db after first apply doesn't equal to wallet-db after first rollback"

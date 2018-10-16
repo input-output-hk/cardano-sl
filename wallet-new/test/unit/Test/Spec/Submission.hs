@@ -71,7 +71,7 @@ genSchedule maxRetries pending (Slot lowerBound) = do
 
 genWalletSubmissionState :: MaxRetries -> Gen WalletSubmissionState
 genWalletSubmissionState maxRetries = do
-    pending   <- genPending (Core.ProtocolMagic 0)
+    pending   <- genPending protocolMagic
     slot      <- pure (Slot 0) -- Make the layer always start from 0, to make running the specs predictable.
     scheduler <- genSchedule maxRetries pending slot
     return $ WalletSubmissionState pending scheduler slot
@@ -153,7 +153,7 @@ dependentTransactions = do
     outputForB <- (Core.TxOut <$> arbitrary <*> arbitrary)
     outputForC <- (Core.TxOut <$> arbitrary <*> arbitrary)
     outputForD <- (Core.TxOut <$> arbitrary <*> arbitrary)
-    [a,b,c,d] <- vectorOf 4 (Core.genTxAux (Core.ProtocolMagic 0))
+    [a,b,c,d] <- vectorOf 4 (Core.genTxAux protocolMagic)
     let a' = a { Core.taTx = (Core.taTx a) {
                      Core._txInputs  = inputForA :| mempty
                    , Core._txOutputs = outputForA :| mempty
@@ -193,7 +193,7 @@ genPureWalletSubmission = STB <$> genWalletSubmission 255 constantResubmit
 genPurePair :: Gen (ShowThroughBuild (WalletSubmission Identity, Pending))
 genPurePair = do
     STB layer <- genPureWalletSubmission
-    pending <- genPending (Core.ProtocolMagic 0)
+    pending <- genPending protocolMagic
     let pending' = removePending (toTxIdSet $ layer ^. localPendingSet) pending
     pure $ STB (layer, pending')
 
@@ -401,3 +401,7 @@ spec = do
                        , mustNotIncludeEvents "none of [a,b,c,d] was scheduled" (ScheduleEvents scheduledInSlot2 confirmed2) [a,b,c,d]
                        , includeEvents "[c,d] scheduled slot 3" (ScheduleEvents scheduledInSlot3 confirmed3) [c,d]
                        ]
+
+
+protocolMagic :: Core.ProtocolMagic
+protocolMagic = Core.ProtocolMagic (Core.ProtocolMagicId 0) Core.NMMustBeNothing

@@ -45,6 +45,7 @@ import           Serokell.Util.Base16 (base16F)
 import           Universum
 
 import           Pos.Core
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto
 import           Pos.Lrc.Genesis
 import           Pos.Txp
@@ -265,8 +266,8 @@ data Avvm = Avvm {
 -------------------------------------------------------------------------------}
 
 -- | Compute generated actors
-initActors :: CardanoContext -> Actors
-initActors CardanoContext{..} = Actors{..}
+initActors :: NetworkMagic -> CardanoContext -> Actors
+initActors nm CardanoContext{..} = Actors{..}
   where
     actorsRich  :: Map PublicKey Rich
     actorsPoor  :: Map PublicKey Poor
@@ -289,7 +290,7 @@ initActors CardanoContext{..} = Actors{..}
         richKey = regularKeyPair richSec
 
         richAddr :: Address
-        richAddr = makePubKeyAddressBoot (toPublic richSec)
+        richAddr = makePubKeyAddressBoot nm (toPublic richSec)
 
     mkPoor :: PoorSecret -> (PublicKey, Poor)
     mkPoor (PoorSecret _) = error err
@@ -306,6 +307,7 @@ initActors CardanoContext{..} = Actors{..}
 
         poorAddrs :: [(EncKeyPair, Address)]
         poorAddrs = [ case deriveFirstHDAddress
+                             nm
                              (IsBootstrapEraAddr True)
                              emptyPassphrase
                              poorSec of
@@ -341,7 +343,7 @@ initActors CardanoContext{..} = Actors{..}
         avvmKey = RedeemKeyPair{..}
 
         avvmAddr :: Address
-        avvmAddr = makeRedeemAddress redKpPub
+        avvmAddr = makeRedeemAddress nm redKpPub
 
         Just (redKpPub, redKpSec) = redeemDeterministicKeyGen avvmSeed
 
@@ -475,10 +477,10 @@ data TransCtxt = TransCtxt {
     , tcAddrMap :: AddrMap
     }
 
-initContext :: CardanoContext -> TransCtxt
-initContext tcCardano = TransCtxt{..}
+initContext :: NetworkMagic -> CardanoContext -> TransCtxt
+initContext nm tcCardano = TransCtxt{..}
   where
-    tcActors  = initActors  tcCardano
+    tcActors  = initActors nm tcCardano
     tcAddrMap = initAddrMap tcActors
 
 {-------------------------------------------------------------------------------

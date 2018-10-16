@@ -45,6 +45,7 @@ import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead, addSecret
                                         deleteSecretKeyBy)
 import           Pos.Core (Address, Coin, mkCoin, sumCoins, unsafeIntegerToCoin)
 import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.NetworkMagic (NetworkMagic)
 import           Pos.Crypto (PassPhrase, changeEncPassphrase, checkPassMatches, emptyPassphrase)
 import           Pos.Infra.Slotting (MonadSlots)
 import           Pos.Txp (GenericTxpLocalData, MonadTxpMem, TxAux, TxId, UndoMap,
@@ -124,19 +125,24 @@ getAccountMod ws accMod accId = do
             unknownMemAddrs = filter (`S.notMember` dbAddrsSet) relatedMemAddrs
         dbAddrs <> unknownMemAddrs
 
-getAccount :: MonadWalletLogicRead ctx m => AccountId -> m CAccount
-getAccount accId = do
+getAccount
+    :: MonadWalletLogicRead ctx m
+    => NetworkMagic
+    -> AccountId
+    -> m CAccount
+getAccount nm accId = do
     ws <- askWalletSnapshot
     mps <- withTxpLocalData getMempoolSnapshot
-    accMod <- txMempoolToModifier ws mps . eskToWalletDecrCredentials =<< findKey accId
+    accMod <- txMempoolToModifier ws mps . (eskToWalletDecrCredentials nm) =<< findKey nm accId
     getAccountMod ws accMod accId
 
 getAccountsIncludeUnready
     :: MonadWalletLogicRead ctx m
-    => WalletSnapshot
+    => NetworkMagic
+    -> WalletSnapshot
     -> ([(TxId, TxAux)], UndoMap) -- ^ Transactions and UndoMap from mempool
     -> Bool -> Maybe (CId Wal) -> m [CAccount]
-getAccountsIncludeUnready ws mps includeUnready mCAddr = do
+getAccountsIncludeUnready nm ws mps includeUnready mCAddr = do
     whenJust mCAddr $ \cAddr ->
       void $ maybeThrow (noWallet cAddr) $
         getWalletMetaIncludeUnready ws includeUnready cAddr
@@ -144,7 +150,7 @@ getAccountsIncludeUnready ws mps includeUnready mCAddr = do
     let groupedAccIds = fmap reverse $ HM.fromListWith mappend $
                         accIds <&> \acc -> (aiWId acc, [acc])
     concatForM (HM.toList groupedAccIds) $ \(wid, walAccIds) -> do
-      accMod <- txMempoolToModifier ws mps . eskToWalletDecrCredentials =<< findKey wid
+      accMod <- txMempoolToModifier ws mps . (eskToWalletDecrCredentials nm) =<< findKey nm wid
       mapM (getAccountMod ws accMod) walAccIds
   where
     noWallet cAddr = RequestError $
@@ -154,23 +160,26 @@ getAccountsIncludeUnready ws mps includeUnready mCAddr = do
 
 getAccounts
     :: MonadWalletLogicRead ctx m
-    => Maybe (CId Wal) -> m [CAccount]
-getAccounts mCAddr = do
+    => NetworkMagic
+    -> Maybe (CId Wal)
+    -> m [CAccount]
+getAccounts nm mCAddr = do
     ws <- askWalletSnapshot
     mps <- withTxpLocalData getMempoolSnapshot
-    getAccountsIncludeUnready ws mps False mCAddr
+    getAccountsIncludeUnready nm ws mps False mCAddr
 
 getWalletIncludeUnready :: MonadWalletLogicRead ctx m
-                        => WalletSnapshot
+                        => NetworkMagic
+                        -> WalletSnapshot
                         -> ([(TxId, TxAux)], UndoMap) -- ^ Transactions and UndoMap from mempool
                         -> Bool -> CId Wal -> m CWallet
-getWalletIncludeUnready ws mps includeUnready cAddr = do
+getWalletIncludeUnready nm ws mps includeUnready cAddr = do
     meta       <- maybeThrow noWallet $ getWalletMetaIncludeUnready ws includeUnready cAddr
-    accounts   <- getAccountsIncludeUnready ws mps includeUnready (Just cAddr)
+    accounts   <- getAccountsIncludeUnready nm ws mps includeUnready (Just cAddr)
     let accountsNum = length accounts
-    accMod     <- txMempoolToModifier ws mps . eskToWalletDecrCredentials =<< findKey cAddr
+    accMod     <- txMempoolToModifier ws mps . (eskToWalletDecrCredentials nm) =<< findKey nm cAddr
     balance    <- computeBalance accMod
-    hasPass    <- isNothing . checkPassMatches emptyPassphrase <$> getSKById cAddr
+    hasPass    <- isNothing . checkPassMatches emptyPassphrase <$> getSKById nm cAddr
     passLU     <- maybeThrow noWallet (getWalletPassLU ws cAddr)
     pure $ CWallet cAddr meta accountsNum balance hasPass passLU
   where
@@ -183,26 +192,34 @@ getWalletIncludeUnready ws mps includeUnready cAddr = do
     noWallet = RequestError $
         sformat ("getWalletIncludeUnready: No wallet with address "%build%" found") cAddr
 
-getWallet :: MonadWalletLogicRead ctx m => CId Wal -> m CWallet
-getWallet wid = do
+getWallet
+    :: MonadWalletLogicRead ctx m
+    => NetworkMagic
+    -> CId Wal
+    -> m CWallet
+getWallet nm wid = do
     ws <- askWalletSnapshot
     mps <- withTxpLocalData getMempoolSnapshot
-    getWalletIncludeUnready ws mps False wid
+    getWalletIncludeUnready nm ws mps False wid
 
-getWallets ::  MonadWalletLogicRead ctx m => m [CWallet]
-getWallets = do
+getWallets
+    :: MonadWalletLogicRead ctx m
+    => NetworkMagic
+    -> m [CWallet]
+getWallets nm = do
     ws <- askWalletSnapshot
     mps <- withTxpLocalData getMempoolSnapshot
-    mapM (getWalletIncludeUnready ws mps False) (getWalletAddresses ws)
+    mapM (getWalletIncludeUnready nm ws mps False) (getWalletAddresses ws)
 
 getWalletsWithInfo
     :: MonadWalletLogicRead ctx m
-    => WalletSnapshot
+    => NetworkMagic
+    -> WalletSnapshot
     -> m [(CWallet, WalletInfo)]
-getWalletsWithInfo ws = do
+getWalletsWithInfo nm ws = do
     mps <- withTxpLocalData getMempoolSnapshot
     forM (getWalletInfos ws) $ \(cid, walInfo) -> do
-        wal <- getWalletIncludeUnready ws mps False cid
+        wal <- getWalletIncludeUnready nm ws mps False cid
         pure (wal, walInfo)
 
 ----------------------------------------------------------------------------
@@ -211,19 +228,20 @@ getWalletsWithInfo ws = do
 
 newAddress_
     :: MonadWalletLogic ctx m
-    => WalletSnapshot
+    => NetworkMagic
+    -> WalletSnapshot
     -> AddrGenSeed
     -> PassPhrase
     -> AccountId
     -> m WAddressMeta
-newAddress_ ws addGenSeed passphrase accId = do
+newAddress_ nm ws addGenSeed passphrase accId = do
     -- check whether account exists
     let parentExists = doesAccountExist ws accId
     unless parentExists $ throwM noAccount
 
     -- XXX Transaction
     -- Make 'newAddress' generate a unique name internally
-    cAccAddr <- genUniqueAddress ws addGenSeed passphrase accId
+    cAccAddr <- genUniqueAddress nm ws addGenSeed passphrase accId
     db <- askWalletDB
     addWAddress db cAccAddr
     return cAccAddr
@@ -233,33 +251,39 @@ newAddress_ ws addGenSeed passphrase accId = do
 
 newAddress
     :: MonadWalletLogic ctx m
-    => AddrGenSeed
+    => NetworkMagic
+    -> AddrGenSeed
     -> PassPhrase
     -> AccountId
     -> m CAddress
-newAddress addGenSeed passphrase accId = do
+newAddress nm addGenSeed passphrase accId = do
     mps <- withTxpLocalData getMempoolSnapshot
     ws <- askWalletSnapshot
-    cwAddrMeta <- newAddress_ ws addGenSeed passphrase accId
-    accMod <- txMempoolToModifier ws mps . eskToWalletDecrCredentials =<< findKey accId
+    cwAddrMeta <- newAddress_ nm ws addGenSeed passphrase accId
+    accMod <- txMempoolToModifier ws mps . (eskToWalletDecrCredentials nm) =<< findKey nm accId
     return $ getWAddress ws accMod cwAddrMeta
 
 newAccountIncludeUnready
     :: MonadWalletLogic ctx m
-    => Bool -> AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
-newAccountIncludeUnready includeUnready addGenSeed passphrase CAccountInit {..} = do
+    => NetworkMagic
+    -> Bool
+    -> AddrGenSeed
+    -> PassPhrase
+    -> CAccountInit
+    -> m CAccount
+newAccountIncludeUnready nm includeUnready addGenSeed passphrase CAccountInit {..} = do
     mps <- withTxpLocalData getMempoolSnapshot
     db <- askWalletDB
     ws <- getWalletSnapshot db
     -- TODO nclarke We read the mempool at this point to be consistent with the previous
     -- behaviour, but we may want to consider whether we should read it _after_ the
     -- account is created, since it's not used until we call 'getAccountMod'
-    accMod <- txMempoolToModifier ws mps . eskToWalletDecrCredentials =<< findKey caInitWId
+    accMod <- txMempoolToModifier ws mps . (eskToWalletDecrCredentials nm) =<< findKey nm caInitWId
     -- check wallet exists
-    _ <- getWalletIncludeUnready ws mps includeUnready caInitWId
+    _ <- getWalletIncludeUnready nm ws mps includeUnready caInitWId
 
     cAddr <- genUniqueAccountId ws addGenSeed caInitWId
-    cAddrMeta <- genUniqueAddress ws addGenSeed passphrase cAddr
+    cAddrMeta <- genUniqueAddress nm ws addGenSeed passphrase cAddr
 
     createAccountWithAddress db cAddr caInitMeta cAddrMeta
 
@@ -270,13 +294,21 @@ newAccountIncludeUnready includeUnready addGenSeed passphrase CAccountInit {..} 
 
 newAccount
     :: MonadWalletLogic ctx m
-    => AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
-newAccount = newAccountIncludeUnready False
+    => NetworkMagic
+    -> AddrGenSeed
+    -> PassPhrase
+    -> CAccountInit
+    -> m CAccount
+newAccount nm = newAccountIncludeUnready nm False
 
 createWalletSafe
     :: MonadWalletLogic ctx m
-    => CId Wal -> CWalletMeta -> Bool -> m CWallet
-createWalletSafe cid wsMeta isReady = do
+    => NetworkMagic
+    -> CId Wal
+    -> CWalletMeta
+    -> Bool
+    -> m CWallet
+createWalletSafe nm cid wsMeta isReady = do
     -- Disallow duplicate wallets (including unready wallets)
     db <- askWalletDB
     ws <- getWalletSnapshot db
@@ -288,7 +320,7 @@ createWalletSafe cid wsMeta isReady = do
     createWallet db cid wsMeta isReady curTime
     -- Return the newly created wallet irrespective of whether it's ready yet
     ws' <- getWalletSnapshot db
-    getWalletIncludeUnready ws' mps True cid
+    getWalletIncludeUnready nm ws' mps True cid
 
 markWalletReady
   :: MonadWalletLogic ctx m
@@ -308,11 +340,15 @@ markWalletReady cid isReady = do
 -- Deleters
 ----------------------------------------------------------------------------
 
-deleteWallet :: MonadWalletLogic ctx m => CId Wal -> m NoContent
-deleteWallet wid = do
+deleteWallet
+    :: MonadWalletLogic ctx m
+    => NetworkMagic
+    -> CId Wal
+    -> m NoContent
+deleteWallet nm wid = do
     db <- askWalletDB
     removeWallet db wid
-    deleteSecretKeyBy ((== wid) . encToCId)
+    deleteSecretKeyBy ((== wid) . (encToCId nm))
     return NoContent
 
 deleteAccount :: MonadWalletLogicRead ctx m => AccountId -> m NoContent
@@ -325,28 +361,42 @@ deleteAccount accId = do
 -- Modifiers
 ----------------------------------------------------------------------------
 
-updateWallet :: MonadWalletLogic ctx m => CId Wal -> CWalletMeta -> m CWallet
-updateWallet wId wMeta = do
+updateWallet
+    :: MonadWalletLogic ctx m
+    => NetworkMagic
+    -> CId Wal
+    -> CWalletMeta
+    -> m CWallet
+updateWallet nm wId wMeta = do
     db <- askWalletDB
     setWalletMeta db wId wMeta
-    getWallet wId
+    getWallet nm wId
 
-updateAccount :: MonadWalletLogic ctx m => AccountId -> CAccountMeta -> m CAccount
-updateAccount accId wMeta = do
+updateAccount
+    :: MonadWalletLogic ctx m
+    => NetworkMagic
+    -> AccountId
+    -> CAccountMeta
+    -> m CAccount
+updateAccount nm accId wMeta = do
     db <- askWalletDB
     setAccountMeta db accId wMeta
-    getAccount accId
+    getAccount nm accId
 
 changeWalletPassphrase
     :: MonadWalletLogic ctx m
-    => CId Wal -> PassPhrase -> PassPhrase -> m NoContent
-changeWalletPassphrase wid oldPass newPass = do
-    oldSK <- getSKById wid
+    => NetworkMagic
+    -> CId Wal
+    -> PassPhrase
+    -> PassPhrase
+    -> m NoContent
+changeWalletPassphrase nm wid oldPass newPass = do
+    oldSK <- getSKById nm wid
 
     unless (isJust $ checkPassMatches newPass oldSK) $ do
         db <- askWalletDB
         newSK <- maybeThrow badPass =<< changeEncPassphrase oldPass newPass oldSK
-        deleteSecretKeyBy ((== wid) . encToCId)
+        deleteSecretKeyBy ((== wid) . (encToCId nm))
         addSecretKey newSK
         setWalletPassLU db wid =<< liftIO getPOSIXTime
     return NoContent
@@ -358,7 +408,7 @@ changeWalletPassphrase wid oldPass newPass = do
 ----------------------------------------------------------------------------
 
 -- | Get local transactions and undos from the mempool.
---   We define this function here rather than in 'Pos.Txp.MemState.Class'
+--   We define this function here rather than in 'Pos.DB.Txp.MemState.Class'
 --   because it is less composable than the functions defined there - it
 --   obfuscates the underlying structure. But hlint complains if we refuse
 --   to unroll each of the uses in this module.

@@ -3,17 +3,15 @@
 -- | Canonical encoding of 'GenesisData'.
 
 module Pos.Core.Genesis.Canonical
-       ( SchemaError(..)
+       (
        ) where
 
 import           Universum
 
 import           Control.Lens (_Left)
-import           Control.Monad.Except (MonadError (..))
 import           Data.Fixed (Fixed (..))
 import qualified Data.HashMap.Strict as HM
-import qualified Data.Text.Buildable as Buildable
-import qualified Data.Text.Lazy.Builder as Builder (fromText)
+import           Data.List (lookup)
 import           Data.Time.Units (Millisecond, Second, convertUnit)
 import           Data.Typeable (typeRep)
 import           Formatting (formatToString)
@@ -42,7 +40,8 @@ import           Pos.Crypto (ProxyCert, ProxySecretKey (..), PublicKey, RedeemPu
                              decodeAbstractHash, fromAvvmPk, fullProxyCertHexF, fullPublicKeyF,
                              fullSignatureHexF, hashHexF, parseFullProxyCert, parseFullPublicKey,
                              parseFullSignature, redeemPkB64UrlF)
-import           Pos.Crypto.Configuration (ProtocolMagic (..))
+import           Pos.Crypto.Configuration (ProtocolMagic (..), ProtocolMagicId (..),
+                                           RequiresNetworkMagic (..))
 
 import           Pos.Core.Genesis.AvvmBalances (GenesisAvvmBalances (..))
 import           Pos.Core.Genesis.Data (GenesisData (..))
@@ -52,31 +51,11 @@ import           Pos.Core.Genesis.ProtocolConstants (GenesisProtocolConstants (.
 import           Pos.Core.Genesis.VssCertificatesMap (GenesisVssCertificatesMap (..))
 import           Pos.Core.Genesis.WStakeholders (GenesisWStakeholders (..))
 
+import           Pos.Util.Json.Canonical ()
+
 ----------------------------------------------------------------------------
 -- Primitive standard/3rdparty types
 ----------------------------------------------------------------------------
-
-data SchemaError = SchemaError
-    { seExpected :: !Text
-    , seActual   :: !(Maybe Text)
-    } deriving (Show)
-
-instance Buildable SchemaError where
-    build SchemaError{..} = mconcat
-        [ "expected " <> Builder.fromText seExpected
-        , case seActual of
-            Nothing     -> mempty
-            Just actual -> " but got " <> Builder.fromText actual
-        ]
-
-instance (Monad m, Applicative m, MonadError SchemaError m) => ReportSchemaErrors m where
-    expected expec actual = throwError SchemaError
-        { seExpected = fromString expec
-        , seActual = fmap fromString actual
-        }
-
-instance Monad m => ToJSON m Int32 where
-    toJSON = pure . JSNum . fromIntegral
 
 instance Monad m => ToJSON m Word16 where
     toJSON = pure . JSNum . fromIntegral
@@ -211,10 +190,30 @@ instance Monad m => ToJSON m GenesisProtocolConstants where
         mkObject
             -- 'k' definitely won't exceed the limit
             [ ("k", pure . JSNum . fromIntegral $ gpcK)
-            , ("protocolMagic", toJSON (getProtocolMagic gpcProtocolMagic))
+            , ("protocolMagic", toJSON gpcProtocolMagic)
             , ("vssMaxTTL", toJSON gpcVssMaxTTL)
             , ("vssMinTTL", toJSON gpcVssMinTTL)
             ]
+
+instance Monad m => ToJSON m ProtocolMagic where
+    -- | We only output the `ProtocolMagicId` such that we don't alter the
+    -- resulting hash digest of the genesis block.
+    --
+    -- In the function, `withCoreConfigurations`, we compare the hash of the
+    -- canonical JSON representation of a hardcoded genesis block with an
+    -- accompanying hardcoded hash of that same genesis block at its inception
+    -- (both of which can be found in lib/configuration.yaml). This allows us
+    -- to verify the integrity of the genesis block and ensure that it hasn't
+    -- been altered.
+    --
+    -- As a result of this addition of the `RequiresNetworkMagic` field to
+    -- `ProtocolMagic`, we cannot include the newly introduced
+    -- `RequiresNetworkMagic` field of `ProtocolMagic` as it would produce
+    -- invalid hashes for previously existing genesis blocks.
+    --
+    -- See the implementation of `withCoreConfigurations` for more detail on
+    -- how this works.
+    toJSON (ProtocolMagic (ProtocolMagicId ident) _rnm) = toJSON ident
 
 instance Monad m => ToJSON m GenesisAvvmBalances where
     toJSON = toJSON . getGenesisAvvmBalances
@@ -303,10 +302,6 @@ wrapConstructor =
 ----------------------------------------------------------------------------
 -- External
 ---------------------------------------------------------------------------
-
-instance (ReportSchemaErrors m) => FromJSON m Int32 where
-    fromJSON (JSNum i) = pure . fromIntegral $ i
-    fromJSON val       = expectedButGotValue "Int32" val
 
 instance (ReportSchemaErrors m) => FromJSON m Word16 where
     fromJSON (JSNum i) = pure . fromIntegral $ i
@@ -446,10 +441,25 @@ instance ReportSchemaErrors m => FromJSON m GenesisDelegation where
 instance ReportSchemaErrors m => FromJSON m GenesisProtocolConstants where
     fromJSON obj = do
         gpcK <- fromIntegral @Int54 <$> fromJSField obj "k"
-        gpcProtocolMagic <- ProtocolMagic <$> fromJSField obj "protocolMagic"
+        gpcProtocolMagic <- fromJSField obj "protocolMagic"
         gpcVssMaxTTL <- fromJSField obj "vssMaxTTL"
         gpcVssMinTTL <- fromJSField obj "vssMinTTL"
         return GenesisProtocolConstants {..}
+
+-- Here we default to `NMMustBeJust` (what testnets use) if only
+-- a ProtocolMagic identifier is provided.
+instance ReportSchemaErrors m => FromJSON m ProtocolMagic where
+    fromJSON = \case
+        (JSNum n) -> pure (ProtocolMagic (ProtocolMagicId (fromIntegral n))
+                                         NMMustBeJust)
+        (JSObject dict) -> ProtocolMagic
+            <$> (ProtocolMagicId <$> expectLookup "pm: <int>" "pm" dict)
+            <*> expectLookup "requiresNetworkMagic: <NMMustBeNothing | \
+                             \NMMustBeJust>"
+                             "requiresNetworkMagic"
+                             dict
+        other ->
+            expected "NMMustBeNothing | NMMustBeJust" (Just (show other))
 
 instance ReportSchemaErrors m => FromJSON m GenesisAvvmBalances where
     fromJSON = fmap GenesisAvvmBalances . fromJSON
@@ -492,3 +502,12 @@ instance (ReportSchemaErrors m) => FromJSON m GenesisData where
         gdAvvmDistr <- fromJSField obj "avvmDistr"
         gdFtsSeed <- fromJSField obj "ftsSeed"
         return GenesisData {..}
+
+
+-- Helpers
+
+expectLookup :: (ReportSchemaErrors m, FromJSON m a)
+             => String -> String -> [(String, JSValue)] -> m a
+expectLookup msg key dict = case lookup key dict of
+    Nothing -> expected msg Nothing
+    Just x  -> fromJSON x

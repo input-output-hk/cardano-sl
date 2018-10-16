@@ -31,11 +31,11 @@ import           Pos.Core (BlockVersionData (..), ChainDifficulty, EpochOrSlot, 
                            HasEpochIndex (..), HasEpochOrSlot (..), HasHeaderHash (..),
                            HasProtocolConstants, HeaderHash, SlotId (..), SlotLeaders, addressHash,
                            gbExtra, gbhExtra, getSlotIndex, headerSlotL, prevBlockL)
-import           Pos.Core.Block (Block, BlockHeader (..), blockHeaderProtocolMagic, gebAttributes,
+import           Pos.Core.Block (Block, BlockHeader (..), blockHeaderProtocolMagicId, gebAttributes,
                                  gehAttributes, genBlockLeaders, getBlockHeader,
                                  mainHeaderLeaderKey, mebAttributes, mehAttributes)
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst)
-import           Pos.Crypto (ProtocolMagic (getProtocolMagic))
+import           Pos.Crypto (ProtocolMagic (..), ProtocolMagicId (..), getProtocolMagic)
 import           Pos.Data.Attributes (areAttributesKnown)
 
 ----------------------------------------------------------------------------
@@ -91,7 +91,7 @@ verifyHeader pm VerifyHeaderParams {..} h =
   where
     checks =
         mconcat
-            [ checkProtocolMagic
+            [ checkProtocolMagicId
             , maybe mempty relatedToPrevHeader vhpPrevHeader
             , maybe mempty relatedToCurrentSlot vhpCurrentSlot
             , maybe mempty relatedToLeaders vhpLeaders
@@ -124,11 +124,11 @@ verifyHeader pm VerifyHeaderParams {..} h =
               ("two adjacent blocks are from different epochs ("%build%" != "%build%")")
               oldEpoch newEpoch
         )
-    checkProtocolMagic =
-        [ ( pm == blockHeaderProtocolMagic h
+    checkProtocolMagicId =
+        [ ( getProtocolMagicId pm == blockHeaderProtocolMagicId h
           , sformat
                 ("protocol magic number mismatch: got "%int%" but expected "%int)
-                (getProtocolMagic (blockHeaderProtocolMagic h))
+                (unProtocolMagicId (blockHeaderProtocolMagicId h))
                 (getProtocolMagic pm)
           )
         ]

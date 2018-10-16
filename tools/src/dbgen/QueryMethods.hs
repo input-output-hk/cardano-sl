@@ -5,6 +5,7 @@ module QueryMethods where
 
 import           Universum
 
+import           Pos.Core.NetworkMagic (NetworkMagic)
 import           Pos.Wallet.Web.Methods.Logic (getWallets)
 import           Text.Printf (printf)
 
@@ -12,15 +13,15 @@ import           Lib (timed)
 import           Rendering (say)
 import           Types (Method (..), UberMonad)
 
-queryMethods :: Maybe Method -> UberMonad ()
-queryMethods Nothing = say "No valid method read from the CLI."
-queryMethods (Just method) = case method of
-  GetWallets -> queryGetWallets
+queryMethods :: NetworkMagic -> Maybe Method -> UberMonad ()
+queryMethods _  Nothing = say "No valid method read from the CLI."
+queryMethods nm (Just method) = case method of
+  GetWallets -> queryGetWallets nm
 
 
-queryGetWallets :: UberMonad ()
-queryGetWallets = do
-  wallets <- timed getWallets
+queryGetWallets :: NetworkMagic -> UberMonad ()
+queryGetWallets nm = do
+  wallets <- timed (getWallets nm)
   case wallets of
     [] -> say "No wallets returned."
     _  -> say $ printf "%d wallets found." (length wallets)

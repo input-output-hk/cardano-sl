@@ -86,7 +86,8 @@ let
       # cardano-sl-auxx = addGitRev (justStaticExecutables super.cardano-sl-auxx);
       cardano-sl-auxx = addGitRev (justStaticExecutables super.cardano-sl-auxx);
       cardano-sl-node = addGitRev super.cardano-sl-node;
-      cardano-sl-wallet-new = addGitRev (justStaticExecutables (buildWithBenchmarks super.cardano-sl-wallet-new));
+      cardano-sl-wallet-new = addGitRev super.cardano-sl-wallet-new;
+      cardano-sl-wallet-new-static = addGitRev (justStaticExecutables (buildWithBenchmarks super.cardano-sl-wallet-new));
       cardano-sl-tools = addGitRev (justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;
@@ -95,6 +96,7 @@ let
       cardano-sl-node-static = justStaticExecutables self.cardano-sl-node;
       cardano-sl-explorer-static = addGitRev (justStaticExecutables self.cardano-sl-explorer);
       cardano-report-server-static = justStaticExecutables self.cardano-report-server;
+      cardano-sl-faucet-static = addGitRev (justStaticExecutables self.cardano-sl-faucet);
 
       # Undo configuration-nix.nix change to hardcode security binary on darwin
       # This is needed for macOS binary not to fail during update system (using http-client-tls)
@@ -160,6 +162,12 @@ let
     validateJson = pkgs.callPackage ./tools/src/validate-json {};
     demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev; };
     demoClusterDaedalusDev = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev; disableClientAuth = true; numImportedWallets = 0; };
+    demoClusterLaunchGenesis = pkgs.callPackage ./scripts/launch/demo-cluster {
+      inherit gitrev;
+      launchGenesis = true;
+      configurationKey = "testnet_full";
+      runWallet = false;
+    };
     shellcheckTests = pkgs.callPackage ./scripts/test/shellcheck.nix { src = ./.; };
     swaggerSchemaValidation = pkgs.callPackage ./scripts/test/wallet/swaggerSchemaValidation.nix { inherit gitrev; };
     walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev; };
@@ -168,6 +176,8 @@ let
       inherit system config gitrev pkgs;
       cardano-sl-explorer = cardanoPkgs.cardano-sl-explorer-static;
     });
+    makeFaucetFrontend = pkgs.callPackage ./faucet/frontend;
+
     mkDocker = { environment, connectArgs ? {} }: import ./docker.nix { inherit environment connect gitrev pkgs connectArgs; };
     stack2nix = import (pkgs.fetchFromGitHub {
       owner = "avieth";

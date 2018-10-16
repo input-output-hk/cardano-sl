@@ -8,23 +8,44 @@ import           Universum
 
 import qualified Crypto.Random as Rand
 import           Data.Default (def)
-import           Test.Hspec (Spec, describe)
+import           Test.Hspec (Spec, describe, runIO)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Arbitrary (..), Gen, Property, forAll, listOf, suchThat, (===))
+import           Test.QuickCheck (Arbitrary (..), Gen, Property, arbitrary, forAll, generate,
+                                  listOf, suchThat, (===))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Ssc ()
 import           Pos.Core (EpochOrSlot, HasConfiguration, InnerSharesMap, Opening, SignedCommitment,
                            StakeholderId, VssCertificate (..), addressHash)
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 import qualified Pos.Ssc.Toss.Class as Toss
 import qualified Pos.Ssc.Toss.Pure as Toss
 import qualified Pos.Ssc.Types as Toss
 
-import           Test.Pos.Configuration (withDefConfiguration)
-import           Test.Pos.Core.Arbitrary ()
+import           Test.Pos.Configuration (withProvidedMagicConfig)
+import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
+
+
+-- We run the tests this number of times, with different `ProtocolMagics`, to get increased
+-- coverage. We should really do this inside of the `prop`, but it is difficult to do that
+-- without significant rewriting of the testsuite.
+testMultiple :: Int
+testMultiple = 3
 
 spec :: Spec
-spec = withDefConfiguration $ \_ -> describe "Toss" $ do
+spec = do
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = replicateM_ testMultiple $
+    modifyMaxSuccess (`div` testMultiple) $ do
+        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
+        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+            specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm = withProvidedMagicConfig pm $ do
     let smaller n = modifyMaxSuccess (const n)
     describe "PureToss" $ smaller 30 $ do
         prop "Adding and deleting a signed commitment in the 'PureToss' monad is the\

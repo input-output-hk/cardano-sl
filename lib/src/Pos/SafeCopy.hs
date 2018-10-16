@@ -29,6 +29,7 @@ import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                                   Coin, CoinPortion (..), Script (..), SharedSeed (..),
                                   TxFeePolicy (..), TxSizeLinear (..))
 import           Pos.Core.Delegation (DlgPayload (..), HeavyDlgIndex (..), LightDlgIndices (..))
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..), LocalSlotIndex (..),
                                     SlotCount (..), SlotId (..))
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), SscPayload (..),
@@ -39,7 +40,7 @@ import           Pos.Core.Update (ApplicationName (..), BlockVersion (..), Block
                                   BlockVersionModifier (..), SoftforkRule (..),
                                   SoftwareVersion (..), SystemTag (..), UpdateData (..),
                                   UpdatePayload (..), UpdateProposal (..), UpdateVote (..))
-import           Pos.Crypto (ProtocolMagic (..))
+import           Pos.Crypto (ProtocolMagic (..), ProtocolMagicId (..), RequiresNetworkMagic (..))
 import           Pos.Crypto.Hashing (AbstractHash (..), WithHash (..))
 import           Pos.Crypto.HD (HDAddressPayload (..))
 import           Pos.Crypto.SecretSharing (SecretProof)
@@ -48,7 +49,7 @@ import           Pos.Crypto.Signing.Redeem (RedeemPublicKey (..), RedeemSecretKe
 import           Pos.Crypto.Signing.Signing (ProxyCert (..), ProxySecretKey (..),
                                              ProxySignature (..), PublicKey (..), SecretKey (..),
                                              Signature (..), Signed (..))
-import           Pos.Data.Attributes (Attributes (..), UnparsedFields)
+import           Pos.Data.Attributes (Attributes (..), UnparsedFields, mkAttributes)
 import           Pos.Merkle (MerkleNode (..), MerkleRoot (..), MerkleTree (..))
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Util (cerealError, toCerealError)
@@ -72,6 +73,8 @@ getCopyBi = contain $ do
 -- Core types
 ----------------------------------------------------------------------------
 
+deriveSafeCopySimple 0 'base ''RequiresNetworkMagic
+deriveSafeCopySimple 0 'base ''ProtocolMagicId
 deriveSafeCopySimple 0 'base ''ProtocolMagic
 
 deriveSafeCopySimple 0 'base ''Script
@@ -135,7 +138,30 @@ deriveSafeCopySimple 0 'base ''HDAddressPayload
 deriveSafeCopySimple 0 'base ''AddrType -- ☃
 deriveSafeCopySimple 0 'base ''AddrStakeDistribution
 deriveSafeCopySimple 0 'base ''AddrSpendingData
-deriveSafeCopySimple 0 'base ''AddrAttributes
+
+instance SafeCopy AddrAttributes where
+    -- Since there is only a Bi instance for (Attributes AddrAttributes),
+    -- we wrap our AddrAttributes before we serialize it.
+    putCopy aa = contain $ do
+        let bs = Bi.serialize (mkAttributes aa)
+        safePut bs
+
+    -- Try decoding as a BSL.ByteString containing the new format, but if that
+    -- fails go for the legacy format.
+    getCopy = contain $ label $ getNonLegacy <|> getLegacy
+      where
+        label = Cereal.label "Pos.Core.Common.AddrAttributes.AddrAttributes:"
+        --
+        getNonLegacy = do
+            eAAA <- Bi.decodeFull <$> safeGet
+            case eAAA of
+                Left  err -> fail (show err)
+                Right aaa -> pure (attrData aaa)
+        --
+        getLegacy = AddrAttributes <$> safeGet
+                                   <*> safeGet
+                                   <*> pure NMNothing
+
 deriveSafeCopySimple 0 'base ''Address'
 deriveSafeCopySimple 0 'base ''Address
 deriveSafeCopySimple 0 'base ''TxInWitness
@@ -183,7 +209,7 @@ instance ( SafeCopy (BHeaderHash b)
          SafeCopy (GenericBlockHeader b) where
     getCopy =
         contain $
-        do _gbhProtocolMagic <- safeGet
+        do _gbhProtocolMagicId <- safeGet
            _gbhPrevBlock <- safeGet
            _gbhBodyProof <- safeGet
            _gbhConsensus <- safeGet
@@ -191,7 +217,7 @@ instance ( SafeCopy (BHeaderHash b)
            return $! UnsafeGenericBlockHeader {..}
     putCopy UnsafeGenericBlockHeader {..} =
         contain $
-        do safePut _gbhProtocolMagic
+        do safePut _gbhProtocolMagicId
            safePut _gbhPrevBlock
            safePut _gbhBodyProof
            safePut _gbhConsensus

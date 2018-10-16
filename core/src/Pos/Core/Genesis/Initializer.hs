@@ -29,7 +29,7 @@ data GenesisInitializer = GenesisInitializer
       -- 1. Keep it secret and use genesis data generated from it.
       -- 2. Just use it directly and keep it public if you want
       -- to deploy testing cluster.
-    } deriving (Show)
+    } deriving (Eq, Show)
 
 instance Buildable GenesisInitializer where
     build GenesisInitializer {..} = bprint
@@ -59,7 +59,7 @@ data TestnetBalanceOptions = TestnetBalanceOptions
     -- ^ Portion of stake owned by all richmen together.
     , tboUseHDAddresses :: !Bool
     -- ^ Whether generate plain addresses or with hd payload.
-    } deriving (Show)
+    } deriving (Eq, Show)
 
 instance Buildable TestnetBalanceOptions where
     build TestnetBalanceOptions {..} =
@@ -81,7 +81,7 @@ instance Buildable TestnetBalanceOptions where
 data FakeAvvmOptions = FakeAvvmOptions
     { faoCount      :: !Word
     , faoOneBalance :: !Word64
-    } deriving (Show, Generic)
+    } deriving (Eq, Show, Generic)
 
 instance Buildable FakeAvvmOptions where
     build = genericF

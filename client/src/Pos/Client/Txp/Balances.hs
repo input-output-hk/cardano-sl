@@ -14,6 +14,7 @@ import           Control.Monad.Trans (MonadTrans)
 
 import           Pos.Core (Address (..), Coin, HasConfiguration, IsBootstrapEraAddr (..),
                            makePubKeyAddress)
+import           Pos.Core.NetworkMagic (NetworkMagic)
 import           Pos.Crypto (PublicKey)
 import           Pos.Txp (Utxo, filterUtxoByAddrs, genesisUtxo, unGenesisUtxo)
 import           Pos.Txp.Toil.Utxo (getTotalCoinsInUtxo)
@@ -47,9 +48,10 @@ getOwnUtxo = getOwnUtxos . one
 -- from an address. And we can't enumerate all possible addresses for
 -- a public key. So we only consider two addresses: one with bootstrap
 -- era distribution and another one with single key distribution.
-getOwnUtxoForPk :: MonadBalances m => PublicKey -> m Utxo
-getOwnUtxoForPk ourPk = getOwnUtxos ourAddresses
+getOwnUtxoForPk :: MonadBalances m
+                => NetworkMagic -> PublicKey -> m Utxo
+getOwnUtxoForPk nm ourPk = getOwnUtxos ourAddresses
   where
     ourAddresses :: [Address]
     ourAddresses =
-        map (flip makePubKeyAddress ourPk . IsBootstrapEraAddr) [False, True]
+        map (flip (makePubKeyAddress nm) ourPk . IsBootstrapEraAddr) [False, True]

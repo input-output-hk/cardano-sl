@@ -57,7 +57,7 @@ dev: &dev
         ftsSeed: "c2tvdm9yb2RhIEdndXJkYSBib3JvZGEgcHJvdm9kYSA="
         heavyDelegation: {}
         avvmDistr: {}
-
+    requiresNetworkMagic: NMMustBeNothing
     dbSerializeVersion: 0
 
   ntp: &dev_ntp
@@ -14775,12 +14775,13 @@ mainnet_full: &mainnet_full
       src:
         file: mainnet-genesis.json
         hash: 5f20df933584822601f9e3f8c024eb5eb252fe8cefb24d1317dc3d432e940ebb
+    requiresNetworkMagic: NMMustBeNothing
 
 mainnet_wallet_win64: &mainnet_wallet_win64
   <<: *mainnet_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 9
+    applicationVersion: 10
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1
@@ -14790,7 +14791,7 @@ mainnet_wallet_macos64: &mainnet_wallet_macos64
   <<: *mainnet_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 9
+    applicationVersion: 10
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1
@@ -14800,7 +14801,7 @@ mainnet_wallet_linux64: &mainnet_wallet_linux64
   <<: *mainnet_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 9
+    applicationVersion: 10
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1
@@ -14813,14 +14814,50 @@ mainnet_wallet_linux64: &mainnet_wallet_linux64
 ##                                                                          ##
 ##############################################################################
 
-testnet_full: &testnet_full
+# Should be used to generate genesis
+testnet_launch: &testnet_launch
   <<: *mainnet_base
-  core: &testnet_full_core
+  core: &testnet_gen_core
     <<: *mainnet_base_core
+    genesis: &testnet_gen_genesis
+      <<: *mainnet_base_genesis
+      spec: &testnet_gen_spec
+        <<: *mainnet_base_spec
+        protocolConstants:
+          k: 2160
+          protocolMagic: 1097911063
+          vssMinTTL: 2
+          vssMaxTTL: 6
+        avvmDistr: {}
+        initializer:
+          testBalance:
+            poors:        100
+            richmen:      7
+            richmenShare: 0.95
+            totalBalance: 42000000000000000 # 42e9 ADA
+            useHDAddresses: True
+          fakeAvvmBalance:
+            count: 100
+            oneBalance: 20000000000000 # 2e7 ADA
+          avvmBalanceFactor: 1
+          useHeavyDlg: True
+          seed: 0 # should be overridden using --configuration-seed
+        blockVersionData:
+          <<: *mainnet_base_blockVersionData
+          maxHeaderSize:      2000
+          maxProposalSize:   70000 # 70KB
+          maxTxSize:         65536 # 64KiB
+    requiresNetworkMagic: NMMustBeJust
+
+testnet_full: &testnet_full
+  <<: *testnet_launch
+  core: &testnet_full_core
+    <<: *testnet_gen_core
     genesis:
+      <<: *testnet_gen_genesis
       src:
         file: testnet-genesis.json
-        hash: f0204568043f6cb8068a81ddc1e9ca575615aed12a3a815678afc5ca12a94eb8
+        hash: b7f76950bc4866423538ab7764fc1c7020b24a5f717a5bee3109ff2796567214
 
   update: &testnet_full_update
     applicationName: cardano-sl
@@ -14837,7 +14874,7 @@ testnet_wallet: &testnet_wallet
     applicationVersion: 0
     lastKnownBlockVersion:
       bvMajor: 0
-      bvMinor: 1
+      bvMinor: 0
       bvAlt: 0
 
 testnet_wallet_win64: &testnet_wallet_win64
@@ -14858,32 +14895,6 @@ testnet_wallet_linux64: &testnet_wallet_linux64
     <<: *testnet_wallet_update
     systemTag: linux
 
-# Should be used to generate genesis
-testnet_launch: &testnet_launch
-  <<: *testnet_full
-  core: &testnet_gen_core
-    <<: *testnet_full_core
-    genesis:
-      <<: *mainnet_base_genesis
-      spec:
-        <<: *mainnet_base_spec
-        protocolConstants:
-          <<: *mainnet_base_protocolConstants
-          protocolMagic: 1097911063
-        avvmDistr: *mainnet_avvmDistr
-        initializer:
-          testBalance:
-            poors:        100
-            richmen:      7
-            richmenShare: 0.93
-            totalBalance: 13887504355000000
-            useHDAddresses: True
-          fakeAvvmBalance:
-            count: 100
-            oneBalance: 1000000000000 # 1e6 ADA
-          avvmBalanceFactor: 0.1
-          useHeavyDlg: True
-          seed: 0 # should be overridden using --configuration-seed
 
 ##############################################################################
 ##                                                                          ##
@@ -14899,12 +14910,13 @@ mainnet_dryrun_full: &mainnet_dryrun_full
       src:
         file: mainnet-genesis-dryrun-with-stakeholders.json
         hash: c6a004d3d178f600cd8caa10abbebe1549bef878f0665aea2903472d5abf7323
+    requiresNetworkMagic: NMMustBeNothing
 
 mainnet_dryrun_wallet_win64: &mainnet_dryrun_wallet_win64
   <<: *mainnet_dryrun_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 14
+    applicationVersion: 15
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1
@@ -14914,7 +14926,7 @@ mainnet_dryrun_wallet_macos64: &mainnet_dryrun_wallet_macos64
   <<: *mainnet_dryrun_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 14
+    applicationVersion: 15
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1
@@ -14924,7 +14936,7 @@ mainnet_dryrun_wallet_linux64: &mainnet_dryrun_wallet_linux64
   <<: *mainnet_dryrun_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 14
+    applicationVersion: 15
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1
@@ -15022,8 +15034,9 @@ devnet: &devnet
           avvmBalanceFactor: 1
           useHeavyDlg: True
           seed: 0
+    requiresNetworkMagic: NMMustBeNothing
 
-  update:
+  update: &devnet_update
     applicationName: cardano-sl
     applicationVersion: 0
     lastKnownBlockVersion:
@@ -15040,7 +15053,7 @@ devnet: &devnet
 devnet_win64:
   <<: *devnet
   update:
-    <<:
+    <<: *devnet_update
     applicationName: csl-daedalus
     applicationVersion: 0
     lastKnownBlockVersion:
@@ -15052,7 +15065,7 @@ devnet_win64:
 devnet_macos64:
   <<: *devnet
   update:
-    <<:
+    <<: *devnet_update
     applicationName: csl-daedalus
     applicationVersion: 0
     lastKnownBlockVersion:
@@ -15064,7 +15077,7 @@ devnet_macos64:
 devnet_linux64:
   <<: *devnet
   update:
-    <<:
+    <<: *devnet_update
     applicationName: csl-daedalus
     applicationVersion: 0
     lastKnownBlockVersion:

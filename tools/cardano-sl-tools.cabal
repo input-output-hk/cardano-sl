@@ -1,5 +1,5 @@
 name:                cardano-sl-tools
-version:             1.3.0
+version:             1.3.1
 synopsis:            Cardano SL - Tools
 description:         Cardano SL - Tools
 license:             MIT
@@ -259,7 +259,6 @@ executable cardano-launcher
     ld-options:        -fuse-ld=gold
 
   default-extensions:  OverloadedStrings
-                       RecordWildCards
                        TupleSections
                        TypeApplications
                        BangPatterns
@@ -499,18 +498,21 @@ executable cardano-x509-certificates
                , aeson
                , asn1-encoding
                , asn1-types
-               , bytestring
                , base64-bytestring
+               , bytestring
                , cryptonite
+               , data-default-class
                , filepath
                , hourglass
+               , ip
+               , network-transport
                , optparse-applicative
+               , text
                , universum
                , unordered-containers
                , x509
-               , x509-validation
                , x509-store
-               , data-default-class
+               , x509-validation
                , yaml
 
   default-extensions:   DeriveGeneric

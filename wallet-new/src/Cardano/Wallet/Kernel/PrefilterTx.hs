@@ -21,18 +21,19 @@ import           Serokell.Util (listJson, mapJson)
 import           Data.SafeCopy (base, deriveSafeCopy)
 
 import           Pos.Core (Address (..))
+import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
 import           Pos.Core.Txp (TxIn (..), TxOut (..), TxOutAux (..))
-import           Pos.Crypto (EncryptedSecretKey)
+import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic)
 import           Pos.Txp.Toil.Types (Utxo)
+import           Pos.Wallet.Web.State.Storage (WAddressMeta (..))
 import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials, eskToWalletDecrCredentials,
                                                   selectOwnAddresses)
-import           Pos.Wallet.Web.State.Storage (WAddressMeta (..))
 
-import           Cardano.Wallet.Kernel.Types(WalletId (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
-import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock, ResolvedInput, ResolvedTx, rbTxs, rtxInputs,
-                                                    rtxOutputs)
+import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock, ResolvedInput, ResolvedTx, rbTxs,
+                                                    rtxInputs, rtxOutputs)
+import           Cardano.Wallet.Kernel.Types (WalletId (..))
 
 {-------------------------------------------------------------------------------
  Pre-filter Tx Inputs and Outputs to those that belong to the given Wallet.
@@ -81,11 +82,12 @@ toPrefilteredUtxo utxoWithAddrs = (Map.fromList utxo', addrs')
 -- | Prefilter the transactions of a resolved block for the given wallet.
 --
 --   Returns prefiltered blocks indexed by HdAccountId.
-prefilterBlock :: WalletId
+prefilterBlock :: ProtocolMagic
+               -> WalletId
                -> EncryptedSecretKey
                -> ResolvedBlock
                -> Map HdAccountId PrefilteredBlock
-prefilterBlock wid esk block
+prefilterBlock pm wid esk block
     = Map.fromList $ map mkPrefBlock (Set.toList accountIds)
   where
     mkPrefBlock accId'
@@ -96,8 +98,11 @@ prefilterBlock wid esk block
             inps'           =                    byAccountId accId' Set.empty inpAll
             (outs', addrs') = toPrefilteredUtxo (byAccountId accId' Map.empty outAll)
 
+    nm :: NetworkMagic
+    nm = makeNetworkMagic pm
+
     wdc :: WalletDecrCredentials
-    wdc = eskToWalletDecrCredentials esk
+    wdc = eskToWalletDecrCredentials nm esk
     wKey = (wid, wdc)
 
     inps :: [Map HdAccountId (Set TxIn)]
@@ -142,10 +147,12 @@ prefilterUtxo' wid utxo
                                         Map.singleton txIn (txOut, addressId))
 
 -- | Prefilter utxo using walletId and esk
-prefilterUtxo :: HdRootId -> EncryptedSecretKey -> Utxo -> Map HdAccountId PrefilteredUtxo
-prefilterUtxo rootId esk utxo = map toPrefilteredUtxo (prefilterUtxo' wKey utxo)
+prefilterUtxo :: ProtocolMagic -> HdRootId -> EncryptedSecretKey
+              -> Utxo -> Map HdAccountId PrefilteredUtxo
+prefilterUtxo pm rootId esk utxo = map toPrefilteredUtxo (prefilterUtxo' wKey utxo)
     where
-        wKey = (WalletIdHdRnd rootId, eskToWalletDecrCredentials esk)
+        nm = makeNetworkMagic pm
+        wKey = (WalletIdHdRnd rootId, eskToWalletDecrCredentials nm esk)
 
 -- | Prefilter resolved transaction pairs
 prefilterResolvedTxPairs :: WalletKey

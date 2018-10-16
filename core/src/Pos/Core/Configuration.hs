@@ -29,11 +29,12 @@ import           Pos.Core.Configuration.Protocol as E
 import           Pos.Core.Genesis (GenesisData (..), GenesisDelegation, GenesisInitializer (..),
                                    GenesisProtocolConstants (..), GenesisSpec (..),
                                    genesisProtocolConstantsToProtocolConstants, mkGenesisDelegation)
-import           Pos.Core.Genesis.Canonical (SchemaError)
+import           Pos.Core.Genesis.Canonical ()
 import           Pos.Core.Genesis.Generate (GeneratedGenesisData (..), generateGenesisData)
 import           Pos.Core.Slotting (Timestamp)
 import           Pos.Crypto.Configuration as E
 import           Pos.Crypto.Hashing (Hash, hashRaw, unsafeHash)
+import           Pos.Util.Json.Canonical (SchemaError (..))
 import           Pos.Util.Util (leftToPanic)
 
 -- | Coarse catch-all configuration constraint for use by depending modules.
@@ -104,18 +105,21 @@ withCoreConfigurations conf@CoreConfiguration{..} confDir mSystemStart mSeed act
         theGenesisData <- case Canonical.fromJSON gdataJSON of
             Left err -> throwM $ GenesisDataSchemaError err
             Right it -> return it
+        -- Override the RequiresNetworkMagic in GenesisData with the value
+        -- specified in CoreConfiguration.
+        let overriddenGenesisData = updateGD theGenesisData
 
-        let (_, theGenesisHash) = canonicalGenesisJson theGenesisData
-            pc = genesisProtocolConstantsToProtocolConstants (gdProtocolConsts theGenesisData)
-            pm = gpcProtocolMagic (gdProtocolConsts theGenesisData)
+        let (_, theGenesisHash) = canonicalGenesisJson overriddenGenesisData
+            pc = genesisProtocolConstantsToProtocolConstants (gdProtocolConsts overriddenGenesisData)
+            pm = gpcProtocolMagic (gdProtocolConsts overriddenGenesisData)
         when (theGenesisHash /= expectedHash) $
             throwM $ GenesisHashMismatch
                      (show theGenesisHash) (show expectedHash)
 
         withCoreConfiguration conf $
             withProtocolConstants pc $
-            withGenesisBlockVersionData (gdBlockVersionData theGenesisData) $
-            withGenesisData theGenesisData $
+            withGenesisBlockVersionData (gdBlockVersionData overriddenGenesisData) $
+            withGenesisData overriddenGenesisData $
             withGenesisHash theGenesisHash $
             withGeneratedSecrets Nothing $
             act pm
@@ -138,10 +142,25 @@ withCoreConfigurations conf@CoreConfiguration{..} confDir mSystemStart mSeed act
                 Just newSeed -> spec
                     { gsInitializer = overrideSeed newSeed (gsInitializer spec)
                     }
+        -- Override the RequiresNetworkMagic in GenesisSpec with the value
+        -- specified in CoreConfiguration.
+            overriddenSpec = updateGS theSpec
 
-        let theConf = conf {ccGenesis = GCSpec theSpec}
+        let theConf = conf {ccGenesis = GCSpec overriddenSpec}
 
         withGenesisSpec theSystemStart theConf act
+  where
+    updateGD :: GenesisData -> GenesisData
+    updateGD gd = gd { gdProtocolConsts = updateGPC (gdProtocolConsts gd) }
+    --
+    updateGS :: GenesisSpec -> GenesisSpec
+    updateGS gs = gs { gsProtocolConstants = updateGPC (gsProtocolConstants gs) }
+    --
+    updateGPC :: GenesisProtocolConstants -> GenesisProtocolConstants
+    updateGPC gpc = gpc { gpcProtocolMagic = updatePM (gpcProtocolMagic gpc) }
+    --
+    updatePM :: ProtocolMagic -> ProtocolMagic
+    updatePM pm = pm { getRequiresNetworkMagic = ccRequiresNetworkMagic }
 
 withGenesisSpec
     :: Timestamp

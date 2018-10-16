@@ -1036,9 +1036,7 @@ intDequeue outQ@OutQ{..} threadRegistry@TR{} sendMsg = do
                   logFailure outQ FailedSend (Some p, err)
                   intFailure outQ p sendStartTime err
                 Nothing ->
-                  return ()
-
-              logDebugOQ outQ $ debugSent p
+                  logDebugOQ outQ $ debugSent p
 
           return (PacketDequeued theThread)
       return ()

@@ -4,21 +4,41 @@ import           Universum
 
 import           Data.ByteString.Char8 (pack)
 import           Data.Set (Set)
-import           Test.Hspec (Spec, it, shouldSatisfy, xit)
+import qualified Data.Set as Set
+import           Test.Hspec (Spec, describe, it, runIO, shouldSatisfy, xit)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Arbitrary (..), forAll, property)
+import           Test.QuickCheck (Arbitrary (..), arbitrary, forAll, generate, property)
 import           Test.QuickCheck.Gen (oneof, vectorOf)
 
+import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
+import           Pos.Crypto (RequiresNetworkMagic (..))
 import           Pos.Util.BackupPhrase (BackupPhrase (..), safeKeysFromPhrase)
 import           Pos.Util.Mnemonics (defMnemonic, fromMnemonic, toMnemonic)
 import           Pos.Wallet.Web.ClientTypes.Functions (encToCId)
 import           Pos.Wallet.Web.ClientTypes.Types (CId)
 
-import qualified Data.Set as Set
+import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
 
+-- We run the tests this number of times, with different `ProtocolMagics`, to get increased
+-- coverage. We should really do this inside of the `prop`, but it is difficult to do that
+-- without significant rewriting of the testsuite.
+testMultiple :: Int
+testMultiple = 1
 
 spec :: Spec
 spec = do
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = replicateM_ testMultiple $
+    modifyMaxSuccess (`div` testMultiple) $ do
+        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
+        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+            specBody (makeNetworkMagic pm)
+
+specBody :: NetworkMagic -> Spec
+specBody nm = do
     it "No example mnemonic" $
         fromMnemonic defMnemonic `shouldSatisfy` isLeft
 
@@ -51,7 +71,7 @@ spec = do
 
             cid = either
                 (error . (<>) "Couldn't create keys from generated BackupPhrase" . show)
-                (encToCId . fst)
+                (encToCId nm . fst)
                 (safeKeysFromPhrase mempty backupPhrase)
 
 

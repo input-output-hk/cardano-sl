@@ -5,12 +5,15 @@ module Test.Spec.Kernel (
 import           Universum
 
 import qualified Data.Set as Set
+import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
 import           Pos.Core (Coeff (..), TxSizeLinear (..))
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 
 import           Test.Infrastructure.Generator
+import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
 import           Util.Buildable.Hspec
 import           Util.Buildable.QuickCheck
 import           UTxO.Bootstrap
@@ -28,16 +31,36 @@ import qualified Wallet.Basic as Base
   Compare the wallet kernel with the pure model
 -------------------------------------------------------------------------------}
 
+
+-- We run the tests this number of times, with different `ProtocolMagics`, to get increased
+-- coverage. We should really do this inside of the `prop`, but it is difficult to do that
+-- without significant rewriting of the testsuite.
+testMultiple :: Int
+testMultiple = 3
+
 spec :: Spec
-spec =
+spec = do
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = replicateM_ testMultiple $
+    modifyMaxSuccess (`div` testMultiple) $ do
+        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
+        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+            specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm =
     it "Compare wallet kernel to pure model" $
-      forAll (genInductiveUsingModel model) $ \ind -> do
+      let rnm = getRequiresNetworkMagic pm in
+      forAll (genInductiveUsingModel rnm model) $ \ind -> do
         -- TODO: remove once we have support for rollback in the kernel
         let indDontRoll = uptoFirstRollback ind
-        bracketActiveWallet $ \activeWallet -> do
+        bracketActiveWallet pm $ \activeWallet -> do
           checkEquivalent activeWallet indDontRoll
   where
-    transCtxt = runTranslateNoErrors ask
+    transCtxt = runTranslateNoErrors pm ask
     boot      = bootstrapTransaction transCtxt
     model     = (cardanoModel linearFeePolicy boot) {
                     gmMaxNumOurs    = 1
@@ -50,7 +73,7 @@ spec =
                     -> Inductive h Addr
                     -> Expectation
     checkEquivalent activeWallet ind = do
-       shouldReturnValidated $ runTranslateT $ do
+       shouldReturnValidated $ runTranslateT pm $ do
          equivalentT activeWallet (encKpHash ekp, encKpEnc ekp) (mkWallet (== addr)) ind
       where
         [addr]       = Set.toList $ inductiveOurs ind
@@ -66,16 +89,16 @@ spec =
 -------------------------------------------------------------------------------}
 
 -- | Initialize passive wallet in a manner suitable for the unit tests
-bracketPassiveWallet :: (Kernel.PassiveWallet -> IO a) -> IO a
-bracketPassiveWallet = Kernel.bracketPassiveWallet logMessage
+bracketPassiveWallet :: ProtocolMagic -> (Kernel.PassiveWallet -> IO a) -> IO a
+bracketPassiveWallet pm = Kernel.bracketPassiveWallet pm logMessage
   where
    -- TODO: Decide what to do with logging
     logMessage _sev txt = print txt
 
 -- | Initialize active wallet in a manner suitable for generator-based testing
-bracketActiveWallet :: (Kernel.ActiveWallet -> IO a) -> IO a
-bracketActiveWallet test =
-    bracketPassiveWallet $ \passive ->
+bracketActiveWallet :: ProtocolMagic -> (Kernel.ActiveWallet -> IO a) -> IO a
+bracketActiveWallet pm test =
+    bracketPassiveWallet pm $ \passive ->
       Kernel.bracketActiveWallet passive diffusion $ \active ->
         test active
 

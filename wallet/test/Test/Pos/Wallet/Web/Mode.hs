@@ -371,7 +371,7 @@ instance HasLens (StateLockMetrics MemPoolModifyReason) WalletTestContext (State
 instance HasConfigurations => MonadAddresses WalletTestMode where
     type AddrData WalletTestMode = (AccountId, PassPhrase)
     getNewAddress = getNewAddressWebWallet
-    getFakeChangeAddress = pure largestHDAddressBoot
+    getFakeChangeAddress = pure . largestHDAddressBoot
 
 instance MonadKeysRead WalletTestMode where
     getSecret = getSecretDefault

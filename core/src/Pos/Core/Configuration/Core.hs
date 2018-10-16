@@ -19,11 +19,19 @@ module Pos.Core.Configuration.Core
        , defaultCoreConfiguration
        ) where
 
-import           Universum
+import           Prelude
+import           Universum hiding (fail, (<>))
 
-import           Data.Reflection (Given (..), give)
-
+import           Data.Aeson (FromJSON, ToJSON, Value (..), genericToEncoding, pairs, parseJSON,
+                             toEncoding, (.:))
+import           Data.Aeson.Encoding (pairStr)
+import           Data.Aeson.Types (typeMismatch)
 import qualified Data.HashMap.Strict as HM
+import           Data.Monoid ((<>))
+import           Data.Reflection (Given (..), give)
+import           Serokell.Aeson.Options (defaultOptions)
+
+import           Pos.Aeson.Genesis ()
 import           Pos.Binary.Class (Raw)
 import           Pos.Core.Common (Coeff (..), SharedSeed (..), TxFeePolicy (..), TxSizeLinear (..),
                                   unsafeCoinPortionFromDouble)
@@ -34,7 +42,7 @@ import           Pos.Core.Genesis (FakeAvvmOptions (..), GenesisAvvmBalances (..
 import           Pos.Core.ProtocolConstants (VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Slotting (EpochIndex (..))
 import           Pos.Core.Update (BlockVersionData (..), SoftforkRule (..))
-import           Pos.Crypto (ProtocolMagic (..))
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 import           Pos.Crypto.Hashing (Hash)
 
 data GenesisConfiguration
@@ -47,24 +55,93 @@ data GenesisConfiguration
             , gcsHash :: !(Hash Raw)
             -- ^ Hash of canonically encoded 'GenesisData'.
             }
-    deriving (Show)
+    deriving (Eq, Show, Generic)
+
+instance ToJSON GenesisConfiguration where
+    toEncoding (GCSrc gcsFile gcsHash) =
+        pairs . pairStr "src"
+            . pairs  $ pairStr "file"
+                (toEncoding gcsFile) <> pairStr "hash" (toEncoding gcsHash)
+
+    toEncoding (GCSpec value)          =
+        genericToEncoding defaultOptions (GCSpec value)
+
+instance FromJSON GenesisConfiguration where
+    parseJSON (Object o)
+        | HM.member "src" o  = GCSrc <$> ((o .: "src") >>= (.: "file"))
+                                      <*> ((o .: "src") >>= (.: "hash"))
+        | HM.member "spec" o = do
+              -- GCSpec Object
+              specO <- o .: "spec"
+
+              -- GenesisAvvmBalances
+              avvmDistrO <- specO .: "avvmDistr"
+              avvmDistr <- parseJSON (avvmDistrO)
+
+              -- SharedSeed
+              ftsSeed <- specO .: "ftsSeed"
+
+              -- GenesisDelegation
+              heavyDelegationO <- specO .: "heavyDelegation"
+              heavyDelegation <- parseJSON (heavyDelegationO)
+
+              -- BlockVersionData
+              blockVersionDataO <- specO .: "blockVersionData"
+              blockVersionData <- parseJSON blockVersionDataO
+
+              -- GenesisProtocolConstants
+              protocolConstantsO <- specO .: "protocolConstants"
+              protocolConstants <- parseJSON protocolConstantsO
+
+              -- GenesisInitializer
+              initializerO <- specO .: "initializer"
+              testBalanceO <- initializerO .: "testBalance"
+              testBalance <- parseJSON testBalanceO
+              fakeAvvmBalanceO <- (initializerO .: "fakeAvvmBalance")
+              fakeAvvmBalance <- parseJSON fakeAvvmBalanceO
+              avvmBalanceFactor <- initializerO .: "avvmBalanceFactor"
+              useHeavyDlg <- initializerO .: "useHeavyDlg"
+              seed <- initializerO .: "seed"
+
+              return . GCSpec $
+                  UnsafeGenesisSpec
+                      (GenesisAvvmBalances avvmDistr)
+                      ftsSeed
+                      heavyDelegation
+                      blockVersionData
+                      protocolConstants
+                      (GenesisInitializer
+                          testBalance
+                          fakeAvvmBalance
+                          avvmBalanceFactor
+                          useHeavyDlg
+                          seed)
+        | otherwise = fail "Incorrect JSON encoding for GenesisConfiguration"
+
+    parseJSON invalid = typeMismatch "GenesisConfiguration" invalid
 
 data CoreConfiguration = CoreConfiguration
     {
       -- | Specifies the genesis
-      ccGenesis            :: !GenesisConfiguration
+      ccGenesis              :: !GenesisConfiguration
 
       -- | Versioning for values in node's DB
-    , ccDbSerializeVersion :: !Word8
+    , ccDbSerializeVersion   :: !Word8
+
+      -- | Specifies whether address discrimination takes place on this chain
+    , ccRequiresNetworkMagic :: !RequiresNetworkMagic
 
     }
     deriving (Show, Generic)
 
-defaultCoreConfiguration :: CoreConfiguration
-defaultCoreConfiguration = CoreConfiguration (GCSpec defaultGenesisSpec)  0
 
-defaultGenesisSpec :: GenesisSpec
-defaultGenesisSpec = UnsafeGenesisSpec
+defaultCoreConfiguration :: ProtocolMagic -> CoreConfiguration
+defaultCoreConfiguration pm = CoreConfiguration (GCSpec (defaultGenesisSpec pm))
+                                                0
+                                                NMMustBeJust
+
+defaultGenesisSpec :: ProtocolMagic -> GenesisSpec
+defaultGenesisSpec pm = UnsafeGenesisSpec
   (GenesisAvvmBalances HM.empty)
   (SharedSeed "c2tvdm9yb2RhIEdndXJkYSBib3JvZGEgcHJvdm9kYSA=")
   noGenesisDelegation
@@ -88,7 +165,7 @@ defaultGenesisSpec = UnsafeGenesisSpec
     (EpochIndex maxBound)
   )
   (GenesisProtocolConstants 10
-                            (ProtocolMagic 55550001)
+                            pm
                             (VssMaxTTL 6)
                             (VssMinTTL 2)
   )

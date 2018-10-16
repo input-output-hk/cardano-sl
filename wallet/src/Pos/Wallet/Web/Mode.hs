@@ -43,6 +43,7 @@ import           Pos.Client.Txp.History (MonadTxHistory (..), getBlockHistoryDef
 import           Pos.Context (HasNodeContext (..))
 import           Pos.Core (Address, Coin, HasConfiguration, HasPrimaryKey (..), isRedeemAddress,
                            largestHDAddressBoot, mkCoin)
+import           Pos.Core.NetworkMagic (NetworkMagic)
 import           Pos.Crypto (PassPhrase)
 import           Pos.DB (MonadGState (..))
 import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
@@ -53,19 +54,15 @@ import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefaul
                                dbWriteBatchDefault)
 import           Pos.Infra.Network.Types (HasNodeType (..))
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
-import           Pos.Infra.Reporting (MonadReporting (..),
-                                      HasMisbehaviorMetrics (..),
+import           Pos.Infra.Reporting (HasMisbehaviorMetrics (..), MonadReporting (..),
                                       Reporter (..))
 import           Pos.Infra.Shutdown (HasShutdownContext (..))
 import           Pos.Infra.Slotting.Class (MonadSlots (..))
-import           Pos.Infra.Slotting.Impl (currentTimeSlottingSimple,
-                                          getCurrentSlotBlockingSimple,
-                                          getCurrentSlotInaccurateSimple,
-                                          getCurrentSlotSimple)
+import           Pos.Infra.Slotting.Impl (currentTimeSlottingSimple, getCurrentSlotBlockingSimple,
+                                          getCurrentSlotInaccurateSimple, getCurrentSlotSimple)
 import           Pos.Infra.Slotting.MemState (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Infra.StateLock (StateLock)
-import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
-                                                jsonLogDefault)
+import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..), jsonLogDefault)
 import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Recovery ()
@@ -93,8 +90,8 @@ import           Pos.Wallet.Web.ClientTypes (AccountId)
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, newAddress_)
 import           Pos.Wallet.Web.Sockets.Connection (MonadWalletWebSockets)
 import           Pos.Wallet.Web.Sockets.ConnSet (ConnectionsVar)
-import           Pos.Wallet.Web.State (WalletDB, WalletDbReader, getWalletBalancesAndUtxo,
-                                       getWalletUtxo, askWalletSnapshot, wamAddress)
+import           Pos.Wallet.Web.State (WalletDB, WalletDbReader, askWalletSnapshot,
+                                       getWalletBalancesAndUtxo, getWalletUtxo, wamAddress)
 import           Pos.Wallet.Web.Tracking (MonadBListener (..), onApplyBlocksWebWallet,
                                           onRollbackBlocksWebWallet)
 
@@ -341,10 +338,12 @@ instance MonadKeys WalletWebMode where
 
 getNewAddressWebWallet
     :: MonadWalletLogic ctx m
-    => (AccountId, PassPhrase) -> m Address
-getNewAddressWebWallet (accId, passphrase) = do
+    => NetworkMagic
+    -> (AccountId, PassPhrase)
+    -> m Address
+getNewAddressWebWallet nm (accId, passphrase) = do
     ws <- askWalletSnapshot
-    cAddrMeta <- newAddress_ ws RandomSeed passphrase accId
+    cAddrMeta <- newAddress_ nm ws RandomSeed passphrase accId
     return $ cAddrMeta ^. wamAddress
 
 instance (HasConfigurations)
@@ -352,5 +351,5 @@ instance (HasConfigurations)
     type AddrData Pos.Wallet.Web.Mode.WalletWebMode = (AccountId, PassPhrase)
     -- We rely on the fact that Daedalus always uses HD addresses with
     -- BootstrapEra distribution.
-    getFakeChangeAddress = pure largestHDAddressBoot
+    getFakeChangeAddress = pure . largestHDAddressBoot
     getNewAddress = getNewAddressWebWallet

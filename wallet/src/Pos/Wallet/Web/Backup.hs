@@ -13,6 +13,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.SemVer as V
 import           Test.QuickCheck (Arbitrary (..), elements)
 
+import           Pos.Core.NetworkMagic (NetworkMagic)
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.Crypto.Signing.Safe (emptyPassphrase, safeKeyGen)
 import           Pos.Util.Util (maybeThrow)
@@ -55,11 +56,12 @@ instance Arbitrary WalletBackup where
             }
 
 getWalletBackup :: AccountMode ctx m
-                => WalletSnapshot
+                => NetworkMagic
+                -> WalletSnapshot
                 -> CId Wal
                 -> m WalletBackup
-getWalletBackup ws wId = do
-    sk <- getSKById wId
+getWalletBackup nm ws wId = do
+    sk <- getSKById nm wId
     meta <- maybeThrow (InternalError "Wallet have no meta") $
             getWalletMeta ws wId
     let accountIds = getWalletAccountIds ws wId

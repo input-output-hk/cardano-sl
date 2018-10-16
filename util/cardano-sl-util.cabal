@@ -1,5 +1,5 @@
 name:                cardano-sl-util
-version:             1.3.0
+version:             1.3.1
 synopsis:            Cardano SL - general utilities
 description:         This package contains utility functions not specific
                      to Cardano SL which extend 3rd party libraries or implement
@@ -27,6 +27,7 @@ library
                        Pos.Util.AssertMode
                        Pos.Util.Filesystem
                        Pos.Util.Future
+                       Pos.Util.Json.Canonical
                        Pos.Util.Justify
                        Pos.Util.Lens
                        Pos.Util.LoggerName
@@ -45,6 +46,7 @@ library
   build-depends:       aeson
                      , base
                      , binary
+                     , canonical-json
                      , cborg
                      , cereal
                      , containers

@@ -9,6 +9,7 @@ module Test.Pos.Crypto.Arbitrary
        , genSignature
        , genSignatureEncoded
        , genRedeemSignature
+       , genProtocolMagicUniformWithRNM
        ) where
 
 import           Universum hiding (keys)
@@ -16,11 +17,12 @@ import           Universum hiding (keys)
 import           Control.Monad (zipWithM)
 import qualified Data.ByteArray as ByteArray
 import           Data.List.NonEmpty (fromList)
-import           Test.QuickCheck (Arbitrary (..), Gen, elements, oneof, vector)
+import           Test.QuickCheck (Arbitrary (..), Gen, choose, elements, oneof, vector)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Binary.Class (AsBinary (..), AsBinaryClass (..), Bi, Raw)
-import           Pos.Crypto.Configuration (ProtocolMagic (..))
+import           Pos.Crypto.Configuration (ProtocolMagic (..), ProtocolMagicId (..),
+                                           RequiresNetworkMagic (..))
 import           Pos.Crypto.Hashing (AHash (..), AbstractHash (..), HashAlgorithm, WithHash (..),
                                      unsafeCheatingHashCoerce, withHash)
 import           Pos.Crypto.HD (HDAddressPayload, HDPassphrase (..))
@@ -43,7 +45,21 @@ import           Test.Pos.Util.Orphans ()
 import           Test.Pos.Util.QuickCheck.Arbitrary (Nonrepeating (..), arbitraryUnsafe, runGen,
                                                      sublistN)
 
-deriving instance Arbitrary ProtocolMagic
+instance Arbitrary ProtocolMagic where
+    arbitrary = ProtocolMagic <$> arbitrary
+                              <*> arbitrary
+
+instance Arbitrary ProtocolMagicId where
+    arbitrary = ProtocolMagicId <$> arbitrary
+
+instance Arbitrary RequiresNetworkMagic where
+    arbitrary = elements [NMMustBeNothing, NMMustBeJust]
+
+genProtocolMagicUniformWithRNM :: RequiresNetworkMagic -> Gen ProtocolMagic
+genProtocolMagicUniformWithRNM rnm =
+    (\ident -> ProtocolMagic (ProtocolMagicId ident) rnm)
+    <$>
+    choose (minBound, maxBound)
 
 {- A note on 'Arbitrary' instances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

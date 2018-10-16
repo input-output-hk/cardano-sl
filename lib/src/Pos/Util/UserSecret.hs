@@ -53,7 +53,7 @@ import           System.FileLock (FileLock, SharedExclusive (..), lockFile, unlo
 import           System.FilePath (takeDirectory, takeFileName)
 import           System.IO (hClose, openBinaryTempFile)
 #ifdef POSIX
-import           System.Wlog (WithLogger, logWarning, logInfo)
+import           System.Wlog (WithLogger, logInfo, logWarning)
 #else
 import           System.Wlog (WithLogger, logInfo)
 #endif
@@ -64,6 +64,7 @@ import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeFull', 
                                    encodeListLen, enforceSize, serialize')
 import           Pos.Core (Address, accountGenesisIndex, addressF, makeRootPubKeyAddress,
                            wAddressGenesisIndex)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (EncryptedSecretKey, SecretKey, VssKeyPair, encToPublic)
 
 import           Test.Pos.Crypto.Arbitrary ()
@@ -93,11 +94,17 @@ instance Arbitrary WalletUserSecret where
 
 makeLenses ''WalletUserSecret
 
+fixedNM :: NetworkMagic
+fixedNM = NMNothing
+
 instance Buildable WalletUserSecret where
     build WalletUserSecret{..} =
         bprint ("{ root = "%addressF%", set name = "%build%
                 ", wallets = "%pairsF%", accounts = "%pairsF%" }")
-        (makeRootPubKeyAddress $ encToPublic _wusRootKey)
+        -- TODO mhueschen |
+        -- TODO @intricate: Will probably have to add NetworkMagic to WalletUserSecret
+        -- instead of using NMNothing here :/
+        (makeRootPubKeyAddress fixedNM $ encToPublic _wusRootKey)
         _wusWalletName
         _wusAccounts
         _wusAddrs

@@ -28,45 +28,42 @@ module Cardano.Wallet.Kernel (
 
 import           Universum hiding (State, init)
 
-import           Control.Lens.TH
 import           Control.Concurrent.MVar (modifyMVar_, withMVar)
+import           Control.Lens.TH
 import qualified Data.Map.Strict as Map
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 
-import           Formatting (sformat, build)
+import           Formatting (build, sformat)
 
 import           System.Wlog (Severity (..))
 
 import           Data.Acid (AcidState)
-import           Data.Acid.Memory (openMemoryState)
 import           Data.Acid.Advanced (query', update')
+import           Data.Acid.Memory (openMemoryState)
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
-import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..)
-                                                  , prefilterUtxo, prefilterBlock)
-import           Cardano.Wallet.Kernel.Types(WalletId (..), WalletESKs)
+import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..), prefilterBlock,
+                                                    prefilterUtxo)
+import           Cardano.Wallet.Kernel.Types (WalletESKs, WalletId (..))
 
-import           Cardano.Wallet.Kernel.DB.HdWallet
-import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
-import           Cardano.Wallet.Kernel.DB.AcidState (DB, defDB, dbHdWallets
-                                                   , CreateHdWallet (..)
-                                                   , ApplyBlock (..)
-                                                   , NewPending (..)
-                                                   , NewPendingError
-                                                   , Snapshot (..))
+import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..), CreateHdWallet (..), DB,
+                                                     NewPending (..), NewPendingError,
+                                                     Snapshot (..), dbHdWallets, defDB)
 import           Cardano.Wallet.Kernel.DB.BlockMeta (BlockMeta (..))
+import           Cardano.Wallet.Kernel.DB.HdWallet
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
 import           Cardano.Wallet.Kernel.DB.HdWallet.Read (HdQueryErr)
 import           Cardano.Wallet.Kernel.DB.InDb
+import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Read as Spec
 
 
-import           Pos.Core (Timestamp (..), TxAux (..), AddressHash, Coin)
+import           Pos.Core (AddressHash, Coin, Timestamp (..), TxAux (..))
 
-import           Pos.Crypto (EncryptedSecretKey, PublicKey)
-import           Pos.Txp (Utxo)
 import           Pos.Core.Chrono (OldestFirst)
+import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic, PublicKey)
+import           Pos.Txp (Utxo)
 
 {-------------------------------------------------------------------------------
   Passive wallet
@@ -79,9 +76,10 @@ import           Pos.Core.Chrono (OldestFirst)
 --
 data PassiveWallet = PassiveWallet {
       -- | Send log message
-      _walletLogMessage :: Severity -> Text -> IO () -- ^ Logger
-    , _walletESKs       :: MVar WalletESKs           -- ^ ESKs indexed by WalletId
-    , _wallets          :: AcidState DB              -- ^ Database handle
+      _walletLogMessage    :: Severity -> Text -> IO () -- ^ Logger
+    , _walletESKs          :: MVar WalletESKs           -- ^ ESKs indexed by WalletId
+    , _wallets             :: AcidState DB              -- ^ Database handle
+    , _walletProtocolMagic :: ProtocolMagic
     }
 
 makeLenses ''PassiveWallet
@@ -95,14 +93,15 @@ makeLenses ''PassiveWallet
 -- Here and elsewhere we'll want some constraints on this monad here, but
 -- it shouldn't be too specific.
 bracketPassiveWallet :: (MonadMask m, MonadIO m)
-                     => (Severity -> Text -> IO ())
+                     => ProtocolMagic
+                     -> (Severity -> Text -> IO ())
                      -> (PassiveWallet -> m a) -> m a
-bracketPassiveWallet _walletLogMessage f =
+bracketPassiveWallet pm _walletLogMessage f =
     bracket (liftIO $ openMemoryState defDB)
             (\_ -> return ())
             (\db ->
                 bracket
-                  (liftIO $ initPassiveWallet _walletLogMessage db)
+                  (liftIO $ initPassiveWallet pm _walletLogMessage db)
                   (\_ -> return ())
                   f)
 
@@ -124,12 +123,13 @@ withWalletESKs pw = withMVar (pw ^. walletESKs)
 -------------------------------------------------------------------------------}
 
 -- | Initialise Passive Wallet with empty Wallets collection
-initPassiveWallet :: (Severity -> Text -> IO ())
+initPassiveWallet :: ProtocolMagic
+                  -> (Severity -> Text -> IO ())
                   -> AcidState DB
                   -> IO PassiveWallet
-initPassiveWallet logMessage db = do
+initPassiveWallet pm logMessage db = do
     esks <- Universum.newMVar Map.empty
-    return $ PassiveWallet logMessage esks db
+    return $ PassiveWallet logMessage esks db pm
 
 -- | Initialize the Passive wallet (specified by the ESK) with the given Utxo
 --
@@ -165,7 +165,8 @@ createWalletHdRnd pw@PassiveWallet{..} name spendingPassword assuranceLevel (pk,
     res <- update' _wallets $ CreateHdWallet newRoot utxoByAccount
     either (return . Left) insertESK res
     where
-        utxoByAccount = prefilterUtxo rootId esk utxo
+        pm = pw ^. walletProtocolMagic
+        utxoByAccount = prefilterUtxo pm rootId esk utxo
         accountIds    = Map.keys utxoByAccount
 
         rootId        = HD.HdRootId . InDb $ pk
@@ -194,7 +195,8 @@ prefilterBlock' pw b =
         $ map prefilterBlock_
         $ Map.toList esks
     where
-        prefilterBlock_ (wid,esk) = prefilterBlock wid esk b
+        pm = pw ^. walletProtocolMagic
+        prefilterBlock_ (wid,esk) = prefilterBlock pm wid esk b
 
 -- | Notify all the wallets in the PassiveWallet of a new block
 applyBlock :: PassiveWallet

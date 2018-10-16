@@ -6,9 +6,9 @@
 -- Currently only the batched block requests are wired up. The streaming
 -- definition is not yet available.
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE BangPatterns        #-}
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE BangPatterns #-}
 
 module Bench.Pos.Diffusion.BlockDownload where
 
@@ -35,14 +35,13 @@ import qualified Node
 import           Pipes (each)
 
 import           Pos.Binary (serialize, serialize')
-import           Pos.Core (BlockVersion (..), Block, HeaderHash, BlockHeader)
+import           Pos.Core (Block, BlockHeader, BlockVersion (..), HeaderHash)
 import qualified Pos.Core as Core (getBlockHeader)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
-import           Pos.Crypto (ProtocolMagic (..))
+import           Pos.Crypto (ProtocolMagic (..), ProtocolMagicId (..), RequiresNetworkMagic (..))
 import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
-import           Pos.DB.Class (SerializedBlock, Serialized (..))
-import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
-                                     FullDiffusionInternals (..),
+import           Pos.DB.Class (Serialized (..), SerializedBlock)
+import           Pos.Diffusion.Full (FullDiffusionConfiguration (..), FullDiffusionInternals (..),
                                      RunFullDiffusionInternals (..),
                                      diffusionLayerFullExposeInternals)
 import qualified Pos.Infra.Diffusion.Transport.TCP as Diffusion (bracketTransportTCP)
@@ -50,11 +49,11 @@ import           Pos.Infra.Diffusion.Types as Diffusion (Diffusion (..), StreamE
 import qualified Pos.Infra.Network.Policy as Policy
 import           Pos.Infra.Network.Types (Bucket (..))
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
-import           Pos.Logic.Types as Logic (Logic (..))
 import           Pos.Logic.Pure (pureLogic)
+import           Pos.Logic.Types as Logic (Logic (..))
 
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
-import           Pos.Util.Trace (wlogTrace, noTrace)
+import           Pos.Util.Trace (noTrace, wlogTrace)
 import           Test.Pos.Block.Arbitrary.Generate (generateMainBlock)
 
 -- TODO
@@ -68,7 +67,7 @@ import           Test.Pos.Block.Arbitrary.Generate (generateMainBlock)
 --   no subscription connection, we would see this problem.
 
 protocolMagic :: ProtocolMagic
-protocolMagic = ProtocolMagic 0
+protocolMagic = ProtocolMagic (ProtocolMagicId 0) NMMustBeNothing
 
 protocolConstants :: ProtocolConstants
 protocolConstants = ProtocolConstants

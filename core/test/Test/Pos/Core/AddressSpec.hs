@@ -9,37 +9,65 @@ import           Universum
 import qualified Data.ByteString as BS
 import           Formatting (formatToString, int, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
-import           Test.Hspec (Spec, describe, it, shouldBe)
+import           Test.Hspec (Spec, describe, it, runIO, shouldBe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Gen, arbitrary, counterexample, forAll, frequency, vectorOf)
+import           Test.QuickCheck (Gen, arbitrary, counterexample, forAll, frequency, generate,
+                                  vectorOf)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Core (Address, IsBootstrapEraAddr (..), deriveLvl2KeyPair,
                            largestHDAddressBoot, largestPubKeyAddressBoot,
                            largestPubKeyAddressSingleKey, makePubKeyAddress, makePubKeyAddressBoot,
                            makePubKeyHdwAddress)
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, PublicKey, SecretKey (..),
-                             ShouldCheckPassphrase (..), deterministicKeyGen, emptyPassphrase,
-                             mkEncSecretUnsafe, noPassEncrypt, toPublic)
+import           Pos.Core.NetworkMagic (NetworkMagic (..), makeNetworkMagic)
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ProtocolMagic (..), PublicKey,
+                             RequiresNetworkMagic (..), SecretKey (..), ShouldCheckPassphrase (..),
+                             deterministicKeyGen, emptyPassphrase, mkEncSecretUnsafe, noPassEncrypt,
+                             toPublic)
 import           Pos.Crypto.HD (HDAddressPayload (..))
 
 import           Test.Pos.Core.Arbitrary ()
+import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
+
+
+-- We run the tests this number of times, with different `ProtocolMagics`, to get increased
+-- coverage. We should really do this inside of the `prop`, but it is difficult to do that
+-- without significant rewriting of the testsuite.
+testMultiple :: Int
+testMultiple = 3
 
 spec :: Spec
-spec = describe "Address" $ do
+spec = do
+    runWithMagic NMMustBeNothing
+    runWithMagic NMMustBeJust
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = replicateM_ testMultiple $
+    modifyMaxSuccess (`div` testMultiple) $ do
+        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
+        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+            specBody pm
+
+-- An attempt to avoid rightward creep
+specBody :: ProtocolMagic -> Spec
+specBody pm = do
+    let nm = makeNetworkMagic pm
+
     modifyMaxSuccess (min 10) $ do
         prop "PK and HDW addresses with same public key are shown differently"
-            pkAndHdwAreShownDifferently
+            (pkAndHdwAreShownDifferently nm)
 
     describe "Largest addresses" $ do
-        let genPubKeyAddrBoot = pure . makePubKeyAddressBoot . toPublic
+        let genPubKeyAddrBoot = pure . makePubKeyAddressBoot nm . toPublic
+            pubKeyAddrBootSize = 43 + networkMagicExtraBytes pm
         largestAddressProp "PubKey address with BootstrapEra distribution"
-            genPubKeyAddrBoot largestPubKeyAddressBoot 43
+            genPubKeyAddrBoot (largestPubKeyAddressBoot nm) pubKeyAddrBootSize
 
-        let genPubKeyAddrSingleKey = pure . makePubKeyAddress
+        let genPubKeyAddrSingleKey = pure . makePubKeyAddress nm
                 (IsBootstrapEraAddr False) . toPublic
+            pubKeyAddrSingleKeySize = 78 + networkMagicExtraBytes pm
         largestAddressProp "PubKey address with SingleKey distribution"
-            genPubKeyAddrSingleKey largestPubKeyAddressSingleKey 78
+            genPubKeyAddrSingleKey (largestPubKeyAddressSingleKey nm) pubKeyAddrSingleKeySize
 
         let genHDAddrBoot :: SecretKey -> Gen Address
             genHDAddrBoot sk = frequency
@@ -50,6 +78,7 @@ spec = describe "Address" $ do
             genHDAddrBoot' :: PassPhrase -> EncryptedSecretKey -> Word32 -> Word32 -> Address
             genHDAddrBoot' passphrase esk accIdx addrIdx =
                 case deriveLvl2KeyPair
+                            nm
                             (IsBootstrapEraAddr True)
                             (ShouldCheckPassphrase False)
                             passphrase
@@ -68,13 +97,22 @@ spec = describe "Address" $ do
                 esk <- mkEncSecretUnsafe passphrase sk
                 genHDAddrBoot' passphrase esk <$> arbitrary <*> arbitrary
 
+        let hdAddrBootSize = 76 + networkMagicExtraBytes pm
         largestAddressProp "HD address with BootstrapEra distribution"
-            genHDAddrBoot largestHDAddressBoot 76
+            genHDAddrBoot (largestHDAddressBoot nm) hdAddrBootSize
 
-pkAndHdwAreShownDifferently :: Bool -> PublicKey -> Bool
-pkAndHdwAreShownDifferently isBootstrap pk =
-    show (makePubKeyAddress (IsBootstrapEraAddr isBootstrap) pk) /=
-    (show @Text (makePubKeyHdwAddress (IsBootstrapEraAddr isBootstrap)
+networkMagicExtraBytes :: ProtocolMagic -> Byte
+networkMagicExtraBytes pm = case makeNetworkMagic pm of
+    NMNothing -> 0
+    -- Encoding size:
+    -- Map key: 2 bytes (1 for header, 1 for Word8)
+    -- Map val: 1-5 bytes (1 for header, 0-4 for Int32)
+    NMJust v  -> 2 + biSize v
+
+pkAndHdwAreShownDifferently :: NetworkMagic -> Bool -> PublicKey -> Bool
+pkAndHdwAreShownDifferently nm isBootstrap pk =
+    show (makePubKeyAddress nm (IsBootstrapEraAddr isBootstrap) pk) /=
+    (show @Text (makePubKeyHdwAddress nm (IsBootstrapEraAddr isBootstrap)
                 (HDAddressPayload "pataq") pk))
 
 largestAddressProp :: Text -> (SecretKey -> Gen Address) -> Address -> Byte -> Spec

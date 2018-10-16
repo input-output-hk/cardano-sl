@@ -2,6 +2,8 @@ module Test.Pos.Crypto.Gen
         (
         -- Protocol Magic Generator
           genProtocolMagic
+        , genProtocolMagicId
+        , genRequiresNetworkMagic
 
         -- Sign Tag Generator
         , genSignTag
@@ -64,7 +66,8 @@ import qualified Hedgehog.Range as Range
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Crypto (PassPhrase)
-import           Pos.Crypto.Configuration (ProtocolMagic (..))
+import           Pos.Crypto.Configuration (ProtocolMagic (..), ProtocolMagicId (..),
+                                           RequiresNetworkMagic (..))
 import           Pos.Crypto.Hashing (AbstractHash (..), HashAlgorithm, WithHash, abstractHash,
                                      withHash)
 import           Pos.Crypto.HD (HDAddressPayload (..), HDPassphrase (..))
@@ -85,7 +88,14 @@ import           Pos.Crypto.Signing.Redeem (RedeemPublicKey, RedeemSecretKey, Re
 ----------------------------------------------------------------------------
 
 genProtocolMagic :: Gen ProtocolMagic
-genProtocolMagic = ProtocolMagic <$> (Gen.int32 Range.constantBounded)
+genProtocolMagic = ProtocolMagic <$> genProtocolMagicId
+                                 <*> genRequiresNetworkMagic
+
+genProtocolMagicId :: Gen ProtocolMagicId
+genProtocolMagicId = ProtocolMagicId <$> Gen.int32 Range.constantBounded
+
+genRequiresNetworkMagic :: Gen RequiresNetworkMagic
+genRequiresNetworkMagic = Gen.element [NMMustBeNothing, NMMustBeJust]
 
 ----------------------------------------------------------------------------
 -- Sign Tag Generator
@@ -182,9 +192,9 @@ genProxySignature genA genW = do
 -- Signature Generators
 ----------------------------------------------------------------------------
 
-genSignature :: Bi a => Gen a -> Gen (Signature a)
-genSignature genA =
-    sign <$> genProtocolMagic <*> genSignTag <*> genSecretKey <*> genA
+genSignature :: Bi a => ProtocolMagic -> Gen a -> Gen (Signature a)
+genSignature pm genA =
+    sign pm <$> genSignTag <*> genSecretKey <*> genA
 
 genSignatureEncoded :: Gen ByteString -> Gen (Signature a)
 genSignatureEncoded genB =
@@ -196,12 +206,12 @@ genSigned genA =
 
 genRedeemSignature
     ::  Bi a
-    => Gen a
+    => ProtocolMagic
+    -> Gen a
     -> Gen (RedeemSignature a)
-genRedeemSignature genA =
-    redeemSign <$> gpm <*> gst <*> grsk <*> genA
+genRedeemSignature pm genA =
+    redeemSign pm <$> gst <*> grsk <*> genA
   where
-    gpm  = genProtocolMagic
     gst  = genSignTag
     grsk = genRedeemSecretKey
 

@@ -45,6 +45,7 @@ packages:
 - wallet
 - wallet-new # The new (unreleased) version of the wallet
 - node-ipc
+- faucet
 
 - location:
     git: https://github.com/well-typed/cborg
@@ -72,7 +73,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: 81eea7361a75923f9402fcb7840fb36722dbf88e # master 0.4.10
+    commit: 9b96874d0f234554a5779d98762cc0a6773a532a
   extra-dep: true
 # These three are needed for cardano-sl-networking
 - location:
@@ -90,6 +91,11 @@ packages:
 - location:
     git: https://github.com/input-output-hk/cardano-crypto
     commit: 287cc575fafe86af9d24af9d012c47f9d3f04da0
+  extra-dep: true
+  # to be removed when haskell-ip is in the current stackage version
+- location:
+    git: https://github.com/andrewthad/haskell-ip
+    commit: 9bb453139aa82cc973125091800422a523e1eb8f
   extra-dep: true
 
 # Required for explorer.

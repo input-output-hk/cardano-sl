@@ -25,7 +25,8 @@ let
     ghcRuntimeArgs = "-N2 -qg -A1m -I0 -T -M1G";
 
     # Temporarily run the old wallet code until CBR-420 is resolved.
-    additionalNodeArgs = "--legacy-wallet";
+    #additionalNodeArgs = "--legacy-wallet";
+    additionalNodeArgs = "";
   };
 
 in

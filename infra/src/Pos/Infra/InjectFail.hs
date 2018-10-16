@@ -50,11 +50,10 @@ parseFInjectsSpec :: Parser (Set FInject)
 parseFInjectsSpec = Set.fromList . catMaybes <$> sequenceA (parseSingle <$> enumFromTo minBound maxBound)
 
 parseSingle :: FInject -> Parser (Maybe FInject)
-parseSingle fi = (<&> \case
-                     Just True -> Just fi
-                     _         -> Nothing) <$> optional $
-  switch (long (drop 4 $ map toLower $ show fi) <>
-          help (desc fi))
+parseSingle fi =
+    flag Nothing (Just fi) opt
+  where
+    opt = long (drop 4 $ map toLower $ show fi) <> help (desc fi)
 
 -- | Make a stateful fault injection configuration object.
 mkFInjects :: MonadIO m => Set FInject -> m FInjects

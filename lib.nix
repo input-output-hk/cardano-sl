@@ -5,6 +5,8 @@ let
     then builtins.trace "using host <cardano_pkgs>" try.value
     else import ./fetch-nixpkgs.nix;
 
+  importPkgs = args: import fetchNixPkgs ({ overlays = [ (import ./nix/overlays/jemalloc.nix) ]; } // args);
+
   maybeEnv = env: default:
     let
       result = builtins.getEnv env;
@@ -38,7 +40,7 @@ let
   pkgs = import fetchNixPkgs {};
   lib = pkgs.lib;
 in lib // (rec {
-  inherit fetchNixPkgs cleanSourceTree;
+  inherit fetchNixPkgs importPkgs cleanSourceTree;
   isCardanoSL = lib.hasPrefix "cardano-sl";
   isBenchmark = args: !((args.isExecutable or false) || (args.isLibrary or true));
 

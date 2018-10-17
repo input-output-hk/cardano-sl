@@ -3,18 +3,38 @@ let
 in
 { system ? builtins.currentSystem
 , config ? {}
-, pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; overlays = [ (import ./nix/overlays/jemalloc.nix) ]; })
+# Use a pinned version nixpkgs.
+, pkgs ? localLib.importPkgs { inherit system config; }
+
+# SHA1 hash which will be embedded in binaries
 , gitrev ? localLib.commitIdFromGitRepo ./.git
+
+# This is set by CI
 , buildId ? null
+
+# Disable running of tests for all cardano-sl packages.
 , forceDontCheck ? false
-# profiling slows down performance by 50% so we don't enable it by default
+
+# Enable profiling for all haskell packages.
+# Profiling slows down performance by 50% so we don't enable it by default.
 , enableProfiling ? false
+
+# Keeps the debug information for all haskell packages.
 , enableDebugging ? false
+
+# Build (but don't run) benchmarks for all cardano-sl packages.
 , enableBenchmarks ? true
+
+# Overrides all nix derivations to add build timing information in
+# their build output.
 , enablePhaseMetrics ? true
+
+# Disables optimization in the build for all cardano-sl packages.
+, fasterBuild ? false
+
+# Options for the demo wallet/cluster.
 , allowCustomConfig ? true
 , useStackBinaries ? false
-, fasterBuild ? false
 }:
 
 with pkgs.lib;

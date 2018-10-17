@@ -8,9 +8,10 @@
 , numImportedWallets ? 11
 , assetLockAddresses ? []
 , system ? builtins.currentSystem
-, iohkPkgs ? import ./../../.. { inherit config system gitrev; }
+, iohkPkgs ? import ./../../.. { inherit config system gitrev forceDontCheck; }
 , pkgs ? iohkPkgs.pkgs
 , gitrev ? localLib.commitIdFromGitRepo ./../../../.git
+, forceDontCheck ? false
 , ghcRuntimeArgs ? "-N2 -qg -A1m -I0 -T"
 , additionalNodeArgs ? ""
 , keepAlive ? true

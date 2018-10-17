@@ -30,7 +30,7 @@ import           Pos.Client.CLI.Options (CommonArgs (..), commonArgsParser,
                      optionalJSONPath)
 import           Pos.Core.NetworkAddress (NetworkAddress)
 import           Pos.Infra.HealthCheck.Route53 (route53HealthCheckOption)
-import           Pos.Infra.InjectFail (FInject, parseFInjectsSpec)
+import           Pos.Infra.InjectFail (FInjectsSpec, parseFInjectsSpec)
 import           Pos.Infra.Network.CLI (NetworkConfigOpts, networkConfigOption)
 import           Pos.Infra.Statistics (EkgParams, StatsdParams, ekgParamsOption,
                      statsdParamsOption)
@@ -57,7 +57,7 @@ data CommonNodeArgs = CommonNodeArgs
     , statsdParams           :: !(Maybe StatsdParams)
     , cnaDumpGenesisDataPath :: !(Maybe FilePath)
     , cnaDumpConfiguration   :: !Bool
-    , cnaFInjects            :: !(Set FInject)
+    , cnaFInjectsSpec        :: !FInjectsSpec
     } deriving Show
 
 commonNodeArgsParser :: Parser CommonNodeArgs
@@ -126,11 +126,13 @@ commonNodeArgsParser = do
         long "dump-configuration" <>
         help "Dump configuration and exit."
 
-    cnaFInjects <- parseFInjectsSpec
+    cnaFInjectsSpec <- parseFInjectsSpec
         -- The fault injection CLI switches are generated in infra/src/Pos/Infra/InjectFail.hs
         -- from the FInject ADT, by:  1) lowercasing and 2) dropping the 4-letter prefix.
         -- I.e.
         --     FInjIgnoreShutdown → --ignoreshutdown
+        -- Additionally, a single extra flag is required to allow fault injection processing at all:
+        --   --allow-fault-injection
 
     pure CommonNodeArgs{..}
 

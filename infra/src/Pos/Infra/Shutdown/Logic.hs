@@ -1,5 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
-
 module Pos.Infra.Shutdown.Logic
        ( triggerShutdown
        , waitForShutdown
@@ -27,4 +25,4 @@ triggerShutdown = do
 
 -- | Wait for the shutdown var to be true.
 waitForShutdown :: ShutdownContext -> IO ()
-waitForShutdown ShutdownContext{..} = atomically (readTVar _shdnIsTriggered >>= check)
+waitForShutdown (ShutdownContext shutdownTriggered _) = atomically (readTVar shutdownTriggered >>= check)

@@ -81,8 +81,8 @@ walletRollbackBlocks w bs = do
     return mempty
 
 instance MonadBListener WalletMode where
-  onApplyBlocks      bs = getWallet >>= (`walletApplyBlocks`    bs)
-  onRollbackBlocks _ bs = getWallet >>= (`walletRollbackBlocks` bs)
+  onApplyBlocks    _nm bs     = getWallet >>= (`walletApplyBlocks`    bs)
+  onRollbackBlocks _nm _pc bs = getWallet >>= (`walletRollbackBlocks` bs)
 
 {-------------------------------------------------------------------------------
   Run the wallet

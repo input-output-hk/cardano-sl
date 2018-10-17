@@ -51,6 +51,7 @@ import           Pos.Core (AddrAttributes (..), AddrSpendingData (..),
 import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
 import           Pos.Core.Constants (sharedSeedLength)
 import           Pos.Core.Merkle (MerkleTree, mkMerkleTree)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Core.ProtocolConstants (pcEpochSlots)
 import           Pos.Util.Util (leftToPanic)
 
@@ -244,6 +245,9 @@ instance Arbitrary AddrStakeDistribution where
                     portion <-
                         CoinPortion <$> choose (1, max 1 (limit - 1))
                     genPortions (n - 1) (portion : res)
+
+instance Arbitrary NetworkMagic where
+    arbitrary = oneof [pure NetworkMainOrStage, NetworkTestnet <$> arbitrary]
 
 instance Arbitrary AddrAttributes where
     arbitrary = genericArbitrary

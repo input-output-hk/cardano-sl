@@ -44,6 +44,7 @@ import           Pos.Core (BlockCount, FlatSlotId, ProtocolConstants,
 import           Pos.Core.Chrono (NE, NewestFirst (getNewestFirst),
                      OldestFirst (..), toOldestFirst, _OldestFirst)
 import           Pos.Core.Exception (assertionFailed, reportFatalError)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Core.Slotting (MonadSlots, SlotId)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Block.BListener (MonadBListener (..))
@@ -237,7 +238,7 @@ slogApplyBlocks k (ShouldCallBListener callBListener) blunds = do
     -- If the program is interrupted at this point (after putting blunds
     -- in BlockDB), we will have garbage blunds in BlockDB, but it's not a
     -- problem.
-    bListenerBatch <- if callBListener then onApplyBlocks blunds
+    bListenerBatch <- if callBListener then onApplyBlocks fixedNM blunds
                       else pure mempty
 
     let newestBlock = NE.last $ getOldestFirst blunds
@@ -317,7 +318,7 @@ slogRollbackBlocks pc (BypassSecurityCheck bypassSecurity) (ShouldCallBListener 
         reportFatalError "slogRollbackBlocks: the attempted rollback would \
                          \lead to a more than 'k' distance between tip and \
                          \last seen block, which is a security risk. Aborting."
-    bListenerBatch <- if callBListener then onRollbackBlocks pc blunds
+    bListenerBatch <- if callBListener then onRollbackBlocks fixedNM pc blunds
                       else pure mempty
     let putTip =
             SomeBatchOp $ GS.PutTip $
@@ -356,3 +357,7 @@ slogRollbackBlocks pc (BypassSecurityCheck bypassSecurity) (ShouldCallBListener 
     blockExtraBatch lastSlots =
         GS.SetLastSlots (newLastSlots lastSlots) :
         mconcat [forwardLinksBatch, inMainBatch]
+
+
+fixedNM :: NetworkMagic
+fixedNM = NetworkMainOrStage

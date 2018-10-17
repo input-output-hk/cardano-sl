@@ -29,6 +29,7 @@ import           Pos.Client.Txp.Util (InputSelectionPolicy,
 import           Pos.Communication.Types (InvOrDataTK)
 import           Pos.Core (Address, Coin, makeRedeemAddress, mkCoin,
                      unsafeAddCoin)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (RedeemSecretKey, SafeSigner, hash, redeemToPublic)
 import           Pos.Infra.Communication.Protocol (OutSpecs)
 import           Pos.Infra.Communication.Specs (createOutSpecs)
@@ -84,7 +85,7 @@ prepareRedemptionTx
     -> Address
     -> m (TxAux, Address, Coin)
 prepareRedemptionTx genesisConfig rsk output = do
-    let redeemAddress = makeRedeemAddress $ redeemToPublic rsk
+    let redeemAddress = makeRedeemAddress fixedNM $ redeemToPublic rsk
     utxo <- getOwnUtxo (configGenesisData genesisConfig) redeemAddress
     let addCoin c = unsafeAddCoin c . txOutValue . toaOut
         redeemBalance = foldl' addCoin (mkCoin 0) utxo
@@ -107,3 +108,7 @@ submitTxRaw diffusion txAux@TxAux {..} = do
 
 sendTxOuts :: OutSpecs
 sendTxOuts = createOutSpecs (Proxy :: Proxy (InvOrDataTK TxId TxMsgContents))
+
+
+fixedNM :: NetworkMagic
+fixedNM = NetworkMainOrStage

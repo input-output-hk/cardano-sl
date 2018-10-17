@@ -40,6 +40,7 @@ import           Pos.Core.Common (Address, Coin, IsBootstrapEraAddr (..),
                      coinToInteger, deriveFirstHDAddress,
                      makePubKeyAddressBoot, mkCoin, sumCoins,
                      unsafeIntegerToCoin)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Core.ProtocolConstants (ProtocolConstants, vssMaxTTL,
                      vssMinTTL)
 import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic, RedeemPublicKey,
@@ -175,19 +176,22 @@ generateGenesisData pm pc (GenesisInitializer{..}) realAvvmBalances = determinis
     vssCerts <- mkVssCertificatesMap
         <$> mapM (generateVssCert pm pc) richmenSecrets
 
+    let nm = fixedNM
+
     -- Non AVVM balances
     ---- Addresses
     let createAddressRich :: SecretKey -> Address
-        createAddressRich (toPublic -> pk) = makePubKeyAddressBoot pk
+        createAddressRich (toPublic -> pk) = makePubKeyAddressBoot nm pk
     let createAddressPoor :: PoorSecret -> Address
         createAddressPoor (PoorEncryptedSecret hdwSk) =
             fst $
             fromMaybe (error "generateGenesisData: pass mismatch") $
             deriveFirstHDAddress
+                nm
                 (IsBootstrapEraAddr True)
                 emptyPassphrase
                 hdwSk
-        createAddressPoor (PoorSecret secret) = makePubKeyAddressBoot (toPublic secret)
+        createAddressPoor (PoorSecret secret) = makePubKeyAddressBoot nm (toPublic secret)
     let richAddresses = map (createAddressRich . rsPrimaryKey) richmenSecrets
         poorAddresses = map createAddressPoor poorsSecrets
 
@@ -317,3 +321,7 @@ genTestnetDistribution TestnetBalanceOptions {..} testBalance =
 
     getShare :: Double -> Integer -> Integer
     getShare sh n = round $ sh * fromInteger n
+
+
+fixedNM :: NetworkMagic
+fixedNM = NetworkMainOrStage

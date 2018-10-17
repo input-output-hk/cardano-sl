@@ -26,6 +26,7 @@ import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Core (Address (..), ChainDifficulty, Timestamp,
                      aaPkDerivationPath, addrAttributesUnwrapped,
                      makeRootPubKeyAddress)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (EncryptedSecretKey, HDPassphrase, PublicKey,
                      WithHash (..), deriveHDPassphrase, encToPublic,
                      unpackHDAddressAttr)
@@ -92,7 +93,7 @@ credentialsFromPublicKey :: PublicKey -> WalletDecrCredentials
 credentialsFromPublicKey publicKey = (hdPassword, walletId)
   where
     hdPassword = deriveHDPassphrase publicKey
-    walletId   = encodeCType $ makeRootPubKeyAddress publicKey
+    walletId   = encodeCType $ makeRootPubKeyAddress fixedNM publicKey
 
 selectOwnAddresses
     :: WalletDecrCredentials
@@ -108,3 +109,7 @@ decryptAddress (hdPass, wCId) addr = do
     derPath <- unpackHDAddressAttr hdPass hdPayload
     guard $ length derPath == 2
     pure $ WAddressMeta wCId (derPath !! 0) (derPath !! 1) addr
+
+
+fixedNM :: NetworkMagic
+fixedNM = NetworkMainOrStage

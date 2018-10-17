@@ -25,6 +25,7 @@ import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Core (Address, ChainDifficulty, decodeTextAddress,
                      makePubKeyAddressBoot, sumCoins, unsafeAddCoin,
                      unsafeIntegerToCoin)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (EncryptedSecretKey, encToPublic)
 import           Pos.Util.Servant
 import           Pos.Wallet.Web.ClientTypes.Instances ()
@@ -48,7 +49,7 @@ cIdToAddress (CId (CHash h)) = decodeTextAddress h
 -- distribution based on this information. Currently it's always
 -- bootstrap era distribution.
 encToCId :: EncryptedSecretKey -> CId w
-encToCId = encodeCType . makePubKeyAddressBoot . encToPublic
+encToCId = encodeCType . makePubKeyAddressBoot fixedNM . encToPublic
 
 mergeTxOuts :: [TxOut] -> [TxOut]
 mergeTxOuts = map stick . NE.groupWith txOutAddress
@@ -127,3 +128,7 @@ toCUpdateInfo bvd ConfirmedProposalState {..} =
         cuiPositiveStake    = encodeCType cpsPositiveStake
         cuiNegativeStake    = encodeCType cpsNegativeStake
     in CUpdateInfo {..}
+
+
+fixedNM :: NetworkMagic
+fixedNM = NetworkMainOrStage

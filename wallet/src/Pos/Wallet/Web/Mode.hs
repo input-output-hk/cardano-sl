@@ -268,8 +268,8 @@ instance MonadGState WalletWebMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault
 
 instance MonadBListener WalletWebMode where
-    onApplyBlocks = onApplyBlocksWebWallet
-    onRollbackBlocks = onRollbackBlocksWebWallet
+    onApplyBlocks _nm = onApplyBlocksWebWallet
+    onRollbackBlocks _nm = onRollbackBlocksWebWallet
 
 instance MonadUpdates WalletWebMode where
     waitForUpdate = waitForUpdateWebWallet
@@ -353,5 +353,5 @@ instance MonadAddresses Pos.Wallet.Web.Mode.WalletWebMode where
     type AddrData Pos.Wallet.Web.Mode.WalletWebMode = (AccountId, PassPhrase)
     -- We rely on the fact that Daedalus always uses HD addresses with
     -- BootstrapEra distribution.
-    getFakeChangeAddress _ = pure largestHDAddressBoot
-    getNewAddress _ = getNewAddressWebWallet
+    getFakeChangeAddress nm _ = pure (largestHDAddressBoot nm)
+    getNewAddress _nm _ = getNewAddressWebWallet

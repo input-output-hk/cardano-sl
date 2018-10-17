@@ -18,6 +18,7 @@ import           Test.QuickCheck.Monadic (pick, stop)
 import           Pos.Binary (biSize)
 import           Pos.Client.Txp.Addresses (getFakeChangeAddress, getNewAddress)
 import           Pos.Core.Common (Address)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (PassPhrase)
 
 import           Pos.Util.Wlog (setupTestLogging)
@@ -56,7 +57,7 @@ fakeAddressHasMaxSizeTest generator accSeed = do
          =<< newAccount (DeterminedSeed accSeed) passphrase (CAccountInit def wid)
     address <- generator accId passphrase
 
-    largeAddress <- lift $ getFakeChangeAddress dummyEpochSlots
+    largeAddress <- lift (getFakeChangeAddress fixedNM dummyEpochSlots)
 
     assertProperty
         (biSize largeAddress >= biSize address)
@@ -67,7 +68,7 @@ fakeAddressHasMaxSizeTest generator accSeed = do
 -- so another proper generator is helpful.
 changeAddressGenerator :: AddressGenerator
 changeAddressGenerator accId passphrase =
-    lift $ getNewAddress dummyEpochSlots (accId, passphrase)
+    lift $ getNewAddress fixedNM dummyEpochSlots (accId, passphrase)
 
 -- | Generator which is directly used in endpoints.
 commonAddressGenerator :: AddressGenerator
@@ -83,3 +84,7 @@ commonAddressGenerator accId passphrase = do
     seedBusyHandler (InternalError "address generation: this index is already taken")
                       = pure Nothing
     seedBusyHandler e = throwM e
+
+
+fixedNM :: NetworkMagic
+fixedNM = NetworkMainOrStage

@@ -31,6 +31,7 @@ import           Pos.Client.KeyStorage (AllUserPublics (..),
                      getSecretKeysPlain)
 import           Pos.Core (Address (..), IsBootstrapEraAddr (..),
                      deriveLvl2KeyPair, makePubKeyAddressBoot)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, PublicKey,
                      ShouldCheckPassphrase (..), firstHardened,
                      safeDeterministicKeyGen)
@@ -96,7 +97,7 @@ getPKByIdPure
     -> CId Wal
     -> Maybe PublicKey
 getPKByIdPure (AllUserPublics publicKeys) walletId =
-    find (\pk -> walletId == encodeCType (makePubKeyAddressBoot pk)) publicKeys
+    find (\pk -> walletId == encodeCType (makePubKeyAddressBoot fixedNM pk)) publicKeys
 
 getSKByAddress
     :: AccountMode ctx m
@@ -222,6 +223,7 @@ deriveAddressSKPure secrets scp passphrase AccountId {..} addressIndex = do
 
     maybe (throwError badPass) pure $
         deriveLvl2KeyPair
+            fixedNM
             (IsBootstrapEraAddr True) -- TODO: make it context-dependent!
             scp
             passphrase
@@ -254,3 +256,9 @@ instance AccountMode ctx m => MonadKeySearch AccountId m where
 
 instance AccountMode ctx m => MonadKeySearch WAddressMeta m where
     findKey = findKey . _wamWalletId
+
+
+
+
+fixedNM :: NetworkMagic
+fixedNM = NetworkMainOrStage

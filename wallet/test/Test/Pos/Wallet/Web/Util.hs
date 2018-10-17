@@ -46,6 +46,7 @@ import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Core (Address, BlockCount, Coin)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Common (IsBootstrapEraAddr (..), deriveLvl2KeyPair)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase,
                      ShouldCheckPassphrase (..), emptyPassphrase,
                      firstHardened)
@@ -169,6 +170,7 @@ genWalletLvl2KeyPair sk psw = do
     accountIdx <- getDerivingIndex <$> arbitrary
     addressIdx <- getDerivingIndex <$> arbitrary
     pure $ deriveLvl2KeyPair
+        fixedNM
         (IsBootstrapEraAddr True)
         (ShouldCheckPassphrase False)
         psw sk accountIdx addressIdx
@@ -227,3 +229,7 @@ newtype DerivingIndex = DerivingIndex
 
 instance Arbitrary DerivingIndex where
     arbitrary = DerivingIndex <$> choose (firstHardened, firstHardened + (firstHardened - 1))
+
+
+fixedNM :: NetworkMagic
+fixedNM = NetworkMainOrStage

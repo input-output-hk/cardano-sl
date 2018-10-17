@@ -31,6 +31,7 @@ import           Pos.Client.Txp.Util (InputSelectionPolicy (..), TxError (..),
 import           Pos.Core (Address, Coeff (..), TxFeePolicy (..),
                      TxSizeLinear (..), makePubKeyAddressBoot,
                      makeRedeemAddress, unsafeIntegerToCoin)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (RedeemSecretKey, SafeSigner, SecretKey, decodeHash,
                      fakeSigner, redeemToPublic, toPublic)
 import           Pos.DB (gsAdoptedBVData)
@@ -406,10 +407,10 @@ generateTxOutAux amount sk =
 
 generateRedeemTxOutAux :: Integer -> RedeemSecretKey -> TxOutAux
 generateRedeemTxOutAux amount rsk =
-    makeTxOutAux amount (makeRedeemAddress $ redeemToPublic rsk)
+    makeTxOutAux amount (makeRedeemAddress fixedNM $ redeemToPublic rsk)
 
 secretKeyToAddress :: SecretKey -> Address
-secretKeyToAddress = makePubKeyAddressBoot . toPublic
+secretKeyToAddress = makePubKeyAddressBoot fixedNM . toPublic
 
 makeSigner :: SecretKey -> (SafeSigner, Address)
 makeSigner sk = (fakeSigner sk, secretKeyToAddress sk)
@@ -420,3 +421,7 @@ withTxFeePolicy a b action = do
     let policy = TxFeePolicyTxSizeLinear $ TxSizeLinear a b
     bvd <- gsAdoptedBVData
     withBVData bvd{ bvdTxFeePolicy = policy } action
+
+
+fixedNM :: NetworkMagic
+fixedNM = NetworkMainOrStage

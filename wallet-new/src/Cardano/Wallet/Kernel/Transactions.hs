@@ -74,6 +74,7 @@ import           Pos.Chain.Txp as Core (TxAttributes, TxAux, TxIn, TxOut,
 import qualified Pos.Client.Txp.Util as CTxp
 import           Pos.Core (Address, Coin, TxFeePolicy (..), unsafeSubCoin)
 import qualified Pos.Core as Core
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ProtocolMagic,
                      PublicKey, RedeemSecretKey, SafeSigner (..),
                      ShouldCheckPassphrase (..), Signature (..), hash,
@@ -597,7 +598,8 @@ mkSigner spendingPassword (Just esk) snapshot addr =
                                        . HD.hdAddressIdParent
                                        . HD.hdAccountIdIx
                                        . to HD.getHdAccountIx
-                res = Core.deriveLvl2KeyPair (Core.IsBootstrapEraAddr True)
+                res = Core.deriveLvl2KeyPair fixedNM
+                                             (Core.IsBootstrapEraAddr True)
                                              (ShouldCheckPassphrase False)
                                              spendingPassword
                                              esk
@@ -693,7 +695,7 @@ redeemAda w@ActiveWallet{..} accId pw rsk = runExceptT $ do
     return (taTx tx, meta)
   where
     redeemAddr :: Address
-    redeemAddr = Core.makeRedeemAddress $ redeemToPublic rsk
+    redeemAddr = Core.makeRedeemAddress fixedNM $ redeemToPublic rsk
 
     -- | Note: we use `getCreationTimestamp` provided by the `NodeStateAdaptor`
     --   to compute the createdAt timestamp for `TxMeta`
@@ -798,3 +800,6 @@ mkStdTx pm shuffle hdwSigners inps outs change = do
          -- 'TxOwnedInputs'.
         repack :: (Core.TxIn, Core.TxOutAux) -> (Core.TxOut, Core.TxIn)
         repack (txIn, aux) = (Core.toaOut aux, txIn)
+
+fixedNM :: NetworkMagic
+fixedNM = NetworkMainOrStage

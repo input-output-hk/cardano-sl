@@ -29,6 +29,8 @@ library
 
                        Pos.Core.NetworkAddress
 
+                       Pos.Core.NetworkMagic
+
                        Pos.Core.Common
                        Pos.Core.Constants
                        Pos.Core.Context
@@ -147,6 +149,7 @@ library
                      , resourcet
                      , safecopy
                      , safe-exceptions
+                     , safecopy
                      , serokell-util
                      , servant >= 0.8.1
                      , stm

@@ -50,6 +50,7 @@ import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead,
                      addSecretKey, deletePublicKeyBy, deleteSecretKeyBy)
 import           Pos.Core (Address, Coin, makePubKeyAddressBoot, mkCoin,
                      sumCoins, unsafeIntegerToCoin)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (PassPhrase, PublicKey, changeEncPassphrase,
                      checkPassMatches, emptyPassphrase, firstHardened)
 import           Pos.DB.Txp (GenericTxpLocalData, MonadTxpMem, getLocalTxs,
@@ -380,7 +381,7 @@ deleteWallet wid = do
 
 deleteExternalWallet :: MonadWalletLogic ctx m => PublicKey -> m NoContent
 deleteExternalWallet publicKey = do
-    let walletId = encodeCType . makePubKeyAddressBoot $ publicKey
+    let walletId = encodeCType . makePubKeyAddressBoot fixedNM $ publicKey
     db <- askWalletDB
     removeWallet db walletId
     -- Since there's no secret key for external wallet, delete its public key.
@@ -498,3 +499,6 @@ getWalletWAddrsWithMod ws mode cAccMod wid =
                 map fst (MM.insertions addrMapMod)
             Deleted  -> dbAddresses ++ MM.deletions addrMapMod
             Ever     -> dbAddresses ++ HM.keys (MM.toHashMap addrMapMod)
+
+fixedNM :: NetworkMagic
+fixedNM = NetworkMainOrStage

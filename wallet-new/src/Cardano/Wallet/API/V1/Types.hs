@@ -2788,6 +2788,7 @@ instance Example (V1 Core.Address) where
                     [ pure Core.BootstrapEraDistr
                     , Core.SingleKeyDistr <$> arbitrary
                     ]
+                <*> arbitrary
 
 instance Example BackupPhrase where
     example = pure (BackupPhrase def)

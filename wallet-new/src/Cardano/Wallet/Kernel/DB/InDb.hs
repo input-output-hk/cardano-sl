@@ -19,7 +19,7 @@ import qualified Data.ByteString.Lazy as BL
 import qualified Data.List.NonEmpty as NEL
 import qualified Data.Map as Map
 import qualified Data.SafeCopy as SC
-import           Data.Serialize (Put)
+import           Data.Serialize (Put, getWord8, putWord8)
 import qualified Data.Set as Set
 import qualified Data.Time.Units
 import qualified Data.Vector as V
@@ -32,7 +32,9 @@ import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Chain.Update as Core
 import qualified Pos.Core as Core
 import qualified Pos.Core.Attributes as Core
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import qualified Pos.Crypto as Core
+import           Pos.Util.Util (cerealError)
 
 import qualified Cardano.Crypto.Wallet as CCW
 import           UTxO.Util
@@ -106,10 +108,12 @@ instance SC.SafeCopy (InDb Core.AddrAttributes) where
     getCopy = SC.contain $ do
         yiap :: Maybe (InDb Core.HDAddressPayload) <- SC.safeGet
         InDb (ast :: Core.AddrStakeDistribution) <- SC.safeGet
-        pure (InDb (Core.AddrAttributes (fmap _fromDb yiap) ast))
-    putCopy (InDb (Core.AddrAttributes yap asr)) = SC.contain $ do
+        InDb (nm :: NetworkMagic) <- SC.safeGet
+        pure (InDb (Core.AddrAttributes (fmap _fromDb yiap) ast nm))
+    putCopy (InDb (Core.AddrAttributes yap asr nm)) = SC.contain $ do
         SC.safePut (fmap InDb yap)
         SC.safePut (InDb asr)
+        SC.safePut (InDb nm)
 
 instance SC.SafeCopy (InDb Core.AddrStakeDistribution) where
     getCopy = SC.contain $ fmap InDb $ do
@@ -794,6 +798,15 @@ instance SC.SafeCopy (InDb Core.RequiresNetworkMagic) where
     putCopy (InDb rnm) = SC.contain $ case rnm of
         Core.RequiresNoMagic -> SC.safePut (0 :: Word8)
         Core.RequiresMagic   -> SC.safePut (1 :: Word8)
+
+instance SC.SafeCopy (InDb NetworkMagic) where
+    getCopy = SC.contain $ getWord8 >>= \case
+        0 -> pure (InDb NetworkMainOrStage)
+        1 -> InDb . NetworkTestnet <$> SC.safeGet
+        t -> cerealError $ "getCopy@(InDb NetworkMagic): couldn't read tag: " <> show t
+
+    putCopy (InDb NetworkMainOrStage)   = SC.contain $ putWord8 0
+    putCopy (InDb (NetworkTestnet i)) = SC.contain $ putWord8 1 >> SC.safePut i
 
 instance SC.SafeCopy (InDb Core.GenesisProof) where
     getCopy = SC.contain $ do

@@ -171,7 +171,7 @@ instance MonadDB (RealMode ext) where
 
 instance MonadBListener (RealMode ext) where
     onApplyBlocks = onApplyBlocksStub
-    onRollbackBlocks _ = onRollbackBlocksStub
+    onRollbackBlocks nm _ blunds = onRollbackBlocksStub nm blunds
 
 type instance MempoolExt (RealMode ext) = ext
 

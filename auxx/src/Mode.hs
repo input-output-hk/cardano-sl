@@ -43,6 +43,7 @@ import           Pos.Core (Address, HasPrimaryKey (..), IsBootstrapEraAddr (..),
                      SlotCount, deriveFirstHDAddress, largestPubKeyAddressBoot,
                      largestPubKeyAddressSingleKey, makePubKeyAddress, siEpoch)
 import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Core.NetworkMagic (NetworkMagic)
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MonadReporting (..))
 import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
@@ -215,11 +216,11 @@ instance (HasConfigurations, HasCompileInfo) =>
          MonadAddresses AuxxMode where
     type AddrData AuxxMode = PublicKey
     getNewAddress = makePubKeyAddressAuxx
-    getFakeChangeAddress pc = do
+    getFakeChangeAddress nm pc = do
         epochIndex <- siEpoch <$> getCurrentSlotInaccurate pc
         gsIsBootstrapEra epochIndex <&> \case
-            False -> largestPubKeyAddressBoot
-            True -> largestPubKeyAddressSingleKey
+            False -> largestPubKeyAddressBoot nm
+            True -> largestPubKeyAddressSingleKey nm
 
 instance MonadKeysRead AuxxMode where
     getPublic = getPublicDefault
@@ -243,17 +244,26 @@ instance HasConfigurations =>
 -- | In order to create an 'Address' from a 'PublicKey' we need to
 -- choose suitable stake distribution. We want to pick it based on
 -- whether we are currently in bootstrap era.
-makePubKeyAddressAuxx :: MonadAuxxMode m => SlotCount -> PublicKey -> m Address
-makePubKeyAddressAuxx epochSlots pk = do
+makePubKeyAddressAuxx ::
+       MonadAuxxMode m
+    => NetworkMagic
+    -> SlotCount
+    -> PublicKey
+    -> m Address
+makePubKeyAddressAuxx nm epochSlots pk = do
     epochIndex <- siEpoch <$> getCurrentSlotInaccurate epochSlots
     ibea <- IsBootstrapEraAddr <$> gsIsBootstrapEra epochIndex
-    pure $ makePubKeyAddress ibea pk
+    pure $ makePubKeyAddress nm ibea pk
 
 -- | Similar to @makePubKeyAddressAuxx@ but create HD address.
-deriveHDAddressAuxx
-    :: MonadAuxxMode m => SlotCount -> EncryptedSecretKey -> m Address
-deriveHDAddressAuxx epochSlots hdwSk = do
+deriveHDAddressAuxx ::
+       MonadAuxxMode m
+    => NetworkMagic
+    -> SlotCount
+    -> EncryptedSecretKey
+    -> m Address
+deriveHDAddressAuxx nm epochSlots hdwSk = do
     epochIndex <- siEpoch <$> getCurrentSlotInaccurate epochSlots
     ibea <- IsBootstrapEraAddr <$> gsIsBootstrapEra epochIndex
     pure $ fst $ fromMaybe (error "makePubKeyHDAddressAuxx: pass mismatch") $
-        deriveFirstHDAddress ibea emptyPassphrase hdwSk
+        deriveFirstHDAddress nm ibea emptyPassphrase hdwSk

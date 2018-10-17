@@ -83,6 +83,7 @@ import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
 import           Pos.Core.JsonLog.LogEvents (InvReqDataFlowLog (..))
 import           Pos.Core.Merkle (MerkleRoot (..), MerkleTree (..),
                      mkMerkleTree, mtRoot)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
                      VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..),
@@ -103,9 +104,10 @@ import           Test.Pos.Util.Gen (genHashMap)
 ----------------------------------------------------------------------------
 
 genAddrAttributes :: Gen AddrAttributes
-genAddrAttributes = AddrAttributes <$> hap <*> genAddrStakeDistribution
+genAddrAttributes = AddrAttributes <$> hap <*> genAddrStakeDistribution <*> nm
   where
     hap = Gen.maybe genHDAddressPayload
+    nm = pure fixedNM
 
 genAddress :: Gen Address
 genAddress = makeAddress <$> genAddrSpendingData <*> genAddrAttributes
@@ -379,3 +381,6 @@ genTextHash :: Gen (Hash Text)
 genTextHash = do
   sampleText <- Gen.text (Range.linear 0 10) Gen.alphaNum
   pure (hash sampleText :: Hash Text)
+
+fixedNM :: NetworkMagic
+fixedNM = NetworkMainOrStage

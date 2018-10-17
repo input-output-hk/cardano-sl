@@ -508,7 +508,7 @@ instance MonadGState BlockTestMode where
 
 instance MonadBListener BlockTestMode where
     onApplyBlocks = onApplyBlocksStub
-    onRollbackBlocks _ = onRollbackBlocksStub
+    onRollbackBlocks nm _ blunds = onRollbackBlocksStub nm blunds
 
 type instance MempoolExt BlockTestMode = EmptyMempoolExt
 

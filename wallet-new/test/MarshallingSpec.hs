@@ -16,6 +16,7 @@ import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Typeable (typeRep)
 import qualified Pos.Chain.Txp as V0
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import qualified Pos.Crypto as Crypto
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import           Servant.API (FromHttpApiData (..), ToHttpApiData (..))
@@ -158,6 +159,7 @@ spec = parallel $ describe "Marshalling & Unmarshalling" $ do
         safeCopyRoundTrip @(InDb Core.ProtocolMagic)
         safeCopyRoundTrip @(InDb Core.ProtocolMagicId)
         safeCopyRoundTrip @(InDb Core.RequiresNetworkMagic)
+        safeCopyRoundTrip @(InDb NetworkMagic)
         safeCopyRoundTrip @(InDb Core.GenesisProof)
         safeCopyRoundTrip @(InDb Core.GenesisConsensusData)
         safeCopyRoundTrip @(InDb Core.GenesisExtraHeaderData)

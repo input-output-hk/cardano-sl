@@ -44,6 +44,7 @@ import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
                      EpochIndex (..), LocalSlotIndex (..), SlotId (..),
                      SlotLeaders, StakeholderId, difficultyL,
                      makePubKeyAddressBoot)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (SecretKey, toPublic)
 import           Pos.DB.Block (RawPayload (..), createMainBlockPure)
 import           Pos.Explorer.BListener (createPagedHeaderHashesPair)
@@ -399,4 +400,8 @@ produceSecretKeys blocksNumber = liftIO $ secretKeys
 -- | Friendly borrowed from `Test.Pos.Client.Txp.UtilSpec`
 -- | TODO: Remove it as soon as ^ is exposed
 secretKeyToAddress :: SecretKey -> Address
-secretKeyToAddress = makePubKeyAddressBoot . toPublic
+secretKeyToAddress = makePubKeyAddressBoot fixedNM . toPublic
+
+
+fixedNM :: NetworkMagic
+fixedNM = NetworkMainOrStage

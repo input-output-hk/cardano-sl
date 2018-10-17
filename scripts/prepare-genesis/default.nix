@@ -1,7 +1,7 @@
 with (import ./../../lib.nix);
 
 { stdenv, writeScript, writeScriptBin
-, python3, yaml2json, jq, coreutils, gnused
+, jq, coreutils, gnused, haskell, haskellPackages
 
 , cardano-sl, cardano-sl-tools
 
@@ -15,17 +15,8 @@ with (import ./../../lib.nix);
 
 
 let
-  python = python3.withPackages (ps: [ ps.pyyaml ]);
-
-  yaml2json = writeScriptBin "yaml2json" ''
-    #!${python}/bin/python
-    import json
-    import sys
-    import yaml
-    json.dump(yaml.load(open(sys.argv[1])), sys.stdout)
-  '';
-
-  genesisTools = [ yaml2json jq python3 coreutils gnused cardano-sl-tools ];
+  yaml2json = haskell.lib.disableCabalFlag haskellPackages.yaml "no-exe";
+  genesisTools = [ yaml2json jq coreutils gnused cardano-sl-tools ];
   configSource = cardano-sl.src + "/configuration.yaml";
 
 in

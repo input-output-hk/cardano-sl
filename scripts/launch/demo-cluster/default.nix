@@ -4,7 +4,7 @@ with (import ./../../../lib.nix);
 , jq, coreutils, curl, gnused, openssl
 
 , cardano-sl, cardano-sl-tools, cardano-sl-wallet-new-static, cardano-sl-node-static
-, connect
+, connect, callPackage
 
 , useStackBinaries ? false
 
@@ -64,7 +64,7 @@ let
       cp -vi ${cardano-sl.src + "/mainnet-genesis-dryrun-with-stakeholders.json"} mainnet-genesis-dryrun-with-stakeholders.json
       cp -vi ${cardano-sl.src + "/mainnet-genesis.json"} mainnet-genesis.json
     '';
-  prepareGenesis = import ../../prepare-genesis {
+  prepareGenesis = callPackage ../../prepare-genesis {
     # fixme: sort this out
     # inherit config system pkgs gitrev numCoreNodes;
     configurationKey = "testnet_full";

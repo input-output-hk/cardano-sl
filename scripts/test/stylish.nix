@@ -1,6 +1,8 @@
-{ runCommand, stylish-haskell, src, lib, localLib, diffutils, glibcLocales }:
+{ runCommand, stylish-haskell, src, lib, diffutils, glibcLocales }:
 
 let
+  localLib = import ../../lib.nix;
+
   # just haskell sources and the stylish-haskell config file
   src' = lib.cleanSourceWith {
    inherit src;

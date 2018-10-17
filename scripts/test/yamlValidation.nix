@@ -1,6 +1,6 @@
-{ runHaskell, cardanoPkgs }:
+{ runHaskell, haskellPackages }:
 
-runHaskell "yamlValidation" cardanoPkgs (ps: with ps; [
+runHaskell "yamlValidation" haskellPackages (ps: with ps; [
   cardano-sl-util
   cardano-sl-infra
   split

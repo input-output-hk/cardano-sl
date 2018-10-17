@@ -1,26 +1,21 @@
-let
-  localLib = import ../../lib.nix;
-in
-{ system ? builtins.currentSystem
-, config ? {}
-, gitrev ? localLib.commitIdFromGitRepo ../../.git
-, pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; })
-, cardano-sl-explorer
+{ pkgs, stdenv, runCommand, writeScriptBin, fetchzip
+, buildBowerComponents
+, cardano-sl-explorer, gitrev
 }:
 
-with pkgs.lib;
+with (import ../../lib.nix);
 
 let
   src = cleanSourceWith {
-    src = localLib.cleanSourceTree ./.;
-    filter = with pkgs.stdenv;
+    src = cleanSourceTree ./.;
+    filter = with stdenv;
       name: type: let baseName = baseNameOf (toString name); in ! (
         # Filter out locally generated/downloaded things.
         baseName == "bower_components" || baseName == "node_modules"
       );
   };
 
-  bowerComponents = pkgs.buildBowerComponents {
+  bowerComponents = buildBowerComponents {
     name = "cardano-sl-explorer-frontend-deps";
     generated = ./nix/bower-generated.nix;
     inherit src;
@@ -28,7 +23,7 @@ let
 
   # p-d-l does not build with our main version of nixpkgs.
   # Needs to use something off 17.03 branch.
-  oldHaskellPackages = (import (pkgs.fetchzip {
+  oldHaskellPackages = (import (fetchzip {
     url = "https://github.com/NixOS/nixpkgs/archive/cb90e6a0361554d01b7a576af6c6fae4c28d7513.tar.gz";
     sha256 = "0gr25nph2yyk89j2g5zxqm2177lkh0cyy8gnzm6xcywz1qwf3zzf";
   }) {}).pkgs.haskell.packages.ghc802.override {
@@ -37,7 +32,7 @@ let
     };
   };
 
-  yarn2nix = import (pkgs.fetchzip {
+  yarn2nix = import (fetchzip {
     url = "https://github.com/moretea/yarn2nix/archive/v1.0.0.tar.gz";
     sha256 = "02bzr9j83i1064r1r34cn74z7ccb84qb5iaivwdplaykyyydl1k8";
   }) {
@@ -46,7 +41,7 @@ let
     nodejs = pkgs.nodejs-6_x;
   };
 
-  regen-script = pkgs.writeScriptBin "regen" ''
+  regen-script = writeScriptBin "regen" ''
     export PATH=${makeBinPath [oldHaskellPackages.purescript-derive-lenses cardano-sl-explorer]}:$PATH
     cardano-explorer-hs2purs --bridge-path src/Generated/
     scripts/generate-explorer-lenses.sh
@@ -98,7 +93,7 @@ let
   withGitRev = drvOut: let
     drvOutOutputs = drvOut.outputs or ["out"];
   in
-    pkgs.runCommand drvOut.name {
+    runCommand drvOut.name {
       outputs  = drvOutOutputs;
       passthru = drvOut.drvAttrs
         // (drvOut.passthru or {})

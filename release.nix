@@ -61,7 +61,6 @@ let
     cardano-sl-wallet-new = supportedSystems;
     cardano-sl-x509 = supportedSystems;
     daedalus-bridge = supportedSystems;
-    purescript = supportedSystems;
     shell = supportedSystems;
     stack2nix = supportedSystems;
   };

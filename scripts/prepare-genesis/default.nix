@@ -1,39 +1,30 @@
-{ localLib ? import ./../../lib.nix
+with (import ./../../lib.nix);
+
+{ stdenv, writeScript, writeScriptBin
+, jq, coreutils, gnused, haskell, haskellPackages
+
+, cardano-sl, cardano-sl-tools
+
+## Options
 , stateDir ? localLib.maybeEnv "CARDANO_STATE_DIR" "./state-demo"
-, config ? {}
-, system ? builtins.currentSystem
-, pkgs ? import localLib.fetchNixPkgs { inherit system config; }
-, gitrev ? localLib.commitIdFromGitRepo ./../../.git
 , systemStart ? 0
 , configurationKey ? "testnet_full"
 , configurationKeyLaunch ? "testnet_launch"
 , numCoreNodes ? 7
 }:
 
-with localLib;
 
 let
-  iohkPkgs = import ./../.. { inherit config system pkgs gitrev; };
-
-  python = pkgs.python3.withPackages (ps: [ ps.pyyaml ]);
-
-  yaml2json = pkgs.writeScriptBin "yaml2json" ''
-    #!${python}/bin/python
-    import json
-    import sys
-    import yaml
-    json.dump(yaml.load(open(sys.argv[1])), sys.stdout)
-  '';
-
-  genesisTools = with pkgs; [ yaml2json jq python3 coreutils gnused iohkPkgs.cardano-sl-tools ];
-  configSource = iohkPkgs.cardano-sl.src + "/configuration.yaml";
+  yaml2json = haskell.lib.disableCabalFlag haskellPackages.yaml "no-exe";
+  genesisTools = [ yaml2json jq coreutils gnused cardano-sl-tools ];
+  configSource = cardano-sl.src + "/configuration.yaml";
 
 in
-  pkgs.writeScript "prepare-genesis" ''
-    #!${pkgs.stdenv.shell}
+  writeScript "prepare-genesis" ''
+    #!${stdenv.shell}
     set -euo pipefail
 
-    export PATH=${pkgs.lib.makeBinPath genesisTools}
+    export PATH=${makeBinPath genesisTools}
     src=${configSource}
     out=$1
 

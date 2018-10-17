@@ -25,7 +25,7 @@ let
     perl bash
   ];
   # TODO: add cabal-install (2.0.0.1 won't work)
-  devTools = [ hlint iohkPkgs.stylish-haskell ];
+  devTools = [ hlint iohkPkgs.haskellPackages.stylish-haskell ];
 
   cardanoSL = haskell.lib.buildStackProject {
     inherit (haskell.packages.ghc822) ghc;
@@ -51,7 +51,7 @@ let
 
   fixStylishHaskell = stdenv.mkDerivation {
     name = "fix-stylish-haskell";
-    buildInputs = [ iohkPkgs.stylish-haskell git ];
+    buildInputs = [ iohkPkgs.haskellPackages.stylish-haskell git ];
     shellHook = ''
       git diff > pre-stylish.diff
       find . -type f -not -path '.git' -not -path '*.stack-work*' -name "*.hs" -not -name 'HLint.hs' -exec stylish-haskell -i {} \;
@@ -76,7 +76,7 @@ let
       constraints: ${constraints}
     '';
     constraints = lib.concatMapStringsSep ",\n             "
-      makeConstraint (getCardanoSLDeps iohkPkgs);
+      makeConstraint (getCardanoSLDeps iohkPkgs.haskellPackages);
     makeConstraint = dep: "${dep.pname} ==${dep.version}";
   in
     pkgs.writeText "cabal.project.freeze" contents;

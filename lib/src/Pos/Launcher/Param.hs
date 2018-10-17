@@ -66,7 +66,7 @@ data NodeParams = NodeParams
     , npNetworkConfig  :: !(NetworkConfig KademliaParams)
     , npBehaviorConfig :: !BehaviorConfig       -- ^ Behavior (e.g. SSC settings)
     , npAssetLockPath  :: !(Maybe FilePath)     -- ^ Path to assetLocked source address file.
-    , npFInjects       :: !FInjects             -- ^ Failure injection handle
+    , npFInjects       :: !(FInjects IO)        -- ^ Failure injection handle
     } -- deriving (Show)
 
 makeLensesWith postfixLFields ''NodeParams

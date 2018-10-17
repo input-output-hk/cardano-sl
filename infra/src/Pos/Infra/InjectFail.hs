@@ -1,6 +1,7 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
 -- | Fault injection, strategically placed at the root of CSL dependency graph.
 
 module Pos.Infra.InjectFail
@@ -12,6 +13,7 @@ module Pos.Infra.InjectFail
        , setFInject
        , logFInject
        , testLogFInject
+       , listFInjects
        ) where
 
 import           Universum
@@ -43,8 +45,7 @@ desc = \case
     FInjApplyUpdateNoExit             ->  "Don't exit after handling the 'update/apply' endpoint"
     FInjApplyUpdateWrongExitCode      ->  "Exit with a wrong exit code as response to the 'update/apply' request"
 
-newtype FInjects     = FInjects { _fromFInjs :: Maybe (IORef (Set FInject)) }
-type    FInjectsSpec = Maybe (Set FInject)
+type    FInjectsSpec   = Maybe (Set FInject)
 -- ^ Configuration of fault injection: 'Nothing' means completely disabled,
 -- whereas 'Just mempty' means starting with no injections enabled.
 
@@ -62,26 +63,39 @@ parseSingle fi =
   where
     opt = long (drop 4 $ map toLower $ show fi) <> help (desc fi)
 
+newtype FInjectsHandle = FInjectsHandle { _fromFInjsHandle :: Maybe (IORef (Set FInject)) }
+
+data FInjects m     = FInjects
+    { setFInject     :: FInject -> Bool -> m ()
+    , testLogFInject :: FInject -> m Bool
+    , listFInjects   :: m [FInject]
+    }
+
 -- | Make a stateful fault injection configuration object.
-mkFInjects :: (CanLog m, HasLoggerName m, MonadIO m) => FInjectsSpec -> m FInjects
-mkFInjects Nothing   = pure $ FInjects Nothing
-mkFInjects (Just fs) = do
-  logWarning "***"
-  logWarning "*** FAULT INJECTION MACHINERY ACTIVE, ALL WARRANTIES VOID"
-  logWarning "***"
-  FInjects . Just <$> liftIO (newIORef fs)
+mkFInjects :: (CanLog m, HasCallStack, HasLoggerName m, MonadIO m) => FInjectsSpec -> m (FInjects m)
+mkFInjects mfs = do
+  handle@(FInjectsHandle h) <- FInjectsHandle <$> (sequence $ newIORef <$> mfs)
+  when (isJust h) $ do
+    logWarning "***"
+    logWarning "*** FAULT INJECTION MACHINERY ACTIVE, ALL WARRANTIES VOID"
+    logWarning "***"
+  pure $ FInjects
+    { setFInject     = mkSetFInject     handle
+    , testLogFInject = mkTestLogFInject handle
+    , listFInjects   = mkListFInjects   handle
+    }
 
 -- | Test if code holding a reference, wants a particular fault injection enabled.
-testFInject :: MonadIO m => FInjects -> FInject -> m Bool
-testFInject (FInjects Nothing) _ = pure False
-testFInject (FInjects (Just fsRef)) fi =
+testFInject :: MonadIO m => FInjectsHandle -> FInject -> m Bool
+testFInject (FInjectsHandle Nothing) _ = pure False
+testFInject (FInjectsHandle (Just fsRef)) fi =
   Set.member fi <$> readIORef fsRef
 {-# INLINE testFInject #-}
 
 -- | Signal enablement of particular fault injection to listeners.
-setFInject :: MonadIO m => FInjects -> FInject -> Bool -> m ()
-setFInject  (FInjects Nothing) _ _ = pure ()
-setFInject  (FInjects (Just fsRef)) fi enable =
+mkSetFInject :: MonadIO m => FInjectsHandle -> FInject -> Bool -> m ()
+mkSetFInject  (FInjectsHandle Nothing) _ _ = pure ()
+mkSetFInject  (FInjectsHandle (Just fsRef)) fi enable =
   modifyIORef' fsRef (if enable then Set.insert fi else Set.delete fi)
 
 logFInject :: (CanLog m, HasCallStack, HasLoggerName m)
@@ -89,10 +103,14 @@ logFInject :: (CanLog m, HasCallStack, HasLoggerName m)
 logFInject = modifyLoggerName (const "InjectFail") .
   logError . T.pack . (<> prettyCallStack callStack) . ("injecting fault: "<>) . show
 
-testLogFInject :: (CanLog m, HasCallStack, HasLoggerName m, MonadIO m)
-           => FInjects -> FInject -> m Bool
-testLogFInject fis fi = do
+mkTestLogFInject :: (CanLog m, HasCallStack, HasLoggerName m, MonadIO m)
+                 => FInjectsHandle -> FInject -> m Bool
+mkTestLogFInject fis fi = do
   injecting <- testFInject fis fi
   when injecting $
     logFInject fi
   pure injecting
+
+mkListFInjects :: forall m. (MonadIO m)
+               => FInjectsHandle -> m [FInject]
+mkListFInjects fis = fromMaybe [] <$> (traverse (fmap Set.toList <$> readIORef) (_fromFInjsHandle fis))

@@ -120,7 +120,9 @@ ipcListener handle port = do
     action :: MsgIn -> m ()
     action QueryPort          = send $ ReplyPort port
     action Ping               = send Pong
-    action (SetFInject fi en) = setFInject (shutCtx ^. shdnFInjects) fi en
+    action (SetFInject fi en) = do
+      liftIO $ setFInject (shutCtx ^. shdnFInjects) fi en
+      send =<< FInjects <$> (liftIO $ listFInjects (shutCtx ^. shdnFInjects))
   let
     loop :: m ()
     loop = do

@@ -20,7 +20,7 @@ triggerShutdown
     => m ()
 triggerShutdown = do
     shutCtx <- view shutdownContext
-    doFail <- testLogFInject (shutCtx ^. shdnFInjects) FInjIgnoreShutdown
+    doFail <- liftIO $ testLogFInject (shutCtx ^. shdnFInjects) FInjIgnoreShutdown
     unless doFail $ do
       logInfo "NODE SHUTDOWN TRIGGERED, WAITING FOR WORKERS TO TERMINATE"
       view (shutdownContext . shdnIsTriggered) >>= atomically . flip writeTVar True

@@ -98,7 +98,7 @@ bracketPassiveWallet
     -> (Severity -> Text -> IO ())
     -> Keystore
     -> NodeStateAdaptor IO
-    -> FInjects
+    -> FInjects IO
     -> (PassiveWallet -> m a) -> m a
 bracketPassiveWallet mode logMsg keystore node fInjects f =
     bracket (liftIO $ handlesOpen mode)
@@ -155,7 +155,7 @@ initPassiveWallet :: (Severity -> Text -> IO ())
                   -> Keystore
                   -> WalletHandles
                   -> NodeStateAdaptor IO
-                  -> FInjects
+                  -> FInjects IO
                   -> IO PassiveWallet
 initPassiveWallet logMessage keystore handles node fInjects = do
     pw <- preparePassiveWallet

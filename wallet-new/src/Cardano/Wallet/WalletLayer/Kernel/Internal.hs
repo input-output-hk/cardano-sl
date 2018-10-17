@@ -62,7 +62,7 @@ applyUpdate :: MonadIO m => Kernel.PassiveWallet -> m ()
 applyUpdate w = liftIO $ do
     update' (w ^. Kernel.wallets) $ RemoveNextUpdate
     Node.withNodeState (w ^. Kernel.walletNode) $ \_lock -> do
-      doFail <- testLogFInject (w ^. Kernel.walletFInjects) FInjApplyUpdateNoExit
+      doFail <- liftIO $ testLogFInject (w ^. Kernel.walletFInjects) FInjApplyUpdateNoExit
       unless doFail
         Node.triggerShutdown
 

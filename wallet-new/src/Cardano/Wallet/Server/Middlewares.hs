@@ -95,7 +95,7 @@ withDefaultHeader header = ifRequestWithBody $ \app req send ->
         app req' send
 
 -- | A @Middleware@ to optionally turn the Application stack into a constant responder.
-faultInjectionHandleIgnoreAPI :: FInjects -> Middleware
+faultInjectionHandleIgnoreAPI :: FInjects IO -> Middleware
 faultInjectionHandleIgnoreAPI fInjects app = do
   \req respond -> do
     doFail <- testLogFInject fInjects FInjIgnoreAPI

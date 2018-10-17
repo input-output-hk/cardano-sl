@@ -12,7 +12,7 @@ import           Pos.Infra.InjectFail (FInjects)
 
 data ShutdownContext = ShutdownContext
     { _shdnIsTriggered :: !(TVar Bool)
-    , _shdnFInjects    :: !FInjects
+    , _shdnFInjects    :: !(FInjects IO)
     -- ^ If this flag is `True`, then workers should stop.
     }
 

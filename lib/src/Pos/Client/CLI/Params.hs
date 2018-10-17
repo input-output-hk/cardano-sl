@@ -77,7 +77,7 @@ getNodeParams defaultLoggerName cArgs@CommonNodeArgs{..} NodeArgs{..} mGenerated
     npBehaviorConfig <- case behaviorConfigPath of
         Nothing -> pure def
         Just fp -> eitherToThrow =<< liftIO (Yaml.decodeFileEither fp)
-    npFInjects <- mkFInjects cnaFInjectsSpec
+    npFInjects <- liftIO $ mkFInjects cnaFInjectsSpec
 
     let nodeParams = NodeParams
             { npDbPathM = dbPath

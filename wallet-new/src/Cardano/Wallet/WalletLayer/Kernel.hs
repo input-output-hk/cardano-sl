@@ -56,7 +56,7 @@ bracketPassiveWallet
     -> (Severity -> Text -> IO ())
     -> Keystore
     -> NodeStateAdaptor IO
-    -> FInjects
+    -> FInjects IO
     -> (PassiveWalletLayer n -> Kernel.PassiveWallet -> m a) -> m a
 bracketPassiveWallet mode logFunction keystore node fInjects f = do
     Kernel.bracketPassiveWallet mode logFunction keystore node fInjects $ \w -> do

@@ -92,7 +92,7 @@ data NodeResources ext = NodeResources
     -- ^ Config for optional JSON logging.
     , nrEkgStore      :: !Metrics.Store
     , nrConsolidate   :: !(Async ())
-    , nrFInjects      :: !FInjects
+    , nrFInjects      :: !(FInjects IO)
     }
 
 ----------------------------------------------------------------------------

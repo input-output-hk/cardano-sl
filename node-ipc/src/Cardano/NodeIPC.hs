@@ -29,7 +29,7 @@ import           System.IO (hFlush, hGetLine, hSetNewlineMode,
 import           System.IO.Error (IOError, isEOFError)
 import           Universum
 
-import           Pos.Infra.InjectFail (FInject, setFInject, listFInjects)
+import           Pos.Infra.InjectFail (FInject, listFInjects, setFInject)
 import           Pos.Infra.Shutdown.Class (HasShutdownContext (..))
 import           Pos.Infra.Shutdown.Logic (triggerShutdown)
 import           Pos.Infra.Shutdown.Types (ShutdownContext (..), shdnFInjects)

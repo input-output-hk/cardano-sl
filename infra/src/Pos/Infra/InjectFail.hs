@@ -1,4 +1,4 @@
-{-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE ApplicativeDo              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
@@ -26,8 +26,8 @@ import qualified Data.Set as Set
 import qualified Data.Text as T
 import           Options.Applicative
 
-import           Pos.Util.Wlog (CanLog, HasLoggerName, logError,
-                     logWarning, modifyLoggerName)
+import           Pos.Util.Wlog (CanLog, HasLoggerName, logError, logWarning,
+                     modifyLoggerName)
 
 data FInject
   = FInjIgnoreAPI                     -- ^ Return a hard-coded string for all registered Wallet API endpoints

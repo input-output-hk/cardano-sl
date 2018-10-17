@@ -1,10 +1,13 @@
 let
-  fixedNixpkgs = (import ./lib.nix).fetchNixPkgs;
+  fixedLib     = import ./lib.nix;
+  fixedNixpkgs = fixedLib.fetchNixPkgs;
 in
   { supportedSystems ? [ "x86_64-linux" "x86_64-darwin" ]
   , scrubJobs ? true
   , cardano ? { outPath = ./.; rev = "abcdef"; }
   , fasterBuild ? false
+  , skipDocker ? false
+  , skipPackages ? fixedLib.optional skipDocker "dockerImages"
   , nixpkgsArgs ? {
       config = { allowUnfree = false; inHydra = true; };
       gitrev = cardano.rev;
@@ -14,7 +17,8 @@ in
 
 with (import (fixedNixpkgs + "/pkgs/top-level/release-lib.nix") {
   inherit supportedSystems scrubJobs nixpkgsArgs;
-  packageSet = import ./.;
+  packageSet = args:
+    removeAttrs (import ./. args) skipPackages;
 });
 
 let

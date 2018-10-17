@@ -66,6 +66,9 @@ parseSingle fi =
 mkFInjects :: (CanLog m, HasLoggerName m, MonadIO m) => FInjectsSpec -> m FInjects
 mkFInjects Nothing   = pure $ FInjects Nothing
 mkFInjects (Just fs) = do
+  logWarning "***"
+  logWarning "*** FAULT INJECTION MACHINERY ACTIVE, ALL WARRANTIES VOID"
+  logWarning "***"
   FInjects . Just <$> liftIO (newIORef fs)
 
 -- | Test if code holding a reference, wants a particular fault injection enabled.

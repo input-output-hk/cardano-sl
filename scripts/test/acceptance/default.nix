@@ -1,33 +1,33 @@
-{ localLib ? import ./../../../lib.nix
-, config ? {}
-, system ? builtins.currentSystem
-, pkgs ? import localLib.fetchNixPkgs { inherit system config; }
-, gitrev ? localLib.commitIdFromGitRepo ../../../.git
-, stateDir ? localLib.maybeEnv "CARDANO_STATE_DIR" "./state-acceptance-test-${environment}"
+with (import ./../../../lib.nix);
+
+{ stdenv, writeScript
+, jq, coreutils, curl, gnused, openssl, time
+
+, connect
+, cardano-sl-tools, cardano-sl-wallet-new
+
+## Parameters for the test script
+, stateDir ? maybeEnv "CARDANO_STATE_DIR" "./state-acceptance-test-${environment}"
 , environment ? "mainnet"
 , resume ? true
 }:
 
-with localLib;
-
 let
-  iohkPkgs = import ./../../.. { inherit config system pkgs gitrev; };
-
-  cardanoDeps = with iohkPkgs; [ cardano-sl-tools cardano-sl-wallet-new ];
-  demoClusterDeps = with pkgs; [ jq coreutils curl gnused openssl time ];
+  cardanoDeps = [ cardano-sl-tools cardano-sl-wallet-new ];
+  demoClusterDeps = [ jq coreutils curl gnused openssl time ];
   allDeps =  demoClusterDeps ++ cardanoDeps;
 
-  wallet = pkgs.callPackage ../../launch/connect-to-cluster {
-    inherit gitrev stateDir environment;
+  wallet = connect {
+    inherit environment;
 
     # This will limit heap size to 1GB, along with the usual RTS options.
     ghcRuntimeArgs = "-N2 -qg -A1m -I0 -T -M1G";
   };
 
 in
-  pkgs.writeScript "acceptance-tests-${environment}" ''
-    #!${pkgs.stdenv.shell}
-    export PATH=${pkgs.lib.makeBinPath allDeps}:$PATH
+  writeScript "acceptance-tests-${environment}" ''
+    #!${stdenv.shell}
+    export PATH=${makeBinPath allDeps}:$PATH
     # Set to 0 (passing) by default. Tests using this cluster can set this variable
     # to force the `stop_wallet` function to exit with a different code.
     EXIT_STATUS=0
@@ -51,7 +51,7 @@ in
 
     ${utf8LocaleSetting}
     echo Launching wallet node: ${wallet}
-    ${pkgs.time}/bin/time -v ${wallet} &> ${stateDir}/logs/wallet.log &
+    ${time}/bin/time -v ${wallet} &> ${stateDir}/logs/wallet.log &
     wallet_pid=$!
 
     start_time=$(date +%s)

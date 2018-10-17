@@ -1,12 +1,15 @@
-{ environment ? "mainnet"
-, localLib ? import ./../../../lib.nix
-, stateDir ? localLib.maybeEnv "CARDANO_STATE_DIR" "state-${executable}-${environment}"
-, config ? {}
+with (import ./../../../lib.nix);
+
+{ stdenv, writeText, writeScript
+
+, cardano-sl-wallet-new-static, cardano-sl-explorer-static, cardano-sl-tools-static
+, cardano-sl-config
+
+## options!
+, environment ? "mainnet"
+, stateDir ? maybeEnv "CARDANO_STATE_DIR" "state-${executable}-${environment}"
 , executable ? "wallet"
 , topologyFile ? null
-, system ? builtins.currentSystem
-, pkgs ? import localLib.fetchNixPkgs { inherit system config; }
-, gitrev ? localLib.commitIdFromGitRepo ./../../../.git
 , walletListen ? "127.0.0.1:8090"
 , walletDocListen ? "127.0.0.1:8091"
 , ekgListen ? "127.0.0.1:8000"
@@ -20,44 +23,39 @@
 , useLegacyDataLayer ? false
 , extraParams ? ""
 , useStackBinaries ? false
-, forceDontCheck ? false
 }:
-
-with localLib;
 
 # TODO: DEVOPS-159: relays DNS should be more predictable
 # TODO: DEVOPS-499: developer clusters based on runtime JSON
 # TODO: DEVOPS-462: exchanges should use a different topology
 
 let
-  ifDebug = localLib.optionalString (debug);
-  ifDisableClientAuth = localLib.optionalString (disableClientAuth);
+  ifDebug = optionalString (debug);
+  ifDisableClientAuth = optionalString (disableClientAuth);
   walletDataLayer = if useLegacyDataLayer then "--legacy-wallet" else "";
   env = if environment == "override"
     then { inherit relays confKey confFile; }
     else environments.${environment};
   executables =  {
-    wallet = if useStackBinaries then "stack exec -- cardano-node" else "${iohkPkgs.cardano-sl-wallet-new-static}/bin/cardano-node";
-    explorer = if useStackBinaries then "stack exec -- cardano-explorer" else "${iohkPkgs.cardano-sl-explorer-static}/bin/cardano-explorer";
-    x509gen = if useStackBinaries then "stack exec -- cardano-x509-certificates" else "${iohkPkgs.cardano-sl-tools-static}/bin/cardano-x509-certificates";
+    wallet = if useStackBinaries then "stack exec -- cardano-node" else "${cardano-sl-wallet-new-static}/bin/cardano-node";
+    explorer = if useStackBinaries then "stack exec -- cardano-explorer" else "${cardano-sl-explorer-static}/bin/cardano-explorer";
+    x509gen = if useStackBinaries then "stack exec -- cardano-x509-certificates" else "${cardano-sl-tools-static}/bin/cardano-x509-certificates";
   };
-  ifWallet = localLib.optionalString (executable == "wallet");
-  iohkPkgs = import ./../../../default.nix { inherit config system pkgs gitrev forceDontCheck; };
-  src = ./../../../.;
-  topologyFileDefault = pkgs.writeText "topology-${environment}" ''
+  ifWallet = optionalString (executable == "wallet");
+
+  topologyFileDefault = writeText "topology-${environment}" ''
     wallet:
       relays: [[{ host: ${env.relays} }]]
       valency: 1
       fallbacks: 7
   '';
-  configFiles = iohkPkgs.cardano-sl-config;
-  configurationArgs = pkgs.lib.concatStringsSep " " [
-    "--configuration-file ${env.confFile or "${configFiles}/lib/configuration.yaml"}"
+  configurationArgs = concatStringsSep " " [
+    "--configuration-file ${env.confFile or "${cardano-sl-config}/lib/configuration.yaml"}"
     "--configuration-key ${env.confKey}"
   ];
 
-in pkgs.writeScript "${executable}-connect-to-${environment}" ''
-  #!${pkgs.stdenv.shell} -e
+in writeScript "${executable}-connect-to-${environment}" ''
+  #!${stdenv.shell} -e
 
   if [[ "$1" == "--delete-state" ]]; then
     echo "Deleting ${stateDir} ... "
@@ -91,7 +89,7 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     ${ ifWallet "--tlscert ${stateDir}/tls/server/server.crt"}     \
     ${ ifWallet "--tlskey ${stateDir}/tls/server/server.key"}      \
     ${ ifWallet "--tlsca ${stateDir}/tls/server/ca.crt"}           \
-    --log-config ${configFiles}/log-configs/connect-to-cluster.yaml \
+    --log-config ${cardano-sl-config}/log-configs/connect-to-cluster.yaml \
     --topology "${if topologyFile != null then topologyFile else topologyFileDefault}" \
     --logs-prefix "${stateDir}/logs"                               \
     --db-path "${stateDir}/db"   ${extraParams}                    \

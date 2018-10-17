@@ -1,8 +1,49 @@
+########################################################################
+# default.nix -- The top-level nix build file for cardano-sl.
+#
+# This file defines an attribute set of cardano-sl packages.
+#
+# It contains:
+#
+#   - pkgs -- the nixpkgs set that the build is based on.
+#   - haskellPackages.* -- the package set based on stackage
+#   - haskellPackages.ghc -- the compiler
+#   - cardanoPackages -- just cardano packages
+#
+#   - tests -- integration tests and linters suitable for running in a
+#              sandboxed build environment
+#
+#   - acceptanceTests -- tests which need network access to connect to
+#                        the actual relay nodes.
+#
+#   - dockerImages -- for exchanges and developers who like docker
+#                     Build these and `docker load -i` the resulting
+#                     file.
+#      - mainnet
+#      - staging
+#      - testnet
+#
+#   - connectScripts -- builds a script which starts a wallet. Run the
+#                       resulting script.
+#      - mainnet.wallet   -- connect a wallet to mainnet
+#      - mainnet.explorer -- explorer node connected to testnet
+#      - staging.*      -- connect scripts for staging
+#      - testnet.*      -- connect scripts for testnet
+#
+# Other files:
+#   - shell.nix   - dev environment, used by nix-shell / nix run.
+#   - release.nix - the Hydra jobset.
+#   - lib.nix     - the localLib common functions.
+#   - nix/*       - other nix code modules used by this file.
+#
+########################################################################
+
 let
   localLib = import ./lib.nix;
 in
 { system ? builtins.currentSystem
-, config ? {}
+, config ? {}  # The nixpkgs configuration file
+
 # Use a pinned version nixpkgs.
 , pkgs ? localLib.importPkgs { inherit system config; }
 
@@ -32,152 +73,190 @@ in
 # Disables optimization in the build for all cardano-sl packages.
 , fasterBuild ? false
 
-# Options for the demo wallet/cluster.
+# Whether local options in ./custom-wallet-config.nix should apply to
+# the wallet connect script build.
 , allowCustomConfig ? true
+
+# Makes the demo wallet/cluster/connect scripts use "stack exec"
+# instead of running the nix-built executables.
 , useStackBinaries ? false
 }:
 
 with pkgs.lib;
 
 let
-  # the GHC we are using
-  # at some point use: pkgs.haskell.compiler.ghc843;
-  ghc = overrideDerivation pkgs.haskell.compiler.ghc822 (drv: {
-    patches = drv.patches ++ [ ./ghc-8.0.2-darwin-rec-link.patch ];
-  });
+  src = localLib.cleanSourceTree ./.;
 
-  # Overlay logic for *haskell* packages.
-  requiredOverlay    = import ./nix/overlays/required.nix     { inherit pkgs localLib enableProfiling gitrev;
-                                                                inherit (cardanoPkgs) ghc; };
-  benchmarkOverlay   = import ./nix/overlays/benchmark.nix    { inherit pkgs localLib; };
-  debugOverlay       = import ./nix/overlays/debug.nix        { inherit pkgs; };
-  fasterBuildOverlay = import ./nix/overlays/faster-build.nix { inherit pkgs localLib; };
-  dontCheckOverlay   = import ./nix/overlays/dont-check.nix   { inherit pkgs; };
-  metricOverlay      = import ./nix/overlays/metric.nix       { inherit pkgs; };
-
-  # This will yield a set of haskell packages, based on the given compiler.
-  cardanoPkgsBase = ((import ./pkgs { inherit pkgs; }).override {
-    inherit ghc;
-  });
-
-  activeOverlays = [ requiredOverlay ]
-      ++ optional enablePhaseMetrics metricOverlay
-      ++ optional enableBenchmarks benchmarkOverlay
-      ++ optional enableDebugging debugOverlay
-      ++ optional forceDontCheck dontCheckOverlay
-      ++ optional fasterBuild fasterBuildOverlay;
-
-  cardanoPkgs = builtins.foldl' (pkgs: overlay: pkgs.extend overlay) cardanoPkgsBase activeOverlays;
-  connect = let
-      walletConfigFile = ./custom-wallet-config.nix;
-      walletConfig = if allowCustomConfig then (if builtins.pathExists walletConfigFile then import walletConfigFile else {}) else {};
-    in
-      args: pkgs.callPackage ./scripts/launch/connect-to-cluster (args // { inherit gitrev useStackBinaries; } // walletConfig );
-  other = rec {
+  packages = self: ({
     inherit pkgs;
-    testlist = innerClosePropagation [] [ cardanoPkgs.cardano-sl ];
-    walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev useStackBinaries; };
-    validateJson = pkgs.callPackage ./tools/src/validate-json {};
-    demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster {
-      inherit gitrev useStackBinaries;
-      iohkPkgs = cardanoPkgs;
-    };
-    demoClusterLaunchGenesis = pkgs.callPackage ./scripts/launch/demo-cluster {
-      inherit gitrev useStackBinaries;
-      iohkPkgs = cardanoPkgs;
-      launchGenesis = true;
-      configurationKey = "testnet_full";
-      runWallet = false;
-    };
-    tests = let
-      src = localLib.cleanSourceTree ./.;
-    in {
-      shellcheck = pkgs.callPackage ./scripts/test/shellcheck.nix { inherit src; };
-      hlint = pkgs.callPackage ./scripts/test/hlint.nix { inherit src; };
-      stylishHaskell = pkgs.callPackage ./scripts/test/stylish.nix { inherit (cardanoPkgs) stylish-haskell; inherit src localLib; };
-      walletIntegration = pkgs.callPackage ./scripts/test/wallet/integration/build-test.nix { inherit walletIntegrationTests; };
-      swaggerSchemaValidation = pkgs.callPackage ./scripts/test/wallet/swaggerSchemaValidation.nix { inherit gitrev; };
-      yamlValidation = pkgs.callPackage ./scripts/test/yamlValidation.nix { inherit cardanoPkgs; inherit (localLib) runHaskell; };
-    };
-    cardano-sl-explorer-frontend = (import ./explorer/frontend {
-      inherit system config gitrev pkgs;
-      cardano-sl-explorer = cardanoPkgs.cardano-sl-explorer-static;
-    });
-    makeFaucetFrontend = pkgs.callPackage ./faucet/frontend;
 
+    # This is the stackage LTS plus overrides, plus the cardano-sl
+    # packages.
+    haskellPackages = self.callPackage ./nix/haskell-packages.nix {
+      inherit forceDontCheck enableProfiling enablePhaseMetrics
+        enableBenchmarks fasterBuild enableDebugging;
+    };
+
+    # fixme: I would like to have these attributes at the top-level,
+    # but am getting problems with infinite recursion. Help me!
+    cardanoPackages = localLib.getCardanoPackages self.justStaticExecutablesGitRev self.haskellPackages;
+
+    # fixme: this is just for CI so should probably only be in release.nix
     all-cardano-sl = pkgs.buildEnv {
       name = "all-cardano-sl";
-      paths = attrValues (filterAttrs (name: drv: localLib.isCardanoSL name) cardanoPkgs);
+      paths = attrValues self.cardanoPackages;
       ignoreCollisions = true;
     };
-    mkDocker = { environment, name ? "wallet", connectArgs ? {} }: import ./docker.nix { inherit environment name connect gitrev pkgs connectArgs; };
-    stack2nix = import (pkgs.fetchFromGitHub {
+
+
+    ####################################################################
+    # Frontends
+
+    # The explorer frontend, built with Purescript.
+    cardano-sl-explorer-frontend = self.callPackage ./explorer/frontend {
+      cardano-sl-explorer = self.cardanoPackages.cardano-sl-explorer-static;
+    };
+
+    # A demo/development frontend for the faucet API. Override this
+    # derivation to customize URLs, etc.
+    cardano-sl-faucet-frontend = self.callPackage ./faucet/frontend { };
+    # Backwards compat for iohk-ops.
+    makeFaucetFrontend = self.cardano-sl-faucet-frontend;
+
+
+    ####################################################################
+    # Daedalus wallet
+
+    # Packages all the configuration required for running a node.
+    cardano-sl-config = self.callPackage ./nix/cardano-sl-config.nix { };
+
+    # Provides the edge node (wallet), tools, and configuration
+    # required for Daedalus.
+    daedalus-bridge = self.callPackage ./nix/daedalus-bridge.nix {
+      cardano-sl-node = self.cardanoPackages.cardano-sl-node-static;
+      cardano-sl-tools = self.cardanoPackages.cardano-sl-tools-static;
+      cardano-sl-wallet-new = self.cardanoPackages.cardano-sl-wallet-new-static;
+    };
+
+
+    ####################################################################
+    # Docker images
+
+    dockerImages = let
+      build = args: self.callPackage ./nix/docker.nix ({
+        inherit (self.cardanoPackages) cardano-sl-node-static;
+      } // args);
+      makeDockerImage = { environment, ...}:
+        build { inherit environment; } // {
+          wallet   = build { inherit environment; type = "wallet"; };
+          explorer = build { inherit environment; type = "explorer"; };
+          node     = build { inherit environment; type = "node"; };
+        };
+    in localLib.forEnvironments makeDockerImage;
+
+    ####################################################################
+    # Tests
+
+    tests = {
+      shellcheck = self.callPackage ./scripts/test/shellcheck.nix { inherit src; };
+      hlint = self.callPackage ./scripts/test/hlint.nix { inherit src; };
+      stylishHaskell = self.callPackage ./scripts/test/stylish.nix { inherit (self.haskellPackages) stylish-haskell; inherit src; };
+      walletIntegration = self.callPackage ./scripts/test/wallet/integration/build-test.nix { };
+      swaggerSchemaValidation = self.callPackage ./scripts/test/wallet/swaggerSchemaValidation.nix {
+        inherit (self.cardanoPackages) cardano-sl-wallet-new;
+      };
+      yamlValidation = self.callPackage ./scripts/test/yamlValidation.nix {
+        inherit (self) haskellPackages; inherit (localLib) runHaskell;
+      };
+    };
+
+    walletIntegrationTests = self.callPackage ./scripts/test/wallet/integration {
+      inherit (self.cardanoPackages)
+        cardano-sl-tools
+        cardano-sl-wallet-new;
+      inherit useStackBinaries;
+    };
+
+    # Currently the only acceptance tests here are to sync the wallet
+    # against mainnet and testnet.
+    acceptanceTests = let
+      acceptanceTest = args: self.callPackage ./scripts/test/acceptance ({
+        inherit (self.cardanoPackages)
+          cardano-sl-tools
+          cardano-sl-wallet-new;
+      } // args);
+      mkTest = { environment, ...}: {
+        full  = acceptanceTest { inherit environment; resume = false; };
+        quick = acceptanceTest { inherit environment; resume = true; };
+      };
+    in localLib.forEnvironments mkTest;
+
+    ####################################################################
+    ## Connect scripts and demo cluster
+
+    # A function to connect a wallet to a network.
+    # The args parameter is an attrset for parameters applied to
+    # ./scripts/launch/connect-to-cluster/default.nix
+    connect = let
+      walletConfigFile = ./custom-wallet-config.nix;
+      walletConfig = if allowCustomConfig
+        then (if builtins.pathExists walletConfigFile then import walletConfigFile else {})
+        else {};
+      in
+        args: self.callPackage ./scripts/launch/connect-to-cluster (args // {
+          inherit (self.cardanoPackages)
+            cardano-sl-wallet-new-static
+            cardano-sl-explorer-static
+            cardano-sl-tools-static;
+          inherit useStackBinaries;
+        } // walletConfig);
+
+    # Connect scripts for each network
+    connectScripts = localLib.forEnvironments ({ environment, ... }: {
+      wallet = self.connect { inherit environment; };
+      explorer = self.connect { inherit environment; executable = "explorer"; };
+    });
+
+    demoCluster = self.callPackage ./scripts/launch/demo-cluster {
+      inherit useStackBinaries;
+      inherit (self.cardanoPackages)
+        cardano-sl
+        cardano-sl-tools
+        cardano-sl-wallet-new-static
+        cardano-sl-node-static;
+    };
+
+    ####################################################################
+    # Build tools
+
+    # Utility which removes all but the statically linked executables
+    # of a haskell package, and stamps them with the git revision.
+    justStaticExecutablesGitRev = self.callPackage ./scripts/set-git-rev {
+      inherit (self.haskellPackages) ghc;
+      inherit gitrev;
+    };
+
+    # Tool for generating ./pkgs/default.nix
+    stack2nix = self.callPackage (pkgs.fetchFromGitHub {
       owner = "avieth";
       repo = "stack2nix";
       rev = "c51db2d31892f7c4e7ff6acebe4504f788c56dca";
       sha256 = "10jcj33sxpq18gxf3zcck5i09b2y4jm6qjggqdlwd9ss86wg3ksb";
-    }) { inherit pkgs; };
-    inherit (pkgs) purescript;
-    connectScripts = {
-      mainnet = {
-        wallet = connect { };
-        explorer = connect { executable = "explorer"; };
-      };
-      staging = {
-        wallet = connect { environment = "mainnet-staging"; };
-        explorer = connect { executable = "explorer"; environment = "mainnet-staging"; };
-      };
-      testnet = {
-        wallet = connect { environment = "testnet"; };
-        explorer = connect { executable = "explorer"; environment = "testnet"; };
-      };
-      demoWallet = connect { environment = "demo"; };
-    };
-    dockerImages = {
-      mainnet.wallet = mkDocker { environment = "mainnet"; };
-      staging.wallet = mkDocker { environment = "mainnet-staging"; };
-      testnet.wallet = mkDocker { environment = "testnet"; };
-      mainnet.explorer = mkDocker { environment = "mainnet"; name = "explorer"; connectArgs = { executable = "explorer"; }; };
-      staging.explorer = mkDocker { environment = "mainnet-staging"; name = "explorer"; connectArgs = { executable = "explorer"; }; };
-      testnet.explorer = mkDocker { environment = "testnet"; name = "explorer"; connectArgs = { executable = "explorer"; }; };
-    };
-    acceptanceTests = let
-      acceptanceTest = pkgs.callPackage ./scripts/test/acceptance;
-      mkTest = { environment, ...}: {
-        full  = acceptanceTest { inherit environment gitrev; resume = false; };
-        quick = acceptanceTest { inherit environment gitrev; resume = true; };
-      };
-    in localLib.forEnvironments mkTest;
+    }) { };
 
-    shell = import ./shell.nix { inherit system config pkgs; iohkPkgs = cardanoPkgs; };
+    validateJson = self.callPackage ./tools/src/validate-json {};
 
-    cardano-sl-config = pkgs.runCommand "cardano-sl-config" {} ''
-      mkdir -p $out/lib
-      cp -R ${./log-configs} $out/log-configs
-      cp ${./lib}/configuration.yaml $out/lib
-      cp ${./lib}/*genesis*.json $out/lib
-    '';
-    daedalus-bridge = let
-      inherit (cardanoPkgs.cardano-sl-node) version;
-    in pkgs.runCommand "cardano-daedalus-bridge-${version}" {
-      inherit version gitrev buildId;
-    } ''
-      # Generate daedalus-bridge
-      mkdir -p $out/bin
-      cd $out
-      ${optionalString (buildId != null) "echo ${buildId} > build-id"}
-      echo ${gitrev} > commit-id
-      echo ${version} > version
+    # Add a shell attribute so that it can be built and cached by Hydra.
+    shell = import ./shell.nix { inherit system config pkgs; iohkPkgs = self; };
 
-      cp --no-preserve=mode -R ${cardano-sl-config}/lib config
-      cp ${cardano-sl-config}/log-configs/daedalus.yaml $out/config/log-config-prod.yaml
-      cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-launcher bin
-      cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-x509-certificates bin
-      cp ${cardanoPkgs.cardano-sl-wallet-new}/bin/cardano-node bin
 
-      # test that binaries exit with 0
-      ./bin/cardano-node --help > /dev/null
-      HOME=$TMP ./bin/cardano-launcher --help > /dev/null
-    '';
-  };
-in cardanoPkgs // other
+    ####################################################################
+    # Version info
+
+    inherit (self.haskellPackages.cardano-sl) version;
+    inherit gitrev;
+  });
+
+in
+  # The top-level package set
+  pkgs.lib.makeScope pkgs.newScope packages

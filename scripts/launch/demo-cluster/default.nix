@@ -1,32 +1,34 @@
-{ localLib ? import ./../../../lib.nix
-, stateDir ? localLib.maybeEnv "CARDANO_STATE_DIR" "./state-demo"
-, config ? {}
+with (import ./../../../lib.nix);
+
+{ stdenv, runCommand, writeText, writeScript
+, jq, coreutils, curl, gnused, openssl
+
+, cardano-sl, cardano-sl-tools, cardano-sl-wallet-new-static, cardano-sl-node-static
+, connect
+
+, useStackBinaries ? false
+
+## lots of options!
+, stateDir ? maybeEnv "CARDANO_STATE_DIR" "./state-demo"
 , runWallet ? true
 , runExplorer ? false
 , numCoreNodes ? 4
 , numRelayNodes ? 1
 , numImportedWallets ? 11
 , assetLockAddresses ? []
-, system ? builtins.currentSystem
-, iohkPkgs ? import ./../../.. { inherit config system gitrev; }
-, pkgs ? iohkPkgs.pkgs
-, gitrev ? localLib.commitIdFromGitRepo ./../../../.git
 , ghcRuntimeArgs ? "-N2 -qg -A1m -I0 -T"
 , additionalNodeArgs ? ""
 , keepAlive ? true
 , launchGenesis ? false
 , configurationKey ? "default"
-, useStackBinaries ? false
 , disableClientAuth ? false
 , useLegacyDataLayer ? false
 }:
 
-with localLib;
-
 let
   stackExec = optionalString useStackBinaries "stack exec -- ";
-  cardanoDeps = with iohkPkgs; [ cardano-sl-tools cardano-sl-wallet-new-static cardano-sl-node-static ];
-  demoClusterDeps = with pkgs; [ jq coreutils curl gnused openssl ];
+  cardanoDeps = [ cardano-sl-tools cardano-sl-wallet-new-static cardano-sl-node-static ];
+  demoClusterDeps = [ jq coreutils curl gnused openssl ];
   allDeps =  demoClusterDeps ++ (optionals (!useStackBinaries ) cardanoDeps);
   walletConfig = {
     inherit stateDir disableClientAuth useLegacyDataLayer;
@@ -41,11 +43,11 @@ let
   } else {
     environment = "demo";
   };
-  demoWallet = pkgs.callPackage ./../connect-to-cluster ({ inherit gitrev useStackBinaries; debug = false; } // walletEnvironment // walletConfig);
+  demoWallet = connect ({ debug = false; } // walletEnvironment // walletConfig);
+
   ifWallet = optionalString (runWallet);
   ifKeepAlive = optionalString (keepAlive);
-  src = ./../../..;
-  topologyFile = import ./make-topology.nix { inherit (pkgs) lib; cores = numCoreNodes; relays = numRelayNodes; };
+  topologyFile = import ./make-topology.nix { inherit (stdenv) lib; cores = numCoreNodes; relays = numRelayNodes; };
   walletTopologyFile = builtins.toFile "wallet-topology.yaml" (builtins.toJSON {
     wallet = {
       relays = [ [ { addr = "127.0.0.1"; port = 3100; } ] ];
@@ -53,24 +55,25 @@ let
       fallbacks = 1;
     };
   });
-  assetLockFile = pkgs.writeText "asset-lock-file" (intersperse "\n" assetLockAddresses);
+  assetLockFile = writeText "asset-lock-file" (intersperse "\n" assetLockAddresses);
   ifAssetLock = optionalString (assetLockAddresses != []);
-  configFiles = pkgs.runCommand "cardano-config" {} ''
+  configFiles = runCommand "cardano-config" {} ''
       mkdir -pv $out
       cd $out
-      cp -vi ${iohkPkgs.cardano-sl.src + "/configuration.yaml"} configuration.yaml
-      cp -vi ${iohkPkgs.cardano-sl.src + "/mainnet-genesis-dryrun-with-stakeholders.json"} mainnet-genesis-dryrun-with-stakeholders.json
-      cp -vi ${iohkPkgs.cardano-sl.src + "/mainnet-genesis.json"} mainnet-genesis.json
+      cp -vi ${cardano-sl.src + "/configuration.yaml"} configuration.yaml
+      cp -vi ${cardano-sl.src + "/mainnet-genesis-dryrun-with-stakeholders.json"} mainnet-genesis-dryrun-with-stakeholders.json
+      cp -vi ${cardano-sl.src + "/mainnet-genesis.json"} mainnet-genesis.json
     '';
   prepareGenesis = import ../../prepare-genesis {
-    inherit config system pkgs gitrev numCoreNodes;
+    # fixme: sort this out
+    # inherit config system pkgs gitrev numCoreNodes;
     configurationKey = "testnet_full";
     configurationKeyLaunch = "testnet_launch";
   };
 
-in pkgs.writeScript "demo-cluster" ''
-  #!${pkgs.stdenv.shell}
-  export PATH=${pkgs.lib.makeBinPath allDeps}:$PATH
+in writeScript "demo-cluster" ''
+  #!${stdenv.shell}
+  export PATH=${stdenv.lib.makeBinPath allDeps}:$PATH
   # Set to 0 (passing) by default. Tests using this cluster can set this variable
   # to force the `stop_cardano` function to exit with a different code.
   EXIT_STATUS=0

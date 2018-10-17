@@ -3,8 +3,10 @@ let
   fetchNixPkgs = let try = builtins.tryEval <cardano_pkgs>;
     in if try.success
     then builtins.trace "using host <cardano_pkgs>" try.value
-    else import ./fetch-nixpkgs.nix;
+    else import ./nix/fetch-nixpkgs.nix;
 
+  # Function to import the pinned nixpkgs with necessary overlays,
+  # applied to the given args.
   importPkgs = args: import fetchNixPkgs ({ overlays = [ (import ./nix/overlays/jemalloc.nix) ]; } // args);
 
   maybeEnv = env: default:
@@ -54,25 +56,21 @@ in lib // (rec {
   # Blockchain networks and their configuration keys
   environments = {
     mainnet = {
-      attr = "mainnet";
       relays = "relays.cardano-mainnet.iohk.io";
       confKey = "mainnet_full";
       private = false;
     };
-    mainnet-staging = {
-      attr = "staging";
+    staging = {
       relays = "relays.awstest.iohkdev.io";
       confKey = "mainnet_dryrun_full";
       private = false;
     };
     testnet = {
-      attr = "testnet";
       relays = "relays.cardano-testnet.iohkdev.io";
       confKey = "testnet_full";
       private = false;
     };
     demo = {
-      attr = "demo";
       confKey = "dev";
       relays = "127.0.0.1";
       private = true;
@@ -82,7 +80,7 @@ in lib // (rec {
   # Generates an attrset for the three cardano-sl networks by applying
   # the given function to each environment.
   forEnvironments = f: lib.mapAttrs'
-    (name: env: lib.nameValuePair env.attr (f (env // { environment = name; })))
+    (name: env: lib.nameValuePair name (f (env // { environment = name; }))) # fixme: simplify
     (lib.filterAttrs (name: env: !env.private) environments);
 
   runHaskell = name: hspkgs: deps: env: code: let
@@ -96,4 +94,14 @@ in lib // (rec {
   '';
 
   commitIdFromGitRepo = import ./nix/commit-id.nix { inherit lib; };
+
+  # Plucks all the cardano-sl packages from the haskellPackages set,
+  # also adding -static variants which contain the gitrev.
+  getCardanoPackages = justStaticExecutablesGitRev: haskellPackages:
+    let
+      cslPackages = lib.filterAttrs (name: drv: isCardanoSL name) haskellPackages;
+      makeStatic = name: drv: lib.nameValuePair (name + "-static") (justStaticExecutablesGitRev drv);
+    in
+      cslPackages // lib.mapAttrs' makeStatic cslPackages;
+
 })

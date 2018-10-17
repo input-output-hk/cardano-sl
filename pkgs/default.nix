@@ -18426,6 +18426,7 @@ cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-db
+cardano-sl-infra
 cardano-sl-util
 cardano-sl-util-test
 cardano-sl-utxo

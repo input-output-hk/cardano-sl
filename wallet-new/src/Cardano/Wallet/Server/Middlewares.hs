@@ -8,6 +8,7 @@ module Cardano.Wallet.Server.Middlewares
     , throttleMiddleware
     , withDefaultHeader
     , unsupportedMimeTypeMiddleware
+    , faultInjectionHandleIgnoreAPI
     ) where
 
 import           Universum hiding (toStrict)
@@ -18,7 +19,7 @@ import           Data.ByteString.Lazy (toStrict)
 import qualified Data.List as List
 import           Network.HTTP.Types.Header (Header)
 import           Network.HTTP.Types.Method (methodPatch, methodPost, methodPut)
-import           Network.HTTP.Types.Status (status415)
+import           Network.HTTP.Types.Status (status200, status415)
 import           Network.Wai (Application, Middleware, Response, ifRequest,
                      modifyResponse, requestHeaders, requestMethod,
                      responseBuilder, responseLBS, responseStatus)
@@ -29,6 +30,7 @@ import           Cardano.Wallet.API.Response (UnsupportedMimeTypeError (..))
 import           Cardano.Wallet.API.V1.Headers (applicationJson)
 import qualified Cardano.Wallet.API.V1.Types as V1
 
+import           Pos.Infra.InjectFail (FInject (..), FInjects, testLogFInject)
 import           Pos.Launcher.Configuration (ThrottleSettings (..))
 
 
@@ -91,3 +93,12 @@ withDefaultHeader header = ifRequestWithBody $ \app req send ->
                 req { requestHeaders = header : headers }
     in
         app req' send
+
+-- | A @Middleware@ to optionally turn the Application stack into a constant responder.
+faultInjectionHandleIgnoreAPI :: FInjects IO -> Middleware
+faultInjectionHandleIgnoreAPI fInjects app = do
+  \req respond -> do
+    doFail <- testLogFInject fInjects FInjIgnoreAPI
+    if doFail
+    then respond $ responseLBS status200 [("Content-Type", "text/plain")] "0"
+    else app req respond

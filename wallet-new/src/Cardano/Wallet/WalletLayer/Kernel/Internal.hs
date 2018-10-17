@@ -16,6 +16,7 @@ import           Data.Acid.Advanced (update')
 import           System.IO.Error (isDoesNotExistError)
 
 import           Pos.Chain.Update (ConfirmedProposalState, SoftwareVersion)
+import           Pos.Infra.InjectFail (FInject (..), testLogFInject)
 
 import           Cardano.Wallet.API.V1.Types (V1 (..), Wallet,
                      WalletImport (..))
@@ -60,8 +61,10 @@ nextUpdate w = liftIO $ do
 applyUpdate :: MonadIO m => Kernel.PassiveWallet -> m ()
 applyUpdate w = liftIO $ do
     update' (w ^. Kernel.wallets) $ RemoveNextUpdate
-    Node.withNodeState (w ^. Kernel.walletNode) $ \_lock ->
-      Node.triggerShutdown
+    Node.withNodeState (w ^. Kernel.walletNode) $ \_lock -> do
+      doFail <- liftIO $ testLogFInject (w ^. Kernel.walletFInjects) FInjApplyUpdateNoExit
+      unless doFail
+        Node.triggerShutdown
 
 -- | Postpone update
 --

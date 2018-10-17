@@ -28,7 +28,8 @@ import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as NodeStateAdaptor
 import           Cardano.Wallet.Server.CLI (NewWalletBackendParams,
                      getFullMigrationFlag, getWalletDbOptions, walletDbPath,
                      walletRebuildDb)
-import           Cardano.Wallet.Server.Middlewares (throttleMiddleware,
+import           Cardano.Wallet.Server.Middlewares
+                     (faultInjectionHandleIgnoreAPI, throttleMiddleware,
                      unsupportedMimeTypeMiddleware, withDefaultHeader)
 import qualified Cardano.Wallet.Server.Plugins as Plugins
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
@@ -64,7 +65,7 @@ actionWithWallet params genesisConfig walletConfig txpConfig ntpConfig nodeParam
             , Kernel.dbPathMetadata  = dbPath <> "-sqlite.sqlite3"
             , Kernel.dbRebuild       = rebuildDB
             })
-        WalletLayer.Kernel.bracketPassiveWallet dbMode logMessage' keystore nodeState $ \walletLayer passiveWallet -> do
+        WalletLayer.Kernel.bracketPassiveWallet dbMode logMessage' keystore nodeState (npFInjects nodeParams) $ \walletLayer passiveWallet -> do
             migrateLegacyDataLayer passiveWallet dbPath (getFullMigrationFlag params)
 
             let plugs = plugins (walletLayer, passiveWallet) dbMode
@@ -84,9 +85,9 @@ actionWithWallet params genesisConfig walletConfig txpConfig ntpConfig nodeParam
     plugins w dbMode = concat [
             -- The actual wallet backend server.
             [
-                ("wallet-new api worker", Plugins.apiServer pm params w
-                -- Throttle requests.
-                [ throttleMiddleware (ccThrottle walletConfig)
+              ("wallet-new api worker", Plugins.apiServer pm params w
+                [ faultInjectionHandleIgnoreAPI (npFInjects nodeParams) -- This allows dynamic control of fault injection
+                , throttleMiddleware (ccThrottle walletConfig)          -- Throttle requests
                 , withDefaultHeader Headers.applicationJson
                 , unsupportedMimeTypeMiddleware
                 ])

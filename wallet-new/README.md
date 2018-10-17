@@ -201,6 +201,20 @@ $ ./launch_integration_tests --hspec-options '--match Address --seed 47286650'
 
 ```
 
+## Fault injection
+
+The wallet executable supports injection of faults, which can be controlled
+both statically, via CLI args, and dynamically, via the `SetFInjects` message of `node-ipc`.
+
+Following command-line arguments control individual injections:
+
+- `--ignoreapi`                 Return a hard-coded string for all registered Wallet API endpoints
+- `--ignoreshutdown`            Ignore the shutdown request
+- `--applyupdatenoexit`         Don't exit after handling the 'update/apply' endpoint
+- `--applyupdatewrongexitcode`  Exit with a wrong exit code as response to the 'update/apply' request
+
+Additionally, a single extra flag is required to enable fault injection processing at all:
+ `--allow-fault-injection`.
 
 ## Developing
 

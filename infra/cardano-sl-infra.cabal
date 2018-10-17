@@ -74,6 +74,9 @@ library
                         Pos.Infra.Communication.Relay.Types
                         Pos.Infra.Communication.Relay.Util
 
+                        -- Fault injection
+                        Pos.Infra.InjectFail
+
                         -- Health Checks
                         Pos.Infra.HealthCheck.Route53
 

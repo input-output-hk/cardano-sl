@@ -17,6 +17,7 @@ module Cardano.Wallet.Kernel.Internal (
   , walletNode
   , walletSubmission
   , walletRestorationTask
+  , walletFInjects
     -- * Active wallet
   , ActiveWallet(..)
     -- * Restoration data
@@ -51,6 +52,7 @@ import qualified Data.Map.Strict as Map
 
 import           Pos.Core (BlockCount, FlatSlotId)
 import           Pos.Crypto (ProtocolMagic)
+import           Pos.Infra.InjectFail (FInjects)
 import           Pos.Util.Wlog (Severity (..))
 
 import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..),
@@ -121,6 +123,9 @@ data PassiveWallet = PassiveWallet {
       -- The invariant is that a WalletId should appear in this map if and only if
       -- that wallet is still undergoing restoration.
     , _walletRestorationTask :: WalletRestorationTask
+
+      -- | Failure injection handle:  a stateful set of active fault injections.
+    , _walletFInjects        :: FInjects IO
     }
 
 {-------------------------------------------------------------------------------

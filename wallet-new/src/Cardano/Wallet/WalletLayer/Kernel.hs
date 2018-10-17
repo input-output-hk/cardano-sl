@@ -21,6 +21,7 @@ import           Pos.Chain.Block (Blund, blockHeader, headerHash, prevBlockL)
 import           Pos.Chain.Genesis (Config (..))
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (ProtocolMagic)
+import           Pos.Infra.InjectFail (FInjects)
 import           Pos.Util.Wlog (Severity (Debug, Warning))
 
 import qualified Cardano.Wallet.Kernel as Kernel
@@ -55,9 +56,10 @@ bracketPassiveWallet
     -> (Severity -> Text -> IO ())
     -> Keystore
     -> NodeStateAdaptor IO
+    -> FInjects IO
     -> (PassiveWalletLayer n -> Kernel.PassiveWallet -> m a) -> m a
-bracketPassiveWallet mode logFunction keystore node f = do
-    Kernel.bracketPassiveWallet mode logFunction keystore node $ \w -> do
+bracketPassiveWallet mode logFunction keystore node fInjects f = do
+    Kernel.bracketPassiveWallet mode logFunction keystore node fInjects $ \w -> do
 
       -- For each wallet in a restoration state, re-start the background
       -- restoration tasks.

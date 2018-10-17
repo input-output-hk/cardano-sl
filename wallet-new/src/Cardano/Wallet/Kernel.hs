@@ -35,6 +35,7 @@ import           System.Directory (doesDirectoryExist, removeDirectoryRecursive)
 
 import           Pos.Chain.Txp (TxAux (..))
 import           Pos.Crypto (ProtocolMagic)
+import           Pos.Infra.InjectFail (FInjects)
 import           Pos.Util.Wlog (Severity (..))
 
 import           Cardano.Wallet.Kernel.DB.AcidState (DB, defDB)
@@ -97,13 +98,14 @@ bracketPassiveWallet
     -> (Severity -> Text -> IO ())
     -> Keystore
     -> NodeStateAdaptor IO
+    -> FInjects IO
     -> (PassiveWallet -> m a) -> m a
-bracketPassiveWallet mode logMsg keystore node f =
+bracketPassiveWallet mode logMsg keystore node fInjects f =
     bracket (liftIO $ handlesOpen mode)
             (liftIO . handlesClose mode)
             (\ handles ->
                 bracket
-                  (liftIO $ initPassiveWallet logMsg keystore handles node)
+                  (liftIO $ initPassiveWallet logMsg keystore handles node fInjects)
                   (\_ -> return ())
                   f)
 
@@ -153,8 +155,9 @@ initPassiveWallet :: (Severity -> Text -> IO ())
                   -> Keystore
                   -> WalletHandles
                   -> NodeStateAdaptor IO
+                  -> FInjects IO
                   -> IO PassiveWallet
-initPassiveWallet logMessage keystore handles node = do
+initPassiveWallet logMessage keystore handles node fInjects = do
     pw <- preparePassiveWallet
     initSubmission pw
     return pw
@@ -174,6 +177,7 @@ initPassiveWallet logMessage keystore handles node = do
                 , _walletNode            = node
                 , _walletSubmission      = submission
                 , _walletRestorationTask = restore
+                , _walletFInjects        = fInjects
                 }
 
         -- | Since the submission layer state is not persisted, we need to initialise

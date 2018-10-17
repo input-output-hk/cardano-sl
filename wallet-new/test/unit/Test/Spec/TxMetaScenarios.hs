@@ -35,6 +35,7 @@ import           Pos.Core
 import           Pos.Core.Chrono
 import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..),
                      SlotId (..))
+import           Pos.Infra.InjectFail (mkFInjects)
 import           Pos.Util (withCompileInfo)
 
 import           Test.Hspec
@@ -430,12 +431,14 @@ bracketActiveWalletTxMeta stateParams test =
 -- | Initialize passive wallet in a manner suitable for the unit tests
 bracketPassiveWalletTxMeta :: MockNodeStateParams -> (Kernel.PassiveWallet -> IO a) -> IO a
 bracketPassiveWalletTxMeta stateParams postHook = do
-      Keystore.bracketTestKeystore $ \keystore ->
+      Keystore.bracketTestKeystore $ \keystore -> do
+          mockFInjects <- mkFInjects mempty
           Kernel.bracketPassiveWallet
             Kernel.UseInMemory
             logMessage
             keystore
             (mockNodeState stateParams)
+            mockFInjects
             postHook
   where
     logMessage _ _  = return ()

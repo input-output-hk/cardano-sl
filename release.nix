@@ -7,7 +7,7 @@ in
   , cardano ? { outPath = ./.; rev = "abcdef"; }
   , fasterBuild ? false
   , skipDocker ? false
-  , skipPackages ? fixedLib.optional skipDocker "dockerImages"
+  , skipPackages ? []
   , nixpkgsArgs ? {
       config = { allowUnfree = false; inHydra = true; };
       gitrev = cardano.rev;
@@ -17,8 +17,7 @@ in
 
 with (import (fixedNixpkgs + "/pkgs/top-level/release-lib.nix") {
   inherit supportedSystems scrubJobs nixpkgsArgs;
-  packageSet = args:
-    removeAttrs (import ./. args) skipPackages;
+  packageSet = import ./.;
 });
 
 let
@@ -40,7 +39,7 @@ let
     wallet = wrapImage images."${cluster}".wallet;
     explorer = wrapImage images."${cluster}".explorer;
   };
-  platforms = {
+  platforms = removeAttrs {
     all-cardano-sl = supportedSystems;
     cardano-report-server = [ "x86_64-linux" ];
     cardano-report-server-static = [ "x86_64-linux" ];
@@ -68,15 +67,15 @@ let
     purescript = supportedSystems;
     shell = supportedSystems;
     stack2nix = supportedSystems;
-  };
-  platforms' = {
+  } skipPackages;
+  platforms' = removeAttrs {
     connectScripts.mainnet.wallet   = [ "x86_64-linux" "x86_64-darwin" ];
     connectScripts.mainnet.explorer = [ "x86_64-linux" "x86_64-darwin" ];
     connectScripts.staging.wallet   = [ "x86_64-linux" "x86_64-darwin" ];
     connectScripts.staging.explorer = [ "x86_64-linux" "x86_64-darwin" ];
     connectScripts.testnet.wallet   = [ "x86_64-linux" "x86_64-darwin" ];
     connectScripts.testnet.explorer = [ "x86_64-linux" "x86_64-darwin" ];
-  };
+  } skipPackages;
   mapped = mapTestOn platforms;
   mapped' = mapTestOn platforms';
   makeConnectScripts = cluster: let
@@ -88,8 +87,9 @@ let
   makeRelease = cluster: {
     name = cluster;
     value = {
-      dockerImage = wrapDockerImage cluster;
       connectScripts = makeConnectScripts cluster;
+    } // fixedLib.optionalAttrs (! skipDocker) {
+      dockerImage = wrapDockerImage cluster;
     };
   };
 in mapped // {

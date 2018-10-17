@@ -3,8 +3,9 @@
 #
 # Running `nix-build` builds this package.
 let
-  drv = (import ../. {}).cardano-sl;
+  drv = nixpkgs.cardano-sl;
+  nixpkgs = import ../. {};
 in
-  if ((import <nixpkgs> {}).stdenv.lib.inNixShell)
+  if nixpkgs.pkgs.lib.inNixShell
     then drv.env
     else drv

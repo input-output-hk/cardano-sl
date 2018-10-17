@@ -46,6 +46,7 @@ executable dbgen
                      , network-transport-tcp >= 0.6
                      , optparse-generic
                      , stm
+                     , stm-chans
                      , text
                      , time
                      , time-units

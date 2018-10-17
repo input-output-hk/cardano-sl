@@ -27,7 +27,6 @@ import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Genesis (Config (..))
 import           Pos.Chain.Txp (TxId)
 import           Pos.Core.Chrono (OldestFirst (..))
-import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.DB.Block (getBlund)
 import           Pos.Util.Log (Severity (..))
 
@@ -58,20 +57,22 @@ import           Cardano.Wallet.WalletLayer.Kernel.Wallets
   Passive Wallet API implementation
 -------------------------------------------------------------------------------}
 
--- | Prefilter the block for each account.
+type PrefilterResult = ((BlockContext, Map HdAccountId PrefilteredBlock), [TxMeta])
+
+-- | Prefilter the block for each account. Returns 'Nothing' if the prefiltering
+-- is irrelevant for this node, i.e. there are no user wallets stored, so we
+-- can avoid doing work (i.e. writing into the acid-state DB log) by skipping
+-- such block application.
 --
 -- TODO: Improve performance (CBR-379)
-prefilterBlock' :: PassiveWallet
-                -> ResolvedBlock
-                -> IO ((BlockContext, Map HdAccountId PrefilteredBlock), [TxMeta])
-prefilterBlock' pw b = do
-    aux <$> getWalletCredentials pw
-  where
-    aux :: [(WalletId, EncryptedSecretKey)]
-        -> ((BlockContext, Map HdAccountId PrefilteredBlock), [TxMeta])
-    aux ws =
-      let (conMap, conMeta) = prefilterBlock b ws
-      in ((b ^. rbContext, conMap), conMeta)
+prefilterBlocks :: PassiveWallet
+                -> [ResolvedBlock]
+                -> IO (Maybe [PrefilterResult])
+prefilterBlocks pw bs = do
+    res <- getWalletCredentials pw
+    return $ case res of
+         [] -> Nothing
+         xs -> Just $ map (\b -> first (b ^. rbContext,) $ prefilterBlock b xs) bs
 
 data BackfillFailed
     = SuccessorChanged BlockContext (Maybe BlockContext)
@@ -200,15 +201,22 @@ applyBlock pw@PassiveWallet{..} b = do
                     -> ResolvedBlock
                     -> ExceptT (NonEmptyMap HdAccountId ApplyBlockFailed) IO ()
       applyOneBlock k accts b' = ExceptT $ do
-          ((ctxt, blocksByAccount), metas) <- prefilterBlock' pw b'
-          -- apply block to all Accounts in all Wallets
-          mConfirmed <- update' _wallets $ ApplyBlock k ctxt accts blocksByAccount
-          case mConfirmed of
-              Left  errs      -> return (Left errs)
-              Right confirmed -> do
-                  modifyMVar_ _walletSubmission (return . Submission.remPending confirmed)
-                  mapM_ (putTxMeta _walletMeta) metas
-                  return $ Right ()
+          prefilterBlocks pw [b'] >>= \case
+              -- The block is not relevant as there are no user wallets stored
+              -- in the DB, so don't bother writing into the acid-state transaction log.
+              Nothing -> return $ Right ()
+              Just [((ctxt, blocksByAccount), metas)] -> do
+                  -- apply block to all Accounts in all Wallets
+                  mConfirmed <- update' _wallets $ ApplyBlock k ctxt accts blocksByAccount
+                  case mConfirmed of
+                      Left  errs      -> return (Left errs)
+                      Right confirmed -> do
+                          modifyMVar_ _walletSubmission (return . Submission.remPending confirmed)
+                          mapM_ (putTxMeta _walletMeta) metas
+                          return $ Right ()
+              Just _ -> error $ "applyOneBlock: the impossible happened, "
+                             <> "prefilterBlocks returned "
+                             <> "a different number of elements than the input ones."
 
       -- Determine if a failure in 'ApplyBlock' was due to the account being ahead, behind,
       -- or incomparable with the provided block.
@@ -294,18 +302,21 @@ switchToFork :: PassiveWallet
              -> IO ()
 switchToFork pw@PassiveWallet{..} oldest bs = do
     k <- Node.getSecurityParameter _walletNode
-    blocksAndMeta <- mapM (prefilterBlock' pw) bs
-    let (blockssByAccount, metas) = unzip blocksAndMeta
 
-    changes <- trySwitchingToFork k blockssByAccount
+    blocksAndMeta <- prefilterBlocks pw bs
+    case blocksAndMeta of
+         -- We skip the switchToFork completely, as no wallet is configured
+         -- in this node.
+         Nothing -> return ()
+         Just xs -> do
+             let (blockssByAccount, metas) = unzip xs
 
-    -- Update the metadata
-    mapM_ (putTxMeta _walletMeta) $ concat metas
-    modifyMVar_ _walletSubmission $
-      return . Submission.addPendings (fst <$> changes)
-    modifyMVar_ _walletSubmission $
-      return . Submission.remPending (snd <$> changes)
-    return ()
+             changes <- trySwitchingToFork k blockssByAccount
+
+             mapM_ (putTxMeta _walletMeta) $ concat metas
+             modifyMVar_ _walletSubmission $
+               return . Submission.addPendings (fst <$> changes)
+                      . Submission.remPending  (snd <$> changes)
   where
 
     trySwitchingToFork :: Node.SecurityParameter

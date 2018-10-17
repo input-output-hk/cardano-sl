@@ -215,7 +215,7 @@ initWalletTestContext WalletTestParams {..} callback =
                 wtcConnectedPeers <- ConnectedPeers <$> STM.newTVarIO mempty
                 wtcLastKnownHeader <- STM.newTVarIO Nothing
                 wtcSentTxs <- STM.newTVarIO mempty
-                wtcSyncQueue <- STM.newTQueueIO
+                wtcSyncQueue <- STM.newTBQueueIO 64
                 wtcSlottingStateVar <- mkSimpleSlottingStateVar dummyEpochSlots
                 pure WalletTestContext {..}
             callback wtc

@@ -17,7 +17,7 @@ module Cardano.Wallet.Kernel.Actions
 
 import qualified Control.Concurrent.Async as Async
 import qualified Control.Concurrent.STM as STM
-import qualified Control.Concurrent.STM.TMQueue as STM
+import qualified Control.Concurrent.STM.TBMQueue as STM
 import qualified Control.Exception.Safe as Ex
 import           Control.Lens (makeLenses, (%=), (+=), (-=), (.=))
 import           Control.Monad.IO.Unlift (MonadUnliftIO, UnliftIO (unliftIO),
@@ -205,20 +205,20 @@ withWalletWorker
   -> m b
 withWalletWorker wai k = do
   -- 'tmq' keeps items to be processed by the worker in FIFO order.
-  tmq :: STM.TMQueue (WalletAction a) <- liftIO STM.newTMQueueIO
+  tmq :: STM.TBMQueue (WalletAction a) <- liftIO $ STM.newTBMQueueIO 64
   -- 'getWA' gets the next action to be processed.
   let getWA :: STM (Maybe (WalletAction a))
-      getWA = STM.readTMQueue tmq
+      getWA = STM.readTBMQueue tmq
   -- 'pushWA' adds an action to queue, unless it's been closed already.
   let pushWA :: WalletAction a -> STM ()
-      pushWA = STM.writeTMQueue tmq
+      pushWA = STM.writeTBMQueue tmq
   fmap snd $ withUnliftIO $ \(unlift :: UnliftIO m) -> Async.concurrently
     -- Queue reader. If it dies, the writer dies too.
     (walletWorker wai (STM.atomically getWA))
     -- Queue writer. If it finishes, it closes the queue, causing the reader
     -- to terminate normally. If it dies, forget about closing the queue, just
     -- kill the reader.
-    (unliftIO unlift (k pushWA) <* STM.atomically (STM.closeTMQueue tmq))
+    (unliftIO unlift (k pushWA) <* STM.atomically (STM.closeTBMQueue tmq))
 
 -- | Check if this is the initial worker state.
 isInitialState :: Eq b => WalletWorkerState b -> Bool

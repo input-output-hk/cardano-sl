@@ -2,7 +2,7 @@ module Cardano.Wallet.LegacyAction(actionWithWallet) where
 
 import           Universum
 
-import           Control.Concurrent.STM (newTQueueIO)
+import           Control.Concurrent.STM (newTBQueueIO)
 
 import           Ntp.Client (NtpConfiguration, NtpStatus, ntpClientSettings,
                      withNtpClient)
@@ -48,7 +48,7 @@ actionWithWallet wArgs@WalletBackendParams {..} genesisConfig walletConfig txpCo
     logInfo "[Attention] Software is built with the wallet backend"
     bracketWalletWebDB (walletDbPath walletDbOptions) (walletRebuildDb walletDbOptions) $ \db ->
         bracketWalletWS $ \conn -> do
-            syncQueue <- liftIO newTQueueIO
+            syncQueue <- liftIO $ newTBQueueIO 64
             ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
             runWRealMode genesisConfig txpConfig db conn syncQueue nodeRes (mainAction ntpStatus)
   where

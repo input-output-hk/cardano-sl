@@ -42,7 +42,7 @@ module Pos.Wallet.Web.Tracking.Sync
 
 import           Universum hiding (id)
 
-import           Control.Concurrent.STM (readTQueue)
+import           Control.Concurrent.STM (readTBQueue)
 import           Control.Exception.Safe (handleAny)
 import           Control.Lens (to)
 import           Control.Monad.Except (MonadError (throwError))
@@ -119,7 +119,7 @@ processSyncRequest
     -> SyncQueue
     -> m ()
 processSyncRequest genesisConfig syncQueue = do
-    newRequest <- atomically (readTQueue syncQueue)
+    newRequest <- atomically (readTBQueue syncQueue)
     syncWalletWithBlockchain genesisConfig newRequest
         >>= either processSyncError (const (logSuccess newRequest))
     processSyncRequest genesisConfig syncQueue

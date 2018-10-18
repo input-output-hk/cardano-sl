@@ -157,6 +157,9 @@ be grouped into:
   the system.
 \end{itemize}
 
+Requirements specific to the rewards distribution mechanism are
+discussed separately in \cref{rewards}.
+
 \subsection{Functional Requirements}
 \label{functional-requirements}
 
@@ -703,6 +706,43 @@ leadership schedule.
 Note that using addresses with no stake rights effectively decreases
 the total amount of stake, which plays into the hands of the adversary.
 
+\subsubsection{Reward Address}
+\label{reward-address}
+
+Reward addresses are used to distribute rewards for participating in
+the PoS protocol (either directly or via delegation), as described in
+\ref{distributing-rewards}. They have a number of interesting
+properties:
+
+\begin{itemize}
+\item They use account-style accounting, not UTxO-style.
+\item They can not receive funds via transactions. Instead, their
+  balance is updated whenever rewards are distributed.
+\item They are not associated with a spending key. Instead, there is a
+  one-to-one correspondence between registered staking keys and reward
+  addresses. Whenever funds are withdrawn from a reward address, its
+  staking key is used as a witness.
+\end{itemize}
+
+A reward address has the form
+\[
+\hash{vks} \mathbin{||} \beta
+\]
+where \(\hash{vkp}\) is a cryptographic hash of the public staking key
+of the address. This key is used whenever funds are withdrawn from the
+address. Furthermore, stake associated with funds in the address
+contributes to the stake of this key.
+
+Just as in the case of enterprise addresses, the staking object for a reward
+address does not need to carry any information, so it is set to a
+nullary constant (though of course a different one):
+\[
+\beta = \rho
+\]
+
+The terms \emph{reward address} and \emph{reward account} will be used
+interchangeably throughout this document.
+
 \subsubsection{Bootstrap Address}
 \label{bootstrap-address}
 
@@ -948,11 +988,11 @@ The certificate contains the following:
 \item
   The public key of the pool, \(vks_\text{pool}\).
 \item
-  The public stake key hash of the pool owner/operator,
+  The public stake key hash of the pool owner,
   \(\mathcal{H}(vks_\text{owner})\), or a list of such public stake key
   hashes. If any of the \(vks_\text{owner}\) delegate to this pool, the
   stake that they delegate will be considered to be a deposit by the
-  operator, see \cref{stakepool-registration,overview-of-incentives,reward-splitting}. Note that
+  owner, see \cref{stakepool-registration,overview-of-incentives,reward-splitting}. Note that
   adding a key as \(vks_\text{owner}\) in itself does not actually
   delegate the stake controlled by that key to the pool -- an additional
   delegation certificate is required to do so.
@@ -1639,10 +1679,6 @@ meet this level of resistance.
 \subsection{Rewards}
 \label{rewards}
 
-\todo{This section needs to be updated. In particular, the mechanism
-  for distributing rewards has changed to use stake accounts instead
-  of automatic UTxO updates.}
-
 For the smooth operation of the system, it is beneficial to have a large
 portion of the stake delegated to a set of reliable stake pools. Thus,
 we should incentivise delegating stake to reliable stake pools. One way
@@ -1672,7 +1708,7 @@ The reward sharing mechanism should satisfy the following requirements:
   Sharing rewards should not lead to a burst of transactions that risks
   pushing the system to the limits of its predictable region of
   operation.
-\item
+\item\label{rewards-requirement-linkability}
   Sharing rewards should not increase the linkability of addresses of a
   wallet.
 \item
@@ -1680,148 +1716,93 @@ The reward sharing mechanism should satisfy the following requirements:
   potential participants.
 \end{enumerate}
 
-In order to satisfy requirements 1-4 above, the rewards for stake pool
-members will not be dealt out via transactions. Instead, the UTxO set
-will be adjusted automatically when the system goes from one epoch to
-the next. Requirement 5 is satisfied, since the rewards for stake pool
-members are determined by the cost and margin parameters that the stake
-pool operator includes in the stake pool registration certificate (as
-well as by the performance of the stake pool).
+Coming up with a solution that satisfies all of those requirements is
+less straightforward than one might think. We did an exhaustive
+assessment of possible approaches, documented in
+\cref{assessment-of-rewards-sharing-mechanisms}, and finally opted for
+the mechanism described in~\ref{reward-accounts-per-stake-key}, which
+compromises somewhat on \cref{rewards-requirement-linkability}, but
+satisfies all the other requirements.
 
-\paragraph{Distributing Rewards}
+\subsubsection{Distributing Rewards}
 \label{distributing-rewards}
 
-At the end of an epoch, stake pool operators and members will be
-rewarded, via an update of the UTxO set and a special transaction. Since
-all the information needed to compute the rewards is publicly available
-on the blockchain, this update can be calculated and checked by each
-node independently.
+One of the difficult problems we had to solve during the design of the
+reward distribution mechanism was UTxO explosion and dust creation:
+since rewards occur in every epoch, and all the entries in the UTxO
+will generate rewards, a naive approach would lead to an exponential
+growth of the UTxO, which is clearly not sustainable. Furthermore,
+individual rewards will be small, so most of the UTxO entries created
+for reward distribution will be dust.
 
-Upon reaching the end of an epoch, each node will calculate the update
-to the UTxO that distributes the rewards for the preceding epoch, in the
-following manner\footnote{This section contains references to the
-  rewards and incentives design document, which will be merged with this
-  document soon.}:
+We have explored several aproaches to circumvent this problem
+(see \cref{assessment-of-rewards-sharing-mechanisms} for a summary),
+and ended up with using \emph{reward accounts}
+(\cref{reward-address}). Here, UTxO growth is prevented by using
+addresses that do not use UTxO style accounting at all. Instead, every
+registered staking key has an associated address that uses
+account-style book-keping. That way, the rewards from multiple epochs
+can be pooled, and stakeholders can withdraw them manually. Note that
+this has two advantages over the superficially simpler approach of
+having stakeholders claim their rewards directly:
+\begin{itemize}
+\item Updating the total rewards a stakeholder is due happens
+  frequently, avoiding the need for all nodes to hold on to the state
+  that is needed to calculate rewards from old epochs.
+\item Rewards that are accumulated in reward accounts can be used for
+  staking before it is withdrawn, eliminating an incentive for
+  frequent withdrawals (which again would lead to an unnecessary
+  growth of the UTxO set).
+\end{itemize}
 
-Let \(t_0\) be the point in time at which the leader election for the
-epoch took place. For each staking key that had been selected as slot
-leader for at least one slot during the epoch, calculate the pool
-rewards \(\hat{f}\), based on the performance during the epoch, and the
-stake deposit and delegated stake at \(t_0\). We will determine which
-UTxO are owned by the pool leader based on the whether the stake key
-which owns a UTxO matches the key in the stake certificate.
+At the end of each epoch, rewards for stake pool leaders and members
+are calculated, using the formulae in \cref{non-myopic-utility}. The
+calculation will be based on
+\begin{itemize}
+\item the active stake pools, in particular their cost and margin
+  parameters, pledged stake, owner key hashes, and (optional)
+  alternative reward accounts for stake pool owners
+\item the finite map giving the total stake for each registered
+  staking key, \emph{taken at the point in time that was relevant for
+    creating the leader schedule for that epoch}
+\item the leader schedule and list of empty slots for that epoch.
+\end{itemize}
+For each registered staking key, the rewards thus calculated are added
+to the balance of the associated reward account.
 
-Note that is is possible for a non-pool-leader to create a base address
-which uses any pool's staking key. Funds belonging to such addresses
-would be counted towards the stake pool's pledge, though the
-non-pool-leader would not have the private stake key needed to spend the
-rewards attched to this address. Since such behavior does not change the
-incentive model, this behaviour is perfectly acceptible\footnote{We can
-  decide whether or not our wallet should make this an option.}.
+Note that all the information that is relevant for the calculation of
+the rewards is publicly available on the blockchain, so there is no
+need to explicitly write the balance of each reward account to the
+chain. Instead, it suffices for all the nodes to store the reward
+accounts and their current balance locally.
 
-Pool Member Rewards
+\paragraph{Collecting Rewards}
 
-: If the staking key belongs to a stake pool that did not specify a
-special address to which all member rewards should be sent, the pool
-member rewards will be calculated \emph{per UTxO entry that delegated to
-the pool}. This is necessary, since we do not wish to link together the
-addresses of individual stake holders, and sharing rewards \emph{per
-pool member} would require us to do just that. It is possible, since the
-rewards for each member are linear in the stake that that member
-delegated (once \(\hat{f}\) is fixed).
+Once a sizeable amount of funds has accumulated in a given reward
+account, the owner of that account will want to withdraw those funds,
+and move them to an ordinary address of their wallet. This withdrawal
+from an account to a UTxO can be done via a special transaction. It
+needs to be signed by the staking key the account belongs to.
 
-\begin{verbatim}
-The value of each UTxO entry that did delegate at $t_0$ will be
-updated, adding the reward $r_\text{member}$ calculated for the
-stake of this entry.
-
-Note that some transaction outputs which were unspent at $t_0$
-will have been spent during the epoch. Those will not get
-rewards. The rewards they would have gotten (as well as any
-fraction of a reward smaller than a Lovelace that got rounded
-down) will be treated as all rewards that are not distributed:
-they are partly assigned to the treasury and partly carried over
-to the next epoch.
-
-This disincentivises pointer address stakeholders from re-delegating,
-and from using or moving their funds. If we want to avoid this, an
-alternative is described in \cref{updating-at-the-start-of-an-epoch}.
-\end{verbatim}
-
-Pool Leader Rewards
-
-: The rewards for pool leaders can not be distributed via an update of
-the UTxO, but must be transferred to the address that the operator
-specified when registering the pool. Instead, pool leader rewards will
-be shared out in a bulk transaction.
-
-\begin{verbatim}
-This transaction will have an empty input set, and does not need
-to be signed. Its validity can be checked by every node, since it
-can be derived deterministically from the blockchain.
-\end{verbatim}
-
-Pools with the optional reward address
-
-: Stakepool can optionally specify an address where rewards in excess of
-the costs and margins can go. The member rewards for such pools can also
-not be handled by the UTxO update, and are instead included in the
-transaction that distributes the pool leader rewards.
-
-Individual Stakeholders
-
-: If an individual stakeholder posted a stake pool registration
-certificate (with margin \(1\)), they will be handled just like a stake
-pool by the rewards sharing mechnism.
-
-\begin{verbatim}
-Otherwise, the system will assume that all the base addresses
-using the same staking key belong to the same stakeholder. It will
-calculate the rewards for the pool operator, and distribute it
-across the UTxO entries using those addresses, weighted by the
-coins those entries hold.
-\end{verbatim}
-
-Note that the size of special transaction for the rewards of stake pool
-operators will be rather large, but bounded: it can never have more
-outputs than twice the number of slots in an epoch. This conservative
-bound will only be reached if every slot, a different leader was
-elected, and all of those leaders were ``charity'' pools (which is where
-the factor of two comes from). In practice, the number of outputs will
-be much closer to the number of relevant stake pools.
-
-\paragraph{Updating at the Start of an Epoch}
-\label{updating-at-the-start-of-an-epoch}
-
-Cashing out the pool member rewards as depicted above has the drawback
-that stakeholders are discouraged from re-delegating, since they would
-lose their rewards for an epoch. They are also discouraged from using
-their funds for payments.
-
-This can be avoided if the rewards are not distributed after the epoch,
-but at \(t_0\), the time when the leader schedule is determined. At this
-moment, all the UTxO entries that delegated at \(t_0\) trivially exist,
-and no rewards will be forfeited.
-
-An obvious problem with this is that there is no way to know in advance
-how well a given stake pool will perform in the next epoch. Assuming
-that the performance of a pool is more or less constant, we can however
-use the performance during the previous epoch (using some fallback, such
-as the average performance of the whole system for stake pools that were
-not elected in the previous epoch).
+In order to prevent replay attacks, this transaction will include an
+epoch number, and all the funds accumulated up to that epoch will be
+withdrawn\todo{We should discuss with the researchers whether they can
+think of any vulnerability with this -- it seems unlikely but not
+impossible that strange things could happen if withdrawal transactions
+for different epochs are re-ordered by the network or things like that.}.
 
 \paragraph{Handling of Bootstrap Addresses}
 \label{handling-of-bootstrap-addresses}
 
-Funds in bootstrap addresses will continue to be delegated to the core
-nodes of the Byron network. As long as there are funds in bootstrap
-addresses, the core nodes will continue to be elected and produce
-blocks. However, there will be rewards neither for the operators of the
-core nodes, nor for stakeholders delegating to them. Thus, the core
-nodes will contribute to the performance and security of the system, but
-their use will be disincentivised. This aligns the individual user's
-short-term interest of receiving rewards with the overall goal of
-reaching decentralisation of the system.
+All funds in bootstrap addresses will be ignored by the PoS system --
+there is no staking key associated with bootstrap
+addresses. Consequently, there will be no rewards, and stakeholders
+will be incentivised to stop using bootstrap addresses. Our transition
+plan, laid out in \cref{transition-to-decentralization}, prevents a
+situation where the system would be vulnerable to a 51\% attack
+because only a small fraction of the total stake is active yet, by
+allowing for a period where the original nodes from the bootstrap
+phase are still eligible to sign some of the blocks.
 
 \subsection{Fees}
 \label{fees}
@@ -3406,6 +3387,14 @@ shorter, while still satisfying the rest of the requirements.
 
 \section{Assessment of Rewards Sharing Mechanisms}
 \label{assessment-of-rewards-sharing-mechanisms}
+
+This appendix gives an overview over the different mechanisms for
+rewards sharing that we took into consideration. While this is not
+needed for implementing the delegation system, the information is
+still useful enough to be included in this document. Choosing a
+mechanism for rewards sharing involves a number of non-trivial
+trade-offs, and future systems might want to pick one that we
+discarded for Cardano.
 
 \subsection{General Considerations}
 \label{general-considerations}

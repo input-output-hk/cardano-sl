@@ -254,7 +254,32 @@ let
 
     inherit (self.haskellPackages.cardano-sl) version;
     inherit gitrev;
-  });
+  }
+   # fixme: Temporary fix for hydra evaluation
+   // { inherit (self.cardanoPackages)
+          cardano-sl
+          cardano-sl-auxx
+          cardano-sl-chain
+          cardano-sl-cluster
+          cardano-sl-core
+          cardano-sl-crypto
+          cardano-sl-db
+          cardano-sl-explorer
+          cardano-sl-explorer-frontend
+          cardano-sl-explorer-static
+          cardano-sl-generator
+          cardano-sl-infra
+          cardano-sl-networking
+          cardano-sl-node-static
+          cardano-sl-tools
+          cardano-sl-tools-post-mortem
+          cardano-sl-util
+          cardano-sl-wallet
+          cardano-sl-wallet-new
+          cardano-sl-x509
+          cardano-report-server
+          cardano-report-server-static; }
+  );
 
 in
   # The top-level package set

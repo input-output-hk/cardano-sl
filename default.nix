@@ -226,6 +226,8 @@ let
       explorer = self.connect { inherit environment; executable = "explorer"; };
     });
 
+    # Produces a script which starts a cluster of core nodes and a
+    # relay, then connects an edge node (wallet) to it.
     demoCluster = self.callPackage ./scripts/launch/demo-cluster {
       inherit useStackBinaries;
       inherit (self.cardanoPackages)

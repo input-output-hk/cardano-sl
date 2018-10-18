@@ -43,6 +43,12 @@ let
       cp -vi ${cardano-sl.src + "/mainnet-genesis.json"} mainnet-genesis.json
     '';
 
+  prepareGenesis = callPackage ../../prepare-genesis {
+    inherit numCoreNodes stateDir;
+    configurationKey = "testnet_full";
+    configurationKeyLaunch = "testnet_launch";
+  };
+
 in writeScript "demo-cluster" ''
   #!${stdenv.shell} -e
   export PATH=${stdenv.lib.makeBinPath allDeps}:$PATH

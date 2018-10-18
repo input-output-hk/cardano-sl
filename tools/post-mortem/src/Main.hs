@@ -26,8 +26,7 @@ main = parseOptions >>= \case
         err $ "sample probability: " ++ show sampleProb
         err ""
         xs <- forM logDirs $ flip processLogDirOverview sampleProb
-        chart xs "times.svg"
-        err "wrote times chart"
+        err "Starting to write times.csv"
         BSL.writeFile "times.csv" (C.encode $ foldl' (\ acc (_, m) -> getData m ++  acc) [] xs)
         err "wrote times csv"
     Focus txHash logDir         -> do

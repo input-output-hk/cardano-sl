@@ -247,9 +247,11 @@ let
 
     validateJson = self.callPackage ./tools/src/validate-json {};
 
-    # Add a shell attribute so that it can be built and cached by Hydra.
-    shell = import ./shell.nix { inherit system config pkgs; iohkPkgs = self; };
-
+    # Add a shell attributes so these can be built and cached by Hydra.
+    shells = {
+      cabal = import ./shell.nix { inherit system config pkgs; iohkPkgs = self; };
+      stack = import ./nix/stack-shell.nix { inherit system config pkgs; iohkPkgs = self; };
+    };
 
     ####################################################################
     # Version info

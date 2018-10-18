@@ -64,7 +64,8 @@ let
     cardano-sl-wallet-new = supportedSystems;
     cardano-sl-x509 = supportedSystems;
     daedalus-bridge = supportedSystems;
-    shell = supportedSystems;
+    shells.cabal = supportedSystems;
+    shells.stack = supportedSystems;
     stack2nix = supportedSystems;
   } skipPackages;
   platforms' = removeAttrs {

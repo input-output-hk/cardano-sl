@@ -36,6 +36,10 @@
 #   - lib.nix     - the localLib common functions.
 #   - nix/*       - other nix code modules used by this file.
 #
+# See also:
+#   - docs/how-to/build-cardano-sl-and-daedalus-from-source-code.md
+#   - docs/nix.md
+#
 ########################################################################
 
 let
@@ -237,12 +241,7 @@ let
     };
 
     # Tool for generating ./pkgs/default.nix
-    stack2nix = self.callPackage (pkgs.fetchFromGitHub {
-      owner = "avieth";
-      repo = "stack2nix";
-      rev = "c51db2d31892f7c4e7ff6acebe4504f788c56dca";
-      sha256 = "10jcj33sxpq18gxf3zcck5i09b2y4jm6qjggqdlwd9ss86wg3ksb";
-    }) { };
+    stack2nix = self.callPackage ./nix/stack2nix.nix { };
 
     validateJson = self.callPackage ./tools/src/validate-json {};
 
@@ -255,7 +254,32 @@ let
 
     inherit (self.haskellPackages.cardano-sl) version;
     inherit gitrev;
-  });
+  }
+   # fixme: Temporary fix for hydra evaluation
+   // { inherit (self.cardanoPackages)
+          cardano-sl
+          cardano-sl-auxx
+          cardano-sl-chain
+          cardano-sl-cluster
+          cardano-sl-core
+          cardano-sl-crypto
+          cardano-sl-db
+          cardano-sl-explorer
+          cardano-sl-explorer-frontend
+          cardano-sl-explorer-static
+          cardano-sl-generator
+          cardano-sl-infra
+          cardano-sl-networking
+          cardano-sl-node-static
+          cardano-sl-tools
+          cardano-sl-tools-post-mortem
+          cardano-sl-util
+          cardano-sl-wallet
+          cardano-sl-wallet-new
+          cardano-sl-x509
+          cardano-report-server
+          cardano-report-server-static; }
+  );
 
 in
   # The top-level package set

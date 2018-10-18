@@ -18,7 +18,7 @@ let
   allDeps =  demoClusterDeps ++ cardanoDeps;
 
   wallet = connect {
-    inherit environment;
+    inherit environment stateDir;
 
     # This will limit heap size to 1GB, along with the usual RTS options.
     ghcRuntimeArgs = "-N2 -qg -A1m -I0 -T -M1G";

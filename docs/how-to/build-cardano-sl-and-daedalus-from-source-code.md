@@ -42,32 +42,18 @@ Switch to the `master` branch:
 
 ## Nix build mode (recommended)
 
-First, prerequisite: install Nix (full instructions at https://nixos.org/nix/download.html):
+First, install Nix and set up the IOHK binary cache according to
+[these instructions](../nix.md).
 
-    curl https://nixos.org/nix/install | sh
+Actually building the Cardano SL node (or, most likely, simply obtaining it
+from the IOHK's binary caches) can be performed by building the attribute `cardano-sl-node-static`:
 
-Two steps remain, then:
+    $ nix-build -A cardano-sl-node-static --out-link master
 
-1.  To employ the signed IOHK binary cache:
+The build output directory will be symlinked as `master` (as specified by the command), and it will contain:
 
-        $ sudo mkdir -p /etc/nix
-        $ sudo vi /etc/nix/nix.conf       # ..or any other editor, if you prefer
-
-    and then add the following lines:
-
-        substituters = https://hydra.iohk.io https://cache.nixos.org/
-        trusted-substituters =
-        trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
-
-2.  Actually building the Cardano SL node (or, most likely, simply obtaining it
-    from the IOHK's binary caches) can be performed by building the attribute `cardano-sl-node-static`:
-
-        $ nix-build -A cardano-sl-node-static --cores 0 --max-jobs 2 --no-build-output --out-link master
-
-    The build output directory will be symlinked as `master` (as specified by the command), and it will contain:
-
-        $ ls master/bin
-        cardano-node-simple
+    $ ls master/bin
+    cardano-node-simple
 
 NOTE: the various other Cardano components can be obtained through other attributes:
 

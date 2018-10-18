@@ -36,6 +36,10 @@
 #   - lib.nix     - the localLib common functions.
 #   - nix/*       - other nix code modules used by this file.
 #
+# See also:
+#   - docs/how-to/build-cardano-sl-and-daedalus-from-source-code.md
+#   - docs/nix.md
+#
 ########################################################################
 
 let

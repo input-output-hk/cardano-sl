@@ -9,6 +9,8 @@ let
   # applied to the given args.
   importPkgs = args: import fetchNixPkgs ({ overlays = [ (import ./nix/overlays/jemalloc.nix) ]; } // args);
 
+  # Gets the value of an environment variable, with a default if it's
+  # unset or empty.
   maybeEnv = env: default:
     let
       result = builtins.getEnv env;
@@ -79,9 +81,16 @@ in lib // (rec {
 
   # Generates an attrset for the three cardano-sl networks by applying
   # the given function to each environment.
-  forEnvironments = f: lib.mapAttrs'
-    (name: env: lib.nameValuePair name (f (env // { environment = name; }))) # fixme: simplify
-    (lib.filterAttrs (name: env: !env.private) environments);
+  #
+  # Example:
+  #   forEnvironments ({ environment, confKey, ... }: "key for ${environment} is ${confKey}")
+  #   => { demo = "key for demo is dev";
+  #        mainnet = "key for mainnet is mainnet_full";
+  #        staging = "key for staging is mainnet_dryrun_full";
+  #        testnet = "key for testnet is testnet_full"; }
+  forEnvironments = f: lib.mapAttrs
+    (name: env: f (env // { environment = name; }))
+    environments;
 
   runHaskell = name: hspkgs: deps: env: code: let
     ghc = hspkgs.ghcWithPackages deps;
@@ -93,6 +102,7 @@ in lib // (rec {
     ${builtBinary}/bin/$name
   '';
 
+  # Overrides the lib.commitIdFromGitRepo function in nixpkgs
   commitIdFromGitRepo = import ./nix/commit-id.nix { inherit lib; };
 
   # Plucks all the cardano-sl packages from the haskellPackages set,

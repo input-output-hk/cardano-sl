@@ -17,14 +17,15 @@ display_help() {
 
 RUN_WALLET="false"
 NUM_IMPORTED_WALLETS=0
+DISABLE_CLIENT_AUTH="false"
 ARGS=()
 
 while getopts hdwi: option
 do
   case "${option}" in
-    d) ARGS+=(--arg disableClientAuth true);;
-    i) NUM_IMPORTED_WALLETS="${OPTARG}";;
+    d) DISABLE_CLIENT_AUTH="true";;
     w) RUN_WALLET="true";;
+    i) NUM_IMPORTED_WALLETS="${OPTARG}"; RUN_WALLET="true";;
     h) display_help; exit 0;;
     *) display_help; exit 1
   esac
@@ -40,5 +41,5 @@ fi
 
 GITREV=$(git rev-parse HEAD)
 
-nix-build scripts/launch/demo-cluster --argstr gitrev "$GITREV" "${ARGS[@]}" -o "launch_$GITREV"
+nix-build -E "(import ./. {}).callPackage ./scripts/launch/demo-cluster { disableClientAuth = $DISABLE_CLIENT_AUTH; numImportedWallets = $NUM_IMPORTED_WALLETS; runWallet = $RUN_WALLET; }" -o "launch_$GITREV"
 exec ./launch_"$GITREV"

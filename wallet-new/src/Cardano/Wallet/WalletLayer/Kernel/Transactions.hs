@@ -48,18 +48,56 @@ getTransactions wallet mbWalletId mbAccountIndex mbAddress params fop sop = lift
     db <- liftIO $ Kernel.getWalletSnapshot wallet
     sc <- liftIO $ Node.getSlotCount (wallet ^. Kernel.walletNode)
     currentSlot <- liftIO $ Node.getTipSlotId (wallet ^. Kernel.walletNode)
-    (meta, mbTotalEntries) <- liftIO $ TxMeta.getTxMetas
-        (wallet ^. Kernel.walletMeta)
-        (TxMeta.Offset . fromIntegral $ (cp - 1) * pp)
-        (TxMeta.Limit . fromIntegral $ pp)
-        accountFops
-        (unV1 <$> mbAddress)
-        (castFiltering $ mapIx unV1 <$> F.findMatchingFilterOp fop)
-        (castFiltering $ mapIx unV1 <$> F.findMatchingFilterOp fop)
-        mbSorting
-    txs <- withExceptT GetTxUnknownHdAccount $
-             mapM (metaToTx db sc currentSlot) meta
-    return $ respond params txs mbTotalEntries
+    -- things we read from sqlite, may fail to be transformed to Txs. So we
+    -- keep querying in a loop.
+    -- loop invariants:
+    --    + length accTxs == accTxsLength
+    --    + accTxsLength < pp
+    --    + accTrials <= trialsThreshold
+    --    + localLimit <= localLimitThreshold
+    let go :: Int -> Int -> Int -> ([V1.Transaction], Int) -> Maybe Int -> IO (Either GetTxError (WalletResponse [V1.Transaction]))
+        go accTrials localOffset localLimit (accTxs, accTxsLength) accTotalEntries = do
+            (newMetas, newTotalEntries) <- TxMeta.getTxMetas
+                (wallet ^. Kernel.walletMeta)
+                (TxMeta.Offset . fromIntegral $ (cp - 1) * pp + localOffset)
+                (TxMeta.Limit . fromIntegral $ localLimit)
+                accountFops
+                (unV1 <$> mbAddress)
+                (castFiltering $ mapIx unV1 <$> F.findMatchingFilterOp fop)
+                (castFiltering $ mapIx unV1 <$> F.findMatchingFilterOp fop)
+                mbSorting
+                (accTrials == 0) -- we only count total results in first loop.
+            let newMetasLength = length newMetas
+            -- txs which don't have account in acid-state are filtered out.
+            newTxs <- catMaybes <$> mapM (\m -> rightToMaybe <$> (runExceptT $ metaToTx db sc currentSlot m)) newMetas
+            -- txs which are invalid are filtered out.
+            let newValidTxs = filter isValid newTxs
+            let newValidTxsLength = length newValidTxs
+
+            let txs = accTxs <> newValidTxs
+            let txsLength = accTxsLength + length newValidTxs
+            let mbTotalEntries = if accTrials == 0 then newTotalEntries else accTotalEntries
+            let newLocalOffset = localOffset + localLimit
+            let trials = accTrials + 1
+            if trials > trialsThreshold || txsLength >= pp || localLimit > localLimitThreshold
+               || newMetasLength < localLimit
+                then return $ Right $ respond params (take pp txs) mbTotalEntries
+                else do
+                    let newLocalLimit = if newValidTxsLength == 0
+                            then 2 * localLimit
+                            else localLimit
+                    go trials newLocalOffset newLocalLimit (txs, txsLength) mbTotalEntries
+    ExceptT $ liftIO $ go 0 0 pp ([], 0) Nothing
+
+trialsThreshold :: Int
+trialsThreshold = 7
+
+localLimitThreshold :: Int
+localLimitThreshold = 1000
+
+isValid :: V1.Transaction -> Bool
+isValid tx = not (V1.txDirection tx == V1.IncomingTransaction
+                 && ((V1.txStatus tx == V1.Applying) || (V1.txStatus tx == V1.WontApply)))
 
 toTransaction :: MonadIO m
               => Kernel.PassiveWallet

@@ -296,7 +296,7 @@ txMetaStorageSpecs = do
                 case (metaRes1, metaRes2) of
                     (Just m1, Nothing) -> do
                         Isomorphic m1 `shouldBe` Isomorphic meta1
-                        ([m], count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything Nothing (FilterByIndex txId) NoFilterOp Nothing
+                        ([m], count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything Nothing (FilterByIndex txId) NoFilterOp Nothing True
                         Isomorphic m `shouldBe` Isomorphic m1
                         count `shouldBe` (Just 1)
                     (_, _) -> expectationFailure "only the first get should succeed"
@@ -322,7 +322,7 @@ txMetaStorageSpecs = do
                 case (metaRes1, metaRes2) of
                     (Just m1, Nothing) -> do
                         Isomorphic m1 `shouldBe` Isomorphic meta1
-                        ([m], count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything Nothing (FilterByIndex txId) NoFilterOp Nothing
+                        ([m], count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything Nothing (FilterByIndex txId) NoFilterOp Nothing True
                         Isomorphic m `shouldBe` Isomorphic m1
                         count `shouldBe` (Just 1)
                     (_, _) -> expectationFailure "only the first get should succeed"
@@ -344,7 +344,7 @@ txMetaStorageSpecs = do
                     (Just m1, Just m2) -> do
                         Isomorphic m1 `shouldBe` Isomorphic meta1
                         Isomorphic m2 `shouldBe` Isomorphic meta2
-                        (result, count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything Nothing (FilterByIndex txId) NoFilterOp Nothing
+                        (result, count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything Nothing (FilterByIndex txId) NoFilterOp Nothing True
                         map Isomorphic result `shouldContain` [Isomorphic m1]
                         map Isomorphic result `shouldContain` [Isomorphic m2]
                         count `shouldBe` (Just 2)
@@ -368,7 +368,7 @@ txMetaStorageSpecs = do
                     (Just m1, Just m2) -> do
                         Isomorphic m1 `shouldBe` Isomorphic meta1
                         Isomorphic m2 `shouldBe` Isomorphic meta2
-                        (result, count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything Nothing (FilterByIndex txId) NoFilterOp Nothing
+                        (result, count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything Nothing (FilterByIndex txId) NoFilterOp Nothing True
                         map Isomorphic result `shouldContain` [Isomorphic m1]
                         map Isomorphic result `shouldContain` [Isomorphic m2]
                         count `shouldBe` (Just 2)
@@ -390,7 +390,7 @@ txMetaStorageSpecs = do
                     (Just m1, Just m2) -> do
                         Isomorphic m1 `shouldBe` Isomorphic meta1
                         Isomorphic m2 `shouldBe` Isomorphic meta2
-                        (result, count) <- (getTxMetas hdl) (Offset 0) (Limit 5) (AccountFops walletId (Just accountIx)) Nothing NoFilterOp NoFilterOp Nothing
+                        (result, count) <- (getTxMetas hdl) (Offset 0) (Limit 5) (AccountFops walletId (Just accountIx)) Nothing NoFilterOp NoFilterOp Nothing True
                         map Isomorphic result `shouldContain` [Isomorphic m1]
                         map Isomorphic result `shouldContain` [Isomorphic m2]
                         count `shouldBe` (Just 2)
@@ -401,7 +401,7 @@ txMetaStorageSpecs = do
             run $ withTemporaryDb $ \hdl -> do
                 let metas = map unSTB testMetasSTB
                 forM_ metas (putTxMeta hdl)
-                (result, _) <- getTxMetas hdl (Offset 0) (Limit 100) Everything Nothing NoFilterOp NoFilterOp Nothing
+                (result, _) <- getTxMetas hdl (Offset 0) (Limit 100) Everything Nothing NoFilterOp NoFilterOp Nothing False
                 map Isomorphic result `shouldMatchList` map Isomorphic metas
 
         it "pagination correctly limit the results" $ monadicIO $ do
@@ -409,7 +409,7 @@ txMetaStorageSpecs = do
             run $ withTemporaryDb $ \hdl -> do
                 let metas = map unSTB testMetasSTB
                 forM_ metas (putTxMeta hdl)
-                (result, _) <- getTxMetas hdl (Offset 0) (Limit 5) Everything Nothing NoFilterOp NoFilterOp Nothing
+                (result, _) <- getTxMetas hdl (Offset 0) (Limit 5) Everything Nothing NoFilterOp NoFilterOp Nothing False
                 length result `shouldBe` 5
 
         it "pagination correctly sorts (ascending) the results" $ monadicIO $ do
@@ -417,7 +417,7 @@ txMetaStorageSpecs = do
             run $ withTemporaryDb $ \hdl -> do
                 let metas = map unSTB testMetasSTB
                 forM_ metas (putTxMeta hdl)
-                (result, _) <- (getTxMetas hdl) (Offset 0) (Limit 10) Everything Nothing NoFilterOp NoFilterOp (Just $ Sorting SortByAmount Ascending)
+                (result, _) <- (getTxMetas hdl) (Offset 0) (Limit 10) Everything Nothing NoFilterOp NoFilterOp (Just $ Sorting SortByAmount Ascending) False
                 map Isomorphic result `shouldBe` sortByAmount Ascending (map Isomorphic metas)
 
         it "pagination correctly sorts (descending) the results" $ monadicIO $ do
@@ -425,7 +425,7 @@ txMetaStorageSpecs = do
             run $ withTemporaryDb $ \hdl -> do
                 let metas = map unSTB testMetasSTB
                 forM_ metas (putTxMeta hdl)
-                (result, _) <- (getTxMetas hdl) (Offset 0) (Limit 10) Everything Nothing NoFilterOp NoFilterOp (Just $ Sorting SortByCreationAt Descending)
+                (result, _) <- (getTxMetas hdl) (Offset 0) (Limit 10) Everything Nothing NoFilterOp NoFilterOp (Just $ Sorting SortByCreationAt Descending) False
                 map Isomorphic result `shouldBe` sortByCreationAt Descending (map Isomorphic metas)
 
         it "implicit sorting is by creation time descenting" $ monadicIO $ do
@@ -433,7 +433,7 @@ txMetaStorageSpecs = do
             run $ withTemporaryDb $ \hdl -> do
                 let metas = map unSTB testMetasSTB
                 forM_ metas (putTxMeta hdl)
-                (result, _) <- (getTxMetas hdl) (Offset 0) (Limit 10) Everything Nothing NoFilterOp NoFilterOp Nothing
+                (result, _) <- (getTxMetas hdl) (Offset 0) (Limit 10) Everything Nothing NoFilterOp NoFilterOp Nothing False
                 map Isomorphic result `shouldBe` sortByCreationAt Descending (map Isomorphic metas)
 
         it "metadb counts total Entries properly" $ monadicIO $ do
@@ -441,7 +441,7 @@ txMetaStorageSpecs = do
             run $ withTemporaryDb $ \hdl -> do
                 let metas = map unSTB testMetasSTB
                 forM_ metas (putTxMeta hdl)
-                (_, total) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything Nothing NoFilterOp NoFilterOp Nothing
+                (_, total) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything Nothing NoFilterOp NoFilterOp Nothing True
                 total `shouldBe` (Just 10)
 
         it "filtering walletid works ok" $ monadicIO $ do
@@ -452,7 +452,7 @@ txMetaStorageSpecs = do
                     Nothing -> error "txMeta was found with less elements than it should"
                     Just (metasW, accFop, expectedResults) -> do
                         forM_ metasW (putTxMeta hdl)
-                        (result, total) <- (getTxMetas hdl) (Offset 0) (Limit 20) accFop Nothing NoFilterOp NoFilterOp Nothing
+                        (result, total) <- (getTxMetas hdl) (Offset 0) (Limit 20) accFop Nothing NoFilterOp NoFilterOp Nothing True
                         map Isomorphic result `shouldMatchList` map Isomorphic expectedResults
                         total `shouldBe` (Just $ length expectedResults)
 
@@ -464,7 +464,7 @@ txMetaStorageSpecs = do
                     Nothing -> error "txMeta was found with less elements than it should"
                     Just (metasF, accFop, fopTimestamp, expectedResults) -> do
                         forM_ metasF (putTxMeta hdl)
-                        (result, total) <- (getTxMetas hdl) (Offset 0) (Limit 10) accFop Nothing NoFilterOp fopTimestamp Nothing
+                        (result, total) <- (getTxMetas hdl) (Offset 0) (Limit 10) accFop Nothing NoFilterOp fopTimestamp Nothing True
                         map Isomorphic result `shouldMatchList` map Isomorphic expectedResults
                         total `shouldBe` (Just $ length expectedResults)
 
@@ -476,7 +476,7 @@ txMetaStorageSpecs = do
                     Nothing -> expectationFailure "txMeta was found with less elements than it should"
                     Just (metasF, accFop, fopTimestamp, expectedResults) -> do
                         forM_ metasF (putTxMeta hdl)
-                        (result, total) <- (getTxMetas hdl) (Offset 0) (Limit 1) accFop Nothing NoFilterOp fopTimestamp Nothing
+                        (result, total) <- (getTxMetas hdl) (Offset 0) (Limit 1) accFop Nothing NoFilterOp fopTimestamp Nothing True
                         map Isomorphic expectedResults `shouldContain` map Isomorphic result
                         total `shouldBe` (Just $ length expectedResults)
 
@@ -488,7 +488,7 @@ txMetaStorageSpecs = do
                     Nothing -> error "txMeta was found with less elements than it should"
                     Just (addr, m) -> do
                         forM_ metas (putTxMeta hdl)
-                        (result, _) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything (Just addr) NoFilterOp NoFilterOp Nothing
+                        (result, _) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything (Just addr) NoFilterOp NoFilterOp Nothing False
                         map Isomorphic result `shouldContain` [Isomorphic m]
 
         it "returns meta with the correct address in Inputs or Outputs (SQL union)" $ monadicIO $ do
@@ -499,7 +499,7 @@ txMetaStorageSpecs = do
                     Nothing -> error "txMeta was found with less elements than it should"
                     Just (metasA, addr, m1, m2) -> do
                         forM_ metasA (putTxMeta hdl)
-                        (result, count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything (Just addr) NoFilterOp NoFilterOp Nothing
+                        (result, count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything (Just addr) NoFilterOp NoFilterOp Nothing True
                         let iso = map Isomorphic result
                         count `shouldSatisfy` (justbeq 2)
                         iso  `shouldContain` [Isomorphic m1]
@@ -514,7 +514,7 @@ txMetaStorageSpecs = do
                     Just (metasA, addr, m1, m2) -> do
                         -- m2 has addr in both inputs and outputs.
                         forM_ metasA (putTxMeta hdl)
-                        (result, count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything (Just addr) NoFilterOp NoFilterOp Nothing
+                        (result, count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything (Just addr) NoFilterOp NoFilterOp Nothing True
                         let iso = map Isomorphic result
                         count `shouldSatisfy` (justbeq 2)
                         iso  `shouldContain` [Isomorphic m1]
@@ -531,8 +531,8 @@ txMetaStorageSpecs = do
                     Nothing -> expectationFailure "txMeta was found with less elements than it should"
                     Just (metasA, addr, m1, m2) -> do
                         forM_ metasA (putTxMeta hdl)
-                        (result1, count1) <- (getTxMetas hdl) (Offset 0) (Limit 1) Everything (Just addr) NoFilterOp NoFilterOp Nothing
-                        (result2, count2) <- (getTxMetas hdl) (Offset 1) (Limit 4) Everything (Just addr) NoFilterOp NoFilterOp Nothing
+                        (result1, count1) <- (getTxMetas hdl) (Offset 0) (Limit 1) Everything (Just addr) NoFilterOp NoFilterOp Nothing True
+                        (result2, count2) <- (getTxMetas hdl) (Offset 1) (Limit 4) Everything (Just addr) NoFilterOp NoFilterOp Nothing True
                         let result = result1 <> result2
                         let iso = map Isomorphic result
                         length result1 `shouldBe` 1
@@ -552,7 +552,7 @@ txMetaStorageSpecs = do
                     Just (metasA, addr, m1, _) -> do
                         let txid = _txMetaId m1
                         forM_ metasA (putTxMeta hdl)
-                        (result, count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything (Just addr) (FilterByIndex txid) NoFilterOp Nothing
+                        (result, count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything (Just addr) (FilterByIndex txid) NoFilterOp Nothing True
                         count `shouldBe` (Just 1) -- here it`s exactly one because we filter on TxId.
                         map Isomorphic result `shouldBe` [Isomorphic m1]
 
@@ -565,7 +565,7 @@ txMetaStorageSpecs = do
                     Just (metasA, addr, m1, _) -> do
                         let txid = _txMetaId m1
                         forM_ metasA (putTxMeta hdl)
-                        (result, count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything (Just addr) (FilterByIndex txid) NoFilterOp Nothing
+                        (result, count) <- (getTxMetas hdl) (Offset 0) (Limit 5) Everything (Just addr) (FilterByIndex txid) NoFilterOp Nothing True
                         count `shouldBe` (Just 1)
                         map Isomorphic result `shouldBe` [Isomorphic m1]
 
@@ -578,8 +578,8 @@ txMetaStorageSpecs = do
                     Nothing -> expectationFailure "txMeta was found with less elements than it should"
                     Just (metasA, addr, m1, m2) -> do
                         forM_ metasA (putTxMeta hdl)
-                        (result1, count1) <- (getTxMetas hdl) (Offset 0) (Limit 1) Everything (Just addr) NoFilterOp NoFilterOp (Just $ Sorting SortByCreationAt Descending)
-                        (result2, count2) <- (getTxMetas hdl) (Offset 1) (Limit 4) Everything (Just addr) NoFilterOp NoFilterOp (Just $ Sorting SortByCreationAt Descending)
+                        (result1, count1) <- (getTxMetas hdl) (Offset 0) (Limit 1) Everything (Just addr) NoFilterOp NoFilterOp (Just $ Sorting SortByCreationAt Descending) True
+                        (result2, count2) <- (getTxMetas hdl) (Offset 1) (Limit 4) Everything (Just addr) NoFilterOp NoFilterOp (Just $ Sorting SortByCreationAt Descending) True
                         let result = filter (\m -> _txMetaId m `elem` map _txMetaId [m1, m2] ) (result1 <> result2)
                         length result1 `shouldBe` 1
                         length result `shouldBe` 2
@@ -598,8 +598,8 @@ txMetaStorageSpecs = do
                     Nothing -> expectationFailure "txMeta was found with less elements than it should"
                     Just (metasA, addr, m1, m2) -> do
                         forM_ metasA (putTxMeta hdl)
-                        (result1, count1) <- (getTxMetas hdl) (Offset 0) (Limit 1) Everything (Just addr) NoFilterOp NoFilterOp Nothing
-                        (result2, count2) <- (getTxMetas hdl) (Offset 1) (Limit 4) Everything (Just addr) NoFilterOp NoFilterOp Nothing
+                        (result1, count1) <- (getTxMetas hdl) (Offset 0) (Limit 1) Everything (Just addr) NoFilterOp NoFilterOp Nothing True
+                        (result2, count2) <- (getTxMetas hdl) (Offset 1) (Limit 4) Everything (Just addr) NoFilterOp NoFilterOp Nothing True
                         let result = filter (\m -> _txMetaId m `elem` map _txMetaId [m1, m2] ) (result1 <> result2)
                         length result1 `shouldBe` 1
                         length result `shouldBe` 2
@@ -626,6 +626,7 @@ txMetaStorageSpecs = do
                                 (FilterByPredicate Equal _txMetaId)
                                 (FilterByPredicate GreaterThanEqual _txMetaCreationAt)
                                 (Just $ Sorting SortByCreationAt Descending)
+                                True
                         map Isomorphic result `shouldMatchList` [Isomorphic m]
                         total `shouldBe` (Just 1)
 
@@ -645,6 +646,7 @@ txMetaStorageSpecs = do
                                 (FilterByPredicate Equal _txMetaId)
                                 (FilterByPredicate GreaterThan _txMetaCreationAt)
                                 (Just $ Sorting SortByCreationAt Descending)
+                                True
                         map Isomorphic result `shouldBe` []
                         total `shouldBe` (Just 0)
 

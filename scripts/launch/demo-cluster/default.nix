@@ -42,7 +42,7 @@ let
   } else {
     environment = "demo";
   };
-  demoWallet = pkgs.callPackage ./../connect-to-cluster ({ inherit gitrev useStackBinaries; debug = false; } // walletEnvironment // walletConfig);
+  demoWallet = pkgs.callPackage ./../connect-to-cluster ({ inherit gitrev useStackBinaries forceDontCheck; debug = false; } // walletEnvironment // walletConfig);
   ifWallet = optionalString (runWallet);
   ifKeepAlive = optionalString (keepAlive);
   src = ./../../..;

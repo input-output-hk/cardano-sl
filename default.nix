@@ -59,11 +59,11 @@ let
     walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev forceDontCheck useStackBinaries; };
     validateJson = pkgs.callPackage ./tools/src/validate-json {};
     demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster {
-      inherit gitrev useStackBinaries;
+      inherit gitrev useStackBinaries forceDontCheck;
       iohkPkgs = cardanoPkgs;
     };
     demoClusterLaunchGenesis = pkgs.callPackage ./scripts/launch/demo-cluster {
-      inherit gitrev useStackBinaries;
+      inherit gitrev useStackBinaries forceDontCheck;
       iohkPkgs = cardanoPkgs;
       launchGenesis = true;
       configurationKey = "testnet_full";

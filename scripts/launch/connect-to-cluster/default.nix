@@ -1,6 +1,6 @@
 with import ../../../lib.nix;
 
-{ stdenv, writeText, writeScript
+{ stdenv, writeText, writeScript, curl
 
 , cardano-sl-wallet-new-static, cardano-sl-explorer-static, cardano-sl-tools-static
 , cardano-sl-config
@@ -54,6 +54,35 @@ let
     "--configuration-key ${env.confKey}"
   ];
 
+  curlScript = writeScript "curl-wallet-${environment}" ''
+    #!${stdenv.shell}
+
+    request_path=$1
+    shift
+
+    if [ -z "$request_path" ]; then
+    >&2 cat <<EOF
+    usage: ${stateDir}/curl REQUEST_PATH [ OPTIONS ]
+
+    Wrapper script to make HTTP requests to the wallet.
+    All the normal curl options apply.
+
+    Examples:
+      ${stateDir}/curl api/v1/node-info -i
+      ${stateDir}/curl api/v1/wallets -d '{ ... }' | jq .
+
+    EOF
+    fi
+
+    exec ${curl}/bin/curl --silent                       \
+      --cacert ${stateDir}/tls/client/ca.crt             \
+      --cert ${stateDir}/tls/client/client.pem           \
+      -H 'cache-control: no-cache'                       \
+      -H "Accept: application/json; charset=utf-8"       \
+      -H "Content-Type: application/json; charset=utf-8" \
+      "https://${walletListen}/$request_path" "$@"
+  '';
+
 in writeScript "${executable}-connect-to-${environment}" ''
   #!${stdenv.shell}
 
@@ -84,6 +113,7 @@ in writeScript "${executable}-connect-to-${environment}" ''
       --clients-out-dir ${stateDir}/tls/client                   \
       ${configurationArgs}
   fi
+  ln -sf ${curlScript} ${stateDir}/curl
   ''}
 
   exec ${executables.${executable}}                                                    \

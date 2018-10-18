@@ -118,7 +118,11 @@ in writeScript "demo-cluster" ''
     fi
   ''}
   ${ifKeepAlive ''
-    echo "The demo cluster has started and will stop when you exit with Ctrl-C. Log files are in ${stateDir}/logs."
+    echo "The demo cluster has started and will stop when you exit with Ctrl-C."
+    echo "Log files are in ${stateDir}/logs."
+    ${ifWallet ''
+    echo "Use ${stateDir}/curl to make requests to the wallet."
+    ''}
     sleep infinity
   ''}
 ''

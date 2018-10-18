@@ -236,7 +236,7 @@ ensureModeIs600 :: MonadMaybeLog m => FilePath -> m ()
 #ifdef POSIX
 ensureModeIs600 path = do
     accessMode <- getAccessMode path
-    unless (accessMode == mode600) $ do
+    unless (accessMode == mode600) $ liftIO $ do
         logWarning $
             sformat ("Key file at "%build%" has access mode "%oct%" instead of 600. Fixing it automatically.")
             path accessMode

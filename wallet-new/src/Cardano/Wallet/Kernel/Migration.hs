@@ -14,12 +14,13 @@ import qualified Formatting as F
 
 import qualified Pos.Core as Core
 import           Pos.Util.Wlog (Severity (..))
-import qualified Pos.Wallet.Web.ClientTypes as WebTypes
-import qualified Pos.Wallet.Web.State.Storage as WS
 
-import           Pos.Wallet.Web.State.Acidic (closeState, openState)
-import           Pos.Wallet.Web.State.State (getWalletSnapshot)
+import           Cardano.Wallet.Compatibility.State.Acidic (closeState,
+                     openState)
+import           Cardano.Wallet.Compatibility.State.State (getWalletSnapshot)
 
+import qualified Cardano.Wallet.Compatibility.ClientTypes as WebTypes
+import qualified Cardano.Wallet.Compatibility.State.Storage as WS
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (InDb))

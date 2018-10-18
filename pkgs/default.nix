@@ -18152,6 +18152,7 @@ license = stdenv.lib.licenses.mit;
 ({
   mkDerivation
 , acid-state
+, acid-state-exts
 , aeson
 , aeson-diff
 , aeson-options
@@ -18200,6 +18201,7 @@ license = stdenv.lib.licenses.mit;
 , formatting
 , gauge
 , generics-sop
+, hashable
 , hedgehog
 , hspec
 , hspec-core
@@ -18230,6 +18232,7 @@ license = stdenv.lib.licenses.mit;
 , servant
 , servant-client
 , servant-client-core
+, servant-multipart
 , servant-quickcheck
 , servant-server
 , servant-swagger
@@ -18280,6 +18283,7 @@ isLibrary = true;
 isExecutable = true;
 libraryHaskellDepends = [
 acid-state
+acid-state-exts
 aeson
 aeson-options
 aeson-pretty
@@ -18322,6 +18326,7 @@ filepath
 foldl
 formatting
 generics-sop
+hashable
 http-api-data
 http-client
 http-client-tls
@@ -18344,6 +18349,7 @@ serokell-util
 servant
 servant-client
 servant-client-core
+servant-multipart
 servant-server
 servant-swagger
 servant-swagger-ui

@@ -127,6 +127,11 @@ let
     # Backwards compat for iohk-ops.
     makeFaucetFrontend = self.cardano-sl-faucet-frontend;
 
+    ####################################################################
+    # Report Server
+
+    cardano-report-server-static = self.justStaticExecutablesGitRev self.cardano-report-server;
+
 
     ####################################################################
     # Daedalus wallet
@@ -265,7 +270,6 @@ let
           cardano-sl-crypto
           cardano-sl-db
           cardano-sl-explorer
-          cardano-sl-explorer-frontend
           cardano-sl-explorer-static
           cardano-sl-generator
           cardano-sl-infra
@@ -276,9 +280,10 @@ let
           cardano-sl-util
           cardano-sl-wallet
           cardano-sl-wallet-new
-          cardano-sl-x509
-          cardano-report-server
-          cardano-report-server-static; }
+          cardano-sl-x509;
+        inherit (self.haskellPackages)
+          cardano-report-server; }
+
   );
 
 in

@@ -44,7 +44,7 @@ let
     '';
 
 in writeScript "demo-cluster" ''
-  #!${stdenv.shell}
+  #!${stdenv.shell} -e
   export PATH=${stdenv.lib.makeBinPath allDeps}:$PATH
   export DEMO_STATE_DIR=${stateDir}
   export DEMO_CONFIGURATION_FILE=${configFiles}/configuration.yaml

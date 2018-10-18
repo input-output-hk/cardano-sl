@@ -55,15 +55,17 @@ let
   ];
 
 in writeScript "${executable}-connect-to-${environment}" ''
-  #!${stdenv.shell} -e
+  #!${stdenv.shell}
 
-  if [[ "$1" == "--delete-state" ]]; then
+  set -euo pipefail
+
+  if [[ "''${1-}" == "--delete-state" ]]; then
     echo "Deleting ${stateDir} ... "
     rm -Rf ${stateDir}
     shift
   fi
-  if [[ "$1" == "--runtime-args" ]]; then
-    RUNTIME_ARGS=$2
+  if [[ "''${1-}" == "--runtime-args" ]]; then
+    RUNTIME_ARGS="''${2-}"
     shift 2
   else
     RUNTIME_ARGS=""
@@ -77,30 +79,30 @@ in writeScript "${executable}-connect-to-${environment}" ''
   ${utf8LocaleSetting}
   if [ ! -d ${stateDir}/tls ]; then
     mkdir -p ${stateDir}/tls/server && mkdir -p ${stateDir}/tls/client
-    ${executables.x509gen}                                     \
+    ${executables.x509gen}                                       \
       --server-out-dir ${stateDir}/tls/server                    \
       --clients-out-dir ${stateDir}/tls/client                   \
       ${configurationArgs}
   fi
   ''}
 
-  exec ${executables.${executable}}                                     \
-    ${configurationArgs}                                           \
-    ${ ifWallet "--tlscert ${stateDir}/tls/server/server.crt"}     \
-    ${ ifWallet "--tlskey ${stateDir}/tls/server/server.key"}      \
-    ${ ifWallet "--tlsca ${stateDir}/tls/server/ca.crt"}           \
-    --log-config ${cardano-sl-config}/log-configs/connect-to-cluster.yaml \
+  exec ${executables.${executable}}                                                    \
+    ${configurationArgs}                                                               \
+    ${ ifWallet "--tlscert ${stateDir}/tls/server/server.crt"}                         \
+    ${ ifWallet "--tlskey ${stateDir}/tls/server/server.key"}                          \
+    ${ ifWallet "--tlsca ${stateDir}/tls/server/ca.crt"}                               \
+    --log-config ${cardano-sl-config}/log-configs/connect-to-cluster.yaml              \
     --topology "${if topologyFile != null then topologyFile else topologyFileDefault}" \
-    --logs-prefix "${stateDir}/logs"                               \
-    --db-path "${stateDir}/db"   ${extraParams}                    \
-    ${ ifWallet "--wallet-db-path '${stateDir}/wallet-db' ${walletDataLayer}"} \
-    ${ ifDebug "--wallet-debug"}                                   \
-    ${ ifDisableClientAuth "--no-client-auth"}                     \
-    --keyfile ${stateDir}/secret.key                               \
-    ${ ifWallet "--wallet-address ${walletListen}" }               \
-    ${ ifWallet "--wallet-doc-address ${walletDocListen}" }        \
-    --ekg-server ${ekgListen} --metrics                            \
-    +RTS ${ghcRuntimeArgs} -RTS                                    \
-    ${additionalNodeArgs}                                          \
+    --logs-prefix "${stateDir}/logs"                                                   \
+    --db-path "${stateDir}/db"   ${extraParams}                                        \
+    ${ ifWallet "--wallet-db-path '${stateDir}/wallet-db' ${walletDataLayer}"}         \
+    ${ ifDebug "--wallet-debug"}                                                       \
+    ${ ifDisableClientAuth "--no-client-auth"}                                         \
+    --keyfile ${stateDir}/secret.key                                                   \
+    ${ ifWallet "--wallet-address ${walletListen}" }                                   \
+    ${ ifWallet "--wallet-doc-address ${walletDocListen}" }                            \
+    --ekg-server ${ekgListen} --metrics                                                \
+    +RTS ${ghcRuntimeArgs} -RTS                                                        \
+    ${additionalNodeArgs}                                                              \
     $RUNTIME_ARGS
 '' // { inherit walletListen walletDocListen ekgListen; }

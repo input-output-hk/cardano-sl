@@ -17496,9 +17496,6 @@ license = stdenv.lib.licenses.mit;
 , attoparsec
 , base
 , bytestring
-, cardano-sl
-, cardano-sl-chain
-, cardano-sl-core
 , cardano-sl-infra
 , cardano-sl-util
 , cassava
@@ -17541,9 +17538,6 @@ aeson
 attoparsec
 base
 bytestring
-cardano-sl
-cardano-sl-chain
-cardano-sl-core
 cardano-sl-infra
 cardano-sl-util
 cassava

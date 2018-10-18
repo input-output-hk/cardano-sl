@@ -1,4 +1,4 @@
-with (import ./../../../lib.nix);
+with import ../../../lib.nix;
 
 { stdenv, runCommand, writeText, writeScript
 , jq, coreutils, curl, gnused, openssl

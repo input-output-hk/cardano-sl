@@ -1,4 +1,4 @@
-with (import ./../../lib.nix);
+with import ./../../lib.nix;
 
 { stdenv, writeScript, writeScriptBin
 , jq, coreutils, gnused, haskell, haskellPackages

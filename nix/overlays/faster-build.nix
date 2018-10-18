@@ -3,7 +3,7 @@
 
 { pkgs }:
 
-with (import ../../lib.nix);
+with import ../../lib.nix;
 
 self: super: {
   mkDerivation = args: super.mkDerivation (args // optionalAttrs (isCardanoSL args.pname) {

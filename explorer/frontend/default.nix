@@ -3,7 +3,7 @@
 , cardano-sl-explorer, gitrev
 }:
 
-with (import ../../lib.nix);
+with import ../../lib.nix;
 
 let
   src = cleanSourceWith {

@@ -1911,11 +1911,9 @@ starting from an offset \(i\). If none of them exist, we know that
 Finally, we will create all spending key hashes in the range
 \([0, i_\text{max}]\), and look up the corresponding addresses.
 
-Two remarks are in order:
+\paragraph{Early Finish and Memoisation}
 
-Early Finish and Memoisation
-
-: The above process will perform more lookups than necessary. The binary
+The above process will perform more lookups than necessary. The binary
 search can be aborted once the search window gets smaller than
 \(\bar{i}\). In addition, we should consider memoising the spending keys
 and/or lookups.
@@ -3195,125 +3193,106 @@ ratio of rewards paid for varying numbers of missed slots and values of
 In the following, we describe how the requirements listed in
 \cref{requirements} are satisfied by the design in this document.
 
-\cref{proof-of-eligibility} Proof of Eligibility
+\begin{description}
 
-: The leader election process takes delegation via pointer addresses and
-heavyweight certificates into account
-(\cref{leader-election-block-validity-and-randomness-generation}), so the
-leader schedule will contain the key of the party that is expected to
-sign the block (either a stake pool operator or an individual
-stakeholder).
+\item[\cref{proof-of-eligibility} Proof of Eligibility] The leader
+  election process takes delegationinto account
+  (\cref{slot-leader-schedule}), so the leader schedule will contain
+  the key hash of the pool that is expected to sign the block. If a
+  lightweight certificate is used, it will be posted to the block
+  header, which will also prove eligibility.
 
-\begin{verbatim}
-If a lightweight certificate is used, it will be posted to the
-block header, which will also prove eligibility.
-\end{verbatim}
+\item[\cref{visibility-of-delegation-on-the-blockchain} Visibility of
+  Delegation on the Blockchain] Delegation via heavyweight
+  certificates is visible on the blockchain. Delegation via
+  lightweight certificates should only be used for hot/cold key
+  management. Thus, it is not relevant for the rewards sharing
+  process, and does not need to be visible on the chain.
 
-\cref{visibility-of-delegation-on-the-blockchain} Visibility of
-Delegation on the Blockchain
+\item[\cref{restricting-chain-delegation} Restricting Chain
+  Delegation] Chain delegation is properly restricted, as described in
+  \cref{chain-delegation}.
 
-: Delegation via heavyweight certificates and pointer addresses is
-visible on the blockchain. Delegation via lightweight certificates
-should only be used for hot/cold key management. Thus, it is not
-relevant for the rewards sharing process, and does not need to be
-visible on the chain.
+\item[\cref{cheap-re-delegation} Cheap Re-Delegation] Re-delegation can
+  be performed cheaply with multi-input transactions.
 
-\cref{restricting-chain-delegation} Restricting Chain Delegation
+\item[\cref{neutral-addresses} Neutral Addresses] The design includes
+  enterprise addresses (\cref{enterprise-address}), which are
+  disregarded by the PoS protocol.
 
-: Chain delegation is properly restricted, as described in
-\cref{chain-delegation}.
+\item[\cref{sybil-attack-protection-at-stake-pool-level} Sybil Attack
+  Protection at Stake Pool Level] Stake pool operators are expected to
+  pledge a deposit to their pools that has an influence on the rewards
+  that stake pool members will receive, and on the position of the
+  stakepool in the listing displayed to stakeholders
+  (\cref{stakepool-registration},
+  \cref{display-of-stake-pools-in-the-wallet},
+  \cref{reminder-stakepool-registration}).
 
-\cref{cheap-re-delegation} Cheap Re-Delegation
+  Since this pledge cannot be shared between multiple pools, creating
+  $n$ viable stake pools will require funds linear in $n$.
 
-: Re-delegation can be performed cheaply with multi-input transactions.
+\item[\cref{address-nonmalleability} Address Nonmalleability]
+  Protection against the malleability attack is described in
+  \cref{address-recognition}.
 
-\cref{neutral-addresses} Neutral Addresses
+\item[\cref{public-spending-keys-should-not-be-disclosed-prematurely}
+  Public Spending Keys Should not be Disclosed Prematurely] The
+  introduction of a dedicated staking key (\cref{address-structure})
+  avoids the need to use the payment key for delegation purposes.
 
-: The design includes enterprise addresses (\cref{enterprise-address}),
-which are disregarded by the PoS protocol.
+\item[\cref{mitigate-key-exposure} Mitigate Key Exposure] Stake pool
+  operators can and should use lightweight certificates for hot/cold
+  key management, as described in
+  \cref{lightweight-delegation-certificates}.
 
-\cref{sybil-attack-protection-at-stake-pool-level} Sybil Attack
-Protection at Stake Pool Level
+\item[\cref{handle-inactive-stake-pools} Handle Inactive Stake Pools]
+  We have two mechanisms for dealing with inactive stake pools. Stake
+  pools can be retired via a retirement certificate
+  (\cref{stake-pool-registration-and-retirement-certificates}. If a
+  stake pool ceises to operate without being properly retired, its key
+  will be detected as a stale staking key as described in
+  \cref{stale-stake}.
 
-: Stake pool operators are expected to pledge a deposit to their pools
-that has an influence on the rewards that stake pool members will
-receive, and on the position of the stakepool in the listing displayed
-to stakeholders (\cref{stakepool-registration},
-\{display-of-stake-pools-in-the-wallet\}, \todo{add reference
-to rewards function once document is merged with incentives doc}).
+\item[\cref{avoid-hard-transition} Avoid Hard Transition] As described
+  in \cref{transition-to-decentralization}, we will have a smooth
+  transition from Byron to Shelley, with the core nodes gradually
+  transferring the right and obligation to sign blocks to stake pools.
 
-\begin{verbatim}
-Since this pledge cannot be shared between multiple pools,
-creating $n$ viable stake pools will require funds linear in $n$.
-\end{verbatim}
+\item[\cref{change-delegation-without-spending-key} Change Delegation
+  Without Spending Key] Delegation of cold wallets is described in
+  \cref{delegation-of-cold-wallets}, and does not require having the
+  spending key of the cold wallet online.
 
-\cref{address-nonmalleability} Address Nonmalleability
+\item[\cref{master-recovery-key} Master Recovery Key] Wallet recovery
+  is described in \cref{wallet-recovery-process}, and does not require
+  any information in addition to the master key.
 
-: Protection against the malleability attack is described in
-\cref{address-recognition}.
+\item[\cref{address-recognition} Address Recognition] Wallets will
+  recognise addresses belonging to it by looking at the payment key
+  hash part of the address, as described in
+  \cref{address-recognition-1}.
 
-\cref{public-spending-keys-should-not-be-disclosed-prematurely} Public
-Spending Keys Should not be Disclosed Prematurely
+\item[\cref{wallet-should-be-runnable-on-independent-devices} Wallet
+  should be Runnable on Independent Devices] With the caveats listed
+  in that requirement, nothing in this document requires wallets
+  running on different devices to share state.
 
-: The introduction of a dedicated staking key (\cref{address-structure})
-avoids the need to use the payment key for delegation purposes.
+\item[\cref{maintain-privacy} Maintain Privacy] Having an efficient
+  delegation mechanism -- and in particular a mechanism where
+  delegation is rewarded -- requires a slight compromise on the level
+  of pseudonymity, since addresses using the same staking key will be
+  linkable. However, users can decide to use a number of different
+  accounts, with separate staking keys, if they are willing to pay the
+  fees for using multiple staking keys. This will give them a level of
+  pseudonymity that is not worse than that in the Ethereum network.
 
-\cref{mitigate-key-exposure} Mitigate Key Exposure
+\item[\cref{short-addresses} Short Addresses] The goal of having
+  reasonably short addresses has guided the design of delegation, and
+  we do not see an obvious way of making them even shorter, while
+  still satisfying the rest of the requirements.
 
-: Stake pool operators can and should use lightweight certificates for
-hot/cold key management, as described in
-\cref{lightweight-delegation-certificates}.
-
-\cref{handle-inactive-stake-pools} Handle Inactive Stake Pools
-
-: We have two mechanisms for dealing with inactive stake pools. Stake
-pools can be retired via a retirement certificate
-(\cref{stake-pool-registration-and-retirement-certificates}. If a stake
-pool ceises to operate without being properly retired, its key will be
-detected as a stale staking key as described in \cref{stale-stake}.
-
-\cref{avoid-hard-transition} Avoid Hard Transition
-
-: As described in \cref{transition-to-decentralization}, at the
-transition from Byron to Shelley, all stake will initially stay
-delegated with the core nodes of the Byron network, avoiding a hard
-transition with temporarily undelegated stake.
-
-\cref{change-delegation-without-spending-key} Change Delegation Without
-Spending Key
-
-: Delegation of cold wallets is described in
-\cref{delegation-of-cold-wallets}, and does not require having the
-spending key of the cold wallet online.
-
-\cref{master-recovery-key} Master Recovery Key
-
-: Wallet recovery is described in \cref{wallet-recovery-process}, and
-does not require any information in addition to the master key.
-
-\cref{address-recognition} Address Recognition
-
-: Wallets will recognise addresses belonging to it by looking at the
-payment key hash part of the address, as described in
-\cref{address-recognition-1}.
-
-\cref{wallet-should-be-runnable-on-independent-devices} Wallet should be
-Runnable on Independent Devices
-
-: With the caveats listed in that requirement, nothing in this document
-requires wallets running on different devices to share state.
-
-\cref{maintain-privacy} Maintain Privacy
-
-: The default delegation mechanism (\cref{basic-delegation}) uses pointer
-addresses, so addresses of the same wallet are not connected in an
-obvious way.
-
-\cref{short-addresses} Short Addresses
-
-: The goal of having reasonably short addresses has guided the design of
-delegation, and we do not see an obvious way of making them even
-shorter, while still satisfying the rest of the requirements.
+\end{description}
 
 \appendix
 

@@ -987,15 +987,19 @@ The certificate contains the following:
 \begin{itemize}
 \item
   The public key of the pool, \(vks_\text{pool}\).
-\item
-  The public stake key hash of the pool owner,
-  \(\mathcal{H}(vks_\text{owner})\), or a list of such public stake key
-  hashes. If any of the \(vks_\text{owner}\) delegate to this pool, the
-  stake that they delegate will be considered to be a deposit by the
-  owner, see \cref{stakepool-registration,overview-of-incentives,reward-splitting}. Note that
-  adding a key as \(vks_\text{owner}\) in itself does not actually
-  delegate the stake controlled by that key to the pool -- an additional
-  delegation certificate is required to do so.
+\item The public stake key hash of the pool owner,
+  \(\mathcal{H}(vks_\text{owner})\),
+  or a list of such public stake key hashes. If any of the
+  \(vks_\text{owner}\)
+  delegate to this pool, the stake that they delegate will be
+  considered to be a deposit\todo{I dislike calling this deposit,
+    since it might lead to confusion with the same term being used in
+    the context of fees. Is there a better word?''}~by the owner, see
+  \cref{stakepool-registration,overview-of-incentives,reward-splitting}. Note
+  that adding a key as \(vks_\text{owner}\)
+  in itself does not actually delegate the stake controlled by that
+  key to the pool -- an additional delegation certificate is required
+  to do so.
 \item
   The parameters that specify the reward sharing function of the stake
   pool: cost, margin, and amount of stake pledged to the pool by the
@@ -1744,11 +1748,32 @@ appearing in a transaction, to reflect their different processing costs.
 This is a future direction, but will not be introduced as part of
 delegation.
 
-\subsubsection{UTxO deposits}
-\label{utxo-deposits}
+\subsubsection{Deposits}
+\label{fees-deposits}
 
-\subsubsection{Stake account deposits}
-\label{stake-account-deposits}
+In addition to ordinare (non-refundable) fees, actions that require
+resources on the nodes should require a deposit, as described in
+\cref{deposits}. In particular,
+\begin{itemize}
+\item creating a new UTxO entry
+\item registering a staking key
+\item registering a new stake pool (but not updating the registration
+  certificate of a stake pool that already exists)
+\item posting a heavyweight delegation certificate
+\end{itemize}
+should all require making a deposit. This deposit should be released
+when
+\begin{itemize}
+\item a UTxO entry is removed by using it as an input to a transaction
+\item a staking key is de-registered -- this should release the
+  deposit for the key itself, as well as for the heavyweight
+  delegation certificate for this key if there is one
+\item a stake pool is retired -- there is a sublety here, however,
+  since the retirement certificate states an epoch in the future where
+  the pool will cease operation. The refund should depend on that
+  epoch, and we will probably want to delay paying out the refund
+  until that epoch
+\end{itemize}
 
 \subsection{Stale Stake}
 \label{stale-stake}
@@ -4335,9 +4360,13 @@ transaction. The difference $d_R-r_R(10,000)=2-1.0518=0.9482$ ADA will be added
 to the rewards pool of that epoch.
 
 If our fictional user held onto the resource for 40,000 slots instead,
-his refund would only be $r_R(40,000)=0.5275$ ADA, and 1.4725 ADA would be added
-to the epoch rewards. In this example, refunds will never drop below
-$d_{\min}\cdot d_R=0.5$ ADA.
+their refund would only be $r_R(40,000)=0.5275$ ADA, and 1.4725 ADA
+would be added to the epoch rewards. In this example, refunds will
+never drop below $d_{\min}\cdot d_R=0.5$ ADA.
+
+\todo{We have to discuss this proposal with the researchers on the
+  Game Theory side. We also need to decide whether we should preclude
+  transactions with an overall negative fee.}
 
 \addcontentsline{toc}{section}{References}
 \bibliographystyle{plainnat}

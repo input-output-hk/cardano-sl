@@ -34,7 +34,6 @@ import           UnliftIO.Async (async, cancel, concurrently, forConcurrently,
 import           UnliftIO.MVar (modifyMVar, newMVar)
 
 import           Pos.Util (realTime)
-import           Pos.Util.Wlog (HasLoggerName (..))
 
 currentTime :: MonadIO m => m Microsecond
 currentTime = liftIO realTime
@@ -68,7 +67,3 @@ newSharedAtomic = newMVar
 
 modifySharedAtomic :: MonadUnliftIO m => MVar a -> (a -> m (a, b)) -> m b
 modifySharedAtomic = modifyMVar
-
-instance HasLoggerName IO where
-    askLoggerName = return "*production*"
-    modifyLoggerName = const id

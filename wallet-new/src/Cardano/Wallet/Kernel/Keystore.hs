@@ -40,7 +40,7 @@ import           Pos.Crypto (EncryptedSecretKey, hash)
 import           Pos.Util.UserSecret (UserSecret, getUSPath, isEmptyUserSecret,
                      readUserSecret, takeUserSecret, usKeys, usWallet,
                      writeRaw, writeUserSecretRelease, _wusRootKey)
-import           Pos.Util.Wlog (CanLog (..), HasLoggerName (..), logMessage)
+import           Pos.Util.Wlog (addLoggerName)
 
 import           Cardano.Wallet.Kernel.DB.HdWallet (eskToHdRootId)
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
@@ -56,18 +56,6 @@ instance NFData InternalStorage where
 
 -- A 'Keystore'.
 data Keystore = Keystore (Strict.MVar InternalStorage)
-
--- | Internal monad used to smooth out the 'WithLogger' dependency imposed
--- by 'Pos.Util.UserSecret', to not commit to any way of logging things just yet.
-newtype KeystoreM a = KeystoreM { fromKeystore :: IO a }
-                    deriving (Functor, Applicative, Monad, MonadIO)
-
-instance HasLoggerName KeystoreM where
-    askLoggerName = return "Keystore"
-    modifyLoggerName _ action = action
-
-instance CanLog KeystoreM where
-    dispatchMessage _ln sev txt = logMessage sev txt
 
 -- | A 'DeletePolicy' is a preference the user can express on how to release
 -- the 'Keystore' during its teardown.
@@ -103,16 +91,18 @@ bracketKeystore deletePolicy fp withKeystore =
 
 -- | Creates a new keystore.
 newKeystore :: FilePath -> IO Keystore
-newKeystore fp = fromKeystore $ do
+newKeystore fp = do
     us <- takeUserSecret fp
-    liftIO (Keystore <$> Strict.newMVar (InternalStorage us))
+    Keystore <$> Strict.newMVar (InternalStorage us)
 
 -- | Reads the legacy root key stored in the specified keystore. This is
 -- useful only for importing a wallet using the legacy '.key' format.
 readWalletSecret :: FilePath
                  -- ^ The path to the file which will be used for the 'Keystore'
                  -> IO (Maybe EncryptedSecretKey)
-readWalletSecret fp = importKeystore >>= lookupLegacyRootKey
+readWalletSecret fp =
+    addLoggerName "KeyStore" $
+    importKeystore >>= lookupLegacyRootKey
   where
     lookupLegacyRootKey :: Keystore -> IO (Maybe EncryptedSecretKey)
     lookupLegacyRootKey (Keystore ks) =
@@ -122,9 +112,9 @@ readWalletSecret fp = importKeystore >>= lookupLegacyRootKey
                  Just w  -> return (Just $ _wusRootKey w)
 
     importKeystore :: IO Keystore
-    importKeystore = fromKeystore $ do
+    importKeystore = do
         us <- readUserSecret fp
-        liftIO (Keystore <$> Strict.newMVar (InternalStorage us))
+        Keystore <$> Strict.newMVar (InternalStorage us)
 
 
 
@@ -160,12 +150,12 @@ bracketTestKeystore withKeystore =
 -- races due to the fact its underlying file is stored in the OS' temporary
 -- directory.
 newTestKeystore :: IO Keystore
-newTestKeystore = liftIO $ fromKeystore $ do
-    tempDir         <- liftIO getTemporaryDirectory
-    (tempFile, hdl) <- liftIO $ openTempFile tempDir "keystore.key"
-    liftIO $ hClose hdl
+newTestKeystore = do
+    tempDir         <- getTemporaryDirectory
+    (tempFile, hdl) <- openTempFile tempDir "keystore.key"
+    hClose hdl
     us <- takeUserSecret tempFile
-    liftIO (Keystore <$> Strict.newMVar (InternalStorage us))
+    Keystore <$> Strict.newMVar (InternalStorage us)
 
 -- | Release the resources associated with this 'Keystore'.
 releaseKeystore :: DeletePolicy -> Keystore -> IO ()

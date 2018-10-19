@@ -1958,33 +1958,25 @@ belong to it via the spending keys, it needs to set its delegation
 preference. In order to do so, it compares the staking objects \(\beta\)
 of its addresses.
 
-If the wallet consists of pointer addresses to exactly one active
-staking pool
+\begin{description}
+\item[If the wallet consists of base and/or addresses using the same
+  staking key] the wallet should look whether there is a staking key
+  registration and heavyweight delegation certificate fot this key. If
+  there are, and the delegation certificate points to an active
+  staking pool, the wallet should set its delegation preference to use
+  pointer addresses to the same staking key, and inform the user of
+  this choice. Otherwise -- if the staking key is unregistered, or
+  there is either no delegation certificate or one that does not point
+  to an active pool -- it should inform the user that the stake is
+  currently undelegated, and that they should consider delegating to
+  receive rewards and add to the stability of the system.
 
-: the wallet should set its delegation preference to delegate to that
-pool via pointer addresses, and show a message to the user to inform
-them of this.
-
-If the wallet consists of base addresses using the same staking key
-
-: the wallet should look up this staking key in the list of heavyweight
-delegation certificates. If there is a certificate for this key, and it
-points to an active staking pool, the wallet should set its delegation
-preference to use base addresses with the same staking key, and inform
-the user of this choice. If there is none, it should inform the user
-that the stake is currently undelegated, and that they should consider
-delegating, or running their own node.
-
-If the wallet consists of addresses with different staking objects
-
-: the wallet should present the list of stake pools that are delegated
-to by the wallet, and ask the user to pick one for future addresses, as
-well as provide an option to re-delegate all funds to that pool.
-
-If there are addresses delegating to an inactive or retired pool
-
-: the wallet should alert the user and ask them to pick another staking
-pool to delegate to.
+\item[If the wallet consists of addresses with different staking keys]
+  the wallet should repeat the process above for all the staking keys,
+  present the list of stake pools that are delegated to by the wallet,
+  and ask the user to pick one for future addresses, as well as
+  provide an option to re-delegate all funds to that pool.
+\end{description}
 
 After setting the delegation preferences of the newly restored wallet,
 the wallet software should encourage the user to visit the delegation

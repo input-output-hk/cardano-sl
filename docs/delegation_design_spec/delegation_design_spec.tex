@@ -1472,47 +1472,6 @@ the node already has in its chain for that slot. Otherwise, this would
 open up an attack where a stake pool operator could force nodes to do
 arbitrary rollbacks.
 
-\subsection{Transition from Bootstrap Phase}
-\label{transition-from-bootstrap-phase}
-
-\todo{This section needs to be updated, to reflect the new plan for
-  handover (BFT and the slider to determine the fraction of blocks
-  created by the bootstrap nodes).}
-
-As of the time this document is written, Cardano is in the ``bootstrap
-phase'', where the network is not decentralised, but federated. All
-stake is automatically delegated to seven stakeholders, by requiring
-that all the outputs of transactions are to bootstrap addresses (see
-\cref{bootstrap-address})\footnote{Check with Erik that this is indeed
-  how it currently works.}. Those stakeholders have posted one
-heavyweight delegation certificate to the blockchain, giving control to
-seven nodes (the \emph{core nodes}) controlled by Cardano Foundation,
-Emurgo, and IOHK. During the bootstrap phase, rewards are not collected.
-
-The transition from bootstrap phase to delegation is performed by
-dropping the restriction of using bootstrap addresses as transaction
-outputs. Moving stake rights away from the core nodes to stake pools or
-individual users will require user action. This is a deliberate choice:
-if we, for example, transferred all the stake rights to users at the end
-of the bootstrap phase, we would risk to have a large portion of the
-overall stake become offline, since most users will neither be online,
-nor delegate immediately. This would pose a risk to both the performance
-and, worse, the integrity of the system.
-
-The obvious drawback of keeping the stake rights with the core nodes
-until the users intervene is that it will lead to a lesser degree of
-decentralisation in the transition period between bootstrap phase and
-full decentralisation. We will probably counter this by incentivising
-the users to delegate away from the core nodes. This could be done by
-having the core nodes collect none or fewer rewards (and thus sharing
-fewer rewards with delegators).
-
-\todo{Needs definitive input from incentives stream regarding how to
-incentivise users to delegate away from code nodes.}
-
-\todo{this section needs to be properly reconciled and merged with the
-following section}
-
 \subsection{Transition to Decentralization}
 \label{transition-to-decentralization}
 
@@ -3290,7 +3249,7 @@ detected as a stale staking key as described in \cref{stale-stake}.
 
 \cref{avoid-hard-transition} Avoid Hard Transition
 
-: As described in \cref{transition-from-bootstrap-phase}, at the
+: As described in \cref{transition-to-decentralization}, at the
 transition from Byron to Shelley, all stake will initially stay
 delegated with the core nodes of the Byron network, avoiding a hard
 transition with temporarily undelegated stake.

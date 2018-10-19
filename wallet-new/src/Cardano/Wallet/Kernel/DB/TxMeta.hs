@@ -18,7 +18,7 @@ openMetaDB fp = do
     conn <- ConcreteStorage.newConnection fp
     return MetaDBHandle {
           closeMetaDB   = ConcreteStorage.closeMetaDB conn
-        , migrateMetaDB = ConcreteStorage.unsafeMigrateMetaDB conn
+        , migrateMetaDB = ConcreteStorage.runMigrateMetaDB conn
         , clearMetaDB   = ConcreteStorage.clearMetaDB conn
         , getTxMeta     = ConcreteStorage.getTxMeta conn
         , putTxMeta     = ConcreteStorage.putTxMeta conn

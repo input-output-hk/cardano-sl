@@ -20,7 +20,8 @@ module Cardano.Wallet.Kernel.DB.Sqlite (
     , getTxMetas
 
     -- * Unsafe functions
-    , unsafeMigrateMetaDB
+    , runMigrateMetaDB
+    , runMigrateMetaDBLegacy
 
     -- * testing
     , mkInputs
@@ -38,6 +39,8 @@ import           Database.Beam.Backend.SQL (FromBackendRow,
                      valueE, varCharType)
 import           Database.Beam.Backend.SQL.SQL92 (Sql92OrderingExpressionSyntax,
                      Sql92SelectOrderingSyntax)
+import           Database.Beam.Migrate.Simple (bringUpToDateWithHooks,
+                     defaultUpToDateHooks, runIrreversibleHook)
 import           Database.Beam.Query (HasSqlEqualityCheck, between_, in_, (&&.),
                      (<.), (<=.), (==.), (>.), (>=.))
 import qualified Database.Beam.Query as SQL
@@ -45,9 +48,9 @@ import qualified Database.Beam.Query.Internal as SQL
 import           Database.Beam.Schema (Beamable, Database, DatabaseSettings,
                      PrimaryKey, Table)
 import qualified Database.Beam.Schema as Beam
-import           Database.Beam.Sqlite.Connection (Sqlite, runBeamSqlite,
-                     runBeamSqlite)
-import           Database.Beam.Sqlite.Migrate (getDbConstraints)
+import           Database.Beam.Sqlite.Connection (Sqlite, runBeamSqlite)
+import           Database.Beam.Sqlite.Migrate (getDbConstraints,
+                     migrationBackend)
 import           Database.Beam.Sqlite.Syntax (SqliteCommandSyntax,
                      SqliteDataTypeSyntax, SqliteExpressionSyntax,
                      SqliteSelectSyntax, SqliteValueSyntax, fromSqliteCommand,
@@ -389,15 +392,23 @@ initialMigration () = do
 --- | The full list of migrations available for this 'MetaDB'.
 -- For a more interesting migration, see: https://github.com/tathougies/beam/blob/d3baf0c77b76b008ad34901b47a818ea79439529/beam-postgres/examples/Pagila/Schema.hs#L17-L19
 migrateMetaDB :: MigrationSteps SqliteCommandSyntax () (CheckedDatabaseSettings Sqlite MetaDB)
-migrateMetaDB = migrationStep "Initial migration" initialMigration
+migrateMetaDB = migrationStep "Initial migration Release-1.4" initialMigration
+
+runMigrateMetaDB :: Sqlite.Connection -> IO ()
+runMigrateMetaDB conn = do
+    let lenientHooks = defaultUpToDateHooks {runIrreversibleHook = pure True}
+    _ <- runBeamSqlite conn $ bringUpToDateWithHooks lenientHooks migrationBackend migrateMetaDB
+    -- We don`t add Indexes on tx_metas (meta_id) because it`s unecessary for the PrimaryKey.
+    -- Atm beam does not support indexes, so we use the raw SQlite.
+    Sqlite.execute_ conn "CREATE INDEX IF NOT EXISTS meta_created_at ON tx_metas (meta_created_at)"
+    Sqlite.execute_ conn "CREATE INDEX IF NOT EXISTS meta_query ON tx_metas (meta_wallet_id, meta_account_ix, meta_id, meta_created_at)"
+    Sqlite.execute_ conn "CREATE INDEX IF NOT EXISTS inputs_address ON tx_metas_inputs (input_address)"
+    Sqlite.execute_ conn "CREATE INDEX IF NOT EXISTS outputs_address ON tx_metas_outputs (output_address)"
 
 -- | Migrates the 'MetaDB', failing with an IO exception in case this is not
--- possible.
-unsafeMigrateMetaDB :: Sqlite.Connection -> IO ()
-unsafeMigrateMetaDB conn = do
-    -- FIXME(adinapoli): This code is hacky but should get us going for the
-    -- initial release. A more robust solution would be provided as part of
-    -- [CBR-403].
+-- possible. This is deprecated and should be removed in the future.
+runMigrateMetaDBLegacy :: Sqlite.Connection -> IO ()
+runMigrateMetaDBLegacy conn = do
     currentDbConstraints <- runBeamSqlite conn getDbConstraints
     expectedConstraints  <-
         collectChecks <$>
@@ -407,8 +418,6 @@ unsafeMigrateMetaDB conn = do
             -- Nothing to do, we are up-to-date.
             return ()
         False -> do
-            -- Migration is needed. NOTE: The above will work only on an empty DB,
-            -- but will fail in case of a *proper* migration. See [CBR-403].
             void $ runMigrationSteps 0 Nothing migrateMetaDB (\_ _ -> executeMigration (Sqlite.execute_ conn . newSqlQuery))
             -- We don`t add Indexes on tx_metas (meta_id) because it`s unecessary for the PrimaryKey.
             -- NOTE(adinapoli): This really doesn't belong here: we should create these indices exactly one as part of

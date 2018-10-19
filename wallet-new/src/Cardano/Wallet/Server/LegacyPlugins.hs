@@ -91,11 +91,11 @@ walletDocumentation
     :: (HasConfigurations, HasCompileInfo)
     => WalletBackendParams
     -> Plugin WalletWebMode
-walletDocumentation WalletBackendParams {..} = pure ("wallet doc worker", const worker)
+walletDocumentation WalletBackendParams {..} = maybe [] (\addr -> [ ("wallet doc worker", const $ worker addr) ]) walletDocAddress
   where
-    worker = walletDocumentationImpl
+    worker addr = walletDocumentationImpl
         application
-        walletDocAddress
+        addr
         tls
         (Just defaultSettings)
         Nothing

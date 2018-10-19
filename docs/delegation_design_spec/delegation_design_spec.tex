@@ -1026,7 +1026,10 @@ It contains
 
 \begin{itemize}
 \item
-  the public staking key \(vks_\text{pool}\) of the pool
+  the public staking key hash \(\mathcal{H}(vks_\text{pool})\) of the
+  pool\todo{We used to require the actual public key, but I do not
+    think that is required -- the registration certificate does
+    contain the key, so it can be looked up from there.}
 \item
   the epoch number, starting from which the stakepool will cease to
   operate
@@ -1075,14 +1078,17 @@ A heavyweight delegation certificate is a tuple containing
 
 \begin{itemize}
 \item
-  the public staking key delegating its staking rights,
-  \(vks_\text{source}\)
+  the public staking key hash delegating its staking rights,
+  \(\mathcal{H}(vks_\text{source})\)\todo{Verify that we indeed only
+    need the hash}
 \item
-  the public stake pool key to which stake is delegated,
-  \(vks_\text{pool}\)
+  the public stake pool key hash to which stake is delegated,
+  \(\mathcal{H}(vks_\text{pool})\) \todo{Verify that we indeed only
+    need the hash}
 \end{itemize}
 
-It must be signed by \(sks_\text{source}\).
+It must be signed by \(sks_\text{source}\), and that key must be
+included in the witness.
 \end{description}
 
 Note that there is no corresponding delegation revocation certificate.
@@ -1337,13 +1343,13 @@ certificates, and makes it simple for nodes to track the delegation.
 It is not sufficient for certificates to be posted to the blockchain.
 Nodes need ready access to certain parts of previously posted
 information as part of the protocol execution or ledger validation. For
-example since nodes need to validate signatures on new blocks in a
-timely manner they need ready access to information about the registered
+example, since nodes need to validate signatures on new blocks in a
+timely manner, they need ready access to information about the registered
 stake pools (including lightweight certificate validity).
 
 One of the design goals is to avoid having to look up old entries on the
 blockchain, since we want to allow implementations that forget old
-blocks. Instead we want a `foldl' design where nodes keep track -- as
+blocks. Instead, we want a {\tt foldl} design where nodes keep track -- as
 local state -- of all the information they will later need.
 
 The following sections describe the local state that nodes must maintain
@@ -1364,41 +1370,27 @@ state is consulted when validating and applying transactions that
 withdraw from stake accounts, to retrieve the stake key for a stake
 account address.
 
-\subsubsection{Stake Accounts}
-\label{stake-accounts}
+\subsubsection{Reward Accounts}
+\label{reward-accounts}
 
-For each stake key there is an associated stake account. The lifetime of
+For each stake key there is an associated reward account. The lifetime of
 these accounts follows exactly their associated registered stake key.
 
-The stake accounts are a mapping from a stake key account address to
+The reward accounts are a mapping from a stake key account address to
 their current balance. This address is the unique index for the mapping.
 The stake key account address is a function of the associated key hash
-\(\mathcal{H}(vks)\).
+\(\mathcal{H}(vks)\), as described in \cref{reward-address}.
 
 The accounts are updated in bulk following the end of an epoch. They are
 consulted and updated when validating and applying transactions that
-withdraw from stake accounts.
+withdraw from reward accounts. See \cref{distributing-rewards} for
+details.
 
 \subsubsection{Stake Pools}
 \label{stake-pools}
 
-Pointer addresses (see \cref{pointer-address}) need to reference a specific
-stake pool registration certificate. Since this is part of the address,
-the key should be short. A canonical unique index that is reasonably
-short is the certificate pointer described in \cref{pointer-address}.
-
-Access patterns:
-
-\begin{itemize}
-\item
-  Lookup by certificate index whenever the staking rights for a pointer
-  address have to be resolved
-\item
-  Lookup by public staking key (to retrieve reward sharing policy for a
-  given pool)
-\item
-  Bulk listing to display active stake pools to the user
-\end{itemize}
+The set of active stake pools must be tracked, uniquely indexed
+by the public key hash.
 
 In addition a small amount of state needs to be maintained to validate
 lightweight certificates. The state tracked for each stake pool includes
@@ -1409,91 +1401,47 @@ updated when larger counter values are presented in a valid certificate.
 \subsubsection{Active Heavyweight Certificates}
 \label{active-heavyweight-certificates}
 
-All valid heavyweight certificates need to be kept in a local database.
+Active heavyweight delegation certificates are tracked, as a finite
+map from source to target staking key hash.
 
-Access patterns:
+\subsubsection{Stake per Staking Key}
+\label{stake-per-staking-key}
 
+For the purpose of leader election and reward calculation, the system
+needs to know how much stake each registered and delegating stake key
+actually controls. The total stake is calculated as the sum of all
+funds that are
 \begin{itemize}
-\item
-  Lookup by source staking key for leader election and rewards sharing
+\item in base addresses using that staking key
+\item in pointer addresses for that staking key's registration
+  certificate
+\item in the reward account of that staking key
 \end{itemize}
 
-In order to determine which certificate was valid during a given epoch,
-we will have an additional field that specifies when the certificate
-came into effect, via their certificate index. Old certificates (revoked
-or overriden) can be dropped from the database once the rewards for
-their last active epoch have been distributed.
-
-\subsubsection{Addresses and Associated Balances per Staking Key}
-\label{addresses-and-associated-balances-per-staking-key}
-
-\todo{This section needs to be updated. In particular, with the stake
-  account mechanism for sharing rewards, we no longer need to know
-  each address that belongs to a staking key, only the total stake for
-  each staking key.}
-
-\todo{Verify that we indeed have to do this. It should also be
-possible to traverse the UTxO directly in the Follow-the-Satoshi
-algorithm, and then follow any delegation indirections.}
-
-At two points in the protocol, we will need to know which addresses
-belong to a specific staking key, and what their balances are: leader
-election for the upcoming epoch, and sharing out rewards for a past
-epoch.
-
-The Follow the Satoshi algorithm for leader election needs a list of
-staking keys and their associated balances.
-
-For rewards sharing, we need, for each staking pool, a list of all the
-base addresses with their balances that delegated directly to the stake
-pool by not using a delegation certificate. We will also need to have
-the amount of stake that each heavyweight delegation certificate
-contributed to the pool (both from pointer addresses and base
-addresses).
-
-To achieve both, nodes will maintain a database that contains, for every
-staking key, the addresses that are directly -- i.e., ignoring
-heavyweight certificates -- controlled by it, as well as their balances,
-together with the active heavyweight certificates and their balances.
-This gives us everything we need for leader election and rewards
-sharing.
-
-Note that directly tracking the stake for each key, including
-heavyweight certificates, would be problematic in case a heavyweight
-certificate is overridden or revoked.
-
-\subsubsection{Updating Local State}
-\label{updating-local-state}
-
-\todo{Update this section, it is probably out of date and
-assumes a more complicated scheme which we started with. Possibly, the
-additional state that we need is simple enough that we do not flesh out
-how to keep track of it in the design document at all. Nevertheless, I'm
-leaving the obsolete contents here as comments, as a basis to rewrite
-this section, if it is needed.}
-
-\subsection{Slot leader schedule}
+\subsection{Slot Leader Schedule and Rewards Calculation}
 \label{slot-leader-schedule}
 
 The process of leader election has to be modified to take delegation
 into account.
 
-While adding blocks to their chain, nodes will keep track of the stake
-that each registered stake key controls, and of all valid
-(heavyweight) delegation certificates.
-
-When the schedule for the next epoch has to be constructed, the nodes
-will compute the stake per registered stake pool. This is called the
-\emph{Stake Distribution}. For each slot, a leader is determined by
-pseudo-randomly sampling the stake pools, weighted by the stake that
-each pool controls.
-
-In order to ensure consensus on the leader schedule between all nodes,
-the stake distribution is calculated from the state of the chain $2k$
-slots before the end of the epoch.\footnote{This can be done
-  traversing the stake distribution only once, if we generate a list of
-  \emph{sorted} random numbers, traverse it in lockstep with the stake
-  distribution, and then shuffle the resulting list of leaders).}.
+While adding blocks to their chain, nodes will keep track of the
+pieces of state listed above. At the end of an epoch, they will take
+the state from \(2k\)\footnote{Going back by \(2k\) slots ensures
+  consensus via the guarantees of Ouroboros: persistence rules out
+  rollbacks of more than \(k\) blocks, and liveness guarantees that
+  there are at least \(k\) blocks in \(2k\) slots.} slots ago and
+\begin{itemize}
+\item use it to compute the stake distribution (i.e., the amount of
+  stake per stake pool)
+\item create the leader schedule by sampling the stake distribution
+  (i.e., smapling the stake pools, weighted by the stake they control)
+\item retain this state, to use it for the reward calculation at the
+  end of the epoch\footnote{They cannot calculate those rewards
+    immediately, because they depend on the efficiency of the pools
+    during the following epoch. However, they could, alternatively to
+    retaining the whole delegation state, calculate the rewards up to
+    the factor that depends on the efficiency.}.
+\end{itemize}
 
 \subsection{Block Validity and Lightweight Certificates}
 \label{block-validity-and-lightweight-certificates}

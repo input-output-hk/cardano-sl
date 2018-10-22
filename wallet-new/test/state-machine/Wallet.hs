@@ -40,6 +40,7 @@ import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
 import           Cardano.Wallet.Kernel.Internal (PassiveWallet)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (mockNodeStateDef)
+import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import qualified Cardano.Wallet.WalletLayer as WL
 import qualified Cardano.Wallet.WalletLayer.Kernel as WL.Kernel
 
@@ -184,8 +185,8 @@ withWalletLayer cc = do
     devNull _ _ = return ()
 
 mock :: Model Symbolic -> Action Symbolic -> GenSym (Response Symbolic)
-mock _ _      = pure ResetWalletR
--- mock _ (CreateWalletA _) = pure $ ResetWalletR -- seems like `mock` is only used as a counter
+mock _ ResetWalletA      = pure ResetWalletR
+mock _ (CreateWalletA _) = pure $ CreateWalletR (Left $ WL.CreateWalletError Kernel.CreateWalletDefaultAddressDerivationFailed)
 
 ------------------------------------------------------------------------
 

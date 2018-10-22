@@ -100,32 +100,6 @@ performance of the system:
 This document covers the design of necessary additions to Cardano in
 order to support and incentivise delegation.
 
-\section{Glossary}
-\label{glossary}
-
-\begin{description}
-\item[Verifiable Secret Sharing (VSS)] as defined in Wikipedia: ``[A] secret
-  sharing scheme is verifiable if auxiliary information is included that
-  allows players to verify their shares as consistent.''
-
-  In the context of Ouroboros \citep{ouroboros_classic}, a VSS protocol is used
-  for generating the shared random seed for each epoch that is used in
-  computing the slot leader schedule. Terms such as ``VSS protocol'',
-  ``VSS message'', and ``VSS committee'' refer to this use of VSS within
-  Ouroboros.
-
-\item[Shared Secret Computation (SSC)] is a term that means essentially the
-  same thing as VSS. In this document to avoid confusion we use the term VSS.
-
-\item[Multiparty Computation (MPC)] as defined in Wikipedia, is ``a subfield
-  of cryptography with the goal of creating methods for parties to jointly
-  compute a function over their inputs while keeping those inputs private.''
-
-  Again, this is sometimes used to refer to the Ouroboros VSS random seed
-  protocol, though strictly speaking the Ouroboros VSS protocol is simply an
-  example of a MPC. To avoid confusion in this document we avoid this term.
-\end{description}
-
 \section{Prerequisites}
 \label{prerequisites}
 
@@ -1143,21 +1117,18 @@ stake pools at the point of exercising stake rights including:
 \begin{itemize}
 \item
   signing blocks
-\item
-  signing messages in the VSS protocol
-\item
-  signing votes for protocol update proposals
+\item signing votes for protocol update proposals (once the update and
+  voting system is in place)
 \end{itemize}
 
-A lightweight
-certificate, signed by the stake pool's cold key, delegates to the hot
-key that is used to sign messages in the protocols (block header, VSS
-message or vote). This lightweight certificate is included in the
-message so that all other nodes can verify that the message is signed by
-a legitimate delegate of the owner of the cold key\footnote{This is much
-  the same setup as with TLS certificates: there are known root
-  certificates but the server's operational certificate is presented
-  inband.}.
+A lightweight certificate, signed by the stake pool's cold key,
+delegates to the hot key that is used to sign messages in the
+protocols (block header or vote). This lightweight certificate is
+included in the message so that all other nodes can verify that the
+message is signed by a legitimate delegate of the owner of the cold
+key\footnote{This is much the same setup as with TLS certificates:
+  there are known root certificates but the server's operational
+  certificate is presented inband.}.
 
 Specifically, a lightweight delegation certificate specifies that the
 staking rights are transferred from a source key \(vks_\text{source}\)

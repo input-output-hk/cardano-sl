@@ -16543,7 +16543,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto
 , cardano-sl-infra
 , cardano-sl-util
-, cardano-sl-wallet
 , cardano-sl-wallet-new
 , connection
 , cryptonite
@@ -16609,7 +16608,6 @@ cardano-sl-chain
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-util
-cardano-sl-wallet
 cardano-sl-wallet-new
 connection
 cryptonite
@@ -16659,7 +16657,6 @@ cardano-sl-chain
 cardano-sl-core
 cardano-sl-infra
 cardano-sl-util
-cardano-sl-wallet
 cardano-sl-wallet-new
 ekg
 ekg-core
@@ -16686,7 +16683,6 @@ aeson
 base
 bytestring
 cardano-sl-core
-cardano-sl-wallet
 cardano-sl-wallet-new
 hspec
 mtl
@@ -17389,7 +17385,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-networking
 , cardano-sl-util
 , cardano-sl-util-test
-, cardano-sl-wallet
 , cardano-sl-x509
 , containers
 , cpphs
@@ -17460,7 +17455,6 @@ cardano-sl-db
 cardano-sl-infra
 cardano-sl-networking
 cardano-sl-util
-cardano-sl-wallet
 containers
 data-default
 directory

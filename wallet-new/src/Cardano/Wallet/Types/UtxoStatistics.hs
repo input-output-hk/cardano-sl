@@ -28,12 +28,13 @@ import           Data.Swagger (NamedSchema (..), Referenced (..),
                      genericDeclareNamedSchema, minimum_, properties, required,
                      type_)
 import           Data.Word (Word64)
-import           Formatting (bprint, build, formatToString, (%))
+import           Formatting (bprint, build, (%))
 import           Serokell.Util (listJson)
 import           Test.QuickCheck (Arbitrary (..), arbitrary, choose, elements,
                      infiniteListOf, shuffle)
 
 import           Cardano.Wallet.API.V1.Swagger.Example (Example)
+import           Cardano.Wallet.Util (eitherToParser)
 import           Pos.Chain.Txp (TxOut (..), TxOutAux (..), Utxo)
 import           Pos.Core.Common (Coin (..))
 import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..),
@@ -115,10 +116,6 @@ instance FromJSON UtxoStatistics where
                 <$> (o .: "boundType")
                 <*> (o .: "histogram")
                 <*> (o .: "allStakes")
-
-        eitherToParser :: Buildable a => Either a b -> Parser b
-        eitherToParser =
-            either (fail . formatToString build) pure
 
 instance Arbitrary UtxoStatistics where
     arbitrary = do

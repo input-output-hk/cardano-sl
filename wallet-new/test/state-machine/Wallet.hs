@@ -37,12 +37,13 @@ import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..),
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as DB
 import           Cardano.Wallet.Kernel.Internal (PassiveWallet)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (mockNodeStateDef)
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
 import qualified Cardano.Wallet.WalletLayer as WL
-import qualified Cardano.Wallet.WalletLayer.Kernel as WL.Kernel
+import qualified Cardano.Wallet.WalletLayer.Kernel as WL
 
 import qualified Pos.Core as Core
 import           Pos.Infra.InjectFail (mkFInjects)
@@ -57,11 +58,13 @@ import qualified Pos.Wallet.Web.State.Storage as OldStorage
 data Action (r :: * -> *)
     = ResetWalletA
     | CreateWalletA WL.CreateWallet
+    | GetWalletsA
     deriving (Show, Generic1, Rank2.Functor, Rank2.Foldable, Rank2.Traversable)
 
 data Response (r :: * -> *)
     = ResetWalletR
     | CreateWalletR (Either WL.CreateWalletError V1.Wallet)
+    | GetWalletsR (DB.IxSet V1.Wallet)
     deriving (Show, Generic1, Rank2.Foldable)
 
 
@@ -73,7 +76,7 @@ data Response (r :: * -> *)
 -- this is how CircurlarBufer.hs does it - it saves a spec and uses
 -- a spec to check real state
 data Model (r :: * -> *) = Model
-    { mWallets :: [V1.Wallet]
+    { mWallets :: [V1.Wallet] -- consider using IxSet
     }
     deriving (Eq, Show, Generic)
 
@@ -109,6 +112,7 @@ initModel = Model []
 preconditions :: Model Symbolic -> Action Symbolic -> Logic
 preconditions _ ResetWalletA      = Top
 preconditions _ (CreateWalletA _) = Top
+preconditions _ GetWalletsA       = Top
 
 transitions :: Model r -> Action r -> Response r -> Model r
 transitions model@Model{..} cmd res = case cmd of
@@ -118,6 +122,8 @@ transitions model@Model{..} cmd res = case cmd of
             CreateWalletR (Left _) -> model
             CreateWalletR (Right wallet) -> model { mWallets = wallet : mWallets } -- TODO: use lenses
             _ -> error "This transition should not be reached!"
+    -- TODO: handle monadic exception?
+    GetWalletsA -> model
 
 postconditions :: Model Concrete -> Action Concrete -> Response Concrete -> Logic
 postconditions _ ResetWalletA ResetWalletR                          = Top
@@ -125,7 +131,8 @@ postconditions _ ResetWalletA ResetWalletR                          = Top
  -- check that ratio of errors is normal/expected
 postconditions _ (CreateWalletA _) (CreateWalletR (Left _)) = Top
 -- TODO: check that wallet request and wallet response contain same attributes
-postconditions Model{..} (CreateWalletA _) (CreateWalletR (Right wallet)) =  Top -- wallet `elem` mWallets
+postconditions Model{..} (CreateWalletA _) (CreateWalletR (Right _)) =  Top -- wallet `elem` mWallets
+postconditions Model{..} GetWalletsA (GetWalletsR wallets) = DB.fromList mWallets .== wallets
 postconditions _ _ _ =  error "This postcondition should not be reached!"
 
 ------------------------------------------------------------------------
@@ -150,6 +157,7 @@ generator _ = frequency
     [ (1, pure ResetWalletA)
     , (5, CreateWalletA . WL.CreateWallet <$> genNewWalletRq)
     -- TODO: add generator for importing wallet from secret key
+    , (5, pure GetWalletsA)
     ]
 
 shrinker :: Action Symbolic -> [Action Symbolic]
@@ -164,6 +172,7 @@ semantics pwl _ cmd = case cmd of
         WL.resetWalletState pwl
         return ResetWalletR
     CreateWalletA cw -> CreateWalletR <$> WL.createWallet pwl cw
+    GetWalletsA -> GetWalletsR <$> WL.getWallets pwl
 
 -- TODO: reuse withLayer function defined in wallet-new/test/unit/Test/Spec/Fixture.hs
 withWalletLayer
@@ -173,7 +182,7 @@ withWalletLayer cc = do
     Keystore.bracketTestKeystore $ \keystore -> do
         -- TODO: can we use fault injection in wallet to test expected failure cases?
         mockFInjects <- mkFInjects mempty
-        WL.Kernel.bracketPassiveWallet
+        WL.bracketPassiveWallet
             Kernel.UseInMemory
             devNull
             keystore
@@ -187,6 +196,7 @@ withWalletLayer cc = do
 mock :: Model Symbolic -> Action Symbolic -> GenSym (Response Symbolic)
 mock _ ResetWalletA      = pure ResetWalletR
 mock _ (CreateWalletA _) = pure $ CreateWalletR (Left $ WL.CreateWalletError Kernel.CreateWalletDefaultAddressDerivationFailed)
+mock _ GetWalletsA = pure $ GetWalletsR DB.empty
 
 ------------------------------------------------------------------------
 

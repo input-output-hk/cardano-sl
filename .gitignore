@@ -100,7 +100,7 @@ wallet-new/test/golden/*.txt.new
 
 # cardano-state-* for wallet data
 cardano-state-*
-state-*
+/state-*
 
 # exchange topology file
 exchange-topology.yaml

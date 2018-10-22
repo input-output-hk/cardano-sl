@@ -266,7 +266,7 @@ instance NFData SyncStatistics where
 -- during the syncing process, to provide better estimate to the frontend
 -- on how much time the restoration/syncing progress is going to take.
 newtype SyncThroughput = SyncThroughput BlockCount
-     deriving (Eq, Ord, Show, NFData)
+     deriving (Eq, Ord, Show, NFData, Generic)
 
 zeroThroughput :: SyncThroughput
 zeroThroughput = SyncThroughput (BlockCount 0)

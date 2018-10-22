@@ -1,4 +1,3 @@
-
 module Cardano.Wallet.API.Types.UnitOfMeasure where
 
 import           Universum
@@ -17,6 +16,6 @@ data UnitOfMeasure =
     | Blocks
     -- | Number of blocks per second.
     | BlocksPerSecond
-    deriving (Show, Eq)
+    deriving (Show, Eq, Generic)
 
-data MeasuredIn (a :: UnitOfMeasure) b = MeasuredIn b deriving (Eq, Show)
+data MeasuredIn (a :: UnitOfMeasure) b = MeasuredIn b deriving (Eq, Show, Generic)

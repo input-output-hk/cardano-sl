@@ -558,6 +558,65 @@ test-suite wallet-unit-tests
                     , random
                     , time
 
+-- set this to test-suite
+executable wallet-sm-tests
+  ghc-options:        -Wall -O2 -threaded
+  type:               exitcode-stdio-1.0
+  main-is:            Spec.hs
+  other-modules:      TicketDispenser
+                      Wallet
+  default-language:   Haskell2010
+  default-extensions: BangPatterns
+                      ConstraintKinds
+                      DeriveGeneric
+                      FlexibleContexts
+                      FlexibleInstances
+                      GADTs
+                      InstanceSigs
+                      LambdaCase
+                      MultiParamTypeClasses
+                      MultiWayIf
+                      NoImplicitPrelude
+                      OverloadedStrings
+                      RankNTypes
+                      RecordWildCards
+                      ScopedTypeVariables
+                      StandaloneDeriving
+                      TypeFamilies
+  other-extensions:   DeriveAnyClass
+                      GeneralizedNewtypeDeriving
+                      UndecidableInstances
+  hs-source-dirs:     test/state-machine
+
+  build-depends:      acid-state
+                    , base
+                    , cardano-sl-wallet
+                    , cardano-sl-wallet-new
+                    , cardano-sl-infra
+                    , cardano-sl-chain
+                    , cardano-sl-util
+                    , monad-control
+                    , stm
+                    , bytestring
+                    , hspec
+                    , hspec-core
+                    , mtl
+                    , QuickCheck
+                    , quickcheck-instances
+                    , quickcheck-state-machine
+                    , tree-diff
+                    -- TODO: filelock and strict can be removed after TicketDispenser is removed
+                    , filelock
+                    , strict
+                    , tasty
+                    , tasty-quickcheck
+                    , text
+                    , universum
+                    , vector
+                    , directory
+                    , filepath
+                    , random
+
 test-suite wallet-new-specs
   ghc-options:      -Wall -O2 -threaded -rtsopts
   type:             exitcode-stdio-1.0

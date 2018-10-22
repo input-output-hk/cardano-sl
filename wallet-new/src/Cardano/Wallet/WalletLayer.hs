@@ -71,6 +71,7 @@ import           Cardano.Wallet.WalletLayer.Kernel.Conv (InvalidRedemptionCode)
 data CreateWallet =
     CreateWallet NewWallet
   | ImportWalletFromESK EncryptedSecretKey (Maybe SpendingPassword)
+  deriving (Show)
 
 data CreateWalletError =
     CreateWalletError Kernel.CreateWalletError

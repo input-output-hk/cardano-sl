@@ -260,6 +260,8 @@ extra-deps:
 - hspec-core-2.5.1
 - hspec-discover-2.5.1
 
+- quickcheck-state-machine-0.4.2
+
 # Graphics stuff not found on stackage.
 - Chart-diagrams-1.8.3
 - graphviz-2999.19.0.0

@@ -294,7 +294,7 @@ optsADTCamelCase = defaultOptions
 -- General rules for serialisation:
 --
 -- 1. Never define an instance on the inner type 'a'. Do it only on 'V1 a'.
-newtype V1 a = V1 a deriving (Eq, Ord)
+newtype V1 a = V1 a deriving (Eq, Ord, Generic)
 
 -- | Unwrap the 'V1' newtype to give the underlying type.
 unV1 :: V1 a -> a
@@ -468,7 +468,7 @@ type WalletName = Text
 data AssuranceLevel =
     NormalAssurance
   | StrictAssurance
-  deriving (Eq, Ord, Show, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded, Generic)
 
 instance Arbitrary AssuranceLevel where
     arbitrary = elements [minBound .. maxBound]
@@ -817,7 +817,7 @@ instance BuildableSafeGen WalletUpdate where
 
 -- | The sync progress with the blockchain.
 newtype SyncPercentage = SyncPercentage (MeasuredIn 'Percentage100 Word8)
-                     deriving (Show, Eq)
+                     deriving (Show, Eq, Generic)
 
 mkSyncPercentage :: Word8 -> SyncPercentage
 mkSyncPercentage = SyncPercentage . MeasuredIn
@@ -866,7 +866,7 @@ instance BuildableSafeGen SyncPercentage where
 
 
 newtype EstimatedCompletionTime = EstimatedCompletionTime (MeasuredIn 'Milliseconds Word)
-  deriving (Show, Eq)
+  deriving (Show, Eq, Generic)
 
 mkEstimatedCompletionTime :: Word -> EstimatedCompletionTime
 mkEstimatedCompletionTime = EstimatedCompletionTime . MeasuredIn
@@ -913,7 +913,7 @@ instance ToSchema EstimatedCompletionTime where
 
 
 newtype SyncThroughput = SyncThroughput (MeasuredIn 'BlocksPerSecond OldStorage.SyncThroughput)
-  deriving (Show, Eq)
+  deriving (Show, Eq, Generic)
 
 mkSyncThroughput :: Core.BlockCount -> SyncThroughput
 mkSyncThroughput = SyncThroughput . MeasuredIn . OldStorage.SyncThroughput
@@ -1008,7 +1008,7 @@ data SyncState =
     -- ^ Restoring from seed or from backup.
     | Synced
     -- ^ Following the blockchain.
-    deriving (Eq, Show, Ord)
+    deriving (Eq, Show, Ord, Generic)
 
 instance ToJSON SyncState where
     toJSON ss = object [ "tag"  .= toJSON (renderAsTag ss)

@@ -366,9 +366,15 @@ ntwrkAddrToString (host, port) =
 
 ntwrkAddrToBaseUrl :: NetworkAddress -> BaseUrl
 ntwrkAddrToBaseUrl (host, port) =
-    BaseUrl Https (B8.unpack host) (fromIntegral port) mempty
-
+    BaseUrl Https (fromHostListen host) (fromIntegral port) mempty
+  where
+    -- Converts the host part of a NetworkAddress to a String,
+    -- translating the wildcard listen address to localhost.
+    fromHostListen :: B8.ByteString -> String
+    fromHostListen h = case B8.unpack h of
+        "0.0.0.0" -> "127.0.0.1"
+        host'     -> host'
 
 ntwrkAddrToNodeAddr :: NetworkAddress -> NodeAddr a
-ntwrkAddrToNodeAddr (addr, port) =
-    NodeAddrExact (unsafeIPFromString $ B8.unpack addr) (Just port)
+ntwrkAddrToNodeAddr (host, port) =
+    NodeAddrExact (unsafeIPFromString $ B8.unpack host) (Just port)

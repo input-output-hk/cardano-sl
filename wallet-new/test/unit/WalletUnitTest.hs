@@ -70,17 +70,18 @@ _showContext = do
 
 tests :: Spec
 tests = parallel $ describe "Wallet unit tests" $ do
-    Test.Spec.Addresses.spec
-    DeltaCompressionSpecs.spec
-    Test.Spec.Kernel.spec
-    Test.Spec.GetTransactions.spec
-    Test.Spec.Translation.spec
-    Test.Spec.Models.spec
-    Test.Spec.WalletWorker.spec
-    Test.Spec.Submission.spec
     txMetaStorageSpecs
-    Test.Spec.CoinSelection.spec
-    Test.Spec.Keystore.spec
-    Test.Spec.Wallets.spec
-    Test.Spec.NewPayment.spec
-    Test.Spec.Accounts.spec
+    when False $ do
+      Test.Spec.GetTransactions.spec
+      Test.Spec.Kernel.spec
+      Test.Spec.Addresses.spec
+      DeltaCompressionSpecs.spec
+      Test.Spec.Translation.spec
+      Test.Spec.Models.spec
+      Test.Spec.WalletWorker.spec
+      Test.Spec.Submission.spec
+      Test.Spec.CoinSelection.spec
+      Test.Spec.Keystore.spec
+      Test.Spec.Wallets.spec
+      Test.Spec.NewPayment.spec
+      Test.Spec.Accounts.spec

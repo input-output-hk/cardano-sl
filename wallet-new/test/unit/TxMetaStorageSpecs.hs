@@ -25,7 +25,7 @@ import           Serokell.Util.Text (listJsonIndent, pairF)
 import           Test.Hspec (expectationFailure, shouldContain, shouldThrow)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Arbitrary, Gen, arbitrary, forAll, suchThat,
-                     vectorOf)
+                     vectorOf, withMaxSuccess)
 import           Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
 import           Util.Buildable (ShowThroughBuild (..))
 import           Util.Buildable.Hspec
@@ -170,8 +170,10 @@ hasDupes xs = length (Set.fromList xs) /= List.length xs
 -- | Specs which tests the persistent storage and API provided by 'TxMeta'.
 txMetaStorageSpecs :: Spec
 txMetaStorageSpecs = do
-    describe "migrations" $ do
-        it "calling migration second time does nothing" $ monadicIO $ do
+  describe "migrations" $ do
+    {-}
+        it "calling migration second time does nothing" $ withMaxSuccess 1
+          $ monadicIO $ do
             testMetaSTB <- pick genMeta
             let testMeta = unSTB testMetaSTB
             db <- liftIO $ openMetaDB ":memory:"
@@ -183,8 +185,48 @@ txMetaStorageSpecs = do
             liftIO $ Isomorphic <$> mbTx1 `shouldBe` Just (Isomorphic testMeta)
             liftIO $ Isomorphic <$> mbTx2 `shouldBe` Just (Isomorphic testMeta)
             liftIO $ closeMetaDB db
+-}
+        it "migration from 1.4 to 1.5" $ withMaxSuccess 1
+          $ monadicIO $ do
+            testMetaSTB <- pick genMeta
+            let testMeta = unSTB testMetaSTB
+            liftIO $ do
+                conn <- SQlite.newConnection ":memory:"
+                SQlite.runMigrateMetaDB1_4 conn
+                SQlite.putTxMeta conn testMeta
+                mbTx1 <- SQlite.getTxMeta conn (testMeta ^. txMetaId) (testMeta ^. txMetaWalletId) (testMeta ^. txMetaAccountIx)
+                SQlite.runMigrateMetaDB conn
+                mbTx2 <- SQlite.getTxMeta conn (testMeta ^. txMetaId) (testMeta ^. txMetaWalletId) (testMeta ^. txMetaAccountIx)
+                Isomorphic <$> mbTx1 `shouldBe` Just (Isomorphic testMeta)
+                Isomorphic <$> mbTx2 `shouldBe` Just (Isomorphic testMeta)
+                SQlite.closeMetaDB conn
 
-        it "calling clearMetaDB wipes entries" $ monadicIO $ do
+        it "calling migration second time does nothing" $ withMaxSuccess 1
+          $ monadicIO $ do
+            testMetaSTB <- pick genMeta
+            let testMeta = unSTB testMetaSTB
+            liftIO $ do
+                conn <- SQlite.newConnection ":memory:"
+                SQlite.runMigrateMetaDB conn
+                SQlite.putTxMeta conn testMeta
+                mbTx1 <- SQlite.getTxMeta conn (testMeta ^. txMetaId) (testMeta ^. txMetaWalletId) (testMeta ^. txMetaAccountIx)
+                SQlite.runMigrateMetaDB conn
+                mbTx2 <- SQlite.getTxMeta conn (testMeta ^. txMetaId) (testMeta ^. txMetaWalletId) (testMeta ^. txMetaAccountIx)
+                Isomorphic <$> mbTx1 `shouldBe` Just (Isomorphic testMeta)
+                Isomorphic <$> mbTx2 `shouldBe` Just (Isomorphic testMeta)
+                SQlite.closeMetaDB conn
+  when False $ do
+    describe "SQlite transactions" $ do
+        it "throws an exception when tx with double spending" $ monadicIO $ do
+            testMetaSTB <- pick genMeta
+            run $ withTemporaryDb $ \hdl -> do
+                let testMeta = unSTB testMetaSTB
+                let ins = testMeta ^. txMetaInputs
+                let doubleSpendTx = testMeta {_txMetaInputs = ins <> ins}
+                putTxMetaT hdl doubleSpendTx `shouldThrow`
+                    (\(StorageFailure _) -> True)
+
+        it "calling clearMetaDB wipes entries" $ withMaxSuccess 1 $ monadicIO $ do
             testMetaSTB <- pick genMeta
             let testMeta = unSTB testMetaSTB
             db <- liftIO $ openMetaDB ":memory:"

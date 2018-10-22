@@ -21,6 +21,7 @@ module Cardano.Wallet.Kernel.DB.Sqlite (
 
     -- * Unsafe functions
     , runMigrateMetaDB
+    , runMigrateMetaDB1_4
     , runMigrateMetaDBLegacy
 
     -- * testing
@@ -70,7 +71,7 @@ import           Data.Time.Units (Second, fromMicroseconds, toMicroseconds)
 import           Database.Beam.Migrate (CheckedDatabaseSettings, DataType (..),
                      Migration, MigrationSteps, boolean, collectChecks,
                      createTable, evaluateDatabase, executeMigration, field,
-                     migrationStep, notNull, runMigrationSilenced,
+                     migrationStep, notNull, preserve, runMigrationSilenced,
                      runMigrationSteps, unCheckDatabase)
 import           Formatting (sformat)
 import           GHC.Generics (Generic)
@@ -84,15 +85,31 @@ import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
 import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Core as Core
 import           Pos.Crypto.Hashing (decodeAbstractHash, hashHexF)
+import           Control.Arrow ((>>>))
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 -- | A type modelling the underlying SQL database.
+-- Deprecated: to be deleted.
+data MetaDBLegacy f = MetaDBLegacy
+                       { _mDbMetaLegacy    :: f (Beam.TableEntity TxMetaT)
+                       , _mDbInputsLegacy  :: f (Beam.TableEntity TxInputT)
+                       , _mDbOutputsLegacy :: f (Beam.TableEntity TxOutputT)
+                       } deriving Generic
+
+-- Deprecated: to be deleted.
+instance Database Sqlite MetaDBLegacy
+
+
+-- | A type modelling the underlying SQL database.
+-- Deprecated: to be deleted.
 data MetaDB f = MetaDB { _mDbMeta    :: f (Beam.TableEntity TxMetaT)
                        , _mDbInputs  :: f (Beam.TableEntity TxInputT)
                        , _mDbOutputs :: f (Beam.TableEntity TxOutputT)
+                       , _mDbFoo     :: f (Beam.TableEntity FooT)
                        } deriving Generic
 
+-- Deprecated: to be deleted.
 instance Database Sqlite MetaDB
 
 {--
@@ -272,6 +289,34 @@ fromOutputs ls = go <$> NonEmpty.sort ls
   where
     go TxOutputT {..} = (_outputTableAddress, _outputTableCoin)
 
+{--
+
+** Table 4: ~tx_meta_foo~
+** Primary Key: ~foo_id~
+
+foo_id   | foo_name |
+---------|----------+
+Word32   | Text     |
+
+--}
+
+data FooT f = FooT {
+    _fooId    :: Beam.Columnar f Word32
+  , _fooName  :: Beam.Columnar f Text
+} deriving Generic
+
+-- type Foo = FooT Identity
+
+instance Table FooT where
+    data PrimaryKey FooT f = PrimKeyFoo
+                                (Beam.Columnar f Word32)
+                                deriving Generic
+    primaryKey FooT{..} = PrimKeyFoo _fooId
+
+instance Beamable FooT
+
+instance Beamable (PrimaryKey FooT)
+
 -- Orphans & other boilerplate
 
 instance HasSqlValueSyntax SqliteValueSyntax Txp.TxId where
@@ -365,34 +410,60 @@ accountixDT :: DataType SqliteDataTypeSyntax Word32
 accountixDT = DataType intType
 
 -- | Beam's 'Migration' to create a new 'MetaDB' Sqlite database.
-initialMigration :: () -> Migration SqliteCommandSyntax (CheckedDatabaseSettings Sqlite MetaDB)
-initialMigration () = do
-    MetaDB <$> createTable "tx_metas"
-                 (TxMeta (field "meta_id" txIdDT notNull)
-                         (field "meta_amount" coinDT notNull)
-                         (field "meta_created_at" timestampDT notNull)
-                         (field "meta_is_local" boolean notNull)
-                         (field "meta_is_outgoing" boolean notNull)
-                         (field "meta_wallet_id" walletidDT notNull)
-                         (field "meta_account_ix" accountixDT notNull))
+initialMigration :: () -> Migration SqliteCommandSyntax (CheckedDatabaseSettings Sqlite MetaDBLegacy)
+initialMigration () =
+    MetaDBLegacy
+          <$> createTable "tx_metas"
+                (TxMeta (field "meta_id" txIdDT notNull)
+                        (field "meta_amount" coinDT notNull)
+                        (field "meta_created_at" timestampDT notNull)
+                        (field "meta_is_local" boolean notNull)
+                        (field "meta_is_outgoing" boolean notNull)
+                        (field "meta_wallet_id" walletidDT notNull)
+                        (field "meta_account_ix" accountixDT notNull)
+                )
            <*> createTable "tx_metas_inputs"
-                 (TxInputT (field "meta_id" txIdDT notNull)
-                           (field "input_foreign_id" txIdDT notNull)
-                           (field "input_foreign_index" outputIndexDT notNull)
-                           (field "input_address" addressDT notNull)
-                           (field "input_coin" coinDT notNull)
-                          )
+                (TxInputT (field "meta_id" txIdDT notNull)
+                          (field "input_foreign_id" txIdDT notNull)
+                          (field "input_foreign_index" outputIndexDT notNull)
+                          (field "input_address" addressDT notNull)
+                          (field "input_coin" coinDT notNull)
+                )
            <*> createTable "tx_metas_outputs"
-                 (TxOutputT (field "meta_id" txIdDT notNull)
-                            (field "output_index" outputIndexDT notNull)
-                            (field "output_address" addressDT notNull)
-                            (field "output_coin" coinDT notNull)
-                           )
+                (TxOutputT (field "meta_id" txIdDT notNull)
+                           (field "output_index" outputIndexDT notNull)
+                           (field "output_address" addressDT notNull)
+                           (field "output_coin" coinDT notNull)
+                )
+
+migration1 :: CheckedDatabaseSettings Sqlite MetaDBLegacy
+           -> Migration SqliteCommandSyntax (CheckedDatabaseSettings Sqlite MetaDB)
+migration1 oldDB =
+    MetaDB <$> preserve (_mDbMetaLegacy oldDB)
+           <*> preserve (_mDbInputsLegacy oldDB)
+           <*> preserve (_mDbOutputsLegacy oldDB)
+           <*> createTable "foo"
+                (FooT (field "foo_id" (DataType $ varCharType Nothing Nothing) notNull)
+                      (field "foo_name" (DataType $ varCharType Nothing Nothing) notNull)
+                )
+
+runMigrateMetaDB1_4 :: Sqlite.Connection -> IO ()
+runMigrateMetaDB1_4 conn = do
+    let lenientHooks = defaultUpToDateHooks {runIrreversibleHook = pure True}
+    let migration1_4 = migrationStep "Initial migration Release-1.4" initialMigration
+    _ <- runBeamSqlite conn $ bringUpToDateWithHooks lenientHooks migrationBackend migration1_4
+    -- We don`t add Indexes on tx_metas (meta_id) because it`s unecessary for the PrimaryKey.
+    -- Atm beam does not support indexes, so we use the raw SQlite.
+    Sqlite.execute_ conn "CREATE INDEX IF NOT EXISTS meta_created_at ON tx_metas (meta_created_at)"
+    Sqlite.execute_ conn "CREATE INDEX IF NOT EXISTS meta_query ON tx_metas (meta_wallet_id, meta_account_ix, meta_id, meta_created_at)"
+    Sqlite.execute_ conn "CREATE INDEX IF NOT EXISTS inputs_address ON tx_metas_inputs (input_address)"
+    Sqlite.execute_ conn "CREATE INDEX IF NOT EXISTS outputs_address ON tx_metas_outputs (output_address)"
 
 --- | The full list of migrations available for this 'MetaDB'.
 -- For a more interesting migration, see: https://github.com/tathougies/beam/blob/d3baf0c77b76b008ad34901b47a818ea79439529/beam-postgres/examples/Pagila/Schema.hs#L17-L19
 migrateMetaDB :: MigrationSteps SqliteCommandSyntax () (CheckedDatabaseSettings Sqlite MetaDB)
 migrateMetaDB = migrationStep "Initial migration Release-1.4" initialMigration
+            >>> migrationStep "Release 1.5" migration1
 
 runMigrateMetaDB :: Sqlite.Connection -> IO ()
 runMigrateMetaDB conn = do
@@ -435,7 +506,10 @@ runMigrateMetaDBLegacy conn = do
 -- | Simply a conveniency wrapper to avoid 'Kernel.TxMeta' to explicitly
 -- import Sqlite modules.
 newConnection :: FilePath -> IO Sqlite.Connection
-newConnection = Sqlite.open
+newConnection conn = do
+    db <- Sqlite.open conn
+    Sqlite.setTrace db (Just print)
+    return db
 
 -- | Closes an open 'Connection' to the @Sqlite@ database stored in the
 -- input 'MetaDBHandle'.

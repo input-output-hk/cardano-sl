@@ -50,6 +50,9 @@ import           Data.X509.CertificateStore (CertificateStore,
 import           Data.X509.Validation
 import           Net.IPv4 (IPv4 (..))
 import           Net.IPv6 (IPv6 (..))
+import           System.Directory (removeFile, renameFile)
+import           System.FilePath (splitFileName, (<.>))
+import           System.IO (hClose, openBinaryTempFile)
 
 import qualified Crypto.PubKey.RSA.Types as RSA
 import qualified Data.ByteString as BS
@@ -231,9 +234,9 @@ writeCredentials
     -> (PrivateKey, SignedCertificate)
     -> IO ()
 writeCredentials filename (key, cert) = do
-    BS.writeFile (filename <> ".pem") (BS.concat [keyBytes, "\n", certBytes])
-    BS.writeFile (filename <> ".key") keyBytes
-    BS.writeFile (filename <> ".crt") certBytes
+    writeFileAtomicPrivate (filename <> ".pem") (BS.concat [keyBytes, "\n", certBytes])
+    writeFileAtomicPrivate (filename <> ".key") keyBytes
+    writeFileAtomicPrivate (filename <> ".crt") certBytes
   where
     keyBytes  = encodePEM key
     certBytes = encodePEM cert
@@ -245,7 +248,7 @@ writeCertificate
     -> SignedCertificate
     -> IO ()
 writeCertificate filename cert =
-    BS.writeFile (filename <> ".crt") (encodePEM cert)
+    writeFileAtomicPrivate (filename <> ".crt") (encodePEM cert)
 
 
 --
@@ -330,3 +333,26 @@ validateCertificateIP ip cert =
             []
         else
             [NameMismatch $ B8.unpack ip]
+
+
+-- | Writes a file atomically, and with private file permissions.
+--
+-- The file is either written successfully or an IO exception is raised and
+-- the original file is left unchanged.
+--
+-- On unix systems the file permissions are 600, i.e. user read and write,
+-- but no others.
+--
+-- On windows it is not possible to delete a file that is open by a process.
+-- This case will give an IO exception but the atomic property is not affected.
+--
+writeFileAtomicPrivate :: FilePath -> ByteString -> IO ()
+writeFileAtomicPrivate targetPath content = do
+  let (targetDir, targetFile) = splitFileName targetPath
+  bracketOnError
+    (openBinaryTempFile targetDir $ targetFile <.> "tmp")
+    (\(tmpPath, handle) -> hClose handle >> removeFile tmpPath)
+    (\(tmpPath, handle) -> do
+        BS.hPut handle content
+        hClose handle
+        renameFile tmpPath targetPath)

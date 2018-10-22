@@ -19,12 +19,13 @@ module Wallet
   )
   where
 
-import           Universum hiding (elem)
+import           Universum
 
 import           Data.Time.Units (Microsecond, toMicroseconds)
 import           Data.TreeDiff (ToExpr (toExpr))
 import           GHC.Generics (Generic, Generic1)
-import           Test.QuickCheck (Gen, Property, arbitrary, frequency, (===))
+import           Test.QuickCheck (Gen, Property, arbitrary, frequency, oneof,
+                     (===))
 import           Test.QuickCheck.Monadic (monadicIO)
 
 import           Test.StateMachine
@@ -59,12 +60,14 @@ data Action (r :: * -> *)
     = ResetWalletA
     | CreateWalletA WL.CreateWallet
     | GetWalletsA
+    | GetWalletA V1.WalletId
     deriving (Show, Generic1, Rank2.Functor, Rank2.Foldable, Rank2.Traversable)
 
 data Response (r :: * -> *)
     = ResetWalletR
     | CreateWalletR (Either WL.CreateWalletError V1.Wallet)
     | GetWalletsR (DB.IxSet V1.Wallet)
+    | GetWalletR (Either WL.GetWalletError V1.Wallet)
     deriving (Show, Generic1, Rank2.Foldable)
 
 
@@ -113,6 +116,7 @@ preconditions :: Model Symbolic -> Action Symbolic -> Logic
 preconditions _ ResetWalletA      = Top
 preconditions _ (CreateWalletA _) = Top
 preconditions _ GetWalletsA       = Top
+preconditions _ (GetWalletA _)    = Top
 
 transitions :: Model r -> Action r -> Response r -> Model r
 transitions model@Model{..} cmd res = case cmd of
@@ -124,6 +128,7 @@ transitions model@Model{..} cmd res = case cmd of
             _ -> error "This transition should not be reached!"
     -- TODO: handle monadic exception?
     GetWalletsA -> model
+    GetWalletA _ -> model
 
 postconditions :: Model Concrete -> Action Concrete -> Response Concrete -> Logic
 postconditions _ ResetWalletA ResetWalletR                          = Top
@@ -133,6 +138,9 @@ postconditions _ (CreateWalletA _) (CreateWalletR (Left _)) = Top
 -- TODO: check that wallet request and wallet response contain same attributes
 postconditions Model{..} (CreateWalletA _) (CreateWalletR (Right _)) =  Top -- wallet `elem` mWallets
 postconditions Model{..} GetWalletsA (GetWalletsR wallets) = DB.fromList mWallets .== wallets
+postconditions Model{..} (GetWalletA wId) (GetWalletR (Left _)) = Predicate $ NotElem wId (map V1.walId mWallets)
+-- TODO: also check is returned wallet similar to the one fined in a model
+postconditions Model{..} (GetWalletA wId) (GetWalletR (Right _)) = Predicate $ Elem wId (map V1.walId mWallets)
 postconditions _ _ _ =  error "This postcondition should not be reached!"
 
 ------------------------------------------------------------------------
@@ -153,11 +161,15 @@ genNewWalletRq = do
                           V1.CreateWallet
 
 generator :: Model Symbolic -> Gen (Action Symbolic)
-generator _ = frequency
+generator Model{..} = frequency
     [ (1, pure ResetWalletA)
     , (5, CreateWalletA . WL.CreateWallet <$> genNewWalletRq)
     -- TODO: add generator for importing wallet from secret key
     , (5, pure GetWalletsA)
+    -- This tests fetching mostly wallets
+    , (4, GetWalletA . V1.walId <$> oneof (arbitrary:map pure mWallets))
+    -- This tests fetching probably non existing wallet
+    , (1, GetWalletA <$> arbitrary)
     ]
 
 shrinker :: Action Symbolic -> [Action Symbolic]
@@ -173,6 +185,7 @@ semantics pwl _ cmd = case cmd of
         return ResetWalletR
     CreateWalletA cw -> CreateWalletR <$> WL.createWallet pwl cw
     GetWalletsA -> GetWalletsR <$> WL.getWallets pwl
+    GetWalletA wId -> GetWalletR <$> WL.getWallet pwl wId
 
 -- TODO: reuse withLayer function defined in wallet-new/test/unit/Test/Spec/Fixture.hs
 withWalletLayer
@@ -195,8 +208,15 @@ withWalletLayer cc = do
 
 mock :: Model Symbolic -> Action Symbolic -> GenSym (Response Symbolic)
 mock _ ResetWalletA      = pure ResetWalletR
+-- TODO: add mocking up creating an actual wallet
+-- For example you can take one from the model, just change wallet id
 mock _ (CreateWalletA _) = pure $ CreateWalletR (Left $ WL.CreateWalletError Kernel.CreateWalletDefaultAddressDerivationFailed)
-mock _ GetWalletsA = pure $ GetWalletsR DB.empty
+mock Model{..} GetWalletsA = pure $ GetWalletsR $ DB.fromList mWallets
+-- TODO: model other error paths like UnknownHdRoot?
+mock Model{..} (GetWalletA wId) =
+    let mExists = safeHead $ filter ((wId ==) . V1.walId) mWallets
+        response = maybe (Left $ WL.GetWalletErrorNotFound wId) Right mExists
+    in pure $ GetWalletR response
 
 ------------------------------------------------------------------------
 

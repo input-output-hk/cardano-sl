@@ -685,6 +685,19 @@ comparatively short, which is one of our requirements (recall
 \cref{short-addresses}). The pointer can be considerably shorter than
 the hash used in base addresses.
 
+\paragraph{Pointer Addresses and Rollback}
+There is a sublety with pointer addresses: it might happen that a
+stake key registration certificate that is referenced by a pointer
+address might be lost due to a rollback. The system should not lead to
+a loss of funds in such a case. To prevent that, the system should
+\begin{itemize}
+\item consider pointer addresses with an invalid pointer to be valid
+  for the purpose of using funds stored therein as inputs for
+  transactions (but ignore them for the purpose of PoS participation)
+\item optionally, not accept transactions to pointer addresses before
+  the referenced certificate has become immutable
+\end{itemize}
+
 \subsubsection{Enterprise Address}
 \label{enterprise-address}
 

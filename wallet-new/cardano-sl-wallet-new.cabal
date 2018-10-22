@@ -558,8 +558,7 @@ test-suite wallet-unit-tests
                     , random
                     , time
 
--- set this to test-suite
-executable wallet-sm-tests
+test-suite wallet-sm-tests
   ghc-options:        -Wall -O2 -threaded
   type:               exitcode-stdio-1.0
   main-is:            Spec.hs

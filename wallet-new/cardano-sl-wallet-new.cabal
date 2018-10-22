@@ -558,7 +558,10 @@ test-suite wallet-unit-tests
                     , random
                     , time
 
-test-suite wallet-sm-tests
+-- NOTE: my ghci (akegalj) doesn't like when this is test-suite
+-- "executable" will be changed to "test-suite" when development
+-- is nearly over
+executable wallet-sm-tests
   ghc-options:        -Wall -O2 -threaded
   type:               exitcode-stdio-1.0
   main-is:            Spec.hs

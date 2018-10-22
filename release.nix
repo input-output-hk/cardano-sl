@@ -60,7 +60,6 @@ let
     cardano-sl-tools = supportedSystems;
     cardano-sl-tools-post-mortem = supportedSystems;
     cardano-sl-util = supportedSystems;
-    cardano-sl-wallet = supportedSystems;
     cardano-sl-wallet-new = supportedSystems;
     cardano-sl-x509 = supportedSystems;
     daedalus-bridge = supportedSystems;

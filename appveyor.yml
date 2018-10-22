@@ -80,7 +80,6 @@ before_test:
 # After some investigation, it was discovered that this was because 'rocksdb.dll' has to be located in this folder as well, or else the test executable doesn't work.
 - copy rocksdb.dll node
 - copy rocksdb.dll lib
-- copy rocksdb.dll wallet
 - copy rocksdb.dll wallet-new
 
 # Install liblzma/xz
@@ -108,14 +107,13 @@ test_script:
 #   - stack hpc report cardano-sl cardano-sl-txp cardano-sl-core cardano-sl-db cardano-sl-update cardano-sl-infra cardano-sl-lrc cardano-sl-ssc
 # Retry transient failures due to https://github.com/haskell/cabal/issues/4005
   # We intentionally don't build auxx here, because this build is for installer.
-  - scripts\ci\appveyor-retry call stack --dump-logs install cardano-sl cardano-sl-tools cardano-sl-wallet cardano-sl-wallet-new
+  - scripts\ci\appveyor-retry call stack --dump-logs install cardano-sl cardano-sl-tools cardano-sl-wallet-new
       -j 3
       --no-terminal
       --local-bin-path %WORK_DIR%
       --no-haddock-deps
       --flag cardano-sl-core:-asserts
       --flag cardano-sl-tools:for-installer
-      --flag cardano-sl-wallet:for-installer
       --extra-include-dirs="C:\OpenSSL-Win64-v102\include"
       --extra-lib-dirs="C:\OpenSSL-Win64-v102"
       --extra-include-dirs="C:\xz_extracted\include"

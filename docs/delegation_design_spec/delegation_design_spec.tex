@@ -412,20 +412,6 @@ pool operators.
 
 \section{User Stories}
 \label{user-stories}
-
-\subsection{Basic Delegation User Stories}
-\label{basic-delegation-user-stories}
-
-\todo{Add User Stories}
-
-\subsection{User Stories Related to Incentives}
-\label{user-stories-related-to-incentives}
-
-\begin{description}
-\item[CDEC-92] Stake Pool Operator Performance Incentives
-\item[CDEC-91] Optimal stake distribution
-\end{description}
-
 \todo{Add User Stories}
 
 \section{Design of Delegation}
@@ -1289,7 +1275,6 @@ UTxO, the stake key hash is given directly, so this need only be
 filtered by the current set of registered stake keys. For pointer
 addresses in the UTxO we select those where their pointer points to a
 currently registered stake key and select the associated stake key hash.
-\todo{state this formally as well.}
 
 \subsubsection{Stake Key Delegation Relation}
 \label{stake-key-delegation-relation}
@@ -1302,7 +1287,6 @@ The relation is defined by the active set of heavyweight delegation
 certificates, filtered by the set of active stake pools. The active
 heavyweight delegation certificates already excludes those where the
 source stake key has been de-registered.
-\todo{state this formally as well.}
 
 \subsubsection{Overall Stake Distribution}
 \label{overall-stake-distribution}
@@ -1319,7 +1303,6 @@ relation and the stake key delegation relation, giving the relation
 between addresses and stake pools. The final distribution is formed by
 taking the transaction outputs from the UTxO and selecting all the
 addresses related to each stake pool and aggregating all the coins.
-\todo{state this formally as well.}
 
 Note that defining the stake distribution in this way is in contrast to
 using the follow the Satoshi algorithm. This definition automatically

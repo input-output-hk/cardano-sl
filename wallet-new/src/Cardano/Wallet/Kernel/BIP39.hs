@@ -31,9 +31,6 @@ module Cardano.Wallet.Kernel.BIP39
        , mnemonicToAesKey
        , entropyToMnemonic
        , entropyToByteString
-
-       -- * Helper (FIXME: Move to a separated module)
-       , eitherToParser
        ) where
 
 import           Universum
@@ -44,36 +41,28 @@ import           Control.Lens ((?~))
 import           Crypto.Encoding.BIP39
 import           Crypto.Hash (Blake2b_256, Digest, hash)
 import           Data.Aeson (FromJSON (..), ToJSON (..))
-import           Data.Aeson.Types (Parser)
 import           Data.ByteArray (constEq, convert)
 import           Data.ByteString (ByteString)
 import           Data.Default (Default (def))
 import           Data.Swagger (NamedSchema (..), ToSchema (..), maxItems,
                      minItems)
-import           Formatting (bprint, build, formatToString, (%))
+import           Formatting (bprint, build, (%))
+import           Test.QuickCheck (Arbitrary (..))
+import           Test.QuickCheck.Gen (vectorOf)
+
+import           Cardano.Wallet.Util (eitherToParser)
 import           Pos.Binary (serialize')
 import           Pos.Crypto (AesKey (..))
 import           Pos.Infra.Util.LogSafe (SecureLog)
-import           Test.QuickCheck (Arbitrary (..))
---import           Test.QuickCheck.Gen (vectorOf)
 
 import qualified Basement.Compat.Base as Basement
 import qualified Basement.String as Basement
 import qualified Basement.UArray as Basement
 import qualified Crypto.Encoding.BIP39.English as Dictionary
 import qualified Crypto.Random.Entropy as Crypto
---import qualified Data.ByteString.Char8 as B8
+import qualified Data.ByteString.Char8 as B8
 import qualified Formatting.Buildable
 
-
--- This module the new (and identical) Pos.Util.Mnemonic
--- Dependency on the old wallet is not fully removed yet, so we get problems
--- with duplicate instance declarations. The easiest solution was to comment
--- instances here and import the ones from the old wallet.
---
--- TODO: Uncomment instances in this module and remove this import when
--- possible.
-import           Pos.Util.Mnemonic ()
 
 --
 -- TYPES
@@ -257,21 +246,21 @@ fromUtf8String =
     toText . Basement.toList
 
 
---- | The initial seed has to be vector or length multiple of 4 bytes and shorter
---- than 64 bytes. Not that this is good for testing or examples, but probably
---- not for generating truly random Mnemonic words.
----
---- See 'Crypto.Random.Entropy (getEntropy)'
--- instance
---     ( ValidEntropySize n
---     , ValidChecksumSize n csz
---     ) => Arbitrary (Entropy n) where
---     arbitrary =
---         let
---             size    = fromIntegral $ natVal (Proxy @n)
---             entropy = mkEntropy  @n . B8.pack <$> vectorOf (size `quot` 8) arbitrary
---         in
---             either (error . show . UnexpectedEntropyError) identity <$> entropy
+-- | The initial seed has to be vector or length multiple of 4 bytes and shorter
+-- than 64 bytes. Not that this is good for testing or examples, but probably
+-- not for generating truly random Mnemonic words.
+--
+-- See 'Crypto.Random.Entropy (getEntropy)'
+instance
+    ( ValidEntropySize n
+    , ValidChecksumSize n csz
+    ) => Arbitrary (Entropy n) where
+    arbitrary =
+        let
+            size    = fromIntegral $ natVal (Proxy @n)
+            entropy = mkEntropy  @n . B8.pack <$> vectorOf (size `quot` 8) arbitrary
+        in
+            either (error . show . UnexpectedEntropyError) identity <$> entropy
 
 
 -- Same remark from 'Arbitrary Entropy' applies here.
@@ -367,10 +356,6 @@ instance
     ) => FromJSON (Mnemonic mw) where
     parseJSON =
         parseJSON >=> (eitherToParser . mkMnemonic)
-
-eitherToParser :: Buildable a => Either a b -> Parser b
-eitherToParser =
-    either (fail . formatToString build) pure
 
 
 instance ToJSON (Mnemonic mw) where

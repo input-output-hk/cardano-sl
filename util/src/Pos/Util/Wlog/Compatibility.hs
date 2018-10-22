@@ -161,6 +161,10 @@ class HasLoggerName m where
                            => (LoggerName -> LoggerName) -> m a -> m a
   modifyLoggerName f = hoist (modifyLoggerName f)
 
+instance HasLoggerName IO where
+    askLoggerName    = pure "*production*"
+    modifyLoggerName = const id
+
 instance (Monad m, HasLoggerName m) => HasLoggerName (StateT a m)
 instance (Monad m, HasLoggerName m) => HasLoggerName (StateLazy.StateT a m)
 instance (Monad m, HasLoggerName m) => HasLoggerName (ReaderT a m)

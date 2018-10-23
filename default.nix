@@ -226,6 +226,8 @@ let
       explorer = self.connect { inherit environment; executable = "explorer"; };
     });
 
+    # Produces a script which starts a cluster of core nodes and a
+    # relay, then connects an edge node (wallet) to it.
     demoCluster = self.callPackage ./scripts/launch/demo-cluster {
       inherit useStackBinaries;
       inherit (self.cardanoPackages)
@@ -247,9 +249,11 @@ let
 
     validateJson = self.callPackage ./tools/src/validate-json {};
 
-    # Add a shell attribute so that it can be built and cached by Hydra.
-    shell = import ./shell.nix { inherit system config pkgs; iohkPkgs = self; };
-
+    # Add a shell attributes so these can be built and cached by Hydra.
+    shells = {
+      cabal = import ./shell.nix { inherit system config pkgs; iohkPkgs = self; };
+      stack = import ./nix/stack-shell.nix { inherit system config pkgs; iohkPkgs = self; };
+    };
 
     ####################################################################
     # Version info

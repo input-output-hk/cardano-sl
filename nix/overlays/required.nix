@@ -2,7 +2,7 @@
 
 with pkgs.haskell.lib;
 
-with (import ../../lib.nix);
+with import ../../lib.nix;
 
 let
   addRealTimeTestLogs = drv: overrideCabal drv (attrs: {

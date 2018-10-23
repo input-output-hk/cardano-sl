@@ -1,4 +1,4 @@
-with (import ./../../../lib.nix);
+with import ../../../lib.nix;
 
 { stdenv, runCommand, writeText, writeScript
 , jq, coreutils, curl, gnused, openssl
@@ -43,8 +43,14 @@ let
       cp -vi ${cardano-sl.src + "/mainnet-genesis.json"} mainnet-genesis.json
     '';
 
+  prepareGenesis = callPackage ../../prepare-genesis {
+    inherit numCoreNodes stateDir;
+    configurationKey = "testnet_full";
+    configurationKeyLaunch = "testnet_launch";
+  };
+
 in writeScript "demo-cluster" ''
-  #!${stdenv.shell}
+  #!${stdenv.shell} -e
   export PATH=${stdenv.lib.makeBinPath allDeps}:$PATH
   export DEMO_STATE_DIR=${stateDir}
   export DEMO_CONFIGURATION_FILE=${configFiles}/configuration.yaml
@@ -112,7 +118,11 @@ in writeScript "demo-cluster" ''
     fi
   ''}
   ${ifKeepAlive ''
-    echo "The demo cluster has started and will stop when you exit with Ctrl-C. Log files are in ${stateDir}/logs."
+    echo "The demo cluster has started and will stop when you exit with Ctrl-C."
+    echo "Log files are in ${stateDir}/logs."
+    ${ifWallet ''
+    echo "Use ${stateDir}/curl to make requests to the wallet."
+    ''}
     sleep infinity
   ''}
 ''

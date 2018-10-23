@@ -1,52 +1,57 @@
-{ system ? builtins.currentSystem
-, config ? {}
-, iohkPkgs ? import ./. {inherit config system; }
-, pkgs ? iohkPkgs.pkgs
-}:
-with pkgs;
-let
-  localLib = import ./lib.nix;
+########################################################################
+# shell.nix -- development environment
+#
+# This provides all system and haskell dependencies required to build
+# the cardano-sl haskell packages with stack and cabal.
+#
+# To get a repl for cardano-sl-wallet-new with stack:
+#
+#     nix-shell
+#     stack ghci cardano-sl-wallet-new
+#
+# To get a repl for cardano-sl-wallet-new with cabal:
+#
+#     nix-shell
+#     cabal new-repl cardano-sl-wallet-new
+#
+# To run stylish-haskell over your code:
+#
+#     nix-shell -A fixStylishHaskell
+#
+#########################################################################
 
+args@
+{ iohkPkgs ? import ./. (removeAttrs args ["iohkPkgs" "pkgs"])
+, pkgs ? iohkPkgs.pkgs
+, ...
+}:
+
+with pkgs;
+with import ./lib.nix;
+
+let
   # Filters a haskell package set and returns only the packages which
   # are (transitive) dependencies of the cardano-sl packages.
   getCardanoSLDeps = with lib; let
-    notCardano = drv: !(localLib.isCardanoSL drv.name);
-    isTopLevel = name: drv: localLib.isCardanoSL name && (drv ? "override");
+    notCardano = drv: !(isCardanoSL drv.name);
+    isTopLevel = name: drv: isCardanoSL name && (drv ? "override");
     getTopLevelDrvs = ps: attrValues (filterAttrs isTopLevel ps);
     sorted = ps: attrValues (listToAttrs (map (drv: { name = drv.pname; value = drv; }) ps));
   in
     ps: sorted (filter notCardano (concatMap haskell.lib.getHaskellBuildInputs (getTopLevelDrvs ps)));
 
-  ghc = iohkPkgs.ghc.withPackages getCardanoSLDeps;
+  ghc = iohkPkgs.haskellPackages.ghc.withPackages getCardanoSLDeps;
 
-  stackDeps = [
-    zlib openssh autoreconfHook openssl
-    gmp rocksdb git bsdiff ncurses lzma
-    perl bash
-  ];
   # TODO: add cabal-install (2.0.0.1 won't work)
-  devTools = [ hlint iohkPkgs.haskellPackages.stylish-haskell ];
+  devTools = [ hlint iohkPkgs.haskellPackages.stylish-haskell stack ];
 
-  cardanoSL = haskell.lib.buildStackProject {
-    inherit (haskell.packages.ghc822) ghc;
-    name = "cardano-sl-env";
-
-    buildInputs = devTools ++ stackDeps
-      # cabal-install and stack pull in lots of dependencies on OSX so skip them
-      # See https://github.com/NixOS/nixpkgs/issues/21200
-      ++ (lib.optionals stdenv.isLinux [ stack ])
-      ++ (lib.optionals stdenv.isDarwin (with darwin.apple_sdk.frameworks; [ Cocoa CoreServices libcxx libiconv ]));
-
-    phases = ["nobuildPhase"];
-    nobuildPhase = "mkdir -p $out";
-  };
-
-  forCabal = mkShell {
+  shell = mkShell {
     name = "cardano-sl-env";
     buildInputs = [ ghc ] ++ devTools;
     shellHook = lib.optionalString lib.inNixShell ''
       eval "$(egrep ^export ${ghc}/bin/ghc)"
     '';
+    nobuildPhase = "mkdir $out";
   };
 
   fixStylishHaskell = stdenv.mkDerivation {
@@ -81,6 +86,11 @@ let
   in
     pkgs.writeText "cabal.project.freeze" contents;
 
-in cardanoSL // {
-  inherit fixStylishHaskell cabalProjectFreeze forCabal;
+  # Environments for each cardano-sl package with nix-built dependencies.
+  # These are useful if using cabal (old-build) and only working on a single package.
+  packageShells = mapAttrs (_: drv: drv.env)
+    (filterAttrs (name: _: isCardanoSL name) iohkPkgs.haskellPackages);
+
+in shell // packageShells // {
+  inherit fixStylishHaskell cabalProjectFreeze;
 }

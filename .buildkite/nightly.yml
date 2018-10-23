@@ -1,28 +1,10 @@
 steps:
-  # - label: 'Acceptance Tests - mainnet - quick'
-  #   env:
-  #     CARDANO_STATE_DIR: "./state-acceptance-tests-mainnet-quick"
-  #   command: "$(nix-build -A acceptanceTests.mainnet.quick)"
-  #   timeout_in_minutes: 120
-
-  # - wait
-
   - label: 'Acceptance Tests - mainnet - full'
     command:
       - nix-build -A acceptanceTests.mainnet.full -o acceptance-tests-mainnet-full.sh
       - echo "+++ Syncing mainnet blockchain"
       - ./acceptance-tests-mainnet-full.sh
     timeout_in_minutes: 120
-
-  - wait
-
-  # - label: 'Acceptance Tests - testnet - quick'
-  #   env:
-  #     CARDANO_STATE_DIR: "./state-acceptance-tests-testnet-quick"
-  #   command: "$(nix-build -A acceptanceTests.testnet.quick)"
-  #   timeout_in_minutes: 120
-
-  # - wait
 
   - label: 'Acceptance Tests - testnet - full'
     command:

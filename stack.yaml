@@ -211,7 +211,7 @@ packages:
   extra-dep: true
 
 nix:
-  shell-file: shell.nix
+  shell-file: nix/stack-shell.nix
 
 extra-deps:
 # Needed to fix an issue with CTX_INIT failing to build on newer openssl

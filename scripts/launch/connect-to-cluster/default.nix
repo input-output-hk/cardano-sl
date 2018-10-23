@@ -1,6 +1,6 @@
-with (import ./../../../lib.nix);
+with import ../../../lib.nix;
 
-{ stdenv, writeText, writeScript
+{ stdenv, writeText, writeScript, curl
 
 , cardano-sl-wallet-new-static, cardano-sl-explorer-static, cardano-sl-tools-static
 , cardano-sl-config
@@ -54,16 +54,47 @@ let
     "--configuration-key ${env.confKey}"
   ];
 
-in writeScript "${executable}-connect-to-${environment}" ''
-  #!${stdenv.shell} -e
+  curlScript = writeScript "curl-wallet-${environment}" ''
+    #!${stdenv.shell}
 
-  if [[ "$1" == "--delete-state" ]]; then
+    request_path=$1
+    shift
+
+    if [ -z "$request_path" ]; then
+    >&2 cat <<EOF
+    usage: ${stateDir}/curl REQUEST_PATH [ OPTIONS ]
+
+    Wrapper script to make HTTP requests to the wallet.
+    All the normal curl options apply.
+
+    Examples:
+      ${stateDir}/curl api/v1/node-info -i
+      ${stateDir}/curl api/v1/wallets -d '{ ... }' | jq .
+
+    EOF
+    fi
+
+    exec ${curl}/bin/curl --silent                       \
+      --cacert ${stateDir}/tls/client/ca.crt             \
+      --cert ${stateDir}/tls/client/client.pem           \
+      -H 'cache-control: no-cache'                       \
+      -H "Accept: application/json; charset=utf-8"       \
+      -H "Content-Type: application/json; charset=utf-8" \
+      "https://${walletListen}/$request_path" "$@"
+  '';
+
+in writeScript "${executable}-connect-to-${environment}" ''
+  #!${stdenv.shell}
+
+  set -euo pipefail
+
+  if [[ "''${1-}" == "--delete-state" ]]; then
     echo "Deleting ${stateDir} ... "
     rm -Rf ${stateDir}
     shift
   fi
-  if [[ "$1" == "--runtime-args" ]]; then
-    RUNTIME_ARGS=$2
+  if [[ "''${1-}" == "--runtime-args" ]]; then
+    RUNTIME_ARGS="''${2-}"
     shift 2
   else
     RUNTIME_ARGS=""
@@ -77,30 +108,31 @@ in writeScript "${executable}-connect-to-${environment}" ''
   ${utf8LocaleSetting}
   if [ ! -d ${stateDir}/tls ]; then
     mkdir -p ${stateDir}/tls/server && mkdir -p ${stateDir}/tls/client
-    ${executables.x509gen}                                     \
+    ${executables.x509gen}                                       \
       --server-out-dir ${stateDir}/tls/server                    \
       --clients-out-dir ${stateDir}/tls/client                   \
       ${configurationArgs}
   fi
+  ln -sf ${curlScript} ${stateDir}/curl
   ''}
 
-  exec ${executables.${executable}}                                     \
-    ${configurationArgs}                                           \
-    ${ ifWallet "--tlscert ${stateDir}/tls/server/server.crt"}     \
-    ${ ifWallet "--tlskey ${stateDir}/tls/server/server.key"}      \
-    ${ ifWallet "--tlsca ${stateDir}/tls/server/ca.crt"}           \
-    --log-config ${cardano-sl-config}/log-configs/connect-to-cluster.yaml \
+  exec ${executables.${executable}}                                                    \
+    ${configurationArgs}                                                               \
+    ${ ifWallet "--tlscert ${stateDir}/tls/server/server.crt"}                         \
+    ${ ifWallet "--tlskey ${stateDir}/tls/server/server.key"}                          \
+    ${ ifWallet "--tlsca ${stateDir}/tls/server/ca.crt"}                               \
+    --log-config ${cardano-sl-config}/log-configs/connect-to-cluster.yaml              \
     --topology "${if topologyFile != null then topologyFile else topologyFileDefault}" \
-    --logs-prefix "${stateDir}/logs"                               \
-    --db-path "${stateDir}/db"   ${extraParams}                    \
-    ${ ifWallet "--wallet-db-path '${stateDir}/wallet-db' ${walletDataLayer}"} \
-    ${ ifDebug "--wallet-debug"}                                   \
-    ${ ifDisableClientAuth "--no-client-auth"}                     \
-    --keyfile ${stateDir}/secret.key                               \
-    ${ ifWallet "--wallet-address ${walletListen}" }               \
-    ${ ifWallet "--wallet-doc-address ${walletDocListen}" }        \
-    --ekg-server ${ekgListen} --metrics                            \
-    +RTS ${ghcRuntimeArgs} -RTS                                    \
-    ${additionalNodeArgs}                                          \
+    --logs-prefix "${stateDir}/logs"                                                   \
+    --db-path "${stateDir}/db"   ${extraParams}                                        \
+    ${ ifWallet "--wallet-db-path '${stateDir}/wallet-db' ${walletDataLayer}"}         \
+    ${ ifDebug "--wallet-debug"}                                                       \
+    ${ ifDisableClientAuth "--no-client-auth"}                                         \
+    --keyfile ${stateDir}/secret.key                                                   \
+    ${ ifWallet "--wallet-address ${walletListen}" }                                   \
+    ${ ifWallet "--wallet-doc-address ${walletDocListen}" }                            \
+    --ekg-server ${ekgListen} --metrics                                                \
+    +RTS ${ghcRuntimeArgs} -RTS                                                        \
+    ${additionalNodeArgs}                                                              \
     $RUNTIME_ARGS
 '' // { inherit walletListen walletDocListen ekgListen; }

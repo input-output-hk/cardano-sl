@@ -71,27 +71,29 @@ cache and nothing built locally.
    You can tell if the cache works by finding an output store path on
    [a Hydra build](https://hydra.iohk.io/job/serokell/cardano-sl/cardano-sl.x86_64-linux/latest#tabs-details),
    and then running `nix-store --realize PATH`. For example:
-   
+
    ```
    nix-store --realize /nix/store/ivapcjym0ar5mdx3jyf1p6d3m2zzmajn-cardano-sl-1.3.0
    ```
 
-   If this doesn't work, review the your settings with:
-   
+   If this doesn't work, review your settings with:
+
    ```
    nix show-config | egrep '(subst|keys)'
    ```
 
-2. If building from `cardano-sl`, check for extra files in package sub
-   directories. Run `git clean -nd` to see what to delete.
+2. Check for extra files in package sub-directories. Run `git clean
+   -nd` to see what to delete.
 
-   Common things which defeat the cache are things like benchmark results.
+   Common things which defeat the cache are things like benchmark
+   results or files left behind after running tests.
+
    Run `git clean -ndX` to see what else to delete.
 
 ### Multi User Nix Installation
 
 You can tell if Nix is installed in multi user mode by checking the
-ownership of `/nix/store`. The owner:group should be `root:nixbld`.
+ownership of `/nix/store`. The `owner:group` should be `root:nixbld`.
 
 Additionally, the `nix-daemon` service will be running in a multi user
 Nix installation.
@@ -100,7 +102,7 @@ Nix installation.
 ### How to update the `src.json` files
 
 We pin versions to exact revisions and put these revisions, and their
-SHA256 hash into little json files. To recalculate the hash, use
+SHA-256 hash into little json files. To recalculate the hash, use
 `nix-prefetch-git` according to
 [this procedure](https://github.com/input-output-hk/internal-documentation/wiki/Daedalus#q-how-to-change-cardano-sl-version-for-daedalus).
 

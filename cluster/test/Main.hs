@@ -40,16 +40,25 @@ main = evalResults
     ]
 
 
--- NOTE running 'quickCheck prop' doesn't make 'cabal test' fails
--- even if the property fails. So this little one cope with this
--- by running all specs and failing if one of them returned a failure.
+-- NOTE: running 'quickCheck prop' doesn't make 'cabal test' fail
+-- even if the property fails. This function runs all the properties and
+-- fails if one or more them returned a failure.
 evalResults :: [IO (String, Result)] -> IO ()
-evalResults =
-    sequence >=> (mapM_ $ \case
-        (_, Success {}) -> return ()
-        (p, _)          -> putTextLn (nice p) >> exitFailure)
+evalResults xs = do
+    ys <- sequence xs
+    case filter (not . isSuccess . snd) ys of
+        [] -> pure ()
+        zs -> do
+            putTextLn "\nThe following tests failed:"
+            mapM_ (\p -> putTestFailure $ fst p) zs
+            exitFailure
   where
-    nice p = toText ("Property failed: prop_" <> p)
+    putTestFailure p =
+        putTextLn $ "  prop_" <> toText p
+
+    -- This is in QuickCheck 2.12, but not the version suggested by stack.
+    isSuccess Success{} = True
+    isSuccess _         = False
 
 prop :: Testable prop => String -> prop -> IO (String, Result)
 prop lbl p =

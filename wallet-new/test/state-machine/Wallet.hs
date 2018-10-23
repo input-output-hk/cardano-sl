@@ -61,6 +61,7 @@ data Action (r :: * -> *)
     | CreateWalletA WL.CreateWallet
     | GetWalletsA
     | GetWalletA V1.WalletId
+    | UpdateWalletA V1.WalletId V1.WalletUpdate
     deriving (Show, Generic1, Rank2.Functor, Rank2.Foldable, Rank2.Traversable)
 
 data Response (r :: * -> *)
@@ -68,6 +69,7 @@ data Response (r :: * -> *)
     | CreateWalletR (Either WL.CreateWalletError V1.Wallet)
     | GetWalletsR (DB.IxSet V1.Wallet)
     | GetWalletR (Either WL.GetWalletError V1.Wallet)
+    | UpdateWalletR (Either WL.UpdateWalletError V1.Wallet)
     deriving (Show, Generic1, Rank2.Foldable)
 
 
@@ -112,11 +114,15 @@ deriving instance ToExpr (Model Concrete)
 initModel :: Model r
 initModel = Model []
 
+-- TODO: make smarter preconditions. We currently don't use it as we
+-- are weighting more closely distribution with `generator` function.
+-- If you need more fine grained distribution, use preconditions
 preconditions :: Model Symbolic -> Action Symbolic -> Logic
-preconditions _ ResetWalletA      = Top
-preconditions _ (CreateWalletA _) = Top
-preconditions _ GetWalletsA       = Top
-preconditions _ (GetWalletA _)    = Top
+preconditions _ ResetWalletA        = Top
+preconditions _ (CreateWalletA _)   = Top
+preconditions _ GetWalletsA         = Top
+preconditions _ (GetWalletA _)      = Top
+preconditions _ (UpdateWalletA _ _) = Top
 
 transitions :: Model r -> Action r -> Response r -> Model r
 transitions model@Model{..} cmd res = case cmd of
@@ -129,6 +135,11 @@ transitions model@Model{..} cmd res = case cmd of
     -- TODO: handle monadic exception?
     GetWalletsA -> model
     GetWalletA _ -> model
+    UpdateWalletA wId V1.WalletUpdate{..} ->
+        let thisWallet = (wId ==) . V1.walId
+            updatedWallets = map update $ filter thisWallet mWallets
+            update w = w { V1.walAssuranceLevel = uwalAssuranceLevel, V1.walName = uwalName }
+        in model { mWallets = updatedWallets <> filter (not . thisWallet) mWallets }
 
 postconditions :: Model Concrete -> Action Concrete -> Response Concrete -> Logic
 postconditions _ ResetWalletA ResetWalletR                          = Top
@@ -141,6 +152,10 @@ postconditions Model{..} GetWalletsA (GetWalletsR wallets) = DB.fromList mWallet
 postconditions Model{..} (GetWalletA wId) (GetWalletR (Left _)) = Predicate $ NotElem wId (map V1.walId mWallets)
 -- TODO: also check is returned wallet similar to the one fined in a model
 postconditions Model{..} (GetWalletA wId) (GetWalletR (Right _)) = Predicate $ Elem wId (map V1.walId mWallets)
+postconditions Model{..} (UpdateWalletA wId _) (UpdateWalletR (Left _)) = Predicate $ NotElem wId (map V1.walId mWallets)
+-- TODO: also check does updated wallet contain all relevant info
+postconditions Model{..} (UpdateWalletA wId _) (UpdateWalletR (Right _)) = Predicate $ Elem wId (map V1.walId mWallets)
+-- FIXME: don't catch all errors with this this catch-all match!
 postconditions _ _ _ =  error "This postcondition should not be reached!"
 
 ------------------------------------------------------------------------
@@ -166,10 +181,14 @@ generator Model{..} = frequency
     , (5, CreateWalletA . WL.CreateWallet <$> genNewWalletRq)
     -- TODO: add generator for importing wallet from secret key
     , (5, pure GetWalletsA)
-    -- This tests fetching mostly wallets
+    -- This tests fetching existing wallet (except when there is no wallets in model)
     , (4, GetWalletA . V1.walId <$> oneof (arbitrary:map pure mWallets))
     -- This tests fetching probably non existing wallet
     , (1, GetWalletA <$> arbitrary)
+    -- This tests updates existing wallets (except when there is no wallets)
+    , (4, UpdateWalletA . V1.walId <$> oneof (arbitrary:map pure mWallets) <*> arbitrary)
+    -- This tests updating non existing wallet
+    , (1, UpdateWalletA <$> arbitrary <*> arbitrary)
     ]
 
 shrinker :: Action Symbolic -> [Action Symbolic]
@@ -186,6 +205,7 @@ semantics pwl _ cmd = case cmd of
     CreateWalletA cw -> CreateWalletR <$> WL.createWallet pwl cw
     GetWalletsA -> GetWalletsR <$> WL.getWallets pwl
     GetWalletA wId -> GetWalletR <$> WL.getWallet pwl wId
+    UpdateWalletA wId update -> UpdateWalletR <$> WL.updateWallet pwl wId update
 
 -- TODO: reuse withLayer function defined in wallet-new/test/unit/Test/Spec/Fixture.hs
 withWalletLayer
@@ -206,6 +226,7 @@ withWalletLayer cc = do
     devNull :: Severity -> Text -> IO ()
     devNull _ _ = return ()
 
+-- NOTE: I was not sure how library exactly uses mock so there is an explanation here https://github.com/advancedtelematic/quickcheck-state-machine/issues/236#issuecomment-431858389
 mock :: Model Symbolic -> Action Symbolic -> GenSym (Response Symbolic)
 mock _ ResetWalletA      = pure ResetWalletR
 -- TODO: add mocking up creating an actual wallet
@@ -217,6 +238,14 @@ mock Model{..} (GetWalletA wId) =
     let mExists = safeHead $ filter ((wId ==) . V1.walId) mWallets
         response = maybe (Left $ WL.GetWalletErrorNotFound wId) Right mExists
     in pure $ GetWalletR response
+-- TODO: model other error paths?
+mock Model{..} (UpdateWalletA wId V1.WalletUpdate{..}) =
+    let thisWallet = (wId ==) . V1.walId
+        update w = w { V1.walAssuranceLevel = uwalAssuranceLevel, V1.walName = uwalName }
+        mExists = update <$> safeHead (filter thisWallet mWallets)
+        response = maybe (Left $ WL.UpdateWalletErrorNotFound wId) Right mExists
+    in pure $ UpdateWalletR response
+
 
 ------------------------------------------------------------------------
 

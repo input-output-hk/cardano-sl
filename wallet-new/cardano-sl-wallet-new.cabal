@@ -368,6 +368,7 @@ executable wal-integr-test
                        WalletSpecs
                        AccountSpecs
                        AddressSpecs
+                       HardwareWalletSpecs
                        RandomStateWalk
                        SetupTestEnv
                        TransactionSpecs
@@ -380,8 +381,10 @@ executable wal-integr-test
                      , aeson-pretty
                      , async
                      , bytestring
+                     , cardano-crypto
                      , cardano-sl
                      , cardano-sl-core
+                     , cardano-sl-crypto
                      , cardano-sl-chain
                      , cardano-sl-util
                      , cardano-sl-wallet
@@ -393,9 +396,11 @@ executable wal-integr-test
                      , http-client
                      , http-types
                      , lens
+                     , memory
                      , mtl
                      , optparse-applicative
                      , pretty-show
+                     , serokell-util
                      , servant
                      , servant-client
                      , servant-quickcheck

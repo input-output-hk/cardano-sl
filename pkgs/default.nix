@@ -18390,9 +18390,11 @@ aeson-pretty
 async
 base
 bytestring
+cardano-crypto
 cardano-sl
 cardano-sl-chain
 cardano-sl-core
+cardano-sl-crypto
 cardano-sl-db
 cardano-sl-infra
 cardano-sl-networking
@@ -18405,10 +18407,12 @@ hspec
 http-client
 http-types
 lens
+memory
 mtl
 optparse-applicative
 pretty-show
 QuickCheck
+serokell-util
 servant
 servant-client
 servant-quickcheck

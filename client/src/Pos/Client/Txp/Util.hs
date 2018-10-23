@@ -562,8 +562,8 @@ prepareInpsOuts
     -> AddrData m
     -> TxCreator m (TxOwnedInputs TxOut, TxOutputs)
 prepareInpsOuts genesisConfig pendingTx utxo outputs addrData = do
-    let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
     txRaw@TxRaw {..} <- prepareTxWithFee genesisConfig pendingTx utxo outputs
+    let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
     outputsWithRem <-
         mkOutputsWithRem nm (configEpochSlots genesisConfig) addrData txRaw
     pure (trInputs, outputsWithRem)
@@ -826,15 +826,15 @@ stabilizeTxFee genesisConfig pendingTx linearPolicy utxo outputs = do
                      -> TxCreator m $ Maybe (S.ArgMin TxFee TxRaw)
     stabilizeTxFeeDo (_, 0) _ = pure Nothing
     stabilizeTxFeeDo (isSecondStage, attempt) expectedFee = do
-        let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
         txRaw <- prepareTxRaw pendingTx utxo outputs expectedFee
+        let pm = configProtocolMagic genesisConfig
+            nm = makeNetworkMagic pm
         fakeChangeAddr <- lift . lift $ getFakeChangeAddress nm $ configEpochSlots
             genesisConfig
         txMinFee <- txToLinearFee linearPolicy $ createFakeTxFromRawTx
-            (configProtocolMagic genesisConfig)
+            pm
             fakeChangeAddr
             txRaw
-
         let txRawWithFee = S.Min $ S.Arg expectedFee txRaw
         let iterateDo step = stabilizeTxFeeDo step txMinFee
         case expectedFee `compare` txMinFee of

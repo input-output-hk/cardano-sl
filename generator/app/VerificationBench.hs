@@ -78,8 +78,8 @@ generateBlocks :: HasConfigurations
                -> BlockCount
                -> BlockTestMode (OldestFirst NE Block)
 generateBlocks genesisConfig secretKeys txpConfig bCount = do
-    let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
     g <- liftIO $ newStdGen
+    let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
     bs <- flip evalRandT g $ genBlocks genesisConfig txpConfig
             (BlockGenParams
                 { _bgpSecrets = mkAllSecretsSimple nm secretKeys

@@ -19,7 +19,6 @@ import           Pos.Util.Wlog (Severity)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.InjectFail (mkFInjects)
 
-import           Test.Pos.Configuration (withProvidedMagicConfig)
 import           Test.QuickCheck (arbitrary, frequency)
 import           Test.QuickCheck.Monadic (PropertyM, pick)
 
@@ -90,14 +89,13 @@ withActiveWalletFixture pm prepareFixtures cc = do
     liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
         mockFInjects <- mkFInjects mempty
         WalletLayer.Kernel.bracketPassiveWallet pm Kernel.UseInMemory devNull keystore mockNodeStateDef mockFInjects $ \passiveLayer passiveWallet -> do
-            withProvidedMagicConfig pm $ \_ _ _ -> do
-                WalletLayer.Kernel.bracketActiveWallet
-                        passiveLayer
-                        passiveWallet
-                        diffusion
-                    $ \activeLayer activeWallet -> do
-                        fixtures <- generateFixtures keystore activeWallet
-                        cc keystore activeLayer activeWallet fixtures
+            WalletLayer.Kernel.bracketActiveWallet
+                    passiveLayer
+                    passiveWallet
+                    diffusion
+                $ \activeLayer activeWallet -> do
+                    fixtures <- generateFixtures keystore activeWallet
+                    cc keystore activeLayer activeWallet fixtures
     where
         diffusion :: Kernel.WalletDiffusion
         diffusion = Kernel.WalletDiffusion {

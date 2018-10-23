@@ -31,9 +31,7 @@ import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 
 import           Test.Pos.Chain.Genesis.Dummy (dummyEpochSlots,
                      dummySlotSecurityParam)
-import           Test.Pos.Configuration (withProvidedMagicConfig)
 import           Test.Pos.Core.Arbitrary ()
-import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Infra.Arbitrary.Ssc ()
 import           Test.Pos.Util.QuickCheck.Property (qcIsJust)
 
@@ -49,7 +47,7 @@ runWithMagic rnm = do
         specBody pm
 
 specBody :: ProtocolMagic -> Spec
-specBody pm = withProvidedMagicConfig pm $ \_ _ _ -> describe "Ssc.VssCertData" $ do
+specBody _pm = describe "Ssc.VssCertData" $ do
     describe "verifyInsertVssCertData" $
         prop description_verifyInsertVssCertData verifyInsertVssCertData
     describe "verifyDeleteVssCertData" $
@@ -202,7 +200,8 @@ instance Arbitrary RollbackData where
                 thisEpoch <-
                     siEpoch . unflattenSlotId dummyEpochSlots <$>
                         choose (succ lastKEoSWord, rollbackFrom)
-                return $ mkVssCertificate dummyProtocolMagic sk binVssPK thisEpoch
+                pm <- arbitrary
+                return $ mkVssCertificate pm sk binVssPK thisEpoch
         certsToRollback <- nubOrdOn vcVssKey <$>
             vectorOf @VssCertificate certsToRollbackN rollbackGen
         return $ Rollback (SscGlobalState mempty mempty mempty goodVssCertData)

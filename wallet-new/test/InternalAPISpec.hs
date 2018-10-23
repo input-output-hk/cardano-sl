@@ -16,6 +16,7 @@ module InternalAPISpec (spec) where
 
 import           Universum
 
+import           Pos.Chain.Genesis as Genesis (Config)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 import           Pos.Wallet.Web.Account (genSaveRootKey)
@@ -50,13 +51,13 @@ runWithMagic rnm = do
 
 specBody :: ProtocolMagic -> Spec
 specBody pm = beforeAll_ setupTestLogging $
-    withProvidedMagicConfig pm $ \_ _ _ ->
+    withProvidedMagicConfig pm $ \genesisConfig _ _ ->
         describe "development endpoint" $
-        describe "secret-keys" $ modifyMaxSuccess (const 10) deleteAllSecretKeysSpec
+        describe "secret-keys" $ modifyMaxSuccess (const 10) (deleteAllSecretKeysSpec genesisConfig)
 
-deleteAllSecretKeysSpec :: (HasConfigurations) => Spec
-deleteAllSecretKeysSpec = do
-    walletPropertySpec "does remove all secret keys in debug mode mode" $ do
+deleteAllSecretKeysSpec :: (HasConfigurations) => Genesis.Config -> Spec
+deleteAllSecretKeysSpec genesisConfig = do
+    walletPropertySpec genesisConfig "does remove all secret keys in debug mode mode" $ do
         void $ lift $ genSaveRootKey mempty def
         sKeys <- lift getSecretKeysPlain
         assertProperty (not $ null sKeys)
@@ -67,7 +68,7 @@ deleteAllSecretKeysSpec = do
         assertProperty (null sKeys')
             "Oooops, secret keys not have been deleted in debug mode"
 
-    walletPropertySpec "does not delete secret keys in production mode" $ do
+    walletPropertySpec genesisConfig "does not delete secret keys in production mode" $ do
         void $ lift $ genSaveRootKey mempty def
         sKeys <- lift getSecretKeysPlain
         assertProperty (not $ null sKeys)

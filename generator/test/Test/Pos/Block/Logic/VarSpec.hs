@@ -26,7 +26,7 @@ import           Pos.Chain.Block (Blund, headerHash)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBootStakeholders, configEpochSlots)
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Core (ProtocolConstants (..))
+import           Pos.Core (ProtocolConstants (..), pcBlkSecurityParam)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      nonEmptyNewestFirst, nonEmptyOldestFirst,
                      splitAtNewestFirst, toNewestFirst, _NewestFirst)
@@ -50,7 +50,6 @@ import           Test.Pos.Block.Logic.Util (EnableTxPayload (..),
                      InplaceDB (..), bpGenBlock, bpGenBlocks,
                      bpGoToArbitraryState, getAllSecrets, satisfySlotCheck)
 import           Test.Pos.Block.Property (blockPropertySpec)
-import           Test.Pos.Chain.Genesis.Dummy (dummyK, dummyProtocolConstants)
 import           Test.Pos.Configuration (HasStaticConfigurations,
                      withStaticConfigurations)
 import           Test.Pos.Util.QuickCheck.Property (splitIntoChunks,
@@ -259,8 +258,10 @@ blockEventSuccessSpec txpConfig =
    and a few sheets of paper trying to figure out how to write it.
 -}
 
-genSuccessWithForks :: forall g m . (RandomGen g, Monad m) => BlockEventGenT g m ()
-genSuccessWithForks = do
+genSuccessWithForks :: forall g m . (RandomGen g, Monad m)
+                    => Genesis.Config
+                    -> BlockEventGenT g m ()
+genSuccessWithForks genesisConfig = do
     emitBlockApply BlockApplySuccess $ pathSequence mempty ["0"]
     generateFork "0" []
     emitBlockApply BlockApplySuccess $ pathSequence "0" ["1", "2"]
@@ -273,7 +274,8 @@ genSuccessWithForks = do
     generateFork basePath rollbackFork = do
         let
             forkLen    = length rollbackFork
-            wiggleRoom = fromIntegral dummyK - forkLen
+            k          = (pcBlkSecurityParam . configProtocolConstants) genesisConfig
+            wiggleRoom = fromIntegral k - forkLen
         stopFork <- byChance (if forkLen > 0 then 0.1 else 0)
         if stopFork
             then whenJust (nonEmptyNewestFirst rollbackFork) $
@@ -282,7 +284,7 @@ genSuccessWithForks = do
                 needRollback <-
                     -- forkLen=0                => needRollback 0%
                     -- forkLen=blkSecurityParam => needRollback 100%
-                    byChance (realToFrac $ forkLen Ratio.% fromIntegral dummyK)
+                    byChance (realToFrac $ forkLen Ratio.% fromIntegral k)
                 if needRollback
                     then do
                         retreat <- getRandomR (1, forkLen)
@@ -328,7 +330,7 @@ blockEventSuccessProp
 blockEventSuccessProp genesisConfig txpConfig = do
     scenario <- blockPropertyScenarioGen genesisConfig
                                          txpConfig
-                                         genSuccessWithForks
+                                         (genSuccessWithForks genesisConfig)
     let (scenario', checkCount) = enrichWithSnapshotChecking scenario
     when (checkCount <= 0) $ stopProperty $
         "No checks were generated, this is a bug in the test suite: " <>
@@ -419,15 +421,15 @@ singleForkProp :: HasConfigurations
                -> ForkDepth
                -> BlockProperty ()
 singleForkProp genesisConfig txpConfig fd = do
-    scenario <- blockPropertyScenarioGen genesisConfig txpConfig $ genSingleFork fd
+    scenario <- blockPropertyScenarioGen genesisConfig txpConfig $ genSingleFork genesisConfig fd
     runBlockScenarioAndVerify genesisConfig txpConfig scenario
 
 data ForkDepth = ForkShort | ForkMedium | ForkDeep
 
 genSingleFork :: forall g m . (RandomGen g, Monad m)
-              => ForkDepth -> BlockEventGenT g m ()
-genSingleFork fd = do
-    let k = pcK dummyProtocolConstants
+              => Genesis.Config -> ForkDepth -> BlockEventGenT g m ()
+genSingleFork genesisConfig fd = do
+    let k = pcK (configProtocolConstants genesisConfig)
     -- 'd' is how deeply in the chain the fork starts. In other words, it's how many
     -- blocks we're going to rollback (therefore must be >1).
     d <- getRandomR $ case fd of

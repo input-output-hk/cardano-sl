@@ -86,7 +86,6 @@ data PassiveWallet = PassiveWallet {
     , _wallets               :: AcidState DB
 
       -- | The protocol magic used by an `ActiveWallet` to make transactions.
-      -- TODO @intricate: is it suitable to move this here from `ActiveWallet`?
     , _walletProtocolMagic   :: ProtocolMagic
 
       -- | Database handle

@@ -4,7 +4,6 @@
 -- We are missing (MonadFail Gen), therfore [a,b,c,d] <- vectorOf 4 will trigger a warning with -compat
 module Test.Spec.Submission (
     spec
-  , dependentTransactions
   ) where
 
 import           Universum hiding (elems)
@@ -27,15 +26,14 @@ import qualified Formatting as F
 import           Formatting.Buildable (build)
 import qualified Pos.Chain.Txp as Txp
 import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
-import           Pos.Crypto (ProtocolMagic (..), ProtocolMagicId (..),
-                     RequiresNetworkMagic (..))
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 import           Pos.Crypto.Hashing (hash)
 import           Pos.Crypto.Signing.Safe (safeDeterministicKeyGen)
 import           Serokell.Util.Text (listJsonIndent)
 import qualified Test.Pos.Chain.Txp.Arbitrary as Txp
 
 import           Test.QuickCheck (Gen, Property, arbitrary, choose, conjoin,
-                     forAll, listOf, shuffle, vectorOf, (===))
+                     forAll, generate, listOf, shuffle, vectorOf, (===))
 import           Test.QuickCheck.Property (counterexample)
 import           Util.Buildable (ShowThroughBuild (..))
 import           Util.Buildable.Hspec
@@ -88,19 +86,23 @@ genSchedule maxRetries pending (Slot lowerBound) = do
                 e = ScheduleEvents [s] mempty
             in prependEvents slot e acc
 
-genWalletSubmissionState :: HdAccountId -> MaxRetries -> Gen WalletSubmissionState
-genWalletSubmissionState accId maxRetries = do
-    pending   <- M.singleton accId <$> genPending protocolMagic
+genWalletSubmissionState :: ProtocolMagic
+                         -> HdAccountId
+                         -> MaxRetries
+                         -> Gen WalletSubmissionState
+genWalletSubmissionState pm accId maxRetries = do
+    pending   <- M.singleton accId <$> genPending pm
     let slot  = Slot 0 -- Make the layer always start from 0, to make running the specs predictable.
     scheduler <- genSchedule maxRetries pending slot
     return $ WalletSubmissionState pending scheduler slot
 
-genWalletSubmission :: HdAccountId
+genWalletSubmission :: ProtocolMagic
+                    -> HdAccountId
                     -> MaxRetries
                     -> ResubmissionFunction
                     -> Gen WalletSubmission
-genWalletSubmission accId maxRetries rho =
-    WalletSubmission <$> pure rho <*> genWalletSubmissionState accId maxRetries
+genWalletSubmission pm accId maxRetries rho =
+    WalletSubmission <$> pure rho <*> genWalletSubmissionState pm accId maxRetries
 
 {-------------------------------------------------------------------------------
   Submission layer tests
@@ -171,15 +173,15 @@ instance Buildable LabelledTxAux where
 
 -- Generates 4 transactions A, B, C, D such that
 -- D -> C -> B -> A (C depends on B which depends on A)
-dependentTransactions :: Gen (LabelledTxAux, LabelledTxAux, LabelledTxAux, LabelledTxAux)
-dependentTransactions = do
+dependentTransactions :: ProtocolMagic -> Gen (LabelledTxAux, LabelledTxAux, LabelledTxAux, LabelledTxAux)
+dependentTransactions pm = do
     let emptyAttributes = Attributes () (UnparsedFields mempty)
     inputForA  <- (Txp.TxInUtxo <$> arbitrary <*> arbitrary)
     outputForA <- (Txp.TxOut <$> arbitrary <*> arbitrary)
     outputForB <- (Txp.TxOut <$> arbitrary <*> arbitrary)
     outputForC <- (Txp.TxOut <$> arbitrary <*> arbitrary)
     outputForD <- (Txp.TxOut <$> arbitrary <*> arbitrary)
-    [a,b,c,d] <- vectorOf 4 (Txp.genTxAux protocolMagic)
+    [a,b,c,d] <- vectorOf 4 (Txp.genTxAux pm)
     let a' = a { Txp.taTx = (Txp.taTx a) {
                      Txp._txInputs  = inputForA :| mempty
                    , Txp._txOutputs = outputForA :| mempty
@@ -213,14 +215,14 @@ dependentTransactions = do
 ---
 --- Pure generators, running in Identity
 ---
-genPureWalletSubmission :: HdAccountId -> Gen (ShowThroughBuild WalletSubmission)
-genPureWalletSubmission accId =
-    STB <$> genWalletSubmission accId 255 constantResubmit
+genPureWalletSubmission :: ProtocolMagic -> HdAccountId -> Gen (ShowThroughBuild WalletSubmission)
+genPureWalletSubmission pm accId =
+    STB <$> genWalletSubmission pm accId 255 constantResubmit
 
-genPurePair :: Gen (ShowThroughBuild (WalletSubmission, M.Map HdAccountId Pending))
-genPurePair = do
-    STB layer <- genPureWalletSubmission myAccountId
-    pending <- genPending protocolMagic
+genPurePair :: ProtocolMagic -> Gen (ShowThroughBuild (WalletSubmission, M.Map HdAccountId Pending))
+genPurePair pm = do
+    STB layer <- genPureWalletSubmission pm myAccountId
+    pending <- genPending pm
     let pending' = Pending.delete (toTxIdSet $ layer ^. localPendingSet myAccountId) pending
     pure $ STB (layer, M.singleton myAccountId pending')
 
@@ -277,12 +279,24 @@ addPending' :: M.Map HdAccountId Pending
             -> WalletSubmission
 addPending' m ws = M.foldlWithKey' (\acc k v -> addPending k v acc) ws m
 
+
 spec :: Spec
 spec = do
+    runWithMagic RequiresNoMagic
+    runWithMagic RequiresMagic
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm = do
     describe "Test wallet submission layer" $ do
 
       it "supports addition of pending transactions" $
-          forAll genPurePair $ \(unSTB -> (submission, toAdd)) ->
+          forAll (genPurePair pm) $ \(unSTB -> (submission, toAdd)) ->
               let currentSlot = submission ^. getCurrentSlot
                   submission' = addPending' toAdd submission
                   schedule = submission' ^. getSchedule
@@ -294,11 +308,11 @@ spec = do
                  ]
 
       it "supports deletion of pending transactions" $
-          forAll genPurePair $ \(unSTB -> (submission, toRemove)) ->
+          forAll (genPurePair pm) $ \(unSTB -> (submission, toRemove)) ->
               doesNotContainPending toRemove $ remPendingById myAccountId (toTxIdSet' toRemove) submission
 
       it "remPending . addPending = id" $
-          forAll genPurePair $ \(unSTB -> (submission, pending)) ->
+          forAll (genPurePair pm) $ \(unSTB -> (submission, pending)) ->
               let originallyPending = submission ^. localPendingSet myAccountId
                   currentlyPending  = view (localPendingSet myAccountId)
                                            (remPendingById myAccountId
@@ -308,7 +322,7 @@ spec = do
               in failIf "the two pending set are not equal" ((==) `on` Pending.transactions) originallyPending currentlyPending
 
       it "increases its internal slot after ticking" $ do
-          forAll (genPureWalletSubmission myAccountId) $ \(unSTB -> submission) ->
+          forAll (genPureWalletSubmission pm myAccountId) $ \(unSTB -> submission) ->
               let slotNow  = submission ^. getCurrentSlot
                   (_, _, ws') = tick submission
                   in failIf "internal slot didn't increase" (==) (ws' ^. getCurrentSlot) (mapSlot succ slotNow)
@@ -325,7 +339,7 @@ spec = do
               ]
 
       it "limit retries correctly" $ do
-          forAll genPurePair $ \(unSTB -> (ws, pending)) ->
+          forAll (genPurePair pm) $ \(unSTB -> (ws, pending)) ->
               let ws' = (addPending' pending ws) & wsResubmissionFunction .~ giveUpAfter 3
                   (evicted1, _, ws1) = tick ws'
                   (evicted2, _, ws2) = tick ws1
@@ -347,8 +361,8 @@ spec = do
           -- check that if these 4 are all scheduled within the same slot, they
           -- are all scheduled for submission.
           it "Given D->C->B->A all in the same slot, they are all sent" $ do
-              let generator = do (b,c,a,d) <- dependentTransactions
-                                 ws  <- addPending myAccountId (pendingFromTxs (map labelledTxAux [a,b,c,d])) . unSTB <$> genPureWalletSubmission myAccountId
+              let generator = do (b,c,a,d) <- dependentTransactions pm
+                                 ws  <- addPending myAccountId (pendingFromTxs (map labelledTxAux [a,b,c,d])) . unSTB <$> genPureWalletSubmission pm myAccountId
                                  txs <- shuffle [b,c,a,d]
                                  return $ STB (ws, txs)
               forAll generator $ \(unSTB -> (submission, txs)) ->
@@ -369,8 +383,8 @@ spec = do
           -- if [A,B,C] are scheduled on slot 2 and [D] on slot 1, we shouldn't
           -- send anything.
           it "Given D->C->B->A, if C,B,A are in the future, D is not sent this slot" $ do
-              let generator = do (b,c,a,d) <- dependentTransactions
-                                 ws  <- addPending myAccountId (pendingFromTxs (map labelledTxAux [a,b,c])) . unSTB <$> genPureWalletSubmission myAccountId
+              let generator = do (b,c,a,d) <- dependentTransactions pm
+                                 ws  <- addPending myAccountId (pendingFromTxs (map labelledTxAux [a,b,c])) . unSTB <$> genPureWalletSubmission pm myAccountId
                                  return $ STB (addPending myAccountId (pendingFromTxs (map labelledTxAux [d])) ((\(_,_,s) -> s) . tick $ ws), d)
               forAll generator $ \(unSTB -> (submission, d)) ->
                   let currentSlot = submission ^. getCurrentSlot
@@ -397,8 +411,8 @@ spec = do
           -- anything and finally on slot 3 we would send [C,D].
           it "Given D->C->B->A, can send [A,B] now, [D,C] in the future" $ do
               let generator :: Gen (ShowThroughBuild (WalletSubmission, [LabelledTxAux]))
-                  generator = do (b,c,a,d) <- dependentTransactions
-                                 ws  <- addPending myAccountId (pendingFromTxs (map labelledTxAux [a,b])) . unSTB <$> genPureWalletSubmission myAccountId
+                  generator = do (b,c,a,d) <- dependentTransactions pm
+                                 ws  <- addPending myAccountId (pendingFromTxs (map labelledTxAux [a,b])) . unSTB <$> genPureWalletSubmission pm myAccountId
                                  let (_, _, ws')  = tick ws
                                  let ws'' = addPending myAccountId (pendingFromTxs (map labelledTxAux [d])) ws'
                                  return $ STB (ws'', [a,b,c,d])
@@ -435,7 +449,3 @@ spec = do
                        , mustNotIncludeEvents "none of [a,b,c,d] was scheduled" (ScheduleEvents scheduledInSlot2 confirmed2) [a,b,c,d]
                        , includeEvents "[c,d] scheduled slot 3" (ScheduleEvents scheduledInSlot3 confirmed3) [c,d]
                        ]
-
-
-protocolMagic :: ProtocolMagic
-protocolMagic = ProtocolMagic (ProtocolMagicId 0) RequiresNoMagic

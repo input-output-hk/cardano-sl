@@ -41,8 +41,8 @@ import           Pos.Util (withCompileInfo)
 
 import           Test.Hspec
 import           Test.Infrastructure.Genesis
-import           Test.Pos.Configuration (withDefConfiguration,
-                     withDefUpdateConfiguration, withProvidedMagicConfig)
+import           Test.Pos.Configuration (withDefUpdateConfiguration,
+                     withProvidedMagicConfig)
 import           UTxO.Context
 import           UTxO.DSL
 import           Wallet.Inductive
@@ -145,10 +145,9 @@ type TxScenarioRet h = (MockNodeStateParams, Inductive h Addr, PassiveWallet -> 
 
 -- | Scenario A
 -- Empty case
-txMetaScenarioA :: ProtocolMagic
-                   -> GenesisValues h Addr
+txMetaScenarioA :: GenesisValues h Addr
                    -> TxScenarioRet h
-txMetaScenarioA pm GenesisValues{..} = (nodeStParams1 pm, ind, lengthCheck 0)
+txMetaScenarioA GenesisValues{..} = (nodeStParams1, ind, lengthCheck 0)
   where
     ind = Inductive {
           inductiveBoot   = boot
@@ -160,10 +159,9 @@ txMetaScenarioA pm GenesisValues{..} = (nodeStParams1 pm, ind, lengthCheck 0)
 -- | Scenario B
 -- A single pending payment.
 txMetaScenarioB :: forall h. Hash h Addr
-                   => ProtocolMagic
-                   -> GenesisValues h Addr
+                   => GenesisValues h Addr
                    -> TxScenarioRet h
-txMetaScenarioB pm genVals@GenesisValues{..} = (nodeStParams1 pm, ind, check)
+txMetaScenarioB genVals@GenesisValues{..} = (nodeStParams1, ind, check)
   where
     t0 = paymentWithChangeFromP0ToP1 genVals
     ind = Inductive {
@@ -182,10 +180,9 @@ txMetaScenarioB pm genVals@GenesisValues{..} = (nodeStParams1 pm, ind, check)
 -- | Scenario C
 -- A single pending payment and then confirmation.
 txMetaScenarioC :: forall h. Hash h Addr
-                   => ProtocolMagic
-                   -> GenesisValues h Addr
+                   => GenesisValues h Addr
                    -> TxScenarioRet h
-txMetaScenarioC pm genVals@GenesisValues{..} = (nodeStParams1 pm, ind, check)
+txMetaScenarioC genVals@GenesisValues{..} = (nodeStParams1, ind, check)
   where
     t0 = paymentWithChangeFromP0ToP1 genVals
     ind = Inductive {
@@ -205,10 +202,9 @@ txMetaScenarioC pm genVals@GenesisValues{..} = (nodeStParams1 pm, ind, check)
 -- | Scenario D
 -- Two confirmed payments from P0 to P1, using `change` addresses P0 and P0b respectively
 txMetaScenarioD :: forall h. Hash h Addr
-                   => ProtocolMagic
-                   -> GenesisValues h Addr
+                   => GenesisValues h Addr
                    -> TxScenarioRet h
-txMetaScenarioD pm genVals@GenesisValues{..} = (nodeStParams1 pm, ind, check)
+txMetaScenarioD genVals@GenesisValues{..} = (nodeStParams1, ind, check)
   where
     (t0,t1) = repeatPaymentWithChangeFromP0ToP1 genVals p0b
     ind = Inductive {
@@ -234,10 +230,9 @@ txMetaScenarioD pm genVals@GenesisValues{..} = (nodeStParams1 pm, ind, check)
 --
 -- This scenario exercises Rollback behaviour.
 txMetaScenarioE :: forall h. Hash h Addr
-                   => ProtocolMagic
-                   -> GenesisValues h Addr
+                   => GenesisValues h Addr
                    -> TxScenarioRet h
-txMetaScenarioE pm genVals@GenesisValues{..} = (nodeStParams1 pm, ind, check)
+txMetaScenarioE genVals@GenesisValues{..} = (nodeStParams1, ind, check)
   where
     (t0,t1) = repeatPaymentWithChangeFromP0ToP1 genVals p0b
     ind = Inductive {
@@ -264,10 +259,9 @@ txMetaScenarioE pm genVals@GenesisValues{..} = (nodeStParams1 pm, ind, check)
 -- A payment from P1 to P0's single address.
 -- This should create IncomingTransactions.
 txMetaScenarioF :: forall h. Hash h Addr
-                  => ProtocolMagic
-                  -> GenesisValues h Addr
+                  => GenesisValues h Addr
                   -> TxScenarioRet h
-txMetaScenarioF pm genVals@GenesisValues{..} = (nodeStParams1 pm, ind, check)
+txMetaScenarioF genVals@GenesisValues{..} = (nodeStParams1, ind, check)
   where
     t0 = paymentWithChangeFromP1ToP0 genVals
     ind = Inductive {
@@ -309,10 +303,9 @@ txMetaScenarioG genVals@GenesisValues{..} = (nodeStParams2, ind, check)
 -- A single pending payment to itself and then confirmation.
 -- This should be a Local Tx.
 txMetaScenarioH :: forall h. Hash h Addr
-                   => ProtocolMagic
-                   -> GenesisValues h Addr
+                   => GenesisValues h Addr
                    -> TxScenarioRet h
-txMetaScenarioH pm genVals@GenesisValues{..} = (nodeStParams1 pm, ind, check)
+txMetaScenarioH genVals@GenesisValues{..} = (nodeStParams1, ind, check)
   where
     t0 = paymentWithChangeFromP0ToP0 genVals
     ind = Inductive {
@@ -332,10 +325,9 @@ txMetaScenarioH pm genVals@GenesisValues{..} = (nodeStParams1 pm, ind, check)
 -- | Scenario I. This is like Scenario C with rollbacks.
 -- results should not change.
 txMetaScenarioI :: forall h. Hash h Addr
-                   => ProtocolMagic
-                   -> GenesisValues h Addr
+                   => GenesisValues h Addr
                    -> TxScenarioRet h
-txMetaScenarioI pm genVals@GenesisValues{..} = (nodeStParams1 pm, ind, check)
+txMetaScenarioI genVals@GenesisValues{..} = (nodeStParams1, ind, check)
   where
     t0 = paymentWithChangeFromP0ToP1 genVals
     ind = Inductive {
@@ -359,10 +351,9 @@ txMetaScenarioI pm genVals@GenesisValues{..} = (nodeStParams1 pm, ind, check)
 -- | Scenario J
 -- A single payment with 4 outputs.
 txMetaScenarioJ :: forall h. Hash h Addr
-                   => ProtocolMagic
-                   -> GenesisValues h Addr
+                   => GenesisValues h Addr
                    -> TxScenarioRet h
-txMetaScenarioJ pm genVals@GenesisValues{..} = (nodeStParams1 pm, ind, check)
+txMetaScenarioJ genVals@GenesisValues{..} = (nodeStParams1, ind, check)
   where
     t0 = bigPaymentWithChange genVals
     ind = Inductive {
@@ -394,9 +385,8 @@ checkWithTxs check pw = do
       return $ fromRight (error ("Account not found")) eiTxs
     check txs
 
-nodeStParams1 :: ProtocolMagic -> MockNodeStateParams
-nodeStParams1 pm =
-  withProvidedMagicConfig pm $ \_ _ _ ->
+nodeStParams1 :: MockNodeStateParams
+nodeStParams1 =
     withDefUpdateConfiguration $
     withCompileInfo $
       MockNodeStateParams {
@@ -411,7 +401,6 @@ nodeStParams1 pm =
 
 nodeStParams2 :: MockNodeStateParams
 nodeStParams2 =
-  withDefConfiguration $ \_pm ->
     withDefUpdateConfiguration $
     withCompileInfo $
       MockNodeStateParams {

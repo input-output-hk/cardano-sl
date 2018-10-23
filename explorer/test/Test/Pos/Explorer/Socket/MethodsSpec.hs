@@ -59,8 +59,8 @@ spec = beforeAll_ setupTestLogging $ do
                 fromCAddressOrThrow (CAddress "invalid" ) `shouldThrow` anyException
         describe "addressSetByTxs" $
             modifyMaxSize (const 200) $
-                prop "creates a Set of Addresses by given txs" $
-                    \nm -> addressSetByTxsProp nm
+                prop "creates a Set of Addresses by given txs"
+                    addressSetByTxsProp
         describe "addrSubParam" $
             it "stores a given SocketId into SubscriptionParam of address subscribers" $ do
                 let socketId = BS.pack "any-id" -- SocketId

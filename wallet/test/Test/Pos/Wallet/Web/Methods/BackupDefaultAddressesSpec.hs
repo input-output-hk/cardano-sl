@@ -42,7 +42,7 @@ specBody pm = beforeAll_ setupTestLogging $
 
 restoreWalletAddressFromBackupSpec :: HasConfigurations => Genesis.Config -> Spec
 restoreWalletAddressFromBackupSpec genesisConfig =
-    walletPropertySpec restoreWalletAddressFromBackupDesc $ do
+    walletPropertySpec genesisConfig restoreWalletAddressFromBackupDesc $ do
         walletBackup   <- pick arbitrary
         restoredWallet <- lift
             $ restoreWalletFromBackup genesisConfig walletBackup

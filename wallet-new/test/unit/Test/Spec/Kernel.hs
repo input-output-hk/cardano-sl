@@ -57,7 +57,7 @@ withWithoutWW specWith = do
 
 spec :: Spec
 spec = do
-    -- runWithMagic RequiresNoMagic
+    runWithMagic RequiresNoMagic
     runWithMagic RequiresMagic
 
 runWithMagic :: RequiresNetworkMagic -> Spec
@@ -70,16 +70,16 @@ specBody :: ProtocolMagic -> Spec
 specBody pm = do
     describe "test TxMeta insertion" $ do
       withWithoutWW $ \useWW -> do
-        it "TxMetaScenarioA" $ bracketTxMeta useWW (txMetaScenarioA pm genesis)
-        it "TxMetaScenarioB" $ bracketTxMeta useWW (txMetaScenarioB pm genesis)
-        it "TxMetaScenarioC" $ bracketTxMeta useWW (txMetaScenarioC pm genesis)
-        it "TxMetaScenarioD" $ bracketTxMeta useWW (txMetaScenarioD pm genesis)
-        it "TxMetaScenarioE" $ bracketTxMeta useWW (txMetaScenarioE pm genesis)
-        it "TxMetaScenarioF" $ bracketTxMeta useWW (txMetaScenarioF pm genesis)
+        it "TxMetaScenarioA" $ bracketTxMeta useWW (txMetaScenarioA genesis)
+        it "TxMetaScenarioB" $ bracketTxMeta useWW (txMetaScenarioB genesis)
+        it "TxMetaScenarioC" $ bracketTxMeta useWW (txMetaScenarioC genesis)
+        it "TxMetaScenarioD" $ bracketTxMeta useWW (txMetaScenarioD genesis)
+        it "TxMetaScenarioE" $ bracketTxMeta useWW (txMetaScenarioE genesis)
+        it "TxMetaScenarioF" $ bracketTxMeta useWW (txMetaScenarioF genesis)
         it "TxMetaScenarioG" $ bracketTxMeta useWW (txMetaScenarioG genesis)
-        it "TxMetaScenarioH" $ bracketTxMeta useWW (txMetaScenarioH pm genesis)
-        it "TxMetaScenarioI" $ bracketTxMeta useWW (txMetaScenarioI pm genesis)
-        it "TxMetaScenarioJ" $ bracketTxMeta useWW (txMetaScenarioJ pm genesis)
+        it "TxMetaScenarioH" $ bracketTxMeta useWW (txMetaScenarioH genesis)
+        it "TxMetaScenarioI" $ bracketTxMeta useWW (txMetaScenarioI genesis)
+        it "TxMetaScenarioJ" $ bracketTxMeta useWW (txMetaScenarioJ genesis)
 
     describe "Compare wallet kernel to pure model" $ do
       describe "Using hand-written inductive wallets, computes the expected block metadata for" $ do

@@ -148,7 +148,6 @@ genTxPayload genesisConfig txpConfig = do
         utxoSize <- uses gtdUtxoKeys V.length
         when (utxoSize == 0) $
             lift $ throwM $ BGInternal "Utxo is empty when trying to create tx payload"
-
         secrets <- unInvSecretsMap <$> view (blockGenParams . asSecretKeys)
         invAddrSpendingData <-
             unInvAddrSpendingData <$> view (blockGenParams . asSpendingData)

@@ -262,8 +262,7 @@ initBlockTestContext genesisConfig tp@TestParams {..} callback = do
     let epochSlots = configEpochSlots genesisConfig
     slottingState <- mkSimpleSlottingStateVar epochSlots
     genesisSecretKeys <- gsSecretKeys <$> configGeneratedSecretsThrow genesisConfig
-    let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
-        initCtx =
+    let initCtx =
             TestInitModeContext
                 dbPureVar
                 futureSlottingVar
@@ -288,6 +287,7 @@ initBlockTestContext genesisConfig tp@TestParams {..} callback = do
             let btcGState = GS.GStateContext {_gscDB = DB.PureDB dbPureVar, ..}
             btcDelegation <- mkDelegationVar
             btcPureDBSnapshots <- PureDBSnapshotsVar <$> newIORef Map.empty
+            let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
             let btcAllSecrets = mkAllSecretsSimple nm genesisSecretKeys
             let btCtx = BlockTestContext {btcSystemStart = systemStart, btcSSlottingStateVar = slottingState, ..}
             liftIO $ flip runReaderT clockVar $ unEmulation $ callback btCtx

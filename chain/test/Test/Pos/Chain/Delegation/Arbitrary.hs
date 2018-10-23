@@ -21,7 +21,6 @@ import           Pos.Core (EpochIndex)
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), createPsk)
 
 import           Test.Pos.Core.Arbitrary ()
-import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 genDlgPayload :: ProtocolMagic -> EpochIndex -> Gen DlgPayload
 genDlgPayload pm epoch =
@@ -31,7 +30,10 @@ genDlgPayload pm epoch =
     genPSK = createPsk pm <$> arbitrary <*> arbitrary <*> pure (HeavyDlgIndex epoch)
 
 instance Arbitrary DlgPayload where
-    arbitrary = arbitrary >>= genDlgPayload dummyProtocolMagic
+    arbitrary = do
+        pm <- arbitrary
+        ei <- arbitrary
+        genDlgPayload pm ei
     shrink = genericShrink
 
 instance Arbitrary DlgUndo where

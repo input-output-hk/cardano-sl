@@ -1,7 +1,5 @@
 -- | Wallet unit tests
 
-{-# OPTIONS_GHC -fno-warn-unused-imports #-}
-
 module Main (main) where
 
 import           Universum
@@ -13,10 +11,6 @@ import           InputSelection.Evaluation.Options (Command (..), evalCommand,
                      getEvalOptions)
 import           InputSelection.Evaluation.Replot (replot)
 import           Test.Pos.Util.Parallel.Parallelize (parallelizeAllCores)
-import           UTxO.Translate (runTranslateNoErrors, withConfig)
-
-import           Pos.Crypto (ProtocolMagic (..), ProtocolMagicId (..),
-                     RequiresNetworkMagic (..))
 
 import qualified DeltaCompressionSpecs
 import qualified Test.Spec.Accounts

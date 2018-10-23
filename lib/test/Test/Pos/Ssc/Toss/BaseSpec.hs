@@ -36,7 +36,7 @@ import           Pos.Chain.Ssc (Commitment, CommitmentSignature,
                      verifyCommitmentSignature, verifyOpening, _vcVssKey)
 import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), StakeholderId,
                      addressHash, crucialSlot, mkCoin)
-import           Pos.Crypto (DecShare, PublicKey, SecretKey,
+import           Pos.Crypto (DecShare, ProtocolMagic, PublicKey, SecretKey,
                      SignTag (SignCommitment), sign, toPublic)
 import           Test.Pos.Chain.Lrc.Arbitrary (GenesisMpcThd,
                      ValidRichmenStakes (..))
@@ -46,7 +46,6 @@ import           Test.Pos.Chain.Genesis.Dummy (dummyBlockVersionData,
                      dummyConfig, dummyK)
 import           Test.Pos.Chain.Ssc.Arbitrary (BadCommAndOpening (..),
                      BadSignedCommitment (..), CommitmentOpening (..))
-import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 spec :: Spec
 spec = describe "Ssc.Base" $ do
@@ -115,18 +114,18 @@ verifiesOkComm :: CommitmentOpening -> Bool
 verifiesOkComm CommitmentOpening{..} =
     verifyCommitment coCommitment
 
-verifiesOkCommSig :: SecretKey -> Commitment -> EpochIndex -> Bool
-verifiesOkCommSig sk comm epoch =
+verifiesOkCommSig :: ProtocolMagic -> SecretKey -> Commitment -> EpochIndex -> Bool
+verifiesOkCommSig pm sk comm epoch =
     let commSig =
             ( toPublic sk
             , comm
-            , sign dummyProtocolMagic SignCommitment sk (epoch, comm)
+            , sign pm SignCommitment sk (epoch, comm)
             )
-    in  verifyCommitmentSignature dummyProtocolMagic epoch commSig
+    in  verifyCommitmentSignature pm epoch commSig
 
-notVerifiesBadCommSig :: BadSignedCommitment -> EpochIndex -> Bool
-notVerifiesBadCommSig (getBadSignedC -> badSignedComm) epoch =
-    not $ verifyCommitmentSignature dummyProtocolMagic epoch badSignedComm
+notVerifiesBadCommSig :: ProtocolMagic -> BadSignedCommitment -> EpochIndex -> Bool
+notVerifiesBadCommSig pm (getBadSignedC -> badSignedComm) epoch =
+    not $ verifyCommitmentSignature pm epoch badSignedComm
 
 verifiesOkOpening :: CommitmentOpening -> Bool
 verifiesOkOpening CommitmentOpening{..} =

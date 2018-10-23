@@ -16,10 +16,11 @@ import           Test.QuickCheck (Discard (..), arbitrary)
 import           Test.QuickCheck.Monadic (pick, stop)
 
 import           Pos.Binary (biSize)
+import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Client.Txp.Addresses (getFakeChangeAddress, getNewAddress)
 import           Pos.Configuration ()
 import           Pos.Core.Common (Address)
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
+import           Pos.Core.NetworkMagic (NetworkMagic (..), makeNetworkMagic)
 import           Pos.Crypto (PassPhrase)
 
 import           Pos.Util.Wlog (setupTestLogging)
@@ -31,7 +32,8 @@ import           Pos.Wallet.Web.State (askWalletSnapshot, getWalletAddresses,
                      wamAddress)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail)
 import           Test.Pos.Chain.Genesis.Dummy (dummyEpochSlots)
-import           Test.Pos.Configuration (withDefConfigurations)
+import           Test.Pos.Configuration (withDefConfigurations,
+                     withProvidedMagicConfig)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty, expectedOne)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty)
 import           Test.Pos.Wallet.Web.Util (importSingleWallet,
@@ -39,18 +41,21 @@ import           Test.Pos.Wallet.Web.Util (importSingleWallet,
 
 spec :: Spec
 spec = beforeAll_ setupTestLogging $
-            withDefConfigurations $ \_ _ _ ->
-                describe "Fake address has maximal possible size" $
-                modifyMaxSuccess (const 10) $ do
-                    prop "getNewAddress" $
-                        fakeAddressHasMaxSizeTest changeAddressGenerator
-                    prop "genUniqueAddress" $
-                        fakeAddressHasMaxSizeTest commonAddressGenerator
+    withDefConfigurations $ \_ _ _ -> do
+        describe "Fake address has maximal possible size" $
+            modifyMaxSuccess (const 10) $ do
+                prop "getNewAddress" $ \pm ->
+                    withProvidedMagicConfig pm $ \genesisConfig _ _ ->
+                        fakeAddressHasMaxSizeTest changeAddressGenerator genesisConfig
+                prop "genUniqueAddress" $ \pm ->
+                    withProvidedMagicConfig pm $ \genesisConfig _ _ ->
+                        fakeAddressHasMaxSizeTest commonAddressGenerator genesisConfig
 
 type AddressGenerator = NetworkMagic -> AccountId -> PassPhrase -> WalletProperty Address
 
-fakeAddressHasMaxSizeTest :: AddressGenerator -> Word32 -> NetworkMagic -> WalletProperty ()
-fakeAddressHasMaxSizeTest generator accSeed nm = do
+fakeAddressHasMaxSizeTest :: AddressGenerator -> Genesis.Config -> Word32 -> WalletProperty ()
+fakeAddressHasMaxSizeTest generator genesisConfig accSeed = do
+    let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
     passphrase <- importSingleWallet mostlyEmptyPassphrases
     ws <- askWalletSnapshot
     wid <- expectedOne "wallet addresses" $ getWalletAddresses ws

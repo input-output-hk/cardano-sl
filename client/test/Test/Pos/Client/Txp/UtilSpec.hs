@@ -15,10 +15,10 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import qualified Data.Set as S
 import           Formatting (build, hex, left, sformat, shown, (%), (%.))
-import           Test.Hspec (Spec, describe, runIO)
+import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Discard (..), Gen, Testable, arbitrary,
-                     choose, generate)
+                     choose)
 import           Test.QuickCheck.Monadic (forAllM, stop)
 
 import           Pos.Chain.Txp (Tx (..), TxAux (..), TxId, TxIn (..),
@@ -32,13 +32,12 @@ import           Pos.Core (Address, Coeff (..), TxFeePolicy (..),
                      TxSizeLinear (..), makePubKeyAddressBoot,
                      makeRedeemAddress, unsafeIntegerToCoin)
 import           Pos.Core.NetworkMagic (NetworkMagic (..), makeNetworkMagic)
-import           Pos.Crypto (ProtocolMagic (..), RedeemSecretKey,
-                     RequiresNetworkMagic (..), SafeSigner, SecretKey,
-                     decodeHash, fakeSigner, redeemToPublic, toPublic)
+import           Pos.Crypto (ProtocolMagic (..), RedeemSecretKey, SafeSigner,
+                     SecretKey, decodeHash, fakeSigner, redeemToPublic,
+                     toPublic)
 import           Pos.DB (gsAdoptedBVData)
 import           Pos.Util.Util (leftToPanic)
 
-import           Test.Pos.Chain.Genesis.Dummy (dummyConfig)
 import           Test.Pos.Client.Txp.Mode (TxpTestMode, TxpTestProperty,
                      withBVData)
 import           Test.Pos.Configuration (withProvidedMagicConfig)
@@ -51,18 +50,7 @@ import           Test.Pos.Util.QuickCheck.Property (stopProperty)
 ----------------------------------------------------------------------------
 
 spec :: Spec
-spec = do
-    runWithMagic RequiresNoMagic
-    runWithMagic RequiresMagic
-
-runWithMagic :: RequiresNetworkMagic -> Spec
-runWithMagic rnm = do
-    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
-    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
-        specBody pm
-
-specBody :: ProtocolMagic -> Spec
-specBody pm = withProvidedMagicConfig pm $ \_ _ _ ->
+spec =
     describe "Client.Txp.Util" $ do
         describe "createMTx" $ createMTxSpec
 
@@ -129,8 +117,9 @@ testCreateMTx
     :: CreateMTxParams
     -> TxpTestProperty (Either TxError (TxAux, NonEmpty TxOut))
 testCreateMTx CreateMTxParams {..} = lift $
-    createMTx dummyConfig mempty cmpInputSelectionPolicy cmpUtxo (getSignerFromList cmpSigners)
-    cmpOutputs cmpAddrData
+    withProvidedMagicConfig cmpProtocolMagic $ \genesisConfig _ _ ->
+        createMTx genesisConfig mempty cmpInputSelectionPolicy cmpUtxo (getSignerFromList cmpSigners)
+        cmpOutputs cmpAddrData
 
 createMTxWorksWhenWeAreRichSpec
     :: InputSelectionPolicy
@@ -233,16 +222,17 @@ txWithRedeemOutputFailsSpec
     :: InputSelectionPolicy
     -> TxpTestProperty ()
 txWithRedeemOutputFailsSpec inputSelectionPolicy = do
-    forAllM genParams $ \(CreateMTxParams {..}) -> do
-        txOrError <-
-            createMTx dummyConfig mempty cmpInputSelectionPolicy cmpUtxo
-                      (getSignerFromList cmpSigners)
-                      cmpOutputs cmpAddrData
-        case txOrError of
-            Left (OutputIsRedeem _) -> return ()
-            Left err -> stopProperty $ pretty err
-            Right _  -> stopProperty $
-                sformat ("Transaction to a redeem address was created")
+    forAllM genParams $ \(CreateMTxParams {..}) ->
+        withProvidedMagicConfig cmpProtocolMagic $ \genesisConfig _ _ -> do
+            txOrError <-
+                createMTx genesisConfig mempty cmpInputSelectionPolicy cmpUtxo
+                        (getSignerFromList cmpSigners)
+                        cmpOutputs cmpAddrData
+            case txOrError of
+                Left (OutputIsRedeem _) -> return ()
+                Left err -> stopProperty $ pretty err
+                Right _  -> stopProperty $
+                    sformat ("Transaction to a redeem address was created")
   where
     genParams = do
         params <- makeManyAddressesToManyParams inputSelectionPolicy 1 1000000 1 1

@@ -693,8 +693,9 @@ properties:
   balance is updated whenever rewards are distributed.
 \item They are not associated with a spending key. Instead, there is a
   one-to-one correspondence between registered staking keys and reward
-  addresses. Whenever funds are withdrawn from a reward address, its
-  staking key is used as a witness.
+  addresses (see \cref{fig:er-relationship-delegation}). Whenever funds
+  are withdrawn from a reward address, its staking key is used as a
+  witness.
 \end{itemize}
 
 A reward address has the form
@@ -2349,7 +2350,8 @@ There will be no lower bound on the amount of ADA that has to be
 pledged, but we will see \hyperref[pool-rewards]{below} that pool
 rewards will increase with this amount. This is necessary to prevent
 people with low stake from registering many pools, gaining control over
-a lot of stake and attacking the system (see \hyperref[aux5f0]{below}).
+a lot of stake and attacking the system (see requirement
+\ref{sybil-attack-protection-at-stake-pool-level} and \cref{stakepool-registration}).
 
 \subsection{Epoch Rewards}
 \label{epoch-rewards}
@@ -2431,7 +2433,7 @@ For a given epoch, the \emph{maximal} rewards for a pool are \[
 \item
   \(s':=\min(s, z_0)\), where \(s\) is the relative stake of the pool
   leader (the amount of ADA pledged during
-  \hyperref[stake-pool-registration]{pool registration}.
+  \hyperref[stakepool-registration]{pool registration}.
 \end{itemize}
 
 \emph{Note that \(\sigma\) includes the stake \(s\) pledged by the pool
@@ -2495,7 +2497,7 @@ Consider
 \end{itemize}
 
 Note that the values \(c\) and \(m\) for registered pools are available
-from the \hyperref[stake-pool-registration]{pool registration}.
+from the \hyperref[stakepool-registration]{pool registration}.
 Stakeholders who have \emph{not} registered a pool and participate in
 the protocol on their own are treated like \emph{pool leaders of one-man
 pools with margin 1} (costs are irrelevant in this case, because all

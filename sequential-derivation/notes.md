@@ -110,3 +110,10 @@ derivePublic :: XPub n -> (Index < 0x80000000) -> XPub (n+1)
 
 I can't find a way how to derive any private key from a public one given these functions. I must be missing some function!
 This probably also means that we can derive `XPrv 5` private key from `XPub 4` public key? If so, that means that change level keys can also derive addresses? (are change level keys intended for external wallets use case?)
+
+> Accounts provide extra insulation against catastrophic leaking of cryptographic material
+> in the account itself, see caveat of soft derivation in particular. More specifically if the
+> tree of derivation of a given account is compromised, then the hard derivation allows, in
+> theory, other accounts to remain secure.
+Is hard derivation actually function doing `XPrv n -> ... -> XPrv (n+1)` and/or `XPrv n -> XPub n`? And in a similar way soft derivation is actually function doing `XPub n -> ... -> XPub (n+1)` and/or `XPub n -> ... -> XPrv (n+2)`? Is difference between soft derivation and hard derivation such that soft derivation is a derivation that derives keys (either private or public) only from public key. That way, if public key is compromised, user can still remain secure (in theory)? And hard derivation is derivation which derives keys using private keys?
+TODO: google "soft derivation wiki". So I guess accounts have been created with hard derivation (from any parent private key) where addresses have been created using soft derivation (from an account public key: `XPub account -> XPrv address` - this should be soft derivation). Then if `XPub account` is compromised, other accounts that have been derived are in theory still safe as attacker can't derive them using `XPub account` (I wonder how this is different from having `XPrv account`; probably depends what keys are signing transactions).

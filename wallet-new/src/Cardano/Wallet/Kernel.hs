@@ -108,6 +108,9 @@ bracketPassiveWallet mode logMsg keystore node fInjects f =
                   (liftIO $ initPassiveWallet logMsg keystore handles node fInjects)
                   (\_ -> return ())
                   f)
+     where
+       -- Quick hack for an experiment
+       mode = UseInMemory
 
 data WalletHandles = Handles {
     hAcid :: AcidState DB,

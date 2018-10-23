@@ -30,7 +30,7 @@ let
   metricOverlay      = import ./overlays/metric.nix       { inherit pkgs; };
 
   activeOverlays = [ requiredOverlay ]
-      ++ optional enablePhaseMetrics metricOverlay
+  ##  ++ optional enablePhaseMetrics metricOverlay  # Removed temporarily
       ++ optional enableBenchmarks benchmarkOverlay
       ++ optional enableDebugging debugOverlay
       ++ optional forceDontCheck dontCheckOverlay

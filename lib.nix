@@ -3,7 +3,7 @@ let
   fetchNixPkgs = let try = builtins.tryEval <cardano_pkgs>;
     in if try.success
     then builtins.trace "using host <cardano_pkgs>" try.value
-    else import ./nix/fetchNixpkgs.nix (builtins.fromJSON (builtins.readFile ./nixpkgs-src.json));
+    else import ./nix/fetch-nixpkgs.nix;
 
   # Function to import the pinned nixpkgs with necessary overlays,
   # applied to the given args.

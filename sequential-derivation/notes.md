@@ -51,12 +51,12 @@ derivePrivate :: XPrv n -> Index -> XPrv (n+1)
 ```
 Derive private key from a parent private key. Root key is given with `XPrv 0`. I am not sure how exactly `Index` is defined (UPDATE: later in text this might be referred as address index - an ever increasing number). Its probably just a Natural number (in this case 1).
 
-UPDATE: later in text it is cleared out that private key derivation from root key will be used to derive other private keys which will have use cases such as: change, address, account, ... So every user has single root private key, and from this key we are deriving multiple private keys for each needed use case. In practice this will probably be a small number of use cases and thus a small number of private keys derived from root private key.
+UPDATE: later in text it is cleared out that private key derivation from root key will be used to derive other private keys which will have use cases such as: change, address, account, ... So every user has single root private key, and from this key we are deriving multiple private keys for each needed use case. In practice this will probably be a small number of use cases and thus a small number of private keys derived from root private key. This also tells us that `toPub . derivePrivate :: XPrv n -> Index -> XPub (n+1)` parent private key can derive any public key.
 
 ```
 derivePublic :: XPub n -> (Index < 0x80000000) -> XPub (n+1)
 ```
-Derive public key from a parent public key. Root key is given with `XPub 0`. I am not sure what `Index < 0x80000000` means. It might be constrain that public key Index is upper bounded. This might be the answer to how many public keys can be generated from a root public key? (it might also be some sort of shifting operation though)
+Derive public key from a parent public key. Root key is given with `XPub 0`. I am not sure what `Index < 0x80000000` means. It might be constrain that public key Index is upper bounded. This might be the answer to how many public keys can be generated from a root public key? (it might also be some sort of shifting operation though). 
 
 > Given an issue in the original ED25519-BIP32 implementation
 TODO: check which issue are we referring to here
@@ -76,7 +76,7 @@ TYPO:
 multiple possible accounts for a given
 
 `account` is a hard derivation
-`change` is a constant to differentiate internal and external addresses. What is a use case for internal and/or external addresses? Are internal addresses addresses possessed by us (derived by our root key) where external addresses might be addresses derived from different master root key. Is there an upper bound to address index (my intuition is that private key entropy is not unlimited resource - from which we derive other keys)
+`change` is a constant to differentiate internal and external addresses. What is a use case for internal and/or external addresses? Are internal addresses addresses possessed by us (derived by our root key) where external addresses might be addresses derived from different master root key. Is there an upper bound to address index (my intuition is that private key entropy is not unlimited resource - from which we derive other keys). Or are internal addresses addresses created by internal wallet (ie, normal wallet) and external addresses are addresses created by external wallet (like hardware wallet)?
 
 TYPO:
 > the root keymis of typeXPrv 0'
@@ -93,3 +93,20 @@ root, purpose, coin_type, account, change, address :: XPrv [0..5]
 TODO: check SLIP-0044 for more details
 
 This is a bit confusing to me. So my understanding now is that we have `purpose` and `coin_type` values, but we also have `purpose` level keys (of type `XPrv 1`) and `coin_type` (of type `XPrv 2`), right?
+
+## Motivation
+
+> New Account derivation requires the level 2 private key
+We previously said that `account` level keys are of type `XPrv 3`. Shouldn't this be level 3 private key, if keys are indexed from root zero level private key?
+
+> Caching account public key `XPub 3` allows derivation of `XPrv 5` without the private key
+That means we are able to derive addresses from account public keys. This is not obvious from functions given at Derivation function section:
+
+```
+toPub :: XPrv n -> XPub n
+derivePrivate :: XPrv n -> Index -> XPrv (n+1)
+derivePublic :: XPub n -> (Index < 0x80000000) -> XPub (n+1)
+```
+
+I can't find a way how to derive any private key from a public one given these functions. I must be missing some function!
+This probably also means that we can derive `XPrv 5` private key from `XPub 4` public key? If so, that means that change level keys can also derive addresses? (are change level keys intended for external wallets use case?)

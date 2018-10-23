@@ -13,7 +13,7 @@ genesis_=$(cd "$genesis" && pwd)
 
 postvend_app_dir=$(pwd)/../postvend-app
 
-{ for i in $genesis/keys-fakeavvm/*.seed; do cat "$i"; echo ''; done; } > "$postvend_app_dir/seeds.txt"
+{ for i in "$genesis"/keys-fakeavvm/*.seed; do cat "$i"; echo ''; done; } > "$postvend_app_dir/seeds.txt"
 
 DIR=$(pwd)
 

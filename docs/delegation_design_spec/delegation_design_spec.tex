@@ -711,7 +711,7 @@ Just as in the case of enterprise addresses, the staking object for a reward
 address does not need to carry any information, so it is set to a
 nullary constant (though of course a different one):
 \[
-\beta = \rho
+\beta = \rho, \quad \rho \neq \epsilon
 \]
 
 The terms \emph{reward address} and \emph{reward account} will be used
@@ -1025,7 +1025,22 @@ Stakeholders who delegated to this pool should be notified and asked to
 redelegate by their wallet the next time they are online.
 \end{description}
 
-Note that a stake pool can have multiple owners. This is to allow
+Note that there is a conceptual difference between the stake pool
+operator and stake pool owners:
+\begin{description}
+\item[Stake Pool Operator] This is the person who operates the pool --
+  owns or rents a server, holds the staking key of the pool, runs and
+  monitors the node.
+\item[Stake Pool Owner] This is a person providing the stake deposit
+  for the pool, increasing its rewards and desirability. The ability
+  for the owner to pledge funds is providing protection against the
+  pool-level Sybil attack
+  (requirement~\ref{sybil-attack-protection-at-stake-pool-level}, see
+  also \cref{stakepool-registration}).
+\end{description}
+
+Usually, the stake pool operator and owner will be the same person,
+but a stake pool can also have multiple owners. This is to allow
 people to coordinate and form a stake pool even if none of them had
 enough stake on their own to make a deposit that would make the stake
 pool competitive.
@@ -1977,12 +1992,13 @@ it in the certificate, it will be stored on an external key-value store,
 using \(\mathcal{H}(vks_\text{pool})\) as key. The integrity of the data
 will be ensured by requiring it to be signed with \(sks_\text{pool}\).
 
-A stake pool operator can change its costs and margin by replacing the
-registration certificate of the pool with a new one. This allows
-operators to react, for example, to a change in its costs or the
-exchange rate of Ada. A wallet that is delegating funds to this stake
-pool should notify the user of such a change whenever it detects it, and
-ask whether the delegation should be reconsidered.
+A stake pool operator can change the costs and margin of the pool by
+replacing the registration certificate of the pool with a new
+one. This allows operators to react, for example, to a change in its
+operational costs or the exchange rate of Ada. A wallet that is
+delegating funds to this stake pool should notify the user of such a
+change whenever it detects it, and ask whether the delegation should
+be reconsidered.
 
 The rewards that a stake pool gets depend on a deposit of funds that the
 stake pool operator themself provides. This adds a cost to creating a

@@ -58,7 +58,7 @@ incentives mechanism to be used in the Shelley release of Cardano.
 \section*{List of Contributors}
 \label{acknowledgements}
 
-Lars Br\"unjes, Duncan Coutts, Philipp Kant,
+Lars Br\"unjes, Jared Corduan, Duncan Coutts, Philipp Kant,
 Dimitris Karakostas, Aggelos Kiayias, Elias Koutsoupias, Mario
 Larangeira, Damian Nadales, Aikaterini-Panagiota Stouka.
 
@@ -701,7 +701,7 @@ A reward address has the form
 \[
 \hash{vks} \mathbin{||} \beta
 \]
-where \(\hash{vkp}\) is a cryptographic hash of the public staking key
+where \(\hash{vks}\) is a cryptographic hash of the public staking key
 of the address. This key is used whenever funds are withdrawn from the
 address. Furthermore, stake associated with funds in the address
 contributes to the stake of this key.
@@ -3187,7 +3187,7 @@ In the following, we describe how the requirements listed in
 \begin{description}
 
 \item[\cref{proof-of-eligibility} Proof of Eligibility] The leader
-  election process takes delegationinto account
+  election process takes delegation into account
   (\cref{slot-leader-schedule}), so the leader schedule will contain
   the key hash of the pool that is expected to sign the block. If a
   lightweight certificate is used, it will be posted to the block
@@ -3241,7 +3241,7 @@ In the following, we describe how the requirements listed in
   We have two mechanisms for dealing with inactive stake pools. Stake
   pools can be retired via a retirement certificate
   (\cref{stake-pool-registration-and-retirement-certificates}. If a
-  stake pool ceises to operate without being properly retired, its key
+  stake pool ceases to operate without being properly retired, its key
   will be detected as a stale staking key as described in
   \cref{stale-stake}.
 

@@ -38,7 +38,7 @@ loggingParams defaultName CommonNodeArgs{..} =
     { lpHandlerPrefix = logPrefix commonArgs
     , lpConfigPath    = logConfig commonArgs
     , lpDefaultName   = defaultName
-    , lpConsoleLog    = Nothing -- no override by default
+    , lpConsoleLog    = Just (not $ logConsoleOff commonArgs)
     }
 
 getBaseParams :: LoggerName -> CommonNodeArgs -> BaseParams

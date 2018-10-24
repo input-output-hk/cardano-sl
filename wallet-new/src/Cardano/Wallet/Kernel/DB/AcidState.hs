@@ -17,7 +17,7 @@ module Cardano.Wallet.Kernel.DB.AcidState (
   , ApplyBlock(..)
   , SwitchToFork(..)
     -- ** Restoration
-  , ApplyHistoricalBlock(..)
+  , ApplyHistoricalBlocks(..)
   , RestorationComplete(..)
     -- ** Updates on HD wallets
     -- *** CREATE
@@ -287,6 +287,17 @@ applyBlock k context restriction blocks = runUpdateDiscardSnapshot $ do
       where
         pb :: PrefilteredBlock
         pb = fromMaybe (emptyPrefilteredBlock context) mPB
+
+
+-- | Apply a batch of historical blocks, stopping at the first failure
+applyHistoricalBlocks :: SecurityParameter
+                      -> HdRootId
+                      -> [(BlockContext, Map HdAccountId PrefilteredBlock)]
+                      -> Update DB (Either Spec.ApplyBlockFailed ())
+applyHistoricalBlocks k rootId updates =
+    runExceptT $ forM_ updates $ \(context, blocks) ->
+        ExceptT $ applyHistoricalBlock k context rootId blocks
+
 
 -- | Apply a block, as in 'applyBlock', but on the historical
 -- checkpoints of an account rather than the current checkpoints. It takes
@@ -814,7 +825,7 @@ makeAcidic ''DB [
     , 'cancelPending
     , 'applyBlock
     , 'switchToFork
-    , 'applyHistoricalBlock
+    , 'applyHistoricalBlocks
     , 'restorationComplete
       -- Updates on HD wallets
     , 'createHdAddress

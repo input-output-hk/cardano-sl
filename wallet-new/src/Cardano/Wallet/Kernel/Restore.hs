@@ -1,5 +1,6 @@
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE LambdaCase   #-}
+{-# LANGUAGE RankNTypes   #-}
 
 module Cardano.Wallet.Kernel.Restore
     ( restoreWallet
@@ -13,20 +14,21 @@ import           Universum
 import           Control.Concurrent.Async (async, cancel)
 import           Control.Lens (at, _Just)
 import           Data.Acid (update)
+import           Data.List (unzip3)
 import qualified Data.Map.Merge.Strict as M
 import qualified Data.Map.Strict as M
 import           Data.Maybe (fromJust)
-import           Data.Time.Clock (NominalDiffTime, UTCTime, diffUTCTime,
-                     getCurrentTime)
+import           Data.Time.Clock (NominalDiffTime, diffUTCTime, getCurrentTime)
 import           Formatting (bprint, build, formatToString, sformat, (%))
 import qualified Formatting.Buildable
 
 import qualified Prelude
 
+
 import           Cardano.Wallet.API.Types.UnitOfMeasure
 import           Cardano.Wallet.Kernel (walletLogMessage)
 import qualified Cardano.Wallet.Kernel as Kernel
-import           Cardano.Wallet.Kernel.DB.AcidState (ApplyHistoricalBlock (..),
+import           Cardano.Wallet.Kernel.DB.AcidState (ApplyHistoricalBlocks (..),
                      CreateHdWallet (..), ResetAllHdWalletAccounts (..),
                      RestorationComplete (..), RestoreHdWallet (..),
                      dbHdWallets)
@@ -379,54 +381,43 @@ restoreWalletHistoryAsync wallet rootId prefilter progress start (tgtHash, tgtSl
     startingPoint <- case start of
         Nothing -> withNode $ getFirstGenesisBlockHash genesisHash
         Just sh -> nextHistoricalHash sh >>= maybe (throwM $ RestorationSuccessorNotFound sh) pure
-    restore genesisHash startingPoint NoTimingData
+    let batchSize = 1000
+    restore genesisHash startingPoint batchSize
   where
     wId :: WalletId
     wId = WalletIdHdRnd rootId
 
-    -- Process the restoration of the block with the given 'HeaderHash'.
-    restore :: GenesisHash -> HeaderHash -> TimingData -> IO ()
-    restore genesisHash hh timing = do
+    -- Process the restoration of the next `batchSize` blocks (or up until the
+    -- target hash), starting from the given 'HeaderHash'.
+    restore :: GenesisHash -> HeaderHash -> Int -> IO ()
+    restore genesisHash hh batchSize = do
+        -- Keep track of timing
+        startTime <- getCurrentTime
 
-        -- Updating the average rate every 5 blocks.
-        (rate, timing') <- tickTiming 5 timing
+        -- Processing a batch of blocks, flushing to Acid-State only once
+        (updates, hh') <- getBatch genesisHash hh batchSize
 
-        -- Update each account's historical checkpoints
-        block <- getBlockOrThrow genesisHash hh
+        -- Flush to Acid-State & SQLite
+        k <- getSecurityParameter (wallet ^. walletNode)
+        let (blocks, txMetas, slotIds) = unzip3 updates
+        mErr <- update (wallet ^. wallets) (ApplyHistoricalBlocks k rootId blocks)
+        whenLeft mErr (throwM . RestorationApplyHistoricalBlockFailed)
+        forM_ (mconcat txMetas) (putTxMeta (wallet ^. walletMeta))
 
-        -- Skip EBBs
-        whenRight block $ \mb -> do
-            -- Filter the blocks by account
-            blund <- (Right mb, ) <$> getUndoOrThrow genesisHash hh
-            (prefilteredBlocks, txMetas) <- prefilter blund
-
-            -- Apply the block
-            k    <- getSecurityParameter (wallet ^. walletNode)
-            ctxt <- withNode $ mainBlockContext genesisHash mb
-            mErr <- update (wallet ^. wallets) $
-                   ApplyHistoricalBlock k ctxt rootId prefilteredBlocks
-            case mErr of
-                Left err -> throwM $ RestorationApplyHistoricalBlockFailed err
-                Right () -> return ()
-
-            -- Update our progress
-            slotCount <- getSlotCount (wallet ^. walletNode)
-            let flat             = flattenSlotId slotCount
-                blockPerSec      = MeasuredIn . BlockCount . perSecond <$> rate
-                throughputUpdate = maybe identity (set wrpThroughput) blockPerSec
-                slotId           = mb ^. mainBlockSlot
-            modifyIORef' progress ( (wrpCurrentSlot .~ flat slotId)
-                                  . (wrpTargetSlot  .~ flat tgtSlot)
-                                  . throughputUpdate )
-            -- Store the TxMetas
-            forM_ txMetas (putTxMeta (wallet ^. walletMeta))
+        -- Update our progress
+        now <- getCurrentTime
+        let rate = Rate (fromIntegral $ length blocks) (now `diffUTCTime` startTime)
+        slotCount <- getSlotCount (wallet ^. walletNode)
+        let flat             = flattenSlotId slotCount
+            blockPerSec      = MeasuredIn $ BlockCount $ perSecond rate
+        unless (null slotIds) $ modifyIORef' progress
+            ( (wrpCurrentSlot .~ flat (Prelude.last slotIds))
+            . (wrpTargetSlot  .~ flat tgtSlot)
+            . set wrpThroughput blockPerSec
+            )
 
         -- Decide how to proceed.
-        if tgtHash == hh then
-            finish
-          else nextHistoricalHash hh >>= \case
-            Nothing  -> throwM (RestorationFinishUnreachable tgtHash hh)
-            Just hh' -> restore genesisHash hh' timing'
+        if hh' == tgtHash then finish else restore genesisHash hh' batchSize
 
     -- TODO (@mn): probably should use some kind of bracket to ensure this cleanup happens.
     finish :: IO ()
@@ -456,31 +447,59 @@ restoreWalletHistoryAsync wallet rootId prefilter progress start (tgtHash, tgtSl
            Nothing -> throwM $ RestorationUndoNotFound hh
            Just b  -> return b
 
+    -- Get prefilter blocks and associated meta
+    getPrefilteredBlockOrThrow
+        :: GenesisHash
+        -> HeaderHash
+        -> IO (Maybe ((BlockContext, Map HD.HdAccountId PrefilteredBlock), [TxMeta], SlotId))
+    getPrefilteredBlockOrThrow genesisHash hh = do
+        block <- getBlockOrThrow genesisHash hh
+        case block of
+            Left _   -> return Nothing -- Skip EBBs
+            Right mb -> do
+                -- Filter the blocks by account
+                blund <- (block, ) <$> (getUndoOrThrow genesisHash hh)
+                (prefilteredBlocks, txMetas) <- prefilter blund
+                ctxt <- withNode $ mainBlockContext genesisHash mb
+                let slotId = mb ^. mainBlockSlot
+                return $ Just ((ctxt, prefilteredBlocks), txMetas, slotId)
+
+    -- Get the next batch of blocks
+    getBatch
+        :: GenesisHash
+        -> HeaderHash
+        -> Int
+        -> IO ([((BlockContext, Map HD.HdAccountId PrefilteredBlock), [TxMeta], SlotId)], HeaderHash)
+    getBatch genesisHash hh batchSize = go [] batchSize hh
+        where
+            go !updates !n !currentHash | n <= 0 =
+                return (reverse updates, currentHash)
+
+            go !updates _ !currentHash | currentHash == tgtHash =
+                getPrefilteredBlockOrThrow genesisHash currentHash >>= \case
+                    Nothing -> go updates 0 currentHash
+                    Just u  -> go (u : updates) 0 currentHash
+
+            go !updates !n !currentHash = do
+                nextHash <- nextHistoricalHash currentHash >>= \case
+                    Nothing  -> throwM (RestorationFinishUnreachable tgtHash currentHash)
+                    Just hh' -> return hh'
+
+                getPrefilteredBlockOrThrow genesisHash currentHash >>= \case
+                    Nothing -> go updates (n - 1) nextHash
+                    Just u  -> go (u : updates) (n - 1) nextHash
+
     withNode :: forall a. (NodeConstraints => WithNodeState IO a) -> IO a
     withNode action = withNodeState (wallet ^. walletNode) (\_lock -> action)
+
+
 
 {-------------------------------------------------------------------------------
   Timing information (for throughput calculations)
 -------------------------------------------------------------------------------}
 
--- | Keep track of how many events have happened since a given start time.
-data TimingData
-  = NoTimingData
-  | Timing Integer UTCTime
-
 -- | A rate, represented as an event count over a time interval.
 data Rate = Rate Integer NominalDiffTime
-
--- | Log an event; once k' events have been seen, return the event rate
--- and start the count over again.
-tickTiming :: Integer -> TimingData -> IO (Maybe Rate, TimingData)
-tickTiming _  NoTimingData     = (Nothing,) . Timing 0 <$> getCurrentTime
-tickTiming k' (Timing k start)
-  | k == k' = do
-        now <- getCurrentTime
-        let rate = Rate k (now `diffUTCTime` start)
-        return (Just rate, Timing 0 now)
-  | otherwise = return (Nothing, Timing (k + 1) start)
 
 -- | Convert a rate to a number of events per second.
 perSecond :: Rate -> Word64

@@ -97,7 +97,6 @@ mkFileScribe rot sevfilter fdesc formatter colorize s v = do
                   let tdiff' = round $ diffUTCTime rottime (_itemTime item)
                   if bytes' < 0 || tdiff' < (0 :: Integer)
                      then do   -- log file rotation
-                        putStrLn $ "rotate! bytes=" ++ (show bytes') ++ " tdiff=" ++ (show tdiff')
                         hClose hdl
                         (hdl2, bytes2, rottime2) <- evalRotator rot fdesc
                         return (hdl2, bytes2, rottime2)

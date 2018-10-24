@@ -100,4 +100,56 @@ in
     echo "Blockchain sync complete!"
     echo "Blockchain height: $height blocks"
     echo "Elapsed time: $elapsed_time seconds"
+
+    # Restore a wallet
+    echo
+    echo "Going to restore a wallet"
+    curl --silent --cacert ${stateDir}/tls/client/ca.crt --cert ${stateDir}/tls/client/client.pem -H "Content-Type: application/json" https://${wallet.walletListen}/api/v1/wallets \
+      -d '{
+      "operation": "restore",
+      "backupPhrase": ["session", "ring", "phone", "arrange", "notice", "gap", "media", "olympic", "water", "road", "spider", "rate"],
+      "assuranceLevel": "normal",
+      "name": "Acceptance Wallet"
+    }'
+    echo
+
+    start_time=$(date +%s)
+
+    perc=0
+    throughput=""
+    syncState=""
+    while [[ "$syncState" != '"synced"' ]]
+    do
+      info=$(curl --silent --cacert ${stateDir}/tls/client/ca.crt --cert ${stateDir}/tls/client/client.pem https://${wallet.walletListen}/api/v1/wallets | jq .data[0])
+      syncState=$(jq .syncState.tag <<< "$info")
+      perc=$(jq .syncState.data.percentage.quantity <<< "$info")
+      throughput="$throughput $(jq .syncState.data.throughput.quantity <<< "$info")"
+
+      if [[ -z "$perc" ]]; then
+        echo "$(date +"%H:%M:%S") Wallet restoring..."
+      else
+        avg=$(tr ' ' '\n' <<< $throughput | awk '{sum+=$1} END {print sum/NR}')
+        echo "$(date +"%H:%M:%S") Wallet restoring: $perc% ($avg blocks/s)"
+      fi
+      sleep 10
+          if ! kill -0 $wallet_pid; then
+            echo
+            echo "***"
+            echo "*** Here are the last 200 lines of ${stateDir}/logs/wallet.log"
+            echo "***"
+            tail -n200 ${stateDir}/logs/wallet.log
+            echo
+            echo "***"
+            echo "*** Wallet is no longer running -- exiting"
+            echo "***"
+            exit 1
+          fi
+    done
+
+    finish_time=$(date +%s)
+    elapsed_time=$(($finish_time - $start_time))
+
+    echo
+    echo "Restoration complete!"
+    echo "Elapsed time: $elapsed_time seconds"
   ''

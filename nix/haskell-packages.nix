@@ -12,9 +12,10 @@ with pkgs.lib;
 let
   # the GHC we are using
   # at some point use: pkgs.haskell.compiler.ghc843;
-  ghc = overrideDerivation pkgs.haskell.compiler.ghc822 (drv: {
-    patches = drv.patches ++ [ ./patches/ghc-8.0.2-darwin-rec-link.patch ];
-  });
+  # ghc = overrideDerivation pkgs.haskell.compiler.ghc822 (drv: {
+  #   patches = drv.patches ++ [ ./patches/ghc-8.0.2-darwin-rec-link.patch ];
+  # });
+  ghc = pkgs.haskell.compiler.ghc822;
 
   # This will yield a set of haskell packages, based on the given compiler.
   cardanoPkgsBase = ((import ../pkgs { inherit pkgs; }).override {

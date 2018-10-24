@@ -30,6 +30,7 @@ import           Control.Monad.Except (runExceptT)
 import           Servant.Server
 
 import           Pos.Core.Common (mkCoin)
+import           Pos.Crypto (ProtocolMagic (..))
 import           Pos.Crypto.HD (firstHardened)
 
 import           Test.Spec.Fixture (GenPassiveWalletFixture,
@@ -61,14 +62,15 @@ prepareFixtures = do
              Right v1Wallet -> return (Fixture spendingPassword v1Wallet newAccountRq)
 
 withFixture :: MonadIO m
-            => (  Keystore.Keystore
+            => ProtocolMagic
+            -> (  Keystore.Keystore
                -> PassiveWalletLayer m
                -> Internal.PassiveWallet
                -> Fixture
                -> IO a
                )
             -> PropertyM IO a
-withFixture cc = withPassiveWalletFixture prepareFixtures cc
+withFixture pm cc = withPassiveWalletFixture pm prepareFixtures cc
 
 
 spec :: Spec
@@ -77,7 +79,8 @@ spec = describe "Accounts" $ do
 
         prop "works as expected in the happy path scenario" $ withMaxSuccess 50 $ do
             monadicIO $ do
-                withFixture $ \_ layer _ Fixture{..} -> do
+                pm <- pick arbitrary
+                withFixture pm $ \_ layer _ Fixture{..} -> do
                     res <- WalletLayer.createAccount layer
                              (V1.walId fixtureV1Wallet)
                              fixtureNewAccountRq
@@ -88,7 +91,8 @@ spec = describe "Accounts" $ do
                 wId <- pick arbitrary
                 pwd <- genSpendingPassword
                 request <- genNewAccountRq pwd
-                withLayer $ \layer _ -> do
+                pm <- pick arbitrary
+                withLayer pm $ \layer _ -> do
                     res <- WalletLayer.createAccount layer wId request
                     case res of
                          Left (WalletLayer.CreateAccountError (CreateAccountKeystoreNotFound _)) ->
@@ -104,7 +108,8 @@ spec = describe "Accounts" $ do
 
         prop "works when called from Servant" $ withMaxSuccess 50 $ do
             monadicIO $ do
-                withFixture $ \_ layer _ Fixture{..} -> do
+                pm <- pick arbitrary
+                withFixture pm $ \_ layer _ Fixture{..} -> do
                     let hdl = Handlers.newAccount layer (V1.walId fixtureV1Wallet) fixtureNewAccountRq
                     res <- runExceptT . runHandler' $ hdl
                     (bimap identity STB res) `shouldSatisfy` isRight
@@ -114,7 +119,8 @@ spec = describe "Accounts" $ do
             -- addresses. Remember, it's only when we create a new HdRoot that
             -- we enforce this invariant.
             monadicIO $ do
-                withFixture $ \_ layer _ Fixture{..} -> do
+                pm <- pick arbitrary
+                withFixture pm $ \_ layer _ Fixture{..} -> do
                     let hdl = Handlers.newAccount layer (V1.walId fixtureV1Wallet) fixtureNewAccountRq
                     res <- runExceptT . runHandler' $ hdl
                     case res of
@@ -126,7 +132,8 @@ spec = describe "Accounts" $ do
 
         prop "works as expected in the happy path scenario" $ withMaxSuccess 50 $ do
             monadicIO $ do
-                withFixture $ \_ layer _ Fixture{..} -> do
+                pm <- pick arbitrary
+                withFixture pm $ \_ layer _ Fixture{..} -> do
                     let wId = V1.walId fixtureV1Wallet
                     (Right V1.Account{..}) <-
                         WalletLayer.createAccount layer wId fixtureNewAccountRq
@@ -136,7 +143,8 @@ spec = describe "Accounts" $ do
         prop "fails if the parent wallet doesn't exists" $ withMaxSuccess 50 $ do
             monadicIO $ do
                 wId <- pick arbitrary
-                withLayer $ \layer _ -> do
+                pm  <- pick arbitrary
+                withLayer pm $ \layer _ -> do
                     res <- WalletLayer.deleteAccount layer wId
                              (V1.unsafeMkAccountIndex firstHardened)
                     case res of
@@ -153,7 +161,8 @@ spec = describe "Accounts" $ do
 
         prop "fails if the account doesn't exists" $ withMaxSuccess 50 $ do
             monadicIO $ do
-                withFixture $ \_ layer _ Fixture{..} -> do
+                pm <- pick arbitrary
+                withFixture pm $ \_ layer _ Fixture{..} -> do
                     -- Pick the first non-allocated index after 'firstHardened',
                     -- as by defaults each fixture's wallet is created with a
                     -- default account at index 'firstHardened'.
@@ -174,7 +183,8 @@ spec = describe "Accounts" $ do
 
         prop "works when called from Servant" $ withMaxSuccess 50 $ do
             monadicIO $ do
-                withFixture $ \_ layer _ Fixture{..} -> do
+                pm <- pick arbitrary
+                withFixture pm $ \_ layer _ Fixture{..} -> do
                     let create = Handlers.newAccount layer (V1.walId fixtureV1Wallet) fixtureNewAccountRq
                     (Right API.WalletResponse{..}) <- runExceptT . runHandler' $ create
                     let accountIndex = V1.accIndex wrData
@@ -189,7 +199,8 @@ spec = describe "Accounts" $ do
         prop "Servant handler fails if the parent wallet doesn't exist" $ withMaxSuccess 50 $ do
             monadicIO $ do
                 wId <- pick arbitrary
-                withLayer $ \layer _ -> do
+                pm  <- pick arbitrary
+                withLayer pm $ \layer _ -> do
                     let delete = Handlers.deleteAccount layer
                             wId
                             (V1.unsafeMkAccountIndex 2147483648)
@@ -201,7 +212,8 @@ spec = describe "Accounts" $ do
 
         prop "Servant handler fails if the account doesn't exist" $ withMaxSuccess 50 $ do
             monadicIO $ do
-                withFixture $ \_ layer _ Fixture{..} -> do
+                pm <- pick arbitrary
+                withFixture pm $ \_ layer _ Fixture{..} -> do
                     -- Pick the first non-allocated index after 'firstHardened',
                     -- as by defaults each fixture's wallet is created with a
                     -- default account at index 'firstHardened'.
@@ -219,7 +231,8 @@ spec = describe "Accounts" $ do
 
         prop "works as expected in the happy path scenario" $ withMaxSuccess 50 $ do
             monadicIO $ do
-                withFixture $ \_ layer _ Fixture{..} -> do
+                pm <- pick arbitrary
+                withFixture pm $ \_ layer _ Fixture{..} -> do
                     let wId = V1.walId fixtureV1Wallet
                     (Right V1.Account{..}) <-
                         WalletLayer.createAccount layer wId fixtureNewAccountRq
@@ -233,7 +246,8 @@ spec = describe "Accounts" $ do
         prop "fails if the parent wallet doesn't exists" $ withMaxSuccess 50 $ do
             monadicIO $ do
                 wId <- pick arbitrary
-                withLayer $ \layer _ -> do
+                pm  <- pick arbitrary
+                withLayer pm $ \layer _ -> do
                     res <- WalletLayer.updateAccount layer
                              wId
                              (V1.unsafeMkAccountIndex 2147483648)
@@ -252,7 +266,8 @@ spec = describe "Accounts" $ do
 
         prop "fails if the account doesn't exists" $ withMaxSuccess 50 $ do
             monadicIO $ do
-                withFixture $ \_ layer _ Fixture{..} -> do
+                pm <- pick arbitrary
+                withFixture pm $ \_ layer _ Fixture{..} -> do
                     let wId = V1.walId fixtureV1Wallet
                     -- Pick the first non-allocated index after 'firstHardened',
                     -- as by defaults each fixture's wallet is created with a
@@ -275,7 +290,8 @@ spec = describe "Accounts" $ do
 
         prop "works when called from Servant" $ withMaxSuccess 50 $ do
             monadicIO $ do
-                withFixture $ \_ layer _ Fixture{..} -> do
+                pm <- pick arbitrary
+                withFixture pm $ \_ layer _ Fixture{..} -> do
                     let create = Handlers.newAccount layer (V1.walId fixtureV1Wallet) fixtureNewAccountRq
                     (Right API.WalletResponse{..}) <- runExceptT . runHandler' $ create
                     let accountIndex = V1.accIndex wrData
@@ -290,7 +306,8 @@ spec = describe "Accounts" $ do
 
         prop "works as expected in the happy path scenario" $ withMaxSuccess 50 $ do
             monadicIO $ do
-                withFixture $ \_ layer _ Fixture{..} -> do
+                pm <- pick arbitrary
+                withFixture pm $ \_ layer _ Fixture{..} -> do
                     (Right V1.Account{..}) <-
                         WalletLayer.createAccount layer (V1.walId fixtureV1Wallet)
                                                         fixtureNewAccountRq
@@ -303,7 +320,8 @@ spec = describe "Accounts" $ do
         prop "fails if the parent wallet doesn't exists" $ withMaxSuccess 50 $ do
             monadicIO $ do
                 wId <- pick arbitrary
-                withLayer $ \layer _ -> do
+                pm  <- pick arbitrary
+                withLayer pm $ \layer _ -> do
                     res <- WalletLayer.getAccount layer
                              wId
                              (V1.unsafeMkAccountIndex 2147483648)
@@ -320,7 +338,8 @@ spec = describe "Accounts" $ do
 
         prop "fails if the account doesn't exists" $ withMaxSuccess 50 $ do
             monadicIO $ do
-                withFixture $ \_ layer _ Fixture{..} -> do
+                pm <- pick arbitrary
+                withFixture pm $ \_ layer _ Fixture{..} -> do
                     -- Pick the first non-allocated index after 'firstHardened',
                     -- as by defaults each fixture's wallet is created with a
                     -- default account at index 'firstHardened'.
@@ -340,7 +359,8 @@ spec = describe "Accounts" $ do
 
         prop "works when called from Servant" $ withMaxSuccess 50 $ do
             monadicIO $ do
-                withFixture $ \_ layer _ Fixture{..} -> do
+                pm <- pick arbitrary
+                withFixture pm $ \_ layer _ Fixture{..} -> do
                     let create = Handlers.newAccount layer (V1.walId fixtureV1Wallet) fixtureNewAccountRq
                     (Right API.WalletResponse{..}) <- runExceptT . runHandler' $ create
                     let accountIndex = V1.accIndex wrData
@@ -354,7 +374,8 @@ spec = describe "Accounts" $ do
 
         prop "works as expected in the happy path scenario" $ withMaxSuccess 25 $ do
             monadicIO $ do
-                withFixture $ \_ layer _ Fixture{..} -> do
+                pm <- pick arbitrary
+                withFixture pm $ \_ layer _ Fixture{..} -> do
                     -- We create 4 accounts, plus one is created automatically
                     -- by the 'createWallet' endpoint, for a total of 5.
                     forM_ [1..4] $ \(_i :: Int) ->
@@ -368,7 +389,8 @@ spec = describe "Accounts" $ do
         prop "fails if the parent wallet doesn't exists" $ withMaxSuccess 25 $ do
             monadicIO $ do
                 wId <- pick arbitrary
-                withLayer $ \layer _ -> do
+                pm  <- pick arbitrary
+                withLayer pm $ \layer _ -> do
                     res <- WalletLayer.getAccounts layer wId
                     case res of
                          Left (WalletLayer.GetAccountsError (Kernel.UnknownHdRoot _)) ->
@@ -383,7 +405,8 @@ spec = describe "Accounts" $ do
 
         prop "works when called from Servant" $ withMaxSuccess 25 $ do
             monadicIO $ do
-                withFixture $ \_ layer _ Fixture{..} -> do
+                pm <- pick arbitrary
+                withFixture pm $ \_ layer _ Fixture{..} -> do
                     let create = Handlers.newAccount layer (V1.walId fixtureV1Wallet) fixtureNewAccountRq
                     -- We create 4 accounts, plus one is created automatically
                     -- by the 'createWallet' endpoint, for a total of 5.
@@ -400,7 +423,8 @@ spec = describe "Accounts" $ do
 
         prop "fails if the account doesn't exists" $ withMaxSuccess 50 $ do
             monadicIO $ do
-                withFixture $ \_ layer _ Fixture{..} -> do
+                pm <- pick arbitrary
+                withFixture pm $ \_ layer _ Fixture{..} -> do
                     let params = API.RequestParams (API.PaginationParams (API.Page 1) (API.PerPage 10))
                     let filters = API.NoFilters
                     -- Pick the first non-allocated index after 'firstHardened',
@@ -425,7 +449,8 @@ spec = describe "Accounts" $ do
 
         prop "applied to each newly created accounts gives addresses as obtained from GetAccounts" $ withMaxSuccess 25 $ do
             monadicIO $ do
-                withFixture $ \_ layer _ Fixture{..} -> do
+                pm <- pick arbitrary
+                withFixture pm $ \_ layer _ Fixture{..} -> do
                     -- We create 4 accounts, plus one is created automatically
                     -- by the 'createWallet' endpoint, for a total of 5.
                     forM_ [1..4] $ \(_i :: Int) ->
@@ -449,7 +474,8 @@ spec = describe "Accounts" $ do
 
         prop "and this also works when called from Servant" $ withMaxSuccess 25 $ do
             monadicIO $ do
-                withFixture $ \_ layer _ Fixture{..} -> do
+                pm <- pick arbitrary
+                withFixture pm $ \_ layer _ Fixture{..} -> do
                     let create = Handlers.newAccount layer (V1.walId fixtureV1Wallet) fixtureNewAccountRq
                     -- We create 4 accounts, plus one is created automatically
                     -- by the 'createWallet' endpoint, for a total of 5.
@@ -477,7 +503,8 @@ spec = describe "Accounts" $ do
 
         prop "applied to accounts that were just updated via address creation is the same as obtained from GetAccounts" $ withMaxSuccess 25 $ do
             monadicIO $ do
-                withFixture $ \_ layer _ Fixture{..} -> do
+                pm <- pick arbitrary
+                withFixture pm $ \_ layer _ Fixture{..} -> do
                     -- We create 4 accounts, plus one is created automatically
                     -- by the 'createWallet' endpoint, for a total of 5.
                     forM_ [1..4] $ \(_i :: Int) ->
@@ -506,7 +533,8 @@ spec = describe "Accounts" $ do
 
         prop "gives zero balance for newly created account" $ withMaxSuccess 25 $ do
             monadicIO $ do
-                withFixture $ \_ layer _ Fixture{..} -> do
+                pm <- pick arbitrary
+                withFixture pm $ \_ layer _ Fixture{..} -> do
                     let zero = V1 (mkCoin 0)
                     (Right V1.Account{..}) <-
                         WalletLayer.createAccount layer (V1.walId fixtureV1Wallet)
@@ -519,7 +547,8 @@ spec = describe "Accounts" $ do
 
         prop "fails if the account doesn't exists" $ withMaxSuccess 50 $ do
             monadicIO $ do
-                withFixture $ \_ layer _ Fixture{..} -> do
+                pm <- pick arbitrary
+                withFixture pm $ \_ layer _ Fixture{..} -> do
                     -- Pick the first non-allocated index after 'firstHardened',
                     -- as by defaults each fixture's wallet is created with a
                     -- default account at index 'firstHardened'.
@@ -541,7 +570,8 @@ spec = describe "Accounts" $ do
 
         prop "applied to each newly created account gives balances as obtained from GetAccounts" $ withMaxSuccess 25 $ do
             monadicIO $ do
-                withFixture $ \_ layer _ Fixture{..} -> do
+                pm <- pick arbitrary
+                withFixture pm $ \_ layer _ Fixture{..} -> do
                     -- We create 4 accounts, plus one is created automatically
                     -- by the 'createWallet' endpoint, for a total of 5.
                     forM_ [1..4] $ \(_i :: Int) ->
@@ -563,7 +593,8 @@ spec = describe "Accounts" $ do
 
         prop "and this also works when called from Servant" $ withMaxSuccess 25 $ do
             monadicIO $ do
-                withFixture $ \_ layer _ Fixture{..} -> do
+                pm <- pick arbitrary
+                withFixture pm $ \_ layer _ Fixture{..} -> do
                     let create = Handlers.newAccount layer (V1.walId fixtureV1Wallet) fixtureNewAccountRq
                     -- We create 4 accounts, plus one is created automatically
                     -- by the 'createWallet' endpoint, for a total of 5.

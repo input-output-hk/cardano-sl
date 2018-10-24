@@ -29,7 +29,6 @@ import           Pos.Util.Util (leftToPanic)
 import           Test.Pos.Chain.Ssc.Arbitrary ()
 import           Test.Pos.Chain.Update.Arbitrary ()
 import           Test.Pos.Core.Arbitrary ()
-import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Arbitrary (nonrepeating)
 
 instance Arbitrary TestnetBalanceOptions where
@@ -56,12 +55,13 @@ instance Arbitrary GenesisDelegation where
                                                         -- because 'nonrepeating' fails when
                                                         -- we want too many items, because
                                                         -- life is hard
+            pm <- arbitrary
             return $
                 case secretKeys of
                     []                 -> []
-                    (delegate:issuers) -> mkCert (toPublic delegate) <$> issuers
+                    (delegate:issuers) -> mkCert pm (toPublic delegate) <$> issuers
       where
-        mkCert delegatePk issuer = createPsk dummyProtocolMagic issuer delegatePk (HeavyDlgIndex 0)
+        mkCert pm delegatePk issuer = createPsk pm issuer delegatePk (HeavyDlgIndex 0)
 
 instance Arbitrary GenesisWStakeholders where
     arbitrary = GenesisWStakeholders <$> arbitrary

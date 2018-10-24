@@ -27,6 +27,7 @@ import qualified Wallet.Rollback.Basic as Roll
 import qualified Wallet.Rollback.Full as Full
 
 import           Pos.Core (Coeff (..), TxSizeLinear (..))
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 
 {-------------------------------------------------------------------------------
   Pure wallet tests
@@ -35,6 +36,17 @@ import           Pos.Core (Coeff (..), TxSizeLinear (..))
 -- | Test the pure wallet models
 spec :: Spec
 spec = do
+    runWithMagic RequiresNoMagic
+    runWithMagic RequiresMagic
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm =
     describe "Test pure wallets" $ do
       it "Using simple model" $
         forAll (genInductiveUsingModel simpleModel) $ testPureWalletWith
@@ -45,7 +57,7 @@ spec = do
     ourActorIx   = 0
     allAddrs     = transCtxtAddrs transCtxt
 
-    transCtxt = runTranslateNoErrors ask
+    transCtxt = runTranslateNoErrors pm ask
     boot      = bootstrapTransaction transCtxt
     linearFeePolicy = TxSizeLinear (Coeff 155381) (Coeff 43.946)
 

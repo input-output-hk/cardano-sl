@@ -17,9 +17,9 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Set as Set
 import           Formatting (build, int, sformat, (%))
 import           Serokell.Util (listJson)
-import           Test.Hspec (Spec, describe)
+import           Test.Hspec (Spec, describe, runIO)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Gen, arbitrary, choose)
+import           Test.QuickCheck (Gen, arbitrary, choose, generate)
 import           Test.QuickCheck.Monadic (pick)
 
 import           Pos.Binary.Class (serialize')
@@ -33,7 +33,8 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
 import qualified Pos.Chain.Lrc as Lrc
 import           Pos.Chain.Txp (TxAux, TxpConfiguration (..), mkTxPayload)
 import           Pos.Core (Coin, EpochIndex, StakeholderId, addressHash, coinF)
-import           Pos.Crypto (SecretKey, toPublic)
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..),
+                     SecretKey, toPublic)
 import           Pos.DB.Block (ShouldCallBListener (..), applyBlocksUnsafe)
 import qualified Pos.DB.Block as Lrc
 import qualified Pos.DB.Lrc as LrcDB
@@ -48,12 +49,23 @@ import           Test.Pos.Block.Logic.Util (EnableTxPayload (..),
                      InplaceDB (..), bpGenBlock, bpGenBlocks)
 import           Test.Pos.Block.Property (blockPropertySpec)
 import           Test.Pos.Configuration (defaultTestBlockVersionData,
-                     withStaticConfigurations)
+                     withProvidedMagicConfig)
 import           Test.Pos.Util.QuickCheck (maybeStopProperty, stopProperty)
 
 
 spec :: Spec
-spec = withStaticConfigurations $ \txpConfig _ ->
+spec = do
+    runWithMagic RequiresNoMagic
+    runWithMagic RequiresMagic
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody pm = withProvidedMagicConfig pm $ \_ txpConfig _ ->
     describe "Lrc.Worker" $ modifyMaxSuccess (const 4) $ do
         describe "lrcSingleShot" $ do
             -- Currently we want to run it only 4 times, because there
@@ -89,6 +101,7 @@ genTestParams = do
     let _tpBlockVersionData = defaultTestBlockVersionData
     let _tpTxpConfiguration = TxpConfiguration 200 Set.empty
     _tpGenesisInitializer <- genGenesisInitializer
+    _tpProtocolMagic <- arbitrary
     return TestParams {..}
 
 genGenesisInitializer :: Gen GenesisInitializer

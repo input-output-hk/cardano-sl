@@ -74,7 +74,7 @@ import           Pos.Chain.Txp as Core (TxAttributes, TxAux, TxIn, TxOut,
 import qualified Pos.Client.Txp.Util as CTxp
 import           Pos.Core (Address, Coin, TxFeePolicy (..), unsafeSubCoin)
 import qualified Pos.Core as Core
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
+import           Pos.Core.NetworkMagic (NetworkMagic (..), makeNetworkMagic)
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ProtocolMagic,
                      PublicKey, RedeemSecretKey, SafeSigner (..),
                      ShouldCheckPassphrase (..), Signature (..), hash,
@@ -400,6 +400,8 @@ newTransaction
     -- ^ The payees.
     -> IO (Either NewTransactionError (TxAux, PartialTxMeta, Utxo))
 newTransaction aw@ActiveWallet{..} spendingPassword options accountId payees = do
+    let pm = walletPassive ^. Internal.walletProtocolMagic
+        nm = makeNetworkMagic pm
     tx <- newUnsignedTransaction aw options accountId payees
     case tx of
          Left e   -> return (Left e)
@@ -419,8 +421,8 @@ newTransaction aw@ActiveWallet{..} spendingPassword options accountId payees = d
 
              let inputs      = unsignedTxInputs unsignedTx
                  outputs     = unsignedTxOutputs unsignedTx
-                 signAddress = mkSigner spendingPassword mbEsk db
-                 mkTx        = mkStdTx walletProtocolMagic shuffleNE signAddress
+                 signAddress = mkSigner nm spendingPassword mbEsk db
+                 mkTx        = mkStdTx pm shuffleNE signAddress
 
              -- STEP 3: Creates the @signed@ transaction using data from the
              --         unsigned one.
@@ -581,13 +583,14 @@ instance Buildable SignTransactionError where
 instance Arbitrary SignTransactionError where
     arbitrary = oneof []
 
-mkSigner :: PassPhrase
+mkSigner :: NetworkMagic
+         -> PassPhrase
          -> Maybe EncryptedSecretKey
          -> DB
          -> Address
          -> Either SignTransactionError SafeSigner
-mkSigner _ Nothing _ addr = Left (SignTransactionMissingKey addr)
-mkSigner spendingPassword (Just esk) snapshot addr =
+mkSigner _ _ Nothing _ addr = Left (SignTransactionMissingKey addr)
+mkSigner nm spendingPassword (Just esk) snapshot addr =
     case Getters.lookupCardanoAddress snapshot addr of
         Left _ -> Left (SignTransactionErrorUnknownAddress addr)
         Right hdAddr ->
@@ -598,7 +601,7 @@ mkSigner spendingPassword (Just esk) snapshot addr =
                                        . HD.hdAddressIdParent
                                        . HD.hdAccountIdIx
                                        . to HD.getHdAccountIx
-                res = Core.deriveLvl2KeyPair fixedNM
+                res = Core.deriveLvl2KeyPair nm
                                              (Core.IsBootstrapEraAddr True)
                                              (ShouldCheckPassphrase False)
                                              spendingPassword
@@ -677,6 +680,7 @@ redeemAda :: ActiveWallet
           -> RedeemSecretKey  -- ^ Redemption key
           -> IO (Either RedeemAdaError (Tx, TxMeta))
 redeemAda w@ActiveWallet{..} accId pw rsk = runExceptT $ do
+    let pm = walletPassive ^. Internal.walletProtocolMagic
     snapshot   <- liftIO $ getWalletSnapshot walletPassive
     _accExists <- withExceptT RedeemAdaUnknownAccountId $ exceptT $
                     lookupHdAccountId snapshot accId
@@ -685,7 +689,7 @@ redeemAda w@ActiveWallet{..} accId pw rsk = runExceptT $ do
                       pw
                       (AccountIdHdRnd accId)
                       walletPassive
-    (tx, meta) <- mkTx changeAddr
+    (tx, meta) <- mkTx pm changeAddr
     withExceptT RedeemAdaNewForeignFailed $ ExceptT $ liftIO $
       newForeign
         w
@@ -694,13 +698,14 @@ redeemAda w@ActiveWallet{..} accId pw rsk = runExceptT $ do
         meta
     return (taTx tx, meta)
   where
-    redeemAddr :: Address
-    redeemAddr = Core.makeRedeemAddress fixedNM $ redeemToPublic rsk
+    redeemAddr :: NetworkMagic -> Address
+    redeemAddr nm = Core.makeRedeemAddress nm $ redeemToPublic rsk
 
     -- | Note: we use `getCreationTimestamp` provided by the `NodeStateAdaptor`
     --   to compute the createdAt timestamp for `TxMeta`
-    mkTx :: Address -> ExceptT RedeemAdaError IO (TxAux, TxMeta)
-    mkTx output = do
+    mkTx :: ProtocolMagic -> Address -> ExceptT RedeemAdaError IO (TxAux, TxMeta)
+    mkTx pm output = do
+        let nm = makeNetworkMagic pm
         now  <- liftIO $ Node.getCreationTimestamp (walletPassive ^. walletNode)
         utxo <- liftIO $
                   Node.withNodeState (walletPassive ^. walletNode) $ \_lock ->
@@ -708,18 +713,18 @@ redeemAda w@ActiveWallet{..} accId pw rsk = runExceptT $ do
         (inp@(TxInUtxo inHash inIx), coin) <-
           case utxo of
             [i]   -> return i
-            []    -> throwError $ RedeemAdaNotAvailable    redeemAddr
-            _:_:_ -> throwError $ RedeemAdaMultipleOutputs redeemAddr
+            []    -> throwError $ RedeemAdaNotAvailable    (redeemAddr nm)
+            _:_:_ -> throwError $ RedeemAdaMultipleOutputs (redeemAddr nm)
         let out    = TxOutAux $ TxOut output coin
             txAux  = CTxp.makeRedemptionTx
-                       walletProtocolMagic
+                       pm
                        rsk
                        (inp :| [])
                        (out :| [])
             txMeta = TxMeta {
                 _txMetaId         = hash (taTx txAux)
               , _txMetaAmount     = coin
-              , _txMetaInputs     = (inHash, inIx, redeemAddr, coin) :| []
+              , _txMetaInputs     = (inHash, inIx, redeemAddr nm, coin) :| []
               , _txMetaOutputs    = (output, coin) :| []
               , _txMetaCreationAt = now
               , _txMetaIsLocal    = False -- input does not belong to wallet
@@ -731,7 +736,8 @@ redeemAda w@ActiveWallet{..} accId pw rsk = runExceptT $ do
       where
         isOutput :: (TxIn, TxOutAux) -> Maybe (TxIn, Coin)
         isOutput (inp, TxOutAux (TxOut addr coin)) = do
-            guard $ addr == redeemAddr
+            let nm = makeNetworkMagic pm
+            guard $ addr == (redeemAddr nm)
             return (inp, coin)
 
 -- | Generates the list of change outputs from a list of change coins.
@@ -800,6 +806,3 @@ mkStdTx pm shuffle hdwSigners inps outs change = do
          -- 'TxOwnedInputs'.
         repack :: (Core.TxIn, Core.TxOutAux) -> (Core.TxOut, Core.TxIn)
         repack (txIn, aux) = (Core.toaOut aux, txIn)
-
-fixedNM :: NetworkMagic
-fixedNM = NetworkMainOrStage

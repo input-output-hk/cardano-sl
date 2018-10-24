@@ -44,4 +44,4 @@ instance SafeCopy NetworkMagic where
 makeNetworkMagic :: ProtocolMagic -> NetworkMagic
 makeNetworkMagic pm = case getRequiresNetworkMagic pm of
     RequiresNoMagic -> NetworkMainOrStage
-    RequiresMagic   -> NetworkTestnet (fromIntegral (getProtocolMagic pm))
+    RequiresMagic   -> NetworkTestnet (getProtocolMagic pm)

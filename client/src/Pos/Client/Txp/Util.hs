@@ -79,7 +79,7 @@ import           Pos.Core (Address, Coin, SlotCount, StakeholderId,
                      isRedeemAddress, mkCoin, sumCoins, txSizeLinearMinValue,
                      unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Core.Attributes (mkAttributes)
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
+import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
 import           Pos.Crypto (ProtocolMagic, RedeemSecretKey, SafeSigner,
                      SignTag (SignRedeemTx, SignTx), deterministicKeyGen,
                      fakeSigner, hash, redeemSign, redeemToPublic, safeSign,
@@ -563,8 +563,9 @@ prepareInpsOuts
     -> TxCreator m (TxOwnedInputs TxOut, TxOutputs)
 prepareInpsOuts genesisConfig pendingTx utxo outputs addrData = do
     txRaw@TxRaw {..} <- prepareTxWithFee genesisConfig pendingTx utxo outputs
+    let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
     outputsWithRem <-
-        mkOutputsWithRem fixedNM (configEpochSlots genesisConfig) addrData txRaw
+        mkOutputsWithRem nm (configEpochSlots genesisConfig) addrData txRaw
     pure (trInputs, outputsWithRem)
 
 prepareInpsOutsForUnsignedTx
@@ -826,13 +827,14 @@ stabilizeTxFee genesisConfig pendingTx linearPolicy utxo outputs = do
     stabilizeTxFeeDo (_, 0) _ = pure Nothing
     stabilizeTxFeeDo (isSecondStage, attempt) expectedFee = do
         txRaw <- prepareTxRaw pendingTx utxo outputs expectedFee
-        fakeChangeAddr <- lift . lift $ getFakeChangeAddress fixedNM $ configEpochSlots
+        let pm = configProtocolMagic genesisConfig
+            nm = makeNetworkMagic pm
+        fakeChangeAddr <- lift . lift $ getFakeChangeAddress nm $ configEpochSlots
             genesisConfig
         txMinFee <- txToLinearFee linearPolicy $ createFakeTxFromRawTx
-            (configProtocolMagic genesisConfig)
+            pm
             fakeChangeAddr
             txRaw
-
         let txRawWithFee = S.Min $ S.Arg expectedFee txRaw
         let iterateDo step = stabilizeTxFeeDo step txMinFee
         case expectedFee `compare` txMinFee of
@@ -874,7 +876,3 @@ createFakeTxFromRawTx pm fakeAddr TxRaw{..} =
            (\_ -> Right $ fakeSigner fakeSK)
            trInputs
            txOutsWithRem
-
-
-fixedNM :: NetworkMagic
-fixedNM = NetworkMainOrStage

@@ -8,6 +8,7 @@ module Test.Pos.Configuration
 
        , HasStaticConfigurations
        , withDefConfiguration
+       , withProvidedMagicConfig
        , withDefNtpConfiguration
        , withDefNodeConfiguration
        , withDefSscConfiguration
@@ -30,13 +31,15 @@ import           Ntp.Client (NtpConfiguration)
 import           Pos.Chain.Block (HasBlockConfiguration, withBlockConfiguration)
 import           Pos.Chain.Delegation (HasDlgConfiguration,
                      withDlgConfiguration)
-import           Pos.Chain.Genesis as Genesis (Config, GenesisSpec (..),
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     GenesisProtocolConstants (..), GenesisSpec (..),
                      StaticConfig (..), mkConfig)
 import           Pos.Chain.Ssc (HasSscConfiguration, withSscConfiguration)
 import           Pos.Chain.Txp (TxpConfiguration (..))
 import           Pos.Chain.Update (BlockVersionData, HasUpdateConfiguration,
                      withUpdateConfiguration)
 import           Pos.Configuration (HasNodeConfiguration, withNodeConfiguration)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Launcher.Configuration (Configuration (..),
                      HasConfigurations)
 import           Pos.Util.Config (embedYamlConfigCT)
@@ -108,3 +111,26 @@ withDefConfigurations
     -> r
 withDefConfigurations bardaq = withDefConfiguration
     $ \genesisConfig -> withStaticConfigurations (bardaq genesisConfig)
+
+withProvidedMagicConfig
+    :: ProtocolMagic
+    -> (  HasConfigurations
+       => Genesis.Config
+       -> TxpConfiguration
+       -> NtpConfiguration
+       -> r
+       )
+    -> r
+withProvidedMagicConfig pm f = withStaticConfigurations (f overriddenGenesisConfig)
+  where
+    overriddenGenesisConfig :: Genesis.Config
+    overriddenGenesisConfig = mkConfig 0 overriddenGenesisSpec
+    --
+    overriddenGenesisSpec :: GenesisSpec
+    overriddenGenesisSpec = updateGS defaultTestGenesisSpec
+    --
+    updateGS :: GenesisSpec -> GenesisSpec
+    updateGS gs = gs { gsProtocolConstants = updateGPC (gsProtocolConstants gs) }
+    --
+    updateGPC :: GenesisProtocolConstants -> GenesisProtocolConstants
+    updateGPC gpc = gpc { gpcProtocolMagic = pm }

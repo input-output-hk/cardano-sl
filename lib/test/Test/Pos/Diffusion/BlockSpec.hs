@@ -16,7 +16,8 @@ import           Data.Conduit.Combinators (yieldMany)
 import           Data.List.NonEmpty (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty as NE
 import           Data.Semigroup ((<>))
-import           Test.Hspec (Spec, describe, it, shouldBe)
+import           Test.Hspec (Spec, describe, it, runIO, shouldBe)
+import           Test.QuickCheck (arbitrary, generate)
 
 import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Network.Broadcast.OutboundQueue.Types as OQ
@@ -32,8 +33,7 @@ import qualified Pos.Chain.Block as Block (getBlockHeader)
 import           Pos.Chain.Update (BlockVersion (..))
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
-import           Pos.Crypto (ProtocolMagic (..), ProtocolMagicId (..),
-                     RequiresNetworkMagic (..))
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
 import           Pos.DB.Class (Serialized (..), SerializedBlock)
 import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
@@ -53,9 +53,6 @@ import           Test.Pos.Chain.Block.Arbitrary.Generate (generateMainBlock)
 -- HLint warning disabled since I ran into https://ghc.haskell.org/trac/ghc/ticket/13106
 -- when trying to resolve it.
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
-
-protocolMagic :: ProtocolMagic
-protocolMagic = ProtocolMagic (ProtocolMagicId 0) RequiresNoMagic
 
 protocolConstants :: ProtocolConstants
 protocolConstants = ProtocolConstants
@@ -119,8 +116,8 @@ clientLogic = pureLogic
     { getLcaMainChain = \headers -> pure (NewestFirst [], headers)
     }
 
-withServer :: Transport -> Logic IO -> (NodeId -> IO t) -> IO t
-withServer transport logic k = do
+withServer :: ProtocolMagic -> Transport -> Logic IO -> (NodeId -> IO t) -> IO t
+withServer pm transport logic k = do
     logTrace <- liftIO $ setupTestTrace
     -- Morally, the server shouldn't need an outbound queue, but we have to
     -- give one.
@@ -146,7 +143,7 @@ withServer transport logic k = do
     runFullDiffusionInternals runInternals $ \internals -> k (Node.nodeId (fdiNode internals))
   where
     fdconf = FullDiffusionConfiguration
-        { fdcProtocolMagic = protocolMagic
+        { fdcProtocolMagic = pm
         , fdcProtocolConstants = protocolConstants
         -- Just like in production.
         , fdcRecoveryHeadersMessage = 2200
@@ -159,13 +156,14 @@ withServer transport logic k = do
 -- Like 'withServer' but we must set up the outbound queue so that it will
 -- contact the server.
 withClient
-    :: Word32
+    :: ProtocolMagic
+    -> Word32
     -> Transport
     -> Logic IO
     -> NodeId
     -> (Diffusion IO -> IO t)
     -> IO t
-withClient streamWindow transport logic serverAddress@(Node.NodeId _) k = do
+withClient pm streamWindow transport logic serverAddress@(Node.NodeId _) k = do
     -- Morally, the server shouldn't need an outbound queue, but we have to
     -- give one.
     oq <- OQ.new
@@ -192,7 +190,7 @@ withClient streamWindow transport logic serverAddress@(Node.NodeId _) k = do
     runFullDiffusionInternals runInternals $ \_ -> k diffusion
   where
     fdconf = FullDiffusionConfiguration
-        { fdcProtocolMagic = protocolMagic
+        { fdcProtocolMagic = pm
         , fdcProtocolConstants = protocolConstants
         -- Just like in production.
         , fdcRecoveryHeadersMessage = 2200
@@ -226,26 +224,26 @@ blockDownloadStream serverAddress resultIORef streamIORef setStreamIORef ~(block
         modifyIORef' recvBlocks (\d -> blocks <> d)
 
 -- Generate a list of n+1 blocks
-generateBlocks :: Int -> NonEmpty Block
-generateBlocks blocks =
+generateBlocks :: ProtocolMagic -> Int -> NonEmpty Block
+generateBlocks pm blocks =
   let root = doGenerateBlock 0 in
   root :| (doGenerateBlocks blocks)
   where
     doGenerateBlock :: Int -> Block
     doGenerateBlock seed =
         let size = 4 in
-        force $ Right (generateMainBlock protocolMagic seed size)
+        force $ Right (generateMainBlock pm seed size)
 
     doGenerateBlocks :: Int -> [Block]
     doGenerateBlocks 0 = []
     doGenerateBlocks x = do
         [doGenerateBlock x] ++ (doGenerateBlocks (x-1))
 
-streamSimple :: Word32 -> Int -> IO Bool
-streamSimple streamWindow blocks = do
+streamSimple :: ProtocolMagic -> Word32 -> Int -> IO Bool
+streamSimple pm streamWindow blocks = do
     streamIORef <- newIORef []
     resultIORef <- newIORef False
-    let arbitraryBlocks = generateBlocks (blocks - 1)
+    let arbitraryBlocks = generateBlocks pm (blocks - 1)
         arbitraryHeaders = NE.map Block.getBlockHeader arbitraryBlocks
         arbitraryHashes = NE.map blockHeaderHash arbitraryHeaders
         !arbitraryBlock = NE.head arbitraryBlocks
@@ -253,44 +251,52 @@ streamSimple streamWindow blocks = do
         checkpoints = [tipHash]
         setStreamIORef = \_ -> writeIORef streamIORef $ NE.tail arbitraryBlocks
     withTransport $ \transport ->
-        withServer transport (serverLogic streamIORef arbitraryBlock arbitraryHashes arbitraryHeaders) $ \serverAddress ->
-        withClient streamWindow transport clientLogic serverAddress $
+        withServer pm transport (serverLogic streamIORef arbitraryBlock arbitraryHashes arbitraryHeaders) $ \serverAddress ->
+        withClient pm streamWindow transport clientLogic serverAddress $
             liftIO . blockDownloadStream serverAddress resultIORef streamIORef setStreamIORef
                 (tipHash, checkpoints)
     readIORef resultIORef
 
-batchSimple :: Int -> IO Bool
-batchSimple blocks = do
+batchSimple :: ProtocolMagic -> Int -> IO Bool
+batchSimple pm blocks = do
     streamIORef <- newIORef []
-    let arbitraryBlocks = generateBlocks (blocks - 1)
+    let arbitraryBlocks = generateBlocks pm (blocks - 1)
         arbitraryHeaders = NE.map Block.getBlockHeader arbitraryBlocks
         arbitraryHashes = NE.map blockHeaderHash arbitraryHeaders
         arbitraryBlock = NE.head arbitraryBlocks
         !checkPoints = if blocks == 1 then [someHash]
                                       else [someHash' (blocks + 1) []]
     withTransport $ \transport ->
-        withServer transport (serverLogic streamIORef arbitraryBlock arbitraryHashes arbitraryHeaders) $ \serverAddress ->
-        withClient 2048 transport clientLogic serverAddress $
+        withServer pm transport (serverLogic streamIORef arbitraryBlock arbitraryHashes arbitraryHeaders) $ \serverAddress ->
+        withClient pm 2048 transport clientLogic serverAddress $
             liftIO . blockDownloadBatch serverAddress (someHash, checkPoints)
     return True
 
 spec :: Spec
-spec = describe "Blockdownload" $ do
-    it "Stream 4 blocks" $ do
-        r <- streamSimple 2048 4
-        r `shouldBe` True
-    it "Stream 128 blocks" $ do
-        r <- streamSimple 2048 128
-        r `shouldBe` True
-    it "Stream 4096 blocks" $ do
-        r <- streamSimple 128 4096
-        r `shouldBe` True
-    it "Streaming dislabed by client" $ do
-        r <- streamSimple 0 4
-        r `shouldBe` False
-    it "Batch, single block" $ do
-        r <- batchSimple 1
-        r `shouldBe` True
-    it "Batch of blocks" $ do
-        r <- batchSimple 2200
-        r `shouldBe` True
+spec = do
+    runWithMagic RequiresNoMagic
+    runWithMagic RequiresMagic
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        describe "Blockdownload" $ do
+            it "Stream 4 blocks" $ do
+                r <- streamSimple pm 2048 4
+                r `shouldBe` True
+            it "Stream 128 blocks" $ do
+                r <- streamSimple pm 2048 128
+                r `shouldBe` True
+            it "Stream 4096 blocks" $ do
+                r <- streamSimple pm 128 4096
+                r `shouldBe` True
+            it "Streaming dislabed by client" $ do
+                r <- streamSimple pm 0 4
+                r `shouldBe` False
+            it "Batch, single block" $ do
+                r <- batchSimple pm 1
+                r `shouldBe` True
+            it "Batch of blocks" $ do
+                r <- batchSimple pm 2200
+                r `shouldBe` True

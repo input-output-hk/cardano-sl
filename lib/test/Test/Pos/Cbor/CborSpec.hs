@@ -19,7 +19,7 @@ import           Data.Tagged (Tagged)
 import           System.FileLock (FileLock)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Arbitrary (..))
+import           Test.QuickCheck (Arbitrary (..), arbitrary)
 
 import           Pos.Binary.Communication ()
 import           Pos.Chain.Delegation (DlgPayload, DlgUndo, ProxySKHeavy)
@@ -65,7 +65,7 @@ type UpId' = Tagged (U.UpdateProposal, [U.UpdateVote])U.UpId
 ----------------------------------------
 
 spec :: Spec
-spec = do
+spec =
     describe "Cbor.Bi instances" $ do
         modifyMaxSuccess (const 1000) $ do
             describe "Lib/core instances" $ do

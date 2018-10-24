@@ -52,14 +52,15 @@ import qualified Cardano.Wallet.WalletLayer.Kernel.Wallets as Wallets
 -- The passive wallet cannot send new transactions.
 bracketPassiveWallet
     :: forall m n a. (MonadIO n, MonadUnliftIO m, MonadMask m)
-    => Kernel.DatabaseMode
+    => ProtocolMagic
+    -> Kernel.DatabaseMode
     -> (Severity -> Text -> IO ())
     -> Keystore
     -> NodeStateAdaptor IO
     -> FInjects IO
     -> (PassiveWalletLayer n -> Kernel.PassiveWallet -> m a) -> m a
-bracketPassiveWallet mode logFunction keystore node fInjects f = do
-    Kernel.bracketPassiveWallet mode logFunction keystore node fInjects $ \w -> do
+bracketPassiveWallet pm mode logFunction keystore node fInjects f = do
+    Kernel.bracketPassiveWallet pm mode logFunction keystore node fInjects $ \w -> do
 
       -- For each wallet in a restoration state, re-start the background
       -- restoration tasks.
@@ -156,13 +157,12 @@ bracketPassiveWallet mode logFunction keystore node fInjects f = do
 -- 'WalletDiffusion' layer in scope.
 bracketActiveWallet
     :: forall m n a. (MonadIO m, MonadMask m, MonadIO n)
-    => ProtocolMagic
-    -> PassiveWalletLayer n
+    => PassiveWalletLayer n
     -> Kernel.PassiveWallet
     -> WalletDiffusion
     -> (ActiveWalletLayer n -> Kernel.ActiveWallet -> m a) -> m a
-bracketActiveWallet pm walletPassiveLayer passiveWallet walletDiffusion runActiveLayer =
-    Kernel.bracketActiveWallet pm passiveWallet walletDiffusion $ \w -> do
+bracketActiveWallet walletPassiveLayer passiveWallet walletDiffusion runActiveLayer =
+    Kernel.bracketActiveWallet passiveWallet walletDiffusion $ \w -> do
         bracket
           (return (activeWalletLayer w))
           (\_ -> return ())

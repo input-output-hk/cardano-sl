@@ -46,6 +46,7 @@ import           Pos.AllSecrets (HasAllSecrets (..))
 import           Pos.Chain.Block (HasSlogGState (..), LastKnownHeader,
                      LastKnownHeaderTag)
 import           Pos.Chain.Delegation (DelegationVar, HasDlgConfiguration)
+import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Ssc (SscMemTag, SscState)
 import           Pos.Chain.Txp (TxAux)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..),
@@ -57,7 +58,8 @@ import           Pos.Client.Txp.History (MonadTxHistory (..),
                      getBlockHistoryDefault, getLocalHistoryDefault,
                      saveTxDefault)
 import           Pos.Context (ConnectedPeers (..))
-import           Pos.Core (Timestamp (..), largestHDAddressBoot)
+import           Pos.Core (Timestamp (..), largestHDAddressBoot,
+                     pcSlotSecurityParam)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Crypto (PassPhrase)
 import           Pos.DB (MonadDB (..), MonadDBRead (..), MonadGState (..))
@@ -121,7 +123,6 @@ import           Test.Pos.Block.Logic.Mode (BlockTestContext (..),
                      getCurrentSlotInaccurateTestDefault,
                      getCurrentSlotTestDefault, initBlockTestContext)
 import           Test.Pos.Chain.Genesis.Dummy (dummyConfig)
-import           Test.Pos.Core.Dummy (dummyEpochSlots)
 
 ----------------------------------------------------------------------------
 -- Parameters
@@ -194,11 +195,12 @@ getSentTxs = atomically . readTVar =<< view wtcSentTxs_L
 
 initWalletTestContext
     :: HasDlgConfiguration
-    => WalletTestParams
+    => Genesis.Config
+    -> WalletTestParams
     -> (WalletTestContext -> Emulation a)
     -> Emulation a
-initWalletTestContext WalletTestParams {..} callback =
-    initBlockTestContext dummyConfig _wtpBlockTestParams
+initWalletTestContext genesisConfig WalletTestParams {..} callback =
+    initBlockTestContext genesisConfig _wtpBlockTestParams
         $ \wtcBlockTestContext -> do
             wtc <- liftIO $ do
                 wtcWalletState <- openMemState
@@ -217,15 +219,16 @@ initWalletTestContext WalletTestParams {..} callback =
                 wtcLastKnownHeader <- STM.newTVarIO Nothing
                 wtcSentTxs <- STM.newTVarIO mempty
                 wtcSyncQueue <- STM.newTBQueueIO 64
-                wtcSlottingStateVar <- mkSimpleSlottingStateVar dummyEpochSlots
+                let epochSlots = pcSlotSecurityParam $ configProtocolConstants genesisConfig
+                wtcSlottingStateVar <- mkSimpleSlottingStateVar epochSlots
                 pure WalletTestContext {..}
             callback wtc
 
 runWalletTestMode
-    :: HasDlgConfiguration => WalletTestParams -> WalletTestMode a -> IO a
-runWalletTestMode wtp action =
+    :: HasDlgConfiguration => Genesis.Config -> WalletTestParams -> WalletTestMode a -> IO a
+runWalletTestMode genesisConfig wtp action =
     runEmulation (getTimestamp $ wtp ^. wtpBlockTestParams . tpStartTime) $
-    initWalletTestContext wtp $
+    initWalletTestContext genesisConfig wtp $
     runReaderT action
 
 ----------------------------------------------------------------------------
@@ -239,23 +242,25 @@ type WalletProperty = PropertyM WalletTestMode
 -- 'WalletTestParams'.
 walletPropertyToProperty
     :: (HasDlgConfiguration, Testable a)
-    => Gen WalletTestParams
+    => Genesis.Config
+    -> Gen WalletTestParams
     -> WalletProperty a
     -> Property
-walletPropertyToProperty wtpGen walletProperty =
+walletPropertyToProperty genesisConfig wtpGen walletProperty =
     forAll wtpGen $ \wtp ->
-        monadic (ioProperty . runWalletTestMode wtp) walletProperty
+        monadic (ioProperty . (runWalletTestMode genesisConfig) wtp) walletProperty
 
 instance (HasDlgConfiguration, Testable a) => Testable (WalletProperty a) where
-    property = walletPropertyToProperty arbitrary
+    property = walletPropertyToProperty dummyConfig arbitrary
 
 walletPropertySpec ::
        (HasDlgConfiguration, Testable a)
-    => String
+    => Genesis.Config
+    -> String
     -> WalletProperty a
     -> Spec
-walletPropertySpec description wp =
-    prop description (walletPropertyToProperty arbitrary wp)
+walletPropertySpec genesisConfig description wp =
+    prop description (walletPropertyToProperty genesisConfig arbitrary wp)
 
 ----------------------------------------------------------------------------
 -- Instances derived from BlockTestContext

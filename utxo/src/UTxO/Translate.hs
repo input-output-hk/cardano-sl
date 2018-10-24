@@ -30,10 +30,13 @@ import           Data.Validated
 import           Universum
 
 import           Pos.Chain.Block
+import           Pos.Chain.Genesis
 import           Pos.Chain.Txp
 import           Pos.Chain.Update
 import           Pos.Core
 import           Pos.Core.Chrono
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Class (MonadGState (..))
 
 import           UTxO.Context
@@ -50,8 +53,7 @@ import           Test.Pos.Chain.Genesis.Dummy (dummyBlockVersionData,
   configuration.yaml. It is specified by a 'GenesisSpec'.
 -------------------------------------------------------------------------------}
 
-import           Test.Pos.Configuration (withDefConfiguration,
-                     withDefUpdateConfiguration)
+import           Test.Pos.Configuration (withProvidedMagicConfig)
 
 {-------------------------------------------------------------------------------
   Translation monad
@@ -101,13 +103,14 @@ instance Monad m => MonadGState (TranslateT e m) where
 --
 -- NOTE: This uses the default test configuration, and throws any errors as
 -- pure exceptions.
-runTranslateT :: Monad m => Exception e => TranslateT e m a -> m a
-runTranslateT (TranslateT ta) =
-    withDefConfiguration $ \genesisConfig ->
-    withDefUpdateConfiguration $
-      let env :: TranslateEnv
+runTranslateT :: Monad m => Exception e
+              => ProtocolMagic -> TranslateT e m a -> m a
+runTranslateT pm (TranslateT ta) =
+    withProvidedMagicConfig pm $ \genesisConfig _ _ ->
+      let nm = makeNetworkMagic pm
+          env :: TranslateEnv
           env = TranslateEnv {
-                    teContext = initContext (initCardanoContext genesisConfig)
+                    teContext = initContext nm (initCardanoContext genesisConfig)
                   , teUpdate  = Dict
                   }
       in do ma <- runReaderT (runExceptT ta) env
@@ -116,15 +119,15 @@ runTranslateT (TranslateT ta) =
               Right a -> return a
 
 -- | Specialised form of 'runTranslateT' when there can be no errors
-runTranslateTNoErrors :: Monad m => TranslateT Void m a -> m a
+runTranslateTNoErrors :: Monad m => ProtocolMagic -> TranslateT Void m a -> m a
 runTranslateTNoErrors = runTranslateT
 
 -- | Specialization of 'runTranslateT'
-runTranslate :: Exception e => Translate e a -> a
-runTranslate = runIdentity . runTranslateT
+runTranslate :: Exception e => ProtocolMagic -> Translate e a -> a
+runTranslate pm = runIdentity . (runTranslateT pm)
 
 -- | Specialised form of 'runTranslate' when there can be no errors
-runTranslateNoErrors :: Translate Void a -> a
+runTranslateNoErrors :: ProtocolMagic -> Translate Void a -> a
 runTranslateNoErrors = runTranslate
 
 -- | Lift functions that want the configuration as type class constraints
@@ -215,26 +218,31 @@ verifyBlocksPrefix blocks =
         validatedFromExceptT . throwError $ VerifyBlocksError "No genesis epoch!"
       ESRValid genEpoch (OldestFirst succEpochs) -> do
         CardanoContext{..} <- asks tcCardano
-        verify $ validateGenEpoch ccHash0 ccInitLeaders genEpoch >>= \genUndos -> do
-          epochUndos <- sequence $ validateSuccEpoch <$> succEpochs
+        let pm = ccMagic
+        verify $ validateGenEpoch pm ccHash0 ccInitLeaders genEpoch >>= \genUndos -> do
+          epochUndos <- sequence $ validateSuccEpoch pm <$> succEpochs
           return $ foldl' (\a b -> a <> b) genUndos epochUndos
 
   where
-    validateGenEpoch :: HeaderHash
+    validateGenEpoch :: ProtocolMagic
+                     -> HeaderHash
                      -> SlotLeaders
                      -> OldestFirst NE MainBlock
                      -> Verify VerifyBlocksException (OldestFirst NE Undo)
-    validateGenEpoch ccHash0 ccInitLeaders geb = do
+    validateGenEpoch pm ccHash0 ccInitLeaders geb = do
       Verify.verifyBlocksPrefix
+        pm
         ccHash0
         Nothing
         ccInitLeaders
         (OldestFirst [])
         (Right <$> geb ::  OldestFirst NE Block)
-    validateSuccEpoch :: EpochBlocks NE
+    validateSuccEpoch :: ProtocolMagic
+                      -> EpochBlocks NE
                       -> Verify VerifyBlocksException (OldestFirst NE Undo)
-    validateSuccEpoch (SuccEpochBlocks ebb emb) = do
+    validateSuccEpoch pm (SuccEpochBlocks ebb emb) = do
       Verify.verifyBlocksPrefix
+        pm
         (ebb ^. headerHashG)
         Nothing
         (ebb ^. gbBody . gbLeaders)

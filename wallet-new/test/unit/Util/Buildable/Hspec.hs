@@ -22,6 +22,7 @@ module Util.Buildable.Hspec (
   , H.it
   , H.beforeAll
   , H.parallel
+  , H.runIO
   ) where
 
 import qualified Test.Hspec as H

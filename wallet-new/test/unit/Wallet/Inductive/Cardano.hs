@@ -28,6 +28,7 @@ import qualified Formatting.Buildable
 import           Pos.Chain.Txp (Utxo, formatUtxo)
 import           Pos.Core (Timestamp (..))
 import           Pos.Core.Chrono
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (EncryptedSecretKey, emptyPassphrase)
 
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
@@ -47,7 +48,7 @@ import           Cardano.Wallet.Kernel.Transactions (toMeta)
 
 import           Data.Validated
 import           Util.Buildable
-import           UTxO.Context (Addr)
+import           UTxO.Context (Addr, CardanoContext (..), TransCtxt (..))
 import           UTxO.DSL (Hash)
 import qualified UTxO.DSL as DSL
 import           UTxO.ToCardano.Interpreter
@@ -226,7 +227,9 @@ equivalentT useWW activeWallet esk = \mkWallet w ->
                 -> TranslateT EquivalenceViolation m HD.HdAccountId
     walletBootT ctxt utxo = do
         let newRootId = HD.eskToHdRootId esk
-        let (Just defaultAddress) = Kernel.newHdAddress esk
+        nm <- asks (makeNetworkMagic . ccMagic . tcCardano)
+        let (Just defaultAddress) = Kernel.newHdAddress nm
+                                                        esk
                                                         emptyPassphrase
                                                         (Kernel.defaultHdAccountId newRootId)
                                                         (Kernel.defaultHdAddressId newRootId)

@@ -34,7 +34,7 @@ import           Pos.Client.Txp.Util (InputSelectionPolicy (..), TxError (..),
 import           Pos.Core (AddrSpendingData (..), Address (..), Coin,
                      SlotId (..), addressHash, coinToInteger,
                      makePubKeyAddressBoot, unsafeIntegerToCoin)
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (SecretKey, WithHash (..), fakeSigner, hash,
                      toPublic)
 import           Pos.DB.Txp (MonadTxpLocal (..), getAllPotentiallyHugeUtxo)
@@ -141,14 +141,13 @@ genTxPayload genesisConfig txpConfig = do
         txsN <- fromIntegral <$> getRandomR (a, a + d)
         replicateM_ txsN genTransaction
   where
-    nm = fixedNM
+    nm = makeNetworkMagic $ configProtocolMagic genesisConfig
     genTransaction :: StateT GenTxData (BlockGenRandMode ext g m) ()
     genTransaction = do
         utxo <- use gtdUtxo
         utxoSize <- uses gtdUtxoKeys V.length
         when (utxoSize == 0) $
             lift $ throwM $ BGInternal "Utxo is empty when trying to create tx payload"
-
         secrets <- unInvSecretsMap <$> view (blockGenParams . asSecretKeys)
         invAddrSpendingData <-
             unInvAddrSpendingData <$> view (blockGenParams . asSpendingData)
@@ -259,6 +258,3 @@ genPayload
     -> SlotId
     -> BlockGenRandMode ext g m ()
 genPayload genesisConfig txpConfig _ = genTxPayload genesisConfig txpConfig
-
-fixedNM :: NetworkMagic
-fixedNM = NetworkMainOrStage

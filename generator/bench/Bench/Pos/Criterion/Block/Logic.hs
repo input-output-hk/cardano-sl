@@ -25,6 +25,7 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
 import           Pos.Chain.Update (BlockVersionData (..))
 import           Pos.Core.Chrono (NE, OldestFirst (..), nonEmptyNewestFirst)
 import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Core.Slotting (EpochOrSlot (..), SlotId, Timestamp (..),
                      epochIndexL, getEpochOrSlot)
 import           Pos.Crypto (SecretKey)
@@ -101,13 +102,14 @@ verifyBlocksBenchmark !genesisConfig !secretKeys !tp !ctx =
             $ \ ~(curSlot, blocks) -> bench "verifyBlocksPrefix" (verifyBlocksPrefixB curSlot blocks)
         ]
     where
+    nm = makeNetworkMagic $ configProtocolMagic genesisConfig
     genEnv :: BlockCount -> BlockTestMode (Maybe SlotId, OldestFirst NE Block)
     genEnv bCount = do
         initNodeDBs genesisConfig
         g <- liftIO $ newStdGen
         bs <- flip evalRandT g $ genBlocks genesisConfig (_tpTxpConfiguration tp)
                 (BlockGenParams
-                    { _bgpSecrets = mkAllSecretsSimple secretKeys
+                    { _bgpSecrets = mkAllSecretsSimple nm secretKeys
                     , _bgpBlockCount = bCount
                     , _bgpTxGenParams = TxGenParams
                         { _tgpTxCountRange = (0, 2)
@@ -169,6 +171,7 @@ verifyHeaderBenchmark !genesisConfig !secretKeys !tp = env (runBlockTestMode gen
 
     where
     pm = configProtocolMagic genesisConfig
+    nm = makeNetworkMagic pm
     genEnv :: BlockTestMode (Block, VerifyBlockParams)
     genEnv = do
         initNodeDBs genesisConfig
@@ -176,7 +179,7 @@ verifyHeaderBenchmark !genesisConfig !secretKeys !tp = env (runBlockTestMode gen
         eos <- getEpochOrSlot <$> getTipHeader
         let epoch = eos ^. epochIndexL
         let blockGenParams = BlockGenParams
-                { _bgpSecrets = mkAllSecretsSimple secretKeys
+                { _bgpSecrets = mkAllSecretsSimple nm secretKeys
                 , _bgpBlockCount = BlockCount 1
                 , _bgpTxGenParams = TxGenParams
                     { _tgpTxCountRange = (0, 2)
@@ -238,6 +241,7 @@ runBenchmark = do
                     , _tpBlockVersionData = configBlockVersionData genesisConfig
                     , _tpGenesisInitializer = genesisInitializer
                     , _tpTxpConfiguration = txpConfig
+                    , _tpProtocolMagic = configProtocolMagic genesisConfig
                     }
             secretKeys <- gsSecretKeys <$> configGeneratedSecretsThrow genesisConfig
             runEmulation startTime

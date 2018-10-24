@@ -35,13 +35,14 @@ import           Pos.Core
 import           Pos.Core.Chrono
 import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..),
                      SlotId (..))
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.InjectFail (mkFInjects)
 import           Pos.Util (withCompileInfo)
 
 import           Test.Hspec
 import           Test.Infrastructure.Genesis
-import           Test.Pos.Configuration (withDefConfiguration,
-                     withDefUpdateConfiguration)
+import           Test.Pos.Configuration (withDefUpdateConfiguration,
+                     withProvidedMagicConfig)
 import           UTxO.Context
 import           UTxO.DSL
 import           Wallet.Inductive
@@ -386,7 +387,6 @@ checkWithTxs check pw = do
 
 nodeStParams1 :: MockNodeStateParams
 nodeStParams1 =
-  withDefConfiguration $ \_pm ->
     withDefUpdateConfiguration $
     withCompileInfo $
       MockNodeStateParams {
@@ -401,7 +401,6 @@ nodeStParams1 =
 
 nodeStParams2 :: MockNodeStateParams
 nodeStParams2 =
-  withDefConfiguration $ \_pm ->
     withDefUpdateConfiguration $
     withCompileInfo $
       MockNodeStateParams {
@@ -419,21 +418,21 @@ nodeStParams2 =
 -- the NodeStateParameters. This is important for Transactions, because
 -- dynamic TxMeta depend on the state of the Node and we want to be flexible
 -- there for better testing.
-bracketActiveWalletTxMeta :: MockNodeStateParams -> (Kernel.ActiveWallet -> IO a) -> IO a
-bracketActiveWalletTxMeta stateParams test =
-    withDefConfiguration $ \genesisConfig -> do
-        bracketPassiveWalletTxMeta stateParams $ \passive ->
-            Kernel.bracketActiveWallet (configProtocolMagic genesisConfig)
-                                       passive
+bracketActiveWalletTxMeta :: ProtocolMagic -> MockNodeStateParams -> (Kernel.ActiveWallet -> IO a) -> IO a
+bracketActiveWalletTxMeta pm stateParams test =
+    withProvidedMagicConfig pm $ \genesisConfig _ _ -> do
+        bracketPassiveWalletTxMeta (configProtocolMagic genesisConfig) stateParams $ \passive ->
+            Kernel.bracketActiveWallet passive
                                        diffusion
                 $ \active -> test active
 
 -- | Initialize passive wallet in a manner suitable for the unit tests
-bracketPassiveWalletTxMeta :: MockNodeStateParams -> (Kernel.PassiveWallet -> IO a) -> IO a
-bracketPassiveWalletTxMeta stateParams postHook = do
+bracketPassiveWalletTxMeta :: ProtocolMagic -> MockNodeStateParams -> (Kernel.PassiveWallet -> IO a) -> IO a
+bracketPassiveWalletTxMeta pm stateParams postHook = do
       Keystore.bracketTestKeystore $ \keystore -> do
           mockFInjects <- mkFInjects mempty
           Kernel.bracketPassiveWallet
+            pm
             Kernel.UseInMemory
             logMessage
             keystore

@@ -13,11 +13,11 @@ import qualified Data.HashSet as HS
 import           Data.List.Extra (nubOrdOn)
 import qualified Data.Set as S
 import           Data.Tuple (swap)
-import           Test.Hspec (Spec, describe)
+import           Test.Hspec (Spec, describe, runIO)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Arbitrary (..), Gen, Property, choose,
-                     conjoin, counterexample, suchThat, vectorOf, (.&&.),
-                     (==>))
+                     conjoin, counterexample, generate, suchThat, vectorOf,
+                     (.&&.), (==>))
 
 import           Pos.Chain.Ssc (SscGlobalState (..), VssCertData (..),
                      VssCertificate (..), expiryEoS, getCertId,
@@ -27,17 +27,27 @@ import qualified Pos.Chain.Ssc as Ssc
 import           Pos.Core (EpochIndex (..), EpochOrSlot (..), SlotId (..))
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Slotting (flattenEpochOrSlot, unflattenSlotId)
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 
 import           Test.Pos.Chain.Genesis.Dummy (dummyEpochSlots,
                      dummySlotSecurityParam)
-import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Core.Arbitrary ()
-import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Infra.Arbitrary.Ssc ()
 import           Test.Pos.Util.QuickCheck.Property (qcIsJust)
 
 spec :: Spec
-spec = withDefConfiguration $ \_ -> describe "Ssc.VssCertData" $ do
+spec = do
+    runWithMagic RequiresNoMagic
+    runWithMagic RequiresMagic
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        specBody pm
+
+specBody :: ProtocolMagic -> Spec
+specBody _pm = describe "Ssc.VssCertData" $ do
     describe "verifyInsertVssCertData" $
         prop description_verifyInsertVssCertData verifyInsertVssCertData
     describe "verifyDeleteVssCertData" $
@@ -190,7 +200,8 @@ instance Arbitrary RollbackData where
                 thisEpoch <-
                     siEpoch . unflattenSlotId dummyEpochSlots <$>
                         choose (succ lastKEoSWord, rollbackFrom)
-                return $ mkVssCertificate dummyProtocolMagic sk binVssPK thisEpoch
+                pm <- arbitrary
+                return $ mkVssCertificate pm sk binVssPK thisEpoch
         certsToRollback <- nubOrdOn vcVssKey <$>
             vectorOf @VssCertificate certsToRollbackN rollbackGen
         return $ Rollback (SscGlobalState mempty mempty mempty goodVssCertData)

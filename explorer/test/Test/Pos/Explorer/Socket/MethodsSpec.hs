@@ -2,6 +2,8 @@
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
+{-# OPTIONS_GHC -fno-warn-deprecations #-}
+
 module Test.Pos.Explorer.Socket.MethodsSpec
        ( spec
        ) where
@@ -21,6 +23,7 @@ import           Test.Hspec.QuickCheck (modifyMaxSize, prop)
 import           Test.QuickCheck (Property, arbitrary, forAll)
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
+import           Pos.Core.NetworkMagic (NetworkMagic)
 import           Pos.Crypto (SecretKey)
 import           Pos.Explorer.ExplorerMode (runSubTestMode)
 import           Pos.Explorer.Socket.Holder (ConnectionsState,
@@ -49,7 +52,7 @@ import           Test.Pos.Explorer.MockFactory (mkTxOut)
 -- stack test cardano-sl-explorer --fast --test-arguments "-m Test.Pos.Explorer.Socket"
 
 spec :: Spec
-spec = beforeAll_ setupTestLogging $
+spec = beforeAll_ setupTestLogging $ do
     describe "Methods" $ do
         describe "fromCAddressOrThrow" $
             it "throws an exception if a given CAddress is invalid" $
@@ -111,11 +114,11 @@ spec = beforeAll_ setupTestLogging $
                     unsubscribeFullyProp
 
 
-addressSetByTxsProp :: SecretKey -> Bool
-addressSetByTxsProp key =
+addressSetByTxsProp :: NetworkMagic -> SecretKey -> Bool
+addressSetByTxsProp nm key =
     let
-        addrA = secretKeyToAddress key
-        addrB = secretKeyToAddress key
+        addrA = secretKeyToAddress nm key
+        addrB = secretKeyToAddress nm key
         txA = mkTxOut 2 addrA
         txB = mkTxOut 3 addrA
         txC = mkTxOut 4 addrB

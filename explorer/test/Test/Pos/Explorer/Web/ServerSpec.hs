@@ -29,8 +29,8 @@ import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util (divRoundUp)
 
 import           Test.Pos.Chain.Block.Arbitrary ()
-import           Test.Pos.Chain.Genesis.Dummy (dummyConfig, dummyEpochSlots)
-import           Test.Pos.Configuration (withDefConfigurations)
+import           Test.Pos.Configuration (withDefConfigurations,
+                     withProvidedMagicConfig)
 
 
 ----------------------------------------------------------------
@@ -173,7 +173,7 @@ blocksPageUnitSpec =
     describe "getBlocksPage"
     $ modifyMaxSuccess (const 200) $ do
         prop "block pages total correct && last page non-empty" $
-            forAll arbitrary $ \(testParams) ->
+            forAll arbitrary $ \epochSlots testParams ->
             forAll generateValidBlocksSlotsNumber $ \(totalBlocksNumber, slotsPerEpoch) ->
 
                 monadicIO $ do
@@ -191,7 +191,7 @@ blocksPageUnitSpec =
                   let blockExecution :: IO (Integer, [CBlockEntry])
                       blockExecution =
                           runExplorerTestMode testParams extraContext
-                              $ getBlocksPage dummyEpochSlots Nothing (Just 10)
+                              $ getBlocksPage epochSlots Nothing (Just 10)
 
                   -- We finally run it as @PropertyM@ and check if it holds.
                   pagesTotal    <- fst <$> run blockExecution
@@ -217,7 +217,7 @@ blocksLastPageUnitSpec =
     describe "getBlocksLastPage"
     $ modifyMaxSuccess (const 200) $ do
         prop "getBlocksLastPage == getBlocksPage Nothing" $
-            forAll arbitrary $ \(testParams) ->
+            forAll arbitrary $ \epochSlots testParams ->
             forAll generateValidBlocksSlotsNumber $ \(totalBlocksNumber, slotsPerEpoch) ->
 
                 monadicIO $ do
@@ -233,7 +233,7 @@ blocksLastPageUnitSpec =
                   -- a million instances.
                   let blocksLastPageM :: IO (Integer, [CBlockEntry])
                       blocksLastPageM =
-                          runExplorerTestMode testParams extraContext (getBlocksLastPage dummyEpochSlots)
+                          runExplorerTestMode testParams extraContext (getBlocksLastPage epochSlots)
 
                   -- We run the function in @BlockTestMode@ so we don't need to define
                   -- a million instances.
@@ -241,7 +241,7 @@ blocksLastPageUnitSpec =
                   let blocksPageM :: IO (Integer, [CBlockEntry])
                       blocksPageM =
                           runExplorerTestMode testParams extraContext
-                              $ getBlocksPage dummyEpochSlots Nothing (Just 10)
+                              $ getBlocksPage epochSlots Nothing (Just 10)
 
                   -- We finally run it as @PropertyM@ and check if it holds.
                   blocksLastPage <- run blocksLastPageM
@@ -256,7 +256,7 @@ epochSlotUnitSpec = do
     describe "getEpochSlot"
     $ modifyMaxSuccess (const 200) $ do
         prop "getEpochSlot(valid epoch) != empty" $
-            forAll arbitrary $ \(testParams) ->
+            forAll arbitrary $ \epochSlots testParams ->
             forAll generateValidBlocksSlotsNumber $ \(totalBlocksNumber, slotsPerEpoch) ->
 
                 monadicIO $ do
@@ -277,7 +277,7 @@ epochSlotUnitSpec = do
                       epochSlotM =
                           runExplorerTestMode testParams extraContext
                               $ getEpochSlot
-                                  dummyEpochSlots
+                                  epochSlots
                                   (EpochIndex 0)
                                   1
 
@@ -295,7 +295,7 @@ epochPageUnitSpec = do
     describe "getEpochPage"
     $ modifyMaxSuccess (const 200) $ do
         prop "getEpochPage(valid epoch) != empty" $
-            forAll arbitrary $ \(testParams) ->
+            forAll arbitrary $ \epochSlots testParams ->
             forAll generateValidBlocksSlotsNumber $ \(totalBlocksNumber, slotsPerEpoch) ->
 
                 monadicIO $ do
@@ -315,7 +315,7 @@ epochPageUnitSpec = do
                       epochPageM =
                           runExplorerTestMode testParams extraContext
                               $ getEpochPage
-                                  dummyEpochSlots
+                                  epochSlots
                                   (EpochIndex 0)
                                   Nothing
 
@@ -336,12 +336,13 @@ blocksTotalFunctionalSpec =
     describe "getBlocksTotalFunctional"
     $ modifyMaxSuccess (const 200) $ do
         prop "created blocks means block size >= 0" $
-            forAll arbitrary $ \testParams ->
+            forAll arbitrary $ \pm testParams ->
+            withProvidedMagicConfig pm $ \genesisConfig _ _ ->
                 monadicIO $ do
 
                   -- The extra context so we can mock the functions.
                   let extraContext :: ExtraContext
-                      extraContext = makeExtraCtx dummyConfig
+                      extraContext = makeExtraCtx genesisConfig
 
                   -- We run the function in @ExplorerTestMode@ so we don't need to define
                   -- a million instances.

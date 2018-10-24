@@ -420,8 +420,16 @@ estimateCardanoFee linearFeePolicy ins outs
 --
 -- NOTE: When the /actual/ size exceeds this bounds, we may underestimate
 -- tranasction fees and potentially generate invalid transactions.
+--
+-- `boundAddrAttrSize` needed to increase due to the inclusion of
+-- `NetworkMagic` in `AddrAttributes`. The `Bi` instance of
+-- `AddrAttributes` serializes `NetworkTestnet` as [(Word8,Int32)] and
+-- `NetworkMainOrStage` as []; this should require a 5 Byte increase in
+--`boundAddrAttrSize`. Because encoding in unit tests is not guaranteed
+-- to be efficient, it was decided to increase by 7 Bytes to mitigate
+-- against potential random test failures in the future.
 boundAddrAttrSize :: Byte
-boundAddrAttrSize = 34
+boundAddrAttrSize = 34 + 7 -- 7 bytes for potential NetworkMagic
 
 -- | Size to use for a value of type @Attributes ()@ when estimating
 --   encoded transaction sizes. The minimum possible value is 2.

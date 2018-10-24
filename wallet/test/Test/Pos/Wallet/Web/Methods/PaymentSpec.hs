@@ -17,11 +17,12 @@ import           Control.Exception.Safe (try)
 import           Data.List ((!!), (\\))
 import           Data.List.NonEmpty (fromList)
 import           Formatting (build, sformat, (%))
-import           Test.Hspec (Spec, beforeAll_, describe, shouldBe)
+import           Test.Hspec (Spec, beforeAll_, describe, runIO, shouldBe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import           Test.QuickCheck (arbitrary, choose, generate)
 import           Test.QuickCheck.Monadic (pick)
 
+import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Txp (Tx (..), TxAux (..), TxFee (..),
                      TxpConfiguration, _TxOut)
 import           Pos.Chain.Update (bvdTxFeePolicy)
@@ -29,7 +30,8 @@ import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), txToLinearFee)
 import           Pos.Core (Address, Coin, TxFeePolicy (..), mkCoin, sumCoins,
                      unsafeGetCoin, unsafeSubCoin)
-import           Pos.Crypto (PassPhrase)
+import           Pos.Crypto (PassPhrase, ProtocolMagic (..),
+                     RequiresNetworkMagic (..))
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Util.CompileInfo (withCompileInfo)
@@ -47,8 +49,7 @@ import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Wlog (setupTestLogging)
 
-import           Test.Pos.Chain.Genesis.Dummy (dummyConfig, dummyGenesisData)
-import           Test.Pos.Configuration (withDefConfigurations)
+import           Test.Pos.Configuration (withProvidedMagicConfig)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty, expectedOne,
                      maybeStopProperty, splitWord, stopProperty)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty, getSentTxs,
@@ -62,13 +63,22 @@ deriving instance Eq CTx
 
 -- TODO remove HasCompileInfo when MonadWalletWebMode will be splitted.
 spec :: Spec
-spec = beforeAll_ setupTestLogging $
-    withCompileInfo $
-       withDefConfigurations $ \_ txpConfig _ ->
-       describe "Wallet.Web.Methods.Payment" $ modifyMaxSuccess (const 10) $ do
-    describe "newPaymentBatch" $ do
-        describe "Submitting a payment when restoring" (rejectPaymentIfRestoringSpec txpConfig)
-        describe "One payment" (oneNewPaymentBatchSpec txpConfig)
+spec = do
+    runWithMagic RequiresNoMagic
+    -- Not running with `RequiresMagic` until `NetworkMagic` logic
+    -- has been fully implemented.
+    -- runWithMagic RequiresMagic
+
+runWithMagic :: RequiresNetworkMagic -> Spec
+runWithMagic rnm = beforeAll_ setupTestLogging $
+    withCompileInfo $ do
+        pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+            withProvidedMagicConfig pm $ \genesisConfig txpConfig _ ->
+                describe "Wallet.Web.Methods.Payment" $ modifyMaxSuccess (const 10) $ do
+                describe "newPaymentBatch" $ do
+                    describe "Submitting a payment when restoring" (rejectPaymentIfRestoringSpec genesisConfig txpConfig)
+                    describe "One payment" (oneNewPaymentBatchSpec genesisConfig txpConfig)
 
 data PaymentFixture = PaymentFixture {
       pswd        :: PassPhrase
@@ -83,8 +93,8 @@ data PaymentFixture = PaymentFixture {
 }
 
 -- | Generic block of code to be reused across all the different payment specs.
-newPaymentFixture :: WalletProperty PaymentFixture
-newPaymentFixture = do
+newPaymentFixture :: Genesis.Config -> WalletProperty PaymentFixture
+newPaymentFixture genesisConfig = do
     passphrases <- importSomeWallets mostlyEmptyPassphrases
     let l = length passphrases
     destLen <- pick $ choose (1, l)
@@ -103,7 +113,7 @@ newPaymentFixture = do
     ws <- WS.askWalletSnapshot
     srcAddr <- getAddress ws srcAccId
     -- Dunno how to get account's balances without CAccModifier
-    initBalance <- getBalance dummyGenesisData srcAddr
+    initBalance <- getBalance (configGenesisData genesisConfig) srcAddr
     -- `div` 2 to leave money for tx fee
     let topBalance = unsafeGetCoin initBalance `div` 2
     coins <- pick $ map mkCoin <$> splitWord topBalance (fromIntegral destLen)
@@ -122,56 +132,59 @@ newPaymentFixture = do
 
 -- | Assess that if we try to submit a payment when the wallet is restoring,
 -- the backend prevents us from doing that.
-rejectPaymentIfRestoringSpec :: HasConfigurations => TxpConfiguration -> Spec
-rejectPaymentIfRestoringSpec txpConfig = walletPropertySpec "should fail with 403" $ do
-    PaymentFixture{..} <- newPaymentFixture
-    res <- lift $ try (newPaymentBatch dummyConfig txpConfig submitTxTestMode pswd batch)
-    liftIO $ shouldBe res (Left (err403 { errReasonPhrase = "Transaction creation is disabled when the wallet is restoring." }))
+rejectPaymentIfRestoringSpec :: HasConfigurations => Genesis.Config -> TxpConfiguration -> Spec
+rejectPaymentIfRestoringSpec genesisConfig txpConfig =
+    walletPropertySpec genesisConfig "should fail with 403" $ do
+        PaymentFixture{..} <- newPaymentFixture genesisConfig
+        res <- lift $ try (newPaymentBatch genesisConfig txpConfig submitTxTestMode pswd batch)
+        liftIO $ shouldBe res (Left (err403 { errReasonPhrase = "Transaction creation is disabled when the wallet is restoring." }))
 
 -- | Test one single, successful payment.
-oneNewPaymentBatchSpec :: HasConfigurations => TxpConfiguration -> Spec
-oneNewPaymentBatchSpec txpConfig = walletPropertySpec oneNewPaymentBatchDesc $ do
-    PaymentFixture{..} <- newPaymentFixture
+oneNewPaymentBatchSpec :: HasConfigurations => Genesis.Config -> TxpConfiguration -> Spec
+oneNewPaymentBatchSpec genesisConfig txpConfig =
+    walletPropertySpec genesisConfig oneNewPaymentBatchDesc $ do
+        PaymentFixture{..} <- newPaymentFixture genesisConfig
 
-    -- Force the wallet to be in a (fake) synced state
-    db <- WS.askWalletDB
-    randomSyncTip <- liftIO $ generate arbitrary
-    WS.setWalletSyncTip db walId randomSyncTip
+        -- Force the wallet to be in a (fake) synced state
+        db <- WS.askWalletDB
+        randomSyncTip <- liftIO $ generate arbitrary
+        WS.setWalletSyncTip db walId randomSyncTip
 
-    void $ lift $ newPaymentBatch dummyConfig txpConfig submitTxTestMode pswd batch
-    dstAddrs <- lift $ mapM decodeCTypeOrFail dstCAddrs
-    txLinearPolicy <- lift $ (bvdTxFeePolicy <$> gsAdoptedBVData) <&> \case
-        TxFeePolicyTxSizeLinear linear -> linear
-        _                              -> error "unknown fee policy"
-    txAux <- expectedOne "sent TxAux" =<< lift getSentTxs
-    TxFee fee <- lift (runExceptT $ txToLinearFee txLinearPolicy txAux) >>= \case
-        Left er -> stopProperty $ "Couldn't compute tx fee by tx, reason: " <> pretty er
-        Right x -> pure x
-    let outAddresses = map (fst . view _TxOut) $ toList $ _txOutputs $ taTx txAux
-    let changeAddrs = outAddresses \\ dstAddrs
-    assertProperty (length changeAddrs <= 1) $
-        "Expected at most one change address"
+        void $ lift $ newPaymentBatch genesisConfig txpConfig submitTxTestMode pswd batch
+        dstAddrs <- lift $ mapM decodeCTypeOrFail dstCAddrs
+        txLinearPolicy <- lift $ (bvdTxFeePolicy <$> gsAdoptedBVData) <&> \case
+            TxFeePolicyTxSizeLinear linear -> linear
+            _                              -> error "unknown fee policy"
+        txAux <- expectedOne "sent TxAux" =<< lift getSentTxs
+        TxFee fee <- lift (runExceptT $ txToLinearFee txLinearPolicy txAux) >>= \case
+            Left er -> stopProperty $ "Couldn't compute tx fee by tx, reason: " <> pretty er
+            Right x -> pure x
+        let outAddresses = map (fst . view _TxOut) $ toList $ _txOutputs $ taTx txAux
+        let changeAddrs = outAddresses \\ dstAddrs
+        assertProperty (length changeAddrs <= 1) $
+            "Expected at most one change address"
 
-    -- Validate balances
-    mapM_ (uncurry expectedAddrBalance) $ zip dstAddrs coins
-    when (policy == OptimizeForSecurity) $
-        expectedAddrBalance srcAddr (mkCoin 0)
-    changeBalance <- mkCoin . fromIntegral . sumCoins
-        <$> mapM (getBalance dummyGenesisData) changeAddrs
-    assertProperty (changeBalance <= initBalance `unsafeSubCoin` fee) $
-        "Minimal tx fee isn't satisfied"
+        -- Validate balances
+        let genesisData = configGenesisData genesisConfig
+        mapM_ (uncurry expectedAddrBalance) $ zip dstAddrs coins
+        when (policy == OptimizeForSecurity) $
+            expectedAddrBalance srcAddr (mkCoin 0)
+        changeBalance <- mkCoin . fromIntegral . sumCoins
+            <$> mapM (getBalance genesisData) changeAddrs
+        assertProperty (changeBalance <= initBalance `unsafeSubCoin` fee) $
+            "Minimal tx fee isn't satisfied"
 
-    ws' <- WS.askWalletSnapshot
-    -- Validate that tx meta was added when transaction was processed
-    forM_ (ordNub $ walId:dstWalIds) $ \wId -> do
-        txMetas <- maybeStopProperty "Wallet doesn't exist" (WS.getWalletTxHistory ws' wId)
-        void $ expectedOne "TxMeta for wallet" txMetas
+        ws' <- WS.askWalletSnapshot
+        -- Validate that tx meta was added when transaction was processed
+        forM_ (ordNub $ walId:dstWalIds) $ \wId -> do
+            txMetas <- maybeStopProperty "Wallet doesn't exist" (WS.getWalletTxHistory ws' wId)
+            void $ expectedOne "TxMeta for wallet" txMetas
 
-    -- Validate change and used address
-    -- TODO implement it when access
-    -- to these addresses will be provided considering mempool
-    -- expectedUserAddresses
-    -- expectedChangeAddresses
+        -- Validate change and used address
+        -- TODO implement it when access
+        -- to these addresses will be provided considering mempool
+        -- expectedUserAddresses
+        -- expectedChangeAddresses
   where
     oneNewPaymentBatchDesc =
         "Send money from one own address to multiple own addresses; " <>

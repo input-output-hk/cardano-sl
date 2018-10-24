@@ -53,7 +53,6 @@ import           Pos.Crypto (ProtocolMagic, SecretKey, deterministic,
 import           Test.Pos.Chain.Genesis.Dummy (dummyK)
 import           Test.Pos.Core.Arbitrary.Unsafe ()
 import           Test.Pos.Crypto.Arbitrary (genSignature)
-import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Arbitrary (Nonrepeating (..),
                      sublistN)
 
@@ -141,7 +140,7 @@ genSignedCommitment :: ProtocolMagic -> Gen SignedCommitment
 genSignedCommitment pm = (,,) <$> arbitrary <*> arbitrary <*> genSignature pm arbitrary
 
 instance Arbitrary CommitmentsMap where
-    arbitrary = genCommitmentsMap dummyProtocolMagic
+    arbitrary = arbitrary >>= genCommitmentsMap
     shrink = genericShrink
 
 -- | Generates commitment map having commitments from given epoch.
@@ -179,7 +178,7 @@ genSscPayload pm =
         ]
 
 instance Arbitrary SscPayload where
-    arbitrary = genSscPayload dummyProtocolMagic
+    arbitrary = arbitrary >>= genSscPayload
     shrink = genericShrink
 
 -- | We need the 'ProtocolConstants' because they give meaning to 'SlotId'.
@@ -207,7 +206,9 @@ genSscPayloadForSlot pm slot
     genValidCert SlotId{..} (sk, pk) = mkVssCertificate pm sk pk $ siEpoch + 5
 
 instance Arbitrary SscPayloadDependsOnSlot where
-    arbitrary = pure $ SscPayloadDependsOnSlot (genSscPayloadForSlot dummyProtocolMagic)
+    arbitrary = do
+        pm <- arbitrary
+        pure $ SscPayloadDependsOnSlot (genSscPayloadForSlot pm)
 
 genVssCertificate :: ProtocolMagic -> Gen VssCertificate
 genVssCertificate pm =
@@ -216,7 +217,7 @@ genVssCertificate pm =
                         <*> arbitrary -- EpochIndex
 
 instance Arbitrary VssCertificate where
-    arbitrary = genVssCertificate dummyProtocolMagic
+    arbitrary = arbitrary >>= genVssCertificate
     -- The 'shrink' method wasn't implement to avoid breaking the datatype's invariant.
 
 genVssCertificatesMap :: ProtocolMagic -> Gen VssCertificatesMap
@@ -225,7 +226,7 @@ genVssCertificatesMap pm = do
     pure $ mkVssCertificatesMapLossy certs
 
 instance Arbitrary VssCertificatesMap where
-    arbitrary = genVssCertificatesMap dummyProtocolMagic
+    arbitrary = arbitrary >>= genVssCertificatesMap
     shrink = genericShrink
 
 instance Arbitrary VssCertData where

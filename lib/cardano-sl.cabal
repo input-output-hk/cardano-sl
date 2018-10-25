@@ -64,6 +64,9 @@ library
                         Pos.Network.Block.Types
                         Pos.Network.Block.WorkMode
 
+                        -- Node management API
+                        Pos.Node.API
+
                         -- cardano-sl-client & cardano-sl-generator
                         Pos.Communication.Limits
                         Pos.Communication.Types
@@ -114,6 +117,8 @@ library
                         Test.Pos.Configuration
 
                         Pos.Util.Servant
+                        Pos.Util.Jsend
+                        Pos.Util.UnitsOfMeasure
 
 
   other-modules:
@@ -158,6 +163,7 @@ library
                       , containers
                       , contravariant
                       , cryptonite >= 0.23
+                      , swagger2
                       , data-default
                       , directory
                       , ekg-core
@@ -167,6 +173,7 @@ library
                       , filepath
                       , formatting
                       , generic-arbitrary
+                      , generics-sop
                       , hspec
                       , http-client
                       , http-client-tls

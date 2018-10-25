@@ -64,10 +64,13 @@ module Pos.Util.Servant
     , inRouteServer
 
     , applyLoggingToHandler
+    , ValidJSON
     ) where
 
 import           Universum hiding (id)
 
+import           Generics.SOP.TH (deriveGeneric)
+import           Data.Aeson (FromJSON (..), ToJSON (..), eitherDecode, encode)
 import           Control.Exception.Safe (handleAny)
 import           Control.Lens (Iso, iso, makePrisms)
 import           Control.Monad.Except (ExceptT (..), MonadError (..))
@@ -96,10 +99,15 @@ import           Servant.Server (Handler (..), HasServer (..), ServantErr (..),
                      Server)
 import qualified Servant.Server.Internal as SI
 import           Servant.Swagger (HasSwagger (toSwagger))
+import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..),
+                     MimeUnrender (..))
+import           Test.QuickCheck
 
 import           Pos.Infra.Util.LogSafe (BuildableSafe, SecuredText, buildSafe,
                      logInfoSP, plainOrSecureF, secretOnlyF)
 import           Pos.Util.Wlog (LoggerName, LoggerNameBox, usingLoggerName)
+import Pos.Util.Jsend (jsendErrorGenericParseJSON, jsendErrorGenericToJSON,
+    HasDiagnostic(..))
 
 -------------------------------------------------------------------------
 -- Utility functions
@@ -776,3 +784,53 @@ type DReqBody c a    = WithDefaultApiArg (ReqBody c a)
 type DCQueryParam s a = WithDefaultApiArg (CDecodeApiArg $ QueryParam s a)
 
 type DQueryParam s a = WithDefaultApiArg (QueryParam s a)
+
+--
+-- Creating a better user experience when it comes to errors.
+--
+
+data ValidJSON deriving Typeable
+
+instance FromJSON a => MimeUnrender ValidJSON a where
+    mimeUnrender _ bs = case eitherDecode bs of
+        Left err -> Left $ decodeUtf8 $ encode (JSONValidationFailed $ toText err)
+        Right v  -> return v
+
+instance Accept ValidJSON where
+    contentTypes _ = contentTypes (Proxy @ JSON)
+
+instance ToJSON a => MimeRender ValidJSON a where
+    mimeRender _ = mimeRender (Proxy @ JSON)
+
+--
+-- Error from parsing / validating JSON inputs
+--
+
+newtype JSONValidationError
+    = JSONValidationFailed Text
+    deriving (Eq, Show, Generic)
+
+deriveGeneric ''JSONValidationError
+
+instance Exception JSONValidationError
+
+instance Arbitrary JSONValidationError where
+    arbitrary =
+        pure (JSONValidationFailed "JSON validation failed.")
+
+instance Buildable JSONValidationError where
+    build _ =
+        bprint "Couldn't decode a JSON input."
+
+instance ToJSON JSONValidationError where
+    toJSON =
+        jsendErrorGenericToJSON
+
+instance FromJSON JSONValidationError where
+    parseJSON =
+        jsendErrorGenericParseJSON
+
+instance HasDiagnostic JSONValidationError where
+    getDiagnosticKey _ =
+        "validationError"
+

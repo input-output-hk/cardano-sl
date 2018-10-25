@@ -1,7 +1,12 @@
-{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE KindSignatures, TypeOperators #-}
 
-module Cardano.Wallet.API.V1.Generic
-    ( jsendErrorGenericToJSON
+module Pos.Util.Jsend
+    ( -- * JSend data types and functions
+      ResponseStatus(..)
+    , HasDiagnostic(..)
+    , noDiagnosticKey
+      -- * Generic parsing and rendering helpers.
+    , jsendErrorGenericToJSON
     , jsendErrorGenericParseJSON
     , gconsNames
     , gconsName
@@ -15,42 +20,19 @@ import           Data.Aeson (GFromJSON, Object, ToJSON, Value (..), Zero,
 import           Data.Aeson.Types (Parser)
 import           Data.List ((!!))
 import           GHC.Generics
-
-import           Cardano.Wallet.API.Response.JSend (HasDiagnostic (..),
-                     ResponseStatus (..))
+import           Data.Aeson.TH
+import qualified Data.Char as Char
+import           Data.Swagger
+import           Test.QuickCheck (Arbitrary (..), elements)
+import qualified Formatting.Buildable
 
 import qualified Data.Aeson as Aeson
 import qualified Data.HashMap.Lazy as HM
 import qualified Generics.SOP as SOP
 
-data ResponseStatus =
-      SuccessStatus
-    | FailStatus
-    | ErrorStatus
-    deriving (Show, Eq, Ord, Enum, Bounded)
-
-deriveJSON defaultOptions { Data.Aeson.TH.constructorTagModifier = map Char.toLower . reverse . drop 6 . reverse } ''ResponseStatus
-
 class HasDiagnostic a where
     getDiagnosticKey :: a -> Text
 
-noDiagnosticKey :: Text
-noDiagnosticKey =
-    error "Contructor has declared no diagnostic key but apparently requires one! Have a look at HasDiagnostic instances!"
-
-instance Arbitrary ResponseStatus where
-    arbitrary = elements [minBound .. maxBound]
-
-instance ToSchema ResponseStatus where
-    declareNamedSchema _ = do
-        pure $ NamedSchema (Just "ResponseStatus") $ mempty
-            & type_ .~ SwaggerString
-            & enum_ .~ Just ["success", "fail", "error"]
-
-instance Buildable ResponseStatus where
-    build SuccessStatus = "success"
-    build FailStatus    = "fail"
-    build ErrorStatus   = "error"
 --
 -- Misc
 --
@@ -146,3 +128,29 @@ instance (ToJSON c) => GDiagnosticToJSON (K1 i c) where
 
 instance GDiagnosticToJSON U1 where
     gDiagnosticToJSON _ _ = object mempty
+
+data ResponseStatus =
+      SuccessStatus
+    | FailStatus
+    | ErrorStatus
+    deriving (Show, Eq, Ord, Enum, Bounded)
+
+deriveJSON defaultOptions { Data.Aeson.TH.constructorTagModifier = map Char.toLower . reverse . drop 6 . reverse } ''ResponseStatus
+
+noDiagnosticKey :: Text
+noDiagnosticKey =
+    error "Contructor has declared no diagnostic key but apparently requires one! Have a look at HasDiagnostic instances!"
+
+instance Arbitrary ResponseStatus where
+    arbitrary = elements [minBound .. maxBound]
+
+instance ToSchema ResponseStatus where
+    declareNamedSchema _ = do
+        pure $ NamedSchema (Just "ResponseStatus") $ mempty
+            & type_ .~ SwaggerString
+            & enum_ .~ Just ["success", "fail", "error"]
+
+instance Buildable ResponseStatus where
+    build SuccessStatus = "success"
+    build FailStatus    = "fail"
+    build ErrorStatus   = "error"

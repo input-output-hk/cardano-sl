@@ -6,7 +6,7 @@ import           Universum
 
 import           Pos.Client.CLI (SimpleNodeArgs (..), getSimpleNodeOptions,
                      loggingParams)
-import           Pos.Launcher (actionWithCoreNode, launchNode)
+import           Pos.Launcher.Launcher (actionWithCoreNode, launchNode)
 import           Pos.Util.CompileInfo (withCompileInfo)
 
 

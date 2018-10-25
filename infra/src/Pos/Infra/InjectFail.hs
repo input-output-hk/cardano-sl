@@ -71,14 +71,19 @@ data FInjects m     = FInjects
     , listFInjects   :: m [FInject]
     }
 
+logWarningLoud :: (CanLog m, HasLoggerName m) => String -> m ()
+logWarningLoud s = do
+  logWarning $ T.unlines
+    [ "***"
+    , "*** " <> T.pack s
+    , "***" ]
+
 -- | Make a stateful fault injection configuration object.
 mkFInjects :: (CanLog m, HasCallStack, HasLoggerName m, MonadIO m) => FInjectsSpec -> m (FInjects m)
 mkFInjects mfs = do
   handle@(FInjectsHandle h) <- FInjectsHandle <$> (sequence $ newIORef <$> mfs)
-  when (isJust h) $ do
-    logWarning "***"
-    logWarning "*** FAULT INJECTION MACHINERY ACTIVE, ALL WARRANTIES VOID"
-    logWarning "***"
+  when (isJust h) $
+    logWarningLoud "FAULT INJECTION MACHINERY ACTIVE, ALL WARRANTIES VOID"
   pure $ FInjects
     { setFInject     = mkSetFInject     handle
     , testLogFInject = mkTestLogFInject handle
@@ -93,9 +98,12 @@ testFInject (FInjectsHandle (Just fsRef)) fi =
 {-# INLINE testFInject #-}
 
 -- | Signal enablement of particular fault injection to listeners.
-mkSetFInject :: MonadIO m => FInjectsHandle -> FInject -> Bool -> m ()
+mkSetFInject :: (CanLog m, HasLoggerName m, MonadIO m) => FInjectsHandle -> FInject -> Bool -> m ()
 mkSetFInject  (FInjectsHandle Nothing) _ _ = pure ()
-mkSetFInject  (FInjectsHandle (Just fsRef)) fi enable =
+mkSetFInject  (FInjectsHandle (Just fsRef)) fi enable = do
+  if enable
+  then logWarningLoud $ "EXPECT MISCHIEF -- ENABLING INJECTION OF FAULT " <> show fi
+  else logWarning     $ "disabling injection of fault " <> show fi
   modifyIORef' fsRef (if enable then Set.insert fi else Set.delete fi)
 
 logFInject :: (CanLog m, HasCallStack, HasLoggerName m)

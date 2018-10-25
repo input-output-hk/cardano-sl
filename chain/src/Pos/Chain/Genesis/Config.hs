@@ -35,10 +35,10 @@ module Pos.Chain.Genesis.Config
 import           Universum
 
 import           Control.Exception (throwIO)
-import           Data.Aeson (FromJSON, ToJSON, Value (..), genericToEncoding,
-                     pairs, parseJSON, toEncoding, (.:))
+import           Data.Aeson (FromJSON, ToJSON, Value (..), object, pairs,
+                     parseJSON, toEncoding, toJSON, (.:), (.=))
 import           Data.Aeson.Encoding (pairStr)
-import           Data.Aeson.Options (defaultOptions)
+import           Data.Aeson.Encoding.Internal (pair)
 import           Data.Aeson.Types (typeMismatch)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -87,16 +87,22 @@ data StaticConfig
       -- !FilePath = Path to file where 'GenesisData' is stored. Must be
       -- in JSON, not necessary canonical.
       -- !(Hash Raw) = Hash of canonically encoded 'GenesisData'.
-    deriving (Eq, Show, Generic)
+    deriving (Eq, Show)
 
 instance ToJSON StaticConfig where
-    toEncoding (GCSrc gcsFile gcsHash) =
-        pairs . pairStr "src"
-            . pairs  $ pairStr "file"
-                (toEncoding gcsFile) <> pairStr "hash" (toEncoding gcsHash)
+    toJSON (GCSrc gcsFile gcsHash) =
+        object [ "src"    .= object [ "file" .= gcsFile
+                                    , "hash" .= gcsHash
+                                    ]
+               ]
+    toJSON (GCSpec value) = object ["spec" .= (toJSON value)]
 
-    toEncoding (GCSpec value)          =
-        genericToEncoding defaultOptions (GCSpec value)
+    toEncoding (GCSrc gcsFile gcsHash) =
+        pairs $ "src" `pair`
+            (pairs $ mconcat [ "file" .= gcsFile
+                             , "hash" .= gcsHash
+                             ])
+    toEncoding (GCSpec value) = pairs $ pairStr "spec" (toEncoding value)
 
 instance FromJSON StaticConfig where
     parseJSON (Object o)

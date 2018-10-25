@@ -163,6 +163,7 @@ test-suite util-test
                        Test.Pos.Util.LogStructuredSpec
 
   build-depends:       aeson
+                     , aeson-pretty
                      , base
                      , bytestring
                      , async

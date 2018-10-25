@@ -3,6 +3,8 @@ module Test.Pos.Util.Golden where
 import           Universum
 
 import           Data.Aeson (FromJSON, ToJSON, eitherDecode, encode)
+import           Data.Aeson.Encode.Pretty (Config (..), Indent (..),
+                     NumberFormat (..), encodePretty', keyOrder)
 import qualified Data.ByteString.Lazy as LB
 import           Data.FileEmbed (embedStringFile)
 import qualified Data.List as List
@@ -35,6 +37,25 @@ embedGoldenTest :: FilePath -> ExpQ
 embedGoldenTest path =
     makeRelativeToTestDir ("golden/" <> path) >>= embedStringFile
 
+-- | Test if prettified JSON and unformatted JSON are equivalent.
+goldenValueEquiv :: (Eq a)
+                => Either String a -> Either String a -> Either String Bool
+goldenValueEquiv prettified unformatted = do
+    p <- prettified
+    u <- unformatted
+    pure (p == u)
+
+-- | Test if prettified canonical JSON and unformatted canonical
+-- JSON are equivalent.
+goldenFileCanonicalEquiv :: HasCallStack => FilePath -> FilePath -> Property
+goldenFileCanonicalEquiv pPath uPath = withFrozenCallStack $ do
+    withTests 1 . property $ do
+        pStr <- liftIO $ readFile pPath
+        uBs <- liftIO $ LB.readFile uPath
+        case Canonical.parseCanonicalJSON uBs of
+            Left err ->  failWith Nothing $ "could not decode: " <> show err
+            Right jsVal -> (toText $ Canonical.prettyCanonicalJSON jsVal) === pStr
+
 goldenTestJSON :: (Eq a, FromJSON a, HasCallStack, Show a, ToJSON a)
                => a -> FilePath -> Property
 goldenTestJSON x path = withFrozenCallStack $ do
@@ -45,12 +66,29 @@ goldenTestJSON x path = withFrozenCallStack $ do
             Left err -> failWith Nothing $ "could not decode: " <> show err
             Right x' -> x === x'
 
+goldenTestJSONPretty :: (Eq a, FromJSON a, HasCallStack, Show a, ToJSON a)
+               => a -> FilePath -> Property
+goldenTestJSONPretty x path = withFrozenCallStack $ do
+    withTests 1 . property $ do
+        bs <- liftIO (LB.readFile path)
+        -- Sort keys by their order of appearance in the argument list
+        -- of `keyOrder`. Keys not in the argument list are moved to the
+        -- end, while their order is preserved.
+        let defConfig' = Config { confIndent = Spaces 4
+                                , confCompare = keyOrder ["file", "hash"]
+                                , confNumFormat = Generic
+                                , confTrailingNewline = False }
+        encodePretty' defConfig' x === bs
+        case eitherDecode bs of
+            Left err -> failWith Nothing $ "could not decode: " <> show err
+            Right x' -> x === x'
+
 -- | Only check that the datatype equals the decoding of the file
 goldenTestJSONDec :: (Eq a, FromJSON a, HasCallStack, Show a)
                   => a -> FilePath -> Property
 goldenTestJSONDec x path = withFrozenCallStack $ do
     withTests 1 . property $ do
-        bs <- liftIO (LB.readFile path)
+        bs <- liftIO $ LB.readFile path
         case eitherDecode bs of
             Left err -> failWith Nothing $ "could not decode: " <> show err
             Right x' -> x === x'

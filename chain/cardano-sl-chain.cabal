@@ -153,11 +153,11 @@ library
                        Pos.Chain.Update.SystemTag
                        Pos.Chain.Update.Vote
 
-  build-depends:       Cabal
+  build-depends:       base
+                     , Cabal
                      , aeson
                      , aeson-options
                      , array
-                     , base
                      , bytestring
                      , canonical-json
                      , cardano-sl-binary
@@ -276,6 +276,7 @@ test-suite chain-test
                        Test.Pos.Chain.Update.Json
 
   build-depends:       base
+                     , aeson
                      , base16-bytestring
                      , bytestring
                      , cardano-crypto

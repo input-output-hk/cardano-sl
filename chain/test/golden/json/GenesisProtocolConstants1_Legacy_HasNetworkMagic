@@ -1,1 +1,6 @@
-{"k":64,"protocolMagic":135977977,"vssMaxTTL":126106167,"vssMinTTL":310228653}
+{
+    "vssMinTTL": 310228653,
+    "k": 64,
+    "vssMaxTTL": 126106167,
+    "protocolMagic": 135977977
+}

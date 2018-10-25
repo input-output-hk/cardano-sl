@@ -94,6 +94,7 @@ newRealModeContext genesisConfig txpConfig dbs confOpts publicKeyPath secretKeyP
          , commonArgs             = CommonArgs {
                logConfig            = Nothing
              , logPrefix            = Nothing
+             , logConsoleOff        = True
              , reportServers        = mempty
              , updateServers        = mempty
              , configurationOptions = confOpts

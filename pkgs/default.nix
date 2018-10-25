@@ -18542,6 +18542,7 @@ license = stdenv.lib.licenses.mit;
 , bytestring
 , cryptonite
 , data-default-class
+, directory
 , filepath
 , hourglass
 , ip
@@ -18576,6 +18577,7 @@ base64-bytestring
 bytestring
 cryptonite
 data-default-class
+directory
 filepath
 hourglass
 ip

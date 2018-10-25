@@ -27,13 +27,14 @@ import           Data.Time.Units (Millisecond)
 
 import           Pos.Chain.Block (BlockHeader, LastKnownHeaderTag,
                      MonadLastKnownHeader)
-import           Pos.Chain.Genesis as Genesis (Config)
+import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Txp (ToilVerFailure, Tx, TxAux (..), TxId, TxUndo,
                      TxpConfiguration)
 import           Pos.Chain.Update (ConfirmedProposalState)
 import qualified Pos.Context as PC
 import           Pos.Core (ChainDifficulty, Timestamp, difficultyL,
                      getCurrentTimestamp)
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (WithHash (..))
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
@@ -142,6 +143,7 @@ txpProcessTxWebWallet genesisConfig txpConfig tx@(txId, txAux) = do
     db <- WS.askWalletDB
     txProcessTransaction genesisConfig txpConfig tx >>= traverse (const $ addTxToWallets db)
   where
+    nm = makeNetworkMagic $ configProtocolMagic genesisConfig
     addTxToWallets :: WS.WalletDB -> m ()
     addTxToWallets db = do
         txUndos <- withTxpLocalData getLocalUndos
@@ -158,7 +160,7 @@ txpProcessTxWebWallet genesisConfig txpConfig tx@(txId, txAux) = do
 
     toThee :: (WithHash Tx, TxUndo) -> Timestamp -> CId Wal -> m (CId Wal, THEntryExtra)
     toThee txWithUndo ts wId = do
-        credentials <- keyToWalletDecrCredentials <$> getKeyById wId
+        credentials <- keyToWalletDecrCredentials nm <$> getKeyById nm wId
         pure (wId, buildTHEntryExtra credentials txWithUndo (Nothing, Just ts))
 
 txpNormalizeWebWallet

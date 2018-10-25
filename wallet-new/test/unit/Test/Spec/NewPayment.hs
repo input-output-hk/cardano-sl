@@ -88,7 +88,7 @@ prepareFixtures :: NetworkMagic
                 -> Fixture.GenActiveWalletFixture Fixture
 prepareFixtures nm initialBalance toPay = do
     let (_, esk) = safeDeterministicKeyGen (B.pack $ replicate 32 0x42) mempty
-    let newRootId = eskToHdRootId esk
+    let newRootId = eskToHdRootId nm esk
     newRoot <- initHdRoot <$> pure newRootId
                           <*> pure (WalletName "A wallet")
                           <*> pure NoSpendingPassword
@@ -116,7 +116,7 @@ prepareFixtures nm initialBalance toPay = do
         liftIO $ Keystore.insert (WalletIdHdRnd newRootId) esk keystore
         let pw = Kernel.walletPassive aw
 
-        let accounts         = Kernel.prefilterUtxo newRootId esk utxo'
+        let accounts         = Kernel.prefilterUtxo nm newRootId esk utxo'
             hdAccountId      = Kernel.defaultHdAccountId newRootId
             (Just hdAddress) = Kernel.defaultHdAddress nm esk emptyPassphrase newRootId
 

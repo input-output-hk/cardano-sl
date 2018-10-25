@@ -34,6 +34,7 @@ import           Pos.Client.Txp.Util (InputSelectionPolicy (..), computeTxFee,
 import           Pos.Configuration (walletTxCreationDisabled)
 import           Pos.Core (Address, Coin, getCurrentTimestamp)
 import           Pos.Core.Conc (concurrently, delay)
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (PassPhrase, SafeSigner, ShouldCheckPassphrase (..),
                      checkPassMatches, hash, withSafeSignerUnsafe)
 import           Pos.DB (MonadGState)
@@ -199,10 +200,11 @@ sendMoney genesisConfig txpConfig submitTx passphrase moneySource dstDistr polic
         throwM err403
         { errReasonPhrase = "Transaction creation is disabled when the wallet is restoring."
         }
+    let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
     rootSk <- maybe (throwM (RequestError $ sformat ("No regular source wallet with address "%build)
                                                     srcWallet))
                     pure
-                    =<< getSKById srcWallet
+                    =<< getSKById nm srcWallet
 
     checkPassMatches passphrase rootSk `whenNothing`
         throwM (RequestError "Passphrase doesn't match")
@@ -223,7 +225,7 @@ sendMoney genesisConfig txpConfig submitTx passphrase moneySource dstDistr polic
         getSigner addr = do
           addrMeta <- M.lookup addr metasAndAddresses
           sk <- rightToMaybe . runExcept $
-              getSKByAddressPure allSecrets (ShouldCheckPassphrase False) passphrase addrMeta
+              getSKByAddressPure nm allSecrets (ShouldCheckPassphrase False) passphrase addrMeta
           withSafeSignerUnsafe sk (pure passphrase) pure
 
     relatedAccount <- getSomeMoneySourceAccount ws moneySource

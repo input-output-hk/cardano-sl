@@ -224,11 +224,12 @@ newtype ShouldCallBListener = ShouldCallBListener Bool
 --     6. Setting @inMainChain@ flags
 slogApplyBlocks
     :: MonadSlogApply ctx m
-    => BlockCount
+    => NetworkMagic
+    -> BlockCount
     -> ShouldCallBListener
     -> OldestFirst NE Blund
     -> m SomeBatchOp
-slogApplyBlocks k (ShouldCallBListener callBListener) blunds = do
+slogApplyBlocks nm k (ShouldCallBListener callBListener) blunds = do
     -- Note: it's important to put blunds first. The invariant is that
     -- the sequence of blocks corresponding to the tip must exist in
     -- BlockDB. If program is interrupted after we put blunds and
@@ -238,7 +239,7 @@ slogApplyBlocks k (ShouldCallBListener callBListener) blunds = do
     -- If the program is interrupted at this point (after putting blunds
     -- in BlockDB), we will have garbage blunds in BlockDB, but it's not a
     -- problem.
-    bListenerBatch <- if callBListener then onApplyBlocks fixedNM blunds
+    bListenerBatch <- if callBListener then onApplyBlocks nm blunds
                       else pure mempty
 
     let newestBlock = NE.last $ getOldestFirst blunds
@@ -293,12 +294,13 @@ newtype BypassSecurityCheck = BypassSecurityCheck Bool
 --     5. Removing @inMainChain@ flags
 slogRollbackBlocks ::
        MonadSlogApply ctx m
-    => ProtocolConstants
+    => NetworkMagic
+    -> ProtocolConstants
     -> BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
     -> ShouldCallBListener
     -> NewestFirst NE Blund
     -> m SomeBatchOp
-slogRollbackBlocks pc (BypassSecurityCheck bypassSecurity) (ShouldCallBListener callBListener) blunds = do
+slogRollbackBlocks nm pc (BypassSecurityCheck bypassSecurity) (ShouldCallBListener callBListener) blunds = do
     inAssertMode $ when (isGenesis0 (blocks ^. _Wrapped . _neLast)) $
         assertionFailed $
         colorize Red "FATAL: we are TRYING TO ROLLBACK 0-TH GENESIS block"
@@ -318,7 +320,7 @@ slogRollbackBlocks pc (BypassSecurityCheck bypassSecurity) (ShouldCallBListener 
         reportFatalError "slogRollbackBlocks: the attempted rollback would \
                          \lead to a more than 'k' distance between tip and \
                          \last seen block, which is a security risk. Aborting."
-    bListenerBatch <- if callBListener then onRollbackBlocks fixedNM pc blunds
+    bListenerBatch <- if callBListener then onRollbackBlocks nm pc blunds
                       else pure mempty
     let putTip =
             SomeBatchOp $ GS.PutTip $
@@ -357,7 +359,3 @@ slogRollbackBlocks pc (BypassSecurityCheck bypassSecurity) (ShouldCallBListener 
     blockExtraBatch lastSlots =
         GS.SetLastSlots (newLastSlots lastSlots) :
         mconcat [forwardLinksBatch, inMainBatch]
-
-
-fixedNM :: NetworkMagic
-fixedNM = NetworkMainOrStage

@@ -30,6 +30,7 @@ import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), txToLinearFee)
 import           Pos.Core (Address, Coin, TxFeePolicy (..), mkCoin, sumCoins,
                      unsafeGetCoin, unsafeSubCoin)
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (PassPhrase, ProtocolMagic (..),
                      RequiresNetworkMagic (..))
 import           Pos.DB.Class (MonadGState (..))
@@ -65,9 +66,7 @@ deriving instance Eq CTx
 spec :: Spec
 spec = do
     runWithMagic RequiresNoMagic
-    -- Not running with `RequiresMagic` until `NetworkMagic` logic
-    -- has been fully implemented.
-    -- runWithMagic RequiresMagic
+    runWithMagic RequiresMagic
 
 runWithMagic :: RequiresNetworkMagic -> Spec
 runWithMagic rnm = beforeAll_ setupTestLogging $
@@ -95,19 +94,20 @@ data PaymentFixture = PaymentFixture {
 -- | Generic block of code to be reused across all the different payment specs.
 newPaymentFixture :: Genesis.Config -> WalletProperty PaymentFixture
 newPaymentFixture genesisConfig = do
-    passphrases <- importSomeWallets mostlyEmptyPassphrases
+    let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
+    passphrases <- importSomeWallets genesisConfig mostlyEmptyPassphrases
     let l = length passphrases
     destLen <- pick $ choose (1, l)
     -- FIXME: we are sending to at most dstLen (which is small) because
     -- deriveRandomAddress is an expensive operation so it might
     -- take a longer time for test to complete for a longer lists
-    (dstCAddrs, dstWalIds) <- fmap unzip $ replicateM destLen $ deriveRandomAddress passphrases
-    rootsWIds <- lift myRootAddresses
+    (dstCAddrs, dstWalIds) <- fmap unzip $ replicateM destLen $ deriveRandomAddress nm passphrases
+    rootsWIds <- lift (myRootAddresses nm)
     idx <- pick $ choose (0, l - 1)
     let walId = rootsWIds !! idx
     let pswd = passphrases !! idx
     let noOneAccount = sformat ("There is no one account for wallet: "%build) walId
-    srcAccount <- maybeStopProperty noOneAccount =<< (lift $ (fmap fst . uncons) <$> getAccounts (Just walId))
+    srcAccount <- maybeStopProperty noOneAccount =<< (lift $ (fmap fst . uncons) <$> getAccounts nm (Just walId))
     srcAccId <- lift $ decodeCTypeOrFail (caId srcAccount)
 
     ws <- WS.askWalletSnapshot
@@ -166,9 +166,9 @@ oneNewPaymentBatchSpec genesisConfig txpConfig =
 
         -- Validate balances
         let genesisData = configGenesisData genesisConfig
-        mapM_ (uncurry expectedAddrBalance) $ zip dstAddrs coins
+        mapM_ (uncurry (expectedAddrBalance genesisData)) $ zip dstAddrs coins
         when (policy == OptimizeForSecurity) $
-            expectedAddrBalance srcAddr (mkCoin 0)
+            expectedAddrBalance genesisData srcAddr (mkCoin 0)
         changeBalance <- mkCoin . fromIntegral . sumCoins
             <$> mapM (getBalance genesisData) changeAddrs
         assertProperty (changeBalance <= initBalance `unsafeSubCoin` fee) $

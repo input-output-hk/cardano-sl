@@ -16,6 +16,7 @@ import           System.Random.MWC (GenIO, createSystemRandom, uniformR)
 
 import           Data.Acid (update)
 
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase)
 
 import           Cardano.Wallet.Kernel.DB.AcidState (CreateHdAccount (..), DB,
@@ -31,7 +32,7 @@ import           Cardano.Wallet.Kernel.DB.HdWallet.Derivation
 import           Cardano.Wallet.Kernel.DB.Spec (Checkpoints (..),
                      initCheckpoint)
 import           Cardano.Wallet.Kernel.Internal (PassiveWallet, walletKeystore,
-                     wallets)
+                     walletProtocolMagic, wallets)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
 
@@ -75,10 +76,11 @@ createAccount :: PassPhrase
               -> PassiveWallet
               -> IO (Either CreateAccountError (DB, HdAccount))
 createAccount spendingPassword accountName walletId pw = do
-    let keystore = pw ^. walletKeystore
+    let nm = makeNetworkMagic (pw ^. walletProtocolMagic)
+        keystore = pw ^. walletKeystore
     case walletId of
          WalletIdHdRnd hdRootId -> do
-             mbEsk <- Keystore.lookup (WalletIdHdRnd hdRootId) keystore
+             mbEsk <- Keystore.lookup nm (WalletIdHdRnd hdRootId) keystore
              case mbEsk of
                   Nothing  -> return (Left $ CreateAccountKeystoreNotFound walletId)
                   Just esk ->

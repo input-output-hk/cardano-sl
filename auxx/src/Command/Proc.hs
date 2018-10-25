@@ -28,7 +28,7 @@ import           Pos.Core (AddrStakeDistribution (..), StakeholderId,
                      addressHash, mkMultiKeyDistr, unsafeGetCoin)
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                      makeAddress)
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (PublicKey, emptyPassphrase, encToPublic,
                      fullPublicKeyF, hashHexF, noPassEncrypt, safeCreatePsk,
                      unsafeCheatingHashCoerce, withSafeSigner)
@@ -105,6 +105,7 @@ createCommandProcs mCoreConfig mTxpConfig hasAuxxMode printAction mDiffusion = r
     let name = "addr" in
     needsCoreConfig name >>= \genesisConfig ->
     needsAuxxMode name >>= \Dict ->
+    let nm = makeNetworkMagic (configProtocolMagic genesisConfig) in
     return CommandProc
     { cpName = name
     , cpArgumentPrepare = map
@@ -115,9 +116,9 @@ createCommandProcs mCoreConfig mTxpConfig hasAuxxMode printAction mDiffusion = r
     , cpExec = \(pk', mDistr) -> do
         pk <- toLeft pk'
         addr <- case mDistr of
-            Nothing -> makePubKeyAddressAuxx fixedNM (configEpochSlots genesisConfig) pk
+            Nothing -> makePubKeyAddressAuxx nm (configEpochSlots genesisConfig) pk
             Just distr -> return $
-                makeAddress (PubKeyASD pk) (AddrAttributes Nothing distr fixedNM)
+                makeAddress (PubKeyASD pk) (AddrAttributes Nothing distr nm)
         return $ ValueAddress addr
     , cpHelp = "address for the specified public key. a stake distribution \
              \ can be specified manually (by default it uses the current epoch \
@@ -136,7 +137,8 @@ createCommandProcs mCoreConfig mTxpConfig hasAuxxMode printAction mDiffusion = r
         sk <- evaluateWHNF (sks !! i) -- WHNF is sufficient to force possible errors
                                       -- from using (!!). I'd use NF but there's no
                                       -- NFData instance for secret keys.
-        addrHD <- deriveHDAddressAuxx fixedNM (configEpochSlots genesisConfig) sk
+        let nm = makeNetworkMagic (configProtocolMagic genesisConfig)
+        addrHD <- deriveHDAddressAuxx nm (configEpochSlots genesisConfig) sk
         return $ ValueAddress addrHD
     , cpHelp = "address of the HD wallet for the specified public key"
     },
@@ -195,13 +197,14 @@ createCommandProcs mCoreConfig mTxpConfig hasAuxxMode printAction mDiffusion = r
     let name = "balance" in
     needsCoreConfig name >>= \genesisConfig ->
     needsAuxxMode name >>= \Dict ->
+    let nm = makeNetworkMagic (configProtocolMagic genesisConfig) in
     return CommandProc
     { cpName = name
     , cpArgumentPrepare = identity
     , cpArgumentConsumer = getArg (tyAddress `tyEither` tyPublicKey `tyEither` tyInt) "addr"
     , cpExec = \addr' -> do
         addr <-
-          either return (makePubKeyAddressAuxx fixedNM $ configEpochSlots genesisConfig) <=<
+          either return (makePubKeyAddressAuxx nm $ configEpochSlots genesisConfig) <=<
           traverse (either return getPublicKeyFromIndex) $ addr'
         balance <- getBalance (configGenesisData genesisConfig) addr
         return $ ValueNumber (fromIntegral . unsafeGetCoin $ balance)
@@ -489,6 +492,7 @@ createCommandProcs mCoreConfig mTxpConfig hasAuxxMode printAction mDiffusion = r
     let name = "listaddr" in
     needsCoreConfig name >>= \genesisConfig ->
     needsAuxxMode name >>= \Dict ->
+    let nm = makeNetworkMagic (configProtocolMagic genesisConfig) in
     return CommandProc
     { cpName = name
     , cpArgumentPrepare = identity
@@ -499,8 +503,8 @@ createCommandProcs mCoreConfig mTxpConfig hasAuxxMode printAction mDiffusion = r
         printAction "Available addresses:"
         for_ (zip [0 :: Int ..] sks) $ \(i, sk) -> do
             let pk = encToPublic sk
-            addr <- makePubKeyAddressAuxx fixedNM epochSlots pk
-            addrHD <- deriveHDAddressAuxx fixedNM epochSlots sk
+            addr <- makePubKeyAddressAuxx nm epochSlots pk
+            addrHD <- deriveHDAddressAuxx nm epochSlots sk
             printAction $
                 sformat ("    #"%int%":   addr:      "%build%"\n"%
                          "          pk:        "%fullPublicKeyF%"\n"%
@@ -509,7 +513,7 @@ createCommandProcs mCoreConfig mTxpConfig hasAuxxMode printAction mDiffusion = r
                     i addr pk (addressHash pk) addrHD
         walletMB <- (^. usWallet) <$> (view userSecret >>= readTVarIO)
         whenJust walletMB $ \wallet -> do
-            addrHD <- deriveHDAddressAuxx fixedNM epochSlots (_wusRootKey wallet)
+            addrHD <- deriveHDAddressAuxx nm epochSlots (_wusRootKey wallet)
             printAction $
                 sformat ("    Wallet address:\n"%
                          "          HD addr:   "%build)
@@ -566,7 +570,3 @@ getPublicKeyFromIndex i = do
     let sk = sks !! i
         pk = encToPublic sk
     evaluateNF pk
-
-
-fixedNM :: NetworkMagic
-fixedNM = NetworkMainOrStage

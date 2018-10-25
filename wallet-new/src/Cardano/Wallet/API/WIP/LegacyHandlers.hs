@@ -23,12 +23,12 @@ import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.WIP as WIP
-import           Pos.Chain.Genesis as Genesis (Config)
+import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Txp (TxAux, TxpConfiguration)
 import           Pos.Chain.Update ()
 import           Pos.Client.KeyStorage (addPublicKey)
 import qualified Pos.Core as Core
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
+import           Pos.Core.NetworkMagic (NetworkMagic (..), makeNetworkMagic)
 import           Pos.Crypto (PublicKey)
 
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
@@ -62,7 +62,7 @@ handlersPlain :: Genesis.Config
          -> ServerT WIP.API MonadV1
 handlersPlain genesisConfig txpConfig submitTx = checkExternalWallet genesisConfig
     :<|> newExternalWallet genesisConfig
-    :<|> deleteExternalWallet
+    :<|> deleteExternalWallet genesisConfig
     :<|> newUnsignedTransaction
     :<|> newSignedTransaction txpConfig submitTx
 
@@ -80,7 +80,8 @@ checkExternalWallet genesisConfig encodedRootPK = do
     rootPK <- mkPublicKeyOrFail encodedRootPK
 
     ws <- V0.askWalletSnapshot
-    let walletId = encodeCType . (Core.makePubKeyAddressBoot fixedNM) $ rootPK
+    let nm       = makeNetworkMagic $ configProtocolMagic genesisConfig
+        walletId = encodeCType . (Core.makePubKeyAddressBoot nm) $ rootPK
     walletExists <- V0.doesWalletExist walletId
     (v0wallet, transactions, isWalletReady) <- if walletExists
         then do
@@ -98,7 +99,7 @@ checkExternalWallet genesisConfig encodedRootPK = do
                                                            (const allAccounts)
                                                            address
             v1Transactions <- mapM (\(_, (v0Tx, _)) -> migrate v0Tx) $ Map.toList history
-            (,,) <$> V0.getWallet walletId
+            (,,) <$> V0.getWallet nm walletId
                  <*> pure v1Transactions
                  <*> pure True
         else do
@@ -117,7 +118,7 @@ checkExternalWallet genesisConfig encodedRootPK = do
                  <*> pure transactions
                  <*> pure False -- We restore wallet, so it's unready yet.
 
-    v1wallet <- migrateWallet ws v0wallet isWalletReady
+    v1wallet <- migrateWallet nm ws v0wallet isWalletReady
     let walletAndTxs = WalletAndTxHistory v1wallet transactions
     single <$> pure walletAndTxs
 
@@ -134,7 +135,8 @@ newExternalWallet
     -> NewExternalWallet
     -> m (WalletResponse Wallet)
 newExternalWallet genesisConfig (NewExternalWallet rootPK assuranceLevel name operation) = do
-    let newExternalWalletHandler CreateWallet  = createNewExternalWallet
+    let nm                                     = makeNetworkMagic $ configProtocolMagic genesisConfig
+        newExternalWalletHandler CreateWallet  = createNewExternalWallet genesisConfig
         newExternalWalletHandler RestoreWallet = restoreExternalWallet genesisConfig
     walletMeta <- V0.CWalletMeta <$> pure name
                                  <*> migrate assuranceLevel
@@ -142,34 +144,36 @@ newExternalWallet genesisConfig (NewExternalWallet rootPK assuranceLevel name op
     single <$> do
         v0wallet <- newExternalWalletHandler operation walletMeta rootPK
         ws <- V0.askWalletSnapshot
-        migrateWallet ws v0wallet True
+        migrateWallet nm ws v0wallet True
 
 -- | Creates new external wallet.
 createNewExternalWallet
     :: ( MonadThrow m
        , V0.MonadWalletLogic ctx m
        )
-    => V0.CWalletMeta
+    => Genesis.Config
+    -> V0.CWalletMeta
     -> PublicKeyAsBase58
     -> m V0.CWallet
-createNewExternalWallet walletMeta encodedRootPK = do
+createNewExternalWallet genesisConfig walletMeta encodedRootPK = do
     rootPK <- mkPublicKeyOrFail encodedRootPK
 
     -- This extended public key will be used during synchronization
     -- with the blockchain.
     addPublicKey rootPK
 
-    let walletId = encodeCType . (Core.makePubKeyAddressBoot fixedNM) $ rootPK
+    let nm       = makeNetworkMagic $ configProtocolMagic genesisConfig
+        walletId = encodeCType . (Core.makePubKeyAddressBoot nm) $ rootPK
         isReady  = True -- We don't need to sync new wallet with the blockchain.
 
     -- Create new external wallet.
     -- This is safe: if the client will try to create an external wallet from the same
     -- root public key - error will be thrown.
-    void $ V0.createWalletSafe walletId walletMeta isReady
+    void $ V0.createWalletSafe nm walletId walletMeta isReady
 
-    addInitAccountInExternalWallet walletId
+    addInitAccountInExternalWallet nm walletId
 
-    V0.getWallet walletId
+    V0.getWallet nm walletId
 
 -- | Restore external wallet using it's root public key and metadata.
 restoreExternalWallet
@@ -185,15 +189,16 @@ restoreExternalWallet
 restoreExternalWallet genesisConfig walletMeta encodedRootPK = do
     rootPK <- mkPublicKeyOrFail encodedRootPK
 
-    let walletId = encodeCType . (Core.makePubKeyAddressBoot fixedNM) $ rootPK
+    let nm       = makeNetworkMagic $ configProtocolMagic genesisConfig
+        walletId = encodeCType . (Core.makePubKeyAddressBoot nm) $ rootPK
      -- Public key will be used during synchronization with the blockchain.
     addPublicKey rootPK
 
     let isReady = False -- Because we want to sync this wallet with the blockchain!
 
     -- Create new external wallet with initial account.
-    void $ V0.createWalletSafe walletId walletMeta isReady
-    addInitAccountInExternalWallet walletId
+    void $ V0.createWalletSafe nm walletId walletMeta isReady
+    addInitAccountInExternalWallet nm walletId
 
     -- Restoring this wallet.
     V0.restoreExternalWallet genesisConfig rootPK
@@ -202,35 +207,39 @@ addInitAccountInExternalWallet
     :: ( MonadThrow m
        , V0.MonadWalletLogic ctx m
        )
-    => V0.CId V0.Wal
+    => NetworkMagic
+    -> V0.CId V0.Wal
     -> m ()
-addInitAccountInExternalWallet walletId = do
+addInitAccountInExternalWallet nm walletId = do
     let accountName = "Initial account"
         accountMeta = V0.CAccountMeta accountName
         accountInit = V0.CAccountInit accountMeta walletId
         includeUnready = True
-    void $ V0.newExternalAccountIncludeUnready includeUnready accountInit
+    void $ V0.newExternalAccountIncludeUnready nm includeUnready accountInit
 
 -- | On the disk, once imported or created, there's so far not much difference
 -- between a wallet and an external wallet, except one: node stores a public key
 -- for external wallet, there's no secret key.
 deleteExternalWallet
     :: (V0.MonadWalletLogic ctx m)
-    => PublicKeyAsBase58
+    => Genesis.Config
+    -> PublicKeyAsBase58
     -> m NoContent
-deleteExternalWallet encodedRootPK = do
+deleteExternalWallet genesisConfig encodedRootPK = do
+    let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
     rootPK <- mkPublicKeyOrFail encodedRootPK
-    V0.deleteExternalWallet rootPK
+    V0.deleteExternalWallet nm rootPK
 
 migrateWallet
     :: ( V0.MonadWalletLogicRead ctx m
        , V0.MonadBlockchainInfo m
        )
-    => V0.WalletSnapshot
+    => NetworkMagic
+    -> V0.WalletSnapshot
     -> V0.CWallet
     -> Bool
     -> m Wallet
-migrateWallet snapshot wallet walletIsReady = do
+migrateWallet nm snapshot wallet walletIsReady = do
     let walletId = V0.cwId wallet
     walletInfo <- if walletIsReady
         then maybeThrow WalletNotFound $ V0.getWalletInfo walletId snapshot
@@ -238,7 +247,7 @@ migrateWallet snapshot wallet walletIsReady = do
             -- Wallet is not ready yet (because of restoring),
             -- the only information we can provide is the default one.
             pure $ V0.getUnreadyWalletInfo snapshot
-    walletIsExternal <- V0.isWalletExternal walletId
+    walletIsExternal <- V0.isWalletExternal nm walletId
     let walletType = if walletIsExternal then WalletExternal else WalletRegular
     currentDepth <- V0.networkChainDifficulty
     migrate (wallet, walletInfo, walletType, currentDepth)
@@ -270,6 +279,3 @@ newSignedTransaction
     -> m (WalletResponse Transaction)
 newSignedTransaction _txpConfig _submitTx _signedTx =
     error "[CHW-57], Cardano Hardware Wallet, unimplemented yet."
-
-fixedNM :: NetworkMagic
-fixedNM = NetworkMainOrStage

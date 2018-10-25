@@ -16,6 +16,7 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Gen, arbitrary)
 import           Test.QuickCheck.Monadic (forAllM, monadicIO, pick, run)
 
+import           Pos.Core.NetworkMagic (NetworkMagic)
 import           Pos.Crypto (EncryptedSecretKey, hash, safeKeyGen)
 
 import           Cardano.Wallet.Kernel.DB.HdWallet (eskToHdRootId)
@@ -32,19 +33,21 @@ import           Util.Buildable (ShowThroughBuild (..))
 withKeystore :: (Keystore -> IO a) -> IO a
 withKeystore = Keystore.bracketTestKeystore
 
-genKeypair :: Gen ( ShowThroughBuild WalletId
+genKeypair :: NetworkMagic
+           -> Gen ( ShowThroughBuild WalletId
                   , ShowThroughBuild EncryptedSecretKey
                   )
-genKeypair = do
+genKeypair nm = do
     (_, esk) <- arbitrary >>= safeKeyGen
-    return $ bimap STB STB (WalletIdHdRnd . eskToHdRootId  $ esk, esk)
+    return $ bimap STB STB (WalletIdHdRnd . eskToHdRootId nm $ esk, esk)
 
-genKeys :: Gen ( ShowThroughBuild WalletId
+genKeys :: NetworkMagic
+        -> Gen ( ShowThroughBuild WalletId
                , ShowThroughBuild EncryptedSecretKey
                , ShowThroughBuild EncryptedSecretKey
                )
-genKeys = do
-    (wId, origKey) <- genKeypair
+genKeys nm = do
+    (wId, origKey) <- genKeypair nm
     (_, esk2) <- arbitrary >>= safeKeyGen
     return (wId, origKey, STB esk2)
 
@@ -59,28 +62,31 @@ spec =
         describe "Parallelisable tests (no resource contention)" $ do
 
             prop "lookup of keys works" $ monadicIO $ do
-                forAllM genKeypair $ \(STB wid, STB esk) -> run $ do
+                nm <- pick arbitrary
+                forAllM (genKeypair nm) $ \(STB wid, STB esk) -> run $ do
                     withKeystore $ \ks -> do
                         Keystore.insert wid esk ks
-                        mbKey <- Keystore.lookup wid ks
+                        mbKey <- Keystore.lookup nm wid ks
                         (fmap hash mbKey) `shouldBe` (Just (hash esk))
 
             prop "replacement of keys works" $ monadicIO $ do
-                forAllM genKeys $ \(STB wid, STB oldKey, STB newKey) -> run $ do
+                nm <- pick arbitrary
+                forAllM (genKeys nm) $ \(STB wid, STB oldKey, STB newKey) -> run $ do
                     withKeystore $ \ks -> do
                         Keystore.insert wid oldKey ks
-                        mbOldKey <- Keystore.lookup wid ks
-                        result <- Keystore.compareAndReplace wid (const True) newKey ks
-                        mbNewKey <- Keystore.lookup wid ks
+                        mbOldKey <- Keystore.lookup nm wid ks
+                        result <- Keystore.compareAndReplace nm wid (const True) newKey ks
+                        mbNewKey <- Keystore.lookup nm wid ks
                         result `shouldBe` Keystore.Replaced
                         (fmap hash mbOldKey) `shouldSatisfy` ((/=) (fmap hash mbNewKey))
 
             prop "deletion of keys works" $ monadicIO $ do
-                forAllM genKeypair $ \(STB wid, STB esk) -> run $ do
+                nm <- pick arbitrary
+                forAllM (genKeypair nm) $ \(STB wid, STB esk) -> run $ do
                     withKeystore $ \ks -> do
                         Keystore.insert wid esk ks
-                        Keystore.delete wid ks
-                        mbKey <- Keystore.lookup wid ks
+                        Keystore.delete nm wid ks
+                        mbKey <- Keystore.lookup nm wid ks
                         (fmap hash mbKey) `shouldBe` Nothing
 
 
@@ -99,22 +105,24 @@ spec =
                 doesFileExist "test_keystore.key" `shouldReturn` False
 
             prop "Inserts are persisted after releasing the keystore" $ monadicIO $ do
-                (STB wid, STB esk) <- pick genKeypair
+                nm <- pick arbitrary
+                (STB wid, STB esk) <- pick $ genKeypair nm
                 run $ do
                     nukeKeystore "test_keystore.key"
                     Keystore.bracketKeystore KeepKeystoreIfEmpty "test_keystore.key" $ \keystore1 ->
                         Keystore.insert wid esk keystore1
                     Keystore.bracketKeystore KeepKeystoreIfEmpty "test_keystore.key" $ \keystore2 -> do
-                        mbKey <- Keystore.lookup wid keystore2
+                        mbKey <- Keystore.lookup nm wid keystore2
                         (fmap hash mbKey) `shouldBe` (Just (hash esk))
 
             prop "Deletion of keys are persisted after releasing the keystore" $ monadicIO $ do
-                (STB wid, STB esk) <- pick genKeypair
+                nm <- pick arbitrary
+                (STB wid, STB esk) <- pick $ genKeypair nm
                 run $ do
                     nukeKeystore "test_keystore.key"
                     Keystore.bracketKeystore KeepKeystoreIfEmpty "test_keystore.key" $ \keystore1 -> do
                         Keystore.insert wid esk keystore1
-                        Keystore.delete wid keystore1
+                        Keystore.delete nm wid keystore1
                     Keystore.bracketKeystore KeepKeystoreIfEmpty "test_keystore.key" $ \keystore2 -> do
-                        mbKey <- Keystore.lookup wid keystore2
+                        mbKey <- Keystore.lookup nm wid keystore2
                         (fmap hash mbKey) `shouldBe` Nothing

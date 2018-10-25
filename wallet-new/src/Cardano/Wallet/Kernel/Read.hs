@@ -16,6 +16,7 @@ import           Data.Acid.Advanced (query')
 import           Formatting (sformat, (%))
 import           Serokell.Util (listJson)
 
+import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.Util.Wlog (Severity (..))
 
@@ -40,10 +41,13 @@ getWalletCredentials pw = do
     snapshot         <- getWalletSnapshot pw
     (creds, missing) <- fmap partitionEithers $
       forM (walletIds snapshot) $ \walletId ->
-        aux walletId <$> Keystore.lookup walletId (pw ^. walletKeystore)
+        aux walletId <$> Keystore.lookup nm walletId (pw ^. walletKeystore)
     unless (null missing) $ (pw ^. walletLogMessage) Error (errMissing missing)
     return creds
   where
+    nm :: NetworkMagic
+    nm = makeNetworkMagic (pw ^. walletProtocolMagic)
+
     aux :: WalletId
         -> Maybe EncryptedSecretKey
         -> Either (WalletId, EncryptedSecretKey) WalletId

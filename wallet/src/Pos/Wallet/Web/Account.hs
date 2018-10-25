@@ -53,39 +53,42 @@ type AccountMode ctx m =
     , MonadIO m
     )
 
-myRootAddresses :: MonadKeysRead m => m [CId Wal]
-myRootAddresses = encToCId <<$>> getSecretKeysPlain
+myRootAddresses :: MonadKeysRead m => NetworkMagic -> m [CId Wal]
+myRootAddresses nm = encToCId nm <<$>> getSecretKeysPlain
 
 getSKById
     :: AccountMode ctx m
-    => CId Wal
+    => NetworkMagic
+    -> CId Wal
     -> m (Maybe EncryptedSecretKey)
-getSKById walletId = do
+getSKById nm walletId = do
     secretKeys <- getSecretKeys
-    return $ getSKByIdPure secretKeys walletId
+    return $ getSKByIdPure nm secretKeys walletId
 
 getSKByIdPure
-    :: AllUserSecrets
+    :: NetworkMagic
+    -> AllUserSecrets
     -> CId Wal
     -> Maybe EncryptedSecretKey
-getSKByIdPure (AllUserSecrets secretKeys) wid =
-    find (\k -> encToCId k == wid) secretKeys
+getSKByIdPure nm (AllUserSecrets secretKeys) wid =
+    find (\k -> encToCId nm k == wid) secretKeys
 
 -- | We always have a key for any wallet:
 -- 1. secret key (for regular wallet) or
 -- 2. public key (for external wallet).
 getKeyById
     :: AccountMode ctx m
-    => CId Wal
+    => NetworkMagic
+    -> CId Wal
     -> m WalletDecrCredentialsKey
-getKeyById walletId = do
+getKeyById nm walletId = do
     secretKeys <- getSecretKeys
-    case getSKByIdPure secretKeys walletId of
+    case getSKByIdPure nm secretKeys walletId of
         Just sk -> return $ KeyForRegular sk
         Nothing -> do
             -- There's no secret key for 'walletId', this wallet is an external one.
             publicKeys <- getPublicKeys
-            case getPKByIdPure publicKeys walletId of
+            case getPKByIdPure nm publicKeys walletId of
                 Just pk -> return $ KeyForExternal pk
                 Nothing -> throwM . InternalError $
                     sformat ("'Impossible' happened: there's no key for wallet "%build)
@@ -93,32 +96,35 @@ getKeyById walletId = do
 
 -- | If 'walletId' corresponds to regular wallet, there's no public key for it.
 getPKByIdPure
-    :: AllUserPublics
+    :: NetworkMagic
+    -> AllUserPublics
     -> CId Wal
     -> Maybe PublicKey
-getPKByIdPure (AllUserPublics publicKeys) walletId =
-    find (\pk -> walletId == encodeCType (makePubKeyAddressBoot fixedNM pk)) publicKeys
+getPKByIdPure nm (AllUserPublics publicKeys) walletId =
+    find (\pk -> walletId == encodeCType (makePubKeyAddressBoot nm pk)) publicKeys
 
 getSKByAddress
     :: AccountMode ctx m
-    => ShouldCheckPassphrase
-    -> PassPhrase
-    -> WAddressMeta
-    -> m EncryptedSecretKey
-getSKByAddress scp passphrase addrMeta = do
-    secrets <- getSecretKeys
-    runExceptT (getSKByAddressPure secrets scp passphrase addrMeta) >>= eitherToThrow
-
-getSKByAddressPure
-    :: MonadError WalletError m
-    => AllUserSecrets
+    => NetworkMagic
     -> ShouldCheckPassphrase
     -> PassPhrase
     -> WAddressMeta
     -> m EncryptedSecretKey
-getSKByAddressPure secrets scp passphrase addrMeta = do
+getSKByAddress nm scp passphrase addrMeta = do
+    secrets <- getSecretKeys
+    runExceptT (getSKByAddressPure nm secrets scp passphrase addrMeta) >>= eitherToThrow
+
+getSKByAddressPure
+    :: MonadError WalletError m
+    => NetworkMagic
+    -> AllUserSecrets
+    -> ShouldCheckPassphrase
+    -> PassPhrase
+    -> WAddressMeta
+    -> m EncryptedSecretKey
+getSKByAddressPure nm secrets scp passphrase addrMeta = do
     (addr, addressKey) <-
-            deriveAddressSKPure secrets scp passphrase (addrMeta ^. wamAccount) (addrMeta ^. wamAddressIndex)
+            deriveAddressSKPure nm secrets scp passphrase (addrMeta ^. wamAccount) (addrMeta ^. wamAddressIndex)
     if addr /= addrMeta ^. wamAddress
              -- if you see this error, maybe you generated public key address with
              -- no hd wallet attribute (if so, address would be ~half shorter than
@@ -184,46 +190,49 @@ genUniqueAccountId ws genSeed wsCAddr =
 
 genUniqueAddress
     :: AccountMode ctx m
-    => WalletSnapshot
+    => NetworkMagic
+    -> WalletSnapshot
     -> AddrGenSeed
     -> PassPhrase
     -> AccountId
     -> m WAddressMeta
-genUniqueAddress ws genSeed passphrase wCAddr@AccountId{..} =
+genUniqueAddress nm ws genSeed passphrase wCAddr@AccountId{..} =
     generateUnique "address generation" genSeed mkAddress notFit
   where
     mkAddress :: AccountMode ctx m => Word32 -> m WAddressMeta
     mkAddress cwamAddressIndex =
-        deriveAddress passphrase wCAddr cwamAddressIndex
+        deriveAddress nm passphrase wCAddr cwamAddressIndex
     notFit _idx addr = doesWAddressExist ws Ever addr
 
 deriveAddressSK
     :: AccountMode ctx m
-    => ShouldCheckPassphrase
-    -> PassPhrase
-    -> AccountId
-    -> Word32
-    -> m (Address, EncryptedSecretKey)
-deriveAddressSK scp passphrase accId addressIndex = do
-    secrets <- getSecretKeys
-    runExceptT (deriveAddressSKPure secrets scp passphrase accId addressIndex) >>= eitherToThrow
-
-deriveAddressSKPure
-    :: MonadError WalletError m
-    => AllUserSecrets
+    => NetworkMagic
     -> ShouldCheckPassphrase
     -> PassPhrase
     -> AccountId
     -> Word32
     -> m (Address, EncryptedSecretKey)
-deriveAddressSKPure secrets scp passphrase AccountId {..} addressIndex = do
-    key <- case getSKByIdPure secrets aiWId of
+deriveAddressSK nm scp passphrase accId addressIndex = do
+    secrets <- getSecretKeys
+    runExceptT (deriveAddressSKPure nm secrets scp passphrase accId addressIndex) >>= eitherToThrow
+
+deriveAddressSKPure
+    :: MonadError WalletError m
+    => NetworkMagic
+    -> AllUserSecrets
+    -> ShouldCheckPassphrase
+    -> PassPhrase
+    -> AccountId
+    -> Word32
+    -> m (Address, EncryptedSecretKey)
+deriveAddressSKPure nm secrets scp passphrase AccountId {..} addressIndex = do
+    key <- case getSKByIdPure nm secrets aiWId of
         Just key -> pure key
         Nothing  -> throwError noSuchSecretKey
 
     maybe (throwError badPass) pure $
         deriveLvl2KeyPair
-            fixedNM
+            nm
             (IsBootstrapEraAddr True) -- TODO: make it context-dependent!
             scp
             passphrase
@@ -236,29 +245,24 @@ deriveAddressSKPure secrets scp passphrase AccountId {..} addressIndex = do
 
 deriveAddress
     :: AccountMode ctx m
-    => PassPhrase
+    => NetworkMagic
+    -> PassPhrase
     -> AccountId
     -> Word32
     -> m WAddressMeta
-deriveAddress passphrase accId@AccountId{..} cwamAddressIndex = do
-    (addr, _) <- deriveAddressSK (ShouldCheckPassphrase True) passphrase accId cwamAddressIndex
+deriveAddress nm passphrase accId@AccountId{..} cwamAddressIndex = do
+    (addr, _) <- deriveAddressSK nm (ShouldCheckPassphrase True) passphrase accId cwamAddressIndex
     return $ WAddressMeta aiWId aiIndex cwamAddressIndex addr
 
 -- | Allows to find a key related to given @id@ item.
 class MonadKeySearch id m where
-    findKey :: id -> m WalletDecrCredentialsKey
+    findKey :: NetworkMagic -> id -> m WalletDecrCredentialsKey
 
 instance AccountMode ctx m => MonadKeySearch (CId Wal) m where
     findKey = getKeyById
 
 instance AccountMode ctx m => MonadKeySearch AccountId m where
-    findKey = findKey . aiWId
+    findKey nm = (findKey nm) . aiWId
 
 instance AccountMode ctx m => MonadKeySearch WAddressMeta m where
-    findKey = findKey . _wamWalletId
-
-
-
-
-fixedNM :: NetworkMagic
-fixedNM = NetworkMainOrStage
+    findKey nm = (findKey nm) . _wamWalletId

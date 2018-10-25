@@ -7,6 +7,7 @@ import           Universum
 
 import           Servant
 
+import           Pos.Core.NetworkMagic (NetworkMagic)
 import qualified Pos.Wallet.Web.Account as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods.Logic as V0
@@ -19,34 +20,42 @@ import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 
-handlers :: ServerT Accounts.API MonadV1
-handlers =
+handlers :: NetworkMagic -> ServerT Accounts.API MonadV1
+handlers nm =
          deleteAccount
-    :<|> getAccount
-    :<|> listAccounts
-    :<|> newAccount
-    :<|> updateAccount
-    :<|> getAccountAddresses
-    :<|> getAccountBalance
+    :<|> getAccount nm
+    :<|> listAccounts nm
+    :<|> newAccount nm
+    :<|> updateAccount nm
+    :<|> getAccountAddresses nm
+    :<|> getAccountBalance nm
 
 deleteAccount
     :: (V0.MonadWalletLogic ctx m)
-    => WalletId -> AccountIndex -> m NoContent
+    => WalletId
+    -> AccountIndex
+    -> m NoContent
 deleteAccount wId accIdx =
     migrate (wId, accIdx) >>= V0.deleteAccount
 
 getAccount
     :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
-    => WalletId -> AccountIndex -> m (WalletResponse Account)
-getAccount wId accIdx =
-    single <$> (migrate (wId, accIdx) >>= V0.getAccount >>= migrate)
+    => NetworkMagic
+    -> WalletId
+    -> AccountIndex
+    -> m (WalletResponse Account)
+getAccount nm wId accIdx =
+    single <$> (migrate (wId, accIdx) >>= V0.getAccount nm >>= migrate)
 
 listAccounts
     :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
-    => WalletId -> RequestParams -> m (WalletResponse [Account])
-listAccounts wId params = do
+    => NetworkMagic
+    -> WalletId
+    -> RequestParams
+    -> m (WalletResponse [Account])
+listAccounts nm wId params = do
     wid' <- migrate wId
-    oldAccounts <- V0.getAccounts (Just wid')
+    oldAccounts <- V0.getAccounts nm (Just wid')
     newAccounts <- migrate @[V0.CAccount] @[Account] oldAccounts
     respondWith params
         (NoFilters :: FilterOperations '[] Account)
@@ -55,31 +64,39 @@ listAccounts wId params = do
 
 newAccount
     :: (V0.MonadWalletLogic ctx m)
-    => WalletId -> NewAccount -> m (WalletResponse Account)
-newAccount wId nAccount@NewAccount{..} = do
+    => NetworkMagic
+    -> WalletId
+    -> NewAccount
+    -> m (WalletResponse Account)
+newAccount nm wId nAccount@NewAccount{..} = do
     let (V1 spendingPw) = fromMaybe (V1 mempty) naccSpendingPassword
     accInit <- migrate (wId, nAccount)
-    cAccount <- V0.newAccount V0.RandomSeed spendingPw accInit
+    cAccount <- V0.newAccount nm V0.RandomSeed spendingPw accInit
     single <$> (migrate cAccount)
 
 updateAccount
     :: (V0.MonadWalletLogic ctx m)
-    => WalletId -> AccountIndex -> AccountUpdate -> m (WalletResponse Account)
-updateAccount wId accIdx accUpdate = do
+    => NetworkMagic
+    -> WalletId
+    -> AccountIndex
+    -> AccountUpdate
+    -> m (WalletResponse Account)
+updateAccount nm wId accIdx accUpdate = do
     newAccId <- migrate (wId, accIdx)
     accMeta <- migrate accUpdate
-    cAccount <- V0.updateAccount newAccId accMeta
+    cAccount <- V0.updateAccount nm newAccId accMeta
     single <$> (migrate cAccount)
 
 getAccountAddresses
     :: (V0.MonadWalletLogic ctx m)
-    => WalletId
+    => NetworkMagic
+    -> WalletId
     -> AccountIndex
     -> RequestParams
     -> FilterOperations '[V1 Address] WalletAddress
     -> m (WalletResponse AccountAddresses)
-getAccountAddresses wId accIdx pagination filters = do
-    resp <- respondWith pagination filters NoSorts (getAddresses <$> getAccount wId accIdx)
+getAccountAddresses nm wId accIdx pagination filters = do
+    resp <- respondWith pagination filters NoSorts (getAddresses <$> getAccount nm wId accIdx)
     return resp { wrData = AccountAddresses . wrData $ resp }
   where
     getAddresses =
@@ -87,9 +104,10 @@ getAccountAddresses wId accIdx pagination filters = do
 
 getAccountBalance
     :: (V0.MonadWalletLogic ctx m)
-    => WalletId
+    => NetworkMagic
+    -> WalletId
     -> AccountIndex
     -> m (WalletResponse AccountBalance)
-getAccountBalance wId accIdx = do
-    resp <- getAccount wId accIdx
+getAccountBalance nm wId accIdx = do
+    resp <- getAccount nm wId accIdx
     return resp { wrData = AccountBalance . accAmount . wrData $ resp }

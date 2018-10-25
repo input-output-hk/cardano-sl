@@ -23,7 +23,7 @@ import qualified Formatting.Buildable
 import           Data.Acid.Advanced (update')
 
 import           Pos.Core (Address, Timestamp)
-import           Pos.Core.NetworkMagic (NetworkMagic)
+import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
 import           Pos.Crypto (EncryptedSecretKey, HDPassphrase, PassPhrase,
                      changeEncPassphrase, checkPassMatches, emptyPassphrase,
                      firstHardened, safeDeterministicKeyGen)
@@ -44,7 +44,7 @@ import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
 import           Cardano.Wallet.Kernel.Decrypt (WalletDecrCredentialsKey (..),
                      decryptHdLvl2DerivationPath, keyToWalletDecrCredentials)
 import           Cardano.Wallet.Kernel.Internal (PassiveWallet, walletKeystore,
-                     wallets)
+                     walletProtocolMagic, wallets)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import qualified Cardano.Wallet.Kernel.Read as Kernel
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
@@ -114,8 +114,7 @@ instance Show UpdateWalletPasswordError where
 -- PRECONDITION: The input 'Mnemonic' should be supplied by the frontend such
 -- that this is a brand new 'Mnemonic' never used before on the blockchain. For
 -- other wallets restoration should be used.
-createHdWallet :: NetworkMagic
-               -> PassiveWallet
+createHdWallet :: PassiveWallet
                -> Mnemonic nat
                -- ^ The set of words (i.e the mnemonic) to generate the initial seed.
                -- See <https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#From_mnemonic_to_seed>
@@ -134,7 +133,7 @@ createHdWallet :: NetworkMagic
                -> WalletName
                -- ^ The name for this wallet.
                -> IO (Either CreateWalletError HdRoot)
-createHdWallet nm pw mnemonic spendingPassword assuranceLevel walletName = do
+createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
     -- STEP 1: Generate the 'EncryptedSecretKey' outside any acid-state
     -- transaction, to not leak it into acid-state's transaction logs.
     let (_, esk) = safeDeterministicKeyGen (BIP39.mnemonicToSeed mnemonic) spendingPassword
@@ -154,7 +153,8 @@ createHdWallet nm pw mnemonic spendingPassword assuranceLevel walletName = do
     -- but the latter would fail to fetch the relevant key from the keystore
     -- (We got interrupted before inserting it) causing a system panic.
     -- We can fix this properly as part of [CBR-404].
-    let newRootId = eskToHdRootId esk
+    let nm = makeNetworkMagic (pw ^. walletProtocolMagic)
+        newRootId = eskToHdRootId nm esk
     Keystore.insert (WalletIdHdRnd newRootId) esk (pw ^. walletKeystore)
 
     -- STEP 2.5: Generate the fresh Cardano Address which will be used for the
@@ -235,14 +235,15 @@ createWalletHdRnd :: PassiveWallet
                   -> IO (Either HD.CreateHdRootError HdRoot)
 createWalletHdRnd pw hasSpendingPassword defaultCardanoAddress name assuranceLevel esk createWallet = do
     created <- InDb <$> getCurrentTimestamp
-    let rootId  = eskToHdRootId esk
+    let nm      = makeNetworkMagic (pw ^. walletProtocolMagic)
+        rootId  = eskToHdRootId nm esk
         newRoot = HD.initHdRoot rootId
                                 name
                                 (hdSpendingPassword created)
                                 assuranceLevel
                                 created
 
-        hdPass    = fst $ keyToWalletDecrCredentials (KeyForRegular esk)
+        hdPass    = fst $ keyToWalletDecrCredentials nm (KeyForRegular esk)
         hdAddress = defaultHdAddressWith hdPass rootId defaultCardanoAddress
 
     case hdAddress of
@@ -294,10 +295,11 @@ defaultHdAddressId rootId =
     HdAddressId (defaultHdAccountId rootId) (HdAddressIx firstHardened)
 
 
-deleteHdWallet :: PassiveWallet
+deleteHdWallet :: NetworkMagic
+               -> PassiveWallet
                -> HD.HdRootId
                -> IO (Either HD.UnknownHdRoot ())
-deleteHdWallet wallet rootId = do
+deleteHdWallet nm wallet rootId = do
     -- STEP 1: Remove the HdRoot via an acid-state transaction which will
     --         also delete any associated accounts and addresses.
     res <- update' (wallet ^. wallets) $ DeleteHdRoot rootId
@@ -315,7 +317,7 @@ deleteHdWallet wallet rootId = do
             -- an 'HdRoot' without any associated keys in the keystore is
             -- unusable.
             -- Fix properly as part of [CBR-404].
-            Keystore.delete (WalletIdHdRnd rootId) (wallet ^. walletKeystore)
+            Keystore.delete nm (WalletIdHdRnd rootId) (wallet ^. walletKeystore)
             return $ Right ()
 
 {-------------------------------------------------------------------------------
@@ -341,10 +343,11 @@ updatePassword :: PassiveWallet
                -- ^ The new 'PassPhrase' for this Wallet.
                -> IO (Either UpdateWalletPasswordError (Kernel.DB, HdRoot))
 updatePassword pw hdRootId oldPassword newPassword = do
-    let keystore = pw ^. walletKeystore
-        wId = WalletIdHdRnd hdRootId
+    let nm       = makeNetworkMagic (pw ^. walletProtocolMagic)
+        keystore = pw ^. walletKeystore
+        wId      = WalletIdHdRnd hdRootId
     -- STEP 1: Lookup the key from the keystore
-    mbKey <- Keystore.lookup wId keystore
+    mbKey <- Keystore.lookup nm wId keystore
     case mbKey of
          Nothing -> return $ Left $ UpdateWalletPasswordKeyNotFound hdRootId
          Just oldKey -> do
@@ -364,7 +367,7 @@ updatePassword pw hdRootId oldPassword newPassword = do
                   Left e -> return (Left e)
                   Right newKey -> do
                       -- STEP 3: Update the keystore, atomically.
-                      swapped <- Keystore.compareAndReplace wId pwdCheck newKey keystore
+                      swapped <- Keystore.compareAndReplace nm wId pwdCheck newKey keystore
                       case swapped of
                            -- We failed, the password changed in the
                            -- meantime, and the user needs to repeat the

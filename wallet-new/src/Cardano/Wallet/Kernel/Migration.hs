@@ -13,6 +13,7 @@ import           Formatting ((%))
 import qualified Formatting as F
 
 import qualified Pos.Core as Core
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Util.Wlog (Severity (..))
 import qualified Pos.Wallet.Web.ClientTypes as WebTypes
 import qualified Pos.Wallet.Web.State.Storage as WS
@@ -226,10 +227,11 @@ restore :: Kernel.PassiveWallet
         -> MigrationMetadata
         -> IO ()
 restore pw forced metadata = do
-    let logMsg = pw ^. Kernel.walletLogMessage
+    let nm       = makeNetworkMagic (pw ^. Kernel.walletProtocolMagic)
+        logMsg   = pw ^. Kernel.walletLogMessage
         keystore = pw ^. Kernel.walletKeystore
-        wId = WalletIdHdRnd (metadata ^. mmHdRootId)
-    mEsk <- Keystore.lookup wId keystore
+        wId      = WalletIdHdRnd (metadata ^. mmHdRootId)
+    mEsk <- Keystore.lookup nm wId keystore
     case mEsk of
         Just esk -> do
             res <- restoreWallet pw

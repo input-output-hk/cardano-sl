@@ -17,6 +17,7 @@ import           Pos.Chain.Txp (TxAux (..), TxOut (..), TxpConfiguration)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Client.Txp.Network (prepareRedemptionTx)
 import           Pos.Core (getCurrentTimestamp)
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (PassPhrase, aesDecrypt, hash,
                      redeemDeterministicKeyGen)
 import           Pos.Util (maybeThrow)
@@ -93,10 +94,11 @@ redeemAdaInternal genesisConfig txpConfig submitTx passphrase cAccId seedBs = do
     accId <- decodeCTypeOrFail cAccId
     db <- askWalletDB
 
+    let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
     -- new redemption wallet
-    _ <- L.getAccount accId
+    _ <- L.getAccount nm accId
 
-    dstAddr <- decodeCTypeOrFail . cadId =<< L.newAddress RandomSeed passphrase accId
+    dstAddr <- decodeCTypeOrFail . cadId =<< L.newAddress nm RandomSeed passphrase accId
     ws <- getWalletSnapshot db
     th <- rewrapTxError "Cannot send redemption transaction" $ do
         (txAux, redeemAddress, redeemBalance) <- prepareRedemptionTx

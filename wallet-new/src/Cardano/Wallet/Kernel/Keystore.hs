@@ -36,6 +36,7 @@ import qualified Data.List
 import           System.Directory (getTemporaryDirectory, removeFile)
 import           System.IO (hClose, openTempFile)
 
+import           Pos.Core.NetworkMagic (NetworkMagic)
 import           Pos.Crypto (EncryptedSecretKey, hash)
 import           Pos.Util.UserSecret (UserSecret, getUSPath, isEmptyUserSecret,
                      readUserSecret, takeUserSecret, usKeys, usWallet,
@@ -233,37 +234,39 @@ data ReplaceResult =
 
 -- | Replace an old 'EncryptedSecretKey' with a new one,
 -- verifying a pre-condition on the previously stored key.
-compareAndReplace :: WalletId
+compareAndReplace :: NetworkMagic
+                  -> WalletId
                   -> (EncryptedSecretKey -> Bool)
                   -> EncryptedSecretKey
                   -> Keystore
                   -> IO ReplaceResult
-compareAndReplace walletId predicateOnOldKey newKey ks =
+compareAndReplace nm walletId predicateOnOldKey newKey ks =
     modifyKeystore ks $ \us ->
-        let mbOldKey = lookupKey us walletId
+        let mbOldKey = lookupKey nm us walletId
         in case predicateOnOldKey <$> mbOldKey of
               Nothing    ->
                   (us, OldKeyLookupFailed)
               Just False ->
                   (us, PredicateFailed)
               Just True  ->
-                  (insertKey newKey . deleteKey walletId $ us, Replaced)
+                  (insertKey newKey . deleteKey nm walletId $ us, Replaced)
 
 {-------------------------------------------------------------------------------
   Looking up things inside a keystore
 -------------------------------------------------------------------------------}
 
 -- | Lookup an 'EncryptedSecretKey' associated to the input 'HdRootId'.
-lookup :: WalletId
+lookup :: NetworkMagic
+       -> WalletId
        -> Keystore
        -> IO (Maybe EncryptedSecretKey)
-lookup wId (Keystore ks) =
-    Strict.withMVar ks $ \(InternalStorage us) -> return $ lookupKey us wId
+lookup nm wId (Keystore ks) =
+    Strict.withMVar ks $ \(InternalStorage us) -> return $ lookupKey nm us wId
 
 -- | Lookup a key directly inside the 'UserSecret'.
-lookupKey :: UserSecret -> WalletId -> Maybe EncryptedSecretKey
-lookupKey us (WalletIdHdRnd walletId) =
-    Data.List.find (\k -> eskToHdRootId k == walletId) (us ^. usKeys)
+lookupKey :: NetworkMagic -> UserSecret -> WalletId -> Maybe EncryptedSecretKey
+lookupKey nm us (WalletIdHdRnd walletId) =
+    Data.List.find (\k -> eskToHdRootId nm k == walletId) (us ^. usKeys)
 
 {-------------------------------------------------------------------------------
   Deleting things from the keystore
@@ -271,12 +274,12 @@ lookupKey us (WalletIdHdRnd walletId) =
 
 -- | Deletes an element from the 'Keystore'. This is an idempotent operation
 -- as in case a key was not present, no error would be thrown.
-delete :: WalletId -> Keystore -> IO ()
-delete walletId ks = modifyKeystore_ ks (deleteKey walletId)
+delete :: NetworkMagic -> WalletId -> Keystore -> IO ()
+delete nm walletId ks = modifyKeystore_ ks (deleteKey nm walletId)
 
 -- | Delete a key directly inside the 'UserSecret'.
-deleteKey :: WalletId -> UserSecret -> UserSecret
-deleteKey walletId us =
-    let mbEsk = lookupKey us walletId
+deleteKey :: NetworkMagic -> WalletId -> UserSecret -> UserSecret
+deleteKey nm walletId us =
+    let mbEsk = lookupKey nm us walletId
         erase = Data.List.deleteBy (\a b -> hash a == hash b)
     in maybe us (\esk -> us & over usKeys (erase esk)) mbEsk

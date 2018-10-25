@@ -85,15 +85,15 @@ data WalletDecrCredentialsKey
     deriving (Show)
 
 -- | There's a secret key for regular wallet or a public key for external wallet.
-keyToWalletDecrCredentials :: WalletDecrCredentialsKey -> WalletDecrCredentials
-keyToWalletDecrCredentials (KeyForRegular sk)  = credentialsFromPublicKey $ encToPublic sk
-keyToWalletDecrCredentials (KeyForExternal pk) = credentialsFromPublicKey pk
+keyToWalletDecrCredentials :: NetworkMagic -> WalletDecrCredentialsKey -> WalletDecrCredentials
+keyToWalletDecrCredentials nm (KeyForRegular sk)  = credentialsFromPublicKey nm $ encToPublic sk
+keyToWalletDecrCredentials nm (KeyForExternal pk) = credentialsFromPublicKey nm pk
 
-credentialsFromPublicKey :: PublicKey -> WalletDecrCredentials
-credentialsFromPublicKey publicKey = (hdPassword, walletId)
+credentialsFromPublicKey :: NetworkMagic -> PublicKey -> WalletDecrCredentials
+credentialsFromPublicKey nm publicKey = (hdPassword, walletId)
   where
     hdPassword = deriveHDPassphrase publicKey
-    walletId   = encodeCType $ makeRootPubKeyAddress fixedNM publicKey
+    walletId   = encodeCType $ makeRootPubKeyAddress nm publicKey
 
 selectOwnAddresses
     :: WalletDecrCredentials
@@ -109,7 +109,3 @@ decryptAddress (hdPass, wCId) addr = do
     derPath <- unpackHDAddressAttr hdPass hdPayload
     guard $ length derPath == 2
     pure $ WAddressMeta wCId (derPath !! 0) (derPath !! 1) addr
-
-
-fixedNM :: NetworkMagic
-fixedNM = NetworkMainOrStage

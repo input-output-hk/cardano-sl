@@ -206,11 +206,8 @@ deriveSafeCopy 1 'base ''HasSpendingPassword
 -- acceptable.
 --
 -- TODO: This may well disappear as part of [CBR-325].
-eskToHdRootId :: Core.EncryptedSecretKey -> HdRootId
-eskToHdRootId = HdRootId . InDb . (Core.makePubKeyAddressBoot fixedNM) . Core.encToPublic
-
-fixedNM :: NetworkMagic
-fixedNM = NetworkMainOrStage
+eskToHdRootId :: NetworkMagic -> Core.EncryptedSecretKey -> HdRootId
+eskToHdRootId nm = HdRootId . InDb . (Core.makePubKeyAddressBoot nm) . Core.encToPublic
 
 
 {-------------------------------------------------------------------------------
@@ -247,7 +244,8 @@ instance Arbitrary HdRootId where
   arbitrary = do
       (_, esk) <- Core.safeDeterministicKeyGen <$> (BS.pack <$> vectorOf 32 arbitrary)
                                                <*> pure mempty
-      pure (eskToHdRootId esk)
+      nm <- arbitrary
+      pure (eskToHdRootId nm esk)
 
 -- | HD wallet account ID
 data HdAccountId = HdAccountId {

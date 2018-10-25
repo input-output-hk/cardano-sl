@@ -107,7 +107,9 @@ genAddrAttributes :: Gen AddrAttributes
 genAddrAttributes = AddrAttributes <$> hap <*> genAddrStakeDistribution <*> nm
   where
     hap = Gen.maybe genHDAddressPayload
-    nm = pure fixedNM
+    nm  = Gen.choice [ pure NetworkMainOrStage
+                     , NetworkTestnet <$> genInt32
+                     ]
 
 genAddress :: Gen Address
 genAddress = makeAddress <$> genAddrSpendingData <*> genAddrAttributes
@@ -382,5 +384,5 @@ genTextHash = do
   sampleText <- Gen.text (Range.linear 0 10) Gen.alphaNum
   pure (hash sampleText :: Hash Text)
 
-fixedNM :: NetworkMagic
-fixedNM = NetworkMainOrStage
+genInt32 :: Gen Int32
+genInt32 = Gen.int32 Range.constantBounded

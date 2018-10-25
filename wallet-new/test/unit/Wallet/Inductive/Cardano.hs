@@ -48,7 +48,7 @@ import           Cardano.Wallet.Kernel.Transactions (toMeta)
 
 import           Data.Validated
 import           Util.Buildable
-import           UTxO.Context (Addr, CardanoContext (..), TransCtxt (..))
+import           UTxO.Context (Addr)
 import           UTxO.DSL (Hash)
 import qualified UTxO.DSL as DSL
 import           UTxO.ToCardano.Interpreter
@@ -214,6 +214,7 @@ equivalentT useWW activeWallet esk = \mkWallet w ->
       $ interpretT useWW notChecked mkWallet EventCallbacks{..} w
   where
     passiveWallet = Internal.walletPassive activeWallet
+    nm            = makeNetworkMagic (passiveWallet ^. Internal.walletProtocolMagic)
 
     notChecked :: History -> Text -> EquivalenceViolation
     notChecked history ex = EquivalenceNotChecked {
@@ -226,8 +227,7 @@ equivalentT useWW activeWallet esk = \mkWallet w ->
                 -> Utxo
                 -> TranslateT EquivalenceViolation m HD.HdAccountId
     walletBootT ctxt utxo = do
-        let newRootId = HD.eskToHdRootId esk
-        nm <- asks (makeNetworkMagic . ccMagic . tcCardano)
+        let newRootId = HD.eskToHdRootId nm esk
         let (Just defaultAddress) = Kernel.newHdAddress nm
                                                         esk
                                                         emptyPassphrase
@@ -245,7 +245,7 @@ equivalentT useWW activeWallet esk = \mkWallet w ->
                 Left $ DB.CreateHdWallet root
                                          defaultAccount
                                          defAddress
-                                         (prefilterUtxo (root ^. HD.hdRootId) esk utxo)
+                                         (prefilterUtxo nm (root ^. HD.hdRootId) esk utxo)
             )
         case res of
              Left e -> createWalletErr (STB e)
@@ -258,9 +258,9 @@ equivalentT useWW activeWallet esk = \mkWallet w ->
             walletName       = HD.WalletName "(test wallet)"
             assuranceLevel   = HD.AssuranceLevelNormal
 
-            utxoByAccount = prefilterUtxo rootId esk utxo
+            utxoByAccount = prefilterUtxo nm rootId esk utxo
             accountIds    = Map.keys utxoByAccount
-            rootId        = HD.eskToHdRootId esk
+            rootId        = HD.eskToHdRootId nm esk
 
             createWalletErr e =
                 error $ "ERROR: could not create the HdWallet due to " <> show e

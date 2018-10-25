@@ -60,8 +60,7 @@ import           System.IO (hClose, openBinaryTempFile)
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeFull',
                      deriveSimpleBi, encodeListLen, enforceSize, serialize')
-import           Pos.Core (Address, accountGenesisIndex, addressF,
-                     makeRootPubKeyAddress, wAddressGenesisIndex)
+import           Pos.Core (Address, accountGenesisIndex, wAddressGenesisIndex)
 import           Pos.Crypto (EncryptedSecretKey, SecretKey, VssKeyPair,
                      encToPublic)
 import           Pos.Util.UserKeyError (KeyError (..), UserKeyError (..),
@@ -72,7 +71,6 @@ import           Pos.Util.Wlog (WithLogger, logInfo, logWarning)
 #else
 import           Pos.Util.Wlog (WithLogger, logInfo)
 #endif
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
 #ifdef POSIX
 import           Formatting (oct, sformat)
 import qualified System.Posix.Files as PSX
@@ -94,14 +92,11 @@ deriving instance Eq EncryptedSecretKey => Eq WalletUserSecret
 
 makeLenses ''WalletUserSecret
 
-fixedNM :: NetworkMagic
-fixedNM = NetworkMainOrStage
-
 instance Buildable WalletUserSecret where
     build WalletUserSecret{..} =
-        bprint ("{ root = "%addressF%", set name = "%build%
+        bprint ("{ publicKey = "%build%", set name = "%build%
                 ", wallets = "%pairsF%", accounts = "%pairsF%" }")
-        (makeRootPubKeyAddress fixedNM $ encToPublic _wusRootKey)
+        (encToPublic _wusRootKey)
         _wusWalletName
         _wusAccounts
         _wusAddrs

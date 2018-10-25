@@ -133,19 +133,24 @@ getAccountMod ws accMod accId = do
             unknownMemAddrs = filter (`S.notMember` dbAddrsSet) relatedMemAddrs
         dbAddrs <> unknownMemAddrs
 
-getAccount :: MonadWalletLogicRead ctx m => AccountId -> m CAccount
-getAccount accId = do
+getAccount
+    :: MonadWalletLogicRead ctx m
+    => NetworkMagic
+    -> AccountId
+    -> m CAccount
+getAccount nm accId = do
     ws <- askWalletSnapshot
     mps <- withTxpLocalData getMempoolSnapshot
-    accMod <- txMempoolToModifier ws mps . keyToWalletDecrCredentials =<< findKey accId
+    accMod <- txMempoolToModifier ws mps . (keyToWalletDecrCredentials nm) =<< findKey nm accId
     getAccountMod ws accMod accId
 
 getAccountsIncludeUnready
     :: MonadWalletLogicRead ctx m
-    => WalletSnapshot
+    => NetworkMagic
+    -> WalletSnapshot
     -> ([(TxId, TxAux)], UndoMap) -- ^ Transactions and UndoMap from mempool
     -> Bool -> Maybe (CId Wal) -> m [CAccount]
-getAccountsIncludeUnready ws mps includeUnready mCAddr = do
+getAccountsIncludeUnready nm ws mps includeUnready mCAddr = do
     whenJust mCAddr $ \cAddr ->
       void $ maybeThrow (noWallet cAddr) $
         getWalletMetaIncludeUnready ws includeUnready cAddr
@@ -153,7 +158,7 @@ getAccountsIncludeUnready ws mps includeUnready mCAddr = do
     let groupedAccIds = fmap reverse $ HM.fromListWith mappend $
                         accIds <&> \acc -> (aiWId acc, [acc])
     concatForM (HM.toList groupedAccIds) $ \(wid, walAccIds) -> do
-      accMod <- txMempoolToModifier ws mps . keyToWalletDecrCredentials =<< findKey wid
+      accMod <- txMempoolToModifier ws mps . (keyToWalletDecrCredentials nm) =<< findKey nm wid
       mapM (getAccountMod ws accMod) walAccIds
   where
     noWallet cAddr = RequestError $
@@ -163,24 +168,27 @@ getAccountsIncludeUnready ws mps includeUnready mCAddr = do
 
 getAccounts
     :: MonadWalletLogicRead ctx m
-    => Maybe (CId Wal) -> m [CAccount]
-getAccounts mCAddr = do
+    => NetworkMagic
+    -> Maybe (CId Wal)
+    -> m [CAccount]
+getAccounts nm mCAddr = do
     ws <- askWalletSnapshot
     mps <- withTxpLocalData getMempoolSnapshot
-    getAccountsIncludeUnready ws mps False mCAddr
+    getAccountsIncludeUnready nm ws mps False mCAddr
 
 getWalletIncludeUnready :: MonadWalletLogicRead ctx m
-                        => WalletSnapshot
+                        => NetworkMagic
+                        -> WalletSnapshot
                         -> ([(TxId, TxAux)], UndoMap) -- ^ Transactions and UndoMap from mempool
                         -> Bool -> CId Wal -> m CWallet
-getWalletIncludeUnready ws mps includeUnready cAddr = do
+getWalletIncludeUnready nm ws mps includeUnready cAddr = do
     meta       <- maybeThrow noWallet $ getWalletMetaIncludeUnready ws includeUnready cAddr
-    accounts   <- getAccountsIncludeUnready ws mps includeUnready (Just cAddr)
+    accounts   <- getAccountsIncludeUnready nm ws mps includeUnready (Just cAddr)
     let accountsNum = length accounts
-    key        <- findKey cAddr
-    accMod     <- txMempoolToModifier ws mps . keyToWalletDecrCredentials $ key
+    key        <- findKey nm cAddr
+    accMod     <- txMempoolToModifier ws mps . (keyToWalletDecrCredentials nm) $ key
     balance    <- computeBalance accMod
-    hasPass    <- getSKById cAddr >>= \case
+    hasPass    <- getSKById nm cAddr >>= \case
                       Nothing -> return False -- No secret key, it's external wallet, so no password.
                       Just sk -> return $ isNothing . checkPassMatches emptyPassphrase $ sk
     passLU     <- maybeThrow noWallet (getWalletPassLU ws cAddr)
@@ -195,26 +203,34 @@ getWalletIncludeUnready ws mps includeUnready cAddr = do
     noWallet = RequestError $
         sformat ("getWalletIncludeUnready: No wallet with address "%build%" found") cAddr
 
-getWallet :: MonadWalletLogicRead ctx m => CId Wal -> m CWallet
-getWallet wid = do
+getWallet
+    :: MonadWalletLogicRead ctx m
+    => NetworkMagic
+    -> CId Wal
+    -> m CWallet
+getWallet nm wid = do
     ws <- askWalletSnapshot
     mps <- withTxpLocalData getMempoolSnapshot
-    getWalletIncludeUnready ws mps False wid
+    getWalletIncludeUnready nm ws mps False wid
 
-getWallets ::  MonadWalletLogicRead ctx m => m [CWallet]
-getWallets = do
+getWallets
+    :: MonadWalletLogicRead ctx m
+    => NetworkMagic
+    -> m [CWallet]
+getWallets nm = do
     ws <- askWalletSnapshot
     mps <- withTxpLocalData getMempoolSnapshot
-    mapM (getWalletIncludeUnready ws mps False) (getWalletAddresses ws)
+    mapM (getWalletIncludeUnready nm ws mps False) (getWalletAddresses ws)
 
 getWalletsWithInfo
     :: MonadWalletLogicRead ctx m
-    => WalletSnapshot
+    => NetworkMagic
+    -> WalletSnapshot
     -> m [(CWallet, WalletInfo)]
-getWalletsWithInfo ws = do
+getWalletsWithInfo nm ws = do
     mps <- withTxpLocalData getMempoolSnapshot
     forM (getWalletInfos ws) $ \(cid, walInfo) -> do
-        wal <- getWalletIncludeUnready ws mps False cid
+        wal <- getWalletIncludeUnready nm ws mps False cid
         pure (wal, walInfo)
 
 ----------------------------------------------------------------------------
@@ -223,19 +239,20 @@ getWalletsWithInfo ws = do
 
 newAddress_
     :: MonadWalletLogic ctx m
-    => WalletSnapshot
+    => NetworkMagic
+    -> WalletSnapshot
     -> AddrGenSeed
     -> PassPhrase
     -> AccountId
     -> m WAddressMeta
-newAddress_ ws addGenSeed passphrase accId = do
+newAddress_ nm ws addGenSeed passphrase accId = do
     -- check whether account exists
     let parentExists = doesAccountExist ws accId
     unless parentExists $ throwM noAccount
 
     -- XXX Transaction
     -- Make 'newAddress' generate a unique name internally
-    cAccAddr <- genUniqueAddress ws addGenSeed passphrase accId
+    cAccAddr <- genUniqueAddress nm ws addGenSeed passphrase accId
     db <- askWalletDB
     addWAddress db cAccAddr
     return cAccAddr
@@ -245,33 +262,39 @@ newAddress_ ws addGenSeed passphrase accId = do
 
 newAddress
     :: MonadWalletLogic ctx m
-    => AddrGenSeed
+    => NetworkMagic
+    -> AddrGenSeed
     -> PassPhrase
     -> AccountId
     -> m CAddress
-newAddress addGenSeed passphrase accId = do
+newAddress nm addGenSeed passphrase accId = do
     mps <- withTxpLocalData getMempoolSnapshot
     ws <- askWalletSnapshot
-    cwAddrMeta <- newAddress_ ws addGenSeed passphrase accId
-    accMod <- txMempoolToModifier ws mps . keyToWalletDecrCredentials =<< findKey accId
+    cwAddrMeta <- newAddress_ nm ws addGenSeed passphrase accId
+    accMod <- txMempoolToModifier ws mps . (keyToWalletDecrCredentials nm) =<< findKey nm accId
     return $ getWAddress ws accMod cwAddrMeta
 
 newAccountIncludeUnready
     :: MonadWalletLogic ctx m
-    => Bool -> AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
-newAccountIncludeUnready includeUnready addGenSeed passphrase CAccountInit {..} = do
+    => NetworkMagic
+    -> Bool
+    -> AddrGenSeed
+    -> PassPhrase
+    -> CAccountInit
+    -> m CAccount
+newAccountIncludeUnready nm includeUnready addGenSeed passphrase CAccountInit {..} = do
     mempool <- withTxpLocalData getMempoolSnapshot
     db <- askWalletDB
     ws <- getWalletSnapshot db
     -- TODO nclarke We read the mempool at this point to be consistent with the previous
     -- behaviour, but we may want to consider whether we should read it _after_ the
     -- account is created, since it's not used until we call 'getAccountMod'
-    accMod <- txMempoolToModifier ws mempool . keyToWalletDecrCredentials =<< findKey caInitWId
+    accMod <- txMempoolToModifier ws mempool . (keyToWalletDecrCredentials nm) =<< findKey nm caInitWId
     -- check wallet exists
-    _ <- getWalletIncludeUnready ws mempool includeUnready caInitWId
+    _ <- getWalletIncludeUnready nm ws mempool includeUnready caInitWId
 
     cAddr <- genUniqueAccountId ws addGenSeed caInitWId
-    cAddrMeta <- genUniqueAddress ws addGenSeed passphrase cAddr
+    cAddrMeta <- genUniqueAddress nm ws addGenSeed passphrase cAddr
 
     createAccountWithAddress db cAddr caInitMeta cAddrMeta
 
@@ -282,8 +305,12 @@ newAccountIncludeUnready includeUnready addGenSeed passphrase CAccountInit {..} 
 
 newAccount
     :: MonadWalletLogic ctx m
-    => AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
-newAccount = newAccountIncludeUnready False
+    => NetworkMagic
+    -> AddrGenSeed
+    -> PassPhrase
+    -> CAccountInit
+    -> m CAccount
+newAccount nm = newAccountIncludeUnready nm False
 
 -- | This is an account for external wallet. There's no 'AddrGenSeed' because
 -- new address for external wallet can be generated only by external wallet.
@@ -291,16 +318,17 @@ newAccount = newAccountIncludeUnready False
 -- password.
 newExternalAccountIncludeUnready
     :: MonadWalletLogic ctx m
-    => Bool
+    => NetworkMagic
+    -> Bool
     -> CAccountInit
     -> m CAccount
-newExternalAccountIncludeUnready includeUnready (CAccountInit accountMeta walletId) = do
+newExternalAccountIncludeUnready nm includeUnready (CAccountInit accountMeta walletId) = do
     mps <- withTxpLocalData getMempoolSnapshot
     db  <- askWalletDB
     ws  <- getWalletSnapshot db
-    accModifier <- txMempoolToModifier ws mps . keyToWalletDecrCredentials =<< findKey walletId
+    accModifier <- txMempoolToModifier ws mps . (keyToWalletDecrCredentials nm) =<< findKey nm walletId
     -- Check that corresponding external wallet exists.
-    void $ getWalletIncludeUnready ws mps includeUnready walletId
+    void $ getWalletIncludeUnready nm ws mps includeUnready walletId
 
     accountId <- genUniqueAccountId ws (DeterminedSeed firstHardened) walletId
 
@@ -315,9 +343,10 @@ newExternalAccountIncludeUnready includeUnready (CAccountInit accountMeta wallet
 -- | New account for external wallet.
 newExternalAccount
     :: MonadWalletLogic ctx m
-    => CAccountInit
+    => NetworkMagic
+    -> CAccountInit
     -> m CAccount
-newExternalAccount = newExternalAccountIncludeUnready False
+newExternalAccount nm = newExternalAccountIncludeUnready nm False
 
 doesWalletExist
     :: MonadWalletLogic ctx m
@@ -331,16 +360,20 @@ doesWalletExist walletId = do
 -- it is a 'Left'-variant here.
 isWalletExternal
     :: MonadWalletLogicRead ctx m
-    => CId Wal -> m Bool
-isWalletExternal walletId =
-    findKey walletId >>= \case
+    => NetworkMagic -> CId Wal -> m Bool
+isWalletExternal nm walletId =
+    findKey nm walletId >>= \case
         KeyForExternal _ -> pure True
         _                -> pure False
 
 createWalletSafe
     :: MonadWalletLogic ctx m
-    => CId Wal -> CWalletMeta -> Bool -> m CWallet
-createWalletSafe cid wsMeta isReady = do
+    => NetworkMagic
+    -> CId Wal
+    -> CWalletMeta
+    -> Bool
+    -> m CWallet
+createWalletSafe nm cid wsMeta isReady = do
     -- Disallow duplicate wallets (including unready wallets)
     db <- askWalletDB
     ws <- getWalletSnapshot db
@@ -352,7 +385,7 @@ createWalletSafe cid wsMeta isReady = do
     createWallet db cid wsMeta isReady curTime
     -- Return the newly created wallet irrespective of whether it's ready yet
     ws' <- getWalletSnapshot db
-    getWalletIncludeUnready ws' mps True cid
+    getWalletIncludeUnready nm ws' mps True cid
 
 markWalletReady
   :: MonadWalletLogic ctx m
@@ -372,16 +405,20 @@ markWalletReady cid isReady = do
 -- Deleters
 ----------------------------------------------------------------------------
 
-deleteWallet :: MonadWalletLogic ctx m => CId Wal -> m NoContent
-deleteWallet wid = do
+deleteWallet
+    :: MonadWalletLogic ctx m
+    => NetworkMagic
+    -> CId Wal
+    -> m NoContent
+deleteWallet nm wid = do
     db <- askWalletDB
     removeWallet db wid
-    deleteSecretKeyBy ((== wid) . encToCId)
+    deleteSecretKeyBy ((== wid) . (encToCId nm))
     return NoContent
 
-deleteExternalWallet :: MonadWalletLogic ctx m => PublicKey -> m NoContent
-deleteExternalWallet publicKey = do
-    let walletId = encodeCType . makePubKeyAddressBoot fixedNM $ publicKey
+deleteExternalWallet :: MonadWalletLogic ctx m => NetworkMagic -> PublicKey -> m NoContent
+deleteExternalWallet nm publicKey = do
+    let walletId = encodeCType . makePubKeyAddressBoot nm $ publicKey
     db <- askWalletDB
     removeWallet db walletId
     -- Since there's no secret key for external wallet, delete its public key.
@@ -398,30 +435,40 @@ deleteAccount accId = do
 -- Modifiers
 ----------------------------------------------------------------------------
 
-updateWallet :: MonadWalletLogic ctx m => CId Wal -> CWalletMeta -> m CWallet
-updateWallet wId wMeta = do
+updateWallet
+    :: MonadWalletLogic ctx m
+    => NetworkMagic
+    -> CId Wal
+    -> CWalletMeta
+    -> m CWallet
+updateWallet nm wId wMeta = do
     db <- askWalletDB
     setWalletMeta db wId wMeta
-    getWallet wId
+    getWallet nm wId
 
-updateAccount :: MonadWalletLogic ctx m => AccountId -> CAccountMeta -> m CAccount
-updateAccount accId wMeta = do
+updateAccount
+    :: MonadWalletLogic ctx m
+    => NetworkMagic
+    -> AccountId
+    -> CAccountMeta
+    -> m CAccount
+updateAccount nm accId wMeta = do
     db <- askWalletDB
     setAccountMeta db accId wMeta
-    getAccount accId
+    getAccount nm accId
 
 changeWalletPassphrase
     :: MonadWalletLogic ctx m
-    => CId Wal -> PassPhrase -> PassPhrase -> m NoContent
-changeWalletPassphrase wid oldPass newPass = do
+    => NetworkMagic -> CId Wal -> PassPhrase -> PassPhrase -> m NoContent
+changeWalletPassphrase nm wid oldPass newPass = do
     -- Spending password is related to internal wallet only,
     -- so secret key must be here.
-    oldSK <- maybeThrow noSuchWallet =<< getSKById wid
+    oldSK <- maybeThrow noSuchWallet =<< getSKById nm wid
 
     unless (isJust $ checkPassMatches newPass oldSK) $ do
         db <- askWalletDB
         newSK <- maybeThrow badPass =<< changeEncPassphrase oldPass newPass oldSK
-        deleteSecretKeyBy ((== wid) . encToCId)
+        deleteSecretKeyBy ((== wid) . (encToCId nm))
         addSecretKey newSK
         setWalletPassLU db wid =<< liftIO getPOSIXTime
     return NoContent
@@ -499,6 +546,3 @@ getWalletWAddrsWithMod ws mode cAccMod wid =
                 map fst (MM.insertions addrMapMod)
             Deleted  -> dbAddresses ++ MM.deletions addrMapMod
             Ever     -> dbAddresses ++ HM.keys (MM.toHashMap addrMapMod)
-
-fixedNM :: NetworkMagic
-fixedNM = NetworkMainOrStage

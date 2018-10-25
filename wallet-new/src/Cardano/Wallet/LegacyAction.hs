@@ -9,6 +9,7 @@ import           Ntp.Client (NtpConfiguration, NtpStatus, ntpClientSettings,
 import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Ssc (SscParams)
 import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
 import           Pos.Launcher (NodeParams (..), NodeResources (..),
                      WalletConfiguration (..), runNode)
 import           Pos.Launcher.Configuration (HasConfigurations)
@@ -67,11 +68,14 @@ actionWithWallet wArgs@WalletBackendParams {..} genesisConfig walletConfig txpCo
         _ <- init'
         runNode genesisConfig txpConfig nodeRes (plugins ntpStatus) diffusion
 
+    nm :: NetworkMagic
+    nm = makeNetworkMagic $ configProtocolMagic genesisConfig
+
     syncWallets :: WalletWebMode ()
     syncWallets = do
         addrs <- getWalletAddresses <$> askWalletSnapshot
-        keys' <- mapM getKeyById addrs
-        forM_ keys' (syncWallet . keyToWalletDecrCredentials)
+        keys' <- mapM (getKeyById nm) addrs
+        forM_ keys' (syncWallet . keyToWalletDecrCredentials nm)
 
     plugins :: TVar NtpStatus -> LegacyPlugins.Plugin WalletWebMode
     plugins ntpStatus =

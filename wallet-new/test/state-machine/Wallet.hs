@@ -195,6 +195,8 @@ genNewWalletRq = do
                           V1.CreateWallet
 
 generator :: Model Symbolic -> Gen (Action Symbolic)
+-- if wallet has not been reset, then we should first reset it!
+generator (Model _ False) = pure ResetWalletA
 generator Model{..} = frequency
     [ (1, pure ResetWalletA)
     , (5, CreateWalletA . WL.CreateWallet <$> genNewWalletRq)

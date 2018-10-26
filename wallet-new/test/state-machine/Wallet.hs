@@ -74,73 +74,32 @@ data Response (r :: * -> *)
 -- Wallet state
 
 data Model (r :: * -> *) = Model
-    { mWallets :: [V1.Wallet]
-    , mReset   :: Bool
-    }
     deriving (Eq, Show, Generic)
 
--- NOTE: this is use for diffing datatypes for pretty printer
-deriving instance ToExpr (V1.V1 Core.Timestamp)
-deriving instance ToExpr Core.Coin
-deriving instance ToExpr Core.Timestamp
-deriving instance ToExpr (V1.V1 Core.Coin)
-deriving instance ToExpr V1.Wallet
-deriving instance ToExpr V1.WalletId
-deriving instance ToExpr V1.AssuranceLevel
-deriving instance ToExpr V1.SyncState
-deriving instance ToExpr V1.WalletType
-deriving instance ToExpr V1.SyncProgress
-deriving instance ToExpr V1.SyncPercentage
-deriving instance ToExpr V1.SyncThroughput
-deriving instance ToExpr OldStorage.SyncThroughput
-deriving instance ToExpr V1.EstimatedCompletionTime
-deriving instance ToExpr Core.BlockCount
-deriving instance ToExpr (MeasuredIn 'Milliseconds Word)
-deriving instance ToExpr (MeasuredIn 'BlocksPerSecond Word)
-deriving instance ToExpr (MeasuredIn 'Percentage100 Word8)
-deriving instance ToExpr (MeasuredIn 'BlocksPerSecond OldStorage.SyncThroughput)
-instance ToExpr Microsecond where
-    toExpr = toExpr . toMicroseconds
 deriving instance ToExpr (Model Concrete)
 
 initModel :: Model r
-initModel = Model [] False
+initModel = Model
 
 -- If you need more fine grained distribution, use preconditions
 preconditions :: Model Symbolic -> Action Symbolic -> Logic
 preconditions _ ResetWalletA      = Top
 
 transitions :: Model r -> Action r -> Response r -> Model r
-transitions model@Model{..} cmd res = case cmd of
-    ResetWalletA -> Model [] True
+transitions _ cmd res = case cmd of
+    ResetWalletA -> Model
 
 postconditions :: Model Concrete -> Action Concrete -> Response Concrete -> Logic
 postconditions _ ResetWalletA ResetWalletR                          = Bot
-postconditions _ _ _ =  error "This postcondition should not be reached!"
 
 ------------------------------------------------------------------------
 
 -- Action generator
 
--- TODO: reuse the one from wallet-new/test/unit/Test/Spec/Wallets.hs
-genNewWalletRq :: Gen V1.NewWallet
-genNewWalletRq = do
-    spendingPassword <- frequency [(20, pure Nothing), (80, Just <$> arbitrary)]
-    assuranceLevel   <- arbitrary
-    walletName       <- arbitrary
-    mnemonic <- arbitrary @(BIP39.Mnemonic 12)
-    return $ V1.NewWallet (V1.BackupPhrase mnemonic)
-                          spendingPassword
-                          assuranceLevel
-                          walletName
-                          V1.CreateWallet
 
 generator :: Model Symbolic -> Gen (Action Symbolic)
 -- if wallet has not been reset, then we should first reset it!
-generator (Model _ False) = pure ResetWalletA
-generator Model{..} = frequency
-    [ (1, pure ResetWalletA)
-    ]
+generator _ = pure ResetWalletA
 
 shrinker :: Action Symbolic -> [Action Symbolic]
 shrinker _ = []

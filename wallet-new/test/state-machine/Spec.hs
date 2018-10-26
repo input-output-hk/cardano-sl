@@ -38,8 +38,8 @@ tests =
 
             ) $ do
             describe "IO" $ do
-                it "wooo ok" $ withMaxSuccess 100 . prop_test_ok
-                it "wooo" $ withMaxSuccess 100 . prop_test
+                it "expected failure" $ withMaxSuccess 100 . prop_test_ok
+                it "file handle failure" $ withMaxSuccess 100 . prop_test_fail
 --                it "parallel" $ withMaxSuccess 30 . prop_walletParallel
 
 ------------------------------------------------------------------------

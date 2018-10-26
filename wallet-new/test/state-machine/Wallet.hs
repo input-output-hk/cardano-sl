@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE DeriveAnyClass      #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE FlexibleInstances   #-}
@@ -9,12 +10,14 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving  #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeApplications    #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Wallet
   ( prop_wallet
   , prop_walletParallel
+  , prop_fail
   , withWalletLayer
   )
   where
@@ -24,8 +27,8 @@ import           Universum
 import           Data.Time.Units (Microsecond, toMicroseconds)
 import           Data.TreeDiff (ToExpr (toExpr))
 import           GHC.Generics (Generic, Generic1)
-import           Test.QuickCheck (Gen, Property, arbitrary, frequency, oneof,
-                     (===))
+import           Test.QuickCheck (Gen, Property, arbitrary, frequency, generate,
+                     ioProperty, oneof, (===))
 import           Test.QuickCheck.Monadic (monadicIO)
 
 import           Test.StateMachine
@@ -61,16 +64,12 @@ data Action (r :: * -> *)
     = ResetWalletA
     | CreateWalletA WL.CreateWallet
     | GetWalletsA
---    | GetWalletA V1.WalletId
---    | UpdateWalletA V1.WalletId V1.WalletUpdate
     deriving (Show, Generic1, Rank2.Functor, Rank2.Foldable, Rank2.Traversable)
 
 data Response (r :: * -> *)
     = ResetWalletR
     | CreateWalletR (Either WL.CreateWalletError V1.Wallet)
     | GetWalletsR (DB.IxSet V1.Wallet)
---    | GetWalletR (Either WL.GetWalletError V1.Wallet)
---    | UpdateWalletR (Either WL.UpdateWalletError V1.Wallet)
     deriving (Show, Generic1, Rank2.Foldable)
 
 
@@ -78,17 +77,12 @@ data Response (r :: * -> *)
 
 -- Wallet state
 
--- TODO: should we put PassiveWallet reference into the model?
--- this is how CircurlarBufer.hs does it - it saves a spec and uses
--- a spec to check real state
 data Model (r :: * -> *) = Model
-    { mWallets :: [V1.Wallet] -- consider using IxSet
+    { mWallets :: [V1.Wallet]
     , mReset   :: Bool
     }
     deriving (Eq, Show, Generic)
 
--- TODO: can we make this shorter and derive only necessary things
--- FIXME: orphan instances
 -- NOTE: this is use for diffing datatypes for pretty printer
 deriving instance ToExpr (V1.V1 Core.Timestamp)
 deriving instance ToExpr Core.Coin
@@ -138,8 +132,6 @@ preconditions (Model _ True) action = case action of
     GetWalletsA     -> Top
 -- if wallet is not reset then we shouldn't continue
 preconditions (Model _ False) _   = Bot
--- preconditions _ (GetWalletA _)      = Top
--- preconditions _ (UpdateWalletA _ _) = Top
 
 transitions :: Model r -> Action r -> Response r -> Model r
 transitions model@Model{..} cmd res = case cmd of
@@ -149,32 +141,21 @@ transitions model@Model{..} cmd res = case cmd of
             CreateWalletR (Left _) -> model
             CreateWalletR (Right wallet) -> model { mWallets = wallet : mWallets } -- TODO: use lenses
             _ -> error "This transition should not be reached!"
-    -- TODO: handle monadic exception?
     GetWalletsA -> model
---     GetWalletA _ -> model
---     UpdateWalletA wId V1.WalletUpdate{..} ->
---         let thisWallet = (wId ==) . V1.walId
---             updatedWallets = map update $ filter thisWallet mWallets
---             update w = w { V1.walAssuranceLevel = uwalAssuranceLevel, V1.walName = uwalName }
---         in model { mWallets = updatedWallets <> filter (not . thisWallet) mWallets }
 
 postconditions :: Model Concrete -> Action Concrete -> Response Concrete -> Logic
 postconditions _ ResetWalletA ResetWalletR                          = Top
- -- TODO: pissibly check that wallet wasn't added
- -- check that ratio of errors is normal/expected
-
--- NOTE: it should be ok for a wallet creation to fail, but not currently in our tests.
 postconditions _ (CreateWalletA _) (CreateWalletR (Left _)) = Bot
--- TODO: check that wallet request and wallet response contain same attributes
 postconditions Model{..} (CreateWalletA _) (CreateWalletR (Right V1.Wallet{..})) = Predicate $ NotElem walId (map V1.walId mWallets)
-postconditions Model{..} GetWalletsA (GetWalletsR wallets) = sort (DB.toList wallets) .== sort mWallets -- TODO: use IxSet here?
--- postconditions Model{..} (GetWalletA wId) (GetWalletR (Left _)) = Predicate $ NotElem wId (map V1.walId mWallets)
--- -- TODO: also check is returned wallet similar to the one fined in a model
--- postconditions Model{..} (GetWalletA wId) (GetWalletR (Right _)) = Predicate $ Elem wId (map V1.walId mWallets)
--- postconditions Model{..} (UpdateWalletA wId _) (UpdateWalletR (Left _)) = Predicate $ NotElem wId (map V1.walId mWallets)
--- -- TODO: also check does updated wallet contain all relevant info
--- postconditions Model{..} (UpdateWalletA wId _) (UpdateWalletR (Right _)) = Predicate $ Elem wId (map V1.walId mWallets)
--- FIXME: don't catch all errors with this this catch-all match!
+postconditions Model{..} GetWalletsA (GetWalletsR wallets) =
+    -- TODO: bellow won't work because for some reason walSpendingPasswordLastUpdate changes after wallet has been created
+    --
+    -- ```
+    -- sort (DB.toList wallets) .== sort mWallets
+    -- ```
+    -- TODO: use IxSet here?
+    -- sort (map V1.walId $ DB.toList wallets) .== sort (map V1.walId mWallets) -- TODO: this is too weak
+    Bot
 postconditions _ _ _ =  error "This postcondition should not be reached!"
 
 ------------------------------------------------------------------------
@@ -200,16 +181,7 @@ generator (Model _ False) = pure ResetWalletA
 generator Model{..} = frequency
     [ (1, pure ResetWalletA)
     , (5, CreateWalletA . WL.CreateWallet <$> genNewWalletRq)
-    -- TODO: add generator for importing wallet from secret key
     , (5, pure GetWalletsA)
-    -- This tests fetching existing wallet (except when there is no wallets in model)
---    , (4, GetWalletA . V1.walId <$> oneof (arbitrary:map pure mWallets))
---    -- This tests fetching probably non existing wallet
---    , (1, GetWalletA <$> arbitrary)
---    -- This tests updates existing wallets (except when there is no wallets)
---    , (4, UpdateWalletA . V1.walId <$> oneof (arbitrary:map pure mWallets) <*> arbitrary)
---    -- This tests updating non existing wallet
---    , (1, UpdateWalletA <$> arbitrary <*> arbitrary)
     ]
 
 shrinker :: Action Symbolic -> [Action Symbolic]
@@ -220,13 +192,10 @@ shrinker _ = []
 semantics :: WL.PassiveWalletLayer IO -> PassiveWallet -> Action Concrete -> IO (Response Concrete)
 semantics pwl _ cmd = case cmd of
     ResetWalletA -> do
-        -- TODO: check how it will behave if exception is raised here!
         WL.resetWalletState pwl
         return ResetWalletR
     CreateWalletA cw -> CreateWalletR <$> WL.createWallet pwl cw
     GetWalletsA      -> GetWalletsR <$> WL.getWallets pwl
---    GetWalletA wId -> GetWalletR <$> WL.getWallet pwl wId
---    UpdateWalletA wId update -> UpdateWalletR <$> WL.updateWallet pwl wId update
 
 -- TODO: reuse withLayer function defined in wallet-new/test/unit/Test/Spec/Fixture.hs
 withWalletLayer
@@ -234,7 +203,6 @@ withWalletLayer
           -> IO a
 withWalletLayer cc = do
     Keystore.bracketTestKeystore $ \keystore -> do
-        -- TODO: can we use fault injection in wallet to test expected failure cases?
         mockFInjects <- mkFInjects mempty
         WL.bracketPassiveWallet
             Kernel.UseInMemory
@@ -245,29 +213,14 @@ withWalletLayer cc = do
             cc
   where
     devNull :: Severity -> Text -> IO ()
-    devNull _ _ = return ()
+    devNull _ t = return ()
 
 -- NOTE: I (akegalj) was not sure how library exactly uses mock so there is an explanation here https://github.com/advancedtelematic/quickcheck-state-machine/issues/236#issuecomment-431858389
 -- NOTE: `mock` is not used in a current quickcheck-state-machine-0.4.2 so in practice we could leave it out. Its still in an experimental phase and there is a possibility it will be added in future versions of this library, so we won't leave it out just yet
 mock :: Model Symbolic -> Action Symbolic -> GenSym (Response Symbolic)
 mock _ ResetWalletA      = pure ResetWalletR
--- TODO: add mocking up creating an actual wallet
--- For example you can take one from the model, just change wallet id
 mock _ (CreateWalletA _) = pure $ CreateWalletR (Left $ WL.CreateWalletError Kernel.CreateWalletDefaultAddressDerivationFailed)
 mock Model{..} GetWalletsA = pure $ GetWalletsR $ DB.fromList mWallets
--- TODO: model other error paths like UnknownHdRoot?
--- mock Model{..} (GetWalletA wId) =
---     let mExists = safeHead $ filter ((wId ==) . V1.walId) mWallets
---         response = maybe (Left $ WL.GetWalletErrorNotFound wId) Right mExists
---     in pure $ GetWalletR response
--- -- TODO: model other error paths?
--- mock Model{..} (UpdateWalletA wId V1.WalletUpdate{..}) =
---     let thisWallet = (wId ==) . V1.walId
---         update w = w { V1.walAssuranceLevel = uwalAssuranceLevel, V1.walName = uwalName }
---         mExists = update <$> safeHead (filter thisWallet mWallets)
---         response = maybe (Left $ WL.UpdateWalletErrorNotFound wId) Right mExists
---     in pure $ UpdateWalletR response
-
 
 ------------------------------------------------------------------------
 
@@ -287,13 +240,50 @@ stateMachine pwl pw =
         (semantics pwl pw)
         mock
 
+-- I was experimenting without forAllCommands to see how it would work
+prop_fail :: (WL.PassiveWalletLayer IO, PassiveWallet) -> Property
+prop_fail (pwl, pw) = ioProperty $ do
+    cw <- CreateWalletA . WL.CreateWallet <$> generate genNewWalletRq
+    let cmds = Commands
+            [ Command ResetWalletA mempty
+            , Command cw mempty
+            , Command GetWalletsA mempty
+            ]
+    pure $ monadicIO $ do
+        print $ commandNamesInOrder cmds
+        (hist, _, res) <- runCommands sm cmds
+        prettyCommands sm hist $
+            checkCommandNames cmds (res === Ok)
+  where
+    sm = stateMachine pwl pw
+
+-- forAllCommands is using shrinking. When test fail with `postcondition _ GetWalletsA _ = Bot`
+-- shrinking is going to start doing its job and I will get the report:
+--
+--        uncaught exception: SQLError
+--        SQLite3 returned ErrorMisuse while attempting to perform prepare "BEGIN TRANSACTION": bad parameter or other API misuse
+--        (after 7 tests and 1 shrink)
+--          Commands { unCommands = [ Command ResetWalletA (fromList []) ] }
+--
+-- where I would expect the report similar to the one from prop_fail which looks like:
+--
+--        Falsifiable (after 1 test):
+--          PostconditionFailed "BotC" /= Ok
+--
+-- is this problem in forAllCommands ? Or is it a problem in wallet backend?
+-- or is it a problem with hunit, where we are doing all actions within the bracket
+-- `around (withWalletLayer . curry)` (see Spec.hs)? Maybe hunit closed the db handle
+-- before forAllCommands finished (if it forked into different thread)?
+--
+-- note that I have isolated wallet within binary wallet-reset-error (in wallet-new/cardano-sl-wallet-new.cabal)
+-- and this binary works well (showcasing that reset wallet is actually working correctly).
+-- So my primary suspect is `forAllCommands` (from quickcheck-state-machine) and/or `around` (from hspec)
 prop_wallet :: (WL.PassiveWalletLayer IO, PassiveWallet) -> Property
 prop_wallet (pwl, pw) = forAllCommands sm Nothing $ \cmds -> monadicIO $ do
-    let cmds' = cmds -- Commands [Command ResetWalletA mempty] <> cmds
-    print $ commandNamesInOrder cmds'
-    (hist, _, res) <- runCommands sm cmds'
+    print $ commandNamesInOrder cmds
+    (hist, _, res) <- runCommands sm cmds
     prettyCommands sm hist $
-        checkCommandNames cmds' (res === Ok)
+        checkCommandNames cmds (res === Ok)
   where
     sm = stateMachine pwl pw
 

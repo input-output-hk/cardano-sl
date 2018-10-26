@@ -7,7 +7,7 @@ import           Universum
 import           GHC.Conc (getNumProcessors, setNumCapabilities)
 import           Test.Hspec (Spec, after, around, before, describe, hspec, it,
                      parallel)
-import           Test.QuickCheck (expectFailure, withMaxSuccess)
+import           Test.QuickCheck (expectFailure, once, withMaxSuccess)
 
 import           TicketDispenser
 import           Wallet
@@ -27,8 +27,9 @@ tests =
         -- TODO: test wallet layer which is not in memory. Maybe there are race condition bugs when we are using filesystem persisted db instead of in-memory one
         around (withWalletLayer . curry) $ do
             describe "Wallet" $ do
-                it "sequential" $ withMaxSuccess 100 . prop_wallet
---                it "parallel" $ withMaxSuccess 3 . prop_walletParallel
+                it "normal postcondition failure" $ withMaxSuccess 10 . prop_fail
+                it "sqlite postcondition failure?" $ withMaxSuccess 100 . prop_wallet
+--                it "parallel" $ withMaxSuccess 30 . prop_walletParallel
 
 ------------------------------------------------------------------------
 

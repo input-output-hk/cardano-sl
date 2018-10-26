@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 module Cardano.Wallet.API.Types.UnitOfMeasure where
 
 import           Universum

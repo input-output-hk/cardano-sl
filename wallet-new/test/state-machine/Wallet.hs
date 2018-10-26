@@ -16,7 +16,6 @@
 
 module Wallet
   ( prop_wallet
-  , prop_walletParallel
   , prop_fail
   , withWalletLayer
   )
@@ -108,6 +107,7 @@ shrinker _ = []
 semantics :: WL.PassiveWalletLayer IO -> PassiveWallet -> Action Concrete -> IO (Response Concrete)
 semantics pwl _ cmd = case cmd of
     ResetWalletA -> do
+        -- Error seems to be goone if line bellow is removed?
         WL.resetWalletState pwl
         return ResetWalletR
 
@@ -193,13 +193,5 @@ prop_wallet (pwl, pw) = forAllCommands sm Nothing $ \cmds -> monadicIO $ do
     (hist, _, res) <- runCommands sm cmds
     prettyCommands sm hist $
         checkCommandNames cmds (res === Ok)
-  where
-    sm = stateMachine pwl pw
-
-prop_walletParallel :: (WL.PassiveWalletLayer IO, PassiveWallet) -> Property
-prop_walletParallel (pwl, pw) =
-  forAllParallelCommands sm $ \cmds -> monadicIO $
-    -- TODO: fix quickcheck with state machine pretty printer output (works well with tasty)
-    prettyParallelCommands cmds =<< runParallelCommandsNTimes 100 sm cmds
   where
     sm = stateMachine pwl pw

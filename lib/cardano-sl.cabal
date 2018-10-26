@@ -119,6 +119,8 @@ library
                         Pos.Util.Servant
                         Pos.Util.Jsend
                         Pos.Util.UnitsOfMeasure
+                        Pos.Util.Pagination
+                        Pos.Util.Example
 
 
   other-modules:
@@ -139,6 +141,8 @@ library
                         Pos.Communication.Server
 
   build-depends:        base
+                      , http-api-data
+                      , base64-bytestring
                       , QuickCheck
                       , async
                       , aeson >= 0.11.2.1

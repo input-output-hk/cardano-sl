@@ -1,4 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes       #-}
+{-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE CPP                       #-}
 {-# LANGUAGE DataKinds                 #-}
 {-# LANGUAGE ExistentialQuantification #-}
@@ -65,14 +67,22 @@ module Pos.Util.Servant
 
     , applyLoggingToHandler
     , ValidJSON
+    , Tags
+    , mapRouter
+    , WalletResponse(..)
     ) where
 
 import           Universum hiding (id)
 
+import Data.Typeable (typeRep)
+import qualified Data.Char as Char
+import qualified Data.Aeson.Options as Serokell
+import           Data.Aeson.TH (deriveJSON)
+import           Data.Swagger as S hiding (Example, example, info)
 import           Generics.SOP.TH (deriveGeneric)
 import           Data.Aeson (FromJSON (..), ToJSON (..), eitherDecode, encode)
 import           Control.Exception.Safe (handleAny)
-import           Control.Lens (Iso, iso, makePrisms)
+import           Control.Lens (Iso, iso, makePrisms, ix)
 import           Control.Monad.Except (ExceptT (..), MonadError (..))
 import           Data.Constraint ((\\))
 import           Data.Constraint.Forall (Forall, inst)
@@ -92,7 +102,7 @@ import           Serokell.Util (listJsonIndent)
 import           Serokell.Util.ANSI (Color (..), colorizeDull)
 import           Servant.API ((:<|>) (..), (:>), Capture, Description,
                      QueryFlag, QueryParam, ReflectMethod (..), ReqBody,
-                     Summary, Verb)
+                     Summary, Verb, OctetStream)
 import           Servant.Client (Client, HasClient (..))
 import           Servant.Client.Core (RunClient)
 import           Servant.Server (Handler (..), HasServer (..), ServantErr (..),
@@ -107,7 +117,8 @@ import           Pos.Infra.Util.LogSafe (BuildableSafe, SecuredText, buildSafe,
                      logInfoSP, plainOrSecureF, secretOnlyF)
 import           Pos.Util.Wlog (LoggerName, LoggerNameBox, usingLoggerName)
 import Pos.Util.Jsend (jsendErrorGenericParseJSON, jsendErrorGenericToJSON,
-    HasDiagnostic(..))
+    HasDiagnostic(..), ResponseStatus(..))
+import Pos.Util.Pagination
 
 -------------------------------------------------------------------------
 -- Utility functions
@@ -834,3 +845,111 @@ instance HasDiagnostic JSONValidationError where
     getDiagnosticKey _ =
         "validationError"
 
+-- | An empty type which can be used to inject Swagger tags at the type level,
+-- directly in the Servant API.
+data Tags (tags :: [Symbol])
+
+-- | Instance of `HasServer` which erases the `Tags` from its routing,
+-- as the latter is needed only for Swagger.
+instance (HasServer subApi context) => HasServer (Tags tags :> subApi) context where
+  type ServerT (Tags tags :> subApi) m = ServerT subApi m
+  route _ = route (Proxy @subApi)
+  hoistServerWithContext _ = hoistServerWithContext (Proxy @subApi)
+
+instance (HasClient m subApi) => HasClient m (Tags tags :> subApi) where
+    type Client m (Tags tags :> subApi) = Client m subApi
+    clientWithRoute pm _ = clientWithRoute pm (Proxy @subApi)
+
+-- | Similar to 'instance HasServer', just skips 'Tags'.
+instance HasLoggingServer config subApi context =>
+    HasLoggingServer config (Tags tags :> subApi) context where
+    routeWithLog = mapRouter @(Tags tags :> LoggingApiRec config subApi) route identity
+
+-- | `mapRouter` is helper function used in order to transform one `HasServer`
+-- instance to another. It can be used to introduce custom request params type.
+-- See e. g. `WithDefaultApiArg` as an example of usage
+mapRouter
+    :: forall api api' ctx env.
+       (Proxy api -> SI.Context ctx -> SI.Delayed env (Server api) -> SI.Router env)
+    -> (Server api' -> Server api)
+    -> (Proxy api' -> SI.Context ctx -> SI.Delayed env (Server api') -> SI.Router env)
+mapRouter routing f = \_ ctx delayed -> routing Proxy ctx (fmap f delayed)
+
+-- | Extra information associated with an HTTP response.
+data Metadata = Metadata
+  { metaPagination   :: PaginationMetadata
+    -- ^ Pagination-specific metadata
+  } deriving (Show, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''Metadata
+
+instance Arbitrary Metadata where
+  arbitrary = Metadata <$> arbitrary
+
+instance ToSchema Metadata where
+    declareNamedSchema = genericDeclareNamedSchema defaultSchemaOptions
+        { S.fieldLabelModifier =
+            over (ix 0) Char.toLower . drop 4 -- length "meta"
+        }
+
+instance Buildable Metadata where
+  build Metadata{..} =
+    bprint ("{ pagination="%build%" }") metaPagination
+
+-- instance Example Metadata
+
+
+-- | An `WalletResponse` models, unsurprisingly, a response (successful or not)
+-- produced by the wallet backend.
+-- Includes extra informations like pagination parameters etc.
+data WalletResponse a = WalletResponse
+  { wrData   :: a
+  -- ^ The wrapped domain object.
+  , wrStatus :: ResponseStatus
+  -- ^ The <https://labs.omniti.com/labs/jsend jsend> status.
+  , wrMeta   :: Metadata
+  -- ^ Extra metadata to be returned.
+  } deriving (Show, Eq, Generic, Functor)
+
+deriveJSON Serokell.defaultOptions ''WalletResponse
+
+instance Arbitrary a => Arbitrary (WalletResponse a) where
+  arbitrary = WalletResponse <$> arbitrary <*> arbitrary <*> arbitrary
+
+instance ToJSON a => MimeRender OctetStream (WalletResponse a) where
+    mimeRender _ = encode
+
+instance (ToSchema a, Typeable a) => ToSchema (WalletResponse a) where
+    declareNamedSchema _ = do
+        let a = Proxy @a
+            tyName = toText $ map sanitize (show $ typeRep a :: String)
+            sanitize c
+                | c `elem` (":/?#[]@!$&'()*+,;=" :: String) = '_'
+                | otherwise = c
+        aRef <- declareSchemaRef a
+        respRef <- declareSchemaRef (Proxy @ResponseStatus)
+        metaRef <- declareSchemaRef (Proxy @Metadata)
+        pure $ NamedSchema (Just $ "WalletResponse-" <> tyName) $ mempty
+            & type_ .~ SwaggerObject
+            & required .~ ["data", "status", "meta"]
+            & properties .~
+                [ ("data", aRef)
+                , ("status", respRef)
+                , ("meta", metaRef)
+                ]
+
+instance Buildable a => Buildable (WalletResponse a) where
+    build WalletResponse{..} = bprint
+        ("\n\tstatus="%build
+        %"\n\tmeta="%build
+        %"\n\tdata="%build
+        )
+        wrStatus
+        wrMeta
+        wrData
+
+-- instance Example a => Example (WalletResponse a) where
+--     example = WalletResponse <$> example
+--                              <*> pure SuccessStatus
+--                              <*> example
+--

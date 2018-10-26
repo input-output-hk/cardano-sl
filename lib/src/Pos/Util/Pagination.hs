@@ -1,12 +1,19 @@
 {- | Support for resource pagination.
 -}
-module Cardano.Wallet.API.Request.Pagination (
-    module Pos.Util.Pagination
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE RecordWildCards #-}
+
+module Pos.Util.Pagination (
+      Page(..)
+    , PerPage(..)
+    , maxPerPageEntries
+    , defaultPerPageEntries
+    , PaginationMetadata(..)
+    , PaginationParams(..)
     ) where
 
-import Pos.Util.Pagination
-
-{-
 import           Universum
 
 import           Control.Lens (at, ix, (?~))
@@ -157,4 +164,4 @@ instance Buildable PaginationParams where
       bprint ("page="%build%", per_page="%build)
           ppPage
           ppPerPage
--}
+

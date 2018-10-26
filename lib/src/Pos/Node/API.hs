@@ -1,27 +1,30 @@
 {-# LANGUAGE TypeOperators, DataKinds, RecordWildCards #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Pos.Node.API where
 
 import Universum
 
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
+import qualified Network.Transport as NT
 import qualified Data.Map.Strict as Map
 import qualified Data.Char as C
 import Formatting (bprint, build, (%))
+import qualified Formatting.Buildable
 import qualified Pos.Core as Core
-import           Control.Lens (At, Index, IxValue, at, ix, makePrisms, to, (?~))
-import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
-                     buildSafe, buildSafeList, buildSafeMaybe,
-                     deriveSafeBuildable, plainOrSecureF)
+import           Control.Lens (At, Index, IxValue, at, ix, (?~))
+import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..),
+                     deriveSafeBuildable)
 import           Pos.Infra.Diffusion.Subscription.Status
                      (SubscriptionStatus (..))
-import           Pos.Util.Servant (CustomQueryFlag, ValidJSON, Flaggable(..))
+import           Pos.Util.Servant (CustomQueryFlag, ValidJSON, Flaggable(..), Tags, WalletResponse)
 import           Node (NodeId (..))
 import           Test.QuickCheck
 import           Data.Aeson
 import qualified Data.Aeson.Options as Serokell
 import           Data.Aeson.TH as A
-import           Data.Aeson.Types (Parser, Value (..), toJSONKeyText,
-                     typeMismatch)
+import           Data.Aeson.Types (Value (..), toJSONKeyText)
 import           Data.Swagger hiding (Example, example)
 import qualified Data.Swagger as S
 import           Data.Swagger.Declare (Declare, look)
@@ -29,34 +32,38 @@ import           Data.Swagger.Internal.Schema (GToSchema)
 import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape,
                      GenericShape)
 import           GHC.Generics (Generic, Rep)
-import Pos.Util.UnitsOfMeasure
-
 import           Servant
+
+-- ToJSON/FromJSON instances for NodeId
+import Pos.Infra.Communication.Types.Protocol ()
+
+import Serokell.Util.Text
+import Pos.Util.Example
+import Pos.Util.UnitsOfMeasure
 
 type IsPropertiesMap m =
   (IxValue m ~ Referenced Schema, Index m ~ Text, At m, HasProperties Schema m)
 
 genericSchemaDroppingPrefix
     :: forall a m proxy.
-    ( Generic a, ToJSON a, GToSchema (Rep a), IsPropertiesMap m
+    ( Generic a, ToJSON a, Example a, GToSchema (Rep a), IsPropertiesMap m
     , GenericHasSimpleShape
         a
         "genericDeclareNamedSchemaUnrestricted"
         (GenericShape (Rep a))
     )
-    => a -- ^ An example of the type.
-    -> String -- ^ Prefix to drop on each constructor tag
+    => String -- ^ Prefix to drop on each constructor tag
     -> ((Index m -> Text -> m -> m) -> m -> m) -- ^ Callback update to attach descriptions to underlying properties
     -> proxy a -- ^ Underlying data-type proxy
     -> Declare (Definitions Schema) NamedSchema
-genericSchemaDroppingPrefix example prfx extraDoc proxy = do
+genericSchemaDroppingPrefix prfx extraDoc proxy = do
     let opts = defaultSchemaOptions
           { S.fieldLabelModifier = over (ix 0) C.toLower . drop (length prfx) }
     s <- genericDeclareNamedSchema opts proxy
     defs <- look
     pure $ s
       & over schema (over properties (extraDoc (addFieldDescription defs)))
-      & schema . S.example ?~ toJSON example
+      & schema . S.example ?~ toJSON (genExample :: a)
   where
     addFieldDescription defs field desc =
       over (at field) (addDescription defs field desc)
@@ -142,6 +149,8 @@ instance ToSchema TimeInfo where
 instance Arbitrary TimeInfo where
     arbitrary = TimeInfo <$> arbitrary
 
+instance Example TimeInfo
+
 deriveSafeBuildable ''TimeInfo
 instance BuildableSafeGen TimeInfo where
     buildSafeGen _ TimeInfo{..} = bprint ("{"
@@ -150,6 +159,7 @@ instance BuildableSafeGen TimeInfo where
         timeDifferenceFromNtpServer
 
 deriveJSON Serokell.defaultOptions ''TimeInfo
+
 
 
 newtype SyncPercentage = SyncPercentage (MeasuredIn 'Percentage100 Word8)
@@ -164,6 +174,8 @@ instance Ord SyncPercentage where
 
 instance Arbitrary SyncPercentage where
     arbitrary = mkSyncPercentage <$> choose (0, 100)
+
+instance Example SyncPercentage
 
 instance ToJSON SyncPercentage where
     toJSON (SyncPercentage (MeasuredIn w)) =
@@ -208,6 +220,8 @@ mkBlockchainHeight = BlockchainHeight . MeasuredIn
 instance Arbitrary BlockchainHeight where
     arbitrary = mkBlockchainHeight . Core.BlockCount <$> choose (minBound, maxBound)
 
+instance Example BlockchainHeight
+
 instance ToJSON BlockchainHeight where
     toJSON (BlockchainHeight (MeasuredIn w)) = object [ "quantity" .= toJSON (Core.getBlockCount w)
                                                       , "unit"     .= String "blocks"
@@ -250,6 +264,13 @@ data NodeInfo = NodeInfo {
    } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''NodeInfo
+
+instance Example NodeInfo where
+    example = NodeInfo <$> example
+                       <*> example  -- NOTE: will produce `Just a`
+                       <*> example
+                       <*> example
+                       <*> example
 
 instance ToSchema NodeInfo where
     declareNamedSchema =
@@ -297,3 +318,59 @@ type API = Tags '["Info"] :>
                           :> CustomQueryFlag "force_ntp_check" ForceNtpCheck
                           :> Get '[ValidJSON] (WalletResponse NodeInfo)
          )
+
+availableSubscriptionStatus :: [SubscriptionStatus]
+availableSubscriptionStatus = [Subscribed, Subscribing]
+
+deriveSafeBuildable ''SubscriptionStatus
+instance BuildableSafeGen SubscriptionStatus where
+    buildSafeGen _ = \case
+        Subscribed  -> "Subscribed"
+        Subscribing -> "Subscribing"
+
+deriveJSON Serokell.defaultOptions ''SubscriptionStatus
+
+instance Arbitrary SubscriptionStatus where
+    arbitrary =
+        elements availableSubscriptionStatus
+
+instance Example SubscriptionStatus
+
+instance ToSchema SubscriptionStatus where
+    declareNamedSchema _ = do
+        let enum = toJSON <$> availableSubscriptionStatus
+        pure $ NamedSchema (Just "SubscriptionStatus") $ mempty
+            & type_ .~ SwaggerString
+            & enum_ ?~ enum
+
+instance Arbitrary NodeId where
+    arbitrary = do
+        ipv4  <- genIPv4
+        port_ <- genPort
+        idx   <- genIdx
+        return . toNodeId $ ipv4 <> ":" <> port_ <> ":" <> idx
+      where
+        toNodeId = NodeId . NT.EndPointAddress . T.encodeUtf8
+        showT    = T.pack . show :: Int -> Text
+        genIdx   = showT <$> choose (0, 9)
+        genPort  = showT <$> choose (1000, 8000)
+        genIPv4  = T.intercalate "." <$> replicateM 4 (showT <$> choose (0, 255))
+
+instance Example NodeId
+
+instance FromJSONKey NodeId where
+    fromJSONKey =
+        FromJSONKeyText (NodeId . NT.EndPointAddress . encodeUtf8)
+
+instance ToJSONKey NodeId where
+    toJSONKey =
+        toJSONKeyText (decodeUtf8 . getAddress)
+      where
+        getAddress (NodeId (NT.EndPointAddress x)) = x
+
+instance ToSchema NodeId where
+    declareNamedSchema _ = pure $ NamedSchema (Just "NodeId") $ mempty
+        & type_ .~ SwaggerString
+
+instance (Buildable a, Buildable b) => Buildable (a, b) where
+    build (a, b) = bprint ("("%build%", "%build%")") a b

@@ -87,6 +87,7 @@ import qualified System.Metrics.Gauge as Metrics (Gauge)
 import qualified System.Metrics.Gauge as Metrics.Gauge
 import           System.Random (Random, StdGen, random)
 
+
 -- Copied from the old Mockable definition for Production.
 getCurrentTime :: IO Microsecond
 getCurrentTime = round . (* 1000000) <$> getPOSIXTime

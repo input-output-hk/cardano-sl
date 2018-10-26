@@ -53,6 +53,8 @@
   This was misleading since an address that is unknown to the wallet may still belong to the wallet. To reflect this,
   the V1 endpoint does not fail anymore as it used to when an address is not recognised and returns instead a new field
   'is-ours' which indicates either that an address is ours, or that it is 'not-recognised'. (CBR-401)
+  
+ - **[API BREAKING CHANGE]** A DELETE request to `/api/v1/wallets/{wallet}` now correctly fails with 404 if the wallet doesn't exist. Previously it incorrectly responded with 204.
 
 ### Improvements
 

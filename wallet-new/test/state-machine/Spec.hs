@@ -31,12 +31,7 @@ tests =
 --            describe "Wallet" $ do
 --                it "sqlite postcondition failure?" $ withMaxSuccess 100 . prop_wallet
 --                it "normal postcondition failure" $ withMaxSuccess 100 . prop_fail
-        around (\f ->
-            bracket (liftIO $ openFile "bla" WriteMode)
-                    (liftIO . hClose)
-                    (\h -> f h)
-
-            ) $ do
+        before (liftIO $ openFile "bla" WriteMode) $ after (liftIO . hClose) $
             describe "IO" $ do
                 it "expected failure" $ withMaxSuccess 100 . prop_test_ok
                 it "file handle failure" $ withMaxSuccess 100 . prop_test_fail

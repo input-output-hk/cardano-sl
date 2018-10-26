@@ -27,7 +27,7 @@ tests =
         -- TODO: test wallet layer which is not in memory. Maybe there are race condition bugs when we are using filesystem persisted db instead of in-memory one
         around (withWalletLayer . curry) $ do
             describe "Wallet" $ do
-                it "normal postcondition failure" $ withMaxSuccess 10 . prop_fail
+                it "normal postcondition failure" $ withMaxSuccess 100 . prop_fail
                 it "sqlite postcondition failure?" $ withMaxSuccess 100 . prop_wallet
 --                it "parallel" $ withMaxSuccess 30 . prop_walletParallel
 

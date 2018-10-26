@@ -62,14 +62,10 @@ import qualified Pos.Wallet.Web.State.Storage as OldStorage
 
 data Action (r :: * -> *)
     = ResetWalletA
-    | CreateWalletA WL.CreateWallet
-    | GetWalletsA
     deriving (Show, Generic1, Rank2.Functor, Rank2.Foldable, Rank2.Traversable)
 
 data Response (r :: * -> *)
     = ResetWalletR
-    | CreateWalletR (Either WL.CreateWalletError V1.Wallet)
-    | GetWalletsR (DB.IxSet V1.Wallet)
     deriving (Show, Generic1, Rank2.Foldable)
 
 
@@ -113,49 +109,13 @@ initModel = Model [] False
 -- If you need more fine grained distribution, use preconditions
 preconditions :: Model Symbolic -> Action Symbolic -> Logic
 preconditions _ ResetWalletA      = Top
--- NOTE: with this mechanism we are forcing ResetWalletA to be first action
--- in an action list generated. We need this because we are reusing same
--- db through all quickcheck runs - so we have to ensure ResetActionA is run
--- before any other action. Implementation by precondition is good enough and
--- generator won't need to try too many options until it reaches ResetActionA.
--- An alternative solution would be to modify `forAllCommands` in this way:
---
--- ```
--- forAllCommands' sm n action = forAllCommands sm n $ \cmds -> action $ Commands [Command ResetWalletA mempty] <> cmds
--- ```
---
--- The above would work a bit more performant (as we don't have failing preconditions)
--- but we are hacking around to lib internals which is not so idiomatic.
-preconditions (Model _ True) action = case action of
-    ResetWalletA    -> Top
-    CreateWalletA _ -> Top
-    GetWalletsA     -> Top
--- if wallet is not reset then we shouldn't continue
-preconditions (Model _ False) _   = Bot
 
 transitions :: Model r -> Action r -> Response r -> Model r
 transitions model@Model{..} cmd res = case cmd of
     ResetWalletA -> Model [] True
-    CreateWalletA _ ->
-        case res of
-            CreateWalletR (Left _) -> model
-            CreateWalletR (Right wallet) -> model { mWallets = wallet : mWallets } -- TODO: use lenses
-            _ -> error "This transition should not be reached!"
-    GetWalletsA -> model
 
 postconditions :: Model Concrete -> Action Concrete -> Response Concrete -> Logic
-postconditions _ ResetWalletA ResetWalletR                          = Top
-postconditions _ (CreateWalletA _) (CreateWalletR (Left _)) = Bot
-postconditions Model{..} (CreateWalletA _) (CreateWalletR (Right V1.Wallet{..})) = Predicate $ NotElem walId (map V1.walId mWallets)
-postconditions Model{..} GetWalletsA (GetWalletsR wallets) =
-    -- TODO: bellow won't work because for some reason walSpendingPasswordLastUpdate changes after wallet has been created
-    --
-    -- ```
-    -- sort (DB.toList wallets) .== sort mWallets
-    -- ```
-    -- TODO: use IxSet here?
-    -- sort (map V1.walId $ DB.toList wallets) .== sort (map V1.walId mWallets) -- TODO: this is too weak
-    Bot
+postconditions _ ResetWalletA ResetWalletR                          = Bot
 postconditions _ _ _ =  error "This postcondition should not be reached!"
 
 ------------------------------------------------------------------------
@@ -180,8 +140,6 @@ generator :: Model Symbolic -> Gen (Action Symbolic)
 generator (Model _ False) = pure ResetWalletA
 generator Model{..} = frequency
     [ (1, pure ResetWalletA)
-    , (5, CreateWalletA . WL.CreateWallet <$> genNewWalletRq)
-    , (5, pure GetWalletsA)
     ]
 
 shrinker :: Action Symbolic -> [Action Symbolic]
@@ -194,8 +152,6 @@ semantics pwl _ cmd = case cmd of
     ResetWalletA -> do
         WL.resetWalletState pwl
         return ResetWalletR
-    CreateWalletA cw -> CreateWalletR <$> WL.createWallet pwl cw
-    GetWalletsA      -> GetWalletsR <$> WL.getWallets pwl
 
 -- TODO: reuse withLayer function defined in wallet-new/test/unit/Test/Spec/Fixture.hs
 withWalletLayer
@@ -219,8 +175,6 @@ withWalletLayer cc = do
 -- NOTE: `mock` is not used in a current quickcheck-state-machine-0.4.2 so in practice we could leave it out. Its still in an experimental phase and there is a possibility it will be added in future versions of this library, so we won't leave it out just yet
 mock :: Model Symbolic -> Action Symbolic -> GenSym (Response Symbolic)
 mock _ ResetWalletA      = pure ResetWalletR
-mock _ (CreateWalletA _) = pure $ CreateWalletR (Left $ WL.CreateWalletError Kernel.CreateWalletDefaultAddressDerivationFailed)
-mock Model{..} GetWalletsA = pure $ GetWalletsR $ DB.fromList mWallets
 
 ------------------------------------------------------------------------
 
@@ -243,11 +197,8 @@ stateMachine pwl pw =
 -- I was experimenting without forAllCommands to see how it would work
 prop_fail :: (WL.PassiveWalletLayer IO, PassiveWallet) -> Property
 prop_fail (pwl, pw) = ioProperty $ do
-    cw <- CreateWalletA . WL.CreateWallet <$> generate genNewWalletRq
     let cmds = Commands
             [ Command ResetWalletA mempty
-            , Command cw mempty
-            , Command GetWalletsA mempty
             ]
     pure $ monadicIO $ do
         print $ commandNamesInOrder cmds

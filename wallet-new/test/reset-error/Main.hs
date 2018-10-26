@@ -18,6 +18,7 @@ import           Cardano.Wallet.Kernel.NodeStateAdaptor (mockNodeStateDef)
 import qualified Cardano.Wallet.WalletLayer as WL
 import qualified Cardano.Wallet.WalletLayer.Kernel as WL
 
+import           Control.Concurrent (threadDelay)
 import           Test.QuickCheck (Gen, arbitrary, frequency, generate)
 
 withWalletLayer
@@ -49,8 +50,22 @@ genNewWalletRq = do
                           walletName
                           V1.CreateWallet
 
+sleepSeconds :: MonadIO m => Integer -> m ()
+sleepSeconds sec =
+    liftIO . delay $ sec * 1000 * 1000
+  where
+    delay time = do
+        let maxWait = min time $ toInteger (maxBound :: Int)
+        liftIO $ threadDelay (fromInteger maxWait)
+        when (maxWait /= time) $ delay (time - maxWait)
+
 main :: IO ()
 main = withWalletLayer $ \pwl _ -> do
     WL.resetWalletState pwl
+    sleepSeconds 1
+    void $ WL.createWallet pwl . WL.CreateWallet =<< generate genNewWalletRq
+    void $ WL.getWallets pwl
+    WL.resetWalletState pwl
+    sleepSeconds 1
     void $ WL.createWallet pwl . WL.CreateWallet =<< generate genNewWalletRq
     void $ WL.getWallets pwl

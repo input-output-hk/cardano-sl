@@ -15,12 +15,12 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Wallet
-  ( prop_wallet
-  , prop_fail
-  , withWalletLayer
+  ( prop_test
+  , prop_test_ok
   )
   where
 
+import           System.IO (hPutStrLn)
 import           Universum
 
 import           Data.Time.Units (Microsecond, toMicroseconds)
@@ -54,6 +54,7 @@ import           Pos.Infra.InjectFail (mkFInjects)
 import           Pos.Util.Wlog (Severity)
 import qualified Pos.Wallet.Web.State.Storage as OldStorage
 
+import           Control.Concurrent (threadDelay)
 
 ------------------------------------------------------------------------
 
@@ -104,11 +105,11 @@ shrinker _ = []
 
 -- ------------------------------------------------------------------------
 --
-semantics :: WL.PassiveWalletLayer IO -> PassiveWallet -> Action Concrete -> IO (Response Concrete)
-semantics pwl _ cmd = case cmd of
+semantics :: Handle -> Action Concrete -> IO (Response Concrete)
+semantics h cmd = case cmd of
     ResetWalletA -> do
         -- Error seems to be goone if line bellow is removed?
-        WL.resetWalletState pwl
+        hPutStrLn h "oooo"
         return ResetWalletR
 
 -- TODO: reuse withLayer function defined in wallet-new/test/unit/Test/Spec/Fixture.hs
@@ -138,8 +139,8 @@ mock _ _      = pure ResetWalletR
 
 -- TODO: model invariant?
 -- TODO: model distribution?
-stateMachine :: WL.PassiveWalletLayer IO -> PassiveWallet -> StateMachine Model Action IO Response
-stateMachine pwl pw =
+stateMachine :: Handle -> StateMachine Model Action IO Response
+stateMachine h =
     StateMachine
         initModel
         transitions
@@ -149,23 +150,10 @@ stateMachine pwl pw =
         generator
         Nothing
         shrinker
-        (semantics pwl pw)
+        (semantics h)
         mock
 
 -- I was experimenting without forAllCommands to see how it would work
-prop_fail :: (WL.PassiveWalletLayer IO, PassiveWallet) -> Property
-prop_fail (pwl, pw) = ioProperty $ do
-    let cmds = Commands
-            [ Command ResetWalletA mempty
-            ]
-    pure $ monadicIO $ do
-        print $ commandNamesInOrder cmds
-        (hist, _, res) <- runCommands sm cmds
-        prettyCommands sm hist $
-            checkCommandNames cmds (res === Ok)
-  where
-    sm = stateMachine pwl pw
-
 -- forAllCommands is using shrinking. When test fail with `postcondition _ GetWalletsA _ = Bot`
 -- shrinking is going to start doing its job and I will get the report:
 --
@@ -187,11 +175,34 @@ prop_fail (pwl, pw) = ioProperty $ do
 -- note that I have isolated wallet within binary wallet-reset-error (in wallet-new/cardano-sl-wallet-new.cabal)
 -- and this binary works well (showcasing that reset wallet is actually working correctly).
 -- So my primary suspect is `forAllCommands` (from quickcheck-state-machine) and/or `around` (from hspec)
-prop_wallet :: (WL.PassiveWalletLayer IO, PassiveWallet) -> Property
-prop_wallet (pwl, pw) = forAllCommands sm Nothing $ \cmds -> monadicIO $ do
+--
+sleepSeconds :: MonadIO m => Integer -> m ()
+sleepSeconds sec =
+    liftIO . delay $ sec * 1000 * 1000
+  where
+    delay time = do
+        let maxWait = min time $ toInteger (maxBound :: Int)
+        liftIO $ threadDelay (fromInteger maxWait)
+        when (maxWait /= time) $ delay (time - maxWait)
+
+
+
+prop_test_ok :: Handle -> Property
+prop_test_ok h = monadicIO $ do
+    liftIO $ sleepSeconds 3
+    let cmds = Commands [Command ResetWalletA mempty]
     print $ commandNamesInOrder cmds
     (hist, _, res) <- runCommands sm cmds
     prettyCommands sm hist $
         checkCommandNames cmds (res === Ok)
   where
-    sm = stateMachine pwl pw
+    sm = stateMachine h
+
+prop_test :: Handle -> Property
+prop_test h = forAllCommands sm Nothing $ \cmds -> monadicIO $ do
+    print $ commandNamesInOrder cmds
+    (hist, _, res) <- runCommands sm cmds
+    prettyCommands sm hist $
+        checkCommandNames cmds (res === Ok)
+  where
+    sm = stateMachine h

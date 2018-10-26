@@ -12,6 +12,8 @@ import           Test.QuickCheck (expectFailure, once, withMaxSuccess)
 import           TicketDispenser
 import           Wallet
 
+import           System.IO (hClose)
+
 ------------------------------------------------------------------------
 
 tests :: Spec
@@ -25,10 +27,19 @@ tests =
 --                it "parallel with exclusive lock" $ withMaxSuccess 30 . prop_ticketDispenserParallelOK
 --                it "parallel with shared lock" $ expectFailure . prop_ticketDispenserParallelBad
         -- TODO: test wallet layer which is not in memory. Maybe there are race condition bugs when we are using filesystem persisted db instead of in-memory one
-        around (withWalletLayer . curry) $ do
-            describe "Wallet" $ do
-                it "normal postcondition failure" $ withMaxSuccess 100 . prop_fail
-                it "sqlite postcondition failure?" $ withMaxSuccess 100 . prop_wallet
+--        around (withWalletLayer . curry) $ do
+--            describe "Wallet" $ do
+--                it "sqlite postcondition failure?" $ withMaxSuccess 100 . prop_wallet
+--                it "normal postcondition failure" $ withMaxSuccess 100 . prop_fail
+        around (\f ->
+            bracket (liftIO $ openFile "bla" WriteMode)
+                    (liftIO . hClose)
+                    (\h -> f h)
+
+            ) $ do
+            describe "IO" $ do
+                it "wooo ok" $ withMaxSuccess 100 . prop_test_ok
+                it "wooo" $ withMaxSuccess 100 . prop_test
 --                it "parallel" $ withMaxSuccess 30 . prop_walletParallel
 
 ------------------------------------------------------------------------

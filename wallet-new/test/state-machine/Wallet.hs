@@ -83,14 +83,13 @@ initModel = Model
 
 -- If you need more fine grained distribution, use preconditions
 preconditions :: Model Symbolic -> Action Symbolic -> Logic
-preconditions _ ResetWalletA      = Top
+preconditions _ _      = Top
 
 transitions :: Model r -> Action r -> Response r -> Model r
-transitions _ cmd res = case cmd of
-    ResetWalletA -> Model
+transitions _ _ _ = Model
 
 postconditions :: Model Concrete -> Action Concrete -> Response Concrete -> Logic
-postconditions _ ResetWalletA ResetWalletR                          = Bot
+postconditions _ _ _ = Bot
 
 ------------------------------------------------------------------------
 
@@ -133,7 +132,7 @@ withWalletLayer cc = do
 -- NOTE: I (akegalj) was not sure how library exactly uses mock so there is an explanation here https://github.com/advancedtelematic/quickcheck-state-machine/issues/236#issuecomment-431858389
 -- NOTE: `mock` is not used in a current quickcheck-state-machine-0.4.2 so in practice we could leave it out. Its still in an experimental phase and there is a possibility it will be added in future versions of this library, so we won't leave it out just yet
 mock :: Model Symbolic -> Action Symbolic -> GenSym (Response Symbolic)
-mock _ ResetWalletA      = pure ResetWalletR
+mock _ _      = pure ResetWalletR
 
 ------------------------------------------------------------------------
 

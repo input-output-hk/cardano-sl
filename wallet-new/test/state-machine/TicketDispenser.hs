@@ -148,9 +148,9 @@ semantics se (tdb, tlock) cmd = case cmd of
     return ResetOk
 
 mock :: Model Symbolic -> Action Symbolic -> GenSym (Response Symbolic)
-mock (Model Nothing)  TakeTicket = error "mock: TakeTicket"
-mock (Model (Just n)) TakeTicket = GotTicket <$> pure n
-mock _                Reset      = pure ResetOk
+-- mock (Model Nothing)  TakeTicket = error "mock: TakeTicket"
+-- mock (Model (Just n)) TakeTicket = GotTicket <$> pure n
+mock _                _      = pure ResetOk
 
 ------------------------------------------------------------------------
 

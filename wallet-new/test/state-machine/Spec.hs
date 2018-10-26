@@ -19,16 +19,16 @@ tests =
     describe "Tests" $ parallel $ do
         -- NOTE: ticket dispenser example is provided by quickcheck-state-machine lib
         -- This serves as an reference example. It will be removed
-        before setupLock $ after cleanupLock $ do
-            describe "Ticket dispenser" $ do
-                it "sequential" $ prop_ticketDispenser
-                it "parallel with exclusive lock" $ withMaxSuccess 30 . prop_ticketDispenserParallelOK
-                it "parallel with shared lock" $ expectFailure . prop_ticketDispenserParallelBad
+--        before setupLock $ after cleanupLock $ do
+--            describe "Ticket dispenser" $ do
+--                it "sequential" $ prop_ticketDispenser
+--                it "parallel with exclusive lock" $ withMaxSuccess 30 . prop_ticketDispenserParallelOK
+--                it "parallel with shared lock" $ expectFailure . prop_ticketDispenserParallelBad
         -- TODO: test wallet layer which is not in memory. Maybe there are race condition bugs when we are using filesystem persisted db instead of in-memory one
         around (withWalletLayer . curry) $ do
             describe "Wallet" $ do
-                it "sequential" $ withMaxSuccess 30 . prop_wallet
-                it "parallel" $ withMaxSuccess 3 . prop_walletParallel
+                it "sequential" $ withMaxSuccess 100 . prop_wallet
+--                it "parallel" $ withMaxSuccess 3 . prop_walletParallel
 
 ------------------------------------------------------------------------
 

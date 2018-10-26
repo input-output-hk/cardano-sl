@@ -9,7 +9,6 @@ import           Cardano.Wallet.Client.Http
 import           Control.Lens
 import           Test.Hspec
 import           Test.QuickCheck.Monadic (PropertyM, run)
-import           Text.Show.Pretty (ppShow)
 
 import           Util
 
@@ -21,12 +20,6 @@ import           Pos.Util.Wlog (Severity (Debug), setupLogging)
 
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
-
-log :: MonadIO m => Text -> m ()
-log = putStrLn . mappend "[TEST-LOG] "
-
-ppShowT :: Show a => a -> Text
-ppShowT = fromString . ppShow
 
 transactionSpecs :: WalletRef -> WalletClient IO -> Spec
 transactionSpecs wRef wc = beforeAll_ (setupLogging "wallet-new_transactionSpecs" (defaultTestConfiguration Debug)) $
@@ -97,11 +90,10 @@ transactionSpecs wRef wc = beforeAll_ (setupLogging "wallet-new_transactionSpecs
             resp <- run $ fmap wrData eresp `shouldPrism` _Right
 
             liftIO $ map txId resp `shouldContain` [txId txn]
-            let txnEntry: _ = filter ( \x -> (txId x) == (txId txn)) resp
-            log $ "Resp   : " <> ppShowT txnEntry
-            liftIO $ txConfirmations txnEntry `shouldNotBe` 0
 
-        randomTest "sending from asset-locked address gets 0 confirmations from core nodes" 1 $ do
+            liftIO $ txn `shouldBeConfirmed` resp
+
+        randomTest "sending from asset-locked address should not be confirmed" 1 $ do
             genesis <- run $ genesisAssetLockedWallet wc
             (fromAcct, _) <- run $ firstAccountAndId wc genesis
 
@@ -128,9 +120,7 @@ transactionSpecs wRef wc = beforeAll_ (setupLogging "wallet-new_transactionSpecs
             eresp <- run $ getTransactionIndex wc Nothing Nothing Nothing
             resp <- run $ fmap wrData eresp `shouldPrism` _Right :: PropertyM IO [Transaction]
 
-            let txnEntry : _ = filter ( \x -> (txId x) == (txId txn)) resp
-            log $ "Resp   : " <> ppShowT txnEntry
-            liftIO $ txConfirmations txnEntry `shouldBe` 0
+            liftIO $ txn `shouldNotBeConfirmed` resp
 
         randomTest "estimate fees of a well-formed transaction" 1 $ do
             ws <- run $ (,)
@@ -282,3 +272,23 @@ transactionSpecs wRef wc = beforeAll_ (setupLogging "wallet-new_transactionSpecs
     expectFailure want eresp = do
         resp <- eresp `shouldPrism` _Left
         resp `shouldBe` want
+
+    shouldBeConfirmed
+        :: Transaction
+        -> [Transaction]
+        -> IO ()
+    shouldBeConfirmed txn transactions = do
+        let txnEntry: _ = filter ( \x -> (txId x) == (txId txn)) transactions
+        log $ "Resp   : " <> ppShowT txnEntry
+        [InNewestBlocks, Persisted] `shouldContain` [txStatus txnEntry]
+    infixr 8 `shouldBeConfirmed`
+
+    shouldNotBeConfirmed
+        :: Transaction
+        -> [Transaction]
+        -> IO ()
+    shouldNotBeConfirmed txn transactions = do
+        let txnEntry: _ = filter ( \x -> (txId x) == (txId txn)) transactions
+        log $ "Resp   : " <> ppShowT txnEntry
+        [InNewestBlocks, Persisted] `shouldNotContain` [txStatus txnEntry]
+    infixr 8 `shouldNotBeConfirmed`

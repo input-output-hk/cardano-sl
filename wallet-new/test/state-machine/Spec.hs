@@ -38,5 +38,5 @@ parallelizeAllCores = getNumProcessors >>= setNumCapabilities
 
 main :: IO ()
 main = do
-    parallelizeAllCores
+--    parallelizeAllCores
     hspec tests

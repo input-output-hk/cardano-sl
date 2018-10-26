@@ -29,7 +29,8 @@ import           Test.QuickCheck (Gen, Property, arbitrary, frequency, oneof,
 import           Test.QuickCheck.Monadic (monadicIO)
 
 import           Test.StateMachine
-import           Test.StateMachine.Types (StateMachine)
+import           Test.StateMachine.Types (Command (..), Commands (..),
+                     StateMachine)
 
 import qualified Test.StateMachine.Types.Rank2 as Rank2
 
@@ -82,6 +83,7 @@ data Response (r :: * -> *)
 -- a spec to check real state
 data Model (r :: * -> *) = Model
     { mWallets :: [V1.Wallet] -- consider using IxSet
+    , mReset   :: Bool
     }
     deriving (Eq, Show, Generic)
 
@@ -112,21 +114,36 @@ instance ToExpr Microsecond where
 deriving instance ToExpr (Model Concrete)
 
 initModel :: Model r
-initModel = Model []
+initModel = Model [] False
 
--- TODO: make smarter preconditions. We currently don't use it as we
--- are weighting more closely distribution with `generator` function.
 -- If you need more fine grained distribution, use preconditions
 preconditions :: Model Symbolic -> Action Symbolic -> Logic
 preconditions _ ResetWalletA      = Top
-preconditions _ (CreateWalletA _) = Top
-preconditions _ GetWalletsA       = Top
+-- NOTE: with this mechanism we are forcing ResetWalletA to be first action
+-- in an action list generated. We need this because we are reusing same
+-- db through all quickcheck runs - so we have to ensure ResetActionA is run
+-- before any other action. Implementation by precondition is good enough and
+-- generator won't need to try too many options until it reaches ResetActionA.
+-- An alternative solution would be to modify `forAllCommands` in this way:
+--
+-- ```
+-- forAllCommands' sm n action = forAllCommands sm n $ \cmds -> action $ Commands [Command ResetWalletA mempty] <> cmds
+-- ```
+--
+-- The above would work a bit more performant (as we don't have failing preconditions)
+-- but we are hacking around to lib internals which is not so idiomatic.
+preconditions (Model _ True) action = case action of
+    ResetWalletA    -> Top
+    CreateWalletA _ -> Top
+    GetWalletsA     -> Top
+-- if wallet is not reset then we shouldn't continue
+preconditions (Model _ False) _   = Bot
 -- preconditions _ (GetWalletA _)      = Top
 -- preconditions _ (UpdateWalletA _ _) = Top
 
 transitions :: Model r -> Action r -> Response r -> Model r
 transitions model@Model{..} cmd res = case cmd of
-    ResetWalletA -> initModel
+    ResetWalletA -> Model [] True
     CreateWalletA _ ->
         case res of
             CreateWalletR (Left _) -> model
@@ -145,9 +162,11 @@ postconditions :: Model Concrete -> Action Concrete -> Response Concrete -> Logi
 postconditions _ ResetWalletA ResetWalletR                          = Top
  -- TODO: pissibly check that wallet wasn't added
  -- check that ratio of errors is normal/expected
-postconditions _ (CreateWalletA _) (CreateWalletR (Left _)) = Top
+
+-- NOTE: it should be ok for a wallet creation to fail, but not currently in our tests.
+postconditions _ (CreateWalletA _) (CreateWalletR (Left _)) = Bot
 -- TODO: check that wallet request and wallet response contain same attributes
-postconditions Model{..} (CreateWalletA _) (CreateWalletR (Right _)) =  Top -- wallet `elem` mWallets
+postconditions Model{..} (CreateWalletA _) (CreateWalletR (Right V1.Wallet{..})) = Predicate $ NotElem walId (map V1.walId mWallets)
 postconditions Model{..} GetWalletsA (GetWalletsR wallets) = sort (DB.toList wallets) .== sort mWallets -- TODO: use IxSet here?
 -- postconditions Model{..} (GetWalletA wId) (GetWalletR (Left _)) = Predicate $ NotElem wId (map V1.walId mWallets)
 -- -- TODO: also check is returned wallet similar to the one fined in a model
@@ -203,7 +222,7 @@ semantics pwl _ cmd = case cmd of
         WL.resetWalletState pwl
         return ResetWalletR
     CreateWalletA cw -> CreateWalletR <$> WL.createWallet pwl cw
-    GetWalletsA -> GetWalletsR <$> WL.getWallets pwl
+    GetWalletsA      -> GetWalletsR <$> WL.getWallets pwl
 --    GetWalletA wId -> GetWalletR <$> WL.getWallet pwl wId
 --    UpdateWalletA wId update -> UpdateWalletR <$> WL.updateWallet pwl wId update
 
@@ -268,10 +287,11 @@ stateMachine pwl pw =
 
 prop_wallet :: (WL.PassiveWalletLayer IO, PassiveWallet) -> Property
 prop_wallet (pwl, pw) = forAllCommands sm Nothing $ \cmds -> monadicIO $ do
-    (hist, _, res) <- runCommands sm cmds
+    let cmds' = cmds -- Commands [Command ResetWalletA mempty] <> cmds
+    print $ commandNamesInOrder cmds'
+    (hist, _, res) <- runCommands sm cmds'
     prettyCommands sm hist $
-        checkCommandNames cmds (res === Ok)
-    print $ commandNamesInOrder cmds
+        checkCommandNames cmds' (res === Ok)
   where
     sm = stateMachine pwl pw
 

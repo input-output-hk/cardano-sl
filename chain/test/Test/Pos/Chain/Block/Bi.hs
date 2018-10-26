@@ -52,7 +52,7 @@ import           Test.Pos.Util.Tripping (discoverRoundTrip)
 --------------------------------------------------------------------------------
 
 golden_BlockBodyAttributes :: Property
-golden_BlockBodyAttributes = goldenTestBi bba "test/golden/BlockBodyAttributes"
+golden_BlockBodyAttributes = goldenTestBi bba "test/golden/bi/block/BlockBodyAttributes"
   where
     bba = mkAttributes ()
 
@@ -66,13 +66,13 @@ roundTripBlockBodyAttributesBi = eachOf 1000 genBlockBodyAttributes roundTripsBi
 
 golden_BlockHeader_Genesis :: Property
 golden_BlockHeader_Genesis =
-    goldenTestBi exampleBlockHeaderGenesis "test/golden/BlockHeader_Genesis"
+    goldenTestBi exampleBlockHeaderGenesis "test/golden/bi/block/BlockHeader_Genesis"
 
 -- We use `Nothing` as the ProxySKBlockInfo to avoid clashing key errors
 -- (since we use example keys which aren't related to each other)
 golden_BlockHeaderMain :: Property
 golden_BlockHeaderMain =
-    goldenTestBi exampleBlockHeaderMain "test/golden/BlockHeaderMain"
+    goldenTestBi exampleBlockHeaderMain "test/golden/bi/block/BlockHeaderMain"
 
 roundTripBlockHeaderBi :: Property
 roundTripBlockHeaderBi =
@@ -85,7 +85,7 @@ roundTripBlockHeaderBi =
 
 golden_BlockHeaderAttributes :: Property
 golden_BlockHeaderAttributes = goldenTestBi (mkAttributes () :: BlockHeaderAttributes)
-                                            "test/golden/BlockHeaderAttributes"
+                                            "test/golden/bi/block/BlockHeaderAttributes"
 
 roundTripBlockHeaderAttributesBi :: Property
 roundTripBlockHeaderAttributesBi = eachOf 1000 genBlockHeaderAttributes roundTripsBiBuildable
@@ -96,15 +96,15 @@ roundTripBlockHeaderAttributesBi = eachOf 1000 genBlockHeaderAttributes roundTri
 --------------------------------------------------------------------------------
 
 golden_BlockSignature :: Property
-golden_BlockSignature = goldenTestBi exampleBlockSignature "test/golden/BlockSignature"
+golden_BlockSignature = goldenTestBi exampleBlockSignature "test/golden/bi/block/BlockSignature"
 
 golden_BlockSignature_Light :: Property
 golden_BlockSignature_Light =
-    goldenTestBi exampleBlockPSignatureLight "test/golden/BlockSignature_Light"
+    goldenTestBi exampleBlockPSignatureLight "test/golden/bi/block/BlockSignature_Light"
 
 golden_BlockSignature_Heavy :: Property
 golden_BlockSignature_Heavy =
-    goldenTestBi exampleBlockPSignatureHeavy "test/golden/BlockSignature_Heavy"
+    goldenTestBi exampleBlockPSignatureHeavy "test/golden/bi/block/BlockSignature_Heavy"
 
 roundTripBlockSignatureBi :: Property
 roundTripBlockSignatureBi =
@@ -117,7 +117,7 @@ roundTripBlockSignatureBi =
 
 golden_GenesisBlockHeader :: Property
 golden_GenesisBlockHeader = goldenTestBi exampleGenesisBlockHeader
-                                         "test/golden/GenesisBlockHeader"
+                                         "test/golden/bi/block/GenesisBlockHeader"
 
 roundTripGenesisBlockHeaderBi :: Property
 roundTripGenesisBlockHeaderBi =
@@ -129,7 +129,7 @@ roundTripGenesisBlockHeaderBi =
 --------------------------------------------------------------------------------
 
 golden_GenesisBody :: Property
-golden_GenesisBody = goldenTestBi exampleGenesisBody "test/golden/GenesisBody"
+golden_GenesisBody = goldenTestBi exampleGenesisBody "test/golden/bi/block/GenesisBody"
 
 roundTripGenesisBodyBi :: Property
 roundTripGenesisBodyBi = eachOf 1000 genGenesisBody roundTripsBiShow
@@ -140,7 +140,7 @@ roundTripGenesisBodyBi = eachOf 1000 genGenesisBody roundTripsBiShow
 --------------------------------------------------------------------------------
 
 golden_GenesisConsensusData :: Property
-golden_GenesisConsensusData = goldenTestBi cd "test/golden/GenesisConsensusData"
+golden_GenesisConsensusData = goldenTestBi cd "test/golden/bi/block/GenesisConsensusData"
   where cd = GenesisConsensusData exampleEpochIndex exampleChainDifficulty
 
 roundTripGenesisConsensusDataBi :: Property
@@ -152,7 +152,7 @@ roundTripGenesisConsensusDataBi = eachOf 1000 genGenesisConsensusData roundTrips
 --------------------------------------------------------------------------------
 
 golden_HeaderHash :: Property
-golden_HeaderHash = goldenTestBi exampleHeaderHash "test/golden/HeaderHash"
+golden_HeaderHash = goldenTestBi exampleHeaderHash "test/golden/bi/block/HeaderHash"
 
 roundTripHeaderHashBi :: Property
 roundTripHeaderHashBi = eachOf 1000 genHeaderHash roundTripsBiBuildable
@@ -163,7 +163,7 @@ roundTripHeaderHashBi = eachOf 1000 genHeaderHash roundTripsBiBuildable
 --------------------------------------------------------------------------------
 
 golden_GenesisProof :: Property
-golden_GenesisProof = goldenTestBi gp "test/golden/GenesisProof"
+golden_GenesisProof = goldenTestBi gp "test/golden/bi/block/GenesisProof"
   where gp = GenesisProof (abstractHash exampleSlotLeaders)
 
 roundTripGenesisProofBi :: Property
@@ -175,7 +175,7 @@ roundTripGenesisProofBi = eachOf 1000 genGenesisProof roundTripsBiBuildable
 --------------------------------------------------------------------------------
 
 golden_MainBlockHeader :: Property
-golden_MainBlockHeader = goldenTestBi exampleMainBlockHeader "test/golden/MainBlockHeader"
+golden_MainBlockHeader = goldenTestBi exampleMainBlockHeader "test/golden/bi/block/MainBlockHeader"
 
 roundTripMainBlockHeaderBi :: Property
 roundTripMainBlockHeaderBi =
@@ -187,7 +187,7 @@ roundTripMainBlockHeaderBi =
 --------------------------------------------------------------------------------
 
 golden_MainBody :: Property
-golden_MainBody = goldenTestBi exampleMainBody "test/golden/MainBody"
+golden_MainBody = goldenTestBi exampleMainBody "test/golden/bi/block/MainBody"
 
 roundTripMainBodyBi :: Property
 roundTripMainBodyBi = eachOf 20 (feedPM genMainBody) roundTripsBiShow
@@ -198,7 +198,7 @@ roundTripMainBodyBi = eachOf 20 (feedPM genMainBody) roundTripsBiShow
 --------------------------------------------------------------------------------
 
 golden_MainConsensusData :: Property
-golden_MainConsensusData = goldenTestBi mcd "test/golden/MainConsensusData"
+golden_MainConsensusData = goldenTestBi mcd "test/golden/bi/block/MainConsensusData"
   where mcd = MainConsensusData exampleSlotId examplePublicKey
                                 exampleChainDifficulty exampleBlockSignature
 
@@ -212,7 +212,7 @@ roundTripMainConsensusData =
 --------------------------------------------------------------------------------
 
 golden_MainExtraBodyData :: Property
-golden_MainExtraBodyData = goldenTestBi mebd "test/golden/MainExtraBodyData"
+golden_MainExtraBodyData = goldenTestBi mebd "test/golden/bi/block/MainExtraBodyData"
   where mebd = MainExtraBodyData (mkAttributes ())
 
 roundTripMainExtraBodyDataBi :: Property
@@ -225,7 +225,7 @@ roundTripMainExtraBodyDataBi = eachOf 1000 genMainExtraBodyData roundTripsBiBuil
 --------------------------------------------------------------------------------
 golden_MainExtraHeaderData :: Property
 golden_MainExtraHeaderData = goldenTestBi exampleMainExtraHeaderData
-                                          "test/golden/MainExtraHeaderData"
+                                          "test/golden/bi/block/MainExtraHeaderData"
 
 roundTripMainExtraHeaderDataBi :: Property
 roundTripMainExtraHeaderDataBi = eachOf 1000 genMainExtraHeaderData roundTripsBiBuildable
@@ -236,7 +236,7 @@ roundTripMainExtraHeaderDataBi = eachOf 1000 genMainExtraHeaderData roundTripsBi
 --------------------------------------------------------------------------------
 
 golden_MainProof :: Property
-golden_MainProof = goldenTestBi exampleMainProof "test/golden/MainProof"
+golden_MainProof = goldenTestBi exampleMainProof "test/golden/bi/block/MainProof"
 
 roundTripMainProofBi :: Property
 roundTripMainProofBi = eachOf 20 (feedPM genMainProof) roundTripsBiBuildable
@@ -247,7 +247,7 @@ roundTripMainProofBi = eachOf 20 (feedPM genMainProof) roundTripsBiBuildable
 --------------------------------------------------------------------------------
 
 golden_MainToSign :: Property
-golden_MainToSign = goldenTestBi exampleMainToSign "test/golden/MainToSign"
+golden_MainToSign = goldenTestBi exampleMainToSign "test/golden/bi/block/MainToSign"
 
 roundTripMainToSignBi :: Property
 roundTripMainToSignBi =
@@ -259,7 +259,7 @@ roundTripMainToSignBi =
 --------------------------------------------------------------------------------
 
 golden_Undo :: Property
-golden_Undo = goldenTestBi exampleUndo "test/golden/Undo"
+golden_Undo = goldenTestBi exampleUndo "test/golden/bi/block/Undo"
 
 roundTripUndo :: Property
 roundTripUndo = eachOf 20 (feedPMEpochSlots genUndo) roundTripsBiShow

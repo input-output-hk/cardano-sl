@@ -1,7 +1,7 @@
 # This provides a function like pkgs.haskell.lib.justStaticExecutables,
 # but which also stamps the executables with the git revision.
 
-{ pkgs, ghc, gitrev }:
+{ pkgs, ghc, gitrev, stdenv }:
 
 with pkgs.lib;
 
@@ -34,7 +34,7 @@ let
     '') drvOutOutputs);
 
   setGitRev = pkgs.runCommand "set-git-rev" {} ''
-    ${ghc.withPackages (ps: [ps.universum ps.file-embed])}/bin/ghc -o $out ${./set-git-rev.hs}
+    ${ghc.withPackages (ps: [ps.universum ps.file-embed])}/bin/ghc ${optionalString stdenv.isDarwin "-liconv"} -o $out ${./set-git-rev.hs}
   '';
 
   # appends -static to the package name

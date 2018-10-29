@@ -541,5 +541,12 @@ type API =
             :> "node-settings"
             :> Summary "Retrieves the static settings for this node."
             :> Get '[ValidJSON] (WalletResponse NodeSettings)
-
-
+    :<|>
+        "update"
+            :> ( "apply"
+                    :> Summary "Apply the next available update"
+                    :> Post '[ValidJSON] NoContent
+            :<|> "postpone"
+                :> Summary "Discard and postpone the next available update"
+                :> Post '[ValidJSON] NoContent
+            )

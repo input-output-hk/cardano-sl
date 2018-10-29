@@ -245,7 +245,12 @@ let
     };
 
     # Tool for generating ./pkgs/default.nix
-    stack2nix = self.callPackage ./nix/stack2nix.nix { };
+    # stack2nix = self.callPackage ./nix/stack2nix.nix { };
+    # TODO: go back to using our own build of stack2nix, rather than
+    # the version from nixpkgs. The following PRs need to be fixed:
+    # https://github.com/input-output-hk/stack2nix/pull/128
+    # https://github.com/input-output-hk/stack2nix/pull/135
+    inherit (pkgs) stack2nix;
 
     validateJson = self.callPackage ./tools/src/validate-json {};
 

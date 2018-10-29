@@ -603,6 +603,8 @@ executable wallet-sm-tests
                     , bytestring
                     , hspec
                     , hspec-core
+                    , tasty
+                    , tasty-quickcheck
                     , mtl
                     , QuickCheck
                     , quickcheck-instances

@@ -6,7 +6,9 @@ import           Universum
 
 import           Test.Hspec (Spec, after, around, before, describe, hspec, it,
                      parallel)
-import           Test.QuickCheck (expectFailure, once, withMaxSuccess)
+import           Test.QuickCheck (once)
+import           Test.Tasty (TestTree, defaultMain, testGroup, withResource)
+import           Test.Tasty.QuickCheck (ioProperty, testProperty)
 
 import           Wallet
 
@@ -26,8 +28,20 @@ tests =
                 -- it "expected failure" $ withMaxSuccess 100 . prop_test_ok
                 it "file handle failure" $ once . prop_test_fail
 
+testsTasty :: TestTree
+testsTasty = testGroup "Tests tasty"
+    [ testGroup "IO"
+        [ fileHandle "file handle failure" $ once . prop_test_fail
+        ]
+    ]
+  where
+    fileHandle test prop =
+      withResource (liftIO $ F.openFile "bla" F.WriteMode) (liftIO . F.hClose)
+        (\h -> testProperty test (ioProperty (prop <$> h)))
+
 ------------------------------------------------------------------------
 
 main :: IO ()
 main = do
-    hspec tests
+--    hspec tests
+    defaultMain testsTasty

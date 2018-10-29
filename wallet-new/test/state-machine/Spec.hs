@@ -28,20 +28,19 @@ tests =
                 -- it "expected failure" $ withMaxSuccess 100 . prop_test_ok
                 it "file handle failure" $ once . prop_test_fail
 
-testsTasty :: TestTree
-testsTasty = testGroup "Tests tasty"
+testsTasty :: Handle -> TestTree
+testsTasty h = testGroup "Tests tasty"
     [ testGroup "IO"
-        [ fileHandle "file handle failure" $ once . prop_test_fail
+        [ testProperty "file handle failure" $ once $ prop_test_fail h
         ]
     ]
-  where
-    fileHandle test prop =
-      withResource (liftIO $ F.openFile "bla" F.WriteMode) (liftIO . F.hClose)
-        (\h -> testProperty test (idempotentIOProperty (prop <$> h)))
 
 ------------------------------------------------------------------------
 
 main :: IO ()
 main = do
 --    hspec tests
-    defaultMain testsTasty
+    bracket
+        (liftIO $ F.openFile "bla" F.WriteMode)
+        (liftIO . F.hClose)
+        (defaultMain . testsTasty)

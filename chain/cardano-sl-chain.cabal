@@ -154,11 +154,11 @@ library
                        Pos.Chain.Update.Vote
 
   build-depends:       base
-                     , Cabal
                      , aeson
                      , aeson-options
                      , array
                      , bytestring
+                     , Cabal
                      , canonical-json
                      , cardano-sl-binary
                      , cardano-sl-core
@@ -178,26 +178,28 @@ library
                      , filepath
                      , fmt >= 0.4
                      , formatting
+                     , formatting
                      , free
+                     , generic-arbitrary
                      , hashable
                      , lens
                      , lrucache
                      , memory
-                     , mtl
                      , mmorph
                      , mono-traversable
+                     , mtl
                      , neat-interpolation
                      , parsec
                      , plutus-prototype
+                     , QuickCheck
+                     , reflection
                      , safecopy
                      , safe-exceptions
                      , serokell-util
-                     , reflection
                      , template-haskell
                      , text
                      , time
                      , time-units
-                     , formatting
                      , transformers
                      , universum
                      , unordered-containers

@@ -1412,14 +1412,23 @@ The process of leader election has to be modified to take delegation
 into account.
 
 While adding blocks to their chain, nodes will keep track of the
-pieces of state listed above. At the end of an epoch, they will take
-the state from \(2k\)\footnote{Going back by \(2k\) slots ensures
-  consensus via the guarantees of Ouroboros: persistence rules out
-  rollbacks of more than \(k\) blocks, and liveness guarantees that
-  there are at least \(k\) blocks in \(2k\) slots.} slots ago and
+pieces of state listed above. When it is time to prepare the slot
+leader schedule for the upcoming epoch, they will look at a past
+snapshot of that state, from slot \(s_\text{stakedist}\), the slot
+from which the stake distribution should be used to compute the slot
+leader schedule and rewards for the next epoch\footnote{The detail of
+  which slot is used as \(s_\text{stakedist}\) depends on the variant
+  of the Ouroboros protocol that is used. It needs to be deep enough
+  in the chain to be stable. IT also needs to be before the point in
+  time at which the random seed for the slot leader election is
+  determined, to prevent a grinding-type of attack. Note that
+  \(s_\text{stakedist}\) does not necessarily have to be in the
+  current epoch.}.
+
+The nodes will use the state from slot \(s_\text{stakedist}\) to
 \begin{itemize}
-\item use it to compute the stake distribution (i.e., the amount of
-  stake per stake pool)
+\item compute the stake distribution (i.e., the amount of stake per
+  stake pool)
 \item create the leader schedule by sampling the stake distribution
   (i.e., smapling the stake pools, weighted by the stake they control)
 \item retain this state, to use it for the reward calculation at the

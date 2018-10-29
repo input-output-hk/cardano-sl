@@ -14771,7 +14771,7 @@ license = stdenv.lib.licenses.bsd3;
 mkDerivation {
 
 pname = "cardano-sl";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../lib;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -15000,7 +15000,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-auxx";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../auxx;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -15142,7 +15142,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-binary";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../binary;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -15241,7 +15241,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-binary-test";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../binary/test;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -15349,7 +15349,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-chain";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../chain;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -15506,7 +15506,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-chain-test";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../chain/test;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -15586,7 +15586,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-client";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../client;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -15829,7 +15829,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-core";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../core;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -15962,7 +15962,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-core-test";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../core/test;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -16043,7 +16043,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-crypto";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../crypto;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -16131,7 +16131,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-crypto-test";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../crypto/test;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -16212,7 +16212,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-db";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../db;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -16301,7 +16301,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-db-test";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../db/test;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -16400,7 +16400,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-explorer";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../explorer;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -16747,7 +16747,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-generator";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../generator;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -16941,7 +16941,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-infra";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../infra;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -17063,7 +17063,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-infra-test";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../infra/test;
 libraryHaskellDepends = [
 async
@@ -17141,7 +17141,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-networking";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../networking;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -17265,7 +17265,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-node";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../node;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -17338,7 +17338,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-node-ipc";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../node-ipc;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -17434,7 +17434,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-tools";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../tools;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -17594,7 +17594,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-tools-post-mortem";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../tools/post-mortem;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -17703,7 +17703,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-util";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../util;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -17832,7 +17832,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-util-test";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../util/test;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -18032,7 +18032,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-wallet";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../wallet;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -18277,7 +18277,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-wallet-new";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../wallet-new;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -18524,7 +18524,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-wallet-test";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../wallet/test;
 libraryHaskellDepends = [
 base

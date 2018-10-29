@@ -15,6 +15,9 @@ import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, int, stext, (%))
 import qualified Formatting.Buildable as Buildable
 import qualified Prelude
+import           Test.QuickCheck
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
+                     genericShrink)
 
 import           Pos.Util.Some (Some, liftLensSome)
 
@@ -40,6 +43,10 @@ instance Show SoftwareVersion where
 instance Hashable SoftwareVersion
 
 instance NFData SoftwareVersion
+
+instance Arbitrary SoftwareVersion where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 deriveSafeCopySimple 0 'base ''SoftwareVersion
 

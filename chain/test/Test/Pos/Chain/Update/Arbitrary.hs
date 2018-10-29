@@ -9,19 +9,16 @@ module Test.Pos.Chain.Update.Arbitrary
 import           Universum
 
 import qualified Data.HashMap.Strict as HM
-import           Data.List ((!!))
 import           Test.QuickCheck (Arbitrary (..), Gen, elements, frequency,
                      listOf, listOf1)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
-import           Pos.Chain.Update (ApplicationName (..), BlockVersion (..),
-                     BlockVersionData (..), BlockVersionModifier,
-                     SoftforkRule (..), SoftwareVersion (..), SystemTag (..),
+import           Pos.Chain.Update (BlockVersion (..), BlockVersionData (..),
+                     BlockVersionModifier, SoftforkRule (..), SystemTag (..),
                      UpdateData (..), UpdatePayload (..), UpdateProposal,
                      UpdateProposalToSign (..), UpdateVote (..),
-                     VoteState (..), applicationNameMaxLength,
-                     mkUpdateProposalWSign, mkUpdateVote)
+                     VoteState (..), mkUpdateProposalWSign, mkUpdateVote)
 import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Crypto (ProtocolMagic, fakeSigner)
 
@@ -39,20 +36,7 @@ instance Arbitrary BlockVersionData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary ApplicationName where
-    arbitrary =
-        ApplicationName .
-        toText . map selectAlpha . take applicationNameMaxLength <$>
-        arbitrary
-      where
-        selectAlpha n = alphabet !! (n `mod` length alphabet)
-        alphabet = "-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
 instance Arbitrary BlockVersion where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-instance Arbitrary SoftwareVersion where
     arbitrary = genericArbitrary
     shrink = genericShrink
 

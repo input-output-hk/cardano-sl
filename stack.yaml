@@ -210,6 +210,12 @@ packages:
     commit: 4ead9809e119483e7832da5f8224b0c4d4a2d5d6
   extra-dep: true
 
+- location:
+    git: https://github.com/advancedtelematic/quickcheck-state-machine.git
+    commit: 328537863081fa9d13073f75ccbebe783c932885
+  extra-dep: true
+
+
 nix:
   shell-file: shell.nix
 
@@ -259,8 +265,6 @@ extra-deps:
 - hspec-2.5.1
 - hspec-core-2.5.1
 - hspec-discover-2.5.1
-
-- quickcheck-state-machine-0.4.2
 
 # Graphics stuff not found on stackage.
 - Chart-diagrams-1.8.3

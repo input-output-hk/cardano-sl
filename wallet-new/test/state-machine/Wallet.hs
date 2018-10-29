@@ -137,7 +137,7 @@ prop_test_ok h = monadicIO $ do
     sm = stateMachine h
 
 prop_test_fail :: Handle -> Property
-prop_test_fail h = forAllCommands sm Nothing $ \cmds -> monadicIO $ do
+prop_test_fail h = forAllCommands sm (Just 10) $ \cmds -> monadicIO $ do
     print $ commandNamesInOrder cmds
     (hist, _, res) <- runCommands sm cmds
     prettyCommands sm hist $

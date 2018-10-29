@@ -3,7 +3,10 @@
 
 nix-build https://github.com/nixos/nixpkgs/archive/4fb198892d298452023ab176e7067da58d30772e.tar.gz -A hydra
 echo '~~~ Evaluating release.nix'
-command time --format '%e' -o eval-time.txt ./result/bin/hydra-eval-jobs -I . release.nix > eval.json
+command time --format '%e' -o eval-time.txt \
+    ./result/bin/hydra-eval-jobs \
+    --option allowed-uris "https://github.com/NixOS https://github.com/input-output-hk" \
+    -I . release.nix > eval.json
 EVAL_EXIT_CODE="$?"
 if [ "$EVAL_EXIT_CODE" != 0 ]
 then

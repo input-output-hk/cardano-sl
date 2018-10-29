@@ -17,6 +17,7 @@
 module Wallet
   ( prop_test_fail
   , prop_test_ok
+  , idempotentIOProperty
   )
   where
 
@@ -25,9 +26,11 @@ import           Universum
 
 import           Data.TreeDiff (ToExpr (toExpr))
 import           GHC.Generics (Generic, Generic1)
-import           Test.QuickCheck (Gen, Property, arbitrary, frequency, generate,
+import           Test.QuickCheck (Gen, arbitrary, frequency, generate,
                      ioProperty, oneof, (===))
+import           Test.QuickCheck.Gen.Unsafe (promote)
 import           Test.QuickCheck.Monadic (monadicIO)
+import           Test.QuickCheck.Property
 
 import           Test.StateMachine
 import           Test.StateMachine.Types (Command (..), Commands (..),
@@ -144,3 +147,9 @@ prop_test_fail h = forAllCommands sm (Just 10) $ \cmds -> monadicIO $ do
         checkCommandNames cmds (res === Ok)
   where
     sm = stateMachine h
+
+-- NOTE: copied from quickcheck-2.12.6.1
+idempotentIOProperty :: Testable prop => IO prop -> Property
+idempotentIOProperty =
+  MkProperty . fmap (MkProp . ioRose . fmap unProp) .
+  promote . fmap (unProperty . property)

@@ -6,9 +6,9 @@ import           Universum
 
 import           Test.Hspec (Spec, after, around, before, describe, hspec, it,
                      parallel)
-import           Test.QuickCheck (once)
+import           Test.QuickCheck (ioProperty, once)
 import           Test.Tasty (TestTree, defaultMain, testGroup, withResource)
-import           Test.Tasty.QuickCheck (ioProperty, testProperty)
+import           Test.Tasty.QuickCheck (testProperty)
 
 import           Wallet
 
@@ -37,7 +37,7 @@ testsTasty = testGroup "Tests tasty"
   where
     fileHandle test prop =
       withResource (liftIO $ F.openFile "bla" F.WriteMode) (liftIO . F.hClose)
-        (\h -> testProperty test (ioProperty (prop <$> h)))
+        (\h -> testProperty test (idempotentIOProperty (prop <$> h)))
 
 ------------------------------------------------------------------------
 

@@ -412,7 +412,7 @@ at the address. To exercise these stake rights, and to receive staking
 rewards, each address must be associated with a \emph{registered} stake
 key. This involves registering a stake key on the chain and using
 addresses that refer to this stake key. Each registered stake key has a
-corresponding \emph{rewards account} which is used to collect and claim
+corresponding \emph{reward account} which is used to collect and claim
 staking rewards. To exercise stake rights associated with a registered
 stake key, those rights must be \emph{delegated} to a registered stake pool.
 This involves posting a delegation certificate on the chain identifying
@@ -436,7 +436,7 @@ delegation, and their relationships. The light-blue nodes represent concepts, wh
 do not have a representation in the system, whereas light-brown nodes represent
 system entities.
 
-\begin{figure}[h]
+\begin{figure}[ht]
   \centering
   \begin{tikzpicture}[ align = center
                      , node distance = 8em and 10em
@@ -460,7 +460,8 @@ system entities.
     \node (addr)    [entity, left = of owner]    {Address (base or pointer)};
     \node (skey)    [entity, below = of owner]   {Staking key};
     \node (pkey)    [entity, left = of skey]     {Payment key};
-    \node (racc)    [entity, right = of skey]    {Rewards account (\textbf{address?})};
+    \node (racc)    [entity, right = of skey]    {Reward account /
+      Reward address};
     \node (rewards) [concept, below = of racc]   {Rewards};
     \node (funds)   [concept, below = of pkey]   {Funds};
     \node (srights) [concept, below = of skey]   {Staking rights};
@@ -508,7 +509,7 @@ delegation:
   in time. A stake pool can contain multiple stake keys.
 \end{itemize}
 
-\begin{figure*}[h]
+\begin{figure*}[ht]
   \centering
   \begin{tikzpicture}[ align = center
                      , node distance = 8em and 10em
@@ -809,7 +810,7 @@ Figure~\ref{fig:relationship-keys-certificates} shows the relationships between
 the different types of certificates and keys. Subsequent sections provide more
 details.
 
-\begin{figure}[h]
+\begin{figure}[ht]
   \centering
   \begin{tikzpicture}[ align = center
                      , node distance = 6em and 10em
@@ -1377,7 +1378,7 @@ details.
 \label{stake-pools}
 
 The set of active stake pools must be tracked, uniquely indexed
-by the public key hash.
+by the public key hash of the stake pool.
 
 In addition a small amount of state needs to be maintained to validate
 lightweight certificates. The state tracked for each stake pool includes
@@ -1743,7 +1744,7 @@ delegation.
 \subsubsection{Deposits}
 \label{fees-deposits}
 
-In addition to ordinare (non-refundable) fees, actions that require
+In addition to ordinary (non-refundable) fees, actions that require
 resources on the nodes should require a deposit, as described in
 \cref{deposits}. In particular,
 \begin{itemize}
@@ -3600,13 +3601,14 @@ The remaining drawbacks are:
   perspective.
 \item
   (Public Perception) although (in the limit) this is the same outcome
-  as sharing, apparently most humans don't see things that way - see
-  Prospect Theory (https://en.wikipedia.org/wiki/Prospect\_theory) -
-  they would prefer known outputs (even if smaller) than unknown ones.
-  ~An additional indicator of human response might be to look at a
+  as sharing, apparently most humans don't see things that way\footnote{See
+  Prospect Theory (https://en.wikipedia.org/wiki/Prospect\_theory)} --
+  they would prefer known outputs (even if smaller) to unknown ones.
+  An additional indicator of human response might be to look at a
   similar mechanism (random rewards for depositing a fixed stake) has
-  run since 1956. ~Premium Bonds
-  (https://en.wikipedia.org/wiki/Premium\_Bond) - computer nerds /
+  run since 1956. Premium
+  Bonds\footnote{https://en.wikipedia.org/wiki/Premium\_Bond} --
+  computer nerds /
   crypto nuts should note who helped create the original ERNIE). The
   public might like the gambling aspect, businesses might not!
 \end{enumerate}

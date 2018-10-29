@@ -41,6 +41,21 @@ import Serokell.Util.Text
 import Pos.Util.Example
 import Pos.Util.UnitsOfMeasure
 
+type API =
+        Tags '["Info"]
+            :> "node-info"
+            :> Summary "Retrieves the dynamic information for this node."
+            :> CustomQueryFlag "force_ntp_check" ForceNtpCheck
+            :> Get '[ValidJSON] (WalletResponse NodeInfo)
+    :<|>
+        Tags '["Settings"]
+            :> "node-settings"
+            :> Summary "Retrieves the static settings for this node."
+            :> Get '[ValidJSON] (WalletResponse NodeSettings)
+
+
+-- TODO: Stuff that was pulled upstream. Likely to be factored out into other modules.
+
 type IsPropertiesMap m =
   (IxValue m ~ Referenced Schema, Index m ~ Text, At m, HasProperties Schema m)
 
@@ -312,12 +327,6 @@ instance BuildableSafeGen NodeInfo where
         (Map.toList nfoSubscriptionStatus)
 
 -- | The sync progress with the blockchain.
-
-type API = Tags '["Info"] :>
-         (    "node-info" :> Summary "Retrieves the dynamic information for this node."
-                          :> CustomQueryFlag "force_ntp_check" ForceNtpCheck
-                          :> Get '[ValidJSON] (WalletResponse NodeInfo)
-         )
 
 availableSubscriptionStatus :: [SubscriptionStatus]
 availableSubscriptionStatus = [Subscribed, Subscribing]

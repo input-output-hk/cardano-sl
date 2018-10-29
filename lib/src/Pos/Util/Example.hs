@@ -4,26 +4,20 @@ module Pos.Util.Example where
 import           Universum
 
 import           Data.Aeson (ToJSON)
+import qualified Data.Map.Strict as Map
 import           Data.Swagger (Definitions, NamedSchema (..), Schema,
                      sketchSchema)
 import           Data.Swagger.Declare (Declare)
 import           Data.Typeable (typeOf)
-import qualified Data.Map.Strict as Map
 
 import           Test.QuickCheck (Arbitrary (..), listOf1)
 import           Test.QuickCheck.Gen (Gen (..), resize)
 import           Test.QuickCheck.Random (mkQCGen)
-
--- import           Cardano.Wallet.Orphans.Arbitrary ()
--- import           Pos.Wallet.Web.ClientTypes (CUpdateInfo)
--- import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot (..))
+import           Test.QuickCheck.Instances ()
 
 class Arbitrary a => Example a where
     example :: Gen a
     example = arbitrary
-
--- instance Arbitrary a => Arbitrary (NonEmpty a) where
---     arbitrary = (:|) <$> arbitrary <*> arbitrary
 
 instance Example ()
 instance Example a => Example (NonEmpty a)
@@ -39,10 +33,6 @@ instance Example a => Example (Maybe a) where
 -- NOTE: we don't want to see empty maps in our swagger doc :)
 instance (Ord k, Example k, Example v) => Example (Map k v) where
     example = Map.fromList <$> listOf1 ((,) <$> example <*> example)
-
--- instance Example CUpdateInfo
--- instance Example WalletStateSnapshot
-
 
 --
 -- HELPERS

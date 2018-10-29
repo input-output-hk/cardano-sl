@@ -1,10 +1,8 @@
 {pkgs, fetchFromGitHub }:
 
-let
-  hostPkgs = import pkgs.path { config = {}; system = builtins.currentSystem; overlays = []; };
-in import (hostPkgs.fetchFromGitHub {
-  owner = "avieth";
+import (fetchFromGitHub {
+  owner = "input-output-hk";
   repo = "stack2nix";
-  rev = "c51db2d31892f7c4e7ff6acebe4504f788c56dca";
-  sha256 = "10jcj33sxpq18gxf3zcck5i09b2y4jm6qjggqdlwd9ss86wg3ksb";
+  rev = "60c36985f07ab87ed01a8a68b6978aba58c8afbd";
+  sha256 = "13swg8wxsvy91gkbqs0j661kk4gz2mhqbjghwhhsjqqpwxp2wlns";
 }) { inherit pkgs; }

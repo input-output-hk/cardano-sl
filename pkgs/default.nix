@@ -15688,7 +15688,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-cluster";
-version = "1.0.0";
+version = "2.0.0";
 src = ./../cluster;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -16595,7 +16595,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-faucet";
-version = "0.1.0.0";
+version = "2.0.0";
 src = ./../faucet;
 isLibrary = true;
 isExecutable = true;
@@ -17914,7 +17914,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-utxo";
-version = "0.1.0.0";
+version = "2.0.0";
 src = ./../utxo;
 libraryHaskellDepends = [
 base
@@ -18568,7 +18568,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-x509";
-version = "1.0.0";
+version = "2.0.0";
 src = ./../x509;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"

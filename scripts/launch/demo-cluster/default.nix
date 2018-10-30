@@ -74,7 +74,7 @@ in writeScript "demo-cluster" ''
 
   trap "stop_cardano" INT TERM
   echo "Launching a demo cluster..."
-  cardano-sl-cluster-demo --no-genesis-wallets --cores ${builtins.toString numCoreNodes} --relays ${builtins.toString numRelayNodes} --edges ${builtins.toString numEdgeNodes} &
+  ${stackExec}cardano-sl-cluster-demo --no-genesis-wallets --cores ${builtins.toString numCoreNodes} --relays ${builtins.toString numRelayNodes} --edges ${builtins.toString numEdgeNodes} &
   pid=$!
 
   ${ifWallet ''

@@ -4,9 +4,7 @@ module Main (main) where
 
 import           Universum
 
-import           GHC.Conc (getNumProcessors, setNumCapabilities)
-import           Test.Hspec (Spec, after, around, before, describe, hspec, it,
-                     parallel)
+import           Test.Hspec (Spec, after, around, before, describe, hspec, it)
 import           Test.QuickCheck (expectFailure, withMaxSuccess)
 
 import           TicketDispenser
@@ -16,7 +14,7 @@ import           Wallet
 
 tests :: Spec
 tests =
-    describe "Tests" $ parallel $ do
+    describe "Tests" $ do
         -- NOTE: ticket dispenser example is provided by quickcheck-state-machine lib
         -- This serves as an reference example. It will be removed
 --        before setupLock $ after cleanupLock $ do
@@ -32,11 +30,6 @@ tests =
 
 ------------------------------------------------------------------------
 
--- TODO: factor out functionality from Parallel.Parallelize module into a lib and reuse
-parallelizeAllCores :: IO ()
-parallelizeAllCores = getNumProcessors >>= setNumCapabilities
-
 main :: IO ()
 main = do
---    parallelizeAllCores
     hspec tests

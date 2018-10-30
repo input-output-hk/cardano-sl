@@ -15688,7 +15688,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-cluster";
-version = "1.0.0";
+version = "2.0.0";
 src = ./../cluster;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -16595,7 +16595,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-faucet";
-version = "0.1.0.0";
+version = "2.0.0";
 src = ./../faucet;
 isLibrary = true;
 isExecutable = true;
@@ -17914,7 +17914,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-utxo";
-version = "0.1.0.0";
+version = "2.0.0";
 src = ./../utxo;
 libraryHaskellDepends = [
 base
@@ -18568,7 +18568,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-x509";
-version = "1.0.0";
+version = "2.0.0";
 src = ./../x509;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
@@ -38545,18 +38545,17 @@ license = stdenv.lib.licenses.mit;
 , time
 , transformers
 , transformers-base
-, unix
 , wl-pprint-annotated
 }:
 mkDerivation {
 
 pname = "hedgehog";
-version = "0.6";
+version = "0.6.1";
 src = fetchgit {
 
 url = "https://github.com/input-output-hk/haskell-hedgehog.git";
-sha256 = "07pvrslv6h3rz053lfxp0racnqj70yazik6mrn612i09vfaxis6b";
-rev = "2c9e51804e8217dff89f5c32cbe0d79ce20bc508";
+sha256 = "0l0d1n2b68m0628j4yi214q5fy6pz777qfj1bc1lrra8scs5gcxh";
+rev = "2e741bb53afb085741807018948ae17d956c53af";
 
 };
 postUnpack = "sourceRoot+=/hedgehog; echo source root reset to $sourceRoot";
@@ -38585,7 +38584,6 @@ th-lift
 time
 transformers
 transformers-base
-unix
 wl-pprint-annotated
 ];
 doHaddock = false;

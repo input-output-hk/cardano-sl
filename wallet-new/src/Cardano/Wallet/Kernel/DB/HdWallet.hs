@@ -55,6 +55,7 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
   , hdAccountName
   , hdAccountState
   , hdAccountStateCurrent
+  , hdAccountStateCurrentCombined
   , hdAccountStateUpToDate
   , hdAccountRestorationState
     -- *** Account state: up to date
@@ -476,6 +477,16 @@ hdAccountStateCurrent g = to $ \case
       st ^. hdUpToDateCheckpoints . unCheckpoints . _Wrapped . SNE.head . g
     HdAccountStateIncomplete st ->
       st ^. hdIncompleteCurrent   . unCheckpoints . _Wrapped . SNE.head . g
+
+hdAccountStateCurrentCombined :: (a -> a -> a)
+                              -> (forall c. IsCheckpoint c => Getter c a)
+                              -> Getter HdAccountState a
+hdAccountStateCurrentCombined combine g = to $ \case
+    HdAccountStateUpToDate st ->
+      st ^. hdUpToDateCheckpoints . unCheckpoints . _Wrapped . SNE.head . g
+    HdAccountStateIncomplete st ->
+      combine (st ^. hdIncompleteCurrent    . unCheckpoints . _Wrapped . SNE.head . g)
+              (st ^. hdIncompleteHistorical . unCheckpoints . _Wrapped . SNE.head . g)
 
 {-------------------------------------------------------------------------------
   Predicates and tests

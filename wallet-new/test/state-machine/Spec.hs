@@ -16,17 +16,26 @@ import qualified System.IO as F
 
 ------------------------------------------------------------------------
 
-tests :: Spec
-tests =
+tests :: Handle -> Spec
+tests h =
     describe "Tests" $ do
         -- should be the same thing as
         -- ```
         -- before (liftIO $ F.openFile "bla" F.WriteMode) $ after (liftIO . F.hClose)
         -- ```
-        around (bracket (liftIO $ F.openFile "bla" F.WriteMode) (liftIO . F.hClose)) $
-            describe "IO" $ do
-                -- it "expected failure" $ withMaxSuccess 100 . prop_test_ok
-                it "file handle failure" $ once . prop_test_fail
+        -- but for some reason file handle gets closed before shrinking within property
+        -- has finished
+        --
+        -- around (bracket (liftIO $ F.openFile "bla" F.WriteMode) (liftIO . F.hClose)) $
+        --
+        -- TODO: try to figure out why `around` and/or `after` close handle beforehand
+        -- To do so, use simple property which writes something to the file handle, and
+        -- returns Fail. This way shrinking will be triggered and we are expecting to see
+        -- same results - that handle will get closed and that shrinking won't be able to
+        -- write to file handle
+        describe "IO" $ do
+            -- it "expected failure" $ withMaxSuccess 100 . prop_test_ok
+            it "file handle failure" $ once $ prop_test_fail h
 
 testsTasty :: Handle -> TestTree
 testsTasty h = testGroup "Tests tasty"
@@ -39,8 +48,8 @@ testsTasty h = testGroup "Tests tasty"
 
 main :: IO ()
 main = do
---    hspec tests
     bracket
         (liftIO $ F.openFile "bla" F.WriteMode)
         (liftIO . F.hClose)
-        (defaultMain . testsTasty)
+--        (defaultMain . testsTasty)
+        (hspec . tests)

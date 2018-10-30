@@ -14,6 +14,7 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (arbitrary, generate, withMaxSuccess)
 import           Test.QuickCheck.Monadic (PropertyM, monadicIO)
 import           Test.QuickCheck.Property (Testable)
+import           Text.Show.Pretty (ppShow)
 
 import qualified Pos.Chain.Txp as Txp
 
@@ -169,6 +170,12 @@ noLongerThan action maxWaitingTime = do
     case res of
         Left _  -> return Nothing
         Right a -> return $ Just a
+
+log :: MonadIO m => Text -> m ()
+log = putStrLn . mappend "[TEST-LOG] "
+
+ppShowT :: Show a => a -> Text
+ppShowT = fromString . ppShow
 
 
 -- | Output for @Text@.

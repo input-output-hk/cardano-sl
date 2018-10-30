@@ -32,7 +32,6 @@ import           Test.QuickCheck (arbitrary, choose, elements, frequency,
 import           Test.QuickCheck.Monadic (PropertyM, monadic, monadicIO, pick,
                      pre, run, stop)
 import           Test.QuickCheck.Property (Property, ioProperty, rejected)
-import           Text.Show.Pretty (ppShow)
 
 import           Cardano.Wallet.API.Response (WalletResponse (..))
 import           Cardano.Wallet.API.V1.Migration.Types (migrate)
@@ -751,12 +750,6 @@ initialWalletState wc = do
     return WalletState {..}
   where
     fromResp = (either throwM (pure . wrData) =<<)
-
-log :: MonadIO m => Text -> m ()
-log = putStrLn . mappend "[TEST-LOG] "
-
-ppShowT :: Show a => a -> Text
-ppShowT = fromString . ppShow
 
 walletIdIsNotGenesis
     :: (Monad m,

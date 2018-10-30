@@ -47,7 +47,6 @@ module Cardano.Wallet.Kernel.DB.TxMeta.Types (
 import           Universum
 
 import           Control.Lens.TH (makeLenses)
-import qualified Data.List as List
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Set as Set
 import qualified Data.Text.Lazy.Builder as B
@@ -57,7 +56,7 @@ import           Formatting.Buildable (build)
 import           Pos.Crypto (shortHashF)
 import           Serokell.Util.Text (listBuilderJSON, listJsonIndent,
                      mapBuilder)
-import           Test.QuickCheck (Arbitrary (..), Gen, suchThat)
+import           Test.QuickCheck (Arbitrary (..), Gen)
 
 import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Core as Core
@@ -184,12 +183,17 @@ instance Buildable TxMetaStorageError where
     build storageErr = bprint shown storageErr
 
 -- | Generates 'NonEmpty' collections which do not contain duplicates.
--- Limit the size to @size@ elements.
+-- Limit the size to @size@ elements. @size@ should be > 0.
 uniqueElements :: (Arbitrary a, Ord a) => Int -> Gen (NonEmpty a)
+uniqueElements 0 = error "should have size > 0"
 uniqueElements size = do
-    noDupes <- suchThat arbitrary (\s -> length s >= size)
-    let (e, es) = Set.deleteFindMax noDupes
-    return $ e :| List.take size (Set.toList es)
+    (NonEmpty.fromList . Set.toList) <$> (go mempty)
+    where
+      go st = if (Set.size st == size)
+        then return st
+        else do
+          a <- arbitrary
+          go (Set.insert a st)
 
 instance Buildable TxMeta where
     build txMeta = bprint (" id = "%shortHashF%

@@ -61,7 +61,7 @@ data Action (r :: * -> *)
     = ResetWalletA
     | CreateWalletA WL.CreateWallet
     | GetWalletsA
---    | GetWalletA V1.WalletId
+    | GetWalletA V1.WalletId
 --    | UpdateWalletA V1.WalletId V1.WalletUpdate
     deriving (Show, Generic1, Rank2.Functor, Rank2.Foldable, Rank2.Traversable)
 
@@ -69,7 +69,7 @@ data Response (r :: * -> *)
     = ResetWalletR
     | CreateWalletR (Either WL.CreateWalletError V1.Wallet)
     | GetWalletsR (DB.IxSet V1.Wallet)
---    | GetWalletR (Either WL.GetWalletError V1.Wallet)
+    | GetWalletR (Either WL.GetWalletError V1.Wallet)
 --    | UpdateWalletR (Either WL.UpdateWalletError V1.Wallet)
     deriving (Show, Generic1, Rank2.Foldable)
 
@@ -136,9 +136,9 @@ preconditions (Model _ True) action = case action of
     ResetWalletA    -> Top
     CreateWalletA _ -> Top
     GetWalletsA     -> Top
+    GetWalletA _    -> Top
 -- if wallet is not reset then we shouldn't continue
 preconditions (Model _ False) _   = Bot
--- preconditions _ (GetWalletA _)      = Top
 -- preconditions _ (UpdateWalletA _ _) = Top
 
 transitions :: Model r -> Action r -> Response r -> Model r
@@ -151,7 +151,7 @@ transitions model@Model{..} cmd res = case cmd of
             _ -> error "This transition should not be reached!"
     -- TODO: handle monadic exception?
     GetWalletsA -> model
---     GetWalletA _ -> model
+    GetWalletA _ -> model
 --     UpdateWalletA wId V1.WalletUpdate{..} ->
 --         let thisWallet = (wId ==) . V1.walId
 --             updatedWallets = map update $ filter thisWallet mWallets
@@ -167,25 +167,26 @@ postconditions _ ResetWalletA ResetWalletR                          = Top
 -- NOTE: it should be ok for a wallet creation to fail, but not currently in our tests.
 postconditions _ (CreateWalletA _) (CreateWalletR (Left _)) = Bot
 -- TODO: check that wallet request and wallet response contain same attributes
+-- that we have created intended wallet
 postconditions Model{..} (CreateWalletA _) (CreateWalletR (Right V1.Wallet{..})) = Predicate $ NotElem walId (map V1.walId mWallets)
 -- Checks does our model have exact same wallets as real wallet
-postconditions Model{..} GetWalletsA (GetWalletsR wallets) = sort (map ignoreTimestamp $ DB.toList wallets) .== sort (map ignoreTimestamp mWallets)
-  where
-    -- For some reason received wallet will have slightly different timestamp
-    -- then when it was created.
-    -- TODO: check is this a bug - create a yt ticket
-    -- This is a workaround to check are two wallets equal but ignoring update password timestamp
-    ignoreTimestamp w = w { V1.walSpendingPasswordLastUpdate = V1.V1 $ Core.Timestamp 0 }
-
--- postconditions Model{..} (GetWalletA wId) (GetWalletR (Left _)) = Predicate $ NotElem wId (map V1.walId mWallets)
--- -- TODO: also check is returned wallet similar to the one fined in a model
--- postconditions Model{..} (GetWalletA wId) (GetWalletR (Right _)) = Predicate $ Elem wId (map V1.walId mWallets)
+postconditions Model{..} GetWalletsA (GetWalletsR wallets) = sort (map walletIgnoreTimestamp $ DB.toList wallets) .== sort (map walletIgnoreTimestamp mWallets)
+postconditions Model{..} (GetWalletA wId) (GetWalletR (Left _)) = Predicate $ NotElem wId (map V1.walId mWallets)
+-- Checks did we really get wallet with intended id. Also checks
+-- is returned walet same as the one in our model
+postconditions Model{..} (GetWalletA wId) (GetWalletR (Right wallet)) =
+    (V1.walId wallet .== wId) :&& Predicate (Elem (walletIgnoreTimestamp wallet) (map walletIgnoreTimestamp mWallets))
 -- postconditions Model{..} (UpdateWalletA wId _) (UpdateWalletR (Left _)) = Predicate $ NotElem wId (map V1.walId mWallets)
 -- -- TODO: also check does updated wallet contain all relevant info
 -- postconditions Model{..} (UpdateWalletA wId _) (UpdateWalletR (Right _)) = Predicate $ Elem wId (map V1.walId mWallets)
 -- FIXME: don't catch all errors with this this catch-all match!
 postconditions _ _ _ =  error "This postcondition should not be reached!"
 
+-- For some reason received wallet will have slightly different timestamp
+-- then when it was created (CO-439).
+-- This is a workaround to check are two wallets equal but ignoring update password timestamp
+walletIgnoreTimestamp :: V1.Wallet -> V1.Wallet
+walletIgnoreTimestamp w = w { V1.walSpendingPasswordLastUpdate = V1.V1 $ Core.Timestamp 0 }
 ------------------------------------------------------------------------
 
 -- Action generator
@@ -212,9 +213,9 @@ generator Model{..} = frequency
     -- TODO: add generator for importing wallet from secret key
     , (5, pure GetWalletsA)
     -- This tests fetching existing wallet (except when there is no wallets in model)
---    , (4, GetWalletA . V1.walId <$> oneof (arbitrary:map pure mWallets))
---    -- This tests fetching probably non existing wallet
---    , (1, GetWalletA <$> arbitrary)
+    , (4, GetWalletA . V1.walId <$> oneof (arbitrary:map pure mWallets))
+    -- This tests fetching probably non existing wallet
+    , (1, GetWalletA <$> arbitrary)
 --    -- This tests updates existing wallets (except when there is no wallets)
 --    , (4, UpdateWalletA . V1.walId <$> oneof (arbitrary:map pure mWallets) <*> arbitrary)
 --    -- This tests updating non existing wallet
@@ -234,7 +235,7 @@ semantics pwl _ cmd = case cmd of
         return ResetWalletR
     CreateWalletA cw -> CreateWalletR <$> WL.createWallet pwl cw
     GetWalletsA      -> GetWalletsR <$> WL.getWallets pwl
---    GetWalletA wId -> GetWalletR <$> WL.getWallet pwl wId
+    GetWalletA wId   -> GetWalletR <$> WL.getWallet pwl wId
 --    UpdateWalletA wId update -> UpdateWalletR <$> WL.updateWallet pwl wId update
 
 -- TODO: reuse withLayer function defined in wallet-new/test/unit/Test/Spec/Fixture.hs
@@ -265,10 +266,10 @@ mock _ ResetWalletA      = pure ResetWalletR
 mock _ (CreateWalletA _) = pure $ CreateWalletR (Left $ WL.CreateWalletError Kernel.CreateWalletDefaultAddressDerivationFailed)
 mock Model{..} GetWalletsA = pure $ GetWalletsR $ DB.fromList mWallets
 -- TODO: model other error paths like UnknownHdRoot?
--- mock Model{..} (GetWalletA wId) =
---     let mExists = safeHead $ filter ((wId ==) . V1.walId) mWallets
---         response = maybe (Left $ WL.GetWalletErrorNotFound wId) Right mExists
---     in pure $ GetWalletR response
+mock Model{..} (GetWalletA wId) =
+    let mExists = safeHead $ filter ((wId ==) . V1.walId) mWallets
+        response = maybe (Left $ WL.GetWalletErrorNotFound wId) Right mExists
+    in pure $ GetWalletR response
 -- -- TODO: model other error paths?
 -- mock Model{..} (UpdateWalletA wId V1.WalletUpdate{..}) =
 --     let thisWallet = (wId ==) . V1.walId

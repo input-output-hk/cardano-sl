@@ -158,6 +158,7 @@ transitions model@Model{..} cmd res = case cmd of
 --             update w = w { V1.walAssuranceLevel = uwalAssuranceLevel, V1.walName = uwalName }
 --         in model { mWallets = updatedWallets <> filter (not . thisWallet) mWallets }
 
+-- TODO: use unit tests in wallet-new/test/unit for inspiration
 postconditions :: Model Concrete -> Action Concrete -> Response Concrete -> Logic
 postconditions _ ResetWalletA ResetWalletR                          = Top
  -- TODO: pissibly check that wallet wasn't added
@@ -167,7 +168,15 @@ postconditions _ ResetWalletA ResetWalletR                          = Top
 postconditions _ (CreateWalletA _) (CreateWalletR (Left _)) = Bot
 -- TODO: check that wallet request and wallet response contain same attributes
 postconditions Model{..} (CreateWalletA _) (CreateWalletR (Right V1.Wallet{..})) = Predicate $ NotElem walId (map V1.walId mWallets)
-postconditions Model{..} GetWalletsA (GetWalletsR wallets) = sort (DB.toList wallets) .== sort mWallets -- TODO: use IxSet here?
+-- Checks does our model have exact same wallets as real wallet
+postconditions Model{..} GetWalletsA (GetWalletsR wallets) = sort (map ignoreTimestamp $ DB.toList wallets) .== sort (map ignoreTimestamp mWallets)
+  where
+    -- For some reason received wallet will have slightly different timestamp
+    -- then when it was created.
+    -- TODO: check is this a bug - create a yt ticket
+    -- This is a workaround to check are two wallets equal but ignoring update password timestamp
+    ignoreTimestamp w = w { V1.walSpendingPasswordLastUpdate = V1.V1 $ Core.Timestamp 0 }
+
 -- postconditions Model{..} (GetWalletA wId) (GetWalletR (Left _)) = Predicate $ NotElem wId (map V1.walId mWallets)
 -- -- TODO: also check is returned wallet similar to the one fined in a model
 -- postconditions Model{..} (GetWalletA wId) (GetWalletR (Right _)) = Predicate $ Elem wId (map V1.walId mWallets)

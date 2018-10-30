@@ -52,7 +52,7 @@ import           Pos.Chain.Update (BlockVersion (..), BlockVersionData (..),
 import           Pos.Core (Coin, CoinPortion (..), EpochIndex, SlotCount,
                      SlotId, TimeDiff (..), addressHash, applyCoinPortionUp,
                      coinPortionDenominator, coinToInteger, difficultyL,
-                     getCoinPortion, isBootstrapEra, sumCoins, unsafeAddCoin,
+                     getCoinPortion, sumCoins, unsafeAddCoin,
                      unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Core.Slotting (EpochSlottingData (..), SlottingData,
                      addEpochSlottingData, getCurrentEpochIndex,
@@ -259,14 +259,12 @@ verifyNextBVMod
     -> BlockVersionData
     -> BlockVersionModifier
     -> m ()
-verifyNextBVMod upId epoch
+verifyNextBVMod upId _epoch
   BlockVersionData { bvdScriptVersion = oldSV
                    , bvdMaxBlockSize = oldMBS
-                   , bvdUnlockStakeEpoch = oldUnlockStakeEpoch
                    }
   BlockVersionModifier { bvmScriptVersion = newSVM
                        , bvmMaxBlockSize = newMBSM
-                       , bvmUnlockStakeEpoch = newUnlockStakeEpochM
                        }
     | Just newSV <- newSVM,
       newSV /= oldSV + 1 && newSV /= oldSV =
@@ -276,15 +274,6 @@ verifyNextBVMod upId epoch
       newMBS > oldMBS * 2 =
         throwError
            $ PollLargeMaxBlockSize (oldMBS * 2) newMBS upId
-    | Just newUnlockStakeEpoch <- newUnlockStakeEpochM,
-      oldUnlockStakeEpoch /= newUnlockStakeEpoch = do
-          let bootstrap = isBootstrapEra oldUnlockStakeEpoch epoch
-          unless bootstrap $ throwError
-              $ PollBootstrapEraInvalidChange
-                    epoch
-                    oldUnlockStakeEpoch
-                    newUnlockStakeEpoch
-                    upId
     | otherwise = pass
 
 -- | Dummy type for tagging used by 'calcSoftforkThreshold'.

@@ -71,12 +71,14 @@ instance ReportSchemaErrors m => FromJSON m EpochIndex where
 --             Bootstrap era   Reward era
 -- @
 --
+--
+-- | This function has been stubbed out to always return True, since
+-- this codebase will not be decentralized.
 isBootstrapEra
     :: EpochIndex -- ^ Unlock stake epoch
     -> EpochIndex -- ^ Epoch in question (for which we determine whether it
                   --                      belongs to the bootstrap era).
     -> Bool
-isBootstrapEra unlockStakeEpoch epoch =
-    epoch < unlockStakeEpoch
+isBootstrapEra _unlockStakeEpoch _epoch = True
 
 deriveSafeCopySimple 0 'base ''EpochIndex

@@ -1,12 +1,12 @@
 {-# LANGUAGE AllowAmbiguousTypes       #-}
-{-# LANGUAGE OverloadedLists #-}
-{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE CPP                       #-}
 {-# LANGUAGE DataKinds                 #-}
+{-# LANGUAGE DeriveFunctor             #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE InstanceSigs              #-}
 {-# LANGUAGE KindSignatures            #-}
+{-# LANGUAGE OverloadedLists           #-}
 {-# LANGUAGE Rank2Types                #-}
 {-# LANGUAGE RecordWildCards           #-}
 {-# LANGUAGE TypeFamilies              #-}
@@ -74,26 +74,26 @@ module Pos.Util.Servant
 
 import           Universum hiding (id)
 
-import Data.Typeable (typeRep)
-import qualified Data.Char as Char
+import           Control.Exception.Safe (handleAny)
+import           Control.Lens (Iso, iso, ix, makePrisms)
+import           Control.Monad.Except (ExceptT (..), MonadError (..))
+import           Data.Aeson (FromJSON (..), ToJSON (..), eitherDecode, encode)
 import qualified Data.Aeson.Options as Serokell
 import           Data.Aeson.TH (deriveJSON)
-import           Data.Swagger as S hiding (Example, example, info)
-import           Generics.SOP.TH (deriveGeneric)
-import           Data.Aeson (FromJSON (..), ToJSON (..), eitherDecode, encode)
-import           Control.Exception.Safe (handleAny)
-import           Control.Lens (Iso, iso, makePrisms, ix)
-import           Control.Monad.Except (ExceptT (..), MonadError (..))
+import qualified Data.Char as Char
 import           Data.Constraint ((\\))
 import           Data.Constraint.Forall (Forall, inst)
 import           Data.Default (Default (..))
 import           Data.List (lookup)
 import           Data.Reflection (Reifies (..), reflect)
+import           Data.Swagger as S hiding (Example, example, info)
 import qualified Data.Text as T
 import           Data.Time.Clock.POSIX (getPOSIXTime)
+import           Data.Typeable (typeRep)
 import           Formatting (bprint, build, builder, fconst, formatToString,
                      sformat, shown, stext, string, (%))
 import qualified Formatting.Buildable
+import           Generics.SOP.TH (deriveGeneric)
 import           GHC.IO.Unsafe (unsafePerformIO)
 import           GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 import           Network.HTTP.Types (parseQueryText)
@@ -101,24 +101,24 @@ import           Network.Wai (rawQueryString)
 import           Serokell.Util (listJsonIndent)
 import           Serokell.Util.ANSI (Color (..), colorizeDull)
 import           Servant.API ((:<|>) (..), (:>), Capture, Description,
-                     QueryFlag, QueryParam, ReflectMethod (..), ReqBody,
-                     Summary, Verb, OctetStream)
+                     OctetStream, QueryFlag, QueryParam, ReflectMethod (..),
+                     ReqBody, Summary, Verb)
+import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..),
+                     MimeUnrender (..))
 import           Servant.Client (Client, HasClient (..))
 import           Servant.Client.Core (RunClient)
 import           Servant.Server (Handler (..), HasServer (..), ServantErr (..),
                      Server)
 import qualified Servant.Server.Internal as SI
 import           Servant.Swagger (HasSwagger (toSwagger))
-import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..),
-                     MimeUnrender (..))
 import           Test.QuickCheck
 
 import           Pos.Infra.Util.LogSafe (BuildableSafe, SecuredText, buildSafe,
                      logInfoSP, plainOrSecureF, secretOnlyF)
+import           Pos.Util.Jsend (HasDiagnostic (..), ResponseStatus (..),
+                     jsendErrorGenericParseJSON, jsendErrorGenericToJSON)
+import           Pos.Util.Pagination
 import           Pos.Util.Wlog (LoggerName, LoggerNameBox, usingLoggerName)
-import Pos.Util.Jsend (jsendErrorGenericParseJSON, jsendErrorGenericToJSON,
-    HasDiagnostic(..), ResponseStatus(..))
-import Pos.Util.Pagination
 
 -------------------------------------------------------------------------
 -- Utility functions
@@ -165,9 +165,9 @@ class ApiHasArgClass api where
     apiArgName _ = formatToString ("'"%string%"' field") $ symbolVal (Proxy @n)
 
 class ServerT (subApi :> res) m ~ (ApiArg subApi -> ServerT res m)
-   => ApiHasArgInvariant subApi res m
+    => ApiHasArgInvariant subApi res m
 instance ServerT (subApi :> res) m ~ (ApiArg subApi -> ServerT res m)
-      => ApiHasArgInvariant subApi res m
+    => ApiHasArgInvariant subApi res m
 
 type ApiHasArg subApi res =
     ( ApiHasArgClass subApi
@@ -756,25 +756,28 @@ instance Flaggable Bool where
 
 -- TODO (akegalj): this instance is almost the same as upstream HasServer instance of QueryFlag. The only difference is addition of `fromBool` function in `route` implementation. Can we somehow reuse `route` implementation of CustomQuery instead of copy-pasting it here with this small `fromBool` addition?
 instance (KnownSymbol sym, HasServer api context, Flaggable flag)
-      => HasServer (CustomQueryFlag sym flag :> api) context where
+    => HasServer (CustomQueryFlag sym flag :> api) context where
 
-  type ServerT (CustomQueryFlag sym flag :> api) m =
-    flag -> ServerT api m
+    type ServerT (CustomQueryFlag sym flag :> api) m =
+        flag -> ServerT api m
 
-  hoistServerWithContext _ pc nt s = hoistServerWithContext (Proxy @api) pc nt . s
+    hoistServerWithContext _ pc nt s = hoistServerWithContext (Proxy @api) pc nt . s
 
-  route Proxy context subserver =
-    let querytext r = parseQueryText $ rawQueryString r
-        param r = case lookup paramname (querytext r) of
-          Just Nothing  -> True  -- param is there, with no value
-          Just (Just v) -> examine v -- param with a value
-          Nothing       -> False -- param not in the query string
-    in  route (Proxy @api) context (SI.passToServer subserver $ fromBool . param)
-    where paramname = toText $ symbolVal (Proxy @sym)
-          examine v | v == "true" || v == "1" || v == "" = True
-                    | otherwise = False
+    route Proxy context subserver =
+        let querytext r = parseQueryText $ rawQueryString r
+            param r = case lookup paramname (querytext r) of
+                Just Nothing  -> True  -- param is there, with no value
+                Just (Just v) -> examine v -- param with a value
+                Nothing       -> False -- param not in the query string
+         in route (Proxy @api) context (SI.passToServer subserver $ fromBool . param)
+      where
+        paramname = toText $ symbolVal (Proxy @sym)
+        examine v
+            | v == "true" || v == "1" || v == "" = True
+            | otherwise = False
 
-instance (KnownSymbol sym, Flaggable flag, HasClient m api) => HasClient m (CustomQueryFlag sym flag :> api) where
+instance (KnownSymbol sym, Flaggable flag, HasClient m api)
+    => HasClient m (CustomQueryFlag sym flag :> api) where
     type Client m (CustomQueryFlag sym flag :> api) = flag -> Client m api
 
     clientWithRoute p _ req = clientWithRoute p (Proxy @(QueryFlag sym :> api)) req . toBool
@@ -852,9 +855,9 @@ data Tags (tags :: [Symbol])
 -- | Instance of `HasServer` which erases the `Tags` from its routing,
 -- as the latter is needed only for Swagger.
 instance (HasServer subApi context) => HasServer (Tags tags :> subApi) context where
-  type ServerT (Tags tags :> subApi) m = ServerT subApi m
-  route _ = route (Proxy @subApi)
-  hoistServerWithContext _ = hoistServerWithContext (Proxy @subApi)
+    type ServerT (Tags tags :> subApi) m = ServerT subApi m
+    route _ = route (Proxy @subApi)
+    hoistServerWithContext _ = hoistServerWithContext (Proxy @subApi)
 
 instance (HasClient m subApi) => HasClient m (Tags tags :> subApi) where
     type Client m (Tags tags :> subApi) = Client m subApi
@@ -884,7 +887,7 @@ data Metadata = Metadata
 deriveJSON Serokell.defaultOptions ''Metadata
 
 instance Arbitrary Metadata where
-  arbitrary = Metadata <$> arbitrary
+    arbitrary = Metadata <$> arbitrary
 
 instance ToSchema Metadata where
     declareNamedSchema = genericDeclareNamedSchema defaultSchemaOptions
@@ -893,8 +896,8 @@ instance ToSchema Metadata where
         }
 
 instance Buildable Metadata where
-  build Metadata{..} =
-    bprint ("{ pagination="%build%" }") metaPagination
+    build Metadata{..} =
+       bprint ("{ pagination="%build%" }") metaPagination
 
 -- instance Example Metadata
 
@@ -914,7 +917,7 @@ data WalletResponse a = WalletResponse
 deriveJSON Serokell.defaultOptions ''WalletResponse
 
 instance Arbitrary a => Arbitrary (WalletResponse a) where
-  arbitrary = WalletResponse <$> arbitrary <*> arbitrary <*> arbitrary
+    arbitrary = WalletResponse <$> arbitrary <*> arbitrary <*> arbitrary
 
 instance ToJSON a => MimeRender OctetStream (WalletResponse a) where
     mimeRender _ = encode

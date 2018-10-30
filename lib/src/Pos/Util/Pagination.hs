@@ -3,7 +3,7 @@
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes                 #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards            #-}
 
 module Pos.Util.Pagination (
       Page(..)
@@ -36,7 +36,7 @@ newtype Page = Page Int
 deriveJSON Serokell.defaultOptions ''Page
 
 instance Arbitrary Page where
-  arbitrary = Page . getPositive <$> arbitrary
+    arbitrary = Page . getPositive <$> arbitrary
 
 instance FromHttpApiData Page where
     parseQueryParam qp = case parseQueryParam qp of
@@ -52,22 +52,22 @@ instance ToSchema Page where
         pure . NamedSchema (Just "Page") . paramSchemaToSchema
 
 instance ToParamSchema Page where
-  toParamSchema _ = mempty
-    & type_ .~ SwaggerInteger
-    & default_ ?~ (Number 1) -- Always show the first page by default.
-    & minimum_ ?~ 1
+    toParamSchema _ = mempty
+        & type_ .~ SwaggerInteger
+        & default_ ?~ (Number 1) -- Always show the first page by default.
+        & minimum_ ?~ 1
 
 -- | If not specified otherwise, return first page.
 instance Default Page where
     def = Page 1
 
 instance Buildable Page where
-  build (Page p) = bprint build p
+    build (Page p) = bprint build p
 
 -- | A `PerPage` is used to specify the number of entries which should be returned
 -- as part of a paginated response.
 newtype PerPage = PerPage Int
-                deriving (Show, Eq, Num, Ord)
+    deriving (Show, Eq, Num, Ord)
 
 deriveJSON Serokell.defaultOptions ''PerPage
 
@@ -76,11 +76,12 @@ instance ToSchema PerPage where
         pure . NamedSchema (Just "PerPage") . paramSchemaToSchema
 
 instance ToParamSchema PerPage where
-  toParamSchema _ = mempty
-    & type_ .~ SwaggerInteger
-    & default_ ?~ (Number $ fromIntegral defaultPerPageEntries)
-    & minimum_ ?~ 1
-    & maximum_ ?~ (fromIntegral maxPerPageEntries)
+    toParamSchema _ = mempty
+        & type_ .~ SwaggerInteger
+        & default_ ?~ (Number $ fromIntegral defaultPerPageEntries)
+        & minimum_ ?~ 1
+        & maximum_ ?~ (fromIntegral maxPerPageEntries)
+
 -- | The maximum number of entries a paginated request can return on a single call.
 -- This value is currently arbitrary and it might need to be tweaked down to strike
 -- the right balance between number of requests and load of each of them on the system.
@@ -93,7 +94,7 @@ defaultPerPageEntries :: Int
 defaultPerPageEntries = 10
 
 instance Arbitrary PerPage where
-  arbitrary = PerPage <$> choose (1, maxPerPageEntries)
+    arbitrary = PerPage <$> choose (1, maxPerPageEntries)
 
 instance FromHttpApiData PerPage where
     parseQueryParam qp = case parseQueryParam qp of
@@ -129,20 +130,20 @@ instance Arbitrary PaginationMetadata where
                                  <*> fmap getPositive arbitrary
 
 instance ToSchema PaginationMetadata where
-  declareNamedSchema proxy = do
-      schm <- genericDeclareNamedSchema defaultSchemaOptions
-        { S.fieldLabelModifier =
-            over (ix 0) Char.toLower . drop 4 -- length "meta"
-        } proxy
-      pure $ over schema (over properties adjustPropsSchema) schm
-    where
-      totalSchema = Inline $ mempty
-        & type_ .~ SwaggerNumber
-        & minimum_ ?~ 0
-        & maximum_ ?~ fromIntegral (maxBound :: Int)
-      adjustPropsSchema s = s
-        & at "totalPages" ?~ totalSchema
-        & at "totalEntries" ?~ totalSchema
+    declareNamedSchema proxy = do
+        schm <- genericDeclareNamedSchema defaultSchemaOptions
+            { S.fieldLabelModifier =
+                over (ix 0) Char.toLower . drop 4 -- length "meta"
+            } proxy
+        pure $ over schema (over properties adjustPropsSchema) schm
+      where
+        totalSchema = Inline $ mempty
+            & type_ .~ SwaggerNumber
+            & minimum_ ?~ 0
+            & maximum_ ?~ fromIntegral (maxBound :: Int)
+        adjustPropsSchema s = s
+            & at "totalPages" ?~ totalSchema
+            & at "totalEntries" ?~ totalSchema
 
 instance Buildable PaginationMetadata where
     build PaginationMetadata{..} =
@@ -161,7 +162,6 @@ data PaginationParams = PaginationParams
 
 instance Buildable PaginationParams where
     build PaginationParams{..} =
-      bprint ("page="%build%", per_page="%build)
-          ppPage
-          ppPerPage
-
+        bprint ("page=" % build % ", per_page=" % build)
+            ppPage
+            ppPerPage

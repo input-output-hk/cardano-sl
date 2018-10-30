@@ -1,4 +1,5 @@
-{-# LANGUAGE KindSignatures, DataKinds #-}
+{-# LANGUAGE DataKinds      #-}
+{-# LANGUAGE KindSignatures #-}
 
 module Pos.Util.UnitsOfMeasure where
 

@@ -62,7 +62,7 @@ data Action (r :: * -> *)
     | CreateWalletA WL.CreateWallet
     | GetWalletsA
     | GetWalletA V1.WalletId
---    | UpdateWalletA V1.WalletId V1.WalletUpdate
+    | UpdateWalletA V1.WalletId V1.WalletUpdate
     deriving (Show, Generic1, Rank2.Functor, Rank2.Foldable, Rank2.Traversable)
 
 data Response (r :: * -> *)
@@ -70,7 +70,7 @@ data Response (r :: * -> *)
     | CreateWalletR (Either WL.CreateWalletError V1.Wallet)
     | GetWalletsR (DB.IxSet V1.Wallet)
     | GetWalletR (Either WL.GetWalletError V1.Wallet)
---    | UpdateWalletR (Either WL.UpdateWalletError V1.Wallet)
+    | UpdateWalletR (Either WL.UpdateWalletError V1.Wallet)
     deriving (Show, Generic1, Rank2.Foldable)
 
 
@@ -133,13 +133,13 @@ preconditions _ ResetWalletA      = Top
 -- The above would work a bit more performant (as we don't have failing preconditions)
 -- but we are hacking around to lib internals which is not so idiomatic.
 preconditions (Model _ True) action = case action of
-    ResetWalletA    -> Top
-    CreateWalletA _ -> Top
-    GetWalletsA     -> Top
-    GetWalletA _    -> Top
+    ResetWalletA      -> Top
+    CreateWalletA _   -> Top
+    GetWalletsA       -> Top
+    GetWalletA _      -> Top
+    UpdateWalletA _ _ -> Top
 -- if wallet is not reset then we shouldn't continue
 preconditions (Model _ False) _   = Bot
--- preconditions _ (UpdateWalletA _ _) = Top
 
 transitions :: Model r -> Action r -> Response r -> Model r
 transitions model@Model{..} cmd res = case cmd of
@@ -152,11 +152,11 @@ transitions model@Model{..} cmd res = case cmd of
     -- TODO: handle monadic exception?
     GetWalletsA -> model
     GetWalletA _ -> model
---     UpdateWalletA wId V1.WalletUpdate{..} ->
---         let thisWallet = (wId ==) . V1.walId
---             updatedWallets = map update $ filter thisWallet mWallets
---             update w = w { V1.walAssuranceLevel = uwalAssuranceLevel, V1.walName = uwalName }
---         in model { mWallets = updatedWallets <> filter (not . thisWallet) mWallets }
+    UpdateWalletA wId V1.WalletUpdate{..} ->
+        let thisWallet = (wId ==) . V1.walId
+            updatedWallets = map update $ filter thisWallet mWallets
+            update w = w { V1.walAssuranceLevel = uwalAssuranceLevel, V1.walName = uwalName }
+        in model { mWallets = updatedWallets <> filter (not . thisWallet) mWallets }
 
 -- TODO: use unit tests in wallet-new/test/unit for inspiration
 postconditions :: Model Concrete -> Action Concrete -> Response Concrete -> Logic
@@ -164,29 +164,32 @@ postconditions _ ResetWalletA ResetWalletR                          = Top
  -- TODO: pissibly check that wallet wasn't added
  -- check that ratio of errors is normal/expected
 
--- NOTE: it should be ok for a wallet creation to fail, but not currently in our tests.
+-- NOTE: it should be expected for a wallet creation to fail sometimes, but not currently in our tests.
 postconditions _ (CreateWalletA _) (CreateWalletR (Left _)) = Bot
 -- TODO: check that wallet request and wallet response contain same attributes
 -- that we have created intended wallet
 postconditions Model{..} (CreateWalletA _) (CreateWalletR (Right V1.Wallet{..})) = Predicate $ NotElem walId (map V1.walId mWallets)
 -- Checks does our model have exact same wallets as real wallet
 postconditions Model{..} GetWalletsA (GetWalletsR wallets) = sort (map walletIgnoreTimestamp $ DB.toList wallets) .== sort (map walletIgnoreTimestamp mWallets)
+  where
+    -- For some reason received wallet will have slightly different timestamp
+    -- then when it was created (CO-439).
+    -- This is a workaround to check are two wallets equal but ignoring update password timestamp
+    walletIgnoreTimestamp :: V1.Wallet -> V1.Wallet
+    walletIgnoreTimestamp w = w { V1.walSpendingPasswordLastUpdate = V1.V1 $ Core.Timestamp 0 }
 postconditions Model{..} (GetWalletA wId) (GetWalletR (Left _)) = Predicate $ NotElem wId (map V1.walId mWallets)
 -- Checks did we really get wallet with intended id. Also checks
 -- is returned walet same as the one in our model
 postconditions Model{..} (GetWalletA wId) (GetWalletR (Right wallet)) =
-    (V1.walId wallet .== wId) :&& Predicate (Elem (walletIgnoreTimestamp wallet) (map walletIgnoreTimestamp mWallets))
--- postconditions Model{..} (UpdateWalletA wId _) (UpdateWalletR (Left _)) = Predicate $ NotElem wId (map V1.walId mWallets)
--- -- TODO: also check does updated wallet contain all relevant info
--- postconditions Model{..} (UpdateWalletA wId _) (UpdateWalletR (Right _)) = Predicate $ Elem wId (map V1.walId mWallets)
+    (V1.walId wallet .== wId) :&& Predicate (Elem wallet mWallets)
+postconditions Model{..} (UpdateWalletA wId _) (UpdateWalletR (Left _)) = Predicate $ NotElem wId (map V1.walId mWallets)
+postconditions Model{..} (UpdateWalletA wId V1.WalletUpdate{..}) (UpdateWalletR (Right wallet)) =
+    let mWallet = update <$> find ((== wId) . V1.walId) mWallets
+        update w = w { V1.walAssuranceLevel = uwalAssuranceLevel, V1.walName = uwalName }
+    in mWallet .== Just wallet
 -- FIXME: don't catch all errors with this this catch-all match!
 postconditions _ _ _ =  error "This postcondition should not be reached!"
 
--- For some reason received wallet will have slightly different timestamp
--- then when it was created (CO-439).
--- This is a workaround to check are two wallets equal but ignoring update password timestamp
-walletIgnoreTimestamp :: V1.Wallet -> V1.Wallet
-walletIgnoreTimestamp w = w { V1.walSpendingPasswordLastUpdate = V1.V1 $ Core.Timestamp 0 }
 ------------------------------------------------------------------------
 
 -- Action generator
@@ -211,15 +214,15 @@ generator Model{..} = frequency
     [ (1, pure ResetWalletA)
     , (5, CreateWalletA . WL.CreateWallet <$> genNewWalletRq)
     -- TODO: add generator for importing wallet from secret key
-    , (5, pure GetWalletsA)
+    , (1, pure GetWalletsA)
     -- This tests fetching existing wallet (except when there is no wallets in model)
     , (4, GetWalletA . V1.walId <$> oneof (arbitrary:map pure mWallets))
     -- This tests fetching probably non existing wallet
     , (1, GetWalletA <$> arbitrary)
 --    -- This tests updates existing wallets (except when there is no wallets)
---    , (4, UpdateWalletA . V1.walId <$> oneof (arbitrary:map pure mWallets) <*> arbitrary)
---    -- This tests updating non existing wallet
---    , (1, UpdateWalletA <$> arbitrary <*> arbitrary)
+    , (4, UpdateWalletA . V1.walId <$> oneof (arbitrary:map pure mWallets) <*> arbitrary)
+    -- This tests updating non existing wallet
+    , (1, UpdateWalletA <$> arbitrary <*> arbitrary)
     ]
 
 shrinker :: Action Symbolic -> [Action Symbolic]
@@ -236,7 +239,7 @@ semantics pwl _ cmd = case cmd of
     CreateWalletA cw -> CreateWalletR <$> WL.createWallet pwl cw
     GetWalletsA      -> GetWalletsR <$> WL.getWallets pwl
     GetWalletA wId   -> GetWalletR <$> WL.getWallet pwl wId
---    UpdateWalletA wId update -> UpdateWalletR <$> WL.updateWallet pwl wId update
+    UpdateWalletA wId update -> UpdateWalletR <$> WL.updateWallet pwl wId update
 
 -- TODO: reuse withLayer function defined in wallet-new/test/unit/Test/Spec/Fixture.hs
 withWalletLayer
@@ -267,16 +270,17 @@ mock _ (CreateWalletA _) = pure $ CreateWalletR (Left $ WL.CreateWalletError Ker
 mock Model{..} GetWalletsA = pure $ GetWalletsR $ DB.fromList mWallets
 -- TODO: model other error paths like UnknownHdRoot?
 mock Model{..} (GetWalletA wId) =
-    let mExists = safeHead $ filter ((wId ==) . V1.walId) mWallets
+    let mExists = find ((wId ==) . V1.walId) mWallets
         response = maybe (Left $ WL.GetWalletErrorNotFound wId) Right mExists
     in pure $ GetWalletR response
--- -- TODO: model other error paths?
--- mock Model{..} (UpdateWalletA wId V1.WalletUpdate{..}) =
---     let thisWallet = (wId ==) . V1.walId
---         update w = w { V1.walAssuranceLevel = uwalAssuranceLevel, V1.walName = uwalName }
---         mExists = update <$> safeHead (filter thisWallet mWallets)
---         response = maybe (Left $ WL.UpdateWalletErrorNotFound wId) Right mExists
---     in pure $ UpdateWalletR response
+-- TODO: model other error paths?
+mock Model{..} (UpdateWalletA wId V1.WalletUpdate{..}) =
+    let thisWallet = (wId ==) . V1.walId
+        -- TODO: use lenses
+        update w = w { V1.walAssuranceLevel = uwalAssuranceLevel, V1.walName = uwalName }
+        mExists = update <$> find thisWallet mWallets
+        response = maybe (Left $ WL.UpdateWalletErrorNotFound wId) Right mExists
+    in pure $ UpdateWalletR response
 
 
 ------------------------------------------------------------------------

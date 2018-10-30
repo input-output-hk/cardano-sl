@@ -287,8 +287,8 @@ stateMachine pwl pw =
         (semantics pwl pw)
         mock
 
-prop_wallet :: (WL.PassiveWalletLayer IO, PassiveWallet) -> Property
-prop_wallet (pwl, pw) = forAllCommands sm Nothing $ \cmds -> monadicIO $ do
+prop_wallet :: WL.PassiveWalletLayer IO -> PassiveWallet -> Property
+prop_wallet pwl pw = forAllCommands sm Nothing $ \cmds -> monadicIO $ do
     let cmds' = cmds -- Commands [Command ResetWalletA mempty] <> cmds
     print $ commandNamesInOrder cmds'
     (hist, _, res) <- runCommands sm cmds'

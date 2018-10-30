@@ -6,6 +6,7 @@ module Cardano.Wallet.Kernel.DB.Read (
   , addressesByRootId
   , addressesByAccountId
   , pendingByAccount
+  , foreignPendingByAccount
     -- | Lookups
   , lookupHdRootId
   , lookupHdAccountId
@@ -70,6 +71,9 @@ addressesByAccountId = liftNoErrorsHd1 HD.addressesByAccountId
 
 pendingByAccount :: DB -> Map HdAccountId Pending
 pendingByAccount = liftNoErrorsHd0 HD.pendingByAccount
+
+foreignPendingByAccount :: DB -> Map HdAccountId Pending
+foreignPendingByAccount = liftNoErrorsHd0 HD.foreignPendingByAccount
 
 lookupHdRootId :: DB -> HdRootId -> Either UnknownHdRoot HdRoot
 lookupHdRootId = liftHd1 HD.lookupHdRootId

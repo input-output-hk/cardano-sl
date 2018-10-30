@@ -32,7 +32,7 @@ import           Serokell.Util.Text (listBuilderJSON)
 import           Test.QuickCheck (Arbitrary (..), elements)
 
 import qualified Pos.Chain.Block as Core
-import           Pos.Chain.Txp (Utxo)
+import           Pos.Chain.Txp (TxIn, Utxo)
 import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Core as Core
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
@@ -195,9 +195,9 @@ applyBlock (SecurityParameter k) pb = do
         utxo              = current ^. checkpointUtxo        . fromDb
         balance           = current ^. checkpointUtxoBalance . fromDb
         (utxo', balance') = updateUtxo      pb (utxo, balance)
-        (pending', rem1)  = updatePending   pb (current ^. checkpointPending)
+        (pending', rem1)  = updatePending   (pfbInputs pb) (current ^. checkpointPending)
         blockMeta'        = updateBlockMeta pb (current ^. checkpointBlockMeta)
-        (foreign', rem2)  = updateForeign   pb (current ^. checkpointForeign)
+        (foreign', rem2)  = updatePending   (pfbForeignInputs pb) (current ^. checkpointForeign)
     if (pfbContext pb) `blockContextSucceeds` (current ^. checkpointContext . lazy) then do
       put $ Checkpoints . takeNewest k . NewestFirst $ Checkpoint {
           _checkpointUtxo        = InDb utxo'
@@ -228,9 +228,9 @@ applyBlockPartial pb = do
         utxo              = current ^. pcheckpointUtxo        . fromDb
         balance           = current ^. pcheckpointUtxoBalance . fromDb
         (utxo', balance') = updateUtxo           pb (utxo, balance)
-        (pending', rem1)  = updatePending        pb (current ^. pcheckpointPending)
+        (pending', rem1)  = updatePending        (pfbInputs pb) (current ^. pcheckpointPending)
         blockMeta'        = updateLocalBlockMeta pb (current ^. pcheckpointBlockMeta)
-        (foreign', rem2)  = updatePending        pb (current ^. pcheckpointForeign)
+        (foreign', rem2)  = updatePending        (pfbForeignInputs pb) (current ^. pcheckpointForeign)
     if (pfbContext pb) `blockContextSucceeds` (current ^. cpContext . lazy) then do
       put $ Checkpoints $ NewestFirst $ PartialCheckpoint {
           _pcheckpointUtxo        = InDb utxo'
@@ -347,9 +347,10 @@ updateUtxo PrefilteredBlock{..} (utxo, balance) =
     --
     -- * pfbOutputs corresponds to what the spec calls utxo^+ / txouts_b
     -- * pfbInputs  corresponds to what the spec calls txins_b
+    extendedInputs = Set.union pfbInputs pfbForeignInputs
     utxoUnion = Map.union utxo pfbOutputs
-    utxoMin   = utxoUnion `Core.utxoRestrictToInputs` pfbInputs
-    utxo'     = utxoUnion `Core.utxoRemoveInputs`     pfbInputs
+    utxoMin   = utxoUnion `Core.utxoRestrictToInputs` extendedInputs
+    utxo'     = utxoUnion `Core.utxoRemoveInputs` extendedInputs
     balance'  = Core.unsafeIntegerToCoin $
                     Core.coinToInteger balance
                   + Core.utxoBalance pfbOutputs
@@ -358,17 +359,8 @@ updateUtxo PrefilteredBlock{..} (utxo, balance) =
 -- | Update the pending transactions with the given prefiltered block
 --
 -- Returns the set of transactions that got removed from the pending set.
-updatePending :: PrefilteredBlock -> Pending -> (Pending, Set Txp.TxId)
-updatePending PrefilteredBlock{..} = Pending.removeInputs pfbInputs
-
--- | Update the foreign transactions with the given prefiltered block
---
--- Returns the set of transactions that got removed from the pending set.
--- Note that this is slightly different from pending transactions as it doesn't
--- filter on the "inputs" (which aren't part of the wallet for Foreign
--- transactions) but filter out based on the outputs.
-updateForeign :: PrefilteredBlock -> Pending -> (Pending, Set Txp.TxId)
-updateForeign PrefilteredBlock{..} = Pending.removeForeign pfbOutputs
+updatePending :: Set TxIn -> Pending -> (Pending, Set Txp.TxId)
+updatePending inputs = Pending.removeInputs inputs
 
 takeNewest :: Int -> NewestFirst StrictNonEmpty a -> NewestFirst StrictNonEmpty a
 takeNewest = liftNewestFirst . SNE.take

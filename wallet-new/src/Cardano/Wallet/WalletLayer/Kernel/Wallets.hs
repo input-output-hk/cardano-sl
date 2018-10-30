@@ -10,16 +10,13 @@ module Cardano.Wallet.WalletLayer.Kernel.Wallets (
     , getWallets
     , getWalletUtxos
     , blundToResolvedBlock
-    , prefilter
     ) where
 
 import           Universum
 
 import           Control.Monad.Except (throwError)
 import           Data.Coerce (coerce)
-import qualified Data.Map.Strict as Map
 
-import           Pos.Chain.Block (Blund)
 import           Pos.Chain.Txp (Utxo)
 import           Pos.Core (mkCoin)
 import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
@@ -33,15 +30,12 @@ import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
 import           Cardano.Wallet.Kernel.DB.AcidState (dbHdWallets)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
-import           Cardano.Wallet.Kernel.DB.TxMeta (TxMeta)
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Internal (walletKeystore,
                      walletProtocolMagic, _wriProgress)
 import qualified Cardano.Wallet.Kernel.Internal as Kernel
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
-import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock,
-                     prefilterBlock)
 import qualified Cardano.Wallet.Kernel.Read as Kernel
 import           Cardano.Wallet.Kernel.Restore (blundToResolvedBlock,
                      restoreWallet)
@@ -161,19 +155,6 @@ createWallet wallet newWalletRequest = liftIO $ do
     mnemonic (V1.NewWallet (V1.BackupPhrase m) _ _ _ _) = m
     spendingPassword = maybe emptyPassphrase coerce
 
-
--- Synchronously restore the wallet balance, and begin to
--- asynchronously reconstruct the wallet's history.
-prefilter :: NetworkMagic
-          -> EncryptedSecretKey
-          -> Kernel.PassiveWallet
-          -> WalletId
-          -> Blund
-          -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta])
-prefilter nm esk wallet wId blund =
-    blundToResolvedBlock (wallet ^. Kernel.walletNode) blund <&> \case
-        Nothing -> (Map.empty, [])
-        Just rb -> prefilterBlock nm rb [(wId,esk)]
 
 createExternalWallet :: MonadIO m
                      => Kernel.PassiveWallet

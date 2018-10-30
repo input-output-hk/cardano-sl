@@ -1,6 +1,6 @@
 steps:
   - label: 'Windows'
-    command: 'Powershell.exe -executionpolicy remotesigned -File .\.buildkite\windows.ps1'
+    command: 'PowerShell.exe -executionpolicy remotesigned -File .\.buildkite\windows.ps1'
     agents:
       system: x86_64-win2016
 

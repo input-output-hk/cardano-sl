@@ -84,6 +84,8 @@ in
 # Makes the demo wallet/cluster/connect scripts use "stack exec"
 # instead of running the nix-built executables.
 , useStackBinaries ? false
+, reuseState ? false
+, systemStartTime ? 0
 }:
 
 with pkgs.lib;
@@ -229,9 +231,10 @@ let
     # Produces a script which starts a cluster of core nodes and a
     # relay, then connects an edge node (wallet) to it.
     demoCluster = self.callPackage ./scripts/launch/demo-cluster {
-      inherit useStackBinaries;
+      inherit useStackBinaries systemStartTime reuseState;
       inherit (self.cardanoPackages)
-        cardano-sl cardano-sl-cluster;
+        cardano-sl-wallet-new-static
+        cardano-sl-node-static;
     };
 
     ####################################################################

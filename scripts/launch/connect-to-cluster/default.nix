@@ -116,6 +116,20 @@ in writeScript "${executable}-connect-to-${environment}" ''
   ln -sf ${curlScript} ${stateDir}/curl
   ''}
 
+  # If disableClientAuth is null then use DEMO_NO_CLIENT_AUTH at runtime.
+  # Any non-empty value means disable it.
+  ${if disableClientAuth == null then ''
+    if [ -n "''${DEMO_NO_CLIENT_AUTH:-}" ]; then
+      CLIENT_AUTH_ARGS="--no-client-auth"
+    else
+      CLIENT_AUTH_ARGS=""
+    fi
+  '' else if disableClientAuth then ''
+    CLIENT_AUTH_ARGS="--no-client-auth"
+  '' else ''
+    CLIENT_AUTH_ARGS=""
+  ''}
+
   exec ${executables.${executable}}                                                    \
     ${configurationArgs}                                                               \
     ${ ifWallet "--tlscert ${stateDir}/tls/server/server.crt"}                         \
@@ -127,7 +141,7 @@ in writeScript "${executable}-connect-to-${environment}" ''
     --db-path "${stateDir}/db"   ${extraParams}                                        \
     ${ ifWallet "--wallet-db-path '${stateDir}/wallet-db' ${walletDataLayer}"}         \
     ${ ifDebug "--wallet-debug"}                                                       \
-    ${ ifDisableClientAuth "--no-client-auth"}                                         \
+    $CLIENT_AUTH_ARGS                                                                  \
     --keyfile ${stateDir}/secret.key                                                   \
     ${ ifWallet "--wallet-address ${walletListen}" }                                   \
     ${ ifWallet "--wallet-doc-address ${walletDocListen}" }                            \

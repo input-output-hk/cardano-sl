@@ -80,7 +80,7 @@ import           Control.Exception.Safe (handleAny)
 import           Control.Lens (Iso, iso, ix, makePrisms)
 import           Control.Monad.Except (ExceptT (..), MonadError (..))
 import           Data.Aeson (FromJSON (..), ToJSON (..), eitherDecode, encode)
-import qualified Data.Aeson.Options as Serokell
+import qualified Data.Aeson.Options as Aeson
 import           Data.Aeson.TH (deriveJSON)
 import qualified Data.Char as Char
 import           Data.Constraint ((\\))
@@ -896,7 +896,7 @@ data Metadata = Metadata
     -- ^ Pagination-specific metadata
   } deriving (Show, Eq, Generic)
 
-deriveJSON Serokell.defaultOptions ''Metadata
+deriveJSON Aeson.defaultOptions ''Metadata
 
 instance Arbitrary Metadata where
     arbitrary = Metadata <$> arbitrary
@@ -928,7 +928,7 @@ data WalletResponse a = WalletResponse
   -- ^ Extra metadata to be returned.
   } deriving (Show, Eq, Generic, Functor)
 
-deriveJSON Serokell.defaultOptions ''WalletResponse
+deriveJSON Aeson.defaultOptions ''WalletResponse
 
 instance Arbitrary a => Arbitrary (WalletResponse a) where
     arbitrary = WalletResponse <$> arbitrary <*> arbitrary <*> arbitrary

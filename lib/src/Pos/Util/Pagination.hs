@@ -18,7 +18,7 @@ import           Universum
 
 import           Control.Lens (at, ix, (?~))
 import           Data.Aeson (Value (Number))
-import qualified Data.Aeson.Options as Serokell
+import qualified Data.Aeson.Options as Aeson
 import           Data.Aeson.TH
 import qualified Data.Char as Char
 import           Data.Default
@@ -33,7 +33,7 @@ import           Web.HttpApiData
 newtype Page = Page Int
              deriving (Show, Eq, Ord, Num)
 
-deriveJSON Serokell.defaultOptions ''Page
+deriveJSON Aeson.defaultOptions ''Page
 
 instance Arbitrary Page where
     arbitrary = Page . getPositive <$> arbitrary
@@ -69,7 +69,7 @@ instance Buildable Page where
 newtype PerPage = PerPage Int
     deriving (Show, Eq, Num, Ord)
 
-deriveJSON Serokell.defaultOptions ''PerPage
+deriveJSON Aeson.defaultOptions ''PerPage
 
 instance ToSchema PerPage where
     declareNamedSchema =
@@ -121,7 +121,7 @@ data PaginationMetadata = PaginationMetadata
   , metaTotalEntries :: Int     -- ^ The total number of entries in the collection.
   } deriving (Show, Eq, Generic)
 
-deriveJSON Serokell.defaultOptions ''PaginationMetadata
+deriveJSON Aeson.defaultOptions ''PaginationMetadata
 
 instance Arbitrary PaginationMetadata where
   arbitrary = PaginationMetadata <$> fmap getPositive arbitrary

@@ -138,7 +138,7 @@ import           Universum
 import qualified Cardano.Crypto.Wallet as CC
 import           Control.Lens (at,makePrisms, to, (?~))
 import           Data.Aeson
-import qualified Data.Aeson.Options as Serokell
+import qualified Data.Aeson.Options as Aeson
 import           Data.Aeson.TH as A
 import           Data.Aeson.Types (Parser, Value (..),
                      typeMismatch)
@@ -413,8 +413,11 @@ data AssuranceLevel =
 instance Arbitrary AssuranceLevel where
     arbitrary = elements [minBound .. maxBound]
 
-deriveJSON Serokell.defaultOptions { A.constructorTagModifier = toString . toLower . dropEnd 9 . fromString
-                                   } ''AssuranceLevel
+deriveJSON
+    Aeson.defaultOptions
+        { A.constructorTagModifier = toString . toLower . dropEnd 9 . fromString
+        }
+    ''AssuranceLevel
 
 instance ToSchema AssuranceLevel where
     declareNamedSchema _ =
@@ -433,7 +436,7 @@ newtype WalletId = WalletId Text deriving (Show, Eq, Ord, Generic)
 exampleWalletId :: WalletId
 exampleWalletId = WalletId "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
 
-deriveJSON Serokell.defaultOptions ''WalletId
+deriveJSON Aeson.defaultOptions ''WalletId
 
 instance ToSchema WalletId where
   declareNamedSchema = genericDeclareNamedSchema defaultSchemaOptions
@@ -465,7 +468,7 @@ instance Arbitrary WalletOperation where
     arbitrary = elements [minBound .. maxBound]
 
 -- Drops the @Wallet@ suffix.
-deriveJSON Serokell.defaultOptions  { A.constructorTagModifier = reverse . drop 6 . reverse . map C.toLower
+deriveJSON Aeson.defaultOptions  { A.constructorTagModifier = reverse . drop 6 . reverse . map C.toLower
                                     } ''WalletOperation
 
 instance ToSchema WalletOperation where
@@ -505,7 +508,7 @@ data NewWallet = NewWallet {
     , newwalOperation        :: !WalletOperation
     } deriving (Eq, Show, Generic)
 
-deriveJSON Serokell.defaultOptions  ''NewWallet
+deriveJSON Aeson.defaultOptions  ''NewWallet
 
 instance Arbitrary NewWallet where
   arbitrary = NewWallet <$> arbitrary
@@ -548,7 +551,7 @@ newtype PublicKeyAsBase58 = PublicKeyAsBase58Unsafe
     { ewalPublicKeyAsBase58 :: Text
     } deriving (Eq, Generic, Ord, Show)
 
-deriveJSON Serokell.defaultOptions ''PublicKeyAsBase58
+deriveJSON Aeson.defaultOptions ''PublicKeyAsBase58
 instance Arbitrary PublicKeyAsBase58 where
     arbitrary = PublicKeyAsBase58Unsafe <$> pure
         "bNfKyG8UxD5aoHyn9snKKhfyVcEnMGSFYtuiapmfD23BQMD9op65gbMoy1EXwxzzkuVqPLkD1s12MXFdfLF8ZCfnPh"
@@ -608,7 +611,7 @@ newtype AddressAsBase58 = AddressAsBase58Unsafe
     { ewalAddressAsBase58 :: Text
     } deriving (Eq, Generic, Ord, Show)
 
-deriveJSON Serokell.defaultOptions ''AddressAsBase58
+deriveJSON Aeson.defaultOptions ''AddressAsBase58
 instance Arbitrary AddressAsBase58 where
     arbitrary = AddressAsBase58Unsafe <$> pure
         "DdzFFzCqrhsxqFTw2ENzvwisYmS2DcUTujXDoMXtMrCvMFAa3DikLj8YYTWNZaEjthKZpMNWKo9RUoq3gP797yP8MP4g9qiEegvGEY9w"
@@ -641,7 +644,7 @@ newtype TransactionAsBase16 = TransactionAsBase16Unsafe
     { ewalTransactionAsBase16 :: Text
     } deriving (Eq, Generic, Ord, Show)
 
-deriveJSON Serokell.defaultOptions ''TransactionAsBase16
+deriveJSON Aeson.defaultOptions ''TransactionAsBase16
 instance Arbitrary TransactionAsBase16 where
     arbitrary = TransactionAsBase16Unsafe <$> pure
         "839f8200d8185826825820e981442c2be40475bb42193ca35907861d90715854de6fcba767b98f1789b51219439aff9f8282d818584a83581ce7fe8e468d2249f18cd7bf9aec0d4374b7d3e18609ede8589f82f7f0a20058208200581c240596b9b63fc010c06fbe92cf6f820587406534795958c411e662dc014443c0688e001a6768cc861b0037699e3ea6d064ffa0"
@@ -666,7 +669,7 @@ newtype TransactionSignatureAsBase16 = TransactionSignatureAsBase16Unsafe
     { rawTransactionSignatureAsBase16 :: Text
     } deriving (Eq, Generic, Ord, Show)
 
-deriveJSON Serokell.defaultOptions ''TransactionSignatureAsBase16
+deriveJSON Aeson.defaultOptions ''TransactionSignatureAsBase16
 instance Arbitrary TransactionSignatureAsBase16 where
     arbitrary = TransactionSignatureAsBase16Unsafe <$> pure
         "5840709cc240ac9ad78cbf47c3eec76df917423943e34339277593e8e2b8c9f9f2e59583023bfbd8e26c40dff6a7fa424600f9b942819533d8afee37a5ac6d813207"
@@ -698,7 +701,7 @@ data NewExternalWallet = NewExternalWallet
     , newewalOperation      :: !WalletOperation
     } deriving (Eq, Show, Generic)
 
-deriveJSON Serokell.defaultOptions ''NewExternalWallet
+deriveJSON Aeson.defaultOptions ''NewExternalWallet
 instance Arbitrary NewExternalWallet where
     arbitrary = NewExternalWallet <$> arbitrary
                                   <*> arbitrary
@@ -733,7 +736,7 @@ data WalletUpdate = WalletUpdate {
     , uwalName           :: !Text
     } deriving (Eq, Show, Generic)
 
-deriveJSON Serokell.defaultOptions  ''WalletUpdate
+deriveJSON Aeson.defaultOptions  ''WalletUpdate
 
 instance ToSchema WalletUpdate where
   declareNamedSchema =
@@ -854,7 +857,7 @@ data SyncProgress = SyncProgress {
   , spPercentage              :: !SyncPercentage
   } deriving (Show, Eq, Ord, Generic)
 
-deriveJSON Serokell.defaultOptions ''SyncProgress
+deriveJSON Aeson.defaultOptions ''SyncProgress
 
 instance ToSchema SyncProgress where
     declareNamedSchema =
@@ -952,7 +955,7 @@ instance Arbitrary WalletType where
     arbitrary = elements [minBound .. maxBound]
 
 -- Drops the @Wallet@ prefix.
-deriveJSON Serokell.defaultOptions { A.constructorTagModifier = drop 6 . map C.toLower
+deriveJSON Aeson.defaultOptions { A.constructorTagModifier = drop 6 . map C.toLower
                                    } ''WalletType
 
 instance ToSchema WalletType where
@@ -987,7 +990,7 @@ data Wallet = Wallet {
 
 
 
-deriveJSON Serokell.defaultOptions ''Wallet
+deriveJSON Aeson.defaultOptions ''Wallet
 
 instance ToSchema Wallet where
     declareNamedSchema =
@@ -1046,7 +1049,7 @@ data ExternalWallet = ExternalWallet
     , ewalBalance :: !(V1 Core.Coin)
     } deriving (Eq, Ord, Show, Generic)
 
-deriveJSON Serokell.defaultOptions ''ExternalWallet
+deriveJSON Aeson.defaultOptions ''ExternalWallet
 instance ToSchema ExternalWallet where
     declareNamedSchema =
         genericSchemaDroppingPrefix "ewal" (\(--^) props -> props
@@ -1068,7 +1071,7 @@ instance Arbitrary ExternalWallet where
 newtype AddressValidity = AddressValidity { isValid :: Bool }
   deriving (Eq, Show, Generic)
 
-deriveJSON Serokell.defaultOptions ''AddressValidity
+deriveJSON Aeson.defaultOptions ''AddressValidity
 
 instance ToSchema AddressValidity where
     declareNamedSchema = genericSchemaDroppingPrefix "is" (const identity)
@@ -1122,7 +1125,7 @@ data WalletAddress = WalletAddress
     , addrOwnership     :: !(V1 AddressOwnership)
     } deriving (Show, Eq, Generic, Ord)
 
-deriveJSON Serokell.defaultOptions ''WalletAddress
+deriveJSON Aeson.defaultOptions ''WalletAddress
 
 instance ToSchema WalletAddress where
     declareNamedSchema =
@@ -1241,9 +1244,9 @@ accountsHaveSameId a b =
     &&
     accIndex a == accIndex b
 
-deriveJSON Serokell.defaultOptions ''Account
-deriveJSON Serokell.defaultOptions ''AccountAddresses
-deriveJSON Serokell.defaultOptions ''AccountBalance
+deriveJSON Aeson.defaultOptions ''Account
+deriveJSON Aeson.defaultOptions ''AccountAddresses
+deriveJSON Aeson.defaultOptions ''AccountBalance
 
 instance ToSchema Account where
     declareNamedSchema =
@@ -1314,7 +1317,7 @@ data AccountUpdate = AccountUpdate {
     uaccName      :: !Text
   } deriving (Show, Eq, Generic)
 
-deriveJSON Serokell.defaultOptions ''AccountUpdate
+deriveJSON Aeson.defaultOptions ''AccountUpdate
 
 instance ToSchema AccountUpdate where
   declareNamedSchema =
@@ -1337,7 +1340,7 @@ data NewAccount = NewAccount
   , naccName             :: !Text
   } deriving (Show, Eq, Generic)
 
-deriveJSON Serokell.defaultOptions ''NewAccount
+deriveJSON Aeson.defaultOptions ''NewAccount
 
 instance Arbitrary NewAccount where
   arbitrary = NewAccount <$> arbitrary
@@ -1381,7 +1384,7 @@ data NewAddress = NewAddress
   , newaddrWalletId         :: !WalletId
   } deriving (Show, Eq, Generic)
 
-deriveJSON Serokell.defaultOptions ''NewAddress
+deriveJSON Aeson.defaultOptions ''NewAddress
 
 instance ToSchema NewAddress where
   declareNamedSchema =
@@ -1476,7 +1479,7 @@ data AddressPath = AddressPath
     , addrpathAddressIndex :: AddressLevel
     } deriving (Show, Eq, Generic)
 
-deriveJSON Serokell.defaultOptions ''AddressPath
+deriveJSON Aeson.defaultOptions ''AddressPath
 
 instance ToSchema AddressPath where
     declareNamedSchema =
@@ -1542,7 +1545,7 @@ data PasswordUpdate = PasswordUpdate {
   , pwdNew :: !SpendingPassword
   } deriving (Show, Eq, Generic)
 
-deriveJSON Serokell.defaultOptions ''PasswordUpdate
+deriveJSON Aeson.defaultOptions ''PasswordUpdate
 
 instance ToSchema PasswordUpdate where
   declareNamedSchema =
@@ -1571,7 +1574,7 @@ data EstimatedFees = EstimatedFees {
     feeEstimatedAmount :: !(V1 Core.Coin)
   } deriving (Show, Eq, Generic)
 
-deriveJSON Serokell.defaultOptions ''EstimatedFees
+deriveJSON Aeson.defaultOptions ''EstimatedFees
 
 instance ToSchema EstimatedFees where
   declareNamedSchema =
@@ -1597,7 +1600,7 @@ data PaymentDistribution = PaymentDistribution {
     , pdAmount  :: !(V1 Core.Coin)
     } deriving (Show, Ord, Eq, Generic)
 
-deriveJSON Serokell.defaultOptions ''PaymentDistribution
+deriveJSON Aeson.defaultOptions ''PaymentDistribution
 
 instance ToSchema PaymentDistribution where
   declareNamedSchema =
@@ -1627,7 +1630,7 @@ data PaymentSource = PaymentSource
   , psAccountIndex :: !AccountIndex
   } deriving (Show, Ord, Eq, Generic)
 
-deriveJSON Serokell.defaultOptions ''PaymentSource
+deriveJSON Aeson.defaultOptions ''PaymentSource
 
 instance ToSchema PaymentSource where
   declareNamedSchema =
@@ -1677,7 +1680,7 @@ instance Arbitrary (V1 Core.InputSelectionPolicy) where
     arbitrary = fmap V1 arbitrary
 
 
-deriveJSON Serokell.defaultOptions ''Payment
+deriveJSON Aeson.defaultOptions ''Payment
 
 instance Arbitrary Payment where
   arbitrary = Payment <$> arbitrary
@@ -1881,7 +1884,7 @@ data Transaction = Transaction
   , txStatus        :: !TransactionStatus
   } deriving (Show, Ord, Eq, Generic)
 
-deriveJSON Serokell.defaultOptions ''Transaction
+deriveJSON Aeson.defaultOptions ''Transaction
 
 instance ToSchema Transaction where
   declareNamedSchema =
@@ -1949,7 +1952,7 @@ data AddressAndPath = AddressAndPath
     -- ^ Derivation path used during generation of this address.
     } deriving (Show, Ord, Eq, Generic)
 
-deriveJSON Serokell.defaultOptions ''AddressAndPath
+deriveJSON Aeson.defaultOptions ''AddressAndPath
 
 instance ToSchema AddressAndPath where
     declareNamedSchema =
@@ -1982,7 +1985,7 @@ data UnsignedTransaction = UnsignedTransaction
     -- ^ Addresses (with derivation paths) which will be used as a sources of money.
     } deriving (Show, Ord, Eq, Generic)
 
-deriveJSON Serokell.defaultOptions ''UnsignedTransaction
+deriveJSON Aeson.defaultOptions ''UnsignedTransaction
 
 instance ToSchema UnsignedTransaction where
     declareNamedSchema =
@@ -2016,7 +2019,7 @@ data AddressWithProof = AddressWithProof
     -- ^ Base58-encoded derived PK (corresponding to derived SK).
     } deriving (Show, Ord, Eq, Generic)
 
-deriveJSON Serokell.defaultOptions ''AddressWithProof
+deriveJSON Aeson.defaultOptions ''AddressWithProof
 
 instance ToSchema AddressWithProof where
     declareNamedSchema =
@@ -2055,7 +2058,7 @@ data SignedTransaction = SignedTransaction
     -- ^ Addresses with proofs for inputs of this transaction.
     } deriving (Show, Ord, Eq, Generic)
 
-deriveJSON Serokell.defaultOptions ''SignedTransaction
+deriveJSON Aeson.defaultOptions ''SignedTransaction
 instance ToSchema SignedTransaction where
     declareNamedSchema =
         genericSchemaDroppingPrefix "stx" (\(--^) props -> props
@@ -2083,7 +2086,7 @@ data WalletAndTxHistory = WalletAndTxHistory
     , waltxsTransactions :: ![Transaction]
     } deriving (Eq, Ord, Show, Generic)
 
-deriveJSON Serokell.defaultOptions ''WalletAndTxHistory
+deriveJSON Aeson.defaultOptions ''WalletAndTxHistory
 
 instance ToSchema WalletAndTxHistory where
     declareNamedSchema =
@@ -2114,7 +2117,7 @@ data WalletSoftwareUpdate = WalletSoftwareUpdate
   -- Other types omitted for now.
   } deriving (Show, Eq, Generic)
 
-deriveJSON Serokell.defaultOptions ''WalletSoftwareUpdate
+deriveJSON Aeson.defaultOptions ''WalletSoftwareUpdate
 
 instance ToSchema WalletSoftwareUpdate where
   declareNamedSchema =
@@ -2147,7 +2150,7 @@ data WalletImport = WalletImport
   , wiFilePath         :: !FilePath
   } deriving (Show, Eq, Generic)
 
-deriveJSON Serokell.defaultOptions ''WalletImport
+deriveJSON Aeson.defaultOptions ''WalletImport
 
 instance ToSchema WalletImport where
   declareNamedSchema =
@@ -2229,7 +2232,7 @@ instance BuildableSafeGen Redemption where
         (redemptionRedemptionCode r)
         (redemptionSpendingPassword r)
 
-deriveJSON Serokell.defaultOptions  ''Redemption
+deriveJSON Aeson.defaultOptions ''Redemption
 
 instance ToSchema Redemption where
     declareNamedSchema =

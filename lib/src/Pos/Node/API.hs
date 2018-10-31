@@ -11,7 +11,7 @@ import           Universum
 import qualified Prelude
 import           Control.Lens (At, Index, IxValue, at, ix, (?~))
 import           Data.Aeson
-import qualified Data.Aeson.Options as Serokell
+import qualified Data.Aeson.Options as Aeson
 import           Data.Aeson.TH as A
 import           Data.Aeson.Types (Value (..), toJSONKeyText)
 import qualified Data.Char as C
@@ -169,7 +169,7 @@ instance BuildableSafeGen TimeInfo where
         %" }")
         timeDifferenceFromNtpServer
 
-deriveJSON Serokell.defaultOptions ''TimeInfo
+deriveJSON Aeson.defaultOptions ''TimeInfo
 
 
 
@@ -277,7 +277,7 @@ data NodeInfo = NodeInfo {
    , nfoSubscriptionStatus    :: Map NodeId SubscriptionStatus
    } deriving (Show, Eq, Generic)
 
-deriveJSON Serokell.defaultOptions ''NodeInfo
+deriveJSON Aeson.defaultOptions ''NodeInfo
 
 instance ToSchema NodeInfo where
     declareNamedSchema =
@@ -336,7 +336,7 @@ instance BuildableSafeGen SubscriptionStatus where
         Subscribed  -> "Subscribed"
         Subscribing -> "Subscribing"
 
-deriveJSON Serokell.defaultOptions ''SubscriptionStatus
+deriveJSON Aeson.defaultOptions ''SubscriptionStatus
 
 instance Arbitrary SubscriptionStatus where
     arbitrary =
@@ -499,7 +499,7 @@ data NodeSettings = NodeSettings
     , setGitRevision    :: !Text
     } deriving (Show, Eq, Generic)
 
-deriveJSON Serokell.defaultOptions ''NodeSettings
+deriveJSON Aeson.defaultOptions ''NodeSettings
 
 instance ToSchema NodeSettings where
   declareNamedSchema =

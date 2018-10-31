@@ -56,10 +56,6 @@ instance HasGenRequest (apiType :> sub) =>
          HasGenRequest (WithDefaultApiArg apiType :> sub) where
     genRequest _ = genRequest (Proxy @(apiType :> sub))
 
--- instance HasGenRequest (argA a :> argB a :> sub) =>
---          HasGenRequest (AlternativeApiArg argA argB a :> sub) where
---     genRequest _ = genRequest (Proxy @(argA a :> argB a :> sub))
-
 -- NOTE(adinapoli): This can be improved to produce proper filtering & sorting
 -- queries.
 instance HasGenRequest sub => HasGenRequest (SortBy syms res :> sub) where

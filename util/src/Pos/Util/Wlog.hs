@@ -15,6 +15,7 @@ module Pos.Util.Wlog
         , runNamedPureLog
           -- * Setup
         , setupLogging
+        , setupLogging'
         , setupTestLogging
           -- * Logging functions
         , logDebug
@@ -59,5 +60,5 @@ import           Pos.Util.Wlog.Compatibility (CanLog (..), HasLoggerName (..),
                      logInfo, logMCond, logMessage, logNotice, logWarning,
                      productionB, removeAllHandlers, retrieveLogContent,
                      runNamedPureLog, setLoggerName, setupLogging,
-                     setupTestLogging, usingLoggerName)
+                     setupLogging', setupTestLogging, usingLoggerName)
 

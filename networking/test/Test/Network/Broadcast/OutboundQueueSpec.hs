@@ -25,7 +25,6 @@ import           Test.QuickCheck (Gen, Property, choose, forAll, ioProperty,
                      property, suchThat, (===))
 import qualified Test.QuickCheck as QC
 
-import           Pos.Util.Wlog
 
 arbitraryNodeType :: Gen NodeType
 arbitraryNodeType = QC.elements [minBound .. maxBound]
@@ -81,7 +80,6 @@ arbitraryPeers genNid genNodeType = do
 -- "outbound queue".
 testInFlight :: IO Bool
 testInFlight = do
-    removeAllHandlers
 
     -- Set up some test nodes
     allNodes <- do

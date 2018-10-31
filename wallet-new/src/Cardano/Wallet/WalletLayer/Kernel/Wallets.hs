@@ -1,9 +1,11 @@
 {-# LANGUAGE LambdaCase #-}
 module Cardano.Wallet.WalletLayer.Kernel.Wallets (
       createWallet
+    , createExternalWallet
     , updateWallet
     , updateWalletPassword
     , deleteWallet
+    , deleteExternalWallet
     , getWallet
     , getWallets
     , getWalletUtxos
@@ -46,8 +48,9 @@ import           Cardano.Wallet.Kernel.Restore (blundToResolvedBlock,
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
 import           Cardano.Wallet.Kernel.Util.Core (getCurrentTimestamp)
 import qualified Cardano.Wallet.Kernel.Wallets as Kernel
-import           Cardano.Wallet.WalletLayer (CreateWallet (..),
-                     CreateWalletError (..), DeleteWalletError (..),
+import           Cardano.Wallet.WalletLayer (CreateExternalWalletError (..),
+                     CreateWallet (..), CreateWalletError (..),
+                     DeleteExternalWalletError (..), DeleteWalletError (..),
                      GetUtxosError (..), GetWalletError (..),
                      UpdateWalletError (..), UpdateWalletPasswordError (..))
 import           Cardano.Wallet.WalletLayer.Kernel.Conv
@@ -172,6 +175,33 @@ prefilter nm esk wallet wId blund =
         Nothing -> (Map.empty, [])
         Just rb -> prefilterBlock nm rb [(wId,esk)]
 
+createExternalWallet :: MonadIO m
+                     => Kernel.PassiveWallet
+                     -> V1.NewExternalWallet
+                     -> m (Either CreateExternalWalletError V1.ExternalWallet)
+createExternalWallet wallet newExternalWalletRequest = runExceptT $ do
+    let encodedRootPK = V1.newewalRootPK newExternalWalletRequest
+        name = V1.newewalName newExternalWalletRequest
+        assuranceLevel = V1.newewalAssuranceLevel newExternalWalletRequest
+    rootPK <- withExceptT CreateExternalWalletInvalidRootPK $ ExceptT $
+        pure $ V1.mkPublicKeyFromBase58 encodedRootPK
+    root <- withExceptT CreateExternalWalletError $ ExceptT $ liftIO $
+        Kernel.createExternalHdWallet wallet
+                                      rootPK
+                                      (fromAssuranceLevel assuranceLevel)
+                                      (HD.WalletName name)
+    return (mkExternalWallet name assuranceLevel root)
+  where
+    mkExternalWallet :: Text -> V1.AssuranceLevel -> HD.HdRoot -> V1.ExternalWallet
+    mkExternalWallet v1WalletName v1AssuranceLevel hdRoot = V1.ExternalWallet {
+          ewalId             = walletId
+        , ewalName           = v1WalletName
+        , ewalBalance        = V1 (mkCoin 0)
+        , ewalAssuranceLevel = v1AssuranceLevel
+        }
+      where
+        walletId = toRootId $ hdRoot ^. HD.hdRootId
+
 -- | Updates the 'SpendingPassword' for this wallet.
 updateWallet :: MonadIO m
              => Kernel.PassiveWallet
@@ -219,6 +249,20 @@ deleteWallet wallet wId = runExceptT $ do
       let nm = makeNetworkMagic (wallet ^. walletProtocolMagic)
       Kernel.removeRestoration wallet (WalletIdHdRnd rootId)
       Kernel.deleteHdWallet nm wallet rootId
+
+-- | Deletes external wallets. Please note that there's no actions in the
+-- 'Keystore', because it contains only root secret keys.
+deleteExternalWallet :: MonadIO m
+                     => Kernel.PassiveWallet
+                     -> V1.PublicKeyAsBase58
+                     -> m (Either DeleteExternalWalletError ())
+deleteExternalWallet wallet encodedRootPK = runExceptT $ do
+    rootPK <- withExceptT DeleteExternalWalletInvalidRootPK $ ExceptT $
+        pure $ V1.mkPublicKeyFromBase58 encodedRootPK
+    let nm = makeNetworkMagic (wallet ^. walletProtocolMagic)
+        rootId = HD.pkToHdRootId nm rootPK
+    withExceptT DeleteExternalWalletError $ ExceptT $ liftIO $ do
+        Kernel.deleteExternalHdWallet wallet rootId
 
 -- | Gets a specific wallet.
 getWallet :: MonadIO m

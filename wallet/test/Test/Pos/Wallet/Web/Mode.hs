@@ -50,8 +50,7 @@ import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Ssc (SscMemTag, SscState)
 import           Pos.Chain.Txp (TxAux)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..),
-                     getPublicDefault, getSecretDefault,
-                     modifyPublicPureDefault, modifySecretPureDefault)
+                     getSecretDefault, modifySecretPureDefault)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Balances (MonadBalances (..))
 import           Pos.Client.Txp.History (MonadTxHistory (..),
@@ -93,7 +92,6 @@ import           Pos.Launcher (HasConfigurations)
 import           Pos.Util (postfixLFields)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                      modifyLoggerNameDefault)
-import           Pos.Util.UserPublic (HasUserPublic (..), UserPublic)
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret)
 import           Pos.Util.Util (HasLens (..))
 import           Pos.Util.Wlog (HasLoggerName (..), LoggerName)
@@ -158,8 +156,6 @@ instance Show WalletTestParams where
 data WalletTestContext = WalletTestContext
     { wtcBlockTestContext :: !BlockTestContext
     , wtcWalletState      :: !WalletDB
-    , wtcUserPublic       :: !(TVar UserPublic)
-    -- ^ Public keys which are used to identify external wallets
     , wtcUserSecret       :: !(TVar UserSecret)
     -- ^ Secret keys which are used to send transactions
     , wtcRecoveryHeader   :: !RecoveryHeader
@@ -204,7 +200,6 @@ initWalletTestContext genesisConfig WalletTestParams {..} callback =
         $ \wtcBlockTestContext -> do
             wtc <- liftIO $ do
                 wtcWalletState <- openMemState
-                wtcUserPublic <- STM.newTVarIO def
                 wtcUserSecret <- STM.newTVarIO def
                 wtcRecoveryHeader <- STM.newEmptyTMVarIO
                 -- some kind of kostil to get tip
@@ -306,9 +301,6 @@ instance MonadSlotsData ctx WalletTestMode => MonadSlots ctx WalletTestMode wher
     getCurrentSlotInaccurate _ = getCurrentSlotInaccurateTestDefault
     currentTimeSlotting = currentTimeSlottingTestDefault
 
-instance HasUserPublic WalletTestContext where
-    userPublic = wtcUserPublic_L
-
 instance HasUserSecret WalletTestContext where
     userSecret = wtcUserSecret_L
 
@@ -393,11 +385,9 @@ instance MonadAddresses WalletTestMode where
     getFakeChangeAddress nm _ = pure (largestHDAddressBoot nm)
 
 instance MonadKeysRead WalletTestMode where
-    getPublic = getPublicDefault
     getSecret = getSecretDefault
 
 instance MonadKeys WalletTestMode where
-    modifyPublic = modifyPublicPureDefault
     modifySecret = modifySecretPureDefault
 
 instance MonadTxHistory WalletTestMode where

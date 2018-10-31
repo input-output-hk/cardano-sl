@@ -36,8 +36,7 @@ import           Pos.Core.NetworkMagic (NetworkMagic)
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.Wallet.Web.State.Storage (WAddressMeta (..))
 import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials,
-                     WalletDecrCredentialsKey (..), keyToWalletDecrCredentials,
-                     selectOwnAddresses)
+                     eskToWalletDecrCredentials, selectOwnAddresses)
 
 import           Cardano.Wallet.Kernel.DB.BlockContext
 import           Cardano.Wallet.Kernel.DB.BlockMeta
@@ -200,7 +199,7 @@ prefilterUtxo :: NetworkMagic -> HdRootId -> EncryptedSecretKey -> Utxo -> Map H
 prefilterUtxo nm rootId esk utxo = map toPrefilteredUtxo prefUtxo
     where
         (_,prefUtxo) = prefilterUtxo' wKey utxo
-        wKey         = (WalletIdHdRnd rootId, keyToWalletDecrCredentials nm $ KeyForRegular esk)
+        wKey         = (WalletIdHdRnd rootId, eskToWalletDecrCredentials nm esk)
 
 -- | Produce Utxo along with all (extended) addresses occurring in the Utxo
 toPrefilteredUtxo :: UtxoWithAddrId -> (Utxo,[AddrWithId])
@@ -309,7 +308,7 @@ prefilterBlock nm block rawKeys =
     accountIds = Map.keysSet inpAll `Set.union` Map.keysSet outAll
 
     toWalletKey :: (WalletId, EncryptedSecretKey) -> WalletKey
-    toWalletKey (wid, esk) = (wid, keyToWalletDecrCredentials nm $ KeyForRegular esk)
+    toWalletKey (wid, esk) = (wid, eskToWalletDecrCredentials nm esk)
 
 mkPrefBlock :: BlockContext
             -> Map HdAccountId (Set TxIn)

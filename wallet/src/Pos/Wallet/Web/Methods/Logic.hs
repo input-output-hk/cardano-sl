@@ -13,18 +13,14 @@ module Pos.Wallet.Web.Methods.Logic
        , getAccounts
 
        , doesWalletExist
-       , isWalletExternal
        , createWalletSafe
        , newAccount
        , newAccountIncludeUnready
-       , newExternalAccount
-       , newExternalAccountIncludeUnready
        , newAddress
        , newAddress_
        , markWalletReady
 
        , deleteWallet
-       , deleteExternalWallet
        , deleteAccount
 
        , updateWallet
@@ -47,12 +43,11 @@ import           Servant.API.ContentTypes (NoContent (..))
 
 import           Pos.Chain.Txp (TxAux, TxId, UndoMap, applyUtxoModToAddrCoinMap)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead,
-                     addSecretKey, deletePublicKeyBy, deleteSecretKeyBy)
-import           Pos.Core (Address, Coin, makePubKeyAddressBoot, mkCoin,
-                     sumCoins, unsafeIntegerToCoin)
+                     addSecretKey, deleteSecretKeyBy)
+import           Pos.Core (Address, Coin, mkCoin, sumCoins, unsafeIntegerToCoin)
 import           Pos.Core.NetworkMagic (NetworkMagic (..))
-import           Pos.Crypto (PassPhrase, PublicKey, changeEncPassphrase,
-                     checkPassMatches, emptyPassphrase, firstHardened)
+import           Pos.Crypto (PassPhrase, changeEncPassphrase, checkPassMatches,
+                     emptyPassphrase)
 import           Pos.DB.Txp (GenericTxpLocalData, MonadTxpMem, getLocalTxs,
                      getLocalUndos, withTxpLocalData)
 import           Pos.Infra.Slotting (MonadSlots)
@@ -62,8 +57,8 @@ import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Wlog (WithLogger)
 import           Pos.Wallet.Aeson ()
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
-import           Pos.Wallet.Web.Account (AddrGenSeed, GenSeed (DeterminedSeed),
-                     findKey, genUniqueAccountId, genUniqueAddress, getSKById)
+import           Pos.Wallet.Web.Account (AddrGenSeed, findKey,
+                     genUniqueAccountId, genUniqueAddress, getSKById)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..),
                      CAccountInit (..), CAccountMeta (..), CAddress (..), CId,
                      CWallet (..), CWalletMeta (..), Wal, encToCId, mkCCoin)
@@ -72,8 +67,7 @@ import           Pos.Wallet.Web.State (AddressInfo (..),
                      AddressLookupMode (Deleted, Ever, Existing),
                      CustomAddressType (ChangeAddr, UsedAddr), WAddressMeta,
                      WalletDbReader, WalletSnapshot, addWAddress, askWalletDB,
-                     askWalletSnapshot, createAccountWithAddress,
-                     createAccountWithoutAddresses, createWallet,
+                     askWalletSnapshot, createAccountWithAddress, createWallet,
                      doesAccountExist, getAccountIds, getWalletAddresses,
                      getWalletBalancesAndUtxo, getWalletMetaIncludeUnready,
                      getWalletPassLU, getWalletSnapshot, isCustomAddress,
@@ -83,8 +77,7 @@ import           Pos.Wallet.Web.State (AddressInfo (..),
 import           Pos.Wallet.Web.State.Storage (WalletInfo (..), getWalletInfos)
 import           Pos.Wallet.Web.Tracking (BlockLockMode, CAccModifier (..),
                      CachedCAccModifier, sortedInsertions, txMempoolToModifier)
-import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentialsKey (..),
-                     keyToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 import           Pos.Wallet.Web.Tracking.Modifier (IndexedMapModifier (..))
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow,
                      getAccountMetaOrThrow, getWalletAccountIds,
@@ -141,7 +134,7 @@ getAccount
 getAccount nm accId = do
     ws <- askWalletSnapshot
     mps <- withTxpLocalData getMempoolSnapshot
-    accMod <- txMempoolToModifier ws mps . (keyToWalletDecrCredentials nm) =<< findKey nm accId
+    accMod <- txMempoolToModifier ws mps . (eskToWalletDecrCredentials nm) =<< findKey nm accId
     getAccountMod ws accMod accId
 
 getAccountsIncludeUnready
@@ -158,7 +151,7 @@ getAccountsIncludeUnready nm ws mps includeUnready mCAddr = do
     let groupedAccIds = fmap reverse $ HM.fromListWith mappend $
                         accIds <&> \acc -> (aiWId acc, [acc])
     concatForM (HM.toList groupedAccIds) $ \(wid, walAccIds) -> do
-      accMod <- txMempoolToModifier ws mps . (keyToWalletDecrCredentials nm) =<< findKey nm wid
+      accMod <- txMempoolToModifier ws mps . (eskToWalletDecrCredentials nm) =<< findKey nm wid
       mapM (getAccountMod ws accMod) walAccIds
   where
     noWallet cAddr = RequestError $
@@ -186,7 +179,7 @@ getWalletIncludeUnready nm ws mps includeUnready cAddr = do
     accounts   <- getAccountsIncludeUnready nm ws mps includeUnready (Just cAddr)
     let accountsNum = length accounts
     key        <- findKey nm cAddr
-    accMod     <- txMempoolToModifier ws mps . (keyToWalletDecrCredentials nm) $ key
+    accMod     <- txMempoolToModifier ws mps . (eskToWalletDecrCredentials nm) $ key
     balance    <- computeBalance accMod
     hasPass    <- getSKById nm cAddr >>= \case
                       Nothing -> return False -- No secret key, it's external wallet, so no password.
@@ -271,7 +264,7 @@ newAddress nm addGenSeed passphrase accId = do
     mps <- withTxpLocalData getMempoolSnapshot
     ws <- askWalletSnapshot
     cwAddrMeta <- newAddress_ nm ws addGenSeed passphrase accId
-    accMod <- txMempoolToModifier ws mps . (keyToWalletDecrCredentials nm) =<< findKey nm accId
+    accMod <- txMempoolToModifier ws mps . (eskToWalletDecrCredentials nm) =<< findKey nm accId
     return $ getWAddress ws accMod cwAddrMeta
 
 newAccountIncludeUnready
@@ -289,7 +282,7 @@ newAccountIncludeUnready nm includeUnready addGenSeed passphrase CAccountInit {.
     -- TODO nclarke We read the mempool at this point to be consistent with the previous
     -- behaviour, but we may want to consider whether we should read it _after_ the
     -- account is created, since it's not used until we call 'getAccountMod'
-    accMod <- txMempoolToModifier ws mempool . (keyToWalletDecrCredentials nm) =<< findKey nm caInitWId
+    accMod <- txMempoolToModifier ws mempool . (eskToWalletDecrCredentials nm) =<< findKey nm caInitWId
     -- check wallet exists
     _ <- getWalletIncludeUnready nm ws mempool includeUnready caInitWId
 
@@ -312,42 +305,6 @@ newAccount
     -> m CAccount
 newAccount nm = newAccountIncludeUnready nm False
 
--- | This is an account for external wallet. There's no 'AddrGenSeed' because
--- new address for external wallet can be generated only by external wallet.
--- There's no 'PassPhrase' as well because external wallet doesn't have spending
--- password.
-newExternalAccountIncludeUnready
-    :: MonadWalletLogic ctx m
-    => NetworkMagic
-    -> Bool
-    -> CAccountInit
-    -> m CAccount
-newExternalAccountIncludeUnready nm includeUnready (CAccountInit accountMeta walletId) = do
-    mps <- withTxpLocalData getMempoolSnapshot
-    db  <- askWalletDB
-    ws  <- getWalletSnapshot db
-    accModifier <- txMempoolToModifier ws mps . (keyToWalletDecrCredentials nm) =<< findKey nm walletId
-    -- Check that corresponding external wallet exists.
-    void $ getWalletIncludeUnready nm ws mps includeUnready walletId
-
-    accountId <- genUniqueAccountId ws (DeterminedSeed firstHardened) walletId
-
-    -- Initial account of the regular wallet already contains one address,
-    -- but we cannot create addresses for external wallets, so create
-    -- account without addresses.
-    createAccountWithoutAddresses db accountId accountMeta
-    -- Re-read DB after the update.
-    ws' <- askWalletSnapshot
-    getAccountMod ws' accModifier accountId
-
--- | New account for external wallet.
-newExternalAccount
-    :: MonadWalletLogic ctx m
-    => NetworkMagic
-    -> CAccountInit
-    -> m CAccount
-newExternalAccount nm = newExternalAccountIncludeUnready nm False
-
 doesWalletExist
     :: MonadWalletLogic ctx m
     => CId Wal -> m Bool
@@ -355,16 +312,6 @@ doesWalletExist walletId = do
     db <- askWalletDB
     ws <- getWalletSnapshot db
     return $ isJust $ getWalletMetaIncludeUnready ws True walletId
-
--- | Node stores public key to identify external wallets,
--- it is a 'Left'-variant here.
-isWalletExternal
-    :: MonadWalletLogicRead ctx m
-    => NetworkMagic -> CId Wal -> m Bool
-isWalletExternal nm walletId =
-    findKey nm walletId >>= \case
-        KeyForExternal _ -> pure True
-        _                -> pure False
 
 createWalletSafe
     :: MonadWalletLogic ctx m
@@ -414,15 +361,6 @@ deleteWallet nm wid = do
     db <- askWalletDB
     removeWallet db wid
     deleteSecretKeyBy ((== wid) . (encToCId nm))
-    return NoContent
-
-deleteExternalWallet :: MonadWalletLogic ctx m => NetworkMagic -> PublicKey -> m NoContent
-deleteExternalWallet nm publicKey = do
-    let walletId = encodeCType . makePubKeyAddressBoot nm $ publicKey
-    db <- askWalletDB
-    removeWallet db walletId
-    -- Since there's no secret key for external wallet, delete its public key.
-    deletePublicKeyBy (== publicKey)
     return NoContent
 
 deleteAccount :: MonadWalletLogicRead ctx m => AccountId -> m NoContent

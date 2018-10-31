@@ -2,6 +2,7 @@
 module Test.Spec.CoinSelection.Generators (
       genGroupedUtxo
     , genPayee
+    , genPayeeWithNM
     , genPayees
     , genFiddlyPayees
     , genUtxo
@@ -26,11 +27,12 @@ import           Test.QuickCheck (Gen, arbitrary, choose, suchThat)
 
 import qualified Pos.Chain.Txp as Core
 import qualified Pos.Core as Core
+import           Pos.Core.NetworkMagic (NetworkMagic)
 
 import           Cardano.Wallet.Kernel.Util.Core (paymentAmount, utxoBalance)
 
 -- type class instances
-import           Test.Pos.Core.Arbitrary ()
+import           Test.Pos.Core.Arbitrary (genAddress)
 
 {-------------------------------------------------------------------------------
   Useful types
@@ -91,6 +93,16 @@ arbitraryAddress opts = do
     let redeemCondition a = allowRedeemAddresses opts ||
                             not (Core.isRedeemAddress a)
     arbitrary `suchThat` (\a -> fiddlyCondition a && redeemCondition a)
+
+arbitraryAddressWithNM :: NetworkMagic
+                       -> StakeGenOptions
+                       -> Gen Core.Address
+arbitraryAddressWithNM nm opts = do
+    let fiddlyCondition a = not (fiddlyAddresses opts) ||
+                                (length (sformat F.build a) < 104)
+    let redeemCondition a = allowRedeemAddresses opts ||
+                            not (Core.isRedeemAddress a)
+    (genAddress nm) `suchThat` (\a -> fiddlyCondition a && redeemCondition a)
 
 
 -- | Finalise the generation of 'a' by transferring all the remaining \"slack\".
@@ -257,6 +269,14 @@ genTxOut opts = fromStakeOptions opts genOne paymentAmount
             addr  <- arbitraryAddress opts
             return (Core.TxOut addr coins :| [])
 
+genTxOutWithNM :: NetworkMagic -> StakeGenOptions -> Gen (NonEmpty Core.TxOut)
+genTxOutWithNM nm opts = fromStakeOptions opts genOne paymentAmount
+    where
+        genOne :: Maybe (NonEmpty Core.TxOut) -> Core.Coin -> Gen (NonEmpty Core.TxOut)
+        genOne _ coins = do
+            addr  <- arbitraryAddressWithNM nm opts
+            return (Core.TxOut addr coins :| [])
+
 utxoSmallestEntry :: Core.Utxo -> Core.Coin
 utxoSmallestEntry utxo =
     case sort (Map.toList utxo) of
@@ -312,6 +332,18 @@ genPayee :: Core.Utxo -> Pay -> Gen (NonEmpty Core.TxOut)
 genPayee _utxo payment = do
     let balance            = toLovelaces payment
     genTxOut StakeGenOptions {
+              stakeMaxValue         = Nothing
+            , stakeGenerationTarget = AtLeast
+            , stakeNeeded           = Core.mkCoin balance
+            , stakeMaxEntries       = Just 1
+            , fiddlyAddresses       = False
+            , allowRedeemAddresses  = False
+            }
+
+genPayeeWithNM :: NetworkMagic -> Core.Utxo -> Pay -> Gen (NonEmpty Core.TxOut)
+genPayeeWithNM nm _utxo payment = do
+    let balance            = toLovelaces payment
+    genTxOutWithNM nm StakeGenOptions {
               stakeMaxValue         = Nothing
             , stakeGenerationTarget = AtLeast
             , stakeNeeded           = Core.mkCoin balance

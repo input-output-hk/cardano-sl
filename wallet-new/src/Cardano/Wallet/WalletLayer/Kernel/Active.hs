@@ -17,7 +17,9 @@ import           Data.Time.Units (Second)
 
 import           Pos.Binary.Class (decodeFull')
 import           Pos.Chain.Txp (Tx (..), TxSigData (..))
-import           Pos.Core (Address, Coin, TxFeePolicy)
+import           Pos.Core (AddrAttributes (..), Address (..), Coin, TxFeePolicy)
+import           Pos.Core.Attributes (Attributes (..))
+import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
 import           Pos.Crypto (PassPhrase, PublicKey, Signature (..))
 
 import           Cardano.Crypto.Wallet (xsignature)
@@ -29,6 +31,7 @@ import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      InputGrouping, newOptions)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.TxMeta.Types
+import           Cardano.Wallet.Kernel.Internal (walletProtocolMagic)
 import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as Node
 import qualified Cardano.Wallet.Kernel.Transactions as Kernel
 import           Cardano.Wallet.WalletLayer (EstimateFeesError (..),
@@ -52,8 +55,39 @@ pay activeWallet pw grouping regulation payment = liftIO $ do
       runExceptT $ do
         (opts, accId, payees) <- withExceptT NewPaymentWalletIdDecodingFailed $
                                    setupPayment policy grouping regulation payment
+
+        -- Verify that all payee addresses are of the same `NetworkMagic`
+        -- as our `ActiveWallet`.
+        let nm = makeNetworkMagic $ Kernel.walletPassive activeWallet ^. walletProtocolMagic
+        ExceptT $ pure $ verifyPayeesNM nm payees
+
+        -- Pay the payees
         withExceptT NewPaymentError $ ExceptT $
-          Kernel.pay activeWallet pw opts accId payees
+            Kernel.pay activeWallet pw opts accId payees
+
+-- | Verifies that the `NetworkMagic` of each payee address matches the
+-- provided `NetworkMagic`.
+verifyPayeesNM
+    :: NetworkMagic
+    -> NonEmpty (Address, Coin)
+    -> Either NewPaymentError ()
+verifyPayeesNM nm payees =
+    case nonEmpty invalidPayees of
+        Nothing -> Right ()
+        Just is -> Left $ NewPaymentAddressBadNetworkMagic nm is
+  where
+    addressHasValidMagic :: AddrAttributes -> Bool
+    addressHasValidMagic addrAttrs = nm == (aaNetworkMagic addrAttrs)
+    --
+    verifyPayeeNM
+        :: (Address, Coin)
+        -> Either Address ()
+    verifyPayeeNM (addr, _)
+        | (addressHasValidMagic ((attrData . addrAttributes) addr)) = Right ()
+        | otherwise = Left addr
+    --
+    invalidPayees :: [Address]
+    invalidPayees = fst $ partitionEithers (toList (map verifyPayeeNM payees))
 
 -- | Estimates the fees for a payment.
 estimateFees :: MonadIO m

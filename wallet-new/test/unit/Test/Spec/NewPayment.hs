@@ -32,7 +32,7 @@ import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic,
                      safeDeterministicKeyGen)
 
 import           Test.Spec.CoinSelection.Generators (InitialBalance (..),
-                     Pay (..), genPayee, genUtxoWithAtLeast)
+                     Pay (..), genPayeeWithNM, genUtxoWithAtLeast)
 
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel as Kernel
@@ -110,7 +110,7 @@ prepareFixtures nm initialBalance toPay = do
                                                                (getHdAddressIx newIndex)
                         return $ M.insert txIn (TxOutAux (TxOut addr coin)) acc
                     ) M.empty (M.toList utxo)
-    payees <- fmap (\(TxOut addr coin) -> (addr, coin)) <$> pick (genPayee utxo toPay)
+    payees <- fmap (\(TxOut addr coin) -> (addr, coin)) <$> pick (genPayeeWithNM nm utxo toPay)
 
     return $ \keystore aw -> do
         liftIO $ Keystore.insert (WalletIdHdRnd newRootId) esk keystore

@@ -16,6 +16,7 @@ import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountIx (..),
                      HdAddressIx (..))
 import           Pos.Core (aaPkDerivationPath, addrAttributesUnwrapped,
                      makeRootPubKeyAddress)
+import           Pos.Core.NetworkMagic (NetworkMagic)
 import           Pos.Crypto (EncryptedSecretKey, HDPassphrase, PublicKey,
                      deriveHDPassphrase, encToPublic, unpackHDAddressAttr)
 
@@ -40,18 +41,18 @@ data WalletDecrCredentialsKey
     deriving (Show)
 
 -- | There's a secret key for regular wallet or a public key for external wallet.
-keyToWalletDecrCredentials :: WalletDecrCredentialsKey -> WalletDecrCredentials
-keyToWalletDecrCredentials (KeyForRegular sk)  = credentialsFromPublicKey $ encToPublic sk
-keyToWalletDecrCredentials (KeyForExternal pk) = credentialsFromPublicKey pk
+keyToWalletDecrCredentials :: NetworkMagic -> WalletDecrCredentialsKey -> WalletDecrCredentials
+keyToWalletDecrCredentials nm (KeyForRegular sk)  = credentialsFromPublicKey nm $ encToPublic sk
+keyToWalletDecrCredentials nm (KeyForExternal pk) = credentialsFromPublicKey nm pk
 
-credentialsFromPublicKey :: PublicKey -> WalletDecrCredentials
-credentialsFromPublicKey publicKey = (hdPassword, walletId)
+credentialsFromPublicKey :: NetworkMagic -> PublicKey -> WalletDecrCredentials
+credentialsFromPublicKey nm publicKey = (hdPassword, walletId)
   where
     hdPassword = deriveHDPassphrase publicKey
 
     -- When migrating from 'Pos.Wallet.Web.Tracking.Decrypt' this type is
     -- changed from 'CId Wal' to 'V1.WalletId'
-    walletId   = V1.WalletId . (sformat build) $ makeRootPubKeyAddress publicKey
+    walletId   = V1.WalletId . (sformat build) $ makeRootPubKeyAddress nm publicKey
 
 selectOwnAddresses
     :: WalletDecrCredentials

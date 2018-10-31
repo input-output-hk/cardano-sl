@@ -43,7 +43,8 @@ import           Pos.Launcher.Configuration (ConfigurationOptions (..),
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Util.Log.LoggerConfig (defaultInteractiveConfiguration)
 import           Pos.Util.Util (realTime)
-import           Pos.Util.Wlog (Severity (Debug), setupLogging)
+import           Pos.Util.Wlog (Severity (Debug), removeAllHandlers,
+                     setupLogging')
 
 import           Test.Pos.Block.Logic.Emulation (runEmulation, sudoLiftIO)
 import           Test.Pos.Block.Logic.Mode (BlockTestContext, BlockTestMode,
@@ -226,7 +227,7 @@ verifyHeaderBenchmark !genesisConfig !secretKeys !tp = env (runBlockTestMode gen
 runBenchmark :: IO ()
 runBenchmark = do
     let loggerConfig = defaultInteractiveConfiguration Debug
-    setupLogging "verifyBenchmark" loggerConfig
+    lh <- setupLogging' "verifyBenchmark" loggerConfig
     startTime <- realTime
     let cfo = defaultConfigurationOptions
             { cfoFilePath = "../lib/configuration.yaml"
@@ -250,3 +251,4 @@ runBenchmark = do
                         [ verifyBlocksBenchmark genesisConfig secretKeys tp ctx
                         , verifyHeaderBenchmark genesisConfig secretKeys tp
                         ]
+    removeAllHandlers lh

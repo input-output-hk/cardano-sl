@@ -229,14 +229,17 @@ mkBlockchainHeight :: Core.BlockCount -> BlockchainHeight
 mkBlockchainHeight = BlockchainHeight . MeasuredIn
 
 instance Arbitrary BlockchainHeight where
-    arbitrary = mkBlockchainHeight . Core.BlockCount <$> choose (minBound, maxBound)
+    arbitrary =
+        mkBlockchainHeight . Core.BlockCount <$> choose (minBound, maxBound)
 
 instance Example BlockchainHeight
 
 instance ToJSON BlockchainHeight where
-    toJSON (BlockchainHeight (MeasuredIn w)) = object [ "quantity" .= toJSON (Core.getBlockCount w)
-                                                      , "unit"     .= String "blocks"
-                                                      ]
+    toJSON (BlockchainHeight (MeasuredIn w)) =
+        object
+            [ "quantity" .= toJSON (Core.getBlockCount w)
+            , "unit"     .= String "blocks"
+            ]
 
 instance FromJSON BlockchainHeight where
     parseJSON = withObject "BlockchainHeight" $ \sl ->
@@ -276,13 +279,6 @@ data NodeInfo = NodeInfo {
 
 deriveJSON Serokell.defaultOptions ''NodeInfo
 
-instance Example NodeInfo where
-    example = NodeInfo <$> example
-                       <*> example  -- NOTE: will produce `Just a`
-                       <*> example
-                       <*> example
-                       <*> example
-
 instance ToSchema NodeInfo where
     declareNamedSchema =
         genericSchemaDroppingPrefix "nfo" (\(--^) props -> props
@@ -321,6 +317,13 @@ instance BuildableSafeGen NodeInfo where
         nfoLocalBlockchainHeight
         nfoLocalTimeInformation
         (Map.toList nfoSubscriptionStatus)
+
+instance Example NodeInfo where
+    example = NodeInfo <$> example
+                       <*> example  -- NOTE: will produce `Just a`
+                       <*> example
+                       <*> example
+                       <*> example
 
 -- | The sync progress with the blockchain.
 
@@ -514,6 +517,7 @@ instance Arbitrary NodeSettings where
                              <*> pure "0e1c9322a"
 
 instance Example NodeSettings
+
 deriveSafeBuildable ''NodeSettings
 instance BuildableSafeGen NodeSettings where
     buildSafeGen _ NodeSettings{..} = bprint ("{"
@@ -528,19 +532,25 @@ instance BuildableSafeGen NodeSettings where
         setGitRevision
 
 
--- The API definition is down here for now due to TH staging restrictions. Will
--- relocate other stuff into it's own module when the extraction is complete.
-type API =
+type SettingsAPI =
+    Tags '["Settings"]
+        :> "node-settings"
+        :> Summary "Retrieves the static settings for this node."
+        :> Get '[ValidJSON] (WalletResponse NodeSettings)
+
+type InfoAPI =
         Tags '["Info"]
             :> "node-info"
             :> Summary "Retrieves the dynamic information for this node."
             :> CustomQueryFlag "force_ntp_check" ForceNtpCheck
             :> Get '[ValidJSON] (WalletResponse NodeInfo)
+
+-- The API definition is down here for now due to TH staging restrictions. Will
+-- relocate other stuff into it's own module when the extraction is complete.
+type API =
+        SettingsAPI
     :<|>
-        Tags '["Settings"]
-            :> "node-settings"
-            :> Summary "Retrieves the static settings for this node."
-            :> Get '[ValidJSON] (WalletResponse NodeSettings)
+        InfoAPI
     :<|>
         "update"
             :> ( "apply"

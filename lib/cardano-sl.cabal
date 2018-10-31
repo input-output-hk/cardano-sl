@@ -121,6 +121,7 @@ library
                         Pos.Util.UnitsOfMeasure
                         Pos.Util.Pagination
                         Pos.Util.Example
+                        Pos.Util.KnownSymbols
 
 
   other-modules:

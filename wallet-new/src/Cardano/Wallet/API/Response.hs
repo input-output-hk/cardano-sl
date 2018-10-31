@@ -21,23 +21,14 @@ module Cardano.Wallet.API.Response (
   ) where
 
 import           Prelude
-import           Universum (Buildable, Exception, Text, decodeUtf8, toText,
-                     (<>))
+import           Universum (Buildable, Exception, Text)
 
-import           Control.Lens hiding (Indexable)
-import           Data.Aeson (FromJSON (..), ToJSON (..), eitherDecode, encode)
-import qualified Data.Aeson.Options as Serokell
-import           Data.Aeson.TH
-import qualified Data.Char as Char
-import           Data.Swagger as S hiding (Example, example)
-import           Data.Typeable
-import           Formatting (bprint, build, (%))
+import           Data.Aeson (FromJSON (..), ToJSON (..))
+import           Formatting (bprint, build)
 import qualified Formatting.Buildable
 import           Generics.SOP.TH (deriveGeneric)
 import           GHC.Generics (Generic)
 import           Servant (err400, err415)
-import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..),
-                     MimeUnrender (..), OctetStream)
 import           Test.QuickCheck
 
 import           Cardano.Wallet.API.Indices (Indexable, IxSet)
@@ -54,43 +45,7 @@ import           Cardano.Wallet.API.Response.Sort.IxSet as SortBackend
 import           Cardano.Wallet.API.V1.Errors (ToServantError (..))
 import           Cardano.Wallet.API.V1.Generic (jsendErrorGenericParseJSON,
                      jsendErrorGenericToJSON)
-import           Cardano.Wallet.API.V1.Swagger.Example (Example, example)
-
--- | Extra information associated with an HTTP response.
-data Metadata = Metadata
-  { metaPagination   :: PaginationMetadata
-    -- ^ Pagination-specific metadata
-  } deriving (Show, Eq, Generic)
-
-deriveJSON Serokell.defaultOptions ''Metadata
-
-instance Arbitrary Metadata where
-  arbitrary = Metadata <$> arbitrary
-
-instance ToSchema Metadata where
-    declareNamedSchema = genericDeclareNamedSchema defaultSchemaOptions
-        { S.fieldLabelModifier =
-            over (ix 0) Char.toLower . drop 4 -- length "meta"
-        }
-
-instance Buildable Metadata where
-  build Metadata{..} =
-    bprint ("{ pagination="%build%" }") metaPagination
-
-instance Example Metadata
-
-
--- | An `WalletResponse` models, unsurprisingly, a response (successful or not)
--- produced by the wallet backend.
--- Includes extra informations like pagination parameters etc.
-data WalletResponse a = WalletResponse
-  { wrData   :: a
-  -- ^ The wrapped domain object.
-  , wrStatus :: ResponseStatus
-  -- ^ The <https://labs.omniti.com/labs/jsend jsend> status.
-  , wrMeta   :: Metadata
-  -- ^ Extra metadata to be returned.
-  } deriving (Show, Eq, Generic, Functor)
+import           Pos.Util.Servant as ServantUtil
 
 data SliceOf a = SliceOf {
     paginatedSlice :: [a]
@@ -101,50 +56,6 @@ data SliceOf a = SliceOf {
 
 instance Arbitrary a => Arbitrary (SliceOf a) where
   arbitrary = SliceOf <$> arbitrary <*> arbitrary
-
-
-deriveJSON Serokell.defaultOptions ''WalletResponse
-
-instance Arbitrary a => Arbitrary (WalletResponse a) where
-  arbitrary = WalletResponse <$> arbitrary <*> arbitrary <*> arbitrary
-
-instance ToJSON a => MimeRender OctetStream (WalletResponse a) where
-    mimeRender _ = encode
-
-instance (ToSchema a, Typeable a) => ToSchema (WalletResponse a) where
-    declareNamedSchema _ = do
-        let a = Proxy @a
-            tyName = toText . map sanitize . show $ typeRep a
-            sanitize c
-                | c `elem` (":/?#[]@!$&'()*+,;=" :: String) = '_'
-                | otherwise = c
-        aRef <- declareSchemaRef a
-        respRef <- declareSchemaRef (Proxy @ResponseStatus)
-        metaRef <- declareSchemaRef (Proxy @Metadata)
-        pure $ NamedSchema (Just $ "WalletResponse-" <> tyName) $ mempty
-            & type_ .~ SwaggerObject
-            & required .~ ["data", "status", "meta"]
-            & properties .~
-                [ ("data", aRef)
-                , ("status", respRef)
-                , ("meta", metaRef)
-                ]
-
-instance Buildable a => Buildable (WalletResponse a) where
-    build WalletResponse{..} = bprint
-        ("\n\tstatus="%build
-        %"\n\tmeta="%build
-        %"\n\tdata="%build
-        )
-        wrStatus
-        wrMeta
-        wrData
-
-instance Example a => Example (WalletResponse a) where
-    example = WalletResponse <$> example
-                             <*> pure SuccessStatus
-                             <*> example
-
 
 -- | Inefficient function to build a response out of a @generator@ function. When the data layer will
 -- be rewritten the obvious solution is to slice & dice the data as soon as possible (aka out of the DB), in this order:
@@ -220,20 +131,6 @@ single theData = WalletResponse {
 --
 -- Creating a better user experience when it comes to errors.
 --
-
-data ValidJSON deriving Typeable
-
-instance FromJSON a => MimeUnrender ValidJSON a where
-    mimeUnrender _ bs = case eitherDecode bs of
-        Left err -> Left $ decodeUtf8 $ encode (JSONValidationFailed $ toText err)
-        Right v  -> return v
-
-instance Accept ValidJSON where
-    contentTypes _ = contentTypes (Proxy @ JSON)
-
-instance ToJSON a => MimeRender ValidJSON a where
-    mimeRender _ = mimeRender (Proxy @ JSON)
-
 
 --
 -- Error from parsing / validating JSON inputs

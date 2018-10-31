@@ -16,7 +16,7 @@ import           Test.Hspec
 import           Test.QuickCheck
 
 import           Cardano.Wallet.API.Request (FilterBy, SortBy)
-import           Cardano.Wallet.API.Types (AlternativeApiArg, Tags,
+import           Cardano.Wallet.API.Types (Tags,
                      WithDefaultApiArg)
 import qualified Cardano.Wallet.API.V1 as V0
 import qualified Cardano.Wallet.API.V1 as V1
@@ -52,13 +52,13 @@ mkSpec mgr = do
 -- Instances to allow use of `servant-quickcheck`.
 --
 
-instance HasGenRequest (apiType a :> sub) =>
-         HasGenRequest (WithDefaultApiArg apiType a :> sub) where
-    genRequest _ = genRequest (Proxy @(apiType a :> sub))
+instance HasGenRequest (apiType :> sub) =>
+         HasGenRequest (WithDefaultApiArg apiType :> sub) where
+    genRequest _ = genRequest (Proxy @(apiType :> sub))
 
-instance HasGenRequest (argA a :> argB a :> sub) =>
-         HasGenRequest (AlternativeApiArg argA argB a :> sub) where
-    genRequest _ = genRequest (Proxy @(argA a :> argB a :> sub))
+-- instance HasGenRequest (argA a :> argB a :> sub) =>
+--          HasGenRequest (AlternativeApiArg argA argB a :> sub) where
+--     genRequest _ = genRequest (Proxy @(argA a :> argB a :> sub))
 
 -- NOTE(adinapoli): This can be improved to produce proper filtering & sorting
 -- queries.

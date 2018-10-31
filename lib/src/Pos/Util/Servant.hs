@@ -57,6 +57,7 @@ module Pos.Util.Servant
     , DReqBody
     , DCQueryParam
     , DQueryParam
+    , DHeader
 
     , Flaggable (..)
     , CustomQueryFlag
@@ -70,6 +71,7 @@ module Pos.Util.Servant
     , Tags
     , mapRouter
     , WalletResponse(..)
+    , Metadata(..)
     ) where
 
 import           Universum hiding (id)
@@ -86,7 +88,8 @@ import           Data.Constraint.Forall (Forall, inst)
 import           Data.Default (Default (..))
 import           Data.List (lookup)
 import           Data.Reflection (Reifies (..), reflect)
-import           Data.Swagger as S hiding (Example, example, info)
+import qualified Data.Set as Set
+import           Data.Swagger as S hiding (Example, example, info, Header)
 import qualified Data.Text as T
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           Data.Typeable (typeRep)
@@ -102,7 +105,7 @@ import           Serokell.Util (listJsonIndent)
 import           Serokell.Util.ANSI (Color (..), colorizeDull)
 import           Servant.API ((:<|>) (..), (:>), Capture, Description,
                      OctetStream, QueryFlag, QueryParam, ReflectMethod (..),
-                     ReqBody, Summary, Verb)
+                     ReqBody, Summary, Verb, Header)
 import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..),
                      MimeUnrender (..))
 import           Servant.Client (Client, HasClient (..))
@@ -115,8 +118,10 @@ import           Test.QuickCheck
 
 import           Pos.Infra.Util.LogSafe (BuildableSafe, SecuredText, buildSafe,
                      logInfoSP, plainOrSecureF, secretOnlyF)
+import           Pos.Util.Example (Example (..))
 import           Pos.Util.Jsend (HasDiagnostic (..), ResponseStatus (..),
                      jsendErrorGenericParseJSON, jsendErrorGenericToJSON)
+import           Pos.Util.KnownSymbols
 import           Pos.Util.Pagination
 import           Pos.Util.Wlog (LoggerName, LoggerNameBox, usingLoggerName)
 
@@ -798,6 +803,7 @@ type DReqBody c a    = WithDefaultApiArg (ReqBody c a)
 type DCQueryParam s a = WithDefaultApiArg (CDecodeApiArg $ QueryParam s a)
 
 type DQueryParam s a = WithDefaultApiArg (QueryParam s a)
+type DHeader s a = WithDefaultApiArg (Header s a)
 
 --
 -- Creating a better user experience when it comes to errors.
@@ -868,6 +874,12 @@ instance HasLoggingServer config subApi context =>
     HasLoggingServer config (Tags tags :> subApi) context where
     routeWithLog = mapRouter @(Tags tags :> LoggingApiRec config subApi) route identity
 
+instance (KnownSymbols tags, HasSwagger subApi) => HasSwagger (Tags tags :> subApi) where
+    toSwagger _ =
+        let newTags    = map toText (symbolVals (Proxy @tags))
+            swgr       = toSwagger (Proxy @subApi)
+        in swgr & over (operationsOf swgr . tags) (mappend (Set.fromList newTags))
+
 -- | `mapRouter` is helper function used in order to transform one `HasServer`
 -- instance to another. It can be used to introduce custom request params type.
 -- See e. g. `WithDefaultApiArg` as an example of usage
@@ -888,6 +900,8 @@ deriveJSON Serokell.defaultOptions ''Metadata
 
 instance Arbitrary Metadata where
     arbitrary = Metadata <$> arbitrary
+
+instance Example Metadata
 
 instance ToSchema Metadata where
     declareNamedSchema = genericDeclareNamedSchema defaultSchemaOptions
@@ -951,8 +965,7 @@ instance Buildable a => Buildable (WalletResponse a) where
         wrMeta
         wrData
 
--- instance Example a => Example (WalletResponse a) where
---     example = WalletResponse <$> example
---                              <*> pure SuccessStatus
---                              <*> example
---
+instance Example a => Example (WalletResponse a) where
+    example = WalletResponse <$> example
+                             <*> pure SuccessStatus
+                             <*> example

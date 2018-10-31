@@ -5,10 +5,12 @@ module Cardano.Wallet.WalletLayer
     , CreateWallet(..)
     -- ** Errors
     , CreateWalletError(..)
+    , CreateExternalWalletError(..)
     , GetWalletError(..)
     , UpdateWalletError(..)
     , UpdateWalletPasswordError(..)
     , DeleteWalletError(..)
+    , DeleteExternalWalletError(..)
     , GetUtxosError(..)
     , NewPaymentError(..)
     , EstimateFeesError(..)
@@ -45,9 +47,11 @@ import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
 import           Cardano.Wallet.API.Request.Sort (SortOperations (..))
 import           Cardano.Wallet.API.Response (SliceOf (..), WalletResponse)
 import           Cardano.Wallet.API.V1.Types (Account, AccountBalance,
-                     AccountIndex, AccountUpdate, Address, ForceNtpCheck,
-                     NewAccount, NewAddress, NewWallet, NodeInfo, NodeSettings,
-                     PasswordUpdate, Payment, Redemption, SignedTransaction,
+                     AccountIndex, AccountUpdate, Address,
+                     Base58PublicKeyError, ExternalWallet, ForceNtpCheck,
+                     NewAccount, NewAddress, NewExternalWallet, NewWallet,
+                     NodeInfo, NodeSettings, PasswordUpdate, Payment,
+                     PublicKeyAsBase58, Redemption, SignedTransaction,
                      SpendingPassword, Transaction, UnsignedTransaction,
                      V1 (..), Wallet, WalletAddress, WalletId, WalletImport,
                      WalletUpdate)
@@ -88,6 +92,26 @@ instance Arbitrary CreateWalletError where
 instance Buildable CreateWalletError where
     build (CreateWalletError kernelError) =
         bprint ("CreateWalletError " % build) kernelError
+
+data CreateExternalWalletError =
+      CreateExternalWalletInvalidRootPK Base58PublicKeyError
+    | CreateExternalWalletError Kernel.CreateExternalWalletError
+
+-- | Unsound show instance needed for the 'Exception' instance.
+instance Show CreateExternalWalletError where
+    show = formatToString build
+
+instance Exception CreateExternalWalletError
+
+instance Arbitrary CreateExternalWalletError where
+    arbitrary = oneof [ CreateExternalWalletError <$> arbitrary
+                      ]
+
+instance Buildable CreateExternalWalletError where
+    build (CreateExternalWalletInvalidRootPK pkError) =
+        bprint ("CreateExternalWalletInvalidRootPK " % build) pkError
+    build (CreateExternalWalletError kernelError) =
+        bprint ("CreateExternalWalletError " % build) kernelError
 
 data GetWalletError =
       GetWalletError Kernel.UnknownHdRoot
@@ -164,6 +188,22 @@ instance Buildable DeleteWalletError where
         bprint ("DeleteWalletWalletIdDecodingFailed " % build) txt
     build (DeleteWalletError kernelError) =
         bprint ("DeleteWalletError " % build) kernelError
+
+data DeleteExternalWalletError =
+      DeleteExternalWalletInvalidRootPK Base58PublicKeyError
+    | DeleteExternalWalletError Kernel.UnknownHdRoot
+
+-- | Unsound show instance needed for the 'Exception' instance.
+instance Show DeleteExternalWalletError where
+    show = formatToString build
+
+instance Exception DeleteExternalWalletError
+
+instance Buildable DeleteExternalWalletError where
+    build (DeleteExternalWalletInvalidRootPK pkError) =
+        bprint ("DeleteExternalWalletInvalidRootPK " % build) pkError
+    build (DeleteExternalWalletError kernelError) =
+        bprint ("DeleteExternalWalletError " % build) kernelError
 
 data GetUtxosError =
       GetUtxosWalletIdDecodingFailed Text
@@ -388,6 +428,7 @@ data PassiveWalletLayer m = PassiveWalletLayer
     {
     -- wallets
       createWallet         :: CreateWallet -> m (Either CreateWalletError Wallet)
+    , createExternalWallet :: NewExternalWallet -> m (Either CreateExternalWalletError ExternalWallet)
     , getWallets           :: m (IxSet Wallet)
     , getWallet            :: WalletId -> m (Either GetWalletError Wallet)
     , updateWallet         :: WalletId
@@ -397,6 +438,7 @@ data PassiveWalletLayer m = PassiveWalletLayer
                            -> PasswordUpdate
                            -> m (Either UpdateWalletPasswordError Wallet)
     , deleteWallet         :: WalletId -> m (Either DeleteWalletError ())
+    , deleteExternalWallet :: PublicKeyAsBase58 -> m (Either DeleteExternalWalletError ())
     , getUtxos             :: WalletId
                            -> m (Either GetUtxosError [(Account, Utxo)])
     -- accounts

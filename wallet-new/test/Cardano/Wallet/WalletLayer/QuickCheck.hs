@@ -10,12 +10,13 @@ import           Universum
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),
-                     DeleteAccountError (..), DeleteWalletError (..),
-                     GetAccountError (..), GetAccountsError (..),
-                     GetUtxosError (..), GetWalletError (..),
-                     ImportWalletError (..), PassiveWalletLayer (..),
-                     UpdateAccountError (..), UpdateWalletError (..),
-                     UpdateWalletPasswordError (..), ValidateAddressError (..))
+                     DeleteAccountError (..), DeleteExternalWalletError (..),
+                     DeleteWalletError (..), GetAccountError (..),
+                     GetAccountsError (..), GetUtxosError (..),
+                     GetWalletError (..), ImportWalletError (..),
+                     PassiveWalletLayer (..), UpdateAccountError (..),
+                     UpdateWalletError (..), UpdateWalletPasswordError (..),
+                     ValidateAddressError (..))
 
 import           Pos.Chain.Update (ConfirmedProposalState)
 import           Pos.Core ()
@@ -36,11 +37,13 @@ bracketPassiveWallet =
     passiveWalletLayer :: PassiveWalletLayer n
     passiveWalletLayer = PassiveWalletLayer
         { createWallet         = \_     -> liftedGen
+        , createExternalWallet = \_     -> liftedGen
         , getWallets           =           liftedGen
         , getWallet            = \_     -> liftedGen
         , updateWallet         = \_ _   -> liftedGen
         , updateWalletPassword = \_ _   -> liftedGen
         , deleteWallet         = \_     -> liftedGen
+        , deleteExternalWallet = \_     -> liftedGen
         , getUtxos             = \_     -> liftedGen
 
         , createAccount        = \_ _   -> liftedGen
@@ -146,6 +149,9 @@ instance Arbitrary UpdateWalletPasswordError where
 
 instance Arbitrary DeleteWalletError where
     arbitrary = oneof [ DeleteWalletWalletIdDecodingFailed <$> arbitrary ]
+
+instance Arbitrary DeleteExternalWalletError where
+    arbitrary = oneof [ DeleteExternalWalletError <$> arbitrary ]
 
 instance Arbitrary UpdateWalletError where
     arbitrary = oneof [ UpdateWalletWalletIdDecodingFailed <$> arbitrary ]

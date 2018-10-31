@@ -1,6 +1,7 @@
 module Cardano.Wallet.Kernel.Decrypt
     ( decryptAddress
     , decryptHdLvl2DerivationPath
+    , eskToWalletDecrCredentials
     , keyToWalletDecrCredentials
     , selectOwnAddresses
     , WalletDecrCredentials
@@ -39,6 +40,10 @@ data WalletDecrCredentialsKey
     = KeyForRegular EncryptedSecretKey
     | KeyForExternal PublicKey
     deriving (Show)
+
+-- | There's a secret key for regular wallet or a public key for external wallet.
+eskToWalletDecrCredentials :: NetworkMagic -> EncryptedSecretKey -> WalletDecrCredentials
+eskToWalletDecrCredentials nm esk = credentialsFromPublicKey nm $ encToPublic esk
 
 -- | There's a secret key for regular wallet or a public key for external wallet.
 keyToWalletDecrCredentials :: NetworkMagic -> WalletDecrCredentialsKey -> WalletDecrCredentials

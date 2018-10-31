@@ -25,26 +25,23 @@ import           Control.Monad.Except (MonadError (throwError), runExceptT)
 import           Formatting (build, sformat, (%))
 import           System.Random (randomRIO)
 
-import           Pos.Client.KeyStorage (AllUserPublics (..),
-                     AllUserSecrets (..), MonadKeys, MonadKeysRead,
-                     addSecretKey, getPublicKeys, getSecretKeys,
+import           Pos.Client.KeyStorage (AllUserSecrets (..), MonadKeys,
+                     MonadKeysRead, addSecretKey, getSecretKeys,
                      getSecretKeysPlain)
 import           Pos.Core (Address (..), IsBootstrapEraAddr (..),
-                     deriveLvl2KeyPair, makePubKeyAddressBoot)
+                     deriveLvl2KeyPair)
 import           Pos.Core.NetworkMagic (NetworkMagic (..))
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, PublicKey,
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase,
                      ShouldCheckPassphrase (..), firstHardened,
                      safeDeterministicKeyGen)
 import           Pos.Util (eitherToThrow)
 import           Pos.Util.Mnemonic (Mnemonic, mnemonicToSeed)
-import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Wlog (WithLogger)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, Wal, encToCId)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.State (AddressLookupMode (Ever),
                      HasWAddressMeta (..), WAddressMeta (..), WalletSnapshot,
                      doesWAddressExist, getAccountMeta, wamAccount)
-import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentialsKey (..))
 
 type AccountMode ctx m =
     ( MonadThrow m
@@ -73,35 +70,17 @@ getSKByIdPure
 getSKByIdPure nm (AllUserSecrets secretKeys) wid =
     find (\k -> encToCId nm k == wid) secretKeys
 
--- | We always have a key for any wallet:
--- 1. secret key (for regular wallet) or
--- 2. public key (for external wallet).
 getKeyById
     :: AccountMode ctx m
     => NetworkMagic
     -> CId Wal
-    -> m WalletDecrCredentialsKey
+    -> m EncryptedSecretKey
 getKeyById nm walletId = do
     secretKeys <- getSecretKeys
     case getSKByIdPure nm secretKeys walletId of
-        Just sk -> return $ KeyForRegular sk
-        Nothing -> do
-            -- There's no secret key for 'walletId', this wallet is an external one.
-            publicKeys <- getPublicKeys
-            case getPKByIdPure nm publicKeys walletId of
-                Just pk -> return $ KeyForExternal pk
-                Nothing -> throwM . InternalError $
-                    sformat ("'Impossible' happened: there's no key for wallet "%build)
-                            walletId
-
--- | If 'walletId' corresponds to regular wallet, there's no public key for it.
-getPKByIdPure
-    :: NetworkMagic
-    -> AllUserPublics
-    -> CId Wal
-    -> Maybe PublicKey
-getPKByIdPure nm (AllUserPublics publicKeys) walletId =
-    find (\pk -> walletId == encodeCType (makePubKeyAddressBoot nm pk)) publicKeys
+        Just sk -> return sk
+        Nothing -> throwM . InternalError $
+            sformat ("'Impossible' happened: there's no secret key for wallet "%build) walletId
 
 getSKByAddress
     :: AccountMode ctx m
@@ -256,7 +235,7 @@ deriveAddress nm passphrase accId@AccountId{..} cwamAddressIndex = do
 
 -- | Allows to find a key related to given @id@ item.
 class MonadKeySearch id m where
-    findKey :: NetworkMagic -> id -> m WalletDecrCredentialsKey
+    findKey :: NetworkMagic -> id -> m EncryptedSecretKey
 
 instance AccountMode ctx m => MonadKeySearch (CId Wal) m where
     findKey = getKeyById

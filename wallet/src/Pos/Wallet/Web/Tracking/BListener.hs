@@ -37,7 +37,7 @@ import           Pos.Infra.Util.LogSafe (buildSafe, logInfoSP, logWarningSP,
                      secretOnlyF, secure)
 import           Pos.Infra.Util.TimeLimit (CanLogInParallel, logWarningWaitInf)
 import           Pos.Util.Wlog (HasLoggerName (modifyLoggerName), WithLogger)
-import           Pos.Wallet.Web.Tracking.Decrypt (keyToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 
 import           Pos.Wallet.Web.Account (AccountMode, getKeyById)
 import           Pos.Wallet.Web.ClientTypes (CId, Wal)
@@ -106,7 +106,7 @@ onApplyBlocksWebWallet nm blunds = setLogger . reportTimeouts "apply" $ do
         -> m ()
     syncWallet db ws curTip newTipH blkTxsWUndo wAddr = walletGuard ws curTip wAddr $ do
         blkHeaderTs <- blkHeaderTsGetter
-        credentials <- keyToWalletDecrCredentials nm <$> getKeyById nm wAddr
+        credentials <- eskToWalletDecrCredentials nm <$> getKeyById nm wAddr
 
         let dbUsed = WS.getCustomAddresses ws WS.UsedAddr
         let applyBlockWith trackingOp = do
@@ -158,7 +158,7 @@ onRollbackBlocksWebWallet nm pc blunds = setLogger . reportTimeouts "rollback" $
         -> CId Wal
         -> m ()
     syncWallet db ws curTip newTip txs wid = walletGuard ws curTip wid $ do
-        credentials <- keyToWalletDecrCredentials nm <$> getKeyById nm wid
+        credentials <- eskToWalletDecrCredentials nm <$> getKeyById nm wid
         blkHeaderTs <- blkHeaderTsGetter
 
         let rollbackBlockWith trackingOperation = do

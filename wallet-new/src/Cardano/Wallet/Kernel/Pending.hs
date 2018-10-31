@@ -28,8 +28,7 @@ import           Cardano.Wallet.Kernel.DB.HdWallet.Create (initHdAddress)
 import           Cardano.Wallet.Kernel.DB.InDb
 import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
 import           Cardano.Wallet.Kernel.DB.TxMeta (TxMeta, putTxMeta)
-import           Cardano.Wallet.Kernel.Decrypt (WalletDecrCredentialsKey (..),
-                     keyToWalletDecrCredentials)
+import           Cardano.Wallet.Kernel.Decrypt (eskToWalletDecrCredentials)
 import           Cardano.Wallet.Kernel.Internal
 import           Cardano.Wallet.Kernel.PrefilterTx (filterOurs)
 import           Cardano.Wallet.Kernel.Read (getWalletCredentials)
@@ -122,7 +121,7 @@ newTx ActiveWallet{..} accountId tx partialMeta upd = do
             where
                 nm = makeNetworkMagic $ walletPassive ^. walletProtocolMagic
                 f (txOut',addressId) = (initHdAddress addressId (txOutAddress txOut'), txOutValue txOut')
-                wKey = (wid, keyToWalletDecrCredentials nm $ KeyForRegular esk)
+                wKey = (wid, eskToWalletDecrCredentials nm esk)
 
         submitTx :: IO ()
         submitTx = modifyMVar_ (walletPassive ^. walletSubmission) $

@@ -27,7 +27,6 @@ import           Pos.Infra.InjectFail (mkFInjects)
 import           Pos.Infra.Network.CLI (intNetworkConfigOpts)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
                      NodeParams (..))
-import           Pos.Util.UserPublic (peekUserPublic)
 import           Pos.Util.UserSecret (peekUserSecret, usVss)
 import           Pos.Util.Util (eitherToThrow)
 import           Pos.Util.Wlog (LoggerName, WithLogger)
@@ -72,7 +71,6 @@ getNodeParams ::
 getNodeParams defaultLoggerName cArgs@CommonNodeArgs{..} NodeArgs{..} mGeneratedSecrets = do
     (primarySK, userSecret) <- prepareUserSecret cArgs mGeneratedSecrets
         =<< peekUserSecret (getKeyfilePath cArgs)
-    userPublic <- peekUserPublic publicKeyfilePath
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
     npBehaviorConfig <- case behaviorConfigPath of
         Nothing -> pure def
@@ -84,7 +82,6 @@ getNodeParams defaultLoggerName cArgs@CommonNodeArgs{..} NodeArgs{..} mGenerated
             , npRebuildDb = rebuildDB
             , npSecretKey = primarySK
             , npUserSecret = userSecret
-            , npUserPublic = userPublic
             , npBaseParams = getBaseParams defaultLoggerName cArgs
             , npJLFile = jlPath
             , npReportServers = reportServers commonArgs

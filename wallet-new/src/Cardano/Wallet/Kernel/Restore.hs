@@ -39,8 +39,8 @@ import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Update as Spec
 import           Cardano.Wallet.Kernel.DB.TxMeta.Types
-import           Cardano.Wallet.Kernel.Decrypt (WalletDecrCredentialsKey (..),
-                     decryptAddress, keyToWalletDecrCredentials)
+import           Cardano.Wallet.Kernel.Decrypt (decryptAddress,
+                     eskToWalletDecrCredentials)
 import           Cardano.Wallet.Kernel.Internal (WalletRestorationInfo (..),
                      WalletRestorationProgress (..), addOrReplaceRestoration,
                      cancelRestoration, lookupRestorationInfo,
@@ -158,7 +158,7 @@ restoreWallet pw hasSpendingPassword defaultCardanoAddress name assurance esk = 
                 beginRestoration pw wId prefilter root Nothing tgt (restart root)
 
     wId    = WalletIdHdRnd (HD.eskToHdRootId nm esk)
-    wkey   = (wId, keyToWalletDecrCredentials nm (KeyForRegular esk))
+    wkey   = (wId, eskToWalletDecrCredentials nm esk)
 
 
 mkPrefilter :: Kernel.PassiveWallet
@@ -192,7 +192,7 @@ restoreKnownWallet pw rootId = do
             Nothing  -> return () -- TODO (@mn): raise an error
             Just esk -> do
                 let prefilter = mkPrefilter pw wId esk
-                    wkey      = (wId, keyToWalletDecrCredentials nm (KeyForRegular esk))
+                    wkey      = (wId, eskToWalletDecrCredentials nm esk)
 
                 coreConfig <- getCoreConfig (pw ^. walletNode)
                 db <- getWalletSnapshot pw
@@ -229,7 +229,7 @@ continueRestoration pw root cur tgt = do
             return ()
         Just esk -> do
             let prefilter = mkPrefilter pw wId esk
-                wkey      = (wId, keyToWalletDecrCredentials nm (KeyForRegular esk))
+                wkey      = (wId, eskToWalletDecrCredentials nm esk)
                 restart   = do
                     coreConfig <- getCoreConfig (pw ^. walletNode)
                     wii <- withNodeState (pw ^. walletNode)

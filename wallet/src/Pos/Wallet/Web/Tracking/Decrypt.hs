@@ -8,8 +8,7 @@ module Pos.Wallet.Web.Tracking.Decrypt
        , buildTHEntryExtra
 
        , WalletDecrCredentials
-       , WalletDecrCredentialsKey (..)
-       , keyToWalletDecrCredentials
+       , eskToWalletDecrCredentials
        , selectOwnAddresses
        , decryptAddress
        ) where
@@ -78,16 +77,9 @@ buildTHEntryExtra wdc (WithHash tx txId, NE.toList -> undoL) (mDiff, mTs) =
 
 type WalletDecrCredentials = (HDPassphrase, CId Wal)
 
--- | Key to identify regular or external wallet.
-data WalletDecrCredentialsKey
-    = KeyForRegular EncryptedSecretKey
-    | KeyForExternal PublicKey
-    deriving (Show)
-
 -- | There's a secret key for regular wallet or a public key for external wallet.
-keyToWalletDecrCredentials :: NetworkMagic -> WalletDecrCredentialsKey -> WalletDecrCredentials
-keyToWalletDecrCredentials nm (KeyForRegular sk)  = credentialsFromPublicKey nm $ encToPublic sk
-keyToWalletDecrCredentials nm (KeyForExternal pk) = credentialsFromPublicKey nm pk
+eskToWalletDecrCredentials :: NetworkMagic -> EncryptedSecretKey -> WalletDecrCredentials
+eskToWalletDecrCredentials nm esk = credentialsFromPublicKey nm $ encToPublic esk
 
 credentialsFromPublicKey :: NetworkMagic -> PublicKey -> WalletDecrCredentials
 credentialsFromPublicKey nm publicKey = (hdPassword, walletId)

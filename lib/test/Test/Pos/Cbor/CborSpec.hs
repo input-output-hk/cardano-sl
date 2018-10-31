@@ -39,12 +39,10 @@ import qualified Pos.Infra.Communication.Relay as R
 import           Pos.Infra.Communication.Types.Relay (DataMsg (..))
 import qualified Pos.Infra.DHT.Model as DHT
 import           Pos.Infra.Slotting.Types (SlottingData)
-import           Pos.Util.UserPublic (UserPublic, WalletUserPublic)
 import           Pos.Util.UserSecret (UserSecret, WalletUserSecret)
 
 import           Test.Pos.Binary.Helpers (U, binaryTest, extensionProperty,
                      msgLenLimitedTest)
-import           Test.Pos.Cbor.Arbitrary.UserPublic ()
 import           Test.Pos.Cbor.Arbitrary.UserSecret ()
 import           Test.Pos.Chain.Delegation.Arbitrary ()
 import           Test.Pos.Chain.Ssc.Arbitrary ()
@@ -69,10 +67,8 @@ spec =
     describe "Cbor.Bi instances" $ do
         modifyMaxSuccess (const 1000) $ do
             describe "Lib/core instances" $ do
-                brokenDisabled $ binaryTest @UserPublic
                 brokenDisabled $ binaryTest @UserSecret
                 modifyMaxSuccess (min 50) $ do
-                    binaryTest @WalletUserPublic
                     binaryTest @WalletUserSecret
                     binaryTest @EncryptedSecretKey
 

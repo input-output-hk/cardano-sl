@@ -136,12 +136,11 @@ import qualified Prelude
 import           Universum
 
 import qualified Cardano.Crypto.Wallet as CC
-import           Control.Lens (at,makePrisms, to, (?~))
+import           Control.Lens (at, to, (?~))
 import           Data.Aeson
 import qualified Data.Aeson.Options as Aeson
 import           Data.Aeson.TH as A
-import           Data.Aeson.Types (Parser, Value (..),
-                     typeMismatch)
+import           Data.Aeson.Types (Parser, Value (..), typeMismatch)
 import           Data.Bifunctor (first)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
@@ -188,9 +187,9 @@ import qualified Pos.Crypto.Signing as Core
 import           Pos.Infra.Communication.Types.Protocol ()
 import           Pos.Infra.Diffusion.Subscription.Status
                      (SubscriptionStatus (..))
-import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
-                     buildSafe, buildSafeList, buildSafeMaybe,
-                     deriveSafeBuildable, plainOrSecureF)
+import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), buildSafe,
+                     buildSafeList, buildSafeMaybe, deriveSafeBuildable,
+                     plainOrSecureF)
 import           Pos.Util.Mnemonic (Mnemonic)
 import           Pos.Wallet.Web.ClientTypes.Instances ()
 import qualified Pos.Wallet.Web.State.Storage as OldStorage
@@ -245,31 +244,6 @@ optsADTCamelCase = defaultOptions
 --
 -- 1. Never define an instance on the inner type 'a'. Do it only on 'V1 a'.
 -- newtype V1 a = V1 a deriving (Eq, Ord)
-
--- | Unwrap the 'V1' newtype to give the underlying type.
-unV1 :: V1 a -> a
-unV1 (V1 a) = a
-
-makePrisms ''V1
-
-instance Enum a => Enum (V1 a) where
-    toEnum x = V1 (toEnum x)
-    fromEnum (V1 a) = fromEnum a
-
-instance Bounded a => Bounded (V1 a) where
-    minBound = V1 $ minBound @a
-    maxBound = V1 $ maxBound @a
-
-instance Buildable (SecureLog a) => Buildable (SecureLog (V1 a)) where
-    build (SecureLog (V1 x)) = bprint build (SecureLog x)
-
---
--- Benign instances
---
-
-instance ByteArray.ByteArrayAccess a => ByteArray.ByteArrayAccess (V1 a) where
-   length (V1 a) = ByteArray.length a
-   withByteArray (V1 a) = ByteArray.withByteArray a
 
 mkPassPhrase :: Text -> Either Text Core.PassPhrase
 mkPassPhrase text =

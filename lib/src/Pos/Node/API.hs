@@ -8,8 +8,9 @@ module Pos.Node.API where
 
 import           Universum
 
+import qualified Data.ByteArray as ByteArray
 import qualified Prelude
-import           Control.Lens (At, Index, IxValue, at, ix, (?~))
+import           Control.Lens (At, Index, IxValue, at, ix, (?~), makePrisms)
 import           Data.Aeson
 import qualified Data.Aeson.Options as Aeson
 import           Data.Aeson.TH as A
@@ -37,7 +38,7 @@ import qualified Pos.Core as Core
 import           Pos.Infra.Diffusion.Subscription.Status
                      (SubscriptionStatus (..))
 import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..),
-                     deriveSafeBuildable)
+                     deriveSafeBuildable, SecureLog(..))
 import           Pos.Util.Servant (CustomQueryFlag, Flaggable (..), Tags,
                      ValidJSON, WalletResponse)
 import qualified Pos.Chain.Update as Core
@@ -431,6 +432,31 @@ instance BuildableSafeGen SlotDuration where
 -- instances by relocating `V1` to some module that does not define the types it
 -- needs.
 newtype V1 a = V1 a deriving (Eq, Ord)
+
+-- | Unwrap the 'V1' newtype to give the underlying type.
+unV1 :: V1 a -> a
+unV1 (V1 a) = a
+
+makePrisms ''V1
+
+instance Buildable (SecureLog a) => Buildable (SecureLog (V1 a)) where
+    build (SecureLog (V1 x)) = bprint build (SecureLog x)
+
+--
+-- Benign instances
+--
+
+instance ByteArray.ByteArrayAccess a => ByteArray.ByteArrayAccess (V1 a) where
+   length (V1 a) = ByteArray.length a
+   withByteArray (V1 a) = ByteArray.withByteArray a
+
+instance Enum a => Enum (V1 a) where
+    toEnum x = V1 (toEnum x)
+    fromEnum (V1 a) = fromEnum a
+
+instance Bounded a => Bounded (V1 a) where
+    minBound = V1 $ minBound @a
+    maxBound = V1 $ maxBound @a
 
 instance Show a => Show (V1 a) where
     show (V1 a) = Prelude.show a

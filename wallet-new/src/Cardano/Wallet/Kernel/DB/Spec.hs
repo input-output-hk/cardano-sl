@@ -51,6 +51,7 @@ import           Universum
 import           Control.Lens (Getter, from, lazy, strict, to, _Wrapped)
 import           Control.Lens.TH (makeLenses)
 import           Data.Coerce (coerce)
+import           Data.Map as M
 import qualified Data.SafeCopy as SC
 import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable
@@ -187,9 +188,21 @@ initPartialCheckpoint ctx utxo = PartialCheckpoint {
                                          Core.utxoBalance utxo
     , _pcheckpointPending     = Pending.empty
     , _pcheckpointForeign     = Pending.empty
-    , _pcheckpointBlockMeta   = LocalBlockMeta emptyBlockMeta
+    , _pcheckpointBlockMeta   = LocalBlockMeta $ BlockMeta {
+                                  _blockMetaSlotId = InDb mempty
+                                , _blockMetaAddressMeta = utxoToAddressMeta utxo
+                              }
     , _pcheckpointContext     = ctx
     }
+
+utxoToAddressMeta :: Core.Utxo -> Map (InDb Core.Address) AddressMeta
+utxoToAddressMeta utxo =
+  M.fromList $ fmap (\u -> (InDb $ Core.toAddress u, usedMeta)) (M.elems utxo)
+    where
+      usedMeta = AddressMeta {
+          _addressMetaIsUsed = True
+        , _addressMetaIsChange = False
+      }
 
 -- | A full check point with a non-Nothing context can be " downcast " to a
 -- partial checkpoint by forgetting that we have complete block metadata.

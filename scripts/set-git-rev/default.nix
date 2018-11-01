@@ -33,8 +33,11 @@ let
       rm -rf "${"$"}${output}"/lib "${"$"}${output}"/nix-support "${"$"}${output}"/share/doc
     '') drvOutOutputs);
 
-  setGitRev = pkgs.runCommand "set-git-rev" {} ''
-    ${ghc.withPackages (ps: [ps.universum ps.file-embed])}/bin/ghc ${optionalString stdenv.isDarwin "-liconv"} -o $out ${./set-git-rev.hs}
+  setGitRev = pkgs.runCommand "set-git-rev" {
+    # https://github.com/NixOS/nixpkgs/issues/46814
+    flags = optionalString stdenv.isDarwin "-liconv";
+  } ''
+    ${ghc.withPackages (ps: [ps.universum ps.file-embed])}/bin/ghc $flags -o $out ${./set-git-rev.hs}
   '';
 
   # appends -static to the package name

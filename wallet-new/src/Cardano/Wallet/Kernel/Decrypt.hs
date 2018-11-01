@@ -1,21 +1,26 @@
 module Cardano.Wallet.Kernel.Decrypt
-    ( decryptAddress
-    , decryptHdLvl2DerivationPath
-    , eskToWalletDecrCredentials
-    , WalletDecrCredentials
+    ( decryptHdLvl2DerivationPath
+    , eskToHdPassphrase
+    , selectOwnAddresses
     ) where
 
 import           Universum
 
 import           Data.List ((!!))
 
-import           Pos.Wallet.Web.Tracking.Decrypt
-
 import           Cardano.Wallet.Kernel.DB.HdWallet (HdAccountIx (..),
                      HdAddressIx (..))
 import           Pos.Core (Address, aaPkDerivationPath, addrAttributesUnwrapped)
-import           Pos.Crypto (HDPassphrase, unpackHDAddressAttr)
+import           Pos.Crypto (EncryptedSecretKey, HDPassphrase,
+                     deriveHDPassphrase, encToPublic, unpackHDAddressAttr)
 
+selectOwnAddresses
+    :: HDPassphrase
+    -> (a -> Address)
+    -> [a]
+    -> [(a, (HdAccountIx, HdAddressIx))]
+selectOwnAddresses hdPass getAddr =
+    mapMaybe (\a -> (a,) <$> decryptHdLvl2DerivationPath hdPass (getAddr a))
 
 decryptHdLvl2DerivationPath :: HDPassphrase
                             -> Address
@@ -25,3 +30,6 @@ decryptHdLvl2DerivationPath hdPass addr = do
     derPath <- unpackHDAddressAttr hdPass hdPayload
     guard $ length derPath == 2
     pure (HdAccountIx (derPath !! 0), HdAddressIx (derPath !! 1))
+
+eskToHdPassphrase :: EncryptedSecretKey -> HDPassphrase
+eskToHdPassphrase = deriveHDPassphrase . encToPublic

@@ -17,7 +17,6 @@ import           Data.Acid.Advanced (update')
 
 import           Pos.Chain.Txp (Tx (..), TxAux (..), TxOut (..))
 import           Pos.Core (Coin (..))
-import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (EncryptedSecretKey)
 
 import           Cardano.Wallet.Kernel.DB.AcidState (CancelPending (..),
@@ -28,6 +27,7 @@ import           Cardano.Wallet.Kernel.DB.HdWallet.Create (initHdAddress)
 import           Cardano.Wallet.Kernel.DB.InDb
 import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
 import           Cardano.Wallet.Kernel.DB.TxMeta (TxMeta, putTxMeta)
+import           Cardano.Wallet.Kernel.Decrypt (eskToHdPassphrase)
 import           Cardano.Wallet.Kernel.Internal
 import           Cardano.Wallet.Kernel.PrefilterTx (filterOurs)
 import           Cardano.Wallet.Kernel.Read (getWalletCredentials)
@@ -35,7 +35,6 @@ import           Cardano.Wallet.Kernel.Submission (Cancelled, addPending)
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
 import           Cardano.Wallet.Kernel.Util.Core
 
-import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 
 {-------------------------------------------------------------------------------
   Submit pending transactions
@@ -120,9 +119,8 @@ newTx ActiveWallet{..} accountId tx partialMeta upd = do
         ourAddrs (wid, esk) =
             map f $ filterOurs wKey txOutAddress txOut
             where
-                nm = makeNetworkMagic $ walletPassive ^. walletProtocolMagic
                 f (txOut',addressId) = (initHdAddress addressId (txOutAddress txOut'), txOutValue txOut')
-                wKey = (wid, eskToWalletDecrCredentials nm esk)
+                wKey = (wid, eskToHdPassphrase esk)
 
         submitTx :: IO ()
         submitTx = modifyMVar_ (walletPassive ^. walletSubmission) $

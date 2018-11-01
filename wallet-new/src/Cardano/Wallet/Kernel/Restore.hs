@@ -39,8 +39,8 @@ import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Update as Spec
 import           Cardano.Wallet.Kernel.DB.TxMeta.Types
-import           Cardano.Wallet.Kernel.Decrypt (decryptAddress,
-                     eskToWalletDecrCredentials)
+import           Cardano.Wallet.Kernel.Decrypt (decryptHdLvl2DerivationPath,
+                     eskToHdPassphrase)
 import           Cardano.Wallet.Kernel.Internal (WalletRestorationInfo (..),
                      WalletRestorationProgress (..), addOrReplaceRestoration,
                      cancelRestoration, lookupRestorationInfo,
@@ -158,7 +158,7 @@ restoreWallet pw hasSpendingPassword defaultCardanoAddress name assurance esk = 
                 beginRestoration pw wId prefilter root Nothing tgt (restart root)
 
     wId    = WalletIdHdRnd (HD.eskToHdRootId nm esk)
-    wkey   = (wId, eskToWalletDecrCredentials nm esk)
+    wkey   = (wId, eskToHdPassphrase esk)
 
 
 mkPrefilter :: Kernel.PassiveWallet
@@ -168,9 +168,7 @@ mkPrefilter :: Kernel.PassiveWallet
             -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta])
 mkPrefilter pw wId esk blund = blundToResolvedBlock (pw ^. walletNode) blund <&> \case
     Nothing -> (M.empty, [])
-    Just rb -> prefilterBlock nm rb [(wId,esk)]
-  where
-    nm = makeNetworkMagic (pw ^. walletProtocolMagic)
+    Just rb -> prefilterBlock rb [(wId,esk)]
 
 -- | Begin a restoration for a wallet that is already known. This is used
 -- to put an existing wallet back into a restoration state when something has
@@ -192,7 +190,7 @@ restoreKnownWallet pw rootId = do
             Nothing  -> return () -- TODO (@mn): raise an error
             Just esk -> do
                 let prefilter = mkPrefilter pw wId esk
-                    wkey      = (wId, eskToWalletDecrCredentials nm esk)
+                    wkey      = (wId, eskToHdPassphrase esk)
 
                 coreConfig <- getCoreConfig (pw ^. walletNode)
                 db <- getWalletSnapshot pw
@@ -229,7 +227,7 @@ continueRestoration pw root cur tgt = do
             return ()
         Just esk -> do
             let prefilter = mkPrefilter pw wId esk
-                wkey      = (wId, eskToWalletDecrCredentials nm esk)
+                wkey      = (wId, eskToHdPassphrase esk)
                 restart   = do
                     coreConfig <- getCoreConfig (pw ^. walletNode)
                     wii <- withNodeState (pw ^. walletNode)
@@ -327,7 +325,7 @@ getWalletInitInfo :: NodeConstraints
                   -> WalletKey
                   -> Lock (WithNodeState IO)
                   -> WithNodeState IO WalletInitInfo
-getWalletInitInfo coreConfig wKey@(wId, wdc) lock = do
+getWalletInitInfo coreConfig wKey@(wId, hdPass) lock = do
     -- Find all of the current UTXO that this wallet owns.
     -- We lock the node state to be sure the tip header and the UTxO match
     (tipHeader, curUtxo :: Map HD.HdAccountId (Utxo, [AddrWithId])) <-
@@ -364,8 +362,8 @@ getWalletInitInfo coreConfig wKey@(wId, wdc) lock = do
 
     isOurs :: (TxIn, TxOutAux) -> Maybe (HD.HdAccountId, UtxoWithAddrId)
     isOurs (inp, out@(TxOutAux (TxOut addr _))) = do
-        wam <- decryptAddress wdc addr
-        let addrId = toHdAddressId wId wam
+        let (Just derPath) = decryptHdLvl2DerivationPath hdPass addr
+            addrId = toHdAddressId wId derPath
         return (addrId ^. HD.hdAddressIdParent, M.singleton inp (out, addrId))
 
 -- | Restore a wallet's transaction history.

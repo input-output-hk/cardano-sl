@@ -164,16 +164,15 @@ createWallet wallet newWalletRequest = liftIO $ do
 
 -- Synchronously restore the wallet balance, and begin to
 -- asynchronously reconstruct the wallet's history.
-prefilter :: NetworkMagic
-          -> EncryptedSecretKey
+prefilter :: EncryptedSecretKey
           -> Kernel.PassiveWallet
           -> WalletId
           -> Blund
           -> IO (Map HD.HdAccountId PrefilteredBlock, [TxMeta])
-prefilter nm esk wallet wId blund =
+prefilter esk wallet wId blund =
     blundToResolvedBlock (wallet ^. Kernel.walletNode) blund <&> \case
         Nothing -> (Map.empty, [])
-        Just rb -> prefilterBlock nm rb [(wId,esk)]
+        Just rb -> prefilterBlock rb [(wId,esk)]
 
 createExternalWallet :: MonadIO m
                      => Kernel.PassiveWallet

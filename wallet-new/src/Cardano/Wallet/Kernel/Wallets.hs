@@ -46,7 +46,7 @@ import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
 import           Cardano.Wallet.Kernel.Decrypt (decryptHdLvl2DerivationPath,
-                     eskToWalletDecrCredentials)
+                     eskToHdPassphrase)
 import           Cardano.Wallet.Kernel.Internal (PassiveWallet, walletKeystore,
                      walletProtocolMagic, wallets)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
@@ -294,7 +294,7 @@ createWalletHdRnd pw hasSpendingPassword defaultCardanoAddress name assuranceLev
                                 assuranceLevel
                                 created
 
-        hdPass    = fst $ eskToWalletDecrCredentials nm esk
+        hdPass    = eskToHdPassphrase esk
         hdAddress = defaultHdAddressWith hdPass rootId defaultCardanoAddress
 
     case hdAddress of

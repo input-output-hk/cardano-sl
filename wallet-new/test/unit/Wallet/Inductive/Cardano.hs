@@ -245,7 +245,7 @@ equivalentT useWW activeWallet esk = \mkWallet w ->
                 Left $ DB.CreateHdWallet root
                                          defaultAccount
                                          defAddress
-                                         (prefilterUtxo nm (root ^. HD.hdRootId) esk utxo)
+                                         (prefilterUtxo (root ^. HD.hdRootId) esk utxo)
             )
         case res of
              Left e -> createWalletErr (STB e)
@@ -258,7 +258,7 @@ equivalentT useWW activeWallet esk = \mkWallet w ->
             walletName       = HD.WalletName "(test wallet)"
             assuranceLevel   = HD.AssuranceLevelNormal
 
-            utxoByAccount = prefilterUtxo nm rootId esk utxo
+            utxoByAccount = prefilterUtxo rootId esk utxo
             accountIds    = Map.keys utxoByAccount
             rootId        = HD.eskToHdRootId nm esk
 

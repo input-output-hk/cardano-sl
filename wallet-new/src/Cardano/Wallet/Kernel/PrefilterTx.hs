@@ -32,11 +32,7 @@ import           Data.SafeCopy (base, deriveSafeCopy)
 import           Pos.Chain.Txp (TxId, TxIn (..), TxOut (..), TxOutAux (..),
                      Utxo)
 import           Pos.Core (Address (..), Coin, SlotId)
-import           Pos.Core.NetworkMagic (NetworkMagic)
-import           Pos.Crypto (EncryptedSecretKey)
-import           Pos.Wallet.Web.State.Storage (WAddressMeta (..))
-import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials,
-                     eskToWalletDecrCredentials, selectOwnAddresses)
+import           Pos.Crypto (EncryptedSecretKey, HDPassphrase)
 
 import           Cardano.Wallet.Kernel.DB.BlockContext
 import           Cardano.Wallet.Kernel.DB.BlockMeta
@@ -46,6 +42,8 @@ import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock,
                      ResolvedInput, ResolvedTx, rbContext, rbTxs,
                      resolvedToTxMeta, rtxInputs, rtxOutputs)
 import           Cardano.Wallet.Kernel.DB.TxMeta.Types
+import           Cardano.Wallet.Kernel.Decrypt (eskToHdPassphrase,
+                     selectOwnAddresses)
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
 import           Cardano.Wallet.Kernel.Util.Core
 
@@ -94,7 +92,7 @@ emptyPrefilteredBlock context = PrefilteredBlock {
     , pfbContext = context
     }
 
-type WalletKey = (WalletId, WalletDecrCredentials)
+type WalletKey = (WalletId, HDPassphrase)
 
 -- | Summary of an address as it appears in a transaction.
 --   NOTE: Since an address can occur in multiple transactions, there could be
@@ -195,11 +193,11 @@ prefilterUtxo' wKey utxo
                                     Map.singleton txIn (txOut, addrId))
 
 -- | Prefilter utxo using walletId and esk
-prefilterUtxo :: NetworkMagic -> HdRootId -> EncryptedSecretKey -> Utxo -> Map HdAccountId (Utxo,[AddrWithId])
-prefilterUtxo nm rootId esk utxo = map toPrefilteredUtxo prefUtxo
+prefilterUtxo :: HdRootId -> EncryptedSecretKey -> Utxo -> Map HdAccountId (Utxo,[AddrWithId])
+prefilterUtxo rootId esk utxo = map toPrefilteredUtxo prefUtxo
     where
         (_,prefUtxo) = prefilterUtxo' wKey utxo
-        wKey         = (WalletIdHdRnd rootId, eskToWalletDecrCredentials nm esk)
+        wKey         = (WalletIdHdRnd rootId, eskToHdPassphrase esk)
 
 -- | Produce Utxo along with all (extended) addresses occurring in the Utxo
 toPrefilteredUtxo :: UtxoWithAddrId -> (Utxo,[AddrWithId])
@@ -241,17 +239,15 @@ filterOurs :: WalletKey
            -> (a -> Address)      -- ^ address getter
            -> [a]                 -- ^ list to filter
            -> [(a, HdAddressId)]  -- ^ matching items
-filterOurs (wid,wdc) selectAddr rtxs
-    = map f $ selectOwnAddresses wdc selectAddr rtxs
-    where f (addr,meta) = (addr, toHdAddressId wid meta)
+filterOurs (wid,hdPass) selectAddr rtxs
+    = map f $ selectOwnAddresses hdPass selectAddr rtxs
+    where f (addr,derPath) = (addr, toHdAddressId wid derPath)
 
 -- TODO (@mn): move this into Util or something
-toHdAddressId :: WalletId -> WAddressMeta -> HdAddressId
-toHdAddressId (WalletIdHdRnd rootId) meta' = HdAddressId accountId addressIx
+toHdAddressId :: WalletId -> (HdAccountIx, HdAddressIx) -> HdAddressId
+toHdAddressId (WalletIdHdRnd rootId) (accountIx, addressIx) = HdAddressId accountId addressIx
   where
-    accountIx = HdAccountIx (_wamAccountIndex meta')
     accountId = HdAccountId rootId accountIx
-    addressIx = HdAddressIx (_wamAddressIndex meta')
 
 extendWithSummary :: (Bool, Bool)
                   -- ^ Bools that indicate whether the inputs and outsputs are all "ours"
@@ -281,11 +277,10 @@ extendWithSummary (onlyOurInps,onlyOurOuts) utxoWithAddrId
 -- | Prefilter the transactions of a resolved block for the given wallets.
 --
 --   Returns prefiltered blocks indexed by HdAccountId.
-prefilterBlock :: NetworkMagic
-               -> ResolvedBlock
+prefilterBlock :: ResolvedBlock
                -> [(WalletId, EncryptedSecretKey)]
                -> (Map HdAccountId PrefilteredBlock, [TxMeta])
-prefilterBlock nm block rawKeys =
+prefilterBlock block rawKeys =
       (Map.fromList
     $ map (mkPrefBlock (block ^. rbContext) inpAll outAll)
     $ Set.toList accountIds
@@ -308,7 +303,7 @@ prefilterBlock nm block rawKeys =
     accountIds = Map.keysSet inpAll `Set.union` Map.keysSet outAll
 
     toWalletKey :: (WalletId, EncryptedSecretKey) -> WalletKey
-    toWalletKey (wid, esk) = (wid, eskToWalletDecrCredentials nm esk)
+    toWalletKey (wid, esk) = (wid, eskToHdPassphrase esk)
 
 mkPrefBlock :: BlockContext
             -> Map HdAccountId (Set TxIn)

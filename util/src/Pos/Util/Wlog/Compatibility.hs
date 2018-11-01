@@ -291,8 +291,8 @@ centiUtcTimeF utc =
     tsformat = "%F %T%2Q %Z"
 
 -- do nothing, logs are closed by finalizers
-removeAllHandlers :: IO ()
-removeAllHandlers = pure ()
+removeAllHandlers :: LoggingHandler -> IO ()
+removeAllHandlers = Log.closeLogScribes
 
 -- Safe and structured logging.
 

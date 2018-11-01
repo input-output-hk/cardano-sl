@@ -45,11 +45,12 @@ import           Prelude hiding (takeWhile)
 
 import           Node (Message (..))
 import           Pos.Util (realTime)
+import           Pos.Util.Log.Internal (LoggingHandler)
 import           Pos.Util.Log.LoggerConfig (defaultInteractiveConfiguration,
                      lcLoggerTree, ltMinSeverity, ltNamedSeverity)
 import           Pos.Util.Trace (Trace, traceWith)
 import           Pos.Util.Wlog (LoggerConfig (..), Severity (..),
-                     parseLoggerConfig, setLogPrefix, setupLogging)
+                     parseLoggerConfig, setLogPrefix, setupLogging')
 
 -- * Transfered data types
 
@@ -100,13 +101,13 @@ defaultLogConfig =
     lc0 & lcLoggerTree .~ newlt
 
 
-loadLogConfig :: MonadIO m => Maybe FilePath -> Maybe FilePath -> m ()
+loadLogConfig :: MonadIO m => Maybe FilePath -> Maybe FilePath -> m LoggingHandler
 loadLogConfig logsPrefix configFile = do
     lc1 <- case configFile of
         Nothing  -> return defaultLogConfig
         Just lc0 -> parseLoggerConfig lc0
     lc <- liftIO $ setLogPrefix logsPrefix lc1
-    setupLogging "bench" lc
+    setupLogging' "bench" lc
 
 
 -- * Logging & parsing

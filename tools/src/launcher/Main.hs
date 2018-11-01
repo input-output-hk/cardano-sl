@@ -91,8 +91,8 @@ import           Pos.Util.Log.LoggerConfig (BackendKind (..), LogHandler (..),
                      lcBasePath, lcLoggerTree, ltHandlers, ltMinSeverity,
                      retrieveLogFiles)
 import           Pos.Util.Wlog (LoggerNameBox (..), Severity (Info), logError,
-                     logInfo, logNotice, logWarning, setupLogging,
-                     usingLoggerName)
+                     logInfo, logNotice, logWarning, removeAllHandlers,
+                     setupLogging', usingLoggerName)
 
 import           Pos.Tools.Launcher.Environment (substituteEnvVarsValue)
 import           Pos.Tools.Launcher.Logging (reportErrorDefault)
@@ -308,7 +308,7 @@ main =
             case loNodeLogConfig of
                 Nothing -> loNodeArgs
                 Just lc -> loNodeArgs ++ ["--log-config", toText lc]
-    setupLogging (cfoKey loConfiguration) $
+    lh <- setupLogging' (cfoKey loConfiguration) $
         defaultInteractiveConfiguration Info
             & lcBasePath .~ launcherLogsPrefix
             & lcLoggerTree %~ case launcherLogsPrefix of
@@ -355,6 +355,7 @@ main =
                     (UpdaterData loUpdaterPath loUpdaterArgs loUpdateWindowsRunner loUpdateArchive)
                     lo
                 logNotice "Finished clientScenario"
+    removeAllHandlers lh
   where
     -- We propagate some options to the node executable, because
     -- we almost certainly want to use the same configuration and

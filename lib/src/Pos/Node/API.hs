@@ -187,7 +187,8 @@ instance Ord SyncPercentage where
 instance Arbitrary SyncPercentage where
     arbitrary = mkSyncPercentage <$> choose (0, 100)
 
-instance Example SyncPercentage
+instance Example SyncPercentage where
+    example = pure (SyncPercentage (MeasuredIn 14))
 
 instance ToJSON SyncPercentage where
     toJSON (SyncPercentage (MeasuredIn w)) =

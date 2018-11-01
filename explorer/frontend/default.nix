@@ -47,7 +47,7 @@ let
     scripts/generate-explorer-lenses.sh
   '';
 
-  frontend = { stdenv, python, purescript, mkYarnPackage }:
+  frontend = { stdenv, python, mkYarnPackage }:
     mkYarnPackage {
       name = "cardano-explorer-frontend";
       inherit src;
@@ -56,7 +56,7 @@ let
       extraBuildInputs = [
         oldHaskellPackages.purescript-derive-lenses
         cardano-sl-explorer
-        purescript
+        oldHaskellPackages.purescript
         regen-script
       ];
       passthru = { inherit bowerComponents; };

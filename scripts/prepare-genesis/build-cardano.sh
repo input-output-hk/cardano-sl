@@ -21,7 +21,7 @@ export STAKEHOLDER
 export ALL_NODES
 export AVVM_SEED_COUNT
 export START_TIME
-if which nix-env; then
+if command -v nix-env; then
     echo "Nix package manager already installed."
 else
     echo "Installing the nix package manager."

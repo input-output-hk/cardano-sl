@@ -1,7 +1,6 @@
 # CHANGELOG
 
-
-## Cardano SL vNext [1.4.0]
+## Cardano SL 2.0.0
 
 ### Features
 

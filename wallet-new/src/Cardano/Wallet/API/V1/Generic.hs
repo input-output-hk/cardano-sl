@@ -5,4 +5,4 @@ module Cardano.Wallet.API.V1.Generic
     , gconsName
     ) where
 
-import Pos.Util.Jsend
+import           Pos.Util.Jsend

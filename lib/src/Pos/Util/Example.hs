@@ -12,8 +12,8 @@ import           Data.Typeable (typeOf)
 
 import           Test.QuickCheck (Arbitrary (..), listOf1)
 import           Test.QuickCheck.Gen (Gen (..), resize)
-import           Test.QuickCheck.Random (mkQCGen)
 import           Test.QuickCheck.Instances ()
+import           Test.QuickCheck.Random (mkQCGen)
 
 class Arbitrary a => Example a where
     example :: Gen a

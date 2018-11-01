@@ -1,4 +1,5 @@
-{-# LANGUAGE KindSignatures, TypeOperators #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE TypeOperators  #-}
 
 module Pos.Util.Jsend
     ( -- * JSend data types and functions
@@ -17,14 +18,14 @@ import           Universum hiding (All, Generic)
 import           Data.Aeson (GFromJSON, Object, ToJSON, Value (..), Zero,
                      genericParseJSON, object, tagSingleConstructors,
                      withObject, (.:), (.=))
-import           Data.Aeson.Types (Parser)
-import           Data.List ((!!))
-import           GHC.Generics
 import           Data.Aeson.TH
+import           Data.Aeson.Types (Parser)
 import qualified Data.Char as Char
+import           Data.List ((!!))
 import           Data.Swagger
-import           Test.QuickCheck (Arbitrary (..), elements)
 import qualified Formatting.Buildable
+import           GHC.Generics
+import           Test.QuickCheck (Arbitrary (..), elements)
 
 import qualified Data.Aeson as Aeson
 import qualified Data.HashMap.Lazy as HM

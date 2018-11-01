@@ -1,20 +1,19 @@
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE DataKinds       #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeOperators   #-}
-{-# LANGUAGE CPP   #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Pos.Node.API where
 
 import           Universum
 
-import qualified Data.ByteArray as ByteArray
-import qualified Prelude
-import           Control.Lens (At, Index, IxValue, at, ix, (?~), makePrisms)
+import           Control.Lens (At, Index, IxValue, at, ix, makePrisms, (?~))
 import           Data.Aeson
 import qualified Data.Aeson.Options as Aeson
 import           Data.Aeson.TH as A
 import           Data.Aeson.Types (Value (..), toJSONKeyText)
+import qualified Data.ByteArray as ByteArray
 import qualified Data.Char as C
 import qualified Data.Map.Strict as Map
 import           Data.Swagger hiding (Example, example)
@@ -26,22 +25,23 @@ import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape,
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import           Data.Version (Version)
-import           Formatting (bprint, build, (%), shown)
+import           Formatting (bprint, build, shown, (%))
 import qualified Formatting.Buildable
 import           GHC.Generics (Generic, Rep)
 import qualified Network.Transport as NT
 import           Node (NodeId (..))
+import qualified Prelude
 import           Servant
 import           Test.QuickCheck
 
+import qualified Pos.Chain.Update as Core
 import qualified Pos.Core as Core
 import           Pos.Infra.Diffusion.Subscription.Status
                      (SubscriptionStatus (..))
-import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..),
-                     deriveSafeBuildable, SecureLog(..))
+import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
+                     deriveSafeBuildable)
 import           Pos.Util.Servant (CustomQueryFlag, Flaggable (..), Tags,
                      ValidJSON, WalletResponse)
-import qualified Pos.Chain.Update as Core
 
 -- ToJSON/FromJSON instances for NodeId
 import           Pos.Infra.Communication.Types.Protocol ()

@@ -89,7 +89,7 @@ import           Data.Default (Default (..))
 import           Data.List (lookup)
 import           Data.Reflection (Reifies (..), reflect)
 import qualified Data.Set as Set
-import           Data.Swagger as S hiding (Example, example, info, Header)
+import           Data.Swagger as S hiding (Example, Header, example, info)
 import qualified Data.Text as T
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           Data.Typeable (typeRep)
@@ -103,9 +103,9 @@ import           Network.HTTP.Types (parseQueryText)
 import           Network.Wai (rawQueryString)
 import           Serokell.Util (listJsonIndent)
 import           Serokell.Util.ANSI (Color (..), colorizeDull)
-import           Servant.API ((:<|>) (..), (:>), Capture, Description,
+import           Servant.API ((:<|>) (..), (:>), Capture, Description, Header,
                      OctetStream, QueryFlag, QueryParam, ReflectMethod (..),
-                     ReqBody, Summary, Verb, Header)
+                     ReqBody, Summary, Verb)
 import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..),
                      MimeUnrender (..))
 import           Servant.Client (Client, HasClient (..))

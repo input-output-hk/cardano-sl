@@ -6,13 +6,11 @@ rotation:
 
 loggerTree:
   severity: Debug+
-  files:
-    - node.log
 
   handlers:
     - { name: "JSON"
       , filepath: "node.json"
       , logsafety: SecretLogLevel
-      , severity: Info
+      , severity: Debug+
       , backend: FileJsonBE }
 

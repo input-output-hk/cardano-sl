@@ -150,7 +150,9 @@ onNewSlotDo
     :: MonadOnNewSlot ctx m
     => SlotCount -> Bool -> Maybe SlotId -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
 onNewSlotDo epochSlots withLogging expectedSlotId onsp action = do
+    logDebug "onNewSlotDo 1"
     curSlot <- waitUntilExpectedSlot
+    logDebug "onNewSlotDo 2"
 
     let nextSlot = slotIdSucc epochSlots curSlot
     Timestamp curTime <- currentTimeSlotting
@@ -165,22 +167,36 @@ onNewSlotDo epochSlots withLogging expectedSlotId onsp action = do
                   ("Action "%stext%
                    " hasn't finished before new slot started") name
 
+    logDebug "onNewSlotDo 3"
     when (onspStartImmediately onsp) $ applyTimeout $ action curSlot
+    logDebug "onNewSlotDo 4"
 
     when (timeToWait > 0) $ do
         when withLogging $ logTTW timeToWait
         delay timeToWait
+
+    logDebug "onNewSlotDo 5"
+
     let newParams = onsp { onspStartImmediately = True }
     onNewSlotDo epochSlots withLogging (Just nextSlot) newParams action
   where
+    waitUntilExpectedSlot :: (MonadOnNewSlot ctx m) => m SlotId
     waitUntilExpectedSlot = do
+        logDebug "waitUntilExpectedSlot 1"
         -- onNewSlotWorker doesn't make sense in recovery phase. Most
         -- definitely we don't know current slot and even if we do
         -- (same epoch), the only priority is to sync with the
         -- chain. So we're skipping and checking again.
-        let skipRound = delay recoveryRefreshDelay >> waitUntilExpectedSlot
+        let
+          skipRound :: MonadOnNewSlot ctx m => m SlotId
+          skipRound = do
+            logDebug "skipRound 1"
+            delay recoveryRefreshDelay
+            waitUntilExpectedSlot
         ifM (recoveryInProgress epochSlots) skipRound $ do
+            logDebug "waitUntilExpectedSlot 2"
             slot <- getCurrentSlotBlocking epochSlots
+            logDebug "waitUntilExpectedSlot 3"
             if | maybe (const True) (<=) expectedSlotId slot -> return slot
             -- Here we wait for short intervals to be sure that expected slot
             -- has really started, taking into account possible inaccuracies.

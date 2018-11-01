@@ -16,8 +16,7 @@ import           Test.Hspec
 import           Test.QuickCheck
 
 import           Cardano.Wallet.API.Request (FilterBy, SortBy)
-import           Cardano.Wallet.API.Types (Tags,
-                     WithDefaultApiArg)
+import           Cardano.Wallet.API.Types (Tags, WithDefaultApiArg)
 import qualified Cardano.Wallet.API.V1 as V0
 import qualified Cardano.Wallet.API.V1 as V1
 import           Cardano.Wallet.API.V1.Parameters (WalletRequestParams,

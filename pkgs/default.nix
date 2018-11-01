@@ -17411,7 +17411,6 @@ license = stdenv.lib.licenses.mit;
 , silently
 , stdenv
 , stm
-, stm-chans
 , string-conv
 , tabl
 , tar

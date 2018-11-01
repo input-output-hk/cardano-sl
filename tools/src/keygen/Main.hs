@@ -162,14 +162,14 @@ main = do
         $ withConfigurations Nothing Nothing False koConfigurationOptions
         $ \genesisConfig _ _ _ -> do
               logInfo "Processing command"
-              generatedSecrets <- configGeneratedSecretsThrow genesisConfig
               case koCommand of
                   RearrangeMask msk  -> rearrange msk
                   GenerateKey   path -> genPrimaryKey path
                   GenerateVss   path -> genVssCert genesisConfig path
                   ReadKey       path -> readKey path
                   DumpAvvmSeeds opts -> dumpAvvmSeeds opts
-                  GenerateKeysBySpec gkbg ->
+                  GenerateKeysBySpec gkbg -> do
+                      generatedSecrets <- configGeneratedSecretsThrow genesisConfig
                       generateKeysByGenesis generatedSecrets gkbg
                   DumpGenesisData dgdPath dgdCanonical -> dumpGenesisData
                       (configGenesisData genesisConfig)

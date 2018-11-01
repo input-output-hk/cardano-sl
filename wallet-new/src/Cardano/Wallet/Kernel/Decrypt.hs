@@ -1,9 +1,8 @@
 module Cardano.Wallet.Kernel.Decrypt
     ( decryptAddress
     , decryptHdLvl2DerivationPath
-    , keyToWalletDecrCredentials
+    , eskToWalletDecrCredentials
     , WalletDecrCredentials
-    , WalletDecrCredentialsKey(..)
     ) where
 
 import           Universum

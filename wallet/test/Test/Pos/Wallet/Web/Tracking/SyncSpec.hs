@@ -31,8 +31,7 @@ import           Pos.Launcher (HasConfigurations)
 import           Pos.Util.Wlog (setupTestLogging)
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.State.Storage (WalletStorage (..))
-import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentialsKey (..),
-                     keyToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 import           Pos.Wallet.Web.Tracking.Sync (evalChange,
                      syncWalletWithBlockchain)
 import           Pos.Wallet.Web.Tracking.Types (newSyncRequest)
@@ -86,7 +85,7 @@ twoApplyTwoRollbacksSpec genesisConfig = walletPropertySpec genesisConfig twoApp
     secretKeys <- lift getSecretKeysPlain
     let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
     lift $ forM_ secretKeys $ \sk ->
-        syncWalletWithBlockchain genesisConfig . newSyncRequest . (keyToWalletDecrCredentials nm) $ KeyForRegular sk
+        syncWalletWithBlockchain genesisConfig . newSyncRequest . (eskToWalletDecrCredentials nm) $ sk
 
     -- Testing starts here
     genesisWalletDB <- lift WS.askWalletSnapshot

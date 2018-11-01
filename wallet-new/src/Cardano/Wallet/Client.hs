@@ -95,10 +95,8 @@ data WalletClient m
          :: WalletId -> Update Wallet -> Resp m Wallet
     , getUtxoStatistics
         :: WalletId -> Resp m UtxoStatistics
-    , postCheckExternalWallet
-         :: PublicKeyAsBase58 -> Resp m WalletAndTxHistory
     , postExternalWallet
-         :: New ExternalWallet -> Resp m Wallet
+         :: New ExternalWallet -> Resp m ExternalWallet
     , deleteExternalWallet
          :: PublicKeyAsBase58 -> m (Either ClientError ())
     , postUnsignedTransaction
@@ -246,8 +244,6 @@ natMapClient phi f wc = WalletClient
         \x -> f . phi . updateWallet wc x
     , getUtxoStatistics =
         f . phi . getUtxoStatistics wc
-    , postCheckExternalWallet =
-        f . phi . postCheckExternalWallet wc
     , postExternalWallet =
         f . phi . postExternalWallet wc
     , deleteExternalWallet =

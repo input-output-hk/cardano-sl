@@ -43,6 +43,7 @@ module Cardano.Wallet.API.V1.Types (
   , PublicKeyAsBase58
   , mkPublicKeyAsBase58
   , mkPublicKeyFromBase58
+  , Base58PublicKeyError (..)
   , NewExternalWallet (..)
   , WalletAndTxHistory (..)
   -- * Addresses
@@ -755,7 +756,6 @@ data NewExternalWallet = NewExternalWallet
     { newewalRootPK         :: !PublicKeyAsBase58
     , newewalAssuranceLevel :: !AssuranceLevel
     , newewalName           :: !WalletName
-    , newewalOperation      :: !WalletOperation
     } deriving (Eq, Show, Generic)
 
 deriveJSON Serokell.defaultOptions ''NewExternalWallet
@@ -763,7 +763,6 @@ instance Arbitrary NewExternalWallet where
     arbitrary = NewExternalWallet <$> arbitrary
                                   <*> arbitrary
                                   <*> pure "My external Wallet"
-                                  <*> arbitrary
 
 instance ToSchema NewExternalWallet where
     declareNamedSchema =
@@ -771,7 +770,6 @@ instance ToSchema NewExternalWallet where
             & ("rootPK"         --^ "Root public key to identify external wallet.")
             & ("assuranceLevel" --^ "Desired assurance level based on the number of confirmations counter of each transaction.")
             & ("name"           --^ "External wallet's name.")
-            & ("operation"      --^ "Create a new external wallet or Restore an existing one.")
         )
 
 deriveSafeBuildable ''NewExternalWallet
@@ -780,12 +778,10 @@ instance BuildableSafeGen NewExternalWallet where
         %" rootPK="%buildSafe sl
         %" assuranceLevel="%buildSafe sl
         %" name="%buildSafe sl
-        %" operation"%buildSafe sl
         %" }")
         newewalRootPK
         newewalAssuranceLevel
         newewalName
-        newewalOperation
 
 -- | A type modelling the update of an existing wallet.
 data WalletUpdate = WalletUpdate {
@@ -1151,24 +1147,38 @@ instance Buildable [Wallet] where
 
 -- | An external wallet (mobile client or hardware wallet).
 data ExternalWallet = ExternalWallet
-    { ewalId      :: !WalletId
-    , ewalName    :: !WalletName
-    , ewalBalance :: !(V1 Core.Coin)
+    { ewalId             :: !WalletId
+    , ewalName           :: !WalletName
+    , ewalBalance        :: !(V1 Core.Coin)
+    , ewalAssuranceLevel :: !AssuranceLevel
     } deriving (Eq, Ord, Show, Generic)
 
 deriveJSON Serokell.defaultOptions ''ExternalWallet
 instance ToSchema ExternalWallet where
     declareNamedSchema =
         genericSchemaDroppingPrefix "ewal" (\(--^) props -> props
-            & ("id"      --^ "Unique wallet identifier.")
-            & ("name"    --^ "Wallet's name.")
-            & ("balance" --^ "Current balance, in Lovelaces.")
+            & ("id"             --^ "Unique wallet identifier.")
+            & ("name"           --^ "Wallet's name.")
+            & ("balance"        --^ "Current balance, in Lovelaces.")
+            & ("assuranceLevel" --^ "The assurance level of the wallet.")
         )
 
 instance Arbitrary ExternalWallet where
     arbitrary = ExternalWallet <$> arbitrary
                                <*> pure "My external wallet"
                                <*> arbitrary
+                               <*> arbitrary
+
+deriveSafeBuildable ''ExternalWallet
+instance BuildableSafeGen ExternalWallet where
+  buildSafeGen sl ExternalWallet{..} = bprint ("{"
+    %" id="%buildSafe sl
+    %" name="%buildSafe sl
+    %" balance="%buildSafe sl
+    %" }")
+    ewalId
+    ewalName
+    ewalBalance
 
 --------------------------------------------------------------------------------
 -- Addresses
@@ -2833,7 +2843,6 @@ instance Example NewExternalWallet where
     example = NewExternalWallet <$> example
                                 <*> example
                                 <*> pure "My external Wallet"
-                                <*> example
 
 instance Example NodeInfo where
     example = NodeInfo <$> example

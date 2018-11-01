@@ -9,7 +9,6 @@ module Pos.Wallet.Web.Methods.Restore
        , restoreWalletFromSeed
        , restoreWalletFromSeedNoThrow
        , restoreWalletFromBackup
-       , restoreExternalWallet
        , addInitialRichAccount
 
        -- For testing
@@ -30,8 +29,8 @@ import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Genesis (PoorSecret, poorSecretToEncKey)
 import           Pos.Client.KeyStorage (addSecretKey)
 import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, PublicKey,
-                     emptyPassphrase, firstHardened)
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, emptyPassphrase,
+                     firstHardened)
 import           Pos.Infra.StateLock (Priority (..), withStateLockNoMetrics)
 import           Pos.Util (HasLens (..), maybeThrow)
 import           Pos.Util.UserSecret (UserSecretDecodingError (..),
@@ -52,8 +51,7 @@ import           Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.State (AddressLookupMode (Ever), askWalletDB,
                      askWalletSnapshot, createAccount, getAccountWAddresses,
                      getWalletMeta, removeHistoryCache, setWalletSyncTip)
-import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentialsKey (..),
-                     keyToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 import qualified Pos.Wallet.Web.Tracking.Restore as Restore
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.Wallet.Web.Util (getWalletAccountIds)
@@ -168,22 +166,9 @@ restoreWallet :: ( L.MonadWalletLogic ctx m
                  , MonadUnliftIO m
                  , HasLens SyncQueue ctx SyncQueue
                  ) => Genesis.Config -> EncryptedSecretKey -> m CWallet
-restoreWallet genesisConfig sk = restoreWith genesisConfig $ KeyForRegular sk
-
--- | Restore a history related to given external wallet, using its root PK.
-restoreExternalWallet :: ( L.MonadWalletLogic ctx m
-                         , MonadUnliftIO m
-                         , HasLens SyncQueue ctx SyncQueue
-                         ) => Genesis.Config -> PublicKey -> m CWallet
-restoreExternalWallet genesisConfig pk = restoreWith genesisConfig $ KeyForExternal pk
-
-restoreWith :: ( L.MonadWalletLogic ctx m
-               , MonadUnliftIO m
-               , HasLens SyncQueue ctx SyncQueue
-               ) => Genesis.Config -> WalletDecrCredentialsKey -> m CWallet
-restoreWith genesisConfig key = do
+restoreWallet genesisConfig sk = do
     let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
-        credentials@(_, wId) = keyToWalletDecrCredentials nm key
+        credentials@(_, wId) = eskToWalletDecrCredentials nm sk
     Restore.restoreWallet genesisConfig credentials
     db <- WS.askWalletDB
     WS.setWalletReady db wId True

@@ -35,8 +35,7 @@ import           Cardano.Wallet.Kernel.Submission (Cancelled, addPending)
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
 import           Cardano.Wallet.Kernel.Util.Core
 
-import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentialsKey (..),
-                     keyToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 
 {-------------------------------------------------------------------------------
   Submit pending transactions
@@ -123,7 +122,7 @@ newTx ActiveWallet{..} accountId tx partialMeta upd = do
             where
                 nm = makeNetworkMagic $ walletPassive ^. walletProtocolMagic
                 f (txOut',addressId) = (initHdAddress addressId (txOutAddress txOut'), txOutValue txOut')
-                wKey = (wid, keyToWalletDecrCredentials nm $ KeyForRegular esk)
+                wKey = (wid, eskToWalletDecrCredentials nm esk)
 
         submitTx :: IO ()
         submitTx = modifyMVar_ (walletPassive ^. walletSubmission) $

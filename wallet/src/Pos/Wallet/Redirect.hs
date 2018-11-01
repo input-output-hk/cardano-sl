@@ -54,7 +54,7 @@ import           Pos.Wallet.Web.ClientTypes (CId, Wal)
 import           Pos.Wallet.Web.Methods.History (addHistoryTxMeta)
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.Tracking (THEntryExtra, buildTHEntryExtra,
-                     isTxEntryInteresting, keyToWalletDecrCredentials)
+                     eskToWalletDecrCredentials, isTxEntryInteresting)
 
 ----------------------------------------------------------------------------
 -- BlockchainInfo
@@ -160,7 +160,7 @@ txpProcessTxWebWallet genesisConfig txpConfig tx@(txId, txAux) = do
 
     toThee :: (WithHash Tx, TxUndo) -> Timestamp -> CId Wal -> m (CId Wal, THEntryExtra)
     toThee txWithUndo ts wId = do
-        credentials <- keyToWalletDecrCredentials nm <$> getKeyById nm wId
+        credentials <- eskToWalletDecrCredentials nm <$> getKeyById nm wId
         pure (wId, buildTHEntryExtra credentials txWithUndo (Nothing, Just ts))
 
 txpNormalizeWebWallet

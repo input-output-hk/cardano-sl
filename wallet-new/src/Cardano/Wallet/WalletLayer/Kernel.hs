@@ -113,9 +113,11 @@ bracketPassiveWallet pm mode logFunction keystore node fInjects f = do
     passiveWalletLayer w invoke = PassiveWalletLayer
         { -- Operations that modify the wallet
           createWallet         = Wallets.createWallet         w
+        , createExternalWallet = Wallets.createExternalWallet w
         , updateWallet         = Wallets.updateWallet         w
         , updateWalletPassword = Wallets.updateWalletPassword w
         , deleteWallet         = Wallets.deleteWallet         w
+        , deleteExternalWallet = Wallets.deleteExternalWallet w
         , createAccount        = Accounts.createAccount       w
         , updateAccount        = Accounts.updateAccount       w
         , deleteAccount        = Accounts.deleteAccount       w

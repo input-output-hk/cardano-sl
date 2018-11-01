@@ -20,7 +20,7 @@ import           Pos.Wallet.Web (bracketWalletWS, bracketWalletWebDB,
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.State (askWalletDB, askWalletSnapshot,
                      flushWalletStorage)
-import           Pos.Wallet.Web.Tracking.Decrypt (keyToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 import           Pos.Wallet.Web.Tracking.Sync (syncWallet)
 import           Pos.WorkMode (EmptyMempoolExt)
 
@@ -75,7 +75,7 @@ actionWithWallet wArgs@WalletBackendParams {..} genesisConfig walletConfig txpCo
     syncWallets = do
         addrs <- getWalletAddresses <$> askWalletSnapshot
         keys' <- mapM (getKeyById nm) addrs
-        forM_ keys' (syncWallet . keyToWalletDecrCredentials nm)
+        forM_ keys' (syncWallet . eskToWalletDecrCredentials nm)
 
     plugins :: TVar NtpStatus -> LegacyPlugins.Plugin WalletWebMode
     plugins ntpStatus =

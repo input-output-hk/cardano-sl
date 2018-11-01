@@ -58,7 +58,7 @@ in
 , buildId ? null
 
 # Disable running of tests for all cardano-sl packages.
-, forceDontCheck ? false
+, forceDontCheck ? true
 
 # Enable profiling for all haskell packages.
 # Profiling slows down performance by 50% so we don't enable it by default.

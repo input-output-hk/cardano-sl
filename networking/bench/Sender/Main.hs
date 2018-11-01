@@ -34,6 +34,7 @@ import           Node (Conversation (..), ConversationActions (..), Node (Node),
 import           Node.Internal (NodeId (..))
 import           Node.Message.Binary (binaryPacking)
 import           Pos.Util.Trace (Severity (..), wlogTrace)
+import           Pos.Util.Wlog (removeAllHandlers)
 
 import           Bench.Network.Commons (MeasureEvent (..), Payload (..),
                      Ping (..), Pong (..), loadLogConfig, logMeasure)
@@ -57,7 +58,7 @@ main = do
             argsParser
             empty
 
-    loadLogConfig logsPrefix logConfig
+    lh <- loadLogConfig logsPrefix logConfig
     setLocaleEncoding utf8
 
     transport <- do
@@ -89,6 +90,7 @@ main = do
                         forM_ drones stopDrone
 
     action
+    removeAllHandlers lh
 
   where
 

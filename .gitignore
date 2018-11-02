@@ -98,6 +98,8 @@ wallet-new/bench/results/*.txt
 # wallet web API golden tests
 wallet-new/test/golden/*.txt.new
 
+wallet/test/wallet-db-1.1.1/open.lock
+
 # cardano-state-* for wallet data
 cardano-state-*
 state-*

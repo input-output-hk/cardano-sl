@@ -14,8 +14,34 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
+library
+  hs-source-dirs:      src
+  build-depends:       base
+
+  exposed-modules:     Cardano.Node.API
+  default-language:    Haskell2010
+  ghc-options:         -Wall
+  default-extensions: TypeOperators
+                      DataKinds
+                      DefaultSignatures
+                      NoImplicitPrelude
+                      MultiParamTypeClasses
+                      OverloadedStrings
+                      ScopedTypeVariables
+                      FlexibleInstances
+                      FlexibleContexts
+                      TypeFamilies
+                      TypeApplications
+                      TypeOperators
+                      TemplateHaskell
+                      RecordWildCards
+                      ScopedTypeVariables
+                      UndecidableInstances
+                      MonadFailDesugaring
+                      TupleSections
+
 executable cardano-node-simple
-  hs-source-dirs:      .
+  hs-source-dirs:      app
   main-is:             Main.hs
   build-depends:       base
                      , cardano-sl-core

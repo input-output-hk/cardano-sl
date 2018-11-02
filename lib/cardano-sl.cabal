@@ -64,6 +64,9 @@ library
                         Pos.Network.Block.Types
                         Pos.Network.Block.WorkMode
 
+                        -- Node management API
+                        Pos.Node.API
+
                         -- cardano-sl-client & cardano-sl-generator
                         Pos.Communication.Limits
                         Pos.Communication.Types
@@ -113,6 +116,11 @@ library
                         Test.Pos.Configuration
 
                         Pos.Util.Servant
+                        Pos.Util.Jsend
+                        Pos.Util.UnitsOfMeasure
+                        Pos.Util.Pagination
+                        Pos.Util.Example
+                        Pos.Util.KnownSymbols
 
 
   other-modules:
@@ -133,13 +141,12 @@ library
                         Pos.Communication.Server
 
   build-depends:        base
-                      , QuickCheck
-                      , async
                       , aeson >= 0.11.2.1
                       , aeson-options
-                      , async
                       , ansi-terminal
                       , ansi-wl-pprint
+                      , async
+                      , base64-bytestring
                       , bytestring
                       , canonical-json
                       , cardano-sl-binary
@@ -165,8 +172,11 @@ library
                       , filelock >= 0.1.0.1
                       , filepath
                       , formatting
+                      , formatting
                       , generic-arbitrary
+                      , generics-sop
                       , hspec
+                      , http-api-data
                       , http-client
                       , http-client-tls
                       , http-conduit
@@ -183,6 +193,8 @@ library
                       , optparse-applicative
                       , parsec
                       , pvss
+                      , QuickCheck
+                      , quickcheck-instances
                       , random
                       , reflection
                       , safe-exceptions
@@ -194,10 +206,10 @@ library
                       , servant-swagger
                       , stm
                       , streaming-commons
+                      , swagger2
                       , tagged
                       , template-haskell
                       , text
-                      , formatting
                       , time
                       , time-units
                       , tls

@@ -10,8 +10,10 @@ import           Control.Monad.Except (MonadError (throwError))
 import           Data.Aeson (FromJSON (..))
 import           Data.Aeson.TH (defaultOptions, deriveToJSON)
 import           Data.Char (isAscii)
+import           Data.List ((!!))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text as T
+import           Test.QuickCheck
 
 import           Pos.Binary.Class (Bi (..))
 
@@ -39,6 +41,15 @@ checkApplicationName (ApplicationName appName)
 
 applicationNameMaxLength :: Integral i => i
 applicationNameMaxLength = 12
+
+instance Arbitrary ApplicationName where
+    arbitrary =
+        ApplicationName .
+        toText . map selectAlpha . take applicationNameMaxLength <$>
+        arbitrary
+      where
+        selectAlpha n = alphabet !! (n `mod` length alphabet)
+        alphabet = "-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 deriveToJSON defaultOptions ''ApplicationName
 

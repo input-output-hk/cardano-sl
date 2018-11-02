@@ -14680,6 +14680,7 @@ license = stdenv.lib.licenses.bsd3;
 , ansi-wl-pprint
 , async
 , base
+, base64-bytestring
 , bytestring
 , canonical-json
 , cardano-crypto
@@ -14717,8 +14718,10 @@ license = stdenv.lib.licenses.bsd3;
 , filepath
 , formatting
 , generic-arbitrary
+, generics-sop
 , hedgehog
 , hspec
+, http-api-data
 , http-client
 , http-client-tls
 , http-conduit
@@ -14737,6 +14740,7 @@ license = stdenv.lib.licenses.bsd3;
 , parsec
 , pvss
 , QuickCheck
+, quickcheck-instances
 , random
 , reflection
 , safe-exceptions
@@ -14749,6 +14753,7 @@ license = stdenv.lib.licenses.bsd3;
 , stdenv
 , stm
 , streaming-commons
+, swagger2
 , systemd
 , tagged
 , template-haskell
@@ -14787,6 +14792,7 @@ ansi-terminal
 ansi-wl-pprint
 async
 base
+base64-bytestring
 bytestring
 canonical-json
 cardano-sl-binary
@@ -14815,7 +14821,9 @@ filelock
 filepath
 formatting
 generic-arbitrary
+generics-sop
 hspec
+http-api-data
 http-client
 http-client-tls
 http-conduit
@@ -14833,6 +14841,7 @@ optparse-applicative
 parsec
 pvss
 QuickCheck
+quickcheck-instances
 random
 reflection
 safe-exceptions
@@ -14844,6 +14853,7 @@ servant-server
 servant-swagger
 stm
 streaming-commons
+swagger2
 systemd
 tagged
 template-haskell
@@ -15394,6 +15404,7 @@ filepath
 fmt
 formatting
 free
+generic-arbitrary
 hashable
 lens
 lrucache
@@ -15404,6 +15415,7 @@ mtl
 neat-interpolation
 parsec
 plutus-prototype
+QuickCheck
 reflection
 safe-exceptions
 safecopy
@@ -15804,6 +15816,7 @@ license = stdenv.lib.licenses.mit;
 , hashable
 , hedgehog
 , hspec
+, http-api-data
 , lens
 , memory
 , mmorph
@@ -15875,6 +15888,7 @@ filepath
 fmt
 formatting
 hashable
+http-api-data
 lens
 memory
 mmorph
@@ -17279,8 +17293,11 @@ configureFlags = [
 "--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
-isLibrary = false;
+isLibrary = true;
 isExecutable = true;
+libraryHaskellDepends = [
+base
+];
 executableHaskellDepends = [
 base
 cardano-sl

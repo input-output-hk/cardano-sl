@@ -137,6 +137,7 @@ library
                      , fmt
                      , formatting
                      , hashable
+                     , http-api-data
                      , lens
                      , parsec
                      , memory

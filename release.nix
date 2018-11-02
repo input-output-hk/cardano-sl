@@ -96,7 +96,7 @@ let
   let
     pred = name: value: fixedLib.isCardanoSL name && value ? testrun;
     cardanoPkgs = import ./. { inherit system; };
-    f = name: value: builtins.trace name value.testrun;
+    f = name: value: value.testrun;
   in pkgs.lib.mapAttrs f (lib.filterAttrs pred cardanoPkgs);
 in pkgs.lib.fix (jobsets: mapped // {
   inherit tests;
@@ -111,7 +111,7 @@ in pkgs.lib.fix (jobsets: mapped // {
     name = "cardano-required-checks";
     constituents =
       let
-        all = x: map (system: builtins.trace x.${system}.name x.${system}) supportedSystems;
+        all = x: map (system: x.${system}) supportedSystems;
       in
     [
       (all jobsets.all-cardano-sl)

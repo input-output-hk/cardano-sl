@@ -11,7 +11,6 @@
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE StrictData                 #-}
 {-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE ViewPatterns               #-}
 -- The hlint parser fails on the `pattern` function, so we disable the
 -- language extension here.
 {-# LANGUAGE NoPatternSynonyms          #-}

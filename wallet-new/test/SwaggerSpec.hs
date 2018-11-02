@@ -9,7 +9,6 @@ import qualified Prelude
 import qualified Data.HashMap.Strict.InsOrd as IOMap
 import           Data.String.Conv
 import           Data.Swagger
-import           Pos.Wallet.Aeson.ClientTypes ()
 import           Servant
 import           Servant.Swagger.Test ()
 import           Test.Hspec
@@ -21,17 +20,15 @@ import           Cardano.Wallet.API.Response (ValidJSON)
 import qualified Cardano.Wallet.API.V1 as V1
 import           Cardano.Wallet.API.V1.Swagger ()
 import qualified Cardano.Wallet.API.V1.Swagger as Swagger
-import           Cardano.Wallet.Orphans.Aeson ()
-import           Cardano.Wallet.Orphans.Arbitrary ()
 import           Pos.Chain.Update (ApplicationName (..), SoftwareVersion (..))
 import           Pos.Util.CompileInfo (CompileTimeInfo (CompileTimeInfo),
                      gitRev)
 
 -- for vendored code
-import           Data.Aeson (ToJSON)
+import           Data.Aeson (ToJSON (..))
 import           Servant.Swagger.Internal.Test (props)
 import           Servant.Swagger.Internal.TypeLevel (BodyTypes, Every, TMap)
-import           Test.QuickCheck (Arbitrary)
+import           Test.QuickCheck (Arbitrary, arbitrary)
 
 -- Syntethic instances and orphans to be able to use `validateEveryToJSON`.
 -- In the future, hopefully, we will never need these.
@@ -51,6 +48,12 @@ instance ToSchema NoContent where
         pure $ NamedSchema Nothing $ mempty
             & type_ .~ SwaggerArray
             & maxLength .~ Just 0
+
+instance Arbitrary NoContent where
+    arbitrary = pure NoContent
+
+instance ToJSON NoContent where
+    toJSON NoContent = toJSON ()
 
 spec :: Spec
 spec = modifyMaxSuccess (const 10) $ do

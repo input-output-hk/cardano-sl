@@ -16553,7 +16553,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto
 , cardano-sl-infra
 , cardano-sl-util
-, cardano-sl-wallet
 , cardano-sl-wallet-new
 , connection
 , cryptonite
@@ -16619,7 +16618,6 @@ cardano-sl-chain
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-util
-cardano-sl-wallet
 cardano-sl-wallet-new
 connection
 cryptonite
@@ -16669,7 +16667,6 @@ cardano-sl-chain
 cardano-sl-core
 cardano-sl-infra
 cardano-sl-util
-cardano-sl-wallet
 cardano-sl-wallet-new
 ekg
 ekg-core
@@ -16696,7 +16693,6 @@ aeson
 base
 bytestring
 cardano-sl-core
-cardano-sl-wallet
 cardano-sl-wallet-new
 hspec
 mtl
@@ -17399,7 +17395,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-networking
 , cardano-sl-util
 , cardano-sl-util-test
-, cardano-sl-wallet
 , cardano-sl-x509
 , containers
 , cpphs
@@ -17426,7 +17421,6 @@ license = stdenv.lib.licenses.mit;
 , silently
 , stdenv
 , stm
-, stm-chans
 , string-conv
 , tabl
 , tar
@@ -17470,7 +17464,6 @@ cardano-sl-db
 cardano-sl-infra
 cardano-sl-networking
 cardano-sl-util
-cardano-sl-wallet
 containers
 data-default
 directory
@@ -17490,7 +17483,6 @@ universum
 unordered-containers
 ];
 executableHaskellDepends = [
-acid-state-exts
 aeson
 aeson-options
 ansi-wl-pprint
@@ -17503,20 +17495,13 @@ cardano-report-server
 cardano-sl
 cardano-sl-binary
 cardano-sl-chain
-cardano-sl-chain-test
-cardano-sl-client
 cardano-sl-core
-cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-db
 cardano-sl-infra
-cardano-sl-networking
 cardano-sl-util
-cardano-sl-wallet
 cardano-sl-x509
-containers
 cryptonite
-data-default
 directory
 filepath
 formatting
@@ -17525,19 +17510,14 @@ lens
 lifted-async
 mtl
 neat-interpolation
-network-transport-tcp
 optparse-applicative
-optparse-generic
 process
 safe-exceptions
 serokell-util
 silently
-stm
-stm-chans
 tabl
 tar
 text
-time
 time-units
 universum
 unix
@@ -18178,6 +18158,7 @@ license = stdenv.lib.licenses.mit;
 , async
 , base
 , base58-bytestring
+, basement
 , beam-core
 , beam-migrate
 , beam-sqlite
@@ -18305,6 +18286,7 @@ aeson-pretty
 async
 base
 base58-bytestring
+basement
 beam-core
 beam-migrate
 beam-sqlite

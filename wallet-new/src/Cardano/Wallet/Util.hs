@@ -5,6 +5,9 @@ module Cardano.Wallet.Util
        , stripFieldPrefix
        , mkJsonKey
 
+       -- * Miscellaneous
+       , eitherToParser
+
        -- * Time
        , defaultApiTimeLocale
        , apiTimeFormat
@@ -14,11 +17,20 @@ module Cardano.Wallet.Util
 
 import           Universum
 
+import           Data.Aeson.Types (Parser)
 import           Data.Char (isUpper, toLower)
 import qualified Data.Time as Time
 import           Formatting (bprint, build, formatToString, (%))
 import qualified Formatting.Buildable
 import qualified Prelude
+
+-- * Miscellaneous
+
+-- | Convert a given Either to an Aeson Parser
+eitherToParser :: Buildable a => Either a b -> Parser b
+eitherToParser =
+    either (fail . formatToString build) pure
+
 
 -- * String manipulation utils
 

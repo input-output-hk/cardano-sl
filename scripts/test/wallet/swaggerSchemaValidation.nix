@@ -5,9 +5,8 @@ let
   validate-json = "${validateJson}/bin/validate_json";
   schema = ./../../../tools/src/validate-json/swagger-meta-2.0.json;
 in writeScript "validate-swagger-schema" ''
-  ${generate-swagger-file} --target wallet@v0 --output-file swagger.v0.json
   ${generate-swagger-file} --target wallet@v1 --output-file swagger.v1.json
-  ${validate-json} --schema ${schema} swagger.v0.json && ${validate-json} --schema ${schema} swagger.v1.json
+  ${validate-json} --schema ${schema} swagger.v1.json
   EXIT_STATUS=$?
   rm -f swagger.*.json
   exit $EXIT_STATUS

@@ -8,9 +8,6 @@ import           Data.Swagger (Definitions, NamedSchema (..), Schema,
 import           Data.Swagger.Declare (Declare)
 import           Data.Typeable (typeOf)
 
-import           Cardano.Wallet.Orphans.Arbitrary ()
-import           Pos.Wallet.Web.ClientTypes (CUpdateInfo)
-import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot (..))
 import           Test.QuickCheck (Arbitrary (..), listOf1)
 import           Test.QuickCheck.Gen (Gen (..), resize)
 import           Test.QuickCheck.Random (mkQCGen)
@@ -23,7 +20,7 @@ class Arbitrary a => Example a where
     example = arbitrary
 
 instance Example ()
-instance Example a => Example (NonEmpty a)
+instance (Example a, Arbitrary (NonEmpty a) ) => Example (NonEmpty a)
 
 -- NOTE: we don't want to see empty list examples in our swagger doc :)
 instance Example a => Example [a] where
@@ -39,9 +36,6 @@ instance Example a => Example (Maybe a) where
 -- NOTE: we don't want to see empty maps in our swagger doc :)
 instance (Ord k, Example k, Example v) => Example (Map k v) where
     example = Map.fromList <$> listOf1 ((,) <$> example <*> example)
-
-instance Example CUpdateInfo
-instance Example WalletStateSnapshot
 
 
 --

@@ -29,8 +29,8 @@ import           Cardano.Wallet.Client.Http (AddressWithProof (..),
                      rawTransactionAsBase16, walId)
 import qualified Cardano.Wallet.Client.Http as Http (postSignedTransaction,
                      postUnsignedTransaction, postWallet)
-
-import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
+import           Cardano.Wallet.Kernel.BIP39 (entropyToMnemonic, mkEntropy,
+                     mnemonicToSeed)
 
 import           Pos.Core as Core
 import           Pos.Core.NetworkMagic (makeNetworkMagic)
@@ -41,7 +41,6 @@ import           Pos.Crypto (PublicKey, SecretKey, ShouldCheckPassphrase (..),
 import           Pos.Crypto.Configuration (ProtocolMagic)
 import qualified Pos.Crypto.Hashing (hash)
 import           Pos.Util.Log.LoggerConfig (defaultTestConfiguration)
-import           Pos.Util.Mnemonic (entropyToMnemonic, mkEntropy)
 import           Pos.Util.Wlog (Severity (Debug), setupLogging)
 import qualified Serokell.Util.Base16 (decode)
 
@@ -158,7 +157,7 @@ firstAddressSecretKey protocolMagic wallet = case derivedAddr of
     Just (addr,sk) -> (addr, encToSecret sk)
     where
         accountESK = snd $ safeDeterministicKeyGen
-                      (BIP39.mnemonicToSeed $ unBackupPhrase $ newwalBackupPhrase wallet) spendingPassword
+                      (mnemonicToSeed $ unBackupPhrase $ newwalBackupPhrase wallet) spendingPassword
         spendingPassword = case newwalSpendingPassword wallet of
                              Nothing -> emptyPassphrase
                              Just _  -> error "todo: spendingPassword not supported"

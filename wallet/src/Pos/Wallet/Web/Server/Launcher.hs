@@ -48,7 +48,7 @@ import           Pos.Wallet.Web.Sockets (ConnectionsVar, closeWSConnections,
 import           Pos.Wallet.Web.State (closeState, openState)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
 import           Pos.Wallet.Web.Tracking (syncWallet)
-import           Pos.Wallet.Web.Tracking.Decrypt (keyToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 import           Pos.Web (TlsParams, serveDocImpl, serveImpl)
 
 -- TODO [CSM-407]: Mixture of logic seems to be here
@@ -92,7 +92,7 @@ walletServer
     -> m (Server WalletSwaggerApi)
 walletServer genesisConfig txpConfig diffusion ntpStatus nat = do
     let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
-    mapM_ (findKey nm >=> syncWallet . keyToWalletDecrCredentials nm) =<< myRootAddresses nm
+    mapM_ (findKey nm >=> syncWallet . eskToWalletDecrCredentials nm) =<< myRootAddresses nm
     return $ servantHandlersWithSwagger genesisConfig txpConfig ntpStatus submitTx nat
   where
     -- Diffusion layer takes care of submitting transactions.

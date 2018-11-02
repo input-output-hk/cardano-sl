@@ -8,9 +8,10 @@
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE PolyKinds                  #-}
+{-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE StrictData                 #-}
 {-# LANGUAGE TemplateHaskell            #-}
-
+{-# LANGUAGE ViewPatterns               #-}
 -- The hlint parser fails on the `pattern` function, so we disable the
 -- language extension here.
 {-# LANGUAGE NoPatternSynonyms          #-}
@@ -43,6 +44,7 @@ module Cardano.Wallet.API.V1.Types (
   , PublicKeyAsBase58
   , mkPublicKeyAsBase58
   , mkPublicKeyFromBase58
+  , Base58PublicKeyError (..)
   , NewExternalWallet (..)
   , WalletAndTxHistory (..)
   -- * Addresses
@@ -118,6 +120,7 @@ module Cardano.Wallet.API.V1.Types (
   , RedemptionMnemonic(..)
   , BackupPhrase(..)
   , ShieldedRedemptionCode(..)
+  , WAddressMeta (..)
   -- * Some types for the API
   , CaptureWalletId
   , CaptureAccountId
@@ -152,6 +155,10 @@ import           Data.Semigroup (Semigroup)
 import           Data.Swagger hiding (Example, example)
 import           Data.Text (Text, dropEnd, toLower)
 import           Formatting (bprint, build, fconst, int, sformat, stext, (%))
+-- import qualified Data.Text as T
+-- import           Data.Version (Version (..), parseVersion, showVersion)
+-- import           Formatting (bprint, build, fconst, int, sformat, shown, stext,
+--                      (%))
 import qualified Formatting.Buildable
 import           Generics.SOP.TH (deriveGeneric)
 import           Serokell.Util (listJson)
@@ -161,6 +168,7 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Gen (Gen (..))
 import qualified Test.QuickCheck.Gen as Gen
 import qualified Test.QuickCheck.Modifiers as Gen
+-- import           Text.ParserCombinators.ReadP (readP_to_S)
 
 import           Pos.Node.API
 
@@ -173,14 +181,13 @@ import           Cardano.Wallet.API.V1.Errors (ToHttpErrorStatus (..),
 import           Cardano.Wallet.API.V1.Generic (jsendErrorGenericParseJSON,
                      jsendErrorGenericToJSON)
 import           Cardano.Wallet.API.V1.Swagger.Example (Example, example)
-import           Cardano.Wallet.Orphans.Aeson ()
 import           Cardano.Wallet.Types.UtxoStatistics
 import           Cardano.Wallet.Util (mkJsonKey, showApiUtcTime)
 
+import           Cardano.Wallet.Kernel.BIP39 (Mnemonic)
 import qualified Pos.Binary.Class as Bi
 import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Client.Txp.Util as Core
-import           Pos.Core (addressF)
 import qualified Pos.Core as Core
 import           Pos.Crypto (PublicKey (..), decodeHash, hashHexF)
 import qualified Pos.Crypto.Signing as Core
@@ -190,9 +197,12 @@ import           Pos.Infra.Diffusion.Subscription.Status
 import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), buildSafe,
                      buildSafeList, buildSafeMaybe, deriveSafeBuildable,
                      plainOrSecureF)
-import           Pos.Util.Mnemonic (Mnemonic)
-import           Pos.Wallet.Web.ClientTypes.Instances ()
-import qualified Pos.Wallet.Web.State.Storage as OldStorage
+-- import           Pos.Util.Mnemonic (Mnemonic)
+-- import           Pos.Wallet.Web.ClientTypes.Instances ()
+-- import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
+--                      buildSafe, buildSafeList, buildSafeMaybe,
+--                      deriveSafeBuildable, plainOrSecureF)
+-- import           Test.Pos.Chain.Update.Arbitrary ()
 import           Test.Pos.Core.Arbitrary ()
 
 -- | Declare generic schema, while documenting properties
@@ -227,23 +237,6 @@ optsADTCamelCase = defaultOptions
 --
 -- Versioning
 --
-
--- This deceptively-simple newtype is a wrapper to virtually @all@ the types exposed as
--- part of this API. The reason is twofold:
---
--- 1. We want to version our API, and we want the types to reflect that, without us having
--- to manually write newtype wrappers for all the types.
---
--- 2. Shelter an API from serialisation changes. Across versions of an API types can change,
--- so can they JSON instances. But chances are we might want to reuse most of those for different
--- versions of an API. Think about 'Address' or 'Coin'. Those are core Cardano types we want to
--- probably use for the time being. But their serialisation format can change as it's not defined
--- as part of the API, but in the lower layers of the stack.
---
--- General rules for serialisation:
---
--- 1. Never define an instance on the inner type 'a'. Do it only on 'V1 a'.
--- newtype V1 a = V1 a deriving (Eq, Ord)
 
 mkPassPhrase :: Text -> Either Text Core.PassPhrase
 mkPassPhrase text =
@@ -296,7 +289,7 @@ instance ToSchema (V1 Core.Coin) where
             & maximum_ .~ Just (fromIntegral Core.maxCoinVal)
 
 instance ToJSON (V1 Core.Address) where
-    toJSON (V1 c) = String $ sformat addressF c
+    toJSON (V1 c) = String $ sformat Core.addressF c
 
 instance FromJSON (V1 Core.Address) where
     parseJSON (String a) = case Core.decodeTextAddress a of
@@ -318,6 +311,9 @@ instance FromHttpApiData (V1 Core.Address) where
 
 instance ToHttpApiData (V1 Core.Address) where
     toQueryParam (V1 a) = sformat build a
+
+deriving instance Hashable (V1 Core.Address)
+deriving instance NFData (V1 Core.Address)
 
 -- | Represents according to 'apiTimeFormat' format.
 instance ToJSON (V1 Core.Timestamp) where
@@ -431,6 +427,8 @@ instance FromHttpApiData WalletId where
 instance ToHttpApiData WalletId where
     toQueryParam (WalletId wid) = wid
 
+instance Hashable WalletId
+instance NFData WalletId
 
 -- | A Wallet Operation
 data WalletOperation =
@@ -672,7 +670,6 @@ data NewExternalWallet = NewExternalWallet
     { newewalRootPK         :: !PublicKeyAsBase58
     , newewalAssuranceLevel :: !AssuranceLevel
     , newewalName           :: !WalletName
-    , newewalOperation      :: !WalletOperation
     } deriving (Eq, Show, Generic)
 
 deriveJSON Aeson.defaultOptions ''NewExternalWallet
@@ -680,7 +677,6 @@ instance Arbitrary NewExternalWallet where
     arbitrary = NewExternalWallet <$> arbitrary
                                   <*> arbitrary
                                   <*> pure "My external Wallet"
-                                  <*> arbitrary
 
 instance ToSchema NewExternalWallet where
     declareNamedSchema =
@@ -688,7 +684,6 @@ instance ToSchema NewExternalWallet where
             & ("rootPK"         --^ "Root public key to identify external wallet.")
             & ("assuranceLevel" --^ "Desired assurance level based on the number of confirmations counter of each transaction.")
             & ("name"           --^ "External wallet's name.")
-            & ("operation"      --^ "Create a new external wallet or Restore an existing one.")
         )
 
 deriveSafeBuildable ''NewExternalWallet
@@ -697,12 +692,10 @@ instance BuildableSafeGen NewExternalWallet where
         %" rootPK="%buildSafe sl
         %" assuranceLevel="%buildSafe sl
         %" name="%buildSafe sl
-        %" operation"%buildSafe sl
         %" }")
         newewalRootPK
         newewalAssuranceLevel
         newewalName
-        newewalOperation
 
 -- | A type modelling the update of an existing wallet.
 data WalletUpdate = WalletUpdate {
@@ -778,31 +771,31 @@ instance ToSchema EstimatedCompletionTime where
                     )
                 )
 
-
-newtype SyncThroughput = SyncThroughput (MeasuredIn 'BlocksPerSecond OldStorage.SyncThroughput)
+newtype SyncThroughput
+    = SyncThroughput (MeasuredIn 'BlocksPerSecond Core.BlockCount)
   deriving (Show, Eq)
 
 mkSyncThroughput :: Core.BlockCount -> SyncThroughput
-mkSyncThroughput = SyncThroughput . MeasuredIn . OldStorage.SyncThroughput
+mkSyncThroughput = SyncThroughput . MeasuredIn
 
 instance Ord SyncThroughput where
-    compare (SyncThroughput (MeasuredIn (OldStorage.SyncThroughput (Core.BlockCount b1))))
-            (SyncThroughput (MeasuredIn (OldStorage.SyncThroughput (Core.BlockCount b2)))) =
+    compare (SyncThroughput (MeasuredIn (Core.BlockCount b1)))
+            (SyncThroughput (MeasuredIn (Core.BlockCount b2))) =
         compare b1 b2
 
 instance Arbitrary SyncThroughput where
-    arbitrary = SyncThroughput . MeasuredIn . OldStorage.SyncThroughput <$> arbitrary
+    arbitrary = SyncThroughput . MeasuredIn <$> arbitrary
 
 deriveSafeBuildable ''SyncThroughput
 instance BuildableSafeGen SyncThroughput where
-    buildSafeGen _ (SyncThroughput (MeasuredIn (OldStorage.SyncThroughput (Core.BlockCount blocks)))) = bprint ("{"
+    buildSafeGen _ (SyncThroughput (MeasuredIn (Core.BlockCount blocks))) = bprint ("{"
         %" quantity="%build
         %" unit=blocksPerSecond"
         %" }")
         blocks
 
 instance ToJSON SyncThroughput where
-    toJSON (SyncThroughput (MeasuredIn (OldStorage.SyncThroughput (Core.BlockCount blocks)))) =
+    toJSON (SyncThroughput (MeasuredIn (Core.BlockCount blocks))) =
       object [ "quantity" .= toJSON blocks
              , "unit"     .= String "blocksPerSecond"
              ]
@@ -1018,24 +1011,38 @@ instance Buildable [Wallet] where
 
 -- | An external wallet (mobile client or hardware wallet).
 data ExternalWallet = ExternalWallet
-    { ewalId      :: !WalletId
-    , ewalName    :: !WalletName
-    , ewalBalance :: !(V1 Core.Coin)
+    { ewalId             :: !WalletId
+    , ewalName           :: !WalletName
+    , ewalBalance        :: !(V1 Core.Coin)
+    , ewalAssuranceLevel :: !AssuranceLevel
     } deriving (Eq, Ord, Show, Generic)
 
 deriveJSON Aeson.defaultOptions ''ExternalWallet
 instance ToSchema ExternalWallet where
     declareNamedSchema =
         genericSchemaDroppingPrefix "ewal" (\(--^) props -> props
-            & ("id"      --^ "Unique wallet identifier.")
-            & ("name"    --^ "Wallet's name.")
-            & ("balance" --^ "Current balance, in Lovelaces.")
+            & ("id"             --^ "Unique wallet identifier.")
+            & ("name"           --^ "Wallet's name.")
+            & ("balance"        --^ "Current balance, in Lovelaces.")
+            & ("assuranceLevel" --^ "The assurance level of the wallet.")
         )
 
 instance Arbitrary ExternalWallet where
     arbitrary = ExternalWallet <$> arbitrary
                                <*> pure "My external wallet"
                                <*> arbitrary
+                               <*> arbitrary
+
+deriveSafeBuildable ''ExternalWallet
+instance BuildableSafeGen ExternalWallet where
+  buildSafeGen sl ExternalWallet{..} = bprint ("{"
+    %" id="%buildSafe sl
+    %" name="%buildSafe sl
+    %" balance="%buildSafe sl
+    %" }")
+    ewalId
+    ewalName
+    ewalBalance
 
 --------------------------------------------------------------------------------
 -- Addresses
@@ -1087,6 +1094,21 @@ instance Arbitrary (V1 AddressOwnership) where
         , pure AddressAmbiguousOwnership
         ]
 
+-- | Address with associated metadata locating it in an account in a wallet.
+data WAddressMeta = WAddressMeta
+    { _wamWalletId     :: !WalletId
+    , _wamAccountIndex :: !Word32
+    , _wamAddressIndex :: !Word32
+    , _wamAddress      :: !(V1 Core.Address)
+    } deriving (Eq, Ord, Show, Generic, Typeable)
+
+instance Hashable WAddressMeta
+instance NFData WAddressMeta
+
+instance Buildable WAddressMeta where
+    build WAddressMeta{..} =
+        bprint (build%"@"%build%"@"%build%" ("%build%")")
+        _wamWalletId _wamAccountIndex _wamAddressIndex _wamAddress
 --------------------------------------------------------------------------------
 -- Accounts
 --------------------------------------------------------------------------------
@@ -2146,6 +2168,357 @@ instance BuildableSafeGen WalletImport where
         (maybe "null" (buildSafeGen sl) wiSpendingPassword)
         wiFilePath
 
+-- <<<<<<< HEAD
+-- =======
+--
+-- -- | How many milliseconds a slot lasts for.
+-- newtype SlotDuration = SlotDuration (MeasuredIn 'Milliseconds Word)
+--                      deriving (Show, Eq)
+--
+-- mkSlotDuration :: Word -> SlotDuration
+-- mkSlotDuration = SlotDuration . MeasuredIn
+--
+-- instance Arbitrary SlotDuration where
+--     arbitrary = mkSlotDuration <$> choose (0, 100)
+--
+-- instance ToJSON SlotDuration where
+--     toJSON (SlotDuration (MeasuredIn w)) =
+--             object [ "quantity" .= toJSON w
+--                    , "unit"     .= String "milliseconds"
+--                    ]
+--
+-- instance FromJSON SlotDuration where
+--     parseJSON = withObject "SlotDuration" $ \sl -> mkSlotDuration <$> sl .: "quantity"
+--
+-- instance ToSchema SlotDuration where
+--     declareNamedSchema _ =
+--         pure $ NamedSchema (Just "SlotDuration") $ mempty
+--             & type_ .~ SwaggerObject
+--             & required .~ ["quantity"]
+--             & properties .~ (mempty
+--                 & at "quantity" ?~ (Inline $ mempty
+--                     & type_ .~ SwaggerNumber
+--                     )
+--                 & at "unit" ?~ (Inline $ mempty
+--                     & type_ .~ SwaggerString
+--                     & enum_ ?~ ["milliseconds"]
+--                     )
+--                 )
+--
+-- deriveSafeBuildable ''SlotDuration
+-- instance BuildableSafeGen SlotDuration where
+--     buildSafeGen _ (SlotDuration (MeasuredIn w)) =
+--         bprint (build%"ms") w
+--
+--
+-- -- | The @static@ settings for this wallet node. In particular, we could group
+-- -- here protocol-related settings like the slot duration, the transaction max size,
+-- -- the current software version running on the node, etc.
+-- data NodeSettings = NodeSettings {
+--      setSlotDuration   :: !SlotDuration
+--    , setSoftwareInfo   :: !(V1 Core.SoftwareVersion)
+--    , setProjectVersion :: !(V1 Version)
+--    , setGitRevision    :: !Text
+--    } deriving (Show, Eq, Generic)
+--
+-- #if !(MIN_VERSION_swagger2(2,2,2))
+-- -- See note [Version Orphan]
+-- instance ToSchema (V1 Version) where
+--     declareNamedSchema _ =
+--         pure $ NamedSchema (Just "V1Version") $ mempty
+--             & type_ .~ SwaggerString
+--
+-- instance Buildable (V1 Version) where
+--     build (V1 v) = bprint shown v
+--
+-- instance Buildable (SecureLog (V1 Version)) where
+--     build (SecureLog x) = Formatting.Buildable.build x
+--
+-- instance ToJSON (V1 Version) where
+--     toJSON (V1 v) = toJSON (showVersion v)
+--
+-- instance FromJSON (V1 Version) where
+--     parseJSON (String v) = case readP_to_S parseVersion (T.unpack v) of
+--         (reverse -> ((ver,_):_)) -> pure (V1 ver)
+--         _                        -> mempty
+--     parseJSON x                  = typeMismatch "Not a valid Version" x
+--
+-- instance Arbitrary (V1 Version) where
+--     arbitrary = fmap V1 arbitrary
+--
+--
+-- -- Note [Version Orphan]
+-- -- I have opened a PR to add an instance of 'Version' to the swagger2
+-- -- library. When the PR is merged, we can delete the instance here and remove the warning from the file.
+-- -- PR: https://github.com/GetShopTV/swagger2/pull/152
+-- #endif
+--
+-- instance ToJSON (V1 Core.ApplicationName) where
+--     toJSON (V1 svAppName) = toJSON (Core.getApplicationName svAppName)
+--
+-- instance FromJSON (V1 Core.ApplicationName) where
+--     parseJSON (String svAppName) = pure (V1 (Core.ApplicationName svAppName))
+--     parseJSON x                  = typeMismatch "Not a valid ApplicationName" x
+--
+-- instance ToJSON (V1 Core.SoftwareVersion) where
+--     toJSON (V1 Core.SoftwareVersion{..}) =
+--         object [ "applicationName" .= toJSON (V1 svAppName)
+--                -- svNumber is just a type alias to Word32
+--                -- so that's fine.
+--                , "version" .=  toJSON svNumber
+--                ]
+--
+-- instance FromJSON (V1 Core.SoftwareVersion) where
+--     parseJSON = withObject "V1SoftwareVersion" $ \o -> do
+--         V1 svAppName <- o .: "applicationName"
+--         svNumber <- o .: "version"
+--         pure $ V1 Core.SoftwareVersion{..}
+--
+-- instance ToSchema (V1 Core.SoftwareVersion) where
+--     declareNamedSchema _ =
+--         pure $ NamedSchema (Just "V1SoftwareVersion") $ mempty
+--             & type_ .~ SwaggerObject
+--             & properties .~ (mempty
+--                 & at "applicationName" ?~ Inline (toSchema (Proxy @Text))
+--                 & at "version" ?~ Inline (toSchema (Proxy @Word32))
+--             )
+--             & required .~ ["applicationName", "version"]
+--
+-- instance Arbitrary (V1 Core.SoftwareVersion) where
+--     arbitrary = fmap V1 arbitrary
+--
+-- deriveJSON Serokell.defaultOptions ''NodeSettings
+--
+-- instance ToSchema NodeSettings where
+--   declareNamedSchema =
+--     genericSchemaDroppingPrefix "set" (\(--^) props -> props
+--       & ("slotDuration"   --^ "Duration of a slot.")
+--       & ("softwareInfo"   --^ "Various pieces of information about the current software.")
+--       & ("projectVersion" --^ "Current project's version.")
+--       & ("gitRevision"    --^ "Git revision of this deployment.")
+--     )
+--
+-- instance Arbitrary NodeSettings where
+--     arbitrary = NodeSettings <$> arbitrary
+--                              <*> arbitrary
+--                              <*> arbitrary
+--                              <*> pure "0e1c9322a"
+--
+-- deriveSafeBuildable ''NodeSettings
+-- instance BuildableSafeGen NodeSettings where
+--     buildSafeGen _ NodeSettings{..} = bprint ("{"
+--         %" slotDuration="%build
+--         %" softwareInfo="%build
+--         %" projectRevision="%build
+--         %" gitRevision="%build
+--         %" }")
+--         setSlotDuration
+--         setSoftwareInfo
+--         setProjectVersion
+--         setGitRevision
+--
+--
+-- -- | The different between the local time and the remote NTP server.
+-- newtype LocalTimeDifference = LocalTimeDifference (MeasuredIn 'Microseconds Integer)
+--                             deriving (Show, Eq)
+--
+-- mkLocalTimeDifference :: Integer -> LocalTimeDifference
+-- mkLocalTimeDifference = LocalTimeDifference . MeasuredIn
+--
+-- instance Arbitrary LocalTimeDifference where
+--     arbitrary = mkLocalTimeDifference <$> arbitrary
+--
+-- instance ToJSON LocalTimeDifference where
+--     toJSON (LocalTimeDifference (MeasuredIn w)) =
+--         object [ "quantity" .= toJSON w
+--                , "unit"     .= String "microseconds"
+--                ]
+--
+-- instance FromJSON LocalTimeDifference where
+--     parseJSON = withObject "LocalTimeDifference" $ \sl -> mkLocalTimeDifference <$> sl .: "quantity"
+--
+-- instance ToSchema LocalTimeDifference where
+--     declareNamedSchema _ =
+--         pure $ NamedSchema (Just "LocalTimeDifference") $ mempty
+--             & type_ .~ SwaggerObject
+--             & required .~ ["quantity"]
+--             & properties .~ (mempty
+--                 & at "quantity" ?~ (Inline $ mempty
+--                     & type_ .~ SwaggerNumber
+--                     )
+--                 & at "unit" ?~ (Inline $ mempty
+--                     & type_ .~ SwaggerString
+--                     & enum_ ?~ ["microseconds"]
+--                     )
+--                 )
+--
+-- deriveSafeBuildable ''LocalTimeDifference
+-- instance BuildableSafeGen LocalTimeDifference where
+--     buildSafeGen _ (LocalTimeDifference (MeasuredIn w)) =
+--         bprint (build%"μs") w
+--
+--
+-- -- | The absolute or relative height of the blockchain, measured in number
+-- -- of blocks.
+-- newtype BlockchainHeight = BlockchainHeight (MeasuredIn 'Blocks Core.BlockCount)
+--                          deriving (Show, Eq)
+--
+-- mkBlockchainHeight :: Core.BlockCount -> BlockchainHeight
+-- mkBlockchainHeight = BlockchainHeight . MeasuredIn
+--
+-- instance Arbitrary BlockchainHeight where
+--     arbitrary = mkBlockchainHeight . Core.BlockCount <$> choose (minBound, maxBound)
+--
+-- instance ToJSON BlockchainHeight where
+--     toJSON (BlockchainHeight (MeasuredIn w)) = object [ "quantity" .= toJSON (Core.getBlockCount w)
+--                                                       , "unit"     .= String "blocks"
+--                                                       ]
+--
+-- instance FromJSON BlockchainHeight where
+--     parseJSON = withObject "BlockchainHeight" $ \sl ->
+--         mkBlockchainHeight . Core.BlockCount <$> sl .: "quantity"
+--
+-- instance ToSchema BlockchainHeight where
+--     declareNamedSchema _ =
+--         pure $ NamedSchema (Just "BlockchainHeight") $ mempty
+--             & type_ .~ SwaggerObject
+--             & required .~ ["quantity"]
+--             & properties .~ (mempty
+--                 & at "quantity" ?~ (Inline $ mempty
+--                     & type_ .~ SwaggerNumber
+--                     & maximum_ .~ Just (fromIntegral (maxBound :: Word64))
+--                     & minimum_ .~ Just (fromIntegral (minBound :: Word64))
+--                     )
+--                 & at "unit" ?~ (Inline $ mempty
+--                     & type_ .~ SwaggerString
+--                     & enum_ ?~ ["blocks"]
+--                     )
+--                 )
+--
+-- deriveSafeBuildable ''BlockchainHeight
+-- instance BuildableSafeGen BlockchainHeight where
+--     buildSafeGen _ (BlockchainHeight (MeasuredIn w)) =
+--         bprint (build%" blocks") w
+--
+-- newtype TimeInfo
+--     = TimeInfo
+--     { timeDifferenceFromNtpServer :: Maybe LocalTimeDifference
+--     } deriving (Eq, Show, Generic)
+--
+-- instance ToSchema TimeInfo where
+--     declareNamedSchema = genericSchemaDroppingPrefix "time" $ \(--^) p -> p &
+--         "differenceFromNtpServer"
+--         --^ ("The difference in microseconds between the node time and the NTP "
+--           <> "server. This value will be null if the NTP server is "
+--           <> "unavailable.")
+--
+-- instance Arbitrary TimeInfo where
+--     arbitrary = TimeInfo <$> arbitrary
+--
+-- deriveSafeBuildable ''TimeInfo
+-- instance BuildableSafeGen TimeInfo where
+--     buildSafeGen _ TimeInfo{..} = bprint ("{"
+--         %" differenceFromNtpServer="%build
+--         %" }")
+--         timeDifferenceFromNtpServer
+--
+-- deriveJSON Serokell.defaultOptions ''TimeInfo
+--
+--
+-- availableSubscriptionStatus :: [SubscriptionStatus]
+-- availableSubscriptionStatus = [Subscribed, Subscribing]
+--
+-- deriveSafeBuildable ''SubscriptionStatus
+-- instance BuildableSafeGen SubscriptionStatus where
+--     buildSafeGen _ = \case
+--         Subscribed  -> "Subscribed"
+--         Subscribing -> "Subscribing"
+--
+-- deriveJSON Serokell.defaultOptions ''SubscriptionStatus
+--
+-- instance Arbitrary SubscriptionStatus where
+--     arbitrary =
+--         elements availableSubscriptionStatus
+--
+-- instance ToSchema SubscriptionStatus where
+--     declareNamedSchema _ = do
+--         let enum = toJSON <$> availableSubscriptionStatus
+--         pure $ NamedSchema (Just "SubscriptionStatus") $ mempty
+--             & type_ .~ SwaggerString
+--             & enum_ ?~ enum
+--
+-- instance FromJSONKey NodeId where
+--     fromJSONKey =
+--         FromJSONKeyText (NodeId . EndPointAddress . encodeUtf8)
+--
+-- instance ToJSONKey NodeId where
+--     toJSONKey =
+--         toJSONKeyText (decodeUtf8 . getAddress)
+--       where
+--         getAddress (NodeId (EndPointAddress x)) = x
+--
+-- instance ToSchema NodeId where
+--     declareNamedSchema _ = pure $ NamedSchema (Just "NodeId") $ mempty
+--         & type_ .~ SwaggerString
+--
+-- instance Arbitrary NodeId where
+--     arbitrary = do
+--         ipv4  <- genIPv4
+--         port_ <- genPort
+--         idx   <- genIdx
+--         return . toNodeId $ ipv4 <> ":" <> port_ <> ":" <> idx
+--       where
+--         toNodeId = NodeId . EndPointAddress . encodeUtf8
+--         showT    = show :: Int -> Text
+--         genIdx   = showT <$> choose (0, 9)
+--         genPort  = showT <$> choose (1000, 8000)
+--         genIPv4  = T.intercalate "." <$> replicateM 4 (showT <$> choose (0, 255))
+--
+--
+-- -- | The @dynamic@ information for this node.
+-- data NodeInfo = NodeInfo {
+--      nfoSyncProgress          :: !SyncPercentage
+--    , nfoBlockchainHeight      :: !(Maybe BlockchainHeight)
+--    , nfoLocalBlockchainHeight :: !BlockchainHeight
+--    , nfoLocalTimeInformation  :: !TimeInfo
+--    , nfoSubscriptionStatus    :: Map NodeId SubscriptionStatus
+--    } deriving (Show, Eq, Generic)
+--
+-- deriveJSON Serokell.defaultOptions ''NodeInfo
+--
+-- instance ToSchema NodeInfo where
+--   declareNamedSchema =
+--     genericSchemaDroppingPrefix "nfo" (\(--^) props -> props
+--       & ("syncProgress"          --^ "Syncing progression, in percentage.")
+--       & ("blockchainHeight"      --^ "If known, the current blockchain height, in number of blocks.")
+--       & ("localBlockchainHeight" --^ "Local blockchain height, in number of blocks.")
+--       & ("localTimeInformation"  --^ "Information about the clock on this node.")
+--       & ("subscriptionStatus"    --^ "Is the node connected to the network?")
+--     )
+--
+-- instance Arbitrary NodeInfo where
+--     arbitrary = NodeInfo <$> arbitrary
+--                          <*> arbitrary
+--                          <*> arbitrary
+--                          <*> arbitrary
+--                          <*> arbitrary
+--
+-- deriveSafeBuildable ''NodeInfo
+-- instance BuildableSafeGen NodeInfo where
+--     buildSafeGen _ NodeInfo{..} = bprint ("{"
+--         %" syncProgress="%build
+--         %" blockchainHeight="%build
+--         %" localBlockchainHeight="%build
+--         %" localTimeDifference="%build
+--         %" subscriptionStatus="%listJson
+--         %" }")
+--         nfoSyncProgress
+--         nfoBlockchainHeight
+--         nfoLocalBlockchainHeight
+--         nfoLocalTimeInformation
+--         (Map.toList nfoSubscriptionStatus)
+--
+-- >>>>>>> develop
 -- | A redemption mnemonic.
 newtype RedemptionMnemonic = RedemptionMnemonic
     { unRedemptionMnemonic :: Mnemonic 9
@@ -2349,7 +2722,6 @@ instance Example NewExternalWallet where
     example = NewExternalWallet <$> example
                                 <*> example
                                 <*> pure "My external Wallet"
-                                <*> example
 
 instance Example PaymentSource where
     example = PaymentSource <$> example

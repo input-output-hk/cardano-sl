@@ -11,15 +11,34 @@ import qualified QuickCheckSpecs as QuickCheck
 import           System.Environment (withArgs)
 import           Test.Hspec (Spec, hspec)
 
+import           Pos.Crypto.Configuration (ProtocolMagic (..),
+                     ProtocolMagicId (..),
+                     RequiresNetworkMagic (RequiresNoMagic))
+
 import           AccountSpecs (accountSpecs)
 import           AddressSpecs (addressSpecs)
 import           CLI (CLIOptions (..), getOptions)
+import           HardwareWalletSpecs (hardwareWalletSpecs)
 import           RandomStateWalk (randomStateWalkTest)
 import           SetupTestEnv (setupClient)
 import           System.IO (hSetEncoding, stdout, utf8)
 import           TransactionSpecs (transactionSpecs)
 import           Util (WalletRef, newWalletRef, printT)
 import           WalletSpecs (walletSpecs)
+
+{-
+This hardcoded value of protocolMagic is taken from lib/configuration.yaml.
+The protocolMagic is needed in the hardware wallet tests for running crypt-functions
+outside of the wallet (simmulating an external ledger device).
+TODO: remove this hardcoded value in favour of a CLI argument.
+TODO: add a test for validating the ProtocalMagic.
+-}
+
+unsafeProtocolMagic :: ProtocolMagic
+unsafeProtocolMagic = ProtocolMagic
+    { getProtocolMagicId = ProtocolMagicId 55550001
+    , getRequiresNetworkMagic = RequiresNoMagic
+    }
 
 -- | Here we want to run main when the (local) nodes have started.
 main :: IO ()
@@ -49,4 +68,5 @@ deterministicTests wref wc manager = do
     addressSpecs wref wc
     walletSpecs wref wc
     transactionSpecs wref wc
+    hardwareWalletSpecs unsafeProtocolMagic 1 wc
     QuickCheck.mkSpec manager

@@ -3,7 +3,7 @@ let
   fetchNixPkgs = let try = builtins.tryEval <cardano_pkgs>;
     in if try.success
     then builtins.trace "using host <cardano_pkgs>" try.value
-    else import ./nix/fetchNixpkgs.nix (builtins.fromJSON (builtins.readFile ./nixpkgs-src.json));
+    else import ./nix/fetch-nixpkgs.nix;
 
   # Function to import the pinned nixpkgs with necessary overlays,
   # applied to the given args.
@@ -94,9 +94,10 @@ in lib // (rec {
 
   runHaskell = name: hspkgs: deps: env: code: let
     ghc = hspkgs.ghcWithPackages deps;
+    flags = lib.optionalString pkgs.stdenv.isDarwin "-liconv";  # https://github.com/NixOS/nixpkgs/issues/46814
     builtBinary = pkgs.runCommand "${name}-binary" { buildInputs = [ ghc ]; } ''
       mkdir -p $out/bin/
-      ghc ${pkgs.writeText "${name}.hs" code} -o $out/bin/${name}
+      ghc ${pkgs.writeText "${name}.hs" code} ${flags} -o $out/bin/${name}
     '';
   in pkgs.runCommand name env ''
     ${builtBinary}/bin/$name

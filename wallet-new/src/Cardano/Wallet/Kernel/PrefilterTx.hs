@@ -34,11 +34,8 @@ import           Pos.Chain.Txp (TxId, TxIn (..), TxOut (..), TxOutAux (..),
 import           Pos.Core (Address (..), Coin, SlotId)
 import           Pos.Core.NetworkMagic (NetworkMagic)
 import           Pos.Crypto (EncryptedSecretKey)
-import           Pos.Wallet.Web.State.Storage (WAddressMeta (..))
-import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials,
-                     WalletDecrCredentialsKey (..), keyToWalletDecrCredentials,
-                     selectOwnAddresses)
 
+import qualified Cardano.Wallet.API.V1.Types as V1
 import           Cardano.Wallet.Kernel.DB.BlockContext
 import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.HdWallet
@@ -47,6 +44,8 @@ import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock,
                      ResolvedInput, ResolvedTx, rbContext, rbTxs,
                      resolvedToTxMeta, rtxInputs, rtxOutputs)
 import           Cardano.Wallet.Kernel.DB.TxMeta.Types
+import           Cardano.Wallet.Kernel.Decrypt (WalletDecrCredentials,
+                     eskToWalletDecrCredentials, selectOwnAddresses)
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
 import           Cardano.Wallet.Kernel.Util.Core
 
@@ -200,7 +199,7 @@ prefilterUtxo :: NetworkMagic -> HdRootId -> EncryptedSecretKey -> Utxo -> Map H
 prefilterUtxo nm rootId esk utxo = map toPrefilteredUtxo prefUtxo
     where
         (_,prefUtxo) = prefilterUtxo' wKey utxo
-        wKey         = (WalletIdHdRnd rootId, keyToWalletDecrCredentials nm $ KeyForRegular esk)
+        wKey         = (WalletIdHdRnd rootId, eskToWalletDecrCredentials nm esk)
 
 -- | Produce Utxo along with all (extended) addresses occurring in the Utxo
 toPrefilteredUtxo :: UtxoWithAddrId -> (Utxo,[AddrWithId])
@@ -247,12 +246,12 @@ filterOurs (wid,wdc) selectAddr rtxs
     where f (addr,meta) = (addr, toHdAddressId wid meta)
 
 -- TODO (@mn): move this into Util or something
-toHdAddressId :: WalletId -> WAddressMeta -> HdAddressId
+toHdAddressId :: WalletId -> V1.WAddressMeta -> HdAddressId
 toHdAddressId (WalletIdHdRnd rootId) meta' = HdAddressId accountId addressIx
   where
-    accountIx = HdAccountIx (_wamAccountIndex meta')
+    accountIx = HdAccountIx (V1._wamAccountIndex meta')
     accountId = HdAccountId rootId accountIx
-    addressIx = HdAddressIx (_wamAddressIndex meta')
+    addressIx = HdAddressIx (V1._wamAddressIndex meta')
 
 extendWithSummary :: (Bool, Bool)
                   -- ^ Bools that indicate whether the inputs and outsputs are all "ours"
@@ -309,7 +308,7 @@ prefilterBlock nm block rawKeys =
     accountIds = Map.keysSet inpAll `Set.union` Map.keysSet outAll
 
     toWalletKey :: (WalletId, EncryptedSecretKey) -> WalletKey
-    toWalletKey (wid, esk) = (wid, keyToWalletDecrCredentials nm $ KeyForRegular esk)
+    toWalletKey (wid, esk) = (wid, eskToWalletDecrCredentials nm esk)
 
 mkPrefBlock :: BlockContext
             -> Map HdAccountId (Set TxIn)

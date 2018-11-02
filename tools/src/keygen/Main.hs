@@ -26,12 +26,13 @@ import           Pos.Crypto (EncryptedSecretKey (..), SecretKey (..),
                      VssKeyPair, fullPublicKeyF, hashHexF, noPassEncrypt,
                      redeemPkB64F, toPublic, toVssPublicKey)
 import           Pos.Launcher (dumpGenesisData, withConfigurations)
+import qualified Pos.Util.Log as Log
 import           Pos.Util.Log.LoggerConfig (defaultInteractiveConfiguration)
 import           Pos.Util.UserSecret (readUserSecret, takeUserSecret, usKeys,
                      usPrimKey, usVss, usWallet, writeUserSecretRelease,
                      wusRootKey)
 import           Pos.Util.Wlog (Severity (Debug), WithLogger, logInfo,
-                     setupLogging, usingLoggerName)
+                     setupLogging', usingLoggerName)
 
 import           Dump (dumpFakeAvvmSeed, dumpGeneratedGenesisData,
                      dumpRichSecrets)
@@ -156,21 +157,22 @@ genVssCert genesisConfig path = do
 main :: IO ()
 main = do
     KeygenOptions {..} <- getKeygenOptions
-    setupLogging "keygen" $ defaultInteractiveConfiguration Debug
+    lh <- setupLogging' "keygen" $ defaultInteractiveConfiguration Debug
     usingLoggerName "keygen"
         $ withConfigurations Nothing Nothing False koConfigurationOptions
         $ \genesisConfig _ _ _ -> do
               logInfo "Processing command"
-              generatedSecrets <- configGeneratedSecretsThrow genesisConfig
               case koCommand of
                   RearrangeMask msk  -> rearrange msk
                   GenerateKey   path -> genPrimaryKey path
                   GenerateVss   path -> genVssCert genesisConfig path
                   ReadKey       path -> readKey path
                   DumpAvvmSeeds opts -> dumpAvvmSeeds opts
-                  GenerateKeysBySpec gkbg ->
+                  GenerateKeysBySpec gkbg -> do
+                      generatedSecrets <- configGeneratedSecretsThrow genesisConfig
                       generateKeysByGenesis generatedSecrets gkbg
                   DumpGenesisData dgdPath dgdCanonical -> dumpGenesisData
                       (configGenesisData genesisConfig)
                       dgdCanonical
                       dgdPath
+    Log.closeLogScribes lh

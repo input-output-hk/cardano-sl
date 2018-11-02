@@ -22,6 +22,7 @@ module Cardano.Wallet.Kernel.DB.AcidState (
     -- ** Updates on HD wallets
     -- *** CREATE
   , CreateHdWallet(..)
+  , CreateHdExternalWallet(..)
   , RestoreHdWallet(..)
   , CreateHdAccount(..)
   , CreateHdAddress(..)
@@ -540,6 +541,39 @@ createHdWallet newRoot defaultHdAccountId defaultHdAddress utxoByAccount =
                Nothing ->
                    Map.insert defaultHdAccountId (mempty, [defaultAddr]) m
 
+-- | Create an HdWallet with HdRoot, without defaultHdAddress. Since we use this function
+-- for external wallets only, we don't have defaultHdAddress here (because in the current
+-- implementation we cannot create new addresses without root secret key).
+--
+createHdExternalWallet :: HdRoot
+                       -> HdAccountId
+                       -- ^ The default HdAccountId to go with this HdRoot. This
+                       -- function will take responsibility of creating the associated
+                       -- 'HdAccount'.
+                       -> Map HdAccountId (Utxo, [AddrWithId])
+                       -> Update DB (Either HD.CreateHdRootError ())
+createHdExternalWallet newRoot defaultHdAccountId utxoByAccount =
+    runUpdateDiscardSnapshot . zoom dbHdWallets $ do
+      HD.createHdRoot newRoot
+      updateAccounts_ $ map mkUpdateCreateHdWallet (Map.toList (insertDefault utxoByAccount))
+  where
+    insertDefault :: Map HdAccountId (Utxo, [AddrWithId])
+                  -> Map HdAccountId (Utxo, [AddrWithId])
+    insertDefault m = case Map.lookup defaultHdAccountId m of
+        Just _  -> m
+        Nothing ->
+            -- Completely new account, without addresses (yet).
+            Map.insert defaultHdAccountId (mempty, []) m
+
+    mkUpdateCreateHdWallet :: (HdAccountId, (Utxo, [AddrWithId]))
+                           -> AccountUpdate HD.CreateHdRootError ()
+    mkUpdateCreateHdWallet (accId, (utxo, addrs)) = AccountUpdate {
+          accountUpdateId    = accId
+        , accountUpdateNew   = AccountUpdateNewUpToDate utxo
+        , accountUpdateAddrs = addrs
+        , accountUpdate      = return () -- just need to create it, no more
+        }
+
 -- | Begin restoration by creating an HdWallet with the given HdRoot,
 -- starting from the 'HdAccountOutsideK' state.
 --
@@ -831,6 +865,7 @@ makeAcidic ''DB [
     , 'createHdAddress
     , 'createHdAccount
     , 'createHdWallet
+    , 'createHdExternalWallet
     , 'updateHdWallet
     , 'updateHdRootPassword
     , 'updateHdAccountName

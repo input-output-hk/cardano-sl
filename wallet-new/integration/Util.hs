@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase    #-}
 {-# LANGUAGE RankNTypes    #-}
 {-# LANGUAGE TupleSections #-}
 module Util where
@@ -17,6 +18,7 @@ import           Test.QuickCheck.Property (Testable)
 import           Text.Show.Pretty (ppShow)
 
 import qualified Pos.Chain.Txp as Txp
+import qualified Pos.Core as Core
 
 type WalletRef = MVar Wallet
 
@@ -177,11 +179,53 @@ log = putStrLn . mappend "[TEST-LOG] "
 ppShowT :: Show a => a -> Text
 ppShowT = fromString . ppShow
 
-
--- | Output for @Text@.
 printT :: Text -> IO ()
 printT = putStrLn
 
 randomTest :: (Testable a) => String -> Int -> PropertyM IO a -> Spec
 randomTest msg maxSuccesses =
     prop msg . withMaxSuccess maxSuccesses . monadicIO
+
+shouldReturnRight :: (HasCallStack, Show err) => IO (Either err a) -> IO a
+shouldReturnRight a = a >>= \case
+    Right x  -> return x
+    Left err -> do
+        expectationFailure ("expecting Right (..) got: " ++ show err)
+        error "unreachable"
+
+shouldReturnData :: (HasCallStack, Show err) => IO (Either err  (WalletResponse a)) -> IO a
+shouldReturnData a = wrData <$> shouldReturnRight a
+
+makePayment
+    :: WalletClient m
+    -> Core.Coin
+    -> (Wallet, Account)
+    -> Address
+    -> Resp m Transaction
+makePayment wc amount (sourceW, sourceA) destination = do
+    let payment = Payment
+          { pmtSource = PaymentSource
+               { psWalletId     = walId sourceW
+               , psAccountIndex = accIndex sourceA
+               }
+          , pmtDestinations = pure PaymentDistribution
+               { pdAddress = V1 destination
+               , pdAmount  = V1 amount
+               }
+          , pmtGroupingPolicy   = Nothing
+          , pmtSpendingPassword = Nothing
+          }
+    postTransaction wc payment
+
+chargeWallet
+    :: WalletClient IO
+    -> Core.Coin
+    -> Wallet
+    -> IO (Account, WalletAddress)
+chargeWallet wc coin wallet = do
+    genesis <- genesisWallet wc
+    (genesisAccount, _) <- firstAccountAndId wc genesis
+    (account, address) <- firstAccountAndId wc wallet
+    txn <- shouldReturnData $ makePayment wc coin (genesis, genesisAccount) (unV1 $ addrId address)
+    pollTransactions wc (walId wallet) (accIndex account) (txId txn)
+    return (account, address)

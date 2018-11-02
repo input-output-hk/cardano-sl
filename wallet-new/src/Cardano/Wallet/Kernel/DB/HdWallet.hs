@@ -55,6 +55,7 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
   , hdAccountName
   , hdAccountState
   , hdAccountStateCurrent
+  , hdAccountStateCurrentCombined
   , hdAccountStateUpToDate
   , hdAccountRestorationState
     -- *** Account state: up to date
@@ -93,6 +94,7 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
   , assumeHdAccountExists
     -- * General-utility functions
   , eskToHdRootId
+  , pkToHdRootId
   ) where
 
 import           Universum hiding ((:|))
@@ -209,6 +211,8 @@ deriveSafeCopy 1 'base ''HasSpendingPassword
 eskToHdRootId :: NetworkMagic -> Core.EncryptedSecretKey -> HdRootId
 eskToHdRootId nm = HdRootId . InDb . (Core.makePubKeyAddressBoot nm) . Core.encToPublic
 
+pkToHdRootId :: NetworkMagic -> Core.PublicKey -> HdRootId
+pkToHdRootId nm = HdRootId . InDb . (Core.makePubKeyAddressBoot nm)
 
 {-------------------------------------------------------------------------------
   HD wallets
@@ -476,6 +480,16 @@ hdAccountStateCurrent g = to $ \case
       st ^. hdUpToDateCheckpoints . unCheckpoints . _Wrapped . SNE.head . g
     HdAccountStateIncomplete st ->
       st ^. hdIncompleteCurrent   . unCheckpoints . _Wrapped . SNE.head . g
+
+hdAccountStateCurrentCombined :: (a -> a -> a)
+                              -> (forall c. IsCheckpoint c => Getter c a)
+                              -> Getter HdAccountState a
+hdAccountStateCurrentCombined combine g = to $ \case
+    HdAccountStateUpToDate st ->
+      st ^. hdUpToDateCheckpoints . unCheckpoints . _Wrapped . SNE.head . g
+    HdAccountStateIncomplete st ->
+      combine (st ^. hdIncompleteCurrent    . unCheckpoints . _Wrapped . SNE.head . g)
+              (st ^. hdIncompleteHistorical . unCheckpoints . _Wrapped . SNE.head . g)
 
 {-------------------------------------------------------------------------------
   Predicates and tests

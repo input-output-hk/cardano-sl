@@ -1,3 +1,8 @@
-with import (import ../nix/fetchNixpkgs.nix (builtins.fromJSON (builtins.readFile ../nixpkgs-src.json))) {};
-with import ../. { gitrev = "gitrev"; };
-runCommand "dummy" { buildInputs = [ nodejs cardanoPackages.cardano-sl-wallet-new ]; } ''echo only for use with nix-shell''
+{ iohkPkgs ? import ../. { }
+, pkgs ? iohkPkgs.pkgs
+}:
+
+pkgs.mkShell {
+  name = "node-ipc-env";
+  buildInputs = [ pkgs.nodejs iohkPkgs.cardanoPackages.cardano-sl-wallet-new ];
+}

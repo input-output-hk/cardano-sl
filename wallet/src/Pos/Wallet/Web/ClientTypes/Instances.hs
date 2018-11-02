@@ -20,8 +20,8 @@ import           Servant.Multipart (FromMultipart (..), Mem, lookupFile,
                      lookupInput)
 
 import           Pos.Chain.Txp (TxId)
-import           Pos.Core (Address, Coin (..), checkCoin, coinToInteger,
-                     decodeTextAddress, mkCoin, unsafeGetCoin)
+import           Pos.Core (Address, Coin (..), decodeTextAddress, mkCoin,
+                     unsafeGetCoin)
 import           Pos.Crypto (PassPhrase, decodeHash, hashHexF, passphraseLength)
 import           Pos.Util.Servant (FromCType (..), HasTruncateLogPolicy (..),
                      OriginType, ToCType (..), WithTruncatedLog (..))
@@ -136,15 +136,6 @@ instance ToHttpApiData ScrollLimit where
 
 instance ToHttpApiData CPassPhrase where
     toQueryParam (CPassPhrase text) = text
-
-instance ToHttpApiData Coin where
-    toQueryParam = pretty . coinToInteger
-
-instance FromHttpApiData Coin where
-    parseUrlPiece p = do
-        c <- Coin <$> parseQueryParam p
-        checkCoin c
-        pure c
 
 instance FromHttpApiData Address where
     parseUrlPiece = decodeTextAddress

@@ -24,7 +24,7 @@ import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape,
                      GenericShape)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import           Data.Version (Version)
+import           Data.Version (Version, parseVersion, showVersion)
 import           Formatting (bprint, build, shown, (%))
 import qualified Formatting.Buildable
 import           GHC.Generics (Generic, Rep)
@@ -33,6 +33,7 @@ import           Node (NodeId (..))
 import qualified Prelude
 import           Servant
 import           Test.QuickCheck
+import           Text.ParserCombinators.ReadP (readP_to_S)
 
 import qualified Pos.Chain.Update as Core
 import qualified Pos.Core as Core
@@ -428,10 +429,21 @@ instance BuildableSafeGen SlotDuration where
     buildSafeGen _ (SlotDuration (MeasuredIn w)) =
         bprint (build%"ms") w
 
--- We copy the V1 type here, instead of moving it. It is only used in a single
--- field of `NodeSettings` thus far, and copying it allows us to avoid orphan
--- instances by relocating `V1` to some module that does not define the types it
--- needs.
+-- | This deceptively-simple newtype is a wrapper to virtually @all@ the types exposed as
+-- part of this API. The reason is twofold:
+--
+-- 1. We want to version our API, and we want the types to reflect that, without us having
+-- to manually write newtype wrappers for all the types.
+--
+-- 2. Shelter an API from serialisation changes. Across versions of an API types can change,
+-- so can they JSON instances. But chances are we might want to reuse most of those for different
+-- versions of an API. Think about 'Address' or 'Coin'. Those are core Cardano types we want to
+-- probably use for the time being. But their serialisation format can change as it's not defined
+-- as part of the API, but in the lower layers of the stack.
+--
+-- General rules for serialisation:
+--
+-- 1. Never define an instance on the inner type 'a'. Do it only on 'V1 a'.
 newtype V1 a = V1 a deriving (Eq, Ord)
 
 -- | Unwrap the 'V1' newtype to give the underlying type.
@@ -500,7 +512,19 @@ instance Arbitrary (V1 Core.SoftwareVersion) where
 instance Buildable Version where
     build v = bprint shown v
 
-instance Buildable a => Buildable (V1 a) where
+instance ToJSON (V1 Version) where
+    toJSON (V1 v) = toJSON (showVersion v)
+
+instance FromJSON (V1 Version) where
+    parseJSON = withText "V1Version" $ \v ->
+        case readP_to_S parseVersion (T.unpack v) of
+            (reverse -> ((ver,_):_)) -> pure (V1 ver)
+            _                        -> mempty
+
+instance Arbitrary (V1 Version) where
+    arbitrary = fmap V1 arbitrary
+
+instance {-# OVERLAPPABLE #-} Buildable a => Buildable (V1 a) where
     build (V1 x) = bprint build x
 
 #if !(MIN_VERSION_swagger2(2,2,2))
@@ -516,13 +540,18 @@ instance ToSchema Version where
 -- PR: https://github.com/GetShopTV/swagger2/pull/152
 #endif
 
+instance ToSchema (V1 Version) where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "V1Version") $ mempty
+            & type_ .~ SwaggerString
+
 -- | The @static@ settings for this wallet node. In particular, we could group
 -- here protocol-related settings like the slot duration, the transaction max size,
 -- the current software version running on the node, etc.
 data NodeSettings = NodeSettings
     { setSlotDuration   :: !SlotDuration
     , setSoftwareInfo   :: !(V1 Core.SoftwareVersion)
-    , setProjectVersion :: !Version
+    , setProjectVersion :: !(V1 Version)
     , setGitRevision    :: !Text
     } deriving (Show, Eq, Generic)
 

@@ -1,6 +1,4 @@
-# Generated using stack2nix 0.1.3.1.
-#
-# Only works with sufficiently recent nixpkgs, e.g. "NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/21a8239452adae3a4717772f4e490575586b2755.tar.gz".
+# Generated using stack2nix 0.2.1.
 
 { pkgs ? (import <nixpkgs> {})
 , compiler ? pkgs.haskell.packages.ghc822
@@ -13,6 +11,7 @@ let
     self: {
 array = null;
 base = null;
+bin-package-db = null;
 binary = null;
 bytestring = null;
 containers = null;
@@ -4180,8 +4179,8 @@ homepage = "https://github.com/xmonad/X11";
 description = "A binding to the X11 graphics library";
 license = stdenv.lib.licenses.bsd3;
 
-}) {inherit (pkgs) libX11; inherit (pkgs) libXext;
-inherit (pkgs) libXrandr;};
+}) {inherit (pkgs.xorg) libXScrnSaver; inherit (pkgs.xorg) libXext;
+inherit (pkgs.xorg) libXinerama; inherit (pkgs.xorg) libXrender;};
 "X11-xft" = callPackage
 ({
   mkDerivation
@@ -4209,7 +4208,7 @@ doCheck = false;
 description = "Bindings to the Xft, X Free Type interface library, and some Xrender parts";
 license = "LGPL";
 
-}) {inherit (pkgs) libXft;};
+}) {};
 "Xauth" = callPackage
 ({
   mkDerivation
@@ -4233,7 +4232,7 @@ doCheck = false;
 description = "A binding to the X11 authentication library";
 license = stdenv.lib.licenses.bsd3;
 
-}) {inherit (pkgs) libXau;};
+}) {};
 "Yampa" = callPackage
 ({
   mkDerivation
@@ -5006,6 +5005,7 @@ src = fetchgit {
 url = "https://github.com/parsonsmatt/acid-state";
 sha256 = "0mgdk8252g7wbb0afyn21pcn3bwh4vainy3h2d0xsv4hlpgqgnw8";
 rev = "a1b23e2056f134e53f705a694ab85deeecabec5c";
+fetchSubmodules = true;
 
 };
 libraryHaskellDepends = [
@@ -11515,10 +11515,8 @@ doCheck = false;
 description = "Low-level bindings to GLFW OpenGL library";
 license = stdenv.lib.licenses.bsd3;
 
-}) {inherit (pkgs) libGL; inherit (pkgs) libX11;
-inherit (pkgs) libXcursor; inherit (pkgs) libXi;
-inherit (pkgs) libXinerama; inherit (pkgs) libXrandr;
-inherit (pkgs) libXxf86vm;};
+}) {inherit (pkgs) libGL; inherit (pkgs.xorg) libXext;
+inherit (pkgs.xorg) libXfixes;};
 "bindings-libzip" = callPackage
 ({
   mkDerivation
@@ -14457,6 +14455,7 @@ src = fetchgit {
 url = "https://github.com/input-output-hk/canonical-json.git";
 sha256 = "0cqa4vnrj3wqqgzzg9v7p3ddrfsf5fx63dv2jnwnlfaczs007dkq";
 rev = "f66762e4c4fe484ed109d28ad541fc55cc841c2c";
+fetchSubmodules = true;
 
 };
 libraryHaskellDepends = [
@@ -14544,6 +14543,7 @@ src = fetchgit {
 url = "https://github.com/input-output-hk/cardano-crypto";
 sha256 = "0ax9gxbr3qnji1jwz2rz97573lkyi4128m2ck90bi1x15p4bm65y";
 rev = "e87fcd3fea18f664d6e4f39c11abb8cafbd25785";
+fetchSubmodules = true;
 
 };
 isLibrary = true;
@@ -14612,6 +14612,7 @@ src = fetchgit {
 url = "https://github.com/input-output-hk/cardano-report-server.git";
 sha256 = "02n86wbfr3z2xqrc8g8naj0dc5j4644y0l295qzdqlfynmz6a82z";
 rev = "9b96874d0f234554a5779d98762cc0a6773a532a";
+fetchSubmodules = true;
 
 };
 isLibrary = true;
@@ -14873,6 +14874,9 @@ x509-store
 x509-validation
 yaml
 ];
+libraryToolDepends = [
+cpphs
+];
 testHaskellDepends = [
 base
 bytestring
@@ -14918,6 +14922,9 @@ time-units
 universum
 unordered-containers
 ];
+testToolDepends = [
+cpphs
+];
 benchmarkHaskellDepends = [
 base
 bytestring
@@ -14941,6 +14948,9 @@ network-transport-inmemory
 optparse-applicative
 QuickCheck
 universum
+];
+benchmarkToolDepends = [
+cpphs
 ];
 doHaddock = false;
 description = "Cardano SL main implementation";
@@ -16555,7 +16565,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto
 , cardano-sl-infra
 , cardano-sl-util
-, cardano-sl-wallet
 , cardano-sl-wallet-new
 , connection
 , cryptonite
@@ -16621,7 +16630,6 @@ cardano-sl-chain
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-util
-cardano-sl-wallet
 cardano-sl-wallet-new
 connection
 cryptonite
@@ -16671,7 +16679,6 @@ cardano-sl-chain
 cardano-sl-core
 cardano-sl-infra
 cardano-sl-util
-cardano-sl-wallet
 cardano-sl-wallet-new
 ekg
 ekg-core
@@ -16698,7 +16705,6 @@ aeson
 base
 bytestring
 cardano-sl-core
-cardano-sl-wallet
 cardano-sl-wallet-new
 hspec
 mtl
@@ -17404,7 +17410,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-networking
 , cardano-sl-util
 , cardano-sl-util-test
-, cardano-sl-wallet
 , cardano-sl-x509
 , containers
 , cpphs
@@ -17431,7 +17436,6 @@ license = stdenv.lib.licenses.mit;
 , silently
 , stdenv
 , stm
-, stm-chans
 , string-conv
 , tabl
 , tar
@@ -17475,7 +17479,6 @@ cardano-sl-db
 cardano-sl-infra
 cardano-sl-networking
 cardano-sl-util
-cardano-sl-wallet
 containers
 data-default
 directory
@@ -17495,7 +17498,6 @@ universum
 unordered-containers
 ];
 executableHaskellDepends = [
-acid-state-exts
 aeson
 aeson-options
 ansi-wl-pprint
@@ -17508,20 +17510,13 @@ cardano-report-server
 cardano-sl
 cardano-sl-binary
 cardano-sl-chain
-cardano-sl-chain-test
-cardano-sl-client
 cardano-sl-core
-cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-db
 cardano-sl-infra
-cardano-sl-networking
 cardano-sl-util
-cardano-sl-wallet
 cardano-sl-x509
-containers
 cryptonite
-data-default
 directory
 filepath
 formatting
@@ -17530,19 +17525,14 @@ lens
 lifted-async
 mtl
 neat-interpolation
-network-transport-tcp
 optparse-applicative
-optparse-generic
 process
 safe-exceptions
 serokell-util
 silently
-stm
-stm-chans
 tabl
 tar
 text
-time
 time-units
 universum
 unix
@@ -18183,6 +18173,7 @@ license = stdenv.lib.licenses.mit;
 , async
 , base
 , base58-bytestring
+, basement
 , beam-core
 , beam-migrate
 , beam-sqlite
@@ -18310,6 +18301,7 @@ aeson-pretty
 async
 base
 base58-bytestring
+basement
 beam-core
 beam-migrate
 beam-sqlite
@@ -18405,9 +18397,11 @@ aeson-pretty
 async
 base
 bytestring
+cardano-crypto
 cardano-sl
 cardano-sl-chain
 cardano-sl-core
+cardano-sl-crypto
 cardano-sl-db
 cardano-sl-infra
 cardano-sl-networking
@@ -18420,10 +18414,12 @@ hspec
 http-client
 http-types
 lens
+memory
 mtl
 optparse-applicative
 pretty-show
 QuickCheck
+serokell-util
 servant
 servant-client
 servant-quickcheck
@@ -19045,6 +19041,7 @@ src = fetchgit {
 url = "https://github.com/well-typed/cborg";
 sha256 = "1w06annk6nm01brd60hzl15143cvjvsaam9lhwzpmppyvgb0cdyz";
 rev = "3d274c14ca3077c3a081ba7ad57c5182da65c8c1";
+fetchSubmodules = true;
 
 };
 postUnpack = "sourceRoot+=/cborg; echo source root reset to $sourceRoot";
@@ -20153,6 +20150,7 @@ src = fetchgit {
 url = "https://github.com/corsis/clock.git";
 sha256 = "1r4n9imls483f7wd61fi1jk16z2k7w36gpx798sqidvwbnc831q1";
 rev = "ef60bd51a3587a173adf565c33bf2886df6e3842";
+fetchSubmodules = true;
 
 };
 libraryHaskellDepends = [
@@ -28381,6 +28379,7 @@ src = fetchgit {
 url = "https://github.com/input-output-hk/engine.io.git";
 sha256 = "139c0yfnj57cpwg4k0am2rp35sh959394nvlb98011rjy68200qc";
 rev = "d3c55f51bb81cee7d0d551de930ce65fe7d76756";
+fetchSubmodules = true;
 
 };
 postUnpack = "sourceRoot+=/engine-io; echo source root reset to $sourceRoot";
@@ -28439,6 +28438,7 @@ src = fetchgit {
 url = "https://github.com/input-output-hk/engine.io.git";
 sha256 = "139c0yfnj57cpwg4k0am2rp35sh959394nvlb98011rjy68200qc";
 rev = "d3c55f51bb81cee7d0d551de930ce65fe7d76756";
+fetchSubmodules = true;
 
 };
 postUnpack = "sourceRoot+=/engine-io-wai; echo source root reset to $sourceRoot";
@@ -32748,6 +32748,9 @@ version = "0.2.1.2";
 sha256 = "4e3a96f09e360f1b13ac73e6fb9371eb0fcd6a89c3c8c7966632dd8c19f76a1f";
 libraryHaskellDepends = [
 base
+markdown-unlit
+];
+libraryToolDepends = [
 markdown-unlit
 ];
 doHaddock = false;
@@ -38573,6 +38576,7 @@ src = fetchgit {
 url = "https://github.com/input-output-hk/haskell-hedgehog.git";
 sha256 = "0l0d1n2b68m0628j4yi214q5fy6pz777qfj1bc1lrra8scs5gcxh";
 rev = "2e741bb53afb085741807018948ae17d956c53af";
+fetchSubmodules = true;
 
 };
 postUnpack = "sourceRoot+=/hedgehog; echo source root reset to $sourceRoot";
@@ -42147,6 +42151,7 @@ version = "0.9.5.2";
 sha256 = "0e4d26f8a76cbfb219851f33d31417c4a3c8f193123367a0749f047103d8bbe5";
 configureFlags = [
 "-fsystem-lua"
+"-f-use-pkgconfig"
 ];
 libraryHaskellDepends = [
 base
@@ -46633,6 +46638,7 @@ src = fetchgit {
 url = "https://github.com/andrewthad/haskell-ip";
 sha256 = "199mfpbgca7rvwvwk2zsmcpibc0sk0ni7c5zlf4gk3cps8s85gyr";
 rev = "9bb453139aa82cc973125091800422a523e1eb8f";
+fetchSubmodules = true;
 
 };
 libraryHaskellDepends = [
@@ -48197,6 +48203,7 @@ src = fetchgit {
 url = "https://github.com/serokell/kademlia.git";
 sha256 = "1k1wp9dwhzzqfivxc28vhxfqplnyh916crr7bhsiv829d6qifhw1";
 rev = "7120bb4d28e708acd52dfd61d3dca7914fac7d7f";
+fetchSubmodules = true;
 
 };
 isLibrary = true;
@@ -51611,6 +51618,7 @@ src = fetchgit {
 url = "https://github.com/input-output-hk/log-warper.git";
 sha256 = "09jl7wb48q1vc3cll1bbdp8d2dh5dhcgxiyq1z7mpwfikdph0d4c";
 rev = "4af8114fbcd5698a4e1fbc653031f0300e29faee";
+fetchSubmodules = true;
 
 };
 libraryHaskellDepends = [
@@ -57672,6 +57680,7 @@ src = fetchgit {
 url = "https://github.com/serokell/network-transport";
 sha256 = "0lqa26l2ikpq6a4s7qm9b2favx59w82i0wngakhfyax66fpixp8q";
 rev = "018a50b9042c2115c3ec9c9fd5ca5f28737dd29c";
+fetchSubmodules = true;
 
 };
 libraryHaskellDepends = [
@@ -57735,6 +57744,7 @@ src = fetchgit {
 url = "https://github.com/avieth/network-transport-inmemory";
 sha256 = "0ak64rks3lk3kk5wyndrrk2swmd84h9diribzix305xwz1jhjj9w";
 rev = "5d8ff2b07b9df35cf61329a3d975e2c8cf95c12a";
+fetchSubmodules = true;
 
 };
 libraryHaskellDepends = [
@@ -57774,6 +57784,7 @@ src = fetchgit {
 url = "https://github.com/serokell/network-transport-tcp";
 sha256 = "1cim8867kf36kv6ax9jx5shlqd7hhs1i4jf101x4pk3wriwbxsds";
 rev = "3d56652123bd296dc759cd31947eb2a17924e68a";
+fetchSubmodules = true;
 
 };
 libraryHaskellDepends = [
@@ -61510,6 +61521,7 @@ license = stdenv.lib.licenses.bsd3;
 , persistent
 , resource-pool
 , resourcet
+, sqlite
 , stdenv
 , text
 , time
@@ -61522,6 +61534,9 @@ mkDerivation {
 pname = "persistent-sqlite";
 version = "2.8.1.2";
 sha256 = "2f7157f3830370f60c7c36490ea49b7c52caf0f2a7349f86cf47970189f9ad0c";
+configureFlags = [
+"-fsystemlib"
+];
 isLibrary = true;
 isExecutable = true;
 libraryHaskellDepends = [
@@ -61542,13 +61557,16 @@ transformers
 unliftio-core
 unordered-containers
 ];
+librarySystemDepends = [
+sqlite
+];
 doHaddock = false;
 doCheck = false;
 homepage = "http://www.yesodweb.com/book/persistent";
 description = "Backend for the persistent library using sqlite3";
 license = stdenv.lib.licenses.mit;
 
-}) {};
+}) {inherit (pkgs) sqlite;};
 "persistent-template" = callPackage
 ({
   mkDerivation
@@ -62779,6 +62797,7 @@ src = fetchgit {
 url = "https://github.com/avieth/plutus-prototype";
 sha256 = "1s932rghn4zn441waansp408b5bwk20rc1wsa5693a2nwnp4dijw";
 rev = "d094be301195fcd8ab864d793f114970426a4478";
+fetchSubmodules = true;
 
 };
 enableSeparateDataOutput = true;
@@ -68511,6 +68530,7 @@ src = fetchgit {
 url = "https://github.com/input-output-hk/rocksdb-haskell-ng.git";
 sha256 = "02jvri8ik8jgrxwa6qmh3xcwqvm4s27iv3sxpjpny79nlhlxvfzp";
 rev = "49f501a082d745f3b880677220a29cafaa181452";
+fetchSubmodules = true;
 
 };
 libraryHaskellDepends = [
@@ -70296,6 +70316,7 @@ src = fetchgit {
 url = "https://github.com/input-output-hk/serokell-util.git";
 sha256 = "0h4wcvp126w021bc2kglsbfywyvc9z3yf1sh1k4yy1an4ckh51jd";
 rev = "4ead9809e119483e7832da5f8224b0c4d4a2d5d6";
+fetchSubmodules = true;
 
 };
 libraryHaskellDepends = [
@@ -71215,6 +71236,7 @@ src = fetchgit {
 url = "https://github.com/avieth/servant-quickcheck.git";
 sha256 = "1rq493iz8asavjwxfi7vnkrvbxwsnxy1j8w5b3slcg8l7g8ikz6z";
 rev = "e4e879abca99d0d56015765859fb37af59a81dbb";
+fetchSubmodules = true;
 
 };
 libraryHaskellDepends = [
@@ -73821,6 +73843,7 @@ src = fetchgit {
 url = "https://github.com/input-output-hk/engine.io.git";
 sha256 = "139c0yfnj57cpwg4k0am2rp35sh959394nvlb98011rjy68200qc";
 rev = "d3c55f51bb81cee7d0d551de930ce65fe7d76756";
+fetchSubmodules = true;
 
 };
 postUnpack = "sourceRoot+=/socket-io; echo source root reset to $sourceRoot";
@@ -76253,6 +76276,7 @@ src = fetchgit {
 url = "https://github.com/input-output-hk/stylish-haskell.git";
 sha256 = "0d6ylb07gxv050fpzc6siwxj8c7j1pkcry5zyzimv0xwn1wf6rfy";
 rev = "ecfd3b307d8d13a6d12aff03055f25a39a17e182";
+fetchSubmodules = true;
 
 };
 isLibrary = true;
@@ -80180,6 +80204,7 @@ src = fetchgit {
 url = "https://github.com/serokell/time-units.git";
 sha256 = "0psdr1if0rgnn24698x3583m0603rwd3sd7yb9whj03hskmkwpgs";
 rev = "6c3747c1ac794f952de996dd7ba8a2f6d63bf132";
+fetchSubmodules = true;
 
 };
 libraryHaskellDepends = [
@@ -82738,6 +82763,7 @@ src = fetchgit {
 url = "https://github.com/input-output-hk/universum.git";
 sha256 = "12ppiszywj0dsspwlhb8bzhsrlgszk8rvlhcy8il3ppz99mlnw5g";
 rev = "7f1b2483f71cacdfd032fe447064d6e0a1df50fc";
+fetchSubmodules = true;
 
 };
 libraryHaskellDepends = [

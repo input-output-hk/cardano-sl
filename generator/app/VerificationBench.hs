@@ -44,7 +44,7 @@ import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Util.Log.LoggerConfig (defaultInteractiveConfiguration)
 import           Pos.Util.Util (realTime)
 import           Pos.Util.Wlog (LoggerConfig, Severity (Debug), logError,
-                     logInfo, setupLogging)
+                     logInfo, removeAllHandlers, setupLogging')
 
 import           Test.Pos.Block.Logic.Mode (BlockTestMode, TestParams (..),
                      runBlockTestMode)
@@ -185,7 +185,7 @@ readBlocks path = do
 
 main :: IO ()
 main = do
-    setupLogging "verification-bench" loggerConfig
+    lh <- setupLogging' "verification-bench" loggerConfig
     args <- Opts.execParser
         $ Opts.info
             (benchArgsParser <**> Opts.helper)
@@ -262,6 +262,7 @@ main = do
                     when (errno > 0) $ do
                         logError $ sformat ("Verification/Application errors ("%shown%"):") errno
                         traverse_ (logError . show) errs
+    removeAllHandlers lh
     where
         loggerConfig :: LoggerConfig
         loggerConfig = defaultInteractiveConfiguration Debug

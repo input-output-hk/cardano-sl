@@ -15816,6 +15816,7 @@ license = stdenv.lib.licenses.mit;
 , hashable
 , hedgehog
 , hspec
+, http-api-data
 , lens
 , memory
 , mmorph
@@ -15887,6 +15888,7 @@ filepath
 fmt
 formatting
 hashable
+http-api-data
 lens
 memory
 mmorph

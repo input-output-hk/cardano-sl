@@ -17,6 +17,18 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   build-depends:       base
+                     , universum
+                     , cardano-sl-core
+                     , cardano-sl
+                     , cardano-sl-util
+                     , cardano-sl-chain
+                     , lens
+                     , cardano-sl-infra
+                     , cardano-sl-db
+                     , cardano-sl-networking
+                     , servant-server
+                     , time-units
+                     , stm
 
   exposed-modules:     Cardano.Node.API
   default-language:    Haskell2010

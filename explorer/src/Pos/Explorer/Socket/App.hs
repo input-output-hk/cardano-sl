@@ -146,6 +146,7 @@ notifierServer notifierSettings connVar = do
             [ "https://cardanoexplorer.com"
             , "https://explorer.iohkdev.io"
             , "http://cardano-explorer.cardano-mainnet.iohk.io"
+            , "https://cardano-explorer.cardano-testnet.iohkdev.io"
             , "http://localhost:3100"
             ]
 

@@ -610,8 +610,8 @@ type API =
     :<|>
         "update"
             :> ( "apply"
-                    :> Summary "Apply the next available update"
-                    :> Post '[ValidJSON] NoContent
+                :> Summary "Apply the next available update"
+                :> Post '[ValidJSON] NoContent
             :<|> "postpone"
                 :> Summary "Discard and postpone the next available update"
                 :> Post '[ValidJSON] NoContent

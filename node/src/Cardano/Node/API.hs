@@ -27,7 +27,7 @@ import qualified Pos.DB.Class as DB
 import qualified Pos.DB.Rocks.Types as DB
 import           Pos.Infra.Diffusion.Subscription.Status (ssMap)
 import           Pos.Infra.Diffusion.Types
-import           Pos.Node.API
+import           Pos.Node.API as Node
 import           Pos.Util.Servant
 
 handlers
@@ -36,8 +36,21 @@ handlers
     -> StateLock
     -> DB.NodeDBs
     -> LastKnownHeader
-    -> ServerT InfoAPI Handler
-handlers = getNodeInfo
+    -> ServerT Node.API Handler
+handlers d t s n l =
+    getNodeSettings
+    :<|> getNodeInfo d t s n l
+    :<|> applyUpdate
+    :<|> postponeUpdate
+
+getNodeSettings :: Handler (WalletResponse NodeSettings)
+getNodeSettings = undefined
+
+applyUpdate :: Handler NoContent
+applyUpdate = undefined
+
+postponeUpdate :: Handler NoContent
+postponeUpdate = undefined
 
 getNodeInfo
     :: Diffusion IO

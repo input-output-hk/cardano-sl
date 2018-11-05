@@ -57,7 +57,7 @@ data WalletBackendParams = WalletBackendParams
     -- ^ The TLS parameters.
     , walletAddress       :: !NetworkAddress
     -- ^ The wallet address.
-    , walletDocAddress    :: !NetworkAddress
+    , walletDocAddress    :: !(Maybe NetworkAddress)
     -- ^ The wallet documentation address.
     , walletRunMode       :: !RunMode
     -- ^ The mode this node is running in.
@@ -157,8 +157,8 @@ walletBackendParamsParser = WalletBackendParams <$> enableMonitoringApiParser
     addressParser :: Parser NetworkAddress
     addressParser = CLI.walletAddressOption $ Just (localhost, 8090)
 
-    docAddressParser :: Parser NetworkAddress
-    docAddressParser = CLI.docAddressOption $ Just (localhost, 8091)
+    docAddressParser :: Parser (Maybe NetworkAddress)
+    docAddressParser = CLI.docAddressOption Nothing
 
     runModeParser :: Parser RunMode
     runModeParser = (\debugMode -> if debugMode then DebugMode else ProductionMode) <$>

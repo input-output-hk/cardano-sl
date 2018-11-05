@@ -12,6 +12,7 @@ import           Control.Lens (lens, to)
 import           Data.Time.Units (toMicroseconds)
 import           Servant
 
+import qualified Pos.Infra.Slotting.Util as Slotting
 import           Pos.Chain.Block (LastKnownHeader, LastKnownHeaderTag)
 import           Pos.DB.GState.Lock (Priority (..), StateLock,
                      withStateLockNoMetrics)
@@ -36,15 +37,92 @@ handlers
     -> StateLock
     -> DB.NodeDBs
     -> LastKnownHeader
+    -> Core.Timestamp
+    -> Core.SlottingVar
     -> ServerT Node.API Handler
-handlers d t s n l =
-    getNodeSettings
+handlers d t s n l ts sv =
+    getNodeSettings ts sv
     :<|> getNodeInfo d t s n l
     :<|> applyUpdate
     :<|> postponeUpdate
 
-getNodeSettings :: Handler (WalletResponse NodeSettings)
-getNodeSettings = undefined
+getNodeSettings
+    :: Core.Timestamp
+    -> Core.SlottingVar
+    -> Handler (WalletResponse NodeSettings)
+getNodeSettings timestamp slottingVar = do
+    let ctx = SettingsCtx timestamp slottingVar
+    slotDuration <-
+        mkSlotDuration . fromIntegral <$>
+            runReaderT Slotting.getNextEpochSlotDuration ctx
+
+    pure $ single NodeSettings
+        { setSlotDuration =
+            slotDuration
+        , setSoftwareInfo =
+            undefined
+        , setProjectVersion =
+            undefined
+        , setGitRevision =
+            undefined
+        }
+
+
+data SettingsCtx = SettingsCtx
+    { settingsCtxTimestamp :: Core.Timestamp
+    , settingsCtxSlottingVar :: Core.SlottingVar
+    }
+
+instance Core.HasSlottingVar SettingsCtx where
+    slottingTimestamp = lens settingsCtxTimestamp (\s t -> s { settingsCtxTimestamp = t })
+    slottingVar = lens settingsCtxSlottingVar (\s t -> s { settingsCtxSlottingVar = t })
+
+{-
+-- from Cardano.WalletLayer.Kernel.Settings:
+getNodeSettings :: MonadIO m => Kernel.PassiveWallet -> m V1.NodeSettings
+getNodeSettings w = liftIO $
+    V1.NodeSettings
+        <$> (mkSlotDuration <$> Node.getNextEpochSlotDuration node)
+        <*> (V1 <$> Node.curSoftwareVersion node)
+        <*> pure (V1 version)
+        <*> (mkGitRevision <$> Node.compileInfo node)
+  where
+    mkSlotDuration :: Millisecond -> V1.SlotDuration
+    mkSlotDuration = V1.mkSlotDuration . fromIntegral
+
+    mkGitRevision :: CompileTimeInfo -> Text
+    mkGitRevision = T.replace "\n" mempty . ctiGitRevision
+
+    node :: NodeStateAdaptor IO
+    node = w ^. Kernel.walletNode
+
+-- from Cardano.Wallet.Kernel.NodeSTateAdapter
+defaultGetNextEpochSlotDuration :: MonadIO m => WithNodeState m Millisecond
+defaultGetNextEpochSlotDuration = Slotting.getNextEpochSlotDuration
+
+-- from Pos.Infra.Slotting.Util:
+-- | Get last known slot duration.
+getNextEpochSlotDuration
+    :: (MonadSlotsData ctx m)
+    => m Millisecond
+getNextEpochSlotDuration =
+    esdSlotDuration . snd <$> getCurrentNextEpochSlottingDataM
+
+-- from Pos.Core.SLotting.Class
+type MonadSlotsData ctx m =
+    ( MonadReader ctx m
+    , HasSlottingVar ctx
+    , MonadIO m
+    )
+
+-- | System start and slotting data
+class HasSlottingVar ctx where
+    slottingTimestamp :: Lens' ctx Timestamp
+    slottingVar       :: Lens' ctx SlottingVar
+
+type SlottingVar = TVar SlottingData
+
+-}
 
 applyUpdate :: Handler NoContent
 applyUpdate = undefined

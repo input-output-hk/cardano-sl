@@ -1,52 +1,60 @@
 {-# LANGUAGE LambdaCase #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | This module implements the API defined in "Pos.Node.API".
 module Cardano.Node.API where
 
-import Universum
+import           Universum
 
-import Servant
-import Control.Concurrent.STM (retry, orElse)
-import Data.Time.Units (toMicroseconds)
-import Control.Lens (to)
+import           Control.Concurrent.STM (orElse, retry)
+import           Control.Lens (lens, to)
+import           Data.Time.Units (toMicroseconds)
+import           Servant
 
+import           Pos.Chain.Block (LastKnownHeader, LastKnownHeaderTag)
+import           Pos.DB.GState.Lock (Priority (..), StateLock,
+                     withStateLockNoMetrics)
 import qualified Pos.DB.Rocks.Functions as DB
-import           Pos.Util (HasLens', HasLens (..), lensOf')
-import           Pos.DB.GState.Lock (Priority(..), StateLock, withStateLockNoMetrics)
-import           Pos.Chain.Block (LastKnownHeader,
-                     LastKnownHeaderTag )--, MainBlock, blockHeader, headerHash,
+import           Pos.Util (HasLens (..), HasLens')
                      -- mainBlockSlot, prevBlockL)
+import           Ntp.Client (NtpStatus (..))
+import           Ntp.Packet (NtpOffset)
+import qualified Pos.Core as Core
+import qualified Pos.DB.Block as DB
 import qualified Pos.DB.BlockIndex as DB
 import qualified Pos.DB.Class as DB
-import qualified Pos.Core as Core
 import qualified Pos.DB.Rocks.Types as DB
-import qualified Pos.DB.Block as DB
-import Pos.Node.API
-import Pos.Util.Servant
-import           Ntp.Packet (NtpOffset)
-import           Ntp.Client (NtpStatus (..))
-import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStatus,
-                     ssMap)
+import           Pos.Infra.Diffusion.Subscription.Status (ssMap)
 import           Pos.Infra.Diffusion.Types
+import           Pos.Node.API
+import           Pos.Util.Servant
 
--- import           Cardano.Wallet.API.Response (WalletResponse, single)
--- import qualified Cardano.Wallet.API.V1.Info as Info
--- import           Cardano.Wallet.API.V1.Types (ForceNtpCheck, NodeInfo)
--- import           Cardano.Wallet.WalletLayer (ActiveWalletLayer)
--- import qualified Cardano.Wallet.WalletLayer as WalletLayer
-
--- handlers :: _ -> ServerT NodeInfo Handler
+handlers
+    :: Diffusion IO
+    -> TVar NtpStatus
+    -> StateLock
+    -> DB.NodeDBs
+    -> LastKnownHeader
+    -> ServerT InfoAPI Handler
 handlers = getNodeInfo
 
 getNodeInfo
     :: Diffusion IO
     -> TVar NtpStatus
+    -> StateLock
+    -> DB.NodeDBs
+    -> LastKnownHeader
     -- endpoint parameters
     -> ForceNtpCheck
     -> Handler (WalletResponse NodeInfo)
-getNodeInfo diffusion ntpTvar forceNtp = liftIO $ do
+getNodeInfo diffusion ntpTvar stateLock nodeDBs lastknownHeader forceNtp = liftIO $ do
     single <$> do
         let r = InfoCtx
+                { infoCtxStateLock = stateLock
+                , infoCtxNodeDbs = nodeDBs
+                , infoCtxLastKnownHeader = lastknownHeader
+                }
         (mbNodeHeight, localHeight) <-
             runReaderT getNodeSyncProgress r
             -- view defaultSyncProgress impl
@@ -72,15 +80,19 @@ getNodeInfo diffusion ntpTvar forceNtp = liftIO $ do
             }
 
 data InfoCtx = InfoCtx
+    { infoCtxStateLock       :: StateLock
+    , infoCtxNodeDbs         :: DB.NodeDBs
+    , infoCtxLastKnownHeader :: LastKnownHeader
+    }
 
 instance HasLens DB.NodeDBs InfoCtx DB.NodeDBs where
-    lensOf = undefined
+    lensOf = lens infoCtxNodeDbs (\i s -> i { infoCtxNodeDbs = s })
 
 instance HasLens StateLock InfoCtx StateLock where
-    lensOf = undefined
+    lensOf = lens infoCtxStateLock (\i s -> i { infoCtxStateLock = s })
 
 instance HasLens LastKnownHeaderTag InfoCtx LastKnownHeader where
-    lensOf = undefined
+    lensOf = lens infoCtxLastKnownHeader (\i s -> i { infoCtxLastKnownHeader = s })
 
 instance
     (HasLens' r DB.NodeDBs, MonadCatch m, MonadIO m)
@@ -113,52 +125,6 @@ getNodeSyncProgress = do
              ,view (Core.difficultyL . to Core.getChainDifficulty) localTip
              )
     return (max localHeight <$> globalHeight, localHeight)
-
-{- from Cardano.Wallet.WalletLayer.Kernel.Info:
-
-getNodeInfo :: MonadIO m => Kernel.ActiveWallet -> V1.ForceNtpCheck -> m V1.NodeInfo
-getNodeInfo aw ntpCheckBehavior = liftIO $ do
-    (mbNodeHeight, localHeight) <- Node.getNodeSyncProgress node Node.NotYetLocked
-    V1.NodeInfo
-      <$> (pure $ v1SyncPercentage mbNodeHeight localHeight)
-      <*> (pure $ V1.mkBlockchainHeight <$> mbNodeHeight)
-      <*> (pure $ V1.mkBlockchainHeight localHeight)
-      <*> (Node.getNtpDrift node ntpCheckBehavior)
-      <*> (walletGetSubscriptionStatus (Kernel.walletDiffusion aw))
-  where
-    node :: NodeStateAdaptor IO
-    node = pw ^. Kernel.walletNode
-
-    pw :: Kernel.PassiveWallet
-    pw = Kernel.walletPassive aw
-
--- from Cardano.Wallet.Kernel.NodeStateAdapter:
-defaultSyncProgress :: (MonadIO m, MonadMask m, NodeConstraints)
-                    => LockContext
-                    -> Lock (WithNodeState m)
-                    -> WithNodeState m (Maybe BlockCount, BlockCount)
-defaultSyncProgress lockContext lock = do
-    (globalHeight, localHeight) <- lock lockContext $ \_localTipHash -> do
-        -- We need to grab the localTip again as '_localTip' has type
-        -- 'HeaderHash' but we cannot grab the difficulty out of it.
-        headerRef <- view (lensOf @LastKnownHeaderTag)
-        localTip  <- getTipHeader
-        mbHeader <- atomically $ readTVar headerRef `orElse` pure Nothing
-        pure (view (difficultyL . to getChainDifficulty) <$> mbHeader
-             ,view (difficultyL . to getChainDifficulty) localTip
-             )
-    return (max localHeight <$> globalHeight, localHeight)
-
--- from Cardano.Wallet.Kernel.Diffusion:
--- | Extract necessary functionality from the full diffusion layer
-fromDiffusion :: (forall a. m a -> IO a)
-              -> Diffusion m
-              -> WalletDiffusion
-fromDiffusion nat d = WalletDiffusion {
-      walletSendTx                = nat . sendTx d
-    , walletGetSubscriptionStatus = readTVarIO $ ssMap (subscriptionStates d)
-    }
--}
 
 -- | Computes the V1 'SyncPercentage' out of the global & local blockchain heights.
 v1SyncPercentage :: Maybe Core.BlockCount -> Core.BlockCount -> SyncPercentage

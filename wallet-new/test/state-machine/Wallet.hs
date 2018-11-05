@@ -86,6 +86,7 @@ data Response (r :: * -> *)
 -- this is how CircurlarBufer.hs does it - it saves a spec and uses
 -- a spec to check real state
 data Model (r :: * -> *) = Model
+    -- TODO: don't use touple here, use record
     { mWallets :: [(V1.Wallet, Maybe V1.SpendingPassword)]
     , mReset   :: Bool
     }
@@ -167,11 +168,9 @@ transitions model@Model{..} cmd res = case cmd of
             update w = w { V1.walAssuranceLevel = uwalAssuranceLevel, V1.walName = uwalName }
         in model { mWallets = updatedWallets <> filter (not . thisWallet . fst) mWallets }
     UpdateWalletPasswordA wId V1.PasswordUpdate{..} ->
-        let thisWallet = (wId ==) . V1.walId
-            -- updatedWallets = map update $ filter thisWallet mWallets
-            -- update w = w { V1.walAssuranceLevel = uwalAssuranceLevel, V1.walName = uwalName }
-        in model -- { mWallets = updatedWallets <> filter (not . thisWallet) mWallets }
-
+        let thisWallet (wal, pass) = wId == V1.walId wal && pass == Just pwdOld
+            updatedWallets = map (\(wal,_) -> (wal, Just pwdNew)) $ filter thisWallet mWallets
+        in model { mWallets = updatedWallets <> filter (not . thisWallet) mWallets }
 
 -- TODO: use unit tests in wallet-new/test/unit for inspiration
 postconditions :: Model Concrete -> Action Concrete -> Response Concrete -> Logic
@@ -203,6 +202,26 @@ postconditions Model{..} (UpdateWalletA wId V1.WalletUpdate{..}) (UpdateWalletR 
     let mWallet = update . fst <$> find ((== wId) . V1.walId . fst) mWallets
         update w = w { V1.walAssuranceLevel = uwalAssuranceLevel, V1.walName = uwalName }
     in mWallet .== Just wallet
+-- If password update didn't succeed we expect old password to be wrong
+-- or we didn't find the wallet at all
+postconditions Model{..} (UpdateWalletPasswordA wId V1.PasswordUpdate{..}) (UpdateWalletPasswordR (Left _)) =
+    let pass = snd <$> find ((== wId) . V1.walId . fst) mWallets
+    in (Predicate (NotElem wId (map (V1.walId . fst) mWallets)))
+            :|| (pass .== Just (Just pwdOld))
+-- If password update did succeed we expect old password to be correct
+-- and that we have manged to find wallet
+-- and that we updated correct wallet
+postconditions Model{..} (UpdateWalletPasswordA wId V1.PasswordUpdate{..}) (UpdateWalletPasswordR (Right wallet)) =
+    let pass = snd <$> find ((== wId) . V1.walId . fst) mWallets
+    in (Predicate (Elem wId (map (V1.walId . fst) mWallets)))
+            :&& (pass .== Just (Just pwdOld))
+            :&& (wId .== V1.walId wallet)
+
+postconditions Model{..} (UpdateWalletA wId V1.WalletUpdate{..}) (UpdateWalletR (Right wallet)) =
+    let mWallet = update . fst <$> find ((== wId) . V1.walId . fst) mWallets
+        update w = w { V1.walAssuranceLevel = uwalAssuranceLevel, V1.walName = uwalName }
+    in mWallet .== Just wallet
+
 -- FIXME: don't catch all errors with this this catch-all match!
 postconditions _ _ _ =  error "This postcondition should not be reached!"
 
@@ -223,10 +242,30 @@ genNewWalletRq = do
                           walletName
                           V1.CreateWallet
 
+genPasswordUpdate :: Model Symbolic -> Gen (V1.WalletId, V1.PasswordUpdate)
+genPasswordUpdate Model{..} = do
+    -- Pick wallet to update password
+    (wal, correctOldPass) <- second (fromMaybe mempty) <$> oneof (arbitrary:map pure mWallets)
+    oldPass <- frequency
+                    -- Old pass can be wrong
+                    [ (20, arbitrary)
+                    -- Old pass can be correct
+                    , (80, pure correctOldPass)
+                    ]
+    newPass <- frequency
+                    -- New pass can be unset
+                    [ (10, pure mempty)
+                    -- New pass can stay the same
+                    , (20, pure correctOldPass)
+                    -- New pass can be arbitrary
+                    , (70, arbitrary)
+                    ]
+    pure (V1.walId wal, V1.PasswordUpdate oldPass newPass)
+
 generator :: Model Symbolic -> Gen (Action Symbolic)
 -- if wallet has not been reset, then we should first reset it!
 generator (Model _ False) = pure ResetWalletA
-generator Model{..} = frequency
+generator model@Model{..} = frequency
     [ (1, pure ResetWalletA)
     , (5, CreateWalletA . WL.CreateWallet <$> genNewWalletRq)
     -- TODO: add generator for importing wallet from secret key
@@ -239,6 +278,10 @@ generator Model{..} = frequency
     , (4, UpdateWalletA . V1.walId <$> oneof (arbitrary:map (pure . fst) mWallets) <*> arbitrary)
     -- This tests updating non existing wallet
     , (1, UpdateWalletA <$> arbitrary <*> arbitrary)
+--    -- This tests updates password of existing wallets (except when there is no wallets)
+    , (4, uncurry UpdateWalletPasswordA <$> genPasswordUpdate model)
+    -- This tests updating non existing wallet
+    , (1, UpdateWalletPasswordA <$> arbitrary <*> arbitrary)
     ]
 
 shrinker :: Action Symbolic -> [Action Symbolic]
@@ -256,6 +299,7 @@ semantics pwl _ cmd = case cmd of
     GetWalletsA      -> GetWalletsR <$> WL.getWallets pwl
     GetWalletA wId   -> GetWalletR <$> WL.getWallet pwl wId
     UpdateWalletA wId update -> UpdateWalletR <$> WL.updateWallet pwl wId update
+    UpdateWalletPasswordA wId update -> UpdateWalletPasswordR <$> WL.updateWalletPassword pwl wId update
 
 -- TODO: reuse withLayer function defined in wallet-new/test/unit/Test/Spec/Fixture.hs
 withWalletLayer
@@ -297,6 +341,14 @@ mock Model{..} (UpdateWalletA wId V1.WalletUpdate{..}) =
         mExists = update <$> find thisWallet (map fst mWallets)
         response = maybe (Left $ WL.UpdateWalletErrorNotFound wId) Right mExists
     in pure $ UpdateWalletR response
+mock Model{..} (UpdateWalletPasswordA wId V1.PasswordUpdate{..}) =
+    let thisWallet = (wId ==) . V1.walId
+        -- TODO: use lenses
+        -- FIXME: update password timestamp here
+        update w = w
+        mExists = update <$> find thisWallet (map fst mWallets)
+        response = maybe (Left $ WL.UpdateWalletPasswordWalletIdDecodingFailed "In fact, I couldn't find the wallet with specific id" ) Right mExists
+    in pure $ UpdateWalletPasswordR response
 
 
 ------------------------------------------------------------------------

@@ -1,3 +1,5 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 {- | A collection of plugins used by this edge node.
      A @Plugin@ is essentially a set of actions which will be run in
      a particular monad, at some point in time.
@@ -123,17 +125,17 @@ apiServer (NewWalletBackendParams WalletBackendParams{..}) (passiveLayer, passiv
 docServer
     :: (HasConfigurations, HasCompileInfo)
     => NewWalletBackendParams
-    -> Plugin Kernel.WalletMode
-docServer (NewWalletBackendParams WalletBackendParams{..}) = const $
-    serveDocImpl
+    -> Maybe (Plugin Kernel.WalletMode)
+docServer (NewWalletBackendParams WalletBackendParams{walletDocAddress = Nothing}) = Nothing
+docServer (NewWalletBackendParams WalletBackendParams{walletDocAddress = Just (ip, port), walletRunMode, walletTLSParams}) = Just (const $ makeWalletServer)
+  where
+    makeWalletServer = serveDocImpl
         application
         (BS8.unpack ip)
         port
         (if isDebugMode walletRunMode then Nothing else walletTLSParams)
         (Just defaultSettings)
         Nothing
-  where
-    (ip, port) = walletDocAddress
 
     application :: Kernel.WalletMode Application
     application =

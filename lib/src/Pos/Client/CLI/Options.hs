@@ -172,9 +172,9 @@ walletAddressOption na =
   where
     helpMsg = "IP and port for backend wallet API."
 
-docAddressOption :: Maybe NetworkAddress -> Opt.Parser NetworkAddress
+docAddressOption :: Maybe NetworkAddress -> Opt.Parser (Maybe NetworkAddress)
 docAddressOption na =
-    Opt.option (fromParsec addrParser) $
+    Opt.optional $ Opt.option (fromParsec addrParser) $
             Opt.long "wallet-doc-address"
          <> Opt.metavar "IP:PORT"
          <> Opt.help helpMsg

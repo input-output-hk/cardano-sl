@@ -92,6 +92,7 @@ let
       dockerImage = wrapDockerImage cluster;
     };
   };
+  # return an attribute set containing the result of running every test-suite in cardano, on the given system
   makeCardanoTestRuns = system:
   let
     pred = name: value: fixedLib.isCardanoSL name && value ? testrun;
@@ -106,7 +107,9 @@ in pkgs.lib.fix (jobsets: mapped // {
       ln -sv ${fixedNixpkgs} $out
     '';
   in if 0 <= builtins.compareVersions builtins.nixVersion "1.12" then wrapped else fixedNixpkgs;
-  new-all-cardano.x86_64-linux = makeCardanoTestRuns "x86_64-linux";
+  # the result of running every cardano test-suite on 64bit linux
+  all-cardano-tests.x86_64-linux = makeCardanoTestRuns "x86_64-linux";
+  # hydra will create a special aggregate job, that relies on all of these sub-jobs passing
   required = pkgs.lib.hydraJob (pkgs.releaseTools.aggregate {
     name = "cardano-required-checks";
     constituents =

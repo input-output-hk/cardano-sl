@@ -66,6 +66,7 @@ data Action (r :: * -> *)
     | GetWalletA V1.WalletId
     | UpdateWalletA V1.WalletId V1.WalletUpdate
     | UpdateWalletPasswordA V1.WalletId V1.PasswordUpdate
+    | DeleteWalletA V1.WalletId
     deriving (Show, Generic1, Rank2.Functor, Rank2.Foldable, Rank2.Traversable)
 
 data Response (r :: * -> *)
@@ -75,6 +76,7 @@ data Response (r :: * -> *)
     | GetWalletR (Either WL.GetWalletError V1.Wallet)
     | UpdateWalletR (Either WL.UpdateWalletError V1.Wallet)
     | UpdateWalletPasswordR (Either WL.UpdateWalletPasswordError V1.Wallet)
+    | DeleteWalletR (Either WL.DeleteWalletError ())
     deriving (Show, Generic1, Rank2.Foldable)
 
 
@@ -147,6 +149,7 @@ preconditions (Model _ True) action = case action of
     GetWalletA _              -> Top
     UpdateWalletA _ _         -> Top
     UpdateWalletPasswordA _ _ -> Top
+    DeleteWalletA _           -> Top
 -- if wallet is not reset then we shouldn't continue
 preconditions (Model _ False) _   = Bot
 
@@ -171,6 +174,9 @@ transitions model@Model{..} cmd res = case cmd of
         let thisWallet (wal, pass) = wId == V1.walId wal && pass == Just pwdOld
             updatedWallets = map (\(wal,_) -> (wal, Just pwdNew)) $ filter thisWallet mWallets
         in model { mWallets = updatedWallets <> filter (not . thisWallet) mWallets }
+    DeleteWalletA wId ->
+        let thisWallet = (wId ==) . V1.walId
+        in model { mWallets = filter (not . thisWallet . fst) mWallets }
 
 -- TODO: use unit tests in wallet-new/test/unit for inspiration
 postconditions :: Model Concrete -> Action Concrete -> Response Concrete -> Logic
@@ -202,6 +208,10 @@ postconditions Model{..} (UpdateWalletA wId V1.WalletUpdate{..}) (UpdateWalletR 
     let mWallet = update . fst <$> find ((== wId) . V1.walId . fst) mWallets
         update w = w { V1.walAssuranceLevel = uwalAssuranceLevel, V1.walName = uwalName }
     in mWallet .== Just wallet
+postconditions Model{..} (UpdateWalletA wId V1.WalletUpdate{..}) (UpdateWalletR (Right wallet)) =
+    let mWallet = update . fst <$> find ((== wId) . V1.walId . fst) mWallets
+        update w = w { V1.walAssuranceLevel = uwalAssuranceLevel, V1.walName = uwalName }
+    in mWallet .== Just wallet
 -- If password update didn't succeed we expect old password to be wrong
 -- or we didn't find the wallet at all
 postconditions Model{..} (UpdateWalletPasswordA wId V1.PasswordUpdate{..}) (UpdateWalletPasswordR (Left _)) =
@@ -216,12 +226,12 @@ postconditions Model{..} (UpdateWalletPasswordA wId V1.PasswordUpdate{..}) (Upda
     in (Predicate (Elem wId (map (V1.walId . fst) mWallets)))
             :&& (pass .== Just (Just pwdOld))
             :&& (wId .== V1.walId wallet)
-
-postconditions Model{..} (UpdateWalletA wId V1.WalletUpdate{..}) (UpdateWalletR (Right wallet)) =
-    let mWallet = update . fst <$> find ((== wId) . V1.walId . fst) mWallets
-        update w = w { V1.walAssuranceLevel = uwalAssuranceLevel, V1.walName = uwalName }
-    in mWallet .== Just wallet
-
+-- If wallet delete didn't succeed we expect wallet isn't found in model
+postconditions Model{..} (DeleteWalletA wId) (DeleteWalletR (Left _)) =
+    Predicate (NotElem wId (map (V1.walId . fst) mWallets))
+-- If wallet delete did succeed we expect wallet can be found in model
+postconditions Model{..} (DeleteWalletA wId) (DeleteWalletR (Right _)) =
+    Predicate (NotElem wId (map (V1.walId . fst) mWallets))
 -- FIXME: don't catch all errors with this this catch-all match!
 postconditions _ _ _ =  error "This postcondition should not be reached!"
 
@@ -282,6 +292,10 @@ generator model@Model{..} = frequency
     , (4, uncurry UpdateWalletPasswordA <$> genPasswordUpdate model)
     -- This tests updating non existing wallet
     , (1, UpdateWalletPasswordA <$> arbitrary <*> arbitrary)
+    -- This tests deleting existing wallets
+    , (4, DeleteWalletA . V1.walId <$> oneof (arbitrary:map (pure . fst) mWallets))
+    -- This tests deleting non existing wallet
+    , (1, DeleteWalletA <$> arbitrary)
     ]
 
 shrinker :: Action Symbolic -> [Action Symbolic]
@@ -300,6 +314,7 @@ semantics pwl _ cmd = case cmd of
     GetWalletA wId   -> GetWalletR <$> WL.getWallet pwl wId
     UpdateWalletA wId update -> UpdateWalletR <$> WL.updateWallet pwl wId update
     UpdateWalletPasswordA wId update -> UpdateWalletPasswordR <$> WL.updateWalletPassword pwl wId update
+    DeleteWalletA wId -> DeleteWalletR <$> WL.deleteWallet pwl wId
 
 -- TODO: reuse withLayer function defined in wallet-new/test/unit/Test/Spec/Fixture.hs
 withWalletLayer
@@ -347,9 +362,17 @@ mock Model{..} (UpdateWalletPasswordA wId V1.PasswordUpdate{..}) =
         -- FIXME: update password timestamp here
         update w = w
         mExists = update <$> find thisWallet (map fst mWallets)
+        -- TODO: instead return hd root error
         response = maybe (Left $ WL.UpdateWalletPasswordWalletIdDecodingFailed "In fact, I couldn't find the wallet with specific id" ) Right mExists
     in pure $ UpdateWalletPasswordR response
-
+mock Model{..} (DeleteWalletA wId) =
+    let thisWallet = (wId ==) . V1.walId
+        mExists = find thisWallet (map fst mWallets)
+        -- TODO: instead return hd root error
+    in pure $ DeleteWalletR $
+        if isJust mExists
+            then Left $ WL.DeleteWalletWalletIdDecodingFailed "In fact, I couldn't find the wallet with specific id"
+            else Right ()
 
 ------------------------------------------------------------------------
 

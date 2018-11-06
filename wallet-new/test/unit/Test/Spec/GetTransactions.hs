@@ -72,7 +72,7 @@ import           Cardano.Wallet.WalletLayer.Kernel.Transactions (toTransaction)
 
 import qualified Test.Spec.Addresses as Addresses
 import           Test.Spec.CoinSelection.Generators (InitialBalance (..),
-                     Pay (..), genPayee, genUtxoWithAtLeast)
+                     Pay (..), genPayeeWithNM, genUtxoWithAtLeast)
 import qualified Test.Spec.Fixture as Fixture
 import qualified Test.Spec.NewPayment as NewPayment
 import           TxMetaStorageSpecs (Isomorphic (..), genMeta)
@@ -297,8 +297,9 @@ spec = do
         prop "pay works normally for coin selection with additional utxos and changes" $ withMaxSuccess 10 $
             monadicIO $ do
                 pm <- pick arbitrary
+                let nm = makeNetworkMagic pm
                 distr <- fmap (\(TxOut addr coin) -> V1.PaymentDistribution (V1.V1 addr) (V1.V1 coin))
-                                <$> pick (genPayee mempty (PayLovelace 100))
+                                <$> pick (genPayeeWithNM nm mempty (PayLovelace 100))
                 withUtxosFixture @IO pm [300, 400, 500, 600, 5000000] $ \_keystore _activeLayer aw f@Fix{..} -> do
                     let pw = Kernel.walletPassive aw
                     -- get the balance before the payment
@@ -320,8 +321,9 @@ spec = do
         prop "estimateFees looks sane for coin selection with additional utxos and changes" $ withMaxSuccess 10 $
             monadicIO $ do
                 pm <- pick arbitrary
+                let nm = makeNetworkMagic pm
                 distr <- fmap (\(TxOut addr coin) -> V1.PaymentDistribution (V1.V1 addr) (V1.V1 coin))
-                                <$> pick (genPayee mempty (PayLovelace 100))
+                                <$> pick (genPayeeWithNM nm mempty (PayLovelace 100))
                 withUtxosFixture @IO pm [300, 400, 500, 600, 5000000] $ \_keystore _activeLayer aw Fix{..} -> do
                     let pw = Kernel.walletPassive aw
                     -- do the payment

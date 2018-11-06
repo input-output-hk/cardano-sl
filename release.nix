@@ -91,7 +91,14 @@ let
       dockerImage = wrapDockerImage cluster;
     };
   };
-in mapped // {
+  # return an attribute set containing the result of running every test-suite in cardano, on the given system
+  makeCardanoTestRuns = system:
+  let
+    pred = name: value: fixedLib.isCardanoSL name && value ? testrun;
+    cardanoPkgs = import ./. { inherit system; };
+    f = name: value: value.testrun;
+  in pkgs.lib.mapAttrs f (lib.filterAttrs pred cardanoPkgs);
+in pkgs.lib.fix (jobsets: mapped // {
   inherit tests;
   inherit (pkgs) cabal2nix;
   nixpkgs = let
@@ -99,4 +106,23 @@ in mapped // {
       ln -sv ${fixedNixpkgs} $out
     '';
   in if 0 <= builtins.compareVersions builtins.nixVersion "1.12" then wrapped else fixedNixpkgs;
-} // (builtins.listToAttrs (map makeRelease [ "mainnet" "staging" ]))
+  # the result of running every cardano test-suite on 64bit linux
+  all-cardano-tests.x86_64-linux = makeCardanoTestRuns "x86_64-linux";
+  # hydra will create a special aggregate job, that relies on all of these sub-jobs passing
+  required = pkgs.lib.hydraJob (pkgs.releaseTools.aggregate {
+    name = "cardano-required-checks";
+    constituents =
+      let
+        all = x: map (system: x.${system}) supportedSystems;
+      in
+    [
+      (all jobsets.all-cardano-sl)
+      (all jobsets.daedalus-bridge)
+      jobsets.mainnet.connectScripts.wallet.x86_64-linux
+      jobsets.tests.hlint
+      jobsets.tests.shellcheck
+      jobsets.tests.stylishHaskell
+      jobsets.tests.swaggerSchemaValidation
+    ];
+  });
+} // (builtins.listToAttrs (map makeRelease [ "mainnet" "staging" ])))

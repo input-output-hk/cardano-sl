@@ -39,6 +39,7 @@ self: super: {
     mkDerivation = args: super.mkDerivation (args // {
       enableLibraryProfiling = enableProfiling;
       enableExecutableProfiling = enableProfiling;
+      splitCheck = true;
       # Static linking for everything to work around
       # https://ghc.haskell.org/trac/ghc/ticket/14444
       # This will be the default in nixpkgs since

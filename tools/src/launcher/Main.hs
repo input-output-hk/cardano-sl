@@ -423,7 +423,7 @@ generateTlsCertificates ConfigurationOptions{..} executable tlsPath = do
 
         when (exitCode /= ExitSuccess) $ do
             logError "Couldn't generate TLS certificates for Wallet"
-            liftIO . fail $ "Wallet won't work without TLS certificates"
+            liftIO . fail $ "Couldn't generate TLS certificates; Daedalus wallet won't work without TLS. Please check your configuration and make sure you aren't already running an instance of Daedalus wallet."
 
 
 -- | If we are on server, we want the following algorithm:

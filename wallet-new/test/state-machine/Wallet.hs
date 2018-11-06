@@ -34,9 +34,14 @@ import           Test.StateMachine.Types (Command (..), Commands (..),
 
 import qualified Test.StateMachine.Types.Rank2 as Rank2
 
+import           Cardano.Wallet.API.Request (RequestParams (..))
+import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
+import           Cardano.Wallet.API.Request.Pagination (PaginationParams (..))
+import           Cardano.Wallet.API.Response (WalletResponse (wrData))
 import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..),
                      UnitOfMeasure (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
+import           Cardano.Wallet.Client (paginateAll)
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as DB
@@ -72,6 +77,13 @@ data Action (r :: * -> *)
     | GetAccountsA V1.WalletId
     | GetAccountA V1.WalletId V1.AccountIndex
     | GetAccountBalanceA V1.WalletId V1.AccountIndex
+    -- NOTE: we are ignoring pagination, filtering, and sorting operations
+    | GetAccountAddressesA
+        V1.WalletId
+        V1.AccountIndex
+    -- TODO: test pagination, filtering and sorting
+--        RequestParams
+--        (FilterOperations '[V1.V1 V1.Address] V1.WalletAddress)
     deriving (Show, Generic1, Rank2.Functor, Rank2.Foldable, Rank2.Traversable)
 
 data Response (r :: * -> *)
@@ -87,6 +99,7 @@ data Response (r :: * -> *)
     | GetAccountsR (Either WL.GetAccountsError (DB.IxSet V1.Account))
     | GetAccountR (Either WL.GetAccountError V1.Account)
     | GetAccountBalanceR (Either WL.GetAccountError V1.AccountBalance)
+    | GetAccountAddressesR (Either WL.GetAccountError [V1.WalletAddress])
     deriving (Show, Generic1, Rank2.Foldable)
 
 
@@ -174,6 +187,7 @@ preconditions (Model _ _ _ True) action = case action of
     GetAccountsA _            -> Top
     GetAccountA _ _           -> Top
     GetAccountBalanceA _ _    -> Top
+    GetAccountAddressesA _ _  -> Top
 
     -- NOTE: don't use catch all pattern like
     --
@@ -226,6 +240,9 @@ transitions model@Model{..} cmd res = case (cmd, res) of
     (GetAccountBalanceA _ _, GetAccountBalanceR (Right _)) -> model
     (GetAccountBalanceA _ _, GetAccountBalanceR (Left _)) -> increaseUnhappyPath
     (GetAccountBalanceA _ _, _) -> shouldNotBeReachedError
+    (GetAccountAddressesA _ _, GetAccountAddressesR (Right _)) -> model
+    (GetAccountAddressesA _ _, GetAccountAddressesR (Left _)) -> increaseUnhappyPath
+    (GetAccountAddressesA _ _, _) -> shouldNotBeReachedError
 
     -- NOTE: don't use catch all pattern like
     --
@@ -347,6 +364,17 @@ postconditions Model{..} cmd res = case (cmd, res) of
             mAccount = find thisAccount mAccounts
         in mAccount .== Nothing
     (GetAccountBalanceA _ _, _) -> shouldNotBeReachedError
+    -- Check did we get all account addresses
+    (GetAccountAddressesA wId index, GetAccountAddressesR (Right walletAddresses)) ->
+        let thisAccount V1.Account{..} = accWalletId == wId && accIndex == index
+            mWalletAddresses = V1.accAddresses <$> find thisAccount mAccounts
+        in mWalletAddresses .== Just walletAddresses
+    -- If there is no account we assume account with such index and wallet id doesn't exist
+    (GetAccountAddressesA wId index, GetAccountAddressesR (Left _)) ->
+        let thisAccount V1.Account{..} = accWalletId == wId && accIndex == index
+            mAccount = find thisAccount mAccounts
+        in mAccount .== Nothing
+    (GetAccountAddressesA _ _, _) -> shouldNotBeReachedError
 
     -- NOTE: don't use catch all pattern like
     --
@@ -470,6 +498,8 @@ generator model@Model{..} = frequency
     , (5, uncurry GetAccountA <$> genGetAccount model)
     -- Test getting accounts balance
     , (5, uncurry GetAccountBalanceA <$> genGetAccount model)
+    -- Test getting accounts addresses
+    , (5, uncurry GetAccountAddressesA <$> genGetAccount model)
     ]
 
 shrinker :: Action Symbolic -> [Action Symbolic]
@@ -493,6 +523,20 @@ semantics pwl _ cmd = case cmd of
     GetAccountsA wId -> GetAccountsR <$> WL.getAccounts pwl wId
     GetAccountA wId index -> GetAccountR <$> WL.getAccount pwl wId index
     GetAccountBalanceA wId index -> GetAccountBalanceR <$> WL.getAccountBalance pwl wId index
+    -- TODO: We are getting rid of pagination and filtering - so we should
+    -- add back this later and test pagination and filtering as well
+    GetAccountAddressesA wId index ->
+        fmap GetAccountAddressesR . paginateAll' $ flip (WL.getAccountAddresses pwl wId index) NoFilters
+  where
+    paginateAll' :: Monad m => (RequestParams -> m (Either e (WalletResponse [a]))) -> m (Either e [a])
+    paginateAll' request = fmap2 wrData . paginateAll $ \mPage mPerPage ->
+        case (mPage, mPerPage) of
+            (Just page, Just perPage) ->
+                request $ RequestParams $ PaginationParams page perPage
+            (Nothing, Nothing) ->
+                error "paginateAll: this shouldn't happen by design"
+      where
+        fmap2 = fmap . fmap
 
 -- TODO: reuse withLayer function defined in wallet-new/test/unit/Test/Spec/Fixture.hs
 withWalletLayer
@@ -563,6 +607,13 @@ mock Model{..} (GetAccountBalanceA wId index) =
         mBalance = V1.AccountBalance . V1.accAmount <$> find thisAccount mAccounts
     in pure $ GetAccountBalanceR $
         maybe (Left $ WL.GetAccountWalletIdDecodingFailed "In fact, I couldn't find the account with specific id and index") Right mBalance
+
+mock Model{..} (GetAccountAddressesA wId index) =
+    let thisAccount V1.Account{..} = accWalletId == wId && accIndex == index
+        mAccountAddresses = V1.accAddresses <$> find thisAccount mAccounts
+    in pure $ GetAccountAddressesR $
+        maybe (Left $ WL.GetAccountWalletIdDecodingFailed "In fact, I couldn't find the account with specific id and index") Right mAccountAddresses
+
 
 
 ------------------------------------------------------------------------

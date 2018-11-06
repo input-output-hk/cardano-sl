@@ -9,6 +9,7 @@ module Cardano.Wallet.API.Request (
   , module Cardano.Wallet.API.Request.Sort
   ) where
 
+import           Universum
 
 import           Formatting (bprint, build, (%))
 import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..),
@@ -22,7 +23,7 @@ import           Cardano.Wallet.API.Request.Sort
 data RequestParams = RequestParams
     { rpPaginationParams :: PaginationParams
     -- ^ The pagination-related parameters
-    }
+    } deriving (Show)
 
 deriveSafeBuildable ''RequestParams
 instance BuildableSafeGen RequestParams where

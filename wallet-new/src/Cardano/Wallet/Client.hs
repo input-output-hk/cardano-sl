@@ -16,6 +16,7 @@ module Cardano.Wallet.Client
     , liftClient
     , onClientError
     , withThrottlingRetry
+    , paginateAll
     -- * The type of errors that the client might return
     , ClientError(..)
     , WalletError(..)
@@ -172,7 +173,8 @@ data WalletClient m
 --     fromPage2 <- paralelMap (\p -> request p $ Just 50) [2..page1.wrMeta.metaTotalPages]
 --     concatMap wrData $ page1:fromPage2
 --
-paginateAll :: Monad m => (Maybe Page -> Maybe PerPage -> Resp m [a]) -> Resp m [a]
+
+paginateAll :: Monad m => (Maybe Page -> Maybe PerPage -> m (Either e (WalletResponse [a]))) -> m (Either e (WalletResponse [a]))
 paginateAll request = fmap fixMetadata <$> paginatePage 1
   where
     fixMetadata WalletResponse{..} =

@@ -195,7 +195,7 @@ setupPayment :: Monad m
                                )
 setupPayment policy grouping regulation payment = do
     rootId <- fromRootId wId
-    let opts   = (newOptions (Kernel.cardanoFee policy)) {
+    let opts   = (newOptions (Kernel.cardanoFee policy) (Kernel.cardanoFeeSanity policy)) {
                      csoExpenseRegulation = regulation
                    , csoInputGrouping     = grouping
                    }

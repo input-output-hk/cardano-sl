@@ -56,6 +56,7 @@ import           Cardano.Wallet.Kernel.DB.TxMeta
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Internal
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
+import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as Node
 import qualified Cardano.Wallet.Kernel.PrefilterTx as Kernel
 import qualified Cardano.Wallet.Kernel.Read as Kernel
 import qualified Cardano.Wallet.Kernel.Transactions as Kernel
@@ -65,12 +66,13 @@ import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),
                      walletPassiveLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
 import qualified Cardano.Wallet.WalletLayer.Kernel.Accounts as Accounts
+import qualified Cardano.Wallet.WalletLayer.Kernel.Active as Active
 import qualified Cardano.Wallet.WalletLayer.Kernel.Conv as Kernel.Conv
 import           Cardano.Wallet.WalletLayer.Kernel.Transactions (toTransaction)
 
 import qualified Test.Spec.Addresses as Addresses
 import           Test.Spec.CoinSelection.Generators (InitialBalance (..),
-                     Pay (..), genUtxoWithAtLeast)
+                     Pay (..), genPayee, genUtxoWithAtLeast)
 import qualified Test.Spec.Fixture as Fixture
 import qualified Test.Spec.NewPayment as NewPayment
 import           TxMetaStorageSpecs (Isomorphic (..), genMeta)
@@ -145,6 +147,62 @@ prepareFixtures nm initialBalance = do
             , fixturePw = pw
         }
 
+prepareUTxoFixtures :: NetworkMagic
+                    -> [Word64]
+                    -> Fixture.GenActiveWalletFixture Fix
+prepareUTxoFixtures nm coins = do
+    let (_, esk) = safeDeterministicKeyGen (B.pack $ replicate 32 0x42) mempty
+    let newRootId = eskToHdRootId nm esk
+    newRoot <- initHdRoot <$> pure newRootId
+                        <*> pure (WalletName "A wallet")
+                        <*> pure NoSpendingPassword
+                        <*> pure AssuranceLevelNormal
+                        <*> (InDb <$> pick arbitrary)
+
+    newAccountId <- HdAccountId newRootId <$> deriveIndex (pick . choose) HdAccountIx HardDerivation
+    utxo <- foldlM (\acc coin -> do
+            newIndex <- deriveIndex (pick . choose) HdAddressIx HardDerivation
+            txIn <- pick $ Core.TxInUtxo <$> arbitrary <*> arbitrary
+            let Just (addr, _) = deriveLvl2KeyPair nm
+                                                (IsBootstrapEraAddr True)
+                                                (ShouldCheckPassphrase True)
+                                                mempty
+                                                esk
+                                                (newAccountId ^. hdAccountIdIx . to getHdAccountIx)
+                                                (getHdAddressIx newIndex)
+            return $ M.insert txIn (TxOutAux (TxOut addr coin)) acc
+        ) M.empty (mkCoin <$> coins)
+    return $ \keystore aw -> do
+        let pw = Kernel.walletPassive aw
+        Keystore.insert (WalletIdHdRnd newRootId) esk keystore
+        let accounts         = Kernel.prefilterUtxo nm newRootId esk utxo
+            hdAccountId      = Kernel.defaultHdAccountId newRootId
+            (Just hdAddress) = Kernel.defaultHdAddress nm esk emptyPassphrase newRootId
+
+        void $ liftIO $ update (pw ^. wallets) (CreateHdWallet newRoot hdAccountId hdAddress accounts)
+        return $ Fix {
+            fixtureHdRootId = newRootId
+          , fixtureHdRoot = newRoot
+          , fixtureAccountId = AccountIdHdRnd newAccountId
+          , fixtureESK = esk
+          , fixtureUtxo = utxo
+          }
+
+withUtxosFixture :: MonadIO m
+                => ProtocolMagic
+                -> [Word64]
+                -> (  Keystore.Keystore
+                    -> WalletLayer.ActiveWalletLayer m
+                    -> Kernel.ActiveWallet
+                    -> Fix
+                    -> IO a
+                    )
+                -> PropertyM IO a
+withUtxosFixture pm coins cc =
+    Fixture.withActiveWalletFixture pm (prepareUTxoFixtures nm coins) cc
+        where
+            nm = makeNetworkMagic pm
+
 withFixture :: MonadIO m
             => ProtocolMagic
             -> InitialBalance
@@ -208,10 +266,75 @@ getAccountBalanceNow pw Fix{..} = do
 constantFee :: Word64 -> Int -> NonEmpty Coin -> Coin
 constantFee c _ _ = mkCoin c
 
+constantFeeCheck :: Word64 -> Coin -> Bool
+constantFeeCheck c c' = mkCoin c == c'
 
 spec :: Spec
 spec = do
     describe "GetTransactions" $ do
+        prop "utxo fixture creates the correct balance" $ withMaxSuccess 10 $
+            monadicIO $ do
+                pm <- pick arbitrary
+                withUtxosFixture @IO pm [1,2,3] $ \_keystore _activeLayer aw f@Fix{..} -> do
+                    let pw = Kernel.walletPassive aw
+                    balance <- getAccountBalanceNow pw f
+                    balance `shouldBe` 6
+
+        prop "sanity tests checks" $ withMaxSuccess 10 $
+            monadicIO $ do
+                pm <- pick arbitrary
+                Fixture.withPassiveWalletFixture @IO pm (return $ \_ -> return ()) $ \_ _ pw _ -> do
+                    policy <- Node.getFeePolicy (pw ^. Kernel.walletNode)
+                    let checker = Kernel.cardanoFeeSanity policy . mkCoin
+                    checker 100 `shouldBe` False
+                    checker 155380 `shouldBe` False
+                    checker 155381 `shouldBe` True
+                    checker 213345 `shouldBe` True
+                    checker (2 * 155381) `shouldBe` True
+                    checker (2 * 155381 + 1) `shouldBe` False
+                    checker 755381 `shouldBe` False
+
+        prop "pay works normally for coin selection with additional utxos and changes" $ withMaxSuccess 10 $
+            monadicIO $ do
+                pm <- pick arbitrary
+                distr <- fmap (\(TxOut addr coin) -> V1.PaymentDistribution (V1.V1 addr) (V1.V1 coin))
+                                <$> pick (genPayee mempty (PayLovelace 100))
+                withUtxosFixture @IO pm [300, 400, 500, 600, 5000000] $ \_keystore _activeLayer aw f@Fix{..} -> do
+                    let pw = Kernel.walletPassive aw
+                    -- get the balance before the payment
+                    coinsBefore <- getAccountBalanceNow pw f
+                    -- do the payment
+                    let (AccountIdHdRnd myAccountId) = fixtureAccountId
+                        src = V1.PaymentSource (Kernel.Conv.toRootId fixtureHdRootId)
+                                        (V1.unsafeMkAccountIndex $ getHdAccountIx $ myAccountId ^. hdAccountIdIx)
+                        payment = V1.Payment src distr Nothing Nothing
+                    Right _ <- Active.pay aw emptyPassphrase PreferGrouping SenderPaysFee payment
+                    -- get the balance after the payment.
+                    coinsAfter <- getAccountBalanceNow pw f
+                    -- sanity check.
+                    policy <- Node.getFeePolicy (pw ^. Kernel.walletNode)
+                    let checker = Kernel.cardanoFeeSanity policy . mkCoin
+                    -- payment is very small so difference is almost equa to fees.
+                    coinsBefore - coinsAfter `shouldSatisfy` checker
+
+        prop "estimateFees looks sane for coin selection with additional utxos and changes" $ withMaxSuccess 10 $
+            monadicIO $ do
+                pm <- pick arbitrary
+                distr <- fmap (\(TxOut addr coin) -> V1.PaymentDistribution (V1.V1 addr) (V1.V1 coin))
+                                <$> pick (genPayee mempty (PayLovelace 100))
+                withUtxosFixture @IO pm [300, 400, 500, 600, 5000000] $ \_keystore _activeLayer aw Fix{..} -> do
+                    let pw = Kernel.walletPassive aw
+                    -- do the payment
+                    let (AccountIdHdRnd myAccountId) = fixtureAccountId
+                        src = V1.PaymentSource (Kernel.Conv.toRootId fixtureHdRootId)
+                                        (V1.unsafeMkAccountIndex $ getHdAccountIx $ myAccountId ^. hdAccountIdIx)
+                        payment = V1.Payment src distr Nothing Nothing
+                    Right c <- Active.estimateFees aw PreferGrouping SenderPaysFee payment
+                    -- sanity check.
+                    policy <- Node.getFeePolicy (pw ^. Kernel.walletNode)
+                    let checker = Kernel.cardanoFeeSanity policy
+                    c `shouldSatisfy` checker
+
         prop "scenario: Layer.CreateAddress -> TxMeta.putTxMeta -> Layer.getTransactions works properly." $ withMaxSuccess 5 $
             monadicIO $ do
                 testMetaSTB <- pick genMeta
@@ -482,7 +605,7 @@ spec = do
 
 payAux :: Kernel.ActiveWallet -> HdAccountId -> NonEmpty (Address, Coin) -> Word64 -> IO (Core.Tx, TxMeta)
 payAux aw hdAccountId payees fees = do
-    let opts = (newOptions (constantFee fees)) {
+    let opts = (newOptions (constantFee fees) (constantFeeCheck fees)) {
                           csoExpenseRegulation = SenderPaysFee
                         , csoInputGrouping = IgnoreGrouping
                         }

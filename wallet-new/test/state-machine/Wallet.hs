@@ -24,8 +24,8 @@ import           Universum
 import           Data.Time.Units (Microsecond, toMicroseconds)
 import           Data.TreeDiff (ToExpr (toExpr))
 import           GHC.Generics (Generic, Generic1)
-import           Test.QuickCheck (Gen, Property, arbitrary, frequency, oneof,
-                     (===))
+import           Test.QuickCheck (Arbitrary (arbitrary), Gen, Property,
+                     elements, frequency, (===))
 import           Test.QuickCheck.Monadic (monadicIO)
 
 import           Test.StateMachine
@@ -70,6 +70,7 @@ data Action (r :: * -> *)
     -- TODO: add getting utxo (after account and transaction modelling)
     | CreateAccountA V1.WalletId V1.NewAccount
     | GetAccountsA V1.WalletId
+    | GetAccountA V1.WalletId V1.AccountIndex
     deriving (Show, Generic1, Rank2.Functor, Rank2.Foldable, Rank2.Traversable)
 
 data Response (r :: * -> *)
@@ -83,6 +84,7 @@ data Response (r :: * -> *)
     -- TODO: add getting utxo (after account and transaction modelling)
     | CreateAccountR (Either WL.CreateAccountError V1.Account)
     | GetAccountsR (Either WL.GetAccountsError (DB.IxSet V1.Account))
+    | GetAccountR (Either WL.GetAccountError V1.Account)
     deriving (Show, Generic1, Rank2.Foldable)
 
 
@@ -168,6 +170,7 @@ preconditions (Model _ _ _ True) action = case action of
     DeleteWalletA _           -> Top
     CreateAccountA _ _        -> Top
     GetAccountsA _            -> Top
+    GetAccountA _ _           -> Top
 
     -- NOTE: don't use catch all pattern like
     --
@@ -214,6 +217,9 @@ transitions model@Model{..} cmd res = case (cmd, res) of
     (GetAccountsA _, GetAccountsR (Right _)) -> model
     (GetAccountsA _, GetAccountsR (Left _)) -> increaseUnhappyPath
     (GetAccountsA _, _) -> shouldNotBeReachedError
+    (GetAccountA _ _, GetAccountR (Right _)) -> model
+    (GetAccountA _ _, GetAccountR (Left _)) -> increaseUnhappyPath
+    (GetAccountA _ _, _) -> shouldNotBeReachedError
 
     -- NOTE: don't use catch all pattern like
     --
@@ -290,7 +296,8 @@ postconditions Model{..} cmd res = case (cmd, res) of
     (DeleteWalletA _, _) -> shouldNotBeReachedError
     -- Created account shouldn't be present in the model
     (CreateAccountA _ _, CreateAccountR (Right account)) ->
-        let mAccount = find (== account) mAccounts
+        let thisAccount = V1.accountsHaveSameId account
+            mAccount = find thisAccount mAccounts
         in mAccount .== Nothing
     -- Account creation will fail if we try to create an account
     -- in a wallet that doesn't exist
@@ -309,6 +316,18 @@ postconditions Model{..} cmd res = case (cmd, res) of
     (GetAccountsA wId, GetAccountsR (Left _)) ->
         Predicate $ NotElem wId (map (V1.walId . fst) mWallets)
     (GetAccountsA _, _) -> shouldNotBeReachedError
+    -- If we managed to get account, that account should exist in the model
+    -- TODO: also check that wallet id and account correspond to returned account
+    (GetAccountA _ _, GetAccountR (Right account)) ->
+        let mAccount = find (== account) mAccounts
+        in mAccount .== Nothing
+    -- If there is no account we assume account with such index and wallet id doesn't exist
+    (GetAccountA wId index, GetAccountR (Left _)) ->
+        let thisAccount V1.Account{..} = accWalletId == wId && accIndex == index
+            mAccount = find thisAccount mAccounts
+        in mAccount .== Nothing
+    (GetAccountA _ _, _) -> shouldNotBeReachedError
+
     -- NOTE: don't use catch all pattern like
     --
     -- (_, _) ->
@@ -321,6 +340,13 @@ postconditions Model{..} cmd res = case (cmd, res) of
 ------------------------------------------------------------------------
 
 -- Action generator
+
+-- Same as quickchecks elements but if list is empty it will generate
+-- arbitrary element
+-- TODO: check do we have this functionality already in some utilities
+genElements :: Arbitrary a => [a] -> Gen a
+genElements [] = arbitrary
+genElements xs = elements xs
 
 -- TODO: reuse the one from wallet-new/test/unit/Test/Spec/Wallets.hs
 genNewWalletRq :: Gen V1.NewWallet
@@ -338,7 +364,7 @@ genNewWalletRq = do
 genPasswordUpdate :: Model Symbolic -> Gen (V1.WalletId, V1.PasswordUpdate)
 genPasswordUpdate Model{..} = do
     -- Pick wallet to update password
-    (wal, correctOldPass) <- second (fromMaybe mempty) <$> oneof (arbitrary:map pure mWallets)
+    (wal, correctOldPass) <- second (fromMaybe mempty) <$> genElements mWallets
     oldPass <- frequency
                     -- Old pass can be wrong
                     [ (20, arbitrary)
@@ -358,7 +384,7 @@ genPasswordUpdate Model{..} = do
 genNewAccount :: Model Symbolic -> Gen (V1.WalletId, V1.NewAccount)
 genNewAccount Model{..} = do
     -- Pick wallet to create an account
-    (wal, correctOldPass) <- second (fromMaybe mempty) <$> oneof (arbitrary:map pure mWallets)
+    (wal, correctOldPass) <- second (fromMaybe mempty) <$> genElements mWallets
     spendingPassword <- frequency
                     -- pass can be unset
                     [ (10, pure Nothing)
@@ -372,6 +398,24 @@ genNewAccount Model{..} = do
     name <- arbitrary
     pure (V1.walId wal, V1.NewAccount spendingPassword name)
 
+genGetAccount :: Model Symbolic -> Gen (V1.WalletId, V1.AccountIndex)
+genGetAccount Model{..} = do
+    -- Pick account
+    acc <- genElements mAccounts
+    frequency
+        -- both wallet id and account index exist but their
+        -- combination is wrong
+        [ (10, (,) <$> genElements (map V1.accWalletId mAccounts) <*> genElements (map V1.accIndex mAccounts))
+        -- non existing account index
+        , (10, (,) <$> genElements (map V1.accWalletId mAccounts) <*> arbitrary)
+        -- non existing wallet id
+        , (10, (,) <$> arbitrary <*> genElements (map V1.accIndex mAccounts))
+        -- non existing wallet id and account index
+        , (10, (,) <$> arbitrary <*> arbitrary)
+        -- existing wallet id and account index
+        , (10, pure (V1.accWalletId acc, V1.accIndex acc))
+        ]
+
 generator :: Model Symbolic -> Gen (Action Symbolic)
 -- if wallet has not been reset, then we should first reset it!
 generator (Model _ _ _ False) = pure ResetWalletA
@@ -381,11 +425,11 @@ generator model@Model{..} = frequency
     -- TODO: add generator for importing wallet from secret key
     , (5, pure GetWalletsA)
     -- This tests fetching existing wallet (except when there is no wallets in model)
-    , (4, GetWalletA . V1.walId <$> oneof (arbitrary:map (pure . fst) mWallets))
+    , (4, GetWalletA . V1.walId <$> genElements (map fst mWallets))
     -- This tests fetching probably non existing wallet
     , (1, GetWalletA <$> arbitrary)
 --    -- This tests updates existing wallets (except when there is no wallets)
-    , (4, UpdateWalletA . V1.walId <$> oneof (arbitrary:map (pure . fst) mWallets) <*> arbitrary)
+    , (4, UpdateWalletA . V1.walId <$> genElements (map fst mWallets) <*> arbitrary)
     -- This tests updating non existing wallet
     , (1, UpdateWalletA <$> arbitrary <*> arbitrary)
 --    -- This tests updates password of existing wallets (except when there is no wallets)
@@ -393,7 +437,7 @@ generator model@Model{..} = frequency
     -- This tests updating non existing wallet
     , (1, UpdateWalletPasswordA <$> arbitrary <*> arbitrary)
     -- This tests deleting existing wallets
-    , (4, DeleteWalletA . V1.walId <$> oneof (arbitrary:map (pure . fst) mWallets))
+    , (4, DeleteWalletA . V1.walId <$> genElements (map fst mWallets))
     -- This tests deleting non existing wallet
     , (1, DeleteWalletA <$> arbitrary)
     -- This tests creating account in existing wallet
@@ -401,9 +445,9 @@ generator model@Model{..} = frequency
     -- This tests creating account in non existing wallet
     , (1, CreateAccountA <$> arbitrary <*> arbitrary)
     -- Test getting accounts of existing wallet
-    , (4, GetAccountsA . V1.walId <$> oneof (arbitrary:map (pure . fst) mWallets))
-    -- Test getting accounts of non existing wallet
-    , (1, GetAccountsA <$> arbitrary)
+    , (4, GetAccountsA . V1.walId <$> genElements (map fst mWallets))
+    -- Test getting accounts
+    , (5, uncurry GetAccountA <$> genGetAccount model)
     ]
 
 shrinker :: Action Symbolic -> [Action Symbolic]
@@ -425,6 +469,7 @@ semantics pwl _ cmd = case cmd of
     DeleteWalletA wId -> DeleteWalletR <$> WL.deleteWallet pwl wId
     CreateAccountA wId ca -> CreateAccountR <$> WL.createAccount pwl wId ca
     GetAccountsA wId -> GetAccountsR <$> WL.getAccounts pwl wId
+    GetAccountA wId index -> GetAccountR <$> WL.getAccount pwl wId index
 
 -- TODO: reuse withLayer function defined in wallet-new/test/unit/Test/Spec/Fixture.hs
 withWalletLayer
@@ -485,6 +530,12 @@ mock Model{..} (DeleteWalletA wId) =
             else Right ()
 mock Model{..} (CreateAccountA _ _) = pure $ CreateAccountR (Left $ WL.CreateAccountWalletIdDecodingFailed "In fact - this is just mocking")
 mock Model{..} (GetAccountsA wId) = pure . GetAccountsR . Right . DB.fromList $ filter ((== wId) . V1.accWalletId) mAccounts
+mock Model{..} (GetAccountA wId index) =
+    let thisAccount V1.Account{..} = accWalletId == wId && accIndex == index
+        mExists = find thisAccount mAccounts
+    in pure $ GetAccountR $
+        maybe (Left $ WL.GetAccountWalletIdDecodingFailed "In fact, I couldn't find the account with specific id and index") Right mExists
+
 
 ------------------------------------------------------------------------
 

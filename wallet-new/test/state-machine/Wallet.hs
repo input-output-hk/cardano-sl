@@ -84,6 +84,7 @@ data Action (r :: * -> *)
     -- TODO: test pagination, filtering and sorting
 --        RequestParams
 --        (FilterOperations '[V1.V1 V1.Address] V1.WalletAddress)
+    | UpdateAccountA V1.WalletId V1.AccountIndex V1.AccountUpdate
     deriving (Show, Generic1, Rank2.Functor, Rank2.Foldable, Rank2.Traversable)
 
 data Response (r :: * -> *)
@@ -100,6 +101,7 @@ data Response (r :: * -> *)
     | GetAccountR (Either WL.GetAccountError V1.Account)
     | GetAccountBalanceR (Either WL.GetAccountError V1.AccountBalance)
     | GetAccountAddressesR (Either WL.GetAccountError [V1.WalletAddress])
+    | UpdateAccountR (Either WL.UpdateAccountError V1.Account)
     deriving (Show, Generic1, Rank2.Foldable)
 
 
@@ -188,6 +190,7 @@ preconditions (Model _ _ _ True) action = case action of
     GetAccountA _ _           -> Top
     GetAccountBalanceA _ _    -> Top
     GetAccountAddressesA _ _  -> Top
+    UpdateAccountA _ _ _      -> Top
 
     -- NOTE: don't use catch all pattern like
     --
@@ -212,9 +215,17 @@ transitions model@Model{..} cmd res = case (cmd, res) of
     (GetWalletA _, GetWalletR (Right _)) -> model
     (GetWalletA _, GetWalletR (Left _)) -> increaseUnhappyPath
     (GetWalletA _, _) -> shouldNotBeReachedError
+    -- FIXME: hm - something strange is going on
+    -- For some reason if I replace path bellow with
+    --
+    --  ... -> model
+    --
+    -- tests will pass - but I am not sure they should. In this case we
+    -- are not correctly modeling this path and postcondition should be able to catch the mistake - but that's not happening. Check why is this the case!!
     (UpdateWalletA wId _, UpdateWalletR (Right wallet)) ->
         let thisWallet = (wId ==) . V1.walId . fst
-        in model { mWallets = filter thisWallet mWallets <> filter (not . thisWallet) mWallets }
+            updatedWallets = map (first (const wallet)) $ filter thisWallet mWallets
+        in model { mWallets = updatedWallets <> filter (not . thisWallet) mWallets }
     (UpdateWalletA _ _, UpdateWalletR (Left _)) -> increaseUnhappyPath
     (UpdateWalletA _ _, _) -> shouldNotBeReachedError
     (UpdateWalletPasswordA wId V1.PasswordUpdate{..}, UpdateWalletPasswordR (Right wallet)) ->
@@ -243,6 +254,11 @@ transitions model@Model{..} cmd res = case (cmd, res) of
     (GetAccountAddressesA _ _, GetAccountAddressesR (Right _)) -> model
     (GetAccountAddressesA _ _, GetAccountAddressesR (Left _)) -> increaseUnhappyPath
     (GetAccountAddressesA _ _, _) -> shouldNotBeReachedError
+    (UpdateAccountA _ _ _, UpdateAccountR (Right account)) ->
+        let thisAccount = V1.accountsHaveSameId account
+        in model { mAccounts = account : filter (not . thisAccount) mAccounts }
+    (UpdateAccountA _ _ _, UpdateAccountR (Left _)) -> increaseUnhappyPath
+    (UpdateAccountA _ _ _, _) -> shouldNotBeReachedError
 
     -- NOTE: don't use catch all pattern like
     --
@@ -375,6 +391,18 @@ postconditions Model{..} cmd res = case (cmd, res) of
             mAccount = find thisAccount mAccounts
         in mAccount .== Nothing
     (GetAccountAddressesA _ _, _) -> shouldNotBeReachedError
+    -- Checks if updated account is really what we got
+    (UpdateAccountA wId index V1.AccountUpdate{..}, UpdateAccountR (Right account)) ->
+        let thisAccount V1.Account{..} = accWalletId == wId && accIndex == index
+            mAccount = update <$> find thisAccount mAccounts
+            update acc = acc { V1.accName = uaccName }
+        in mAccount .== Just account
+    -- If there is no account we assume account with such index and wallet id doesn't exist
+    (UpdateAccountA wId index _, UpdateAccountR (Left _)) ->
+        let thisAccount V1.Account{..} = accWalletId == wId && accIndex == index
+            mAccount = find thisAccount mAccounts
+        in mAccount .== Nothing
+    (UpdateAccountA _ _ _, _) -> shouldNotBeReachedError
 
     -- NOTE: don't use catch all pattern like
     --
@@ -500,6 +528,7 @@ generator model@Model{..} = frequency
     , (5, uncurry GetAccountBalanceA <$> genGetAccount model)
     -- Test getting accounts addresses
     , (5, uncurry GetAccountAddressesA <$> genGetAccount model)
+    , (5, uncurry UpdateAccountA <$> genGetAccount model <*> arbitrary)
     ]
 
 shrinker :: Action Symbolic -> [Action Symbolic]
@@ -527,6 +556,7 @@ semantics pwl _ cmd = case cmd of
     -- add back this later and test pagination and filtering as well
     GetAccountAddressesA wId index ->
         fmap GetAccountAddressesR . paginateAll' $ flip (WL.getAccountAddresses pwl wId index) NoFilters
+    UpdateAccountA wId index update -> UpdateAccountR <$> WL.updateAccount pwl wId index update
   where
     paginateAll' :: Monad m => (RequestParams -> m (Either e (WalletResponse [a]))) -> m (Either e [a])
     paginateAll' request = fmap2 wrData . paginateAll $ \mPage mPerPage ->
@@ -607,12 +637,17 @@ mock Model{..} (GetAccountBalanceA wId index) =
         mBalance = V1.AccountBalance . V1.accAmount <$> find thisAccount mAccounts
     in pure $ GetAccountBalanceR $
         maybe (Left $ WL.GetAccountWalletIdDecodingFailed "In fact, I couldn't find the account with specific id and index") Right mBalance
-
 mock Model{..} (GetAccountAddressesA wId index) =
     let thisAccount V1.Account{..} = accWalletId == wId && accIndex == index
         mAccountAddresses = V1.accAddresses <$> find thisAccount mAccounts
     in pure $ GetAccountAddressesR $
         maybe (Left $ WL.GetAccountWalletIdDecodingFailed "In fact, I couldn't find the account with specific id and index") Right mAccountAddresses
+mock Model{..} (UpdateAccountA wId index V1.AccountUpdate{..}) =
+    let thisAccount V1.Account{..} = accWalletId == wId && accIndex == index
+        mAccount = update <$> find thisAccount mAccounts
+        update acc = acc { V1.accName = uaccName }
+    in pure $ UpdateAccountR $
+        maybe (Left $ WL.UpdateAccountWalletIdDecodingFailed "In fact, I couldn't find the account with specific id and index") Right mAccount
 
 
 

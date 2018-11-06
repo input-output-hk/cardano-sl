@@ -18206,7 +18206,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-utxo
 , cardano-sl-wallet
 , cardano-sl-x509
-, cassava
 , cereal
 , conduit
 , connection
@@ -18220,7 +18219,6 @@ license = stdenv.lib.licenses.mit;
 , filepath
 , foldl
 , formatting
-, gauge
 , generics-sop
 , hedgehog
 , hspec
@@ -18284,7 +18282,6 @@ license = stdenv.lib.licenses.mit;
 , warp
 , x509
 , x509-store
-, yaml
 , zlib
 }:
 mkDerivation {
@@ -18494,32 +18491,6 @@ time-units
 universum
 unordered-containers
 vector
-];
-benchmarkHaskellDepends = [
-aeson
-async
-base
-bytestring
-cardano-sl-client
-cardano-sl-core
-cardano-sl-wallet
-cassava
-connection
-data-default
-gauge
-http-client
-http-client-tls
-optparse-applicative
-random
-servant
-servant-client
-servant-client-core
-text
-time
-tls
-universum
-vector
-yaml
 ];
 doHaddock = false;
 homepage = "https://github.com/input-output-hk/cardano-sl/#readme";

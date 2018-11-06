@@ -85,8 +85,10 @@ data Action (r :: * -> *)
 --        RequestParams
 --        (FilterOperations '[V1.V1 V1.Address] V1.WalletAddress)
     | UpdateAccountA V1.WalletId V1.AccountIndex V1.AccountUpdate
+    | DeleteAccountA V1.WalletId V1.AccountIndex
     deriving (Show, Generic1, Rank2.Functor, Rank2.Foldable, Rank2.Traversable)
 
+-- TODO: https://github.com/input-output-hk/cardano-sl/pull/3772#pullrequestreview-171983141
 data Response (r :: * -> *)
     = ResetWalletR
     | CreateWalletR (Either WL.CreateWalletError V1.Wallet)
@@ -102,6 +104,7 @@ data Response (r :: * -> *)
     | GetAccountBalanceR (Either WL.GetAccountError V1.AccountBalance)
     | GetAccountAddressesR (Either WL.GetAccountError [V1.WalletAddress])
     | UpdateAccountR (Either WL.UpdateAccountError V1.Account)
+    | DeleteAccountR (Either WL.DeleteAccountError ())
     deriving (Show, Generic1, Rank2.Foldable)
 
 
@@ -191,6 +194,7 @@ preconditions (Model _ _ _ True) action = case action of
     GetAccountBalanceA _ _    -> Top
     GetAccountAddressesA _ _  -> Top
     UpdateAccountA _ _ _      -> Top
+    DeleteAccountA _ _        -> Top
 
     -- NOTE: don't use catch all pattern like
     --
@@ -259,6 +263,11 @@ transitions model@Model{..} cmd res = case (cmd, res) of
         in model { mAccounts = account : filter (not . thisAccount) mAccounts }
     (UpdateAccountA _ _ _, UpdateAccountR (Left _)) -> increaseUnhappyPath
     (UpdateAccountA _ _ _, _) -> shouldNotBeReachedError
+    (DeleteAccountA wId index, DeleteAccountR (Right _)) ->
+        let thisAccount V1.Account{..} = accWalletId == wId && accIndex == index
+        in model { mAccounts = filter (not . thisAccount) mAccounts }
+    (DeleteAccountA _ _, DeleteAccountR (Left _)) -> increaseUnhappyPath
+    (DeleteAccountA _ _, _) -> shouldNotBeReachedError
 
     -- NOTE: don't use catch all pattern like
     --
@@ -403,6 +412,17 @@ postconditions Model{..} cmd res = case (cmd, res) of
             mAccount = find thisAccount mAccounts
         in mAccount .== Nothing
     (UpdateAccountA _ _ _, _) -> shouldNotBeReachedError
+    (DeleteAccountA wId index, DeleteAccountR (Left _)) ->
+        let thisAccount V1.Account{..} = accWalletId == wId && accIndex == index
+            mAccount = find thisAccount mAccounts
+        in mAccount .== Nothing
+    -- If account delete did succeed we expect account can be found in model
+    (DeleteAccountA wId index, DeleteAccountR (Right _)) ->
+        let thisAccount V1.Account{..} = accWalletId == wId && accIndex == index
+            mAccount = find thisAccount mAccounts
+        in Boolean $ isJust mAccount
+    (DeleteAccountA _ _, _) -> shouldNotBeReachedError
+
 
     -- NOTE: don't use catch all pattern like
     --
@@ -529,6 +549,8 @@ generator model@Model{..} = frequency
     -- Test getting accounts addresses
     , (5, uncurry GetAccountAddressesA <$> genGetAccount model)
     , (5, uncurry UpdateAccountA <$> genGetAccount model <*> arbitrary)
+    -- Test deleting accounts
+    , (5, uncurry DeleteAccountA <$> genGetAccount model)
     ]
 
 shrinker :: Action Symbolic -> [Action Symbolic]
@@ -557,6 +579,7 @@ semantics pwl _ cmd = case cmd of
     GetAccountAddressesA wId index ->
         fmap GetAccountAddressesR . paginateAll' $ flip (WL.getAccountAddresses pwl wId index) NoFilters
     UpdateAccountA wId index update -> UpdateAccountR <$> WL.updateAccount pwl wId index update
+    DeleteAccountA wId index -> DeleteAccountR <$> WL.deleteAccount pwl wId index
   where
     paginateAll' :: Monad m => (RequestParams -> m (Either e (WalletResponse [a]))) -> m (Either e [a])
     paginateAll' request = fmap2 wrData . paginateAll $ \mPage mPerPage ->
@@ -648,7 +671,13 @@ mock Model{..} (UpdateAccountA wId index V1.AccountUpdate{..}) =
         update acc = acc { V1.accName = uaccName }
     in pure $ UpdateAccountR $
         maybe (Left $ WL.UpdateAccountWalletIdDecodingFailed "In fact, I couldn't find the account with specific id and index") Right mAccount
-
+mock Model{..} (DeleteAccountA wId index) =
+    let thisAccount V1.Account{..} = accWalletId == wId && accIndex == index
+        mAccount = find thisAccount mAccounts
+    in pure $ DeleteAccountR $
+        if isJust mAccount
+            then Left $ WL.DeleteAccountWalletIdDecodingFailed "In fact, I couldn't find the account with specific id and index"
+            else Right ()
 
 
 ------------------------------------------------------------------------

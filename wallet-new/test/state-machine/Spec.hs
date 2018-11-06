@@ -27,7 +27,7 @@ tests pwl pw =
 --                it "parallel with shared lock" $ expectFailure . prop_ticketDispenserParallelBad
         -- TODO: test wallet layer which is not in memory. Maybe there are race condition bugs when we are using filesystem persisted db instead of in-memory one
         describe "Wallet" $ do
-            it "sequential" $ withMaxSuccess 50 $ prop_wallet pwl pw
+            it "sequential" $ withMaxSuccess 300 $ prop_wallet pwl pw
             -- TODO: check how would Test.QuickCheck.parallel and including multiple cores
             -- react to parallel executing from quickcheck-state-machine
 --                it "parallel" $ withMaxSuccess 3 . prop_walletParallel

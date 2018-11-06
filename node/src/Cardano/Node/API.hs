@@ -86,58 +86,74 @@ instance Core.HasSlottingVar SettingsCtx where
     slottingTimestamp = lens settingsCtxTimestamp (\s t -> s { settingsCtxTimestamp = t })
     slottingVar = lens settingsCtxSlottingVar (\s t -> s { settingsCtxSlottingVar = t })
 
-{-
--- from Cardano.WalletLayer.Kernel.Settings:
-getNodeSettings :: MonadIO m => Kernel.PassiveWallet -> m V1.NodeSettings
-getNodeSettings w = liftIO $
-    V1.NodeSettings
-        <$> (mkSlotDuration <$> Node.getNextEpochSlotDuration node)
-        <*> (V1 <$> Node.curSoftwareVersion node)
-        <*> pure (V1 version)
-        <*> (mkGitRevision <$> Node.compileInfo node)
-  where
-    mkSlotDuration :: Millisecond -> V1.SlotDuration
-    mkSlotDuration = V1.mkSlotDuration . fromIntegral
-
-    mkGitRevision :: CompileTimeInfo -> Text
-    mkGitRevision = T.replace "\n" mempty . ctiGitRevision
-
-    node :: NodeStateAdaptor IO
-    node = w ^. Kernel.walletNode
-
--- from Cardano.Wallet.Kernel.NodeSTateAdapter
-defaultGetNextEpochSlotDuration :: MonadIO m => WithNodeState m Millisecond
-defaultGetNextEpochSlotDuration = Slotting.getNextEpochSlotDuration
-
--- from Pos.Infra.Slotting.Util:
--- | Get last known slot duration.
-getNextEpochSlotDuration
-    :: (MonadSlotsData ctx m)
-    => m Millisecond
-getNextEpochSlotDuration =
-    esdSlotDuration . snd <$> getCurrentNextEpochSlottingDataM
-
--- from Pos.Core.SLotting.Class
-type MonadSlotsData ctx m =
-    ( MonadReader ctx m
-    , HasSlottingVar ctx
-    , MonadIO m
-    )
-
--- | System start and slotting data
-class HasSlottingVar ctx where
-    slottingTimestamp :: Lens' ctx Timestamp
-    slottingVar       :: Lens' ctx SlottingVar
-
-type SlottingVar = TVar SlottingData
-
--}
-
 applyUpdate :: Handler NoContent
 applyUpdate = undefined
 
+{-
+-- from Cardano.Wallet.API.Internal.Handlers
+applyUpdate :: PassiveWalletLayer IO -> Handler NoContent
+applyUpdate w = liftIO (WalletLayer.applyUpdate w) >> return NoContent
+
+-- from Cardano.WalletLayer.Kernel.hs
+-- ...
+        , applyUpdate          = Internal.applyUpdate         w
+-- ...
+
+-- from Cardano.Wallet.WalletLayer.Kernal.Internal
+-- | Apply an update
+--
+-- NOTE (legacy): 'applyUpdate', "Pos.Wallet.Web.Methods.Misc".
+--
+-- The legacy implementation does two things:
+--
+-- 1. Remove the update from the wallet's list of updates
+-- 2. Call 'applyLastUpdate' from 'MonadUpdates'
+--
+-- The latter is implemented in 'applyLastUpdateWebWallet', which literally just
+-- a call to 'triggerShutdown'.
+--
+-- TODO: The other side of the story is 'launchNotifier', where the wallet
+-- is /notified/ of updates.
+applyUpdate :: MonadIO m => Kernel.PassiveWallet -> m ()
+applyUpdate w = liftIO $ do
+    update' (w ^. Kernel.wallets) $ RemoveNextUpdate
+    Node.withNodeState (w ^. Kernel.walletNode) $ \_lock -> do
+      doFail <- liftIO $ testLogFInject (w ^. Kernel.walletFInjects) FInjApplyUpdateNoExit
+      unless doFail
+        Node.triggerShutdown
+
+So this is actually a bit of a problem. `update'` is updating the *wallet*
+acid-state database to remove information about the presence of an update. So we
+need to coordinate the information about wallet *and* node executable
+distribution separately?
+
+Ultimately, they will be communicating over a protocol, and the node version and
+wallet version won't be coupled (providing they have compatible protocol
+communication). So perhaps we can ignore this for now.
+
+-}
+
 postponeUpdate :: Handler NoContent
 postponeUpdate = undefined
+
+{-
+
+-- from Cardano.Wallet.API.Internal.Handlers:
+postponeUpdate :: PassiveWalletLayer IO -> Handler NoContent
+postponeUpdate w = liftIO (WalletLayer.postponeUpdate w) >> return NoContent
+
+-- from Cardano.Wallet.WalletLayer.Kernal.Internal
+-- | Postpone update
+--
+-- NOTE (legacy): 'postponeUpdate', "Pos.Wallet.Web.Methods.Misc".
+postponeUpdate :: MonadIO m => Kernel.PassiveWallet -> m ()
+postponeUpdate w = update' (w ^. Kernel.wallets) $ RemoveNextUpdate
+
+So, basically the same problem as above. This is specifically for updating the
+*wallet's* state. So we'd need a similar process for shutting down and updating
+the node's API.
+
+-}
 
 getNodeInfo
     :: Diffusion IO

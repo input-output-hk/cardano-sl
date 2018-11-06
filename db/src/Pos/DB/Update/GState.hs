@@ -10,6 +10,7 @@ module Pos.DB.Update.GState
        , getAdoptedBVData
        , getAdoptedBVFull
        , getBVState
+       , getConsensusEra
        , getProposalState
        , getConfirmedSV
        , getMaxBlockSize
@@ -54,14 +55,15 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlockVersionData, configEpochSlots)
 import           Pos.Chain.Update (ApplicationName, BlockVersion,
                      BlockVersionData (..), BlockVersionState (..),
-                     ConfirmedProposalState (..),
+                     ConfirmedProposalState (..), ConsensusEra (..),
                      DecidedProposalState (dpsDifficulty),
                      HasUpdateConfiguration, NumSoftwareVersion,
                      ProposalState (..), SoftwareVersion (..),
                      UndecidedProposalState (upsSlot), UpId,
-                     UpdateProposal (..), bvsIsConfirmed, cpsSoftwareVersion,
-                     genesisBlockVersion, genesisSoftwareVersions, ourAppName,
-                     ourSystemTag, psProposal)
+                     UpdateProposal (..), bvsIsConfirmed, consensusEraBVD,
+                     cpsSoftwareVersion, genesisBlockVersion,
+                     genesisSoftwareVersions, ourAppName, ourSystemTag,
+                     psProposal)
 import           Pos.Core (ChainDifficulty, SlotId, StakeholderId,
                      TimeDiff (..))
 import           Pos.Core.Slotting (EpochSlottingData (..), SlottingData,
@@ -91,6 +93,10 @@ getAdoptedBVFull = maybeThrow (DBMalformed msg) =<< getAdoptedBVFullMaybe
   where
     msg =
         "Update System part of GState DB is not initialized (last adopted BV is missing)"
+
+-- | Get the ConsensusEra from the database.
+getConsensusEra :: MonadDBRead m => m ConsensusEra
+getConsensusEra = consensusEraBVD <$> getAdoptedBVData
 
 -- | Get maximum block size (in bytes).
 getMaxBlockSize :: MonadDBRead m => m Byte

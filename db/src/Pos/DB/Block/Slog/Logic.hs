@@ -27,7 +27,7 @@ import           Universum
 import           Control.Lens (_Wrapped)
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.List.NonEmpty as NE
-import           Formatting (build, sformat, (%))
+import           Formatting (build, sformat, shown, (%))
 import           Serokell.Util (Color (Red), colorize)
 import           Serokell.Util.Verify (formatAllErrors, verResToMonadError)
 
@@ -58,10 +58,10 @@ import qualified Pos.DB.GState.Common as GS
                      getMaxSeenDifficulty)
 import           Pos.DB.Lrc (HasLrcContext, lrcActionOnEpochReason)
 import qualified Pos.DB.Lrc as LrcDB
-import           Pos.DB.Update.GState (getAdoptedBVFull)
+import           Pos.DB.Update (getAdoptedBVFull, getConsensusEra)
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Util.Wlog (WithLogger)
+import           Pos.Util.Wlog (WithLogger, logInfo)
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -135,6 +135,8 @@ slogVerifyBlocks
     -> OldestFirst NE Block
     -> m (Either Text (OldestFirst NE SlogUndo))
 slogVerifyBlocks genesisConfig curSlot blocks = runExceptT $ do
+    era <- getConsensusEra
+    logInfo $ sformat ("slogVerifyBlocks: Consensus era is " % shown) era
     (adoptedBV, adoptedBVD) <- lift getAdoptedBVFull
     let dataMustBeKnown = mustDataBeKnown adoptedBV
     let headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL

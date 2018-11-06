@@ -3,6 +3,8 @@
 module Pos.Chain.Update.BlockVersionData
        ( BlockVersionData (..)
        , isBootstrapEraBVD
+       , ConsensusEra (..)
+       , consensusEraBVD
        ) where
 
 import           Universum
@@ -22,7 +24,7 @@ import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Chain.Update.SoftforkRule
 import           Pos.Core.Binary ()
 import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy)
-import           Pos.Core.Slotting (EpochIndex, FlatSlotId, isBootstrapEra)
+import           Pos.Core.Slotting (EpochIndex (..), FlatSlotId, isBootstrapEra)
 import           Pos.Util.Json.Canonical (SchemaError)
 import           Pos.Util.Orphans ()
 
@@ -121,6 +123,22 @@ deriveJSON S.defaultOptions ''BlockVersionData
 -- instead of unlock stake epoch.
 isBootstrapEraBVD :: BlockVersionData -> EpochIndex -> Bool
 isBootstrapEraBVD adoptedBVD = isBootstrapEra (bvdUnlockStakeEpoch adoptedBVD)
+
+-- | This is a magic value which signifies that we are in the OBFT era.
+-- Since we are no longer decentralizing this codebase, we can repurpose
+-- this field to signify the shift to OBFT.
+obftEraFlagValue :: EpochIndex
+obftEraFlagValue = EpochIndex 9999999999999999999
+
+data ConsensusEra = Original | OBFT
+    deriving (Show)
+
+-- | This function uses the repurposed field `bvdUnlockStakeEpoch` to
+-- tell us whether we are in the Original or OBFT consensus eras.
+consensusEraBVD :: BlockVersionData -> ConsensusEra
+consensusEraBVD bvd = if obftEraFlagValue == bvdUnlockStakeEpoch bvd
+                         then OBFT
+                         else Original
 
 deriveSimpleBi ''BlockVersionData [
     Cons 'BlockVersionData [

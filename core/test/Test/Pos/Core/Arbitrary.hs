@@ -19,6 +19,7 @@ module Test.Pos.Core.Arbitrary
        , SafeCoinPairSub (..)
        , UnreasonableEoS (..)
 
+       , genAddress
        , genSlotId
        , genLocalSlotIndex
        ) where
@@ -258,6 +259,11 @@ deriving instance Arbitrary Address'
 instance Arbitrary Address where
     arbitrary = makeAddress <$> arbitrary <*> arbitrary
     shrink = genericShrink
+
+genAddress :: NetworkMagic -> Gen Address
+genAddress nm = makeAddress <$> arbitrary <*> genAddrAttr
+  where
+    genAddrAttr = AddrAttributes <$> arbitrary <*> arbitrary <*> pure nm
 
 ----------------------------------------------------------------------------
 -- Attributes

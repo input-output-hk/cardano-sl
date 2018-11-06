@@ -208,6 +208,8 @@ getAccountBalanceNow pw Fix{..} = do
 constantFee :: Word64 -> Int -> NonEmpty Coin -> Coin
 constantFee c _ _ = mkCoin c
 
+constantFeeCheck :: Word64 -> Coin -> Bool
+constantFeeCheck c c' = mkCoin c == c'
 
 spec :: Spec
 spec = do
@@ -482,7 +484,7 @@ spec = do
 
 payAux :: Kernel.ActiveWallet -> HdAccountId -> NonEmpty (Address, Coin) -> Word64 -> IO (Core.Tx, TxMeta)
 payAux aw hdAccountId payees fees = do
-    let opts = (newOptions (constantFee fees)) {
+    let opts = (newOptions (constantFee fees) (constantFeeCheck fees)) {
                           csoExpenseRegulation = SenderPaysFee
                         , csoInputGrouping = IgnoreGrouping
                         }

@@ -44,11 +44,11 @@ adjustForFees :: forall utxo m. (CoinSelDom (Dom utxo), Monad m)
                    CoinSelT utxo CoinSelHardErr m (Maybe (UtxoEntry (Dom utxo))))
               -> [CoinSelResult (Dom utxo)]
               -> CoinSelT utxo CoinSelHardErr m
-                   ([CoinSelResult (Dom utxo)], SelectedUtxo (Dom utxo))
+                   ([CoinSelResult (Dom utxo)], SelectedUtxo (Dom utxo), Value (Dom utxo))
 adjustForFees feeOptions pickUtxo css = do
     case foExpenseRegulation feeOptions of
       ReceiverPaysFee -> coinSelLiftExcept $
-        (, emptySelection) <$> receiverPaysFee upperBound css
+        (, emptySelection, valueZero) <$> receiverPaysFee upperBound css
       SenderPaysFee ->
         senderPaysFee pickUtxo upperBound css
   where
@@ -85,21 +85,23 @@ senderPaysFee :: (Monad m, CoinSelDom (Dom utxo))
               -> Fee (Dom utxo)
               -> [CoinSelResult (Dom utxo)]
               -> CoinSelT utxo CoinSelHardErr m
-                   ([CoinSelResult (Dom utxo)], SelectedUtxo (Dom utxo))
+                   ([CoinSelResult (Dom utxo)], SelectedUtxo (Dom utxo), Value (Dom utxo))
 senderPaysFee pickUtxo totalFee css = do
     let (css', remainingFee) = feeFromChange totalFee css
-    (css', ) <$> coverRemainingFee pickUtxo remainingFee
+    (additionalUtxo, additionalChange) <- coverRemainingFee pickUtxo remainingFee
+    return (css', additionalUtxo, additionalChange)
 
 coverRemainingFee :: forall utxo m. (Monad m, CoinSelDom (Dom utxo))
                   => (Value (Dom utxo) -> CoinSelT utxo CoinSelHardErr m (Maybe (UtxoEntry (Dom utxo))))
                   -> Fee (Dom utxo)
-                  -> CoinSelT utxo CoinSelHardErr m (SelectedUtxo (Dom utxo))
+                  -> CoinSelT utxo CoinSelHardErr m (SelectedUtxo (Dom utxo), Value (Dom utxo))
 coverRemainingFee pickUtxo fee = go emptySelection
   where
     go :: SelectedUtxo (Dom utxo)
-       -> CoinSelT utxo CoinSelHardErr m (SelectedUtxo (Dom utxo))
+       -> CoinSelT utxo CoinSelHardErr m (SelectedUtxo (Dom utxo), Value (Dom utxo))
     go !acc
-      | selectedBalance acc >= getFee fee = return acc
+      | selectedBalance acc >= getFee fee =
+          return (acc, unsafeValueSub (selectedBalance acc) (getFee fee))
       | otherwise = do
           mio <- (pickUtxo $ unsafeValueSub (getFee fee) (selectedBalance acc))
           io  <- maybe (throwError CoinSelHardErrCannotCoverFee) return mio

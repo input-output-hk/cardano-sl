@@ -67,6 +67,8 @@ data Action (r :: * -> *)
     | UpdateWalletA V1.WalletId V1.WalletUpdate
     | UpdateWalletPasswordA V1.WalletId V1.PasswordUpdate
     | DeleteWalletA V1.WalletId
+    -- TODO: add getting utxo (after account and transaction modelling)
+    | CreateAccountA V1.WalletId V1.NewAccount
     deriving (Show, Generic1, Rank2.Functor, Rank2.Foldable, Rank2.Traversable)
 
 data Response (r :: * -> *)
@@ -77,6 +79,8 @@ data Response (r :: * -> *)
     | UpdateWalletR (Either WL.UpdateWalletError V1.Wallet)
     | UpdateWalletPasswordR (Either WL.UpdateWalletPasswordError V1.Wallet)
     | DeleteWalletR (Either WL.DeleteWalletError ())
+    -- TODO: add getting utxo (after account and transaction modelling)
+    | CreateAccountR (Either WL.CreateAccountError V1.Account)
     deriving (Show, Generic1, Rank2.Foldable)
 
 
@@ -89,8 +93,10 @@ data Response (r :: * -> *)
 -- a spec to check real state
 data Model (r :: * -> *) = Model
     -- TODO: don't use touple here, use record
-    { mWallets :: [(V1.Wallet, Maybe V1.SpendingPassword)]
-    , mReset   :: Bool
+    { mWallets     :: [(V1.Wallet, Maybe V1.SpendingPassword)]
+    , mAccounts    :: [V1.Account]
+    , mUnhappyPath :: Int
+    , mReset       :: Bool
     }
     deriving (Eq, Show, Generic)
 
@@ -101,6 +107,14 @@ deriving instance ToExpr (V1.V1 Core.Timestamp)
 deriving instance ToExpr Core.Coin
 deriving instance ToExpr Core.Timestamp
 deriving instance ToExpr (V1.V1 Core.Coin)
+deriving instance ToExpr (V1.V1 V1.AddressOwnership)
+deriving instance ToExpr V1.AddressOwnership
+instance ToExpr (V1.V1 Core.Address) where
+    -- TODO: check is this viable solution
+    toExpr = toExpr @String . show . BI.encode . V1.unV1
+deriving instance ToExpr V1.WalletAddress
+deriving instance ToExpr V1.AccountIndex
+deriving instance ToExpr V1.Account
 deriving instance ToExpr V1.Wallet
 deriving instance ToExpr V1.WalletId
 deriving instance ToExpr V1.AssuranceLevel
@@ -124,7 +138,7 @@ instance ToExpr Microsecond where
 deriving instance ToExpr (Model Concrete)
 
 initModel :: Model r
-initModel = Model mempty False
+initModel = Model mempty mempty 0 False
 
 -- If you need more fine grained distribution, use preconditions
 preconditions :: Model Symbolic -> Action Symbolic -> Logic
@@ -142,7 +156,7 @@ preconditions _ ResetWalletA      = Top
 --
 -- The above would work a bit more performant (as we don't have failing preconditions)
 -- but we are hacking around to lib internals which is not so idiomatic.
-preconditions (Model _ True) action = case action of
+preconditions (Model _ _ _ True) action = case action of
     ResetWalletA              -> Top
     CreateWalletA _           -> Top
     GetWalletsA               -> Top
@@ -150,90 +164,147 @@ preconditions (Model _ True) action = case action of
     UpdateWalletA _ _         -> Top
     UpdateWalletPasswordA _ _ -> Top
     DeleteWalletA _           -> Top
+    CreateAccountA _ _        -> Top
+
+    -- NOTE: don't use catch all pattern like
+    --
+    -- (_, _) ->
+    --
+    -- as it will most likely bite us.
+
 -- if wallet is not reset then we shouldn't continue
-preconditions (Model _ False) _   = Bot
+preconditions (Model _ _ _ False) _   = Bot
 
 transitions :: Model r -> Action r -> Response r -> Model r
-transitions model@Model{..} cmd res = case cmd of
-    ResetWalletA -> Model mempty True
-    CreateWalletA (WL.CreateWallet V1.NewWallet{..}) ->
-        case res of
-            CreateWalletR (Left _) -> model
-            CreateWalletR (Right wallet) -> model { mWallets = (wallet, newwalSpendingPassword) : mWallets } -- TODO: use lenses
-            _ -> error "This transition should not be reached!"
-    -- TODO: handle monadic exception?
-    CreateWalletA _ -> error "We didn't cover this transition yet"
-    GetWalletsA -> model
-    GetWalletA _ -> model
-    UpdateWalletA wId V1.WalletUpdate{..} ->
-        let thisWallet = (wId ==) . V1.walId
-            updatedWallets = map (first update) $ filter (thisWallet . fst) mWallets
-            update w = w { V1.walAssuranceLevel = uwalAssuranceLevel, V1.walName = uwalName }
-        in model { mWallets = updatedWallets <> filter (not . thisWallet . fst) mWallets }
-    UpdateWalletPasswordA wId V1.PasswordUpdate{..} ->
-        let thisWallet (wal, pass) = wId == V1.walId wal && pass == Just pwdOld
-            updatedWallets = map (\(wal,_) -> (wal, Just pwdNew)) $ filter thisWallet mWallets
-        in model { mWallets = updatedWallets <> filter (not . thisWallet) mWallets }
-    DeleteWalletA wId ->
-        let thisWallet = (wId ==) . V1.walId
-        in model { mWallets = filter (not . thisWallet . fst) mWallets }
+transitions model@Model{..} cmd res = case (cmd, res) of
+    (ResetWalletA, ResetWalletR) -> Model mempty mempty 0 True
+    (ResetWalletA, _) -> shouldNotBeReachedError
+    (CreateWalletA (WL.CreateWallet V1.NewWallet{..}), CreateWalletR (Right wallet)) ->
+        -- TODO: use lenses
+        model { mWallets = (wallet, newwalSpendingPassword) : mWallets }
+    (CreateWalletA _, CreateWalletR (Left _)) -> increaseUnhappyPath
+    (CreateWalletA _, _) -> shouldNotBeReachedError
+    (GetWalletsA, GetWalletsR _) -> model
+    (GetWalletsA, _) -> shouldNotBeReachedError
+    (GetWalletA _, GetWalletR (Right _)) -> model
+    (GetWalletA _, GetWalletR (Left _)) -> increaseUnhappyPath
+    (GetWalletA _, _) -> shouldNotBeReachedError
+    (UpdateWalletA wId _, UpdateWalletR (Right wallet)) ->
+        let thisWallet = (wId ==) . V1.walId . fst
+        in model { mWallets = filter thisWallet mWallets <> filter (not . thisWallet) mWallets }
+    (UpdateWalletA _ _, UpdateWalletR (Left _)) -> increaseUnhappyPath
+    (UpdateWalletA _ _, _) -> shouldNotBeReachedError
+    (UpdateWalletPasswordA wId V1.PasswordUpdate{..}, UpdateWalletPasswordR (Right wallet)) ->
+        let thisWallet = (wId ==) . V1.walId . fst
+        in model { mWallets = (wallet, Just pwdNew) : filter (not . thisWallet) mWallets }
+    (UpdateWalletPasswordA _ _, UpdateWalletPasswordR (Left _)) -> increaseUnhappyPath
+    (UpdateWalletPasswordA _ _, _) -> shouldNotBeReachedError
+    (DeleteWalletA wId, DeleteWalletR (Right _)) ->
+        let thisWallet = (wId ==) . V1.walId . fst
+        in model { mWallets = filter (not . thisWallet) mWallets }
+    (DeleteWalletA _, DeleteWalletR (Left _)) -> increaseUnhappyPath
+    (DeleteWalletA _, _) -> shouldNotBeReachedError
+    (CreateAccountA _ _, CreateAccountR (Right account)) ->
+        model { mAccounts = account : mAccounts }
+    (CreateAccountA _ _, CreateAccountR (Left _)) -> increaseUnhappyPath
+    (CreateAccountA _ _, _) -> shouldNotBeReachedError
+
+    -- NOTE: don't use catch all pattern like
+    --
+    -- (_, _) ->
+    --
+    -- as it will most likely bite us.
+  where
+    -- TODO: use postcondition that ration of unhappy paths has to be expected (ie, similar to test coverage)
+    -- If number of unhappy paths is too high something might go wrong and our tests are not covering enough happy paths (and vice versa)?
+    increaseUnhappyPath = model { mUnhappyPath = mUnhappyPath + 1 }
+    shouldNotBeReachedError = error "This branch should not be reached!"
 
 -- TODO: use unit tests in wallet-new/test/unit for inspiration
 postconditions :: Model Concrete -> Action Concrete -> Response Concrete -> Logic
-postconditions _ ResetWalletA ResetWalletR                          = Top
- -- TODO: pissibly check that wallet wasn't added
- -- check that ratio of errors is normal/expected
+postconditions Model{..} cmd res = case (cmd, res) of
+    (ResetWalletA, ResetWalletR)               -> Top
+    (ResetWalletA, _)                          -> shouldNotBeReachedError
+    -- TODO: pissibly check that wallet wasn't added
+    -- check that ratio of errors is normal/expected
 
--- NOTE: it should be expected for a wallet creation to fail sometimes, but not currently in our tests.
-postconditions _ (CreateWalletA _) (CreateWalletR (Left _)) = Bot
--- TODO: check that wallet request and wallet response contain same attributes
--- that we have created intended wallet
--- FIXME: this postcondition can be made much stronger!
-postconditions Model{..} (CreateWalletA _) (CreateWalletR (Right V1.Wallet{..})) = Predicate $ NotElem walId (map (V1.walId . fst) mWallets)
--- Checks does our model have exact same wallets as real wallet
-postconditions Model{..} GetWalletsA (GetWalletsR wallets) = sort (map walletIgnoreTimestamp $ DB.toList wallets) .== sort (map (walletIgnoreTimestamp. fst) mWallets)
+    -- It should be expected for a wallet creation to fail sometimes, but not currently in our tests.
+    (CreateWalletA _, CreateWalletR (Left _))  -> Bot
+    -- TODO: check that wallet request and wallet response contain same attributes
+    -- that we have created intended wallet
+    -- FIXME: this postcondition can be made much stronger!
+    -- Created wallet shouldn't be present in the model
+    (CreateWalletA _, CreateWalletR (Right V1.Wallet{..})) -> Predicate $ NotElem walId (map (V1.walId . fst) mWallets)
+    (CreateWalletA _, _) -> shouldNotBeReachedError
+    -- Checks does our model have exact same wallets as real wallet
+    (GetWalletsA, GetWalletsR wallets) ->
+        -- For some reason received wallet will have slightly different timestamp
+        -- then when it was created (CO-439).
+        -- This is a workaround to check are two wallets equal but ignoring update password timestamp
+        let walletIgnoreTimestamp w = w { V1.walSpendingPasswordLastUpdate = V1.V1 $ Core.Timestamp 0 }
+        in sort (map walletIgnoreTimestamp $ DB.toList wallets) .== sort (map (walletIgnoreTimestamp. fst) mWallets)
+    (GetWalletsA, _) -> shouldNotBeReachedError
+    -- If wallet is not found in a real thing it also shouldn't exist in a model
+    (GetWalletA wId, GetWalletR (Left _)) -> Predicate $ NotElem wId (map (V1.walId . fst) mWallets)
+    -- Checks did we really get wallet with intended id. Also checks
+    -- is returned walet same as the one in our model
+    (GetWalletA wId, GetWalletR (Right wallet)) ->
+        (V1.walId wallet .== wId)
+        :&& Predicate (Elem wallet $ map fst mWallets)
+    (GetWalletA _, _) -> shouldNotBeReachedError
+    -- If wallet is not found in a real thing it also shouldn't exist in a model
+    (UpdateWalletA wId _, UpdateWalletR (Left _)) -> Predicate $ NotElem wId (map (V1.walId . fst) mWallets)
+    -- Checks if updated wallet is really what we got
+    (UpdateWalletA wId V1.WalletUpdate{..}, UpdateWalletR (Right wallet)) ->
+        let mWallet = update . fst <$> find ((== wId) . V1.walId . fst) mWallets
+            update w = w { V1.walAssuranceLevel = uwalAssuranceLevel, V1.walName = uwalName }
+        in mWallet .== Just wallet
+    (UpdateWalletA _ _, _) -> shouldNotBeReachedError
+    -- If password update didn't succeed we expect old password to be wrong
+    -- or we didn't find the wallet at all
+    (UpdateWalletPasswordA wId V1.PasswordUpdate{..}, UpdateWalletPasswordR (Left _)) ->
+        let pass = snd <$> find ((== wId) . V1.walId . fst) mWallets
+        in (Predicate (NotElem wId (map (V1.walId . fst) mWallets)))
+                :|| (pass .== Just (Just pwdOld))
+    -- If password update did succeed we expect old password to be correct
+    -- and that we have manged to find wallet
+    -- and that we updated correct wallet
+    (UpdateWalletPasswordA wId V1.PasswordUpdate{..}, UpdateWalletPasswordR (Right wallet)) ->
+        let pass = snd <$> find ((== wId) . V1.walId . fst) mWallets
+        in (Predicate (Elem wId (map (V1.walId . fst) mWallets)))
+                :&& (pass .== Just (Just pwdOld))
+                :&& (wId .== V1.walId wallet)
+    (UpdateWalletPasswordA _ _, _) -> shouldNotBeReachedError
+    -- If wallet delete didn't succeed we expect wallet isn't found in model
+    (DeleteWalletA wId, DeleteWalletR (Left _)) ->
+        Predicate (NotElem wId (map (V1.walId . fst) mWallets))
+    -- If wallet delete did succeed we expect wallet can be found in model
+    (DeleteWalletA wId, DeleteWalletR (Right _)) ->
+        Predicate (NotElem wId (map (V1.walId . fst) mWallets))
+    (DeleteWalletA _, _) -> shouldNotBeReachedError
+    -- Created account shouldn't be present in the model
+    (CreateAccountA _ _, CreateAccountR (Right account)) ->
+        let thisAccount = V1.accountsHaveSameId account
+            mAccount = find thisAccount mAccounts
+        in mAccount .== Nothing
+    -- Account creation will fail if we try to create an account
+    -- in a wallet that doesn't exist
+    -- TODO: add more specific Left guards such as
+    --
+    -- CreateAccountR (Left CreateAccountError CreateAccountKeystoreNotFound WalletIdHdRnd HdRootId wId')
+    --
+    -- so that we don't handle the wront case
+    (CreateAccountA wId _, CreateAccountR (Left _)) ->
+        Predicate (NotElem wId (map (V1.walId . fst) mWallets))
+    (CreateAccountA _ _, _) -> shouldNotBeReachedError
+    -- NOTE: don't use catch all pattern like
+    --
+    -- (_, _) ->
+    --
+    -- as it will most likely bite us.
+
   where
-    -- For some reason received wallet will have slightly different timestamp
-    -- then when it was created (CO-439).
-    -- This is a workaround to check are two wallets equal but ignoring update password timestamp
-    walletIgnoreTimestamp :: V1.Wallet -> V1.Wallet
-    walletIgnoreTimestamp w = w { V1.walSpendingPasswordLastUpdate = V1.V1 $ Core.Timestamp 0 }
-postconditions Model{..} (GetWalletA wId) (GetWalletR (Left _)) = Predicate $ NotElem wId (map (V1.walId . fst) mWallets)
--- Checks did we really get wallet with intended id. Also checks
--- is returned walet same as the one in our model
-postconditions Model{..} (GetWalletA wId) (GetWalletR (Right wallet)) =
-    (V1.walId wallet .== wId) :&& Predicate (Elem wallet $ map fst mWallets)
-postconditions Model{..} (UpdateWalletA wId _) (UpdateWalletR (Left _)) = Predicate $ NotElem wId (map (V1.walId . fst) mWallets)
-postconditions Model{..} (UpdateWalletA wId V1.WalletUpdate{..}) (UpdateWalletR (Right wallet)) =
-    let mWallet = update . fst <$> find ((== wId) . V1.walId . fst) mWallets
-        update w = w { V1.walAssuranceLevel = uwalAssuranceLevel, V1.walName = uwalName }
-    in mWallet .== Just wallet
-postconditions Model{..} (UpdateWalletA wId V1.WalletUpdate{..}) (UpdateWalletR (Right wallet)) =
-    let mWallet = update . fst <$> find ((== wId) . V1.walId . fst) mWallets
-        update w = w { V1.walAssuranceLevel = uwalAssuranceLevel, V1.walName = uwalName }
-    in mWallet .== Just wallet
--- If password update didn't succeed we expect old password to be wrong
--- or we didn't find the wallet at all
-postconditions Model{..} (UpdateWalletPasswordA wId V1.PasswordUpdate{..}) (UpdateWalletPasswordR (Left _)) =
-    let pass = snd <$> find ((== wId) . V1.walId . fst) mWallets
-    in (Predicate (NotElem wId (map (V1.walId . fst) mWallets)))
-            :|| (pass .== Just (Just pwdOld))
--- If password update did succeed we expect old password to be correct
--- and that we have manged to find wallet
--- and that we updated correct wallet
-postconditions Model{..} (UpdateWalletPasswordA wId V1.PasswordUpdate{..}) (UpdateWalletPasswordR (Right wallet)) =
-    let pass = snd <$> find ((== wId) . V1.walId . fst) mWallets
-    in (Predicate (Elem wId (map (V1.walId . fst) mWallets)))
-            :&& (pass .== Just (Just pwdOld))
-            :&& (wId .== V1.walId wallet)
--- If wallet delete didn't succeed we expect wallet isn't found in model
-postconditions Model{..} (DeleteWalletA wId) (DeleteWalletR (Left _)) =
-    Predicate (NotElem wId (map (V1.walId . fst) mWallets))
--- If wallet delete did succeed we expect wallet can be found in model
-postconditions Model{..} (DeleteWalletA wId) (DeleteWalletR (Right _)) =
-    Predicate (NotElem wId (map (V1.walId . fst) mWallets))
--- FIXME: don't catch all errors with this this catch-all match!
-postconditions _ _ _ =  error "This postcondition should not be reached!"
+    shouldNotBeReachedError = error "This branch should not be reached!"
 
 ------------------------------------------------------------------------
 
@@ -272,9 +343,26 @@ genPasswordUpdate Model{..} = do
                     ]
     pure (V1.walId wal, V1.PasswordUpdate oldPass newPass)
 
+genNewAccount :: Model Symbolic -> Gen (V1.WalletId, V1.NewAccount)
+genNewAccount Model{..} = do
+    -- Pick wallet to create an account
+    (wal, correctOldPass) <- second (fromMaybe mempty) <$> oneof (arbitrary:map pure mWallets)
+    spendingPassword <- frequency
+                    -- pass can be unset
+                    [ (10, pure Nothing)
+                    -- pass can be empty
+                    , (10, pure $ Just mempty)
+                    -- pass can be arbitrary
+                    , (10, arbitrary)
+                    -- pass can stay the same
+                    , (70, pure $ Just correctOldPass)
+                    ]
+    name <- arbitrary
+    pure (V1.walId wal, V1.NewAccount spendingPassword name)
+
 generator :: Model Symbolic -> Gen (Action Symbolic)
 -- if wallet has not been reset, then we should first reset it!
-generator (Model _ False) = pure ResetWalletA
+generator (Model _ _ _ False) = pure ResetWalletA
 generator model@Model{..} = frequency
     [ (1, pure ResetWalletA)
     , (5, CreateWalletA . WL.CreateWallet <$> genNewWalletRq)
@@ -296,6 +384,10 @@ generator model@Model{..} = frequency
     , (4, DeleteWalletA . V1.walId <$> oneof (arbitrary:map (pure . fst) mWallets))
     -- This tests deleting non existing wallet
     , (1, DeleteWalletA <$> arbitrary)
+    -- This tests creating account in existing wallet
+    , (4, uncurry CreateAccountA <$> genNewAccount model)
+    -- This tests creating account in non existing wallet
+    , (1, CreateAccountA <$> arbitrary <*> arbitrary)
     ]
 
 shrinker :: Action Symbolic -> [Action Symbolic]
@@ -315,6 +407,7 @@ semantics pwl _ cmd = case cmd of
     UpdateWalletA wId update -> UpdateWalletR <$> WL.updateWallet pwl wId update
     UpdateWalletPasswordA wId update -> UpdateWalletPasswordR <$> WL.updateWalletPassword pwl wId update
     DeleteWalletA wId -> DeleteWalletR <$> WL.deleteWallet pwl wId
+    CreateAccountA wId ca -> CreateAccountR <$> WL.createAccount pwl wId ca
 
 -- TODO: reuse withLayer function defined in wallet-new/test/unit/Test/Spec/Fixture.hs
 withWalletLayer
@@ -373,6 +466,7 @@ mock Model{..} (DeleteWalletA wId) =
         if isJust mExists
             then Left $ WL.DeleteWalletWalletIdDecodingFailed "In fact, I couldn't find the wallet with specific id"
             else Right ()
+mock Model{..} (CreateAccountA _ _) = pure $ CreateAccountR (Left $ WL.CreateAccountWalletIdDecodingFailed "In fact - this is just mocking")
 
 ------------------------------------------------------------------------
 

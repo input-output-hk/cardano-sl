@@ -200,7 +200,7 @@ createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
             -- an acid-state transaction.
             res <- createWalletHdRnd pw
                                      (spendingPassword /= emptyPassphrase)
-                                     (hdAddress ^. HD.hdAddressAddress . fromDb)
+                                     (Just (hdAddress ^. HD.hdAddressAddress . fromDb))
                                      walletName
                                      assuranceLevel
                                      esk
@@ -268,19 +268,23 @@ createExternalHdWallet pw rootPK assuranceLevel walletName = do
 -- Fails with CreateHdWalletError if the HdRootId already exists.
 --
 -- INVARIANT: Whenever we create an HdRoot, it @must@ come with a fresh
--- account and address, both at 'firstHardened' index.
+-- account at 'firstHardened' index.
+--
+-- We may also provide an OPTIONAL default address at 'firstHardened' index
+-- (the default address is optional, since for that we need the spending password
+-- which may not be available to the caller)
 --
 createWalletHdRnd :: PassiveWallet
                   -> Bool
                   -- Does this wallet have a spending password?
-                  -> Address
-                  -- The 'Address' to use for the companion 'HdAddress'.
+                  -> Maybe Address
+                  -- Optional 'Address' to use for the companion 'HdAddress'.
                   -> HD.WalletName
                   -> AssuranceLevel
                   -> EncryptedSecretKey
                   -> (  HdRoot
                      -> HdAccountId
-                     -> HdAddress
+                     -> Maybe HdAddress
                      -> Either CreateHdWallet RestoreHdWallet
                      )
                   -> IO (Either HD.CreateHdRootError HdRoot)
@@ -294,20 +298,27 @@ createWalletHdRnd pw hasSpendingPassword defaultCardanoAddress name assuranceLev
                                 assuranceLevel
                                 created
 
-        hdPass    = fst $ eskToWalletDecrCredentials nm esk
-        hdAddress = defaultHdAddressWith hdPass rootId defaultCardanoAddress
+        hdPass = fst $ eskToWalletDecrCredentials nm esk
 
-    case hdAddress of
-        Nothing -> return (Left HD.CreateHdRootDefaultAddressDerivationFailed)
-        Just addr -> do
-            -- We now have all the date we need to atomically generate a new
-            -- wallet with a default account & address.
-            res <- case createWallet newRoot (defaultHdAccountId rootId) addr of
+        -- Atomically generate a new wallet with a default account & optional address
+        doCreateOrRestore :: Maybe HdAddress -> IO (Either HD.CreateHdRootError HdRoot)
+        doCreateOrRestore addr_ = do
+            res <- case createWallet newRoot (defaultHdAccountId rootId) addr_ of
                 Left  create  -> update' (pw ^. wallets) create
                 Right restore -> update' (pw ^. wallets) restore
             return $ either Left (const (Right newRoot)) res
-    where
 
+    -- Create or Restore the wallet (with or without a default address)
+    case defaultCardanoAddress of
+        Nothing -> -- no default addr given, that's ok, we can proceed without one
+            doCreateOrRestore Nothing
+        Just addr ->
+            -- given a default Address, we attempt to derive an HdAddress, if
+            -- this fails, we consider it an error.
+            maybe (return $ Left HD.CreateHdRootDefaultAddressDerivationFailed)
+                  (doCreateOrRestore . Just)
+                  (defaultHdAddressWith hdPass rootId addr)
+    where
         hdSpendingPassword :: InDb Timestamp -> HD.HasSpendingPassword
         hdSpendingPassword created =
             if hasSpendingPassword then HD.HasSpendingPassword created

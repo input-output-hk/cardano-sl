@@ -44,6 +44,7 @@ module Cardano.Wallet.Kernel.CoinSelection.Generic (
   , coinSelOutputs
   , coinSelRemoveDust
   , coinSelPerGoal
+  , changesRemoveDust
     -- * Generalization over UTxO representations
   , StandardUtxo
   , PickFromUtxo(..)
@@ -384,8 +385,12 @@ coinSelOutputs cs = outVal (coinSelOutput cs) : coinSelChange cs
 coinSelRemoveDust :: CoinSelDom dom
                   => Value dom -> CoinSelResult dom -> CoinSelResult dom
 coinSelRemoveDust dust cs = cs {
-      coinSelChange = filter (> dust) (coinSelChange cs)
+      coinSelChange = changesRemoveDust dust (coinSelChange cs)
     }
+
+changesRemoveDust :: CoinSelDom dom
+                  => Value dom -> [Value dom] -> [Value dom]
+changesRemoveDust dust = filter (> dust)
 
 -- | Do coin selection per goal
 --

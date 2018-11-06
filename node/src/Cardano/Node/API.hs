@@ -10,17 +10,22 @@ import           Universum
 import           Control.Concurrent.STM (orElse, retry)
 import           Control.Lens (lens, to)
 import           Data.Time.Units (toMicroseconds)
+import qualified Paths_cardano_sl_node as Paths
 import           Servant
+import qualified Data.Text as Text
 
-import qualified Pos.Infra.Slotting.Util as Slotting
+import Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
 import           Pos.Chain.Block (LastKnownHeader, LastKnownHeaderTag)
+import           Pos.Chain.Update (UpdateConfiguration, withUpdateConfiguration)
 import           Pos.DB.GState.Lock (Priority (..), StateLock,
                      withStateLockNoMetrics)
 import qualified Pos.DB.Rocks.Functions as DB
+import qualified Pos.Infra.Slotting.Util as Slotting
 import           Pos.Util (HasLens (..), HasLens')
                      -- mainBlockSlot, prevBlockL)
 import           Ntp.Client (NtpStatus (..))
 import           Ntp.Packet (NtpOffset)
+import           Pos.Chain.Update (curSoftwareVersion)
 import qualified Pos.Core as Core
 import qualified Pos.DB.Block as DB
 import qualified Pos.DB.BlockIndex as DB
@@ -39,18 +44,22 @@ handlers
     -> LastKnownHeader
     -> Core.Timestamp
     -> Core.SlottingVar
+    -> UpdateConfiguration
+    -> CompileTimeInfo
     -> ServerT Node.API Handler
-handlers d t s n l ts sv =
-    getNodeSettings ts sv
+handlers d t s n l ts sv uc ci =
+    getNodeSettings ci uc ts sv
     :<|> getNodeInfo d t s n l
     :<|> applyUpdate
     :<|> postponeUpdate
 
 getNodeSettings
-    :: Core.Timestamp
+    :: CompileTimeInfo
+    -> UpdateConfiguration
+    -> Core.Timestamp
     -> Core.SlottingVar
     -> Handler (WalletResponse NodeSettings)
-getNodeSettings timestamp slottingVar = do
+getNodeSettings compileInfo updateConfiguration timestamp slottingVar = do
     let ctx = SettingsCtx timestamp slottingVar
     slotDuration <-
         mkSlotDuration . fromIntegral <$>
@@ -60,16 +69,16 @@ getNodeSettings timestamp slottingVar = do
         { setSlotDuration =
             slotDuration
         , setSoftwareInfo =
-            undefined
+            V1 (withUpdateConfiguration updateConfiguration curSoftwareVersion)
         , setProjectVersion =
-            undefined
+            V1 Paths.version
         , setGitRevision =
-            undefined
+            Text.replace "\n" mempty (ctiGitRevision compileInfo)
         }
 
 
 data SettingsCtx = SettingsCtx
-    { settingsCtxTimestamp :: Core.Timestamp
+    { settingsCtxTimestamp   :: Core.Timestamp
     , settingsCtxSlottingVar :: Core.SlottingVar
     }
 

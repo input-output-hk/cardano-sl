@@ -18000,7 +18000,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-util
 , cardano-sl-util-test
 , cardano-sl-utxo
-, cardano-sl-wallet
 , cardano-sl-x509
 , cereal
 , conduit
@@ -18123,7 +18122,6 @@ cardano-sl-networking
 cardano-sl-node-ipc
 cardano-sl-util
 cardano-sl-utxo
-cardano-sl-wallet
 cardano-sl-x509
 cereal
 conduit
@@ -18206,7 +18204,6 @@ cardano-sl-db
 cardano-sl-infra
 cardano-sl-networking
 cardano-sl-util
-cardano-sl-wallet
 containers
 exceptions
 formatting
@@ -18250,7 +18247,6 @@ cardano-sl-infra
 cardano-sl-util
 cardano-sl-util-test
 cardano-sl-utxo
-cardano-sl-wallet
 cereal
 conduit
 constraints
@@ -18291,37 +18287,6 @@ vector
 doHaddock = false;
 homepage = "https://github.com/input-output-hk/cardano-sl/#readme";
 description = "The Wallet Backend for a Cardano node";
-license = stdenv.lib.licenses.mit;
-
-}) {};
-"cardano-sl-wallet-test" = callPackage
-({
-  mkDerivation
-, base
-, bytestring
-, cardano-sl-core-test
-, cardano-sl-wallet
-, QuickCheck
-, serokell-util
-, stdenv
-, universum
-}:
-mkDerivation {
-
-pname = "cardano-sl-wallet-test";
-version = "2.0.0";
-src = ./../wallet/test;
-libraryHaskellDepends = [
-base
-bytestring
-cardano-sl-core-test
-cardano-sl-wallet
-QuickCheck
-serokell-util
-universum
-];
-doHaddock = false;
-description = "Cardano SL - wallet (Arbitrary instances)";
 license = stdenv.lib.licenses.mit;
 
 }) {};

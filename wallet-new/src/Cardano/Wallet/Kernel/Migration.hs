@@ -10,8 +10,8 @@ import           System.Directory (doesDirectoryExist, makeAbsolute, renamePath)
 import           Formatting ((%))
 import qualified Formatting as F
 
-import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.Core.NetworkMagic (makeNetworkMagic)
+import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.Util.Wlog (Severity (..))
 
 import qualified Cardano.Wallet.Kernel as Kernel

@@ -69,6 +69,7 @@ data Action (r :: * -> *)
     | DeleteWalletA V1.WalletId
     -- TODO: add getting utxo (after account and transaction modelling)
     | CreateAccountA V1.WalletId V1.NewAccount
+    | GetAccountsA V1.WalletId
     deriving (Show, Generic1, Rank2.Functor, Rank2.Foldable, Rank2.Traversable)
 
 data Response (r :: * -> *)
@@ -81,6 +82,7 @@ data Response (r :: * -> *)
     | DeleteWalletR (Either WL.DeleteWalletError ())
     -- TODO: add getting utxo (after account and transaction modelling)
     | CreateAccountR (Either WL.CreateAccountError V1.Account)
+    | GetAccountsR (Either WL.GetAccountsError (DB.IxSet V1.Account))
     deriving (Show, Generic1, Rank2.Foldable)
 
 
@@ -165,6 +167,7 @@ preconditions (Model _ _ _ True) action = case action of
     UpdateWalletPasswordA _ _ -> Top
     DeleteWalletA _           -> Top
     CreateAccountA _ _        -> Top
+    GetAccountsA _            -> Top
 
     -- NOTE: don't use catch all pattern like
     --
@@ -208,6 +211,9 @@ transitions model@Model{..} cmd res = case (cmd, res) of
         model { mAccounts = account : mAccounts }
     (CreateAccountA _ _, CreateAccountR (Left _)) -> increaseUnhappyPath
     (CreateAccountA _ _, _) -> shouldNotBeReachedError
+    (GetAccountsA _, GetAccountsR (Right _)) -> model
+    (GetAccountsA _, GetAccountsR (Left _)) -> increaseUnhappyPath
+    (GetAccountsA _, _) -> shouldNotBeReachedError
 
     -- NOTE: don't use catch all pattern like
     --
@@ -284,8 +290,7 @@ postconditions Model{..} cmd res = case (cmd, res) of
     (DeleteWalletA _, _) -> shouldNotBeReachedError
     -- Created account shouldn't be present in the model
     (CreateAccountA _ _, CreateAccountR (Right account)) ->
-        let thisAccount = V1.accountsHaveSameId account
-            mAccount = find thisAccount mAccounts
+        let mAccount = find (== account) mAccounts
         in mAccount .== Nothing
     -- Account creation will fail if we try to create an account
     -- in a wallet that doesn't exist
@@ -297,6 +302,13 @@ postconditions Model{..} cmd res = case (cmd, res) of
     (CreateAccountA wId _, CreateAccountR (Left _)) ->
         Predicate (NotElem wId (map (V1.walId . fst) mWallets))
     (CreateAccountA _ _, _) -> shouldNotBeReachedError
+    -- Checks does our model have exact same accounts as real wallet
+    (GetAccountsA wId, GetAccountsR (Right accounts)) ->
+        sort (DB.toList accounts) .== sort mAccounts
+    -- If there are no accounts we assume wallet doesn't exist
+    (GetAccountsA wId, GetAccountsR (Left _)) ->
+        Predicate $ NotElem wId (map (V1.walId . fst) mWallets)
+    (GetAccountsA _, _) -> shouldNotBeReachedError
     -- NOTE: don't use catch all pattern like
     --
     -- (_, _) ->
@@ -388,6 +400,10 @@ generator model@Model{..} = frequency
     , (4, uncurry CreateAccountA <$> genNewAccount model)
     -- This tests creating account in non existing wallet
     , (1, CreateAccountA <$> arbitrary <*> arbitrary)
+    -- Test getting accounts of existing wallet
+    , (4, GetAccountsA . V1.walId <$> oneof (arbitrary:map (pure . fst) mWallets))
+    -- Test getting accounts of non existing wallet
+    , (1, GetAccountsA <$> arbitrary)
     ]
 
 shrinker :: Action Symbolic -> [Action Symbolic]
@@ -408,6 +424,7 @@ semantics pwl _ cmd = case cmd of
     UpdateWalletPasswordA wId update -> UpdateWalletPasswordR <$> WL.updateWalletPassword pwl wId update
     DeleteWalletA wId -> DeleteWalletR <$> WL.deleteWallet pwl wId
     CreateAccountA wId ca -> CreateAccountR <$> WL.createAccount pwl wId ca
+    GetAccountsA wId -> GetAccountsR <$> WL.getAccounts pwl wId
 
 -- TODO: reuse withLayer function defined in wallet-new/test/unit/Test/Spec/Fixture.hs
 withWalletLayer
@@ -467,6 +484,7 @@ mock Model{..} (DeleteWalletA wId) =
             then Left $ WL.DeleteWalletWalletIdDecodingFailed "In fact, I couldn't find the wallet with specific id"
             else Right ()
 mock Model{..} (CreateAccountA _ _) = pure $ CreateAccountR (Left $ WL.CreateAccountWalletIdDecodingFailed "In fact - this is just mocking")
+mock Model{..} (GetAccountsA wId) = pure . GetAccountsR . Right . DB.fromList $ filter ((== wId) . V1.accWalletId) mAccounts
 
 ------------------------------------------------------------------------
 

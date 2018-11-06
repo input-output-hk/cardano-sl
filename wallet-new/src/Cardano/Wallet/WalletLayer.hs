@@ -39,7 +39,9 @@ import           Pos.Chain.Block (Blund)
 import           Pos.Chain.Txp (Tx, TxId, Utxo)
 import           Pos.Chain.Update (ConfirmedProposalState, SoftwareVersion)
 import           Pos.Core (Coin, Timestamp)
+import qualified Pos.Core as Core (Address)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Core.NetworkMagic (NetworkMagic)
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase)
 
 import           Cardano.Wallet.API.Request (RequestParams (..))
@@ -569,6 +571,7 @@ data NewPaymentError =
     | NewPaymentTimeLimitReached TimeExecutionLimit
     | NewPaymentWalletIdDecodingFailed Text
     | NewPaymentUnknownAccountId Kernel.UnknownHdAccount
+    | NewPaymentAddressBadNetworkMagic NetworkMagic (NonEmpty Core.Address)
 
 -- | Unsound show instance needed for the 'Exception' instance.
 instance Show NewPaymentError where
@@ -585,6 +588,10 @@ instance Buildable NewPaymentError where
         bprint ("NewPaymentWalletIdDecodingFailed " % build) txt
     build (NewPaymentUnknownAccountId err) =
         bprint ("NewPaymentUnknownAccountId " % build) err
+    build (NewPaymentAddressBadNetworkMagic expectedNM dstAddrs) =
+        bprint ("NewPaymentAddressBadNetworkMagic " % build % " " % build)
+               expectedNM
+               (toList dstAddrs)
 
 
 data EstimateFeesError =

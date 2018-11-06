@@ -71,6 +71,7 @@ data Action (r :: * -> *)
     | CreateAccountA V1.WalletId V1.NewAccount
     | GetAccountsA V1.WalletId
     | GetAccountA V1.WalletId V1.AccountIndex
+    | GetAccountBalanceA V1.WalletId V1.AccountIndex
     deriving (Show, Generic1, Rank2.Functor, Rank2.Foldable, Rank2.Traversable)
 
 data Response (r :: * -> *)
@@ -85,6 +86,7 @@ data Response (r :: * -> *)
     | CreateAccountR (Either WL.CreateAccountError V1.Account)
     | GetAccountsR (Either WL.GetAccountsError (DB.IxSet V1.Account))
     | GetAccountR (Either WL.GetAccountError V1.Account)
+    | GetAccountBalanceR (Either WL.GetAccountError V1.AccountBalance)
     deriving (Show, Generic1, Rank2.Foldable)
 
 
@@ -171,6 +173,7 @@ preconditions (Model _ _ _ True) action = case action of
     CreateAccountA _ _        -> Top
     GetAccountsA _            -> Top
     GetAccountA _ _           -> Top
+    GetAccountBalanceA _ _    -> Top
 
     -- NOTE: don't use catch all pattern like
     --
@@ -220,6 +223,9 @@ transitions model@Model{..} cmd res = case (cmd, res) of
     (GetAccountA _ _, GetAccountR (Right _)) -> model
     (GetAccountA _ _, GetAccountR (Left _)) -> increaseUnhappyPath
     (GetAccountA _ _, _) -> shouldNotBeReachedError
+    (GetAccountBalanceA _ _, GetAccountBalanceR (Right _)) -> model
+    (GetAccountBalanceA _ _, GetAccountBalanceR (Left _)) -> increaseUnhappyPath
+    (GetAccountBalanceA _ _, _) -> shouldNotBeReachedError
 
     -- NOTE: don't use catch all pattern like
     --
@@ -327,6 +333,20 @@ postconditions Model{..} cmd res = case (cmd, res) of
             mAccount = find thisAccount mAccounts
         in mAccount .== Nothing
     (GetAccountA _ _, _) -> shouldNotBeReachedError
+    -- If we managed to get account balance, that account should exist in the model and it should have exactly the same balance
+    (GetAccountBalanceA wId index, GetAccountBalanceR (Right balance)) ->
+        let thisAccount V1.Account{..} = accWalletId == wId && accIndex == index
+            mBalance = V1.accAmount <$> find thisAccount mAccounts
+        in mBalance .== Just (V1.acbAmount balance)
+    -- If there is no account we assume account with such index and wallet id doesn't exist
+    -- TODO: reuse GetAccountA which has exactly the same postcondition
+    -- TODO: in general try to reuse postconditions between states, they
+    -- seem to reuse many bits
+    (GetAccountBalanceA wId index, GetAccountBalanceR (Left _)) ->
+        let thisAccount V1.Account{..} = accWalletId == wId && accIndex == index
+            mAccount = find thisAccount mAccounts
+        in mAccount .== Nothing
+    (GetAccountBalanceA _ _, _) -> shouldNotBeReachedError
 
     -- NOTE: don't use catch all pattern like
     --
@@ -448,6 +468,8 @@ generator model@Model{..} = frequency
     , (4, GetAccountsA . V1.walId <$> genElements (map fst mWallets))
     -- Test getting accounts
     , (5, uncurry GetAccountA <$> genGetAccount model)
+    -- Test getting accounts balance
+    , (5, uncurry GetAccountBalanceA <$> genGetAccount model)
     ]
 
 shrinker :: Action Symbolic -> [Action Symbolic]
@@ -470,6 +492,7 @@ semantics pwl _ cmd = case cmd of
     CreateAccountA wId ca -> CreateAccountR <$> WL.createAccount pwl wId ca
     GetAccountsA wId -> GetAccountsR <$> WL.getAccounts pwl wId
     GetAccountA wId index -> GetAccountR <$> WL.getAccount pwl wId index
+    GetAccountBalanceA wId index -> GetAccountBalanceR <$> WL.getAccountBalance pwl wId index
 
 -- TODO: reuse withLayer function defined in wallet-new/test/unit/Test/Spec/Fixture.hs
 withWalletLayer
@@ -535,6 +558,11 @@ mock Model{..} (GetAccountA wId index) =
         mExists = find thisAccount mAccounts
     in pure $ GetAccountR $
         maybe (Left $ WL.GetAccountWalletIdDecodingFailed "In fact, I couldn't find the account with specific id and index") Right mExists
+mock Model{..} (GetAccountBalanceA wId index) =
+    let thisAccount V1.Account{..} = accWalletId == wId && accIndex == index
+        mBalance = V1.AccountBalance . V1.accAmount <$> find thisAccount mAccounts
+    in pure $ GetAccountBalanceR $
+        maybe (Left $ WL.GetAccountWalletIdDecodingFailed "In fact, I couldn't find the account with specific id and index") Right mBalance
 
 
 ------------------------------------------------------------------------

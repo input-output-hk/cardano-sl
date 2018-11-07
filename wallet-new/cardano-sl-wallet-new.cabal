@@ -173,6 +173,7 @@ library
                      , cardano-sl-utxo
                      , cardano-sl-x509
                      , cereal
+                     , clock
                      , conduit
                      , connection
                      , containers

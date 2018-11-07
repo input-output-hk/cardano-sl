@@ -5,7 +5,7 @@
 
 # Update this if you need a package version recently uploaded to hackage.
 # Any timestamp works.
-, hackageSnapshot ? "2018-11-01T09:58:14Z"
+, hackageSnapshot ? "2018-11-06T10:00:00Z"
 }:
 
 with pkgs;
@@ -18,6 +18,7 @@ in
     set -euo pipefail
     export PATH=${lib.makeBinPath deps}
     export HOME=$(pwd)
+    export NIX_PATH=nixpkgs=${pkgs.path}
 
     echo "Using hackage snapshot from ${hackageSnapshot}"
 

@@ -86,6 +86,7 @@ data Action (r :: * -> *)
 --        (FilterOperations '[V1.V1 V1.Address] V1.WalletAddress)
     | UpdateAccountA V1.WalletId V1.AccountIndex V1.AccountUpdate
     | DeleteAccountA V1.WalletId V1.AccountIndex
+    | CreateAddressA V1.NewAddress
     deriving (Show, Generic1, Rank2.Functor, Rank2.Foldable, Rank2.Traversable)
 
 -- TODO: https://github.com/input-output-hk/cardano-sl/pull/3772#pullrequestreview-171983141
@@ -105,6 +106,7 @@ data Response (r :: * -> *)
     | GetAccountAddressesR (Either WL.GetAccountError [V1.WalletAddress])
     | UpdateAccountR (Either WL.UpdateAccountError V1.Account)
     | DeleteAccountR (Either WL.DeleteAccountError ())
+    | CreateAddressR (Either WL.CreateAddressError V1.WalletAddress)
     deriving (Show, Generic1, Rank2.Foldable)
 
 
@@ -195,6 +197,7 @@ preconditions (Model _ _ _ True) action = case action of
     GetAccountAddressesA _ _  -> Top
     UpdateAccountA _ _ _      -> Top
     DeleteAccountA _ _        -> Top
+    CreateAddressA _          -> Top
 
     -- NOTE: don't use catch all pattern like
     --
@@ -268,6 +271,14 @@ transitions model@Model{..} cmd res = case (cmd, res) of
         in model { mAccounts = filter (not . thisAccount) mAccounts }
     (DeleteAccountA _ _, DeleteAccountR (Left _)) -> increaseUnhappyPath
     (DeleteAccountA _ _, _) -> shouldNotBeReachedError
+    (CreateAddressA V1.NewAddress{..}, CreateAddressR (Right address)) ->
+        let thisAccount V1.Account{..} = accWalletId == newaddrWalletId && accIndex == newaddrAccountIndex
+            updatedAccounts = map update $ filter thisAccount mAccounts
+            -- TODO: use lenses
+            update acc = acc { V1.accAddresses = address:V1.accAddresses acc }
+        in model { mAccounts = updatedAccounts <> filter (not . thisAccount) mAccounts }
+    (CreateAddressA _, CreateAddressR (Left _)) -> increaseUnhappyPath
+    (CreateAddressA _, _) -> shouldNotBeReachedError
 
     -- NOTE: don't use catch all pattern like
     --
@@ -406,7 +417,7 @@ postconditions Model{..} cmd res = case (cmd, res) of
             mAccount = update <$> find thisAccount mAccounts
             update acc = acc { V1.accName = uaccName }
         in mAccount .== Just account
-    -- If there is no account we assume account with such index and wallet id doesn't exist
+    -- If there is an error we assume account with such index and wallet id doesn't exist
     (UpdateAccountA wId index _, UpdateAccountR (Left _)) ->
         let thisAccount V1.Account{..} = accWalletId == wId && accIndex == index
             mAccount = find thisAccount mAccounts
@@ -422,6 +433,21 @@ postconditions Model{..} cmd res = case (cmd, res) of
             mAccount = find thisAccount mAccounts
         in Boolean $ isJust mAccount
     (DeleteAccountA _ _, _) -> shouldNotBeReachedError
+    -- If we managed to create a new address then specific account should exist, it has to have correct password and newly created address shouldn't already be in list of addresses of that account
+    (CreateAddressA V1.NewAddress{..}, CreateAddressR (Right address)) ->
+        let thisAccount V1.Account{..} = accWalletId == newaddrWalletId && accIndex == newaddrAccountIndex
+            thisWallet = (== newaddrWalletId) . V1.walId . fst
+            mAccount = find thisAccount mAccounts
+            mWalletPass = snd <$> find thisWallet mWallets
+            mIsNewAddress = Universum.elem address . V1.accAddresses <$> mAccount
+        in (mIsNewAddress .== Just False) :&& (mWalletPass .== Just newaddrSpendingPassword)
+    -- If error occured we assume acount with wallet id and account index
+    -- doesn't exist.
+    (CreateAddressA V1.NewAddress{..}, CreateAddressR (Left _)) ->
+        let thisAccount V1.Account{..} = accWalletId == newaddrWalletId && accIndex == newaddrAccountIndex
+            mAccount = find thisAccount mAccounts
+        in mAccount .== Nothing
+    (CreateAddressA _, _) -> shouldNotBeReachedError
 
 
     -- NOTE: don't use catch all pattern like
@@ -482,15 +508,15 @@ genNewAccount Model{..} = do
     -- Pick wallet to create an account
     (wal, correctOldPass) <- second (fromMaybe mempty) <$> genElements mWallets
     spendingPassword <- frequency
-                    -- pass can be unset
-                    [ (10, pure Nothing)
-                    -- pass can be empty
-                    , (10, pure $ Just mempty)
-                    -- pass can be arbitrary
-                    , (10, arbitrary)
-                    -- pass can stay the same
-                    , (70, pure $ Just correctOldPass)
-                    ]
+        -- pass can be unset
+        [ (10, pure Nothing)
+        -- pass can be empty
+        , (10, pure $ Just mempty)
+        -- pass can be arbitrary
+        , (10, Just <$> arbitrary)
+        -- pass can stay the same
+        , (70, pure $ Just correctOldPass)
+        ]
     name <- arbitrary
     pure (V1.walId wal, V1.NewAccount spendingPassword name)
 
@@ -511,6 +537,24 @@ genGetAccount Model{..} = do
         -- existing wallet id and account index
         , (10, pure (V1.accWalletId acc, V1.accIndex acc))
         ]
+
+genNewAddress :: Model Symbolic -> Gen V1.NewAddress
+genNewAddress model@Model{..} = do
+    -- Pick wallet id and account index
+    (wId, index) <- genGetAccount model
+    let thisWallet = (== wId) . V1.walId . fst
+        mCorrectOldPass = join $ snd <$> find thisWallet mWallets
+    spendingPassword <- frequency
+         -- pass can be unset
+        [ (10, pure Nothing)
+        -- pass can be empty
+        , (10, pure $ Just mempty)
+        -- pass can be arbitrary
+        , (10, Just <$> arbitrary)
+        -- pass can stay the same
+        , (70, pure mCorrectOldPass)
+        ]
+    pure $ V1.NewAddress spendingPassword index wId
 
 generator :: Model Symbolic -> Gen (Action Symbolic)
 -- if wallet has not been reset, then we should first reset it!
@@ -551,6 +595,8 @@ generator model@Model{..} = frequency
     , (5, uncurry UpdateAccountA <$> genGetAccount model <*> arbitrary)
     -- Test deleting accounts
     , (5, uncurry DeleteAccountA <$> genGetAccount model)
+    -- Test creating addresses
+    , (5, CreateAddressA <$> genNewAddress model)
     ]
 
 shrinker :: Action Symbolic -> [Action Symbolic]
@@ -580,6 +626,7 @@ semantics pwl _ cmd = case cmd of
         fmap GetAccountAddressesR . paginateAll' $ flip (WL.getAccountAddresses pwl wId index) NoFilters
     UpdateAccountA wId index update -> UpdateAccountR <$> WL.updateAccount pwl wId index update
     DeleteAccountA wId index -> DeleteAccountR <$> WL.deleteAccount pwl wId index
+    CreateAddressA newAddr -> CreateAddressR <$> WL.createAddress pwl newAddr
   where
     paginateAll' :: Monad m => (RequestParams -> m (Either e (WalletResponse [a]))) -> m (Either e [a])
     paginateAll' request = fmap2 wrData . paginateAll $ \mPage mPerPage ->
@@ -678,6 +725,8 @@ mock Model{..} (DeleteAccountA wId index) =
         if isJust mAccount
             then Left $ WL.DeleteAccountWalletIdDecodingFailed "In fact, I couldn't find the account with specific id and index"
             else Right ()
+mock _ (CreateAddressA _) =
+    pure $ CreateAddressR $ Left $ WL.CreateAddressAddressDecodingFailed "Mocking address creation"
 
 
 ------------------------------------------------------------------------
@@ -700,16 +749,15 @@ stateMachine pwl pw =
 
 prop_wallet :: WL.PassiveWalletLayer IO -> PassiveWallet -> Property
 prop_wallet pwl pw = forAllCommands sm Nothing $ \cmds -> monadicIO $ do
-    let cmds' = cmds -- Commands [Command ResetWalletA mempty] <> cmds
-    print $ commandNamesInOrder cmds'
-    (hist, _, res) <- runCommands sm cmds'
+    print $ commandNamesInOrder cmds
+    (hist, _, res) <- runCommands sm cmds
     prettyCommands sm hist $
-        checkCommandNames cmds' (res === Ok)
+        checkCommandNames cmds (res === Ok)
   where
     sm = stateMachine pwl pw
 
-prop_walletParallel :: (WL.PassiveWalletLayer IO, PassiveWallet) -> Property
-prop_walletParallel (pwl, pw) =
+prop_walletParallel :: WL.PassiveWalletLayer IO -> PassiveWallet -> Property
+prop_walletParallel pwl pw =
   forAllParallelCommands sm $ \cmds -> monadicIO $
     -- TODO: fix quickcheck with state machine pretty printer output (works well with tasty)
     prettyParallelCommands cmds =<< runParallelCommandsNTimes 100 sm cmds

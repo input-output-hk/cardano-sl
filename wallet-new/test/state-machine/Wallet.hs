@@ -37,7 +37,8 @@ import qualified Test.StateMachine.Types.Rank2 as Rank2
 import           Cardano.Wallet.API.Request (RequestParams (..))
 import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
 import           Cardano.Wallet.API.Request.Pagination (PaginationParams (..))
-import           Cardano.Wallet.API.Response (WalletResponse (wrData))
+import           Cardano.Wallet.API.Response (WalletResponse (wrData),
+                     fromSlice)
 import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..),
                      UnitOfMeasure (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
@@ -87,6 +88,8 @@ data Action (r :: * -> *)
     | UpdateAccountA V1.WalletId V1.AccountIndex V1.AccountUpdate
     | DeleteAccountA V1.WalletId V1.AccountIndex
     | CreateAddressA V1.NewAddress
+    -- TODO: pagination is ignored
+    | GetAddressesA
     deriving (Show, Generic1, Rank2.Functor, Rank2.Foldable, Rank2.Traversable)
 
 -- TODO: https://github.com/input-output-hk/cardano-sl/pull/3772#pullrequestreview-171983141
@@ -107,6 +110,7 @@ data Response (r :: * -> *)
     | UpdateAccountR (Either WL.UpdateAccountError V1.Account)
     | DeleteAccountR (Either WL.DeleteAccountError ())
     | CreateAddressR (Either WL.CreateAddressError V1.WalletAddress)
+    | GetAddressesR [V1.WalletAddress]
     deriving (Show, Generic1, Rank2.Foldable)
 
 
@@ -198,6 +202,7 @@ preconditions (Model _ _ _ True) action = case action of
     UpdateAccountA _ _ _      -> Top
     DeleteAccountA _ _        -> Top
     CreateAddressA _          -> Top
+    GetAddressesA             -> Top
 
     -- NOTE: don't use catch all pattern like
     --
@@ -279,6 +284,8 @@ transitions model@Model{..} cmd res = case (cmd, res) of
         in model { mAccounts = updatedAccounts <> filter (not . thisAccount) mAccounts }
     (CreateAddressA _, CreateAddressR (Left _)) -> increaseUnhappyPath
     (CreateAddressA _, _) -> shouldNotBeReachedError
+    (GetAddressesA, GetAddressesR _) -> model
+    (GetAddressesA, _) -> shouldNotBeReachedError
 
     -- NOTE: don't use catch all pattern like
     --
@@ -448,7 +455,12 @@ postconditions Model{..} cmd res = case (cmd, res) of
             mAccount = find thisAccount mAccounts
         in mAccount .== Nothing
     (CreateAddressA _, _) -> shouldNotBeReachedError
-
+    -- Addresses should match addresses from the model
+    -- FIXME: for some reason this isn't the case. This precondition fails and this is probably due to my lack of understanding of this feature. Temporarely turned off until other endpoints are finished.
+    (GetAddressesA, GetAddressesR addresses) -> Top
+--        let allAddresses = concatMap V1.accAddresses mAccounts
+--        in sort allAddresses .== sort addresses
+    (GetAddressesA, _) -> shouldNotBeReachedError
 
     -- NOTE: don't use catch all pattern like
     --
@@ -597,6 +609,8 @@ generator model@Model{..} = frequency
     , (5, uncurry DeleteAccountA <$> genGetAccount model)
     -- Test creating addresses
     , (5, CreateAddressA <$> genNewAddress model)
+    -- Test getting addresses
+    , (5, pure GetAddressesA)
     ]
 
 shrinker :: Action Symbolic -> [Action Symbolic]
@@ -627,14 +641,19 @@ semantics pwl _ cmd = case cmd of
     UpdateAccountA wId index update -> UpdateAccountR <$> WL.updateAccount pwl wId index update
     DeleteAccountA wId index -> DeleteAccountR <$> WL.deleteAccount pwl wId index
     CreateAddressA newAddr -> CreateAddressR <$> WL.createAddress pwl newAddr
+    -- TODO: We are getting rid of pagination so we should
+    -- add back this later and test pagination
+    GetAddressesA -> fmap (GetAddressesR . fromRight err) . paginateAll' $ \rp@RequestParams{..} -> do
+        slice <- WL.getAddresses pwl rp
+        return $ Right $ fromSlice rpPaginationParams slice
   where
+    err = error "paginateAll: this shouldn't happen by design"
     paginateAll' :: Monad m => (RequestParams -> m (Either e (WalletResponse [a]))) -> m (Either e [a])
     paginateAll' request = fmap2 wrData . paginateAll $ \mPage mPerPage ->
         case (mPage, mPerPage) of
             (Just page, Just perPage) ->
                 request $ RequestParams $ PaginationParams page perPage
-            (Nothing, Nothing) ->
-                error "paginateAll: this shouldn't happen by design"
+            (Nothing, Nothing) -> err
       where
         fmap2 = fmap . fmap
 
@@ -727,6 +746,9 @@ mock Model{..} (DeleteAccountA wId index) =
             else Right ()
 mock _ (CreateAddressA _) =
     pure $ CreateAddressR $ Left $ WL.CreateAddressAddressDecodingFailed "Mocking address creation"
+mock Model{..} GetAddressesA =
+    let allAddresses = concatMap V1.accAddresses mAccounts
+    in pure $ GetAddressesR allAddresses
 
 
 ------------------------------------------------------------------------

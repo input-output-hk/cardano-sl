@@ -8,7 +8,7 @@
 with pkgs;
 
 haskell.lib.buildStackProject {
-  inherit (haskell.packages.ghc822) ghc;
+  inherit (haskell.packages.ghc844) ghc;
   name = "cardano-sl-stack-env";
 
   buildInputs = [

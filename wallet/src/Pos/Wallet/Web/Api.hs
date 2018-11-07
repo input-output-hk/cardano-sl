@@ -56,7 +56,7 @@ import           Data.Reflection (Reifies (..))
 import           Servant.API ((:<|>), (:>), Capture, Delete, Description, Get,
                      JSON, Post, Put, QueryParam, ReqBody, Summary, Verb)
 import           Servant.API.ContentTypes (NoContent, OctetStream)
-import           Servant.Generic ((:-), AsApi, ToServant)
+import           Servant.API.Generic ((:-), ToServantApi)
 import           Servant.Swagger.UI (SwaggerSchemaUI)
 
 import           Pos.Chain.Update (SoftwareVersion)
@@ -126,7 +126,7 @@ swaggerWalletApi = Proxy
 -- | Servant API which provides access to wallet.
 type WalletApi = "api" :> WalletApiNoPrefix
 
-type WalletApiNoPrefix = ToServant (WalletApiRecord AsApi)
+type WalletApiNoPrefix = ToServantApi WalletApiRecord
 
 data WalletApiRecord route = WalletApiRecord
   { _test        :: route :- WTestApi             -- /test
@@ -155,7 +155,7 @@ walletApi = Proxy
 -- ~~~~~~~~~~
 
 -- | The "/test" branch of the API
-type WTestApi = "test" :> ToServant (WTestApiRecord AsApi)
+type WTestApi = "test" :> ToServantApi WTestApiRecord
 
 data WTestApiRecord route = WTestApiRecord
   {
@@ -177,7 +177,7 @@ data WTestApiRecord route = WTestApiRecord
 -- ~~~~~~~~~~
 
 -- | The "/wallets" branch of the API
-type WWalletsApi = "wallets" :> ToServant (WWalletsApiRecord AsApi)
+type WWalletsApi = "wallets" :> ToServantApi WWalletsApiRecord
 
 type GetWallet =
     Summary "Get information about a wallet by its ID (address)."
@@ -246,7 +246,7 @@ data WWalletsApiRecord route = WWalletsApiRecord
 -- ~~~~~~~~~~
 
 -- | The "/accounts" branch of the API
-type WAccountsApi = "accounts" :> ToServant (WAccountsApiRecord AsApi)
+type WAccountsApi = "accounts" :> ToServantApi WAccountsApiRecord
 
 type GetAccounts =
     Summary "Get information about all available accounts."
@@ -287,7 +287,7 @@ data WAccountsApiRecord route = WAccountsApiRecord
 -- ~~~~~~~~~~
 
 -- | The "/addresses" branch of the API
-type WAddressesApi = "addresses" :> ToServant (WAddressesApiRecord AsApi)
+type WAddressesApi = "addresses" :> ToServantApi WAddressesApiRecord
 
 type NewAddress =
     Summary "Create a new address in given account."
@@ -315,7 +315,7 @@ data WAddressesApiRecord route = WAddressesApiRecord
 -- ~~~~~~~~~~
 
 -- | The "/profile" branch of the API
-type WProfileApi = "profile" :> ToServant (WProfileApiRecord AsApi)
+type WProfileApi = "profile" :> ToServantApi WProfileApiRecord
 
 data WProfileApiRecord route = WProfileApiRecord
   {
@@ -335,7 +335,7 @@ data WProfileApiRecord route = WProfileApiRecord
 -- ~~~~~~~~~~
 
 -- | The "/txs" branch of the API
-type WTxsApi = "txs" :> ToServant (WTxsApiRecord AsApi)
+type WTxsApi = "txs" :> ToServantApi WTxsApiRecord
 
 type NewPayment =
     "payments"
@@ -425,7 +425,7 @@ data WTxsApiRecord route = WTxsApiRecord
 -- ~~~~~~~~~~
 
 -- | The "/update" branch of the API
-type WUpdateApi = "update" :> ToServant (WUpdateApiRecord AsApi)
+type WUpdateApi = "update" :> ToServantApi WUpdateApiRecord
 
 data WUpdateApiRecord route = WUpdateApiRecord
   {
@@ -450,7 +450,7 @@ data WUpdateApiRecord route = WUpdateApiRecord
 -- ~~~~~~~~~~
 
 -- | The "\/redemptions" and "\/papervend\/redemptions" branches of the API
-type WRedemptionsApi = ToServant (WRedemptionsApiRecord AsApi)
+type WRedemptionsApi = ToServantApi WRedemptionsApiRecord
 
 data WRedemptionsApiRecord route = WRedemptionsApiRecord
   {
@@ -478,7 +478,7 @@ data WRedemptionsApiRecord route = WRedemptionsApiRecord
 -- ~~~~~~~~~~
 
 -- | The "/reporting" branch of the API
-type WReportingApi = "reporting" :> ToServant (WReportingApiRecord AsApi)
+type WReportingApi = "reporting" :> ToServantApi WReportingApiRecord
 
 data WReportingApiRecord route = WReportingApiRecord
   {
@@ -495,7 +495,7 @@ data WReportingApiRecord route = WReportingApiRecord
 -- ~~~~~~~~~~
 
 -- | The "/settings" branch of the API
-type WSettingsApi = "settings" :> ToServant (WSettingsApiRecord AsApi)
+type WSettingsApi = "settings" :> ToServantApi WSettingsApiRecord
 
 type GetSyncProgress =
     "sync"
@@ -535,7 +535,7 @@ data WSettingsApiRecord route = WSettingsApiRecord
 -- ~~~~~~~~~~
 
 -- | The "/backup" branch of the API
-type WBackupApi = "backup" :> ToServant (WBackupApiRecord AsApi)
+type WBackupApi = "backup" :> ToServantApi WBackupApiRecord
 
 data WBackupApiRecord route = WBackupApiRecord
   {
@@ -561,7 +561,7 @@ data WBackupApiRecord route = WBackupApiRecord
 --   /system
 -- ~~~~~~~~~~
 
-type WSystemApi = "system" :> ToServant (WSystemApiRecord AsApi)
+type WSystemApi = "system" :> ToServantApi WSystemApiRecord
 
 data WSystemApiRecord route = WSystemApiRecord
   {
@@ -577,7 +577,7 @@ data WSystemApiRecord route = WSystemApiRecord
 -- ~~~~~~~~~~
 
 -- | The "/info" branch of the API
-type WInfoApi = "info" :> ToServant (WInfoApiRecord AsApi)
+type WInfoApi = "info" :> ToServantApi WInfoApiRecord
 
 data WInfoApiRecord route = WInfoApiRecord
   {

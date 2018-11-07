@@ -11,7 +11,7 @@ with pkgs.lib;
 
 let
   # the GHC we are using
-  ghc = pkgs.haskell.compiler.ghc822;
+  ghc = pkgs.haskell.compiler.ghc844;
 
   # This will yield a set of haskell packages, based on the given compiler.
   cardanoPkgsBase = ((import ../pkgs { inherit pkgs; }).override {

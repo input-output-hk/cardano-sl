@@ -68,7 +68,6 @@ library
                       , rocksdb-haskell-ng
                       , safe-exceptions
                       , serokell-util
-                      , servant-generic
                       , stm
                       , text
                       , formatting

@@ -250,3 +250,5 @@ instance
                 appendToQueryString
                     (toText (symbolVal (Proxy @(IndexToQueryParam res ix))))
                     (Just (toQueryParam sop))
+    hoistClientMonad pm _ f cl =
+        hoistClientMonad pm (Proxy @(SortBy params res :> next)) f cl

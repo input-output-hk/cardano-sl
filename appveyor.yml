@@ -9,6 +9,9 @@ environment:
     STACK_ROOT: "c:\\s"
     STACK_WORK: ".w"
     WORK_DIR: "c:\\w"
+    # Override the temp directory to avoid sed escaping issues
+    # See https://github.com/haskell/cabal/issues/5386
+    TMP: "c:\\tmp"
     CACHE_S3_VERSION: v0.1.4
     CACHE_S3_MAX_SIZE: 1600MB  # AppVeyor limits the amount uploaded to approx 2GB
     AWS_REGION: us-west-1
@@ -54,13 +57,13 @@ before_test:
 - ps: >-
     mkdir C:\ghc
 
-    Invoke-WebRequest "https://s3.eu-central-1.amazonaws.com/ci-static/ghc-8.2.2-x86_64-unknown-mingw32.tar.xz" -OutFile "C:\ghc\ghc.tar.xz" -UserAgent "Curl"
+    Invoke-WebRequest "https://s3.eu-central-1.amazonaws.com/ci-static/ghc-8.4.4-x86_64-unknown-mingw32-20181113-b907eb0f9b.tar.xz" -OutFile "C:\ghc\ghc.tar.xz" -UserAgent "Curl"
 
     7z x C:\ghc\ghc.tar.xz -oC:\ghc
 
     7z x C:\ghc\ghc.tar -oC:\ghc
 
-    $env:PATH="$env:PATH;C:\ghc\ghc-8.2.2\bin"
+    $env:PATH="$env:PATH;C:\ghc\ghc-8.4.4\bin"
 
 # Install OpenSSL 1.0.2 (see https://github.com/appveyor/ci/issues/1665)
 - ps: (New-Object Net.WebClient).DownloadFile('https://slproweb.com/download/Win64OpenSSL-1_0_2p.exe', "$($env:USERPROFILE)\Win64OpenSSL.exe")
@@ -102,6 +105,7 @@ test_script:
       --extra-lib-dirs="C:\xz_extracted\bin_x86-64"
       --extra-include-dirs="%WORK_DIR%\rocksdb\include"
       --extra-lib-dirs="%WORK_DIR%"
+      --ghc-options="-copy-libs-when-linking"
 #   TODO: CSL-1133. To be reenabled.
 #   - stack test --coverage
 #   - stack hpc report cardano-sl cardano-sl-txp cardano-sl-core cardano-sl-db cardano-sl-update cardano-sl-infra cardano-sl-lrc cardano-sl-ssc
@@ -120,6 +124,7 @@ test_script:
       --extra-lib-dirs="C:\xz_extracted\bin_x86-64"
       --extra-include-dirs="%WORK_DIR%\rocksdb\include"
       --extra-lib-dirs="%WORK_DIR%"
+      --ghc-options="-copy-libs-when-linking"
   # Cardano pieces, modulo the frontend
   - mkdir daedalus
     # log config is called `log-config-prod.yaml` just in case, it's the old name

@@ -87,7 +87,8 @@ instance Core.HasSlottingVar SettingsCtx where
     slottingVar = lens settingsCtxSlottingVar (\s t -> s { settingsCtxSlottingVar = t })
 
 applyUpdate :: Handler NoContent
-applyUpdate = undefined
+applyUpdate =
+    throwError err500 { errBody = "This handler is not yet implemented." }
 
 {-
 -- from Cardano.Wallet.API.Internal.Handlers
@@ -134,7 +135,8 @@ communication). So perhaps we can ignore this for now.
 -}
 
 postponeUpdate :: Handler NoContent
-postponeUpdate = undefined
+postponeUpdate =
+    throwError err500 { errBody = "This handler is not yet implemented." }
 
 {-
 

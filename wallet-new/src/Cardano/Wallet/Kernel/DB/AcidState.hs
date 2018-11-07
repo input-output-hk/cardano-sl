@@ -501,8 +501,8 @@ observableRollbackUseInTestsOnly = runUpdateDiscardSnapshot $
 -- 'createHdWallet'/'createWalletHdRnd' in "Cardano.Wallet.Kernel.Wallets".
 --
 -- INVARIANT: Creating a new wallet always come with a fresh HdAccount and
--- a fresh 'HdAddress' attached to it, so we have to pass these two extra
--- piece of into to the update function. We do @not@ build these inside the
+-- an optional 'HdAddress' attached to it, so we have to pass these two extra
+-- pieces of info to the update function. We do @not@ build these inside the
 -- update function because derivation requires an 'EncryptedSecretKey' and
 -- definitely we do not want it to show up in our acid-state logs.
 --
@@ -511,8 +511,8 @@ createHdWallet :: HdRoot
                -- ^ The default HdAccountId to go with this HdRoot. This
                -- function will take responsibility of creating the associated
                -- 'HdAccount'.
-               -> HdAddress
-               -- ^ The default HdAddress to go with this HdRoot.
+               -> Maybe HdAddress
+               -- ^ An optional default HdAddress to go with this HdRoot.
                -> Map HdAccountId (Utxo,[AddrWithId])
                -> Update DB (Either HD.CreateHdRootError ())
 createHdWallet newRoot defaultHdAccountId defaultHdAddress utxoByAccount =
@@ -532,14 +532,12 @@ createHdWallet newRoot defaultHdAccountId defaultHdAddress utxoByAccount =
     insertDefault :: Map HdAccountId (Utxo, [AddrWithId])
                   -> Map HdAccountId (Utxo, [AddrWithId])
     insertDefault m =
-        let defaultAddr = ( defaultHdAddress ^. hdAddressId
-                          , defaultHdAddress ^. hdAddressAddress . fromDb
-                          )
+        let addrWithId = fmap toAddrWithId defaultHdAddress
         in case Map.lookup defaultHdAccountId m of
                Just (utxo, addrs) ->
-                   Map.insert defaultHdAccountId (utxo, defaultAddr : addrs) m
+                   Map.insert defaultHdAccountId (utxo, maybe addrs (: addrs) addrWithId) m
                Nothing ->
-                   Map.insert defaultHdAccountId (mempty, [defaultAddr]) m
+                    Map.insert defaultHdAccountId (mempty, maybeToList addrWithId) m
 
 -- | Create an HdWallet with HdRoot, without defaultHdAddress. Since we use this function
 -- for external wallets only, we don't have defaultHdAddress here (because in the current
@@ -578,8 +576,8 @@ createHdExternalWallet newRoot defaultHdAccountId utxoByAccount =
 -- starting from the 'HdAccountOutsideK' state.
 --
 -- INVARIANT: Creating a new wallet always come with a fresh HdAccount and
--- a fresh 'HdAddress' attached to it, so we have to pass these two extra
--- piece of into to the update function. We do @not@ build these inside the
+-- an optional 'HdAddress' attached to it, so we have to pass these two extra
+-- pieces of info to the update function. We do @not@ build these inside the
 -- update function because derivation requires an 'EncryptedSecretKey' and
 -- definitely we do not want it to show up in our acid-state logs.
 --
@@ -588,8 +586,8 @@ restoreHdWallet :: HdRoot
                 -- ^ The default HdAccountId to go with this HdRoot. This
                 -- function will take responsibility of creating the associated
                 -- 'HdAccount'.
-                -> HdAddress
-                -- ^ The default HdAddress to go with this HdRoot
+                -> Maybe HdAddress
+                -- ^ Optional default HdAddress to go with this HdRoot
                 -> BlockContext
                 -- ^ The initial block context for restorations
                 -> Map HdAccountId (Utxo, Utxo, [AddrWithId])
@@ -613,15 +611,17 @@ restoreHdWallet newRoot defaultHdAccountId defaultHdAddress ctx utxoByAccount =
     insertDefault :: Map HdAccountId (Utxo, Utxo, [AddrWithId])
                   -> Map HdAccountId (Utxo, Utxo, [AddrWithId])
     insertDefault m =
-        let defaultAddr = ( defaultHdAddress ^. hdAddressId
-                          , defaultHdAddress ^. hdAddressAddress . fromDb
-                          )
+        let addrWithId = fmap toAddrWithId defaultHdAddress
         in case Map.lookup defaultHdAccountId m of
                Just (utxo, utxo', addrs) ->
-                   Map.insert defaultHdAccountId (utxo, utxo', defaultAddr : addrs) m
+                   Map.insert defaultHdAccountId (utxo, utxo', maybe addrs (: addrs) addrWithId) m
                Nothing ->
-                   Map.insert defaultHdAccountId (mempty, mempty, [defaultAddr]) m
+                   Map.insert defaultHdAccountId (mempty, mempty, maybeToList addrWithId) m
 
+toAddrWithId :: HdAddress -> AddrWithId
+toAddrWithId addr = ( addr ^. hdAddressId
+                    , addr ^. hdAddressAddress . fromDb
+                    )
 {-------------------------------------------------------------------------------
   Internal: support for updating accounts
 -------------------------------------------------------------------------------}

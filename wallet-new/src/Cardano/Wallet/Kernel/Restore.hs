@@ -91,7 +91,7 @@ import           Pos.Util.Trace (Severity (Error))
 -- background thread that will asynchronously restore the wallet history.
 --
 -- Wallet initialization parameters match those of 'createWalletHdRnd'
--- NOTE: We pass in a fresh 'Address' which will be used to initialise the
+-- NOTE: We pass in an optional fresh 'Address' which will be used to initialise the
 -- companion 'HdAccount' this wallet will be created with. The reason why
 -- we do this is that, if we were to use the 'PassPhrase' directly, it would
 -- have been impossible for upstream code dealing with migrations to call
@@ -102,8 +102,8 @@ import           Pos.Util.Trace (Severity (Error))
 restoreWallet :: Kernel.PassiveWallet
               -> Bool
               -- ^ Did this wallet have a spending password set?
-              -> Core.Address
-              -- ^ The stock address to use for the companion 'HdAccount'.
+              -> Maybe Core.Address
+              -- ^ An optional stock address to use for the companion 'HdAccount'.
               -> HD.WalletName
               -> HD.AssuranceLevel
               -> EncryptedSecretKey

@@ -83,8 +83,8 @@ prepareFixtures nm = do
                           <*> (InDb <$> pick arbitrary)
     newAccountId <- HdAccountId newRootId <$> deriveIndex (pick . choose) HdAccountIx HardDerivation
     let accounts = M.singleton newAccountId mempty
-        hdAccountId      = Kernel.defaultHdAccountId newRootId
-        (Just hdAddress) = Kernel.defaultHdAddress nm esk emptyPassphrase newRootId
+        hdAccountId = Kernel.defaultHdAccountId newRootId
+        hdAddress   = Kernel.defaultHdAddress nm esk emptyPassphrase newRootId
 
     return $ \pw -> do
         void $ liftIO $ update (pw ^. wallets) (CreateHdWallet newRoot hdAccountId hdAddress accounts)

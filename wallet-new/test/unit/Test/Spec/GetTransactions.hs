@@ -137,9 +137,9 @@ prepareFixtures nm initialBalance = do
         forM_ fixt $ \Fix{..} -> do
             liftIO $ Keystore.insert (WalletIdHdRnd fixtureHdRootId) fixtureESK keystore
 
-            let accounts         = Kernel.prefilterUtxo nm fixtureHdRootId fixtureESK fixtureUtxo
-                hdAccountId      = Kernel.defaultHdAccountId fixtureHdRootId
-                (Just hdAddress) = Kernel.defaultHdAddress nm fixtureESK emptyPassphrase fixtureHdRootId
+            let accounts    = Kernel.prefilterUtxo nm fixtureHdRootId fixtureESK fixtureUtxo
+                hdAccountId = Kernel.defaultHdAccountId fixtureHdRootId
+                hdAddress   = Kernel.defaultHdAddress nm fixtureESK emptyPassphrase fixtureHdRootId
 
             void $ liftIO $ update (pw ^. wallets) (CreateHdWallet fixtureHdRoot hdAccountId hdAddress accounts)
         return $ Fixture {
@@ -175,9 +175,9 @@ prepareUTxoFixtures nm coins = do
     return $ \keystore aw -> do
         let pw = Kernel.walletPassive aw
         Keystore.insert (WalletIdHdRnd newRootId) esk keystore
-        let accounts         = Kernel.prefilterUtxo nm newRootId esk utxo
-            hdAccountId      = Kernel.defaultHdAccountId newRootId
-            (Just hdAddress) = Kernel.defaultHdAddress nm esk emptyPassphrase newRootId
+        let accounts    = Kernel.prefilterUtxo nm newRootId esk utxo
+            hdAccountId = Kernel.defaultHdAccountId newRootId
+            hdAddress   = Kernel.defaultHdAddress nm esk emptyPassphrase newRootId
 
         void $ liftIO $ update (pw ^. wallets) (CreateHdWallet newRoot hdAccountId hdAddress accounts)
         return $ Fix {

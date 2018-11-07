@@ -361,17 +361,23 @@ instance HasSwagger (subApi :> res) =>
 instance HasClient m (subApi :> res) => HasClient m (CDecodeApiArg subApi :> res) where
     type Client m (CDecodeApiArg subApi :> res) = Client m (subApi :> res)
     clientWithRoute p _ req = clientWithRoute p (Proxy @(subApi :> res)) req
+    hoistClientMonad pm _ f cl =
+        hoistClientMonad pm (Proxy @(subApi :> res)) f cl
 
 instance HasClient m (subApi :> res) =>
          HasClient m (WithDefaultApiArg subApi :> res) where
     type Client m (WithDefaultApiArg subApi :> res) = Client m (subApi :> res)
     clientWithRoute p _ req = clientWithRoute p (Proxy @(subApi :> res)) req
+    hoistClientMonad pm _ f cl =
+        hoistClientMonad pm (Proxy @(subApi :> res)) f cl
 
 instance (RunClient m, HasClient m (Verb mt st ct $ ApiModifiedRes mod a)) =>
          HasClient m (VerbMod mod (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) where
     type Client m (VerbMod mod (Verb mt st ct a)) = Client m (Verb mt st ct $ ApiModifiedRes mod a)
     clientWithRoute p _ req =
         clientWithRoute p (Proxy @(Verb mt st ct $ ApiModifiedRes mod a)) req
+    hoistClientMonad pm _ f cl =
+        hoistClientMonad pm (Proxy @(Verb mt st ct $ ApiModifiedRes mod a)) f cl
 
 -------------------------------------------------------------------------
 -- Logging
@@ -788,6 +794,8 @@ instance (KnownSymbol sym, Flaggable flag, HasClient m api)
 
     clientWithRoute p _ req = clientWithRoute p (Proxy @(QueryFlag sym :> api)) req . toBool
 
+    hoistClientMonad pm _ f cl = \as -> hoistClientMonad pm (Proxy :: Proxy api) f (cl as)
+
 instance KnownSymbol s => ApiCanLogArg (CustomQueryFlag s a)
 instance KnownSymbol s => ApiHasArgClass (CustomQueryFlag s a)
 
@@ -869,6 +877,8 @@ instance (HasServer subApi context) => HasServer (Tags tags :> subApi) context w
 instance (HasClient m subApi) => HasClient m (Tags tags :> subApi) where
     type Client m (Tags tags :> subApi) = Client m subApi
     clientWithRoute pm _ = clientWithRoute pm (Proxy @subApi)
+    hoistClientMonad pm _ f cl =
+      hoistClientMonad pm (Proxy @subApi) f cl
 
 -- | Similar to 'instance HasServer', just skips 'Tags'.
 instance HasLoggingServer config subApi context =>

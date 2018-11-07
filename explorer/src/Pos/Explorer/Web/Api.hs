@@ -17,7 +17,7 @@ import           Control.Exception.Safe (try)
 import           Data.Proxy (Proxy (Proxy))
 import           Servant.API ((:>), Capture, Get, JSON, Post, QueryParam,
                      ReqBody, Summary)
-import           Servant.Generic ((:-), AsApi, ToServant)
+import           Servant.API.Generic ((:-), ToServantApi)
 import           Servant.Server (ServantErr (..))
 
 import           Pos.Core (EpochIndex)
@@ -49,7 +49,7 @@ instance ModifiesApiRes ExplorerVerbTag where
     modifyApiResult _ action = try . try $ either throwM pure =<< action
 
 -- | Servant API which provides access to explorer
-type ExplorerApi = "api" :> ToServant (ExplorerApiRecord AsApi)
+type ExplorerApi = "api" :> ToServantApi ExplorerApiRecord
 
 -- | Helper Proxy
 explorerApi :: Proxy ExplorerApi

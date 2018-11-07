@@ -230,6 +230,10 @@ extra-deps:
 - hspec-2.5.5
 - micro-recursion-schemes-5.0.2.2
 - token-bucket-0.1.0.1
+- lzma-clib-5.2.2
+
+# katip-0.6.3.0 conflicts with Win32-2.6.1.0
+allow-newer: true
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

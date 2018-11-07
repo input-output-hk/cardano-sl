@@ -9,12 +9,11 @@ import           Universum
 
 import           Control.Concurrent.STM (orElse, retry)
 import           Control.Lens (lens, to)
+import qualified Data.Text as Text
 import           Data.Time.Units (toMicroseconds)
 import qualified Paths_cardano_sl_node as Paths
 import           Servant
-import qualified Data.Text as Text
 
-import Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
 import           Pos.Chain.Block (LastKnownHeader, LastKnownHeaderTag)
 import           Pos.Chain.Update (UpdateConfiguration, withUpdateConfiguration)
 import           Pos.DB.GState.Lock (Priority (..), StateLock,
@@ -22,6 +21,7 @@ import           Pos.DB.GState.Lock (Priority (..), StateLock,
 import qualified Pos.DB.Rocks.Functions as DB
 import qualified Pos.Infra.Slotting.Util as Slotting
 import           Pos.Util (HasLens (..), HasLens')
+import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
                      -- mainBlockSlot, prevBlockL)
 import           Ntp.Client (NtpStatus (..))
 import           Ntp.Packet (NtpOffset)
@@ -76,15 +76,16 @@ getNodeSettings compileInfo updateConfiguration timestamp slottingVar = do
             Text.replace "\n" mempty (ctiGitRevision compileInfo)
         }
 
-
 data SettingsCtx = SettingsCtx
     { settingsCtxTimestamp   :: Core.Timestamp
     , settingsCtxSlottingVar :: Core.SlottingVar
     }
 
 instance Core.HasSlottingVar SettingsCtx where
-    slottingTimestamp = lens settingsCtxTimestamp (\s t -> s { settingsCtxTimestamp = t })
-    slottingVar = lens settingsCtxSlottingVar (\s t -> s { settingsCtxSlottingVar = t })
+    slottingTimestamp =
+        lens settingsCtxTimestamp (\s t -> s { settingsCtxTimestamp = t })
+    slottingVar =
+        lens settingsCtxSlottingVar (\s t -> s { settingsCtxSlottingVar = t })
 
 applyUpdate :: Handler NoContent
 applyUpdate =
@@ -204,13 +205,16 @@ data InfoCtx = InfoCtx
     }
 
 instance HasLens DB.NodeDBs InfoCtx DB.NodeDBs where
-    lensOf = lens infoCtxNodeDbs (\i s -> i { infoCtxNodeDbs = s })
+    lensOf =
+        lens infoCtxNodeDbs (\i s -> i { infoCtxNodeDbs = s })
 
 instance HasLens StateLock InfoCtx StateLock where
-    lensOf = lens infoCtxStateLock (\i s -> i { infoCtxStateLock = s })
+    lensOf =
+        lens infoCtxStateLock (\i s -> i { infoCtxStateLock = s })
 
 instance HasLens LastKnownHeaderTag InfoCtx LastKnownHeader where
-    lensOf = lens infoCtxLastKnownHeader (\i s -> i { infoCtxLastKnownHeader = s })
+    lensOf =
+        lens infoCtxLastKnownHeader (\i s -> i { infoCtxLastKnownHeader = s })
 
 instance
     (HasLens' r DB.NodeDBs, MonadCatch m, MonadIO m)

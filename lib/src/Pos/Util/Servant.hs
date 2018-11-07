@@ -978,5 +978,3 @@ single theData = WalletResponse {
     , wrStatus = SuccessStatus
     , wrMeta   = Metadata (PaginationMetadata 1 (Page 1) (PerPage 1) 1)
     }
-
-

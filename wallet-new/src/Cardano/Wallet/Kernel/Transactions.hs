@@ -11,6 +11,7 @@ module Cardano.Wallet.Kernel.Transactions (
     , EstimateFeesError(..)
     , RedeemAdaError(..)
     , cardanoFee
+    , cardanoFeeSanity
     , mkStdTx
     , prepareUnsignedTxWithSources
     , submitSignedTx
@@ -43,7 +44,8 @@ import           Cardano.Crypto.Wallet (DerivationIndex)
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (CoinSelFinalResult (..), CoinSelectionOptions (..),
-                     estimateCardanoFee, estimateMaxTxInputs)
+                     checkCardanoFeeSanity, estimateCardanoFee,
+                     estimateMaxTxInputs)
 import qualified Cardano.Wallet.Kernel.CoinSelection.FromGeneric as CoinSelection
 import           Cardano.Wallet.Kernel.CoinSelection.Generic
                      (CoinSelHardErr (..))
@@ -199,7 +201,7 @@ newUnsignedTransaction
     -- ^ The source HD account from where the payment should originate
     -> NonEmpty (Address, Coin)
     -- ^ The payees
-    -> IO (Either NewTransactionError (DB, UnsignedTx, Utxo))
+    -> IO (Either NewTransactionError (DB, UnsignedTx, Coin, Utxo))
     -- ^ Returns the state of the world (i.e. the DB snapshot)
     -- at the time of the coin selection, so that it can later
     -- on be used to sign the addresses.
@@ -229,7 +231,13 @@ newUnsignedTransaction ActiveWallet{..} options accountId payees = runExceptT $ 
     -- that it may change in the future.
     let attributes = def :: TxAttributes
     let tx = UnsignedTx inputs outputs attributes coins
-    return (snapshot, tx, availableUtxo)
+
+    -- STEP 3: Sanity test. Here we check whether our fees are within a reasonable
+    -- range.
+    let fees = computeFeesOfUnsignedTx tx
+    if csoFeesSanityCheck options fees
+    then return (snapshot, tx, fees, availableUtxo)
+    else error $ "fees out of bound " <> show fees
   where
     -- Generate an initial seed for the random generator using the hash of
     -- the payees, which ensure that the coin selection (and the fee estimation)
@@ -266,7 +274,7 @@ prepareUnsignedTxWithSources
              (Tx, NonEmpty (Address, [DerivationIndex]))
           )
 prepareUnsignedTxWithSources activeWallet opts srcAccountId payees spendingPassword = runExceptT $ do
-    (db, unsignedTx, _availableUtxo) <- ExceptT $
+    (db, unsignedTx, _fees, _availableUtxo) <- ExceptT $
         newUnsignedTransaction activeWallet opts srcAccountId payees
 
     -- Now we have to generate the change addresses needed,
@@ -405,8 +413,7 @@ newTransaction aw@ActiveWallet{..} spendingPassword options accountId payees = d
     tx <- newUnsignedTransaction aw options accountId payees
     case tx of
          Left e   -> return (Left e)
-         Right (db, unsignedTx, availableUtxo) -> runExceptT $ do
-
+         Right (db, unsignedTx, _fees, availableUtxo) -> runExceptT $ do
              -- STEP 1: Perform the signing and forge the final TxAux.
              mbEsk <- liftIO $ Keystore.lookup
                         nm
@@ -531,36 +538,40 @@ estimateFees activeWallet@ActiveWallet{..} options accountId payees = do
     res <- newUnsignedTransaction activeWallet options accountId payees
     case res of
          Left e  -> return . Left . EstFeesTxCreationFailed $ e
-         Right (_db, tx, _originalUtxo) -> do
-             let change = unsignedTxChange tx
-             -- calculate the fee as the difference between inputs and outputs. The
-             -- final 'sumOfOutputs' must be augmented by the change, which we have
-             -- available in the 'UnsignedTx' as a '[Coin]'.
-             --
-             -- NOTE(adn) In case of 'SenderPaysFee' is practice there might be a slightly
-             -- increase of the projected fee in the case we are forced to pick "yet another input"
-             -- to be able to pay the fee, which would, in turn, also increase the fee due to
-             -- the extra input being picked.
-             return $ Right
-                    $ sumOfInputs tx
-                    `unsafeSubCoin`
-                    (repeatedly Core.unsafeAddCoin change (sumOfOutputs tx))
-  where
-    -- Tribute to @edsko
-    repeatedly :: (a -> b -> b) -> ([a] -> b -> b)
-    repeatedly = flip . foldl' . flip
+         Right (_db, _tx, fees, _originalUtxo) -> do
+             -- sanity check of fees is done.
+             return $ Right fees
 
-    -- Unlike a block, a /single transaction/ cannot have inputs that sum to
-    -- more than maxCoinVal
-    sumOfInputs :: UnsignedTx -> Coin
-    sumOfInputs tx =
-        let inputs = fmap (toaOut . snd) . unsignedTxInputs $ tx
-        in paymentAmount inputs
+-- | Calculate the fee as the difference between inputs and outputs. The
+-- final 'sumOfOutputs' must be augmented by the change, which we have
+-- available in the 'UnsignedTx' as a '[Coin]'.
+--
+-- NOTE(adn) In case of 'SenderPaysFee' is practice there might be a slightly
+-- increase of the projected fee in the case we are forced to pick "yet another input"
+-- to be able to pay the fee, which would, in turn, also increase the fee due to
+-- the extra input being picked.
+computeFeesOfUnsignedTx :: UnsignedTx -> Coin
+computeFeesOfUnsignedTx unsginedTx =
+    sumOfInputs unsginedTx
+        `unsafeSubCoin`
+                    (repeatedly Core.unsafeAddCoin (unsignedTxChange unsginedTx)
+                                                   (sumOfOutputs unsginedTx))
+    where
+        -- Tribute to @edsko
+        repeatedly :: (a -> b -> b) -> ([a] -> b -> b)
+        repeatedly = flip . foldl' . flip
 
-    sumOfOutputs :: UnsignedTx -> Coin
-    sumOfOutputs tx =
-        let outputs = map toaOut $ unsignedTxOutputs tx
-        in paymentAmount outputs
+        -- Unlike a block, a /single transaction/ cannot have inputs that sum to
+        -- more than maxCoinVal
+        sumOfInputs :: UnsignedTx -> Coin
+        sumOfInputs tx =
+            let inputs = fmap (toaOut . snd) . unsignedTxInputs $ tx
+            in paymentAmount inputs
+
+        sumOfOutputs :: UnsignedTx -> Coin
+        sumOfOutputs tx =
+            let outputs = map toaOut $ unsignedTxOutputs tx
+            in paymentAmount outputs
 
 -- | Errors during transaction signing
 --
@@ -625,6 +636,12 @@ cardanoFee (TxFeePolicyTxSizeLinear policy) inputs outputs =
       estimateCardanoFee policy inputs (toList $ fmap Core.getCoin outputs)
 cardanoFee TxFeePolicyUnknown{} _ _ =
     error "cardanoFee: unknown policy"
+
+cardanoFeeSanity :: TxFeePolicy -> Coin -> Bool
+cardanoFeeSanity (TxFeePolicyTxSizeLinear policy) fees =
+    checkCardanoFeeSanity policy fees
+cardanoFeeSanity TxFeePolicyUnknown{} _ =
+    error "cardanoFeeSanity: unknown policy"
 
 {-------------------------------------------------------------------------------
   Ada redemption

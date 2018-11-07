@@ -18,6 +18,7 @@ module Cardano.Wallet.Kernel.CoinSelection.FromGeneric (
   , largestFirst
     -- * Estimating fees
   , estimateCardanoFee
+  , checkCardanoFeeSanity
   , boundAddrAttrSize
   , boundTxAttrSize
     -- * Estimating transaction limits
@@ -42,8 +43,8 @@ import           Pos.Chain.Txp as Core (TxIn, TxOutAux, Utxo, toaOut,
                      txOutAddress, txOutValue)
 import           Pos.Core as Core (AddrAttributes, Address, Coin (..),
                      TxSizeLinear, addCoin, calculateTxSizeLinear, checkCoin,
-                     isRedeemAddress, maxCoinVal, mkCoin, subCoin,
-                     unsafeSubCoin)
+                     divCoin, isRedeemAddress, maxCoinVal, mkCoin, subCoin,
+                     txSizeLinearMinValue, unsafeMulCoin, unsafeSubCoin)
 
 import           Pos.Core.Attributes (Attributes)
 import           Pos.Crypto (Signature)
@@ -145,6 +146,8 @@ data InputGrouping =
 data CoinSelectionOptions = CoinSelectionOptions {
       csoEstimateFee       :: Int -> NonEmpty Core.Coin -> Core.Coin
     -- ^ A function to estimate the fees.
+    , csoFeesSanityCheck   :: Core.Coin -> Bool
+    -- ^ A function we can use to check if fees are not too big or too small.
     , csoInputGrouping     :: InputGrouping
     -- ^ A preference regarding input grouping.
     , csoExpenseRegulation :: ExpenseRegulation
@@ -158,9 +161,10 @@ data CoinSelectionOptions = CoinSelectionOptions {
 -- | Creates new 'CoinSelectionOptions' using 'NoGrouping' as default
 -- 'InputGrouping' and 'SenderPaysFee' as default 'ExpenseRegulation'.
 newOptions :: (Int -> NonEmpty Core.Coin -> Core.Coin)
-           -> CoinSelectionOptions
-newOptions estimateFee = CoinSelectionOptions {
+           -> (Core.Coin -> Bool) -> CoinSelectionOptions
+newOptions estimateFee check = CoinSelectionOptions {
       csoEstimateFee       = estimateFee
+    , csoFeesSanityCheck   = check
     , csoInputGrouping     = IgnoreGrouping
     , csoExpenseRegulation = SenderPaysFee
     , csoDustThreshold     = Core.mkCoin 0
@@ -232,23 +236,41 @@ runCoinSelT opts pickUtxo policy (NE.sortBy (flip (comparing outVal)) -> request
     mSelection <- unwrapCoinSelT policy' utxo
     case mSelection of
       Left err -> return (Left err)
-      Right ((cssWithDust, additionalUtxo), _utxo') -> do
-        let css  = map (coinSelRemoveDust (csoDustThreshold opts)) cssWithDust
-            inps = concatMap selectedEntries
+      Right ((css, additionalUtxo, additionalChange), _utxo') -> do
+        let inps = concatMap selectedEntries
                      (additionalUtxo : map coinSelInputs css)
             outs = map coinSelOutput css
+            changesWithDust = splitChange additionalChange $ concatMap coinSelChange css
         let allInps = case inps of
                         []   -> error "runCoinSelT: empty list of inputs"
                         i:is -> i :| is
             originalOuts = case outs of
                                []   -> error "runCoinSelT: empty list of outputs"
                                o:os -> o :| os
+            changes = changesRemoveDust (csoDustThreshold opts) changesWithDust
         return . Right $ CoinSelFinalResult allInps
                                             originalOuts
-                                            (concatMap coinSelChange css)
+                                            changes
   where
+    -- we should have (x + (sum ls) = sum result), but this check could overflow.
+    splitChange :: Value Cardano -> [Value Cardano] -> [Value Cardano]
+    splitChange = go
+        where
+          go remaining [] = [remaining]
+              -- we only create new change if for whatever reason there is none already
+              -- or if is some overflow happens when we try to add.
+          go remaining [a] = case valueAdd remaining a of
+              Just newChange -> [newChange]
+              Nothing        -> [a, remaining]
+          go remaining ls@(a : as) =
+            let piece = divCoin remaining (length ls)
+                newRemaining = unsafeValueSub remaining piece -- unsafe because of div.
+            in case valueAdd piece a of
+                Just newChange -> newChange : go newRemaining as
+                Nothing        -> a : go remaining as
+
     policy' :: CoinSelT Core.Utxo CoinSelHardErr m
-                 ([CoinSelResult Cardano], SelectedUtxo Cardano)
+                 ([CoinSelResult Cardano], SelectedUtxo Cardano, Value Cardano)
     policy' = do
         mapM_ validateOutput request
         css <- intInputGrouping (csoInputGrouping opts)
@@ -414,6 +436,15 @@ estimateCardanoFee :: TxSizeLinear -> Int -> [Word64] -> Word64
 estimateCardanoFee linearFeePolicy ins outs
     = round $ calculateTxSizeLinear linearFeePolicy
             $ hi $ estimateSize boundAddrAttrSize boundTxAttrSize ins outs
+
+checkCardanoFeeSanity :: TxSizeLinear -> Coin -> Bool
+checkCardanoFeeSanity linearFeePolicy fees =
+    let
+        maxCoeff :: Int = 2
+        minFees = Core.mkCoin $ floor $ txSizeLinearMinValue linearFeePolicy
+    in
+        (fees >= minFees) && (fees <= Core.unsafeMulCoin minFees maxCoeff)
+
 
 -- | Size to use for a value of type @Attributes AddrAttributes@ when estimating
 --   encoded transaction sizes. The minimum possible value is 2.

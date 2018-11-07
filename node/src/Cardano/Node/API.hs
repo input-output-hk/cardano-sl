@@ -14,26 +14,25 @@ import           Data.Time.Units (toMicroseconds)
 import qualified Paths_cardano_sl_node as Paths
 import           Servant
 
-import           Pos.Chain.Block (LastKnownHeader, LastKnownHeaderTag)
-import           Pos.Chain.Update (UpdateConfiguration, withUpdateConfiguration)
-import           Pos.DB.GState.Lock (Priority (..), StateLock,
-                     withStateLockNoMetrics)
-import qualified Pos.DB.Rocks.Functions as DB
-import qualified Pos.Infra.Slotting.Util as Slotting
-import           Pos.Util (HasLens (..), HasLens')
-import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
-                     -- mainBlockSlot, prevBlockL)
 import           Ntp.Client (NtpStatus (..))
 import           Ntp.Packet (NtpOffset)
-import           Pos.Chain.Update (curSoftwareVersion)
+import           Pos.Chain.Block (LastKnownHeader, LastKnownHeaderTag)
+import           Pos.Chain.Update (UpdateConfiguration, curSoftwareVersion,
+                     withUpdateConfiguration)
 import qualified Pos.Core as Core
 import qualified Pos.DB.Block as DB
 import qualified Pos.DB.BlockIndex as DB
 import qualified Pos.DB.Class as DB
+import           Pos.DB.GState.Lock (Priority (..), StateLock,
+                     withStateLockNoMetrics)
+import qualified Pos.DB.Rocks.Functions as DB
 import qualified Pos.DB.Rocks.Types as DB
 import           Pos.Infra.Diffusion.Subscription.Status (ssMap)
 import           Pos.Infra.Diffusion.Types
+import qualified Pos.Infra.Slotting.Util as Slotting
 import           Pos.Node.API as Node
+import           Pos.Util (HasLens (..), HasLens')
+import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
 import           Pos.Util.Servant
 
 handlers

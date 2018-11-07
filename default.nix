@@ -284,7 +284,6 @@ let
           cardano-sl-tools
           cardano-sl-tools-post-mortem
           cardano-sl-util
-          cardano-sl-wallet
           cardano-sl-wallet-new
           cardano-sl-x509;
         inherit (self.haskellPackages)

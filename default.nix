@@ -152,7 +152,8 @@ let
     # Docker images
 
     dockerImages = let
-      build = args: self.callPackage ./nix/docker.nix ({
+
+      build = assert (system == "x86_64-linux"); args: self.callPackage ./nix/docker.nix ({
         inherit (self.cardanoPackages) cardano-sl-node-static;
       } // args);
       makeDockerImage = { environment, ...}:

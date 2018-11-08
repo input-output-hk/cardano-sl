@@ -51,7 +51,7 @@ let
       exec ${cardano-sl-node-static}/bin/cardano-node-simple $node_args "$@"
     '')
   ];
-  
+
 in dockerTools.buildImage {
   name = "cardano-sl";
   tag = "${version}${if (type != null) then "-" + type else ""}-${environment}";

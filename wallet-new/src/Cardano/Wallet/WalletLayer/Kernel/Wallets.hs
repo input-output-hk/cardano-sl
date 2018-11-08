@@ -128,7 +128,7 @@ createWallet wallet newWalletRequest = liftIO $ do
                     restoreWallet
                       wallet
                       (pwd /= emptyPassphrase)
-                      (hdAddress ^. HD.hdAddressAddress . fromDb)
+                      (Just (hdAddress ^. HD.hdAddressAddress . fromDb))
                       (HD.WalletName walletName)
                       hdAssuranceLevel
                       esk

@@ -25,6 +25,7 @@ module Cardano.Wallet.Kernel.Keystore (
     -- * Deleting values
     , delete
     -- * Queries on a keystore
+    , getKeys
     , lookup
     -- * Tests handy functions
     , bracketTestKeystore
@@ -267,6 +268,11 @@ lookup nm wId (Keystore ks) =
 lookupKey :: NetworkMagic -> UserSecret -> WalletId -> Maybe EncryptedSecretKey
 lookupKey nm us (WalletIdHdRnd walletId) =
     Data.List.find (\k -> eskToHdRootId nm k == walletId) (us ^. usKeys)
+
+-- | Return all Keystore 'usKeys'
+getKeys :: Keystore -> IO [EncryptedSecretKey]
+getKeys (Keystore ks) =
+    Strict.withMVar ks $ \(InternalStorage us) -> return $ us ^. usKeys
 
 {-------------------------------------------------------------------------------
   Deleting things from the keystore

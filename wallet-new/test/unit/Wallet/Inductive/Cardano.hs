@@ -237,7 +237,7 @@ equivalentT useWW activeWallet esk = \mkWallet w ->
           Kernel.createWalletHdRnd
             passiveWallet
             False
-            (defaultAddress ^. HD.hdAddressAddress . fromDb)
+            (Just (defaultAddress ^. HD.hdAddressAddress . fromDb))
             walletName
             assuranceLevel
             esk

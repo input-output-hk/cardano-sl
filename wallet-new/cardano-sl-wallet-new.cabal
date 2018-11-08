@@ -161,7 +161,6 @@ library
                      , cardano-sl
                      , cardano-sl-binary
                      , cardano-sl-chain
-                     , cardano-sl-chain-test
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-core-test
@@ -197,7 +196,6 @@ library
                      , mtl
                      , mwc-random
                      , neat-interpolation
-                     , network-transport
                      , optparse-applicative
                      , QuickCheck
                      , QuickCheck
@@ -229,7 +227,6 @@ library
                      , tls
                      , transformers
                      , universum
-                     , unliftio
                      , unliftio-core
                      , unordered-containers
                      , vector
@@ -266,17 +263,9 @@ executable cardano-node
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -O2
-  build-depends:       base
-                     , cardano-sl
-                     , cardano-sl-chain
-                     , cardano-sl-core
-                     , cardano-sl-infra
-                     , cardano-sl-db
-                     , cardano-sl-networking
+  build-depends:       cardano-sl
                      , cardano-sl-util
                      , cardano-sl-wallet-new
-                     , stm
-                     , text
                      , universum
 
   default-language:    Haskell2010
@@ -312,10 +301,8 @@ executable cardano-generate-swagger-file
                      , aeson
                      , cardano-sl-util
                      , cardano-sl-chain
-                     , cardano-sl-core
                      , cardano-sl-wallet-new
                      , optparse-applicative
-                     , servant-server
                      , swagger2
                      , universum >= 0.1.11
 
@@ -357,7 +344,6 @@ executable wal-integr-test
                      , aeson-pretty
                      , async
                      , bytestring
-                     , cardano-crypto
                      , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-crypto
@@ -497,7 +483,6 @@ test-suite wallet-unit-tests
                     , cardano-sl-core
                     , cardano-sl-core-test
                     , cardano-sl-crypto
-                    , cardano-sl-crypto-test
                     , cardano-sl-db
                     , cardano-sl-infra
                     , cardano-sl-util
@@ -505,7 +490,6 @@ test-suite wallet-unit-tests
                     , cardano-sl-utxo
                     , cardano-sl-wallet-new
                     , cereal
-                    , constraints
                     , containers
                     , cryptonite
                     , data-default
@@ -518,7 +502,6 @@ test-suite wallet-unit-tests
                     , quickcheck-instances
                     , safe-exceptions
                     , safecopy
-                    , reflection
                     , serokell-util
                     , servant-server
                     , tabl
@@ -526,7 +509,6 @@ test-suite wallet-unit-tests
                     , time-units
                     , formatting
                     , universum
-                    , unordered-containers
                     , vector
                       -- needed only for input selection evaluation
                     , bytestring
@@ -591,7 +573,6 @@ test-suite wallet-new-specs
                     , cardano-sl-core-test
                     , cardano-sl-crypto
                     , cardano-sl-chain
-                    , cardano-sl-infra
                     , cardano-sl-util
                     , cardano-sl-util-test
                     , cardano-sl-wallet-new

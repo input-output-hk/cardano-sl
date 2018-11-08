@@ -46,7 +46,6 @@ library
                      , pretty-show
                      , quickcheck-instances
                      , safecopy
-                     , tagged
                      , template-haskell
                      , text
                      , time-units

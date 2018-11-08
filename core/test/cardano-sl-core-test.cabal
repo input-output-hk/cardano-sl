@@ -40,7 +40,6 @@ library
                      , cryptonite
                      , generic-arbitrary
                      , hedgehog
-                     , pvss
                      , quickcheck-instances
                      , random
                      , serokell-util

@@ -148,7 +148,6 @@ executable cardano-launcher
                      , optparse-applicative
                      , process
                      , safe-exceptions
-                     , serokell-util
                      , silently
                      , text
                      , time-units
@@ -361,37 +360,16 @@ library
                        Pos.Tools.Launcher.Logging
 
   build-depends:       base >= 4.7 && < 5
-                     , QuickCheck
-                     , acid-state-exts
                      , aeson
-                     , ansi-terminal
-                     , bytestring
-                     , cardano-sl
-                     , cardano-sl-chain
-                     , cardano-sl-chain-test
-                     , cardano-sl-client
-                     , cardano-sl-core
-                     , cardano-sl-core-test
-                     , cardano-sl-db
-                     , cardano-sl-infra
-                     , cardano-sl-networking
-                     , cardano-sl-util
                      , containers
                      , data-default
                      , directory
                      , filepath
                      , network-transport-tcp >= 0.6
-                     , optparse-applicative
-                     , optparse-generic
                      , parsers
-                     , stm
-                     , string-conv
                      , text
-                     , time
-                     , time-units
                      , trifecta
                      , universum >= 0.1.11
-                     , unordered-containers
 
   default-extensions:   NoImplicitPrelude
 
@@ -407,14 +385,11 @@ test-suite cardano-sl-tools-test
   type:                exitcode-stdio-1.0
   build-depends:       aeson
                      , base
-                     , cardano-sl-binary-test
                      , cardano-sl-tools
                      , cardano-sl-util-test
                      , directory
-                     , hedgehog
                      , hspec
                      , temporary
-                     , universum
 
   hs-source-dirs:      test
   default-language:    Haskell2010

@@ -182,9 +182,11 @@ packages:
 
 # servant-quickcheck has a doc/doc.cabal file that is poorly specified and this
 # breaks the mafia build tool.
+#
+# also the new version with bugfixes depends on stuff that isn't in the lts-11
 - location:
-    git: https://github.com/avieth/servant-quickcheck.git
-    commit: e4e879abca99d0d56015765859fb37af59a81dbb
+    git: https://github.com/parsonsmatt/servant-quickcheck.git
+    commit: "0d7840e5c5cc7bde2ae290774347cbbcc0964f96"
   extra-dep: true
 
 # Add custom stylish-haskell while waiting for PR upstream: https://github.com/jaspervdj/stylish-haskell/pull/214
@@ -223,8 +225,6 @@ extra-deps:
 # There are 2 asyncs -_-
 - lifted-async-0.10.0.1
 
-- servant-quickcheck-0.0.7.3
-
 # Serokell-specific utilities not on stackage
 - fmt-0.6
 
@@ -256,9 +256,16 @@ extra-deps:
 - servant-multipart-0.11.2
 # Because of servant-quickcheck
 # It defines serverSatisfiesMgr, but requires a newer hspec.
-- hspec-2.5.1
-- hspec-core-2.5.1
-- hspec-discover-2.5.1
+- hspec-2.5.6
+- hspec-core-2.5.6
+- hspec-discover-2.5.6
+
+# new hspec depends on new quickcheck
+- QuickCheck-2.12.6.1
+
+# new quickcheck needs an update for these two
+- quickcheck-instances-0.3.19
+- these-0.7.5
 
 # Graphics stuff not found on stackage.
 - Chart-diagrams-1.8.3

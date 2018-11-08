@@ -17282,8 +17282,11 @@ license = stdenv.lib.licenses.mit;
 , QuickCheck
 , reflection
 , safe-exceptions
+, servant-server
 , stdenv
+, stm
 , text
+, time-units
 , universum
 , validation
 }:
@@ -17302,6 +17305,19 @@ isLibrary = true;
 isExecutable = true;
 libraryHaskellDepends = [
 base
+cardano-sl
+cardano-sl-chain
+cardano-sl-core
+cardano-sl-db
+cardano-sl-infra
+cardano-sl-networking
+cardano-sl-util
+lens
+servant-server
+stm
+text
+time-units
+universum
 ];
 executableHaskellDepends = [
 base

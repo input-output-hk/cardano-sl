@@ -14484,7 +14484,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-infra
 , cardano-sl-networking
 , cardano-sl-util
-, cardano-sl-wallet-new
+, cardano-sl-wallet
 , cardano-sl-x509
 , containers
 , cryptonite
@@ -14531,7 +14531,7 @@ cardano-sl-core
 cardano-sl-infra
 cardano-sl-networking
 cardano-sl-util
-cardano-sl-wallet-new
+cardano-sl-wallet
 cardano-sl-x509
 containers
 cryptonite
@@ -14554,7 +14554,7 @@ executableHaskellDepends = [
 ansi-terminal
 async
 base
-cardano-sl-wallet-new
+cardano-sl-wallet
 containers
 docopt
 formatting
@@ -15369,7 +15369,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto
 , cardano-sl-infra
 , cardano-sl-util
-, cardano-sl-wallet-new
+, cardano-sl-wallet
 , connection
 , cryptonite
 , data-default
@@ -15434,7 +15434,7 @@ cardano-sl-chain
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-util
-cardano-sl-wallet-new
+cardano-sl-wallet
 connection
 cryptonite
 data-default
@@ -15483,7 +15483,7 @@ cardano-sl-chain
 cardano-sl-core
 cardano-sl-infra
 cardano-sl-util
-cardano-sl-wallet-new
+cardano-sl-wallet
 ekg
 ekg-core
 ekg-statsd
@@ -15509,7 +15509,7 @@ aeson
 base
 bytestring
 cardano-sl-core
-cardano-sl-wallet-new
+cardano-sl-wallet
 hspec
 mtl
 QuickCheck
@@ -16066,7 +16066,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-networking
 , cardano-sl-util
 , cardano-sl-utxo
-, cardano-sl-wallet-new
+, cardano-sl-wallet
 , constraints
 , containers
 , cpphs
@@ -16125,7 +16125,7 @@ cardano-sl-infra
 cardano-sl-networking
 cardano-sl-util
 cardano-sl-utxo
-cardano-sl-wallet-new
+cardano-sl-wallet
 constraints
 containers
 data-default
@@ -16766,208 +16766,6 @@ license = stdenv.lib.licenses.mit;
 ({
   mkDerivation
 , acid-state
-, acid-state-exts
-, aeson
-, async
-, base
-, base58-bytestring
-, basement
-, bytestring
-, cardano-crypto
-, cardano-sl
-, cardano-sl-chain
-, cardano-sl-chain-test
-, cardano-sl-client
-, cardano-sl-core
-, cardano-sl-core-test
-, cardano-sl-crypto
-, cardano-sl-crypto-test
-, cardano-sl-db
-, cardano-sl-generator
-, cardano-sl-infra
-, cardano-sl-networking
-, cardano-sl-node-ipc
-, cardano-sl-util
-, cardano-sl-util-test
-, containers
-, cpphs
-, cryptonite
-, data-default
-, deepseq
-, directory
-, dlist
-, ekg-core
-, ether
-, exceptions
-, filepath
-, formatting
-, hashable
-, hspec
-, lens
-, memory
-, monad-control
-, MonadRandom
-, mtl
-, pvss
-, QuickCheck
-, random
-, reflection
-, safe-exceptions
-, safecopy
-, semver
-, serokell-util
-, servant
-, servant-multipart
-, servant-server
-, servant-swagger
-, servant-swagger-ui
-, stdenv
-, stm
-, swagger2
-, text
-, time
-, time-units
-, transformers
-, universum
-, unix
-, unliftio
-, unordered-containers
-, wai
-, wai-websockets
-, warp
-, websockets
-}:
-mkDerivation {
-
-pname = "cardano-sl-wallet";
-version = "2.0.0";
-src = ./../wallet;
-configureFlags = [
-"--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Wall"
-"--ghc-option=-Wcompat"
-"--ghc-option=-Werror"
-];
-libraryHaskellDepends = [
-acid-state
-acid-state-exts
-aeson
-async
-base
-base58-bytestring
-basement
-bytestring
-cardano-crypto
-cardano-sl
-cardano-sl-chain
-cardano-sl-chain-test
-cardano-sl-client
-cardano-sl-core
-cardano-sl-core-test
-cardano-sl-crypto
-cardano-sl-db
-cardano-sl-generator
-cardano-sl-infra
-cardano-sl-networking
-cardano-sl-node-ipc
-cardano-sl-util
-containers
-cryptonite
-data-default
-directory
-dlist
-ekg-core
-ether
-exceptions
-filepath
-formatting
-hashable
-hspec
-lens
-memory
-monad-control
-mtl
-QuickCheck
-random
-reflection
-safe-exceptions
-safecopy
-semver
-serokell-util
-servant
-servant-multipart
-servant-server
-servant-swagger
-servant-swagger-ui
-stm
-swagger2
-text
-time
-time-units
-transformers
-universum
-unix
-unliftio
-unordered-containers
-wai
-wai-websockets
-warp
-websockets
-];
-libraryToolDepends = [
-cpphs
-];
-testHaskellDepends = [
-aeson
-base
-bytestring
-cardano-crypto
-cardano-sl
-cardano-sl-chain
-cardano-sl-chain-test
-cardano-sl-client
-cardano-sl-core
-cardano-sl-core-test
-cardano-sl-crypto
-cardano-sl-crypto-test
-cardano-sl-db
-cardano-sl-generator
-cardano-sl-infra
-cardano-sl-util
-cardano-sl-util-test
-containers
-data-default
-deepseq
-ekg-core
-ether
-formatting
-hspec
-lens
-MonadRandom
-mtl
-pvss
-QuickCheck
-safe-exceptions
-safecopy
-serokell-util
-servant
-servant-server
-stm
-universum
-unordered-containers
-];
-testToolDepends = [
-cpphs
-];
-doHaddock = false;
-description = "Cardano SL - wallet";
-license = stdenv.lib.licenses.mit;
-
-}) {};
-"cardano-sl-wallet-new" = callPackage
-({
-  mkDerivation
-, acid-state
 , aeson
 , aeson-diff
 , aeson-options
@@ -16999,7 +16797,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-util
 , cardano-sl-util-test
 , cardano-sl-utxo
-, cardano-sl-wallet
 , cardano-sl-x509
 , cereal
 , clock
@@ -17082,9 +16879,9 @@ license = stdenv.lib.licenses.mit;
 }:
 mkDerivation {
 
-pname = "cardano-sl-wallet-new";
+pname = "cardano-sl-wallet";
 version = "2.0.0";
-src = ./../wallet-new;
+src = ./../wallet;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
 "--ghc-option=-Wall"
@@ -17123,7 +16920,6 @@ cardano-sl-networking
 cardano-sl-node-ipc
 cardano-sl-util
 cardano-sl-utxo
-cardano-sl-wallet
 cardano-sl-x509
 cereal
 clock
@@ -17207,7 +17003,6 @@ cardano-sl-db
 cardano-sl-infra
 cardano-sl-networking
 cardano-sl-util
-cardano-sl-wallet
 containers
 exceptions
 formatting
@@ -17251,7 +17046,6 @@ cardano-sl-infra
 cardano-sl-util
 cardano-sl-util-test
 cardano-sl-utxo
-cardano-sl-wallet
 cereal
 conduit
 constraints
@@ -17292,37 +17086,6 @@ vector
 doHaddock = false;
 homepage = "https://github.com/input-output-hk/cardano-sl/#readme";
 description = "The Wallet Backend for a Cardano node";
-license = stdenv.lib.licenses.mit;
-
-}) {};
-"cardano-sl-wallet-test" = callPackage
-({
-  mkDerivation
-, base
-, bytestring
-, cardano-sl-core-test
-, cardano-sl-wallet
-, QuickCheck
-, serokell-util
-, stdenv
-, universum
-}:
-mkDerivation {
-
-pname = "cardano-sl-wallet-test";
-version = "2.0.0";
-src = ./../wallet/test;
-libraryHaskellDepends = [
-base
-bytestring
-cardano-sl-core-test
-cardano-sl-wallet
-QuickCheck
-serokell-util
-universum
-];
-doHaddock = false;
-description = "Cardano SL - wallet (Arbitrary instances)";
 license = stdenv.lib.licenses.mit;
 
 }) {};

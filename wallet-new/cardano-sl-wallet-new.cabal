@@ -302,6 +302,10 @@ executable cardano-node
                       MonadFailDesugaring
 
 executable cardano-generate-swagger-file
+  if !os(windows)
+    buildable: True
+  else
+    buildable: False
   hs-source-dirs:      generate-swagger-file
   main-is:             Main.hs
   default-language:    Haskell2010
@@ -335,6 +339,10 @@ executable cardano-generate-swagger-file
 -- Cryptic executable name to mitigate $PATH limitation
 -- on Windows and AppVeyor.
 executable wal-integr-test
+  if !os(windows)
+    buildable: True
+  else
+    buildable: False
   hs-source-dirs:      integration
   main-is:             Main.hs
   ghc-options:         -threaded -rtsopts

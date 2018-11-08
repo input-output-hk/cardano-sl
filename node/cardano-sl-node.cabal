@@ -118,7 +118,7 @@ test-suite property-tests
                      , cardano-sl-networking
                      , cardano-sl-util
                      , cardano-sl-utxo
-                     , cardano-sl-wallet-new
+                     , cardano-sl-wallet
                      , constraints
                      , containers
                      , data-default >= 0.7

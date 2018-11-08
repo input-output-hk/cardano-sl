@@ -35,7 +35,7 @@ packages:
 - tools
 - tools/post-mortem
 - utxo
-- wallet-new # The new (unreleased) version of the wallet
+- wallet
 - node-ipc
 - faucet
 - acid-state-exts
@@ -262,7 +262,7 @@ ghc-options:
   cardano-sl-tools-post-mortem: -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-util:              -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-util-test:         -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-wallet-new:        -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-wallet:            -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-node-ipc:          -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-x509:              -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-cluster:           -Wall -Werror -Wcompat -fwarn-redundant-constraints

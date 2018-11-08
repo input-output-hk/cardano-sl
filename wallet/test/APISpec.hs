@@ -24,7 +24,7 @@ import qualified Cardano.Wallet.API.V1 as V1
 -- Our API apparently is returning JSON Arrays which is considered bad practice as very old
 -- browsers can be hacked: https://haacked.com/archive/2009/06/25/json-hijacking.aspx/
 -- The general consensus, after discussing this with the team, is that we can be moderately safe.
--- stack test cardano-sl-wallet-new --fast --test-arguments '-m "Servant API Properties"'
+-- stack test cardano-sl-wallet --fast --test-arguments '-m "Servant API Properties"'
 spec :: Spec
 spec = do
     describe "Servant Layout" $ around_ withTestDirectory $ do
@@ -52,7 +52,7 @@ withTestDirectory :: IO () -> IO ()
 withTestDirectory action = void . runMaybeT $ do
     dir <- lift getCurrentDirectory
     entries <- lift $ listDirectory dir
-    guard ("cardano-sl-wallet-new.cabal" `notElem` entries)
+    guard ("cardano-sl-wallet.cabal" `notElem` entries)
     guard ("wallet-new" `elem` entries)
     lift $ do
         bracket_ (setCurrentDirectory =<< makeAbsolute "wallet-new")

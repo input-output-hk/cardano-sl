@@ -6,7 +6,7 @@ Although stack has support for building with profiling [1], for some reason
 it is currently unable to build `cardano-sl-update` with profiling enabled.
 
 ```
-stack build --profile cardano-sl-wallet-new:wallet-unit-tests
+stack build --profile cardano-sl-wallet:wallet-unit-tests
 ```
 
 will result in
@@ -35,7 +35,7 @@ nor did forcing stack to use my system ghc.
 `nix-build` can be used to obtain a profiling build
 
 ```
-nix-build -A cardano-sl-wallet-new --arg enableProfiling true
+nix-build -A cardano-sl-wallet --arg enableProfiling true
 ```
 
 Note however that this _builds and runs_ the tests for a lot of  dependencies.
@@ -46,7 +46,7 @@ To address this, may wish to change the definition of `mkDerivation` in
 mkDerivation = args: super.mkDerivation (args // {
     enableLibraryProfiling    = enableProfiling;
     enableExecutableProfiling = enableProfiling;
-    doCheck                   = args.pname == "cardano-sl-wallet-new";
+    doCheck                   = args.pname == "cardano-sl-wallet";
   }
 ```
 

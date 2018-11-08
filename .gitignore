@@ -92,13 +92,11 @@ socket-io.log
 custom-wallet-config.nix
 
 # wallet web API benchmarking results
-wallet-new/bench/results/*.csv
-wallet-new/bench/results/*.txt
+wallet/bench/results/*.csv
+wallet/bench/results/*.txt
 
 # wallet web API golden tests
-wallet-new/test/golden/*.txt.new
-
-wallet/test/wallet-db-1.1.1/open.lock
+wallet/test/golden/*.txt.new
 
 # cardano-state-* for wallet data
 cardano-state-*

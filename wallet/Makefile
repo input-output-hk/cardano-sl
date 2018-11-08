@@ -3,11 +3,11 @@ help: ## Print documentation
 
 ghcid: ## Run ghcid with the wallet-new project
 	ghcid \
-	    --command "stack ghci cardano-sl-wallet-new --ghci-options=-fno-code"
+	    --command "stack ghci cardano-sl-wallet --ghci-options=-fno-code"
 
 ghcid-test: ## Have ghcid run the test suite for the wallet-new-specs on successful recompile
 	ghcid \
-	    --command "stack ghci cardano-sl-wallet-new:lib cardano-sl-wallet-new:test:wallet-new-specs --ghci-options=-fobject-code" \
+	    --command "stack ghci cardano-sl-wallet:lib cardano-sl-wallet:test:wallet-new-specs --ghci-options=-fobject-code" \
 	    --test "main"
 
 .PHONY: ghcid ghcid-test help

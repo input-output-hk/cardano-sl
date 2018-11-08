@@ -6,7 +6,7 @@ import           Cardano.Wallet.API.Response (WalletResponse, single)
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Data.Text as T
-import           Paths_cardano_sl_wallet_new (version)
+import           Paths_cardano_sl_wallet (version)
 
 import           Pos.Chain.Update (curSoftwareVersion)
 import qualified Pos.Node.API as Node

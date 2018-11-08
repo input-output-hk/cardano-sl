@@ -140,7 +140,7 @@ library
                        Cardano.Wallet.WalletLayer.Kernel.Wallets
                        Cardano.Wallet.WalletLayer.Kernel
 
-  other-modules:       Paths_cardano_sl_wallet_new
+  other-modules:       Paths_cardano_sl_wallet
   ghc-options:         -Wall
 
   build-depends:       base

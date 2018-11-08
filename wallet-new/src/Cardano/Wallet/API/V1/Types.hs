@@ -529,6 +529,9 @@ instance BuildableSafeGen PublicKeyAsBase58 where
         %" }")
         ewalPublicKeyAsBase58
 
+instance Buildable [PublicKeyAsBase58] where
+    build = bprint listJson
+
 instance FromHttpApiData PublicKeyAsBase58 where
     parseQueryParam someText =
         case decodeBase58 bitcoinAlphabet (encodeUtf8 someText) of
@@ -655,7 +658,8 @@ mkTransactionSignatureAsBase16 (Core.Signature txSig) =
 -- | A type modelling the request for a new 'ExternalWallet',
 -- on the mobile client or hardware wallet.
 data NewExternalWallet = NewExternalWallet
-    { newewalRootPK         :: !PublicKeyAsBase58
+    { newewalAccountsPKs    :: ![PublicKeyAsBase58]
+    , newewalAddressPoolGap :: !(Maybe Word)
     , newewalAssuranceLevel :: !AssuranceLevel
     , newewalName           :: !WalletName
     } deriving (Eq, Show, Generic)
@@ -664,12 +668,14 @@ deriveJSON Aeson.defaultOptions ''NewExternalWallet
 instance Arbitrary NewExternalWallet where
     arbitrary = NewExternalWallet <$> arbitrary
                                   <*> arbitrary
+                                  <*> arbitrary
                                   <*> pure "My external Wallet"
 
 instance ToSchema NewExternalWallet where
     declareNamedSchema =
         genericSchemaDroppingPrefix "newewal" (\(--^) props -> props
-            & ("rootPK"         --^ "Root public key to identify external wallet.")
+            & ("accountsPKs"    --^ "External wallet's accounts public keys.")
+            & ("addressPoolGap" --^ "Address pool gap.")
             & ("assuranceLevel" --^ "Desired assurance level based on the number of confirmations counter of each transaction.")
             & ("name"           --^ "External wallet's name.")
         )
@@ -677,11 +683,13 @@ instance ToSchema NewExternalWallet where
 deriveSafeBuildable ''NewExternalWallet
 instance BuildableSafeGen NewExternalWallet where
     buildSafeGen sl NewExternalWallet{..} = bprint ("{"
-        %" rootPK="%buildSafe sl
+        %" accountsPKs="%buildSafe sl
+        %" addressPoolGap="%build
         %" assuranceLevel="%buildSafe sl
         %" name="%buildSafe sl
         %" }")
-        newewalRootPK
+        newewalAccountsPKs
+        newewalAddressPoolGap
         newewalAssuranceLevel
         newewalName
 
@@ -2357,6 +2365,7 @@ instance Example TransactionSignatureAsBase16 where
 
 instance Example NewExternalWallet where
     example = NewExternalWallet <$> example
+                                <*> pure (Just 20)
                                 <*> example
                                 <*> pure "My external Wallet"
 

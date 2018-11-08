@@ -17,6 +17,7 @@ import           Universum
 
 import           Control.Monad.Except (throwError)
 import           Data.Coerce (coerce)
+import           Data.List ((!!))
 import qualified Data.Map.Strict as Map
 
 import           Pos.Chain.Block (Blund)
@@ -180,18 +181,30 @@ createExternalWallet :: MonadIO m
                      -> V1.NewExternalWallet
                      -> m (Either CreateExternalWalletError V1.ExternalWallet)
 createExternalWallet wallet newExternalWalletRequest = runExceptT $ do
-    let encodedRootPK = V1.newewalRootPK newExternalWalletRequest
+    let encodedAccountsPKs = V1.newewalAccountsPKs newExternalWalletRequest
+        addressPoolGap = maybe defaultAddressPoolGap id $
+            V1.newewalAddressPoolGap newExternalWalletRequest
         name = V1.newewalName newExternalWalletRequest
         assuranceLevel = V1.newewalAssuranceLevel newExternalWalletRequest
-    rootPK <- withExceptT CreateExternalWalletInvalidRootPK $ ExceptT $
-        pure $ V1.mkPublicKeyFromBase58 encodedRootPK
-    root <- withExceptT CreateExternalWalletError $ ExceptT $ liftIO $
-        Kernel.createExternalHdWallet wallet
-                                      rootPK
-                                      (fromAssuranceLevel assuranceLevel)
-                                      (HD.WalletName name)
-    return (mkExternalWallet name assuranceLevel root)
+    if null encodedAccountsPKs
+        then throwError CreateExternalWalletNoAccountsPKs
+        else do
+            let eitherPKs = map V1.mkPublicKeyFromBase58 encodedAccountsPKs
+                problems  = lefts eitherPKs
+                validPKs  = rights eitherPKs
+            if not . null $ problems
+                then throwError $ CreateExternalWalletInvalidAccountPK $ problems !! 0
+                else do
+                    root <- withExceptT CreateExternalWalletError $ ExceptT $ liftIO $
+                        Kernel.createExternalHdWallet wallet
+                                                      validPKs
+                                                      addressPoolGap
+                                                      (fromAssuranceLevel assuranceLevel)
+                                                      (HD.WalletName name)
+                    return (mkExternalWallet name assuranceLevel root)
   where
+    defaultAddressPoolGap = 20
+
     mkExternalWallet :: Text -> V1.AssuranceLevel -> HD.HdRoot -> V1.ExternalWallet
     mkExternalWallet v1WalletName v1AssuranceLevel hdRoot = V1.ExternalWallet {
           ewalId             = walletId

@@ -35,13 +35,13 @@ import           Cardano.Wallet.Kernel.Addresses (newHdAddress)
 import           Cardano.Wallet.Kernel.BIP39 (Mnemonic)
 import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
 import           Cardano.Wallet.Kernel.DB.AcidState
-                     (CreateHdExternalWallet (..), CreateHdWallet (..),
+                     ({-CreateHdExternalWallet (..),-} CreateHdWallet (..),
                      DeleteHdRoot (..), RestoreHdWallet,
                      UpdateHdRootPassword (..), UpdateHdWallet (..))
 import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel,
                      HdAccountId (..), HdAccountIx (..), HdAddress,
                      HdAddressId (..), HdAddressIx (..), HdRoot, HdRootId,
-                     WalletName, eskToHdRootId, pkToHdRootId)
+                     WalletName, eskToHdRootId)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
@@ -230,10 +230,10 @@ createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
 
 -- | Creates a new external HD 'Wallet'.
 createExternalHdWallet :: PassiveWallet
-                       -> PublicKey
-                       -- ^ Extended public key that corresponds to the root secret key of
-                       -- this external wallet (assumed that root secret key is storing
-                       -- externally, for example in the memory of Ledger device).
+                       -> [PublicKey]
+                       -- ^ External wallet's accounts public keys.
+                       -> Word
+                       -- ^ Address pool gap.
                        -> AssuranceLevel
                        -- ^ The 'AssuranceLevel' for this wallet, namely after how many
                        -- blocks each transaction is considered 'adopted'. This translates
@@ -242,10 +242,20 @@ createExternalHdWallet :: PassiveWallet
                        -> WalletName
                        -- ^ The name for this wallet.
                        -> IO (Either CreateExternalWalletError HdRoot)
-createExternalHdWallet pw rootPK assuranceLevel walletName = do
+createExternalHdWallet _pw _accountsPKs _addressPoolGap _assuranceLevel _walletName = do
+    -- Here, we review the definition of a wallet down to a list of account public keys with
+    -- no relationship whatsoever from the wallet's point of view. New addresses can be derived
+    -- for each account at will and discovered using the address pool discovery algorithm
+    -- described in BIP-44. Public keys are managed and provided from an external sources.
+    --
+    -- TODO: we have to store 'addressPoolGap' to know how many addresses we can create.
+    -- TODO: These public keys correspond to accounts, it's not an old root of course!
+    error "TODO"
+    {-
     created <- InDb <$> getCurrentTimestamp
-    let nm      = makeNetworkMagic (pw ^. walletProtocolMagic)
-        rootId  = pkToHdRootId nm rootPK
+    let (firstPK:_) = accountsPKs
+        nm      = makeNetworkMagic (pw ^. walletProtocolMagic)
+        rootId  = pkToHdRootId nm firstPK
         newRoot = HD.initHdRoot rootId
                                 walletName
                                 HD.NoSpendingPassword
@@ -261,6 +271,7 @@ createExternalHdWallet pw rootPK assuranceLevel walletName = do
             return . Left $ CreateExternalWalletFailed e
         Right hdRoot ->
             return (Right hdRoot)
+    -}
 
 -- | Creates an HD wallet where new accounts and addresses are generated
 -- via random index derivation.

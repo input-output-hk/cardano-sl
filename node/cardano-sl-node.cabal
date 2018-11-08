@@ -61,6 +61,7 @@ executable cardano-node-simple
   hs-source-dirs:      app
   main-is:             Main.hs
   build-depends:       base
+                     , async
                      , cardano-sl-core
                      , cardano-sl-chain
                      , cardano-sl-db

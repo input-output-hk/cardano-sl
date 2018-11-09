@@ -146,7 +146,6 @@ library
                       , ansi-terminal
                       , ansi-wl-pprint
                       , async
-                      , base64-bytestring
                       , bytestring
                       , canonical-json
                       , cardano-sl-binary
@@ -173,7 +172,6 @@ library
                       , filepath
                       , formatting
                       , formatting
-                      , generic-arbitrary
                       , generics-sop
                       , hspec
                       , http-api-data
@@ -184,7 +182,6 @@ library
                       , lens
                       , lifted-async
                       , memory
-                      , mmorph
                       , monad-control
                       , mtl
                       , neat-interpolation
@@ -224,8 +221,6 @@ library
                       , x509-store
                       , x509-validation
                       , yaml
-                      -- https://issues.serokell.io/issue/DEVOPS-230
-                      , cpphs
                       -- Required for common test modules
                       , cborg
 

@@ -123,9 +123,7 @@ test-suite cardano-generator-test
                      , cardano-sl-chain
                      , cardano-sl-chain-test
                      , cardano-sl-core
-                     , cardano-sl-core-test
                      , cardano-sl-crypto
-                     , cardano-sl-crypto-test
                      , cardano-sl-db
                      , cardano-sl-generator
                      , cardano-sl-util
@@ -193,7 +191,6 @@ benchmark cardano-sl-verification-bench
                       , cardano-sl-util
                       , criterion
                       , MonadRandom
-                      , QuickCheck
                       , random
                       , time-units
                       , universum >= 0.1.11
@@ -247,7 +244,6 @@ executable cardano-sl-verification-bench-exe
                       , cardano-sl-generator
                       , cardano-sl-util
                       , containers
-                      , cryptonite
                       , deepseq
                       , directory
                       , formatting

@@ -28,7 +28,6 @@ library
   -- other-modules:
   build-depends:       base >=4.10 && <4.11
                      , QuickCheck
-                     , cardano-crypto
                      , cardano-sl
                      , cardano-sl-binary
                      , cardano-sl-chain
@@ -37,7 +36,6 @@ library
                      , cardano-sl-core
                      , cardano-sl-core-test
                      , cardano-sl-crypto
-                     , cardano-sl-crypto-test
                      , cardano-sl-db
                      , cardano-sl-util
                      , constraints
@@ -46,11 +44,9 @@ library
                      , data-default >= 0.7
                      , formatting
                      , lens
-                     , log-warper >= 1.8
                      , mtl
                      , reflection >= 2.1
                      , safecopy
-                     , safe-exceptions
                      , serokell-util
                      , universum
                      , unordered-containers

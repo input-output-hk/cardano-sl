@@ -26,7 +26,6 @@ library
                      , cborg
                      , cereal
                      , containers
-                     , cryptonite
                      , formatting
                      , half
                      , hedgehog

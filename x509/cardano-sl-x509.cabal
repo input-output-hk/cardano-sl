@@ -35,8 +35,6 @@ library
                , filepath
                , hourglass
                , ip
-               , optparse-applicative
-               , text
                , universum
                , unordered-containers
                , x509

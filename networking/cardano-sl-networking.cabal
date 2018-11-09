@@ -48,7 +48,6 @@ Library
                       , binary >= 0.8
                       , bytestring
                       , cardano-sl-chain
-                      , cardano-sl-core
                       , cardano-sl-util
                       , containers
                       , ekg-core

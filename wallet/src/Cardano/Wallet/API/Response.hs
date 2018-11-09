@@ -120,14 +120,6 @@ fromSlice params (SliceOf theData totalEntries) = WalletResponse {
     }
 
 
--- | Creates a 'WalletResponse' with just a single record into it.
-single :: a -> WalletResponse a
-single theData = WalletResponse {
-      wrData   = theData
-    , wrStatus = SuccessStatus
-    , wrMeta   = Metadata (PaginationMetadata 1 (Page 1) (PerPage 1) 1)
-    }
-
 --
 -- Creating a better user experience when it comes to errors.
 --

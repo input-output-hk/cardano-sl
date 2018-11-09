@@ -347,7 +347,6 @@ benchmark block-bench
                      , deepseq
                      , formatting
                      , generic-arbitrary
-                     , lens
                      , random
                      , text
                      , universum

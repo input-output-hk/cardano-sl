@@ -71,6 +71,7 @@ module Pos.Util.Servant
     , Tags
     , mapRouter
     , WalletResponse(..)
+    , single
     , Metadata(..)
     ) where
 
@@ -979,3 +980,11 @@ instance Example a => Example (WalletResponse a) where
     example = WalletResponse <$> example
                              <*> pure SuccessStatus
                              <*> example
+
+-- | Creates a 'WalletResponse' with just a single record into it.
+single :: a -> WalletResponse a
+single theData = WalletResponse {
+      wrData   = theData
+    , wrStatus = SuccessStatus
+    , wrMeta   = Metadata (PaginationMetadata 1 (Page 1) (PerPage 1) 1)
+    }

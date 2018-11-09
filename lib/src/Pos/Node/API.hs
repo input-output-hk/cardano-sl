@@ -41,15 +41,15 @@ import           Pos.Infra.Diffusion.Subscription.Status
                      (SubscriptionStatus (..))
 import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
                      deriveSafeBuildable)
+import           Pos.Util.Example
 import           Pos.Util.Servant (CustomQueryFlag, Flaggable (..), Tags,
                      ValidJSON, WalletResponse)
+import           Pos.Util.UnitsOfMeasure
+import           Serokell.Util.Text
 
 -- ToJSON/FromJSON instances for NodeId
 import           Pos.Infra.Communication.Types.Protocol ()
 
-import           Pos.Util.Example
-import           Pos.Util.UnitsOfMeasure
-import           Serokell.Util.Text
 
 
 -- TODO: Stuff that was pulled upstream. Likely to be factored out into other modules.
@@ -610,8 +610,8 @@ type API =
     :<|>
         "update"
             :> ( "apply"
-                    :> Summary "Apply the next available update"
-                    :> Post '[ValidJSON] NoContent
+                :> Summary "Apply the next available update"
+                :> Post '[ValidJSON] NoContent
             :<|> "postpone"
                 :> Summary "Discard and postpone the next available update"
                 :> Post '[ValidJSON] NoContent

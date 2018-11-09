@@ -26,8 +26,8 @@ import           Pos.AllSecrets (asSecretKeys, asSpendingData,
                      unInvAddrSpendingData, unInvSecretsMap)
 import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Txp (Tx (..), TxAux (..), TxIn (..), TxOut (..),
-                     TxOutAux (..), TxpConfiguration, Utxo, execUtxoM,
-                     utxoToLookup)
+                     TxOutAux (..), TxpConfiguration,
+                     Utxo, execUtxoM, utxoToLookup)
 import qualified Pos.Chain.Txp as Utxo
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), TxError (..),
                      createGenericTx, makeMPubKeyTxAddrs)
@@ -229,7 +229,10 @@ genTxPayload genesisConfig txpConfig = do
         let txId = hash tx
         let txIns = _txInputs tx
         -- @txpProcessTx@ for BlockGenMode should be non-blocking
-        res <- lift . lift $ txpProcessTx genesisConfig txpConfig (txId, txAux)
+        res <- lift . lift $
+                   txpProcessTx
+                   genesisConfig
+                   txpConfig (txId, txAux)
         case res of
             Left e  -> error $ "genTransaction@txProcessTransaction: got left: " <> pretty e
             Right _ -> do

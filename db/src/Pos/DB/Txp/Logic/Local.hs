@@ -30,16 +30,17 @@ import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots)
 import           Pos.Chain.Txp (ExtendedLocalToilM, LocalToilState (..),
                      MemPool, ToilVerFailure (..), TxAux (..), TxId, TxUndo,
-                     TxpConfiguration (..), UndoMap, Utxo, UtxoLookup,
-                     UtxoModifier, extendLocalToilM, mpLocalTxs, normalizeToil,
-                     processTx, topsortTxs, utxoToLookup)
+                     TxValidationRules (..), TxpConfiguration (..), UndoMap, Utxo,
+                     UtxoLookup, UtxoModifier, extendLocalToilM, mpLocalTxs,
+                     normalizeToil, processTx, topsortTxs, utxoToLookup)
 import           Pos.Chain.Update (BlockVersionData)
 import           Pos.Core (EpochIndex, SlotCount, siEpoch)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.JsonLog.LogEvents (MemPoolModifyReason (..))
 import           Pos.Core.Reporting (reportError)
-import           Pos.Core.Slotting (MonadSlots (..))
+import           Pos.Core.Slotting (MonadSlots (..), getEpochOrSlot)
 import           Pos.Crypto (WithHash (..))
+import           Pos.DB.BlockIndex (getTipHeader)
 import           Pos.DB.Class (MonadGState (..))
 import qualified Pos.DB.GState.Common as GS
 import           Pos.DB.GState.Lock (Priority (..), StateLock, StateLockMetrics,
@@ -66,9 +67,11 @@ type TxpProcessTransactionMode ctx m =
 -- only.
 txProcessTransaction
     :: ( TxpProcessTransactionMode ctx m)
-    => Genesis.Config -> TxpConfiguration -> (TxId, TxAux) -> m (Either ToilVerFailure ())
+    => Genesis.Config ->  TxpConfiguration -> (TxId, TxAux)
+    -> m (Either ToilVerFailure ())
 txProcessTransaction genesisConfig txpConfig itw =
-    withStateLock LowPriority ProcessTransaction $ \__tip -> txProcessTransactionNoLock genesisConfig txpConfig itw
+    withStateLock LowPriority ProcessTransaction $
+        \_tip -> txProcessTransactionNoLock genesisConfig txpConfig itw
 
 -- | Unsafe version of 'txProcessTransaction' which doesn't take a
 -- lock. Can be used in tests.
@@ -83,6 +86,7 @@ txProcessTransactionNoLock
     -> m (Either ToilVerFailure ())
 txProcessTransactionNoLock genesisConfig txpConfig = txProcessTransactionAbstract
     (configEpochSlots genesisConfig)
+    genesisConfig
     buildContext
     processTxHoisted
   where
@@ -91,22 +95,24 @@ txProcessTransactionNoLock genesisConfig txpConfig = txProcessTransactionAbstrac
 
     processTxHoisted ::
            BlockVersionData
+        -> TxValidationRules
         -> EpochIndex
         -> (TxId, TxAux)
         -> ExceptT ToilVerFailure (ExtendedLocalToilM () ()) TxUndo
-    processTxHoisted bvd =
+    processTxHoisted bvd txValRules = do
         mapExceptT extendLocalToilM
-            ... (processTx (configProtocolMagic genesisConfig) txpConfig bvd)
+            ... (processTx (configProtocolMagic genesisConfig) txValRules txpConfig bvd)
 
 txProcessTransactionAbstract ::
        forall extraEnv extraState ctx m a.
        (TxpLocalWorkMode ctx m, MempoolExt m ~ extraState)
     => SlotCount
+    -> Genesis.Config
     -> (Utxo -> TxAux -> m extraEnv)
-    -> (BlockVersionData -> EpochIndex -> (TxId, TxAux) -> ExceptT ToilVerFailure (ExtendedLocalToilM extraEnv extraState) a)
+    -> (BlockVersionData -> TxValidationRules -> EpochIndex -> (TxId, TxAux) -> ExceptT ToilVerFailure (ExtendedLocalToilM extraEnv extraState) a)
     -> (TxId, TxAux)
     -> m (Either ToilVerFailure ())
-txProcessTransactionAbstract epochSlots buildEnv txAction itw@(txId, txAux) = reportTipMismatch $ runExceptT $ do
+txProcessTransactionAbstract epochSlots genesisConfig buildEnv txAction itw@(txId, txAux) = reportTipMismatch $ runExceptT $ do
     -- Note: we need to read tip from the DB and check that it's the
     -- same as the one in mempool. That's because mempool state is
     -- valid only with respect to the tip stored there. Normally tips
@@ -128,13 +134,27 @@ txProcessTransactionAbstract epochSlots buildEnv txAction itw@(txId, txAux) = re
     extraEnv <- lift $ buildEnv utxo txAux
     bvd <- gsAdoptedBVData
     let env = (utxoToLookup utxo, extraEnv)
-
+    let txValRules = configTxValRules $ genesisConfig
+    currentEos <- getEpochOrSlot <$> getTipHeader
+    let currentTxValRules = (TxValidationRules
+                                (tvrAddrAttrCutoff txValRules)
+                                currentEos
+                                (tvrAddrAttrSize txValRules)
+                                (tvrTxAttrSize txValRules))
     pRes <- lift . withTxpLocalDataLog $ \txpData -> do
         mp <- lift $ getMemPool txpData
         undo <- lift $ getLocalUndos txpData
         tip <- lift $ STM.readTVar (txpTip txpData)
         extra <- lift $ getTxpExtra txpData
-        tm <- hoist generalize $ processTransactionPure bvd epoch env tipDB itw (utxoModifier, mp, undo, tip, extra)
+        tm <- hoist generalize $
+                  processTransactionPure
+                  bvd
+                  currentTxValRules
+                  epoch
+                  env
+                  tipDB
+                  itw
+                  (utxoModifier, mp, undo, tip, extra)
         forM tm $ lift . setTxpLocalData txpData
     -- We report 'ToilTipsMismatch' as an error, because usually it
     -- should't happen. If it happens, it's better to look at logs.
@@ -148,13 +168,14 @@ txProcessTransactionAbstract epochSlots buildEnv txAction itw@(txId, txAux) = re
   where
     processTransactionPure
         :: BlockVersionData
+        -> TxValidationRules
         -> EpochIndex
         -> (UtxoLookup, extraEnv)
         -> HeaderHash
         -> (TxId, TxAux)
         -> (UtxoModifier, MemPool, UndoMap, HeaderHash, extraState)
         -> NamedPureLogger Identity (Either ToilVerFailure (UtxoModifier, MemPool, UndoMap, HeaderHash, extraState))
-    processTransactionPure bvd curEpoch env tipDB tx (um, mp, undo, tip, extraState)
+    processTransactionPure bvd txValRules curEpoch env tipDB tx (um, mp, undo, tip, extraState)
         | tipDB /= tip = pure . Left $ ToilTipsMismatch tipDB tip
         | otherwise = do
             let initialState = LocalToilState { _ltsMemPool = mp
@@ -165,7 +186,7 @@ txProcessTransactionAbstract epochSlots buildEnv txAction itw@(txId, txAux) = re
                     usingStateT (initialState, extraState) $
                     usingReaderT env $
                     runExceptT $
-                    txAction bvd curEpoch tx
+                    txAction bvd txValRules curEpoch tx
             case res of
                 (Left er, _) -> pure $ Left er
                 (Right _, (LocalToilState {..}, newExtraState)) -> pure $ Right
@@ -185,22 +206,23 @@ txNormalize
        ( TxpLocalWorkMode ctx m
        , MempoolExt m ~ ()
        )
-    => Genesis.Config -> TxpConfiguration -> m ()
-txNormalize genesisConfig txpConfig =
+    => Genesis.Config -> TxValidationRules -> TxpConfiguration -> m ()
+txNormalize genesisConfig txValRules txpConfig = do
     txNormalizeAbstract (configEpochSlots genesisConfig) buildContext
-        $ normalizeToilHoisted
+        (normalizeToilHoisted txValRules)
   where
     buildContext :: Utxo -> [TxAux] -> m ()
     buildContext _ _ = pure ()
 
     normalizeToilHoisted
-        :: BlockVersionData
+        :: TxValidationRules
+        -> BlockVersionData
         -> EpochIndex
         -> HashMap TxId TxAux
         -> ExtendedLocalToilM () () ()
-    normalizeToilHoisted bvd epoch txs =
+    normalizeToilHoisted txValRules' bvd epoch txs =
         extendLocalToilM
-            $ normalizeToil (configProtocolMagic genesisConfig) txpConfig bvd epoch
+            $ normalizeToil (configProtocolMagic genesisConfig) txValRules' txpConfig bvd epoch
             $ HM.toList txs
 
 txNormalizeAbstract ::

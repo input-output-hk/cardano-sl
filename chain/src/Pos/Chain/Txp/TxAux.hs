@@ -15,7 +15,6 @@ import qualified Formatting.Buildable as Buildable
 import           Serokell.Util.Text (listJsonIndent)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
-
 import           Pos.Chain.Txp.Tx
 import           Pos.Chain.Txp.TxWitness
 
@@ -39,9 +38,10 @@ instance Buildable TxAux where
 -- via 'checkTx'). Does not check the witness.
 checkTxAux
     :: MonadError Text m
-    => TxAux
+    => TxValidationRules
+    -> TxAux
     -> m ()
-checkTxAux TxAux{..} = checkTx taTx
+checkTxAux txValRules TxAux{..} = checkTx txValRules taTx
 
 deriveSimpleBi ''TxAux [
     Cons 'TxAux [

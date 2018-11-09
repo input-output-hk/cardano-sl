@@ -37,6 +37,7 @@ explorerTxpGlobalSettings genesisConfig txpConfig =
     -- verification is same
     (txpGlobalSettings genesisConfig txpConfig)
         { tgsApplyBlocks    = applyBlocksWith (configProtocolMagic genesisConfig)
+                                              genesisConfig
                                               txpConfig
                                               (applySettings bootStakeholders)
         , tgsRollbackBlocks = processBlunds (rollbackSettings bootStakeholders)

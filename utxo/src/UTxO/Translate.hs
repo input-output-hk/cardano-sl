@@ -36,6 +36,7 @@ import           Pos.Chain.Update
 import           Pos.Core
 import           Pos.Core.Chrono
 import           Pos.Core.NetworkMagic (makeNetworkMagic)
+import           Pos.Core.Slotting (EpochOrSlot)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Class (MonadGState (..))
 
@@ -209,8 +210,9 @@ verify ma = withConfig $ do
 verifyBlocksPrefix
   :: forall e' m.  Monad m
   => OldestFirst NE Block
+  -> TxValidationRules
   -> TranslateT e' m (Validated VerifyBlocksException (OldestFirst NE Undo, Utxo))
-verifyBlocksPrefix blocks =
+verifyBlocksPrefix blocks txValRules =
     case splitEpochs blocks of
       ESREmptyEpoch _          ->
         validatedFromExceptT . throwError $ VerifyBlocksError "Whoa! Empty epoch!"
@@ -219,30 +221,34 @@ verifyBlocksPrefix blocks =
       ESRValid genEpoch (OldestFirst succEpochs) -> do
         CardanoContext{..} <- asks tcCardano
         let pm = ccMagic
-        verify $ validateGenEpoch pm ccHash0 ccInitLeaders genEpoch >>= \genUndos -> do
-          epochUndos <- sequence $ validateSuccEpoch pm <$> succEpochs
+        verify $ validateGenEpoch pm txValRules ccHash0 ccInitLeaders genEpoch >>= \genUndos -> do
+          epochUndos <- sequence $ validateSuccEpoch pm txValRules <$> succEpochs
           return $ foldl' (\a b -> a <> b) genUndos epochUndos
 
   where
     validateGenEpoch :: ProtocolMagic
+                     -> TxValidationRules
                      -> HeaderHash
                      -> SlotLeaders
                      -> OldestFirst NE MainBlock
                      -> Verify VerifyBlocksException (OldestFirst NE Undo)
-    validateGenEpoch pm ccHash0 ccInitLeaders geb = do
+    validateGenEpoch pm txValRules ccHash0 ccInitLeaders geb = do
       Verify.verifyBlocksPrefix
         pm
+        txValRules
         ccHash0
         Nothing
         ccInitLeaders
         (OldestFirst [])
         (Right <$> geb ::  OldestFirst NE Block)
     validateSuccEpoch :: ProtocolMagic
+                      -> TxValidationRules
                       -> EpochBlocks NE
                       -> Verify VerifyBlocksException (OldestFirst NE Undo)
-    validateSuccEpoch pm (SuccEpochBlocks ebb emb) = do
+    validateSuccEpoch pm txValRules (SuccEpochBlocks ebb emb) = do
       Verify.verifyBlocksPrefix
         pm
+        txValRules
         (ebb ^. headerHashG)
         Nothing
         (ebb ^. gbBody . gbLeaders)

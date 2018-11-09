@@ -13,6 +13,7 @@ module Pos.Core.Attributes
        , encodeAttributes
        , decodeAttributes
        , mkAttributes
+       , unknownAttributesLength
        ) where
 
 import qualified Prelude

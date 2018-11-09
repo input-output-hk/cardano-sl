@@ -226,7 +226,7 @@ instance MonadKeys AuxxMode where
 type instance MempoolExt AuxxMode = EmptyMempoolExt
 
 instance MonadTxpLocal AuxxMode where
-    txpNormalize pm = withReaderT acRealModeContext . txNormalize pm
+    txpNormalize pm txValRules = withReaderT acRealModeContext . txNormalize pm txValRules
     txpProcessTx genesisConfig txpConfig = withReaderT acRealModeContext . txProcessTransaction genesisConfig txpConfig
 
 instance HasConfigurations =>

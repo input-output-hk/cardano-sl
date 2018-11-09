@@ -16,6 +16,8 @@ module Pos.Chain.Txp.Tx
 
        , TxOut (..)
        , _TxOut
+
+       , TxValidationRules (..)
        ) where
 
 import           Universum
@@ -32,6 +34,7 @@ import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text as T
 import           Formatting (Format, bprint, build, builder, int, sformat, (%))
 import qualified Formatting.Buildable as Buildable
+import           Numeric.Natural (Natural)
 import qualified Serokell.Util.Base16 as B16
 import           Serokell.Util.Text (listJson)
 import           Serokell.Util.Verify (VerificationRes (..), verResSingleF,
@@ -42,9 +45,11 @@ import           Pos.Binary.Class (Bi (..), Case (..), Cons (..), Field (..),
                      deriveSimpleBi, encodeKnownCborDataItem, encodeListLen,
                      encodeUnknownCborDataItem, enforceSize,
                      knownCborDataItemSizeExpr, szCases)
-import           Pos.Core.Attributes (Attributes, areAttributesKnown)
+import           Pos.Core.Attributes (Attributes, areAttributesKnown,
+                     unknownAttributesLength)
 import           Pos.Core.Common (Address (..), Coin (..), checkCoin, coinF,
                      coinToInteger, decodeTextAddress, integerToCoin)
+import           Pos.Core.Slotting (EpochOrSlot)
 import           Pos.Core.Util.LogSafe (SecureLog (..))
 import           Pos.Crypto (Hash, decodeAbstractHash, hash, hashHexF,
                      shortHashF)
@@ -99,9 +104,10 @@ txF = build
 -- | Verify inputs and outputs are non empty; have enough coins.
 checkTx
     :: MonadError Text m
-    => Tx
+    => TxValidationRules
+    -> Tx
     -> m ()
-checkTx it =
+checkTx txValRules it =
     case verRes of
         VerSuccess -> pure ()
         failure    -> throwError $ verResSingleF failure
@@ -120,7 +126,28 @@ checkTx it =
                 ("output #"%int%" has invalid coin")
                 i
           )
+        , ( tvrAddrAttrCutoff txValRules > someLimit &&
+            unknownAttributesLength (_txAttributes it) > 1024
+          , sformat
+                ("size of unknown attribute in input #"%int%" is too large")
+                i
+          )
         ]
+
+-- | Because there is no limit on the size of Attributes
+-- (which allows unecessary bloating of the blockchain)
+-- this struct introduces limits configurable via the
+-- `configuration.yaml` file which are activated at
+-- the `tvrAddrAttrCutoff` epoch.
+data TxValidationRules = TxValidationRules
+    { tvrAddrAttrCutoff :: !EpochOrSlot
+    , tvrCurrentEpoch   :: !EpochOrSlot
+    , tvrAddrAttrSize   :: !Natural
+    , tvrTxAttrSize     :: !Natural
+    } deriving (Generic, Show)
+
+someLimit :: EpochOrSlot
+someLimit = error "someLimit :: EpochOrSlot"
 
 --------------------------------------------------------------------------------
 -- TxId

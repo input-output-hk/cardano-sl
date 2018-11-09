@@ -8,6 +8,7 @@ module Pos.Core.Slotting.EpochOrSlot
 
        , epochOrSlotToEnum
        , epochOrSlotFromEnum
+       , epochOrSlotFromSlotId
        , epochOrSlotSucc
        , epochOrSlotPred
        , epochOrSlotEnumFromTo
@@ -106,6 +107,9 @@ epochOrSlotFromEnum epochSlots = \case
         in if | res > maxIntAsInteger ->
                   error "fromEnum @EpochOrSlot: Argument larger than 'maxBound :: Int'"
               | otherwise -> fromIntegral res
+
+epochOrSlotFromSlotId :: SlotId -> EpochOrSlot
+epochOrSlotFromSlotId = EpochOrSlot . Right
 
 epochOrSlotSucc :: SlotCount -> EpochOrSlot -> EpochOrSlot
 epochOrSlotSucc epochSlots = \case

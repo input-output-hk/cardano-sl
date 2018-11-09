@@ -49,6 +49,35 @@ let
     configurationKeyLaunch = "testnet_launch";
   };
 
+  curlScript = writeScript "curl-wallet-demo-cluster" ''
+    #!${stdenv.shell}
+
+    request_path=$1
+    shift
+
+    if [ -z "$request_path" ]; then
+    >&2 cat <<EOF
+    usage: ${stateDir}/curl REQUEST_PATH [ OPTIONS ]
+
+    Wrapper script to make HTTP requests to the wallet.
+    All the normal curl options apply.
+
+    Examples:
+      ${stateDir}/curl api/v1/node-info -i
+      ${stateDir}/curl api/v1/wallets -d '{ ... }' | jq .
+
+    EOF
+    fi
+
+    exec ${curl}/bin/curl --silent                       \
+      --cacert ${stateDir}/tls/wallet/ca.crt             \
+      --cert ${stateDir}/tls/wallet/client.pem           \
+      -H 'cache-control: no-cache'                       \
+      -H "Accept: application/json; charset=utf-8"       \
+      -H "Content-Type: application/json; charset=utf-8" \
+      "https://localhost:8090/$request_path" "$@"
+  '';
+
 in writeScript "demo-cluster" ''
   #!${stdenv.shell} -e
   export PATH=${stdenv.lib.makeBinPath allDeps}:$PATH
@@ -71,6 +100,7 @@ in writeScript "demo-cluster" ''
   # Remove previous state
   rm -rf ${stateDir}
   mkdir -p ${stateDir}/logs
+  ln -sf ${curlScript} ${stateDir}/curl
 
   trap "stop_cardano" INT TERM
   echo "Launching a demo cluster..."
@@ -82,7 +112,7 @@ in writeScript "demo-cluster" ''
     SYNCED=0
     while [[ $SYNCED != 100 ]]
     do
-      PERC=$(curl --silent --cacert ${stateDir}/tls/wallet/ca.crt --cert ${stateDir}/tls/wallet/client.pem https://127.0.0.1:8090/api/v1/node-info | jq .data.syncProgress.quantity)
+      PERC=$(${curlScript} api/v1/node-info | jq .data.syncProgress.quantity)
       if [[ $PERC == "100" ]]
       then
         echo Blockchain Synced: $PERC%
@@ -106,13 +136,7 @@ in writeScript "demo-cluster" ''
       for i in {0..${builtins.toString numImportedWallets}}
       do
           echo "Importing $i.key ..."
-          curl https://localhost:8090/api/internal/import-wallet \
-          --cacert ${stateDir}/tls/wallet/ca.crt \
-          --cert ${stateDir}/tls/wallet/client.pem \
-          -X POST \
-          -H 'cache-control: no-cache' \
-          -H 'Content-Type: application/json; charset=utf-8' \
-          -H 'Accept: application/json; charset=utf-8' \
+          ${curlScript} api/internal/import-wallet \
           -d "{\"filePath\": \"${stateDir}/generated-keys/poor/$i.key\"}" | jq .
       done
     fi

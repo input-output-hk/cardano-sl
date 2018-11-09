@@ -281,6 +281,7 @@ let
           cardano-sl-util
           cardano-sl-wallet
           cardano-sl-wallet-new
+          cardano-sl-wallet-new-static
           cardano-sl-x509;
         inherit (self.haskellPackages)
           cardano-report-server; }

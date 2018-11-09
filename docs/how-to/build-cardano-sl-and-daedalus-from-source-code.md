@@ -65,8 +65,8 @@ NOTE: the various other Cardano components can be obtained through other attribu
    - `cardano-explorer`, `cardano-explorer-swagger`, `cardano-explorer-mock`
 -  `cardano-sl-tools`:
    - `cardano-analyzer`, `cardano-dht-keygen`, `cardano-genupdate`, `cardano-keygen`, `cardano-launcher`, `cardano-addr-convert`, `cardano-cli-docs`, `cardano-block-gen`, `cardano-post-mortem`
--  `cardano-sl-wallet-static`:
-   - `cardano-node`, `cardano-swagger`
+-  `cardano-sl-wallet-new-static`:
+   - `cardano-node`, `cardano-generate-swagger-file`
 
 In general, for any given cabal `PACKAGE` provided by Cardano, there is a
 corresponding Nix attribute for it -- `PACKAGE`, and sometimes, in case of

@@ -58,7 +58,7 @@ instance MonadTxpLocal RealModeE where
     txpProcessTx = eTxProcessTransaction
 
 instance MonadTxpLocal ExplorerProd where
-    txpNormalize pm = lift . lift . txpNormalize pm
+    txpNormalize pm txValRules = lift . lift . txpNormalize pm txValRules
     txpProcessTx genesisConfig txpConfig = lift . lift . txpProcessTx genesisConfig txpConfig
 
 -- | Use the 'RealMode' instance.

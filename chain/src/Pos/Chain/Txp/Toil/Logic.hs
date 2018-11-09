@@ -33,7 +33,8 @@ import           Pos.Chain.Txp.Toil.Types (TxFee (..))
 import           Pos.Chain.Txp.Toil.Utxo (VerifyTxUtxoRes (..))
 import qualified Pos.Chain.Txp.Toil.Utxo as Utxo
 import           Pos.Chain.Txp.Topsort (topsortTxs)
-import           Pos.Chain.Txp.Tx (Tx (..), TxId, TxOut (..), txOutAddress)
+import           Pos.Chain.Txp.Tx (Tx (..), TxId, TxOut (..), TxValidationRules,
+                     txOutAddress)
 import           Pos.Chain.Txp.TxAux (TxAux (..), checkTxAux)
 import           Pos.Chain.Txp.TxOutAux (toaOut)
 import           Pos.Chain.Txp.Undo (TxUndo, TxpUndo)
@@ -65,14 +66,15 @@ import           Pos.Util (liftEither)
 -- data is just ignored.
 verifyToil ::
        ProtocolMagic
+    -> TxValidationRules
     -> BlockVersionData
     -> Set Address
     -> EpochIndex
     -> Bool
     -> [TxAux]
     -> ExceptT ToilVerFailure UtxoM TxpUndo
-verifyToil pm bvd lockedAssets curEpoch verifyAllIsKnown =
-    mapM (verifyAndApplyTx pm bvd lockedAssets curEpoch verifyAllIsKnown . withTxId)
+verifyToil pm txValRules bvd lockedAssets curEpoch verifyAllIsKnown =
+    mapM (verifyAndApplyTx pm txValRules bvd lockedAssets curEpoch verifyAllIsKnown . withTxId)
 
 -- | Apply transactions from one block. They must be valid (for
 -- example, it implies topological sort).
@@ -96,28 +98,30 @@ rollbackToil bootStakeholders txun = do
 -- if transaction is valid.
 processTx
     :: ProtocolMagic
+    -> TxValidationRules
     -> TxpConfiguration
     -> BlockVersionData
     -> EpochIndex
     -> (TxId, TxAux)
     -> ExceptT ToilVerFailure LocalToilM TxUndo
-processTx pm txpConfig bvd curEpoch tx@(id, aux) = do
+processTx pm txValRules txpConfig bvd curEpoch tx@(id, aux) = do
     whenM (lift $ hasTx id) $ throwError ToilKnown
     whenM ((>= memPoolLimitTx txpConfig) <$> lift memPoolSize) $
         throwError (ToilOverwhelmed $ memPoolLimitTx txpConfig)
-    undo <- mapExceptT utxoMToLocalToilM $ verifyAndApplyTx pm bvd (tcAssetLockedSrcAddrs txpConfig) curEpoch True tx
+    undo <- mapExceptT utxoMToLocalToilM $ verifyAndApplyTx pm txValRules bvd (tcAssetLockedSrcAddrs txpConfig) curEpoch True tx
     undo <$ lift (putTxWithUndo id aux undo)
 
 -- | Get rid of invalid transactions.
 -- All valid transactions will be added to mem pool and applied to utxo.
 normalizeToil
     :: ProtocolMagic
+    -> TxValidationRules
     -> TxpConfiguration
     -> BlockVersionData
     -> EpochIndex
     -> [(TxId, TxAux)]
     -> LocalToilM ()
-normalizeToil pm txpConfig bvd curEpoch txs = mapM_ normalize ordered
+normalizeToil pm txValRules txpConfig bvd curEpoch txs = mapM_ normalize ordered
   where
     -- If there is a cycle in the tx list, topsortTxs returns Nothing.
     -- Why is that not an error? And if its not an error, why bother
@@ -127,7 +131,7 @@ normalizeToil pm txpConfig bvd curEpoch txs = mapM_ normalize ordered
     normalize ::
            (TxId, TxAux)
         -> LocalToilM ()
-    normalize = void . runExceptT . processTx pm txpConfig bvd curEpoch
+    normalize = void . runExceptT . processTx pm txValRules txpConfig bvd curEpoch
 
 ----------------------------------------------------------------------------
 -- Verify and Apply logic
@@ -137,14 +141,15 @@ normalizeToil pm txpConfig bvd curEpoch txs = mapM_ normalize ordered
 -- care about stakes for local txp.
 verifyAndApplyTx ::
        ProtocolMagic
+    -> TxValidationRules
     -> BlockVersionData
     -> Set Address
     -> EpochIndex
     -> Bool
     -> (TxId, TxAux)
     -> ExceptT ToilVerFailure UtxoM TxUndo
-verifyAndApplyTx pm adoptedBVD lockedAssets curEpoch verifyVersions tx@(_, txAux) = do
-    whenLeft (checkTxAux txAux) (throwError . ToilInconsistentTxAux)
+verifyAndApplyTx pm txValRules adoptedBVD lockedAssets curEpoch verifyVersions tx@(_, txAux) = do
+    whenLeft (checkTxAux txValRules txAux) (throwError . ToilInconsistentTxAux)
     let ctx = Utxo.VTxContext verifyVersions (makeNetworkMagic pm)
     vtur@VerifyTxUtxoRes {..} <- Utxo.verifyTxUtxo pm ctx lockedAssets txAux
     liftEither $ verifyGState adoptedBVD curEpoch txAux vtur

@@ -36,6 +36,7 @@ import           Pos.Chain.Block.Header (BlockHeader (..), HasHeaderHash (..),
 import           Pos.Chain.Block.IsHeader (headerSlotL)
 import           Pos.Chain.Block.Main (mebAttributes, mehAttributes)
 import           Pos.Chain.Genesis as Genesis (Config (..))
+import           Pos.Chain.Txp (TxValidationRules)
 import           Pos.Chain.Update (BlockVersionData (..))
 import           Pos.Core (ChainDifficulty, EpochOrSlot, HasDifficulty (..),
                      HasEpochIndex (..), HasEpochOrSlot (..), SlotId (..),
@@ -269,12 +270,13 @@ instance NFData VerifyBlockParams
 -- 3.  (Optional) No block has any unknown attributes.
 verifyBlock
     :: Genesis.Config
+    -> TxValidationRules
     -> VerifyBlockParams
     -> Block
     -> VerificationRes
-verifyBlock genesisConfig VerifyBlockParams {..} blk = mconcat
+verifyBlock genesisConfig txValRules VerifyBlockParams {..} blk = mconcat
     [ verifyFromEither "internal block consistency"
-                       (verifyBlockInternal genesisConfig blk)
+                       (verifyBlockInternal genesisConfig txValRules blk)
     , verifyHeader (configProtocolMagic genesisConfig)
                    vbpVerifyHeader
                    (getBlockHeader blk)
@@ -320,13 +322,14 @@ type VerifyBlocksIter = (SlotLeaders, Maybe BlockHeader, VerificationRes)
 -- type is crucial.
 verifyBlocks
     :: Genesis.Config
+    -> TxValidationRules
     -> Maybe SlotId
     -> Bool
     -> BlockVersionData
     -> SlotLeaders
     -> OldestFirst [] Block
     -> VerificationRes
-verifyBlocks genesisConfig curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step start
+verifyBlocks genesisConfig txValRules curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step start
   where
     start :: VerifyBlocksIter
     -- Note that here we never know previous header before this
@@ -358,4 +361,4 @@ verifyBlocks genesisConfig curSlotId verifyNoUnknown bvd initLeaders = view _3 .
                 , vbpMaxSize = blockMaxSize
                 , vbpVerifyNoUnknown = verifyNoUnknown
                 }
-        in (newLeaders, Just $ getBlockHeader blk, res <> verifyBlock genesisConfig vbp blk)
+        in (newLeaders, Just $ getBlockHeader blk, res <> verifyBlock genesisConfig txValRules vbp blk)

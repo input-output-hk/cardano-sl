@@ -26,7 +26,7 @@ import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
 import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
                      ToJSON (..))
 
-import           Pos.Core.Common (BlockCount (..))
+import           Pos.Core.Common.BlockCount (BlockCount (..))
 import           Pos.Core.Slotting.SlotCount (SlotCount)
 import           Pos.Util.Json.Canonical ()
 

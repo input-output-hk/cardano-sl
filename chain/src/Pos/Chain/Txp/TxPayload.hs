@@ -52,7 +52,7 @@ instance Bi TxPayload where
     decode = mkTxPayload <$> decode
 
 -- | Check a TxPayload by checking all of the Txs it contains.
-checkTxPayload :: MonadError Text m => TxPayload -> m ()
-checkTxPayload it = forM_ (_txpTxs it) checkTx
+checkTxPayload :: MonadError Text m => TxValidationRules -> TxPayload -> m ()
+checkTxPayload txValRules it = mapM_ (checkTx txValRules) $ _txpTxs it
 
 deriveSafeCopySimple 0 'base ''TxPayload

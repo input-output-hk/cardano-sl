@@ -257,12 +257,12 @@ ghc-options:
   cardano-sl-generator:         -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-infra:             -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-networking:        -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-node:              -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-node:              -Wall -Werror -Wcompat -fwarn-redundant-constraints -v3
   cardano-sl-tools:             -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-tools-post-mortem: -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-util:              -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-util-test:         -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-sl-wallet:            -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-wallet:            -Wall -Werror -Wcompat -fwarn-redundant-constraints -v3
   cardano-sl-node-ipc:          -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-x509:              -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-cluster:           -Wall -Werror -Wcompat -fwarn-redundant-constraints

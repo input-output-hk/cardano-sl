@@ -116,7 +116,6 @@ library
                      , base
                      , base58-bytestring
                      , bytestring
-                     , Cabal
                      , canonical-json
                      , cardano-report-server >= 0.4.5
                      , cardano-sl-binary
@@ -132,9 +131,6 @@ library
                      , ekg-core
                      , ether >= 0.5
                      , exceptions
-                     , extra
-                     , filepath
-                     , fmt
                      , formatting
                      , hashable
                      , http-api-data
@@ -156,7 +152,6 @@ library
                      , stm
                      , template-haskell
                      , text
-                     , th-lift-instances
                      , time
                      , time-units
                      , transformers
@@ -247,11 +242,9 @@ test-suite core-test
                      , generic-arbitrary
                      , hedgehog
                      , hspec
-                     , pvss
                      , QuickCheck
                      , quickcheck-instances
                      , random
-                     , safecopy
                      , serokell-util >= 0.1.3.4
                      , text
                      , time-units

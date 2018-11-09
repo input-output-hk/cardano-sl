@@ -86,7 +86,6 @@ library
                       , cardano-sl-chain
                       , cardano-sl-chain-test
                       , cardano-sl-core
-                      , cardano-sl-core-test
                       , cardano-sl-crypto
                       , cardano-sl-crypto-test
                       , cardano-sl-db
@@ -395,7 +394,6 @@ benchmark cardano-explorer-bench
                      , base
                      , cardano-sl
                      , cardano-sl-chain-test
-                     , cardano-sl-core-test
                      , cardano-sl-explorer
                      , criterion
                      , universum >= 0.1.11

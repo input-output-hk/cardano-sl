@@ -51,11 +51,7 @@ executable cardano-post-mortem
                        , attoparsec
                        , base
                        , bytestring
-                       , cardano-sl
-                       , cardano-sl-chain
-                       , cardano-sl-core
                        , cardano-sl-infra
-                       , cardano-sl-chain
                        , cardano-sl-util
                        , containers
                        , cassava
@@ -107,4 +103,3 @@ executable cardano-post-mortem
                         ScopedTypeVariables
                         BangPatterns
                         MonadFailDesugaring
-

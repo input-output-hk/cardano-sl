@@ -9,6 +9,7 @@ module Pos.Launcher.Launcher
 
      -- * Actions
     , actionWithCoreNode
+    , actionWithCoreNodeAlso
     ) where
 
 import           Universum
@@ -22,19 +23,21 @@ import           Pos.Client.CLI.Options (configurationOptions)
 import           Pos.Client.CLI.Params (getNodeParams)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Txp.Logic (txpGlobalSettings)
+import           Pos.Infra.Diffusion.Types (Diffusion (..), hoistDiffusion)
 import           Pos.Launcher.Configuration (AssetLockPath (..),
                      HasConfigurations, WalletConfiguration, cfoKey,
                      withConfigurations)
 import           Pos.Launcher.Param (LoggingParams (..), NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources, bracketNodeResources,
                      loggerBracket)
-import           Pos.Launcher.Runner (runRealMode)
+import           Pos.Launcher.Runner (runRealMode, elimRealMode)
 import           Pos.Launcher.Scenario (runNode)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.Util (logException)
 import           Pos.Util.Wlog (logInfo)
 import           Pos.Worker.Update (updateTriggerWorker)
-import           Pos.WorkMode (EmptyMempoolExt)
+import           Pos.WorkMode (EmptyMempoolExt, RealMode)
+import           UnliftIO.Async (concurrently_)
 
 
 -- | Run a given action from a bunch of static arguments
@@ -108,3 +111,29 @@ actionWithCoreNode genesisConfig _ txpConfig _ _ _ nodeRes = do
         txpConfig
         nodeRes
         (runNode genesisConfig txpConfig nodeRes plugins)
+
+-- | Like 'actionWithCoreNode', but also launches the provided action with
+-- access to the 'Diffusion' in another thread. Uses 'concurrently_' from
+-- Data.Async, so if either thread dies, then both will.
+actionWithCoreNodeAlso
+    :: (HasConfigurations, HasCompileInfo)
+    => Genesis.Config -> TxpConfiguration -> NodeResources EmptyMempoolExt
+    -> (Diffusion IO -> IO a)
+    -> IO ()
+actionWithCoreNodeAlso genesisConfig txpConfig nodeRes action = do
+    let plugins = [ ("update trigger", updateTriggerWorker) ]
+
+    logInfo "Wallet is disabled, because software is built w/o it"
+    let pm = configProtocolMagic genesisConfig
+    runRealMode
+        genesisConfig
+        txpConfig
+        nodeRes
+        $ \diffusion -> do
+            let _ = diffusion :: Diffusion (RealMode EmptyMempoolExt)
+                diffusion' :: Diffusion IO
+                diffusion' = hoistDiffusion (elimRealMode pm nodeRes diffusion') liftIO diffusion
+            concurrently_
+                (runNode genesisConfig txpConfig nodeRes plugins diffusion)
+                (liftIO (action diffusion'))
+

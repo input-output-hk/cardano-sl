@@ -34,6 +34,20 @@ import           Pos.Node.API as Node
 import           Pos.Util (HasLens (..), HasLens')
 import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
 import           Pos.Util.Servant
+import           Ntp.Client (NtpConfiguration, ntpClientSettings, withNtpClient)
+
+launchNodeServer
+    :: Diffusion IO
+    -> NtpConfiguration
+    -> IO ()
+launchNodeServer diffusion ntpConfig = do
+    ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
+    let app = serve (Proxy @Node.API)
+            $ handlers
+                diffusion
+                ntpStatus
+
+    pure ()
 
 handlers
     :: Diffusion IO

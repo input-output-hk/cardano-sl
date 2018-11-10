@@ -6,6 +6,7 @@ import           Universum
 
 import           Control.Concurrent.Async (concurrently_)
 
+import           Cardano.Node.API (launchNodeServer)
 import           Pos.Client.CLI (SimpleNodeArgs (..), getSimpleNodeOptions,
                      loggingParams)
 import           Pos.Launcher (actionWithCoreNode, launchNode)
@@ -21,6 +22,3 @@ main = withCompileInfo $ do
             concurrently_
                 (actionWithCoreNode genConfig walConfig txpConfig ntpConfig nodeParams sscParams nodeResources)
                 (launchNodeServer)
-
-launchNodeServer :: IO ()
-launchNodeServer = putText "hello world"

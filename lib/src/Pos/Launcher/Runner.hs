@@ -11,6 +11,7 @@ module Pos.Launcher.Runner
 
        -- * Exported for custom usage in CLI utils
        , runServer
+       , elimRealMode
        ) where
 
 import           Universum

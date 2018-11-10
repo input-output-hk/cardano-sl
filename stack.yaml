@@ -225,8 +225,6 @@ extra-deps:
 # There are 2 asyncs -_-
 - lifted-async-0.10.0.1
 
-- servant-quickcheck-0.0.7.3
-
 # Serokell-specific utilities not on stackage
 - fmt-0.6
 

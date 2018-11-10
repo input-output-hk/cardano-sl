@@ -273,7 +273,7 @@ mainnet_base: &mainnet_base
     applicationVersion: 0
     lastKnownBlockVersion:
       bvMajor: 0
-      bvMinor: 1
+      bvMinor: 2
       bvAlt: 0
 
   ssc:
@@ -14781,30 +14781,30 @@ mainnet_wallet_win64: &mainnet_wallet_win64
   <<: *mainnet_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 10
+    applicationVersion: 11
     lastKnownBlockVersion:
       bvMajor: 0
-      bvMinor: 1
+      bvMinor: 2
       bvAlt: 0
 
 mainnet_wallet_macos64: &mainnet_wallet_macos64
   <<: *mainnet_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 10
+    applicationVersion: 11
     lastKnownBlockVersion:
       bvMajor: 0
-      bvMinor: 1
+      bvMinor: 2
       bvAlt: 0
 
 mainnet_wallet_linux64: &mainnet_wallet_linux64
   <<: *mainnet_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 10
+    applicationVersion: 11
     lastKnownBlockVersion:
       bvMajor: 0
-      bvMinor: 1
+      bvMinor: 2
       bvAlt: 0
 
 
@@ -14916,30 +14916,30 @@ mainnet_dryrun_wallet_win64: &mainnet_dryrun_wallet_win64
   <<: *mainnet_dryrun_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 15
+    applicationVersion: 16
     lastKnownBlockVersion:
       bvMajor: 0
-      bvMinor: 1
+      bvMinor: 2
       bvAlt: 0
 
 mainnet_dryrun_wallet_macos64: &mainnet_dryrun_wallet_macos64
   <<: *mainnet_dryrun_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 15
+    applicationVersion: 16
     lastKnownBlockVersion:
       bvMajor: 0
-      bvMinor: 1
+      bvMinor: 2
       bvAlt: 0
 
 mainnet_dryrun_wallet_linux64: &mainnet_dryrun_wallet_linux64
   <<: *mainnet_dryrun_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 15
+    applicationVersion: 16
     lastKnownBlockVersion:
       bvMajor: 0
-      bvMinor: 1
+      bvMinor: 2
       bvAlt: 0
 
 ##############################################################################

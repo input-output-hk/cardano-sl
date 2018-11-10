@@ -270,10 +270,10 @@ mainnet_base: &mainnet_base
 
   update: &mainnet_base_update
     applicationName: cardano-sl
-    applicationVersion: 0
+    applicationVersion: 1
     lastKnownBlockVersion:
       bvMajor: 0
-      bvMinor: 1
+      bvMinor: 2
       bvAlt: 0
 
   ssc:

@@ -18,7 +18,12 @@ main = withCompileInfo $ do
     SimpleNodeArgs cArgs nArgs <- getSimpleNodeOptions
     let lArgs = loggingParams "node" cArgs
     launchNode nArgs cArgs lArgs
-        $ \genConfig walConfig txpConfig ntpConfig nodeParams sscParams nodeResources -> do
-            concurrently_
-                (actionWithCoreNode genConfig walConfig txpConfig ntpConfig nodeParams sscParams nodeResources)
-                (launchNodeServer)
+        $ \genConfig walConfig txpConfig ntpConfig nodeParams sscParams nodeResources ->
+            actionWithCoreNodeAlso
+                genConfig walConfig txpConfig ntpConfig
+                nodeParams sscParams nodeResources
+                $ \diffusion ->
+                    launchNodeServer
+                        diffusion
+                        ntpConfig
+

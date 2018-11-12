@@ -30,7 +30,7 @@ import           Pos.Launcher.Configuration (AssetLockPath (..),
 import           Pos.Launcher.Param (LoggingParams (..), NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources, bracketNodeResources,
                      loggerBracket)
-import           Pos.Launcher.Runner (runRealMode, elimRealMode)
+import           Pos.Launcher.Runner (elimRealMode, runRealMode)
 import           Pos.Launcher.Scenario (runNode)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.Util (logException)

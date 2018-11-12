@@ -15,8 +15,8 @@ import qualified Network.Wai.Handler.Warp as Warp
 import qualified Paths_cardano_sl_node as Paths
 import           Servant
 
-import           Ntp.Client (NtpStatus (..))
-import           Ntp.Client (NtpConfiguration, ntpClientSettings, withNtpClient)
+import           Ntp.Client (NtpConfiguration, NtpStatus (..),
+                     ntpClientSettings, withNtpClient)
 import           Ntp.Packet (NtpOffset)
 import           Pos.Chain.Block (LastKnownHeader, LastKnownHeaderTag)
 import           Pos.Chain.Update (UpdateConfiguration, curSoftwareVersion,
@@ -55,14 +55,15 @@ launchNodeServer diffusion ntpConfig nodeResources updateConfiguration compileTi
                 (ncStateLock nodeCtx)
                 (nrDBs nodeResources)
                 (ncLastKnownHeader nodeCtx)
-                (fst (ncSlottingVar nodeCtx))
-                (snd (ncSlottingVar nodeCtx))
+                slottingVarTimestamp
+                slottingVar
                 updateConfiguration
                 compileTimeInfo
 
     Warp.run 3000 app
   where
     nodeCtx = nrContext nodeResources
+    (slottingVarTimestamp, slottingVar) = ncSlottingVar nodeCtx
 
 handlers
     :: Diffusion IO

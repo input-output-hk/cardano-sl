@@ -65,36 +65,6 @@ launchNodeServer diffusion ntpConfig nodeResources updateConfiguration compileTi
   where
     nodeCtx = nrContext nodeResources
 
-{-
-
-Next challenge: Getting the `StateLock`.
-
-From `db/src/Pos/DB/GState/Lock.hs`:
-> type MonadStateLockBase ctx m
->      = ( MonadIO m
->        , MonadMask m
->        , MonadReader ctx m
->        , HasLens' ctx StateLock
->        )
-
-We provide the correct instances for this sort of thing. The next trick is to
-figure out how the actual node acquires a state lock, and ensure that it is
-provided in either `launchNode` or `actionWithCoreNodeAlso`.
-
-`newStateLock` is called in Pos.Launcher.Resource in a function that returns
-`NodeContext`. So we can probably dig that out of the `NodeContext` if we can
-figure out where that is being provided to the actions.
-
-The `NodeResources` type contains a field `nrContext :: NodeContext` which has
-what we need. Wonderful.
-
----
-
-So, it's possible (indeed, even likely) that the NodeResources has more stuff we
-need. I'll accept it directly and see what all we can grab out of it.
-
--}
-
 handlers
     :: Diffusion IO
     -> TVar NtpStatus

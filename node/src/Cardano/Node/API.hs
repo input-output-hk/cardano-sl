@@ -13,6 +13,10 @@ import qualified Data.Text as Text
 import           Data.Time.Units (toMicroseconds)
 import qualified Paths_cardano_sl_node as Paths
 import           Servant
+import qualified Network.Wai.Handler.Warp as Warp
+
+import Pos.Context
+import Pos.Launcher.Resource
 
 import           Ntp.Client (NtpStatus (..))
 import           Ntp.Packet (NtpOffset)
@@ -39,17 +43,27 @@ import           Ntp.Client (NtpConfiguration, ntpClientSettings, withNtpClient)
 launchNodeServer
     :: Diffusion IO
     -> NtpConfiguration
-    -> StateLock
+    -> NodeResources ext
+    -> UpdateConfiguration
+    -> CompileTimeInfo
     -> IO ()
-launchNodeServer diffusion ntpConfig stateLock = do
+launchNodeServer diffusion ntpConfig nodeResources updateConfiguration compileTimeInfo = do
     ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
     let app = serve (Proxy @Node.API)
             $ handlers
                 diffusion
                 ntpStatus
-                stateLock
+                (ncStateLock nodeCtx)
+                (nrDBs nodeResources)
+                (ncLastKnownHeader nodeCtx)
+                (fst (ncSlottingVar nodeCtx))
+                (snd (ncSlottingVar nodeCtx))
+                updateConfiguration
+                compileTimeInfo
 
-    pure ()
+    Warp.run 3000 app
+  where
+    nodeCtx = nrContext nodeResources
 
 {-
 
@@ -73,6 +87,11 @@ figure out where that is being provided to the actions.
 
 The `NodeResources` type contains a field `nrContext :: NodeContext` which has
 what we need. Wonderful.
+
+---
+
+So, it's possible (indeed, even likely) that the NodeResources has more stuff we
+need. I'll accept it directly and see what all we can grab out of it.
 
 -}
 

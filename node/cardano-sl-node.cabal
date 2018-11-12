@@ -30,6 +30,7 @@ library
                      , text
                      , time-units
                      , universum
+                     , warp
 
   exposed-modules:     Cardano.Node.API
 
@@ -61,7 +62,7 @@ executable cardano-node-simple
   hs-source-dirs:      app
   main-is:             Main.hs
   build-depends:       base
-                     , async
+                     , cardano-sl-chain
                      , cardano-sl-core
                      , cardano-sl-util
                      , cardano-sl-node

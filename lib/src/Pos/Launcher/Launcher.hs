@@ -36,7 +36,7 @@ import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.Util (logException)
 import           Pos.Util.Wlog (logInfo)
 import           Pos.Worker.Update (updateTriggerWorker)
-import           Pos.WorkMode (EmptyMempoolExt, RealMode)
+import           Pos.WorkMode (EmptyMempoolExt)
 import           UnliftIO.Async (concurrently_)
 
 
@@ -125,15 +125,8 @@ actionWithCoreNodeAlso genesisConfig txpConfig nodeRes action = do
 
     logInfo "Wallet is disabled, because software is built w/o it"
     let pm = configProtocolMagic genesisConfig
-    runRealMode
-        genesisConfig
-        txpConfig
-        nodeRes
-        $ \diffusion -> do
-            let _ = diffusion :: Diffusion (RealMode EmptyMempoolExt)
-                diffusion' :: Diffusion IO
-                diffusion' = hoistDiffusion (elimRealMode pm nodeRes diffusion') liftIO diffusion
-            concurrently_
-                (runNode genesisConfig txpConfig nodeRes plugins diffusion)
-                (liftIO (action diffusion'))
-
+    runRealMode genesisConfig txpConfig nodeRes $ \diff -> do
+        let diff' = hoistDiffusion (elimRealMode pm nodeRes diff') liftIO diff
+        concurrently_
+            (runNode genesisConfig txpConfig nodeRes plugins diff)
+            (liftIO (action diff'))

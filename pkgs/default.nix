@@ -17245,6 +17245,7 @@ license = stdenv.lib.licenses.mit;
 , time-units
 , universum
 , validation
+, warp
 }:
 mkDerivation {
 
@@ -17274,6 +17275,7 @@ stm
 text
 time-units
 universum
+warp
 ];
 executableHaskellDepends = [
 base

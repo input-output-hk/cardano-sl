@@ -17280,6 +17280,7 @@ warp
 executableHaskellDepends = [
 base
 cardano-sl
+cardano-sl-chain
 cardano-sl-core
 cardano-sl-util
 universum

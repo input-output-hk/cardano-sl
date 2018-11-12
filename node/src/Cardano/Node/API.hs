@@ -39,15 +39,42 @@ import           Ntp.Client (NtpConfiguration, ntpClientSettings, withNtpClient)
 launchNodeServer
     :: Diffusion IO
     -> NtpConfiguration
+    -> StateLock
     -> IO ()
-launchNodeServer diffusion ntpConfig = do
+launchNodeServer diffusion ntpConfig stateLock = do
     ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
     let app = serve (Proxy @Node.API)
             $ handlers
                 diffusion
                 ntpStatus
+                stateLock
 
     pure ()
+
+{-
+
+Next challenge: Getting the `StateLock`.
+
+From `db/src/Pos/DB/GState/Lock.hs`:
+> type MonadStateLockBase ctx m
+>      = ( MonadIO m
+>        , MonadMask m
+>        , MonadReader ctx m
+>        , HasLens' ctx StateLock
+>        )
+
+We provide the correct instances for this sort of thing. The next trick is to
+figure out how the actual node acquires a state lock, and ensure that it is
+provided in either `launchNode` or `actionWithCoreNodeAlso`.
+
+`newStateLock` is called in Pos.Launcher.Resource in a function that returns
+`NodeContext`. So we can probably dig that out of the `NodeContext` if we can
+figure out where that is being provided to the actions.
+
+The `NodeResources` type contains a field `nrContext :: NodeContext` which has
+what we need. Wonderful.
+
+-}
 
 handlers
     :: Diffusion IO

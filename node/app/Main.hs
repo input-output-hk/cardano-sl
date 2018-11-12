@@ -26,4 +26,5 @@ main = withCompileInfo $ do
                     launchNodeServer
                         diffusion
                         ntpConfig
+                        (ncStateLock (nrContext nodeResources))
 

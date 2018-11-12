@@ -11,18 +11,17 @@ import           Control.Concurrent.STM (orElse, retry)
 import           Control.Lens (lens, to)
 import qualified Data.Text as Text
 import           Data.Time.Units (toMicroseconds)
+import qualified Network.Wai.Handler.Warp as Warp
 import qualified Paths_cardano_sl_node as Paths
 import           Servant
-import qualified Network.Wai.Handler.Warp as Warp
-
-import Pos.Context
-import Pos.Launcher.Resource
 
 import           Ntp.Client (NtpStatus (..))
+import           Ntp.Client (NtpConfiguration, ntpClientSettings, withNtpClient)
 import           Ntp.Packet (NtpOffset)
 import           Pos.Chain.Block (LastKnownHeader, LastKnownHeaderTag)
 import           Pos.Chain.Update (UpdateConfiguration, curSoftwareVersion,
                      withUpdateConfiguration)
+import           Pos.Context
 import qualified Pos.Core as Core
 import qualified Pos.DB.Block as DB
 import qualified Pos.DB.BlockIndex as DB
@@ -34,11 +33,11 @@ import qualified Pos.DB.Rocks.Types as DB
 import           Pos.Infra.Diffusion.Subscription.Status (ssMap)
 import           Pos.Infra.Diffusion.Types
 import qualified Pos.Infra.Slotting.Util as Slotting
+import           Pos.Launcher.Resource
 import           Pos.Node.API as Node
 import           Pos.Util (HasLens (..), HasLens')
 import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
 import           Pos.Util.Servant
-import           Ntp.Client (NtpConfiguration, ntpClientSettings, withNtpClient)
 
 launchNodeServer
     :: Diffusion IO

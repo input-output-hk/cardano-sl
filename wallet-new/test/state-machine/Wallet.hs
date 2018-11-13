@@ -72,7 +72,6 @@ data Response (r :: * -> *)
 -- Wallet state
 
 data Model (r :: * -> *) = Model
-    -- TODO: don't use touple here, use record
     { mWallets     :: [(V1.Wallet, Maybe V1.SpendingPassword)]
     , mUnhappyPath :: Int
     , mReset       :: Bool
@@ -83,14 +82,6 @@ deriving instance ToExpr (V1.V1 Core.Timestamp)
 deriving instance ToExpr Core.Coin
 deriving instance ToExpr Core.Timestamp
 deriving instance ToExpr (V1.V1 Core.Coin)
-deriving instance ToExpr (V1.V1 V1.AddressOwnership)
-deriving instance ToExpr V1.AddressOwnership
-instance ToExpr (V1.V1 Core.Address) where
-    -- TODO: check is this viable solution
-    toExpr = toExpr @String . show . BI.encode . V1.unV1
-deriving instance ToExpr V1.WalletAddress
-deriving instance ToExpr V1.AccountIndex
-deriving instance ToExpr V1.Account
 deriving instance ToExpr V1.Wallet
 deriving instance ToExpr V1.WalletId
 deriving instance ToExpr V1.AssuranceLevel
@@ -116,7 +107,6 @@ deriving instance ToExpr (Model Concrete)
 initModel :: Model r
 initModel = Model mempty 0 False
 
--- If you need more fine grained distribution, use preconditions
 preconditions :: Model Symbolic -> Action Symbolic -> Logic
 preconditions _ ResetWalletA      = Top
 preconditions (Model _ _ True) action = case action of
@@ -133,21 +123,15 @@ transitions model@Model{..} cmd res = case (cmd, res) of
     (CreateWalletA _, CreateWalletR (Left _)) -> increaseUnhappyPath
     (CreateWalletA _, _) -> shouldNotBeReachedError
   where
-    -- TODO: use postcondition that ration of unhappy paths has to be expected (ie, similar to test coverage)
-    -- If number of unhappy paths is too high something might go wrong and our tests are not covering enough happy paths (and vice versa)?
     increaseUnhappyPath = model { mUnhappyPath = mUnhappyPath + 1 }
     shouldNotBeReachedError = error "This branch should not be reached!"
 
--- TODO: use unit tests in wallet-new/test/unit for inspiration
 postconditions :: Model Concrete -> Action Concrete -> Response Concrete -> Logic
 postconditions Model{..} cmd res = case (cmd, res) of
     (ResetWalletA, ResetWalletR)               -> Top
     (ResetWalletA, _)                          -> shouldNotBeReachedError
     -- It should be expected for a wallet creation to fail sometimes, but not currently in our tests.
     (CreateWalletA _, CreateWalletR (Left _))  -> Bot
-    -- TODO: check that wallet request and wallet response contain same attributes
-    -- that we have created intended wallet
-    -- FIXME: this postcondition can be made much stronger!
     -- Created wallet shouldn't be present in the model
     (CreateWalletA _, CreateWalletR (Right V1.Wallet{..})) -> Predicate $ NotElem walId (map (V1.walId . fst) mWallets)
     (CreateWalletA _, _) -> shouldNotBeReachedError
@@ -175,7 +159,7 @@ generator :: Model Symbolic -> Gen (Action Symbolic)
 generator (Model _ _ False) = pure ResetWalletA
 -- we would like to create a wallet after wallet reset
 generator (Model [] _ True) = CreateWalletA . WL.CreateWallet <$> genNewWalletRq
-generator model@Model{..} = frequency
+generator _ = frequency
     [ (1, pure ResetWalletA)
     , (1, CreateWalletA . WL.CreateWallet <$> genNewWalletRq)
     -- ... other actions should go here
@@ -189,7 +173,6 @@ shrinker _ = []
 semantics :: WL.PassiveWalletLayer IO -> PassiveWallet -> Action Concrete -> IO (Response Concrete)
 semantics pwl _ cmd = case cmd of
     ResetWalletA -> do
-        -- TODO: check how it will behave if exception is raised here!
         WL.resetWalletState pwl
         return ResetWalletR
     CreateWalletA cw -> do
@@ -224,21 +207,9 @@ mock _ (CreateWalletA _) = pure $ CreateWalletR (Left $ WL.CreateWalletError Ker
 
 ------------------------------------------------------------------------
 
--- TODO: model invariant?
--- TODO: model distribution?
 stateMachine :: WL.PassiveWalletLayer IO -> PassiveWallet -> StateMachine Model Action IO Response
 stateMachine pwl pw =
-    StateMachine
-        initModel
-        transitions
-        preconditions
-        postconditions
-        Nothing
-        generator
-        Nothing
-        shrinker
-        (semantics pwl pw)
-        mock
+    StateMachine initModel transitions preconditions postconditions Nothing generator Nothing shrinker (semantics pwl pw) mock
 
 prop_wallet :: WL.PassiveWalletLayer IO -> PassiveWallet -> Property
 prop_wallet pwl pw = forAllCommands sm Nothing $ \cmds -> monadicIO $ do

@@ -40,7 +40,7 @@ import           Pos.Chain.Update (BlockVersion (..), ConsensusEra (..),
                      UpdateConfiguration, lastKnownBlockVersion)
 import           Pos.Core (BlockCount, FlatSlotId, ProtocolConstants,
                      difficultyL, epochIndexL, flattenSlotId, kEpochSlots,
-                     pcBlkSecurityParam)
+                     pcBlkSecurityParam, pcEpochSlots, slotIdSucc)
 import           Pos.Core.Chrono (NE, NewestFirst (getNewestFirst),
                      OldestFirst (..), toOldestFirst, _OldestFirst)
 import           Pos.Core.Exception (assertionFailed, reportFatalError)
@@ -58,11 +58,14 @@ import qualified Pos.DB.GState.Common as GS
                      getMaxSeenDifficulty)
 import           Pos.DB.Lrc (HasLrcContext, lrcActionOnEpochReason)
 import qualified Pos.DB.Lrc as LrcDB
+import           Pos.DB.Lrc.OBFT (getSlotLeaderObft)
 import           Pos.DB.Update (getAdoptedBVFull, getConsensusEra)
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Util (HasLens', lensOf)
 import           Pos.Util.Wlog (WithLogger, logInfo)
+
+import           UnliftIO (MonadUnliftIO)
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -121,7 +124,7 @@ type MonadSlogVerify ctx m =
     )
 
 slogVerifyBlocks
-    :: MonadSlogVerify ctx m
+    :: (MonadSlogVerify ctx m, MonadUnliftIO m)
     => Genesis.Config
     -> Maybe SlotId -- ^ current slot
     -> OldestFirst NE Block
@@ -215,34 +218,31 @@ slogVerifyBlocksOriginal genesisConfig curSlot blocks = runExceptT $ do
 
 {-# ANN slogVerifyBlocksOBFT ("HLint: ignore Reduce duplication" :: Text) #-}
 slogVerifyBlocksOBFT
-    :: MonadSlogVerify ctx m
+    :: (MonadSlogVerify ctx m, MonadUnliftIO m)
     => Genesis.Config
     -> Maybe SlotId -- ^ current slot
     -> OldestFirst NE Block
     -> m (Either Text (OldestFirst NE SlogUndo))
 slogVerifyBlocksOBFT genesisConfig curSlot blocks = runExceptT $ do
-    _ <- throwError "slogVerifyBlocksOBFT: unimplemented"
     uc <- view (lensOf @UpdateConfiguration)
     era <- getConsensusEra
     logInfo $ sformat ("slogVerifyBlocksOBFT: Consensus era is " % shown) era
     (adoptedBV, adoptedBVD) <- lift getAdoptedBVFull
     let dataMustBeKnown = mustDataBeKnown uc adoptedBV
-    let headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
-    leaders <- lift $
-        lrcActionOnEpochReason
-            headEpoch
-            (sformat
-                 ("slogVerifyBlocksOBFT: there are no leaders for epoch " %build)
-                 headEpoch)
-            LrcDB.getLeadersForEpoch
-    -- We take head here, because blocks are in oldest first order and
-    -- we know that all of them are from the same epoch. So if there
-    -- is a genesis block, it must be head and only head.
-    case blocks ^. _OldestFirst . _neHead of
-        (Left block) ->
-            when (block ^. genBlockLeaders /= leaders) $
-            throwError "Genesis block leaders don't match with LRC-computed"
-        _ -> pass
+    let epochSlots = pcEpochSlots (configProtocolConstants genesisConfig)
+    let initialSlot = case curSlot of
+                          -- TODO mhueschen | make sure this is correct
+                          -- We do not have a SlotId, so we are starting
+                          -- at genesis
+                          Nothing -> error "slogVerifyBlocksOBFT: no slotId" -- slotIdToEnum epochSlots 0
+                          Just cs -> cs
+    leadersList <-
+        lift $ mapM (getSlotLeaderObft genesisConfig)
+                    (take (length blocks) (iterate (slotIdSucc epochSlots)
+                                                   initialSlot))
+    let leaders = case nonEmpty leadersList of
+                      Nothing -> error "slogVerifyBlocksOBFT: empty list of leaders"
+                      Just ls -> ls
     -- Do pure block verification.
     let blocksList :: OldestFirst [] Block
         blocksList = OldestFirst (NE.toList (getOldestFirst blocks))

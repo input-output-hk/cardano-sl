@@ -36,8 +36,8 @@ import           Pos.Chain.Block (Block, Blund, HasSlogGState, SlogUndo (..),
                      mainBlockSlot, prevBlockL, verifyBlocks)
 import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots,
                      configK)
-import           Pos.Chain.Update (BlockVersion (..), UpdateConfiguration,
-                     lastKnownBlockVersion)
+import           Pos.Chain.Update (BlockVersion (..), ConsensusEra (..),
+                     UpdateConfiguration, lastKnownBlockVersion)
 import           Pos.Core (BlockCount, FlatSlotId, ProtocolConstants,
                      difficultyL, epochIndexL, flattenSlotId, kEpochSlots,
                      pcBlkSecurityParam)
@@ -120,6 +120,20 @@ type MonadSlogVerify ctx m =
     , HasLrcContext ctx
     )
 
+slogVerifyBlocks
+    :: MonadSlogVerify ctx m
+    => Genesis.Config
+    -> Maybe SlotId -- ^ current slot
+    -> OldestFirst NE Block
+    -> m (Either Text (OldestFirst NE SlogUndo))
+slogVerifyBlocks genesisConfig curSlot blocks = do
+    era <- getConsensusEra
+    logInfo $ sformat ("slogVerifyBlocks: Consensus era is " % shown) era
+    let k = case era of
+                Original -> slogVerifyBlocksOriginal
+                OBFT     -> slogVerifyBlocksOBFT
+    k genesisConfig curSlot blocks
+
 -- | Verify everything from block that is not checked by other components.
 -- All blocks must be from the same epoch.
 --
@@ -129,16 +143,16 @@ type MonadSlogVerify ctx m =
 --     match the ones computed by LRC.
 -- 2.  Call pure verification. If it fails, throw.
 -- 3.  Compute 'SlogUndo's and return them.
-slogVerifyBlocks
+slogVerifyBlocksOriginal
     :: MonadSlogVerify ctx m
     => Genesis.Config
     -> Maybe SlotId -- ^ current slot
     -> OldestFirst NE Block
     -> m (Either Text (OldestFirst NE SlogUndo))
-slogVerifyBlocks genesisConfig curSlot blocks = runExceptT $ do
+slogVerifyBlocksOriginal genesisConfig curSlot blocks = runExceptT $ do
     uc <- view (lensOf @UpdateConfiguration)
     era <- getConsensusEra
-    logInfo $ sformat ("slogVerifyBlocks: Consensus era is " % shown) era
+    logInfo $ sformat ("slogVerifyBlocksOriginal: Consensus era is " % shown) era
     (adoptedBV, adoptedBVD) <- lift getAdoptedBVFull
     let dataMustBeKnown = mustDataBeKnown uc adoptedBV
     let headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
@@ -146,7 +160,79 @@ slogVerifyBlocks genesisConfig curSlot blocks = runExceptT $ do
         lrcActionOnEpochReason
             headEpoch
             (sformat
-                 ("slogVerifyBlocks: there are no leaders for epoch " %build)
+                 ("slogVerifyBlocksOriginal: there are no leaders for epoch " %build)
+                 headEpoch)
+            LrcDB.getLeadersForEpoch
+    -- We take head here, because blocks are in oldest first order and
+    -- we know that all of them are from the same epoch. So if there
+    -- is a genesis block, it must be head and only head.
+    case blocks ^. _OldestFirst . _neHead of
+        (Left block) ->
+            when (block ^. genBlockLeaders /= leaders) $
+            throwError "Genesis block leaders don't match with LRC-computed"
+        _ -> pass
+    -- Do pure block verification.
+    let blocksList :: OldestFirst [] Block
+        blocksList = OldestFirst (NE.toList (getOldestFirst blocks))
+    verResToMonadError formatAllErrors $
+        verifyBlocks
+            genesisConfig
+            curSlot
+            dataMustBeKnown
+            adoptedBVD
+            leaders
+            blocksList
+    -- Here we need to compute 'SlogUndo'. When we apply a block,
+    -- we can remove one of the last slots stored in 'BlockExtra'.
+    -- This removed slot must be put into 'SlogUndo'.
+    lastSlots <- lift GS.getLastSlots
+    let toFlatSlot =
+            fmap (flattenSlotId (configEpochSlots genesisConfig) . view mainBlockSlot) . rightToMaybe
+    -- these slots will be added if we apply all blocks
+    let newSlots = mapMaybe toFlatSlot (toList blocks)
+    let combinedSlots :: OldestFirst [] FlatSlotId
+        combinedSlots = lastSlots & _Wrapped %~ (<> newSlots)
+    -- these slots will be removed if we apply all blocks, because we store
+    -- only limited number of slots
+    let removedSlots :: OldestFirst [] FlatSlotId
+        removedSlots =
+            combinedSlots & _Wrapped %~
+            (take $ length combinedSlots - configK genesisConfig)
+    -- Note: here we exploit the fact that genesis block can be only 'head'.
+    -- If we have genesis block, then size of 'newSlots' will be less than
+    -- number of blocks we verify. It means that there will definitely
+    -- be 'Nothing' in the head of the result.
+    --
+    -- It also works fine if we store less than 'blkSecurityParam' slots.
+    -- In this case we will use 'Nothing' for the oldest blocks.
+    let slogUndo :: OldestFirst [] (Maybe FlatSlotId)
+        slogUndo =
+            map Just removedSlots & _Wrapped %~
+            (replicate (length blocks - length removedSlots) Nothing <>)
+    -- NE.fromList is safe here, because it's obvious that the size of
+    -- 'slogUndo' is the same as the size of 'blocks'.
+    return $ over _Wrapped NE.fromList $ map SlogUndo slogUndo
+
+{-# ANN slogVerifyBlocksOBFT ("HLint: ignore Reduce duplication" :: Text) #-}
+slogVerifyBlocksOBFT
+    :: MonadSlogVerify ctx m
+    => Genesis.Config
+    -> Maybe SlotId -- ^ current slot
+    -> OldestFirst NE Block
+    -> m (Either Text (OldestFirst NE SlogUndo))
+slogVerifyBlocksOBFT genesisConfig curSlot blocks = runExceptT $ do
+    _ <- throwError "slogVerifyBlocksOBFT: unimplemented"
+    uc <- view (lensOf @UpdateConfiguration)
+    era <- getConsensusEra
+    logInfo $ sformat ("slogVerifyBlocksOBFT: Consensus era is " % shown) era
+    (adoptedBV, adoptedBVD) <- lift getAdoptedBVFull
+    let dataMustBeKnown = mustDataBeKnown uc adoptedBV
+    let headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
+    leaders <- lift $
+        lrcActionOnEpochReason
+            headEpoch
+            (sformat
+                 ("slogVerifyBlocksOBFT: there are no leaders for epoch " %build)
                  headEpoch)
             LrcDB.getLeadersForEpoch
     -- We take head here, because blocks are in oldest first order and

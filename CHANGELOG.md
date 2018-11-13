@@ -9,8 +9,6 @@ Please add entries for your tickets:
 - [CBR-250](https://iohk.myjetbrains.com/youtrack/issue/CBR-250) [#3388](https://github.com/input-output-hk/cardano-sl/pull/3388) [#3454](https://github.com/input-output-hk/cardano-sl/pull/3454) ATTENTION: [@edsko](https://github.com/edsko)
 - [CBR-27](https://iohk.myjetbrains.com/youtrack/issue/CBR-27) [#3592](https://github.com/input-output-hk/cardano-sl/pull/3592) ATTENTION: [@adinapoli-iohk](https://github.com/adinapoli-iohk)
 - [CBR-285](https://iohk.myjetbrains.com/youtrack/issue/CBR-285) [#3117](https://github.com/input-output-hk/cardano-sl/pull/3117) ATTENTION: [@adinapoli-iohk](https://github.com/adinapoli-iohk)
-- [CBR-288](https://iohk.myjetbrains.com/youtrack/issue/CBR-288) [#3128](https://github.com/input-output-hk/cardano-sl/pull/3128) ATTENTION: [@KtorZ](https://github.com/KtorZ)
-- [CBR-289](https://iohk.myjetbrains.com/youtrack/issue/CBR-289) [#3043](https://github.com/input-output-hk/cardano-sl/pull/3043) ATTENTION: [@KtorZ](https://github.com/KtorZ)
 - [CBR-304](https://iohk.myjetbrains.com/youtrack/issue/CBR-304) [#3116](https://github.com/input-output-hk/cardano-sl/pull/3116) ATTENTION: [@uroboros](https://github.com/uroboros)
 - [CBR-313](https://iohk.myjetbrains.com/youtrack/issue/CBR-313) [#3256](https://github.com/input-output-hk/cardano-sl/pull/3256) ATTENTION: [@adinapoli-iohk](https://github.com/adinapoli-iohk)
 - [CBR-314](https://iohk.myjetbrains.com/youtrack/issue/CBR-314) [#3187](https://github.com/input-output-hk/cardano-sl/pull/3187) ATTENTION: [@adinapoli-iohk](https://github.com/adinapoli-iohk)
@@ -31,7 +29,6 @@ Please add entries for your tickets:
 - [CBR-363](https://iohk.myjetbrains.com/youtrack/issue/CBR-363) [#3496](https://github.com/input-output-hk/cardano-sl/pull/3496) ATTENTION: [@adinapoli-iohk](https://github.com/adinapoli-iohk)
 - [CBR-364](https://iohk.myjetbrains.com/youtrack/issue/CBR-364) [#3379](https://github.com/input-output-hk/cardano-sl/pull/3379) [#3382](https://github.com/input-output-hk/cardano-sl/pull/3382) ATTENTION: [@adinapoli-iohk](https://github.com/adinapoli-iohk), [@edsko](https://github.com/edsko)
 - [CBR-365](https://iohk.myjetbrains.com/youtrack/issue/CBR-365) [#3502](https://github.com/input-output-hk/cardano-sl/pull/3502) [#3531](https://github.com/input-output-hk/cardano-sl/pull/3531) ATTENTION: [@adinapoli-iohk](https://github.com/adinapoli-iohk)
-- [CBR-366](https://iohk.myjetbrains.com/youtrack/issue/CBR-366) [#3469](https://github.com/input-output-hk/cardano-sl/pull/3469) ATTENTION: [@paweljakubas](https://github.com/paweljakubas)
 - [CBR-369](https://iohk.myjetbrains.com/youtrack/issue/CBR-369) [#3418](https://github.com/input-output-hk/cardano-sl/pull/3418) ATTENTION: [@edsko](https://github.com/edsko)
 - [CBR-371](https://iohk.myjetbrains.com/youtrack/issue/CBR-371) [#3463](https://github.com/input-output-hk/cardano-sl/pull/3463) [#3563](https://github.com/input-output-hk/cardano-sl/pull/3563) ATTENTION: [@k0001](https://github.com/k0001), [@kderme](https://github.com/kderme)
 - [CBR-374](https://iohk.myjetbrains.com/youtrack/issue/CBR-374) [#3493](https://github.com/input-output-hk/cardano-sl/pull/3493) ATTENTION: [@edsko](https://github.com/edsko)
@@ -50,41 +47,26 @@ Please add entries for your tickets:
 - [CBR-393](https://iohk.myjetbrains.com/youtrack/issue/CBR-393) [#3552](https://github.com/input-output-hk/cardano-sl/pull/3552) ATTENTION: [@kderme](https://github.com/kderme)
 - [CBR-394](https://iohk.myjetbrains.com/youtrack/issue/CBR-394) [#3488](https://github.com/input-output-hk/cardano-sl/pull/3488) ATTENTION: [@coot](https://github.com/coot)
 - [CBR-396](https://iohk.myjetbrains.com/youtrack/issue/CBR-396) [#3453](https://github.com/input-output-hk/cardano-sl/pull/3453) ATTENTION: [@edsko](https://github.com/edsko)
-- [CBR-398](https://iohk.myjetbrains.com/youtrack/issue/CBR-398) [#3525](https://github.com/input-output-hk/cardano-sl/pull/3525) ATTENTION: [@paweljakubas](https://github.com/paweljakubas)
 - [CBR-400](https://iohk.myjetbrains.com/youtrack/issue/CBR-400) [#3486](https://github.com/input-output-hk/cardano-sl/pull/3486) ATTENTION: [@ruhatch](https://github.com/ruhatch)
 - [CBR-405](https://iohk.myjetbrains.com/youtrack/issue/CBR-405) [#3516](https://github.com/input-output-hk/cardano-sl/pull/3516) ATTENTION: [@edsko](https://github.com/edsko)
 - [CBR-407](https://iohk.myjetbrains.com/youtrack/issue/CBR-407) [#3520](https://github.com/input-output-hk/cardano-sl/pull/3520) ATTENTION: [@adinapoli-iohk](https://github.com/adinapoli-iohk)
-- [CBR-408](https://iohk.myjetbrains.com/youtrack/issue/CBR-408) [#3571](https://github.com/input-output-hk/cardano-sl/pull/3571) ATTENTION: [@paweljakubas](https://github.com/paweljakubas)
 - [CBR-409](https://iohk.myjetbrains.com/youtrack/issue/CBR-409) [#3575](https://github.com/input-output-hk/cardano-sl/pull/3575) ATTENTION: [@uroboros](https://github.com/uroboros)
 - [CBR-413](https://iohk.myjetbrains.com/youtrack/issue/CBR-413) [#3546](https://github.com/input-output-hk/cardano-sl/pull/3546) [#3566](https://github.com/input-output-hk/cardano-sl/pull/3566) ATTENTION: [@adinapoli-iohk](https://github.com/adinapoli-iohk)
 - [CBR-414](https://iohk.myjetbrains.com/youtrack/issue/CBR-414) [#3582](https://github.com/input-output-hk/cardano-sl/pull/3582) ATTENTION: [@cleverca22](https://github.com/cleverca22)
 - [CBR-416](https://iohk.myjetbrains.com/youtrack/issue/CBR-416) [#3580](https://github.com/input-output-hk/cardano-sl/pull/3580) ATTENTION: [@adinapoli-iohk](https://github.com/adinapoli-iohk)
-- [CBR-417](https://iohk.myjetbrains.com/youtrack/issue/CBR-417) [#3568](https://github.com/input-output-hk/cardano-sl/pull/3568) ATTENTION: [@paweljakubas](https://github.com/paweljakubas)
 - [CBR-419](https://iohk.myjetbrains.com/youtrack/issue/CBR-419) [#3590](https://github.com/input-output-hk/cardano-sl/pull/3590) ATTENTION: [@adinapoli-iohk](https://github.com/adinapoli-iohk)
-- [CBR-426](https://iohk.myjetbrains.com/youtrack/issue/CBR-426) [#3584](https://github.com/input-output-hk/cardano-sl/pull/3584) ATTENTION: [@KtorZ](https://github.com/KtorZ)
-- [CBR-427](https://iohk.myjetbrains.com/youtrack/issue/CBR-427) [#3586](https://github.com/input-output-hk/cardano-sl/pull/3586) ATTENTION: [@KtorZ](https://github.com/KtorZ)
 - [CBR-434](https://iohk.myjetbrains.com/youtrack/issue/CBR-434) [#3612](https://github.com/input-output-hk/cardano-sl/pull/3612) ATTENTION: [@kderme](https://github.com/kderme)
 - [CBR-435](https://iohk.myjetbrains.com/youtrack/issue/CBR-435) [#3628](https://github.com/input-output-hk/cardano-sl/pull/3628) ATTENTION: [@kderme](https://github.com/kderme)
-- [CBR-437](https://iohk.myjetbrains.com/youtrack/issue/CBR-437) [#3621](https://github.com/input-output-hk/cardano-sl/pull/3621) ATTENTION: [@Anviking](https://github.com/Anviking)
 - [CBR-438](https://iohk.myjetbrains.com/youtrack/issue/CBR-438) [#3634](https://github.com/input-output-hk/cardano-sl/pull/3634) ATTENTION: [@adinapoli-iohk](https://github.com/adinapoli-iohk)
 - [CBR-440](https://iohk.myjetbrains.com/youtrack/issue/CBR-440) [#3635](https://github.com/input-output-hk/cardano-sl/pull/3635) ATTENTION: [@adinapoli-iohk](https://github.com/adinapoli-iohk)
 - [CBR-441](https://iohk.myjetbrains.com/youtrack/issue/CBR-441) [#3638](https://github.com/input-output-hk/cardano-sl/pull/3638) [#3654](https://github.com/input-output-hk/cardano-sl/pull/3654) [#3669](https://github.com/input-output-hk/cardano-sl/pull/3669) ATTENTION: [@kderme](https://github.com/kderme)
 - [CBR-442](https://iohk.myjetbrains.com/youtrack/issue/CBR-442) [#3641](https://github.com/input-output-hk/cardano-sl/pull/3641) ATTENTION: [@adinapoli-iohk](https://github.com/adinapoli-iohk)
 - [CBR-444](https://iohk.myjetbrains.com/youtrack/issue/CBR-444) [#3701](https://github.com/input-output-hk/cardano-sl/pull/3701) ATTENTION: [@adinapoli-iohk](https://github.com/adinapoli-iohk)
 - [CBR-445](https://iohk.myjetbrains.com/youtrack/issue/CBR-445) [#3720](https://github.com/input-output-hk/cardano-sl/pull/3720) ATTENTION: [@kderme](https://github.com/kderme)
-- [CBR-446](https://iohk.myjetbrains.com/youtrack/issue/CBR-446) [#3650](https://github.com/input-output-hk/cardano-sl/pull/3650) ATTENTION: [@parsonsmatt](https://github.com/parsonsmatt)
-- [CBR-449](https://iohk.myjetbrains.com/youtrack/issue/CBR-449) [#3705](https://github.com/input-output-hk/cardano-sl/pull/3705) ATTENTION: [@KtorZ](https://github.com/KtorZ)
 - [CBR-452](https://iohk.myjetbrains.com/youtrack/issue/CBR-452) [#3695](https://github.com/input-output-hk/cardano-sl/pull/3695) ATTENTION: [@uroboros](https://github.com/uroboros)
 - [CBR-453](https://iohk.myjetbrains.com/youtrack/issue/CBR-453) [#3717](https://github.com/input-output-hk/cardano-sl/pull/3717) [#3726](https://github.com/input-output-hk/cardano-sl/pull/3726) ATTENTION: [@uroboros](https://github.com/uroboros)
 - [CBR-459](https://iohk.myjetbrains.com/youtrack/issue/CBR-459) [#3696](https://github.com/input-output-hk/cardano-sl/pull/3696) ATTENTION: [@adinapoli-iohk](https://github.com/adinapoli-iohk)
 - [CBR-460](https://iohk.myjetbrains.com/youtrack/issue/CBR-460) [#3698](https://github.com/input-output-hk/cardano-sl/pull/3698) ATTENTION: [@adinapoli-iohk](https://github.com/adinapoli-iohk)
-- [CBR-462](https://iohk.myjetbrains.com/youtrack/issue/CBR-462) [#3704](https://github.com/input-output-hk/cardano-sl/pull/3704) ATTENTION: [@KtorZ](https://github.com/KtorZ)
-- [CBR-464](https://iohk.myjetbrains.com/youtrack/issue/CBR-464) [#3710](https://github.com/input-output-hk/cardano-sl/pull/3710) ATTENTION: [@KtorZ](https://github.com/KtorZ)
-- [CBR-465](https://iohk.myjetbrains.com/youtrack/issue/CBR-465) [#3723](https://github.com/input-output-hk/cardano-sl/pull/3723) ATTENTION: [@adinapoli-iohk](https://github.com/adinapoli-iohk)
-- [CBR-466](https://iohk.myjetbrains.com/youtrack/issue/CBR-466) [#3742](https://github.com/input-output-hk/cardano-sl/pull/3742) ATTENTION: [@kderme](https://github.com/kderme)
-- [CBR-467](https://iohk.myjetbrains.com/youtrack/issue/CBR-467) [#3741](https://github.com/input-output-hk/cardano-sl/pull/3741) [#3745](https://github.com/input-output-hk/cardano-sl/pull/3745) ATTENTION: [@avieth](https://github.com/avieth), [@cleverca22](https://github.com/cleverca22)
-- [CBR-470](https://iohk.myjetbrains.com/youtrack/issue/CBR-470) [#3773](https://github.com/input-output-hk/cardano-sl/pull/3773) ATTENTION: [@KtorZ](https://github.com/KtorZ)
-- [CBR-471](https://iohk.myjetbrains.com/youtrack/issue/CBR-471) [#3786](https://github.com/input-output-hk/cardano-sl/pull/3786) ATTENTION: [@KtorZ](https://github.com/KtorZ)
 - [CBR-472](https://iohk.myjetbrains.com/youtrack/issue/CBR-472) [#3765](https://github.com/input-output-hk/cardano-sl/pull/3765) ATTENTION: [@kderme](https://github.com/kderme)
 - [CBR-96](https://iohk.myjetbrains.com/youtrack/issue/CBR-96) [#3127](https://github.com/input-output-hk/cardano-sl/pull/3127) [#3190](https://github.com/input-output-hk/cardano-sl/pull/3190) [#3192](https://github.com/input-output-hk/cardano-sl/pull/3192) [#3194](https://github.com/input-output-hk/cardano-sl/pull/3194) [#3195](https://github.com/input-output-hk/cardano-sl/pull/3195) [#3216](https://github.com/input-output-hk/cardano-sl/pull/3216) ATTENTION: [@coot](https://github.com/coot)
 - [CDEC-223](https://iohk.myjetbrains.com/youtrack/issue/CDEC-223) [#3027](https://github.com/input-output-hk/cardano-sl/pull/3027) ATTENTION: [@aspiwack](https://github.com/aspiwack)
@@ -123,35 +105,14 @@ Please add entries for your tickets:
 - [CDEC-524](https://iohk.myjetbrains.com/youtrack/issue/CDEC-524) [#3506](https://github.com/input-output-hk/cardano-sl/pull/3506) ATTENTION: [@Jimbo4350](https://github.com/Jimbo4350)
 - [CDEC-585](https://iohk.myjetbrains.com/youtrack/issue/CDEC-585) [#3614](https://github.com/input-output-hk/cardano-sl/pull/3614) ATTENTION: [@ruhatch](https://github.com/ruhatch)
 - [CDEC-623](https://iohk.myjetbrains.com/youtrack/issue/CDEC-623) [#3735](https://github.com/input-output-hk/cardano-sl/pull/3735) ATTENTION: [@ruhatch](https://github.com/ruhatch)
-- [CLS-2524](https://iohk.myjetbrains.com/youtrack/issue/CLS-2524) [#3793](https://github.com/input-output-hk/cardano-sl/pull/3793) ATTENTION: [@Anviking](https://github.com/Anviking)
-- [CO-298](https://iohk.myjetbrains.com/youtrack/issue/CO-298) [#3013](https://github.com/input-output-hk/cardano-sl/pull/3013) ATTENTION: [@KtorZ](https://github.com/KtorZ)
-- [CO-324](https://iohk.myjetbrains.com/youtrack/issue/CO-324) [#3210](https://github.com/input-output-hk/cardano-sl/pull/3210) ATTENTION: [@KtorZ](https://github.com/KtorZ)
-- [CO-327](https://iohk.myjetbrains.com/youtrack/issue/CO-327) [#3215](https://github.com/input-output-hk/cardano-sl/pull/3215) ATTENTION: [@Anviking](https://github.com/Anviking)
-- [CO-328](https://iohk.myjetbrains.com/youtrack/issue/CO-328) [#3212](https://github.com/input-output-hk/cardano-sl/pull/3212) ATTENTION: [@KtorZ](https://github.com/KtorZ)
+- [CBR-465](https://iohk.myjetbrains.com/youtrack/issue/CBR-465) [#3723](https://github.com/input-output-hk/cardano-sl/pull/3723) ATTENTION: [@adinapoli-iohk](https://github.com/adinapoli-iohk)
+- [CBR-466](https://iohk.myjetbrains.com/youtrack/issue/CBR-466) [#3742](https://github.com/input-output-hk/cardano-sl/pull/3742) ATTENTION: [@kderme](https://github.com/kderme)
+- [CBR-467](https://iohk.myjetbrains.com/youtrack/issue/CBR-467) [#3741](https://github.com/input-output-hk/cardano-sl/pull/3741) [#3745](https://github.com/input-output-hk/cardano-sl/pull/3745) ATTENTION: [@avieth](https://github.com/avieth), [@cleverca22](https://github.com/cleverca22)
 - [CO-329](https://iohk.myjetbrains.com/youtrack/issue/CO-329) [#3178](https://github.com/input-output-hk/cardano-sl/pull/3178) ATTENTION: [@adinapoli-iohk](https://github.com/adinapoli-iohk)
-- [CO-334](https://iohk.myjetbrains.com/youtrack/issue/CO-334) [#3197](https://github.com/input-output-hk/cardano-sl/pull/3197) ATTENTION: [@parsonsmatt](https://github.com/parsonsmatt)
-- [CO-351](https://iohk.myjetbrains.com/youtrack/issue/CO-351) [#3391](https://github.com/input-output-hk/cardano-sl/pull/3391) ATTENTION: [@KtorZ](https://github.com/KtorZ)
-- [CO-357](https://iohk.myjetbrains.com/youtrack/issue/CO-357) [#3573](https://github.com/input-output-hk/cardano-sl/pull/3573) ATTENTION: [@KtorZ](https://github.com/KtorZ)
-- [CO-357](https://iohk.myjetbrains.com/youtrack/issue/CO-357) [#3639](https://github.com/input-output-hk/cardano-sl/pull/3639) ATTENTION: [@KtorZ](https://github.com/KtorZ)
-- [CO-367](https://iohk.myjetbrains.com/youtrack/issue/CO-367) [#3661](https://github.com/input-output-hk/cardano-sl/pull/3661) ATTENTION: [@paweljakubas](https://github.com/paweljakubas)
-- [CO-370](https://iohk.myjetbrains.com/youtrack/issue/CO-370) [#3596](https://github.com/input-output-hk/cardano-sl/pull/3596) ATTENTION: [@KtorZ](https://github.com/KtorZ)
-- [CO-371](https://iohk.myjetbrains.com/youtrack/issue/CO-371) [#3605](https://github.com/input-output-hk/cardano-sl/pull/3605) ATTENTION: [@KtorZ](https://github.com/KtorZ)
-- [CO-386](https://iohk.myjetbrains.com/youtrack/issue/CO-386) [#3608](https://github.com/input-output-hk/cardano-sl/pull/3608) ATTENTION: [@KtorZ](https://github.com/KtorZ)
-- [CO-388](https://iohk.myjetbrains.com/youtrack/issue/CO-388) [#3610](https://github.com/input-output-hk/cardano-sl/pull/3610) ATTENTION: [@KtorZ](https://github.com/KtorZ)
-- [CO-389](https://iohk.myjetbrains.com/youtrack/issue/CO-389) [#3620](https://github.com/input-output-hk/cardano-sl/pull/3620) [#3658](https://github.com/input-output-hk/cardano-sl/pull/3658) ATTENTION: [@KtorZ](https://github.com/KtorZ)
-- [CO-390](https://iohk.myjetbrains.com/youtrack/issue/CO-390) [#3629](https://github.com/input-output-hk/cardano-sl/pull/3629) ATTENTION: [@KtorZ](https://github.com/KtorZ)
 - [CO-391](https://iohk.myjetbrains.com/youtrack/issue/CO-391) [#3656](https://github.com/input-output-hk/cardano-sl/pull/3656) ATTENTION: [@denisshevchenko](https://github.com/denisshevchenko)
-- [CO-395](https://iohk.myjetbrains.com/youtrack/issue/CO-395) [#3672](https://github.com/input-output-hk/cardano-sl/pull/3672) ATTENTION: [@KtorZ](https://github.com/KtorZ)
-- [CO-398](https://iohk.myjetbrains.com/youtrack/issue/CO-398) [#3678](https://github.com/input-output-hk/cardano-sl/pull/3678) ATTENTION: [@paweljakubas](https://github.com/paweljakubas)
-- [CO-399](https://iohk.myjetbrains.com/youtrack/issue/CO-399) [#3684](https://github.com/input-output-hk/cardano-sl/pull/3684) ATTENTION: [@paweljakubas](https://github.com/paweljakubas)
-- [CO-400](https://iohk.myjetbrains.com/youtrack/issue/CO-400) [#3680](https://github.com/input-output-hk/cardano-sl/pull/3680) ATTENTION: [@KtorZ](https://github.com/KtorZ)
-- [CO-409](https://iohk.myjetbrains.com/youtrack/issue/CO-409) [#3697](https://github.com/input-output-hk/cardano-sl/pull/3697) ATTENTION: [@KtorZ](https://github.com/KtorZ)
 - [CO-410](https://iohk.myjetbrains.com/youtrack/issue/CO-410) [#3733](https://github.com/input-output-hk/cardano-sl/pull/3733) ATTENTION: [@intricate](https://github.com/intricate)
 - [CO-410](https://iohk.myjetbrains.com/youtrack/issue/CO-410) [#3756](https://github.com/input-output-hk/cardano-sl/pull/3756) ATTENTION: [@intricate](https://github.com/intricate)
 - [CO-410](https://iohk.myjetbrains.com/youtrack/issue/CO-410) [#3775](https://github.com/input-output-hk/cardano-sl/pull/3775) ATTENTION: [@intricate](https://github.com/intricate)
-- [CO-417](https://iohk.myjetbrains.com/youtrack/issue/CO-417) [#3727](https://github.com/input-output-hk/cardano-sl/pull/3727) ATTENTION: [@paweljakubas](https://github.com/paweljakubas)
-- [CO-423](https://iohk.myjetbrains.com/youtrack/issue/CO-423) [#3732](https://github.com/input-output-hk/cardano-sl/pull/3732) ATTENTION: [@KtorZ](https://github.com/KtorZ)
-- [CO-436](https://iohk.myjetbrains.com/youtrack/issue/CO-436) [#3791](https://github.com/input-output-hk/cardano-sl/pull/3791) ATTENTION: [@paweljakubas](https://github.com/paweljakubas)
 - [CSL-2495](https://iohk.myjetbrains.com/youtrack/issue/CSL-2495) [#2995](https://github.com/input-output-hk/cardano-sl/pull/2995) ATTENTION: [@nc6](https://github.com/nc6)
 - [CSLD-163](https://iohk.myjetbrains.com/youtrack/issue/CSLD-163) [#3218](https://github.com/input-output-hk/cardano-sl/pull/3218) ATTENTION: [@denisshevchenko](https://github.com/denisshevchenko)
 - [PIP-22](https://iohk.myjetbrains.com/youtrack/issue/PIP-22) [#3273](https://github.com/input-output-hk/cardano-sl/pull/3273) ATTENTION: [@jcmincke](https://github.com/jcmincke)
@@ -175,13 +136,19 @@ Please add entries for your tickets:
   `configuration.yaml` file under the `wallet` section. The API will now return
   a 429 error containing the microseconds to wait until retry. ([CBR-179](https://iohk.myjetbrains.com/youtrack/issue/CBR-179), [#3431](https://github.com/input-output-hk/cardano-sl/pull/3431))
 
-- We can force an NTP-check when getting node-info via the API (`?force_ntp_check` query flag) ([CO-325](https://iohk.myjetbrains.com/youtrack/issue/CO-325), [#3372](https://github.com/input-output-hk/cardano-sl/pull/3372), [#3461](https://github.com/input-output-hk/cardano-sl/pull/3461), [#3607](https://github.com/input-output-hk/cardano-sl/pull/3607))
+- We can force an NTP-check when getting node-info via the API (`?force_ntp_check` query flag)
+    - [CO-325](https://iohk.myjetbrains.com/youtrack/issue/CO-325), [#3372](https://github.com/input-output-hk/cardano-sl/pull/3372), [#3461](https://github.com/input-output-hk/cardano-sl/pull/3461), [#3607](https://github.com/input-output-hk/cardano-sl/pull/3607)
+    - [CBR-427](https://iohk.myjetbrains.com/youtrack/issue/CBR-427) [#3586](https://github.com/input-output-hk/cardano-sl/pull/3586)
 
-- The API provides an endpoint to retrieve basic statistics on the UTxO distribution of a wallet
-  (`/api/v1/wallets/{walletId}/statistics`). (CO-325)
+- The API provides an endpoint to retrieve basic statistics on the UTxO distribution of a wallet (`/api/v1/wallets/{walletId}/statistics`) ([CO-347](https://iohk.myjetbrains.com/youtrack/issue/CO-347), [#3402](https://github.com/input-output-hk/cardano-sl/pull/3402))
 
-- cardano-sl exposes a new package `x509` with tooling for defining a PKI infrastructure from
-  pure Haskell. This is basically an export of the internals of the tool `cardano-sl-x509-generate` (CO-387, [DEVOPS-992](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-992), [#3367](https://github.com/input-output-hk/cardano-sl/pull/3367))
+    - [CO-388](https://iohk.myjetbrains.com/youtrack/issue/CO-388), [#3610](https://github.com/input-output-hk/cardano-sl/pull/3610)
+    - [CO-389](https://iohk.myjetbrains.com/youtrack/issue/CO-389), [#3620](https://github.com/input-output-hk/cardano-sl/pull/3620), [#3658](https://github.com/input-output-hk/cardano-sl/pull/3658)
+
+- cardano-sl exposes a new package `x509` with tooling for defining a PKI infrastructure from pure Haskell. This is basically an export of the internals of the tool `cardano-sl-x509-generate`
+    - [DEVOPS-992](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-992), [#3367](https://github.com/input-output-hk/cardano-sl/pull/3367)
+    - [CO-388](https://iohk.myjetbrains.com/youtrack/issue/CO-388), [#3610](https://github.com/input-output-hk/cardano-sl/pull/3610)
+    - [CO-389](https://iohk.myjetbrains.com/youtrack/issue/CO-389), [#3620](https://github.com/input-output-hk/cardano-sl/pull/3620), [#3658](https://github.com/input-output-hk/cardano-sl/pull/3658)
 
 - Structured logging ([CBR-97](https://iohk.myjetbrains.com/youtrack/issue/CBR-97) [#3483](https://github.com/input-output-hk/cardano-sl/pull/3483) [#3645](https://github.com/input-output-hk/cardano-sl/pull/3645), [CBR-207](https://iohk.myjetbrains.com/youtrack/issue/CBR-207), [#3476](https://github.com/input-output-hk/cardano-sl/pull/3476) [#3477](https://github.com/input-output-hk/cardano-sl/pull/3477), [CBR-211](https://iohk.myjetbrains.com/youtrack/issue/CBR-211) [#3507](https://github.com/input-output-hk/cardano-sl/pull/3507), [CBR-213](https://iohk.myjetbrains.com/youtrack/issue/CBR-213), [#3481](https://github.com/input-output-hk/cardano-sl/pull/3481), [DEVOPS-1097](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1097), [#3764](https://github.com/input-output-hk/cardano-sl/pull/3764), [#3395](https://github.com/input-output-hk/cardano-sl/pull/3395), [#3443](https://github.com/input-output-hk/cardano-sl/pull/3443), [DEVOPS-1109](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1109), [#3785](https://github.com/input-output-hk/cardano-sl/pull/3785), [CBR-275](https://iohk.myjetbrains.com/youtrack/issue/CBR-275) [#3533](https://github.com/input-output-hk/cardano-sl/pull/3533) [#3534](https://github.com/input-output-hk/cardano-sl/pull/3534) [#3655](https://github.com/input-output-hk/cardano-sl/pull/3655), [CBR-345](https://iohk.myjetbrains.com/youtrack/issue/CBR-345) [#3526](https://github.com/input-output-hk/cardano-sl/pull/3526) [#3613](https://github.com/input-output-hk/cardano-sl/pull/3613) [#3632](https://github.com/input-output-hk/cardano-sl/pull/3632) [#3633](https://github.com/input-output-hk/cardano-sl/pull/3633) [#3709](https://github.com/input-output-hk/cardano-sl/pull/3709), [CBR-348](https://iohk.myjetbrains.com/youtrack/issue/CBR-348) [#3523](https://github.com/input-output-hk/cardano-sl/pull/3523), [CBR-430](https://iohk.myjetbrains.com/youtrack/issue/CBR-430) [#3603](https://github.com/input-output-hk/cardano-sl/pull/3603), [CBR-423](https://iohk.myjetbrains.com/youtrack/issue/CBR-423) [#3609](https://github.com/input-output-hk/cardano-sl/pull/3609))
 
@@ -194,6 +161,25 @@ Please add entries for your tickets:
     - Set up supporting tests ([CDEC-500](https://iohk.myjetbrains.com/youtrack/issue/CDEC-500): [#3403](https://github.com/input-output-hk/cardano-sl/pull/3403), [#3405](https://github.com/input-output-hk/cardano-sl/pull/3405))
     - Fix JSON golden test helpers ([CDEC-506](https://iohk.myjetbrains.com/youtrack/issue/CDEC-506): [#3415](https://github.com/input-output-hk/cardano-sl/pull/3415))
 
+- New `cluster` package with utility and CLI to start a full-fledged cluster of nodes
+    - [CO-423](https://iohk.myjetbrains.com/youtrack/issue/CO-423), [#3732](https://github.com/input-output-hk/cardano-sl/pull/3732)
+    - [CO-371](https://iohk.myjetbrains.com/youtrack/issue/CO-371), [#3605](https://github.com/input-output-hk/cardano-sl/pull/3605)
+    - [CO-386](https://iohk.myjetbrains.com/youtrack/issue/CO-386), [#3608](https://github.com/input-output-hk/cardano-sl/pull/3608)
+    - [CO-390](https://iohk.myjetbrains.com/youtrack/issue/CO-390), [#3629](https://github.com/input-output-hk/cardano-sl/pull/3629)
+
+- Support query against some fields of the Account resource (balance, addresses) enabling client to fetch only the data they need ([CO-324](https://iohk.myjetbrains.com/youtrack/issue/CO-324), [#3210](https://github.com/input-output-hk/cardano-sl/pull/3210))
+
+- Integration with the new data-layer
+    - [CBR-437](https://iohk.myjetbrains.com/youtrack/issue/CBR-437), [#3621](https://github.com/input-output-hk/cardano-sl/pull/3621)
+    - [CBR-446](https://iohk.myjetbrains.com/youtrack/issue/CBR-446), [#3650](https://github.com/input-output-hk/cardano-sl/pull/3650) 
+    - [CBR-462](https://iohk.myjetbrains.com/youtrack/issue/CBR-462) [#3704](https://github.com/input-output-hk/cardano-sl/pull/3704)
+    - [CBR-464](https://iohk.myjetbrains.com/youtrack/issue/CBR-464) [#3710](https://github.com/input-output-hk/cardano-sl/pull/3710)
+    - [CBR-471](https://iohk.myjetbrains.com/youtrack/issue/CBR-471) [#3786](https://github.com/input-output-hk/cardano-sl/pull/3786)
+    - [CO-367](https://iohk.myjetbrains.com/youtrack/issue/CO-367) [#3661](https://github.com/input-output-hk/cardano-sl/pull/3661)
+    - [CBR-366](https://iohk.myjetbrains.com/youtrack/issue/CBR-366) [#3469](https://github.com/input-output-hk/cardano-sl/pull/3469)
+
+- Finalize port of API V0 to V1
+    - [CO-334](https://iohk.myjetbrains.com/youtrack/issue/CO-334) [#3197](https://github.com/input-output-hk/cardano-sl/pull/3197)
 
 ### Fixes
 
@@ -229,6 +215,14 @@ Please add entries for your tickets:
 
 - Fix benchmark on OSX ([CSL-2517](https://iohk.myjetbrains.com/youtrack/issue/CSL-2517) [#3348](https://github.com/input-output-hk/cardano-sl/pull/3348))
 
+- Fix logger implementation, enabling pure logger to be used without side-effects ([CO-409](https://iohk.myjetbrains.com/youtrack/issue/CO-409), [#3697](https://github.com/input-output-hk/cardano-sl/pull/3697))
+
+- Crash host node when the underlying wallet dies ([CBR-426](https://iohk.myjetbrains.com/youtrack/issue/CBR-426), [#3584](https://github.com/input-output-hk/cardano-sl/pull/3584))
+
+- Ensure correct file permissions are set when generate x509 certificates ([CBR-470](https://iohk.myjetbrains.com/youtrack/issue/CBR-470), [#3773](https://github.com/input-output-hk/cardano-sl/pull/3773))
+
+- Fix checksum verification in BIP-39 implementation ([CO-298](https://iohk.myjetbrains.com/youtrack/issue/CO-298), [#3013](https://github.com/input-output-hk/cardano-sl/pull/3013))
+
 ### Improvements
 
 - Friendly error mistakes from deserializing invalid addresses instead of brutal 500 ([CBR-283](https://iohk.myjetbrains.com/youtrack/issue/CBR-283))
@@ -237,14 +231,13 @@ Please add entries for your tickets:
 
 - Small refactor of wallet Errors implementation to be more maintainable ([CBR-26](https://iohk.myjetbrains.com/youtrack/issue/CBR-26), [#3429](https://github.com/input-output-hk/cardano-sl/pull/3429))
 
-- Content-Type parser is now more lenient and accepts `application/json`, `application/json;charset=utf-8` and
-  no Content-Type at all (defaulting to `application/json`).
+- Content-Type parser is now more lenient and accepts `application/json`, `application/json;charset=utf-8` and no Content-Type at all (defaulting to `application/json`) ([CO-370](https://iohk.myjetbrains.com/youtrack/issue/CO-370), [#3596](https://github.com/input-output-hk/cardano-sl/pull/3596))
 
 - The codebase now relies on the package `cryptonite` (instead of `ed25519`) for Ed25519 implementation (CO-325)
 
 - **[API BREAKING CHANGE]** Improve diagnostic for `NotEnoughMoney` error ([CBR-461](https://iohk.myjetbrains.com/youtrack/issue/CBR-461), [#3702](https://github.com/input-output-hk/cardano-sl/pull/3702))
 
-- When Content-Type's main MIME-type cannot fall back to 'application/json' then UnsupportedMimeTypeError is returned
+- When Content-Type's main MIME-type cannot fall back to 'application/json' then UnsupportedMimeTypeError is returned ([CO-417](https://iohk.myjetbrains.com/youtrack/issue/CO-417), [#3727](https://github.com/input-output-hk/cardano-sl/pull/3727))
 
 - Add `cardano-node --no-tls` option to wallet ([DEVOPS-879](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-879), [#3074](https://github.com/input-output-hk/cardano-sl/pull/3074))
 
@@ -262,13 +255,30 @@ Please add entries for your tickets:
     - Remove partial-function record accessors using `deriveIndexedBi` TH function ([CDEC-385](https://iohk.myjetbrains.com/youtrack/issue/CDEC-385): [#3153](https://github.com/input-output-hk/cardano-sl/pull/3153))
     - Create a script to visualize the package dependency graph within `cardano-sl` ([CDEC-429](https://iohk.myjetbrains.com/youtrack/issue/CDEC-429): [#3227](https://github.com/input-output-hk/cardano-sl/pull/3227))
 
+- Improve readability and execution of various integration tests
+    - [CO-398](https://iohk.myjetbrains.com/youtrack/issue/CO-398), [#3678](https://github.com/input-output-hk/cardano-sl/pull/3678)
+    - [CO-400](https://iohk.myjetbrains.com/youtrack/issue/CO-400), [#3680](https://github.com/input-output-hk/cardano-sl/pull/3680)
+    - [CO-436](https://iohk.myjetbrains.com/youtrack/issue/CO-436), [#3791](https://github.com/input-output-hk/cardano-sl/pull/3791)
+    - [CBR-408](https://iohk.myjetbrains.com/youtrack/issue/CBR-408), [#3571](https://github.com/input-output-hk/cardano-sl/pull/3571)
+    - [CBR-417](https://iohk.myjetbrains.com/youtrack/issue/CBR-417), [#3568](https://github.com/input-output-hk/cardano-sl/pull/3568)
+    - [CO-357](https://iohk.myjetbrains.com/youtrack/issue/CO-357), [#3573](https://github.com/input-output-hk/cardano-sl/pull/3573), [#3639](https://github.com/input-output-hk/cardano-sl/pull/3639)
+
+- Add integration tests to test redemption of certificates ([CBR-398](https://iohk.myjetbrains.com/youtrack/issue/CBR-398), [#3525](https://github.com/input-output-hk/cardano-sl/pull/3525))
+
+- Review implementation of the BIP39 (Mnemonic Words) implementation
+    - [CBR-288](https://iohk.myjetbrains.com/youtrack/issue/CBR-288) [#3128](https://github.com/input-output-hk/cardano-sl/pull/3128)
+    - [CBR-289](https://iohk.myjetbrains.com/youtrack/issue/CBR-289) [#3043](https://github.com/input-output-hk/cardano-sl/pull/3043)
+
 ### Specifications
 
 ### Documentation
 
-- Make an inventory of existing wallet errors and exceptions (CBR-307)
+- Make an inventory of existing wallet errors and exceptions ([CBR-307](https://iohk.myjetbrains.com/youtrack/issue/CO-307))
 
-- wallet-new README has been improved (especially on sections about testing) and updated (CO-325)
+- Various API documentation / guides fixes
+    - [CO-327](https://iohk.myjetbrains.com/youtrack/issue/CO-327), [#3215](https://github.com/input-output-hk/cardano-sl/pull/3215)
+    - [CO-328](https://iohk.myjetbrains.com/youtrack/issue/CO-328), [#3212](https://github.com/input-output-hk/cardano-sl/pull/3212)
+    - [CO-351](https://iohk.myjetbrains.com/youtrack/issue/CO-351) [#3391](https://github.com/input-output-hk/cardano-sl/pull/3391)
 
 - Documentation updates for Nix 2.0 ([DEVOPS-976](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-976), [#3311](https://github.com/input-output-hk/cardano-sl/pull/3311), [#3343](https://github.com/input-output-hk/cardano-sl/pull/3343))
 

@@ -23,10 +23,10 @@ import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
 import           Pos.Core.Slotting (Timestamp)
 import           Pos.Crypto.Signing
 
+import qualified Cardano.Mnemonic as Mnemonic
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
 import           Cardano.Wallet.Kernel.Addresses (newHdAddress)
-import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
 import           Cardano.Wallet.Kernel.DB.AcidState (dbHdWallets)
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
@@ -85,7 +85,7 @@ createWallet wallet newWalletRequest = liftIO $ do
             -> IO (Either CreateWalletError V1.Wallet)
     restore nm newWallet@V1.NewWallet{..} now = do
         let esk    = snd $ safeDeterministicKeyGen
-                             (BIP39.mnemonicToSeed (mnemonic newWallet))
+                             (Mnemonic.mnemonicToSeed (mnemonic newWallet))
                              (spendingPassword newwalSpendingPassword)
         restoreFromESK nm
                        esk

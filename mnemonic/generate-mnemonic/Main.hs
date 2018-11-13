@@ -1,12 +1,13 @@
-#!/usr/bin/env nix-shell
-#!nix-shell -i runhaskell ../wallet-new/default.nix
 {-# LANGUAGE DataKinds        #-}
 {-# LANGUAGE TypeApplications #-}
-import           Cardano.Wallet.Kernel.BIP39 (EntropySize, Mnemonic,
-                     entropyToMnemonic, genEntropy)
+
+import           Universum
+
+import           Cardano.Mnemonic (Mnemonic, entropyToMnemonic, genEntropy)
 import           Data.Aeson (encode)
 import           Data.ByteString.Lazy.Char8 (unpack)
 
+main :: IO ()
 main = do
     backupPhrase <- generateBackupPhrase
     let backupPhraseString = backupPhraseToString backupPhrase

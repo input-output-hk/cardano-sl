@@ -21,7 +21,7 @@ import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Crypto (ProtocolMagic, emptyPassphrase, hash)
 import           Pos.Crypto.HD (firstHardened)
 
-import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
+import qualified Cardano.Mnemonic as Mnemonic
 import           Cardano.Wallet.Kernel.DB.HdWallet (AssuranceLevel (..),
                      HdRootId (..), UnknownHdRoot (..), WalletName (..),
                      hdRootId)
@@ -68,7 +68,7 @@ genNewWalletRq :: Maybe V1.SpendingPassword -> PropertyM IO V1.NewWallet
 genNewWalletRq spendingPassword = do
     assuranceLevel   <- pick arbitrary
     walletName       <- pick arbitrary
-    mnemonic <- BIP39.entropyToMnemonic <$> liftIO (BIP39.genEntropy @(BIP39.EntropySize 12))
+    mnemonic <- Mnemonic.entropyToMnemonic <$> liftIO (Mnemonic.genEntropy @(Mnemonic.EntropySize 12))
     return $ V1.NewWallet (V1.BackupPhrase mnemonic)
                           spendingPassword
                           assuranceLevel

@@ -1,10 +1,14 @@
 -- | Module providing restoring from backup phrase functionality
-{-# LANGUAGE DataKinds      #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE LambdaCase     #-}
+{-# LANGUAGE DataKinds            #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE KindSignatures       #-}
+{-# LANGUAGE LambdaCase           #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Cardano.Wallet.Kernel.BIP39
+module Cardano.Mnemonic
        (
        -- * Types
          Mnemonic
@@ -41,16 +45,16 @@ import           Control.Lens ((?~))
 import           Crypto.Encoding.BIP39
 import           Crypto.Hash (Blake2b_256, Digest, hash)
 import           Data.Aeson (FromJSON (..), ToJSON (..))
+import           Data.Aeson.Types (Parser)
 import           Data.ByteArray (constEq, convert)
 import           Data.ByteString (ByteString)
 import           Data.Default (Default (def))
 import           Data.Swagger (NamedSchema (..), ToSchema (..), maxItems,
                      minItems)
-import           Formatting (bprint, build, (%))
+import           Formatting (bprint, build, formatToString, (%))
 import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Gen (vectorOf)
 
-import           Cardano.Wallet.Util (eitherToParser)
 import           Pos.Binary (serialize')
 import           Pos.Crypto (AesKey (..))
 import           Pos.Infra.Util.LogSafe (SecureLog)
@@ -374,3 +378,13 @@ instance (KnownNat mw) => ToSchema (Mnemonic mw) where
         return $ NamedSchema (Just "Mnemonic") schema
             & minItems ?~ fromIntegral mw
             & maxItems ?~ fromIntegral mw
+
+
+--
+--  Miscellaneous
+--
+
+-- | Convert a given Either to an Aeson Parser
+eitherToParser :: Buildable a => Either a b -> Parser b
+eitherToParser =
+    either (fail . formatToString build) pure

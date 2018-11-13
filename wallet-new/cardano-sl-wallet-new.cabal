@@ -59,7 +59,6 @@ library
                        Cardano.Wallet.Kernel.Accounts
                        Cardano.Wallet.Kernel.Actions
                        Cardano.Wallet.Kernel.Addresses
-                       Cardano.Wallet.Kernel.BIP39
                        Cardano.Wallet.Kernel.BListener
                        Cardano.Wallet.Kernel.CoinSelection
                        Cardano.Wallet.Kernel.CoinSelection.FromGeneric
@@ -167,6 +166,7 @@ library
                      , cardano-sl-crypto
                      , cardano-sl-db
                      , cardano-sl-infra
+                     , cardano-sl-mnemonic
                      , cardano-sl-networking
                      , cardano-sl-node-ipc
                      , cardano-sl-util
@@ -346,9 +346,10 @@ executable wal-integr-test
                      , async
                      , bytestring
                      , cardano-sl
+                     , cardano-sl-chain
                      , cardano-sl-core
                      , cardano-sl-crypto
-                     , cardano-sl-chain
+                     , cardano-sl-mnemonic
                      , cardano-sl-util
                      , cardano-sl-wallet-new
                      , containers
@@ -486,6 +487,7 @@ test-suite wallet-unit-tests
                     , cardano-sl-crypto
                     , cardano-sl-db
                     , cardano-sl-infra
+                    , cardano-sl-mnemonic
                     , cardano-sl-util
                     , cardano-sl-util-test
                     , cardano-sl-utxo
@@ -533,7 +535,6 @@ test-suite wallet-new-specs
                     RequestSpec
                     WalletNewJson
                     Cardano.Wallet.WalletLayer.QuickCheck
-                    Cardano.Wallet.Kernel.BIP39Spec
 
   default-language: Haskell2010
   default-extensions: BangPatterns

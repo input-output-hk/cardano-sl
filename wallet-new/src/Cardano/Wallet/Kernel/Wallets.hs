@@ -31,9 +31,9 @@ import           Pos.Crypto (EncryptedSecretKey, HDPassphrase, PassPhrase,
                      PublicKey, changeEncPassphrase, checkPassMatches,
                      emptyPassphrase, firstHardened, safeDeterministicKeyGen)
 
+import           Cardano.Mnemonic (Mnemonic)
+import qualified Cardano.Mnemonic as Mnemonic
 import           Cardano.Wallet.Kernel.Addresses (newHdAddress)
-import           Cardano.Wallet.Kernel.BIP39 (Mnemonic)
-import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
 import           Cardano.Wallet.Kernel.DB.AcidState
                      (CreateHdExternalWallet (..), CreateHdWallet (..),
                      DeleteHdRoot (..), RestoreHdWallet,
@@ -154,7 +154,7 @@ createHdWallet :: PassiveWallet
 createHdWallet pw mnemonic spendingPassword assuranceLevel walletName = do
     -- STEP 1: Generate the 'EncryptedSecretKey' outside any acid-state
     -- transaction, to not leak it into acid-state's transaction logs.
-    let (_, esk) = safeDeterministicKeyGen (BIP39.mnemonicToSeed mnemonic) spendingPassword
+    let (_, esk) = safeDeterministicKeyGen (Mnemonic.mnemonicToSeed mnemonic) spendingPassword
 
     -- STEP 2: Insert the key into the keystore. We do this preemptively so that,
     -- in case of asynchronous exceptions, the worst which can happen is for the

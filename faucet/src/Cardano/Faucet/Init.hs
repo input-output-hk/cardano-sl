@@ -49,6 +49,7 @@ import qualified System.Metrics.Gauge as Gauge
 import           System.Wlog (CanLog, HasLoggerName, LoggerNameBox (..),
                      liftLogIO, logDebug, logError, logInfo, withSublogger)
 
+import           Cardano.Mnemonic (Mnemonic, entropyToMnemonic, genEntropy)
 import           Cardano.Wallet.API.V1.Types (Account (..), Address,
                      AssuranceLevel (NormalAssurance), BackupPhrase (..),
                      ForceNtpCheck (..), NewWallet (..), NodeInfo (..),
@@ -60,8 +61,6 @@ import           Cardano.Wallet.API.V1.Types (Account (..), Address,
 import           Cardano.Wallet.Client (ClientError (..), WalletClient (..),
                      WalletResponse (..), liftClient)
 import           Cardano.Wallet.Client.Http (mkHttpClient)
-import           Cardano.Wallet.Kernel.BIP39 (Mnemonic, entropyToMnemonic,
-                     genEntropy)
 import           Pos.Core (Coin (..))
 import           Universum
 

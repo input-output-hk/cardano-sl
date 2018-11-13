@@ -15339,6 +15339,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-core
 , cardano-sl-crypto
 , cardano-sl-infra
+, cardano-sl-mnemonic
 , cardano-sl-util
 , cardano-sl-wallet-new
 , connection
@@ -15396,6 +15397,7 @@ base
 bytestring
 cardano-sl-core
 cardano-sl-crypto
+cardano-sl-mnemonic
 cardano-sl-util
 cardano-sl-wallet-new
 connection
@@ -15853,6 +15855,89 @@ universum
 ];
 doHaddock = false;
 description = "Cardano SL - generators for cardano-sl-infra";
+license = stdenv.lib.licenses.mit;
+
+}) {};
+"cardano-sl-mnemonic" = callPackage
+({
+  mkDerivation
+, aeson
+, base
+, basement
+, bytestring
+, cardano-crypto
+, cardano-sl
+, cardano-sl-core
+, cardano-sl-crypto
+, cardano-sl-infra
+, cryptonite
+, data-default
+, formatting
+, hspec
+, lens
+, memory
+, QuickCheck
+, stdenv
+, swagger2
+, text
+, time
+, universum
+}:
+mkDerivation {
+
+pname = "cardano-sl-mnemonic";
+version = "2.0.0";
+src = ./../mnemonic;
+configureFlags = [
+"--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
+"--ghc-option=-Werror"
+];
+isLibrary = true;
+isExecutable = true;
+libraryHaskellDepends = [
+aeson
+base
+basement
+bytestring
+cardano-crypto
+cardano-sl
+cardano-sl-core
+cardano-sl-crypto
+cardano-sl-infra
+cryptonite
+data-default
+formatting
+lens
+memory
+QuickCheck
+swagger2
+text
+time
+universum
+];
+executableHaskellDepends = [
+aeson
+base
+bytestring
+text
+universum
+];
+testHaskellDepends = [
+aeson
+base
+bytestring
+cardano-crypto
+cardano-sl-crypto
+data-default
+hspec
+QuickCheck
+universum
+];
+doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl/mnemonic/README.md";
+description = "TODO";
 license = stdenv.lib.licenses.mit;
 
 }) {};
@@ -16671,6 +16756,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto
 , cardano-sl-db
 , cardano-sl-infra
+, cardano-sl-mnemonic
 , cardano-sl-networking
 , cardano-sl-node-ipc
 , cardano-sl-util
@@ -16791,6 +16877,7 @@ cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-db
 cardano-sl-infra
+cardano-sl-mnemonic
 cardano-sl-networking
 cardano-sl-node-ipc
 cardano-sl-util
@@ -16871,6 +16958,7 @@ cardano-sl
 cardano-sl-chain
 cardano-sl-core
 cardano-sl-crypto
+cardano-sl-mnemonic
 cardano-sl-util
 containers
 exceptions
@@ -16910,6 +16998,7 @@ cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-db
 cardano-sl-infra
+cardano-sl-mnemonic
 cardano-sl-util
 cardano-sl-util-test
 cardano-sl-utxo

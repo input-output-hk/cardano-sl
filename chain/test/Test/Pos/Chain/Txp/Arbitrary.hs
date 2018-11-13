@@ -15,6 +15,11 @@ module Test.Pos.Chain.Txp.Arbitrary
        , goodTxToTxAux
 
        -- | Standalone generators.
+       , genAddBloated
+       , genAddrAttribBloated
+       , genAddressBloatedTx
+       , genTxAttributesBloated
+       , genTxOutBloated
        , genTx
        , genTxAux
        , genTxIn
@@ -26,25 +31,30 @@ module Test.Pos.Chain.Txp.Arbitrary
 
 import           Universum
 
+import qualified Data.ByteString.Lazy as LBS
+import qualified Data.ByteString.Lazy.Char8 as CB
 import           Data.Default (Default (def))
 import           Data.List.NonEmpty ((<|))
 import qualified Data.List.NonEmpty as NE
+import qualified Data.Map as M
 import qualified Data.Vector as V
-import           Test.QuickCheck (Arbitrary (..), Gen, choose, listOf, oneof,
-                     scale)
+import           Test.QuickCheck (Arbitrary (..), Gen, arbitraryUnicodeChar,
+                     choose, listOf, oneof, scale, vectorOf)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
 import           Pos.Binary.Class (Raw)
-import           Pos.Chain.Txp (Tx (..), TxAux (..), TxIn (..),
+import           Pos.Chain.Txp (Tx (..), TxAttributes, TxAux (..), TxIn (..),
                      TxInWitness (..), TxOut (..), TxOutAux (..),
                      TxPayload (..), TxProof (..), TxSigData (..),
-                     TxValidationRules, mkTxPayload)
-import           Pos.Core.Attributes (mkAttributes)
-import           Pos.Core.Common (Coin, IsBootstrapEraAddr (..),
-                     makePubKeyAddress)
+                     TxValidationRules (..), mkTxPayload)
+import           Pos.Core.Attributes (Attributes, mkAttributes,
+                     mkAttributesWithUnparsedFields)
+import           Pos.Core.Common (AddrAttributes, Address (..), Coin,
+                     IsBootstrapEraAddr (..), makePubKeyAddress)
 import           Pos.Core.Merkle (MerkleNode (..), MerkleRoot (..))
 import           Pos.Core.NetworkMagic (makeNetworkMagic)
+import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..))
 import           Pos.Crypto (Hash, ProtocolMagic, SecretKey, SignTag (SignTx),
                      hash, sign, toPublic)
 
@@ -67,6 +77,44 @@ instance Arbitrary TxOutAux where
 instance Arbitrary TxSigData where
     arbitrary = genericArbitrary
     shrink = genericShrink
+
+-- This instance avoids the failure of tests that
+-- use checkTx but aren't explicitly checking if
+-- checkTx is behaving as it should.
+instance Arbitrary TxValidationRules where
+    arbitrary = do
+        cutoffEpoch <- arbitrary
+        pure $ TxValidationRules (EpochOrSlot . Left $ EpochIndex cutoffEpoch)
+                                 (EpochOrSlot . Left $ EpochIndex (cutoffEpoch - 1))
+                                 1
+                                 1
+    shrink = genericShrink
+
+genAddrAttribBloated :: Gen (Attributes AddrAttributes)
+genAddrAttribBloated =
+    mkAttributesWithUnparsedFields <$> arbitrary <*> genBloatedUnparsedFields
+
+-- Generates a Tx bloated via its `Attributes AddrAttributes` or `TxAttributes`
+genAddressBloatedTx :: Gen Tx
+genAddressBloatedTx =
+    oneof [ UnsafeTx <$> arbitrary <*> genTxOutBloated <*> pure (mkAttributes ())
+          , UnsafeTx <$> arbitrary <*> arbitrary <*> genTxAttributesBloated
+          ]
+
+genAddBloated :: Gen Address
+genAddBloated = Address <$> arbitrary <*> genAddrAttribBloated <*> arbitrary
+
+genTxAttributesBloated :: Gen TxAttributes
+genTxAttributesBloated = mkAttributesWithUnparsedFields () <$> genBloatedUnparsedFields
+
+genTxOutBloated :: Gen (NonEmpty TxOut)
+genTxOutBloated = NE.fromList <$> ((: []) <$> (TxOut <$> genAddBloated <*> arbitrary))
+
+genBloatedUnparsedFields :: Gen (M.Map Word8 LBS.ByteString)
+genBloatedUnparsedFields = do
+    strSize <- choose (128,256)
+    str <- vectorOf strSize arbitraryUnicodeChar
+    pure $ M.singleton 0 (CB.pack str)
 
 -- | Generator for a 'TxInWitness'. 'ProtocolMagic' is needed because it
 -- contains signatures.

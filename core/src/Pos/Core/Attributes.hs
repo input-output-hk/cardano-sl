@@ -13,6 +13,7 @@ module Pos.Core.Attributes
        , encodeAttributes
        , decodeAttributes
        , mkAttributes
+       , mkAttributesWithUnparsedFields
        , unknownAttributesLength
        ) where
 
@@ -56,6 +57,9 @@ fromUnparsedFields (UnparsedFields m) = m
 
 mkAttributes :: h -> Attributes h
 mkAttributes dat = Attributes dat (UnparsedFields M.empty)
+
+mkAttributesWithUnparsedFields :: h -> Map Word8 LBS.ByteString -> Attributes h
+mkAttributesWithUnparsedFields dat unParF = Attributes dat (UnparsedFields unParF)
 
 -- | Convenient wrapper for the datatype to represent it (in binary
 -- format) as k-v map.

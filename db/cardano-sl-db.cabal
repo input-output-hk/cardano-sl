@@ -39,6 +39,7 @@ library
                        Pos.DB.Txp.Utxo
 
                        Pos.DB.Lrc
+                       Pos.DB.Lrc.OBFT
                        Pos.DB.Delegation
                        Pos.DB.Ssc
                        Pos.DB.Ssc.SecretStorage

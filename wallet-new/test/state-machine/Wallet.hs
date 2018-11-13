@@ -59,11 +59,13 @@ import qualified Pos.Wallet.Web.State.Storage as OldStorage
 data Action (r :: * -> *)
     = ResetWalletA
     | CreateWalletA WL.CreateWallet
+    | DummyAction
     deriving (Show, Generic1, Rank2.Functor, Rank2.Foldable, Rank2.Traversable)
 
 data Response (r :: * -> *)
     = ResetWalletR
     | CreateWalletR (Either WL.CreateWalletError V1.Wallet)
+    | DummyResponse
     deriving (Show, Generic1, Rank2.Foldable)
 
 
@@ -112,6 +114,7 @@ preconditions _ ResetWalletA      = Top
 preconditions (Model _ _ True) action = case action of
     ResetWalletA    -> Top
     CreateWalletA _ -> Top
+    DummyAction     -> Top
 preconditions (Model _ _ False) _   = Bot
 
 transitions :: Model r -> Action r -> Response r -> Model r
@@ -122,6 +125,7 @@ transitions model@Model{..} cmd res = case (cmd, res) of
         model { mWallets = (wallet, newwalSpendingPassword) : mWallets }
     (CreateWalletA _, CreateWalletR (Left _)) -> increaseUnhappyPath
     (CreateWalletA _, _) -> shouldNotBeReachedError
+    (DummyAction , _) -> model
   where
     increaseUnhappyPath = model { mUnhappyPath = mUnhappyPath + 1 }
     shouldNotBeReachedError = error "This branch should not be reached!"
@@ -135,6 +139,7 @@ postconditions Model{..} cmd res = case (cmd, res) of
     -- Created wallet shouldn't be present in the model
     (CreateWalletA _, CreateWalletR (Right V1.Wallet{..})) -> Predicate $ NotElem walId (map (V1.walId . fst) mWallets)
     (CreateWalletA _, _) -> shouldNotBeReachedError
+    (DummyAction , _) -> Top
   where
     shouldNotBeReachedError = error "This branch should not be reached!"
 
@@ -159,11 +164,7 @@ generator :: Model Symbolic -> Gen (Action Symbolic)
 generator (Model _ _ False) = pure ResetWalletA
 -- we would like to create a wallet after wallet reset
 generator (Model [] _ True) = CreateWalletA . WL.CreateWallet <$> genNewWalletRq
-generator _ = frequency
-    [ (1, pure ResetWalletA)
-    , (1, CreateWalletA . WL.CreateWallet <$> genNewWalletRq)
-    -- ... other actions should go here
-    ]
+generator _ = pure DummyAction
 
 shrinker :: Action Symbolic -> [Action Symbolic]
 shrinker _ = []
@@ -179,6 +180,7 @@ semantics pwl _ cmd = case cmd of
         w <- CreateWalletR <$> WL.createWallet pwl cw
         print "Concrete wallet created" -- show w
         pure w
+    DummyAction -> pure DummyResponse
 
 withWalletLayer
           :: (WL.PassiveWalletLayer IO -> PassiveWallet -> IO a)
@@ -204,6 +206,7 @@ mock _ ResetWalletA      = pure ResetWalletR
 -- TODO: add mocking up creating an actual wallet
 -- For example you can take one from the model, just change wallet id
 mock _ (CreateWalletA _) = pure $ CreateWalletR (Left $ WL.CreateWalletError Kernel.CreateWalletDefaultAddressDerivationFailed)
+mock _ DummyAction = pure DummyResponse
 
 ------------------------------------------------------------------------
 

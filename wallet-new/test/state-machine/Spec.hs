@@ -4,13 +4,12 @@ module Main (main) where
 
 import           Universum
 
-import           Test.Hspec (Spec, after, around, before, describe, hspec, it)
-import           Test.QuickCheck (expectFailure, withMaxSuccess)
+import           Test.Hspec (Spec, describe, hspec, it)
+import           Test.QuickCheck (withMaxSuccess)
 
 import           Cardano.Wallet.Kernel.Internal (PassiveWallet)
 import qualified Cardano.Wallet.WalletLayer as WL
 
-import           TicketDispenser
 import           Wallet
 
 ------------------------------------------------------------------------

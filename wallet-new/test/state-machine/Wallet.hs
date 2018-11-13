@@ -24,27 +24,19 @@ import           Data.Time.Units (Microsecond, toMicroseconds)
 import           Data.TreeDiff (ToExpr (toExpr))
 import           GHC.Generics (Generic, Generic1)
 import           Test.QuickCheck (Arbitrary (arbitrary), Gen, Property,
-                     elements, frequency, (===))
+                     frequency, (===))
 import           Test.QuickCheck.Monadic (monadicIO)
 
 import           Test.StateMachine
-import           Test.StateMachine.Types (Command (..), Commands (..),
-                     StateMachine)
+import           Test.StateMachine.Types (StateMachine)
 
 import qualified Test.StateMachine.Types.Rank2 as Rank2
 
-import           Cardano.Wallet.API.Request (RequestParams (..))
-import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
-import           Cardano.Wallet.API.Request.Pagination (PaginationParams (..))
-import           Cardano.Wallet.API.Response (WalletResponse (wrData),
-                     fromSlice)
 import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..),
                      UnitOfMeasure (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
-import           Cardano.Wallet.Client (paginateAll)
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.BIP39 as BIP39
-import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as DB
 import           Cardano.Wallet.Kernel.Internal (PassiveWallet)
 import qualified Cardano.Wallet.Kernel.Keystore as Keystore
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (mockNodeStateDef)
@@ -127,30 +119,9 @@ initModel = Model mempty 0 False
 -- If you need more fine grained distribution, use preconditions
 preconditions :: Model Symbolic -> Action Symbolic -> Logic
 preconditions _ ResetWalletA      = Top
--- NOTE: with this mechanism we are forcing ResetWalletA to be first action
--- in an action list generated. We need this because we are reusing same
--- db through all quickcheck runs - so we have to ensure ResetActionA is run
--- before any other action. Implementation by precondition is good enough and
--- generator won't need to try too many options until it reaches ResetActionA.
--- An alternative solution would be to modify `forAllCommands` in this way:
---
--- ```
--- forAllCommands' sm n action = forAllCommands sm n $ \cmds -> action $ Commands [Command ResetWalletA mempty] <> cmds
--- ```
---
--- The above would work a bit more performant (as we don't have failing preconditions)
--- but we are hacking around to lib internals which is not so idiomatic.
 preconditions (Model _ _ True) action = case action of
     ResetWalletA    -> Top
     CreateWalletA _ -> Top
-
-    -- NOTE: don't use catch all pattern like
-    --
-    -- (_, _) ->
-    --
-    -- as it will most likely bite us.
-
--- if wallet is not reset then we shouldn't continue
 preconditions (Model _ _ False) _   = Bot
 
 transitions :: Model r -> Action r -> Response r -> Model r
@@ -161,12 +132,6 @@ transitions model@Model{..} cmd res = case (cmd, res) of
         model { mWallets = (wallet, newwalSpendingPassword) : mWallets }
     (CreateWalletA _, CreateWalletR (Left _)) -> increaseUnhappyPath
     (CreateWalletA _, _) -> shouldNotBeReachedError
-
-    -- NOTE: don't use catch all pattern like
-    --
-    -- (_, _) ->
-    --
-    -- as it will most likely bite us.
   where
     -- TODO: use postcondition that ration of unhappy paths has to be expected (ie, similar to test coverage)
     -- If number of unhappy paths is too high something might go wrong and our tests are not covering enough happy paths (and vice versa)?
@@ -186,25 +151,12 @@ postconditions Model{..} cmd res = case (cmd, res) of
     -- Created wallet shouldn't be present in the model
     (CreateWalletA _, CreateWalletR (Right V1.Wallet{..})) -> Predicate $ NotElem walId (map (V1.walId . fst) mWallets)
     (CreateWalletA _, _) -> shouldNotBeReachedError
-
-    -- NOTE: don't use catch all pattern like
-    --
-    -- (_, _) ->
-    --
-    -- as it will most likely bite us.
-
   where
     shouldNotBeReachedError = error "This branch should not be reached!"
 
 ------------------------------------------------------------------------
 
 -- Action generator
-
--- Same as quickchecks elements but if list is empty it will generate
--- arbitrary element
-genElements :: Arbitrary a => [a] -> Gen a
-genElements [] = arbitrary
-genElements xs = elements xs
 
 genNewWalletRq :: Gen V1.NewWallet
 genNewWalletRq = do
@@ -250,7 +202,6 @@ withWalletLayer
           -> IO a
 withWalletLayer cc = do
     Keystore.bracketTestKeystore $ \keystore -> do
-        -- TODO: can we use fault injection in wallet to test expected failure cases?
         mockFInjects <- mkFInjects mempty
         WL.bracketPassiveWallet
             Kernel.UseInMemory

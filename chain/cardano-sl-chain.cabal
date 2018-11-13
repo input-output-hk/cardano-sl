@@ -342,6 +342,7 @@ benchmark block-bench
                      , cardano-sl-core-test
                      , cardano-sl-crypto-test
                      , cardano-sl-util-test
+                     , containers
                      , data-default
                      , deepseq
                      , formatting

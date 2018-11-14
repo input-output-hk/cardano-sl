@@ -11,6 +11,7 @@ module Cardano.Wallet.Kernel.DB.HdWallet.Read (
   , addressesByRootId
   , addressesByAccountId
   , pendingByAccount
+  , foreignPendingByAccount
     -- | Simple lookups
   , lookupHdRootId
   , lookupHdAccountId
@@ -78,6 +79,14 @@ pendingByAccount = fmap aux . IxSet.toMap <$> view hdWalletsAccounts
   where
     aux :: HdAccount -> Pending
     aux acc = acc ^. hdAccountState . hdAccountStateCurrent cpPending
+
+-- | All pending foreign transactions in all accounts
+foreignPendingByAccount :: Query' e HdWallets (Map HdAccountId Pending)
+foreignPendingByAccount = fmap aux . IxSet.toMap <$> view hdWalletsAccounts
+  where
+    aux :: HdAccount -> Pending
+    aux acc = acc ^. hdAccountState . hdAccountStateCurrent cpForeign
+
 
 {-------------------------------------------------------------------------------
   Simple lookups

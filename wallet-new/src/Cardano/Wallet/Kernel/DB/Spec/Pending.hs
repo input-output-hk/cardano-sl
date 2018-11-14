@@ -32,7 +32,6 @@ module Cardano.Wallet.Kernel.DB.Spec.Pending (
   , txOuts
   , change
   , removeInputs
-  , removeForeign
   , PendingDiff
   ) where
 
@@ -178,31 +177,6 @@ removeInputs usedInputs (toMap -> p) =
   where
     shouldKeep :: Core.TxAux -> Bool
     shouldKeep tx = Util.disjoint (Core.txIns tx) usedInputs
-
--- | Remove any transactions corresponding to a given Utxo
---
--- We store foreign transaction as `Pending`, using their transaction ids
--- and outputs, however, we filter them based on the UTxO since they don't
--- actually come from our wallet, but from a "foreign" source. Therefore, they
--- appear in blocks as outputs targetting one of our addresses (and not coming
--- from one of them).
-removeForeign :: Core.Utxo -> Pending -> (Pending, Set Core.TxId)
-removeForeign utxo  (toMap -> p) =
-    let (pToKeep, pToEvict) = Map.partitionWithKey shouldKeep p
-    in (fromMap pToKeep, Map.keysSet pToEvict)
-  where
-    -- | We remove foreign transactions from te Pending map iif their id
-    -- appear in an available UTxO. It means the transaction has been accepted
-    -- and isn't pending anymore.
-    shouldKeep :: Core.TxId -> Core.TxAux -> Bool
-    shouldKeep txId _ =
-        not (txId `elem` (mapMaybe toTxId $ Map.keys utxo))
-
-    toTxId :: Core.TxIn -> Maybe Core.TxId
-    toTxId txIn = case txIn of
-        Core.TxInUtxo txId _ -> Just txId
-        Core.TxInUnknown _ _ -> Nothing
-
 
 {-------------------------------------------------------------------------------
   Internal auxiliary

@@ -45,7 +45,8 @@ import           Cardano.Wallet.Kernel.Internal
 import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as Node
 import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..),
                      prefilterBlock)
-import           Cardano.Wallet.Kernel.Read (getWalletCredentials)
+import           Cardano.Wallet.Kernel.Read (foreignPendingByAccount,
+                     getWalletCredentials, getWalletSnapshot)
 import           Cardano.Wallet.Kernel.Restore
 import qualified Cardano.Wallet.Kernel.Submission as Submission
 import           Cardano.Wallet.Kernel.Types (WalletId (..))
@@ -72,9 +73,10 @@ prefilterBlocks :: PassiveWallet
 prefilterBlocks pw bs = do
     let nm = makeNetworkMagic (pw ^. walletProtocolMagic)
     res <- getWalletCredentials pw
+    foreignPendings <- foreignPendingByAccount <$> getWalletSnapshot pw
     return $ case res of
          [] -> Nothing
-         xs -> Just $ map (\b -> first (b ^. rbContext,) $ prefilterBlock nm b xs) bs
+         xs -> Just $ map (\b -> first (b ^. rbContext,) $ prefilterBlock nm foreignPendings b xs) bs
 
 data BackfillFailed
     = SuccessorChanged BlockContext (Maybe BlockContext)

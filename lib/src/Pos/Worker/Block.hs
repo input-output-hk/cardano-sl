@@ -32,7 +32,7 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlkSecurityParam, configEpochSlots,
                      configSlotSecurityParam)
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Chain.Update (BlockVersionData (..))
+import           Pos.Chain.Update (BlockVersionData (..), ConsensusEra (..))
 import           Pos.Core (BlockCount, ChainDifficulty, FlatSlotId, SlotCount,
                      SlotId (..), Timestamp (Timestamp), addressHash,
                      difficultyL, epochOrSlotToSlot, flattenSlotId,
@@ -53,6 +53,7 @@ import           Pos.DB.Block (calcChainQualityFixedTime, calcChainQualityM,
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Delegation (getDlgTransPsk, getPskByIssuer)
 import qualified Pos.DB.Lrc as LrcDB (getLeadersForEpoch)
+import           Pos.DB.Lrc.OBFT (getSlotLeaderObft)
 import           Pos.DB.Update (getAdoptedBVData, getConsensusEra)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion
@@ -145,9 +146,48 @@ blockCreator
     -> TxpConfiguration
     -> SlotId
     -> Diffusion m -> m ()
-blockCreator genesisConfig txpConfig (slotId@SlotId {..}) diffusion = do
+blockCreator genesisConfig txpConfig slotId diffusion = do
     era <- getConsensusEra
     logInfo $ sformat ("blockCreator: Consensus era is " % shown) era
+    logInfo $ sformat ("blockCreator: slotId is " % shown) slotId
+    case era of
+        Original -> blockCreatorOriginal genesisConfig
+                                         txpConfig
+                                         slotId
+                                         diffusion
+        OBFT     -> blockCreatorObft genesisConfig txpConfig slotId diffusion
+
+blockCreatorObft
+    :: ( BlockWorkMode ctx m
+       )
+    => Genesis.Config
+    -> TxpConfiguration
+    -> SlotId
+    -> Diffusion m -> m ()
+blockCreatorObft genesisConfig txpConfig (slotId@SlotId {..}) diffusion =
+    (getSlotLeaderObft genesisConfig slotId) >>= onKnownLeaderOrDelegate
+  where
+    logOnEpochFS = if siSlot == localSlotIndexMinBound then logInfoS else logDebugS
+    logOnEpochF = if siSlot == localSlotIndexMinBound then logInfo else logDebug
+    onKnownLeaderOrDelegate (leaderOrDelegate, pske) = do
+        ourPk <- getOurPublicKey
+        let ourPkHash = addressHash ourPk
+        logOnEpochFS $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
+        logOnEpochF $ sformat ("Current slot leader/delegate: "%build) leaderOrDelegate
+        let weAreLeaderOrDelegate = leaderOrDelegate == ourPkHash
+        if | weAreLeaderOrDelegate ->
+                 onNewSlotWhenLeader genesisConfig txpConfig slotId pske diffusion
+           | otherwise -> pass
+
+blockCreatorOriginal
+    :: ( BlockWorkMode ctx m
+       , HasMisbehaviorMetrics ctx
+       )
+    => Genesis.Config
+    -> TxpConfiguration
+    -> SlotId
+    -> Diffusion m -> m ()
+blockCreatorOriginal genesisConfig txpConfig (slotId@SlotId {..}) diffusion = do
     -- First of all we create genesis block if necessary.
     mGenBlock <- createGenesisBlockAndApply genesisConfig txpConfig siEpoch
     whenJust mGenBlock $ \createdBlk -> do

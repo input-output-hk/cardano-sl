@@ -50,7 +50,7 @@ adjustForFees feeOptions pickUtxo css = do
       ReceiverPaysFee -> coinSelLiftExcept $
         (, emptySelection, valueZero) <$> receiverPaysFee upperBound css
       SenderPaysFee ->
-        senderPaysFee pickUtxo upperBound css
+        senderPaysFee feeOptions pickUtxo upperBound css
   where
     upperBound = feeUpperBound feeOptions css
 
@@ -80,32 +80,42 @@ receiverPaysFee totalFee =
 -------------------------------------------------------------------------------}
 
 senderPaysFee :: (Monad m, CoinSelDom (Dom utxo))
-              => (Value (Dom utxo) ->
+              => FeeOptions (Dom utxo)
+              -> (Value (Dom utxo) ->
                    CoinSelT utxo CoinSelHardErr m (Maybe (UtxoEntry (Dom utxo))))
               -> Fee (Dom utxo)
               -> [CoinSelResult (Dom utxo)]
               -> CoinSelT utxo CoinSelHardErr m
                    ([CoinSelResult (Dom utxo)], SelectedUtxo (Dom utxo), Value (Dom utxo))
-senderPaysFee pickUtxo totalFee css = do
+senderPaysFee feeOptions pickUtxo totalFee css = do
     let (css', remainingFee) = feeFromChange totalFee css
-    (additionalUtxo, additionalChange) <- coverRemainingFee pickUtxo remainingFee
+    let feeReduction = unsafeFeeSub totalFee remainingFee
+    let adjustedRemainingFees u = fromMaybe (Fee valueZero) $
+          feeSub (feeUpperBoundAdjusted feeOptions css u) feeReduction
+        _ = adjustedRemainingFees emptySelection
+    (additionalUtxo, additionalChange, _feesHistory) <-
+        coverRemainingFee pickUtxo adjustedRemainingFees remainingFee
     return (css', additionalUtxo, additionalChange)
+
 
 coverRemainingFee :: forall utxo m. (Monad m, CoinSelDom (Dom utxo))
                   => (Value (Dom utxo) -> CoinSelT utxo CoinSelHardErr m (Maybe (UtxoEntry (Dom utxo))))
+                  -> (SelectedUtxo (Dom utxo) -> Fee (Dom utxo))
                   -> Fee (Dom utxo)
-                  -> CoinSelT utxo CoinSelHardErr m (SelectedUtxo (Dom utxo), Value (Dom utxo))
-coverRemainingFee pickUtxo fee = go emptySelection
+                  -> CoinSelT utxo CoinSelHardErr m (SelectedUtxo (Dom utxo), Value (Dom utxo), [Fee (Dom utxo)])
+coverRemainingFee pickUtxo adjustedRemainingFees f = go emptySelection [f] f
   where
-    go :: SelectedUtxo (Dom utxo)
-       -> CoinSelT utxo CoinSelHardErr m (SelectedUtxo (Dom utxo), Value (Dom utxo))
-    go !acc
+    go :: SelectedUtxo (Dom utxo) -> [Fee (Dom utxo)] -> Fee (Dom utxo)
+       -> CoinSelT utxo CoinSelHardErr m (SelectedUtxo (Dom utxo), Value (Dom utxo), [Fee (Dom utxo)])
+    go !acc fs fee
       | selectedBalance acc >= getFee fee =
-          return (acc, unsafeValueSub (selectedBalance acc) (getFee fee))
+          return (acc, unsafeValueSub (selectedBalance acc) (getFee fee), fs)
       | otherwise = do
           mio <- (pickUtxo $ unsafeValueSub (getFee fee) (selectedBalance acc))
           io  <- maybe (throwError CoinSelHardErrCannotCoverFee) return mio
-          go (select io acc)
+          let newSelected = select io acc
+          let newFees = adjustedRemainingFees newSelected
+          go newSelected (newFees: fs) newFees
 
 -- | Attempt to pay the fee from change outputs, returning any fee remaining
 --
@@ -173,6 +183,17 @@ feeUpperBound FeeOptions{..} css =
     foEstimate numInputs outputs
   where
     numInputs = fromIntegral $ sum (map (sizeToWord . coinSelInputSize) css)
+    outputs   = concatMap coinSelOutputs css
+
+feeUpperBoundAdjusted :: CoinSelDom dom
+                      => FeeOptions dom -> [CoinSelResult dom]
+                      -> SelectedUtxo (dom)
+                      -> Fee dom
+feeUpperBoundAdjusted FeeOptions{..} css utxos =
+  foEstimate numInputs outputs
+  where
+    numInputs = fromIntegral $ sum $ sizeToWord <$>
+                  (selectedSize utxos : map coinSelInputSize css)
     outputs   = concatMap coinSelOutputs css
 
 -- | divvy fee across outputs, discarding zero-output if any. Returns `Nothing`

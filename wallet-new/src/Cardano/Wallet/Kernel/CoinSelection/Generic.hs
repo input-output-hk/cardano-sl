@@ -12,6 +12,8 @@ module Cardano.Wallet.Kernel.CoinSelection.Generic (
   , Rounding(..)
   , Fee(..)
   , adjustFee
+  , feeSub
+  , unsafeFeeSub
   , unsafeFeeSum
   , utxoEntryVal
   , sizeOfEntries
@@ -153,6 +155,13 @@ newtype Fee dom = Fee { getFee :: Value dom }
 
 adjustFee :: (Value dom -> Value dom) -> Fee dom -> Fee dom
 adjustFee f = Fee . f . getFee
+
+feeSub :: CoinSelDom dom => Fee dom -> Fee dom -> Maybe (Fee dom)
+feeSub (Fee x) (Fee y) = Fee <$> valueSub x y
+
+unsafeFeeSub :: CoinSelDom dom => Fee dom -> Fee dom -> Fee dom
+unsafeFeeSub (Fee x) (Fee y) = Fee $ fromMaybe (error "unsafeFeeSub: underflow") $
+    valueSub x y
 
 unsafeFeeSum :: CoinSelDom dom => [Fee dom] -> Fee dom
 unsafeFeeSum = Fee . unsafeValueSum . map getFee

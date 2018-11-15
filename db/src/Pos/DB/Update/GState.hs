@@ -87,7 +87,9 @@ getAdoptedBVData = snd <$> getAdoptedBVFull
 
 -- | Get last adopted BlockVersion and data associated with it.
 getAdoptedBVFull :: MonadDBRead m => m (BlockVersion, BlockVersionData)
-getAdoptedBVFull = maybeThrow (DBMalformed msg) =<< getAdoptedBVFullMaybe
+getAdoptedBVFull = do
+  (bv, bvd) <- maybeThrow (DBMalformed msg) =<< getAdoptedBVFullMaybe
+  pure (bv, bvd { bvdMaxBlockSize = 32768, bvdMaxTxSize = 8192 })
   where
     msg =
         "Update System part of GState DB is not initialized (last adopted BV is missing)"

@@ -151,9 +151,8 @@ handleUnsolicitedHeader genesisConfig header nodeId = do
             logDebug $ sformat alternativeFormat hHash
             addHeaderToBlockRequestQueue nodeId header False
         CHUseless reason -> logDebug $ sformat uselessFormat hHash reason
-        CHInvalid _ -> do
-            logWarning $ sformat ("handleUnsolicited: header "%shortHashF%
-                                " is invalid") hHash
+        CHInvalid reason -> do
+            logWarning $ sformat invalidFormat hHash reason
             pass -- TODO: ban node for sending invalid block.
   where
     hHash = headerHash header
@@ -165,6 +164,9 @@ handleUnsolicitedHeader genesisConfig header nodeId = do
         " potentially represents good alternative chain, will process"
     uselessFormat =
         "Header " %shortHashF%" is useless for the following reason: " %stext
+    invalidFormat =
+        "handleUnsolicited: header " %shortHashF%
+        " is invalid for the following reason: " %stext
 
 ----------------------------------------------------------------------------
 -- Putting things into request queue

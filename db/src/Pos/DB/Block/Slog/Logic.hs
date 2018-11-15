@@ -237,7 +237,7 @@ slogVerifyBlocksOBFT genesisConfig curSlot blocks = runExceptT $ do
                           Nothing -> error "slogVerifyBlocksOBFT: no slotId" -- slotIdToEnum epochSlots 0
                           Just cs -> cs
     leadersList <-
-        lift $ mapM (getSlotLeaderObft genesisConfig)
+        lift $ map fst <$> mapM (getSlotLeaderObft genesisConfig)
                     (take (length blocks) (iterate (slotIdSucc epochSlots)
                                                    initialSlot))
     let leaders = case nonEmpty leadersList of

@@ -41,6 +41,7 @@ packages:
 - acid-state-exts
 - x509
 - cluster
+- mnemonic
 
 # IOHK projects:
 
@@ -265,4 +266,5 @@ ghc-options:
   cardano-sl-wallet-new:        -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-node-ipc:          -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-x509:              -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-mnemonic:          -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-cluster:           -Wall -Werror -Wcompat -fwarn-redundant-constraints

@@ -1,12 +1,19 @@
-{-# LANGUAGE DataKinds       #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE DataKinds            #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE KindSignatures       #-}
+{-# LANGUAGE LambdaCase           #-}
+{-# LANGUAGE RecordWildCards      #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Cardano.Wallet.Kernel.BIP39Spec where
+module Cardano.MnemonicSpec where
 
 import           Universum
 
-import           Cardano.Wallet.Kernel.BIP39
+import           Cardano.Mnemonic
 import           Crypto.Encoding.BIP39 (toEntropy)
 import           Data.Default (def)
 import           Pos.Crypto (AesKey (..))

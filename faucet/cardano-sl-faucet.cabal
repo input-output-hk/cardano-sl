@@ -23,6 +23,7 @@ library
                     , cardano-sl-core
                     , cardano-sl-crypto
                     , cardano-sl-util
+                    , cardano-sl-mnemonic
                     , cardano-sl-wallet-new
                     , connection
                     , cryptonite

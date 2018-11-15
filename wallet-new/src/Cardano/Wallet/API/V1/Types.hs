@@ -178,7 +178,7 @@ import           Cardano.Wallet.API.V1.Swagger.Example (Example, example)
 import           Cardano.Wallet.Types.UtxoStatistics
 import           Cardano.Wallet.Util (mkJsonKey, showApiUtcTime)
 
-import           Cardano.Wallet.Kernel.BIP39 (Mnemonic)
+import           Cardano.Mnemonic (Mnemonic)
 import qualified Pos.Binary.Class as Bi
 import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Client.Txp.Util as Core

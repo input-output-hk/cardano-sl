@@ -42,10 +42,10 @@ import           System.Metrics.Counter (Counter)
 import           System.Metrics.Gauge (Gauge)
 import           System.Remote.Monitoring.Statsd (StatsdOptions (..))
 
+import           Cardano.Mnemonic (Mnemonic)
 import           Cardano.Wallet.API.V1.Types (AccountIndex, Payment,
                      PaymentSource (..), V1, WalletId (..))
 import           Cardano.Wallet.Client (ClientError (..), WalletClient (..))
-import           Cardano.Wallet.Kernel.BIP39 (Mnemonic)
 import           Pos.Core (Address (..))
 import           Test.QuickCheck (Arbitrary (..), choose)
 import           Test.QuickCheck.Arbitrary.Generic

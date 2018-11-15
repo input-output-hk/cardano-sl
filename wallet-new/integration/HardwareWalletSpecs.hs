@@ -15,6 +15,7 @@ import           Test.Hspec
 import           Universum
 
 
+import           Cardano.Mnemonic (entropyToMnemonic, mkEntropy, mnemonicToSeed)
 import           Cardano.Wallet.API.V1.Types (AssuranceLevel (..),
                      BackupPhrase (..), NewWallet (..), WalletOperation (..),
                      unBackupPhrase)
@@ -29,8 +30,6 @@ import           Cardano.Wallet.Client.Http (AddressWithProof (..),
                      rawTransactionAsBase16, walId)
 import qualified Cardano.Wallet.Client.Http as Http (postSignedTransaction,
                      postUnsignedTransaction, postWallet)
-import           Cardano.Wallet.Kernel.BIP39 (entropyToMnemonic, mkEntropy,
-                     mnemonicToSeed)
 
 import           Pos.Core as Core
 import           Pos.Core.NetworkMagic (makeNetworkMagic)

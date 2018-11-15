@@ -1,0 +1,91 @@
+name:                cardano-sl-mnemonic
+version:             2.0.0
+synopsis:            TODO
+description:         See README
+homepage:            https://github.com/input-output-hk/cardano-sl/mnemonic/README.md
+author:              IOHK Engineering Team
+maintainer:          operations@iohk.io
+copyright:           2018 IOHK
+license:             MIT
+license-file:        LICENSE
+category:            Data
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+
+library
+  default-language:   Haskell2010
+  default-extensions: DeriveGeneric
+                      LambdaCase
+                      NoImplicitPrelude
+                      OverloadedStrings
+                      TupleSections
+                      TypeApplications
+                      ScopedTypeVariables
+
+  hs-source-dirs:     src
+
+  build-depends: base >=4.7 && <5
+               , QuickCheck
+               , aeson
+               , basement
+               , bytestring
+               , cardano-crypto
+               , cardano-sl
+               , cardano-sl-core
+               , cardano-sl-crypto
+               , cardano-sl-infra
+               , cryptonite
+               , data-default
+               , formatting
+               , lens
+               , memory
+               , swagger2
+               , text
+               , time
+               , universum
+
+  exposed-modules: Cardano.Mnemonic
+
+
+test-suite cardano-sl-mnemonic-test
+  default-language:   Haskell2010
+
+  type:               exitcode-stdio-1.0
+  default-extensions: DeriveGeneric
+                      LambdaCase
+                      NoImplicitPrelude
+                      OverloadedStrings
+                      TupleSections
+                      TypeApplications
+                      ScopedTypeVariables
+
+  hs-source-dirs:     test
+  main-is:            Main.hs
+  other-modules:      Cardano.MnemonicSpec
+
+  build-depends:      base
+                    , hspec
+                    , universum
+                    , cardano-sl-mnemonic
+                    , bytestring
+                    , QuickCheck
+                    , cardano-sl-crypto
+                    , data-default
+                    , aeson
+                    , cardano-crypto
+
+
+executable cardano-generate-mnemonic
+  main-is:            Main.hs
+  hs-source-dirs:     generate-mnemonic
+  ghc-options:        -threaded -rtsopts -with-rtsopts=-N -Wall
+  build-depends:
+                      base
+                    , aeson
+                    , cardano-sl-mnemonic
+                    , bytestring
+                    , text
+                    , universum
+  default-language:   Haskell2010
+  default-extensions: NoImplicitPrelude

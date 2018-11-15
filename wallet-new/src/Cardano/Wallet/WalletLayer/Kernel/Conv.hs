@@ -43,10 +43,10 @@ import           Pos.Core (Address, BlockCount (..), decodeTextAddress)
 import           Pos.Crypto (AesKey, RedeemSecretKey, aesDecrypt,
                      redeemDeterministicKeyGen)
 
+import           Cardano.Mnemonic (mnemonicToAesKey)
 import           Cardano.Wallet.API.Types.UnitOfMeasure
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
-import           Cardano.Wallet.Kernel.BIP39 (mnemonicToAesKey)
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (InputGrouping (..))
 import           Cardano.Wallet.Kernel.DB.BlockMeta (addressMetaIsChange,

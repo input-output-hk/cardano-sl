@@ -172,8 +172,10 @@ blockCreatorObft genesisConfig txpConfig (slotId@SlotId {..}) diffusion =
     onKnownLeaderOrDelegate (leaderOrDelegate, pske) = do
         ourPk <- getOurPublicKey
         let ourPkHash = addressHash ourPk
+            finalHeavyPsk = fst <$> pske
         logOnEpochFS $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
         logOnEpochF $ sformat ("Current slot leader/delegate: "%build) leaderOrDelegate
+        logDebug $ "End delegation psk for this slot: " <> maybe "none" pretty finalHeavyPsk
         let weAreLeaderOrDelegate = leaderOrDelegate == ourPkHash
         if | weAreLeaderOrDelegate ->
                  onNewSlotWhenLeader genesisConfig txpConfig slotId pske diffusion

@@ -45,7 +45,6 @@ Please add entries for your tickets:
 - [CBR-389](https://iohk.myjetbrains.com/youtrack/issue/CBR-389) [#3439](https://github.com/input-output-hk/cardano-sl/pull/3439) ATTENTION: [@edsko](https://github.com/edsko)
 - [CBR-390](https://iohk.myjetbrains.com/youtrack/issue/CBR-390) [#3473](https://github.com/input-output-hk/cardano-sl/pull/3473) ATTENTION: [@kderme](https://github.com/kderme)
 - [CBR-393](https://iohk.myjetbrains.com/youtrack/issue/CBR-393) [#3552](https://github.com/input-output-hk/cardano-sl/pull/3552) ATTENTION: [@kderme](https://github.com/kderme)
-- [CBR-394](https://iohk.myjetbrains.com/youtrack/issue/CBR-394) [#3488](https://github.com/input-output-hk/cardano-sl/pull/3488) ATTENTION: [@coot](https://github.com/coot)
 - [CBR-396](https://iohk.myjetbrains.com/youtrack/issue/CBR-396) [#3453](https://github.com/input-output-hk/cardano-sl/pull/3453) ATTENTION: [@edsko](https://github.com/edsko)
 - [CBR-405](https://iohk.myjetbrains.com/youtrack/issue/CBR-405) [#3516](https://github.com/input-output-hk/cardano-sl/pull/3516) ATTENTION: [@edsko](https://github.com/edsko)
 - [CBR-407](https://iohk.myjetbrains.com/youtrack/issue/CBR-407) [#3520](https://github.com/input-output-hk/cardano-sl/pull/3520) ATTENTION: [@adinapoli-iohk](https://github.com/adinapoli-iohk)

@@ -113,9 +113,11 @@ in pkgs.lib.fix (jobsets: mapped // {
     name = "cardano-required-checks";
     constituents =
       let
+        allLinux = x: map (system: x.${system}) [ "x86_64-linux" ];
         all = x: map (system: x.${system}) supportedSystems;
       in
     [
+      (builtins.concatLists (map lib.attrValues (allLinux jobsets.all-cardano-tests)))
       (all jobsets.all-cardano-sl)
       (all jobsets.daedalus-bridge)
       jobsets.mainnet.connectScripts.wallet.x86_64-linux

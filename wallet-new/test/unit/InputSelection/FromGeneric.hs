@@ -46,6 +46,7 @@ instance IsValue (SafeValue h a) where
   valueDist   = safeDist
   valueRatio  = safeRatio
   valueAdjust = safeAdjust
+  valueDiv    = safeDiv
 
 instance (DSL.Hash h a, Buildable a) => CoinSelDom (DSL h a) where
   type    Input     (DSL h a) = DSL.Input  h a
@@ -108,6 +109,10 @@ safeDist (Value x) (Value y) =
 safeRatio :: SafeValue h a -> SafeValue h a -> Double
 safeRatio (Value x) (Value y) =
     fromIntegral x / fromIntegral y
+
+safeDiv :: SafeValue h a  -> Int -> SafeValue h a
+safeDiv (Value x) k =
+    Value (x `div` fromIntegral k)
 
 -- TODO: check for underflow/overflow
 safeAdjust :: Rounding -> Double -> SafeValue h a -> Maybe (SafeValue h a)

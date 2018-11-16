@@ -14475,7 +14475,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-infra
 , cardano-sl-networking
 , cardano-sl-util
-, cardano-sl-wallet-new
+, cardano-wallet
 , cardano-sl-x509
 , containers
 , cryptonite
@@ -14522,7 +14522,7 @@ cardano-sl-core
 cardano-sl-infra
 cardano-sl-networking
 cardano-sl-util
-cardano-sl-wallet-new
+cardano-wallet
 cardano-sl-x509
 containers
 cryptonite
@@ -14545,7 +14545,7 @@ executableHaskellDepends = [
 ansi-terminal
 async
 base
-cardano-sl-wallet-new
+cardano-wallet
 containers
 docopt
 formatting
@@ -15343,7 +15343,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-infra
 , cardano-sl-mnemonic
 , cardano-sl-util
-, cardano-sl-wallet-new
+, cardano-wallet
 , connection
 , cryptonite
 , data-default
@@ -15401,7 +15401,7 @@ cardano-sl-core
 cardano-sl-crypto
 cardano-sl-mnemonic
 cardano-sl-util
-cardano-sl-wallet-new
+cardano-wallet
 connection
 cryptonite
 data-default
@@ -16743,7 +16743,7 @@ description = "Abstract definitions of UTxO based accounting";
 license = stdenv.lib.licenses.mit;
 
 }) {};
-"cardano-sl-wallet-new" = callPackage
+"cardano-wallet" = callPackage
 ({
   mkDerivation
 , acid-state
@@ -16857,7 +16857,7 @@ license = stdenv.lib.licenses.mit;
 }:
 mkDerivation {
 
-pname = "cardano-sl-wallet-new";
+pname = "cardano-wallet";
 version = "2.0.0";
 src = ./../wallet-new;
 configureFlags = [

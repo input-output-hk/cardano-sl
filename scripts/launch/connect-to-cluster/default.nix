@@ -2,7 +2,7 @@ with import ../../../lib.nix;
 
 { stdenv, writeText, writeScript, curl
 
-, cardano-sl-wallet-new-static, cardano-sl-explorer-static, cardano-sl-tools-static
+, cardano-wallet-static, cardano-sl-explorer-static, cardano-sl-tools-static
 , cardano-sl-config
 
 ## options!
@@ -37,7 +37,7 @@ let
     then { inherit relays confKey confFile; }
     else environments.${environment};
   executables =  {
-    wallet = if useStackBinaries then "stack exec -- cardano-node" else "${cardano-sl-wallet-new-static}/bin/cardano-node";
+    wallet = if useStackBinaries then "stack exec -- cardano-node" else "${cardano-wallet-static}/bin/cardano-node";
     explorer = if useStackBinaries then "stack exec -- cardano-explorer" else "${cardano-sl-explorer-static}/bin/cardano-explorer";
     x509gen = if useStackBinaries then "stack exec -- cardano-x509-certificates" else "${cardano-sl-tools-static}/bin/cardano-x509-certificates";
   };

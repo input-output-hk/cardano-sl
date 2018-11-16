@@ -4,5 +4,5 @@
 
 pkgs.mkShell {
   name = "node-ipc-env";
-  buildInputs = [ pkgs.nodejs iohkPkgs.cardanoPackages.cardano-sl-wallet-new ];
+  buildInputs = [ pkgs.nodejs iohkPkgs.cardanoPackages.cardano-wallet ];
 }

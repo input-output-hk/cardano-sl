@@ -1,4 +1,5 @@
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
@@ -28,6 +29,8 @@ module Pos.Core.Slotting.EpochOrSlot
 import           Universum
 
 import           Control.Lens (Getter, lens, to)
+import           Data.Aeson (FromJSON, ToJSON, parseJSON, toJSON, withObject,
+                     (.:))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Formatting.Buildable as Buildable
 import           Pos.Util.Some (Some, applySome)
@@ -69,6 +72,14 @@ instance Buildable EpochOrSlot where
 instance Bi EpochOrSlot where
     encode (EpochOrSlot e) = encode e
     decode = EpochOrSlot <$> decode @(Either EpochIndex SlotId)
+
+instance FromJSON EpochOrSlot where
+    parseJSON = withObject "EpochOrSlot" $ \v -> EpochOrSlot . Left . EpochIndex
+                   <$> v .: "attribResrictEpoch"
+
+instance ToJSON EpochOrSlot where
+    toJSON (EpochOrSlot (Left eIndex)) = toJSON eIndex
+    toJSON (EpochOrSlot (Right sId))   = toJSON sId
 
 instance HasEpochIndex EpochOrSlot where
     epochIndexL = lens (epochOrSlot identity siEpoch) setter

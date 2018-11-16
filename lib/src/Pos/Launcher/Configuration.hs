@@ -74,6 +74,7 @@ data Configuration = Configuration
     , ccNode        :: !NodeConfiguration
     , ccWallet      :: !WalletConfiguration
     , ccReqNetMagic :: !RequiresNetworkMagic
+    , ccTxValRules  :: !TxValidationRules
     } deriving (Eq, Generic , Show)
 
 instance FromJSON Configuration where
@@ -107,6 +108,19 @@ instance FromJSON Configuration where
 
             -- else default to RequiresMagic
             | otherwise -> pure RequiresMagic
+        ccTxValRules <- if
+            | HM.member "txValidationRules" o -> do
+                valRulesObj <- o .: "txValidationRules"
+
+                attribResEpoch <- valRulesObj .: "attribResrictEpoch"
+                aaSize <- valRulesObj .: "addrAttribSize"
+                taSize <- valRulesObj .: "txAttribSize"
+                -- attribResEpoch is used twice because
+                -- the second field of TxValidationRules
+                -- is for the current Epoch, which is taken
+                -- from the state later on.
+                pure $ TxValidationRules attribResEpoch attribResEpoch aaSize taSize
+            | otherwise -> fail "Did not find TxValidationRules"
         pure $ Configuration {..}
 
 instance ToJSON Configuration where
@@ -225,6 +239,7 @@ withConfigurations mAssetLockPath dumpGenesisPath dumpConfig cfo act = do
                 (ccWallet cfg)
                 txpConfig
                 (ccReqNetMagic cfg)
+                (ccTxValRules cfg)
             act genesisConfig (ccWallet cfg) txpConfig (ccNtp cfg)
 
 addAssetLock :: Set Address -> TxpConfiguration -> TxpConfiguration
@@ -253,16 +268,26 @@ printInfoOnStart ::
     -> WalletConfiguration
     -> TxpConfiguration
     -> RequiresNetworkMagic
+    -> TxValidationRules
     -> m ()
-printInfoOnStart dumpGenesisPath dumpConfig genesisData genesisConfig ntpConfig walletConfig txpConfig rnm = do
-    whenJust dumpGenesisPath $ dumpGenesisData genesisData True
-    when dumpConfig $ dumpConfiguration genesisConfig ntpConfig walletConfig txpConfig rnm
-    printFlags
-    t <- currentTime
-    mapM_ logInfo $
-        [ sformat ("System start time is " % shown) $ gdStartTime genesisData
-        , sformat ("Current time is "%shown) (Timestamp t)
-        ]
+printInfoOnStart
+    dumpGenesisPath
+    dumpConfig
+    genesisData
+    genesisConfig
+    ntpConfig
+    walletConfig
+    txpConfig
+    rnm
+    txValRules = do
+        whenJust dumpGenesisPath $ dumpGenesisData genesisData True
+        when dumpConfig $ dumpConfiguration genesisConfig ntpConfig walletConfig txpConfig rnm txValRules
+        printFlags
+        t <- currentTime
+        mapM_ logInfo $
+            [ sformat ("System start time is " % shown) $ gdStartTime genesisData
+            , sformat ("Current time is "%shown) (Timestamp t)
+            ]
 
 printFlags :: WithLogger m => m ()
 printFlags = do
@@ -287,20 +312,28 @@ dumpConfiguration
     -> WalletConfiguration
     -> TxpConfiguration
     -> RequiresNetworkMagic
+    -> TxValidationRules
     -> m ()
-dumpConfiguration genesisConfig ntpConfig walletConfig txpConfig rnm = do
-    let conf =
-            Configuration
-            { ccGenesis = genesisConfig
-            , ccNtp = ntpConfig
-            , ccUpdate = updateConfiguration
-            , ccSsc = sscConfiguration
-            , ccDlg = dlgConfiguration
-            , ccTxp = txpConfig
-            , ccBlock = blockConfiguration
-            , ccNode = nodeConfiguration
-            , ccWallet = walletConfig
-            , ccReqNetMagic = rnm
-            }
-    putText . decodeUtf8 . Yaml.encode $ conf
-    exitSuccess
+dumpConfiguration
+    genesisConfig
+    ntpConfig
+    walletConfig
+    txpConfig
+    rnm
+    txValRules = do
+        let conf =
+                Configuration
+                { ccGenesis = genesisConfig
+                , ccNtp = ntpConfig
+                , ccUpdate = updateConfiguration
+                , ccSsc = sscConfiguration
+                , ccDlg = dlgConfiguration
+                , ccTxp = txpConfig
+                , ccBlock = blockConfiguration
+                , ccNode = nodeConfiguration
+                , ccWallet = walletConfig
+                , ccReqNetMagic = rnm
+                , ccTxValRules = txValRules
+                }
+        putText . decodeUtf8 . Yaml.encode $ conf
+        exitSuccess

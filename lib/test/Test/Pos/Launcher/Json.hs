@@ -20,13 +20,13 @@ import           Pos.Chain.Genesis (FakeAvvmOptions (..),
                      GenesisSpec (..), StaticConfig (..),
                      TestnetBalanceOptions (..))
 import           Pos.Chain.Ssc (SscConfiguration (..))
-import           Pos.Chain.Txp (TxpConfiguration (..))
+import           Pos.Chain.Txp (TxValidationRules (..), TxpConfiguration (..))
 import           Pos.Chain.Update
 import           Pos.Configuration (NodeConfiguration (..))
 import           Pos.Core.Common (Coeff (..), CoinPortion (..), SharedSeed (..),
                      TxFeePolicy (..), TxSizeLinear (..))
 import           Pos.Core.ProtocolConstants (VssMaxTTL (..), VssMinTTL (..))
-import           Pos.Core.Slotting (EpochIndex (..))
+import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..))
 import           Pos.Crypto.Configuration (ProtocolMagic (..),
                      ProtocolMagicId (..), RequiresNetworkMagic (..))
 import           Pos.Launcher.Configuration (Configuration (..),
@@ -151,7 +151,12 @@ testGoldenConf_NoNetworkMagicField = Configuration
         , ccExplorerExtendedApi = False
         }
     , ccWallet = WalletConfiguration { ccThrottle = Nothing }
-    , ccReqNetMagic = RequiresNoMagic
+    , ccReqNetMagic = RequiresMagic
+    , ccTxValRules = TxValidationRules
+                         (EpochOrSlot . Left $ EpochIndex 0)
+                         (EpochOrSlot . Left $ EpochIndex 0)
+                         99999999
+                         99999999
     }
 
 tests :: IO Bool

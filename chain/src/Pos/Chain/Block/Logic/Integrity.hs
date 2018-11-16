@@ -21,13 +21,13 @@ module Pos.Chain.Block.Logic.Integrity
 import           Universum
 
 import           Control.Lens (ix)
-import           Formatting (build, int, sformat, (%))
+import           Formatting (build, int, sformat, shown, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util (VerificationRes (..), verifyGeneric)
 
 import qualified Pos.Binary.Class as Bi
-import           Pos.Chain.Block.Block (Block, gbExtra, genBlockLeaders,
-                     getBlockHeader, verifyBlockInternal)
+import           Pos.Chain.Block.Block (Block, gbExtra, getBlockHeader,
+                     verifyBlockInternal)
 import           Pos.Chain.Block.Genesis (gebAttributes, gehAttributes)
 import           Pos.Chain.Block.HasPrevBlock (prevBlockL)
 import           Pos.Chain.Block.Header (BlockHeader (..), HasHeaderHash (..),
@@ -196,7 +196,8 @@ verifyHeader pm VerifyHeaderParams {..} h =
                      leaders ^?
                      ix (fromIntegral $ getSlotIndex $
                          siSlot $ mainHeader ^. headerSlotL))
-                  , "block's leader is different from expected one")
+                  -- @intricate: Added some temporary extra info here
+                  , sformat ("block's leader, "%build%", is different from expected one, "%build%". slotIndex: "%build%", leaders: "%shown) (leaders ^? ix (fromIntegral $ getSlotIndex $ siSlot $ mainHeader ^. headerSlotL)) (addressHash $ mainHeader ^. mainHeaderLeaderKey) (getSlotIndex $ siSlot $ mainHeader ^. headerSlotL) leaders)
                 ]
 
     verifyNoUnknown (BlockHeaderGenesis genH) =

@@ -18,7 +18,7 @@ dev: &dev
         initializer:
           testBalance:
             poors:        12
-            richmen:      4
+            richmen:      5
             richmenShare: 0.99
             useHDAddresses: True
             totalBalance: 600000000000000000
@@ -48,7 +48,7 @@ dev: &dev
             txSizeLinear:
               a: 155381 # absolute minimal fees per transaction
               b: 43.946 # additional minimal fees per byte of transaction size
-          unlockStakeEpoch: 18446744073709551615 # last epoch (maxBound @Word64)
+          unlockStakeEpoch: 9999999999999999999 # last epoch (maxBound @Word64)
         protocolConstants: &dev_core_genesis_spec_protocolConstants
           k: 2
           protocolMagic: 55550001

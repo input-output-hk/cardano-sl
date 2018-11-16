@@ -1,5 +1,6 @@
 module Pos.DB.Lrc.OBFT
        ( getSlotLeaderObft
+       , getEpochSlotLeaderScheduleObft
        ) where
 
 import           Universum
@@ -8,9 +9,9 @@ import qualified Data.Map as M (toList)
 import           Pos.Chain.Delegation (ProxySKBlockInfo)
 import           Pos.Chain.Genesis (GenesisData (..), GenesisWStakeholders (..))
 import qualified Pos.Chain.Genesis as Genesis (Config (..))
-import           Pos.Core (FlatSlotId, SlotId, StakeholderId, addressHash,
-                     flattenEpochOrSlot, pcEpochSlots)
-import           Pos.Crypto (ProxySecretKey (..))
+import           Pos.Core (EpochIndex, FlatSlotId, LocalSlotIndex (..),
+                     SlotCount (..), SlotId (..), SlotLeaders, StakeholderId,
+                     flattenEpochOrSlot, pcEpochSlots, slotIdSucc)
 import           Pos.DB (MonadDBRead)
 import           Pos.DB.Delegation (getDlgTransPsk)
 
@@ -27,9 +28,9 @@ getSlotLeaderObft
     => Genesis.Config -> SlotId -> m (StakeholderId, ProxySKBlockInfo)
 getSlotLeaderObft genesisConfig si = do
     mDlg <- getDlgTransPsk currentSlotGenesisSId
+    -- @intricate: Couldn't I just do `pure (currentSlotGenesisSId, (swap <$> mDlg))`?
     case mDlg of
-        Just (_, UnsafeProxySecretKey { pskDelegatePk = delegateePk }) ->
-            pure ((addressHash delegateePk), (swap <$> mDlg))
+        Just _  -> pure (currentSlotGenesisSId, (swap <$> mDlg))
         Nothing -> pure (currentSlotGenesisSId, Nothing)
   where
     -- We assume here that the genesis bootstrap stakeholders list
@@ -53,3 +54,20 @@ getSlotLeaderObft genesisConfig si = do
     --
     currentSlotGenesisSId :: StakeholderId
     currentSlotGenesisSId = stakeholders !! leaderIndex
+
+getEpochSlotLeaderScheduleObft
+    :: (MonadDBRead m, MonadUnliftIO m)
+    => Genesis.Config -> EpochIndex -> m SlotLeaders
+getEpochSlotLeaderScheduleObft genesisConfig ei = do
+    leaders <-
+        map fst
+            <$> mapM (getSlotLeaderObft genesisConfig)
+                     (take (fromIntegral $ epochSlotCount)
+                           (iterate (slotIdSucc epochSlots) startSlotId))
+    case nonEmpty leaders of
+        Just l  -> pure l
+        Nothing -> error "getEpochSlotLeaderScheduleObft: Empty list of leaders"
+  where
+    startSlotId = SlotId ei (UnsafeLocalSlotIndex 0)
+    epochSlots = pcEpochSlots (Genesis.configProtocolConstants genesisConfig)
+    epochSlotCount = getSlotCount $ epochSlots

@@ -40,12 +40,12 @@ import           Pos.Chain.Update (BlockVersion (..), ConsensusEra (..),
                      UpdateConfiguration, lastKnownBlockVersion)
 import           Pos.Core (BlockCount, FlatSlotId, ProtocolConstants,
                      difficultyL, epochIndexL, flattenSlotId, kEpochSlots,
-                     pcBlkSecurityParam, pcEpochSlots, slotIdSucc)
+                     pcBlkSecurityParam)
 import           Pos.Core.Chrono (NE, NewestFirst (getNewestFirst),
                      OldestFirst (..), toOldestFirst, _OldestFirst)
 import           Pos.Core.Exception (assertionFailed, reportFatalError)
 import           Pos.Core.NetworkMagic (NetworkMagic (..))
-import           Pos.Core.Slotting (MonadSlots, SlotId)
+import           Pos.Core.Slotting (MonadSlots, SlotId (..))
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Block.BListener (MonadBListener (..))
 import qualified Pos.DB.Block.GState.BlockExtra as GS
@@ -58,7 +58,7 @@ import qualified Pos.DB.GState.Common as GS
                      getMaxSeenDifficulty)
 import           Pos.DB.Lrc (HasLrcContext, lrcActionOnEpochReason)
 import qualified Pos.DB.Lrc as LrcDB
-import           Pos.DB.Lrc.OBFT (getSlotLeaderObft)
+import           Pos.DB.Lrc.OBFT (getEpochSlotLeaderScheduleObft)
 import           Pos.DB.Update (getAdoptedBVFull, getConsensusEra)
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
@@ -229,20 +229,16 @@ slogVerifyBlocksOBFT genesisConfig curSlot blocks = runExceptT $ do
     logInfo $ sformat ("slogVerifyBlocksOBFT: Consensus era is " % shown) era
     (adoptedBV, adoptedBVD) <- lift getAdoptedBVFull
     let dataMustBeKnown = mustDataBeKnown uc adoptedBV
-    let epochSlots = pcEpochSlots (configProtocolConstants genesisConfig)
+    -- let epochSlots = pcEpochSlots (configProtocolConstants genesisConfig)
     let initialSlot = case curSlot of
                           -- TODO mhueschen | make sure this is correct
                           -- We do not have a SlotId, so we are starting
                           -- at genesis
                           Nothing -> error "slogVerifyBlocksOBFT: no slotId" -- slotIdToEnum epochSlots 0
                           Just cs -> cs
-    leadersList <-
-        lift $ map fst <$> mapM (getSlotLeaderObft genesisConfig)
-                    (take (length blocks) (iterate (slotIdSucc epochSlots)
-                                                   initialSlot))
-    let leaders = case nonEmpty leadersList of
-                      Nothing -> error "slogVerifyBlocksOBFT: empty list of leaders"
-                      Just ls -> ls
+    leaders <- lift $ getEpochSlotLeaderScheduleObft genesisConfig
+                                                     (siEpoch initialSlot)
+    logInfo $ sformat ("slogVerifyBlocksOBFT: leaders: "%shown) leaders
     -- Do pure block verification.
     let blocksList :: OldestFirst [] Block
         blocksList = OldestFirst (NE.toList (getOldestFirst blocks))

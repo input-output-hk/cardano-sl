@@ -169,17 +169,21 @@ blockCreatorObft genesisConfig txpConfig (slotId@SlotId {..}) diffusion =
   where
     logOnEpochFS = if siSlot == localSlotIndexMinBound then logInfoS else logDebugS
     logOnEpochF = if siSlot == localSlotIndexMinBound then logInfo else logDebug
-    onKnownLeaderOrDelegate (leaderOrDelegate, pske) = do
+    onKnownLeaderOrDelegate (leader, pske) = do
         ourPk <- getOurPublicKey
         let ourPkHash = addressHash ourPk
             finalHeavyPsk = fst <$> pske
         logOnEpochFS $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
-        logOnEpochF $ sformat ("Current slot leader/delegate: "%build) leaderOrDelegate
+        logOnEpochF $ sformat ("Current slot leader: "%build) leader
         logDebug $ "End delegation psk for this slot: " <> maybe "none" pretty finalHeavyPsk
-        let weAreLeaderOrDelegate = leaderOrDelegate == ourPkHash
-        if | weAreLeaderOrDelegate ->
-                 onNewSlotWhenLeader genesisConfig txpConfig slotId pske diffusion
-           | otherwise -> pass
+
+        let weAreLeader        = leader == ourPkHash
+            weAreHeavyDelegate = maybe False
+                                       ((== ourPk) . pskDelegatePk)
+                                       finalHeavyPsk
+        if | weAreLeader || weAreHeavyDelegate ->
+                onNewSlotWhenLeader genesisConfig txpConfig slotId pske diffusion
+            | otherwise -> pass
 
 blockCreatorOriginal
     :: ( BlockWorkMode ctx m

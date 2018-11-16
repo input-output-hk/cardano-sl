@@ -165,7 +165,7 @@ handleUnsolicitedHeader genesisConfig header nodeId = do
     uselessFormat =
         "Header " %shortHashF%" is useless for the following reason: " %stext
     invalidFormat =
-        "handleUnsolicited: header " %shortHashF%
+        "handleUnsolicitedHeader: header " %shortHashF%
         " is invalid for the following reason: " %stext
 
 ----------------------------------------------------------------------------

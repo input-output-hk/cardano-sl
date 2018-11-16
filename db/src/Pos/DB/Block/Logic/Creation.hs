@@ -36,8 +36,9 @@ import           Pos.Chain.Ssc (MonadSscMem, SscPayload, defaultSscPayload,
                      stripSscPayload)
 import           Pos.Chain.Txp (TxAux (..), TxpConfiguration, emptyTxPayload,
                      mkTxPayload)
-import           Pos.Chain.Update (UpdateConfiguration, UpdatePayload (..),
-                     curSoftwareVersion, lastKnownBlockVersion)
+import           Pos.Chain.Update (ConsensusEra (..), UpdateConfiguration,
+                     UpdatePayload (..), curSoftwareVersion,
+                     lastKnownBlockVersion)
 import           Pos.Core (BlockCount, EpochIndex, EpochOrSlot (..),
                      SlotId (..), epochIndexL, flattenSlotId, getEpochOrSlot,
                      kChainQualityThreshold, kEpochSlots,
@@ -66,8 +67,8 @@ import qualified Pos.DB.Lrc as LrcDB
 import           Pos.DB.Ssc (sscGetLocalPayload, sscResetLocal)
 import           Pos.DB.Txp (MempoolExt, MonadTxpLocal (..), MonadTxpMem,
                      clearTxpMemPool, txGetPayload, withTxpLocalData)
-import           Pos.DB.Update (UpdateContext, clearUSMemPool, getMaxBlockSize,
-                     usCanCreateBlock, usPreparePayload)
+import           Pos.DB.Update (UpdateContext, clearUSMemPool, getConsensusEra,
+                     getMaxBlockSize, usCanCreateBlock, usPreparePayload)
 import           Pos.Util (_neHead)
 import           Pos.Util.Util (HasLens (..), HasLens')
 import           Pos.Util.Wlog (WithLogger, logDebug)
@@ -296,8 +297,11 @@ canCreateBlock k sId tipHeader =
             throwError "this software is obsolete and can't create block"
         unless (EpochOrSlot (Right sId) > tipEOS) $
             throwError "slot id is not greater than one from the tip block"
-        unless (tipHeader ^. epochIndexL == siEpoch sId) $
-            throwError "we don't know genesis block for this epoch"
+        era <- getConsensusEra
+        case era of
+            Original -> unless (tipHeader ^. epochIndexL == siEpoch sId) $
+                throwError "we don't know genesis block for this epoch"
+            OBFT -> pure ()
         let flatSId = flattenSlotId (kEpochSlots k) sId
         -- Small heuristic: let's not check chain quality during the
         -- first quarter of the 0-th epoch, because during this time

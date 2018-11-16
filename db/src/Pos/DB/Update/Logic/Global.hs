@@ -19,27 +19,31 @@ import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Block (ComponentBlock (..), headerHashG,
                      headerLeaderKeyL, headerSlotL)
-import           Pos.Chain.Genesis as Genesis (Config, configBlkSecurityParam)
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     configBlkSecurityParam, configEpochSlots)
 import           Pos.Chain.Update (ApplicationName, BlockVersion,
                      BlockVersionData, BlockVersionState,
-                     ConfirmedProposalState, MonadPoll, NumSoftwareVersion,
-                     PollModifier (..), PollT, PollVerFailure, ProposalState,
-                     SoftwareVersion (..), USUndo, UpId, UpdateConfiguration,
-                     UpdatePayload, blockVersionL, execPollT, execRollT,
-                     getAdoptedBV, lastKnownBlockVersion,
-                     reportUnexpectedError, runPollT)
-import           Pos.Core (StakeholderId, addressHash, epochIndexL)
+                     ConfirmedProposalState, ConsensusEra (..), MonadPoll,
+                     NumSoftwareVersion, PollModifier (..), PollT,
+                     PollVerFailure, ProposalState, SoftwareVersion (..),
+                     USUndo, UpId, UpdateConfiguration, UpdatePayload,
+                     blockVersionL, execPollT, execRollT, getAdoptedBV,
+                     lastKnownBlockVersion, reportUnexpectedError, runPollT)
+import           Pos.Core (StakeholderId, addressHash, epochIndexL,
+                     localSlotIndexMinBound)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Exception (reportFatalError)
 import           Pos.Core.Reporting (MonadReporting)
-import           Pos.Core.Slotting (MonadSlotsData, SlottingData, slottingVar)
+import           Pos.Core.Slotting (EpochIndex (..), MonadSlotsData,
+                     SlotId (..), SlottingData, slottingVar)
 import qualified Pos.DB.BatchOp as DB
 import qualified Pos.DB.Class as DB
 import           Pos.DB.Lrc (HasLrcContext)
-import           Pos.DB.Update.GState (UpdateOp (..))
+import           Pos.DB.Update.GState (UpdateOp (..), getConsensusEra)
 import           Pos.DB.Update.Poll.DBPoll (DBPoll, runDBPoll)
 import           Pos.DB.Update.Poll.Logic.Apply (verifyAndApplyUSPayload)
-import           Pos.DB.Update.Poll.Logic.Base (canCreateBlockBV)
+import           Pos.DB.Update.Poll.Logic.Base (canCreateBlockBV,
+                     updateSlottingData)
 import           Pos.DB.Update.Poll.Logic.Rollback (rollbackUS)
 import           Pos.DB.Update.Poll.Logic.Softfork (processGenesisBlock,
                      recordBlockIssuance)
@@ -175,8 +179,9 @@ usVerifyBlocks genesisConfig verifyAllIsKnown blocks = do
         processRes <$> run uc (runExceptT action)
   where
     action = do
+        era <- getConsensusEra
         lastAdopted <- getAdoptedBV
-        mapM (verifyBlock genesisConfig lastAdopted verifyAllIsKnown) blocks
+        mapM (verifyBlock genesisConfig era lastAdopted verifyAllIsKnown) blocks
     run :: UpdateConfiguration -> PollT (DBPoll n) a -> n (a, PollModifier)
     run uc = runDBPoll uc . runPollT def
     processRes ::
@@ -188,14 +193,27 @@ usVerifyBlocks genesisConfig verifyAllIsKnown blocks = do
 verifyBlock
     :: (USGlobalVerifyMode ctx m, MonadPoll m, MonadError PollVerFailure m)
     => Genesis.Config
+    -> ConsensusEra
     -> BlockVersion
     -> Bool
     -> UpdateBlock
     -> m USUndo
-verifyBlock genesisConfig _ _ (ComponentBlockGenesis genBlk) =
+verifyBlock genesisConfig _ _ _ (ComponentBlockGenesis genBlk) =
     execRollT $ processGenesisBlock genesisConfig (genBlk ^. epochIndexL)
-verifyBlock genesisConfig lastAdopted verifyAllIsKnown (ComponentBlockMain header payload) =
+verifyBlock genesisConfig era lastAdopted verifyAllIsKnown (ComponentBlockMain header payload) =
     execRollT $ do
+        -- @intricate:
+        -- During the OBFT era, we don't create epoch boundary blocks
+        -- ("genesis" blocks) and therefore never call `processGenesisBlock`
+        -- which calls `updateSlottingData`. So we need to ensure we call
+        -- `updateSlottingData` at epoch boundaries.
+        let slotId     = header ^. headerSlotL
+            slotIndex  = siSlot slotId
+            epochIndex = siEpoch slotId -- header ^. epochIndexL
+        when ((era == OBFT) && (slotIndex == localSlotIndexMinBound)) $ do
+            updateSlottingData (Genesis.configEpochSlots genesisConfig)
+                            (epochIndex { getEpochIndex = (getEpochIndex epochIndex) })
+
         verifyAndApplyUSPayload
             genesisConfig
             lastAdopted

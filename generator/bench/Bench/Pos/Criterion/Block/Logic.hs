@@ -22,7 +22,8 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
                      TestnetBalanceOptions (..), configBlockVersionData,
                      configBootStakeholders, configEpochSlots,
                      configGeneratedSecretsThrow, gsSecretKeys)
-import           Pos.Chain.Update (BlockVersionData (..), updateConfiguration)
+import           Pos.Chain.Update (BlockVersionData (..), ConsensusEra (..),
+                     updateConfiguration)
 import           Pos.Core.Chrono (NE, OldestFirst (..), nonEmptyNewestFirst)
 import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)
 import           Pos.Core.NetworkMagic (makeNetworkMagic)
@@ -209,6 +210,8 @@ verifyHeaderBenchmark !genesisConfig !secretKeys !tp =
                 , vhpLeaders = Just leaders
                 , vhpMaxSize = Nothing
                 , vhpVerifyNoUnknown = False
+                -- @intricate @mhuesch: hardcoded `Original` consensus era
+                , vhpConsensusEra = Original
                 }
         let !params = VerifyBlockParams
                 { vbpVerifyHeader = verifyHeaderParams
@@ -222,7 +225,8 @@ verifyHeaderBenchmark !genesisConfig !secretKeys !tp =
         nf isVerSuccess $ verifyHeader pm params header
 
     benchBlockVerification ~(block, params) =
-        nf isVerSuccess $ verifyBlock genesisConfig params block
+        -- @intricate @mhuesch: hardcoded `Original` consensus era verification
+        nf isVerSuccess $ verifyBlock genesisConfig Original params block
 
 
 runBenchmark :: IO ()

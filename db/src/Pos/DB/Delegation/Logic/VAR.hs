@@ -37,7 +37,7 @@ import           Pos.Chain.Delegation (CedeModifier (..), DlgBlund,
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlockVersionData)
 import           Pos.Chain.Lrc (RichmenSet)
-import           Pos.Chain.Update (BlockVersionData)
+import           Pos.Chain.Update (BlockVersionData, ConsensusEra (..))
 import           Pos.Core (EpochIndex (..), StakeholderId, addressHash,
                      epochIndexL, siEpoch)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
@@ -55,7 +55,8 @@ import           Pos.DB.Delegation.Logic.Common (DelegationError (..),
 import           Pos.DB.Delegation.Logic.Mempool (clearDlgMemPoolAction,
                      deleteFromDlgMemPool, processProxySKHeavyInternal)
 import qualified Pos.DB.GState.Common as GS
-import           Pos.DB.Lrc (HasLrcContext, getDlgRichmen)
+import           Pos.DB.Lrc (HasLrcContext, getDlgRichmen, getDlgRichmenObft)
+import           Pos.DB.Update (getConsensusEra)
 import           Pos.Util (getKeys, _neHead)
 import           Pos.Util.Wlog (WithLogger, logDebug)
 
@@ -333,7 +334,10 @@ dlgVerifyBlocks ::
     -> OldestFirst NE Block
     -> ExceptT Text m (OldestFirst NE DlgUndo)
 dlgVerifyBlocks genesisConfig blocks = do
-    richmen <- lift $ getDlgRichmen genesisBvd "dlgVerifyBlocks" headEpoch
+    era <- getConsensusEra
+    richmen <- lift $ case era of
+        Original -> getDlgRichmen genesisBvd "dlgVerifyBlocks" headEpoch
+        OBFT     -> pure $ getDlgRichmenObft genesisConfig
     hoist (evalMapCede emptyCedeModifier) $ mapM (verifyBlock richmen) blocks
   where
     genesisBvd = configBlockVersionData genesisConfig

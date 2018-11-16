@@ -27,6 +27,7 @@ import           Pos.Chain.Block (BlockHeader (..), BlockSignature (..),
 import qualified Pos.Chain.Block as Block
 import           Pos.Chain.Delegation (HeavyDlgIndex (..))
 import           Pos.Chain.Genesis (GenesisHash (..))
+import           Pos.Chain.Update (ConsensusEra)
 import           Pos.Core (EpochIndex (..), SlotId (..), difficultyL)
 import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Core.Chrono (NewestFirst (..))
@@ -65,9 +66,10 @@ spec = describe "Block properties" $ modifyMaxSuccess (min 20) $ do
     emptyHeaderChain
         :: NewestFirst [] BlockHeader
         -> ProtocolMagic
+        -> ConsensusEra
         -> Bool
-    emptyHeaderChain l pm =
-        isVerSuccess $ Block.verifyHeaders pm Nothing l
+    emptyHeaderChain l pm era =
+        isVerSuccess $ Block.verifyHeaders pm era Nothing l
 
 -- | Both of the following tests are boilerplate - they use `mkGenericHeader` to create
 -- headers and then compare these with manually built headers.
@@ -171,7 +173,7 @@ validateBadProtocolMagicMainHeader pm = do
             BlockHeaderMain h    -> BlockHeaderMain    (h & gbhProtocolMagicId .~ protocolMagicId')
     pure $ not $ isVerSuccess $ Block.verifyHeader pm params header'
 
-validateGoodHeaderChain :: ProtocolMagic -> Gen Bool
-validateGoodHeaderChain pm = do
+validateGoodHeaderChain :: ProtocolMagic -> ConsensusEra -> Gen Bool
+validateGoodHeaderChain pm era = do
     BT.BHL (l, _) <- BT.genStubbedBHL pm
-    pure $ isVerSuccess $ Block.verifyHeaders pm Nothing (NewestFirst l)
+    pure $ isVerSuccess $ Block.verifyHeaders pm era Nothing (NewestFirst l)

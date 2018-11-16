@@ -29,7 +29,8 @@ import           Pos.Chain.Block (ApplyBlocksException (..), Block, Blund,
                      VerifyBlocksException (..), headerHashG, prevBlockL)
 import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots)
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Chain.Update (PollModifier, UpdateConfiguration)
+import           Pos.Chain.Update (ConsensusEra (..), PollModifier,
+                     UpdateConfiguration)
 import           Pos.Core (epochIndexL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toNewestFirst, toOldestFirst)
@@ -48,7 +49,7 @@ import qualified Pos.DB.GState.Common as GS (getTip)
 import           Pos.DB.Ssc (sscVerifyBlocks)
 import           Pos.DB.Txp.Settings
                      (TxpGlobalSettings (TxpGlobalSettings, tgsVerifyBlocks))
-import           Pos.DB.Update (getAdoptedBV, usVerifyBlocks)
+import           Pos.DB.Update (getAdoptedBV, getConsensusEra, usVerifyBlocks)
 import           Pos.Util (neZipWith4, spanSafe, _neHead)
 import           Pos.Util.Util (HasLens (..))
 import           Pos.Util.Wlog (logDebug)
@@ -97,8 +98,11 @@ verifyBlocksPrefix genesisConfig currentSlot blocks = runExceptT $ do
     -- 'decode'.
     slogUndos <- withExceptT VerifyBlocksError $
         ExceptT $ slogVerifyBlocks genesisConfig currentSlot blocks
-    _ <- withExceptT (VerifyBlocksError . pretty) $
-        ExceptT $ sscVerifyBlocks genesisConfig (map toSscBlock blocks)
+    era <- getConsensusEra
+    case era of
+        Original -> void $ withExceptT (VerifyBlocksError . pretty) $
+                        ExceptT $ sscVerifyBlocks genesisConfig (map toSscBlock blocks)
+        OBFT     -> pure () -- We don't perform SSC operations during the OBFT era
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
     txUndo <- withExceptT (VerifyBlocksError . pretty) $
         ExceptT $ tgsVerifyBlocks dataMustBeKnown $ map toTxpBlock blocks

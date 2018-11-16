@@ -9,7 +9,6 @@ module Pos.Launcher.Launcher
 
      -- * Actions
     , actionWithCoreNode
-    , actionWithCoreNodeAlso
     ) where
 
 import           Universum
@@ -93,7 +92,8 @@ launchNode nArgs cArgs lArgs action = do
 -- | Run basic core node
 actionWithCoreNode
     :: (HasConfigurations, HasCompileInfo)
-    => Genesis.Config
+    => (Diffusion IO -> IO a)
+    -> Genesis.Config
     -> WalletConfiguration
     -> TxpConfiguration
     -> NtpConfiguration
@@ -101,26 +101,7 @@ actionWithCoreNode
     -> SscParams
     -> NodeResources EmptyMempoolExt
     -> IO ()
-actionWithCoreNode genesisConfig _ txpConfig _ _ _ nodeRes = do
-    let plugins = [ ("update trigger", updateTriggerWorker) ]
-
-    logInfo "Wallet is disabled, because software is built w/o it"
-
-    runRealMode
-        genesisConfig
-        txpConfig
-        nodeRes
-        (runNode genesisConfig txpConfig nodeRes plugins)
-
--- | Like 'actionWithCoreNode', but also launches the provided action with
--- access to the 'Diffusion' in another thread. Uses 'concurrently_' from
--- Data.Async, so if either thread dies, then both will.
-actionWithCoreNodeAlso
-    :: (HasConfigurations, HasCompileInfo)
-    => Genesis.Config -> TxpConfiguration -> NodeResources EmptyMempoolExt
-    -> (Diffusion IO -> IO a)
-    -> IO ()
-actionWithCoreNodeAlso genesisConfig txpConfig nodeRes action = do
+actionWithCoreNode action genesisConfig _ txpConfig _ _ _ nodeRes = do
     let plugins = [ ("update trigger", updateTriggerWorker) ]
 
     logInfo "Wallet is disabled, because software is built w/o it"

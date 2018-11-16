@@ -28,6 +28,7 @@ module Cardano.Wallet.Kernel.CoinSelection.Generic (
   , mapCoinSelErr
   , mapCoinSelUtxo
   , unwrapCoinSelT
+  , evalCoinSelT
   , wrapCoinSelT
     -- * Errors
   , CoinSelHardErr(..)
@@ -91,6 +92,7 @@ class Ord v => IsValue v where
   valueDist   :: v -> v -> v                         -- ^ @|a - b|@
   valueRatio  :: v -> v -> Double                    -- ^ @a / b@
   valueAdjust :: Rounding -> Double -> v -> Maybe v  -- ^ @a * b@
+  valueDiv    :: v -> Int -> v                       -- ^ @a / k@
 
 class ( Ord (Input dom)
       , IsValue (Value dom)
@@ -245,6 +247,10 @@ mapCoinSelUtxo inj proj act = wrapCoinSelT $ \st ->
 -- | Unwrap the 'CoinSelT' stack
 unwrapCoinSelT :: CoinSelT utxo e m a -> utxo -> m (Either e (a, utxo))
 unwrapCoinSelT act = runExceptT . runStrictStateT (unCoinSelT act)
+
+-- | Unwrap the 'CoinSelT' stack, only getting the resulting selection
+evalCoinSelT :: Monad m => CoinSelT utxo e m a -> utxo -> m (Either e a)
+evalCoinSelT act = runExceptT . evalStrictStateT (unCoinSelT act)
 
 -- | Inverse of 'unwrapCoinSelT'
 wrapCoinSelT :: Monad m

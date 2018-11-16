@@ -1,7 +1,7 @@
-{ writeScript, cardano-sl-wallet-new, validateJson }:
+{ writeScript, cardano-wallet, validateJson }:
 
 let
-  generate-swagger-file = "${cardano-sl-wallet-new}/bin/cardano-generate-swagger-file";
+  generate-swagger-file = "${cardano-wallet}/bin/cardano-generate-swagger-file";
   validate-json = "${validateJson}/bin/validate_json";
   schema = ./../../../tools/src/validate-json/swagger-meta-2.0.json;
 in writeScript "validate-swagger-schema" ''

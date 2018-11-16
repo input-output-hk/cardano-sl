@@ -1,5 +1,5 @@
 { runCommand, stdenv
-, cardano-sl-node, cardano-sl-tools, cardano-sl-wallet-new, cardano-sl-config
+, cardano-sl-node, cardano-sl-tools, cardano-wallet, cardano-sl-config
 , version, gitrev, buildId ? null }:
 
 with stdenv.lib;
@@ -18,7 +18,7 @@ runCommand "cardano-daedalus-bridge-${version}" {
   cp ${cardano-sl-config}/log-configs/daedalus.yaml $out/config/log-config-prod.yaml
   cp ${cardano-sl-tools}/bin/cardano-launcher bin
   cp ${cardano-sl-tools}/bin/cardano-x509-certificates bin
-  cp ${cardano-sl-wallet-new}/bin/cardano-node bin
+  cp ${cardano-wallet}/bin/cardano-node bin
 
   # test that binaries exit with 0
   ./bin/cardano-node --help > /dev/null

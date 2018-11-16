@@ -6,7 +6,7 @@ Although stack has support for building with profiling [1], for some reason
 it is currently unable to build `cardano-sl-update` with profiling enabled.
 
 ```
-stack build --profile cardano-sl-wallet-new:wallet-unit-tests
+stack build --profile cardano-wallet:unit
 ```
 
 will result in
@@ -35,7 +35,7 @@ nor did forcing stack to use my system ghc.
 `nix-build` can be used to obtain a profiling build
 
 ```
-nix-build -A cardano-sl-wallet-new --arg enableProfiling true
+nix-build -A cardano-wallet --arg enableProfiling true
 ```
 
 Note however that this _builds and runs_ the tests for a lot of  dependencies.
@@ -46,7 +46,7 @@ To address this, may wish to change the definition of `mkDerivation` in
 mkDerivation = args: super.mkDerivation (args // {
     enableLibraryProfiling    = enableProfiling;
     enableExecutableProfiling = enableProfiling;
-    doCheck                   = args.pname == "cardano-sl-wallet-new";
+    doCheck                   = args.pname == "cardano-wallet";
   }
 ```
 
@@ -73,7 +73,7 @@ missing `config.h`.
 Then:
 
 ```
-cabal new-build --enable-profiling wallet-unit-tests
+cabal new-build --enable-profiling cardano-wallet:unit
 ```
 
 # Running
@@ -99,13 +99,13 @@ directory. This can be converted to a `.ps` file using `hp2ps`
 (which comes bundled with ghc):
 
 ```
-hp2ps -c wallet-unit-tests.hp
+hp2ps -c cardano-wallet-unit.hp
 ```
 
 or to an `.svg` file using [`hp2pretty`][5]
 
 ```
-hp2pretty wallet-unit-tests.hp
+hp2pretty cardano-wallet-unit.hp
 ```
 
 For more RTS options, run

@@ -111,7 +111,7 @@ SHA-256 hash into little json files. To recalculate the hash, use
 When building attributes from `release.nix`, don't forget to specify
 the arch like this:
 
-    nix-build release.nix -A cardano-sl-wallet-new.x86_64-linux
+    nix-build release.nix -A cardano-wallet.x86_64-linux
 
 If you don't specify the arch, it will build for both `x86_64-darwin`
 and `x86_64-linux`. Unless you have a macos build slave configured,
@@ -186,7 +186,7 @@ A nix channel will be added for the latest stable nixpkgs release (see
 
 To build any branch straight from a GitHub tarball:
 
-    nix-build https://github.com/input-output-hk/cardano-sl/archive/develop.tar.gz -A cardano-sl-wallet-new
+    nix-build https://github.com/input-output-hk/cardano-sl/archive/develop.tar.gz -A cardano-wallet
 
 
 ## Links

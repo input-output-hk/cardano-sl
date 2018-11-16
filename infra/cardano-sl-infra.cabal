@@ -32,7 +32,6 @@ library
                         Pos.Infra.Reporting.Methods
                         Pos.Infra.Reporting.NodeInfo
                         Pos.Infra.Reporting.Statsd
-                        Pos.Infra.Reporting.Wlog
 
                         -- StateLock
                         Pos.Infra.StateLock
@@ -131,7 +130,6 @@ library
                       , cardano-sl-util
                       , cardano-report-server >= 0.4.5
                       , clock
-                      , conduit
                       , containers
                       , directory
                       , dns
@@ -140,7 +138,6 @@ library
                       , ekg-wai
                       , ether >= 0.5
                       , exceptions
-                      , filepath
                       , formatting
                       , hashable
                       , http-client
@@ -152,12 +149,10 @@ library
                       , network-info
                       , network-transport
                       , network-transport-tcp
-                      , lzma-conduit
                       , optparse-applicative
                       , safe-exceptions
                       , serokell-util >= 0.1.3.4
                       , stm
-                      , tar
                       , time
                       , tagged
                       , text

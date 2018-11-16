@@ -15,9 +15,9 @@ import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Reporting (Reporter (..))
 import           Pos.Infra.Reporting.Http (reportNode)
 import           Pos.Infra.Reporting.NodeInfo (extendWithNodeInfo)
-import           Pos.Infra.Reporting.Wlog (LoggerConfig, withWlogTempFile)
 import           Pos.Util.CompileInfo (CompileTimeInfo)
 import           Pos.Util.Trace (Severity (Error), Trace, traceWith)
+import           Pos.Util.Wlog (LoggerConfig)
 
 data ProductionReporterParams = ProductionReporterParams
     { prpServers         :: ![Text]
@@ -31,14 +31,13 @@ productionReporter
     :: ProductionReporterParams
     -> Diffusion IO -- ^ Used to get status info, not to do any network stuff.
     -> Reporter IO
-productionReporter params diffusion = Reporter $ \rt -> withWlogTempFile logConfig $ \mfp -> do
+productionReporter params diffusion = Reporter $ \rt -> do
     rt' <- extendWithNodeInfo diffusion rt
-    reportNode logTrace protocolMagic compileTimeInfo servers mfp rt'
+    reportNode logTrace protocolMagic compileTimeInfo servers rt'
         `catchIO`
         reportExnHandler rt'
   where
     servers = prpServers params
-    logConfig = prpLoggerConfig params
     protocolMagic = prpProtocolMagic params
     compileTimeInfo = prpCompileTimeInfo params
     logTrace = prpTrace params

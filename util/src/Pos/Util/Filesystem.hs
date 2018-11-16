@@ -8,7 +8,6 @@ module Pos.Util.Filesystem
        , directory
        , withTempFile
        , withSystemTempFile
-       , withMaybeFile
        ) where
 
 import           Universum hiding (last)
@@ -115,8 +114,3 @@ withTempFile tmpDir template action =
   where
      ignoringIOErrors :: E.MonadCatch m => m () -> m ()
      ignoringIOErrors ioe = ioe `E.catch` (\e -> const (return ()) (e :: Prelude.IOError))
-
-withMaybeFile :: (MonadIO m, MonadMask m) => Maybe FilePath -> IOMode -> (Maybe Handle -> m r) -> m r
-withMaybeFile Nothing     _    f = f Nothing
-withMaybeFile (Just file) mode f =
-    bracket (openFile file mode) (liftIO . hClose) (f . Just)

@@ -22,7 +22,6 @@ import qualified Network.HTTP.Client.MultipartFormData as Form
 import           Network.HTTP.Client.TLS (tlsManagerSettings)
 import           Pos.ReportServer.Report (BackendVersion (..), ReportInfo (..),
                      ReportType (..), Version (..))
-import           System.FilePath (takeFileName)
 import           System.Info (arch, os)
 
 import           Paths_cardano_sl_infra (version)
@@ -41,15 +40,13 @@ import           Pos.Util.Util ((<//>))
 sendReport
     :: ProtocolMagic
     -> CompileTimeInfo
-    -> Maybe FilePath   -- ^ Log file to read from
     -> ReportType
     -> Text             -- ^ Application name
     -> String           -- ^ URI of the report server
     -> IO ()
-sendReport pm compileInfo mLogFile reportType appName reportServerUri = do
+sendReport pm compileInfo reportType appName reportServerUri = do
     curTime <- getCurrentTime
     rq0 <- parseUrlThrow $ reportServerUri <//> "report"
-    let pathsPart = partFile' <$> maybe [] pure mLogFile
     let payloadPart =
             Form.partLBS "payload"
             (encode $ mkReportInfo curTime)
@@ -58,14 +55,12 @@ sendReport pm compileInfo mLogFile reportType appName reportServerUri = do
     reportManager <- newManager tlsManagerSettings
 
     -- Assemble the `Request` out of the Form data.
-    rq <- Form.formDataBody (payloadPart : pathsPart) rq0
+    rq <- Form.formDataBody [payloadPart] rq0
 
     -- Actually perform the HTTP `Request`.
     e  <- try $ httpLbs rq reportManager
     whenLeft e $ \(e' :: SomeException) -> throwM $ SendingError e'
   where
-    partFile' fp = Form.partFile (toFileName fp) fp
-    toFileName = toText . takeFileName
     mkReportInfo curTime =
         ReportInfo
         { rApplication = appName
@@ -87,16 +82,15 @@ sendReportNodeImpl
     -> ProtocolMagic
     -> CompileTimeInfo
     -> [Text]         -- ^ Report server URIs
-    -> Maybe FilePath -- ^ Optional path to log file to send.
     -> ReportType
     -> IO ()
-sendReportNodeImpl logTrace protocolMagic compileInfo servers mLogFile reportType = do
+sendReportNodeImpl logTrace protocolMagic compileInfo servers reportType = do
     if null servers
     then onNoServers
     else do
         errors <-
             fmap lefts $ forM servers $
-            try . sendReport protocolMagic compileInfo mLogFile reportType "cardano-node" . toString
+            try . sendReport protocolMagic compileInfo reportType "cardano-node" . toString
         whenNotNull errors $ throwSE . NE.head
   where
     onNoServers =
@@ -109,9 +103,6 @@ sendReportNodeImpl logTrace protocolMagic compileInfo servers mLogFile reportTyp
 
 -- | Send a report to a given list of servers.
 --
--- FIXME this does logging, but the 'Report' may include log files.
--- Should the logs from sending a report go into these log files?
---
 -- Note that we are catching all synchronous exceptions, but don't
 -- catch async ones ('catchAny' is from safe-exceptions)
 -- If reporting is broken, we don't want it to affect anything else.
@@ -122,15 +113,14 @@ reportNode
     -> ProtocolMagic
     -> CompileTimeInfo
     -> [Text]         -- ^ Servers
-    -> Maybe FilePath -- ^ Logs.
     -> ReportType
     -> IO ()
-reportNode logTrace protocolMagic compileInfo reportServers mLogs reportType =
+reportNode logTrace protocolMagic compileInfo reportServers reportType =
     reportNodeDo `catchAny` handler
   where
     reportNodeDo = do
         logReportType reportType
-        sendReportNodeImpl logTrace protocolMagic compileInfo reportServers mLogs reportType
+        sendReportNodeImpl logTrace protocolMagic compileInfo reportServers reportType
 
     handler :: SomeException -> IO ()
     handler e =

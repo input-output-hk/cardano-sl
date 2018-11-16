@@ -32,7 +32,6 @@ module Pos.Util.Log.LoggerConfig
        , lhMinSeverity
        -- * functions
        , parseLoggerConfig
-       , retrieveLogFiles
        , setLogPrefix
        , isWritingToConsole
        ) where
@@ -41,7 +40,7 @@ import           Data.Yaml as Y
 import           GHC.Generics
 import           Universum
 
-import           Control.Lens (each, makeLenses)
+import           Control.Lens (makeLenses)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import           Data.Traversable (for)
@@ -243,17 +242,6 @@ setLogPrefix :: Maybe FilePath -> LoggerConfig -> IO LoggerConfig
 setLogPrefix Nothing lc     = return lc
 setLogPrefix bp@(Just _) lc = return lc{ _lcBasePath = bp }
 
-
--- | Given logger config, retrieves all (logger name, filepath) for
--- every logger that has file handle. Filepath inside does __not__
--- contain the common logger config prefix.
--- (this function was in infra/Pos/Reporting/Methods.hs)
-retrieveLogFiles :: LoggerConfig -> [(Text, FilePath)]
-retrieveLogFiles lc =
-    map (\LogHandler{..} -> (_lhName, fromMaybe "<unk>" _lhFpath)) $
-      filter (\LogHandler{..} -> isJust _lhFpath) lhs
-    where
-        lhs = lc ^. lcLoggerTree ^. ltHandlers ^.. each
 
 -- | @LoggerConfig@ used interactively
 -- output to console and minimum Debug severity

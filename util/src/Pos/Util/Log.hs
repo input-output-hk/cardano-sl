@@ -15,7 +15,6 @@ module Pos.Util.Log
        -- * Configuration
        , LoggerConfig (..)
        , parseLoggerConfig
-       , retrieveLogFiles
        -- * Startup
        , setupLogging
        -- * Do logging

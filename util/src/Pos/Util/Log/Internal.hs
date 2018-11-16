@@ -63,8 +63,8 @@ s2knames s = K.Namespace s
 
 -- | log files have a prefix and a name
 data FileDescription = FileDescription {
-                         prefixpath :: FilePath,
-                         filename   :: FilePath }
+                         prefixpath :: !FilePath,
+                         filename   :: !FilePath }
                        deriving (Show)
 
 mkFileDescription :: FilePath -> FilePath -> FileDescription

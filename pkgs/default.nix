@@ -15658,7 +15658,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-util
 , cardano-sl-util-test
 , clock
-, conduit
 , containers
 , cpphs
 , directory
@@ -15668,7 +15667,6 @@ license = stdenv.lib.licenses.mit;
 , ekg-wai
 , ether
 , exceptions
-, filepath
 , formatting
 , generic-arbitrary
 , hashable
@@ -15679,7 +15677,6 @@ license = stdenv.lib.licenses.mit;
 , iproute
 , kademlia
 , lens
-, lzma-conduit
 , mtl
 , network-info
 , network-transport
@@ -15692,7 +15689,6 @@ license = stdenv.lib.licenses.mit;
 , stdenv
 , stm
 , tagged
-, tar
 , text
 , time
 , time-units
@@ -15728,7 +15724,6 @@ cardano-sl-db
 cardano-sl-networking
 cardano-sl-util
 clock
-conduit
 containers
 directory
 dns
@@ -15737,7 +15732,6 @@ ekg-statsd
 ekg-wai
 ether
 exceptions
-filepath
 formatting
 hashable
 http-client
@@ -15745,7 +15739,6 @@ http-client-tls
 iproute
 kademlia
 lens
-lzma-conduit
 mtl
 network-info
 network-transport
@@ -15756,7 +15749,6 @@ safe-exceptions
 serokell-util
 stm
 tagged
-tar
 text
 time
 time-units

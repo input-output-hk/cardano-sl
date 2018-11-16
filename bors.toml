@@ -1,9 +1,6 @@
 status = [
-  # Hydra: Cardano SL build for Linux
-  "ci/hydra:serokell:cardano-sl:all-cardano-sl.x86_64-linux",
-
-  # Hydra: Wallet build for macOS
-  "ci/hydra:serokell:cardano-sl:daedalus-bridge.x86_64-darwin",
+  # Hydra: Aggregate job from release.nix
+  "ci/hydra:serokell:cardano-sl:required",
 
   # Buildkite: stack2nix checks, etc.
   "buildkite/cardano-sl",

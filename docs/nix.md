@@ -40,6 +40,8 @@ org.nixos.nix-daemon` on macOS.
 We do not recommend using `~/.config/nix/nix.conf` unless you are a
 power user. It's simpler to have only one global config file.
 
+If using NixOS, see [`iohk-binary-cache.nix`](../nix/iohk-binary-cache.nix).
+
 ## Other configuration
 
 You may wish to adjust the `max-jobs` and `cores` settings in

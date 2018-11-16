@@ -17,6 +17,7 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   build-depends:       base
+                     , bytestring
                      , cardano-sl
                      , cardano-sl-chain
                      , cardano-sl-core

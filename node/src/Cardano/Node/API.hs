@@ -9,9 +9,9 @@ import           Universum
 
 import           Control.Concurrent.STM (orElse, retry)
 import           Control.Lens (lens, to)
+import qualified Data.ByteString.Char8 as BS8
 import qualified Data.Text as Text
 import           Data.Time.Units (toMicroseconds)
-import qualified Network.Wai.Handler.Warp as Warp
 import qualified Paths_cardano_sl_node as Paths
 import           Servant
 
@@ -21,6 +21,7 @@ import           Ntp.Packet (NtpOffset)
 import           Pos.Chain.Block (LastKnownHeader, LastKnownHeaderTag)
 import           Pos.Chain.Update (UpdateConfiguration, curSoftwareVersion,
                      withUpdateConfiguration)
+import           Pos.Client.CLI.NodeOptions (NodeApiArgs(..))
 import           Pos.Context
 import qualified Pos.Core as Core
 import qualified Pos.DB.Block as DB
@@ -38,15 +39,24 @@ import           Pos.Node.API as Node
 import           Pos.Util (HasLens (..), HasLens')
 import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
 import           Pos.Util.Servant
+import           Pos.Web (serveImpl)
 
 launchNodeServer
-    :: Diffusion IO
+    :: NodeApiArgs
     -> NtpConfiguration
     -> NodeResources ext
     -> UpdateConfiguration
     -> CompileTimeInfo
+    -> Diffusion IO
     -> IO ()
-launchNodeServer diffusion ntpConfig nodeResources updateConfiguration compileTimeInfo = do
+launchNodeServer
+    params
+    ntpConfig
+    nodeResources
+    updateConfiguration
+    compileTimeInfo
+    diffusion
+  = do
     ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
     let app = serve (Proxy @Node.API)
             $ handlers
@@ -60,10 +70,19 @@ launchNodeServer diffusion ntpConfig nodeResources updateConfiguration compileTi
                 updateConfiguration
                 compileTimeInfo
 
-    Warp.run 3000 app
+    -- Warp.run portNumber app
+    serveImpl
+        (pure app)
+        (BS8.unpack ipAddress)
+        portNumber
+        (do guard (nodeBackendDebugMode params)
+            nodeBackendTLSParams params)
+        (Just $ error "setOnExceptionResponse")
+        (Just $ error "portCallback ctx")
   where
     nodeCtx = nrContext nodeResources
     (slottingVarTimestamp, slottingVar) = ncSlottingVar nodeCtx
+    (ipAddress, portNumber) = nodeBackendAddress params
 
 handlers
     :: Diffusion IO

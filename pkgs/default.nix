@@ -17221,6 +17221,7 @@ license = stdenv.lib.licenses.mit;
 ({
   mkDerivation
 , base
+, bytestring
 , cardano-sl
 , cardano-sl-chain
 , cardano-sl-core
@@ -17262,6 +17263,7 @@ isLibrary = true;
 isExecutable = true;
 libraryHaskellDepends = [
 base
+bytestring
 cardano-sl
 cardano-sl-chain
 cardano-sl-core

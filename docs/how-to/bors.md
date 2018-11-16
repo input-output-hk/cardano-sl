@@ -2,7 +2,7 @@
 
 [Bors](https://bors.tech/) is a GitHub bot that queues merging and
 testing of PRs to prevent breaking code merges from reaching the
-`develop` branch. These
+`develop` branch.
 
 It works by sending commands in messages on GitHub pull requests.
 
@@ -48,3 +48,6 @@ Most of the settings for Bors are in [`bors.toml`](./../../bors.toml).
 
 The settings for branches and permissions are found in the web
 interface at https://bors-ng.aws.iohkdev.io/repositories .
+
+There are full instructions for setting up Bors for a new repo in
+[`iohk-ops/docs/bors.md`](https://github.com/input-output-hk/iohk-ops/blob/master/docs/bors.md).

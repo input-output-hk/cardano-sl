@@ -341,6 +341,9 @@ verifyBlocks genesisConfig curSlotId verifyNoUnknown bvd initLeaders = view _3 .
         let newLeaders = case blk of
                 Left genesisBlock -> genesisBlock ^. genBlockLeaders
                 Right _           -> leaders
+            blockMaxSize = case blk of
+                Left _  -> 2000000
+                Right _ -> bvdMaxBlockSize bvd
             vhp =
                 VerifyHeaderParams
                 { vhpPrevHeader = prevHeader
@@ -352,7 +355,7 @@ verifyBlocks genesisConfig curSlotId verifyNoUnknown bvd initLeaders = view _3 .
             vbp =
                 VerifyBlockParams
                 { vbpVerifyHeader = vhp
-                , vbpMaxSize = bvdMaxBlockSize bvd
+                , vbpMaxSize = blockMaxSize
                 , vbpVerifyNoUnknown = verifyNoUnknown
                 }
         in (newLeaders, Just $ getBlockHeader blk, res <> verifyBlock genesisConfig vbp blk)

@@ -33,7 +33,7 @@ New-Item -ItemType Directory -Force -Path $env:TMP
 #curl.exe http://www.stackage.org/stack/windows-x86_64 -o d:\Downloads\stack.zip -L
 #7z -oD:\stack x D:\Downloads\stack.zip
 
-$env:PATH="$env:PATH;D:\ghc\ghc-8.4.4\bin;D:\stack;$Env:Programfiles\7-Zip;D:\w"
+$env:PATH="$env:PATH;D:\ghc\ghc-8.2.2\bin;D:\stack;$Env:Programfiles\7-Zip;D:\w"
 
 # Install liblzma/xz
 #curl -L https://tukaani.org/xz/xz-5.2.3-windows.zip -o xz-5.2.3-windows.zip
@@ -68,7 +68,7 @@ stack.exe --verbosity warn install happy cpphs -j 2 --no-terminal --local-bin-pa
 # stack.exe hpc report cardano-sl cardano-sl-txp cardano-sl-core cardano-sl-db cardano-sl-update cardano-sl-infra cardano-sl-lrc cardano-sl-ssc
 
 #We intentionally don't build auxx here, because this build is for installer.
-stack.exe --dump-logs install cardano-sl cardano-sl-tools cardano-sl-wallet-new -j 3 --no-terminal --local-bin-path $env:WORK_DIR --no-haddock-deps --flag cardano-sl-core:-asserts --flag cardano-sl-tools:for-installer --extra-include-dirs="D:\OpenSSL-Win64-v102\include" --extra-lib-dirs="D:\OpenSSL-Win64-v102" --extra-include-dirs="D:\xz_extracted\include" --extra-lib-dirs="D:\xz_extracted\bin_x86-64" --extra-include-dirs="$env:WORK_DIR\rocksdb\include" --extra-lib-dirs="$env:WORK_DIR" --ghc-options="-copy-libs-when-linking"
+stack.exe --dump-logs install cardano-sl cardano-sl-tools cardano-sl-wallet-new -j 3 --no-terminal --local-bin-path $env:WORK_DIR --no-haddock-deps --flag cardano-sl-core:-asserts --flag cardano-sl-tools:for-installer --extra-include-dirs="D:\OpenSSL-Win64-v102\include" --extra-lib-dirs="D:\OpenSSL-Win64-v102" --extra-include-dirs="D:\xz_extracted\include" --extra-lib-dirs="D:\xz_extracted\bin_x86-64" --extra-include-dirs="$env:WORK_DIR\rocksdb\include" --extra-lib-dirs="$env:WORK_DIR"
 
 # from here onwards, errors terminate the script
 $ErrorActionPreference = "Stop"

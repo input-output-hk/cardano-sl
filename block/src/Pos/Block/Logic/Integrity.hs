@@ -324,9 +324,9 @@ verifyBlocks pm curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' ste
         let newLeaders = case blk of
                 Left genesisBlock -> genesisBlock ^. genBlockLeaders
                 Right _           -> leaders
-	    blockMaxSize = case blk of
-                Left _ -> 7000 -- <- whatever value we desire
-		Right _ -> bvdMaxBlockSize bvd
+            blockMaxSize = case blk of
+                Left _  -> 2000000
+                Right _ -> bvdMaxBlockSize bvd
             vhp =
                 VerifyHeaderParams
                 { vhpPrevHeader = prevHeader

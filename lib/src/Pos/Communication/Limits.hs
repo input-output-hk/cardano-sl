@@ -308,7 +308,7 @@ mlBlockHeader bvd = 1 + max (BlockHeaderGenesis <$> mlGenesisBlockHeader bvd)
                             (BlockHeaderMain    <$> mlMainBlockHeader bvd)
 
 mlGenesisBlock :: BlockVersionData -> Limit GenesisBlock
-mlGenesisBlock _ = Limit 700000
+mlGenesisBlock = Limit . fromIntegral . bvdMaxBlockSize
 
 mlMainBlock :: BlockVersionData -> Limit MainBlock
 mlMainBlock = Limit . fromIntegral . bvdMaxBlockSize

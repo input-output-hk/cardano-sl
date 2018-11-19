@@ -1,0 +1,59 @@
+diff --git a/libraries/Cabal/Cabal/Distribution/Simple.hs b/libraries/Cabal/Cabal/Distribution/Simple.hs
+index e45c831..19e553e 100644
+--- a/libraries/Cabal/Cabal/Distribution/Simple.hs
++++ b/libraries/Cabal/Cabal/Distribution/Simple.hs
+@@ -1,6 +1,6 @@
+ {-# LANGUAGE FlexibleContexts #-}
+ {-# LANGUAGE RankNTypes #-}
+-
++{-# LANGUAGE LambdaCase #-}
+ -----------------------------------------------------------------------------
+ -- |
+ -- Module      :  Distribution.Simple
+@@ -57,7 +57,7 @@ module Distribution.Simple (
+         defaultHookedPackageDesc
+   ) where
+ 
+-import Prelude ()
++import Prelude (mapM)
+ import Control.Exception (try)
+ import Distribution.Compat.Prelude
+ 
+@@ -108,6 +108,10 @@ import Data.List       (unionBy, (\\))
+ 
+ import Distribution.PackageDescription.Parsec
+ 
++-- | Monadic version of concatMap
++concatMapM :: Monad m => (a -> m [b]) -> [a] -> m [b]
++concatMapM f xs = liftM concat (mapM f xs)
++
+ -- | A simple implementation of @main@ for a Cabal setup script.
+ -- It reads the package description file using IO, and performs the
+ -- action specified on the command line.
+@@ -148,8 +152,9 @@ defaultMainWithHooksNoReadArgs hooks pkg_descr =
+   defaultMainHelper hooks { readDesc = return (Just pkg_descr) }
+ 
+ defaultMainHelper :: UserHooks -> Args -> IO ()
+-defaultMainHelper hooks args = topHandler $
+-  case commandsRun (globalCommand commands) commands args of
++defaultMainHelper hooks args = topHandler $ do
++  args' <- expandResponseFiles args
++  case commandsRun (globalCommand commands) commands args' of
+     CommandHelp   help                 -> printHelp help
+     CommandList   opts                 -> printOptionsList opts
+     CommandErrors errs                 -> printErrors errs
+@@ -163,6 +168,14 @@ defaultMainHelper hooks args = topHandler $
+         CommandReadyToGo action        -> action
+ 
+   where
++    expandResponseFiles :: [String] -> IO [String]
++    expandResponseFiles = concatMapM expandResponseFile
++    expandResponseFile :: String -> IO [String]
++    expandResponseFile arg@('@':file) = doesFileExist file >>= \case
++      True -> concatMap words . lines <$> readFile file
++      False -> pure [arg]
++    expandResponseFile arg = pure [arg]
++
+     printHelp help = getProgName >>= putStr . help
+     printOptionsList = putStr . unlines
+     printErrors errs = do

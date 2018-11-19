@@ -1,0 +1,122 @@
+From c010cc3a5ec03a0bfcae777bf37223b91f46d7d3 Mon Sep 17 00:00:00 2001
+From: Moritz Angermann <moritz.angermann@gmail.com>
+Date: Fri, 27 Jul 2018 10:23:57 +0800
+Subject: [PATCH] Stop the linker panic
+
+If we fail to initialize the liker properly, we still set the `initLinkerDone`. In fact we even set that prior to actually initializing the linker. However if the linker initialization fails, we the `Done` state is still true. As such we run into the `Dynamic Linker not initialised` error. Which while technically corret is confusing as it pulls the attation away from the real issue.
+
+This change puts the Done state into an MVar, and as such ensureing that all parallel access needs to wait for the linker to be actually initialized, or try to re-initilize if it fails.
+---
+ compiler/ghci/Linker.hs | 29 +++++++++++++++--------------
+ compiler/utils/Panic.hs | 13 +++++++++++++
+ 2 files changed, 28 insertions(+), 14 deletions(-)
+
+diff --git a/compiler/ghci/Linker.hs b/compiler/ghci/Linker.hs
+index 150f2af4c7..20038f8101 100644
+--- a/compiler/ghci/Linker.hs
++++ b/compiler/ghci/Linker.hs
+@@ -94,7 +94,7 @@ interpreted code only), for use during linking.
+ -}
+ #if STAGE < 2
+ GLOBAL_VAR_M(v_PersistentLinkerState, newMVar (panic "Dynamic linker not initialised"), MVar PersistentLinkerState)
+-GLOBAL_VAR(v_InitLinkerDone, False, Bool) -- Set True when dynamic linker is initialised
++GLOBAL_VAR_M(v_InitLinkerDone, newMVar False, MVar Bool) -- Set True when dynamic linker is initialised
+ #else
+ SHARED_GLOBAL_VAR_M( v_PersistentLinkerState
+                    , getOrSetLibHSghcPersistentLinkerState
+@@ -102,11 +102,11 @@ SHARED_GLOBAL_VAR_M( v_PersistentLinkerState
+                    , newMVar (panic "Dynamic linker not initialised")
+                    , MVar PersistentLinkerState)
+ -- Set True when dynamic linker is initialised
+-SHARED_GLOBAL_VAR( v_InitLinkerDone
+-                 , getOrSetLibHSghcInitLinkerDone
+-                 , "getOrSetLibHSghcInitLinkerDone"
+-                 , False
+-                 , Bool)
++SHARED_GLOBAL_VAR_M( v_InitLinkerDone
++                   , getOrSetLibHSghcInitLinkerDone
++                   , "getOrSetLibHSghcInitLinkerDone"
++                   , newMVar False
++                   , MVar Bool)
+ #endif
+ 
+ modifyPLS_ :: (PersistentLinkerState -> IO PersistentLinkerState) -> IO ()
+@@ -115,6 +115,9 @@ modifyPLS_ f = readIORef v_PersistentLinkerState >>= flip modifyMVar_ f
+ modifyPLS :: (PersistentLinkerState -> IO (PersistentLinkerState, a)) -> IO a
+ modifyPLS f = readIORef v_PersistentLinkerState >>= flip modifyMVar f
+ 
++modifyILD :: (Bool -> IO (Bool, a)) -> IO a
++modifyILD f = readIORef v_InitLinkerDone >>= flip modifyMVar f
++
+ data PersistentLinkerState
+    = PersistentLinkerState {
+ 
+@@ -289,10 +292,9 @@ showLinkerState dflags
+ initDynLinker :: HscEnv -> IO ()
+ initDynLinker hsc_env =
+   modifyPLS_ $ \pls0 -> do
+-    done <- readIORef v_InitLinkerDone
+-    if done then return pls0
+-            else do writeIORef v_InitLinkerDone True
+-                    reallyInitDynLinker hsc_env
++    modifyILD $ \done -> do
++      if done then return (done, pls0)
++              else (True,) <$> reallyInitDynLinker hsc_env
+ 
+ reallyInitDynLinker :: HscEnv -> IO PersistentLinkerState
+ reallyInitDynLinker hsc_env = do
+@@ -1324,8 +1326,7 @@ load_dyn hsc_env dll = do
+   r <- loadDLL hsc_env dll
+   case r of
+     Nothing  -> return ()
+-    Just err -> throwGhcExceptionIO (CmdLineError ("can't load .so/.DLL for: "
+-                                                ++ dll ++ " (" ++ err ++ ")" ))
++    Just err -> cmdLineErrorIO ("can't load .so/.DLL for: " ++ dll ++ " (" ++ err ++ ")")
+ 
+ loadFrameworks :: HscEnv -> Platform -> PackageConfig -> IO ()
+ loadFrameworks hsc_env platform pkg
+@@ -1337,8 +1338,8 @@ loadFrameworks hsc_env platform pkg
+     load fw = do  r <- loadFramework hsc_env fw_dirs fw
+                   case r of
+                     Nothing  -> return ()
+-                    Just err -> throwGhcExceptionIO (CmdLineError ("can't load framework: "
+-                                                        ++ fw ++ " (" ++ err ++ ")" ))
++                    Just err -> cmdLineErrorIO ("can't load framework: "
++                                                        ++ fw ++ " (" ++ err ++ ")" )
+ 
+ -- Try to find an object file for a given library in the given paths.
+ -- If it isn't present, we assume that addDLL in the RTS can find it,
+diff --git a/compiler/utils/Panic.hs b/compiler/utils/Panic.hs
+index ebf830385c..0a91c39b35 100644
+--- a/compiler/utils/Panic.hs
++++ b/compiler/utils/Panic.hs
+@@ -20,6 +20,8 @@ module Panic (
+      panic, sorry, assertPanic, trace,
+      panicDoc, sorryDoc, pgmErrorDoc,
+ 
++     cmdLineError, cmdLineErrorIO,
++     
+      Exception.Exception(..), showException, safeShowException,
+      try, tryMost, throwTo,
+ 
+@@ -195,6 +197,17 @@ panicDoc    x doc = throwGhcException (PprPanic        x doc)
+ sorryDoc    x doc = throwGhcException (PprSorry        x doc)
+ pgmErrorDoc x doc = throwGhcException (PprProgramError x doc)
+ 
++cmdLineError :: String -> a
++cmdLineError = unsafeDupablePerformIO . cmdLineErrorIO
++
++cmdLineErrorIO :: String -> IO a
++cmdLineErrorIO x = do
++  stack <- ccsToStrings =<< getCurrentCCS x
++  if null stack
++    then throwGhcException (CmdLineError x)
++    else throwGhcException (CmdLineError (x ++ '\n' : renderStack stack))
++
++
+ 
+ -- | Throw a failed assertion exception for a given filename and line number.
+ assertPanic :: String -> Int -> a
+-- 
+2.18.0
+

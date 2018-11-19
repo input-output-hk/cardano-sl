@@ -193,7 +193,7 @@ test-suite cardano-auxx-test
                      , cardano-sl-crypto
                      , hspec
                      , universum >= 0.1.11
-
+  build-tool-depends: hspec-discover:hspec-discover
   hs-source-dirs:      test
   default-language:    Haskell2010
   ghc-options:         -threaded

@@ -1,0 +1,13 @@
+diff --git a/src/Pos/Util/Config.hs b/src/Pos/Util/Config.hs
+index 2450b4e0a9..801a12928e 100644
+--- a/src/Pos/Util/Config.hs
++++ b/src/Pos/Util/Config.hs
+@@ -38,7 +38,7 @@ embedYamlObject name marker parser = do
+             Just dir -> return (dir </> name)
+             Nothing  -> error $ toText $
+                 "Could not find " ++ marker ++ " for path: " ++ srcFP
+-    TH.qAddDependentFile path
++    -- TH.qAddDependentFile path
+     TH.runIO (Y.decodeFileEither path) >>= \case
+         Right x  -> parser x
+         Left err -> templateHaskellError $

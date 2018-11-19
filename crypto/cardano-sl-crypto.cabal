@@ -138,6 +138,7 @@ test-suite crypto-test
                      , text
                      , universum >= 0.1.11
                      , unordered-containers
+  build-tool-depends: hspec-discover:hspec-discover
 
   ghc-options:         -threaded
                        -rtsopts

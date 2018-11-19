@@ -172,8 +172,9 @@ newOptions estimateFee check = CoinSelectionOptions {
     }
 
 feeOptions :: CoinSelectionOptions -> FeeOptions Cardano
-feeOptions CoinSelectionOptions{..} = FeeOptions{
-      foExpenseRegulation = csoExpenseRegulation
+feeOptions CoinSelectionOptions{..} = FeeOptions
+    { foExpenseRegulation = csoExpenseRegulation
+    , foDustThreshold = csoDustThreshold
     , foEstimate = \numInputs outputs ->
                       case outputs of
                         []   -> error "feeOptions: empty list"

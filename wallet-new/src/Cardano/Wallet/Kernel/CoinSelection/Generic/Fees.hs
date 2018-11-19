@@ -28,12 +28,15 @@ data ExpenseRegulation =
     -- and they wish to trasfer an @exact@ amount (or, for example, the max
     -- amount).
 
-data FeeOptions dom = FeeOptions {
-      -- | Estimate fees based on number of inputs and values of the outputs
-      foEstimate          :: Int -> [Value dom] -> Fee dom
-
-      -- | Expense regulation (who pays the fees?)
+data FeeOptions dom = FeeOptions
+    { foEstimate          :: Int -> [Value dom] -> Fee dom
+      -- ^ Estimate fees based on number of inputs and values of the outputs
     , foExpenseRegulation :: ExpenseRegulation
+      -- ^ Expense regulation (who pays the fees?)
+    , foDustThreshold     :: Value dom
+      -- ^ Change addresses below the given threshold will be evicted
+      -- from the created transaction. If you only want to remove change
+      -- outputs equal to 0, set 'csoDustThreshold' to 0.
     }
 
 data CoinSelFinalResult dom = CoinSelFinalResult
@@ -137,7 +140,7 @@ receiverPaysFee feeOptions inps outs chgs = do
 -------------------------------------------------------------------------------}
 
 senderPaysFee
-    :: (Monad m, CoinSelDom (Dom utxo))
+    :: forall utxo m. (Monad m, CoinSelDom (Dom utxo))
     => PickUtxo m utxo
     -> FeeOptions (Dom utxo)
     -> [UtxoEntry (Dom utxo)]
@@ -146,6 +149,9 @@ senderPaysFee
     -> CoinSelT utxo CoinSelHardErr m ([UtxoEntry (Dom utxo)], [Output (Dom utxo)], [Value (Dom utxo)])
 senderPaysFee pickUtxo feeOptions = go
   where
+    removeDust :: [Value (Dom utxo)] -> [Value (Dom utxo)]
+    removeDust = changesRemoveDust (foDustThreshold feeOptions)
+
     go inps outs chgs = do
         -- 1/
         -- We compute fees using all inputs, outputs and changes since
@@ -153,29 +159,30 @@ senderPaysFee pickUtxo feeOptions = go
         let fee = feeUpperBound feeOptions inps outs chgs
 
         -- 2/ Substract fee from all change outputs, proportionally to their value.
-        let (chgs', remainingFee) = reduceChangeOutputs fee chgs
+        let (chgs', remainingFee) = reduceChangeOutputs removeDust fee chgs
+
+        -- 3.1/
+        -- Should the change cover the fee, we're done.
         if getFee remainingFee == valueZero then
-            -- 3.1/
-            -- Should the change cover the fee, we're done.
             return (inps, outs, chgs')
 
-            -- 3.2/
-            -- Otherwise, we need an extra entries from the available utxo to
-            -- cover what's left. Note that this entry may increase our change
-            -- because we may not consume it entirely. So we will just split
-            -- the extra change across all changes possibly increasing the
-            -- number of change outputs (if there was none, or if increasing
-            -- a change value causes an overflow).
-            --
-            -- Because selecting a new input increases the fee, we need to
-            -- re-run the algorithm with this new elements and using the initial
-            -- change plus the extra change brought up by this entry and see if
-            -- we can now correctly cover fee.
+        -- 3.2/
+        -- Otherwise, we need an extra entries from the available utxo to
+        -- cover what's left. Note that this entry may increase our change
+        -- because we may not consume it entirely. So we will just split
+        -- the extra change across all changes possibly increasing the
+        -- number of change outputs (if there was none, or if increasing
+        -- a change value causes an overflow).
+        --
+        -- Because selecting a new input increases the fee, we need to
+        -- re-run the algorithm with this new elements and using the initial
+        -- change plus the extra change brought up by this entry and see if
+        -- we can now correctly cover fee.
         else do
             extraUtxo <- coverRemainingFee pickUtxo remainingFee
-            let inps' = selectedEntries extraUtxo
-            let extraChange = selectedBalance extraUtxo
-            go (inps <> inps') outs (splitChange extraChange chgs)
+            let inps'       = selectedEntries extraUtxo
+            let extraChange = splitChange (selectedBalance extraUtxo) chgs
+            go (inps <> inps') outs extraChange
 
 
 coverRemainingFee
@@ -233,14 +240,18 @@ splitChange = go
 -- As for the overall fee in 'feeFromChange', we divvy up the fee over all
 -- change outputs proportionally, to try and keep any output:change ratio
 -- as unchanged as possible
-reduceChangeOutputs :: forall dom. CoinSelDom dom
-                    => Fee dom -> [Value dom] -> ([Value dom], Fee dom)
-reduceChangeOutputs totalFee cs =
+reduceChangeOutputs
+    :: forall dom. CoinSelDom dom
+    => ([Value dom] -> [Value dom])
+    -> Fee dom
+    -> [Value dom]
+    -> ([Value dom], Fee dom)
+reduceChangeOutputs removeDust totalFee cs =
     case divvyFeeSafe identity totalFee cs of
         Nothing ->
-            (cs, totalFee)
+            (removeDust cs, totalFee)
         Just xs ->
-            bimap identity unsafeFeeSum
+            bimap removeDust unsafeFeeSum
             . unzip
             . map go
             $ xs

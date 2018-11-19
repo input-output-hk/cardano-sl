@@ -392,8 +392,8 @@ estimateSize saa sta ins outs =
 --         here with some (hopefully) realistic values.
 estimateCardanoFee :: TxSizeLinear -> Int -> [Word64] -> Word64
 estimateCardanoFee linearFeePolicy ins outs
-    = round $ calculateTxSizeLinear linearFeePolicy
-            $ hi $ estimateSize boundAddrAttrSize boundTxAttrSize ins outs
+    = ceiling $ calculateTxSizeLinear linearFeePolicy
+              $ hi $ estimateSize boundAddrAttrSize boundTxAttrSize ins outs
 
 checkCardanoFeeSanity :: TxSizeLinear -> Coin -> Bool
 checkCardanoFeeSanity linearFeePolicy fees =

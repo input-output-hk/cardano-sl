@@ -52,6 +52,29 @@ type PickUtxo m utxo
 -- | Given the coin selection result from a policy run, adjust the outputs
 -- for fees, potentially returning additional inputs that we need to cover
 -- all fees.
+-- We lose the relationship between the transaction outputs and their
+-- corresponding inputs/change outputs here. This is a decision we
+-- may wish to revisit later. For now however note that since
+--
+--      (a) coin selection tries to establish a particular ratio
+--          between payment outputs and change outputs (currently it
+--          aims for an average of 1:1)
+--
+--      (b) coin selection currently only generates a single change
+--          output per payment output, distributing the fee
+--          proportionally across all change outputs is roughly
+--          equivalent to distributing it proportionally over the
+--          payment outputs (roughly, not exactly, because the 1:1
+--          proportion is best effort only, and may in some cases be
+--          wildly different).
+--
+-- Note that for (a) we don't need the ratio to be 1:1, the above
+-- reasoning will remain true for any proportion 1:n. For (b) however,
+-- if coin selection starts creating multiple outputs, and this number
+-- may vary, then losing the connection between outputs and change
+-- outputs will mean that that some outputs may pay a larger
+-- percentage of the fee (depending on how many change outputs the
+-- algorithm happened to choose).
 adjustForFees
     :: forall utxo m. (CoinSelDom (Dom utxo), Monad m)
     => FeeOptions (Dom utxo)
@@ -129,10 +152,7 @@ senderPaysFee pickUtxo feeOptions = go
         -- all of them have an influence on the fee calculation.
         let fee = feeUpperBound feeOptions inps outs chgs
 
-        -- 2/
-        -- We try to cover fee with the available change by substracting equally
-        -- across all inputs. There's no fairness in that in the case of a
-        -- multi-account transaction. Everyone pays the same part.
+        -- 2/ Substract fee from all change outputs, proportionally to their value.
         let (chgs', remainingFee) = reduceChangeOutputs fee chgs
         if getFee remainingFee == valueZero then
             -- 3.1/
@@ -176,7 +196,16 @@ coverRemainingFee pickUtxo fee = go emptySelection
           go (select io acc)
 
 
--- we should have (x + (sum ls) = sum result), but this check could overflow.
+-- Equally split the extra change obtained when picking new inputs across all
+-- other change. Note that, it may create an extra change output if:
+--
+--   (a) There's no change at all initially
+--   (b) Adding change to an exiting one would cause an overflow
+--
+-- It makes no attempt to divvy the new output proportionally over the change
+-- outputs. This means that if we happen to pick a very large UTxO entry, adding
+-- this evenly rather than proportionally might skew the payment:change ratio a
+-- lot. Could consider defining this in terms of divvy instead.
 splitChange
     :: forall dom. (CoinSelDom dom)
     => Value dom

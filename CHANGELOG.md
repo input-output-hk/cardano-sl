@@ -288,6 +288,16 @@ Please add entries for your tickets:
 - Better code linting in CI ([DEVOPS-1031](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1031), [#3527](https://github.com/input-output-hk/cardano-sl/pull/3527), [DEVOPS-1057](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1057), [#3649](https://github.com/input-output-hk/cardano-sl/pull/3649), [DEVOPS-1100](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1100), [#3762](https://github.com/input-output-hk/cardano-sl/pull/3762))
 
 
+## Cardano SL 1.3.2
+
+### Fixes
+
+- Upgrade block version to 0.2.0 to limit max block size to 32 KB.
+
+- Override max block size for epoch boundary blocks (also called
+  genesis blocks) to have a limit of 1.953 MB.
+
+
 ## Cardano SL 1.3.1
 
 ### Features

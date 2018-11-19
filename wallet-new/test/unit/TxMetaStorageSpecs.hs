@@ -201,8 +201,7 @@ txMetaStorageSpecs = do
             run $ withTemporaryDb $ \hdl -> do
                 t0 <- async $ threadWriteWithNoOp meta0 hdl
                 t1 <- async $ threadWriteWithNoOp meta1 hdl
-                _ <- waitAny [t0, t1]
-                return ()
+                traverse_ wait [t0, t1]
 
         it "synchronized with 2 write workers and no-ops: correct count" $ withMaxSuccess 5 $  monadicIO $ do
             -- beware of the big data.
@@ -212,10 +211,9 @@ txMetaStorageSpecs = do
             run $ withTemporaryDb $ \hdl -> do
                 t0 <- async $ threadWriteWithNoOp meta0 hdl
                 t1 <- async $ threadWriteWithNoOp meta1 hdl
-                _ <- waitAny [t0, t1]
+                traverse_ wait [t0, t1]
                 (ls, _count) <- getTxMetas hdl (Offset 0) (Limit 300) Everything Nothing NoFilterOp NoFilterOp Nothing
                 length ls `shouldBe` 200
-                return ()
 
         it "synchronized with 2 write workers" $ withMaxSuccess 5 $  monadicIO $ do
             -- beware of the big data.
@@ -225,8 +223,7 @@ txMetaStorageSpecs = do
             run $ withTemporaryDb $ \hdl -> do
                 t0 <- async $ threadWrite meta0 hdl
                 t1 <- async $ threadWrite meta1 hdl
-                _ <- waitAny [t0, t1]
-                return ()
+                traverse_ wait [t0, t1]
 
         it "synchronized with 2 write workers: correct count" $ withMaxSuccess 5 $  monadicIO $ do
             -- beware of the big data.
@@ -236,10 +233,9 @@ txMetaStorageSpecs = do
             run $ withTemporaryDb $ \hdl -> do
                 t0 <- async $ threadWrite meta0 hdl
                 t1 <- async $ threadWrite meta1 hdl
-                _ <- waitAny [t0, t1]
+                traverse_ wait [t0, t1]
                 (ls, _count) <- getTxMetas hdl (Offset 0) (Limit 300) Everything Nothing NoFilterOp NoFilterOp Nothing
                 length ls `shouldBe` 200
-                return ()
 
         it "synchronized 1 write and 1 read workers" $ withMaxSuccess 5 $  monadicIO $ do
             -- beware of the big data.
@@ -248,8 +244,7 @@ txMetaStorageSpecs = do
             run $ withTemporaryDb $ \hdl -> do
                 t0 <- async $ threadWriteWithNoOp metas hdl
                 t1 <- async $ threadRead 2000 hdl
-                _ <- waitAny [t0, t1]
-                return ()
+                traverse_ wait [t0, t1]
 
         it "synchronized 1 write and 1 read workers: correct count" $ withMaxSuccess 5 $  monadicIO $ do
             -- beware of the big data.
@@ -258,10 +253,9 @@ txMetaStorageSpecs = do
             run $ withTemporaryDb $ \hdl -> do
                 t0 <- async $ threadWriteWithNoOp metas hdl
                 t1 <- async $ threadRead 200 hdl
-                _ <- waitAny [t0, t1]
+                traverse_ wait [t0, t1]
                 (ls, _count) <- getTxMetas hdl (Offset 0) (Limit 300) Everything Nothing NoFilterOp NoFilterOp Nothing
                 length ls `shouldBe` 200
-                return ()
 
     describe "SQlite transactions" $ do
         it "throws an exception when tx with double spending" $ monadicIO $ do

@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase    #-}
 {-# LANGUAGE RankNTypes    #-}
 {-# LANGUAGE TupleSections #-}
 
@@ -162,19 +163,19 @@ transactionSpecs wRef wc = beforeAll_ (setupLogging "wallet-new_transactionSpecs
                         <> show err
 
         randomTest "fails if you don't have any money" 1 $ run $ do
-            (wallet, account) <- fixtureWallet Nothing
+            (wallet, account) <- fixtureWallet []
             resp <- makePayment (Core.mkCoin 14) (wallet, account) =<< getRandomAddress
             let err = NotEnoughMoney (ErrAvailableBalanceIsInsufficient 0)
             expectFailure (ClientWalletError err) resp
 
         randomTest "fails if you spend more money than your available balance" 1 $ run $ do
-            (wallet, account) <- fixtureWallet (Just $ Core.mkCoin 42)
+            (wallet, account) <- fixtureWallet (Core.mkCoin <$> [42])
             resp <- makePayment (Core.mkCoin 10000) (wallet, account) =<< getRandomAddress
             let err = NotEnoughMoney (ErrAvailableBalanceIsInsufficient 42)
             expectFailure (ClientWalletError err) resp
 
         randomTest "fails if you can't cover fee with a transaction" 1 $ run $ do
-            (wallet, account) <- fixtureWallet (Just $ Core.mkCoin 42)
+            (wallet, account) <- fixtureWallet (Core.mkCoin <$> [42])
             resp <- makePayment (Core.mkCoin 42) (wallet, account) =<< getRandomAddress
             let err = NotEnoughMoney ErrCannotCoverFee
             expectFailure (ClientWalletError err) resp
@@ -222,6 +223,66 @@ transactionSpecs wRef wc = beforeAll_ (setupLogging "wallet-new_transactionSpecs
             let utxoStatisticsExpected = computeUtxoStatistics log10 utxos
             liftIO $ utxoStatistics `shouldBe` utxoStatisticsExpected
 
+        -- NOTE:
+        -- Cases where we have to increase the number of change outputs are hard
+        -- to test in practice. We either need:
+        --
+        -- - A BIG change to cause an overflow (but even with all the genesis
+        --   wallets, we don't have enough funds)
+        --
+        -- - A selection that will have no change such that a new one will be
+        --   created for the change. However, the coin selection tends to always
+        --   generate a change output.
+
+
+        -- Initial Selection:      Final Selection:
+        --   inputs : [200000]       inputs : [200000]
+        --   outputs: [1]            outputs: [1]
+        --   changes: [199999]       changes: [28094]
+        --   fee+   : 171905         fee+   : 171817
+        --
+        --           Actual fee: 171905 (+88)
+        randomTest "fee calculation: no extra inputs, no extra change" 1 $ run $ do
+            source <- fixtureWallet (Core.mkCoin <$> [200000])
+            resp <- makePayment (Core.mkCoin 1) source =<< getRandomAddress
+            expectConfirmation source resp
+
+        -- Initial Selection:      Final Selection:
+        --   inputs : [171906]       inputs : [171906]
+        --   outputs: [1]            outputs: [1]
+        --   changes: [171905]       changes: []
+        --   fee+   : 171905         fee+   : 167862
+        --
+        --           Actual fee: 167862 (+4043)
+        randomTest "fee calculation: empty a wallet" 1 $ run $ do
+            source <- fixtureWallet (Core.mkCoin <$> [171906])
+            resp <- makePayment (Core.mkCoin 1) source =<< getRandomAddress
+            expectConfirmation source resp
+
+        -- Initial Selection:      Final Selection:
+        --   inputs : [100000]       inputs : [100000, 100000]
+        --   outputs: [1]            outputs: [1]
+        --   changes: [99999]        changes: [19964]
+        --   fee+   : 171905         fee+   : 179947
+        --
+        --           Actual fee: 180035 (+88)
+        randomTest "fee calculation: needs extra input, no extra change" 1 $ run $ do
+            source <- fixtureWallet (Core.mkCoin <$> [100000, 100000])
+            resp <- makePayment (Core.mkCoin 1) source =<< getRandomAddress
+            expectConfirmation source resp
+
+        -- Initial Selection:      Final Selection:
+        --   inputs : [30000]        inputs : [30000, 30000, 30000, 30000,
+        --                                     30000, 30000, 30000, 30000]
+        --   outputs: [42]           outputs: [42]
+        --   changes: [29958]        changes: [11055]
+        --   fee+   : 171905         fee+   : 228815
+        --
+        --           Actual fee: 228903 (+88)
+        randomTest "fee calculation: needs many extra inputs" 1 $ run $ do
+            source <- fixtureWallet (replicate 8 (Core.mkCoin 30000))
+            resp <- makePayment (Core.mkCoin 42) source =<< getRandomAddress
+            expectConfirmation source resp
   where
     makePayment amount (sourceW, sourceA) destination
        = fmap (fmap wrData) $ Util.makePayment wc amount (sourceW, sourceA) destination
@@ -234,18 +295,18 @@ transactionSpecs wRef wc = beforeAll_ (setupLogging "wallet-new_transactionSpecs
         return (unV1 $ addrId toAddr)
 
     fixtureWallet
-        :: Maybe Core.Coin
+        :: [Core.Coin]
         -> IO (Wallet, Account)
-    fixtureWallet mcoin = do
+    fixtureWallet coins = do
         genesis <- genesisWallet wc
         (genesisAccount, _) <- firstAccountAndId wc genesis
         wallet <- randomWallet CreateWallet >>= createWalletCheck wc
-        (account, address) <- firstAccountAndId wc wallet
-        case mcoin of
-            Nothing   -> return ()
-            Just coin -> do
-                txn <- makePayment coin (genesis, genesisAccount) (unV1 $ addrId address) >>= shouldPrismFlipped _Right
-                pollTransactions wc (walId wallet) (accIndex account) (txId txn)
+        (account, _) <- firstAccountAndId wc wallet
+        forM_ coins $ \coin -> do
+            -- Make transaction to different addresses to cope with input selection grouping.
+            addr <- createAddress wc (wallet, account)
+            txn <- makePayment coin (genesis, genesisAccount) (unV1 $ addrId addr) >>= shouldPrismFlipped _Right
+            pollTransactions wc (walId wallet) (accIndex account) (txId txn)
         return (wallet, account)
 
     expectFailure
@@ -256,6 +317,16 @@ transactionSpecs wRef wc = beforeAll_ (setupLogging "wallet-new_transactionSpecs
     expectFailure want eresp = do
         resp <- eresp `shouldPrism` _Left
         resp `shouldBe` want
+
+    expectConfirmation
+        :: (Wallet, Account)
+        -> Either ClientError Transaction
+        -> IO ()
+    expectConfirmation (wallet, account) = \case
+        Left err ->
+            fail $ "Expected transcation confirmation, but got a ClientError: " <> show err
+        Right txn ->
+            pollTransactions wc (walId wallet) (accIndex account) (txId txn)
 
     shouldBeConfirmed
         :: Transaction

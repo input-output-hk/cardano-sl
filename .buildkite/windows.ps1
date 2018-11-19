@@ -83,8 +83,8 @@ copy cardano-launcher.exe daedalus\
 copy cardano-node.exe daedalus\
 copy cardano-x509-certificates.exe daedalus\
 cd daedalus
-$env:BUILDKITE_BUILD_NUMBER | Out-File build-id
-$env:BUILDKITE_COMMIT | Out-File commit-id
+$env:BUILDKITE_BUILD_NUMBER | Out-File -Encoding ASCII build-id
+$env:BUILDKITE_COMMIT | Out-File -Encoding ASCII commit-id
 cd ..
 
 $daedaluszip = "$env:BUILDKITE_COMMIT.zip"

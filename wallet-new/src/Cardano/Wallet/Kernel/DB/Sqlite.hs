@@ -66,7 +66,7 @@ import qualified Data.Foldable as Foldable
 import           Data.List.NonEmpty (NonEmpty (..), nonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as M
-import           Data.Time.Units (Second, fromMicroseconds, toMicroseconds)
+import           Data.Time.Units (fromMicroseconds, toMicroseconds)
 import           Database.Beam.Migrate (CheckedDatabaseSettings, DataType (..),
                      Migration, MigrationSteps, boolean, collectChecks,
                      createTable, evaluateDatabase, executeMigration, field,
@@ -79,7 +79,6 @@ import           Cardano.Wallet.Kernel.DB.TxMeta.Types (AccountFops (..),
                      FilterOperation (..), Limit (..), Offset (..),
                      SortCriteria (..), SortDirection (..), Sorting (..))
 import qualified Cardano.Wallet.Kernel.DB.TxMeta.Types as Kernel
-import           Cardano.Wallet.WalletLayer.ExecutionTimeLimit
 
 import qualified Pos.Chain.Txp as Txp
 import qualified Pos.Core as Core
@@ -600,7 +599,7 @@ getTxMetas conn (Offset offset) (Limit limit) accountFops mbAddress fopTxId fopT
         Left e -> throwIO $ Kernel.StorageFailure (toException e)
         Right Nothing -> return ([], Just 0)
         Right (Just (meta, inputs, outputs)) ->  do
-            eiCount <- limitExecutionTimeTo (25 :: Second) (\ _ -> ()) $ ignoreLeft $ Sqlite.runDBAction $ runBeamSqlite conn $
+            eiCount <- Sqlite.runDBAction $ runBeamSqlite conn $
                 case mbAddress of
                     Nothing   -> SQL.runSelectReturningOne $ SQL.select metaQueryC
                     Just addr -> SQL.runSelectReturningOne $ SQL.select $ metaQueryWithAddrC addr
@@ -613,13 +612,6 @@ getTxMetas conn (Offset offset) (Limit limit) accountFops mbAddress fopTxId fopT
             return (txMeta, count)
 
     where
-        ignoreLeft :: IO (Either a b) -> IO (Either () b)
-        ignoreLeft m  = do
-            x <- m
-            case x of
-                Left _  -> return $ Left ()
-                Right r -> return $ Right r
-
         filters meta = do
             SQL.guard_ $ filterAccs meta accountFops
             SQL.guard_ $ applyFilter (_txMetaTableId meta) fopTxId

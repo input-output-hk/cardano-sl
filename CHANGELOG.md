@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## Cardano SL 1.3.2
+
+- Upgrade block version to 0.2.0 to limit max block size to 32 KB.
+
+- Override max block size for genesis block to have a limit of 1.953 MB.
+
 ## Cardano SL 1.3.1
 
 ### Features

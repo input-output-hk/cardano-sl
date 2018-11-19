@@ -506,6 +506,7 @@ test-suite wallet-unit-tests
   hs-source-dirs:     server test/unit
 
   build-depends:      acid-state
+                    , async
                     , base
                     , bytestring
                     , cardano-crypto

@@ -139,7 +139,6 @@ slogVerifyBlocks
 slogVerifyBlocks genesisConfig curSlot blocks = runExceptT $ do
     uc <- view (lensOf @UpdateConfiguration)
     era <- getConsensusEra
-    currentEos <- getEpochOrSlot <$> DB.getTipHeader
     logInfo $ sformat ("slogVerifyBlocks: Consensus era is " % shown) era
     (adoptedBV, adoptedBVD) <- lift getAdoptedBVFull
     let dataMustBeKnown = mustDataBeKnown uc adoptedBV
@@ -160,6 +159,8 @@ slogVerifyBlocks genesisConfig curSlot blocks = runExceptT $ do
             throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
     -- Do pure block verification.
+    currentEos <- getEpochOrSlot <$> DB.getTipHeader
+    let txValRules = configTxValRules $ genesisConfig
     let blocksList :: OldestFirst [] Block
         blocksList = OldestFirst (NE.toList (getOldestFirst blocks))
     verResToMonadError formatAllErrors $

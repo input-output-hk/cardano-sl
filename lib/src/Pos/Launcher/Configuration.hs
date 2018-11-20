@@ -47,7 +47,8 @@ import           Ntp.Client (NtpConfiguration)
 import           Pos.Chain.Genesis as Genesis (Config (..), GenesisData (..),
                      StaticConfig, canonicalGenesisJson,
                      mkConfigFromStaticConfig, prettyGenesisJson)
-import           Pos.Core (Address, decodeTextAddress)
+import           Pos.Core (Address, EpochIndex (..), EpochOrSlot (..),
+                     decodeTextAddress)
 import           Pos.Core.Conc (currentTime)
 import           Pos.Core.Slotting (Timestamp (..))
 import           Pos.Crypto (RequiresNetworkMagic (..))
@@ -119,8 +120,12 @@ instance FromJSON Configuration where
                 -- the second field of TxValidationRules
                 -- is for the current Epoch, which is taken
                 -- from the state later on.
-                pure $ TxValidationRules attribResEpoch attribResEpoch aaSize taSize
-            | otherwise -> fail "Did not find TxValidationRules"
+                pure $ TxValidationRules
+                           (EpochOrSlot . Left $ EpochIndex attribResEpoch)
+                           (EpochOrSlot . Left $ EpochIndex attribResEpoch)
+                           aaSize
+                           taSize
+            | otherwise -> fail "No TxValidationRules specified in configuration.yaml"
         pure $ Configuration {..}
 
 instance ToJSON Configuration where
@@ -223,7 +228,9 @@ withConfigurations mAssetLockPath dumpGenesisPath dumpConfig cfo act = do
         (cfoSystemStart cfo)
         (cfoSeed cfo)
         (ccReqNetMagic cfg)
+        (ccTxValRules cfg)
         (ccGenesis cfg)
+
     withUpdateConfiguration (ccUpdate cfg) $
         withSscConfiguration (ccSsc cfg) $
         withDlgConfiguration (ccDlg cfg) $

@@ -10,16 +10,15 @@ import           Control.Monad.Except (MonadError)
 import           Text.JSON.Canonical (FromJSON (..), ToJSON (..), fromJSField,
                      mkObject)
 
-import           Pos.Chain.Ssc.VssCertificatesMap (VssCertificatesMap)
-import           Pos.Chain.Update.BlockVersionData (BlockVersionData)
-import           Pos.Core.Common (SharedSeed)
-import           Pos.Core.Slotting (Timestamp)
-
 import           Pos.Chain.Genesis.AvvmBalances
 import           Pos.Chain.Genesis.Delegation
 import           Pos.Chain.Genesis.NonAvvmBalances
 import           Pos.Chain.Genesis.ProtocolConstants
 import           Pos.Chain.Genesis.WStakeholders
+import           Pos.Chain.Ssc.VssCertificatesMap (VssCertificatesMap)
+import           Pos.Chain.Update.BlockVersionData (BlockVersionData)
+import           Pos.Core.Common (SharedSeed)
+import           Pos.Core.Slotting (Timestamp)
 import           Pos.Util.Json.Canonical (SchemaError)
 
 -- | Genesis data contains all data which determines consensus

@@ -59,6 +59,10 @@ dev: &dev
         avvmDistr: {}
     requiresNetworkMagic: RequiresNoMagic
     dbSerializeVersion: 0
+  txValidationRules:
+    attribResrictEpoch: 2
+    addrAttribSize: 128
+    txAttribSize: 128
 
   ntp: &dev_ntp
     # NTP
@@ -313,6 +317,10 @@ mainnet_base: &mainnet_base
         avvmDistr: {}
 
     dbSerializeVersion: 0
+  txValidationRules:
+    attribResrictEpoch: 2
+    addrAttribSize: 128
+    txAttribSize: 128
 
   ntp:
     responseTimeout: 30000000 # 30 sec

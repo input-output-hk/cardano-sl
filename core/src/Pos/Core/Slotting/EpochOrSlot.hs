@@ -29,13 +29,17 @@ module Pos.Core.Slotting.EpochOrSlot
 import           Universum
 
 import           Control.Lens (Getter, lens, to)
+import           Control.Monad.Except (MonadError)
 import           Data.Aeson (FromJSON, ToJSON, parseJSON, toJSON, withObject,
                      (.:))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Formatting.Buildable as Buildable
 import           Pos.Util.Some (Some, applySome)
+import qualified Text.JSON.Canonical as Canonical
+import           Text.JSON.Canonical.Types (Int54 (..))
 
 import           Pos.Binary.Class (Bi (..))
+import           Pos.Util.Json.Canonical (SchemaError)
 import           Pos.Util.Util (leftToPanic)
 
 import           Pos.Core.Slotting.EpochIndex
@@ -80,6 +84,19 @@ instance FromJSON EpochOrSlot where
 instance ToJSON EpochOrSlot where
     toJSON (EpochOrSlot (Left eIndex)) = toJSON eIndex
     toJSON (EpochOrSlot (Right sId))   = toJSON sId
+
+instance Monad m => Canonical.ToJSON m EpochOrSlot where
+    toJSON (EpochOrSlot (Left eIndex)) =
+        pure (Canonical.JSNum . Int54 $ fromIntegral eIndex)
+    toJSON (EpochOrSlot (Right (SlotId eIndex _))) =
+        pure (Canonical.JSNum . Int54 $ fromIntegral eIndex)
+
+instance MonadError SchemaError m => Canonical.FromJSON m EpochOrSlot where
+    fromJSON = \case
+        (Canonical.JSNum num) ->
+            pure . EpochOrSlot . Left . EpochIndex . fromIntegral $ int54ToInt64 num
+        other ->
+            Canonical.expected "An epoch index number" (Just (show other))
 
 instance HasEpochIndex EpochOrSlot where
     epochIndexL = lens (epochOrSlot identity siEpoch) setter

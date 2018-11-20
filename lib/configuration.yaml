@@ -58,6 +58,11 @@ dev: &dev
         heavyDelegation: {}
         avvmDistr: {}
     requiresNetworkMagic: RequiresNoMagic
+    dbSerializeVersion: 0
+  txValidationRules:
+    attribResrictEpoch: 2
+    addrAttribSize: 128
+    txAttribSize: 128
 
   ntp: &dev_ntp
     # NTP
@@ -312,6 +317,11 @@ mainnet_base: &mainnet_base
         avvmDistr: {}
 
     dbSerializeVersion: 0
+
+  txValidationRules:
+    attribResrictEpoch: 2
+    addrAttribSize: 128
+    txAttribSize: 128
 
   ntp:
     responseTimeout: 30000000 # 30 sec
@@ -14832,11 +14842,7 @@ mainnet_full: &mainnet_full
       src:
         file: mainnet-genesis.json
         hash: 5f20df933584822601f9e3f8c024eb5eb252fe8cefb24d1317dc3d432e940ebb
-    txValidationRules:
-      attribResrictEpoch: 999999999
-      currEpoch: 0
-      addrAttribSize: 128
-      txAttribSize: 128
+    requiresNetworkMagic: RequiresNoMagic
 
 mainnet_wallet_win64: &mainnet_wallet_win64
   <<: *mainnet_full

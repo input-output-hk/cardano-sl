@@ -11,8 +11,8 @@ import           Universum
 
 import qualified Cardano.Wallet.Kernel.DB.Sqlite as SQlite
 import           Cardano.Wallet.Kernel.DB.TxMeta
-import           Control.Exception.Safe (bracket)
 import           Control.Concurrent.Async
+import           Control.Exception.Safe (bracket)
 import qualified Data.List as List
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Set as Set

@@ -7,22 +7,27 @@ module Cardano.Wallet.Kernel.DB.TxMeta (
   , openMetaDB
   ) where
 
+import           Universum
+
+import           Control.Concurrent.MVar (withMVar)
+
 import qualified Cardano.Wallet.Kernel.DB.Sqlite as ConcreteStorage
 import           Cardano.Wallet.Kernel.DB.TxMeta.Types as Types
-import           Universum
 
 -- Concrete instantiation of 'MetaDBHandle'
 
 openMetaDB :: FilePath -> IO MetaDBHandle
 openMetaDB fp = do
     conn <- ConcreteStorage.newConnection fp
+    lock <- newMVar conn
     return MetaDBHandle {
-          closeMetaDB   = ConcreteStorage.closeMetaDB conn
-        , migrateMetaDB = ConcreteStorage.unsafeMigrateMetaDB conn
-        , clearMetaDB   = ConcreteStorage.clearMetaDB conn
-        , getTxMeta     = ConcreteStorage.getTxMeta conn
-        , putTxMeta     = ConcreteStorage.putTxMeta conn
-        , putTxMetaT    = ConcreteStorage.putTxMetaT conn
-        , getAllTxMetas = ConcreteStorage.getAllTxMetas conn
-        , getTxMetas    = ConcreteStorage.getTxMetas conn
+          closeMetaDB   = withMVar lock ConcreteStorage.closeMetaDB
+        , migrateMetaDB = withMVar lock ConcreteStorage.unsafeMigrateMetaDB
+        , clearMetaDB   = withMVar lock ConcreteStorage.clearMetaDB
+        , getTxMeta     = \t w a -> withMVar lock $ \c -> ConcreteStorage.getTxMeta c t w a
+        , putTxMeta     = \ t    -> withMVar lock $ \c -> ConcreteStorage.putTxMeta c t
+        , putTxMetaT    = \ t    -> withMVar lock $ \c -> ConcreteStorage.putTxMetaT c t
+        , getAllTxMetas = withMVar lock ConcreteStorage.getAllTxMetas
+        , getTxMetas    = \o l af w t time s
+                                 -> withMVar lock $ \c -> ConcreteStorage.getTxMetas c o l af w t time s
         }

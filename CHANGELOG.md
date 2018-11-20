@@ -63,7 +63,8 @@
 
 - Finalize port of API V0 to V1
     - [CO-334](https://iohk.myjetbrains.com/youtrack/issue/CO-334) [#3197](https://github.com/input-output-hk/cardano-sl/pull/3197)
-- Expose ntp client api for makeing forceful ntp checks and a review of the ntp client code base [CDEC-356](https://iohk.myjetbrains.com/youtrack/issue/CDEC-356)
+
+- Expose ntp client api for makeing forceful ntp checks and a review of the ntp client code base [CDEC-355](https://iohk.myjetbrains.com/youtrack/issue/CDEC-355)
     - [#3323](https://github.com/input-output-hk/cardano-sl/pull/3323)
     - [#3264](https://github.com/input-output-hk/cardano-sl/pull/3264)
 

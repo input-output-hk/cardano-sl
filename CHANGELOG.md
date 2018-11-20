@@ -229,7 +229,7 @@ Please add entries for your tickets:
 
 - Add failure injection options to wallet for Daedalus testing ([DEVOPS-1086](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1086), [#3787](https://github.com/input-output-hk/cardano-sl/pull/3787))
 
-- Benchmarking support ([PB-95](https://iohk.myjetbrains.com/youtrack/issue/PB-95) [#3670](https://github.com/input-output-hk/cardano-sl/pull/3670))
+- Benchmarking support ([PB-20](https://iohk.myjetbrains.com/youtrack/issue/PB-20) [PB-95](https://iohk.myjetbrains.com/youtrack/issue/PB-95) [#3670](https://github.com/input-output-hk/cardano-sl/pull/3670))
 
 - #### Reorganize and clean up `core` packages
     - Move code from `infra` to `sinbin` so that `infra` can be moved "up" in the dependency graph ([CDEC-416](https://iohk.myjetbrains.com/youtrack/issue/CDEC-416): [#3185](https://github.com/input-output-hk/cardano-sl/pull/3185), [#3202](https://github.com/input-output-hk/cardano-sl/pull/3202), [#3209](https://github.com/input-output-hk/cardano-sl/pull/3209))

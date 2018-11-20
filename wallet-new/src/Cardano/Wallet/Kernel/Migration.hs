@@ -14,6 +14,7 @@ import qualified Formatting as F
 
 import qualified Pos.Core as Core
 import           Pos.Core.NetworkMagic (makeNetworkMagic)
+import           Pos.Crypto.Signing (checkPassMatches)
 import           Pos.Util.Wlog (Severity (..))
 import qualified Pos.Wallet.Web.ClientTypes as WebTypes
 import qualified Pos.Wallet.Web.State.Storage as WS
@@ -34,36 +35,14 @@ import           Cardano.Wallet.Kernel.Types
   derivable from the blockchain.
 -------------------------------------------------------------------------------}
 
--- | An heuristic confidence score of whether or not a spending password was
--- set for this wallet.
--- Note how is not possible to reconstruct this information
--- reliably, because the legacy wallet never stored if this wallet was
--- spending-password-protected, it only stored the creation time and the
--- last time the password was changed. However, when creating a wallet, they
--- did set the lastUpdate == dateCreated, so it's not possible to distinguish
--- between the case where the user set the password at creation time and
--- never changed it or the case where the user never set the password at all.
-data Confidence =
-    HasSpendingPasswordUnknown
-  -- ^ This happens because there is no real way to judge if the user set
-  -- a spending password or not, especially because if the user @did@ set a
-  -- spending password right at the start, there will be no way of reconstructing
-  -- this from the legacy storage. Unfortunately, this is the case most users
-  -- fall into.
-  | ProbablyHasSpendingPassword
-  -- ^ Ihis is when the users later changed their password.
-  -- In principle they could set it to be empty (so we still cannot be sure),
-  -- but this is unlikely (and disallowed by the frontend).
-
 data MigrationMetadata = MigrationMetadata {
-    _mmHdRootId            :: HD.HdRootId
-  , _mmAssuranceLevel      :: HD.AssuranceLevel
-  , _mmWalletName          :: HD.WalletName
-  , _mmDefaultAddress      :: Core.Address
+    _mmHdRootId       :: HD.HdRootId
+  , _mmAssuranceLevel :: HD.AssuranceLevel
+  , _mmWalletName     :: HD.WalletName
+  , _mmDefaultAddress :: Core.Address
   -- ^ A default Address which will be used during restoration. It's a trick
   -- to avoid having the user insert the @spending password@ during migration,
   -- which would complicate things sensibly.
-  , _mmHasSpendingPassword :: Bool
   }
 
 makeLenses ''MigrationMetadata
@@ -85,7 +64,6 @@ metadataFromWalletStorage ws =
                             <*> extractAssuranceLevel wInfo
                             <*> extractWalletName wInfo
                             <*> extractAddress (wId, wInfo)
-                            <*> extractHasSpendingPassword wInfo
 
       extractHdRootId :: WebTypes.CId (WebTypes.Wal)
                       -> Either MetadataUnavailable HD.HdRootId
@@ -107,21 +85,6 @@ metadataFromWalletStorage ws =
       extractWalletName wi = do
           let wMeta = WS._wiMeta wi :: WebTypes.CWalletMeta
           pure $ HD.WalletName (WebTypes.cwName wMeta)
-
-      extractHasSpendingPassword :: WS.WalletInfo
-                                 -> Either MetadataUnavailable Bool
-      extractHasSpendingPassword wi = do
-          let confidence = case WS._wiPassphraseLU wi == WS._wiCreationTime wi of
-                                True  -> HasSpendingPasswordUnknown
-                                False -> ProbablyHasSpendingPassword
-              -- Our best guess whether or not this wallet has the spending password.
-              -- currently we always yield True, but we can tweak these values if
-              -- our assumptions reveal not to be correct (or if we can fine tune
-              -- our heuristic).
-              bestGuess = case confidence of
-                               HasSpendingPasswordUnknown  -> True
-                               ProbablyHasSpendingPassword -> True
-          pure bestGuess
 
       extractAddress :: (WebTypes.CId (WebTypes.Wal), WS.WalletInfo)
                      -> Either MetadataUnavailable Core.Address
@@ -231,11 +194,14 @@ restore pw forced metadata = do
         logMsg   = pw ^. Kernel.walletLogMessage
         keystore = pw ^. Kernel.walletKeystore
         wId      = WalletIdHdRnd (metadata ^. mmHdRootId)
+
     mEsk <- Keystore.lookup nm wId keystore
     case mEsk of
         Just esk -> do
+            let hasSpendingPassword = isNothing $ checkPassMatches mempty esk
+
             res <- restoreWallet pw
-                                 (metadata ^. mmHasSpendingPassword)
+                                 hasSpendingPassword
                                  (metadata ^. mmDefaultAddress)
                                  (metadata ^. mmWalletName)
                                  (metadata ^. mmAssuranceLevel)

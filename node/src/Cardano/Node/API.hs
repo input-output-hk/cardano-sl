@@ -21,7 +21,7 @@ import           Ntp.Packet (NtpOffset)
 import           Pos.Chain.Block (LastKnownHeader, LastKnownHeaderTag)
 import           Pos.Chain.Update (UpdateConfiguration, curSoftwareVersion,
                      withUpdateConfiguration)
-import           Pos.Client.CLI.NodeOptions (NodeApiArgs(..))
+import           Pos.Client.CLI.NodeOptions (NodeApiArgs (..))
 import           Pos.Context
 import qualified Pos.Core as Core
 import qualified Pos.DB.Block as DB

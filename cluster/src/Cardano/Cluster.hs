@@ -112,7 +112,7 @@ startNode (NodeName nodeIdT, nodeType) env = do
             withCompileInfo $ launchNode nArgs cArgs lArgs (actionWithWallet wArgs)
 
         _ ->
-            withCompileInfo $ launchNode nArgs cArgs lArgs actionWithCoreNode
+            withCompileInfo $ launchNode nArgs cArgs lArgs (actionWithCoreNode (\_ -> pure ()))
   where
     parseNodeArgs = do
         let nVars = varFromParser nodeArgsParser

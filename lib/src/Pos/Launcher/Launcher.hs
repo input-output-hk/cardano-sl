@@ -22,19 +22,21 @@ import           Pos.Client.CLI.Options (configurationOptions)
 import           Pos.Client.CLI.Params (getNodeParams)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Txp.Logic (txpGlobalSettings)
+import           Pos.Infra.Diffusion.Types (Diffusion (..), hoistDiffusion)
 import           Pos.Launcher.Configuration (AssetLockPath (..),
                      HasConfigurations, WalletConfiguration, cfoKey,
                      withConfigurations)
 import           Pos.Launcher.Param (LoggingParams (..), NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources, bracketNodeResources,
                      loggerBracket)
-import           Pos.Launcher.Runner (runRealMode)
+import           Pos.Launcher.Runner (elimRealMode, runRealMode)
 import           Pos.Launcher.Scenario (runNode)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.Util (logException)
 import           Pos.Util.Wlog (logInfo)
 import           Pos.Worker.Update (updateTriggerWorker)
 import           Pos.WorkMode (EmptyMempoolExt)
+import           UnliftIO.Async (concurrently_)
 
 
 -- | Run a given action from a bunch of static arguments
@@ -90,7 +92,8 @@ launchNode nArgs cArgs lArgs action = do
 -- | Run basic core node
 actionWithCoreNode
     :: (HasConfigurations, HasCompileInfo)
-    => Genesis.Config
+    => (Diffusion IO -> IO a)
+    -> Genesis.Config
     -> WalletConfiguration
     -> TxpConfiguration
     -> NtpConfiguration
@@ -98,13 +101,13 @@ actionWithCoreNode
     -> SscParams
     -> NodeResources EmptyMempoolExt
     -> IO ()
-actionWithCoreNode genesisConfig _ txpConfig _ _ _ nodeRes = do
+actionWithCoreNode action genesisConfig _ txpConfig _ _ _ nodeRes = do
     let plugins = [ ("update trigger", updateTriggerWorker) ]
 
     logInfo "Wallet is disabled, because software is built w/o it"
-
-    runRealMode
-        genesisConfig
-        txpConfig
-        nodeRes
-        (runNode genesisConfig txpConfig nodeRes plugins)
+    let pm = configProtocolMagic genesisConfig
+    runRealMode genesisConfig txpConfig nodeRes $ \diff -> do
+        let diff' = hoistDiffusion (elimRealMode pm nodeRes diff') liftIO diff
+        concurrently_
+            (runNode genesisConfig txpConfig nodeRes plugins diff)
+            (liftIO (action diff'))

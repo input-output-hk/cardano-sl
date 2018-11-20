@@ -9,9 +9,12 @@ module Pos.Client.CLI.NodeOptions
        ( CommonNodeArgs (..)
        , SimpleNodeArgs (..)
        , NodeArgs (..)
+       , NodeApiArgs (..)
+       , NodeWithApiArgs (..)
        , commonNodeArgsParser
        , nodeArgsParser
        , getSimpleNodeOptions
+       , getNodeApiOptions
        , usageExample
        ) where
 
@@ -21,14 +24,15 @@ import           Data.Version (showVersion)
 import           NeatInterpolation (text)
 import           Options.Applicative (Parser, auto, execParser, footerDoc,
                      fullDesc, header, help, helper, info, infoOption, long,
-                     metavar, option, progDesc, strOption, switch, value)
+                     metavar, option, progDesc, showDefault, strOption, switch,
+                     value)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl (version)
 
 import           Pos.Client.CLI.Options (CommonArgs (..), commonArgsParser,
-                     optionalJSONPath)
-import           Pos.Core.NetworkAddress (NetworkAddress)
+                     optionalJSONPath, templateParser)
+import           Pos.Core.NetworkAddress (NetworkAddress, addrParser, localhost)
 import           Pos.Infra.HealthCheck.Route53 (route53HealthCheckOption)
 import           Pos.Infra.InjectFail (FInjectsSpec, parseFInjectsSpec)
 import           Pos.Infra.Network.CLI (NetworkConfigOpts, networkConfigOption)
@@ -36,6 +40,8 @@ import           Pos.Infra.Statistics (EkgParams, StatsdParams, ekgParamsOption,
                      statsdParamsOption)
 import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo,
                      compileInfo)
+import           Pos.Util.OptParse (fromParsec)
+import           Pos.Web (TlsParams (..))
 
 data CommonNodeArgs = CommonNodeArgs
     { dbPath                 :: !(Maybe FilePath)
@@ -139,19 +145,105 @@ commonNodeArgsParser = do
 data SimpleNodeArgs = SimpleNodeArgs CommonNodeArgs NodeArgs
 
 data NodeArgs = NodeArgs
-    { behaviorConfigPath :: !(Maybe FilePath)
+    { behaviorConfigPath   :: !(Maybe FilePath)
     } deriving Show
 
 simpleNodeArgsParser :: Parser SimpleNodeArgs
-simpleNodeArgsParser = SimpleNodeArgs
-    <$> commonNodeArgsParser
-    <*> nodeArgsParser
+simpleNodeArgsParser =
+    SimpleNodeArgs <$> commonNodeArgsParser <*> nodeArgsParser
 
 nodeArgsParser :: Parser NodeArgs
-nodeArgsParser = fmap NodeArgs $ optional $ strOption $
-    long "behavior" <>
-    metavar "FILE" <>
-    help "Path to the behavior config"
+nodeArgsParser = NodeArgs <$> behaviorParser
+  where
+    behaviorParser =
+        optional $ strOption $
+            long "behavior" <>
+            metavar "FILE" <>
+            help "Path to the behavior config"
+
+data NodeWithApiArgs = NodeWithApiArgs CommonNodeArgs NodeArgs NodeApiArgs
+
+nodeWithApiArgsParser :: Parser NodeWithApiArgs
+nodeWithApiArgsParser =
+    NodeWithApiArgs
+        <$> commonNodeArgsParser
+        <*> nodeArgsParser
+        <*> nodeApiArgsParser
+
+nodeApiArgsParser :: Parser NodeApiArgs
+nodeApiArgsParser =
+    NodeApiArgs
+        <$> addressParser
+        <*> tlsParamsParser
+        <*> debugModeParser
+  where
+    addressParser =
+        option (fromParsec addrParser) $
+            long "node-api-address"
+         <> metavar "IP:PORT"
+         <> help helpMsg
+         <> showDefault
+         <> value (localhost, 8083)
+    helpMsg = "IP and port for backend node API."
+    debugModeParser :: Parser Bool
+    debugModeParser =
+        switch (long "wallet-debug" <>
+                help "Run wallet with debug params (e.g. include \
+                     \all the genesis keys in the set of secret keys)."
+               )
+
+data NodeApiArgs = NodeApiArgs
+    { nodeBackendAddress   :: !NetworkAddress
+    , nodeBackendTLSParams :: !(Maybe TlsParams)
+    , nodeBackendDebugMode :: !Bool
+    } deriving Show
+
+tlsParamsParser :: Parser (Maybe TlsParams)
+tlsParamsParser = constructTlsParams <$> certPathParser
+                                     <*> keyPathParser
+                                     <*> caPathParser
+                                     <*> (not <$> noClientAuthParser)
+                                     <*> disabledParser
+  where
+    constructTlsParams tpCertPath tpKeyPath tpCaPath tpClientAuth disabled =
+        guard (not disabled) $> TlsParams{..}
+
+    certPathParser :: Parser FilePath
+    certPathParser = strOption (templateParser
+                                "tlscert"
+                                "FILEPATH"
+                                "Path to file with TLS certificate"
+                                <> value "scripts/tls-files/server.crt"
+                               )
+
+    keyPathParser :: Parser FilePath
+    keyPathParser = strOption (templateParser
+                               "tlskey"
+                               "FILEPATH"
+                               "Path to file with TLS key"
+                               <> value "scripts/tls-files/server.key"
+                              )
+
+    caPathParser :: Parser FilePath
+    caPathParser = strOption (templateParser
+                              "tlsca"
+                              "FILEPATH"
+                              "Path to file with TLS certificate authority"
+                              <> value "scripts/tls-files/ca.crt"
+                             )
+
+    noClientAuthParser :: Parser Bool
+    noClientAuthParser = switch $
+                         long "no-client-auth" <>
+                         help "Disable TLS client verification. If turned on, \
+                              \no client certificate is required to talk to \
+                              \the API."
+
+    disabledParser :: Parser Bool
+    disabledParser = switch $
+                     long "no-tls" <>
+                     help "Disable tls. If set, 'tlscert', 'tlskey' \
+                          \and 'tlsca' options are ignored"
 
 getSimpleNodeOptions :: HasCompileInfo => IO SimpleNodeArgs
 getSimpleNodeOptions = execParser programInfo
@@ -165,6 +257,20 @@ getSimpleNodeOptions = execParser programInfo
         ("cardano-node-" <> showVersion version <>
          ", git revision " <> toString (ctiGitRevision compileInfo))
         (long "version" <> help "Show version.")
+
+getNodeApiOptions :: HasCompileInfo => IO NodeWithApiArgs
+getNodeApiOptions = execParser programInfo
+  where
+    programInfo = info (helper <*> versionOption <*> nodeWithApiArgsParser) $
+        fullDesc <> progDesc "Cardano SL main server node with API."
+                 <> header "Cardano SL node with API."
+                 <> footerDoc usageExample
+
+    versionOption = infoOption
+        ("cardano-node-" <> showVersion version <>
+         ", git revision " <> toString (ctiGitRevision compileInfo))
+        (long "version" <> help "Show version.")
+
 
 usageExample :: Maybe Doc
 usageExample = (Just . fromString @Doc . toString @Text) [text|

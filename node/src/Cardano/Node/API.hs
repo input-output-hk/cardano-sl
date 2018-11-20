@@ -9,16 +9,20 @@ import           Universum
 
 import           Control.Concurrent.STM (orElse, retry)
 import           Control.Lens (lens, to)
+import qualified Data.ByteString.Char8 as BS8
 import qualified Data.Text as Text
 import           Data.Time.Units (toMicroseconds)
 import qualified Paths_cardano_sl_node as Paths
 import           Servant
 
-import           Ntp.Client (NtpStatus (..))
+import           Ntp.Client (NtpConfiguration, NtpStatus (..),
+                     ntpClientSettings, withNtpClient)
 import           Ntp.Packet (NtpOffset)
 import           Pos.Chain.Block (LastKnownHeader, LastKnownHeaderTag)
 import           Pos.Chain.Update (UpdateConfiguration, curSoftwareVersion,
                      withUpdateConfiguration)
+import           Pos.Client.CLI.NodeOptions (NodeApiArgs (..))
+import           Pos.Context
 import qualified Pos.Core as Core
 import qualified Pos.DB.Block as DB
 import qualified Pos.DB.BlockIndex as DB
@@ -30,10 +34,55 @@ import qualified Pos.DB.Rocks.Types as DB
 import           Pos.Infra.Diffusion.Subscription.Status (ssMap)
 import           Pos.Infra.Diffusion.Types
 import qualified Pos.Infra.Slotting.Util as Slotting
+import           Pos.Launcher.Resource
 import           Pos.Node.API as Node
 import           Pos.Util (HasLens (..), HasLens')
 import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
 import           Pos.Util.Servant
+import           Pos.Web (serveImpl)
+
+launchNodeServer
+    :: NodeApiArgs
+    -> NtpConfiguration
+    -> NodeResources ext
+    -> UpdateConfiguration
+    -> CompileTimeInfo
+    -> Diffusion IO
+    -> IO ()
+launchNodeServer
+    params
+    ntpConfig
+    nodeResources
+    updateConfiguration
+    compileTimeInfo
+    diffusion
+  = do
+    ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
+    let app = serve (Proxy @Node.API)
+            $ handlers
+                diffusion
+                ntpStatus
+                (ncStateLock nodeCtx)
+                (nrDBs nodeResources)
+                (ncLastKnownHeader nodeCtx)
+                slottingVarTimestamp
+                slottingVar
+                updateConfiguration
+                compileTimeInfo
+
+    -- Warp.run portNumber app
+    serveImpl
+        (pure app)
+        (BS8.unpack ipAddress)
+        portNumber
+        (do guard (nodeBackendDebugMode params)
+            nodeBackendTLSParams params)
+        (Just $ error "setOnExceptionResponse")
+        (Just $ error "portCallback ctx")
+  where
+    nodeCtx = nrContext nodeResources
+    (slottingVarTimestamp, slottingVar) = ncSlottingVar nodeCtx
+    (ipAddress, portNumber) = nodeBackendAddress params
 
 handlers
     :: Diffusion IO

@@ -4,14 +4,25 @@ module Main
 
 import           Universum
 
-import           Pos.Client.CLI (SimpleNodeArgs (..), getSimpleNodeOptions,
+import           Cardano.Node.API (launchNodeServer)
+import           Pos.Chain.Update (updateConfiguration)
+import           Pos.Client.CLI (NodeWithApiArgs (..), getNodeApiOptions,
                      loggingParams)
 import           Pos.Launcher (actionWithCoreNode, launchNode)
-import           Pos.Util.CompileInfo (withCompileInfo)
-
+import           Pos.Util.CompileInfo (compileInfo, withCompileInfo)
 
 main :: IO ()
 main = withCompileInfo $ do
-    SimpleNodeArgs cArgs nArgs <- getSimpleNodeOptions
+    NodeWithApiArgs cArgs nArgs apiArgs <- getNodeApiOptions
     let lArgs = loggingParams "node" cArgs
-    launchNode nArgs cArgs lArgs actionWithCoreNode
+    launchNode nArgs cArgs lArgs
+        $ \genConfig walConfig txpConfig ntpConfig nodeParams sscParams nodeResources ->
+            actionWithCoreNode
+                (launchNodeServer
+                    apiArgs
+                    ntpConfig
+                    nodeResources
+                    updateConfiguration
+                    compileInfo)
+                genConfig walConfig txpConfig
+                ntpConfig nodeParams sscParams nodeResources

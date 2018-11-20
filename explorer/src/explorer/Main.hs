@@ -17,8 +17,7 @@ import           ExplorerNodeOptions (ExplorerArgs (..), ExplorerNodeArgs (..),
 import           Pos.Binary ()
 import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..),
-                     getNodeParams)
+import           Pos.Client.CLI (CommonNodeArgs (..), getNodeParams)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (NodeContext (..))
 import           Pos.Explorer.DB (explorerInitDB)
@@ -61,7 +60,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
         (currentParams, Just sscParams) <- getNodeParams
             loggerName
             cArgs
-            nodeArgs
+            (CLI.NodeArgs { behaviorConfigPath = Nothing })
             (configGeneratedSecrets genesisConfig)
 
         let plugins :: [ (Text, Diffusion ExplorerProd -> ExplorerProd ()) ]
@@ -98,6 +97,3 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
             explorerModeToRealMode  = runExplorerProd extraCtx
          in runRealMode genesisConfig txpConfig nr $ \diffusion ->
                 explorerModeToRealMode (go (hoistDiffusion (lift . lift) explorerModeToRealMode diffusion))
-
-    nodeArgs :: NodeArgs
-    nodeArgs = NodeArgs { behaviorConfigPath = Nothing }

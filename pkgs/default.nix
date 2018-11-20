@@ -16079,6 +16079,7 @@ license = stdenv.lib.licenses.mit;
 ({
   mkDerivation
 , base
+, bytestring
 , cardano-sl
 , cardano-sl-chain
 , cardano-sl-core
@@ -16103,6 +16104,7 @@ license = stdenv.lib.licenses.mit;
 , time-units
 , universum
 , validation
+, warp
 }:
 mkDerivation {
 
@@ -16119,6 +16121,7 @@ isLibrary = true;
 isExecutable = true;
 libraryHaskellDepends = [
 base
+bytestring
 cardano-sl
 cardano-sl-chain
 cardano-sl-core
@@ -16132,10 +16135,12 @@ stm
 text
 time-units
 universum
+warp
 ];
 executableHaskellDepends = [
 base
 cardano-sl
+cardano-sl-chain
 cardano-sl-core
 cardano-sl-util
 universum

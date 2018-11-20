@@ -153,7 +153,9 @@ action opts@AuxxOptions {..} command = do
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)
     nArgs =
-        CLI.NodeArgs {behaviorConfigPath = Nothing}
+        CLI.NodeArgs
+            { behaviorConfigPath = Nothing
+            }
 
 main :: IO ()
 main = withCompileInfo $ do

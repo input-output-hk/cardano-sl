@@ -151,7 +151,6 @@ data NodeArgs = NodeArgs
 simpleNodeArgsParser :: Parser SimpleNodeArgs
 simpleNodeArgsParser =
     SimpleNodeArgs <$> commonNodeArgsParser <*> nodeArgsParser
-    -- (Just (localhost, 8083))
 
 nodeArgsParser :: Parser NodeArgs
 nodeArgsParser = NodeArgs <$> behaviorParser

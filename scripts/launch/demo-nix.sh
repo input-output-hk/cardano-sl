@@ -41,5 +41,5 @@ fi
 
 GITREV=$(git rev-parse HEAD)
 
-nix-build -E "(import ./. {}).callPackage ./scripts/launch/demo-cluster { disableClientAuth = $DISABLE_CLIENT_AUTH; numImportedWallets = $NUM_IMPORTED_WALLETS; runWallet = $RUN_WALLET; }" -o "launch_$GITREV"
+nix-build --arg forceDontCheck true -E "(import ./. {}).callPackage ./scripts/launch/demo-cluster { disableClientAuth = $DISABLE_CLIENT_AUTH; numImportedWallets = $NUM_IMPORTED_WALLETS; runWallet = $RUN_WALLET; }" -o "launch_$GITREV"
 exec ./launch_"$GITREV"

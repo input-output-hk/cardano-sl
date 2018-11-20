@@ -43,7 +43,7 @@ import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.InDb (InDb (..), fromDb)
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock,
                      ResolvedInput, ResolvedTx, rbContext, rbTxs,
-                     resolvedToTxMeta, rtxInputs, rtxOutputs)
+                     resolvedToTxMeta, rtxInputs, rtxMeta, rtxOutputs)
 import           Cardano.Wallet.Kernel.DB.Spec.Pending (Pending)
 import qualified Cardano.Wallet.Kernel.DB.Spec.Pending as Pending
 import           Cardano.Wallet.Kernel.DB.TxMeta.Types
@@ -140,7 +140,7 @@ type UtxoSummaryRaw = Map TxIn (TxOutAux,AddressSummary)
 --   Accounts.
 prefilterTx :: WalletKey
             -> ResolvedTx
-            -> ((Map HdAccountId (Set TxIn)
+            -> ((Map HdAccountId (Set (TxIn, TxId))
               , Map HdAccountId UtxoSummaryRaw)
               , [TxMeta])
             -- ^ prefiltered inputs, prefiltered output utxo, extended with address summary
@@ -154,8 +154,9 @@ prefilterTx wKey tx = ((prefInps',prefOuts'),metas)
 
         prefOuts' = Map.map (extendWithSummary (onlyOurInps,onlyOurOuts))
                             prefOuts
+        txId = fst $ tx ^. rtxMeta . fromDb
         -- this Set.map does not change the number of elements because TxIn's are unique.
-        prefInps' = map (Set.map fst) prefInps
+        prefInps' = map (Set.map (\(txin, _) -> (txin, txId))) prefInps
 
         (prefInCoins  :: (Map HdAccountId Coin)) = map (sumCoinsUnsafe . map snd . Set.toList) prefInps
         (prefOutCoins :: (Map HdAccountId Coin)) = map (\mp -> sumCoinsUnsafe $ map (toCoin . fst) mp) prefOuts'
@@ -181,7 +182,7 @@ prefilterTxForWallets
     :: [WalletKey]
     -> Map TxIn HdAccountId
     -> ResolvedTx
-    -> ((Map HdAccountId (Set TxIn, Set TxIn)
+    -> ((Map HdAccountId (Set (TxIn, TxId), Set (TxIn, TxId))
         , Map HdAccountId UtxoSummaryRaw)
        , [TxMeta])
 prefilterTxForWallets wKeys foreignPendingByTransaction tx =
@@ -189,22 +190,27 @@ prefilterTxForWallets wKeys foreignPendingByTransaction tx =
   where
     ((inputs,outputs),meta) = mconcat $ map ((flip prefilterTx) tx) wKeys
 
+    txId :: TxId
+    txId = fst $ tx ^. rtxMeta . fromDb
+
     --NOTE: to find the foreign inputs in the transaction, we need to look at _all_ the inputs, since they will not be present in the prefiltered inputs
-    allInputs :: Set TxIn
-    allInputs = Set.fromList $ map fst $ toList (tx ^. rtxInputs  . fromDb)
+    allInputs :: Set (TxIn, TxId)
+    allInputs = Set.fromList $ map ((, txId) . fst) $ toList (tx ^. rtxInputs  . fromDb)
 
-    foreignInputs :: Map HdAccountId (Set TxIn)
-    foreignInputs =
-        reindexByAccount $ Map.filterWithKey (\txin _ -> Set.member txin allInputs) foreignPendingByTransaction
+    foreignInputs :: Map HdAccountId (Set (TxIn, TxId))
+    foreignInputs = Map.map (Set.map (, txId)) $ reindexByAccount $
+                        Map.filterWithKey
+                            (\txin _ -> Set.member (txin, txId) allInputs)
+                            foreignPendingByTransaction
 
-    inputsE, foreignInputsE :: Map HdAccountId (Set TxIn, Set TxIn)
+    inputsE, foreignInputsE :: Map HdAccountId (Set (TxIn, TxId), Set (TxIn, TxId))
     inputsE = Map.map (, Set.empty) inputs
     foreignInputsE =  Map.map (Set.empty,) foreignInputs
 
     extend
-        :: Map HdAccountId (Set TxIn, Set TxIn)
-        -> Map HdAccountId (Set TxIn, Set TxIn)
-        -> Map HdAccountId (Set TxIn, Set TxIn)
+        :: Map HdAccountId (Set (TxIn, TxId), Set (TxIn, TxId))
+        -> Map HdAccountId (Set (TxIn, TxId), Set (TxIn, TxId))
+        -> Map HdAccountId (Set (TxIn, TxId), Set (TxIn, TxId))
     extend inputs_ foreignInputs_ =
         Map.unionWith (\inp fInp -> (fst inp, snd fInp)) inputs_ foreignInputs_
 
@@ -345,13 +351,13 @@ prefilterBlock nm foreignPendingByAccount block rawKeys =
     foreignPendingByTransaction :: Map TxIn HdAccountId
     foreignPendingByTransaction = reindexByTransaction $ Map.map Pending.txIns foreignPendingByAccount
 
-    inps :: [Map HdAccountId (Set TxIn, Set TxIn)]
+    inps :: [Map HdAccountId (Set (TxIn, TxId), Set (TxIn, TxId))]
     outs :: [Map HdAccountId UtxoSummaryRaw]
     (ios, conMetas) = unzip $ map (prefilterTxForWallets wKeys foreignPendingByTransaction) (block ^. rbTxs)
     (inps, outs) = unzip ios
     metas = concat conMetas
 
-    inpAll :: Map HdAccountId (Set TxIn, Set TxIn)
+    inpAll :: Map HdAccountId (Set (TxIn, TxId), Set (TxIn, TxId))
     outAll :: Map HdAccountId UtxoSummaryRaw
     inpAll = Map.unionsWith (\pair1 pair2 -> (Set.union (fst pair1) (fst pair2),Set.union (snd pair1) (fst pair2))) inps
     outAll = Map.unionsWith Map.union outs
@@ -369,7 +375,7 @@ prefilterBlock nm foreignPendingByAccount block rawKeys =
 
 
 mkPrefBlock :: BlockContext
-            -> Map HdAccountId (Set TxIn, Set TxIn)
+            -> Map HdAccountId (Set (TxIn, TxId), Set (TxIn, TxId))
             -> Map HdAccountId (Map TxIn (TxOutAux, AddressSummary))
             -> HdAccountId
             -> (HdAccountId, PrefilteredBlock)
@@ -377,7 +383,7 @@ mkPrefBlock context inps outs accId = (accId, PrefilteredBlock {
         pfbInputs         = walletInps'
       , pfbForeignInputs  = foreignInps'
       , pfbOutputs        = outs'
-      , pfbAddrs          = addrs''
+      , pfbAddrs          = addrs'
       , pfbMeta           = blockMeta'
       , pfbContext        = context
       })
@@ -391,17 +397,24 @@ mkPrefBlock context inps outs accId = (accId, PrefilteredBlock {
                      Map.filter (not . Set.null . fst) inps
         foreignInps = Map.map snd $
                       Map.filter (not . Set.null . snd) inps
-        walletInps'           =                  byAccountId accId Set.empty walletInps
-        foreignInps'          =                  byAccountId accId Set.empty foreignInps
-        (outs', addrs') = fromUtxoSummary (byAccountId accId Map.empty outs)
+        walletInps'           = Set.map fst  $ byAccountId accId Set.empty walletInps
+        foreignInps'          = Set.map fst  $ byAccountId accId Set.empty foreignInps
 
-        addrs''    = nub $ map fromAddrSummary addrs'
-        blockMeta' = mkBlockMeta (context ^. bcSlotId . fromDb) addrs'
+        allInps = (Map.map fst inps)
+        inpsWithtxId = byAccountId accId Set.empty allInps
+        -- this Set.map may reduce the number of elements. But this is okey, since we
+        -- don't care about repetitions on txIds.
 
-mkBlockMeta :: SlotId -> [AddressSummary] -> LocalBlockMeta
-mkBlockMeta slotId addrs_ = LocalBlockMeta BlockMeta{..}
+        txIdsFromInputs = Set.map snd inpsWithtxId
+        (outs' , addrsFromOutputs) = fromUtxoSummary (byAccountId accId Map.empty outs)
+
+        addrs'    = nub $ map fromAddrSummary addrsFromOutputs
+        blockMeta' = mkBlockMeta (context ^. bcSlotId . fromDb) addrsFromOutputs txIdsFromInputs
+
+mkBlockMeta :: SlotId -> [AddressSummary] -> Set TxId -> LocalBlockMeta
+mkBlockMeta slotId addrs_ txIds = LocalBlockMeta BlockMeta{..}
     where
-        txIds' = nub $ map addrSummaryTxId addrs_
+        txIds' = (Set.toList txIds) <> (nub $ map addrSummaryTxId addrs_)
 
         indexedAddrs = indexByAddr addrs_
 

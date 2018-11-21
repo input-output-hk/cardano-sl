@@ -35,7 +35,11 @@
 
 - Structured logging ([CBR-97](https://iohk.myjetbrains.com/youtrack/issue/CBR-97) [#3483](https://github.com/input-output-hk/cardano-sl/pull/3483) [#3645](https://github.com/input-output-hk/cardano-sl/pull/3645), [CBR-207](https://iohk.myjetbrains.com/youtrack/issue/CBR-207), [#3476](https://github.com/input-output-hk/cardano-sl/pull/3476) [#3477](https://github.com/input-output-hk/cardano-sl/pull/3477), [CBR-211](https://iohk.myjetbrains.com/youtrack/issue/CBR-211) [#3507](https://github.com/input-output-hk/cardano-sl/pull/3507), [CBR-213](https://iohk.myjetbrains.com/youtrack/issue/CBR-213), [#3481](https://github.com/input-output-hk/cardano-sl/pull/3481), [DEVOPS-1097](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1097), [#3764](https://github.com/input-output-hk/cardano-sl/pull/3764), [#3395](https://github.com/input-output-hk/cardano-sl/pull/3395), [#3443](https://github.com/input-output-hk/cardano-sl/pull/3443), [DEVOPS-1109](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1109), [#3785](https://github.com/input-output-hk/cardano-sl/pull/3785), [CBR-275](https://iohk.myjetbrains.com/youtrack/issue/CBR-275) [#3533](https://github.com/input-output-hk/cardano-sl/pull/3533) [#3534](https://github.com/input-output-hk/cardano-sl/pull/3534) [#3655](https://github.com/input-output-hk/cardano-sl/pull/3655), [CBR-345](https://iohk.myjetbrains.com/youtrack/issue/CBR-345) [#3526](https://github.com/input-output-hk/cardano-sl/pull/3526) [#3613](https://github.com/input-output-hk/cardano-sl/pull/3613) [#3632](https://github.com/input-output-hk/cardano-sl/pull/3632) [#3633](https://github.com/input-output-hk/cardano-sl/pull/3633) [#3709](https://github.com/input-output-hk/cardano-sl/pull/3709), [CBR-348](https://iohk.myjetbrains.com/youtrack/issue/CBR-348) [#3523](https://github.com/input-output-hk/cardano-sl/pull/3523), [CBR-430](https://iohk.myjetbrains.com/youtrack/issue/CBR-430) [#3603](https://github.com/input-output-hk/cardano-sl/pull/3603), [CBR-423](https://iohk.myjetbrains.com/youtrack/issue/CBR-423) [#3609](https://github.com/input-output-hk/cardano-sl/pull/3609))
 
-- New data layer for wallet ([CBR-150](https://iohk.myjetbrains.com/youtrack/issue/CBR-150), [#3245](https://github.com/input-output-hk/cardano-sl/pull/3245), [CBR-227](https://iohk.myjetbrains.com/youtrack/issue/CBR-227), [#3393](https://github.com/input-output-hk/cardano-sl/pull/3393))
+- New data layer for wallet ([CBR-150](https://iohk.myjetbrains.com/youtrack/issue/CBR-150), [#3245](https://github.com/input-output-hk/cardano-sl/pull/3245),
+[CBR-227](https://iohk.myjetbrains.com/youtrack/issue/CBR-227),
+[#3393](https://github.com/input-output-hk/cardano-sl/pull/3393)
+)
+
 
 - Enable new data layer in Docker images for exchanges ([DEVOPS-1037](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1037), [#3545](https://github.com/input-output-hk/cardano-sl/pull/3545), [DEVOPS-1046](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1046), [#3594](https://github.com/input-output-hk/cardano-sl/pull/3594)).
 
@@ -47,7 +51,7 @@
 - New `cluster` package with utility and CLI to start a full-fledged cluster of nodes
     - [CO-423](https://iohk.myjetbrains.com/youtrack/issue/CO-423), [#3732](https://github.com/input-output-hk/cardano-sl/pull/3732)
     - [CO-371](https://iohk.myjetbrains.com/youtrack/issue/CO-371), [#3605](https://github.com/input-output-hk/cardano-sl/pull/3605)
-    - [CO-386](https://iohk.myjetbrains.com/youtrack/issue/CO-386), [#3608](https://github.com/input-output-hk/cardano-sl/pull/3608)
+    - [CO-385](https://iohk.myjetbrains.com/youtrack/issue/CO-385), [#3608](https://github.com/input-output-hk/cardano-sl/pull/3608)
     - [CO-390](https://iohk.myjetbrains.com/youtrack/issue/CO-390), [#3629](https://github.com/input-output-hk/cardano-sl/pull/3629)
 
 - Support query against some fields of the Account resource (balance, addresses) enabling client to fetch only the data they need ([CO-324](https://iohk.myjetbrains.com/youtrack/issue/CO-324), [#3210](https://github.com/input-output-hk/cardano-sl/pull/3210))
@@ -104,7 +108,7 @@
 
 - Fix logger implementation, enabling pure logger to be used without side-effects ([CO-409](https://iohk.myjetbrains.com/youtrack/issue/CO-409), [#3697](https://github.com/input-output-hk/cardano-sl/pull/3697))
 
-- Crash host node when the underlying wallet dies ([CBR-426](https://iohk.myjetbrains.com/youtrack/issue/CBR-426), [#3584](https://github.com/input-output-hk/cardano-sl/pull/3584))
+- Crash host node when the underlying wallet dies ([CBR-263](https://iohk.myjetbrains.com/youtrack/issue/CBR-263), [#3584](https://github.com/input-output-hk/cardano-sl/pull/3584))
 
 - Ensure correct file permissions are set when generate x509 certificates ([CBR-470](https://iohk.myjetbrains.com/youtrack/issue/CBR-470), [#3773](https://github.com/input-output-hk/cardano-sl/pull/3773))
 
@@ -122,7 +126,7 @@
 
 - Small refactor of wallet Errors implementation to be more maintainable ([CBR-26](https://iohk.myjetbrains.com/youtrack/issue/CBR-26), [#3429](https://github.com/input-output-hk/cardano-sl/pull/3429))
 
-- Content-Type parser is now more lenient and accepts `application/json`, `application/json;charset=utf-8` and no Content-Type at all (defaulting to `application/json`) ([CO-370](https://iohk.myjetbrains.com/youtrack/issue/CO-370), [#3596](https://github.com/input-output-hk/cardano-sl/pull/3596))
+- Content-Type parser is now more lenient and accepts `application/json`, `application/json;charset=utf-8` and no Content-Type at all (defaulting to `application/json`) ([CO-369](https://iohk.myjetbrains.com/youtrack/issue/CO-369), [#3596](https://github.com/input-output-hk/cardano-sl/pull/3596))
 
 - The codebase now relies on the package `cryptonite` (instead of `ed25519`) for Ed25519 implementation (CO-325)
 

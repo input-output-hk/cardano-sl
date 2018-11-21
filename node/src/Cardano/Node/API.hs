@@ -15,10 +15,14 @@ import           Data.Time.Units (toMicroseconds)
 import qualified Paths_cardano_sl_node as Paths
 import           Servant
 
+import Pos.WorkMode (RealModeContext)
+import Pos.WorkMode.Class (WorkMode)
+import Pos.DB.Txp (MempoolExt)
+import qualified Pos.Web as Legacy
 import           Ntp.Client (NtpConfiguration, NtpStatus (..),
                      ntpClientSettings, withNtpClient)
 import           Ntp.Packet (NtpOffset)
-import           Pos.Chain.Block (LastKnownHeader, LastKnownHeaderTag)
+import           Pos.Chain.Block (LastKnownHeader, LastKnownHeaderTag, HasBlockConfiguration)
 import           Pos.Chain.Update (UpdateConfiguration, curSoftwareVersion,
                      withUpdateConfiguration)
 import           Pos.Client.CLI.NodeOptions (NodeApiArgs (..))
@@ -41,6 +45,21 @@ import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
 import           Pos.Util.Servant
 import           Pos.Web (serveImpl)
 
+type NodeV1Api
+    = "v1"
+    :> ( Node.API
+    :<|> Legacy.NodeApi
+    )
+
+nodeV1Api :: Proxy NodeV1Api
+nodeV1Api = Proxy
+
+launchLegacyNodeApi :: HasBlockConfiguration => IO (Server Legacy.NodeApi)
+launchLegacyNodeApi = do
+    runReaderT
+        Legacy.servantServer
+        (undefined :: RealModeContext ())
+
 launchNodeServer
     :: NodeApiArgs
     -> NtpConfiguration
@@ -58,7 +77,8 @@ launchNodeServer
     diffusion
   = do
     ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
-    let app = serve (Proxy @Node.API)
+    legacyApi <- launchLegacyNodeApi
+    let app = serve nodeV1Api
             $ handlers
                 diffusion
                 ntpStatus
@@ -69,16 +89,16 @@ launchNodeServer
                 slottingVar
                 updateConfiguration
                 compileTimeInfo
+            :<|> legacyApi
 
-    -- Warp.run portNumber app
     serveImpl
         (pure app)
         (BS8.unpack ipAddress)
         portNumber
         (do guard (nodeBackendDebugMode params)
             nodeBackendTLSParams params)
-        (Just $ error "setOnExceptionResponse")
-        (Just $ error "portCallback ctx")
+        Nothing
+        Nothing
   where
     nodeCtx = nrContext nodeResources
     (slottingVarTimestamp, slottingVar) = ncSlottingVar nodeCtx

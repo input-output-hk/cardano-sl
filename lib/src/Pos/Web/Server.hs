@@ -10,6 +10,7 @@ module Pos.Web.Server
        , serveDocImpl
        , withRoute53HealthCheckApplication
        , serveWeb
+       , servantServer
        , application
        ) where
 
@@ -66,7 +67,6 @@ import           Pos.Web.Types (CConfirmedProposalState (..), TlsParams (..))
 type MyWorkMode ctx m =
     ( WorkMode ctx m
     , HasNodeContext ctx -- for ConvertHandler
-    , Default (MempoolExt m)
     )
 
 withRoute53HealthCheckApplication

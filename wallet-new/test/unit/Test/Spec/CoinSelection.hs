@@ -41,9 +41,8 @@ import           Cardano.Wallet.Kernel.CoinSelection (CoinSelFinalResult (..),
                      CoinSelectionOptions (..), ExpenseRegulation (..),
                      InputGrouping (..), estimateMaxTxInputsExplicitBounds,
                      largestFirst, newOptions, random)
-import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
-                     (estimateCardanoFee,
-                     estimateHardMaxTxInputsExplicitBounds)
+import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric (Cardano,
+                     estimateCardanoFee, estimateHardMaxTxInputsExplicitBounds)
 import           Cardano.Wallet.Kernel.Transactions (mkStdTx)
 import           Cardano.Wallet.Kernel.Util.Core (paymentAmount, utxoBalance,
                      utxoRestrictToInputs)
@@ -464,7 +463,7 @@ encodedSize = fromBytes . fromIntegral . LBS.length . toLazyByteString . encode
 
 type Policy = CoinSelectionOptions
            -> Word64
-           -> CoinSelPolicy Core.Utxo Gen CoinSelFinalResult
+           -> CoinSelPolicy Core.Utxo Gen (CoinSelFinalResult Cardano)
 
 type RunResult = ( Core.Utxo
                  , NonEmpty Core.TxOut

@@ -70,6 +70,7 @@ instance IsValue Core.Coin where
                                    else a `Core.unsafeSubCoin` b
   valueRatio  = \  a b -> coinToDouble a / coinToDouble b
   valueAdjust = \r d a -> coinFromDouble r (d * coinToDouble a)
+  valueDiv    = divCoin
 
 instance CoinSelDom Cardano where
   type    Input     Cardano = Core.TxIn
@@ -171,8 +172,9 @@ newOptions estimateFee check = CoinSelectionOptions {
     }
 
 feeOptions :: CoinSelectionOptions -> FeeOptions Cardano
-feeOptions CoinSelectionOptions{..} = FeeOptions{
-      foExpenseRegulation = csoExpenseRegulation
+feeOptions CoinSelectionOptions{..} = FeeOptions
+    { foExpenseRegulation = csoExpenseRegulation
+    , foDustThreshold = csoDustThreshold
     , foEstimate = \numInputs outputs ->
                       case outputs of
                         []   -> error "feeOptions: empty list"
@@ -191,14 +193,6 @@ feeOptions CoinSelectionOptions{..} = FeeOptions{
 type PickUtxo m = forall e. Core.Coin  -- ^ Fee to still cover
                -> CoinSelT Core.Utxo e m (Maybe (Core.TxIn, Core.TxOutAux))
 
-data CoinSelFinalResult = CoinSelFinalResult {
-      csrInputs  :: NonEmpty (Core.TxIn, Core.TxOutAux)
-      -- ^ Picked inputs
-    , csrOutputs :: NonEmpty Core.TxOutAux
-      -- ^ Picked outputs
-    , csrChange  :: [Core.Coin]
-    }
-
 -- | Run coin selection
 --
 -- NOTE: Final UTxO is /not/ returned: coin selection runs /outside/ any wallet
@@ -215,8 +209,8 @@ runCoinSelT :: forall m. Monad m
             -> (forall utxo. PickFromUtxo utxo
                   => NonEmpty (Output (Dom utxo))
                   -> CoinSelT utxo CoinSelHardErr m [CoinSelResult (Dom utxo)])
-            -> CoinSelPolicy Core.Utxo m CoinSelFinalResult
-runCoinSelT opts pickUtxo policy (NE.sortBy (flip (comparing outVal)) -> request) utxo = do
+            -> CoinSelPolicy Core.Utxo m (CoinSelFinalResult Cardano)
+runCoinSelT opts pickUtxo policy (NE.sortBy (flip (comparing outVal)) -> request) =
     -- NOTE: we sort the payees by output value, to maximise our chances of succees.
     -- In particular, let's consider a scenario where:
     --
@@ -233,44 +227,9 @@ runCoinSelT opts pickUtxo policy (NE.sortBy (flip (comparing outVal)) -> request
     --
     -- Therefore, just always considering them in order from large to small
     -- is probably a good idea.
-    mSelection <- unwrapCoinSelT policy' utxo
-    case mSelection of
-      Left err -> return (Left err)
-      Right ((css, additionalUtxo, additionalChange), _utxo') -> do
-        let inps = concatMap selectedEntries
-                     (additionalUtxo : map coinSelInputs css)
-            outs = map coinSelOutput css
-            changesWithDust = splitChange additionalChange $ concatMap coinSelChange css
-        let allInps = case inps of
-                        []   -> error "runCoinSelT: empty list of inputs"
-                        i:is -> i :| is
-            originalOuts = case outs of
-                               []   -> error "runCoinSelT: empty list of outputs"
-                               o:os -> o :| os
-            changes = changesRemoveDust (csoDustThreshold opts) changesWithDust
-        return . Right $ CoinSelFinalResult allInps
-                                            originalOuts
-                                            changes
+    evalCoinSelT policy'
   where
-    -- we should have (x + (sum ls) = sum result), but this check could overflow.
-    splitChange :: Value Cardano -> [Value Cardano] -> [Value Cardano]
-    splitChange = go
-        where
-          go remaining [] = [remaining]
-              -- we only create new change if for whatever reason there is none already
-              -- or if is some overflow happens when we try to add.
-          go remaining [a] = case valueAdd remaining a of
-              Just newChange -> [newChange]
-              Nothing        -> [a, remaining]
-          go remaining ls@(a : as) =
-            let piece = divCoin remaining (length ls)
-                newRemaining = unsafeValueSub remaining piece -- unsafe because of div.
-            in case valueAdd piece a of
-                Just newChange -> newChange : go newRemaining as
-                Nothing        -> a : go remaining as
-
-    policy' :: CoinSelT Core.Utxo CoinSelHardErr m
-                 ([CoinSelResult Cardano], SelectedUtxo Cardano, Value Cardano)
+    policy' :: CoinSelT Core.Utxo CoinSelHardErr m (CoinSelFinalResult Cardano)
     policy' = do
         mapM_ validateOutput request
         css <- intInputGrouping (csoInputGrouping opts)
@@ -346,7 +305,7 @@ validateOutput out =
 random :: forall m. MonadRandom m
        => CoinSelectionOptions
        -> Word64          -- ^ Maximum number of inputs
-       -> CoinSelPolicy Core.Utxo m CoinSelFinalResult
+       -> CoinSelPolicy Core.Utxo m (CoinSelFinalResult Cardano)
 random opts maxInps =
       runCoinSelT opts pickUtxo
     $ Random.random Random.PrivacyModeOn maxInps . NE.toList
@@ -361,7 +320,7 @@ random opts maxInps =
 largestFirst :: forall m. Monad m
              => CoinSelectionOptions
              -> Word64
-             -> CoinSelPolicy Core.Utxo m CoinSelFinalResult
+             -> CoinSelPolicy Core.Utxo m (CoinSelFinalResult Cardano)
 largestFirst opts maxInps =
       runCoinSelT opts pickUtxo
     $ LargestFirst.largestFirst maxInps . NE.toList
@@ -434,8 +393,8 @@ estimateSize saa sta ins outs =
 --         here with some (hopefully) realistic values.
 estimateCardanoFee :: TxSizeLinear -> Int -> [Word64] -> Word64
 estimateCardanoFee linearFeePolicy ins outs
-    = round $ calculateTxSizeLinear linearFeePolicy
-            $ hi $ estimateSize boundAddrAttrSize boundTxAttrSize ins outs
+    = ceiling $ calculateTxSizeLinear linearFeePolicy
+              $ hi $ estimateSize boundAddrAttrSize boundTxAttrSize ins outs
 
 checkCardanoFeeSanity :: TxSizeLinear -> Coin -> Bool
 checkCardanoFeeSanity linearFeePolicy fees =

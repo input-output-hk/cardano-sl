@@ -177,7 +177,7 @@ similar. Run that symlink as a script to start the wallet.
 
 Follow the above instructions for customization and dependencies. To build a docker
 container and import the image run
-(use `connectScripts.staging.wallet` for testnet):
+(use `dockerImages.staging.wallet` for testnet):
 
     docker load < $(nix-build --no-out-link -A dockerImages.mainnet.wallet)
 

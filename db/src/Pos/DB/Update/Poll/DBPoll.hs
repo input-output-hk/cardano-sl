@@ -16,7 +16,7 @@ import qualified Ether
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Lrc (FullRichmenData)
-import           Pos.Chain.Update (HasUpdateConfiguration, MonadPollRead (..))
+import           Pos.Chain.Update (UpdateConfiguration, MonadPollRead (..))
 import           Pos.Core (Coin)
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.Lrc (HasLrcContext, getIssuersStakes,
@@ -30,10 +30,10 @@ import           Pos.Util.Wlog (WithLogger)
 
 data DBPollTag
 
-type DBPoll = Ether.TaggedTrans DBPollTag IdentityT
+type DBPoll = Ether.ReaderT DBPollTag UpdateConfiguration
 
-runDBPoll :: DBPoll m a -> m a
-runDBPoll = coerce
+runDBPoll :: UpdateConfiguration -> DBPoll m a -> m a
+runDBPoll uc action = Ether.runReaderT action uc
 
 instance ( MonadIO m
          , MonadDBRead m
@@ -41,7 +41,6 @@ instance ( MonadIO m
          , WithLogger m
          , MonadReader ctx m
          , HasLrcContext ctx
-         , HasUpdateConfiguration
          ) =>
          MonadPollRead (DBPoll m) where
     getBVState = GS.getBVState
@@ -52,7 +51,9 @@ instance ( MonadIO m
     getLastConfirmedSV = GS.getConfirmedSV
     getProposal = GS.getProposalState
     getProposalsByApp = GS.getProposalsByApp
-    getConfirmedProposals = GS.getConfirmedProposals Nothing
+    getConfirmedProposals = do
+        uc <- Ether.ask @DBPollTag
+        GS.getConfirmedProposals uc Nothing
     getEpochTotalStake genesisBvd e = fmap fst <$> tryGetUSRichmen genesisBvd e
     getRichmanStake genesisBvd e id =
         (findStake =<<) <$> tryGetUSRichmen genesisBvd e
@@ -62,7 +63,7 @@ instance ( MonadIO m
     getOldProposals = GS.getOldProposals
     getDeepProposals = GS.getDeepProposals
     getBlockIssuerStake epoch id =
-        lrcActionOnEpochReason epoch
+        lift $ lrcActionOnEpochReason epoch
             "couldn't get issuers's stakes"
             (fmap (Just . HM.lookup id) . getIssuersStakes)
     getSlottingData = GS.getSlottingData

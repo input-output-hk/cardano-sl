@@ -16,7 +16,7 @@ import           Formatting (build, sformat, (%))
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Genesis as Genesis (Config)
-import           Pos.Chain.Update (HasUpdateConfiguration, UpdateParams,
+import           Pos.Chain.Update (UpdateConfiguration, UpdateParams,
                      UpdateProposal (..), UpdateVote (..))
 import           Pos.DB.Class (MonadDB, MonadGState)
 import           Pos.DB.Lrc (HasLrcContext)
@@ -42,10 +42,10 @@ type UpdateMode ctx m
       , MonadReader ctx m
       , HasLrcContext ctx
       , HasLens UpdateContext ctx UpdateContext
+      , HasLens UpdateConfiguration ctx UpdateConfiguration
       , HasLens UpdateParams ctx UpdateParams
       , HasLens StateLock ctx StateLock
       , HasShutdownContext ctx
-      , HasUpdateConfiguration
       , MonadReporting m
       , MonadRecoveryInfo ctx m
       , MonadSlots ctx m

@@ -20,6 +20,7 @@ import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
 
 import           Pos.Chain.Block (HasSlogContext (..), HasSlogGState (..))
+import           Pos.Chain.Update (UpdateConfiguration)
 import           Pos.Chain.Delegation (DelegationVar)
 import           Pos.Chain.Ssc (SscMemTag, SscState)
 import           Pos.Context (HasNodeContext (..), HasPrimaryKey (..),
@@ -70,6 +71,7 @@ data RealModeContext ext = RealModeContext
       -- 'MonadReporting (RealMode ext)' in the mean-time, until we
       -- re-architecht the reporting system so that it's not built-in to the
       -- application's monad.
+    , rmcUpdateConfiguration :: !(UpdateConfiguration)
     }
 
 type EmptyMempoolExt = ()
@@ -80,6 +82,9 @@ makeLensesWith postfixLFields ''RealModeContext
 
 instance HasLens NodeDBs (RealModeContext ext) NodeDBs where
     lensOf = rmcNodeDBs_L
+
+instance HasLens UpdateConfiguration (RealModeContext ext) UpdateConfiguration where
+    lensOf = rmcUpdateConfiguration_L
 
 instance HasLens NodeContext (RealModeContext ext) NodeContext where
     lensOf = rmcNodeContext_L
@@ -151,13 +156,6 @@ instance MonadSlotsData ctx (RealMode ext) => MonadSlots ctx (RealMode ext) wher
 
 instance MonadGState (RealMode ext) where
     gsAdoptedBVData = gsAdoptedBVDataDefault
-
-instance MonadDBRead (RealMode ext) where
-    dbGet = dbGetDefault
-    dbIterSource = dbIterSourceDefault
-    dbGetSerBlock = dbGetSerBlockRealDefault
-    dbGetSerUndo = dbGetSerUndoRealDefault
-    dbGetSerBlund = dbGetSerBlundRealDefault
 
 instance MonadDB (RealMode ext) where
     dbPut = dbPutDefault

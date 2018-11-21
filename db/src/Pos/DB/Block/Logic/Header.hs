@@ -44,7 +44,7 @@ import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Delegation (dlgVerifyHeader, runDBCede)
 import qualified Pos.DB.GState.Common as GS (getTip)
 import qualified Pos.DB.Lrc as LrcDB
-import           Pos.DB.Update (getAdoptedBVFull)
+import           Pos.DB.Update.GState (getAdoptedBVFull)
 import           Pos.Util.Wlog (WithLogger, logDebug)
 
 -- | Result of single (new) header classification.

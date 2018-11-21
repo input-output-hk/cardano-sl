@@ -82,8 +82,7 @@ import qualified Pos.DB.Block as DB
 import           Pos.DB.BlockIndex (getTipHeader)
 import           Pos.DB.Class (MonadDBRead (..), getBlock)
 import           Pos.DB.GState.Lock (StateLock, withStateLockNoMetrics)
-import           Pos.DB.Rocks.Functions (dbGetDefault, dbIterSourceDefault)
-import           Pos.DB.Rocks.Types (NodeDBs)
+import           Pos.DB.Rocks (NodeDBs, dbGetDefault, dbIterSourceDefault)
 import           Pos.DB.Txp.Utxo (utxoSource)
 import           Pos.DB.Update (UpdateContext, getAdoptedBVData,
                      ucDownloadedUpdate)

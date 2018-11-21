@@ -29,7 +29,7 @@ import           Pos.Chain.Block (ApplyBlocksException (..), Block, Blund,
                      VerifyBlocksException (..), headerHashG, prevBlockL)
 import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots)
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Chain.Update (PollModifier)
+import           Pos.Chain.Update (PollModifier, UpdateConfiguration)
 import           Pos.Core (epochIndexL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toNewestFirst, toOldestFirst)
@@ -48,7 +48,8 @@ import qualified Pos.DB.GState.Common as GS (getTip)
 import           Pos.DB.Ssc (sscVerifyBlocks)
 import           Pos.DB.Txp.Settings
                      (TxpGlobalSettings (TxpGlobalSettings, tgsVerifyBlocks))
-import           Pos.DB.Update (getAdoptedBV, usVerifyBlocks)
+import           Pos.DB.Update.GState (getAdoptedBV)
+import           Pos.DB.Update.Global (usVerifyBlocks)
 import           Pos.Util (neZipWith4, spanSafe, _neHead)
 import           Pos.Util.Util (HasLens (..))
 import           Pos.Util.Wlog (logDebug)
@@ -88,7 +89,8 @@ verifyBlocksPrefix genesisConfig currentSlot blocks = runExceptT $ do
     -- Some verifications need to know whether all data must be known.
     -- We determine it here and pass to all interested components.
     adoptedBV <- lift getAdoptedBV
-    let dataMustBeKnown = mustDataBeKnown adoptedBV
+    uc <- view (lensOf @UpdateConfiguration)
+    let dataMustBeKnown = mustDataBeKnown uc adoptedBV
 
     -- Run verification of each component.
     -- 'slogVerifyBlocks' uses 'Pos.Chain.Block.Pure.verifyBlocks' which does

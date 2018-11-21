@@ -84,7 +84,7 @@ type ExplorerMode ctx m =
     -- Genesis operations
     , MonadTxpMem (MempoolExt m) ctx m
     -- Txp, could be @TxpLocalWorkMode@
-    , MinWorkMode m
+    , MinWorkMode ctx m
     -- The rest of the constraints - logger, mockable, configurations
     )
 

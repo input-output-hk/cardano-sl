@@ -27,8 +27,6 @@ library
                        Pos.DB.Pure
                        Pos.DB.Sum
                        Pos.DB.Rocks
-                       Pos.DB.Rocks.Functions
-                       Pos.DB.Rocks.Types
 
                        Pos.DB.Txp
                        Pos.DB.Txp.Logic

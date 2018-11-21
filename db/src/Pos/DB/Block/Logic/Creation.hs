@@ -36,7 +36,7 @@ import           Pos.Chain.Ssc (MonadSscMem, SscPayload, defaultSscPayload,
                      stripSscPayload)
 import           Pos.Chain.Txp (TxAux (..), TxpConfiguration, emptyTxPayload,
                      mkTxPayload)
-import           Pos.Chain.Update (HasUpdateConfiguration, UpdatePayload (..),
+import           Pos.Chain.Update (UpdateConfiguration, UpdatePayload (..),
                      curSoftwareVersion, lastKnownBlockVersion)
 import           Pos.Core (BlockCount, EpochIndex, EpochOrSlot (..),
                      SlotId (..), epochIndexL, flattenSlotId, getEpochOrSlot,
@@ -66,16 +66,17 @@ import qualified Pos.DB.Lrc as LrcDB
 import           Pos.DB.Ssc (sscGetLocalPayload, sscResetLocal)
 import           Pos.DB.Txp (MempoolExt, MonadTxpLocal (..), MonadTxpMem,
                      clearTxpMemPool, txGetPayload, withTxpLocalData)
-import           Pos.DB.Update (UpdateContext, clearUSMemPool, getMaxBlockSize,
-                     usCanCreateBlock, usPreparePayload)
+import           Pos.DB.Update.Context (UpdateContext)
+import Pos.DB.Update.Logic.Local (clearUSMemPool, usPreparePayload)
+import Pos.DB.Update.GState (getMaxBlockSize)
+import Pos.DB.Update.Logic.Global (usCanCreateBlock, usPreparePayload)
 import           Pos.Util (_neHead)
 import           Pos.Util.Util (HasLens (..), HasLens')
 import           Pos.Util.Wlog (WithLogger, logDebug)
 
 -- | A set of constraints necessary to create a block from mempool.
 type MonadCreateBlock ctx m
-     = ( HasUpdateConfiguration
-       , MonadReader ctx m
+     = ( MonadReader ctx m
        , HasPrimaryKey ctx
        , HasSlogGState ctx -- to check chain quality
        , WithLogger m
@@ -84,6 +85,7 @@ type MonadCreateBlock ctx m
        , MonadMask m
        , HasLrcContext ctx
        , LrcModeFull ctx m
+       , HasLens' ctx UpdateConfiguration
 
        -- Mempools
        , HasLens DelegationVar ctx DelegationVar
@@ -320,8 +322,8 @@ canCreateBlock k sId tipHeader =
     tipEOS = getEpochOrSlot tipHeader
 
 createMainBlockPure
-    :: forall m.
-       (MonadError Text m, HasUpdateConfiguration)
+    :: forall m ctx.
+       (MonadError Text m, HasLens' ctx UpdateConfiguration, MonadReader ctx m)
     => Genesis.Config
     -> Byte                   -- ^ Block size limit (real max.value)
     -> BlockHeader
@@ -331,21 +333,22 @@ createMainBlockPure
     -> RawPayload
     -> m MainBlock
 createMainBlockPure genesisConfig limit prevHeader pske sId sk rawPayload = do
-    bodyLimit <- execStateT computeBodyLimit limit
+    uc <- view (lensOf @UpdateConfiguration)
+    bodyLimit <- execStateT (computeBodyLimit uc) limit
     body <- createMainBody k bodyLimit sId rawPayload
-    pure (mkMainBlock pm bv sv (Right prevHeader) sId sk pske body)
+    pure (mkMainBlock pm (bv uc) (sv uc) (Right prevHeader) sId sk pske body)
   where
     k = configBlkSecurityParam genesisConfig
     pm = configProtocolMagic genesisConfig
     -- default ssc to put in case we won't fit a normal one
     defSsc :: SscPayload
     defSsc = defaultSscPayload k (siSlot sId)
-    computeBodyLimit :: StateT Byte m ()
-    computeBodyLimit = do
+    computeBodyLimit :: UpdateConfiguration -> StateT Byte m ()
+    computeBodyLimit uc = do
         -- account for block header and serialization overhead, etc;
         let musthaveBody = BC.MainBody emptyTxPayload defSsc def def
         let musthaveBlock =
-                mkMainBlock pm bv sv (Right prevHeader) sId sk pske musthaveBody
+                mkMainBlock pm (bv uc) (sv uc) (Right prevHeader) sId sk pske musthaveBody
         let mhbSize = biSize musthaveBlock
         when (mhbSize > limit) $ throwError $
             "Musthave block size is more than limit: " <> show mhbSize

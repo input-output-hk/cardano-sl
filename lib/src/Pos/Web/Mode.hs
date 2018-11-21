@@ -11,6 +11,7 @@ import           Universum
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
 
+import           Pos.Chain.Update (UpdateConfiguration)
 import           Pos.Context (HasPrimaryKey (..), HasSscContext (..),
                      NodeContext)
 import           Pos.DB (NodeDBs)
@@ -25,9 +26,10 @@ import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.Util (HasLens (..))
 
 data WebModeContext ext = WebModeContext
-    { wmcNodeDBs      :: !NodeDBs
-    , wmcTxpLocalData :: !(GenericTxpLocalData ext)
-    , wmcNodeContext  :: !NodeContext
+    { wmcNodeDBs             :: !NodeDBs
+    , wmcTxpLocalData        :: !(GenericTxpLocalData ext)
+    , wmcNodeContext         :: !NodeContext
+    , wmcUpdateConfiguration :: !UpdateConfiguration
     }
 
 makeLensesWith postfixLFields ''WebModeContext
@@ -37,6 +39,10 @@ instance HasLens NodeDBs (WebModeContext ext) NodeDBs where
 
 instance HasLens TxpHolderTag (WebModeContext ext) (GenericTxpLocalData ext) where
     lensOf = wmcTxpLocalData_L
+
+instance HasLens UpdateConfiguration (WebModeContext ext) UpdateConfiguration where
+    lensOf = wmcUpdateConfiguration_L
+
 
 instance {-# OVERLAPPABLE #-}
     HasLens tag NodeContext r =>

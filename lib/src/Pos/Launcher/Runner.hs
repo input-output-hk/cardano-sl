@@ -27,8 +27,8 @@ import           Pos.Chain.Block (HasBlockConfiguration, recoveryHeadersMessage,
                      streamWindow)
 import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Chain.Update (HasUpdateConfiguration,
-                     lastKnownBlockVersion)
+import           Pos.Chain.Update (UpdateConfiguration,
+                     lastKnownBlockVersion, updateConfiguration)
 import           Pos.Configuration (HasNodeConfiguration,
                      networkConnectionTimeout)
 import           Pos.Context.Context (NodeContext (..))
@@ -76,18 +76,21 @@ runRealMode
        -- explorer and wallet use RealMode,
        -- though they should use only @RealModeContext@
        )
-    => Genesis.Config
+    => UpdateConfiguration
+    -> Genesis.Config
     -> TxpConfiguration
     -> NodeResources ext
     -> (Diffusion (RealMode ext) -> RealMode ext a)
     -> IO a
-runRealMode genesisConfig txpConfig nr@NodeResources {..} act = runServer
-    genesisConfig
-    ncNodeParams
-    (EkgNodeMetrics nrEkgStore)
-    ncShutdownContext
-    makeLogicIO
-    act'
+runRealMode uc genesisConfig txpConfig nr@NodeResources {..} act =
+    runServer
+        updateConfiguration
+        genesisConfig
+        ncNodeParams
+        (EkgNodeMetrics nrEkgStore)
+        ncShutdownContext
+        makeLogicIO
+        act'
   where
     NodeContext {..} = nrContext
     NodeParams {..}  = ncNodeParams
@@ -98,24 +101,25 @@ runRealMode genesisConfig txpConfig nr@NodeResources {..} act = runServer
     logic = logicFull genesisConfig txpConfig ourStakeholderId securityParams jsonLog
     pm = configProtocolMagic genesisConfig
     makeLogicIO :: Diffusion IO -> Logic IO
-    makeLogicIO diffusion = hoistLogic (elimRealMode pm nr diffusion) logic
+    makeLogicIO diffusion = hoistLogic (elimRealMode uc pm nr diffusion) logic
     act' :: Diffusion IO -> IO a
     act' diffusion =
-        let diffusion' = hoistDiffusion liftIO (elimRealMode pm nr diffusion) diffusion
-         in elimRealMode pm nr diffusion (act diffusion')
+        let diffusion' = hoistDiffusion liftIO (elimRealMode uc pm nr diffusion) diffusion
+         in elimRealMode uc pm nr diffusion (act diffusion')
 
 -- | RealMode runner: creates a JSON log configuration and uses the
 -- resources provided to eliminate the RealMode, yielding an IO.
 elimRealMode
     :: forall t ext
      . HasCompileInfo
-    => ProtocolMagic
+    => UpdateConfiguration
+    -> ProtocolMagic
     -> NodeResources ext
     -> Diffusion IO
     -> RealMode ext t
     -> IO t
-elimRealMode pm NodeResources {..} diffusion action = do
-    Mtl.runReaderT action (rmc nrJsonLogConfig)
+elimRealMode uc pm NodeResources {..} diffusion action = do
+    Mtl.runReaderT action rmc
   where
     NodeContext {..} = nrContext
     NodeParams {..} = ncNodeParams
@@ -128,15 +132,16 @@ elimRealMode pm NodeResources {..} diffusion action = do
         , prpTrace           = wlogTrace "reporter"
         , prpProtocolMagic   = pm
         }
-    rmc jlConf = RealModeContext
+    rmc = RealModeContext
         nrDBs
         nrSscState
         nrTxpState
         nrDlgState
-        jlConf
+        nrJsonLogConfig
         lpDefaultName
         nrContext
         (productionReporter reporterParams diffusion)
+        uc
 
 -- | "Batteries-included" server.
 -- Bring up a full diffusion layer over a TCP transport and use it to run some
@@ -147,15 +152,16 @@ elimRealMode pm NodeResources {..} diffusion action = do
 -- number.
 runServer
     :: forall t
-     . (HasBlockConfiguration, HasNodeConfiguration, HasUpdateConfiguration)
-    => Genesis.Config
+     . (HasBlockConfiguration, HasNodeConfiguration)
+    => UpdateConfiguration
+    -> Genesis.Config
     -> NodeParams
     -> EkgNodeMetrics
     -> ShutdownContext
     -> (Diffusion IO -> Logic IO)
     -> (Diffusion IO -> IO t)
     -> IO t
-runServer genesisConfig NodeParams {..} ekgNodeMetrics shdnContext mkLogic act = exitOnShutdown npFInjects $
+runServer uc genesisConfig NodeParams {..} ekgNodeMetrics shdnContext mkLogic act = exitOnShutdown npFInjects $
     diffusionLayerFull fdconf
                        npNetworkConfig
                        (Just ekgNodeMetrics)
@@ -174,7 +180,7 @@ runServer genesisConfig NodeParams {..} ekgNodeMetrics shdnContext mkLogic act =
         { fdcProtocolMagic = configProtocolMagic genesisConfig
         , fdcProtocolConstants = configProtocolConstants genesisConfig
         , fdcRecoveryHeadersMessage = recoveryHeadersMessage
-        , fdcLastKnownBlockVersion = lastKnownBlockVersion
+        , fdcLastKnownBlockVersion = lastKnownBlockVersion uc
         , fdcConvEstablishTimeout = networkConnectionTimeout
         , fdcTrace = wlogTrace "diffusion"
         , fdcStreamWindow = streamWindow

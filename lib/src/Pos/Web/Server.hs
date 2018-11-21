@@ -43,7 +43,7 @@ import           UnliftIO (MonadUnliftIO)
 import           Network.Socket (Socket, close)
 import           Pos.Chain.Ssc (scParticipateSsc)
 import           Pos.Chain.Txp (TxOut (..), toaOut)
-import           Pos.Chain.Update (HasUpdateConfiguration)
+import           Pos.Chain.Update (UpdateConfiguration)
 import           Pos.Context (HasNodeContext (..), HasSscContext (..),
                      NodeContext, getOurPublicKey)
 import           Pos.Core (EpochIndex (..), SlotLeaders)
@@ -54,8 +54,9 @@ import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
                      getAllPotentiallyHugeUtxo, getLocalTxs, withTxpLocalData)
 import qualified Pos.GState as GS
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
+import           Pos.Util.Util (HasLens', lensOf)
 import           Pos.Web.Mode (WebMode, WebModeContext (..))
-import           Pos.WorkMode.Class (WorkMode)
+import           Pos.WorkMode.Class  (WorkMode)
 
 import           Pos.Web.Api (HealthCheckApi, NodeApi, healthCheckApi, nodeApi)
 import           Pos.Web.Types (CConfirmedProposalState (..), TlsParams (..))
@@ -216,17 +217,18 @@ tlsWithClientCheck host port TlsParams{..} = tlsSettings
 ----------------------------------------------------------------------------
 
 convertHandler
-    :: forall ext a.
-       NodeContext
+    :: forall ext a
+    . UpdateConfiguration
+    -> NodeContext
     -> DB.NodeDBs
     -> GenericTxpLocalData ext
     -> WebMode ext a
     -> Handler a
-convertHandler nc nodeDBs txpData handler =
+convertHandler uc nc nodeDBs txpData handler =
     liftIO
         (Mtl.runReaderT
              handler
-             (WebModeContext nodeDBs txpData nc)) `E.catches`
+             (WebModeContext nodeDBs txpData nc uc)) `E.catches`
     excHandlers
   where
     excHandlers = [E.Handler catchServant]
@@ -238,9 +240,10 @@ withNat
     => Proxy api -> ServerT api (WebMode ext) -> m (Server api)
 withNat apiP handlers = do
     nc <- view nodeContext
+    uc <- view (lensOf @UpdateConfiguration)
     nodeDBs <- DB.getNodeDBs
     txpLocalData <- withTxpLocalData return
-    return $ hoistServer apiP (convertHandler nc nodeDBs txpLocalData) handlers
+    return $ hoistServer apiP (convertHandler uc nc nodeDBs txpLocalData) handlers
 
 servantServer
     :: forall ctx m.
@@ -253,7 +256,7 @@ servantServer = withNat (Proxy @NodeApi) nodeServantHandlers
 ----------------------------------------------------------------------------
 
 nodeServantHandlers
-    :: (HasUpdateConfiguration, Default ext)
+    :: (Default ext)
     => ServerT NodeApi (WebMode ext)
 nodeServantHandlers =
     getLeaders
@@ -289,10 +292,11 @@ getLocalTxsNum = fromIntegral . length <$> withTxpLocalData getLocalTxs
 
 -- | Get info on all confirmed proposals
 confirmedProposals
-    :: (HasUpdateConfiguration, MonadDBRead m, MonadUnliftIO m)
+    :: (MonadDBRead m, MonadUnliftIO m, MonadReader r m, HasLens' r UpdateConfiguration)
     => m [CConfirmedProposalState]
 confirmedProposals = do
-    proposals <- GS.getConfirmedProposals Nothing
+    uc <- view (lensOf @UpdateConfiguration)
+    proposals <- GS.getConfirmedProposals uc Nothing
     pure $ map (CConfirmedProposalState . show) proposals
 
 toggleSscParticipation :: Bool -> WebMode ext ()

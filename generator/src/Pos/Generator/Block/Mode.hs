@@ -128,6 +128,7 @@ data BlockGenContext ext = BlockGenContext
     -- ^ During block generation we don't want to use real time, but
     -- rather want to set current slot (fake one) by ourselves.
     , bgcTxpGlobalSettings :: !TxpGlobalSettings
+    , bgcUpdateConfiguration :: !UpdateConfiguration
     }
 
 makeLensesWith postfixLFields ''BlockGenContext
@@ -194,6 +195,9 @@ type InitBlockGenMode ext m = ReaderT InitBlockGenContext m
 instance HasLens DBSum InitBlockGenContext DBSum where
     lensOf = ibgcDB_L
 
+instance HasLens DBSum InitBlockGenContext DBSum where
+    lensOf = ibgcDB_L
+
 instance HasLens LrcContext InitBlockGenContext LrcContext where
     lensOf = ibgcLrcContext_L
 
@@ -246,6 +250,9 @@ instance HasSlottingVar (BlockGenContext ext) where
 
 instance HasLens GenesisWStakeholders (BlockGenContext ext) GenesisWStakeholders where
     lensOf = bgcGenStakeholders_L
+
+instance HasLens UpdateConfiguration (BlockGenContext ext) UpdateConfiguration where
+    lensOf = bgcUpdateConfiguration_L
 
 instance HasLens DBSum (BlockGenContext ext) DBSum where
     lensOf = GS.gStateContext . GS.gscDB

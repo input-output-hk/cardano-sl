@@ -33,8 +33,7 @@ import qualified Pos.DB.BlockIndex as DB
 import qualified Pos.DB.Class as DB
 import           Pos.DB.GState.Lock (Priority (..), StateLock,
                      withStateLockNoMetrics)
-import qualified Pos.DB.Rocks.Functions as DB
-import qualified Pos.DB.Rocks.Types as DB
+import qualified Pos.DB.Rocks as DB
 import           Pos.Infra.Diffusion.Subscription.Status (ssMap)
 import           Pos.Infra.Diffusion.Types
 import qualified Pos.Infra.Slotting.Util as Slotting
@@ -61,7 +60,8 @@ launchLegacyNodeApi = do
         (undefined :: RealModeContext ())
 
 launchNodeServer
-    :: NodeApiArgs
+    :: HasBlockConfiguration
+    => NodeApiArgs
     -> NtpConfiguration
     -> NodeResources ext
     -> UpdateConfiguration
@@ -137,7 +137,7 @@ getNodeSettings compileInfo updateConfiguration timestamp slottingVar = do
         { setSlotDuration =
             slotDuration
         , setSoftwareInfo =
-            V1 (withUpdateConfiguration updateConfiguration curSoftwareVersion)
+            V1 (curSoftwareVersion updateConfiguration)
         , setProjectVersion =
             V1 Paths.version
         , setGitRevision =
@@ -283,16 +283,6 @@ instance HasLens StateLock InfoCtx StateLock where
 instance HasLens LastKnownHeaderTag InfoCtx LastKnownHeader where
     lensOf =
         lens infoCtxLastKnownHeader (\i s -> i { infoCtxLastKnownHeader = s })
-
-instance
-    (HasLens' r DB.NodeDBs, MonadCatch m, MonadIO m)
-    => DB.MonadDBRead (ReaderT r m)
-  where
-    dbGet = DB.dbGetDefault
-    dbIterSource = DB.dbIterSourceDefault
-    dbGetSerBlock = DB.dbGetSerBlockRealDefault
-    dbGetSerUndo = DB.dbGetSerUndoRealDefault
-    dbGetSerBlund = DB.dbGetSerBlundRealDefault
 
 getNodeSyncProgress
     ::

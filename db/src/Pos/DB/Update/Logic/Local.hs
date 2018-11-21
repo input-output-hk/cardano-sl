@@ -36,8 +36,8 @@ import           UnliftIO (MonadUnliftIO)
 import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Genesis as Genesis (Config, configBlockVersionData)
-import           Pos.Chain.Update (BlockVersionData (..),
-                     HasUpdateConfiguration, MonadPoll (deactivateProposal),
+import           Pos.Chain.Update (BlockVersionData (..), UpdateConfiguration,
+                     MonadPoll (deactivateProposal),
                      MonadPollRead (getProposal), PollModifier,
                      PollVerFailure (..), UpId, UpdatePayload (..),
                      UpdateProposal, UpdateVote (..), canCombineVotes,
@@ -61,6 +61,7 @@ import           Pos.DB.Update.Poll.Logic.Normalize (filterProposalsByThd,
                      normalizePoll, refreshPoll)
 import           Pos.Util.Util (HasLens (..), HasLens')
 import           Pos.Util.Wlog (WithLogger, logWarning)
+import Pos.Util.Util (lensOf', HasLens')
 
 type USLocalLogicMode ctx m =
     ( MonadIO m
@@ -68,9 +69,9 @@ type USLocalLogicMode ctx m =
     , MonadUnliftIO m
     , WithLogger m
     , MonadReader ctx m
-    , HasLens UpdateContext ctx UpdateContext
+    , HasLens' ctx UpdateConfiguration
+    , HasLens' ctx UpdateContext
     , HasLrcContext ctx
-    , HasUpdateConfiguration
     )
 
 type USLocalLogicModeWithLock ctx m =
@@ -124,10 +125,8 @@ modifyMemState action = do
 -- Data exchange in general
 ----------------------------------------------------------------------------
 
-processSkeleton ::
-       ( USLocalLogicModeWithLock ctx m
-       , MonadReporting m
-       )
+processSkeleton
+    :: (USLocalLogicModeWithLock ctx m , MonadReporting m)
     => Genesis.Config
     -> UpdatePayload
     -> m (Either PollVerFailure ())
@@ -156,8 +155,9 @@ processSkeleton genesisConfig payload =
         processSkeletonDo msIntermediate
   where
     processSkeletonDo ms@MemState {..} = do
+        uc <- view (lensOf' @UpdateConfiguration)
         modifierOrFailure <-
-            lift . runDBPoll . runExceptT . evalPollT msModifier . execPollT def $ do
+            lift . runDBPoll uc . runExceptT . evalPollT msModifier . execPollT def $ do
                 lastAdopted <- getAdoptedBV
                 verifyAndApplyUSPayload genesisConfig lastAdopted True (Left msSlot) payload
         case modifierOrFailure of
@@ -174,12 +174,13 @@ refreshMemPool
        , MonadReader ctx m
        , HasLrcContext ctx
        , WithLogger m
-       , HasUpdateConfiguration
+       , HasLens' ctx UpdateConfiguration
        )
     => BlockVersionData -> MemState -> m MemState
 refreshMemPool genesisBvd ms@MemState {..} = do
     let MemPool {..} = msPool
-    ((newProposals, newVotes), newModifier) <- runDBPoll . runPollT def
+    uc <- view (lensOf' @UpdateConfiguration)
+    ((newProposals, newVotes), newModifier) <- runDBPoll uc . runPollT def
         $ refreshPoll genesisBvd msSlot mpProposals mpLocalVotes
     let newPool =
             MemPool
@@ -241,7 +242,8 @@ isVoteNeeded
     => UpId -> PublicKey -> Bool -> m Bool
 isVoteNeeded propId pk decision = do
     modifier <- getPollModifier
-    runDBPoll . evalPollT modifier $ do
+    uc <- view (lensOf' @UpdateConfiguration)
+    runDBPoll uc . evalPollT modifier $ do
         proposal <- getProposal propId
         case proposal of
             Nothing -> pure False
@@ -286,7 +288,10 @@ processVote genesisConfig vote =
 -- current GState.  This function assumes that GState is locked. It
 -- tries to leave as much data as possible. It assumes that
 -- 'stateLock' is taken.
-usNormalize :: USLocalLogicMode ctx m => BlockVersionData -> m ()
+usNormalize
+    :: USLocalLogicMode ctx m
+    => BlockVersionData
+    -> m ()
 usNormalize genesisBvd = do
     tip <- DB.getTip
     stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
@@ -298,12 +303,16 @@ usNormalize genesisBvd = do
 -- GState.
 usNormalizeDo
     :: USLocalLogicMode ctx m
-    => BlockVersionData -> Maybe HeaderHash -> Maybe SlotId -> m MemState
+    => BlockVersionData
+    -> Maybe HeaderHash
+    -> Maybe SlotId
+    -> m MemState
 usNormalizeDo genesisBvd tip slot = do
     stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
     ms@MemState {..} <- readTVarIO stateVar
     let MemPool {..} = msPool
-    ((newProposals, newVotes), newModifier) <- runDBPoll . runPollT def
+    uc <- view (lensOf' @UpdateConfiguration)
+    ((newProposals, newVotes), newModifier) <- runDBPoll uc . runPollT def
         $ normalizePoll genesisBvd msSlot mpProposals mpLocalVotes
     let newTip = fromMaybe msTip tip
     let newSlot = fromMaybe msSlot slot
@@ -324,11 +333,18 @@ usNormalizeDo genesisBvd tip slot = do
 
 -- | Update memory state to make it correct for given slot.
 processNewSlot
-    :: USLocalLogicModeWithLock ctx m => BlockVersionData -> SlotId -> m ()
+    :: USLocalLogicModeWithLock ctx m
+    => BlockVersionData
+    -> SlotId
+    -> m ()
 processNewSlot genesisBvd slotId =
     withUSLock $ processNewSlotNoLock genesisBvd slotId
 
-processNewSlotNoLock :: USLocalLogicMode ctx m => BlockVersionData -> SlotId -> m ()
+processNewSlotNoLock
+    :: USLocalLogicMode ctx m
+    => BlockVersionData
+    -> SlotId
+    -> m ()
 processNewSlotNoLock genesisBvd slotId = modifyMemState $ \ms@MemState{..} -> do
     if | msSlot >= slotId -> pure ms
        -- Crucial changes happen only when epoch changes.
@@ -346,8 +362,8 @@ processNewSlotNoLock genesisBvd slotId = modifyMemState $ \ms@MemState{..} -> do
 -- If we can't obtain payload for block creation, we use empty
 -- payload, because it's important to create blocks for system
 -- maintenance (empty blocks are better than no blocks).
-usPreparePayload ::
-       USLocalLogicMode ctx m
+usPreparePayload
+    :: USLocalLogicMode ctx m
     => BlockVersionData
     -> HeaderHash
     -> SlotId
@@ -370,6 +386,7 @@ usPreparePayload genesisBvd neededTip slotId@SlotId{..} = do
     preparePayloadDo = do
         -- Normalization is done just in case, as said before
         MemState {..} <- usNormalizeDo genesisBvd Nothing (Just slotId)
+        uc <- view (lensOf' @UpdateConfiguration)
         -- If slot doesn't match, we can't provide payload for this slot.
         if | msSlot /= slotId -> def <$
                logWarning (sformat slotMismatchFmt msSlot slotId)
@@ -379,9 +396,9 @@ usPreparePayload genesisBvd neededTip slotId@SlotId{..} = do
                -- Here we remove proposals which don't have enough
                -- positive stake for inclusion into payload.
                let MemPool {..} = msPool
-               (filteredProposals, bad) <- runDBPoll . evalPollT msModifier $
+               (filteredProposals, bad) <- runDBPoll uc . evalPollT msModifier $
                    filterProposalsByThd genesisBvd siEpoch mpProposals
-               runDBPoll . evalPollT msModifier $
+               runDBPoll uc . evalPollT msModifier $
                    finishPrepare bad filteredProposals mpLocalVotes
     slotMismatchFmt = "US payload can't be created due to slot mismatch "%
                       "(our payload is for "%

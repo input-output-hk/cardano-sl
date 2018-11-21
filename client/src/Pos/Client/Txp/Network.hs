@@ -38,8 +38,9 @@ import           Pos.Util.Util (eitherToThrow)
 import           Pos.Util.Wlog (logInfo)
 import           Pos.WorkMode.Class (MinWorkMode)
 
-type TxMode m
-    = ( MinWorkMode m
+-- TODO: update uses
+type TxMode ctx m
+    = ( MinWorkMode ctx m
       , MonadBalances m
       , MonadTxHistory m
       , MonadMask m
@@ -49,7 +50,7 @@ type TxMode m
 
 -- | Construct Tx using multiple secret keys and given list of desired outputs.
 prepareMTx
-    :: TxMode m
+    :: TxMode ctx m
     => Genesis.Config
     -> (Address -> Maybe SafeSigner)
     -> PendingAddresses
@@ -65,7 +66,7 @@ prepareMTx genesisConfig hdwSigners pendingAddrs inputSelectionPolicy addrs outp
 
 -- | Construct unsigned Tx
 prepareUnsignedTx
-    :: TxMode m
+    :: TxMode ctx m
     => Genesis.Config
     -> PendingAddresses
     -> InputSelectionPolicy
@@ -79,7 +80,7 @@ prepareUnsignedTx genesisConfig pendingAddrs inputSelectionPolicy addrs outputs 
 
 -- | Construct redemption Tx using redemption secret key and a output address
 prepareRedemptionTx
-    :: TxMode m
+    :: TxMode ctx m
     => Genesis.Config
     -> RedeemSecretKey
     -> Address
@@ -99,7 +100,7 @@ prepareRedemptionTx genesisConfig rsk output = do
 
 -- | Send the ready-to-use transaction
 submitTxRaw
-    :: (MinWorkMode m)
+    :: (MinWorkMode ctx m)
     => Diffusion m -> TxAux -> m Bool
 submitTxRaw diffusion txAux@TxAux {..} = do
     let txId = hash taTx

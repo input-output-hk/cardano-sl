@@ -22,7 +22,7 @@ import           Pos.Chain.Block (ComponentBlock (..), headerHashG,
 import           Pos.Chain.Genesis as Genesis (Config, configBlkSecurityParam)
 import           Pos.Chain.Update (ApplicationName, BlockVersion,
                      BlockVersionData, BlockVersionState,
-                     ConfirmedProposalState, HasUpdateConfiguration, MonadPoll,
+                     ConfirmedProposalState, UpdateConfiguration, MonadPoll,
                      NumSoftwareVersion, PollModifier (..), PollT,
                      PollVerFailure, ProposalState, SoftwareVersion (..),
                      USUndo, UpId, UpdatePayload, blockVersionL, execPollT,
@@ -46,6 +46,7 @@ import           Pos.DB.Update.Poll.Logic.Softfork (processGenesisBlock,
 import           Pos.Util.AssertMode (inAssertMode)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Wlog (WithLogger, modifyLoggerName)
+import Pos.Util.Util (lensOf, HasLens')
 
 
 ----------------------------------------------------------------------------
@@ -63,7 +64,7 @@ type USGlobalVerifyMode ctx m =
     , MonadIO m
     , MonadReader ctx m
     , HasLrcContext ctx
-    , HasUpdateConfiguration
+    , HasLens' ctx UpdateConfiguration
     )
 
 type USGlobalApplyMode ctx m =
@@ -129,10 +130,11 @@ usApplyBlocks genesisConfig blocks modifierMaybe =
 usRollbackBlocks
     :: USGlobalApplyMode ctx m
     => NewestFirst NE (UpdateBlock, USUndo) -> m [DB.SomeBatchOp]
-usRollbackBlocks blunds =
+usRollbackBlocks blunds = do
+    uc <- view (lensOf @UpdateConfiguration)
     withUSLogger $
-    processModifier =<<
-    (runDBPoll . execPollT def $ mapM_ (rollbackUS . snd) blunds)
+        processModifier =<<
+        (runDBPoll uc . execPollT def $ mapM_ (rollbackUS . snd) blunds)
 
 -- This function takes a 'PollModifier' corresponding to a sequence of
 -- blocks, updates in-memory slotting data and converts this modifier
@@ -166,16 +168,17 @@ usVerifyBlocks ::
     -> Bool
     -> OldestFirst NE UpdateBlock
     -> m (Either PollVerFailure (PollModifier, OldestFirst NE USUndo))
-usVerifyBlocks genesisConfig verifyAllIsKnown blocks =
+usVerifyBlocks genesisConfig verifyAllIsKnown blocks = do
+    uc <- view (lensOf @UpdateConfiguration)
     withUSLogger $
-    reportUnexpectedError $
-    processRes <$> run (runExceptT action)
+        reportUnexpectedError $
+        processRes <$> run uc (runExceptT action)
   where
     action = do
         lastAdopted <- getAdoptedBV
         mapM (verifyBlock genesisConfig lastAdopted verifyAllIsKnown) blocks
-    run :: PollT (DBPoll n) a -> n (a, PollModifier)
-    run = runDBPoll . runPollT def
+    run :: UpdateConfiguration -> PollT (DBPoll n) a -> n (a, PollModifier)
+    run uc = runDBPoll uc . runPollT def
     processRes ::
            (Either PollVerFailure (OldestFirst NE USUndo), PollModifier)
         -> Either PollVerFailure (PollModifier, OldestFirst NE USUndo)
@@ -219,13 +222,14 @@ usCanCreateBlock ::
        , DB.MonadDBRead m
        , MonadReader ctx m
        , HasLrcContext ctx
-       , HasUpdateConfiguration
+       , HasLens' ctx UpdateConfiguration
        )
     => m Bool
-usCanCreateBlock =
-    withUSLogger $ runDBPoll $ do
+usCanCreateBlock = do
+    uc <- view (lensOf @UpdateConfiguration)
+    withUSLogger $ runDBPoll uc $ do
         lastAdopted <- getAdoptedBV
-        canCreateBlockBV lastAdopted lastKnownBlockVersion
+        canCreateBlockBV lastAdopted (lastKnownBlockVersion uc)
 
 ----------------------------------------------------------------------------
 -- Conversion to batch

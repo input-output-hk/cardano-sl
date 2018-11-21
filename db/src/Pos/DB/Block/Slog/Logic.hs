@@ -36,7 +36,7 @@ import           Pos.Chain.Block (Block, Blund, HasSlogGState, SlogUndo (..),
                      mainBlockSlot, prevBlockL, verifyBlocks)
 import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots,
                      configK)
-import           Pos.Chain.Update (BlockVersion (..), HasUpdateConfiguration,
+import           Pos.Chain.Update (BlockVersion (..), UpdateConfiguration,
                      lastKnownBlockVersion)
 import           Pos.Core (BlockCount, FlatSlotId, ProtocolConstants,
                      difficultyL, epochIndexL, flattenSlotId, kEpochSlots,
@@ -62,6 +62,7 @@ import           Pos.DB.Update (getAdoptedBVFull, getConsensusEra)
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Wlog (WithLogger, logInfo)
+import Pos.Util.Util (lensOf, HasLens')
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -91,12 +92,12 @@ import           Pos.Util.Wlog (WithLogger, logInfo)
 -- done only if `alt` component is the same as adopted one. In
 -- other cases (i. e. when our `(major, minor)` is less than from
 -- adopted version) check is not done.
-mustDataBeKnown :: HasUpdateConfiguration => BlockVersion -> Bool
-mustDataBeKnown adoptedBV =
-    lastKnownMajMin > adoptedMajMin || lastKnownBlockVersion == adoptedBV
+mustDataBeKnown :: UpdateConfiguration -> BlockVersion -> Bool
+mustDataBeKnown uc adoptedBV =
+    lastKnownMajMin > adoptedMajMin || lastKnownBlockVersion uc == adoptedBV
   where
     toMajMin BlockVersion {..} = (bvMajor, bvMinor)
-    lastKnownMajMin = toMajMin lastKnownBlockVersion
+    lastKnownMajMin = toMajMin (lastKnownBlockVersion uc)
     adoptedMajMin = toMajMin adoptedBV
 
 ----------------------------------------------------------------------------
@@ -109,7 +110,7 @@ type MonadSlogBase ctx m =
     , MonadIO m
     , MonadDBRead m
     , WithLogger m
-    , HasUpdateConfiguration
+    , HasLens' ctx UpdateConfiguration
     )
 
 -- | Set of constraints needed for Slog verification.
@@ -135,10 +136,11 @@ slogVerifyBlocks
     -> OldestFirst NE Block
     -> m (Either Text (OldestFirst NE SlogUndo))
 slogVerifyBlocks genesisConfig curSlot blocks = runExceptT $ do
+    uc <- view (lensOf @UpdateConfiguration)
     era <- getConsensusEra
     logInfo $ sformat ("slogVerifyBlocks: Consensus era is " % shown) era
     (adoptedBV, adoptedBVD) <- lift getAdoptedBVFull
-    let dataMustBeKnown = mustDataBeKnown adoptedBV
+    let dataMustBeKnown = mustDataBeKnown uc adoptedBV
     let headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
     leaders <- lift $
         lrcActionOnEpochReason

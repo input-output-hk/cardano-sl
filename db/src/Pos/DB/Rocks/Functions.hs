@@ -44,7 +44,7 @@ import           System.FilePath (takeDirectory, (</>))
 
 import           Pos.Binary.Class (Bi, serialize')
 import           Pos.DB.BatchOp (rocksWriteBatch)
-import           Pos.DB.Class (DBIteratorClass (..), DBTag (..), IterType)
+import           Pos.DB.Class (MonadDBRead(..), DBIteratorClass (..), DBTag (..), IterType)
 import           Pos.DB.Functions (processIterEntry)
 import           Pos.DB.Rocks.Types (DB (..), MonadRealDB, NodeDBs (..),
                      getDBByTag)

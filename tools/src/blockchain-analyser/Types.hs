@@ -52,12 +52,5 @@ initBlockchainAnalyser nodeDBs action = do
 instance HasLens DB.NodeDBs BlockchainInspectorContext DB.NodeDBs where
     lensOf = bicNodeDBs_L
 
-instance MonadDBRead BlockchainInspector where
-    dbGet = DB.dbGetDefault
-    dbIterSource = DB.dbIterSourceDefault
-    dbGetSerBlock = BDB.dbGetSerBlockRealDefault
-    dbGetSerUndo = BDB.dbGetSerUndoRealDefault
-    dbGetSerBlund = BDB.dbGetSerBlundRealDefault
-
 prevBlock :: Block -> HeaderHash
 prevBlock = view prevBlockL

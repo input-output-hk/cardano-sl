@@ -54,7 +54,7 @@ import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                      modifyLoggerNameDefault)
 import           Pos.Util.UserSecret (HasUserSecret (..))
-import           Pos.Util.Util (HasLens (..))
+import           Pos.Util.Util (HasLens (..), HasLens')
 import           Pos.Util.Wlog (HasLoggerName (..), LoggerName)
 import           Pos.WorkMode.Class (MinWorkMode, WorkMode)
 
@@ -156,6 +156,23 @@ instance MonadSlotsData ctx (RealMode ext) => MonadSlots ctx (RealMode ext) wher
 
 instance MonadGState (RealMode ext) where
     gsAdoptedBVData = gsAdoptedBVDataDefault
+
+-- instance MonadDBRead (RealMode ext) where
+--     dbGet         = dbGetDefault
+--     dbIterSource  = dbIterSourceDefault
+--     dbGetSerBlock = dbGetSerBlockRealDefault
+--     dbGetSerUndo  = dbGetSerUndoRealDefault
+--     dbGetSerBlund  = dbGetSerBlundRealDefault
+
+instance
+    ( MonadIO m, HasLens' r NodeDBs, MonadCatch m
+    ) => MonadDBRead (ReaderT r m)
+  where
+    dbGet         = dbGetDefault
+    dbIterSource  = dbIterSourceDefault
+    dbGetSerBlock = dbGetSerBlockRealDefault
+    dbGetSerUndo  = dbGetSerUndoRealDefault
+    dbGetSerBlund = dbGetSerBlundRealDefault
 
 instance MonadDB (RealMode ext) where
     dbPut = dbPutDefault

@@ -29,7 +29,7 @@ import           Pos.Chain.Block (ApplyBlocksException (..), Block, Blund,
                      VerifyBlocksException (..), headerHashG, prevBlockL)
 import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots)
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Chain.Update (PollModifier)
+import           Pos.Chain.Update (PollModifier, UpdateConfiguration)
 import           Pos.Core (epochIndexL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toNewestFirst, toOldestFirst)
@@ -80,6 +80,7 @@ verifyBlocksPrefix
     -> OldestFirst NE Block
     -> m (Either VerifyBlocksException (OldestFirst NE Undo, PollModifier))
 verifyBlocksPrefix genesisConfig currentSlot blocks = runExceptT $ do
+    uc <- view (lensOf @UpdateConfiguration)
     -- This check (about tip) is here just in case, we actually check
     -- it before calling this function.
     tip <- lift GS.getTip
@@ -88,7 +89,7 @@ verifyBlocksPrefix genesisConfig currentSlot blocks = runExceptT $ do
     -- Some verifications need to know whether all data must be known.
     -- We determine it here and pass to all interested components.
     adoptedBV <- lift getAdoptedBV
-    let dataMustBeKnown = mustDataBeKnown adoptedBV
+    let dataMustBeKnown = mustDataBeKnown uc adoptedBV
 
     -- Run verification of each component.
     -- 'slogVerifyBlocks' uses 'Pos.Chain.Block.Pure.verifyBlocks' which does

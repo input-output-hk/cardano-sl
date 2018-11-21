@@ -32,7 +32,7 @@ import           Pos.Chain.Block (HasSlogGState (..))
 import           Pos.Chain.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Chain.Genesis (GenesisWStakeholders (..))
 import           Pos.Chain.Ssc (HasSscConfiguration, SscMemTag, SscState)
-import           Pos.Chain.Update (HasUpdateConfiguration)
+import           Pos.Chain.Update (UpdateConfiguration, HasUpdateConfiguration)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (Address, HasPrimaryKey (..), SlotCount, SlotId (..),
@@ -60,7 +60,7 @@ import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
 import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
                      MonadSlotsData, currentTimeSlottingSimple)
 import           Pos.Infra.Slotting.Types (SlottingData)
-import           Pos.Util (HasLens (..), newInitFuture, postfixLFields)
+import           Pos.Util (HasLens (..), HasLens', newInitFuture, postfixLFields)
 import           Pos.Util.Wlog (WithLogger, logWarning)
 
 
@@ -75,7 +75,6 @@ type MonadBlockGenBase m
        , MonadMask m
        , MonadIO m
        , MonadUnliftIO m
-       , HasUpdateConfiguration
        , HasSscConfiguration
        , HasNodeConfiguration
        , HasDlgConfiguration
@@ -91,6 +90,7 @@ type MonadBlockGen ctx m
        , HasSlottingVar ctx
        , HasSlogGState ctx
        , HasLrcContext ctx
+       , HasLens' ctx UpdateConfiguration
        , MonadBListener m
        )
 
@@ -169,6 +169,7 @@ mkBlockGenContext epochSlots bgcParams@BlockGenParams{..} = do
                 (bgcGState ^. GS.gscSlottingVar)
                 (bgcGState ^. GS.gscLrcContext)
                 initSlot
+    bgcUpdateConfiguration <- view (lensOf @UpdateConfiguration)
     usingReaderT initCtx $ do
         tipEOS <- getEpochOrSlot <$> DB.getTipHeader
         putInitSlot (epochOrSlotToSlot tipEOS)
@@ -191,9 +192,6 @@ data InitBlockGenContext = InitBlockGenContext
 makeLensesWith postfixLFields ''InitBlockGenContext
 
 type InitBlockGenMode ext m = ReaderT InitBlockGenContext m
-
-instance HasLens DBSum InitBlockGenContext DBSum where
-    lensOf = ibgcDB_L
 
 instance HasLens DBSum InitBlockGenContext DBSum where
     lensOf = ibgcDB_L

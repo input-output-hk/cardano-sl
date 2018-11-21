@@ -36,7 +36,7 @@ import           Pos.Chain.Ssc (MonadSscMem, SscPayload, defaultSscPayload,
                      stripSscPayload)
 import           Pos.Chain.Txp (TxAux (..), TxpConfiguration, emptyTxPayload,
                      mkTxPayload)
-import           Pos.Chain.Update (HasUpdateConfiguration, UpdatePayload (..),
+import           Pos.Chain.Update (UpdateConfiguration, UpdatePayload (..),
                      curSoftwareVersion, lastKnownBlockVersion)
 import           Pos.Core (BlockCount, EpochIndex, EpochOrSlot (..),
                      SlotId (..), epochIndexL, flattenSlotId, getEpochOrSlot,
@@ -74,7 +74,7 @@ import           Pos.Util.Wlog (WithLogger, logDebug)
 
 -- | A set of constraints necessary to create a block from mempool.
 type MonadCreateBlock ctx m
-     = ( HasUpdateConfiguration
+     = ( HasLens' ctx UpdateConfiguration
        , MonadReader ctx m
        , HasPrimaryKey ctx
        , HasSlogGState ctx -- to check chain quality
@@ -320,8 +320,8 @@ canCreateBlock k sId tipHeader =
     tipEOS = getEpochOrSlot tipHeader
 
 createMainBlockPure
-    :: forall m.
-       (MonadError Text m, HasUpdateConfiguration)
+    :: forall m ctx.
+       (MonadError Text m, MonadReader ctx m, HasLens' ctx UpdateConfiguration)
     => Genesis.Config
     -> Byte                   -- ^ Block size limit (real max.value)
     -> BlockHeader
@@ -331,21 +331,22 @@ createMainBlockPure
     -> RawPayload
     -> m MainBlock
 createMainBlockPure genesisConfig limit prevHeader pske sId sk rawPayload = do
-    bodyLimit <- execStateT computeBodyLimit limit
+    uc <- view (lensOf @UpdateConfiguration)
+    bodyLimit <- execStateT (computeBodyLimit uc) limit
     body <- createMainBody k bodyLimit sId rawPayload
-    pure (mkMainBlock pm bv sv (Right prevHeader) sId sk pske body)
+    pure (mkMainBlock pm (bv uc) (sv uc) (Right prevHeader) sId sk pske body)
   where
     k = configBlkSecurityParam genesisConfig
     pm = configProtocolMagic genesisConfig
     -- default ssc to put in case we won't fit a normal one
     defSsc :: SscPayload
     defSsc = defaultSscPayload k (siSlot sId)
-    computeBodyLimit :: StateT Byte m ()
-    computeBodyLimit = do
+    computeBodyLimit :: UpdateConfiguration -> StateT Byte m ()
+    computeBodyLimit uc = do
         -- account for block header and serialization overhead, etc;
         let musthaveBody = BC.MainBody emptyTxPayload defSsc def def
         let musthaveBlock =
-                mkMainBlock pm bv sv (Right prevHeader) sId sk pske musthaveBody
+                mkMainBlock pm (bv uc) (sv uc) (Right prevHeader) sId sk pske musthaveBody
         let mhbSize = biSize musthaveBlock
         when (mhbSize > limit) $ throwError $
             "Musthave block size is more than limit: " <> show mhbSize

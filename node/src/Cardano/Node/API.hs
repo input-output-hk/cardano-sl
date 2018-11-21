@@ -15,16 +15,12 @@ import           Data.Time.Units (toMicroseconds)
 import qualified Paths_cardano_sl_node as Paths
 import           Servant
 
-import Pos.WorkMode (RealModeContext)
-import Pos.WorkMode.Class (WorkMode)
-import Pos.DB.Txp (MempoolExt)
-import qualified Pos.Web as Legacy
 import           Ntp.Client (NtpConfiguration, NtpStatus (..),
                      ntpClientSettings, withNtpClient)
 import           Ntp.Packet (NtpOffset)
-import           Pos.Chain.Block (LastKnownHeader, LastKnownHeaderTag, HasBlockConfiguration)
-import           Pos.Chain.Update (UpdateConfiguration, curSoftwareVersion,
-                     withUpdateConfiguration)
+import           Pos.Chain.Block (HasBlockConfiguration, LastKnownHeader,
+                     LastKnownHeaderTag)
+import           Pos.Chain.Update (UpdateConfiguration, curSoftwareVersion)
 import           Pos.Client.CLI.NodeOptions (NodeApiArgs (..))
 import           Pos.Context
 import qualified Pos.Core as Core
@@ -34,15 +30,20 @@ import qualified Pos.DB.Class as DB
 import           Pos.DB.GState.Lock (Priority (..), StateLock,
                      withStateLockNoMetrics)
 import qualified Pos.DB.Rocks as DB
+import           Pos.DB.Txp (MempoolExt)
 import           Pos.Infra.Diffusion.Subscription.Status (ssMap)
 import           Pos.Infra.Diffusion.Types
 import qualified Pos.Infra.Slotting.Util as Slotting
+import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Resource
 import           Pos.Node.API as Node
 import           Pos.Util (HasLens (..), HasLens')
 import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
 import           Pos.Util.Servant
 import           Pos.Web (serveImpl)
+import qualified Pos.Web as Legacy
+import           Pos.WorkMode (RealModeContext)
+import           Pos.WorkMode.Class (WorkMode)
 
 type NodeV1Api
     = "v1"
@@ -53,14 +54,16 @@ type NodeV1Api
 nodeV1Api :: Proxy NodeV1Api
 nodeV1Api = Proxy
 
-launchLegacyNodeApi :: HasBlockConfiguration => IO (Server Legacy.NodeApi)
+launchLegacyNodeApi
+    :: HasConfigurations
+    => IO (Server Legacy.NodeApi)
 launchLegacyNodeApi = do
     runReaderT
         Legacy.servantServer
         (undefined :: RealModeContext ())
 
 launchNodeServer
-    :: HasBlockConfiguration
+    :: HasConfigurations
     => NodeApiArgs
     -> NtpConfiguration
     -> NodeResources ext

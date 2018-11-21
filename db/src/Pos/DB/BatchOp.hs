@@ -11,8 +11,6 @@ module Pos.DB.BatchOp
        , rocksWriteBatch
        ) where
 
-import Pos.DB.Rocks
-{-}
 import           Universum
 
 import qualified Database.RocksDB as Rocks
@@ -90,5 +88,3 @@ dbWriteBatch' tag batch = dbWriteBatch tag (concatMap toBatchOp batch)
 rocksWriteBatch :: (RocksBatchOp a, MonadIO m) => [a] -> DB -> m ()
 rocksWriteBatch batch DB {..} =
     Rocks.write rocksDB rocksWriteOpts (concatMap toBatchOp batch)
-
--}

@@ -24,7 +24,7 @@ import           Pos.Binary.Class (Bi)
 import           Pos.DB.Class (DBIteratorClass (..), DBTag, IterType)
 import           Pos.DB.Pure (DBPureVar)
 import qualified Pos.DB.Pure as DB
-import           Pos.DB.Rocks.Types (NodeDBs)
+import           Pos.DB.Rocks (NodeDBs)
 import qualified Pos.DB.Rocks as DB
 import           Pos.Util.Util (HasLens (..))
 

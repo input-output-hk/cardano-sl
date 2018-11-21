@@ -57,7 +57,7 @@ import           Pos.Chain.Update (ApplicationName, BlockVersion,
                      BlockVersionData (..), BlockVersionState (..),
                      ConfirmedProposalState (..), ConsensusEra (..),
                      DecidedProposalState (dpsDifficulty),
-                     UpdateConfiguration, NumSoftwareVersion,
+                     HasUpdateConfiguration, NumSoftwareVersion,
                      ProposalState (..), SoftwareVersion (..),
                      UndecidedProposalState (upsSlot), UpId,
                      UpdateProposal (..), bvsIsConfirmed, consensusEraBVD,
@@ -270,11 +270,9 @@ instance DBIteratorClass ConfPropIter where
 -- software as argument.
 -- Returns __all__ confirmed proposals if the argument is 'Nothing'.
 getConfirmedProposals
-    :: (MonadDBRead m, MonadUnliftIO m)
-    => UpdateConfiguration
-    -> Maybe NumSoftwareVersion
-    -> m [ConfirmedProposalState]
-getConfirmedProposals uc reqNsv =
+    :: (HasUpdateConfiguration, MonadDBRead m, MonadUnliftIO m)
+    => Maybe NumSoftwareVersion -> m [ConfirmedProposalState]
+getConfirmedProposals reqNsv =
     runConduitRes $
     dbIterSource GStateDB (Proxy @ConfPropIter) .| CL.mapMaybe onItem .|
     CL.consume
@@ -282,11 +280,11 @@ getConfirmedProposals uc reqNsv =
     onItem (SoftwareVersion {..}, cps)
         | Nothing <- reqNsv = Just cps
         | Just v <- reqNsv
-        , hasOurSystemTag cps && svAppName == ourAppName uc && svNumber > v =
+        , hasOurSystemTag cps && svAppName == ourAppName && svNumber > v =
             Just cps
         | otherwise = Nothing
     hasOurSystemTag ConfirmedProposalState {..} =
-        isJust $ upData cpsUpdateProposal ^. at (ourSystemTag uc)
+        isJust $ upData cpsUpdateProposal ^. at ourSystemTag
 
 -- Iterator by block versions
 data BVIter

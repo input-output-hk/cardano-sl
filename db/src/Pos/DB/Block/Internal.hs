@@ -51,7 +51,7 @@ import           Pos.DB.Class (MonadDB (..), MonadDBRead (..), Serialized (..),
 import           Pos.DB.Error (DBError (..))
 import           Pos.DB.Pure (DBPureVar, MonadPureDB, atomicModifyIORefPure,
                      pureBlocksStorage)
-import           Pos.DB.Rocks.Types (MonadRealDB, blockDataDir, getNodeDBs)
+import           Pos.DB.Rocks (MonadRealDB, blockDataDir, getNodeDBs)
 import           Pos.Util.Util (HasLens (..), eitherToThrow)
 
 

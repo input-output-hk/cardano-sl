@@ -54,7 +54,7 @@ import           Pos.DB.Lrc (IssuersStakes, LrcConsumer (..), LrcContext (..),
 import qualified Pos.DB.Lrc as LrcDB (hasLeaders, putLeadersForEpoch)
 import           Pos.DB.Ssc (sscCalculateSeed)
 import qualified Pos.DB.Txp.Stakes as GS
-import           Pos.DB.Update.GState (getCompetingBVStates)
+import           Pos.DB.Update (getCompetingBVStates)
 import           Pos.Util (maybeThrow)
 import           Pos.Util.Util (HasLens (..), intords)
 import           Pos.Util.Wlog (logDebug, logInfo, logWarning)

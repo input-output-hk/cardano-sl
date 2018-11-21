@@ -44,7 +44,7 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
                      configEpochSlots)
 import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem, SscBlock)
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Chain.Update (PollModifier, UpdateConfiguration)
+import           Pos.Chain.Update (PollModifier)
 import           Pos.Core (epochIndexL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Exception (assertionFailed)
@@ -64,10 +64,8 @@ import           Pos.DB.Ssc (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
 import           Pos.DB.Txp.MemState (MonadTxpLocal (..))
 import           Pos.DB.Txp.Settings (TxpBlock, TxpBlund,
                      TxpGlobalSettings (..))
-import           Pos.DB.Update.Context (UpdateContext)
-import           Pos.DB.Update.Logic.Global (UpdateBlock, usApplyBlocks,
-                     usRollbackBlocks)
-import           Pos.DB.Update.Logic.Local (usNormalize)
+import           Pos.DB.Update (UpdateBlock, UpdateContext, usApplyBlocks,
+                     usNormalize, usRollbackBlocks)
 import           Pos.Util (Some (..), spanSafe)
 import           Pos.Util.Util (HasLens', lensOf)
 
@@ -90,7 +88,6 @@ type MonadBlockBase ctx m
        -- To report bad things.
        , MonadReporting m
        , HasSscConfiguration
-       , HasLens' ctx UpdateConfiguration
        )
 
 -- | Set of constraints necessary for high-level block verification.
@@ -125,7 +122,6 @@ type MonadMempoolNormalization ctx m
       -- 'MonadRandom' for crypto.
       , Rand.MonadRandom m
       , HasSscConfiguration
-      , HasLens' ctx UpdateConfiguration
       )
 
 -- | Normalize mempool.

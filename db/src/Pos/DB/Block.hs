@@ -45,22 +45,22 @@ import           Pos.DB.Block.Internal (dbGetSerBlockPureDefault,
                      dbGetSerBlundPureDefault, dbGetSerUndoPureDefault,
                      dbPutSerBlundsPureDefault, dbPutSerBlundsRealDefault,
                      deleteBlock, prepareBlockDB)
-import           Pos.DB.Rocks (MonadDB (..), MonadDBRead (..), SerializedBlock,
+import           Pos.DB.Class (MonadDB (..), MonadDBRead (..), SerializedBlock,
                      SerializedBlund, SerializedUndo, getBlock)
-import           Pos.DB.Rocks.Types (MonadRealDB)
+import           Pos.DB.Rocks (MonadRealDB)
 import           Pos.DB.Sum (MonadDBSum, eitherDB)
 
--- import           Pos.DB.Block.BListener as X
--- -- import           Pos.DB.Block.GState.BlockExtra as X
--- -- import           Pos.DB.Block.Load as X
--- import           Pos.DB.Block.Logic.Creation as X
--- -- import           Pos.DB.Block.Logic.Header as X
--- -- import           Pos.DB.Block.Logic.Internal as X
--- import           Pos.DB.Block.Logic.Util as X
--- -- import           Pos.DB.Block.Logic.VAR as X
--- -- import           Pos.DB.Block.Lrc as X
--- import           Pos.DB.Block.Slog.Context as X
--- -- import           Pos.DB.Block.Slog.Logic as X
+import           Pos.DB.Block.BListener as X
+import           Pos.DB.Block.GState.BlockExtra as X
+import           Pos.DB.Block.Load as X
+import           Pos.DB.Block.Logic.Creation as X
+import           Pos.DB.Block.Logic.Header as X
+import           Pos.DB.Block.Logic.Internal as X
+import           Pos.DB.Block.Logic.Util as X
+import           Pos.DB.Block.Logic.VAR as X
+import           Pos.DB.Block.Lrc as X
+import           Pos.DB.Block.Slog.Context as X
+import           Pos.DB.Block.Slog.Logic as X
 
 
 -- | Switch out the default 'dbGetSerBlundRealDefault' with the one that can

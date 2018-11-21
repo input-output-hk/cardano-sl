@@ -128,7 +128,7 @@
 
 - **[API BREAKING CHANGE]** Improve diagnostic for `NotEnoughMoney` error ([CBR-461](https://iohk.myjetbrains.com/youtrack/issue/CBR-461), [#3702](https://github.com/input-output-hk/cardano-sl/pull/3702))
 
-- When Content-Type's main MIME-type cannot fall back to 'application/json' then UnsupportedMimeTypeError is returned ([CO-417](https://iohk.myjetbrains.com/youtrack/issue/CO-417), [#3727](https://github.com/input-output-hk/cardano-sl/pull/3727))
+- When Content-Type's main MIME-type cannot fall back to 'application/json' then UnsupportedMimeTypeError is returned ([CO-416](https://iohk.myjetbrains.com/youtrack/issue/CO-416), [#3727](https://github.com/input-output-hk/cardano-sl/pull/3727))
 
 - Add `cardano-node --no-tls` option to wallet ([DEVOPS-879](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-879), [#3074](https://github.com/input-output-hk/cardano-sl/pull/3074))
 

@@ -59,6 +59,8 @@ in
     # Query node info until synced
     counter=0
     perc=0
+    last_height=0
+    same_height_counter=0
     while [[ $perc != 100 ]]
     do
       info=$(curl --silent --cacert ${stateDir}/tls/client/ca.crt --cert ${stateDir}/tls/client/client.pem https://${wallet.walletListen}/api/v1/node-info | jq .data)
@@ -76,7 +78,26 @@ in
           echo "$(date +"%H:%M:%S") Blockchain syncing: $perc%  $local_height/$height blocks"
         fi
         counter=$((counter + 1))
+
+        if [[ "$last_height" == "$height" ]]
+        then
+          if [[ "$same_height_counter" != "0" ]]
+          then
+            duration=$((same_height_counter * 10))
+            echo "We've been at the same network block height for $duration seconds"
+          fi
+          same_height_counter=$((same_height_counter + 1))
+        else
+          same_height_counter=0
+        fi
+
         sleep 10
+      fi
+
+      if [[ "$same_height_counter" == "12" ]]
+      then
+        echo "We've been stuck at the same network block height for 120sec"
+        exit 1
       fi
 
       if ! kill -0 $wallet_pid; then
@@ -91,6 +112,8 @@ in
         echo "***"
         exit 1
       fi
+
+      last_height=$height
     done
 
     finish_time=$(date +%s)

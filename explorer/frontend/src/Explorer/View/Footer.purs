@@ -143,7 +143,7 @@ navItemsLeft lang =
       , link: "https://cardanoroadmap.com"
       }
     , { label: translate (I18nL.footer <<< I18nL.fooCardanoTestnet) lang
-      , link: "https://tada.iohk.io"
+      , link: "https://testnet.iohkdev.io"
       }
     , { label: translate (I18nL.footer <<< I18nL.fooCardanoSource) lang
       , link: "https://github.com/input-output-hk/cardano-sl"

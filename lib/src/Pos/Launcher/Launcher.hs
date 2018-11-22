@@ -66,12 +66,9 @@ launchNode nArgs cArgs lArgs action = do
             (cnaDumpConfiguration cArgs)
             confOpts
 
-    case ekgParams cArgs of
-      Just (EkgParams eHost ePort) -> do
-        putText $ "EKG is starting on " <> show eHost <> ":" <> show ePort
-        _ <- forkServer eHost ePort
-        pure ()
-      Nothing -> pure ()
+    whenJust (ekgParams cArgs) $ \(EkgParams eHost ePort) -> do
+      putText $ "EKG is starting on " <> show eHost <> ":" <> show ePort
+      void $ forkServer eHost ePort
 
     withLogger' $ withConfigurations' $ \genesisConfig walletConfig txpConfig ntpConfig -> do
         (nodeParams, Just sscParams) <- getNodeParams

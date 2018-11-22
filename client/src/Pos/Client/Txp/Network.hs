@@ -38,7 +38,6 @@ import           Pos.Util.Util (eitherToThrow)
 import           Pos.Util.Wlog (logInfo)
 import           Pos.WorkMode.Class (MinWorkMode)
 
--- TODO: update uses
 type TxMode ctx m
     = ( MinWorkMode ctx m
       , MonadBalances m

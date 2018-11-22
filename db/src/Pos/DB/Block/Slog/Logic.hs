@@ -61,8 +61,8 @@ import qualified Pos.DB.Lrc as LrcDB
 import           Pos.DB.Update (getAdoptedBVFull, getConsensusEra)
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
+import           Pos.Util.Util (HasLens', lensOf)
 import           Pos.Util.Wlog (WithLogger, logInfo)
-import Pos.Util.Util (lensOf, HasLens')
 
 ----------------------------------------------------------------------------
 -- Helpers

@@ -56,7 +56,7 @@ import           Pos.Chain.Delegation (DlgPayload (..))
 import           Pos.Chain.Ssc (defaultSscPayload)
 import           Pos.Chain.Txp (TxAux (..), TxId, TxIn (..), TxOut (..),
                      TxOutAux (..), Utxo, txAttributes)
-import           Pos.Chain.Update
+import           Pos.Chain.Update (HasUpdateConfiguration, updateConfiguration)
 import           Pos.Client.Txp
 import           Pos.Core
 import           Pos.Core.Chrono
@@ -481,7 +481,7 @@ instance DSL.Hash h Addr => Interpret DSL2Cardano h (DSL.Block h Addr) where
         -- figure out who needs to sign the block
         BlockSignInfo{..} <- asks $ blockSignInfoForSlot leaders slotId
 
-        createMainBlockPure
+        flip runReaderT updateConfiguration $ createMainBlockPure
           dummyConfig
           blockSizeLimit
           prev

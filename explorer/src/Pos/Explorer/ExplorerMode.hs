@@ -23,6 +23,7 @@ import           Test.QuickCheck (Gen, Property, Testable (..), arbitrary,
                      forAll, ioProperty)
 import           Test.QuickCheck.Monadic (PropertyM, monadic)
 
+import           Pos.Chain.Update (UpdateConfiguration, updateConfiguration)
 import           Pos.Core (SlotId, Timestamp (..))
 import           Pos.Core.Conc (currentTime)
 import           Pos.DB (MonadGState (..))
@@ -107,21 +108,25 @@ type ExplorerTestMode = ReaderT ExplorerTestContext Emulation
 type ExplorerExtraTestMode = ExtraContextT ExplorerTestMode
 
 data ExplorerTestContext = ExplorerTestContext
-    { etcGState       :: !GS.GStateContext
-    , etcSystemStart  :: !Timestamp
-    , etcSSlottingVar :: !SimpleSlottingStateVar
-    , etcSlotId       :: !(Maybe SlotId)
+    { etcGState              :: !GS.GStateContext
+    , etcSystemStart         :: !Timestamp
+    , etcSSlottingVar        :: !SimpleSlottingStateVar
+    , etcSlotId              :: !(Maybe SlotId)
     -- ^ If this value is 'Just' we will return it as the current
     -- slot. Otherwise simple slotting is used.
-    , etcTxpLocalData :: !(GenericTxpLocalData ExplorerExtraModifier)
-    , etcLoggerName   :: !LoggerName
-    , etcParams       :: !ExplorerTestParams
+    , etcTxpLocalData        :: !(GenericTxpLocalData ExplorerExtraModifier)
+    , etcLoggerName          :: !LoggerName
+    , etcParams              :: !ExplorerTestParams
+    , etcUpdateConfiguration :: !UpdateConfiguration
     }
 
 makeLensesWith postfixLFields ''ExplorerTestContext
 
 instance HasLens SimpleSlottingStateVar ExplorerTestContext SimpleSlottingStateVar where
     lensOf = etcSSlottingVar_L
+
+instance HasLens UpdateConfiguration ExplorerTestContext UpdateConfiguration where
+    lensOf = etcUpdateConfiguration_L
 
 ----------------------------------------------------------------------------
 -- Mock initialization
@@ -161,6 +166,7 @@ initExplorerTestContext tp@TestParams {..} = do
         let etcSlotId       = Nothing
             etcParams       = tp
             etcLoggerName   = "explorertesting"
+            etcUpdateConfiguration = updateConfiguration
         pure ExplorerTestContext {..}
 
 -- | Run test mode with @ExtraContext@ so we can mock the functions.

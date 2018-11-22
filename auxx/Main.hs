@@ -16,6 +16,7 @@ import           Ntp.Client (NtpConfiguration)
 
 import           Pos.Chain.Genesis as Genesis (Config (..), ConfigurationError)
 import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Chain.Update (updateConfiguration)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (NodeContext (..))
 import           Pos.DB.DB (initNodeDBs)
@@ -147,7 +148,7 @@ action opts@AuxxOptions {..} command = do
                            then runNodeWithSinglePlugin genesisConfig txpConfig nr
                            else identity
                 auxxModeAction = modifier (auxxPlugin genesisConfig txpConfig opts command)
-             in runRealMode genesisConfig txpConfig nr $ \diffusion ->
+             in runRealMode updateConfiguration genesisConfig txpConfig nr $ \diffusion ->
                     toRealMode (auxxModeAction (hoistDiffusion realModeToAuxx toRealMode diffusion))
 
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs

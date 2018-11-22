@@ -17,6 +17,7 @@ import           ExplorerNodeOptions (ExplorerArgs (..), ExplorerNodeArgs (..),
 import           Pos.Binary ()
 import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Chain.Update (updateConfiguration)
 import           Pos.Client.CLI (CommonNodeArgs (..), getNodeParams)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (NodeContext (..))
@@ -95,5 +96,5 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
         let NodeContext {..} = nrContext
             extraCtx = makeExtraCtx genesisConfig
             explorerModeToRealMode  = runExplorerProd extraCtx
-         in runRealMode genesisConfig txpConfig nr $ \diffusion ->
+         in runRealMode updateConfiguration genesisConfig txpConfig nr $ \diffusion ->
                 explorerModeToRealMode (go (hoistDiffusion (lift . lift) explorerModeToRealMode diffusion))

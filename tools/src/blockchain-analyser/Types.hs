@@ -49,6 +49,13 @@ initBlockchainAnalyser nodeDBs action = do
 -- Boilerplate instances
 ----------------------------------------------------------------------------
 
+instance DB.MonadDBRead BlockchainInspector where
+    dbGet         = DB.dbGetDefault
+    dbIterSource  = DB.dbIterSourceDefault
+    dbGetSerBlock = BDB.dbGetSerBlockRealDefault
+    dbGetSerUndo  = BDB.dbGetSerUndoRealDefault
+    dbGetSerBlund = BDB.dbGetSerBlundRealDefault
+
 instance HasLens DB.NodeDBs BlockchainInspectorContext DB.NodeDBs where
     lensOf = bicNodeDBs_L
 

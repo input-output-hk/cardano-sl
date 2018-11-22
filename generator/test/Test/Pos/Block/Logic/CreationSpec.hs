@@ -15,7 +15,6 @@ import           Test.QuickCheck (Gen, Property, Testable, arbitrary, choose,
                      counterexample, elements, forAll, generate, listOf,
                      listOf1, oneof, property)
 
-
 import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (BlockHeader, MainBlock)
 import           Pos.Chain.Delegation (DlgPayload, ProxySKBlockInfo)
@@ -24,7 +23,8 @@ import           Pos.Chain.Ssc (SscPayload (..), defaultSscPayload,
                      mkVssCertificatesMapLossy)
 import           Pos.Chain.Txp (TxAux)
 import           Pos.Chain.Update (BlockVersionData (..),
-                     HasUpdateConfiguration, UpdatePayload (..))
+                     HasUpdateConfiguration, UpdatePayload (..),
+                     updateConfiguration)
 import qualified Pos.Communication ()
 import           Pos.Core (SlotId (..), kEpochSlots, localSlotIndexMinBound,
                      pcBlkSecurityParam, unsafeMkLocalSlotIndex)
@@ -171,6 +171,7 @@ specBody pm = withProvidedMagicConfig pm $ \genesisConfig _ _ ->
         -> SecretKey
         -> Either Text MainBlock
     producePureBlock genesisConfig limit prev txs psk slot dlgPay sscPay usPay sk =
+        flip runReaderT updateConfiguration $
         createMainBlockPure genesisConfig limit prev psk slot sk $
         RawPayload txs sscPay dlgPay usPay
 

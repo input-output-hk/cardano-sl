@@ -157,22 +157,22 @@ instance MonadSlotsData ctx (RealMode ext) => MonadSlots ctx (RealMode ext) wher
 instance MonadGState (RealMode ext) where
     gsAdoptedBVData = gsAdoptedBVDataDefault
 
--- instance MonadDBRead (RealMode ext) where
---     dbGet         = dbGetDefault
---     dbIterSource  = dbIterSourceDefault
---     dbGetSerBlock = dbGetSerBlockRealDefault
---     dbGetSerUndo  = dbGetSerUndoRealDefault
---     dbGetSerBlund  = dbGetSerBlundRealDefault
-
-instance
-    ( MonadIO m, HasLens' r NodeDBs, MonadCatch m
-    ) => MonadDBRead (ReaderT r m)
-  where
+instance MonadDBRead (RealMode ext) where
     dbGet         = dbGetDefault
     dbIterSource  = dbIterSourceDefault
     dbGetSerBlock = dbGetSerBlockRealDefault
     dbGetSerUndo  = dbGetSerUndoRealDefault
-    dbGetSerBlund = dbGetSerBlundRealDefault
+    dbGetSerBlund  = dbGetSerBlundRealDefault
+
+-- instance {-# OVERLAPPABLE #-}
+--     ( MonadIO m, HasLens' r NodeDBs, MonadCatch m
+--     ) => MonadDBRead (ReaderT r m)
+--   where
+--     dbGet         = dbGetDefault
+--     dbIterSource  = dbIterSourceDefault
+--     dbGetSerBlock = dbGetSerBlockRealDefault
+--     dbGetSerUndo  = dbGetSerUndoRealDefault
+--     dbGetSerBlund = dbGetSerBlundRealDefault
 
 instance MonadDB (RealMode ext) where
     dbPut = dbPutDefault

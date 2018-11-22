@@ -67,7 +67,7 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
                      configGeneratedSecretsThrow, gsSecretKeys, mkConfig)
 import           Pos.Chain.Ssc (SscMemTag, SscState)
 import           Pos.Chain.Txp (TxpConfiguration (..))
-import           Pos.Chain.Update (BlockVersionData)
+import           Pos.Chain.Update (BlockVersionData, UpdateConfiguration)
 import           Pos.Core (SlotId, Timestamp (..))
 import           Pos.Core.Conc (currentTime)
 import           Pos.Core.NetworkMagic (makeNetworkMagic)
@@ -232,6 +232,7 @@ data BlockTestContext = BlockTestContext
     , btcDelegation        :: !DelegationVar
     , btcPureDBSnapshots   :: !PureDBSnapshotsVar
     , btcAllSecrets        :: !AllSecrets
+    , btcUpdateConfiguration :: !UpdateConfiguration
     }
 
 
@@ -242,6 +243,9 @@ instance HasTestParams BlockTestContext where
 
 instance HasAllSecrets BlockTestContext where
     allSecrets = btcAllSecretsL
+
+instance HasLens UpdateConfiguration BlockTestContext UpdateConfiguration where
+    lensOf = btcUpdateConfigurationL
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -289,6 +293,7 @@ initBlockTestContext genesisConfig tp@TestParams {..} callback = do
             btcPureDBSnapshots <- PureDBSnapshotsVar <$> newIORef Map.empty
             let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
             let btcAllSecrets = mkAllSecretsSimple nm genesisSecretKeys
+                btcUpdateConfiguration = error "help"
             let btCtx = BlockTestContext {btcSystemStart = systemStart, btcSSlottingStateVar = slottingState, ..}
             liftIO $ flip runReaderT clockVar $ unEmulation $ callback btCtx
     sudoLiftIO $ runTestInitMode initCtx $ initBlockTestContextDo

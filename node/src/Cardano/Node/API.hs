@@ -287,6 +287,14 @@ instance HasLens LastKnownHeaderTag InfoCtx LastKnownHeader where
     lensOf =
         lens infoCtxLastKnownHeader (\i s -> i { infoCtxLastKnownHeader = s })
 
+instance DB.MonadDBRead (ReaderT InfoCtx IO) where
+    dbGet         = DB.dbGetDefault
+    dbIterSource  = DB.dbIterSourceDefault
+    dbGetSerBlock = DB.dbGetSerBlockRealDefault
+    dbGetSerUndo  = DB.dbGetSerUndoRealDefault
+    dbGetSerBlund = DB.dbGetSerBlundRealDefault
+
+
 getNodeSyncProgress
     ::
     ( MonadIO m

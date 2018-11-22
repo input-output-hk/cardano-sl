@@ -23,7 +23,7 @@ import           Cardano.Wallet.API.V1.Swagger.Example
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.TypeLits (KnownSymbols (..))
 
-import           Pos.Chain.Update (SoftwareVersion)
+import           Pos.Chain.Update (SoftwareVersion (svNumber))
 import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
 import           Pos.Util.Servant (CustomQueryFlag, LoggingApi)
@@ -302,11 +302,9 @@ requestParameterToDescription = M.fromList [
   , ("per_page", perPageDescription (fromString $ show maxPerPageEntries) (fromString $ show defaultPerPageEntries))
   ]
 
--- TODO: it would be nice to read ntp configuration directly here to fetch
--- 30 seconds wait time instead of hardcoding it here.
 forceNtpCheckDescription :: T.Text
 forceNtpCheckDescription = [text|
-In some cases, API Clients need to force a new NTP check as a previous result gets cached. A typical use-case is after asking a user to fix its system clock. If this flag is set, request will block until NTP server responds or it will timout if NTP server is not available within **30** seconds.
+In some cases, API Clients need to force a new NTP check as a previous result gets cached. A typical use-case is after asking a user to fix its system clock. If this flag is set, request will block until NTP server responds or it will timeout if NTP server is not available within a short delay.
 |]
 
 pageDescription :: T.Text
@@ -335,14 +333,14 @@ $errors
     -- 'WalletError'
     [ mkRow fmtErr $ NotEnoughMoney (ErrAvailableBalanceIsInsufficient 1400)
     , mkRow fmtErr $ OutputIsRedeem sampleAddress
-    , mkRow fmtErr $ UnknownError "Unknown error."
-    , mkRow fmtErr $ InvalidAddressFormat "Invalid Base58 representation."
+    , mkRow fmtErr $ UnknownError "Unexpected internal error."
+    , mkRow fmtErr $ InvalidAddressFormat "Provided address format is not valid."
     , mkRow fmtErr WalletNotFound
     , mkRow fmtErr $ WalletAlreadyExists exampleWalletId
     , mkRow fmtErr AddressNotFound
-    , mkRow fmtErr $ InvalidPublicKey "Invalid root public key for external wallet."
+    , mkRow fmtErr $ InvalidPublicKey "Extended public key (for external wallet) is invalid."
     , mkRow fmtErr UnsignedTxCreationError
-    , mkRow fmtErr $ SignedTxSubmitError "Cannot submit externally-signed transaction."
+    , mkRow fmtErr $ SignedTxSubmitError "Unable to submit externally-signed transaction."
     , mkRow fmtErr TooBigTransaction
     , mkRow fmtErr TxFailedToStabilize
     , mkRow fmtErr TxRedemptionDepleted
@@ -383,7 +381,7 @@ highLevelShortDescription :: DescriptionEnvironment -> T.Text
 highLevelShortDescription DescriptionEnvironment{..} = [text|
 This is the specification for the Cardano Wallet API, automatically generated as a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API of [Cardano](https://github.com/input-output-hk/cardano-sl).
 
-Software Version   | Git Revision
+Protocol Version   | Git Revision
 -------------------|-------------------
 $deSoftwareVersion | $deGitRevision
 |]
@@ -394,7 +392,7 @@ highLevelDescription :: DescriptionEnvironment -> T.Text
 highLevelDescription DescriptionEnvironment{..} = [text|
 This is the specification for the Cardano Wallet API, automatically generated as a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API of [Cardano](https://github.com/input-output-hk/cardano-sl).
 
-Software Version   | Git Revision
+Protocol Version   | Git Revision
 -------------------|-------------------
 $deSoftwareVersion | $deGitRevision
 
@@ -1029,9 +1027,7 @@ estimateFeesDescription :: Text
 estimateFeesDescription = [text|
 Estimate the fees which would incur from the input payment. This endpoint
 **does not** require a _spending password_ to be supplied as it generates
-under the hood an unsigned transaction. Therefore, callers can simply set
-the `spendingPassword` field to `null` as that won't influence the fee
-calculation.
+under the hood an unsigned transaction.
 |]
 
 getAddressDescription :: Text
@@ -1044,8 +1040,8 @@ belong to the wallet (since it could be part of a pending transaction in
 another instance of the same wallet).
 
 To reflect this, the V1 endpoint does not fail when an address is not recognised
-and returns a new field 'is-ours' which indicates either that an address is ours,
-or that it is 'not-recognised' (which may mean 'not recognised yet').
+and returns a new field which indicates the address' ownership status, from the
+node point of view.
 |]
 
 --
@@ -1076,7 +1072,7 @@ api (compileInfo, curSoftwareVersion) walletAPI mkDescription = toSwagger wallet
     , deDefaultPerPage        = fromString (show defaultPerPageEntries)
     , deWalletErrorTable      = errorsDescription
     , deGitRevision           = ctiGitRevision compileInfo
-    , deSoftwareVersion       = fromString $ show curSoftwareVersion
+    , deSoftwareVersion       = fromString $ show (svNumber curSoftwareVersion)
     }
   & info.license ?~ ("MIT" & url ?~ URL "https://raw.githubusercontent.com/input-output-hk/cardano-sl/develop/lib/LICENSE")
   & paths %~ (POST,   "/api/internal/apply-update")       `setDescription` applyUpdateDescription

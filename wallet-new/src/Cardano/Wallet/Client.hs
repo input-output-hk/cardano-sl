@@ -16,6 +16,7 @@ module Cardano.Wallet.Client
     , liftClient
     , onClientError
     , withThrottlingRetry
+    , paginateAll
     -- * The type of errors that the client might return
     , ClientError(..)
     , WalletError(..)

@@ -19,11 +19,11 @@ handlers w = nextUpdate       w
         :<|> resetWalletState w
         :<|> importWallet     w
 
-nextUpdate :: PassiveWalletLayer IO -> Handler (V1 SoftwareVersion)
+nextUpdate :: PassiveWalletLayer IO -> Handler (WalletResponse (V1 SoftwareVersion))
 nextUpdate w = do
     mUpd <- liftIO $ WalletLayer.nextUpdate w
     case mUpd of
-      Just upd -> return upd
+      Just upd -> return $ single upd
       Nothing  -> throwError err404
 
 applyUpdate :: PassiveWalletLayer IO -> Handler NoContent

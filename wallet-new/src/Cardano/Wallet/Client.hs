@@ -148,7 +148,7 @@ data WalletClient m
 
     -- Internal API
     , nextUpdate
-        :: m (Either ClientError (V1 SoftwareVersion))
+        :: Resp m (V1 SoftwareVersion)
     , applyUpdate
         :: m (Either ClientError ())
     , postponeUpdate

@@ -57,8 +57,8 @@ nextUpdate :: ( MonadIO m
               , V0.WalletDbReader ctx m
               , HasUpdateConfiguration
               )
-           => m (V1 SoftwareVersion)
-nextUpdate = (V1 . V0.cuiSoftwareVersion) <$> V0.nextUpdate
+           => m (WalletResponse (V1 SoftwareVersion))
+nextUpdate = (single . V1 . V0.cuiSoftwareVersion) <$> V0.nextUpdate
 
 resetWalletState
     :: (V0.WalletDbReader ctx m, V0.MonadKeys m, MonadThrow m, MonadIO m)

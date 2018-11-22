@@ -98,7 +98,8 @@ consolidateWorker genesisConfig =
                 -- bit. Want the node to do all its initialisation, but do not want
                 -- it to sync too many blocks before starting consolidation.
                 sleepSeconds 15
-                loop $ CSSyncSeconds 2
+                --loop $ CSSyncSeconds 2
+                loop $ CSFollowing -- XXX Postpone consolidation
   where
     epochSlots :: SlotCount
     epochSlots = configEpochSlots genesisConfig

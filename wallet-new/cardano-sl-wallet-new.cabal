@@ -299,7 +299,6 @@ executable cardano-node
                      , cardano-sl-util
                      , cardano-sl-wallet
                      , cardano-sl-wallet-new
-                     , ekg
                      , stm
                      , text
                      , universum

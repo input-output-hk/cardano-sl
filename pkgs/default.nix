@@ -14708,6 +14708,7 @@ license = stdenv.lib.licenses.bsd3;
 , data-default
 , deepseq
 , directory
+, ekg
 , ekg-core
 , ether
 , exceptions
@@ -14807,6 +14808,7 @@ cpphs
 cryptonite
 data-default
 directory
+ekg
 ekg-core
 ether
 exceptions
@@ -18203,7 +18205,6 @@ license = stdenv.lib.licenses.mit;
 , data-default
 , data-default-class
 , directory
-, ekg
 , exceptions
 , filepath
 , foldl
@@ -18327,7 +18328,6 @@ cryptonite
 data-default
 data-default-class
 directory
-ekg
 exceptions
 filepath
 foldl

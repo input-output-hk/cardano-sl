@@ -22,6 +22,7 @@ import           Pos.Client.CLI.Options (configurationOptions)
 import           Pos.Client.CLI.Params (getNodeParams)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Txp.Logic (txpGlobalSettings)
+import           Pos.Infra.Statistics.Ekg
 import           Pos.Launcher.Configuration (AssetLockPath (..),
                      HasConfigurations, WalletConfiguration, cfoKey,
                      withConfigurations)
@@ -35,6 +36,8 @@ import           Pos.Util.Util (logException)
 import           Pos.Util.Wlog (logInfo)
 import           Pos.Worker.Update (updateTriggerWorker)
 import           Pos.WorkMode (EmptyMempoolExt)
+
+import           System.Remote.Monitoring (forkServer)
 
 
 -- | Run a given action from a bunch of static arguments
@@ -62,6 +65,10 @@ launchNode nArgs cArgs lArgs action = do
             (cnaDumpGenesisDataPath cArgs)
             (cnaDumpConfiguration cArgs)
             confOpts
+
+    whenJust (ekgParams cArgs) $ \(EkgParams eHost ePort) -> do
+      putText $ "EKG is starting on " <> show eHost <> ":" <> show ePort
+      void $ forkServer eHost ePort
 
     withLogger' $ withConfigurations' $ \genesisConfig walletConfig txpConfig ntpConfig -> do
         (nodeParams, Just sscParams) <- getNodeParams

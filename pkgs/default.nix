@@ -16777,6 +16777,7 @@ license = stdenv.lib.licenses.mit;
 , data-default
 , data-default-class
 , directory
+, ekg
 , exceptions
 , filepath
 , foldl
@@ -16897,6 +16898,7 @@ cryptonite
 data-default
 data-default-class
 directory
+ekg
 exceptions
 filepath
 foldl

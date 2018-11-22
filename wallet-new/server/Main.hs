@@ -2,14 +2,16 @@ module Main where
 
 import           Universum
 
-import           Pos.Client.CLI (NodeArgs (..), loggingParams)
+import           System.Remote.Monitoring (forkServer)
+
+import           Pos.Client.CLI (NodeArgs (..), loggingParams, ekgParams)
+import           Pos.Infra.Statistics.Ekg
 import           Pos.Launcher (launchNode)
 import           Pos.Util.CompileInfo (withCompileInfo)
 
 import           Cardano.Wallet.Action (actionWithWallet)
 import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..),
                      WalletStartupOptions (..), getWalletNodeOptions)
-
 
 -- | The main entrypoint for the Wallet.
 main :: IO ()
@@ -19,6 +21,13 @@ main = withCompileInfo $ do
     let nArgs = NodeArgs { behaviorConfigPath = Nothing }
 
     putText "Wallet is starting..."
+
+    case ekgParams cArgs of
+      Just (EkgParams eHost ePort) -> do
+        putText $ "EKG is starting on " <> show eHost <> ":" <> show ePort
+        forkServer eHost ePort
+        pure ()
+      Nothing -> pure ()
 
     launchNode nArgs cArgs lArgs $ case wArgs of
         WalletLegacy _ ->

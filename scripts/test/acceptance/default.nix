@@ -47,7 +47,7 @@ in
     ''}
     mkdir -p ${stateDir}/logs
 
-    trap "stop_wallet" INT TERM
+    trap "stop_wallet" INT TERM EXIT
 
     ${utf8LocaleSetting}
     echo Launching wallet node: ${wallet}

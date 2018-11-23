@@ -8,28 +8,26 @@ module Cardano.Node.API where
 import           Universum
 
 import           Control.Concurrent.STM (orElse, retry)
-import           Control.Lens (lens, to, makeLensesWith)
+import           Control.Lens (lens, makeLensesWith, to)
 import qualified Data.ByteString.Char8 as BS8
+import           Data.Default (Default)
 import qualified Data.Text as Text
 import           Data.Time.Units (toMicroseconds)
 import qualified Paths_cardano_sl_node as Paths
 import           Servant
-import Data.Default (Default)
 
-import           Pos.Crypto (SecretKey)
-import           Pos.Util.Lens (postfixLFields)
-import           Pos.Infra.Util.JsonLog.Events (jsonLogDefault)
-import Pos.Core.JsonLog (CanJsonLog(..))
 import           Ntp.Client (NtpConfiguration, NtpStatus (..),
                      ntpClientSettings, withNtpClient)
 import           Ntp.Packet (NtpOffset)
 import           Pos.Chain.Block (HasBlockConfiguration, LastKnownHeader,
                      LastKnownHeaderTag)
+import           Pos.Chain.Ssc (SscContext)
 import           Pos.Chain.Update (UpdateConfiguration, curSoftwareVersion)
 import           Pos.Client.CLI.NodeOptions (NodeApiArgs (..))
 import           Pos.Context
-import Pos.Chain.Ssc (SscContext)
 import qualified Pos.Core as Core
+import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Crypto (SecretKey)
 import qualified Pos.DB.Block as DB
 import qualified Pos.DB.BlockIndex as DB
 import qualified Pos.DB.Class as DB
@@ -37,20 +35,22 @@ import           Pos.DB.GState.Lock (Priority (..), StateLock,
                      withStateLockNoMetrics)
 import qualified Pos.DB.Rocks as DB
 import           Pos.DB.Txp (MempoolExt)
+import           Pos.DB.Txp.MemState (GenericTxpLocalData, TxpHolderTag)
 import           Pos.Infra.Diffusion.Subscription.Status (ssMap)
 import           Pos.Infra.Diffusion.Types
 import qualified Pos.Infra.Slotting.Util as Slotting
+import           Pos.Infra.Util.JsonLog.Events (jsonLogDefault)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Resource
 import           Pos.Node.API as Node
 import           Pos.Util (HasLens (..), HasLens')
 import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
+import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.Servant
 import           Pos.Web (serveImpl)
 import qualified Pos.Web as Legacy
 import           Pos.WorkMode (RealModeContext)
 import           Pos.WorkMode.Class (WorkMode)
-import Pos.DB.Txp.MemState (TxpHolderTag, GenericTxpLocalData)
 
 type NodeV1Api
     = "v1"
@@ -70,24 +70,26 @@ data LegacyCtx = LegacyCtx
         :: !UpdateConfiguration
     , legacyCtxSscContext
         :: !SscContext
+    , legacyCtxNodeDBs
+        :: !DB.NodeDBs
     }
 
 makeLensesWith postfixLFields ''LegacyCtx
 
 instance HasPrimaryKey LegacyCtx where
-    primaryKey = undefined
+    primaryKey = legacyCtxPrimaryKey_L
 
 instance HasLens TxpHolderTag LegacyCtx (GenericTxpLocalData ()) where
-    lensOf = undefined
+    lensOf = legacyCtxTxpLocalData_L
 
 instance HasLens DB.NodeDBs LegacyCtx DB.NodeDBs where
-    lensOf = undefined
+    lensOf = legacyCtxNodeDBs_L
 
 instance HasLens UpdateConfiguration LegacyCtx UpdateConfiguration where
-    lensOf = undefined
+    lensOf = legacyCtxUpdateConfiguration_L
 
 instance HasSscContext LegacyCtx where
-    sscContext = undefined
+    sscContext = legacyCtxSscContext_L
 
 instance {-# OVERLAPPING #-} DB.MonadDBRead (ReaderT LegacyCtx IO) where
     dbGet = DB.dbGetDefault
@@ -104,10 +106,10 @@ legacyNodeApi r =
         Legacy.nodeServantHandlers
 
 launchNodeServer
-    :: (Default ext, HasConfigurations)
+    :: HasConfigurations
     => NodeApiArgs
     -> NtpConfiguration
-    -> NodeResources ext
+    -> NodeResources ()
     -> UpdateConfiguration
     -> CompileTimeInfo
     -> Diffusion IO
@@ -122,14 +124,16 @@ launchNodeServer
   = do
     ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
     let legacyApi = legacyNodeApi LegacyCtx
-            { legacyCtxTxpLocalData
-                = undefined
-            , legacyCtxPrimaryKey
-                = undefined
-            , legacyCtxUpdateConfiguration
-                = undefined
-            , legacyCtxSscContext
-                = undefined
+            { legacyCtxTxpLocalData =
+                nrTxpState nodeResources
+            , legacyCtxPrimaryKey =
+                view primaryKey . ncNodeParams $ nrContext nodeResources
+            , legacyCtxUpdateConfiguration =
+                updateConfiguration
+            , legacyCtxSscContext =
+                ncSscContext $ nrContext nodeResources
+            , legacyCtxNodeDBs =
+                nrDBs nodeResources
             }
     let app = serve nodeV1Api
             $ handlers

@@ -8,13 +8,18 @@ module Cardano.Node.API where
 import           Universum
 
 import           Control.Concurrent.STM (orElse, retry)
-import           Control.Lens (lens, to)
+import           Control.Lens (lens, to, makeLensesWith)
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.Text as Text
 import           Data.Time.Units (toMicroseconds)
 import qualified Paths_cardano_sl_node as Paths
 import           Servant
+import Data.Default (Default)
 
+import           Pos.Crypto (SecretKey)
+import           Pos.Util.Lens (postfixLFields)
+import           Pos.Infra.Util.JsonLog.Events (jsonLogDefault)
+import Pos.Core.JsonLog (CanJsonLog(..))
 import           Ntp.Client (NtpConfiguration, NtpStatus (..),
                      ntpClientSettings, withNtpClient)
 import           Ntp.Packet (NtpOffset)
@@ -23,6 +28,7 @@ import           Pos.Chain.Block (HasBlockConfiguration, LastKnownHeader,
 import           Pos.Chain.Update (UpdateConfiguration, curSoftwareVersion)
 import           Pos.Client.CLI.NodeOptions (NodeApiArgs (..))
 import           Pos.Context
+import Pos.Chain.Ssc (SscContext)
 import qualified Pos.Core as Core
 import qualified Pos.DB.Block as DB
 import qualified Pos.DB.BlockIndex as DB
@@ -44,6 +50,7 @@ import           Pos.Web (serveImpl)
 import qualified Pos.Web as Legacy
 import           Pos.WorkMode (RealModeContext)
 import           Pos.WorkMode.Class (WorkMode)
+import Pos.DB.Txp.MemState (TxpHolderTag, GenericTxpLocalData)
 
 type NodeV1Api
     = "v1"
@@ -54,16 +61,50 @@ type NodeV1Api
 nodeV1Api :: Proxy NodeV1Api
 nodeV1Api = Proxy
 
-launchLegacyNodeApi
-    :: HasConfigurations
-    => IO (Server Legacy.NodeApi)
-launchLegacyNodeApi = do
-    runReaderT
-        Legacy.servantServer
-        (undefined :: RealModeContext ())
+data LegacyCtx = LegacyCtx
+    { legacyCtxTxpLocalData
+        :: !(GenericTxpLocalData ())
+    , legacyCtxPrimaryKey
+        :: !SecretKey
+    , legacyCtxUpdateConfiguration
+        :: !UpdateConfiguration
+    , legacyCtxSscContext
+        :: !SscContext
+    }
+
+makeLensesWith postfixLFields ''LegacyCtx
+
+instance HasPrimaryKey LegacyCtx where
+    primaryKey = undefined
+
+instance HasLens TxpHolderTag LegacyCtx (GenericTxpLocalData ()) where
+    lensOf = undefined
+
+instance HasLens DB.NodeDBs LegacyCtx DB.NodeDBs where
+    lensOf = undefined
+
+instance HasLens UpdateConfiguration LegacyCtx UpdateConfiguration where
+    lensOf = undefined
+
+instance HasSscContext LegacyCtx where
+    sscContext = undefined
+
+instance {-# OVERLAPPING #-} DB.MonadDBRead (ReaderT LegacyCtx IO) where
+    dbGet = DB.dbGetDefault
+    dbIterSource = DB.dbIterSourceDefault
+    dbGetSerBlock = DB.dbGetSerBlockRealDefault
+    dbGetSerUndo = DB.dbGetSerUndoRealDefault
+    dbGetSerBlund = DB.dbGetSerBlundRealDefault
+
+legacyNodeApi :: () => LegacyCtx -> Server Legacy.NodeApi
+legacyNodeApi r =
+    hoistServer
+        (Proxy :: Proxy Legacy.NodeApi)
+        (Handler . ExceptT . try . flip runReaderT r)
+        Legacy.nodeServantHandlers
 
 launchNodeServer
-    :: HasConfigurations
+    :: (Default ext, HasConfigurations)
     => NodeApiArgs
     -> NtpConfiguration
     -> NodeResources ext
@@ -80,7 +121,16 @@ launchNodeServer
     diffusion
   = do
     ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
-    legacyApi <- launchLegacyNodeApi
+    let legacyApi = legacyNodeApi LegacyCtx
+            { legacyCtxTxpLocalData
+                = undefined
+            , legacyCtxPrimaryKey
+                = undefined
+            , legacyCtxUpdateConfiguration
+                = undefined
+            , legacyCtxSscContext
+                = undefined
+            }
     let app = serve nodeV1Api
             $ handlers
                 diffusion

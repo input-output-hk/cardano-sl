@@ -54,7 +54,7 @@ import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                      modifyLoggerNameDefault)
 import           Pos.Util.UserSecret (HasUserSecret (..))
-import           Pos.Util.Util (HasLens (..), HasLens')
+import           Pos.Util.Util (HasLens (..))
 import           Pos.Util.Wlog (HasLoggerName (..), LoggerName)
 import           Pos.WorkMode.Class (MinWorkMode, WorkMode)
 
@@ -163,16 +163,6 @@ instance MonadDBRead (RealMode ext) where
     dbGetSerBlock = dbGetSerBlockRealDefault
     dbGetSerUndo  = dbGetSerUndoRealDefault
     dbGetSerBlund  = dbGetSerBlundRealDefault
-
--- instance {-# OVERLAPPABLE #-}
---     ( MonadIO m, HasLens' r NodeDBs, MonadCatch m
---     ) => MonadDBRead (ReaderT r m)
---   where
---     dbGet         = dbGetDefault
---     dbIterSource  = dbIterSourceDefault
---     dbGetSerBlock = dbGetSerBlockRealDefault
---     dbGetSerUndo  = dbGetSerUndoRealDefault
---     dbGetSerBlund = dbGetSerBlundRealDefault
 
 instance MonadDB (RealMode ext) where
     dbPut = dbPutDefault

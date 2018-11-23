@@ -22,7 +22,7 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
                      configHeavyDelegation)
 import           Pos.Chain.Txp (TxpConfiguration, bootDustThreshold)
 import           Pos.Chain.Update (UpdateConfiguration, curSoftwareVersion,
-                     lastKnownBlockVersion, ourSystemTag, updateConfiguration)
+                     lastKnownBlockVersion, ourSystemTag)
 import           Pos.Context (getOurPublicKey)
 import           Pos.Core (addressHash)
 import           Pos.Core.Conc (mapConcurrently)

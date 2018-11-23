@@ -12,6 +12,7 @@ module Pos.Web.Server
        , serveWeb
        , servantServer
        , application
+       , nodeServantHandlers
        ) where
 
 import           Universum
@@ -40,6 +41,8 @@ import           Servant.Server (Handler, HasServer, ServantErr (errBody),
                      Server, ServerT, err404, err503, hoistServer, serve)
 import           UnliftIO (MonadUnliftIO)
 
+import Pos.Core.Context (HasPrimaryKey)
+import Pos.DB.Txp (MonadTxpMem)
 import           Network.Socket (Socket, close)
 import           Pos.Chain.Ssc (scParticipateSsc)
 import           Pos.Chain.Txp (TxOut (..), toaOut)
@@ -51,10 +54,11 @@ import           Pos.DB (MonadDBRead)
 import qualified Pos.DB as DB
 import qualified Pos.DB.Lrc as LrcDB
 import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
-                     getAllPotentiallyHugeUtxo, getLocalTxs, withTxpLocalData)
+                     getAllPotentiallyHugeUtxo, getLocalTxs, withTxpLocalData,
+                     TxpHolderTag)
 import qualified Pos.GState as GS
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
-import           Pos.Util.Util (HasLens', lensOf)
+import           Pos.Util.Util (HasLens', lensOf, HasLens)
 import           Pos.Web.Mode (WebMode, WebModeContext (..))
 import           Pos.WorkMode.Class  (WorkMode)
 
@@ -256,8 +260,12 @@ servantServer = withNat (Proxy @NodeApi) nodeServantHandlers
 ----------------------------------------------------------------------------
 
 nodeServantHandlers
-    :: (Default ext)
-    => ServerT NodeApi (WebMode ext)
+    ::
+    ( MonadReader r m, MonadUnliftIO m, MonadDBRead m, Default ext
+    , HasPrimaryKey r, HasLens TxpHolderTag r (GenericTxpLocalData ext)
+    , HasLens UpdateConfiguration r UpdateConfiguration
+    , HasSscContext r
+    ) => ServerT NodeApi m
 nodeServantHandlers =
     getLeaders
     :<|>
@@ -276,7 +284,7 @@ nodeServantHandlers =
     -- :<|> getOurSecret
     -- :<|> getSscStage
 
-getLeaders :: Maybe EpochIndex -> WebMode ext SlotLeaders
+getLeaders :: MonadDBRead m => Maybe EpochIndex -> m SlotLeaders
 getLeaders maybeEpoch = do
     -- epoch <- maybe (siEpoch <$> getCurrentSlot) pure maybeEpoch
     epoch <- maybe (pure 0) pure maybeEpoch
@@ -284,10 +292,12 @@ getLeaders maybeEpoch = do
   where
     err = err404 { errBody = encodeUtf8 ("Leaders are not know for current epoch"::Text) }
 
-getUtxo :: WebMode ext [TxOut]
+getUtxo :: (MonadDBRead m, MonadUnliftIO m) => m [TxOut]
 getUtxo = map toaOut . toList <$> getAllPotentiallyHugeUtxo
 
-getLocalTxsNum :: Default ext => WebMode ext Word
+getLocalTxsNum
+    :: (MonadIO m, MonadTxpMem ext ctx m)
+    => m Word
 getLocalTxsNum = fromIntegral . length <$> withTxpLocalData getLocalTxs
 
 -- | Get info on all confirmed proposals
@@ -299,7 +309,9 @@ confirmedProposals = do
     proposals <- GS.getConfirmedProposals uc Nothing
     pure $ map (CConfirmedProposalState . show) proposals
 
-toggleSscParticipation :: Bool -> WebMode ext ()
+toggleSscParticipation
+    :: (MonadReader r m, HasSscContext r, MonadIO m)
+    => Bool -> m ()
 toggleSscParticipation enable =
     view sscContext >>=
     atomically . flip writeTVar enable . scParticipateSsc

@@ -1,7 +1,7 @@
 with import ../../../lib.nix;
 
 { stdenv, writeScript
-, jq, coreutils, curl, gnused, openssl, time
+, jq, coreutils, curl, gnused, openssl, time, haskellPackages
 
 , connect
 , cardano-sl-tools, cardano-sl-wallet-new
@@ -14,14 +14,14 @@ with import ../../../lib.nix;
 
 let
   cardanoDeps = [ cardano-sl-tools cardano-sl-wallet-new ];
-  demoClusterDeps = [ jq coreutils curl gnused openssl time ];
-  allDeps =  demoClusterDeps ++ cardanoDeps;
+  testRunnerDeps = [ jq coreutils curl gnused openssl time haskellPackages.hp2pretty ];
+  allDeps = testRunnerDeps ++ cardanoDeps;
 
   wallet = connect {
     inherit environment stateDir;
 
     # This will limit heap size to 1GB, along with the usual RTS options.
-    ghcRuntimeArgs = "-N2 -qg -A1m -I0 -T -M1G";
+    ghcRuntimeArgs = "-N2 -qg -A1m -I0 -T -M1G -h";
   };
 
 in
@@ -152,4 +152,12 @@ in
     echo
     echo "Restoration complete!"
     echo "Elapsed time: $elapsed_time seconds"
+
+    hp2pretty cardano-node.hp
+
+    if [ -n "$BUILDKITE" ]; then
+      buildkite-agent artifact upload cardano-node.hp
+      buildkite-agent artifact upload cardano-node.svg
+      printf '\033]1338;url='"artifact://cardano-node.svg"';alt='"Heap profile"'\a\n'
+    fi
   ''

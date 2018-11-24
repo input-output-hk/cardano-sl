@@ -1,5 +1,6 @@
-{-# LANGUAGE Rank2Types   #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE Rank2Types     #-}
+{-# LANGUAGE TypeFamilies   #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -111,7 +112,7 @@ import qualified Data.Acid as Acid
 
 import           Control.Arrow ((***))
 import           Control.Lens (at, has, ix, lens, makeClassy, makeLenses, non',
-                     to, toListOf, traversed, (%=), (+=), (.=), (<<.=), (?=),
+                     to, toListOf, traversed, (%=), (.=), (<<.=), (?=), (?~),
                      _Empty, _Just, _head)
 import           Control.Monad.State.Class (get, put)
 import           Data.Default (Default, def)
@@ -636,21 +637,29 @@ createWallet cWalId cWalMeta isReady curTime = do
     let info = WalletInfo cWalMeta curTime curTime NotSynced noSyncStatistics mempty isReady
     wsWalletInfos . at cWalId %= (<|> Just info)
 
--- | Add new address given 'CWAddressMeta' (which contains information about
--- target wallet and account too).
+-- | Add new address given 'WAddressMeta' (which contains information about
+-- target wallet and account too). If the input account is /not/ there, creates it.
 addWAddress :: WAddressMeta -> Update ()
 addWAddress addrMeta = do
-    let accInfo :: Traversal' WalletStorage AccountInfo
-        accInfo = wsAccountInfos . ix (addrMeta ^. wamAccount)
-        addr = addrMeta ^. wamAddress
-    whenJustM (preuse accInfo) $ \info -> do
-        let mAddr = info ^. aiAddresses . at addr
-        when (isNothing mAddr) $ do
-            -- Here we increment current account's last address index
-            -- and assign its value to sorting index of newly created address.
-            accInfo . aiUnusedKey += 1
-            let key = info ^. aiUnusedKey
-            accInfo . aiAddresses . at addr ?= AddressInfo addrMeta key
+    ws@WalletStorage{..} <- get
+    put (ws { _wsAccountInfos = HM.alter aux (addrMeta ^. wamAccount) _wsAccountInfos })
+    where
+        freshAccount :: AccountInfo
+        freshAccount = AccountInfo (WebTypes.CAccountMeta "New account") mempty mempty 0
+
+        aux :: Maybe AccountInfo -> Maybe AccountInfo
+        aux Nothing     = Just $ addAddress freshAccount
+        aux (Just info) = Just $ addAddress info
+
+        addAddress :: AccountInfo -> AccountInfo
+        addAddress info@AccountInfo{_aiUnusedKey, _aiAddresses}
+          | HM.member addr _aiAddresses
+          = info & (over aiUnusedKey (+ 1))
+                 . (aiAddresses . at addr ?~ AddressInfo addrMeta key)
+          | otherwise = info
+           where
+               key   = info ^. aiUnusedKey
+               addr  = addrMeta ^. wamAddress
 
 -- | Update account metadata.
 setAccountMeta :: WebTypes.AccountId -> WebTypes.CAccountMeta -> Update ()

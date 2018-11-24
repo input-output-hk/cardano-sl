@@ -9,6 +9,10 @@
   ## Wallet API server.
   #walletListen = "127.0.0.1:8090";
 
+  ## In case the wallet is accessed through port forwarding,
+  ## the externally-visible address MUST be provided.
+  #walletExternalIPAddress = "1.2.3.4";
+
   ## Wallet Doc API server.
   #walletDocListen = "127.0.0.1:8091";
 

@@ -9,6 +9,7 @@
 , gitrev ? localLib.commitIdFromGitRepo ./../../../.git
 , walletListen ? "localhost:8090"
 , walletDocListen ? "localhost:8091"
+, walletExternalIPAddress ? builtins.elemAt (localLib.splitString ":" walletListen) 0
 , ekgListen ? "localhost:8000"
 , ghcRuntimeArgs ? "-N2 -qg -A1m -I0 -T"
 , additionalNodeArgs ? ""
@@ -64,6 +65,30 @@ let
       fallbacks: 7
   '';
   configFiles = iohkPkgs.cardano-sl-config;
+  tlsConfig = pkgs.writeText "tls-config-${environment}.yaml" ''
+    ${environments.${environment}.confKey}:
+      tls:
+        ca:
+          organization: Input Output HK
+          commonName: Cardano SL Self-Signed Root CA
+          expiryDays: 3650
+
+        server:
+          organization: Input Output HK
+          commonName: Cardano SL Server Node
+          expiryDays: 365
+          altDNS:
+            - "localhost"
+            - "localhost.localdomain"
+            - "${walletExternalIPAddress}"
+            - "127.0.0.1"
+            - "::1"
+
+        clients:
+          - organization: Input Output HK
+            commonName: Daedalus Wallet
+            expiryDays: 365
+  '';
   configurationArgs = pkgs.lib.concatStringsSep " " [
     "--configuration-file ${environments.${environment}.confFile or "${configFiles}/lib/configuration.yaml"}"
     "--configuration-key ${environments.${environment}.confKey}"
@@ -95,7 +120,8 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     ${iohkPkgs.cardano-sl-tools}/bin/cardano-x509-certificates   \
       --server-out-dir ${stateDir}/tls/server                    \
       --clients-out-dir ${stateDir}/tls/client                   \
-      ${configurationArgs}
+      --configuration-file ${tlsConfig}                          \
+      --configuration-key ${environments.${environment}.confKey}
   fi
   ''}
 

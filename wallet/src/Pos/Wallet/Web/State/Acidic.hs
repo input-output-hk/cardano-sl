@@ -53,8 +53,10 @@ module Pos.Wallet.Web.State.Acidic
        , CasPtxCondition (..)
        , RemoveOnlyCreatingPtx (..)
        , PtxUpdateMeta (..)
+       , PtxUpdateMeta_v1 (..)
        , AddOnlyNewPendingTx (..)
        , ResetFailedPtxs (..)
+       , ResetFailedPtxs_v1 (..)
        , CancelApplyingPtxs (..)
        , CancelSpecificApplyingPtx (..)
        , FlushWalletStorage (..)
@@ -67,6 +69,7 @@ module Pos.Wallet.Web.State.Acidic
        , ApplyModifierToWallet2 (..)
        , RollbackModifierFromWallet (..)
        , RollbackModifierFromWallet2 (..)
+       , RollbackModifierFromWallet3 (..)
        ) where
 
 import           Universum
@@ -150,8 +153,10 @@ makeAcidic ''WalletStorage
     , 'WS.casPtxCondition
     , 'WS.removeOnlyCreatingPtx
     , 'WS.ptxUpdateMeta
+    , 'WS.ptxUpdateMeta_v1
     , 'WS.addOnlyNewPendingTx
     , 'WS.resetFailedPtxs
+    , 'WS.resetFailedPtxs_v1
     , 'WS.cancelApplyingPtxs
     , 'WS.cancelSpecificApplyingPtx
     , 'WS.flushWalletStorage
@@ -162,4 +167,5 @@ makeAcidic ''WalletStorage
     , 'WST.applyModifierToWallet2
     , 'WST.rollbackModifierFromWallet
     , 'WST.rollbackModifierFromWallet2
+    , 'WST.rollbackModifierFromWallet3
     ]

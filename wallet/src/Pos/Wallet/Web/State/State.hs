@@ -485,7 +485,7 @@ ptxUpdateMeta
     -> PtxMetaUpdate
     -> m ()
 ptxUpdateMeta db walletId txId metaUpdate =
-    updateDisk (A.PtxUpdateMeta protocolConstants walletId txId metaUpdate) db
+    updateDisk (A.PtxUpdateMeta_v1 protocolConstants walletId txId metaUpdate) db
 
 addOnlyNewPendingTx :: (MonadIO m)
                     => WalletDB
@@ -506,7 +506,7 @@ resetFailedPtxs :: (MonadIO m, HasProtocolConstants)
                 => WalletDB
                 -> SlotId
                 -> m ()
-resetFailedPtxs db slotId = updateDisk (A.ResetFailedPtxs protocolConstants slotId) db
+resetFailedPtxs db slotId = updateDisk (A.ResetFailedPtxs_v1 protocolConstants slotId) db
 
 flushWalletStorage :: (MonadIO m)
                    => WalletDB
@@ -553,7 +553,7 @@ rollbackModifierFromWallet db walId wAddrs custAddrs utxoMod
                             historyEntries ptxConditions
                             syncState =
     updateDisk
-      ( A.RollbackModifierFromWallet2 protocolConstants
+      ( A.RollbackModifierFromWallet3 protocolConstants
           walId wAddrs custAddrs utxoMod
           historyEntries' ptxConditions syncState
       )

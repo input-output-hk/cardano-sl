@@ -91,10 +91,14 @@ module Pos.Wallet.Web.State.Storage
        , casPtxCondition
        , removeOnlyCreatingPtx
        , ptxUpdateMeta
+       , ptxUpdateMeta_v1
        , addOnlyNewPendingTx
        , resetFailedPtxs
+       , resetFailedPtxs_v1
        , cancelApplyingPtxs
        , cancelSpecificApplyingPtx
+         -- * DB log compat things
+       , compatProtocolConstants
          -- * Exported only for testing purposes
        , WalletTip_v0 (..)
        , AddressInfo_v0 (..)
@@ -779,13 +783,13 @@ data PtxMetaUpdate
     | PtxMarkAcknowledged         -- ^ Mark tx as acknowledged by some peer
 
 -- | Update meta info of pending transaction atomically.
-ptxUpdateMeta
+ptxUpdateMeta_v1
     :: ProtocolConstants
     -> WebTypes.CId WebTypes.Wal
     -> TxId
     -> PtxMetaUpdate
     -> Update ()
-ptxUpdateMeta pc wid txId updType =
+ptxUpdateMeta_v1 pc wid txId updType =
     wsWalletInfos . ix wid . wsPendingTxs . ix txId %=
         case updType of
             PtxIncSubmitTiming ->
@@ -794,6 +798,23 @@ ptxUpdateMeta pc wid txId updType =
                 ptxSubmitTiming .~ mkPtxSubmitTiming pc curSlot
             PtxMarkAcknowledged ->
                 ptxMarkAcknowledgedPure
+
+compatProtocolConstants :: ProtocolConstants
+compatProtocolConstants =
+  ProtocolConstants
+    { pcK         = 2160
+    , pcVssMinTTL = VssMinTTL 2
+    , pcVssMaxTTL = VssMaxTTL 6
+    }
+
+-- | Original version, retained for db tx log compatibility.
+-- See 'ptxUpdateMeta_v1'
+ptxUpdateMeta
+    :: WebTypes.CId WebTypes.Wal
+    -> TxId
+    -> PtxMetaUpdate
+    -> Update ()
+ptxUpdateMeta = ptxUpdateMeta_v1 compatProtocolConstants
 
 cancelApplyingPtxs :: Update ()
 cancelApplyingPtxs =
@@ -813,10 +834,15 @@ addOnlyNewPendingTx ptx =
 
 -- | Move every transaction which is in 'PtxWontApply' state to 'PtxApplying'
 -- state, effectively starting resubmission of failed transactions again.
-resetFailedPtxs :: ProtocolConstants -> SlotId -> Update ()
-resetFailedPtxs pc curSlot =
+resetFailedPtxs_v1 :: ProtocolConstants -> SlotId -> Update ()
+resetFailedPtxs_v1 pc curSlot =
     wsWalletInfos . traversed .
     wsPendingTxs . traversed %= resetFailedPtx pc curSlot
+
+-- | Original version, retained for db tx log compatibility.
+-- See 'resetFailedPtxs_v1'
+resetFailedPtxs :: SlotId -> Update ()
+resetFailedPtxs = resetFailedPtxs_v1 compatProtocolConstants
 
 -- | Gets whole wallet storage. Used primarily for testing and diagnostics.
 getWalletStorage :: Query WalletStorage
@@ -877,9 +903,6 @@ deriveSafeCopySimple 0 'base ''PendingTx
 deriveSafeCopySimple 0 'base ''RestorationBlockDepth
 deriveSafeCopySimple 0 'base ''SyncThroughput
 deriveSafeCopySimple 0 'base ''SyncStatistics
-deriveSafeCopySimple 0 'base ''ProtocolConstants
-deriveSafeCopySimple 0 'base ''VssMinTTL
-deriveSafeCopySimple 0 'base ''VssMaxTTL
 
 -- Legacy versions, for migrations
 
@@ -999,6 +1022,17 @@ data WalletStorage_v3 = WalletStorage_v3
     , _v3_wsChangeAddresses :: !CustomAddresses
     }
 
+data ProtocolConstants_v0 = ProtocolConstants_v0
+    { _v0_pcK             :: !Int
+    , _v0_pcProtocolMagic :: !ProtocolMagic_v0
+    , _v0_pcVssMaxTTL     :: !Word32
+    , _v0_pcVssMinTTL     :: !Word32
+    }
+
+data ProtocolMagic_v0 = ProtocolMagic_v0
+    { _v0_getProtocolMagic :: Int32
+    }
+
 deriveSafeCopySimple 0 'base ''AddressInfo_v0
 deriveSafeCopySimple 1 'extension ''AddressInfo
 
@@ -1010,6 +1044,13 @@ deriveSafeCopySimple 1 'extension ''WalletStorage_v1
 deriveSafeCopySimple 2 'extension ''WalletStorage_v2
 deriveSafeCopySimple 3 'extension ''WalletStorage_v3
 deriveSafeCopySimple 4 'extension ''WalletStorage
+
+deriveSafeCopySimple 0 'base ''ProtocolMagic_v0
+
+deriveSafeCopySimple 0 'base ''ProtocolConstants_v0
+deriveSafeCopySimple 1 'extension ''ProtocolConstants
+deriveSafeCopySimple 0 'base ''VssMinTTL
+deriveSafeCopySimple 0 'base ''VssMaxTTL
 
 instance Migrate AddressInfo where
     type MigrateFrom AddressInfo = AddressInfo_v0
@@ -1094,3 +1135,12 @@ instance Migrate WalletStorage where
         }
       where
         migrateMapElements = HM.fromList . fmap (second migrate) . HM.toList
+
+instance Migrate ProtocolConstants where
+    type MigrateFrom ProtocolConstants = ProtocolConstants_v0
+    migrate ProtocolConstants_v0{..} = ProtocolConstants
+        { pcK         = _v0_pcK
+        , pcVssMinTTL = VssMinTTL _v0_pcVssMinTTL
+        , pcVssMaxTTL = VssMaxTTL _v0_pcVssMaxTTL
+        }
+

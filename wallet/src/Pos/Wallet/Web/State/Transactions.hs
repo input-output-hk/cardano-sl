@@ -10,6 +10,7 @@ module Pos.Wallet.Web.State.Transactions
     , applyModifierToWallet2
     , rollbackModifierFromWallet
     , rollbackModifierFromWallet2
+    , rollbackModifierFromWallet3
     )
     where
 
@@ -129,7 +130,7 @@ applyModifierToWallet walId wAddrs custAddrs utxoMod
     WS.setWalletSyncTip walId syncTip
 
 -- | Like 'rollbackModifierFromWallet', but it takes into account the given 'WalletSyncState'.
-rollbackModifierFromWallet2
+rollbackModifierFromWallet3
     :: ProtocolConstants -- Needed for ptxUpdateMeta
     -> CId Wal
     -> [WS.WAddressMeta] -- ^ Addresses to remove
@@ -141,7 +142,7 @@ rollbackModifierFromWallet2
     -> [(TxId, PtxCondition, WS.PtxMetaUpdate)] -- ^ Deleted PTX candidates
     -> WS.WalletSyncState -- ^ New 'WalletSyncState'
     -> Update ()
-rollbackModifierFromWallet2 pc walId wAddrs custAddrs utxoMod
+rollbackModifierFromWallet3 pc walId wAddrs custAddrs utxoMod
                             historyEntries ptxConditions
                             syncState = do
     case syncState of
@@ -154,11 +155,11 @@ rollbackModifierFromWallet2 pc walId wAddrs custAddrs utxoMod
             WS.removeFromHistoryCache walId historyEntries
             WS.removeWalletTxMetas walId (encodeCType <$> M.keys historyEntries)
             for_ ptxConditions $ \(txId, cond, meta) -> do
-                WS.ptxUpdateMeta pc walId txId meta
+                WS.ptxUpdateMeta_v1 pc walId txId meta
                 WS.setPtxCondition walId txId cond
             WS.setWalletRestorationSyncTip walId rhh newSyncTip
         (WS.SyncedWith newSyncTip) ->
-            rollbackModifierFromWallet pc walId wAddrs custAddrs utxoMod
+            rollbackModifierFromWallet1 pc walId wAddrs custAddrs utxoMod
                                        historyEntries ptxConditions
                                        newSyncTip
         -- See similar comment as for 'applyModifierToWallet2'.
@@ -166,10 +167,26 @@ rollbackModifierFromWallet2 pc walId wAddrs custAddrs utxoMod
                                <> "applied modifier to a 'NotSynced' wallet."
                         in error msg
 
+-- | Older version retained for db tx log compatibility.
+-- See 'rollbackModifierFromWallet3'
+rollbackModifierFromWallet2
+    :: CId Wal
+    -> [WS.WAddressMeta]
+    -> [(WS.CustomAddressType, [(Address, HeaderHash)])]
+    -> UtxoModifier
+    -> Map TxId ()
+    -> [(TxId, PtxCondition, WS.PtxMetaUpdate)]
+    -> WS.WalletSyncState
+    -> Update ()
+rollbackModifierFromWallet2 =
+    rollbackModifierFromWallet3 pc
+  where
+    pc = WS.compatProtocolConstants
+
 -- | Rollback some set of modifiers to a wallet.
 --   TODO Find out the significance of this set of modifiers and document.
-rollbackModifierFromWallet
-    :: ProtocolConstants
+rollbackModifierFromWallet1
+    :: ProtocolConstants -- Needed for ptxUpdateMeta
     -> CId Wal
     -> [WS.WAddressMeta] -- ^ Addresses to remove
     -> [(WS.CustomAddressType, [(Address, HeaderHash)])] -- ^ Custom addresses to remove
@@ -180,7 +197,7 @@ rollbackModifierFromWallet
     -> [(TxId, PtxCondition, WS.PtxMetaUpdate)] -- ^ Deleted PTX candidates
     -> HeaderHash -- ^ New sync tip
     -> Update ()
-rollbackModifierFromWallet pc walId wAddrs custAddrs utxoMod
+rollbackModifierFromWallet1 pc walId wAddrs custAddrs utxoMod
                            historyEntries ptxConditions
                            syncTip = do
     for_ wAddrs WS.removeWAddress
@@ -191,6 +208,22 @@ rollbackModifierFromWallet pc walId wAddrs custAddrs utxoMod
     WS.removeFromHistoryCache walId historyEntries
     WS.removeWalletTxMetas walId (encodeCType <$> M.keys historyEntries)
     for_ ptxConditions $ \(txId, cond, meta) -> do
-        WS.ptxUpdateMeta pc walId txId meta
+        WS.ptxUpdateMeta_v1 pc walId txId meta
         WS.setPtxCondition walId txId cond
     WS.setWalletSyncTip walId syncTip
+
+rollbackModifierFromWallet
+    :: CId Wal
+    -> [WS.WAddressMeta] -- ^ Addresses to remove
+    -> [(WS.CustomAddressType, [(Address, HeaderHash)])] -- ^ Custom addresses to remove
+    -> UtxoModifier
+       -- We use this odd representation because Data.Map does not get 'withoutKeys'
+       -- until 5.8.1
+    -> Map TxId () -- ^ Entries to remove from history cache.
+    -> [(TxId, PtxCondition, WS.PtxMetaUpdate)] -- ^ Deleted PTX candidates
+    -> HeaderHash -- ^ New sync tip
+    -> Update ()
+rollbackModifierFromWallet =
+    rollbackModifierFromWallet1 pc
+  where
+    pc = WS.compatProtocolConstants

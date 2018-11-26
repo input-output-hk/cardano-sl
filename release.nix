@@ -69,11 +69,25 @@ let
       connectScripts = makeConnectScripts cluster;
     };
   };
-in mapped // {
+in pkgs.lib.fix (jobsets: mapped // {
   inherit walletIntegrationTests swaggerSchemaValidation shellcheckTests;
+  inherit (pkgs) cabal2nix;
   nixpkgs = let
     wrapped = pkgs.runCommand "nixpkgs" {} ''
       ln -sv ${fixedNixpkgs} $out
     '';
   in if 0 <= builtins.compareVersions builtins.nixVersion "1.12" then wrapped else fixedNixpkgs;
-} // (builtins.listToAttrs (map makeRelease [ "mainnet" "staging" ]))
+  required = pkgs.lib.hydraJob (pkgs.releaseTools.aggregate {
+    name = "cardano-required-checks";
+    constituents =
+      let
+        all = x: map (system: x.${system}) supportedSystems;
+      in
+    [
+      (all jobsets.daedalus-bridge)
+      (all jobsets.mainnet.connectScripts.wallet)
+      jobsets.swaggerSchemaValidation
+      jobsets.shellcheckTests
+    ];
+  });
+} // (builtins.listToAttrs (map makeRelease [ "mainnet" "staging" ])))

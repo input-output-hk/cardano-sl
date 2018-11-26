@@ -1,0 +1,7 @@
+version: 1.0.{build}
+image: Visual Studio 2015
+
+build: off
+
+test_script:
+- ps: echo "No Longer Used, check buildkite windows job"

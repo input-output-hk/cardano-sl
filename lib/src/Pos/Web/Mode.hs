@@ -43,7 +43,6 @@ instance HasLens TxpHolderTag (WebModeContext ext) (GenericTxpLocalData ext) whe
 instance HasLens UpdateConfiguration (WebModeContext ext) UpdateConfiguration where
     lensOf = wmcUpdateConfiguration_L
 
-
 instance {-# OVERLAPPABLE #-}
     HasLens tag NodeContext r =>
     HasLens tag (WebModeContext ext) r

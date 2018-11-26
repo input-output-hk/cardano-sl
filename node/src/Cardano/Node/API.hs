@@ -98,7 +98,7 @@ instance {-# OVERLAPPING #-} DB.MonadDBRead (ReaderT LegacyCtx IO) where
     dbGetSerUndo = DB.dbGetSerUndoRealDefault
     dbGetSerBlund = DB.dbGetSerBlundRealDefault
 
-legacyNodeApi :: () => LegacyCtx -> Server Legacy.NodeApi
+legacyNodeApi :: LegacyCtx -> Server Legacy.NodeApi
 legacyNodeApi r =
     hoistServer
         (Proxy :: Proxy Legacy.NodeApi)
@@ -154,8 +154,8 @@ launchNodeServer
         portNumber
         (do guard (nodeBackendDebugMode params)
             nodeBackendTLSParams params)
-        Nothing
-        Nothing
+        Nothing -- TODO: Set the onException to print out JSend compliant errors
+        Nothing -- TODO: Set a port callback for shutdown/IPC
   where
     nodeCtx = nrContext nodeResources
     (slottingVarTimestamp, slottingVar) = ncSlottingVar nodeCtx

@@ -41,8 +41,6 @@ import           Servant.Server (Handler, HasServer, ServantErr (errBody),
                      Server, ServerT, err404, err503, hoistServer, serve)
 import           UnliftIO (MonadUnliftIO)
 
-import Pos.Core.Context (HasPrimaryKey)
-import Pos.DB.Txp (MonadTxpMem)
 import           Network.Socket (Socket, close)
 import           Pos.Chain.Ssc (scParticipateSsc)
 import           Pos.Chain.Txp (TxOut (..), toaOut)
@@ -50,17 +48,18 @@ import           Pos.Chain.Update (UpdateConfiguration)
 import           Pos.Context (HasNodeContext (..), HasSscContext (..),
                      NodeContext, getOurPublicKey)
 import           Pos.Core (EpochIndex (..), SlotLeaders)
+import           Pos.Core.Context (HasPrimaryKey)
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB as DB
 import qualified Pos.DB.Lrc as LrcDB
-import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
-                     getAllPotentiallyHugeUtxo, getLocalTxs, withTxpLocalData,
-                     TxpHolderTag)
+import           Pos.DB.Txp (MonadTxpMem)
+import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt, TxpHolderTag,
+                     getAllPotentiallyHugeUtxo, getLocalTxs, withTxpLocalData)
 import qualified Pos.GState as GS
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
-import           Pos.Util.Util (HasLens', lensOf, HasLens)
+import           Pos.Util.Util (HasLens, HasLens', lensOf)
 import           Pos.Web.Mode (WebMode, WebModeContext (..))
-import           Pos.WorkMode.Class  (WorkMode)
+import           Pos.WorkMode.Class (WorkMode)
 
 import           Pos.Web.Api (HealthCheckApi, NodeApi, healthCheckApi, nodeApi)
 import           Pos.Web.Types (CConfirmedProposalState (..), TlsParams (..))

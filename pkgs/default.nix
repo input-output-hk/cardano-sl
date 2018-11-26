@@ -16085,6 +16085,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl
 , cardano-sl-chain
 , cardano-sl-core
+, cardano-sl-crypto
 , cardano-sl-db
 , cardano-sl-infra
 , cardano-sl-networking
@@ -16127,10 +16128,12 @@ bytestring
 cardano-sl
 cardano-sl-chain
 cardano-sl-core
+cardano-sl-crypto
 cardano-sl-db
 cardano-sl-infra
 cardano-sl-networking
 cardano-sl-util
+data-default
 lens
 servant-server
 stm

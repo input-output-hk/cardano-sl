@@ -253,11 +253,12 @@ instance HasLens UpdateConfiguration BlockTestContext UpdateConfiguration where
 
 initBlockTestContext
     :: HasDlgConfiguration
-    => Genesis.Config
+    => UpdateConfiguration
+    -> Genesis.Config
     -> TestParams
     -> (BlockTestContext -> Emulation a)
     -> Emulation a
-initBlockTestContext genesisConfig tp@TestParams {..} callback = do
+initBlockTestContext uc genesisConfig tp@TestParams {..} callback = do
     clockVar <- Emulation ask
     dbPureVar <- newDBPureVar
     (futureLrcCtx, putLrcCtx) <- newInitFuture "lrcCtx"
@@ -293,7 +294,7 @@ initBlockTestContext genesisConfig tp@TestParams {..} callback = do
             btcPureDBSnapshots <- PureDBSnapshotsVar <$> newIORef Map.empty
             let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
             let btcAllSecrets = mkAllSecretsSimple nm genesisSecretKeys
-                btcUpdateConfiguration = error "help"
+                btcUpdateConfiguration = uc
             let btCtx = BlockTestContext {btcSystemStart = systemStart, btcSSlottingStateVar = slottingState, ..}
             liftIO $ flip runReaderT clockVar $ unEmulation $ callback btCtx
     sudoLiftIO $ runTestInitMode initCtx $ initBlockTestContextDo
@@ -311,13 +312,14 @@ type BlockTestMode = ReaderT BlockTestContext Emulation
 
 runBlockTestMode
     :: HasDlgConfiguration
-    => Genesis.Config
+    => UpdateConfiguration
+    -> Genesis.Config
     -> TestParams
     -> BlockTestMode a
     -> IO a
-runBlockTestMode genesisConfig tp action =
+runBlockTestMode uc genesisConfig tp action =
     runEmulation (getTimestamp $ tp ^. tpStartTime)
-        $ initBlockTestContext genesisConfig tp (runReaderT action)
+        $ initBlockTestContext uc genesisConfig tp (runReaderT action)
 
 ----------------------------------------------------------------------------
 -- Property

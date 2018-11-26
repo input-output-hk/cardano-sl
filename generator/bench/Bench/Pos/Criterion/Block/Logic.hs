@@ -39,7 +39,7 @@ import           Pos.Generator.Block (BlockGenParams (..), TxGenParams (..),
                      genBlockNoApply, genBlocks, mkBlockGenContext)
 import           Pos.Launcher.Configuration (ConfigurationOptions (..),
                      HasConfigurations, defaultConfigurationOptions,
-                     withConfigurations)
+                     withConfigurations, updateConfiguration)
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Util.Log.LoggerConfig (defaultInteractiveConfiguration)
 import           Pos.Util.Util (realTime)
@@ -95,11 +95,11 @@ verifyBlocksBenchmark
     -> Benchmark
 verifyBlocksBenchmark !genesisConfig !secretKeys !tp !ctx =
     bgroup "block verification"
-        [ env (runBlockTestMode genesisConfig tp (genEnv (BlockCount 100)))
+        [ env (runBlockTestMode updateConfiguration genesisConfig tp (genEnv (BlockCount 100)))
             $ \ ~(curSlot, blocks) -> bench "verifyAndApplyBlocks" (verifyAndApplyBlocksB curSlot blocks)
         -- `verifyBlocksPrefix` will succeed only on the first block, it
         -- requires that blocks are applied.
-        , env (runBlockTestMode genesisConfig tp (genEnv (BlockCount 1)))
+        , env (runBlockTestMode updateConfiguration genesisConfig tp (genEnv (BlockCount 1)))
             $ \ ~(curSlot, blocks) -> bench "verifyBlocksPrefix" (verifyBlocksPrefixB curSlot blocks)
         ]
     where

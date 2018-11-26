@@ -52,9 +52,9 @@ import           Pos.Core.Context (HasPrimaryKey)
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB as DB
 import qualified Pos.DB.Lrc as LrcDB
-import           Pos.DB.Txp (MonadTxpMem)
-import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt, TxpHolderTag,
-                     getAllPotentiallyHugeUtxo, getLocalTxs, withTxpLocalData)
+import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt, MonadTxpMem,
+                     TxpHolderTag, getAllPotentiallyHugeUtxo, getLocalTxs,
+                     withTxpLocalData)
 import qualified Pos.GState as GS
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Util.Util (HasLens, HasLens', lensOf)

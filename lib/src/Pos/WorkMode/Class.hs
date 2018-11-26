@@ -16,9 +16,8 @@ import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Crypto.Random as Rand
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Chain.Block (HasSlogContext, HasSlogGState,
-                     MonadLastKnownHeader)
-import           Pos.Chain.Block (HasBlockConfiguration)
+import           Pos.Chain.Block (HasBlockConfiguration, HasSlogContext,
+                     HasSlogGState, MonadLastKnownHeader)
 import           Pos.Chain.Delegation (HasDlgConfiguration, MonadDelegation)
 import           Pos.Chain.Security (SecurityParams)
 import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem)

@@ -11,7 +11,8 @@ $env:TMP="D:\\tmp"
 # Store the original checkout directory
 $env:CHECKOUT_PATH=(Get-Item -Path ".\").FullName
 
-# Temp directory needs to exist
+# Cleanup old Temp directory and recreate
+rd -r -fo $env:TMP
 New-Item -ItemType Directory -Force -Path $env:TMP
 
 #  Setup stuff (commented out)

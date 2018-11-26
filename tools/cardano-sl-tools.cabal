@@ -418,3 +418,34 @@ test-suite cardano-sl-tools-test
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
+
+
+executable cardano-sl-tx-utils
+  default-language:
+      Haskell2010
+  default-extensions:
+      NoImplicitPrelude
+      OverloadedStrings
+      ScopedTypeVariables
+  ghc-options:
+      -threaded -rtsopts
+      -Wall
+      -Werror
+      -O2
+
+  build-depends:
+      base
+    , aeson
+    , aeson-pretty
+    , base16-bytestring
+    , bytestring
+    , cardano-sl-binary
+    , cardano-sl-chain
+    , cardano-sl-crypto
+    , docopt
+    , universum
+
+  hs-source-dirs:
+      src/tx-utils
+  main-is:
+      Main.hs

@@ -10,7 +10,6 @@ import           Universum
 import           Control.Concurrent.STM (orElse, retry)
 import           Control.Lens (lens, makeLensesWith, to)
 import qualified Data.ByteString.Char8 as BS8
-import           Data.Default (Default)
 import qualified Data.Text as Text
 import           Data.Time.Units (toMicroseconds)
 import qualified Paths_cardano_sl_node as Paths
@@ -19,14 +18,13 @@ import           Servant
 import           Ntp.Client (NtpConfiguration, NtpStatus (..),
                      ntpClientSettings, withNtpClient)
 import           Ntp.Packet (NtpOffset)
-import           Pos.Chain.Block (HasBlockConfiguration, LastKnownHeader,
-                     LastKnownHeaderTag)
+import           Pos.Chain.Block (LastKnownHeader, LastKnownHeaderTag)
 import           Pos.Chain.Ssc (SscContext)
 import           Pos.Chain.Update (UpdateConfiguration, curSoftwareVersion)
 import           Pos.Client.CLI.NodeOptions (NodeApiArgs (..))
-import           Pos.Context
+import           Pos.Context (HasPrimaryKey (..), HasSscContext (..),
+                     NodeContext (..))
 import qualified Pos.Core as Core
-import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Crypto (SecretKey)
 import qualified Pos.DB.Block as DB
 import qualified Pos.DB.BlockIndex as DB
@@ -34,23 +32,18 @@ import qualified Pos.DB.Class as DB
 import           Pos.DB.GState.Lock (Priority (..), StateLock,
                      withStateLockNoMetrics)
 import qualified Pos.DB.Rocks as DB
-import           Pos.DB.Txp (MempoolExt)
 import           Pos.DB.Txp.MemState (GenericTxpLocalData, TxpHolderTag)
 import           Pos.Infra.Diffusion.Subscription.Status (ssMap)
-import           Pos.Infra.Diffusion.Types
+import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import qualified Pos.Infra.Slotting.Util as Slotting
-import           Pos.Infra.Util.JsonLog.Events (jsonLogDefault)
-import           Pos.Launcher.Configuration (HasConfigurations)
-import           Pos.Launcher.Resource
+import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Node.API as Node
 import           Pos.Util (HasLens (..), HasLens')
 import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
 import           Pos.Util.Lens (postfixLFields)
-import           Pos.Util.Servant
+import           Pos.Util.Servant (WalletResponse (..), single)
 import           Pos.Web (serveImpl)
 import qualified Pos.Web as Legacy
-import           Pos.WorkMode (RealModeContext)
-import           Pos.WorkMode.Class (WorkMode)
 
 type NodeV1Api
     = "v1"
@@ -106,8 +99,7 @@ legacyNodeApi r =
         Legacy.nodeServantHandlers
 
 launchNodeServer
-    :: HasConfigurations
-    => NodeApiArgs
+    :: NodeApiArgs
     -> NtpConfiguration
     -> NodeResources ()
     -> UpdateConfiguration

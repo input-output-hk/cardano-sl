@@ -32,7 +32,7 @@ import           Pos.Chain.Block (HasSlogGState (..))
 import           Pos.Chain.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Chain.Genesis (GenesisWStakeholders (..))
 import           Pos.Chain.Ssc (HasSscConfiguration, SscMemTag, SscState)
-import           Pos.Chain.Update (UpdateConfiguration, HasUpdateConfiguration)
+import           Pos.Chain.Update (UpdateConfiguration)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (Address, HasPrimaryKey (..), SlotCount, SlotId (..),

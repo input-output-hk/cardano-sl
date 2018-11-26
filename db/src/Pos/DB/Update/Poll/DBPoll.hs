@@ -1,5 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Instance of MoandPollRead which uses DB.
 
 module Pos.DB.Update.Poll.DBPoll
@@ -9,8 +11,6 @@ module Pos.DB.Update.Poll.DBPoll
 
 import           Universum hiding (id)
 
-import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Data.Coerce (coerce)
 import qualified Data.HashMap.Strict as HM
 import qualified Ether
 import           UnliftIO (MonadUnliftIO)
@@ -27,8 +27,6 @@ import           Pos.Util.Wlog (WithLogger)
 ----------------------------------------------------------------------------
 -- Transformer
 ----------------------------------------------------------------------------
-
-data DBPollTag
 
 type DBPoll = Ether.ReaderT UpdateConfiguration UpdateConfiguration
 

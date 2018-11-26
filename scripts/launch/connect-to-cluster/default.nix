@@ -19,6 +19,7 @@
 , debug ? false
 , disableClientAuth ? false
 , extraParams ? ""
+, tlsConfig ? null
 }:
 
 with localLib;
@@ -65,30 +66,47 @@ let
       fallbacks: 7
   '';
   configFiles = iohkPkgs.cardano-sl-config;
-  tlsConfig = pkgs.writeText "tls-config-${environment}.yaml" ''
+  tlsConfigResultant = {
+    organization     = "Company Name";
+
+    caCommonName     = "Company Name Self-Signed Root CA";
+    caEexpiryDays    = 3650;
+
+    serverCommonName = "Company Name Wallet Node";
+    serverExpiryDays = 365;
+    serverAltDNS     = [
+      "localhost"
+      "localhost.localdomain"
+      "127.0.0.1"
+      "::1"
+    ];
+    serverAltDNSExtra = [];
+
+    clientCommonName = "Company Name Wallet Node Client";
+    clientExpiryDays = 365;
+  } // tlsConfig;
+  tlsConfigFile = let cfg = tlsConfigResultant; in pkgs.writeText "tls-config-${environment}.yaml" (''
     ${environments.${environment}.confKey}:
       tls:
         ca:
-          organization: Input Output HK
-          commonName: Cardano SL Self-Signed Root CA
-          expiryDays: 3650
+          organization: ${cfg.organization}
+          commonName: ${cfg.caCommonName}
+          expiryDays: ${toString cfg.caEexpiryDays}
 
         server:
-          organization: Input Output HK
-          commonName: Cardano SL Server Node
-          expiryDays: 365
+          organization: ${cfg.organization}
+          commonName: ${cfg.serverCommonName}
+          expiryDays: ${toString cfg.serverExpiryDays}
           altDNS:
-            - "localhost"
-            - "localhost.localdomain"
-            - "${walletExternalIPAddress}"
-            - "127.0.0.1"
-            - "::1"
-
+          '' +
+          (let sep = "        - "; in sep + (concatStringsSep ("\n" + sep) (cfg.serverAltDNS ++ cfg.serverAltDNSExtra)) + "\n")
+          + ''
+    ####
         clients:
-          - organization: Input Output HK
-            commonName: Daedalus Wallet
-            expiryDays: 365
-  '';
+          - organization: ${cfg.organization}
+            commonName: ${cfg.clientCommonName}
+            expiryDays: ${toString cfg.clientExpiryDays}
+  '');
   configurationArgs = pkgs.lib.concatStringsSep " " [
     "--configuration-file ${environments.${environment}.confFile or "${configFiles}/lib/configuration.yaml"}"
     "--configuration-key ${environments.${environment}.confKey}"
@@ -120,7 +138,7 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     ${iohkPkgs.cardano-sl-tools}/bin/cardano-x509-certificates   \
       --server-out-dir ${stateDir}/tls/server                    \
       --clients-out-dir ${stateDir}/tls/client                   \
-      --configuration-file ${tlsConfig}                          \
+      --configuration-file ${tlsConfigFile}                      \
       --configuration-key ${environments.${environment}.confKey}
   fi
   ''}

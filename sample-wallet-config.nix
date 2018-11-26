@@ -9,10 +9,6 @@
   ## Wallet API server.
   #walletListen = "127.0.0.1:8090";
 
-  ## In case the wallet is accessed through port forwarding,
-  ## the externally-visible address MUST be provided.
-  #walletExternalIPAddress = "1.2.3.4";
-
   ## Wallet Doc API server.
   #walletDocListen = "127.0.0.1:8091";
 
@@ -33,4 +29,32 @@
 
   ## Primarily used for troubleshooting.
   #additionalNodeArgs = "";
+
+  ## TLS configuration
+  # tlsConfig = {
+  #   organization     = "Company Name";
+  #
+  #   caCommonName     = "Company Name Self-Signed Root CA";
+  #   caEexpiryDays    = 3650;
+  #
+  #   serverCommonName = "Company Name Wallet Node";
+  #   serverExpiryDays = 365;
+  #   serverAltDNS     = [
+  #     "localhost"
+  #     "localhost.localdomain"
+  #     "127.0.0.1"
+  #     "::1"
+  #     ## WARNING: in case the wallet node is accessed through port forwarding,
+  #     ##          the externally-visible address MUST be provided in this list
+  #     ##          (not as the first entry, if it's an IP address).
+  #   ];
+  #   ## Set this entry if you only want to add entries to the AltDNS list,
+  #   ## instead of overriding it completely:
+  #   serverAltDNSExtra = [
+  #     "8.8.8.8"
+  #   ];
+  #
+  #   clientCommonName = "Company Name Wallet Node Client";
+  #   clientExpiryDays = 365;
+  # };
 }

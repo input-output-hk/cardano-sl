@@ -25,6 +25,7 @@ import           Pos.Chain.Genesis (FakeAvvmOptions (..),
                      GenesisInitializer (..), TestnetBalanceOptions (..),
                      gsSecretKeys)
 import           Pos.Chain.Txp (TxpConfiguration (..))
+import           Pos.Chain.Update (updateConfiguration)
 import           Pos.Core (ProtocolConstants (..))
 import           Pos.Core.Chrono (NE, OldestFirst (..), nonEmptyNewestFirst)
 import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)
@@ -213,7 +214,7 @@ main = do
                     , _tpProtocolMagic = configProtocolMagic genesisConfig
                     }
             secretKeys <- gsSecretKeys <$> configGeneratedSecretsThrow genesisConfig'
-            runBlockTestMode genesisConfig' tp $ do
+            runBlockTestMode updateConfiguration genesisConfig' tp $ do
                 -- initialize databasea
                 initNodeDBs genesisConfig'
                 bs <- case baBlockCache args of

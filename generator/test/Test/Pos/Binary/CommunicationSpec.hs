@@ -13,6 +13,7 @@ import           Test.QuickCheck.Monadic (assert)
 import           Pos.Binary.Class (decodeFull, serialize')
 import           Pos.Binary.Communication (serializeMsgSerializedBlock)
 import           Pos.Chain.Txp (TxpConfiguration (..))
+import           Pos.Chain.Update (updateConfiguration)
 import           Pos.DB.Class (Serialized (..))
 import           Pos.Network.Block.Types (MsgBlock (..),
                      MsgSerializedBlock (..))
@@ -30,14 +31,14 @@ import           Test.Pos.Configuration (HasStaticConfigurations,
 -- should be the same as the binary encoding of `MsgBlock`.
 serializeMsgSerializedBlockSpec :: HasStaticConfigurations => Spec
 serializeMsgSerializedBlockSpec = do
-    prop desc $ blockPropertyTestable $ \genesisConfig -> do
+    prop desc $ blockPropertyTestable updateConfiguration $ \genesisConfig -> do
         (block, _) <- bpGenBlock genesisConfig
                                  (TxpConfiguration 200 Set.empty)
                                  (EnableTxPayload True)
                                  (InplaceDB True)
         let sb = Serialized $ serialize' block
         assert $ serializeMsgSerializedBlock (MsgSerializedBlock sb) == serialize' (MsgBlock block)
-    prop descNoBlock $ blockPropertyTestable $ \_ -> do
+    prop descNoBlock $ blockPropertyTestable updateConfiguration $ \_ -> do
         let msg :: MsgSerializedBlock
             msg = MsgNoSerializedBlock "no block"
             msg' :: MsgBlock
@@ -53,7 +54,7 @@ serializeMsgSerializedBlockSpec = do
 -- `serializeMsgSerializedBlock`) should give back the original block.
 deserializeSerilizedMsgSerializedBlockSpec :: HasStaticConfigurations => Spec
 deserializeSerilizedMsgSerializedBlockSpec = do
-    prop desc $ blockPropertyTestable $ \genesisConfig -> do
+    prop desc $ blockPropertyTestable updateConfiguration $ \genesisConfig -> do
         (block, _) <- bpGenBlock genesisConfig
                                  (TxpConfiguration 200 Set.empty)
                                  (EnableTxPayload True)
@@ -62,7 +63,7 @@ deserializeSerilizedMsgSerializedBlockSpec = do
         let msg :: Either Text MsgBlock
             msg = decodeFull . BSL.fromStrict . serializeMsgSerializedBlock $ MsgSerializedBlock sb
         assert $ msg == Right (MsgBlock block)
-    prop descNoBlock $ blockPropertyTestable $ \_ -> do
+    prop descNoBlock $ blockPropertyTestable updateConfiguration $ \_ -> do
         let msg :: MsgSerializedBlock
             msg = MsgNoSerializedBlock "no block"
         assert $ (decodeFull . BSL.fromStrict . serializeMsgSerializedBlock $ msg) == Right (MsgNoBlock "no block")

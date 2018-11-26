@@ -43,6 +43,7 @@ import qualified Pos.GState as GS
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Util.Util (getKeys)
 
+import           Pos.Chain.Update (updateConfiguration)
 import           Test.Pos.Block.Logic.Mode (BlockProperty, TestParams (..),
                      blockPropertyToProperty)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..),
@@ -75,6 +76,7 @@ specBody pm = withProvidedMagicConfig pm $ \_ txpConfig _ ->
             modifyMaxSuccess (const 4)
                 $ prop lrcCorrectnessDesc
                 $ blockPropertyToProperty
+                      updateConfiguration
                       genTestParams
                       (flip lrcCorrectnessProp txpConfig)
             -- This test is relatively slow, hence we launch it only 15 times.

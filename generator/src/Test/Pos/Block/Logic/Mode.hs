@@ -331,12 +331,13 @@ type BlockProperty = PropertyM BlockTestMode
 -- 'TestParams'.
 blockPropertyToProperty
     :: (HasDlgConfiguration, Testable a)
-    => Gen TestParams
+    => UpdateConfiguration
+    -> Gen TestParams
     -> (Genesis.Config -> BlockProperty a)
     -> Property
-blockPropertyToProperty tpGen blockProperty =
+blockPropertyToProperty uc tpGen blockProperty =
     forAll tpGen $ \tp -> withTestParams tp $ \genesisConfig -> monadic
-        (ioProperty . runBlockTestMode genesisConfig tp)
+        (ioProperty . runBlockTestMode uc genesisConfig tp)
         (blockProperty genesisConfig)
 
 -- | Simplified version of 'blockPropertyToProperty' which uses
@@ -351,11 +352,12 @@ blockPropertyToProperty tpGen blockProperty =
 -- instance (HasNodeConfiguration, HasSscConfiguration)
 --          => Testable (HasConfiguration => BlockProperty a) where
 --     property = blockPropertyToProperty arbitrary
-blockPropertyTestable ::
-       (HasDlgConfiguration, Testable a)
-    => (Genesis.Config -> BlockProperty a)
+blockPropertyTestable
+    :: (HasDlgConfiguration, Testable a)
+    => UpdateConfiguration
+    -> (Genesis.Config -> BlockProperty a)
     -> Property
-blockPropertyTestable = blockPropertyToProperty arbitrary
+blockPropertyTestable uc = blockPropertyToProperty uc arbitrary
 
 ----------------------------------------------------------------------------
 -- Boilerplate TestInitContext instances

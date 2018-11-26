@@ -22,7 +22,7 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
                      TestnetBalanceOptions (..), configBlockVersionData,
                      configBootStakeholders, configEpochSlots,
                      configGeneratedSecretsThrow, gsSecretKeys)
-import           Pos.Chain.Update (BlockVersionData (..))
+import           Pos.Chain.Update (BlockVersionData (..), updateConfiguration)
 import           Pos.Core.Chrono (NE, OldestFirst (..), nonEmptyNewestFirst)
 import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)
 import           Pos.Core.NetworkMagic (makeNetworkMagic)
@@ -39,7 +39,7 @@ import           Pos.Generator.Block (BlockGenParams (..), TxGenParams (..),
                      genBlockNoApply, genBlocks, mkBlockGenContext)
 import           Pos.Launcher.Configuration (ConfigurationOptions (..),
                      HasConfigurations, defaultConfigurationOptions,
-                     withConfigurations, updateConfiguration)
+                     withConfigurations)
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Util.Log.LoggerConfig (defaultInteractiveConfiguration)
 import           Pos.Util.Util (realTime)
@@ -162,7 +162,8 @@ verifyHeaderBenchmark
     -> [SecretKey]
     -> TestParams
     -> Benchmark
-verifyHeaderBenchmark !genesisConfig !secretKeys !tp = env (runBlockTestMode genesisConfig tp genEnv)
+verifyHeaderBenchmark !genesisConfig !secretKeys !tp =
+    env (runBlockTestMode updateConfiguration genesisConfig tp genEnv)
         $ \ ~(block, params) -> bgroup "block verification"
             [ bench "verifyHeader" $ benchHeaderVerification
                 (getBlockHeader block, vbpVerifyHeader params)
@@ -246,7 +247,7 @@ runBenchmark = do
                     }
             secretKeys <- gsSecretKeys <$> configGeneratedSecretsThrow genesisConfig
             runEmulation startTime
-                $ initBlockTestContext genesisConfig tp $ \ctx ->
+                $ initBlockTestContext updateConfiguration genesisConfig tp $ \ctx ->
                     sudoLiftIO $ defaultMainWith config
                         [ verifyBlocksBenchmark genesisConfig secretKeys tp ctx
                         , verifyHeaderBenchmark genesisConfig secretKeys tp

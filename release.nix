@@ -85,7 +85,7 @@ in pkgs.lib.fix (jobsets: mapped // {
       in
     [
       (all jobsets.daedalus-bridge)
-      jobsets.mainnet.connectScripts.wallet.x86_64-linux
+      (all jobsets.mainnet.connectScripts.wallet)
       jobsets.swaggerSchemaValidation
       jobsets.shellcheckTests
     ];

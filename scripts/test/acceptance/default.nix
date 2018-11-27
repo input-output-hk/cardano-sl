@@ -4,7 +4,7 @@ with import ../../../lib.nix;
 , jq, coreutils, curl, gnused, openssl, time, haskellPackages
 
 , connect
-, cardano-sl-tools, cardano-wallet
+, cardano-sl-tools, cardano-wallet, cardano-sl-wallet-tool
 
 ## Parameters for the test script
 , stateDir ? maybeEnv "CARDANO_STATE_DIR" "./state-acceptance-test-${environment}"
@@ -13,9 +13,9 @@ with import ../../../lib.nix;
 }:
 
 let
-  cardanoDeps = [ cardano-sl-tools cardano-wallet ];
+  cardanoDeps = [ cardano-sl-tools cardano-wallet cardano-sl-wallet-tool ];
   testRunnerDeps = [ jq coreutils curl gnused openssl time haskellPackages.hp2pretty ];
-  allDeps = testRunnerDeps ++ cardanoDeps;
+  allDeps =  testRunnerDeps ++ cardanoDeps;
 
   wallet = connect {
     inherit environment stateDir;
@@ -54,110 +54,52 @@ in
     ${time}/bin/time -v ${wallet} &> ${stateDir}/logs/wallet.log &
     wallet_pid=$!
 
-    start_time=$(date +%s)
+    sleep 1  # wait for certificates to be created
+
+    function wallet-tool() {
+      cardano-sl-wallet-tool --cacert ${stateDir}/tls/client/ca.crt --pem ${stateDir}/tls/client/client.pem ${wallet.walletListen} "$@"
+    }
+
+    function bomb() {
+      echo
+      echo "***"
+      echo "*** Here are the last 200 lines of ${stateDir}/logs/wallet.log"
+      echo "***"
+      tail -n200 ${stateDir}/logs/wallet.log
+      echo
+      echo "***"
+      echo "*** Wallet is no longer running -- exiting"
+      echo "***"
+      exit 1
+    }
 
     # Query node info until synced
-    counter=0
-    perc=0
-    while [[ $perc != 100 ]]
-    do
-      info=$(curl --silent --cacert ${stateDir}/tls/client/ca.crt --cert ${stateDir}/tls/client/client.pem https://${wallet.walletListen}/api/v1/node-info | jq .data)
-      perc=$(jq .syncProgress.quantity <<< "$info")
-      height=$(jq .blockchainHeight.quantity <<< "$info")
-      local_height=$(jq .localBlockchainHeight.quantity <<< "$info")
-
-      if [[ $perc == "100" ]]
-      then
-        echo "Blockchain synced: $perc%  $height blocks"
-      else
-        if [[ -z "$perc" ]]; then
-          echo "$(date +"%H:%M:%S") Blockchain syncing..."
-        else
-          echo "$(date +"%H:%M:%S") Blockchain syncing: $perc%  $local_height/$height blocks"
-        fi
-        counter=$((counter + 1))
-        sleep 10
-      fi
-
-      if ! kill -0 $wallet_pid; then
-        echo
-        echo "***"
-        echo "*** Here are the last 200 lines of ${stateDir}/logs/wallet.log"
-        echo "***"
-        tail -n200 ${stateDir}/logs/wallet.log
-        echo
-        echo "***"
-        echo "*** Wallet is no longer running -- exiting"
-        echo "***"
-        exit 1
-      fi
-    done
-
-    finish_time=$(date +%s)
-    elapsed_time=$(($finish_time - $start_time))
-
-    echo
-    echo "Blockchain sync complete!"
-    echo "Blockchain height: $height blocks"
-    echo "Elapsed time: $elapsed_time seconds"
+    wallet-tool wait-for-sync --pid $wallet_pid --out sync-stats.json || bomb
 
     # Restore a wallet
     echo
     echo "Going to restore a wallet"
-    curl --silent --cacert ${stateDir}/tls/client/ca.crt --cert ${stateDir}/tls/client/client.pem -H "Content-Type: application/json" https://${wallet.walletListen}/api/v1/wallets \
-      -d '{
-      "operation": "restore",
-      "backupPhrase": ["session", "ring", "phone", "arrange", "notice", "gap", "media", "olympic", "water", "road", "spider", "rate"],
-      "assuranceLevel": "normal",
-      "name": "Acceptance Wallet"
-    }'
+    backupPhrase="session ring phone arrange notice gap media olympic water road spider rate"
+    walletID="2cWKMJemoBakcSaWXEpvRNiAsnsVaNFkyVHaxxPghSZizwVaLqpGebJwjYSG6q1f9sw5i"
+    ${optionalString resume ''wallet-tool delete-wallet "$walletID" || true''}
+    wallet-tool restore-wallet --backup-phrase "$backupPhrase" --name "Acceptance Wallet"
     echo
 
-    start_time=$(date +%s)
-
-    perc=0
-    throughput=""
-    syncState=""
-    while [[ "$syncState" != '"synced"' ]]
-    do
-      info=$(curl --silent --cacert ${stateDir}/tls/client/ca.crt --cert ${stateDir}/tls/client/client.pem https://${wallet.walletListen}/api/v1/wallets | jq .data[0])
-      syncState=$(jq .syncState.tag <<< "$info")
-      perc=$(jq .syncState.data.percentage.quantity <<< "$info")
-      throughput="$throughput $(jq .syncState.data.throughput.quantity <<< "$info")"
-
-      if [[ -z "$perc" ]]; then
-        echo "$(date +"%H:%M:%S") Wallet restoring..."
-      else
-        avg=$(tr ' ' '\n' <<< $throughput | awk '{sum+=$1} END {print sum/NR}')
-        echo "$(date +"%H:%M:%S") Wallet restoring: $perc% ($avg blocks/s)"
-      fi
-      sleep 10
-          if ! kill -0 $wallet_pid; then
-            echo
-            echo "***"
-            echo "*** Here are the last 200 lines of ${stateDir}/logs/wallet.log"
-            echo "***"
-            tail -n200 ${stateDir}/logs/wallet.log
-            echo
-            echo "***"
-            echo "*** Wallet is no longer running -- exiting"
-            echo "***"
-            exit 1
-          fi
-    done
-
-    finish_time=$(date +%s)
-    elapsed_time=$(($finish_time - $start_time))
-
-    echo
-    echo "Restoration complete!"
-    echo "Elapsed time: $elapsed_time seconds"
+    wallet-tool wait-for-restore --pid $wallet_pid --out restore-stats.json || bomb
 
     hp2pretty cardano-node.hp
+    sync-plot sync sync-stats.json sync-stats.png
+    sync-plot restore restore-stats.json restore-stats.png
 
     if [ -n "$BUILDKITE" ]; then
+      buildkite-agent artifact upload sync-stats.png
+      buildkite-agent artifact upload restore-stats.png
       buildkite-agent artifact upload cardano-node.hp
       buildkite-agent artifact upload cardano-node.svg
+      echo "+++ Heap profile"
       printf '\033]1338;url='"artifact://cardano-node.svg"';alt='"Heap profile"'\a\n'
+      echo "+++ Charts for ${environment}"
+      printf '\033]1338;url='"artifact://sync-stats.png"';alt='"Blockchain sync"'\a\n'
+      printf '\033]1338;url='"artifact://restore-stats.png"';alt='"Wallet restore"'\a\n'
     fi
   ''

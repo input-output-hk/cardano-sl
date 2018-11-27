@@ -42,6 +42,7 @@ packages:
 - x509
 - cluster
 - mnemonic
+- wallet-tool
 
 # IOHK projects:
 
@@ -217,6 +218,7 @@ extra-deps:
 - katip-0.6.3.0
 - Chart-1.9
 - Chart-diagrams-1.9
+- Chart-cairo-1.9
 - SVGFonts-1.6.0.3
 - pvss-0.2.0
 - systemd-1.1.2
@@ -264,3 +266,4 @@ ghc-options:
   cardano-sl-mnemonic:          -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-cluster:           -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-wallet:               -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-wallet-tool:       -Wall -Werror -Wcompat -fwarn-redundant-constraints

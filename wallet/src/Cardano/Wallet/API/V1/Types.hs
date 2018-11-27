@@ -41,6 +41,13 @@ module Cardano.Wallet.API.V1.Types (
   , SpendingPassword
   , EosWallet (..)
   , NewEosWallet (..)
+  , mkPassPhrase
+  , ExternalWallet (..)
+  , PublicKeyAsBase58
+  , mkPublicKeyAsBase58
+  , mkPublicKeyFromBase58
+  , Base58PublicKeyError (..)
+  , NewExternalWallet (..)
   , WalletAndTxHistory (..)
   -- * Addresses
   , AddressOwnership (..)
@@ -99,7 +106,7 @@ module Cardano.Wallet.API.V1.Types (
   , mkLocalTimeDifference
   , EstimatedCompletionTime
   , mkEstimatedCompletionTime
-  , SyncThroughput
+  , SyncThroughput (..)
   , mkSyncThroughput
   , SyncState (..)
   , SyncProgress (..)

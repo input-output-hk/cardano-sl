@@ -20,9 +20,9 @@ import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
 
 import           Pos.Chain.Block (HasSlogContext (..), HasSlogGState (..))
-import           Pos.Chain.Update (UpdateConfiguration)
 import           Pos.Chain.Delegation (DelegationVar)
 import           Pos.Chain.Ssc (SscMemTag, SscState)
+import           Pos.Chain.Update (UpdateConfiguration)
 import           Pos.Context (HasNodeContext (..), HasPrimaryKey (..),
                      HasSscContext (..), NodeContext)
 import           Pos.Core.JsonLog (CanJsonLog (..))
@@ -59,19 +59,19 @@ import           Pos.Util.Wlog (HasLoggerName (..), LoggerName)
 import           Pos.WorkMode.Class (MinWorkMode, WorkMode)
 
 data RealModeContext ext = RealModeContext
-    { rmcNodeDBs       :: !NodeDBs
-    , rmcSscState      :: !SscState
-    , rmcTxpLocalData  :: !(GenericTxpLocalData ext)
-    , rmcDelegationVar :: !DelegationVar
-    , rmcJsonLogConfig :: !JsonLogConfig
-    , rmcLoggerName    :: !LoggerName
-    , rmcNodeContext   :: !NodeContext
-    , rmcReporter      :: !(Reporter IO)
+    { rmcNodeDBs             :: !NodeDBs
+    , rmcSscState            :: !SscState
+    , rmcTxpLocalData        :: !(GenericTxpLocalData ext)
+    , rmcDelegationVar       :: !DelegationVar
+    , rmcJsonLogConfig       :: !JsonLogConfig
+    , rmcLoggerName          :: !LoggerName
+    , rmcNodeContext         :: !NodeContext
+    , rmcReporter            :: !(Reporter IO)
       -- ^ How to do reporting. It's in here so that we can have
       -- 'MonadReporting (RealMode ext)' in the mean-time, until we
       -- re-architecht the reporting system so that it's not built-in to the
       -- application's monad.
-    , rmcUpdateConfiguration :: !(UpdateConfiguration)
+    , rmcUpdateConfiguration :: !UpdateConfiguration
     }
 
 type EmptyMempoolExt = ()

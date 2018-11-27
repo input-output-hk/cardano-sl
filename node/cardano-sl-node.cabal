@@ -17,6 +17,7 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   build-depends:       base
+                     , aeson
                      , bytestring
                      , cardano-sl
                      , cardano-sl-chain
@@ -27,12 +28,14 @@ library
                      , cardano-sl-networking
                      , cardano-sl-util
                      , data-default
+                     , http-types
                      , lens
                      , servant-server
                      , stm
                      , text
                      , time-units
                      , universum
+                     , wai
                      , warp
 
   exposed-modules:     Cardano.Node.API

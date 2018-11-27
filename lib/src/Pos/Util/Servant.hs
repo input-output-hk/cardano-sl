@@ -66,6 +66,7 @@ module Pos.Util.Servant
     , serverHandlerL'
     , inRouteServer
 
+    , applicationJson
     , applyLoggingToHandler
     , ValidJSON
     , Tags
@@ -100,7 +101,8 @@ import qualified Formatting.Buildable
 import           Generics.SOP.TH (deriveGeneric)
 import           GHC.IO.Unsafe (unsafePerformIO)
 import           GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
-import           Network.HTTP.Types (parseQueryText)
+import           Network.HTTP.Types (hContentType, parseQueryText)
+import qualified Network.HTTP.Types as HTTPTypes
 import           Network.Wai (rawQueryString)
 import           Serokell.Util (listJsonIndent)
 import           Serokell.Util.ANSI (Color (..), colorizeDull)
@@ -988,3 +990,8 @@ single theData = WalletResponse {
     , wrStatus = SuccessStatus
     , wrMeta   = Metadata (PaginationMetadata 1 (Page 1) (PerPage 1) 1)
     }
+
+-- | Generates the @Content-Type: application/json@ 'HTTP.Header'.
+applicationJson :: HTTPTypes.Header
+applicationJson =
+    (hContentType, "application/json")

@@ -9,9 +9,14 @@ import           Universum
 
 import           Control.Concurrent.STM (orElse, retry)
 import           Control.Lens (lens, makeLensesWith, to)
+import           Data.Aeson (encode, object, (.=))
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.Text as Text
 import           Data.Time.Units (toMicroseconds)
+import           Network.HTTP.Types.Status (badRequest400)
+import           Network.Wai (responseLBS)
+import           Network.Wai.Handler.Warp (defaultSettings,
+                     setOnExceptionResponse)
 import qualified Paths_cardano_sl_node as Paths
 import           Servant
 
@@ -40,8 +45,9 @@ import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Node.API as Node
 import           Pos.Util (HasLens (..), HasLens')
 import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
+import           Pos.Util.Jsend (ResponseStatus (..))
 import           Pos.Util.Lens (postfixLFields)
-import           Pos.Util.Servant (WalletResponse (..), single)
+import           Pos.Util.Servant (WalletResponse (..), applicationJson, single)
 import           Pos.Web (serveImpl)
 import qualified Pos.Web as Legacy
 
@@ -146,9 +152,19 @@ launchNodeServer
         portNumber
         (do guard (nodeBackendDebugMode params)
             nodeBackendTLSParams params)
-        Nothing -- TODO: Set the onException to print out JSend compliant errors
+        (Just exceptionResponse)
         Nothing -- TODO: Set a port callback for shutdown/IPC
   where
+    exceptionResponse = setOnExceptionResponse handler defaultSettings
+    handler _ =
+        responseLBS badRequest400 [applicationJson]
+        $ encode
+        $ object
+        [ "message" .= id @Text "UnknownError"
+        , "status" .= ErrorStatus
+        , "diagnostic" .= id @Text "An unknown error has occurred."
+        ]
+
     nodeCtx = nrContext nodeResources
     (slottingVarTimestamp, slottingVar) = ncSlottingVar nodeCtx
     (ipAddress, portNumber) = nodeBackendAddress params

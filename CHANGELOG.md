@@ -183,8 +183,6 @@
 - Add a test which checks if the configuration can be correctly parsed
     - [CDEC-405](https://iohk.myjetbrains.com/youtrack/issue/CDEC-405) [#3175](https://github.com/input-output-hk/cardano-sl/pull/3175)
 
-### Specifications
-
 ### Documentation
 
 - Make an inventory of existing wallet errors and exceptions ([CBR-307](https://iohk.myjetbrains.com/youtrack/issue/CO-307))

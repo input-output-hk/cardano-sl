@@ -161,7 +161,6 @@ library
                       , data-default
                       , directory
                       , ekg-core
-                      , ekg
                       , ether >= 0.5
                       , exceptions
                       , filelock >= 0.1.0.1

@@ -37,12 +37,13 @@ import           Pos.Binary.Class (biSize)
 import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Genesis as Genesis (Config, configBlockVersionData)
 import           Pos.Chain.Update (BlockVersionData (..),
-                     UpdateConfiguration, MonadPoll (deactivateProposal),
+                     MonadPoll (deactivateProposal),
                      MonadPollRead (getProposal), PollModifier,
-                     PollVerFailure (..), UpId, UpdatePayload (..),
-                     UpdateProposal, UpdateVote (..), canCombineVotes,
-                     evalPollT, execPollT, getAdoptedBV, modifyPollModifier,
-                     psVotes, reportUnexpectedError, runPollT)
+                     PollVerFailure (..), UpId, UpdateConfiguration,
+                     UpdatePayload (..), UpdateProposal, UpdateVote (..),
+                     canCombineVotes, evalPollT, execPollT, getAdoptedBV,
+                     modifyPollModifier, psVotes, reportUnexpectedError,
+                     runPollT)
 import           Pos.Core (SlotId (..), slotIdF)
 import           Pos.Core.Reporting (MonadReporting)
 import           Pos.Crypto (PublicKey, shortHashF)

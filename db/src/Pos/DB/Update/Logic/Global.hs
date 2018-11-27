@@ -22,11 +22,11 @@ import           Pos.Chain.Block (ComponentBlock (..), headerHashG,
 import           Pos.Chain.Genesis as Genesis (Config, configBlkSecurityParam)
 import           Pos.Chain.Update (ApplicationName, BlockVersion,
                      BlockVersionData, BlockVersionState,
-                     ConfirmedProposalState, UpdateConfiguration, MonadPoll,
-                     NumSoftwareVersion, PollModifier (..), PollT,
-                     PollVerFailure, ProposalState, SoftwareVersion (..),
-                     USUndo, UpId, UpdatePayload, blockVersionL, execPollT,
-                     execRollT, getAdoptedBV, lastKnownBlockVersion,
+                     ConfirmedProposalState, MonadPoll, NumSoftwareVersion,
+                     PollModifier (..), PollT, PollVerFailure, ProposalState,
+                     SoftwareVersion (..), USUndo, UpId, UpdateConfiguration,
+                     UpdatePayload, blockVersionL, execPollT, execRollT,
+                     getAdoptedBV, lastKnownBlockVersion,
                      reportUnexpectedError, runPollT)
 import           Pos.Core (StakeholderId, addressHash, epochIndexL)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
@@ -45,8 +45,8 @@ import           Pos.DB.Update.Poll.Logic.Softfork (processGenesisBlock,
                      recordBlockIssuance)
 import           Pos.Util.AssertMode (inAssertMode)
 import qualified Pos.Util.Modifier as MM
+import           Pos.Util.Util (HasLens', lensOf)
 import           Pos.Util.Wlog (WithLogger, modifyLoggerName)
-import Pos.Util.Util (lensOf, HasLens')
 
 
 ----------------------------------------------------------------------------

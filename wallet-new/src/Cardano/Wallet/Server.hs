@@ -7,7 +7,8 @@ import           Universum
 
 import           Servant
 
-import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion, updateConfiguration)
+import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion,
+                     updateConfiguration)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 
 import           Cardano.Wallet.API

@@ -15,8 +15,8 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlkSecurityParam, configBlockVersionData,
                      configEpochSlots)
 import           Pos.Chain.Update (ConfirmedProposalState (..),
-                     SoftwareVersion (..), UpdateProposal (..),
-                     curSoftwareVersion, UpdateConfiguration)
+                     SoftwareVersion (..), UpdateConfiguration,
+                     UpdateProposal (..), curSoftwareVersion)
 import           Pos.DB.Update (UpdateContext (..), getConfirmedProposals,
                      processNewSlot)
 import           Pos.Infra.Diffusion.Types (Diffusion)

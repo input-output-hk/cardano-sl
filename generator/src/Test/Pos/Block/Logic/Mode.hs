@@ -217,21 +217,21 @@ newtype PureDBSnapshotsVar = PureDBSnapshotsVar
     }
 
 data BlockTestContext = BlockTestContext
-    { btcGState            :: !GS.GStateContext
-    , btcSystemStart       :: !Timestamp
-    , btcLoggerName        :: !LoggerName
-    , btcSSlottingStateVar :: !SimpleSlottingStateVar
-    , btcUpdateContext     :: !UpdateContext
-    , btcSscState          :: !SscState
-    , btcTxpMem            :: !(GenericTxpLocalData EmptyMempoolExt)
-    , btcTxpGlobalSettings :: !TxpGlobalSettings
-    , btcSlotId            :: !(Maybe SlotId)
+    { btcGState              :: !GS.GStateContext
+    , btcSystemStart         :: !Timestamp
+    , btcLoggerName          :: !LoggerName
+    , btcSSlottingStateVar   :: !SimpleSlottingStateVar
+    , btcUpdateContext       :: !UpdateContext
+    , btcSscState            :: !SscState
+    , btcTxpMem              :: !(GenericTxpLocalData EmptyMempoolExt)
+    , btcTxpGlobalSettings   :: !TxpGlobalSettings
+    , btcSlotId              :: !(Maybe SlotId)
     -- ^ If this value is 'Just' we will return it as the current
     -- slot. Otherwise simple slotting is used.
-    , btcParams            :: !TestParams
-    , btcDelegation        :: !DelegationVar
-    , btcPureDBSnapshots   :: !PureDBSnapshotsVar
-    , btcAllSecrets        :: !AllSecrets
+    , btcParams              :: !TestParams
+    , btcDelegation          :: !DelegationVar
+    , btcPureDBSnapshots     :: !PureDBSnapshotsVar
+    , btcAllSecrets          :: !AllSecrets
     , btcUpdateConfiguration :: !UpdateConfiguration
     }
 

@@ -36,10 +36,10 @@ import           Pos.Infra.Util.LogSafe (logInfoS)
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
+import           Pos.Util.Util (HasLens', lensOf)
 import           Pos.Util.Wlog (WithLogger, askLoggerName, logInfo)
 import           Pos.Worker (allWorkers)
 import           Pos.WorkMode.Class (WorkMode)
-import Pos.Util.Util (lensOf, HasLens')
 
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.

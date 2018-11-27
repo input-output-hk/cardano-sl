@@ -16,7 +16,7 @@ import qualified Ether
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Lrc (FullRichmenData)
-import           Pos.Chain.Update (UpdateConfiguration, MonadPollRead (..))
+import           Pos.Chain.Update (MonadPollRead (..), UpdateConfiguration)
 import           Pos.Core (Coin)
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.Lrc (HasLrcContext, getIssuersStakes,

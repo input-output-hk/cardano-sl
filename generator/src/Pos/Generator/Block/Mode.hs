@@ -60,7 +60,8 @@ import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
 import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
                      MonadSlotsData, currentTimeSlottingSimple)
 import           Pos.Infra.Slotting.Types (SlottingData)
-import           Pos.Util (HasLens (..), HasLens', newInitFuture, postfixLFields)
+import           Pos.Util (HasLens (..), HasLens', newInitFuture,
+                     postfixLFields)
 import           Pos.Util.Wlog (WithLogger, logWarning)
 
 
@@ -106,7 +107,7 @@ type MonadBlockGenInit ctx m
 
 -- | Context used by blockchain generator.
 data BlockGenContext ext = BlockGenContext
-    { bgcPrimaryKey        :: SecretKey
+    { bgcPrimaryKey          :: SecretKey
     -- ^ This field is lazy on purpose. Primary key used for block
     -- generation changes frequently. We don't define it initially and
     -- modify it using 'local' when we need it. Alternative solution
@@ -114,20 +115,20 @@ data BlockGenContext ext = BlockGenContext
     -- primary key, but it would lead to enormous amount of
     -- boilerplate. Also it could be put into mutable reference, but
     -- it's complicated too.
-    , bgcGState            :: !GS.GStateContext
+    , bgcGState              :: !GS.GStateContext
     -- ^ Currently we always use pure DB and assume it always fits in
     -- memory. It allows us to simply clone existing DB.
-    , bgcSystemStart       :: !Timestamp
-    , bgcParams            :: !BlockGenParams
-    , bgcDelegation        :: !DelegationVar
-    , bgcGenStakeholders   :: !GenesisWStakeholders
-    , bgcTxpMem            :: !(GenericTxpLocalData ext)
-    , bgcUpdateContext     :: !UpdateContext
-    , bgcSscState          :: !SscState
-    , bgcSlotId            :: !(Maybe SlotId)
+    , bgcSystemStart         :: !Timestamp
+    , bgcParams              :: !BlockGenParams
+    , bgcDelegation          :: !DelegationVar
+    , bgcGenStakeholders     :: !GenesisWStakeholders
+    , bgcTxpMem              :: !(GenericTxpLocalData ext)
+    , bgcUpdateContext       :: !UpdateContext
+    , bgcSscState            :: !SscState
+    , bgcSlotId              :: !(Maybe SlotId)
     -- ^ During block generation we don't want to use real time, but
     -- rather want to set current slot (fake one) by ourselves.
-    , bgcTxpGlobalSettings :: !TxpGlobalSettings
+    , bgcTxpGlobalSettings   :: !TxpGlobalSettings
     , bgcUpdateConfiguration :: !UpdateConfiguration
     }
 

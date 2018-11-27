@@ -27,8 +27,8 @@ import           Pos.Chain.Block (HasBlockConfiguration, recoveryHeadersMessage,
                      streamWindow)
 import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Chain.Update (UpdateConfiguration,
-                     lastKnownBlockVersion, updateConfiguration)
+import           Pos.Chain.Update (UpdateConfiguration, lastKnownBlockVersion,
+                     updateConfiguration)
 import           Pos.Configuration (HasNodeConfiguration,
                      networkConnectionTimeout)
 import           Pos.Context.Context (NodeContext (..))

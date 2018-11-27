@@ -20,7 +20,6 @@
 -- in `apiArgName`
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
-
 -- | Some utilites for more flexible servant usage.
 
 module Pos.Util.Servant
@@ -74,14 +73,17 @@ module Pos.Util.Servant
     , WalletResponse(..)
     , single
     , Metadata(..)
+    , UnknownError(..)
+    , JsendException(..)
     ) where
 
-import           Universum hiding (id)
+import           Universum
 
 import           Control.Exception.Safe (handleAny)
 import           Control.Lens (Iso, iso, ix, makePrisms)
 import           Control.Monad.Except (ExceptT (..), MonadError (..))
-import           Data.Aeson (FromJSON (..), ToJSON (..), eitherDecode, encode)
+import           Data.Aeson (FromJSON (..), ToJSON (..), eitherDecode, encode,
+                     object, (.=))
 import qualified Data.Aeson.Options as Aeson
 import           Data.Aeson.TH (deriveJSON)
 import qualified Data.Char as Char
@@ -94,7 +96,7 @@ import qualified Data.Set as Set
 import           Data.Swagger as S hiding (Example, Header, example, info)
 import qualified Data.Text as T
 import           Data.Time.Clock.POSIX (getPOSIXTime)
-import           Data.Typeable (typeRep)
+import           Data.Typeable (typeOf, typeRep)
 import           Formatting (bprint, build, builder, fconst, formatToString,
                      sformat, shown, stext, string, (%))
 import qualified Formatting.Buildable
@@ -597,7 +599,7 @@ instance {-# OVERLAPPING #-}
 newtype RequestId = RequestId Integer
 
 instance Buildable RequestId where
-    build (RequestId id) = bprint ("#"%build) id
+    build (RequestId id') = bprint ("#"%build) id'
 
 -- | We want all servant servers to have non-overlapping ids,
 -- so using singleton counter here.
@@ -995,3 +997,36 @@ single theData = WalletResponse {
 applicationJson :: HTTPTypes.Header
 applicationJson =
     (hContentType, "application/json")
+
+-- | An error for representing unknown problems in the API. The Jsen
+newtype UnknownError = UnknownError Text
+    deriving (Show, Generic)
+
+deriveGeneric ''UnknownError
+
+instance Exception UnknownError
+
+instance HasDiagnostic UnknownError where
+    getDiagnosticKey _ = "unknownErrorMessage"
+
+instance ToJSON UnknownError where
+    toJSON = jsendErrorGenericToJSON
+
+instance FromJSON UnknownError where
+    parseJSON = jsendErrorGenericParseJSON
+
+-- | A newtype around 'SomeException' that provides a JSend compliant 'ToJSON'
+-- rendering. Use this only in debugging to provide a ToJSON instance for
+-- unknown exceptions.
+newtype JsendException = JsendException SomeException
+    deriving (Show, Exception)
+
+instance ToJSON JsendException where
+    toJSON (JsendException exn) =
+        object
+            [ "message" .= show @Text (typeOf exn)
+            , "status" .= ErrorStatus
+            , "diagnostic" .= object
+                [ "debugException" .= show @Text exn
+                ]
+            ]

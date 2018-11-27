@@ -9,7 +9,7 @@ import           Universum
 
 import           Control.Concurrent.STM (orElse, retry)
 import           Control.Lens (lens, makeLensesWith, to)
-import           Data.Aeson (encode, object, (.=))
+import           Data.Aeson (encode)
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.Text as Text
 import           Data.Time.Units (toMicroseconds)
@@ -45,9 +45,9 @@ import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Node.API as Node
 import           Pos.Util (HasLens (..), HasLens')
 import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
-import           Pos.Util.Jsend (ResponseStatus (..))
 import           Pos.Util.Lens (postfixLFields)
-import           Pos.Util.Servant (WalletResponse (..), applicationJson, single)
+import           Pos.Util.Servant (JsendException (..), UnknownError (..),
+                     WalletResponse (..), applicationJson, single)
 import           Pos.Web (serveImpl)
 import qualified Pos.Web as Legacy
 
@@ -150,20 +150,19 @@ launchNodeServer
         (pure app)
         (BS8.unpack ipAddress)
         portNumber
-        (do guard (nodeBackendDebugMode params)
+        (do guard (not isDebug)
             nodeBackendTLSParams params)
         (Just exceptionResponse)
         Nothing -- TODO: Set a port callback for shutdown/IPC
   where
-    exceptionResponse = setOnExceptionResponse handler defaultSettings
-    handler _ =
+    isDebug = nodeBackendDebugMode params
+    exceptionResponse =
+        setOnExceptionResponse handler defaultSettings
+    handler exn =
         responseLBS badRequest400 [applicationJson]
-        $ encode
-        $ object
-        [ "message" .= id @Text "UnknownError"
-        , "status" .= ErrorStatus
-        , "diagnostic" .= id @Text "An unknown error has occurred."
-        ]
+            $ if isDebug
+              then encode $ JsendException exn
+              else encode $ UnknownError "An unknown error has occured."
 
     nodeCtx = nrContext nodeResources
     (slottingVarTimestamp, slottingVar) = ncSlottingVar nodeCtx
@@ -225,6 +224,46 @@ applyUpdate =
     throwError err500 { errBody = "This handler is not yet implemented." }
 
 {-
+
+More conversation from Slack about the Node API:
+
+Matthias Benkort [1 day ago]
+> If I am not mistaken, the only things these updates endpoint do are:
+>
+> - to store a flag when a new update is available (broadcast by the node to the wallet via a shared MVar)
+>
+> - to lookup / pop the last flag in db and restart the node
+>
+> Knowing that, restarting the node applies the last update anyway. So I wonder
+> if we can't simply store that in plain memory. There's no need for persistence
+> here, this is really just to remember a choice from daedalus. The typical flow
+> is:
+>
+> - update is received by the node and broadcast to the wallet which stores it
+>   in acid state.
+> - every k seconds, Daedalus pulls the wallet to know about possible updates
+> - when an update is available, a message is displayed to the user who has two
+>   choices: "postpone" the update or apply it immediately.
+> - The former removes the update marker from acid-state such that, there's no
+>   "new" update event; the update will be applied anyway once Daedalus is
+>   shutdown (better double-check with some frontend folks though)
+> - The later removes it as well but restart the node immediately.
+>
+> And note that this does affect the node and creates actual coupling, so we
+> ought to remove it, eventually.
+>
+> I truly believe acid-state or any form of persistent storage is no need
+> however.
+
+Duncan Coutts [1 day ago]
+> I think it's right that no persistence is needed. Certainly in future the
+> node's ledger state will simply report the current on-chain latest version of
+> each application, so Daedalus or the wallet backend just needs to know it's
+> own version and checks occasionally if the on-chain latest version is bigger.
+
+-}
+
+{-
 -- from Cardano.Wallet.API.Internal.Handlers
 applyUpdate :: PassiveWalletLayer IO -> Handler NoContent
 applyUpdate w = liftIO (WalletLayer.applyUpdate w) >> return NoContent
@@ -256,16 +295,6 @@ applyUpdate w = liftIO $ do
       doFail <- liftIO $ testLogFInject (w ^. Kernel.walletFInjects) FInjApplyUpdateNoExit
       unless doFail
         Node.triggerShutdown
-
-So this is actually a bit of a problem. `update'` is updating the *wallet*
-acid-state database to remove information about the presence of an update. So we
-need to coordinate the information about wallet *and* node executable
-distribution separately?
-
-Ultimately, they will be communicating over a protocol, and the node version and
-wallet version won't be coupled (providing they have compatible protocol
-communication). So perhaps we can ignore this for now.
-
 -}
 
 postponeUpdate :: Handler NoContent
@@ -284,10 +313,6 @@ postponeUpdate w = liftIO (WalletLayer.postponeUpdate w) >> return NoContent
 -- NOTE (legacy): 'postponeUpdate', "Pos.Wallet.Web.Methods.Misc".
 postponeUpdate :: MonadIO m => Kernel.PassiveWallet -> m ()
 postponeUpdate w = update' (w ^. Kernel.wallets) $ RemoveNextUpdate
-
-So, basically the same problem as above. This is specifically for updating the
-*wallet's* state. So we'd need a similar process for shutting down and updating
-the node's API.
 
 -}
 

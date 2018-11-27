@@ -82,8 +82,7 @@ import qualified Pos.DB.Block as DB
 import           Pos.DB.BlockIndex (getTipHeader)
 import           Pos.DB.Class (MonadDBRead (..), getBlock)
 import           Pos.DB.GState.Lock (StateLock, withStateLockNoMetrics)
-import           Pos.DB.Rocks.Functions (dbGetDefault, dbIterSourceDefault)
-import           Pos.DB.Rocks.Types (NodeDBs)
+import           Pos.DB.Rocks (NodeDBs, dbGetDefault, dbIterSourceDefault)
 import           Pos.DB.Txp.Utxo (utxoSource)
 import           Pos.DB.Update (UpdateContext, getAdoptedBVData,
                      ucDownloadedUpdate)
@@ -387,7 +386,7 @@ newNodeStateAdaptor genesisConfig nr ntpStatus = Adaptor
     , getSecurityParameter     = return . SecurityParameter $ configK genesisConfig
     , getSlotCount             = return $ configEpochSlots genesisConfig
     , getCoreConfig            = return genesisConfig
-    , curSoftwareVersion       = return $ Upd.curSoftwareVersion
+    , curSoftwareVersion       = return $ Upd.curSoftwareVersion Upd.updateConfiguration
     , compileInfo              = return $ Util.compileInfo
     , getNtpDrift              = defaultGetNtpDrift ntpStatus
     , getCreationTimestamp     =             run $ \_lock -> defaultGetCreationTimestamp
@@ -608,7 +607,7 @@ mockNodeState MockNodeStateParams{..} =
         , getFeePolicy             = return $ bvdTxFeePolicy genesisBvd
         , getSlotCount             = return $ configEpochSlots genesisConfig
         , getCoreConfig            = return genesisConfig
-        , curSoftwareVersion       = return $ Upd.curSoftwareVersion
+        , curSoftwareVersion       = return $ Upd.curSoftwareVersion Upd.updateConfiguration
         , compileInfo              = return $ Util.compileInfo
         , getNtpDrift              = return . mockNodeStateNtpDrift
         , getCreationTimestamp     = return $ mockNodeStateCreationTimestamp

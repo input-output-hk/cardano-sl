@@ -67,7 +67,7 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
                      configGeneratedSecretsThrow, gsSecretKeys, mkConfig)
 import           Pos.Chain.Ssc (SscMemTag, SscState)
 import           Pos.Chain.Txp (TxpConfiguration (..))
-import           Pos.Chain.Update (BlockVersionData)
+import           Pos.Chain.Update (BlockVersionData, UpdateConfiguration)
 import           Pos.Core (SlotId, Timestamp (..))
 import           Pos.Core.Conc (currentTime)
 import           Pos.Core.NetworkMagic (makeNetworkMagic)
@@ -217,21 +217,22 @@ newtype PureDBSnapshotsVar = PureDBSnapshotsVar
     }
 
 data BlockTestContext = BlockTestContext
-    { btcGState            :: !GS.GStateContext
-    , btcSystemStart       :: !Timestamp
-    , btcLoggerName        :: !LoggerName
-    , btcSSlottingStateVar :: !SimpleSlottingStateVar
-    , btcUpdateContext     :: !UpdateContext
-    , btcSscState          :: !SscState
-    , btcTxpMem            :: !(GenericTxpLocalData EmptyMempoolExt)
-    , btcTxpGlobalSettings :: !TxpGlobalSettings
-    , btcSlotId            :: !(Maybe SlotId)
+    { btcGState              :: !GS.GStateContext
+    , btcSystemStart         :: !Timestamp
+    , btcLoggerName          :: !LoggerName
+    , btcSSlottingStateVar   :: !SimpleSlottingStateVar
+    , btcUpdateContext       :: !UpdateContext
+    , btcSscState            :: !SscState
+    , btcTxpMem              :: !(GenericTxpLocalData EmptyMempoolExt)
+    , btcTxpGlobalSettings   :: !TxpGlobalSettings
+    , btcSlotId              :: !(Maybe SlotId)
     -- ^ If this value is 'Just' we will return it as the current
     -- slot. Otherwise simple slotting is used.
-    , btcParams            :: !TestParams
-    , btcDelegation        :: !DelegationVar
-    , btcPureDBSnapshots   :: !PureDBSnapshotsVar
-    , btcAllSecrets        :: !AllSecrets
+    , btcParams              :: !TestParams
+    , btcDelegation          :: !DelegationVar
+    , btcPureDBSnapshots     :: !PureDBSnapshotsVar
+    , btcAllSecrets          :: !AllSecrets
+    , btcUpdateConfiguration :: !UpdateConfiguration
     }
 
 
@@ -243,17 +244,21 @@ instance HasTestParams BlockTestContext where
 instance HasAllSecrets BlockTestContext where
     allSecrets = btcAllSecretsL
 
+instance HasLens UpdateConfiguration BlockTestContext UpdateConfiguration where
+    lensOf = btcUpdateConfigurationL
+
 ----------------------------------------------------------------------------
 -- Initialization
 ----------------------------------------------------------------------------
 
 initBlockTestContext
     :: HasDlgConfiguration
-    => Genesis.Config
+    => UpdateConfiguration
+    -> Genesis.Config
     -> TestParams
     -> (BlockTestContext -> Emulation a)
     -> Emulation a
-initBlockTestContext genesisConfig tp@TestParams {..} callback = do
+initBlockTestContext uc genesisConfig tp@TestParams {..} callback = do
     clockVar <- Emulation ask
     dbPureVar <- newDBPureVar
     (futureLrcCtx, putLrcCtx) <- newInitFuture "lrcCtx"
@@ -289,6 +294,7 @@ initBlockTestContext genesisConfig tp@TestParams {..} callback = do
             btcPureDBSnapshots <- PureDBSnapshotsVar <$> newIORef Map.empty
             let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
             let btcAllSecrets = mkAllSecretsSimple nm genesisSecretKeys
+                btcUpdateConfiguration = uc
             let btCtx = BlockTestContext {btcSystemStart = systemStart, btcSSlottingStateVar = slottingState, ..}
             liftIO $ flip runReaderT clockVar $ unEmulation $ callback btCtx
     sudoLiftIO $ runTestInitMode initCtx $ initBlockTestContextDo
@@ -306,13 +312,14 @@ type BlockTestMode = ReaderT BlockTestContext Emulation
 
 runBlockTestMode
     :: HasDlgConfiguration
-    => Genesis.Config
+    => UpdateConfiguration
+    -> Genesis.Config
     -> TestParams
     -> BlockTestMode a
     -> IO a
-runBlockTestMode genesisConfig tp action =
+runBlockTestMode uc genesisConfig tp action =
     runEmulation (getTimestamp $ tp ^. tpStartTime)
-        $ initBlockTestContext genesisConfig tp (runReaderT action)
+        $ initBlockTestContext uc genesisConfig tp (runReaderT action)
 
 ----------------------------------------------------------------------------
 -- Property
@@ -324,12 +331,13 @@ type BlockProperty = PropertyM BlockTestMode
 -- 'TestParams'.
 blockPropertyToProperty
     :: (HasDlgConfiguration, Testable a)
-    => Gen TestParams
+    => UpdateConfiguration
+    -> Gen TestParams
     -> (Genesis.Config -> BlockProperty a)
     -> Property
-blockPropertyToProperty tpGen blockProperty =
+blockPropertyToProperty uc tpGen blockProperty =
     forAll tpGen $ \tp -> withTestParams tp $ \genesisConfig -> monadic
-        (ioProperty . runBlockTestMode genesisConfig tp)
+        (ioProperty . runBlockTestMode uc genesisConfig tp)
         (blockProperty genesisConfig)
 
 -- | Simplified version of 'blockPropertyToProperty' which uses
@@ -344,11 +352,12 @@ blockPropertyToProperty tpGen blockProperty =
 -- instance (HasNodeConfiguration, HasSscConfiguration)
 --          => Testable (HasConfiguration => BlockProperty a) where
 --     property = blockPropertyToProperty arbitrary
-blockPropertyTestable ::
-       (HasDlgConfiguration, Testable a)
-    => (Genesis.Config -> BlockProperty a)
+blockPropertyTestable
+    :: (HasDlgConfiguration, Testable a)
+    => UpdateConfiguration
+    -> (Genesis.Config -> BlockProperty a)
     -> Property
-blockPropertyTestable = blockPropertyToProperty arbitrary
+blockPropertyTestable uc = blockPropertyToProperty uc arbitrary
 
 ----------------------------------------------------------------------------
 -- Boilerplate TestInitContext instances

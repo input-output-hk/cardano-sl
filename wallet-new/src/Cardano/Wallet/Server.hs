@@ -7,7 +7,8 @@ import           Universum
 
 import           Servant
 
-import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion)
+import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion,
+                     updateConfiguration)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 
 import           Cardano.Wallet.API
@@ -39,6 +40,6 @@ walletDocServer :: (HasCompileInfo, HasUpdateConfiguration) => Server WalletDoc
 walletDocServer =
     v1DocHandler
   where
-    infos        = (compileInfo, curSoftwareVersion)
+    infos        = (compileInfo, curSoftwareVersion updateConfiguration)
     v1DocHandler = swaggerSchemaUIServer
         (Swagger.api infos walletDocAPI Swagger.highLevelDescription)

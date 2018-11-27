@@ -17,6 +17,7 @@ import           Ntp.Client (NtpConfiguration)
 import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Ssc (SscParams)
 import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Chain.Update (updateConfiguration)
 import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), NodeArgs (..))
 import           Pos.Client.CLI.Options (configurationOptions)
 import           Pos.Client.CLI.Params (getNodeParams)
@@ -113,8 +114,8 @@ actionWithCoreNode action genesisConfig _ txpConfig _ _ _ nodeRes = do
 
     logInfo "Wallet is disabled, because software is built w/o it"
     let pm = configProtocolMagic genesisConfig
-    runRealMode genesisConfig txpConfig nodeRes $ \diff -> do
-        let diff' = hoistDiffusion (elimRealMode pm nodeRes diff') liftIO diff
+    runRealMode updateConfiguration genesisConfig txpConfig nodeRes $ \diff -> do
+        let diff' = hoistDiffusion (elimRealMode updateConfiguration pm nodeRes diff') liftIO diff
         concurrently_
             (runNode genesisConfig txpConfig nodeRes plugins diff)
             (liftIO (action diff'))

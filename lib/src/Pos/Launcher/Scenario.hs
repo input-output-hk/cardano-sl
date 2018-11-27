@@ -21,7 +21,7 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBootStakeholders, configFtsSeed,
                      configHeavyDelegation)
 import           Pos.Chain.Txp (TxpConfiguration, bootDustThreshold)
-import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion,
+import           Pos.Chain.Update (UpdateConfiguration, curSoftwareVersion,
                      lastKnownBlockVersion, ourSystemTag)
 import           Pos.Context (getOurPublicKey)
 import           Pos.Core (addressHash)
@@ -36,6 +36,7 @@ import           Pos.Infra.Util.LogSafe (logInfoS)
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
+import           Pos.Util.Util (HasLens', lensOf)
 import           Pos.Util.Wlog (WithLogger, askLoggerName, logInfo)
 import           Pos.Worker (allWorkers)
 import           Pos.WorkMode.Class (WorkMode)
@@ -118,11 +119,15 @@ runNode genesisConfig txpConfig nr plugins =
     where workers' = allWorkers genesisConfig txpConfig nr
 
 -- | This function prints a very useful message when node is started.
-nodeStartMsg :: (HasUpdateConfiguration, WithLogger m) => m ()
-nodeStartMsg = logInfo msg
+nodeStartMsg
+    :: (MonadReader r m, HasLens' r UpdateConfiguration, WithLogger m)
+    => m ()
+nodeStartMsg = do
+    uc <- view (lensOf @UpdateConfiguration)
+    logInfo (msg uc)
   where
-    msg = sformat ("Application: " %build% ", last known block version "
+    msg uc = sformat ("Application: " %build% ", last known block version "
                     %build% ", systemTag: " %build)
-                   curSoftwareVersion
-                   lastKnownBlockVersion
-                   ourSystemTag
+                   (curSoftwareVersion uc)
+                   (lastKnownBlockVersion uc)
+                   (ourSystemTag uc)

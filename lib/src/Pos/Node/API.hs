@@ -173,8 +173,6 @@ instance BuildableSafeGen TimeInfo where
 
 deriveJSON Aeson.defaultOptions ''TimeInfo
 
-
-
 newtype SyncPercentage = SyncPercentage (MeasuredIn 'Percentage100 Word8)
                      deriving (Show, Eq)
 

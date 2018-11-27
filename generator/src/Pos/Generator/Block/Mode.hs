@@ -32,7 +32,7 @@ import           Pos.Chain.Block (HasSlogGState (..))
 import           Pos.Chain.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Chain.Genesis (GenesisWStakeholders (..))
 import           Pos.Chain.Ssc (HasSscConfiguration, SscMemTag, SscState)
-import           Pos.Chain.Update (HasUpdateConfiguration)
+import           Pos.Chain.Update (UpdateConfiguration)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (Address, HasPrimaryKey (..), SlotCount, SlotId (..),
@@ -60,7 +60,8 @@ import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
 import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
                      MonadSlotsData, currentTimeSlottingSimple)
 import           Pos.Infra.Slotting.Types (SlottingData)
-import           Pos.Util (HasLens (..), newInitFuture, postfixLFields)
+import           Pos.Util (HasLens (..), HasLens', newInitFuture,
+                     postfixLFields)
 import           Pos.Util.Wlog (WithLogger, logWarning)
 
 
@@ -75,7 +76,6 @@ type MonadBlockGenBase m
        , MonadMask m
        , MonadIO m
        , MonadUnliftIO m
-       , HasUpdateConfiguration
        , HasSscConfiguration
        , HasNodeConfiguration
        , HasDlgConfiguration
@@ -91,6 +91,7 @@ type MonadBlockGen ctx m
        , HasSlottingVar ctx
        , HasSlogGState ctx
        , HasLrcContext ctx
+       , HasLens' ctx UpdateConfiguration
        , MonadBListener m
        )
 
@@ -106,7 +107,7 @@ type MonadBlockGenInit ctx m
 
 -- | Context used by blockchain generator.
 data BlockGenContext ext = BlockGenContext
-    { bgcPrimaryKey        :: SecretKey
+    { bgcPrimaryKey          :: SecretKey
     -- ^ This field is lazy on purpose. Primary key used for block
     -- generation changes frequently. We don't define it initially and
     -- modify it using 'local' when we need it. Alternative solution
@@ -114,20 +115,21 @@ data BlockGenContext ext = BlockGenContext
     -- primary key, but it would lead to enormous amount of
     -- boilerplate. Also it could be put into mutable reference, but
     -- it's complicated too.
-    , bgcGState            :: !GS.GStateContext
+    , bgcGState              :: !GS.GStateContext
     -- ^ Currently we always use pure DB and assume it always fits in
     -- memory. It allows us to simply clone existing DB.
-    , bgcSystemStart       :: !Timestamp
-    , bgcParams            :: !BlockGenParams
-    , bgcDelegation        :: !DelegationVar
-    , bgcGenStakeholders   :: !GenesisWStakeholders
-    , bgcTxpMem            :: !(GenericTxpLocalData ext)
-    , bgcUpdateContext     :: !UpdateContext
-    , bgcSscState          :: !SscState
-    , bgcSlotId            :: !(Maybe SlotId)
+    , bgcSystemStart         :: !Timestamp
+    , bgcParams              :: !BlockGenParams
+    , bgcDelegation          :: !DelegationVar
+    , bgcGenStakeholders     :: !GenesisWStakeholders
+    , bgcTxpMem              :: !(GenericTxpLocalData ext)
+    , bgcUpdateContext       :: !UpdateContext
+    , bgcSscState            :: !SscState
+    , bgcSlotId              :: !(Maybe SlotId)
     -- ^ During block generation we don't want to use real time, but
     -- rather want to set current slot (fake one) by ourselves.
-    , bgcTxpGlobalSettings :: !TxpGlobalSettings
+    , bgcTxpGlobalSettings   :: !TxpGlobalSettings
+    , bgcUpdateConfiguration :: !UpdateConfiguration
     }
 
 makeLensesWith postfixLFields ''BlockGenContext
@@ -168,6 +170,7 @@ mkBlockGenContext epochSlots bgcParams@BlockGenParams{..} = do
                 (bgcGState ^. GS.gscSlottingVar)
                 (bgcGState ^. GS.gscLrcContext)
                 initSlot
+    bgcUpdateConfiguration <- view (lensOf @UpdateConfiguration)
     usingReaderT initCtx $ do
         tipEOS <- getEpochOrSlot <$> DB.getTipHeader
         putInitSlot (epochOrSlotToSlot tipEOS)
@@ -246,6 +249,9 @@ instance HasSlottingVar (BlockGenContext ext) where
 
 instance HasLens GenesisWStakeholders (BlockGenContext ext) GenesisWStakeholders where
     lensOf = bgcGenStakeholders_L
+
+instance HasLens UpdateConfiguration (BlockGenContext ext) UpdateConfiguration where
+    lensOf = bgcUpdateConfiguration_L
 
 instance HasLens DBSum (BlockGenContext ext) DBSum where
     lensOf = GS.gStateContext . GS.gscDB

@@ -38,7 +38,8 @@ import           Pos.Chain.Delegation (DlgPayload, DlgUndo (..),
                      ProxySKBlockInfo)
 import           Pos.Chain.Ssc (SscPayload, defaultSscPayload)
 import           Pos.Chain.Txp (TxAux)
-import           Pos.Chain.Update (HasUpdateConfiguration, UpdatePayload (..))
+import           Pos.Chain.Update (HasUpdateConfiguration, UpdatePayload (..),
+                     updateConfiguration)
 import qualified Pos.Communication ()
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
                      EpochIndex (..), LocalSlotIndex (..), SlotId (..),
@@ -236,6 +237,7 @@ producePureBlock
     -> SecretKey
     -> Either Text MainBlock
 producePureBlock limit prev txs psk slot dlgPay sscPay usPay sk =
+    flip runReaderT updateConfiguration $
     createMainBlockPure dummyConfig limit prev psk slot sk $
     RawPayload txs sscPay dlgPay usPay
 

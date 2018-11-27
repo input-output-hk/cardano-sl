@@ -10,7 +10,9 @@ module Pos.Web.Server
        , serveDocImpl
        , withRoute53HealthCheckApplication
        , serveWeb
+       , servantServer
        , application
+       , nodeServantHandlers
        ) where
 
 import           Universum
@@ -42,17 +44,20 @@ import           UnliftIO (MonadUnliftIO)
 import           Network.Socket (Socket, close)
 import           Pos.Chain.Ssc (scParticipateSsc)
 import           Pos.Chain.Txp (TxOut (..), toaOut)
-import           Pos.Chain.Update (HasUpdateConfiguration)
+import           Pos.Chain.Update (UpdateConfiguration)
 import           Pos.Context (HasNodeContext (..), HasSscContext (..),
                      NodeContext, getOurPublicKey)
 import           Pos.Core (EpochIndex (..), SlotLeaders)
+import           Pos.Core.Context (HasPrimaryKey)
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB as DB
 import qualified Pos.DB.Lrc as LrcDB
-import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
-                     getAllPotentiallyHugeUtxo, getLocalTxs, withTxpLocalData)
+import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt, MonadTxpMem,
+                     TxpHolderTag, getAllPotentiallyHugeUtxo, getLocalTxs,
+                     withTxpLocalData)
 import qualified Pos.GState as GS
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
+import           Pos.Util.Util (HasLens, HasLens', lensOf)
 import           Pos.Web.Mode (WebMode, WebModeContext (..))
 import           Pos.WorkMode.Class (WorkMode)
 
@@ -66,7 +71,6 @@ import           Pos.Web.Types (CConfirmedProposalState (..), TlsParams (..))
 type MyWorkMode ctx m =
     ( WorkMode ctx m
     , HasNodeContext ctx -- for ConvertHandler
-    , Default (MempoolExt m)
     )
 
 withRoute53HealthCheckApplication
@@ -216,17 +220,18 @@ tlsWithClientCheck host port TlsParams{..} = tlsSettings
 ----------------------------------------------------------------------------
 
 convertHandler
-    :: forall ext a.
-       NodeContext
+    :: forall ext a
+    . UpdateConfiguration
+    -> NodeContext
     -> DB.NodeDBs
     -> GenericTxpLocalData ext
     -> WebMode ext a
     -> Handler a
-convertHandler nc nodeDBs txpData handler =
+convertHandler uc nc nodeDBs txpData handler =
     liftIO
         (Mtl.runReaderT
              handler
-             (WebModeContext nodeDBs txpData nc)) `E.catches`
+             (WebModeContext nodeDBs txpData nc uc)) `E.catches`
     excHandlers
   where
     excHandlers = [E.Handler catchServant]
@@ -238,9 +243,10 @@ withNat
     => Proxy api -> ServerT api (WebMode ext) -> m (Server api)
 withNat apiP handlers = do
     nc <- view nodeContext
+    uc <- view (lensOf @UpdateConfiguration)
     nodeDBs <- DB.getNodeDBs
     txpLocalData <- withTxpLocalData return
-    return $ hoistServer apiP (convertHandler nc nodeDBs txpLocalData) handlers
+    return $ hoistServer apiP (convertHandler uc nc nodeDBs txpLocalData) handlers
 
 servantServer
     :: forall ctx m.
@@ -253,8 +259,12 @@ servantServer = withNat (Proxy @NodeApi) nodeServantHandlers
 ----------------------------------------------------------------------------
 
 nodeServantHandlers
-    :: (HasUpdateConfiguration, Default ext)
-    => ServerT NodeApi (WebMode ext)
+    ::
+    ( MonadReader r m, MonadUnliftIO m, MonadDBRead m, Default ext
+    , HasPrimaryKey r, HasLens TxpHolderTag r (GenericTxpLocalData ext)
+    , HasLens UpdateConfiguration r UpdateConfiguration
+    , HasSscContext r
+    ) => ServerT NodeApi m
 nodeServantHandlers =
     getLeaders
     :<|>
@@ -273,7 +283,7 @@ nodeServantHandlers =
     -- :<|> getOurSecret
     -- :<|> getSscStage
 
-getLeaders :: Maybe EpochIndex -> WebMode ext SlotLeaders
+getLeaders :: MonadDBRead m => Maybe EpochIndex -> m SlotLeaders
 getLeaders maybeEpoch = do
     -- epoch <- maybe (siEpoch <$> getCurrentSlot) pure maybeEpoch
     epoch <- maybe (pure 0) pure maybeEpoch
@@ -281,21 +291,26 @@ getLeaders maybeEpoch = do
   where
     err = err404 { errBody = encodeUtf8 ("Leaders are not know for current epoch"::Text) }
 
-getUtxo :: WebMode ext [TxOut]
+getUtxo :: (MonadDBRead m, MonadUnliftIO m) => m [TxOut]
 getUtxo = map toaOut . toList <$> getAllPotentiallyHugeUtxo
 
-getLocalTxsNum :: Default ext => WebMode ext Word
+getLocalTxsNum
+    :: (MonadIO m, MonadTxpMem ext ctx m)
+    => m Word
 getLocalTxsNum = fromIntegral . length <$> withTxpLocalData getLocalTxs
 
 -- | Get info on all confirmed proposals
 confirmedProposals
-    :: (HasUpdateConfiguration, MonadDBRead m, MonadUnliftIO m)
+    :: (MonadDBRead m, MonadUnliftIO m, MonadReader r m, HasLens' r UpdateConfiguration)
     => m [CConfirmedProposalState]
 confirmedProposals = do
-    proposals <- GS.getConfirmedProposals Nothing
+    uc <- view (lensOf @UpdateConfiguration)
+    proposals <- GS.getConfirmedProposals uc Nothing
     pure $ map (CConfirmedProposalState . show) proposals
 
-toggleSscParticipation :: Bool -> WebMode ext ()
+toggleSscParticipation
+    :: (MonadReader r m, HasSscContext r, MonadIO m)
+    => Bool -> m ()
 toggleSscParticipation enable =
     view sscContext >>=
     atomically . flip writeTVar enable . scParticipateSsc

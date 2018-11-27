@@ -22,7 +22,7 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
                      TestnetBalanceOptions (..), configBlockVersionData,
                      configBootStakeholders, configEpochSlots,
                      configGeneratedSecretsThrow, gsSecretKeys)
-import           Pos.Chain.Update (BlockVersionData (..))
+import           Pos.Chain.Update (BlockVersionData (..), updateConfiguration)
 import           Pos.Core.Chrono (NE, OldestFirst (..), nonEmptyNewestFirst)
 import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)
 import           Pos.Core.NetworkMagic (makeNetworkMagic)
@@ -95,11 +95,11 @@ verifyBlocksBenchmark
     -> Benchmark
 verifyBlocksBenchmark !genesisConfig !secretKeys !tp !ctx =
     bgroup "block verification"
-        [ env (runBlockTestMode genesisConfig tp (genEnv (BlockCount 100)))
+        [ env (runBlockTestMode updateConfiguration genesisConfig tp (genEnv (BlockCount 100)))
             $ \ ~(curSlot, blocks) -> bench "verifyAndApplyBlocks" (verifyAndApplyBlocksB curSlot blocks)
         -- `verifyBlocksPrefix` will succeed only on the first block, it
         -- requires that blocks are applied.
-        , env (runBlockTestMode genesisConfig tp (genEnv (BlockCount 1)))
+        , env (runBlockTestMode updateConfiguration genesisConfig tp (genEnv (BlockCount 1)))
             $ \ ~(curSlot, blocks) -> bench "verifyBlocksPrefix" (verifyBlocksPrefixB curSlot blocks)
         ]
     where
@@ -162,7 +162,8 @@ verifyHeaderBenchmark
     -> [SecretKey]
     -> TestParams
     -> Benchmark
-verifyHeaderBenchmark !genesisConfig !secretKeys !tp = env (runBlockTestMode genesisConfig tp genEnv)
+verifyHeaderBenchmark !genesisConfig !secretKeys !tp =
+    env (runBlockTestMode updateConfiguration genesisConfig tp genEnv)
         $ \ ~(block, params) -> bgroup "block verification"
             [ bench "verifyHeader" $ benchHeaderVerification
                 (getBlockHeader block, vbpVerifyHeader params)
@@ -246,7 +247,7 @@ runBenchmark = do
                     }
             secretKeys <- gsSecretKeys <$> configGeneratedSecretsThrow genesisConfig
             runEmulation startTime
-                $ initBlockTestContext genesisConfig tp $ \ctx ->
+                $ initBlockTestContext updateConfiguration genesisConfig tp $ \ctx ->
                     sudoLiftIO $ defaultMainWith config
                         [ verifyBlocksBenchmark genesisConfig secretKeys tp ctx
                         , verifyHeaderBenchmark genesisConfig secretKeys tp

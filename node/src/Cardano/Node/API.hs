@@ -8,7 +8,7 @@ module Cardano.Node.API where
 import           Universum
 
 import           Control.Concurrent.STM (orElse, retry)
-import           Control.Lens (lens, to)
+import           Control.Lens (lens, makeLensesWith, to)
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.Text as Text
 import           Data.Time.Units (toMicroseconds)
@@ -19,32 +19,89 @@ import           Ntp.Client (NtpConfiguration, NtpStatus (..),
                      ntpClientSettings, withNtpClient)
 import           Ntp.Packet (NtpOffset)
 import           Pos.Chain.Block (LastKnownHeader, LastKnownHeaderTag)
-import           Pos.Chain.Update (UpdateConfiguration, curSoftwareVersion,
-                     withUpdateConfiguration)
+import           Pos.Chain.Ssc (SscContext)
+import           Pos.Chain.Update (UpdateConfiguration, curSoftwareVersion)
 import           Pos.Client.CLI.NodeOptions (NodeApiArgs (..))
-import           Pos.Context
+import           Pos.Context (HasPrimaryKey (..), HasSscContext (..),
+                     NodeContext (..))
 import qualified Pos.Core as Core
+import           Pos.Crypto (SecretKey)
 import qualified Pos.DB.Block as DB
 import qualified Pos.DB.BlockIndex as DB
 import qualified Pos.DB.Class as DB
 import           Pos.DB.GState.Lock (Priority (..), StateLock,
                      withStateLockNoMetrics)
-import qualified Pos.DB.Rocks.Functions as DB
-import qualified Pos.DB.Rocks.Types as DB
+import qualified Pos.DB.Rocks as DB
+import           Pos.DB.Txp.MemState (GenericTxpLocalData, TxpHolderTag)
 import           Pos.Infra.Diffusion.Subscription.Status (ssMap)
-import           Pos.Infra.Diffusion.Types
+import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import qualified Pos.Infra.Slotting.Util as Slotting
-import           Pos.Launcher.Resource
+import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Node.API as Node
 import           Pos.Util (HasLens (..), HasLens')
 import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
-import           Pos.Util.Servant
+import           Pos.Util.Lens (postfixLFields)
+import           Pos.Util.Servant (WalletResponse (..), single)
 import           Pos.Web (serveImpl)
+import qualified Pos.Web as Legacy
+
+type NodeV1Api
+    = "v1"
+    :> ( Node.API
+    :<|> Legacy.NodeApi
+    )
+
+nodeV1Api :: Proxy NodeV1Api
+nodeV1Api = Proxy
+
+data LegacyCtx = LegacyCtx
+    { legacyCtxTxpLocalData
+        :: !(GenericTxpLocalData ())
+    , legacyCtxPrimaryKey
+        :: !SecretKey
+    , legacyCtxUpdateConfiguration
+        :: !UpdateConfiguration
+    , legacyCtxSscContext
+        :: !SscContext
+    , legacyCtxNodeDBs
+        :: !DB.NodeDBs
+    }
+
+makeLensesWith postfixLFields ''LegacyCtx
+
+instance HasPrimaryKey LegacyCtx where
+    primaryKey = legacyCtxPrimaryKey_L
+
+instance HasLens TxpHolderTag LegacyCtx (GenericTxpLocalData ()) where
+    lensOf = legacyCtxTxpLocalData_L
+
+instance HasLens DB.NodeDBs LegacyCtx DB.NodeDBs where
+    lensOf = legacyCtxNodeDBs_L
+
+instance HasLens UpdateConfiguration LegacyCtx UpdateConfiguration where
+    lensOf = legacyCtxUpdateConfiguration_L
+
+instance HasSscContext LegacyCtx where
+    sscContext = legacyCtxSscContext_L
+
+instance {-# OVERLAPPING #-} DB.MonadDBRead (ReaderT LegacyCtx IO) where
+    dbGet = DB.dbGetDefault
+    dbIterSource = DB.dbIterSourceDefault
+    dbGetSerBlock = DB.dbGetSerBlockRealDefault
+    dbGetSerUndo = DB.dbGetSerUndoRealDefault
+    dbGetSerBlund = DB.dbGetSerBlundRealDefault
+
+legacyNodeApi :: LegacyCtx -> Server Legacy.NodeApi
+legacyNodeApi r =
+    hoistServer
+        (Proxy :: Proxy Legacy.NodeApi)
+        (Handler . ExceptT . try . flip runReaderT r)
+        Legacy.nodeServantHandlers
 
 launchNodeServer
     :: NodeApiArgs
     -> NtpConfiguration
-    -> NodeResources ext
+    -> NodeResources ()
     -> UpdateConfiguration
     -> CompileTimeInfo
     -> Diffusion IO
@@ -58,7 +115,19 @@ launchNodeServer
     diffusion
   = do
     ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
-    let app = serve (Proxy @Node.API)
+    let legacyApi = legacyNodeApi LegacyCtx
+            { legacyCtxTxpLocalData =
+                nrTxpState nodeResources
+            , legacyCtxPrimaryKey =
+                view primaryKey . ncNodeParams $ nrContext nodeResources
+            , legacyCtxUpdateConfiguration =
+                updateConfiguration
+            , legacyCtxSscContext =
+                ncSscContext $ nrContext nodeResources
+            , legacyCtxNodeDBs =
+                nrDBs nodeResources
+            }
+    let app = serve nodeV1Api
             $ handlers
                 diffusion
                 ntpStatus
@@ -69,16 +138,16 @@ launchNodeServer
                 slottingVar
                 updateConfiguration
                 compileTimeInfo
+            :<|> legacyApi
 
-    -- Warp.run portNumber app
     serveImpl
         (pure app)
         (BS8.unpack ipAddress)
         portNumber
         (do guard (nodeBackendDebugMode params)
             nodeBackendTLSParams params)
-        (Just $ error "setOnExceptionResponse")
-        (Just $ error "portCallback ctx")
+        Nothing -- TODO: Set the onException to print out JSend compliant errors
+        Nothing -- TODO: Set a port callback for shutdown/IPC
   where
     nodeCtx = nrContext nodeResources
     (slottingVarTimestamp, slottingVar) = ncSlottingVar nodeCtx
@@ -117,7 +186,7 @@ getNodeSettings compileInfo updateConfiguration timestamp slottingVar = do
         { setSlotDuration =
             slotDuration
         , setSoftwareInfo =
-            V1 (withUpdateConfiguration updateConfiguration curSoftwareVersion)
+            V1 (curSoftwareVersion updateConfiguration)
         , setProjectVersion =
             V1 Paths.version
         , setGitRevision =
@@ -264,15 +333,13 @@ instance HasLens LastKnownHeaderTag InfoCtx LastKnownHeader where
     lensOf =
         lens infoCtxLastKnownHeader (\i s -> i { infoCtxLastKnownHeader = s })
 
-instance
-    (HasLens' r DB.NodeDBs, MonadCatch m, MonadIO m)
-    => DB.MonadDBRead (ReaderT r m)
-  where
-    dbGet = DB.dbGetDefault
-    dbIterSource = DB.dbIterSourceDefault
+instance DB.MonadDBRead (ReaderT InfoCtx IO) where
+    dbGet         = DB.dbGetDefault
+    dbIterSource  = DB.dbIterSourceDefault
     dbGetSerBlock = DB.dbGetSerBlockRealDefault
-    dbGetSerUndo = DB.dbGetSerUndoRealDefault
+    dbGetSerUndo  = DB.dbGetSerUndoRealDefault
     dbGetSerBlund = DB.dbGetSerBlundRealDefault
+
 
 getNodeSyncProgress
     ::

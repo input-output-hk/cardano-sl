@@ -14,6 +14,7 @@ import           Universum
 import           Pos.Chain.Block
 import           Pos.Chain.Genesis as Genesis (Config)
 import           Pos.Chain.Txp
+import           Pos.Chain.Update (updateConfiguration)
 import           Pos.Context
 import           Pos.Core.Chrono
 import           Pos.Core.JsonLog (CanJsonLog (..))
@@ -96,7 +97,7 @@ runWalletMode :: forall a. (HasConfigurations, HasCompileInfo)
               -> (Diffusion WalletMode -> WalletMode a)
               -> IO a
 runWalletMode genesisConfig txpConfig nr wallet action =
-    runRealMode genesisConfig txpConfig nr $ \diffusion ->
+    runRealMode updateConfiguration genesisConfig txpConfig nr $ \diffusion ->
         walletModeToRealMode wallet (action (hoistDiffusion realModeToWalletMode (walletModeToRealMode wallet) diffusion))
 
 walletModeToRealMode :: forall a. PassiveWalletLayer IO -> WalletMode a -> RealMode () a

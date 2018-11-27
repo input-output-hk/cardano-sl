@@ -21,7 +21,7 @@ import           Pos.Chain.Block (HasBlockConfiguration, HasSlogContext,
 import           Pos.Chain.Delegation (HasDlgConfiguration, MonadDelegation)
 import           Pos.Chain.Security (SecurityParams)
 import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem)
-import           Pos.Chain.Update (HasUpdateConfiguration, UpdateParams)
+import           Pos.Chain.Update (UpdateConfiguration, UpdateParams)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Context (BlockRetrievalQueue, BlockRetrievalQueueTag,
                      HasSscContext, StartTime, TxpGlobalSettings)
@@ -47,7 +47,7 @@ import           Pos.Util.Wlog (WithLogger)
 
 -- | Bunch of constraints to perform work for real world distributed system.
 type WorkMode ctx m
-    = ( MinWorkMode m
+    = ( MinWorkMode ctx m
       , MonadBaseControl IO m
       , Rand.MonadRandom m
       , MonadMask m
@@ -87,12 +87,13 @@ type WorkMode ctx m
       )
 
 -- | More relaxed version of 'WorkMode'.
-type MinWorkMode m
+type MinWorkMode ctx m
     = ( WithLogger m
       , CanJsonLog m
       , MonadIO m
       , MonadUnliftIO m
-      , HasUpdateConfiguration
+      , MonadReader ctx m
+      , HasLens' ctx UpdateConfiguration
       , HasNodeConfiguration
       , HasBlockConfiguration
       )

@@ -15,8 +15,8 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlkSecurityParam, configBlockVersionData,
                      configEpochSlots)
 import           Pos.Chain.Update (ConfirmedProposalState (..),
-                     SoftwareVersion (..), UpdateProposal (..),
-                     curSoftwareVersion)
+                     SoftwareVersion (..), UpdateConfiguration,
+                     UpdateProposal (..), curSoftwareVersion)
 import           Pos.DB.Update (UpdateContext (..), getConfirmedProposals,
                      processNewSlot)
 import           Pos.Infra.Diffusion.Types (Diffusion)
@@ -56,8 +56,9 @@ checkForUpdate ::
     => m ()
 checkForUpdate = do
     logDebug "Checking for update..."
+    uc <- view (lensOf @UpdateConfiguration)
     confirmedProposals <-
-        getConfirmedProposals (Just $ svNumber curSoftwareVersion)
+        getConfirmedProposals uc . Just . svNumber $ curSoftwareVersion uc
     case nonEmpty confirmedProposals of
         Nothing ->
             logDebug

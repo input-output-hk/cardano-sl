@@ -73,16 +73,16 @@ instance FromJSON UpdateConfiguration where
 ----------------------------------------------------------------------------
 
 -- | Name of our application.
-ourAppName :: HasUpdateConfiguration => ApplicationName
-ourAppName = ccApplicationName updateConfiguration
+ourAppName :: UpdateConfiguration -> ApplicationName
+ourAppName = ccApplicationName
 
 -- | Last block version application is aware of.
-lastKnownBlockVersion :: HasUpdateConfiguration => BlockVersion
-lastKnownBlockVersion = ccLastKnownBlockVersion updateConfiguration
+lastKnownBlockVersion :: UpdateConfiguration -> BlockVersion
+lastKnownBlockVersion = ccLastKnownBlockVersion
 
 -- | Version of application (code running)
-curSoftwareVersion :: HasUpdateConfiguration => SoftwareVersion
-curSoftwareVersion = SoftwareVersion ourAppName (ccApplicationVersion updateConfiguration)
+curSoftwareVersion :: UpdateConfiguration -> SoftwareVersion
+curSoftwareVersion uc = SoftwareVersion (ourAppName uc) (ccApplicationVersion uc)
 
 -- | @SystemTag@ corresponding to the operating system/architecture pair the program was
 -- compiled in.
@@ -93,5 +93,5 @@ curSoftwareVersion = SoftwareVersion ourAppName (ccApplicationVersion updateConf
 currentSystemTag :: SystemTag
 currentSystemTag = SystemTag (toText (osHelper buildOS ++ archHelper buildArch))
 
-ourSystemTag :: HasUpdateConfiguration => SystemTag
-ourSystemTag = ccSystemTag updateConfiguration
+ourSystemTag :: UpdateConfiguration -> SystemTag
+ourSystemTag = ccSystemTag

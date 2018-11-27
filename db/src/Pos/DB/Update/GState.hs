@@ -56,12 +56,11 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
 import           Pos.Chain.Update (ApplicationName, BlockVersion,
                      BlockVersionData (..), BlockVersionState (..),
                      ConfirmedProposalState (..), ConsensusEra (..),
-                     DecidedProposalState (dpsDifficulty),
-                     HasUpdateConfiguration, NumSoftwareVersion,
+                     DecidedProposalState (dpsDifficulty), NumSoftwareVersion,
                      ProposalState (..), SoftwareVersion (..),
                      UndecidedProposalState (upsSlot), UpId,
-                     UpdateProposal (..), bvsIsConfirmed, consensusEraBVD,
-                     cpsSoftwareVersion, genesisBlockVersion,
+                     UpdateConfiguration, UpdateProposal (..), bvsIsConfirmed,
+                     consensusEraBVD, cpsSoftwareVersion, genesisBlockVersion,
                      genesisSoftwareVersions, ourAppName, ourSystemTag,
                      psProposal)
 import           Pos.Core (ChainDifficulty, SlotId, StakeholderId,
@@ -270,9 +269,11 @@ instance DBIteratorClass ConfPropIter where
 -- software as argument.
 -- Returns __all__ confirmed proposals if the argument is 'Nothing'.
 getConfirmedProposals
-    :: (HasUpdateConfiguration, MonadDBRead m, MonadUnliftIO m)
-    => Maybe NumSoftwareVersion -> m [ConfirmedProposalState]
-getConfirmedProposals reqNsv =
+    :: (MonadDBRead m, MonadUnliftIO m)
+    => UpdateConfiguration
+    -> Maybe NumSoftwareVersion
+    -> m [ConfirmedProposalState]
+getConfirmedProposals uc reqNsv =
     runConduitRes $
     dbIterSource GStateDB (Proxy @ConfPropIter) .| CL.mapMaybe onItem .|
     CL.consume
@@ -280,11 +281,11 @@ getConfirmedProposals reqNsv =
     onItem (SoftwareVersion {..}, cps)
         | Nothing <- reqNsv = Just cps
         | Just v <- reqNsv
-        , hasOurSystemTag cps && svAppName == ourAppName && svNumber > v =
+        , hasOurSystemTag cps && svAppName == ourAppName uc && svNumber > v =
             Just cps
         | otherwise = Nothing
     hasOurSystemTag ConfirmedProposalState {..} =
-        isJust $ upData cpsUpdateProposal ^. at ourSystemTag
+        isJust $ upData cpsUpdateProposal ^. at (ourSystemTag uc)
 
 -- Iterator by block versions
 data BVIter

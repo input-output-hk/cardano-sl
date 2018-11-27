@@ -1,5 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Instance of MoandPollRead which uses DB.
 
 module Pos.DB.Update.Poll.DBPoll
@@ -9,14 +11,12 @@ module Pos.DB.Update.Poll.DBPoll
 
 import           Universum hiding (id)
 
-import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Data.Coerce (coerce)
 import qualified Data.HashMap.Strict as HM
 import qualified Ether
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Lrc (FullRichmenData)
-import           Pos.Chain.Update (HasUpdateConfiguration, MonadPollRead (..))
+import           Pos.Chain.Update (MonadPollRead (..), UpdateConfiguration)
 import           Pos.Core (Coin)
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.Lrc (HasLrcContext, getIssuersStakes,
@@ -28,12 +28,10 @@ import           Pos.Util.Wlog (WithLogger)
 -- Transformer
 ----------------------------------------------------------------------------
 
-data DBPollTag
+type DBPoll = Ether.ReaderT UpdateConfiguration UpdateConfiguration
 
-type DBPoll = Ether.TaggedTrans DBPollTag IdentityT
-
-runDBPoll :: DBPoll m a -> m a
-runDBPoll = coerce
+runDBPoll :: UpdateConfiguration -> DBPoll m a -> m a
+runDBPoll uc a = Ether.runReaderT a uc
 
 instance ( MonadIO m
          , MonadDBRead m
@@ -41,7 +39,6 @@ instance ( MonadIO m
          , WithLogger m
          , MonadReader ctx m
          , HasLrcContext ctx
-         , HasUpdateConfiguration
          ) =>
          MonadPollRead (DBPoll m) where
     getBVState = GS.getBVState
@@ -52,7 +49,9 @@ instance ( MonadIO m
     getLastConfirmedSV = GS.getConfirmedSV
     getProposal = GS.getProposalState
     getProposalsByApp = GS.getProposalsByApp
-    getConfirmedProposals = GS.getConfirmedProposals Nothing
+    getConfirmedProposals = do
+        uc <- Ether.ask @UpdateConfiguration
+        GS.getConfirmedProposals uc Nothing
     getEpochTotalStake genesisBvd e = fmap fst <$> tryGetUSRichmen genesisBvd e
     getRichmanStake genesisBvd e id =
         (findStake =<<) <$> tryGetUSRichmen genesisBvd e

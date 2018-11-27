@@ -29,7 +29,7 @@ submitVote diffusion = Diffusion.sendVote diffusion
 
 -- | Send UpdateProposal with one positive vote to given addresses
 submitUpdateProposal
-    :: (MinWorkMode m)
+    :: (MinWorkMode ctx m)
     => ProtocolMagic
     -> Diffusion m
     -> [SafeSigner]
@@ -42,7 +42,7 @@ submitUpdateProposal pm diffusion ss prop = do
 
 -- Send UpdateProposal to given address.
 sendUpdateProposal
-    :: (MinWorkMode m)
+    :: (MinWorkMode ctx m)
     => Diffusion m
     -> UpId
     -> UpdateProposal

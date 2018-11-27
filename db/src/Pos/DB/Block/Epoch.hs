@@ -49,6 +49,7 @@ import qualified Data.ByteString.Lazy as LBS
 import           Data.Either (partitionEithers)
 import           Formatting (build, int, sformat, shown, (%))
 import           System.Directory (removeFile)
+import           System.Environment (lookupEnv)
 import           System.FilePath ((</>))
 import           System.IO (IOMode (..), SeekMode (..), hClose, hSeek,
                      openBinaryFile, withBinaryFile)
@@ -78,6 +79,12 @@ import           Pos.DB.Rocks.Types (MonadRealDB, blockDataDir, epochDataDir,
 import           Pos.Util.Concurrent.RWLock (whenAcquireWrite)
 import           Pos.Util.Wlog (CanLog, HasLoggerName, logError, logInfo,
                      usingLoggerName)
+
+-- XXX
+getConsolodateDelayEnvVar :: IO Int
+getConsolodateDelayEnvVar =
+      fromMaybe 0 . join . fmap readMaybe
+  <$> lookupEnv "cardano_consolodate_delay_us"
 
 -- | Block/epoch consolidation worker.
 -- This function is only ever called once from 'bracketNodeResources' and is
@@ -367,6 +374,8 @@ consolidateOneEpoch ccp epochSlots = do
 
 deleteOldBlund :: ConsolidateM ctx m => SlotIndexHash -> m ()
 deleteOldBlund (SlotIndexHash _ hh) = do
+    delay <- liftIO $ getConsolodateDelayEnvVar
+    liftIO $ threadDelay delay
     bdd <- view blockDataDir <$> getNodeDBs
     let bp = bspBlund (getAllPaths bdd hh)
     liftIO (removeFile bp) `catch` handler
@@ -384,6 +393,8 @@ consolidateEpochBlocks
     :: ConsolidateM ctx m
     => FilePath -> [SlotIndexHash] -> ExceptT ConsolidateError m [SlotIndexOffset]
 consolidateEpochBlocks fpath xs = ExceptT $ do
+    delay <- liftIO $ getConsolodateDelayEnvVar
+    liftIO $ threadDelay delay
     ys <- bracket
             (liftIO $ openBinaryFile fpath WriteMode)
             (liftIO . hClose)

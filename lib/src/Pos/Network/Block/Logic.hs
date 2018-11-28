@@ -184,8 +184,8 @@ addHeaderToBlockRequestQueue nodeId header continues = do
     logDebug $ sformat ("addToBlockRequestQueue, : "%shortHashF) hHash
     queue <- view (lensOf @BlockRetrievalQueueTag)
     lastKnownH <- view (lensOf @LastKnownHeaderTag)
+    atomically $ updateLastKnownHeader lastKnownH header
     added <- atomically $ do
-        updateLastKnownHeader lastKnownH header
         addTaskToBlockRequestQueue nodeId queue $
             BlockRetrievalTask { brtHeader = header, brtContinues = continues }
     if added

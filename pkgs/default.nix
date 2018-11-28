@@ -16188,6 +16188,7 @@ license = stdenv.lib.licenses.mit;
 , ekg-core
 , ether
 , exceptions
+, extra
 , filepath
 , formatting
 , hedgehog
@@ -16241,6 +16242,7 @@ directory
 ekg-core
 ether
 exceptions
+extra
 filepath
 formatting
 lens

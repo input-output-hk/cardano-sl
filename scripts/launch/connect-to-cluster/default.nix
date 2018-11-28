@@ -19,7 +19,7 @@
 , debug ? false
 , disableClientAuth ? false
 , extraParams ? ""
-, tlsConfig ? null
+, tlsConfig ? {}
 }:
 
 with localLib;

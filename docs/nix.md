@@ -32,8 +32,15 @@ exist, then create it.
     trusted-substituters =
     trusted-public-keys  = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
 
+The `nix-daemon` must be restarted after editing `/etc/nix/nix.conf`
+for changes to take effect. Run `systemctl restart nix-daemon` on Linux
+or `sudo launchctl stop org.nixos.nix-daemon; sudo launchctl start
+org.nixos.nix-daemon` on macOS.
+
 We do not recommend using `~/.config/nix/nix.conf` unless you are a
 power user. It's simpler to have only one global config file.
+
+If using NixOS, see [`iohk-binary-cache.nix`](../nix/iohk-binary-cache.nix).
 
 ## Other configuration
 

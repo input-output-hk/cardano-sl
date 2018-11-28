@@ -46,6 +46,7 @@ import           Control.Monad.Trans.Except (ExceptT, throwE)
 import           Data.Binary (decode, encode)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy as LBS
+import           Data.List.Extra (chunksOf)
 import           Data.Either (partitionEithers)
 import           Formatting (build, int, sformat, shown, (%))
 import           System.Directory (removeFile)
@@ -363,7 +364,12 @@ consolidateOneEpoch ccp epochSlots = do
 
     -- After the check point is written, delete old blunds for the epoch we have just
     -- consolidated.
-    lift $ mapM_ deleteOldBlund sihs
+    lift $ mapM_ deleter $ chunksOf 1000 sihs
+  where
+    deleter :: ConsolidateM ctx m => [SlotIndexHash] -> m ()
+    deleter xs = do
+        mapM_ deleteOldBlund xs
+        sleepSeconds 2
 
 deleteOldBlund :: ConsolidateM ctx m => SlotIndexHash -> m ()
 deleteOldBlund (SlotIndexHash _ hh) = do
@@ -389,7 +395,7 @@ consolidateEpochBlocks fpath xs = ExceptT $ do
             (liftIO . hClose)
             (\hdl -> do
                 liftIO $ BS.hPutStr hdl epochFileHeader
-                mapM (consolidate hdl) xs
+                mapM (consolidate hdl) $ zip [0 .. ] xs
                 )
     pure $ case partitionEithers ys of
             ([], zs) -> Right $ epochIndexToOffset zs
@@ -397,8 +403,10 @@ consolidateEpochBlocks fpath xs = ExceptT $ do
   where
     consolidate
         :: ConsolidateM ctx m
-        => Handle -> SlotIndexHash -> m (Either ConsolidateError SlotIndexLength)
-    consolidate hdl  (SlotIndexHash lsi hh) = do
+        => Handle -> (Int, SlotIndexHash) -> m (Either ConsolidateError SlotIndexLength)
+    consolidate hdl  (indx, SlotIndexHash lsi hh) = do
+        when (indx `mod` 1000 == 0) $
+            sleepSeconds 2
         mblund <- getSerializedBlund hh
         case mblund of
             Nothing ->

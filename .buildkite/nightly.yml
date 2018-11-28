@@ -18,3 +18,21 @@ steps:
     timeout_in_minutes: 120
     agents:
       system: x86_64-linux
+
+  - label: 'Acceptance Tests - mainnet - macos'
+    command:
+      - nix-build -A acceptanceTests.mainnet.full -o acceptance-tests-mainnet-full.sh
+      - echo "+++ Syncing mainnet blockchain"
+      - ./acceptance-tests-mainnet-full.sh
+    timeout_in_minutes: 120
+    agents:
+      system: x86_64-darwin
+
+  - label: 'Acceptance Tests - testnet - macos'
+    command:
+      - nix-build -A acceptanceTests.testnet.full -o acceptance-tests-testnet-full.sh
+      - echo "+++ Syncing testnet blockchain"
+      - ./acceptance-tests-testnet-full.sh
+    timeout_in_minutes: 120
+    agents:
+      system: x86_64-darwin

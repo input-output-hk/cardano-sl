@@ -161,8 +161,8 @@ deleteAccountP = (\wid accIdx wc -> deleteAccount wc wid accIdx) <$> walletIdP <
 
 runAction :: Action -> WalletClient IO -> IO ExitCode
 runAction act wc = case act of
-  WaitForSync mpid out -> waitForSync mpid wc >>= handleWaitResult out
-  WaitForRestore mpid out -> waitForRestore mpid wc >>= handleWaitResult out
+  WaitForSync mpid out -> waitForSync (waitOptionsPID mpid) wc >>= handleWaitResult out
+  WaitForRestore mpid out -> waitForRestore (waitOptionsPID mpid) wc >>= handleWaitResult out
   PostWallet wal -> printResp (postWallet wc wal)
   DeleteWallet walId -> printStatus (deleteWallet wc walId)
   WalletEndpointResp req -> printResp (req wc)
@@ -192,6 +192,8 @@ handleWaitResult mout res@(SyncResult err dur _) = do
     code (Just (SyncErrorClient _)) = ExitFailure 1
     code (Just (SyncErrorProcessDied _)) = ExitFailure 2
     code (Just (SyncErrorTimedOut _)) = ExitFailure 3
+    code (Just (SyncErrorException _)) = ExitFailure 4
+    code (Just (SyncErrorInterrupted)) = ExitSuccess
 
     writeJSON sr f = do
       putStrLn $ sformat ("Writing output to "%shown) f

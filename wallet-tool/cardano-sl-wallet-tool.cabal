@@ -59,6 +59,7 @@ library
                      , servant
                      , servant-client
                      , servant-client-core
+                     , stm
                      , text
                      , time
                      , time-units

@@ -13,6 +13,8 @@ module Cardano.Wallet.Client.Easy
   , waitForRestore
   , SyncResult(..)
   , SyncError(..)
+  , WaitOptions(..)
+  , waitOptionsPID
 
   -- * Util
   , keyFromPEM, certFromPEM
@@ -41,12 +43,15 @@ import qualified Pos.Core as Core
 import Formatting (sformat, shown, stext, int, (%), bprint, fixed)
 import Data.PEM (PEM(..), pemParseBS)
 import Data.Aeson (ToJSON(..), Value(..), (.=), object)
-import Control.Monad.Writer
+import Data.Default
 import System.FilePath (FilePath, (</>))
 import qualified Data.DList as DList
 import           Formatting.Buildable (Buildable (..))
 import Criterion.Measurement (initializeTime, getTime)
-
+import System.Posix.Signals
+import Control.Concurrent (threadDelay)
+import Control.Concurrent.Async (Async(..), cancel, withAsync, waitEitherCatchCancel)
+import Control.Concurrent.STM.TVar (newTVar, readTVar, modifyTVar')
 import Cardano.Wallet.Client (getWallets)
 import Cardano.Wallet.API.V1.Types (SyncState(..), Wallet(..))
 
@@ -134,13 +139,17 @@ data SyncResult r = SyncResult
 
 data SyncError = SyncErrorClient ClientError
                | SyncErrorProcessDied ProcessID
-               | SyncErrorTimedOut Int
+               | SyncErrorTimedOut Double
+               | SyncErrorException SomeException
+               | SyncErrorInterrupted
                deriving (Show, Typeable, Generic)
 
 instance Buildable SyncError where
   build (SyncErrorClient err) = bprint ("There was an error connecting to the wallet: "%shown) err
   build (SyncErrorProcessDied pid) = bprint ("The cardano-node process with pid "%shown%" has gone") pid
-  build (SyncErrorTimedOut t) = bprint ("Timed out after "%int%" secnds") t
+  build (SyncErrorTimedOut t) = bprint ("Timed out after "%fixed 1%" seconds") t
+  build (SyncErrorException e) = build e
+  build SyncErrorInterrupted = build ("Interrupted" :: Text)
 
 instance ToJSON r => ToJSON (SyncResult r) where
   toJSON (SyncResult err dur rs) =
@@ -164,8 +173,8 @@ unBlockchainHeight (BlockchainHeight (MeasuredIn w)) = fromIntegral w
 unSyncThroughput :: SyncThroughput -> Int
 unSyncThroughput (SyncThroughput (MeasuredIn (Core.BlockCount w))) = fromIntegral w
 
-waitForSync :: Maybe ProcessID -> WalletClient IO -> IO (SyncResult (Int, Maybe Int))
-waitForSync = waitForSomething 7200 (flip getNodeInfo NoNtpCheck) (pure . check)
+waitForSync :: WaitOptions -> WalletClient IO -> IO (SyncResult (Int, Maybe Int))
+waitForSync = waitForSomething (flip getNodeInfo NoNtpCheck) (pure . check)
   where
     check resp = (unfinished, msg, info)
       where
@@ -177,54 +186,14 @@ waitForSync = waitForSomething 7200 (flip getNodeInfo NoNtpCheck) (pure . check)
         info = ( unBlockchainHeight $ nfoLocalBlockchainHeight resp
                , unBlockchainHeight <$> nfoBlockchainHeight resp )
 
-waitForRestore :: Maybe ProcessID -> WalletClient IO -> IO (SyncResult (Int, Int))
-waitForRestore = waitForSomething 3600 getWallets (pure . check)
+waitForRestore :: WaitOptions -> WalletClient IO -> IO (SyncResult (Int, Int))
+waitForRestore = waitForSomething getWallets (pure . check)
   where
     check resp = case [ (unSyncPercentage $ spPercentage sp, unSyncThroughput $ spThroughput sp)
                       | Restoring sp <- map walSyncState resp] of
                    ((pc, tp):_) -> (True, restoreMsg pc tp, (pc, tp))
                    [] -> (False, "Wallet restoration complete.", (100, 0))
     restoreMsg = sformat ("Wallet restoring: "%int%"% ("%int%" blocks/s)")
-
-waitForSomething :: Int -- ^ Timeout in seconds
-                 -> (WalletClient IO -> Resp IO a) -- ^ Action to run on wallet
-                 -> (a -> IO (Bool, Text, r)) -- ^ Action to interpret wallet response
-                 -> Maybe ProcessID -- ^ Wallet process ID, so that crashes are handled
-                 -> WalletClient IO -- ^ Wallet client
-                 -> IO (SyncResult r)
-waitForSomething timeout req check mpid wc =
-  makeResult =<< (time $ runWriterT $ retrying policy check' (lift . action))
-  where
-    oneSec = 1000000
-    policy = limitRetriesByCumulativeDelay (timeout * oneSec) $ constantDelay oneSec
-
-    -- Run the given action and test that the server is still running
-    action _st = (,) <$> checkProcessExists mpid <*> req wc
-
-    -- Interpret result of action, log some info, decide whether to continue
-    check' st (_, Right resp) = do
-      (unfinished, msg, res) <- lift $ check (wrData resp)
-      let elapsed = fromIntegral (rsCumulativeDelay st) / fromIntegral oneSec
-      tell $ DList.singleton (elapsed, res)
-      when unfinished $
-        lift $ putStrLn $ sformat (fixed 2%" "%stext) elapsed msg
-      pure unfinished
-    check' _st (False, Left _) = do
-      lift $ putStrLn $ sformat "Wallet is no longer running"
-      pure False
-    check' _st (True, Left err) = do
-      lift $ putStrLn $ sformat ("Error connecting to wallet: "%shown) err
-      pure True
-
-    -- Convert return values from the retry block to a SyncResult
-    makeResult (dur, ((running, res), rs)) = do
-      e <- case (running, res) of
-        (_, Right resp) -> do
-          (unfinished, _, _) <- check (wrData resp)
-          pure (if unfinished then Just (SyncErrorTimedOut timeout) else Nothing)
-        (True, _) -> pure (SyncErrorProcessDied <$> mpid)
-        (_, Left err) -> pure (Just (SyncErrorClient err))
-      pure $ SyncResult e dur (DList.toList rs)
 
 -- | Really basic timing information.
 time :: IO a -> IO (Double, a)
@@ -234,3 +203,78 @@ time act = do
   res <- act
   finish <- getTime
   pure (finish - start, res)
+
+
+data WaitOptions = WaitOptions
+  { waitTimeoutSeconds :: Maybe Double  -- ^ Timeout in seconds
+  , waitProcessID :: Maybe ProcessID -- ^ Wallet process ID, so that crashes are handled
+  , waitIntervalSeconds :: Double -- ^ Time between polls
+  } deriving (Show, Eq)
+
+instance Default WaitOptions where
+  def = WaitOptions Nothing Nothing 1.0
+
+waitOptionsPID :: Maybe ProcessID -> WaitOptions
+waitOptionsPID pid = def { waitProcessID = pid }
+
+waitForSomething :: (WalletClient IO -> Resp IO a) -- ^ Action to run on wallet
+                 -> (a -> IO (Bool, Text, r)) -- ^ Action to interpret wallet response
+                 -> WaitOptions
+                 -> WalletClient IO -- ^ Wallet client
+                 -> IO (SyncResult r)
+waitForSomething req check WaitOptions{..} wc = do
+  rs <- atomically $ newTVar DList.empty
+  (dur, res) <- time $ withAsync (timeoutSleep waitTimeoutSeconds) $ \sleep -> do
+    withAsync (retrying policy (check' rs) action) $ \poll -> cancelOnExit poll $
+      waitEitherCatchCancel sleep poll
+
+  rs' <- atomically $ readTVar rs
+
+  let e = case res of
+            Left _ -> SyncErrorTimedOut <$> waitTimeoutSeconds
+            Right (Left err) -> Just (SyncErrorException err)
+            Right (Right (True, _)) -> (SyncErrorProcessDied <$> waitProcessID)
+            Right (Right (_, Left err)) -> (Just (SyncErrorClient err))
+            _ -> Nothing
+
+  pure $ SyncResult e dur (DList.toList rs')
+
+  where
+    policy = constantDelay (toMicroseconds waitIntervalSeconds)
+
+    -- Run the given action and test that the server is still running
+    action _st = (,) <$> checkProcessExists waitProcessID <*> req wc
+
+    -- Interpret result of action, log some info, decide whether to continue
+    check' rs st (_, Right resp) = do
+      (unfinished, msg, res) <- check (wrData resp)
+      let elapsed = fromIntegral (rsCumulativeDelay st) / oneSec
+      atomically $ modifyTVar' rs (flip DList.snoc (elapsed, res))
+      when unfinished $
+        putStrLn $ sformat (fixed 2%" "%stext) elapsed msg
+      pure unfinished
+    check' _ _st (False, Left _) = do
+      putStrLn $ sformat "Wallet is no longer running"
+      pure False
+    check' _ _st (True, Left err) = do
+      putStrLn $ sformat ("Error connecting to wallet: "%shown) err
+      pure True
+
+timeoutSleep :: Maybe Double -> IO ()
+timeoutSleep (Just s) = threadDelay (toMicroseconds s)
+timeoutSleep Nothing = forever $ threadDelay (toMicroseconds 1000)
+
+-- | Convert seconds to microseconds
+toMicroseconds :: Double -> Int
+toMicroseconds = floor . (* oneSec)
+
+oneSec :: Num a => a
+oneSec = 1000000
+
+cancelOnExit :: Async a -> IO b -> IO b
+cancelOnExit a b = cancelOnCtrlC a (cancelOnTerm a b)
+  where
+    addHandler sig h = installHandler sig h Nothing
+    cancelOnSig sig as act = bracket (addHandler sig (Catch (cancel as))) (addHandler sig) (const act)
+    cancelOnCtrlC = cancelOnSig keyboardSignal
+    cancelOnTerm = cancelOnSig softwareTermination

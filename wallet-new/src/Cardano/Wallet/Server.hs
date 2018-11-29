@@ -11,7 +11,7 @@ import           Pos.Chain.Update (HasUpdateConfiguration, curSoftwareVersion,
                      updateConfiguration)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 
-import           Cardano.Wallet.API
+import           Cardano.Wallet.API (WalletAPI, WalletDoc, walletDocAPI)
 import qualified Cardano.Wallet.API.Internal.Handlers as Internal
 import qualified Cardano.Wallet.API.V1.Handlers as V1
 import           Cardano.Wallet.API.V1.Swagger (swaggerSchemaUIServer)

@@ -16080,6 +16080,7 @@ license = stdenv.lib.licenses.mit;
 "cardano-sl-node" = callPackage
 ({
   mkDerivation
+, aeson
 , base
 , bytestring
 , cardano-sl
@@ -16096,6 +16097,7 @@ license = stdenv.lib.licenses.mit;
 , data-default
 , hashable
 , hspec
+, http-types
 , HUnit
 , lens
 , mtl
@@ -16107,6 +16109,7 @@ license = stdenv.lib.licenses.mit;
 , time-units
 , universum
 , validation
+, wai
 , warp
 }:
 mkDerivation {
@@ -16123,6 +16126,7 @@ configureFlags = [
 isLibrary = true;
 isExecutable = true;
 libraryHaskellDepends = [
+aeson
 base
 bytestring
 cardano-sl
@@ -16134,12 +16138,14 @@ cardano-sl-infra
 cardano-sl-networking
 cardano-sl-util
 data-default
+http-types
 lens
 servant-server
 stm
 text
 time-units
 universum
+wai
 warp
 ];
 executableHaskellDepends = [

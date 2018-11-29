@@ -279,9 +279,6 @@ nodeServantHandlers =
     confirmedProposals
     :<|>
     toggleSscParticipation
-    -- :<|> sscHasSecret
-    -- :<|> getOurSecret
-    -- :<|> getSscStage
 
 getLeaders :: MonadDBRead m => Maybe EpochIndex -> m SlotLeaders
 getLeaders maybeEpoch = do
@@ -314,28 +311,6 @@ toggleSscParticipation
 toggleSscParticipation enable =
     view sscContext >>=
     atomically . flip writeTVar enable . scParticipateSsc
-
--- sscHasSecret :: SscWebHandler Bool
--- sscHasSecret = isJust <$> getSecret
-
--- getOurSecret :: SscWebHandler SharedSeed
--- getOurSecret = maybe (throw err) (pure . convertSscSecret) =<< getSecret
---   where
---     err = err404 { errBody = "I don't have secret" }
---     doPanic = panic "our secret is malformed"
---     convertSscSecret =
---         secretToSharedSeed .
---         fromMaybe doPanic . fromBinaryM . getOpening . view _2
-
--- getSscStage :: SscWebHandler SscStage
--- getSscStage = do
---     getSscStageImpl . siSlot <$> getCurrentSlot
---   where
---     getSscStageImpl idx
---         | isCommitmentIdx idx = CommitmentStage
---         | isOpeningIdx idx = OpeningStage
---         | isSharesIdx idx = SharesStage
---         | otherwise = OrdinaryStage
 
 ----------------------------------------------------------------------------
 -- HealthCheck handlers

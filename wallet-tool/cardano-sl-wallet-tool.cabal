@@ -16,6 +16,7 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Cardano.Wallet.Client.Easy
+                     , Cardano.Wallet.Client.Wait
                      , Cardano.Wallet.ProcessUtil
                      , Cardano.Wallet.Client.HttpsSettings
                      , Cardano.Wallet.Client.CLI
@@ -137,6 +138,7 @@ executable sync-plot
                      , aeson
                      , Chart
                      , Chart-cairo
+                     , text
                      , universum
                      , vector
 

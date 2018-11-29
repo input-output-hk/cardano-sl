@@ -179,8 +179,9 @@ printStatus resp = resp >>= \case
   Left cerr -> (T.hPutStrLn stderr $ sformat ("client error: "%shown) cerr) >> pure (ExitFailure 100)
 
 handleWaitResult :: ToJSON r => Maybe FilePath -> SyncResult r -> IO ExitCode
-handleWaitResult mout res@(SyncResult err dur _) = do
+handleWaitResult mout res@(SyncResult err start dur _) = do
   putStrLn (msg err)
+  putStrLn $ sformat ("Started: "%shown) start
   putStrLn $ sformat ("Elapsed time: "%string) (secs dur)
   whenJust mout (writeJSON res)
   pure (code err)

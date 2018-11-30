@@ -41,6 +41,7 @@ import qualified Database.RocksDB as Rocks
 import           System.Directory (createDirectoryIfMissing, doesDirectoryExist,
                      removeDirectoryRecursive)
 import           System.FilePath (takeDirectory, (</>))
+import qualified System.Info (os)
 
 import           Pos.Binary.Class (Bi, serialize')
 import           Pos.DB.BatchOp (rocksWriteBatch)
@@ -82,6 +83,7 @@ openNodeDBs recreate fp = do
     let gStatePath = fp </> "gState"
     let lrcPath = fp </> "lrc"
     let miscPath = fp </> "misc"
+
     mapM_ ensureDirectoryExists
         [ blocksDir
         , _blockDataDir
@@ -91,6 +93,12 @@ openNodeDBs recreate fp = do
         , lrcPath
         , miscPath
         ]
+
+    when (System.Info.os == "darwin") $ do
+        -- Prevent indexing of blocks on OSX
+        _ <- openFile (fp </> ".metadata_never_index") AppendMode
+        pure ()
+
     _blockIndexDB <- openRocksDB blocksIndexPath
     _gStateDB <- openRocksDB gStatePath
     _lrcDB <- openRocksDB lrcPath

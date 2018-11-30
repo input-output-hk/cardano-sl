@@ -109,7 +109,7 @@ openNodeDBs recreate fp = do
     ensureDirectoryExists = liftIO . createDirectoryIfMissing True
 
     ensureEmptyFileExists :: MonadIO m => FilePath -> m ()
-    ensureEmptyFileExists = liftIO $ withFile file AppendMode (\_ -> return ())
+    ensureEmptyFileExists file = liftIO $ withFile file AppendMode (\_ -> return ())
 
 -- | Safely close all databases from 'NodeDBs'.
 closeNodeDBs :: MonadIO m => NodeDBs -> m ()

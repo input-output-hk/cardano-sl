@@ -96,7 +96,7 @@ openNodeDBs recreate fp = do
 
     when (System.Info.os == "darwin") $
         -- Prevent indexing of blocks on OSX
-        withFile (fp </> ".metadata_never_index") AppendMode (\_ -> return ())
+        ensureEmptyFileExists (fp </> ".metadata_never_index")
 
     _blockIndexDB <- openRocksDB blocksIndexPath
     _gStateDB <- openRocksDB gStatePath
@@ -107,6 +107,9 @@ openNodeDBs recreate fp = do
   where
     ensureDirectoryExists :: MonadIO m => FilePath -> m ()
     ensureDirectoryExists = liftIO . createDirectoryIfMissing True
+
+    ensureEmptyFileExists :: MonadIO m => FilePath -> m ()
+    ensureEmptyFileExists = liftIO $ withFile file AppendMode (\_ -> return ())
 
 -- | Safely close all databases from 'NodeDBs'.
 closeNodeDBs :: MonadIO m => NodeDBs -> m ()

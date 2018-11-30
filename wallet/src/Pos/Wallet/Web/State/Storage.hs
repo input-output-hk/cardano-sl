@@ -110,13 +110,14 @@ import           Universum
 import qualified Data.Acid as Acid
 
 import           Control.Arrow ((***))
-import           Control.Lens (at, has, ix, lens, makeClassy, makeLenses, non',
-                     to, toListOf, traversed, (%=), (+=), (.=), (<<.=), (?=),
-                     _Empty, _Just, _head)
+import           Control.Lens (At, Index, IxValue, at, has, ix, lens,
+                     makeClassy, makeLenses, non', to, toListOf, traversed,
+                     (%=), (.=), (<<.=), (?=), (?~), _Empty, _Just, _head)
 import           Control.Monad.State.Class (get, put)
 import           Data.Default (Default, def)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as M
+import           Data.Maybe (fromJust)
 import           Data.SafeCopy (Migrate (..), base, deriveSafeCopySimple,
                      extension)
 import           Data.Time.Clock (nominalDay)
@@ -636,21 +637,40 @@ createWallet cWalId cWalMeta isReady curTime = do
     let info = WalletInfo cWalMeta curTime curTime NotSynced noSyncStatistics mempty isReady
     wsWalletInfos . at cWalId %= (<|> Just info)
 
--- | Add new address given 'CWAddressMeta' (which contains information about
--- target wallet and account too).
+-- | Add new address given 'WAddressMeta' (which contains information about
+-- target wallet and account too). If the input account is /not/ there, creates it.
 addWAddress :: WAddressMeta -> Update ()
 addWAddress addrMeta = do
-    let accInfo :: Traversal' WalletStorage AccountInfo
-        accInfo = wsAccountInfos . ix (addrMeta ^. wamAccount)
-        addr = addrMeta ^. wamAddress
-    whenJustM (preuse accInfo) $ \info -> do
-        let mAddr = info ^. aiAddresses . at addr
-        when (isNothing mAddr) $ do
-            -- Here we increment current account's last address index
-            -- and assign its value to sorting index of newly created address.
-            accInfo . aiUnusedKey += 1
-            let key = info ^. aiUnusedKey
-            accInfo . aiAddresses . at addr ?= AddressInfo addrMeta key
+    let accId = addrMeta ^. wamAccount
+    accountInfo <- getAccountInfo accId
+    let maddr = accountInfo ^. aiAddresses . at (addrMeta ^. wamAddress)
+    when (isNothing maddr) $
+        modify $ (wsAccountInfos . at accId) ?~ (addAddress accountInfo)
+  where
+    getAccountInfo :: WebTypes.AccountId -> Update AccountInfo
+    getAccountInfo accId = do
+        ws <- get
+        let infos = createIfMissing defaultAccount accId (ws ^. wsAccountInfos)
+        put $ ws & wsAccountInfos .~ infos
+        -- NOTE: 'fromJust' is safe since we just added the account
+        return $ fromJust $ infos ^. at accId
+
+    addAddress :: AccountInfo -> AccountInfo
+    addAddress accountInfo =
+        let
+            unusedKey = accountInfo ^. aiUnusedKey
+            addrInfo  = AddressInfo addrMeta unusedKey
+        in accountInfo
+            & aiAddresses . at (addrMeta ^. wamAddress)  ?~ addrInfo
+            & aiUnusedKey .~ unusedKey + 1
+
+    defaultAccount :: AccountInfo
+    defaultAccount =
+        AccountInfo (WebTypes.CAccountMeta "New account") mempty mempty 0
+
+    createIfMissing :: At m => IxValue m -> Index m -> m -> m
+    createIfMissing val idx =
+        at idx %~ (\x -> x <|> pure val)
 
 -- | Update account metadata.
 setAccountMeta :: WebTypes.AccountId -> WebTypes.CAccountMeta -> Update ()

@@ -118,6 +118,8 @@
 
 - Fix Haddock errors ([CDEC-585](https://iohk.myjetbrains.com/youtrack/issue/CDEC-585): [#3614](https://github.com/input-output-hk/cardano-sl/pull/3614))
 
+- Fix restoration ignoring new accounts in legacy data layer ([DEVOPS-1153](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1153): [#3911](https://github.com/input-output-hk/cardano-sl/pull/3911))
+
 ### Improvements
 
 - Friendly error mistakes from deserializing invalid addresses instead of brutal 500 ([CBR-283](https://iohk.myjetbrains.com/youtrack/issue/CBR-283))

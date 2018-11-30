@@ -1,4 +1,9 @@
 steps:
+  - label: 'Windows'
+    command: 'PowerShell.exe -executionpolicy remotesigned -File .\.buildkite\windows.ps1'
+    agents:
+      system: x86_64-win2016
+
   - label: 'stack2nix'
     command: 'scripts/check-stack2nix.sh'
     agents:

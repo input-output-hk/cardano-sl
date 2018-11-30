@@ -46,8 +46,8 @@ import           Control.Monad.Trans.Except (ExceptT, throwE)
 import           Data.Binary (decode, encode)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy as LBS
-import           Data.List.Extra (chunksOf)
 import           Data.Either (partitionEithers)
+import           Data.List.Extra (chunksOf)
 import           Formatting (build, int, sformat, shown, (%))
 import           System.Directory (removeFile)
 import           System.FilePath ((</>))

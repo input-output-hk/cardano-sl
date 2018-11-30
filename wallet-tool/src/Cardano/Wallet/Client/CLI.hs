@@ -29,17 +29,22 @@ import Cardano.Wallet.Client.Easy
 ----------------------------------------------------------------------------
 -- CLI Types
 
-data Action = WaitForSync (Maybe ProcessID) (Maybe FilePath)
-            | WaitForRestore (Maybe ProcessID) (Maybe FilePath)
-            | forall a. ToJSON a => WalletEndpointResp (WalletClient IO -> Resp IO a)
-            | WalletEndpointVoid (WalletClient IO -> IO (Either ClientError ()))
-            | PostWallet NewWallet
-            | DeleteWallet WalletId
+-- | The command from the user
+data Action m = WaitForSync (Maybe ProcessID) (Maybe FilePath)
+              | WaitForRestore (Maybe ProcessID) (Maybe FilePath)
+              | forall a. ToJSON a => WalletEndpoint (WalletCall m a) -- ^ Wallet API call
+              | WalletEndpointVoid (WalletCallVoid m) -- ^ Wallet API call with empty response
+
+-- | An API call
+type WalletCall m a = WalletClient m -> Resp m a
+
+-- | An API call with no data in the response
+type WalletCallVoid m = WalletClient m -> m (Either ClientError ())
 
 ----------------------------------------------------------------------------
 -- Option parsers
 
-optionsParser :: Parser (ConnectConfig, Action)
+optionsParser :: Parser (ConnectConfig, Action IO)
 optionsParser = (,) <$> connectConfigP <*> actionP
 
 connectConfigP :: Parser ConnectConfig
@@ -83,36 +88,48 @@ authenticateServerP = flag AllowInsecure AuthenticateServer
                       <> short 'k'
                       <> help "Skip server certificate authentication" )
 
-actionP :: Parser Action
-actionP = subparser
+----------------------------------------------------------------------------
+-- Action parsers
+
+actionP :: Parser (Action m)
+actionP = hsubparser
   ( command "wait-for-sync" (info waitForSyncP (progDesc "Poll wallet until it has fully synced its chain"))
     <> command "wait-for-restore" (info waitForRestoreP (progDesc "Poll wallet until the restore operation is complete"))
     <> commandGroup "High-level commands"
   )
-  <|> subparser
-  ( command "restore-wallet" (info (createWalletP RestoreWallet) (progDesc "Restore a wallet from mnemonic"))
-    <> command "create-wallet" (info (createWalletP CreateWallet) (progDesc "Create a new wallet from mnemonic"))
-    <> command "delete-wallet" (info deleteWalletP (progDesc "Delete a wallet"))
-    <> command "node-info" (info (WalletEndpointResp <$> nodeInfoP) (progDesc "Query node info"))
-    <> command "delete-account" (info (WalletEndpointVoid <$> deleteAccountP) (progDesc "Delete account"))
-  <> commandGroup "Basic API calls"
-  <> hidden
-  )
+  <|> apiActionP
 
-waitForSyncP :: Parser Action
+waitForSyncP :: Parser (Action m)
 waitForSyncP = WaitForSync <$> optional pidP <*> optional outfileP
 
-waitForRestoreP :: Parser Action
+waitForRestoreP :: Parser (Action m)
 waitForRestoreP = WaitForRestore <$> optional pidP <*> optional outfileP
 
-pidP :: Parser ProcessID
-pidP = option auto (long "pid" <> metavar "PID" <> help "PID of cardano-node")
+----------------------------------------------------------------------------
+-- API action parsers
 
-outfileP :: Parser FilePath
-outfileP = strOption (long "out" <> short 'o' <> metavar "FILE" <> help "Output JSON timing info")
+apiActionP :: Parser (Action m)
+apiActionP = hsubparser (mconcat [ command name (info p (progDesc desc))
+                                 | (name, desc, p) <- commands]
+                         <> commandGroup "Basic API calls"
+                         <> hidden)
+  where
+    commands =
+      [ ("node-info", "Query node info", WalletEndpoint <$> nodeInfoP)
+      , ("create-wallet", "Create a new wallet from mnemonic", WalletEndpoint <$> createWalletP CreateWallet)
+      , ("restore-wallet", "Restore a wallet from mnemonic", WalletEndpoint <$> createWalletP RestoreWallet)
+      , ("delete-wallet", "Delete a wallet", WalletEndpointVoid <$> deleteWalletP)
+      , ("delete-account", "Delete account", WalletEndpointVoid <$> deleteAccountP)
+      -- fixme: more endpoints, less boilerplate
+      ]
 
-createWalletP :: WalletOperation -> Parser Action
-createWalletP op = PostWallet <$> newWalletP
+nodeInfoP :: Parser (WalletCall m NodeInfo)
+nodeInfoP = (\ntp wc -> getNodeInfo wc ntp) <$> ntpCheck
+  where
+    ntpCheck = flag NoNtpCheck ForceNtpCheck (long "force-ntp-check")
+
+createWalletP :: WalletOperation -> Parser (WalletCall m Wallet)
+createWalletP op = (\nw wc -> postWallet wc nw) <$> newWalletP
   where
     newWalletP = NewWallet
                  <$> backupPhraseP
@@ -127,14 +144,27 @@ createWalletP op = PostWallet <$> newWalletP
                         <> help "Assurance level strict" )
     nameP = T.pack <$> strOption (long "name" <> metavar "NAME" <> value "New Wallet" <> help "Name for the wallet")
 
+deleteWalletP :: Parser (WalletCallVoid m)
+deleteWalletP = (\wid wc -> deleteWallet wc wid) <$> walletIdP
+
+deleteAccountP :: Parser (WalletCallVoid m)
+deleteAccountP = (\wid accIdx wc -> deleteAccount wc wid accIdx) <$> walletIdP <*> accountIndexP
+
+
+----------------------------------------------------------------------------
+-- Little option parsers
+
+pidP :: Parser ProcessID
+pidP = option auto (long "pid" <> metavar "PID" <> help "PID of cardano-node")
+
+outfileP :: Parser FilePath
+outfileP = strOption (long "out" <> short 'o' <> metavar "FILE" <> help "Output JSON timing info")
+
 parseBackupPhrase :: ReadM BackupPhrase
 parseBackupPhrase = eitherReader (first show . fmap BackupPhrase . mkMnemonic . T.words . T.pack)
 
 parsePassPhrase :: ReadM (V1 Core.PassPhrase)
 parsePassPhrase = eitherReader (first show . fmap V1 . mkPassPhrase . T.pack)
-
-deleteWalletP :: Parser Action
-deleteWalletP = DeleteWallet <$> walletIdP
 
 walletIdP :: Parser WalletId
 walletIdP = WalletId . T.pack <$> argument str (metavar "HASH" <> help "Wallet ID")
@@ -147,35 +177,26 @@ accountIndexP = argument (eitherReader accIndex) (metavar "INTEGER" <> help "Acc
                    Nothing -> Left "Account index is not a number"
 
 
-nodeInfoP :: Parser (WalletClient m -> Resp m NodeInfo)
-nodeInfoP = (\ntp wc -> getNodeInfo wc ntp) <$> ntpCheck
-  where
-    ntpCheck = flag NoNtpCheck ForceNtpCheck (long "force-ntp-check")
-
-deleteAccountP :: Parser (WalletClient m -> m (Either ClientError ()))
-deleteAccountP = (\wid accIdx wc -> deleteAccount wc wid accIdx) <$> walletIdP <*> accountIndexP
-
-
 ----------------------------------------------------------------------------
 -- Program
 
-runAction :: Action -> WalletClient IO -> IO ExitCode
+runAction :: Action IO -> WalletClient IO -> IO ExitCode
 runAction act wc = case act of
   WaitForSync mpid out -> waitForSync (waitOptionsPID mpid) wc >>= handleWaitResult out
   WaitForRestore mpid out -> waitForRestore (waitOptionsPID mpid) wc >>= handleWaitResult out
-  PostWallet wal -> printResp (postWallet wc wal)
-  DeleteWallet walId -> printStatus (deleteWallet wc walId)
-  WalletEndpointResp req -> printResp (req wc)
-  WalletEndpointVoid req -> printStatus (req wc)
+  WalletEndpoint req -> req wc >>= printStatus
+  WalletEndpointVoid req -> req wc >>= printStatusVoid
 
-printResp :: ToJSON a => Resp IO a -> IO ExitCode
-printResp resp = resp >>= \case
-  Right (WalletResponse a _ _) -> L8.putStrLn (encodePretty a) >> pure ExitSuccess
-  Left cerr -> (T.hPutStrLn stderr $ sformat ("client error: "%shown) cerr) >> pure (ExitFailure 100)
+printStatus :: ToJSON a => Either ClientError a -> IO ExitCode
+printStatus = printStatus' . fmap Just
 
-printStatus :: IO (Either ClientError ()) -> IO ExitCode
-printStatus resp = resp >>= \case
-  Right () -> pure ExitSuccess
+printStatusVoid :: Either ClientError () -> IO ExitCode
+printStatusVoid = printStatus' . fmap (const (Nothing :: Maybe ()))
+
+printStatus' :: ToJSON a => Either ClientError (Maybe a) -> IO ExitCode
+printStatus' resp = case resp of
+  Right Nothing -> pure ExitSuccess
+  Right (Just a) -> L8.putStrLn (encodePretty a) >> pure ExitSuccess
   Left cerr -> (T.hPutStrLn stderr $ sformat ("client error: "%shown) cerr) >> pure (ExitFailure 100)
 
 handleWaitResult :: ToJSON r => Maybe FilePath -> SyncResult r -> IO ExitCode

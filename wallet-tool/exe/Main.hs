@@ -15,5 +15,5 @@ main = exitWith =<< uncurry run =<< execParser opts
         <> progDesc "Connect to the API of a Cardano SL wallet"
         <> header "connect-wallet - easy way to connect to a wallet" )
 
-run :: ConnectConfig -> Action -> IO ExitCode
+run :: ConnectConfig -> Action IO -> IO ExitCode
 run cfg act = walletClientFromConfig cfg >>= runAction act

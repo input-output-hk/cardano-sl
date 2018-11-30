@@ -94,10 +94,9 @@ openNodeDBs recreate fp = do
         , miscPath
         ]
 
-    when (System.Info.os == "darwin") $ do
+    when (System.Info.os == "darwin") $
         -- Prevent indexing of blocks on OSX
-        _ <- openFile (fp </> ".metadata_never_index") AppendMode
-        pure ()
+        withFile (fp </> ".metadata_never_index") AppendMode (\_ -> return ())
 
     _blockIndexDB <- openRocksDB blocksIndexPath
     _gStateDB <- openRocksDB gStatePath

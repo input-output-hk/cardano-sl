@@ -116,6 +116,7 @@ library
                         Test.Pos.Configuration
 
                         Pos.Util.Servant
+                        Pos.Util.Swagger
                         Pos.Util.Jsend
                         Pos.Util.UnitsOfMeasure
                         Pos.Util.Pagination

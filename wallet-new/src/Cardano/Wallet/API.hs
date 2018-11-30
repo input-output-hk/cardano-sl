@@ -46,6 +46,7 @@ walletAPI :: Proxy WalletAPI
 walletAPI = Proxy
 
 type WalletDoc = "docs" :> "v1" :> SwaggerSchemaUI "index" "swagger.json"
+
 walletDoc :: Proxy WalletDoc
 walletDoc = Proxy
 walletDocAPI :: Proxy (V1API :<|> InternalAPI)

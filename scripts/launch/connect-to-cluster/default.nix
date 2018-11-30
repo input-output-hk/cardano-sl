@@ -9,6 +9,7 @@
 , gitrev ? localLib.commitIdFromGitRepo ./../../../.git
 , walletListen ? "localhost:8090"
 , walletDocListen ? "localhost:8091"
+, walletExternalIPAddress ? builtins.elemAt (localLib.splitString ":" walletListen) 0
 , ekgListen ? "localhost:8000"
 , ghcRuntimeArgs ? "-N2 -qg -A1m -I0 -T"
 , additionalNodeArgs ? ""
@@ -18,6 +19,7 @@
 , debug ? false
 , disableClientAuth ? false
 , extraParams ? ""
+, tlsConfig ? {}
 }:
 
 with localLib;
@@ -64,6 +66,47 @@ let
       fallbacks: 7
   '';
   configFiles = iohkPkgs.cardano-sl-config;
+  tlsConfigResultant = {
+    organization     = "Company Name";
+
+    caCommonName     = "Company Name Self-Signed Root CA";
+    caEexpiryDays    = 3650;
+
+    serverCommonName = "Company Name Wallet Node";
+    serverExpiryDays = 365;
+    serverAltDNS     = [
+      "localhost"
+      "localhost.localdomain"
+      "127.0.0.1"
+      "::1"
+    ];
+    serverAltDNSExtra = [];
+
+    clientCommonName = "Company Name Wallet Node Client";
+    clientExpiryDays = 365;
+  } // tlsConfig;
+  tlsConfigFile = let cfg = tlsConfigResultant; in pkgs.writeText "tls-config-${environment}.yaml" (''
+    ${environments.${environment}.confKey}:
+      tls:
+        ca:
+          organization: ${cfg.organization}
+          commonName: ${cfg.caCommonName}
+          expiryDays: ${toString cfg.caEexpiryDays}
+
+        server:
+          organization: ${cfg.organization}
+          commonName: ${cfg.serverCommonName}
+          expiryDays: ${toString cfg.serverExpiryDays}
+          altDNS:
+          '' +
+          (let sep = "        - "; in sep + (concatStringsSep ("\n" + sep) (cfg.serverAltDNS ++ cfg.serverAltDNSExtra)) + "\n")
+          + ''
+    ####
+        clients:
+          - organization: ${cfg.organization}
+            commonName: ${cfg.clientCommonName}
+            expiryDays: ${toString cfg.clientExpiryDays}
+  '');
   configurationArgs = pkgs.lib.concatStringsSep " " [
     "--configuration-file ${environments.${environment}.confFile or "${configFiles}/lib/configuration.yaml"}"
     "--configuration-key ${environments.${environment}.confKey}"
@@ -95,7 +138,8 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     ${iohkPkgs.cardano-sl-tools}/bin/cardano-x509-certificates   \
       --server-out-dir ${stateDir}/tls/server                    \
       --clients-out-dir ${stateDir}/tls/client                   \
-      ${configurationArgs}
+      --configuration-file ${tlsConfigFile}                      \
+      --configuration-key ${environments.${environment}.confKey}
   fi
   ''}
 

@@ -141,6 +141,7 @@ library
                      , ekg-core
                      , ether >= 0.5
                      , exceptions
+                     , extra
                      , filepath
                      , formatting
                      , lens

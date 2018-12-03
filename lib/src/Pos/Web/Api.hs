@@ -13,13 +13,9 @@ module Pos.Web.Api
 
 import           Universum
 
-import           Servant.API ((:<|>), (:>), Capture, Get, JSON, PlainText, Post,
-                     QueryParam)
+import           Servant.API ((:<|>), (:>), Get, JSON, PlainText)
 
-import           Pos.Chain.Block (HeaderHash)
-import           Pos.Chain.Txp (TxOut)
-import           Pos.Core (EpochIndex, SlotLeaders)
-import           Pos.Crypto (PublicKey)
+import           Pos.Chain.Txp (Utxo)
 import           Pos.Web.Types (CConfirmedProposalState)
 
 ----------------------------------------------------------------------------
@@ -31,37 +27,13 @@ import           Pos.Web.Types (CConfirmedProposalState)
 -- Implementations of these methods are in
 -- 'Pos.Web.Server.nodeServantHandlers'.
 type NodeApi =
-    -- "current_slot"
-    --     :> Get '[JSON] SlotId
-    -- :<|>
-    "leaders"
-        :> QueryParam "epoch" EpochIndex
-        :> Get '[JSON] SlotLeaders
-    :<|>
     "utxo"
-        :> Get '[JSON] [TxOut]
+        :> Get '[JSON] Utxo
+
     :<|>
-    "spending_key"
-        :> Get '[JSON] PublicKey
-    :<|>
-    "head_hash"
-        :> Get '[JSON] HeaderHash
-    :<|>
-    "local_txs_num"
-        :> Get '[JSON] Word
-    :<|>
+
     "confirmed_proposals"
         :> Get '[JSON] [CConfirmedProposalState]
-    :<|>
-    "ssc" :>
-        ("toggle"
-            :> Capture "enable" Bool
-            :> Post '[JSON] ()
-         -- :<|>
-         -- "has_secret" :> Get '[JSON] Bool :<|>
-         -- "secret" :> Get '[JSON] SharedSeed :<|>
-         -- "stage" :> Get '[JSON] SscStage
-        )
 
 -- | Helper Proxy.
 nodeApi :: Proxy NodeApi

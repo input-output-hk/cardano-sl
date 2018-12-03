@@ -68,7 +68,7 @@ in
 , enableDebugging ? false
 
 # Build (but don't run) benchmarks for all cardano-sl packages.
-, enableBenchmarks ? true
+, enableBenchmarks ? false
 
 # Overrides all nix derivations to add build timing information in
 # their build output.

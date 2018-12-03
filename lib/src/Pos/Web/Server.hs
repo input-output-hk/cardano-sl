@@ -22,7 +22,7 @@ import qualified Control.Exception.Safe as E
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
 import qualified Data.ByteString.Char8 as BSC
-import           Data.Default (Default, def)
+import           Data.Default (def)
 import           Data.Streaming.Network (bindPortTCP, bindRandomPortTCP)
 import           Data.X509 (ExtKeyUsagePurpose (..), HashALG (..))
 import           Data.X509.CertificateStore (readCertificateStore)
@@ -38,23 +38,16 @@ import           Network.Wai.Handler.WarpTLS (TLSSettings (..), runTLSSocket,
                      tlsSettingsChain)
 import           Servant.API ((:<|>) ((:<|>)))
 import           Servant.Server (Handler, HasServer, ServantErr (errBody),
-                     Server, ServerT, err404, err503, hoistServer, serve)
+                     Server, ServerT, err503, hoistServer, serve)
 import           UnliftIO (MonadUnliftIO)
 
 import           Network.Socket (Socket, close)
-import           Pos.Chain.Ssc (scParticipateSsc)
-import           Pos.Chain.Txp (TxOut (..), toaOut)
 import           Pos.Chain.Update (UpdateConfiguration)
-import           Pos.Context (HasNodeContext (..), HasSscContext (..),
-                     NodeContext, getOurPublicKey)
-import           Pos.Core (EpochIndex (..), SlotLeaders)
-import           Pos.Core.Context (HasPrimaryKey)
+import           Pos.Context (HasNodeContext (..), NodeContext)
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB as DB
-import qualified Pos.DB.Lrc as LrcDB
-import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt, MonadTxpMem,
-                     TxpHolderTag, getAllPotentiallyHugeUtxo, getLocalTxs,
-                     withTxpLocalData)
+import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
+                     getAllPotentiallyHugeUtxo, withTxpLocalData)
 import qualified Pos.GState as GS
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Util.Util (HasLens, HasLens', lensOf)
@@ -260,41 +253,13 @@ servantServer = withNat (Proxy @NodeApi) nodeServantHandlers
 
 nodeServantHandlers
     ::
-    ( MonadReader r m, MonadUnliftIO m, MonadDBRead m, Default ext
-    , HasPrimaryKey r, HasLens TxpHolderTag r (GenericTxpLocalData ext)
+    ( MonadReader r m, MonadUnliftIO m, MonadDBRead m
     , HasLens UpdateConfiguration r UpdateConfiguration
-    , HasSscContext r
     ) => ServerT NodeApi m
 nodeServantHandlers =
-    getLeaders
-    :<|>
-    getUtxo
-    :<|>
-    getOurPublicKey
-    :<|>
-    GS.getTip
-    :<|>
-    getLocalTxsNum
+    getAllPotentiallyHugeUtxo
     :<|>
     confirmedProposals
-    :<|>
-    toggleSscParticipation
-
-getLeaders :: MonadDBRead m => Maybe EpochIndex -> m SlotLeaders
-getLeaders maybeEpoch = do
-    -- epoch <- maybe (siEpoch <$> getCurrentSlot) pure maybeEpoch
-    epoch <- maybe (pure 0) pure maybeEpoch
-    maybe (throwM err) pure =<< LrcDB.getLeadersForEpoch epoch
-  where
-    err = err404 { errBody = encodeUtf8 ("Leaders are not know for current epoch"::Text) }
-
-getUtxo :: (MonadDBRead m, MonadUnliftIO m) => m [TxOut]
-getUtxo = map toaOut . toList <$> getAllPotentiallyHugeUtxo
-
-getLocalTxsNum
-    :: (MonadIO m, MonadTxpMem ext ctx m)
-    => m Word
-getLocalTxsNum = fromIntegral . length <$> withTxpLocalData getLocalTxs
 
 -- | Get info on all confirmed proposals
 confirmedProposals
@@ -304,13 +269,6 @@ confirmedProposals = do
     uc <- view (lensOf @UpdateConfiguration)
     proposals <- GS.getConfirmedProposals uc Nothing
     pure $ map (CConfirmedProposalState . show) proposals
-
-toggleSscParticipation
-    :: (MonadReader r m, HasSscContext r, MonadIO m)
-    => Bool -> m ()
-toggleSscParticipation enable =
-    view sscContext >>=
-    atomically . flip writeTVar enable . scParticipateSsc
 
 ----------------------------------------------------------------------------
 -- HealthCheck handlers

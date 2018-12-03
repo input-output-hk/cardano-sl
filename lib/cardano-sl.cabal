@@ -203,6 +203,9 @@ library
                       , servant-client-core >= 0.8.1
                       , servant-server >= 0.8.1
                       , servant-swagger
+                      , servant-swagger-ui
+                      , servant-swagger-ui-core
+                      , servant-swagger-ui-redoc
                       , stm
                       , streaming-commons
                       , swagger2

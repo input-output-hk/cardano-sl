@@ -30,10 +30,10 @@ import           Pos.Util.Servant (CustomQueryFlag, LoggingApi)
 
 import           Control.Lens (At, Index, IxValue, at, (?~))
 import           Data.Aeson (encode)
-import           Data.Aeson.Encode.Pretty
+import           Data.Aeson.Encode.Pretty ()
 import           Data.Map (Map)
 import           Data.Swagger hiding (Example)
-import           Data.Typeable
+import           Data.Typeable ()
 import           Formatting (build, sformat)
 import           GHC.TypeLits (KnownSymbol)
 import           NeatInterpolation

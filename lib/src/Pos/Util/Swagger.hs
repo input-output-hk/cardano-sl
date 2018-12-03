@@ -1,10 +1,14 @@
+{-# LANGUAGE QuasiQuotes #-}
+
 module Pos.Util.Swagger where
 
-import Universum
+import           Universum
 
-import Data.Swagger
-import Servant.Swagger
-import           Servant.Swagger.UI.Core (swaggerSchemaUIServerImpl)
+import           Data.Swagger
+import           NeatInterpolation (text)
+import           Servant.Server (Handler, Server)
+import           Servant.Swagger.UI.Core (SwaggerSchemaUI',
+                     swaggerSchemaUIServerImpl)
 import           Servant.Swagger.UI.ReDoc (redocFiles)
 
 -- | Provide an alternative UI (ReDoc) for rendering Swagger documentation.

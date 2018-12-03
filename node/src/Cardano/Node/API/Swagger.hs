@@ -1,23 +1,42 @@
+-- necessary for `ToParamSchema Core.EpochIndex`
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Cardano.Node.API.Swagger where
 
 import           Universum
 
 import           Control.Lens ((?~))
 import           Data.Swagger
+import           Servant
 import           Servant.Swagger
+import           Servant.Swagger.UI (SwaggerSchemaUI)
 
-import           Pos.Web (serveImpl)
 import           Pos.Chain.Update (SoftwareVersion)
+import           Pos.Util.Swagger (swaggerSchemaUIServer)
+import           Pos.Web (serveImpl)
+import           Pos.Web.Types (TlsParams)
 
-forkDocServer :: _ -> _ -> Maybe _ -> IO a
-forkDocServer ip port tlsParams =
+forkDocServer
+    :: HasSwagger a
+    => Proxy a
+    -> SoftwareVersion
+    -> String
+    -> Word16
+    -> Maybe TlsParams
+    -> IO ()
+forkDocServer prxy swVersion ip port' tlsParams =
     serveImpl
-        (pure (swaggerSchemaUIServer documentationApi))
+        (pure app)
         ip
-        port
+        port'
         tlsParams
         Nothing
         Nothing
+  where
+    app =
+        serve
+            (Proxy @("docs" :> "v1" :> SwaggerSchemaUI "index" "swagger.json"))
+            (swaggerSchemaUIServer (documentationApi swVersion prxy))
 
 documentationApi
     :: HasSwagger a

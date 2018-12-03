@@ -33,6 +33,7 @@ library
                      , lens
                      , servant-server
                      , servant-swagger
+                     , servant-swagger-ui
                      , stm
                      , swagger2
                      , text

@@ -762,6 +762,13 @@ instance ReportDecodeError api =>
 -- Boolean type for all flags but we can implement custom type.
 data CustomQueryFlag (sym :: Symbol) flag
 
+instance ( KnownSymbol sym
+         , HasSwagger sub
+         ) =>
+         HasSwagger (CustomQueryFlag sym flag :> sub) where
+    toSwagger _ =
+        toSwagger (Proxy @(QueryFlag sym :> sub))
+
 class Flaggable flag where
     toBool :: flag -> Bool
     fromBool :: Bool -> flag

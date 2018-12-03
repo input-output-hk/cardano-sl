@@ -159,7 +159,15 @@ launchNodeServer
             (Just exceptionResponse)
             Nothing -- TODO: Set a port callback for shutdown/IPC
             )
-        forkDocServer
+        (forkDocServer
+            (Proxy @NodeV1Api)
+            (curSoftwareVersion updateConfiguration)
+            "127.0.0.1" -- TODO: get me from config
+            8084 -- TODO: get me from config
+            (do guard (not isDebug)
+                nodeBackendTLSParams params)
+
+        )
   where
     isDebug = nodeBackendDebugMode params
     exceptionResponse =

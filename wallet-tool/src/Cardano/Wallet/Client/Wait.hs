@@ -28,19 +28,19 @@ import           Cardano.Wallet.ProcessUtil
 
 
 data WaitOptions = WaitOptions
-  { waitTimeoutSeconds  :: Maybe Double  -- ^ Timeout in seconds
-  , waitProcessID       :: Maybe ProcessID -- ^ Wallet process ID, so that crashes are handled
-  , waitIntervalSeconds :: Double -- ^ Time between polls
+  { waitTimeoutSeconds  :: !(Maybe Double)  -- ^ Timeout in seconds
+  , waitProcessID       :: !(Maybe ProcessID) -- ^ Wallet process ID, so that crashes are handled
+  , waitIntervalSeconds :: !Double -- ^ Time between polls
   } deriving (Show, Eq)
 
 instance Default WaitOptions where
   def = WaitOptions Nothing Nothing 1.0
 
 data SyncResult r = SyncResult
-  { syncResultError     :: Maybe SyncError
-  , syncResultStartTime :: UTCTime
-  , syncResultDuration  :: Double
-  , syncResultData      :: [(Double, r)]
+  { syncResultError     :: !(Maybe SyncError)
+  , syncResultStartTime :: !UTCTime
+  , syncResultDuration  :: !Double
+  , syncResultData      :: ![(Double, r)]
   } deriving (Show, Typeable, Generic)
 
 data SyncError = SyncErrorClient ClientError
@@ -125,13 +125,14 @@ waitForSomething req check WaitOptions{..} wc = do
       putStrLn $ sformat ("Error connecting to wallet: "%shown) err
       pure True
 
+-- | Sleep for the given time in seconds, or indefinitely.
 timeoutSleep :: Maybe Double -> IO ()
 timeoutSleep (Just s) = threadDelay (toMicroseconds s)
 timeoutSleep Nothing  = forever $ threadDelay (toMicroseconds 1000)
 
 -- | Convert seconds to microseconds
 toMicroseconds :: Double -> Int
-toMicroseconds = floor . (* oneSec)
+toMicroseconds s = floor (s * oneSec)
 
 oneSec :: Num a => a
 oneSec = 1000000

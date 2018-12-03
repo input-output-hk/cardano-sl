@@ -1,18 +1,20 @@
-{-# LANGUAGE OverloadedStrings, RecordWildCards, LambdaCase #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 
 module Main where
 
-import           Universum hiding ((.~))
-import           Options.Applicative
-import Data.Aeson hiding ((.=))
-import Data.Vector ((!))
-import qualified Data.Vector as V
-import Data.List (isSuffixOf)
-import Data.Char (toLower)
+import           Data.Aeson hiding ((.=))
+import           Data.Char (toLower)
+import           Data.List (isSuffixOf)
 import qualified Data.Text as T
+import           Data.Vector ((!))
+import qualified Data.Vector as V
+import           Options.Applicative
+import           Universum hiding ((.~))
 
-import Graphics.Rendering.Chart.Easy hiding (argument, both)
-import Graphics.Rendering.Chart.Backend.Cairo
+import           Graphics.Rendering.Chart.Backend.Cairo
+import           Graphics.Rendering.Chart.Easy hiding (argument, both)
 
 main :: IO ()
 main = run =<< execParser opts
@@ -29,11 +31,11 @@ run PlotOptions{..} = do
 data PlotType = PlotSync | PlotRestore deriving (Show, Eq)
 
 data PlotOptions = PlotOptions
-  { poPlot :: PlotType
+  { poPlot       :: PlotType
   , poExtraTitle :: Text
-  , poPlotLeft :: Bool
-  , poPlotRight :: Bool
-  , poInputFile :: FilePath
+  , poPlotLeft   :: Bool
+  , poPlotRight  :: Bool
+  , poInputFile  :: FilePath
   , poOutputFile :: FilePath
   } deriving (Show, Eq)
 
@@ -53,7 +55,7 @@ optionsParser = PlotOptions <$> plotP <*> titleP <*> leftP <*> rightP <*> inputP
 
 data Record = Record Double [Double] deriving (Show)
 data DataFile = DataFile
-  { dfRecords :: [Record]
+  { dfRecords   :: [Record]
   , dfStartTime :: Text
   }
 
@@ -104,7 +106,7 @@ plotRecords pl title pleft pright outfile (DataFile rs startTime) =
           layoutlr_right_axis . laxis_title .= "Blocks/second"
 
 plotTitle :: PlotType -> String
-plotTitle PlotSync = "Blockchain sync"
+plotTitle PlotSync    = "Blockchain sync"
 plotTitle PlotRestore = "Wallet restore"
 
 loadRecords :: FilePath -> IO DataFile

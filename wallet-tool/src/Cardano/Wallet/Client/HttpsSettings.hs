@@ -5,15 +5,16 @@ module Cardano.Wallet.Client.HttpsSettings
   , AuthenticateServer(..)
   ) where
 
+import           Cardano.Wallet.Client.Http (Port, mkHttpsManagerSettings)
+import           Data.Default (def)
+import           Data.X509 (SignedCertificate)
+import           Network.Connection (TLSSettings (..))
+import           Network.HTTP.Client (ManagerSettings)
+import           Network.HTTP.Client.TLS (mkManagerSettings)
+import           Network.TLS (ClientHooks (..), ClientParams (..), Credential,
+                     HostName, Supported (..), defaultParamsClient)
+import           Network.TLS.Extra.Cipher (ciphersuite_default)
 import           Universum hiding (init)
-import Data.Default (def)
-import Network.TLS.Extra.Cipher (ciphersuite_default)
-import Network.HTTP.Client.TLS (mkManagerSettings)
-import Network.Connection (TLSSettings (..))
-import Network.TLS (Credential, HostName, ClientHooks (..), ClientParams (..), Supported (..), HostName, defaultParamsClient)
-import Network.HTTP.Client (ManagerSettings)
-import Data.X509 (SignedCertificate)
-import Cardano.Wallet.Client.Http (Port, mkHttpsManagerSettings)
 
 -- | http-client supports service names
 type ServerId = (HostName, Port)

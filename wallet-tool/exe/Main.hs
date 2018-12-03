@@ -1,11 +1,11 @@
 module Main where
 
-import           Universum
 import           Options.Applicative
-import System.Exit (ExitCode)
+import           System.Exit (ExitCode)
+import           Universum
 
-import Cardano.Wallet.Client.CLI
-import Cardano.Wallet.Client.Easy
+import           Cardano.Wallet.Client.CLI
+import           Cardano.Wallet.Client.Easy
 
 main :: IO ()
 main = exitWith =<< uncurry run =<< execParser opts

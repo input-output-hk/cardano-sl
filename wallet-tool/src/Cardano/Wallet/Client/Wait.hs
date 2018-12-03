@@ -1,4 +1,5 @@
-{-# LANGUAGE LambdaCase, DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE LambdaCase    #-}
 
 module Cardano.Wallet.Client.Wait
   ( waitForSomething
@@ -8,28 +9,27 @@ module Cardano.Wallet.Client.Wait
   , SyncError(..)
   ) where
 
-import           Universum
-import           Cardano.Wallet.Client (ClientError (..),
-                     WalletClient (..), WalletResponse (..), Resp)
+import           Control.Concurrent (threadDelay)
+import           Control.Concurrent.Async (waitEitherCatchCancel, withAsync)
+import           Control.Concurrent.STM.TVar (modifyTVar', newTVar, readTVar)
 import           Control.Retry
-import Formatting (sformat, shown, stext, (%), bprint, fixed)
-import Formatting.Buildable (Buildable (..))
-import Data.Aeson (ToJSON(..), Value(..), (.=), object)
-import Data.Default
+import           Criterion.Measurement (getTime, initializeTime)
+import           Data.Aeson (ToJSON (..), Value (..), object, (.=))
+import           Data.Default
 import qualified Data.DList as DList
-import Criterion.Measurement (initializeTime, getTime)
-import Data.Time.Clock (UTCTime, getCurrentTime)
-import System.Posix.Signals
-import Control.Concurrent (threadDelay)
-import Control.Concurrent.Async (Async(..), cancel, withAsync, waitEitherCatchCancel)
-import Control.Concurrent.STM.TVar (newTVar, readTVar, modifyTVar')
+import           Data.Time.Clock (UTCTime, getCurrentTime)
+import           Formatting (bprint, fixed, sformat, shown, stext, (%))
+import           Formatting.Buildable (Buildable (..))
+import           Universum
 
-import Cardano.Wallet.ProcessUtil
+import           Cardano.Wallet.Client (ClientError (..), Resp,
+                     WalletClient (..), WalletResponse (..))
+import           Cardano.Wallet.ProcessUtil
 
 
 data WaitOptions = WaitOptions
-  { waitTimeoutSeconds :: Maybe Double  -- ^ Timeout in seconds
-  , waitProcessID :: Maybe ProcessID -- ^ Wallet process ID, so that crashes are handled
+  { waitTimeoutSeconds  :: Maybe Double  -- ^ Timeout in seconds
+  , waitProcessID       :: Maybe ProcessID -- ^ Wallet process ID, so that crashes are handled
   , waitIntervalSeconds :: Double -- ^ Time between polls
   } deriving (Show, Eq)
 
@@ -37,10 +37,10 @@ instance Default WaitOptions where
   def = WaitOptions Nothing Nothing 1.0
 
 data SyncResult r = SyncResult
-  { syncResultError :: Maybe SyncError
+  { syncResultError     :: Maybe SyncError
   , syncResultStartTime :: UTCTime
-  , syncResultDuration :: Double
-  , syncResultData :: [(Double, r)]
+  , syncResultDuration  :: Double
+  , syncResultData      :: [(Double, r)]
   } deriving (Show, Typeable, Generic)
 
 data SyncError = SyncErrorClient ClientError
@@ -61,7 +61,7 @@ instance ToJSON r => ToJSON (SyncResult r) where
   toJSON (SyncResult err st dur rs) =
     object $ ["data" .= toJSON rs, "start_time" .= st, "duration" .= dur] <> status err
     where
-      status Nothing = [ "success" .= True ]
+      status Nothing  = [ "success" .= True ]
       status (Just e) = [ "success" .= False, "error" .= String (show e) ]
 
 instance ToJSON SyncError where
@@ -127,7 +127,7 @@ waitForSomething req check WaitOptions{..} wc = do
 
 timeoutSleep :: Maybe Double -> IO ()
 timeoutSleep (Just s) = threadDelay (toMicroseconds s)
-timeoutSleep Nothing = forever $ threadDelay (toMicroseconds 1000)
+timeoutSleep Nothing  = forever $ threadDelay (toMicroseconds 1000)
 
 -- | Convert seconds to microseconds
 toMicroseconds :: Double -> Int
@@ -135,11 +135,3 @@ toMicroseconds = floor . (* oneSec)
 
 oneSec :: Num a => a
 oneSec = 1000000
-
-cancelOnExit :: Async a -> IO b -> IO b
-cancelOnExit a b = cancelOnCtrlC a (cancelOnTerm a b)
-  where
-    addHandler sig h = installHandler sig h Nothing
-    cancelOnSig sig as act = bracket (addHandler sig (Catch (cancel as))) (addHandler sig) (const act)
-    cancelOnCtrlC = cancelOnSig keyboardSignal
-    cancelOnTerm = cancelOnSig softwareTermination

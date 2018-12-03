@@ -1,30 +1,32 @@
-{-# LANGUAGE LambdaCase, ExistentialQuantification #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE LambdaCase                #-}
 
-module Cardano.Wallet.Client.CLI
-  where
+module Cardano.Wallet.Client.CLI where
 
-import Universum
-import           Options.Applicative
-import qualified Data.Text as T
-import Data.Bifunctor (first)
-import Servant.Client (BaseUrl(..), Scheme(Https))
-import Cardano.Mnemonic (mkMnemonic)
-import Cardano.Wallet.API.V1.Types (WalletOperation(..), BackupPhrase(..), NewWallet(..), AssuranceLevel(..), V1(..), mkPassPhrase, WalletId(..), AccountIndex, mkAccountIndex)
-import Cardano.Wallet.ProcessUtil (ProcessID)
-import qualified Pos.Crypto.Signing as Core
-import           Pos.Core.NetworkAddress (addrParserNoWildcard)
+import           Criterion.Measurement (secs)
+import           Data.Aeson (ToJSON (..))
+import           Data.Aeson (encodeFile)
+import           Data.Aeson.Encode.Pretty (encodePretty)
+import           Data.Bifunctor (first)
 import qualified Data.ByteString.Char8 as B8
-import qualified Text.Parsec as Parsec
-import qualified Data.Text.IO as T
-import System.Exit (ExitCode(..))
 import qualified Data.ByteString.Lazy.Char8 as L8
-import Data.Aeson (ToJSON(..))
-import Formatting (sformat, shown, (%), string)
-import Data.Aeson (encodeFile)
-import Data.Aeson.Encode.Pretty (encodePretty)
-import Criterion.Measurement (secs)
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
+import           Formatting (sformat, shown, string, (%))
+import           Options.Applicative
+import           Pos.Core.NetworkAddress (addrParserNoWildcard)
+import qualified Pos.Crypto.Signing as Core
+import           Servant.Client (BaseUrl (..), Scheme (Https))
+import           System.Exit (ExitCode (..))
+import qualified Text.Parsec as Parsec
+import           Universum
 
-import Cardano.Wallet.Client.Easy
+import           Cardano.Mnemonic (mkMnemonic)
+import           Cardano.Wallet.API.V1.Types (AccountIndex, AssuranceLevel (..),
+                     BackupPhrase (..), NewWallet (..), V1 (..), WalletId (..),
+                     WalletOperation (..), mkAccountIndex, mkPassPhrase)
+import           Cardano.Wallet.Client.Easy
+import           Cardano.Wallet.ProcessUtil (ProcessID)
 
 ----------------------------------------------------------------------------
 -- CLI Types
@@ -174,7 +176,7 @@ accountIndexP = argument (eitherReader accIndex) (metavar "INTEGER" <> help "Acc
   where
     accIndex s = case readMaybe s of
                    Just idx -> first show (mkAccountIndex idx)
-                   Nothing -> Left "Account index is not a number"
+                   Nothing  -> Left "Account index is not a number"
 
 
 ----------------------------------------------------------------------------
@@ -210,12 +212,12 @@ handleWaitResult mout res@(SyncResult err start dur _) = do
     msg :: Maybe SyncError -> Text
     msg = maybe "Finished" show
 
-    code Nothing = ExitSuccess
-    code (Just (SyncErrorClient _)) = ExitFailure 1
+    code Nothing                         = ExitSuccess
+    code (Just (SyncErrorClient _))      = ExitFailure 1
     code (Just (SyncErrorProcessDied _)) = ExitFailure 2
-    code (Just (SyncErrorTimedOut _)) = ExitFailure 3
-    code (Just (SyncErrorException _)) = ExitFailure 4
-    code (Just (SyncErrorInterrupted)) = ExitSuccess
+    code (Just (SyncErrorTimedOut _))    = ExitFailure 3
+    code (Just (SyncErrorException _))   = ExitFailure 4
+    code (Just (SyncErrorInterrupted))   = ExitSuccess
 
     writeJSON sr f = do
       putStrLn $ sformat ("Writing output to "%shown) f

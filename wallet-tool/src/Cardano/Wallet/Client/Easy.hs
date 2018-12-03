@@ -1,4 +1,5 @@
-{-# LANGUAGE LambdaCase, DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE LambdaCase    #-}
 
 module Cardano.Wallet.Client.Easy
   ( -- * Setting up a WalletClient
@@ -24,39 +25,41 @@ module Cardano.Wallet.Client.Easy
   , module Cardano.Wallet.API.V1.Types
   ) where
 
-import           Universum
 import           Cardano.Wallet.API.V1.Types (ForceNtpCheck (..), NodeInfo (..),
-                     SyncPercentage, mkSyncPercentage, SyncProgress(..), SyncThroughput(..))
+                     SyncPercentage, SyncProgress (..), SyncThroughput (..),
+                     mkSyncPercentage)
+import           Universum
 
-import           Cardano.Wallet.Client (ClientError (..), ServantError (..),
-                     WalletClient (..), WalletResponse (..), Resp, NewWallet, WalletId)
-import Cardano.Wallet.Client.Http (mkHttpClient, newManager)
+import           Cardano.Wallet.Client (ClientError (..), NewWallet, Resp,
+                     ServantError (..), WalletClient (..), WalletId,
+                     WalletResponse (..))
+import           Cardano.Wallet.Client.Http (mkHttpClient, newManager)
 
-import Pos.Node.API (SyncPercentage(..), BlockchainHeight(..))
-import           Pos.Util.UnitsOfMeasure (MeasuredIn(..))
-import Network.TLS (Credential, credentialLoadX509)
-import Data.X509 (SignedCertificate, decodeSignedCertificate)
+import           Cardano.Wallet.API.V1.Types (SyncState (..), Wallet (..))
+import           Cardano.Wallet.Client (getWallets)
 import qualified Data.ByteString.Char8 as B8
-import Servant.Client (BaseUrl(..), Scheme(Https))
+import           Data.PEM (PEM (..), pemParseBS)
+import           Data.X509 (SignedCertificate, decodeSignedCertificate)
+import           Formatting (int, sformat, shown, (%))
+import           Network.TLS (Credential, credentialLoadX509)
 import qualified Pos.Core as Core
-import Formatting (sformat, shown, int, (%))
-import Data.PEM (PEM(..), pemParseBS)
-import System.FilePath (FilePath, (</>))
-import Cardano.Wallet.Client (getWallets)
-import Cardano.Wallet.API.V1.Types (SyncState(..), Wallet(..))
+import           Pos.Node.API (BlockchainHeight (..), SyncPercentage (..))
+import           Pos.Util.UnitsOfMeasure (MeasuredIn (..))
+import           Servant.Client (BaseUrl (..), Scheme (Https))
+import           System.FilePath (FilePath, (</>))
 
-import Cardano.Wallet.Client.HttpsSettings
-import Cardano.Wallet.Client.Wait
+import           Cardano.Wallet.Client.HttpsSettings
+import           Cardano.Wallet.Client.Wait
 
 data ConnectConfig = ConnectConfig
-  { cfgClientAuth :: Maybe ClientAuthConfig
-  , cfgCACertFile :: Maybe FilePath
+  { cfgClientAuth         :: Maybe ClientAuthConfig
+  , cfgCACertFile         :: Maybe FilePath
   , cfgAuthenticateServer :: AuthenticateServer
-  , cfgBaseUrl :: BaseUrl
+  , cfgBaseUrl            :: BaseUrl
   } deriving (Show)
 
 data ClientAuthConfig = ClientAuthConfig
-  { cfgCertFile :: FilePath
+  { cfgCertFile    :: FilePath
   , cfgPrivKeyFile :: FilePath
   } deriving (Show)
 
@@ -82,10 +85,10 @@ walletClientFromConfig :: ConnectConfig -> IO (WalletClient IO)
 walletClientFromConfig cfg = do
   ca <- case cfgCACertFile cfg of
     Just caCertFile -> either throwM return =<< loadCACert caCertFile
-    Nothing -> pure []
+    Nothing         -> pure []
   mcred <- case cfgClientAuth cfg of
     Just auth -> either throwM (pure . Just) =<< loadClientAuth auth
-    Nothing -> pure Nothing
+    Nothing   -> pure Nothing
   let settings = httpsManagerSettings (cfgAuthenticateServer cfg) mcred ca (cfgServerId cfg)
   manager <- newManager settings
   pure $ mkHttpClient (cfgBaseUrl cfg) manager

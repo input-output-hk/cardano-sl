@@ -16820,7 +16820,6 @@ license = stdenv.lib.licenses.mit;
 , async
 , base
 , base58-bytestring
-, basement
 , beam-core
 , beam-migrate
 , beam-sqlite
@@ -16913,6 +16912,7 @@ license = stdenv.lib.licenses.mit;
 , universum
 , unliftio-core
 , unordered-containers
+, uuid
 , vector
 , wai
 , wai-middleware-throttle
@@ -16942,7 +16942,6 @@ aeson-pretty
 async
 base
 base58-bytestring
-basement
 beam-core
 beam-migrate
 beam-sqlite
@@ -17021,6 +17020,7 @@ transformers
 universum
 unliftio-core
 unordered-containers
+uuid
 vector
 wai
 wai-middleware-throttle
@@ -17067,6 +17067,7 @@ x509-store
 testHaskellDepends = [
 acid-state
 aeson
+async
 base
 bytestring
 cardano-crypto
@@ -17090,7 +17091,6 @@ containers
 cryptonite
 data-default
 directory
-filepath
 formatting
 hedgehog
 hspec
@@ -17099,7 +17099,6 @@ insert-ordered-containers
 lens
 mtl
 normaldistribution
-optparse-applicative
 QuickCheck
 quickcheck-instances
 random

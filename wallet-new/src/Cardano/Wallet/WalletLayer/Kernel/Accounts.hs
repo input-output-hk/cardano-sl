@@ -17,7 +17,7 @@ import           Pos.Crypto.Signing
 
 import           Cardano.Wallet.API.Request (RequestParams, SortOperations (..))
 import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
-import           Cardano.Wallet.API.Response (WalletResponse, respondWith)
+import           Cardano.Wallet.API.Response (APIResponse, respondWith)
 import           Cardano.Wallet.API.V1.Types (V1 (..), WalletAddress)
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.Kernel.Accounts as Kernel
@@ -145,7 +145,7 @@ getAccountAddresses :: V1.WalletId
                     -> RequestParams
                     -> FilterOperations '[V1 Core.Address] WalletAddress
                     -> Kernel.DB
-                    -> Either GetAccountError (WalletResponse [V1.WalletAddress])
+                    -> Either GetAccountError (APIResponse [V1.WalletAddress])
 getAccountAddresses wId accIx rp fo snapshot = runExcept $ do
     accId <- withExceptT GetAccountWalletIdDecodingFailed $
                fromAccountId wId accIx

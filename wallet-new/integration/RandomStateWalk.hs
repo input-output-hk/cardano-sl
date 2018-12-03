@@ -32,7 +32,7 @@ import           Test.QuickCheck.Monadic (PropertyM, monadic, monadicIO, pick,
                      pre, run, stop)
 import           Test.QuickCheck.Property (Property, ioProperty, rejected)
 
-import           Cardano.Wallet.API.Response (WalletResponse (..))
+import           Cardano.Wallet.API.Response (APIResponse (..))
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.Client (ClientError (..), ServantError (..),
                      WalletClient (..), WalletError (..), getAccounts,
@@ -176,7 +176,7 @@ runAction wc action = do
             eresult      <- run $ postWallet wc newWall
 
             case eresult of
-                Right WalletResponse { wrData = result } -> do
+                Right APIResponse { wrData = result } -> do
                     checkInvariant
                         (walBalance result == minBound)
                         (WalletBalanceNotZero result)
@@ -697,10 +697,10 @@ chooseActions n probs = pick $ do
     as <- replicateM (fromIntegral n - 1) (frequency gens)
     pure (a :| as)
 
--- | We are not interested in the @WalletResponse@ for now.
+-- | We are not interested in the @APIResponse@ for now.
 respToRes
     :: forall m a. (MonadThrow m)
-    => m (Either ClientError (WalletResponse a))
+    => m (Either ClientError (APIResponse a))
     -> PropertyM m a
 respToRes resp = do
     result <- lift resp

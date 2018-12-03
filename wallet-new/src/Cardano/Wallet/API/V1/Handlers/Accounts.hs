@@ -37,7 +37,7 @@ deleteAccount layer wId accIdx = do
 getAccount :: PassiveWalletLayer IO
            -> WalletId
            -> AccountIndex
-           -> Handler (WalletResponse Account)
+           -> Handler (APIResponse Account)
 getAccount layer wId accIdx = do
     res <- liftIO $ WalletLayer.getAccount layer wId accIdx
     case res of
@@ -47,7 +47,7 @@ getAccount layer wId accIdx = do
 listAccounts :: PassiveWalletLayer IO
              -> WalletId
              -> RequestParams
-             -> Handler (WalletResponse [Account])
+             -> Handler (APIResponse [Account])
 listAccounts layer wId params = do
     res <- liftIO $ WalletLayer.getAccounts layer wId
     case res of
@@ -61,7 +61,7 @@ listAccounts layer wId params = do
 newAccount :: PassiveWalletLayer IO
            -> WalletId
            -> NewAccount
-           -> Handler (WalletResponse Account)
+           -> Handler (APIResponse Account)
 newAccount layer wId newAccountRequest = do
     res <- liftIO $ WalletLayer.createAccount layer wId newAccountRequest
     case res of
@@ -72,7 +72,7 @@ updateAccount :: PassiveWalletLayer IO
               -> WalletId
               -> AccountIndex
               -> AccountUpdate
-              -> Handler (WalletResponse Account)
+              -> Handler (APIResponse Account)
 updateAccount layer wId accIdx updateRequest = do
     res <- liftIO $ WalletLayer.updateAccount layer wId accIdx updateRequest
     case res of
@@ -86,7 +86,7 @@ getAccountAddresses
     -> AccountIndex
     -> RequestParams
     -> FilterOperations '[V1 Address] WalletAddress
-    -> Handler (WalletResponse AccountAddresses)
+    -> Handler (APIResponse AccountAddresses)
 getAccountAddresses layer wId accIdx pagination filters = do
     -- NOTE: Many of the Servant handlers have the following structure:
     --
@@ -118,7 +118,7 @@ getAccountBalance
     :: PassiveWalletLayer IO
     -> WalletId
     -> AccountIndex
-    -> Handler (WalletResponse AccountBalance)
+    -> Handler (APIResponse AccountBalance)
 getAccountBalance layer wId accIdx = do
     res <- liftIO $ WalletLayer.getAccountBalance layer wId accIdx
     case res of

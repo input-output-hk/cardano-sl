@@ -199,7 +199,7 @@ spec = describe "Wallets" $ do
                             let fetchAccount wId =
                                     Handlers.getAccount layer wId (V1.unsafeMkAccountIndex firstHardened)
                             res <- runExceptT . runHandler' $ do
-                                V1.WalletResponse{..} <- Handlers.newWallet layer rq
+                                V1.APIResponse{..} <- Handlers.newWallet layer rq
                                 fetchAccount (V1.walId wrData)
                             (bimap identity STB res) `shouldSatisfy` isRight
 
@@ -213,11 +213,11 @@ spec = describe "Wallets" $ do
                             let fetchAccount wId =
                                     Handlers.getAccount layer wId (V1.unsafeMkAccountIndex firstHardened)
                             res <- runExceptT . runHandler' $ do
-                                V1.WalletResponse{..} <- Handlers.newWallet layer rq
+                                V1.APIResponse{..} <- Handlers.newWallet layer rq
                                 fetchAccount (V1.walId wrData)
                             case res of
                                  Left e -> throwM e
-                                 Right V1.WalletResponse{..} ->
+                                 Right V1.APIResponse{..} ->
                                      length (V1.accAddresses wrData) `shouldBe` 1
 
 
@@ -474,7 +474,7 @@ spec = describe "Wallets" $ do
                             res <- runExceptT . runHandler' $ Handlers.updateWallet layer wId updt
                             case res of
                                  Left e  -> fail (show e)
-                                 Right (V1.WalletResponse{..}) -> do
+                                 Right (V1.APIResponse{..}) -> do
                                      V1.walAssuranceLevel wrData `shouldBe` newLevel
                                      V1.walName wrData `shouldBe` "FooBar"
 
@@ -522,5 +522,5 @@ spec = describe "Wallets" $ do
                             res <- runExceptT . runHandler' $ Handlers.listWallets layer params API.NoFilters API.NoSorts
                             case res of
                                  Left e -> throwM e
-                                 Right (V1.WalletResponse{..}) -> do
+                                 Right (V1.APIResponse{..}) -> do
                                      length wrData `shouldBe` 5

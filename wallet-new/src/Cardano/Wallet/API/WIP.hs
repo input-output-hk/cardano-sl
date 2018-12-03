@@ -14,7 +14,7 @@ type API = Tags '["WIP"] :>
          "external-wallets"
                    :> Summary "Creates a new or restores an existing external wallet (mobile client or hardware wallet)."
                    :> ReqBody '[ValidJSON] (New ExternalWallet)
-                   :> PostCreated '[ValidJSON] (WalletResponse ExternalWallet)
+                   :> PostCreated '[ValidJSON] (APIResponse ExternalWallet)
     :<|> "external-wallets"
                    :> Capture "rootPK" PublicKeyAsBase58
                    :> Summary "Deletes the given external wallet and all its accounts."
@@ -22,9 +22,9 @@ type API = Tags '["WIP"] :>
     :<|> "external-transactions" :> "unsigned"
                    :> Summary "Creates a new unsigned transaction (it will be signed externally)."
                    :> ReqBody '[ValidJSON] Payment
-                   :> Post '[ValidJSON] (WalletResponse UnsignedTransaction)
+                   :> Post '[ValidJSON] (APIResponse UnsignedTransaction)
     :<|> "external-transactions"
                    :> Summary "Publish an externally-signed transaction."
                    :> ReqBody '[ValidJSON] SignedTransaction
-                   :> Post '[ValidJSON] (WalletResponse Transaction)
+                   :> Post '[ValidJSON] (APIResponse Transaction)
     )

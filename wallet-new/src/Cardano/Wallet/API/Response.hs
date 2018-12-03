@@ -5,7 +5,7 @@
 module Cardano.Wallet.API.Response (
     Metadata (..)
   , ResponseStatus(..)
-  , WalletResponse(..)
+  , APIResponse(..)
   , JSONValidationError(..)
   , UnsupportedMimeTypeError(..)
   -- * Generating responses for collections
@@ -47,6 +47,7 @@ import           Cardano.Wallet.API.V1.Generic (jsendErrorGenericParseJSON,
                      jsendErrorGenericToJSON)
 import           Pos.Util.Servant as ServantUtil
 
+
 data SliceOf a = SliceOf {
     paginatedSlice :: [a]
   -- ^ A paginated fraction of the resource
@@ -82,10 +83,10 @@ respondWith :: (Monad m, Indexable a)
             -- ^ Sorting operations to perform on the data.
             -> m (IxSet a)
             -- ^ The monadic action which produces the results.
-            -> m (WalletResponse [a])
+            -> m (APIResponse [a])
 respondWith RequestParams{..} fops sorts generator = do
     (theData, paginationMetadata) <- paginate rpPaginationParams . sortData sorts . applyFilters fops <$> generator
-    return WalletResponse {
+    return APIResponse {
              wrData = theData
            , wrStatus = SuccessStatus
            , wrMeta = Metadata paginationMetadata
@@ -112,8 +113,8 @@ paginationParamsToMeta PaginationParams{..} totalEntries =
     , metaTotalEntries = totalEntries
     }
 
-fromSlice :: PaginationParams -> SliceOf a -> WalletResponse [a]
-fromSlice params (SliceOf theData totalEntries) = WalletResponse {
+fromSlice :: PaginationParams -> SliceOf a -> APIResponse [a]
+fromSlice params (SliceOf theData totalEntries) = APIResponse {
       wrData   = theData
     , wrStatus = SuccessStatus
     , wrMeta   = Metadata (paginationParamsToMeta params totalEntries)

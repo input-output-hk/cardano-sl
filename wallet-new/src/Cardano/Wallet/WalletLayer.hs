@@ -47,7 +47,7 @@ import           Pos.Crypto (EncryptedSecretKey, PassPhrase)
 import           Cardano.Wallet.API.Request (RequestParams (..))
 import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
 import           Cardano.Wallet.API.Request.Sort (SortOperations (..))
-import           Cardano.Wallet.API.Response (SliceOf (..), WalletResponse)
+import           Cardano.Wallet.API.Response (APIResponse, SliceOf (..))
 import           Cardano.Wallet.API.V1.Types (Account, AccountBalance,
                      AccountIndex, AccountUpdate, Address,
                      Base58PublicKeyError, ExternalWallet, ForceNtpCheck,
@@ -459,7 +459,7 @@ data PassiveWalletLayer m = PassiveWalletLayer
                            -> AccountIndex
                            -> RequestParams
                            -> FilterOperations '[V1 Address] WalletAddress
-                           -> m (Either GetAccountError (WalletResponse [WalletAddress]))
+                           -> m (Either GetAccountError (APIResponse [WalletAddress]))
     , updateAccount        :: WalletId
                            -> AccountIndex
                            -> AccountUpdate
@@ -481,7 +481,7 @@ data PassiveWalletLayer m = PassiveWalletLayer
                            -> RequestParams
                            -> FilterOperations '[V1 TxId, V1 Timestamp] Transaction
                            -> SortOperations Transaction
-                           -> m (Either GetTxError (WalletResponse [Transaction]))
+                           -> m (Either GetTxError (APIResponse [Transaction]))
     , getTxFromMeta        :: TxMeta -> m (Either Kernel.UnknownHdAccount Transaction)
 
     -- core API

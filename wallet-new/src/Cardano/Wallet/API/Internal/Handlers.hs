@@ -7,7 +7,7 @@ import           Servant
 import           Pos.Chain.Update (SoftwareVersion)
 
 import qualified Cardano.Wallet.API.Internal as Internal
-import           Cardano.Wallet.API.Response (WalletResponse, single)
+import           Cardano.Wallet.API.Response (APIResponse, single)
 import           Cardano.Wallet.API.V1.Types (V1, Wallet, WalletImport)
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 import qualified Cardano.Wallet.WalletLayer as WalletLayer
@@ -36,7 +36,7 @@ resetWalletState :: PassiveWalletLayer IO -> Handler NoContent
 resetWalletState w = liftIO (WalletLayer.resetWalletState w) >> return NoContent
 
 -- | Imports a 'Wallet' from a backup.
-importWallet :: PassiveWalletLayer IO -> WalletImport -> Handler (WalletResponse Wallet)
+importWallet :: PassiveWalletLayer IO -> WalletImport -> Handler (APIResponse Wallet)
 importWallet w walletImport = do
     res <- liftIO $ WalletLayer.importWallet w walletImport
     case res of

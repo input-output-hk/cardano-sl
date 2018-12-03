@@ -29,7 +29,7 @@ handlers pwl =  newWallet pwl
 -- wallet in the 'Wallet' type.
 newWallet :: PassiveWalletLayer IO
           -> NewWallet
-          -> Handler (WalletResponse Wallet)
+          -> Handler (APIResponse Wallet)
 newWallet pwl newWalletRequest = do
     -- FIXME(adn) Do not allow creation or restoration of wallets if the underlying node
     -- is still catching up.
@@ -44,7 +44,7 @@ listWallets :: PassiveWalletLayer IO
             -> RequestParams
             -> FilterOperations '[WalletId, Coin] Wallet
             -> SortOperations Wallet
-            -> Handler (WalletResponse [Wallet])
+            -> Handler (APIResponse [Wallet])
 listWallets pwl params fops sops = do
     wallets <- liftIO $ WalletLayer.getWallets pwl
     respondWith params
@@ -55,7 +55,7 @@ listWallets pwl params fops sops = do
 updatePassword :: PassiveWalletLayer IO
                -> WalletId
                -> PasswordUpdate
-               -> Handler (WalletResponse Wallet)
+               -> Handler (APIResponse Wallet)
 updatePassword pwl wid passwordUpdate = do
     res <- liftIO $ WalletLayer.updateWalletPassword pwl wid passwordUpdate
     case res of
@@ -75,7 +75,7 @@ deleteWallet pwl wid = do
 -- | Gets a specific wallet.
 getWallet :: PassiveWalletLayer IO
           -> WalletId
-          -> Handler (WalletResponse Wallet)
+          -> Handler (APIResponse Wallet)
 getWallet pwl wid = do
     res <- liftIO $ WalletLayer.getWallet pwl wid
     case res of
@@ -85,7 +85,7 @@ getWallet pwl wid = do
 updateWallet :: PassiveWalletLayer IO
              -> WalletId
              -> WalletUpdate
-             -> Handler (WalletResponse Wallet)
+             -> Handler (APIResponse Wallet)
 updateWallet pwl wid walletUpdateRequest = do
     res <- liftIO $ WalletLayer.updateWallet pwl wid walletUpdateRequest
     case res of
@@ -95,7 +95,7 @@ updateWallet pwl wid walletUpdateRequest = do
 getUtxoStatistics
     :: PassiveWalletLayer IO
     -> WalletId
-    -> Handler (WalletResponse UtxoStatistics)
+    -> Handler (APIResponse UtxoStatistics)
 getUtxoStatistics pwl wid = do
     res <- liftIO $ WalletLayer.getUtxos pwl wid
     case res of

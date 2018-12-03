@@ -1,4 +1,4 @@
-{-| Demo cluster of wallet nodes. See cluster/README.md -}
+{-| Demo cluster of nodes. See cluster/README.md -}
 
 module Cardano.Cluster
     (
@@ -6,6 +6,7 @@ module Cardano.Cluster
       NodeName (..)
     , NodeType (..)
     , RunningNode (..)
+    , mkNamedNodes
 
     -- * Start Cluster
     , startCluster
@@ -29,49 +30,44 @@ import           System.Environment (getEnvironment)
 import           Cardano.Cluster.Environment (Artifact (..), Env,
                      prepareEnvironment, withStateDirectory, withSystemStart)
 import           Cardano.Cluster.Util (execParserEnv, oneSecond, runAsync,
-                     stripFilterPrefix, unsafePOSIXTimeFromString,
-                     varFromParser)
-import           Cardano.Wallet.Action (actionWithWallet)
-import           Cardano.Wallet.API.V1.Types (ForceNtpCheck (..), NodeInfo (..),
-                     SyncPercentage, mkSyncPercentage)
-import           Cardano.Wallet.Client (APIResponse (..), ClientError (..),
-                     ServantError (..), WalletClient (getNodeInfo))
-import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..),
-                     walletBackendParamsParser)
+                     stripFilterPrefix, varFromParser)
+import           Cardano.Node.API (launchNodeServer)
+import           Cardano.Node.Client (ClientError (..), NodeClient (..),
+                     NodeHttpClient)
+import           Pos.Chain.Update (updateConfiguration)
 import           Pos.Client.CLI.NodeOptions (commonNodeArgsParser,
-                     nodeArgsParser)
+                     nodeApiArgsParser, nodeArgsParser)
 import           Pos.Client.CLI.Params (loggingParams)
 import           Pos.Infra.Network.Types (NodeName (..), NodeType (..))
 import           Pos.Launcher (LoggingParams (..), actionWithCoreNode,
                      launchNode)
-import           Pos.Util.CompileInfo (withCompileInfo)
+import           Pos.Node.API (ForceNtpCheck (..), NodeInfo (..),
+                     SyncPercentage, mkSyncPercentage)
+import           Pos.Util.CompileInfo (compileInfo, withCompileInfo)
 
 
 -- | A type representing a running node. The process is captured within the
--- 'Async' handle. For wallet nodes, there's an exta 'WalletClient' configured
+-- 'Async' handle. For edges nodes, there's an exta 'NodeClient' configured
 -- to talk to the underlying node API.
-data RunningNode m
-    = RunningCoreNode   NodeName Env (Async ())
-    | RunningRelayNode  NodeName Env (Async ())
-    | RunningWalletNode NodeName Env (WalletClient m) [FilePath] (Async ())
+data RunningNode
+    = RunningCoreNode  NodeName Env (Async ())
+    | RunningRelayNode NodeName Env (Async ())
+    | RunningEdgeNode  NodeName Env NodeHttpClient (Async ())
 
 
--- | Start a cluster of wallet nodes in different threads.
+-- | Start a cluster of nodes in different threads.
 -- Nodes get their (optional) arguments from the ENV.
 --
 -- For more details, look at cluster/README.md
 startCluster
     :: String                 -- ^ A prefix. Only ENV vars with this prefix will be considered
     -> [(NodeName, NodeType)] -- ^ A list of node names forming the cluster
-    -> IO [RunningNode IO]
+    -> IO [RunningNode]
 startCluster prefix nodes = do
-    env <- (Map.fromList . stripFilterPrefix prefix) <$> getEnvironment
-    let offset = maybe 14 unsafePOSIXTimeFromString (env ^. at "SYSTEM_START_OFFSET")
-    env0 <- withSystemStart offset env
-
+    env <- (withSystemStart . Map.fromList . stripFilterPrefix prefix) =<< getEnvironment
     handles <- forM nodes $ \node@(nodeId, nodeType) -> runAsync $ \yield ->
-        withStateDirectory (env0 ^. at "STATE_DIR") $ \stateDir -> do
-            let (artifacts, nodeEnv) = prepareEnvironment node nodes stateDir env0
+        withStateDirectory (env ^. at "STATE_DIR") $ \stateDir -> do
+            let (artifacts, nodeEnv) = prepareEnvironment node nodes stateDir env
             let (genesis, topology, logger, tls) = artifacts
 
             case nodeType of
@@ -84,9 +80,8 @@ startCluster prefix nodes = do
                     yield (RunningRelayNode nodeId nodeEnv)
 
                 NodeEdge -> do
-                    genesisKeys <- init topology >> init logger >> init genesis
-                    nodeClient  <- init tls
-                    yield (RunningWalletNode nodeId nodeEnv nodeClient genesisKeys)
+                    nodeClient  <- init topology >> init logger >> init tls
+                    yield (RunningEdgeNode nodeId nodeEnv nodeClient)
 
             startNode node nodeEnv
 
@@ -96,7 +91,7 @@ startCluster prefix nodes = do
     init = initializeArtifact
 
 
--- | Start a demo node (with wallet) using the given environment as a context.
+-- | Start a demo node using the given environment as a context.
 -- This action never returns, unless the node crashes.
 startNode
     :: (NodeName, NodeType) -- ^ The actual node name
@@ -105,15 +100,35 @@ startNode
 startNode (NodeName nodeIdT, nodeType) env = do
     nArgs <- parseNodeArgs
     cArgs <- parseCommonNodeArgs
+    aArgs <- parseApiArgs
     let lArgs = getLoggingArgs cArgs
-    case nodeType of
-        NodeEdge -> do
-            wArgs <- parseWalletArgs
-            withCompileInfo $ launchNode nArgs cArgs lArgs (actionWithWallet wArgs)
 
+    case nodeType of
+        NodeEdge ->
+            withCompileInfo $ launchNode nArgs cArgs lArgs $ \genC walC txpC ntpC nodC sscC resC -> do
+                actionWithCoreNode
+                    (launchNodeServer
+                        aArgs
+                        ntpC
+                        resC
+                        updateConfiguration
+                        compileInfo)
+                    genC
+                    walC
+                    txpC
+                    ntpC
+                    nodC
+                    sscC
+                    resC
         _ ->
-            withCompileInfo $ launchNode nArgs cArgs lArgs (actionWithCoreNode (\_ -> pure ()))
+            withCompileInfo $ launchNode nArgs cArgs lArgs $
+                actionWithCoreNode (\_ -> pure ())
   where
+    parseApiArgs = do
+        let aVars = varFromParser nodeApiArgsParser
+        let aInfo = info nodeApiArgsParser mempty
+        handleParseResult $ execParserEnv env aVars aInfo
+
     parseNodeArgs = do
         let nVars = varFromParser nodeArgsParser
         let nInfo = info nodeArgsParser mempty
@@ -123,11 +138,6 @@ startNode (NodeName nodeIdT, nodeType) env = do
         let cVars = varFromParser commonNodeArgsParser
         let cInfo = info commonNodeArgsParser mempty
         handleParseResult $ execParserEnv env cVars cInfo
-
-    parseWalletArgs = do
-        let wVars = varFromParser walletBackendParamsParser
-        let wInfo = info walletBackendParamsParser mempty
-        NewWalletBackendParams <$> handleParseResult (execParserEnv env wVars wInfo)
 
     -- NOTE
     -- Logging to the console is disabled. This is just noise when multiple
@@ -143,11 +153,11 @@ newtype MaxWaitingTime = MaxWaitingTime Int deriving (Eq, Show)
 
 -- | Make HttpRequest continuously for a while to wait after the node
 waitForNode
-    :: WalletClient IO -- ^ A Wallet Client configured against a given node
+    :: NodeHttpClient  -- ^ An Http Client configured against a given node
     -> MaxWaitingTime  -- ^ Maximum waiting time, in seconds
     -> (Maybe SyncPercentage -> IO ())
     -> IO ()
-waitForNode wc (MaxWaitingTime s) reportProgress = do
+waitForNode client (MaxWaitingTime s) reportProgress = do
     res <- race (threadDelay $ s * oneSecond) retry
     case res of
         Left _ ->
@@ -160,16 +170,29 @@ waitForNode wc (MaxWaitingTime s) reportProgress = do
     retry = threadDelay oneSecond >> waitForNode'
 
     waitForNode' :: IO ()
-    waitForNode' = do
-        resp <- getNodeInfo wc NoNtpCheck
-        case resp of
-            Right success -> do
-                let progress = nfoSyncProgress (wrData success)
-                when (progress < mkSyncPercentage 100) $
-                    reportProgress (Just progress) >> retry
+    waitForNode' = runExceptT (getNodeInfo client NoNtpCheck) >>= \case
+        Right success -> do
+            let progress = nfoSyncProgress success
+            when (progress < mkSyncPercentage 100) $
+                reportProgress (Just progress) >> retry
 
-            Left (ClientHttpError ConnectionError{}) ->
-                reportProgress Nothing >> retry
+        Left ConnectionError{} ->
+            reportProgress Nothing >> retry
 
-            Left err ->
-                fail $ "Failed to wait for node to start: " <> show err
+        Left err ->
+            fail $ "Failed to wait for node to start: " <> show err
+
+
+-- | Create a list of named nodes of the given type
+mkNamedNodes :: NodeType -> Int -> [(NodeName, NodeType)]
+mkNamedNodes typ n =
+    if n == 1 then
+        [ (NodeName (toNodeName typ), typ) ]
+    else
+        zip
+            [ NodeName (toNodeName typ <> show k) | k <- iterate (+1) (0 :: Int) ]
+            (replicate n typ)
+  where
+    toNodeName NodeCore  = "core"
+    toNodeName NodeRelay = "relay"
+    toNodeName NodeEdge  = "edge"

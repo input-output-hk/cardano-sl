@@ -13,6 +13,7 @@ module Pos.Client.CLI.NodeOptions
        , NodeWithApiArgs (..)
        , commonNodeArgsParser
        , nodeArgsParser
+       , nodeApiArgsParser
        , getSimpleNodeOptions
        , getNodeApiOptions
        , usageExample
@@ -173,10 +174,10 @@ nodeWithApiArgsParser =
 nodeApiArgsParser :: Parser NodeApiArgs
 nodeApiArgsParser =
     NodeApiArgs
-        <$> addressParser "node-api-address" (localhost, 8083)
+        <$> addressParser "node-api-address" (localhost, 8080)
         <*> tlsParamsParser
         <*> debugModeParser
-        <*> addressParser "node-doc-address" (localhost, 8084)
+        <*> addressParser "node-doc-address" (localhost, 8180)
   where
     addressParser flagName defValue =
         option (fromParsec addrParser) $

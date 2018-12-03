@@ -1,4 +1,4 @@
-{-| Demo cluster of wallet nodes. See cluster/README.md -}
+{-| Demo cluster nodes. See cluster/README.md -}
 
 {-# LANGUAGE QuasiQuotes #-}
 
@@ -18,11 +18,10 @@ import           System.Console.Docopt (Arguments, Docopt, docopt,
 import           System.IO (BufferMode (..), hSetBuffering, stdout)
 
 import           Cardano.Cluster (MaxWaitingTime (..), NodeName (..),
-                     NodeType (..), RunningNode (..), startCluster,
-                     waitForNode)
+                     NodeType (..), RunningNode (..), mkNamedNodes,
+                     startCluster, waitForNode)
 import           Cardano.Cluster.Util (unsafeIntFromString)
-import           Cardano.Wallet.API.V1.Types (SyncPercentage, WalletImport (..))
-import           Cardano.Wallet.Client (WalletClient (..))
+import           Pos.Node.API (SyncPercentage)
 
 
 -- | Command-Line Interface specification. See http://docopt.org/
@@ -33,13 +32,13 @@ cardano-sl-cluster-demo
 Spawn a demo cluster of nodes running cardano-sl, ready-to-use
 
 Usage:
-  cardano-sl-cluster-demo [--no-genesis-wallets] [options]
+  cardano-sl-cluster-demo [options]
   cardano-sl-cluster-demo --help
 
 Options:
-  --cores=INT          Number of core nodes to start [default: 4]
-  --relays=INT         Number of relay nodes to start [default: 1]
-  --edges=INT          Number of edge nodes (wallet) to start [default: 1]
+  --cores=INT   Number of core nodes to start [default: 4]
+  --relays=INT  Number of relay nodes to start [default: 1]
+  --edges=INT   Number of edge nodes to start [default: 1]
 |]
 
 
@@ -87,18 +86,13 @@ main = void $ do
                 <> "\n......address:       " <> toText (env ! "LISTEN")
             return handle
 
-        RunningWalletNode (NodeName nodeId) env client keys handle -> do
+        RunningEdgeNode (NodeName nodeId) env client handle -> do
             putText "..." >> waitForNode client (MaxWaitingTime 90) printProgress
-
-            unless (args `isPresent` (longOption "no-genesis-wallets")) $ do
-                putTextFromStart "...Importing genesis wallets"
-                forM_ keys (importWallet client . WalletImport Nothing)
-
             putTextFromStart $ "..." <> nodeId <> " OK!"
             putTextLn
                 $  "\n......system start:  " <> toText (env ! "SYSTEM_START")
-                <> "\n......api address:   " <> toText (env ! "WALLET_ADDRESS")
-                <> "\n......doc address:   " <> toText (env !  "WALLET_DOC_ADDRESS")
+                <> "\n......api address:   " <> toText (env ! "NODE_API_ADDRESS")
+                <> "\n......doc address:   " <> toText (env ! "NODE_DOC_ADDRESS")
             return handle
     putTextLn "Cluster is (probably) ready!"
 
@@ -108,19 +102,6 @@ main = void $ do
     getArgInt :: Arguments -> String -> Int
     getArgInt args =
         unsafeIntFromString . fromJust . getArg args . longOption
-
-    -- | Create a list of named nodes of the given type
-    mkNamedNodes :: NodeType -> Int -> [(NodeName, NodeType)]
-    mkNamedNodes NodeCore 1  = [("core", NodeCore)]
-    mkNamedNodes NodeRelay 1 = [("relay", NodeRelay)]
-    mkNamedNodes NodeEdge 1  = [("wallet", NodeEdge)]
-    mkNamedNodes typ n = zip  (mkIndexedName typ <$> iterate (+1) 0) (replicate n typ)
-
-    -- | Create a @NodeName@ from the given @NodeType@ and index
-    mkIndexedName :: NodeType -> Int -> NodeName
-    mkIndexedName NodeCore  n = NodeName ("core"   <> show n)
-    mkIndexedName NodeRelay n = NodeName ("relay"  <> show n)
-    mkIndexedName NodeEdge  n = NodeName ("wallet" <> show n)
 
     putTextFromStart :: Text -> IO ()
     putTextFromStart txt = do

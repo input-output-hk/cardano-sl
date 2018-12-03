@@ -29,7 +29,7 @@ Cluster is starting (4 core(s), 1 relay(s), 1 edge(s))...
 ...relay has no health-check API.
 ......system start:  1539179287
 ......address:       127.0.0.1:3100
-...wallet OK!
+...edge OK!
 ......system start:  1539179287
 ......api address:   127.0.0.1:8090
 ......doc address:   127.0.0.1:8190
@@ -39,7 +39,7 @@ Cluster is (probably) ready!
 
 ## Configuring Nodes
 
-_Almost anything_ from the normal CLI arguments of a node or a wallet node can be
+_Almost anything_ from the normal CLI arguments of a node can be
 configured via an ENV variable using an `UPPER_SNAKE_CASE` naming, correctly
 prefixed with `DEMO_` with a few gotchas:
 
@@ -53,7 +53,6 @@ prefixed with `DEMO_` with a few gotchas:
     - `--tlscert`
     - `--tlskey`
     - `--topology`
-    - `--wallet-db-path`
     - `--keyfile`
   Those variables actually corresponds to artifacts or location handled by the 
   cluster library. Messing up with one of those can break the whole cluster.
@@ -76,8 +75,8 @@ prefixed with `DEMO_` with a few gotchas:
 
   This is the case for:
     - `--listen`
-    - `--wallet-address`
-    - `--wallet-doc-address`
+    - `--node-api-address`
+    - `--node-doc-address`
 
 For instance, one can disable TLS client authentication doing:
 
@@ -112,17 +111,17 @@ cardano-sl-cluster-demo
 Spawn a demo cluster of nodes running cardano-sl, ready-to-use
 
 Usage:
-  cardano-sl-cluster-demo [--no-genesis-wallets] [options]
+  cardano-sl-cluster-demo [options]
   cardano-sl-cluster-demo --help
 
 Options:
   --cores=INT  Number of core nodes to start [default: 4]
   --relays=INT Number of relay nodes to start [default: 1]
-  --edges=INT  Number of edge nodes (wallet) to start [default: 1]
+  --edges=INT  Number of edge nodes to start [default: 1]
 ```
 
 So, the components of the cluster may be tweaked by providing arguments to the CLI. 
-For instance, one could switch off the wallet node by doing:
+For instance, one could switch off the edge node by doing:
 
 ```
 $> stack exec -- cardano-sl-cluster-demo --edges 0
@@ -136,10 +135,10 @@ common parent thread, they all eventually end up sharing the same logging state.
 
 This result in a non-friendly behavior where, every logging handler get replaced by the one
 from the next node started by the cluster. So once started, every log entry gets logged _as-if_ 
-they were logged by the last node started (with default parameters, the wallet node). 
+they were logged by the last node started (with default parameters, the edge node). 
 
 This is why you won't find any log (apart from a couple of lines on start-up) inside log files, 
-and duplicated lines in one of them (likely `wallet.log.pub`); fixing this is non-trivial.
+and duplicated lines in one of them (likely `edge.log.pub`); fixing this is non-trivial.
 
 
 <p align="center">

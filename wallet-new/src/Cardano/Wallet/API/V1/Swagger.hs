@@ -30,10 +30,10 @@ import           Pos.Util.Servant (CustomQueryFlag, LoggingApi)
 
 import           Control.Lens (At, Index, IxValue, at, (?~))
 import           Data.Aeson (encode)
-import           Data.Aeson.Encode.Pretty ()
+import           Data.Aeson.Encode.Pretty (encodePretty)
 import           Data.Map (Map)
 import           Data.Swagger hiding (Example)
-import           Data.Typeable ()
+import           Data.Typeable (typeRep)
 import           Formatting (build, sformat)
 import           GHC.TypeLits (KnownSymbol)
 import           NeatInterpolation
@@ -271,7 +271,10 @@ instance ToParamSchema Core.Address where
 instance ToParamSchema (V1 Core.Address) where
   toParamSchema _ = toParamSchema (Proxy @Core.Address)
 
-instance ( KnownSymbol sym
+-- This instance is noted as OVERLAPPING because it injects some special-case
+-- knowledge into the parameter. Another instance is defined in
+-- "Pos.Util.Servant", which does not have this special case knowledge.
+instance {-# OVERLAPPING #-} ( KnownSymbol sym
          , HasSwagger sub
          ) =>
          HasSwagger (CustomQueryFlag sym flag :> sub) where

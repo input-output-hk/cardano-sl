@@ -762,7 +762,10 @@ instance ReportDecodeError api =>
 -- Boolean type for all flags but we can implement custom type.
 data CustomQueryFlag (sym :: Symbol) flag
 
-instance ( KnownSymbol sym
+-- This instance is overlapped by one in "Cardano.Wallet.API.V1.Swagger", which
+-- provides API specific information. It should be removed and a cleaner
+-- description added.
+instance {-# OVERLAPPABLE #-} ( KnownSymbol sym
          , HasSwagger sub
          ) =>
          HasSwagger (CustomQueryFlag sym flag :> sub) where

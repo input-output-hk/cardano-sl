@@ -5,15 +5,16 @@ module Cardano.Node.API.Swagger where
 
 import           Universum
 
-import           Control.Lens ((?~))
+import           Control.Lens ((?~), at)
 import           Data.Swagger
 import           Servant
 import           Servant.Swagger
 import           Servant.Swagger.UI (SwaggerSchemaUI)
 
+import Pos.Chain.Txp (TxIn, TxOutAux, TxOut)
 import           Pos.Chain.Update (SoftwareVersion)
 import           Pos.Util.Swagger (swaggerSchemaUIServer)
-import           Pos.Web (serveImpl)
+import           Pos.Web (serveImpl, CConfirmedProposalState)
 import           Pos.Web.Types (TlsParams)
 
 forkDocServer
@@ -54,3 +55,29 @@ documentationApi curSoftwareVersion prxy = toSwagger prxy
 --     & paths %~ (POST,   "/api/v1/transactions/fees")        `setDescription` estimateFeesDescription
 --     & paths %~ (GET,    "/api/v1/addresses/{address}")      `setDescription` getAddressDescription
 --
+
+instance ToParamSchema TxIn where
+    toParamSchema _ = mempty
+        & type_ .~ SwaggerString
+
+instance ToSchema TxIn where
+    declareNamedSchema = pure . paramSchemaToNamedSchema defaultSchemaOptions
+
+instance ToSchema TxOut where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "TxOut") $ mempty
+            & type_ .~ SwaggerObject
+            & required .~ ["coin", "address"]
+            & properties .~ (mempty
+                & at "coin" ?~ (Inline $ mempty
+                    & type_ .~ SwaggerNumber
+                    )
+                & at "address" ?~ (Inline $ mempty
+                    & type_ .~ SwaggerString
+                    )
+                )
+
+instance ToSchema TxOutAux
+
+instance ToSchema CConfirmedProposalState
+

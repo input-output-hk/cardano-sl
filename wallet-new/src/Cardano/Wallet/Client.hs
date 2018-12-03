@@ -30,7 +30,7 @@ module Cardano.Wallet.Client
     , SortOperations(..)
     , FilterOperation(..)
     , SortOperation(..)
-    , WalletResponse(..)
+    , APIResponse(..)
     ) where
 
 import           Universum
@@ -59,7 +59,7 @@ import           Cardano.Wallet.API.V1.Types
 -- @
 -- 'getAddressIndex'
 --     :: 'WalletClient' m
---     -> m ('Either' 'WalletError' ('WalletResponse' ['Address']))
+--     -> m ('Either' 'WalletError' ('APIResponse' ['Address']))
 -- @
 --
 -- Other functions may be defined in terms of this 'WalletClient' -- see
@@ -173,8 +173,8 @@ data WalletClient m
 paginateAll :: Monad m => (Maybe Page -> Maybe PerPage -> Resp m [a]) -> Resp m [a]
 paginateAll request = fmap fixMetadata <$> paginatePage 1
   where
-    fixMetadata WalletResponse{..} =
-        WalletResponse
+    fixMetadata APIResponse{..} =
+        APIResponse
             { wrMeta = Metadata
                 PaginationMetadata
                     { metaTotalPages = 1
@@ -360,7 +360,7 @@ getWalletIndex = paginateAll . getWalletIndexPaged
 
 
 -- | A type alias shorthand for the response from the 'WalletClient'.
-type Resp m a = m (Either ClientError (WalletResponse a))
+type Resp m a = m (Either ClientError (APIResponse a))
 
 -- | The type of errors that the wallet might return.
 data ClientError

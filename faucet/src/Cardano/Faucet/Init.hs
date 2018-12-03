@@ -58,8 +58,8 @@ import           Cardano.Wallet.API.V1.Types (Account (..), Address,
                      WalletAddress (..), WalletId,
                      WalletOperation (CreateWallet), mkSyncPercentage,
                      txAmount, unV1)
-import           Cardano.Wallet.Client (ClientError (..), WalletClient (..),
-                     WalletResponse (..), liftClient)
+import           Cardano.Wallet.Client (APIResponse (..), ClientError (..),
+                     WalletClient (..), liftClient)
 import           Cardano.Wallet.Client.Http (mkHttpClient)
 import           Pos.Core (Coin (..))
 import           Universum
@@ -114,7 +114,7 @@ listToEitherT err errMsg successMsg as = case as of
 runClient
   :: Functor m
   => (err -> e)
-  -> m (Either err (WalletResponse r))
+  -> m (Either err (APIResponse r))
   -> ExceptT e m r
 runClient err m = ExceptT $ (fmap (first err)) $ fmap (fmap wrData) m
 

@@ -29,7 +29,7 @@ handlers awl = newExternalWallet pwl
 
 newExternalWallet :: PassiveWalletLayer IO
                   -> NewExternalWallet
-                  -> Handler (WalletResponse ExternalWallet)
+                  -> Handler (APIResponse ExternalWallet)
 newExternalWallet pwl newExternalWalletRequest = do
     res <- liftIO $ WalletLayer.createExternalWallet pwl newExternalWalletRequest
     case res of
@@ -51,7 +51,7 @@ deleteExternalWallet pwl encodedRootPK = do
 -- transaction which will be signed and submitted to the blockchain later.
 newUnsignedTransaction :: ActiveWalletLayer IO
                        -> Payment
-                       -> Handler (WalletResponse UnsignedTransaction)
+                       -> Handler (APIResponse UnsignedTransaction)
 newUnsignedTransaction aw payment@Payment{..} = do
     let inputGrouping = toInputGrouping $ fromMaybe (V1 defaultInputSelectionPolicy)
                                                     pmtGroupingPolicy
@@ -65,7 +65,7 @@ newUnsignedTransaction aw payment@Payment{..} = do
 -- | Submits externally-signed transaction to the blockchain.
 submitSignedTransaction :: ActiveWalletLayer IO
                         -> SignedTransaction
-                        -> Handler (WalletResponse Transaction)
+                        -> Handler (APIResponse Transaction)
 submitSignedTransaction aw signedTx = liftIO $ do
     res <- liftIO $ (WalletLayer.submitSignedTx aw) signedTx
     case res of

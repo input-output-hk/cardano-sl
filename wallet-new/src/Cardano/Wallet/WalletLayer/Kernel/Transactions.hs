@@ -38,7 +38,7 @@ getTransactions :: MonadIO m
                 -> RequestParams
                 -> FilterOperations '[V1 TxId, V1 Timestamp] V1.Transaction
                 -> SortOperations V1.Transaction
-                -> m (Either GetTxError (WalletResponse [V1.Transaction]))
+                -> m (Either GetTxError (APIResponse [V1.Transaction]))
 getTransactions wallet mbWalletId mbAccountIndex mbAddress params fop sop = liftIO $ runExceptT $ do
     let PaginationParams{..}  = rpPaginationParams params
     let PerPage pp = ppPerPage
@@ -164,7 +164,7 @@ buildDynamicTxMeta assuranceLevel slotCount mSlotwithState currentSlot isPending
 -- | We don`t fitler in memory, so totalEntries is unknown, unless TxMeta Database counts them for us.
 -- It is possible due to some error, to have length ls < Page.
 -- This can happen when a Tx is found without Inputs.
-respond :: RequestParams -> [a] -> Maybe Int -> (WalletResponse [a])
+respond :: RequestParams -> [a] -> Maybe Int -> (APIResponse [a])
 respond RequestParams{..} ls mbTotalEntries =
     let totalEntries = fromMaybe 0 mbTotalEntries
         PaginationParams{..}  = rpPaginationParams
@@ -177,7 +177,7 @@ respond RequestParams{..} ls mbTotalEntries =
                                 , metaPerPage = perPage
                                 , metaTotalEntries = totalEntries
                                 }
-    in  WalletResponse {
+    in  APIResponse {
         wrData = ls
       , wrStatus = SuccessStatus
       , wrMeta = Metadata metadata

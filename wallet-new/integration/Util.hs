@@ -193,7 +193,7 @@ shouldReturnRight a = a >>= \case
         expectationFailure ("expecting Right (..) got: " ++ show err)
         error "unreachable"
 
-shouldReturnData :: (HasCallStack, Show err) => IO (Either err  (WalletResponse a)) -> IO a
+shouldReturnData :: (HasCallStack, Show err) => IO (Either err  (APIResponse a)) -> IO a
 shouldReturnData a = wrData <$> shouldReturnRight a
 
 makePayment

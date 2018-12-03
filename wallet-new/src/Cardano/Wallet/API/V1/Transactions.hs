@@ -13,7 +13,7 @@ import           Servant
 type API = Tags '["Transactions"] :>
     (    "transactions" :> Summary "Generates a new transaction from the source to one or multiple target addresses."
                         :> ReqBody '[ValidJSON] Payment
-                        :> Post '[ValidJSON] (WalletResponse Transaction)
+                        :> Post '[ValidJSON] (APIResponse Transaction)
     :<|> "transactions" :> Summary "Returns the transaction history, i.e the list of all the past transactions."
                         :> QueryParam "wallet_id" WalletId
                         :> QueryParam "account_index" AccountIndex
@@ -24,13 +24,13 @@ type API = Tags '["Transactions"] :>
                                      ] Transaction
                         :> SortBy   '[ V1 Core.Timestamp
                                      ] Transaction
-                        :> Get '[ValidJSON] (WalletResponse [Transaction])
+                        :> Get '[ValidJSON] (APIResponse [Transaction])
     :<|> "transactions" :> "fees"
                         :> Summary "Estimate the fees which would originate from the payment."
                         :> ReqBody '[ValidJSON] Payment
-                        :> Post '[ValidJSON] (WalletResponse EstimatedFees)
+                        :> Post '[ValidJSON] (APIResponse EstimatedFees)
     :<|> "transactions" :> "certificates"
                         :> Summary "Redeem a certificate"
                         :> ReqBody '[ValidJSON] Redemption
-                        :> Post '[ValidJSON] (WalletResponse Transaction)
+                        :> Post '[ValidJSON] (APIResponse Transaction)
     )

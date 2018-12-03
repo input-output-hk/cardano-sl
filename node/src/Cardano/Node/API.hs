@@ -46,8 +46,8 @@ import           Pos.Node.API as Node
 import           Pos.Util (HasLens (..), HasLens')
 import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
 import           Pos.Util.Lens (postfixLFields)
-import           Pos.Util.Servant (JsendException (..), UnknownError (..),
-                     WalletResponse (..), applicationJson, single)
+import           Pos.Util.Servant (APIResponse (..), JsendException (..),
+                     UnknownError (..), applicationJson, single)
 import           Pos.Web (serveImpl)
 import qualified Pos.Web as Legacy
 
@@ -190,7 +190,7 @@ getNodeSettings
     -> UpdateConfiguration
     -> Core.Timestamp
     -> Core.SlottingVar
-    -> Handler (WalletResponse NodeSettings)
+    -> Handler (APIResponse NodeSettings)
 getNodeSettings compileInfo updateConfiguration timestamp slottingVar = do
     let ctx = SettingsCtx timestamp slottingVar
     slotDuration <-
@@ -324,7 +324,7 @@ getNodeInfo
     -> LastKnownHeader
     -- endpoint parameters
     -> ForceNtpCheck
-    -> Handler (WalletResponse NodeInfo)
+    -> Handler (APIResponse NodeInfo)
 getNodeInfo diffusion ntpTvar stateLock nodeDBs lastknownHeader forceNtp = liftIO $ do
     single <$> do
         let r = InfoCtx

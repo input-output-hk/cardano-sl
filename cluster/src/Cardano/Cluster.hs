@@ -34,8 +34,8 @@ import           Cardano.Cluster.Util (execParserEnv, oneSecond, runAsync,
 import           Cardano.Wallet.Action (actionWithWallet)
 import           Cardano.Wallet.API.V1.Types (ForceNtpCheck (..), NodeInfo (..),
                      SyncPercentage, mkSyncPercentage)
-import           Cardano.Wallet.Client (ClientError (..), ServantError (..),
-                     WalletClient (getNodeInfo), WalletResponse (..))
+import           Cardano.Wallet.Client (APIResponse (..), ClientError (..),
+                     ServantError (..), WalletClient (getNodeInfo))
 import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..),
                      walletBackendParamsParser)
 import           Pos.Client.CLI.NodeOptions (commonNodeArgsParser,

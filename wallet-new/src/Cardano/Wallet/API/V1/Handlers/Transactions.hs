@@ -44,7 +44,7 @@ handlers aw = newTransaction aw
 -- it to the network eventually.
 newTransaction :: ActiveWalletLayer IO
                -> Payment
-               -> Handler (WalletResponse Transaction)
+               -> Handler (APIResponse Transaction)
 newTransaction aw payment@Payment{..} = liftIO $ do
 
     -- NOTE(adn) The 'SenderPaysFee' option will become configurable as part
@@ -63,7 +63,7 @@ txFromMeta :: Exception e
            => ActiveWalletLayer IO
            -> (UnknownHdAccount -> e)
            -> TxMeta
-           -> IO (WalletResponse Transaction)
+           -> IO (APIResponse Transaction)
 txFromMeta aw embedErr meta = do
     mTx <- WalletLayer.getTxFromMeta (WalletLayer.walletPassiveLayer aw) meta
     case mTx of
@@ -77,7 +77,7 @@ getTransactionsHistory :: PassiveWalletLayer IO
                        -> RequestParams
                        -> FilterOperations '[V1 TxId, V1 Timestamp] Transaction
                        -> SortOperations Transaction
-                       -> Handler (WalletResponse [Transaction])
+                       -> Handler (APIResponse [Transaction])
 getTransactionsHistory pw mwalletId mAccIdx mAddr requestParams fops sops =
     liftIO $ do
         mRes <- WalletLayer.getTransactions pw mwalletId mAccIdx mAddr requestParams fops sops
@@ -89,7 +89,7 @@ getTransactionsHistory pw mwalletId mAccIdx mAddr requestParams fops sops =
 -- the transaction to the network.
 estimateFees :: ActiveWalletLayer IO
              -> Payment
-             -> Handler (WalletResponse EstimatedFees)
+             -> Handler (APIResponse EstimatedFees)
 estimateFees aw payment@Payment{..} = do
     let inputGrouping = toInputGrouping $ fromMaybe (V1 defaultInputSelectionPolicy)
                                                     pmtGroupingPolicy
@@ -102,7 +102,7 @@ estimateFees aw payment@Payment{..} = do
 
 redeemAda :: ActiveWalletLayer IO
           -> Redemption
-          -> Handler (WalletResponse Transaction)
+          -> Handler (APIResponse Transaction)
 redeemAda aw redemption = liftIO $ do
     res <- WalletLayer.redeemAda aw redemption
     case res of

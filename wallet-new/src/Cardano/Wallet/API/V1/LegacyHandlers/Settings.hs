@@ -2,7 +2,7 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Settings where
 
 import           Universum
 
-import           Cardano.Wallet.API.Response (WalletResponse, single)
+import           Cardano.Wallet.API.Response (APIResponse, single)
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Data.Text as T
@@ -25,7 +25,7 @@ handlers = getSettings
 -- Returns the @static@ settings for this wallet node,
 -- like the slot duration or the current 'SoftwareVersion'.
 getSettings :: (HasConfigurations, HasCompileInfo, MonadBlockchainInfo m)
-            => m (WalletResponse NodeSettings)
+            => m (APIResponse NodeSettings)
 getSettings = do
     settings <- NodeSettings <$> (V1.mkSlotDuration . fromIntegral <$> blockchainSlotDuration)
                              <*> pure (V1 curSoftwareVersion)

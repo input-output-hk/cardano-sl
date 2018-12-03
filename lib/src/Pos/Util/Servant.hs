@@ -70,7 +70,7 @@ module Pos.Util.Servant
     , ValidJSON
     , Tags
     , mapRouter
-    , WalletResponse(..)
+    , APIResponse(..)
     , single
     , Metadata(..)
     , UnknownError(..)
@@ -931,10 +931,10 @@ instance Buildable Metadata where
 -- instance Example Metadata
 
 
--- | An `WalletResponse` models, unsurprisingly, a response (successful or not)
+-- | An `APIResponse` models, unsurprisingly, a response (successful or not)
 -- produced by the wallet backend.
 -- Includes extra informations like pagination parameters etc.
-data WalletResponse a = WalletResponse
+data APIResponse a = APIResponse
   { wrData   :: a
   -- ^ The wrapped domain object.
   , wrStatus :: ResponseStatus
@@ -943,15 +943,15 @@ data WalletResponse a = WalletResponse
   -- ^ Extra metadata to be returned.
   } deriving (Show, Eq, Generic, Functor)
 
-deriveJSON Aeson.defaultOptions ''WalletResponse
+deriveJSON Aeson.defaultOptions ''APIResponse
 
-instance Arbitrary a => Arbitrary (WalletResponse a) where
-    arbitrary = WalletResponse <$> arbitrary <*> arbitrary <*> arbitrary
+instance Arbitrary a => Arbitrary (APIResponse a) where
+    arbitrary = APIResponse <$> arbitrary <*> arbitrary <*> arbitrary
 
-instance ToJSON a => MimeRender OctetStream (WalletResponse a) where
+instance ToJSON a => MimeRender OctetStream (APIResponse a) where
     mimeRender _ = encode
 
-instance (ToSchema a, Typeable a) => ToSchema (WalletResponse a) where
+instance (ToSchema a, Typeable a) => ToSchema (APIResponse a) where
     declareNamedSchema _ = do
         let a = Proxy @a
             tyName = toText $ map sanitize (show $ typeRep a :: String)
@@ -961,7 +961,7 @@ instance (ToSchema a, Typeable a) => ToSchema (WalletResponse a) where
         aRef <- declareSchemaRef a
         respRef <- declareSchemaRef (Proxy @ResponseStatus)
         metaRef <- declareSchemaRef (Proxy @Metadata)
-        pure $ NamedSchema (Just $ "WalletResponse-" <> tyName) $ mempty
+        pure $ NamedSchema (Just $ "APIResponse-" <> tyName) $ mempty
             & type_ .~ SwaggerObject
             & required .~ ["data", "status", "meta"]
             & properties .~
@@ -970,8 +970,8 @@ instance (ToSchema a, Typeable a) => ToSchema (WalletResponse a) where
                 , ("meta", metaRef)
                 ]
 
-instance Buildable a => Buildable (WalletResponse a) where
-    build WalletResponse{..} = bprint
+instance Buildable a => Buildable (APIResponse a) where
+    build APIResponse{..} = bprint
         ("\n\tstatus="%build
         %"\n\tmeta="%build
         %"\n\tdata="%build
@@ -980,14 +980,14 @@ instance Buildable a => Buildable (WalletResponse a) where
         wrMeta
         wrData
 
-instance Example a => Example (WalletResponse a) where
-    example = WalletResponse <$> example
+instance Example a => Example (APIResponse a) where
+    example = APIResponse <$> example
                              <*> pure SuccessStatus
                              <*> example
 
--- | Creates a 'WalletResponse' with just a single record into it.
-single :: a -> WalletResponse a
-single theData = WalletResponse {
+-- | Creates a 'APIResponse' with just a single record into it.
+single :: a -> APIResponse a
+single theData = APIResponse {
       wrData   = theData
     , wrStatus = SuccessStatus
     , wrMeta   = Metadata (PaginationMetadata 1 (Page 1) (PerPage 1) 1)

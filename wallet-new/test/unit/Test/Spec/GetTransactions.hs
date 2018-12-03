@@ -362,7 +362,7 @@ spec = do
                             putTxMeta (pwallet ^. Kernel.walletMeta) meta
                             (result, mbCount) <- (getTxMetas hdl) (Offset 0) (Limit 10) Everything Nothing NoFilterOp NoFilterOp Nothing
                             map Isomorphic result `shouldMatchList` [Isomorphic meta]
-                            let check WalletResponse{..} = do
+                            let check APIResponse{..} = do
                                     let PaginationMetadata{..} = metaPagination wrMeta
                                     wrStatus `shouldBe` SuccessStatus
                                     length wrData `shouldBe` 1
@@ -430,7 +430,7 @@ spec = do
                             _ <- liftIO (WalletLayer.createAddress layer (V1.NewAddress Nothing accIdx (V1.WalletId wId)))
                             (result, mbCount) <- (getTxMetas hdl) (Offset 0) (Limit 10) Everything Nothing NoFilterOp NoFilterOp Nothing
                             map Isomorphic result `shouldMatchList` [Isomorphic meta]
-                            let check WalletResponse{..} = do
+                            let check APIResponse{..} = do
                                     let PaginationMetadata{..} = metaPagination wrMeta
                                     wrStatus `shouldBe` SuccessStatus
                                     length wrData `shouldBe` 1

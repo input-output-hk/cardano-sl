@@ -961,17 +961,17 @@ Make sure to carefully read the section about [Pagination](#section/Pagination) 
 leverage the API capabilities.
 |]
   where
-    createAccount        = decodeUtf8 $ encodePretty $ genExample @(WalletResponse Account)
-    createAddress        = decodeUtf8 $ encodePretty $ genExample @(WalletResponse WalletAddress)
-    createWallet         = decodeUtf8 $ encodePretty $ genExample @(WalletResponse Wallet)
-    readAccounts         = decodeUtf8 $ encodePretty $ genExample @(WalletResponse [Account])
-    readAccountBalance   = decodeUtf8 $ encodePretty $ genExample @(WalletResponse AccountBalance)
-    readAccountAddresses = decodeUtf8 $ encodePretty $ genExample @(WalletResponse AccountAddresses)
-    readAddresses        = decodeUtf8 $ encodePretty $ genExample @(WalletResponse [Address])
-    readFees             = decodeUtf8 $ encodePretty $ genExample @(WalletResponse EstimatedFees)
-    readNodeInfo         = decodeUtf8 $ encodePretty $ genExample @(WalletResponse NodeInfo)
-    readTransactions     = decodeUtf8 $ encodePretty $ genExample @(WalletResponse [Transaction])
-    readUtxoStatistics   = decodeUtf8 $ encodePretty $ genExample @(WalletResponse UtxoStatistics)
+    createAccount        = decodeUtf8 $ encodePretty $ genExample @(APIResponse Account)
+    createAddress        = decodeUtf8 $ encodePretty $ genExample @(APIResponse WalletAddress)
+    createWallet         = decodeUtf8 $ encodePretty $ genExample @(APIResponse Wallet)
+    readAccounts         = decodeUtf8 $ encodePretty $ genExample @(APIResponse [Account])
+    readAccountBalance   = decodeUtf8 $ encodePretty $ genExample @(APIResponse AccountBalance)
+    readAccountAddresses = decodeUtf8 $ encodePretty $ genExample @(APIResponse AccountAddresses)
+    readAddresses        = decodeUtf8 $ encodePretty $ genExample @(APIResponse [Address])
+    readFees             = decodeUtf8 $ encodePretty $ genExample @(APIResponse EstimatedFees)
+    readNodeInfo         = decodeUtf8 $ encodePretty $ genExample @(APIResponse NodeInfo)
+    readTransactions     = decodeUtf8 $ encodePretty $ genExample @(APIResponse [Transaction])
+    readUtxoStatistics   = decodeUtf8 $ encodePretty $ genExample @(APIResponse UtxoStatistics)
 
 -- | Provide an alternative UI (ReDoc) for rendering Swagger documentation.
 swaggerSchemaUIServer

@@ -42,8 +42,8 @@ import           Pos.Infra.Diffusion.Subscription.Status
 import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
                      deriveSafeBuildable)
 import           Pos.Util.Example
-import           Pos.Util.Servant (CustomQueryFlag, Flaggable (..), Tags,
-                     ValidJSON, WalletResponse)
+import           Pos.Util.Servant (APIResponse, CustomQueryFlag, Flaggable (..),
+                     Tags, ValidJSON)
 import           Pos.Util.UnitsOfMeasure
 import           Serokell.Util.Text
 
@@ -590,14 +590,14 @@ type SettingsAPI =
     Tags '["Settings"]
         :> "node-settings"
         :> Summary "Retrieves the static settings for this node."
-        :> Get '[ValidJSON] (WalletResponse NodeSettings)
+        :> Get '[ValidJSON] (APIResponse NodeSettings)
 
 type InfoAPI =
         Tags '["Info"]
             :> "node-info"
             :> Summary "Retrieves the dynamic information for this node."
             :> CustomQueryFlag "force_ntp_check" ForceNtpCheck
-            :> Get '[ValidJSON] (WalletResponse NodeInfo)
+            :> Get '[ValidJSON] (APIResponse NodeInfo)
 
 -- The API definition is down here for now due to TH staging restrictions. Will
 -- relocate other stuff into it's own module when the extraction is complete.

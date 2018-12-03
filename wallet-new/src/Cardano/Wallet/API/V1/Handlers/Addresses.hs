@@ -22,14 +22,14 @@ handlers w =  listAddresses w
          :<|> getAddress w
 
 listAddresses :: PassiveWalletLayer IO
-              -> RequestParams -> Handler (WalletResponse [WalletAddress])
+              -> RequestParams -> Handler (APIResponse [WalletAddress])
 listAddresses pwl params = do
     addrs <- liftIO $ WalletLayer.getAddresses pwl params
     return $ fromSlice (rpPaginationParams params) addrs
 
 newAddress :: PassiveWalletLayer IO
            -> NewAddress
-           -> Handler (WalletResponse WalletAddress)
+           -> Handler (APIResponse WalletAddress)
 newAddress pwl newAddressRequest = do
     res <- liftIO $ WalletLayer.createAddress pwl newAddressRequest
     case res of
@@ -43,7 +43,7 @@ newAddress pwl newAddressRequest = do
 --    known to this wallet.
 getAddress :: PassiveWalletLayer IO
            -> Text
-           -> Handler (WalletResponse WalletAddress)
+           -> Handler (APIResponse WalletAddress)
 getAddress pwl addressRaw = do
     res <- liftIO $ WalletLayer.validateAddress pwl addressRaw
     case res of

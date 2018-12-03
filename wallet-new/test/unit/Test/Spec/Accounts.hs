@@ -125,7 +125,7 @@ spec = describe "Accounts" $ do
                     res <- runExceptT . runHandler' $ hdl
                     case res of
                          Left e -> throwM e
-                         Right API.WalletResponse{..} ->
+                         Right API.APIResponse{..} ->
                              length (V1.accAddresses wrData) `shouldBe` 0
 
     describe "DeleteAccount" $ do
@@ -186,7 +186,7 @@ spec = describe "Accounts" $ do
                 pm <- pick arbitrary
                 withFixture pm $ \_ layer _ Fixture{..} -> do
                     let create = Handlers.newAccount layer (V1.walId fixtureV1Wallet) fixtureNewAccountRq
-                    (Right API.WalletResponse{..}) <- runExceptT . runHandler' $ create
+                    (Right API.APIResponse{..}) <- runExceptT . runHandler' $ create
                     let accountIndex = V1.accIndex wrData
                     let delete = Handlers.deleteAccount layer (V1.walId fixtureV1Wallet) accountIndex
                     res <- runExceptT . runHandler' $ delete
@@ -293,7 +293,7 @@ spec = describe "Accounts" $ do
                 pm <- pick arbitrary
                 withFixture pm $ \_ layer _ Fixture{..} -> do
                     let create = Handlers.newAccount layer (V1.walId fixtureV1Wallet) fixtureNewAccountRq
-                    (Right API.WalletResponse{..}) <- runExceptT . runHandler' $ create
+                    (Right API.APIResponse{..}) <- runExceptT . runHandler' $ create
                     let accountIndex = V1.accIndex wrData
                     let updateRq = V1.AccountUpdate "my new account"
                     let update = Handlers.updateAccount layer (V1.walId fixtureV1Wallet) accountIndex updateRq
@@ -362,7 +362,7 @@ spec = describe "Accounts" $ do
                 pm <- pick arbitrary
                 withFixture pm $ \_ layer _ Fixture{..} -> do
                     let create = Handlers.newAccount layer (V1.walId fixtureV1Wallet) fixtureNewAccountRq
-                    (Right API.WalletResponse{..}) <- runExceptT . runHandler' $ create
+                    (Right API.APIResponse{..}) <- runExceptT . runHandler' $ create
                     let accountIndex = V1.accIndex wrData
                     let fetch = Handlers.getAccount layer (V1.walId fixtureV1Wallet) accountIndex
                     res <- runExceptT . runHandler' $ fetch

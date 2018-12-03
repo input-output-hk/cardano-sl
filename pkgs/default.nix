@@ -17067,7 +17067,6 @@ x509-store
 testHaskellDepends = [
 acid-state
 aeson
-async
 base
 bytestring
 cardano-crypto

@@ -1,3 +1,6 @@
+[submodule "chain"]
+	path = chain
+	url = https://github.com/input-output-hk/cardano-chain.git
 [submodule "wallet-new"]
 	path = wallet-new
 	url = https://github.com/input-output-hk/cardano-wallet.git

@@ -20,9 +20,7 @@ import           UnliftIO (MonadUnliftIO)
 
 -- | This function selects the current slot leaders by obtaining the
 -- genesis stakeholders, then tracing them through the delegation
--- mapping. If a genesis stakeholder delegated to another stakeholder,
--- we return the delegatee's id. If the genesis stakeholder did not
--- delegate, we return their id.
+-- mapping.
 getSlotLeaderObft
     :: (MonadDBRead m, MonadUnliftIO m)
     => Genesis.Config -> SlotId -> m (StakeholderId, ProxySKBlockInfo)

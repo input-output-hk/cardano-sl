@@ -28,7 +28,7 @@ library
 
   build-depends:       base
                      , cardano-sl
-                     , cardano-sl-chain
+                     , cardano-chain
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-db
@@ -96,8 +96,8 @@ test-suite cardano-client-test
                        base
                      , bytestring
                      , cardano-sl
-                     , cardano-sl-chain
-                     , cardano-sl-chain-test
+                     , cardano-chain
+                     , cardano-chain-test
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-crypto

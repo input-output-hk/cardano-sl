@@ -150,7 +150,7 @@ library
                       , canonical-json
                       , cardano-sl-binary
                       , cardano-sl-binary-test
-                      , cardano-sl-chain
+                      , cardano-chain
                       , cardano-sl-core
                       , cardano-sl-crypto
                       , cardano-sl-crypto-test
@@ -307,8 +307,8 @@ test-suite cardano-test
                      , cardano-sl
                      , cardano-sl-binary
                      , cardano-sl-binary-test
-                     , cardano-sl-chain
-                     , cardano-sl-chain-test
+                     , cardano-chain
+                     , cardano-chain-test
                      , cardano-sl-core
                      , cardano-sl-core-test
                      , cardano-sl-crypto
@@ -395,8 +395,8 @@ benchmark cardano-bench-criterion
                      , base
                      , bytestring
                      , cardano-sl
-                     , cardano-sl-chain
-                     , cardano-sl-chain-test
+                     , cardano-chain
+                     , cardano-chain-test
                      , cardano-sl-core
                      , cardano-sl-core-test
                      , cardano-sl-crypto

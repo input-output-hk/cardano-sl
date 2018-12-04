@@ -48,8 +48,8 @@ library
                      , bytestring
                      , canonical-json
                      , cardano-sl
-                     , cardano-sl-chain
-                     , cardano-sl-chain-test
+                     , cardano-chain
+                     , cardano-chain-test
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-core-test
@@ -130,7 +130,7 @@ executable cardano-auxx
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-networking
-                     , cardano-sl-chain
+                     , cardano-chain
                      , cardano-sl-util
                      , temporary
                      , network-transport-tcp
@@ -188,7 +188,7 @@ test-suite cardano-auxx-test
   build-depends:
                        QuickCheck
                      , cardano-sl-auxx
-                     , cardano-sl-chain
+                     , cardano-chain
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , hspec

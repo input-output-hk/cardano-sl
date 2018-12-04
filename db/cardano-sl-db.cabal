@@ -128,7 +128,7 @@ library
                      , binary
                      , bytestring
                      , cardano-sl-binary
-                     , cardano-sl-chain
+                     , cardano-chain
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-util
@@ -204,8 +204,8 @@ test-suite db-test
                      , cardano-crypto
                      , cardano-sl-crypto
                      , cardano-sl-binary
-                     , cardano-sl-chain
-                     , cardano-sl-chain-test
+                     , cardano-chain
+                     , cardano-chain-test
                      , cardano-sl-core
                      , cardano-sl-core-test
                      , cardano-sl-db

@@ -20,7 +20,7 @@ library
                      , aeson
                      , bytestring
                      , cardano-sl
-                     , cardano-sl-chain
+                     , cardano-chain
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-db
@@ -68,7 +68,7 @@ executable cardano-node-simple
   hs-source-dirs:      app
   main-is:             Main.hs
   build-depends:       base
-                     , cardano-sl-chain
+                     , cardano-chain
                      , cardano-sl-core
                      , cardano-sl-util
                      , cardano-sl-node

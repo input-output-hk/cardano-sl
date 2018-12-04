@@ -39,8 +39,8 @@ library
                      , base
                      , bytestring
                      , cardano-sl
-                     , cardano-sl-chain
-                     , cardano-sl-chain-test
+                     , cardano-chain
+                     , cardano-chain-test
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-core-test
@@ -120,8 +120,8 @@ test-suite cardano-generator-test
                      , bytestring
                      , cardano-sl
                      , cardano-sl-binary
-                     , cardano-sl-chain
-                     , cardano-sl-chain-test
+                     , cardano-chain
+                     , cardano-chain-test
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-db
@@ -183,7 +183,7 @@ benchmark cardano-sl-verification-bench
   type:                 exitcode-stdio-1.0
   build-depends:        base
                       , cardano-sl
-                      , cardano-sl-chain
+                      , cardano-chain
                       , cardano-sl-core
                       , cardano-sl-crypto
                       , cardano-sl-db
@@ -237,7 +237,7 @@ executable cardano-sl-verification-bench-exe
                       , bytestring
                       , cardano-sl
                       , cardano-sl-binary
-                      , cardano-sl-chain
+                      , cardano-chain
                       , cardano-sl-core
                       , cardano-sl-crypto
                       , cardano-sl-db

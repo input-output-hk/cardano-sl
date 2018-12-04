@@ -270,7 +270,7 @@ let
    // { inherit (self.cardanoPackages)
           cardano-sl
           cardano-sl-auxx
-          cardano-sl-chain
+          cardano-chain
           cardano-sl-cluster
           cardano-sl-core
           cardano-sl-crypto

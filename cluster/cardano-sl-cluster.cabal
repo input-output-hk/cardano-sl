@@ -28,7 +28,7 @@ library
   build-depends: base >=4.7 && <5
 
                , cardano-sl
-               , cardano-sl-chain
+               , cardano-chain
                , cardano-sl-core
                , cardano-sl-infra
                , cardano-sl-networking

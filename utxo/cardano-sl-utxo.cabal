@@ -30,8 +30,8 @@ library
                      , QuickCheck
                      , cardano-sl
                      , cardano-sl-binary
-                     , cardano-sl-chain
-                     , cardano-sl-chain-test
+                     , cardano-chain
+                     , cardano-chain-test
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-core-test

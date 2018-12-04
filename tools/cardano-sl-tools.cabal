@@ -70,7 +70,7 @@ executable cardano-keygen
                      , bytestring >= 0.10
                      , canonical-json
                      , cardano-sl
-                     , cardano-sl-chain
+                     , cardano-chain
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-util
@@ -132,7 +132,7 @@ executable cardano-launcher
                      , bytestring
                      , cardano-report-server >= 0.2.1
                      , cardano-sl
-                     , cardano-sl-chain
+                     , cardano-chain
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-db
@@ -268,7 +268,7 @@ executable cardano-blockchain-analyser
                      , base
                      , cardano-sl
                      , cardano-sl-binary
-                     , cardano-sl-chain
+                     , cardano-chain
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-db

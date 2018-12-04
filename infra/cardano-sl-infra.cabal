@@ -123,7 +123,7 @@ library
                       , base64-bytestring
                       , bytestring
                       , cardano-sl-binary
-                      , cardano-sl-chain
+                      , cardano-chain
                       , cardano-sl-core
                       , cardano-sl-crypto
                       , cardano-sl-db
@@ -228,8 +228,8 @@ test-suite infra-test
                   , base
                   , bytestring
                   , cardano-sl-binary-test
-                  , cardano-sl-chain
-                  , cardano-sl-chain-test
+                  , cardano-chain
+                  , cardano-chain-test
                   , cardano-sl-core
                   , cardano-sl-core-test
                   , cardano-sl-crypto

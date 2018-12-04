@@ -45,7 +45,7 @@ let
     cardano-report-server-static = [ "x86_64-linux" ];
     cardano-sl = supportedSystems;
     cardano-sl-auxx = supportedSystems;
-    cardano-sl-chain = supportedSystems;
+    cardano-chain = supportedSystems;
     cardano-sl-cluster = [ "x86_64-linux" ];
     cardano-sl-core = supportedSystems;
     cardano-sl-crypto = supportedSystems;

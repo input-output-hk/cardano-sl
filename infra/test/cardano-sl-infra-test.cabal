@@ -30,8 +30,8 @@ library
                      , base
                      , bytestring
                      , cardano-sl-binary-test
-                     , cardano-sl-chain
-                     , cardano-sl-chain-test
+                     , cardano-chain
+                     , cardano-chain-test
                      , cardano-sl-core
                      , cardano-sl-core-test
                      , cardano-sl-crypto

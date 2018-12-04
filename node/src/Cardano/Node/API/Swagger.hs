@@ -14,7 +14,7 @@ import           Servant.Swagger.UI (SwaggerSchemaUI)
 import Pos.Chain.Txp (TxIn, TxOutAux, TxOut)
 import           Pos.Chain.Update (SoftwareVersion)
 import           Pos.Util.Swagger (swaggerSchemaUIServer)
-import           Pos.Web (serveImpl, CConfirmedProposalState)
+import           Pos.Web (serveDocImpl, CConfirmedProposalState)
 import           Pos.Web.Types (TlsParams)
 
 forkDocServer
@@ -26,7 +26,7 @@ forkDocServer
     -> Maybe TlsParams
     -> IO ()
 forkDocServer prxy swVersion ip port' tlsParams =
-    serveImpl
+    serveDocImpl
         (pure app)
         ip
         port'
@@ -49,12 +49,6 @@ documentationApi curSoftwareVersion prxy = toSwagger prxy
     & info.version .~ fromString (show curSoftwareVersion)
     & host ?~ "127.0.0.1:8083"
     & info.license ?~ ("MIT" & url ?~ URL "https://raw.githubusercontent.com/input-output-hk/cardano-sl/develop/lib/LICENSE")
---     & paths %~ (POST,   "/api/internal/apply-update")       `setDescription` applyUpdateDescription
---     & paths %~ (POST,   "/api/internal/postpone-update")    `setDescription` postponeUpdateDescription
---     & paths %~ (DELETE, "/api/internal/reset-wallet-state") `setDescription` resetWalletStateDescription
---     & paths %~ (POST,   "/api/v1/transactions/fees")        `setDescription` estimateFeesDescription
---     & paths %~ (GET,    "/api/v1/addresses/{address}")      `setDescription` getAddressDescription
---
 
 instance ToParamSchema TxIn where
     toParamSchema _ = mempty

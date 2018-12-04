@@ -5,16 +5,16 @@ module Cardano.Node.API.Swagger where
 
 import           Universum
 
-import           Control.Lens ((?~), at)
+import           Control.Lens (at, (?~))
 import           Data.Swagger
 import           Servant
 import           Servant.Swagger
 import           Servant.Swagger.UI (SwaggerSchemaUI)
 
-import Pos.Chain.Txp (TxIn, TxOutAux, TxOut)
+import           Pos.Chain.Txp (TxIn, TxOut, TxOutAux)
 import           Pos.Chain.Update (SoftwareVersion)
 import           Pos.Util.Swagger (swaggerSchemaUIServer)
-import           Pos.Web (serveDocImpl, CConfirmedProposalState)
+import           Pos.Web (CConfirmedProposalState, serveDocImpl)
 import           Pos.Web.Types (TlsParams)
 
 forkDocServer

@@ -1,7 +1,5 @@
 {-# LANGUAGE LambdaCase #-}
 
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
 -- | This module implements the API defined in "Pos.Node.API".
 module Cardano.Node.API where
 
@@ -52,7 +50,7 @@ import           Pos.Util.Servant (APIResponse (..), JsendException (..),
 import           Pos.Web (serveImpl)
 import qualified Pos.Web as Legacy
 
-import Cardano.Node.API.Swagger (forkDocServer)
+import           Cardano.Node.API.Swagger (forkDocServer)
 
 type NodeV1Api
     = "v1"

@@ -194,9 +194,9 @@ nodeApiArgsParser =
                )
 
 data NodeApiArgs = NodeApiArgs
-    { nodeBackendAddress   :: !NetworkAddress
-    , nodeBackendTLSParams :: !(Maybe TlsParams)
-    , nodeBackendDebugMode :: !Bool
+    { nodeBackendAddress    :: !NetworkAddress
+    , nodeBackendTLSParams  :: !(Maybe TlsParams)
+    , nodeBackendDebugMode  :: !Bool
     , nodeBackendDocAddress :: !NetworkAddress
     } deriving Show
 

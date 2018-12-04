@@ -132,7 +132,6 @@ instance GDiagnosticToJSON U1 where
 
 data ResponseStatus =
       SuccessStatus
-    | FailStatus
     | ErrorStatus
     deriving (Show, Eq, Ord, Enum, Bounded)
 
@@ -153,5 +152,4 @@ instance ToSchema ResponseStatus where
 
 instance Buildable ResponseStatus where
     build SuccessStatus = "success"
-    build FailStatus    = "fail"
     build ErrorStatus   = "error"

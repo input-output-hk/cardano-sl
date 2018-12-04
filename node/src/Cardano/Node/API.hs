@@ -52,9 +52,9 @@ import           Pos.Web (serveImpl)
 import qualified Pos.Web as Legacy
 
 type NodeV1Api
-    = "v1"
-    :> ( Node.API
-    :<|> Legacy.NodeApi
+    = "api" :> "v1" :>
+    (       Node.API
+    :<|>    Legacy.NodeApi
     )
 
 nodeV1Api :: Proxy NodeV1Api

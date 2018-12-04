@@ -14474,6 +14474,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-core
 , cardano-sl-infra
 , cardano-sl-networking
+, cardano-sl-node
 , cardano-sl-util
 , cardano-sl-x509
 , cardano-wallet
@@ -14521,6 +14522,7 @@ cardano-sl-chain
 cardano-sl-core
 cardano-sl-infra
 cardano-sl-networking
+cardano-sl-node
 cardano-sl-util
 cardano-sl-x509
 cardano-wallet
@@ -16092,25 +16094,34 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-networking
 , cardano-sl-util
 , cardano-sl-utxo
+, cardano-sl-x509
+, connection
 , containers
 , cpphs
 , data-default
 , hashable
 , hspec
+, http-client
+, http-client-tls
+, http-media
 , http-types
 , HUnit
 , lens
 , mtl
 , QuickCheck
+, servant-client
 , servant-server
 , stdenv
 , stm
 , text
 , time-units
+, tls
 , universum
 , validation
 , wai
 , warp
+, x509
+, x509-store
 }:
 mkDerivation {
 
@@ -16137,16 +16148,25 @@ cardano-sl-db
 cardano-sl-infra
 cardano-sl-networking
 cardano-sl-util
+cardano-sl-x509
+connection
 data-default
+http-client
+http-client-tls
+http-media
 http-types
 lens
+servant-client
 servant-server
 stm
 text
 time-units
+tls
 universum
 wai
 warp
+x509
+x509-store
 ];
 executableHaskellDepends = [
 base

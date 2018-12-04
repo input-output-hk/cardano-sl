@@ -162,8 +162,8 @@ launchNodeServer
         (forkDocServer
             (Proxy @NodeV1Api)
             (curSoftwareVersion updateConfiguration)
-            "127.0.0.1" -- TODO: get me from config
-            8084 -- TODO: get me from config
+            (BS8.unpack docAddress)
+            docPort
             (do guard (not isDebug)
                 nodeBackendTLSParams params)
 
@@ -181,6 +181,7 @@ launchNodeServer
     nodeCtx = nrContext nodeResources
     (slottingVarTimestamp, slottingVar) = ncSlottingVar nodeCtx
     (ipAddress, portNumber) = nodeBackendAddress params
+    (docAddress, docPort) = nodeBackendDocAddress params
 
 handlers
     :: Diffusion IO

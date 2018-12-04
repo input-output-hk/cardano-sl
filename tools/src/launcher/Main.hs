@@ -12,6 +12,7 @@
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
+{-# OPTIONS_GHC -Wno-type-defaults #-}
 
 import qualified Prelude (show)
 import           Universum

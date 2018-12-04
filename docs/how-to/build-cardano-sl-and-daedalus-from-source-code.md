@@ -65,7 +65,7 @@ NOTE: the various other Cardano components can be obtained through other attribu
    - `cardano-explorer`, `cardano-explorer-swagger`, `cardano-explorer-mock`
 -  `cardano-sl-tools`:
    - `cardano-analyzer`, `cardano-dht-keygen`, `cardano-genupdate`, `cardano-keygen`, `cardano-launcher`, `cardano-addr-convert`, `cardano-cli-docs`, `cardano-block-gen`, `cardano-post-mortem`
--  `cardano-sl-wallet-new-static`:
+-  `cardano-wallet-static`:
    - `cardano-node`, `cardano-swagger`
 
 In general, for any given cabal `PACKAGE` provided by Cardano, there is a
@@ -183,7 +183,7 @@ All dependencies necessary for the Cabal build are provided by the
 
 To start a GHCi session for a component (wallet-new for example), run:
 
-    [nix-shell:~/cardano-sl]$ cabal new-repl cardano-sl-wallet-new
+    [nix-shell:~/cardano-sl]$ cabal new-repl cardano-wallet
 
 
 ## Daedalus Wallet

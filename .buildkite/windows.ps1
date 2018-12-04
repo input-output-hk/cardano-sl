@@ -20,6 +20,7 @@ $env:TMP="Z:\\tmp"
 $env:CHECKOUT_PATH=(Get-Item -Path ".\").FullName
 
 # Temp directory needs to exist
+rd -r -fo $env:TMP
 New-Item -ItemType Directory -Force -Path $env:TMP
 
 New-Item -ItemType Directory -Force -Path z:\ghc

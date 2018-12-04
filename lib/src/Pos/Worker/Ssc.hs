@@ -38,7 +38,7 @@ import           Pos.Chain.Ssc (HasSscConfiguration, HasSscContext (..),
                      mkSignedCommitment, mkVssCertificate, mpcSendInterval,
                      randCommitmentAndOpening, scBehavior, scParticipateSsc,
                      scVssKeyPair, sgsCommitments, vssThreshold)
-import           Pos.Chain.Update (BlockVersionData (..))
+import           Pos.Chain.Update (BlockVersionData (..), ConsensusEra (..))
 import           Pos.Core (BlockCount, EpochIndex, HasPrimaryKey, SlotId (..),
                      StakeholderId, Timestamp (..), getOurSecretKey,
                      getOurStakeholderId, getSlotIndex, kEpochSlots,
@@ -58,6 +58,7 @@ import           Pos.DB.Ssc (getGlobalCerts, getStableCerts,
                      sscProcessCertificate, sscProcessCommitment,
                      sscProcessOpening, sscProcessShares)
 import qualified Pos.DB.Ssc.SecretStorage as SS
+import           Pos.DB.Update (getConsensusEra)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo, recoveryCommGuard)
 import           Pos.Infra.Shutdown (HasShutdownContext)
@@ -105,6 +106,16 @@ sscWorkers genesisConfig =
 
 shouldParticipate :: SscMode ctx m => BlockVersionData -> EpochIndex -> m Bool
 shouldParticipate genesisBvd epoch = do
+    -- OBFT change: if we're in OBFT ConsensusEra, then if `scParticipateSsc`
+    -- is True, we set it to False.
+    era <- getConsensusEra
+    spsTV <- scParticipateSsc <$> view sscContext
+    () <- atomically $ do
+        participationEnabled <- readTVar spsTV
+        case (participationEnabled, era) of
+            (True, OBFT _) -> writeTVar spsTV False
+            _              -> pure ()
+
     richmen <- getSscRichmen genesisBvd "shouldParticipate" epoch
     participationEnabled <- view sscContext >>=
         (readTVarIO . scParticipateSsc)

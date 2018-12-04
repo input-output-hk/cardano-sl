@@ -57,6 +57,8 @@ import           Text.PrettyPrint.ANSI.Leijen (Doc)
 #ifndef mingw32_HOST_OS
 import           System.Posix.Signals (sigKILL, signalProcess)
 import qualified System.Process.Internals as Process
+#else
+import qualified System.Win32.Process as Process
 #endif
 
 -- Modules needed for system'
@@ -551,7 +553,9 @@ runUpdater ndbp ud = do
             Nothing -> runUpdaterProc path args'
             Just rp -> do
                 -- Write the bat script and pass it the updater with all args
-                writeWindowsUpdaterRunner rp
+#ifdef mingw32_HOST_OS
+                writeWindowsUpdaterRunner rp =<< liftIO Process.getCurrentProcessId
+#endif
                 -- The script will terminate this updater so this function shouldn't return
                 runUpdaterProc rp ((toText path):args')
         case exitCode of
@@ -582,12 +586,12 @@ runUpdaterProc path args = do
         phvar <- newEmptyMVar
         system' phvar cr mempty EUpdater
 
-writeWindowsUpdaterRunner :: FilePath -> M ()
-writeWindowsUpdaterRunner runnerPath = liftIO $ do
+writeWindowsUpdaterRunner :: FilePath -> Process.ProcessId -> M ()
+writeWindowsUpdaterRunner runnerPath selfPid = liftIO $ do
     exePath <- getExecutablePath
     launcherArgs <- getArgs
     writeFile (toString runnerPath) $ unlines
-        [ "TaskKill /IM cardano-launcher.exe /F"
+        [ "TaskKill /PID "<>show selfPid<>" /F"
         -- Run updater
         , "%*"
         -- Delete updater

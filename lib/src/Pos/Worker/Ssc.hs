@@ -38,7 +38,7 @@ import           Pos.Chain.Ssc (HasSscConfiguration, HasSscContext (..),
                      mkSignedCommitment, mkVssCertificate, mpcSendInterval,
                      randCommitmentAndOpening, scBehavior, scParticipateSsc,
                      scVssKeyPair, sgsCommitments, vssThreshold)
-import           Pos.Chain.Update (BlockVersionData (..))
+import           Pos.Chain.Update (BlockVersionData (..), ConsensusEra (..))
 import           Pos.Core (BlockCount, EpochIndex, HasPrimaryKey, SlotId (..),
                      StakeholderId, Timestamp (..), getOurSecretKey,
                      getOurStakeholderId, getSlotIndex, kEpochSlots,
@@ -51,13 +51,14 @@ import           Pos.Crypto (SecretKey, VssKeyPair, VssPublicKey, randomNumber,
                      randomNumberInRange, runSecureRandom, vssKeyGen)
 import           Pos.Crypto.SecretSharing (toVssPublicKey)
 import           Pos.DB (gsAdoptedBVData)
-import           Pos.DB.Class (MonadDB, MonadGState)
+import           Pos.DB.Class (MonadDB, MonadDBRead, MonadGState)
 import           Pos.DB.Lrc (HasLrcContext, getSscRichmen)
 import           Pos.DB.Ssc (getGlobalCerts, getStableCerts,
                      sscGarbageCollectLocalData, sscGetGlobalState,
                      sscProcessCertificate, sscProcessCommitment,
                      sscProcessOpening, sscProcessShares)
 import qualified Pos.DB.Ssc.SecretStorage as SS
+import           Pos.DB.Update (getConsensusEra)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo, recoveryCommGuard)
 import           Pos.Infra.Shutdown (HasShutdownContext)
@@ -98,9 +99,21 @@ sscWorkers
   => Genesis.Config
   -> [ (Text, Diffusion m -> m ()) ]
 sscWorkers genesisConfig =
-    [ ("ssc on new slot", onNewSlotSsc genesisConfig)
-    , ("ssc check for ignored", checkForIgnoredCommitmentsWorker genesisConfig)
+    [ ("ssc on new slot", whenOriginalEraWith $ onNewSlotSsc genesisConfig)
+    , ("ssc check for ignored", whenOriginalEraWith $ checkForIgnoredCommitmentsWorker genesisConfig)
     ]
+
+-- | Wrap a single-argument function in a check which only runs when we are
+-- in the OBFT ConsensusEra.
+whenOriginalEraWith :: (MonadDBRead m, WithLogger m) => (a -> m ()) -> a -> m ()
+whenOriginalEraWith k arg = do
+    era <- getConsensusEra
+    case era of
+        Original -> do
+            logDebug $ sformat ("whenOriginalEraWith: we are in era "%shown%"; running SSC") era
+            k arg
+        OBFT     ->
+            logDebug $ sformat ("whenOriginalEraWith: we are in era "%shown%"; not running SSC") era
 
 shouldParticipate :: SscMode ctx m => BlockVersionData -> EpochIndex -> m Bool
 shouldParticipate genesisBvd epoch = do

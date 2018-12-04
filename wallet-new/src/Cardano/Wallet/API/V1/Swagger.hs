@@ -26,7 +26,7 @@ import           Cardano.Wallet.TypeLits (KnownSymbols (..))
 import           Pos.Chain.Update (SoftwareVersion)
 import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
-import           Pos.Util.Servant (CustomQueryFlag, LoggingApi)
+import           Pos.Util.Servant (LoggingApi)
 
 import           Control.Lens (At, Index, IxValue, at, (?~))
 import           Data.Aeson (encode)
@@ -35,10 +35,8 @@ import           Data.Map (Map)
 import           Data.Swagger hiding (Example)
 import           Data.Typeable (typeRep)
 import           Formatting (build, sformat)
-import           GHC.TypeLits (KnownSymbol)
 import           NeatInterpolation
-import           Servant (Handler, QueryFlag, ServantErr (..), Server,
-                     StdMethod (..))
+import           Servant (Handler, ServantErr (..), Server, StdMethod (..))
 import           Servant.API.Sub
 import           Servant.Swagger
 import           Servant.Swagger.UI (SwaggerSchemaUI')
@@ -270,25 +268,6 @@ instance ToParamSchema Core.Address where
 
 instance ToParamSchema (V1 Core.Address) where
   toParamSchema _ = toParamSchema (Proxy @Core.Address)
-
--- This instance is noted as OVERLAPPING because it injects some special-case
--- knowledge into the parameter. Another instance is defined in
--- "Pos.Util.Servant", which does not have this special case knowledge.
-instance {-# OVERLAPPING #-} ( KnownSymbol sym
-         , HasSwagger sub
-         ) =>
-         HasSwagger (CustomQueryFlag sym flag :> sub) where
-    toSwagger _ =
-        let swgr       = toSwagger (Proxy @(QueryFlag sym :> sub))
-        in swgr & over (operationsOf swgr . parameters) (map toDescription)
-          where
-            toDescription :: Referenced Param -> Referenced Param
-            toDescription (Inline p@(_paramName -> pName)) =
-                case M.lookup pName customQueryFlagToDescription of
-                    Nothing -> Inline p
-                    Just d  -> Inline (p & description .~ Just d)
-            toDescription x = x
-
 
 --
 -- Descriptions

@@ -43,7 +43,7 @@ import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
                      deriveSafeBuildable)
 import           Pos.Util.Example
 import           Pos.Util.Servant (APIResponse, CustomQueryFlag, Flaggable (..),
-                     Tags, ValidJSON)
+                     Tags, ValidJSON, HasCustomQueryFlagDescription(..))
 import           Pos.Util.UnitsOfMeasure
 import           Serokell.Util.Text
 
@@ -106,6 +106,10 @@ deriveSafeBuildable ''ForceNtpCheck
 instance BuildableSafeGen ForceNtpCheck where
     buildSafeGen _ ForceNtpCheck = "force ntp check"
     buildSafeGen _ NoNtpCheck    = "no ntp check"
+
+forceNtpCheckDescription :: T.Text
+forceNtpCheckDescription =
+    "In some cases, API Clients need to force a new NTP check as a previous result gets cached. A typical use-case is after asking a user to fix its system clock. If this flag is set, request will block until NTP server responds or it will timout if NTP server is not available within **30** seconds."
 
 
 -- | The different between the local time and the remote NTP server.
@@ -598,6 +602,9 @@ type InfoAPI =
             :> Summary "Retrieves the dynamic information for this node."
             :> CustomQueryFlag "force_ntp_check" ForceNtpCheck
             :> Get '[ValidJSON] (APIResponse NodeInfo)
+
+instance HasCustomQueryFlagDescription "force_ntp_check" where
+    customDescription _ = Just forceNtpCheckDescription
 
 -- The API definition is down here for now due to TH staging restrictions. Will
 -- relocate other stuff into it's own module when the extraction is complete.

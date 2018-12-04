@@ -60,6 +60,7 @@ module Pos.Util.Servant
 
     , Flaggable (..)
     , CustomQueryFlag
+    , HasCustomQueryFlagDescription(..)
 
     , serverHandlerL
     , serverHandlerL'
@@ -80,7 +81,7 @@ module Pos.Util.Servant
 import           Universum
 
 import           Control.Exception.Safe (handleAny)
-import           Control.Lens (Iso, iso, ix, makePrisms)
+import           Control.Lens (Iso, iso, ix, makePrisms, (?~))
 import           Control.Monad.Except (ExceptT (..), MonadError (..))
 import           Data.Aeson (FromJSON (..), ToJSON (..), eitherDecode, encode,
                      object, (.=))
@@ -118,7 +119,8 @@ import           Servant.Client.Core (RunClient)
 import           Servant.Server (Handler (..), HasServer (..), ServantErr (..),
                      Server)
 import qualified Servant.Server.Internal as SI
-import           Servant.Swagger (HasSwagger (toSwagger))
+import           Servant.Swagger
+import           Servant.Swagger.Internal
 import           Test.QuickCheck
 
 import           Pos.Infra.Util.LogSafe (BuildableSafe, SecuredText, buildSafe,
@@ -762,15 +764,29 @@ instance ReportDecodeError api =>
 -- Boolean type for all flags but we can implement custom type.
 data CustomQueryFlag (sym :: Symbol) flag
 
--- This instance is overlapped by one in "Cardano.Wallet.API.V1.Swagger", which
--- provides API specific information. It should be removed and a cleaner
--- description added.
-instance {-# OVERLAPPABLE #-} ( KnownSymbol sym
-         , HasSwagger sub
-         ) =>
-         HasSwagger (CustomQueryFlag sym flag :> sub) where
-    toSwagger _ =
-        toSwagger (Proxy @(QueryFlag sym :> sub))
+instance
+    ( KnownSymbol sym
+    , HasSwagger sub
+    , HasCustomQueryFlagDescription sym
+    ) => HasSwagger (CustomQueryFlag sym flag :> sub)
+  where
+    toSwagger _ = toSwagger (Proxy :: Proxy sub)
+        & addParam param
+        & addDefaultResponse400 tname
+      where
+        tname = T.pack (symbolVal (Proxy :: Proxy sym))
+        param = mempty
+            & name .~ tname
+            & description .~ customDescription (Proxy @sym)
+            & schema .~ ParamOther (mempty
+                & in_ .~ ParamQuery
+                & allowEmptyValue ?~ True
+                & paramSchema .~ (toParamSchema (Proxy :: Proxy Bool)
+                    & default_ ?~ toJSON False))
+
+class HasCustomQueryFlagDescription (sym :: Symbol) where
+    customDescription :: Proxy sym -> Maybe Text
+    customDescription _ = Nothing
 
 class Flaggable flag where
     toBool :: flag -> Bool
@@ -780,7 +796,6 @@ instance Flaggable Bool where
     toBool = identity
     fromBool = identity
 
--- TODO (akegalj): this instance is almost the same as upstream HasServer instance of QueryFlag. The only difference is addition of `fromBool` function in `route` implementation. Can we somehow reuse `route` implementation of CustomQuery instead of copy-pasting it here with this small `fromBool` addition?
 instance (KnownSymbol sym, HasServer api context, Flaggable flag)
     => HasServer (CustomQueryFlag sym flag :> api) context where
 

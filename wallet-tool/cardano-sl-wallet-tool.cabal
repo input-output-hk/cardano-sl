@@ -72,7 +72,9 @@ library
                      , x509
                      , x509-store
                      , pem
-                     , unix
+
+  if !os(windows)
+    build-depends:     unix
 
   default-language:    Haskell2010
   default-extensions: TypeOperators
@@ -146,3 +148,64 @@ executable sync-plot
   default-extensions: NoImplicitPrelude
                       OverloadedStrings
                       RecordWildCards
+
+test-suite wallet-tool-specs
+  ghc-options:      -Wall -O2 -threaded -rtsopts
+  type:             exitcode-stdio-1.0
+  main-is:          Spec.hs
+  hs-source-dirs:   test
+  other-modules:    WaitSpec
+
+  default-language: Haskell2010
+  default-extensions: BangPatterns
+                      ConstraintKinds
+                      DeriveGeneric
+                      FlexibleContexts
+                      FlexibleInstances
+                      GADTs
+                      InstanceSigs
+                      LambdaCase
+                      MultiParamTypeClasses
+                      MultiWayIf
+                      NoImplicitPrelude
+                      OverloadedStrings
+                      RankNTypes
+                      RecordWildCards
+                      ScopedTypeVariables
+                      StandaloneDeriving
+                      TypeFamilies
+                      TypeApplications
+                      TypeOperators
+                      DataKinds
+                      TemplateHaskell
+
+  build-depends:      base
+                    , aeson
+                    , bytestring
+                    , cardano-crypto
+                    , cardano-sl
+                    , cardano-sl-client
+                    , cardano-sl-client
+                    , cardano-sl-chain-test
+                    , cardano-sl-core
+                    , cardano-sl-core-test
+                    , cardano-sl-crypto
+                    , cardano-sl-chain
+                    , cardano-sl-util
+                    , cardano-sl-util-test
+                    , cardano-sl-wallet-new
+                    , cardano-sl-wallet-tool
+                    , data-default
+                    , directory
+                    , formatting
+                    , hedgehog
+                    , hspec
+                    , lens
+                    , QuickCheck
+                    , quickcheck-instances
+                    , safecopy
+                    , safe-exceptions
+                    , servant
+                    , servant-client
+                    , text
+                    , universum

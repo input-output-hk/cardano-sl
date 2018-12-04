@@ -10,7 +10,7 @@ module Cardano.Wallet.Client.Wait
   ) where
 
 import           Control.Concurrent (threadDelay)
-import           Control.Concurrent.Async (waitEitherCatchCancel, withAsync)
+import           Control.Concurrent.Async (AsyncCancelled(..), waitEitherCatchCancel, withAsync)
 import           Control.Concurrent.STM.TVar (modifyTVar', newTVar, readTVar)
 import           Control.Retry
 import           Criterion.Measurement (getTime, initializeTime)
@@ -41,7 +41,7 @@ data SyncResult r = SyncResult
   , syncResultStartTime :: !UTCTime
   , syncResultDuration  :: !Double
   , syncResultData      :: ![(Double, r)]
-  } deriving (Show, Typeable, Generic)
+  } deriving (Show, Eq, Typeable, Generic)
 
 data SyncError = SyncErrorClient ClientError
                | SyncErrorProcessDied ProcessID
@@ -56,6 +56,14 @@ instance Buildable SyncError where
   build (SyncErrorTimedOut t) = bprint ("Timed out after "%fixed 1%" seconds") t
   build (SyncErrorException e) = build e
   build SyncErrorInterrupted = build ("Interrupted" :: Text)
+
+instance Eq SyncError where
+  SyncErrorClient a      == SyncErrorClient b      = a == b
+  SyncErrorProcessDied a == SyncErrorProcessDied b = a == b
+  SyncErrorTimedOut a    == SyncErrorTimedOut b    = a == b
+  SyncErrorInterrupted   == SyncErrorInterrupted   = True
+  SyncErrorException _   == SyncErrorException _   = True
+  _ == _ = False
 
 instance ToJSON r => ToJSON (SyncResult r) where
   toJSON (SyncResult err st dur rs) =
@@ -89,18 +97,21 @@ waitForSomething :: (WalletClient IO -> Resp IO a) -- ^ Action to run on wallet
 waitForSomething req check WaitOptions{..} wc = do
   rv <- atomically $ newTVar DList.empty
   (start, dur, res) <- time $ \getElapsed -> do
-    withAsync (timeoutSleep waitTimeoutSeconds) $ \sleep -> do
+    withAsync (timeoutSleep waitTimeoutSeconds) $ \sleep ->
       withAsync (retrying policy (check' rv getElapsed) action) $ \poll -> cancelOnExit poll $
         waitEitherCatchCancel sleep poll
 
   rs <- atomically $ readTVar rv
 
+  -- Unwrap layers of error handling and convert to Maybe SyncError
   let e = case res of
             Left _ -> SyncErrorTimedOut <$> waitTimeoutSeconds
-            Right (Left err) -> Just (SyncErrorException err)
-            Right (Right (True, _)) -> (SyncErrorProcessDied <$> waitProcessID)
+            Right (Left err) -> case fromException err of
+              Just AsyncCancelled -> Just SyncErrorInterrupted
+              Nothing -> Just (SyncErrorException err)
+            Right (Right (False, _)) -> (SyncErrorProcessDied <$> waitProcessID)
             Right (Right (_, Left err)) -> (Just (SyncErrorClient err))
-            _ -> Nothing
+            Right _ -> Nothing
 
   pure $ SyncResult e start dur (DList.toList rs)
 
@@ -111,19 +122,21 @@ waitForSomething req check WaitOptions{..} wc = do
     action _st = (,) <$> checkProcessExists waitProcessID <*> req wc
 
     -- Interpret result of action, log some info, decide whether to continue
+    check' _ _ _st (False, _) = do
+      logStatus $ sformat "Wallet is no longer running"
+      pure False
     check' rv getElapsed _st (_, Right resp) = do
       (unfinished, msg, res) <- check (wrData resp)
       elapsed <- getElapsed
       atomically $ modifyTVar' rv (flip DList.snoc (elapsed, res))
       when unfinished $
-        putStrLn $ sformat (fixed 2%" "%stext) elapsed msg
+        logStatus $ sformat (fixed 2%" "%stext) elapsed msg
       pure unfinished
-    check' _ _ _st (False, Left _) = do
-      putStrLn $ sformat "Wallet is no longer running"
-      pure False
     check' _ _ _st (True, Left err) = do
-      putStrLn $ sformat ("Error connecting to wallet: "%shown) err
+      logStatus $ sformat ("Error connecting to wallet: "%shown) err
       pure True
+
+    logStatus = putStrLn
 
 -- | Sleep for the given time in seconds, or indefinitely.
 timeoutSleep :: Maybe Double -> IO ()

@@ -1,15 +1,34 @@
+{-# LANGUAGE CPP             #-}
+
 module Cardano.Wallet.ProcessUtil
   ( checkProcessExists
   , ProcessID
   , cancelOnExit
+  , interruptSelf
   ) where
+
+import           Universum
 
 import           Control.Concurrent.Async (Async (..), cancel)
 import           Control.Exception (IOException)
+
+#if defined(mingw32_HOST_OS)
+-- Declare stub functions for windows
+
+checkProcessExists :: Maybe ProcessID -> IO Bool
+checkProcessExists = const (pure True)
+
+cancelOnExit :: Async a -> IO b -> IO b
+cancelOnExit _ = id
+
+interruptSelf :: IO ()
+interruptSelf = pure ()
+
+#else
+
 import           System.Posix.Process
 import           System.Posix.Signals
 import           System.Posix.Types
-import           Universum
 
 -- | Monitors that a given process is still running. Useful for when
 -- polling the API of that process.
@@ -28,3 +47,9 @@ cancelOnExit a = cancelOnCtrlC a . cancelOnTerm a
     cancelOnSig sig as act = bracket (addHandler sig (Catch (cancel as))) (addHandler sig) (const act)
     cancelOnCtrlC = cancelOnSig keyboardSignal
     cancelOnTerm = cancelOnSig softwareTermination
+
+-- | This is only used for testing.
+interruptSelf :: IO ()
+interruptSelf = raiseSignal sigINT
+
+#endif

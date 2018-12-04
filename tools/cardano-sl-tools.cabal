@@ -156,6 +156,8 @@ executable cardano-launcher
                      , yaml
   if !os(windows)
     build-depends:     unix
+  else
+    build-depends:     Win32
   default-language:    Haskell2010
   ghc-options:         -threaded
                        -Wall

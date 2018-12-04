@@ -553,9 +553,7 @@ runUpdater ndbp ud = do
             Nothing -> runUpdaterProc path args'
             Just rp -> do
                 -- Write the bat script and pass it the updater with all args
-#ifdef mingw32_HOST_OS
-                writeWindowsUpdaterRunner rp =<< liftIO Process.getCurrentProcessId
-#endif
+                writeWindowsUpdaterRunner rp
                 -- The script will terminate this updater so this function shouldn't return
                 runUpdaterProc rp ((toText path):args')
         case exitCode of
@@ -586,10 +584,15 @@ runUpdaterProc path args = do
         phvar <- newEmptyMVar
         system' phvar cr mempty EUpdater
 
-writeWindowsUpdaterRunner :: FilePath -> Process.ProcessId -> M ()
-writeWindowsUpdaterRunner runnerPath selfPid = liftIO $ do
+writeWindowsUpdaterRunner :: FilePath -> M ()
+writeWindowsUpdaterRunner runnerPath = liftIO $ do
     exePath <- getExecutablePath
     launcherArgs <- getArgs
+#ifdef mingw32_HOST_OS
+    selfPid <- Process.getCurrentProcessId
+#else
+    let selfPid = 0 -- This will never be run on non-Windows
+#endif
     writeFile (toString runnerPath) $ unlines
         [ "TaskKill /PID "<>show selfPid<>" /F"
         -- Run updater

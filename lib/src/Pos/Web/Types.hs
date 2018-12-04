@@ -8,7 +8,7 @@ module Pos.Web.Types
 
 import           Universum
 
-import           Data.Aeson.TH (defaultOptions, deriveToJSON)
+import           Data.Aeson.TH (defaultOptions, deriveJSON)
 
 -- | Stages of SSC.
 -- Also called GodTossing algorithm.
@@ -23,7 +23,7 @@ data SscStage
     | SharesStage
     | OrdinaryStage
 
-deriveToJSON defaultOptions ''SscStage
+deriveJSON defaultOptions ''SscStage
 
 -- | TLS Transport Layer Security file paths.
 data TlsParams = TlsParams
@@ -36,4 +36,4 @@ data TlsParams = TlsParams
 newtype CConfirmedProposalState = CConfirmedProposalState Text
     deriving (Show, Generic, Buildable)
 
-deriveToJSON defaultOptions ''CConfirmedProposalState
+deriveJSON defaultOptions ''CConfirmedProposalState

@@ -47,8 +47,8 @@ import           Cardano.Cluster.Util (getsModify, indexedForM, indexedForM_,
                      ntwrkAddrToString, rotations, unsafeBoolFromString,
                      unsafeElemIndex, unsafeNetworkAddressFromString,
                      unsafeSeverityFromString, (|>))
-import           Cardano.Wallet.Client.Http (WalletClient, mkHttpClient,
-                     mkHttpsManagerSettings, newManager)
+import           Cardano.Node.Manager (mkHttpsManagerSettings, newManager)
+import           Cardano.Wallet.Client.Http (WalletClient, mkHttpClient)
 import           Cardano.X509.Configuration (CertConfiguration (..),
                      CertDescription (..), DirConfiguration (..),
                      ServerConfiguration (..), TLSConfiguration (..),

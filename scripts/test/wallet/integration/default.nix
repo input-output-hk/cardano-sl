@@ -2,7 +2,7 @@ with import ../../../../lib.nix;
 
 { stdenv, writeScript, gnugrep
 
-, cardano-sl-tools, cardano-sl-wallet-new
+, cardano-sl-tools, cardano-wallet
 , demoCluster
 
 ## options for tests
@@ -16,7 +16,7 @@ with import ../../../../lib.nix;
 
 let
   stackExec = optionalString useStackBinaries "stack exec -- ";
-  cardanoDeps = [ cardano-sl-tools cardano-sl-wallet-new ];
+  cardanoDeps = [ cardano-sl-tools cardano-wallet ];
   integrationTestDeps = [ gnugrep ];
   allDeps = integrationTestDeps ++ (optionals (!useStackBinaries ) cardanoDeps);
   demo-cluster = demoCluster.override {

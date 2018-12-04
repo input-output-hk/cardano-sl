@@ -200,7 +200,7 @@ if [[ "$spec_prj" == "" ]]; then
     to_build="$to_build $pkgName"
   done
 elif [[ "$spec_prj" == "wallet-new" ]]; then
-  to_build="cardano-sl-node cardano-sl-wallet-new"
+  to_build="cardano-sl-node cardano-wallet"
 elif [[ "$spec_prj" == "explorer" ]]; then
   to_build="cardano-sl-node cardano-sl-explorer"
 elif [[ "$spec_prj" == "all" ]]; then

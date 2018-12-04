@@ -45,7 +45,7 @@ let
   lib = pkgs.lib;
 in lib // (rec {
   inherit fetchNixPkgs importPkgs cleanSourceTree;
-  isCardanoSL = lib.hasPrefix "cardano-sl";
+  isCardanoSL = lib.hasPrefix "cardano-";
   isBenchmark = args: !((args.isExecutable or false) || (args.isLibrary or true));
 
   # Insert this into builder scripts where programs require a UTF-8

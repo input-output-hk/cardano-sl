@@ -14475,8 +14475,8 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-infra
 , cardano-sl-networking
 , cardano-sl-util
-, cardano-sl-wallet-new
 , cardano-sl-x509
+, cardano-wallet
 , containers
 , cryptonite
 , directory
@@ -14522,8 +14522,8 @@ cardano-sl-core
 cardano-sl-infra
 cardano-sl-networking
 cardano-sl-util
-cardano-sl-wallet-new
 cardano-sl-x509
+cardano-wallet
 containers
 cryptonite
 directory
@@ -14545,7 +14545,7 @@ executableHaskellDepends = [
 ansi-terminal
 async
 base
-cardano-sl-wallet-new
+cardano-wallet
 containers
 docopt
 formatting
@@ -15343,7 +15343,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-infra
 , cardano-sl-mnemonic
 , cardano-sl-util
-, cardano-sl-wallet-new
+, cardano-wallet
 , connection
 , cryptonite
 , data-default
@@ -15401,7 +15401,7 @@ cardano-sl-core
 cardano-sl-crypto
 cardano-sl-mnemonic
 cardano-sl-util
-cardano-sl-wallet-new
+cardano-wallet
 connection
 cryptonite
 data-default
@@ -16743,7 +16743,73 @@ description = "Abstract definitions of UTxO based accounting";
 license = stdenv.lib.licenses.mit;
 
 }) {};
-"cardano-sl-wallet-new" = callPackage
+"cardano-sl-x509" = callPackage
+({
+  mkDerivation
+, aeson
+, asn1-encoding
+, asn1-types
+, base
+, base64-bytestring
+, bytestring
+, cryptonite
+, data-default-class
+, directory
+, filepath
+, hourglass
+, ip
+, QuickCheck
+, stdenv
+, universum
+, unordered-containers
+, x509
+, x509-store
+, x509-validation
+, yaml
+}:
+mkDerivation {
+
+pname = "cardano-sl-x509";
+version = "2.0.0";
+src = ./../x509;
+configureFlags = [
+"--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
+"--ghc-option=-Werror"
+];
+libraryHaskellDepends = [
+aeson
+asn1-encoding
+asn1-types
+base
+base64-bytestring
+bytestring
+cryptonite
+data-default-class
+directory
+filepath
+hourglass
+ip
+universum
+unordered-containers
+x509
+x509-store
+x509-validation
+yaml
+];
+testHaskellDepends = [
+base
+QuickCheck
+universum
+];
+doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl/x509/README.md";
+description = "Tool-suite for generating x509 certificates specialized for RSA with SHA-256";
+license = stdenv.lib.licenses.mit;
+
+}) {};
+"cardano-wallet" = callPackage
 ({
   mkDerivation
 , acid-state
@@ -16754,7 +16820,6 @@ license = stdenv.lib.licenses.mit;
 , async
 , base
 , base58-bytestring
-, basement
 , beam-core
 , beam-migrate
 , beam-sqlite
@@ -16847,6 +16912,7 @@ license = stdenv.lib.licenses.mit;
 , universum
 , unliftio-core
 , unordered-containers
+, uuid
 , vector
 , wai
 , wai-middleware-throttle
@@ -16857,7 +16923,7 @@ license = stdenv.lib.licenses.mit;
 }:
 mkDerivation {
 
-pname = "cardano-sl-wallet-new";
+pname = "cardano-wallet";
 version = "2.0.0";
 src = ./../wallet-new;
 configureFlags = [
@@ -16876,7 +16942,6 @@ aeson-pretty
 async
 base
 base58-bytestring
-basement
 beam-core
 beam-migrate
 beam-sqlite
@@ -16955,6 +17020,7 @@ transformers
 universum
 unliftio-core
 unordered-containers
+uuid
 vector
 wai
 wai-middleware-throttle
@@ -17025,7 +17091,6 @@ containers
 cryptonite
 data-default
 directory
-filepath
 formatting
 hedgehog
 hspec
@@ -17034,7 +17099,6 @@ insert-ordered-containers
 lens
 mtl
 normaldistribution
-optparse-applicative
 QuickCheck
 quickcheck-instances
 random
@@ -17054,74 +17118,8 @@ universum
 vector
 ];
 doHaddock = false;
-homepage = "https://github.com/input-output-hk/cardano-sl/#readme";
+homepage = "https://github.com/input-output-hk/cardano-wallet";
 description = "The Wallet Backend for a Cardano node";
-license = stdenv.lib.licenses.mit;
-
-}) {};
-"cardano-sl-x509" = callPackage
-({
-  mkDerivation
-, aeson
-, asn1-encoding
-, asn1-types
-, base
-, base64-bytestring
-, bytestring
-, cryptonite
-, data-default-class
-, directory
-, filepath
-, hourglass
-, ip
-, QuickCheck
-, stdenv
-, universum
-, unordered-containers
-, x509
-, x509-store
-, x509-validation
-, yaml
-}:
-mkDerivation {
-
-pname = "cardano-sl-x509";
-version = "2.0.0";
-src = ./../x509;
-configureFlags = [
-"--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Wall"
-"--ghc-option=-Wcompat"
-"--ghc-option=-Werror"
-];
-libraryHaskellDepends = [
-aeson
-asn1-encoding
-asn1-types
-base
-base64-bytestring
-bytestring
-cryptonite
-data-default-class
-directory
-filepath
-hourglass
-ip
-universum
-unordered-containers
-x509
-x509-store
-x509-validation
-yaml
-];
-testHaskellDepends = [
-base
-QuickCheck
-universum
-];
-doHaddock = false;
-homepage = "https://github.com/input-output-hk/cardano-sl/x509/README.md";
-description = "Tool-suite for generating x509 certificates specialized for RSA with SHA-256";
 license = stdenv.lib.licenses.mit;
 
 }) {};

@@ -5,7 +5,7 @@ ghcid: ## Run ghcid with the cardano-sl-client package
 	ghcid \
 	    --command "stack ghci cardano-sl-client --ghci-options=-fno-code"
 
-ghcid-test: ## Have ghcid run the test suite for the wallet-new-specs on successful recompile
+ghcid-test: ## Have ghcid run the test suite on successful recompile
 	ghcid \
 	    --command "stack ghci cardano-sl-client:lib cardano-sl-client:test:cardano-client-test --ghci-options=-fobject-code" \
 	    --test "Main.main"

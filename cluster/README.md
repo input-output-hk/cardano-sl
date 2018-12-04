@@ -82,7 +82,7 @@ prefixed with `DEMO_` with a few gotchas:
 For instance, one can disable TLS client authentication doing:
 
 ```
-$> DEMO_NO_CLIENT_AUTH=True stack exec -- cardano-sl-wallet-new:demo
+$> DEMO_NO_CLIENT_AUTH=True stack exec -- cardano-sl-cluster-demo
 ```
 
 ### Relative FilePath

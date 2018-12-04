@@ -1,6 +1,7 @@
 steps:
   - label: 'Acceptance Tests - mainnet'
     command:
+      - git submodule update --init --recursive
       - nix-build -A acceptanceTests.mainnet.full -o acceptance-tests-mainnet-full.sh
       - echo "+++ Syncing mainnet blockchain"
       - ./acceptance-tests-mainnet-full.sh
@@ -10,6 +11,7 @@ steps:
 
   - label: 'Acceptance Tests - testnet'
     command:
+      - git submodule update --init --recursive
       - nix-build -A acceptanceTests.testnet.full -o acceptance-tests-testnet-full.sh
       - echo "+++ Syncing testnet blockchain"
       - ./acceptance-tests-testnet-full.sh

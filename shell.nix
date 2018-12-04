@@ -4,15 +4,15 @@
 # This provides all system and haskell dependencies required to build
 # the cardano-sl haskell packages with stack and cabal.
 #
-# To get a repl for cardano-sl-wallet-new with stack:
+# To get a repl for cardano-wallet with stack:
 #
 #     nix-shell
-#     stack ghci cardano-sl-wallet-new
+#     stack ghci cardano-wallet
 #
-# To get a repl for cardano-sl-wallet-new with cabal:
+# To get a repl for cardano-wallet with cabal:
 #
 #     nix-shell
-#     cabal new-repl cardano-sl-wallet-new
+#     cabal new-repl cardano-wallet
 #
 # To run stylish-haskell over your code:
 #

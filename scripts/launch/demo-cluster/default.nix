@@ -3,7 +3,7 @@ with import ../../../lib.nix;
 { stdenv, runCommand, writeText, writeScript
 , jq, coreutils, curl, gnused, openssl
 
-, cardano-sl-cluster, cardano-sl
+, cardano-sl-cluster, cardano-sl, cardano-wallet
 
 , useStackBinaries ? false
 
@@ -26,7 +26,7 @@ with import ../../../lib.nix;
 
 let
   stackExec = optionalString useStackBinaries "stack exec -- ";
-  cardanoDeps = [ cardano-sl-cluster ];
+  cardanoDeps = [ cardano-sl-cluster cardano-wallet ];
   demoClusterDeps = [ jq coreutils curl gnused openssl ];
   allDeps =  demoClusterDeps ++ (optionals (!useStackBinaries ) cardanoDeps);
   ifWallet = optionalString (runWallet);

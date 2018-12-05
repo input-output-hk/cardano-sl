@@ -1,12 +1,11 @@
 {-# LANGUAGE LambdaCase #-}
 
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
 -- | This module implements the API defined in "Pos.Node.API".
 module Cardano.Node.API where
 
 import           Universum
 
+import           Control.Concurrent.Async (concurrently_)
 import           Control.Concurrent.STM (orElse, retry)
 import           Control.Lens (lens, makeLensesWith, to)
 import           Data.Aeson (encode)
@@ -50,6 +49,8 @@ import           Pos.Util.Servant (APIResponse (..), JsendException (..),
                      UnknownError (..), applicationJson, single)
 import           Pos.Web (serveImpl)
 import qualified Pos.Web as Legacy
+
+import           Cardano.Node.API.Swagger (forkDocServer)
 
 type NodeV1Api
     = "api" :> "v1" :>
@@ -146,14 +147,25 @@ launchNodeServer
                 compileTimeInfo
             :<|> legacyApi
 
-    serveImpl
-        (pure app)
-        (BS8.unpack ipAddress)
-        portNumber
-        (do guard (not isDebug)
-            nodeBackendTLSParams params)
-        (Just exceptionResponse)
-        Nothing -- TODO: Set a port callback for shutdown/IPC
+    concurrently_
+        (serveImpl
+            (pure app)
+            (BS8.unpack ipAddress)
+            portNumber
+            (do guard (not isDebug)
+                nodeBackendTLSParams params)
+            (Just exceptionResponse)
+            Nothing -- TODO: Set a port callback for shutdown/IPC
+            )
+        (forkDocServer
+            (Proxy @NodeV1Api)
+            (curSoftwareVersion updateConfiguration)
+            (BS8.unpack docAddress)
+            docPort
+            (do guard (not isDebug)
+                nodeBackendTLSParams params)
+
+        )
   where
     isDebug = nodeBackendDebugMode params
     exceptionResponse =
@@ -167,6 +179,7 @@ launchNodeServer
     nodeCtx = nrContext nodeResources
     (slottingVarTimestamp, slottingVar) = ncSlottingVar nodeCtx
     (ipAddress, portNumber) = nodeBackendAddress params
+    (docAddress, docPort) = nodeBackendDocAddress params
 
 handlers
     :: Diffusion IO

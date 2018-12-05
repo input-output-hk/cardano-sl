@@ -116,6 +116,7 @@ library
                         Test.Pos.Configuration
 
                         Pos.Util.Servant
+                        Pos.Util.Swagger
                         Pos.Util.Jsend
                         Pos.Util.UnitsOfMeasure
                         Pos.Util.Pagination
@@ -202,6 +203,9 @@ library
                       , servant-client-core >= 0.8.1
                       , servant-server >= 0.8.1
                       , servant-swagger
+                      , servant-swagger-ui
+                      , servant-swagger-ui-core
+                      , servant-swagger-ui-redoc
                       , stm
                       , streaming-commons
                       , swagger2

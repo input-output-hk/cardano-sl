@@ -13548,6 +13548,9 @@ license = stdenv.lib.licenses.bsd3;
 , servant-client-core
 , servant-server
 , servant-swagger
+, servant-swagger-ui
+, servant-swagger-ui-core
+, servant-swagger-ui-redoc
 , stdenv
 , stm
 , streaming-commons
@@ -13646,6 +13649,9 @@ servant-client
 servant-client-core
 servant-server
 servant-swagger
+servant-swagger-ui
+servant-swagger-ui-core
+servant-swagger-ui-redoc
 stm
 streaming-commons
 swagger2
@@ -16083,6 +16089,7 @@ license = stdenv.lib.licenses.mit;
 ({
   mkDerivation
 , aeson
+, async
 , base
 , bytestring
 , cardano-sl
@@ -16111,8 +16118,11 @@ license = stdenv.lib.licenses.mit;
 , QuickCheck
 , servant-client
 , servant-server
+, servant-swagger
+, servant-swagger-ui
 , stdenv
 , stm
+, swagger2
 , text
 , time-units
 , tls
@@ -16138,6 +16148,7 @@ isLibrary = true;
 isExecutable = true;
 libraryHaskellDepends = [
 aeson
+async
 base
 bytestring
 cardano-sl
@@ -16158,7 +16169,10 @@ http-types
 lens
 servant-client
 servant-server
+servant-swagger
+servant-swagger-ui
 stm
+swagger2
 text
 time-units
 tls

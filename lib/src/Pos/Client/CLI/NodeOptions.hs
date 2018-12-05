@@ -173,17 +173,18 @@ nodeWithApiArgsParser =
 nodeApiArgsParser :: Parser NodeApiArgs
 nodeApiArgsParser =
     NodeApiArgs
-        <$> addressParser
+        <$> addressParser "node-api-address" (localhost, 8083)
         <*> tlsParamsParser
         <*> debugModeParser
+        <*> addressParser "node-doc-address" (localhost, 8084)
   where
-    addressParser =
+    addressParser flagName defValue =
         option (fromParsec addrParser) $
-            long "node-api-address"
+            long flagName
          <> metavar "IP:PORT"
          <> help helpMsg
          <> showDefault
-         <> value (localhost, 8083)
+         <> value defValue
     helpMsg = "IP and port for backend node API."
     debugModeParser :: Parser Bool
     debugModeParser =
@@ -193,9 +194,10 @@ nodeApiArgsParser =
                )
 
 data NodeApiArgs = NodeApiArgs
-    { nodeBackendAddress   :: !NetworkAddress
-    , nodeBackendTLSParams :: !(Maybe TlsParams)
-    , nodeBackendDebugMode :: !Bool
+    { nodeBackendAddress    :: !NetworkAddress
+    , nodeBackendTLSParams  :: !(Maybe TlsParams)
+    , nodeBackendDebugMode  :: !Bool
+    , nodeBackendDocAddress :: !NetworkAddress
     } deriving Show
 
 tlsParamsParser :: Parser (Maybe TlsParams)

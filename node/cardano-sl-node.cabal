@@ -18,6 +18,7 @@ library
   hs-source-dirs:      src
   build-depends:       base
                      , aeson
+                     , async
                      , bytestring
                      , connection
                      , cardano-sl
@@ -37,7 +38,10 @@ library
                      , lens
                      , servant-client
                      , servant-server
+                     , servant-swagger
+                     , servant-swagger-ui
                      , stm
+                     , swagger2
                      , text
                      , time-units
                      , tls
@@ -48,6 +52,7 @@ library
                      , x509-store
 
   exposed-modules:     Cardano.Node.API
+                       Cardano.Node.API.Swagger
                        Cardano.Node.Client
                        Cardano.Node.Manager
 

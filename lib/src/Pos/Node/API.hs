@@ -43,7 +43,7 @@ import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
                      deriveSafeBuildable)
 import           Pos.Util.Example
 import           Pos.Util.Servant (APIResponse, CustomQueryFlag, Flaggable (..),
-                     Tags, ValidJSON, HasCustomQueryFlagDescription(..))
+                     HasCustomQueryFlagDescription (..), Tags, ValidJSON)
 import           Pos.Util.UnitsOfMeasure
 import           Serokell.Util.Text
 

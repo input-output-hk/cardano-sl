@@ -14553,10 +14553,12 @@ executableHaskellDepends = [
 ansi-terminal
 async
 base
-cardano-wallet
+cardano-sl
+cardano-sl-node
 containers
 docopt
 formatting
+lens
 universum
 ];
 testHaskellDepends = [
@@ -16873,6 +16875,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-infra
 , cardano-sl-mnemonic
 , cardano-sl-networking
+, cardano-sl-node
 , cardano-sl-node-ipc
 , cardano-sl-util
 , cardano-sl-util-test
@@ -16881,7 +16884,6 @@ license = stdenv.lib.licenses.mit;
 , cereal
 , clock
 , conduit
-, connection
 , containers
 , cryptonite
 , data-default
@@ -16897,7 +16899,6 @@ license = stdenv.lib.licenses.mit;
 , hspec-core
 , http-api-data
 , http-client
-, http-client-tls
 , http-types
 , insert-ordered-containers
 , ixset-typed
@@ -16994,6 +16995,7 @@ cardano-sl-db
 cardano-sl-infra
 cardano-sl-mnemonic
 cardano-sl-networking
+cardano-sl-node
 cardano-sl-node-ipc
 cardano-sl-util
 cardano-sl-utxo
@@ -17001,7 +17003,6 @@ cardano-sl-x509
 cereal
 clock
 conduit
-connection
 containers
 cryptonite
 data-default
@@ -17014,7 +17015,6 @@ formatting
 generics-sop
 http-api-data
 http-client
-http-client-tls
 http-types
 ixset-typed
 lens
@@ -17060,7 +17060,6 @@ wai
 wai-middleware-throttle
 warp
 x509
-x509-store
 zlib
 ];
 executableHaskellDepends = [
@@ -17075,6 +17074,7 @@ cardano-sl-chain
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-mnemonic
+cardano-sl-node
 cardano-sl-util
 containers
 exceptions

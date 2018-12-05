@@ -16959,7 +16959,7 @@ mkDerivation {
 
 pname = "cardano-wallet";
 version = "2.0.0";
-src = ./../wallet-new;
+src = ./../wallet;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
 "--ghc-option=-Wall"

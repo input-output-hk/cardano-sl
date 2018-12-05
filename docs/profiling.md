@@ -62,7 +62,7 @@ somebody familiar with the `nix` infrastructure.
 a `cabal.project` has been created, we can specify profiling options like this:
 
 ```
-package wallet-new
+package wallet
   profiling-detail: toplevel-functions
 ```
 

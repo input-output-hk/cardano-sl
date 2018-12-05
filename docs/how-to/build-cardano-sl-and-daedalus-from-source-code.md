@@ -181,7 +181,7 @@ All dependencies necessary for the Cabal build are provided by the
 `cabal.project.freeze` file, which is automatically generated from
 `stack.yaml` (via `stack2nix`).
 
-To start a GHCi session for a component (wallet-new for example), run:
+To start a GHCi session for a component (wallet for example), run:
 
     [nix-shell:~/cardano-sl]$ cabal new-repl cardano-wallet
 

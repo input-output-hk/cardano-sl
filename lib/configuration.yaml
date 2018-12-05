@@ -14970,7 +14970,7 @@ mainnet_dryrun_full: &mainnet_dryrun_full
     requiresNetworkMagic: RequiresNoMagic
   update: &staging_wallet_update
     applicationName: csl-daedalus
-    applicationVersion: 16
+    applicationVersion: 17
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1

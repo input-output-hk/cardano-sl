@@ -722,6 +722,7 @@ handleStreamStart logTrace logic oq = listenerConv logTrace oq $ \__ourVerInfo n
                       lift $ traceWith logTrace (Debug, sformat ("handleStreamStart:loop MsgStart, expected MsgStreamUpdate from "%build) nodeId)
                       return ()
                   MsgUpdate u -> do
+                      lift $ OQ.clearFailureOf oq nodeId
                       lift $ traceWith logTrace (Debug, sformat ("handleStreamStart:loop new window "%shown%" from "%build) u nodeId)
                       loop nodeId conv (msuWindow u)
     loop nodeId conv window =

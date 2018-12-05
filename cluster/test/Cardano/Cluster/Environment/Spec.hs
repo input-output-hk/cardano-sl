@@ -44,7 +44,7 @@ prop_generatedEnvironmentIsValid (Cluster nodes) mport (SeparatedBy stateDir) = 
           Nothing   -> (3000, 8090, mempty)
           Just (Port port) -> (port, port+1000, mempty
             & at "LISTEN" ?~ ntwrkAddrToString ("localhost", port)
-            & at "WALLET_ADDRESS" ?~ ntwrkAddrToString (nextNtwrkAddr 1000 ("localhost", port))
+            & at "NODE_API_ADDRESS" ?~ ntwrkAddrToString (nextNtwrkAddr 1000 ("localhost", port))
             )
 
     let envs = map (\x -> (x, snd $ prepareEnvironment x nodes stateDir env0)) nodes
@@ -78,6 +78,8 @@ prop_generatedEnvironmentIsValid (Cluster nodes) mport (SeparatedBy stateDir) = 
 
     prop_environmentCore env portRange = conjoinWithContext "prop_environmentCore"
         [ prop_portWithin env "LISTEN" portRange
+        , prop_noEnvVar   env "NODE_API_ADDRESS"
+        , prop_noEnvVar   env "NODE_DOC_ADDRESS"
         , prop_noEnvVar   env "WALLET_ADDRESS"
         , prop_noEnvVar   env "WALLET_DOC_ADDRESS"
         , prop_noEnvVar   env "WALLET_DB_PATH"
@@ -90,6 +92,8 @@ prop_generatedEnvironmentIsValid (Cluster nodes) mport (SeparatedBy stateDir) = 
 
     prop_environmentRelay env portRange = conjoinWithContext "prop_environmentRelay"
         [ prop_portWithin env "LISTEN" portRange
+        , prop_noEnvVar   env "NODE_API_ADDRESS"
+        , prop_noEnvVar   env "NODE_DOC_ADDRESS"
         , prop_noEnvVar   env "WALLET_ADDRESS"
         , prop_noEnvVar   env "WALLET_DOC_ADDRESS"
         , prop_noEnvVar   env "WALLET_DB_PATH"
@@ -101,14 +105,16 @@ prop_generatedEnvironmentIsValid (Cluster nodes) mport (SeparatedBy stateDir) = 
         ]
 
     prop_environmentEdge env (apiRange, docRange) = conjoinWithContext "prop_environmentEdge"
-        [ prop_portWithin env "WALLET_ADDRESS" apiRange
-        , prop_portWithin env "WALLET_DOC_ADDRESS" docRange
-        , prop_hasEnvVar  env "WALLET_DB_PATH"
+        [ prop_portWithin env "NODE_API_ADDRESS" apiRange
+        , prop_portWithin env "NODE_DOC_ADDRESS" docRange
         , prop_hasEnvVar  env "TLSCERT"
         , prop_hasEnvVar  env "TLSKEY"
         , prop_hasEnvVar  env "TLSCA"
-        , prop_hasEnvVarP env "WALLET_REBUILD_DB" (`elem` ["True", "False"])
         , prop_hasEnvVarP env "NO_CLIENT_AUTH" (`elem` ["True", "False"])
+        , prop_noEnvVar   env "WALLET_ADDRESS"
+        , prop_noEnvVar   env "WALLET_DOC_ADDRESS"
+        , prop_noEnvVar   env "WALLET_DB_PATH"
+        , prop_noEnvVar   env "WALLET_REBUILD_DB"
         ]
 
 conjoinWithContext :: String -> [String -> Property] -> Property
@@ -209,7 +215,7 @@ getTopologies nodes (SeparatedBy stateDir) =
     extractTopologies      = map (getArtifact . (^. _2) . (^. _1))
     extractAddresses       = map (getNtwrkAddr . (^. _2))
     getNtwrkAddr env       = fromMaybe
-        (unsafeNetworkAddressFromString (env ! "WALLET_ADDRESS"))
+        (unsafeNetworkAddressFromString (env ! "NODE_API_ADDRESS"))
         (unsafeNetworkAddressFromString <$> (env ^. at "LISTEN"))
 
 domainToNtwrkAddr :: NodeAddr a -> NetworkAddress

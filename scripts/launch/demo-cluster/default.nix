@@ -3,7 +3,7 @@ with import ../../../lib.nix;
 { stdenv, runCommand, writeText, writeScript
 , jq, coreutils, curl, gnused, openssl
 
-, cardano-sl-cluster, cardano-sl
+, cardano-sl-cluster, cardano-sl, cardano-wallet
 
 , useStackBinaries ? false
 
@@ -20,14 +20,15 @@ with import ../../../lib.nix;
 , keepAlive ? true
 , configurationKey ? "default"
 , disableClientAuth ? false
+, walletListen ? "127.0.0.1:8090"
+, walletDocListen ? "127.0.0.1:8190"
 }:
 
 let
   stackExec = optionalString useStackBinaries "stack exec -- ";
-  cardanoDeps = [ cardano-sl-cluster ];
+  cardanoDeps = [ cardano-sl-cluster cardano-wallet ];
   demoClusterDeps = [ jq coreutils curl gnused openssl ];
   allDeps =  demoClusterDeps ++ (optionals (!useStackBinaries ) cardanoDeps);
-
   ifWallet = optionalString (runWallet);
   numEdgeNodes = if runWallet then 1 else 0;
   ifKeepAlive = optionalString (keepAlive);
@@ -54,6 +55,7 @@ in writeScript "demo-cluster" ''
   export PATH=${stdenv.lib.makeBinPath allDeps}:$PATH
   export DEMO_STATE_DIR=${stateDir}
   export DEMO_CONFIGURATION_FILE=${configFiles}/configuration.yaml
+  export DEMO_SYSTEM_START=$(($(date +%s) + 14))
   ${ifAssetLock "export DEMO_ASSET_LOCK_FILE=${assetLockFile}"}
   ${ifDisableClientAuth "export DEMO_NO_CLIENT_AUTH=True"}
   # Set to 0 (passing) by default. Tests using this cluster can set this variable
@@ -63,7 +65,8 @@ in writeScript "demo-cluster" ''
     trap "" INT TERM
     echo "Received TERM!"
     echo "Stopping Cardano Demo Cluster"
-    kill $pid
+    kill $pidCluster
+    kill $pidWallet
     echo "Stopped all Cardano processes, exiting with code $EXIT_STATUS!"
     exit $EXIT_STATUS
   }
@@ -74,15 +77,31 @@ in writeScript "demo-cluster" ''
 
   trap "stop_cardano" INT TERM
   echo "Launching a demo cluster..."
-  ${stackExec}cardano-sl-cluster-demo --no-genesis-wallets --cores ${builtins.toString numCoreNodes} --relays ${builtins.toString numRelayNodes} --edges ${builtins.toString numEdgeNodes} &
-  pid=$!
+  ${stackExec}cardano-sl-cluster-prepare-environment "DEMO_" --cores ${builtins.toString numCoreNodes} --relays ${builtins.toString numRelayNodes} --edges ${builtins.toString numEdgeNodes}
+  ${stackExec}cardano-sl-cluster-demo --cores ${builtins.toString numCoreNodes} --relays ${builtins.toString numRelayNodes} --edges 0 &
+  pidCluster=$!
 
   ${ifWallet ''
+    ${stackExec}cardano-node                                  \
+      --configuration-file ${configFiles}/configuration.yaml  \
+      --tlscert ${stateDir}/tls/edge/server.crt               \
+      --tlskey ${stateDir}/tls/edge/server.key                \
+      --tlsca ${stateDir}/tls/edge/ca.crt                     \
+      --log-config ${stateDir}/logs/edge.json                 \
+      --topology ${stateDir}/topology/edge.json               \
+      --db-path ${stateDir}/db/edge                           \
+      --wallet-db-path ${stateDir}/wallet-db/edge             \
+      --wallet-address ${walletListen}                        \
+      --wallet-doc-address ${walletDocListen}                 \
+      --system-start $DEMO_SYSTEM_START                       \
+      ${ ifDisableClientAuth "--no-client-auth" }             &
+    pidWallet=$!
+
     # Query node info until synced
     SYNCED=0
     while [[ $SYNCED != 100 ]]
     do
-      PERC=$(curl --silent --cacert ${stateDir}/tls/wallet/ca.crt --cert ${stateDir}/tls/wallet/client.pem https://127.0.0.1:8090/api/v1/node-info | jq .data.syncProgress.quantity)
+      PERC=$(curl --silent --cacert ${stateDir}/tls/edge/ca.crt --cert ${stateDir}/tls/edge/client.pem https://${walletListen}/api/v1/node-info | jq .data.syncProgress.quantity)
       if [[ $PERC == "100" ]]
       then
         echo Blockchain Synced: $PERC%
@@ -107,8 +126,8 @@ in writeScript "demo-cluster" ''
       do
           echo "Importing $i.key ..."
           curl https://localhost:8090/api/internal/import-wallet \
-          --cacert ${stateDir}/tls/wallet/ca.crt \
-          --cert ${stateDir}/tls/wallet/client.pem \
+          --cacert ${stateDir}/tls/edge/ca.crt \
+          --cert ${stateDir}/tls/edge/client.pem \
           -X POST \
           -H 'cache-control: no-cache' \
           -H 'Content-Type: application/json; charset=utf-8' \

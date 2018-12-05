@@ -38,7 +38,7 @@ instead of the default one.
 
 Common tasks for development are kept in `Makefile`s, one per package and one for the whole project.
 Run `make help` to get assistance on custom commands.
-As an example, you can run `make ghcid-test` in the `wallet-new` package to get a test-running `ghcid` process running.
+As an example, you can run `make ghcid-test` in the `wallet` package to get a test-running `ghcid` process running.
 
 ### Code Quality
 

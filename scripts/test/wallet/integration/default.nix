@@ -32,7 +32,7 @@ in writeScript "integration-tests" ''
   echo "Demo Cluster Started"
   set +e
   echo "Running Wallet Integration tests"
-  ${stackExec}wal-integr-test --tls-ca-cert ${stateDir}/tls/wallet/ca.crt --tls-client-cert ${stateDir}/tls/wallet/client.pem --tls-key ${stateDir}/tls/wallet/client.key "$@" 2>&1 | tee state-demo/logs/test.output
+  ${stackExec}wal-integr-test --tls-ca-cert ${stateDir}/tls/edge/ca.crt --tls-client-cert ${stateDir}/tls/edge/client.pem --tls-key ${stateDir}/tls/edge/client.key "$@" 2>&1 | tee state-demo/logs/test.output
   EXIT_STATUS=$PIPESTATUS
   echo "Wallet Integration tests completed"
   # Verify we see "transaction list is empty after filtering out asset-locked source addresses" in at least 1 core node log file

@@ -35,7 +35,7 @@ packages:
 - tools
 - tools/post-mortem
 - utxo
-- wallet-new # The new (unreleased) version of the wallet
+- wallet
 - node-ipc
 - faucet
 - acid-state-exts

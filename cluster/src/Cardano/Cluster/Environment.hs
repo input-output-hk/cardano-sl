@@ -33,8 +33,8 @@ import           Data.Map (Map, (!))
 import qualified Data.Map.Strict as Map
 import           Data.Maybe (fromJust)
 import qualified Data.Text as T
-import           Data.Time (NominalDiffTime, addUTCTime, defaultTimeLocale,
-                     formatTime, getCurrentTime)
+import           Data.Time (addUTCTime, defaultTimeLocale, formatTime,
+                     getCurrentTime)
 import           Formatting (bprint, build, sformat, (%))
 import qualified Formatting.Buildable
 import           Network.TLS (PrivKey (PrivKeyRSA))
@@ -42,13 +42,13 @@ import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath (takeDirectory, (</>))
 import           System.IO.Temp (withSystemTempDirectory)
 
-import           Cardano.Cluster.Util (getsModify, indexedForM, indexedForM_,
-                     nextNtwrkAddr, ntwrkAddrToBaseUrl, ntwrkAddrToNodeAddr,
+import           Cardano.Cluster.Util (getsModify, indexedForM_, nextNtwrkAddr,
+                     ntwrkAddrToBaseUrl, ntwrkAddrToNodeAddr,
                      ntwrkAddrToString, rotations, unsafeBoolFromString,
                      unsafeElemIndex, unsafeNetworkAddressFromString,
                      unsafeSeverityFromString, (|>))
+import           Cardano.Node.Client (NodeHttpClient, mkHttpClient)
 import           Cardano.Node.Manager (mkHttpsManagerSettings, newManager)
-import           Cardano.Wallet.Client.Http (WalletClient, mkHttpClient)
 import           Cardano.X509.Configuration (CertConfiguration (..),
                      CertDescription (..), DirConfiguration (..),
                      ServerConfiguration (..), TLSConfiguration (..),
@@ -103,12 +103,11 @@ withStateDirectory mdir cb =
 -- Note that the system should be started "ahead" such that nodes can get
 -- started once turned on.
 withSystemStart
-    :: NominalDiffTime -- ^ Offset ahead to the system should be started
-    -> Env             -- ^ The underlying environment
+    :: Env             -- ^ The underlying environment
     -> IO Env
-withSystemStart n env = do
+withSystemStart env = do
     systemStart <-
-        formatTime defaultTimeLocale "%s" . addUTCTime n <$> getCurrentTime
+        formatTime defaultTimeLocale "%s" . addUTCTime 14 <$> getCurrentTime
     return
         (env & at "SYSTEM_START" ?~ systemStart)
 
@@ -118,6 +117,10 @@ data Artifact a eff = Artifact
     { getArtifact        :: a
     , initializeArtifact :: IO eff
     }
+
+-- Small alias for readability
+type Genesis = ()
+
 
 
 -- | Setup the environment for the node. This is where we assign default values
@@ -132,10 +135,10 @@ prepareEnvironment
     -> [(NodeName, NodeType)]   -- ^ All nodes, including the related one
     -> FilePath                 -- ^ Node State / Working directory
     -> Env                      -- ^ ENVironment context with user-defined ENV vars
-    -> ( ( Artifact () [FilePath]
+    -> ( ( Artifact Genesis ()
          , Artifact Topology ()
          , Artifact LoggerConfig ()
-         , Artifact TlsParams (WalletClient IO)
+         , Artifact TlsParams NodeHttpClient
          )
          , Env
        )
@@ -158,7 +161,7 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
         case nodeType of
             NodeCore  -> withDefaultCoreEnvironment
             NodeRelay -> withDefaultCoreEnvironment
-            NodeEdge  -> withDefaultWalletEnvironment . withDefaultCoreEnvironment
+            NodeEdge  -> withDefaultEdgeEnvironment . withDefaultCoreEnvironment
 
     withDefaultCoreEnvironment :: Env -> Env
     withDefaultCoreEnvironment env = env
@@ -170,16 +173,14 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
         & at "NODE_ID"            ?~ nodeId
         & at "REBUILD_DB"         %~ (|> "True")
 
-    withDefaultWalletEnvironment :: Env -> Env
-    withDefaultWalletEnvironment env = env
+    withDefaultEdgeEnvironment :: Env -> Env
+    withDefaultEdgeEnvironment env = env
         & at "NO_CLIENT_AUTH"     %~ (|> "False")
-        & at "WALLET_ADDRESS"     %~ (|> "127.0.0.1:8090")
-        & at "WALLET_DB_PATH"     ?~ (stateDir </> "wallet-db" </> nodeId)
-        & at "WALLET_REBUILD_DB"  %~ (|> "True")
+        & at "NODE_API_ADDRESS"   %~ (|> "127.0.0.1:8090")
 
     -- | Generate secrets keys from a genesis configuration
     -- NOTE 'genesis-key' and 'keyfile' can't be overidden by ENV vars
-    prepareGenesis :: Env -> (Artifact () [FilePath], Env)
+    prepareGenesis :: Env -> (Artifact Genesis (), Env)
     prepareGenesis env =
         let
             keysPath :: FilePath
@@ -189,7 +190,6 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
             cIndex :: Int
             cIndex =
                 unsafeElemIndex node nodes
-
 
             configOpts :: ConfigurationOptions
             configOpts = ConfigurationOptions
@@ -211,7 +211,7 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
                 createDirectoryIfMissing True (takeDirectory $ secret ^. usPath)
                 UserSecret.writeRaw secret
 
-            initGenesis :: IO [FilePath]
+            initGenesis :: IO ()
             initGenesis = do
                 gs <- getGeneratedSecrets configOpts
 
@@ -219,8 +219,6 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
                 let nCore = length $ filter isCoreNode nodes
                 when (nRich < nCore) $ throwM (NotEnoughCoreNodes nRich nCore)
 
-                -- NOTE
-                -- _In theory_, we only need the corresponding rich key.
                 indexedForM_ (gsDlgIssuersSecrets gs) $ \(sk, i) -> writeUserSecret $ defaultUserSecret
                     & usPrimKey ?~ sk
                     & usPath    .~ keysPath </> "dlg-issuers" </> (show i <> ".key")
@@ -230,13 +228,11 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
                     & usVss     ?~ rsVssKeyPair rs
                     & usPath    .~ keysPath </> "rich" </> (show i <> ".key")
 
-                indexedForM (gsPoorSecrets gs) $ \(ps, i) -> do
-                    let path = keysPath </> "poor" </> (show i <> ".key")
+                indexedForM_ (gsPoorSecrets gs) $ \(ps, i) -> do
                     writeUserSecret $ defaultUserSecret
                         & usKeys    %~ (poorSecretToEncKey ps :)
                         & usWallet  ?~ mkGenesisWalletUserSecret (poorSecretToEncKey ps)
-                        & usPath    .~ path
-                    return path
+                        & usPath    .~ keysPath </> "poor" </> (show i <> ".key")
 
             irrelevant =
                 "Attempted to initialize genesis environment for a non-core node. \
@@ -250,16 +246,10 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
                     , env & at "KEYFILE" ?~ keysPath </> "rich" </> (show cIndex <> ".key")
                     )
 
-                NodeEdge ->
-                    ( Artifact () initGenesis
-                    , env
-                    )
-
                 _ ->
                     ( Artifact (error irrelevant) (failT irrelevant)
                     , env
                     )
-
 
     -- | Create the 'Topology' of the given node
     -- NOTE: The topology can't be overriden by ENV vars.
@@ -278,7 +268,7 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
             waddr :: NetworkAddress
             waddr =
                 -- NOTE Safe when called after 'withDefaultEnvironment'
-                unsafeNetworkAddressFromString (env ! "WALLET_ADDRESS")
+                unsafeNetworkAddressFromString (env ! "NODE_API_ADDRESS")
 
             topologyPath :: FilePath
             topologyPath =
@@ -313,8 +303,8 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
                     , env
                         & at "LISTEN"             .~ Nothing
                         & at "TOPOLOGY"           ?~ topologyPath
-                        & at "WALLET_ADDRESS"     ?~ (ntwrkAddrToString $ nodeAddrs !! cIndex)
-                        & at "WALLET_DOC_ADDRESS" ?~ (ntwrkAddrToString $ nextNtwrkAddr 100 (nodeAddrs !! cIndex))
+                        & at "NODE_API_ADDRESS"   ?~ (ntwrkAddrToString $ nodeAddrs !! cIndex)
+                        & at "NODE_DOC_ADDRESS"   ?~ (ntwrkAddrToString $ nextNtwrkAddr 100 (nodeAddrs !! cIndex))
                     )
 
                 _ ->
@@ -322,8 +312,7 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
                     , env
                         & at "LISTEN"   ?~ (ntwrkAddrToString $ nodeAddrs !! cIndex)
                         & at "TOPOLOGY" ?~ topologyPath
-                        & at "WALLET_ADDRESS" .~ Nothing
-                        & at "WALLET_DOC_ADDRESS" .~ Nothing
+                        & at "NODE_API_ADDRESS" .~ Nothing
                     )
 
     -- | Create a 'LoggerConfig' for the given node
@@ -375,16 +364,16 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
 
     -- | Create TLS Certificates configurations
     -- NOTE: The TLS configurations & certs can't be overriden by ENV vars.
-    prepareTLS :: Env -> (Artifact TlsParams (WalletClient IO), Env)
+    prepareTLS :: Env -> (Artifact TlsParams NodeHttpClient, Env)
     prepareTLS env =
         let
             noClientAuth =
                 -- NOTE Safe when called after 'withDefaultEnvironment'
                 unsafeBoolFromString (env ! "NO_CLIENT_AUTH")
 
-            wAddr =
+            wAddr@(host, port) =
                 -- NOTE Safe when called after 'withDefaultEnvironment'
-                unsafeNetworkAddressFromString (env ! "WALLET_ADDRESS")
+                unsafeNetworkAddressFromString (env ! "NODE_API_ADDRESS")
 
             tlsBasePath =
                 stateDir </> "tls" </> nodeId
@@ -399,6 +388,16 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
             (tlsConf, dirConf) =
                 demoTLSConfiguration tlsBasePath
 
+            mkNodeClient
+                :: SignedCertificate
+                -> (SignedCertificate, RSA.PrivateKey)
+                -> IO NodeHttpClient
+            mkNodeClient ca (cert, key) = do
+                let serverId = (B8.unpack host, B8.pack $ show port)
+                let credentials = (CertificateChain [cert], PrivKeyRSA key)
+                manager <- newManager $ mkHttpsManagerSettings serverId [ca] credentials
+                return $ mkHttpClient (ntwrkAddrToBaseUrl wAddr) manager
+
             initTLSEnvironment = do
                 keys <- genRSA256KeyPair
                 let (ca, cs) = fromConfiguration tlsConf dirConf genRSA256KeyPair keys
@@ -411,7 +410,7 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
                     writeCertificate (certOutDir c </> certFilename ca) caCert
 
                     if isClientCertificate cert then
-                        Just <$> mkWalletClient wAddr caCert (cert, key)
+                        Just <$> mkNodeClient caCert (cert, key)
                     else
                         return Nothing
                 return $ Prelude.head $ catMaybes clients
@@ -419,7 +418,7 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
             irrelevant =
                 "Attempted to initialize TLS environment for a non-edge node. \
                 \This is seemingly irrelevant: TLS is required for contacting \
-                \the Wallet API."
+                \the node monitoring API."
         in
             case nodeType of
                 NodeEdge ->
@@ -545,7 +544,7 @@ instance Buildable NotEnoughCoreNodes where
         (nNodes e)
 
 
--- | Tell whether a tuple identifies a Relay node
+-- | Tell whether a tuple identifies a Core node
 isCoreNode
     :: Field2 t t NodeType NodeType
     => t
@@ -570,16 +569,3 @@ isEdgeNode
     -> Bool
 isEdgeNode =
     (== NodeEdge) . (^. _2)
-
-
--- | Helper to create a WalletClient instance pointing at a given wallet node
-mkWalletClient
-    :: NetworkAddress
-    -> SignedCertificate
-    -> (SignedCertificate, RSA.PrivateKey)
-    -> IO (WalletClient IO)
-mkWalletClient wAddr@(host, port) ca (cert, key) = do
-    let serverId = (B8.unpack host, B8.pack $ show port)
-    let credentials = (CertificateChain [cert], PrivKeyRSA key)
-    manager <- newManager $ mkHttpsManagerSettings serverId [ca] credentials
-    return $ mkHttpClient (ntwrkAddrToBaseUrl wAddr) manager

@@ -14955,7 +14955,7 @@ testnet_wallet_linux64: &testnet_wallet_linux64
 
 ##############################################################################
 ##                                                                          ##
-##   Staging config                                                         ##
+##   Mainnet dryrun config sample                                           ##
 ##                                                                          ##
 ##############################################################################
 
@@ -14968,7 +14968,10 @@ mainnet_dryrun_full: &mainnet_dryrun_full
         file: mainnet-genesis-dryrun-with-stakeholders.json
         hash: c6a004d3d178f600cd8caa10abbebe1549bef878f0665aea2903472d5abf7323
     requiresNetworkMagic: RequiresNoMagic
-  update: &staging_wallet_update
+
+mainnet_dryrun_wallet_win64: &mainnet_dryrun_wallet_win64
+  <<: *mainnet_dryrun_full
+  update:
     applicationName: csl-daedalus
     applicationVersion: 17
     lastKnownBlockVersion:
@@ -14976,14 +14979,25 @@ mainnet_dryrun_full: &mainnet_dryrun_full
       bvMinor: 1
       bvAlt: 0
 
-mainnet_dryrun_wallet_win64: &mainnet_dryrun_wallet_win64
-  <<: *mainnet_dryrun_full
-
 mainnet_dryrun_wallet_macos64: &mainnet_dryrun_wallet_macos64
   <<: *mainnet_dryrun_full
+  update:
+    applicationName: csl-daedalus
+    applicationVersion: 16
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 1
+      bvAlt: 0
 
 mainnet_dryrun_wallet_linux64: &mainnet_dryrun_wallet_linux64
   <<: *mainnet_dryrun_full
+  update:
+    applicationName: csl-daedalus
+    applicationVersion: 16
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 1
+      bvAlt: 0
 
 ##############################################################################
 ##                                                                          ##

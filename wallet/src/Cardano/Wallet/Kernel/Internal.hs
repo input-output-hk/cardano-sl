@@ -16,6 +16,7 @@ module Cardano.Wallet.Kernel.Internal (
   , walletProtocolMagic
   , walletLogMessage
   , walletNode
+  , walletProtocolParams
   , walletSubmission
   , walletRestorationTask
   , walletFInjects
@@ -63,6 +64,7 @@ import           Cardano.Wallet.Kernel.DB.TxMeta
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (NodeStateAdaptor)
+import           Cardano.Wallet.Kernel.ProtocolParameters
 import           Cardano.Wallet.Kernel.Submission (WalletSubmission)
 import           Cardano.Wallet.Kernel.Types (WalletId)
 
@@ -103,6 +105,8 @@ data PassiveWallet = PassiveWallet {
       -- The primary function of this is wallet restoration, where the wallet's
       -- own DB /cannot/ be consulted.
     , _walletNode            :: NodeStateAdaptor IO
+
+    , _walletProtocolParams  :: ProtocolParameterAdaptor
 
       -- | The wallet submission layer
       --

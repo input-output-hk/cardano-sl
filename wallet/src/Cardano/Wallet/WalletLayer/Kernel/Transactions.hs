@@ -30,6 +30,7 @@ import           Cardano.Wallet.Kernel.DB.TxMeta (TxMeta (..))
 import qualified Cardano.Wallet.Kernel.DB.TxMeta as TxMeta
 import qualified Cardano.Wallet.Kernel.Internal as Kernel
 import qualified Cardano.Wallet.Kernel.NodeStateAdaptor as Node
+import           Cardano.Wallet.Kernel.ProtocolParameters
 import qualified Cardano.Wallet.Kernel.Read as Kernel
 import           Cardano.Wallet.WalletLayer (GetTxError (..))
 import           UTxO.Util (exceptT)
@@ -74,7 +75,7 @@ getTransactions wallet mbWalletId mbAccountIndex mbAddress params fop sop = lift
                 mbSorting
             db <- liftIO $ Kernel.getWalletSnapshot wallet
             sc <- liftIO $ Node.getSlotCount (wallet ^. Kernel.walletNode)
-            currentSlot <- liftIO $ Node.getTipSlotId (wallet ^. Kernel.walletNode)
+            currentSlot <- liftIO $ getTipSlotId (wallet ^. Kernel.walletProtocolParams)
             if null metas then
                 -- A bit artificial, but we force the termination and make sure
                 -- in the meantime that the algorithm only exits by one and only

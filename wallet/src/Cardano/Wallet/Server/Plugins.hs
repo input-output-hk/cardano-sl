@@ -182,5 +182,7 @@ updateWatcher = const $ do
             logInfo "A new update was found!"
             WalletLayer.addUpdate w . cpsSoftwareVersion $ newUpdate
 
+
+
 instance Buildable Servant.NoContent where
     build Servant.NoContent = build ()

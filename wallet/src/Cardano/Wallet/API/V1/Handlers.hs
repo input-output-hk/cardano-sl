@@ -14,6 +14,9 @@ import qualified Cardano.Wallet.API.V1.Handlers.Wallets as Wallets
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer,
                      walletPassiveLayer)
 
+-- TODO: Move to proper place
+--import qualified Cardano.Node.API as Node
+
 
 handlers :: ActiveWalletLayer IO -> Server V1.API
 handlers w =  Addresses.handlers    passiveWallet

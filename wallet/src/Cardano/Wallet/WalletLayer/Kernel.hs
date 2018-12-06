@@ -35,6 +35,7 @@ import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
 import           Cardano.Wallet.Kernel.NodeStateAdaptor
+import           Cardano.Wallet.Kernel.ProtocolParameters
 import qualified Cardano.Wallet.Kernel.Read as Kernel
 import qualified Cardano.Wallet.Kernel.Restore as Kernel
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),
@@ -57,10 +58,11 @@ bracketPassiveWallet
     -> (Severity -> Text -> IO ())
     -> Keystore
     -> NodeStateAdaptor IO
+    -> ProtocolParameterAdaptor
     -> FInjects IO
     -> (PassiveWalletLayer n -> Kernel.PassiveWallet -> m a) -> m a
-bracketPassiveWallet pm mode logFunction keystore node fInjects f = do
-    Kernel.bracketPassiveWallet pm mode logFunction keystore node fInjects $ \w -> do
+bracketPassiveWallet pm mode logFunction keystore node pp fInjects f = do
+    Kernel.bracketPassiveWallet pm mode logFunction keystore node pp fInjects $ \w -> do
 
       -- For each wallet in a restoration state, re-start the background
       -- restoration tasks.

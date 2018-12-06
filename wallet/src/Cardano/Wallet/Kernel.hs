@@ -46,12 +46,12 @@ import           Cardano.Wallet.Kernel.Internal
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
 import           Cardano.Wallet.Kernel.NodeStateAdaptor (NodeStateAdaptor)
 import           Cardano.Wallet.Kernel.Pending (cancelPending)
+import           Cardano.Wallet.Kernel.ProtocolParameters
 import           Cardano.Wallet.Kernel.Read (getWalletSnapshot)
 import           Cardano.Wallet.Kernel.Submission (WalletSubmission,
                      addPendings, emptyWalletSubmission, tick)
 import           Cardano.Wallet.Kernel.Submission.Worker (tickSubmissionLayer)
 import qualified Cardano.Wallet.Kernel.Util.Strict as Strict
-
 {-------------------------------------------------------------------------------
   Passive Wallet Resource Management
 -------------------------------------------------------------------------------}
@@ -99,14 +99,15 @@ bracketPassiveWallet
     -> (Severity -> Text -> IO ())
     -> Keystore
     -> NodeStateAdaptor IO
+    -> ProtocolParameterAdaptor
     -> FInjects IO
     -> (PassiveWallet -> m a) -> m a
-bracketPassiveWallet pm mode logMsg keystore node fInjects f =
+bracketPassiveWallet pm mode logMsg keystore node pp fInjects f =
     bracket (liftIO $ handlesOpen mode)
             (liftIO . handlesClose mode)
             (\ handles ->
                 bracket
-                  (liftIO $ initPassiveWallet pm logMsg keystore handles node fInjects)
+                  (liftIO $ initPassiveWallet pm logMsg keystore handles node pp fInjects)
                   (\_ -> return ())
                   f)
 
@@ -157,9 +158,10 @@ initPassiveWallet :: ProtocolMagic
                   -> Keystore
                   -> WalletHandles
                   -> NodeStateAdaptor IO
+                  -> ProtocolParameterAdaptor
                   -> FInjects IO
                   -> IO PassiveWallet
-initPassiveWallet pm logMessage keystore handles node fInjects = do
+initPassiveWallet pm logMessage keystore handles node pp fInjects = do
     pw <- preparePassiveWallet
     initSubmission pw
     return pw
@@ -174,6 +176,7 @@ initPassiveWallet pm logMessage keystore handles node fInjects = do
             return PassiveWallet {
                   _walletLogMessage      = logMessage
                 , _walletKeystore        = keystore
+                , _walletProtocolParams  = pp
                 , _wallets               = hAcid handles
                 , _walletProtocolMagic   = pm
                 , _walletMeta            = hMeta handles

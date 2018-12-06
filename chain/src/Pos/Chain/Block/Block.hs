@@ -96,6 +96,7 @@ import           Pos.Chain.Genesis.Hash (GenesisHash (..))
 import           Pos.Chain.Ssc.Functions (verifySscPayload)
 import           Pos.Chain.Ssc.Payload (SscPayload)
 import           Pos.Chain.Txp.TxPayload (TxPayload)
+import           Pos.Chain.Update (ConsensusEra (..))
 import           Pos.Chain.Update.BlockVersion (BlockVersion,
                      HasBlockVersion (..))
 import           Pos.Chain.Update.Payload (UpdatePayload)
@@ -135,10 +136,11 @@ getBlockHeader = \case
 verifyBlockInternal
     :: MonadError Text m
     => Genesis.Config
+    -> ConsensusEra
     -> Block
     -> m ()
-verifyBlockInternal genesisConfig =
-    either verifyGenesisBlock (verifyMainBlock genesisConfig)
+verifyBlockInternal genesisConfig era =
+    either verifyGenesisBlock (verifyMainBlock genesisConfig era)
 
 
 --------------------------------------------------------------------------------
@@ -323,9 +325,10 @@ mkMainBlockExplicit pm bv sv prevHash difficulty slotId sk pske body =
 verifyMainBlock
     :: MonadError Text m
     => Genesis.Config
+    -> ConsensusEra
     -> MainBlock
     -> m ()
-verifyMainBlock genesisConfig GenericBlock {..} = do
+verifyMainBlock genesisConfig era GenericBlock {..} = do
     let pm = configProtocolMagic genesisConfig
     verifyMainBlockHeader pm _gbHeader
     verifyMainBody pm _gbBody
@@ -340,11 +343,14 @@ verifyMainBlock genesisConfig GenericBlock {..} = do
         throwError "Hash of extra body data is not equal to its representation in the header."
     -- Ssc and Dlg consistency checks which require the header, and so can't
     -- be done in 'verifyMainBody'.
-    either (throwError . pretty) pure $
-        verifySscPayload
-            genesisConfig
-            (Right (Some _gbHeader))
-            (_mbSscPayload _gbBody)
+    case era of
+        Original ->
+            either (throwError . pretty) pure $
+                verifySscPayload
+                    genesisConfig
+                    (Right (Some _gbHeader))
+                    (_mbSscPayload _gbBody)
+        OBFT -> pure () -- We don't perform SSC operations during the OBFT era
 
 
 ----------------------------------------------------------------------------

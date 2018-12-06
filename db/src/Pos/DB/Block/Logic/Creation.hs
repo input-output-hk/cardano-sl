@@ -296,8 +296,8 @@ canCreateBlock k sId tipHeader =
             throwError "this software is obsolete and can't create block"
         unless (EpochOrSlot (Right sId) > tipEOS) $
             throwError "slot id is not greater than one from the tip block"
-        unless (tipHeader ^. epochIndexL == siEpoch sId) $
-            throwError "we don't know genesis block for this epoch"
+        -- unless (tipHeader ^. epochIndexL == siEpoch sId) $
+        --     throwError "we don't know genesis block for this epoch"
         let flatSId = flattenSlotId (kEpochSlots k) sId
         -- Small heuristic: let's not check chain quality during the
         -- first quarter of the 0-th epoch, because during this time
@@ -379,18 +379,22 @@ applyCreatedBlock genesisConfig txpConfig pske createdBlock = applyCreatedBlockD
     applyCreatedBlockDo :: Bool -> MainBlock -> m MainBlock
     applyCreatedBlockDo isFallback blockToApply = do
         curSlot <- getCurrentSlot epochSlots
+        logDebug "applyCreatedBlockDo start"
         verifyBlocksPrefix genesisConfig curSlot (one (Right blockToApply)) >>= \case
             Left (pretty -> reason)
                 | isFallback -> onFailedFallback reason
                 | otherwise -> fallback reason
             Right (undos, pollModifier) -> do
                 let undo = undos ^. _Wrapped . _neHead
+                logDebug "applyBlocksUnsafe start"
                 applyBlocksUnsafe
                     genesisConfig
                     (ShouldCallBListener True)
                     (one (Right blockToApply, undo))
                     (Just pollModifier)
+                logDebug "applyBlocksUnsafe done"
                 normalizeMempool genesisConfig txpConfig
+                logDebug "normalizeMempool done"
                 pure blockToApply
     clearMempools :: m ()
     clearMempools = do

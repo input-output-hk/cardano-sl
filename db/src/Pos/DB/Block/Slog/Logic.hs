@@ -180,6 +180,7 @@ slogVerifyBlocksOriginal genesisConfig curSlot blocks = runExceptT $ do
     verResToMonadError formatAllErrors $
         verifyBlocks
             genesisConfig
+            Original
             curSlot
             dataMustBeKnown
             adoptedBVD
@@ -245,6 +246,7 @@ slogVerifyBlocksOBFT genesisConfig curSlot blocks = runExceptT $ do
     verResToMonadError formatAllErrors $
         verifyBlocks
             genesisConfig
+            OBFT
             curSlot
             dataMustBeKnown
             adoptedBVD

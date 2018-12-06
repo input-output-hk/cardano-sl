@@ -66,7 +66,7 @@ import           Pos.Infra.Slotting (ActionTerminationPolicy (..),
                      defaultOnNewSlotParams, getSlotStartEmpatically,
                      onNewSlot)
 import           Pos.Infra.Util.JsonLog.Events (jlCreatedBlock)
-import           Pos.Infra.Util.LogSafe (logDebugS, logInfoS, logWarningS)
+import           Pos.Infra.Util.LogSafe (logDebugS, logInfoS)
 import           Pos.Infra.Util.TimeLimit (logWarningSWaitLinear)
 import           Pos.Network.Block.Logic (triggerRecovery)
 import           Pos.Network.Block.Retrieval (retrievalWorker)
@@ -176,6 +176,7 @@ blockCreatorObft genesisConfig txpConfig (slotId@SlotId {..}) diffusion =
         logOnEpochFS $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
         logOnEpochF $ sformat ("Current slot leader: "%build) leader
         logDebug $ "End delegation psk for this slot: " <> maybe "none" pretty finalHeavyPsk
+        logDebug $ sformat ("Current slotId: "%build) slotId
 
         let weAreLeader        = leader == ourPkHash
             weAreHeavyDelegate = maybe False
@@ -268,7 +269,7 @@ onNewSlotWhenLeader genesisConfig txpConfig slotId pske diffusion = do
         logLeader = "because i'm a leader"
         logCert (psk,_) =
             sformat ("using heavyweight proxy signature key "%build%", will do it soon") psk
-    logInfoS $ logReason <> maybe logLeader logCert pske
+    logInfo $ logReason <> maybe logLeader logCert pske
     nextSlotStart <- getSlotStartEmpatically
         (slotIdSucc (configEpochSlots genesisConfig) slotId)
     currentTime <- currentTimeSlotting
@@ -281,16 +282,17 @@ onNewSlotWhenLeader genesisConfig txpConfig slotId pske diffusion = do
     logWarningSWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
   where
     onNewSlotWhenLeaderDo = do
-        logInfoS "It's time to create a block for current slot"
+        logInfo "It's time to create a block for current slot"
         createdBlock <- createMainBlockAndApply genesisConfig txpConfig slotId pske
+        logInfo "createdBlock"
         either whenNotCreated whenCreated createdBlock
-        logInfoS "onNewSlotWhenLeader: done"
+        logInfo "onNewSlotWhenLeader: done"
     whenCreated createdBlk = do
-            logInfoS $
+            logInfo $
                 sformat ("Created a new block:\n" %build) createdBlk
             jsonLog $ jlCreatedBlock (configEpochSlots genesisConfig) (Right createdBlk)
             void $ Diffusion.announceBlockHeader diffusion $ createdBlk ^. gbHeader
-    whenNotCreated = logWarningS . (mappend "I couldn't create a new block: ")
+    whenNotCreated = logWarning . (mappend "I couldn't create a new block: ")
 
 ----------------------------------------------------------------------------
 -- Recovery trigger worker

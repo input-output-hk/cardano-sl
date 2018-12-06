@@ -44,13 +44,14 @@ import           Pos.Chain.Genesis as Genesis (Config (..),
                      configEpochSlots)
 import           Pos.Chain.Ssc (HasSscConfiguration, MonadSscMem, SscBlock)
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Chain.Update (PollModifier)
+import           Pos.Chain.Update (ConsensusEra (..), PollModifier)
 import           Pos.Core (epochIndexL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Exception (assertionFailed)
 import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Core.Reporting (MonadReporting)
-import           Pos.DB (MonadDB, MonadDBRead, MonadGState, SomeBatchOp (..))
+import           Pos.DB (EmptyBatchOp, MonadDB, MonadDBRead, MonadGState,
+                     SomeBatchOp (..))
 import           Pos.DB.Block.BListener (MonadBListener)
 import           Pos.DB.Block.GState.SanityCheck (sanityCheckDB)
 import           Pos.DB.Block.Slog.Logic (BypassSecurityCheck (..),
@@ -64,10 +65,11 @@ import           Pos.DB.Ssc (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
 import           Pos.DB.Txp.MemState (MonadTxpLocal (..))
 import           Pos.DB.Txp.Settings (TxpBlock, TxpBlund,
                      TxpGlobalSettings (..))
-import           Pos.DB.Update (UpdateBlock, UpdateContext, usApplyBlocks,
-                     usNormalize, usRollbackBlocks)
+import           Pos.DB.Update (UpdateBlock, UpdateContext, getConsensusEra,
+                     usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Util (Some (..), spanSafe)
 import           Pos.Util.Util (HasLens', lensOf)
+import           Pos.Util.Wlog (logDebug)
 
 -- | Set of basic constraints used by high-level block processing.
 type MonadBlockBase ctx m
@@ -134,7 +136,10 @@ normalizeMempool genesisConfig txpConfig = do
     -- We normalize all mempools except the delegation one.
     -- That's because delegation mempool normalization is harder and is done
     -- within block application.
-    sscNormalize genesisConfig
+    era <- getConsensusEra
+    case era of
+        Original -> sscNormalize genesisConfig
+        OBFT     -> pure () -- We don't perform SSC operations during the OBFT era
     txpNormalize genesisConfig txpConfig
     usNormalize (configBlockVersionData genesisConfig)
 
@@ -193,13 +198,23 @@ applyBlocksDbUnsafeDo genesisConfig scb blunds pModifier = do
                                  (configBlkSecurityParam genesisConfig)
                                  scb
                                  blunds
+    logDebug "slogApplyBlocks done"
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
     usBatch <- SomeBatchOp <$> usApplyBlocks genesisConfig (map toUpdateBlock blocks) pModifier
+    logDebug "usApplyBlocks done"
     delegateBatch <- SomeBatchOp <$> dlgApplyBlocks (map toDlgBlund blunds)
+    logDebug "dlgApplyBlocks done"
     txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
-    sscBatch <- SomeBatchOp <$>
-        -- TODO: pass not only 'Nothing'
-        sscApplyBlocks genesisConfig (map toSscBlock blocks) Nothing
+    logDebug "tgsApplyBlocks done"
+    era <- getConsensusEra
+    sscBatch <- case era of
+        Original -> SomeBatchOp <$>
+            -- TODO: pass not only 'Nothing'
+            sscApplyBlocks genesisConfig (map toSscBlock blocks) Nothing
+        OBFT -> pure $
+            -- We don't perform SSC operations during the OBFT era
+            SomeBatchOp ([] :: [EmptyBatchOp])
+    logDebug "sscApplyBlocks done"
     GS.writeBatchGState
         [ delegateBatch
         , usBatch

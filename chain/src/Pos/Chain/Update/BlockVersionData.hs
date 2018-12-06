@@ -131,7 +131,9 @@ obftEraFlagValue :: EpochIndex
 obftEraFlagValue = EpochIndex 9999999999999999999
 
 data ConsensusEra = Original | OBFT
-    deriving (Show)
+    deriving (Eq, Show, Generic)
+
+instance NFData ConsensusEra
 
 -- | This function uses the repurposed field `bvdUnlockStakeEpoch` to
 -- tell us whether we are in the Original or OBFT consensus eras.

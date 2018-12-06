@@ -99,6 +99,7 @@ classifyNewHeaderOriginal _ (BlockHeaderGenesis _) = pure $ CHUseless "genesis h
 classifyNewHeaderOriginal genesisConfig (BlockHeaderMain header) = fmap (either identity identity) <$> runExceptT $ do
     curSlot <- getCurrentSlot $ configEpochSlots genesisConfig
     tipHeader <- lift DB.getTipHeader
+    era <- getConsensusEra
     let tipEoS = getEpochOrSlot tipHeader
     let newHeaderEoS = getEpochOrSlot header
     let newHeaderSlot = header ^. headerSlotL
@@ -138,6 +139,7 @@ classifyNewHeaderOriginal genesisConfig (BlockHeaderMain header) = fmap (either 
                     , vhpLeaders = Just leaders
                     , vhpMaxSize = Just maxBlockHeaderSize
                     , vhpVerifyNoUnknown = False
+                    , vhpConsensusEra = era
                     }
             let pm = configProtocolMagic genesisConfig
             case verifyHeader pm vhp (BlockHeaderMain header) of
@@ -170,6 +172,7 @@ classifyNewHeaderObft _ (BlockHeaderGenesis _) = pure $ CHUseless "genesis heade
 classifyNewHeaderObft genesisConfig (BlockHeaderMain header) = fmap (either identity identity) <$> runExceptT $ do
     curSlot <- getCurrentSlot $ configEpochSlots genesisConfig
     tipHeader <- lift DB.getTipHeader
+    era <- getConsensusEra
     let tipEoS = getEpochOrSlot tipHeader
     let newHeaderEoS = getEpochOrSlot header
     let newHeaderSlot = header ^. headerSlotL
@@ -207,6 +210,7 @@ classifyNewHeaderObft genesisConfig (BlockHeaderMain header) = fmap (either iden
                     , vhpLeaders = Just leaders
                     , vhpMaxSize = Just maxBlockHeaderSize
                     , vhpVerifyNoUnknown = False
+                    , vhpConsensusEra = era
                     }
             let pm = configProtocolMagic genesisConfig
             case verifyHeader pm vhp (BlockHeaderMain header) of

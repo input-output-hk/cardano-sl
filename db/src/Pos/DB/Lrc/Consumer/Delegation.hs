@@ -13,10 +13,15 @@ module Pos.DB.Lrc.Consumer.Delegation
        -- * Functions for getting richmen
        , getDlgRichmen
        , tryGetDlgRichmen
+       , getDlgRichmenObft
        ) where
 
 import           Universum
 
+import           Data.HashSet (fromList)
+
+import           Pos.Chain.Genesis (GenesisData (..), GenesisWStakeholders (..))
+import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Lrc (RichmenComponent (..), RichmenSet)
 import           Pos.Chain.Update (BlockVersionData (..))
 import           Pos.Core (EpochIndex)
@@ -70,3 +75,15 @@ getDlgRichmen genesisBvd fname epoch = lrcActionOnEpochReason
 tryGetDlgRichmen
     :: MonadDBRead m => BlockVersionData -> EpochIndex -> m (Maybe RichmenSet)
 tryGetDlgRichmen = getRichmen . dlgRichmenComponent
+
+-- | @intricate: This doesn't really make sense since the richmen can change
+-- at epoch boundaries.
+getDlgRichmenObft
+    :: Genesis.Config
+    -> RichmenSet
+getDlgRichmenObft genesisConfig =
+    fromList $
+        keys $
+        getGenesisWStakeholders $
+        gdBootStakeholders $
+        Genesis.configGenesisData genesisConfig

@@ -209,10 +209,11 @@ verify ma = withConfig $ do
 --   split the chain into epochs and validate each epoch individually
 verifyBlocksPrefix
   :: forall e' m.  Monad m
-  => OldestFirst NE Block
+  => ConsensusEra
+  -> OldestFirst NE Block
   -> TxValidationRules
   -> TranslateT e' m (Validated VerifyBlocksException (OldestFirst NE Undo, Utxo))
-verifyBlocksPrefix blocks txValRules =
+verifyBlocksPrefix era blocks txValRules =
     case splitEpochs blocks of
       ESREmptyEpoch _          ->
         validatedFromExceptT . throwError $ VerifyBlocksError "Whoa! Empty epoch!"
@@ -237,6 +238,7 @@ verifyBlocksPrefix blocks txValRules =
         pm
         txValRules
         ccHash0
+        era
         Nothing
         ccInitLeaders
         (OldestFirst [])
@@ -250,6 +252,7 @@ verifyBlocksPrefix blocks txValRules =
         pm
         txValRules
         (ebb ^. headerHashG)
+        era
         Nothing
         (ebb ^. gbBody . gbLeaders)
         (OldestFirst []) -- ^ TODO pass these?

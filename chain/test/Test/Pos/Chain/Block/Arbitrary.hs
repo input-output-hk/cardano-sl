@@ -26,8 +26,8 @@ import           Formatting (bprint, build, (%))
 import qualified Formatting.Buildable as Buildable
 import qualified Prelude
 import           System.Random (Random, mkStdGen, randomR)
-import           Test.QuickCheck (Arbitrary (..), Gen, choose, suchThat,
-                     vectorOf)
+import           Test.QuickCheck (Arbitrary (..), Gen, choose, elements,
+                     suchThat, vectorOf)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
                      genericShrink)
 
@@ -36,6 +36,7 @@ import           Pos.Chain.Block (HeaderHash, mkMainBlock, mkMainBlockExplicit)
 import qualified Pos.Chain.Block as Block
 import qualified Pos.Chain.Delegation as Core
 import           Pos.Chain.Genesis (GenesisHash (..))
+import           Pos.Chain.Update (ConsensusEra (..))
 import           Pos.Core (localSlotIndexMaxBound, localSlotIndexMinBound)
 import qualified Pos.Core as Core
 import           Pos.Core.Attributes (areAttributesKnown)
@@ -409,6 +410,7 @@ genHeaderAndParams pm = do
     -- the header chain. This ensures different parts of it are chosen
     -- each time.
     skip <- choose (0, num - 1)
+    era <- genConsensusEra
     let atMost2HeadersAndLeaders = take 2 $ drop skip headers
         (prev, header) =
             case atMost2HeadersAndLeaders of
@@ -457,6 +459,7 @@ genHeaderAndParams pm = do
             , Block.vhpLeaders = nonEmpty $ map Core.addressHash thisHeadersEpoch
             , Block.vhpMaxSize = Just (biSize header)
             , Block.vhpVerifyNoUnknown = not hasUnknownAttributes
+            , Block.vhpConsensusEra = era
             }
     return . HAndP $ (params, header)
 
@@ -466,3 +469,7 @@ genHeaderAndParams pm = do
 -- list.
 instance Arbitrary HeaderAndParams where
     arbitrary = arbitrary >>= genHeaderAndParams
+
+-- TODO mhueschen | decide: should we generate both?
+genConsensusEra :: Gen ConsensusEra
+genConsensusEra = elements [Original, OBFT]

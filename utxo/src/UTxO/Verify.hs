@@ -232,12 +232,13 @@ verifyBlocksPrefix
     :: ProtocolMagic       -- ^ Protocol magic
     -> TxValidationRules   -- ^ Tx validation rules
     -> HeaderHash          -- ^ Expected tip
+    -> ConsensusEra  -- ^ Original or OBFT
     -> Maybe SlotId        -- ^ Current slot
     -> SlotLeaders         -- ^ Slot leaders for this epoch
     -> LastBlkSlots        -- ^ Last block slots
     -> OldestFirst NE Block
     -> Verify VerifyBlocksException (OldestFirst NE Undo)
-verifyBlocksPrefix pm txValRules tip curSlot leaders lastSlots blocks = do
+verifyBlocksPrefix pm txValRules tip era curSlot leaders lastSlots blocks = do
     when (tip /= blocks ^. _Wrapped . _neHead . prevBlockL) $
         throwError $ VerifyBlocksError "the first block isn't based on the tip"
 
@@ -245,7 +246,7 @@ verifyBlocksPrefix pm txValRules tip curSlot leaders lastSlots blocks = do
 
     -- Verify block envelope
     slogUndos <- mapVerifyErrors VerifyBlocksError $
-                   slogVerifyBlocks curSlot txValRules leaders lastSlots blocks
+                   slogVerifyBlocks era curSlot txValRules leaders lastSlots blocks
 
     -- We skip SSC verification
     {-
@@ -299,13 +300,14 @@ verifyBlocksPrefix pm txValRules tip curSlot leaders lastSlots blocks = do
 -- * Uses 'gsAdoptedBVData' instead of 'getAdoptedBVFull'
 -- * Use hard-coded 'dataMustBeKnown' (instead of deriving this from 'adoptedBV')
 slogVerifyBlocks
-    :: Maybe SlotId  -- ^ Current slot
-    -> TxValidationRules
-    -> SlotLeaders   -- ^ Slot leaders for this epoch
-    -> LastBlkSlots  -- ^ Last block slots
+    :: ConsensusEra       -- ^ Original or OBFT
+    -> Maybe SlotId       -- ^ Current slot
+    -> TxValidationRules  -- ^ Tx validation rules
+    -> SlotLeaders        -- ^ Slot leaders for this epoch
+    -> LastBlkSlots       -- ^ Last block slots
     -> OldestFirst NE Block
     -> Verify Text (OldestFirst NE SlogUndo)
-slogVerifyBlocks curSlot txValRules leaders lastSlots blocks = do
+slogVerifyBlocks era curSlot txValRules leaders lastSlots blocks = do
     adoptedBVD <- gsAdoptedBVData
 
     -- We take head here, because blocks are in oldest first order and
@@ -319,7 +321,7 @@ slogVerifyBlocks curSlot txValRules leaders lastSlots blocks = do
     let blocksList = OldestFirst (toList (getOldestFirst blocks))
     -- eos assumes `curSlot` is in fact the current slot
     verResToMonadError formatAllErrors $
-        verifyBlocks dummyConfig txValRules curSlot dataMustBeKnown adoptedBVD leaders blocksList
+        verifyBlocks dummyConfig era txValRules curSlot dataMustBeKnown adoptedBVD leaders blocksList
 
     -- Here we need to compute 'SlogUndo'. When we add apply a block,
     -- we can remove one of the last slots stored in

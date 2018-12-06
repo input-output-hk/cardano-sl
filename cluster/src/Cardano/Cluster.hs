@@ -34,6 +34,7 @@ import           Cardano.Cluster.Util (execParserEnv, oneSecond, runAsync,
 import           Cardano.Node.API (launchNodeServer)
 import           Cardano.Node.Client (ClientError (..), NodeClient (..),
                      NodeHttpClient)
+import           Cardano.Node.Manager (Manager)
 import           Pos.Chain.Update (updateConfiguration)
 import           Pos.Client.CLI.NodeOptions (commonNodeArgsParser,
                      nodeApiArgsParser, nodeArgsParser)
@@ -47,12 +48,12 @@ import           Pos.Util.CompileInfo (compileInfo, withCompileInfo)
 
 
 -- | A type representing a running node. The process is captured within the
--- 'Async' handle. For edges nodes, there's an exta 'NodeClient' configured
+-- 'Async' handle. For edges nodes, there's an exta connection manager configured
 -- to talk to the underlying node API.
 data RunningNode
     = RunningCoreNode  NodeName Env (Async ())
     | RunningRelayNode NodeName Env (Async ())
-    | RunningEdgeNode  NodeName Env NodeHttpClient (Async ())
+    | RunningEdgeNode  NodeName Env Manager (Async ())
 
 
 -- | Start a cluster of nodes in different threads.
@@ -80,8 +81,8 @@ startCluster prefix nodes = do
                     yield (RunningRelayNode nodeId nodeEnv)
 
                 NodeEdge -> do
-                    nodeClient  <- init topology >> init logger >> init tls
-                    yield (RunningEdgeNode nodeId nodeEnv nodeClient)
+                    manager  <- init topology >> init logger >> init tls
+                    yield (RunningEdgeNode nodeId nodeEnv manager)
 
             startNode node nodeEnv
 

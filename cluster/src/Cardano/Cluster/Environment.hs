@@ -22,7 +22,6 @@ import qualified Prelude
 import           Universum hiding (keys, (%~), (.~), _2)
 
 import           Control.Lens (Field2 (..), at, (%~), (.~), (?~))
-import qualified Crypto.PubKey.RSA.Types as RSA
 import           Data.Aeson (object, (.=))
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
@@ -43,19 +42,18 @@ import           System.FilePath (takeDirectory, (</>))
 import           System.IO.Temp (withSystemTempDirectory)
 
 import           Cardano.Cluster.Util (getsModify, indexedForM_, nextNtwrkAddr,
-                     ntwrkAddrToBaseUrl, ntwrkAddrToNodeAddr,
-                     ntwrkAddrToString, rotations, unsafeBoolFromString,
-                     unsafeElemIndex, unsafeNetworkAddressFromString,
-                     unsafeSeverityFromString, (|>))
-import           Cardano.Node.Client (NodeHttpClient, mkHttpClient)
-import           Cardano.Node.Manager (mkHttpsManagerSettings, newManager)
+                     ntwrkAddrToNodeAddr, ntwrkAddrToString, rotations,
+                     unsafeBoolFromString, unsafeElemIndex,
+                     unsafeNetworkAddressFromString, unsafeSeverityFromString,
+                     (|>))
+import           Cardano.Node.Manager (Manager, mkHttpsManagerSettings,
+                     newManager)
 import           Cardano.X509.Configuration (CertConfiguration (..),
                      CertDescription (..), DirConfiguration (..),
                      ServerConfiguration (..), TLSConfiguration (..),
                      fromConfiguration, genCertificate)
-import           Data.X509.Extra (CertificateChain (..), SignedCertificate,
-                     genRSA256KeyPair, isClientCertificate, writeCertificate,
-                     writeCredentials)
+import           Data.X509.Extra (CertificateChain (..), genRSA256KeyPair,
+                     isClientCertificate, writeCertificate, writeCredentials)
 import           Network.Broadcast.OutboundQueue (MaxBucketSize (..))
 import           Pos.Chain.Genesis (GeneratedSecrets (..), RichSecrets (..),
                      configGeneratedSecretsThrow, poorSecretToEncKey)
@@ -138,7 +136,7 @@ prepareEnvironment
     -> ( ( Artifact Genesis ()
          , Artifact Topology ()
          , Artifact LoggerConfig ()
-         , Artifact TlsParams NodeHttpClient
+         , Artifact TlsParams Manager
          )
          , Env
        )
@@ -364,14 +362,14 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
 
     -- | Create TLS Certificates configurations
     -- NOTE: The TLS configurations & certs can't be overriden by ENV vars.
-    prepareTLS :: Env -> (Artifact TlsParams NodeHttpClient, Env)
+    prepareTLS :: Env -> (Artifact TlsParams Manager, Env)
     prepareTLS env =
         let
             noClientAuth =
                 -- NOTE Safe when called after 'withDefaultEnvironment'
                 unsafeBoolFromString (env ! "NO_CLIENT_AUTH")
 
-            wAddr@(host, port) =
+            (host, port) =
                 -- NOTE Safe when called after 'withDefaultEnvironment'
                 unsafeNetworkAddressFromString (env ! "NODE_API_ADDRESS")
 
@@ -388,16 +386,6 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
             (tlsConf, dirConf) =
                 demoTLSConfiguration tlsBasePath
 
-            mkNodeClient
-                :: SignedCertificate
-                -> (SignedCertificate, RSA.PrivateKey)
-                -> IO NodeHttpClient
-            mkNodeClient ca (cert, key) = do
-                let serverId = (B8.unpack host, B8.pack $ show port)
-                let credentials = (CertificateChain [cert], PrivKeyRSA key)
-                manager <- newManager $ mkHttpsManagerSettings serverId [ca] credentials
-                return $ mkHttpClient (ntwrkAddrToBaseUrl wAddr) manager
-
             initTLSEnvironment = do
                 keys <- genRSA256KeyPair
                 let (ca, cs) = fromConfiguration tlsConf dirConf genRSA256KeyPair keys
@@ -409,8 +397,10 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
                     writeCredentials (certOutDir c </> certFilename c) (key, cert)
                     writeCertificate (certOutDir c </> certFilename ca) caCert
 
-                    if isClientCertificate cert then
-                        Just <$> mkNodeClient caCert (cert, key)
+                    if isClientCertificate cert then do
+                        let credentials = (CertificateChain [cert], PrivKeyRSA key)
+                        let serverId = (B8.unpack host, B8.pack $ show port)
+                        Just <$> newManager (mkHttpsManagerSettings serverId [caCert] credentials)
                     else
                         return Nothing
                 return $ Prelude.head $ catMaybes clients

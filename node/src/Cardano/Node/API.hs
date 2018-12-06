@@ -19,6 +19,7 @@ import           Network.Wai.Handler.Warp (defaultSettings,
 import qualified Paths_cardano_sl_node as Paths
 import           Servant
 
+import           Cardano.NodeIPC (startNodeJsIPC)
 import           Ntp.Client (NtpConfiguration, NtpStatus (..),
                      ntpClientSettings, withNtpClient)
 import           Ntp.Packet (NtpOffset)
@@ -39,6 +40,8 @@ import qualified Pos.DB.Rocks as DB
 import           Pos.DB.Txp.MemState (GenericTxpLocalData, TxpHolderTag)
 import           Pos.Infra.Diffusion.Subscription.Status (ssMap)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
+import           Pos.Infra.InjectFail (FInject (..), testLogFInject)
+import           Pos.Infra.Shutdown (ShutdownContext (..), triggerShutdown)
 import qualified Pos.Infra.Slotting.Util as Slotting
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Node.API as Node
@@ -145,6 +148,7 @@ launchNodeServer
                 slottingVar
                 updateConfiguration
                 compileTimeInfo
+                shutdownCtx
             :<|> legacyApi
 
     concurrently_
@@ -155,7 +159,7 @@ launchNodeServer
             (do guard (not isDebug)
                 nodeBackendTLSParams params)
             (Just exceptionResponse)
-            Nothing -- TODO: Set a port callback for shutdown/IPC
+            (Just portCallback)
             )
         (forkDocServer
             (Proxy @NodeV1Api)
@@ -167,6 +171,8 @@ launchNodeServer
 
         )
   where
+    shutdownCtx = ncShutdownContext (nrContext nodeResources)
+    portCallback port = runReaderT (startNodeJsIPC port) shutdownCtx
     isDebug = nodeBackendDebugMode params
     exceptionResponse =
         setOnExceptionResponse handler defaultSettings
@@ -191,11 +197,12 @@ handlers
     -> Core.SlottingVar
     -> UpdateConfiguration
     -> CompileTimeInfo
+    -> ShutdownContext
     -> ServerT Node.API Handler
-handlers d t s n l ts sv uc ci =
+handlers d t s n l ts sv uc ci sc =
     getNodeSettings ci uc ts sv
     :<|> getNodeInfo d t s n l
-    :<|> applyUpdate
+    :<|> applyUpdate sc
     :<|> postponeUpdate
 
 getNodeSettings
@@ -232,102 +239,20 @@ instance Core.HasSlottingVar SettingsCtx where
     slottingVar =
         lens settingsCtxSlottingVar (\s t -> s { settingsCtxSlottingVar = t })
 
-applyUpdate :: Handler NoContent
-applyUpdate =
-    throwError err500 { errBody = "This handler is not yet implemented." }
+applyUpdate :: ShutdownContext -> Handler NoContent
+applyUpdate shutdownCtx = liftIO $ do
+    doFail <- testLogFInject (_shdnFInjects shutdownCtx) FInjApplyUpdateNoExit
+    unless doFail (runReaderT triggerShutdown shutdownCtx)
+    pure NoContent
 
-{-
-
-More conversation from Slack about the Node API:
-
-Matthias Benkort [1 day ago]
-> If I am not mistaken, the only things these updates endpoint do are:
->
-> - to store a flag when a new update is available (broadcast by the node to the wallet via a shared MVar)
->
-> - to lookup / pop the last flag in db and restart the node
->
-> Knowing that, restarting the node applies the last update anyway. So I wonder
-> if we can't simply store that in plain memory. There's no need for persistence
-> here, this is really just to remember a choice from daedalus. The typical flow
-> is:
->
-> - update is received by the node and broadcast to the wallet which stores it
->   in acid state.
-> - every k seconds, Daedalus pulls the wallet to know about possible updates
-> - when an update is available, a message is displayed to the user who has two
->   choices: "postpone" the update or apply it immediately.
-> - The former removes the update marker from acid-state such that, there's no
->   "new" update event; the update will be applied anyway once Daedalus is
->   shutdown (better double-check with some frontend folks though)
-> - The later removes it as well but restart the node immediately.
->
-> And note that this does affect the node and creates actual coupling, so we
-> ought to remove it, eventually.
->
-> I truly believe acid-state or any form of persistent storage is no need
-> however.
-
-Duncan Coutts [1 day ago]
-> I think it's right that no persistence is needed. Certainly in future the
-> node's ledger state will simply report the current on-chain latest version of
-> each application, so Daedalus or the wallet backend just needs to know it's
-> own version and checks occasionally if the on-chain latest version is bigger.
-
--}
-
-{-
--- from Cardano.Wallet.API.Internal.Handlers
-applyUpdate :: PassiveWalletLayer IO -> Handler NoContent
-applyUpdate w = liftIO (WalletLayer.applyUpdate w) >> return NoContent
-
--- from Cardano.WalletLayer.Kernel.hs
--- ...
-        , applyUpdate          = Internal.applyUpdate         w
--- ...
-
--- from Cardano.Wallet.WalletLayer.Kernal.Internal
--- | Apply an update
+-- | In the old implementation, we would delete the new update from the
+-- acid-stae database. We no longer persist this information, so postponing an
+-- update is simply a noop.
 --
--- NOTE (legacy): 'applyUpdate', "Pos.Wallet.Web.Methods.Misc".
---
--- The legacy implementation does two things:
---
--- 1. Remove the update from the wallet's list of updates
--- 2. Call 'applyLastUpdate' from 'MonadUpdates'
---
--- The latter is implemented in 'applyLastUpdateWebWallet', which literally just
--- a call to 'triggerShutdown'.
---
--- TODO: The other side of the story is 'launchNotifier', where the wallet
--- is /notified/ of updates.
-applyUpdate :: MonadIO m => Kernel.PassiveWallet -> m ()
-applyUpdate w = liftIO $ do
-    update' (w ^. Kernel.wallets) $ RemoveNextUpdate
-    Node.withNodeState (w ^. Kernel.walletNode) $ \_lock -> do
-      doFail <- liftIO $ testLogFInject (w ^. Kernel.walletFInjects) FInjApplyUpdateNoExit
-      unless doFail
-        Node.triggerShutdown
--}
-
+-- TODO: verify this is a real thought and not, in fact, bad
 postponeUpdate :: Handler NoContent
-postponeUpdate =
-    throwError err500 { errBody = "This handler is not yet implemented." }
-
-{-
-
--- from Cardano.Wallet.API.Internal.Handlers:
-postponeUpdate :: PassiveWalletLayer IO -> Handler NoContent
-postponeUpdate w = liftIO (WalletLayer.postponeUpdate w) >> return NoContent
-
--- from Cardano.Wallet.WalletLayer.Kernal.Internal
--- | Postpone update
---
--- NOTE (legacy): 'postponeUpdate', "Pos.Wallet.Web.Methods.Misc".
-postponeUpdate :: MonadIO m => Kernel.PassiveWallet -> m ()
-postponeUpdate w = update' (w ^. Kernel.wallets) $ RemoveNextUpdate
-
--}
+postponeUpdate = do
+    pure NoContent
 
 getNodeInfo
     :: Diffusion IO

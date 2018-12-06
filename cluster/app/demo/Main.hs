@@ -20,7 +20,9 @@ import           System.IO (BufferMode (..), hSetBuffering, stdout)
 import           Cardano.Cluster (MaxWaitingTime (..), NodeName (..),
                      NodeType (..), RunningNode (..), mkNamedNodes,
                      startCluster, waitForNode)
-import           Cardano.Cluster.Util (unsafeIntFromString)
+import           Cardano.Cluster.Util (ntwrkAddrToBaseUrl, unsafeIntFromString,
+                     unsafeNetworkAddressFromString)
+import           Cardano.Node.Client (mkHttpClient)
 import           Pos.Node.API (SyncPercentage)
 
 
@@ -86,7 +88,9 @@ main = void $ do
                 <> "\n......address:       " <> toText (env ! "LISTEN")
             return handle
 
-        RunningEdgeNode (NodeName nodeId) env client handle -> do
+        RunningEdgeNode (NodeName nodeId) env manager handle -> do
+            let addr = unsafeNetworkAddressFromString (env ! "NODE_API_ADDRESS")
+            let client = mkHttpClient (ntwrkAddrToBaseUrl addr) manager
             putText "..." >> waitForNode client (MaxWaitingTime 90) printProgress
             putTextFromStart $ "..." <> nodeId <> " OK!"
             putTextLn

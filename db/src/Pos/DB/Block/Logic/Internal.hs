@@ -212,12 +212,13 @@ applyBlocksDbUnsafeDo genesisConfig scb blunds pModifier = do
     txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
     era <- getConsensusEra
     sscBatch <- case era of
-        Original -> SomeBatchOp <$>
+        Original -> do
             -- TODO: pass not only 'Nothing'
-            sscApplyBlocks genesisConfig (map toSscBlock blocks) Nothing
-        OBFT -> pure $
+            res <- sscApplyBlocks genesisConfig (map toSscBlock blocks) Nothing
+            pure (SomeBatchOp res)
+        OBFT -> do
             -- We don't perform SSC operations during the OBFT era
-            SomeBatchOp ([] :: [EmptyBatchOp])
+            pure $ SomeBatchOp ([] :: [EmptyBatchOp])
     GS.writeBatchGState
         [ delegateBatch
         , usBatch

@@ -165,7 +165,7 @@ By default the wallet's local state goes in
 `./state-wallet-mainnet`.
 
 Build the wallet and generate the shell script to connect to
-mainnet (use `connectScripts.staging.wallet` for testnet)
+mainnet (use `connectScripts.testnet.wallet` for testnet)
 
     nix-build -A connectScripts.mainnet.wallet -o "./launch_$(date -I)_$(git rev-parse --short HEAD)"
 
@@ -349,7 +349,7 @@ The following command can be used to see the percentage completion of the sync o
 
 ## Where can I find the API documentation?
 
-Run the latest wallet and go to <https://127.0.0.1:8090/docs/v1/index>.
+Run the latest wallet and go to <https://127.0.0.1:8091/docs/v1/index>.
 
 For the v0 API documentation (deprecated), go to <https://127.0.0.1:8090/docs/v0/index>.
 

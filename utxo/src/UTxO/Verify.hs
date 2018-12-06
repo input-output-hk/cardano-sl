@@ -230,12 +230,13 @@ mapVerifyErrors f (Verify ma) = Verify $ mapStateT (withExceptT f) ma
 verifyBlocksPrefix
     :: ProtocolMagic -- ^ Protocol magic
     -> HeaderHash    -- ^ Expected tip
+    -> ConsensusEra  -- ^ Original or OBFT
     -> Maybe SlotId  -- ^ Current slot
     -> SlotLeaders   -- ^ Slot leaders for this epoch
     -> LastBlkSlots  -- ^ Last block slots
     -> OldestFirst NE Block
     -> Verify VerifyBlocksException (OldestFirst NE Undo)
-verifyBlocksPrefix pm tip curSlot leaders lastSlots blocks = do
+verifyBlocksPrefix pm tip era curSlot leaders lastSlots blocks = do
     when (tip /= blocks ^. _Wrapped . _neHead . prevBlockL) $
         throwError $ VerifyBlocksError "the first block isn't based on the tip"
 
@@ -243,7 +244,7 @@ verifyBlocksPrefix pm tip curSlot leaders lastSlots blocks = do
 
     -- Verify block envelope
     slogUndos <- mapVerifyErrors VerifyBlocksError $
-                   slogVerifyBlocks curSlot leaders lastSlots blocks
+                   slogVerifyBlocks era curSlot leaders lastSlots blocks
 
     -- We skip SSC verification
     {-
@@ -297,12 +298,13 @@ verifyBlocksPrefix pm tip curSlot leaders lastSlots blocks = do
 -- * Uses 'gsAdoptedBVData' instead of 'getAdoptedBVFull'
 -- * Use hard-coded 'dataMustBeKnown' (instead of deriving this from 'adoptedBV')
 slogVerifyBlocks
-    :: Maybe SlotId  -- ^ Current slot
+    :: ConsensusEra  -- ^ Original or OBFT
+    -> Maybe SlotId  -- ^ Current slot
     -> SlotLeaders   -- ^ Slot leaders for this epoch
     -> LastBlkSlots  -- ^ Last block slots
     -> OldestFirst NE Block
     -> Verify Text (OldestFirst NE SlogUndo)
-slogVerifyBlocks curSlot leaders lastSlots blocks = do
+slogVerifyBlocks era curSlot leaders lastSlots blocks = do
     adoptedBVD <- gsAdoptedBVData
 
     -- We take head here, because blocks are in oldest first order and
@@ -315,7 +317,7 @@ slogVerifyBlocks curSlot leaders lastSlots blocks = do
         _ -> pass
     let blocksList = OldestFirst (toList (getOldestFirst blocks))
     verResToMonadError formatAllErrors $
-        verifyBlocks dummyConfig curSlot dataMustBeKnown adoptedBVD leaders blocksList
+        verifyBlocks dummyConfig era curSlot dataMustBeKnown adoptedBVD leaders blocksList
 
     -- Here we need to compute 'SlogUndo'. When we add apply a block,
     -- we can remove one of the last slots stored in

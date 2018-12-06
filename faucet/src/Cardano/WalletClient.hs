@@ -21,7 +21,7 @@ import qualified Data.ByteArray as BA
 import           Data.ByteString (ByteString)
 import           Data.List.NonEmpty (NonEmpty (..))
 import           Data.Text.Strict.Lens (utf8)
-import           Pos.Client.Txp.Util (InputSelectionPolicy(..))
+import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
 import           Pos.Core (Address (..), Coin (..))
 import           Pos.Crypto.Signing (PassPhrase)
 import           System.Random

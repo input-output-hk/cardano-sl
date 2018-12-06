@@ -1,7 +1,3 @@
--- This file has been generated from package.yaml by hpack version 0.18.1.
---
--- see: https://github.com/sol/hpack
-
 name:           cardano-sl-faucet
 version:        2.0.0
 description:    Cardano SL - faucet
@@ -22,6 +18,7 @@ library
                     , aeson-pretty
                     , base16-bytestring
                     , bytestring
+                    , cardano-sl-client
                     , cardano-sl-core
                     , cardano-sl-crypto
                     , cardano-sl-chain

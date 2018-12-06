@@ -41,7 +41,6 @@ library
                , attoparsec
                , bytestring
                , containers
-               , cryptonite
                , directory
                , filepath
                , formatting

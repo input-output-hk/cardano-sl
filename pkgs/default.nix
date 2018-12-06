@@ -14484,7 +14484,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-util
 , cardano-sl-x509
 , containers
-, cryptonite
 , directory
 , docopt
 , filepath
@@ -14531,7 +14530,6 @@ cardano-sl-node
 cardano-sl-util
 cardano-sl-x509
 containers
-cryptonite
 directory
 filepath
 formatting

@@ -14483,7 +14483,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-node
 , cardano-sl-util
 , cardano-sl-x509
-, cardano-wallet
 , containers
 , cryptonite
 , directory
@@ -14531,7 +14530,6 @@ cardano-sl-networking
 cardano-sl-node
 cardano-sl-util
 cardano-sl-x509
-cardano-wallet
 containers
 cryptonite
 directory

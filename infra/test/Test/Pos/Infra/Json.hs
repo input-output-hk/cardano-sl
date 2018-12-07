@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TemplateHaskell   #-}
 
 module Test.Pos.Infra.Json
@@ -8,7 +9,7 @@ module Test.Pos.Infra.Json
 import           Universum
 
 import           Data.Map
-import           Hedgehog (Property)
+import           Hedgehog (Property, tripping)
 import qualified Hedgehog as H
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
@@ -20,6 +21,7 @@ import           Pos.Infra.Network.Yaml (AllStaticallyKnownPeers (..),
                      NodeMetadata (..), NodeRegion (..), NodeRoutes (..),
                      Topology (..))
 
+import qualified Data.Yaml as Y
 import           Test.Pos.Infra.Gen (genAllStaticallyKnownPeers, genDnsDomains,
                      genDomain, genMaxBucketSize, genNodeAddr,
                      genNodeAddrMaybe, genNodeMetadata, genNodeName,
@@ -150,6 +152,14 @@ golden_TopologyTraditional =
 roundTripTopology :: Property
 roundTripTopology =
     eachOf 1000 genTopology roundTripsAesonShow
+
+roundTripTopologyYaml :: Property
+roundTripTopologyYaml =
+    eachOf 1000 genTopology (\a -> tripping a Y.encode unsafeDecode)
+  where
+    unsafeDecode a = case Y.decodeEither' a of
+      Left _  -> Nothing
+      Right b -> Just b
 
 --------------------------------------------------------------------------------
 -- Example golden datatypes

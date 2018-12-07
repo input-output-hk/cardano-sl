@@ -89,7 +89,7 @@ newtype AllStaticallyKnownPeers = AllStaticallyKnownPeers
     } deriving (Eq, Generic, Show)
 
 instance ToJSON AllStaticallyKnownPeers where
-    toEncoding (AllStaticallyKnownPeers pMap) = toEncoding pMap
+    toJSON (AllStaticallyKnownPeers pMap) = toJSON pMap
 
 instance FromJSON AllStaticallyKnownPeers where
     parseJSON = A.withObject "AllStaticallyKnownPeers" $ \obj ->
@@ -141,7 +141,7 @@ data NodeMetadata = NodeMetadata
       -- | Should the node register itself with the Kademlia network?
     , nmKademlia   :: !RunKademlia
 
-      -- | Should the node br registered in the public DNS?
+      -- | Should the node be registered in the public DNS?
     , nmPublicDNS  :: !InPublicDNS
 
       -- | Maximum number of subscribers (only relevant for relays)
@@ -223,7 +223,7 @@ instance ToJSON KademliaAddress where
 ----------------------------------------------------------------------------
 
 instance ToJSON NodeMetadata where
-    toEncoding
+    toJSON
         (NodeMetadata
             nmType
             nmRegion
@@ -237,63 +237,63 @@ instance ToJSON NodeMetadata where
             nmMaxSubscrs) = do
                 case nmAddress of
                     NodeAddrExact ip (Just port) ->
-                        A.pairs $
-                             A.pairStr "type" (toEncoding nmType)
-                         <>  A.pairStr "region" (toEncoding nmRegion)
-                         <>  A.pairStr "static-routes" (toEncoding nmRoutes)
-                         <>  A.pairStr
-                                "dynamic-subscribe" (toEncoding nmSubscribe)
-                         <>  A.pairStr "valency" (toEncoding nmValency)
-                         <>  A.pairStr "fallbacks" (toEncoding nmFallbacks)
-                         <>  A.pairStr "addr" (toEncoding ip)
-                         <>  A.pairStr "port" (toEncoding port)
-                         <>  A.pairStr "kademlia" (toEncoding nmKademlia)
-                         <>  A.pairStr "public" (toEncoding nmPublicDNS)
-                         <>  A.pairStr "maxSubscrs" (toEncoding nmMaxSubscrs)
+                        A.object [
+                             "type" .= (toJSON nmType)
+                           , "region" .= (toJSON nmRegion)
+                           , "static-routes" .= (toJSON nmRoutes)
+                           , "dynamic-subscribe" .= (toJSON nmSubscribe)
+                           , "valency" .= (toJSON nmValency)
+                           , "fallbacks" .= (toJSON nmFallbacks)
+                           , "addr" .= (toJSON ip)
+                           , "port" .= (toJSON port)
+                           , "kademlia" .= (toJSON nmKademlia)
+                           , "public" .= (toJSON nmPublicDNS)
+                           , "maxSubscrs" .= (toJSON nmMaxSubscrs)
+                         ]
                     NodeAddrExact ip Nothing ->
-                        A.pairs $
-                            A.pairStr "type" (toEncoding nmType)
-                         <> A.pairStr "region" (toEncoding nmRegion)
-                         <> A.pairStr "static-routes" (toEncoding nmRoutes)
-                         <> A.pairStr
-                                "dynamic-subscribe" (toEncoding nmSubscribe)
-                         <> A.pairStr "valency" (toEncoding nmValency)
-                         <> A.pairStr "fallbacks" (toEncoding nmFallbacks)
-                         <> A.pairStr "addr" (toEncoding ip)
-                         <> A.pairStr "port" (A.string "3000")
-                         <> A.pairStr "kademlia" (toEncoding nmKademlia)
-                         <> A.pairStr "public" (toEncoding nmPublicDNS)
-                         <> A.pairStr "maxSubscrs" (toEncoding nmMaxSubscrs)
+                        A.object [
+                            "type" .= (toJSON nmType)
+                          , "region" .= (toJSON nmRegion)
+                          , "static-routes" .= (toJSON nmRoutes)
+                          , "dynamic-subscribe" .= (toJSON nmSubscribe)
+                          , "valency" .= (toJSON nmValency)
+                          , "fallbacks" .= (toJSON nmFallbacks)
+                          , "addr" .= (toJSON ip)
+                          , "port" .= (A.String "3000")
+                          , "kademlia" .= (toJSON nmKademlia)
+                          , "public" .= (toJSON nmPublicDNS)
+                          , "maxSubscrs" .= (toJSON nmMaxSubscrs)
+                         ]
                     NodeAddrDNS (Just host) (Just port) -> do
                         let converted = decodeUtf8 @Text @ByteString host
-                        A.pairs $
-                            A.pairStr "type" (toEncoding nmType)
-                         <> A.pairStr "region" (toEncoding nmRegion)
-                         <> A.pairStr "static-routes" (toEncoding nmRoutes)
-                         <> A.pairStr
-                                "dynamic-subscribe" (toEncoding nmSubscribe)
-                         <> A.pairStr "valency" (toEncoding nmValency)
-                         <> A.pairStr "fallbacks" (toEncoding nmFallbacks)
-                         <> A.pairStr "host" (toEncoding converted)
-                         <> A.pairStr "port" (toEncoding port)
-                         <> A.pairStr "kademlia" (toEncoding nmKademlia)
-                         <> A.pairStr "public" (toEncoding nmPublicDNS)
-                         <> A.pairStr "maxSubscrs" (toEncoding nmMaxSubscrs)
+                        A.object [
+                            "type" .= (toJSON nmType)
+                          , "region" .= (toJSON nmRegion)
+                          , "static-routes" .= (toJSON nmRoutes)
+                          , "dynamic-subscribe" .= (toJSON nmSubscribe)
+                          , "valency" .= (toJSON nmValency)
+                          , "fallbacks" .= (toJSON nmFallbacks)
+                          , "host" .= (toJSON converted)
+                          , "port" .= (toJSON port)
+                          , "kademlia" .= (toJSON nmKademlia)
+                          , "public" .= (toJSON nmPublicDNS)
+                          , "maxSubscrs" .= (toJSON nmMaxSubscrs)
+                         ]
                     NodeAddrDNS (Just host) Nothing -> do
                         let converted = decodeUtf8 @Text @ByteString host
-                        A.pairs $
-                            A.pairStr "type" (toEncoding nmType)
-                         <> A.pairStr "region" (toEncoding nmRegion)
-                         <> A.pairStr "static-routes" (toEncoding nmRoutes)
-                         <> A.pairStr
-                            "dynamic-subscribe" (toEncoding nmSubscribe)
-                         <> A.pairStr "valency" (toEncoding nmValency)
-                         <> A.pairStr "fallbacks" (toEncoding nmFallbacks)
-                         <> A.pairStr "host" (toEncoding converted)
-                         <> A.pairStr "port" (A.string "3000")
-                         <> A.pairStr "kademlia" (toEncoding nmKademlia)
-                         <> A.pairStr "public" (toEncoding nmPublicDNS)
-                         <> A.pairStr "maxSubscrs" (toEncoding nmMaxSubscrs)
+                        A.object [
+                            "type" .= (toJSON nmType)
+                          , "region" .= (toJSON nmRegion)
+                          , "static-routes" .= (toJSON nmRoutes)
+                          , "dynamic-subscribe" .= (toJSON nmSubscribe)
+                          , "valency" .= (toJSON nmValency)
+                          , "fallbacks" .= (toJSON nmFallbacks)
+                          , "host" .= (toJSON converted)
+                          , "port" .= (A.String "3000")
+                          , "kademlia" .= (toJSON nmKademlia)
+                          , "public" .= (toJSON nmPublicDNS)
+                          , "maxSubscrs" .= (toJSON nmMaxSubscrs)
+                         ]
                     NodeAddrDNS Nothing _ ->
                         error "Please enter a hostname"
 
@@ -338,69 +338,56 @@ instance FromJSON OQ.Precedence where
           _otherwise -> Left $ "Invalid Precedence" <> show typ
 
 instance ToJSON Topology where
-    toEncoding (TopologyStatic (AllStaticallyKnownPeers pMap)) =
-        A.pairs $ A.pairStr "nodes" (toEncoding (AllStaticallyKnownPeers pMap) )
-    toEncoding (TopologyBehindNAT
+    toJSON (TopologyStatic (AllStaticallyKnownPeers pMap)) =
+        A.object $ [ "nodes" .= (toJSON (AllStaticallyKnownPeers pMap) ) ]
+    toJSON (TopologyBehindNAT
                    topologyValency
                    topologyFallbacks
                    topologyDnsDomains) =
-                       A.pairs $ A.pairStr "wallet"
-                           $ A.pairs $ A.pairStr "relays"
-                                           (toEncoding topologyDnsDomains)
-                                    <> A.pairStr "valency"
-                                           (toEncoding topologyValency)
-                                    <> A.pairStr "fallbacks"
-                                           (toEncoding topologyFallbacks)
-    toEncoding (TopologyTraditional
+                       A.object $ [ "wallet" .=
+                           (A.object $ [ "relays" .= (toJSON topologyDnsDomains)
+                                       , "valency" .= (toJSON topologyValency)
+                                       , "fallbacks" .= (toJSON topologyFallbacks)
+                                      ])
+                                  ]
+    toJSON (TopologyTraditional
                    topologyValency
                    topologyFallbacks
                    topologyMaxSubscrs) = do
                        case topologyMaxSubscrs of
                            OQ.BucketSizeMax int ->
-                               A.pairs $ A.pairStr "p2p"
-                                   $ A.pairs $ A.pairStr "variant"
-                                                   (A.text "traditional")
-                                            <> A.pairStr "valency"
-                                                   (toEncoding topologyValency)
-                                            <> A.pairStr "fallbacks"
-                                                   (toEncoding topologyFallbacks)
-                                            <> A.pairStr "maxSubscrs"
-                                                   (toEncoding int)
+                               A.object [ "p2p" .= (
+                                   A.object [ "variant" .= A.String "traditional"
+                                                , "valency" .= (toJSON topologyValency)
+                                                , "fallbacks" .= (toJSON topologyFallbacks)
+                                                , "maxSubscrs" .= (toJSON int)
+                                                ] ) ]
                            OQ.BucketSizeUnlimited ->
-                               A.pairs $ A.pairStr "p2p"
-                                   $ A.pairs $ A.pairStr "variant"
-                                                   (A.text "traditional")
-                                            <> A.pairStr "valency"
-                                                   (toEncoding topologyValency)
-                                            <> A.pairStr "fallbacks"
-                                                   (toEncoding topologyFallbacks)
-                                            <> A.pairStr "maxSubscrs"
-                                                   A.null_
-    toEncoding (TopologyP2P
+                               A.object [ "p2p" .= (
+                                   A.object [ "variant" .= A.String "traditional"
+                                            , "valency" .= (toJSON topologyValency)
+                                            , "fallbacks" .= (toJSON topologyFallbacks)
+                                            , "maxSubscrs" .= A.Null
+                                             ] ) ]
+    toJSON (TopologyP2P
                    topologyValency
                    topologyFallbacks
                    topologyMaxSubscrs) = do
                        case topologyMaxSubscrs of
                            OQ.BucketSizeMax int ->
-                               A.pairs $ A.pairStr "p2p"
-                                   $ A.pairs $ A.pairStr "variant"
-                                                   (A.text "normal")
-                                            <> A.pairStr "valency"
-                                                   (toEncoding topologyValency)
-                                            <> A.pairStr "fallbacks"
-                                                   (toEncoding topologyFallbacks)
-                                            <> A.pairStr "maxSubscrs"
-                                                   (toEncoding int)
+                               A.object [ "p2p" .= (
+                                   A.object [ "variant" .= A.String "normal"
+                                              , "valency" .= (toJSON topologyValency)
+                                              , "fallbacks" .= (toJSON topologyFallbacks)
+                                              , "maxSubscrs" .= (toJSON int)
+                                              ]     ) ]
                            OQ.BucketSizeUnlimited ->
-                               A.pairs $ A.pairStr "p2p"
-                                   $ A.pairs $ A.pairStr "variant"
-                                                   (A.text "normal")
-                                            <> A.pairStr "valency"
-                                                   (toEncoding topologyValency)
-                                            <> A.pairStr "fallbacks"
-                                                   (toEncoding topologyFallbacks)
-                                            <> A.pairStr "maxSubscrs"
-                                                   A.null_
+                               A.object [ "p2p" .= (
+                                   A.object [ "variant" .= (A.String "normal")
+                                            , "valency" .= (toJSON topologyValency)
+                                            , "fallbacks" .= (toJSON topologyFallbacks)
+                                            , "maxSubscrs" .= A.Null
+                                            ]      ) ]
 
 instance FromJSON Topology where
     parseJSON = A.withObject "Topology" $ \obj -> do

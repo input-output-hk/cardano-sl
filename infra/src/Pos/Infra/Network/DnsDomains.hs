@@ -12,7 +12,6 @@ import           Universum
 
 import           Data.Aeson (FromJSON (..), ToJSON (..), (.:), (.:?), (.=))
 import qualified Data.Aeson as A
-import qualified Data.Aeson.Encoding.Internal as A
 import qualified Data.Aeson.Types as A
 import qualified Data.ByteString.Char8 as BS.C8
 import qualified Data.HashMap.Strict as HMS
@@ -40,7 +39,7 @@ data DnsDomains a = DnsDomains {
   deriving (Show, Eq, Generic)
 
 instance A.ToJSON (DnsDomains DNS.Domain) where
-    toEncoding (DnsDomains addrsList) = A.list toEncoding addrsList
+    toJSON (DnsDomains addrsList) = toJSON addrsList
 
 instance A.FromJSON (DnsDomains DNS.Domain) where
     parseJSON (A.Array vec) = do

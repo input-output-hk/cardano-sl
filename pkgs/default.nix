@@ -15730,6 +15730,7 @@ license = stdenv.lib.licenses.mit;
 , unix
 , unliftio
 , unordered-containers
+, vector
 , yaml
 }:
 mkDerivation {
@@ -15794,12 +15795,14 @@ universum
 unix
 unliftio
 unordered-containers
+vector
 yaml
 ];
 libraryToolDepends = [
 cpphs
 ];
 testHaskellDepends = [
+aeson
 async
 base
 bytestring
@@ -15821,6 +15824,7 @@ iproute
 kademlia
 QuickCheck
 universum
+yaml
 ];
 doHaddock = false;
 description = "Cardano SL - infrastructural";
@@ -15853,6 +15857,7 @@ license = stdenv.lib.licenses.mit;
 , QuickCheck
 , stdenv
 , universum
+, yaml
 }:
 mkDerivation {
 
@@ -15882,6 +15887,7 @@ iproute
 kademlia
 QuickCheck
 universum
+yaml
 ];
 doHaddock = false;
 description = "Cardano SL - generators for cardano-sl-infra";

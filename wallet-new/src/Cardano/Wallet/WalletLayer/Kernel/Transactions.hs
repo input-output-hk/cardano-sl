@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Cardano.Wallet.WalletLayer.Kernel.Transactions (
       getTransactions
     , toTransaction
@@ -6,11 +8,13 @@ module Cardano.Wallet.WalletLayer.Kernel.Transactions (
 import           Universum
 
 import           Control.Monad.Except
+import           Formatting (build, sformat)
 import           GHC.TypeLits (symbolVal)
 
 import           Pos.Chain.Txp (TxId)
 import           Pos.Core (Address, Coin, SlotCount, SlotId, Timestamp,
                      decodeTextAddress, flattenSlotId, getBlockCount)
+import           Pos.Util.Wlog (Severity (..))
 
 import           Cardano.Wallet.API.Indices
 import           Cardano.Wallet.API.Request
@@ -43,23 +47,52 @@ getTransactions wallet mbWalletId mbAccountIndex mbAddress params fop sop = lift
     let PaginationParams{..}  = rpPaginationParams params
     let PerPage pp = ppPerPage
     let Page cp = ppPage
-    accountFops <- castAccountFiltering mbWalletId mbAccountIndex
-    mbSorting <- castSorting sop
-    db <- liftIO $ Kernel.getWalletSnapshot wallet
-    sc <- liftIO $ Node.getSlotCount (wallet ^. Kernel.walletNode)
-    currentSlot <- liftIO $ Node.getTipSlotId (wallet ^. Kernel.walletNode)
-    (meta, mbTotalEntries) <- liftIO $ TxMeta.getTxMetas
-        (wallet ^. Kernel.walletMeta)
-        (TxMeta.Offset . fromIntegral $ (cp - 1) * pp)
-        (TxMeta.Limit . fromIntegral $ pp)
-        accountFops
-        (unV1 <$> mbAddress)
-        (castFiltering $ mapIx unV1 <$> F.findMatchingFilterOp fop)
-        (castFiltering $ mapIx unV1 <$> F.findMatchingFilterOp fop)
-        mbSorting
-    txs <- withExceptT GetTxUnknownHdAccount $
-             mapM (metaToTx db sc currentSlot) meta
-    return $ respond params txs mbTotalEntries
+    (txs, total) <- go cp pp ([], Nothing)
+    return $ respond params txs total
+  where
+    -- NOTE: See cardano-wallet#141
+    --
+    -- We may end up with some inconsistent metadata in the store. When fetching
+    -- them all, instead of failing with a non very helpful 'WalletNotfound' or
+    -- 'AccountNotFound' error because one or more metadata in the list contains
+    -- unknown ids, we simply discard them from what we fetched and we fetch
+    -- another batch up until we have enough (== pp).
+    go cp pp (acc, total)
+        | length acc >= pp =
+            return $ (take pp acc, total)
+        | otherwise = do
+            accountFops <- castAccountFiltering mbWalletId mbAccountIndex
+            mbSorting <- castSorting sop
+            (metas, mbTotalEntries) <- liftIO $ TxMeta.getTxMetas
+                (wallet ^. Kernel.walletMeta)
+                (TxMeta.Offset . fromIntegral $ (cp - 1) * pp)
+                (TxMeta.Limit . fromIntegral $ pp)
+                accountFops
+                (unV1 <$> mbAddress)
+                (castFiltering $ mapIx unV1 <$> F.findMatchingFilterOp fop)
+                (castFiltering $ mapIx unV1 <$> F.findMatchingFilterOp fop)
+                mbSorting
+            db <- liftIO $ Kernel.getWalletSnapshot wallet
+            sc <- liftIO $ Node.getSlotCount (wallet ^. Kernel.walletNode)
+            currentSlot <- liftIO $ Node.getTipSlotId (wallet ^. Kernel.walletNode)
+            if null metas then
+                -- A bit artificial, but we force the termination and make sure
+                -- in the meantime that the algorithm only exits by one and only
+                -- one branch.
+                go cp (min pp $ length acc) (acc, total <|> mbTotalEntries)
+            else do
+                txs <- catMaybes <$> forM metas (\meta -> do
+                    runExceptT (metaToTx db sc currentSlot meta) >>= \case
+                        Left e -> do
+                            let warn = lift . ((wallet ^. Kernel.walletLogMessage) Warning)
+                            warn $ "Inconsistent entry in the metadata store: " <> sformat build e
+                            return Nothing
+
+                        Right tx ->
+                            return (Just tx)
+                    )
+                go (cp + 1) pp (acc ++ txs, total <|> mbTotalEntries)
+
 
 toTransaction :: MonadIO m
               => Kernel.PassiveWallet

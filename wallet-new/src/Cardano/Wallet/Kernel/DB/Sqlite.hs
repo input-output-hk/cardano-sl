@@ -18,6 +18,7 @@ module Cardano.Wallet.Kernel.DB.Sqlite (
     , putTxMeta
     , getTxMeta
     , getTxMetas
+    , deleteTxMetas
 
     -- * Unsafe functions
     , unsafeMigrateMetaDB
@@ -446,6 +447,34 @@ clearMetaDB conn = do
 
 putTxMeta :: Sqlite.Connection -> Kernel.TxMeta -> IO ()
 putTxMeta conn txMeta = void $ putTxMetaT conn txMeta
+
+-- | Clear some metadata from the database
+deleteTxMetas
+    :: Sqlite.Connection
+        -- | Database Handle
+    -> Core.Address
+        -- | Target wallet
+    -> Maybe Word32
+        -- |  A target account index. If none, delete metas for all accounts
+    -> IO ()
+deleteTxMetas conn walletId mAccountIx = do
+    runBeamSqlite conn $ SQL.runDelete $ SQL.delete (_mDbMeta metaDB) $ \meta ->
+        conditionWalletId meta &&. conditionAccountIx meta
+  where
+    conditionWalletId
+        :: TxMetaT (SQL.QExpr SqliteExpressionSyntax s)
+        -> SQL.QGenExpr SQL.QValueContext SqliteExpressionSyntax s Bool
+    conditionWalletId meta =
+        _txMetaTableWalletId meta ==. SQL.val_ walletId
+    conditionAccountIx
+        :: TxMetaT (SQL.QExpr SqliteExpressionSyntax s)
+        -> SQL.QGenExpr SQL.QValueContext SqliteExpressionSyntax s Bool
+    conditionAccountIx meta = case mAccountIx of
+        Nothing ->
+            SQL.val_ True
+        Just ix ->
+            _txMetaTableAccountIx meta ==. SQL.val_ ix
+
 
 -- | Inserts a new 'Kernel.TxMeta' in the database, given its opaque
 -- 'MetaDBHandle'.

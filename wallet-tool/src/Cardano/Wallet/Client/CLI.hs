@@ -24,7 +24,9 @@ import           Universum
 import           Cardano.Mnemonic (mkMnemonic)
 import           Cardano.Wallet.API.V1.Types (AccountIndex, AssuranceLevel (..),
                      BackupPhrase (..), NewWallet (..), V1 (..), WalletId (..),
-                     WalletOperation (..), mkAccountIndex, mkPassPhrase)
+                     WalletOperation (..), WalletAddress(..),
+                     mkAccountIndex, mkPassPhrase)
+import           Cardano.Wallet.Client (getAddressIndex, getWallets)
 import           Cardano.Wallet.Client.Easy
 import           Cardano.Wallet.ProcessUtil (ProcessID)
 
@@ -93,7 +95,7 @@ authenticateServerP = flag AllowInsecure AuthenticateServer
 ----------------------------------------------------------------------------
 -- Action parsers
 
-actionP :: Parser (Action m)
+actionP :: Monad m => Parser (Action m)
 actionP = hsubparser
   ( command "wait-for-sync" (info waitForSyncP (progDesc "Poll wallet until it has fully synced its chain"))
     <> command "wait-for-restore" (info waitForRestoreP (progDesc "Poll wallet until the restore operation is complete"))
@@ -110,7 +112,7 @@ waitForRestoreP = WaitForRestore <$> optional pidP <*> optional outfileP
 ----------------------------------------------------------------------------
 -- API action parsers
 
-apiActionP :: Parser (Action m)
+apiActionP :: Monad m => Parser (Action m)
 apiActionP = hsubparser (mconcat [ command name (info p (progDesc desc))
                                  | (name, desc, p) <- commands]
                          <> commandGroup "Basic API calls"
@@ -122,6 +124,8 @@ apiActionP = hsubparser (mconcat [ command name (info p (progDesc desc))
       , ("restore-wallet", "Restore a wallet from mnemonic", WalletEndpoint <$> createWalletP RestoreWallet)
       , ("delete-wallet", "Delete a wallet", WalletEndpointVoid <$> deleteWalletP)
       , ("delete-account", "Delete account", WalletEndpointVoid <$> deleteAccountP)
+      , ("list-addresses", "List addresses", pure (WalletEndpoint getAddressIndex))
+      , ("list-wallets", "List wallets", pure (WalletEndpoint getWallets))
       -- fixme: more endpoints, less boilerplate
       ]
 
@@ -152,6 +156,11 @@ deleteWalletP = (\wid wc -> deleteWallet wc wid) <$> walletIdP
 deleteAccountP :: Parser (WalletCallVoid m)
 deleteAccountP = (\wid accIdx wc -> deleteAccount wc wid accIdx) <$> walletIdP <*> accountIndexP
 
+listAddressesP :: Monad m => Parser (WalletCall m [WalletAddress])
+listAddressesP = pure getAddressIndex
+
+showAddressP :: Parser (WalletCall m WalletAddress)
+showAddressP = (\addrId wc -> getAddress wc addrId) <$> addressIdP
 
 ----------------------------------------------------------------------------
 -- Little option parsers
@@ -178,6 +187,8 @@ accountIndexP = argument (eitherReader accIndex) (metavar "INTEGER" <> help "Acc
                    Just idx -> first show (mkAccountIndex idx)
                    Nothing  -> Left "Account index is not a number"
 
+addressIdP :: Parser Text
+addressIdP = T.pack <$> argument str (metavar "HASH" <> help "Address ID")
 
 ----------------------------------------------------------------------------
 -- Program

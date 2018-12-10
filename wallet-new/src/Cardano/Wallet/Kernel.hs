@@ -31,7 +31,7 @@ import           Data.Acid (AcidState, createArchive, createCheckpoint,
                      openLocalStateFrom)
 import           Data.Acid.Memory (openMemoryState)
 import qualified Data.Map.Strict as Map
-import           System.Directory (doesDirectoryExist, removeDirectoryRecursive)
+import           System.Directory (doesPathExist, removePathForcibly)
 
 import           Pos.Chain.Txp (TxAux (..))
 import           Pos.Crypto (ProtocolMagic)
@@ -128,8 +128,8 @@ handlesOpen mode =
         UseFilePath (DatabaseOptions acidDb sqliteDb rebuildDB) -> do
             let deleteMaybe fp = do
                     when rebuildDB $ do
-                        itsHere <- doesDirectoryExist fp
-                        when itsHere $ removeDirectoryRecursive fp
+                        itsHere <- doesPathExist fp
+                        when itsHere $ removePathForcibly fp
             deleteMaybe acidDb
             db <- openLocalStateFrom acidDb defDB
             deleteMaybe sqliteDb

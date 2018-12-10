@@ -89,7 +89,7 @@ walletClientFromConfig cfg = do
   mcred <- case cfgClientAuth cfg of
     Just auth -> either throwM (pure . Just) =<< loadClientAuth auth
     Nothing   -> pure Nothing
-  let settings = httpsManagerSettings (cfgAuthenticateServer cfg) mcred ca (cfgServerId cfg)
+  let settings = mkHttpsManagerSettings (cfgServerId cfg) ca mcred (cfgAuthenticateServer cfg)
   manager <- newManager settings
   pure $ mkHttpClient (cfgBaseUrl cfg) manager
 
@@ -136,6 +136,7 @@ unBlockchainHeight (BlockchainHeight (MeasuredIn w)) = fromIntegral w
 unSyncThroughput :: SyncThroughput -> Int
 unSyncThroughput (SyncThroughput (MeasuredIn (Core.BlockCount w))) = fromIntegral w
 
+-- | Poll the API until the blockchain is synced.
 waitForSync :: WaitOptions -> WalletClient IO -> IO (SyncResult (Int, Maybe Int))
 waitForSync = waitForSomething (flip getNodeInfo NoNtpCheck) (pure . check)
   where
@@ -149,6 +150,7 @@ waitForSync = waitForSomething (flip getNodeInfo NoNtpCheck) (pure . check)
         info = ( unBlockchainHeight $ nfoLocalBlockchainHeight resp
                , unBlockchainHeight <$> nfoBlockchainHeight resp )
 
+-- | Poll the API until wallet restoration is complete.
 waitForRestore :: WaitOptions -> WalletClient IO -> IO (SyncResult (Int, Int))
 waitForRestore = waitForSomething getWallets (pure . check)
   where

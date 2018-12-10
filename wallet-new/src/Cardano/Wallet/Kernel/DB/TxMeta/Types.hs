@@ -292,6 +292,7 @@ data MetaDBHandle = MetaDBHandle {
       closeMetaDB   :: IO ()
     , migrateMetaDB :: IO ()
     , clearMetaDB   :: IO ()
+    , deleteTxMetas :: Core.Address -> Maybe Word32 -> IO ()
     , getTxMeta     :: Txp.TxId -> Core.Address -> Word32 -> IO (Maybe TxMeta)
     , putTxMeta     :: TxMeta -> IO ()
     , putTxMetaT    :: TxMeta -> IO PutReturn

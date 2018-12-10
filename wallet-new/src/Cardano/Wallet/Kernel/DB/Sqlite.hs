@@ -18,6 +18,7 @@ module Cardano.Wallet.Kernel.DB.Sqlite (
     , putTxMeta
     , getTxMeta
     , getTxMetas
+    , deleteTxMetas
 
     -- * Unsafe functions
     , unsafeMigrateMetaDB
@@ -447,6 +448,34 @@ clearMetaDB conn = do
 putTxMeta :: Sqlite.Connection -> Kernel.TxMeta -> IO ()
 putTxMeta conn txMeta = void $ putTxMetaT conn txMeta
 
+-- | Clear some metadata from the database
+deleteTxMetas
+    :: Sqlite.Connection
+        -- | Database Handle
+    -> Core.Address
+        -- | Target wallet
+    -> Maybe Word32
+        -- |  A target account index. If none, delete metas for all accounts
+    -> IO ()
+deleteTxMetas conn walletId mAccountIx = do
+    runBeamSqlite conn $ SQL.runDelete $ SQL.delete (_mDbMeta metaDB) $ \meta ->
+        conditionWalletId meta &&. conditionAccountIx meta
+  where
+    conditionWalletId
+        :: TxMetaT (SQL.QExpr SqliteExpressionSyntax s)
+        -> SQL.QGenExpr SQL.QValueContext SqliteExpressionSyntax s Bool
+    conditionWalletId meta =
+        _txMetaTableWalletId meta ==. SQL.val_ walletId
+    conditionAccountIx
+        :: TxMetaT (SQL.QExpr SqliteExpressionSyntax s)
+        -> SQL.QGenExpr SQL.QValueContext SqliteExpressionSyntax s Bool
+    conditionAccountIx meta = case mAccountIx of
+        Nothing ->
+            SQL.val_ True
+        Just ix ->
+            _txMetaTableAccountIx meta ==. SQL.val_ ix
+
+
 -- | Inserts a new 'Kernel.TxMeta' in the database, given its opaque
 -- 'MetaDBHandle'.
 putTxMetaT :: Sqlite.Connection -> Kernel.TxMeta -> IO Kernel.PutReturn
@@ -469,17 +498,16 @@ putTxMetaT conn txMeta =
                 -- This is the only acceptable exception here. If anything else is thrown, that`s an error.
                 t <- getTxMetasById conn txId
                 case (Kernel.txIdIsomorphic txMeta <$> t) of
-                    Nothing   ->
-                        -- Output is there but not TxMeta. This should never happen.
-                        -- This could be improved with foreign keys, which indicate
-                        -- the existence of at least one Meta entry for each Output.
-                        throwIO $ Kernel.InvariantViolated (Kernel.UndisputableLookupFailed "txId")
                     Just False ->
                         -- This violation means the Tx has same TxId but different
                         -- Inputs (as set) or Outputs (ordered).
                         throwIO $ Kernel.InvariantViolated (Kernel.TxIdInvariantViolated txId)
-                    Just True  -> do
-                        -- If there not a  TxId violation, we can try to insert TxMeta.
+                    _  -> do
+                        -- If there is not a  TxId violation, we can try to insert TxMeta.
+                        -- We handle Nothing and (Just True) the same here, since
+                        -- it's possible that there is no Meta with this Inputs/Outputs.
+                        -- In the future we may consider doing a better cleanup to avoid
+                        -- such cases.
                         res2 <- Sqlite.runDBAction $ runBeamSqlite conn $
                                     SQL.runInsert $ SQL.insert (_mDbMeta metaDB) $ SQL.insertValues [tMeta]
                         case res2 of

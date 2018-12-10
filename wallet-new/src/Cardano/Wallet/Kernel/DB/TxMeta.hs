@@ -24,6 +24,7 @@ openMetaDB fp = do
           closeMetaDB   = withMVar lock ConcreteStorage.closeMetaDB
         , migrateMetaDB = withMVar lock ConcreteStorage.unsafeMigrateMetaDB
         , clearMetaDB   = withMVar lock ConcreteStorage.clearMetaDB
+        , deleteTxMetas = \w a   -> withMVar lock $ \c -> ConcreteStorage.deleteTxMetas c w a
         , getTxMeta     = \t w a -> withMVar lock $ \c -> ConcreteStorage.getTxMeta c t w a
         , putTxMeta     = \ t    -> withMVar lock $ \c -> ConcreteStorage.putTxMeta c t
         , putTxMetaT    = \ t    -> withMVar lock $ \c -> ConcreteStorage.putTxMetaT c t

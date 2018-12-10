@@ -498,17 +498,16 @@ putTxMetaT conn txMeta =
                 -- This is the only acceptable exception here. If anything else is thrown, that`s an error.
                 t <- getTxMetasById conn txId
                 case (Kernel.txIdIsomorphic txMeta <$> t) of
-                    Nothing   ->
-                        -- Output is there but not TxMeta. This should never happen.
-                        -- This could be improved with foreign keys, which indicate
-                        -- the existence of at least one Meta entry for each Output.
-                        throwIO $ Kernel.InvariantViolated (Kernel.UndisputableLookupFailed "txId")
                     Just False ->
                         -- This violation means the Tx has same TxId but different
                         -- Inputs (as set) or Outputs (ordered).
                         throwIO $ Kernel.InvariantViolated (Kernel.TxIdInvariantViolated txId)
-                    Just True  -> do
-                        -- If there not a  TxId violation, we can try to insert TxMeta.
+                    _  -> do
+                        -- If there is not a  TxId violation, we can try to insert TxMeta.
+                        -- We handle Nothing and (Just True) the same here, since
+                        -- it's possible that there is no Meta with this Inputs/Outputs.
+                        -- In the future we may consider doing a better cleanup to avoid
+                        -- such cases.
                         res2 <- Sqlite.runDBAction $ runBeamSqlite conn $
                                     SQL.runInsert $ SQL.insert (_mDbMeta metaDB) $ SQL.insertValues [tMeta]
                         case res2 of

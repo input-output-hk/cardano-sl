@@ -68,6 +68,8 @@
     - [RCD-45](https://iohk.myjetbrains.com/youtrack/issue/RCD-45) [#3875](https://github.com/input-output-hk/cardano-sl/pull/3875)
     - [RCD-46](https://iohk.myjetbrains.com/youtrack/issue/RCD-46) [#3875](https://github.com/input-output-hk/cardano-sl/pull/3875)
     - [RCD-47](https://iohk.myjetbrains.com/youtrack/issue/RCD-47) [#3876](https://github.com/input-output-hk/cardano-sl/pull/3876)
+    - [CBR-495](https://iohk.myjetbrains.com/youtrack/issue/CBR-495) [#3943](https://github.com/input-output-hk/cardano-sl/pull/3943)
+    - [CBR-496](https://iohk.myjetbrains.com/youtrack/issue/CBR-496) [#3947](https://github.com/input-output-hk/cardano-sl/pull/3947)
 
 - Finalize port of API V0 to V1
     - [CO-334](https://iohk.myjetbrains.com/youtrack/issue/CO-334) [#3197](https://github.com/input-output-hk/cardano-sl/pull/3197)

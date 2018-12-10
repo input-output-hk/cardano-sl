@@ -10,6 +10,7 @@ module Pos.Diffusion.Full.Block
     , handleHeadersCommunication
     , streamBlocks
     , blockListeners
+    , ResetNodeTimer (..)
     ) where
 
 import           Universum
@@ -37,7 +38,7 @@ import           Pos.Binary.Communication (serializeMsgSerializedBlock,
                      serializeMsgStreamBlock)
 import           Pos.Chain.Block (Block, BlockHeader (..), HeaderHash,
                      MainBlockHeader, blockHeader, headerHash, prevBlockL)
-import           Pos.Chain.Update (BlockVersionData, bvdSlotDuration)
+import           Pos.Chain.Update (BlockVersionData)
 import           Pos.Communication.Limits (mlMsgBlock, mlMsgGetBlocks,
                      mlMsgGetHeaders, mlMsgHeaders, mlMsgStream,
                      mlMsgStreamBlock)
@@ -69,7 +70,6 @@ import           Pos.Network.Block.Types (MsgBlock (..), MsgGetBlocks (..),
 import           Pos.Chain.Security (AttackTarget (..), AttackType (..),
                      NodeAttackedError (..), SecurityParams (..))
 import           Pos.Util (_neHead, _neLast)
-import           Pos.Util.Timer (Timer, startTimer)
 import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
@@ -586,6 +586,8 @@ handleHeadersCommunication logTrace logic protocolConstants recoveryHeadersMessa
 -- |
 -- = Listeners
 
+newtype ResetNodeTimer = ResetNodeTimer (NodeId -> IO ())
+
 -- | All block-related listeners.
 blockListeners
     :: Trace IO (Severity, Text)
@@ -593,7 +595,7 @@ blockListeners
     -> ProtocolConstants
     -> Word
     -> OQ.OutboundQ pack NodeId Bucket
-    -> Timer -- ^ Keepalive timer
+    -> ResetNodeTimer -- ^ Keepalive timer
     -> MkListeners
 blockListeners logTrace logic protocolConstants recoveryHeadersMessage oq keepaliveTimer = constantListeners $
     [ -- Peer wants some block headers from us.
@@ -740,9 +742,9 @@ handleBlockHeaders
     -> Logic IO
     -> OQ.OutboundQ pack NodeId Bucket
     -> Word
-    -> Timer
+    -> ResetNodeTimer
     -> (ListenerSpec, OutSpecs)
-handleBlockHeaders logTrace logic oq recoveryHeadersMessage keepaliveTimer =
+handleBlockHeaders logTrace logic oq recoveryHeadersMessage (ResetNodeTimer keepaliveTimer) =
   listenerConv @MsgGetHeaders logTrace oq $ \__ourVerInfo nodeId conv -> do
     -- The type of the messages we send is set to 'MsgGetHeaders' for
     -- protocol compatibility reasons only. We could use 'Void' here because
@@ -753,8 +755,7 @@ handleBlockHeaders logTrace logic oq recoveryHeadersMessage keepaliveTimer =
     whenJust mHeaders $ \case
         (MsgHeaders headers) -> do
             -- Reset the keepalive timer.
-            slotDuration <- bvdSlotDuration <$> Logic.getAdoptedBVData logic
-            startTimer (3 * slotDuration) keepaliveTimer
+            keepaliveTimer nodeId
             handleUnsolicitedHeaders logTrace logic (getNewestFirst headers) nodeId
         _ -> pass -- Why would somebody propagate 'MsgNoHeaders'? We don't care.
 

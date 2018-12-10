@@ -254,6 +254,7 @@ test-suite chain-test
                        Test.Pos.Chain.Genesis.Gen
                        Test.Pos.Chain.Genesis.Json
                        Test.Pos.Chain.Lrc.FtsSpec
+                       Test.Pos.Chain.Lrc.ObftRoundRobinSpec
                        Test.Pos.Chain.Ssc.Arbitrary
                        Test.Pos.Chain.Ssc.Bi
                        Test.Pos.Chain.Ssc.CborSpec

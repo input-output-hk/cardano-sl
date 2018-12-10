@@ -20,6 +20,7 @@ module Test.Pos.Core.Arbitrary
        , UnreasonableEoS (..)
 
        , genAddress
+       , genPositiveSlotCount
        , genSlotId
        , genLocalSlotIndex
        ) where
@@ -98,6 +99,12 @@ deriving instance Arbitrary ChainDifficulty
 ----------------------------------------------------------------------------
 
 deriving instance Arbitrary SlotCount
+
+genPositiveSlotCount :: Gen SlotCount
+genPositiveSlotCount = do
+    let upperBound = 5000 -- no specific reason for using 5000
+    x <- choose (1, upperBound)
+    pure $ SlotCount x
 
 maxReasonableEpoch :: Integral a => a
 maxReasonableEpoch = 5 * 1000 * 1000 * 1000 * 1000  -- 5 * 10^12, because why not

@@ -193,8 +193,8 @@ classifyNewHeaderObft genesisConfig (BlockHeaderMain header) = fmap (either iden
             newHeaderEoS tipEoS
         -- If header's parent is our tip, we verify it against tip's header.
     if | tip == header ^. prevBlockL -> do
-            leaders <- lift $ getEpochSlotLeaderScheduleObft genesisConfig
-                                                             (siEpoch newHeaderSlot)
+            let leaders = getEpochSlotLeaderScheduleObft genesisConfig
+                                                         (siEpoch newHeaderSlot)
             let vhp =
                     VerifyHeaderParams
                     { vhpPrevHeader = Just tipHeader

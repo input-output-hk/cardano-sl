@@ -91,6 +91,7 @@ library
                        Pos.Chain.Txp.Undo
 
                        Pos.Chain.Lrc.Fts
+                       Pos.Chain.Lrc.OBFT
                        Pos.Chain.Lrc.Types
                        Pos.Chain.Lrc.Error
                        Pos.Chain.Lrc.Core

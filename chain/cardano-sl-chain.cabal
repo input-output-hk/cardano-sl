@@ -22,12 +22,10 @@ library
                        Pos.Chain.Security
                        Pos.Chain.Ssc
                        Pos.Chain.Script
-                       Pos.Chain.Script.Examples
                        Pos.Chain.Txp
                        Pos.Chain.Update
 
   other-modules:
-
                        Pos.Chain.Block.Block
                        Pos.Chain.Block.ComponentBlock
                        Pos.Chain.Block.Configuration

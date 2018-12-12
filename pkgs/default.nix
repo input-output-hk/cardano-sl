@@ -13409,8 +13409,8 @@ version = "0.5.10";
 src = fetchgit {
 
 url = "https://github.com/input-output-hk/cardano-report-server.git";
-sha256 = "02n86wbfr3z2xqrc8g8naj0dc5j4644y0l295qzdqlfynmz6a82z";
-rev = "9b96874d0f234554a5779d98762cc0a6773a532a";
+sha256 = "04zsgrmnlyjymry6fsqnz692hdp89ykqb8jyxib8yklw101gdn3x";
+rev = "93f2246c54436e7f98cc363b4e0f8f1cb5e78717";
 fetchSubmodules = true;
 
 };
@@ -13520,6 +13520,7 @@ license = stdenv.lib.licenses.bsd3;
 , generics-sop
 , hedgehog
 , hspec
+, hspec-discover
 , http-api-data
 , http-client
 , http-client-tls
@@ -13725,6 +13726,7 @@ unordered-containers
 ];
 testToolDepends = [
 cpphs
+hspec-discover
 ];
 benchmarkHaskellDepends = [
 base
@@ -13789,6 +13791,7 @@ license = stdenv.lib.licenses.mit;
 , generic-arbitrary
 , haskeline
 , hspec
+, hspec-discover
 , lens
 , loc
 , megaparsec
@@ -13914,6 +13917,7 @@ universum
 ];
 testToolDepends = [
 cpphs
+hspec-discover
 ];
 doHaddock = false;
 description = "Cardano SL - Auxx";
@@ -13941,6 +13945,7 @@ license = stdenv.lib.licenses.mit;
 , hashable
 , hedgehog
 , hspec
+, hspec-discover
 , lens
 , micro-recursion-schemes
 , mtl
@@ -14027,6 +14032,7 @@ unordered-containers
 ];
 testToolDepends = [
 cpphs
+hspec-discover
 ];
 doHaddock = false;
 description = "Cardano SL - binary serialization";
@@ -14139,6 +14145,7 @@ license = stdenv.lib.licenses.mit;
 , hashable
 , hedgehog
 , hspec
+, hspec-discover
 , lens
 , lrucache
 , memory
@@ -14262,6 +14269,9 @@ time-units
 universum
 unordered-containers
 vector
+];
+testToolDepends = [
+hspec-discover
 ];
 benchmarkHaskellDepends = [
 base
@@ -14390,6 +14400,7 @@ license = stdenv.lib.licenses.mit;
 , data-default
 , formatting
 , hspec
+, hspec-discover
 , lens
 , mtl
 , QuickCheck
@@ -14460,6 +14471,7 @@ unordered-containers
 ];
 testToolDepends = [
 cpphs
+hspec-discover
 ];
 doHaddock = false;
 description = "Cardano SL client modules";
@@ -14608,6 +14620,7 @@ license = stdenv.lib.licenses.mit;
 , hashable
 , hedgehog
 , hspec
+, hspec-discover
 , http-api-data
 , lens
 , memory
@@ -14732,6 +14745,7 @@ unordered-containers
 ];
 testToolDepends = [
 cpphs
+hspec-discover
 ];
 doHaddock = false;
 description = "Cardano SL - core";
@@ -14829,6 +14843,7 @@ license = stdenv.lib.licenses.mit;
 , hashable
 , hedgehog
 , hspec
+, hspec-discover
 , lens
 , memory
 , mtl
@@ -14907,6 +14922,9 @@ quickcheck-instances
 text
 universum
 unordered-containers
+];
+testToolDepends = [
+hspec-discover
 ];
 doHaddock = false;
 description = "Cardano SL - cryptography primitives";
@@ -15173,6 +15191,7 @@ license = stdenv.lib.licenses.mit;
 , free
 , generic-arbitrary
 , hspec
+, hspec-discover
 , http-types
 , lens
 , memory
@@ -15320,6 +15339,7 @@ warp
 ];
 testToolDepends = [
 cpphs
+hspec-discover
 ];
 benchmarkHaskellDepends = [
 base
@@ -15503,6 +15523,7 @@ license = stdenv.lib.licenses.mit;
 , exceptions
 , formatting
 , hspec
+, hspec-discover
 , lens
 , monad-control
 , MonadRandom
@@ -15620,6 +15641,7 @@ unordered-containers
 ];
 testToolDepends = [
 cpphs
+hspec-discover
 ];
 benchmarkHaskellDepends = [
 base
@@ -15968,6 +15990,7 @@ license = stdenv.lib.licenses.mit;
 , hashable
 , hspec
 , hspec-core
+, hspec-discover
 , kademlia
 , lens
 , mtl
@@ -16066,6 +16089,9 @@ random
 serokell-util
 stm
 time-units
+];
+testToolDepends = [
+hspec-discover
 ];
 benchmarkHaskellDepends = [
 async
@@ -16501,6 +16527,7 @@ license = stdenv.lib.licenses.mit;
 , hashable
 , hedgehog
 , hspec
+, hspec-discover
 , katip
 , lens
 , lrucache
@@ -16623,6 +16650,7 @@ unordered-containers
 ];
 testToolDepends = [
 cpphs
+hspec-discover
 ];
 doHaddock = false;
 homepage = "https://github.com/input-output-hk/cardano-sl";
@@ -44636,6 +44664,56 @@ doCheck = false;
 homepage = "https://github.com/nomeata/inspection-testing";
 description = "GHC plugin to do inspection testing";
 license = stdenv.lib.licenses.mit;
+
+}) {};
+"inspector" = callPackage
+({
+  mkDerivation
+, base
+, basement
+, cryptonite
+, fetchgit
+, foundation
+, hpack
+, memory
+, stdenv
+}:
+mkDerivation {
+
+pname = "inspector";
+version = "0.2";
+src = fetchgit {
+
+url = "https://github.com/primetype/inspector.git";
+sha256 = "1ig1gb131z37jbg5ih2lv609f4jgw9wmm6lcxdclihjq5lm12b7n";
+rev = "964558881210bf1f9387b51ab05057b1290d1d71";
+fetchSubmodules = true;
+
+};
+isLibrary = true;
+isExecutable = true;
+libraryHaskellDepends = [
+base
+basement
+cryptonite
+foundation
+memory
+];
+libraryToolDepends = [
+hpack
+];
+executableHaskellDepends = [
+base
+basement
+cryptonite
+foundation
+memory
+];
+doHaddock = false;
+doCheck = false;
+preConfigure = "hpack";
+homepage = "https://github.com/primetype/inspector#readme";
+license = stdenv.lib.licenses.bsd3;
 
 }) {};
 "instance-control" = callPackage

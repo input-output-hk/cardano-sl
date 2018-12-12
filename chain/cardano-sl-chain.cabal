@@ -310,6 +310,8 @@ test-suite chain-test
                      , universum
                      , unordered-containers
                      , vector
+  build-tool-depends: hspec-discover:hspec-discover
+
   default-language:    Haskell2010
   default-extensions:  NoImplicitPrelude
                        OverloadedStrings

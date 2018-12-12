@@ -235,6 +235,7 @@ test-suite cardano-sl-networking-test
                      , serokell-util >= 0.1.2.3
                      , stm
                      , time-units
+  build-tool-depends: hspec-discover:hspec-discover
   hs-source-dirs:      test
   default-language:    Haskell2010
   ghc-options:         -threaded

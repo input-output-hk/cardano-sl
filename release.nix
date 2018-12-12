@@ -9,7 +9,7 @@ in
   , skipDocker ? false
   , skipPackages ? []
   , nixpkgsArgs ? {
-      config = { allowUnfree = false; inHydra = true; };
+      config = (import ./nix/config.nix // { allowUnfree = false; inHydra = true; });
       gitrev = cardano.rev;
       inherit fasterBuild;
     }
@@ -66,6 +66,7 @@ let
     shells.cabal = supportedSystems;
     shells.stack = supportedSystems;
     stack2nix = supportedSystems;
+
   } skipPackages;
   platforms' = removeAttrs {
     connectScripts.mainnet.wallet   = [ "x86_64-linux" "x86_64-darwin" ];
@@ -76,6 +77,63 @@ let
     connectScripts.testnet.explorer = [ "x86_64-linux" "x86_64-darwin" ];
   } skipPackages;
   mapped = mapTestOn platforms;
+
+  nix-tools-toolchain = {
+    nix-tools.libs = removeAttrs {
+      # nix-tools toolchain: Libraries
+      cardano-sl            = supportedSystems;
+      cardano-sl-auxx       = supportedSystems;
+      cardano-sl-chain      = supportedSystems;
+      cardano-sl-core       = supportedSystems;
+      cardano-sl-crypto     = supportedSystems;
+      cardano-sl-db         = supportedSystems;
+      cardano-sl-generator  = supportedSystems;
+      cardano-sl-infra      = supportedSystems;
+      cardano-sl-networking = supportedSystems;
+      cardano-sl-tools      = supportedSystems;
+      cardano-sl-util       = supportedSystems;
+      cardano-wallet        = supportedSystems;
+      cardano-sl-x509       = supportedSystems;
+      turtle                = supportedSystems;
+    } skipPackages;
+    nix-tools.exes = removeAttrs {
+      # nix-tools toolchain: Executables
+      # these will usually implicitly build their
+      # library as they depend on it.
+      cardano-sl-tools             = supportedSystems;
+      cardano-sl-generator         = supportedSystems;
+      cardano-sl-tools-post-mortem = supportedSystems;
+      cardano-wallet               = supportedSystems;
+    } skipPackages;
+    # nix-tools toolchain: Tests
+    nix-tools.tests =
+      removeAttrs
+        (lib.mapAttrs (_: lib.mapAttrs (_: _: supportedSystems))
+          (lib.filterAttrs (n: v: fixedLib.isCardanoSL n && v != null)
+            iohkPkgs.nix-tools.tests))
+        skipPackages;
+  };
+
+  # tests that are either broken or broken on some arch
+  broken-tests           = {
+        # these two tests are broken on darwin and take forever.
+        # thus we only test them on linux
+        cardano-sl-chain.chain-test = [ "x86_64-linux" ];
+        cardano-wallet.unit = [ "x86_64-linux" ];
+  };
+  broken-tests-cross     = {
+        # This one does not complete on wine.
+        cardano-sl-db.db-test = [];
+  };
+  mapped-nix-tools       = mapTestOn                                    (lib.recursiveUpdate nix-tools-toolchain { nix-tools.tests = broken-tests; });
+  mapped-nix-tools-cross = mapTestOnCross lib.systems.examples.mingwW64 (lib.recursiveUpdate nix-tools-toolchain { nix-tools.tests = broken-tests-cross; });
+
+  mapped-nix-tools'
+    = lib.recursiveUpdate
+        (mapped-nix-tools)
+        (lib.mapAttrs (_: (lib.mapAttrs (_: (lib.mapAttrs' (n: v: lib.nameValuePair (lib.systems.examples.mingwW64.config + "-" + n) v)))))
+          mapped-nix-tools-cross);
+
   mapped' = mapTestOn platforms';
   makeConnectScripts = cluster: let
   in {
@@ -98,7 +156,7 @@ let
     cardanoPkgs = import ./. { inherit system; };
     f = name: value: value.testrun;
   in pkgs.lib.mapAttrs f (lib.filterAttrs pred cardanoPkgs);
-in pkgs.lib.fix (jobsets: mapped // {
+in pkgs.lib.fix (jobsets: mapped // mapped-nix-tools' // {
   inherit tests;
   inherit (pkgs) cabal2nix;
   nixpkgs = let
@@ -125,6 +183,9 @@ in pkgs.lib.fix (jobsets: mapped // {
       jobsets.tests.shellcheck
       jobsets.tests.stylishHaskell
       jobsets.tests.swaggerSchemaValidation
+      (builtins.concatLists (lib.attrValues (lib.mapAttrs (_: all) jobsets.nix-tools.libs)))
+      (builtins.concatLists (lib.attrValues (lib.mapAttrs (_: all) jobsets.nix-tools.exes)))
     ];
   });
-} // (builtins.listToAttrs (map makeRelease [ "mainnet" "staging" ])))
+}
+// (builtins.listToAttrs (map makeRelease [ "mainnet" "staging" ])))

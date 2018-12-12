@@ -1,0 +1,44 @@
+diff --git a/src/FileEmbedLzma.hs b/src/FileEmbedLzma.hs
+index ca0c394..bc1960f 100644
+--- a/src/FileEmbedLzma.hs
++++ b/src/FileEmbedLzma.hs
+@@ -36,7 +36,6 @@ import Data.Foldable                    (for_)
+ import Data.Functor.Compose             (Compose (..))
+ import Data.Int                         (Int64)
+ import Language.Haskell.TH
+-import Language.Haskell.TH.Syntax       (qAddDependentFile)
+ import System.Directory
+        (doesDirectoryExist, getDirectoryContents)
+ import System.FilePath                  (makeRelative, (</>))
+@@ -124,7 +123,6 @@ concatEntries xs = (bslEndo BSL.empty, ys)
+ embedDir :: FilePath -> Q Exp
+ embedDir topdir = do
+     pairs' <- runIO $ listDirectoryFiles topdir
+-    for_ pairs' $ qAddDependentFile . fst
+     let pairs = makeAllRelative topdir pairs'
+     embedPairs pairs
+ 
+@@ -151,7 +149,6 @@ embedPairs pairs = do
+ embedRecursiveDir :: FilePath -> Q Exp
+ embedRecursiveDir topdir = do
+     pairs' <- runIO $ listRecursiveDirectoryFiles topdir
+-    for_ pairs' $ qAddDependentFile . fst
+     let pairs = makeAllRelative topdir pairs'
+     embedPairs pairs
+ 
+@@ -162,7 +159,6 @@ embedRecursiveDir topdir = do
+ -- | Embed a lazy 'Data.ByteString.Lazy.ByteString' from a file.
+ embedLazyByteString :: FilePath -> Q Exp
+ embedLazyByteString fp = do
+-    qAddDependentFile fp
+     bsl <- runIO $ BSL.readFile fp
+     lazyBytestringE bsl
+ 
+@@ -173,7 +169,6 @@ embedByteString fp = [| BSL.toStrict $(embedLazyByteString fp) :: BS.ByteString
+ -- | Embed a lazy 'Data.Text.Lazy.Text' from a UTF8-encoded file.
+ embedLazyText :: FilePath -> Q Exp
+ embedLazyText fp = do
+-    qAddDependentFile fp
+     bsl <- runIO $ BSL.readFile fp
+     case TLE.decodeUtf8' bsl of
+         Left e  -> reportError (show e)

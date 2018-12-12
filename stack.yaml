@@ -55,7 +55,7 @@ packages:
 
 - location:
     git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: 9b96874d0f234554a5779d98762cc0a6773a532a
+    commit: 93f2246c54436e7f98cc363b4e0f8f1cb5e78717
   extra-dep: true
 
 # Once https://github.com/input-output-hk/cardano-crypto/pull/46
@@ -193,6 +193,12 @@ packages:
 - location:
     git: https://github.com/input-output-hk/serokell-util.git
     commit: 4ead9809e119483e7832da5f8224b0c4d4a2d5d6
+  extra-dep: true
+
+# Inspector, as used in cardano-crypto
+- location:
+    git: https://github.com/primetype/inspector.git
+    commit: 964558881210bf1f9387b51ab05057b1290d1d71
   extra-dep: true
 
 nix:

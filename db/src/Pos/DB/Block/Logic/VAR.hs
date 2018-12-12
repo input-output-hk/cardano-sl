@@ -102,7 +102,7 @@ verifyBlocksPrefix genesisConfig currentSlot blocks = runExceptT $ do
     case era of
         Original -> void $ withExceptT (VerifyBlocksError . pretty) $
                         ExceptT $ sscVerifyBlocks genesisConfig (map toSscBlock blocks)
-        OBFT     -> pure () -- We don't perform SSC operations during the OBFT era
+        OBFT _   -> pure () -- We don't perform SSC operations during the OBFT era
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
     txUndo <- withExceptT (VerifyBlocksError . pretty) $
         ExceptT $ tgsVerifyBlocks dataMustBeKnown $ map toTxpBlock blocks

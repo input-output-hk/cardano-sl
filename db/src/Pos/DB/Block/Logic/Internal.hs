@@ -140,7 +140,7 @@ normalizeMempool genesisConfig txpConfig = do
     era <- getConsensusEra
     case era of
         Original -> sscNormalize genesisConfig
-        OBFT     -> pure () -- We don't perform SSC operations during the OBFT era
+        OBFT _   -> pure () -- We don't perform SSC operations during the OBFT era
     currentEos <- getEpochOrSlot <$> getTipHeader
     let txValRules = configTxValRules $ genesisConfig
     txpNormalize genesisConfig (TxValidationRules
@@ -216,7 +216,7 @@ applyBlocksDbUnsafeDo genesisConfig scb blunds pModifier = do
             -- TODO: pass not only 'Nothing'
             res <- sscApplyBlocks genesisConfig (map toSscBlock blocks) Nothing
             pure (SomeBatchOp res)
-        OBFT -> do
+        OBFT _ -> do
             -- We don't perform SSC operations during the OBFT era
             pure $ SomeBatchOp ([] :: [EmptyBatchOp])
     GS.writeBatchGState

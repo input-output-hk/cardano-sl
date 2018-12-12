@@ -337,7 +337,7 @@ dlgVerifyBlocks genesisConfig blocks = do
     era <- getConsensusEra
     richmen <- lift $ case era of
         Original -> getDlgRichmen genesisBvd "dlgVerifyBlocks" headEpoch
-        OBFT     -> pure $ getDlgRichmenObft genesisConfig
+        OBFT _   -> pure $ getDlgRichmenObft genesisConfig
     hoist (evalMapCede emptyCedeModifier) $ mapM (verifyBlock richmen) blocks
   where
     genesisBvd = configBlockVersionData genesisConfig

@@ -155,7 +155,7 @@ blockCreator genesisConfig txpConfig slotId diffusion = do
                                          txpConfig
                                          slotId
                                          diffusion
-        OBFT     -> blockCreatorObft genesisConfig txpConfig slotId diffusion
+        OBFT _   -> blockCreatorObft genesisConfig txpConfig slotId diffusion
 
 blockCreatorObft
     :: ( BlockWorkMode ctx m

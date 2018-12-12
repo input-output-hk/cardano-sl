@@ -84,7 +84,7 @@ classifyNewHeader genesisConfig blockHeader = do
     logInfo $ sformat ("classifyNewHeader: Consensus era is " % shown) era
     let k = case era of
                 Original -> classifyNewHeaderOriginal
-                OBFT     -> classifyNewHeaderObft
+                OBFT _   -> classifyNewHeaderObft
     k genesisConfig blockHeader
 
 classifyNewHeaderOriginal

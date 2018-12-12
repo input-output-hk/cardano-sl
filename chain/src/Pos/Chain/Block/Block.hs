@@ -353,7 +353,7 @@ verifyMainBlock genesisConfig era txValRules GenericBlock {..} = do
                     genesisConfig
                     (Right (Some _gbHeader))
                     (_mbSscPayload _gbBody)
-        OBFT -> pure () -- We don't perform SSC operations during the OBFT era
+        OBFT _ -> pure () -- We don't perform SSC operations during the OBFT era
 
 
 ----------------------------------------------------------------------------

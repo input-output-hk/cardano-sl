@@ -210,9 +210,11 @@ verifyBlock genesisConfig era lastAdopted verifyAllIsKnown (ComponentBlockMain h
         let slotId     = header ^. headerSlotL
             slotIndex  = siSlot slotId
             epochIndex = siEpoch slotId -- header ^. epochIndexL
-        when ((era == OBFT) && (slotIndex == localSlotIndexMinBound)) $ do
-            updateSlottingData (Genesis.configEpochSlots genesisConfig)
-                            (epochIndex { getEpochIndex = (getEpochIndex epochIndex) })
+        case era of
+            OBFT _ -> when (slotIndex == localSlotIndexMinBound) $ do
+                updateSlottingData (Genesis.configEpochSlots genesisConfig)
+                                (epochIndex { getEpochIndex = (getEpochIndex epochIndex) })
+            Original -> pure ()
 
         verifyAndApplyUSPayload
             genesisConfig

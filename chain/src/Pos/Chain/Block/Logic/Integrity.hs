@@ -37,7 +37,8 @@ import           Pos.Chain.Block.IsHeader (headerSlotL)
 import           Pos.Chain.Block.Main (mebAttributes, mehAttributes)
 import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Txp (TxValidationRules)
-import           Pos.Chain.Update (BlockVersionData (..), ConsensusEra (..))
+import           Pos.Chain.Update (BlockVersionData (..), ConsensusEra (..),
+                     ObftConsensusStrictness (..))
 import           Pos.Core (ChainDifficulty, EpochOrSlot (..),
                      HasDifficulty (..), HasEpochIndex (..),
                      HasEpochOrSlot (..), LocalSlotIndex (..), SlotId (..),
@@ -180,7 +181,7 @@ verifyHeader pm VerifyHeaderParams {..} h =
               BlockHeaderGenesis _ -> (True, "") -- check that epochId prevHeader < epochId h performed above
               BlockHeaderMain _    -> case vhpConsensusEra of
                 Original -> sameEpoch (prevHeader ^. epochIndexL) (h ^. epochIndexL)
-                OBFT     -> case unEpochOrSlot (getEpochOrSlot h) of
+                OBFT _   -> case unEpochOrSlot (getEpochOrSlot h) of
                     Left _ -> (True, "we received an Epoch Boundary Block in OBFT era, which shouldn't \
                                      \happen, but we are passing")
                     Right sid -> case (getEpochIndex (siEpoch sid), getSlotIndex (siSlot sid)) of
@@ -209,17 +210,34 @@ verifyHeader pm VerifyHeaderParams {..} h =
     relatedToLeaders leaders =
         case h of
             BlockHeaderGenesis _ -> []
-            BlockHeaderMain mainHeader ->
-                let slotIndex = getSlotIndex $ siSlot $ mainHeader ^. headerSlotL
-                    slotLeader = leaders ^? ix (fromIntegral slotIndex)
-                    expectedSlotLeader = addressHash $ mainHeader ^. mainHeaderLeaderKey
-                in [ ( (Just expectedSlotLeader == slotLeader)
-                     , sformat ("slot's leader, "%build%", is different from expected one, "%build%". slotIndex: "%build%", leaders: "%shown)
-                               slotLeader
-                               expectedSlotLeader
-                               slotIndex
-                               leaders)
-                   ]
+            BlockHeaderMain mainHeader -> case vhpConsensusEra of
+                -- For the `OBFT ObftLenient` era, we only check whether the
+                -- block's creator is an "acceptable" slot leader (one of the
+                -- genesis stakeholders). So, in this case, `leaders`
+                -- represents a collection of acceptable slot leaders and not
+                -- a slot leader schedule as it would for the `OBFT ObftStrict`
+                -- and `Original` cases.
+                OBFT ObftLenient ->
+                    let slotLeader = addressHash $ mainHeader ^. mainHeaderLeaderKey
+                    in [ ( (slotLeader `elem` leaders)
+                        , sformat ("slot's leader, "%build%", is not an acceptable leader. acceptableLeaders: "%shown)
+                                slotLeader
+                                leaders)
+                        ]
+
+                -- For both the `OBFT ObftStrict` and `Original` consensus
+                -- eras, we check slot leaders in the same way.
+                _ ->
+                    let slotIndex = getSlotIndex $ siSlot $ mainHeader ^. headerSlotL
+                        slotLeader = leaders ^? ix (fromIntegral slotIndex)
+                        expectedSlotLeader = addressHash $ mainHeader ^. mainHeaderLeaderKey
+                    in [ ( (Just expectedSlotLeader == slotLeader)
+                        , sformat ("slot's leader, "%build%", is different from expected one, "%build%". slotIndex: "%build%", leaders: "%shown)
+                                slotLeader
+                                expectedSlotLeader
+                                slotIndex
+                                leaders)
+                        ]
 
     verifyNoUnknown (BlockHeaderGenesis genH) =
         let attrs = genH ^. gbhExtra . gehAttributes

@@ -472,4 +472,6 @@ instance Arbitrary HeaderAndParams where
 
 -- TODO mhueschen | decide: should we generate both?
 genConsensusEra :: Gen ConsensusEra
-genConsensusEra = elements [Original, OBFT]
+genConsensusEra = do
+    obftStrictness <- arbitrary
+    elements [Original, OBFT obftStrictness]

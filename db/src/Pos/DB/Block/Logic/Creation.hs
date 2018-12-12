@@ -301,7 +301,7 @@ canCreateBlock k sId tipHeader =
         case era of
             Original -> unless (tipHeader ^. epochIndexL == siEpoch sId) $
                 throwError "we don't know genesis block for this epoch"
-            OBFT -> pure ()
+            OBFT _ -> pure ()
         let flatSId = flattenSlotId (kEpochSlots k) sId
         -- Small heuristic: let's not check chain quality during the
         -- first quarter of the 0-th epoch, because during this time

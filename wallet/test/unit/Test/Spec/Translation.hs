@@ -15,8 +15,10 @@ import           Test.Hspec.QuickCheck
 import           Test.QuickCheck (withMaxSuccess)
 
 import qualified Pos.Chain.Block as Cardano
+import           Pos.Chain.Txp (TxValidationRules (..))
 import qualified Pos.Chain.Txp as Cardano
-import           Pos.Core (Coeff (..), TxSizeLinear (..))
+import           Pos.Core (Coeff (..), EpochIndex (..), EpochOrSlot (..),
+                     TxSizeLinear (..))
 
 import           Data.Validated
 import           Test.Infrastructure.Generator
@@ -297,7 +299,7 @@ intAndVerifyChain pm pc = runTranslateT pm $ do
         let chain'' = fromMaybe (error "intAndVerify: Nothing")
                     $ nonEmptyOldestFirst
                     $ chain'
-        isCardanoValid <- verifyBlocksPrefix chain''
+        isCardanoValid <- verifyBlocksPrefix chain'' dummyTxValRules
         case (dslIsValid, isCardanoValid) of
           (Invalid _ e' , Invalid _ e) -> return $ ExpectedInvalid e' e
           (Invalid _ e' , Valid     _) -> return $ Disagreement ledger (UnexpectedValid e')
@@ -308,6 +310,29 @@ intAndVerifyChain pm pc = runTranslateT pm $ do
               then return $ ExpectedValid
               else return . Disagreement ledger
                   $ UnexpectedUtxo dslUtxo finalUtxo finalUtxo'
+  where
+    -- In order to limit the `Attributes` size in a Tx, `TxValidationRules` was created
+    -- in https://github.com/input-output-hk/cardano-sl/pull/3878. The value is checked in
+    -- `checkTx` which `verifyBlocksPrefix` eventually calls. Because this module tests that
+    -- the UTxO spec is adhered too, it is acceptable to use a dummy value (`dummyTxValRules`)
+    -- to avoid unrelated failures in `checkTx`. The alternative is to thread `TxValidationRules`
+    -- throughout this test suite (and potentially others) which would be a waste of time.
+    -- This dummy value will not result in failure because the `currentEpoch` is before the
+    -- `cutOffEpoch` and the validation rules are only evaluated when the `currentEpoch` has
+    -- passed the `cutOffEpoch`.
+    dummyTxValRules = TxValidationRules
+                          cutOffEpoch
+                          currentEpoch
+                          addAttribSizeRes
+                          txAttribSizeRes
+    -- The epoch from which the validation rules in `checkTx` are enforced.
+    cutOffEpoch = (EpochOrSlot . Left $ EpochIndex 1)
+    -- The current epoch that the node sees.
+    currentEpoch = (EpochOrSlot . Left $ EpochIndex 0)
+    -- The size limit of `Addr Attributes`.
+    addAttribSizeRes = 128
+    -- The size limit of `TxAttributes`.
+    txAttribSizeRes = 128
 
 {-------------------------------------------------------------------------------
   Chain verification test result

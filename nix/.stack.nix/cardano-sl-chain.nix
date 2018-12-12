@@ -136,6 +136,7 @@
             (hsPkgs.cardano-sl-core-test)
             (hsPkgs.cardano-sl-crypto-test)
             (hsPkgs.cardano-sl-util-test)
+            (hsPkgs.containers)
             (hsPkgs.data-default)
             (hsPkgs.deepseq)
             (hsPkgs.formatting)

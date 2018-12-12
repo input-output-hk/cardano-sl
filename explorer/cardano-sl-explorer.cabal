@@ -347,6 +347,8 @@ test-suite cardano-explorer-test
                      , lens
                      , universum >= 0.1.11
                      , warp
+  build-tool-depends: hspec-discover:hspec-discover
+
   hs-source-dirs:      test
   default-language:    Haskell2010
   ghc-options:         -threaded

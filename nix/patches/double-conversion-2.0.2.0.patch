@@ -1,0 +1,25 @@
+diff --git a/double-conversion.cabal b/double-conversion.cabal
+index 96114ee..090e7ab 100644
+--- a/double-conversion.cabal
++++ b/double-conversion.cabal
+@@ -71,16 +71,10 @@ library
+     double-conversion/src/fixed-dtoa.cc
+     double-conversion/src/strtod.cc
+ 
+-  if os(windows)
+-    if arch(x86_64)
+-      extra-libraries: stdc++-6 gcc_s_seh-1
+-    else
+-      extra-libraries: stdc++-6 gcc_s_dw2-1
+-  else
+-    if os(darwin)
+-      extra-libraries: c++
+-    else
+-      extra-libraries: stdc++
++  if os(darwin)
++    extra-libraries: c++
++  else
++    extra-libraries: stdc++
+ 
+   include-dirs:
+     double-conversion/src

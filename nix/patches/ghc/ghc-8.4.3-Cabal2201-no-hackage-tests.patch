@@ -1,0 +1,15 @@
+diff --git a/libraries/Cabal/Cabal/Cabal.cabal b/libraries/Cabal/Cabal/Cabal.cabal
+index 2b680ca..7320b40 100644
+--- a/libraries/Cabal/Cabal/Cabal.cabal
++++ b/libraries/Cabal/Cabal/Cabal.cabal
+@@ -568,9 +568,7 @@ test-suite hackage-tests
+   type: exitcode-stdio-1.0
+   main-is: HackageTests.hs
+ 
+-  -- TODO: need to get 01-index.tar on appveyor
+-  if os(windows)
+-    buildable: False
++  buildable: False
+ 
+   hs-source-dirs: tests
+ 

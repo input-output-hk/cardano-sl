@@ -1,0 +1,72 @@
+diff --git a/libraries/Cabal/Cabal/Distribution/Simple/Setup.hs b/libraries/Cabal/Cabal/Distribution/Simple/Setup.hs
+index 5fa0e99..fc429b6 100644
+--- a/libraries/Cabal/Cabal/Distribution/Simple/Setup.hs
++++ b/libraries/Cabal/Cabal/Distribution/Simple/Setup.hs
+@@ -1919,6 +1919,7 @@ data TestFlags = TestFlags {
+     testMachineLog  :: Flag PathTemplate,
+     testShowDetails :: Flag TestShowDetails,
+     testKeepTix     :: Flag Bool,
++    testWrapper     :: Flag FilePath,
+     -- TODO: think about if/how options are passed to test exes
+     testOptions     :: [PathTemplate]
+   } deriving (Generic)
+@@ -1931,6 +1932,7 @@ defaultTestFlags  = TestFlags {
+     testMachineLog  = toFlag $ toPathTemplate $ "$pkgid.log",
+     testShowDetails = toFlag Failures,
+     testKeepTix     = toFlag False,
++    testWrapper     = NoFlag,
+     testOptions     = []
+   }
+ 
+@@ -1991,6 +1993,11 @@ testCommand = CommandUI
+             "keep .tix files for HPC between test runs"
+             testKeepTix (\v flags -> flags { testKeepTix = v})
+             trueArg
++      , option [] ["test-wrapper"]
++            "Run test through a wrapper."
++            testWrapper (\v flags -> flags { testWrapper = v })
++            (reqArg' "FILE" (toFlag :: FilePath -> Flag FilePath)
++              (pure . fromFlag :: Flag FilePath -> [FilePath]))
+       , option [] ["test-options"]
+             ("give extra options to test executables "
+              ++ "(name templates can use $pkgid, $compiler, "
+diff --git a/libraries/Cabal/Cabal/Distribution/Simple/Test/ExeV10.hs b/libraries/Cabal/Cabal/Distribution/Simple/Test/ExeV10.hs
+index 707ab74..87bfefe 100644
+--- a/libraries/Cabal/Cabal/Distribution/Simple/Test/ExeV10.hs
++++ b/libraries/Cabal/Cabal/Distribution/Simple/Test/ExeV10.hs
+@@ -98,7 +98,12 @@ runTest pkg_descr lbi clbi flags suite = do
+                             return (addLibraryPath os paths shellEnv)
+                     else return shellEnv
+ 
+-    exit <- rawSystemIOWithEnv verbosity cmd opts Nothing (Just shellEnv')
++    exit <- case testWrapper flags of
++      Flag path -> rawSystemIOWithEnv verbosity path (cmd:opts) Nothing (Just shellEnv')
++                               -- these handles are automatically closed
++                               Nothing (Just wOut) (Just wErr)
++
++      NoFlag -> rawSystemIOWithEnv verbosity cmd opts Nothing (Just shellEnv')
+                                -- these handles are automatically closed
+                                Nothing (Just wOut) (Just wErr)
+ 
+diff --git a/libraries/Cabal/Cabal/Distribution/Simple/Test/LibV09.hs b/libraries/Cabal/Cabal/Distribution/Simple/Test/LibV09.hs
+index 861e91a..66316fa 100644
+--- a/libraries/Cabal/Cabal/Distribution/Simple/Test/LibV09.hs
++++ b/libraries/Cabal/Cabal/Distribution/Simple/Test/LibV09.hs
+@@ -99,9 +99,14 @@ runTest pkg_descr lbi clbi flags suite = do
+                     cpath <- canonicalizePath $ LBI.componentBuildDir lbi clbi
+                     return (addLibraryPath os (cpath : paths) shellEnv)
+                   else return shellEnv
+-                createProcessWithEnv verbosity cmd opts Nothing (Just shellEnv')
+-                                     -- these handles are closed automatically
+-                                     CreatePipe (UseHandle wOut) (UseHandle wOut)
++                case testWrapper flags of
++                  Flag path -> createProcessWithEnv verbosity path (cmd:opts) Nothing (Just shellEnv')
++                               -- these handles are closed automatically
++                               CreatePipe (UseHandle wOut) (UseHandle wOut)
++
++                  NoFlag -> createProcessWithEnv verbosity cmd opts Nothing (Just shellEnv')
++                            -- these handles are closed automatically
++                            CreatePipe (UseHandle wOut) (UseHandle wOut)
+ 
+         hPutStr wIn $ show (tempLog, PD.testName suite)
+         hClose wIn

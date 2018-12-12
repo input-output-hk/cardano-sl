@@ -46,10 +46,11 @@ let
   localLib = import ./lib.nix;
 in
 { system ? builtins.currentSystem
+, crossSystem ? null
 , config ? {}  # The nixpkgs configuration file
 
 # Use a pinned version nixpkgs.
-, pkgs ? localLib.importPkgs { inherit system config; }
+, pkgs ? localLib.importPkgs { inherit system crossSystem config; }
 
 # SHA1 hash which will be embedded in binaries
 , gitrev ? localLib.commitIdFromGitRepo ./.git
@@ -288,7 +289,23 @@ let
           cardano-wallet;
         inherit (self.haskellPackages)
           cardano-report-server; }
-
+  # nix-tools setup
+  // (with builtins; with pkgs.lib; let nix-tools = import ./nix/pkgs.nix { nixpkgs = _: pkgs; }; in
+  {
+    nix-tools = { _raw = nix-tools; }
+      # some shorthands
+      // { libs = mapAttrs (k: v: if   v.components ? "library"
+                                  then v.components.library
+                                  else null) nix-tools; }
+      // { exes = mapAttrs (k: v: if   length (attrValues v.components.exes) > 0
+                                  then (if pkgs.stdenv.targetPlatform.isWindows then pkgs.copyJoin else pkgs.symlinkJoin)
+                                       { name = "${k}-exes"; paths = attrValues v.components.exes; }
+                                  else null) nix-tools; }
+      // { tests = mapAttrs (k: v: if length (attrValues v.components.tests) > 0
+                                   then v.components.tests
+                                   else null) nix-tools; }
+      ;
+  })
   );
 
 in

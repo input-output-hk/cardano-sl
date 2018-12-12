@@ -111,6 +111,7 @@ test-suite cardano-client-test
                      , QuickCheck
                      , universum >= 0.1.11
                      , unordered-containers
+  build-tool-depends: hspec-discover:hspec-discover
 
   hs-source-dirs:      test
   default-language:    Haskell2010

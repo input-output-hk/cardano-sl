@@ -620,4 +620,7 @@ type API =
             :<|> "postpone"
                 :> Summary "Discard and postpone the next available update"
                 :> Post '[ValidJSON] NoContent
+            :<|> "next"
+                :> Summary "Version of the next update (404 if none)"
+                :> Get '[ValidJSON] (APIResponse (V1 Core.SoftwareVersion))
             )

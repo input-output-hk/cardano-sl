@@ -25,7 +25,8 @@ import           Ntp.Client (NtpConfiguration, NtpStatus (..),
 import           Ntp.Packet (NtpOffset)
 import           Pos.Chain.Block (LastKnownHeader, LastKnownHeaderTag)
 import           Pos.Chain.Ssc (SscContext)
-import           Pos.Chain.Update (UpdateConfiguration, curSoftwareVersion)
+import           Pos.Chain.Update (SoftwareVersion, UpdateConfiguration,
+                     curSoftwareVersion)
 import           Pos.Client.CLI.NodeOptions (NodeApiArgs (..))
 import           Pos.Context (HasPrimaryKey (..), HasSscContext (..),
                      NodeContext (..))
@@ -64,6 +65,10 @@ type NodeV1Api
 nodeV1Api :: Proxy NodeV1Api
 nodeV1Api = Proxy
 
+--------------------------------------------------------------------------------
+-- Legacy Handlers
+--------------------------------------------------------------------------------
+
 data LegacyCtx = LegacyCtx
     { legacyCtxTxpLocalData
         :: !(GenericTxpLocalData ())
@@ -101,6 +106,9 @@ instance {-# OVERLAPPING #-} DB.MonadDBRead (ReaderT LegacyCtx IO) where
     dbGetSerUndo = DB.dbGetSerUndoRealDefault
     dbGetSerBlund = DB.dbGetSerBlundRealDefault
 
+-- | Prepare a 'Server' for the 'Legacy.NodeApi'. We expose a 'Server' so that
+-- it can be embedded in other APIs, instead of an 'Application', which can only
+-- be run on a given port.
 legacyNodeApi :: LegacyCtx -> Server Legacy.NodeApi
 legacyNodeApi r =
     hoistServer
@@ -108,6 +116,12 @@ legacyNodeApi r =
         (Handler . ExceptT . try . flip runReaderT r)
         Legacy.nodeServantHandlers
 
+--------------------------------------------------------------------------------
+-- Entry point
+--------------------------------------------------------------------------------
+
+-- | This function launches a node API server, which serves the new V1 API, the
+-- legacy node API, and the documentation server for both.
 launchNodeServer
     :: NodeApiArgs
     -> NtpConfiguration
@@ -187,6 +201,7 @@ launchNodeServer
     (ipAddress, portNumber) = nodeBackendAddress params
     (docAddress, docPort) = nodeBackendDocAddress params
 
+-- | Assembles the handlers for the new node API.
 handlers
     :: Diffusion IO
     -> TVar NtpStatus
@@ -204,6 +219,11 @@ handlers d t s n l ts sv uc ci sc =
     :<|> getNodeInfo d t s n l
     :<|> applyUpdate sc
     :<|> postponeUpdate
+    :<|> getNextUpdate
+
+--------------------------------------------------------------------------------
+-- Node Settings
+--------------------------------------------------------------------------------
 
 getNodeSettings
     :: CompileTimeInfo
@@ -239,6 +259,10 @@ instance Core.HasSlottingVar SettingsCtx where
     slottingVar =
         lens settingsCtxSlottingVar (\s t -> s { settingsCtxSlottingVar = t })
 
+--------------------------------------------------------------------------------
+-- Updates
+--------------------------------------------------------------------------------
+
 applyUpdate :: ShutdownContext -> Handler NoContent
 applyUpdate shutdownCtx = liftIO $ do
     doFail <- testLogFInject (_shdnFInjects shutdownCtx) FInjApplyUpdateNoExit
@@ -253,6 +277,23 @@ applyUpdate shutdownCtx = liftIO $ do
 postponeUpdate :: Handler NoContent
 postponeUpdate = do
     pure NoContent
+
+-- | This endpoint does a 404 unless there is an update available. If an update
+-- is available, it returns the 'SoftwareVersion' for that update.
+getNextUpdate :: Handler (APIResponse (V1 SoftwareVersion))
+getNextUpdate = do
+    mupdate <- readUpdate
+    single <$> case mupdate of
+        Just update ->
+            pure update
+        Nothing ->
+            throwError err404
+  where
+    readUpdate = undefined
+
+--------------------------------------------------------------------------------
+-- Node Info
+--------------------------------------------------------------------------------
 
 getNodeInfo
     :: Diffusion IO
@@ -318,7 +359,6 @@ instance DB.MonadDBRead (ReaderT InfoCtx IO) where
     dbGetSerBlock = DB.dbGetSerBlockRealDefault
     dbGetSerUndo  = DB.dbGetSerUndoRealDefault
     dbGetSerBlund = DB.dbGetSerBlundRealDefault
-
 
 getNodeSyncProgress
     ::

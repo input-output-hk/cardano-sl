@@ -44,9 +44,9 @@ import           Data.These (These (..))
 import           Formatting (sformat, shown, (%))
 import           Network.Socket (AddrInfo,
                      AddrInfoFlag (AI_ADDRCONFIG, AI_PASSIVE),
-                     Family (AF_INET, AF_INET6), PortNumber (..),
+                     Family (AF_INET, AF_INET6), PortNumber,
                      SockAddr (..), Socket, SocketOption (ReuseAddr),
-                     SocketType (Datagram), aNY_PORT, addrAddress, addrFamily,
+                     SocketType (Datagram), addrAddress, addrFamily,
                      addrFlags, addrSocketType)
 import qualified Network.Socket as Socket
 import qualified Network.Socket.ByteString as Socket.ByteString (sendTo)
@@ -220,7 +220,7 @@ udpLocalAddresses = do
             { addrFlags = [AI_PASSIVE]
             , addrSocketType = Datagram }
     --                 Hints        Host    Service
-    Socket.getAddrInfo (Just hints) Nothing (Just $ show aNY_PORT)
+    Socket.getAddrInfo (Just hints) Nothing (Just $ show Socket.defaultPort)
 
 data SendToException
     = NoMatchingSocket

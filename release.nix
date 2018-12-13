@@ -124,6 +124,29 @@ let
   broken-tests-cross     = {
         # This one does not complete on wine.
         cardano-sl-db.db-test = [];
+        cardano-sl-auxx.cardano-auxx-test = [ "x86_64-linux" ];
+        cardano-sl-client.cardano-client-test = [ "x86_64-linux" ];
+        cardano-sl-cluster.cardano-sl-cluster-test = [ "x86_64-linux" ];
+        cardano-sl-explorer.cardano-explorer-test = [ "x86_64-linux" ];
+        cardano-sl-faucet.faucet-test = [ "x86_64-linux" ];
+        cardano-sl-generator.cardano-generator-test = [ "x86_64-linux" ];
+        cardano-sl-mnemonic.cardano-sl-mnemonic-test = [ "x86_64-linux" ];
+        cardano-sl-node.property-tests = [ "x86_64-linux" ];
+        cardano-sl.cardano-test = [ "x86_64-linux" ];
+        cardano-sl-x509.cardano-sl-x509-test = [ "x86_64-linux" ];
+        cardano-sl-tools.cardano-sl-tools-test = [ "x86_64-linux" ];
+        cardano-sl-networking.cardano-sl-networking-test = [ "x86_64-linux" ];
+        cardano-sl-infra.infra-test = [ "x86_64-linux" ];
+        cardano-sl-crypto.crypto-test = [ "x86_64-linux" ];
+        cardano-crypto.cardano-crypto-test = [ "x86_64-linux" ];
+        cardano-crypto.cardano-crypto-golden-tests = [ "x86_64-linux" ];
+        cardano-sl-core.core-test = [ "x86_64-linux" ];
+        cardano-sl-chain.chain-test = [ "x86_64-linux" ];
+        cardano-sl-binary.binary-test = [ "x86_64-linux" ];
+        cardano-sl-util.util-test = [ "x86_64-linux" ];
+        cardano-wallet.nightly = [ "x86_64-linux" ];
+        cardano-wallet.unit = [ "x86_64-linux" ];
+        cardano-report-server.cardano-report-server-test = [ "x86_64-linux" ];
   };
   mapped-nix-tools       = mapTestOn                                    (lib.recursiveUpdate nix-tools-toolchain { nix-tools.tests = broken-tests; });
   mapped-nix-tools-cross = mapTestOnCross lib.systems.examples.mingwW64 (lib.recursiveUpdate nix-tools-toolchain { nix-tools.tests = broken-tests-cross; });
@@ -183,8 +206,8 @@ in pkgs.lib.fix (jobsets: mapped // mapped-nix-tools' // {
       jobsets.tests.shellcheck
       jobsets.tests.stylishHaskell
       jobsets.tests.swaggerSchemaValidation
-      (builtins.concatLists (lib.attrValues (lib.mapAttrs (_: all) jobsets.nix-tools.libs)))
-      (builtins.concatLists (lib.attrValues (lib.mapAttrs (_: all) jobsets.nix-tools.exes)))
+      (builtins.concatLists (lib.attrValues (lib.mapAttrs (_: allLinux) jobsets.nix-tools.libs)))
+      (builtins.concatLists (lib.attrValues (lib.mapAttrs (_: allLinux) jobsets.nix-tools.exes)))
     ];
   });
 }

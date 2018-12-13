@@ -63,7 +63,6 @@
           (hsPkgs.mtl)
           (hsPkgs.neat-interpolation)
           (hsPkgs.parsec)
-          (hsPkgs.plutus-prototype)
           (hsPkgs.QuickCheck)
           (hsPkgs.reflection)
           (hsPkgs.safecopy)

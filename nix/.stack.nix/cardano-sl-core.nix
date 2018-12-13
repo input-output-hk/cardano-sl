@@ -56,7 +56,6 @@
           (hsPkgs.mmorph)
           (hsPkgs.monad-control)
           (hsPkgs.mtl)
-          (hsPkgs.plutus-prototype)
           (hsPkgs.random)
           (hsPkgs.reflection)
           (hsPkgs.resourcet)

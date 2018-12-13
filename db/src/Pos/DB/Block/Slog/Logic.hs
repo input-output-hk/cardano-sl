@@ -141,7 +141,7 @@ slogVerifyBlocks
 slogVerifyBlocks genesisConfig curSlot blocks = runExceptT $ do
     uc <- view (lensOf @UpdateConfiguration)
     era <- getConsensusEra
-    logInfo $ sformat ("slogVerifyBlocksOriginal: Consensus era is " % shown) era
+    logInfo $ sformat ("slogVerifyBlocks: Consensus era is " % shown) era
     (adoptedBV, adoptedBVD) <- lift getAdoptedBVFull
     let dataMustBeKnown = mustDataBeKnown uc adoptedBV
     leaders <- case era of
@@ -151,13 +151,13 @@ slogVerifyBlocks genesisConfig curSlot blocks = runExceptT $ do
                 lrcActionOnEpochReason
                     headEpoch
                     (sformat
-                        ("slogVerifyBlocksOriginal: there are no leaders for epoch " %build)
+                        ("slogVerifyBlocks Original: there are no leaders for epoch " %build)
                         headEpoch)
                     LrcDB.getLeadersForEpoch
         OBFT ObftStrict -> do
             initialSlot <- case curSlot of
                                 Just cs -> pure cs
-                                Nothing -> throwError "slogVerifyBlocksOBFT: curSlot set to Nothing - \
+                                Nothing -> throwError "slogVerifyBlocks ObftStrict: curSlot set to Nothing - \
                                             \this occurs in EBBs which should not appear"
             pure $ getEpochSlotLeaderScheduleObft genesisConfig
                                                   (siEpoch initialSlot)
@@ -168,7 +168,7 @@ slogVerifyBlocks genesisConfig curSlot blocks = runExceptT $ do
             let gStakeholders = Genesis.configGenesisWStakeholders genesisConfig
             case nonEmpty gStakeholders of
                 Just ls -> pure ls
-                Nothing -> throwError "slogVerifyBlocks: configGenesisWStakeholders returns an empty list \
+                Nothing -> throwError "slogVerifyBlocks ObftLenient: configGenesisWStakeholders returns an empty list \
                             \when there should always be genesis stakeholders."
     logInfo $ sformat ("slogVerifyBlocks: Leaders are " % shown) leaders
     case era of

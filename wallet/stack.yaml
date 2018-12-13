@@ -1,0 +1,30 @@
+resolver: ./cardano-sl.yaml
+packages:
+- .
+
+extra-deps:
+- git: https://github.com/input-output-hk/cardano-sl
+  commit: 858d6db5595313be368a93c809104c0253b93ecb
+  subdirs:
+    - acid-state-exts
+    - binary
+    - binary/test
+    - chain
+    - chain/test
+    - client
+    - cluster
+    - core
+    - core/test
+    - crypto
+    - crypto/test
+    - db
+    - infra
+    - lib
+    - mnemonic
+    - networking
+    - node
+    - node-ipc
+    - util
+    - util/test
+    - utxo
+    - x509

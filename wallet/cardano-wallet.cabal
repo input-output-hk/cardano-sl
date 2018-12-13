@@ -1,0 +1,623 @@
+name:                cardano-wallet
+version:             2.0.0
+synopsis:            The Wallet Backend for a Cardano node.
+description:         Please see README.md
+homepage:            https://github.com/input-output-hk/cardano-wallet
+author:              IOHK Engineering Team
+maintainer:          operations@iohk.io
+copyright:           2018 IOHK
+license:             MIT
+license-file:        LICENSE
+category:            Web
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+
+library
+  default-language:
+      Haskell2010
+  default-extensions:
+      DataKinds
+      DefaultSignatures
+      FlexibleContexts
+      FlexibleInstances
+      MonadFailDesugaring
+      MultiParamTypeClasses
+      NoImplicitPrelude
+      OverloadedStrings
+      RecordWildCards
+      ScopedTypeVariables
+      ScopedTypeVariables
+      TemplateHaskell
+      TupleSections
+      TypeApplications
+      TypeFamilies
+      TypeOperators
+      TypeOperators
+      UndecidableInstances
+  ghc-options:
+      -Wall
+      -Werror
+      -Wcompat
+      -fwarn-redundant-constraints
+
+  build-depends:
+      base
+    , acid-state
+    , aeson
+    , aeson-options
+    , aeson-pretty
+    , async
+    , base58-bytestring
+    , beam-core
+    , beam-migrate
+    , beam-sqlite
+    , bifunctors
+    , binary
+    , bytestring
+    , cardano-crypto
+    , cardano-sl
+    , cardano-sl-binary
+    , cardano-sl-chain
+    , cardano-sl-client
+    , cardano-sl-core
+    , cardano-sl-core-test
+    , cardano-sl-crypto
+    , cardano-sl-db
+    , cardano-sl-mnemonic
+    , cardano-sl-infra
+    , cardano-sl-networking
+    , cardano-sl-node
+    , cardano-sl-node-ipc
+    , cardano-sl-util
+    , cardano-sl-utxo
+    , cardano-sl-x509
+    , cereal
+    , clock
+    , conduit
+    , containers
+    , cryptonite
+    , data-default
+    , data-default-class
+    , directory
+    , exceptions
+    , filepath
+    , foldl
+    , formatting
+    , formatting
+    , generics-sop
+    , http-api-data
+    , http-client
+    , http-types
+    , ixset-typed
+    , lens
+    , memory
+    , mtl
+    , mwc-random
+    , neat-interpolation
+    , optparse-applicative
+    , QuickCheck
+    , reflection
+    , resourcet
+    , retry
+    , safe-exceptions
+    , safecopy
+    , serokell-util
+    , servant
+    , servant-client
+    , servant-client-core
+    , servant-server
+    , servant-swagger
+    , servant-swagger-ui
+    , servant-swagger-ui-core
+    , servant-swagger-ui-redoc
+    , sqlite-simple
+    , sqlite-simple-errors
+    , stm
+    , stm-chans
+    , strict
+    , strict-concurrency
+    , swagger2
+    , tar
+    , text
+    , time
+    , time-units
+    , tls
+    , transformers
+    , universum
+    , unliftio-core
+    , unordered-containers
+    , uuid
+    , vector
+    , wai
+    , wai-middleware-throttle
+    , warp
+    , x509
+    , zlib
+
+  hs-source-dirs:
+      src
+  exposed-modules:
+      Cardano.Wallet.API
+      Cardano.Wallet.API.Indices
+      Cardano.Wallet.API.Internal
+      Cardano.Wallet.API.Internal.Handlers
+      Cardano.Wallet.API.Request
+      Cardano.Wallet.API.Request.Filter
+      Cardano.Wallet.API.Request.Pagination
+      Cardano.Wallet.API.Request.Parameters
+      Cardano.Wallet.API.Request.Sort
+      Cardano.Wallet.API.Response
+      Cardano.Wallet.API.Response.Filter.IxSet
+      Cardano.Wallet.API.Response.JSend
+      Cardano.Wallet.API.Response.Sort.IxSet
+      Cardano.Wallet.API.Types
+      Cardano.Wallet.API.Types.UnitOfMeasure
+      Cardano.Wallet.API.V1
+      Cardano.Wallet.API.V1.Accounts
+      Cardano.Wallet.API.V1.Addresses
+      Cardano.Wallet.API.V1.Errors
+      Cardano.Wallet.API.V1.Generic
+      Cardano.Wallet.API.V1.Handlers
+      Cardano.Wallet.API.V1.Handlers.Accounts
+      Cardano.Wallet.API.V1.Handlers.Addresses
+      Cardano.Wallet.API.V1.Handlers.Info
+      Cardano.Wallet.API.V1.Handlers.Settings
+      Cardano.Wallet.API.V1.Handlers.Transactions
+      Cardano.Wallet.API.V1.Handlers.Wallets
+      Cardano.Wallet.API.V1.Headers
+      Cardano.Wallet.API.V1.Info
+      Cardano.Wallet.API.V1.Parameters
+      Cardano.Wallet.API.V1.ReifyWalletError
+      Cardano.Wallet.API.V1.Settings
+      Cardano.Wallet.API.V1.Swagger
+      Cardano.Wallet.API.V1.Swagger.Example
+      Cardano.Wallet.API.V1.Transactions
+      Cardano.Wallet.API.V1.Types
+      Cardano.Wallet.API.V1.Wallets
+      Cardano.Wallet.API.WIP
+      Cardano.Wallet.API.WIP.Handlers
+      Cardano.Wallet.Action
+      Cardano.Wallet.Client
+      Cardano.Wallet.Client.Http
+      Cardano.Wallet.Kernel
+      Cardano.Wallet.Kernel.Accounts
+      Cardano.Wallet.Kernel.Actions
+      Cardano.Wallet.Kernel.AddressPool
+      Cardano.Wallet.Kernel.AddressPoolGap
+      Cardano.Wallet.Kernel.Addresses
+      Cardano.Wallet.Kernel.EosWalletId
+      Cardano.Wallet.Kernel.BListener
+      Cardano.Wallet.Kernel.CoinSelection
+      Cardano.Wallet.Kernel.CoinSelection.FromGeneric
+      Cardano.Wallet.Kernel.CoinSelection.Generic
+      Cardano.Wallet.Kernel.CoinSelection.Generic.Fees
+      Cardano.Wallet.Kernel.CoinSelection.Generic.Grouped
+      Cardano.Wallet.Kernel.CoinSelection.Generic.LargestFirst
+      Cardano.Wallet.Kernel.CoinSelection.Generic.Random
+      Cardano.Wallet.Kernel.DB.AcidState
+      Cardano.Wallet.Kernel.DB.BlockContext
+      Cardano.Wallet.Kernel.DB.BlockMeta
+      Cardano.Wallet.Kernel.DB.Compression
+      Cardano.Wallet.Kernel.DB.EosHdWallet
+      Cardano.Wallet.Kernel.DB.EosHdWallet.Create
+      Cardano.Wallet.Kernel.DB.HdWallet
+      Cardano.Wallet.Kernel.DB.HdWallet.Create
+      Cardano.Wallet.Kernel.DB.HdWallet.Delete
+      Cardano.Wallet.Kernel.DB.HdWallet.Derivation
+      Cardano.Wallet.Kernel.DB.HdWallet.Read
+      Cardano.Wallet.Kernel.DB.HdWallet.Update
+      Cardano.Wallet.Kernel.DB.InDb
+      Cardano.Wallet.Kernel.DB.Read
+      Cardano.Wallet.Kernel.DB.Resolved
+      Cardano.Wallet.Kernel.DB.Spec
+      Cardano.Wallet.Kernel.DB.Spec.Pending
+      Cardano.Wallet.Kernel.DB.Spec.Read
+      Cardano.Wallet.Kernel.DB.Spec.Update
+      Cardano.Wallet.Kernel.DB.Sqlite
+      Cardano.Wallet.Kernel.DB.TxMeta
+      Cardano.Wallet.Kernel.DB.TxMeta.Types
+      Cardano.Wallet.Kernel.DB.Updates
+      Cardano.Wallet.Kernel.DB.Util.AcidState
+      Cardano.Wallet.Kernel.DB.Util.IxSet
+      Cardano.Wallet.Kernel.DB.Util.Zoomable
+      Cardano.Wallet.Kernel.Decrypt
+      Cardano.Wallet.Kernel.Diffusion
+      Cardano.Wallet.Kernel.Internal
+      Cardano.Wallet.Kernel.Invariants
+      Cardano.Wallet.Kernel.Keystore
+      Cardano.Wallet.Kernel.Migration
+      Cardano.Wallet.Kernel.Mode
+      Cardano.Wallet.Kernel.NodeStateAdaptor
+      Cardano.Wallet.Kernel.Pending
+      Cardano.Wallet.Kernel.PrefilterTx
+      Cardano.Wallet.Kernel.Read
+      Cardano.Wallet.Kernel.Restore
+      Cardano.Wallet.Kernel.Submission
+      Cardano.Wallet.Kernel.Submission.Worker
+      Cardano.Wallet.Kernel.Transactions
+      Cardano.Wallet.Kernel.Types
+      Cardano.Wallet.Kernel.Util.Core
+      Cardano.Wallet.Kernel.Util.NonEmptyMap
+      Cardano.Wallet.Kernel.Util.Strict
+      Cardano.Wallet.Kernel.Util.StrictList
+      Cardano.Wallet.Kernel.Util.StrictNonEmpty
+      Cardano.Wallet.Kernel.Util.StrictStateT
+      Cardano.Wallet.Kernel.Wallets
+      Cardano.Wallet.Server
+      Cardano.Wallet.Server.CLI
+      Cardano.Wallet.Server.Middlewares
+      Cardano.Wallet.Server.Plugins
+      Cardano.Wallet.Server.Plugins.AcidState
+      Cardano.Wallet.TypeLits
+      Cardano.Wallet.Types.UtxoStatistics
+      Cardano.Wallet.Util
+      Cardano.Wallet.WalletLayer
+      Cardano.Wallet.WalletLayer.ExecutionTimeLimit
+      Cardano.Wallet.WalletLayer.Kernel
+      Cardano.Wallet.WalletLayer.Kernel.Accounts
+      Cardano.Wallet.WalletLayer.Kernel.Active
+      Cardano.Wallet.WalletLayer.Kernel.Addresses
+      Cardano.Wallet.WalletLayer.Kernel.Conv
+      Cardano.Wallet.WalletLayer.Kernel.Info
+      Cardano.Wallet.WalletLayer.Kernel.Internal
+      Cardano.Wallet.WalletLayer.Kernel.Settings
+      Cardano.Wallet.WalletLayer.Kernel.Transactions
+      Cardano.Wallet.WalletLayer.Kernel.Wallets
+  other-modules:
+      Paths_cardano_wallet
+
+
+
+executable cardano-node
+  default-language:
+      Haskell2010
+  default-extensions:
+      DataKinds
+      DefaultSignatures
+      FlexibleContexts
+      FlexibleInstances
+      MonadFailDesugaring
+      MultiParamTypeClasses
+      NoImplicitPrelude
+      OverloadedStrings
+      RecordWildCards
+      ScopedTypeVariables
+      ScopedTypeVariables
+      TemplateHaskell
+      TypeApplications
+      TypeFamilies
+      TypeOperators
+      TypeOperators
+      UndecidableInstances
+  ghc-options:
+      -threaded -rtsopts
+      -Wall
+      -O2
+
+  build-depends:
+      base
+    , cardano-sl
+    , cardano-sl-util
+    , cardano-wallet
+    , universum
+
+  hs-source-dirs:
+      server
+  main-is:
+      Main.hs
+
+
+executable cardano-generate-swagger-file
+  default-language:
+      Haskell2010
+  default-extensions:
+      FlexibleContexts
+      MonadFailDesugaring
+      NoImplicitPrelude
+      OverloadedStrings
+      RecordWildCards
+      ScopedTypeVariables
+      TypeApplications
+      TypeOperators
+  ghc-options:
+      -threaded -rtsopts
+      -Wall
+      -fno-warn-orphans
+      -O2
+
+  build-depends:
+      base
+    , aeson
+    , bytestring
+    , cardano-sl-chain
+    , cardano-sl-util
+    , cardano-wallet
+    , optparse-applicative
+    , swagger2
+    , universum >= 0.1.11
+
+  hs-source-dirs:
+      generate-swagger-file
+  main-is:
+      Main.hs
+
+
+executable wal-integr-test
+  default-language:
+      Haskell2010
+  default-extensions:
+      DataKinds
+      DefaultSignatures
+      FlexibleContexts
+      FlexibleInstances
+      MonadFailDesugaring
+      MultiParamTypeClasses
+      NoImplicitPrelude
+      OverloadedStrings
+      RecordWildCards
+      ScopedTypeVariables
+      ScopedTypeVariables
+      TemplateHaskell
+      TypeApplications
+      TypeFamilies
+      TypeOperators
+      TypeOperators
+      UndecidableInstances
+  ghc-options:
+      -threaded -rtsopts
+      -Wall
+      -O2
+
+  build-depends:
+      base
+    , aeson
+    , aeson-diff
+    , aeson-pretty
+    , async
+    , bytestring
+    , cardano-sl
+    , cardano-sl-chain
+    , cardano-sl-core
+    , cardano-sl-crypto
+    , cardano-sl-mnemonic
+    , cardano-sl-node
+    , cardano-sl-util
+    , cardano-wallet
+    , containers
+    , exceptions
+    , formatting
+    , formatting
+    , hspec
+    , http-client
+    , http-types
+    , lens
+    , memory
+    , mtl
+    , optparse-applicative
+    , pretty-show
+    , QuickCheck
+    , serokell-util
+    , servant
+    , servant-client
+    , servant-quickcheck
+    , servant-server
+    , text
+    , universum
+    , x509-store
+
+  hs-source-dirs:
+      integration
+  main-is:
+      Main.hs
+  other-modules:
+      AccountSpecs
+      AddressSpecs
+      CLI
+      Error
+      HardwareWalletSpecs
+      QuickCheckSpecs
+      RandomStateWalk
+      SetupTestEnv
+      TransactionSpecs
+      Types
+      Util
+      WalletSpecs
+
+
+test-suite unit
+  default-language:
+      Haskell2010
+  default-extensions:
+      BangPatterns
+      ConstraintKinds
+      DataKinds
+      DeriveGeneric
+      FlexibleContexts
+      FlexibleInstances
+      GADTs
+      InstanceSigs
+      LambdaCase
+      MultiParamTypeClasses
+      MultiWayIf
+      NoImplicitPrelude
+      OverloadedStrings
+      RankNTypes
+      RecordWildCards
+      ScopedTypeVariables
+      StandaloneDeriving
+      TemplateHaskell
+      TypeApplications
+      TypeFamilies
+      TypeOperators
+  other-extensions:
+      DeriveAnyClass
+      GeneralizedNewtypeDeriving
+      UndecidableInstances
+  ghc-options:
+      -threaded -rtsopts
+      -Wall
+      -O2
+
+  build-depends:
+      base
+    , acid-state
+    , aeson
+    , bytestring
+    , cardano-crypto
+    , cardano-sl
+    , cardano-sl-binary
+    , cardano-sl-chain
+    , cardano-sl-chain-test
+    , cardano-sl-client
+    , cardano-sl-core
+    , cardano-sl-core-test
+    , cardano-sl-crypto
+    , cardano-sl-db
+    , cardano-sl-infra
+    , cardano-sl-mnemonic
+    , cardano-sl-util
+    , cardano-sl-util-test
+    , cardano-sl-utxo
+    , cardano-wallet
+    , cereal
+    , conduit
+    , containers
+    , cryptonite
+    , data-default
+    , directory
+    , formatting
+    , hedgehog
+    , hspec
+    , hspec-core
+    , insert-ordered-containers
+    , lens
+    , mtl
+    , normaldistribution
+    , QuickCheck
+    , quickcheck-instances
+    , random
+    , safe-exceptions
+    , safecopy
+    , serokell-util
+    , servant
+    , servant-server
+    , servant-swagger
+    , string-conv
+    , swagger2
+    , tabl
+    , text
+    , time
+    , time-units
+    , universum
+    , vector
+
+  type:
+     exitcode-stdio-1.0
+  hs-source-dirs:
+      test/unit
+  main-is:
+      Main.hs
+  other-modules:
+      API.MarshallingSpec
+      API.RequestSpec
+      API.SwaggerSpec
+      Arbitrary
+      Golden.APILayout
+      Golden.WalletError
+      Test.Infrastructure.Generator
+      Test.Infrastructure.Genesis
+      Test.Spec.Accounts
+      Test.Spec.AddressPool
+      Test.Spec.AddressPoolGap
+      Test.Spec.Addresses
+      Test.Spec.BlockMetaScenarios
+      Test.Spec.CoinSelection
+      Test.Spec.CoinSelection.Generators
+      Test.Spec.DeltaCompression
+      Test.Spec.Fixture
+      Test.Spec.GetTransactions
+      Test.Spec.Kernel
+      Test.Spec.Keystore
+      Test.Spec.Models
+      Test.Spec.NewPayment
+      Test.Spec.Submission
+      Test.Spec.Translation
+      Test.Spec.TxMetaScenarios
+      Test.Spec.TxMetaStorage
+      Test.Spec.WalletWorker
+      Test.Spec.Wallets
+      UTxO.ToCardano.Interpreter
+      Util.Buildable
+      Util.Buildable.Hspec
+      Util.Buildable.QuickCheck
+      Wallet.Abstract
+      Wallet.Basic
+      Wallet.Incremental
+      Wallet.Inductive
+      Wallet.Inductive.Cardano
+      Wallet.Inductive.ExtWalletEvent
+      Wallet.Inductive.Generator
+      Wallet.Inductive.History
+      Wallet.Inductive.Interpreter
+      Wallet.Inductive.Invariants
+      Wallet.Inductive.Validation
+      Wallet.Prefiltered
+      Wallet.Rollback.Basic
+      Wallet.Rollback.Full
+
+
+test-suite nightly
+  default-language:
+      Haskell2010
+  default-extensions:
+      BangPatterns
+      ConstraintKinds
+      DataKinds
+      DeriveGeneric
+      FlexibleContexts
+      FlexibleInstances
+      GADTs
+      InstanceSigs
+      LambdaCase
+      MultiParamTypeClasses
+      MultiWayIf
+      NoImplicitPrelude
+      OverloadedStrings
+      RankNTypes
+      RecordWildCards
+      ScopedTypeVariables
+      StandaloneDeriving
+      TemplateHaskell
+      TypeApplications
+      TypeFamilies
+      TypeOperators
+  ghc-options:
+      -threaded -rtsopts
+      -Wall
+      -Werror
+      -O2
+
+  build-depends:
+      base
+    , async
+    , cardano-sl-chain
+    , cardano-sl-core
+    , cardano-wallet
+    , formatting
+    , hspec
+    , hspec-core
+    , QuickCheck
+    , safe-exceptions
+    , serokell-util
+    , text
+    , universum
+
+  type:
+     exitcode-stdio-1.0
+  hs-source-dirs:
+      test/nightly
+  main-is:
+      Main.hs
+  other-modules:
+      TxMetaStorage

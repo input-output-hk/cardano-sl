@@ -31,7 +31,6 @@ import           Universum
 
 import           Control.Lens (makeLenses)
 import qualified Data.Aeson as A
-import qualified Data.Aeson.Encoding.Internal as A
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import           Formatting
@@ -69,9 +68,9 @@ data NodeType =
   deriving (Show, Eq, Generic, Ord, Bounded, Enum)
 
 instance A.ToJSON NodeType where
-    toEncoding (NodeCore)  = A.text "core"
-    toEncoding (NodeEdge)  = A.text "edge"
-    toEncoding (NodeRelay) = A.text "relay"
+    toJSON (NodeCore)  = A.String "core"
+    toJSON (NodeEdge)  = A.String "edge"
+    toJSON (NodeRelay) = A.String "relay"
 
 instance A.FromJSON NodeType where
     parseJSON = A.withText "NodeType" $ \typ -> do

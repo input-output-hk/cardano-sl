@@ -160,6 +160,7 @@ library
                       , tar
                       , time
                       , tagged
+                      , vector
                       , text
                       , time-units
                       , network-transport
@@ -225,6 +226,7 @@ test-suite infra-test
 
   build-depends:    QuickCheck
                   , async
+                  , aeson
                   , base
                   , bytestring
                   , cardano-sl-binary-test
@@ -245,6 +247,7 @@ test-suite infra-test
                   , iproute
                   , kademlia
                   , universum
+                  , yaml
 
   ghc-options:         -Wall
                        -O2

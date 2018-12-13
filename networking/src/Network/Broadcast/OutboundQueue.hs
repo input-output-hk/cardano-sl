@@ -91,7 +91,6 @@ import           Control.Exception (Exception, SomeException, catch,
 import           Control.Lens
 import           Control.Monad
 import qualified Data.Aeson as A
-import qualified Data.Aeson.Encoding.Internal as A
 import qualified Data.Aeson.Types as A
 import           Data.Either (rights)
 import           Data.Foldable (fold)
@@ -1349,8 +1348,8 @@ data MaxBucketSize = BucketSizeUnlimited | BucketSizeMax Int
   deriving (Show, Generic, Eq)
 
 instance A.ToJSON MaxBucketSize where
-    toEncoding BucketSizeUnlimited   = A.null_
-    toEncoding (BucketSizeMax bSize) = A.int bSize
+    toJSON BucketSizeUnlimited   = A.Null
+    toJSON (BucketSizeMax bSize) = A.toJSON bSize
 
 instance A.FromJSON MaxBucketSize where
     parseJSON (A.Null) = pure BucketSizeUnlimited

@@ -70,6 +70,7 @@
           (hsPkgs.tar)
           (hsPkgs.time)
           (hsPkgs.tagged)
+          (hsPkgs.vector)
           (hsPkgs.text)
           (hsPkgs.time-units)
           (hsPkgs.network-transport)
@@ -87,6 +88,7 @@
           depends = [
             (hsPkgs.QuickCheck)
             (hsPkgs.async)
+            (hsPkgs.aeson)
             (hsPkgs.base)
             (hsPkgs.bytestring)
             (hsPkgs.cardano-sl-binary-test)
@@ -107,6 +109,7 @@
             (hsPkgs.iproute)
             (hsPkgs.kademlia)
             (hsPkgs.universum)
+            (hsPkgs.yaml)
           ];
         };
       };

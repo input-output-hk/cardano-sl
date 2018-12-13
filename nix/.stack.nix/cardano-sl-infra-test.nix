@@ -48,6 +48,7 @@
           (hsPkgs.iproute)
           (hsPkgs.kademlia)
           (hsPkgs.universum)
+          (hsPkgs.yaml)
         ];
       };
     };

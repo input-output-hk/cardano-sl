@@ -17,11 +17,9 @@ import           Universum
 import           Data.Aeson (FromJSON)
 import qualified Data.Aeson as Aeson
 import           Network.HTTP.Client (Manager)
-import           Network.HTTP.Media.MediaType (MediaType)
 import           Servant ((:<|>) (..))
 import           Servant.Client (BaseUrl (..), ClientEnv (..), ClientM,
-                     GenResponse (..), Response, ServantError, client,
-                     runClientM)
+                     GenResponse (..), ServantError, client, runClientM)
 import qualified Servant.Client as Servant
 
 import           Cardano.Node.API (nodeV1Api)
@@ -59,11 +57,9 @@ data NodeClient m
 
 data ClientError a
     = KnownError a
-    | DecodeFailure Text Response
-    | UnsupportedContentType MediaType Response
-    | InvalidContentTypeHeader Response
-    | ConnectionError Text
+    | ErrFromServant Servant.ServantError
     deriving (Show, Generic, Eq)
+
 instance Exception a => Exception (ClientError a)
 
 fromServantError :: FromJSON a => ServantError -> ClientError a
@@ -73,18 +69,11 @@ fromServantError = \case
             Just (APIResponse a ErrorStatus _) ->
                 KnownError a
             Just _ ->
-                DecodeFailure "API failed with non-error response ?!?" r
+                ErrFromServant $ Servant.DecodeFailure "API failed with non-error response ?!?" r
             Nothing ->
-                DecodeFailure "Invalid / Non-JSEnd API Error Response" r
-    Servant.DecodeFailure t r ->
-        DecodeFailure t r
-    Servant.UnsupportedContentType m r ->
-        UnsupportedContentType m r
-    Servant.InvalidContentTypeHeader r ->
-        InvalidContentTypeHeader r
-    Servant.ConnectionError t ->
-        ConnectionError t
-
+                ErrFromServant $ Servant.DecodeFailure "Invalid / Non-JSEnd API Error Response" r
+    err ->
+        ErrFromServant err
 
 -- * HTTP Instance
 

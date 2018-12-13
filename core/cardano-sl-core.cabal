@@ -51,7 +51,6 @@ library
 
                        Pos.Core.Reporting
 
-                       Pos.Core.Script
                        Pos.Core.Slotting
 
                        Pos.Core.Util.LogSafe
@@ -140,7 +139,6 @@ library
                      , mmorph
                      , monad-control
                      , mtl
-                     , plutus-prototype
                      , random
                      , reflection
                      , resourcet

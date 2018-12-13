@@ -188,7 +188,6 @@ library
                      , mtl
                      , neat-interpolation
                      , parsec
-                     , plutus-prototype
                      , QuickCheck
                      , reflection
                      , safecopy

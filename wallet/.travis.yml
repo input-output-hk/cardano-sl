@@ -1,0 +1,233 @@
+# Use new container infrastructure to enable caching
+sudo: false
+
+# Generic language, we provide our custom builds
+language: generic
+
+# Only clone the repo's tip
+git:
+  depth: false
+
+# Caching so the next build will be fast too.
+cache:
+  timeout: 1337
+  directories:
+  - $HOME/.stack
+  - $HOME/.local
+  - $HOME/.ghc
+
+# Desactivate builds on branches but `develop` (CI is still triggered by PRs)
+branches:
+  only:
+  - master
+  - develop
+
+# Setup some global env variables to our .local folder.
+# This is because we run in an isolated container and
+# don't have access to 'sudo'; thus, we install libraries
+# and binaries on our $HOME and need to point a few variable
+# to them.
+env:
+  global:
+  # Setup a bunch of ENV var necessary for librocksdb & stack to work fine
+  - PATH=$PATH:$HOME/.local/bin:$HOME/.local/lib:$HOME/.local/include
+  - LIBRARY_PATH=$LIBRARY_PATH:$PATH
+  - LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PATH
+  - C_INCLUDE_PATH=$C_INCLUDE_PATH:$PATH
+  - CPP_INCLUDE_PATH=$CPP_INCLUDE_PATH:$PATH
+
+  jobs:
+  - ACTION=coverage
+  - ACTION=hlint
+  - ACTION=weeder
+  - ACTION=documentation
+
+# Few addons available on apt needed for librocksdb (which we can't get from
+# apt because of some weak PGP key).
+addons:
+  apt:
+    packages:
+    - libsnappy-dev
+    - libgflags-dev
+
+# Define custom set of stages
+stages:
+- snapshot-1
+- snapshot-2
+- extra-dependencies
+- tests
+- documentation
+
+# Install foreign dependencies required by some modules below
+before_install:
+- export LTS=$(cat cardano-sl.yaml | grep resolver) # Extract the LTS from the stack.yaml
+
+# Rebuild only the snapshot. Note that, when triggered, job-concurrency should be limited
+# to 1 and we might have to re-play the build multiple times in case it couldn't build
+# everything in one go.
+# Before kicking this action, it would also be advised to cleanup the entire cache.
+snapshot-1: &snapshot-1
+  if: (type = cron) OR (commit_message =~ /ci@update lts/)
+  script:
+  - test "$TRAVIS_EVENT_TYPE" = cron && rm -rf $HOME/.ghc $HOME/.stack $HOME/.local || true
+  - mkdir -p .stack-work $HOME/.ghc $HOME/.stack $HOME/.local/bin $HOME/.local/lib $HOME/.local/include
+
+  # Install librocksdb-dev
+  - git clone --depth 1 --branch=librocksdb-dev $(git remote get-url origin) /tmp/librocksdb-dev
+  - rm -rf $HOME/.local/include/rocksdb && mv /tmp/librocksdb-dev/rocksdb $HOME/.local/include
+  - rm -rf $HOME/.local/lib/librocksdb* && mv /tmp/librocksdb-dev/librocksdb* $HOME/.local/lib
+
+  # Install libstdc++
+  - git clone --depth 1 --branch=libstdc++ $(git remote get-url origin) /tmp/libstdc++
+  - rm -rf $HOME/.local/lib/libstdc* && mv /tmp/libstdc++/* $HOME/.local/lib
+
+  # Install stack
+  - travis_retry curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+
+  # Building a subset of the snapshot, to be < 42 min build time; we strip away cardano-sl and servant packages because they're long to build
+  - cat cardano-wallet.cabal | grep -v cardano-sl | grep -v servant > tmp.cabal && mv tmp.cabal cardano-wallet.cabal
+  - travis_wait 42 stack --no-terminal --install-ghc build cardano-wallet:lib --only-snapshot -j1
+
+# Build out custom snapshot on top of the LTS. We separate this from the lts job to split
+# the workload and have two jobs running < 50 mins.
+snapshot-2: &snapshot-2
+  if: (type = cron) OR (commit_message =~ /ci@update lts/)
+  script:
+  # Install rest of the the snapshot, mostly servant and cardano-sl
+  - travis_wait 42 stack --no-terminal build --only-snapshot -j1
+  # Install CPPHS, extra cardano-sl dependency
+  - travis_wait 42 stack --no-terminal install cpphs
+  # Installing shc for coverage reporting; We trick it a bit to use the same LTS as us and leverage already installed packages to speed up the process
+  - git clone https://github.com/rubik/stack-hpc-coveralls && cd stack-hpc-coveralls && git checkout 3d8352d5642ab214a7a574bd797880ae39595a44 && echo $LTS > stack.yaml #
+  - travis_wait 42 stack --no-terminal install
+
+# Rebuild only the extra dependencies; mainly: cardano-sl. This isn't part of the custom
+# snapshot because we likely bumps the git hash reference more often  than other dependencies.
+# Still, we build that as a separate job and only triggers it when appropriated. It's cached
+# otherwise.
+extra-dependencies: &extra-dependencies
+  if: (type = cron) OR (commit_message =~ /ci@update stack.yaml/)
+  script:
+  # We don't cache .stack-work, though we want to avoid rebuilding extra-dependencies on each CI run. So, we just cache it manually.
+  - travis_wait 42 stack --no-terminal build --fast --only-dependencies -j1
+  - tar czf $HOME/.local/stack-work.tar.gz .stack-work
+
+# Build snapshot & dependencies in different jobs. This copes with Travis limit of 50 minutes per job.
+jobs:
+  include:
+  # SNAPSHOT
+  - stage: snapshot-1
+    <<: *snapshot-1
+    env: ACTION=stylish-haskell
+    script:
+    - test "$TRAVIS_EVENT_TYPE" = cron && rm -rf $HOME/.ghc $HOME/.stack $HOME/.local || true
+    - mkdir -p .stack-work $HOME/.ghc $HOME/.stack $HOME/.local/bin $HOME/.local/lib $HOME/.local/include
+    # Install stack
+    - travis_retry curl -L https://get.haskellstack.org/stable/linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+    # Install stylish-haskell, not sure why but stack fails to copy the binary for the first install... Go figure :|
+    - stack --no-terminal --install-ghc setup
+    - stack --no-terminal install stylish-haskell && stack --no-terminal install stylish-haskell
+  - stage: snapshot-1
+    <<: *snapshot-1
+    env: ACTION=coverage
+  - stage: snapshot-1
+    <<: *snapshot-1
+    env: ACTION=documentation
+  - stage: snapshot-1
+    <<: *snapshot-1
+    env: ACTION=weeder
+  - stage: snapshot-2
+    <<: *snapshot-2
+    env: ACTION=coverage
+  - stage: snapshot-2
+    <<: *snapshot-2
+    env: ACTION=documentation
+  - stage: snapshot-2
+    <<: *snapshot-2
+    env: ACTION=weeder
+
+  # EXTRA-DEPENDENCIES
+  - stage: extra-dependencies
+    <<: *extra-dependencies
+    env: ACTION=coverage
+  - stage: extra-dependencies
+    <<: *extra-dependencies
+    env: ACTION=documentation
+  - stage: extra-dependencies
+    <<: *extra-dependencies
+    env: ACTION=weeder
+
+  # HLINT
+  - stage: tests
+    env: ACTION=hlint
+    script:
+      - curl -sL https://raw.github.com/ndmitchell/hlint/bea72e4e61da54ecd451590734d6e10423ead100/misc/travis.sh | sh -s . --cpp-define=__GLASGOW_HASKELL__=800 --cpp-define=x86_64_HOST_ARCH=1 --cpp-define=mingw32_HOST_OS=1
+
+  # STYLISH-HASKELL
+  - stage: tests
+    env: ACTION=stylish-haskell
+    script:
+    - find . -type f -name "*.hs" ! -path "*.stack-work*" -exec stylish-haskell -i {} \;
+    - git diff --exit-code
+
+  # USUAL TESTS (unit)
+  - stage: tests
+    if: type != cron
+    env: ACTION=coverage
+    # Run all tests with code coverage
+    script:
+    - tar xzf $HOME/.local/stack-work.tar.gz # Cached extra-dependencies
+    - travis_wait 42 stack --no-terminal test cardano-wallet:test:unit --fast
+
+  # USUAL TESTS (integration)
+  #- stage: tests
+  #  if: type != cron
+  #  env: ACTION=coverage
+  #  # Run all tests with code coverage
+  #  script:
+  #  - tar xzf $HOME/.local/stack-work.tar.gz # Cached extra-dependencies
+  #  - travis_wait 42 stack --no-terminal test cardano-wallet:test:integration --fast
+
+  # FULL COVERAGE
+  - stage: tests
+    if: type = cron
+    env: ACTION=coverage
+    # Run all tests with code coverage
+    script:
+    - tar xzf $HOME/.local/stack-work.tar.gz # Cached extra-dependencies
+    - travis_wait 42 stack --no-terminal test cardano-wallet:test:unit --fast --coverage
+    # - travis_wait 42 stack --no-terminal test cardano-wallet:test:integration --fast --coverage
+    - shc cardano-wallet unit
+
+  # NIGHTLY
+  - stage: tests
+    env: ACTION=coverage
+    if: type = cron
+    script:
+    - tar xzf $HOME/.local/stack-work.tar.gz # Cached extra-dependencies
+    - travis_wait 42 stack --no-terminal test cardano-wallet:test:nightly --fast
+
+  # WEEDER
+  - stage: tests
+    env: ACTION=weeder
+    script:
+    - tar xzf $HOME/.local/stack-work.tar.gz # Cached extra-dependencies
+    - travis_wait 42 stack --no-terminal test --no-run-tests --fast
+    - curl -sSL https://raw.github.com/ndmitchell/weeder/master/misc/travis.sh | sh -s .
+
+  # DOCUMENTATION
+  - stage: documentation
+    env: ACTION=documentation
+    if: type = push AND branch = develop
+    # Upload API doc automatically on each build against `develop` to `gh-pages`
+    script:
+    - tar xzf $HOME/.local/stack-work.tar.gz # Cached extra-dependencies
+    - travis_wait 42 stack --no-terminal build cardano-wallet:exe:cardano-generate-swagger-file --fast
+    - stack exec -- cardano-generate-swagger-file --target wallet@v1
+    - git add swagger.json && git commit -m $TRAVIS_COMMIT
+    - git checkout gh-pages && git cherry-pick -X theirs -
+    - git push -f -q https://KtorZ:$GITHUB_API_KEY@github.com/input-output-hk/cardano-wallet gh-pages &>/dev/null # TODO: Create a specific CI user with its own key
+
+  allow_failures:
+    - env: ACTION=documentation
+    - env: ACTION=weeder

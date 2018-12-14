@@ -1,0 +1,90 @@
+name: cardano-sl
+resolver: lts-12.17
+packages:
+- Chart-1.9
+- Chart-diagrams-1.9
+- SVGFonts-1.6.0.3
+- aeson-options-0.0.0
+- base58-bytestring-0.1.0
+- beam-sqlite-0.3.2.3
+- ether-0.5.1.0
+- fmt-0.6
+- hspec-2.5.5
+- katip-0.6.3.0
+- loc-0.1.3.3
+- lzma-clib-5.2.2
+- micro-recursion-schemes-5.0.2.2
+- normaldistribution-1.1.0.3
+- o-clock-0.1.1
+- pipes-interleave-1.1.3
+- pvss-0.2.0
+- servant-multipart-0.11.2
+- servant-quickcheck-0.0.7.2
+- servant-swagger-ui-redoc-0.3.0.1.21.2
+- systemd-1.1.2
+- tabl-1.0.3
+- token-bucket-0.1.0.1
+- wai-middleware-throttle-0.3.0.0
+
+- git: https://github.com/avieth/plutus-prototype
+  commit: d094be301195fcd8ab864d793f114970426a4478
+
+- git: https://github.com/input-output-hk/cardano-report-server.git
+  commit: 9b96874d0f234554a5779d98762cc0a6773a532a
+
+- git: https://github.com/angerman/cardano-crypto
+  commit: 1e436fe8b69e7c8b399937db394d99229fcd775c
+
+- git: https://github.com/andrewthad/haskell-ip
+  commit: 9bb453139aa82cc973125091800422a523e1eb8f
+
+- git: https://github.com/serokell/time-units.git
+  commit: 6c3747c1ac794f952de996dd7ba8a2f6d63bf132
+
+- git: https://github.com/serokell/kademlia.git
+  commit: 7120bb4d28e708acd52dfd61d3dca7914fac7d7f
+
+- git: https://github.com/serokell/network-transport
+  commit: 018a50b9042c2115c3ec9c9fd5ca5f28737dd29c
+
+- git: https://github.com/serokell/network-transport-tcp
+  commit: 3d56652123bd296dc759cd31947eb2a17924e68a
+
+- git: https://github.com/avieth/network-transport-inmemory
+  commit: 5d8ff2b07b9df35cf61329a3d975e2c8cf95c12a
+
+- git: https://github.com/parsonsmatt/acid-state
+  commit: a1b23e2056f134e53f705a694ab85deeecabec5c
+
+- git: https://github.com/input-output-hk/engine.io.git
+  commit: 8f9216b8f9c7bd96cb1feeb82db5271744d67fcd
+  subdirs:
+    - socket-io
+    - engine-io
+    - engine-io-wai
+
+- git: https://github.com/input-output-hk/canonical-json.git
+  commit: f66762e4c4fe484ed109d28ad541fc55cc841c2c
+
+- git: https://github.com/corsis/clock.git
+  commit: ef60bd51a3587a173adf565c33bf2886df6e3842
+
+- git: https://github.com/input-output-hk/rocksdb-haskell-ng.git
+  commit: 49f501a082d745f3b880677220a29cafaa181452
+
+- git: https://github.com/input-output-hk/log-warper.git
+  commit: 0b7d4d48310f139d75829d31883aaa87ce53312c
+
+- git: https://github.com/input-output-hk/haskell-hedgehog.git
+  commit: 2e741bb53afb085741807018948ae17d956c53af
+  subdirs:
+    - hedgehog
+
+- git: https://github.com/input-output-hk/stylish-haskell.git
+  commit: ecfd3b307d8d13a6d12aff03055f25a39a17e182
+
+- git: https://github.com/input-output-hk/universum.git
+  commit: 7f1b2483f71cacdfd032fe447064d6e0a1df50fc
+
+- git: https://github.com/input-output-hk/serokell-util.git
+  commit: 4ead9809e119483e7832da5f8224b0c4d4a2d5d6

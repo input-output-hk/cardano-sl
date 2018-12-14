@@ -1,3 +1,0 @@
-[submodule "wallet"]
-	path = wallet
-	url = https://github.com/input-output-hk/cardano-wallet.git

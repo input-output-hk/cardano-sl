@@ -27,6 +27,7 @@
       "library" = {
         depends = ([
           (hsPkgs.base)
+          (hsPkgs.base64-bytestring)
           (hsPkgs.aeson)
           (hsPkgs.aeson-options)
           (hsPkgs.ansi-terminal)
@@ -38,6 +39,7 @@
           (hsPkgs.cardano-sl-binary-test)
           (hsPkgs.cardano-sl-chain)
           (hsPkgs.cardano-sl-core)
+          (hsPkgs.cardano-sl-core-test)
           (hsPkgs.cardano-sl-crypto)
           (hsPkgs.cardano-sl-crypto-test)
           (hsPkgs.cardano-sl-db)

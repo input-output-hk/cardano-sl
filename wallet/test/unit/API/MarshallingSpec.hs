@@ -17,6 +17,7 @@ import           Data.Version (Version)
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import qualified Pos.Crypto as Crypto
+import           Serokell.Data.Memory.Units (Byte)
 import           Servant.API (FromHttpApiData (..), ToHttpApiData (..))
 import           Test.Hspec
 import           Test.Hspec.QuickCheck
@@ -33,6 +34,7 @@ import qualified Pos.Chain.Update as Core
 import qualified Pos.Core as Core
 import qualified Pos.Core.Attributes as Core
 import qualified Pos.Crypto as Core
+import           Pos.Node.API (SecurityParameter, SlotDuration)
 
 import           Test.Pos.Chain.Block.Arbitrary ()
 import           Test.Pos.Core.Arbitrary ()
@@ -56,6 +58,12 @@ spec = describe "Marshalling & Unmarshalling" $ do
         aesonRoundtripProp @BackupPhrase Proxy
         aesonRoundtripProp @Redemption Proxy
         aesonRoundtripProp @(V1 Core.SoftwareVersion) Proxy
+        aesonRoundtripProp @(V1 Core.SlotId) Proxy
+        aesonRoundtripProp @(V1 Core.SlotCount) Proxy
+        aesonRoundtripProp @SecurityParameter Proxy
+        aesonRoundtripProp @SlotDuration Proxy
+        aesonRoundtripProp @(V1 Core.TxFeePolicy) Proxy
+        aesonRoundtripProp @Byte Proxy
         aesonRoundtripProp @NodeSettings Proxy
         aesonRoundtripProp @Payment Proxy
         aesonRoundtripProp @PaymentDistribution Proxy

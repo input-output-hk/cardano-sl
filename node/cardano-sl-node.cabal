@@ -37,6 +37,7 @@ library
                      , http-media
                      , http-types
                      , lens
+                     , serokell-util
                      , servant-client
                      , servant-server
                      , servant-swagger
@@ -56,6 +57,7 @@ library
                        Cardano.Node.API.Swagger
                        Cardano.Node.Client
                        Cardano.Node.Manager
+                       Cardano.Node.NodeStateAdaptor
 
   other-modules:       Paths_cardano_sl_node
 

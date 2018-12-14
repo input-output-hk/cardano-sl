@@ -97,7 +97,7 @@ startNode (NodeName nodeIdT, _) env = do
     let lArgs = getLoggingArgs cArgs
     withCompileInfo $ launchNode nArgs cArgs lArgs $ \genC walC txpC ntpC nodC sscC resC -> do
         actionWithCoreNode
-            (launchNodeServer aArgs ntpC resC updateConfiguration compileInfo)
+            (launchNodeServer aArgs ntpC resC updateConfiguration compileInfo genC)
             genC walC txpC ntpC nodC sscC resC
   where
     parseApiArgs = do

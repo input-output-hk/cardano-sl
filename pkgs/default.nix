@@ -13479,6 +13479,7 @@ license = stdenv.lib.licenses.bsd3;
 , ansi-wl-pprint
 , async
 , base
+, base64-bytestring
 , bytestring
 , canonical-json
 , cardano-crypto
@@ -13594,12 +13595,14 @@ ansi-terminal
 ansi-wl-pprint
 async
 base
+base64-bytestring
 bytestring
 canonical-json
 cardano-sl-binary
 cardano-sl-binary-test
 cardano-sl-chain
 cardano-sl-core
+cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-db
@@ -16147,6 +16150,7 @@ license = stdenv.lib.licenses.mit;
 , lens
 , mtl
 , QuickCheck
+, serokell-util
 , servant-client
 , servant-server
 , servant-swagger
@@ -16199,6 +16203,7 @@ http-client-tls
 http-media
 http-types
 lens
+serokell-util
 servant-client
 servant-server
 servant-swagger

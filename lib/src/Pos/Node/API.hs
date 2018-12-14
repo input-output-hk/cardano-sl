@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP             #-}
 {-# LANGUAGE DataKinds       #-}
+{-# LANGUAGE KindSignatures  #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeOperators   #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -12,13 +13,14 @@ import           Control.Lens (At, Index, IxValue, at, ix, makePrisms, (?~))
 import           Data.Aeson
 import qualified Data.Aeson.Options as Aeson
 import           Data.Aeson.TH as A
-import           Data.Aeson.Types (Value (..), toJSONKeyText)
+import           Data.Aeson.Types (Parser, Value (..), toJSONKeyText)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.Char as C
 import qualified Data.Map.Strict as Map
 import           Data.Swagger hiding (Example, example)
 import qualified Data.Swagger as S
 import           Data.Swagger.Declare (Declare, look)
+import qualified Data.Swagger.Internal
 import           Data.Swagger.Internal.Schema (GToSchema)
 import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape,
                      GenericShape)
@@ -45,10 +47,12 @@ import           Pos.Util.Example
 import           Pos.Util.Servant (APIResponse, CustomQueryFlag, Flaggable (..),
                      HasCustomQueryFlagDescription (..), Tags, ValidJSON)
 import           Pos.Util.UnitsOfMeasure
+import           Pos.Util.Util (aesonError)
 import           Serokell.Util.Text
 
 -- ToJSON/FromJSON instances for NodeId
 import           Pos.Infra.Communication.Types.Protocol ()
+import           Test.Pos.Core.Arbitrary ()
 
 
 
@@ -90,6 +94,55 @@ genericSchemaDroppingPrefix prfx extraDoc proxy = do
           Just (Inline s) -> rewrap s
           Just (Ref ref)  -> maybe err rewrap (defs ^. at (getReference ref))
           _               -> err
+
+
+--
+-- Helpers for writing instances for types with units
+--
+
+-- Using a newtype wrapper might have been more elegant in some ways, but the
+-- helpers need different amounts of information.
+
+-- Convert to user-presentable text for the API
+unitToText :: UnitOfMeasure -> Text
+unitToText Bytes           = "bytes"
+unitToText LovelacePerByte = "Lovelace/byte"
+unitToText Lovelace        = "Lovelace"
+unitToText Seconds         = "seconds"
+unitToText Milliseconds    = "milliseconds"
+unitToText Microseconds    = "microseconds"
+unitToText Percentage100   = "percent"
+unitToText Blocks          = "blocks"
+unitToText BlocksPerSecond = "blocks/second"
+
+toJSONWithUnit :: ToJSON a => UnitOfMeasure -> a -> Value
+toJSONWithUnit u a =
+    object
+        [ "unit"     .= unitToText u
+        , "quantity" .= toJSON a
+        ]
+
+-- This function ignores the unit, which might cause confusion.
+parseJSONQuantity :: FromJSON a => String -> Value -> Parser a
+parseJSONQuantity s = withObject s $ \o -> o .: "quantity"
+
+-- assumes there is only one allowed unit
+toSchemaWithUnit :: (HasRequired b [a1], HasProperties b a2,
+                   Monoid b, Monoid a2, At a2, IsString a1, IsString (Index a2),
+                   ToSchema a3,
+                   HasType b (SwaggerType 'Data.Swagger.Internal.SwaggerKindSchema),
+                   IxValue a2 ~ Referenced Schema) =>
+                  UnitOfMeasure -> proxy a3 -> b
+toSchemaWithUnit unitOfMeasure a = (mempty
+            & type_ .~ SwaggerObject
+            & required .~ ["quantity"]
+            & properties .~ (mempty
+                & at "quantity" ?~ toSchemaRef a
+                & at "unit" ?~ (Inline $ mempty
+                    & type_ .~ SwaggerString
+                    & enum_ ?~ [String $ unitToText unitOfMeasure]
+                    )
+                ))
 
 data ForceNtpCheck
     = ForceNtpCheck
@@ -431,6 +484,49 @@ instance BuildableSafeGen SlotDuration where
     buildSafeGen _ (SlotDuration (MeasuredIn w)) =
         bprint (build%"ms") w
 
+newtype MaxTxSize = MaxTxSize (MeasuredIn 'Bytes Int)
+    deriving (Show, Eq)
+
+instance ToJSON MaxTxSize where
+    toJSON (MaxTxSize (MeasuredIn s)) =
+        object
+            [ "quantity" .= toJSON s
+            , "unit"     .= String "bytes"
+            ]
+
+instance FromJSON MaxTxSize where
+    parseJSON = withObject "MaxTxSize" $ \o ->
+        mkMaxTxSize <$> o .: "quantity"
+
+mkMaxTxSize :: Int -> MaxTxSize
+mkMaxTxSize = MaxTxSize . MeasuredIn
+
+instance Arbitrary MaxTxSize where
+    arbitrary = mkMaxTxSize <$> arbitrary
+
+deriveSafeBuildable ''MaxTxSize
+instance BuildableSafeGen MaxTxSize where
+    buildSafeGen _ (MaxTxSize (MeasuredIn w)) =
+        bprint (build%"bytes") w
+
+instance ToSchema MaxTxSize where
+    declareNamedSchema _ = do
+        pure $ NamedSchema (Just "MaxTxSize") $ mempty
+            & type_ .~ SwaggerObject
+            & required .~ ["quantity"]
+            & properties .~ (mempty
+                & at "quantity" ?~ (Inline $ mempty
+                    & type_ .~ SwaggerNumber
+                    & minimum_ .~ (Just 0)
+                    )
+                & at "unit" ?~ (Inline $ mempty
+                    & type_ .~ SwaggerString
+                    & enum_ ?~ ["bytes"]
+                    )
+                )
+
+
+
 -- | This deceptively-simple newtype is a wrapper to virtually @all@ the types exposed as
 -- part of this API. The reason is twofold:
 --
@@ -547,14 +643,125 @@ instance ToSchema (V1 Version) where
         pure $ NamedSchema (Just "V1Version") $ mempty
             & type_ .~ SwaggerString
 
+
+newtype SecurityParameter = SecurityParameter Int
+    deriving (Show, Eq, Generic, ToJSON, FromJSON, Arbitrary)
+
+instance Buildable SecurityParameter where
+    build (SecurityParameter i) = bprint shown i
+
+instance ToSchema SecurityParameter where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "SecurityParameter") $ mempty
+            & type_ .~ SwaggerNumber
+            & minimum_ .~ (Just 0)
+
+
+instance ToSchema (V1 Core.SlotId) where
+    declareNamedSchema _ = do
+        word64Schema <- declareSchemaRef (Proxy @Word64)
+        word16Schema <- declareSchemaRef (Proxy @Word16)
+        return $ NamedSchema (Just "SlotId") $ mempty
+            & type_ .~ SwaggerObject
+            & properties .~ (mempty
+                & at "slot" ?~ word16Schema
+                & at "epoch" ?~ word64Schema)
+
+instance ToJSON (V1 Core.SlotId) where
+    toJSON (V1 s) =
+        object
+            [ "epoch" .= toJSON (Core.getEpochIndex $ Core.siEpoch s)
+            , "slot"  .= toJSON (Core.getSlotIndex  $ Core.siSlot s)
+            ]
+
+instance FromJSON (V1 Core.SlotId) where
+    parseJSON = withObject "SlotId" $ \sl ->
+        Core.SlotId
+            <$> (fromInteger <$> sl .: "epoch")
+            <*> (Core.UnsafeLocalSlotIndex <$> sl .: "slot")
+            <&> V1
+
+instance Arbitrary (V1 Core.SlotId) where
+    arbitrary = fmap V1 arbitrary
+
+
+
+instance Arbitrary (V1 Core.TxFeePolicy) where
+    arbitrary = fmap V1 (arbitrary `suchThat` predicate)
+      where
+        -- Don't generate unknown feepolicies
+        predicate (Core.TxFeePolicyTxSizeLinear  _) = True
+        predicate (Core.TxFeePolicyUnknown _ _)     = False
+
+instance ToJSON (V1 Core.TxFeePolicy) where
+    toJSON (V1 p) =
+        object $ case p of
+            Core.TxFeePolicyTxSizeLinear (Core.TxSizeLinear a b) ->
+                [ "tag" .= ("linear" :: String)
+                , "a" .= toJSONWithUnit LovelacePerByte a
+                , "b" .= toJSONWithUnit Lovelace b
+                ]
+            Core.TxFeePolicyUnknown _ _ ->
+                [ "tag" .= ("unknown" :: String)
+                ]
+
+instance FromJSON (V1 Core.TxFeePolicy) where
+    parseJSON j = V1 <$> (withObject "TxFeePolicy" $ \o -> do
+        (tag :: String) <- o .: "tag"
+        case tag of
+            "linear" -> do
+                a <- (o .: "a") >>= parseJSONQuantity "Coeff"
+                b <- (o .: "b") >>= parseJSONQuantity "Coeff"
+                return $ Core.TxFeePolicyTxSizeLinear $ Core.TxSizeLinear a b
+            _ ->
+                aesonError "TxFeePolicy: unknown policy name") j
+
+instance ToSchema (V1 Core.TxFeePolicy) where
+    declareNamedSchema _ = do
+        pure $ NamedSchema (Just "Core.TxFeePolicy") $ mempty
+            & type_ .~ SwaggerObject
+            & required .~ ["tag"]
+            & properties .~ (mempty
+                & at "tag" ?~ (Inline $ mempty
+                    & type_ .~ SwaggerString
+                    & enum_ ?~ ["linear", "unknown"]
+                    )
+                & at "a" ?~ (Inline $ toSchemaWithUnit LovelacePerByte (Proxy @Double))
+                & at "b" ?~ (Inline $ toSchemaWithUnit Lovelace (Proxy @Double))
+                )
+
+instance Arbitrary (V1 Core.SlotCount) where
+    arbitrary = fmap V1 arbitrary
+
+instance ToSchema (V1 Core.SlotCount) where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "V1Core.SlotCount") $ mempty
+            & type_ .~ SwaggerNumber
+            & minimum_ .~ Just 0
+
+
+
+instance ToJSON (V1 Core.SlotCount) where
+    toJSON (V1 (Core.SlotCount c)) = toJSON c
+
+instance FromJSON (V1 Core.SlotCount) where
+    parseJSON v = V1 . Core.SlotCount <$> parseJSON v
+
+
+
 -- | The @static@ settings for this wallet node. In particular, we could group
 -- here protocol-related settings like the slot duration, the transaction max size,
 -- the current software version running on the node, etc.
 data NodeSettings = NodeSettings
-    { setSlotDuration   :: !SlotDuration
-    , setSoftwareInfo   :: !(V1 Core.SoftwareVersion)
-    , setProjectVersion :: !(V1 Version)
-    , setGitRevision    :: !Text
+    { setSlotId            :: !(V1 Core.SlotId)
+    , setSlotDuration      :: !SlotDuration
+    , setSlotCount         :: !(V1 Core.SlotCount)
+    , setSoftwareInfo      :: !(V1 Core.SoftwareVersion)
+    , setProjectVersion    :: !(V1 Version)
+    , setGitRevision       :: !Text
+    , setMaxTxSize         :: !MaxTxSize
+    , setFeePolicy         :: !(V1 Core.TxFeePolicy)
+    , setSecurityParameter :: !SecurityParameter
     } deriving (Show, Eq, Generic)
 
 deriveJSON Aeson.defaultOptions ''NodeSettings
@@ -562,32 +769,53 @@ deriveJSON Aeson.defaultOptions ''NodeSettings
 instance ToSchema NodeSettings where
   declareNamedSchema =
     genericSchemaDroppingPrefix "set" (\(--^) props -> props
-      & ("slotDuration"   --^ "Duration of a slot.")
-      & ("softwareInfo"   --^ "Various pieces of information about the current software.")
-      & ("projectVersion" --^ "Current project's version.")
-      & ("gitRevision"    --^ "Git revision of this deployment.")
+      & ("slotId"             --^ "The current slot and epoch.")
+      & ("slotDuration"       --^ "Duration of a slot.")
+      & ("slotCount"          --^ "The number of slots per epoch.")
+      & ("softwareInfo"       --^ "Various pieces of information about the current software.")
+      & ("projectVersion"     --^ "Current project's version.")
+      & ("gitRevision"        --^ "Git revision of this deployment.")
+      & ("maxTxSize"          --^ "The largest allowed transaction size")
+      & ("feePolicy"          --^ "The fee policy.")
+      & ("securityParameter"  --^ "The security parameter.")
     )
 
 instance Arbitrary NodeSettings where
     arbitrary = NodeSettings <$> arbitrary
                              <*> arbitrary
                              <*> arbitrary
+                             <*> arbitrary
+                             <*> arbitrary
                              <*> pure "0e1c9322a"
+                             <*> arbitrary
+                             <*> arbitrary
+                             <*> arbitrary
 
 instance Example NodeSettings
 
 deriveSafeBuildable ''NodeSettings
 instance BuildableSafeGen NodeSettings where
     buildSafeGen _ NodeSettings{..} = bprint ("{"
+        %" slotId="%build
         %" slotDuration="%build
+        %" slotCount="%build
         %" softwareInfo="%build
         %" projectRevision="%build
         %" gitRevision="%build
+        %" maxTxSize="%build
+        %" feePolicy="%build
+        %" securityParameter="%build
         %" }")
+        setSlotId
         setSlotDuration
+        setSlotCount
         setSoftwareInfo
         setProjectVersion
         setGitRevision
+        setMaxTxSize
+        setFeePolicy
+        setSecurityParameter
+
 
 
 type SettingsAPI =
@@ -620,3 +848,6 @@ type API =
         Summary "Restart the underlying node software."
         :> "restart-node"
         :> Post '[ValidJSON] NoContent
+
+
+

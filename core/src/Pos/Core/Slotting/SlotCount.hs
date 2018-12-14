@@ -4,7 +4,7 @@ module Pos.Core.Slotting.SlotCount
 
 import           Universum
 
-import           Data.Aeson (ToJSON (..))
+import           Data.Aeson (FromJSON (..), ToJSON (..))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           System.Random (Random (..))
 
@@ -19,5 +19,6 @@ instance Bi SlotCount where
     decode = SlotCount <$> decode
 
 deriving instance ToJSON SlotCount
+deriving instance FromJSON SlotCount
 
 deriveSafeCopySimple 0 'base ''SlotCount

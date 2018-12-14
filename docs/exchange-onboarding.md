@@ -351,8 +351,6 @@ The following command can be used to see the percentage completion of the sync o
 
 Run the latest wallet and go to <https://127.0.0.1:8091/docs/v1/index>.
 
-For the v0 API documentation (deprecated), go to <https://127.0.0.1:8090/docs/v0/index>.
-
 The domain and port can be customized with the `walletListen` attribute in `./custom-wallet-configuration.nix`.
 
 Examples of tasks that can be done via the API that an exchange would need to do:

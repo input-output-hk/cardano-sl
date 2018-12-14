@@ -40,8 +40,7 @@ Table of Contents
 The wallet is built using [nix package manager](https://nixos.org/nix/). To install it on
 most Linux distros download and run the installation script.
 
-    curl https://nixos.org/nix/install > install-nix.sh
-    . install-nix.sh
+    sh <(curl https://nixos.org/nix/install) --daemon
 
 Follow the directions and then log out and back in.
 
@@ -57,6 +56,8 @@ go faster.
     trusted-substituters =
     trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
     EOF
+
+For more information, see [Using Nix with Cardano SL](./nix.md).
 
 ## Miscellaneous Utilities
 
@@ -177,7 +178,7 @@ similar. Run that symlink as a script to start the wallet.
 
 Follow the above instructions for customization and dependencies. To build a docker
 container and import the image run
-(use `connectScripts.staging.wallet` for testnet):
+(use `connectScripts.testnet.wallet` for testnet):
 
     docker load < $(nix-build --no-out-link -A dockerImages.mainnet.wallet)
 

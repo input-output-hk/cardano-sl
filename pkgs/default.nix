@@ -13599,6 +13599,7 @@ canonical-json
 cardano-sl-binary
 cardano-sl-binary-test
 cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-crypto-test
@@ -14282,6 +14283,7 @@ cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-util-test
+containers
 criterion
 data-default
 deepseq

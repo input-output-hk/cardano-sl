@@ -19,15 +19,19 @@ import           Network.Wai.Handler.Warp (defaultSettings,
 import qualified Paths_cardano_sl_node as Paths
 import           Servant
 
+import           Cardano.Node.NodeStateAdaptor (NodeStateAdaptor, getFeePolicy,
+                     getMaxTxSize, getSecurityParameter, getSlotCount,
+                     getTipSlotId, newNodeStateAdaptor)
 import           Cardano.NodeIPC (startNodeJsIPC)
 import           Ntp.Client (NtpConfiguration, NtpStatus (..),
                      ntpClientSettings, withNtpClient)
 import           Ntp.Packet (NtpOffset)
 import           Pos.Chain.Block (LastKnownHeader, LastKnownHeaderTag)
+import qualified Pos.Chain.Genesis as Genesis
 import           Pos.Chain.Ssc (SscContext)
 import           Pos.Chain.Update (ConfirmedProposalState (..), SoftwareVersion,
                      UpdateConfiguration, UpdateProposal (..),
-                     curSoftwareVersion)
+                     curSoftwareVersion, withUpdateConfiguration)
 import           Pos.Client.CLI.NodeOptions (NodeApiArgs (..))
 import           Pos.Context (HasPrimaryKey (..), HasSscContext (..),
                      NodeContext (..))
@@ -49,7 +53,8 @@ import qualified Pos.Infra.Slotting.Util as Slotting
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Node.API as Node
 import           Pos.Util (HasLens (..), HasLens')
-import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
+import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision,
+                     withCompileInfo)
 import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.Servant (APIResponse (..), JsendException (..),
                      UnknownError (..), applicationJson, single)
@@ -130,6 +135,7 @@ launchNodeServer
     -> NodeResources ()
     -> UpdateConfiguration
     -> CompileTimeInfo
+    -> Genesis.Config
     -> Diffusion IO
     -> IO ()
 launchNodeServer
@@ -138,6 +144,7 @@ launchNodeServer
     nodeResources
     updateConfiguration
     compileTimeInfo
+    genesisConfig
     diffusion
   = do
     ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
@@ -153,6 +160,13 @@ launchNodeServer
             , legacyCtxNodeDBs =
                 nrDBs nodeResources
             }
+
+    let nodeStateAdaptor = withUpdateConfiguration updateConfiguration
+                         $ withCompileInfo
+                         $ newNodeStateAdaptor
+                             genesisConfig
+                             nodeResources
+
     let app = serve nodeV1Api
             $ handlers
                 diffusion
@@ -166,6 +180,7 @@ launchNodeServer
                 compileTimeInfo
                 shutdownCtx
                 (ncUpdateContext nodeCtx)
+                nodeStateAdaptor
             :<|> legacyApi
 
     concurrently_
@@ -217,9 +232,10 @@ handlers
     -> CompileTimeInfo
     -> ShutdownContext
     -> UpdateContext
+    -> NodeStateAdaptor IO
     -> ServerT Node.API Handler
-handlers d t s n l ts sv uc ci sc uCtx =
-    getNodeSettings ci uc ts sv
+handlers d t s n l ts sv uc ci sc uCtx ns =
+    getNodeSettings ci uc ts sv ns
     :<|> getNodeInfo d t s n l
     :<|> getNextUpdate uCtx
     :<|> restartNode sc
@@ -233,12 +249,19 @@ getNodeSettings
     -> UpdateConfiguration
     -> Core.Timestamp
     -> Core.SlottingVar
+    -> NodeStateAdaptor IO
     -> Handler (APIResponse NodeSettings)
-getNodeSettings compileInfo updateConfiguration timestamp slottingVar = do
+getNodeSettings compileInfo updateConfiguration timestamp slottingVar ns = do
     let ctx = SettingsCtx timestamp slottingVar
     slotDuration <-
         mkSlotDuration . fromIntegral <$>
             runReaderT Slotting.getNextEpochSlotDuration ctx
+
+    slotId            <- liftIO $ getTipSlotId ns
+    maxTxSize         <- liftIO $ getMaxTxSize ns
+    feePolicy         <- liftIO $ getFeePolicy ns
+    securityParameter <- liftIO $ getSecurityParameter ns
+    slotCount         <- liftIO $ getSlotCount ns
 
     pure $ single NodeSettings
         { setSlotDuration =
@@ -249,6 +272,16 @@ getNodeSettings compileInfo updateConfiguration timestamp slottingVar = do
             V1 Paths.version
         , setGitRevision =
             Text.replace "\n" mempty (ctiGitRevision compileInfo)
+        , setSlotId =
+            V1 slotId
+        , setMaxTxSize =
+            maxTxSize
+        , setFeePolicy =
+            V1 feePolicy
+        , setSecurityParameter =
+            securityParameter
+        , setSlotCount =
+            V1 slotCount
         }
 
 data SettingsCtx = SettingsCtx

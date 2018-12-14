@@ -20,10 +20,15 @@ import           Paths_cardano_wallet (version)
 getNodeSettings :: MonadIO m => Kernel.PassiveWallet -> m V1.NodeSettings
 getNodeSettings w = liftIO $
     V1.NodeSettings
-        <$> (mkSlotDuration <$> Node.getNextEpochSlotDuration node)
+        <$> (V1 <$> Node.getTipSlotId node)
+        <*> (mkSlotDuration <$> Node.getNextEpochSlotDuration node)
+        <*> (V1 <$> Node.getSlotCount node)
         <*> (V1 <$> Node.curSoftwareVersion node)
         <*> pure (V1 version)
         <*> (mkGitRevision <$> Node.compileInfo node)
+        <*> Node.getMaxTxSize node
+        <*> (V1 <$> Node.getFeePolicy node)
+        <*> Node.getSecurityParameter node
   where
     mkSlotDuration :: Millisecond -> V1.SlotDuration
     mkSlotDuration = V1.mkSlotDuration . fromIntegral

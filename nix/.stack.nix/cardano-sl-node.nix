@@ -47,6 +47,7 @@
           (hsPkgs.http-media)
           (hsPkgs.http-types)
           (hsPkgs.lens)
+          (hsPkgs.serokell-util)
           (hsPkgs.servant-client)
           (hsPkgs.servant-server)
           (hsPkgs.servant-swagger)

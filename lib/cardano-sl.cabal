@@ -153,6 +153,7 @@ library
                       , cardano-sl-binary-test
                       , cardano-sl-chain
                       , cardano-sl-core
+                      , cardano-sl-core-test
                       , cardano-sl-crypto
                       , cardano-sl-crypto-test
                       , cardano-sl-db

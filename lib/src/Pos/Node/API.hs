@@ -1,7 +1,8 @@
-{-# LANGUAGE CPP             #-}
-{-# LANGUAGE DataKinds       #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TypeOperators   #-}
+{-# LANGUAGE CPP                        #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE TypeOperators              #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Pos.Node.API where
@@ -31,6 +32,7 @@ import           GHC.Generics (Generic, Rep)
 import qualified Network.Transport as NT
 import           Node (NodeId (..))
 import qualified Prelude
+import           Serokell.Data.Memory.Units (Byte)
 import           Servant
 import           Test.QuickCheck
 import           Text.ParserCombinators.ReadP (readP_to_S)
@@ -49,6 +51,7 @@ import           Serokell.Util.Text
 
 -- ToJSON/FromJSON instances for NodeId
 import           Pos.Infra.Communication.Types.Protocol ()
+import           Test.Pos.Core.Arbitrary ()
 
 
 
@@ -397,8 +400,6 @@ newtype SlotDuration = SlotDuration (MeasuredIn 'Milliseconds Word)
 mkSlotDuration :: Word -> SlotDuration
 mkSlotDuration = SlotDuration . MeasuredIn
 
-instance Arbitrary SlotDuration where
-    arbitrary = mkSlotDuration <$> choose (0, 100)
 
 instance ToJSON SlotDuration where
     toJSON (SlotDuration (MeasuredIn w)) =
@@ -452,6 +453,10 @@ newtype V1 a = V1 a deriving (Eq, Ord)
 unV1 :: V1 a -> a
 unV1 (V1 a) = a
 
+
+instance Arbitrary SlotDuration where
+    arbitrary = mkSlotDuration <$> choose (0, 100)
+
 makePrisms ''V1
 
 instance Buildable (SecureLog a) => Buildable (SecureLog (V1 a)) where
@@ -475,7 +480,6 @@ instance Bounded a => Bounded (V1 a) where
 
 instance Show a => Show (V1 a) where
     show (V1 a) = Prelude.show a
-
 
 instance ToJSON (V1 Core.ApplicationName) where
     toJSON (V1 svAppName) = toJSON (Core.getApplicationName svAppName)
@@ -547,14 +551,76 @@ instance ToSchema (V1 Version) where
         pure $ NamedSchema (Just "V1Version") $ mempty
             & type_ .~ SwaggerString
 
+
+newtype SecurityParameter = SecurityParameter Int
+    deriving (Show, Eq, Generic, ToJSON, FromJSON, Arbitrary)
+
+instance Buildable SecurityParameter where
+    build (SecurityParameter i) = bprint shown i
+
+instance ToSchema SecurityParameter where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "SecurityParameter") $ mempty
+            & type_ .~ SwaggerString
+
+
+instance ToSchema (V1 Core.SlotId) where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "Core.SlotId") $ mempty
+            & type_ .~ SwaggerString
+
+deriving instance ToJSON (V1 Core.SlotId)
+deriving instance FromJSON (V1 Core.SlotId)
+
+instance Arbitrary (V1 Core.SlotId) where
+    arbitrary = fmap V1 arbitrary
+
+
+instance ToSchema Byte where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "Byte") $ mempty
+            & type_ .~ SwaggerString
+
+instance Buildable Byte where
+    build b = bprint shown b
+
+
+instance Arbitrary (V1 Core.TxFeePolicy) where
+    arbitrary = fmap V1 arbitrary
+
+instance ToSchema (V1 Core.TxFeePolicy) where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "Core.TxFeePolicy") $ mempty
+            & type_ .~ SwaggerString
+
+deriving instance ToJSON (V1 Core.TxFeePolicy)
+deriving instance FromJSON (V1 Core.TxFeePolicy)
+
+
+instance Arbitrary (V1 Core.SlotCount) where
+    arbitrary = fmap V1 arbitrary
+
+instance ToSchema (V1 Core.SlotCount) where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "Core.SlotCount") $ mempty
+            & type_ .~ SwaggerString
+
+deriving instance ToJSON (V1 Core.SlotCount) -- TODO ?
+deriving instance FromJSON (V1 Core.SlotCount) --TODO ?
+
 -- | The @static@ settings for this wallet node. In particular, we could group
 -- here protocol-related settings like the slot duration, the transaction max size,
 -- the current software version running on the node, etc.
 data NodeSettings = NodeSettings
-    { setSlotDuration   :: !SlotDuration
-    , setSoftwareInfo   :: !(V1 Core.SoftwareVersion)
-    , setProjectVersion :: !(V1 Version)
-    , setGitRevision    :: !Text
+    { setSlotId            :: !(V1 Core.SlotId)
+    , setSlotDuration      :: !SlotDuration
+    , setSlotCount         :: !(V1 Core.SlotCount)
+    , setSoftwareInfo      :: !(V1 Core.SoftwareVersion)
+    , setProjectVersion    :: !(V1 Version)
+    , setGitRevision       :: !Text
+    , setMaxTxSize         :: !Byte
+    , setFeePolicy         :: !(V1 Core.TxFeePolicy)
+    , setSecurityParameter :: !SecurityParameter
     } deriving (Show, Eq, Generic)
 
 deriveJSON Aeson.defaultOptions ''NodeSettings
@@ -562,32 +628,53 @@ deriveJSON Aeson.defaultOptions ''NodeSettings
 instance ToSchema NodeSettings where
   declareNamedSchema =
     genericSchemaDroppingPrefix "set" (\(--^) props -> props
-      & ("slotDuration"   --^ "Duration of a slot.")
-      & ("softwareInfo"   --^ "Various pieces of information about the current software.")
-      & ("projectVersion" --^ "Current project's version.")
-      & ("gitRevision"    --^ "Git revision of this deployment.")
+      & ("slotId"             --^ "The current slot and epoch.")
+      & ("slotDuration"       --^ "Duration of a slot.")
+      & ("slotCount"          --^ "The number of slots per epoch.")
+      & ("softwareInfo"       --^ "Various pieces of information about the current software.")
+      & ("projectVersion"     --^ "Current project's version.")
+      & ("gitRevision"        --^ "Git revision of this deployment.")
+      & ("maxTxSize"          --^ "The largest allowed transaction size")
+      & ("feePolicy"          --^ "The fee policy.")
+      & ("securityParameter"  --^ "The security parameter.")
     )
 
 instance Arbitrary NodeSettings where
     arbitrary = NodeSettings <$> arbitrary
                              <*> arbitrary
                              <*> arbitrary
+                             <*> arbitrary
+                             <*> arbitrary
                              <*> pure "0e1c9322a"
+                             <*> arbitrary
+                             <*> arbitrary
+                             <*> arbitrary
 
 instance Example NodeSettings
 
 deriveSafeBuildable ''NodeSettings
 instance BuildableSafeGen NodeSettings where
     buildSafeGen _ NodeSettings{..} = bprint ("{"
+        %" slotId="%build
         %" slotDuration="%build
+        %" slotCount="%build
         %" softwareInfo="%build
         %" projectRevision="%build
         %" gitRevision="%build
+        %" maxTxSize="%build
+        %" feePolicy="%build
+        %" securityParameter="%build
         %" }")
+        setSlotId
         setSlotDuration
+        setSlotCount
         setSoftwareInfo
         setProjectVersion
         setGitRevision
+        setMaxTxSize
+        setFeePolicy
+        setSecurityParameter
+
 
 
 type SettingsAPI =

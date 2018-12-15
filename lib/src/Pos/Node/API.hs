@@ -613,11 +613,10 @@ type API =
     :<|>
         InfoAPI
     :<|>
-        "update"
-            :> ( "apply"
-                :> Summary "Apply the next available update"
-                :> Post '[ValidJSON] NoContent
-            :<|> "postpone"
-                :> Summary "Discard and postpone the next available update"
-                :> Post '[ValidJSON] NoContent
-            )
+        Summary "Version of the next update (404 if none)"
+        :> "next-update"
+        :> Get '[ValidJSON] (APIResponse (V1 Core.SoftwareVersion))
+    :<|>
+        Summary "Restart the underlying node software."
+        :> "restart-node"
+        :> Post '[ValidJSON] NoContent

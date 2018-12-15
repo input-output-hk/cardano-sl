@@ -25,7 +25,9 @@ import           Ntp.Client (NtpConfiguration, NtpStatus (..),
 import           Ntp.Packet (NtpOffset)
 import           Pos.Chain.Block (LastKnownHeader, LastKnownHeaderTag)
 import           Pos.Chain.Ssc (SscContext)
-import           Pos.Chain.Update (UpdateConfiguration, curSoftwareVersion)
+import           Pos.Chain.Update (ConfirmedProposalState (..), SoftwareVersion,
+                     UpdateConfiguration, UpdateProposal (..),
+                     curSoftwareVersion)
 import           Pos.Client.CLI.NodeOptions (NodeApiArgs (..))
 import           Pos.Context (HasPrimaryKey (..), HasSscContext (..),
                      NodeContext (..))
@@ -38,6 +40,7 @@ import           Pos.DB.GState.Lock (Priority (..), StateLock,
                      withStateLockNoMetrics)
 import qualified Pos.DB.Rocks as DB
 import           Pos.DB.Txp.MemState (GenericTxpLocalData, TxpHolderTag)
+import           Pos.DB.Update (UpdateContext (..))
 import           Pos.Infra.Diffusion.Subscription.Status (ssMap)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Infra.InjectFail (FInject (..), testLogFInject)
@@ -63,6 +66,10 @@ type NodeV1Api
 
 nodeV1Api :: Proxy NodeV1Api
 nodeV1Api = Proxy
+
+--------------------------------------------------------------------------------
+-- Legacy Handlers
+--------------------------------------------------------------------------------
 
 data LegacyCtx = LegacyCtx
     { legacyCtxTxpLocalData
@@ -101,6 +108,9 @@ instance {-# OVERLAPPING #-} DB.MonadDBRead (ReaderT LegacyCtx IO) where
     dbGetSerUndo = DB.dbGetSerUndoRealDefault
     dbGetSerBlund = DB.dbGetSerBlundRealDefault
 
+-- | Prepare a 'Server' for the 'Legacy.NodeApi'. We expose a 'Server' so that
+-- it can be embedded in other APIs, instead of an 'Application', which can only
+-- be run on a given port.
 legacyNodeApi :: LegacyCtx -> Server Legacy.NodeApi
 legacyNodeApi r =
     hoistServer
@@ -108,6 +118,12 @@ legacyNodeApi r =
         (Handler . ExceptT . try . flip runReaderT r)
         Legacy.nodeServantHandlers
 
+--------------------------------------------------------------------------------
+-- Entry point
+--------------------------------------------------------------------------------
+
+-- | This function launches a node API server, which serves the new V1 API, the
+-- legacy node API, and the documentation server for both.
 launchNodeServer
     :: NodeApiArgs
     -> NtpConfiguration
@@ -149,6 +165,7 @@ launchNodeServer
                 updateConfiguration
                 compileTimeInfo
                 shutdownCtx
+                (ncUpdateContext nodeCtx)
             :<|> legacyApi
 
     concurrently_
@@ -187,6 +204,7 @@ launchNodeServer
     (ipAddress, portNumber) = nodeBackendAddress params
     (docAddress, docPort) = nodeBackendDocAddress params
 
+-- | Assembles the handlers for the new node API.
 handlers
     :: Diffusion IO
     -> TVar NtpStatus
@@ -198,12 +216,17 @@ handlers
     -> UpdateConfiguration
     -> CompileTimeInfo
     -> ShutdownContext
+    -> UpdateContext
     -> ServerT Node.API Handler
-handlers d t s n l ts sv uc ci sc =
+handlers d t s n l ts sv uc ci sc uCtx =
     getNodeSettings ci uc ts sv
     :<|> getNodeInfo d t s n l
-    :<|> applyUpdate sc
-    :<|> postponeUpdate
+    :<|> getNextUpdate uCtx
+    :<|> restartNode sc
+
+--------------------------------------------------------------------------------
+-- Node Settings
+--------------------------------------------------------------------------------
 
 getNodeSettings
     :: CompileTimeInfo
@@ -239,20 +262,31 @@ instance Core.HasSlottingVar SettingsCtx where
     slottingVar =
         lens settingsCtxSlottingVar (\s t -> s { settingsCtxSlottingVar = t })
 
-applyUpdate :: ShutdownContext -> Handler NoContent
-applyUpdate shutdownCtx = liftIO $ do
+--------------------------------------------------------------------------------
+-- Updates
+--------------------------------------------------------------------------------
+
+-- | Handler
+restartNode :: ShutdownContext -> Handler NoContent
+restartNode shutdownCtx = liftIO $ do
     doFail <- testLogFInject (_shdnFInjects shutdownCtx) FInjApplyUpdateNoExit
     unless doFail (runReaderT triggerShutdown shutdownCtx)
     pure NoContent
 
--- | In the old implementation, we would delete the new update from the
--- acid-stae database. We no longer persist this information, so postponing an
--- update is simply a noop.
---
--- TODO: verify this is a real thought and not, in fact, bad
-postponeUpdate :: Handler NoContent
-postponeUpdate = do
-    pure NoContent
+-- | This endpoint does a 404 unless there is an update available. If an update
+-- is available, it returns the 'SoftwareVersion' for that update.
+getNextUpdate :: UpdateContext -> Handler (APIResponse (V1 SoftwareVersion))
+getNextUpdate uc = do
+    mproposalState <- tryReadMVar (ucDownloadedUpdate uc)
+    single <$> case mproposalState of
+        Just proposalState ->
+            pure (V1 (upSoftwareVersion (cpsUpdateProposal proposalState)))
+        Nothing ->
+            throwError err404
+
+--------------------------------------------------------------------------------
+-- Node Info
+--------------------------------------------------------------------------------
 
 getNodeInfo
     :: Diffusion IO
@@ -318,7 +352,6 @@ instance DB.MonadDBRead (ReaderT InfoCtx IO) where
     dbGetSerBlock = DB.dbGetSerBlockRealDefault
     dbGetSerUndo  = DB.dbGetSerUndoRealDefault
     dbGetSerBlund = DB.dbGetSerBlundRealDefault
-
 
 getNodeSyncProgress
     ::

@@ -25,6 +25,7 @@ import           Control.Lens (at)
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import           Options.Applicative (handleParseResult, info)
+import           Servant.Client (ServantError (..))
 import           System.Environment (getEnvironment)
 
 import           Cardano.Cluster.Environment (Artifact (..), Env,
@@ -177,7 +178,7 @@ waitForNode client (MaxWaitingTime s) reportProgress = do
             when (progress < mkSyncPercentage 100) $
                 reportProgress (Just progress) >> retry
 
-        Left ConnectionError{} ->
+        Left (ErrFromServant ConnectionError{}) ->
             reportProgress Nothing >> retry
 
         Left err ->

@@ -23,13 +23,11 @@ module Pos.Client.Txp.Util
        , makePubKeyTx
        , makeMPubKeyTx
        , makeMPubKeyTxAddrs
-       , makeMOfNTx
        , makeRedemptionTx
        , createGenericTx
        , createTx
        , createMTx
        , createUnsignedTx
-       , createMOfNTx
        , createRedemptionTx
 
        -- * Fees logic
@@ -56,6 +54,7 @@ import qualified Data.HashSet as HS
 import           Data.List (partition, tail)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
+import           Data.Semigroup (Semigroup)
 import qualified Data.Semigroup as S
 import qualified Data.Set as Set
 import           Data.Traversable (for)
@@ -66,18 +65,15 @@ import           Serokell.Util (listJson)
 
 import           Pos.Binary (biSize)
 import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots)
-import           Pos.Chain.Script (Script)
-import           Pos.Chain.Script.Examples (multisigRedeemer, multisigValidator)
 import           Pos.Chain.Txp (Tx (..), TxAux (..), TxFee (..), TxIn (..),
                      TxInWitness (..), TxOut (..), TxOutAux (..),
                      TxSigData (..), Utxo)
 import           Pos.Chain.Update (bvdTxFeePolicy)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
-import           Pos.Core (Address, Coin, SlotCount, StakeholderId,
-                     TxFeePolicy (..), TxSizeLinear (..),
-                     calculateTxSizeLinear, coinToInteger, integerToCoin,
-                     isRedeemAddress, mkCoin, sumCoins, txSizeLinearMinValue,
-                     unsafeIntegerToCoin, unsafeSubCoin)
+import           Pos.Core (Address, Coin, SlotCount, TxFeePolicy (..),
+                     TxSizeLinear (..), calculateTxSizeLinear, coinToInteger,
+                     integerToCoin, isRedeemAddress, mkCoin, sumCoins,
+                     txSizeLinearMinValue, unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
 import           Pos.Crypto (ProtocolMagic, RedeemSecretKey, SafeSigner,
@@ -88,7 +84,6 @@ import           Pos.DB (MonadGState, gsAdoptedBVData)
 import           Pos.Infra.Util.LogSafe (SecureLog, buildUnsecure)
 import           Test.QuickCheck (Arbitrary (..), elements)
 
-import           Data.Semigroup (Semigroup)
 
 type TxInputs = NonEmpty TxIn
 type TxOwnedInputs owner = NonEmpty (owner, TxIn)
@@ -306,19 +301,6 @@ makePubKeyTx
     -> TxAux
 makePubKeyTx pm ss txInputs txOutputs = either absurd identity $
     makeMPubKeyTx pm (\_ -> Right ss) (map ((), ) txInputs) txOutputs
-
-makeMOfNTx
-    :: ProtocolMagic
-    -> Script
-    -> [Maybe SafeSigner]
-    -> TxInputs
-    -> TxOutputs
-    -> TxAux
-makeMOfNTx pm validator sks txInputs txOutputs = either absurd identity $
-    makeAbstractTx mkWit (map ((), ) txInputs) txOutputs
-  where
-    mkWit _ sigData =
-        Right $ ScriptWitness validator (multisigRedeemer pm sigData sks)
 
 makeRedemptionTx
     :: ProtocolMagic
@@ -675,28 +657,6 @@ createUnsignedTx genesisConfig pendingTx selectionPolicy utxo outputs changeAddr
                                                      changeAddress
         let tx = makeUnsignedAbstractTx inps outs
         pure (tx, map fst inps)
-
--- | Make a transaction, using M-of-N script as a source
-createMOfNTx
-    :: TxCreateMode m
-    => Genesis.Config
-    -> PendingAddresses
-    -> Utxo
-    -> [(StakeholderId, Maybe SafeSigner)]
-    -> TxOutputs
-    -> AddrData m
-    -> m (Either TxError TxWithSpendings)
-createMOfNTx genesisConfig pendingTx utxo keys outputs addrData =
-    createGenericTxSingle genesisConfig
-                          pendingTx
-                          (\i o -> Right $ makeMOfNTx pm validator sks i o)
-    OptimizeForSecurity utxo outputs addrData
-  where
-    pm = configProtocolMagic genesisConfig
-    ids = map fst keys
-    sks = map snd keys
-    m = length $ filter isJust sks
-    validator = multisigValidator pm m ids
 
 -- | Make a transaction for retrieving money from redemption address
 createRedemptionTx

@@ -45,14 +45,6 @@ packages:
 
 # IOHK projects:
 
-# TODO(parsonsmatt): There have been some breaking changes with Plutus for
-# cardano-sl and it would be nice to have some help from that team to get this
-# updated and back on IOHK.
-- location:
-    git: https://github.com/avieth/plutus-prototype
-    commit: d094be301195fcd8ab864d793f114970426a4478
-  extra-dep: true
-
 - location:
     git: https://github.com/input-output-hk/cardano-report-server.git
     commit: 93f2246c54436e7f98cc363b4e0f8f1cb5e78717

@@ -4,7 +4,6 @@ module Pos.Core
        ( module Pos.Core.Exception
        , module Pos.Core.Merkle
        , module Pos.Core.Metrics.Constants
-       , module Pos.Core.Script
        , module Pos.Core.ProtocolConstants
        , module Pos.Core.Constants
        , module Pos.Core.Slotting
@@ -19,5 +18,4 @@ import           Pos.Core.Exception
 import           Pos.Core.Merkle
 import           Pos.Core.Metrics.Constants
 import           Pos.Core.ProtocolConstants
-import           Pos.Core.Script ()
 import           Pos.Core.Slotting

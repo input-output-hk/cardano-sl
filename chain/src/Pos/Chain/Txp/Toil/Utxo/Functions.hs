@@ -12,7 +12,6 @@ module Pos.Chain.Txp.Toil.Utxo.Functions
 
 import           Universum
 
-import           Control.Lens (_Left)
 import           Control.Monad.Except (throwError)
 import qualified Data.List.NonEmpty as NE
 import           Data.Set (Set)
@@ -20,8 +19,7 @@ import qualified Data.Set as Set
 import           Formatting (int, sformat, (%))
 import           Serokell.Util (allDistinct, enumerate)
 
-import           Pos.Chain.Script (Script (..), isKnownScriptVersion,
-                     txScriptCheck)
+import           Pos.Chain.Script (Script (..))
 import           Pos.Chain.Txp.Toil.Failure (ToilVerFailure (..),
                      TxOutVerFailure (..), WitnessVerFailure (..))
 import           Pos.Chain.Txp.Toil.Monad (UtxoM, utxoDel, utxoGet, utxoPut)
@@ -37,7 +35,7 @@ import           Pos.Core (AddrType (..), Address (..), integerToCoin,
                      isRedeemAddress, isUnknownAddressType, sumCoins)
 import           Pos.Core.Attributes (Attributes (..), areAttributesKnown)
 import           Pos.Core.Common (AddrAttributes (..), checkPubKeyAddress,
-                     checkRedeemAddress, checkScriptAddress)
+                     checkRedeemAddress)
 import           Pos.Core.NetworkMagic (NetworkMagic)
 import           Pos.Crypto (SignTag (SignRedeemTx, SignTx), WithHash (..),
                      checkSig, hash, redeemCheckSig)
@@ -236,7 +234,9 @@ verifyKnownInputs protocolMagic VTxContext {..} resolvedInputs TxAux {..} = do
 
     checkSpendingData addr wit = case wit of
         PkWitness twKey _            -> checkPubKeyAddress twKey addr
-        ScriptWitness twValidator _  -> checkScriptAddress twValidator addr
+        -- The existing blockchain should not have any output addresses of this
+        -- witness type, so checking should just fail.
+        ScriptWitness _ _            -> False
         RedeemWitness twRedeemKey _  -> checkRedeemAddress twRedeemKey addr
         UnknownWitnessType witTag _  -> case addrType addr of
             ATUnknown addrTag -> addrTag == witTag
@@ -252,14 +252,9 @@ verifyKnownInputs protocolMagic VTxContext {..} resolvedInputs TxAux {..} = do
             unless (redeemCheckSig protocolMagic SignRedeemTx twRedeemKey txSigData twRedeemSig) $
                 throwError WitnessWrongSignature
         ScriptWitness twValidator twRedeemer -> do
-            let valVer = scrVersion twValidator
-                redVer = scrVersion twRedeemer
-            when (valVer /= redVer) $
-                throwError $ WitnessScriptVerMismatch valVer redVer
-            when (vtcVerifyAllIsKnown && not (isKnownScriptVersion valVer)) $
-                throwError $ WitnessUnknownScriptVer valVer
-            over _Left WitnessScriptError $
-                txScriptCheck txSigData twValidator twRedeemer
+            -- The existing blockchain should not have any witnesses of this
+            -- type, so checking should just fail using the following.
+            Left $ WitnessScriptVerMismatch (scrVersion twValidator) (scrVersion twRedeemer)
         UnknownWitnessType t _ ->
             when vtcVerifyAllIsKnown $
                 throwError $ WitnessUnknownType t

@@ -74,7 +74,6 @@ genTxInWitness pm = oneof
     [ PkWitness <$> arbitrary <*> genSignature pm arbitrary
       -- this can generate a redeemer script where a validator script is
       -- needed and vice-versa, but it doesn't matter
-    , ScriptWitness <$> arbitrary <*> arbitrary
     , RedeemWitness <$> arbitrary <*> genRedeemSignature pm arbitrary
     , UnknownWitnessType <$> choose (3, 255) <*> scale (min 150) arbitrary
     ]

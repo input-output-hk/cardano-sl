@@ -58,7 +58,6 @@
         cardano-sl-x509 = ./.stack.nix/cardano-sl-x509.nix;
         cardano-sl-cluster = ./.stack.nix/cardano-sl-cluster.nix;
         cardano-sl-mnemonic = ./.stack.nix/cardano-sl-mnemonic.nix;
-        plutus-prototype = ./.stack.nix/plutus-prototype.nix;
         cardano-report-server = ./.stack.nix/cardano-report-server.nix;
         cardano-crypto = ./.stack.nix/cardano-crypto.nix;
         ip = ./.stack.nix/ip.nix;

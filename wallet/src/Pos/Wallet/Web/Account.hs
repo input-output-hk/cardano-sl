@@ -1,10 +1,12 @@
 -- | Helpers for Wallet Set, Wallet and Account.
+{-# LANGUAGE DataKinds #-}
 
 module Pos.Wallet.Web.Account
        ( myRootAddresses
        , getSKById
        , getSKByAddress
        , getSKByAddressPure
+       , getKeyById
        , genSaveRootKey
        , genUniqueAccountId
        , genUniqueAddress
@@ -17,25 +19,32 @@ module Pos.Wallet.Web.Account
        , MonadKeySearch (..)
        ) where
 
+import           Universum
+
 import           Control.Monad.Except (MonadError (throwError), runExceptT)
 import           Formatting (build, sformat, (%))
 import           System.Random (randomRIO)
-import           System.Wlog (WithLogger)
-import           Universum
 
-import           Pos.Client.KeyStorage (AllUserSecrets (..), MonadKeys, MonadKeysRead, addSecretKey,
-                                        getSecretKeys, getSecretKeysPlain)
-import           Pos.Core (Address (..), IsBootstrapEraAddr (..), deriveLvl2KeyPair)
-import           Pos.Core.NetworkMagic (NetworkMagic)
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ShouldCheckPassphrase (..),
-                             firstHardened)
+import           Pos.Client.KeyStorage (AllUserPublics (..),
+                     AllUserSecrets (..), MonadKeys, MonadKeysRead,
+                     addSecretKey, getPublicKeys, getSecretKeys,
+                     getSecretKeysPlain)
+import           Pos.Core (Address (..), IsBootstrapEraAddr (..),
+                     deriveLvl2KeyPair, makePubKeyAddressBoot)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, PublicKey,
+                     ShouldCheckPassphrase (..), firstHardened,
+                     safeDeterministicKeyGen)
 import           Pos.Util (eitherToThrow)
-import           Pos.Util.BackupPhrase (BackupPhrase, safeKeysFromPhrase)
+import           Pos.Util.Mnemonic (Mnemonic, mnemonicToSeed)
+import           Pos.Util.Servant (encodeCType)
+import           Pos.Util.Wlog (WithLogger)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, Wal, encToCId)
 import           Pos.Wallet.Web.Error (WalletError (..))
-import           Pos.Wallet.Web.State (AddressLookupMode (Ever), HasWAddressMeta (..),
-                                       WAddressMeta (..), WalletSnapshot, doesWAddressExist,
-                                       getAccountMeta, wamAccount)
+import           Pos.Wallet.Web.State (AddressLookupMode (Ever),
+                     HasWAddressMeta (..), WAddressMeta (..), WalletSnapshot,
+                     doesWAddressExist, getAccountMeta, wamAccount)
+import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentialsKey (..))
 
 type AccountMode ctx m =
     ( MonadThrow m
@@ -51,22 +60,48 @@ getSKById
     :: AccountMode ctx m
     => NetworkMagic
     -> CId Wal
-    -> m EncryptedSecretKey
-getSKById nm wid = do
-    secrets <- getSecretKeys
-    runExceptT (getSKByIdPure nm secrets wid) >>= eitherToThrow
+    -> m (Maybe EncryptedSecretKey)
+getSKById nm walletId = do
+    secretKeys <- getSecretKeys
+    return $ getSKByIdPure nm secretKeys walletId
 
 getSKByIdPure
-    :: MonadError WalletError m
-    => NetworkMagic
+    :: NetworkMagic
     -> AllUserSecrets
     -> CId Wal
-    -> m EncryptedSecretKey
-getSKByIdPure nm (AllUserSecrets secrets) wid =
-    maybe (throwError notFound) pure (find (\k -> encToCId nm k == wid) secrets)
-  where
-    notFound =
-        RequestError $ sformat ("No wallet with address "%build%" found") wid
+    -> Maybe EncryptedSecretKey
+getSKByIdPure nm (AllUserSecrets secretKeys) wid =
+    find (\k -> encToCId nm k == wid) secretKeys
+
+-- | We always have a key for any wallet:
+-- 1. secret key (for regular wallet) or
+-- 2. public key (for external wallet).
+getKeyById
+    :: AccountMode ctx m
+    => NetworkMagic
+    -> CId Wal
+    -> m WalletDecrCredentialsKey
+getKeyById nm walletId = do
+    secretKeys <- getSecretKeys
+    case getSKByIdPure nm secretKeys walletId of
+        Just sk -> return $ KeyForRegular sk
+        Nothing -> do
+            -- There's no secret key for 'walletId', this wallet is an external one.
+            publicKeys <- getPublicKeys
+            case getPKByIdPure nm publicKeys walletId of
+                Just pk -> return $ KeyForExternal pk
+                Nothing -> throwM . InternalError $
+                    sformat ("'Impossible' happened: there's no key for wallet "%build)
+                            walletId
+
+-- | If 'walletId' corresponds to regular wallet, there's no public key for it.
+getPKByIdPure
+    :: NetworkMagic
+    -> AllUserPublics
+    -> CId Wal
+    -> Maybe PublicKey
+getPKByIdPure nm (AllUserPublics publicKeys) walletId =
+    find (\pk -> walletId == encodeCType (makePubKeyAddressBoot nm pk)) publicKeys
 
 getSKByAddress
     :: AccountMode ctx m
@@ -100,16 +135,14 @@ getSKByAddressPure nm secrets scp passphrase addrMeta = do
 genSaveRootKey
     :: (AccountMode ctx m, MonadKeys m)
     => PassPhrase
-    -> BackupPhrase
+    -> Mnemonic 12
     -> m EncryptedSecretKey
-genSaveRootKey passphrase ph = do
-    sk <- either keyFromPhraseFailed (pure . fst) $
-        safeKeysFromPhrase passphrase ph
-    addSecretKey sk
-    return sk
-  where
-    keyFromPhraseFailed msg =
-        throwM . RequestError $ "Key creation from phrase failed: " <> msg
+genSaveRootKey passphrase mnemonic =
+    let
+        (_, key) =
+            safeDeterministicKeyGen (mnemonicToSeed mnemonic) passphrase
+    in
+        addSecretKey key >> return key
 
 data GenSeed a
     = DeterminedSeed a
@@ -193,7 +226,10 @@ deriveAddressSKPure
     -> Word32
     -> m (Address, EncryptedSecretKey)
 deriveAddressSKPure nm secrets scp passphrase AccountId {..} addressIndex = do
-    key <- getSKByIdPure nm secrets aiWId
+    key <- case getSKByIdPure nm secrets aiWId of
+        Just key -> pure key
+        Nothing  -> throwError noSuchSecretKey
+
     maybe (throwError badPass) pure $
         deriveLvl2KeyPair
             nm
@@ -205,6 +241,7 @@ deriveAddressSKPure nm secrets scp passphrase AccountId {..} addressIndex = do
             addressIndex
   where
     badPass = RequestError "Passphrase doesn't match"
+    noSuchSecretKey = RequestError "No such secret key found"
 
 deriveAddress
     :: AccountMode ctx m
@@ -219,10 +256,10 @@ deriveAddress nm passphrase accId@AccountId{..} cwamAddressIndex = do
 
 -- | Allows to find a key related to given @id@ item.
 class MonadKeySearch id m where
-    findKey :: NetworkMagic -> id -> m EncryptedSecretKey
+    findKey :: NetworkMagic -> id -> m WalletDecrCredentialsKey
 
 instance AccountMode ctx m => MonadKeySearch (CId Wal) m where
-    findKey = getSKById
+    findKey = getKeyById
 
 instance AccountMode ctx m => MonadKeySearch AccountId m where
     findKey nm = (findKey nm) . aiWId

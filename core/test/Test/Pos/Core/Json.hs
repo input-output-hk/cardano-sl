@@ -5,36 +5,18 @@ import           Universum
 import           Hedgehog (Property)
 import qualified Hedgehog as H
 
-import           Pos.Aeson.Core ()
-import           Pos.Aeson.Core.Configuration ()
-import           Pos.Aeson.Genesis ()
+import           Pos.Core.JsonLog.LogEvents (InvReqDataFlowLog (..))
 
-import           Test.Pos.Core.ExampleHelpers (exampleAddress, exampleAddress1, exampleAddress2,
-                                               exampleAddress3, exampleAddress4,
-                                               exampleGenesisConfiguration_GCSpec0,
-                                               exampleGenesisConfiguration_GCSpec0YesNetworkMagic,
-                                               exampleGenesisConfiguration_GCSpec1,
-                                               exampleGenesisConfiguration_GCSpec2,
-                                               exampleGenesisConfiguration_GCSrc,
-                                               exampleGenesisData0, exampleGenesisData1,
-                                               exampleGenesisData2,
-                                               exampleGenesisProtocolConstants0,
-                                               exampleGenesisProtocolConstants0YesNetworkMagic,
-                                               exampleGenesisProtocolConstants1,
-                                               exampleGenesisProtocolConstants2, feedPM,
-                                               feedPMWithNMMustBeJust)
-import           Test.Pos.Core.Gen (genAddress, genBlockVersionData, genByte, genCoin,
-                                    genCoinPortion, genEpochIndex, genFlatSlotId,
-                                    genGenesisAvvmBalances, genGenesisConfiguration, genGenesisData,
-                                    genGenesisDelegation, genGenesisInitializer,
-                                    genGenesisProtocolConstants, genSharedSeed, genSoftforkRule,
-                                    genTxFeePolicy)
+import           Test.Pos.Core.ExampleHelpers (exampleAddress, exampleAddress1,
+                     exampleAddress2, exampleAddress3, exampleAddress4)
+import           Test.Pos.Core.Gen (genAddress, genByte, genCoin,
+                     genCoinPortion, genEpochIndex, genFlatSlotId,
+                     genInvReqDataFlowLog, genSharedSeed, genTxFeePolicy)
 import           Test.Pos.Crypto.Gen (genRedeemPublicKey)
 import           Test.Pos.Util.Gen (genMillisecond)
-import           Test.Pos.Util.Golden (discoverGolden, eachOf, goldenTestCanonicalJSONDec,
-                                       goldenTestJSON, goldenTestJSONDec)
-import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonBuildable,
-                                         roundTripsAesonShow, roundTripsCanonicalJSONShow)
+import           Test.Pos.Util.Golden (discoverGolden, eachOf, goldenTestJSON)
+import           Test.Pos.Util.Tripping (discoverRoundTrip,
+                     roundTripsAesonBuildable, roundTripsAesonShow)
 
 --------------------------------------------------------------------------------
 -- Address
@@ -79,77 +61,6 @@ roundTripAddressBuildable =
     eachOf 100 genAddress roundTripsAesonBuildable
 
 --------------------------------------------------------------------------------
--- GenesisConfiguration
---------------------------------------------------------------------------------
-
-golden_GenesisConfiguration_GCSpec0 :: Property
-golden_GenesisConfiguration_GCSpec0 =
-    goldenTestJSON
-        exampleGenesisConfiguration_GCSpec0YesNetworkMagic
-            "test/golden/json/GenesisConfiguration_GCSpec0_YesNetworkMagic"
-
--- Test only decoding (for ensuring backwards compatibility with
--- old GenesisConfiguration format).
-golden_GenesisConfiguration_GCSpec0Dec :: Property
-golden_GenesisConfiguration_GCSpec0Dec =
-    goldenTestJSONDec exampleGenesisConfiguration_GCSpec0
-        "test/golden/json/GenesisConfiguration_GCSpec0_NoNetworkMagic"
-
-golden_GenesisConfiguration_GCSpec1Dec :: Property
-golden_GenesisConfiguration_GCSpec1Dec =
-    goldenTestJSONDec exampleGenesisConfiguration_GCSpec1
-        "test/golden/json/GenesisConfiguration_GCSpec1_NoNetworkMagic"
-
-golden_GenesisConfiguration_GCSpec2Dec :: Property
-golden_GenesisConfiguration_GCSpec2Dec =
-    goldenTestJSONDec exampleGenesisConfiguration_GCSpec2
-        "test/golden/json/GenesisConfiguration_GCSpec2_NoNetworkMagic"
-
-golden_GenesisConfiguration_GCSrc :: Property
-golden_GenesisConfiguration_GCSrc =
-    goldenTestJSON
-        exampleGenesisConfiguration_GCSrc
-            "test/golden/GenesisConfiguration_GCSrc"
-
-roundTripGenesisConfiguration :: Property
-roundTripGenesisConfiguration =
-    eachOf 100 (feedPM genGenesisConfiguration) roundTripsAesonShow
-
---------------------------------------------------------------------------------
--- GenesisData (Canonical JSON)
---------------------------------------------------------------------------------
-
-golden_GenesisDataDec0 :: Property
-golden_GenesisDataDec0 =
-    goldenTestCanonicalJSONDec
-        exampleGenesisData0
-            "test/golden/json/GenesisData0_NoNetworkMagic"
-
-golden_GenesisDataDec1 :: Property
-golden_GenesisDataDec1 =
-    goldenTestCanonicalJSONDec
-        exampleGenesisData1
-            "test/golden/json/GenesisData1_NoNetworkMagic"
-
-golden_GenesisDataDec2 :: Property
-golden_GenesisDataDec2 =
-    goldenTestCanonicalJSONDec
-        exampleGenesisData2
-            "test/golden/json/GenesisData2_NoNetworkMagic"
-
-roundTripGenesisData :: Property
-roundTripGenesisData =
-    eachOf 100 (feedPMWithNMMustBeJust genGenesisData) roundTripsCanonicalJSONShow
-
---------------------------------------------------------------------------------
--- GenesisAvvmBalances
---------------------------------------------------------------------------------
-
-roundTripGenesisAvvmBalances :: Property
-roundTripGenesisAvvmBalances =
-     eachOf 100 genGenesisAvvmBalances roundTripsAesonShow
-
---------------------------------------------------------------------------------
 -- RedeemPublicKey
 --------------------------------------------------------------------------------
 
@@ -169,22 +80,6 @@ roundTripCoin = eachOf 1000 genCoin roundTripsAesonBuildable
 
 roundTripSharedSeed :: Property
 roundTripSharedSeed = eachOf 1000 genSharedSeed roundTripsAesonBuildable
-
---------------------------------------------------------------------------------
--- GenesisDelegation
---------------------------------------------------------------------------------
-
-roundTripGenesisDelegation :: Property
-roundTripGenesisDelegation =
-    eachOf 100 (feedPM genGenesisDelegation) roundTripsAesonShow
-
---------------------------------------------------------------------------------
--- BlockVersionData
---------------------------------------------------------------------------------
-
-roundTripBlockVersionData :: Property
-roundTripBlockVersionData =
-    eachOf 1000 genBlockVersionData roundTripsAesonBuildable
 
 --------------------------------------------------------------------------------
 -- Millisecond
@@ -215,13 +110,6 @@ roundTripFlatSlotId :: Property
 roundTripFlatSlotId = eachOf 1000 genFlatSlotId roundTripsAesonShow
 
 --------------------------------------------------------------------------------
--- SoftforkRule
---------------------------------------------------------------------------------
-
-roundTripSoftforkRule :: Property
-roundTripSoftforkRule = eachOf 1000 genSoftforkRule roundTripsAesonBuildable
-
---------------------------------------------------------------------------------
 -- TxFeePolicy
 --------------------------------------------------------------------------------
 
@@ -235,45 +123,31 @@ roundTripTxFeePolicy = eachOf 1000 genTxFeePolicy roundTripsAesonBuildable
 roundTripEpochIndex :: Property
 roundTripEpochIndex = eachOf 1000 genEpochIndex roundTripsAesonBuildable
 
-
 --------------------------------------------------------------------------------
--- GenesisProtocolConstants
+-- InvReqDataFlowLog
 --------------------------------------------------------------------------------
 
-golden_GenesisProtocolConstants0 :: Property
-golden_GenesisProtocolConstants0 =
+golden_InvReqDataFlowLog_InvReqAccepted :: Property
+golden_InvReqDataFlowLog_InvReqAccepted =
     goldenTestJSON
-        exampleGenesisProtocolConstants0YesNetworkMagic
-            "test/golden/json/GenesisProtocolConstants0_YesNetworkMagic"
+        (InvReqAccepted 1 2 3 4)
+            "test/golden/InvReqDataFlowLog_InvReqAccepted"
 
--- Test only decoding (for ensuring backwards compatibility with
--- old GenesisProtocolConstants format).
-golden_GenesisProtocolConstants0Dec :: Property
-golden_GenesisProtocolConstants0Dec =
-    goldenTestJSONDec exampleGenesisProtocolConstants0
-        "test/golden/json/GenesisProtocolConstants0_NoNetworkMagic"
+golden_InvReqDataFlowLog_InvReqRejected :: Property
+golden_InvReqDataFlowLog_InvReqRejected =
+    goldenTestJSON
+        (InvReqRejected 1 2)
+            "test/golden/InvReqDataFlowLog_InvReqRejected"
 
-golden_GenesisProtocolConstants1Dec :: Property
-golden_GenesisProtocolConstants1Dec =
-    goldenTestJSONDec exampleGenesisProtocolConstants1
-        "test/golden/json/GenesisProtocolConstants1_NoNetworkMagic"
+golden_InvReqDataFlowLog_InvReqException :: Property
+golden_InvReqDataFlowLog_InvReqException =
+    goldenTestJSON
+        (InvReqException "test")
+            "test/golden/InvReqDataFlowLog_InvReqException"
 
-golden_GenesisProtocolConstants2Dec :: Property
-golden_GenesisProtocolConstants2Dec =
-    goldenTestJSONDec exampleGenesisProtocolConstants2
-        "test/golden/json/GenesisProtocolConstants2_NoNetworkMagic"
-
-roundTripGenesisProtocolConstants :: Property
-roundTripGenesisProtocolConstants =
-    eachOf 1000 (feedPM genGenesisProtocolConstants) roundTripsAesonShow
-
---------------------------------------------------------------------------------
--- GenesisInitializer
---------------------------------------------------------------------------------
-
-roundTripGenesisInitializer :: Property
-roundTripGenesisInitializer =
-    eachOf 1000 genGenesisInitializer roundTripsAesonShow
+roundTripInvReqDataFlowLog :: Property
+roundTripInvReqDataFlowLog =
+    eachOf 1000 genInvReqDataFlowLog roundTripsAesonShow
 
 tests :: IO Bool
 tests = (&&) <$> H.checkSequential $$discoverGolden

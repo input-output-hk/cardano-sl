@@ -1,3 +1,7 @@
+-- We have (Semigroup m, Monoid m) constraints in the Semigroup/Monoid laws section.
+-- this is redundant with 8.4+
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
+
 module Test.Pos.Util.QuickCheck.Property
        ( -- * Various properties and predicates
          qcIsJust
@@ -37,7 +41,8 @@ import           Universum
 
 import qualified Data.Semigroup as Semigroup
 import           Test.Hspec (Expectation, Selector, shouldThrow)
-import           Test.QuickCheck (Property, counterexample, property, (.&&.), (===))
+import           Test.QuickCheck (Property, counterexample, property, (.&&.),
+                     (===))
 import           Test.QuickCheck.Gen (Gen, choose)
 import           Test.QuickCheck.Monadic (PropertyM, pick, stop)
 import           Test.QuickCheck.Property (Result (..), failed)
@@ -68,14 +73,14 @@ qcIsRight (Left x)  = qcFail ("expected Right, got Left (" <> show x <> ")")
 --   qcElem :: (Eq a, Show a, Show (t a), Traversable t) => a -> t a -> Property
 --
 qcElem
-    :: (Show a, Show t, Container t, Element t ~ a, ElementConstraint t a)
+    :: (Show a, Eq a, Show t, Container t, Element t ~ a)
     => a -> t -> Property
 qcElem x xs =
     counterexample ("expected " <> show x <> " to be in " <> show xs) $
     x `elem` xs
 
 qcNotElem
-    :: (Show a, Show t, Container t, Element t ~ a, ElementConstraint t a)
+    :: (Show a, Eq a, Show t, Container t, Element t ~ a)
     => a -> t -> Property
 qcNotElem x xs =
     counterexample ("expected " <> show x <> " not to be in " <> show xs) $

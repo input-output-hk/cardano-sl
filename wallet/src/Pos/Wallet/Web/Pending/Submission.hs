@@ -18,23 +18,25 @@ import           Universum
 import           Control.Exception.Safe (Handler (..), catches, onException)
 import           Data.Time.Units (fromMicroseconds)
 import           Formatting (build, sformat, shown, stext, (%))
-import           System.Wlog (WithLogger, logDebug, logInfo)
 
+import           Pos.Chain.Genesis as Genesis (Config (..))
+import           Pos.Chain.Txp (TxAux, TxpConfiguration)
 import           Pos.Client.Txp.History (saveTx, thTimestamp)
 import           Pos.Client.Txp.Network (TxMode)
 import           Pos.Configuration (walletTxCreationDisabled)
 import           Pos.Core (diffTimestamp, getCurrentTimestamp)
-import           Pos.Core.Txp (TxAux)
-import           Pos.Crypto (ProtocolMagic)
-import           Pos.Infra.Util.LogSafe (buildSafe, logInfoSP, logWarningSP, secretOnlyF)
+import           Pos.Infra.Util.LogSafe (buildSafe, logInfoSP, logWarningSP,
+                     secretOnlyF)
 import           Pos.Util.Util (maybeThrow)
+import           Pos.Util.Wlog (WithLogger, logDebug, logInfo)
 import           Pos.Wallet.Web.Error (WalletError (InternalError))
-import           Pos.Wallet.Web.Pending.Functions (isReclaimableFailure, ptxPoolInfo,
-                                                   usingPtxCoords)
-import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..), PtxPoolInfo)
-import           Pos.Wallet.Web.State (PtxMetaUpdate (PtxMarkAcknowledged), WalletDB,
-                                       addOnlyNewPendingTx, casPtxCondition, ptxUpdateMeta,
-                                       removeOnlyCreatingPtx)
+import           Pos.Wallet.Web.Pending.Functions (isReclaimableFailure,
+                     ptxPoolInfo, usingPtxCoords)
+import           Pos.Wallet.Web.Pending.Types (PendingTx (..),
+                     PtxCondition (..), PtxPoolInfo)
+import           Pos.Wallet.Web.State (PtxMetaUpdate (PtxMarkAcknowledged),
+                     WalletDB, addOnlyNewPendingTx, casPtxCondition,
+                     ptxUpdateMeta, removeOnlyCreatingPtx)
 
 -- | Handers used for to procees various pending transaction submission
 -- errors.
@@ -106,13 +108,14 @@ type TxSubmissionMode ctx m = ( TxMode m )
 -- but treats tx as future /pending/ transaction.
 submitAndSavePtx
     :: TxSubmissionMode ctx m
-    => ProtocolMagic
+    => Genesis.Config
+    -> TxpConfiguration
     -> WalletDB
     -> (TxAux -> m Bool)
     -> PtxSubmissionHandlers m
     -> PendingTx
     -> m ()
-submitAndSavePtx pm db submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
+submitAndSavePtx genesisConfig txpConfig db submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
     -- this should've been checked before, but just in case
     when walletTxCreationDisabled $
         throwM $ InternalError "Transaction creation is disabled by configuration!"
@@ -130,7 +133,7 @@ submitAndSavePtx pm db submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
                       _ptxTxId
        | otherwise -> do
            addOnlyNewPendingTx db ptx
-           (saveTx pm (_ptxTxId, _ptxTxAux)
+           (saveTx genesisConfig txpConfig (_ptxTxId, _ptxTxAux)
                `catches` handlers)
                `onException` creationFailedHandler
            ack <- submitTx _ptxTxAux
@@ -138,7 +141,12 @@ submitAndSavePtx pm db submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
 
            poolInfo <- badInitPtxCondition `maybeThrow` ptxPoolInfo _ptxCond
            _ <- usingPtxCoords (casPtxCondition db) ptx _ptxCond (PtxApplying poolInfo)
-           when ack $ ptxUpdateMeta db _ptxWallet _ptxTxId PtxMarkAcknowledged
+           when ack $ ptxUpdateMeta
+               (configProtocolConstants genesisConfig)
+               db
+               _ptxWallet
+               _ptxTxId
+               PtxMarkAcknowledged
   where
     handlers =
         [ Handler $ \e ->

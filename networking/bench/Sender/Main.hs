@@ -1,11 +1,12 @@
+{-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE LambdaCase            #-}
-{-# LANGUAGE BangPatterns          #-}
 
 module Main where
 
@@ -18,8 +19,8 @@ import           Control.Monad (forM, forM_)
 
 import           Data.Foldable (foldlM)
 import           Data.Functor.Contravariant (contramap)
-import           Data.Time.Units (Microsecond)
 import           Data.Time.Clock.POSIX (getPOSIXTime)
+import           Data.Time.Units (Microsecond)
 import           GHC.IO.Encoding (setLocaleEncoding, utf8)
 import qualified Network.Transport.TCP as TCP
 import qualified Network.Transport.TCP.Internal as TCP (encodeEndPointAddress)
@@ -27,15 +28,16 @@ import           Options.Applicative.Simple (simpleOptions)
 import           System.Random (mkStdGen, randomR)
 
 import qualified Network.Transport as NT
-import           Node (Conversation (..), ConversationActions (..), Node (Node), NodeAction (..),
-                       converseWith, defaultNodeEnvironment, noReceiveDelay, node,
-                       simpleNodeEndPoint)
+import           Node (Conversation (..), ConversationActions (..), Node (Node),
+                     NodeAction (..), converseWith, defaultNodeEnvironment,
+                     noReceiveDelay, node, simpleNodeEndPoint)
 import           Node.Internal (NodeId (..))
 import           Node.Message.Binary (binaryPacking)
 import           Pos.Util.Trace (Severity (..), wlogTrace)
+import           Pos.Util.Wlog (removeAllHandlers)
 
-import           Bench.Network.Commons (MeasureEvent (..), Payload (..), Ping (..), Pong (..),
-                                        loadLogConfig, logMeasure)
+import           Bench.Network.Commons (MeasureEvent (..), Payload (..),
+                     Ping (..), Pong (..), loadLogConfig, logMeasure)
 import           SenderOptions (Args (..), argsParser)
 
 data PingState = PingState
@@ -56,7 +58,7 @@ main = do
             argsParser
             empty
 
-    loadLogConfig logsPrefix logConfig
+    lh <- loadLogConfig logsPrefix logConfig
     setLocaleEncoding utf8
 
     transport <- do
@@ -88,6 +90,7 @@ main = do
                         forM_ drones stopDrone
 
     action
+    removeAllHandlers lh
 
   where
 

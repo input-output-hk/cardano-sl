@@ -17,49 +17,54 @@ import           Universum
 import           Control.Monad.Except (runExcept)
 import qualified Data.Map as M
 import           Data.Time.Units (Second)
-import           Mockable (Concurrently, Delay, Mockable, concurrently, delay)
+import           Formatting (build, sformat, (%))
 import           Servant.Server (err403, err405, errReasonPhrase)
-import           System.Wlog (logDebug)
+import           UnliftIO (MonadUnliftIO)
 
+import           Pos.Chain.Genesis as Genesis (Config (..), GenesisData)
+import           Pos.Chain.Txp (TxAux (..), TxFee (..), TxOut (..),
+                     TxpConfiguration, Utxo, _txOutputs)
 import           Pos.Client.KeyStorage (getSecretKeys)
 import           Pos.Client.Txp.Addresses (MonadAddresses)
 import           Pos.Client.Txp.Balances (MonadBalances (..))
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Client.Txp.Network (prepareMTx)
-import           Pos.Client.Txp.Util (InputSelectionPolicy (..), computeTxFee, runTxCreator)
+import           Pos.Client.Txp.Util (InputSelectionPolicy (..), computeTxFee,
+                     runTxCreator)
 import           Pos.Configuration (walletTxCreationDisabled)
-import           Pos.Core (Address, Coin, HasConfiguration, TxAux (..), TxOut (..),
-                           getCurrentTimestamp)
+import           Pos.Core (Address, Coin, getCurrentTimestamp)
+import           Pos.Core.Conc (concurrently, delay)
 import           Pos.Core.NetworkMagic (makeNetworkMagic)
-import           Pos.Core.Txp (_txOutputs)
-import           Pos.Crypto (PassPhrase, ProtocolMagic, SafeSigner, ShouldCheckPassphrase (..),
-                             checkPassMatches, hash, withSafeSignerUnsafe)
+import           Pos.Crypto (PassPhrase, SafeSigner, ShouldCheckPassphrase (..),
+                     checkPassMatches, hash, withSafeSignerUnsafe)
 import           Pos.DB (MonadGState)
-import           Pos.Txp (TxFee (..), Utxo)
 import           Pos.Util (eitherToThrow, maybeThrow)
 import           Pos.Util.Servant (encodeCType)
+import           Pos.Util.Wlog (logDebug)
 import           Pos.Wallet.Aeson.ClientTypes ()
 import           Pos.Wallet.Aeson.WalletBackup ()
 import           Pos.Wallet.Web.Account (getSKByAddressPure, getSKById)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CCoin, CId, CTx (..),
-                                             NewBatchPayment (..), Wal)
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CCoin, CId,
+                     CTx (..), NewBatchPayment (..), Wal)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.Methods.History (addHistoryTxMeta, constructCTx,
-                                                 getCurChainDifficulty)
-import           Pos.Wallet.Web.Methods.Txp (MonadWalletTxFull, coinDistrToOutputs,
-                                             getPendingAddresses, rewrapTxError,
-                                             submitAndSaveNewPtx)
+                     getCurChainDifficulty)
+import           Pos.Wallet.Web.Methods.Txp (MonadWalletTxFull,
+                     coinDistrToOutputs, getPendingAddresses, rewrapTxError,
+                     submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Pending (mkPendingTx)
-import           Pos.Wallet.Web.State (AddressInfo (..), AddressLookupMode (Ever, Existing),
-                                       HasWAddressMeta (..), WAddressMeta (..), WalletDbReader,
-                                       WalletSnapshot, askWalletDB, askWalletSnapshot,
-                                       getWalletSnapshot, isWalletRestoring, wamAccount)
+import           Pos.Wallet.Web.State (AddressInfo (..),
+                     AddressLookupMode (Ever, Existing), HasWAddressMeta (..),
+                     WAddressMeta (..), WalletDbReader, WalletSnapshot,
+                     askWalletDB, askWalletSnapshot, getWalletSnapshot,
+                     isWalletRestoring, wamAccount)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow,
-                                      getWalletAccountIds, getWalletAddrsDetector)
+                     getWalletAccountIds, getWalletAddrsDetector)
 
 newPayment
     :: MonadWalletTxFull ctx m
-    => ProtocolMagic
+    => Genesis.Config
+    -> TxpConfiguration
     -> (TxAux -> m Bool)
     -> PassPhrase
     -> AccountId
@@ -67,14 +72,15 @@ newPayment
     -> Coin
     -> InputSelectionPolicy
     -> m CTx
-newPayment pm submitTx passphrase srcAccount dstAddress coin policy =
+newPayment genesisConfig txpConfig submitTx passphrase srcAccount dstAddress coin policy =
     -- This is done for two reasons:
     -- 1. In order not to overflow relay.
     -- 2. To let other things (e. g. block processing) happen if
     -- `newPayment`s are done continuously.
     notFasterThan (6 :: Second) $ do
       sendMoney
-          pm
+          genesisConfig
+          txpConfig
           submitTx
           passphrase
           (AccountMoneySource srcAccount)
@@ -83,16 +89,18 @@ newPayment pm submitTx passphrase srcAccount dstAddress coin policy =
 
 newPaymentBatch
     :: MonadWalletTxFull ctx m
-    => ProtocolMagic
+    => Genesis.Config
+    -> TxpConfiguration
     -> (TxAux -> m Bool)
     -> PassPhrase
     -> NewBatchPayment
     -> m CTx
-newPaymentBatch pm submitTx passphrase NewBatchPayment {..} = do
+newPaymentBatch genesisConfig txpConfig submitTx passphrase NewBatchPayment {..} = do
     src <- decodeCTypeOrFail npbFrom
     notFasterThan (6 :: Second) $ do
       sendMoney
-          pm
+          genesisConfig
+          txpConfig
           submitTx
           passphrase
           (AccountMoneySource src)
@@ -106,24 +114,25 @@ type MonadFees ctx m =
     , MonadAddresses m
     , MonadBalances m
     , MonadIO m
-    , HasConfiguration
     )
 
 getTxFee
      :: MonadFees ctx m
-     => ProtocolMagic
+     => Genesis.Config
      -> AccountId
      -> CId Addr
      -> Coin
      -> InputSelectionPolicy
      -> m CCoin
-getTxFee pm srcAccount dstAccount coin policy = do
+getTxFee genesisConfig srcAccount dstAccount coin policy = do
     ws <- askWalletSnapshot
     let pendingAddrs = getPendingAddresses ws policy
-    utxo <- getMoneySourceUtxo ws (AccountMoneySource srcAccount)
+    utxo <- getMoneySourceUtxo (configGenesisData genesisConfig)
+                               ws
+                               (AccountMoneySource srcAccount)
     outputs <- coinDistrToOutputs $ one (dstAccount, coin)
     TxFee fee <- rewrapTxError "Cannot compute transaction fee" $
-        eitherToThrow =<< runTxCreator policy (computeTxFee pm pendingAddrs utxo outputs)
+        eitherToThrow =<< runTxCreator policy (computeTxFee genesisConfig pendingAddrs utxo outputs)
     pure $ encodeCType fee
 
 data MoneySource
@@ -160,24 +169,26 @@ getMoneySourceWallet (AccountMoneySource accId)  = aiWId accId
 getMoneySourceWallet (WalletMoneySource wid)     = wid
 
 getMoneySourceUtxo :: (MonadThrow m, MonadBalances m)
-                   => WalletSnapshot
+                   => GenesisData
+                   -> WalletSnapshot
                    -> MoneySource
                    -> m Utxo
-getMoneySourceUtxo ws =
+getMoneySourceUtxo genesisData ws =
     getMoneySourceAddresses ws >=>
     mapM (return . view wamAddress) >=>
-    getOwnUtxos
+    getOwnUtxos genesisData
 
 sendMoney
     :: (MonadWalletTxFull ctx m)
-    => ProtocolMagic
+    => Genesis.Config
+    -> TxpConfiguration
     -> (TxAux -> m Bool)
     -> PassPhrase
     -> MoneySource
     -> NonEmpty (CId Addr, Coin)
     -> InputSelectionPolicy
     -> m CTx
-sendMoney pm submitTx passphrase moneySource dstDistr policy = do
+sendMoney genesisConfig txpConfig submitTx passphrase moneySource dstDistr policy = do
     db <- askWalletDB
     ws <- getWalletSnapshot db
     when walletTxCreationDisabled $
@@ -189,8 +200,12 @@ sendMoney pm submitTx passphrase moneySource dstDistr policy = do
         throwM err403
         { errReasonPhrase = "Transaction creation is disabled when the wallet is restoring."
         }
-    let nm = makeNetworkMagic pm
-    rootSk <- getSKById nm srcWallet
+    let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
+    rootSk <- maybe (throwM (RequestError $ sformat ("No regular source wallet with address "%build)
+                                                    srcWallet))
+                    pure
+                    =<< getSKById nm srcWallet
+
     checkPassMatches passphrase rootSk `whenNothing`
         throwM (RequestError "Passphrase doesn't match")
 
@@ -218,7 +233,7 @@ sendMoney pm submitTx passphrase moneySource dstDistr policy = do
     let pendingAddrs = getPendingAddresses ws policy
     th <- rewrapTxError "Cannot send transaction" $ do
         (txAux, inpTxOuts') <-
-            prepareMTx pm getSigner pendingAddrs policy srcAddrs outputs (relatedAccount, passphrase)
+            prepareMTx genesisConfig getSigner pendingAddrs policy srcAddrs outputs (relatedAccount, passphrase)
 
         ts <- Just <$> getCurrentTimestamp
         let tx = taTx txAux
@@ -227,9 +242,14 @@ sendMoney pm submitTx passphrase moneySource dstDistr policy = do
             dstAddrs  = map txOutAddress . toList $
                         _txOutputs tx
             th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
-        ptx <- mkPendingTx ws srcWallet txHash txAux th
+        ptx <- mkPendingTx (configProtocolConstants genesisConfig)
+                           ws
+                           srcWallet
+                           txHash
+                           txAux
+                           th
 
-        th <$ submitAndSaveNewPtx pm db submitTx ptx
+        th <$ submitAndSaveNewPtx genesisConfig txpConfig db submitTx ptx
 
     -- We add TxHistoryEntry's meta created by us in advance
     -- to make TxHistoryEntry in CTx consistent with entry in history.
@@ -246,5 +266,5 @@ sendMoney pm submitTx passphrase moneySource dstDistr policy = do
 ----------------------------------------------------------------------------
 
 notFasterThan ::
-       (Mockable Concurrently m, Mockable Delay m) => Second -> m a -> m a
+       (MonadIO m, MonadUnliftIO m) => Second -> m a -> m a
 notFasterThan time action = fst <$> concurrently action (delay time)

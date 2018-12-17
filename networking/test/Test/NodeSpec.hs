@@ -13,17 +13,19 @@ module Test.NodeSpec
 
 
 import           Control.Concurrent.Async (wait, withAsync)
-import           Control.Concurrent.MVar (newEmptyMVar, putMVar, readMVar, takeMVar)
+import           Control.Concurrent.MVar (newEmptyMVar, putMVar, readMVar,
+                     takeMVar)
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO)
-import           Control.Exception (catch, throwIO)
+import           Control.Exception (handle, throwIO)
 import           Control.Lens (sans, (%=), (&~), (.=))
-import           Control.Monad (forM_, when, unless)
+import           Control.Monad (forM_, unless, when)
 import           Control.Monad.IO.Class (liftIO)
 import qualified Data.Set as S
 import           Network.QDisc.Fair (fairQDisc)
 import qualified Network.Transport as NT (Transport, address, closeEndPoint,
-                                          closeTransport, newEndPoint, receive)
-import           Network.Transport.TCP (simpleOnePlaceQDisc, simpleUnboundedQDisc)
+                     closeTransport, newEndPoint, receive)
+import           Network.Transport.TCP (simpleOnePlaceQDisc,
+                     simpleUnboundedQDisc)
 import           System.Random (newStdGen)
 import           Test.Hspec (Spec, afterAll_, describe, runIO)
 import           Test.Hspec.Core.Spec (SpecM)
@@ -33,20 +35,21 @@ import           Test.QuickCheck.Modifiers (NonEmptyList (..), getNonEmpty)
 
 import           Node
 import           Node.Message.Binary (binaryPacking)
-import           Pos.Util.Trace (wlogTrace)
-import           Test.Util (HeavyParcel (..), Parcel (..), Payload (..), TestState, deliveryTest,
-                            expected, makeInMemoryTransport, makeTCPTransport, mkTestState,
-                            modifyTestState, receiveAll, sendAll, timeout)
+import           Pos.Util.Trace (setupTestTrace)
+import           Test.Util (HeavyParcel (..), Parcel (..), Payload (..),
+                     TestState, deliveryTest, expected, makeInMemoryTransport,
+                     makeTCPTransport, mkTestState, modifyTestState,
+                     receiveAll, sendAll, timeout)
 
 spec :: Spec
 spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
 
-    let logTrace = wlogTrace ""
+    logTrace <- runIO $ setupTestTrace
 
         -- Take at most 25000 bytes for each Received message.
         -- We want to ensure that the MTU works, but not make the tests too
         -- painfully slow.
-        mtu = 25000
+    let mtu = 25000
         tcpTransportUnbounded = runIO $ makeTCPTransport "0.0.0.0" "127.0.0.1" "10342" simpleUnboundedQDisc mtu
         tcpTransportOnePlace = runIO $ makeTCPTransport "0.0.0.0" "127.0.0.1" "10343" simpleOnePlaceQDisc mtu
         tcpTransportFair = runIO $ makeTCPTransport "0.0.0.0" "127.0.0.1" "10345" (fairQDisc (const (return Nothing))) mtu
@@ -174,7 +177,7 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
                     node logTrace (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) gen binaryPacking () env $ \_node ->
                         NodeAction (const []) $ \converse -> do
                             timeout "client waiting for ACK" 5000000 $
-                                flip catch handleThreadKilled $ converseWith converse peerAddr $ \_peerData -> Conversation $ \cactions -> do
+                                handle handleThreadKilled $ converseWith converse peerAddr $ \_peerData -> Conversation $ \cactions -> do
                                     _ :: Maybe Parcel <- recv cactions maxBound
                                     send cactions (Parcel 0 (Payload 32))
                                     return ()

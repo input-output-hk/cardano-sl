@@ -8,13 +8,13 @@ import           Universum
 
 import qualified Data.List as List
 import qualified Data.Set as Set
-import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable
 import           Pos.Core.Chrono
 
-import           Util
-import           Util.Validated
+import           Data.Validated
 import           UTxO.DSL
+import           UTxO.Util
 import           Wallet.Inductive
 
 {-------------------------------------------------------------------------------
@@ -45,55 +45,46 @@ data ValidatedInductive h a = ValidatedInductive {
 
 data InductiveValidationError h a =
     -- | Bootstrap transaction is invalid
-    InductiveInvalidBoot {
-        -- | The bootstrap transaction
-        inductiveInvalidBoot  :: Transaction h a
-
-        -- | The error message
-      , inductiveInvalidError :: Text
-      }
+    -- InductiveInvalidBoot
+    --     inductiveInvalidBoot  = The bootstrap transaction
+    --     inductiveInvalidError = The error message
+    InductiveInvalidBoot !(Transaction h a) !Text
 
     -- | Invalid transaction in the given block
-  | InductiveInvalidApplyBlock {
-        -- | The events leading up to the error
-        inductiveInvalidEvents      :: OldestFirst [] (WalletEvent h a)
-
-        -- | The transactions in the block we successfully validated
-      , inductiveInvalidBlockPrefix :: OldestFirst [] (Transaction h a)
-
-        -- | The transaction that was invalid
-      , inductiveInvalidTransaction :: Transaction h a
-
-        -- | The error message
-      , inductiveInvalidError       :: Text
-      }
+    -- InductiveInvalidApplyBlock
+    --     inductiveInvalidEvents      = The events leading up to the error
+    --     inductiveInvalidBlockPrefix = The transactions in the block we
+    --                                   successfully validated
+    --     inductiveInvalidTransaction = The transaction that was invalid
+    --     inductiveInvalidError       = The error message
+  | InductiveInvalidApplyBlock
+        !(OldestFirst [] (WalletEvent h a))
+        !(OldestFirst [] (Transaction h a))
+        !(Transaction h a)
+        !Text
 
     -- | A 'NewPending' call was invalid because the input was already spent
-  | InductiveInvalidNewPendingAlreadySpent {
-        -- | The events leading up to the error
-        inductiveInvalidEvents      :: OldestFirst [] (WalletEvent h a)
-
-        -- | The transaction that was invalid
-      , inductiveInvalidTransaction :: Transaction h a
-
-        -- | The specific input that was not valid
-      , inductiveInvalidInput       :: Input h a
-      }
+    -- InductiveInvalidNewPendingAlreadySpent
+    --     inductiveInvalidEvents      = The events leading up to the error
+    --     inductiveInvalidTransaction = The transaction that was invalid
+    --     inductiveInvalidInput       = The specific input that was not valid
+  | InductiveInvalidNewPendingAlreadySpent
+        !(OldestFirst [] (WalletEvent h a))
+        !(Transaction h a)
+        !(Input h a)
 
     -- | A 'NewPending' call was invalid because the input was not @ours@
-  | InductiveInvalidNewPendingNotOurs {
-        -- | The events leading up to the error
-        inductiveInvalidEvents      :: OldestFirst [] (WalletEvent h a)
+    -- InductiveInvalidNewPendingNotOurs
+    --     inductiveInvalidEvents      = The events leading up to the error
+    --     inductiveInvalidTransaction = The transaction that was invalid
+    --     inductiveInvalidInput       = The specific input that was not valid
+    --     inductiveInvalidAddress     = The address this input belonged to
+  | InductiveInvalidNewPendingNotOurs
+        !(OldestFirst [] (WalletEvent h a))
+        !(Transaction h a)
+        !(Input h a)
+        !a
 
-        -- | The transaction that was invalid
-      , inductiveInvalidTransaction :: Transaction h a
-
-        -- | The specific input that was not valid
-      , inductiveInvalidInput       :: Input h a
-
-        -- | The address this input belonged to
-      , inductiveInvalidAddress     :: a
-      }
 
 {-------------------------------------------------------------------------------
   Validation proper
@@ -135,6 +126,11 @@ inductiveIsValid Inductive{..} = do
           , viUtxos  = newCheckpoint               b    viUtxos
           }
     goEvents (Rollback:es) ValidatedInductive{..} = do
+      -- TODO: We don't deal with rollback quite correctly. We assume that
+      -- transactions become available for newPending immediately after a
+      -- rollback, but actually they won't become available until we have
+      -- seen a sufficient number of blocks (i.e., when we switched to the
+      -- new fork).
       let chain' = liftNewestFirst List.tail viChain
       goEvents es ValidatedInductive {
           viBoot   = viBoot
@@ -150,19 +146,20 @@ inductiveIsValid Inductive{..} = do
         forM_ (zip inputs resolved) $ \(input, mAddr) ->
           case mAddr of
             Nothing ->
-              throwError InductiveInvalidNewPendingAlreadySpent {
-                  inductiveInvalidEvents      = toOldestFirst viEvents
-                , inductiveInvalidTransaction = t
-                , inductiveInvalidInput       = input
-                }
+              throwError
+                  $ InductiveInvalidNewPendingAlreadySpent
+                        (toOldestFirst viEvents)
+                        t
+                        input
             Just addr ->
               unless (addr `Set.member` inductiveOurs) $
-                throwError InductiveInvalidNewPendingNotOurs {
-                    inductiveInvalidEvents      = toOldestFirst viEvents
-                  , inductiveInvalidTransaction = t
-                  , inductiveInvalidInput       = input
-                  , inductiveInvalidAddress     = addr
-                  }
+                throwError
+                    $ InductiveInvalidNewPendingNotOurs
+                          (toOldestFirst viEvents)
+                          t
+                          input
+                          addr
+
         goEvents es vi
 
     goBlock :: OldestFirst [] (WalletEvent h a) -- Events leading to this point (for err msgs)
@@ -201,7 +198,9 @@ inductiveIsValid Inductive{..} = do
 -------------------------------------------------------------------------------}
 
 instance (Hash h a, Buildable a) => Buildable (InductiveValidationError h a) where
-  build InductiveInvalidBoot{..} = bprint
+  build (InductiveInvalidBoot
+             inductiveInvalidBoot
+             inductiveInvalidError) = bprint
     ( "InductiveInvalidBoot"
     % "{ boot:  " % build
     % ", error: " % build
@@ -209,7 +208,11 @@ instance (Hash h a, Buildable a) => Buildable (InductiveValidationError h a) whe
     )
     inductiveInvalidBoot
     inductiveInvalidError
-  build InductiveInvalidApplyBlock{..} = bprint
+  build (InductiveInvalidApplyBlock
+             inductiveInvalidEvents
+             inductiveInvalidBlockPrefix
+             inductiveInvalidTransaction
+             inductiveInvalidError) = bprint
     ( "InductiveInvalidApplyBlock"
     % "{ events:      " % build
     % ", blockPrefix: " % build
@@ -220,7 +223,10 @@ instance (Hash h a, Buildable a) => Buildable (InductiveValidationError h a) whe
     inductiveInvalidBlockPrefix
     inductiveInvalidTransaction
     inductiveInvalidError
-  build InductiveInvalidNewPendingAlreadySpent{..} = bprint
+  build (InductiveInvalidNewPendingAlreadySpent
+             inductiveInvalidEvents
+             inductiveInvalidTransaction
+             inductiveInvalidInput) = bprint
     ( "InductiveInvalidNewPendingAlreadySpent"
     % "{ events:      " % build
     % ", transaction: " % build
@@ -230,7 +236,11 @@ instance (Hash h a, Buildable a) => Buildable (InductiveValidationError h a) whe
     inductiveInvalidEvents
     inductiveInvalidTransaction
     inductiveInvalidInput
-  build InductiveInvalidNewPendingNotOurs{..} = bprint
+  build (InductiveInvalidNewPendingNotOurs
+             inductiveInvalidEvents
+             inductiveInvalidTransaction
+             inductiveInvalidInput
+             inductiveInvalidAddress) = bprint
     ( "InductiveInvalidNewPendingNotOurs"
     % "{ events:      " % build
     % ", transaction: " % build

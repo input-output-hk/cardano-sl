@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module Pos.Core.Common.AddrAttributes
        ( AddrAttributes (..)
        ) where
@@ -5,14 +7,17 @@ module Pos.Core.Common.AddrAttributes
 import           Universum
 
 import qualified Data.ByteString.Lazy as LBS
-import qualified Data.Text.Buildable as Buildable
+import           Data.SafeCopy (SafeCopy (..), contain, safeGet, safePut)
+import qualified Data.Serialize as Cereal
 import           Formatting (bprint, build, builder, (%))
+import qualified Formatting.Buildable as Buildable
 
 import           Pos.Binary.Class (Bi, decode, encode)
 import qualified Pos.Binary.Class as Bi
+import           Pos.Core.Attributes (Attributes (..), decodeAttributes,
+                     encodeAttributes, mkAttributes)
 import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto.HD (HDAddressPayload)
-import           Pos.Data.Attributes (Attributes (..), decodeAttributes, encodeAttributes)
 
 import           Pos.Core.Common.AddrStakeDistribution
 
@@ -82,8 +87,8 @@ instance Bi (Attributes AddrAttributes) where
 
         networkMagicListWithIndices =
             case networkMagic of
-                NMNothing -> []
-                NMJust x  ->
+                NetworkMainOrStage -> []
+                NetworkTestnet x  ->
                     [(2, \_ -> Bi.serialize x)]
 
         unsafeFromJust =
@@ -96,11 +101,33 @@ instance Bi (Attributes AddrAttributes) where
             AddrAttributes
             { aaPkDerivationPath = Nothing
             , aaStakeDistribution = BootstrapEraDistr
-            , aaNetworkMagic = NMNothing
+            , aaNetworkMagic = NetworkMainOrStage
             }
         go n v acc =
             case n of
                 0 -> (\distr -> Just $ acc {aaStakeDistribution = distr }    ) <$> Bi.deserialize v
                 1 -> (\deriv -> Just $ acc {aaPkDerivationPath = Just deriv }) <$> Bi.deserialize v
-                2 -> (\deriv -> Just $ acc {aaNetworkMagic = NMJust deriv }    ) <$> Bi.deserialize v
+                2 -> (\deriv -> Just $ acc {aaNetworkMagic = NetworkTestnet deriv }    ) <$> Bi.deserialize v
                 _ -> pure Nothing
+
+instance SafeCopy AddrAttributes where
+    -- Since there is only a Bi instance for (Attributes AddrAttributes),
+    -- we wrap our AddrAttributes before we serialize it.
+    putCopy aa = contain $ do
+        let bs = Bi.serialize (mkAttributes aa)
+        safePut bs
+     -- Try decoding as a BSL.ByteString containing the new format, but if that
+    -- fails go for the legacy format.
+    getCopy = contain $ label $ getNonLegacy <|> getLegacy
+      where
+        label = Cereal.label "Pos.Core.Common.AddrAttributes.AddrAttributes:"
+        --
+        getNonLegacy = do
+            eAAA <- Bi.decodeFull <$> safeGet
+            case eAAA of
+                Left  err -> fail (show err)
+                Right aaa -> pure (attrData aaa)
+        --
+        getLegacy = AddrAttributes <$> safeGet
+                                   <*> safeGet
+                                   <*> pure NetworkMainOrStage

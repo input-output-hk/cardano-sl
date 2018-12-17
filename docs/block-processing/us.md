@@ -74,19 +74,19 @@ data UpdatePayload = UpdatePayload
     }
 ```
 
-Update proposal is represented by type `UpdateProposal` (see [code](https://github.com/input-output-hk/cardano-sl/blob/560c71afa420a707d244cc2a18c00914cb758d61/core/Pos/Core/Update/Types.hs#L314)) and contains folowing data:
+Update proposal is represented by type `UpdateProposal` (see [code](https://github.com/input-output-hk/cardano-sl/blob/560c71afa420a707d244cc2a18c00914cb758d61/core/Pos.Chain.Update/Types.hs#L314)) and contains folowing data:
 
 * [Block version](#block-version) 
 * Protocol constants modifier (see [Protocol constants](#protocol-constants))
 * [Software version](#software-version)
 * Update data
-    * For each supported system (identified by system tag, e.g. win64 or linux32) we keep number of hashe used to indetify binary files associated with update, see [code](https://github.com/input-output-hk/cardano-sl/blob/560c71afa420a707d244cc2a18c00914cb758d61/core/Pos/Core/Update/Types.hs#L363) for details)
+    * For each supported system (identified by system tag, e.g. win64 or linux32) we keep number of hashe used to indetify binary files associated with update, see [code](https://github.com/input-output-hk/cardano-sl/blob/560c71afa420a707d244cc2a18c00914cb758d61/core/Pos.Chain.Update/Types.hs#L363) for details)
 * Proposal attributes
   Attributes map, used for future extension of proposal contents with new fields (via softfork).
 * Protocol issuer (identified by his stake public key)
 * Signature of proposal by signature
 
-Vote is represented by type `UpdateVote` (see [code](https://github.com/input-output-hk/cardano-sl/blob/560c71afa420a707d244cc2a18c00914cb758d61/core/Pos/Core/Update/Types.hs#L408)) and contains following fields:
+Vote is represented by type `UpdateVote` (see [code](https://github.com/input-output-hk/cardano-sl/blob/560c71afa420a707d244cc2a18c00914cb758d61/core/Pos.Chain.Update/Types.hs#L408)) and contains following fields:
 
 * Stake public key of voter
 * Id of update proposal

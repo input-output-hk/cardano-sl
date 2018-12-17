@@ -12,25 +12,24 @@ module Test.Pos.Core.CborSpec
 
 import           Universum
 
-import           Test.Hspec (Spec, describe, runIO)
-import           Test.Hspec.QuickCheck (modifyMaxSuccess)
-import           Test.QuickCheck (Arbitrary (..), generate)
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           Test.Hspec (Spec, describe)
+import           Test.QuickCheck (Arbitrary (..))
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
+                     genericShrink)
 
-import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi, serialize,
-                                   unsafeDeserialize)
-import           Pos.Binary.Core ()
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),
+                     deriveSimpleBi, serialize, unsafeDeserialize)
 import           Pos.Core
 import           Pos.Core.Common (ScriptVersion)
-import           Pos.Core.Configuration ()
 
-import           Pos.Data.Attributes (Attributes (..), decodeAttributes, encodeAttributes)
-import           Pos.Merkle (MerkleTree)
+import           Pos.Core.Attributes (Attributes (..), decodeAttributes,
+                     encodeAttributes)
+import           Pos.Core.Merkle (MerkleTree)
 
 import           Test.Pos.Binary.Helpers (binaryTest)
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Core.Chrono ()
-import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
+import           Test.Pos.Crypto.Arbitrary ()
 
 
 data MyScript = MyScript
@@ -78,56 +77,33 @@ instance Bi (Attributes X2) where
 
 ----------------------------------------
 
--- We run the tests this number of times, with different `ProtocolMagics`, to get increased
--- coverage. We should really do this inside of the `prop`, but it is difficult to do that
--- without significant rewriting of the testsuite.
-testMultiple :: Int
-testMultiple = 3
 
 spec :: Spec
-spec = do
-    runWithMagic NMMustBeNothing
-    runWithMagic NMMustBeJust
-
-runWithMagic :: RequiresNetworkMagic -> Spec
-runWithMagic rnm = replicateM_ testMultiple $
-    modifyMaxSuccess (`div` testMultiple) $ do
-        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
-        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
-            withGenesisSpec 0 (defaultCoreConfiguration pm) $ \_ ->
-                describe "Cbor Bi instances" $ do
-                    describe "Core.Address" $ do
-                        binaryTest @Address
-                        binaryTest @Address'
-                        binaryTest @AddrType
-                        binaryTest @AddrStakeDistribution
-                        binaryTest @AddrSpendingData
-                    describe "Core.Types" $ do
-                        binaryTest @Timestamp
-                        binaryTest @TimeDiff
-                        binaryTest @EpochIndex
-                        binaryTest @Coin
-                        binaryTest @CoinPortion
-                        binaryTest @LocalSlotIndex
-                        binaryTest @SlotId
-                        binaryTest @EpochOrSlot
-                        binaryTest @SharedSeed
-                        binaryTest @ChainDifficulty
-                        binaryTest @SoftforkRule
-                        binaryTest @BlockVersionData
-                        binaryTest @(Attributes ())
-                        binaryTest @(Attributes AddrAttributes)
-                    describe "Core.Fee" $ do
-                        binaryTest @Coeff
-                        binaryTest @TxSizeLinear
-                        binaryTest @TxFeePolicy
-                    describe "Core.Script" $ do
-                        binaryTest @Script
-                    describe "Core.Vss" $ do
-                        binaryTest @VssCertificate
-                    describe "Core.Version" $ do
-                        binaryTest @ApplicationName
-                        binaryTest @SoftwareVersion
-                        binaryTest @BlockVersion
-                    describe "Merkle" $ do
-                        binaryTest @(MerkleTree Int32)
+spec = describe "Cbor Bi instances" $ do
+        describe "Core.Address" $ do
+            binaryTest @Address
+            binaryTest @Address'
+            binaryTest @AddrType
+            binaryTest @AddrStakeDistribution
+            binaryTest @AddrSpendingData
+        describe "Core.Types" $ do
+            binaryTest @Timestamp
+            binaryTest @TimeDiff
+            binaryTest @EpochIndex
+            binaryTest @Coin
+            binaryTest @CoinPortion
+            binaryTest @LocalSlotIndex
+            binaryTest @SlotId
+            binaryTest @EpochOrSlot
+            binaryTest @SharedSeed
+            binaryTest @ChainDifficulty
+            binaryTest @(Attributes ())
+            binaryTest @(Attributes AddrAttributes)
+        describe "Core.Fee" $ do
+            binaryTest @Coeff
+            binaryTest @TxSizeLinear
+            binaryTest @TxFeePolicy
+        describe "Core.Script" $ do
+            binaryTest @Script
+        describe "Merkle" $ do
+            binaryTest @(MerkleTree Int32)

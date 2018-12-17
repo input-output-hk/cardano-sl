@@ -11,12 +11,16 @@ module Pos.Core.Common.CoinPortion
 import           Universum
 
 import           Control.Monad.Except (MonadError (throwError))
-import qualified Data.Text.Buildable as Buildable
+import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, float, int, sformat, (%))
+import qualified Formatting.Buildable as Buildable
+import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
+                     ToJSON (..))
 
 import           Pos.Binary.Class (Bi, decode, encode)
-
 import           Pos.Core.Common.Coin
+import           Pos.Util.Json.Canonical ()
 
 -- | CoinPortion is some portion of Coin; it is interpreted as a fraction
 -- with denominator of 'coinPortionDenominator'. The numerator must be in the
@@ -35,6 +39,20 @@ newtype CoinPortion = CoinPortion
 instance Bi CoinPortion where
     encode = encode . getCoinPortion
     decode = CoinPortion <$> decode
+
+instance Monad m => ToJSON m CoinPortion where
+    toJSON = toJSON @_ @Word64 . getCoinPortion  -- i. e. String
+
+instance ReportSchemaErrors m => FromJSON m CoinPortion where
+    fromJSON val = do
+        number <- fromJSON val
+        pure $ CoinPortion number
+
+instance Aeson.FromJSON CoinPortion where
+    parseJSON v = unsafeCoinPortionFromDouble <$> Aeson.parseJSON v
+
+instance Aeson.ToJSON CoinPortion where
+    toJSON = Aeson.toJSON . coinPortionToDouble
 
 -- | Denominator used by 'CoinPortion'.
 coinPortionDenominator :: Word64
@@ -101,3 +119,5 @@ applyCoinPortionUp (getCoinPortion -> p) (unsafeGetCoin -> c) =
                         (toInteger coinPortionDenominator)
     in if m > 0 then Coin (fromInteger (d + 1))
                 else Coin (fromInteger d)
+
+deriveSafeCopySimple 0 'base ''CoinPortion

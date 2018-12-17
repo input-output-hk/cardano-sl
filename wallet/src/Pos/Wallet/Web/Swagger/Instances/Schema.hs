@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE OverloadedLists #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -10,26 +11,33 @@ import           Universum
 
 import           Control.Lens (ix, mapped, (?~))
 import           Data.Aeson (toJSON)
-import           Data.Swagger (NamedSchema (..), SwaggerType (..), ToParamSchema (..),
-                               ToSchema (..), declareNamedSchema, declareSchema, declareSchemaRef,
-                               defaultSchemaOptions, description, example, format,
-                               genericDeclareNamedSchema, name, properties, required, sketchSchema,
-                               type_)
+import           Data.Swagger (NamedSchema (..), SwaggerType (..),
+                     ToParamSchema (..), ToSchema (..), declareNamedSchema,
+                     declareSchema, declareSchemaRef, defaultSchemaOptions,
+                     description, example, format, genericDeclareNamedSchema,
+                     name, properties, required, sketchSchema, type_)
 import           Data.Swagger.Internal.Schema (named)
 import qualified Data.Swagger.Lens as Swagger
 import           Data.Typeable (Typeable, typeRep)
+
+#if !(MIN_VERSION_swagger2(2,2,2))
 import           Data.Version (Version)
+#endif
+
 import           Servant.Multipart (FileData (..))
 
+import           Pos.Chain.Update (ApplicationName, BlockVersion,
+                     SoftwareVersion)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
-import           Pos.Core (ApplicationName, BlockCount (..), BlockVersion, ChainDifficulty, Coin,
-                           SlotCount (..), SoftwareVersion, mkCoin)
-import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Core (BlockCount (..), ChainDifficulty, Coin,
+                     SlotCount (..), mkCoin)
+import           Pos.Util.Mnemonic (Mnemonic)
 
 import qualified Pos.Wallet.Web.ClientTypes as CT
 import qualified Pos.Wallet.Web.Error.Types as ET
 
-import           Pos.Wallet.Web.Methods.Misc (PendingTxsSummary, WalletStateSnapshot)
+import           Pos.Wallet.Web.Methods.Misc (PendingTxsSummary,
+                     WalletStateSnapshot)
 
 -- | Instances we need to build Swagger-specification for 'walletApi':
 -- 'ToParamSchema' - for types in parameters ('Capture', etc.),
@@ -77,13 +85,24 @@ instance ToSchema      BlockCount
 instance ToSchema      SlotCount
 instance ToSchema      ChainDifficulty
 instance ToSchema      BlockVersion
-instance ToSchema      BackupPhrase
 instance ToParamSchema CT.CPassPhrase
 instance ToParamSchema CT.ScrollOffset
 instance ToParamSchema CT.ScrollLimit
 instance ToSchema      CT.ApiVersion
+#if !(MIN_VERSION_swagger2(2,2,2))
 instance ToSchema      Version
+#endif
 instance ToSchema      CT.ClientInfo
+
+instance (KnownNat mw) => ToSchema (CT.CBackupPhrase mw) where
+    declareNamedSchema _ = do
+        mnemonicSchema <- declareSchemaRef (Proxy @(Mnemonic mw))
+        return $ NamedSchema (Just "BackupPhrase") $ mempty
+            & type_ .~ SwaggerObject
+            & properties .~
+                [ ("bpToList", mnemonicSchema)
+                ]
+            & required .~ [ "bpToList" ]
 
 instance ToSchema InputSelectionPolicy where
     declareNamedSchema proxy =

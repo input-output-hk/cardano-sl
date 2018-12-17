@@ -1,5 +1,6 @@
-{-# LANGUAGE CPP        #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE CPP             #-}
+{-# LANGUAGE RankNTypes      #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- TODO Maybe move it somewhere else.
 -- | Block payload generation.
@@ -21,22 +22,28 @@ import qualified Data.Vector as V
 import           Formatting (build, sformat, (%))
 import           System.Random (RandomGen (..))
 
-import           Pos.AllSecrets (asSecretKeys, asSpendingData, unInvAddrSpendingData,
-                                 unInvSecretsMap)
-import           Pos.Client.Txp.Util (InputSelectionPolicy (..), TxError (..), createGenericTx,
-                                      makeMPubKeyTxAddrs)
-import           Pos.Core (AddrSpendingData (..), Address (..), Coin, SlotId (..), addressHash,
-                           coinToInteger, makePubKeyAddressBoot, unsafeIntegerToCoin)
+import           Pos.AllSecrets (asSecretKeys, asSpendingData,
+                     unInvAddrSpendingData, unInvSecretsMap)
+import           Pos.Chain.Genesis as Genesis (Config (..))
+import           Pos.Chain.Txp (Tx (..), TxAux (..), TxIn (..), TxOut (..),
+                     TxOutAux (..), TxpConfiguration, Utxo, execUtxoM,
+                     utxoToLookup)
+import qualified Pos.Chain.Txp as Utxo
+import           Pos.Client.Txp.Util (InputSelectionPolicy (..), TxError (..),
+                     createGenericTx, makeMPubKeyTxAddrs)
+import           Pos.Core (AddrSpendingData (..), Address (..), Coin,
+                     SlotId (..), addressHash, coinToInteger,
+                     makePubKeyAddressBoot, unsafeIntegerToCoin)
 import           Pos.Core.NetworkMagic (makeNetworkMagic)
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxOut (..), TxOutAux (..))
-import           Pos.Crypto (ProtocolMagic, SecretKey, WithHash (..), fakeSigner, hash, toPublic)
+import           Pos.Crypto (SecretKey, WithHash (..), fakeSigner, hash,
+                     toPublic)
+import           Pos.DB.Txp (MonadTxpLocal (..), getAllPotentiallyHugeUtxo)
 import           Pos.Generator.Block.Error (BlockGenError (..))
-import           Pos.Generator.Block.Mode (BlockGenMode, BlockGenRandMode, MonadBlockGenBase)
-import           Pos.Generator.Block.Param (HasBlockGenParams (..), HasTxGenParams (..))
-import qualified Pos.GState as DB
-import           Pos.Txp.MemState.Class (MonadTxpLocal (..))
-import           Pos.Txp.Toil (Utxo, execUtxoM, utxoToLookup)
-import qualified Pos.Txp.Toil.Utxo as Utxo
+import           Pos.Generator.Block.Mode (BlockGenMode, BlockGenRandMode,
+                     MonadBlockGenBase)
+import           Pos.Generator.Block.Orphans ()
+import           Pos.Generator.Block.Param (HasBlockGenParams (..),
+                     HasTxGenParams (..))
 import qualified Pos.Util.Modifier as Modifier
 
 ----------------------------------------------------------------------------
@@ -111,14 +118,15 @@ data GenTxData = GenTxData
 
 makeLenses ''GenTxData
 
--- TODO: move to txp, think how to unite it with 'Test.Pos.Txp.Arbitrary'.
+-- TODO: move to txp, think how to unite it with 'Test.Pos.Chain.Txp.Arbitrary'.
 -- | Generate valid 'TxPayload' using current global state.
 genTxPayload
     :: forall ext g m
      . (RandomGen g, MonadBlockGenBase m, MonadTxpLocal (BlockGenMode ext m))
-    => ProtocolMagic
+    => Genesis.Config
+    -> TxpConfiguration
     -> BlockGenRandMode ext g m ()
-genTxPayload pm = do
+genTxPayload genesisConfig txpConfig = do
     invAddrSpendingData <-
         unInvAddrSpendingData <$> view (blockGenParams . asSpendingData)
     -- We only leave outputs we have secret keys related to. Tx
@@ -126,21 +134,20 @@ genTxPayload pm = do
     -- 'invAddrSpendingData' so 'GenTxData' is consistent.
     let knowSecret (toaOut -> txOut) =
             txOutAddress txOut `HM.member` invAddrSpendingData
-    utxo <- M.filter knowSecret <$> lift DB.getAllPotentiallyHugeUtxo
+    utxo <- M.filter knowSecret <$> lift getAllPotentiallyHugeUtxo
     let gtd = GenTxData utxo (V.fromList $ M.keys utxo)
     flip evalStateT gtd $ do
         (a,d) <- lift $ view tgpTxCountRange
         txsN <- fromIntegral <$> getRandomR (a, a + d)
-        void $ replicateM txsN genTransaction
+        replicateM_ txsN genTransaction
   where
-    nm = makeNetworkMagic pm
+    nm = makeNetworkMagic $ configProtocolMagic genesisConfig
     genTransaction :: StateT GenTxData (BlockGenRandMode ext g m) ()
     genTransaction = do
         utxo <- use gtdUtxo
         utxoSize <- uses gtdUtxoKeys V.length
         when (utxoSize == 0) $
             lift $ throwM $ BGInternal "Utxo is empty when trying to create tx payload"
-
         secrets <- unInvSecretsMap <$> view (blockGenParams . asSecretKeys)
         invAddrSpendingData <-
             unInvAddrSpendingData <$> view (blockGenParams . asSpendingData)
@@ -208,18 +215,21 @@ genTxPayload pm = do
             getSigner addr =
                 note (SafeSignerNotFound addr) $
                 HM.lookup addr signers
-            makeTestTx i o = makeMPubKeyTxAddrs pm getSigner i o
+            makeTestTx i o = makeMPubKeyTxAddrs (configProtocolMagic genesisConfig)
+                                                getSigner
+                                                i
+                                                o
             groupedInputs = OptimizeForSecurity
 
         eTx <- lift . lift $
-            createGenericTx pm mempty makeTestTx groupedInputs ownUtxo txOutAuxs changeAddrData
+            createGenericTx genesisConfig mempty makeTestTx groupedInputs ownUtxo txOutAuxs changeAddrData
         (txAux, _) <- either (throwM . BGFailedToCreate . pretty) pure eTx
 
         let tx = taTx txAux
         let txId = hash tx
         let txIns = _txInputs tx
         -- @txpProcessTx@ for BlockGenMode should be non-blocking
-        res <- lift . lift $ txpProcessTx pm (txId, txAux)
+        res <- lift . lift $ txpProcessTx genesisConfig txpConfig (txId, txAux)
         case res of
             Left e  -> error $ "genTransaction@txProcessTransaction: got left: " <> pretty e
             Right _ -> do
@@ -243,7 +253,8 @@ genTxPayload pm = do
 genPayload
     :: forall ext g m
      . (RandomGen g, MonadBlockGenBase m, MonadTxpLocal (BlockGenMode ext m))
-    => ProtocolMagic
+    => Genesis.Config
+    -> TxpConfiguration
     -> SlotId
     -> BlockGenRandMode ext g m ()
-genPayload pm _ = genTxPayload pm
+genPayload genesisConfig txpConfig _ = genTxPayload genesisConfig txpConfig

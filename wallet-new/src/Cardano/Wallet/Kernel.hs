@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 -- | The kernel of the wallet implementation
 --
 -- The goal is to keep this module mostly self-contained, and not use to many
@@ -7,271 +5,238 @@
 -- of the UTxO DSL), so that we can test it outside of a node context also
 -- (in unit tests).
 module Cardano.Wallet.Kernel (
-    -- * Passive wallet
-    PassiveWallet -- opaque
-  , WalletId
-  , accountUtxo
-  , accountTotalBalance
-  , applyBlock
-  , applyBlocks
-  , bracketPassiveWallet
-  , createWalletHdRnd
-  , init
-  , walletLogMessage
-  , walletPassive
-  , wallets
-    -- * Active wallet
-  , ActiveWallet -- opaque
-  , bracketActiveWallet
-  , newPending
-  ) where
+      -- * Passive wallet
+      PassiveWallet -- opaque
+    , bracketPassiveWallet
+    -- * Configuration
+    , DatabaseMode(..)
+    , DatabaseOptions(..)
+    , useDefaultPaths
+    , defaultAcidStatePath
+    , defaultSqlitePath
+      -- ** Lenses
+    , walletNode
+    , walletLogMessage
+    , walletPassive
+    , walletMeta
+      -- * Active wallet
+    , ActiveWallet -- opaque
+    , bracketActiveWallet
+    ) where
 
-import           Universum hiding (State, init)
+import           Universum hiding (State)
 
-import           Control.Concurrent.MVar (modifyMVar_, withMVar)
-import           Control.Lens.TH
-import qualified Data.Map.Strict as Map
-import           Data.Time.Clock.POSIX (getPOSIXTime)
-
-import           Formatting (build, sformat)
-
-import           System.Wlog (Severity (..))
-
-import           Data.Acid (AcidState)
-import           Data.Acid.Advanced (query', update')
+import           Control.Concurrent.Async (async, cancel)
+import           Data.Acid (AcidState, createArchive, createCheckpoint,
+                     openLocalStateFrom)
 import           Data.Acid.Memory (openMemoryState)
+import qualified Data.Map.Strict as Map
+import           System.Directory (doesPathExist, removePathForcibly)
 
+import           Pos.Chain.Txp (TxAux (..))
+import           Pos.Crypto (ProtocolMagic)
+import           Pos.Infra.InjectFail (FInjects)
+import           Pos.Util.Wlog (Severity (..))
+
+import           Cardano.Wallet.Kernel.DB.AcidState (DB, defDB)
+import           Cardano.Wallet.Kernel.DB.Read (pendingByAccount)
+import           Cardano.Wallet.Kernel.DB.TxMeta
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
-import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..), prefilterBlock,
-                                                    prefilterUtxo)
-import           Cardano.Wallet.Kernel.Types (WalletESKs, WalletId (..))
-
-import           Cardano.Wallet.Kernel.DB.AcidState (ApplyBlock (..), CreateHdWallet (..), DB,
-                                                     NewPending (..), NewPendingError,
-                                                     Snapshot (..), dbHdWallets, defDB)
-import           Cardano.Wallet.Kernel.DB.BlockMeta (BlockMeta (..))
-import           Cardano.Wallet.Kernel.DB.HdWallet
-import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
-import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
-import           Cardano.Wallet.Kernel.DB.HdWallet.Read (HdQueryErr)
-import           Cardano.Wallet.Kernel.DB.InDb
-import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
-import qualified Cardano.Wallet.Kernel.DB.Spec.Read as Spec
-
-
-import           Pos.Core (AddressHash, Coin, Timestamp (..), TxAux (..))
-
-import           Pos.Core.Chrono (OldestFirst)
-import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic, PublicKey)
-import           Pos.Txp (Utxo)
-
-{-------------------------------------------------------------------------------
-  Passive wallet
--------------------------------------------------------------------------------}
-
--- | Passive wallet
---
--- A passive wallet can receive and process blocks, keeping track of state,
--- but cannot send new transactions.
---
-data PassiveWallet = PassiveWallet {
-      -- | Send log message
-      _walletLogMessage    :: Severity -> Text -> IO () -- ^ Logger
-    , _walletESKs          :: MVar WalletESKs           -- ^ ESKs indexed by WalletId
-    , _wallets             :: AcidState DB              -- ^ Database handle
-    , _walletProtocolMagic :: ProtocolMagic
-    }
-
-makeLenses ''PassiveWallet
+import           Cardano.Wallet.Kernel.Internal
+import           Cardano.Wallet.Kernel.Keystore (Keystore)
+import           Cardano.Wallet.Kernel.NodeStateAdaptor (NodeStateAdaptor)
+import           Cardano.Wallet.Kernel.Pending (cancelPending)
+import           Cardano.Wallet.Kernel.Read (getWalletSnapshot)
+import           Cardano.Wallet.Kernel.Submission (WalletSubmission,
+                     addPendings, emptyWalletSubmission, tick)
+import           Cardano.Wallet.Kernel.Submission.Worker (tickSubmissionLayer)
+import qualified Cardano.Wallet.Kernel.Util.Strict as Strict
 
 {-------------------------------------------------------------------------------
   Passive Wallet Resource Management
 -------------------------------------------------------------------------------}
 
+-- | This type is used to configure the database location.
+data DatabaseMode
+    = UseInMemory
+    -- ^ This constructor is used when you want to run the database in memory.
+    -- This is useful for testing as it does not require a disk. The database
+    -- will start out with the fresh, default, uninitialized state.
+    | UseFilePath DatabaseOptions
+    -- ^ Load the databases from the given paths.
+
+-- | A configuration type for specifying where to load the databases from.
+data DatabaseOptions
+    = DatabaseOptions
+    { dbPathAcidState :: FilePath
+    -- ^ The path for the @acid-state@ database.
+    , dbPathMetadata  :: FilePath
+    -- ^ This path is used for the SQLite database that contains the transaction
+    -- metadata.
+    , dbRebuild       :: Bool
+    -- ^ Whether we want to rebuild the db in case it exists.
+    } deriving (Eq, Show)
+
+-- | Use the default paths on disk. See 'DatabaseOptions' for more details.
+useDefaultPaths :: DatabaseMode
+useDefaultPaths =
+    UseFilePath $ DatabaseOptions defaultAcidStatePath defaultSqlitePath False
+
+defaultAcidStatePath :: FilePath
+defaultAcidStatePath = "wallet-db-acid"
+
+defaultSqlitePath :: FilePath
+defaultSqlitePath = "./wallet-db-sqlite.sqlite3"
+
 -- | Allocate wallet resources
 --
 -- Here and elsewhere we'll want some constraints on this monad here, but
 -- it shouldn't be too specific.
-bracketPassiveWallet :: (MonadMask m, MonadIO m)
-                     => ProtocolMagic
-                     -> (Severity -> Text -> IO ())
-                     -> (PassiveWallet -> m a) -> m a
-bracketPassiveWallet pm _walletLogMessage f =
-    bracket (liftIO $ openMemoryState defDB)
-            (\_ -> return ())
-            (\db ->
+bracketPassiveWallet
+    :: (MonadMask m, MonadIO m)
+    => ProtocolMagic
+    -> DatabaseMode
+    -> (Severity -> Text -> IO ())
+    -> Keystore
+    -> NodeStateAdaptor IO
+    -> FInjects IO
+    -> (PassiveWallet -> m a) -> m a
+bracketPassiveWallet pm mode logMsg keystore node fInjects f =
+    bracket (liftIO $ handlesOpen mode)
+            (liftIO . handlesClose mode)
+            (\ handles ->
                 bracket
-                  (liftIO $ initPassiveWallet pm _walletLogMessage db)
+                  (liftIO $ initPassiveWallet pm logMsg keystore handles node fInjects)
                   (\_ -> return ())
                   f)
 
-{-------------------------------------------------------------------------------
-  Manage the WalletESKs Map
--------------------------------------------------------------------------------}
+data WalletHandles = Handles {
+    hAcid :: AcidState DB,
+    hMeta :: MetaDBHandle
+}
 
--- | Insert an ESK, indexed by WalletId, to the WalletESK map
-insertWalletESK :: PassiveWallet -> WalletId -> EncryptedSecretKey -> IO ()
-insertWalletESK pw wid esk
-    = modifyMVar_ (pw ^. walletESKs) (return . f)
-    where f = Map.insert wid esk
+-- TODO(kde): this will be run with asynchronous exceptions masked.
+-- and we should rethink if migrateMetaDB should happen here.
+handlesOpen :: DatabaseMode -> IO WalletHandles
+handlesOpen mode =
+    case mode of
+        UseInMemory -> do
+            db <- openMemoryState defDB
+            metadb <- openMetaDB ":memory:"
+            migrateMetaDB metadb
+            return $ Handles db metadb
+        UseFilePath (DatabaseOptions acidDb sqliteDb rebuildDB) -> do
+            let deleteMaybe fp = do
+                    when rebuildDB $ do
+                        itsHere <- doesPathExist fp
+                        when itsHere $ removePathForcibly fp
+            deleteMaybe acidDb
+            db <- openLocalStateFrom acidDb defDB
+            deleteMaybe sqliteDb
+            metadb <- openMetaDB sqliteDb
+            migrateMetaDB metadb
+            return $ Handles db metadb
 
-withWalletESKs :: forall a. PassiveWallet -> (WalletESKs -> IO a) -> IO a
-withWalletESKs pw = withMVar (pw ^. walletESKs)
+handlesClose :: DatabaseMode -> WalletHandles -> IO ()
+handlesClose dbMode (Handles acidDb meta) = do
+    closeMetaDB meta
+    case dbMode of
+        UseInMemory ->
+            pure ()
+        UseFilePath DatabaseOptions{} -> do
+            createCheckpoint acidDb
+            createArchive acidDb
 
 {-------------------------------------------------------------------------------
   Wallet Initialisers
 -------------------------------------------------------------------------------}
 
--- | Initialise Passive Wallet with empty Wallets collection
+-- | Initialise Passive Wallet
 initPassiveWallet :: ProtocolMagic
                   -> (Severity -> Text -> IO ())
-                  -> AcidState DB
+                  -> Keystore
+                  -> WalletHandles
+                  -> NodeStateAdaptor IO
+                  -> FInjects IO
                   -> IO PassiveWallet
-initPassiveWallet pm logMessage db = do
-    esks <- Universum.newMVar Map.empty
-    return $ PassiveWallet logMessage esks db pm
-
--- | Initialize the Passive wallet (specified by the ESK) with the given Utxo
---
--- This is separate from allocating the wallet resources, and will only be
--- called when the node is initialized (when run in the node proper).
-init :: PassiveWallet -> IO ()
-init PassiveWallet{..} = _walletLogMessage Info "Passive Wallet kernel initialized"
-
-{-------------------------------------------------------------------------------
-  Wallet Creation
--------------------------------------------------------------------------------}
-
--- | Creates an HD wallet with randomly generated addresses.
---
--- Prefilters the Utxo before passing it to the Acidstate update.
-
--- Adds an HdRoot and HdAccounts (which are discovered during prefiltering of utxo).
--- (In the case of empty utxo, no HdAccounts are created.)
--- May fail with CreateHdWalletError if the HdRootId already exists
-
--- The ESK is indexed by WalletId and added to the WalletESK map.
-createWalletHdRnd :: PassiveWallet
-                  -> HD.WalletName
-                  -> HasSpendingPassword
-                  -> AssuranceLevel
-                  -> (AddressHash PublicKey, EncryptedSecretKey)
-                  -> Utxo
-                  -> IO (Either HD.CreateHdRootError [HdAccountId])
-createWalletHdRnd pw@PassiveWallet{..} name spendingPassword assuranceLevel (pk,esk) utxo = do
-    created <- InDb <$> getCurrentTimestamp
-    let newRoot = HD.initHdRoot rootId name spendingPassword assuranceLevel created
-
-    res <- update' _wallets $ CreateHdWallet newRoot utxoByAccount
-    either (return . Left) insertESK res
+initPassiveWallet pm logMessage keystore handles node fInjects = do
+    pw <- preparePassiveWallet
+    initSubmission pw
+    return pw
     where
-        pm = pw ^. walletProtocolMagic
-        utxoByAccount = prefilterUtxo pm rootId esk utxo
-        accountIds    = Map.keys utxoByAccount
+        -- | Prepare Passive Wallet for initialisation.
+        -- NOTE: the Submission Layer is not initialised yet since that would require
+        -- access to the PassiveWallet state
+        preparePassiveWallet :: IO PassiveWallet
+        preparePassiveWallet = do
+            submission <- newMVar emptyWalletSubmission
+            restore    <- newRestorationTasks
+            return PassiveWallet {
+                  _walletLogMessage      = logMessage
+                , _walletKeystore        = keystore
+                , _wallets               = hAcid handles
+                , _walletProtocolMagic   = pm
+                , _walletMeta            = hMeta handles
+                , _walletNode            = node
+                , _walletSubmission      = submission
+                , _walletRestorationTask = restore
+                , _walletFInjects        = fInjects
+                }
 
-        rootId        = HD.HdRootId . InDb $ pk
-        walletId      = WalletIdHdRnd rootId
-
-        insertESK _arg = insertWalletESK pw walletId esk >> return (Right accountIds)
-
--- (NOTE: we are abandoning the 'Mockable time' strategy of the Cardano code base)
-getCurrentTimestamp :: IO Timestamp
-getCurrentTimestamp = Timestamp . round . (* 1000000) <$> getPOSIXTime
-
-{-------------------------------------------------------------------------------
-  Passive Wallet API implementation
--------------------------------------------------------------------------------}
-
--- | Prefilter the block for each esk in the `WalletESK` map.
---   Return a unified Map of accountId and prefiltered blocks (representing multiple ESKs)
--- TODO(@uroboros/ryan) optimisation: we are prefiltering the block n times for n keys, change this to be a single pass
-prefilterBlock' :: PassiveWallet
-                -> ResolvedBlock
-                -> IO (Map HdAccountId PrefilteredBlock)
-prefilterBlock' pw b =
-    withWalletESKs pw $ \esks ->
-        return
-        $ Map.unions
-        $ map prefilterBlock_
-        $ Map.toList esks
-    where
-        pm = pw ^. walletProtocolMagic
-        prefilterBlock_ (wid,esk) = prefilterBlock pm wid esk b
-
--- | Notify all the wallets in the PassiveWallet of a new block
-applyBlock :: PassiveWallet
-           -> ResolvedBlock
-           -> IO ()
-applyBlock pw@PassiveWallet{..} b
-    = do
-        blocksByAccount <- prefilterBlock' pw b
-        -- TODO(@uroboros/ryan) do proper metadata initialisation (as part of CBR-239: Support history tracking and queries)
-        let blockMeta = BlockMeta . InDb $ Map.empty
-
-        -- apply block to all Accounts in all Wallets
-        void $ update' _wallets $ ApplyBlock (blocksByAccount, blockMeta)
-
--- | Apply multiple blocks, one at a time, to all wallets in the PassiveWallet
---
---   TODO(@matt-noonan) this will be the responsibility of the worker thread (as part of CBR-243: Wallet restoration)
-applyBlocks :: PassiveWallet
-            -> OldestFirst [] ResolvedBlock
-            -> IO ()
-applyBlocks = mapM_ . applyBlock
+        -- | Since the submission layer state is not persisted, we need to initialise
+        -- the submission layer with all pending transactions present in the wallet state.
+        initSubmission :: PassiveWallet -> IO ()
+        initSubmission pw_  = do
+            pendings <- pendingByAccount <$> getWalletSnapshot pw_
+            Strict.modifyMVar_ (_walletSubmission pw_) $
+                return . addPendings pendings
 
 {-------------------------------------------------------------------------------
   Active wallet
 -------------------------------------------------------------------------------}
 
--- | Active wallet
---
--- An active wallet can do everything the passive wallet can, but also
--- send new transactions.
-data ActiveWallet = ActiveWallet {
-      -- | The underlying passive wallet
-      walletPassive   :: PassiveWallet
-
-      -- | The wallet diffusion layer
-    , walletDiffusion :: WalletDiffusion
-    }
-
 -- | Initialize the active wallet
-bracketActiveWallet :: MonadMask m
+bracketActiveWallet :: (MonadMask m, MonadIO m)
                     => PassiveWallet
                     -> WalletDiffusion
                     -> (ActiveWallet -> m a) -> m a
-bracketActiveWallet walletPassive walletDiffusion =
+bracketActiveWallet walletPassive
+                    walletDiffusion
+                    runActiveWallet = do
+    submissionLayerTicker <- liftIO $ async $
+      tickSubmissionLayer
+        (walletPassive ^. walletLogMessage)
+        (tickFunction (walletPassive ^. walletSubmission))
     bracket
       (return ActiveWallet{..})
-      (\_ -> return ())
-
--- | Submit a new pending transaction
---
--- Will fail if the HdAccountId does not exist or if some inputs of the
--- new transaction are not available for spending.
-newPending :: ActiveWallet -> HdAccountId -> TxAux -> IO (Either NewPendingError ())
-newPending ActiveWallet{..} accountId tx
-  = update' (walletPassive ^. wallets) $ NewPending accountId (InDb tx)
-
-{-------------------------------------------------------------------------------
-  Wallet Account read-only API
--------------------------------------------------------------------------------}
-
-walletQuery' :: forall e a. (Buildable e)
-             => PassiveWallet
-             -> HdQueryErr e a
-             -> IO a
-walletQuery' pw qry= do
-    snapshot <- query' (pw ^. wallets) Snapshot
-    let res = qry (snapshot ^. dbHdWallets)
-    either err return res
+      (\_ -> liftIO $ do
+                 (_walletLogMessage walletPassive) Error "stopping the wallet submission layer..."
+                 cancel submissionLayerTicker
+      )
+      runActiveWallet
     where
-        err = error . sformat build
+        -- NOTE(adn) We might want to discuss diffusion layer throttling
+        -- with Alex & Duncan.
+        -- By default the diffusion layer should correctly throttle and debounce
+        -- requests, but we might want in the future to adopt more sophisticated
+        -- strategies.
+        sendTransactions :: [TxAux] -> IO ()
+        sendTransactions [] = return ()
+        sendTransactions (tx:txs) = do
+            void $ (walletSendTx walletDiffusion) tx
+            sendTransactions txs
 
-accountUtxo :: PassiveWallet -> HdAccountId -> IO Utxo
-accountUtxo pw accountId
-    = walletQuery' pw (Spec.queryAccountUtxo accountId)
-
-accountTotalBalance :: PassiveWallet -> HdAccountId -> IO Coin
-accountTotalBalance pw accountId
-    = walletQuery' pw (Spec.queryAccountTotalBalance accountId)
+        tickFunction :: MVar WalletSubmission -> IO ()
+        tickFunction submissionLayer = do
+            toSend <-
+                Strict.modifyMVar submissionLayer $ \layer -> do
+                    let (e, s, state') = tick layer
+                    -- cancelPending is called in the MVar IO action so that we can reset the
+                    -- state of the wallet using the MVar to block this thread.
+                    -- If left outside, this thread could potentially
+                    -- cancel Txs that were added after the reset.
+                    unless (Map.null e) $
+                        cancelPending walletPassive e
+                    return (state', s)
+            -- This can`t change the state of the wallet, so it`s left outside the MVar IO action.
+            sendTransactions toSend

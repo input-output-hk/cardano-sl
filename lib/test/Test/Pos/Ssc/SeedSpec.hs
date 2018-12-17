@@ -15,18 +15,24 @@ import           Formatting (build, int, sformat, shown, (%))
 import           Serokell.Util (listJson)
 import           Test.Hspec (Spec, describe, pending)
 import           Test.Hspec.QuickCheck (modifyMaxSize, modifyMaxSuccess, prop)
-import           Test.QuickCheck (Property, choose, counterexample, generate, ioProperty, property,
-                                  sized, (===))
+import           Test.QuickCheck (Property, choose, counterexample, generate,
+                     ioProperty, property, sized, (===))
 import           Test.QuickCheck.Property (failed, succeeded)
 
 import           Pos.Binary
-import           Pos.Core (AddressHash, SharedSeed (..), StakeholderId, addressHash, mkCoin)
-import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), getCommShares,
-                               getCommitmentsMap, mkCommitmentsMap, randCommitmentAndOpening)
-import           Pos.Crypto (DecShare, PublicKey, SecretKey, SignTag (SignCommitment), Threshold,
-                             VssKeyPair, VssPublicKey, decryptShare, sign, toPublic, toVssPublicKey)
-import           Pos.Ssc (SscSeedError (..), calculateSeed, secretToSharedSeed, vssThreshold)
+import           Pos.Chain.Ssc (Commitment (..), CommitmentsMap, Opening (..),
+                     SscSeedError (..), calculateSeed, getCommShares,
+                     getCommitmentsMap, mkCommitmentsMap,
+                     randCommitmentAndOpening, secretToSharedSeed,
+                     vssThreshold)
+import           Pos.Core (AddressHash, SharedSeed (..), StakeholderId,
+                     addressHash, mkCoin)
+import           Pos.Crypto (DecShare, PublicKey, SecretKey,
+                     SignTag (SignCommitment), Threshold, VssKeyPair,
+                     VssPublicKey, decryptShare, sign, toPublic,
+                     toVssPublicKey)
 
+import           Test.Pos.Crypto.Arbitrary ()
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Arbitrary (nonrepeating, sublistN)
 

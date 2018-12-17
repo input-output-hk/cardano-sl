@@ -1,0 +1,102 @@
+{ "avvmDistr":
+    { "cgQ85VQzWvEZOt6wRjnB4eL3qvID2Zf4AyhWZ3ws4F8=":
+        "37343863242999412"
+    , "gaMpq3UAm5Je_CbDNJGVCWULhl3WPW-NslfgJF8E0yQ=": "630099400"
+    }
+, "blockVersionData":
+    { "heavyDelThd": "433334544134126"
+    , "maxBlockSize": "4"
+    , "maxHeaderSize": "5"
+    , "maxProposalSize": "0"
+    , "maxTxSize": "6"
+    , "mpcThd": "236107662480767"
+    , "scriptVersion": 9061
+    , "slotDuration": "734"
+    , "softforkRule":
+        { "initThd": "46944805160625"
+        , "minThd": "195823507728266"
+        , "thdDecrement": "747866672432320"
+        }
+    , "txFeePolicy": { "multiplier": "84" , "summand": "31" }
+    , "unlockStakeEpoch": "3647707432224754741"
+    , "updateImplicit": "13112058965239099249"
+    , "updateProposalThd": "642506074573997"
+    , "updateVoteThd": "934785458282543"
+    }
+, "bootStakeholders":
+    { "5125b558daa14b5338e904cc2a75a8b7b3a4738de9cb28a6819576db":
+        1337 }
+, "ftsSeed":
+    "7a4379456a4b63337447346a61306b466a4f38717a616932365a4d5055454a66"
+, "heavyDelegation":
+    { "ed41bf35f4cd2109bdee27b0439942f6de3f55f0ac8d170de7136d3d":
+        { "cert":
+            "bae5422af5405e3803154a4ad986da5d14cf624d6701c5c78a79ec73777f74e13973af83752114d9f18166085997fc81e432cab7fee99a275d8bf138ad04e103"
+        , "delegatePk":
+            "3cppv+rBTAEzBNqIrAMu5jKBqwNsGxuRiOSxdLMD9D5VFjsXjpmbn9UGN7Ltq4yFioeaw8S9PmEAlUGaGWllcw=="
+        , "issuerPk":
+            "4qF3OiqC0QwwiQy/hOzL3Bqq7pIElkJNNuhoA52ctRkhsl7+Az2bANTwLM2c2rzsMyq7xv34g8pb86iv9KrCfg=="
+        , "omega": 68300481033
+        } }
+, "nonAvvmBalances":
+    { "2RhQhCGqYPDpFgTsnBTbnvPvCwpqAkjwLqQkWpkqXbLRmNxd4xNd262nGsr8JiynyKRUeMLSJ9Ntho9i76uvBTrVXdJJG5yiNLb8frmUe5qX7E":
+        "4873920820"
+    , "5FCjkr138i9wjRVwawmYMd4Vc9KxU7TuQhMyjMGpnykg9yb2qMpUCerDFzXvfAJMFgJTHyD7Sn4ybLXm2M6zeWAaWe7ctjq5QjVL427vGRx":
+        "4672189289312323"
+    , "Ae2tdPwUPEZDoUnyXuAgqzhkjNXNJeiZ5nqwprg9sArZmRNjySfJ5uz4FjB":
+        "8274687"
+    , "a2x5MVsL5Pr1SESUZbGb7d64coe2VpRJhEFsYCUHfaimAE3wvmNHd44H7ue1wFx1RqrS9vnAmTVri19FttwaRLWG5L2rLMe1tCSzZ4zJjeUwej8kEX4VmYbL7t7o1rmucebNvz8qGod2s6LKCkAxN6dWVv9jZ3gCkWrNsXq3JeSjaBLPT7RNwSExRmPAwJ6geZmadnKSArbiPjYXkaJa5GQyDUYbni8jCyXmMHB7Qsj1Pgc7qCKA7AebV13kADRv3wSbMgWEAbBrxEmBRnHgXw5Nh6EJ5n7ejVYJAJY3kJ8Q2xisLJxW54Y48BK8a4AW7M3fU":
+        "189377823442"
+    , "dRNpRgY7sgwXaGbEZQ7KtFprY5PE3sxejht9kFEKLmSowgUegSinCjx3yuKGHQbRHL2EUP89BuAurEScfrgWxahCjD1M9QKYoTj5KrbR5TDnqBE3oSNx7UcXhrGKM9aau48SASu8i88Sq8hPb3z5K662spTXX":
+        "12552661871782587"
+    }
+, "protocolConsts":
+    { "k": 2
+    , "protocolMagic": 1780893186
+    , "vssMaxTTL": 402296078
+    , "vssMinTTL": 1341799941
+    }
+, "startTime": 3735
+, "vssCerts":
+    { "1a1d2a73d908b6d463082eaef9f971d6beea8f3798b83717bd767c07":
+        { "expiryEpoch": 122
+        , "signature":
+            "5a37c40c07e7af4475753ac30e1292f91da9fb5ebd0d7f104dcde84d449a79d84696d1c69a236db697f2eff6a7a174b78e508800831083863615eb87aa70460f"
+        , "signingKey":
+            "aTZkTFhrdWVzVlo5SmZIZ2pyY3RzTEZ0Mk52b3ZYbmNoc092WDA1WTZMb2hsVE50NW1rUEZoVW9YdTFFWlNKVA=="
+        , "vssKey": "WCECTOxcafcxIvLc1rb2khZVlg06Yi4ALooxj26kpcztMcA="
+        }
+    , "301d692cf8fd0e7c115e308931d60a98e5276897a7f04d56e0dd2f46":
+        { "expiryEpoch": 122
+        , "signature":
+            "77580a6afb70de7c2100c92f8ff355c1cc316fb167c210f8bc44abd4cf8b51b7963160c661d3317c3436a71bebcb80af3f17dfd5a9a2825bbdcacffdf530f50f"
+        , "signingKey":
+            "anJjdHNMRnQyTnZvdlhuY2hzT3ZYMDVZNkxvaGxUTnQ1bWtQRmhVb1h1MUVaU0pUSXkzZlRVNTNiNDEycjRBRQ=="
+        , "vssKey": "WCEDS2GeEyq2QzuaCqV7FZOnveogpYx9RCh2QM4XQNxPebk="
+        }
+    , "459a7d2f3970b19ad0532adfadabf9f782df5d3466b57350661daeaf":
+        { "expiryEpoch": 122
+        , "signature":
+            "6a5a28741e1b562dd3be5380b7e531fa0a372687d96c802e6820a0d3d6990b65b98a375c61e63ec6e6ae70154fc61f94730bc19dfcacf6337ace9674ad209405"
+        , "signingKey":
+            "Mk52b3ZYbmNoc092WDA1WTZMb2hsVE50NW1rUEZoVW9YdTFFWlNKVEl5M2ZUVTUzYjQxMnI0QUV1c0Q3dGNkUg=="
+        , "vssKey": "WCED4a7E/7EkVW6005OmREbkeLPh7cmd8/Ef/ejE2hqsxRg="
+        }
+    , "48aab1c338873e268fe0b956607b8cf2ce5b372c36b9ea19f5ddd202":
+        { "expiryEpoch": 122
+        , "signature":
+            "93e53eecb8ca79452c1e950313dd7fbb237ee33f9d480f31f472c754fb124407a258be5e17c6813ed986ba5f85e9ef41b4f2b225eaa635cf7ff8321f8e3b120f"
+        , "signingKey":
+            "c1ZaOUpmSGdqcmN0c0xGdDJOdm92WG5jaHNPdlgwNVk2TG9obFROdDVta1BGaFVvWHUxRVpTSlRJeTNmVFU1Mw=="
+        , "vssKey": "WCEDclC8OTK1tfbEJ3Tu88Bup7fxNoboPW/57DFkWaY3NoI="
+        }
+    , "f1364141473f4f736295b2b824c73e9f1a7f9be7ee3e9fbe52e97351":
+        { "expiryEpoch": 122
+        , "signature":
+            "a886c42070ac836a292800ed75f5acabf9a9d768ed91ae80c2fcf065e5f66377f5dca619e4d100facf4d8778c4472da22232617ab4740ff71acdc5eb0c4fed0b"
+        , "signingKey":
+            "SjB1S0RiaTdpNmRMWGt1ZXNWWjlKZkhnanJjdHNMRnQyTnZvdlhuY2hzT3ZYMDVZNkxvaGxUTnQ1bWtQRmhVbw=="
+        , "vssKey": "WCEDXfZLB0W3qMDZK39FaMeHD5o+s4DaWDHXHYbeBEz6TU0="
+        }
+    }
+}

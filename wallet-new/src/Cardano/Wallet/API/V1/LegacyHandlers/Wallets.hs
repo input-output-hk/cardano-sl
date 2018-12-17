@@ -1,9 +1,10 @@
 module Cardano.Wallet.API.V1.LegacyHandlers.Wallets (
       handlers
 
-    -- * Internals, exposed only for testing
+    -- * Internals, exposed only for testing or in internal endpoints
     , isNodeSufficientlySynced
     , newWallet
+    , addWalletInfo
     ) where
 
 import           Universum
@@ -16,33 +17,35 @@ import qualified Pos.Wallet.Web.State.Storage as V0
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
-import           Cardano.Wallet.API.V1.Errors
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
-import qualified Data.IxSet.Typed as IxSet
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     configBlkSecurityParam)
+import           Pos.Chain.Update ()
 import qualified Pos.Core as Core
-import           Pos.Update.Configuration ()
 
-import           Pos.Core.NetworkMagic (NetworkMagic)
+import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
 import           Pos.Util (HasLens (..))
 import qualified Pos.Wallet.WalletMode as V0
-import qualified Pos.Wallet.Web.Error.Types as V0
-import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, MonadWalletLogicRead)
+import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic,
+                     MonadWalletLogicRead)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Servant
 
--- | All the @Servant@ handlers for wallet-specific operations.
-handlers :: HasConfigurations
-         => NetworkMagic
-         -> ServerT Wallets.API MonadV1
-handlers nm = newWallet nm
-    :<|> listWallets nm
-    :<|> updatePassword nm
-    :<|> deleteWallet nm
-    :<|> getWallet nm
-    :<|> updateWallet nm
 
+-- | All the @Servant@ handlers for wallet-specific operations.
+handlers :: Genesis.Config -> ServerT Wallets.API MonadV1
+handlers genesisConfig =
+    let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
+    in  newWallet genesisConfig
+        :<|> listWallets nm
+        :<|> updatePassword nm
+        :<|> deleteWallet nm
+        :<|> getWallet nm
+        :<|> updateWallet nm
+        :<|> getUtxoStatistics
 
 -- | Pure function which returns whether or not the underlying node is
 -- \"synced enough\" to allow wallet creation/restoration. The notion of
@@ -51,14 +54,14 @@ handlers nm = newWallet nm
 -- or are struggling to keep up. Therefore we consider a node to be \"synced
 -- enough\" with the blockchain if we are not lagging more than @k@ slots, where
 -- @k@ comes from the 'blkSecurityParam'.
-isNodeSufficientlySynced :: Core.HasProtocolConstants => V0.SyncProgress -> Bool
-isNodeSufficientlySynced spV0 =
+isNodeSufficientlySynced :: Core.BlockCount -> V0.SyncProgress -> Bool
+isNodeSufficientlySynced k spV0 =
     let blockchainHeight = fromMaybe (Core.BlockCount maxBound)
                                      (Core.getChainDifficulty <$> V0._spNetworkCD spV0)
         localHeight = Core.getChainDifficulty . V0._spLocalCD $ spV0
         remainingBlocks = blockchainHeight - localHeight
 
-        in remainingBlocks <= Core.blkSecurityParam
+        in remainingBlocks <= k
 
 -- | Creates a new or restores an existing @wallet@ given a 'NewWallet' payload.
 -- Returns to the client the representation of the created or restored
@@ -70,39 +73,37 @@ newWallet
        , V0.MonadBlockchainInfo m
        , HasLens SyncQueue ctx SyncQueue
        )
-    => NetworkMagic
+    => Genesis.Config
     -> NewWallet
     -> m (WalletResponse Wallet)
-newWallet nm NewWallet{..} = do
+newWallet genesisConfig NewWallet{..} = do
 
     spV0 <- V0.syncProgress
     syncPercentage <- migrate spV0
 
     -- Do not allow creation or restoration of wallets if the underlying node
     -- is still catching up.
-    unless (isNodeSufficientlySynced spV0) $ throwM (NodeIsStillSyncing syncPercentage)
+    unless (isNodeSufficientlySynced (configBlkSecurityParam genesisConfig) spV0)
+        $ throwM (NodeIsStillSyncing syncPercentage)
 
-    let newWalletHandler CreateWallet  = V0.newWallet nm
-        newWalletHandler RestoreWallet = V0.restoreWalletFromSeed nm
+    let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
+        newWalletHandler CreateWallet  = V0.newWalletNoThrow nm
+        newWalletHandler RestoreWallet = V0.restoreWalletFromSeedNoThrow genesisConfig
         (V1 spendingPassword) = fromMaybe (V1 mempty) newwalSpendingPassword
-        (V1 backupPhrase) = newwalBackupPhrase
+        (BackupPhrase backupPhrase) = newwalBackupPhrase
     initMeta <- V0.CWalletMeta <$> pure newwalName
                               <*> migrate newwalAssuranceLevel
                               <*> pure 0
-    let walletInit = V0.CWalletInit initMeta backupPhrase
+    let walletInit = V0.CWalletInit initMeta (V0.CBackupPhrase backupPhrase)
     single <$> do
-        v0wallet <- newWalletHandler newwalOperation spendingPassword walletInit
-                        `catch` rethrowDuplicateMnemonic
-        ss <- V0.askWalletSnapshot
-        addWalletInfo ss v0wallet
-  where
-    -- NOTE: this is temporary solution until we get rid of V0 error handling and/or we lift error handling into types:
-    --   https://github.com/input-output-hk/cardano-sl/pull/2811#discussion_r183469153
-    --   https://github.com/input-output-hk/cardano-sl/pull/2811#discussion_r183472103
-    rethrowDuplicateMnemonic (e :: V0.WalletError) =
-        case e of
-            V0.RequestError "Wallet with that mnemonics already exists" -> throwM WalletAlreadyExists
-            _ -> throwM e
+        ev0wallet <- newWalletHandler newwalOperation spendingPassword walletInit
+        case ev0wallet of
+            Left cidWal -> do
+                walletId <- migrate cidWal
+                throwM (WalletAlreadyExists walletId)
+            Right v0wallet -> do
+                ss <- V0.askWalletSnapshot
+                addWalletInfo ss v0wallet
 
 -- | Returns the full (paginated) list of wallets.
 listWallets :: ( MonadThrow m
@@ -111,7 +112,7 @@ listWallets :: ( MonadThrow m
                )
             => NetworkMagic
             -> RequestParams
-            -> FilterOperations Wallet
+            -> FilterOperations '[WalletId, Core.Coin] Wallet
             -> SortOperations Wallet
             -> m (WalletResponse [Wallet])
 listWallets nm params fops sops = do
@@ -190,3 +191,12 @@ updateWallet nm wid WalletUpdate{..} = do
         -- reacquire the snapshot because we did an update
         ws' <- V0.askWalletSnapshot
         addWalletInfo ws' updated
+
+-- | Gets Utxo statistics for a wallet.
+-- | Stub, not calling data layer.
+getUtxoStatistics
+    :: (MonadWalletLogic ctx m)
+    => WalletId
+    -> m (WalletResponse UtxoStatistics)
+getUtxoStatistics _ = do
+    return $ single (V1.computeUtxoStatistics V1.log10 [])

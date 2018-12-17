@@ -1,0 +1,64 @@
+{
+    "spec": {
+        "protocolConstants": {
+            "vssMinTTL": 1341799941,
+            "k": 2,
+            "vssMaxTTL": 402296078,
+            "protocolMagic": 1780893186
+        },
+        "blockVersionData": {
+            "txFeePolicy": {
+                "txSizeLinear": {
+                    "a": 3.1e-8,
+                    "b": 8.4e-8
+                }
+            },
+            "maxTxSize": 6,
+            "updateProposalThd": 0.642506074573997,
+            "scriptVersion": 9061,
+            "maxBlockSize": 4,
+            "heavyDelThd": 0.433334544134126,
+            "updateImplicit": 1.3112058965239099249e19,
+            "maxHeaderSize": 5,
+            "updateVoteThd": 0.934785458282543,
+            "slotDuration": 734,
+            "maxProposalSize": 0,
+            "softforkRule": {
+                "minThd": 0.195823507728266,
+                "thdDecrement": 0.74786667243232,
+                "initThd": 4.6944805160625e-2
+            },
+            "mpcThd": 0.236107662480767,
+            "unlockStakeEpoch": 3647707432224754741
+        },
+        "avvmDistr": {
+            "cgQ85VQzWvEZOt6wRjnB4eL3qvID2Zf4AyhWZ3ws4F8=": 37343863242999412,
+            "gaMpq3UAm5Je_CbDNJGVCWULhl3WPW-NslfgJF8E0yQ=": 630099400
+        },
+        "initializer": {
+            "useHeavyDlg": true,
+            "avvmBalanceFactor": 2.106983080171e-3,
+            "seed": 3,
+            "testBalance": {
+                "totalBalance": 911040566224079710,
+                "richmenShare": 6.2349745920068775,
+                "useHDAddresses": false,
+                "richmen": 6001143654143911879,
+                "poors": 354896133480201129
+            },
+            "fakeAvvmBalance": {
+                "oneBalance": 7896368278086760723,
+                "count": 108112649620073880
+            }
+        },
+        "ftsSeed": "ekN5RWpLYzN0RzRqYTBrRmpPOHF6YWkyNlpNUFVFSmY=",
+        "heavyDelegation": {
+            "ed41bf35f4cd2109bdee27b0439942f6de3f55f0ac8d170de7136d3d": {
+                "pskDelegatePk": "3cppv+rBTAEzBNqIrAMu5jKBqwNsGxuRiOSxdLMD9D5VFjsXjpmbn9UGN7Ltq4yFioeaw8S9PmEAlUGaGWllcw==",
+                "pskOmega": 68300481033,
+                "pskCert": "bae5422af5405e3803154a4ad986da5d14cf624d6701c5c78a79ec73777f74e13973af83752114d9f18166085997fc81e432cab7fee99a275d8bf138ad04e103",
+                "pskIssuerPk": "4qF3OiqC0QwwiQy/hOzL3Bqq7pIElkJNNuhoA52ctRkhsl7+Az2bANTwLM2c2rzsMyq7xv34g8pb86iv9KrCfg=="
+            }
+        }
+    }
+}

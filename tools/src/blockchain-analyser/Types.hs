@@ -1,11 +1,10 @@
-{-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
-
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
 
 module Types ( initBlockchainAnalyser
              , DBFolderStat
@@ -17,10 +16,8 @@ import           Universum
 
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
-import           Mockable (Production)
 
-import           Pos.Core (HasConfiguration, HeaderHash, prevBlockL)
-import           Pos.Core.Block (Block)
+import           Pos.Chain.Block (Block, HeaderHash, prevBlockL)
 import           Pos.DB (MonadDBRead (..))
 import qualified Pos.DB as DB
 import qualified Pos.DB.Block as BDB
@@ -34,15 +31,15 @@ data BlockchainInspectorContext = BlockchainInspectorContext { bicNodeDBs :: DB.
 
 makeLensesWith postfixLFields ''BlockchainInspectorContext
 
-type BlockchainInspector = ReaderT BlockchainInspectorContext Production
+type BlockchainInspector = ReaderT BlockchainInspectorContext IO
 
-runBlockchainInspector :: BlockchainInspectorContext -> BlockchainInspector a -> Production a
+runBlockchainInspector :: BlockchainInspectorContext -> BlockchainInspector a -> IO a
 runBlockchainInspector = flip Mtl.runReaderT
 
 initBlockchainAnalyser ::
        DB.NodeDBs
     -> BlockchainInspector a
-    -> Production a
+    -> IO a
 initBlockchainAnalyser nodeDBs action = do
     let bicNodeDBs = nodeDBs
     let inspectorCtx = BlockchainInspectorContext {..}
@@ -55,11 +52,12 @@ initBlockchainAnalyser nodeDBs action = do
 instance HasLens DB.NodeDBs BlockchainInspectorContext DB.NodeDBs where
     lensOf = bicNodeDBs_L
 
-instance HasConfiguration => MonadDBRead BlockchainInspector where
+instance MonadDBRead BlockchainInspector where
     dbGet = DB.dbGetDefault
     dbIterSource = DB.dbIterSourceDefault
     dbGetSerBlock = BDB.dbGetSerBlockRealDefault
     dbGetSerUndo = BDB.dbGetSerUndoRealDefault
+    dbGetSerBlund = BDB.dbGetSerBlundRealDefault
 
 prevBlock :: Block -> HeaderHash
 prevBlock = view prevBlockL

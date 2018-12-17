@@ -1,0 +1,64 @@
+{ "avvmDistr":
+    { "KWymlw5hv5hUrqONLK6bMBmlxj_Sj_Sg6dNmyCXHiOQ=": "172323403"
+    , "p1_kN6kIwlKo8-lgHfFdWToaKlicZblRmw-rJPk5a98=": "434210906"
+    }
+, "blockVersionData":
+    { "heavyDelThd": "136666896062087"
+    , "maxBlockSize": "0"
+    , "maxHeaderSize": "2"
+    , "maxProposalSize": "0"
+    , "maxTxSize": "8"
+    , "mpcThd": "340531572846619"
+    , "scriptVersion": 56903
+    , "slotDuration": "379"
+    , "softforkRule":
+        { "initThd": "960317883358477"
+        , "minThd": "532535816427207"
+        , "thdDecrement": "329013992078399"
+        }
+    , "txFeePolicy": { "multiplier": "8" , "summand": "172" }
+    , "unlockStakeEpoch": "13346688070232230243"
+    , "updateImplicit": "6473853538638325423"
+    , "updateProposalThd": "497008830503149"
+    , "updateVoteThd": "6813701006338"
+    }
+, "bootStakeholders":
+    { "5125b558daa14b5338e904cc2a75a8b7b3a4738de9cb28a6819576db":
+        1337 }
+, "ftsSeed":
+    "65744e6f756958657a4379456a4b63337447346a61306b466a4f38717a616932"
+, "heavyDelegation":
+    { "ed41bf35f4cd2109bdee27b0439942f6de3f55f0ac8d170de7136d3d":
+        { "cert":
+            "bae5422af5405e3803154a4ad986da5d14cf624d6701c5c78a79ec73777f74e13973af83752114d9f18166085997fc81e432cab7fee99a275d8bf138ad04e103"
+        , "delegatePk":
+            "3cppv+rBTAEzBNqIrAMu5jKBqwNsGxuRiOSxdLMD9D5VFjsXjpmbn9UGN7Ltq4yFioeaw8S9PmEAlUGaGWllcw=="
+        , "issuerPk":
+            "4qF3OiqC0QwwiQy/hOzL3Bqq7pIElkJNNuhoA52ctRkhsl7+Az2bANTwLM2c2rzsMyq7xv34g8pb86iv9KrCfg=="
+        , "omega": 68300481033
+        } }
+, "nonAvvmBalances":
+    { "2RhQhCGqYPDpFgTsnBTbnvPvCwpqAkjwLqQkWpkqXbLRmNxd4xNd262nGsr8JiynyKRUeMLSJ9Ntho9i76uvBTrVXdJJG5yiNLb8frmUe5qX7E":
+        "1234567"
+    , "Ae2tdPwUPEZDoUnyXuAgqzhkjNXNJeiZ5nqwprg9sArZmRNjySfJ5uz4FjB":
+        "1337"
+    , "dRNpRgY7sgwXaGbEZQ7KtFprY5PE3sxejht9kFEKLmSowgUegSinCjx3yuKGHQbRHL2EUP89BuAurEScfrgWxahCjD1M9QKYoTj5KrbR5TDnqBE3oSNx7UcXhrGKM9aau48SASu8i88Sq8hPb3z5K662spTXX":
+        "12552661871782587"
+    }
+, "protocolConsts":
+    { "k": 64
+    , "protocolMagic": 135977977
+    , "vssMaxTTL": 126106167
+    , "vssMinTTL": 310228653
+    }
+, "startTime": 3131
+, "vssCerts":
+    { "f1364141473f4f736295b2b824c73e9f1a7f9be7ee3e9fbe52e97351":
+        { "expiryEpoch": 122
+        , "signature":
+            "d93b42070c9f4c3d07f50c43906f6393bc6cee966638eb19306863965f8c55aeff49a33118740457791b69e223e7cd05ca0e8523bdb803944bd66c8124f1b705"
+        , "signingKey":
+            "SjB1S0RiaTdpNmRMWGt1ZXNWWjlKZkhnanJjdHNMRnQyTnZvdlhuY2hzT3ZYMDVZNkxvaGxUTnQ1bWtQRmhVbw=="
+        , "vssKey": "WCEC1yVZSkfL6yU2lJa8uIQ43/F0CjTHDrJ+Zykzza+YUng="
+        } }
+}

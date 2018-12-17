@@ -53,8 +53,8 @@ module Node (
     ) where
 
 import           Control.Concurrent.STM
-import           Control.Exception (Exception (..), SomeException, catch,
-                                    mask, throwIO)
+import           Control.Exception (Exception (..), SomeException, catch, mask,
+                     throwIO)
 import           Control.Monad (unless, when)
 import qualified Data.ByteString as BS
 import           Data.Map.Strict (Map)
@@ -68,10 +68,11 @@ import qualified Network.Transport as NT
 import           Node.Conversation
 import           Node.Internal (ChannelIn, ChannelOut)
 import qualified Node.Internal as LL
-import           Node.Message.Class (Message (..), MessageCode, Packing, Serializable (..), pack,
-                                     unpack)
-import           Node.Message.Decoder (ByteOffset, Decoder (..), DecoderStep (..), continueDecoding)
-import           Pos.Util.Trace (Trace, Severity (..), traceWith)
+import           Node.Message.Class (Message (..), MessageCode, Packing,
+                     Serializable (..), pack, unpack)
+import           Node.Message.Decoder (ByteOffset, Decoder (..),
+                     DecoderStep (..), continueDecoding)
+import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 import           System.Random (StdGen)
 
 
@@ -259,7 +260,7 @@ node logTrace mkEndPoint mkReceiveDelay mkConnectDelay prng packing peerData nod
               -- Index the listeners by message name, for faster lookup.
               -- TODO: report conflicting names, or statically eliminate them using
               -- DataKinds and TypeFamilies.
-              listenerIndices :: peerData -> ListenerIndex packing peerData 
+              listenerIndices :: peerData -> ListenerIndex packing peerData
               listenerIndices = fmap (fst . makeListenerIndex) mkListeners
               converse :: Converse packing peerData
               converse = nodeConverse llnode packing

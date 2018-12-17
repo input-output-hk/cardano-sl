@@ -2,15 +2,16 @@ module Bench.Pos.Criterion.FollowTheSatoshiBench
     ( runBenchmark
     ) where
 
-import           Criterion.Main (Benchmark, bench, defaultConfig, defaultMainWith, env, whnf)
+import           Criterion.Main (Benchmark, bench, defaultConfig,
+                     defaultMainWith, env, whnf)
 import           Criterion.Types (Config (..))
 import           Formatting (int, sformat, (%))
 import           Test.QuickCheck (Arbitrary (..), Gen, generate, infiniteListOf)
 import           Universum
 
+import           Pos.Chain.Lrc (followTheSatoshi)
 import           Pos.Core (pcEpochSlots)
 import           Pos.Core.Common (Coin, StakeholderId)
-import           Pos.Lrc (followTheSatoshi)
 
 import           Bench.Configuration (benchProtocolConstants)
 import           Test.Pos.Core.Arbitrary.Unsafe ()

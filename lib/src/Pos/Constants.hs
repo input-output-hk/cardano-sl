@@ -4,11 +4,11 @@
 module Pos.Constants
        (
          module Pos.Core.Constants
-       , module Pos.Core.Genesis
-       , module Pos.Update.Constants
+       , module Pos.Chain.Genesis
+       , module Pos.Chain.Update
        ) where
 
 -- Reexports
+import           Pos.Chain.Genesis
+import           Pos.Chain.Update
 import           Pos.Core.Constants
-import           Pos.Core.Genesis
-import           Pos.Update.Constants

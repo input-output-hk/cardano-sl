@@ -1,0 +1,42 @@
+Name:                acid-state-exts
+Version:             0.14.2
+Synopsis:            Add ACID guarantees to any serializable Haskell data structure.
+Description:         Use regular Haskell data structures as your database and get stronger ACID guarantees than most RDBMS offer.
+Homepage:            https://github.com/acid-state/acid-state
+License:             PublicDomain
+Author:              David Himmelstrup
+Maintainer:          Lemmih <lemmih@gmail.com>
+-- Copyright:
+Category:            Database
+Build-type:          Simple
+Cabal-version:       >=1.10
+tested-with:         GHC == 7.6.3, GHC == 7.8.4, GHC == 7.10.3, GHC == 8.0.1
+Extra-source-files:
+
+Source-repository head
+  type:          git
+  location:      https://github.com/acid-state/acid-state
+
+Library
+  Exposed-Modules:
+                       Serokell.AcidState.ExtendedState
+                       Serokell.AcidState.Instances
+                       Serokell.AcidState.Util
+
+  Build-depends:       acid-state,
+                       base >= 4 && < 5,
+                       directory,
+                       filepath,
+                       exceptions,
+                       extra,
+                       mtl,
+                       safecopy >= 0.9.4,
+                       time-units
+
+  if os(windows)
+     Build-depends:       Win32
+
+  Hs-Source-Dirs:      src/
+
+  default-language:    Haskell2010
+  GHC-Options:         -fwarn-unused-imports -fwarn-unused-binds

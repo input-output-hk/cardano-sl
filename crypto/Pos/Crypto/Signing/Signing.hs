@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Signing done with public/private keys.
 
 module Pos.Crypto.Signing.Signing
@@ -38,8 +40,8 @@ import           Formatting (build, sformat, (%))
 import           Pos.Binary.Class (Bi, Raw)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Crypto.Configuration (ProtocolMagic)
-import           Pos.Crypto.Signing.Check (checkSig, checkSigRaw, validateProxySecretKey,
-                                           verifyProxyCert)
+import           Pos.Crypto.Signing.Check (checkSig, checkSigRaw,
+                     validateProxySecretKey, verifyProxyCert)
 import           Pos.Crypto.Signing.Tag (signTag)
 import           Pos.Crypto.Signing.Types.Signing
 import           Pos.Crypto.Signing.Types.Tag (SignTag)

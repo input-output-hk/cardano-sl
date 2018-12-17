@@ -1,0 +1,40 @@
+name:                cardano-sl-db-test
+version:             2.0.0
+synopsis:            Cardano SL - arbitrary instances for cardano-sl-db
+description:         Cardano SL - arbitrary instances for cardano-sl-db
+license:             MIT
+license-file:        LICENSE
+author:              IOHK
+maintainer:          IOHK <support@iohk.io>
+copyright:           2018 IOHK
+category:            Currency
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  exposed-modules:
+                       Test.Pos.DB.Update.Arbitrary
+                       Test.Pos.DB.Block.Arbitrary
+
+  other-modules:
+                       Test.Pos.DB.Update.Arbitrary.Poll
+                       Test.Pos.DB.Update.Arbitrary.MemState
+
+  build-depends:       QuickCheck
+                     , base
+                     , cardano-sl-binary
+                     , cardano-sl-chain
+                     , cardano-sl-chain-test
+                     , cardano-sl-core-test
+                     , cardano-sl-crypto-test
+                     , cardano-sl-db
+                     , cardano-sl-util-test
+                     , generic-arbitrary
+                     , universum
+                     , unordered-containers
+
+  default-language:    Haskell2010
+
+  ghc-options:         -Wall
+                       -fno-warn-orphans
+                       -O2

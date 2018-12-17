@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module Lang.Lexer
        ( BracketSide(..)
        , _BracketSideOpening
@@ -37,24 +39,29 @@ import qualified Data.List.NonEmpty as NonEmpty
 import           Data.Loc (Loc, Span, loc, spanFromTo)
 import           Data.Scientific (Scientific)
 import qualified Data.Text as Text
-import qualified Data.Text.Buildable as Buildable
 import           Formatting (sformat)
-import           Test.QuickCheck.Arbitrary.Generic (Arbitrary (..), genericArbitrary, genericShrink)
+import qualified Formatting.Buildable as Buildable
+import           Test.QuickCheck.Arbitrary.Generic (Arbitrary (..),
+                     genericArbitrary, genericShrink)
 import qualified Test.QuickCheck.Gen as QC
 import           Test.QuickCheck.Instances ()
-import           Text.Megaparsec (Parsec, SourcePos (..), between, choice, eof, getPosition,
-                                  manyTill, notFollowedBy, parseMaybe, skipMany, takeP, takeWhile1P,
-                                  try, unPos, (<?>))
-import           Text.Megaparsec.Char (anyChar, char, satisfy, spaceChar, string)
+import           Text.Megaparsec (Parsec, SourcePos (..), between, choice, eof,
+                     getPosition, manyTill, notFollowedBy, parseMaybe,
+                     skipMany, takeP, takeWhile1P, try, unPos, (<?>))
+import           Text.Megaparsec.Char (anyChar, char, satisfy, spaceChar,
+                     string)
 import           Text.Megaparsec.Char.Lexer (decimal, scientific, signed)
 
 import           Lang.Name (Letter, Name (..), unsafeMkLetter)
-import           Pos.Core (Address, ApplicationName (..), BlockVersion (..), SoftwareVersion (..),
-                           StakeholderId, decodeTextAddress)
-import           Pos.Crypto (AHash (..), PublicKey, decodeAbstractHash, fullPublicKeyF, hashHexF,
-                             parseFullPublicKey, unsafeCheatingHashCoerce)
+import           Pos.Chain.Update (ApplicationName (..), BlockVersion (..),
+                     SoftwareVersion (..))
+import           Pos.Core (Address, StakeholderId, decodeTextAddress)
+import           Pos.Crypto (AHash (..), PublicKey, decodeAbstractHash,
+                     fullPublicKeyF, hashHexF, parseFullPublicKey,
+                     unsafeCheatingHashCoerce)
 import           Pos.Util.Util (toParsecError)
 
+import           Test.Pos.Chain.Update.Arbitrary ()
 import           Test.Pos.Core.Arbitrary ()
 
 data BracketSide = BracketSideOpening | BracketSideClosing
@@ -166,7 +173,7 @@ pToken :: Lexer (Span, Token)
 pToken = withPosition (try pToken' <|> pUnknown) <* pSkip
   where
     posToLoc :: SourcePos -> Loc
-    posToLoc SourcePos{..} = uncurry loc
+    posToLoc (SourcePos _ sourceLine sourceColumn) = uncurry loc
         ( fromIntegral . unPos $ sourceLine
         , fromIntegral . unPos $ sourceColumn)
     withPosition p = do

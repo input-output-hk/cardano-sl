@@ -44,6 +44,7 @@ module Pos.Wallet.Web.State.Storage
        , getWalletAddresses
        , getWalletInfos
        , getWalletInfo
+       , getUnreadyWalletInfo
        , getAccountWAddresses
        , getWAddresses
        , doesWAddressExist
@@ -106,34 +107,39 @@ module Pos.Wallet.Web.State.Storage
 
 import           Universum
 
+import qualified Data.Acid as Acid
+
 import           Control.Arrow ((***))
-import           Control.Lens (at, has, ix, lens, makeClassy, makeLenses, non', to, toListOf,
-                               traversed, (%=), (+=), (.=), (<<.=), (?=), _Empty, _Just, _head)
+import           Control.Lens (At, Index, IxValue, at, has, ix, lens,
+                     makeClassy, makeLenses, non', to, toListOf, traversed,
+                     (%=), (.=), (<<.=), (?=), (?~), _Empty, _Just, _head)
 import           Control.Monad.State.Class (get, put)
 import           Data.Default (Default, def)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as M
-import           Data.SafeCopy (Migrate (..), base, deriveSafeCopySimple, extension)
-import qualified Data.Text.Buildable
+import           Data.Maybe (fromJust)
+import           Data.SafeCopy (Migrate (..), base, deriveSafeCopySimple,
+                     extension)
+import           Data.Time.Clock (nominalDay)
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting ((%))
 import qualified Formatting as F
+import qualified Formatting.Buildable
+import           Pos.Chain.Block (HeaderHash)
+import           Pos.Chain.Txp (AddrCoinMap, TxAux, TxId, Utxo, UtxoModifier,
+                     applyUtxoModToAddrCoinMap, utxoToAddressCoinMap)
 import           Pos.Client.Txp.History (TxHistoryEntry, txHistoryListToMap)
-import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), HeaderHash, SlotId,
-                           Timestamp, ProtocolConstants(..), VssMinTTL(..),
-                           VssMaxTTL(..))
-import           Pos.Core.Txp (TxAux, TxId)
-import           Pos.SafeCopy ()
-import           Pos.Txp (AddrCoinMap, Utxo, UtxoModifier, applyUtxoModToAddrCoinMap,
-                          utxoToAddressCoinMap)
-import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
+                     ProtocolConstants (..), SlotId, Timestamp, VssMaxTTL (..),
+                     VssMinTTL (..))
 import qualified Pos.Util.Modifier as MM
 import qualified Pos.Wallet.Web.ClientTypes as WebTypes
-import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition, PtxSubmitTiming (..),
-                                               ptxCond, ptxSubmitTiming, _PtxCreating)
-import           Pos.Wallet.Web.Pending.Util (cancelApplyingPtx, incPtxSubmitTimingPure,
-                                              mkPtxSubmitTiming, ptxMarkAcknowledgedPure,
-                                              resetFailedPtx)
+import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition,
+                     PtxSubmitTiming (..), ptxCond, ptxSubmitTiming,
+                     _PtxCreating)
+import           Pos.Wallet.Web.Pending.Util (cancelApplyingPtx,
+                     incPtxSubmitTimingPure, mkPtxSubmitTiming,
+                     ptxMarkAcknowledgedPure, resetFailedPtx)
 import           Serokell.Util (zoom')
 
 -- | Type alias for indices which are used to maintain order
@@ -233,8 +239,8 @@ data WalletSyncState
 
 instance NFData WalletSyncState where
     rnf x = case x of
-        NotSynced -> ()
-        SyncedWith h -> rnf h
+        NotSynced         -> ()
+        SyncedWith h      -> rnf h
         RestoringFrom a b -> a `deepseq` b `deepseq` ()
 
 -- The 'SyncThroughput' is computed during the syncing phase in terms of
@@ -305,7 +311,7 @@ makeLenses ''WalletInfo
 -- | Maps addresses to their first occurrence in the blockchain
 type CustomAddresses = HashMap Address HeaderHash
 
--- | Alias for 'Pos.Txp.AddrCoinMap' storing balances for wallet's addresses.
+-- | Alias for 'Pos.Chain.Txp.AddrCoinMap' storing balances for wallet's addresses.
 type WalletBalances = AddrCoinMap
 type WalBalancesAndUtxo = (WalletBalances, Utxo)
 
@@ -318,7 +324,7 @@ data WalletStorage = WalletStorage
       -- | Non-wallet-specific client metadata.
     , _wsProfile         :: !WebTypes.CProfile
       -- | List of descriptions of approved and downloaded updates, waiting
-      -- for user action. See "Pos.Update.Download" and @updateNotifier@ in
+      -- for user action. See "Pos.Network.Update.Download" and @updateNotifier@ in
       -- "Pos.Wallet.Web.Sockets.Notifier" for more info of how updates work.
     , _wsReadyUpdates    :: [WebTypes.CUpdateInfo]
       -- | For every wallet ID (@CId Wal@) stores metadata for transactions in
@@ -380,8 +386,8 @@ instance Default WalletStorage where
         , _wsBalances        = mempty
         }
 
-type Query a = forall m. (MonadReader WalletStorage m) => m a
-type Update a = forall m. (MonadState WalletStorage m) => m a
+type Query a = forall m. MonadReader WalletStorage m => m a
+type Update a = forall m. MonadState WalletStorage m => m a
 
 -- | How to lookup addresses of account
 data AddressLookupMode
@@ -453,6 +459,22 @@ getWalletMetaIncludeUnready includeUnready cWalId = fmap _wiMeta . applyFilter <
 -- | Retrieve the wallet info.
 getWalletInfo :: WebTypes.CId WebTypes.Wal -> Query (Maybe WalletInfo)
 getWalletInfo cid = view (wsWalletInfos . at cid)
+
+-- | Provide default wallet info, because this wallet is not ready yet
+-- (because of restoring). If user wants to get the real and complete wallet
+-- info, he must wait until wallet will be ready.
+getUnreadyWalletInfo :: Query WalletInfo
+getUnreadyWalletInfo = do
+    -- It's a fake 'POSIXTime' value, real one can be obtained from ready wallet.
+    let lastUpdateOfPassphrase = nominalDay
+        creationTime = lastUpdateOfPassphrase
+    return $ WalletInfo (def :: WebTypes.CWalletMeta)
+                        lastUpdateOfPassphrase
+                        creationTime
+                        NotSynced
+                        noSyncStatistics
+                        HM.empty
+                        False
 
 -- | Get wallet meta info regardless of wallet sync status.
 getWalletMeta :: WebTypes.CId WebTypes.Wal -> Query (Maybe WebTypes.CWalletMeta)
@@ -615,21 +637,40 @@ createWallet cWalId cWalMeta isReady curTime = do
     let info = WalletInfo cWalMeta curTime curTime NotSynced noSyncStatistics mempty isReady
     wsWalletInfos . at cWalId %= (<|> Just info)
 
--- | Add new address given 'CWAddressMeta' (which contains information about
--- target wallet and account too).
+-- | Add new address given 'WAddressMeta' (which contains information about
+-- target wallet and account too). If the input account is /not/ there, creates it.
 addWAddress :: WAddressMeta -> Update ()
 addWAddress addrMeta = do
-    let accInfo :: Traversal' WalletStorage AccountInfo
-        accInfo = wsAccountInfos . ix (addrMeta ^. wamAccount)
-        addr = addrMeta ^. wamAddress
-    whenJustM (preuse accInfo) $ \info -> do
-        let mAddr = info ^. aiAddresses . at addr
-        when (isNothing mAddr) $ do
-            -- Here we increment current account's last address index
-            -- and assign its value to sorting index of newly created address.
-            accInfo . aiUnusedKey += 1
-            let key = info ^. aiUnusedKey
-            accInfo . aiAddresses . at addr ?= AddressInfo addrMeta key
+    let accId = addrMeta ^. wamAccount
+    accountInfo <- getAccountInfo accId
+    let maddr = accountInfo ^. aiAddresses . at (addrMeta ^. wamAddress)
+    when (isNothing maddr) $
+        modify $ (wsAccountInfos . at accId) ?~ (addAddress accountInfo)
+  where
+    getAccountInfo :: WebTypes.AccountId -> Update AccountInfo
+    getAccountInfo accId = do
+        ws <- get
+        let infos = createIfMissing defaultAccount accId (ws ^. wsAccountInfos)
+        put $ ws & wsAccountInfos .~ infos
+        -- NOTE: 'fromJust' is safe since we just added the account
+        return $ fromJust $ infos ^. at accId
+
+    addAddress :: AccountInfo -> AccountInfo
+    addAddress accountInfo =
+        let
+            unusedKey = accountInfo ^. aiUnusedKey
+            addrInfo  = AddressInfo addrMeta unusedKey
+        in accountInfo
+            & aiAddresses . at (addrMeta ^. wamAddress)  ?~ addrInfo
+            & aiUnusedKey .~ unusedKey + 1
+
+    defaultAccount :: AccountInfo
+    defaultAccount =
+        AccountInfo (WebTypes.CAccountMeta "New account") mempty mempty 0
+
+    createIfMissing :: At m => IxValue m -> Index m -> m -> m
+    createIfMissing val idx =
+        at idx %~ (\x -> x <|> pure val)
 
 -- | Update account metadata.
 setAccountMeta :: WebTypes.AccountId -> WebTypes.CAccountMeta -> Update ()
@@ -720,7 +761,7 @@ removeNextUpdate :: Update ()
 removeNextUpdate = wsReadyUpdates %= drop 1
 
 -- | Reset the whole database to clean state completely. Used only in testing and debugging.
-testReset :: Update ()
+testReset :: Acid.Update WalletStorage ()
 testReset = put def
 
 -- | Legacy transaction, no longer used. For existing Db tx logs only. Now use
@@ -856,7 +897,6 @@ deriveSafeCopySimple 0 'base ''WebTypes.CHash
 deriveSafeCopySimple 0 'base ''WebTypes.CId
 deriveSafeCopySimple 0 'base ''WebTypes.Wal
 deriveSafeCopySimple 0 'base ''WebTypes.Addr
-deriveSafeCopySimple 0 'base ''BackupPhrase
 deriveSafeCopySimple 0 'base ''WebTypes.AccountId
 deriveSafeCopySimple 0 'base ''WebTypes.CWalletAssurance
 deriveSafeCopySimple 0 'base ''WebTypes.CAccountMeta

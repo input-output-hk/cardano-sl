@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Signing done with public/private keys.
 
 module Pos.Crypto.Signing.Types.Signing
@@ -34,6 +36,8 @@ module Pos.Crypto.Signing.Types.Signing
        , isSelfSignedPsk
        ) where
 
+import           Universum hiding (show)
+
 import qualified Cardano.Crypto.Wallet as CC
 import qualified Codec.CBOR.Decoding as D
 import qualified Codec.CBOR.Encoding as E
@@ -41,18 +45,24 @@ import           Control.Lens (_Left)
 import           Data.Aeson (FromJSON (..), ToJSON (..))
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.Hashable (Hashable)
-import qualified Data.Text.Buildable as B
+import           Data.SafeCopy (SafeCopy (..), base, contain,
+                     deriveSafeCopySimple, safeGet, safePut)
 import           Data.Text.Lazy.Builder (Builder)
-import           Formatting (Format, bprint, build, fitLeft, later, sformat, (%), (%.))
+import           Formatting (Format, bprint, build, fitLeft, formatToString,
+                     later, sformat, (%), (%.))
+import qualified Formatting.Buildable as B
 import           Prelude (show)
 import qualified Serokell.Util.Base16 as B16
 import qualified Serokell.Util.Base64 as Base64 (decode, formatBase64)
-import           Universum hiding (show)
+import           Text.JSON.Canonical (JSValue (..), ReportSchemaErrors)
+import qualified Text.JSON.Canonical as TJC (FromJSON (..), ToJSON (..))
 
 import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
+import qualified Pos.Binary.Class as Bi
 import           Pos.Crypto.Hashing (hash)
 import           Pos.Crypto.Orphans ()
-import           Pos.Util.Util (toAesonError, toCborError)
+import           Pos.Util.Json.Parse (tryParseString)
+import           Pos.Util.Util (cerealError, toAesonError, toCborError)
 
 ----------------------------------------------------------------------------
 -- Utilities for From/ToJSON instances
@@ -76,6 +86,12 @@ instance ToJSON PublicKey where
 instance FromJSON PublicKey where
     parseJSON v = parseJSON v >>= toAesonError . fmsg "PublicKey" . parseFullPublicKey
 
+instance Monad m => TJC.ToJSON m PublicKey where
+    toJSON = pure . JSString . formatToString fullPublicKeyF
+
+instance ReportSchemaErrors m => TJC.FromJSON m PublicKey where
+    fromJSON = tryParseString parseFullPublicKey
+
 encodeXPub :: CC.XPub -> E.Encoding
 encodeXPub a = encode $ CC.unXPub a
 
@@ -85,6 +101,7 @@ decodeXPub = toCborError . over _Left fromString . CC.xpub =<< decode
 instance Bi PublicKey where
     encode (PublicKey a) = encodeXPub a
     decode = fmap PublicKey decodeXPub
+    encodedSizeExpr _ _ = 66
 
 -- | Wrapper around 'CC.XPrv'.
 newtype SecretKey = SecretKey CC.XPrv
@@ -158,6 +175,16 @@ instance FromJSON (Signature w) where
 instance ToJSON (Signature w) where
     toJSON = toJSON . sformat fullSignatureHexF
 
+instance Monad m => TJC.ToJSON m (Signature w) where
+    toJSON = pure . JSString . formatToString fullSignatureHexF
+
+instance (Typeable x, ReportSchemaErrors m) => TJC.FromJSON m (Signature x) where
+    fromJSON = tryParseString parseFullSignature
+
+instance SafeCopy (Signature a) where
+    putCopy (Signature sig) = contain $ safePut sig
+    getCopy = contain $ Signature <$> safeGet
+
 -- | Formatter for 'Signature' to show it in hex.
 fullSignatureHexF :: Format r (Signature a -> r)
 fullSignatureHexF = later $ \(Signature x) ->
@@ -194,6 +221,14 @@ instance Bi a => Bi (Signed a) where
          <*> decode
          <*> decode
 
+instance Bi a => SafeCopy (Signed a) where
+    putCopy (Signed v s) = contain $ safePut (Bi.serialize' (v,s))
+    getCopy = contain $ do
+        bs <- safeGet
+        case Bi.decodeFull bs of
+            Left err    -> cerealError $ "getCopy@SafeCopy: " <> err
+            Right (v,s) -> pure $ Signed v s
+
 ----------------------------------------------------------------------------
 -- Proxy signing
 ----------------------------------------------------------------------------
@@ -211,9 +246,19 @@ instance ToJSON (ProxyCert w) where
 instance FromJSON (ProxyCert w) where
     parseJSON v = parseJSON v >>= toAesonError . fmsg "Signature" . parseFullProxyCert
 
+instance Monad m => TJC.ToJSON m (ProxyCert w) where
+    toJSON = pure . JSString . formatToString fullProxyCertHexF
+
+instance (Typeable w, ReportSchemaErrors m) => TJC.FromJSON m (ProxyCert w) where
+    fromJSON = tryParseString parseFullProxyCert
+
 instance Typeable w => Bi (ProxyCert w) where
     encode (ProxyCert a) = encodeXSignature a
     decode = fmap ProxyCert decodeXSignature
+
+instance SafeCopy (ProxyCert w) where
+    putCopy (ProxyCert sig) = contain $ safePut sig
+    getCopy = contain $ ProxyCert <$> safeGet
 
 -- | Formatter for 'ProxyCert' to show it in hex.
 fullProxyCertHexF :: Format r (ProxyCert a -> r)
@@ -241,8 +286,6 @@ instance Hashable w => Hashable (ProxySecretKey w)
 instance (B.Buildable w) => B.Buildable (ProxySecretKey w) where
     build (UnsafeProxySecretKey w iPk dPk _) =
         bprint ("ProxySk { w = "%build%", iPk = "%build%", dPk = "%build%" }") w iPk dPk
-
-deriveJSON defaultOptions ''ProxySecretKey
 
 instance Bi w => Bi (ProxySecretKey w) where
     encode UnsafeProxySecretKey{..} =
@@ -287,7 +330,22 @@ instance (Typeable a, Bi w) =>
           <*> decode
           <*> decodeXSignature
 
+instance SafeCopy w => SafeCopy (ProxySignature w a) where
+    putCopy ProxySignature{..} = contain $ do
+        safePut psigPsk
+        safePut psigSig
+    getCopy = contain $ ProxySignature <$> safeGet <*> safeGet
+
 -- | Checks if delegate and issuer fields of proxy secret key are
 -- equal.
 isSelfSignedPsk :: ProxySecretKey w -> Bool
 isSelfSignedPsk psk = pskIssuerPk psk == pskDelegatePk psk
+
+-- These are *not* orphan instances, these types are defined in this file.
+-- However these need to be defined here to avoid TemplateHaskell compile
+-- phase errors.
+
+deriveJSON defaultOptions ''ProxySecretKey
+deriveSafeCopySimple 0 'base ''PublicKey
+deriveSafeCopySimple 0 'base ''SecretKey
+deriveSafeCopySimple 0 'base ''ProxySecretKey

@@ -2,7 +2,7 @@
 
 # Networking is not in here, because it has a very different codestyle (doesn't use universum).
 # This is bad and should probably be fixed.
-projects=("util" "binary" "crypto" "core" "db" "lrc" "infra" "ssc" "txp" "update" "delegation" "node" "tools" "client" "generator" "auxx" "explorer" "wallet" "wallet-new")
+projects=("util" "binary" "crypto" "core" "db" "chain" "infra" "node" "tools" "client" "generator" "auxx" "explorer" "wallet" "wallet-new")
 
 # Some people have tests and subprojects symlinked into src/, others don't
 #

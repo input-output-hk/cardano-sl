@@ -1,5 +1,7 @@
+{-# LANGUAGE DataKinds            #-}
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE QuasiQuotes          #-}
 {-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE TypeFamilies         #-}
@@ -8,7 +10,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Cardano.Wallet.API.V1.Swagger where
 
-import           Universum
+import           Universum hiding (get, put)
 
 import           Cardano.Wallet.API.Indices (ParamNames)
 import           Cardano.Wallet.API.Request.Filter
@@ -16,57 +18,49 @@ import           Cardano.Wallet.API.Request.Pagination
 import           Cardano.Wallet.API.Request.Sort
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.Types
-import qualified Cardano.Wallet.API.V1.Errors as Errors
 import           Cardano.Wallet.API.V1.Generic (gconsName)
+import           Cardano.Wallet.API.V1.Migration.Types (MigrationError (..))
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Swagger.Example
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.TypeLits (KnownSymbols (..))
-import qualified Pos.Core as Core
-import           Pos.Core.Update (SoftwareVersion)
-import           Pos.Util.BackupPhrase (BackupPhrase (bpToList))
+
+import           Pos.Chain.Update (SoftwareVersion (svNumber))
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
-import           Pos.Util.Servant (LoggingApi)
+import           Pos.Util.Servant (CustomQueryFlag, LoggingApi)
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
-import           Control.Lens ((?~))
-import           Data.Aeson (ToJSON (..))
+import           Control.Lens (At, Index, IxValue, at, (?~))
+import           Data.Aeson (encode)
 import           Data.Aeson.Encode.Pretty
-import qualified Data.ByteString.Lazy as BL
 import           Data.Map (Map)
-import qualified Data.Map.Strict as M
-import qualified Data.Set as Set
-import           Data.Swagger hiding (Example, Header, example)
-import           Data.Swagger.Declare
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
+import           Data.Swagger hiding (Example)
 import           Data.Typeable
+import           Formatting (build, sformat)
+import           GHC.TypeLits (KnownSymbol)
 import           NeatInterpolation
-import           Servant (Handler, ServantErr (..), Server)
+import           Servant (Handler, QueryFlag, ServantErr (..), Server,
+                     StdMethod (..))
 import           Servant.API.Sub
 import           Servant.Swagger
-import           Servant.Swagger.UI (SwaggerSchemaUI', swaggerSchemaUIServerImpl)
-import           Servant.Swagger.UI.Internal (mkRecursiveEmbedded)
-import           Test.QuickCheck
-import           Test.QuickCheck.Gen
-import           Test.QuickCheck.Random
+import           Servant.Swagger.UI (SwaggerSchemaUI')
+import           Servant.Swagger.UI.Core (swaggerSchemaUIServerImpl)
+import           Servant.Swagger.UI.ReDoc (redocFiles)
+
+import qualified Data.ByteString.Lazy as BL
+import qualified Data.Map.Strict as M
+import qualified Data.Set as Set
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
+import qualified Pos.Core as Core
+import qualified Pos.Core.Attributes as Core
+import qualified Pos.Crypto.Hashing as Crypto
+
 
 --
 -- Helper functions
 --
-
--- | Generates an example for type `a` with a static seed.
-genExample :: Example a => a
-genExample = (unGen (resize 3 example)) (mkQCGen 42) 42
-
--- | Generates a `NamedSchema` exploiting the `ToJSON` instance in scope,
--- by calling `sketchSchema` under the hood.
-fromExampleJSON :: (ToJSON a, Typeable a, Example a)
-                  => proxy a
-                  -> Declare (Definitions Schema) NamedSchema
-fromExampleJSON (_ :: proxy a) = do
-    let (randomSample :: a) = genExample
-    return $ NamedSchema (Just $ fromString $ show $ typeOf randomSample) (sketchSchema randomSample)
 
 -- | Surround a Text with another
 surroundedBy :: Text -> Text -> Text
@@ -78,6 +72,102 @@ inlineCodeBlock txt = "<pre>" <> replaceNewLines (replaceWhiteSpaces txt) <> "</
   where
     replaceNewLines    = T.replace "\n" "<br/>"
     replaceWhiteSpaces = T.replace " " "&nbsp;"
+
+
+-- | Drill in the 'Swagger' file in an unsafe way to modify a specific operation
+-- identified by a tuple (verb, path). The function looks a bit scary to use
+-- but is actually rather simple (see example below).
+--
+-- Note that if the identified path doesn't exist, the function will throw
+-- at runtime when trying to read the underlying swagger structure!
+--
+-- Example:
+--
+--     swagger
+--       & paths %~ (POST, "/api/v1/wallets") `alterOperation` (description ?~ "foo")
+--       & paths %~ (GET, "/api/v1/wallets/{walletId}") `alterOperation` (description ?~ "bar")
+--
+alterOperation ::
+    ( IxValue m ~ item
+    , Index m ~ FilePath
+    , At m
+    , HasGet item (Maybe Operation)
+    , HasPut item (Maybe Operation)
+    , HasPatch item (Maybe Operation)
+    , HasPost item (Maybe Operation)
+    , HasDelete item (Maybe Operation)
+    )
+    => (StdMethod, FilePath)
+    -> (Operation -> Operation)
+    -> m
+    -> m
+alterOperation (verb, path) alter =
+    at path %~ (Just . unsafeAlterItem)
+  where
+    errUnreachableEndpoint :: Text
+    errUnreachableEndpoint =
+        "Unreachable endpoint: " <> show verb <> " " <> show path
+
+    errUnsupportedVerb :: Text
+    errUnsupportedVerb =
+        "Used unsupported verb to identify an endpoint: " <> show verb
+
+    unsafeAlterItem ::
+        ( HasGet item (Maybe Operation)
+        , HasPut item (Maybe Operation)
+        , HasPatch item (Maybe Operation)
+        , HasPost item (Maybe Operation)
+        , HasDelete item (Maybe Operation)
+        )
+        => Maybe item
+        -> item
+    unsafeAlterItem = maybe
+        (error errUnreachableEndpoint)
+        (unsafeLensFor verb %~ (Just . unsafeAlterOperation))
+
+    unsafeAlterOperation :: Maybe Operation -> Operation
+    unsafeAlterOperation = maybe
+        (error errUnreachableEndpoint)
+        alter
+
+    unsafeLensFor ::
+        ( Functor f
+        , HasGet item (Maybe Operation)
+        , HasPut item (Maybe Operation)
+        , HasPatch item (Maybe Operation)
+        , HasPost item (Maybe Operation)
+        , HasDelete item (Maybe Operation)
+        )
+        => StdMethod
+        -> (Maybe Operation -> f (Maybe Operation))
+        -> item
+        -> f item
+    unsafeLensFor = \case
+        GET    -> get
+        PUT    -> put
+        PATCH  -> patch
+        POST   -> post
+        DELETE -> delete
+        _      -> error errUnsupportedVerb
+
+
+-- | A combinator to modify the description of an operation, using
+-- 'alterOperation' under the hood.
+--
+--
+-- Example:
+--
+--     swagger
+--       & paths %~ (POST, "/api/v1/wallets") `setDescription` "foo"
+--       & paths %~ (GET, "/api/v1/wallets/{walletId}") `setDescription` "bar"
+setDescription
+    :: (IxValue m ~ PathItem, Index m ~ FilePath, At m)
+    => (StdMethod, FilePath)
+    -> Text
+    -> m
+    -> m
+setDescription endpoint str =
+    endpoint `alterOperation` (description ?~ str)
 
 
 --
@@ -154,7 +244,7 @@ instance
         in swgr & over (operationsOf swgr . parameters) addSortOperation
           where
             addSortOperation :: [Referenced Param] -> [Referenced Param]
-            addSortOperation xs = (Inline newParam) : xs
+            addSortOperation xs = Inline newParam : xs
 
             newParam :: Param
             newParam =
@@ -185,6 +275,10 @@ instance (HasSwagger subApi) => HasSwagger (WalletRequestParams :> subApi) where
 
 instance ToParamSchema WalletId
 
+instance ToParamSchema PublicKeyAsBase58 where
+    toParamSchema _ = mempty
+        & type_ .~ SwaggerString
+
 instance ToSchema Core.Address where
     declareNamedSchema = pure . paramSchemaToNamedSchema defaultSchemaOptions
 
@@ -195,16 +289,41 @@ instance ToParamSchema Core.Address where
 instance ToParamSchema (V1 Core.Address) where
   toParamSchema _ = toParamSchema (Proxy @Core.Address)
 
+instance ( KnownSymbol sym
+         , HasSwagger sub
+         ) =>
+         HasSwagger (CustomQueryFlag sym flag :> sub) where
+    toSwagger _ =
+        let swgr       = toSwagger (Proxy @(QueryFlag sym :> sub))
+        in swgr & over (operationsOf swgr . parameters) (map toDescription)
+          where
+            toDescription :: Referenced Param -> Referenced Param
+            toDescription (Inline p@(_paramName -> pName)) =
+                case M.lookup pName customQueryFlagToDescription of
+                    Nothing -> Inline p
+                    Just d  -> Inline (p & description .~ Just d)
+            toDescription x = x
+
 
 --
 -- Descriptions
 --
+
+customQueryFlagToDescription :: Map T.Text T.Text
+customQueryFlagToDescription = M.fromList [
+    ("force_ntp_check", forceNtpCheckDescription)
+  ]
 
 requestParameterToDescription :: Map T.Text T.Text
 requestParameterToDescription = M.fromList [
     ("page", pageDescription)
   , ("per_page", perPageDescription (fromString $ show maxPerPageEntries) (fromString $ show defaultPerPageEntries))
   ]
+
+forceNtpCheckDescription :: T.Text
+forceNtpCheckDescription = [text|
+In some cases, API Clients need to force a new NTP check as a previous result gets cached. A typical use-case is after asking a user to fix its system clock. If this flag is set, request will block until NTP server responds or it will timeout if NTP server is not available within a short delay.
+|]
 
 pageDescription :: T.Text
 pageDescription = [text|
@@ -228,13 +347,54 @@ Error Name / Description | HTTP Error code | Example
 $errors
 |] where
   errors = T.intercalate "\n" rows
-  rows = map (mkRow errToDescription) Errors.sample
+  rows =
+    -- 'WalletError'
+    [ mkRow fmtErr $ NotEnoughMoney (ErrAvailableBalanceIsInsufficient 1400)
+    , mkRow fmtErr $ OutputIsRedeem sampleAddress
+    , mkRow fmtErr $ UnknownError "Unexpected internal error."
+    , mkRow fmtErr $ InvalidAddressFormat "Provided address format is not valid."
+    , mkRow fmtErr WalletNotFound
+    , mkRow fmtErr $ WalletAlreadyExists exampleWalletId
+    , mkRow fmtErr AddressNotFound
+    , mkRow fmtErr $ InvalidPublicKey "Extended public key (for external wallet) is invalid."
+    , mkRow fmtErr UnsignedTxCreationError
+    , mkRow fmtErr $ SignedTxSubmitError "Unable to submit externally-signed transaction."
+    , mkRow fmtErr TooBigTransaction
+    , mkRow fmtErr TxFailedToStabilize
+    , mkRow fmtErr TxRedemptionDepleted
+    , mkRow fmtErr $ TxSafeSignerNotFound sampleAddress
+    , mkRow fmtErr $ MissingRequiredParams (("wallet_id", "walletId") :| [])
+    , mkRow fmtErr $ WalletIsNotReadyToProcessPayments genExample
+    , mkRow fmtErr $ NodeIsStillSyncing genExample
+    , mkRow fmtErr $ CannotCreateAddress "Cannot create derivation path for new address in external wallet."
+    , mkRow fmtErr $ RequestThrottled 42
+
+    -- 'MigrationError'
+    , mkRow fmtErr $ MigrationFailed "Migration failed."
+
+    -- 'JSONValidationError'
+    , mkRow fmtErr $ JSONValidationFailed "Expected String, found Null."
+
+    -- 'UnsupportedMimeTypeError'
+    , mkRow fmtErr $ UnsupportedMimeTypePresent "Expected Content-Type's main MIME-type to be 'application/json'."
+
+    -- TODO 'MnemonicError' ?
+    ]
   mkRow fmt err = T.intercalate "|" (fmt err)
-  errToDescription err =
-    [ surroundedBy "`" (gconsName err) <> "<br/>" <> toText (Errors.describe err)
-    , show $ errHTTPCode $ Errors.toServantError err
+  fmtErr err =
+    [ surroundedBy "`" (gconsName err) <> "<br/>" <> toText (sformat build err)
+    , show $ errHTTPCode $ toServantError err
     , inlineCodeBlock (T.decodeUtf8 $ BL.toStrict $ encodePretty err)
     ]
+
+  sampleAddress = V1 Core.Address
+      { Core.addrRoot =
+          Crypto.unsafeAbstractHash ("asdfasdf" :: String)
+      , Core.addrAttributes =
+          Core.mkAttributes $ Core.AddrAttributes Nothing Core.BootstrapEraDistr NetworkMainOrStage
+      , Core.addrType =
+          Core.ATPubKey
+      }
 
 
 -- | Shorter version of the doc below, only for Dev & V0 documentations
@@ -242,7 +402,7 @@ highLevelShortDescription :: DescriptionEnvironment -> T.Text
 highLevelShortDescription DescriptionEnvironment{..} = [text|
 This is the specification for the Cardano Wallet API, automatically generated as a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API of [Cardano](https://github.com/input-output-hk/cardano-sl).
 
-Software Version   | Git Revision
+Protocol Version   | Git Revision
 -------------------|-------------------
 $deSoftwareVersion | $deGitRevision
 |]
@@ -253,13 +413,9 @@ highLevelDescription :: DescriptionEnvironment -> T.Text
 highLevelDescription DescriptionEnvironment{..} = [text|
 This is the specification for the Cardano Wallet API, automatically generated as a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API of [Cardano](https://github.com/input-output-hk/cardano-sl).
 
-Software Version   | Git Revision
+Protocol Version   | Git Revision
 -------------------|-------------------
 $deSoftwareVersion | $deGitRevision
-
-> **Warning**: This version is currently a **BETA-release** which is still under testing before
-> its final stable release. Should you encounter any issues or have any remarks, please let us
-> know; your feedback is highly appreciated.
 
 
 Getting Started
@@ -280,6 +436,7 @@ You can create your first wallet using the [`POST /api/v1/wallets`](#tag/Wallets
 curl -X POST https://localhost:8090/api/v1/wallets \
   -H "Accept: application/json; charset=utf-8" \
   -H "Content-Type: application/json; charset=utf-8" \
+  --cert ./scripts/tls-files/client.pem \
   --cacert ./scripts/tls-files/ca.crt \
   -d '{
   "operation": "create",
@@ -325,7 +482,8 @@ endpoint as follows:
 ```
 curl -X GET https://localhost:8090/api/v1/wallets/{{walletId}} \
      -H "Accept: application/json; charset=utf-8" \
-     --cacert ./scripts/tls-files/ca.crt
+     --cacert ./scripts/tls-files/ca.crt \
+     --cert ./scripts/tls-files/client.pem
 ```
 
 Receiving ADA
@@ -339,7 +497,8 @@ endpoint:
 ```
 curl -X GET https://localhost:8090/api/v1/wallets/{{walletId}}/accounts?page=1&per_page=10 \
   -H "Accept: application/json; charset=utf-8" \
-  --cacert ./scripts/tls-files/ca.crt
+  --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem
 ```
 
 Since you have, for now, only a single wallet, you'll see something like this:
@@ -364,6 +523,7 @@ curl -X POST https://localhost:8090/api/v1/transactions \
   -H "Accept: application/json; charset=utf-8" \
   -H "Content-Type: application/json; charset=utf-8" \
   --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem \
   -d '{
   "destinations": [{
     "amount": 14,
@@ -390,6 +550,7 @@ endpoint as follows:
 curl -X GET https://localhost:8090/api/v1/transactions?wallet_id=Ae2tdPwUPE...8V3AVTnqGZ\
      -H "Accept: application/json; charset=utf-8" \
      --cacert ./scripts/tls-files/ca.crt \
+     --cert ./scripts/tls-files/client.pem
 ```
 
 Here we constrained the request to a specific account. After our previous transaction the output
@@ -544,6 +705,7 @@ curl -X POST https://localhost:8090/api/v1/transactions \
   -H "Accept: application/json; charset=utf-8" \
   -H "Content-Type: application/json; charset=utf-8" \
   --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem \
   -d '{
   "destinations": [
     {
@@ -580,6 +742,7 @@ curl -X POST https://localhost:8090/api/v1/transactions/fees \
   -H "Accept: application/json; charset=utf-8" \
   -H "Content-Type: application/json; charset=utf-8" \
   --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem \
   -d '{
   "destinations": [{
       "amount": 14,
@@ -615,6 +778,7 @@ curl -X POST \
   -H 'Content-Type: application/json;charset=utf-8' \
   -H 'Accept: application/json;charset=utf-8' \
   --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem \
   -d '{
   "name": "MyOtherAccount",
   "spendingPassword": "5416b2988745725998907addf4613c9b0764f04959030e1b81c603b920a115d0"
@@ -637,7 +801,8 @@ For example:
 curl -X GET \
   https://127.0.0.1:8090/api/v1/wallets/Ae2tdPwUPE...8V3AVTnqGZ/accounts/2902829384 \
   -H 'Accept: application/json;charset=utf-8' \
-  --cacert ./scripts/tls-files/ca.crt
+  --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem
 ```
 
 For a broader view, the full list of accounts of a given wallet can be retrieved using [`GET /api/v1/wallets/{{walletId}}/accounts`](#tag/Accounts%2Fpaths%2F~1api~1v1~1wallets~1{walletId}~1accounts%2Fget)
@@ -645,11 +810,33 @@ For a broader view, the full list of accounts of a given wallet can be retrieved
 curl -X GET \
   https://127.0.0.1:8090/api/v1/wallets/Ae2tdPwUPE...8V3AVTnqGZ/accounts \
   -H 'Accept: application/json;charset=utf-8' \
-  --cacert ./scripts/tls-files/ca.crt
+  --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem
 ```
 
 ```json
 $readAccounts
+```
+
+Partial Representations
+-----------------------
+
+The previous endpoint gives you a list of full representations. However, in some cases, it might be interesting to retrieve only a partial representation of an account (e.g. only the balance). There are two extra endpoints one could use to either fetch a given account's balance, and another to retrieve the list of addresses associated to a specific account.
+
+[`GET /api/v1/wallets/{{walletId}}/accounts/{{accountId}}/addresses`](#tag/Accounts%2Fpaths%2F~1api~1v1~1wallets~1%7BwalletId%7D~1accounts~1%7BaccountId%7D~1addresses%2Fget)
+
+```json
+$readAccountAddresses
+```
+
+Note that this endpoint is paginated and allow basic filtering and sorting on
+addresses. Similarly, you can retrieve only the account balance with:
+
+[`GET /api/v1/wallets/{{walletId}}/accounts/{{accountId}}/amount`](#tag/Accounts%2Fpaths%2F~1api~1v1~1wallets~1%7BwalletId%7D~1accounts~1%7BaccountId%7D~1amount%2Fget)
+
+
+```json
+$readAccountBalance
 ```
 
 
@@ -673,9 +860,10 @@ curl -X POST \
   -H 'Content-Type: application/json;charset=utf-8' \
   -H 'Accept: application/json;charset=utf-8' \
   --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem \
   -d '{
-	"walletId": "Ae2tdPwUPE...V3AVTnqGZ4",
-	"accountIndex": 2147483648
+        "walletId": "Ae2tdPwUPE...V3AVTnqGZ4",
+        "accountIndex": 2147483648
 }'
 ```
 
@@ -697,7 +885,8 @@ You can always view all your available addresses across all your wallets by usin
 ```
 curl -X GET https://localhost:8090/api/v1/addresses \
   -H 'Accept: application/json;charset=utf-8' \
-  --cacert ./scripts/tls-files/ca.crt
+  --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem
 ```
 
 ```json
@@ -714,7 +903,8 @@ rather verbose and gives real-time progress updates about the current node.
 ```
 curl -X GET https://localhost:8090/api/v1/node-info \
   -H 'Accept: application/json;charset=utf-8' \
-  --cacert ./scripts/tls-files/ca.crt
+  --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem
 ```
 
 ```json
@@ -746,14 +936,16 @@ ordered by descending date:
 ```
 curl -X GET https://127.0.0.1:8090/api/v1/transactions?wallet_id=Ae2tdPwU...3AVTnqGZ&account_index=2902829384&sort_by=DES\[created_at\]&per_page=50' \
   -H 'Accept: application/json;charset=utf-8' \
-  --cacert ./scripts/tls-files/ca.crt
+  --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem
 ```
 For example, in order to retrieve the last 50 transactions, ordered by descending date:
 
 ```
 curl -X GET 'https://127.0.0.1:8090/api/v1/transactions?wallet_id=Ae2tdPwU...3AVTnqGZ &sort_by=DES\[created_at\]&per_page=50' \
   -H 'Accept: application/json;charset=utf-8' \
-  --cacert ./scripts/tls-files/ca.crt
+  --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem
 ```
 
 
@@ -762,36 +954,51 @@ Another example, if you were to look for all transactions made since the 1st of 
 ```
 curl -X GET 'https://127.0.0.1:8090/api/v1/transactions?wallet_id=Ae2tdPwU...3AVTnqGZ&created_at=GT\[2018-01-01T00:00:00.00000\]' \
   -H 'Accept: application/json;charset=utf-8' \
-  --cacert ./scripts/tls-files/ca.crt
+  --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem
+```
+
+
+Getting Utxo statistics
+---------------------------------
+
+You can get Utxo statistics of a given wallet using
+ [`GET /api/v1/wallets/{{walletId}}/statistics/utxos`](#tag/Accounts%2Fpaths%2F~1api~1v1~1wallets~1{walletId}~1statistics~1utxos%2Fget)
+```
+curl -X GET \
+  https://127.0.0.1:8090/api/v1/wallets/Ae2tdPwUPE...8V3AVTnqGZ/statistics/utxos \
+  -H 'Accept: application/json;charset=utf-8' \
+  --cacert ./scripts/tls-files/ca.crt \
+  --cert ./scripts/tls-files/client.pem
+```
+
+```json
+$readUtxoStatistics
 ```
 
 Make sure to carefully read the section about [Pagination](#section/Pagination) to fully
 leverage the API capabilities.
 |]
   where
-    createAccount    = decodeUtf8 $ encodePretty $ genExample @(WalletResponse Account)
-    createAddress    = decodeUtf8 $ encodePretty $ genExample @(WalletResponse WalletAddress)
-    createWallet     = decodeUtf8 $ encodePretty $ genExample @(WalletResponse Wallet)
-    readAccounts     = decodeUtf8 $ encodePretty $ genExample @(WalletResponse [Account])
-    readAddresses    = decodeUtf8 $ encodePretty $ genExample @(WalletResponse [Address])
-    readFees         = decodeUtf8 $ encodePretty $ genExample @(WalletResponse EstimatedFees)
-    readNodeInfo     = decodeUtf8 $ encodePretty $ genExample @(WalletResponse NodeInfo)
-    readTransactions = decodeUtf8 $ encodePretty $ genExample @(WalletResponse [Transaction])
-
+    createAccount        = decodeUtf8 $ encodePretty $ genExample @(WalletResponse Account)
+    createAddress        = decodeUtf8 $ encodePretty $ genExample @(WalletResponse WalletAddress)
+    createWallet         = decodeUtf8 $ encodePretty $ genExample @(WalletResponse Wallet)
+    readAccounts         = decodeUtf8 $ encodePretty $ genExample @(WalletResponse [Account])
+    readAccountBalance   = decodeUtf8 $ encodePretty $ genExample @(WalletResponse AccountBalance)
+    readAccountAddresses = decodeUtf8 $ encodePretty $ genExample @(WalletResponse AccountAddresses)
+    readAddresses        = decodeUtf8 $ encodePretty $ genExample @(WalletResponse [Address])
+    readFees             = decodeUtf8 $ encodePretty $ genExample @(WalletResponse EstimatedFees)
+    readNodeInfo         = decodeUtf8 $ encodePretty $ genExample @(WalletResponse NodeInfo)
+    readTransactions     = decodeUtf8 $ encodePretty $ genExample @(WalletResponse [Transaction])
+    readUtxoStatistics   = decodeUtf8 $ encodePretty $ genExample @(WalletResponse UtxoStatistics)
 
 -- | Provide an alternative UI (ReDoc) for rendering Swagger documentation.
---
--- TODO: Upgrade to https://hackage.haskell.org/package/servant-swagger-ui-redoc
---       once with migrate to a more recent stackage LTS
 swaggerSchemaUIServer
     :: (Server api ~ Handler Swagger)
     => Swagger -> Server (SwaggerSchemaUI' dir api)
 swaggerSchemaUIServer =
     swaggerSchemaUIServerImpl redocIndexTemplate redocFiles
   where
-    redocFiles :: [(FilePath, ByteString)]
-    redocFiles = $(mkRecursiveEmbedded "redoc-dist")
-
     redocIndexTemplate :: Text
     redocIndexTemplate = [text|
 <!doctype html>
@@ -816,9 +1023,47 @@ swaggerSchemaUIServer =
     <redoc spec-url="../SERVANT_SWAGGER_UI_SCHEMA"></redoc>
     <script src="redoc.min.js"> </script>
   </body>
-</html>
+</html>|]
+
+applyUpdateDescription :: Text
+applyUpdateDescription = [text|
+Apply the next available update proposal from the blockchain. Note that this
+will immediately shutdown the node and makes it unavailable for a short while.
 |]
 
+postponeUpdateDescription :: Text
+postponeUpdateDescription = [text|
+Discard the next available update from the node's local state. Yet, this doesn't
+reject the update which will still be applied as soon as the node is restarted.
+|]
+
+resetWalletStateDescription :: Text
+resetWalletStateDescription = [text|
+Wipe-out the node's local state entirely. The only intended use-case for this
+endpoint is during API integration testing. Note also that this will fail by
+default unless the node is running in debug mode.
+|]
+
+estimateFeesDescription :: Text
+estimateFeesDescription = [text|
+Estimate the fees which would incur from the input payment. This endpoint
+**does not** require a _spending password_ to be supplied as it generates
+under the hood an unsigned transaction.
+|]
+
+getAddressDescription :: Text
+getAddressDescription = [text|
+The previous version of this endpoint failed with an HTTP error when the given
+address was unknown to the wallet.
+
+This was misleading since an address that is unknown to the wallet may still
+belong to the wallet (since it could be part of a pending transaction in
+another instance of the same wallet).
+
+To reflect this, the V1 endpoint does not fail when an address is not recognised
+and returns a new field which indicates the address' ownership status, from the
+node point of view.
+|]
 
 --
 -- The API
@@ -842,12 +1087,17 @@ api (compileInfo, curSoftwareVersion) walletAPI mkDescription = toSwagger wallet
   & info.title   .~ "Cardano Wallet API"
   & info.version .~ fromString (show curSoftwareVersion)
   & host ?~ "127.0.0.1:8090"
-  & info.description ?~ (mkDescription $ DescriptionEnvironment
-    { deErrorExample          = decodeUtf8 $ encodePretty Errors.WalletNotFound
-    , deMnemonicExample       = T.intercalate ", " . map (surroundedBy "\"") . bpToList $ genExample
+  & info.description ?~ mkDescription DescriptionEnvironment
+    { deErrorExample          = decodeUtf8 $ encodePretty WalletNotFound
+    , deMnemonicExample       = decodeUtf8 $ encode (genExample @BackupPhrase)
     , deDefaultPerPage        = fromString (show defaultPerPageEntries)
     , deWalletErrorTable      = errorsDescription
     , deGitRevision           = ctiGitRevision compileInfo
-    , deSoftwareVersion       = fromString $ show curSoftwareVersion
-    })
+    , deSoftwareVersion       = fromString $ show (svNumber curSoftwareVersion)
+    }
   & info.license ?~ ("MIT" & url ?~ URL "https://raw.githubusercontent.com/input-output-hk/cardano-sl/develop/lib/LICENSE")
+  & paths %~ (POST,   "/api/internal/apply-update")       `setDescription` applyUpdateDescription
+  & paths %~ (POST,   "/api/internal/postpone-update")    `setDescription` postponeUpdateDescription
+  & paths %~ (DELETE, "/api/internal/reset-wallet-state") `setDescription` resetWalletStateDescription
+  & paths %~ (POST,   "/api/v1/transactions/fees")        `setDescription` estimateFeesDescription
+  & paths %~ (GET,    "/api/v1/addresses/{address}")      `setDescription` getAddressDescription

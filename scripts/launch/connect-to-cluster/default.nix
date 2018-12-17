@@ -1,15 +1,18 @@
-{ environment ? "mainnet"
-, localLib ? import ./../../../lib.nix
-, stateDir ? localLib.maybeEnv "CARDANO_STATE_DIR" "state-${executable}-${environment}"
-, config ? {}
+with import ../../../lib.nix;
+
+{ stdenv, writeText, writeScript, curl
+
+, cardano-sl-wallet-new-static, cardano-sl-explorer-static, cardano-sl-tools-static
+, cardano-sl-config
+
+## options!
+, environment ? "mainnet"
+, stateDir ? maybeEnv "CARDANO_STATE_DIR" "state-${executable}-${environment}"
 , executable ? "wallet"
 , topologyFile ? null
-, system ? builtins.currentSystem
-, pkgs ? import localLib.fetchNixPkgs { inherit system config; }
-, gitrev ? localLib.commitIdFromGitRepo ./../../../.git
-, walletListen ? "localhost:8090"
-, walletDocListen ? "localhost:8091"
-, ekgListen ? "localhost:8000"
+, walletListen ? "127.0.0.1:8090"
+, walletDocListen ? "127.0.0.1:8091"
+, ekgListen ? "127.0.0.1:8000"
 , ghcRuntimeArgs ? "-N2 -qg -A1m -I0 -T"
 , additionalNodeArgs ? ""
 , confFile ? null
@@ -17,67 +20,81 @@
 , relays ? null
 , debug ? false
 , disableClientAuth ? false
+, useLegacyDataLayer ? false
 , extraParams ? ""
+, useStackBinaries ? false
 }:
-
-with localLib;
 
 # TODO: DEVOPS-159: relays DNS should be more predictable
 # TODO: DEVOPS-499: developer clusters based on runtime JSON
 # TODO: DEVOPS-462: exchanges should use a different topology
 
 let
-  ifDebug = localLib.optionalString (debug);
-  ifDisableClientAuth = localLib.optionalString (disableClientAuth);
-  environments = {
-    mainnet = {
-      relays = "relays.cardano-mainnet.iohk.io";
-      confKey = "mainnet_full";
-    };
-    mainnet-staging = {
-      relays = "relays.awstest.iohkdev.io";
-      confKey = "mainnet_dryrun_full";
-    };
-    testnet = {
-      relays = "relays.cardano-testnet.iohkdev.io";
-      confKey = "testnet_full";
-    };
-    demo = {
-      confKey = "dev";
-      relays = "127.0.0.1";
-    };
-    override = {
-      inherit relays confKey confFile;
-    };
-  };
+  ifDebug = optionalString (debug);
+  ifDisableClientAuth = optionalString (disableClientAuth);
+  walletDataLayer = if useLegacyDataLayer then "--legacy-wallet" else "";
+  env = if environment == "override"
+    then { inherit relays confKey confFile; }
+    else environments.${environment};
   executables =  {
-    wallet = "${iohkPkgs.cardano-sl-wallet-new}/bin/cardano-node";
-    explorer = "${iohkPkgs.cardano-sl-explorer-static}/bin/cardano-explorer";
+    wallet = if useStackBinaries then "stack exec -- cardano-node" else "${cardano-sl-wallet-new-static}/bin/cardano-node";
+    explorer = if useStackBinaries then "stack exec -- cardano-explorer" else "${cardano-sl-explorer-static}/bin/cardano-explorer";
+    x509gen = if useStackBinaries then "stack exec -- cardano-x509-certificates" else "${cardano-sl-tools-static}/bin/cardano-x509-certificates";
   };
-  ifWallet = localLib.optionalString (executable == "wallet");
-  iohkPkgs = import ./../../../default.nix { inherit config system pkgs gitrev; };
-  src = ./../../../.;
-  topologyFileDefault = pkgs.writeText "topology-${environment}" ''
+  ifWallet = optionalString (executable == "wallet");
+
+  topologyFileDefault = writeText "topology-${environment}" ''
     wallet:
-      relays: [[{ host: ${environments.${environment}.relays} }]]
+      relays: [[{ host: ${env.relays} }]]
       valency: 1
       fallbacks: 7
   '';
-  configFiles = iohkPkgs.cardano-sl-config;
-  configurationArgs = pkgs.lib.concatStringsSep " " [
-    "--configuration-file ${environments.${environment}.confFile or "${configFiles}/lib/configuration.yaml"}"
-    "--configuration-key ${environments.${environment}.confKey}"
+  configurationArgs = concatStringsSep " " [
+    "--configuration-file ${env.confFile or "${cardano-sl-config}/lib/configuration.yaml"}"
+    "--configuration-key ${env.confKey}"
   ];
-in pkgs.writeScript "${executable}-connect-to-${environment}" ''
-  #!${pkgs.stdenv.shell} -e
 
-  if [[ "$1" == "--delete-state" ]]; then
+  curlScript = writeScript "curl-wallet-${environment}" ''
+    #!${stdenv.shell}
+
+    request_path=$1
+    shift
+
+    if [ -z "$request_path" ]; then
+    >&2 cat <<EOF
+    usage: ${stateDir}/curl REQUEST_PATH [ OPTIONS ]
+
+    Wrapper script to make HTTP requests to the wallet.
+    All the normal curl options apply.
+
+    Examples:
+      ${stateDir}/curl api/v1/node-info -i
+      ${stateDir}/curl api/v1/wallets -d '{ ... }' | jq .
+
+    EOF
+    fi
+
+    exec ${curl}/bin/curl --silent                       \
+      --cacert ${stateDir}/tls/client/ca.crt             \
+      --cert ${stateDir}/tls/client/client.pem           \
+      -H 'cache-control: no-cache'                       \
+      -H "Accept: application/json; charset=utf-8"       \
+      -H "Content-Type: application/json; charset=utf-8" \
+      "https://${walletListen}/$request_path" "$@"
+  '';
+
+in writeScript "${executable}-connect-to-${environment}" ''
+  #!${stdenv.shell}
+
+  set -euo pipefail
+
+  if [[ "''${1-}" == "--delete-state" ]]; then
     echo "Deleting ${stateDir} ... "
     rm -Rf ${stateDir}
     shift
   fi
-  if [[ "$1" == "--runtime-args" ]]; then
-    RUNTIME_ARGS=$2
+  if [[ "''${1-}" == "--runtime-args" ]]; then
+    RUNTIME_ARGS="''${2-}"
     shift 2
   else
     RUNTIME_ARGS=""
@@ -88,34 +105,34 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
 
   echo "Launching a node connected to '${environment}' ..."
   ${ifWallet ''
-  export LC_ALL=en_GB.UTF-8
-  export LANG=en_GB.UTF-8
+  ${utf8LocaleSetting}
   if [ ! -d ${stateDir}/tls ]; then
     mkdir -p ${stateDir}/tls/server && mkdir -p ${stateDir}/tls/client
-    ${iohkPkgs.cardano-sl-tools}/bin/cardano-x509-certificates   \
+    ${executables.x509gen}                                       \
       --server-out-dir ${stateDir}/tls/server                    \
       --clients-out-dir ${stateDir}/tls/client                   \
       ${configurationArgs}
   fi
+  ln -sf ${curlScript} ${stateDir}/curl
   ''}
 
-  exec ${executables.${executable}}                                \
-    ${configurationArgs}                                           \
-    ${ ifWallet "--tlscert ${stateDir}/tls/server/server.crt"}     \
-    ${ ifWallet "--tlskey ${stateDir}/tls/server/server.key"}      \
-    ${ ifWallet "--tlsca ${stateDir}/tls/server/ca.crt"}           \
-    --log-config ${configFiles}/log-configs/connect-to-cluster.yaml \
+  exec ${executables.${executable}}                                                    \
+    ${configurationArgs}                                                               \
+    ${ ifWallet "--tlscert ${stateDir}/tls/server/server.crt"}                         \
+    ${ ifWallet "--tlskey ${stateDir}/tls/server/server.key"}                          \
+    ${ ifWallet "--tlsca ${stateDir}/tls/server/ca.crt"}                               \
+    --log-config ${cardano-sl-config}/log-configs/connect-to-cluster.yaml              \
     --topology "${if topologyFile != null then topologyFile else topologyFileDefault}" \
-    --logs-prefix "${stateDir}/logs"                               \
-    --db-path "${stateDir}/db"   ${extraParams}                    \
-    ${ ifWallet "--wallet-db-path '${stateDir}/wallet-db'"}        \
-    ${ ifDebug "--wallet-debug"}                                   \
-    ${ ifDisableClientAuth "--no-client-auth"}                     \
-    --keyfile ${stateDir}/secret.key                               \
-    ${ ifWallet "--wallet-address ${walletListen}" }               \
-    ${ ifWallet "--wallet-doc-address ${walletDocListen}" }        \
-    --ekg-server ${ekgListen} --metrics                            \
-    +RTS ${ghcRuntimeArgs} -RTS                                    \
-    ${additionalNodeArgs}                                          \
+    --logs-prefix "${stateDir}/logs"                                                   \
+    --db-path "${stateDir}/db"   ${extraParams}                                        \
+    ${ ifWallet "--wallet-db-path '${stateDir}/wallet-db' ${walletDataLayer}"}         \
+    ${ ifDebug "--wallet-debug"}                                                       \
+    ${ ifDisableClientAuth "--no-client-auth"}                                         \
+    --keyfile ${stateDir}/secret.key                                                   \
+    ${ ifWallet "--wallet-address ${walletListen}" }                                   \
+    ${ ifWallet "--wallet-doc-address ${walletDocListen}" }                            \
+    --ekg-server ${ekgListen} --metrics                                                \
+    +RTS ${ghcRuntimeArgs} -RTS                                                        \
+    ${additionalNodeArgs}                                                              \
     $RUNTIME_ARGS
 '' // { inherit walletListen walletDocListen ekgListen; }

@@ -17,14 +17,18 @@ module Pos.Configuration
        , pendingTxResubmitionPeriod
        , walletProductionApi
        , walletTxCreationDisabled
+
+       -- * Explorer constants
+       , explorerExtendedApi
        ) where
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, genericToJSON)
+import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON,
+                     genericToJSON)
+import           Data.Aeson.Options (defaultOptions)
 import           Data.Reflection (Given (..), give)
 import           Data.Time.Units (Microsecond, Second, fromMicroseconds)
-import           Serokell.Aeson.Options (defaultOptions)
 
 type HasNodeConfiguration = Given NodeConfiguration
 
@@ -51,7 +55,10 @@ data NodeConfiguration = NodeConfiguration
     , ccWalletTxCreationDisabled     :: !Bool
       -- ^ Disallow transaction creation or re-submission of
       -- pending transactions by the wallet
-    } deriving (Show, Generic)
+    , ccExplorerExtendedApi          :: !Bool
+      -- ^ Enable explorer extended API for fetching more
+      -- info about addresses (like utxos) and bulk endpoints
+    } deriving (Eq, Generic, Show)
 
 instance ToJSON NodeConfiguration where
     toJSON = genericToJSON defaultOptions
@@ -90,3 +97,12 @@ walletProductionApi = ccWalletProductionApi $ nodeConfiguration
 -- existing pending transactions.
 walletTxCreationDisabled :: HasNodeConfiguration => Bool
 walletTxCreationDisabled = ccWalletTxCreationDisabled $ nodeConfiguration
+
+----------------------------------------------------------------------------
+-- Explorer parameters
+----------------------------------------------------------------------------
+
+-- | If 'True', explorer extended API, like fetching utxos for address is enabled.
+-- WARNING Those endpoints are potentially expensive!
+explorerExtendedApi :: HasNodeConfiguration => Bool
+explorerExtendedApi = ccExplorerExtendedApi $ nodeConfiguration

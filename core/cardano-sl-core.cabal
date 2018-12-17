@@ -1,5 +1,5 @@
 name:                cardano-sl-core
-version:             1.3.2
+version:             2.0.0
 synopsis:            Cardano SL - core
 description:         Cardano SL - core
 license:             MIT
@@ -19,70 +19,56 @@ flag asserts
 library
   hs-source-dirs:      src
   exposed-modules:
-                       Pos.Aeson.Core
-                       Pos.Aeson.Core.Configuration
-                       Pos.Aeson.Fee
-                       Pos.Aeson.Genesis
-
-                       Pos.Binary.Core
-                       Pos.Binary.Merkle
-
                        Pos.Core
+                       Pos.Core.Aeson
+                       Pos.Core.Binary
                        Pos.Core.Chrono
                        Pos.Core.Limits
 
                        Pos.Core.ProtocolConstants
 
-                       Pos.Core.Block
-                       Pos.Core.Block.Blockchain
-                       Pos.Core.Block.Genesis
-                       Pos.Core.Block.Main
-                       Pos.Core.Block.Union
-                       Pos.Core.Block.Constructors
+                       Pos.Core.NetworkAddress
 
                        Pos.Core.NetworkMagic
 
                        Pos.Core.Common
-                       Pos.Core.Configuration
                        Pos.Core.Constants
                        Pos.Core.Context
-                       Pos.Core.Delegation
-                       Pos.Core.Genesis
+
+                       -- JsonLog (moved from networking in
+                       -- the `sinbin` shuffle). All modules
+                       -- must be exposed so that `networking`
+                       -- can import & re-export them.
+                       Pos.Core.JsonLog
+                       Pos.Core.JsonLog.CanJsonLog
+                       Pos.Core.JsonLog.Event
+                       Pos.Core.JsonLog.JsonLogT
+                       Pos.Core.JsonLog.LogEvents
+
+                       -- Concurrency operations, previously
+                       -- in `Mockable`.
+                       Pos.Core.Conc
+
+                       Pos.Core.Reporting
+
                        Pos.Core.Script
                        Pos.Core.Slotting
-                       Pos.Core.Ssc
-                       Pos.Core.Txp
-                       Pos.Core.Update
 
-                       Pos.Data.Attributes
-                       Pos.Exception
-                       Pos.Merkle
+                       Pos.Core.Util.LogSafe
+                       Pos.Core.Util.TimeLimit
 
-                       Pos.System.Metrics.Constants
+                       Pos.Core.Attributes
+                       Pos.Core.Exception
+                       Pos.Core.Merkle
+
+                       Pos.Core.Metrics.Constants
 
   other-modules:
-                       -- Binary
-                       Pos.Binary.Core.Address
-                       Pos.Binary.Core.Block
-                       Pos.Binary.Core.Blockchain
-                       Pos.Binary.Core.Common
-                       Pos.Binary.Core.Delegation
-                       Pos.Binary.Core.Fee
-                       Pos.Binary.Core.Script
-                       Pos.Binary.Core.Slotting
-                       Pos.Binary.Core.Ssc
-                       Pos.Binary.Core.Txp
-                       Pos.Binary.Core.Update
+                       -- Aeson
+                       Pos.Core.Aeson.Orphans
 
-                       -- Block
-                       Pos.Core.Block.Genesis.Lens
-                       Pos.Core.Block.Genesis.Instances
-                       Pos.Core.Block.Genesis.Types
-                       Pos.Core.Block.Main.Lens
-                       Pos.Core.Block.Main.Instances
-                       Pos.Core.Block.Main.Types
-                       Pos.Core.Block.Union.Instances
-                       Pos.Core.Block.Union.Types
+                       -- Binary
+                       Pos.Core.Binary.Orphans
 
                        -- Common
                        Pos.Core.Common.AddrAttributes
@@ -103,35 +89,8 @@ library
                        Pos.Core.Common.TxFeePolicy
                        Pos.Core.Common.TxSizeLinear
 
-                       -- Configuration
-                       Pos.Core.Configuration.BlockVersionData
-                       Pos.Core.Configuration.Core
-                       Pos.Core.Configuration.GeneratedSecrets
-                       Pos.Core.Configuration.GenesisData
-                       Pos.Core.Configuration.GenesisHash
-                       Pos.Core.Configuration.Protocol
-
                        -- Context
                        Pos.Core.Context.PrimaryKey
-
-                       -- Delegation
-                       Pos.Core.Delegation.HeavyDlgIndex
-                       Pos.Core.Delegation.LightDlgIndices
-                       Pos.Core.Delegation.Payload
-                       Pos.Core.Delegation.Proof
-
-                       -- Genesis
-                       Pos.Core.Genesis.Canonical
-                       Pos.Core.Genesis.Generate
-                       Pos.Core.Genesis.AvvmBalances
-                       Pos.Core.Genesis.Data
-                       Pos.Core.Genesis.Delegation
-                       Pos.Core.Genesis.Initializer
-                       Pos.Core.Genesis.NonAvvmBalances
-                       Pos.Core.Genesis.ProtocolConstants
-                       Pos.Core.Genesis.Spec
-                       Pos.Core.Genesis.VssCertificatesMap
-                       Pos.Core.Genesis.WStakeholders
 
                        -- Slotting
                        Pos.Core.Slotting.EpochIndex
@@ -141,54 +100,27 @@ library
                        Pos.Core.Slotting.SlotId
                        Pos.Core.Slotting.TimeDiff
                        Pos.Core.Slotting.Timestamp
+                       Pos.Core.Slotting.Class
+                       Pos.Core.Slotting.MemState
+                       Pos.Core.Slotting.Types
+                       Pos.Core.Slotting.Util
 
-                       -- SSC
-                       Pos.Core.Ssc.Commitment
-                       Pos.Core.Ssc.CommitmentsMap
-                       Pos.Core.Ssc.Opening
-                       Pos.Core.Ssc.OpeningsMap
-                       Pos.Core.Ssc.CommitmentAndOpening
-                       Pos.Core.Ssc.Payload
-                       Pos.Core.Ssc.Proof
-                       Pos.Core.Ssc.SharesDistribution
-                       Pos.Core.Ssc.SharesMap
-                       Pos.Core.Ssc.VssCertificate
-                       Pos.Core.Ssc.VssCertificatesMap
-
-                       -- Txp
-                       Pos.Core.Txp.Tx
-                       Pos.Core.Txp.TxAux
-                       Pos.Core.Txp.TxOutAux
-                       Pos.Core.Txp.TxPayload
-                       Pos.Core.Txp.TxProof
-                       Pos.Core.Txp.TxWitness
-                       Pos.Core.Txp.Undo
-
-                       -- Update
-                       Pos.Core.Update.ApplicationName
-                       Pos.Core.Update.BlockVersion
-                       Pos.Core.Update.BlockVersionData
-                       Pos.Core.Update.BlockVersionModifier
-                       Pos.Core.Update.Data
-                       Pos.Core.Update.Payload
-                       Pos.Core.Update.Proof
-                       Pos.Core.Update.Proposal
-                       Pos.Core.Update.SoftforkRule
-                       Pos.Core.Update.SoftwareVersion
-                       Pos.Core.Update.SystemTag
-                       Pos.Core.Update.Vote
-                       Pos.Core.Update.VoteId
+                       -- Reporting
+                       Pos.Core.Reporting.MemState
+                       Pos.Core.Reporting.Methods
+                       Pos.Core.Reporting.Metrics
 
   build-depends:       aeson
+                     , aeson-options
                      , ansi-terminal
                      , base
                      , base58-bytestring
                      , bytestring
                      , Cabal
                      , canonical-json
+                     , cardano-report-server >= 0.4.5
                      , cardano-sl-binary
                      , cardano-sl-crypto
-                     , cardano-sl-networking
                      , cardano-sl-util
                      , cborg
                      , cereal
@@ -197,6 +129,8 @@ library
                      , data-default
                      , deepseq
                      , deriving-compat
+                     , ekg-core
+                     , ether >= 0.5
                      , exceptions
                      , extra
                      , filepath
@@ -204,24 +138,33 @@ library
                      , formatting
                      , hashable
                      , lens
-                     , log-warper >= 1.0.3
+                     , parsec
                      , memory
+                     , mmorph
+                     , monad-control
                      , mtl
                      , plutus-prototype
                      , random
                      , reflection
+                     , resourcet
+                     , safecopy
                      , safe-exceptions
                      , safecopy
                      , serokell-util
+                     , servant >= 0.8.1
+                     , stm
                      , template-haskell
                      , text
-                     , text-format
                      , th-lift-instances
                      , time
                      , time-units
+                     , transformers
+                     , transformers-base
+                     , transformers-lift
                      , universum
+                     , unliftio
+                     , unliftio-core
                      , unordered-containers
-                     , vector
 
   default-language:    Haskell2010
 
@@ -234,10 +177,10 @@ library
                        MultiParamTypeClasses
                        FunctionalDependencies
                        DefaultSignatures
+                       InstanceSigs
                        NoImplicitPrelude
                        OverloadedStrings
                        RankNTypes
-                       RecordWildCards
                        TypeApplications
                        TypeFamilies
                        TupleSections
@@ -251,15 +194,16 @@ library
                        ScopedTypeVariables
                        MonadFailDesugaring
 
-  ghc-options:         -Wall
+  ghc-options:
                        -O2
+                       -Wall
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
   if flag(asserts)
     cpp-options: -DASSERTS_ON
 
-test-suite test
+test-suite core-test
   main-is:             test.hs
   hs-source-dirs:      test
   default-language:    Haskell2010
@@ -277,15 +221,16 @@ test-suite test
                        Test.Pos.Core.Gen
                        Test.Pos.Core.Json
                        Test.Pos.Core.LimitsSpec
+                       Test.Pos.Core.SafeCopy
                        Test.Pos.Core.SeedSpec
                        Test.Pos.Core.SlottingSpec
 
                        Test.Pos.Core.Arbitrary
+                       Test.Pos.Core.Arbitrary.Slotting
                        Test.Pos.Core.Arbitrary.Unsafe
+                       Test.Pos.Core.Dummy
 
-  build-depends:       aeson
-                     , base
-                     , base16-bytestring
+  build-depends:       base
                      , bytestring
                      , cardano-crypto
                      , cardano-sl-binary
@@ -297,8 +242,6 @@ test-suite test
                      , cardano-sl-util-test
                      , containers
                      , cryptonite
-                     , deepseq
-                     , ed25519
                      , formatting
                      , generic-arbitrary
                      , hedgehog
@@ -307,16 +250,18 @@ test-suite test
                      , QuickCheck
                      , quickcheck-instances
                      , random
+                     , safecopy
                      , serokell-util >= 0.1.3.4
                      , text
                      , time-units
                      , universum >= 0.1.11
                      , unordered-containers
-                     , vector
 
-  ghc-options:         -threaded
+  ghc-options:
+                       -threaded
                        -rtsopts
                        -Wall
+
 
   -- linker speed up for linux
   if os(linux)
@@ -334,7 +279,6 @@ test-suite test
                         DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
-                        RecordWildCards
                         TypeApplications
                         TupleSections
                         ViewPatterns

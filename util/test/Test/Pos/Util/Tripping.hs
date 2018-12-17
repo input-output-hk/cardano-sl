@@ -7,7 +7,7 @@ import           Universum
 
 import           Data.Aeson (FromJSON, ToJSON, decode, encode)
 import           Data.Text.Internal.Builder (fromText, toLazyText)
-import           Data.Text.Buildable (Buildable (..))
+import           Formatting.Buildable (Buildable (..))
 import           Hedgehog (Group, MonadTest, discoverPrefix, success, tripping)
 import           Hedgehog.Internal.Property (Diff (..), failWith)
 import           Hedgehog.Internal.Show (valueDiff)

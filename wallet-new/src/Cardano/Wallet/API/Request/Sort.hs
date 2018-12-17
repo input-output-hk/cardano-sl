@@ -14,15 +14,15 @@ import qualified Prelude
 import           Universum
 
 import qualified Data.Text as T
-import qualified Data.Text.Buildable
 import           Data.Typeable
 import           Formatting (bprint, build, formatToString, sformat)
+import qualified Formatting.Buildable
 import qualified Generics.SOP as SOP
 import           GHC.TypeLits (KnownSymbol, symbolVal)
 import           Network.HTTP.Types (parseQueryText)
 import           Network.Wai (Request, rawQueryString)
 import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
-                                         buildSafe, secure, unsecure)
+                     buildSafe, secure, unsecure)
 import           Pos.Util.Servant (ApiCanLogArg (..), ApiHasArgClass (..))
 import           Servant
 import           Servant.Client
@@ -106,7 +106,10 @@ instance (BuildableSafeGen (SortOperation ix a)) =>
 -- the inner closure of 'SortOp'.
 data SortOperations a where
     NoSorts  :: SortOperations a
-    SortOp   :: IndexRelation a ix
+    SortOp   :: ( IsIndexOf ix a
+                , Typeable ix
+                , KnownSymbol (IndexToQueryParam a ix)
+                )
              => SortOperation ix a
              -> SortOperations a
              -> SortOperations a
@@ -158,12 +161,14 @@ findMatchingSortOp (SortOp (sop :: SortOperation ix a) rest) =
 class ToSortOperations (ixs :: [*]) a where
   toSortOperations :: Request -> proxy ixs -> SortOperations a
 
-instance Indexable' a => ToSortOperations ('[]) a where
+instance Indexable a => ToSortOperations ('[]) a where
   toSortOperations _ _ = NoSorts
 
-instance ( IndexRelation a ix
+instance ( IsIndexOf ix a
+         , Typeable ix
          , ToSortOperations ixs a
          , IndexToQueryParam a ix ~ sym
+         , KnownSymbol sym
          )
          => ToSortOperations (ix ': ixs) a where
     toSortOperations req _ =

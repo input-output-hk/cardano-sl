@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Data which is stored in memory and is related to GState.
 
 module Pos.GState.Context
@@ -12,15 +14,16 @@ module Pos.GState.Context
 import           Universum
 
 import           Control.Lens (lens, makeClassy)
-import           System.Wlog (WithLogger)
 
-import           Pos.Block.Slog (HasSlogGState (..), SlogGState, cloneSlogGState)
+import           Pos.Chain.Block (HasSlogGState (..), SlogGState)
+import           Pos.DB.Block (cloneSlogGState)
+import           Pos.DB.Lrc (HasLrcContext, LrcContext, cloneLrcContext)
 import           Pos.DB.Pure (cloneDBPure)
 import           Pos.DB.Sum (DBSum (..))
 import           Pos.Infra.Slotting (HasSlottingVar, SlottingVar,
-                                     cloneSlottingVar, slottingVar)
-import           Pos.Lrc.Context (HasLrcContext, LrcContext, cloneLrcContext)
+                     cloneSlottingVar, slottingVar)
 import           Pos.Util.Util (HasLens', lensOf)
+import           Pos.Util.Wlog (WithLogger)
 
 -- | This type contains DB and in-memory contexts which basically
 -- replicate GState. It's parameterized by DB type, because we have

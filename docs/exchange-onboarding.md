@@ -53,8 +53,9 @@ go faster.
 
     sudo mkdir -p /etc/nix
     cat <<EOF | sudo tee /etc/nix/nix.conf
-    binary-caches            = https://cache.nixos.org https://hydra.iohk.io
-    binary-cache-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
+    substituters = https://hydra.iohk.io https://cache.nixos.org/
+    trusted-substituters =
+    trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
     EOF
 
 ## Miscellaneous Utilities
@@ -106,6 +107,10 @@ Supported options include:
 -   **`ekgListen`:** Runtime metrics server
 -   **`stateDir`:** Directory for the wallet's local state. Must be
     enclosed in double quotes.
+-   **`disableClientAuth`:** **NOT RECOMMENDED** Disables TLS client
+    certificate authorization, so any client can connect to API server.
+-   **`useLegacyDataLayer`:** **NOT RECOMMENDED** Uses the old wallet
+    data layer. If code still requires access to v0 API this is required to be true.
 -   **`topologyFile`:** Used to connect to a custom set of nodes on
     the network. When unspecified an appropriate
     default topology is generated.
@@ -120,19 +125,19 @@ For exchanges we recommend creating the following `custom-wallet-config.nix`:
 
       ## Wallet doc API server.
       #walletDocListen = "127.0.0.1:8091";
-    
+
       ## Runtime metrics server.
       #ekgListen = "127.0.0.1:8000";
-    
+
       ## Directory for the wallet's local state. Must be set BEFORE
       ## running nix-build to have any effect, and it must be enclosed in
       ## double quotes.
       stateDir = "./state-wallet-mainnet";
       topologyFile = ./exchange-topology.yaml;
-    
+
       ## See https://downloads.haskell.org/~ghc/8.0.2/docs/html/users_guide/runtime_control.html#running-a-compiled-program
       #ghcRuntimeArgs = "-N2 -qg -A1m -I0 -T";
-    
+
       ## Primarily used for troubleshooting.
       #additionalNodeArgs = "";
     }
@@ -311,6 +316,24 @@ If you are using the docker container, this can be output using the command:
 Please refer to your OS or browser documentation for how to import the CA
 certificate into your trusted `ca-certificates` file. The rest of this
 document will assume the certificate is trusted.
+
+## How do I export the client certificate/key for the API?
+
+The certificate is generated inside the wallet in the file `tls/client/client.crt`
+The key is generated inside the wallet in the file `tls/client/client.key`
+
+If you are using the docker container, this can be output using the command:
+
+`docker exec -it cardano-mainnet-wallet cat /wallet/state-wallet-mainnet/tls/client/client.crt`
+
+`docker exec -it cardano-mainnet-wallet cat /wallet/state-wallet-mainnet/tls/client/client.key`
+
+Please refer to your code documentation for how to authenticate with
+client SSL certificates.
+
+As an example using curl:
+
+    curl https://localhost:8090/api/v1/wallets --cacert ca.crt --cert client.pem |jq
 
 ## How do I know when the wallet has fetched all the blocks?
 

@@ -1,0 +1,7 @@
+{
+    "memPoolLimitTx": 700,
+    "assetLockedSrcAddrs": [
+        "2RhQhCGqYPDpFgTsnBTbnvPvCwpqAkjwLqQkWpkqXbLRmNxd4xNd262nGsr8JiynyKRUeMLSJ9Ntho9i76uvBTrVXdJJG5yiNLb8frmUe5qX7E",
+        "5FCjkr138i9wjRVwawmYMd4Vc9KxU7TuQhMyjMGpnykg9yb2qMpUCerDFzXvfAJMFgJTHyD7Sn4ybLXm2M6zeWAaWe7ctjq5QjVL427vGRx"
+    ]
+}

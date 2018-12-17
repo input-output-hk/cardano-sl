@@ -1,6 +1,7 @@
-{-# LANGUAGE ApplicativeDo #-}
-{-# LANGUAGE CPP           #-}
-{-# LANGUAGE QuasiQuotes   #-}
+{-# LANGUAGE ApplicativeDo   #-}
+{-# LANGUAGE CPP             #-}
+{-# LANGUAGE QuasiQuotes     #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | Command line options of Cardano node.
 
@@ -9,6 +10,7 @@ module Pos.Client.CLI.NodeOptions
        , SimpleNodeArgs (..)
        , NodeArgs (..)
        , commonNodeArgsParser
+       , nodeArgsParser
        , getSimpleNodeOptions
        , usageExample
        ) where
@@ -17,19 +19,23 @@ import           Universum
 
 import           Data.Version (showVersion)
 import           NeatInterpolation (text)
-import           Options.Applicative (Parser, auto, execParser, footerDoc, fullDesc, header, help,
-                                      helper, info, infoOption, long, metavar, option, progDesc,
-                                      strOption, switch, value)
+import           Options.Applicative (Parser, auto, execParser, footerDoc,
+                     fullDesc, header, help, helper, info, infoOption, long,
+                     metavar, option, progDesc, strOption, switch, value)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl (version)
 
-import           Pos.Client.CLI.Options (CommonArgs (..), commonArgsParser, optionalJSONPath)
+import           Pos.Client.CLI.Options (CommonArgs (..), commonArgsParser,
+                     optionalJSONPath)
+import           Pos.Core.NetworkAddress (NetworkAddress)
 import           Pos.Infra.HealthCheck.Route53 (route53HealthCheckOption)
+import           Pos.Infra.InjectFail (FInjectsSpec, parseFInjectsSpec)
 import           Pos.Infra.Network.CLI (NetworkConfigOpts, networkConfigOption)
-import           Pos.Infra.Statistics (EkgParams, StatsdParams, ekgParamsOption, statsdParamsOption)
-import           Pos.Infra.Util.TimeWarp (NetworkAddress)
-import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo, compileInfo)
+import           Pos.Infra.Statistics (EkgParams, StatsdParams, ekgParamsOption,
+                     statsdParamsOption)
+import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo,
+                     compileInfo)
 
 data CommonNodeArgs = CommonNodeArgs
     { dbPath                 :: !(Maybe FilePath)
@@ -37,6 +43,7 @@ data CommonNodeArgs = CommonNodeArgs
     , cnaAssetLockPath       :: !(Maybe FilePath)
     -- these two arguments are only used in development mode
     , devGenesisSecretI      :: !(Maybe Int)
+    , publicKeyfilePath      :: !FilePath
     , keyfilePath            :: !FilePath
     , networkConfigOpts      :: !NetworkConfigOpts
       -- ^ Network configuration
@@ -50,6 +57,7 @@ data CommonNodeArgs = CommonNodeArgs
     , statsdParams           :: !(Maybe StatsdParams)
     , cnaDumpGenesisDataPath :: !(Maybe FilePath)
     , cnaDumpConfiguration   :: !Bool
+    , cnaFInjectsSpec        :: !FInjectsSpec
     } deriving Show
 
 commonNodeArgsParser :: Parser CommonNodeArgs
@@ -77,6 +85,11 @@ commonNodeArgsParser = do
                   long    "genesis-secret" <>
                   metavar "INT" <>
                   help    "Used genesis secret key index."
+    publicKeyfilePath <- strOption $
+        long    "pubkeyfile" <>
+        metavar "FILEPATH" <>
+        value   "public.key" <>
+        help    "Path to file with public key (we use it for external wallets)."
     keyfilePath <- strOption $
         long    "keyfile" <>
         metavar "FILEPATH" <>
@@ -113,6 +126,14 @@ commonNodeArgsParser = do
         long "dump-configuration" <>
         help "Dump configuration and exit."
 
+    cnaFInjectsSpec <- parseFInjectsSpec
+        -- The fault injection CLI switches are generated in infra/src/Pos/Infra/InjectFail.hs
+        -- from the FInject ADT, by:  1) lowercasing and 2) dropping the 4-letter prefix.
+        -- I.e.
+        --     FInjIgnoreShutdown → --ignoreshutdown
+        -- Additionally, a single extra flag is required to allow fault injection processing at all:
+        --   --allow-fault-injection
+
     pure CommonNodeArgs{..}
 
 data SimpleNodeArgs = SimpleNodeArgs CommonNodeArgs NodeArgs
@@ -122,17 +143,15 @@ data NodeArgs = NodeArgs
     } deriving Show
 
 simpleNodeArgsParser :: Parser SimpleNodeArgs
-simpleNodeArgsParser = do
-    commonNodeArgs <- commonNodeArgsParser
-    behaviorConfigPath <- behaviorConfigOption
-    pure $ SimpleNodeArgs commonNodeArgs NodeArgs{..}
+simpleNodeArgsParser = SimpleNodeArgs
+    <$> commonNodeArgsParser
+    <*> nodeArgsParser
 
-behaviorConfigOption :: Parser (Maybe FilePath)
-behaviorConfigOption =
-    optional $ strOption $
-        long "behavior" <>
-        metavar "FILE" <>
-        help "Path to the behavior config"
+nodeArgsParser :: Parser NodeArgs
+nodeArgsParser = fmap NodeArgs $ optional $ strOption $
+    long "behavior" <>
+    metavar "FILE" <>
+    help "Path to the behavior config"
 
 getSimpleNodeOptions :: HasCompileInfo => IO SimpleNodeArgs
 getSimpleNodeOptions = execParser programInfo

@@ -24,19 +24,24 @@ module Test.Pos.Configuration
 import           Universum
 
 import qualified Data.Aeson as J
+import qualified Data.Set as Set
 
-import           Pos.Block.Configuration (HasBlockConfiguration, withBlockConfiguration)
+import           Ntp.Client (NtpConfiguration)
+
+import           Pos.Chain.Block (HasBlockConfiguration, withBlockConfiguration)
+import           Pos.Chain.Delegation (HasDlgConfiguration,
+                     withDlgConfiguration)
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     GenesisProtocolConstants (..), GenesisSpec (..),
+                     StaticConfig (..), mkConfig)
+import           Pos.Chain.Ssc (HasSscConfiguration, withSscConfiguration)
+import           Pos.Chain.Txp (TxpConfiguration (..))
+import           Pos.Chain.Update (BlockVersionData, HasUpdateConfiguration,
+                     withUpdateConfiguration)
 import           Pos.Configuration (HasNodeConfiguration, withNodeConfiguration)
-import           Pos.Core (BlockVersionData, HasConfiguration, withGenesisSpec)
-import           Pos.Core.Configuration (CoreConfiguration (..), GenesisConfiguration (..))
-import           Pos.Core.Genesis (GenesisProtocolConstants (..), GenesisSpec (..))
 import           Pos.Crypto (ProtocolMagic)
-import           Pos.Delegation (HasDlgConfiguration, withDlgConfiguration)
-import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
-import           Pos.Launcher.Configuration (Configuration (..), HasConfigurations)
-import           Pos.Ssc.Configuration (HasSscConfiguration, withSscConfiguration)
-import           Pos.Txp (HasTxpConfiguration, withTxpConfiguration)
-import           Pos.Update.Configuration (HasUpdateConfiguration, withUpdateConfiguration)
+import           Pos.Launcher.Configuration (Configuration (..),
+                     HasConfigurations)
 import           Pos.Util.Config (embedYamlConfigCT)
 
 -- | This configuration is embedded into binary and is used by default
@@ -49,10 +54,9 @@ defaultTestConf = case J.fromJSON $ J.Object jobj of
     jobj = $(embedYamlConfigCT (Proxy @J.Object) "configuration.yaml" "configuration.yaml" "test")
 
 defaultTestGenesisSpec :: GenesisSpec
-defaultTestGenesisSpec =
-    case ccGenesis (ccCore defaultTestConf) of
-        GCSpec spec -> spec
-        _           -> error "unexpected genesis type in test"
+defaultTestGenesisSpec = case ccGenesis defaultTestConf of
+    GCSpec spec -> spec
+    _           -> error "unexpected genesis type in test"
 
 defaultTestBlockVersionData :: BlockVersionData
 defaultTestBlockVersionData = gsBlockVersionData defaultTestGenesisSpec
@@ -65,7 +69,6 @@ type HasStaticConfigurations =
     , HasBlockConfiguration
     , HasNodeConfiguration
     , HasDlgConfiguration
-    , HasTxpConfiguration
     )
 
 withDefNodeConfiguration :: (HasNodeConfiguration => r) -> r
@@ -86,37 +89,48 @@ withDefBlockConfiguration = withBlockConfiguration (ccBlock defaultTestConf)
 withDefDlgConfiguration :: (HasDlgConfiguration => r) -> r
 withDefDlgConfiguration = withDlgConfiguration (ccDlg defaultTestConf)
 
-withDefTxpConfiguration :: (HasTxpConfiguration => r) -> r
-withDefTxpConfiguration = withTxpConfiguration (ccTxp defaultTestConf)
+withDefConfiguration :: (Genesis.Config -> r) -> r
+withDefConfiguration f = f $ mkConfig 0 defaultTestGenesisSpec
 
-withDefConfiguration :: (HasConfiguration => ProtocolMagic -> r) -> r
-withDefConfiguration = withGenesisSpec 0 (ccCore defaultTestConf)
-
-withProvidedMagicConfig :: ProtocolMagic -> (HasConfigurations => r) -> r
-withProvidedMagicConfig pm f = withGenesisSpec 0 (updateCC (ccCore defaultTestConf)) (\_pm -> withStaticConfigurations (const f))
-  where
-    updateCC :: CoreConfiguration -> CoreConfiguration
-    updateCC cc = cc { ccGenesis = updateGC (ccGenesis cc) }
-    --
-    updateGC :: GenesisConfiguration -> GenesisConfiguration
-    updateGC (GCSrc _ _) = error "got GCSrc"
-    updateGC (GCSpec spec) = GCSpec $ spec
-        { gsProtocolConstants = updateGPC (gsProtocolConstants spec) }
-    --
-    updateGPC :: GenesisProtocolConstants -> GenesisProtocolConstants
-    updateGPC gpc = gpc { gpcProtocolMagic = pm }
-
-withStaticConfigurations :: (HasStaticConfigurations => NtpConfiguration -> r) -> r
+withStaticConfigurations :: (HasStaticConfigurations => TxpConfiguration -> NtpConfiguration -> r) -> r
 withStaticConfigurations patak =
     withDefNodeConfiguration $
     withDefSscConfiguration $
     withDefUpdateConfiguration $
     withDefBlockConfiguration $
     withDefDlgConfiguration $
-    withDefTxpConfiguration $
-    withDefNtpConfiguration patak
+    withDefNtpConfiguration (patak $ TxpConfiguration 200 Set.empty)
 
 withDefConfigurations
-    :: (HasConfigurations => NtpConfiguration -> ProtocolMagic -> r) -> r
-withDefConfigurations bardaq =
-    withDefConfiguration $ withStaticConfigurations bardaq
+    :: (  HasConfigurations
+       => Genesis.Config
+       -> TxpConfiguration
+       -> NtpConfiguration
+       -> r
+       )
+    -> r
+withDefConfigurations bardaq = withDefConfiguration
+    $ \genesisConfig -> withStaticConfigurations (bardaq genesisConfig)
+
+withProvidedMagicConfig
+    :: ProtocolMagic
+    -> (  HasConfigurations
+       => Genesis.Config
+       -> TxpConfiguration
+       -> NtpConfiguration
+       -> r
+       )
+    -> r
+withProvidedMagicConfig pm f = withStaticConfigurations (f overriddenGenesisConfig)
+  where
+    overriddenGenesisConfig :: Genesis.Config
+    overriddenGenesisConfig = mkConfig 0 overriddenGenesisSpec
+    --
+    overriddenGenesisSpec :: GenesisSpec
+    overriddenGenesisSpec = updateGS defaultTestGenesisSpec
+    --
+    updateGS :: GenesisSpec -> GenesisSpec
+    updateGS gs = gs { gsProtocolConstants = updateGPC (gsProtocolConstants gs) }
+    --
+    updateGPC :: GenesisProtocolConstants -> GenesisProtocolConstants
+    updateGPC gpc = gpc { gpcProtocolMagic = pm }

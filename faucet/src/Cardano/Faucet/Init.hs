@@ -28,7 +28,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Default (def)
 import           Data.Int (Int64)
-import qualified Data.List.NonEmpty as NonEmpty
+import           Data.List.NonEmpty as NonEmpty
 import qualified Data.Text as Text
 import           Data.Text.Lazy (toStrict)
 import qualified Data.Text.Lazy.IO as Text
@@ -50,19 +50,18 @@ import           System.Wlog (CanLog, HasLoggerName, LoggerNameBox (..),
                      liftLogIO, logDebug, logError, logInfo, withSublogger)
 
 import           Cardano.Wallet.API.V1.Types (Account (..), Address,
-                     AssuranceLevel (NormalAssurance),
-                     NewWallet (..), NodeInfo (..), Payment (..),
-                     PaymentDistribution (..), PaymentSource (..),
-                     SyncPercentage, V1 (..), Wallet (..), WalletAddress (..),
-                     WalletId, WalletOperation (CreateWallet),
-                     mkSyncPercentage, txAmount, unV1)
+                     AssuranceLevel (NormalAssurance), BackupPhrase (..),
+                     ForceNtpCheck (..), NewWallet (..), NodeInfo (..),
+                     Payment (..), PaymentDistribution (..),
+                     PaymentSource (..), SyncPercentage, V1 (..), Wallet (..),
+                     WalletAddress (..), WalletId,
+                     WalletOperation (CreateWallet), mkSyncPercentage,
+                     txAmount, unV1)
 import           Cardano.Wallet.Client (ClientError (..), WalletClient (..),
                      WalletResponse (..), liftClient)
 import           Cardano.Wallet.Client.Http (mkHttpClient)
 import           Pos.Core (Coin (..))
-import           Pos.Util.Mnemonics (toMnemonic)
-import           Pos.Util.BackupPhrase             (BackupPhrase (..))
-import           Crypto.Random.Entropy (getEntropy)
+import           Pos.Util.Mnemonic (Mnemonic, entropyToMnemonic, genEntropy)
 import           Universum
 
 import           Cardano.Faucet.Types
@@ -87,25 +86,8 @@ readGeneratedWallet fp = catch (first JSONDecodeError <$> readJSON fp) $ \e ->
       then return $ Left FileNotPresentError
       else return $ Left $ FileReadError e
 --------------------------------------------------------------------------------
-
-{- develop branch version
-import Cardano.Wallet.API.V1.Types (BackupPhrase (..))
-generateBackupPhrase :: IO BackupPhrase
-generateBackupPhrase = BackupPhrase . entropyToMnemonic <$> genEntropy
--}
-
--- release/1.3.1 branch version
-generateBackupPhrase :: IO BackupPhrase
-generateBackupPhrase = do
-    -- The size 16 should give us 12-words mnemonic after BIP-39 encoding.
-    genMnemonic <- getEntropy 16
-    let newMnemonic = either (error . show) id $ toMnemonic genMnemonic
-    return $ mkBackupPhrase12 $ words newMnemonic
-  where
-    mkBackupPhrase12 :: [Text] -> BackupPhrase
-    mkBackupPhrase12 ls
-        | length ls == 12 = BackupPhrase ls
-        | otherwise = error "Invalid number of words in backup phrase! Expected 12 words."
+generateBackupPhrase :: IO (Mnemonic 12)
+generateBackupPhrase = entropyToMnemonic <$> genEntropy
 
 --------------------------------------------------------------------------------
 completelySynced :: SyncPercentage
@@ -117,7 +99,7 @@ getSyncState
     => WalletClient m
     -> m (Either ClientError SyncPercentage)
 getSyncState client = do
-    r <- getNodeInfo client
+    r <- getNodeInfo client ForceNtpCheck
     return (nfoSyncProgress . wrData <$> r)
 
 --------------------------------------------------------------------------------
@@ -180,7 +162,7 @@ createWallet client = do
     where
         mkWallet = do
           phrase <- liftIO generateBackupPhrase
-          let w = NewWallet (V1 phrase) Nothing NormalAssurance "Faucet-Wallet" CreateWallet
+          let w = NewWallet (BackupPhrase phrase) Nothing NormalAssurance "Faucet-Wallet" CreateWallet
           runExceptT $ do
               wId <- walId <$> (runClient WalletCreationError $ postWallet client w)
               let wIdLog = Text.pack $ show wId

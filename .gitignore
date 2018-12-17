@@ -1,9 +1,17 @@
 # Cabal & Stack
 .stack-work/
+.stack-work-profile/
 */dist
+dist-newstyle/
+.ghc.environment.*
+cabal.project.local
 
 # From daedalus-bridge
 node_modules/*
+
+# tags
+*.tags
+tags
 
 # Config files
 .ghci
@@ -17,7 +25,8 @@ b
 # Various DBs
 node-db*
 wallet-db/
-wallet-new-db/
+wallet-db-acid/
+wallet-db-sqlite.sqlite3
 db-*/
 wdb-*/
 
@@ -64,11 +73,11 @@ scripts/haskell/dependencies.hi
 scripts/haskell/dependencies.o
 scripts/haskell/dependencies
 
-# 'pkgs/stack2nix' is a symlink into the nix store, it can safely be ignored
-pkgs/stack2nix
+# Cache for pkgs/generate.sh
+/pkgs/.cabal/
+/pkgs/.stack/
 # in case generate.sh clones nixpkgs in here
 nixpkgs
-pkgs/result
 
 # explorer
 explorer-node.log.*
@@ -207,6 +216,14 @@ venv.bak/
 .mypy_cache/
 
 # End of https://www.gitignore.io/api/python
+*.aux
+/docs/on-the-wire/binary.toc
+/docs/on-the-wire/binary.synctex.gz
+/docs/on-the-wire/binary.pdf
+/docs/on-the-wire/binary.log
+/docs/on-the-wire/binary.fls
+/docs/on-the-wire/binary.fdb_latexmk
+/docs/on-the-wire/binary.dvi
 
 # Don't include config files with sensitive data or tls certs
 /faucet/test-config.json

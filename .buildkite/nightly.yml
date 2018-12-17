@@ -1,0 +1,14 @@
+steps:
+  - label: 'Acceptance Tests - mainnet - full'
+    command:
+      - nix-build -A acceptanceTests.mainnet.full -o acceptance-tests-mainnet-full.sh
+      - echo "+++ Syncing mainnet blockchain"
+      - ./acceptance-tests-mainnet-full.sh
+    timeout_in_minutes: 120
+
+  - label: 'Acceptance Tests - testnet - full'
+    command:
+      - nix-build -A acceptanceTests.testnet.full -o acceptance-tests-testnet-full.sh
+      - echo "+++ Syncing testnet blockchain"
+      - ./acceptance-tests-testnet-full.sh
+    timeout_in_minutes: 60

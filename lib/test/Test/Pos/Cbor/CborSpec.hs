@@ -15,86 +15,64 @@ module Test.Pos.Cbor.CborSpec
 import           Universum
 
 import qualified Cardano.Crypto.Wallet as CC
-import           Crypto.Hash (Blake2b_224, Blake2b_256)
 import           Data.Tagged (Tagged)
 import           System.FileLock (FileLock)
-import           Test.Hspec (Spec, describe, runIO)
+import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Arbitrary (..), arbitrary, generate)
+import           Test.QuickCheck (Arbitrary (..), arbitrary)
 
-import           Pos.Arbitrary.Infra ()
-import           Pos.Arbitrary.Slotting ()
-import           Pos.Arbitrary.Ssc ()
-import           Pos.Arbitrary.Update ()
-import           Pos.Binary.Class
 import           Pos.Binary.Communication ()
-import           Pos.Binary.Core ()
-import           Pos.Binary.Ssc ()
-import qualified Pos.Block.Network as BT
-import qualified Pos.Block.Types as BT
+import           Pos.Chain.Delegation (DlgPayload, DlgUndo, ProxySKHeavy)
+import           Pos.Chain.Ssc (VssCertificate)
+import qualified Pos.Chain.Ssc as Ssc
+import           Pos.Chain.Txp (TxMsgContents (..))
+import qualified Pos.Chain.Txp as T
+import qualified Pos.Chain.Update as U
 import qualified Pos.Communication as C
-import           Pos.Communication.Limits (mlOpening, mlUpdateVote, mlVssCertificate)
-import           Pos.Core (ProxySKHeavy, StakeholderId, VssCertificate)
-import qualified Pos.Core.Block as BT
-import qualified Pos.Core.Ssc as Ssc
-import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
-import qualified Pos.Crypto as Crypto
+import           Pos.Communication.Limits (mlOpening, mlUpdateVote,
+                     mlVssCertificate)
+import           Pos.Core (StakeholderId)
 import           Pos.Crypto.Signing (EncryptedSecretKey)
-import           Pos.Delegation (DlgPayload, DlgUndo)
-import           Pos.Infra.Binary ()
-import           Pos.Infra.Communication.Limits.Instances (mlDataMsg, mlInvMsg, mlMempoolMsg,
-                                                           mlReqMsg)
+import           Pos.Infra.Communication.Limits.Instances (mlDataMsg, mlInvMsg,
+                     mlMempoolMsg, mlReqMsg)
 import qualified Pos.Infra.Communication.Relay as R
 import           Pos.Infra.Communication.Types.Relay (DataMsg (..))
 import qualified Pos.Infra.DHT.Model as DHT
 import           Pos.Infra.Slotting.Types (SlottingData)
-import qualified Pos.Ssc as Ssc
-import qualified Pos.Txp as T
-import qualified Pos.Update as U
+import           Pos.Util.UserPublic (UserPublic, WalletUserPublic)
 import           Pos.Util.UserSecret (UserSecret, WalletUserSecret)
 
-import           Test.Pos.Binary.Helpers (U, binaryTest, extensionProperty, msgLenLimitedTest)
-import           Test.Pos.Block.Arbitrary ()
-import           Test.Pos.Block.Arbitrary.Message ()
-import           Test.Pos.Configuration (withProvidedMagicConfig)
+import           Test.Pos.Binary.Helpers (U, binaryTest, extensionProperty,
+                     msgLenLimitedTest)
+import           Test.Pos.Cbor.Arbitrary.UserPublic ()
+import           Test.Pos.Cbor.Arbitrary.UserSecret ()
+import           Test.Pos.Chain.Delegation.Arbitrary ()
+import           Test.Pos.Chain.Ssc.Arbitrary ()
+import           Test.Pos.Chain.Update.Arbitrary ()
 import           Test.Pos.Core.Arbitrary ()
-import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
-import           Test.Pos.Delegation.Arbitrary ()
-import           Test.Pos.Txp.Arbitrary.Network ()
+import           Test.Pos.Crypto.Arbitrary ()
+import           Test.Pos.DB.Update.Arbitrary ()
+import           Test.Pos.Infra.Arbitrary ()
+import           Test.Pos.Infra.Arbitrary.Communication ()
+import           Test.Pos.Infra.Arbitrary.Slotting ()
+import           Test.Pos.Infra.Arbitrary.Ssc ()
+import           Test.Pos.Infra.Arbitrary.Update ()
 import           Test.Pos.Util.QuickCheck (SmallGenerator)
-
 
 type VoteId' = Tagged U.UpdateVote U.VoteId
 type UpId' = Tagged (U.UpdateProposal, [U.UpdateVote])U.UpId
 
 ----------------------------------------
 
-
--- We run the tests this number of times, with different `ProtocolMagics`, to get increased
--- coverage. We should really do this inside of the `prop`, but it is difficult to do that
--- without significant rewriting of the testsuite.
-testMultiple :: Int
-testMultiple = 3
-
 spec :: Spec
-spec = do
-    runWithMagic NMMustBeNothing
-    runWithMagic NMMustBeJust
-
-runWithMagic :: RequiresNetworkMagic -> Spec
-runWithMagic rnm = replicateM_ testMultiple $
-    modifyMaxSuccess (`div` testMultiple) $ do
-        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
-        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
-            specBody pm
-
-specBody :: ProtocolMagic -> Spec
-specBody pm = withProvidedMagicConfig pm $ do
+spec =
     describe "Cbor.Bi instances" $ do
         modifyMaxSuccess (const 1000) $ do
             describe "Lib/core instances" $ do
+                brokenDisabled $ binaryTest @UserPublic
                 brokenDisabled $ binaryTest @UserSecret
                 modifyMaxSuccess (min 50) $ do
+                    binaryTest @WalletUserPublic
                     binaryTest @WalletUserSecret
                     binaryTest @EncryptedSecretKey
 
@@ -102,48 +80,6 @@ specBody pm = withProvidedMagicConfig pm $ do
         describe "Types" $ do
           describe "Message length limit" $ do
               msgLenLimitedTest @VssCertificate mlVssCertificate
-        describe "Block types" $ do
-            describe "Bi instances" $ do
-                describe "Undo" $ do
-                    binaryTest @BT.SlogUndo
-                    modifyMaxSuccess (min 50) $ do
-                        binaryTest @BT.Undo
-                describe "Block network types" $ modifyMaxSuccess (min 10) $ do
-                    binaryTest @BT.MsgGetHeaders
-                    binaryTest @BT.MsgGetBlocks
-                    binaryTest @BT.MsgHeaders
-                    binaryTest @BT.MsgBlock
-                    binaryTest @BT.MsgStream
-                    binaryTest @BT.MsgStreamBlock
-                describe "Blockchains and blockheaders" $ do
-                    modifyMaxSuccess (min 10) $ describe "GenericBlockHeader" $ do
-                        describe "GenesisBlockHeader" $ do
-                            binaryTest @BT.GenesisBlockHeader
-                        describe "MainBlockHeader" $ do
-                            binaryTest @BT.MainBlockHeader
-                    describe "GenesisBlockchain" $ do
-                        describe "BodyProof" $ do
-                            binaryTest @BT.GenesisExtraHeaderData
-                            binaryTest @BT.GenesisExtraBodyData
-                            binaryTest @(BT.BodyProof BT.GenesisBlockchain)
-                        describe "ConsensusData" $ do
-                            binaryTest @(BT.ConsensusData BT.GenesisBlockchain)
-                        describe "Body" $ do
-                            binaryTest @(BT.Body BT.GenesisBlockchain)
-                    describe "MainBlockchain" $ do
-                        describe "BodyProof" $ do
-                            binaryTest @(BT.BodyProof BT.MainBlockchain)
-                        describe "BlockSignature" $ do
-                            binaryTest @BT.BlockSignature
-                        describe "ConsensusData" $ do
-                            binaryTest @(BT.ConsensusData BT.MainBlockchain)
-                        modifyMaxSuccess (min 10) $ describe "Body" $ do
-                            binaryTest @(BT.Body BT.MainBlockchain)
-                        describe "MainToSign" $ do
-                            binaryTest @BT.MainToSign
-                        describe "Extra data" $ do
-                            binaryTest @BT.MainExtraHeaderData
-                            binaryTest @BT.MainExtraBodyData
         describe "Communication" $ do
             describe "Bi instances" $ do
                 binaryTest @C.HandlerSpec
@@ -151,41 +87,6 @@ specBody pm = withProvidedMagicConfig pm $ do
                 binaryTest @C.MessageCode
             describe "Bi extension" $ do
                 prop "HandlerSpec" (extensionProperty @C.HandlerSpec)
-        describe "Crypto" $ do
-            describe "Hashing" $ do
-                binaryTest @(Crypto.Hash Word64)
-            describe "Signing" $ do
-                describe "Bi instances" $ do
-                    binaryTest @Crypto.SecretKey
-                    binaryTest @Crypto.PublicKey
-                    binaryTest @(Crypto.Signature ())
-                    binaryTest @(Crypto.Signature U)
-                    binaryTest @(Crypto.ProxyCert Int32)
-                    binaryTest @(Crypto.ProxySecretKey Int32)
-                    binaryTest @(Crypto.ProxySecretKey U)
-                    binaryTest @(Crypto.ProxySignature Int32 Int32)
-                    binaryTest @(Crypto.ProxySignature U U)
-                    binaryTest @(Crypto.Signed Bool)
-                    binaryTest @(Crypto.Signed U)
-                    binaryTest @Crypto.RedeemSecretKey
-                    binaryTest @Crypto.RedeemPublicKey
-                    binaryTest @(Crypto.RedeemSignature Bool)
-                    binaryTest @(Crypto.RedeemSignature U)
-                    binaryTest @Crypto.Threshold
-                    binaryTest @Crypto.VssPublicKey
-                    binaryTest @Crypto.PassPhrase
-                    binaryTest @Crypto.VssKeyPair
-                    binaryTest @Crypto.Secret
-                    binaryTest @Crypto.DecShare
-                    binaryTest @Crypto.EncShare
-                    binaryTest @Crypto.SecretProof
-                    binaryTest @Crypto.HDAddressPayload
-                    binaryTest @(Crypto.AbstractHash Blake2b_224 U)
-                    binaryTest @(Crypto.AbstractHash Blake2b_256 U)
-                    binaryTest @(AsBinary Crypto.VssPublicKey)
-                    binaryTest @(AsBinary Crypto.Secret)
-                    binaryTest @(AsBinary Crypto.DecShare)
-                    binaryTest @(AsBinary Crypto.EncShare)
         describe "DHT.Model" $ do
             describe "Bi instances" $ do
                 binaryTest @DHT.DHTKey
@@ -253,17 +154,17 @@ specBody pm = withProvidedMagicConfig pm $ do
                     binaryTest @(SmallGenerator T.TxPayload)
                     binaryTest @T.TxpUndo
                 describe "Network" $ do
-                    binaryTest @(R.InvMsg (Tagged T.TxMsgContents T.TxId))
-                    binaryTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId))
-                    binaryTest @(R.MempoolMsg T.TxMsgContents)
-                    binaryTest @(R.DataMsg T.TxMsgContents)
+                    binaryTest @(R.InvMsg (Tagged TxMsgContents T.TxId))
+                    binaryTest @(R.ReqMsg (Tagged TxMsgContents T.TxId))
+                    binaryTest @(R.MempoolMsg TxMsgContents)
+                    binaryTest @(R.DataMsg TxMsgContents)
             describe "Bi extension" $ do
                 prop "TxInWitness" (extensionProperty @T.TxInWitness)
             describe "Message length limit" $ do
-                msgLenLimitedTest @(R.InvMsg (Tagged T.TxMsgContents T.TxId)) mlInvMsg
-                msgLenLimitedTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId)) mlReqMsg
-                msgLenLimitedTest @(R.MempoolMsg T.TxMsgContents) mlMempoolMsg
-                -- No check for (DataMsg T.TxMsgContents) since overal message size
+                msgLenLimitedTest @(R.InvMsg (Tagged TxMsgContents T.TxId)) mlInvMsg
+                msgLenLimitedTest @(R.ReqMsg (Tagged TxMsgContents T.TxId)) mlReqMsg
+                msgLenLimitedTest @(R.MempoolMsg TxMsgContents) mlMempoolMsg
+                -- No check for (DataMsg TxMsgContents) since overal message size
                 -- is forcely limited
         describe "Update system" $ do
             describe "Bi instances" $ do

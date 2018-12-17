@@ -8,30 +8,29 @@ module Test.Pos.Explorer.Web.ServerSpec
 
 import           Universum
 
-import           Test.Hspec (Spec, describe, runIO, shouldBe)
+import           Test.Hspec (Spec, describe, shouldBe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (arbitrary, counterexample, forAll, generate, (==>))
+import           Test.QuickCheck (arbitrary, counterexample, forAll, (==>))
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
 import qualified Pos.Communication ()
 import           Pos.Core (EpochIndex (..))
-import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 import           Pos.Explorer.ExplorerMode (runExplorerTestMode)
-import           Pos.Explorer.ExtraContext (ExtraContext (..), makeExtraCtx, makeMockExtraCtx)
-import           Pos.Explorer.TestUtil (emptyBlk, generateValidBlocksSlotsNumber,
-                                        generateValidExplorerMockableMode, leftToCounter)
+import           Pos.Explorer.ExtraContext (ExtraContext (..), makeExtraCtx,
+                     makeMockExtraCtx)
+import           Pos.Explorer.TestUtil (emptyBlk,
+                     generateValidBlocksSlotsNumber,
+                     generateValidExplorerMockableMode, leftToCounter)
 import           Pos.Explorer.Web.ClientTypes (CBlockEntry)
-import           Pos.Explorer.Web.Server (getBlockDifficulty, getBlocksLastPage, getBlocksPage,
-                                          getBlocksPagesTotal, getBlocksTotal, getEpochPage,
-                                          getEpochSlot)
+import           Pos.Explorer.Web.Server (getBlockDifficulty, getBlocksLastPage,
+                     getBlocksPage, getBlocksPagesTotal, getBlocksTotal,
+                     getEpochPage, getEpochSlot)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util (divRoundUp)
--- Orphan mockable instances.
-import           Pos.Util.Mockable ()
 
-import           Test.Pos.Block.Arbitrary ()
-import           Test.Pos.Configuration (withProvidedMagicConfig)
-import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
+import           Test.Pos.Chain.Block.Arbitrary ()
+import           Test.Pos.Configuration (withDefConfigurations,
+                     withProvidedMagicConfig)
 
 
 ----------------------------------------------------------------
@@ -41,27 +40,8 @@ import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 -- stack test cardano-sl-explorer --fast --test-arguments "-m Pos.Explorer.Web.Server"
-
--- We run the tests this number of times, with different `ProtocolMagics`, to get increased
--- coverage. We should really do this inside of the `prop`, but it is difficult to do that
--- without significant rewriting of the testsuite.
-testMultiple :: Int
-testMultiple = 1
-
 spec :: Spec
-spec = do
-    runWithMagic NMMustBeNothing
-    runWithMagic NMMustBeJust
-
-runWithMagic :: RequiresNetworkMagic -> Spec
-runWithMagic rnm = replicateM_ testMultiple $
-    modifyMaxSuccess (`div` testMultiple) $ do
-        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
-        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
-            specBody pm
-
-specBody :: ProtocolMagic -> Spec
-specBody pm = withProvidedMagicConfig pm $ do
+spec = withDefConfigurations $ \_ _ _ -> do
     describe "Pos.Explorer.Web.Server" $ do
         blocksTotalSpec
         blocksPagesTotalSpec
@@ -193,7 +173,7 @@ blocksPageUnitSpec =
     describe "getBlocksPage"
     $ modifyMaxSuccess (const 200) $ do
         prop "block pages total correct && last page non-empty" $
-            forAll arbitrary $ \(testParams) ->
+            forAll arbitrary $ \epochSlots testParams ->
             forAll generateValidBlocksSlotsNumber $ \(totalBlocksNumber, slotsPerEpoch) ->
 
                 monadicIO $ do
@@ -211,7 +191,7 @@ blocksPageUnitSpec =
                   let blockExecution :: IO (Integer, [CBlockEntry])
                       blockExecution =
                           runExplorerTestMode testParams extraContext
-                              $ getBlocksPage Nothing (Just 10)
+                              $ getBlocksPage epochSlots Nothing (Just 10)
 
                   -- We finally run it as @PropertyM@ and check if it holds.
                   pagesTotal    <- fst <$> run blockExecution
@@ -237,7 +217,7 @@ blocksLastPageUnitSpec =
     describe "getBlocksLastPage"
     $ modifyMaxSuccess (const 200) $ do
         prop "getBlocksLastPage == getBlocksPage Nothing" $
-            forAll arbitrary $ \(testParams) ->
+            forAll arbitrary $ \epochSlots testParams ->
             forAll generateValidBlocksSlotsNumber $ \(totalBlocksNumber, slotsPerEpoch) ->
 
                 monadicIO $ do
@@ -253,7 +233,7 @@ blocksLastPageUnitSpec =
                   -- a million instances.
                   let blocksLastPageM :: IO (Integer, [CBlockEntry])
                       blocksLastPageM =
-                          runExplorerTestMode testParams extraContext getBlocksLastPage
+                          runExplorerTestMode testParams extraContext (getBlocksLastPage epochSlots)
 
                   -- We run the function in @BlockTestMode@ so we don't need to define
                   -- a million instances.
@@ -261,7 +241,7 @@ blocksLastPageUnitSpec =
                   let blocksPageM :: IO (Integer, [CBlockEntry])
                       blocksPageM =
                           runExplorerTestMode testParams extraContext
-                              $ getBlocksPage Nothing (Just 10)
+                              $ getBlocksPage epochSlots Nothing (Just 10)
 
                   -- We finally run it as @PropertyM@ and check if it holds.
                   blocksLastPage <- run blocksLastPageM
@@ -276,7 +256,7 @@ epochSlotUnitSpec = do
     describe "getEpochSlot"
     $ modifyMaxSuccess (const 200) $ do
         prop "getEpochSlot(valid epoch) != empty" $
-            forAll arbitrary $ \(testParams) ->
+            forAll arbitrary $ \epochSlots testParams ->
             forAll generateValidBlocksSlotsNumber $ \(totalBlocksNumber, slotsPerEpoch) ->
 
                 monadicIO $ do
@@ -297,6 +277,7 @@ epochSlotUnitSpec = do
                       epochSlotM =
                           runExplorerTestMode testParams extraContext
                               $ getEpochSlot
+                                  epochSlots
                                   (EpochIndex 0)
                                   1
 
@@ -314,7 +295,7 @@ epochPageUnitSpec = do
     describe "getEpochPage"
     $ modifyMaxSuccess (const 200) $ do
         prop "getEpochPage(valid epoch) != empty" $
-            forAll arbitrary $ \(testParams) ->
+            forAll arbitrary $ \epochSlots testParams ->
             forAll generateValidBlocksSlotsNumber $ \(totalBlocksNumber, slotsPerEpoch) ->
 
                 monadicIO $ do
@@ -334,6 +315,7 @@ epochPageUnitSpec = do
                       epochPageM =
                           runExplorerTestMode testParams extraContext
                               $ getEpochPage
+                                  epochSlots
                                   (EpochIndex 0)
                                   Nothing
 
@@ -354,12 +336,13 @@ blocksTotalFunctionalSpec =
     describe "getBlocksTotalFunctional"
     $ modifyMaxSuccess (const 200) $ do
         prop "created blocks means block size >= 0" $
-            forAll arbitrary $ \testParams ->
+            forAll arbitrary $ \pm testParams ->
+            withProvidedMagicConfig pm $ \genesisConfig _ _ ->
                 monadicIO $ do
 
                   -- The extra context so we can mock the functions.
                   let extraContext :: ExtraContext
-                      extraContext = makeExtraCtx
+                      extraContext = makeExtraCtx genesisConfig
 
                   -- We run the function in @ExplorerTestMode@ so we don't need to define
                   -- a million instances.

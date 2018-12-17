@@ -6,15 +6,17 @@ module Pos.GState.GState
 
 import           Universum
 
-import           Pos.Core (GenesisData (..), HeaderHash, genesisData)
+import           Pos.Chain.Block (HeaderHash)
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     configHeavyDelegation, configVssCerts)
+import           Pos.DB.Block (initGStateBlockExtra)
 import           Pos.DB.Class (MonadDB)
-import           Pos.DB.GState.Common (initGStateCommon, isInitialized, setInitialized)
-import           Pos.Delegation.DB (initGStateDlg)
-import           Pos.GState.BlockExtra (initGStateBlockExtra)
-import           Pos.Ssc.DB (initSscDB)
-import           Pos.Txp.DB (initGStateStakes, initGStateUtxo)
-import           Pos.Txp.GenesisUtxo (genesisUtxo)
-import           Pos.Update.DB (initGStateUS)
+import           Pos.DB.Delegation (initGStateDlg)
+import           Pos.DB.GState.Common (initGStateCommon, isInitialized,
+                     setInitialized)
+import           Pos.DB.Ssc (initSscDB)
+import           Pos.DB.Txp (initGStateStakes, initGStateUtxo)
+import           Pos.DB.Update (initGStateUS)
 
 -- | Put missing initial data into GState DB.
 prepareGStateDB ::
@@ -22,18 +24,20 @@ prepareGStateDB ::
        ( MonadReader ctx m
        , MonadDB m
        )
-    => HeaderHash
+    => Genesis.Config
+    -> HeaderHash
     -> m ()
-prepareGStateDB initialTip = unlessM isInitialized $ do
+prepareGStateDB genesisConfig initialTip = unlessM isInitialized $ do
     initGStateCommon initialTip
-    initGStateUtxo genesisUtxo
-    initSscDB
-    initGStateStakes genesisUtxo
-    initGStateUS
-    initGStateDlg $ gdHeavyDelegation genesisData
-    initGStateBlockExtra initialTip
+    initGStateUtxo genesisData
+    initSscDB $ configVssCerts genesisConfig
+    initGStateStakes genesisData
+    initGStateUS genesisConfig
+    initGStateDlg $ configHeavyDelegation genesisConfig
+    initGStateBlockExtra (configGenesisHash genesisConfig) initialTip
 
     setInitialized
+  where genesisData = configGenesisData genesisConfig
 
 -- The following is not used in the project yet. To be added back at a
 -- later stage when needed.

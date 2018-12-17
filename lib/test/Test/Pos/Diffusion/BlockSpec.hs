@@ -8,48 +8,47 @@ module Test.Pos.Diffusion.BlockSpec
 import           Universum
 
 
-import           Control.Concurrent.STM (readTBQueue)
---import           Control.DeepSeq (NFData, force)
 import           Control.DeepSeq (force)
 import           Control.Monad.IO.Class (liftIO)
-import qualified Data.ByteString.Lazy as LBS
-import           Data.Semigroup ((<>))
-import           Test.Hspec (Spec, describe, it, runIO, shouldBe)
-import           Test.Hspec.QuickCheck (modifyMaxSuccess)
-import           Test.QuickCheck (generate)
-
 import           Data.Bits
+import qualified Data.ByteString.Lazy as LBS
+import           Data.Conduit.Combinators (yieldMany)
 import           Data.List.NonEmpty (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty as NE
+import           Data.Semigroup ((<>))
+import           Test.Hspec (Spec, describe, it, runIO, shouldBe)
+import           Test.QuickCheck (arbitrary, generate)
+
 import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Network.Broadcast.OutboundQueue.Types as OQ
 import           Network.Transport (Transport, closeTransport)
 import qualified Network.Transport.InMemory as InMemory
 import           Node (NodeId)
 import qualified Node
-import           Pipes (each)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Core (Block, BlockHeader, BlockVersion (..), HeaderHash, blockHeaderHash)
-import qualified Pos.Core as Core (getBlockHeader)
+import           Pos.Chain.Block (Block, BlockHeader, HeaderHash,
+                     blockHeaderHash)
+import qualified Pos.Chain.Block as Block (getBlockHeader)
+import           Pos.Chain.Update (BlockVersion (..))
+import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
 import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
 import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
 import           Pos.DB.Class (Serialized (..), SerializedBlock)
-import           Pos.Diffusion.Full (FullDiffusionConfiguration (..), FullDiffusionInternals (..),
-                                     RunFullDiffusionInternals (..),
-                                     diffusionLayerFullExposeInternals)
-import           Pos.Infra.Diffusion.Types as Diffusion (Diffusion (..), StreamEntry (..))
+import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
+                     FullDiffusionInternals (..),
+                     RunFullDiffusionInternals (..),
+                     diffusionLayerFullExposeInternals)
+import           Pos.Infra.Diffusion.Types as Diffusion (Diffusion (..))
 import qualified Pos.Infra.Network.Policy as Policy
 import           Pos.Infra.Network.Types (Bucket (..))
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Logic.Pure (pureLogic)
 import           Pos.Logic.Types as Logic (Logic (..))
+import           Pos.Util.Trace (setupTestTrace, wlogTrace)
 
-import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
-import           Pos.Util.Trace (wlogTrace)
-import           Test.Pos.Block.Arbitrary.Generate (generateMainBlock)
-import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
+import           Test.Pos.Chain.Block.Arbitrary.Generate (generateMainBlock)
 
 -- HLint warning disabled since I ran into https://ghc.haskell.org/trac/ghc/ticket/13106
 -- when trying to resolve it.
@@ -90,7 +89,7 @@ serverLogic
     -> Logic IO
 serverLogic streamIORef arbitraryBlock arbitraryHashes arbitraryHeaders = pureLogic
     { getSerializedBlock = const (pure (Just $ serializedBlock arbitraryBlock))
-    , getBlockHeader = const (pure (Just (Core.getBlockHeader arbitraryBlock)))
+    , getBlockHeader = const (pure (Just (Block.getBlockHeader arbitraryBlock)))
     , getHashesRange = \_ _ _ -> pure (Right (OldestFirst arbitraryHashes))
     , getBlockHeaders = \_ _ _ -> pure (Right (NewestFirst arbitraryHeaders))
       -- 'pureLogic' always gives an empty first component list, meaning all
@@ -100,10 +99,10 @@ serverLogic streamIORef arbitraryBlock arbitraryHashes arbitraryHeaders = pureLo
     , getLcaMainChain = \(OldestFirst headers) ->
           pure (NewestFirst (reverse headers), OldestFirst [])
     , getTip = pure arbitraryBlock
-    , getTipHeader = pure (Core.getBlockHeader arbitraryBlock)
+    , getTipHeader = pure (Block.getBlockHeader arbitraryBlock)
     , Logic.streamBlocks = \_ -> do
           bs <-  readIORef streamIORef
-          each $ map serializedBlock bs
+          yieldMany $ map serializedBlock bs
     }
 
 serializedBlock :: Block -> SerializedBlock
@@ -119,10 +118,11 @@ clientLogic = pureLogic
 
 withServer :: ProtocolMagic -> Transport -> Logic IO -> (NodeId -> IO t) -> IO t
 withServer pm transport logic k = do
+    logTrace <- liftIO $ setupTestTrace
     -- Morally, the server shouldn't need an outbound queue, but we have to
     -- give one.
     oq <- liftIO $ OQ.new
-                 (wlogTrace ("server" <> "outboundqueue"))
+                 logTrace
                  Policy.defaultEnqueuePolicyRelay
                  --Policy.defaultDequeuePolicyRelay
                  (const (OQ.Dequeue OQ.NoRateLimiting (OQ.MaxInFlight maxBound)))
@@ -150,7 +150,7 @@ withServer pm transport logic k = do
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
         , fdcStreamWindow = 2048
-        , fdcTrace = wlogTrace ("server" <> "diffusion")
+        , fdcTrace = wlogTrace ("server.diffusion")
         }
 
 -- Like 'withServer' but we must set up the outbound queue so that it will
@@ -167,7 +167,7 @@ withClient pm streamWindow transport logic serverAddress@(Node.NodeId _) k = do
     -- Morally, the server shouldn't need an outbound queue, but we have to
     -- give one.
     oq <- OQ.new
-                 (wlogTrace ("client" <> "outboundqueue"))
+                 (wlogTrace ("client.outboundqueue"))
                  Policy.defaultEnqueuePolicyRelay
                  --Policy.defaultDequeuePolicyRelay
                  (const (OQ.Dequeue OQ.NoRateLimiting (OQ.MaxInFlight maxBound)))
@@ -197,7 +197,7 @@ withClient pm streamWindow transport logic serverAddress@(Node.NodeId _) k = do
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
         , fdcStreamWindow = streamWindow
-        , fdcTrace = wlogTrace ("client" <> "diffusion")
+        , fdcTrace = wlogTrace ("client.diffusion")
         }
 
 
@@ -212,18 +212,16 @@ blockDownloadBatch serverAddress ~(blockHeader, checkpoints) client =  do
 blockDownloadStream :: NodeId -> IORef Bool -> IORef [Block] -> (Int -> IO ()) -> (HeaderHash, [HeaderHash]) -> Diffusion IO-> IO ()
 blockDownloadStream serverAddress resultIORef streamIORef setStreamIORef ~(blockHeader, checkpoints) client = do
     setStreamIORef 1
-    _ <- Diffusion.streamBlocks client serverAddress blockHeader checkpoints (loop (0::Word32) [])
+    recvIORef <- newIORef []
+    _ <- Diffusion.streamBlocks client serverAddress blockHeader checkpoints (writeCallback recvIORef)
+
+    expectedBlocks <- readIORef streamIORef
+    recvBlocks <- readIORef recvIORef
+    writeIORef resultIORef $ expectedBlocks == reverse recvBlocks
     return ()
   where
-    loop n recvBlocks (streamWindow, wqgM, blockChan) = do
-        streamEntry <- atomically $ readTBQueue blockChan
-        case streamEntry of
-          StreamEnd         -> do
-              expectedBlocks <- readIORef streamIORef
-              writeIORef resultIORef $ expectedBlocks == reverse recvBlocks
-              return ()
-          StreamBlock !b -> do
-              loop n (b : recvBlocks) (streamWindow, wqgM, blockChan)
+    writeCallback recvBlocks !blocks =
+        modifyIORef' recvBlocks (\d -> blocks <> d)
 
 -- Generate a list of n+1 blocks
 generateBlocks :: ProtocolMagic -> Int -> NonEmpty Block
@@ -234,7 +232,7 @@ generateBlocks pm blocks =
     doGenerateBlock :: Int -> Block
     doGenerateBlock seed =
         let size = 4 in
-        force $ Right (generateMainBlock pm protocolConstants seed size)
+        force $ Right (generateMainBlock pm seed size)
 
     doGenerateBlocks :: Int -> [Block]
     doGenerateBlocks 0 = []
@@ -246,7 +244,7 @@ streamSimple pm streamWindow blocks = do
     streamIORef <- newIORef []
     resultIORef <- newIORef False
     let arbitraryBlocks = generateBlocks pm (blocks - 1)
-        arbitraryHeaders = NE.map Core.getBlockHeader arbitraryBlocks
+        arbitraryHeaders = NE.map Block.getBlockHeader arbitraryBlocks
         arbitraryHashes = NE.map blockHeaderHash arbitraryHeaders
         !arbitraryBlock = NE.head arbitraryBlocks
         tipHash = NE.head arbitraryHashes
@@ -263,7 +261,7 @@ batchSimple :: ProtocolMagic -> Int -> IO Bool
 batchSimple pm blocks = do
     streamIORef <- newIORef []
     let arbitraryBlocks = generateBlocks pm (blocks - 1)
-        arbitraryHeaders = NE.map Core.getBlockHeader arbitraryBlocks
+        arbitraryHeaders = NE.map Block.getBlockHeader arbitraryBlocks
         arbitraryHashes = NE.map blockHeaderHash arbitraryHeaders
         arbitraryBlock = NE.head arbitraryBlocks
         !checkPoints = if blocks == 1 then [someHash]
@@ -274,42 +272,31 @@ batchSimple pm blocks = do
             liftIO . blockDownloadBatch serverAddress (someHash, checkPoints)
     return True
 
--- We run the tests this number of times, with different `ProtocolMagics`, to get increased
--- coverage. We should really do this inside of the `prop`, but it is difficult to do that
--- without significant rewriting of the testsuite.
-testMultiple :: Int
-testMultiple = 3
-
 spec :: Spec
 spec = do
-    runWithMagic NMMustBeNothing
-    runWithMagic NMMustBeJust
+    runWithMagic RequiresNoMagic
+    runWithMagic RequiresMagic
 
 runWithMagic :: RequiresNetworkMagic -> Spec
-runWithMagic rnm = replicateM_ testMultiple $
-    modifyMaxSuccess (`div` testMultiple) $ do
-        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
-        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
-            specBody pm
-
-specBody :: ProtocolMagic -> Spec
-specBody pm =
-    describe "Blockdownload" $ do
-        it "Stream 4 blocks" $ do
-            r <- streamSimple pm 2048 4
-            r `shouldBe` True
-        it "Stream 128 blocks" $ do
-            r <- streamSimple pm 2048 128
-            r `shouldBe` True
-        it "Stream 4096 blocks" $ do
-            r <- streamSimple pm 128 4096
-            r `shouldBe` True
-        it "Streaming dislabed by client" $ do
-            r <- streamSimple pm 0 4
-            r `shouldBe` False
-        it "Batch, single block" $ do
-            r <- batchSimple pm 1
-            r `shouldBe` True
-        it "Batch of blocks" $ do
-            r <- batchSimple pm 2200
-            r `shouldBe` True
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        describe "Blockdownload" $ do
+            it "Stream 4 blocks" $ do
+                r <- streamSimple pm 2048 4
+                r `shouldBe` True
+            it "Stream 128 blocks" $ do
+                r <- streamSimple pm 2048 128
+                r `shouldBe` True
+            it "Stream 4096 blocks" $ do
+                r <- streamSimple pm 128 4096
+                r `shouldBe` True
+            it "Streaming dislabed by client" $ do
+                r <- streamSimple pm 0 4
+                r `shouldBe` False
+            it "Batch, single block" $ do
+                r <- batchSimple pm 1
+                r `shouldBe` True
+            it "Batch of blocks" $ do
+                r <- batchSimple pm 2200
+                r `shouldBe` True

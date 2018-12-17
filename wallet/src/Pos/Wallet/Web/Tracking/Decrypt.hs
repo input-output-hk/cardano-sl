@@ -8,7 +8,8 @@ module Pos.Wallet.Web.Tracking.Decrypt
        , buildTHEntryExtra
 
        , WalletDecrCredentials
-       , eskToWalletDecrCredentials
+       , WalletDecrCredentialsKey (..)
+       , keyToWalletDecrCredentials
        , selectOwnAddresses
        , decryptAddress
        ) where
@@ -19,14 +20,16 @@ import           Data.List ((!!))
 import qualified Data.List.NonEmpty as NE
 import           Serokell.Util (enumerate)
 
+import           Pos.Chain.Txp (Tx (..), TxIn (..), TxOut, TxOutAux (..),
+                     TxUndo, toaOut, txOutAddress)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
-import           Pos.Core (Address (..), ChainDifficulty, Timestamp, aaPkDerivationPath,
-                           addrAttributesUnwrapped, makeRootPubKeyAddress)
-import           Pos.Core.NetworkMagic (NetworkMagic)
-import           Pos.Core.Txp (Tx (..), TxIn (..), TxOut, TxOutAux (..), TxUndo, toaOut,
-                               txOutAddress)
-import           Pos.Crypto (EncryptedSecretKey, HDPassphrase, WithHash (..), deriveHDPassphrase,
-                             encToPublic, unpackHDAddressAttr)
+import           Pos.Core (Address (..), ChainDifficulty, Timestamp,
+                     aaPkDerivationPath, addrAttributesUnwrapped,
+                     makeRootPubKeyAddress)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
+import           Pos.Crypto (EncryptedSecretKey, HDPassphrase, PublicKey,
+                     WithHash (..), deriveHDPassphrase, encToPublic,
+                     unpackHDAddressAttr)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Wallet.Web.ClientTypes (CId, Wal)
 import           Pos.Wallet.Web.State (WAddressMeta (..))
@@ -75,12 +78,22 @@ buildTHEntryExtra wdc (WithHash tx txId, NE.toList -> undoL) (mDiff, mTs) =
 
 type WalletDecrCredentials = (HDPassphrase, CId Wal)
 
-eskToWalletDecrCredentials :: NetworkMagic -> EncryptedSecretKey -> WalletDecrCredentials
-eskToWalletDecrCredentials nm encSK = do
-    let pubKey = encToPublic encSK
-    let hdPass = deriveHDPassphrase pubKey
-    let wCId = encodeCType $ makeRootPubKeyAddress nm pubKey
-    (hdPass, wCId)
+-- | Key to identify regular or external wallet.
+data WalletDecrCredentialsKey
+    = KeyForRegular EncryptedSecretKey
+    | KeyForExternal PublicKey
+    deriving (Show)
+
+-- | There's a secret key for regular wallet or a public key for external wallet.
+keyToWalletDecrCredentials :: NetworkMagic -> WalletDecrCredentialsKey -> WalletDecrCredentials
+keyToWalletDecrCredentials nm (KeyForRegular sk)  = credentialsFromPublicKey nm $ encToPublic sk
+keyToWalletDecrCredentials nm (KeyForExternal pk) = credentialsFromPublicKey nm pk
+
+credentialsFromPublicKey :: NetworkMagic -> PublicKey -> WalletDecrCredentials
+credentialsFromPublicKey nm publicKey = (hdPassword, walletId)
+  where
+    hdPassword = deriveHDPassphrase publicKey
+    walletId   = encodeCType $ makeRootPubKeyAddress nm publicKey
 
 selectOwnAddresses
     :: WalletDecrCredentials

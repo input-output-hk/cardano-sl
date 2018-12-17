@@ -1,4 +1,5 @@
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE GADTs           #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Command.Help
        ( mkHelpMessage
@@ -10,8 +11,8 @@ import qualified Data.Text as T
 
 import           Pos.Util.Justify (leftAlign)
 
-import           Lang.Argument (ArgCardinality (..), SomeArgCardinality (..), TypeName (..),
-                                getParameters)
+import           Lang.Argument (ArgCardinality (..), SomeArgCardinality (..),
+                     TypeName (..), getParameters)
 import           Lang.Command (CommandProc (..), UnavailableCommand (..))
 import           Lang.Name (Name)
 

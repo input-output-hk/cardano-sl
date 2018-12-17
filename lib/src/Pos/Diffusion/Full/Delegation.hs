@@ -13,18 +13,15 @@ import           Universum
 import qualified Network.Broadcast.OutboundQueue as OQ
 
 import           Pos.Binary ()
+import           Pos.Chain.Delegation (ProxySKHeavy)
 import           Pos.Communication.Limits (mlHeavyDlgIndex, mlProxySecretKey)
-import           Pos.Communication.Message ()
-import           Pos.Core       (ProxySKHeavy)
-import           Pos.Infra.Communication.Protocol (MsgType (..), NodeId,
-                                                   EnqueueMsg, MkListeners,
-                                                   OutSpecs)
+import           Pos.Infra.Communication.Protocol (EnqueueMsg, MkListeners,
+                     MsgType (..), NodeId, OutSpecs)
 import           Pos.Infra.Communication.Relay (DataParams (..), Relay (..),
-                                                relayListeners, dataFlow,
-                                                relayPropagateOut)
+                     dataFlow, relayListeners, relayPropagateOut)
 import           Pos.Infra.Network.Types (Bucket)
 import           Pos.Logic.Types (Logic (..))
-import           Pos.Util.Trace (Trace, Severity)
+import           Pos.Util.Trace (Severity, Trace)
 
 delegationListeners
     :: Trace IO (Severity, Text)

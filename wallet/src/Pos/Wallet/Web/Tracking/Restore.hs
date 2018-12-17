@@ -5,24 +5,28 @@ import           Universum
 import           UnliftIO (MonadUnliftIO)
 
 import qualified Data.Map as M
-import           System.Wlog (WithLogger, logInfo, modifyLoggerName)
 
-import           Pos.Core (Address, HasConfiguration, HasDifficulty (..), headerHash)
-import           Pos.Core.Txp (TxIn, TxOut (..), TxOutAux (..))
+import           Pos.Chain.Block (headerHash)
+import           Pos.Chain.Genesis as Genesis (Config (..), GenesisData)
+import           Pos.Chain.Txp (TxIn, TxOut (..), TxOutAux (..), genesisUtxo,
+                     utxoToModifier)
+import           Pos.Core (Address, HasDifficulty (..))
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead (..))
+import           Pos.DB.Txp.Utxo (filterUtxo)
 import           Pos.Infra.Slotting (MonadSlotsData)
-import           Pos.Txp (genesisUtxo, unGenesisUtxo, utxoToModifier)
-import           Pos.Txp.DB.Utxo (filterUtxo)
 import           Pos.Util (HasLens (..))
+import           Pos.Util.Wlog (WithLogger, logInfo, modifyLoggerName)
 
 import           Pos.Wallet.Web.State (WalletDB, WalletDbReader, askWalletDB,
-                                       setWalletRestorationSyncTip, updateWalletBalancesAndUtxo)
+                     setWalletRestorationSyncTip, updateWalletBalancesAndUtxo)
 import qualified Pos.Wallet.Web.State as WS
-import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials, decryptAddress,
-                                                  selectOwnAddresses)
-import           Pos.Wallet.Web.Tracking.Sync (firstGenesisHeader, processSyncError)
-import           Pos.Wallet.Web.Tracking.Types (SyncQueue, newRestoreRequest, submitSyncRequest)
+import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials,
+                     decryptAddress, selectOwnAddresses)
+import           Pos.Wallet.Web.Tracking.Sync (firstGenesisHeader,
+                     processSyncError)
+import           Pos.Wallet.Web.Tracking.Types (SyncQueue, newRestoreRequest,
+                     submitSyncRequest)
 
 
 -- | Restores a wallet from seed, by synchronously restoring its balance (and the initial address
@@ -33,17 +37,17 @@ restoreWallet :: ( WalletDbReader ctx m
                  , HasLens SyncQueue ctx SyncQueue
                  , MonadSlotsData ctx m
                  , MonadUnliftIO m
-                 ) => WalletDecrCredentials -> m ()
-restoreWallet credentials = do
+                 ) => Genesis.Config -> WalletDecrCredentials -> m ()
+restoreWallet genesisConfig credentials = do
     db <- askWalletDB
     let (_, walletId) = credentials
     modifyLoggerName (const "syncWalletWorker") $ do
         logInfo "New Restoration request for a wallet..."
-        genesisBlockHeaderE <- firstGenesisHeader
+        genesisBlockHeaderE <- firstGenesisHeader $ configGenesisHash genesisConfig
         case genesisBlockHeaderE of
             Left syncError -> processSyncError syncError
             Right genesisBlock -> do
-                restoreGenesisAddresses db credentials
+                restoreGenesisAddresses (configGenesisData genesisConfig) db credentials
                 restoreWalletBalance db credentials
                 -- At this point, we consider ourselves synced with the UTXO up-to the
                 -- 'RestorationBlockDepth' we compute now. During 'syncWalletWithBlockchain',
@@ -94,10 +98,11 @@ restoreWalletBalance db credentials = do
 -- NOTE: This doesn't have any effect on the balance as if these addresses still have
 -- coins on them, this will be captured by the call to 'restoreWalletBalance', but yet
 -- we want to add them to the pool of known addresses for history-rebuilding purposes.
-restoreGenesisAddresses :: (HasConfiguration, MonadIO m) => WalletDB -> WalletDecrCredentials -> m ()
-restoreGenesisAddresses db credentials =
+restoreGenesisAddresses
+    :: MonadIO m => GenesisData -> WalletDB -> WalletDecrCredentials -> m ()
+restoreGenesisAddresses genesisData db credentials =
     let ownGenesisData =
             selectOwnAddresses credentials (txOutAddress . toaOut . snd) $
-            M.toList $ unGenesisUtxo genesisUtxo
+            M.toList $ genesisUtxo genesisData
         ownGenesisAddrs = map snd ownGenesisData
     in mapM_ (WS.addWAddress db) ownGenesisAddrs

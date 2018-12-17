@@ -31,7 +31,7 @@ import           Formatting (sformat, shown, (%))
 import           Network.EngineIO.Wai (WaiMonad)
 
 import qualified Network.SocketIO as S
-import           System.Wlog (CanLog (..), WithLogger, logWarning)
+import           Pos.Util.Wlog (CanLog (..), WithLogger, logWarning)
 
 -- * Provides type-safety for event names in some socket-io functions.
 

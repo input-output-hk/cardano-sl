@@ -1,5 +1,5 @@
 name:                cardano-sl-generator
-version:             1.3.2
+version:             2.0.0
 synopsis:            Cardano SL - arbitrary data generation
 description:         Cardano SL - arbitrary data generation
 license:             MIT
@@ -30,6 +30,7 @@ library
                        Pos.Generator.Block.Error
                        Pos.Generator.Block.Logic
                        Pos.Generator.Block.Mode
+                       Pos.Generator.Block.Orphans
                        Pos.Generator.Block.Param
                        Pos.Generator.Block.Payload
 
@@ -38,19 +39,14 @@ library
                      , base
                      , bytestring
                      , cardano-sl
-                     , cardano-sl-block
+                     , cardano-sl-chain
+                     , cardano-sl-chain-test
                      , cardano-sl-client
                      , cardano-sl-core
+                     , cardano-sl-core-test
                      , cardano-sl-crypto
-                     , cardano-sl-crypto-test
                      , cardano-sl-db
-                     , cardano-sl-delegation
                      , cardano-sl-infra
-                     , cardano-sl-lrc
-                     , cardano-sl-networking
-                     , cardano-sl-ssc
-                     , cardano-sl-txp
-                     , cardano-sl-update
                      , cardano-sl-util
                      , containers
                      , cryptonite
@@ -59,13 +55,12 @@ library
                      , exceptions
                      , formatting
                      , lens
-                     , log-warper
                      , monad-control
                      , random
                      , safe-exceptions
                      , serokell-util
                      , text
-                     , text-format
+                     , formatting
                      , time-units
                      , transformers-base
                      , universum
@@ -85,7 +80,6 @@ library
                        DefaultSignatures
                        NoImplicitPrelude
                        OverloadedStrings
-                       RecordWildCards
                        TypeApplications
                        TupleSections
                        ViewPatterns
@@ -126,22 +120,17 @@ test-suite cardano-generator-test
                      , bytestring
                      , cardano-sl
                      , cardano-sl-binary
-                     , cardano-sl-block
-                     , cardano-sl-block-test
+                     , cardano-sl-chain
+                     , cardano-sl-chain-test
                      , cardano-sl-core
+                     , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
                      , cardano-sl-db
-                     , cardano-sl-delegation
-                     , cardano-sl-delegation-test
                      , cardano-sl-generator
-                     , cardano-sl-lrc
-                     , cardano-sl-ssc
-                     , cardano-sl-txp
-                     , cardano-sl-txp-test
-                     , cardano-sl-update
                      , cardano-sl-util
                      , cardano-sl-util-test
+                     , containers
                      , data-default
                      , formatting
                      , hspec
@@ -173,7 +162,6 @@ test-suite cardano-generator-test
                         DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
-                        RecordWildCards
                         TypeApplications
                         TupleSections
                         ViewPatterns
@@ -189,3 +177,118 @@ test-suite cardano-generator-test
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
+
+benchmark cardano-sl-verification-bench
+  hs-source-dirs:       bench
+  main-is:              Main.hs
+  other-modules:        Bench.Pos.Criterion.Block.Logic
+  type:                 exitcode-stdio-1.0
+  build-depends:        base
+                      , cardano-sl
+                      , cardano-sl-chain
+                      , cardano-sl-core
+                      , cardano-sl-crypto
+                      , cardano-sl-db
+                      , cardano-sl-generator
+                      , cardano-sl-util
+                      , criterion
+                      , MonadRandom
+                      , QuickCheck
+                      , random
+                      , time-units
+                      , universum >= 0.1.11
+                      , serokell-util
+  default-language:     Haskell2010
+  ghc-options:          -threaded
+                        -rtsopts
+                        -Wall
+                        -O2
+  if os(linux)
+    ghc-options:        -optl-fuse-ld=gold
+    ld-options:         -fuse-ld=gold
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        TypeApplications
+                        TypeFamilies
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
+                        TemplateHaskell
+                        ScopedTypeVariables
+                        GADTs
+                        MonadFailDesugaring
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+executable cardano-sl-verification-bench-exe
+  hs-source-dirs:       app
+  main-is:              VerificationBench.hs
+  build-depends:        base
+                      , bytestring
+                      , cardano-sl
+                      , cardano-sl-binary
+                      , cardano-sl-chain
+                      , cardano-sl-core
+                      , cardano-sl-crypto
+                      , cardano-sl-db
+                      , cardano-sl-generator
+                      , cardano-sl-util
+                      , containers
+                      , cryptonite
+                      , deepseq
+                      , directory
+                      , formatting
+                      , MonadRandom
+                      , optparse-applicative
+                      , random
+                      , text
+                      , time-units
+                      , universum >= 0.1.11
+  default-language:     Haskell2010
+  ghc-options:        -threaded
+                      -rtsopts
+                      -Wall
+                      -main-is VerificationBench
+                      -O2
+  if os(linux)
+    ghc-options:        -optl-fuse-ld=gold
+    ld-options:         -fuse-ld=gold
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        TypeApplications
+                        TypeFamilies
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
+                        TemplateHaskell
+                        ScopedTypeVariables
+                        GADTs
+                        MonadFailDesugaring
+  build-tools: cpphs >= 1.19
+  ghc-options: -threaded -pgmP cpphs -optP --cpp

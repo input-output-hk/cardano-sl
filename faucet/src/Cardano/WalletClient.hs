@@ -21,6 +21,7 @@ import qualified Data.ByteArray as BA
 import           Data.ByteString (ByteString)
 import           Data.List.NonEmpty (NonEmpty (..))
 import           Data.Text.Strict.Lens (utf8)
+import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
 import           Pos.Core (Address (..), Coin (..))
 import           Pos.Crypto.Signing (PassPhrase)
 import           System.Random
@@ -49,7 +50,8 @@ withdraw addr = withSublogger "WalletClient.withdraw" $ do
     q <- view feWithdrawalQ
     let paymentDist = (V1.PaymentDistribution addr coin :| [])
         sp =  spendingPassword <&> view (re utf8 . to hashPwd . to V1)
-        payment = Payment paymentSource paymentDist Nothing sp
+        gp = Just (V1 OptimizeForHighThroughput)
+        payment = Payment paymentSource paymentDist gp sp
     eRes <- liftIO $ sendToQueue q payment
     case eRes of
         Left e -> do

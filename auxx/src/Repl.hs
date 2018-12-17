@@ -1,4 +1,6 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes      #-}
+{-# LANGUAGE RecordWildCards #-}
+
 {- |
 
 This module contains the Haskeline-based user interface of auxx. The REPL is
@@ -57,7 +59,7 @@ data CommandResult
 -- commands to execute (via 'withCommand') and get the Haskeline-compatible
 -- printing action (via 'getPrintAction').
 data WithCommandAction = WithCommandAction
-    { withCommand    :: forall m. (MonadIO m, MonadCatch m) => (Text -> m ()) -> m ()
+    { withCommand :: forall m. (MonadIO m, MonadCatch m) => (Text -> m ()) -> m ()
         -- ^ Get the next command to execute. Rather than using simple @m
         -- 'Command'@ method, we use a CPS-ed version to guarantee valid
         -- exception handling, automate 'CommandResult' detection, and avoid

@@ -1,11 +1,11 @@
 name:                cardano-sl-explorer
-version:             1.3.2
+version:             2.0.0
 synopsis:            Cardano explorer
 description:         Please see README.md
 license:             MIT
 license-file:        LICENSE
 author:              IOHK
-maintainer:          IOHK <hi@serokell.io>
+maintainer:          IOHK <support@iohk.io>
 copyright:           2017 IOHK
 category:            Currency
 build-type:          Simple
@@ -36,12 +36,8 @@ library
 
                         Pos.Explorer.TestUtil
 
-                        -- Needed for testing
-                        Pos.Arbitrary.Explorer
-
   other-modules:        Pos.Explorer.Aeson.ClientTypes
 
-                        Pos.Binary.Explorer
                         Pos.Explorer.Core.Types
                         Pos.Explorer.Txp.Common
                         Pos.Explorer.Txp.Global
@@ -65,9 +61,7 @@ library
                       , exceptions
                       , formatting
                       , free
-                      , generic-arbitrary
                       , lens
-                      , log-warper
                       , memory
                       , mmorph
                       , resourcet
@@ -77,7 +71,7 @@ library
                       , servant-generic
                       , stm
                       , text
-                      , text-format
+                      , formatting
                       , time
                       , time-units
                       , transformers
@@ -89,22 +83,15 @@ library
                       -- cardano sl
                       , cardano-sl
                       , cardano-sl-binary
-                      , cardano-sl-block
-                      , cardano-sl-block-test
+                      , cardano-sl-chain
+                      , cardano-sl-chain-test
                       , cardano-sl-core
                       , cardano-sl-core-test
                       , cardano-sl-crypto
                       , cardano-sl-crypto-test
                       , cardano-sl-db
-                      , cardano-sl-delegation
                       , cardano-sl-generator
                       , cardano-sl-infra
-                      , cardano-sl-lrc
-                      , cardano-sl-networking
-                      , cardano-sl-ssc
-                      , cardano-sl-txp
-                      , cardano-sl-txp-test
-                      , cardano-sl-update
                       , cardano-sl-util
 
                       -- mtl ++
@@ -139,7 +126,6 @@ library
                         DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
-                        RecordWildCards
                         TemplateHaskell
                         TypeApplications
                         TupleSections
@@ -167,14 +153,11 @@ executable cardano-explorer
                        Paths_cardano_sl_explorer
   build-depends:       base
                      , cardano-sl
+                     , cardano-sl-chain
                      , cardano-sl-core
-                     , cardano-sl-crypto
                      , cardano-sl-infra
                      , cardano-sl-explorer
-                     , cardano-sl-networking
-                     , cardano-sl-update
                      , cardano-sl-util
-                     , log-warper
                      , optparse-applicative
                      , universum
   default-language:    Haskell2010
@@ -194,7 +177,6 @@ executable cardano-explorer
                         DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
-                        RecordWildCards
                         TypeApplications
                         TupleSections
                         ViewPatterns
@@ -238,7 +220,6 @@ executable cardano-explorer-hs2purs
                         DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
-                        RecordWildCards
                         TypeApplications
                         TupleSections
                         ViewPatterns
@@ -313,7 +294,6 @@ executable cardano-explorer-mock
                         DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
-                        RecordWildCards
                         TypeApplications
                         TupleSections
                         ViewPatterns
@@ -334,6 +314,8 @@ test-suite cardano-explorer-test
   other-modules:
                        -- Standard module with some magic
                        Spec
+                       -- Arbitrary instances
+                       Test.Pos.Explorer.Arbitrary
                        -- Utils
                        Test.Pos.Explorer.MockFactory
                        -- Tests
@@ -352,20 +334,19 @@ test-suite cardano-explorer-test
                      , bytestring
                      , cardano-sl
                      , cardano-sl-binary-test
-                     , cardano-sl-block
-                     , cardano-sl-block-test
+                     , cardano-sl-chain-test
                      , cardano-sl-core
+                     , cardano-sl-core-test
                      , cardano-sl-crypto
-                     , cardano-sl-crypto-test
                      , cardano-sl-explorer
-                     , cardano-sl-txp
+                     , cardano-sl-chain
                      , cardano-sl-util
                      , containers
                      , cryptonite
                      , engine-io
+                     , generic-arbitrary
                      , hspec
                      , lens
-                     , log-warper
                      , universum >= 0.1.11
                      , warp
   hs-source-dirs:      test
@@ -390,7 +371,6 @@ test-suite cardano-explorer-test
                         DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
-                        RecordWildCards
                         TypeApplications
                         TupleSections
                         ViewPatterns
@@ -414,9 +394,9 @@ benchmark cardano-explorer-bench
   build-depends:       QuickCheck
                      , base
                      , cardano-sl
+                     , cardano-sl-chain-test
+                     , cardano-sl-core-test
                      , cardano-sl-explorer
-                     , cardano-sl-txp
-                     , cardano-sl-txp-test
                      , criterion
                      , universum >= 0.1.11
                      , weigh
@@ -441,7 +421,6 @@ benchmark cardano-explorer-bench
                         DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
-                        RecordWildCards
                         TypeApplications
                         TupleSections
                         ViewPatterns

@@ -19,7 +19,8 @@ import qualified Data.ByteString as BS
 import           Data.Fixed (Nano)
 import           Data.Time.Units (Microsecond, Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
-import           Test.Hspec (Arg, Expectation, Spec, SpecWith, describe, it, shouldBe)
+import           Test.Hspec (Arg, Expectation, Spec, SpecWith, describe, it,
+                     shouldBe)
 import           Test.Hspec.QuickCheck (modifyMaxSize, modifyMaxSuccess, prop)
 import           Test.QuickCheck (Arbitrary (..), choose, oneof, sized, (===))
 import           Test.QuickCheck.Arbitrary.Generic (genericShrink)
@@ -56,22 +57,19 @@ instance Bi LargeInteger where
 ----------------------------------------
 
 data User
-    = Login { login :: String
-            , age   :: Int }
-    | FullName { firstName :: String
-               , lastName  :: String
-               , sex       :: Bool }
+    = Login String Int
+    | FullName String String Bool
     deriving (Show, Eq)
 
-deriveSimpleBi ''User [
+deriveIndexedBi ''User [
     Cons 'Login [
-        Field [| login :: String |],
-        Field [| age   :: Int    |]
+        Field [| 0 :: String |],
+        Field [| 1 :: Int    |]
     ],
     Cons 'FullName [
-        Field [| firstName :: String |],
-        Field [| lastName  :: String |],
-        Field [| sex       :: Bool   |]
+        Field [| 0 :: String |],
+        Field [| 1 :: String |],
+        Field [| 2 :: Bool   |]
     ]]
 
 ----------------------------------------

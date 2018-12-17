@@ -489,8 +489,8 @@ license = stdenv.lib.licenses.bsd3;
 mkDerivation {
 
 pname = "Chart-diagrams";
-version = "1.8.2";
-sha256 = "ca181dec04bac1029101dd75951f48710ebc42f5333e06c57943e3245bba9f41";
+version = "1.8.3";
+sha256 = "beed1e3d4ef96be26921d058bc8d3510641514eb3c4539258e8ecf1efabc3adc";
 enableSeparateDataOutput = true;
 libraryHaskellDepends = [
 base
@@ -2442,8 +2442,8 @@ mkDerivation {
 pname = "JuicyPixels-extra";
 version = "0.3.0";
 sha256 = "c5a03a9747bcd984924d6f7c9b4771188e297df82160e7d667ea8f4f671b0e22";
-revision = "1";
-editedCabalFile = "17y0d11hgdnzcgv7q7zl3wic2w2xhqn123vzfsdivncgdgqlvy0c";
+revision = "3";
+editedCabalFile = "1xr4vjhzjw3ynibb6693dhcz2jbvbx4yg2bir8w2s98n37gwsxd7";
 enableSeparateDataOutput = true;
 libraryHaskellDepends = [
 base
@@ -2471,6 +2471,8 @@ mkDerivation {
 pname = "JuicyPixels-scale-dct";
 version = "0.1.2";
 sha256 = "f7381b88446224897e6677692bbdc39cb5b755216212f0ad8050046865cd3013";
+revision = "1";
+editedCabalFile = "1snx05qpllybd9yvy03p0lpnmimj0m24x1bxa4svxcsiv56yv9w8";
 libraryHaskellDepends = [
 base
 base-compat
@@ -4982,13 +4984,10 @@ license = stdenv.lib.licenses.bsd3;
 , cereal
 , containers
 , directory
-, exceptions
 , extensible-exceptions
-, extra
 , fetchgit
 , filelock
 , filepath
-, hashable
 , mtl
 , network
 , safecopy
@@ -4996,19 +4995,17 @@ license = stdenv.lib.licenses.bsd3;
 , stm
 , template-haskell
 , th-expand-syns
-, time-units
 , unix
-, unordered-containers
 }:
 mkDerivation {
 
 pname = "acid-state";
-version = "0.14.2";
+version = "0.15.0";
 src = fetchgit {
 
-url = "https://github.com/serokell/acid-state.git";
-sha256 = "0gxy0n08mqq09c2gyzpp6fdxz13lx9xfr6ir2dwr705i3b0k4j8b";
-rev = "1049699df411c9584523ba7424cba1f3f82ac419";
+url = "https://github.com/parsonsmatt/acid-state";
+sha256 = "0mgdk8252g7wbb0afyn21pcn3bwh4vainy3h2d0xsv4hlpgqgnw8";
+rev = "a1b23e2056f134e53f705a694ab85deeecabec5c";
 
 };
 libraryHaskellDepends = [
@@ -5018,24 +5015,55 @@ bytestring
 cereal
 containers
 directory
-exceptions
 extensible-exceptions
-extra
 filelock
 filepath
-hashable
 mtl
 network
 safecopy
 stm
 template-haskell
 th-expand-syns
-time-units
 unix
-unordered-containers
 ];
 doHaddock = false;
 doCheck = false;
+homepage = "https://github.com/acid-state/acid-state";
+description = "Add ACID guarantees to any serializable Haskell data structure";
+license = stdenv.lib.licenses.publicDomain;
+
+}) {};
+"acid-state-exts" = callPackage
+({
+  mkDerivation
+, acid-state
+, base
+, directory
+, exceptions
+, extra
+, filepath
+, mtl
+, safecopy
+, stdenv
+, time-units
+}:
+mkDerivation {
+
+pname = "acid-state-exts";
+version = "0.14.2";
+src = ./../acid-state-exts;
+libraryHaskellDepends = [
+acid-state
+base
+directory
+exceptions
+extra
+filepath
+mtl
+safecopy
+time-units
+];
+doHaddock = false;
 homepage = "https://github.com/acid-state/acid-state";
 description = "Add ACID guarantees to any serializable Haskell data structure";
 license = stdenv.lib.licenses.publicDomain;
@@ -5077,8 +5105,8 @@ mkDerivation {
 pname = "active";
 version = "0.2.0.13";
 sha256 = "5d9a141d58bcefbf699ed233a22309ded671c25ed64bcee11a663d00731280fb";
-revision = "5";
-editedCabalFile = "0hwla9xz275qzgn9n07311ksl3j40izidki1nbhmrmmmfjin57cv";
+revision = "6";
+editedCabalFile = "0zq9j2hgapb9blvmd9y8kmczizw4a18kksnfqd1py1jzx7hr46n3";
 libraryHaskellDepends = [
 base
 lens
@@ -5116,8 +5144,8 @@ mkDerivation {
 pname = "ad";
 version = "4.3.5";
 sha256 = "9c5e754b1f0ff83490bcc30f5dfa8504de5a34ab8f7be03ac232882940dc8d60";
-revision = "3";
-editedCabalFile = "14g2lfsw1fi4gn2cgvhglz4gyi797xk9g1r4pf46g734ivfl67c5";
+revision = "5";
+editedCabalFile = "0yzyfqhsafzaqzj8wmjrj5ghm6jwbxya3wxc9sjl59j9q20jc4nq";
 setupHaskellDepends = [
 base
 Cabal
@@ -5168,6 +5196,8 @@ mkDerivation {
 pname = "adjunctions";
 version = "4.4";
 sha256 = "507c2ef55337ae61c805f8cbc1213dfd7d2b85187342675d662254b8d8a16ae9";
+revision = "1";
+editedCabalFile = "0582nnn3fab63nd7ng8smk2c8j7pciiyzfj1na34wqid2hs675as";
 libraryHaskellDepends = [
 array
 base
@@ -5660,6 +5690,29 @@ description = "Injecting fields into aeson values";
 license = stdenv.lib.licenses.mit;
 
 }) {};
+"aeson-options" = callPackage
+({
+  mkDerivation
+, aeson
+, base
+, stdenv
+}:
+mkDerivation {
+
+pname = "aeson-options";
+version = "0.0.0";
+sha256 = "a0769e025d25c79d4a8ea64ad663f022a213280a9be94091ae3c05046d0e597c";
+libraryHaskellDepends = [
+aeson
+base
+];
+doHaddock = false;
+doCheck = false;
+homepage = "https://github.com/serokell/aeson-options";
+description = "Options to derive FromJSON/ToJSON instances";
+license = stdenv.lib.licenses.mit;
+
+}) {};
 "aeson-picker" = callPackage
 ({
   mkDerivation
@@ -5827,8 +5880,8 @@ mkDerivation {
 pname = "aeson-utils";
 version = "0.3.0.2";
 sha256 = "71814b1be8849f945395eb81217a2ad464f2943134c50c09afd8a3126add4b1f";
-revision = "6";
-editedCabalFile = "06jpkp95sicqv9kjasgwwd89kfrnz37402ppvgg5567sbg1wm9zh";
+revision = "7";
+editedCabalFile = "0lnlmsn5imbapdhbza1175wm04ynn1w75llkhlk1akpanx1dnd15";
 libraryHaskellDepends = [
 aeson
 attoparsec
@@ -9494,6 +9547,8 @@ mkDerivation {
 pname = "atomic-primops";
 version = "0.8.2";
 sha256 = "67f8872e0c1e634d819a967365eb4ad514e9b2cde967fbc710da7cdc4d17d933";
+revision = "1";
+editedCabalFile = "0gdcd84x2s4jiry0was74rzv9l53an1q6ad8jiaj37fr4fim0wcc";
 libraryHaskellDepends = [
 base
 ghc-prim
@@ -10987,8 +11042,8 @@ mkDerivation {
 pname = "bifunctors";
 version = "5.5.2";
 sha256 = "332bb2ea19e77dac55282daff8046d89f69514ced5b987779d887e53b5d7cb11";
-revision = "2";
-editedCabalFile = "0glrvir6md8a1ncr6ah95a5mnn7n9v8yl85afvdx24i9z1nr1319";
+revision = "3";
+editedCabalFile = "102wb8w6b3g6chk4pr9jgz73vm11n10wbn2xg3d90c71rn8x9p0f";
 libraryHaskellDepends = [
 base
 base-orphans
@@ -11204,8 +11259,8 @@ mkDerivation {
 pname = "binary-orphans";
 version = "0.1.8.0";
 sha256 = "f17557ccd98931df2bea038f25e7f835f38019ea7d53bd763f71fe64f931c0cc";
-revision = "2";
-editedCabalFile = "1kvrp3dfqx49lkvjvglv18r7yzb165wisg953yih9sgksm02pxf5";
+revision = "4";
+editedCabalFile = "1hsp8y26g51rjskmgfkgmggzpdg5y30sv8g7rb3id9r43w37zj1q";
 libraryHaskellDepends = [
 aeson
 base
@@ -11371,6 +11426,8 @@ mkDerivation {
 pname = "binary-tagged";
 version = "0.1.5";
 sha256 = "d4b733a9013069f19249acad76e7f73fb41303c44dcbd2229de8d534558605e8";
+revision = "1";
+editedCabalFile = "0vddb305g3455f0rh0xs6c9i2vllnf83y0pbp53wjwb3l575bqyp";
 libraryHaskellDepends = [
 aeson
 array
@@ -11970,8 +12027,8 @@ mkDerivation {
 pname = "bits";
 version = "0.5.1";
 sha256 = "657e557bb913b53fb3b3fc7eda820cf3c85a5b89692d242275d3e8e8d9479c93";
-revision = "4";
-editedCabalFile = "188v93jiwy832ifcjq5db7sk5rngpnvira5kk1cb1srw4851hzyl";
+revision = "5";
+editedCabalFile = "012qycmsfz5l6y82d3zgjmp1k3pgvhlpjdk6rwlpc1wlfbpdqiaw";
 setupHaskellDepends = [
 base
 Cabal
@@ -12769,8 +12826,8 @@ mkDerivation {
 pname = "bound";
 version = "2.0.1";
 sha256 = "294a206f33b6583e56bd3aad620e4a7bd0a22b4bf4c6fe5988b2fe55159fbb76";
-revision = "4";
-editedCabalFile = "1gnknncwjil9kcilpj08a5s0r1z3nk5iyg1dlynldxaj6p0z90hx";
+revision = "6";
+editedCabalFile = "18fqzxy3f8r09jwcsfzjlrpvnlz711jq5gcjp4dal1pvsbbw6i09";
 setupHaskellDepends = [
 base
 Cabal
@@ -13620,6 +13677,8 @@ mkDerivation {
 pname = "bytes";
 version = "0.15.4";
 sha256 = "35efd80d978a52dc70b5aa75e96ecbf2d0852d03e3a5c61087efa24a711c3d88";
+revision = "1";
+editedCabalFile = "1ijk1d47rr4kyi3hl03v1xpb08k87wjr07d8i6gj5glhzfmmwp9k";
 setupHaskellDepends = [
 base
 Cabal
@@ -14392,12 +14451,12 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "canonical-json";
-version = "0.5.0.0";
+version = "0.5.0.1";
 src = fetchgit {
 
-url = "https://github.com/well-typed/canonical-json.git";
-sha256 = "19lc5pr85jz3f8ifmjxnkxgib0lz3vgagdny50gb04midc7y37pr";
-rev = "2d261bb971bada1893753b503452d9e6e217bc4a";
+url = "https://github.com/input-output-hk/canonical-json.git";
+sha256 = "0cqa4vnrj3wqqgzzg9v7p3ddrfsf5fx63dv2jnwnlfaczs007dkq";
+rev = "f66762e4c4fe484ed109d28ad541fc55cc841c2c";
 
 };
 libraryHaskellDepends = [
@@ -14464,33 +14523,41 @@ license = stdenv.lib.licenses.mit;
 ({
   mkDerivation
 , base
+, basement
 , bytestring
 , cryptonite
 , cryptonite-openssl
 , deepseq
 , fetchgit
+, foundation
 , hashable
+, integer-gmp
 , memory
 , stdenv
 }:
 mkDerivation {
 
 pname = "cardano-crypto";
-version = "1.0.0";
+version = "1.1.0";
 src = fetchgit {
 
 url = "https://github.com/input-output-hk/cardano-crypto";
-sha256 = "05i1z01fzg0la4hk2ff0l89sk0a5ada81w60kwj9i8ix74jchp94";
-rev = "287cc575fafe86af9d24af9d012c47f9d3f04da0";
+sha256 = "0ax9gxbr3qnji1jwz2rz97573lkyi4128m2ck90bi1x15p4bm65y";
+rev = "e87fcd3fea18f664d6e4f39c11abb8cafbd25785";
 
 };
+isLibrary = true;
+isExecutable = true;
 libraryHaskellDepends = [
 base
+basement
 bytestring
 cryptonite
 cryptonite-openssl
 deepseq
+foundation
 hashable
+integer-gmp
 memory
 ];
 doHaddock = false;
@@ -14543,8 +14610,8 @@ version = "0.5.10";
 src = fetchgit {
 
 url = "https://github.com/input-output-hk/cardano-report-server.git";
-sha256 = "02n86wbfr3z2xqrc8g8naj0dc5j4644y0l295qzdqlfynmz6a82z";
-rev = "9b96874d0f234554a5779d98762cc0a6773a532a";
+sha256 = "10hqaxc07rkqaj7br4kki4drg2hz45rp7wr1b8s9b6cfg3apriwp";
+rev = "62f04801ef9fce4c8e856607400a2bb05ab732e9";
 
 };
 isLibrary = true;
@@ -14606,8 +14673,8 @@ license = stdenv.lib.licenses.bsd3;
 "cardano-sl" = callPackage
 ({
   mkDerivation
-, acid-state
 , aeson
+, aeson-options
 , ansi-terminal
 , ansi-wl-pprint
 , async
@@ -14617,27 +14684,20 @@ license = stdenv.lib.licenses.bsd3;
 , cardano-crypto
 , cardano-sl-binary
 , cardano-sl-binary-test
-, cardano-sl-block
-, cardano-sl-block-test
+, cardano-sl-chain
+, cardano-sl-chain-test
 , cardano-sl-core
 , cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-crypto-test
 , cardano-sl-db
-, cardano-sl-delegation
-, cardano-sl-delegation-test
+, cardano-sl-db-test
 , cardano-sl-infra
-, cardano-sl-lrc
-, cardano-sl-lrc-test
+, cardano-sl-infra-test
 , cardano-sl-networking
-, cardano-sl-ssc
-, cardano-sl-txp
-, cardano-sl-txp-test
-, cardano-sl-update
 , cardano-sl-util
 , cardano-sl-util-test
 , cborg
-, cereal
 , conduit
 , constraints
 , containers
@@ -14648,21 +14708,24 @@ license = stdenv.lib.licenses.bsd3;
 , data-default
 , deepseq
 , directory
-, ed25519
+, ekg
 , ekg-core
 , ether
 , exceptions
 , extra
 , filelock
 , filepath
-, fmt
 , formatting
 , generic-arbitrary
-, hashable
 , hedgehog
 , hspec
+, http-client
+, http-client-tls
+, http-conduit
+, http-types
 , lens
-, log-warper
+, lifted-async
+, memory
 , mmorph
 , monad-control
 , mtl
@@ -14670,17 +14733,13 @@ license = stdenv.lib.licenses.bsd3;
 , network
 , network-transport
 , network-transport-inmemory
-, network-transport-tcp
 , optparse-applicative
 , parsec
-, pipes
-, plutus-prototype
 , pvss
 , QuickCheck
 , random
 , reflection
 , safe-exceptions
-, safecopy
 , serokell-util
 , servant
 , servant-client
@@ -14694,7 +14753,6 @@ license = stdenv.lib.licenses.bsd3;
 , tagged
 , template-haskell
 , text
-, text-format
 , time
 , time-units
 , tls
@@ -14703,7 +14761,6 @@ license = stdenv.lib.licenses.bsd3;
 , unix
 , unliftio
 , unordered-containers
-, vector
 , wai
 , warp
 , warp-tls
@@ -14715,40 +14772,34 @@ license = stdenv.lib.licenses.bsd3;
 mkDerivation {
 
 pname = "cardano-sl";
-version = "1.3.2";
+version = "2.0.0";
 src = ./../lib;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
-acid-state
 aeson
+aeson-options
 ansi-terminal
 ansi-wl-pprint
 async
 base
 bytestring
 canonical-json
-cardano-crypto
 cardano-sl-binary
 cardano-sl-binary-test
-cardano-sl-block
+cardano-sl-chain
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-db
-cardano-sl-delegation
 cardano-sl-infra
-cardano-sl-lrc
 cardano-sl-networking
-cardano-sl-ssc
-cardano-sl-txp
-cardano-sl-update
 cardano-sl-util
-cardano-sl-util-test
 cborg
-cereal
 conduit
 constraints
 containers
@@ -14757,7 +14808,7 @@ cpphs
 cryptonite
 data-default
 directory
-ed25519
+ekg
 ekg-core
 ether
 exceptions
@@ -14765,10 +14816,14 @@ filelock
 filepath
 formatting
 generic-arbitrary
-hashable
 hspec
+http-client
+http-client-tls
+http-conduit
+http-types
 lens
-log-warper
+lifted-async
+memory
 mmorph
 monad-control
 mtl
@@ -14777,14 +14832,11 @@ network
 network-transport
 optparse-applicative
 parsec
-pipes
-plutus-prototype
 pvss
 QuickCheck
 random
 reflection
 safe-exceptions
-safecopy
 serokell-util
 servant
 servant-client
@@ -14797,7 +14849,6 @@ systemd
 tagged
 template-haskell
 text
-text-format
 time
 time-units
 tls
@@ -14820,93 +14871,68 @@ bytestring
 cardano-crypto
 cardano-sl-binary
 cardano-sl-binary-test
-cardano-sl-block
-cardano-sl-block-test
+cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-db
-cardano-sl-delegation
-cardano-sl-delegation-test
+cardano-sl-db-test
 cardano-sl-infra
-cardano-sl-lrc
-cardano-sl-lrc-test
+cardano-sl-infra-test
 cardano-sl-networking
-cardano-sl-ssc
-cardano-sl-txp
-cardano-sl-txp-test
-cardano-sl-update
 cardano-sl-util
 cardano-sl-util-test
-cborg
-cereal
+conduit
 containers
 cryptonite
 data-default
 deepseq
 extra
 filelock
-fmt
 formatting
 generic-arbitrary
 hedgehog
 hspec
 lens
-log-warper
-mtl
 network-transport
 network-transport-inmemory
-pipes
 pvss
 QuickCheck
 random
 reflection
-safecopy
 serokell-util
-stm
 tagged
 text
-text-format
+time
 time-units
 universum
 unordered-containers
-vector
 ];
 benchmarkHaskellDepends = [
-aeson
 base
 bytestring
-cardano-sl-block
-cardano-sl-block-test
+cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-db
 cardano-sl-infra
-cardano-sl-lrc
 cardano-sl-networking
-cardano-sl-ssc
-cardano-sl-txp
-cardano-sl-txp-test
 cardano-sl-util
 cardano-sl-util-test
+conduit
 criterion
 deepseq
 formatting
-log-warper
-network
 network-transport
-network-transport-tcp
+network-transport-inmemory
 optparse-applicative
-pipes
 QuickCheck
-stm
-time-units
-transformers
 universum
-vector
 ];
 doHaddock = false;
 description = "Cardano SL main implementation";
@@ -14923,7 +14949,8 @@ license = stdenv.lib.licenses.mit;
 , bytestring
 , canonical-json
 , cardano-sl
-, cardano-sl-block
+, cardano-sl-chain
+, cardano-sl-chain-test
 , cardano-sl-client
 , cardano-sl-core
 , cardano-sl-core-test
@@ -14932,9 +14959,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-generator
 , cardano-sl-infra
 , cardano-sl-networking
-, cardano-sl-ssc
-, cardano-sl-txp
-, cardano-sl-update
 , cardano-sl-util
 , conduit
 , constraints
@@ -14948,7 +14972,6 @@ license = stdenv.lib.licenses.mit;
 , hspec
 , lens
 , loc
-, log-warper
 , megaparsec
 , MonadRandom
 , mtl
@@ -14968,21 +14991,23 @@ license = stdenv.lib.licenses.mit;
 , stm
 , temporary
 , text
-, text-format
 , time-units
 , transformers
 , universum
 , unix
+, unliftio
 , unordered-containers
 , validation
 }:
 mkDerivation {
 
 pname = "cardano-sl-auxx";
-version = "1.3.2";
+version = "2.0.0";
 src = ./../auxx;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 isLibrary = true;
@@ -14995,7 +15020,8 @@ base
 bytestring
 canonical-json
 cardano-sl
-cardano-sl-block
+cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-client
 cardano-sl-core
 cardano-sl-core-test
@@ -15003,10 +15029,6 @@ cardano-sl-crypto
 cardano-sl-db
 cardano-sl-generator
 cardano-sl-infra
-cardano-sl-networking
-cardano-sl-ssc
-cardano-sl-txp
-cardano-sl-update
 cardano-sl-util
 conduit
 constraints
@@ -15018,7 +15040,6 @@ generic-arbitrary
 haskeline
 lens
 loc
-log-warper
 megaparsec
 MonadRandom
 mtl
@@ -15035,11 +15056,11 @@ serokell-util
 split
 stm
 text
-text-format
 time-units
 transformers
 universum
 unix
+unliftio
 unordered-containers
 validation
 ];
@@ -15049,26 +15070,23 @@ cpphs
 executableHaskellDepends = [
 base
 cardano-sl
-cardano-sl-block
+cardano-sl-chain
 cardano-sl-core
-cardano-sl-crypto
+cardano-sl-db
 cardano-sl-infra
 cardano-sl-networking
-cardano-sl-txp
-cardano-sl-update
 cardano-sl-util
 formatting
-log-warper
 network-transport-tcp
 safe-exceptions
 temporary
 universum
-unix
 ];
 executableToolDepends = [
 cpphs
 ];
 testHaskellDepends = [
+cardano-sl-chain
 cardano-sl-core
 cardano-sl-crypto
 hspec
@@ -15086,6 +15104,7 @@ license = stdenv.lib.licenses.mit;
 "cardano-sl-binary" = callPackage
 ({
   mkDerivation
+, aeson
 , base
 , binary
 , bytestring
@@ -15096,12 +15115,7 @@ license = stdenv.lib.licenses.mit;
 , cereal
 , containers
 , cpphs
-, cryptonite
-, data-default
 , digest
-, extra
-, filelock
-, fmt
 , formatting
 , generic-arbitrary
 , half
@@ -15109,12 +15123,11 @@ license = stdenv.lib.licenses.mit;
 , hedgehog
 , hspec
 , lens
+, micro-recursion-schemes
 , mtl
-, pvss
+, pretty-show
 , QuickCheck
 , quickcheck-instances
-, random
-, reflection
 , safe-exceptions
 , safecopy
 , serokell-util
@@ -15122,10 +15135,8 @@ license = stdenv.lib.licenses.mit;
 , tagged
 , template-haskell
 , text
-, text-format
 , th-utilities
 , time-units
-, transformers
 , universum
 , unordered-containers
 , vector
@@ -15133,33 +15144,37 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-binary";
-version = "1.3.2";
+version = "2.0.0";
 src = ./../binary;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
+aeson
 base
 binary
 bytestring
+canonical-json
+cardano-sl-util
 cborg
+cereal
 containers
 digest
 formatting
-half
 hashable
 lens
-mtl
-QuickCheck
+micro-recursion-schemes
 safe-exceptions
+safecopy
 serokell-util
 tagged
 template-haskell
 text
 th-utilities
 time-units
-transformers
 universum
 unordered-containers
 vector
@@ -15170,38 +15185,26 @@ cpphs
 testHaskellDepends = [
 base
 bytestring
-canonical-json
-cardano-sl-util
 cardano-sl-util-test
 cborg
 cereal
 containers
-cryptonite
-data-default
-extra
-filelock
-fmt
 formatting
 generic-arbitrary
 half
 hedgehog
 hspec
-lens
 mtl
-pvss
+pretty-show
 QuickCheck
 quickcheck-instances
-random
-reflection
 safecopy
 serokell-util
 tagged
 text
-text-format
 time-units
 universum
 unordered-containers
-vector
 ];
 testToolDepends = [
 cpphs
@@ -15214,19 +15217,15 @@ license = stdenv.lib.licenses.mit;
 "cardano-sl-binary-test" = callPackage
 ({
   mkDerivation
-, aeson
 , base
 , bytestring
 , cardano-sl-binary
-, cardano-sl-util
 , cardano-sl-util-test
 , cborg
 , cereal
+, containers
 , cpphs
 , cryptonite
-, directory
-, file-embed
-, filepath
 , formatting
 , half
 , hedgehog
@@ -15236,35 +15235,31 @@ license = stdenv.lib.licenses.mit;
 , QuickCheck
 , quickcheck-instances
 , safecopy
+, serokell-util
 , stdenv
-, tagged
-, template-haskell
 , text
-, text-format
 , universum
 }:
 mkDerivation {
 
 pname = "cardano-sl-binary-test";
-version = "1.3.2";
+version = "2.0.0";
 src = ./../binary/test;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
-aeson
 base
 bytestring
 cardano-sl-binary
-cardano-sl-util
 cardano-sl-util-test
 cborg
 cereal
+containers
 cryptonite
-directory
-file-embed
-filepath
 formatting
 half
 hedgehog
@@ -15274,10 +15269,8 @@ pretty-show
 QuickCheck
 quickcheck-instances
 safecopy
-tagged
-template-haskell
+serokell-util
 text
-text-format
 universum
 ];
 libraryToolDepends = [
@@ -15288,238 +15281,274 @@ description = "Cardano SL - binary serializarion (tests)";
 license = stdenv.lib.licenses.mit;
 
 }) {};
-"cardano-sl-block" = callPackage
+"cardano-sl-chain" = callPackage
 ({
   mkDerivation
 , aeson
+, aeson-options
+, array
 , base
+, base16-bytestring
 , bytestring
+, Cabal
+, canonical-json
+, cardano-crypto
 , cardano-sl-binary
+, cardano-sl-binary-test
 , cardano-sl-core
+, cardano-sl-core-test
 , cardano-sl-crypto
-, cardano-sl-db
-, cardano-sl-delegation
-, cardano-sl-infra
-, cardano-sl-lrc
-, cardano-sl-networking
-, cardano-sl-ssc
-, cardano-sl-txp
-, cardano-sl-update
+, cardano-sl-crypto-test
 , cardano-sl-util
+, cardano-sl-util-test
 , cborg
+, cereal
 , conduit
 , containers
 , cpphs
+, criterion
 , cryptonite
 , data-default
-, directory
+, deepseq
 , ekg-core
 , ether
 , exceptions
+, extra
 , filepath
+, fmt
 , formatting
+, free
+, generic-arbitrary
+, hashable
+, hedgehog
+, hspec
 , lens
-, log-warper
+, lrucache
+, memory
+, mmorph
+, mono-traversable
 , mtl
-, pipes
+, neat-interpolation
+, parsec
+, plutus-prototype
+, pvss
+, QuickCheck
 , random
 , reflection
-, rocksdb-haskell-ng
 , safe-exceptions
+, safecopy
 , serokell-util
 , stdenv
-, stm
+, template-haskell
 , text
-, text-format
+, time
 , time-units
 , transformers
 , universum
-, unliftio
 , unordered-containers
+, vector
 }:
 mkDerivation {
 
-pname = "cardano-sl-block";
-version = "1.3.2";
-src = ./../block;
+pname = "cardano-sl-chain";
+version = "2.0.0";
+src = ./../chain;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
 aeson
+aeson-options
+array
 base
 bytestring
+Cabal
+canonical-json
 cardano-sl-binary
 cardano-sl-core
 cardano-sl-crypto
-cardano-sl-db
-cardano-sl-delegation
-cardano-sl-infra
-cardano-sl-lrc
-cardano-sl-networking
-cardano-sl-ssc
-cardano-sl-txp
-cardano-sl-update
 cardano-sl-util
 cborg
+cereal
 conduit
 containers
 cryptonite
 data-default
-directory
+deepseq
 ekg-core
 ether
 exceptions
+extra
 filepath
+fmt
 formatting
+free
+hashable
 lens
-log-warper
+lrucache
+memory
+mmorph
+mono-traversable
 mtl
-pipes
-random
+neat-interpolation
+parsec
+plutus-prototype
 reflection
-rocksdb-haskell-ng
 safe-exceptions
+safecopy
 serokell-util
-stm
+template-haskell
 text
-text-format
+time
 time-units
 transformers
 universum
-unliftio
 unordered-containers
 ];
 libraryToolDepends = [
 cpphs
 ];
-doHaddock = false;
-description = "Cardano SL - block processing";
-license = stdenv.lib.licenses.mit;
-
-}) {};
-"cardano-sl-block-bench" = callPackage
-({
-  mkDerivation
-, base
-, bytestring
-, cardano-sl-binary
-, cardano-sl-block
-, cardano-sl-block-test
-, cardano-sl-core
-, cardano-sl-crypto
-, criterion
-, deepseq
-, formatting
-, stdenv
-, universum
-}:
-mkDerivation {
-
-pname = "cardano-sl-block-bench";
-version = "1.3.2";
-src = ./../block/bench;
-configureFlags = [
-"--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
-];
-isLibrary = false;
-isExecutable = false;
-benchmarkHaskellDepends = [
+testHaskellDepends = [
+aeson
 base
+base16-bytestring
 bytestring
+cardano-crypto
 cardano-sl-binary
-cardano-sl-block
-cardano-sl-block-test
-cardano-sl-core
-cardano-sl-crypto
-criterion
-deepseq
-formatting
-universum
-];
-doHaddock = false;
-description = "Cardano SL - block benchmark";
-license = stdenv.lib.licenses.mit;
-
-}) {};
-"cardano-sl-block-test" = callPackage
-({
-  mkDerivation
-, base
-, bytestring
-, cardano-sl-binary
-, cardano-sl-block
-, cardano-sl-core
-, cardano-sl-core-test
-, cardano-sl-crypto
-, cardano-sl-crypto-test
-, cardano-sl-db
-, cardano-sl-delegation
-, cardano-sl-delegation-test
-, cardano-sl-infra
-, cardano-sl-lrc
-, cardano-sl-lrc-test
-, cardano-sl-networking
-, cardano-sl-ssc
-, cardano-sl-txp
-, cardano-sl-txp-test
-, cardano-sl-update
-, cardano-sl-util
-, cardano-sl-util-test
-, formatting
-, generic-arbitrary
-, QuickCheck
-, quickcheck-instances
-, random
-, stdenv
-, text
-, text-format
-, universum
-}:
-mkDerivation {
-
-pname = "cardano-sl-block-test";
-version = "1.3.2";
-src = ./../block/test;
-configureFlags = [
-"--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
-];
-libraryHaskellDepends = [
-base
-bytestring
-cardano-sl-binary
-cardano-sl-block
+cardano-sl-binary-test
 cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
-cardano-sl-db
-cardano-sl-delegation
-cardano-sl-delegation-test
-cardano-sl-infra
-cardano-sl-lrc
-cardano-sl-lrc-test
-cardano-sl-networking
-cardano-sl-ssc
-cardano-sl-txp
-cardano-sl-txp-test
-cardano-sl-update
 cardano-sl-util
 cardano-sl-util-test
+containers
+cryptonite
+data-default
+fmt
 formatting
 generic-arbitrary
+hedgehog
+hspec
+lens
+mtl
+pvss
 QuickCheck
-quickcheck-instances
+random
+serokell-util
+time-units
+universum
+unordered-containers
+vector
+];
+benchmarkHaskellDepends = [
+base
+bytestring
+cardano-sl-binary
+cardano-sl-core
+cardano-sl-core-test
+cardano-sl-crypto
+cardano-sl-crypto-test
+cardano-sl-util-test
+criterion
+data-default
+deepseq
+formatting
+generic-arbitrary
+lens
+QuickCheck
 random
 text
-text-format
 universum
+unordered-containers
+vector
 ];
 doHaddock = false;
-description = "Cardano SL - block processing (tests)";
+description = "Cardano SL - transaction processing";
+license = stdenv.lib.licenses.mit;
+
+}) {};
+"cardano-sl-chain-test" = callPackage
+({
+  mkDerivation
+, aeson
+, base
+, base16-bytestring
+, bytestring
+, cardano-crypto
+, cardano-sl-binary
+, cardano-sl-binary-test
+, cardano-sl-chain
+, cardano-sl-core
+, cardano-sl-core-test
+, cardano-sl-crypto
+, cardano-sl-crypto-test
+, cardano-sl-util
+, cardano-sl-util-test
+, containers
+, cryptonite
+, data-default
+, formatting
+, generic-arbitrary
+, hedgehog
+, pvss
+, QuickCheck
+, random
+, reflection
+, serokell-util
+, stdenv
+, time-units
+, universum
+, unordered-containers
+, vector
+}:
+mkDerivation {
+
+pname = "cardano-sl-chain-test";
+version = "2.0.0";
+src = ./../chain/test;
+configureFlags = [
+"--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
+"--ghc-option=-Werror"
+];
+libraryHaskellDepends = [
+aeson
+base
+base16-bytestring
+bytestring
+cardano-crypto
+cardano-sl-binary
+cardano-sl-binary-test
+cardano-sl-chain
+cardano-sl-core
+cardano-sl-core-test
+cardano-sl-crypto
+cardano-sl-crypto-test
+cardano-sl-util
+cardano-sl-util-test
+containers
+cryptonite
+data-default
+formatting
+generic-arbitrary
+hedgehog
+pvss
+QuickCheck
+random
+reflection
+serokell-util
+time-units
+universum
+unordered-containers
+vector
+];
+doHaddock = false;
+description = "Cardano SL - arbitrary instances for cardano-sl-chain";
 license = stdenv.lib.licenses.mit;
 
 }) {};
@@ -15529,17 +15558,14 @@ license = stdenv.lib.licenses.mit;
 , base
 , bytestring
 , cardano-sl
-, cardano-sl-block
+, cardano-sl-chain
+, cardano-sl-chain-test
 , cardano-sl-core
+, cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-crypto-test
 , cardano-sl-db
 , cardano-sl-infra
-, cardano-sl-lrc
-, cardano-sl-networking
-, cardano-sl-ssc
-, cardano-sl-txp
-, cardano-sl-update
 , cardano-sl-util
 , cardano-sl-util-test
 , containers
@@ -15548,14 +15574,12 @@ license = stdenv.lib.licenses.mit;
 , formatting
 , hspec
 , lens
-, log-warper
 , mtl
 , QuickCheck
 , safe-exceptions
 , serokell-util
 , stdenv
 , stm
-, text-format
 , transformers
 , universum
 , unordered-containers
@@ -15564,36 +15588,32 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-client";
-version = "1.3.2";
+version = "2.0.0";
 src = ./../client;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
 base
 cardano-sl
-cardano-sl-block
+cardano-sl-chain
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-db
 cardano-sl-infra
-cardano-sl-lrc
-cardano-sl-networking
-cardano-sl-txp
-cardano-sl-update
 cardano-sl-util
 containers
 data-default
 formatting
 lens
-log-warper
 mtl
 QuickCheck
 safe-exceptions
 serokell-util
 stm
-text-format
 transformers
 universum
 unordered-containers
@@ -15606,13 +15626,13 @@ testHaskellDepends = [
 base
 bytestring
 cardano-sl
+cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-core
+cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-db
-cardano-sl-ssc
-cardano-sl-txp
-cardano-sl-update
 cardano-sl-util
 cardano-sl-util-test
 containers
@@ -15630,23 +15650,131 @@ description = "Cardano SL client modules";
 license = stdenv.lib.licenses.mit;
 
 }) {};
-"cardano-sl-core" = callPackage
+"cardano-sl-cluster" = callPackage
 ({
   mkDerivation
 , aeson
 , ansi-terminal
+, async
+, attoparsec
 , base
-, base16-bytestring
+, bytestring
+, cardano-sl
+, cardano-sl-chain
+, cardano-sl-core
+, cardano-sl-infra
+, cardano-sl-networking
+, cardano-sl-util
+, cardano-sl-wallet-new
+, cardano-sl-x509
+, containers
+, cryptonite
+, directory
+, docopt
+, filepath
+, formatting
+, iproute
+, lens
+, optparse-applicative
+, parsec
+, QuickCheck
+, safe
+, servant-client
+, stdenv
+, temporary
+, text
+, time
+, tls
+, universum
+}:
+mkDerivation {
+
+pname = "cardano-sl-cluster";
+version = "2.0.0";
+src = ./../cluster;
+configureFlags = [
+"--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
+"--ghc-option=-Werror"
+];
+isLibrary = true;
+isExecutable = true;
+libraryHaskellDepends = [
+aeson
+async
+attoparsec
+base
+bytestring
+cardano-sl
+cardano-sl-chain
+cardano-sl-core
+cardano-sl-infra
+cardano-sl-networking
+cardano-sl-util
+cardano-sl-wallet-new
+cardano-sl-x509
+containers
+cryptonite
+directory
+filepath
+formatting
+iproute
+lens
+optparse-applicative
+parsec
+safe
+servant-client
+temporary
+text
+time
+tls
+universum
+];
+executableHaskellDepends = [
+ansi-terminal
+async
+base
+cardano-sl-wallet-new
+containers
+docopt
+formatting
+universum
+];
+testHaskellDepends = [
+async
+base
+cardano-sl-core
+cardano-sl-infra
+containers
+lens
+QuickCheck
+time
+universum
+];
+doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl/cluster/README.md";
+description = "Utilities to generate and run cluster of nodes";
+license = stdenv.lib.licenses.mit;
+
+}) {};
+"cardano-sl-core" = callPackage
+({
+  mkDerivation
+, aeson
+, aeson-options
+, ansi-terminal
+, base
 , base58-bytestring
 , bytestring
 , Cabal
 , canonical-json
 , cardano-crypto
+, cardano-report-server
 , cardano-sl-binary
 , cardano-sl-binary-test
 , cardano-sl-crypto
 , cardano-sl-crypto-test
-, cardano-sl-networking
 , cardano-sl-util
 , cardano-sl-util-test
 , cborg
@@ -15657,7 +15785,8 @@ license = stdenv.lib.licenses.mit;
 , data-default
 , deepseq
 , deriving-compat
-, ed25519
+, ekg-core
+, ether
 , exceptions
 , extra
 , filepath
@@ -15668,49 +15797,60 @@ license = stdenv.lib.licenses.mit;
 , hedgehog
 , hspec
 , lens
-, log-warper
 , memory
+, mmorph
+, monad-control
 , mtl
+, parsec
 , plutus-prototype
 , pvss
 , QuickCheck
 , quickcheck-instances
 , random
 , reflection
+, resourcet
 , safe-exceptions
 , safecopy
 , serokell-util
+, servant
 , stdenv
+, stm
 , template-haskell
 , text
-, text-format
 , th-lift-instances
 , time
 , time-units
+, transformers
+, transformers-base
+, transformers-lift
 , universum
+, unliftio
+, unliftio-core
 , unordered-containers
-, vector
 }:
 mkDerivation {
 
 pname = "cardano-sl-core";
-version = "1.3.2";
+version = "2.0.0";
 src = ./../core;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
 aeson
+aeson-options
 ansi-terminal
 base
 base58-bytestring
 bytestring
 Cabal
 canonical-json
+cardano-report-server
 cardano-sl-binary
 cardano-sl-crypto
-cardano-sl-networking
 cardano-sl-util
 cborg
 cereal
@@ -15719,6 +15859,8 @@ cryptonite
 data-default
 deepseq
 deriving-compat
+ekg-core
+ether
 exceptions
 extra
 filepath
@@ -15726,32 +15868,38 @@ fmt
 formatting
 hashable
 lens
-log-warper
 memory
+mmorph
+monad-control
 mtl
+parsec
 plutus-prototype
 random
 reflection
+resourcet
 safe-exceptions
 safecopy
 serokell-util
+servant
+stm
 template-haskell
 text
-text-format
 th-lift-instances
 time
 time-units
+transformers
+transformers-base
+transformers-lift
 universum
+unliftio
+unliftio-core
 unordered-containers
-vector
 ];
 libraryToolDepends = [
 cpphs
 ];
 testHaskellDepends = [
-aeson
 base
-base16-bytestring
 bytestring
 cardano-crypto
 cardano-sl-binary
@@ -15762,8 +15910,6 @@ cardano-sl-util
 cardano-sl-util-test
 containers
 cryptonite
-deepseq
-ed25519
 formatting
 generic-arbitrary
 hedgehog
@@ -15772,12 +15918,12 @@ pvss
 QuickCheck
 quickcheck-instances
 random
+safecopy
 serokell-util
 text
 time-units
 universum
 unordered-containers
-vector
 ];
 testToolDepends = [
 cpphs
@@ -15790,9 +15936,7 @@ license = stdenv.lib.licenses.mit;
 "cardano-sl-core-test" = callPackage
 ({
   mkDerivation
-, aeson
 , base
-, base16-bytestring
 , bytestring
 , cardano-crypto
 , cardano-sl-binary
@@ -15804,9 +15948,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-util-test
 , containers
 , cryptonite
-, data-default
-, ed25519
-, formatting
 , generic-arbitrary
 , hedgehog
 , pvss
@@ -15819,21 +15960,20 @@ license = stdenv.lib.licenses.mit;
 , time-units
 , universum
 , unordered-containers
-, vector
 }:
 mkDerivation {
 
 pname = "cardano-sl-core-test";
-version = "1.3.0";
+version = "2.0.0";
 src = ./../core/test;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
-aeson
 base
-base16-bytestring
 bytestring
 cardano-crypto
 cardano-sl-binary
@@ -15845,9 +15985,6 @@ cardano-sl-util
 cardano-sl-util-test
 containers
 cryptonite
-data-default
-ed25519
-formatting
 generic-arbitrary
 hedgehog
 pvss
@@ -15859,7 +15996,6 @@ text
 time-units
 universum
 unordered-containers
-vector
 ];
 doHaddock = false;
 description = "Cardano SL - core functionality (tests)";
@@ -15880,12 +16016,13 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-util
 , cardano-sl-util-test
 , cborg
+, cereal
 , cpphs
 , cryptonite
 , cryptonite-openssl
 , data-default
-, ed25519
 , formatting
+, generic-arbitrary
 , hashable
 , hedgehog
 , hspec
@@ -15894,24 +16031,26 @@ license = stdenv.lib.licenses.mit;
 , mtl
 , pvss
 , QuickCheck
+, quickcheck-instances
 , reflection
 , safe-exceptions
+, safecopy
 , scrypt
 , serokell-util
 , stdenv
-, template-haskell
 , text
-, text-format
 , universum
 , unordered-containers
 }:
 mkDerivation {
 
 pname = "cardano-sl-crypto";
-version = "1.3.2";
+version = "2.0.0";
 src = ./../crypto;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -15924,10 +16063,10 @@ cardano-crypto
 cardano-sl-binary
 cardano-sl-util
 cborg
+cereal
 cryptonite
 cryptonite-openssl
 data-default
-ed25519
 formatting
 hashable
 lens
@@ -15936,10 +16075,10 @@ mtl
 pvss
 reflection
 safe-exceptions
+safecopy
 scrypt
 serokell-util
 text
-text-format
 universum
 unordered-containers
 ];
@@ -15947,20 +16086,21 @@ libraryToolDepends = [
 cpphs
 ];
 testHaskellDepends = [
-aeson
 base
 bytestring
 cardano-crypto
 cardano-sl-binary
 cardano-sl-binary-test
+cardano-sl-util
 cardano-sl-util-test
 cryptonite
 formatting
+generic-arbitrary
 hedgehog
 hspec
 memory
 QuickCheck
-template-haskell
+quickcheck-instances
 text
 universum
 unordered-containers
@@ -15993,10 +16133,12 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-crypto-test";
-version = "1.3.2";
+version = "2.0.0";
 src = ./../crypto/test;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -16024,108 +16166,46 @@ license = stdenv.lib.licenses.mit;
 "cardano-sl-db" = callPackage
 ({
   mkDerivation
+, aeson
 , base
+, binary
 , bytestring
 , cardano-sl-binary
+, cardano-sl-chain
+, cardano-sl-chain-test
 , cardano-sl-core
+, cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-util
+, cardano-sl-util-test
 , concurrent-extra
 , conduit
 , containers
 , cpphs
+, cryptonite
 , data-default
 , directory
+, ekg-core
 , ether
+, exceptions
+, extra
 , filepath
 , formatting
+, hedgehog
 , lens
-, memory
-, mtl
-, resourcet
-, rocksdb-haskell-ng
-, serokell-util
-, stdenv
-, text-format
-, transformers
-, universum
-}:
-mkDerivation {
-
-pname = "cardano-sl-db";
-version = "1.3.2";
-src = ./../db;
-configureFlags = [
-"--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
-];
-libraryHaskellDepends = [
-base
-bytestring
-cardano-sl-binary
-cardano-sl-core
-cardano-sl-crypto
-cardano-sl-util
-concurrent-extra
-conduit
-containers
-data-default
-directory
-ether
-filepath
-formatting
-lens
-memory
-mtl
-resourcet
-rocksdb-haskell-ng
-serokell-util
-text-format
-transformers
-universum
-];
-libraryToolDepends = [
-cpphs
-];
-doHaddock = false;
-description = "Cardano SL - basic DB interfaces";
-license = stdenv.lib.licenses.mit;
-
-}) {};
-"cardano-sl-delegation" = callPackage
-({
-  mkDerivation
-, aeson
-, base
-, cardano-sl-binary
-, cardano-sl-core
-, cardano-sl-core-test
-, cardano-sl-crypto
-, cardano-sl-crypto-test
-, cardano-sl-db
-, cardano-sl-infra
-, cardano-sl-lrc
-, cardano-sl-networking
-, cardano-sl-util
-, conduit
-, cpphs
-, ether
-, formatting
-, generic-arbitrary
-, lens
-, log-warper
 , lrucache
+, memory
 , mmorph
 , mtl
-, QuickCheck
-, reflection
 , resourcet
 , rocksdb-haskell-ng
 , safe-exceptions
 , serokell-util
 , stdenv
-, text-format
-, time
+, stm
+, tagged
+, temporary
+, text
 , time-units
 , transformers
 , universum
@@ -16134,43 +16214,49 @@ license = stdenv.lib.licenses.mit;
 }:
 mkDerivation {
 
-pname = "cardano-sl-delegation";
-version = "1.3.2";
-src = ./../delegation;
+pname = "cardano-sl-db";
+version = "2.0.0";
+src = ./../db;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
 aeson
 base
+binary
+bytestring
 cardano-sl-binary
+cardano-sl-chain
 cardano-sl-core
-cardano-sl-core-test
 cardano-sl-crypto
-cardano-sl-crypto-test
-cardano-sl-db
-cardano-sl-infra
-cardano-sl-lrc
-cardano-sl-networking
 cardano-sl-util
+concurrent-extra
 conduit
+containers
+cryptonite
+data-default
+directory
+ekg-core
 ether
+exceptions
+extra
+filepath
 formatting
-generic-arbitrary
 lens
-log-warper
 lrucache
+memory
 mmorph
 mtl
-QuickCheck
-reflection
 resourcet
 rocksdb-haskell-ng
 safe-exceptions
 serokell-util
-text-format
-time
+stm
+tagged
+text
 time-units
 transformers
 universum
@@ -16180,22 +16266,36 @@ unordered-containers
 libraryToolDepends = [
 cpphs
 ];
+testHaskellDepends = [
+base
+cardano-sl-binary
+cardano-sl-chain-test
+cardano-sl-core
+cardano-sl-core-test
+cardano-sl-util
+cardano-sl-util-test
+filepath
+hedgehog
+lens
+temporary
+universum
+];
 doHaddock = false;
-description = "Cardano SL - delegation";
+description = "Cardano SL - basic DB interfaces";
 license = stdenv.lib.licenses.mit;
 
 }) {};
-"cardano-sl-delegation-test" = callPackage
+"cardano-sl-db-test" = callPackage
 ({
   mkDerivation
 , base
-, bytestring
 , cardano-sl-binary
-, cardano-sl-core
+, cardano-sl-chain
+, cardano-sl-chain-test
 , cardano-sl-core-test
-, cardano-sl-crypto
 , cardano-sl-crypto-test
-, cardano-sl-delegation
+, cardano-sl-db
+, cardano-sl-util-test
 , generic-arbitrary
 , QuickCheck
 , stdenv
@@ -16204,25 +16304,31 @@ license = stdenv.lib.licenses.mit;
 }:
 mkDerivation {
 
-pname = "cardano-sl-delegation-test";
-version = "1.3.2";
-src = ./../delegation/test;
+pname = "cardano-sl-db-test";
+version = "2.0.0";
+src = ./../db/test;
+configureFlags = [
+"--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
+"--ghc-option=-Werror"
+];
 libraryHaskellDepends = [
 base
-bytestring
 cardano-sl-binary
-cardano-sl-core
+cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-core-test
-cardano-sl-crypto
 cardano-sl-crypto-test
-cardano-sl-delegation
+cardano-sl-db
+cardano-sl-util-test
 generic-arbitrary
 QuickCheck
 universum
 unordered-containers
 ];
 doHaddock = false;
-description = "Cardano SL - delegation (tests)";
+description = "Cardano SL - arbitrary instances for cardano-sl-db";
 license = stdenv.lib.licenses.mit;
 
 }) {};
@@ -16235,22 +16341,15 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl
 , cardano-sl-binary
 , cardano-sl-binary-test
-, cardano-sl-block
-, cardano-sl-block-test
+, cardano-sl-chain
+, cardano-sl-chain-test
 , cardano-sl-core
 , cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-crypto-test
 , cardano-sl-db
-, cardano-sl-delegation
 , cardano-sl-generator
 , cardano-sl-infra
-, cardano-sl-lrc
-, cardano-sl-networking
-, cardano-sl-ssc
-, cardano-sl-txp
-, cardano-sl-txp-test
-, cardano-sl-update
 , cardano-sl-util
 , conduit
 , containers
@@ -16268,7 +16367,6 @@ license = stdenv.lib.licenses.mit;
 , hspec
 , http-types
 , lens
-, log-warper
 , memory
 , mmorph
 , mtl
@@ -16290,7 +16388,6 @@ license = stdenv.lib.licenses.mit;
 , stm
 , swagger2
 , text
-, text-format
 , time
 , time-units
 , transformers
@@ -16307,10 +16404,12 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-explorer";
-version = "1.3.2";
+version = "2.0.0";
 src = ./../explorer;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 isLibrary = true;
@@ -16321,22 +16420,15 @@ base
 bytestring
 cardano-sl
 cardano-sl-binary
-cardano-sl-block
-cardano-sl-block-test
+cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-db
-cardano-sl-delegation
 cardano-sl-generator
 cardano-sl-infra
-cardano-sl-lrc
-cardano-sl-networking
-cardano-sl-ssc
-cardano-sl-txp
-cardano-sl-txp-test
-cardano-sl-update
 cardano-sl-util
 conduit
 containers
@@ -16347,10 +16439,8 @@ ether
 exceptions
 formatting
 free
-generic-arbitrary
 http-types
 lens
-log-warper
 memory
 mmorph
 mtl
@@ -16365,7 +16455,6 @@ servant-server
 socket-io
 stm
 text
-text-format
 time
 time-units
 transformers
@@ -16386,14 +16475,11 @@ aeson
 base
 bytestring
 cardano-sl
+cardano-sl-chain
 cardano-sl-core
-cardano-sl-crypto
 cardano-sl-infra
-cardano-sl-networking
-cardano-sl-update
 cardano-sl-util
 lens
-log-warper
 optparse-applicative
 optparse-simple
 purescript-bridge
@@ -16411,19 +16497,18 @@ base
 bytestring
 cardano-sl
 cardano-sl-binary-test
-cardano-sl-block
-cardano-sl-block-test
+cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-core
+cardano-sl-core-test
 cardano-sl-crypto
-cardano-sl-crypto-test
-cardano-sl-txp
 cardano-sl-util
 containers
 cryptonite
 engine-io
+generic-arbitrary
 hspec
 lens
-log-warper
 QuickCheck
 universum
 warp
@@ -16434,8 +16519,8 @@ cpphs
 benchmarkHaskellDepends = [
 base
 cardano-sl
-cardano-sl-txp
-cardano-sl-txp-test
+cardano-sl-chain-test
+cardano-sl-core-test
 criterion
 QuickCheck
 universum
@@ -16457,10 +16542,11 @@ license = stdenv.lib.licenses.mit;
 , base
 , base16-bytestring
 , bytestring
+, cardano-sl-chain
+, cardano-sl-client
 , cardano-sl-core
 , cardano-sl-crypto
 , cardano-sl-infra
-, cardano-sl-update
 , cardano-sl-util
 , cardano-sl-wallet
 , cardano-sl-wallet-new
@@ -16501,7 +16587,6 @@ license = stdenv.lib.licenses.mit;
 , swagger2
 , tagged
 , text
-, text-format
 , time
 , tls
 , universum
@@ -16515,7 +16600,7 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-faucet";
-version = "0.1.0.0";
+version = "2.0.0";
 src = ./../faucet;
 isLibrary = true;
 isExecutable = true;
@@ -16525,9 +16610,10 @@ aeson-pretty
 base
 base16-bytestring
 bytestring
+cardano-sl-chain
+cardano-sl-client
 cardano-sl-core
 cardano-sl-crypto
-cardano-sl-update
 cardano-sl-util
 cardano-sl-wallet
 cardano-sl-wallet-new
@@ -16564,7 +16650,6 @@ stm
 swagger2
 tagged
 text
-text-format
 time
 tls
 universum
@@ -16576,9 +16661,9 @@ executableHaskellDepends = [
 aeson
 base
 bytestring
+cardano-sl-chain
 cardano-sl-core
 cardano-sl-infra
-cardano-sl-update
 cardano-sl-util
 cardano-sl-wallet
 cardano-sl-wallet-new
@@ -16626,43 +16711,38 @@ license = stdenv.lib.licenses.mit;
 , bytestring
 , cardano-sl
 , cardano-sl-binary
-, cardano-sl-block
-, cardano-sl-block-test
+, cardano-sl-chain
+, cardano-sl-chain-test
 , cardano-sl-client
 , cardano-sl-core
+, cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-crypto-test
 , cardano-sl-db
-, cardano-sl-delegation
-, cardano-sl-delegation-test
 , cardano-sl-infra
-, cardano-sl-lrc
-, cardano-sl-networking
-, cardano-sl-ssc
-, cardano-sl-txp
-, cardano-sl-txp-test
-, cardano-sl-update
 , cardano-sl-util
 , cardano-sl-util-test
 , containers
 , cpphs
+, criterion
 , cryptonite
 , data-default
+, deepseq
+, directory
 , ether
 , exceptions
 , formatting
 , hspec
 , lens
-, log-warper
 , monad-control
 , MonadRandom
+, optparse-applicative
 , QuickCheck
 , random
 , safe-exceptions
 , serokell-util
 , stdenv
 , text
-, text-format
 , time-units
 , transformers-base
 , universum
@@ -16673,29 +16753,28 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-generator";
-version = "1.3.2";
+version = "2.0.0";
 src = ./../generator;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
+isLibrary = true;
+isExecutable = true;
 libraryHaskellDepends = [
 base
 bytestring
 cardano-sl
-cardano-sl-block
+cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-client
 cardano-sl-core
+cardano-sl-core-test
 cardano-sl-crypto
-cardano-sl-crypto-test
 cardano-sl-db
-cardano-sl-delegation
 cardano-sl-infra
-cardano-sl-lrc
-cardano-sl-networking
-cardano-sl-ssc
-cardano-sl-txp
-cardano-sl-update
 cardano-sl-util
 containers
 cryptonite
@@ -16704,7 +16783,6 @@ ether
 exceptions
 formatting
 lens
-log-warper
 monad-control
 MonadRandom
 QuickCheck
@@ -16712,7 +16790,6 @@ random
 safe-exceptions
 serokell-util
 text
-text-format
 time-units
 transformers-base
 universum
@@ -16723,26 +16800,46 @@ vector
 libraryToolDepends = [
 cpphs
 ];
+executableHaskellDepends = [
+base
+bytestring
+cardano-sl
+cardano-sl-binary
+cardano-sl-chain
+cardano-sl-core
+cardano-sl-crypto
+cardano-sl-db
+cardano-sl-util
+containers
+cryptonite
+deepseq
+directory
+formatting
+MonadRandom
+optparse-applicative
+random
+text
+time-units
+universum
+];
+executableToolDepends = [
+cpphs
+];
 testHaskellDepends = [
 base
 bytestring
 cardano-sl
 cardano-sl-binary
-cardano-sl-block
-cardano-sl-block-test
+cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-core
+cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-db
-cardano-sl-delegation
-cardano-sl-delegation-test
-cardano-sl-lrc
-cardano-sl-ssc
-cardano-sl-txp
-cardano-sl-txp-test
-cardano-sl-update
 cardano-sl-util
 cardano-sl-util-test
+containers
 data-default
 formatting
 hspec
@@ -16755,6 +16852,25 @@ universum
 unordered-containers
 ];
 testToolDepends = [
+cpphs
+];
+benchmarkHaskellDepends = [
+base
+cardano-sl
+cardano-sl-chain
+cardano-sl-core
+cardano-sl-crypto
+cardano-sl-db
+cardano-sl-util
+criterion
+MonadRandom
+QuickCheck
+random
+serokell-util
+time-units
+universum
+];
+benchmarkToolDepends = [
 cpphs
 ];
 doHaddock = false;
@@ -16772,12 +16888,17 @@ license = stdenv.lib.licenses.mit;
 , bytestring
 , cardano-report-server
 , cardano-sl-binary
+, cardano-sl-binary-test
+, cardano-sl-chain
+, cardano-sl-chain-test
 , cardano-sl-core
 , cardano-sl-core-test
 , cardano-sl-crypto
+, cardano-sl-crypto-test
 , cardano-sl-db
 , cardano-sl-networking
 , cardano-sl-util
+, cardano-sl-util-test
 , clock
 , conduit
 , containers
@@ -16793,13 +16914,13 @@ license = stdenv.lib.licenses.mit;
 , formatting
 , generic-arbitrary
 , hashable
+, hedgehog
 , hspec
 , http-client
 , http-client-tls
 , iproute
 , kademlia
 , lens
-, log-warper
 , lzma-conduit
 , mtl
 , network-info
@@ -16808,31 +16929,30 @@ license = stdenv.lib.licenses.mit;
 , optparse-applicative
 , parsec
 , QuickCheck
-, reflection
 , safe-exceptions
 , serokell-util
 , stdenv
 , stm
 , tagged
 , tar
-, template-haskell
 , text
-, text-format
 , time
 , time-units
-, transformers
 , universum
 , unix
+, unliftio
 , unordered-containers
 , yaml
 }:
 mkDerivation {
 
 pname = "cardano-sl-infra";
-version = "1.3.2";
+version = "2.0.0";
 src = ./../infra;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
@@ -16843,8 +16963,8 @@ base64-bytestring
 bytestring
 cardano-report-server
 cardano-sl-binary
+cardano-sl-chain
 cardano-sl-core
-cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-db
 cardano-sl-networking
@@ -16861,14 +16981,12 @@ ether
 exceptions
 filepath
 formatting
-generic-arbitrary
 hashable
 http-client
 http-client-tls
 iproute
 kademlia
 lens
-log-warper
 lzma-conduit
 mtl
 network-info
@@ -16876,21 +16994,17 @@ network-transport
 network-transport-tcp
 optparse-applicative
 parsec
-QuickCheck
-reflection
 safe-exceptions
 serokell-util
 stm
 tagged
 tar
-template-haskell
 text
-text-format
 time
 time-units
-transformers
 universum
 unix
+unliftio
 unordered-containers
 yaml
 ];
@@ -16900,9 +17014,25 @@ cpphs
 testHaskellDepends = [
 async
 base
+bytestring
+cardano-sl-binary-test
+cardano-sl-chain
+cardano-sl-chain-test
+cardano-sl-core
+cardano-sl-core-test
+cardano-sl-crypto
+cardano-sl-crypto-test
+cardano-sl-networking
+cardano-sl-util-test
 containers
+dns
+generic-arbitrary
+hedgehog
 hspec
+iproute
+kademlia
 QuickCheck
+universum
 ];
 doHaddock = false;
 description = "Cardano SL - infrastructural";
@@ -16912,37 +17042,57 @@ license = stdenv.lib.licenses.mit;
 "cardano-sl-infra-test" = callPackage
 ({
   mkDerivation
+, async
 , base
 , bytestring
+, cardano-sl-binary-test
+, cardano-sl-chain
+, cardano-sl-chain-test
 , cardano-sl-core
 , cardano-sl-core-test
 , cardano-sl-crypto
+, cardano-sl-crypto-test
 , cardano-sl-infra
+, cardano-sl-networking
 , cardano-sl-util-test
 , containers
+, dns
+, generic-arbitrary
 , hedgehog
+, hspec
+, iproute
 , kademlia
-, memory
+, QuickCheck
 , stdenv
 , universum
 }:
 mkDerivation {
 
 pname = "cardano-sl-infra-test";
-version = "1.3.2";
+version = "2.0.0";
 src = ./../infra/test;
 libraryHaskellDepends = [
+async
 base
 bytestring
+cardano-sl-binary-test
+cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto
+cardano-sl-crypto-test
 cardano-sl-infra
+cardano-sl-networking
 cardano-sl-util-test
 containers
+dns
+generic-arbitrary
 hedgehog
+hspec
+iproute
 kademlia
-memory
+QuickCheck
 universum
 ];
 doHaddock = false;
@@ -16950,155 +17100,28 @@ description = "Cardano SL - generators for cardano-sl-infra";
 license = stdenv.lib.licenses.mit;
 
 }) {};
-"cardano-sl-lrc" = callPackage
-({
-  mkDerivation
-, base
-, bytestring
-, cardano-sl-binary
-, cardano-sl-core
-, cardano-sl-core-test
-, cardano-sl-crypto
-, cardano-sl-db
-, cardano-sl-networking
-, cardano-sl-txp
-, cardano-sl-util
-, cardano-sl-util-test
-, conduit
-, containers
-, cpphs
-, ether
-, formatting
-, hspec
-, lens
-, log-warper
-, QuickCheck
-, reflection
-, rocksdb-haskell-ng
-, stdenv
-, text-format
-, universum
-, unliftio
-, unordered-containers
-}:
-mkDerivation {
-
-pname = "cardano-sl-lrc";
-version = "1.3.2";
-src = ./../lrc;
-configureFlags = [
-"--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
-];
-libraryHaskellDepends = [
-base
-bytestring
-cardano-sl-binary
-cardano-sl-core
-cardano-sl-core-test
-cardano-sl-crypto
-cardano-sl-db
-cardano-sl-networking
-cardano-sl-txp
-cardano-sl-util
-conduit
-ether
-formatting
-lens
-log-warper
-reflection
-rocksdb-haskell-ng
-text-format
-universum
-unliftio
-unordered-containers
-];
-libraryToolDepends = [
-cpphs
-];
-testHaskellDepends = [
-base
-cardano-sl-core
-cardano-sl-core-test
-cardano-sl-crypto
-cardano-sl-util-test
-containers
-hspec
-QuickCheck
-universum
-];
-doHaddock = false;
-description = "Cardano SL - Leaders and Richmen computation";
-license = stdenv.lib.licenses.mit;
-
-}) {};
-"cardano-sl-lrc-test" = callPackage
-({
-  mkDerivation
-, base
-, cardano-sl-core
-, cardano-sl-core-test
-, cardano-sl-lrc
-, cpphs
-, generic-arbitrary
-, QuickCheck
-, reflection
-, stdenv
-, universum
-, unordered-containers
-}:
-mkDerivation {
-
-pname = "cardano-sl-lrc-test";
-version = "1.3.2";
-src = ./../lrc/test;
-configureFlags = [
-"--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
-];
-libraryHaskellDepends = [
-base
-cardano-sl-core
-cardano-sl-core-test
-cardano-sl-lrc
-generic-arbitrary
-QuickCheck
-reflection
-universum
-unordered-containers
-];
-libraryToolDepends = [
-cpphs
-];
-doHaddock = false;
-description = "Testing modules for the Cardano SL lrc package";
-license = stdenv.lib.licenses.mit;
-
-}) {};
 "cardano-sl-networking" = callPackage
 ({
   mkDerivation
 , aeson
+, aeson-options
 , async
 , attoparsec
 , base
 , binary
 , bytestring
+, cardano-sl-chain
+, cardano-sl-core
 , cardano-sl-util
 , containers
 , contravariant
-, cryptonite
 , ekg-core
-, exceptions
 , formatting
 , hashable
 , hspec
 , hspec-core
 , kademlia
 , lens
-, log-warper
-, mmorph
-, monad-control
 , mtl
 , mwc-random
 , network
@@ -17107,71 +17130,63 @@ license = stdenv.lib.licenses.mit;
 , network-transport-tcp
 , QuickCheck
 , random
-, resourcet
 , safe-exceptions
+, scientific
 , serokell-util
 , statistics
 , stdenv
 , stm
 , text
-, text-format
+, these
 , time
 , time-units
-, transformers
-, transformers-base
-, transformers-lift
 , universum
-, unliftio-core
+, unordered-containers
 , vector
 }:
 mkDerivation {
 
 pname = "cardano-sl-networking";
-version = "1.3.2";
+version = "2.0.0";
 src = ./../networking;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 isLibrary = true;
 isExecutable = true;
 libraryHaskellDepends = [
 aeson
+aeson-options
 async
 attoparsec
 base
 binary
 bytestring
+cardano-sl-chain
+cardano-sl-core
 cardano-sl-util
 containers
-cryptonite
 ekg-core
-exceptions
 formatting
 hashable
 kademlia
 lens
-log-warper
-mmorph
-monad-control
 mtl
 network
 network-transport
 network-transport-tcp
 random
-resourcet
 safe-exceptions
-serokell-util
+scientific
 stm
 text
-text-format
+these
 time
 time-units
-transformers
-transformers-base
-transformers-lift
 universum
-unliftio-core
+unordered-containers
 ];
 executableHaskellDepends = [
 async
@@ -17195,7 +17210,6 @@ containers
 hspec
 hspec-core
 lens
-log-warper
 mtl
 network-transport
 network-transport-inmemory
@@ -17227,24 +17241,42 @@ license = stdenv.lib.licenses.mit;
   mkDerivation
 , base
 , cardano-sl
+, cardano-sl-chain
+, cardano-sl-client
+, cardano-sl-core
 , cardano-sl-crypto
+, cardano-sl-db
 , cardano-sl-infra
 , cardano-sl-networking
-, cardano-sl-ssc
-, cardano-sl-update
 , cardano-sl-util
+, cardano-sl-utxo
+, cardano-sl-wallet-new
+, constraints
+, containers
 , cpphs
-, log-warper
+, data-default
+, hashable
+, hspec
+, HUnit
+, lens
+, mtl
+, QuickCheck
+, reflection
+, safe-exceptions
 , stdenv
+, text
 , universum
+, validation
 }:
 mkDerivation {
 
 pname = "cardano-sl-node";
-version = "1.3.2";
+version = "2.0.0";
 src = ./../node;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 isLibrary = false;
@@ -17252,180 +17284,133 @@ isExecutable = true;
 executableHaskellDepends = [
 base
 cardano-sl
-cardano-sl-crypto
-cardano-sl-infra
+cardano-sl-chain
+cardano-sl-core
+cardano-sl-db
 cardano-sl-networking
-cardano-sl-ssc
-cardano-sl-update
 cardano-sl-util
-log-warper
 universum
 ];
 executableToolDepends = [
 cpphs
+];
+testHaskellDepends = [
+base
+cardano-sl
+cardano-sl-chain
+cardano-sl-client
+cardano-sl-core
+cardano-sl-crypto
+cardano-sl-db
+cardano-sl-infra
+cardano-sl-networking
+cardano-sl-util
+cardano-sl-utxo
+cardano-sl-wallet-new
+constraints
+containers
+data-default
+hashable
+hspec
+HUnit
+lens
+mtl
+QuickCheck
+reflection
+safe-exceptions
+text
+universum
+validation
 ];
 doHaddock = false;
 description = "Cardano SL simple node executable";
 license = stdenv.lib.licenses.mit;
 
 }) {};
-"cardano-sl-ssc" = callPackage
+"cardano-sl-node-ipc" = callPackage
 ({
   mkDerivation
 , aeson
-, array
 , base
+, binary
 , bytestring
-, cardano-sl-binary
-, cardano-sl-core
-, cardano-sl-core-test
-, cardano-sl-crypto
-, cardano-sl-crypto-test
-, cardano-sl-db
+, Cabal
 , cardano-sl-infra
-, cardano-sl-lrc
-, cardano-sl-networking
 , cardano-sl-util
-, cardano-sl-util-test
-, containers
-, cpphs
-, cryptonite
-, data-default
-, ekg-core
-, ether
-, exceptions
-, formatting
-, generic-arbitrary
-, lens
-, log-warper
-, memory
-, mmorph
-, mono-traversable
 , mtl
-, parsec
-, QuickCheck
-, reflection
-, rocksdb-haskell-ng
-, serokell-util
 , stdenv
-, stm
-, tagged
-, text
-, text-format
-, time-units
-, transformers
 , universum
-, unordered-containers
 }:
 mkDerivation {
 
-pname = "cardano-sl-ssc";
-version = "1.3.2";
-src = ./../ssc;
+pname = "cardano-sl-node-ipc";
+version = "2.0.0";
+src = ./../node-ipc;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
 aeson
-array
 base
+binary
 bytestring
-cardano-sl-binary
-cardano-sl-core
-cardano-sl-core-test
-cardano-sl-crypto
-cardano-sl-crypto-test
-cardano-sl-db
+Cabal
 cardano-sl-infra
-cardano-sl-lrc
-cardano-sl-networking
 cardano-sl-util
-cardano-sl-util-test
-containers
-cryptonite
-data-default
-ekg-core
-ether
-exceptions
-formatting
-generic-arbitrary
-lens
-log-warper
-memory
-mmorph
-mono-traversable
 mtl
-parsec
-QuickCheck
-reflection
-rocksdb-haskell-ng
-serokell-util
-stm
-tagged
-text
-text-format
-time-units
-transformers
 universum
-unordered-containers
-];
-libraryToolDepends = [
-cpphs
 ];
 doHaddock = false;
-description = "Cardano SL - shared seed computation";
 license = stdenv.lib.licenses.mit;
 
 }) {};
 "cardano-sl-tools" = callPackage
 ({
   mkDerivation
-, acid-state
+, acid-state-exts
 , aeson
+, aeson-options
 , ansi-terminal
 , ansi-wl-pprint
-, asn1-encoding
-, asn1-types
 , async
 , base
 , base58-bytestring
-, base64-bytestring
 , bytestring
 , canonical-json
 , cardano-report-server
 , cardano-sl
 , cardano-sl-binary
-, cardano-sl-block
+, cardano-sl-binary-test
+, cardano-sl-chain
+, cardano-sl-chain-test
 , cardano-sl-client
 , cardano-sl-core
+, cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-db
 , cardano-sl-infra
 , cardano-sl-networking
-, cardano-sl-txp
-, cardano-sl-txp-test
-, cardano-sl-update
 , cardano-sl-util
+, cardano-sl-util-test
 , cardano-sl-wallet
+, cardano-sl-x509
 , containers
 , cpphs
 , cryptonite
 , data-default
-, data-default-class
 , directory
 , filepath
 , formatting
 , Glob
-, hourglass
+, hedgehog
 , hspec
-, ip
 , lens
 , lifted-async
-, log-warper
 , mtl
 , neat-interpolation
-, network-transport
 , network-transport-tcp
 , optparse-applicative
 , optparse-generic
@@ -17437,6 +17422,7 @@ license = stdenv.lib.licenses.mit;
 , silently
 , stdenv
 , stm
+, stm-chans
 , string-conv
 , tabl
 , tar
@@ -17449,86 +17435,101 @@ license = stdenv.lib.licenses.mit;
 , unix
 , unix-compat
 , unordered-containers
-, x509
-, x509-store
-, x509-validation
 , yaml
 }:
 mkDerivation {
 
 pname = "cardano-sl-tools";
-version = "1.3.2";
+version = "2.0.0";
 src = ./../tools;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 isLibrary = true;
 isExecutable = true;
 libraryHaskellDepends = [
-aeson
-base
-directory
-filepath
-parsers
-text
-trifecta
-universum
-];
-executableHaskellDepends = [
-acid-state
+acid-state-exts
 aeson
 ansi-terminal
+base
+bytestring
+cardano-sl
+cardano-sl-chain
+cardano-sl-chain-test
+cardano-sl-client
+cardano-sl-core
+cardano-sl-core-test
+cardano-sl-db
+cardano-sl-infra
+cardano-sl-networking
+cardano-sl-util
+cardano-sl-wallet
+containers
+data-default
+directory
+filepath
+network-transport-tcp
+optparse-applicative
+optparse-generic
+parsers
+QuickCheck
+stm
+string-conv
+text
+time
+time-units
+trifecta
+universum
+unordered-containers
+];
+executableHaskellDepends = [
+acid-state-exts
+aeson
+aeson-options
 ansi-wl-pprint
-asn1-encoding
-asn1-types
 async
 base
 base58-bytestring
-base64-bytestring
 bytestring
 canonical-json
 cardano-report-server
 cardano-sl
 cardano-sl-binary
-cardano-sl-block
+cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-client
 cardano-sl-core
+cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-db
 cardano-sl-infra
 cardano-sl-networking
-cardano-sl-txp
-cardano-sl-txp-test
-cardano-sl-update
 cardano-sl-util
 cardano-sl-wallet
+cardano-sl-x509
 containers
 cryptonite
 data-default
-data-default-class
 directory
 filepath
 formatting
 Glob
-hourglass
-ip
 lens
 lifted-async
-log-warper
 mtl
 neat-interpolation
-network-transport
 network-transport-tcp
 optparse-applicative
 optparse-generic
 process
-QuickCheck
 safe-exceptions
 serokell-util
 silently
 stm
-string-conv
+stm-chans
 tabl
 tar
 text
@@ -17538,9 +17539,6 @@ universum
 unix
 unix-compat
 unordered-containers
-x509
-x509-store
-x509-validation
 yaml
 ];
 executableToolDepends = [
@@ -17549,9 +17547,13 @@ cpphs
 testHaskellDepends = [
 aeson
 base
+cardano-sl-binary-test
+cardano-sl-util-test
 directory
+hedgehog
 hspec
 temporary
+universum
 ];
 testToolDepends = [
 cpphs
@@ -17561,311 +17563,86 @@ description = "Cardano SL - Tools";
 license = stdenv.lib.licenses.mit;
 
 }) {};
-"cardano-sl-txp" = callPackage
+"cardano-sl-tools-post-mortem" = callPackage
 ({
   mkDerivation
 , aeson
+, attoparsec
 , base
 , bytestring
-, cardano-sl-binary
+, cardano-sl
+, cardano-sl-chain
 , cardano-sl-core
-, cardano-sl-core-test
-, cardano-sl-crypto
-, cardano-sl-crypto-test
-, cardano-sl-db
 , cardano-sl-infra
-, cardano-sl-networking
 , cardano-sl-util
-, cardano-sl-util-test
-, conduit
+, cassava
+, Chart
+, Chart-diagrams
 , containers
-, cpphs
-, data-default
-, ekg-core
-, ether
-, exceptions
-, fmt
-, formatting
-, free
-, generic-arbitrary
-, hashable
-, hspec
-, lens
-, log-warper
-, memory
-, mmorph
-, mtl
-, neat-interpolation
-, plutus-prototype
-, QuickCheck
-, reflection
-, resourcet
-, rocksdb-haskell-ng
-, safe-exceptions
-, serokell-util
-, stdenv
-, stm
-, tagged
-, template-haskell
-, text
-, text-format
-, transformers
-, universum
-, unliftio
-, unordered-containers
-, vector
-}:
-mkDerivation {
-
-pname = "cardano-sl-txp";
-version = "1.3.2";
-src = ./../txp;
-configureFlags = [
-"--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
-];
-libraryHaskellDepends = [
-aeson
-base
-bytestring
-cardano-sl-binary
-cardano-sl-core
-cardano-sl-core-test
-cardano-sl-crypto
-cardano-sl-crypto-test
-cardano-sl-db
-cardano-sl-infra
-cardano-sl-networking
-cardano-sl-util
-cardano-sl-util-test
-conduit
-containers
-data-default
-ekg-core
-ether
-exceptions
-fmt
-formatting
-free
-generic-arbitrary
-hashable
-lens
-log-warper
-memory
-mmorph
-mtl
-neat-interpolation
-plutus-prototype
-reflection
-resourcet
-rocksdb-haskell-ng
-safe-exceptions
-serokell-util
-stm
-tagged
-template-haskell
-text
-text-format
-transformers
-universum
-unliftio
-unordered-containers
-vector
-];
-libraryToolDepends = [
-cpphs
-];
-testHaskellDepends = [
-base
-cardano-sl-binary
-cardano-sl-core
-cardano-sl-core-test
-cardano-sl-crypto
-cardano-sl-crypto-test
-cardano-sl-util
-cardano-sl-util-test
-containers
-data-default
-fmt
-generic-arbitrary
-hspec
-lens
-mtl
-QuickCheck
-serokell-util
-text-format
-universum
-unordered-containers
-vector
-];
-doHaddock = false;
-description = "Cardano SL - transaction processing";
-license = stdenv.lib.licenses.mit;
-
-}) {};
-"cardano-sl-txp-test" = callPackage
-({
-  mkDerivation
-, base
-, cardano-sl-binary
-, cardano-sl-core
-, cardano-sl-core-test
-, cardano-sl-crypto
-, cardano-sl-crypto-test
-, cardano-sl-infra
-, cardano-sl-txp
-, cardano-sl-util-test
-, data-default
-, generic-arbitrary
-, QuickCheck
-, stdenv
-, universum
-, vector
-}:
-mkDerivation {
-
-pname = "cardano-sl-txp-test";
-version = "1.3.2";
-src = ./../txp/test;
-configureFlags = [
-"--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
-];
-libraryHaskellDepends = [
-base
-cardano-sl-binary
-cardano-sl-core
-cardano-sl-core-test
-cardano-sl-crypto
-cardano-sl-crypto-test
-cardano-sl-infra
-cardano-sl-txp
-cardano-sl-util-test
-data-default
-generic-arbitrary
-QuickCheck
-universum
-vector
-];
-doHaddock = false;
-description = "Cardano SL - arbitrary instances for cardano-sl-txp";
-license = stdenv.lib.licenses.mit;
-
-}) {};
-"cardano-sl-update" = callPackage
-({
-  mkDerivation
-, aeson
-, base
-, bytestring
-, Cabal
-, cardano-sl-binary
-, cardano-sl-core
-, cardano-sl-core-test
-, cardano-sl-crypto
-, cardano-sl-crypto-test
-, cardano-sl-db
-, cardano-sl-infra
-, cardano-sl-lrc
-, cardano-sl-networking
-, cardano-sl-util
-, cardano-sl-util-test
-, conduit
-, containers
-, cpphs
-, data-default
 , directory
-, ether
-, exceptions
-, formatting
-, generic-arbitrary
-, hashable
-, http-client
-, http-client-tls
-, http-conduit
-, lens
-, log-warper
-, memory
-, mtl
-, QuickCheck
-, reflection
-, resourcet
-, rocksdb-haskell-ng
-, safe-exceptions
-, serokell-util
+, fgl
+, filepath
+, foldl
+, graphviz
+, MonadRandom
+, optparse-applicative
+, pipes
+, pipes-bytestring
+, pipes-interleave
+, pipes-safe
+, process
+, random
 , stdenv
-, stm
-, tagged
-, template-haskell
-, text-format
+, text
 , time-units
-, transformers
 , universum
-, unliftio
-, unordered-containers
 }:
 mkDerivation {
 
-pname = "cardano-sl-update";
-version = "1.3.2";
-src = ./../update;
+pname = "cardano-sl-tools-post-mortem";
+version = "2.0.0";
+src = ./../tools/post-mortem;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
-libraryHaskellDepends = [
+isLibrary = false;
+isExecutable = true;
+executableHaskellDepends = [
 aeson
+attoparsec
 base
 bytestring
-Cabal
-cardano-sl-binary
+cardano-sl
+cardano-sl-chain
 cardano-sl-core
-cardano-sl-core-test
-cardano-sl-crypto
-cardano-sl-crypto-test
-cardano-sl-db
 cardano-sl-infra
-cardano-sl-lrc
-cardano-sl-networking
 cardano-sl-util
-cardano-sl-util-test
-conduit
+cassava
+Chart
+Chart-diagrams
 containers
-data-default
 directory
-ether
-exceptions
-formatting
-generic-arbitrary
-hashable
-http-client
-http-client-tls
-http-conduit
-lens
-log-warper
-memory
-mtl
-QuickCheck
-reflection
-resourcet
-rocksdb-haskell-ng
-safe-exceptions
-serokell-util
-stm
-tagged
-template-haskell
-text-format
+fgl
+filepath
+foldl
+graphviz
+MonadRandom
+optparse-applicative
+pipes
+pipes-bytestring
+pipes-interleave
+pipes-safe
+process
+random
+text
 time-units
-transformers
 universum
-unliftio
-unordered-containers
-];
-libraryToolDepends = [
-cpphs
 ];
 doHaddock = false;
-description = "Cardano SL - update";
+description = "Cardano SL - post-mortem tool";
 license = stdenv.lib.licenses.mit;
 
 }) {};
@@ -17873,9 +17650,11 @@ license = stdenv.lib.licenses.mit;
 ({
   mkDerivation
 , aeson
+, aeson-pretty
 , async
+, auto-update
 , base
-, binary
+, bytestring
 , canonical-json
 , cborg
 , cereal
@@ -17884,36 +17663,39 @@ license = stdenv.lib.licenses.mit;
 , contravariant
 , cpphs
 , cryptonite
-, data-default
 , deepseq
 , directory
 , ether
 , exceptions
+, file-embed
 , filepath
 , formatting
 , hashable
+, hedgehog
 , hspec
+, katip
 , lens
-, log-warper
 , lrucache
 , megaparsec
+, mmorph
+, monad-control
 , mtl
 , optparse-applicative
 , parsec
+, pretty-show
 , process
 , QuickCheck
 , quickcheck-instances
 , reflection
 , resourcet
 , safe-exceptions
+, safecopy
 , serokell-util
 , stdenv
 , stm
 , tagged
 , template-haskell
 , text
-, text-format
-, th-lift-instances
 , time
 , time-units
 , transformers
@@ -17922,20 +17704,23 @@ license = stdenv.lib.licenses.mit;
 , universum
 , unliftio-core
 , unordered-containers
+, yaml
 }:
 mkDerivation {
 
 pname = "cardano-sl-util";
-version = "1.3.2";
+version = "2.0.0";
 src = ./../util;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
 aeson
+auto-update
 base
-binary
 canonical-json
 cborg
 cereal
@@ -17943,18 +17728,20 @@ concurrent-extra
 containers
 contravariant
 cryptonite
-data-default
 deepseq
 directory
 ether
 exceptions
+file-embed
 filepath
 formatting
 hashable
+katip
 lens
-log-warper
 lrucache
 megaparsec
+mmorph
+monad-control
 mtl
 optparse-applicative
 parsec
@@ -17967,8 +17754,6 @@ stm
 tagged
 template-haskell
 text
-text-format
-th-lift-instances
 time
 time-units
 transformers
@@ -17977,18 +17762,31 @@ transformers-lift
 universum
 unliftio-core
 unordered-containers
+yaml
 ];
 libraryToolDepends = [
 cpphs
 ];
 testHaskellDepends = [
+aeson
+aeson-pretty
 async
 base
+bytestring
+canonical-json
+cereal
+directory
+file-embed
+filepath
+formatting
+hedgehog
 hspec
+pretty-show
 QuickCheck
 quickcheck-instances
-serokell-util
+safecopy
 stm
+template-haskell
 text
 time
 time-units
@@ -17999,6 +17797,7 @@ testToolDepends = [
 cpphs
 ];
 doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl";
 description = "Cardano SL - general utilities";
 license = stdenv.lib.licenses.mit;
 
@@ -18007,6 +17806,7 @@ license = stdenv.lib.licenses.mit;
 ({
   mkDerivation
 , aeson
+, aeson-pretty
 , attoparsec
 , base
 , base16-bytestring
@@ -18031,7 +17831,6 @@ license = stdenv.lib.licenses.mit;
 , tagged
 , template-haskell
 , text
-, text-format
 , time-units
 , universum
 , unordered-containers
@@ -18039,14 +17838,17 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-util-test";
-version = "1.3.2";
+version = "2.0.0";
 src = ./../util/test;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
 aeson
+aeson-pretty
 attoparsec
 base
 base16-bytestring
@@ -18069,7 +17871,6 @@ safecopy
 tagged
 template-haskell
 text
-text-format
 time-units
 universum
 unordered-containers
@@ -18082,32 +17883,107 @@ description = "Cardano SL - general utilities (tests)";
 license = stdenv.lib.licenses.mit;
 
 }) {};
-"cardano-sl-wallet" = callPackage
+"cardano-sl-utxo" = callPackage
 ({
   mkDerivation
-, acid-state
-, aeson
-, async
 , base
-, base58-bytestring
-, bytestring
+, cardano-crypto
 , cardano-sl
-, cardano-sl-block
+, cardano-sl-binary
+, cardano-sl-chain
+, cardano-sl-chain-test
 , cardano-sl-client
 , cardano-sl-core
 , cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-crypto-test
 , cardano-sl-db
-, cardano-sl-delegation
+, cardano-sl-util
+, constraints
+, containers
+, cryptonite
+, data-default
+, formatting
+, lens
+, log-warper
+, mtl
+, QuickCheck
+, reflection
+, safe-exceptions
+, safecopy
+, serokell-util
+, stdenv
+, universum
+, unordered-containers
+, vector
+}:
+mkDerivation {
+
+pname = "cardano-sl-utxo";
+version = "2.0.0";
+src = ./../utxo;
+libraryHaskellDepends = [
+base
+cardano-crypto
+cardano-sl
+cardano-sl-binary
+cardano-sl-chain
+cardano-sl-chain-test
+cardano-sl-client
+cardano-sl-core
+cardano-sl-core-test
+cardano-sl-crypto
+cardano-sl-crypto-test
+cardano-sl-db
+cardano-sl-util
+constraints
+containers
+cryptonite
+data-default
+formatting
+lens
+log-warper
+mtl
+QuickCheck
+reflection
+safe-exceptions
+safecopy
+serokell-util
+universum
+unordered-containers
+vector
+];
+doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl/#readme";
+description = "Abstract definitions of UTxO based accounting";
+license = stdenv.lib.licenses.mit;
+
+}) {};
+"cardano-sl-wallet" = callPackage
+({
+  mkDerivation
+, acid-state
+, acid-state-exts
+, aeson
+, async
+, base
+, base58-bytestring
+, basement
+, bytestring
+, cardano-crypto
+, cardano-sl
+, cardano-sl-chain
+, cardano-sl-chain-test
+, cardano-sl-client
+, cardano-sl-core
+, cardano-sl-core-test
+, cardano-sl-crypto
+, cardano-sl-crypto-test
+, cardano-sl-db
 , cardano-sl-generator
 , cardano-sl-infra
-, cardano-sl-lrc
 , cardano-sl-networking
-, cardano-sl-ssc
-, cardano-sl-txp
-, cardano-sl-txp-test
-, cardano-sl-update
+, cardano-sl-node-ipc
 , cardano-sl-util
 , cardano-sl-util-test
 , containers
@@ -18125,14 +18001,12 @@ license = stdenv.lib.licenses.mit;
 , hashable
 , hspec
 , lens
-, log-warper
 , memory
 , monad-control
 , MonadRandom
 , mtl
-, node-ipc
+, pvss
 , QuickCheck
-, quickcheck-instances
 , random
 , reflection
 , safe-exceptions
@@ -18149,7 +18023,6 @@ license = stdenv.lib.licenses.mit;
 , stm
 , swagger2
 , text
-, text-format
 , time
 , time-units
 , transformers
@@ -18165,33 +18038,36 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "cardano-sl-wallet";
-version = "1.3.2";
+version = "2.0.0";
 src = ./../wallet;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
 acid-state
+acid-state-exts
 aeson
 async
 base
 base58-bytestring
+basement
 bytestring
+cardano-crypto
 cardano-sl
-cardano-sl-block
+cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-client
 cardano-sl-core
+cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-db
-cardano-sl-delegation
 cardano-sl-generator
 cardano-sl-infra
-cardano-sl-lrc
 cardano-sl-networking
-cardano-sl-ssc
-cardano-sl-txp
-cardano-sl-update
+cardano-sl-node-ipc
 cardano-sl-util
 containers
 cryptonite
@@ -18206,13 +18082,10 @@ formatting
 hashable
 hspec
 lens
-log-warper
 memory
 monad-control
 mtl
-node-ipc
 QuickCheck
-quickcheck-instances
 random
 reflection
 safe-exceptions
@@ -18228,7 +18101,6 @@ servant-swagger-ui
 stm
 swagger2
 text
-text-format
 time
 time-units
 transformers
@@ -18245,25 +18117,21 @@ libraryToolDepends = [
 cpphs
 ];
 testHaskellDepends = [
+aeson
 base
 bytestring
+cardano-crypto
 cardano-sl
-cardano-sl-block
+cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-client
 cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-db
-cardano-sl-delegation
 cardano-sl-generator
 cardano-sl-infra
-cardano-sl-lrc
-cardano-sl-networking
-cardano-sl-ssc
-cardano-sl-txp
-cardano-sl-txp-test
-cardano-sl-update
 cardano-sl-util
 cardano-sl-util-test
 containers
@@ -18274,16 +18142,16 @@ ether
 formatting
 hspec
 lens
-log-warper
 MonadRandom
 mtl
+pvss
 QuickCheck
 safe-exceptions
 safecopy
 serokell-util
+servant
 servant-server
 stm
-text-format
 universum
 unordered-containers
 ];
@@ -18301,33 +18169,38 @@ license = stdenv.lib.licenses.mit;
 , acid-state
 , aeson
 , aeson-diff
+, aeson-options
 , aeson-pretty
 , async
 , base
+, base58-bytestring
 , beam-core
 , beam-migrate
 , beam-sqlite
+, bifunctors
+, binary
 , bytestring
+, cardano-crypto
 , cardano-sl
-, cardano-sl-block
+, cardano-sl-binary
+, cardano-sl-chain
+, cardano-sl-chain-test
 , cardano-sl-client
 , cardano-sl-core
 , cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-crypto-test
 , cardano-sl-db
-, cardano-sl-delegation
 , cardano-sl-infra
-, cardano-sl-lrc
 , cardano-sl-networking
-, cardano-sl-ssc
-, cardano-sl-txp
-, cardano-sl-txp-test
-, cardano-sl-update
+, cardano-sl-node-ipc
 , cardano-sl-util
 , cardano-sl-util-test
+, cardano-sl-utxo
 , cardano-sl-wallet
+, cardano-sl-x509
 , cassava
+, cereal
 , conduit
 , connection
 , constraints
@@ -18337,29 +18210,35 @@ license = stdenv.lib.licenses.mit;
 , data-default-class
 , directory
 , exceptions
+, filepath
+, foldl
 , formatting
 , gauge
 , generics-sop
+, hedgehog
 , hspec
+, hspec-core
 , http-api-data
 , http-client
 , http-client-tls
 , http-types
+, insert-ordered-containers
 , ixset-typed
-, json-sop
 , lens
-, log-warper
 , memory
 , mtl
+, mwc-random
 , neat-interpolation
 , network-transport
-, node-ipc
+, normaldistribution
 , optparse-applicative
 , pretty-show
 , QuickCheck
 , quickcheck-instances
 , random
 , reflection
+, resourcet
+, retry
 , safe-exceptions
 , safecopy
 , serokell-util
@@ -18370,14 +18249,20 @@ license = stdenv.lib.licenses.mit;
 , servant-server
 , servant-swagger
 , servant-swagger-ui
+, servant-swagger-ui-core
+, servant-swagger-ui-redoc
 , sqlite-simple
 , sqlite-simple-errors
 , stdenv
 , stm
+, stm-chans
+, strict
+, strict-concurrency
 , string-conv
 , swagger2
+, tabl
+, tar
 , text
-, text-format
 , time
 , time-units
 , tls
@@ -18388,20 +18273,22 @@ license = stdenv.lib.licenses.mit;
 , unordered-containers
 , vector
 , wai
-, wai-cors
-, wai-extra
+, wai-middleware-throttle
 , warp
 , x509
 , x509-store
 , yaml
+, zlib
 }:
 mkDerivation {
 
 pname = "cardano-sl-wallet-new";
-version = "1.3.2";
+version = "2.0.0";
 src = ./../wallet-new;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
 "--ghc-option=-Werror"
 ];
 isLibrary = true;
@@ -18409,15 +18296,22 @@ isExecutable = true;
 libraryHaskellDepends = [
 acid-state
 aeson
+aeson-options
 aeson-pretty
 async
 base
+base58-bytestring
 beam-core
 beam-migrate
 beam-sqlite
+bifunctors
+binary
 bytestring
+cardano-crypto
 cardano-sl
-cardano-sl-block
+cardano-sl-binary
+cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-client
 cardano-sl-core
 cardano-sl-core-test
@@ -18425,17 +18319,22 @@ cardano-sl-crypto
 cardano-sl-db
 cardano-sl-infra
 cardano-sl-networking
-cardano-sl-ssc
-cardano-sl-txp
-cardano-sl-update
+cardano-sl-node-ipc
 cardano-sl-util
+cardano-sl-utxo
 cardano-sl-wallet
+cardano-sl-x509
+cereal
 conduit
 connection
 containers
+cryptonite
 data-default
 data-default-class
+directory
 exceptions
+filepath
+foldl
 formatting
 generics-sop
 http-api-data
@@ -18443,17 +18342,17 @@ http-client
 http-client-tls
 http-types
 ixset-typed
-json-sop
 lens
-log-warper
 memory
 mtl
+mwc-random
 neat-interpolation
 network-transport
-node-ipc
 optparse-applicative
 QuickCheck
 reflection
+resourcet
+retry
 safe-exceptions
 safecopy
 serokell-util
@@ -18463,11 +18362,17 @@ servant-client-core
 servant-server
 servant-swagger
 servant-swagger-ui
+servant-swagger-ui-core
+servant-swagger-ui-redoc
 sqlite-simple
 sqlite-simple-errors
+stm
+stm-chans
+strict
+strict-concurrency
 swagger2
+tar
 text
-text-format
 time
 time-units
 tls
@@ -18478,28 +18383,27 @@ unliftio-core
 unordered-containers
 vector
 wai
-wai-cors
+wai-middleware-throttle
 warp
 x509
 x509-store
+zlib
 ];
 executableHaskellDepends = [
-acid-state
 aeson
 aeson-diff
 aeson-pretty
+async
 base
 bytestring
 cardano-sl
+cardano-sl-chain
 cardano-sl-core
-cardano-sl-crypto
+cardano-sl-db
 cardano-sl-infra
 cardano-sl-networking
-cardano-sl-ssc
-cardano-sl-txp
 cardano-sl-util
 cardano-sl-wallet
-conduit
 containers
 exceptions
 formatting
@@ -18507,7 +18411,6 @@ hspec
 http-client
 http-types
 lens
-log-warper
 mtl
 optparse-applicative
 pretty-show
@@ -18519,59 +18422,64 @@ servant-server
 stm
 swagger2
 text
-text-format
 universum
-unordered-containers
-wai
-wai-cors
-wai-extra
-warp
-x509
 x509-store
 ];
 testHaskellDepends = [
 acid-state
 aeson
+async
 base
 bytestring
+cardano-crypto
 cardano-sl
-cardano-sl-block
+cardano-sl-binary
+cardano-sl-chain
+cardano-sl-chain-test
 cardano-sl-client
 cardano-sl-core
+cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-db
-cardano-sl-delegation
-cardano-sl-lrc
-cardano-sl-ssc
-cardano-sl-txp
-cardano-sl-txp-test
-cardano-sl-update
+cardano-sl-infra
 cardano-sl-util
 cardano-sl-util-test
+cardano-sl-utxo
 cardano-sl-wallet
+cereal
+conduit
 constraints
 containers
+cryptonite
 data-default
 directory
+filepath
 formatting
+hedgehog
 hspec
+hspec-core
+insert-ordered-containers
 lens
-log-warper
 mtl
+normaldistribution
+optparse-applicative
 QuickCheck
 quickcheck-instances
+random
+reflection
 safe-exceptions
+safecopy
 serokell-util
 servant
 servant-server
 servant-swagger
-servant-swagger-ui
 string-conv
 swagger2
+tabl
 text
-text-format
 time
+time-units
 universum
 unordered-containers
 vector
@@ -18586,7 +18494,6 @@ cardano-sl-core
 cardano-sl-wallet
 cassava
 connection
-cryptonite
 data-default
 gauge
 http-client
@@ -18606,6 +18513,107 @@ yaml
 doHaddock = false;
 homepage = "https://github.com/input-output-hk/cardano-sl/#readme";
 description = "The Wallet Backend for a Cardano node";
+license = stdenv.lib.licenses.mit;
+
+}) {};
+"cardano-sl-wallet-test" = callPackage
+({
+  mkDerivation
+, base
+, bytestring
+, cardano-sl-core-test
+, cardano-sl-wallet
+, QuickCheck
+, serokell-util
+, stdenv
+, universum
+}:
+mkDerivation {
+
+pname = "cardano-sl-wallet-test";
+version = "2.0.0";
+src = ./../wallet/test;
+libraryHaskellDepends = [
+base
+bytestring
+cardano-sl-core-test
+cardano-sl-wallet
+QuickCheck
+serokell-util
+universum
+];
+doHaddock = false;
+description = "Cardano SL - wallet (Arbitrary instances)";
+license = stdenv.lib.licenses.mit;
+
+}) {};
+"cardano-sl-x509" = callPackage
+({
+  mkDerivation
+, aeson
+, asn1-encoding
+, asn1-types
+, base
+, base64-bytestring
+, bytestring
+, cryptonite
+, data-default-class
+, directory
+, filepath
+, hourglass
+, ip
+, optparse-applicative
+, QuickCheck
+, stdenv
+, text
+, universum
+, unordered-containers
+, x509
+, x509-store
+, x509-validation
+, yaml
+}:
+mkDerivation {
+
+pname = "cardano-sl-x509";
+version = "2.0.0";
+src = ./../x509;
+configureFlags = [
+"--ghc-option=-fwarn-redundant-constraints"
+"--ghc-option=-Wall"
+"--ghc-option=-Wcompat"
+"--ghc-option=-Werror"
+];
+libraryHaskellDepends = [
+aeson
+asn1-encoding
+asn1-types
+base
+base64-bytestring
+bytestring
+cryptonite
+data-default-class
+directory
+filepath
+hourglass
+ip
+optparse-applicative
+text
+universum
+unordered-containers
+x509
+x509-store
+x509-validation
+yaml
+];
+testHaskellDepends = [
+base
+QuickCheck
+universum
+];
+doHaddock = false;
+homepage = "https://github.com/input-output-hk/cardano-sl/x509/README.md";
+description = "Tool-suite for generating x509 certificates specialized for RSA with SHA-256";
 license = stdenv.lib.licenses.mit;
 
 }) {};
@@ -20125,13 +20133,20 @@ license = stdenv.lib.licenses.mit;
 ({
   mkDerivation
 , base
+, fetchgit
 , stdenv
 }:
 mkDerivation {
 
 pname = "clock";
 version = "0.7.2";
-sha256 = "886601978898d3a91412fef895e864576a7125d661e1f8abc49a2a08840e691f";
+src = fetchgit {
+
+url = "https://github.com/corsis/clock.git";
+sha256 = "1r4n9imls483f7wd61fi1jk16z2k7w36gpx798sqidvwbnc831q1";
+rev = "ef60bd51a3587a173adf565c33bf2886df6e3842";
+
+};
 libraryHaskellDepends = [
 base
 ];
@@ -20716,8 +20731,8 @@ mkDerivation {
 pname = "comonad";
 version = "5.0.3";
 sha256 = "a7f4584d634051123c547f0d10f88eaf23d99229dbd01dfdcd98cddd41e54df6";
-revision = "2";
-editedCabalFile = "07gfz719y6q3bfv8jbvak78dda9g1qy4phl18cxisiapqdz31rry";
+revision = "3";
+editedCabalFile = "062482gwrjc9njqsb239p391bk0s8j39a5xqv5k7rl9ijaxxlfmv";
 setupHaskellDepends = [
 base
 Cabal
@@ -23254,6 +23269,7 @@ license = stdenv.lib.licenses.bsd3;
 ({
   mkDerivation
 , base
+, basement
 , bytestring
 , cryptonite
 , memory
@@ -23263,10 +23279,11 @@ license = stdenv.lib.licenses.bsd3;
 mkDerivation {
 
 pname = "cryptonite-openssl";
-version = "0.6";
-sha256 = "a8cb97c96bfb3e7b7ff8d59629317882dbf3cea12ba978d8475c96a6c28750a6";
+version = "0.7";
+sha256 = "9e4e1c08264f26e602ef3054f3c827c3c65d153e5b9d68a0cb44f446ca0844f6";
 libraryHaskellDepends = [
 base
+basement
 bytestring
 cryptonite
 memory
@@ -25502,8 +25519,8 @@ license = stdenv.lib.licenses.bsd3;
 mkDerivation {
 
 pname = "diagrams-core";
-version = "1.4.0.1";
-sha256 = "ce7919fe23d4232f6b7b8e33c10be762a3ca20a007552f171dc38a35e20a254d";
+version = "1.4.1.1";
+sha256 = "a182e9f99e3664efdfa5e18f4b403703112fba33c5b877a91c9eabed1d8bb682";
 libraryHaskellDepends = [
 adjunctions
 base
@@ -25566,10 +25583,10 @@ license = stdenv.lib.licenses.bsd3;
 mkDerivation {
 
 pname = "diagrams-lib";
-version = "1.4.2";
-sha256 = "e9d41742ed3a92b9dff847c3936746e5a95cc4e187b7e4c35c3e3068c842afe5";
-revision = "1";
-editedCabalFile = "0vz16br2gn4agi35k92qw84cja2dqj63g7q3ak64jhc8r99bd4a1";
+version = "1.4.2.2";
+sha256 = "470bbb94e942c173afae9837723dc151b627cc15e81aebfa22c88622a60bd6e5";
+revision = "3";
+editedCabalFile = "033w27x3w0s567hsifb7nxc1msv9fvzz8idl88n8d5pifpgxg803";
 libraryHaskellDepends = [
 active
 adjunctions
@@ -25621,7 +25638,6 @@ license = stdenv.lib.licenses.bsd3;
 , diagrams-core
 , diagrams-lib
 , dlist
-, filepath
 , hashable
 , lens
 , monoid-extras
@@ -25634,10 +25650,10 @@ license = stdenv.lib.licenses.bsd3;
 mkDerivation {
 
 pname = "diagrams-postscript";
-version = "1.4";
-sha256 = "fe58f0010520716f66802adb0c1f70f48e77e9c4fcea5441e5343f4c1a5f8db4";
+version = "1.4.1";
+sha256 = "a758191d99c30bd663dc0df2dedef13cd735a33c143e77906aa88baceb282c9c";
 revision = "1";
-editedCabalFile = "0vmiv3b74nml0ahb7dicq0m0vz2lahzfapln9aby0jb2saa0sf58";
+editedCabalFile = "0z0rh7lwyr3vx6llq6q9s5f1vzqk4zxpcg5ibfn5jdp274kfd7r1";
 libraryHaskellDepends = [
 base
 containers
@@ -25645,7 +25661,6 @@ data-default-class
 diagrams-core
 diagrams-lib
 dlist
-filepath
 hashable
 lens
 monoid-extras
@@ -25672,8 +25687,8 @@ mkDerivation {
 pname = "diagrams-solve";
 version = "0.1.1";
 sha256 = "a41f5f410b10f162b1e5c07bd4ca3305544870ff1314ae4f5824c83a31644f9d";
-revision = "1";
-editedCabalFile = "1aabxq020ycmwynm96dvqh9xbvcsw7s4593kca35i4zl2kzg14bb";
+revision = "2";
+editedCabalFile = "1zgpx0jmgfr3mg77w3nz08cmgzlwfav2c6bcn68f53z829a6y5lf";
 libraryHaskellDepends = [
 base
 ];
@@ -25710,8 +25725,10 @@ license = stdenv.lib.licenses.bsd3;
 mkDerivation {
 
 pname = "diagrams-svg";
-version = "1.4.1.1";
-sha256 = "c80668c6ac1bf62b108016d36bfe3e603897ca8e331522b0e80b77152915daaa";
+version = "1.4.2";
+sha256 = "5455b68d92826a5405d51490976870cc0fa5b8b56aef0a8f56982b5f48efded2";
+revision = "1";
+editedCabalFile = "1mb2fdfvy0c1v7nahspq2cisfqrn37xjh4a6xhqr3b36pfz8rwnd";
 libraryHaskellDepends = [
 base
 base64-bytestring
@@ -26572,8 +26589,8 @@ mkDerivation {
 pname = "distributive";
 version = "0.5.3";
 sha256 = "9173805b9c941bda1f37e5aeb68ae30f57a12df9b17bd2aa86db3b7d5236a678";
-revision = "5";
-editedCabalFile = "0hl43mbw87s5l7p1iqc7iwz5rnzdcmj6g33pmq6hv4s9fg96j8x7";
+revision = "6";
+editedCabalFile = "06bd38rf31yrvvy989r44pm0id3dsxwcp6nxg7wk6ccj3n2b8rzk";
 setupHaskellDepends = [
 base
 Cabal
@@ -26767,8 +26784,8 @@ mkDerivation {
 pname = "dlist-nonempty";
 version = "0.1.1";
 sha256 = "40e8a64c979ca07b4f67a38878d1d13c1127fe2d1ad6b2b4daff0ee2dbd54b33";
-revision = "2";
-editedCabalFile = "1968b6i0azv0bi3x6cw85ga89md1dh1wdmly3ivvvyb6i9mgwrn6";
+revision = "3";
+editedCabalFile = "0gy0xkfy3811xz7jjz451a3rldlzg8crmrl5gn0a8fgyjdgqxc46";
 libraryHaskellDepends = [
 base
 base-compat
@@ -27689,7 +27706,6 @@ license = stdenv.lib.licenses.bsd3;
   mkDerivation
 , base
 , bytestring
-, fetchgit
 , ghc-prim
 , stdenv
 }:
@@ -27697,13 +27713,9 @@ mkDerivation {
 
 pname = "ed25519";
 version = "0.0.5.0";
-src = fetchgit {
-
-url = "https://github.com/thoughtpolice/hs-ed25519";
-sha256 = "0fah4vkmqdkjsdh3s3x27yfaif2fbdg6049xvp54b5mh50yvxkfq";
-rev = "da4247b5b3420120e20451e6a252e2a2ca15b43c";
-
-};
+sha256 = "d8a5958ebfa9309790efade64275dc5c441b568645c45ceed1b0c6ff36d6156d";
+revision = "2";
+editedCabalFile = "1cq6h3jqkb1kvd9fjfhsllg5gq78sdiyf2gy9862xhlbv6wil19f";
 libraryHaskellDepends = [
 base
 bytestring
@@ -27711,7 +27723,7 @@ ghc-prim
 ];
 doHaddock = false;
 doCheck = false;
-homepage = "https://thoughtpolice.github.com/hs-ed25519";
+homepage = "http://thoughtpolice.github.com/hs-ed25519";
 description = "Ed25519 cryptographic signatures";
 license = stdenv.lib.licenses.mit;
 
@@ -27994,10 +28006,10 @@ license = stdenv.lib.licenses.bsd3;
 mkDerivation {
 
 pname = "ekg-statsd";
-version = "0.2.2.0";
-sha256 = "c2a0f4270e2e1daa2847944c8b3bf948df8c6efd4893063b069857fa7e893afc";
+version = "0.2.3.0";
+sha256 = "aeead4a98b467a5fcdbd0646db583843ec14a8985f1a1fbf45cf5c0d969f8a16";
 revision = "1";
-editedCabalFile = "1fnazaqdp0d7w5mfx038yv8isyw00dahis66dkyrigd57vrj3f8f";
+editedCabalFile = "1k4sndkjg1prvzhiii9gcgkx8zfkk9c4nf548x0hrbmj1laj8d62";
 libraryHaskellDepends = [
 base
 bytestring
@@ -28460,10 +28472,8 @@ license = stdenv.lib.licenses.bsd3;
 mkDerivation {
 
 pname = "entropy";
-version = "0.3.7";
-sha256 = "1ff020eba2edbb93c4b23297470f8c11d69d0ff1e1642d17cbab9d54a24befef";
-revision = "1";
-editedCabalFile = "01lyh4cbpqlcj1y8mnkw6vk4vid5rzqg1vcf9kwxwd88zj86cgjg";
+version = "0.3.8";
+sha256 = "743a49d5e17ae9d6118ff077f2cd2d5944c0ea6cff501efeec95b68d5f7474d0";
 setupHaskellDepends = [
 base
 Cabal
@@ -30351,8 +30361,8 @@ mkDerivation {
 pname = "fclabels";
 version = "2.0.3.3";
 sha256 = "9a9472a46dc23b5acc0545d345ecd708f7b003f72ab212e2d12125b902b9c2e0";
-revision = "1";
-editedCabalFile = "0fs17vv85ybl3ws8k25sg758vq49l19vhn4asm8r6q5j9xic2kvl";
+revision = "2";
+editedCabalFile = "0mn82r0h9zhdsaf7qz45fcps6y1kdkqi8xf8dsz8419by2x5ygfx";
 libraryHaskellDepends = [
 base
 mtl
@@ -30519,10 +30529,8 @@ license = stdenv.lib.licenses.bsd3;
 mkDerivation {
 
 pname = "fgl";
-version = "5.5.3.1";
-sha256 = "dea97201d22c55b57a38b8f5a1ff272be8ba83db3824ab0f1232c60b8dcc2e4c";
-revision = "1";
-editedCabalFile = "00bw87y97ym844ir4mdq0vx5kfb0brzlqmrbqa0iq35lkwsd4k3g";
+version = "5.5.4.0";
+sha256 = "5176891dc0a898a87df53e1b27db5eba7474f08207405a1ea06c988c09a97211";
 libraryHaskellDepends = [
 array
 base
@@ -30562,6 +30570,47 @@ doHaddock = false;
 doCheck = false;
 homepage = "https://github.com/snoyberg/file-embed";
 description = "Use Template Haskell to embed file contents directly";
+license = stdenv.lib.licenses.bsd3;
+
+}) {};
+"file-embed-lzma" = callPackage
+({
+  mkDerivation
+, base
+, base-compat
+, bytestring
+, directory
+, filepath
+, lzma
+, stdenv
+, template-haskell
+, text
+, th-lift-instances
+, transformers
+}:
+mkDerivation {
+
+pname = "file-embed-lzma";
+version = "0";
+sha256 = "e86cf44f747cf403898158e9fdf9342871e293097a29679fcf587aed497f0c77";
+revision = "1";
+editedCabalFile = "18q9dgfdsr7r5mlqzhhgbx0bp4bv2xkpcsrihl655pwaj1lz1v2s";
+libraryHaskellDepends = [
+base
+base-compat
+bytestring
+directory
+filepath
+lzma
+template-haskell
+text
+th-lift-instances
+transformers
+];
+doHaddock = false;
+doCheck = false;
+homepage = "https://github.com/phadej/file-embed-lzma";
+description = "Use Template Haskell to embed (LZMA compressed) data";
 license = stdenv.lib.licenses.bsd3;
 
 }) {};
@@ -31264,33 +31313,29 @@ license = stdenv.lib.licenses.bsd3;
 ({
   mkDerivation
 , base
-, base16-bytestring
 , base64-bytestring
 , bytestring
 , containers
+, formatting
 , microlens
 , stdenv
 , text
-, text-format
 , time
 , time-locale-compat
 }:
 mkDerivation {
 
 pname = "fmt";
-version = "0.5.0.0";
-sha256 = "ce3e15e87c04b1dcafcea8d65f894de9427a89d296e1c26a358c625558d9d194";
-revision = "1";
-editedCabalFile = "1vdgh45qv5jk1ym4y54sjgk0cnqhrqqi6iirrw8drq20v1srbpl3";
+version = "0.6";
+sha256 = "5e6f1b510e6f11698c07df4f6369bd85f610eb0142d6b8e2e1ff078954361392";
 libraryHaskellDepends = [
 base
-base16-bytestring
 base64-bytestring
 bytestring
 containers
+formatting
 microlens
 text
-text-format
 time
 time-locale-compat
 ];
@@ -31709,28 +31754,38 @@ license = stdenv.lib.licenses.mit;
 "formatting" = callPackage
 ({
   mkDerivation
+, array
 , base
+, bytestring
 , clock
+, ghc-prim
+, integer-gmp
 , old-locale
 , scientific
+, semigroups
 , stdenv
 , text
-, text-format
 , time
+, transformers
 }:
 mkDerivation {
 
 pname = "formatting";
-version = "6.2.5";
-sha256 = "d0a3fafe5a3e733cefc12a1031dcd76d7b9cc3552f757ae720a286d4d3429f4c";
+version = "6.3.6";
+sha256 = "6a28db7625f912dfa0075d4376b6f1b7f84d139defda53c90e440dcf74aad31a";
 libraryHaskellDepends = [
+array
 base
+bytestring
 clock
+ghc-prim
+integer-gmp
 old-locale
 scientific
+semigroups
 text
-text-format
 time
+transformers
 ];
 doHaddock = false;
 doCheck = false;
@@ -31773,22 +31828,20 @@ license = stdenv.lib.licenses.bsd3;
 , distributive
 , exceptions
 , mtl
-, prelude-extras
 , profunctors
 , semigroupoids
 , semigroups
 , stdenv
 , template-haskell
 , transformers
+, transformers-base
 , transformers-compat
 }:
 mkDerivation {
 
 pname = "free";
-version = "4.12.4";
-sha256 = "c9fe45aae387855626ecb5a0fea6afdb207143cb00af3b1f715d1032d2d08784";
-revision = "2";
-editedCabalFile = "0gmib9bmswrqhl47cp5b871v9f44v9yidzxpljkszy49y9qdf560";
+version = "5.0.2";
+sha256 = "ef05eb1c8e69742a4f962c573ef362e44ad48772940f1ef69fe39f0f77b2a396";
 libraryHaskellDepends = [
 base
 bifunctors
@@ -31797,12 +31850,12 @@ containers
 distributive
 exceptions
 mtl
-prelude-extras
 profunctors
 semigroupoids
 semigroups
 template-haskell
 transformers
+transformers-base
 transformers-compat
 ];
 doHaddock = false;
@@ -32100,6 +32153,7 @@ license = stdenv.lib.licenses.mit;
   mkDerivation
 , async
 , base
+, bytestring
 , containers
 , directory
 , filepath
@@ -32112,13 +32166,12 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "fsnotify";
-version = "0.2.1.1";
-sha256 = "175a75962ad07c30c031fa8931f8d3e32abc06a96676e73e65cb7207e9d2dc90";
-revision = "1";
-editedCabalFile = "0kag32lqkjmv03bycf6ip2vd6vzpcpq4iqs6ivyjh93v40252xxp";
+version = "0.2.1.2";
+sha256 = "d7cb2fcbb60b1acdb217ecd560ccab98438560cf51310bd7d239ecf2f4f4048d";
 libraryHaskellDepends = [
 async
 base
+bytestring
 containers
 directory
 filepath
@@ -32524,8 +32577,8 @@ mkDerivation {
 pname = "generic-aeson";
 version = "0.2.0.9";
 sha256 = "34c13f91ffa72a1f6d7f43b84fdd19b20db547045eb6164a4119f9a95dcd84cb";
-revision = "3";
-editedCabalFile = "0dlxl7p1nf8d4yh6r5yfdnrsn4wb5wl7bj9ymln744b498frlfln";
+revision = "4";
+editedCabalFile = "0m2m2wfv9nhq8m7xl1nrmj4wy3yip3s31b4448za58ryrwkdgjzd";
 libraryHaskellDepends = [
 aeson
 attoparsec
@@ -32737,8 +32790,8 @@ mkDerivation {
 pname = "generics-sop-lens";
 version = "0.1.2.1";
 sha256 = "4e49d4cc580d45e25e0abdeee12b1191ae75937af1c7ca03333979584a8a525c";
-revision = "3";
-editedCabalFile = "1phq0hjpgxfvb8ay9v4ix6axk07mbd266javss9nmqmqmn3vnb51";
+revision = "4";
+editedCabalFile = "1ms3y1cqpzlzl9yr2v53971vvnaapa3bni9yv19l1ilxhr8xzqfr";
 libraryHaskellDepends = [
 base
 generics-sop
@@ -34348,8 +34401,8 @@ mkDerivation {
 pname = "github";
 version = "0.19";
 sha256 = "f0ea9b57cd21645bba40e37e5e7c83ad78469cc3e32526b15e9a4bb2b3b84394";
-revision = "2";
-editedCabalFile = "0ib40npsrwd92mgiqv5rqv21dnhmdh5x6ql84i8ivz8vs2a43hqq";
+revision = "3";
+editedCabalFile = "0s3zmkzgfbh1mc0492i7rjiawxkzg0im8z2p10niv5ff58m87yri";
 libraryHaskellDepends = [
 aeson
 aeson-compat
@@ -35362,6 +35415,8 @@ mkDerivation {
 pname = "graphs";
 version = "0.7.1";
 sha256 = "acd37a7ba5dd02f24131ac8971a5f8639cc0e9db687e7d6790a84af4af0ce209";
+revision = "1";
+editedCabalFile = "1cjyxswlkachki6l4mcaffwpjajyx86jzipzlqjg7c080vwvb19g";
 libraryHaskellDepends = [
 array
 base
@@ -36147,6 +36202,8 @@ mkDerivation {
 pname = "hackage-security";
 version = "0.5.3.0";
 sha256 = "db986e17e9265aa9e40901690815b890b97d53159eb24d0a6cafaa7c18577c21";
+revision = "1";
+editedCabalFile = "0m0xhcivjqq6cwmhr60sva4qz2ciknyacv7dxpdiwbsl3kwyx9sz";
 libraryHaskellDepends = [
 base
 base16-bytestring
@@ -37924,8 +37981,8 @@ mkDerivation {
 pname = "hasql-migration";
 version = "0.1.3";
 sha256 = "2d49e3b7a5ed775150abf2164795b10d087d2e1c714b0a8320f0c0094df068b3";
-revision = "1";
-editedCabalFile = "156s0y5yfc3y0mgv95gcs6n3pv9nd0mgy06x0xriwsf68wjb07ap";
+revision = "2";
+editedCabalFile = "1l2pgi50342ldf8cip2wy63clgn9snk4jz92q2sl8nlnlv5g9b1i";
 libraryHaskellDepends = [
 base
 base64-bytestring
@@ -38399,8 +38456,8 @@ mkDerivation {
 pname = "heaps";
 version = "0.3.6";
 sha256 = "181c3cd7f2be698f903dc9649e5ec9311245ad2b9fed91b61f05d0dd7b7dddb2";
-revision = "2";
-editedCabalFile = "0iym09z8039b2v0kfzh1b66b7ky7kqjv85mx1h0xhsayxdy135in";
+revision = "3";
+editedCabalFile = "0k6wsm1hwn3vaxdvw8p7cidxg7p8zply2ig4w4qrbpyjhl6dj9x9";
 setupHaskellDepends = [
 base
 Cabal
@@ -38497,18 +38554,17 @@ license = stdenv.lib.licenses.mit;
 , time
 , transformers
 , transformers-base
-, unix
 , wl-pprint-annotated
 }:
 mkDerivation {
 
 pname = "hedgehog";
-version = "0.6";
+version = "0.6.1";
 src = fetchgit {
 
 url = "https://github.com/input-output-hk/haskell-hedgehog.git";
-sha256 = "07pvrslv6h3rz053lfxp0racnqj70yazik6mrn612i09vfaxis6b";
-rev = "2c9e51804e8217dff89f5c32cbe0d79ce20bc508";
+sha256 = "0l0d1n2b68m0628j4yi214q5fy6pz777qfj1bc1lrra8scs5gcxh";
+rev = "2e741bb53afb085741807018948ae17d956c53af";
 
 };
 postUnpack = "sourceRoot+=/hedgehog; echo source root reset to $sourceRoot";
@@ -38537,7 +38593,6 @@ th-lift
 time
 transformers
 transformers-base
-unix
 wl-pprint-annotated
 ];
 doHaddock = false;
@@ -39420,21 +39475,25 @@ license = stdenv.lib.licenses.bsd3;
 "hinotify" = callPackage
 ({
   mkDerivation
+, async
 , base
+, bytestring
 , containers
-, directory
 , stdenv
 , unix
 }:
 mkDerivation {
 
 pname = "hinotify";
-version = "0.3.8.1";
-sha256 = "37d46e32c362ff1e2d9c8d79a553e0d2e59e009d46708163fb05a07e1a71810d";
+version = "0.3.10";
+sha256 = "af2b7d5733ab52ca38f0d9aed1ec37304f1d6964caa0fb556b8215858c1d5d9d";
+revision = "1";
+editedCabalFile = "07z0n5rvki3w0kjr190bwv7sq8p3myspv8999ilz9rlsqf5a0324";
 libraryHaskellDepends = [
+async
 base
+bytestring
 containers
-directory
 unix
 ];
 doHaddock = false;
@@ -43166,8 +43225,8 @@ mkDerivation {
 pname = "html-entity-map";
 version = "0.1.0.0";
 sha256 = "983600c33e8515e6ca31742d25490fb5a7be02503331963621b0ba5cd70d344c";
-revision = "2";
-editedCabalFile = "1ycg39ys6zzfi6j88l03gdyyzwjpfzzlzy7dbs6i8p1l70ywizfr";
+revision = "3";
+editedCabalFile = "0aj61kpf39rhn4d7nk3vwq933b826ywhwklw479y9nkczac5lpz8";
 libraryHaskellDepends = [
 base
 text
@@ -43301,8 +43360,8 @@ mkDerivation {
 pname = "http-client";
 version = "0.5.12.1";
 sha256 = "4b5116324d217f0498d258d37135a52f3e69103d3a951b0999618b263c9bd63e";
-revision = "1";
-editedCabalFile = "03x2ms2nl3jjm2sfk8dwy02v920czhmdlkyfy3kqc1sg4nw2134y";
+revision = "2";
+editedCabalFile = "0vq9yr5is7mam2qbgl0acbbnz5j1ic21lzqwclwasz3rjy0zbyad";
 libraryHaskellDepends = [
 array
 base
@@ -43931,6 +43990,8 @@ mkDerivation {
 pname = "hw-conduit";
 version = "0.2.0.3";
 sha256 = "6a20170fff38bb940121ecc922aa4cdb979b7869cfab6a0b18f00476eda3dca5";
+revision = "1";
+editedCabalFile = "0zr1r7px2qgpf5fgq18l6ziy2xaz773qbxc87cp84x0vpwas0yg7";
 libraryHaskellDepends = [
 array
 base
@@ -44158,6 +44219,8 @@ mkDerivation {
 pname = "hw-json";
 version = "0.6.0.0";
 sha256 = "bb8e20e8a035279ee398c6d9162cda3f965d4f96e39c1d363be2456b1feb41d9";
+revision = "1";
+editedCabalFile = "18w22jnsjv8f4k2q3548vdzl80p4r80pn96rnp69f6l36ibmx771";
 isLibrary = true;
 isExecutable = true;
 libraryHaskellDepends = [
@@ -45007,8 +45070,8 @@ mkDerivation {
 pname = "hyphenation";
 version = "0.7.1";
 sha256 = "a25c5073f42896ccf81ff5936f3a42f290730f61da7f225b126ad22ff601b1c0";
-revision = "2";
-editedCabalFile = "1pbsq3y0f0j6cl17narqrwxwwpxsvwgazfbqa5k08m2n0s885pfk";
+revision = "4";
+editedCabalFile = "0pp7qm40alsfd9z5dvp6l2c7dp9zp0skl9g0iib3jahxs3n8qcrr";
 enableSeparateDataOutput = true;
 setupHaskellDepends = [
 base
@@ -45844,6 +45907,8 @@ mkDerivation {
 pname = "inline-r";
 version = "0.9.1";
 sha256 = "5a65cf0ebc8c1b7647e9f690f518b10e9328e823461dae769fd29bc29ef2fbf2";
+revision = "1";
+editedCabalFile = "0gid75ls60mfl0017716mqkypsbsv92lm1lsx2mf8vvd30znhcv0";
 libraryHaskellDepends = [
 aeson
 base
@@ -45898,8 +45963,8 @@ mkDerivation {
 pname = "insert-ordered-containers";
 version = "0.2.1.0";
 sha256 = "d71d126bf455898492e1d2ba18b2ad04453f8b0e4daff3926a67f0560a712298";
-revision = "6";
-editedCabalFile = "0dna826vhnal6m213llszn68phjs27pd43f7s8wdhdmjdx1nzk72";
+revision = "8";
+editedCabalFile = "0ry5jsyimf1dx6013k1bhvsy3vjpg94q7z0sy9yxhmfdf16zb1fa";
 libraryHaskellDepends = [
 aeson
 base
@@ -46151,8 +46216,8 @@ mkDerivation {
 pname = "intervals";
 version = "0.8.1";
 sha256 = "9ce3bf9d31b9ab2296fccc25031fd52e1c3e4abeca5d3bb452a725b586eb7e03";
-revision = "3";
-editedCabalFile = "1dzv19jq6xwf9zff6xkzmn9vab2ch2mds75n7hg9n0xg664q1b95";
+revision = "4";
+editedCabalFile = "1qx3q0v13l1zaln9zdk8chxpxhshbz5x0vqm0qda7d1kpv7h6a7r";
 setupHaskellDepends = [
 base
 Cabal
@@ -46245,8 +46310,8 @@ mkDerivation {
 pname = "invariant";
 version = "0.5";
 sha256 = "80bbcaeaeeeb69dfbb28648d7737b48e1d1d6cc4e7ee0d192eaade9a6351e9ff";
-revision = "1";
-editedCabalFile = "04sxa2jfv613ff3fxpnk0cn31f6fr80gzr7va47nrc0abp34vd7y";
+revision = "2";
+editedCabalFile = "01n0v2qmbyd44z3wvha6vmbf1nr3bar205nk1r8hsq9jsmrfzaj1";
 libraryHaskellDepends = [
 array
 base
@@ -47795,8 +47860,8 @@ mkDerivation {
 pname = "json-schema";
 version = "0.7.4.1";
 sha256 = "560d6a17d6eab734f43d329e51967e3ed62f8df2a6fea4a92d06359fe77d7c96";
-revision = "14";
-editedCabalFile = "0pf2j8v62mfh6dk0v4a93l75by6i6jsfangbsabksdbzhh64hyrr";
+revision = "16";
+editedCabalFile = "0mn7aj3rr4vpg99kcpvgq1qvdl28dx9yld2b9pb79wdva9x69c2h";
 libraryHaskellDepends = [
 aeson
 base
@@ -48269,6 +48334,81 @@ description = "Perform 漢字検定 (Japan Kanji Aptitude Test) level analysis o
 license = stdenv.lib.licenses.bsd3;
 
 }) {};
+"katip" = callPackage
+({
+  mkDerivation
+, aeson
+, async
+, auto-update
+, base
+, bytestring
+, containers
+, either
+, hostname
+, microlens
+, microlens-th
+, monad-control
+, mtl
+, old-locale
+, resourcet
+, safe-exceptions
+, scientific
+, semigroups
+, stdenv
+, stm
+, string-conv
+, template-haskell
+, text
+, time
+, transformers
+, transformers-base
+, transformers-compat
+, unix
+, unliftio-core
+, unordered-containers
+}:
+mkDerivation {
+
+pname = "katip";
+version = "0.5.5.1";
+sha256 = "0b0c5b66fda945ea56522724aadb25980d5d1cac83999b45c6a11b9ba59ce260";
+libraryHaskellDepends = [
+aeson
+async
+auto-update
+base
+bytestring
+containers
+either
+hostname
+microlens
+microlens-th
+monad-control
+mtl
+old-locale
+resourcet
+safe-exceptions
+scientific
+semigroups
+stm
+string-conv
+template-haskell
+text
+time
+transformers
+transformers-base
+transformers-compat
+unix
+unliftio-core
+unordered-containers
+];
+doHaddock = false;
+doCheck = false;
+homepage = "https://github.com/Soostone/katip";
+description = "A structured logging framework";
+license = stdenv.lib.licenses.bsd3;
+
+}) {};
 "katydid" = callPackage
 ({
   mkDerivation
@@ -48427,8 +48567,8 @@ mkDerivation {
 pname = "keys";
 version = "3.12";
 sha256 = "d4bfa78ff9df50224f1722925ae148279377193d04277a7dad224a47b34d5e55";
-revision = "2";
-editedCabalFile = "0cy2fdxxqg0bgkb8xhnw6zws00d78bpk48xv7zzmvnj549l819ib";
+revision = "3";
+editedCabalFile = "164z97ck2svam9c5gc05jklw8ai5nna7dknwwsp9nvw7wcw1dmln";
 libraryHaskellDepends = [
 array
 base
@@ -49056,6 +49196,8 @@ mkDerivation {
 pname = "language-glsl";
 version = "0.2.1";
 sha256 = "0012116b0a164831906386205df7136bc8810bcf12ea766d300a108374a21922";
+revision = "1";
+editedCabalFile = "1dlax6dfjc8ca0p5an3k1f29b078hgb44aj48njf97shvl9hqf5v";
 isLibrary = true;
 isExecutable = true;
 libraryHaskellDepends = [
@@ -49735,8 +49877,10 @@ license = stdenv.lib.licenses.bsd3;
 mkDerivation {
 
 pname = "lens";
-version = "4.15.4";
-sha256 = "742e7b87d7945e3d9c1d39d3f8440094c0a31cd098f06a08f8dabefba0a57cd2";
+version = "4.16.1";
+sha256 = "f5bec97b1d5cf3d6487afebc79b927bd5a18f1fd594b104de36a35bf606ea4c6";
+revision = "2";
+editedCabalFile = "11h83lj5mba4grhz1qx3irz10ysm9c3k7k6i6xv2cr60q8xin3ri";
 setupHaskellDepends = [
 base
 Cabal
@@ -49875,8 +50019,8 @@ mkDerivation {
 pname = "lens-aeson";
 version = "1.0.2";
 sha256 = "4311f035caa39db3a70915a165bcbfb55ad22376085d95a9b4f57c58994702cc";
-revision = "4";
-editedCabalFile = "1gas30rarvr8337a06z089m3dp5kvdcvhyac2mrp5pjlfp4zz226";
+revision = "6";
+editedCabalFile = "1pg5v8fnlqw1krgi3d2a03a0zkjjdv5yp5f5z6q4mlb5jldz99a8";
 setupHaskellDepends = [
 base
 Cabal
@@ -50612,8 +50756,8 @@ mkDerivation {
 pname = "lift-generics";
 version = "0.1.2";
 sha256 = "0e9fbd17cd3e1af6ef1e994e7c14cfd42896e56499864e707f72246b6e2b604e";
-revision = "1";
-editedCabalFile = "02hg33ikmwl81zsw8fgppix740rdc3h8fv6nr9b9h37vizhs50zw";
+revision = "2";
+editedCabalFile = "171f8cpn0kw9psikx3n7cdwyqfwg8rr8gf1hja6g7pnm0683l5l8";
 libraryHaskellDepends = [
 base
 generic-deriving
@@ -50760,8 +50904,8 @@ mkDerivation {
 pname = "linear";
 version = "1.20.7";
 sha256 = "4b88b6268d327220a296b6790c82db8ebab52973735af0a9de1c734cdc07cab6";
-revision = "4";
-editedCabalFile = "11fxa2bqpyf99iv2b3yzi9z17y0r70afqij52lmifsyzr24zizv3";
+revision = "6";
+editedCabalFile = "12ksfxwi0dc6laadswfp9ri9z7lnqf9qxh8vawmj2xnz8n1n73vx";
 setupHaskellDepends = [
 base
 Cabal
@@ -51281,8 +51425,8 @@ mkDerivation {
 pname = "log-domain";
 version = "0.12";
 sha256 = "7191cba40b9b348c54171f2b86caabb75a30e52b6d7e4c57321bf5dcdf1f367e";
-revision = "2";
-editedCabalFile = "1yjphyqyn8122ikxxv0a10fh2cbavy7xyb435jxq6gln8sw3m54d";
+revision = "3";
+editedCabalFile = "19xc24jwfhzy3v26689sc4ma50w4ylqd378dpxphl0nrxili645z";
 setupHaskellDepends = [
 base
 Cabal
@@ -51457,8 +51601,8 @@ version = "1.8.10.1";
 src = fetchgit {
 
 url = "https://github.com/input-output-hk/log-warper.git";
-sha256 = "1m0px1187p1xkdp978jh45vpgkdbvrlm3ippg3jlv0zdzrfnx53s";
-rev = "fa925f9dadf239b38e2ffcc35f9d241a9fcb7d55";
+sha256 = "09jl7wb48q1vc3cll1bbdp8d2dh5dhcgxiyq1z7mpwfikdph0d4c";
+rev = "4af8114fbcd5698a4e1fbc653031f0300e29faee";
 
 };
 libraryHaskellDepends = [
@@ -51843,8 +51987,8 @@ mkDerivation {
 pname = "lrucaching";
 version = "0.3.3";
 sha256 = "aa7e5fd27963c70fc1108a7c0526ca0e05f76ccd885844bc50bdae70d5174aa4";
-revision = "2";
-editedCabalFile = "0ypilhv8im5vqwdy6wk9ql2dlpr4cykag6ikvyjapl8bpyfm44xa";
+revision = "3";
+editedCabalFile = "0y7j6m0n1xi40c7dmabi9lk6mjic9h49xx60rq9xc4xap90hjfqb";
 libraryHaskellDepends = [
 base
 base-compat
@@ -52120,8 +52264,8 @@ mkDerivation {
 pname = "machines";
 version = "0.6.3";
 sha256 = "3fd2e863a9a2ea2e3ef123668082757e48a5ec25e9659f4e02a3f56e44bdbecf";
-revision = "6";
-editedCabalFile = "0ga5x9lpik7gz2fx4j3jnn6dw8xkd9cxg19ngj8iwrx4b946m1w7";
+revision = "9";
+editedCabalFile = "1z8khbpx7yjlpm06q7immwk3jm1h2q8kf52aksy11lkmns9ladvl";
 setupHaskellDepends = [
 base
 Cabal
@@ -53265,6 +53409,34 @@ description = "High-performance application metric tracking";
 license = stdenv.lib.licenses.mit;
 
 }) {};
+"micro-recursion-schemes" = callPackage
+({
+  mkDerivation
+, base
+, cpphs
+, stdenv
+, template-haskell
+, th-abstraction
+}:
+mkDerivation {
+
+pname = "micro-recursion-schemes";
+version = "5.0.2.2";
+sha256 = "3bddd1f22638f7e34563876e711e38351b8f36e50b45f3e5553068a2b25c5e9e";
+libraryHaskellDepends = [
+base
+template-haskell
+th-abstraction
+];
+libraryToolDepends = [
+cpphs
+];
+doHaddock = false;
+doCheck = false;
+description = "Simple recursion schemes";
+license = stdenv.lib.licenses.bsd3;
+
+}) {};
 "microformats2-parser" = callPackage
 ({
   mkDerivation
@@ -53399,6 +53571,8 @@ mkDerivation {
 pname = "microlens-aeson";
 version = "2.3.0";
 sha256 = "f2f28288bfc190127423a452514d35f7b66f9d5625cf6653bb34cb020aa450c5";
+revision = "2";
+editedCabalFile = "1ri98vr3bbx0l9b4vpmcwhf8fm5lgj92kw4g0v3jx6xajwwc5dc8";
 libraryHaskellDepends = [
 aeson
 attoparsec
@@ -53612,8 +53786,8 @@ mkDerivation {
 pname = "microstache";
 version = "1.0.1.1";
 sha256 = "5de98542313eb75f84961366ff8a70ed632387ba6518215035b2dd1b32d6a120";
-revision = "1";
-editedCabalFile = "1var5mgzvkxl9s78hbxylkvv67z7fnbs5rb1l9q0cqxyw85cbr6j";
+revision = "2";
+editedCabalFile = "0rl6vgmjnf1a14kiynh4gnmy6n6kkik9hqj9k5vqw68h4f110i4b";
 libraryHaskellDepends = [
 aeson
 base
@@ -54264,8 +54438,8 @@ mkDerivation {
 pname = "mmark";
 version = "0.0.5.6";
 sha256 = "fc036385fd4cea07a490df00d8fe443cc6656a6d090d537d4d5e860564ef1234";
-revision = "2";
-editedCabalFile = "0hzz7l9npv364yzw6i6q6699nn1raj1p2cmwmlqp43rz8s3ryawn";
+revision = "5";
+editedCabalFile = "1m4l42g519hnzjaafsnbjcfr0nrf28x1lmc1kjh5swrg6qd3kf29";
 enableSeparateDataOutput = true;
 libraryHaskellDepends = [
 aeson
@@ -54321,8 +54495,8 @@ mkDerivation {
 pname = "mmark-cli";
 version = "0.0.3.0";
 sha256 = "37d3e98d15ccc036db5e2ec1b8b1e84a20c303ba1821a44ec441e835c43c6159";
-revision = "1";
-editedCabalFile = "0rzz4m7z02m6rmigmmpgqhik1d7kc0i4mri0gpj1i3j7a59p7s1q";
+revision = "2";
+editedCabalFile = "0i3gvfgm4bfbdyflhhaf4gdr7cbkw51i330f25rgha9k3s4v59w3";
 isLibrary = false;
 isExecutable = true;
 executableHaskellDepends = [
@@ -54525,8 +54699,8 @@ mkDerivation {
 pname = "modern-uri";
 version = "0.2.1.0";
 sha256 = "e65aca7e994b3a470584da17571878084e90120507b8deab9a9b021d529f981a";
-revision = "4";
-editedCabalFile = "00vr4g5cmhd3d1329hwcdq55yjq8n5jxz15sgl0sawcg5mw5ihyy";
+revision = "5";
+editedCabalFile = "089smjciwx6iav6wqpxhwdzlm0d1jdmgcgjv0r2c4vqrwdd1wb4h";
 libraryHaskellDepends = [
 base
 bytestring
@@ -56760,6 +56934,8 @@ mkDerivation {
 pname = "nats";
 version = "1.1.2";
 sha256 = "b9d2d85d8612f9b06f8c9bfd1acecd848e03ab82cfb53afe1d93f5086b6e80ec";
+revision = "1";
+editedCabalFile = "1jzyysf758lfindlclqpzqcd0lrgrdv0rnz2lg8g1rvv07x2n7zh";
 doHaddock = false;
 doCheck = false;
 homepage = "http://github.com/ekmett/nats/";
@@ -56805,8 +56981,8 @@ mkDerivation {
 pname = "natural-transformation";
 version = "0.4";
 sha256 = "aac28e2c1147ed77c1ec0f0eb607a577fa26d0fd67474293ba860ec124efc8af";
-revision = "5";
-editedCabalFile = "1wlmkq9k9aym4wig9rn5w6sygq2fg9kd02d18pfzgxw70icqjlq3";
+revision = "6";
+editedCabalFile = "0qdjf1756gmq6vjd1p7i4b398s7j1gqfiaz3yf894h5p6x1ym0zl";
 libraryHaskellDepends = [
 base
 ];
@@ -57700,13 +57876,15 @@ mkDerivation {
 pname = "newtype-generics";
 version = "0.5.3";
 sha256 = "f295f001a86bdbcf759d6b91b9e7ae27cd431ccf41d9b9d34ee1c926b88efe45";
+revision = "1";
+editedCabalFile = "1glnwq1lw7780qgahqvh1qfx6k2ciwmbhc2wcc78v3aa3s954c8v";
 libraryHaskellDepends = [
 base
 transformers
 ];
 doHaddock = false;
 doCheck = false;
-homepage = "http://github.com/sjakobi/bsb-http-chunked";
+homepage = "http://github.com/sjakobi/newtype-generics";
 description = "A typeclass and set of functions for working with newtypes";
 license = stdenv.lib.licenses.bsd3;
 
@@ -57815,44 +57993,6 @@ doCheck = false;
 homepage = "https://github.com/peti/nix-paths";
 description = "Knowledge of Nix's installation directories";
 license = stdenv.lib.licenses.bsd3;
-
-}) {};
-"node-ipc" = callPackage
-({
-  mkDerivation
-, aeson
-, base
-, binary
-, bytestring
-, Cabal
-, cardano-sl-infra
-, log-warper
-, mtl
-, stdenv
-, universum
-}:
-mkDerivation {
-
-pname = "node-ipc";
-version = "1.3.0";
-src = ./../node-ipc;
-configureFlags = [
-"--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
-];
-libraryHaskellDepends = [
-aeson
-base
-binary
-bytestring
-Cabal
-cardano-sl-infra
-log-warper
-mtl
-universum
-];
-doHaddock = false;
-license = stdenv.lib.licenses.mit;
 
 }) {};
 "non-empty" = callPackage
@@ -57995,6 +58135,29 @@ description = "A monad and monad transformer for nondeterministic computations";
 license = "LGPL";
 
 }) {};
+"normaldistribution" = callPackage
+({
+  mkDerivation
+, base
+, random
+, stdenv
+}:
+mkDerivation {
+
+pname = "normaldistribution";
+version = "1.1.0.3";
+sha256 = "6d7ba381946f76f3bd848c90e5bcc6f6ae5c418f7ae294cfc2559541fa02f7e0";
+libraryHaskellDepends = [
+base
+random
+];
+doHaddock = false;
+doCheck = false;
+homepage = "https://github.com/bjornbm/normaldistribution";
+description = "Minimum fuss normally distributed random values";
+license = stdenv.lib.licenses.bsd3;
+
+}) {};
 "normalization-insensitive" = callPackage
 ({
   mkDerivation
@@ -58011,8 +58174,8 @@ mkDerivation {
 pname = "normalization-insensitive";
 version = "2.0.1";
 sha256 = "3b54ba0c2fc0ea99321bbec7f28bedc771bf1ec0a3f9796da7e479829282cb02";
-revision = "2";
-editedCabalFile = "0djclsv0vzd56139ddzhykbwb3ny9mf8k2pryp8w33h9i4hv7axc";
+revision = "3";
+editedCabalFile = "1p1pw5llhw0jp1w8yvwd79w06lk7rz74rryppzvw8vpc5axl99bq";
 libraryHaskellDepends = [
 base
 bytestring
@@ -61404,8 +61567,8 @@ mkDerivation {
 pname = "persistent-template";
 version = "2.5.4";
 sha256 = "4cae740ce92f98cb3ae9e092e740753394d5687b887399ee5f87af7f3c730a01";
-revision = "1";
-editedCabalFile = "18mjv4z29cbrqjrsk2gm4bbc988437v8zxc5dynhj99fzjxzs9yr";
+revision = "2";
+editedCabalFile = "03qgwk32krldph3blw5agiqcpccr3649hajyn8wm9k71zz82dpn6";
 libraryHaskellDepends = [
 aeson
 aeson-compat
@@ -62260,8 +62423,8 @@ mkDerivation {
 pname = "pipes-random";
 version = "1.0.0.4";
 sha256 = "542a07e7d7aafa87201c1f00c4e98ac8f59707f776ea03b1f6f117273608659e";
-revision = "1";
-editedCabalFile = "0m32wz3rwxx9gdcl1chk64yspyd1ls13z03zcgjcn865mpbhz97h";
+revision = "2";
+editedCabalFile = "0czw2qfi05d5kbnwzhzr75j1ag6hfbn9nvbjyifdjradfzjxl2s9";
 libraryHaskellDepends = [
 base
 mwc-random
@@ -62294,6 +62457,8 @@ mkDerivation {
 pname = "pipes-safe";
 version = "2.2.9";
 sha256 = "17f16403794a2517eb283dd8b34a17c3485143b7fb66870d0a305294815a1898";
+revision = "1";
+editedCabalFile = "08jxmxfhxfi3v19bvvmfs50c74ci6v36503knsb4qdscx9lr864d";
 libraryHaskellDepends = [
 base
 containers
@@ -62656,6 +62821,8 @@ mkDerivation {
 pname = "pointed";
 version = "5.0.1";
 sha256 = "b94635a5c8779238501a9156015422ce2fb4d5efd45d68999e8cbe2ecc5121dd";
+revision = "1";
+editedCabalFile = "1ccjmzz3jf5ybrzv7qdwm3qb8rz0yskvi4ackrixyhdk8bg5f3nc";
 libraryHaskellDepends = [
 base
 comonad
@@ -63614,12 +63781,13 @@ license = stdenv.lib.licenses.bsd3;
 , haskell-lexer
 , pretty
 , stdenv
+, text
 }:
 mkDerivation {
 
 pname = "pretty-show";
-version = "1.6.16";
-sha256 = "dbee8476bf12ce5bd991d0a52c1340802e07bb706c68c1a7911a38db16ac0350";
+version = "1.7";
+sha256 = "382b6ef4a78e4059611b5c86674ad72a6bfce821e8852da4f00b628cfbbc272f";
 isLibrary = true;
 isExecutable = true;
 enableSeparateDataOutput = true;
@@ -63630,6 +63798,7 @@ filepath
 ghc-prim
 haskell-lexer
 pretty
+text
 ];
 libraryToolDepends = [
 happy
@@ -63920,6 +64089,8 @@ mkDerivation {
 pname = "primitive";
 version = "0.6.4.0";
 sha256 = "4cbeaf7924dd79221f327ea101a29bf35c4976dc3319df157ff46ea68e6a0c64";
+revision = "1";
+editedCabalFile = "18a14k1yiam1m4l29rin9a0y53yp3nxvkz358nysld8aqwy2qsjv";
 libraryHaskellDepends = [
 base
 ghc-prim
@@ -64141,8 +64312,8 @@ mkDerivation {
 pname = "profunctors";
 version = "5.2.2";
 sha256 = "e981e6a33ac99d38a947a749179bbea3c294ecf6bfde41660fe6d8d5a2e43768";
-revision = "1";
-editedCabalFile = "1g6fvxq2npnyi8wv9mvwy35an68lrm5bf7xmx9x61mbwdxb6d0cg";
+revision = "2";
+editedCabalFile = "1ywlg9z8nlhd2avgb8c6gbkv8zyk7hvc25926bafyg0m0k8y1amq";
 libraryHaskellDepends = [
 base
 base-orphans
@@ -64583,6 +64754,8 @@ mkDerivation {
 pname = "protocol-buffers";
 version = "2.4.10";
 sha256 = "734fc15adecbf8231a8d83d446623526600b6ec8f2d82f264c29d01714f52767";
+revision = "1";
+editedCabalFile = "04cv52k497nmh04pflmjrl26vlbczvm3mk4qld0zrwqxkk6v0ris";
 libraryHaskellDepends = [
 array
 base
@@ -64617,6 +64790,8 @@ mkDerivation {
 pname = "protocol-buffers-descriptor";
 version = "2.4.10";
 sha256 = "a095e8cee40d64b986162eeac3e87c163264c4544876107dd10bf6e2b00796f0";
+revision = "1";
+editedCabalFile = "03b3w0yawnjv5hpprkhj49s1fkj9ib03avyxgv3i9vj0n0ngbiz1";
 enableSeparateDataOutput = true;
 libraryHaskellDepends = [
 base
@@ -66040,6 +66215,8 @@ mkDerivation {
 pname = "rasterific-svg";
 version = "0.3.3.1";
 sha256 = "d6b5ea1318b6cca165fee1fae91116878ef72918eca6e7a118624bf56add1184";
+revision = "1";
+editedCabalFile = "0mhg2k786zx1cmblijnz73cf12h1s5grmkc0wb63612hnxxz53i7";
 isLibrary = true;
 isExecutable = true;
 libraryHaskellDepends = [
@@ -66265,8 +66442,8 @@ mkDerivation {
 pname = "rcu";
 version = "0.2.2";
 sha256 = "93264621dc372c6180aa12324435deeac36946cdca7f77270ef0a3e162474852";
-revision = "2";
-editedCabalFile = "0s9rd1ys6y770xwfgljmrkyw968jqwsa39xpa3x88wzb93qzypmr";
+revision = "4";
+editedCabalFile = "18gaaz7pj7x9yv2na1zbqavirrj93c7q6z28r4502if0w1w8wk8f";
 isLibrary = true;
 isExecutable = true;
 setupHaskellDepends = [
@@ -67167,6 +67344,8 @@ mkDerivation {
 pname = "regex-tdfa";
 version = "1.2.3";
 sha256 = "89b17ebb812d4597c0007fbbc21c78dfef70a133aa41b208217a9c99bed600d9";
+revision = "1";
+editedCabalFile = "05ygcwwi8zjd40r05kavbmlx6nw6gyb2yicaarwd45sxs1zk73rz";
 libraryHaskellDepends = [
 array
 base
@@ -68826,6 +69005,8 @@ mkDerivation {
 pname = "sampling";
 version = "0.3.3";
 sha256 = "c8bedc93d61e6b1939f6802d7e21003e9e36abdd6f21a9651179d4d82aa00e0d";
+revision = "1";
+editedCabalFile = "168k8ykppa8pikfxy1gmby63kfzr833vswh8wcchz8li9vkd4w2h";
 libraryHaskellDepends = [
 base
 containers
@@ -69281,8 +69462,8 @@ mkDerivation {
 pname = "scotty";
 version = "0.11.1";
 sha256 = "1cd2452c5bca3ae602525a9f60f38d64542d3638cb56298150e2863d48778df5";
-revision = "1";
-editedCabalFile = "0msb0ydgga07gicchs8k0f7d35gp18vrin649q6yqah75l5i2f9x";
+revision = "2";
+editedCabalFile = "10h2h1pxndxlfp6hal5p22159cpybdvnhxq13xn2k8q859imylx1";
 libraryHaskellDepends = [
 aeson
 base
@@ -69766,8 +69947,8 @@ mkDerivation {
 pname = "semigroupoids";
 version = "5.2.2";
 sha256 = "e4def54834cda65ac1e74e6f12a435410e19c1348e820434a30c491c8937299e";
-revision = "3";
-editedCabalFile = "1k7iq54rkiqrx5kdcc6mc11agqqcnp1hgrw6c6rl3yjybz1vc5y4";
+revision = "4";
+editedCabalFile = "0pqfrxzypjq6z8lgdkzq4vhcyqkpk5326hny0r6snpc3gm78r4ij";
 setupHaskellDepends = [
 base
 Cabal
@@ -70074,41 +70255,41 @@ license = stdenv.lib.licenses.mit;
 , base64-bytestring
 , bytestring
 , clock
-, containers
 , deepseq
-, directory
 , exceptions
-, extra
-, filepath
+, fetchgit
 , fmt
 , formatting
 , hashable
-, lens
-, log-warper
-, monad-control
+, microlens
+, microlens-mtl
 , mtl
-, optparse-applicative
+, o-clock
 , parsec
+, process
 , QuickCheck
 , quickcheck-instances
 , scientific
-, semigroups
 , stdenv
-, stm
 , template-haskell
 , text
-, text-format
+, th-lift-instances
 , transformers
 , universum
 , unordered-containers
 , vector
-, yaml
 }:
 mkDerivation {
 
 pname = "serokell-util";
-version = "0.8.0";
-sha256 = "3711f844d87556c4deb8d72dd0861ca9d1063ee28250a5f6e167ac758df11b6d";
+version = "0.9.0";
+src = fetchgit {
+
+url = "https://github.com/input-output-hk/serokell-util.git";
+sha256 = "0h4wcvp126w021bc2kglsbfywyvc9z3yf1sh1k4yy1an4ckh51jd";
+rev = "4ead9809e119483e7832da5f8224b0c4d4a2d5d6";
+
+};
 libraryHaskellDepends = [
 aeson
 ansi-terminal
@@ -70117,34 +70298,27 @@ base16-bytestring
 base64-bytestring
 bytestring
 clock
-containers
 deepseq
-directory
 exceptions
-extra
-filepath
 fmt
 formatting
 hashable
-lens
-log-warper
-monad-control
+microlens
+microlens-mtl
 mtl
-optparse-applicative
+o-clock
 parsec
+process
 QuickCheck
 quickcheck-instances
 scientific
-semigroups
-stm
 template-haskell
 text
-text-format
+th-lift-instances
 transformers
 universum
 unordered-containers
 vector
-yaml
 ];
 doHaddock = false;
 doCheck = false;
@@ -70183,6 +70357,8 @@ mkDerivation {
 pname = "servant";
 version = "0.13.0.1";
 sha256 = "a74b9448a4f994466e5636e702eca65386a415f581441b8d9cd8870f5bbfde6d";
+revision = "1";
+editedCabalFile = "0c5j8y6x9andar2zlqr2z4b8j1m3ss5qd4shias4z86mssmfgxp6";
 setupHaskellDepends = [
 base
 Cabal
@@ -70271,6 +70447,8 @@ mkDerivation {
 pname = "servant-blaze";
 version = "0.8";
 sha256 = "46ea88550123d765b2d09073370d0530a51878e7fdf2cf20b070be1f2f10ae94";
+revision = "1";
+editedCabalFile = "1sw72b1x6diyk13mwxfmv50nix0n2lf7cv55p4n2d4bs7r5388q3";
 libraryHaskellDepends = [
 base
 blaze-html
@@ -70301,8 +70479,8 @@ mkDerivation {
 pname = "servant-cassava";
 version = "0.10";
 sha256 = "9b2c5d906f3a4bb2767b2ce91f12a74e24adceadd296220b5d7216c5e1f3560e";
-revision = "2";
-editedCabalFile = "11f5azqs007dfk5zr6sa43cri809k7jlf680gf3d7zcwhlf3xiq4";
+revision = "3";
+editedCabalFile = "1asq4w9dbl0ccwqdpvkhbh5fkvwd73iqd09a776ynf0vq3k05kh6";
 libraryHaskellDepends = [
 base
 base-compat
@@ -70350,8 +70528,8 @@ mkDerivation {
 pname = "servant-client";
 version = "0.13.0.1";
 sha256 = "089f36ff31c1093d7a20b807dc4e2855c3ec25fee6a71b02f28b665546d01888";
-revision = "1";
-editedCabalFile = "12iac58pgx5w20x0v6l5ikxxapgl0ql0c91hyv8vcw8mbrjq2qpv";
+revision = "2";
+editedCabalFile = "1pi7nvgylx4qvzswc31slyr2zj09hgajkac7f6lw66ba3h9rhmd5";
 libraryHaskellDepends = [
 aeson
 attoparsec
@@ -70456,8 +70634,8 @@ mkDerivation {
 pname = "servant-docs";
 version = "0.11.2";
 sha256 = "6b280a8d97d295933f5b4a5442b0c54567299bcc8dd62b7c2890864af7ddd4f4";
-revision = "2";
-editedCabalFile = "17nv36pm0vv0lgfyk5ay65h7i5bdfq48n0npawcvmqfjsls61xs4";
+revision = "5";
+editedCabalFile = "10b463waaa75aawjdag52yjv2bhkpnp3xygb39zyifpaf6iix100";
 isLibrary = true;
 isExecutable = true;
 libraryHaskellDepends = [
@@ -70593,8 +70771,8 @@ mkDerivation {
 pname = "servant-foreign";
 version = "0.11.1";
 sha256 = "659cb1033b022869bb5b725cfbb82c02ab0424ca9130e4aeb2fb6bb2d0489805";
-revision = "1";
-editedCabalFile = "1g9631l7cw0kgnsidi943fnzkvddjnm3vgm11ha5vh10pczvn6rb";
+revision = "3";
+editedCabalFile = "1ln18qi2bb9xfk3phydci5r2x0mf6dbgc9lc8k8qpx08bkid65x4";
 libraryHaskellDepends = [
 base
 base-compat
@@ -70622,6 +70800,8 @@ mkDerivation {
 pname = "servant-generic";
 version = "0.1.0.1";
 sha256 = "2ef213c2f72eb5d1c3da06f5b8e7537128ea96fe54bb086d5ade91ce872cfcfd";
+revision = "1";
+editedCabalFile = "0ijj5daqg4z9h802lsl1isrx5hzyxhjvbqp5gfrj87msipn9vd0z";
 libraryHaskellDepends = [
 base
 servant
@@ -70701,8 +70881,8 @@ mkDerivation {
 pname = "servant-js";
 version = "0.9.3.2";
 sha256 = "02e0ec27a44a1e5794aacfbf745a815a68854d077e7d056d3e2f17d4812867dc";
-revision = "1";
-editedCabalFile = "11q54f0hx8ggfsrklaf8dk1gra597097gl60j667bmy8266l33ad";
+revision = "2";
+editedCabalFile = "1mz21yf77nzfb30hlqncyx3jwr50ab7qh0m0cv8pds6s76s6k9sj";
 isLibrary = true;
 isExecutable = true;
 libraryHaskellDepends = [
@@ -70808,8 +70988,8 @@ mkDerivation {
 pname = "servant-mock";
 version = "0.8.4";
 sha256 = "d9d6392461f57324208e3a227c88e81da35686a38d5d1f783afc673a0c77059c";
-revision = "1";
-editedCabalFile = "0izm1slx384cgfaf16r3w1h6cqpssahphb9b0ccy2m04ysgy7chp";
+revision = "2";
+editedCabalFile = "0brnvssfcg105kkkj646wih8apnhd5gvy25c576i93x0nxb0n39j";
 isLibrary = true;
 isExecutable = true;
 libraryHaskellDepends = [
@@ -70861,8 +71041,10 @@ license = stdenv.lib.licenses.bsd3;
 mkDerivation {
 
 pname = "servant-multipart";
-version = "0.11.1";
-sha256 = "98eca786e767cf0eef5dc681a53342fa152aade400faf8c57c543812bfaa961b";
+version = "0.11.2";
+sha256 = "dd16ed21afbac839d0057efaa2fd43e24b07a3d9ef0a1bebf97a5041967aa870";
+revision = "1";
+editedCabalFile = "0xidc0kbagv4ksaci3hxwgb7rvshvnracpzqpcmv8n2whkk26f6h";
 isLibrary = true;
 isExecutable = true;
 libraryHaskellDepends = [
@@ -71131,8 +71313,8 @@ mkDerivation {
 pname = "servant-server";
 version = "0.13.0.1";
 sha256 = "352b724274cbdfee8d8e7b340920eecf9197d5f6c454bb5137099b263e6eef39";
-revision = "1";
-editedCabalFile = "102w8rbl7hrm3gqsdzk1g794vssvn1c89h5d2j0hqkc587qws0nd";
+revision = "2";
+editedCabalFile = "16bllcaqpcj6i53vl1sas1f6m85i6ah7qcn5mh8x515qmfzngisp";
 isLibrary = true;
 isExecutable = true;
 setupHaskellDepends = [
@@ -71340,8 +71522,8 @@ mkDerivation {
 pname = "servant-swagger";
 version = "1.1.5";
 sha256 = "4f7a442bccf2df8a9980129d83bbcd3e73cfec374919ecb8389709c5df0ca50a";
-revision = "1";
-editedCabalFile = "005b3z7wxcrad8210yw3qsndh3zh0v2h8j50qxl8sj1l6wqb7zs6";
+revision = "4";
+editedCabalFile = "0jbi48mcqm4zzdpmpqscs6gvx6lc855fi0hk3ymd5kvpsj00lm9j";
 setupHaskellDepends = [
 base
 Cabal
@@ -71373,19 +71555,51 @@ license = stdenv.lib.licenses.bsd3;
 ({
   mkDerivation
 , base
+, bytestring
+, file-embed-lzma
+, servant
+, servant-server
+, servant-swagger-ui-core
+, stdenv
+, swagger2
+, text
+}:
+mkDerivation {
+
+pname = "servant-swagger-ui";
+version = "0.3.0.3.13.2";
+sha256 = "b6dcb349d845e5a4fa357cb358f44814f30ba23129abd64cb41bda959e629352";
+revision = "1";
+editedCabalFile = "1ka19i4r7s85qlpk5sm90gm5yf82nd03clgyqzm8w8jn7y3fji19";
+libraryHaskellDepends = [
+base
+bytestring
+file-embed-lzma
+servant
+servant-server
+servant-swagger-ui-core
+swagger2
+text
+];
+doHaddock = false;
+doCheck = false;
+homepage = "https://github.com/haskell-servant/servant-swagger-ui";
+description = "Servant swagger ui";
+license = stdenv.lib.licenses.bsd3;
+
+}) {};
+"servant-swagger-ui-core" = callPackage
+({
+  mkDerivation
+, base
 , blaze-markup
 , bytestring
-, directory
-, file-embed
-, filepath
 , http-media
 , servant
 , servant-blaze
 , servant-server
-, servant-swagger
 , stdenv
 , swagger2
-, template-haskell
 , text
 , transformers
 , transformers-compat
@@ -71393,25 +71607,18 @@ license = stdenv.lib.licenses.bsd3;
 }:
 mkDerivation {
 
-pname = "servant-swagger-ui";
-version = "0.2.5.3.9.1";
-sha256 = "35017aa0efaa90240fac68d147c35069905eb821567da53bb4b627f829b47fb9";
-revision = "1";
-editedCabalFile = "16lixcz9vkkgvcfwdfj3p6pmf458hymyywklzwnbhk7z16wjjhnv";
+pname = "servant-swagger-ui-core";
+version = "0.3.1";
+sha256 = "ab379f8dec934c573c62c72ad49cc04c7e3c77a93fb8f375cfa965836eaa9616";
 libraryHaskellDepends = [
 base
 blaze-markup
 bytestring
-directory
-file-embed
-filepath
 http-media
 servant
 servant-blaze
 servant-server
-servant-swagger
 swagger2
-template-haskell
 text
 transformers
 transformers-compat
@@ -71419,8 +71626,45 @@ wai-app-static
 ];
 doHaddock = false;
 doCheck = false;
-homepage = "https://github.com/phadej/servant-swagger-ui#readme";
-description = "Servant swagger ui";
+homepage = "https://github.com/haskell-servant/servant-swagger-ui";
+description = "Servant swagger ui core components";
+license = stdenv.lib.licenses.bsd3;
+
+}) {};
+"servant-swagger-ui-redoc" = callPackage
+({
+  mkDerivation
+, base
+, bytestring
+, file-embed-lzma
+, servant
+, servant-server
+, servant-swagger-ui-core
+, stdenv
+, swagger2
+, text
+}:
+mkDerivation {
+
+pname = "servant-swagger-ui-redoc";
+version = "0.3.0.1.21.2";
+sha256 = "9463401a098b6dd10b9ef119982fe5229421d297c25d2ecf3b2d6e58eac175dc";
+revision = "1";
+editedCabalFile = "11lldvcppw71a7i963lymsqy74dkl46zhqnp30g33mfmbvgbwh23";
+libraryHaskellDepends = [
+base
+bytestring
+file-embed-lzma
+servant
+servant-server
+servant-swagger-ui-core
+swagger2
+text
+];
+doHaddock = false;
+doCheck = false;
+homepage = "https://github.com/haskell-servant/servant-swagger-ui";
+description = "Servant swagger ui: ReDoc theme";
 license = stdenv.lib.licenses.bsd3;
 
 }) {};
@@ -71496,8 +71740,8 @@ mkDerivation {
 pname = "servant-yaml";
 version = "0.1.0.0";
 sha256 = "c917d9b046b06a9c4386f743a78142c27cf7f0ec1ad8562770ab9828f2ee3204";
-revision = "19";
-editedCabalFile = "1hlfly2j0c3c4sbzbkbzvwgvfnngkmx0r67ddv4ccg2if6pc5nqv";
+revision = "21";
+editedCabalFile = "1xrlhbgh54ny4xiqcdbka7i86wkyyqndwwv3r3k47xdr5683iyc1";
 libraryHaskellDepends = [
 base
 bytestring
@@ -71507,7 +71751,7 @@ yaml
 ];
 doHaddock = false;
 doCheck = false;
-homepage = "https://github.com/phadej/servant-yaml#readme";
+homepage = "https://github.com/haskell-servant/servant-yaml#readme";
 description = "Servant support for yaml";
 license = stdenv.lib.licenses.bsd3;
 
@@ -72968,8 +73212,8 @@ mkDerivation {
 pname = "slug";
 version = "0.1.7";
 sha256 = "d76f8243fd8b45d02c0731962ceddcd96154473d6f7c5cbf36ab921bc5627dde";
-revision = "3";
-editedCabalFile = "1kqaqhg8bkrkax41pbi18612s0m9w2324n5akn5nhmxq0zla73vh";
+revision = "4";
+editedCabalFile = "18h2wl2a3bb9094yq9dp6sjschb75ki4zlp1vrfzkpsrwb4v3ndr";
 libraryHaskellDepends = [
 aeson
 base
@@ -74390,8 +74634,8 @@ mkDerivation {
 pname = "stache";
 version = "1.2.1";
 sha256 = "6bfbdd2755c606f7b146243db1eefc2f49c720264ba9072a9d170a1bbdbc113b";
-revision = "4";
-editedCabalFile = "03qy0mlyiwpv98aq74m3pyarg6v6w9vn8qlq6ljdlb40xi1p9s7z";
+revision = "7";
+editedCabalFile = "08i636hsi0znrm3ma7z2wknma06aa4xzfqwy0z4x9d7vn7fscm48";
 enableSeparateDataOutput = true;
 libraryHaskellDepends = [
 aeson
@@ -74620,8 +74864,8 @@ mkDerivation {
 pname = "statistics";
 version = "0.14.0.2";
 sha256 = "3495df2da42c9fcc5b594b97f16c02353bfd6616d6e134ac031dac389d7a4778";
-revision = "1";
-editedCabalFile = "0gg7hq8qvbnhp7lnrykh401ggr51izffylgdmy6nip2a81q9dxi0";
+revision = "2";
+editedCabalFile = "1bx70yqkn62ii17fjv3pig4hklrzkqd09zj67zzjiyjzmn04fir3";
 libraryHaskellDepends = [
 aeson
 base
@@ -75951,8 +76195,8 @@ mkDerivation {
 pname = "structs";
 version = "0.1.1";
 sha256 = "df60ac419775ad96959338c7f14e93a3d47b82728234df206b0145d33694aa41";
-revision = "1";
-editedCabalFile = "16ws2j3bhwawf6z1ipraiz73yvg65dg5l7hvj1lgbrqvn5lqizj3";
+revision = "2";
+editedCabalFile = "1v9gmnj17cm4p491rizvw9xdj255lk1y24gz6s8bqcz56sdb4d4s";
 setupHaskellDepends = [
 base
 Cabal
@@ -75969,6 +76213,75 @@ doHaddock = false;
 doCheck = false;
 homepage = "http://github.com/ekmett/structs/";
 description = "Strict GC'd imperative object-oriented programming with cheap pointers";
+license = stdenv.lib.licenses.bsd3;
+
+}) {};
+"stylish-haskell" = callPackage
+({
+  mkDerivation
+, aeson
+, base
+, bytestring
+, containers
+, directory
+, fetchgit
+, file-embed
+, filepath
+, haskell-src-exts
+, mtl
+, optparse-applicative
+, semigroups
+, stdenv
+, strict
+, syb
+, yaml
+}:
+mkDerivation {
+
+pname = "stylish-haskell";
+version = "0.9.2.0";
+src = fetchgit {
+
+url = "https://github.com/input-output-hk/stylish-haskell.git";
+sha256 = "0d6ylb07gxv050fpzc6siwxj8c7j1pkcry5zyzimv0xwn1wf6rfy";
+rev = "ecfd3b307d8d13a6d12aff03055f25a39a17e182";
+
+};
+isLibrary = true;
+isExecutable = true;
+libraryHaskellDepends = [
+aeson
+base
+bytestring
+containers
+directory
+file-embed
+filepath
+haskell-src-exts
+mtl
+semigroups
+syb
+yaml
+];
+executableHaskellDepends = [
+aeson
+base
+bytestring
+containers
+directory
+file-embed
+filepath
+haskell-src-exts
+mtl
+optparse-applicative
+strict
+syb
+yaml
+];
+doHaddock = false;
+doCheck = false;
+homepage = "https://github.com/jaspervdj/stylish-haskell";
+description = "Haskell code prettifier";
 license = stdenv.lib.licenses.bsd3;
 
 }) {};
@@ -77141,10 +77454,10 @@ license = stdenv.lib.licenses.mit;
 mkDerivation {
 
 pname = "tasty-hedgehog";
-version = "0.1.0.2";
-sha256 = "1dc1ffb73bae9c6ccefb050a5489faae9b3144e987f8d054a9645d7e27884d32";
-revision = "2";
-editedCabalFile = "0kcsky6xnqpg2hpvpw50sdmjg50z1s57wbvxqmcjrd7wx8hpapdq";
+version = "0.2.0.0";
+sha256 = "5a107fc3094efc50663e4634331a296281318b38c9902969c2d2d215d754a182";
+revision = "4";
+editedCabalFile = "04d7lhn0dlqna0pqz7wxmz2y6vq7qar2m2g432z38cvm5na9w4y0";
 libraryHaskellDepends = [
 base
 hedgehog
@@ -77154,7 +77467,7 @@ tasty
 doHaddock = false;
 doCheck = false;
 homepage = "https://github.com/qfpl/tasty-hedgehog";
-description = "Integrates the hedgehog testing library with the tasty testing framework";
+description = "Integration for tasty and hedgehog";
 license = stdenv.lib.licenses.bsd3;
 
 }) {};
@@ -78474,8 +78787,8 @@ mkDerivation {
 pname = "text-metrics";
 version = "0.3.0";
 sha256 = "3874af74060e35f01702640b353ac2180d93bb5d292a204e0ee3cadd26efbfa2";
-revision = "2";
-editedCabalFile = "1371qwwmq8w4p6zg0z43qnrpf9yb8yadnw97ka56mx4jlagrdm8n";
+revision = "3";
+editedCabalFile = "0wgkpc8zsfgc8rwbzylpf7r2nnrwhw6rani2chzc9r7lfygpqmn1";
 libraryHaskellDepends = [
 base
 containers
@@ -79265,8 +79578,8 @@ mkDerivation {
 pname = "these";
 version = "0.7.4";
 sha256 = "dcf37d7bab1780fc56663dac1f2eeee7890a4511f66e268aafbf786def8d884a";
-revision = "6";
-editedCabalFile = "16dglq7aj28ag4h11m4ym8lm3jjq5kx3y0bycbhqm4q9xpnwfvfb";
+revision = "8";
+editedCabalFile = "0j3ps7ngrzgxvkbr5gf8zkfkd1ci4dnfh425ndbr2xp9ipy00nkd";
 libraryHaskellDepends = [
 aeson
 base
@@ -80793,8 +81106,8 @@ mkDerivation {
 pname = "tree-diff";
 version = "0.0.1";
 sha256 = "bfe23e4c17c0cdbffa9f159b7adaaeb20e48575b3b5bda591c5e025118213b11";
-revision = "3";
-editedCabalFile = "04ajimrbywfnnnlx9axz3hmbi33c4g62hrmv52plgifjiw6c4y2y";
+revision = "4";
+editedCabalFile = "1rqxxyj6hqllahs11693g855cxz8mgnb490s7j1ksd300i5xgjsp";
 libraryHaskellDepends = [
 aeson
 ansi-terminal
@@ -80932,8 +81245,8 @@ mkDerivation {
 pname = "trifecta";
 version = "1.7.1.1";
 sha256 = "61f8753368fa0c7673b44c4e4c4dede00916f68b3f3b68a5fef6d9dedc50c68e";
-revision = "4";
-editedCabalFile = "12dv7mipmqc7ykazjqql6slbgdgi5f6hglw2cbdi6brvkwxk7w9z";
+revision = "5";
+editedCabalFile = "0zlvnmzxx1ax8kx1d0z4jibjy49picz2zxknr8i6pz1gsj89bgrw";
 setupHaskellDepends = [
 base
 Cabal
@@ -81875,6 +82188,8 @@ mkDerivation {
 pname = "unfoldable";
 version = "0.9.6";
 sha256 = "cd90eae9ba258cfaf2554b4946c9b60def83c92548bbeb7269fec97a8657eaa1";
+revision = "1";
+editedCabalFile = "1lgyfmv339zfkrf6s4bw1ksk0757vcc1vx07yc4l33idmpsgz77c";
 libraryHaskellDepends = [
 base
 containers
@@ -82042,8 +82357,8 @@ mkDerivation {
 pname = "union";
 version = "0.1.1.2";
 sha256 = "7ce28e082940e184a255459b29356b7d39e3421cb37b01ee1ed067437165d382";
-revision = "3";
-editedCabalFile = "1llczfg153qqrkp2biqaa9qqyzy6li5cnxbyp5p24d7f2dr0d5fc";
+revision = "4";
+editedCabalFile = "1pxx0bkvzglik34xkwza6zqcs98r2sqn5932xmcaah189qlsjq47";
 libraryHaskellDepends = [
 base
 deepseq
@@ -82388,6 +82703,9 @@ license = stdenv.lib.licenses.bsd3;
 , bytestring
 , containers
 , deepseq
+, fetchgit
+, fmt
+, formatting
 , ghc-prim
 , hashable
 , microlens
@@ -82397,7 +82715,6 @@ license = stdenv.lib.licenses.bsd3;
 , stdenv
 , stm
 , text
-, text-format
 , transformers
 , type-operators
 , unordered-containers
@@ -82407,13 +82724,21 @@ license = stdenv.lib.licenses.bsd3;
 mkDerivation {
 
 pname = "universum";
-version = "1.1.0";
-sha256 = "177635a009f38edb8fc764bf9504077fb41af033c49b2a0ae2c725b55a9a2f4c";
+version = "1.2.0";
+src = fetchgit {
+
+url = "https://github.com/input-output-hk/universum.git";
+sha256 = "12ppiszywj0dsspwlhb8bzhsrlgszk8rvlhcy8il3ppz99mlnw5g";
+rev = "7f1b2483f71cacdfd032fe447064d6e0a1df50fc";
+
+};
 libraryHaskellDepends = [
 base
 bytestring
 containers
 deepseq
+fmt
+formatting
 ghc-prim
 hashable
 microlens
@@ -82422,7 +82747,6 @@ mtl
 safe-exceptions
 stm
 text
-text-format
 transformers
 type-operators
 unordered-containers
@@ -83604,8 +83928,8 @@ mkDerivation {
 pname = "vector";
 version = "0.12.0.1";
 sha256 = "b100ee79b9da2651276278cd3e0f08a3c152505cc52982beda507515af173d7b";
-revision = "2";
-editedCabalFile = "0vzr8kra73anchp86knkmkq2afkd1hw6hirldn9vn69frynb1n6y";
+revision = "3";
+editedCabalFile = "0y5rh8k710i2a3p1h2rghvr5cfg78p5h0kbfi7ifxqqf6pzlyr1x";
 libraryHaskellDepends = [
 base
 deepseq
@@ -84085,6 +84409,8 @@ mkDerivation {
 pname = "vinyl";
 version = "0.7.0";
 sha256 = "fa3a1628d6c459a709de35c942cbf052a73734e8041fe99990c610103a0b90bd";
+revision = "1";
+editedCabalFile = "0g5b9g7mkjib4ar1v6jfn5m15vj1zg7qn4ffhz03labh3zlkw7zz";
 libraryHaskellDepends = [
 base
 ghc-prim
@@ -85095,6 +85421,8 @@ mkDerivation {
 pname = "wai-middleware-static";
 version = "0.8.2";
 sha256 = "0be4e9fd5252d526334e4e5885a2a75269aaaad560282b5c383c49e4d855befc";
+revision = "1";
+editedCabalFile = "0n7i81jrjsrav8bpg31avrd18vh95l5z6bfj4fqkrdj4h1v6armi";
 libraryHaskellDepends = [
 base
 bytestring
@@ -86109,6 +86437,8 @@ mkDerivation {
 pname = "websockets";
 version = "0.12.5.0";
 sha256 = "2d8f8d0ea1df5b62920539464ff9b40249c3663f3b8a80014ac6ac78650577a7";
+revision = "1";
+editedCabalFile = "1f91hy5rjzj7l109x797i9md7v4l509prw97rfq1ks4danj0vffq";
 isLibrary = true;
 isExecutable = true;
 libraryHaskellDepends = [
@@ -89114,8 +89444,8 @@ mkDerivation {
 pname = "yesod-bin";
 version = "1.6.0.3";
 sha256 = "e4db295b4c651c205a1730df38501c217d9b600f3dbc1eea21d5fa47e832aedc";
-revision = "1";
-editedCabalFile = "0dr9i8jisp5vd0pz6pckdiax1ynm9rhgjjr2xhxlrlfy24k14gg3";
+revision = "2";
+editedCabalFile = "0h4nam6zkhz7km0z5z3zngnrgif7a42llvh013iava171kadn8xp";
 isLibrary = false;
 isExecutable = true;
 executableHaskellDepends = [
@@ -90859,8 +91189,8 @@ mkDerivation {
 pname = "zippers";
 version = "0.2.5";
 sha256 = "2d127772564655df0cb99d5191b91a555797e66e535d0b8b4f5ed4d54097c085";
-revision = "2";
-editedCabalFile = "03vmfmj38sa6pn858wa4fcbn3b0jw5pcypzv0kls600fgdbjfqbm";
+revision = "3";
+editedCabalFile = "0y0klc2jaj611cjvmqi95dyj9yvribf9xhibn1andrz5rs6ysz3p";
 setupHaskellDepends = [
 base
 Cabal

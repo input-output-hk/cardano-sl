@@ -16,13 +16,13 @@ import           Universum
 
 import           Control.Lens (at, ix, (?~))
 import           Data.Aeson (Value (Number))
+import qualified Data.Aeson.Options as Serokell
 import           Data.Aeson.TH
 import qualified Data.Char as Char
 import           Data.Default
 import           Data.Swagger as S
-import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
-import qualified Serokell.Aeson.Options as Serokell
+import qualified Formatting.Buildable
 import           Test.QuickCheck (Arbitrary (..), choose, getPositive)
 import           Web.HttpApiData
 
@@ -39,8 +39,8 @@ instance Arbitrary Page where
 instance FromHttpApiData Page where
     parseQueryParam qp = case parseQueryParam qp of
         Right (p :: Int) | p < 1 -> Left "A page number cannot be less than 1."
-        Right (p :: Int) -> Right (Page p)
-        Left e           -> Left e
+        Right (p :: Int)         -> Right (Page p)
+        Left e                   -> Left e
 
 instance ToHttpApiData Page where
     toQueryParam (Page p) = fromString (show p)
@@ -153,7 +153,7 @@ instance Buildable PaginationMetadata where
 -- | `PaginationParams` is datatype which combines request params related
 -- to pagination together.
 data PaginationParams = PaginationParams
-    { ppPage    :: Page
+    { ppPage    :: Page -- ^ Greater than 0.
     , ppPerPage :: PerPage
     } deriving (Show, Eq, Generic)
 

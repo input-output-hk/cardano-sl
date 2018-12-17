@@ -10,8 +10,9 @@ module Cardano.Wallet.API.V1.LegacyHandlers where
 import           Universum
 
 import           Ntp.Client (NtpStatus)
-import           Pos.Core.NetworkMagic (makeNetworkMagic)
-import           Pos.Crypto (ProtocolMagic)
+import           Pos.Chain.Genesis as Genesis (Config (..))
+import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion (sendTx))
 
 import qualified Cardano.Wallet.API.V1 as V1
@@ -41,16 +42,27 @@ handlers :: ( HasConfigurations
             , HasCompileInfo
             )
             => (forall a. MonadV1 a -> Handler a)
-            -> ProtocolMagic
+            -> Genesis.Config
+            -> TxpConfiguration
             -> Diffusion MonadV1
             -> TVar NtpStatus
             -> Server V1.API
-handlers naturalTransformation pm diffusion ntpStatus =
-         hoistServer (Proxy @Addresses.API) naturalTransformation (Addresses.handlers nm)
-    :<|> hoistServer (Proxy @Wallets.API) naturalTransformation (Wallets.handlers nm)
-    :<|> hoistServer (Proxy @Accounts.API) naturalTransformation (Accounts.handlers nm)
-    :<|> hoistServer (Proxy @Transactions.API) naturalTransformation (Transactions.handlers pm (sendTx diffusion))
-    :<|> hoistServer (Proxy @Settings.API) naturalTransformation Settings.handlers
-    :<|> hoistServer (Proxy @Info.API) naturalTransformation (Info.handlers diffusion ntpStatus)
+handlers naturalTransformation genesisConfig txpConfig diffusion ntpStatus =
+         hoist' (Proxy @Addresses.API) (Addresses.handlers nm)
+    :<|> hoist' (Proxy @Wallets.API) (Wallets.handlers genesisConfig)
+    :<|> hoist' (Proxy @Accounts.API) (Accounts.handlers nm)
+    :<|> hoist' (Proxy @Transactions.API) (Transactions.handlers genesisConfig txpConfig sendTx')
+    :<|> hoist' (Proxy @Settings.API) Settings.handlers
+    :<|> hoist' (Proxy @Info.API) (Info.handlers diffusion ntpStatus)
   where
-    nm = makeNetworkMagic pm
+    nm :: NetworkMagic
+    nm = makeNetworkMagic $ configProtocolMagic genesisConfig
+    --
+    hoist'
+        :: forall (api :: *). HasServer api '[]
+        => Proxy api
+        -> ServerT api MonadV1
+        -> Server api
+    hoist' p = hoistServer p naturalTransformation
+    --
+    sendTx' = sendTx diffusion

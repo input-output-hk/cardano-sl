@@ -1,0 +1,1 @@
+{"status":"error","diagnostic":{"details":{"msg":"Not enough available coins to proceed.","availableBalance":14}},"message":"NotEnoughMoney"}

@@ -13,12 +13,11 @@ import           Control.Monad.Except (runExceptT, throwError)
 
 import           Pos.Block.BHelpers ()
 import           Pos.Block.Types (RecoveryHeader, RecoveryHeaderTag)
-import           Pos.Core (HasProtocolConstants, epochOrSlotG,
-                           epochOrSlotToSlot, flattenSlotId)
+import           Pos.Core (epochOrSlotG, epochOrSlotToSlot, flattenSlotId)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo (..),
-                                          SyncStatus (..))
+                     SyncStatus (..))
 import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Util.Util (HasLens (..))
 
@@ -28,22 +27,22 @@ instance ( Monad m
          , MonadSlots ctx m
          , MonadReader ctx m
          , HasLens RecoveryHeaderTag ctx RecoveryHeader
-         , HasProtocolConstants
          ) =>
          MonadRecoveryInfo m where
-    getSyncStatus lagBehindParam =
+    getSyncStatus epochSlots lagBehindParam =
         fmap convertRes . runExceptT $ do
             recoveryIsInProgress >>= \case
                 False -> pass
                 True -> throwError SSDoingRecovery
-            curSlot <- note SSUnknownSlot =<< getCurrentSlot
+            curSlot <- note SSUnknownSlot =<< getCurrentSlot epochSlots
             tipHeader <- lift DB.getTipHeader
             let tipSlot = epochOrSlotToSlot (tipHeader ^. epochOrSlotG)
             unless (tipSlot <= curSlot) $
                 throwError
                     SSInFuture
                     {sslbCurrentSlot = curSlot, sslbTipSlot = tipSlot}
-            let slotDiff = flattenSlotId curSlot - flattenSlotId tipSlot
+            let slotDiff = flattenSlotId epochSlots curSlot
+                    - flattenSlotId epochSlots tipSlot
             unless (slotDiff < fromIntegral lagBehindParam) $
                 throwError
                     SSLagBehind

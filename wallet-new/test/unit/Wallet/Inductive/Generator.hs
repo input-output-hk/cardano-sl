@@ -28,17 +28,14 @@ import           Data.Tree
 import           Pos.Core.Chrono
 import           Test.QuickCheck
 
-import           Util
 import           UTxO.DSL
 import           UTxO.Generator
+import           UTxO.Util (Probability, toss, withoutKeys)
 import           Wallet.Inductive
 
 {-------------------------------------------------------------------------------
   Wallet event tree
 -------------------------------------------------------------------------------}
-
--- | Probability (value between 0 and 1)
-type Probability = Double
 
 -- | Set of transactions, indexed by their given hash
 --
@@ -98,7 +95,7 @@ data GenEventsParams h a = GenEventsParams {
     , gepMaxNumForks          :: Int
     }
 
-defEventsParams :: (Int -> [Value] -> Value) -- ^ Fee model
+defEventsParams :: (Int -> Int -> Value) -- ^ Fee model
                 -> [a]             -- ^ Addresses we can generate outputs to
                 -> Set a           -- ^ Addresses that belong to the wallet
                 -> Utxo h a        -- ^ Initial UTxO
@@ -135,11 +132,10 @@ data GenEventsGlobalState h a = GenEventsGlobalState {
       -- transactions once submitted into the system "stay out there".
     , _gegsPending   :: Transactions h a
 
-      -- | Maximum height of any path through the tree generated so far
-    , _gegsMaxLength :: Int
-
-      -- | Number of forks created so far
-    , _gegsNumForks  :: Int
+      -- | Lengths of the forks created previously (not including current)
+      --
+      -- This list should be strictly increasing.
+    , _gegsPrevForks :: [Int]
     }
 
 -- | Branch local state
@@ -177,8 +173,7 @@ initEventsGlobalState :: Int   -- ^ First available hash
 initEventsGlobalState nextHash = GenEventsGlobalState {
       _gegsNextHash  = nextHash
     , _gegsPending   = Map.empty
-    , _gegsMaxLength = 0
-    , _gegsNumForks  = 0
+    , _gegsPrevForks = []
     }
 
 -- | Lens to the system UTxO
@@ -239,8 +234,16 @@ genEventTree GenEventsParams{..} =
   where
     buildTree :: GenSeeds h a (WalletEvent h a)
     buildTree ls = do
+        prevForks <- use gegsPrevForks
+        -- We cannot submit pending transactions until a switch-to-fork is
+        -- complete (a rollback of @N@ blocks and the subsequent @N + 1@
+        -- blocks will happen atomically).
+        let ourLength        = ls ^. gelsLength
+            canSubmitPending = case prevForks of
+                                 []     -> True
+                                 prev:_ -> ourLength > prev
         shouldSubmitPending <- lift $ toss gepPendingProb
-        if shouldSubmitPending
+        if canSubmitPending && shouldSubmitPending
           then submitPending ls
           else generateBlock ls
 
@@ -337,11 +340,12 @@ genEventTree GenEventsParams{..} =
         -- because we only ever switch to a fork when the new fork is longer
         -- than the current
         let ourLength = ls'' ^. gelsLength
-        maxLength <- use gegsMaxLength
-        numForks  <- use gegsNumForks
+        prevForks <- use gegsPrevForks
         let allowedTerminate, allowedFork :: Bool
-            allowedTerminate = ourLength > maxLength
-            allowedFork      = numForks < gepMaxNumForks
+            allowedTerminate = case prevForks of
+                                 []       -> True
+                                 (prev:_) -> ourLength > prev
+            allowedFork      = length prevForks < gepMaxNumForks
 
             -- Is a particular branching factor applicable?
             applicable :: (Int, Int) -> Bool
@@ -355,8 +359,9 @@ genEventTree GenEventsParams{..} =
 
         branchingFactor <- lift $ frequency $ map (second pure) freqs
 
-        gegsMaxLength %= max ourLength
-        gegsNumForks  += if branchingFactor > 1 then 1 else 0
+        -- If we are done with this fork, record our length
+        when (branchingFactor == 0) $
+          gegsPrevForks %= (ourLength :)
 
         return (ev, replicate branchingFactor ls'')
 
@@ -427,16 +432,3 @@ linearise = OldestFirst . stripRollbacks . go
     -- want to do that for the very last branch.
     stripRollbacks :: [WalletEvent h a] -> [WalletEvent h a]
     stripRollbacks = reverse . dropWhile walletEventIsRollback . reverse
-
-{-------------------------------------------------------------------------------
-  Auxiliary
--------------------------------------------------------------------------------}
-
--- | Weighted coin toss
---
--- @toss p@ throws a p-weighted coin and returns whether it came up heads.
--- @toss 0@ will always return @False@, @toss 1@ will always return @True@.
-toss :: Probability -> Gen Bool
-toss 0 = return False
-toss 1 = return True
-toss p = (< p) <$> choose (0, 1)

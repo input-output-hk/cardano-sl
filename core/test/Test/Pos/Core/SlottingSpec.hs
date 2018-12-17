@@ -6,39 +6,23 @@ module Test.Pos.Core.SlottingSpec
 
 import           Universum
 
-import           Test.Hspec (Expectation, Spec, anyErrorCall, describe, runIO)
-import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (NonNegative (..), Positive (..), Property, generate, (===), (==>))
+import           Test.Hspec (Expectation, Spec, anyErrorCall, describe)
+import           Test.Hspec.QuickCheck (prop)
+import           Test.QuickCheck (NonNegative (..), Positive (..), Property,
+                     (===), (==>))
 
-import           Pos.Core (EpochOrSlot, HasConfiguration, SlotId (..), defaultCoreConfiguration,
-                           flattenSlotId, unflattenSlotId, withGenesisSpec)
-import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
+import           Pos.Core (EpochOrSlot, SlotId (..), epochOrSlotFromEnum,
+                     epochOrSlotMaxBound, epochOrSlotMinBound, epochOrSlotPred,
+                     epochOrSlotSucc, epochOrSlotToEnum, flattenSlotId,
+                     unflattenSlotId)
 
-import           Test.Pos.Core.Arbitrary (EoSToIntOverflow (..), UnreasonableEoS (..))
-import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
+import           Test.Pos.Core.Arbitrary (EoSToIntOverflow (..),
+                     UnreasonableEoS (..))
+import           Test.Pos.Core.Dummy (dummyEpochSlots)
 import           Test.Pos.Util.QuickCheck.Property (shouldThrowException, (.=.))
 
-
--- We run the tests this number of times, with different `ProtocolMagics`, to get increased
--- coverage. We should really do this inside of the `prop`, but it is difficult to do that
--- without significant rewriting of the testsuite.
-testMultiple :: Int
-testMultiple = 3
-
 spec :: Spec
-spec = do
-    runWithMagic NMMustBeNothing
-    runWithMagic NMMustBeJust
-
-runWithMagic :: RequiresNetworkMagic -> Spec
-runWithMagic rnm = replicateM_ testMultiple $
-    modifyMaxSuccess (`div` testMultiple) $ do
-        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
-        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
-            specBody pm
-
-specBody :: ProtocolMagic -> Spec
-specBody pm = withGenesisSpec 0 (defaultCoreConfiguration pm) $ \_ -> describe "Slotting" $ do
+spec = describe "Slotting" $ do
     describe "SlotId" $ do
         describe "Ord" $ do
             prop "is consistent with flatten/unflatten"
@@ -64,40 +48,65 @@ specBody pm = withGenesisSpec 0 (defaultCoreConfiguration pm) $ \_ -> describe "
         prop "calling 'toEnum' with a negative number will raise an exception"
             toEnumNegative
 
-flattenOrdConsistency :: HasConfiguration => SlotId -> SlotId -> Property
-flattenOrdConsistency a b = a `compare` b === flattenSlotId a `compare` flattenSlotId b
+flattenOrdConsistency :: SlotId -> SlotId -> Property
+flattenOrdConsistency a b =
+    a
+        `compare` b
+        ===       flattenSlotId dummyEpochSlots a
+        `compare` flattenSlotId dummyEpochSlots b
 
-flattenThenUnflatten :: HasConfiguration => SlotId -> Property
-flattenThenUnflatten si = si === unflattenSlotId (flattenSlotId si)
+flattenThenUnflatten :: SlotId -> Property
+flattenThenUnflatten si =
+    si === unflattenSlotId dummyEpochSlots (flattenSlotId dummyEpochSlots si)
 
-predThenSucc :: HasConfiguration => EpochOrSlot -> Property
-predThenSucc eos = eos > minBound ==> succ (pred eos) === eos
+predThenSucc :: EpochOrSlot -> Property
+predThenSucc eos =
+    eos
+        >   epochOrSlotMinBound
+        ==> epochOrSlotSucc dummyEpochSlots
+                            (epochOrSlotPred dummyEpochSlots eos)
+        === eos
 
-predToMinBound :: HasConfiguration => Expectation
-predToMinBound =
-    shouldThrowException pred anyErrorCall (minBound :: EpochOrSlot)
+predToMinBound :: Expectation
+predToMinBound = shouldThrowException (epochOrSlotPred dummyEpochSlots)
+                                      anyErrorCall
+                                      epochOrSlotMinBound
 
-succThenPred :: HasConfiguration => EpochOrSlot -> Property
-succThenPred eos = eos < maxBound ==> pred (succ eos) === eos
+succThenPred :: EpochOrSlot -> Property
+succThenPred eos =
+    eos
+        <   epochOrSlotMaxBound dummyEpochSlots
+        ==> epochOrSlotPred dummyEpochSlots
+                            (epochOrSlotSucc dummyEpochSlots eos)
+        === eos
 
-succToMaxBound :: HasConfiguration => Expectation
-succToMaxBound = shouldThrowException succ anyErrorCall (maxBound :: EpochOrSlot)
+succToMaxBound :: Expectation
+succToMaxBound = shouldThrowException (epochOrSlotSucc dummyEpochSlots)
+                                      anyErrorCall
+                                      (epochOrSlotMaxBound dummyEpochSlots)
 
 -- It is not necessary to check that 'int < fromEnum (maxBound :: EpochOrSlot)' because
 -- this is not possible with the current implementation of the type.
-toFromEnum :: HasConfiguration => NonNegative Int -> Property
-toFromEnum (getNonNegative -> int) = fromEnum (toEnum @EpochOrSlot int) === int
+toFromEnum :: NonNegative Int -> Property
+toFromEnum (getNonNegative -> int) =
+    epochOrSlotFromEnum dummyEpochSlots (epochOrSlotToEnum dummyEpochSlots int)
+        === int
 
-fromToEnum :: HasConfiguration => EpochOrSlot -> Property
-fromToEnum = toEnum . fromEnum .=. identity
+fromToEnum :: EpochOrSlot -> Property
+fromToEnum =
+    epochOrSlotToEnum dummyEpochSlots
+        .   epochOrSlotFromEnum dummyEpochSlots
+        .=. identity
 
-fromToEnumLargeEpoch :: HasConfiguration => UnreasonableEoS -> Property
-fromToEnumLargeEpoch (getUnreasonable -> eos) = toEnum (fromEnum eos) === eos
+fromToEnumLargeEpoch :: UnreasonableEoS -> Property
+fromToEnumLargeEpoch (getUnreasonable -> eos) =
+    epochOrSlotToEnum dummyEpochSlots (epochOrSlotFromEnum dummyEpochSlots eos)
+        === eos
 
-fromEnumOverflow :: HasConfiguration => EoSToIntOverflow-> Expectation
+fromEnumOverflow :: EoSToIntOverflow -> Expectation
 fromEnumOverflow (getEoS -> eos) =
-    shouldThrowException (fromEnum @EpochOrSlot) anyErrorCall eos
+    shouldThrowException (epochOrSlotFromEnum dummyEpochSlots) anyErrorCall eos
 
-toEnumNegative :: HasConfiguration => Positive Int -> Expectation
+toEnumNegative :: Positive Int -> Expectation
 toEnumNegative (negate . getPositive -> int) =
-    shouldThrowException (toEnum @EpochOrSlot) anyErrorCall int
+    shouldThrowException (epochOrSlotToEnum dummyEpochSlots) anyErrorCall int

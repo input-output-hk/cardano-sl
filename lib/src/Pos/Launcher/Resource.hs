@@ -1,7 +1,8 @@
-{-# LANGUAGE CPP            #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE Rank2Types     #-}
-{-# LANGUAGE TypeOperators  #-}
+{-# LANGUAGE CPP             #-}
+{-# LANGUAGE KindSignatures  #-}
+{-# LANGUAGE Rank2Types      #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeOperators   #-}
 
 -- | Resources used by node and ways to deal with them.
 
@@ -10,8 +11,6 @@ module Pos.Launcher.Resource
          -- * Full resources
          NodeResources (..)
 
-       , allocateNodeResources
-       , releaseNodeResources
        , bracketNodeResources
 
          -- * Smaller resources
@@ -20,56 +19,64 @@ module Pos.Launcher.Resource
 
 import           Universum
 
+import           Control.Concurrent.Async.Lifted (Async)
+import qualified Control.Concurrent.Async.Lifted as Async
 import           Control.Concurrent.STM (newEmptyTMVarIO, newTBQueueIO)
 import           Control.Exception.Base (ErrorCall (..))
 import           Data.Default (Default)
 import qualified Data.Time as Time
 import           Formatting (sformat, shown, (%))
-import           Mockable (Production (..))
 import           System.IO (BufferMode (..), hClose, hSetBuffering)
 import qualified System.Metrics as Metrics
-import           System.Wlog (LoggerConfig (..), WithLogger, consoleActionB, defaultHandleAction,
-                              logDebug, logInfo, maybeLogsDirB, productionB, removeAllHandlers,
-                              setupLogging, showTidB)
 
 import           Network.Broadcast.OutboundQueue.Types (NodeType (..))
 import           Pos.Binary ()
-import           Pos.Block.Configuration (HasBlockConfiguration)
-import           Pos.Block.Slog (mkSlogContext)
-import           Pos.Client.CLI.Util (readLoggerConfig)
+import           Pos.Chain.Block (HasBlockConfiguration)
+import           Pos.Chain.Delegation (DelegationVar, HasDlgConfiguration)
+import           Pos.Chain.Genesis as Genesis (Config, configBlkSecurityParam,
+                     configEpochSlots, configStartTime)
+import           Pos.Chain.Ssc (SscParams, SscState, createSscContext)
 import           Pos.Configuration
-import           Pos.Context (ConnectedPeers (..), NodeContext (..), StartTime (..))
-import           Pos.Core (HasConfiguration, Timestamp, gdStartTime, genesisData)
+import           Pos.Context (ConnectedPeers (..), NodeContext (..),
+                     StartTime (..))
+import           Pos.Core (Timestamp)
+import           Pos.Core.Reporting (initializeMisbehaviorMetrics)
 import           Pos.DB (MonadDBRead, NodeDBs)
+import           Pos.DB.Block (consolidateWorker, mkSlogContext)
+import           Pos.DB.Delegation (mkDelegationVar)
+import           Pos.DB.Lrc (LrcContext (..), mkLrcSyncData)
 import           Pos.DB.Rocks (closeNodeDBs, openNodeDBs)
-import           Pos.Delegation (DelegationVar, HasDlgConfiguration, mkDelegationVar)
+import           Pos.DB.Ssc (mkSscState)
+import           Pos.DB.Txp (GenericTxpLocalData (..), TxpGlobalSettings,
+                     mkTxpLocalData, recordTxpMetrics)
+import           Pos.DB.Update (mkUpdateContext)
+import qualified Pos.DB.Update as GState
 import qualified Pos.GState as GS
 import           Pos.Infra.DHT.Real (KademliaParams (..))
+import           Pos.Infra.InjectFail (FInjects)
 import           Pos.Infra.Network.Types (NetworkConfig (..))
-import           Pos.Infra.Reporting (initializeMisbehaviorMetrics)
 import           Pos.Infra.Shutdown.Types (ShutdownContext (..))
-import           Pos.Infra.Slotting (SimpleSlottingStateVar, mkSimpleSlottingStateVar)
+import           Pos.Infra.Slotting (SimpleSlottingStateVar,
+                     mkSimpleSlottingStateVar)
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Infra.StateLock (newStateLock)
-import           Pos.Infra.Util.JsonLog.Events (JsonLogConfig (..), jsonLogConfigFromHandle)
-import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
-import           Pos.Lrc.Context (LrcContext (..), mkLrcSyncData)
-import           Pos.Ssc (SscParams, SscState, createSscContext, mkSscState)
-import           Pos.Txp (GenericTxpLocalData (..), TxpGlobalSettings, mkTxpLocalData,
-                          recordTxpMetrics)
-
+import           Pos.Infra.Util.JsonLog.Events (JsonLogConfig (..),
+                     jsonLogConfigFromHandle)
 import           Pos.Launcher.Mode (InitMode, InitModeContext (..), runInitMode)
-import           Pos.Update.Context (mkUpdateContext)
-import qualified Pos.Update.DB as GState
+import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
+                     NodeParams (..))
 import           Pos.Util (bracketWithLogging, newInitFuture)
+import           Pos.Util.Log.Internal (LoggingHandler)
+import           Pos.Util.Log.LoggerConfig (defaultInteractiveConfiguration,
+                     isWritingToConsole, lcLoggerTree, ltHandlers)
+import           Pos.Util.Wlog (LoggerConfig (..), Severity (..), WithLogger,
+                     logDebug, logInfo, parseLoggerConfig, removeAllHandlers,
+                     setupLogging')
 
 #ifdef linux_HOST_OS
+import qualified Pos.Util.Wlog as Logger
 import qualified System.Systemd.Daemon as Systemd
-import qualified System.Wlog as Logger
 #endif
-
--- Remove this once there's no #ifdef-ed Pos.Txp import
-{-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
 
 ----------------------------------------------------------------------------
 -- Data type
@@ -85,6 +92,8 @@ data NodeResources ext = NodeResources
     , nrJsonLogConfig :: !JsonLogConfig
     -- ^ Config for optional JSON logging.
     , nrEkgStore      :: !Metrics.Store
+    , nrConsolidate   :: !(Async ())
+    , nrFInjects      :: !(FInjects IO)
     }
 
 ----------------------------------------------------------------------------
@@ -95,17 +104,17 @@ data NodeResources ext = NodeResources
 allocateNodeResources
     :: forall ext .
        ( Default ext
-       , HasConfiguration
        , HasNodeConfiguration
        , HasDlgConfiguration
        , HasBlockConfiguration
        )
-    => NodeParams
+    => Genesis.Config
+    -> NodeParams
     -> SscParams
     -> TxpGlobalSettings
     -> InitMode ()
-    -> Production (NodeResources ext)
-allocateNodeResources np@NodeParams {..} sscnp txpSettings initDB = do
+    -> IO (NodeResources ext)
+allocateNodeResources genesisConfig np@NodeParams {..} sscnp txpSettings initDB = do
     logInfo "Allocating node resources..."
     npDbPath <- case npDbPathM of
         Nothing -> do
@@ -131,6 +140,9 @@ allocateNodeResources np@NodeParams {..} sscnp txpSettings initDB = do
         initDB
         logDebug "Initialized DB"
 
+        consAsync <- Async.async $ consolidateWorker genesisConfig
+        logDebug "Initialized block/epoch consolidation"
+
         nrEkgStore <- liftIO $ Metrics.newStore
         logDebug "Created EKG store"
 
@@ -144,12 +156,13 @@ allocateNodeResources np@NodeParams {..} sscnp txpSettings initDB = do
                 , ancdEkgStore = nrEkgStore
                 , ancdTxpMemState = txpVar
                 }
-        ctx@NodeContext {..} <- allocateNodeContext ancd txpSettings nrEkgStore
+        ctx@NodeContext {..} <-
+            allocateNodeContext genesisConfig ancd txpSettings nrEkgStore
         putLrcContext ncLrcContext
         logDebug "Filled LRC Context future"
         dlgVar <- mkDelegationVar
         logDebug "Created DLG var"
-        sscState <- mkSscState
+        sscState <- mkSscState $ configEpochSlots genesisConfig
         logDebug "Created SSC var"
         jsonLogHandle <-
             case npJLFile of
@@ -172,12 +185,14 @@ allocateNodeResources np@NodeParams {..} sscnp txpSettings initDB = do
             , nrTxpState = txpVar
             , nrDlgState = dlgVar
             , nrJsonLogConfig = jsonLogConfig
+            , nrConsolidate = consAsync
+            , nrFInjects = npFInjects
             , ..
             }
 
 -- | Release all resources used by node. They must be released eventually.
 releaseNodeResources ::
-       NodeResources ext -> Production ()
+       NodeResources ext -> IO ()
 releaseNodeResources NodeResources {..} = do
     case nrJsonLogConfig of
         JsonLogDisabled -> return ()
@@ -186,27 +201,28 @@ releaseNodeResources NodeResources {..} = do
             (liftIO . hClose) h
             putMVar mVarHandle h
     closeNodeDBs nrDBs
+    Async.cancel nrConsolidate
     releaseNodeContext nrContext
 
 -- | Run computation which requires 'NodeResources' ensuring that
 -- resources will be released eventually.
 bracketNodeResources :: forall ext a.
       ( Default ext
-      , HasConfiguration
       , HasNodeConfiguration
       , HasDlgConfiguration
       , HasBlockConfiguration
       )
-    => NodeParams
+    => Genesis.Config
+    -> NodeParams
     -> SscParams
     -> TxpGlobalSettings
     -> InitMode ()
-    -> (HasConfiguration => NodeResources ext -> Production a)
-    -> Production a
-bracketNodeResources np sp txp initDB action = do
+    -> (NodeResources ext -> IO a)
+    -> IO a
+bracketNodeResources genesisConfig np sp txp initDB action = do
     let msg = "`NodeResources'"
     bracketWithLogging msg
-            (allocateNodeResources np sp txp initDB)
+            (allocateNodeResources genesisConfig np sp txp initDB)
             releaseNodeResources $ \nodeRes ->do
         -- Notify systemd we are fully operative
         -- FIXME this is not the place to notify.
@@ -220,24 +236,28 @@ bracketNodeResources np sp txp initDB action = do
 
 getRealLoggerConfig :: MonadIO m => LoggingParams -> m LoggerConfig
 getRealLoggerConfig LoggingParams{..} = do
-    let cfgBuilder = productionB
-                  <> showTidB
-                  <> maybeLogsDirB lpHandlerPrefix
-    cfg <- readLoggerConfig lpConfigPath
-    pure $ overrideConsoleLog $ cfg <> cfgBuilder
+    case lpConfigPath of
+        Just configPath -> parseLoggerConfig configPath
+        Nothing         -> return (mempty :: LoggerConfig)
+    >>= \lc -> return $ (overridePrefixPath . overrideConsoleLog) lc
   where
+    overridePrefixPath :: LoggerConfig -> LoggerConfig
+    overridePrefixPath = case lpHandlerPrefix of
+        Nothing -> identity
+        Just _  -> \lc -> lc { _lcBasePath = lpHandlerPrefix }
     overrideConsoleLog :: LoggerConfig -> LoggerConfig
     overrideConsoleLog = case lpConsoleLog of
         Nothing    -> identity
-        Just True  -> (<>) (consoleActionB defaultHandleAction)
-        Just False -> (<>) (consoleActionB (\_ _ -> pass))
+        Just True  -> (<> defaultInteractiveConfiguration Info)
+                      -- add output to the console with severity filter >= Info
+        Just False -> lcLoggerTree . ltHandlers %~ filter (not . isWritingToConsole)
 
-setupLoggers :: MonadIO m => LoggingParams -> m ()
-setupLoggers params = setupLogging Nothing =<< getRealLoggerConfig params
+setupLoggers :: MonadIO m => Text -> LoggingParams -> m LoggingHandler
+setupLoggers cfoKey params = setupLogging' cfoKey =<< getRealLoggerConfig params
 
 -- | RAII for Logging.
-loggerBracket :: LoggingParams -> IO a -> IO a
-loggerBracket lp = bracket_ (setupLoggers lp) removeAllHandlers
+loggerBracket :: Text -> LoggingParams -> IO a -> IO a
+loggerBracket cfoKey lp action = bracket (setupLoggers cfoKey lp) removeAllHandlers (const action)
 
 ----------------------------------------------------------------------------
 -- NodeContext
@@ -254,12 +274,14 @@ data AllocateNodeContextData ext = AllocateNodeContextData
 
 allocateNodeContext
     :: forall ext .
-      (HasConfiguration, HasNodeConfiguration, HasBlockConfiguration)
-    => AllocateNodeContextData ext
+      (HasNodeConfiguration, HasBlockConfiguration)
+    => Genesis.Config
+    -> AllocateNodeContextData ext
     -> TxpGlobalSettings
     -> Metrics.Store
     -> InitMode NodeContext
-allocateNodeContext ancd txpSettings ekgStore = do
+allocateNodeContext genesisConfig ancd txpSettings ekgStore = do
+    let epochSlots = configEpochSlots genesisConfig
     let AllocateNodeContextData { ancdNodeParams = np@NodeParams {..}
                                 , ancdSscParams = sscnp
                                 , ancdPutSlotting = putSlotting
@@ -276,12 +298,14 @@ allocateNodeContext ancd txpSettings ekgStore = do
     logDebug "Created StateLock metrics"
     lcLrcSync <- mkLrcSyncData >>= newTVarIO
     logDebug "Created LRC sync"
-    ncSlottingVar <- (gdStartTime genesisData,) <$> mkSlottingVar
+    ncSlottingVar <- (configStartTime genesisConfig,) <$> mkSlottingVar
     logDebug "Created slotting variable"
-    ncSlottingContext <- mkSimpleSlottingStateVar
+    ncSlottingContext <- mkSimpleSlottingStateVar epochSlots
     logDebug "Created slotting context"
     putSlotting ncSlottingVar ncSlottingContext
     logDebug "Filled slotting future"
+    ncUserPublic <- newTVarIO $ npUserPublic
+    logDebug "Created UserPublic variable"
     ncUserSecret <- newTVarIO $ npUserSecret
     logDebug "Created UserSecret variable"
     ncBlockRetrievalQueue <- liftIO $ newTBQueueIO blockRetrievalQueueSize
@@ -291,11 +315,11 @@ allocateNodeContext ancd txpSettings ekgStore = do
     ncStartTime <- StartTime <$> liftIO Time.getCurrentTime
     ncLastKnownHeader <- newTVarIO Nothing
     logDebug "Created last known header and shutdown flag variables"
-    ncUpdateContext <- mkUpdateContext
+    ncUpdateContext <- mkUpdateContext epochSlots
     logDebug "Created context for update"
     ncSscContext <- createSscContext sscnp
     logDebug "Created context for ssc"
-    ncSlogContext <- mkSlogContext store
+    ncSlogContext <- mkSlogContext (configBlkSecurityParam genesisConfig) store
     logDebug "Created context for slog"
     -- TODO synchronize the NodeContext peers var with whatever system
     -- populates it.
@@ -316,7 +340,7 @@ allocateNodeContext ancd txpSettings ekgStore = do
             NodeContext
             { ncConnectedPeers = ConnectedPeers peersVar
             , ncLrcContext = LrcContext {..}
-            , ncShutdownContext = ShutdownContext ncShutdownFlag
+            , ncShutdownContext = ShutdownContext ncShutdownFlag npFInjects
             , ncNodeParams = np
             , ncTxpGlobalSettings = txpSettings
             , ncNetworkConfig = networkConfig

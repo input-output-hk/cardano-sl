@@ -1,4 +1,5 @@
-#!/usr/bin/env bash
+#!/usr/bin/env nix-shell
+#!nix-shell -i bash -p git bash nixStable
 
 # check and warn if `pkgs/default.nix` is out of date
 
@@ -19,8 +20,6 @@ fail_stack2nix_check() {
 # Get relative path to script directory
 scriptDir=$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")
 
-# shellcheck source=/dev/null
-source "${scriptDir}/../pkgs/generate.sh"
-
+"${scriptDir}/../pkgs/generate.sh"
 
 git diff -w --text --exit-code || fail_stack2nix_check

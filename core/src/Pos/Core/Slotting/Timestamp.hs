@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module Pos.Core.Slotting.Timestamp
        ( Timestamp (..)
        , _Timestamp
@@ -11,17 +13,26 @@ module Pos.Core.Slotting.Timestamp
        , timestampToUTCTimeL
        ) where
 
+import qualified Prelude
 import           Universum
 
 import           Control.Lens (Iso', from, iso, makePrisms)
-import qualified Data.Text.Buildable as Buildable
-import           Data.Time (UTCTime, defaultTimeLocale, iso8601DateFormat, parseTimeM)
-import           Data.Time.Clock.POSIX (POSIXTime, posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
-import           Data.Time.Units (Microsecond)
+import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
+import           Data.Time (UTCTime, defaultTimeLocale, iso8601DateFormat,
+                     parseTimeM)
+import           Data.Time.Clock.POSIX (POSIXTime, posixSecondsToUTCTime,
+                     utcTimeToPOSIXSeconds)
+import           Data.Time.Units (Microsecond, Second, convertUnit)
 import           Formatting (Format, build)
-import           Mockable (CurrentTime, Mockable, currentTime)
+import qualified Formatting.Buildable as Buildable
 import           Numeric.Lens (dividing)
-import qualified Prelude
+import           Pos.Core.Conc (currentTime)
+import           Text.JSON.Canonical (FromJSON (..), Int54, JSValue (..),
+                     ReportSchemaErrors, ToJSON (..))
+
+import           Pos.Binary.Class (Bi (..))
+import           Pos.Core.Aeson ()
+import           Pos.Util.Json.Canonical ()
 
 -- | Timestamp is a number which represents some point in time. It is
 -- used in MonadSlots and its meaning is up to implementation of this
@@ -48,6 +59,24 @@ instance Buildable Timestamp where
 
 instance NFData Timestamp where
     rnf Timestamp{..} = rnf (toInteger getTimestamp)
+
+instance Bi Timestamp where
+    encode (Timestamp ms) = encode . toInteger $ ms
+    decode = Timestamp . fromIntegral <$> decode @Integer
+
+-- In genesis we don't need microseconds precision, we represent
+-- timestamps as seconds for convenience.
+instance Monad m => ToJSON m Timestamp where
+    toJSON (Timestamp microsec) =
+        pure $ JSNum $ fromIntegral @Second (convertUnit microsec)
+
+instance ReportSchemaErrors m => FromJSON m Timestamp where
+    fromJSON =
+        fmap (Timestamp . convertUnit @Second . fromIntegral) .
+        fromJSON @_ @Int54
+
+deriving instance Aeson.FromJSON Timestamp
+deriving instance Aeson.ToJSON Timestamp
 
 -- | Specialized formatter for 'Timestamp' data type.
 timestampF :: Format r (Timestamp -> r)
@@ -76,7 +105,7 @@ parseTimestamp t = utcTimeParser <|> timePosixParser
         <$> readMaybe @Double str
 
 -- Get the current time as a timestamp
-getCurrentTimestamp :: Mockable CurrentTime m => m Timestamp
+getCurrentTimestamp :: MonadIO m => m Timestamp
 getCurrentTimestamp = Timestamp <$> currentTime
 
 diffTimestamp :: Timestamp -> Timestamp -> Microsecond

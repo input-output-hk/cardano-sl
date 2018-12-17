@@ -1,0 +1,110 @@
+name:                cardano-sl-tools-post-mortem
+version:             2.0.0
+synopsis:            Cardano SL - post-mortem tool
+description:         Cardano SL - post-mortem tool
+license:             MIT
+license-file:        LICENSE
+author:              IOHK
+maintainer:          operations@iohk.io
+copyright:           2018 IOHK
+category:            Currency
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+
+-- Note: for components that we don't want to build, we add both "buildable:
+-- False" *and* wrap build-depends into "if !flag(for-installer)". This is
+-- because stack doesn't seem to take "buildable: False" into account when
+-- calculating the build plan.
+Flag for-installer
+  default:     False
+  manual:      True
+
+  description: Build a reduced set of components (only what is needed for the
+               installer)
+
+executable cardano-post-mortem
+  hs-source-dirs:      src
+  main-is:             Main.hs
+  other-modules:       JSONLog
+                     , Options
+                     , Statistics
+                     , Statistics.Block
+                     , Statistics.Chart
+                     , Statistics.CSV
+                     , Statistics.Focus
+                     , Statistics.Graph
+                     , Statistics.MemPool
+                     , Statistics.Report
+                     , Statistics.Throughput
+                     , Statistics.Tx
+                     , Types
+                     , Util.Aeson
+                     , Util.Pipes
+                     , Util.Safe
+  if !flag(for-installer)
+    buildable: True
+    build-depends:       Chart
+                       , Chart-diagrams
+                       , MonadRandom
+                       , aeson
+                       , attoparsec
+                       , base
+                       , bytestring
+                       , cardano-sl
+                       , cardano-sl-chain
+                       , cardano-sl-core
+                       , cardano-sl-infra
+                       , cardano-sl-chain
+                       , cardano-sl-util
+                       , containers
+                       , cassava
+                       , directory
+                       , fgl
+                       , filepath
+                       , foldl
+                       , graphviz
+                       , optparse-applicative
+                       , pipes
+                       , pipes-bytestring
+                       , pipes-interleave
+                       , pipes-safe
+                       , process
+                       , random
+                       , text
+                       , time-units
+                       , universum >= 0.1.11
+  else
+    buildable: False
+  default-language:    Haskell2010
+  ghc-options:         -threaded
+                       -Wall
+                       -O2
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        ScopedTypeVariables
+                        ScopedTypeVariables
+                        BangPatterns
+                        MonadFailDesugaring
+

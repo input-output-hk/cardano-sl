@@ -1,4 +1,5 @@
-{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE QuasiQuotes     #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Main (main) where
 
@@ -7,17 +8,17 @@ import           Universum
 import           Data.Text.Read (decimal)
 import           Data.Version (showVersion)
 import           NeatInterpolation (text)
-import           Options.Applicative (Parser, execParser, footerDoc, fullDesc, header, help, helper,
-                                      info, infoOption, long, metavar, option, optional, progDesc,
-                                      short)
+import           Options.Applicative (Parser, execParser, footerDoc, fullDesc,
+                     header, help, helper, info, infoOption, long, metavar,
+                     option, optional, progDesc, short)
 import           Options.Applicative.Types (readerAsk)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl (version)
 import           Pos.Core (makeRedeemAddress)
 import           Pos.Core.NetworkMagic (NetworkMagic (..), makeNetworkMagic)
-import           Pos.Crypto.Configuration (ProtocolMagic (..), ProtocolMagicId (..),
-                                           RequiresNetworkMagic (..))
+import           Pos.Crypto.Configuration (ProtocolMagic (..),
+                     ProtocolMagicId (..), RequiresNetworkMagic (..))
 import           Pos.Crypto.Signing (fromAvvmPk)
 import           Pos.Util.Util (eitherToThrow)
 
@@ -36,7 +37,9 @@ optionsParser = do
     pm      <- textOption $
            short   'p'
         <> long    "protocolMagic"
-        <> help    "Generate mainnet or testnet address."
+        <> help    "Generate mainnet or testnet address. Valid values include\
+                    \ 'mainnet', 'staging', or an Int32 value to indicate a\
+                    \ test network."
         <> metavar "STRING"
     return $ AddrConvertOptions address pm
     where
@@ -72,13 +75,13 @@ convertAddr nm addr =
     pretty . (makeRedeemAddress nm) <$>
     (eitherToThrow . fromAvvmPk) (toText addr)
 
--- Both mainnet & staging use NMNothing. We explicity disallow provision of
--- their integer values, so as to avoid confusion with NMJust.
+-- Both mainnet & staging use NetworkMainOrStage. We explicity disallow provision of
+-- their integer values, so as to avoid confusion with NetworkTestnet.
 toNetworkMagic :: Text -> Either Text NetworkMagic
 toNetworkMagic txt =
     case txt of
-        "mainnet" -> Right NMNothing
-        "staging" -> Right NMNothing
+        "mainnet" -> Right NetworkMainOrStage
+        "staging" -> Right NetworkMainOrStage
 
         num -> case decimal num of
             Right (pm, _)
@@ -90,7 +93,7 @@ toNetworkMagic txt =
                         \ please enter 'mainnet' instead"
             Right (ident, _) ->
                 Right (makeNetworkMagic (ProtocolMagic (ProtocolMagicId ident)
-                                        NMMustBeJust))
+                                        RequiresMagic))
             Left err -> Left $ toText ("Please enter either 'mainnet', 'staging', or\
                                       \ an Int32 value: " ++ err)
 
@@ -106,6 +109,6 @@ main :: IO ()
 main = do
     AddrConvertOptions{..} <- getAddrConvertOptions
     case (address, toNetworkMagic protocolMagic) of
-        (_        , Left txt) -> putTextLn txt >> exitFailure
-        (Just addr, Right nm) -> convertAddr nm addr >>= putTextLn
-        (Nothing  , Right nm) -> forever (getLine >>= convertAddr nm >>= putTextLn)
+        (_        , Left txt) -> putText txt >> exitFailure
+        (Just addr, Right nm) -> convertAddr nm addr >>= putText
+        (Nothing  , Right nm) -> forever (getLine >>= convertAddr nm >>= putText)

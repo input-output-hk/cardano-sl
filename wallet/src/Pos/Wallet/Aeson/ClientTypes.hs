@@ -6,24 +6,27 @@ module Pos.Wallet.Aeson.ClientTypes
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..), object, withArray, withObject,
-                             (.:), (.=))
+import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..),
+                     genericToJSON, object, withArray, withObject, (.:), (.=))
 import           Data.Aeson.TH (defaultOptions, deriveJSON, deriveToJSON)
 import           Data.Aeson.Types (Parser, typeMismatch)
 import           Data.Version (showVersion)
 import           Servant.API.ContentTypes (NoContent (..))
 
+import           Crypto.Encoding.BIP39 (EntropySize, MnemonicWords,
+                     ValidChecksumSize, ValidEntropySize,
+                     ValidMnemonicSentence)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
-import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Util.Mnemonic (eitherToParser, mkMnemonic)
 import           Pos.Util.Util (aesonError)
-import           Pos.Wallet.Web.ClientTypes (Addr, ApiVersion (..), CAccount, CAccountId,
-                                             CAccountInit, CAccountMeta, CAddress, CCoin,
-                                             CFilePath (..), CHash, CId, CInitialized,
-                                             CPaperVendWalletRedeem, CProfile, CPtxCondition,
-                                             CTExMeta, CTx, CTxId, CTxMeta, CUpdateInfo,
-                                             CWAddressMeta, CWallet, CWalletAssurance, CWalletInit,
-                                             CWalletMeta, CWalletRedeem, ClientInfo (..),
-                                             NewBatchPayment (..), SyncProgress, Wal)
+import           Pos.Wallet.Web.ClientTypes (Addr, ApiVersion (..), CAccount,
+                     CAccountId, CAccountInit, CAccountMeta, CAddress,
+                     CBackupPhrase (..), CCoin, CFilePath (..), CHash, CId,
+                     CInitialized, CPaperVendWalletRedeem, CProfile,
+                     CPtxCondition, CTExMeta, CTx, CTxId, CTxMeta, CUpdateInfo,
+                     CWAddressMeta, CWallet, CWalletAssurance, CWalletInit,
+                     CWalletMeta, CWalletRedeem, ClientInfo (..),
+                     NewBatchPayment (..), SyncProgress, Wal)
 import           Pos.Wallet.Web.Error (WalletError)
 import           Pos.Wallet.Web.Sockets.Types (NotifyEvent)
 
@@ -38,12 +41,49 @@ deriveJSON defaultOptions ''CWalletInit
 deriveJSON defaultOptions ''CPaperVendWalletRedeem
 deriveJSON defaultOptions ''CTxMeta
 deriveJSON defaultOptions ''CProfile
-deriveJSON defaultOptions ''BackupPhrase
 deriveJSON defaultOptions ''CId
 deriveJSON defaultOptions ''Wal
 deriveJSON defaultOptions ''Addr
 deriveJSON defaultOptions ''CHash
 deriveJSON defaultOptions ''CInitialized
+
+
+-- | Backward-compatibility for mnemonics
+instance ToJSON (CBackupPhrase mw) where
+    toJSON =
+        genericToJSON defaultOptions
+
+
+-- We use a custom parser to support
+-- {
+--   "bpToList": ["squirrel material silly twice direct slush",
+--                "pistol razor", "becomed junk kingdom"]
+-- }
+-- as in addition to
+-- {
+--   "bpToList": ["squirrel", "material", "silly", "twice", "direct", "slush",
+--                "pistol", "razor", "become", "junk", "kingdom"]
+-- }
+instance
+    ( n ~ EntropySize mw
+    , mw ~ MnemonicWords n
+    , ValidChecksumSize n csz
+    , ValidEntropySize n
+    , ValidMnemonicSentence mw
+    ) => FromJSON (CBackupPhrase mw) where
+    parseJSON (Object v) =
+        (v .: "bpToList")
+        <&> backwardCompatibility
+        >>= (eitherToParser . mkMnemonic)
+        <&> CBackupPhrase
+      where
+        backwardCompatibility :: [Text] -> [Text]
+        backwardCompatibility = (>>= words)
+
+    parseJSON _          = mzero
+
+
+
 
 -- NOTE(adinapoli): We need a manual instance to ensure we map @OptimizeForSize@
 -- to @OptimizeForHighThroughput@, for exchanges backward compatibility.

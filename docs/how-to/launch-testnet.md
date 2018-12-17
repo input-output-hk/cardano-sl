@@ -57,7 +57,7 @@ current `blockVersionData`.
 In addition, the `update.lastKnownBlockVersion` is set at `0.0.0` in
 the `testnet_full`. The nodes will refuse to create blocks if this
 value is higher than zero.
-
+ 
 ## Faucet
 
 The testnet faucet will dispense a random amount in the range of 500
@@ -106,7 +106,7 @@ cluster with that genesis data.
 
     nix-build -A demoClusterLaunchGenesis -o demo-cluster-launch-genesis.sh
     ./demo-cluster-launch-genesis.sh
-
+    
 ## Connecting to the testnet
 
 This script will connect to the running public testnet.

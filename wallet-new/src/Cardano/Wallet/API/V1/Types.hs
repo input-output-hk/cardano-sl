@@ -1,18 +1,21 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE ExplicitNamespaces         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE PolyKinds                  #-}
+{-# LANGUAGE StrictData                 #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
 -- The hlint parser fails on the `pattern` function, so we disable the
 -- language extension here.
 {-# LANGUAGE NoPatternSynonyms          #-}
 
--- See note [Version orphan]
+-- Needed for the `Buildable`, `SubscriptionStatus` and `NodeId` orphans.
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Cardano.Wallet.API.V1.Types (
@@ -24,6 +27,7 @@ module Cardano.Wallet.API.V1.Types (
   , NewAccount (..)
   , Update
   , New
+  , ForceNtpCheck (..)
   -- * Domain-specific types
   -- * Wallets
   , Wallet (..)
@@ -31,17 +35,43 @@ module Cardano.Wallet.API.V1.Types (
   , NewWallet (..)
   , WalletUpdate (..)
   , WalletId (..)
+  , exampleWalletId
+  , WalletType (..)
   , WalletOperation (..)
   , SpendingPassword
+  , ExternalWallet (..)
+  , PublicKeyAsBase58
+  , mkPublicKeyAsBase58
+  , mkPublicKeyFromBase58
+  , NewExternalWallet (..)
+  , WalletAndTxHistory (..)
   -- * Addresses
+  , AddressOwnership (..)
+  , AddressIndex
   , AddressValidity (..)
+  , AddressAsBase58
+  , mkAddressAsBase58
+  , mkAddressFromBase58
   -- * Accounts
   , Account (..)
   , accountsHaveSameId
   , AccountIndex
+  , AccountAddresses (..)
+  , AccountBalance (..)
+  , getAccIndex
+  , mkAccountIndex
+  , mkAccountIndexM
+  , unsafeMkAccountIndex
+  , AccountIndexError(..)
   -- * Addresses
   , WalletAddress (..)
   , NewAddress (..)
+  , AddressPath
+  , AddressLevel
+  , addressLevelToWord32
+  , word32ToAddressLevel
+  , IsChangeAddress (..)
+  , mkAddressPathBIP44
   -- * Payments
   , Payment (..)
   , PaymentSource (..)
@@ -50,9 +80,21 @@ module Cardano.Wallet.API.V1.Types (
   , TransactionType (..)
   , TransactionDirection (..)
   , TransactionStatus(..)
+  , TransactionAsBase16
+  , mkTransactionAsBase16
+  , rawTransactionAsBase16
+  , TransactionSignatureAsBase16
+  , mkTransactionSignatureAsBase16
+  , rawTransactionSignatureAsBase16
   , EstimatedFees (..)
+  , AddressAndPath (..)
+  , UnsignedTransaction (..)
+  , AddressWithProof (..)
+  , SignedTransaction (..)
   -- * Updates
   , WalletSoftwareUpdate (..)
+  -- * Importing a wallet from a backup
+  , WalletImport (..)
   -- * Settings
   , NodeSettings (..)
   , SlotDuration
@@ -72,65 +114,99 @@ module Cardano.Wallet.API.V1.Types (
   , NodeInfo (..)
   , TimeInfo(..)
   , SubscriptionStatus(..)
+  , Redemption(..)
+  , RedemptionMnemonic(..)
+  , BackupPhrase(..)
+  , ShieldedRedemptionCode(..)
   -- * Some types for the API
   , CaptureWalletId
   , CaptureAccountId
   -- * Core re-exports
   , Core.Address
+  -- * Wallet Errors
+  , WalletError(..)
+  , ErrNotEnoughMoney(..)
+  , toServantError
+  , toHttpErrorStatus
+
+  , module Cardano.Wallet.Types.UtxoStatistics
   ) where
 
+import qualified Prelude
 import           Universum
 
+import qualified Cardano.Crypto.Wallet as CC
+-- import           Cardano.Wallet.API.V1.Swagger.Example (Example, example)
 import           Control.Lens (At, Index, IxValue, at, ix, makePrisms, to, (?~))
 import           Data.Aeson
+import qualified Data.Aeson.Options as Serokell
 import           Data.Aeson.TH as A
-import           Data.Aeson.Types (toJSONKeyText, typeMismatch)
+import           Data.Aeson.Types (Parser, Value (..), toJSONKeyText,
+                     typeMismatch)
+import           Data.Bifunctor (first)
+import qualified Data.ByteArray as ByteArray
+import qualified Data.ByteString as BS
+import           Data.ByteString.Base58 (bitcoinAlphabet, decodeBase58,
+                     encodeBase58)
 import qualified Data.Char as C
-import           Data.Swagger as S
+import           Data.Default (Default (def))
+import qualified Data.Map.Strict as Map
+import           Data.Semigroup (Semigroup)
+import           Data.Swagger hiding (Example, example)
+import qualified Data.Swagger as S
 import           Data.Swagger.Declare (Declare, look)
 import           Data.Swagger.Internal.Schema (GToSchema)
-import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape, GenericShape)
+import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape,
+                     GenericShape)
 import           Data.Text (Text, dropEnd, toLower)
 import qualified Data.Text as T
-import qualified Data.Text.Buildable
 import           Data.Version (Version)
-import           Formatting (bprint, build, fconst, int, sformat, (%))
+import           Formatting (bprint, build, fconst, int, sformat, stext, (%))
+import qualified Formatting.Buildable
+import           Generics.SOP.TH (deriveGeneric)
 import           GHC.Generics (Generic, Rep)
 import           Network.Transport (EndPointAddress (..))
 import           Node (NodeId (..))
-import qualified Prelude
-import qualified Serokell.Aeson.Options as Serokell
 import           Serokell.Util (listJson)
 import qualified Serokell.Util.Base16 as Base16
 import           Servant
 import           Test.QuickCheck
 import           Test.QuickCheck.Gen (Gen (..))
-import           Test.QuickCheck.Random (mkQCGen)
+import qualified Test.QuickCheck.Gen as Gen
+import qualified Test.QuickCheck.Modifiers as Gen
 
-import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..), UnitOfMeasure (..))
+import           Cardano.Wallet.API.Response.JSend (HasDiagnostic (..),
+                     noDiagnosticKey)
+import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..),
+                     UnitOfMeasure (..))
+import           Cardano.Wallet.API.V1.Errors (ToHttpErrorStatus (..),
+                     ToServantError (..))
+import           Cardano.Wallet.API.V1.Generic (jsendErrorGenericParseJSON,
+                     jsendErrorGenericToJSON)
+import           Cardano.Wallet.API.V1.Swagger.Example (Example, example,
+                     genExample)
 import           Cardano.Wallet.Orphans.Aeson ()
+import           Cardano.Wallet.Types.UtxoStatistics
+import           Cardano.Wallet.Util (mkJsonKey, showApiUtcTime)
 
--- V0 logic
-import           Pos.Util.BackupPhrase (BackupPhrase (..))
-
--- importing for orphan instances for Coin
-import           Pos.Wallet.Web.ClientTypes.Instances ()
-
-import           Cardano.Wallet.Util (showApiUtcTime)
-import qualified Data.ByteArray as ByteArray
-import qualified Data.ByteString as BS
-import qualified Data.Map.Strict as Map
-import           Pos.Aeson.Core ()
+import qualified Pos.Binary.Class as Bi
+import qualified Pos.Chain.Txp as Txp
+import qualified Pos.Chain.Update as Core
 import qualified Pos.Client.Txp.Util as Core
 import           Pos.Core (addressF)
 import qualified Pos.Core as Core
-import           Pos.Crypto (decodeHash, hashHexF)
+import           Pos.Crypto (PublicKey (..), decodeHash, hashHexF)
 import qualified Pos.Crypto.Signing as Core
-import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStatus (..))
-import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..), buildSafe, buildSafeList,
-                                   buildSafeMaybe, deriveSafeBuildable, plainOrSecureF)
+import           Pos.Infra.Communication.Types.Protocol ()
+import           Pos.Infra.Diffusion.Subscription.Status
+                     (SubscriptionStatus (..))
+import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
+                     buildSafe, buildSafeList, buildSafeMaybe,
+                     deriveSafeBuildable, plainOrSecureF)
+import           Pos.Util.Mnemonic (Mnemonic)
+import           Pos.Util.Servant (Flaggable (..))
+import           Pos.Wallet.Web.ClientTypes.Instances ()
 import qualified Pos.Wallet.Web.State.Storage as OldStorage
-
 import           Test.Pos.Core.Arbitrary ()
 
 -- | Declare generic schema, while documenting properties
@@ -159,7 +235,7 @@ type IsPropertiesMap m =
 
 genericSchemaDroppingPrefix
     :: forall a m proxy.
-    ( Generic a, ToJSON a, Arbitrary a, GToSchema (Rep a), IsPropertiesMap m
+    ( Generic a, ToJSON a, Example a, GToSchema (Rep a), IsPropertiesMap m
     , GenericHasSimpleShape
         a
         "genericDeclareNamedSchemaUnrestricted"
@@ -176,11 +252,8 @@ genericSchemaDroppingPrefix prfx extraDoc proxy = do
     defs <- look
     pure $ s
       & over schema (over properties (extraDoc (addFieldDescription defs)))
-      & schema . example ?~ toJSON (genExample :: a)
+      & schema . S.example ?~ toJSON (genExample :: a)
   where
-    genExample =
-      (unGen (resize 3 arbitrary)) (mkQCGen 42) 42
-
     addFieldDescription defs field desc =
       over (at field) (addDescription defs field desc)
 
@@ -193,6 +266,13 @@ genericSchemaDroppingPrefix prfx extraDoc proxy = do
           Just (Inline s) -> rewrap s
           Just (Ref ref)  -> maybe err rewrap (defs ^. at (getReference ref))
           _               -> err
+
+
+optsADTCamelCase :: A.Options
+optsADTCamelCase = defaultOptions
+    { A.constructorTagModifier = mkJsonKey
+    , A.sumEncoding            = A.ObjectWithSingleField
+    }
 
 
 --
@@ -242,30 +322,14 @@ instance Buildable (SecureLog a) => Buildable (SecureLog (V1 a)) where
 instance (Buildable a, Buildable b) => Buildable (a, b) where
     build (a, b) = bprint ("("%build%", "%build%")") a b
 
+
 --
 -- Benign instances
 --
 
 instance ByteArray.ByteArrayAccess a => ByteArray.ByteArrayAccess (V1 a) where
    length (V1 a) = ByteArray.length a
-   withByteArray (V1 a) callback = ByteArray.withByteArray a callback
-
--- TODO(adinapoli) Rewrite it properly under CSL-2048.
-instance Arbitrary (V1 BackupPhrase) where
-    arbitrary = V1 <$> arbitrary
-
-instance ToJSON (V1 BackupPhrase) where
-    toJSON (V1 (BackupPhrase wrds)) = toJSON wrds
-
-instance FromJSON (V1 BackupPhrase) where
-    parseJSON (Array wrds) = V1 . BackupPhrase . toList <$> traverse parseJSON wrds
-    parseJSON x            = typeMismatch "parseJSON failed for BackupPhrase" x
-
-instance ToSchema (V1 BackupPhrase) where
-    declareNamedSchema _ = do
-        return $ NamedSchema (Just "V1BackupPhrase") $ mempty
-            & type_ .~ SwaggerArray
-            & items .~ Just (SwaggerItemsObject (toSchemaRef (Proxy @Text)))
+   withByteArray (V1 a) = ByteArray.withByteArray a
 
 mkPassPhrase :: Text -> Either Text Core.PassPhrase
 mkPassPhrase text =
@@ -294,7 +358,7 @@ instance Arbitrary (V1 Core.PassPhrase) where
     arbitrary = fmap V1 arbitrary
 
 instance ToSchema (V1 Core.PassPhrase) where
-    declareNamedSchema _ = do
+    declareNamedSchema _ =
         pure $ NamedSchema (Just "V1PassPhrase") $ mempty
             & type_ .~ SwaggerString
             & format ?~ "hex|base16"
@@ -387,12 +451,18 @@ instance ToSchema (V1 Core.Timestamp) where
 -- base16-encoded string.
 type SpendingPassword = V1 Core.PassPhrase
 
+instance Semigroup (V1 Core.PassPhrase) where
+    V1 a <> V1 b = V1 (a <> b)
+
 instance Monoid (V1 Core.PassPhrase) where
     mempty = V1 mempty
-    mappend (V1 a) (V1 b) = V1 (a `mappend` b)
+    mappend = (<>)
+
+instance BuildableSafeGen SpendingPassword where
+    buildSafeGen sl pwd =
+        bprint (plainOrSecureF sl build (fconst "<spending password>")) pwd
 
 type WalletName = Text
-
 
 -- | Wallet's Assurance Level
 data AssuranceLevel =
@@ -407,7 +477,7 @@ deriveJSON Serokell.defaultOptions { A.constructorTagModifier = toString . toLow
                                    } ''AssuranceLevel
 
 instance ToSchema AssuranceLevel where
-    declareNamedSchema _ = do
+    declareNamedSchema _ =
         pure $ NamedSchema (Just "AssuranceLevel") $ mempty
             & type_ .~ SwaggerString
             & enum_ ?~ ["normal", "strict"]
@@ -420,6 +490,9 @@ instance BuildableSafeGen AssuranceLevel where
 -- | A Wallet ID.
 newtype WalletId = WalletId Text deriving (Show, Eq, Ord, Generic)
 
+exampleWalletId :: WalletId
+exampleWalletId = WalletId "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
+
 deriveJSON Serokell.defaultOptions ''WalletId
 
 instance ToSchema WalletId where
@@ -428,9 +501,7 @@ instance ToSchema WalletId where
 instance ToJSONKey WalletId
 
 instance Arbitrary WalletId where
-  arbitrary =
-      let wid = "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
-          in WalletId <$> elements [wid]
+    arbitrary = elements [exampleWalletId]
 
 deriveSafeBuildable ''WalletId
 instance BuildableSafeGen WalletId where
@@ -458,7 +529,7 @@ deriveJSON Serokell.defaultOptions  { A.constructorTagModifier = reverse . drop 
                                     } ''WalletOperation
 
 instance ToSchema WalletOperation where
-    declareNamedSchema _ = do
+    declareNamedSchema _ =
         pure $ NamedSchema (Just "WalletOperation") $ mempty
             & type_ .~ SwaggerString
             & enum_ ?~ ["create", "restore"]
@@ -469,9 +540,25 @@ instance BuildableSafeGen WalletOperation where
     buildSafeGen _ RestoreWallet = "restore"
 
 
+newtype BackupPhrase = BackupPhrase
+    { unBackupPhrase :: Mnemonic 12
+    }
+    deriving stock (Eq, Show)
+    deriving newtype (ToJSON, FromJSON, Arbitrary)
+
+deriveSafeBuildable ''BackupPhrase
+instance BuildableSafeGen BackupPhrase where
+    buildSafeGen _ _  = "<backup phrase>"
+
+instance ToSchema BackupPhrase where
+    declareNamedSchema _ =
+        pure
+            . NamedSchema (Just "V1BackupPhrase")
+            $ toSchema (Proxy @(Mnemonic 12))
+
 -- | A type modelling the request for a new 'Wallet'.
 data NewWallet = NewWallet {
-      newwalBackupPhrase     :: !(V1 BackupPhrase)
+      newwalBackupPhrase     :: !BackupPhrase
     , newwalSpendingPassword :: !(Maybe SpendingPassword)
     , newwalAssuranceLevel   :: !AssuranceLevel
     , newwalName             :: !WalletName
@@ -513,6 +600,192 @@ instance BuildableSafeGen NewWallet where
         newwalName
         newwalOperation
 
+-- | Type for representation of extended public key in Base58-format.
+-- We use it for external wallets:
+-- 1. As a root PK to identify external wallet.
+-- 2. As a derived PK, please see 'AddressWithProof' type.
+newtype PublicKeyAsBase58 = PublicKeyAsBase58Unsafe
+    { ewalPublicKeyAsBase58 :: Text
+    } deriving (Eq, Generic, Ord, Show)
+
+deriveJSON Serokell.defaultOptions ''PublicKeyAsBase58
+instance Arbitrary PublicKeyAsBase58 where
+    arbitrary = PublicKeyAsBase58Unsafe <$> pure
+        "bNfKyG8UxD5aoHyn9snKKhfyVcEnMGSFYtuiapmfD23BQMD9op65gbMoy1EXwxzzkuVqPLkD1s12MXFdfLF8ZCfnPh"
+
+instance ToSchema PublicKeyAsBase58 where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "ewal" (\(--^) props -> props
+            & ("publicKeyAsBase58" --^ "Extended public key in Base58-format.")
+        )
+
+deriveSafeBuildable ''PublicKeyAsBase58
+instance BuildableSafeGen PublicKeyAsBase58 where
+    buildSafeGen sl PublicKeyAsBase58Unsafe{..} = bprint ("{"
+        %" publicKeyAsBase58="%buildSafe sl
+        %" }")
+        ewalPublicKeyAsBase58
+
+instance FromHttpApiData PublicKeyAsBase58 where
+    parseQueryParam someText =
+        case decodeBase58 bitcoinAlphabet (encodeUtf8 someText) of
+            Nothing -> Left "Must be extended public key encoded in Base58-format."
+            Just _  -> Right $ PublicKeyAsBase58Unsafe someText
+
+instance ToHttpApiData PublicKeyAsBase58 where
+    toQueryParam (PublicKeyAsBase58Unsafe pk) = pk
+
+-- | Smart constructor for 'PublicKeyAsBase58'.
+mkPublicKeyAsBase58 :: PublicKey -> PublicKeyAsBase58
+mkPublicKeyAsBase58 (PublicKey xPub) = PublicKeyAsBase58Unsafe encodedXPub
+  where
+    encodedXPub = decodeUtf8 $ encodeBase58 bitcoinAlphabet (CC.unXPub xPub)
+
+-- | Possible problems with Base58-encoded extended public key.
+data Base58PublicKeyError
+    = PublicKeyNotInBase58Form
+    | NotAPublicKey !Text
+    deriving Show
+
+instance Buildable Base58PublicKeyError where
+    build PublicKeyNotInBase58Form =
+        "Extended public key is not in Base58-format."
+    build (NotAPublicKey msg) =
+        bprint ("It is not an extended public key: "%stext) msg
+
+-- | Decoder for 'PublicKey' in Base58-format.
+mkPublicKeyFromBase58 :: PublicKeyAsBase58 -> Either Base58PublicKeyError PublicKey
+mkPublicKeyFromBase58 (PublicKeyAsBase58Unsafe encodedXPub) = do
+    case (decodeBase58 bitcoinAlphabet . encodeUtf8 $ encodedXPub) of
+        Nothing -> Left PublicKeyNotInBase58Form
+        Just rawKey -> case CC.xpub rawKey of
+            Left problem -> Left $ NotAPublicKey (toText problem)
+            Right xPub   -> Right $ PublicKey xPub
+
+-- | Type for representation address in Base58-format.
+-- We use it for external wallets.
+newtype AddressAsBase58 = AddressAsBase58Unsafe
+    { ewalAddressAsBase58 :: Text
+    } deriving (Eq, Generic, Ord, Show)
+
+deriveJSON Serokell.defaultOptions ''AddressAsBase58
+instance Arbitrary AddressAsBase58 where
+    arbitrary = AddressAsBase58Unsafe <$> pure
+        "DdzFFzCqrhsxqFTw2ENzvwisYmS2DcUTujXDoMXtMrCvMFAa3DikLj8YYTWNZaEjthKZpMNWKo9RUoq3gP797yP8MP4g9qiEegvGEY9w"
+
+instance ToSchema AddressAsBase58 where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "ewal" (\(--^) props -> props
+            & ("addressAsBase58" --^ "Address in Base58-format.")
+        )
+
+deriveSafeBuildable ''AddressAsBase58
+instance BuildableSafeGen AddressAsBase58 where
+    buildSafeGen sl AddressAsBase58Unsafe{..} = bprint ("{"
+        %" addressAsBase58="%buildSafe sl
+        %" }")
+        ewalAddressAsBase58
+
+-- | Smart constructor for 'AddressAsBase58'.
+mkAddressAsBase58 :: Core.Address -> AddressAsBase58
+mkAddressAsBase58 = AddressAsBase58Unsafe . decodeUtf8 . Core.addrToBase58
+
+-- | Decode Base58-address to real Address.
+mkAddressFromBase58 :: AddressAsBase58 -> Either Text Core.Address
+mkAddressFromBase58 (AddressAsBase58Unsafe txtAddr) = Core.decodeTextAddress txtAddr
+
+-- | Type for representation of serialized transaction in Base16-format.
+-- We use it for external wallets (to send/receive raw transaction during
+-- external signing).
+newtype TransactionAsBase16 = TransactionAsBase16Unsafe
+    { ewalTransactionAsBase16 :: Text
+    } deriving (Eq, Generic, Ord, Show)
+
+deriveJSON Serokell.defaultOptions ''TransactionAsBase16
+instance Arbitrary TransactionAsBase16 where
+    arbitrary = TransactionAsBase16Unsafe <$> pure
+        "839f8200d8185826825820e981442c2be40475bb42193ca35907861d90715854de6fcba767b98f1789b51219439aff9f8282d818584a83581ce7fe8e468d2249f18cd7bf9aec0d4374b7d3e18609ede8589f82f7f0a20058208200581c240596b9b63fc010c06fbe92cf6f820587406534795958c411e662dc014443c0688e001a6768cc861b0037699e3ea6d064ffa0"
+
+instance ToSchema TransactionAsBase16 where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "ewal" (\(--^) props -> props
+            & ("transactionAsBase16" --^ "Serialized transaction in Base16-format.")
+        )
+
+deriveSafeBuildable ''TransactionAsBase16
+instance BuildableSafeGen TransactionAsBase16 where
+    buildSafeGen sl TransactionAsBase16Unsafe{..} = bprint ("{"
+        %" transactionAsBase16="%buildSafe sl
+        %" }")
+        ewalTransactionAsBase16
+
+-- | Type for representation of transaction signature in Base16-format.
+-- We use it for external wallet. Please note that technically there's no
+-- signature of transaction, but signature of the hash of transaction.
+newtype TransactionSignatureAsBase16 = TransactionSignatureAsBase16Unsafe
+    { rawTransactionSignatureAsBase16 :: Text
+    } deriving (Eq, Generic, Ord, Show)
+
+deriveJSON Serokell.defaultOptions ''TransactionSignatureAsBase16
+instance Arbitrary TransactionSignatureAsBase16 where
+    arbitrary = TransactionSignatureAsBase16Unsafe <$> pure
+        "5840709cc240ac9ad78cbf47c3eec76df917423943e34339277593e8e2b8c9f9f2e59583023bfbd8e26c40dff6a7fa424600f9b942819533d8afee37a5ac6d813207"
+
+instance ToSchema TransactionSignatureAsBase16 where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "raw" (\(--^) props -> props
+            & ("transactionSignatureAsBase16" --^ "Signature of the hash of transaction in Base16-format.")
+        )
+
+deriveSafeBuildable ''TransactionSignatureAsBase16
+instance BuildableSafeGen TransactionSignatureAsBase16 where
+    buildSafeGen sl TransactionSignatureAsBase16Unsafe{..} = bprint ("{"
+        %" transactionSignatureAsBase16="%buildSafe sl
+        %" }")
+        rawTransactionSignatureAsBase16
+
+-- | Makes tx signature as Base16-text.
+mkTransactionSignatureAsBase16 :: Core.Signature Txp.TxSigData -> TransactionSignatureAsBase16
+mkTransactionSignatureAsBase16 (Core.Signature txSig) =
+    TransactionSignatureAsBase16Unsafe . Base16.encode . CC.unXSignature $ txSig
+
+-- | A type modelling the request for a new 'ExternalWallet',
+-- on the mobile client or hardware wallet.
+data NewExternalWallet = NewExternalWallet
+    { newewalRootPK         :: !PublicKeyAsBase58
+    , newewalAssuranceLevel :: !AssuranceLevel
+    , newewalName           :: !WalletName
+    , newewalOperation      :: !WalletOperation
+    } deriving (Eq, Show, Generic)
+
+deriveJSON Serokell.defaultOptions ''NewExternalWallet
+instance Arbitrary NewExternalWallet where
+    arbitrary = NewExternalWallet <$> arbitrary
+                                  <*> arbitrary
+                                  <*> pure "My external Wallet"
+                                  <*> arbitrary
+
+instance ToSchema NewExternalWallet where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "newewal" (\(--^) props -> props
+            & ("rootPK"         --^ "Root public key to identify external wallet.")
+            & ("assuranceLevel" --^ "Desired assurance level based on the number of confirmations counter of each transaction.")
+            & ("name"           --^ "External wallet's name.")
+            & ("operation"      --^ "Create a new external wallet or Restore an existing one.")
+        )
+
+deriveSafeBuildable ''NewExternalWallet
+instance BuildableSafeGen NewExternalWallet where
+    buildSafeGen sl NewExternalWallet{..} = bprint ("{"
+        %" rootPK="%buildSafe sl
+        %" assuranceLevel="%buildSafe sl
+        %" name="%buildSafe sl
+        %" operation"%buildSafe sl
+        %" }")
+        newewalRootPK
+        newewalAssuranceLevel
+        newewalName
+        newewalOperation
 
 -- | A type modelling the update of an existing wallet.
 data WalletUpdate = WalletUpdate {
@@ -556,6 +829,10 @@ instance Ord SyncPercentage where
 instance Arbitrary SyncPercentage where
     arbitrary = mkSyncPercentage <$> choose (0, 100)
 
+instance Example SyncPercentage where
+    example =
+        pure (mkSyncPercentage 14)
+
 instance ToJSON SyncPercentage where
     toJSON (SyncPercentage (MeasuredIn w)) =
         object [ "quantity" .= toJSON w
@@ -566,7 +843,7 @@ instance FromJSON SyncPercentage where
     parseJSON = withObject "SyncPercentage" $ \sl -> mkSyncPercentage <$> sl .: "quantity"
 
 instance ToSchema SyncPercentage where
-    declareNamedSchema _ = do
+    declareNamedSchema _ =
         pure $ NamedSchema (Just "SyncPercentage") $ mempty
             & type_ .~ SwaggerObject
             & required .~ ["quantity", "unit"]
@@ -601,6 +878,14 @@ instance Ord EstimatedCompletionTime where
 instance Arbitrary EstimatedCompletionTime where
     arbitrary = EstimatedCompletionTime . MeasuredIn <$> arbitrary
 
+deriveSafeBuildable ''EstimatedCompletionTime
+instance BuildableSafeGen EstimatedCompletionTime where
+    buildSafeGen _ (EstimatedCompletionTime (MeasuredIn w)) = bprint ("{"
+        %" quantity="%build
+        %" unit=milliseconds"
+        %" }")
+        w
+
 instance ToJSON EstimatedCompletionTime where
     toJSON (EstimatedCompletionTime (MeasuredIn w)) =
         object [ "quantity" .= toJSON w
@@ -611,7 +896,7 @@ instance FromJSON EstimatedCompletionTime where
     parseJSON = withObject "EstimatedCompletionTime" $ \sl -> mkEstimatedCompletionTime <$> sl .: "quantity"
 
 instance ToSchema EstimatedCompletionTime where
-    declareNamedSchema _ = do
+    declareNamedSchema _ =
         pure $ NamedSchema (Just "EstimatedCompletionTime") $ mempty
             & type_ .~ SwaggerObject
             & required .~ ["quantity", "unit"]
@@ -641,6 +926,14 @@ instance Ord SyncThroughput where
 instance Arbitrary SyncThroughput where
     arbitrary = SyncThroughput . MeasuredIn . OldStorage.SyncThroughput <$> arbitrary
 
+deriveSafeBuildable ''SyncThroughput
+instance BuildableSafeGen SyncThroughput where
+    buildSafeGen _ (SyncThroughput (MeasuredIn (OldStorage.SyncThroughput (Core.BlockCount blocks)))) = bprint ("{"
+        %" quantity="%build
+        %" unit=blocksPerSecond"
+        %" }")
+        blocks
+
 instance ToJSON SyncThroughput where
     toJSON (SyncThroughput (MeasuredIn (OldStorage.SyncThroughput (Core.BlockCount blocks)))) =
       object [ "quantity" .= toJSON blocks
@@ -651,7 +944,7 @@ instance FromJSON SyncThroughput where
     parseJSON = withObject "SyncThroughput" $ \sl -> mkSyncThroughput . Core.BlockCount <$> sl .: "quantity"
 
 instance ToSchema SyncThroughput where
-    declareNamedSchema _ = do
+    declareNamedSchema _ =
         pure $ NamedSchema (Just "SyncThroughput") $ mempty
             & type_ .~ SwaggerObject
             & required .~ ["quantity", "unit"]
@@ -687,7 +980,23 @@ instance ToSchema SyncProgress where
 deriveSafeBuildable ''SyncProgress
 -- Nothing secret to redact for a SyncProgress.
 instance BuildableSafeGen SyncProgress where
-    buildSafeGen _ sp = bprint build sp
+    buildSafeGen sl SyncProgress {..} = bprint ("{"
+        %" estimatedCompletionTime="%buildSafe sl
+        %" throughput="%buildSafe sl
+        %" percentage="%buildSafe sl
+        %" }")
+        spEstimatedCompletionTime
+        spThroughput
+        spPercentage
+
+instance Example SyncProgress where
+    example = do
+        exPercentage <- example
+        pure $ SyncProgress
+            { spEstimatedCompletionTime = mkEstimatedCompletionTime 3000
+            , spThroughput              = mkSyncThroughput (Core.BlockCount 400)
+            , spPercentage              = exPercentage
+            }
 
 instance Arbitrary SyncProgress where
   arbitrary = SyncProgress <$> arbitrary
@@ -741,6 +1050,31 @@ instance Arbitrary SyncState where
                     , pure Synced
                     ]
 
+-- | 'Wallet' type.
+data WalletType
+    = WalletRegular
+    -- ^ Regular Cardano wallet.
+    | WalletExternal
+    -- ^ External wallet (mobile app or hardware wallet).
+    deriving (Bounded, Enum, Eq, Ord, Show, Generic)
+
+instance Arbitrary WalletType where
+    arbitrary = elements [minBound .. maxBound]
+
+-- Drops the @Wallet@ prefix.
+deriveJSON Serokell.defaultOptions { A.constructorTagModifier = drop 6 . map C.toLower
+                                   } ''WalletType
+
+instance ToSchema WalletType where
+    declareNamedSchema _ = do
+        pure $ NamedSchema (Just "WalletType") $ mempty
+            & type_ .~ SwaggerString
+            & enum_ ?~ ["regular", "external"]
+
+deriveSafeBuildable ''WalletType
+instance BuildableSafeGen WalletType where
+    buildSafeGen _ WalletRegular  = "regular"
+    buildSafeGen _ WalletExternal = "external"
 
 -- | A 'Wallet'.
 data Wallet = Wallet {
@@ -752,7 +1086,16 @@ data Wallet = Wallet {
     , walCreatedAt                  :: !(V1 Core.Timestamp)
     , walAssuranceLevel             :: !AssuranceLevel
     , walSyncState                  :: !SyncState
+    , walType                       :: !WalletType
     } deriving (Eq, Ord, Show, Generic)
+
+--
+-- IxSet indices
+--
+
+
+
+
 
 deriveJSON Serokell.defaultOptions ''Wallet
 
@@ -775,11 +1118,14 @@ instance ToSchema Wallet where
             --^ "The assurance level of the wallet."
             & "syncState"
             --^ "The sync state for this wallet."
+            & "type"
+            --^ "Wallet type: regular wallet or external one (mobile app or hardware wallet)."
         )
 
 instance Arbitrary Wallet where
   arbitrary = Wallet <$> arbitrary
                      <*> pure "My wallet"
+                     <*> arbitrary
                      <*> arbitrary
                      <*> arbitrary
                      <*> arbitrary
@@ -793,13 +1139,36 @@ instance BuildableSafeGen Wallet where
     %" id="%buildSafe sl
     %" name="%buildSafe sl
     %" balance="%buildSafe sl
+    %" type="%buildSafe sl
     %" }")
     walId
     walName
     walBalance
+    walType
 
 instance Buildable [Wallet] where
     build = bprint listJson
+
+-- | An external wallet (mobile client or hardware wallet).
+data ExternalWallet = ExternalWallet
+    { ewalId      :: !WalletId
+    , ewalName    :: !WalletName
+    , ewalBalance :: !(V1 Core.Coin)
+    } deriving (Eq, Ord, Show, Generic)
+
+deriveJSON Serokell.defaultOptions ''ExternalWallet
+instance ToSchema ExternalWallet where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "ewal" (\(--^) props -> props
+            & ("id"      --^ "Unique wallet identifier.")
+            & ("name"    --^ "Wallet's name.")
+            & ("balance" --^ "Current balance, in Lovelaces.")
+        )
+
+instance Arbitrary ExternalWallet where
+    arbitrary = ExternalWallet <$> arbitrary
+                               <*> pure "My external wallet"
+                               <*> arbitrary
 
 --------------------------------------------------------------------------------
 -- Addresses
@@ -812,7 +1181,7 @@ newtype AddressValidity = AddressValidity { isValid :: Bool }
 deriveJSON Serokell.defaultOptions ''AddressValidity
 
 instance ToSchema AddressValidity where
-    declareNamedSchema = genericSchemaDroppingPrefix "is" (\_ -> identity)
+    declareNamedSchema = genericSchemaDroppingPrefix "is" (const identity)
 
 instance Arbitrary AddressValidity where
   arbitrary = AddressValidity <$> arbitrary
@@ -821,6 +1190,35 @@ deriveSafeBuildable ''AddressValidity
 instance BuildableSafeGen AddressValidity where
     buildSafeGen _ AddressValidity{..} =
         bprint ("{ valid="%build%" }") isValid
+
+-- | An address is either recognised as "ours" or not. An address that is not
+--   recognised may still be ours e.g. an address generated by another wallet instance
+--   will not be considered "ours" until the relevant transaction is confirmed.
+--
+--   In other words, `AddressAmbiguousOwnership` makes an inconclusive statement about
+--   an address, whereas `AddressOwnership` is unambiguous.
+data AddressOwnership
+    = AddressIsOurs
+    | AddressAmbiguousOwnership
+    deriving (Show, Eq, Generic, Ord)
+
+instance ToJSON (V1 AddressOwnership) where
+    toJSON = genericToJSON optsADTCamelCase . unV1
+
+instance FromJSON (V1 AddressOwnership) where
+    parseJSON = fmap V1 . genericParseJSON optsADTCamelCase
+
+instance ToSchema (V1 AddressOwnership) where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "V1AddressOwnership") $ mempty
+            & type_ .~ SwaggerString
+            & enum_ ?~ ["isOurs", "ambiguousOwnership"]
+
+instance Arbitrary (V1 AddressOwnership) where
+    arbitrary = fmap V1 $ oneof
+        [ pure AddressIsOurs
+        , pure AddressAmbiguousOwnership
+        ]
 
 --------------------------------------------------------------------------------
 -- Accounts
@@ -831,6 +1229,7 @@ data WalletAddress = WalletAddress
     { addrId            :: !(V1 Core.Address)
     , addrUsed          :: !Bool
     , addrChangeAddress :: !Bool
+    , addrOwnership     :: !(V1 AddressOwnership)
     } deriving (Show, Eq, Generic, Ord)
 
 deriveJSON Serokell.defaultOptions ''WalletAddress
@@ -841,14 +1240,82 @@ instance ToSchema WalletAddress where
             & ("id"            --^ "Actual address.")
             & ("used"          --^ "True if this address has been used.")
             & ("changeAddress" --^ "True if this address stores change from a previous transaction.")
+            & ("ownership"     --^ "'isOurs' if this address is recognised as ours, 'ambiguousOwnership' if the node doesn't have information to make a unambiguous statement.")
         )
 
 instance Arbitrary WalletAddress where
     arbitrary = WalletAddress <$> arbitrary
                               <*> arbitrary
                               <*> arbitrary
+                              <*> arbitrary
 
-type AccountIndex = Word32
+newtype AccountIndex = AccountIndex { getAccIndex :: Word32 }
+    deriving (Show, Eq, Ord, Generic)
+
+newtype AccountIndexError = AccountIndexError Word32
+    deriving (Eq, Show)
+
+instance Buildable AccountIndexError where
+    build (AccountIndexError i) =
+        bprint
+            ("Account index should be in range ["%int%".."%int%"], but "%int%" was provided.")
+            (getAccIndex minBound)
+            (getAccIndex maxBound)
+            i
+
+mkAccountIndex :: Word32 -> Either AccountIndexError AccountIndex
+mkAccountIndex index
+    | index >= getAccIndex minBound = Right $ AccountIndex index
+    | otherwise = Left $ AccountIndexError index
+
+mkAccountIndexM :: MonadFail m => Word32 -> m AccountIndex
+mkAccountIndexM =
+    either (fail . toString . sformat build) pure . mkAccountIndex
+
+unsafeMkAccountIndex :: Word32 -> AccountIndex
+unsafeMkAccountIndex =
+    either (error . sformat build) identity . mkAccountIndex
+
+instance Bounded AccountIndex where
+    -- NOTE: minimum for hardened key. See https://iohk.myjetbrains.com/youtrack/issue/CO-309
+    minBound = AccountIndex 2147483648
+    maxBound = AccountIndex maxBound
+
+instance ToJSON AccountIndex where
+    toJSON = toJSON . getAccIndex
+
+instance FromJSON AccountIndex where
+    parseJSON =
+        mkAccountIndexM <=< parseJSON
+
+instance Arbitrary AccountIndex where
+    arbitrary =
+        AccountIndex <$> choose (getAccIndex minBound, getAccIndex maxBound)
+
+deriveSafeBuildable ''AccountIndex
+-- Nothing secret to redact for a AccountIndex.
+instance BuildableSafeGen AccountIndex where
+    buildSafeGen _ =
+        bprint build . getAccIndex
+
+instance ToParamSchema AccountIndex where
+    toParamSchema _ = mempty
+        & type_ .~ SwaggerNumber
+        & minimum_ .~ Just (fromIntegral $ getAccIndex minBound)
+        & maximum_ .~ Just (fromIntegral $ getAccIndex maxBound)
+
+instance ToSchema AccountIndex where
+    declareNamedSchema =
+        pure . paramSchemaToNamedSchema defaultSchemaOptions
+
+instance FromHttpApiData AccountIndex where
+    parseQueryParam =
+        first (sformat build) . mkAccountIndex <=< parseQueryParam
+
+instance ToHttpApiData AccountIndex where
+    toQueryParam =
+        fromString . show . getAccIndex
+
 
 -- | A wallet 'Account'.
 data Account = Account
@@ -859,6 +1326,25 @@ data Account = Account
     , accWalletId  :: !WalletId
     } deriving (Show, Ord, Eq, Generic)
 
+
+--
+-- IxSet indices
+--
+
+
+
+
+
+-- | Datatype wrapping addresses for per-field endpoint
+newtype AccountAddresses = AccountAddresses
+    { acaAddresses :: [WalletAddress]
+    } deriving (Show, Ord, Eq, Generic)
+
+-- | Datatype wrapping balance for per-field endpoint
+newtype AccountBalance = AccountBalance
+    { acbAmount    :: V1 Core.Coin
+    } deriving (Show, Ord, Eq, Generic)
+
 accountsHaveSameId :: Account -> Account -> Bool
 accountsHaveSameId a b =
     accWalletId a == accWalletId b
@@ -866,6 +1352,8 @@ accountsHaveSameId a b =
     accIndex a == accIndex b
 
 deriveJSON Serokell.defaultOptions ''Account
+deriveJSON Serokell.defaultOptions ''AccountAddresses
+deriveJSON Serokell.defaultOptions ''AccountBalance
 
 instance ToSchema Account where
     declareNamedSchema =
@@ -877,6 +1365,18 @@ instance ToSchema Account where
             & ("walletId"  --^ "Id of the wallet this account belongs to.")
           )
 
+instance ToSchema AccountAddresses where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "aca" (\(--^) props -> props
+            & ("addresses" --^ "Public addresses pointing to this account.")
+          )
+
+instance ToSchema AccountBalance where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "acb" (\(--^) props -> props
+            & ("amount"    --^ "Available funds, in Lovelace.")
+          )
+
 instance Arbitrary Account where
     arbitrary = Account <$> arbitrary
                         <*> arbitrary
@@ -884,12 +1384,20 @@ instance Arbitrary Account where
                         <*> pure "My account"
                         <*> arbitrary
 
+instance Arbitrary AccountAddresses where
+    arbitrary =
+        AccountAddresses <$> arbitrary
+
+instance Arbitrary AccountBalance where
+    arbitrary =
+        AccountBalance <$> arbitrary
+
 deriveSafeBuildable ''Account
 instance BuildableSafeGen Account where
     buildSafeGen sl Account{..} = bprint ("{"
         %" index="%buildSafe sl
         %" name="%buildSafe sl
-        %" addresses="%buildSafeList sl
+        %" addresses="%buildSafe sl
         %" amount="%buildSafe sl
         %" walletId="%buildSafe sl
         %" }")
@@ -899,8 +1407,17 @@ instance BuildableSafeGen Account where
         accAmount
         accWalletId
 
+instance Buildable AccountAddresses where
+    build =
+        bprint listJson . acaAddresses
+
+instance Buildable AccountBalance where
+    build =
+        bprint build . acbAmount
+
 instance Buildable [Account] where
-    build = bprint listJson
+    build =
+        bprint listJson
 
 -- | Account Update
 data AccountUpdate = AccountUpdate {
@@ -999,6 +1516,134 @@ instance BuildableSafeGen NewAddress where
         newaddrSpendingPassword
         newaddrAccountIndex
         newaddrWalletId
+
+
+type AddressIndex = Word32
+
+-- | If we're talking about "hardened" indexes - we mean values above
+-- 2^31 == maxBound `div` 2 + 1
+hardenedValue :: Word32
+hardenedValue = maxBound `div` 2 + 1
+
+addressLevelToWord32 :: AddressLevel -> Word32
+addressLevelToWord32 (AddressLevelNormal lvl)   = lvl
+addressLevelToWord32 (AddressLevelHardened lvl) = lvl + hardenedValue
+
+word32ToAddressLevel :: Word32 -> AddressLevel
+word32ToAddressLevel lvl =
+    if lvl <= hardenedValue then
+        AddressLevelNormal lvl
+    else
+        AddressLevelHardened (lvl - hardenedValue)
+
+data AddressLevel
+    = AddressLevelHardened Word32
+    | AddressLevelNormal Word32
+    deriving (Eq, Generic, Ord, Show)
+
+instance ToSchema AddressLevel where
+    declareNamedSchema _ = do
+        NamedSchema _ word32Schema <- declareNamedSchema (Proxy @Word32)
+        pure $ NamedSchema (Just "AddressLevel") $ word32Schema
+            & description ?~ mconcat
+                [ "Address path level according to BIP-32 definition. "
+                , "Levels in the (0..2^31-1) range are treated as normal, "
+                , "those in the (2^31..2^32-1) range are treated as hardened."
+                ]
+
+instance Arbitrary AddressLevel where
+    arbitrary = oneof
+        [ AddressLevelHardened <$> arbitrary
+        , AddressLevelNormal   <$> arbitrary
+        ]
+
+deriveSafeBuildable ''AddressLevel
+instance BuildableSafeGen AddressLevel where
+    buildSafeGen sl = \case
+        AddressLevelNormal lvl   -> bprint (buildSafe sl) lvl
+        AddressLevelHardened lvl -> bprint (buildSafe sl%"'") lvl
+
+instance ToJSON AddressLevel where
+    toJSON = toJSON . addressLevelToWord32
+
+instance FromJSON AddressLevel where
+    parseJSON = fmap word32ToAddressLevel . parseJSON
+
+newtype IsChangeAddress = IsChangeAddress Bool deriving (Show, Eq)
+
+-- | BIP44 derivation path, for work with external wallets, for example:
+-- m / purpose' / coin_type' / account' / change / address_index
+-- m /      44' /      1815' /       0' /      0 /             1
+--
+-- NOTE See:
+--   - https://github.com/satoshilabs/slips/blob/master/slip-0044.md
+--   - https://github.com/satoshilabs/slips/pull/123
+data AddressPath = AddressPath
+    { addrpathPurpose      :: AddressLevel
+    , addrpathCoinType     :: AddressLevel
+    , addrpathAccount      :: AddressLevel
+    , addrpathChange       :: AddressLevel
+    , addrpathAddressIndex :: AddressLevel
+    } deriving (Show, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''AddressPath
+
+instance ToSchema AddressPath where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "addrpath" (\(--^) props -> props
+            & ("purpose"      --^ "44, refers to BIP-44.")
+            & ("coinType"     --^ "1815 for ADA (Ada Lovelace's birthdate).")
+            & ("account"      --^ "Account index, used as child index in BIP-32 derivation.")
+            & ("change"       --^ "0 if external (e.g. payment addr), 1 if internal (e.g. change addr).")
+            & ("addressIndex" --^ "Address index counter, incremental.")
+        )
+
+instance Arbitrary AddressPath where
+    arbitrary = AddressPath <$> arbitrary
+                            <*> arbitrary
+                            <*> arbitrary
+                            <*> arbitrary
+                            <*> arbitrary
+
+deriveSafeBuildable ''AddressPath
+instance BuildableSafeGen AddressPath where
+    buildSafeGen sl AddressPath{..} = bprint (""
+        %"{ purpose="%buildSafe sl
+        %", coin_type="%buildSafe sl
+        %", account="%buildSafe sl
+        %", change="%buildSafe sl
+        %", address_index="%buildSafe sl
+        %" }")
+        addrpathPurpose
+        addrpathCoinType
+        addrpathAccount
+        addrpathChange
+        addrpathAddressIndex
+
+-- Smart constructor to create BIP44 derivation paths
+--
+-- NOTE Our account indexes are already referred to as "hardened" and
+-- are therefore referred to as indexes above 2^31 == maxBound `div` 2 + 1
+-- AddressPath makes it explicit whether a path should be hardened or not
+-- instead of relying on a convention on number.
+mkAddressPathBIP44
+    :: IsChangeAddress   -- ^ Whether this is an internal (for change) or external address (for payments)
+    -> Account           -- ^ Underlying account
+    -> Maybe AddressPath -- ^ If 'Nothing' - address level is out-of-bound (31-byte unsigned integer).
+mkAddressPathBIP44 (IsChangeAddress isChange) acct = AddressPath
+    <$> pure (AddressLevelHardened 44)
+    <*> pure (AddressLevelHardened 1815)
+    <*> pure (word32ToAddressLevel actualIndex)
+    <*> pure (AddressLevelNormal $ if isChange then 1 else 0)
+    <*> checkWord31 AddressLevelNormal (getAddressIndex acct)
+  where
+    getAddressIndex = fromIntegral . length . accAddresses
+    checkWord31 mkLevel n =
+        if n >= hardenedValue then
+            Nothing
+        else
+            Just (mkLevel n)
+    AccountIndex actualIndex = accIndex acct
 
 
 -- | A type incapsulating a password update request.
@@ -1172,29 +1817,28 @@ instance BuildableSafeGen Payment where
         pmtGroupingPolicy
         pmtSpendingPassword
 
-
 ----------------------------------------------------------------------------
 -- TxId
 ----------------------------------------------------------------------------
-instance Arbitrary (V1 Core.TxId) where
+instance Arbitrary (V1 Txp.TxId) where
   arbitrary = V1 <$> arbitrary
 
-instance ToJSON (V1 Core.TxId) where
+instance ToJSON (V1 Txp.TxId) where
   toJSON (V1 t) = String (sformat hashHexF t)
 
-instance FromJSON (V1 Core.TxId) where
+instance FromJSON (V1 Txp.TxId) where
     parseJSON = withText "TxId" $ \t -> do
        case decodeHash t of
            Left err -> fail $ "Failed to parse transaction ID: " <> toString err
            Right a  -> pure (V1 a)
 
-instance FromHttpApiData (V1 Core.TxId) where
+instance FromHttpApiData (V1 Txp.TxId) where
     parseQueryParam = fmap (fmap V1) decodeHash
 
-instance ToHttpApiData (V1 Core.TxId) where
+instance ToHttpApiData (V1 Txp.TxId) where
     toQueryParam (V1 txId) = sformat hashHexF txId
 
-instance ToSchema (V1 Core.TxId) where
+instance ToSchema (V1 Txp.TxId) where
     declareNamedSchema _ = declareNamedSchema (Proxy @Text)
 
 ----------------------------------------------------------------------------
@@ -1332,7 +1976,7 @@ instance BuildableSafeGen TransactionDirection where
 
 -- | A 'Wallet''s 'Transaction'.
 data Transaction = Transaction
-  { txId            :: !(V1 Core.TxId)
+  { txId            :: !(V1 Txp.TxId)
   , txConfirmations :: !Word
   , txAmount        :: !(V1 Core.Coin)
   , txInputs        :: !(NonEmpty PaymentDistribution)
@@ -1396,6 +2040,181 @@ instance BuildableSafeGen Transaction where
 instance Buildable [Transaction] where
     build = bprint listJson
 
+-- | Technically we have serialized 'Tx' here, from the core.
+mkTransactionAsBase16 :: Txp.Tx -> TransactionAsBase16
+mkTransactionAsBase16 =
+    TransactionAsBase16Unsafe . Base16.encode . Bi.serialize'
+
+rawTransactionAsBase16 :: TransactionAsBase16 -> Text
+rawTransactionAsBase16 (TransactionAsBase16Unsafe txtTx) = txtTx
+
+instance Buildable [AddressLevel] where
+    build = bprint listJson
+
+-- | Source address and corresponding derivation path, for external wallet.
+data AddressAndPath = AddressAndPath
+    { aapSrcAddress     :: !AddressAsBase58
+    -- ^ Source address in Base58-format.
+    , aapDerivationPath :: ![AddressLevel]
+    -- ^ Derivation path used during generation of this address.
+    } deriving (Show, Ord, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''AddressAndPath
+
+instance ToSchema AddressAndPath where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "aap" (\(--^) props -> props
+            & ("srcAddress"     --^ "Source address that corresponds to transaction input.")
+            & ("derivationPath" --^ "Derivation path corresponding to this address.")
+        )
+
+instance Arbitrary AddressAndPath where
+    arbitrary = AddressAndPath <$> arbitrary
+                               <*> arbitrary
+
+deriveSafeBuildable ''AddressAndPath
+instance BuildableSafeGen AddressAndPath where
+    buildSafeGen sl AddressAndPath{..} = bprint ("{"
+        %" srcAddress="%buildSafe sl
+        %" derivationPath="%buildSafe sl
+        %" }")
+        aapSrcAddress
+        aapDerivationPath
+
+instance Buildable [AddressAndPath] where
+    build = bprint listJson
+
+-- | A 'Wallet''s 'UnsignedTransaction'.
+data UnsignedTransaction = UnsignedTransaction
+    { rtxHex          :: !TransactionAsBase16
+    -- ^ Serialized transaction in Base16-format.
+    , rtxSrcAddresses :: ![AddressAndPath]
+    -- ^ Addresses (with derivation paths) which will be used as a sources of money.
+    } deriving (Show, Ord, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''UnsignedTransaction
+
+instance ToSchema UnsignedTransaction where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "rtx" (\(--^) props -> props
+            & ("hex"          --^ "New raw transaction in Base16-format.")
+            & ("srcAddresses" --^ "Source addresses (with derivation paths), correspond to transaction inputs.")
+        )
+
+instance Arbitrary UnsignedTransaction where
+    arbitrary = UnsignedTransaction <$> arbitrary
+                                    <*> arbitrary
+
+deriveSafeBuildable ''UnsignedTransaction
+instance BuildableSafeGen UnsignedTransaction where
+    buildSafeGen sl UnsignedTransaction{..} = bprint ("{"
+        %" hex="%buildSafe sl
+        %" srcAddresses="%buildSafe sl
+        %" }")
+        rtxHex
+        rtxSrcAddresses
+
+-- | To proof that the external wallet has the right to spend the input,
+-- it returns the source address, the signature and the derived PK of
+-- the transaction input.
+data AddressWithProof = AddressWithProof
+    { awpSrcAddress  :: !AddressAsBase58
+    -- ^ Base58-encoded source address.
+    , awpTxSignature :: !TransactionSignatureAsBase16
+    -- ^ Base16-encoded signature of transaction (made by derived SK).
+    , awpDerivedPK   :: !PublicKeyAsBase58
+    -- ^ Base58-encoded derived PK (corresponding to derived SK).
+    } deriving (Show, Ord, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''AddressWithProof
+
+instance ToSchema AddressWithProof where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "awp" (\(--^) props -> props
+            & ("srcAddress"  --^ "Source address in Base58-format.")
+            & ("txSignature" --^ "Transaction signature by derived SK.")
+            & ("derivedPK"   --^ "Derived PK in Base58-format.")
+        )
+
+instance Arbitrary AddressWithProof where
+    arbitrary = AddressWithProof <$> arbitrary
+                                 <*> arbitrary
+                                 <*> arbitrary
+
+deriveSafeBuildable ''AddressWithProof
+instance BuildableSafeGen AddressWithProof where
+    buildSafeGen sl AddressWithProof{..} = bprint ("{"
+        %" srcAddress="%buildSafe sl
+        %" txSignature="%buildSafe sl
+        %" derivedPK="%buildSafe sl
+        %" }")
+        awpSrcAddress
+        awpTxSignature
+        awpDerivedPK
+
+instance Buildable [AddressWithProof] where
+    build = bprint listJson
+
+-- | A 'Wallet''s 'SignedTransaction'. It is assumed
+-- that this transaction was signed on the client-side
+-- (mobile client or hardware wallet).
+data SignedTransaction = SignedTransaction
+    { stxTransaction     :: !TransactionAsBase16
+    -- ^ Serialized transaction in base16-format.
+    , stxAddrsWithProofs :: ![AddressWithProof]
+    -- ^ Addresses with proofs for inputs of this transaction.
+    } deriving (Show, Ord, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''SignedTransaction
+instance ToSchema SignedTransaction where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "stx" (\(--^) props -> props
+            & ("transaction"     --^ "New transaction that wasn't submitted in the blockchain yet.")
+            & ("addrsWithProofs" --^ "Source addresses with proofs for inputs.")
+        )
+
+instance Arbitrary SignedTransaction where
+    arbitrary = SignedTransaction <$> arbitrary
+                                  <*> arbitrary
+
+deriveSafeBuildable ''SignedTransaction
+instance BuildableSafeGen SignedTransaction where
+    buildSafeGen sl SignedTransaction{..} = bprint ("{"
+        %" transaction="%buildSafe sl
+        %" addrsWithProofs="%buildSafe sl
+        %" }")
+        stxTransaction
+        stxAddrsWithProofs
+
+-- | We use it for external wallets: if it's already presented in wallet db,
+-- we return a wallet info and complete transactions history as well.
+data WalletAndTxHistory = WalletAndTxHistory
+    { waltxsWallet       :: !Wallet
+    , waltxsTransactions :: ![Transaction]
+    } deriving (Eq, Ord, Show, Generic)
+
+deriveJSON Serokell.defaultOptions ''WalletAndTxHistory
+
+instance ToSchema WalletAndTxHistory where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "waltxs" (\(--^) props -> props
+            & ("wallet"       --^ "Wallet information.")
+            & ("transactions" --^ "List of all transactions related to this wallet.")
+        )
+
+instance Arbitrary WalletAndTxHistory where
+    arbitrary = WalletAndTxHistory <$> arbitrary
+                                   <*> arbitrary
+
+deriveSafeBuildable ''WalletAndTxHistory
+instance BuildableSafeGen WalletAndTxHistory where
+    buildSafeGen sl WalletAndTxHistory{..} = bprint ("{"
+        %" wallet="%buildSafe sl
+        %" transactions="%buildSafe sl
+        %" }")
+        waltxsWallet
+        waltxsTransactions
+
 
 -- | A type representing an upcoming wallet update.
 data WalletSoftwareUpdate = WalletSoftwareUpdate
@@ -1430,6 +2249,35 @@ instance BuildableSafeGen WalletSoftwareUpdate where
         updSoftwareVersion
         updBlockchainVersion
         updScriptVersion
+
+-- | A type encapsulating enough information to import a wallet from a
+-- backup file.
+data WalletImport = WalletImport
+  { wiSpendingPassword :: !(Maybe SpendingPassword)
+  , wiFilePath         :: !FilePath
+  } deriving (Show, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''WalletImport
+
+instance ToSchema WalletImport where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "wi" (\(--^) props -> props
+      & ("spendingPassword"   --^ "An optional spending password to set for the imported wallet.")
+      & ("filePath" --^ "The path to the .key file holding the backup.")
+    )
+
+instance Arbitrary WalletImport where
+  arbitrary = WalletImport <$> arbitrary
+                           <*> arbitrary
+
+deriveSafeBuildable ''WalletImport
+instance BuildableSafeGen WalletImport where
+    buildSafeGen sl WalletImport{..} = bprint("{"
+        %" spendingPassword="%build
+        %" filePath="%build
+        %" }")
+        (maybe "null" (buildSafeGen sl) wiSpendingPassword)
+        wiFilePath
 
 
 -- | How many milliseconds a slot lasts for.
@@ -1482,6 +2330,7 @@ data NodeSettings = NodeSettings {
    , setGitRevision    :: !Text
    } deriving (Show, Eq, Generic)
 
+#if !(MIN_VERSION_swagger2(2,2,2))
 -- See note [Version Orphan]
 instance ToSchema Version where
     declareNamedSchema _ =
@@ -1492,6 +2341,7 @@ instance ToSchema Version where
 -- I have opened a PR to add an instance of 'Version' to the swagger2
 -- library. When the PR is merged, we can delete the instance here and remove the warning from the file.
 -- PR: https://github.com/GetShopTV/swagger2/pull/152
+#endif
 
 instance ToJSON (V1 Core.ApplicationName) where
     toJSON (V1 svAppName) = toJSON (Core.getApplicationName svAppName)
@@ -1578,7 +2428,7 @@ instance FromJSON LocalTimeDifference where
     parseJSON = withObject "LocalTimeDifference" $ \sl -> mkLocalTimeDifference <$> sl .: "quantity"
 
 instance ToSchema LocalTimeDifference where
-    declareNamedSchema _ = do
+    declareNamedSchema _ =
         pure $ NamedSchema (Just "LocalTimeDifference") $ mempty
             & type_ .~ SwaggerObject
             & required .~ ["quantity"]
@@ -1619,7 +2469,7 @@ instance FromJSON BlockchainHeight where
         mkBlockchainHeight . Core.BlockCount <$> sl .: "quantity"
 
 instance ToSchema BlockchainHeight where
-    declareNamedSchema _ = do
+    declareNamedSchema _ =
         pure $ NamedSchema (Just "BlockchainHeight") $ mempty
             & type_ .~ SwaggerObject
             & required .~ ["quantity"]
@@ -1649,7 +2499,7 @@ instance ToSchema TimeInfo where
     declareNamedSchema = genericSchemaDroppingPrefix "time" $ \(--^) p -> p &
         "differenceFromNtpServer"
         --^ ("The difference in microseconds between the node time and the NTP "
-          <> "server. This value will be null if the NTP server is pending or "
+          <> "server. This value will be null if the NTP server is "
           <> "unavailable.")
 
 instance Arbitrary TimeInfo where
@@ -1758,21 +2608,578 @@ instance BuildableSafeGen NodeInfo where
         nfoLocalTimeInformation
         (Map.toList nfoSubscriptionStatus)
 
+-- | A redemption mnemonic.
+newtype RedemptionMnemonic = RedemptionMnemonic
+    { unRedemptionMnemonic :: Mnemonic 9
+    }
+    deriving stock (Eq, Show, Generic)
+    deriving newtype (ToJSON, FromJSON, Arbitrary)
+
+instance ToSchema RedemptionMnemonic where
+    declareNamedSchema _ = pure $
+        NamedSchema (Just "RedemptionMnemonic") (toSchema (Proxy @(Mnemonic 9)))
+
+-- | A shielded redemption code.
+newtype ShieldedRedemptionCode = ShieldedRedemptionCode
+    { unShieldedRedemptionCode :: Text
+    } deriving (Eq, Show, Generic)
+      deriving newtype (ToJSON, FromJSON)
+
+-- | This instance could probably be improved. A 'ShieldedRedemptionCode' is
+-- a hash of the redemption key.
+instance Arbitrary ShieldedRedemptionCode where
+    arbitrary = ShieldedRedemptionCode <$> arbitrary
+
+instance ToSchema ShieldedRedemptionCode where
+    declareNamedSchema _ =
+        pure
+            $ NamedSchema (Just "ShieldedRedemptionCode") $ mempty
+            & type_ .~ SwaggerString
+
+deriveSafeBuildable ''ShieldedRedemptionCode
+instance BuildableSafeGen ShieldedRedemptionCode where
+    buildSafeGen _ _ =
+        bprint "<shielded redemption code>"
+
+-- | The request body for redeeming some Ada.
+data Redemption = Redemption
+    { redemptionRedemptionCode   :: ShieldedRedemptionCode
+    -- ^ The redemption code associated with the Ada to redeem.
+    , redemptionMnemonic         :: Maybe RedemptionMnemonic
+    -- ^ An optional mnemonic. This mnemonic was included with paper
+    -- certificates, and the presence of this field indicates that we're
+    -- doing a paper vend.
+    , redemptionSpendingPassword :: SpendingPassword
+    -- ^ The user must provide a spending password that matches the wallet that
+    -- will be receiving the redemption funds.
+    , redemptionWalletId         :: WalletId
+    -- ^ Redeem to this wallet
+    , redemptionAccountIndex     :: AccountIndex
+    -- ^ Redeem to this account index in the wallet
+    } deriving (Eq, Show, Generic)
+
+deriveSafeBuildable ''Redemption
+instance BuildableSafeGen Redemption where
+    buildSafeGen sl r = bprint ("{"
+        %" redemptionCode="%buildSafe sl
+        %" mnemonic=<mnemonic>"
+        %" spendingPassword="%buildSafe sl
+        %" }")
+        (redemptionRedemptionCode r)
+        (redemptionSpendingPassword r)
+
+deriveJSON Serokell.defaultOptions  ''Redemption
+
+instance ToSchema Redemption where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "redemption" (\(--^) props -> props
+            & "redemptionCode"
+            --^ "The redemption code associated with the Ada to redeem."
+            & "mnemonic"
+            --^ ( "An optional mnemonic. This must be provided for a paper "
+                <> "certificate redemption."
+                )
+            & "spendingPassword"
+            --^ ( "An optional spending password. This must match the password "
+                <> "for the provided wallet ID and account index."
+                )
+        )
+
+instance Arbitrary Redemption where
+    arbitrary = Redemption <$> arbitrary
+                           <*> arbitrary
+                           <*> arbitrary
+                           <*> arbitrary
+                           <*> arbitrary
+
+data ForceNtpCheck
+    = ForceNtpCheck
+    | NoNtpCheck
+    deriving (Eq)
+
+instance Flaggable ForceNtpCheck where
+    toBool ForceNtpCheck = True
+    toBool NoNtpCheck    = False
+    fromBool True  = ForceNtpCheck
+    fromBool False = NoNtpCheck
+
+deriveSafeBuildable ''ForceNtpCheck
+instance BuildableSafeGen ForceNtpCheck where
+    buildSafeGen _ ForceNtpCheck = "force ntp check"
+    buildSafeGen _ NoNtpCheck    = "no ntp check"
 
 --
 -- POST/PUT requests isomorphisms
 --
 
 type family Update (original :: *) :: * where
-  Update Wallet        = WalletUpdate
-  Update Account       = AccountUpdate
-  Update WalletAddress = () -- read-only
+    Update Wallet =
+        WalletUpdate
+    Update Account =
+        AccountUpdate
+    Update WalletAddress =
+        () -- read-only
 
 type family New (original :: *) :: * where
-  New Wallet  = NewWallet
-  New Account = NewAccount
-  New WalletAddress = NewAddress
+    New Wallet =
+        NewWallet
+    New Account =
+        NewAccount
+    New WalletAddress =
+        NewAddress
+    New ExternalWallet =
+        NewExternalWallet
 
 type CaptureWalletId = Capture "walletId" WalletId
 
 type CaptureAccountId = Capture "accountId" AccountIndex
+
+--
+-- Example typeclass instances
+--
+
+instance Example Core.Address
+instance Example AccountIndex
+instance Example AccountBalance
+instance Example AccountAddresses
+instance Example AddressLevel
+instance Example AddressPath
+instance Example WalletId
+instance Example AssuranceLevel
+instance Example BlockchainHeight
+instance Example LocalTimeDifference
+instance Example PaymentDistribution
+instance Example AccountUpdate
+instance Example Wallet
+instance Example ExternalWallet
+instance Example WalletUpdate
+instance Example WalletOperation
+instance Example PasswordUpdate
+instance Example EstimatedFees
+instance Example Transaction
+instance Example WalletSoftwareUpdate
+instance Example NodeSettings
+instance Example SlotDuration
+instance Example WalletAddress
+instance Example NewAccount
+instance Example TimeInfo
+instance Example AddressValidity
+instance Example NewAddress
+instance Example SubscriptionStatus
+instance Example NodeId
+instance Example ShieldedRedemptionCode
+instance Example (V1 Core.PassPhrase)
+instance Example (V1 Core.Coin)
+
+-- | We have a specific 'Example' instance for @'V1' 'Address'@ because we want
+-- to control the length of the examples. It is possible for the encoded length
+-- to become huge, up to 1000+ bytes, if the 'UnsafeMultiKeyDistr' constructor
+-- is used. We do not use this constructor, which keeps the address between
+-- ~80-150 bytes long.
+instance Example (V1 Core.Address) where
+    example = fmap V1 . Core.makeAddress
+        <$> arbitrary
+        <*> arbitraryAttributes
+      where
+        arbitraryAttributes =
+            Core.AddrAttributes
+                <$> arbitrary
+                <*> oneof
+                    [ pure Core.BootstrapEraDistr
+                    , Core.SingleKeyDistr <$> arbitrary
+                    ]
+                <*> arbitrary
+
+instance Example BackupPhrase where
+    example = pure (BackupPhrase def)
+
+instance Example Core.InputSelectionPolicy where
+    example = pure Core.OptimizeForHighThroughput
+
+instance Example (V1 Core.InputSelectionPolicy) where
+    example = pure (V1 Core.OptimizeForHighThroughput)
+
+instance Example Account where
+    example = Account <$> example
+                      <*> example -- NOTE: this will produce non empty list
+                      <*> example
+                      <*> pure "My account"
+                      <*> example
+
+instance Example NewWallet where
+    example = NewWallet <$> example
+                        <*> example -- Note: will produce `Just a`
+                        <*> example
+                        <*> pure "My Wallet"
+                        <*> example
+
+instance Example AddressAsBase58 where
+    example = AddressAsBase58Unsafe <$> pure
+        "DdzFFzCqrhszBQmhPAbCwSrk5EcZjgRurtNzrGqxU3QYrT8NyGujgzoF1z3eS8CJBJJ71hFL4MXvBQ64j3jGU4UJBDHb4KKoLtiVsUvf"
+
+instance Example PublicKeyAsBase58 where
+    example = PublicKeyAsBase58Unsafe <$> pure
+        "bNfWjshJG9xxy6VkpV2KurwGah3jQWjGb4QveDGZteaCwupdKWAi371r8uS5yFCny5i5EQuSNSLKqvRHmWEoHe45pZ"
+
+instance Example TransactionAsBase16 where
+    example = TransactionAsBase16Unsafe <$> pure
+        "839f8200d8185826825820de3151a2d9cd8e2bbe292a6153d679d123892ddcfbee869c4732a5c504a7554d19386cff9f8282d818582183581caeb153a5809a084507854c9f3e5795bcca89781f9c386d957748cd42a0001a87236a1f1b00780aa6c7d62110ffa0"
+
+instance Example TransactionSignatureAsBase16 where
+    example = TransactionSignatureAsBase16Unsafe <$> pure
+        "5840709cc240ac9ad78cbf47c3eec76df917423943e34339277593e8e2b8c9f9f2e59583023bfbd8e26c40dff6a7fa424600f9b942819533d8afee37a5ac6d813207"
+
+instance Example NewExternalWallet where
+    example = NewExternalWallet <$> example
+                                <*> example
+                                <*> pure "My external Wallet"
+                                <*> example
+
+instance Example NodeInfo where
+    example = NodeInfo <$> example
+                       <*> example  -- NOTE: will produce `Just a`
+                       <*> example
+                       <*> example
+                       <*> example
+
+instance Example PaymentSource where
+    example = PaymentSource <$> example
+                            <*> example
+
+instance Example Payment where
+    example = Payment <$> example
+                      <*> example
+                      <*> example -- TODO: will produce `Just groupingPolicy`
+                      <*> example
+
+instance Example Redemption where
+    example = Redemption <$> example
+                         <*> pure Nothing
+                         <*> example
+                         <*> example
+                         <*> example
+
+instance Example AddressAndPath where
+    example = AddressAndPath <$> example
+                             <*> example
+
+instance Example UnsignedTransaction where
+    example = UnsignedTransaction <$> example
+                                  <*> example
+
+instance Example WalletAndTxHistory where
+    example = WalletAndTxHistory <$> example
+                                 <*> example
+
+instance Example AddressWithProof where
+    example = AddressWithProof <$> example
+                               <*> example
+                               <*> example
+
+instance Example SignedTransaction where
+    example = SignedTransaction <$> example
+                                <*> example
+
+instance Example WalletImport where
+    example = WalletImport <$> example
+                           <*> pure "/Users/foo/Documents/wallet_to_import.key"
+
+--
+-- Wallet Errors
+--
+
+-- | Details about what 'NotEnoughMoney' means
+data ErrNotEnoughMoney
+    -- | UTxO exhausted whilst trying to pick inputs to cover remaining fee
+    = ErrCannotCoverFee
+
+    -- | UTxO exhausted during input selection
+    --
+    -- We record the available balance of the UTxO
+    | ErrAvailableBalanceIsInsufficient Int
+
+    deriving (Eq, Show, Generic)
+
+instance Buildable ErrNotEnoughMoney where
+    build = \case
+        ErrCannotCoverFee ->
+             bprint "Not enough coins to cover fee."
+        ErrAvailableBalanceIsInsufficient _ ->
+             bprint "Not enough available coins to proceed."
+
+instance ToJSON ErrNotEnoughMoney where
+    toJSON = \case
+        e@ErrCannotCoverFee -> object
+            [ "msg" .= sformat build e
+            ]
+        e@(ErrAvailableBalanceIsInsufficient balance) -> object
+            [ "msg"              .= sformat build e
+            , "availableBalance" .= balance
+            ]
+
+instance FromJSON ErrNotEnoughMoney where
+    parseJSON v =
+            withObject "AvailableBalanceIsInsufficient" availableBalanceIsInsufficientParser v
+        <|> withObject "CannotCoverFee" cannotCoverFeeParser v
+      where
+        cannotCoverFeeParser :: Object -> Parser ErrNotEnoughMoney
+        cannotCoverFeeParser o = do
+            msg <- o .: "msg"
+            when (msg /= sformat build ErrCannotCoverFee) mempty
+            pure ErrCannotCoverFee
+
+        availableBalanceIsInsufficientParser :: Object -> Parser ErrNotEnoughMoney
+        availableBalanceIsInsufficientParser o = do
+            msg <- o .: "msg"
+            when (msg /= sformat build (ErrAvailableBalanceIsInsufficient 0)) mempty
+            ErrAvailableBalanceIsInsufficient <$> (o .: "availableBalance")
+
+
+-- | Type representing any error which might be thrown by wallet.
+--
+-- Errors are represented in JSON in the JSend format (<https://labs.omniti.com/labs/jsend>):
+-- ```
+-- {
+--     "status": "error"
+--     "message" : <constr_name>,
+--     "diagnostic" : <data>
+-- }
+-- ```
+-- where `<constr_name>` is a string containing name of error's constructor (e. g. `NotEnoughMoney`),
+-- and `<data>` is an object containing additional error data.
+-- Additional data contains constructor fields, field names are record field names without
+-- a `we` prefix, e. g. for `OutputIsRedeem` error "diagnostic" field will be the following:
+-- ```
+-- {
+--     "address" : <address>
+-- }
+-- ```
+--
+-- Additional data in constructor should be represented as record fields.
+-- Otherwise TemplateHaskell will raise an error.
+--
+-- If constructor does not have additional data (like in case of `WalletNotFound` error),
+-- then "diagnostic" field will be empty object.
+--
+-- TODO: change fields' types to actual Cardano core types, like `Coin` and `Address`
+data WalletError =
+    -- | NotEnoughMoney weNeedMore
+      NotEnoughMoney !ErrNotEnoughMoney
+    -- | OutputIsRedeem weAddress
+    | OutputIsRedeem !(V1 Core.Address)
+    -- | UnknownError weMsg
+    | UnknownError !Text
+    -- | InvalidAddressFormat weMsg
+    | InvalidAddressFormat !Text
+    | WalletNotFound
+    | WalletAlreadyExists !WalletId
+    | AddressNotFound
+    | TxFailedToStabilize
+    | InvalidPublicKey !Text
+    | UnsignedTxCreationError
+    | TooBigTransaction
+    -- ^ Size of transaction (in bytes) is greater than maximum.
+    | SignedTxSubmitError !Text
+    | TxRedemptionDepleted
+    -- | TxSafeSignerNotFound weAddress
+    | TxSafeSignerNotFound !(V1 Core.Address)
+    -- | MissingRequiredParams requiredParams
+    | MissingRequiredParams !(NonEmpty (Text, Text))
+    -- | WalletIsNotReadyToProcessPayments weStillRestoring
+    | CannotCreateAddress !Text
+    -- ^ Cannot create derivation path for new address (for external wallet).
+    | WalletIsNotReadyToProcessPayments !SyncProgress
+    -- ^ The @Wallet@ where a @Payment@ is being originated is not fully
+    -- synced (its 'WalletSyncState' indicates it's either syncing or
+    -- restoring) and thus cannot accept new @Payment@ requests.
+    -- | NodeIsStillSyncing wenssStillSyncing
+    | NodeIsStillSyncing !SyncPercentage
+    -- ^ The backend couldn't process the incoming request as the underlying
+    -- node is still syncing with the blockchain.
+    | RequestThrottled !Word64
+    -- ^ The request has been throttled. The 'Word64' is a count of microseconds
+    -- until the user should retry.
+    deriving (Generic, Show, Eq)
+
+-- deriveWalletErrorJSON ''WalletError
+deriveGeneric ''WalletError
+
+instance Exception WalletError
+
+instance ToHttpErrorStatus WalletError
+
+instance ToJSON WalletError where
+    toJSON = jsendErrorGenericToJSON
+
+instance FromJSON WalletError where
+    parseJSON = jsendErrorGenericParseJSON
+
+instance Arbitrary WalletError where
+    arbitrary = Gen.oneof
+        [ NotEnoughMoney <$> Gen.oneof
+            [ pure ErrCannotCoverFee
+            , ErrAvailableBalanceIsInsufficient <$> Gen.choose (1, 1000)
+            ]
+        , OutputIsRedeem . V1 <$> arbitrary
+        , UnknownError <$> arbitraryText
+        , InvalidAddressFormat <$> arbitraryText
+        , pure WalletNotFound
+        , WalletAlreadyExists <$> arbitrary
+        , pure AddressNotFound
+        , InvalidPublicKey <$> arbitraryText
+        , pure UnsignedTxCreationError
+        , SignedTxSubmitError <$> arbitraryText
+        , pure TooBigTransaction
+        , pure TxFailedToStabilize
+        , pure TxRedemptionDepleted
+        , TxSafeSignerNotFound . V1 <$> arbitrary
+        , MissingRequiredParams <$> Gen.oneof
+            [ unsafeMkNonEmpty <$> Gen.vectorOf 1 arbitraryParam
+            , unsafeMkNonEmpty <$> Gen.vectorOf 2 arbitraryParam
+            , unsafeMkNonEmpty <$> Gen.vectorOf 3 arbitraryParam
+            ]
+        , WalletIsNotReadyToProcessPayments <$> arbitrary
+        , NodeIsStillSyncing <$> arbitrary
+        , CannotCreateAddress <$> arbitraryText
+        , RequestThrottled <$> arbitrary
+        ]
+      where
+        arbitraryText :: Gen Text
+        arbitraryText =
+            toText . Gen.getASCIIString <$> arbitrary
+
+        arbitraryParam :: Gen (Text, Text)
+        arbitraryParam =
+            (,) <$> arbitrary <*> arbitrary
+
+        unsafeMkNonEmpty :: [a] -> NonEmpty a
+        unsafeMkNonEmpty (h:q) = h :| q
+        unsafeMkNonEmpty _     = error "unsafeMkNonEmpty called with empty list"
+
+
+-- | Give a short description of an error
+instance Buildable WalletError where
+    build = \case
+        NotEnoughMoney x ->
+             bprint build x
+        OutputIsRedeem _ ->
+             bprint "One of the TX outputs is a redemption address."
+        UnknownError _ ->
+             bprint "Unexpected internal error."
+        InvalidAddressFormat _ ->
+             bprint "Provided address format is not valid."
+        WalletNotFound ->
+             bprint "Reference to an unexisting wallet was given."
+        WalletAlreadyExists _ ->
+             bprint "Can't create or restore a wallet. The wallet already exists."
+        AddressNotFound ->
+             bprint "Reference to an unexisting address was given."
+        InvalidPublicKey _ ->
+            bprint "Extended public key (for external wallet) is invalid."
+        UnsignedTxCreationError ->
+            bprint "Unable to create unsigned transaction for an external wallet."
+        TooBigTransaction ->
+            bprint "Transaction size is greater than 4096 bytes."
+        SignedTxSubmitError _ ->
+            bprint "Unable to submit externally-signed transaction."
+        MissingRequiredParams _ ->
+            bprint "Missing required parameters in the request payload."
+        WalletIsNotReadyToProcessPayments _ ->
+            bprint "This wallet is restoring, and it cannot send new transactions until restoration completes."
+        NodeIsStillSyncing _ ->
+            bprint "The node is still syncing with the blockchain, and cannot process the request yet."
+        TxRedemptionDepleted ->
+            bprint "The redemption address was already used."
+        TxSafeSignerNotFound _ ->
+            bprint "The safe signer at the specified address was not found."
+        TxFailedToStabilize ->
+            bprint "We were unable to find a set of inputs to satisfy this transaction."
+        CannotCreateAddress _ ->
+            bprint "Cannot create derivation path for new address, for external wallet."
+        RequestThrottled _ ->
+            bprint "You've made too many requests too soon, and this one was throttled."
+
+
+-- | Convert wallet errors to Servant errors
+instance ToServantError WalletError where
+    declareServantError = \case
+        NotEnoughMoney{} ->
+            err403
+        OutputIsRedeem{} ->
+            err403
+        UnknownError{} ->
+            err500
+        WalletNotFound{} ->
+            err404
+        WalletAlreadyExists{} ->
+            err403
+        InvalidAddressFormat{} ->
+            err401
+        AddressNotFound{} ->
+            err404
+        InvalidPublicKey{} ->
+            err400
+        UnsignedTxCreationError{} ->
+            err500
+        TooBigTransaction{} ->
+            err400
+        SignedTxSubmitError{} ->
+            err500
+        MissingRequiredParams{} ->
+            err400
+        WalletIsNotReadyToProcessPayments{} ->
+            err403
+        NodeIsStillSyncing{} ->
+            err412 -- Precondition failed
+        TxFailedToStabilize{} ->
+            err500
+        TxRedemptionDepleted{} ->
+            err400
+        TxSafeSignerNotFound{} ->
+            err400
+        CannotCreateAddress{} ->
+            err500
+        RequestThrottled{} ->
+            err400 { errHTTPCode = 429 }
+
+-- | Declare the key used to wrap the diagnostic payload, if any
+instance HasDiagnostic WalletError where
+    getDiagnosticKey = \case
+        NotEnoughMoney{} ->
+            "details"
+        OutputIsRedeem{} ->
+            "address"
+        UnknownError{} ->
+            "msg"
+        WalletNotFound{} ->
+            noDiagnosticKey
+        WalletAlreadyExists{} ->
+            "walletId"
+        InvalidAddressFormat{} ->
+            "msg"
+        AddressNotFound{} ->
+            noDiagnosticKey
+        InvalidPublicKey{} ->
+            "msg"
+        UnsignedTxCreationError{} ->
+            noDiagnosticKey
+        TooBigTransaction{} ->
+            noDiagnosticKey
+        SignedTxSubmitError{} ->
+            "msg"
+        MissingRequiredParams{} ->
+            "params"
+        WalletIsNotReadyToProcessPayments{} ->
+            "stillRestoring"
+        NodeIsStillSyncing{} ->
+            "stillSyncing"
+        TxFailedToStabilize{} ->
+            noDiagnosticKey
+        TxRedemptionDepleted{} ->
+            noDiagnosticKey
+        TxSafeSignerNotFound{} ->
+            "address"
+        CannotCreateAddress{} ->
+            "msg"
+        RequestThrottled{} ->
+            "microsecondsUntilRetry"

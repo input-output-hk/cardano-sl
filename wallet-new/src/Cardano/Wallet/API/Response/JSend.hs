@@ -6,7 +6,7 @@ import           Data.Aeson
 import           Data.Aeson.TH
 import qualified Data.Char as Char
 import           Data.Swagger
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Test.QuickCheck (Arbitrary (..), elements)
 
 data ResponseStatus =
@@ -16,6 +16,13 @@ data ResponseStatus =
     deriving (Show, Eq, Ord, Enum, Bounded)
 
 deriveJSON defaultOptions { Data.Aeson.TH.constructorTagModifier = map Char.toLower . reverse . drop 6 . reverse } ''ResponseStatus
+
+class HasDiagnostic a where
+    getDiagnosticKey :: a -> Text
+
+noDiagnosticKey :: Text
+noDiagnosticKey =
+    error "Contructor has declared no diagnostic key but apparently requires one! Have a look at HasDiagnostic instances!"
 
 instance Arbitrary ResponseStatus where
     arbitrary = elements [minBound .. maxBound]

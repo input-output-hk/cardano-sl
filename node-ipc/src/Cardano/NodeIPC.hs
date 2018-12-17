@@ -1,43 +1,50 @@
-{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving  #-}
 {-# OPTIONS_GHC -Wall            #-}
 
 module Cardano.NodeIPC (startNodeJsIPC) where
 
-import           Control.Arrow             ( (>>>) )
-import           Control.Concurrent        (forkIO)
-import           Control.Monad.Reader      (MonadReader)
-import           Data.Aeson                (FromJSON(parseJSON), ToJSON(toEncoding), defaultOptions, genericParseJSON, genericToEncoding, encode, eitherDecode)
-import           Data.Aeson.Types          (Options, SumEncoding(ObjectWithSingleField), sumEncoding)
-import           Data.Binary.Get           (runGet, getWord64le, getWord32le)
-import           Data.Binary.Put           (runPut, putWord32le, putWord64le, putLazyByteString)
-import qualified Data.ByteString.Lazy      as BSL
+import           Control.Arrow ((>>>))
+import           Control.Concurrent (forkIO)
+import           Control.Monad.Reader (MonadReader)
+import           Data.Aeson (FromJSON (parseJSON), ToJSON (toEncoding),
+                     defaultOptions, eitherDecode, encode, genericParseJSON,
+                     genericToEncoding)
+import           Data.Aeson.Types (Options, SumEncoding (ObjectWithSingleField),
+                     sumEncoding)
+import           Data.Binary.Get (getWord32le, getWord64le, runGet)
+import           Data.Binary.Put (putLazyByteString, putWord32le, putWord64le,
+                     runPut)
+import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
-import           Distribution.System       (buildOS, OS(Windows))
-import           GHC.IO.Handle.FD          (fdToHandle)
-import           GHC.Generics              (Generic)
-import           Pos.Infra.Shutdown.Logic  (triggerShutdown)
-import           Pos.Infra.Shutdown.Class  (HasShutdownContext (..))
-import           Pos.Infra.Shutdown.Types  (ShutdownContext)
-import           System.Environment        (lookupEnv)
-import           System.IO.Error           (IOError, isEOFError)
-import           System.IO                 (hFlush, hGetLine, hSetNewlineMode, noNewlineTranslation)
-import           System.Wlog               (WithLogger, logInfo, logError)
-import           System.Wlog.LoggerNameBox (usingLoggerName)
+import           Distribution.System (OS (Windows), buildOS)
+import           GHC.Generics (Generic)
+import           GHC.IO.Handle.FD (fdToHandle)
+import           System.Environment (lookupEnv)
+import           System.IO (hFlush, hGetLine, hSetNewlineMode,
+                     noNewlineTranslation)
+import           System.IO.Error (IOError, isEOFError)
 import           Universum
 
-data Packet = Started | QueryPort | ReplyPort Word16 | Ping | Pong | ParseError Text deriving (Show, Eq, Generic)
+import           Pos.Infra.InjectFail (FInject, listFInjects, setFInject)
+import           Pos.Infra.Shutdown.Class (HasShutdownContext (..))
+import           Pos.Infra.Shutdown.Logic (triggerShutdown)
+import           Pos.Infra.Shutdown.Types (ShutdownContext (..), shdnFInjects)
+import           Pos.Util.Wlog (WithLogger, logError, logInfo, usingLoggerName)
+
+data MsgIn  = QueryPort | Ping | SetFInject FInject Bool
+  deriving (Show, Eq, Generic)
+data MsgOut = Started | ReplyPort Word16 | Pong | ParseError Text | FInjects [FInject]
+  deriving (Show, Eq, Generic)
 
 opts :: Options
 opts = defaultOptions { sumEncoding = ObjectWithSingleField }
 
-instance FromJSON Packet where
-  parseJSON = genericParseJSON opts
-
-instance ToJSON Packet where
-  toEncoding = genericToEncoding opts
+instance FromJSON MsgIn  where parseJSON = genericParseJSON opts
+instance ToJSON   MsgOut where toEncoding = genericToEncoding opts
 
 startNodeJsIPC ::
     (MonadIO m, WithLogger m, MonadReader ctx m, HasShutdownContext ctx)
@@ -106,13 +113,16 @@ ipcListener ::
     => Handle -> Word16 -> m ()
 ipcListener handle port = do
   liftIO $ hSetNewlineMode handle noNewlineTranslation
+  shutCtx <- view shutdownContext
   let
-    send :: Packet -> m ()
+    send :: MsgOut -> m ()
     send cmd = liftIO $ sendMessage handle $ encode cmd
-    action :: Packet -> m ()
-    action QueryPort = send $ ReplyPort port
-    action Ping = send Pong
-    action foo = logInfo $ "Unhandled IPC msg: " <> show foo
+    action :: MsgIn -> m ()
+    action QueryPort          = send $ ReplyPort port
+    action Ping               = send Pong
+    action (SetFInject fi en) = do
+      liftIO $ setFInject (shutCtx ^. shdnFInjects) fi en
+      send =<< FInjects <$> (liftIO $ listFInjects (shutCtx ^. shdnFInjects))
   let
     loop :: m ()
     loop = do
@@ -120,10 +130,10 @@ ipcListener handle port = do
       forever $ do
         line <- readMessage handle
         let
-          handlePacket :: Either String Packet -> m ()
-          handlePacket (Left err) = send $ ParseError $ toText err
-          handlePacket (Right cmd) = action cmd
-        handlePacket $ eitherDecode line
+          handleMsgIn :: Either String MsgIn -> m ()
+          handleMsgIn (Left err)  = send $ ParseError $ toText err
+          handleMsgIn (Right cmd) = action cmd
+        handleMsgIn $ eitherDecode line
     handler :: IOError -> m ()
     handler err = do
       logError $ "exception caught in NodeIPC: " <> (show err)

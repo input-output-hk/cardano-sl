@@ -31,27 +31,29 @@ import           Control.Monad.Random.Strict (evalRandT)
 import           Data.List (head, (!!))
 import qualified Data.Map as M
 import           Formatting (build, sformat, (%))
-import           Test.QuickCheck (Arbitrary (..), choose, frequency, sublistOf, suchThat, vectorOf)
+import           Test.QuickCheck (Arbitrary (..), choose, frequency, sublistOf,
+                     suchThat, vectorOf)
 import           Test.QuickCheck.Gen (Gen (MkGen))
 import           Test.QuickCheck.Monadic (assert, pick)
 
-import           Pos.Block.Types (Blund, LastKnownHeaderTag)
+import           Pos.Chain.Block (Blund, LastKnownHeaderTag, blockHeader,
+                     headerHashG)
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     GeneratedSecrets (..), GenesisData, poorSecretToEncKey)
+import           Pos.Chain.Txp (TxIn, TxOut (..), TxOutAux (..),
+                     TxpConfiguration, Utxo)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
-import           Pos.Core (Address, BlockCount, Coin, HasConfiguration, genesisSecretsPoor,
-                           headerHashG)
-import           Pos.Core.Block (blockHeader)
+import           Pos.Core (Address, BlockCount, Coin)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Common (IsBootstrapEraAddr (..), deriveLvl2KeyPair)
-import           Pos.Core.Genesis (poorSecretToEncKey)
-import           Pos.Core.NetworkMagic (NetworkMagic)
-import           Pos.Core.Txp (TxIn, TxOut (..), TxOutAux (..))
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ProtocolMagic,
-                             ShouldCheckPassphrase (..), emptyPassphrase, firstHardened)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase,
+                     ShouldCheckPassphrase (..), emptyPassphrase,
+                     firstHardened)
 import           Pos.Generator.Block (genBlocks)
 import           Pos.Infra.StateLock (Priority (..), modifyStateLock)
 import           Pos.Launcher (HasConfigurations)
-import           Pos.Txp.Toil (Utxo)
 import           Pos.Util (HasLens (..), _neLast)
 
 import           Pos.Util.Servant (encodeCType)
@@ -59,10 +61,13 @@ import           Pos.Util.UserSecret (mkGenesisWalletUserSecret)
 import           Pos.Wallet.Web.ClientTypes (Addr, CId, Wal, encToCId)
 import           Pos.Wallet.Web.Methods.Restore (importWalletDo)
 
-import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (ApplyBlock))
-import           Test.Pos.Block.Logic.Util (EnableTxPayload, InplaceDB, genBlockGenParams)
-import           Test.Pos.Txp.Arbitrary ()
-import           Test.Pos.Util.QuickCheck.Property (assertProperty, maybeStopProperty)
+import           Pos.Infra.Util.JsonLog.Events
+                     (MemPoolModifyReason (ApplyBlock))
+import           Test.Pos.Block.Logic.Util (EnableTxPayload, InplaceDB,
+                     genBlockGenParams)
+import           Test.Pos.Chain.Txp.Arbitrary ()
+import           Test.Pos.Util.QuickCheck.Property (assertProperty,
+                     maybeStopProperty)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty)
 
 ----------------------------------------------------------------------------
@@ -72,16 +77,17 @@ import           Test.Pos.Wallet.Web.Mode (WalletProperty)
 -- | Gen blocks in WalletProperty
 wpGenBlocks
     :: HasConfigurations
-    => ProtocolMagic
+    => Genesis.Config
+    -> TxpConfiguration
     -> Maybe BlockCount
     -> EnableTxPayload
     -> InplaceDB
     -> WalletProperty (OldestFirst [] Blund)
-wpGenBlocks pm blkCnt enTxPayload inplaceDB = do
-    params <- genBlockGenParams pm blkCnt enTxPayload inplaceDB
+wpGenBlocks genesisConfig txpConfig blkCnt enTxPayload inplaceDB = do
+    params <- genBlockGenParams genesisConfig blkCnt enTxPayload inplaceDB
     g <- pick $ MkGen $ \qc _ -> qc
     lift $ modifyStateLock HighPriority ApplyBlock $ \prevTip -> do -- FIXME is ApplyBlock the right one?
-        blunds <- OldestFirst <$> evalRandT (genBlocks pm params maybeToList) g
+        blunds <- OldestFirst <$> evalRandT (genBlocks genesisConfig txpConfig params maybeToList) g
         case nonEmpty $ getOldestFirst blunds of
             Just nonEmptyBlunds -> do
                 let tipBlockHeader = nonEmptyBlunds ^. _neLast . _1 . blockHeader
@@ -92,11 +98,13 @@ wpGenBlocks pm blkCnt enTxPayload inplaceDB = do
 
 wpGenBlock
     :: HasConfigurations
-    => ProtocolMagic
+    => Genesis.Config
+    -> TxpConfiguration
     -> EnableTxPayload
     -> InplaceDB
     -> WalletProperty Blund
-wpGenBlock pm = fmap (Data.List.head . toList) ... wpGenBlocks pm (Just 1)
+wpGenBlock genesisConfig txpConfig =
+    fmap (Data.List.head . toList) ... wpGenBlocks genesisConfig txpConfig (Just 1)
 
 ----------------------------------------------------------------------------
 -- Wallet test helpers
@@ -104,34 +112,29 @@ wpGenBlock pm = fmap (Data.List.head . toList) ... wpGenBlocks pm (Just 1)
 
 -- | Import some nonempty set, but not bigger than given number of elements, of genesis secrets.
 -- Returns corresponding passphrases.
-importWallets
-    :: HasConfigurations
-    => NetworkMagic -> Int -> Gen PassPhrase -> WalletProperty [PassPhrase]
-importWallets nm numLimit passGen = do
-    let secrets =
-            map poorSecretToEncKey $
-            fromMaybe (error "Generated secrets are unknown") genesisSecretsPoor
+importWallets :: Genesis.Config -> Int -> Gen PassPhrase -> WalletProperty [PassPhrase]
+importWallets genesisConfig numLimit passGen = do
+    let genesisSecretsPoor = case configGeneratedSecrets genesisConfig of
+            Nothing -> error "Genesis Config does not contain GeneratedSecrets."
+            Just gs -> gsPoorSecrets gs
+        secrets = map poorSecretToEncKey genesisSecretsPoor
     (encSecrets, passphrases) <- pick $ do
         seks <- take numLimit <$> sublistOf secrets `suchThat` (not . null)
         let l = length seks
         passwds <- vectorOf l passGen
         pure (seks, passwds)
     let wuses = map mkGenesisWalletUserSecret encSecrets
-    lift $ mapM_ (uncurry (importWalletDo nm)) (zip passphrases wuses)
+    lift $ mapM_ (uncurry $ importWalletDo genesisConfig) (zip passphrases wuses)
     skeys <- lift getSecretKeysPlain
     assertProperty (not (null skeys)) "Empty set of imported keys"
     pure passphrases
 
-importSomeWallets
-    :: HasConfigurations
-    => NetworkMagic -> Gen PassPhrase -> WalletProperty [PassPhrase]
-importSomeWallets nm = importWallets nm 10
+importSomeWallets :: Genesis.Config -> Gen PassPhrase -> WalletProperty [PassPhrase]
+importSomeWallets genesisConfig = importWallets genesisConfig 10
 
-importSingleWallet
-    :: HasConfigurations
-    => NetworkMagic -> Gen PassPhrase -> WalletProperty PassPhrase
-importSingleWallet nm passGen =
-    fromMaybe (error "No wallets imported") . (fmap fst . uncons) <$> importWallets nm 1 passGen
+importSingleWallet :: Genesis.Config -> Gen PassPhrase -> WalletProperty PassPhrase
+importSingleWallet genesisConfig passGen =
+    fromMaybe (error "No wallets imported") . (fmap fst . uncons) <$> importWallets genesisConfig 1 passGen
 
 mostlyEmptyPassphrases :: Gen PassPhrase
 mostlyEmptyPassphrases =
@@ -214,9 +217,9 @@ genWalletUtxo nm sk psw size =
 -- Useful properties
 
 -- | Checks that balance of address is positive and returns it.
-expectedAddrBalance :: HasConfiguration => Address -> Coin -> WalletProperty ()
-expectedAddrBalance addr expected = do
-    balance <- lift $ getBalance addr
+expectedAddrBalance :: GenesisData -> Address -> Coin -> WalletProperty ()
+expectedAddrBalance genesisData addr expected = do
+    balance <- lift $ getBalance genesisData addr
     assertProperty (balance == expected) $
         sformat ("balance for address "%build
                     %" mismatched, expected: "%build

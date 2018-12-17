@@ -7,14 +7,15 @@ import           Universum
 
 import           Data.Time.Units (Minute)
 import           Data.Version (showVersion)
-import           Options.Applicative (Parser, auto, execParser, footerDoc, fullDesc, header, help,
-                                      helper, info, infoOption, long, metavar, option, progDesc,
-                                      strOption, switch, value)
+import           Options.Applicative (Parser, auto, execParser, footerDoc,
+                     fullDesc, header, help, helper, info, infoOption, long,
+                     metavar, option, progDesc, strOption, switch, value)
 import           Paths_cardano_sl (version)
 import           Pos.Client.CLI (CommonNodeArgs (..))
 import qualified Pos.Client.CLI as CLI
-import           Pos.Infra.Util.TimeWarp (NetworkAddress, localhost)
-import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo, compileInfo)
+import           Pos.Core.NetworkAddress (NetworkAddress, localhost)
+import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo,
+                     compileInfo)
 import           Pos.Web (TlsParams (..))
 
 
@@ -39,6 +40,8 @@ data WalletDBOptions = WalletDBOptions {
     , walletRebuildDb    :: !Bool
       -- ^ Whether or not to wipe and rebuild the DB.
     , walletAcidInterval :: !Minute
+      -- ^ The delay between one operation on the acid-state DB and the other.
+      -- Such @operation@ entails things like checkpointing the DB.
     , walletFlushDb      :: !Bool
     } deriving Show
 
@@ -54,12 +57,13 @@ data WalletBackendParams = WalletBackendParams
     -- ^ The TLS parameters.
     , walletAddress       :: !NetworkAddress
     -- ^ The wallet address.
-    , walletDocAddress    :: !NetworkAddress
+    , walletDocAddress    :: !(Maybe NetworkAddress)
     -- ^ The wallet documentation address.
     , walletRunMode       :: !RunMode
     -- ^ The mode this node is running in.
     , walletDbOptions     :: !WalletDBOptions
     -- ^ DB-specific options.
+    , forceFullMigration  :: !Bool
     } deriving Show
 
 -- | Start up parameters for the new wallet backend
@@ -67,6 +71,14 @@ data WalletBackendParams = WalletBackendParams
 -- TODO: This just wraps the legacy parameters at the moment.
 data NewWalletBackendParams = NewWalletBackendParams WalletBackendParams
     deriving (Show)
+
+getWalletDbOptions :: NewWalletBackendParams -> WalletDBOptions
+getWalletDbOptions (NewWalletBackendParams WalletBackendParams{..}) =
+    walletDbOptions
+
+getFullMigrationFlag :: NewWalletBackendParams -> Bool
+getFullMigrationFlag (NewWalletBackendParams WalletBackendParams{..}) =
+    forceFullMigration
 
 -- | A richer type to specify in which mode we are running this node.
 data RunMode = ProductionMode
@@ -116,12 +128,12 @@ chooseWalletBackendParser :: Parser ChooseWalletBackend
 chooseWalletBackendParser = choose
     <$> walletBackendParamsParser
     <*> (switch $ mconcat [
-            long "new-wallet"
-          , help "Use the new wallet implementation (NOT FOR PRODUCTION USE)"
+            long "legacy-wallet"
+          , help "Use the legacy wallet implementation (NOT RECOMMENDED)"
           ])
   where
-    choose opts False = WalletLegacy $ opts
-    choose opts True  = WalletNew    $ NewWalletBackendParams opts
+    choose opts True  = WalletLegacy $ opts
+    choose opts False = WalletNew    $ NewWalletBackendParams opts
 
 -- | The @Parser@ for the @WalletBackendParams@.
 walletBackendParamsParser :: Parser WalletBackendParams
@@ -132,6 +144,7 @@ walletBackendParamsParser = WalletBackendParams <$> enableMonitoringApiParser
                                                 <*> docAddressParser
                                                 <*> runModeParser
                                                 <*> dbOptionsParser
+                                                <*> forceFullMigrationParser
   where
     enableMonitoringApiParser :: Parser Bool
     enableMonitoringApiParser = switch (long "monitoring-api" <>
@@ -144,8 +157,8 @@ walletBackendParamsParser = WalletBackendParams <$> enableMonitoringApiParser
     addressParser :: Parser NetworkAddress
     addressParser = CLI.walletAddressOption $ Just (localhost, 8090)
 
-    docAddressParser :: Parser NetworkAddress
-    docAddressParser = CLI.docAddressOption $ Just (localhost, 8091)
+    docAddressParser :: Parser (Maybe NetworkAddress)
+    docAddressParser = CLI.docAddressOption Nothing
 
     runModeParser :: Parser RunMode
     runModeParser = (\debugMode -> if debugMode then DebugMode else ProductionMode) <$>
@@ -153,6 +166,14 @@ walletBackendParamsParser = WalletBackendParams <$> enableMonitoringApiParser
                 help "Run wallet with debug params (e.g. include \
                      \all the genesis keys in the set of secret keys)."
                )
+
+    forceFullMigrationParser :: Parser Bool
+    forceFullMigrationParser = switch $
+                          long "force-full-wallet-migration" <>
+                          help "Enforces a non-lenient migration. \
+                               \If something fails (for example a wallet fails to decode from the old format) \
+                               \migration will stop and the node will crash, \
+                               \instead of just logging the error."
 
 tlsParamsParser :: Parser (Maybe TlsParams)
 tlsParamsParser = constructTlsParams <$> certPathParser
@@ -228,7 +249,7 @@ dbOptionsParser = WalletDBOptions <$> dbPathParser
                           \action (create checkpoint and archive and \
                           \cleanup archive partially)" <>
                      metavar "MINUTES" <>
-                     value (12 * 60)
+                     value 5
                     )
 
     flushDbParser :: Parser Bool

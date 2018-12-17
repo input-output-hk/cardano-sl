@@ -6,19 +6,18 @@ module Client.Cardano.Wallet.Web.Endpoint.NewPayment
 
 import           Universum
 
-import           Client.Cardano.Wallet.Web.Api     (newPayment)
-import           Client.Cardano.Wallet.Web.Run     (runEndpointClient)
-import           Client.Cardano.Wallet.Web.Analyze (analyzeResponseIfNeeded, checkResponse)
-import           Bench.Cardano.Wallet.Types        (BenchEndpoint (..), CompleteConfig (..),
-                                                    Wallet (..), WalletAccount (..),
-                                                    WalletsConfig (..), Response,
-                                                    ResponseReport (..))
-import           Bench.Cardano.Wallet.Random       (pickRandomElementFrom,
-                                                    -- pickTwoRandomElementsFrom,
-                                                    pickRandomValueBetween)
-import           Pos.Wallet.Web.ClientTypes        (Addr, CId (..), CTx (..))
-import           Pos.Client.Txp.Util               (InputSelectionPolicy (..))
-import           Pos.Core                          (mkCoin)
+import           Bench.Cardano.Wallet.Random (pickRandomElementFrom,
+                     pickRandomValueBetween)
+import           Bench.Cardano.Wallet.Types (BenchEndpoint (..),
+                     CompleteConfig (..), Response, ResponseReport (..),
+                     Wallet (..), WalletAccount (..), WalletsConfig (..))
+import           Client.Cardano.Wallet.Web.Analyze (analyzeResponseIfNeeded,
+                     checkResponse)
+import           Client.Cardano.Wallet.Web.Api (newPayment)
+import           Client.Cardano.Wallet.Web.Run (runEndpointClient)
+import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
+import           Pos.Core (mkCoin)
+import           Pos.Wallet.Web.ClientTypes (Addr, CId (..), CTx (..))
 
 -- | Run 'NewPayment' client. As a result
 -- we will get a newly created transaction.

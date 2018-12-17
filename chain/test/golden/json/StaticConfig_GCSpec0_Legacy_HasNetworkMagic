@@ -1,0 +1,64 @@
+{
+    "spec": {
+        "protocolConstants": {
+            "vssMinTTL": 744040476,
+            "k": 37,
+            "vssMaxTTL": 1477558317,
+            "protocolMagic": 1783847074
+        },
+        "blockVersionData": {
+            "txFeePolicy": {
+                "txSizeLinear": {
+                    "a": 9.99e-7,
+                    "b": 7.7e-8
+                }
+            },
+            "maxTxSize": 999,
+            "updateProposalThd": 9.9e-14,
+            "scriptVersion": 999,
+            "maxBlockSize": 999,
+            "heavyDelThd": 9.9e-14,
+            "updateImplicit": 99,
+            "maxHeaderSize": 999,
+            "updateVoteThd": 9.9e-14,
+            "slotDuration": 999,
+            "maxProposalSize": 999,
+            "softforkRule": {
+                "minThd": 9.9e-14,
+                "thdDecrement": 9.9e-14,
+                "initThd": 9.9e-14
+            },
+            "mpcThd": 9.9e-14,
+            "unlockStakeEpoch": 99
+        },
+        "avvmDistr": {
+            "U4lgqRZyawnwXJ1NSpIrhbThGs_MFDRnPZUBm3qaUtI=": 36524597913081152,
+            "dtXbK7ASFLEa611AHt7SDk_48fVbNja-Tj7PgbE7tPE=": 37343863242999412
+        },
+        "initializer": {
+            "useHeavyDlg": false,
+            "avvmBalanceFactor": 0.366832547637728,
+            "seed": 0,
+            "testBalance": {
+                "totalBalance": 1.0953275486128625216e19,
+                "richmenShare": 4.2098713311249885,
+                "useHDAddresses": true,
+                "richmen": 1.4071205313513960321e19,
+                "poors": 2448641325904532856
+            },
+            "fakeAvvmBalance": {
+                "oneBalance": 1.5087947214890024355e19,
+                "count": 1.7853231730478779264e19
+            }
+        },
+        "ftsSeed": "RTVTNGZTSDZldE5vdWlYZXpDeUVqS2MzdEc0amEwa0Y=",
+        "heavyDelegation": {
+            "ed41bf35f4cd2109bdee27b0439942f6de3f55f0ac8d170de7136d3d": {
+                "pskDelegatePk": "3cppv+rBTAEzBNqIrAMu5jKBqwNsGxuRiOSxdLMD9D5VFjsXjpmbn9UGN7Ltq4yFioeaw8S9PmEAlUGaGWllcw==",
+                "pskOmega": 68300481033,
+                "pskCert": "bae5422af5405e3803154a4ad986da5d14cf624d6701c5c78a79ec73777f74e13973af83752114d9f18166085997fc81e432cab7fee99a275d8bf138ad04e103",
+                "pskIssuerPk": "4qF3OiqC0QwwiQy/hOzL3Bqq7pIElkJNNuhoA52ctRkhsl7+Az2bANTwLM2c2rzsMyq7xv34g8pb86iv9KrCfg=="
+            }
+        }
+    }
+}

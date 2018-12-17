@@ -1,4 +1,6 @@
--- | Specification for submodules of Pos.Update.MemState
+{-# LANGUAGE RecordWildCards #-}
+
+-- | Specification for submodules of Pos.Chain.Update.MemState
 
 module Test.Pos.Update.MemStateSpec
        ( spec
@@ -8,13 +10,14 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 
-import           Pos.Arbitrary.Update ()
-import qualified Pos.Core.Update as Upd
+import qualified Pos.Chain.Update as Upd
 import           Pos.Crypto (PublicKey, hash)
-import qualified Pos.Update.MemState as Upd
+import qualified Pos.DB.Update as Upd
 
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
+import           Test.Pos.Chain.Update.Arbitrary ()
+import           Test.Pos.DB.Update.Arbitrary ()
 import           Test.QuickCheck (Property, (.&&.), (==>))
 
 spec :: Spec

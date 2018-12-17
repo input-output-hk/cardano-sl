@@ -1,4 +1,5 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP             #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | Secret key file storage and management functions based on file
 -- locking.
@@ -18,12 +19,15 @@ module Pos.Util.UserSecret
        , mkGenesisWalletUserSecret
 
        , UserSecret
+       , isEmptyUserSecret
        , usKeys
        , usVss
        , usWallet
        , usPrimKey
+       , usPath
        , HasUserSecret(..)
        , getUSPath
+       , defaultUserSecret
        , simpleUserSecret
        , initializeUserSecret
        , readUserSecret
@@ -33,42 +37,40 @@ module Pos.Util.UserSecret
        , writeUserSecretRelease
 
        , UserSecretDecodingError (..)
-       , ensureModeIs600
+       -- * Internal API
+       , writeRaw
        ) where
 
+import qualified Prelude
 import           Universum hiding (keys)
 
-import           Control.Exception.Safe (onException, throwString)
+import           Control.Exception.Safe (finally)
 import           Control.Lens (makeLenses, to)
 import qualified Data.ByteString as BS
 import           Data.Default (Default (..))
-import qualified Data.Text.Buildable
 import           Formatting (Format, bprint, build, formatToString, later, (%))
-import qualified Prelude
+import qualified Formatting.Buildable
 import           Serokell.Util.Text (listJson)
 import           System.Directory (doesFileExist)
 import           System.Directory (renameFile)
-import           System.FileLock (FileLock, SharedExclusive (..), lockFile, unlockFile,
-                                  withFileLock)
+import           System.FileLock (FileLock, SharedExclusive (..), lockFile,
+                     unlockFile, withFileLock)
 import           System.FilePath (takeDirectory, takeFileName)
 import           System.IO (hClose, openBinaryTempFile)
-#ifdef POSIX
-import           System.Wlog (WithLogger, logInfo, logWarning)
-#else
-import           System.Wlog (WithLogger, logInfo)
-#endif
-import           Test.QuickCheck (Arbitrary (..))
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeFull', deriveSimpleBi,
-                                   encodeListLen, enforceSize, serialize')
-import           Pos.Core (Address, accountGenesisIndex, addressF, makeRootPubKeyAddress,
-                           wAddressGenesisIndex)
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
-import           Pos.Crypto (EncryptedSecretKey, SecretKey, VssKeyPair, encToPublic)
-
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeFull',
+                     deriveSimpleBi, encodeListLen, enforceSize, serialize')
+import           Pos.Core (Address, accountGenesisIndex, wAddressGenesisIndex)
+import           Pos.Crypto (EncryptedSecretKey, SecretKey, VssKeyPair,
+                     encToPublic)
+import           Pos.Util.UserKeyError (KeyError (..), UserKeyError (..),
+                     UserKeyType (..))
 import           Test.Pos.Crypto.Arbitrary ()
-
+#ifdef POSIX
+import           Pos.Util.Wlog (WithLogger, logInfo, logWarning)
+#else
+import           Pos.Util.Wlog (WithLogger, logInfo)
+#endif
 #ifdef POSIX
 import           Formatting (oct, sformat)
 import qualified System.Posix.Files as PSX
@@ -88,23 +90,13 @@ data WalletUserSecret = WalletUserSecret
 
 deriving instance Eq EncryptedSecretKey => Eq WalletUserSecret
 
-instance Arbitrary WalletUserSecret where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
 makeLenses ''WalletUserSecret
-
-fixedNM :: NetworkMagic
-fixedNM = NMNothing
 
 instance Buildable WalletUserSecret where
     build WalletUserSecret{..} =
-        bprint ("{ root = "%addressF%", set name = "%build%
+        bprint ("{ publicKey = "%build%", set name = "%build%
                 ", wallets = "%pairsF%", accounts = "%pairsF%" }")
-        -- TODO mhueschen |
-        -- TODO @intricate: Will probably have to add NetworkMagic to WalletUserSecret
-        -- instead of using NMNothing here :/
-        (makeRootPubKeyAddress fixedNM $ encToPublic _wusRootKey)
+        (encToPublic _wusRootKey)
         _wusWalletName
         _wusAccounts
         _wusAddrs
@@ -141,9 +133,8 @@ data UserSecret = UserSecret
 
 deriving instance Eq EncryptedSecretKey => Eq UserSecret
 
-instance Arbitrary (Maybe FileLock) => Arbitrary UserSecret where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
+isEmptyUserSecret :: UserSecret -> Bool
+isEmptyUserSecret us = null (_usKeys us)
 
 makeLenses ''UserSecret
 
@@ -184,6 +175,10 @@ canWrite u = u ^. usLock . to isJust
 getUSPath :: UserSecret -> FilePath
 getUSPath = flip (^.) usPath
 
+-- | Default User secret (avoid caller to import Data.Default)
+defaultUserSecret :: UserSecret
+defaultUserSecret = def
+
 -- | Create a simple UserSecret from secret key and file path
 simpleUserSecret :: SecretKey -> FilePath -> UserSecret
 simpleUserSecret sk fp = def & usPrimKey .~ Just sk & usPath .~ fp
@@ -191,8 +186,6 @@ simpleUserSecret sk fp = def & usPrimKey .~ Just sk & usPath .~ fp
 instance Default UserSecret where
     def = UserSecret [] Nothing Nothing Nothing "" Nothing
 
--- | It's not network/system-related, so instance shouldn't be under
--- @Pos.Binary.*@.
 instance Bi UserSecret where
   encode us = encodeListLen 4 <> encode (_usVss us) <>
                                       encode (_usPrimKey us) <>
@@ -231,10 +224,8 @@ getAccessMode path = do
 -- | Set mode 600 on a given file, regardless of its current mode.
 setMode600 :: (MonadIO m) => FilePath -> m ()
 setMode600 path = liftIO $ PSX.setFileMode path mode600
-#endif
 
 ensureModeIs600 :: MonadMaybeLog m => FilePath -> m ()
-#ifdef POSIX
 ensureModeIs600 path = do
     accessMode <- getAccessMode path
     unless (accessMode == mode600) $ do
@@ -242,9 +233,6 @@ ensureModeIs600 path = do
             sformat ("Key file at "%build%" has access mode "%oct%" instead of 600. Fixing it automatically.")
             path accessMode
         setMode600 path
-#else
-ensureModeIs600 _ = do
-    pure ()
 #endif
 
 -- | Create user secret file at the given path, but only when one doesn't
@@ -272,7 +260,7 @@ readUserSecret path = do
 #ifdef POSIX
     ensureModeIs600 path
 #endif
-    takeReadLock path $ do
+    withReadLock path $ do
         content <- either (throwM . UserSecretDecodingError . toText) pure .
                    decodeFull' =<< BS.readFile path
         pure $ content & usPath .~ path
@@ -283,7 +271,7 @@ peekUserSecret :: (MonadIO m, WithLogger m) => FilePath -> m UserSecret
 peekUserSecret path = do
     logInfo "initalizing user secret"
     initializeUserSecret path
-    takeReadLock path $ do
+    withReadLock path $ do
         econtent <- decodeFull' <$> BS.readFile path
         pure $ either (const def) identity econtent & usPath .~ path
 
@@ -302,19 +290,19 @@ takeUserSecret path = do
 -- | Writes user secret .
 writeUserSecret :: (MonadIO m) => UserSecret -> m ()
 writeUserSecret u
-    | canWrite u = liftIO $ throwString "writeUserSecret: UserSecret is already locked"
+    | canWrite u = liftIO $ throwM $ KeyError Secret AlreadyLocked
     | otherwise = liftIO $ withFileLock (lockFilePath $ u ^. usPath) Exclusive $ const $ writeRaw u
 
 -- | Writes user secret and releases the lock. UserSecret can't be
 -- used after this function call anymore.
 writeUserSecretRelease :: (MonadIO m, MonadThrow m) => UserSecret -> m ()
 writeUserSecretRelease u
-    | not (canWrite u) = throwString "writeUserSecretRelease: UserSecret is not writable"
+    | not (canWrite u) = throwM $ KeyError Secret NotWritable
     | otherwise = liftIO $ do
-          writeRaw u
-          unlockFile
-            (fromMaybe (error "writeUserSecretRelease: incorrect UserSecret") $
-            u ^. usLock)
+        writeRaw u
+        case (u ^. usLock) of
+            Nothing   -> throwM $ KeyError Secret IncorrectLock
+            Just lock -> unlockFile lock
 
 -- | Helper for writing secret to file
 writeRaw :: UserSecret -> IO ()
@@ -327,13 +315,10 @@ writeRaw u = do
     (tempPath, tempHandle) <-
         openBinaryTempFile (takeDirectory path) (takeFileName path)
 
-    -- onException rethrows the exception after calling the handler.
-    BS.hPut tempHandle (serialize' u) `onException` do
-        hClose tempHandle
+    BS.hPut tempHandle (serialize' u) `finally` hClose tempHandle
 
-    hClose tempHandle
     renameFile tempPath path
 
 -- | Helper for taking shared lock on file
-takeReadLock :: MonadIO m => FilePath -> IO a -> m a
-takeReadLock path = liftIO . withFileLock (lockFilePath path) Shared . const
+withReadLock :: MonadIO m => FilePath -> IO a -> m a
+withReadLock path = liftIO . withFileLock (lockFilePath path) Shared . const

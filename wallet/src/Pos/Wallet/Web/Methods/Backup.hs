@@ -13,7 +13,8 @@ import qualified Data.Aeson as A
 import qualified Data.ByteString.Lazy as BSL
 import           Formatting (sformat, stext, (%))
 
-import           Pos.Core.NetworkMagic (NetworkMagic)
+import           Pos.Chain.Genesis as Genesis (Config (..))
+import           Pos.Core.NetworkMagic (makeNetworkMagic)
 import           Pos.Util (HasLens (..))
 import           Pos.Wallet.Web.Backup (TotalBackup (..), getWalletBackup)
 import           Pos.Wallet.Web.ClientTypes (CFilePath (..), CId, CWallet, Wal)
@@ -30,15 +31,11 @@ type MonadWalletBackup ctx m = ( L.MonadWalletLogic ctx m
                                , HasLens SyncQueue ctx SyncQueue
                                )
 
-importWalletJSON
-    :: MonadWalletBackup ctx m
-    => NetworkMagic
-    -> CFilePath
-    -> m CWallet
-importWalletJSON nm (CFilePath (toString -> fp)) = do
+importWalletJSON :: MonadWalletBackup ctx m => Genesis.Config -> CFilePath -> m CWallet
+importWalletJSON genesisConfig (CFilePath (toString -> fp)) = do
     contents <- liftIO $ BSL.readFile fp
     TotalBackup wBackup <- either parseErr pure $ A.eitherDecode contents
-    restoreWalletFromBackup nm wBackup
+    restoreWalletFromBackup genesisConfig wBackup
   where
     parseErr err = throwM . RequestError $
         sformat ("Error while reading JSON backup file: "%stext) $
@@ -46,12 +43,13 @@ importWalletJSON nm (CFilePath (toString -> fp)) = do
 
 exportWalletJSON
     :: MonadWalletBackup ctx m
-    => NetworkMagic
+    => Genesis.Config
     -> CId Wal
     -> CFilePath
     -> m NoContent
-exportWalletJSON nm wid (CFilePath (toString -> fp)) = do
+exportWalletJSON genesisConfig wid (CFilePath (toString -> fp)) = do
     ws <- askWalletSnapshot
+    let nm = makeNetworkMagic $ configProtocolMagic genesisConfig
     wBackup <- TotalBackup <$> getWalletBackup nm ws wid
     liftIO $ BSL.writeFile fp $ A.encode wBackup
     return NoContent

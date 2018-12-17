@@ -2,17 +2,17 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Info where
 
 import           Universum
 
-import           System.Wlog (WithLogger)
+import           Control.Monad.STM (retry)
 
 import           Cardano.Wallet.API.Response (WalletResponse, single)
 import qualified Cardano.Wallet.API.V1.Info as Info
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 
-import           Mockable (MonadMockable)
-import           Ntp.Client (NtpStatus)
-import           Pos.Infra.Diffusion.Types (Diffusion (..))
+import           Ntp.Client (NtpStatus (NtpSyncPending))
 import           Pos.Infra.Diffusion.Subscription.Status (ssMap)
+import           Pos.Infra.Diffusion.Types (Diffusion (..))
+import           Pos.Util.Wlog (WithLogger)
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo)
 import           Servant
 
@@ -21,9 +21,7 @@ import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods.Misc as V0
 
 -- | All the @Servant@ handlers for settings-specific operations.
-handlers :: ( HasConfigurations
-            )
-         => Diffusion MonadV1
+handlers :: Diffusion MonadV1
          -> TVar NtpStatus
          -> ServerT Info.API MonadV1
 handlers = getInfo
@@ -33,17 +31,27 @@ handlers = getInfo
 -- etc.
 getInfo :: ( MonadIO m
            , WithLogger m
-           , MonadMockable m
+           , MonadMask m
            , MonadBlockchainInfo m
            )
         => Diffusion MonadV1
         -> TVar NtpStatus
+        -> ForceNtpCheck
         -> m (WalletResponse NodeInfo)
-getInfo Diffusion{..} ntpStatus = do
-    subscribers <- atomically $ readTVar (ssMap subscriptionStates)
+getInfo  Diffusion{..} ntpStatus ntpCheck = do
+    timeDifference <- V0.localTimeDifferencePure <$>
+        if ntpCheck == ForceNtpCheck
+            then do
+                atomically $ writeTVar ntpStatus NtpSyncPending
+                atomically $ do
+                    s <- readTVar ntpStatus
+                    case s of
+                        NtpSyncPending -> retry
+                        _              -> pure s
+            else readTVarIO ntpStatus
+    subscribers <- readTVarIO (ssMap subscriptionStates)
     spV0 <- V0.syncProgress
     syncProgress   <- migrate spV0
-    timeDifference <- V0.localTimeDifference ntpStatus
     return $ single NodeInfo
         { nfoSyncProgress          = syncProgress
         , nfoSubscriptionStatus    = subscribers

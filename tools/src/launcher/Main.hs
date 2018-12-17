@@ -9,21 +9,24 @@
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE QuasiQuotes           #-}
 {-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
-{-# LANGUAGE RecordWildCards  #-}
+{-# OPTIONS_GHC -Wno-type-defaults #-}
 
 import qualified Prelude (show)
 import           Universum
 
 import           Control.Concurrent (modifyMVar_)
-import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel, poll, wait, waitAny,
-                                                       withAsync, withAsyncWithUnmask)
+import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel,
+                     poll, wait, waitAny, withAsync, withAsyncWithUnmask)
 import           Control.Exception.Safe (catchAny, handle, mask_, tryAny)
 import           Control.Lens (makeLensesWith)
-import           Data.Aeson (FromJSON, Value (Array, Bool, Object), fromJSON, genericParseJSON, toJSON, ToJSON, genericToJSON,
-                             withObject)
+import           Data.Aeson (FromJSON, ToJSON,
+                     Value (Array, Bool, Object, String), fromJSON,
+                     genericParseJSON, genericToJSON, toJSON, withObject)
 import qualified Data.Aeson as AE
+import           Data.Aeson.Options (defaultOptions)
 import qualified Data.ByteString.Lazy as BS.L
 import qualified Data.HashMap.Strict as HM
 import           Data.List (isSuffixOf)
@@ -34,12 +37,12 @@ import           Data.Version (showVersion)
 import qualified Data.Yaml as Y
 import           Formatting (build, int, sformat, shown, stext, string, (%))
 import qualified NeatInterpolation as Q (text)
-import           Options.Applicative (Parser, ParserInfo, ParserResult (..), defaultPrefs,
-                                      execParserPure, footerDoc, fullDesc, handleParseResult,
-                                      header, help, helper, info, infoOption, long, metavar,
-                                      progDesc, renderFailure, short, strOption)
-import           Serokell.Aeson.Options (defaultOptions)
-import           System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
+import           Options.Applicative (Parser, ParserInfo, ParserResult (..),
+                     defaultPrefs, execParserPure, footerDoc, fullDesc,
+                     handleParseResult, header, help, helper, info, infoOption,
+                     long, metavar, progDesc, renderFailure, short, strOption)
+import           System.Directory (createDirectoryIfMissing, doesFileExist,
+                     removeFile)
 import qualified System.Directory as Sys
 import           System.Environment (getExecutablePath, getProgName, setEnv)
 import           System.Exit (ExitCode (..))
@@ -50,13 +53,13 @@ import qualified System.IO.Silently as Silently
 import           System.Process (ProcessHandle, waitForProcess)
 import qualified System.Process as Process
 import           System.Timeout (timeout)
-import           System.Wlog (logError, logInfo, logNotice, logWarning)
-import qualified System.Wlog as Log
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 #ifndef mingw32_HOST_OS
 import           System.Posix.Signals (sigKILL, signalProcess)
 import qualified System.Process.Internals as Process
+#else
+import qualified System.Win32.Process as Process
 #endif
 
 -- Modules needed for system'
@@ -64,26 +67,38 @@ import           Foreign.C.Error (Errno (..), ePIPE)
 import           GHC.IO.Exception (IOErrorType (..), IOException (..))
 
 import           Paths_cardano_sl (version)
+import           Pos.Chain.Genesis (Config (..))
 import           Pos.Client.CLI (readLoggerConfig)
-import           Pos.Core (HasConfiguration, ProtocolMagic, Timestamp (..))
-import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
-                               dbPutSerBlundsRealDefault)
+import           Pos.Core (Timestamp (..))
+import           Pos.Crypto (ProtocolMagic)
+import           Pos.DB.Block (dbGetSerBlockRealDefault,
+                     dbGetSerBlundRealDefault, dbGetSerUndoRealDefault,
+                     dbPutSerBlundsRealDefault)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
-import           Pos.DB.Rocks (NodeDBs, closeNodeDBs, dbDeleteDefault, dbGetDefault,
-                               dbIterSourceDefault, dbPutDefault, dbWriteBatchDefault, openNodeDBs)
+import           Pos.DB.Rocks (NodeDBs, closeNodeDBs, dbDeleteDefault,
+                     dbGetDefault, dbIterSourceDefault, dbPutDefault,
+                     dbWriteBatchDefault, openNodeDBs)
+import           Pos.DB.Update (affirmUpdateInstalled)
 import           Pos.Infra.Reporting.Http (sendReport)
-import           Pos.Infra.Reporting.Wlog (compressLogs, retrieveLogFiles)
+import           Pos.Infra.Reporting.Wlog (compressLogs)
 import           Pos.Launcher (HasConfigurations, withConfigurations)
 import           Pos.Launcher.Configuration (ConfigurationOptions (..))
+import           Pos.Network.Update.Download (installerHash)
 import           Pos.ReportServer.Report (ReportType (..))
-import           Pos.Update (installerHash)
-import           Pos.Update.DB.Misc (affirmUpdateInstalled)
-import           Pos.Util (HasLens (..), directory, logException, postfixLFields)
-import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo, retrieveCompileTimeInfo,
-                                       withCompileInfo)
+import           Pos.Util (HasLens (..), directory, logException,
+                     postfixLFields)
+import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo,
+                     withCompileInfo)
+import           Pos.Util.Log.LoggerConfig (BackendKind (..), LogHandler (..),
+                     LogSecurityLevel (..), defaultInteractiveConfiguration,
+                     lcBasePath, lcLoggerTree, ltHandlers, ltMinSeverity,
+                     retrieveLogFiles)
+import           Pos.Util.Wlog (LoggerNameBox (..), Severity (Info), logError,
+                     logInfo, logNotice, logWarning, removeAllHandlers,
+                     setupLogging', usingLoggerName)
 
-import           Launcher.Environment (substituteEnvVarsValue)
-import           Launcher.Logging (reportErrorDefault)
+import           Pos.Tools.Launcher.Environment (substituteEnvVarsValue)
+import           Pos.Tools.Launcher.Logging (reportErrorDefault)
 
 data LauncherOptions = LO
     { loNodePath            :: !FilePath
@@ -124,6 +139,7 @@ instance FromJSON LauncherOptions where
             -- any yet.
             o <> HM.fromList
                 [ ("walletLogging", Bool False)
+                , ("workingDir",    String ".")
                 , ("nodeArgs",      Array mempty)
                 , ("walletArgs",    Array mempty)
                 , ("updaterArgs",   Array mempty)
@@ -131,7 +147,7 @@ instance FromJSON LauncherOptions where
                 ]
 
 -- | The concrete monad where everything happens
-type M a = Log.LoggerNameBox IO a
+type M a = LoggerNameBox IO a
 
 data Executable = EWallet | ENode | EUpdater | ECertGen
 
@@ -251,13 +267,14 @@ type LauncherMode = ReaderT LauncherModeContext IO
 instance HasLens NodeDBs LauncherModeContext NodeDBs where
     lensOf = lmcNodeDBs_L
 
-instance HasConfiguration => MonadDBRead LauncherMode where
+instance MonadDBRead LauncherMode where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
     dbGetSerBlock = dbGetSerBlockRealDefault
     dbGetSerUndo = dbGetSerUndoRealDefault
+    dbGetSerBlund = dbGetSerBlundRealDefault
 
-instance HasConfiguration => MonadDB LauncherMode where
+instance MonadDB LauncherMode where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
@@ -270,7 +287,7 @@ bracketNodeDBs (NodeDbPath dbPath) = bracket (openNodeDBs False dbPath) closeNod
 
 main :: IO ()
 main =
-  withCompileInfo $(retrieveCompileTimeInfo) $
+  withCompileInfo $
   case Sys.os of
     "mingw32" ->
       -- We don't output anything to console on Windows because on Windows the
@@ -288,24 +305,26 @@ main =
     Sys.setCurrentDirectory loWorkingDir
 
     -- Launcher logs should be in public directory
-    let launcherLogsPrefix = (</> "pub") <$> loLogsPrefix
+    let launcherLogsPrefix = loLogsPrefix
     -- Add options specified in loConfiguration but not in loNodeArgs to loNodeArgs.
     let realNodeArgs = propagateOptions lo loConfiguration $
             case loNodeLogConfig of
                 Nothing -> loNodeArgs
                 Just lc -> loNodeArgs ++ ["--log-config", toText lc]
-    Log.setupLogging Nothing $
-        Log.productionB
-            & Log.lcTermSeverityOut .~ Just Log.debugPlus
-            & Log.lcLogsDirectory .~ launcherLogsPrefix
-            & Log.lcTree %~ case launcherLogsPrefix of
+    lh <- setupLogging' (cfoKey loConfiguration) $
+        defaultInteractiveConfiguration Info
+            & lcBasePath .~ launcherLogsPrefix
+            & lcLoggerTree %~ case launcherLogsPrefix of
                   Nothing ->
                       identity
                   Just _  ->
-                      set Log.ltFiles [Log.HandlerWrap "launcher" Nothing] .
-                      set Log.ltSeverity (Just Log.debugPlus)
-    logException loggerName . Log.usingLoggerName loggerName $
-        withConfigurations Nothing loConfiguration $ \_ pm -> do
+                    (ltHandlers %~ (\xs -> LogHandler { _lhName="launcher", _lhFpath=Just "pub/launcher"
+                                                      , _lhBackend=FileTextBE
+                                                      , _lhMinSeverity=Just Info
+                                                      , _lhSecurityLevel=Just PublicLogLevel} : xs)) .
+                    set ltMinSeverity Info
+    logException loggerName . usingLoggerName loggerName $
+        withConfigurations Nothing Nothing False loConfiguration $ \genesisConfig _ _ _ -> do
 
         -- Generate TLS certificates as needed
         generateTlsCertificates loConfiguration loX509ToolPath loTlsPath
@@ -315,7 +334,7 @@ main =
                 logNotice "LAUNCHER STARTED"
                 logInfo "Running in the server scenario"
                 serverScenario
-                    pm
+                    (configProtocolMagic genesisConfig)
                     (NodeDbPath loNodeDbPath)
                     (NodeData loNodePath realNodeArgs loNodeLogPath)
                     (UpdaterData loUpdaterPath loUpdaterArgs loUpdateWindowsRunner loUpdateArchive)
@@ -332,13 +351,14 @@ main =
                 logNotice "LAUNCHER STARTED"
                 logInfo "Running in the client scenario"
                 clientScenario
-                    pm
+                    (configProtocolMagic genesisConfig)
                     (NodeDbPath loNodeDbPath)
                     (NodeData loNodePath realNodeArgs loNodeLogPath)
                     (NodeData wpath loWalletArgs loWalletLogPath)
                     (UpdaterData loUpdaterPath loUpdaterArgs loUpdateWindowsRunner loUpdateArchive)
                     lo
                 logNotice "Finished clientScenario"
+    removeAllHandlers lh
   where
     -- We propagate some options to the node executable, because
     -- we almost certainly want to use the same configuration and
@@ -406,7 +426,7 @@ generateTlsCertificates ConfigurationOptions{..} executable tlsPath = do
 
         when (exitCode /= ExitSuccess) $ do
             logError "Couldn't generate TLS certificates for Wallet"
-            liftIO . fail $ "Wallet won't work without TLS certificates"
+            liftIO . fail $ "Couldn't generate TLS certificates; Daedalus wallet won't work without TLS. Please check your configuration and make sure you aren't already running an instance of Daedalus wallet."
 
 
 -- | If we are on server, we want the following algorithm:
@@ -521,7 +541,7 @@ frontendOnlyScenario ndbp node wallet updater lo = do
 
 -- | We run the updater and delete the update file if the update was
 -- successful.
-runUpdater :: HasConfigurations => NodeDbPath -> UpdaterData -> M ()
+runUpdater :: NodeDbPath -> UpdaterData -> M ()
 runUpdater ndbp ud = do
     let path = udPath ud
         args = udArgs ud
@@ -569,8 +589,13 @@ writeWindowsUpdaterRunner :: FilePath -> M ()
 writeWindowsUpdaterRunner runnerPath = liftIO $ do
     exePath <- getExecutablePath
     launcherArgs <- getArgs
+#ifdef mingw32_HOST_OS
+    selfPid <- Process.getCurrentProcessId
+#else
+    let selfPid = 0 -- This will never be run on non-Windows
+#endif
     writeFile (toString runnerPath) $ unlines
-        [ "TaskKill /IM cardano-launcher.exe /F"
+        [ "TaskKill /PID "<>show selfPid<>" /F"
         -- Run updater
         , "%*"
         -- Delete updater
@@ -632,7 +657,7 @@ readSafeMode lo = do
     decoded <- liftIO $ Y.decodeFileEither safeModeConfigFile
     case decoded of
         Right value -> pure $ smcSafeMode value
-        Left _ -> pure False
+        Left _      -> pure False
 
 saveSafeMode :: LauncherOptions -> Bool -> M ()
 saveSafeMode lo status = do
@@ -684,7 +709,7 @@ runWallet nd nLogPath lo = do
              runWallet nd nLogPath lo
 
       _ -> pure walletExitStatus
-    
+
 
 createLogFileProc :: FilePath -> [Text] -> FilePath -> IO Process.CreateProcess
 createLogFileProc path args lp = do
@@ -739,8 +764,9 @@ reportNodeCrash
     -> M ()
 reportNodeCrash pm exitCode _ logConfPath reportServ = do
     logConfig <- readLoggerConfig (toString <$> logConfPath)
+    -- TODO   this should be moved where we have access to logfiles
     let logFileNames =
-            map ((fromMaybe "" (logConfig ^. Log.lcLogsDirectory) </>) . snd) $
+            map ((fromMaybe "" (logConfig ^. lcBasePath) </>) . snd) $
             retrieveLogFiles logConfig
         -- The log files are computed purely: they're only hypothetical. They
         -- are the file names that the logger config *would* create, but they

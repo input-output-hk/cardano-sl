@@ -5,6 +5,7 @@
 module Util.Buildable.QuickCheck (
     -- * Wrappers
     forAll
+  , forAllShrink
     -- * Re-exports
   , QC.Property
   , QC.Gen
@@ -14,8 +15,10 @@ module Util.Buildable.QuickCheck (
   , QC.arbitrary
   ) where
 
-import qualified Test.QuickCheck as QC
 import           Universum
+
+import           Data.Coerce (coerce)
+import qualified Test.QuickCheck as QC
 
 import           Util.Buildable
 
@@ -25,4 +28,8 @@ import           Util.Buildable
 
 forAll :: (Buildable a, QC.Testable prop)
        => QC.Gen a -> (a -> prop) -> QC.Property
-forAll gen f = QC.forAll (STB <$> gen) (f . unSTB)
+forAll gen p = QC.forAll (STB <$> gen) (p . unSTB)
+
+forAllShrink :: (Buildable a, QC.Testable prop)
+             => QC.Gen a -> (a -> [a]) -> (a -> prop) -> QC.Property
+forAllShrink gen f p = QC.forAllShrink (STB <$> gen) (coerce f) (p . unSTB)

@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns        #-}
 {-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Diffusion.Full.Block
@@ -13,62 +14,63 @@ module Pos.Diffusion.Full.Block
 
 import           Universum
 
+import           Control.Concurrent (threadDelay)
 import           Control.Concurrent.Async (cancel)
 import qualified Control.Concurrent.STM as Conc
 import           Control.Exception (Exception (..), throwIO)
 import           Control.Lens (to)
 import           Control.Monad.Except (ExceptT, runExceptT, throwError)
 import qualified Data.ByteString.Lazy as BSL
+import           Data.Conduit (await, runConduit, (.|))
 import           Data.List.NonEmpty (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import qualified Data.Set as S
-import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, int, sformat, shown, stext, (%))
-import           Node.Conversation (sendRaw)
+import qualified Formatting.Buildable as B
 import qualified Network.Broadcast.OutboundQueue as OQ
-import           Pipes (await, runEffect, (>->))
+import           Node.Conversation (sendRaw)
 import           Serokell.Util.Text (listJson)
-import           System.Metrics.Gauge (Gauge)
 import qualified System.Metrics.Gauge as Gauge
 
-import           Pos.Binary.Communication (serializeMsgSerializedBlock, serializeMsgStreamBlock)
-import           Pos.Block.Network (MsgBlock (..), MsgSerializedBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
-                                    MsgHeaders (..), MsgStreamStart (..), MsgStreamUpdate (..),
-                                    MsgStream (..), MsgStreamBlock (..))
-import           Pos.Communication.Message ()
-import           Pos.Communication.Limits (mlMsgGetBlocks, mlMsgHeaders, mlMsgBlock,
-                                           mlMsgGetHeaders, mlMsgStreamBlock, mlMsgStream)
-import           Pos.Core (BlockVersionData, HeaderHash, ProtocolConstants (..),
-                           headerHash, bvdSlotDuration, prevBlockL)
-import           Pos.Core.Block (Block, BlockHeader (..), MainBlockHeader, blockHeader)
+import           Pos.Binary.Communication (serializeMsgSerializedBlock,
+                     serializeMsgStreamBlock)
+import           Pos.Chain.Block (Block, BlockHeader (..), HeaderHash,
+                     MainBlockHeader, blockHeader, headerHash, prevBlockL)
+import           Pos.Chain.Update (BlockVersionData, bvdSlotDuration)
+import           Pos.Communication.Limits (mlMsgBlock, mlMsgGetBlocks,
+                     mlMsgGetHeaders, mlMsgHeaders, mlMsgStream,
+                     mlMsgStreamBlock)
+import           Pos.Core (ProtocolConstants (..), difficultyL)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
+                     toOldestFirst, _NewestFirst, _OldestFirst)
+import           Pos.Core.Exception (cardanoExceptionFromException,
+                     cardanoExceptionToException)
+import           Pos.Core.NetworkAddress (NetworkAddress)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (DBMalformed))
-import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
 import           Pos.Infra.Communication.Listener (listenerConv)
 import           Pos.Infra.Communication.Protocol (Conversation (..),
-                                                   ConversationActions (..),
-                                                   EnqueueMsg, ListenerSpec,
-                                                   MkListeners (..),
-                                                   MsgType (..), NodeId,
-                                                   Origin (..), OutSpecs,
-                                                   constantListeners,
-                                                   waitForConversations,
-                                                   waitForDequeues,
-                                                   recvLimited)
-import           Pos.Infra.Diffusion.Types (StreamEntry (..), DiffusionHealth (..))
+                     ConversationActions (..), EnqueueMsg, ListenerSpec,
+                     MkListeners (..), MsgType (..), NodeId, Origin (..),
+                     OutSpecs, constantListeners, recvLimited,
+                     waitForConversations, waitForDequeues)
+import           Pos.Infra.Diffusion.Types (DiffusionHealth (..))
 import           Pos.Infra.Network.Types (Bucket)
-import           Pos.Infra.Util.TimeWarp (NetworkAddress, nodeIdToAddress)
+import           Pos.Infra.Util.TimeWarp (nodeIdToAddress)
 import           Pos.Logic.Types (Logic)
 import qualified Pos.Logic.Types as Logic
+import           Pos.Network.Block.Types (MsgBlock (..), MsgGetBlocks (..),
+                     MsgGetHeaders (..), MsgHeaders (..),
+                     MsgSerializedBlock (..), MsgStream (..),
+                     MsgStreamBlock (..), MsgStreamStart (..),
+                     MsgStreamUpdate (..))
 -- Dubious having this security stuff in here.
-import           Pos.Security.Params (AttackTarget (..), AttackType (..), NodeAttackedError (..),
-                                      SecurityParams (..))
+import           Pos.Chain.Security (AttackTarget (..), AttackType (..),
+                     NodeAttackedError (..), SecurityParams (..))
 import           Pos.Util (_neHead, _neLast)
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
-                                  toOldestFirst, _NewestFirst, _OldestFirst)
 import           Pos.Util.Timer (Timer, startTimer)
-import           Pos.Util.Trace (Trace, Severity (..), traceWith)
+import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
@@ -273,6 +275,11 @@ getBlocks logTrace logic recoveryHeadersMessage enqueue nodeId tipHeaderHash che
               Just (MsgBlock block) -> do
                   retrieveBlocksDo conv bvd (i - 1) (block : acc)
 
+-- | Datatype used for the queue of blocks, produced by network streaming and
+-- then consumed by a continuation resonsible for writing blocks to store.
+-- StreamEnd signals end of stream.
+data StreamEntry = StreamEnd | StreamBlock !Block
+
 -- | Stream some blocks from the network.
 -- Returns Nothing if streaming is disabled by the client or not supported by the peer.
 streamBlocks
@@ -285,15 +292,15 @@ streamBlocks
     -> NodeId
     -> HeaderHash
     -> [HeaderHash]
-    -> ((Word32, Maybe Gauge, Conc.TBQueue StreamEntry) -> IO t)
+    -> ([Block] -> IO t)
     -> IO (Maybe t)
 streamBlocks _        _   _     0            _       _      _         _           _ = return Nothing -- Fallback to batch mode
 streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoints k = do
     blockChan <- atomically $ Conc.newTBQueue $ fromIntegral streamWindow
-    let wqgM = dhStreamWriteQueue <$> smM
+    let batchSize = min 64 streamWindow
     fallBack <- atomically $ Conc.newTVar False
     requestVar <- requestBlocks fallBack blockChan
-    r <- k (streamWindow, wqgM, blockChan) `finally` (atomically $ do
+    r <- processBlocks batchSize 0 [] blockChan `finally` (atomically $ do
         status <- Conc.readTVar requestVar
         case status of
              OQ.PacketAborted -> pure (pure ())
@@ -306,8 +313,46 @@ streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoint
           else pure $ Just r
   where
 
+    processBlocks :: Word32 -> Word32 -> [Block] -> Conc.TBQueue StreamEntry -> IO t
+    processBlocks batchSize !n !blocks blockChan = do
+        streamEntry <- atomically $ Conc.readTBQueue blockChan
+        case streamEntry of
+             StreamEnd         -> k blocks
+             StreamBlock block -> do
+                 let n' = n + 1
+                 when (n' `mod` 256 == 0) $
+                      traceWith logTrace (Debug,
+                           sformat ("Read block "%shortHashF%" difficulty "%int) (headerHash block)
+                                   (block ^. difficultyL))
+                 case smM of
+                      Nothing -> pure ()
+                      Just sm -> liftIO $ Gauge.dec $ dhStreamWriteQueue sm
+
+                 if n' `mod` batchSize == 0
+                     then do
+                         _ <- k (block : blocks)
+                         processBlocks batchSize n' [] blockChan
+                     else
+                         processBlocks batchSize n' (block : blocks) blockChan
+
     writeStreamEnd :: Conc.TBQueue StreamEntry -> IO ()
-    writeStreamEnd blockChan = atomically $ Conc.writeTBQueue blockChan StreamEnd
+    writeStreamEnd blockChan = writeBlock 1024 blockChan StreamEnd
+
+    -- It is possible that the reader of the TBQueue stops unexpectedly which
+    -- means that we we will have to use a timeout instead of blocking forever
+    -- while attempting to write to a full queue.
+    writeBlock :: Int -> Conc.TBQueue StreamEntry -> StreamEntry -> IO ()
+    writeBlock delay _ _ | delay >= 4000000 = do
+        let msg = "Error write timeout to local reader"
+        traceWith logTrace (Warning, msg)
+        throwM $ DialogUnexpected msg
+    writeBlock delay blockChan b = do
+        isFull <- atomically $ Conc.isFullTBQueue blockChan
+        if isFull
+            then do
+                threadDelay delay
+                writeBlock (delay * 2) blockChan b
+            else atomically $ Conc.writeTBQueue blockChan b
 
     mkStreamStart :: [HeaderHash] -> HeaderHash -> MsgStream
     mkStreamStart chain wantedBlock =
@@ -320,7 +365,7 @@ streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoint
     requestBlocks :: Conc.TVar Bool -> Conc.TBQueue StreamEntry -> IO (Conc.TVar (OQ.PacketStatus ()))
     requestBlocks fallBack blockChan = do
         convMap <- enqueue (MsgRequestBlocks (S.singleton nodeId))
-                            (\_ _ -> (Conversation $ \it -> requestBlocksConversation blockChan it `finally` writeStreamEnd blockChan) :|
+                            (\_ _ -> (Conversation $ \it -> requestBlocksConversation blockChan it `onException` writeStreamEnd blockChan) :|
                                       [(Conversation $ \it -> requestBatch fallBack blockChan it `finally` writeStreamEnd blockChan)]
                                      )
         case M.lookup nodeId convMap of
@@ -340,6 +385,8 @@ streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoint
         -- The peer doesn't support streaming, we need to fall back to batching but
         -- the current conversation is unusable since there is no way for us to learn
         -- which blocks we shall fetch.
+        -- We will always have room to write a singel StreamEnd so there is no need to
+        -- differentiate between normal execution and when we get an expection.
         atomically $ writeTVar fallBack True
         return ()
 
@@ -356,6 +403,7 @@ streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoint
         send conv $ mkStreamStart checkpoints newestHash
         bvd <- Logic.getAdoptedBVData logic
         retrieveBlocks bvd blockChan conv streamWindow
+        atomically $ Conc.writeTBQueue blockChan StreamEnd
         return ()
 
     halfStreamWindow = max 1 $ streamWindow `div` 2
@@ -369,11 +417,11 @@ streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoint
         -> Word32
         -> IO ()
     retrieveBlocks bvd blockChan conv window = do
-        window' <- if window < halfStreamWindow
+        window' <- if window <= halfStreamWindow
             then do
-                let w' = streamWindow
+                let w' = window + halfStreamWindow
                 traceWith logTrace (Debug, sformat ("Updating Window: "%int%" to "%int) window w')
-                send conv $ MsgUpdate $ MsgStreamUpdate $ w'
+                send conv $ MsgUpdate $ MsgStreamUpdate halfStreamWindow
                 return (w' - 1)
             else return $ window - 1
         block <- retrieveBlock bvd conv
@@ -449,7 +497,7 @@ announceBlockHeader logTrace logic protocolConstants recoveryHeadersMessage enqu
         -- TODO figure out what this security stuff is doing and judge whether
         -- it needs to change / be removed.
         let sparams = Logic.securityParams logic
-        -- Copied from Pos.Security.Util but made pure. The existing
+        -- Copied from Pos.Chain.Security but made pure. The existing
         -- implementation was tied to a reader rather than taking a
         -- SecurityParams value as a function argument.
             shouldIgnoreAddress :: NetworkAddress -> Bool
@@ -467,7 +515,7 @@ announceBlockHeader logTrace logic protocolConstants recoveryHeadersMessage enqu
         when (AttackNoBlocks `elem` spAttackTypes sparams) (throwOnIgnored nodeId)
         traceWith logTrace (Debug,
             sformat
-                ("Announcing block"%shortHashF%" to "%build)
+                ("Announcing block "%shortHashF%" to "%build)
                 (headerHash header)
                 nodeId)
         send cA $ MsgHeaders (one (BlockHeaderMain header))
@@ -662,7 +710,7 @@ handleStreamStart logTrace logic oq = listenerConv logTrace oq $ \__ourVerInfo n
                         Logic.streamBlocks logic lca
                         lift $ send conv MsgStreamEnd
                     consumer = loop nodeId conv window
-                runEffect $ producer >-> consumer
+                runConduit $ producer .| consumer
 
     loop nodeId conv 0 = do
         lift $ traceWith logTrace (Debug, "handleStreamStart:loop waiting on window update")
@@ -674,12 +722,13 @@ handleStreamStart logTrace logic oq = listenerConv logTrace oq $ \__ourVerInfo n
                       lift $ traceWith logTrace (Debug, sformat ("handleStreamStart:loop MsgStart, expected MsgStreamUpdate from "%build) nodeId)
                       return ()
                   MsgUpdate u -> do
+                      lift $ OQ.clearFailureOf oq nodeId
                       lift $ traceWith logTrace (Debug, sformat ("handleStreamStart:loop new window "%shown%" from "%build) u nodeId)
                       loop nodeId conv (msuWindow u)
-    loop nodeId conv window = do
-        b <- await
-        lift $ sendRaw conv $ serializeMsgStreamBlock $ MsgSerializedBlock b
-        loop nodeId conv (window - 1)
+    loop nodeId conv window =
+        whenJustM await $ \b -> do
+            lift $ sendRaw conv $ serializeMsgStreamBlock $ MsgSerializedBlock b
+            loop nodeId conv (window - 1)
 
 ----------------------------------------------------------------------------
 -- Header propagation

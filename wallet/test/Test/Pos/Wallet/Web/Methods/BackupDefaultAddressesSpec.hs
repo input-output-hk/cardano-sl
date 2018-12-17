@@ -7,51 +7,45 @@ module Test.Pos.Wallet.Web.Methods.BackupDefaultAddressesSpec
 
 import           Universum
 
-import           Pos.Launcher (HasConfigurations)
-
-import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
-import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
-import           Pos.Wallet.Web.ClientTypes (CWallet (..))
-import           Pos.Wallet.Web.Methods.Restore (restoreWalletFromBackup)
-
-import           Test.Hspec (Spec, describe, runIO)
+import           Test.Hspec (Spec, beforeAll_, describe, runIO)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
-import           Test.Pos.Configuration (withProvidedMagicConfig)
-import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
-import           Test.Pos.Util.QuickCheck.Property (assertProperty)
-import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
 import           Test.QuickCheck (arbitrary, generate)
 import           Test.QuickCheck.Monadic (pick)
 
+import           Pos.Chain.Genesis as Genesis (Config (..))
+import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
+import           Pos.Launcher (HasConfigurations)
+import           Pos.Util.Wlog (setupTestLogging)
+import           Pos.Wallet.Web.ClientTypes (CWallet (..))
+import           Pos.Wallet.Web.Methods.Restore (restoreWalletFromBackup)
 
--- We run the tests this number of times, with different `ProtocolMagics`, to get increased
--- coverage. We should really do this inside of the `prop`, but it is difficult to do that
--- without significant rewriting of the testsuite.
-testMultiple :: Int
-testMultiple = 1
+import           Test.Pos.Configuration (withProvidedMagicConfig)
+import           Test.Pos.Util.QuickCheck.Property (assertProperty)
+import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
 
 spec :: Spec
 spec = do
-    runWithMagic NMMustBeNothing
-    runWithMagic NMMustBeJust
+    runWithMagic RequiresNoMagic
+    runWithMagic RequiresMagic
 
 runWithMagic :: RequiresNetworkMagic -> Spec
-runWithMagic rnm = replicateM_ testMultiple $
-    modifyMaxSuccess (`div` testMultiple) $ do
-        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
-        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
-            specBody pm
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        specBody pm
 
 specBody :: ProtocolMagic -> Spec
-specBody pm = withProvidedMagicConfig pm $
-       describe "restoreAddressFromWalletBackup" $ modifyMaxSuccess (const 10) $ do
-           (restoreWalletAddressFromBackupSpec (makeNetworkMagic pm))
+specBody pm = beforeAll_ setupTestLogging $
+    withProvidedMagicConfig pm $ \genesisConfig _ _ ->
+        describe "restoreAddressFromWalletBackup" $ modifyMaxSuccess (const 10) $ do
+            restoreWalletAddressFromBackupSpec genesisConfig
 
-restoreWalletAddressFromBackupSpec :: HasConfigurations => NetworkMagic -> Spec
-restoreWalletAddressFromBackupSpec nm =
-    walletPropertySpec restoreWalletAddressFromBackupDesc $ do
+restoreWalletAddressFromBackupSpec :: HasConfigurations => Genesis.Config -> Spec
+restoreWalletAddressFromBackupSpec genesisConfig =
+    walletPropertySpec genesisConfig restoreWalletAddressFromBackupDesc $ do
         walletBackup   <- pick arbitrary
-        restoredWallet <- lift $ restoreWalletFromBackup nm walletBackup
+        restoredWallet <- lift
+            $ restoreWalletFromBackup genesisConfig walletBackup
         let noOfAccounts = cwAccountsNumber restoredWallet
         assertProperty (noOfAccounts > 0) $ "Exported wallet has no accounts!"
   where

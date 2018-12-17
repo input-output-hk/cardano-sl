@@ -11,42 +11,34 @@ import           Formatting (formatToString, int, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Test.Hspec (Spec, describe, it, runIO, shouldBe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Gen, arbitrary, counterexample, forAll, frequency, generate,
-                                  vectorOf)
+import           Test.QuickCheck (Gen, arbitrary, counterexample, forAll,
+                     frequency, generate, vectorOf)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Core (Address, IsBootstrapEraAddr (..), deriveLvl2KeyPair,
-                           largestHDAddressBoot, largestPubKeyAddressBoot,
-                           largestPubKeyAddressSingleKey, makePubKeyAddress, makePubKeyAddressBoot,
-                           makePubKeyHdwAddress)
+                     largestHDAddressBoot, largestPubKeyAddressBoot,
+                     largestPubKeyAddressSingleKey, makePubKeyAddress,
+                     makePubKeyAddressBoot, makePubKeyHdwAddress)
 import           Pos.Core.NetworkMagic (NetworkMagic (..), makeNetworkMagic)
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ProtocolMagic (..), PublicKey,
-                             RequiresNetworkMagic (..), SecretKey (..), ShouldCheckPassphrase (..),
-                             deterministicKeyGen, emptyPassphrase, mkEncSecretUnsafe, noPassEncrypt,
-                             toPublic)
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ProtocolMagic (..),
+                     PublicKey, RequiresNetworkMagic (..), SecretKey (..),
+                     ShouldCheckPassphrase (..), deterministicKeyGen,
+                     emptyPassphrase, mkEncSecretUnsafe, noPassEncrypt,
+                     toPublic)
 import           Pos.Crypto.HD (HDAddressPayload (..))
 
 import           Test.Pos.Core.Arbitrary ()
-import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
-
-
--- We run the tests this number of times, with different `ProtocolMagics`, to get increased
--- coverage. We should really do this inside of the `prop`, but it is difficult to do that
--- without significant rewriting of the testsuite.
-testMultiple :: Int
-testMultiple = 3
 
 spec :: Spec
 spec = do
-    runWithMagic NMMustBeNothing
-    runWithMagic NMMustBeJust
+    runWithMagic RequiresNoMagic
+    runWithMagic RequiresMagic
 
 runWithMagic :: RequiresNetworkMagic -> Spec
-runWithMagic rnm = replicateM_ testMultiple $
-    modifyMaxSuccess (`div` testMultiple) $ do
-        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
-        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
-            specBody pm
+runWithMagic rnm = do
+    pm <- (\ident -> ProtocolMagic ident rnm) <$> runIO (generate arbitrary)
+    describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
+        specBody pm
 
 -- An attempt to avoid rightward creep
 specBody :: ProtocolMagic -> Spec
@@ -103,11 +95,11 @@ specBody pm = do
 
 networkMagicExtraBytes :: ProtocolMagic -> Byte
 networkMagicExtraBytes pm = case makeNetworkMagic pm of
-    NMNothing -> 0
+    NetworkMainOrStage -> 0
     -- Encoding size:
     -- Map key: 2 bytes (1 for header, 1 for Word8)
     -- Map val: 1-5 bytes (1 for header, 0-4 for Int32)
-    NMJust v  -> 2 + biSize v
+    NetworkTestnet v   -> 2 + biSize v
 
 pkAndHdwAreShownDifferently :: NetworkMagic -> Bool -> PublicKey -> Bool
 pkAndHdwAreShownDifferently nm isBootstrap pk =

@@ -62,6 +62,7 @@ module Pos.Wallet.Web.State.Acidic
        , UpdateHistoryCache (..)
        -- * Grouped transactions
        , CreateAccountWithAddress (..)
+       , CreateAccountWithoutAddresses (..)
        , RemoveWallet2 (..)
        , ApplyModifierToWallet (..)
        , ApplyModifierToWallet2 (..)
@@ -71,11 +72,13 @@ module Pos.Wallet.Web.State.Acidic
 
 import           Universum
 
-import           Data.Acid (EventResult, EventState, QueryEvent, UpdateEvent, makeAcidic)
+import           Data.Acid (EventResult, EventState, QueryEvent, UpdateEvent,
+                     makeAcidic)
 import           Data.Default (def)
-import           Serokell.AcidState.ExtendedState (ExtendedState, closeExtendedState, openLocalExtendedState,
-                                                   openMemoryExtendedState, queryExtended, tidyExtendedState,
-                                                   updateExtended)
+import           Serokell.AcidState.ExtendedState (ExtendedState,
+                     closeExtendedState, openLocalExtendedState,
+                     openMemoryExtendedState, queryExtended, tidyExtendedState,
+                     updateExtended)
 
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
 import           Pos.Wallet.Web.State.Storage as WS
@@ -157,6 +160,7 @@ makeAcidic ''WalletStorage
     , 'WS.flushWalletStorage
     , 'WS.getWalletStorage
     , 'WST.createAccountWithAddress
+    , 'WST.createAccountWithoutAddresses
     , 'WST.removeWallet2
     , 'WST.applyModifierToWallet
     , 'WST.applyModifierToWallet2

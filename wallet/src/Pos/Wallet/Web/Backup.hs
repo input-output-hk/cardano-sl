@@ -11,6 +11,7 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 import qualified Data.SemVer as V
+import           Formatting (build, sformat, (%))
 import           Test.QuickCheck (Arbitrary (..), elements)
 
 import           Pos.Core.NetworkMagic (NetworkMagic)
@@ -18,10 +19,11 @@ import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.Crypto.Signing.Safe (emptyPassphrase, safeKeyGen)
 import           Pos.Util.Util (maybeThrow)
 import           Pos.Wallet.Web.Account (AccountMode, getSKById)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta (..), CId,
-                                             CWalletMeta (..), Wal)
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta (..),
+                     CId, CWalletMeta (..), Wal)
 import           Pos.Wallet.Web.Error (WalletError (..))
-import           Pos.Wallet.Web.State (WalletSnapshot, getAccountMeta, getWalletMeta)
+import           Pos.Wallet.Web.State (WalletSnapshot, getAccountMeta,
+                     getWalletMeta)
 import           Pos.Wallet.Web.Util (getWalletAccountIds)
 
 currentBackupFormatVersion :: V.Version
@@ -61,7 +63,11 @@ getWalletBackup :: AccountMode ctx m
                 -> CId Wal
                 -> m WalletBackup
 getWalletBackup nm ws wId = do
-    sk <- getSKById nm wId
+    -- Wallet backup is related to regular (internal) wallets only,
+    -- because we don't store secret keys for external wallets.
+    sk <- maybeThrow (InternalError (sformat ("Backup, no wallet with address "%build%" found") wId))
+                     =<< getSKById nm wId
+
     meta <- maybeThrow (InternalError "Wallet have no meta") $
             getWalletMeta ws wId
     let accountIds = getWalletAccountIds ws wId

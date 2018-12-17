@@ -1,261 +1,184 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 {- | A collection of plugins used by this edge node.
      A @Plugin@ is essentially a set of actions which will be run in
      a particular monad, at some point in time.
 -}
-{-# LANGUAGE LambdaCase    #-}
-{-# LANGUAGE TupleSections #-}
 
-module Cardano.Wallet.Server.Plugins (
-      Plugin
-    , syncWalletWorker
-    , acidCleanupWorker
-    , conversation
-    , legacyWalletBackend
-    , walletBackend
-    , walletDocumentation
-    , resubmitterPlugin
-    , notifierPlugin
+module Cardano.Wallet.Server.Plugins
+    ( Plugin
+    , apiServer
+    , docServer
+    , monitoringServer
+    , acidStateSnapshots
+    , updateWatcher
     ) where
 
 import           Universum
 
-import           Cardano.Wallet.API as API
-import qualified Cardano.Wallet.API.V1.Errors as V1
-import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
-import qualified Cardano.Wallet.Kernel.Mode as Kernel
-import qualified Cardano.Wallet.LegacyServer as LegacyServer
-import qualified Cardano.Wallet.Server as Server
-import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..), RunMode,
-                                            WalletBackendParams (..), isDebugMode,
-                                            walletAcidInterval, walletDbOptions)
-import           Cardano.Wallet.WalletLayer (ActiveWalletLayer, PassiveWalletLayer,
-                                             bracketKernelActiveWallet)
-import qualified Pos.Wallet.Web.Error.Types as V0
+import           Data.Acid (AcidState)
+import           Data.Aeson (encode)
+import qualified Data.ByteString.Char8 as BS8
+import qualified Data.Text as T
+import           Data.Typeable (typeOf)
+import qualified Servant
 
-import           Control.Exception (fromException)
-import           Data.Aeson
-import           Formatting (build, sformat, (%))
-import           Mockable
 import           Network.HTTP.Types.Status (badRequest400)
 import           Network.Wai (Application, Middleware, Response, responseLBS)
-import           Network.Wai.Handler.Warp (defaultSettings, setOnExceptionResponse)
-import           Network.Wai.Middleware.Cors (cors, corsMethods, corsRequestHeaders,
-                                              simpleCorsResourcePolicy, simpleMethods)
-import           Ntp.Client (NtpStatus)
-import           Pos.Infra.Diffusion.Types (Diffusion (..))
-import           Pos.Wallet.Web (cleanupAcidStatePeriodically)
-import           Pos.Wallet.Web.Pending.Worker (startPendingTxsResubmitter)
-import qualified Pos.Wallet.Web.Server.Runner as V0
-import           Pos.Wallet.Web.Sockets (getWalletWebSockets, upgradeApplicationWS)
-import qualified Servant
-import           System.Wlog (logInfo, modifyLoggerName, usingLoggerName)
-
-import           Pos.Context (HasNodeContext)
-import           Pos.Crypto (ProtocolMagic)
-import           Pos.Util (lensOf)
+import           Network.Wai.Handler.Warp (defaultSettings,
+                     setOnExceptionResponse)
 
 import           Cardano.NodeIPC (startNodeJsIPC)
-import           Pos.Configuration (walletProductionApi, walletTxCreationDisabled)
-import           Pos.Infra.Shutdown.Class (HasShutdownContext (shutdownContext))
+import           Cardano.Wallet.API as API
+import           Cardano.Wallet.API.V1.Headers (applicationJson)
+import           Cardano.Wallet.API.V1.ReifyWalletError
+                     (translateWalletLayerErrors)
+import qualified Cardano.Wallet.API.V1.Types as V1
+import           Cardano.Wallet.Kernel (DatabaseMode (..), PassiveWallet)
+import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
+import qualified Cardano.Wallet.Kernel.Mode as Kernel
+import qualified Cardano.Wallet.Server as Server
+import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..),
+                     WalletBackendParams (..), getWalletDbOptions, isDebugMode,
+                     walletAcidInterval)
+import           Cardano.Wallet.Server.Middlewares (withMiddlewares)
+import           Cardano.Wallet.Server.Plugins.AcidState
+                     (createAndArchiveCheckpoints)
+import           Cardano.Wallet.WalletLayer (ActiveWalletLayer,
+                     PassiveWalletLayer)
+import qualified Cardano.Wallet.WalletLayer as WalletLayer
+import qualified Cardano.Wallet.WalletLayer.Kernel as WalletLayer.Kernel
+
+import           Pos.Chain.Update (cpsSoftwareVersion)
+import           Pos.Infra.Diffusion.Types (Diffusion (..))
+import           Pos.Infra.Shutdown (HasShutdownContext (shutdownContext),
+                     ShutdownContext)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Wallet.Web.Mode (WalletWebMode)
-import           Pos.Wallet.Web.Server.Launcher (walletDocumentationImpl, walletServeImpl)
-import           Pos.Wallet.Web.State (askWalletDB)
-import           Pos.Wallet.Web.Tracking.Sync (processSyncRequest)
-import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
-import           Pos.Web (serveWeb)
-import           Pos.WorkMode (WorkMode)
+import           Pos.Util.Wlog (logInfo, modifyLoggerName, usingLoggerName)
+import           Pos.Web (serveDocImpl, serveImpl)
+import qualified Pos.Web.Server
+
+-- Needed for Orphan Instance 'Buildable Servant.NoContent' :|
+import           Pos.Wallet.Web ()
 
 
 -- A @Plugin@ running in the monad @m@.
-type Plugin m = [Diffusion m -> m ()]
+type Plugin m = Diffusion m -> m ()
 
--- | A @Plugin@ to periodically compact & snapshot the acid-state database.
-acidCleanupWorker :: WalletBackendParams
-                  -> Plugin WalletWebMode
-acidCleanupWorker WalletBackendParams{..} = pure $ const $
-    modifyLoggerName (const "acidcleanup") $
-    askWalletDB >>= \db -> cleanupAcidStatePeriodically db (walletAcidInterval walletDbOptions)
 
--- | The @Plugin@ which defines part of the conversation protocol for this node.
-conversation :: HasConfigurations => WalletBackendParams -> Plugin WalletWebMode
-conversation wArgs = map const (pluginsMonitoringApi wArgs)
+-- | A @Plugin@ to start the wallet REST server
+apiServer
+    :: NewWalletBackendParams
+    -> (PassiveWalletLayer IO, PassiveWallet)
+    -> [Middleware]
+    -> Plugin Kernel.WalletMode
+apiServer (NewWalletBackendParams WalletBackendParams{..}) (passiveLayer, passiveWallet) middlewares diffusion = do
+        env <- ask
+        let diffusion' = Kernel.fromDiffusion (lower env) diffusion
+        WalletLayer.Kernel.bracketActiveWallet passiveLayer passiveWallet diffusion' $ \active _ -> do
+          ctx <- view shutdownContext
+          serveImpl
+            (getApplication active)
+            (BS8.unpack ip)
+            port
+            (if isDebugMode walletRunMode then Nothing else walletTLSParams)
+            (Just $ setOnExceptionResponse exceptionHandler defaultSettings)
+            (Just $ portCallback ctx)
   where
-    pluginsMonitoringApi :: (WorkMode ctx m , HasNodeContext ctx)
-                         => WalletBackendParams
-                         -> [m ()]
-    pluginsMonitoringApi WalletBackendParams {..}
-        | enableMonitoringApi = [serveWeb monitoringApiPort walletTLSParams]
-        | otherwise = []
-
-walletDocumentation
-    :: (HasConfigurations, HasCompileInfo)
-    => WalletBackendParams
-    -> Plugin WalletWebMode
-walletDocumentation WalletBackendParams {..} = pure $ \_ ->
-    walletDocumentationImpl
-        application
-        walletDocAddress
-        tls
-        (Just defaultSettings)
-        Nothing
-  where
-    application :: WalletWebMode Application
-    application = do
-        let app =
-                if isDebugMode walletRunMode then
-                    Servant.serve API.walletDevDocAPI LegacyServer.walletDevDocServer
-                else
-                    Servant.serve API.walletDocAPI LegacyServer.walletDocServer
-        return $ withMiddleware walletRunMode app
-
-    tls =
-        if isDebugMode walletRunMode then Nothing else walletTLSParams
-
--- | A @Plugin@ to start the wallet backend API.
-legacyWalletBackend :: (HasConfigurations, HasCompileInfo)
-                    => ProtocolMagic
-                    -> WalletBackendParams
-                    -> TVar NtpStatus
-                    -> Plugin WalletWebMode
-legacyWalletBackend pm WalletBackendParams {..} ntpStatus = pure $ \diffusion -> do
-    modifyLoggerName (const "legacyServantBackend") $ do
-      logInfo $ sformat ("Production mode for API: "%build)
-        walletProductionApi
-      logInfo $ sformat ("Transaction submission disabled: "%build)
-        walletTxCreationDisabled
-
-      ctx <- view shutdownContext
-      let
-        portCallback :: Word16 -> IO ()
-        portCallback port = usingLoggerName "NodeIPC" $ flip runReaderT ctx $ startNodeJsIPC port
-      walletServeImpl
-        (getApplication diffusion)
-        walletAddress
-        -- Disable TLS if in debug mode.
-        (if isDebugMode walletRunMode then Nothing else walletTLSParams)
-        (Just $ setOnExceptionResponse exceptionHandler defaultSettings)
-        (Just portCallback)
-  where
-    -- Gets the Wai `Application` to run.
-    getApplication :: Diffusion WalletWebMode -> WalletWebMode Application
-    getApplication diffusion = do
-      logInfo "Wallet Web API has STARTED!"
-      wsConn <- getWalletWebSockets
-      ctx <- V0.walletWebModeContext
-      let app = upgradeApplicationWS wsConn $
-            if isDebugMode walletRunMode then
-              Servant.serve API.walletDevAPI $ LegacyServer.walletDevServer
-                (V0.convertHandler ctx)
-                pm
-                diffusion
-                ntpStatus
-                walletRunMode
-            else
-              Servant.serve API.walletAPI $ LegacyServer.walletServer
-                (V0.convertHandler ctx)
-                pm
-                diffusion
-                ntpStatus
-
-      return $ withMiddleware walletRunMode app
+    (ip, port) = walletAddress
 
     exceptionHandler :: SomeException -> Response
-    exceptionHandler se =
-        case asum [handleV1Errors se, handleV0Errors se] of
-             Nothing -> handleGenericError se
-             Just r  -> r
+    exceptionHandler se = case translateWalletLayerErrors se of
+            Just we -> handleLayerError we
+            Nothing -> handleGenericError se
 
-    -- Handles domain-specific errors coming from the V1 API.
-    handleV1Errors :: SomeException -> Maybe Response
-    handleV1Errors se =
-        let reify (we :: V1.WalletError) =
-                responseLBS (V1.toHttpStatus we) [V1.applicationJson] .  encode $ we
-        in fmap reify (fromException se)
+    -- Handle domain-specific errors coming from the Wallet Layer
+    handleLayerError :: V1.WalletError -> Response
+    handleLayerError we =
+            responseLBS (V1.toHttpErrorStatus we) [applicationJson] . encode $ we
 
-    -- Handles domain-specific errors coming from the V0 API, but rewraps it
-    -- into a jsend payload. It doesn't explicitly handle 'InternalError' or
-    -- 'DecodeError', as they can come from any part of the stack or even
-    -- rewrap some other exceptions (cfr 'rewrapToWalletError').
-    -- Uses the 'Buildable' istance on 'WalletError' to exploit any
-    -- available rendering and information-masking improvements.
-    handleV0Errors :: SomeException -> Maybe Response
-    handleV0Errors se =
-        let maskSensitive err =
-                case err of
-                    V0.RequestError _  -> err
-                    V0.InternalError _ -> V0.RequestError "InternalError"
-                    V0.DecodeError _   -> V0.RequestError "DecodeError"
-            reify (re :: V0.WalletError) = V1.UnknownError (sformat build . maskSensitive $ re)
-        in fmap (responseLBS badRequest400 [V1.applicationJson] .  encode . reify) (fromException se)
-
-    -- Handles any generic error, trying to prevent internal exceptions from leak outside.
+    -- Handle general exceptions
     handleGenericError :: SomeException -> Response
-    handleGenericError _ =
-        responseLBS badRequest400 [V1.applicationJson] .  encode $ V1.UnknownError "Something went wrong."
+    handleGenericError se =
+        responseLBS badRequest400 [applicationJson] $ encode defWalletError
+        where
+            -- NOTE: to ensure that we don't leak any sensitive information,
+            --       we only reveal the exception type here.
+            defWalletError = V1.UnknownError $ T.pack . show $ typeOf se
 
--- | A 'Plugin' to start the wallet REST server
---
--- TODO: no web socket support in the new wallet for now
-walletBackend :: NewWalletBackendParams
-              -> PassiveWalletLayer Production
-              -> Plugin Kernel.WalletMode
-walletBackend (NewWalletBackendParams WalletBackendParams{..}) passive = pure $ \diffusion -> do
-    env <- ask
-    let diffusion' = Kernel.fromDiffusion (lower env) diffusion
-    bracketKernelActiveWallet passive diffusion' $ \active -> do
-      ctx <- view shutdownContext
-      let
-        portCallback :: Word16 -> IO ()
-        portCallback port = usingLoggerName "NodeIPC" $ flip runReaderT ctx $ startNodeJsIPC port
-      walletServeImpl
-        (getApplication active)
-        walletAddress
-        -- Disable TLS if in debug modeit .
-        (if isDebugMode walletRunMode then Nothing else walletTLSParams)
-        Nothing
-        (Just portCallback)
-  where
-    getApplication :: ActiveWalletLayer Production -> Kernel.WalletMode Application
+    getApplication :: ActiveWalletLayer IO -> Kernel.WalletMode Application
     getApplication active = do
-      logInfo "New wallet API has STARTED!"
-      return $ withMiddleware walletRunMode $
-        if isDebugMode walletRunMode then
-          Servant.serve API.walletDevAPI $ Server.walletDevServer active walletRunMode
-        else
-          Servant.serve API.walletAPI $ Server.walletServer active
+        logInfo "New wallet API has STARTED!"
+        return
+            $ withMiddlewares middlewares
+            $ Servant.serve API.newWalletAPI
+            $ Server.walletServer active walletRunMode
 
-    lower :: env -> ReaderT env Production a -> IO a
-    lower env = runProduction . (`runReaderT` env)
+    lower :: env -> ReaderT env IO a -> IO a
+    lower env m = runReaderT m env
 
--- | A @Plugin@ to resubmit pending transactions.
-resubmitterPlugin :: HasConfigurations => ProtocolMagic -> Plugin WalletWebMode
-resubmitterPlugin pm = [\diffusion -> askWalletDB >>= \db ->
-                        startPendingTxsResubmitter pm db (sendTx diffusion)]
+    portCallback :: ShutdownContext -> Word16 -> IO ()
+    portCallback ctx =
+        usingLoggerName "NodeIPC" . flip runReaderT ctx . startNodeJsIPC
 
--- | A @Plugin@ to notify frontend via websockets.
-notifierPlugin :: HasConfigurations => Plugin WalletWebMode
-notifierPlugin = [const V0.notifierPlugin]
+-- | A @Plugin@ to serve the wallet documentation
+docServer
+    :: (HasConfigurations, HasCompileInfo)
+    => NewWalletBackendParams
+    -> Maybe (Plugin Kernel.WalletMode)
+docServer (NewWalletBackendParams WalletBackendParams{walletDocAddress = Nothing}) = Nothing
+docServer (NewWalletBackendParams WalletBackendParams{walletDocAddress = Just (ip, port), walletRunMode, walletTLSParams}) = Just (const $ makeWalletServer)
+  where
+    makeWalletServer = serveDocImpl
+        application
+        (BS8.unpack ip)
+        port
+        (if isDebugMode walletRunMode then Nothing else walletTLSParams)
+        (Just defaultSettings)
+        Nothing
 
--- | The @Plugin@ responsible for the restoration & syncing of a wallet.
-syncWalletWorker :: HasConfigurations => Plugin WalletWebMode
-syncWalletWorker = pure $ const $
-    modifyLoggerName (const "syncWalletWorker") $
-    (view (lensOf @SyncQueue) >>= processSyncRequest)
+    application :: Kernel.WalletMode Application
+    application =
+        return $ Servant.serve API.newWalletDocAPI Server.walletDocServer
 
--- | "Attaches" the middleware to this 'Application', if any.
--- When running in debug mode, chances are we want to at least allow CORS to test the API
--- with a Swagger editor, locally.
-withMiddleware :: RunMode -> Application -> Application
-withMiddleware wrm app
-  | isDebugMode wrm = corsMiddleware app
-  | otherwise = app
+-- | A @Plugin@ to serve the node monitoring API.
+monitoringServer :: HasConfigurations
+                 => NewWalletBackendParams
+                 -> [ (Text, Plugin Kernel.WalletMode) ]
+monitoringServer (NewWalletBackendParams WalletBackendParams{..}) =
+    case enableMonitoringApi of
+         True  -> [ ("monitoring worker", const worker) ]
+         False -> []
+  where
+    worker = serveImpl Pos.Web.Server.application
+                       "127.0.0.1"
+                       monitoringApiPort
+                       walletTLSParams
+                       Nothing
+                       Nothing
 
-corsMiddleware :: Middleware
-corsMiddleware = cors (const $ Just policy)
-    where
-      policy = simpleCorsResourcePolicy
-        { corsRequestHeaders = ["Content-Type"]
-        , corsMethods = "PUT" : simpleMethods
-        }
+-- | A @Plugin@ to periodically compact & snapshot the acid-state database.
+acidStateSnapshots :: AcidState db
+                   -> NewWalletBackendParams
+                   -> DatabaseMode
+                   -> Plugin Kernel.WalletMode
+acidStateSnapshots dbRef params dbMode = const worker
+  where
+    worker = do
+      let opts = getWalletDbOptions params
+      modifyLoggerName (const "acid-state-checkpoint-plugin") $
+          createAndArchiveCheckpoints
+              dbRef
+              (walletAcidInterval opts)
+              dbMode
+
+-- | A @Plugin@ to store updates proposal received from the blockchain
+updateWatcher :: Plugin Kernel.WalletMode
+updateWatcher = const $ do
+    modifyLoggerName (const "update-watcher-plugin") $ do
+        w <- Kernel.getWallet
+        forever $ liftIO $ do
+            newUpdate <- WalletLayer.waitForUpdate w
+            logInfo "A new update was found!"
+            WalletLayer.addUpdate w . cpsSoftwareVersion $ newUpdate

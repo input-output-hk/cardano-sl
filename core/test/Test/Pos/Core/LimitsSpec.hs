@@ -11,7 +11,8 @@ import qualified Data.HashMap.Strict as HM
 import           Serokell.Data.Memory.Units (fromBytes)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (arbitrary, choose, counterexample, forAll, property, (===))
+import           Test.QuickCheck (arbitrary, choose, counterexample, forAll,
+                     property, (===))
 
 import qualified Pos.Binary.Class as Bi
 import           Pos.Core.Limits (stripHashMap)

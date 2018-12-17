@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | Impure functions which are used by both local and global txp in
 -- explorer.
 
@@ -10,12 +12,11 @@ import           Universum hiding (keys)
 import           Control.Lens (at, non)
 import qualified Data.HashMap.Strict as HM
 
+import           Pos.Chain.Txp (Tx (..), TxAux (..), Utxo, toaOut, txOutAddress)
 import           Pos.Core (Address, Coin)
-import           Pos.Core.Txp (Tx (..), TxAux (..), toaOut, txOutAddress)
+import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.DB.Class (MonadDBRead)
 import qualified Pos.Explorer.DB as ExDB
-import           Pos.Txp.Toil (Utxo)
-import           Pos.Core.Chrono (NewestFirst (..))
 
 import           Pos.Explorer.Core (AddrHistory)
 import           Pos.Explorer.Txp.Toil (ExplorerExtraLookup (..))

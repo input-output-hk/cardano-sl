@@ -17,21 +17,21 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Text (Text)
 import           Formatting (build, sformat)
 
+import           Pos.Chain.Txp (Tx (..), TxOut (..), txOutAddress, txOutValue)
+import           Pos.Chain.Update (BlockVersionData (..),
+                     BlockVersionModifier (..), ConfirmedProposalState (..),
+                     StakeholderVotes, UpdateProposal (..), isPositiveVote)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
-import           Pos.Core (Address, ChainDifficulty, decodeTextAddress, makePubKeyAddressBoot,
-                           sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Core (Address, ChainDifficulty, decodeTextAddress,
+                     makePubKeyAddressBoot, sumCoins, unsafeAddCoin,
+                     unsafeIntegerToCoin)
 import           Pos.Core.NetworkMagic (NetworkMagic (..))
-import           Pos.Core.Txp (Tx (..), TxOut (..), txOutAddress, txOutValue)
-import           Pos.Core.Update (BlockVersionData (..), BlockVersionModifier (..),
-                                  UpdateProposal (..))
 import           Pos.Crypto (EncryptedSecretKey, encToPublic)
-import           Pos.Update.Poll.Types (ConfirmedProposalState (..), StakeholderVotes,
-                                        isPositiveVote)
 import           Pos.Util.Servant
 import           Pos.Wallet.Web.ClientTypes.Instances ()
-import           Pos.Wallet.Web.ClientTypes.Types (AccountId (..), Addr, CCoin, CHash (..),
-                                                   CId (..), CPtxCondition (..), CTx (..), CTxMeta,
-                                                   CUpdateInfo (..), CWAddressMeta (..))
+import           Pos.Wallet.Web.ClientTypes.Types (AccountId (..), Addr, CCoin,
+                     CHash (..), CId (..), CPtxCondition (..), CTx (..),
+                     CTxMeta, CUpdateInfo (..), CWAddressMeta (..))
 
 -- TODO: this is not completely safe. If someone changes
 -- implementation of Buildable Address. It should be probably more

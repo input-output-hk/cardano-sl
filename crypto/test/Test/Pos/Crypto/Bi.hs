@@ -3,16 +3,18 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Test.Pos.Crypto.Bi
-    ( exampleProtocolMagic
-    , tests
+    ( constantByteString
+    , exampleProtocolMagic
     , getBytes
+    , tests
     ) where
 
 import           Universum
 
 import           Cardano.Crypto.Wallet (XPrv, unXPrv, xprv, xpub)
 
-import           Crypto.Hash (Blake2b_256)
+import           Crypto.Hash (Blake2b_224, Blake2b_256, Blake2b_384,
+                     Blake2b_512, SHA1)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
 import           Data.List.NonEmpty (fromList)
@@ -20,21 +22,27 @@ import           Data.List.NonEmpty (fromList)
 import           Hedgehog (Gen, Property)
 import qualified Hedgehog as H
 
-import           Pos.Crypto (AbstractHash, EncShare, PassPhrase, ProtocolMagic (..),
-                             ProtocolMagicId (..), ProxyCert, ProxySecretKey, PublicKey (..),
-                             RedeemSignature, RequiresNetworkMagic (..), SafeSigner (FakeSigner),
-                             Secret, SecretKey (..), SecretProof, SignTag (SignForTestingOnly),
-                             Signature, VssKeyPair, WithHash, decryptShare, deriveHDPassphrase,
-                             deterministic, deterministicVssKeyGen, genSharedSecret, hash, mkSigned,
-                             noPassEncrypt, packHDAddressAttr, proxySign, redeemDeterministicKeyGen,
-                             redeemSign, safeCreateProxyCert, safeCreatePsk, sign, toPublic,
-                             toVssPublicKey)
+import           Pos.Binary.Class (Bi)
+import           Pos.Crypto (AbstractHash, EncShare, PassPhrase,
+                     ProtocolMagic (..), ProtocolMagicId (..), ProxyCert,
+                     ProxySecretKey, PublicKey (..), RedeemSignature,
+                     RequiresNetworkMagic (..), SafeSigner (FakeSigner),
+                     Secret, SecretKey (..), SecretProof,
+                     SignTag (SignForTestingOnly), Signature, VssKeyPair,
+                     WithHash, decryptShare, deriveHDPassphrase, deterministic,
+                     deterministicVssKeyGen, genSharedSecret, hash, mkSigned,
+                     noPassEncrypt, packHDAddressAttr, proxySign,
+                     redeemDeterministicKeyGen, redeemSign,
+                     safeCreateProxyCert, safeCreatePsk, sign, toPublic,
+                     toVssPublicKey)
 
-import           Test.Pos.Binary.Helpers.GoldenRoundTrip (discoverGolden, discoverRoundTrip, eachOf,
-                                                          goldenTestBi, roundTripsAesonBuildable,
-                                                          roundTripsAesonShow,
-                                                          roundTripsBiBuildable, roundTripsBiShow)
+import           Test.Pos.Binary.Helpers (SizeTestConfig (..), scfg, sizeTest)
+import           Test.Pos.Binary.Helpers.GoldenRoundTrip (goldenTestBi,
+                     roundTripsBiBuildable, roundTripsBiShow)
 import           Test.Pos.Crypto.Gen
+import           Test.Pos.Util.Golden (discoverGolden, eachOf)
+import           Test.Pos.Util.Tripping (discoverRoundTrip,
+                     roundTripsAesonBuildable, roundTripsAesonShow)
 
 --------------------------------------------------------------------------------
 -- ProtocolMagic
@@ -100,7 +108,7 @@ golden_Signed = goldenTestBi signed "test/golden/Signed"
 
 roundTripSignedBi :: Property
 roundTripSignedBi = eachOf 1000 genUnitSigned roundTripsBiShow
-    where genUnitSigned = genSigned $ pure ()
+    where genUnitSigned = genSigned (pure ())
 
 --------------------------------------------------------------------------------
 -- EncryptedSecretKey
@@ -192,7 +200,8 @@ golden_ProxyCert = goldenTestBi pcert "test/golden/ProxyCert"
     pcert      = safeCreateProxyCert exampleProtocolMagic (FakeSigner skey) pkey ()
 
 genUnitProxyCert :: Gen (ProxyCert ())
-genUnitProxyCert = genProxyCert $ pure ()
+genUnitProxyCert = do pm <- genProtocolMagic
+                      genProxyCert pm $ pure ()
 
 roundTripProxyCertBi :: Property
 roundTripProxyCertBi = eachOf 100 genUnitProxyCert roundTripsBiBuildable
@@ -212,7 +221,8 @@ golden_ProxySecretKey = goldenTestBi psk "test/golden/ProxySecretKey"
     psk        = safeCreatePsk exampleProtocolMagic (FakeSigner skey) pkey ()
 
 genUnitProxySecretKey :: Gen (ProxySecretKey ())
-genUnitProxySecretKey = genProxySecretKey $ pure ()
+genUnitProxySecretKey = do pm <- genProtocolMagic
+                           genProxySecretKey pm $ pure ()
 
 roundTripProxySecretKeyBi :: Property
 roundTripProxySecretKeyBi =
@@ -237,7 +247,9 @@ roundTripProxySignatureBi :: Property
 roundTripProxySignatureBi = eachOf 100
                                    genUnitProxySignature
                                    roundTripsBiBuildable
-    where genUnitProxySignature = genProxySignature (pure ()) (pure ())
+    where genUnitProxySignature = do
+              pm <- genProtocolMagic
+              genProxySignature pm (pure ()) (pure ())
 
 --------------------------------------------------------------------------------
 -- SharedSecretData
@@ -387,10 +399,36 @@ constantByteString
     \7nZqcXdoi4XGTCgSGcGp8N0SDVhvkVh0QF1RVpWPnOMyYISJvuaHfo1zXMdq9tEdtJfID"
 
 exampleProtocolMagic :: ProtocolMagic
-exampleProtocolMagic = ProtocolMagic (ProtocolMagicId 0) NMMustBeNothing
+exampleProtocolMagic = ProtocolMagic (ProtocolMagicId 0) RequiresNoMagic
+
+--------------------------------------------------------------------------------
+
+sizeEstimates :: H.Group
+sizeEstimates = let check :: forall a. (Show a, Bi a) => Gen a -> Property
+                    check g = sizeTest $ scfg { gen = g, precise = True } in
+    H.Group "Encoded size bounds for crypto types."
+        [ ("PublicKey"         , check genPublicKey)
+        , ("WithHash PublicKey", check $ genWithHash genPublicKey)
+        , ("AbstractHash Blake2b_224 PublicKey",
+           check @(AbstractHash Blake2b_224 PublicKey) $ genAbstractHash genPublicKey)
+        , ("AbstractHash Blake2b_256 PublicKey",
+           check @(AbstractHash Blake2b_256 PublicKey) $ genAbstractHash genPublicKey)
+        , ("AbstractHash Blake2b_384 PublicKey",
+           check @(AbstractHash Blake2b_384 PublicKey) $ genAbstractHash genPublicKey)
+        , ("AbstractHash Blake2b_512 PublicKey",
+           check @(AbstractHash Blake2b_512 PublicKey) $ genAbstractHash genPublicKey)
+        , ("AbstractHash SHA1 PublicKey",
+           check @(AbstractHash SHA1 PublicKey) $ genAbstractHash genPublicKey)
+        , ("RedeemPublicKey", check genRedeemPublicKey)
+        , ("RedeemSecretKey", check genRedeemSecretKey)
+        , ("RedeemSignature PublicKey", check (genRedeemSignature exampleProtocolMagic genPublicKey))
+        ]
 
 --------------------------------------------------------------------------------
 
 tests :: IO Bool
-tests = (&&) <$> H.checkSequential $$discoverGolden
-             <*> H.checkSequential $$discoverRoundTrip
+tests = and <$> sequence
+    [ H.checkSequential $$discoverGolden
+    , H.checkSequential $$discoverRoundTrip
+    , H.checkParallel sizeEstimates
+    ]

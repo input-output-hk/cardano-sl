@@ -38,36 +38,33 @@ import qualified Data.Map as M
 import qualified Database.RocksDB as Rocks
 import           Formatting (sformat, (%))
 import           Serokell.Util (Color (Red), colorize, mapJson)
-import           System.Wlog (WithLogger, logError)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Core (Address, Coin, EpochIndex (..), HasConfiguration, HeaderHash,
-                           SlotCount, coinToInteger, unsafeAddCoin)
+import           Pos.Chain.Block (HeaderHash)
+import           Pos.Chain.Genesis as Genesis (Config (..), GenesisData)
+import           Pos.Chain.Txp (Tx, TxId, TxOut (..), TxOutAux (..),
+                     genesisUtxo, utxoF, utxoToAddressCoinPairs)
+import           Pos.Core (Address, Coin, EpochIndex (..), coinToInteger,
+                     unsafeAddCoin)
 import           Pos.Core.Chrono (NewestFirst (..))
-import           Pos.Core.Txp (Tx, TxId, TxOut (..), TxOutAux (..))
-import           Pos.Crypto (ProtocolMagic)
-import           Pos.DB (DBError (..), DBIteratorClass (..), DBTag (GStateDB), MonadDB,
-                         MonadDBRead (dbGet), RocksBatchOp (..), dbIterSource, dbSerializeValue,
-                         encodeWithKeyPrefix)
+import           Pos.DB (DBError (..), DBIteratorClass (..), DBTag (GStateDB),
+                     MonadDB, MonadDBRead (dbGet), RocksBatchOp (..),
+                     dbIterSource, encodeWithKeyPrefix)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi, writeBatchGState)
+import           Pos.DB.Txp (getAllPotentiallyHugeUtxo, utxoSource)
 import           Pos.Explorer.Core (AddrHistory, TxExtra (..))
-import           Pos.Txp.DB (getAllPotentiallyHugeUtxo, utxoSource)
-import           Pos.Txp.GenesisUtxo (genesisUtxo)
-import           Pos.Txp.Toil (GenesisUtxo (..), utxoF, utxoToAddressCoinPairs)
 import           Pos.Util.Util (maybeThrow)
-
-
+import           Pos.Util.Wlog (WithLogger, logError)
 
 explorerInitDB
-    :: forall ctx m.
-       ( MonadReader ctx m
-       , MonadUnliftIO m
-       , MonadDB m
-       )
-    => ProtocolMagic -> SlotCount -> m ()
-explorerInitDB pm epochSlots = initNodeDBs pm epochSlots >> prepareExplorerDB
+    :: forall ctx m
+     . (MonadReader ctx m, MonadUnliftIO m, MonadDB m)
+    => Genesis.Config
+    -> m ()
+explorerInitDB genesisConfig =
+    initNodeDBs genesisConfig >> prepareExplorerDB (configGenesisData genesisConfig)
 
 ----------------------------------------------------------------------------
 -- Types
@@ -166,11 +163,10 @@ getLastTransactions = gsGetBi lastTxsPrefix
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareExplorerDB :: (MonadDB m, MonadUnliftIO m) => m ()
-prepareExplorerDB = do
+prepareExplorerDB :: (MonadDB m, MonadUnliftIO m) => GenesisData -> m ()
+prepareExplorerDB genesisData = do
     unlessM balancesInitializedM $ do
-        let GenesisUtxo utxo = genesisUtxo
-            addressCoinPairs = utxoToAddressCoinPairs utxo
+        let addressCoinPairs = utxoToAddressCoinPairs $ genesisUtxo genesisData
         putGenesisBalances addressCoinPairs
         putInitFlag
 
@@ -304,36 +300,36 @@ data ExplorerOp
 
     | PutUtxoSum !Integer
 
-instance HasConfiguration => RocksBatchOp ExplorerOp where
+instance RocksBatchOp ExplorerOp where
     toBatchOp (AddTxExtra id extra) =
-        [Rocks.Put (txExtraPrefix id) (dbSerializeValue extra)]
+        [Rocks.Put (txExtraPrefix id) (serialize' extra)]
     toBatchOp (DelTxExtra id) =
         [Rocks.Del $ txExtraPrefix id]
 
     toBatchOp (PutPageBlocks page pageBlocks) =
-        [Rocks.Put (blockPagePrefix page) (dbSerializeValue pageBlocks)]
+        [Rocks.Put (blockPagePrefix page) (serialize' pageBlocks)]
 
     toBatchOp (PutEpochBlocks epoch page pageBlocks) =
-        [Rocks.Put (blockEpochPagePrefix epoch page) (dbSerializeValue pageBlocks)]
+        [Rocks.Put (blockEpochPagePrefix epoch page) (serialize' pageBlocks)]
     toBatchOp (PutEpochPages epoch page) =
-        [Rocks.Put (blockEpochMaxPagePrefix epoch) (dbSerializeValue page)]
+        [Rocks.Put (blockEpochMaxPagePrefix epoch) (serialize' page)]
 
     toBatchOp (PutLastTxs lastTxs) =
-        [Rocks.Put lastTxsPrefix (dbSerializeValue lastTxs)]
+        [Rocks.Put lastTxsPrefix (serialize' lastTxs)]
 
     toBatchOp (UpdateAddrHistory addr txs)
         | null txs = [Rocks.Del key]
-        | otherwise = [Rocks.Put key (dbSerializeValue txs)]
+        | otherwise = [Rocks.Put key (serialize' txs)]
       where
         key = addrHistoryKey addr
 
     toBatchOp (PutAddrBalance addr coin) =
-        [Rocks.Put (addrBalanceKey addr) (dbSerializeValue coin)]
+        [Rocks.Put (addrBalanceKey addr) (serialize' coin)]
     toBatchOp (DelAddrBalance addr) =
         [Rocks.Del $ addrBalanceKey addr]
 
     toBatchOp (PutUtxoSum utxoSum) =
-        [Rocks.Put utxoSumPrefix (dbSerializeValue utxoSum)]
+        [Rocks.Put utxoSumPrefix (serialize' utxoSum)]
 
 ----------------------------------------------------------------------------
 -- Iteration

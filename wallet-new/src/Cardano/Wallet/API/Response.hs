@@ -1,45 +1,60 @@
 {-# LANGUAGE DeriveFunctor   #-}
 {-# LANGUAGE DeriveGeneric   #-}
+{-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE OverloadedLists #-}
 module Cardano.Wallet.API.Response (
     Metadata (..)
   , ResponseStatus(..)
   , WalletResponse(..)
+  , JSONValidationError(..)
+  , UnsupportedMimeTypeError(..)
   -- * Generating responses for collections
   , respondWith
+  , fromSlice
   -- * Generating responses for single resources
   , single
+
+  -- * A slice of a collection
+  , SliceOf(..)
+
   , ValidJSON
   ) where
 
 import           Prelude
-import           Universum (Buildable, decodeUtf8, toText, (<>))
+import           Universum (Buildable, Exception, Text, decodeUtf8, toText,
+                     (<>))
 
-import           Cardano.Wallet.API.Response.JSend (ResponseStatus (..))
-import           Control.Lens
-import           Data.Aeson
-import           Data.Aeson.Encode.Pretty (encodePretty)
+import           Control.Lens hiding (Indexable)
+import           Data.Aeson (FromJSON (..), ToJSON (..), eitherDecode, encode)
+import qualified Data.Aeson.Options as Serokell
 import           Data.Aeson.TH
 import qualified Data.Char as Char
-import           Data.Swagger as S
-import qualified Data.Text.Buildable
+import           Data.Swagger as S hiding (Example, example)
 import           Data.Typeable
 import           Formatting (bprint, build, (%))
+import qualified Formatting.Buildable
+import           Generics.SOP.TH (deriveGeneric)
 import           GHC.Generics (Generic)
-import qualified Serokell.Aeson.Options as Serokell
-import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..), MimeUnrender (..),
-                                           OctetStream)
+import           Servant (err400, err415)
+import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..),
+                     MimeUnrender (..), OctetStream)
 import           Test.QuickCheck
 
-import           Cardano.Wallet.API.Indices (Indexable', IxSet')
+import           Cardano.Wallet.API.Indices (Indexable, IxSet)
 import           Cardano.Wallet.API.Request (RequestParams (..))
 import           Cardano.Wallet.API.Request.Filter (FilterOperations (..))
-import           Cardano.Wallet.API.Request.Pagination (Page (..), PaginationMetadata (..),
-                                                        PaginationParams (..), PerPage (..))
+import           Cardano.Wallet.API.Request.Pagination (Page (..),
+                     PaginationMetadata (..), PaginationParams (..),
+                     PerPage (..))
 import           Cardano.Wallet.API.Request.Sort (SortOperations (..))
 import           Cardano.Wallet.API.Response.Filter.IxSet as FilterBackend
+import           Cardano.Wallet.API.Response.JSend (HasDiagnostic (..),
+                     ResponseStatus (..))
 import           Cardano.Wallet.API.Response.Sort.IxSet as SortBackend
-import           Cardano.Wallet.API.V1.Errors (WalletError (JSONValidationFailed))
+import           Cardano.Wallet.API.V1.Errors (ToServantError (..))
+import           Cardano.Wallet.API.V1.Generic (jsendErrorGenericParseJSON,
+                     jsendErrorGenericToJSON)
+import           Cardano.Wallet.API.V1.Swagger.Example (Example, example)
 
 -- | Extra information associated with an HTTP response.
 data Metadata = Metadata
@@ -62,6 +77,9 @@ instance Buildable Metadata where
   build Metadata{..} =
     bprint ("{ pagination="%build%" }") metaPagination
 
+instance Example Metadata
+
+
 -- | An `WalletResponse` models, unsurprisingly, a response (successful or not)
 -- produced by the wallet backend.
 -- Includes extra informations like pagination parameters etc.
@@ -74,6 +92,17 @@ data WalletResponse a = WalletResponse
   -- ^ Extra metadata to be returned.
   } deriving (Show, Eq, Generic, Functor)
 
+data SliceOf a = SliceOf {
+    paginatedSlice :: [a]
+  -- ^ A paginated fraction of the resource
+  , paginatedTotal :: Int
+  -- ^ The total number of entries
+  }
+
+instance Arbitrary a => Arbitrary (SliceOf a) where
+  arbitrary = SliceOf <$> arbitrary <*> arbitrary
+
+
 deriveJSON Serokell.defaultOptions ''WalletResponse
 
 instance Arbitrary a => Arbitrary (WalletResponse a) where
@@ -85,11 +114,14 @@ instance ToJSON a => MimeRender OctetStream (WalletResponse a) where
 instance (ToSchema a, Typeable a) => ToSchema (WalletResponse a) where
     declareNamedSchema _ = do
         let a = Proxy @a
-            tyName = toText . show $ typeRep a
+            tyName = toText . map sanitize . show $ typeRep a
+            sanitize c
+                | c `elem` (":/?#[]@!$&'()*+,;=" :: String) = '_'
+                | otherwise = c
         aRef <- declareSchemaRef a
         respRef <- declareSchemaRef (Proxy @ResponseStatus)
         metaRef <- declareSchemaRef (Proxy @Metadata)
-        pure $ NamedSchema (Just $ "WalletResponse<" <> tyName <> ">") $ mempty
+        pure $ NamedSchema (Just $ "WalletResponse-" <> tyName) $ mempty
             & type_ .~ SwaggerObject
             & required .~ ["data", "status", "meta"]
             & properties .~
@@ -108,6 +140,12 @@ instance Buildable a => Buildable (WalletResponse a) where
         wrMeta
         wrData
 
+instance Example a => Example (WalletResponse a) where
+    example = WalletResponse <$> example
+                             <*> pure SuccessStatus
+                             <*> example
+
+
 -- | Inefficient function to build a response out of a @generator@ function. When the data layer will
 -- be rewritten the obvious solution is to slice & dice the data as soon as possible (aka out of the DB), in this order:
 --
@@ -125,37 +163,50 @@ instance Buildable a => Buildable (WalletResponse a) where
 -- lazyness to avoid work. This might not be optimal in terms of performances and we might need to swap sorting
 -- and pagination.
 --
-respondWith :: (Monad m, Indexable' a)
+respondWith :: (Monad m, Indexable a)
             => RequestParams
-            -> FilterOperations a
+            -> FilterOperations ixs a
             -- ^ Filtering operations to perform on the data.
             -> SortOperations a
             -- ^ Sorting operations to perform on the data.
-            -> m (IxSet' a)
+            -> m (IxSet a)
             -- ^ The monadic action which produces the results.
             -> m (WalletResponse [a])
 respondWith RequestParams{..} fops sorts generator = do
     (theData, paginationMetadata) <- paginate rpPaginationParams . sortData sorts . applyFilters fops <$> generator
-    return $ WalletResponse {
+    return WalletResponse {
              wrData = theData
            , wrStatus = SuccessStatus
            , wrMeta = Metadata paginationMetadata
            }
 
 paginate :: PaginationParams -> [a] -> ([a], PaginationMetadata)
-paginate PaginationParams{..} rawResultSet =
+paginate params@PaginationParams{..} rawResultSet =
     let totalEntries = length rawResultSet
-        perPage@(PerPage pp)   = ppPerPage
-        currentPage@(Page cp)  = ppPage
-        totalPages             = max 1 $ ceiling (fromIntegral totalEntries / (fromIntegral pp :: Double))
-        metadata               = PaginationMetadata {
-                                 metaTotalPages = totalPages
-                               , metaPage = currentPage
-                               , metaPerPage = perPage
-                               , metaTotalEntries = totalEntries
-                               }
-        slice                  = take pp . drop ((cp - 1) * pp)
+        (PerPage pp) = ppPerPage
+        (Page cp)    = ppPage
+        metadata     = paginationParamsToMeta params totalEntries
+        slice        = take pp . drop ((cp - 1) * pp)
     in (slice rawResultSet, metadata)
+
+paginationParamsToMeta :: PaginationParams -> Int -> PaginationMetadata
+paginationParamsToMeta PaginationParams{..} totalEntries =
+    let perPage@(PerPage pp) = ppPerPage
+        currentPage          = ppPage
+        totalPages = max 1 $ ceiling (fromIntegral totalEntries / (fromIntegral pp :: Double))
+    in PaginationMetadata {
+      metaTotalPages = totalPages
+    , metaPage = currentPage
+    , metaPerPage = perPage
+    , metaTotalEntries = totalEntries
+    }
+
+fromSlice :: PaginationParams -> SliceOf a -> WalletResponse [a]
+fromSlice params (SliceOf theData totalEntries) = WalletResponse {
+      wrData   = theData
+    , wrStatus = SuccessStatus
+    , wrMeta   = Metadata (paginationParamsToMeta params totalEntries)
+    }
 
 
 -- | Creates a 'WalletResponse' with just a single record into it.
@@ -174,11 +225,81 @@ data ValidJSON deriving Typeable
 
 instance FromJSON a => MimeUnrender ValidJSON a where
     mimeUnrender _ bs = case eitherDecode bs of
-        Left err -> Left $ decodeUtf8 $ encodePretty (JSONValidationFailed $ toText err)
+        Left err -> Left $ decodeUtf8 $ encode (JSONValidationFailed $ toText err)
         Right v  -> return v
 
 instance Accept ValidJSON where
-    contentType _ = contentType (Proxy @ JSON)
+    contentTypes _ = contentTypes (Proxy @ JSON)
 
 instance ToJSON a => MimeRender ValidJSON a where
     mimeRender _ = mimeRender (Proxy @ JSON)
+
+
+--
+-- Error from parsing / validating JSON inputs
+--
+
+newtype JSONValidationError
+    = JSONValidationFailed Text
+    deriving (Eq, Show, Generic)
+
+deriveGeneric ''JSONValidationError
+
+instance ToJSON JSONValidationError where
+    toJSON =
+        jsendErrorGenericToJSON
+
+instance FromJSON JSONValidationError where
+    parseJSON =
+        jsendErrorGenericParseJSON
+
+instance Exception JSONValidationError
+
+instance Arbitrary JSONValidationError where
+    arbitrary =
+        pure (JSONValidationFailed "JSON validation failed.")
+
+instance Buildable JSONValidationError where
+    build _ =
+        bprint "Couldn't decode a JSON input."
+
+instance HasDiagnostic JSONValidationError where
+    getDiagnosticKey _ =
+        "validationError"
+
+instance ToServantError JSONValidationError where
+    declareServantError _ =
+        err400
+
+
+newtype UnsupportedMimeTypeError
+    = UnsupportedMimeTypePresent Text
+    deriving (Eq, Show, Generic)
+
+deriveGeneric ''UnsupportedMimeTypeError
+
+instance ToJSON UnsupportedMimeTypeError where
+    toJSON =
+        jsendErrorGenericToJSON
+
+instance FromJSON UnsupportedMimeTypeError where
+    parseJSON =
+        jsendErrorGenericParseJSON
+
+instance Exception UnsupportedMimeTypeError
+
+instance Arbitrary UnsupportedMimeTypeError where
+    arbitrary =
+        pure (UnsupportedMimeTypePresent "Delivered MIME-type is not supported.")
+
+instance Buildable UnsupportedMimeTypeError where
+    build (UnsupportedMimeTypePresent txt) =
+        bprint build txt
+
+instance HasDiagnostic UnsupportedMimeTypeError where
+    getDiagnosticKey _ =
+        "mimeContentTypeError"
+
+instance ToServantError UnsupportedMimeTypeError where
+    declareServantError _ =
+        err415

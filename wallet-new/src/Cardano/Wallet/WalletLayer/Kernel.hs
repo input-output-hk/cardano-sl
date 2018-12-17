@@ -1,111 +1,180 @@
+{-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications    #-}
 
 module Cardano.Wallet.WalletLayer.Kernel
     ( bracketPassiveWallet
     , bracketActiveWallet
     ) where
 
-import           Universum
+import           Universum hiding (for_)
 
-import           Data.Maybe (fromJust)
-import           System.Wlog (Severity (Debug))
+import qualified Control.Concurrent.STM as STM
+import           Control.Monad.IO.Unlift (MonadUnliftIO)
+import qualified Data.List.NonEmpty as NE
 
-import           Pos.Block.Types (Blund, Undo (..))
+import           Data.Foldable (for_)
+import           Formatting ((%))
+import qualified Formatting as F
+
+import           Pos.Chain.Block (Blund, blockHeader, headerHash, prevBlockL)
+import           Pos.Chain.Genesis (Config (..))
+import           Pos.Core.Chrono (OldestFirst (..))
+import           Pos.Crypto (ProtocolMagic)
+import           Pos.Infra.InjectFail (FInjects)
+import           Pos.Util.Wlog (Severity (Debug, Warning))
 
 import qualified Cardano.Wallet.Kernel as Kernel
-import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
-import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
-import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
-import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..), fromRawResolvedBlock)
-import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
-
-import           Pos.Core.Chrono (OldestFirst (..))
-
 import qualified Cardano.Wallet.Kernel.Actions as Actions
-import qualified Data.Map.Strict as Map
-import           Pos.Crypto (ProtocolMagic)
-import           Pos.Crypto.Signing
-import           Pos.Util.BackupPhrase
+import qualified Cardano.Wallet.Kernel.BListener as Kernel
+import           Cardano.Wallet.Kernel.DB.AcidState (dbHdWallets)
+import           Cardano.Wallet.Kernel.DB.HdWallet (hdAccountRestorationState,
+                     hdRootId, hdWalletsRoots)
+import qualified Cardano.Wallet.Kernel.DB.Read as Kernel
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
+import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
+import           Cardano.Wallet.Kernel.Keystore (Keystore)
+import           Cardano.Wallet.Kernel.NodeStateAdaptor
+import qualified Cardano.Wallet.Kernel.Read as Kernel
+import qualified Cardano.Wallet.Kernel.Restore as Kernel
+import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),
+                     PassiveWalletLayer (..))
+import qualified Cardano.Wallet.WalletLayer.Kernel.Accounts as Accounts
+import qualified Cardano.Wallet.WalletLayer.Kernel.Active as Active
+import qualified Cardano.Wallet.WalletLayer.Kernel.Addresses as Addresses
+import qualified Cardano.Wallet.WalletLayer.Kernel.Info as Info
+import qualified Cardano.Wallet.WalletLayer.Kernel.Internal as Internal
+import qualified Cardano.Wallet.WalletLayer.Kernel.Settings as Settings
+import qualified Cardano.Wallet.WalletLayer.Kernel.Transactions as Transactions
+import qualified Cardano.Wallet.WalletLayer.Kernel.Wallets as Wallets
 
 -- | Initialize the passive wallet.
 -- The passive wallet cannot send new transactions.
 bracketPassiveWallet
-    :: forall m n a. (MonadIO n, MonadIO m, MonadMask m)
+    :: forall m n a. (MonadIO n, MonadUnliftIO m, MonadMask m)
     => ProtocolMagic
+    -> Kernel.DatabaseMode
     -> (Severity -> Text -> IO ())
-    -> (PassiveWalletLayer n -> m a) -> m a
-bracketPassiveWallet pm logFunction f =
-    Kernel.bracketPassiveWallet pm logFunction $ \w -> do
+    -> Keystore
+    -> NodeStateAdaptor IO
+    -> FInjects IO
+    -> (PassiveWalletLayer n -> Kernel.PassiveWallet -> m a) -> m a
+bracketPassiveWallet pm mode logFunction keystore node fInjects f = do
+    Kernel.bracketPassiveWallet pm mode logFunction keystore node fInjects $ \w -> do
 
-      -- Create the wallet worker and its communication endpoint `invoke`.
-      invoke <- Actions.forkWalletWorker $ Actions.WalletActionInterp
-               { Actions.applyBlocks  =  \blunds ->
-                   Kernel.applyBlocks w $
-                       OldestFirst (mapMaybe blundToResolvedBlock (toList (getOldestFirst blunds)))
-               , Actions.switchToFork = \_ _ -> logFunction Debug "<switchToFork>"
-               , Actions.emit         = logFunction Debug
-               }
+      -- For each wallet in a restoration state, re-start the background
+      -- restoration tasks.
+      liftIO $ do
+          snapshot <- Kernel.getWalletSnapshot w
+          let wallets = snapshot ^. dbHdWallets . hdWalletsRoots
+          for_ wallets $ \root -> do
+              let accts      = Kernel.accountsByRootId snapshot (root ^. hdRootId)
+                  restoring  = IxSet.findWithEvidence hdAccountRestorationState accts
 
-      -- TODO (temporary): build a sample wallet from a backup phrase
-      _ <- liftIO $ do
-        let backup = BackupPhrase
-                     { bpToList = ["squirrel", "material", "silly",   "twice",
-                                    "direct",  "slush",    "pistol",  "razor",
-                                    "become",  "junk",     "kingdom", "flee" ]
-                     }
-            Right (esk, _keyPair) = safeKeysFromPhrase emptyPassphrase backup
-            pk = error "TODO: need `AddressHash PublicKey` along with ESK to create a wallet"
+              whenJust restoring $ \(src, tgt) -> do
+                  (w ^. Kernel.walletLogMessage) Warning $
+                      F.sformat ("bracketPassiveWallet: continuing restoration of " %
+                       F.build %
+                       " from checkpoint " % F.build %
+                       " with target "     % F.build)
+                       (root ^. hdRootId) (maybe "(genesis)" pretty src) (pretty tgt)
+                  Kernel.continueRestoration w root src tgt
 
-        Kernel.createWalletHdRnd w walletName spendingPassword assuranceLevel (pk, esk) Map.empty
+      -- Start the wallet worker
+      let wai = Actions.WalletActionInterp
+                 { Actions.applyBlocks = \blunds -> do
+                    ls <- mapM (Wallets.blundToResolvedBlock node)
+                        (toList (getOldestFirst blunds))
+                    let mp = catMaybes ls
+                    mapM_ (Kernel.applyBlock w) mp
 
-      f (passiveWalletLayer w invoke)
+                 , Actions.switchToFork = \_ (OldestFirst blunds) -> do
+                     -- Get the hash of the last main block before this fork.
+                     let almostOldest = fst (NE.head blunds)
+                     gh     <- configGenesisHash <$> getCoreConfig node
+                     oldest <- withNodeState node $ \_lock ->
+                                 mostRecentMainBlock gh
+                                   (almostOldest ^. blockHeader . prevBlockL)
+
+                     bs <- catMaybes <$> mapM (Wallets.blundToResolvedBlock node)
+                                             (NE.toList blunds)
+
+                     Kernel.switchToFork w (headerHash <$> oldest) bs
+
+                 , Actions.emit = logFunction Debug
+                 }
+      Actions.withWalletWorker wai $ \invoke -> do
+         f (passiveWalletLayer w invoke) w
 
   where
-    -- TODO consider defaults
-    walletName       = HD.WalletName "(new wallet)"
-    spendingPassword = HD.NoSpendingPassword
-    assuranceLevel   = HD.AssuranceLevelNormal
+    passiveWalletLayer :: Kernel.PassiveWallet
+                       -> (Actions.WalletAction Blund -> STM ())
+                       -> PassiveWalletLayer n
+    passiveWalletLayer w invoke = PassiveWalletLayer
+        { -- Operations that modify the wallet
+          createWallet         = Wallets.createWallet         w
+        , updateWallet         = Wallets.updateWallet         w
+        , updateWalletPassword = Wallets.updateWalletPassword w
+        , deleteWallet         = Wallets.deleteWallet         w
+        , createAccount        = Accounts.createAccount       w
+        , updateAccount        = Accounts.updateAccount       w
+        , deleteAccount        = Accounts.deleteAccount       w
+        , createAddress        = Addresses.createAddress      w
+        , addUpdate            = Internal.addUpdate           w
+        , nextUpdate           = Internal.nextUpdate          w
+        , applyUpdate          = Internal.applyUpdate         w
+        , postponeUpdate       = Internal.postponeUpdate      w
+        , waitForUpdate        = Internal.waitForUpdate       w
+        , resetWalletState     = Internal.resetWalletState    w
+        , importWallet         = Internal.importWallet        w
+        , applyBlocks          = invokeIO . Actions.ApplyBlocks
+        , rollbackBlocks       = invokeIO . Actions.RollbackBlocks . length
 
-    -- | TODO(ks): Currently not implemented!
-    passiveWalletLayer _wallet invoke =
-        PassiveWalletLayer
-            { _pwlCreateWallet   = error "Not implemented!"
-            , _pwlGetWalletIds   = error "Not implemented!"
-            , _pwlGetWallet      = error "Not implemented!"
-            , _pwlUpdateWallet   = error "Not implemented!"
-            , _pwlDeleteWallet   = error "Not implemented!"
+          -- Read-only operations
+        , getWallets           =                   join (ro $ Wallets.getWallets w)
+        , getWallet            = \wId           -> join (ro $ Wallets.getWallet w wId)
+        , getUtxos             = \wId           -> ro $ Wallets.getWalletUtxos wId
+        , getAccounts          = \wId           -> ro $ Accounts.getAccounts         wId
+        , getAccount           = \wId acc       -> ro $ Accounts.getAccount          wId acc
+        , getAccountBalance    = \wId acc       -> ro $ Accounts.getAccountBalance   wId acc
+        , getAccountAddresses  = \wId acc rp fo -> ro $ Accounts.getAccountAddresses wId acc rp fo
+        , getAddresses         = \rp            -> ro $ Addresses.getAddresses rp
+        , validateAddress      = \txt           -> ro $ Addresses.validateAddress txt
+        , getTransactions      = Transactions.getTransactions w
+        , getTxFromMeta        = Transactions.toTransaction w
+        , getNodeSettings      = Settings.getNodeSettings w
+        }
+      where
+        -- Read-only operations
+        ro :: (Kernel.DB -> x) -> n x
+        ro g = g <$> liftIO (Kernel.getWalletSnapshot w)
 
-            , _pwlCreateAccount  = error "Not implemented!"
-            , _pwlGetAccounts    = error "Not implemented!"
-            , _pwlGetAccount     = error "Not implemented!"
-            , _pwlUpdateAccount  = error "Not implemented!"
-            , _pwlDeleteAccount  = error "Not implemented!"
-
-            , _pwlGetAddresses   = error "Not implemented!"
-
-            , _pwlApplyBlocks    = invoke . Actions.ApplyBlocks
-            , _pwlRollbackBlocks = invoke . Actions.RollbackBlocks
-            }
-
-    -- The use of the unsafe constructor 'UnsafeRawResolvedBlock' is justified
-    -- by the invariants established in the 'Blund'.
-    blundToResolvedBlock :: Blund -> Maybe ResolvedBlock
-    blundToResolvedBlock (b,u)
-        = rightToJust b <&> \mainBlock ->
-            fromRawResolvedBlock
-            $ UnsafeRawResolvedBlock mainBlock spentOutputs'
-        where
-            spentOutputs' = map (map fromJust) $ undoTx u
-            rightToJust   = either (const Nothing) Just
+        invokeIO :: forall m'. MonadIO m' => Actions.WalletAction Blund -> m' ()
+        invokeIO = liftIO . STM.atomically . invoke
 
 -- | Initialize the active wallet.
--- The active wallet is allowed all.
+-- The active wallet is allowed to send transactions, as it has the full
+-- 'WalletDiffusion' layer in scope.
 bracketActiveWallet
-    :: forall m n a. (MonadIO m, MonadMask m)
+    :: forall m n a. (MonadIO m, MonadMask m, MonadIO n)
     => PassiveWalletLayer n
+    -> Kernel.PassiveWallet
     -> WalletDiffusion
-    -> (ActiveWalletLayer n -> m a) -> m a
-bracketActiveWallet walletPassiveLayer _walletDiffusion =
-    bracket
-      (return ActiveWalletLayer{..})
-      (\_ -> return ())
+    -> (ActiveWalletLayer n -> Kernel.ActiveWallet -> m a) -> m a
+bracketActiveWallet walletPassiveLayer passiveWallet walletDiffusion runActiveLayer =
+    Kernel.bracketActiveWallet passiveWallet walletDiffusion $ \w -> do
+        bracket
+          (return (activeWalletLayer w))
+          (\_ -> return ())
+          (flip runActiveLayer w)
+  where
+    activeWalletLayer :: Kernel.ActiveWallet -> ActiveWalletLayer n
+    activeWalletLayer w = ActiveWalletLayer {
+          walletPassiveLayer = walletPassiveLayer
+        , pay                = Active.pay              w
+        , estimateFees       = Active.estimateFees     w
+        , createUnsignedTx   = Active.createUnsignedTx w
+        , submitSignedTx     = Active.submitSignedTx   w
+        , redeemAda          = Active.redeemAda        w
+        , getNodeInfo        = Info.getNodeInfo        w
+        }

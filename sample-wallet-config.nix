@@ -15,6 +15,14 @@
   ## Runtime metrics server.
   #ekgListen = "127.0.0.1:8000";
 
+  ## Disable client certificate authentication
+  #disableClientAuth = true;
+
+  ## Use Legacy Data Layer
+  ## The Legacy data layer can be used if v0 API calls are still required.
+  ## This will have a negative impact on performance if enabled.
+  #useLegacyDataLayer = true;
+
   ## Directory for the wallet's local state. Must be set BEFORE
   ## running nix-build to have any effect, and it must be enclosed in
   ## double quotes.

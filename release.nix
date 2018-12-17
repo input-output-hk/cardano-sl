@@ -1,12 +1,17 @@
 let
-  fixedNixpkgs = (import ./lib.nix).fetchNixPkgs;
+  fixedLib     = import ./lib.nix;
+  fixedNixpkgs = fixedLib.fetchNixPkgs;
 in
   { supportedSystems ? [ "x86_64-linux" "x86_64-darwin" ]
   , scrubJobs ? true
   , cardano ? { outPath = ./.; rev = "abcdef"; }
+  , fasterBuild ? false
+  , skipDocker ? false
+  , skipPackages ? []
   , nixpkgsArgs ? {
       config = { allowUnfree = false; inHydra = true; };
       gitrev = cardano.rev;
+      inherit fasterBuild;
     }
   }:
 
@@ -18,40 +23,59 @@ with (import (fixedNixpkgs + "/pkgs/top-level/release-lib.nix") {
 let
   iohkPkgs = import ./. { gitrev = cardano.rev; };
   pkgs = import fixedNixpkgs { config = {}; };
+  shellEnv = import ./shell.nix { };
   wrapDockerImage = cluster: let
     images = {
-      mainnet = iohkPkgs.dockerImages.mainnet.wallet;
-      staging = iohkPkgs.dockerImages.staging.wallet;
+      mainnet = iohkPkgs.dockerImages.mainnet;
+      staging = iohkPkgs.dockerImages.staging;
     };
-    image = images."${cluster}";
-  in pkgs.runCommand "${image.name}-hydra" {} ''
-    mkdir -pv $out/nix-support/
-    cat <<EOF > $out/nix-support/hydra-build-products
-    file dockerimage ${image}
-    EOF
-  '';
-  platforms = {
+    wrapImage = image: pkgs.runCommand "${image.name}-hydra" {} ''
+      mkdir -pv $out/nix-support/
+      cat <<EOF > $out/nix-support/hydra-build-products
+      file dockerimage ${image}
+      EOF
+    '';
+  in {
+    wallet = wrapImage images."${cluster}".wallet;
+    explorer = wrapImage images."${cluster}".explorer;
+  };
+  platforms = removeAttrs {
+    all-cardano-sl = supportedSystems;
+    cardano-report-server = [ "x86_64-linux" ];
+    cardano-report-server-static = [ "x86_64-linux" ];
     cardano-sl = supportedSystems;
     cardano-sl-auxx = supportedSystems;
+    cardano-sl-chain = supportedSystems;
+    cardano-sl-cluster = [ "x86_64-linux" ];
+    cardano-sl-core = supportedSystems;
+    cardano-sl-crypto = supportedSystems;
+    cardano-sl-db = supportedSystems;
+    cardano-sl-explorer = [ "x86_64-linux" ];
+    cardano-sl-explorer-frontend = [ "x86_64-linux" ];
+    cardano-sl-explorer-static = [ "x86_64-linux" ];
+    cardano-sl-generator = supportedSystems;
+    cardano-sl-infra = supportedSystems;
+    cardano-sl-networking = supportedSystems;
     cardano-sl-node-static = supportedSystems;
     cardano-sl-tools = supportedSystems;
+    cardano-sl-tools-post-mortem = supportedSystems;
+    cardano-sl-util = supportedSystems;
     cardano-sl-wallet = supportedSystems;
     cardano-sl-wallet-new = supportedSystems;
-    cardano-sl-explorer-static = [ "x86_64-linux" ];
-    cardano-sl-explorer-frontend = [ "x86_64-linux" ];
-    cardano-report-server-static = [ "x86_64-linux" ];
-    stack2nix = supportedSystems;
-    purescript = supportedSystems;
+    cardano-sl-x509 = supportedSystems;
     daedalus-bridge = supportedSystems;
-  };
-  platforms' = {
+    shells.cabal = supportedSystems;
+    shells.stack = supportedSystems;
+    stack2nix = supportedSystems;
+  } skipPackages;
+  platforms' = removeAttrs {
     connectScripts.mainnet.wallet   = [ "x86_64-linux" "x86_64-darwin" ];
     connectScripts.mainnet.explorer = [ "x86_64-linux" "x86_64-darwin" ];
     connectScripts.staging.wallet   = [ "x86_64-linux" "x86_64-darwin" ];
     connectScripts.staging.explorer = [ "x86_64-linux" "x86_64-darwin" ];
     connectScripts.testnet.wallet   = [ "x86_64-linux" "x86_64-darwin" ];
     connectScripts.testnet.explorer = [ "x86_64-linux" "x86_64-darwin" ];
-  };
+  } skipPackages;
   mapped = mapTestOn platforms;
   mapped' = mapTestOn platforms';
   makeConnectScripts = cluster: let
@@ -59,21 +83,37 @@ let
     inherit (mapped'.connectScripts."${cluster}") wallet explorer;
   };
   nixosTests = import ./nixos-tests;
-  shellcheckTests = iohkPkgs.shellcheckTests;
-  swaggerSchemaValidation = iohkPkgs.swaggerSchemaValidation;
-  walletIntegrationTests = iohkPkgs.buildWalletIntegrationTests;
+  tests = iohkPkgs.tests;
   makeRelease = cluster: {
     name = cluster;
     value = {
-      dockerImage = wrapDockerImage cluster;
       connectScripts = makeConnectScripts cluster;
+    } // fixedLib.optionalAttrs (! skipDocker) {
+      dockerImage = wrapDockerImage cluster;
     };
   };
-in mapped // {
-  inherit walletIntegrationTests swaggerSchemaValidation shellcheckTests;
+in pkgs.lib.fix (jobsets: mapped // {
+  inherit tests;
+  inherit (pkgs) cabal2nix;
   nixpkgs = let
     wrapped = pkgs.runCommand "nixpkgs" {} ''
       ln -sv ${fixedNixpkgs} $out
     '';
   in if 0 <= builtins.compareVersions builtins.nixVersion "1.12" then wrapped else fixedNixpkgs;
-} // (builtins.listToAttrs (map makeRelease [ "mainnet" "staging" ]))
+  required = pkgs.lib.hydraJob (pkgs.releaseTools.aggregate {
+    name = "cardano-required-checks";
+    constituents =
+      let
+        all = x: map (system: x.${system}) supportedSystems;
+      in
+    [
+      (all jobsets.all-cardano-sl)
+      (all jobsets.daedalus-bridge)
+      jobsets.mainnet.connectScripts.wallet.x86_64-linux
+      jobsets.tests.hlint
+      jobsets.tests.shellcheck
+      jobsets.tests.stylishHaskell
+      jobsets.tests.swaggerSchemaValidation
+    ];
+  });
+} // (builtins.listToAttrs (map makeRelease [ "mainnet" "staging" ])))

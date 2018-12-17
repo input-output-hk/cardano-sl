@@ -18,46 +18,44 @@ import           Universum
 
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
-import           Mockable (Production)
-import           System.Wlog (HasLoggerName (..), LoggerName)
 
-import           Pos.Block.BListener (MonadBListener (..), onApplyBlocksStub, onRollbackBlocksStub)
-import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
-import           Pos.Context (HasNodeContext (..), HasPrimaryKey (..), HasSscContext (..),
-                              NodeContext)
-import           Pos.Core (HasConfiguration)
+import           Pos.Chain.Block (HasSlogContext (..), HasSlogGState (..))
+import           Pos.Chain.Delegation (DelegationVar)
+import           Pos.Chain.Ssc (SscMemTag, SscState)
+import           Pos.Context (HasNodeContext (..), HasPrimaryKey (..),
+                     HasSscContext (..), NodeContext)
+import           Pos.Core.JsonLog (CanJsonLog (..))
+import           Pos.Core.Reporting (HasMisbehaviorMetrics (..))
+import           Pos.Core.Slotting (HasSlottingVar (..), MonadSlotsData)
 import           Pos.DB (MonadGState (..), NodeDBs)
-import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
-                               dbPutSerBlundsRealDefault)
+import           Pos.DB.Block (MonadBListener (..), dbGetSerBlockRealDefault,
+                     dbGetSerBlundRealDefault, dbGetSerUndoRealDefault,
+                     dbPutSerBlundsRealDefault, onApplyBlocksStub,
+                     onRollbackBlocksStub)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
-import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefault, dbPutDefault,
-                               dbWriteBatchDefault)
-import           Pos.Delegation.Class (DelegationVar)
+import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault,
+                     dbIterSourceDefault, dbPutDefault, dbWriteBatchDefault)
+import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
+                     MonadTxpLocal (..), TxpHolderTag, txNormalize,
+                     txProcessTransaction)
 import           Pos.Infra.DHT.Real.Param (KademliaParams)
 import           Pos.Infra.Network.Types (HasNodeType (..), getNodeTypeDefault)
-import           Pos.Infra.Reporting (HasMisbehaviorMetrics (..),
-                                      MonadReporting (..), Reporter (..))
+import           Pos.Infra.Reporting (MonadReporting (..), Reporter (..))
 import           Pos.Infra.Shutdown (HasShutdownContext (..))
 import           Pos.Infra.Slotting.Class (MonadSlots (..))
 import           Pos.Infra.Slotting.Impl (currentTimeSlottingSimple,
-                                          getCurrentSlotBlockingSimple,
-                                          getCurrentSlotInaccurateSimple,
-                                          getCurrentSlotSimple)
-import           Pos.Infra.Slotting.MemState (HasSlottingVar (..),
-                                              MonadSlotsData)
+                     getCurrentSlotBlockingSimple,
+                     getCurrentSlotInaccurateSimple, getCurrentSlotSimple)
 import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
-                                                JsonLogConfig, jsonLogDefault)
-import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
-import           Pos.Ssc.Mem (SscMemTag)
-import           Pos.Ssc.Types (SscState)
-import           Pos.Txp (GenericTxpLocalData, HasTxpConfiguration, MempoolExt, MonadTxpLocal (..),
-                          TxpHolderTag, txNormalize, txProcessTransaction)
+                     JsonLogConfig, jsonLogDefault)
 import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
-                                      modifyLoggerNameDefault)
+                     modifyLoggerNameDefault)
+import           Pos.Util.UserPublic (HasUserPublic (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.Util.Util (HasLens (..))
+import           Pos.Util.Wlog (HasLoggerName (..), LoggerName)
 import           Pos.WorkMode.Class (MinWorkMode, WorkMode)
 
 data RealModeContext ext = RealModeContext
@@ -77,7 +75,7 @@ data RealModeContext ext = RealModeContext
 
 type EmptyMempoolExt = ()
 
-type RealMode ext = Mtl.ReaderT (RealModeContext ext) Production
+type RealMode ext = Mtl.ReaderT (RealModeContext ext) IO
 
 makeLensesWith postfixLFields ''RealModeContext
 
@@ -114,6 +112,9 @@ instance HasPrimaryKey (RealModeContext ext) where
 instance HasMisbehaviorMetrics (RealModeContext ext) where
     misbehaviorMetrics = rmcNodeContext_L . misbehaviorMetrics
 
+instance HasUserPublic (RealModeContext ext) where
+    userPublic = rmcNodeContext_L . userPublic
+
 instance HasUserSecret (RealModeContext ext) where
     userSecret = rmcNodeContext_L . userSecret
 
@@ -146,24 +147,23 @@ instance {-# OVERLAPPING #-} HasLoggerName (RealMode ext) where
 instance {-# OVERLAPPING #-} CanJsonLog (RealMode ext) where
     jsonLog = jsonLogDefault
 
-instance (HasConfiguration, MonadSlotsData ctx (RealMode ext))
-      => MonadSlots ctx (RealMode ext)
-  where
+instance MonadSlotsData ctx (RealMode ext) => MonadSlots ctx (RealMode ext) where
     getCurrentSlot = getCurrentSlotSimple
     getCurrentSlotBlocking = getCurrentSlotBlockingSimple
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple
     currentTimeSlotting = currentTimeSlottingSimple
 
-instance HasConfiguration => MonadGState (RealMode ext) where
+instance MonadGState (RealMode ext) where
     gsAdoptedBVData = gsAdoptedBVDataDefault
 
-instance HasConfiguration => MonadDBRead (RealMode ext) where
+instance MonadDBRead (RealMode ext) where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
     dbGetSerBlock = dbGetSerBlockRealDefault
     dbGetSerUndo = dbGetSerUndoRealDefault
+    dbGetSerBlund = dbGetSerBlundRealDefault
 
-instance HasConfiguration => MonadDB (RealMode ext) where
+instance MonadDB (RealMode ext) where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
@@ -171,12 +171,11 @@ instance HasConfiguration => MonadDB (RealMode ext) where
 
 instance MonadBListener (RealMode ext) where
     onApplyBlocks = onApplyBlocksStub
-    onRollbackBlocks = onRollbackBlocksStub
+    onRollbackBlocks nm _ blunds = onRollbackBlocksStub nm blunds
 
 type instance MempoolExt (RealMode ext) = ext
 
-instance (HasConfiguration, HasTxpConfiguration) =>
-         MonadTxpLocal (RealMode ()) where
+instance MonadTxpLocal (RealMode ()) where
     txpNormalize = txNormalize
     txpProcessTx = txProcessTransaction
 

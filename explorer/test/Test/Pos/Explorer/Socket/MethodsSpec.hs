@@ -2,6 +2,8 @@
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
+{-# OPTIONS_GHC -fno-warn-deprecations #-}
+
 module Test.Pos.Explorer.Socket.MethodsSpec
        ( spec
        ) where
@@ -15,28 +17,31 @@ import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 import           Network.EngineIO (SocketId)
 
-import           Test.Hspec (Spec, anyException, describe, it, runIO, shouldBe, shouldThrow)
-import           Test.Hspec.QuickCheck (modifyMaxSize, modifyMaxSuccess, prop)
-import           Test.QuickCheck (Property, arbitrary, forAll, generate)
+import           Test.Hspec (Spec, anyException, beforeAll_, describe, it,
+                     shouldBe, shouldThrow)
+import           Test.Hspec.QuickCheck (modifyMaxSize, prop)
+import           Test.QuickCheck (Property, arbitrary, forAll)
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
-import           Pos.Core.NetworkMagic (NetworkMagic, makeNetworkMagic)
-import           Pos.Crypto (RequiresNetworkMagic (..), SecretKey)
+import           Pos.Core.NetworkMagic (NetworkMagic)
+import           Pos.Crypto (SecretKey)
 import           Pos.Explorer.ExplorerMode (runSubTestMode)
-import           Pos.Explorer.Socket.Holder (ConnectionsState, ExplorerSocket (..),
-                                             csAddressSubscribers, csBlocksPageSubscribers,
-                                             csClients, csEpochsLastPageSubscribers,
-                                             csTxsSubscribers, mkClientContext, mkConnectionsState)
-import           Pos.Explorer.Socket.Methods (addrSubParam, addressSetByTxs, blockPageSubParam,
-                                              fromCAddressOrThrow, spSessId, subscribeAddr,
-                                              subscribeBlocksLastPage, subscribeEpochsLastPage,
-                                              subscribeTxs, txsSubParam, unsubscribeAddr,
-                                              unsubscribeBlocksLastPage, unsubscribeEpochsLastPage,
-                                              unsubscribeFully, unsubscribeTxs)
+import           Pos.Explorer.Socket.Holder (ConnectionsState,
+                     ExplorerSocket (..), csAddressSubscribers,
+                     csBlocksPageSubscribers, csClients,
+                     csEpochsLastPageSubscribers, csTxsSubscribers,
+                     mkClientContext, mkConnectionsState)
+import           Pos.Explorer.Socket.Methods (addrSubParam, addressSetByTxs,
+                     blockPageSubParam, fromCAddressOrThrow, spSessId,
+                     subscribeAddr, subscribeBlocksLastPage,
+                     subscribeEpochsLastPage, subscribeTxs, txsSubParam,
+                     unsubscribeAddr, unsubscribeBlocksLastPage,
+                     unsubscribeEpochsLastPage, unsubscribeFully,
+                     unsubscribeTxs)
 import           Pos.Explorer.TestUtil (secretKeyToAddress)
 import           Pos.Explorer.Web.ClientTypes (CAddress (..), toCAddress)
+import           Pos.Util.Wlog (setupTestLogging)
 
-import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
 import           Test.Pos.Explorer.MockFactory (mkTxOut)
 
 
@@ -46,26 +51,8 @@ import           Test.Pos.Explorer.MockFactory (mkTxOut)
 
 -- stack test cardano-sl-explorer --fast --test-arguments "-m Test.Pos.Explorer.Socket"
 
--- We run the tests this number of times, with different `ProtocolMagics`, to get increased
--- coverage. We should really do this inside of the `prop`, but it is difficult to do that
--- without significant rewriting of the testsuite.
-testMultiple :: Int
-testMultiple = 1
-
 spec :: Spec
-spec = do
-    runWithMagic NMMustBeNothing
-    runWithMagic NMMustBeJust
-
-runWithMagic :: RequiresNetworkMagic -> Spec
-runWithMagic rnm = replicateM_ testMultiple $
-    modifyMaxSuccess (`div` testMultiple) $ do
-        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
-        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
-            specBody (makeNetworkMagic pm)
-
-specBody :: NetworkMagic -> Spec
-specBody nm =
+spec = beforeAll_ setupTestLogging $ do
     describe "Methods" $ do
         describe "fromCAddressOrThrow" $
             it "throws an exception if a given CAddress is invalid" $
@@ -73,7 +60,7 @@ specBody nm =
         describe "addressSetByTxs" $
             modifyMaxSize (const 200) $
                 prop "creates a Set of Addresses by given txs"
-                    (addressSetByTxsProp nm)
+                    addressSetByTxsProp
         describe "addrSubParam" $
             it "stores a given SocketId into SubscriptionParam of address subscribers" $ do
                 let socketId = BS.pack "any-id" -- SocketId

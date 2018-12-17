@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP #-}
 
 -- | Non-configurable constants
---   For configurable constants, see Pos.Core.Configuration.
+--   For configurable constants, see Pos.Genesis.Configuration.
 
 module Pos.Core.Constants
        ( sharedSeedLength

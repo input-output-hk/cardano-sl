@@ -14,28 +14,28 @@ module Pos.Wallet.Web.Pending.Util
 import           Universum
 
 import           Control.Lens ((*=), (+=), (+~), (<<*=), (<<.=))
+import           Data.Reflection (give)
 import qualified Data.Set as Set
-import Data.Reflection (give)
 
+import           Pos.Chain.Txp (Tx (..), TxAux (..), TxOut (..), topsortTxs)
 import           Pos.Client.Txp.Util (PendingAddresses (..))
+import           Pos.Core (ProtocolConstants (..), pcEpochSlots)
+import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Common (Address)
-import           Pos.Core (ProtocolConstants(..))
 import           Pos.Core.Slotting (FlatSlotId, SlotId, flatSlotId)
 import           Pos.Crypto (WithHash (..))
-import           Pos.Txp (Tx (..), TxAux (..), TxOut (..), topsortTxs)
-import           Pos.Core.Chrono (OldestFirst (..))
-import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..), PtxCondition (..),
-                                               PtxSubmitTiming (..), pstNextDelay, pstNextSlot,
-                                               ptxPeerAck, ptxSubmitTiming)
+import           Pos.Wallet.Web.Pending.Types (PendingTx (..),
+                     PtxCondition (..), PtxSubmitTiming (..), pstNextDelay,
+                     pstNextSlot, ptxPeerAck, ptxSubmitTiming)
 
 mkPtxSubmitTiming :: ProtocolConstants -> SlotId -> PtxSubmitTiming
-mkPtxSubmitTiming pc creationSlot = give pc $
-    PtxSubmitTiming
-    { _pstNextSlot  = creationSlot & flatSlotId +~ initialSubmitDelay
+mkPtxSubmitTiming pc creationSlot = give pc $ PtxSubmitTiming
+    { _pstNextSlot  = creationSlot
+        &  flatSlotId (pcEpochSlots pc)
+        +~ initialSubmitDelay
     , _pstNextDelay = 1
     }
-    where
-      initialSubmitDelay = 3 :: FlatSlotId
+    where initialSubmitDelay = 3 :: FlatSlotId
 
 -- | Sort pending transactions as close as possible to chronological order.
 sortPtxsChrono :: [PendingTx] -> OldestFirst [] PendingTx
@@ -50,7 +50,7 @@ incPtxSubmitTimingPure
     -> PtxSubmitTiming
 incPtxSubmitTimingPure pc = give pc $ execState $ do
     curDelay <- pstNextDelay <<*= 2
-    pstNextSlot . flatSlotId += curDelay
+    pstNextSlot . flatSlotId (pcEpochSlots pc) += curDelay
 
 ptxMarkAcknowledgedPure :: PendingTx -> PendingTx
 ptxMarkAcknowledgedPure = execState $ do

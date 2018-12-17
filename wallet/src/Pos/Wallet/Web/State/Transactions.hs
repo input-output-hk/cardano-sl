@@ -5,6 +5,7 @@
 --   guarantees for them.
 module Pos.Wallet.Web.State.Transactions
     ( createAccountWithAddress
+    , createAccountWithoutAddresses
     , removeWallet2
     , applyModifierToWallet
     , applyModifierToWallet2
@@ -18,11 +19,13 @@ import           Universum hiding (for_)
 import           Data.Foldable (for_)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as M
+import           Pos.Chain.Block (HeaderHash)
+import           Pos.Chain.Txp (TxId, UtxoModifier)
 import           Pos.Client.Txp.History (TxHistoryEntry)
-import           Pos.Core (Address, ChainDifficulty, HeaderHash, ProtocolConstants)
-import           Pos.Txp (TxId, UtxoModifier)
+import           Pos.Core (Address, ChainDifficulty, ProtocolConstants)
 import           Pos.Util.Servant (encodeCType)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta, CId, CTxId, CTxMeta, Wal)
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta, CId,
+                     CTxId, CTxMeta, Wal)
 import           Pos.Wallet.Web.Pending.Types (PtxCondition)
 import           Pos.Wallet.Web.State.Storage (Update)
 import qualified Pos.Wallet.Web.State.Storage as WS
@@ -36,6 +39,14 @@ createAccountWithAddress
 createAccountWithAddress accId accMeta addrMeta = do
     WS.createAccount accId accMeta
     WS.addWAddress addrMeta
+
+-- | Create an account without addresses (this is for external wallet).
+createAccountWithoutAddresses
+    :: AccountId
+    -> CAccountMeta
+    -> Update ()
+createAccountWithoutAddresses accId accMeta = do
+    WS.createAccount accId accMeta
 
 -- | Delete a wallet (and all associated data).
 --   Compared to the low-level 'removeWallet', this function:

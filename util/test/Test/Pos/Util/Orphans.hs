@@ -10,7 +10,8 @@ module Test.Pos.Util.Orphans where
 import           Control.Monad.Reader.Class (MonadReader (..))
 import qualified Crypto.Random as Rand
 
-import           Data.Time.Units (Microsecond, Millisecond, Second, TimeUnit (..), convertUnit)
+import           Data.Time.Units (Microsecond, Millisecond, Second,
+                     TimeUnit (..), convertUnit)
 
 import           Test.QuickCheck (Arbitrary, Gen)
 import qualified Test.QuickCheck as QC

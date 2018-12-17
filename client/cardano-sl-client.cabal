@@ -1,5 +1,5 @@
 name:                cardano-sl-client
-version:             1.3.2
+version:             2.0.0
 synopsis:            Cardano SL client modules
 description:         Cardano SL client modules
 license:             MIT
@@ -28,26 +28,21 @@ library
 
   build-depends:       base
                      , cardano-sl
-                     , cardano-sl-block
+                     , cardano-sl-chain
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-db
                      , cardano-sl-infra
-                     , cardano-sl-lrc
-                     , cardano-sl-networking
-                     , cardano-sl-txp
-                     , cardano-sl-update
                      , cardano-sl-util
                      , containers
                      , data-default
                      , formatting
                      , lens
-                     , log-warper
                      , mtl
                      , safe-exceptions
                      , serokell-util
                      , stm
-                     , text-format
+                     , formatting
                      , transformers
                      , universum
                      , unordered-containers
@@ -65,7 +60,6 @@ library
                        DefaultSignatures
                        NoImplicitPrelude
                        OverloadedStrings
-                       RecordWildCards
                        TypeApplications
                        TupleSections
                        ViewPatterns
@@ -102,14 +96,14 @@ test-suite cardano-client-test
                        base
                      , bytestring
                      , cardano-sl
+                     , cardano-sl-chain
+                     , cardano-sl-chain-test
                      , cardano-sl-client
                      , cardano-sl-core
+                     , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
                      , cardano-sl-db
-                     , cardano-sl-ssc
-                     , cardano-sl-txp
-                     , cardano-sl-update
                      , cardano-sl-util
                      , cardano-sl-util-test
                      , containers
@@ -141,7 +135,6 @@ test-suite cardano-client-test
                         DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
-                        RecordWildCards
                         TypeApplications
                         TupleSections
                         ViewPatterns

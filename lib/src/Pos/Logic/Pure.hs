@@ -12,31 +12,33 @@ import           Data.Coerce (coerce)
 import           Data.Default (def)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Core (ApplicationName (..), Block, BlockHeader (..), BlockVersion (..),
-                           BlockVersionData (..), ExtraBodyData, ExtraHeaderData, GenericBlock (..),
-                           GenericBlockHeader (..), HeaderHash, SoftforkRule (..),
-                           SoftwareVersion (..), StakeholderId, TxFeePolicy (..),
-                           unsafeCoinPortionFromDouble)
-import           Pos.Core.Block (BlockHeaderAttributes, BlockSignature (..), MainBlock,
-                                 MainBlockHeader, MainBlockchain, MainBody (..),
-                                 MainConsensusData (..), MainExtraBodyData (..),
-                                 MainExtraHeaderData (..), MainProof (..))
+import           Pos.Chain.Block (Block, BlockHeader (..),
+                     BlockHeaderAttributes, BlockSignature (..), HeaderHash,
+                     MainBlock, MainBlockHeader, MainBody (..),
+                     MainConsensusData (..), MainExtraBodyData (..),
+                     MainExtraHeaderData (..), MainProof (..),
+                     mkGenericBlockHeaderUnsafe, mkGenericBlockUnsafe)
+import           Pos.Chain.Delegation (DlgPayload (..))
+import           Pos.Chain.Ssc (SscPayload (..), SscProof (..),
+                     VssCertificatesMap (..))
+import           Pos.Chain.Txp (TxProof (..), emptyTxPayload)
+import           Pos.Chain.Update (ApplicationName (..), BlockVersion (..),
+                     BlockVersionData (..), SoftforkRule (..),
+                     SoftwareVersion (..), UpdatePayload (..), UpdateProof)
+import           Pos.Core (StakeholderId, TxFeePolicy (..),
+                     unsafeCoinPortionFromDouble)
+import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Common (BlockCount (..), ChainDifficulty (..))
-import           Pos.Core.Delegation (DlgPayload (..))
-import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..), SlotId (..))
-import           Pos.Core.Ssc (SscPayload (..), SscProof (..), VssCertificatesMap (..))
-import           Pos.Core.Txp (TxProof (..))
-import           Pos.Core.Update (UpdatePayload (..), UpdateProof)
-import           Pos.Crypto.Configuration (ProtocolMagic (..), ProtocolMagicId (..),
-                                           RequiresNetworkMagic (..))
+import           Pos.Core.Merkle (MerkleRoot (..))
+import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..),
+                     SlotId (..))
+import           Pos.Crypto.Configuration (ProtocolMagic (..),
+                     ProtocolMagicId (..), RequiresNetworkMagic (..))
 import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
-import           Pos.Crypto.Signing (PublicKey (..), SecretKey (..), Signature (..),
-                                     deterministicKeyGen, signRaw)
-import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
+import           Pos.Crypto.Signing (PublicKey (..), SecretKey (..),
+                     Signature (..), deterministicKeyGen, signRaw)
 import           Pos.DB.Class (Serialized (..), SerializedBlock)
-import           Pos.Merkle (MerkleRoot (..))
-import           Pos.Txp.Base (emptyTxPayload)
 
 import           Pos.Logic.Types (KeyVal (..), Logic (..))
 
@@ -136,11 +138,7 @@ serializedBlock :: SerializedBlock
 serializedBlock = Serialized $ serialize' block
 
 mainBlock :: MainBlock
-mainBlock = UnsafeGenericBlock
-    { _gbHeader = mainBlockHeader
-    , _gbBody   = blockBody
-    , _gbExtra  = extraBodyData
-    }
+mainBlock = mkGenericBlockUnsafe mainBlockHeader blockBody extraBodyData
 
 blockBody :: MainBody
 blockBody = MainBody
@@ -154,10 +152,10 @@ blockBody = MainBody
 -- the fewest fields...
 emptySscPayload :: SscPayload
 emptySscPayload = CertificatesPayload
-    { spVss = UnsafeVssCertificatesMap
+    (UnsafeVssCertificatesMap
           { getVssCertificatesMap = mempty
           }
-    }
+    )
 
 emptyDlgPayload :: DlgPayload
 emptyDlgPayload = UnsafeDlgPayload
@@ -170,7 +168,7 @@ emptyUpdatePayload = UpdatePayload
     , upVotes    = []
     }
 
-extraBodyData :: ExtraBodyData MainBlockchain
+extraBodyData :: MainExtraBodyData
 extraBodyData = MainExtraBodyData
     { _mebAttributes = Attributes
           { attrData   = ()
@@ -182,13 +180,12 @@ blockHeader :: BlockHeader
 blockHeader = BlockHeaderMain mainBlockHeader
 
 mainBlockHeader :: MainBlockHeader
-mainBlockHeader = UnsafeGenericBlockHeader
-    { _gbhProtocolMagicId = protocolMagicId
-    , _gbhPrevBlock = mainBlockHeaderHash
-    , _gbhBodyProof = bodyProof
-    , _gbhConsensus = consensusData
-    , _gbhExtra     = extraHeaderData
-    }
+mainBlockHeader = mkGenericBlockHeaderUnsafe
+    protocolMagic
+    mainBlockHeaderHash
+    bodyProof
+    consensusData
+    extraHeaderData
 
 mainBlockHeaderHash :: HeaderHash
 mainBlockHeaderHash = unsafeMkAbstractHash mempty
@@ -210,8 +207,7 @@ txProof = TxProof
 
 sscProof :: SscProof
 sscProof = CertificatesProof
-    { sprVss = unsafeMkAbstractHash mempty
-    }
+    (unsafeMkAbstractHash mempty)
 
 dlgProof :: Hash DlgPayload
 dlgProof = unsafeMkAbstractHash mempty
@@ -250,9 +246,9 @@ protocolMagicId :: ProtocolMagicId
 protocolMagicId = ProtocolMagicId 0
 
 protocolMagic :: ProtocolMagic
-protocolMagic = ProtocolMagic protocolMagicId NMMustBeNothing
+protocolMagic = ProtocolMagic protocolMagicId RequiresNoMagic
 
-extraHeaderData :: ExtraHeaderData MainBlockchain
+extraHeaderData :: MainExtraHeaderData
 extraHeaderData = MainExtraHeaderData
     { _mehBlockVersion    = blockVersion
     , _mehSoftwareVersion = softwareVersion

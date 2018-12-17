@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE BangPatterns               #-}
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE ExistentialQuantification  #-}
 {-# LANGUAGE FlexibleContexts           #-}
@@ -45,12 +46,12 @@ module Node.Internal (
   ) where
 
 import           Control.Concurrent (threadDelay)
-import           Control.Concurrent.STM
 import           Control.Concurrent.Async
 import           Control.Concurrent.MVar
-import           Control.Exception (Exception, SomeException, SomeAsyncException,
-                                    bracket, catch, handle, finally, throwIO,
-                                    mask, uninterruptibleMask_, fromException, try)
+import           Control.Concurrent.STM
+import           Control.Exception (Exception, SomeAsyncException,
+                     SomeException, bracket, catch, finally, fromException,
+                     handle, mask, throwIO, try, uninterruptibleMask_)
 import           Control.Monad (forM_, mapM_, when)
 import           Data.Binary
 import qualified Data.ByteString as BS
@@ -62,9 +63,12 @@ import           Data.Hashable (Hashable)
 import           Data.Int (Int64)
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+#if !(MIN_VERSION_base(4,8,0))
 import           Data.Monoid
+#endif
 import           Data.NonEmptySet (NonEmptySet)
 import qualified Data.NonEmptySet as NESet
+import           Data.Semigroup ((<>))
 import           Data.Set (Set)
 import qualified Data.Set as Set
 import           Data.Text (Text)
@@ -74,11 +78,12 @@ import           Formatting (sformat, shown, (%))
 import           GHC.Generics (Generic)
 import qualified Network.Transport as NT
 import           Node.Message.Class (Packing, Serializable (..), pack, unpack)
-import           Node.Message.Decoder (Decoder (..), DecoderStep (..), continueDecoding)
-import           Pos.Util.Trace (Trace, Severity (..), traceWith)
+import           Node.Message.Decoder (Decoder (..), DecoderStep (..),
+                     continueDecoding)
+import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 import qualified System.Metrics.Distribution as Metrics (Distribution)
-import qualified System.Metrics.Gauge as Metrics (Gauge)
 import qualified System.Metrics.Distribution as Metrics.Distribution
+import qualified System.Metrics.Gauge as Metrics (Gauge)
 import qualified System.Metrics.Gauge as Metrics.Gauge
 import           System.Random (Random, StdGen, random)
 
@@ -700,9 +705,13 @@ killNode node = do
         if _nodeStateClosed nodeState
         then throwIO $ userError "killNode : already killed"
         else pure (nodeState { _nodeStateClosed = True }, ())
-    uninterruptibleCancel (nodeDispatcherThread node)
-    killRunningHandlers node
+    -- Closing the end point will cause the dispatcher thread to end when it
+    -- gets the EndPointClosed event, so we don't cancel that thread.
+    -- Cancelling that thread before closing the end point can lead to deadlock,
+    -- in particular if this is backed by a TCP transport with a QDisc which
+    -- may block on write.
     nodeCloseEndPoint node
+    killRunningHandlers node
 
 data ConnectionState peerData =
 

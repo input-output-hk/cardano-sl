@@ -18,21 +18,20 @@ module Client.Cardano.Wallet.Web.Api
 
 import           Universum
 
-import           Servant.API                ((:<|>) (..), (:>))
-import           Servant.Client             (ClientM, client)
+import           Servant.API ((:<|>) (..), (:>))
+import           Servant.Client (ClientM, client)
 
-import           Pos.Client.Txp.Util        (InputSelectionPolicy)
-import           Pos.Core.Common            (Coin)
+import           Pos.Client.Txp.Util (InputSelectionPolicy)
+import           Pos.Core.Common (Coin)
 -- We call legasy API directly, it will be changed soon!
-import           Pos.Wallet.Web.Api         (GetAccounts, GetHistory, GetSyncProgress,
-                                             GetWallet, GetWallets, IsValidAddress,
-                                             NewAddress, NewPayment, NewWallet)
-import           Pos.Wallet.Web.ClientTypes (Addr, CAccount (..), CAccountId (..),
-                                             CAddress (..), CId (..),
-                                             CPassPhrase, CTx, CWallet, CWalletInit,
-                                             ScrollLimit, ScrollOffset, SyncProgress,
-                                             Wal)
-import           Pos.Wallet.Web.Error       (WalletError)
+import           Pos.Wallet.Web.Api (GetAccounts, GetHistory, GetSyncProgress,
+                     GetWallet, GetWallets, IsValidAddress, NewAddress,
+                     NewPayment, NewWallet)
+import           Pos.Wallet.Web.ClientTypes (Addr, CAccount (..),
+                     CAccountId (..), CAddress (..), CId (..), CPassPhrase,
+                     CTx, CWallet, CWalletInit, ScrollLimit, ScrollOffset,
+                     SyncProgress, Wal)
+import           Pos.Wallet.Web.Error (WalletError)
 
 -- | "Benchmarking API" which includes
 -- endpoints we need for benchmarking.

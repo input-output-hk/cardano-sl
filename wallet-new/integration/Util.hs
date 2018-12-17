@@ -5,13 +5,28 @@ module Util where
 import           Universum hiding ((^?))
 
 import           Cardano.Wallet.Client.Http
+import           Control.Concurrent (threadDelay)
+import           Control.Concurrent.Async (race)
 import           Control.Lens
 import           System.IO.Unsafe (unsafePerformIO)
 import           Test.Hspec
-import           Test.QuickCheck (arbitrary, generate)
+import           Test.Hspec.QuickCheck (prop)
+import           Test.QuickCheck (arbitrary, generate, withMaxSuccess)
+import           Test.QuickCheck.Monadic (PropertyM, monadicIO)
+import           Test.QuickCheck.Property (Testable)
+import           Text.Show.Pretty (ppShow)
 
+import qualified Pos.Chain.Txp as Txp
 
 type WalletRef = MVar Wallet
+
+data PaginationTest ixs a = PaginationTest
+    { page         :: Maybe Page
+    , perPage      :: Maybe PerPage
+    , filters      :: FilterOperations ixs a
+    , sorts        :: SortOperations a
+    , expectations :: [a] -> IO ()
+    }
 
 randomWallet :: WalletOperation -> IO NewWallet
 randomWallet walletOp =
@@ -28,6 +43,12 @@ randomCreateWallet = randomWallet CreateWallet
 
 randomRestoreWallet :: IO NewWallet
 randomRestoreWallet = randomWallet RestoreWallet
+
+randomAccount :: WalletClient IO -> IO (Wallet, Account)
+randomAccount wc = do
+    newWallet <- randomWallet CreateWallet
+    wallet@Wallet{..} <- createWalletCheck wc newWallet
+    (\(account, _) -> (wallet, account)) <$> firstAccountAndId wc wallet
 
 createWalletCheck :: WalletClient IO -> NewWallet -> IO Wallet
 createWalletCheck wc newWallet = do
@@ -46,6 +67,15 @@ firstAccountAndId wc wallet = do
     let (toAddr : _) = accAddresses toAcct
 
     pure (toAcct, toAddr)
+
+createAddress :: WalletClient IO -> (Wallet, Account) -> IO WalletAddress
+createAddress wc (Wallet{..}, Account{..}) = do
+    eresp <- postAddress wc (NewAddress Nothing accIndex walId)
+    wrData <$> eresp `shouldPrism` _Right
+
+createAddresses :: WalletClient IO -> Int -> (Wallet, Account) -> IO [WalletAddress]
+createAddresses wc n src =
+    replicateM n (createAddress wc src)
 
 newWalletRef :: IO WalletRef
 newWalletRef = newEmptyMVar
@@ -71,7 +101,8 @@ genesisWallet wc = do
     maybe
         (fail "Genesis wallet is missing; did you import it prior to executing the test-suite?")
         return
-        (find ((lockedWallet /=) . walId) allWallets)
+        (find isUnlockedGenesisWallet allWallets)
+  where isUnlockedGenesisWallet w = isGenesisWallet w && not (isLockedWallet w)
 
 -- Hard code the genesis wallet that's asset locked
 genesisAssetLockedWallet :: WalletClient IO -> IO Wallet
@@ -80,11 +111,18 @@ genesisAssetLockedWallet wc = do
     maybe
         (fail "Genesis wallet is missing; did you import it prior to executing the test-suite?")
         return
-        (find ((lockedWallet ==) . walId) allWallets)
+        (find isLockedGenesisWallet allWallets)
+  where isLockedGenesisWallet w = isGenesisWallet w && isLockedWallet w
+
+isGenesisWallet :: Wallet -> Bool
+isGenesisWallet = (== "Imported Wallet") . walName
 
 lockedWallet :: WalletId
 lockedWallet =
     WalletId "Ae2tdPwUPEZ5YjF9WuDoWfCZLPQ56MdQC6CZa2VKwMVRVqBBfTLPNcPvET4"
+
+isLockedWallet :: Wallet -> Bool
+isLockedWallet = (== lockedWallet) . walId
 
 genesisRef :: WalletRef
 genesisRef = unsafePerformIO newEmptyMVar
@@ -96,6 +134,10 @@ shouldPrism a b = do
     let Just x = a ^? b
     pure x
 
+shouldPrismFlipped :: Show s => Prism' s a -> s -> IO a
+shouldPrismFlipped p s =
+    shouldPrism s p
+
 infixr 8 `shouldPrism`
 
 shouldPrism_ :: Show s => s -> Prism' s a -> IO ()
@@ -103,3 +145,43 @@ shouldPrism_ a b =
     a `shouldSatisfy` has b
 
 infixr 8 `shouldPrism_`
+
+pollTransactions :: WalletClient IO -> WalletId -> AccountIndex -> V1 Txp.TxId -> IO ()
+pollTransactions wc wid cid tid = do
+    res <- trial `noLongerThan` (120 * oneSecond)
+    case res of
+        Nothing -> fail "transactions didn't complete on time: this is unexpected"
+        Just a  -> return a
+    where
+        trial = do
+            resp <- getTransactionIndex wc (Just wid) (Just cid) Nothing >>= shouldPrismFlipped _Right
+            let tx = find ((== tid) . txId) (wrData resp)
+            if ((txStatus <$> tx) `elem` (Just <$> [InNewestBlocks, Persisted])) then
+                return ()
+            else
+                threadDelay (5 * oneSecond) >> trial
+
+oneSecond :: Int
+oneSecond = 1000000
+
+noLongerThan :: IO a -> Int -> IO (Maybe a)
+noLongerThan action maxWaitingTime = do
+    res <- race (threadDelay maxWaitingTime) action
+    case res of
+        Left _  -> return Nothing
+        Right a -> return $ Just a
+
+log :: MonadIO m => Text -> m ()
+log = putStrLn . mappend "[TEST-LOG] "
+
+ppShowT :: Show a => a -> Text
+ppShowT = fromString . ppShow
+
+
+-- | Output for @Text@.
+printT :: Text -> IO ()
+printT = putStrLn
+
+randomTest :: (Testable a) => String -> Int -> PropertyM IO a -> Spec
+randomTest msg maxSuccesses =
+    prop msg . withMaxSuccess maxSuccesses . monadicIO

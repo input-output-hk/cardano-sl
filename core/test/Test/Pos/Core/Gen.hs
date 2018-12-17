@@ -1,26 +1,7 @@
 module Test.Pos.Core.Gen
        (
-        -- Pos.Core.Block Generators
-          genBlockBodyAttributes
-        , genBlockHeader
-        , genBlockHeaderAttributes
-        , genBlockSignature
-        , genGenesisBlockHeader
-        , genGenesisBody
-        , genGenesisConsensusData
-        , genGenesisHash
-        , genGenesisProof
-        , genHeaderHash
-        , genMainBlockHeader
-        , genMainBody
-        , genMainConsensusData
-        , genMainExtraBodyData
-        , genMainExtraHeaderData
-        , genMainProof
-        , genMainToSign
-
         -- Pos.Core.Common Generators
-        , genAddrAttributes
+          genAddrAttributes
         , genAddress
         , genAddrSpendingData
         , genAddrStakeDistribution
@@ -40,26 +21,8 @@ module Test.Pos.Core.Gen
         , genTxFeePolicy
         , genTxSizeLinear
 
-        -- Pos.Core.Configuration Generators
-        , genGenesisConfiguration
-        , genCoreConfiguration
-
-        -- Pos.Core.Delegation Generators
-        , genDlgPayload
-        , genHeavyDlgIndex
-        , genLightDlgIndices
-        , genProxySKBlockInfo
-        , genProxySKHeavy
-
-        -- Pos.Core.Genesis Generators
-        , genFakeAvvmOptions
-        , genGenesisAvvmBalances
-        , genGenesisData
-        , genGenesisDelegation
-        , genGenesisInitializer
-        , genGenesisProtocolConstants
-        , genGenesisSpec
-        , genTestnetBalanceOptions
+        -- Pos.Core.JsonLog Generators
+        , genInvReqDataFlowLog
 
         -- Pos.Core.ProtocolConstants
         , genProtocolConstants
@@ -69,273 +32,72 @@ module Test.Pos.Core.Gen
         -- Pos.Core.Slotting Generators
         , genEpochIndex
         , genEpochOrSlot
+        , genEpochSlottingData
         , genFlatSlotId
         , genLocalSlotIndex
         , genSlotCount
         , genSlotId
+        , genSlottingData
         , genTimeDiff
         , genTimestamp
+        , genTimestampRoundedToSecond
 
-        -- Pos.Core.Ssc Generators
-        , genCommitment
-        , genCommitmentsMap
-        , genCommitmentSignature
-        , genInnerSharesMap
-        , genSharesMap
-        , genOpening
-        , genOpeningsMap
-        , genSscPayload
-        , genSscProof
-        , genSharesDistribution
-        , genSignedCommitment
-        , genVssCertificate
-        , genVssCertificatesHash
-        , genVssCertificatesMap
-
-        -- Pos.Core.Txp Generators
-        , genPkWitness
-        , genRedeemWitness
-        , genScriptWitness
-        , genTx
-        , genTxAttributes
-        , genTxAux
-        , genTxHash
-        , genTxId
-        , genTxIn
-        , genTxInList
-        , genTxInWitness
-        , genTxOut
-        , genTxOutAux
-        , genTxOutList
-        , genTxPayload
-        , genTxProof
-        , genTxSig
-        , genTxSigData
-        , genTxWitness
-        , genUnknownWitnessType
-
-        -- Pos.Core.Update Generators
-        , genApplicationName
-        , genBlockVersion
-        , genBlockVersionData
-        , genBlockVersionModifier
-        , genHashRaw
-        , genSoftforkRule
-        , genSoftwareVersion
-        , genSystemTag
-        , genUpAttributes
-        , genUpdateData
-        , genUpdatePayload
-        , genUpdateProof
-        , genUpdateProposal
-        , genUpdateProposals
-        , genUpdateProposalToSign
-        , genUpdateVote
-        , genUpId
-        , genUpsData
-        , genVoteId
-
-        -- Pos.Data.Attributes Generators
+        -- Pos.Core.Attributes Generators
         , genAttributes
 
         -- Pos.Merkle Generators
         , genMerkleRoot
         , genMerkleTree
+        , genHashRaw
 
         -- Helpers
+        , genTextHash
         , genByte
+        , genBytes
         , genUTF8Byte
         , genWord16
+        , genWord32
         , gen32Bytes
+        , genMillisecond
        ) where
 
 import           Universum
 
-import           Data.ByteString.Base16 as B16
-import           Data.Coerce (coerce)
-import           Data.Either (either)
 import           Data.Fixed (Fixed (..))
-import qualified Data.HashMap.Strict as HM
-import           Data.List.NonEmpty (fromList)
 import qualified Data.Map as M
 import           Data.Maybe
 import           Data.Time.Units (Microsecond, Millisecond, fromMicroseconds)
-import qualified Data.Vector as V
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
-
-import           Pos.Binary.Class (Bi, Raw (..), asBinary)
-import           Pos.Core.Block (BlockBodyAttributes, BlockHeader (..), BlockHeaderAttributes,
-                                 BlockSignature (..), GenesisBlockHeader, GenesisBody (..),
-                                 GenesisConsensusData (..), GenesisExtraHeaderData (..),
-                                 GenesisProof (..), HeaderHash, MainBlockHeader, MainBody (..),
-                                 MainConsensusData (..), MainExtraBodyData (..),
-                                 MainExtraHeaderData (..), MainProof (..), MainToSign (..),
-                                 mkGenericHeader, mkMainHeaderExplicit)
+import           Pos.Binary.Class (Bi, Raw (..))
+import           Pos.Core.Attributes (Attributes (..), mkAttributes)
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
-                                  AddrStakeDistribution (..), AddrType (..), Address (..),
-                                  BlockCount (..), ChainDifficulty (..), Coeff (..), Coin (..),
-                                  CoinPortion (..), Script (..), ScriptVersion, SharedSeed (..),
-                                  SlotLeaders, StakeholderId, StakesList, StakesMap,
-                                  TxFeePolicy (..), TxSizeLinear (..), coinPortionDenominator,
-                                  makeAddress, maxCoinVal, mkMultiKeyDistr)
-import           Pos.Core.Configuration (CoreConfiguration (..), GenesisConfiguration (..),
-                                         GenesisHash (..))
-import           Pos.Core.Delegation (DlgPayload (..), HeavyDlgIndex (..), LightDlgIndices (..),
-                                      ProxySKBlockInfo, ProxySKHeavy)
-import           Pos.Core.Genesis (FakeAvvmOptions (..), GenesisAvvmBalances (..), GenesisData (..),
-                                   GenesisDelegation (..), GenesisInitializer (..),
-                                   GenesisNonAvvmBalances (..), GenesisProtocolConstants (..),
-                                   GenesisSpec (..), GenesisVssCertificatesMap (..),
-                                   GenesisWStakeholders (..), TestnetBalanceOptions (..),
-                                   mkGenesisDelegation, mkGenesisSpec)
+                     AddrStakeDistribution (..), AddrType (..), Address (..),
+                     BlockCount (..), ChainDifficulty (..), Coeff (..),
+                     Coin (..), CoinPortion (..), Script (..), ScriptVersion,
+                     SharedSeed (..), SlotLeaders, StakeholderId, StakesList,
+                     StakesMap, TxFeePolicy (..), TxSizeLinear (..),
+                     coinPortionDenominator, makeAddress, maxCoinVal,
+                     mkMultiKeyDistr)
+import           Pos.Core.JsonLog.LogEvents (InvReqDataFlowLog (..))
+import           Pos.Core.Merkle (MerkleRoot (..), MerkleTree (..),
+                     mkMerkleTree, mtRoot)
 import           Pos.Core.NetworkMagic (NetworkMagic (..))
-import           Pos.Core.ProtocolConstants (ProtocolConstants (..), VssMaxTTL (..), VssMinTTL (..))
-import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..), FlatSlotId,
-                                    LocalSlotIndex (..), SlotCount (..), SlotId (..), TimeDiff (..),
-                                    Timestamp (..), localSlotIndexMaxBound, localSlotIndexMinBound)
-import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap, InnerSharesMap,
-                               Opening, OpeningsMap, SharesDistribution, SharesMap,
-                               SignedCommitment, SscPayload (..), SscProof, VssCertificate (..),
-                               VssCertificatesHash, VssCertificatesMap (..), mkCommitmentsMap,
-                               mkSscProof, mkVssCertificate, mkVssCertificatesMap,
-                               randCommitmentAndOpening)
-import           Pos.Core.Txp (Tx (..), TxAttributes, TxAux (..), TxId, TxIn (..), TxInWitness (..),
-                               TxOut (..), TxOutAux (..), TxPayload (..), TxProof (..), TxSig,
-                               TxSigData (..), TxWitness, mkTxPayload)
-import           Pos.Core.Update (ApplicationName (..), BlockVersion (..), BlockVersionData (..),
-                                  BlockVersionModifier (..), SoftforkRule (..),
-                                  SoftwareVersion (..), SystemTag (..), UpAttributes, UpId,
-                                  UpdateData (..), UpdatePayload (..), UpdateProof,
-                                  UpdateProposal (..), UpdateProposalToSign (..), UpdateProposals,
-                                  UpdateVote (..), VoteId, mkUpdateVote)
-import           Pos.Crypto (Hash, ProtocolMagic, decodeHash, deterministic, hash, safeCreatePsk,
-                             sign)
-import           Pos.Data.Attributes (Attributes (..), mkAttributes)
-import           Pos.Merkle (MerkleRoot (..), MerkleTree (..), mkMerkleTree, mtRoot)
+import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
+                     VssMaxTTL (..), VssMinTTL (..))
+import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..),
+                     EpochSlottingData (..), FlatSlotId, LocalSlotIndex (..),
+                     SlotCount (..), SlotId (..), SlottingData, TimeDiff (..),
+                     Timestamp (..), createSlottingDataUnsafe,
+                     localSlotIndexMaxBound, localSlotIndexMinBound)
+import           Pos.Crypto (Hash, hash)
 import           Pos.Util.Util (leftToPanic)
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Test.Pos.Crypto.Gen (genAbstractHash, genDecShare, genHDAddressPayload,
-                                      genProxySignature, genPublicKey, genRedeemPublicKey,
-                                      genRedeemSignature, genRequiresNetworkMagic, genSafeSigner,
-                                      genSecretKey, genSignTag, genSignature, genVssPublicKey)
-
-
-----------------------------------------------------------------------------
--- Pos.Core.Block Generators
-----------------------------------------------------------------------------
-
-genBlockBodyAttributes :: Gen BlockBodyAttributes
-genBlockBodyAttributes = pure $ mkAttributes ()
-
-genBlockHeader :: ProtocolMagic -> ProtocolConstants -> Gen BlockHeader
-genBlockHeader pm pc =
-    Gen.choice [ BlockHeaderGenesis <$> genGenesisBlockHeader pm
-               , BlockHeaderMain <$> genMainBlockHeader pm pc
-               ]
-
-genBlockHeaderAttributes :: Gen BlockHeaderAttributes
-genBlockHeaderAttributes = pure $ mkAttributes ()
-
-genBlockSignature :: ProtocolMagic -> ProtocolConstants -> Gen BlockSignature
-genBlockSignature pm pc =
-    Gen.choice
-        [ BlockSignature
-              <$> genSignature pm (genMainToSign pm pc)
-        , BlockPSignatureLight
-              <$> genProxySignature (genMainToSign pm pc) genLightDlgIndices
-        , BlockPSignatureHeavy
-              <$> genProxySignature (genMainToSign pm pc) genHeavyDlgIndex
-        ]
-
-genGenesisBlockHeader :: ProtocolMagic -> Gen GenesisBlockHeader
-genGenesisBlockHeader pm = do
-    epoch      <- genEpochIndex
-    body       <- genGenesisBody
-    prevHash   <- coerce <$> genTextHash
-    difficulty <- genChainDifficulty
-    let consensus = const (GenesisConsensusData {_gcdEpoch      = epoch
-                                                ,_gcdDifficulty = difficulty})
-        gehd      = GenesisExtraHeaderData $ mkAttributes ()
-    pure (mkGenericHeader pm prevHash body consensus gehd)
-
-genGenesisBody :: Gen GenesisBody
-genGenesisBody = GenesisBody <$> genSlotLeaders
-
-genGenesisConsensusData :: Gen GenesisConsensusData
-genGenesisConsensusData =
-    GenesisConsensusData
-        <$> genEpochIndex
-        <*> genChainDifficulty
-
-genGenesisHash :: Gen GenesisHash
-genGenesisHash = do
-  th <- genTextHash
-  pure (GenesisHash (coerce th))
-
-genHeaderHash :: Gen HeaderHash
-genHeaderHash = coerce <$> genTextHash
-
-genGenesisProof :: Gen GenesisProof
-genGenesisProof = GenesisProof <$> genAbstractHash genSlotLeaders
-
-genMainBody :: ProtocolMagic -> Gen MainBody
-genMainBody pm =
-    MainBody
-        <$> genTxPayload pm
-        <*> genSscPayload pm
-        <*> genDlgPayload pm
-        <*> genUpdatePayload pm
-
-genMainBlockHeader :: ProtocolMagic -> ProtocolConstants -> Gen MainBlockHeader
-genMainBlockHeader pm pc =
-    mkMainHeaderExplicit pm
-        <$> genHeaderHash
-        <*> genChainDifficulty
-        <*> genSlotId pc
-        <*> genSecretKey
-        <*> pure Nothing
-        <*> genMainBody pm
-        <*> genMainExtraHeaderData
-
-genMainConsensusData :: ProtocolMagic -> ProtocolConstants -> Gen MainConsensusData
-genMainConsensusData pm pc =
-    MainConsensusData
-        <$> genSlotId pc
-        <*> genPublicKey
-        <*> genChainDifficulty
-        <*> genBlockSignature pm pc
-
-
-genMainExtraBodyData :: Gen MainExtraBodyData
-genMainExtraBodyData = MainExtraBodyData <$> genBlockBodyAttributes
-
-genMainExtraHeaderData :: Gen MainExtraHeaderData
-genMainExtraHeaderData =
-    MainExtraHeaderData
-        <$> genBlockVersion
-        <*> genSoftwareVersion
-        <*> genBlockHeaderAttributes
-        <*> genAbstractHash genMainExtraBodyData
-
-genMainProof :: ProtocolMagic -> Gen MainProof
-genMainProof pm =
-    MainProof
-        <$> genTxProof pm
-        <*> genSscProof pm
-        <*> genAbstractHash (genDlgPayload pm)
-        <*> genUpdateProof pm
-
-genMainToSign :: ProtocolMagic -> ProtocolConstants -> Gen MainToSign
-genMainToSign pm pc =
-    MainToSign
-        <$> genAbstractHash (genBlockHeader pm pc)
-        <*> genMainProof pm
-        <*> genSlotId pc
-        <*> genChainDifficulty
-        <*> genMainExtraHeaderData
+import           Test.Pos.Crypto.Gen (genAbstractHash, genHDAddressPayload,
+                     genPublicKey, genRedeemPublicKey)
+import           Test.Pos.Util.Gen (genHashMap)
 
 ----------------------------------------------------------------------------
 -- Pos.Core.Common Generators
@@ -345,8 +107,8 @@ genAddrAttributes :: Gen AddrAttributes
 genAddrAttributes = AddrAttributes <$> hap <*> genAddrStakeDistribution <*> nm
   where
     hap = Gen.maybe genHDAddressPayload
-    nm  = Gen.choice [ pure NMNothing
-                     , NMJust <$> genInt32
+    nm  = Gen.choice [ pure NetworkMainOrStage
+                     , NetworkTestnet <$> genInt32
                      ]
 
 genAddress :: Gen Address
@@ -425,7 +187,11 @@ genChainDifficulty = ChainDifficulty <$> genBlockCount
 
 genCoeff :: Gen Coeff
 genCoeff = do
-    integer <- Gen.integral (Range.constant 0 10)
+    -- A `Coeff` wraps a Nano-precision integral value, which corresponds to a
+    -- number of "Lovelace" (10^6 Lovelace == 1 ADA). The `Coeff` values used
+    -- in Cardano correspond to less than 1 ADA.
+    let exponent = 9 + 6 :: Integer
+    integer <- Gen.integral (Range.constant 0 (10^exponent))
     pure $ Coeff (MkFixed integer)
 
 genCoin :: Gen Coin
@@ -459,7 +225,7 @@ genStakesList = Gen.list range gen
     range = Range.linear 0 10
 
 genStakesMap :: Gen StakesMap
-genStakesMap = genCustomHashMap genStakeholderId genCoin
+genStakesMap = genHashMap (Range.linear 0 10) genStakeholderId genCoin
 
 genTxFeePolicy :: Gen TxFeePolicy
 genTxFeePolicy =
@@ -478,142 +244,21 @@ genTxSizeLinear :: Gen TxSizeLinear
 genTxSizeLinear = TxSizeLinear <$> genCoeff <*> genCoeff
 
 ----------------------------------------------------------------------------
--- Pos.Core.Configuration Generators
+-- Pos.Core.JsonLog Generators
 ----------------------------------------------------------------------------
 
-genGenesisConfiguration :: ProtocolMagic -> Gen GenesisConfiguration
-genGenesisConfiguration pm =
-    Gen.choice [ GCSrc
-                     <$> Gen.string (Range.constant 10 25) Gen.alphaNum
-                     <*> genHashRaw
-               , GCSpec <$> genGenesisSpec pm
-               ]
-
-genCoreConfiguration :: ProtocolMagic -> Gen CoreConfiguration
-genCoreConfiguration pm =
-    CoreConfiguration
-        <$> genGenesisConfiguration pm
-        <*> genWord8
-        <*> genRequiresNetworkMagic
-
-----------------------------------------------------------------------------
--- Pos.Core.Delegation Generators
-----------------------------------------------------------------------------
-
-genDlgPayload :: ProtocolMagic -> Gen DlgPayload
-genDlgPayload pm =
-    UnsafeDlgPayload <$> Gen.list (Range.linear 0 5) (genProxySKHeavy pm)
-
-genHeavyDlgIndex :: Gen HeavyDlgIndex
-genHeavyDlgIndex = HeavyDlgIndex <$> genEpochIndex
-
-genLightDlgIndices :: Gen LightDlgIndices
-genLightDlgIndices =
-    LightDlgIndices <$> ((,) <$> genEpochIndex <*> genEpochIndex)
-
-genProxySKBlockInfo :: ProtocolMagic -> Gen ProxySKBlockInfo
-genProxySKBlockInfo pm = Gen.maybe $ do
-    pSKHeavy <- genProxySKHeavy pm
-    pubKey <- genPublicKey
-    pure (pSKHeavy,pubKey)
-
-genProxySKHeavy :: ProtocolMagic -> Gen ProxySKHeavy
-genProxySKHeavy pm =
-    safeCreatePsk pm
-        <$> genSafeSigner
-        <*> genPublicKey
-        <*> genHeavyDlgIndex
-
-----------------------------------------------------------------------------
--- Pos.Core.Genesis Generators
-----------------------------------------------------------------------------
-
-genFakeAvvmOptions :: Gen FakeAvvmOptions
-genFakeAvvmOptions =
-    FakeAvvmOptions
-        <$> Gen.word Range.constantBounded
-        <*> Gen.word64 Range.constantBounded
-
-genGenesisData :: ProtocolMagic -> Gen GenesisData
-genGenesisData pm =
-    GenesisData
-        <$> genGenesisWStakeholders
-        <*> genGenesisDelegation pm
-        <*> genTimestampRoundedToSecond
-        <*> genGenesisVssCertificatesMap pm
-        <*> genGenesisNonAvvmBalances
-        <*> genBlockVersionDataByTxFP genLinearTxFP
-        <*> genGenesisProtocolConstants pm
-        <*> genGenesisAvvmBalances
-        <*> genSharedSeed
-  where
-    -- @TxFeePolicy@s ToJSON instance crashes if we have a
-    -- TxFeePolicyUnknown value.
-    genLinearTxFP = TxFeePolicyTxSizeLinear <$> genTxSizeLinear
-
-genGenesisWStakeholders :: Gen GenesisWStakeholders
-genGenesisWStakeholders = do
-    mapSize <- Gen.int $ Range.linear 1 10
-    sids    <- Gen.list (Range.singleton mapSize) genStakeholderId
-    w16s    <- Gen.list (Range.singleton mapSize) genWord16
-    pure $ GenesisWStakeholders $ M.fromList $ zip sids w16s
-
-genGenesisVssCertificatesMap
-    :: ProtocolMagic
-    -> Gen GenesisVssCertificatesMap
-genGenesisVssCertificatesMap pm =
-    GenesisVssCertificatesMap <$> genVssCertificatesMap pm
-
-genGenesisNonAvvmBalances :: Gen GenesisNonAvvmBalances
-genGenesisNonAvvmBalances = do
-    hmSize    <- Gen.int $ Range.linear 1 10
-    addresses <- Gen.list (Range.singleton hmSize) genAddress
-    coins     <- Gen.list (Range.singleton hmSize) genCoin
-    pure $ GenesisNonAvvmBalances $ HM.fromList $ zip addresses coins
-
-genGenesisDelegation :: ProtocolMagic -> Gen (GenesisDelegation)
-genGenesisDelegation pm = do
-    proxySKHeavyList <- Gen.list (Range.linear 1 10) $ genProxySKHeavy pm
-    case (mkGenesisDelegation proxySKHeavyList) of
-        Left _       -> genGenesisDelegation pm
-        Right genDel -> pure genDel
-
-genGenesisInitializer :: Gen GenesisInitializer
-genGenesisInitializer =
-    GenesisInitializer
-        <$> genTestnetBalanceOptions
-        <*> genFakeAvvmOptions
-        <*> genCoinPortion
-        <*> Gen.bool
-        <*> Gen.integral (Range.constant 0 10)
-
-genGenesisProtocolConstants :: ProtocolMagic -> Gen GenesisProtocolConstants
-genGenesisProtocolConstants pm =
-    GenesisProtocolConstants
-        <$> Gen.int (Range.constant 0 100)
-        <*> pure pm
-        <*> genVssMaxTTL
-        <*> genVssMinTTL
-
-genGenesisSpec :: ProtocolMagic -> Gen GenesisSpec
-genGenesisSpec pm = mkGenSpec >>=  either (error . toText) pure
-    where
-        mkGenSpec = mkGenesisSpec
-                      <$> genGenesisAvvmBalances
-                      <*> genSharedSeed
-                      <*> genGenesisDelegation pm
-                      <*> genBlockVersionData
-                      <*> genGenesisProtocolConstants pm
-                      <*> genGenesisInitializer
-
-genTestnetBalanceOptions :: Gen TestnetBalanceOptions
-genTestnetBalanceOptions =
-    TestnetBalanceOptions
-        <$> Gen.word Range.constantBounded
-        <*> Gen.word Range.constantBounded
-        <*> Gen.word64 Range.constantBounded
-        <*> Gen.double (Range.constant 0 10)
-        <*> Gen.bool
+genInvReqDataFlowLog :: Gen InvReqDataFlowLog
+genInvReqDataFlowLog = Gen.choice
+    [ InvReqAccepted
+          <$> Gen.integral (Range.constant 1 50)
+          <*> Gen.integral (Range.constant 1 50)
+          <*> Gen.integral (Range.constant 1 50)
+          <*> Gen.integral (Range.constant 1 50)
+    , InvReqRejected
+          <$> Gen.integral (Range.constant 1 50)
+          <*> Gen.integral (Range.constant 1 50)
+    , InvReqException <$> Gen.text (Range.constant 1 20) Gen.alphaNum
+    ]
 
 ----------------------------------------------------------------------------
 -- Pos.Core.ProtocolConstants Generators
@@ -641,26 +286,36 @@ genVssMinTTL = VssMinTTL <$> genWord32
 genEpochIndex :: Gen EpochIndex
 genEpochIndex = EpochIndex <$> Gen.word64 Range.constantBounded
 
-genEpochOrSlot :: ProtocolConstants -> Gen EpochOrSlot
-genEpochOrSlot pc =
+genEpochOrSlot :: SlotCount -> Gen EpochOrSlot
+genEpochOrSlot epochSlots =
     Gen.choice [ EpochOrSlot . Left <$> genEpochIndex
-               , EpochOrSlot . Right <$> genSlotId pc
+               , EpochOrSlot . Right <$> genSlotId epochSlots
                ]
+
+genEpochSlottingData :: Gen EpochSlottingData
+genEpochSlottingData = EpochSlottingData <$> genMillisecond <*> genTimeDiff
 
 genFlatSlotId :: Gen FlatSlotId
 genFlatSlotId = Gen.word64 Range.constantBounded
 
-genLocalSlotIndex :: ProtocolConstants -> Gen LocalSlotIndex
-genLocalSlotIndex pc = UnsafeLocalSlotIndex <$> Gen.word16 (Range.constant lb ub)
+genLocalSlotIndex :: SlotCount -> Gen LocalSlotIndex
+genLocalSlotIndex epochSlots =
+    UnsafeLocalSlotIndex <$> Gen.word16 (Range.constant lb ub)
   where
     lb = getSlotIndex (localSlotIndexMinBound)
-    ub = getSlotIndex (localSlotIndexMaxBound pc)
+    ub = getSlotIndex (localSlotIndexMaxBound epochSlots)
 
 genSlotCount :: Gen SlotCount
 genSlotCount = SlotCount <$> Gen.word64 Range.constantBounded
 
-genSlotId :: ProtocolConstants -> Gen SlotId
-genSlotId pc = SlotId <$> genEpochIndex <*> genLocalSlotIndex pc
+genSlotId :: SlotCount -> Gen SlotId
+genSlotId epochSlots = SlotId <$> genEpochIndex <*> genLocalSlotIndex epochSlots
+
+genSlottingData :: Gen SlottingData
+genSlottingData = createSlottingDataUnsafe <$> do
+    mapSize <- Gen.int $ Range.linear 2 10
+    epochSlottingDatas <- Gen.list (Range.singleton mapSize) genEpochSlottingData
+    pure $ M.fromList $ zip [0..fromIntegral mapSize - 1] epochSlottingDatas
 
 genTimeDiff :: Gen TimeDiff
 genTimeDiff = TimeDiff <$> genMicrosecond
@@ -675,330 +330,7 @@ genTimestampRoundedToSecond =
     Timestamp . (* 1000000) . (`rem` 1000000) <$> genMicrosecond
 
 ----------------------------------------------------------------------------
--- Pos.Core.Ssc Generators
-----------------------------------------------------------------------------
-
-genGenesisAvvmBalances :: Gen GenesisAvvmBalances
-genGenesisAvvmBalances = GenesisAvvmBalances <$> customHashMapGen genRedeemPublicKey genCoin
-
-genCommitment :: Gen Commitment
-genCommitment = fst <$> genCommitmentOpening
-
-genCommitmentOpening :: Gen (Commitment, Opening)
-genCommitmentOpening = do
-    let numKeys = 128 :: Int
-    parties <-
-        Gen.integral (Range.constant 4 (fromIntegral numKeys)) :: Gen Integer
-    threshold <- Gen.integral (Range.constant 2 (parties - 2)) :: Gen Integer
-    vssKeys <- replicateM numKeys genVssPublicKey
-    pure
-        $ deterministic "commitmentOpening"
-        $ randCommitmentAndOpening threshold (fromList vssKeys)
-
-genCommitmentSignature :: ProtocolMagic -> Gen CommitmentSignature
-genCommitmentSignature pm = genSignature pm $ (,) <$> genEpochIndex <*> genCommitment
-
-genCommitmentsMap :: ProtocolMagic -> Gen CommitmentsMap
-genCommitmentsMap pm = mkCommitmentsMap <$> Gen.list range (genSignedCommitment pm)
-  where
-    range = Range.linear 0 10
-
-genInnerSharesMap :: Gen InnerSharesMap
-genInnerSharesMap = do
-    hMS <- Gen.int (Range.linear 0 10)
-    stakeholderId <- Gen.list (Range.singleton hMS) genStakeholderId
-    nonEmptyDS <- Gen.nonEmpty (Range.singleton hMS) (asBinary <$> genDecShare)
-    pure $ HM.fromList $ zip stakeholderId [nonEmptyDS]
-
-genOpening :: Gen Opening
-genOpening = snd <$> genCommitmentOpening
-
-genOpeningsMap :: Gen OpeningsMap
-genOpeningsMap = do
-    hMapSize <- Gen.int (Range.linear 0 10)
-    stakeholderId <- Gen.list (Range.singleton hMapSize) genStakeholderId
-    opening <- Gen.list (Range.singleton hMapSize) genOpening
-    pure $ HM.fromList $ zip stakeholderId opening
-
-genSharesDistribution :: Gen SharesDistribution
-genSharesDistribution = genCustomHashMap genStakeholderId genWord16
-
-genSharesMap :: Gen SharesMap
-genSharesMap = do
-    hMapSize <- Gen.int (Range.linear 0 10)
-    stakeholderId <- Gen.list (Range.singleton hMapSize) genStakeholderId
-    innerSharesMap <- Gen.list (Range.singleton hMapSize) genInnerSharesMap
-    pure $ HM.fromList $ zip stakeholderId innerSharesMap
-
-genSignedCommitment :: ProtocolMagic -> Gen SignedCommitment
-genSignedCommitment pm =
-    (,,) <$> genPublicKey <*> genCommitment <*> genCommitmentSignature pm
-
--- We mod the size to the range [0,5000) to give relatively large tests which
--- are still reasonably fast to generate.
-genSscPayload :: ProtocolMagic -> Gen SscPayload
-genSscPayload pm = Gen.scale (`mod` 5000) $
-    Gen.choice
-        [ CertificatesPayload <$> genVssCertificatesMap pm
-        , CommitmentsPayload <$> genCommitmentsMap pm <*> genVssCertificatesMap pm
-        , OpeningsPayload <$> genOpeningsMap <*> genVssCertificatesMap pm
-        , SharesPayload <$> genSharesMap <*> genVssCertificatesMap pm
-        ]
-
-genSscProof :: ProtocolMagic -> Gen SscProof
-genSscProof pm = mkSscProof <$> genSscPayload pm
-
-genVssCertificate :: ProtocolMagic -> Gen VssCertificate
-genVssCertificate pm =
-    mkVssCertificate pm
-        <$> genSecretKey
-        <*> (asBinary <$> genVssPublicKey)
-        <*> genEpochIndex
-
-genVssCertificatesHash :: ProtocolMagic -> Gen VssCertificatesHash
-genVssCertificatesHash pm =
-    hash <$> genCustomHashMap genStakeholderId (genVssCertificate pm)
-
-genVssCertificatesMap :: ProtocolMagic -> Gen VssCertificatesMap
-genVssCertificatesMap pm =
-    mkVssCertificatesMap <$> Gen.list (Range.linear 0 5) (genVssCertificate pm)
-
-----------------------------------------------------------------------------
--- Pos.Core.Txp Generators
-----------------------------------------------------------------------------
-
-genPkWitness :: ProtocolMagic -> Gen TxInWitness
-genPkWitness pm = PkWitness <$> genPublicKey <*> genTxSig pm
-
-genRedeemWitness :: ProtocolMagic -> Gen TxInWitness
-genRedeemWitness pm =
-    RedeemWitness <$> genRedeemPublicKey <*> genRedeemSignature pm genTxSigData
-
-genScriptWitness :: Gen TxInWitness
-genScriptWitness = ScriptWitness <$> genScript <*> genScript
-
-genTx :: Gen Tx
-genTx = UnsafeTx <$> genTxInList <*> genTxOutList <*> genTxAttributes
-
-genTxAttributes :: Gen TxAttributes
-genTxAttributes = pure $ mkAttributes ()
-
-genTxAux :: ProtocolMagic -> Gen TxAux
-genTxAux pm = TxAux <$> genTx <*> (genTxWitness pm)
-
-genTxHash :: Gen (Hash Tx)
-genTxHash = coerce <$> genTextHash
-
-genTextHash :: Gen (Hash Text)
-genTextHash = do
-    sampleText <- Gen.text (Range.linear 0 10) Gen.alphaNum
-    pure (hash sampleText :: Hash Text)
-
-genTxIn :: Gen TxIn
-genTxIn = Gen.choice gens
-  where
-    gens = [ TxInUtxo <$> genTxId <*> genWord32
-           -- 0 is reserved for TxInUtxo tag
-           , TxInUnknown <$> Gen.word8 (Range.constant 1 255)
-                         <*> gen32Bytes
-           ]
-
-genTxInList :: Gen (NonEmpty TxIn)
-genTxInList = Gen.nonEmpty (Range.linear 1 20) genTxIn
-
-genTxOut :: Gen TxOut
-genTxOut = TxOut <$> genAddress <*> genCoin
-
-genTxOutAux :: Gen TxOutAux
-genTxOutAux = TxOutAux <$> genTxOut
-
-genTxOutList :: Gen (NonEmpty TxOut)
-genTxOutList = Gen.nonEmpty (Range.linear 1 100) genTxOut
-
-genTxId :: Gen TxId
-genTxId = genBase16Text >>= pure . decodeHash >>= either error pure
-  where
-    genBase16Text = decodeUtf8 @Text @ByteString <$> genBase16Bs
-
-genTxPayload :: ProtocolMagic -> Gen TxPayload
-genTxPayload pm = mkTxPayload <$> (Gen.list (Range.linear 0 10) (genTxAux pm))
-
-genTxProof :: ProtocolMagic -> Gen TxProof
-genTxProof pm =
-    TxProof
-        <$> genWord32
-        <*> genMerkleRoot genTx
-        <*> genAbstractHash (Gen.list (Range.linear 1 5) (genTxWitness pm))
-
-genTxSig :: ProtocolMagic -> Gen TxSig
-genTxSig pm =
-    sign pm <$> genSignTag <*> genSecretKey <*> genTxSigData
-
-genTxSigData :: Gen TxSigData
-genTxSigData = TxSigData <$> genTxHash
-
-genTxInWitness :: ProtocolMagic -> Gen TxInWitness
-genTxInWitness pm = Gen.choice gens
-  where
-    gens = [ genPkWitness pm
-           , genRedeemWitness pm
-           , genScriptWitness
-           , genUnknownWitnessType
-           ]
-
-genTxWitness :: ProtocolMagic -> Gen TxWitness
-genTxWitness pm = V.fromList <$> Gen.list (Range.linear 1 10) (genTxInWitness pm)
-
-genUnknownWitnessType :: Gen TxInWitness
-genUnknownWitnessType =
-    UnknownWitnessType <$> Gen.word8 (Range.constant 3 maxBound) <*> gen32Bytes
-
-----------------------------------------------------------------------------
--- Pos.Core.Update Generators
-----------------------------------------------------------------------------
-
-genApplicationName :: Gen ApplicationName
-genApplicationName =
-    ApplicationName <$> Gen.text (Range.constant 0 10) Gen.alphaNum
-
-genBlockVersion :: Gen BlockVersion
-genBlockVersion =
-    BlockVersion
-        <$> Gen.word16 Range.constantBounded
-        <*> Gen.word16 Range.constantBounded
-        <*> Gen.word8 Range.constantBounded
-
-genBlockVersionData :: Gen BlockVersionData
-genBlockVersionData =
-    BlockVersionData
-        <$> genScriptVersion
-        <*> genMillisecond
-        <*> genByte
-        <*> genByte
-        <*> genByte
-        <*> genByte
-        <*> genCoinPortion
-        <*> genCoinPortion
-        <*> genCoinPortion
-        <*> genCoinPortion
-        <*> genFlatSlotId
-        <*> genSoftforkRule
-        <*> genTxFeePolicy
-        <*> genEpochIndex
-
-genBlockVersionDataByTxFP :: Gen TxFeePolicy -> Gen BlockVersionData
-genBlockVersionDataByTxFP genTxFP =
-    BlockVersionData
-        <$> genScriptVersion
-        <*> genMillisecond
-        <*> genByte
-        <*> genByte
-        <*> genByte
-        <*> genByte
-        <*> genCoinPortion
-        <*> genCoinPortion
-        <*> genCoinPortion
-        <*> genCoinPortion
-        <*> genFlatSlotId
-        <*> genSoftforkRule
-        <*> genTxFP
-        <*> genEpochIndex
-
-genBlockVersionModifier :: Gen BlockVersionModifier
-genBlockVersionModifier =
-    BlockVersionModifier
-        <$> Gen.maybe genScriptVersion
-        <*> Gen.maybe genMillisecond
-        <*> Gen.maybe genByte
-        <*> Gen.maybe genByte
-        <*> Gen.maybe genByte
-        <*> Gen.maybe genByte
-        <*> Gen.maybe genCoinPortion
-        <*> Gen.maybe genCoinPortion
-        <*> Gen.maybe genCoinPortion
-        <*> Gen.maybe genCoinPortion
-        <*> Gen.maybe genFlatSlotId
-        <*> Gen.maybe genSoftforkRule
-        <*> Gen.maybe genTxFeePolicy
-        <*> Gen.maybe genEpochIndex
-
-genHashRaw :: Gen (Hash Raw)
-genHashRaw = genAbstractHash $ Raw <$> gen32Bytes
-
-genSoftforkRule :: Gen SoftforkRule
-genSoftforkRule =
-    SoftforkRule <$> genCoinPortion <*> genCoinPortion <*> genCoinPortion
-
-genSoftwareVersion :: Gen SoftwareVersion
-genSoftwareVersion =
-    SoftwareVersion
-        <$> genApplicationName
-        <*> Gen.word32 Range.constantBounded
-
-genSystemTag :: Gen SystemTag
-genSystemTag = SystemTag <$> Gen.text (Range.constant 0 10) Gen.alphaNum
-
-genUpAttributes :: Gen UpAttributes
-genUpAttributes = pure $ mkAttributes ()
-
-genUpdateData :: Gen UpdateData
-genUpdateData =
-    UpdateData
-        <$> genHashRaw
-        <*> genHashRaw
-        <*> genHashRaw
-        <*> genHashRaw
-
-genUpdatePayload :: ProtocolMagic -> Gen UpdatePayload
-genUpdatePayload pm =
-    UpdatePayload
-        <$> Gen.maybe (genUpdateProposal pm)
-        <*> Gen.list (Range.linear 0 10) (genUpdateVote pm)
-
-genUpdateProof :: ProtocolMagic -> Gen UpdateProof
-genUpdateProof pm = genAbstractHash (genUpdatePayload pm)
-
-genUpdateProposal :: ProtocolMagic -> Gen UpdateProposal
-genUpdateProposal pm = do
-    UnsafeUpdateProposal
-        <$> genBlockVersion
-        <*> genBlockVersionModifier
-        <*> genSoftwareVersion
-        <*> genUpsData
-        <*> genUpAttributes
-        <*> genPublicKey
-        <*> genSignature pm genUpdateProposalToSign
-
-genUpdateProposals :: ProtocolMagic -> Gen UpdateProposals
-genUpdateProposals pm = genCustomHashMap (genUpId pm) (genUpdateProposal pm)
-
-genUpdateProposalToSign :: Gen UpdateProposalToSign
-genUpdateProposalToSign =
-    UpdateProposalToSign
-        <$> genBlockVersion
-        <*> genBlockVersionModifier
-        <*> genSoftwareVersion
-        <*> genUpsData
-        <*> genUpAttributes
-
-genUpId :: ProtocolMagic -> Gen UpId
-genUpId pm = genAbstractHash (genUpdateProposal pm)
-
-genUpsData :: Gen (HM.HashMap SystemTag UpdateData)
-genUpsData = do
-    hMapSize <- Gen.int (Range.linear 0 20)
-    sysTagList <- Gen.list (Range.singleton hMapSize) genSystemTag
-    upDataList <- Gen.list (Range.singleton hMapSize) genUpdateData
-    pure $ HM.fromList $ zip sysTagList upDataList
-
-genUpdateVote :: ProtocolMagic -> Gen UpdateVote
-genUpdateVote pm = mkUpdateVote pm <$> genSecretKey <*> genUpId pm <*> Gen.bool
-
-genVoteId :: ProtocolMagic -> Gen VoteId
-genVoteId pm = (,,) <$> genUpId pm <*> genPublicKey <*> Gen.bool
-
-----------------------------------------------------------------------------
--- Pos.Data.Attributes Generators
+-- Pos.Core.Attributes Generators
 ----------------------------------------------------------------------------
 
 genAttributes :: Gen a -> Gen (Attributes a)
@@ -1008,25 +340,20 @@ genAttributes genA =  mkAttributes <$> genA
 -- Pos.Merkle Generators
 ----------------------------------------------------------------------------
 
+genHashRaw :: Gen (Hash Raw)
+genHashRaw = genAbstractHash $ Raw <$> gen32Bytes
+
+-- slow
 genMerkleTree :: Bi a => Gen a -> Gen (MerkleTree a)
 genMerkleTree genA = mkMerkleTree <$> Gen.list (Range.linear 0 10) genA
 
+-- slow
 genMerkleRoot :: Bi a => Gen a -> Gen (MerkleRoot a)
 genMerkleRoot genA = mtRoot <$> genMerkleTree genA
 
 ----------------------------------------------------------------------------
 -- Helper Generators
 ----------------------------------------------------------------------------
-
-customHashMapGen
-    :: (Hashable k, Eq k)
-    => Gen k -> Gen v -> Gen (HM.HashMap k v)
-customHashMapGen keyGen valGen =
-    HM.fromList
-        <$> (Gen.list (Range.linear 1 10) $ (,) <$> keyGen <*> valGen)
-
-genBase16Bs :: Gen ByteString
-genBase16Bs = B16.encode <$> genBytes 32
 
 genBytes :: Int -> Gen ByteString
 genBytes n = Gen.bytes (Range.singleton n)
@@ -1040,28 +367,22 @@ genByte = Gen.integral (Range.constant 0 10)
 gen32Bytes :: Gen ByteString
 gen32Bytes = genBytes 32
 
-genCustomHashMap
-    :: (Hashable k, Eq k)
-    => Gen k -> Gen v -> Gen (HM.HashMap k v)
-genCustomHashMap genK genV = HM.fromList <$> Gen.list range gen
-  where
-    gen = (,) <$> genK <*> genV
-    range = Range.linear 0 10
-
 genMillisecond :: Gen Millisecond
 genMillisecond = fromMicroseconds <$> Gen.integral (Range.constant 0 1000000)
 
 genMicrosecond :: Gen Microsecond
 genMicrosecond = fromMicroseconds <$> Gen.integral (Range.constant 0 1000000)
 
-genWord16 :: Gen Word16
-genWord16 = Gen.word16 Range.constantBounded
-
 genWord32 :: Gen Word32
 genWord32 = Gen.word32 Range.constantBounded
 
-genWord8 :: Gen Word8
-genWord8 = Gen.word8 Range.constantBounded
+genWord16 :: Gen Word16
+genWord16 = Gen.word16 Range.constantBounded
+
+genTextHash :: Gen (Hash Text)
+genTextHash = do
+  sampleText <- Gen.text (Range.linear 0 10) Gen.alphaNum
+  pure (hash sampleText :: Hash Text)
 
 genInt32 :: Gen Int32
 genInt32 = Gen.int32 Range.constantBounded

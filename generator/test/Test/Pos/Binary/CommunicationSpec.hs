@@ -5,35 +5,39 @@ module Test.Pos.Binary.CommunicationSpec
 import           Universum
 
 import qualified Data.ByteString.Lazy as BSL
-import           Data.Default (def)
-import           Test.Hspec (Spec, describe, runIO)
-import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (generate)
+import qualified Data.Set as Set
+import           Test.Hspec (Spec, beforeAll_, describe)
+import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck.Monadic (assert)
 
 import           Pos.Binary.Class (decodeFull, serialize')
 import           Pos.Binary.Communication (serializeMsgSerializedBlock)
-import           Pos.Block.Network.Types (MsgBlock (..), MsgSerializedBlock (..))
-import           Pos.Crypto (ProtocolMagic (..), RequiresNetworkMagic (..))
+import           Pos.Chain.Txp (TxpConfiguration (..))
 import           Pos.DB.Class (Serialized (..))
+import           Pos.Network.Block.Types (MsgBlock (..),
+                     MsgSerializedBlock (..))
 import           Pos.Util.CompileInfo (withCompileInfo)
+import           Pos.Util.Wlog (setupTestLogging)
 
 import           Test.Pos.Block.Logic.Mode (blockPropertyTestable)
-import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..), bpGenBlock)
-import           Test.Pos.Configuration (HasStaticConfigurations, withStaticConfigurations)
-import           Test.Pos.Crypto.Arbitrary (genProtocolMagicUniformWithRNM)
+import           Test.Pos.Block.Logic.Util (EnableTxPayload (..),
+                     InplaceDB (..), bpGenBlock)
+import           Test.Pos.Configuration (HasStaticConfigurations,
+                     withStaticConfigurations)
 
 -- |
 -- The binary encoding of `MsgSerializedBlock` using `serializeMsgSerializedBlock`
 -- should be the same as the binary encoding of `MsgBlock`.
-serializeMsgSerializedBlockSpec
-    :: (HasStaticConfigurations) => ProtocolMagic -> Spec
-serializeMsgSerializedBlockSpec pm = do
-    prop desc $ blockPropertyTestable pm $ do
-        (block, _) <- bpGenBlock pm (EnableTxPayload True) (InplaceDB True)
+serializeMsgSerializedBlockSpec :: HasStaticConfigurations => Spec
+serializeMsgSerializedBlockSpec = do
+    prop desc $ blockPropertyTestable $ \genesisConfig -> do
+        (block, _) <- bpGenBlock genesisConfig
+                                 (TxpConfiguration 200 Set.empty)
+                                 (EnableTxPayload True)
+                                 (InplaceDB True)
         let sb = Serialized $ serialize' block
         assert $ serializeMsgSerializedBlock (MsgSerializedBlock sb) == serialize' (MsgBlock block)
-    prop descNoBlock $ blockPropertyTestable pm $ do
+    prop descNoBlock $ blockPropertyTestable $ \_ -> do
         let msg :: MsgSerializedBlock
             msg = MsgNoSerializedBlock "no block"
             msg' :: MsgBlock
@@ -47,16 +51,18 @@ serializeMsgSerializedBlockSpec pm = do
 -- |
 -- Deserialization of a serialized `MsgSerializedBlock` (with
 -- `serializeMsgSerializedBlock`) should give back the original block.
-deserializeSerilizedMsgSerializedBlockSpec
-    :: (HasStaticConfigurations) => ProtocolMagic -> Spec
-deserializeSerilizedMsgSerializedBlockSpec pm = do
-    prop desc $ blockPropertyTestable pm $ do
-        (block, _) <- bpGenBlock pm (EnableTxPayload True) (InplaceDB True)
+deserializeSerilizedMsgSerializedBlockSpec :: HasStaticConfigurations => Spec
+deserializeSerilizedMsgSerializedBlockSpec = do
+    prop desc $ blockPropertyTestable $ \genesisConfig -> do
+        (block, _) <- bpGenBlock genesisConfig
+                                 (TxpConfiguration 200 Set.empty)
+                                 (EnableTxPayload True)
+                                 (InplaceDB True)
         let sb = Serialized $ serialize' block
         let msg :: Either Text MsgBlock
             msg = decodeFull . BSL.fromStrict . serializeMsgSerializedBlock $ MsgSerializedBlock sb
         assert $ msg == Right (MsgBlock block)
-    prop descNoBlock $ blockPropertyTestable pm $ do
+    prop descNoBlock $ blockPropertyTestable $ \_ -> do
         let msg :: MsgSerializedBlock
             msg = MsgNoSerializedBlock "no block"
         assert $ (decodeFull . BSL.fromStrict . serializeMsgSerializedBlock $ msg) == Right (MsgNoBlock "no block")
@@ -64,27 +70,9 @@ deserializeSerilizedMsgSerializedBlockSpec pm = do
     desc = "deserialization of a serialized MsgSerializedBlock message should give back corresponding MsgBlock"
     descNoBlock = "deserialization of a serialized MsgNoSerializedBlock message should give back corresponding MsgNoBlock"
 
-
--- We run the tests this number of times, with different `ProtocolMagics`, to get increased
--- coverage. We should really do this inside of the `prop`, but it is difficult to do that
--- without significant rewriting of the testsuite.
-testMultiple :: Int
-testMultiple = 1
-
 spec :: Spec
-spec = do
-    runWithMagic NMMustBeNothing
-    runWithMagic NMMustBeJust
-
-runWithMagic :: RequiresNetworkMagic -> Spec
-runWithMagic rnm = replicateM_ testMultiple $
-    modifyMaxSuccess (`div` testMultiple) $ do
-        pm <- runIO (generate (genProtocolMagicUniformWithRNM rnm))
-        describe ("(requiresNetworkMagic=" ++ show rnm ++ ")") $
-            specBody pm
-
-specBody :: ProtocolMagic -> Spec
-specBody pm = withStaticConfigurations $ \_ -> withCompileInfo def $
-    describe "Pos.Binary.Communication" $ do
-        describe "serializeMsgSerializedBlock" (serializeMsgSerializedBlockSpec pm)
-        describe "decode is left inverse of serializeMsgSerializedBlock" (deserializeSerilizedMsgSerializedBlockSpec pm)
+spec = beforeAll_ setupTestLogging $
+    withStaticConfigurations $ \_ _ -> withCompileInfo $
+        describe "Pos.Binary.Communication" $ do
+            describe "serializeMsgSerializedBlock" serializeMsgSerializedBlockSpec
+            describe "decode is left inverse of serializeMsgSerializedBlock" deserializeSerilizedMsgSerializedBlockSpec

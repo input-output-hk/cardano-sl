@@ -10,13 +10,14 @@ module Pos.Client.Update.Network
 import           Universum
 
 import           Formatting (sformat, (%))
-import           System.Wlog (logInfo)
 
-import           Pos.Communication.Message ()
+import           Pos.Chain.Update (UpId, UpdateProposal, UpdateVote (..),
+                     mkUpdateVoteSafe)
 import           Pos.Crypto (ProtocolMagic, SafeSigner, hash, hashHexF)
 import           Pos.Infra.Diffusion.Types (Diffusion)
-import qualified Pos.Infra.Diffusion.Types as Diffusion (Diffusion (sendUpdateProposal, sendVote))
-import           Pos.Update (UpId, UpdateProposal, UpdateVote (..), mkUpdateVoteSafe)
+import qualified Pos.Infra.Diffusion.Types as Diffusion
+                     (Diffusion (sendUpdateProposal, sendVote))
+import           Pos.Util.Wlog (logInfo)
 import           Pos.WorkMode.Class (MinWorkMode)
 
 -- | Send UpdateVote to given addresses

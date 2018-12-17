@@ -1,8 +1,7 @@
-{-# LANGUAGE DataKinds     #-}
-{-# LANGUAGE TypeFamilies  #-}
-{-# LANGUAGE TypeOperators #-}
-
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE DataKinds       #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE TypeOperators   #-}
 
 -- | Web server.
 
@@ -20,39 +19,40 @@ import qualified Control.Concurrent.Async as Async
 import qualified Control.Exception.Safe as E
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
-import           Data.Aeson.TH (defaultOptions, deriveToJSON)
 import qualified Data.ByteString.Char8 as BSC
 import           Data.Default (Default, def)
 import           Data.Streaming.Network (bindPortTCP, bindRandomPortTCP)
 import           Data.X509 (ExtKeyUsagePurpose (..), HashALG (..))
 import           Data.X509.CertificateStore (readCertificateStore)
-import           Data.X509.Validation (ValidationChecks (..), ValidationHooks (..))
+import           Data.X509.Validation (ValidationChecks (..),
+                     ValidationHooks (..))
 import qualified Data.X509.Validation as X509
-import           Mockable (Production (runProduction))
-import           Network.TLS (CertificateRejectReason (..), CertificateUsage (..), ServerHooks (..))
+import           Network.TLS (CertificateRejectReason (..),
+                     CertificateUsage (..), ServerHooks (..))
 import           Network.Wai (Application)
-import           Network.Wai.Handler.Warp (Settings, defaultSettings, getHost, runSettingsSocket,
-                                           setHost, setPort)
-import           Network.Wai.Handler.WarpTLS (TLSSettings (..), runTLSSocket, tlsSettingsChain)
-import           Servant.API ((:<|>) ((:<|>)), FromHttpApiData)
-import           Servant.Server (Handler, HasServer, ServantErr (errBody), Server, ServerT, err404,
-                                 err503, hoistServer, serve)
+import           Network.Wai.Handler.Warp (Settings, defaultSettings, getHost,
+                     runSettingsSocket, setHost, setPort)
+import           Network.Wai.Handler.WarpTLS (TLSSettings (..), runTLSSocket,
+                     tlsSettingsChain)
+import           Servant.API ((:<|>) ((:<|>)))
+import           Servant.Server (Handler, HasServer, ServantErr (errBody),
+                     Server, ServerT, err404, err503, hoistServer, serve)
 import           UnliftIO (MonadUnliftIO)
 
 import           Network.Socket (Socket, close)
-import           Pos.Aeson.Txp ()
-import           Pos.Context (HasNodeContext (..), HasSscContext (..), NodeContext, getOurPublicKey)
+import           Pos.Chain.Ssc (scParticipateSsc)
+import           Pos.Chain.Txp (TxOut (..), toaOut)
+import           Pos.Chain.Update (HasUpdateConfiguration)
+import           Pos.Context (HasNodeContext (..), HasSscContext (..),
+                     NodeContext, getOurPublicKey)
 import           Pos.Core (EpochIndex (..), SlotLeaders)
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB as DB
+import qualified Pos.DB.Lrc as LrcDB
+import           Pos.DB.Txp (GenericTxpLocalData, MempoolExt,
+                     getAllPotentiallyHugeUtxo, getLocalTxs, withTxpLocalData)
 import qualified Pos.GState as GS
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
-import qualified Pos.Lrc.DB as LrcDB
-import           Pos.Ssc (scParticipateSsc)
-import           Pos.Txp (TxOut (..), toaOut)
-import           Pos.Txp.MemState (GenericTxpLocalData, MempoolExt, getLocalTxs, withTxpLocalData)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Web.Mode (WebMode, WebModeContext (..))
 import           Pos.WorkMode.Class (WorkMode)
 
@@ -224,8 +224,7 @@ convertHandler
     -> Handler a
 convertHandler nc nodeDBs txpData handler =
     liftIO
-        (runProduction $
-         Mtl.runReaderT
+        (Mtl.runReaderT
              handler
              (WebModeContext nodeDBs txpData nc)) `E.catches`
     excHandlers
@@ -254,7 +253,7 @@ servantServer = withNat (Proxy @NodeApi) nodeServantHandlers
 ----------------------------------------------------------------------------
 
 nodeServantHandlers
-    :: (HasConfiguration, HasUpdateConfiguration, Default ext)
+    :: (HasUpdateConfiguration, Default ext)
     => ServerT NodeApi (WebMode ext)
 nodeServantHandlers =
     getLeaders
@@ -274,7 +273,7 @@ nodeServantHandlers =
     -- :<|> getOurSecret
     -- :<|> getSscStage
 
-getLeaders :: HasConfiguration => Maybe EpochIndex -> WebMode ext SlotLeaders
+getLeaders :: Maybe EpochIndex -> WebMode ext SlotLeaders
 getLeaders maybeEpoch = do
     -- epoch <- maybe (siEpoch <$> getCurrentSlot) pure maybeEpoch
     epoch <- maybe (pure 0) pure maybeEpoch
@@ -282,8 +281,8 @@ getLeaders maybeEpoch = do
   where
     err = err404 { errBody = encodeUtf8 ("Leaders are not know for current epoch"::Text) }
 
-getUtxo :: HasConfiguration => WebMode ext [TxOut]
-getUtxo = map toaOut . toList <$> GS.getAllPotentiallyHugeUtxo
+getUtxo :: WebMode ext [TxOut]
+getUtxo = map toaOut . toList <$> getAllPotentiallyHugeUtxo
 
 getLocalTxsNum :: Default ext => WebMode ext Word
 getLocalTxsNum = fromIntegral . length <$> withTxpLocalData getLocalTxs
@@ -333,10 +332,3 @@ servantServerHealthCheck mStatus = do
     case status of
       HSUnhealthy msg -> throwM $ err503 { errBody = encodeUtf8 msg }
       HSHealthy msg   -> return (show msg)
-
-----------------------------------------------------------------------------
--- Orphan instances
-----------------------------------------------------------------------------
-
-deriving instance FromHttpApiData EpochIndex
-deriveToJSON defaultOptions ''CConfirmedProposalState

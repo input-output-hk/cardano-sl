@@ -6,15 +6,15 @@ module Client.Cardano.Wallet.Web.Endpoint.NewAddress
 
 import           Universum
 
-import           Client.Cardano.Wallet.Web.Api     (newAddress)
-import           Client.Cardano.Wallet.Web.Run     (runEndpointClient)
-import           Client.Cardano.Wallet.Web.Analyze (analyzeResponseIfNeeded, checkResponse)
-import           Bench.Cardano.Wallet.Types        (BenchEndpoint (..), CompleteConfig (..),
-                                                    Wallet (..), WalletAccount (..),
-                                                    WalletsConfig (..), Response,
-                                                    ResponseReport (..))
-import           Bench.Cardano.Wallet.Random       (pickRandomElementFrom)
-import           Pos.Wallet.Web.ClientTypes        (CAccountId (..), CAddress (..))
+import           Bench.Cardano.Wallet.Random (pickRandomElementFrom)
+import           Bench.Cardano.Wallet.Types (BenchEndpoint (..),
+                     CompleteConfig (..), Response, ResponseReport (..),
+                     Wallet (..), WalletAccount (..), WalletsConfig (..))
+import           Client.Cardano.Wallet.Web.Analyze (analyzeResponseIfNeeded,
+                     checkResponse)
+import           Client.Cardano.Wallet.Web.Api (newAddress)
+import           Client.Cardano.Wallet.Web.Run (runEndpointClient)
+import           Pos.Wallet.Web.ClientTypes (CAccountId (..), CAddress (..))
 
 -- | Run 'NewAddress' client. As a result we will get
 -- a newly created address in the given account.

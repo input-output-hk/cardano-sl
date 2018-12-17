@@ -1,5 +1,6 @@
-{-# LANGUAGE ApplicativeDo  #-}
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE ApplicativeDo   #-}
+{-# LANGUAGE NamedFieldPuns  #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Command.Proc
        ( createCommandProcs
@@ -12,56 +13,66 @@ import           Data.Default (def)
 import           Data.List ((!!))
 import qualified Data.Map as Map
 import           Formatting (build, int, sformat, stext, (%))
-import           System.Wlog (CanLog, HasLoggerName, logError, logInfo, logWarning)
 import qualified Text.JSON.Canonical as CanonicalJSON
 
+import           Pos.Chain.Delegation (HeavyDlgIndex (..))
+import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots,
+                     configGeneratedSecretsThrow)
+import           Pos.Chain.Genesis (gsSecretKeys)
+import           Pos.Chain.Txp (TxOut (..), TxpConfiguration)
+import           Pos.Chain.Update (BlockVersionModifier (..),
+                     SoftwareVersion (..))
 import           Pos.Client.KeyStorage (addSecretKey, getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
-import           Pos.Core (AddrStakeDistribution (..), HeavyDlgIndex (..), SoftwareVersion (..),
-                           StakeholderId, addressHash, mkMultiKeyDistr, unsafeGetCoin)
-import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..), makeAddress)
-import           Pos.Core.Configuration (genesisSecretKeys)
+import           Pos.Core (AddrStakeDistribution (..), StakeholderId,
+                     addressHash, mkMultiKeyDistr, unsafeGetCoin)
+import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
+                     makeAddress)
 import           Pos.Core.NetworkMagic (makeNetworkMagic)
-import           Pos.Core.Txp (TxOut (..))
-import           Pos.Crypto (ProtocolMagic, PublicKey, emptyPassphrase, encToPublic, fullPublicKeyF,
-                             hashHexF, noPassEncrypt, safeCreatePsk, unsafeCheatingHashCoerce,
-                             withSafeSigner)
+import           Pos.Crypto (PublicKey, emptyPassphrase, encToPublic,
+                     fullPublicKeyF, hashHexF, noPassEncrypt, safeCreatePsk,
+                     unsafeCheatingHashCoerce, withSafeSigner)
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
-import           Pos.Update (BlockVersionModifier (..))
-import           Pos.Util.UserSecret (WalletUserSecret (..), readUserSecret, usKeys, usPrimKey,
-                                      usWallet, userSecret)
+import           Pos.Util.UserSecret (WalletUserSecret (..), readUserSecret,
+                     usKeys, usPrimKey, usWallet, userSecret)
 import           Pos.Util.Util (eitherToThrow)
+import           Pos.Util.Wlog (CanLog, HasLoggerName, logError, logInfo,
+                     logWarning)
 
 import           Command.BlockGen (generateBlocks)
 import           Command.Help (mkHelpMessage)
 import qualified Command.Rollback as Rollback
 import qualified Command.Tx as Tx
-import           Command.TyProjection (tyAddrDistrPart, tyAddrStakeDistr, tyAddress,
-                                       tyApplicationName, tyBlockVersion, tyBlockVersionModifier,
-                                       tyBool, tyByte, tyCoin, tyCoinPortion, tyEither,
-                                       tyEpochIndex, tyFilePath, tyHash, tyInt,
-                                       tyProposeUpdateSystem, tyPublicKey, tyScriptVersion,
-                                       tySecond, tySoftwareVersion, tyStakeholderId, tySystemTag,
-                                       tyTxOut, tyValue, tyWord, tyWord32)
+import           Command.TyProjection (tyAddrDistrPart, tyAddrStakeDistr,
+                     tyAddress, tyApplicationName, tyBlockVersion,
+                     tyBlockVersionModifier, tyBool, tyByte, tyCoin,
+                     tyCoinPortion, tyEither, tyEpochIndex, tyFilePath, tyHash,
+                     tyInt, tyProposeUpdateSystem, tyPublicKey,
+                     tyScriptVersion, tySecond, tySoftwareVersion,
+                     tyStakeholderId, tySystemTag, tyTxOut, tyValue, tyWord,
+                     tyWord32)
 import qualified Command.Update as Update
-import           Lang.Argument (getArg, getArgMany, getArgOpt, getArgSome, typeDirectedKwAnn)
+import           Lang.Argument (getArg, getArgMany, getArgOpt, getArgSome,
+                     typeDirectedKwAnn)
 import           Lang.Command (CommandProc (..), UnavailableCommand (..))
 import           Lang.Name (Name)
-import           Lang.Value (AddKeyParams (..), AddrDistrPart (..), GenBlocksParams (..),
-                             ProposeUpdateParams (..), ProposeUpdateSystem (..),
-                             RollbackParams (..), Value (..))
-import           Mode (MonadAuxxMode, deriveHDAddressAuxx, makePubKeyAddressAuxx)
+import           Lang.Value (AddKeyParams (..), AddrDistrPart (..),
+                     GenBlocksParams (..), ProposeUpdateParams (..),
+                     ProposeUpdateSystem (..), RollbackParams (..), Value (..))
+import           Mode (MonadAuxxMode, deriveHDAddressAuxx,
+                     makePubKeyAddressAuxx)
 import           Repl (PrintAction)
 
 createCommandProcs ::
        forall m. (MonadIO m, CanLog m, HasLoggerName m)
-    => Maybe ProtocolMagic
+    => Maybe Genesis.Config
+    -> Maybe TxpConfiguration
     -> Maybe (Dict (MonadAuxxMode m))
     -> PrintAction m
     -> Maybe (Diffusion m)
     -> [CommandProc m]
-createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \commands -> [
+createCommandProcs mCoreConfig mTxpConfig hasAuxxMode printAction mDiffusion = rights . fix $ \commands -> [
 
     return CommandProc
     { cpName = "L"
@@ -92,9 +103,9 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
     },
 
     let name = "addr" in
+    needsCoreConfig name >>= \genesisConfig ->
     needsAuxxMode name >>= \Dict ->
-    needsProtocolMagic name >>= \pm ->
-    let nm = makeNetworkMagic pm in
+    let nm = makeNetworkMagic (configProtocolMagic genesisConfig) in
     return CommandProc
     { cpName = name
     , cpArgumentPrepare = map
@@ -105,7 +116,7 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
     , cpExec = \(pk', mDistr) -> do
         pk <- toLeft pk'
         addr <- case mDistr of
-            Nothing -> makePubKeyAddressAuxx nm pk
+            Nothing -> makePubKeyAddressAuxx nm (configEpochSlots genesisConfig) pk
             Just distr -> return $
                 makeAddress (PubKeyASD pk) (AddrAttributes Nothing distr nm)
         return $ ValueAddress addr
@@ -115,8 +126,8 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
     },
 
     let name = "addr-hd" in
+    needsCoreConfig name >>= \genesisConfig ->
     needsAuxxMode name >>= \Dict ->
-    needsProtocolMagic name >>= \pm ->
     return CommandProc
     { cpName = name
     , cpArgumentPrepare = identity
@@ -126,8 +137,8 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
         sk <- evaluateWHNF (sks !! i) -- WHNF is sufficient to force possible errors
                                       -- from using (!!). I'd use NF but there's no
                                       -- NFData instance for secret keys.
-        let nm = makeNetworkMagic pm
-        addrHD <- deriveHDAddressAuxx nm sk
+        let nm = makeNetworkMagic (configProtocolMagic genesisConfig)
+        addrHD <- deriveHDAddressAuxx nm (configEpochSlots genesisConfig) sk
         return $ ValueAddress addrHD
     , cpHelp = "address of the HD wallet for the specified public key"
     },
@@ -184,18 +195,18 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
     return . procConst "false" $ ValueBool False,
 
     let name = "balance" in
+    needsCoreConfig name >>= \genesisConfig ->
     needsAuxxMode name >>= \Dict ->
-    needsProtocolMagic name >>= \pm ->
-    let nm = makeNetworkMagic pm in
+    let nm = makeNetworkMagic (configProtocolMagic genesisConfig) in
     return CommandProc
     { cpName = name
     , cpArgumentPrepare = identity
     , cpArgumentConsumer = getArg (tyAddress `tyEither` tyPublicKey `tyEither` tyInt) "addr"
     , cpExec = \addr' -> do
-        addr <- case addr' of
-            Left a    -> pure a
-            Right pki -> makePubKeyAddressAuxx nm =<< toLeft pki
-        balance <- getBalance addr
+        addr <-
+          either return (makePubKeyAddressAuxx nm $ configEpochSlots genesisConfig) <=<
+          traverse (either return getPublicKeyFromIndex) $ addr'
+        balance <- getBalance (configGenesisData genesisConfig) addr
         return $ ValueNumber (fromIntegral . unsafeGetCoin $ balance)
     , cpHelp = "check the amount of coins on the specified address"
     },
@@ -211,7 +222,7 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
     },
 
     let name = "send-to-all-genesis" in
-    needsProtocolMagic name >>= \pm ->
+    needsCoreConfig name >>= \genesisConfig ->
     needsDiffusion name >>= \diffusion ->
     needsAuxxMode name >>= \Dict ->
     return CommandProc
@@ -225,7 +236,8 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
         stagpTpsSentFile <- getArg tyFilePath "file"
         return Tx.SendToAllGenesisParams{..}
     , cpExec = \stagp -> do
-        Tx.sendToAllGenesis pm diffusion stagp
+        secretKeys <- gsSecretKeys <$> configGeneratedSecretsThrow genesisConfig
+        Tx.sendToAllGenesis genesisConfig secretKeys diffusion stagp
         return ValueUnit
     , cpHelp = "create and send transactions from all genesis addresses \
                \ for <duration> seconds, <delay> in ms. <conc> is the \
@@ -246,7 +258,7 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
     },
 
     let name = "send" in
-    needsProtocolMagic name >>= \pm ->
+    needsCoreConfig name >>= \genesisConfig ->
     needsDiffusion name >>= \diffusion ->
     needsAuxxMode name >>= \Dict ->
     return CommandProc
@@ -256,14 +268,14 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
         (,) <$> getArg tyInt "i"
             <*> getArgSome tyTxOut "out"
     , cpExec = \(i, outputs) -> do
-        Tx.send pm diffusion i outputs
+        Tx.send genesisConfig diffusion i outputs
         return ValueUnit
     , cpHelp = "send from #i to specified transaction outputs \
                \ (use 'tx-out' to build them)"
     },
 
     let name = "vote" in
-    needsProtocolMagic name >>= \pm ->
+    needsCoreConfig name >>= \genesisConfig ->
     needsDiffusion name >>= \diffusion ->
     needsAuxxMode name >>= \Dict ->
     return CommandProc
@@ -274,7 +286,7 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
              <*> getArg tyBool "agree"
              <*> getArg tyHash "up-id"
     , cpExec = \(i, decision, upId) -> do
-        Update.vote pm diffusion i decision upId
+        Update.vote (configProtocolMagic genesisConfig) diffusion i decision upId
         return ValueUnit
     , cpHelp = "send vote for update proposal <up-id> and \
                \ decision <agree> ('true' or 'false'), \
@@ -330,7 +342,7 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
     },
 
     let name = "propose-update" in
-    needsProtocolMagic name >>= \pm ->
+    needsCoreConfig name >>= \genesisConfig ->
     needsDiffusion name >>= \diffusion ->
     needsAuxxMode name >>= \Dict ->
     return CommandProc
@@ -352,7 +364,8 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
         -- FIXME: confuses existential/universal. A better solution
         -- is to have two ValueHash constructors, one with universal and
         -- one with existential (relevant via singleton-style GADT) quantification.
-        ValueHash . unsafeCheatingHashCoerce <$> Update.propose pm diffusion params
+        ValueHash . unsafeCheatingHashCoerce
+            <$> Update.propose (configProtocolMagic genesisConfig) diffusion params
     , cpHelp = "propose an update with one positive vote for it \
                \ using secret key #i"
     },
@@ -368,7 +381,7 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
     },
 
     let name = "delegate-heavy" in
-    needsProtocolMagic name >>= \pm ->
+    needsCoreConfig name >>= \genesisConfig ->
     needsDiffusion name >>= \diffusion ->
     needsAuxxMode name >>= \Dict ->
     return CommandProc
@@ -384,7 +397,10 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
         withSafeSigner issuerSk (pure emptyPassphrase) $ \case
             Nothing -> logError "Invalid passphrase"
             Just ss -> do
-                let psk = safeCreatePsk pm ss delegatePk (HeavyDlgIndex curEpoch)
+                let psk = safeCreatePsk (configProtocolMagic genesisConfig)
+                                        ss
+                                        delegatePk
+                                        (HeavyDlgIndex curEpoch)
                 if dry
                 then do
                     printAction $
@@ -402,8 +418,9 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
     },
 
     let name = "generate-blocks" in
-    needsProtocolMagic name >>= \pm ->
+    needsCoreConfig name >>= \genesisConfig ->
     needsAuxxMode name >>= \Dict ->
+    needsTxpConfig name >>= \txpConfig ->
     return CommandProc
     { cpName = name
     , cpArgumentPrepare = identity
@@ -412,12 +429,13 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
         bgoSeed <- getArgOpt tyInt "seed"
         return GenBlocksParams{..}
     , cpExec = \params -> do
-        generateBlocks pm params
+        generateBlocks genesisConfig txpConfig params
         return ValueUnit
     , cpHelp = "generate <n> blocks"
     },
 
     let name = "add-key-pool" in
+    needsCoreConfig name >>= \genesisConfig ->
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
@@ -425,9 +443,9 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
     , cpArgumentConsumer = getArgMany tyInt "i"
     , cpExec = \is -> do
         when (null is) $ logWarning "Not adding keys from pool (list is empty)"
-        let secrets = fromMaybe (error "Secret keys are unknown") genesisSecretKeys
+        secretKeys <- gsSecretKeys <$> configGeneratedSecretsThrow genesisConfig
         forM_ is $ \i -> do
-            key <- evaluateNF $ secrets !! i
+            key <- evaluateNF $ secretKeys !! i
             addSecretKey $ noPassEncrypt key
         return ValueUnit
     , cpHelp = ""
@@ -456,7 +474,7 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
     },
 
     let name = "rollback" in
-    needsProtocolMagic name >>= \pm ->
+    needsCoreConfig name >>= \genesisConfig ->
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
@@ -466,35 +484,36 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
         rpDumpPath <- getArg tyFilePath "dump-file"
         pure RollbackParams{..}
     , cpExec = \RollbackParams{..} -> do
-        Rollback.rollbackAndDump pm rpNum rpDumpPath
+        Rollback.rollbackAndDump genesisConfig rpNum rpDumpPath
         return ValueUnit
     , cpHelp = ""
     },
 
     let name = "listaddr" in
+    needsCoreConfig name >>= \genesisConfig ->
     needsAuxxMode name >>= \Dict ->
-    needsProtocolMagic name >>= \pm ->
-    let nm = makeNetworkMagic pm in
+    let nm = makeNetworkMagic (configProtocolMagic genesisConfig) in
     return CommandProc
     { cpName = name
     , cpArgumentPrepare = identity
     , cpArgumentConsumer = do pure ()
     , cpExec = \() -> do
+        let epochSlots = configEpochSlots genesisConfig
         sks <- getSecretKeysPlain
         printAction "Available addresses:"
         for_ (zip [0 :: Int ..] sks) $ \(i, sk) -> do
             let pk = encToPublic sk
-            addr <- makePubKeyAddressAuxx nm pk
-            addrHD <- deriveHDAddressAuxx nm sk
+            addr <- makePubKeyAddressAuxx nm epochSlots pk
+            addrHD <- deriveHDAddressAuxx nm epochSlots sk
             printAction $
                 sformat ("    #"%int%":   addr:      "%build%"\n"%
                          "          pk:        "%fullPublicKeyF%"\n"%
                          "          pk hash:   "%hashHexF%"\n"%
                          "          HD addr:   "%build)
                     i addr pk (addressHash pk) addrHD
-        walletMB <- (^. usWallet) <$> (view userSecret >>= atomically . readTVar)
+        walletMB <- (^. usWallet) <$> (view userSecret >>= readTVarIO)
         whenJust walletMB $ \wallet -> do
-            addrHD <- deriveHDAddressAuxx nm (_wusRootKey wallet)
+            addrHD <- deriveHDAddressAuxx nm epochSlots (_wusRootKey wallet)
             printAction $
                 sformat ("    Wallet address:\n"%
                          "          HD addr:   "%build)
@@ -513,15 +532,15 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
     , cpHelp = "display this message"
     }]
   where
-    needsAuxxMode :: Name -> Either UnavailableCommand (Dict (MonadAuxxMode m))
-    needsAuxxMode name =
-        maybe (Left $ UnavailableCommand name "AuxxMode is not available") Right hasAuxxMode
-    needsDiffusion :: Name -> Either UnavailableCommand (Diffusion m)
-    needsDiffusion name =
-        maybe (Left $ UnavailableCommand name "Diffusion layer is not available") Right mDiffusion
-    needsProtocolMagic :: Name -> Either UnavailableCommand ProtocolMagic
-    needsProtocolMagic name =
-        maybe (Left $ UnavailableCommand name "ProtocolMagic is not available") Right mpm
+    needsData :: Maybe a -> Text -> Name -> Either UnavailableCommand a
+    needsData mData msg name = maybe
+        (Left $ UnavailableCommand name (msg <> " is not available"))
+        Right
+        mData
+    needsAuxxMode = needsData hasAuxxMode "AuxxMode"
+    needsDiffusion = needsData mDiffusion "Diffusion layer"
+    needsCoreConfig = needsData mCoreConfig "Genesis.Config"
+    needsTxpConfig = needsData mTxpConfig "TxpConfiguration"
 
 procConst :: Applicative m => Name -> Value -> CommandProc m
 procConst name value =

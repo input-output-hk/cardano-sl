@@ -36,6 +36,7 @@ import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Keystore (Keystore)
 import           Cardano.Wallet.Kernel.NodeStateAdaptor
 import           Cardano.Wallet.Kernel.ProtocolParameters
+                     (ProtocolParameterAdaptor)
 import qualified Cardano.Wallet.Kernel.Read as Kernel
 import qualified Cardano.Wallet.Kernel.Restore as Kernel
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..),

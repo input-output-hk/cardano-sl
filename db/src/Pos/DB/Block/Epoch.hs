@@ -219,7 +219,7 @@ getConsolidatedSerBlund (SlotId ei lsi) = do
 -- -----------------------------------------------------------------------------
 
 data ConsolidateError
-    = CEExcpectedMain !Text !HeaderHash
+    = CEExpectedMain !Text !HeaderHash
     | CEForwardLink !Text !HeaderHash
     | CEEoSLookupFailed !Text !HeaderHash
     | CEBlockLookupFailed !Text !LocalSlotIndex !HeaderHash
@@ -227,7 +227,7 @@ data ConsolidateError
 
 renderConsolidateError :: ConsolidateError -> Text
 renderConsolidateError = \case
-    CEExcpectedMain fn h ->
+    CEExpectedMain fn h ->
         fn <> sformat (": hash " % build % " should be a main block hash.") h
     CEForwardLink fn h ->
         fn <> sformat (": failed to follow hash " % build) h
@@ -423,7 +423,7 @@ getEpochHeaderHashes startHash = do
 
     -- For most epochs, the LocalSlotIndex here should be zero, but there is at
     -- least one exception to the rule, epoch 84 which suffered a chain stall
-    -- and missied the first 772 slots.
+    -- and missed the first 772 slots.
     lsi <- getLocalSlotIndex next
     ei <- getBlockHeaderEpoch next
     (nh, bhs) <- loop ei [SlotIndexHash lsi next] next
@@ -453,7 +453,7 @@ getLocalSlotIndex hh = do
     meos <- unEpochOrSlot <<$>> getHeaderEpochOrSlot hh
     case meos of
         Nothing          -> throwE $ CEEoSLookupFailed "getLocalSlotIndex" hh
-        Just (Left _)    -> throwE $ CEExcpectedMain "getLocalSlotIndex" hh
+        Just (Left _)    -> throwE $ CEExpectedMain "getLocalSlotIndex" hh
         Just (Right sid) -> pure $ siSlot sid
 
 isMainBlockHeader :: MonadDBRead m => HeaderHash -> m Bool
@@ -540,7 +540,7 @@ getConsolidateCheckPoint genesisHash =
         Just eh -> pure eh
         Nothing -> ConsolidateCheckPoint 0 <$> getFirstGenesisBlockHash genesisHash
 
--- | Store the consolidation check pount.
+-- | Store the consolidation check point.
 putConsolidateCheckPoint :: MonadDB m => ConsolidateCheckPoint -> m ()
 putConsolidateCheckPoint =
     miscPutBi consolidateCheckPointKey

@@ -219,23 +219,15 @@ getConsolidatedSerBlund (SlotId ei lsi) = do
 -- -----------------------------------------------------------------------------
 
 data ConsolidateError
-    = CEFinalBlockNotBoundary !Text
-    | CEExpectedGenesis !Text !HeaderHash
-    | CEExcpectedMain !Text !HeaderHash
+    = CEExpectedMain !Text !HeaderHash
     | CEForwardLink !Text !HeaderHash
     | CEEoSLookupFailed !Text !HeaderHash
     | CEBlockLookupFailed !Text !LocalSlotIndex !HeaderHash
-    | CEBOffsetFail !Text
-    | CEBlockMismatch !Text !LocalSlotIndex
     | CEBBlockNotFound !Text !LocalSlotIndex !HeaderHash
 
 renderConsolidateError :: ConsolidateError -> Text
 renderConsolidateError = \case
-    CEFinalBlockNotBoundary fn ->
-        fn <> ": Final block is not an epoch boundary block"
-    CEExpectedGenesis fn h ->
-        fn <> sformat (": hash " % build % " should be an epoch boundary hash.") h
-    CEExcpectedMain fn h ->
+    CEExpectedMain fn h ->
         fn <> sformat (": hash " % build % " should be a main block hash.") h
     CEForwardLink fn h ->
         fn <> sformat (": failed to follow hash " % build) h
@@ -243,10 +235,6 @@ renderConsolidateError = \case
         fn <> sformat (": EpochOrSlot lookup failed on hash " % build) h
     CEBlockLookupFailed fn lsi h ->
         fn <> sformat (": block lookup failed on (" % build % ", " % build % ")") lsi h
-    CEBOffsetFail fn ->
-        fn <> ": Failed to find offset"
-    CEBlockMismatch fn lsi ->
-        fn <> sformat (": block mismatch at index " % build) lsi
     CEBBlockNotFound fn lsi hh ->
         fn <> sformat (": block mssing : " % build % " " % build) lsi hh
 
@@ -334,15 +322,15 @@ consolidateWithStatus
     => ConsolidateCheckPoint -> ConsolidateStatus -> SlotCount -> m ConsolidateStatus
 consolidateWithStatus checkPoint oldStatus epochSlots = do
     enCpp <- runExceptT $ consolidateOneEpoch checkPoint epochSlots
-    -- 'tipEpoch' is the tip of the block chain that has been synced by this node so far.
-    tipEpoch <- getTipEpoch
-    logInfo $ sformat ("consolidated epoch "%int%", current tip is epoch "%int)
-                (getEpochIndex $ ccpEpochIndex checkPoint) (getEpochIndex tipEpoch)
     case enCpp of
         Left e -> do
             logError $ renderConsolidateError e
             pure $ increaseSyncSeconds oldStatus -- Not much else to be done!
         Right () -> do
+            -- 'tipEpoch' is the tip of the block chain that has been synced by this node so far.
+            tipEpoch <- getTipEpoch
+            logInfo $ sformat ("consolidated epoch "%int%", current tip is epoch "%int)
+                    (getEpochIndex $ ccpEpochIndex checkPoint) (getEpochIndex tipEpoch)
             pure $ if ccpEpochIndex checkPoint + 2 > tipEpoch
                     then increaseSyncSeconds oldStatus
                     else resetSyncSeconds oldStatus
@@ -352,14 +340,14 @@ consolidateOneEpoch
     :: ConsolidateM ctx m
     => ConsolidateCheckPoint -> SlotCount -> ExceptT ConsolidateError m ()
 consolidateOneEpoch ccp epochSlots = do
-    (epochBoundary, sihs) <- getEpochHeaderHashes $ ccpHeaderHash ccp
+    (epochStart, sihs) <- getEpochHeaderHashes $ ccpHeaderHash ccp
     (epochPath, indexPath) <- mkEpochPaths (ccpEpochIndex ccp) . view epochDataDir <$> getNodeDBs
 
     xs <- consolidateEpochBlocks epochPath sihs
     liftIO $ writeEpochIndex epochSlots indexPath xs
 
     -- Write starting point for next consolidation to the MiscDB.
-    putConsolidateCheckPoint $ ConsolidateCheckPoint (ccpEpochIndex ccp + 1) epochBoundary
+    putConsolidateCheckPoint $ ConsolidateCheckPoint (ccpEpochIndex ccp + 1) epochStart
 
     -- After the check point is written, delete old blunds for the epoch we have just
     -- consolidated.
@@ -415,36 +403,48 @@ consolidateEpochBlocks fpath xs = ExceptT $ do
                 pure . Right $ SlotIndexLength (getSlotIndex lsi)
                                 (fromIntegral $ LBS.length chunk)
 
--- | Given the hash of an epoch boundary block, return a pair of the next
--- epoch boundary hash and a list of the header hashes of the main blocks
--- between the two boundary blocks.
+-- | Get a list of headers for an epoch.
+-- This function is designed to work on both Ouroboros classic (Original)
+-- epochs and on Ouroboros BFT epochs. The only difference between these two
+-- epoch types from the point of view of block consolidation is that Original
+-- epochs start with an epoch boundary block (EBB) where as OBFT doesn't have
+-- EBBs.
+-- The inital header hash that is passed in should be the hash of either the
+-- EBB for Original or of the zeroth block in the case of OBFT.
 getEpochHeaderHashes
     :: MonadDBRead m
     => HeaderHash -> ExceptT ConsolidateError m (HeaderHash, [SlotIndexHash])
-getEpochHeaderHashes ghash = do
-    mbh <- isMainBlockHeader ghash
-    when mbh $
-        throwE $ CEExpectedGenesis "getEpochHeaderHashes" ghash
-    (ng, bhs) <- loop [] ghash
-    whenM (isMainBlockHeader ng) $
-        throwE $ CEFinalBlockNotBoundary "getEpochHeaderHashes"
-    pure (ng, reverse bhs)
+getEpochHeaderHashes startHash = do
+    -- Make sure the hash passed to the OBFT version is a Main block and not an
+    -- epoch boundary block.
+    next <- ifM (isMainBlockHeader startHash)
+                (pure startHash)
+                (maybe (throwE $ errorHash startHash) pure =<< resolveForwardLink startHash)
+
+    -- For most epochs, the LocalSlotIndex here should be zero, but there is at
+    -- least one exception to the rule, epoch 84 which suffered a chain stall
+    -- and missed the first 772 slots.
+    lsi <- getLocalSlotIndex next
+    ei <- getBlockHeaderEpoch next
+    (nh, bhs) <- loop ei [SlotIndexHash lsi next] next
+    pure (nh, reverse bhs)
   where
     loop
         :: MonadDBRead m
-        => [SlotIndexHash] -> HeaderHash
+        => EpochIndex -> [SlotIndexHash] -> HeaderHash
         -> ExceptT ConsolidateError m (HeaderHash, [SlotIndexHash])
-    loop !acc hash = do
+    loop currentEpoch !acc hash = do
         mnext <- resolveForwardLink hash
         next <- maybe (throwE $ errorHash hash) pure mnext
-        ifM (not <$> isMainBlockHeader next)
-            (pure (next, acc))
-            (do lsi <- getLocalSlotIndex next
-                loop (SlotIndexHash lsi next : acc) next
-                )
+        nei <- getBlockHeaderEpoch next
+        if nei /= currentEpoch
+            then pure (next, acc)
+            else do
+                lsi <- getLocalSlotIndex next
+                loop currentEpoch (SlotIndexHash lsi next : acc) next
 
-    errorHash hash =
-        CEForwardLink "getEpochHeaderHashes" hash
+    errorHash =
+        CEForwardLink "getEpochHeaderHashes"
 
 getLocalSlotIndex
     :: MonadDBRead m
@@ -453,7 +453,7 @@ getLocalSlotIndex hh = do
     meos <- unEpochOrSlot <<$>> getHeaderEpochOrSlot hh
     case meos of
         Nothing          -> throwE $ CEEoSLookupFailed "getLocalSlotIndex" hh
-        Just (Left _)    -> throwE $ CEExcpectedMain "getLocalSlotIndex" hh
+        Just (Left _)    -> throwE $ CEExpectedMain "getLocalSlotIndex" hh
         Just (Right sid) -> pure $ siSlot sid
 
 isMainBlockHeader :: MonadDBRead m => HeaderHash -> m Bool
@@ -523,8 +523,10 @@ data ConsolidateCheckPoint = ConsolidateCheckPoint
     { ccpEpochIndex :: !EpochIndex
       -- ^ The EpochIndex of the next epoch to be consolidated.
     , ccpHeaderHash :: !HeaderHash
-      -- ^ The HeaderHash of the boundary block separating the last consolidated
-      -- epoch and the next one to be consolidated.
+      -- ^ The HeaderHash of first block of the next epoch. In the case of
+      -- Ouroboros Original/Classic, this will be the epoch boundary block
+      -- and in the case of OBFT, this with be the zeroth block of the next
+      -- epoch.
     }
 
 -- | Get the 'HeaderHash' of the marking the start of the first un-consolidated
@@ -538,8 +540,7 @@ getConsolidateCheckPoint genesisHash =
         Just eh -> pure eh
         Nothing -> ConsolidateCheckPoint 0 <$> getFirstGenesisBlockHash genesisHash
 
--- | Store the hash of the epoch boundary block which is at the start of the
--- next epoch to be consolidated.
+-- | Store the consolidation check point.
 putConsolidateCheckPoint :: MonadDB m => ConsolidateCheckPoint -> m ()
 putConsolidateCheckPoint =
     miscPutBi consolidateCheckPointKey

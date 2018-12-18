@@ -18,6 +18,7 @@ module Test.Pos.Chain.Block.Arbitrary
        , genMainBlock
        , genHeaderAndParams
        , genStubbedBHL
+       , genConsensusEra
        ) where
 
 import           Universum
@@ -281,6 +282,7 @@ instance Show BlockHeaderList where
 --     genesis kind.
 recursiveHeaderGen
     :: ProtocolMagic
+    -> ConsensusEra
     -> GenesisHash
     -> Bool -- ^ Whether to create genesis block before creating main block for 0th slot
     -> [Either SecretKey (SecretKey, SecretKey)]
@@ -288,20 +290,21 @@ recursiveHeaderGen
     -> [Block.BlockHeader]
     -> Gen [Block.BlockHeader]
 recursiveHeaderGen pm
+                   era
                    gHash
                    genesis
                    (eitherOfLeader : leaders)
                    (Core.SlotId{..} : rest)
                    blockchain
-    | genesis && Core.getSlotIndex siSlot == 0 = do
+    | genesis && era == Original && Core.getSlotIndex siSlot == 0 = do
           gBody <- arbitrary
           let pHeader = maybe (Left gHash) Right ((fmap fst . uncons) blockchain)
               gHeader = Block.BlockHeaderGenesis $ Block.mkGenesisHeader pm pHeader siEpoch gBody
           mHeader <- genMainHeader (Just gHeader)
-          recursiveHeaderGen pm gHash True leaders rest (mHeader : gHeader : blockchain)
+          recursiveHeaderGen pm era gHash True leaders rest (mHeader : gHeader : blockchain)
     | otherwise = do
           curHeader <- genMainHeader ((fmap fst . uncons) blockchain)
-          recursiveHeaderGen pm gHash True leaders rest (curHeader : blockchain)
+          recursiveHeaderGen pm era gHash True leaders rest (curHeader : blockchain)
   where
     genMainHeader prevHeader = do
         body <- arbitrary
@@ -319,8 +322,8 @@ recursiveHeaderGen pm
                     in (delegateSK, Just proxy)
         pure $ Block.BlockHeaderMain $
             Block.mkMainHeader pm (maybe (Left gHash) Right prevHeader) slotId leader proxySK body extraHData
-recursiveHeaderGen _ _ _ [] _ b = return b
-recursiveHeaderGen _ _ _ _ [] b = return b
+recursiveHeaderGen _ _ _ _ [] _ b = return b
+recursiveHeaderGen _ _ _ _ _ [] b = return b
 
 
 -- | Maximum start epoch in block header verification tests
@@ -349,25 +352,30 @@ bhlEpochs = 2
 -- Note that a leader is generated for each slot.
 -- (Not exactly a leader - see previous comment)
 instance Arbitrary BlockHeaderList where
-    arbitrary = arbitrary >>= genStubbedBHL
+    arbitrary = do
+        pm <- arbitrary
+        era <- arbitrary
+        genStubbedBHL pm era
 
 genStubbedBHL
     :: ProtocolMagic
+    -> ConsensusEra
     -> Gen BlockHeaderList
-genStubbedBHL pm = do
+genStubbedBHL pm era = do
     incompleteEpochSize <- choose (1, dummyEpochSlots - 1)
     let slot = Core.SlotId 0 localSlotIndexMinBound
-    generateBHL pm dummyGenesisHash True slot (dummyEpochSlots * bhlEpochs + incompleteEpochSize)
+    generateBHL pm era dummyGenesisHash True slot (dummyEpochSlots * bhlEpochs + incompleteEpochSize)
 
 generateBHL
     :: ProtocolMagic
+    -> ConsensusEra
     -> GenesisHash
     -> Bool         -- ^ Whether to create genesis block before creating main
                     --    block for 0th slot
     -> Core.SlotId     -- ^ Start slot
     -> Core.SlotCount  -- ^ Slot count
     -> Gen BlockHeaderList
-generateBHL pm gHash createInitGenesis startSlot slotCount = BHL <$> do
+generateBHL pm era gHash createInitGenesis startSlot slotCount = BHL <$> do
     let correctLeaderGen :: Gen (Either SecretKey (SecretKey, SecretKey))
         correctLeaderGen =
             -- We don't want to create blocks with self-signed psks
@@ -383,6 +391,7 @@ generateBHL pm gHash createInitGenesis startSlot slotCount = BHL <$> do
     (, actualLeaders) <$>
         recursiveHeaderGen
             pm
+            era
             gHash
             createInitGenesis
             leadersList
@@ -398,19 +407,18 @@ newtype HeaderAndParams = HAndP
     { getHAndP :: (Block.VerifyHeaderParams, Block.BlockHeader)
     } deriving (Eq, Show)
 
-genHeaderAndParams :: ProtocolMagic -> Gen HeaderAndParams
-genHeaderAndParams pm = do
+genHeaderAndParams :: ProtocolMagic -> ConsensusEra -> Gen HeaderAndParams
+genHeaderAndParams pm era = do
     -- This integer is used as a seed to randomly choose a slot down below
     seed <- arbitrary :: Gen Int
     startSlot <- Core.SlotId <$> choose (0, bhlMaxStartingEpoch) <*> arbitrary
     (headers, leaders) <- first reverse . getHeaderList <$>
-        (generateBHL pm dummyGenesisHash True startSlot =<< choose (1, 2))
+        (generateBHL pm era dummyGenesisHash True startSlot =<< choose (1, 2))
     let num = length headers
     -- 'skip' is the random number of headers that should be skipped in
     -- the header chain. This ensures different parts of it are chosen
     -- each time.
     skip <- choose (0, num - 1)
-    era <- genConsensusEra
     let atMost2HeadersAndLeaders = take 2 $ drop skip headers
         (prev, header) =
             case atMost2HeadersAndLeaders of
@@ -468,7 +476,10 @@ genHeaderAndParams pm = do
 -- type, so it is used here and at most 3 blocks are taken from the generated
 -- list.
 instance Arbitrary HeaderAndParams where
-    arbitrary = arbitrary >>= genHeaderAndParams
+    arbitrary = do
+        pm <- arbitrary
+        era <- arbitrary
+        genHeaderAndParams pm era
 
 -- TODO mhueschen | decide: should we generate both?
 genConsensusEra :: Gen ConsensusEra

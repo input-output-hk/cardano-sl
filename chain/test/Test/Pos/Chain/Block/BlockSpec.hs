@@ -27,7 +27,7 @@ import           Pos.Chain.Block (BlockHeader (..), BlockSignature (..),
 import qualified Pos.Chain.Block as Block
 import           Pos.Chain.Delegation (HeavyDlgIndex (..))
 import           Pos.Chain.Genesis (GenesisHash (..))
-import           Pos.Chain.Update (ConsensusEra)
+import           Pos.Chain.Update (ConsensusEra (..))
 import           Pos.Core (EpochIndex (..), SlotId (..), difficultyL)
 import           Pos.Core.Attributes (mkAttributes)
 import           Pos.Core.Chrono (NewestFirst (..))
@@ -157,16 +157,16 @@ mainHeaderFormation pm prevHeader slotId signer body extra =
 -- GenesisBlock ∪ MainBlock
 ----------------------------------------------------------------------------
 
-validateGoodMainHeader :: ProtocolMagic -> Gen Bool
-validateGoodMainHeader pm = do
-    (BT.getHAndP -> (params, header)) <- BT.genHeaderAndParams pm
+validateGoodMainHeader :: ProtocolMagic -> ConsensusEra -> Gen Bool
+validateGoodMainHeader pm era = do
+    (BT.getHAndP -> (params, header)) <- BT.genHeaderAndParams pm era
     pure $ isVerSuccess $ Block.verifyHeader pm params header
 
 -- FIXME should sharpen this test to ensure that it fails with the expected
 -- reason.
-validateBadProtocolMagicMainHeader :: ProtocolMagic -> Gen Bool
-validateBadProtocolMagicMainHeader pm = do
-    (BT.getHAndP -> (params, header)) <- BT.genHeaderAndParams pm
+validateBadProtocolMagicMainHeader :: ProtocolMagic -> ConsensusEra -> Gen Bool
+validateBadProtocolMagicMainHeader pm era = do
+    (BT.getHAndP -> (params, header)) <- BT.genHeaderAndParams pm era
     let protocolMagicId' = ProtocolMagicId (getProtocolMagic pm + 1)
         header' = case header of
             BlockHeaderGenesis h -> BlockHeaderGenesis (h & gbhProtocolMagicId .~ protocolMagicId')
@@ -175,5 +175,5 @@ validateBadProtocolMagicMainHeader pm = do
 
 validateGoodHeaderChain :: ProtocolMagic -> ConsensusEra -> Gen Bool
 validateGoodHeaderChain pm era = do
-    BT.BHL (l, _) <- BT.genStubbedBHL pm
+    BT.BHL (l, _) <- BT.genStubbedBHL pm era
     pure $ isVerSuccess $ Block.verifyHeaders pm era Nothing (NewestFirst l)

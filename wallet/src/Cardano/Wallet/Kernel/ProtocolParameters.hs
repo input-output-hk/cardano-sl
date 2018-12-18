@@ -18,9 +18,6 @@ import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Util.Wlog (logInfo)
 import           Pos.Web.Types
 
-import           Pos.Node.API (ProtocolParameters (..))
-
-
 import           Pos.Core.Slotting (SlotId (..))
 
 import qualified Pos.Node.API as API

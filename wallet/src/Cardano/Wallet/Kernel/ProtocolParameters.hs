@@ -18,7 +18,6 @@ import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Util.Wlog (logInfo)
 import           Pos.Web.Types
 
-import           Pos.Core.Slotting (SlotId (..))
 
 import qualified Pos.Node.API as API
 
@@ -110,11 +109,11 @@ data ProtocolParameterAdaptor = ProtocolParameterAdaptor
 newProtocolParameterAdaptor :: NodeHttpClient -> ProtocolParameterAdaptor
 newProtocolParameterAdaptor client = ProtocolParameterAdaptor
     { nodeClient           = client
-    , getTipSlotId         = f $ API.setSlotId <$> getNodeSettings client
+    , getTipSlotId         = f $ API.unV1 <$> API.setSlotId <$> getNodeSettings client
     , getMaxTxSize         = f $ API.setMaxTxSize <$> getNodeSettings client
-    , getFeePolicy         = f $ API.setFeePolicy <$> getNodeSettings client
+    , getFeePolicy         = f $ API.unV1 <$> API.setFeePolicy <$> getNodeSettings client
     , getSecurityParameter = error "TODO"--f $ API.securityParameter <$> getProtocolParameters client
-    , getSlotCount         = f $ API.setSlotCount <$> getNodeSettings client
+    , getSlotCount         = f $ API.unV1 <$> API.setSlotCount <$> getNodeSettings client
     , getCoreConfig        = error "TODO" --f $ API.coreConfig <$> getProtocolParameters client
     --, getCreationTimeStamp = f $ API.creationTimeStamp <$> getProtocolParameters client
     --, curSoftwareVersion   = f $ API.curSoftwareVersion <$> getProtocolParameters client

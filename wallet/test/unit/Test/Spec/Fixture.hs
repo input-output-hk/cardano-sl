@@ -88,7 +88,7 @@ withActiveWalletFixture pm prepareFixtures cc = do
     generateFixtures <- prepareFixtures
     liftIO $ Keystore.bracketTestKeystore $ \keystore -> do
         mockFInjects <- mkFInjects mempty
-        WalletLayer.Kernel.bracketPassiveWallet pm Kernel.UseInMemory devNull keystore mockNodeStateDef mockFInjects $ \passiveLayer passiveWallet -> do
+        WalletLayer.Kernel.bracketPassiveWallet pm Kernel.UseInMemory devNull keystore mockNodeStateDef mockFInjects pp $ \passiveLayer passiveWallet -> do
             WalletLayer.Kernel.bracketActiveWallet
                     passiveLayer
                     passiveWallet

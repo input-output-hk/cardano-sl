@@ -79,27 +79,13 @@ classifyNewHeader
     , WithLogger m
     )
     => Genesis.Config -> BlockHeader -> m ClassifyHeaderRes
-classifyNewHeader genesisConfig blockHeader = do
-    era <- getConsensusEra
-    logInfo $ sformat ("classifyNewHeader: Consensus era is " % shown) era
-    let k = case era of
-                Original -> classifyNewHeaderOriginal
-                OBFT _   -> classifyNewHeaderObft
-    k genesisConfig blockHeader
-
-classifyNewHeaderOriginal
-    :: forall ctx m.
-    ( MonadSlots ctx m
-    , MonadDBRead m
-    , MonadUnliftIO m
-    )
-    => Genesis.Config -> BlockHeader -> m ClassifyHeaderRes
 -- Genesis headers seem useless, we can create them by ourselves.
-classifyNewHeaderOriginal _ (BlockHeaderGenesis _) = pure $ CHUseless "genesis header is useless"
-classifyNewHeaderOriginal genesisConfig (BlockHeaderMain header) = fmap (either identity identity) <$> runExceptT $ do
+classifyNewHeader _ (BlockHeaderGenesis _) = pure $ CHUseless "genesis header is useless"
+classifyNewHeader genesisConfig (BlockHeaderMain header) = fmap (either identity identity) <$> runExceptT $ do
     curSlot <- getCurrentSlot $ configEpochSlots genesisConfig
     tipHeader <- lift DB.getTipHeader
     era <- getConsensusEra
+    logInfo $ sformat ("classifyNewHeader: Consensus era is " % shown) era
     let tipEoS = getEpochOrSlot tipHeader
     let newHeaderEoS = getEpochOrSlot header
     let newHeaderSlot = header ^. headerSlotL
@@ -122,78 +108,11 @@ classifyNewHeaderOriginal genesisConfig (BlockHeaderMain header) = fmap (either 
             newHeaderEoS tipEoS
         -- If header's parent is our tip, we verify it against tip's header.
     if | tip == header ^. prevBlockL -> do
-            leaders <-
-                maybe (throwError $ CHUseless "Can't get leaders") pure =<<
-                lift (LrcDB.getLeadersForEpoch newHeaderEpoch)
-            let vhp =
-                    VerifyHeaderParams
-                    { vhpPrevHeader = Just tipHeader
-                    -- We don't verify whether header is from future,
-                    -- because we already did it above. The principal
-                    -- difference is that currently header from future
-                    -- leads to 'CHUseless', but if we checked it
-                    -- inside 'verifyHeader' it would be 'CHUseless'.
-                    -- It's questionable though, maybe we will change
-                    -- this decision.
-                    , vhpCurrentSlot = Nothing
-                    , vhpLeaders = Just leaders
-                    , vhpMaxSize = Just maxBlockHeaderSize
-                    , vhpVerifyNoUnknown = False
-                    , vhpConsensusEra = era
-                    }
-            let pm = configProtocolMagic genesisConfig
-            case verifyHeader pm vhp (BlockHeaderMain header) of
-                VerFailure errors -> throwError $ mkCHRinvalid (NE.toList errors)
-                _                 -> pass
-
-            dlgHeaderValid <- lift $ runDBCede $ dlgVerifyHeader header
-            whenLeft dlgHeaderValid $ throwError . CHInvalid
-
-            pure CHContinues
-        -- If header's parent is not our tip, we check whether it's
-        -- more difficult than our main chain.
-        | tipHeader ^. difficultyL < header ^. difficultyL -> pure CHAlternative
-        -- If header can't continue main chain and is not more
-        -- difficult than main chain, it's useless.
-        | otherwise ->
-            pure $ CHUseless $
-            "header doesn't continue main chain and is not more difficult"
-
-{-# ANN classifyNewHeaderObft ("HLint: ignore Reduce duplication" :: Text) #-}
-classifyNewHeaderObft
-    :: forall ctx m.
-    ( MonadSlots ctx m
-    , MonadDBRead m
-    , MonadUnliftIO m
-    )
-    => Genesis.Config -> BlockHeader -> m ClassifyHeaderRes
-classifyNewHeaderObft _ (BlockHeaderGenesis _) = pure $ CHUseless "genesis header is useless during the OBFT era"
-classifyNewHeaderObft genesisConfig (BlockHeaderMain header) = fmap (either identity identity) <$> runExceptT $ do
-    curSlot <- getCurrentSlot $ configEpochSlots genesisConfig
-    tipHeader <- lift DB.getTipHeader
-    era <- getConsensusEra
-    let tipEoS = getEpochOrSlot tipHeader
-    let newHeaderEoS = getEpochOrSlot header
-    let newHeaderSlot = header ^. headerSlotL
-    let tip = headerHash tipHeader
-    maxBlockHeaderSize <- bvdMaxHeaderSize . snd <$> lift getAdoptedBVFull
-    -- First of all we check whether header is from current slot and
-    -- ignore it if it's not.
-    when (maybe False (newHeaderSlot >) curSlot) $
-        throwError $
-        CHUseless $ sformat
-            ("header is for future slot: our is "%build%
-             ", header's is "%build)
-            curSlot newHeaderSlot
-    when (newHeaderEoS <= tipEoS) $
-        throwError $
-        CHUseless $ sformat
-            ("header's slot "%build%
-             " is less or equal than our tip's slot "%build)
-            newHeaderEoS tipEoS
-        -- If header's parent is our tip, we verify it against tip's header.
-    if | tip == header ^. prevBlockL -> do
-            let leaders = getEpochSlotLeaderScheduleObft genesisConfig
+            leaders <- case era of
+                Original -> maybe (throwError $ CHUseless "Can't get leaders") pure =<<
+                            lift (LrcDB.getLeadersForEpoch newHeaderEpoch)
+                OBFT _ -> pure $
+                          getEpochSlotLeaderScheduleObft genesisConfig
                                                          (siEpoch newHeaderSlot)
             let vhp =
                     VerifyHeaderParams

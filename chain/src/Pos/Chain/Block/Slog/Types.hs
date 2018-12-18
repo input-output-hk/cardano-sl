@@ -2,6 +2,7 @@
 
 module Pos.Chain.Block.Slog.Types
        ( LastBlkSlots
+       , LastSlotInfo (..)
        , noLastBlkSlots
 
        , SlogGState (..)
@@ -25,12 +26,24 @@ import           Pos.Core (ChainDifficulty, EpochIndex, FlatSlotId,
                      LocalSlotIndex, SlotCount, slotIdF, unflattenSlotId)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Reporting (MetricMonitorState)
+import           Pos.Crypto (PublicKey)
+
+
+data LastSlotInfo = LastSlotInfo
+    { lsiFlatSlotId :: !FlatSlotId
+    -- ^ The flattened SlotId of this block.
+    , lsiLeaderPubkeyHash :: !PublicKey
+    -- ^ The hash of the public key of the slot leader for this slot.
+    } deriving (Eq, Show, Generic)
 
 -- | This type contains 'FlatSlotId's of the blocks whose depth is
 -- less than 'blkSecurityParam'. 'FlatSlotId' is chosen in favor of
 -- 'SlotId', because the main use case is chain quality calculation,
 -- for which flat slot is more convenient.
-type LastBlkSlots = OldestFirst [] FlatSlotId
+-- Version 1 of this data type was:
+--      type LastBlkSlots = OldestFirst [] FlatSlotId
+type LastBlkSlots = OldestFirst [] LastSlotInfo
+
 
 noLastBlkSlots :: LastBlkSlots
 noLastBlkSlots = OldestFirst []
@@ -102,3 +115,10 @@ deriveSimpleBi ''SlogUndo [
     Cons 'SlogUndo [
         Field [| getSlogUndo  :: Maybe FlatSlotId |]
     ]]
+
+deriveSimpleBi ''LastSlotInfo [
+    Cons 'LastSlotInfo [
+        Field [| lsiFlatSlotId :: FlatSlotId |],
+        Field [| lsiLeaderPubkeyHash :: PublicKey |]
+        ]
+    ]

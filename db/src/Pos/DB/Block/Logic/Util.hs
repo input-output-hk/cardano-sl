@@ -24,8 +24,8 @@ import qualified Data.List.NonEmpty as NE
 import           Formatting (int, sformat, (%))
 
 import           Pos.Chain.Block (BlockHeader, HasBlockConfiguration,
-                     HasSlogGState, HeaderHash, fixedTimeCQ, headerHash,
-                     prevBlockL)
+                     HasSlogGState, HeaderHash, LastSlotInfo (..), fixedTimeCQ,
+                     headerHash, prevBlockL)
 import           Pos.Core (BlockCount, FlatSlotId, SlotCount, Timestamp (..),
                      difficultyL, flattenSlotId)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
@@ -123,7 +123,7 @@ calcChainQualityM k newSlot = do
                 return
                     (calcChainQuality
                          (fromIntegral len)
-                         (NE.head slotsNE)
+                         (lsiFlatSlotId $ NE.head slotsNE)
                          newSlot)
 
 -- | Calculate overall chain quality, i. e. number of main blocks
@@ -172,7 +172,7 @@ calcChainQualityFixedTime epochSlots = do
     (,) <$> slotFromTimestamp epochSlots olderTime <*> getCurrentSlotFlat epochSlots >>= \case
         (Just (flattenSlotId epochSlots -> olderSlotId), Just currentSlotId) ->
             calcChainQualityFixedTimeDo olderSlotId currentSlotId <$>
-            slogGetLastSlots
+                (fmap (fmap lsiFlatSlotId) slogGetLastSlots)
         _ -> return Nothing
   where
     -- 'lastSlots' contains slots of last 'k' blocks.

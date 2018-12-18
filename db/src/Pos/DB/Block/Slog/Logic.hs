@@ -31,23 +31,25 @@ import           Formatting (build, sformat, shown, (%))
 import           Serokell.Util (Color (Red), colorize)
 import           Serokell.Util.Verify (formatAllErrors, verResToMonadError)
 
-import           Pos.Chain.Block (Block, Blund, HasSlogGState, SlogUndo (..),
-                     Undo (..), genBlockLeaders, headerHash, headerHashG,
-                     mainBlockSlot, prevBlockL, verifyBlocks)
+import           Pos.Chain.Block (Block, Blund, HasSlogGState,
+                     LastSlotInfo (..), MainBlock, SlogUndo (..),
+                     genBlockLeaders, headerHash, headerHashG,
+                     mainBlockLeaderKey, mainBlockSlot, prevBlockL,
+                     verifyBlocks)
 import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots,
                      configGenesisWStakeholders, configK)
 import           Pos.Chain.Txp (TxValidationRules (..))
 import           Pos.Chain.Update (BlockVersion (..), ConsensusEra (..),
                      ObftConsensusStrictness (..), UpdateConfiguration,
                      lastKnownBlockVersion)
-import           Pos.Core (BlockCount, FlatSlotId, ProtocolConstants,
-                     difficultyL, epochIndexL, flattenSlotId, kEpochSlots,
-                     pcBlkSecurityParam)
+import           Pos.Core (BlockCount, difficultyL, epochIndexL, flattenSlotId,
+                     kEpochSlots, pcBlkSecurityParam)
 import           Pos.Core.Chrono (NE, NewestFirst (getNewestFirst),
                      OldestFirst (..), toOldestFirst, _OldestFirst)
 import           Pos.Core.Exception (assertionFailed, reportFatalError)
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
-import           Pos.Core.Slotting (MonadSlots, SlotId (..), getEpochOrSlot)
+import           Pos.Core.NetworkMagic (NetworkMagic (..), makeNetworkMagic)
+import           Pos.Core.Slotting (HasEpochIndex, MonadSlots, SlotCount,
+                     SlotId (..), getEpochOrSlot)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Block.BListener (MonadBListener (..))
 import qualified Pos.DB.Block.GState.BlockExtra as GS
@@ -205,15 +207,14 @@ slogVerifyBlocks genesisConfig curSlot blocks = runExceptT $ do
     -- we can remove one of the last slots stored in 'BlockExtra'.
     -- This removed slot must be put into 'SlogUndo'.
     lastSlots <- lift GS.getLastSlots
-    let toFlatSlot =
-            fmap (flattenSlotId (configEpochSlots genesisConfig) . view mainBlockSlot) . rightToMaybe
     -- these slots will be added if we apply all blocks
-    let newSlots = mapMaybe toFlatSlot (toList blocks)
-    let combinedSlots :: OldestFirst [] FlatSlotId
+    let newSlots =
+            mapMaybe (toLastSlotInfo (configEpochSlots genesisConfig)) $ toList blocks
+    let combinedSlots :: OldestFirst [] LastSlotInfo
         combinedSlots = lastSlots & _Wrapped %~ (<> newSlots)
     -- these slots will be removed if we apply all blocks, because we store
     -- only limited number of slots
-    let removedSlots :: OldestFirst [] FlatSlotId
+    let removedSlots :: OldestFirst [] LastSlotInfo
         removedSlots =
             combinedSlots & _Wrapped %~
             (take $ length combinedSlots - configK genesisConfig)
@@ -224,13 +225,23 @@ slogVerifyBlocks genesisConfig curSlot blocks = runExceptT $ do
     --
     -- It also works fine if we store less than 'blkSecurityParam' slots.
     -- In this case we will use 'Nothing' for the oldest blocks.
-    let slogUndo :: OldestFirst [] (Maybe FlatSlotId)
+    let slogUndo :: OldestFirst [] (Maybe LastSlotInfo)
         slogUndo =
             map Just removedSlots & _Wrapped %~
             (replicate (length blocks - length removedSlots) Nothing <>)
     -- NE.fromList is safe here, because it's obvious that the size of
     -- 'slogUndo' is the same as the size of 'blocks'.
-    return $ over _Wrapped NE.fromList $ map SlogUndo slogUndo
+    return $ over _Wrapped NE.fromList $ map (SlogUndo . fmap lsiFlatSlotId) slogUndo
+
+toLastSlotInfo :: SlotCount -> Block -> Maybe LastSlotInfo
+toLastSlotInfo slotCount blk =
+    convert <$> rightToMaybe blk
+  where
+    convert :: MainBlock -> LastSlotInfo
+    convert b =
+        LastSlotInfo
+            (flattenSlotId slotCount $ view mainBlockSlot b)
+            (view mainBlockLeaderKey b)
 
 -- | Set of constraints necessary to apply/rollback blocks in Slog.
 type MonadSlogApply ctx m =
@@ -299,8 +310,10 @@ slogApplyBlocks nm k (ShouldCallBListener callBListener) blunds = do
     inMainBatch =
         toList $
         fmap (GS.SetInMainChain True . view headerHashG . fst) blunds
-    mainBlocks = rights $ toList blocks
-    newSlots = flattenSlotId (kEpochSlots k) . view mainBlockSlot <$> mainBlocks
+
+    newSlots :: [LastSlotInfo]
+    newSlots = mapMaybe (toLastSlotInfo (kEpochSlots k)) $ toList blocks
+
     newLastSlots lastSlots = lastSlots & _Wrapped %~ updateLastSlots
     knownSlotsBatch lastSlots
         | null newSlots = []
@@ -331,13 +344,12 @@ newtype BypassSecurityCheck = BypassSecurityCheck Bool
 --     5. Removing @inMainChain@ flags
 slogRollbackBlocks ::
        MonadSlogApply ctx m
-    => NetworkMagic
-    -> ProtocolConstants
+    => Genesis.Config
     -> BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
     -> ShouldCallBListener
     -> NewestFirst NE Blund
     -> m SomeBatchOp
-slogRollbackBlocks nm pc (BypassSecurityCheck bypassSecurity) (ShouldCallBListener callBListener) blunds = do
+slogRollbackBlocks genesisConfig (BypassSecurityCheck bypassSecurity) (ShouldCallBListener callBListener) blunds = do
     inAssertMode $ when (isGenesis0 (blocks ^. _Wrapped . _neLast)) $
         assertionFailed $
         colorize Red "FATAL: we are TRYING TO ROLLBACK 0-TH GENESIS block"
@@ -352,13 +364,17 @@ slogRollbackBlocks nm pc (BypassSecurityCheck bypassSecurity) (ShouldCallBListen
             -- no underflow from subtraction
             maxSeenDifficulty >= resultingDifficulty &&
             -- no rollback further than k blocks
-            maxSeenDifficulty - resultingDifficulty <= fromIntegral (pcBlkSecurityParam pc)
+            maxSeenDifficulty - resultingDifficulty <= fromIntegral (pcBlkSecurityParam $ configProtocolConstants genesisConfig)
     unless (bypassSecurity || secure) $
         reportFatalError "slogRollbackBlocks: the attempted rollback would \
                          \lead to a more than 'k' distance between tip and \
                          \last seen block, which is a security risk. Aborting."
-    bListenerBatch <- if callBListener then onRollbackBlocks nm pc blunds
-                      else pure mempty
+    bListenerBatch <- if callBListener
+                        then onRollbackBlocks
+                                (makeNetworkMagic $ configProtocolMagic genesisConfig)
+                                (configProtocolConstants genesisConfig)
+                                blunds
+                        else pure mempty
     let putTip =
             SomeBatchOp $ GS.PutTip $
             (NE.last $ getNewestFirst blunds) ^. prevBlockL
@@ -373,12 +389,13 @@ slogRollbackBlocks nm pc (BypassSecurityCheck bypassSecurity) (ShouldCallBListen
         map (GS.SetInMainChain False . view headerHashG) $ toList blocks
     forwardLinksBatch =
         map (GS.RemoveForwardLink . view prevBlockL) $ toList blocks
-    isGenesis0 (Left genesisBlk) = genesisBlk ^. epochIndexL == 0
-    isGenesis0 (Right _)         = False
+
+    lastSlotsToPrepend :: [LastSlotInfo]
     lastSlotsToPrepend =
-        mapMaybe (getSlogUndo . undoSlog . snd) $ toList (toOldestFirst blunds)
+        mapMaybe (toLastSlotInfo (configEpochSlots genesisConfig) . fst)
+            $ toList (toOldestFirst blunds)
+
     newLastSlots lastSlots = lastSlots & _Wrapped %~ updateLastSlots
-    dropEnd n xs = take (length xs - n) xs
     -- 'lastSlots' is what we currently store. It contains at most
     -- 'blkSecurityParam' slots. 'lastSlotsToPrepend' are slots for
     -- main blocks which are 'blkSecurityParam' far from the blocks we
@@ -389,6 +406,8 @@ slogRollbackBlocks nm pc (BypassSecurityCheck bypassSecurity) (ShouldCallBListen
     -- main blocks we want to rollback and 'total' is the total number
     -- of main blocks in our chain. So the final step is to drop last
     -- 'n' slots from this list.
+
+    updateLastSlots :: [LastSlotInfo] -> [LastSlotInfo]
     updateLastSlots lastSlots =
         dropEnd (length $ filter isRight $ toList blocks) $
         lastSlotsToPrepend ++
@@ -396,3 +415,10 @@ slogRollbackBlocks nm pc (BypassSecurityCheck bypassSecurity) (ShouldCallBListen
     blockExtraBatch lastSlots =
         GS.SetLastSlots (newLastSlots lastSlots) :
         mconcat [forwardLinksBatch, inMainBatch]
+
+dropEnd :: Int -> [a] -> [a]
+dropEnd n xs = take (length xs - n) xs
+
+isGenesis0 :: HasEpochIndex s => Either s b -> Bool
+isGenesis0 (Left genesisBlk) = genesisBlk ^. epochIndexL == 0
+isGenesis0 (Right _)         = False

@@ -8,6 +8,7 @@ module Pos.DB.Block.GState.BlockExtra
        ( resolveForwardLink
        , isBlockInMainChain
        , getLastSlots
+       , upgradeLastSlotsVersion
        , getFirstGenesisBlockHash
        , BlockExtraOp (..)
        , buildBlockExtraOp
@@ -23,18 +24,20 @@ import           Universum hiding (init)
 
 import           Data.Conduit (ConduitT, yield)
 import qualified Database.RocksDB as Rocks
-import           Formatting (Format, bprint, build, later, (%))
+import           Formatting (Format, bprint, build, later, (%), sformat, text)
 import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Chain.Block (Block, BlockHeader, HasHeaderHash, HeaderHash,
-                     LastBlkSlots, headerHash, noLastBlkSlots)
-import           Pos.Chain.Genesis (GenesisHash (..))
-import           Pos.Core (FlatSlotId, SlotCount, slotIdF, unflattenSlotId)
-import           Pos.Core.Chrono (OldestFirst (..))
-import           Pos.Crypto (shortHashF)
+import           Pos.Chain.Block (Block, BlockHeader (..), HasHeaderHash, HeaderHash,
+                     LastBlkSlots, LastSlotInfo (..), prevBlockL, headerHash, mainHeaderLeaderKey, noLastBlkSlots)
+import           Pos.Chain.Genesis (GenesisHash (..), configEpochSlots)
+import qualified Pos.Chain.Genesis as Genesis
+import           Pos.Core (FlatSlotId, SlotCount, flattenEpochOrSlot,
+                     getEpochOrSlot, slotIdF, unflattenSlotId)
+import           Pos.Core.Chrono (OldestFirst (..), NewestFirst (..), toNewestFirst)
+import           Pos.Crypto (PublicKey, shortHashF)
 import           Pos.DB (DBError (..), MonadDB, MonadDBRead (..),
-                     RocksBatchOp (..), getHeader)
+                     RocksBatchOp (..), getHeader, getTipHeader, gsDelete)
 import           Pos.DB.Class (MonadBlockDBRead, SerializedBlock, getBlock)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
 import           Pos.Util.Util (maybeThrow)
@@ -60,8 +63,58 @@ isBlockInMainChain h =
 -- less than 'blkSecurityParam'.
 getLastSlots :: forall m . MonadDBRead m => m LastBlkSlots
 getLastSlots =
-    maybeThrow (DBMalformed "Last slots not found in the global state DB") =<<
-    gsGetBi lastSlotsKey
+    gsGetBi lastSlotsKey2 >>=
+        maybeThrow (DBMalformed "Last slots v2 not found in the global state DB")
+
+-- | This function acts as a one time conversion from version 1 to version 2
+-- of the `LastBlkSlots` data type.
+upgradeLastSlotsVersion :: forall m . MonadDB m => Genesis.Config -> m ()
+upgradeLastSlotsVersion genesisConfig =
+    gsGetBi oldLastSlotsKey >>= \case
+        Nothing -> pure () -- Assume it has already been converted.
+        Just (slots :: OldestFirst [] FlatSlotId) -> do
+            convertLastSlots (configEpochSlots genesisConfig) slots
+                >>= gsPutBi lastSlotsKey2
+            gsDelete oldLastSlotsKey -- Delete the old key
+  where
+    -- This is the DB key for version 1 of the `LastBlksSlots` data type that only
+    -- contains a list of `FlatSlotId`s
+    oldLastSlotsKey :: ByteString
+    oldLastSlotsKey = "e/ls/"
+
+convertLastSlots :: MonadDB m => SlotCount -> OldestFirst [] FlatSlotId -> m (OldestFirst [] LastSlotInfo)
+convertLastSlots eslots fids = do
+    case getNewestFirst $ toNewestFirst fids of
+        [] -> pure $ OldestFirst []
+        xs@(x:_) -> do
+            th <- getTipHeader
+            when (flattenEpochOrSlot eslots (getEpochOrSlot th) /= x) $
+                error "Pos.DB.Block.GState.BlockExtra.convertLastSlots: tip mismatch"
+            ys <- OldestFirst <$> convert th xs []
+            when (map lsiFlatSlotId ys /= fids) $
+                error $ sformat
+                    ("Pos.DB.Block.GState.BlockExtra.convertLastSlots: in/out mismatch\n    " % text % "\n    " % text % "\n")
+                            (show fids) (show $ map lsiFlatSlotId ys)
+            pure ys
+  where
+    --
+    convert :: MonadDB m => BlockHeader -> [FlatSlotId] -> [LastSlotInfo] -> m [LastSlotInfo]
+    convert _ [] !acc = pure acc
+    convert bh (fsid:xs) !acc = do
+        when (flattenEpochOrSlot eslots (getEpochOrSlot bh) /= fsid) $
+            error $ sformat
+                ("Pos.DB.Block.GState.BlockExtra.convertLastSlots.covert: FlatSlotId mismatch " % build % " " % build % "\n")
+                    (flattenEpochOrSlot eslots $ getEpochOrSlot bh) fsid
+        nbh <- getHeader (view prevBlockL bh)
+                >>= maybeThrow (DBMalformed "convertLastSlots: getHeader for previous block failed")
+        case leaderKey bh of
+            Nothing -> convert nbh xs acc
+            Just lk -> convert nbh xs $ LastSlotInfo fsid lk : acc
+
+    leaderKey :: BlockHeader -> Maybe PublicKey
+    leaderKey = \case
+        BlockHeaderGenesis _ -> Nothing
+        BlockHeaderMain bhm -> Just $ view mainHeaderLeaderKey bhm
 
 -- | Retrieves first genesis block hash.
 getFirstGenesisBlockHash :: MonadDBRead m => GenesisHash -> m HeaderHash
@@ -82,7 +135,7 @@ data BlockExtraOp
     | SetInMainChain Bool
                      HeaderHash
       -- ^ Enables or disables "in main chain" status of the block
-    | SetLastSlots (OldestFirst [] FlatSlotId)
+    | SetLastSlots (OldestFirst [] LastSlotInfo)
       -- ^ Updates list of slots for last blocks.
     deriving (Show)
 
@@ -97,7 +150,7 @@ buildBlockExtraOp epochSlots = later build'
         bprint ("SetInMainChain for "%shortHashF%": "%build) h flag
     build' (SetLastSlots slots) =
         bprint ("SetLastSlots: "%listJson)
-        (map (bprint slotIdF . unflattenSlotId epochSlots) slots)
+        (map (bprint slotIdF . unflattenSlotId epochSlots . lsiFlatSlotId) slots)
 
 instance RocksBatchOp BlockExtraOp where
     toBatchOp (AddForwardLink from to) =
@@ -109,7 +162,7 @@ instance RocksBatchOp BlockExtraOp where
     toBatchOp (SetInMainChain True h) =
         [Rocks.Put (mainChainKey h) (serialize' ()) ]
     toBatchOp (SetLastSlots slots) =
-        [Rocks.Put lastSlotsKey (serialize' slots)]
+        [Rocks.Put lastSlotsKey2 (serialize' slots)]
 
 ----------------------------------------------------------------------------
 -- Loops on forward links
@@ -211,7 +264,7 @@ initGStateBlockExtra :: MonadDB m => GenesisHash -> HeaderHash -> m ()
 initGStateBlockExtra genesisHash firstGenesisHash = do
     gsPutBi (mainChainKey firstGenesisHash) ()
     gsPutBi (forwardLinkKey $ getGenesisHash genesisHash) firstGenesisHash
-    gsPutBi lastSlotsKey noLastBlkSlots
+    gsPutBi lastSlotsKey2 noLastBlkSlots
 
 ----------------------------------------------------------------------------
 -- Keys
@@ -223,5 +276,6 @@ forwardLinkKey h = "e/fl/" <> serialize' h
 mainChainKey :: HeaderHash -> ByteString
 mainChainKey h = "e/mc/" <> serialize' h
 
-lastSlotsKey :: ByteString
-lastSlotsKey = "e/ls/"
+-- This is the DB key for version 2 of the `LastBlksSlots`.
+lastSlotsKey2 :: ByteString
+lastSlotsKey2 = "e/ls2/"

@@ -326,14 +326,13 @@ slogVerifyBlocks era curSlot txValRules leaders lastSlots blocks = do
     -- Here we need to compute 'SlogUndo'. When we add apply a block,
     -- we can remove one of the last slots stored in
     -- 'BlockExtra'. This removed slot must be put into 'SlogUndo'.
-    let toFlatSlot = fmap (flattenSlotId dummyEpochSlots . view mainBlockSlot) . rightToMaybe
     -- these slots will be added if we apply all blocks
-    let newSlots = mapMaybe toFlatSlot (toList blocks)
-    let combinedSlots :: OldestFirst [] FlatSlotId
+    let newSlots = mapMaybe (toLastSlotInfo dummyEpochSlots) $ toList blocks
+    let combinedSlots :: OldestFirst [] LastSlotInfo
         combinedSlots = lastSlots & _Wrapped %~ (<> newSlots)
     -- these slots will be removed if we apply all blocks, because we store
     -- only limited number of slots
-    let removedSlots :: OldestFirst [] FlatSlotId
+    let removedSlots :: OldestFirst [] LastSlotInfo
         removedSlots =
             combinedSlots & _Wrapped %~
             (take $ length combinedSlots - fromIntegral dummyK)
@@ -344,13 +343,25 @@ slogVerifyBlocks era curSlot txValRules leaders lastSlots blocks = do
     --
     -- It also works fine if we store less than 'blkSecurityParam' slots.
     -- In this case we will use 'Nothing' for the oldest blocks.
-    let slogUndo :: OldestFirst [] (Maybe FlatSlotId)
+    let slogUndo :: OldestFirst [] (Maybe LastSlotInfo)
         slogUndo =
             map Just removedSlots & _Wrapped %~
             (replicate (length blocks - length removedSlots) Nothing <>)
     -- NE.fromList is safe here, because it's obvious that the size of
     -- 'slogUndo' is the same as the size of 'blocks'.
-    return $ over _Wrapped NE.fromList $ map SlogUndo slogUndo
+    return $ over _Wrapped NE.fromList $ map (SlogUndo . fmap lsiFlatSlotId) slogUndo
+
+
+
+toLastSlotInfo :: SlotCount -> Block -> Maybe LastSlotInfo
+toLastSlotInfo slotCount blk =
+    convert <$> rightToMaybe blk
+  where
+    convert :: MainBlock -> LastSlotInfo
+    convert b =
+        LastSlotInfo
+            (flattenSlotId slotCount $ view mainBlockSlot b)
+            (view mainBlockLeaderKey b)
 
 -- | Verify block transactions
 --

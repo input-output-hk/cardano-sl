@@ -9,7 +9,7 @@ import           Universum
 import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configHeavyDelegation, configVssCerts)
-import           Pos.DB.Block (initGStateBlockExtra)
+import           Pos.DB.Block (initGStateBlockExtra, upgradeLastSlotsVersion)
 import           Pos.DB.Class (MonadDB)
 import           Pos.DB.Delegation (initGStateDlg)
 import           Pos.DB.GState.Common (initGStateCommon, isInitialized,
@@ -27,17 +27,23 @@ prepareGStateDB ::
     => Genesis.Config
     -> HeaderHash
     -> m ()
-prepareGStateDB genesisConfig initialTip = unlessM isInitialized $ do
-    initGStateCommon initialTip
-    initGStateUtxo genesisData
-    initSscDB $ configVssCerts genesisConfig
-    initGStateStakes genesisData
-    initGStateUS genesisConfig
-    initGStateDlg $ configHeavyDelegation genesisConfig
-    initGStateBlockExtra (configGenesisHash genesisConfig) initialTip
+prepareGStateDB genesisConfig initialTip =
+    ifM isInitialized
+        (upgradeLastSlotsVersion genesisConfig)
+        initializeGStateDb
+  where
+    genesisData = configGenesisData genesisConfig
 
-    setInitialized
-  where genesisData = configGenesisData genesisConfig
+    initializeGStateDb = do
+        initGStateCommon initialTip
+        initGStateUtxo genesisData
+        initSscDB $ configVssCerts genesisConfig
+        initGStateStakes genesisData
+        initGStateUS genesisConfig
+        initGStateDlg $ configHeavyDelegation genesisConfig
+        initGStateBlockExtra (configGenesisHash genesisConfig) initialTip
+
+        setInitialized
 
 -- The following is not used in the project yet. To be added back at a
 -- later stage when needed.

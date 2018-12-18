@@ -20,7 +20,7 @@ import           Serokell.Util (enumerate, listJson, pairF)
 import qualified System.Metrics.Label as Label
 import           System.Random (randomRIO)
 
-import           Pos.Chain.Block (HasBlockConfiguration, criticalCQ,
+import           Pos.Chain.Block (HasBlockConfiguration, criticalCQ, lsiFlatSlotId,
                      criticalCQBootstrap, fixedTimeCQSec, gbHeader,
                      networkDiameter, nonCriticalCQ, nonCriticalCQBootstrap,
                      scCQFixedMonitorState, scCQOverallMonitorState,
@@ -377,7 +377,7 @@ metricWorker k curSlot = do
         Nothing -> pass
         Just slotsNE
             | length slotsNE < fromIntegral k -> pass
-            | otherwise -> chainQualityChecker k curSlot (NE.head slotsNE)
+            | otherwise -> chainQualityChecker k curSlot (lsiFlatSlotId $ NE.head slotsNE)
 
 ----------------------------------------------------------------------------
 -- -- General metrics

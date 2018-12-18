@@ -44,6 +44,7 @@
           (hsPkgs.ekg-core)
           (hsPkgs.ether)
           (hsPkgs.exceptions)
+          (hsPkgs.extra)
           (hsPkgs.filepath)
           (hsPkgs.formatting)
           (hsPkgs.lens)

@@ -185,13 +185,34 @@ verifyHeader pm VerifyHeaderParams {..} h =
                     Left _ -> (True, "we received an Epoch Boundary Block in OBFT era, which shouldn't \
                                      \happen, but we are passing")
                     Right sid -> case (getEpochIndex (siEpoch sid), getSlotIndex (siSlot sid)) of
+                        -- @intricate @mhuesch: Actually, there is a genesis
+                        -- block that is created before the first main block.
+                        -- We should probably check that this main block is of
+                        -- the same epoch as that genesis block.
                         (0, 0) -> (True, "first MainBlock of first epoch: no previous block")
-                        -- First block of the epoch: assert its epoch is 1 greater than
-                        -- the epoch of the prior block.
-                        (_, 0) -> sameEpoch (1 + prevHeader ^. epochIndexL) (h ^. epochIndexL)
+                        -- First block of the epoch:
+                        --      * If the previous block is a genesis block,
+                        --        assert the current block's epoch is equal
+                        --        to that of the previous block.
+                        --        In an OBFT-only chain, we shouldn't encounter
+                        --        EBBs, but we require the ability to verify
+                        --        `Original` blocks in the `OBFT ObftLenient`
+                        --        era.
+                        --      * If the previous block is a main block, assert
+                        --        the current block's epoch is 1 greater than
+                        --        that of the previous block.
+                        --        This is typical OBFT procedure.
+                        (_, 0) -> case prevHeader of
+                            BlockHeaderGenesis _ ->
+                                sameEpoch (prevHeader ^. epochIndexL)
+                                          (h ^. epochIndexL)
+                            BlockHeaderMain _ ->
+                                sameEpoch (1 + prevHeader ^. epochIndexL)
+                                          (h ^. epochIndexL)
                         -- A block somewhere else in the epoch: assert it has the same
                         -- epoch as prior block.
-                        _      -> sameEpoch (prevHeader ^. epochIndexL)     (h ^. epochIndexL)
+                        _      -> sameEpoch (prevHeader ^. epochIndexL)
+                                            (h ^. epochIndexL)
         ]
 
     -- CHECK: Verifies that the slot does not lie in the future.

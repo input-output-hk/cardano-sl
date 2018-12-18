@@ -15360,6 +15360,7 @@ license = stdenv.lib.licenses.mit;
 , aeson
 , base
 , bytestring
+, cardano-sl-client
 , cardano-sl-core
 , cardano-sl-crypto
 , cardano-sl-infra
@@ -15419,6 +15420,7 @@ libraryHaskellDepends = [
 aeson
 base
 bytestring
+cardano-sl-client
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-mnemonic

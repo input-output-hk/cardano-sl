@@ -23,6 +23,7 @@ with import ../../../lib.nix;
 , useLegacyDataLayer ? false
 , extraParams ? ""
 , useStackBinaries ? false
+, tlsConfig ? {}
 }:
 
 # TODO: DEVOPS-159: relays DNS should be more predictable
@@ -82,6 +83,47 @@ let
       -H "Content-Type: application/json; charset=utf-8" \
       "https://${walletListen}/$request_path" "$@"
   '';
+  tlsConfigResultant = {
+    organization     = "Company Name";
+
+    caCommonName     = "Company Name Self-Signed Root CA";
+    caEexpiryDays    = 3650;
+
+    serverCommonName = "Company Name Wallet Node";
+    serverExpiryDays = 365;
+    serverAltDNS     = [
+      "localhost"
+      "localhost.localdomain"
+      "127.0.0.1"
+      "::1"
+    ];
+    serverAltDNSExtra = [];
+
+    clientCommonName = "Company Name Wallet Node Client";
+    clientExpiryDays = 365;
+  } // tlsConfig;
+  tlsConfigFile = let cfg = tlsConfigResultant; in writeText "tls-config-${environment}.yaml" (''
+    ${environments.${environment}.confKey}:
+      tls:
+        ca:
+          organization: ${cfg.organization}
+          commonName: ${cfg.caCommonName}
+          expiryDays: ${toString cfg.caEexpiryDays}
+
+        server:
+          organization: ${cfg.organization}
+          commonName: ${cfg.serverCommonName}
+          expiryDays: ${toString cfg.serverExpiryDays}
+          altDNS:
+          '' +
+          (let sep = "        - "; in sep + (concatStringsSep ("\n" + sep) (cfg.serverAltDNS ++ cfg.serverAltDNSExtra)) + "\n")
+          + ''
+    ####
+        clients:
+          - organization: ${cfg.organization}
+            commonName: ${cfg.clientCommonName}
+            expiryDays: ${toString cfg.clientExpiryDays}
+  '');
 
 in writeScript "${executable}-connect-to-${environment}" ''
   #!${stdenv.shell}
@@ -111,7 +153,8 @@ in writeScript "${executable}-connect-to-${environment}" ''
     ${executables.x509gen}                                       \
       --server-out-dir ${stateDir}/tls/server                    \
       --clients-out-dir ${stateDir}/tls/client                   \
-      ${configurationArgs}
+      --configuration-file ${tlsConfigFile}                      \
+      --configuration-key ${environments.${environment}.confKey}
   fi
   ln -sf ${curlScript} ${stateDir}/curl
   ''}

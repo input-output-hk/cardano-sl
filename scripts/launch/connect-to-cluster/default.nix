@@ -84,12 +84,12 @@ let
       "https://${walletListen}/$request_path" "$@"
   '';
   tlsConfigResultant = {
-    organization     = "Company Name";
+    organization     = "Input Output HK";
 
-    caCommonName     = "Company Name Self-Signed Root CA";
+    caCommonName     = "Cardano SL Self-Signed Root CA";
     caEexpiryDays    = 3650;
 
-    serverCommonName = "Company Name Wallet Node";
+    serverCommonName = "Cardano SL Server Node";
     serverExpiryDays = 365;
     serverAltDNS     = [
       "localhost"
@@ -99,7 +99,7 @@ let
     ];
     serverAltDNSExtra = [];
 
-    clientCommonName = "Company Name Wallet Node Client";
+    clientCommonName = "Daedalus Wallet";
     clientExpiryDays = 365;
   } // tlsConfig;
   tlsConfigFile = let cfg = tlsConfigResultant; in writeText "tls-config-${environment}.yaml" (''

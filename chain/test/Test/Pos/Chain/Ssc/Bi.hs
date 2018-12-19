@@ -36,7 +36,7 @@ import           Test.Pos.Util.Tripping (discoverRoundTrip)
 --------------------------------------------------------------------------------
 
 golden_Commitment :: Property
-golden_Commitment = goldenTestBi exampleCommitment "test/golden/Commitment"
+golden_Commitment = goldenTestBi exampleCommitment "test/golden/bi/ssc/Commitment"
 
 roundTripCommitment :: Property
 roundTripCommitment = eachOf 10 genCommitment roundTripsBiShow
@@ -47,7 +47,7 @@ roundTripCommitment = eachOf 10 genCommitment roundTripsBiShow
 
 golden_CommitmentsMap :: Property
 golden_CommitmentsMap =
-  goldenTestBi exampleCommitmentsMap "test/golden/CommitmentsMap"
+  goldenTestBi exampleCommitmentsMap "test/golden/bi/ssc/CommitmentsMap"
 
 roundTripCommitmentsMap :: Property
 roundTripCommitmentsMap = eachOf 10 (feedPM genCommitmentsMap) roundTripsBiShow
@@ -58,7 +58,7 @@ roundTripCommitmentsMap = eachOf 10 (feedPM genCommitmentsMap) roundTripsBiShow
 
 golden_CommitmentSignature :: Property
 golden_CommitmentSignature =
-    goldenTestBi exampleCommitmentSignature "test/golden/CommitmentSignature"
+    goldenTestBi exampleCommitmentSignature "test/golden/bi/ssc/CommitmentSignature"
 
 roundTripCommitmentSignature :: Property
 roundTripCommitmentSignature = eachOf 10 (feedPM genCommitmentSignature) roundTripsBiBuildable
@@ -68,7 +68,7 @@ roundTripCommitmentSignature = eachOf 10 (feedPM genCommitmentSignature) roundTr
 --------------------------------------------------------------------------------
 
 golden_InnerSharesMap :: Property
-golden_InnerSharesMap = goldenTestBi iSm "test/golden/InnerSharesMap"
+golden_InnerSharesMap = goldenTestBi iSm "test/golden/bi/ssc/InnerSharesMap"
     where iSm = exampleInnerSharesMap 3 1
 
 roundTripInnerSharesMap :: Property
@@ -79,7 +79,7 @@ roundTripInnerSharesMap = eachOf 50 genInnerSharesMap roundTripsBiShow
 --------------------------------------------------------------------------------
 
 golden_Opening :: Property
-golden_Opening = goldenTestBi exampleOpening "test/golden/Opening"
+golden_Opening = goldenTestBi exampleOpening "test/golden/bi/ssc/Opening"
 
 roundTripOpening :: Property
 roundTripOpening = eachOf 10 genOpening roundTripsBiBuildable
@@ -89,7 +89,7 @@ roundTripOpening = eachOf 10 genOpening roundTripsBiBuildable
 --------------------------------------------------------------------------------
 
 golden_OpeningsMap :: Property
-golden_OpeningsMap = goldenTestBi exampleOpeningsMap "test/golden/OpeningsMap"
+golden_OpeningsMap = goldenTestBi exampleOpeningsMap "test/golden/bi/ssc/OpeningsMap"
 
 roundTripOpeningsMap :: Property
 roundTripOpeningsMap = eachOf 10 genOpeningsMap roundTripsBiShow
@@ -100,7 +100,7 @@ roundTripOpeningsMap = eachOf 10 genOpeningsMap roundTripsBiShow
 
 golden_SignedCommitment :: Property
 golden_SignedCommitment =
-    goldenTestBi exampleSignedCommitment "test/golden/SignedCommitment"
+    goldenTestBi exampleSignedCommitment "test/golden/bi/ssc/SignedCommitment"
 
 roundTripSignedCommitment :: Property
 roundTripSignedCommitment =
@@ -112,7 +112,7 @@ roundTripSignedCommitment =
 
 golden_SharesDistribution :: Property
 golden_SharesDistribution =
-    goldenTestBi exampleSharesDistribution "test/golden/SharesDistribution"
+    goldenTestBi exampleSharesDistribution "test/golden/bi/ssc/SharesDistribution"
 
 roundTripSharesDistribution :: Property
 roundTripSharesDistribution = eachOf 10 genSharesDistribution roundTripsBiShow
@@ -122,7 +122,7 @@ roundTripSharesDistribution = eachOf 10 genSharesDistribution roundTripsBiShow
 --------------------------------------------------------------------------------
 
 golden_SharesMap :: Property
-golden_SharesMap = goldenTestBi sM "test/golden/SharesMap"
+golden_SharesMap = goldenTestBi sM "test/golden/bi/ssc/SharesMap"
     where
         sM = HM.fromList $ [(exampleStakeholderId, exampleInnerSharesMap 3 1)]
 
@@ -135,24 +135,24 @@ roundTripSharesMap = eachOf 10 genSharesMap roundTripsBiShow
 
 golden_SscPayload_CommitmentsPayload :: Property
 golden_SscPayload_CommitmentsPayload =
-    goldenTestBi cP "test/golden/SscPayload_CommitmentsPayload"
+    goldenTestBi cP "test/golden/bi/ssc/SscPayload_CommitmentsPayload"
   where
     cP = CommitmentsPayload exampleCommitmentsMap (exampleVssCertificatesMap 10 4)
 
 golden_SscPayload_OpeningsPayload :: Property
 golden_SscPayload_OpeningsPayload =
-    goldenTestBi oP "test/golden/SscPayload_OpeningsPayload"
+    goldenTestBi oP "test/golden/bi/ssc/SscPayload_OpeningsPayload"
   where
     oP = OpeningsPayload exampleOpeningsMap (exampleVssCertificatesMap 10 4)
 
 
 golden_SscPayload_SharesPayload :: Property
 golden_SscPayload_SharesPayload =
-    goldenTestBi exampleSscPayload "test/golden/SscPayload_SharesPayload"
+    goldenTestBi exampleSscPayload "test/golden/bi/ssc/SscPayload_SharesPayload"
 
 golden_SscPayload_CertificatesPayload :: Property
 golden_SscPayload_CertificatesPayload =
-    goldenTestBi shP "test/golden/SscPayload_CertificatesPayload"
+    goldenTestBi shP "test/golden/bi/ssc/SscPayload_CertificatesPayload"
   where
     shP = CertificatesPayload (exampleVssCertificatesMap 10 4)
 
@@ -166,25 +166,25 @@ roundTripSscPayload = eachOf 10 (feedPM genSscPayload) roundTripsBiBuildable
 
 golden_SscProof_CommitmentsProof :: Property
 golden_SscProof_CommitmentsProof =
-    goldenTestBi exampleSscProof "test/golden/SscProof_CommitmentsProof"
+    goldenTestBi exampleSscProof "test/golden/bi/ssc/SscProof_CommitmentsProof"
 
 golden_SscProof_OpeningsProof :: Property
 golden_SscProof_OpeningsProof =
-    goldenTestBi oP "test/golden/SscProof_OpeningsProof"
+    goldenTestBi oP "test/golden/bi/ssc/SscProof_OpeningsProof"
   where
     oP = OpeningsProof (hash exampleOpeningsMap) (exampleVssCertificatesHash 10 4)
 
 
 golden_SscProof_SharesProof :: Property
 golden_SscProof_SharesProof =
-    goldenTestBi sP "test/golden/SscProof_SharesProof"
+    goldenTestBi sP "test/golden/bi/ssc/SscProof_SharesProof"
   where
     sP = SharesProof (hash exampleSharesMap) (exampleVssCertificatesHash 10 4)
     exampleSharesMap = HM.fromList $ [(exampleStakeholderId, exampleInnerSharesMap 3 1)]
 
 golden_SscProof_CertificatesProof :: Property
 golden_SscProof_CertificatesProof =
-    goldenTestBi shP "test/golden/SscProof_CertificatesProof"
+    goldenTestBi shP "test/golden/bi/ssc/SscProof_CertificatesProof"
   where
     shP = CertificatesProof (exampleVssCertificatesHash 10 4)
 
@@ -196,7 +196,7 @@ roundTripSscProof = eachOf 10 (feedPM genSscProof) roundTripsBiBuildable
 --------------------------------------------------------------------------------
 
 golden_VssCertificate :: Property
-golden_VssCertificate = goldenTestBi exampleVssCertificate "test/golden/VssCertificate"
+golden_VssCertificate = goldenTestBi exampleVssCertificate "test/golden/bi/ssc/VssCertificate"
 
 roundTripVssCertificate :: Property
 roundTripVssCertificate = eachOf 10 (feedPM genVssCertificate) roundTripsBiBuildable
@@ -206,7 +206,7 @@ roundTripVssCertificate = eachOf 10 (feedPM genVssCertificate) roundTripsBiBuild
 --------------------------------------------------------------------------------
 
 golden_VssCertificatesHash :: Property
-golden_VssCertificatesHash = goldenTestBi (exampleVssCertificatesHash 10 4) "test/golden/VssCertificatesHash"
+golden_VssCertificatesHash = goldenTestBi (exampleVssCertificatesHash 10 4) "test/golden/bi/ssc/VssCertificatesHash"
 
 roundTripVssCertificatesHash :: Property
 roundTripVssCertificatesHash = eachOf 10 (feedPM genVssCertificatesHash) roundTripsBiBuildable
@@ -216,7 +216,7 @@ roundTripVssCertificatesHash = eachOf 10 (feedPM genVssCertificatesHash) roundTr
 --------------------------------------------------------------------------------
 
 golden_VssCertificatesMap :: Property
-golden_VssCertificatesMap = goldenTestBi (exampleVssCertificatesMap 10 4) "test/golden/VssCertificatesMap"
+golden_VssCertificatesMap = goldenTestBi (exampleVssCertificatesMap 10 4) "test/golden/bi/ssc/VssCertificatesMap"
 
 roundTripVssCertificatesMap :: Property
 roundTripVssCertificatesMap = eachOf 10 (feedPM genVssCertificatesMap) roundTripsBiShow

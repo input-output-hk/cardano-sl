@@ -28,7 +28,7 @@ import           Test.Pos.Util.Tripping (discoverRoundTrip)
 -- DlgPayload
 --------------------------------------------------------------------------------
 golden_DlgPayload :: Property
-golden_DlgPayload = goldenTestBi dp "test/golden/DlgPayload"
+golden_DlgPayload = goldenTestBi dp "test/golden/bi/delegation/DlgPayload"
   where dp = UnsafeDlgPayload (take 4 staticProxySKHeavys)
 
 roundTripDlgPayloadBi :: Property
@@ -38,7 +38,7 @@ roundTripDlgPayloadBi = eachOf 100 (feedPM genDlgPayload) roundTripsBiBuildable
 -- HeavyDlgIndex
 --------------------------------------------------------------------------------
 golden_HeavyDlgIndex :: Property
-golden_HeavyDlgIndex = goldenTestBi hdi "test/golden/HeavyDlgIndex"
+golden_HeavyDlgIndex = goldenTestBi hdi "test/golden/bi/delegation/HeavyDlgIndex"
   where hdi = staticHeavyDlgIndexes !! 0
 
 roundTripHeavyDlgIndexBi :: Property
@@ -49,7 +49,7 @@ roundTripHeavyDlgIndexBi = eachOf 1000 genHeavyDlgIndex roundTripsBiBuildable
 --------------------------------------------------------------------------------
 golden_LightDlgIndices :: Property
 golden_LightDlgIndices = goldenTestBi exampleLightDlgIndices
-                                      "test/golden/LightDlgIndices"
+                                      "test/golden/bi/delegation/LightDlgIndices"
 
 roundTripLightDlgIndicesBi :: Property
 roundTripLightDlgIndicesBi = eachOf 1000 genLightDlgIndices roundTripsBiBuildable
@@ -58,12 +58,12 @@ roundTripLightDlgIndicesBi = eachOf 1000 genLightDlgIndices roundTripsBiBuildabl
 -- ProxySKBlockInfo
 --------------------------------------------------------------------------------
 golden_ProxySKBlockInfo_Nothing :: Property
-golden_ProxySKBlockInfo_Nothing = goldenTestBi pskbi "test/golden/ProxySKBlockInfo_Nothing"
+golden_ProxySKBlockInfo_Nothing = goldenTestBi pskbi "test/golden/bi/delegation/ProxySKBlockInfo_Nothing"
   where pskbi = Nothing :: ProxySKBlockInfo
 
 golden_ProxySKBlockInfo_Just :: Property
 golden_ProxySKBlockInfo_Just = goldenTestBi exampleProxySKBlockInfo
-                                            "test/golden/ProxySKBlockInfo_Just"
+                                            "test/golden/bi/delegation/ProxySKBlockInfo_Just"
 
 roundTripProxySKBlockInfoBi :: Property
 roundTripProxySKBlockInfoBi = eachOf 200 (feedPM genProxySKBlockInfo) roundTripsBiShow
@@ -72,7 +72,7 @@ roundTripProxySKBlockInfoBi = eachOf 200 (feedPM genProxySKBlockInfo) roundTrips
 -- ProxySKHeavy
 --------------------------------------------------------------------------------
 golden_ProxySKHeavy :: Property
-golden_ProxySKHeavy = goldenTestBi skh "test/golden/ProxySKHeavy"
+golden_ProxySKHeavy = goldenTestBi skh "test/golden/bi/delegation/ProxySKHeavy"
   where skh = staticProxySKHeavys !! 0
 
 roundTripProxySKHeavyBi :: Property

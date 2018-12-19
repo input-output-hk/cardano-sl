@@ -29,7 +29,7 @@ import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonShow)
 golden_AttackTarget_NetworkAddressTarget :: Property
 golden_AttackTarget_NetworkAddressTarget =
     goldenTestJSONPretty exampleAttackTarget_NetworkAddressTarget
-        "test/golden/AttackTarget_NetworkAddressTarget"
+        "test/golden/json/AttackTarget_NetworkAddressTarget"
 
 exampleAttackTarget_NetworkAddressTarget :: AttackTarget
 exampleAttackTarget_NetworkAddressTarget = NetworkAddressTarget ("ggv", 32313)
@@ -49,13 +49,13 @@ golden_prettyEquivalence_AttackTarget_NetworkAddressTarget =
                 Left err    -> failWith Nothing $ "could not decode: " <> show err
                 Right bool' -> assert bool'
   where
-    pFile = "test/golden/AttackTarget_NetworkAddressTarget"
+    pFile = "test/golden/json/AttackTarget_NetworkAddressTarget"
     oFile = "test/golden/oldJson/AttackTarget_NetworkAddressTarget"
 
 golden_AttackTarget_PubKeyAddressTarget :: Property
 golden_AttackTarget_PubKeyAddressTarget =
     goldenTestJSONPretty exampleAttackTarget_PubKeyAddressTarget
-        "test/golden/AttackTarget_PubKeyAddressTarget"
+        "test/golden/json/AttackTarget_PubKeyAddressTarget"
 
 exampleAttackTarget_PubKeyAddressTarget :: AttackTarget
 exampleAttackTarget_PubKeyAddressTarget =
@@ -78,7 +78,7 @@ golden_prettyEquivalence_AttackTarget_PubKeyAddressTarget =
                 Left err    -> failWith Nothing $ "could not decode: " <> show err
                 Right bool' -> assert bool'
   where
-    pFile = "test/golden/AttackTarget_PubKeyAddressTarget"
+    pFile = "test/golden/json/AttackTarget_PubKeyAddressTarget"
     oFile = "test/golden/oldJson/AttackTarget_PubKeyAddressTarget"
 
 roundTripAttackTarget :: Property

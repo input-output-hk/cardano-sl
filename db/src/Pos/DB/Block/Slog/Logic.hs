@@ -31,12 +31,13 @@ import           Formatting (build, sformat, shown, (%))
 import           Serokell.Util (Color (Red), colorize)
 import           Serokell.Util.Verify (formatAllErrors, verResToMonadError)
 
-import           Pos.Chain.Block (Block, Blund, HasSlogGState,
+import           Pos.Chain.Block (Block, Blund, HasSlogGState, LastBlkSlots,
                      LastSlotInfo (..), MainBlock, SlogUndo (..),
                      genBlockLeaders, headerHash, headerHashG,
                      mainBlockLeaderKey, mainBlockSlot, prevBlockL,
                      verifyBlocks)
-import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots,
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     configBlkSecurityParam, configEpochSlots,
                      configGenesisWStakeholders, configK)
 import           Pos.Chain.Txp (TxValidationRules (..))
 import           Pos.Chain.Update (BlockVersion (..), ConsensusEra (..),
@@ -185,8 +186,11 @@ slogVerifyBlocks genesisConfig curSlot blocks = runExceptT $ do
                 _ -> pass
         _ -> pass
     -- Do pure block verification.
+    lastSlots <- lift GS.getLastSlots
     let blocksList :: OldestFirst [] Block
         blocksList = OldestFirst (NE.toList (getOldestFirst blocks))
+        lastBlkSlotsAndK :: Maybe (LastBlkSlots, BlockCount)
+        lastBlkSlotsAndK = Just (lastSlots, configBlkSecurityParam genesisConfig)
     currentEos <- getEpochOrSlot <$> DB.getTipHeader
     let txValRules = configTxValRules $ genesisConfig
     verResToMonadError formatAllErrors $
@@ -198,15 +202,17 @@ slogVerifyBlocks genesisConfig curSlot blocks = runExceptT $ do
                    currentEos
                    (tvrAddrAttrSize txValRules)
                    (tvrTxAttrSize txValRules))
+            lastBlkSlotsAndK
             curSlot
             dataMustBeKnown
             adoptedBVD
             leaders
             blocksList
+
     -- Here we need to compute 'SlogUndo'. When we apply a block,
     -- we can remove one of the last slots stored in 'BlockExtra'.
     -- This removed slot must be put into 'SlogUndo'.
-    lastSlots <- lift GS.getLastSlots
+
     -- these slots will be added if we apply all blocks
     let newSlots =
             mapMaybe (toLastSlotInfo (configEpochSlots genesisConfig)) $ toList blocks

@@ -212,6 +212,7 @@ verifyHeaderBenchmark !genesisConfig !secretKeys !tp =
                 , vhpVerifyNoUnknown = False
                 -- @intricate @mhuesch: hardcoded `Original` consensus era
                 , vhpConsensusEra = Original
+                , vhpLastBlkSlotsAndK = Nothing
                 }
         let !params = VerifyBlockParams
                 { vbpVerifyHeader = verifyHeaderParams

@@ -30,11 +30,13 @@ import           Pos.Crypto (PublicKey)
 
 
 data LastSlotInfo = LastSlotInfo
-    { lsiFlatSlotId :: !FlatSlotId
+    { lsiFlatSlotId       :: !FlatSlotId
     -- ^ The flattened SlotId of this block.
     , lsiLeaderPubkeyHash :: !PublicKey
     -- ^ The hash of the public key of the slot leader for this slot.
     } deriving (Eq, Show, Generic)
+
+instance NFData LastSlotInfo
 
 -- | This type contains 'FlatSlotId's of the blocks whose depth is
 -- less than 'blkSecurityParam'. 'FlatSlotId' is chosen in favor of

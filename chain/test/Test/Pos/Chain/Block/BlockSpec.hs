@@ -69,7 +69,7 @@ spec = describe "Block properties" $ modifyMaxSuccess (min 20) $ do
         -> ConsensusEra
         -> Bool
     emptyHeaderChain l pm era =
-        isVerSuccess $ Block.verifyHeaders pm era Nothing l
+        isVerSuccess $ Block.verifyHeaders pm era Nothing Nothing l
 
 -- | Both of the following tests are boilerplate - they use `mkGenericHeader` to create
 -- headers and then compare these with manually built headers.
@@ -176,4 +176,4 @@ validateBadProtocolMagicMainHeader pm era = do
 validateGoodHeaderChain :: ProtocolMagic -> ConsensusEra -> Gen Bool
 validateGoodHeaderChain pm era = do
     BT.BHL (l, _) <- BT.genStubbedBHL pm era
-    pure $ isVerSuccess $ Block.verifyHeaders pm era Nothing (NewestFirst l)
+    pure $ isVerSuccess $ Block.verifyHeaders pm era Nothing Nothing (NewestFirst l)

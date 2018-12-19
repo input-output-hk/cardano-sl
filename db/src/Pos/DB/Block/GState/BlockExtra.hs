@@ -24,17 +24,19 @@ import           Universum hiding (init)
 
 import           Data.Conduit (ConduitT, yield)
 import qualified Database.RocksDB as Rocks
-import           Formatting (Format, bprint, build, later, (%), sformat, text)
+import           Formatting (Format, bprint, build, later, sformat, text, (%))
 import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Chain.Block (Block, BlockHeader (..), HasHeaderHash, HeaderHash,
-                     LastBlkSlots, LastSlotInfo (..), prevBlockL, headerHash, mainHeaderLeaderKey, noLastBlkSlots)
+import           Pos.Chain.Block (Block, BlockHeader (..), HasHeaderHash,
+                     HeaderHash, LastBlkSlots, LastSlotInfo (..), headerHash,
+                     mainHeaderLeaderKey, noLastBlkSlots, prevBlockL)
 import           Pos.Chain.Genesis (GenesisHash (..), configEpochSlots)
 import qualified Pos.Chain.Genesis as Genesis
 import           Pos.Core (FlatSlotId, SlotCount, flattenEpochOrSlot,
                      getEpochOrSlot, slotIdF, unflattenSlotId)
-import           Pos.Core.Chrono (OldestFirst (..), NewestFirst (..), toNewestFirst)
+import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..),
+                     toNewestFirst)
 import           Pos.Crypto (PublicKey, shortHashF)
 import           Pos.DB (DBError (..), MonadDB, MonadDBRead (..),
                      RocksBatchOp (..), getHeader, getTipHeader, gsDelete)

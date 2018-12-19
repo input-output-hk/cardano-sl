@@ -20,13 +20,14 @@ import           Serokell.Util (enumerate, listJson, pairF)
 import qualified System.Metrics.Label as Label
 import           System.Random (randomRIO)
 
-import           Pos.Chain.Block (HasBlockConfiguration, criticalCQ, lsiFlatSlotId,
+import           Pos.Chain.Block (HasBlockConfiguration, criticalCQ,
                      criticalCQBootstrap, fixedTimeCQSec, gbHeader,
-                     networkDiameter, nonCriticalCQ, nonCriticalCQBootstrap,
-                     scCQFixedMonitorState, scCQOverallMonitorState,
-                     scCQkMonitorState, scCrucialValuesLabel,
-                     scDifficultyMonitorState, scEpochMonitorState,
-                     scGlobalSlotMonitorState, scLocalSlotMonitorState)
+                     lsiFlatSlotId, networkDiameter, nonCriticalCQ,
+                     nonCriticalCQBootstrap, scCQFixedMonitorState,
+                     scCQOverallMonitorState, scCQkMonitorState,
+                     scCrucialValuesLabel, scDifficultyMonitorState,
+                     scEpochMonitorState, scGlobalSlotMonitorState,
+                     scLocalSlotMonitorState)
 import           Pos.Chain.Delegation (ProxySKBlockInfo)
 import           Pos.Chain.Genesis as Genesis (Config (..),
                      configBlkSecurityParam, configEpochSlots,

@@ -41,12 +41,11 @@ import           Pos.Chain.Txp (TxValidationRules)
 import           Pos.Chain.Update (BlockVersionData (..), ConsensusEra (..),
                      ObftConsensusStrictness (..))
 import           Pos.Core (BlockCount (..), ChainDifficulty, EpochOrSlot (..),
-                     HasDifficulty (..), HasEpochIndex (..),
-                     HasEpochOrSlot (..), LocalSlotIndex (..), SlotId (..),
-                     SlotLeaders, addressHash, getSlotIndex)
+                     HasDifficulty (..), HasEpochOrSlot (..),
+                     LocalSlotIndex (..), SlotId (..), SlotLeaders,
+                     addressHash, getSlotIndex)
 import           Pos.Core.Attributes (areAttributesKnown)
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
-import           Pos.Core.Slotting (EpochIndex (..))
 import           Pos.Crypto (ProtocolMagic (..), ProtocolMagicId (..),
                      getProtocolMagic)
 
@@ -147,13 +146,6 @@ verifyHeader pm VerifyHeaderParams {..} h =
               ("slots are not monotonic ("%build%" >= "%build%")")
               oldEOS newEOS
         )
-    sameEpoch :: EpochIndex -> EpochIndex -> (Bool, Text)
-    sameEpoch oldEpoch newEpoch =
-        ( oldEpoch == newEpoch
-        , sformat
-              ("two adjacent blocks are from different epochs ("%build%" != "%build%")")
-              oldEpoch newEpoch
-        )
     checkProtocolMagicId =
         [ ( getProtocolMagicId pm == blockHeaderProtocolMagicId h
           , sformat
@@ -190,21 +182,6 @@ verifyHeader pm VerifyHeaderParams {..} h =
               (headerHash prevHeader)
               (h ^. prevBlockL)
         , checkEpochOrSlot (getEpochOrSlot prevHeader) (getEpochOrSlot h)
-        , case h of
-              BlockHeaderGenesis _ -> (True, "") -- check that epochId prevHeader < epochId h performed above
-              BlockHeaderMain _    -> case vhpConsensusEra of
-                Original -> sameEpoch (prevHeader ^. epochIndexL) (h ^. epochIndexL)
-                OBFT _   -> case unEpochOrSlot (getEpochOrSlot h) of
-                    Left _ -> (True, "we received an Epoch Boundary Block in OBFT era, which shouldn't \
-                                     \happen, but we are passing")
-                    Right sid -> case (getEpochIndex (siEpoch sid), getSlotIndex (siSlot sid)) of
-                        (0, 0) -> (True, "first MainBlock of first epoch: no previous block")
-                        -- First block of the epoch: assert its epoch is 1 greater than
-                        -- the epoch of the prior block.
-                        (_, 0) -> sameEpoch (1 + prevHeader ^. epochIndexL) (h ^. epochIndexL)
-                        -- A block somewhere else in the epoch: assert it has the same
-                        -- epoch as prior block.
-                        _      -> sameEpoch (prevHeader ^. epochIndexL)     (h ^. epochIndexL)
         ]
 
     -- CHECK: Verifies that the slot does not lie in the future.

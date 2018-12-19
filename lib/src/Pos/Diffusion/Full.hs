@@ -16,6 +16,7 @@ module Pos.Diffusion.Full
 import           Universum
 
 import           Control.Concurrent.Async (Concurrently (..))
+import           Control.Concurrent.MVar (modifyMVar_)
 import qualified Control.Concurrent.STM as STM
 import           Data.Functor.Contravariant (contramap)
 import qualified Data.Map as M
@@ -80,7 +81,7 @@ import           Pos.Logic.Types (Logic (..))
 import           Pos.Network.Block.Types (MsgBlock, MsgGetBlocks, MsgGetHeaders,
                      MsgHeaders, MsgStream, MsgStreamBlock)
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
-import           Pos.Util.Timer (Timer, newTimer)
+import           Pos.Util.Timer (Timer, startTimer)
 import           Pos.Util.Trace (Severity (Error), Trace)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
@@ -157,6 +158,17 @@ diffusionLayerFull fdconf networkConfig mEkgNodeMetrics mkLogic k = do
             , runDiffusionLayer = \action -> runFullDiffusionInternals internals (const action)
             }
 
+resetKeepAlive ::  IO Millisecond -> MVar (Map NodeId Timer) -> NodeId ->  IO ()
+resetKeepAlive slotDuration timersVar nodeId =
+    modifyMVar_ timersVar $ \timers ->
+        let timer_m = M.lookup nodeId timers in
+        case timer_m of
+             Just timer -> do
+                 currentDuration <- slotDuration
+                 startTimer (3 * currentDuration) timer
+                 pure timers
+             Nothing -> pure timers
+
 diffusionLayerFullExposeInternals
     :: FullDiffusionConfiguration
     -> Transport
@@ -195,7 +207,7 @@ diffusionLayerFullExposeInternals fdconf
     -- Subscription states.
     subscriptionStates <- emptySubscriptionStates
 
-    keepaliveTimer <- newTimer
+    keepaliveTimerVar <- newMVar M.empty
 
     diffusionHealth <- case mEkgNodeMetrics of
                             Nothing -> return Nothing
@@ -306,7 +318,8 @@ diffusionLayerFullExposeInternals fdconf
 
         mkL :: MkListeners
         mkL = mconcat $
-            [ Diffusion.Block.blockListeners logTrace logic protocolConstants recoveryHeadersMessage oq keepaliveTimer
+            [ Diffusion.Block.blockListeners logTrace logic protocolConstants recoveryHeadersMessage oq
+                  (Diffusion.Block.ResetNodeTimer $ resetKeepAlive currentSlotDuration keepaliveTimerVar)
             , Diffusion.Txp.txListeners logTrace logic oq enqueue
             , Diffusion.Update.updateListeners logTrace logic oq enqueue
             , Diffusion.Delegation.delegationListeners logTrace logic oq enqueue
@@ -335,7 +348,7 @@ diffusionLayerFullExposeInternals fdconf
             mKademliaParams
             mSubscriptionWorker
             mEkgNodeMetrics
-            keepaliveTimer
+            keepaliveTimerVar
             currentSlotDuration
             subscriptionStates
             listeners
@@ -415,7 +428,7 @@ runDiffusionLayerFull
     -> Maybe (KademliaParams, Bool)
     -> Maybe SubscriptionWorker
     -> Maybe EkgNodeMetrics
-    -> Timer -- ^ Keepalive timer.
+    -> MVar (Map NodeId Timer) -- ^ Keepalive timer.
     -> IO Millisecond -- ^ Slot duration; may change over time.
     -> SubscriptionStates NodeId
     -> (VerInfo -> [Listener])
@@ -430,7 +443,7 @@ runDiffusionLayerFull logTrace
                       mKademliaParams
                       mSubscriptionWorker
                       mEkgNodeMetrics
-                      keepaliveTimer
+                      keepaliveTimerVar
                       slotDuration
                       subscriptionStates
                       listeners
@@ -472,7 +485,7 @@ runDiffusionLayerFull logTrace
         return (M.fromList itList)
     subscriptionThread mKademliaInst sactions = case mSubscriptionWorker of
         Just (SubscriptionWorkerBehindNAT dnsDomains) ->
-            dnsSubscriptionWorker logTrace oq defaultPort dnsDomains keepaliveTimer slotDuration subscriptionStates sactions
+            dnsSubscriptionWorker logTrace oq defaultPort dnsDomains keepaliveTimerVar slotDuration subscriptionStates sactions
         Just (SubscriptionWorkerKademlia nodeType valency fallbacks) -> case mKademliaInst of
             -- Caller wanted a DHT subscription worker, but not a Kademlia
             -- instance. Shouldn't be allowed, but oh well FIXME later.

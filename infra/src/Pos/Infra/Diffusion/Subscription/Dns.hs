@@ -12,6 +12,7 @@ import           Universum hiding (atomically)
 
 import           Control.Concurrent (threadDelay)
 import           Control.Concurrent.Async (forConcurrently_)
+import           Control.Concurrent.MVar (modifyMVar_)
 import           Control.Concurrent.STM (atomically)
 import           Control.Exception (IOException, SomeException, toException)
 import           Data.Either (partitionEithers)
@@ -30,7 +31,7 @@ import           Pos.Infra.Diffusion.Subscription.Subscriber (SubscribeTo,
 import           Pos.Infra.Network.DnsDomains (NodeAddr)
 import           Pos.Infra.Network.Types (Bucket (..), DnsDomains (..),
                      NodeId (..), NodeType (..), resolveDnsDomains)
-import           Pos.Util.Timer (Timer, startTimer, waitTimer)
+import           Pos.Util.Timer (Timer, newTimer, startTimer, waitTimer)
 import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 
 -- | Resolve a fixed list of names to a NodeId (using a given port) repeatedly.
@@ -128,12 +129,12 @@ dnsSubscriptionWorker
     -> OQ.OutboundQ pack NodeId Bucket
     -> Word16 -- ^ Default port to use for addresses resolved from DNS domains.
     -> DnsDomains DNS.Domain
-    -> Timer
+    -> MVar (Map NodeId Timer)
     -> IO Millisecond -- ^ Slot duration.
     -> SubscriptionStates NodeId
     -> SendActions
     -> IO ()
-dnsSubscriptionWorker logTrace oq defaultPort DnsDomains {..} keepaliveTimer slotDuration subStatus sendActions = do
+dnsSubscriptionWorker logTrace oq defaultPort DnsDomains {..} keepaliveTimerVar slotDuration subStatus sendActions = do
     -- Shared state between threads, used to set the outbound queue known
     -- peers.
     peersVar <- newMVar Map.empty
@@ -146,22 +147,38 @@ dnsSubscriptionWorker logTrace oq defaultPort DnsDomains {..} keepaliveTimer slo
 
     subscribeTo :: MVar (Map (NodeType, NodeId) Int) -> SubscribeTo IO NodeId
     subscribeTo peersVar nodeId = do
+        timer <- createTimer nodeId
         duration <- networkSubscribeTo'
             logTrace
             oq
             BucketBehindNatWorker
             NodeRelay
             peersVar
-            keepalive
+            (keepalive timer)
             subStatus
             sendActions
             nodeId
+        deleteTimer nodeId
         timeToWait <- retryInterval duration <$> slotDuration
         threadDelay (fromIntegral timeToWait * 1000)
 
+    createTimer :: NodeId -> IO Timer
+    createTimer nodeId = do
+        timer <- newTimer
+        modifyMVar_ keepaliveTimerVar $ \timers ->
+            let !timers' = Map.insert nodeId timer timers in
+            pure timers'
+        return timer
+
+    deleteTimer :: NodeId -> IO ()
+    deleteTimer nodeId =
+        modifyMVar_ keepaliveTimerVar $ \timers ->
+            let !timers' = Map.delete nodeId timers in
+            pure timers'
+
     -- When to send a keepalive message.
-    keepalive :: IO ()
-    keepalive = do
+    keepalive :: Timer -> IO ()
+    keepalive keepaliveTimer = do
         time <- slotDuration
         startTimer time keepaliveTimer
         atomically $ waitTimer keepaliveTimer

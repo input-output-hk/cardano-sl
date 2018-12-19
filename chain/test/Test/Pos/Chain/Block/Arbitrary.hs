@@ -467,6 +467,7 @@ genHeaderAndParams pm era = do
             , Block.vhpMaxSize = Just (biSize header)
             , Block.vhpVerifyNoUnknown = not hasUnknownAttributes
             , Block.vhpConsensusEra = era
+            , Block.vhpLastBlkSlotsAndK = Nothing
             }
     return . HAndP $ (params, header)
 

@@ -114,6 +114,8 @@ classifyNewHeader genesisConfig (BlockHeaderMain header) = fmap (either identity
                 OBFT _ -> pure $
                           getEpochSlotLeaderScheduleObft genesisConfig
                                                          (siEpoch newHeaderSlot)
+            lastBlkSlots <- GS.getLastSlots
+            let k = configBlkSecurityParam genesisConfig
             let vhp =
                     VerifyHeaderParams
                     { vhpPrevHeader = Just tipHeader
@@ -129,6 +131,7 @@ classifyNewHeader genesisConfig (BlockHeaderMain header) = fmap (either identity
                     , vhpMaxSize = Just maxBlockHeaderSize
                     , vhpVerifyNoUnknown = False
                     , vhpConsensusEra = era
+                    , vhpLastBlkSlotsAndK = Just (lastBlkSlots, k)
                     }
             let pm = configProtocolMagic genesisConfig
             case verifyHeader pm vhp (BlockHeaderMain header) of

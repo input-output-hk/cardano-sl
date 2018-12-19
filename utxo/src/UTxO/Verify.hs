@@ -319,9 +319,18 @@ slogVerifyBlocks era curSlot txValRules leaders lastSlots blocks = do
             throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
     let blocksList = OldestFirst (toList (getOldestFirst blocks))
+        lastBlkSlotsAndK = Just (lastSlots, dummyK)
     -- eos assumes `curSlot` is in fact the current slot
     verResToMonadError formatAllErrors $
-        verifyBlocks dummyConfig era txValRules curSlot dataMustBeKnown adoptedBVD leaders blocksList
+        verifyBlocks dummyConfig
+                     era
+                     txValRules
+                     lastBlkSlotsAndK
+                     curSlot
+                     dataMustBeKnown
+                     adoptedBVD
+                     leaders
+                     blocksList
 
     -- Here we need to compute 'SlogUndo'. When we add apply a block,
     -- we can remove one of the last slots stored in

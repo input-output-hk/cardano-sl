@@ -46,6 +46,8 @@ instance Buildable LastSlotInfo where
         bprint ( "LastSlotInfo "% int %" "% string)
             i (take 16 . BS.unpack . B16.encode $ CC.xpubPublicKey pk)
 
+instance NFData LastSlotInfo
+
 -- | This type contains 'FlatSlotId's of the blocks whose depth is
 -- less than 'blkSecurityParam'. 'FlatSlotId' is chosen in favor of
 -- 'SlotId', because the main use case is chain quality calculation,

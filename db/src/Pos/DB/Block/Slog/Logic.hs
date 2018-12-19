@@ -36,7 +36,8 @@ import           Pos.Chain.Block (Block, Blund, HasSlogGState, LastBlkSlots,
                      genBlockLeaders, headerHash, headerHashG,
                      mainBlockLeaderKey, mainBlockSlot, prevBlockL,
                      verifyBlocks)
-import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots,
+import           Pos.Chain.Genesis as Genesis (Config (..),
+                     configBlkSecurityParam, configEpochSlots,
                      configGenesisWStakeholders, configK)
 import           Pos.Chain.Txp (mkLiveTxValidationRules)
 import           Pos.Chain.Update (BlockVersion (..), ConsensusEra (..),
@@ -189,22 +190,27 @@ slogVerifyBlocks genesisConfig curSlot blocks = runExceptT $ do
     currentEpoch <- epochOrSlotToEpochIndex . getEpochOrSlot <$> DB.getTipHeader
     let txValRulesConfig = configTxValRules $ genesisConfig
         txValRules = mkLiveTxValidationRules currentEpoch txValRulesConfig
+    lastSlots <- lift GS.getLastSlots
     let blocksList :: OldestFirst [] Block
         blocksList = OldestFirst (NE.toList (getOldestFirst blocks))
+        lastBlkSlotsAndK :: Maybe (LastBlkSlots, BlockCount)
+        lastBlkSlotsAndK = Just (lastSlots, configBlkSecurityParam genesisConfig)
     verResToMonadError formatAllErrors $
         verifyBlocks
             genesisConfig
             era
             txValRules
+            lastBlkSlotsAndK
             curSlot
             dataMustBeKnown
             adoptedBVD
             leaders
             blocksList
+
     -- Here we need to compute 'SlogUndo'. When we apply a block,
     -- we can remove one of the last slots stored in 'BlockExtra'.
     -- This removed slot must be put into 'SlogUndo'.
-    lastSlots <- lift GS.getLastSlots
+
     -- these slots will be added if we apply all blocks
     let newSlots :: [LastSlotInfo]
         newSlots =

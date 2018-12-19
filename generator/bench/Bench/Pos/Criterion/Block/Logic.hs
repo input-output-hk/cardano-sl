@@ -212,6 +212,7 @@ verifyHeaderBenchmark !genesisConfig !secretKeys !tp =
                 , vhpMaxSize = Nothing
                 , vhpVerifyNoUnknown = False
                 , vhpConsensusEra = Original
+                , vhpLastBlkSlotsAndK = Nothing
                 }
         let !params = VerifyBlockParams
                 { vbpVerifyHeader = verifyHeaderParams

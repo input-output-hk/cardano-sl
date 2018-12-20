@@ -7,7 +7,7 @@ module Main where
 import           Universum hiding (keys)
 
 import           Control.Concurrent.Async (waitAny)
-import           Data.Map.Strict (lookup, (!))
+import           Data.Map.Strict ((!))
 import           Data.Maybe (fromJust)
 import           Formatting (build, sformat, (%))
 import           System.Console.ANSI (clearFromCursorToLineEnd,
@@ -73,32 +73,20 @@ main = void $ do
         ]
 
     handles <- forM cluster $ \case
-        RunningCoreNode (NodeName nodeId) env handle -> do
-            putTextLn $ "..."
-                <> nodeId <> " has no health-check API."
-                <> "\n......system start:  "   <> toText (env ! "SYSTEM_START")
-                <> "\n......address:       "   <> toText (env ! "LISTEN")
-                <> "\n......locked assets: " <> maybe "-" toText ("ASSET_LOCK_FILE" `lookup` env)
-            return handle
-
-        RunningRelayNode (NodeName nodeId) env handle -> do
-            putTextLn $ "..."
-                <> nodeId <> " has no health-check API."
-                <> "\n......system start:  " <> toText (env ! "SYSTEM_START")
-                <> "\n......address:       " <> toText (env ! "LISTEN")
-            return handle
-
-        RunningEdgeNode (NodeName nodeId) env manager handle -> do
+        RunningNode nodeType (NodeName nodeId) env manager handle -> do
             let addr = unsafeNetworkAddressFromString (env ! "NODE_API_ADDRESS")
             let client = mkHttpClient (ntwrkAddrToBaseUrl addr) manager
             putText "..." >> waitForNode client (MaxWaitingTime 90) printProgress
             putTextFromStart $ "..." <> nodeId <> " OK!"
+            when (nodeType /= NodeEdge) $ putText
+                $  "\n......address:       " <> toText (env ! "LISTEN")
             putTextLn
-                $  "\n......system start:  " <> toText (env ! "SYSTEM_START")
-                <> "\n......api address:   " <> toText (env ! "NODE_API_ADDRESS")
+                $  "\n......api address:   " <> toText (env ! "NODE_API_ADDRESS")
                 <> "\n......doc address:   " <> toText (env ! "NODE_DOC_ADDRESS")
+                <> "\n......system start:  " <> toText (env ! "SYSTEM_START")
             return handle
-    putTextLn "Cluster is (probably) ready!"
+
+    putTextLn "Cluster is ready!"
 
     waitAny handles
   where

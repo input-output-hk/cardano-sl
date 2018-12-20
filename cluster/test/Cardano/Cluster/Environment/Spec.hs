@@ -41,7 +41,7 @@ prop_generatedEnvironmentIsValid
     -> Property
 prop_generatedEnvironmentIsValid (Cluster nodes) mport (SeparatedBy stateDir) = do
     let (cPort, wPort, env0) = case mport of
-          Nothing   -> (3000, 8090, mempty)
+          Nothing   -> (3000, 8080, mempty)
           Just (Port port) -> (port, port+1000, mempty
             & at "LISTEN" ?~ ntwrkAddrToString ("localhost", port)
             & at "NODE_API_ADDRESS" ?~ ntwrkAddrToString (nextNtwrkAddr 1000 ("localhost", port))
@@ -53,67 +53,46 @@ prop_generatedEnvironmentIsValid (Cluster nodes) mport (SeparatedBy stateDir) = 
         conjoin $ flip map envs $ \((_, nodeType), env) -> case nodeType of
             NodeCore -> conjoin
                 [ prop_commonEnvironment env
-                , prop_environmentCore env (cPort, Just $ cPort + 100)
+                , conjoinWithContext "prop_coreEnvironment"
+                    [ prop_portWithin env "LISTEN" (cPort, Just $ cPort + 100)
+                    , prop_portWithin env "NODE_API_ADDRESS" (wPort, Nothing)
+                    , prop_portWithin env "NODE_DOC_ADDRESS" (wPort + 100, Nothing)
+                    ]
                 ]
 
             NodeRelay -> conjoin
                 [ prop_commonEnvironment env
-                , prop_environmentRelay env (cPort + 100, Nothing)
+                , conjoinWithContext "prop_relayEnvironment"
+                    [ prop_portWithin env "LISTEN" (cPort + 100, Nothing)
+                    , prop_portWithin env "NODE_API_ADDRESS" (wPort, Nothing)
+                    , prop_portWithin env "NODE_DOC_ADDRESS" (wPort + 100, Nothing)
+                    ]
                 ]
 
             NodeEdge -> conjoin
                 [ prop_commonEnvironment env
-                , prop_environmentEdge env ((wPort, Just $ wPort + 100), (wPort +100, Nothing))
+                , conjoinWithContext "prop_edgeEnvironment"
+                    [ prop_noEnvVar   env "LISTEN"
+                    , prop_portWithin env "NODE_API_ADDRESS" (wPort, Nothing)
+                    , prop_portWithin env "NODE_DOC_ADDRESS" (wPort + 100, Nothing)
+                    ]
                 ]
   where
     prop_commonEnvironment env = conjoinWithContext "prop_commonEnvironment"
         [ prop_hasEnvVar  env "CONFIGURATION_FILE"
         , prop_hasEnvVar  env "CONFIGURATION_KEY"
         , prop_hasEnvVar  env "DB_PATH"
-        , prop_hasEnvVar  env "NODE_ID"
         , prop_hasEnvVar  env "LOG_CONFIG"
-        , prop_noEnvVar   env "LOG_SEVERITY"
-        , prop_hasEnvVarP env "REBUILD_DB" (`elem` ["True", "False"])
-        ]
-
-    prop_environmentCore env portRange = conjoinWithContext "prop_environmentCore"
-        [ prop_portWithin env "LISTEN" portRange
-        , prop_noEnvVar   env "NODE_API_ADDRESS"
-        , prop_noEnvVar   env "NODE_DOC_ADDRESS"
-        , prop_noEnvVar   env "WALLET_ADDRESS"
-        , prop_noEnvVar   env "WALLET_DOC_ADDRESS"
-        , prop_noEnvVar   env "WALLET_DB_PATH"
-        , prop_noEnvVar   env "WALLET_REBUILD_DB"
-        , prop_noEnvVar   env "NO_CLIENT_AUTH"
-        , prop_noEnvVar   env "TLSCERT"
-        , prop_noEnvVar   env "TLSKEY"
-        , prop_noEnvVar   env "TLSCA"
-        ]
-
-    prop_environmentRelay env portRange = conjoinWithContext "prop_environmentRelay"
-        [ prop_portWithin env "LISTEN" portRange
-        , prop_noEnvVar   env "NODE_API_ADDRESS"
-        , prop_noEnvVar   env "NODE_DOC_ADDRESS"
-        , prop_noEnvVar   env "WALLET_ADDRESS"
-        , prop_noEnvVar   env "WALLET_DOC_ADDRESS"
-        , prop_noEnvVar   env "WALLET_DB_PATH"
-        , prop_noEnvVar   env "WALLET_REBUILD_DB"
-        , prop_noEnvVar   env "NO_CLIENT_AUTH"
-        , prop_noEnvVar   env "TLSCERT"
-        , prop_noEnvVar   env "TLSKEY"
-        , prop_noEnvVar   env "TLSCA"
-        ]
-
-    prop_environmentEdge env (apiRange, docRange) = conjoinWithContext "prop_environmentEdge"
-        [ prop_portWithin env "NODE_API_ADDRESS" apiRange
-        , prop_portWithin env "NODE_DOC_ADDRESS" docRange
+        , prop_hasEnvVar  env "NODE_ID"
+        , prop_hasEnvVar  env "TLSCA"
         , prop_hasEnvVar  env "TLSCERT"
         , prop_hasEnvVar  env "TLSKEY"
-        , prop_hasEnvVar  env "TLSCA"
+        , prop_hasEnvVarP env "REBUILD_DB" (`elem` ["True", "False"])
         , prop_hasEnvVarP env "NO_CLIENT_AUTH" (`elem` ["True", "False"])
+        , prop_noEnvVar   env "LOG_SEVERITY"
         , prop_noEnvVar   env "WALLET_ADDRESS"
-        , prop_noEnvVar   env "WALLET_DOC_ADDRESS"
         , prop_noEnvVar   env "WALLET_DB_PATH"
+        , prop_noEnvVar   env "WALLET_DOC_ADDRESS"
         , prop_noEnvVar   env "WALLET_REBUILD_DB"
         ]
 

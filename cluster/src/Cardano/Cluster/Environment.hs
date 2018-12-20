@@ -14,7 +14,8 @@ module Cardano.Cluster.Environment
     , withSystemStart
 
     -- * Demo Configurations
-    , demoTopology
+    , demoTopologyBehindNAT
+    , demoTopologyStatic
     , demoTLSConfiguration
     ) where
 
@@ -151,18 +152,35 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
     nodeId :: String
     nodeId = T.unpack nodeIdT
 
+    cIndex :: Int
+    cIndex = unsafeElemIndex node nodes
+
+    (nodeNames :: [NodeName], nodeTypes :: [NodeType]) = unzip nodes
+
+    nodeAddrs :: Env -> [(Maybe NetworkAddress, NetworkAddress)]
+    nodeAddrs env = flip evalState (0, 0, 0) $ forM nodeTypes $ \typ -> do
+        (c, r, w) <- get
+        case typ of
+            NodeCore ->
+                put (c + 1, r, w + 1) >> return (Just $ nextNtwrkAddr c addr, nextNtwrkAddr w waddr)
+            NodeRelay ->
+                put (c, r + 1, w + 1) >> return (Just $ nextNtwrkAddr (r + 100) addr, nextNtwrkAddr w waddr)
+            NodeEdge ->
+                put (c, r, w + 1) >> return (Nothing, nextNtwrkAddr w waddr)
+      where
+        -- NOTE Safe when called after 'withDefaultEnvironment'
+        addr :: NetworkAddress
+        addr = unsafeNetworkAddressFromString (env ! "LISTEN")
+
+        -- NOTE Safe when called after 'withDefaultEnvironment'
+        waddr :: NetworkAddress
+        waddr = unsafeNetworkAddressFromString (env ! "NODE_API_ADDRESS")
+
     failT :: MonadFail m => Text -> m a
     failT = fail . toString
 
     withDefaultEnvironment :: Env -> Env
-    withDefaultEnvironment =
-        case nodeType of
-            NodeCore  -> withDefaultCoreEnvironment
-            NodeRelay -> withDefaultCoreEnvironment
-            NodeEdge  -> withDefaultEdgeEnvironment . withDefaultCoreEnvironment
-
-    withDefaultCoreEnvironment :: Env -> Env
-    withDefaultCoreEnvironment env = env
+    withDefaultEnvironment env = env
         & at "CONFIGURATION_FILE" %~ (|> "lib/configuration.yaml")
         & at "CONFIGURATION_KEY"  %~ (|> "default")
         & at "DB_PATH"            ?~ (stateDir </> "db" </> nodeId)
@@ -170,11 +188,8 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
         & at "LOG_SEVERITY"       %~ (|> "Debug")
         & at "NODE_ID"            ?~ nodeId
         & at "REBUILD_DB"         %~ (|> "True")
-
-    withDefaultEdgeEnvironment :: Env -> Env
-    withDefaultEdgeEnvironment env = env
         & at "NO_CLIENT_AUTH"     %~ (|> "False")
-        & at "NODE_API_ADDRESS"   %~ (|> "127.0.0.1:8090")
+        & at "NODE_API_ADDRESS"   %~ (|> "127.0.0.1:8080")
 
     -- | Generate secrets keys from a genesis configuration
     -- NOTE 'genesis-key' and 'keyfile' can't be overidden by ENV vars
@@ -184,10 +199,6 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
             keysPath :: FilePath
             keysPath =
                 stateDir </> "generated-keys"
-
-            cIndex :: Int
-            cIndex =
-                unsafeElemIndex node nodes
 
             configOpts :: ConfigurationOptions
             configOpts = ConfigurationOptions
@@ -254,64 +265,39 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
     prepareTopology :: Env -> (Artifact Topology (), Env)
     prepareTopology env =
         let
-            cIndex :: Int
-            cIndex =
-                unsafeElemIndex node nodes
-
-            addr :: NetworkAddress
-            addr =
-                -- NOTE Safe when called after 'withDefaultEnvironment'
-                unsafeNetworkAddressFromString (env ! "LISTEN")
-
-            waddr :: NetworkAddress
-            waddr =
-                -- NOTE Safe when called after 'withDefaultEnvironment'
-                unsafeNetworkAddressFromString (env ! "NODE_API_ADDRESS")
-
             topologyPath :: FilePath
             topologyPath =
                 stateDir </> "topology" </> T.unpack nodeIdT <> ".json"
 
-            (nodeNames :: [NodeName], nodeTypes :: [NodeType]) =
-                unzip nodes
-
-            nodeAddrs :: [NetworkAddress]
-            nodeAddrs = flip evalState (0, 0, 0) $ forM nodeTypes $ \typ -> do
-                (c, r, w) <- get
-                case typ of
-                    NodeCore ->
-                        put (c + 1, r, w) >> return (nextNtwrkAddr c addr)
-                    NodeRelay ->
-                        put (c, r + 1, w) >> return (nextNtwrkAddr (r + 100) addr)
-                    NodeEdge ->
-                        put (c, r, w + 1) >> return (nextNtwrkAddr w waddr)
+            (listenAddrs :: [Maybe NetworkAddress], apiAddrs :: [NetworkAddress]) =
+                unzip $ nodeAddrs env
 
             topology :: Topology
             topology =
-                demoTopology nodeType (zip3 nodeNames nodeTypes nodeAddrs)
+                case nodeType of
+                    NodeEdge -> demoTopologyBehindNAT
+                        $ map (\(a, _, Just c) -> (a, c)) -- Safe, no edges
+                        $ filter isRelayNode
+                        $ zip3 nodeNames nodeTypes listenAddrs
+
+                    _ -> demoTopologyStatic
+                        $ map (\(a, b, Just c) -> (a, b, c)) -- Safe, no edges
+                        $ filter (not . isEdgeNode)
+                        $ zip3 nodeNames nodeTypes listenAddrs
 
             initTopology :: IO ()
             initTopology = do
                 createDirectoryIfMissing True (takeDirectory topologyPath)
                 BL.writeFile topologyPath (Aeson.encode topology)
         in
-            case nodeType of
-                NodeEdge ->
-                    ( Artifact topology initTopology
-                    , env
-                        & at "LISTEN"             .~ Nothing
-                        & at "TOPOLOGY"           ?~ topologyPath
-                        & at "NODE_API_ADDRESS"   ?~ (ntwrkAddrToString $ nodeAddrs !! cIndex)
-                        & at "NODE_DOC_ADDRESS"   ?~ (ntwrkAddrToString $ nextNtwrkAddr 100 (nodeAddrs !! cIndex))
-                    )
+            ( Artifact topology initTopology
+            , env
+                & at "LISTEN"             .~ (ntwrkAddrToString <$> listenAddrs !! cIndex)
+                & at "TOPOLOGY"           ?~ topologyPath
+                & at "NODE_API_ADDRESS"   ?~ (ntwrkAddrToString $ apiAddrs !! cIndex)
+                & at "NODE_DOC_ADDRESS"   ?~ (ntwrkAddrToString $ nextNtwrkAddr 100 (apiAddrs !! cIndex))
+            )
 
-                _ ->
-                    ( Artifact topology initTopology
-                    , env
-                        & at "LISTEN"   ?~ (ntwrkAddrToString $ nodeAddrs !! cIndex)
-                        & at "TOPOLOGY" ?~ topologyPath
-                        & at "NODE_API_ADDRESS" .~ Nothing
-                    )
 
     -- | Create a 'LoggerConfig' for the given node
     -- NOTE: The 'LoggerConfig' can't be overriden by ENV vars, however,
@@ -369,9 +355,8 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
                 -- NOTE Safe when called after 'withDefaultEnvironment'
                 unsafeBoolFromString (env ! "NO_CLIENT_AUTH")
 
-            (host, port) =
-                -- NOTE Safe when called after 'withDefaultEnvironment'
-                unsafeNetworkAddressFromString (env ! "NODE_API_ADDRESS")
+            (_, (host, port)) =
+                nodeAddrs env !! cIndex
 
             tlsBasePath =
                 stateDir </> "tls" </> nodeId
@@ -404,25 +389,13 @@ prepareEnvironment node@(NodeName nodeIdT, nodeType) nodes stateDir = runState $
                     else
                         return Nothing
                 return $ Prelude.head $ catMaybes clients
-
-            irrelevant =
-                "Attempted to initialize TLS environment for a non-edge node. \
-                \This is seemingly irrelevant: TLS is required for contacting \
-                \the node monitoring API."
         in
-            case nodeType of
-                NodeEdge ->
-                    ( Artifact tlsParams initTLSEnvironment
-                    , env
-                        & at "TLSCERT" ?~ tpCertPath tlsParams
-                        & at "TLSKEY"  ?~ tpKeyPath tlsParams
-                        & at "TLSCA"   ?~ tpCaPath tlsParams
-                    )
-
-                _ ->
-                    ( Artifact (error irrelevant) (failT irrelevant)
-                    , env
-                    )
+            ( Artifact tlsParams initTLSEnvironment
+            , env
+                & at "TLSCERT" ?~ tpCertPath tlsParams
+                & at "TLSKEY"  ?~ tpKeyPath tlsParams
+                & at "TLSCA"   ?~ tpCaPath tlsParams
+            )
 
 
 -- | Demo TLS Configuration
@@ -458,25 +431,12 @@ demoTLSConfiguration dir =
     )
 
 
--- | Create a default topology file structure for the given nodes associated
--- with their corresponding network addresses
-demoTopology
-    :: NodeType                               -- ^ Target node type (core, relay, edge ...)
-    -> [(NodeName, NodeType, NetworkAddress)] -- ^ All fully qualified nodes
+demoTopologyStatic
+    :: [(NodeName, NodeType, NetworkAddress)] -- List of all static peers
     -> Topology
-demoTopology nodeType =
-    case nodeType of
-        NodeEdge ->
-            TopologyBehindNAT 1 1 . mkRelays . filter isRelayNode
-        _ ->
-            TopologyStatic . mkStaticRoutes . filter (not . isEdgeNode)
+demoTopologyStatic =
+    TopologyStatic . mkStaticRoutes
   where
-    mkRelays
-        :: [(NodeName, NodeType, NetworkAddress)]
-        -> DnsDomains a
-    mkRelays =
-        DnsDomains . pure . map (ntwrkAddrToNodeAddr . (^. _3))
-
     mkStaticRoutes
         :: [(NodeName, NodeType, NetworkAddress)]
         -> AllStaticallyKnownPeers
@@ -512,6 +472,21 @@ demoTopology nodeType =
         , nmPublicDNS  = False
         , nmMaxSubscrs = BucketSizeUnlimited
         }
+
+
+-- | Create a default topology file structure for the corresponding node behind NAT
+-- (typically, edge nodes)
+demoTopologyBehindNAT
+    :: [(NodeName, NetworkAddress)] -- List of relays it is connected to
+    -> Topology
+demoTopologyBehindNAT =
+    TopologyBehindNAT 1 1 . mkRelays
+  where
+    mkRelays
+        :: [(NodeName, NetworkAddress)]
+        -> DnsDomains a
+    mkRelays =
+        DnsDomains . pure . map (ntwrkAddrToNodeAddr . snd)
 
 
 --

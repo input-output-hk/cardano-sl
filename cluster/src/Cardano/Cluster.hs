@@ -52,9 +52,7 @@ import           Pos.Util.CompileInfo (compileInfo, withCompileInfo)
 -- 'Async' handle. For edges nodes, there's an exta connection manager configured
 -- to talk to the underlying node API.
 data RunningNode
-    = RunningCoreNode  NodeName Env (Async ())
-    | RunningRelayNode NodeName Env (Async ())
-    | RunningEdgeNode  NodeName Env Manager (Async ())
+    = RunningNode NodeType NodeName Env Manager (Async ())
 
 
 -- | Start a cluster of nodes in different threads.
@@ -67,23 +65,16 @@ startCluster
     -> IO [RunningNode]
 startCluster prefix nodes = do
     env <- (withSystemStart . Map.fromList . stripFilterPrefix prefix) =<< getEnvironment
+    mvar <- newMVar ()
+    let once io = tryTakeMVar mvar >>= \case Nothing -> return (); Just _ -> void io
     handles <- forM nodes $ \node@(nodeId, nodeType) -> runAsync $ \yield ->
         withStateDirectory (env ^. at "STATE_DIR") $ \stateDir -> do
             let (artifacts, nodeEnv) = prepareEnvironment node nodes stateDir env
             let (genesis, topology, logger, tls) = artifacts
 
-            case nodeType of
-                NodeCore -> do
-                    void (init genesis >> init topology >> init logger)
-                    yield (RunningCoreNode nodeId nodeEnv)
-
-                NodeRelay -> do
-                    void (init topology >> init logger)
-                    yield (RunningRelayNode nodeId nodeEnv)
-
-                NodeEdge -> do
-                    manager  <- init topology >> init logger >> init tls
-                    yield (RunningEdgeNode nodeId nodeEnv manager)
+            when (nodeType == NodeCore) $ once (init genesis)
+            manager <- init topology >> init logger >> init tls
+            yield (RunningNode nodeType nodeId nodeEnv manager)
 
             startNode node nodeEnv
 
@@ -99,32 +90,15 @@ startNode
     :: (NodeName, NodeType) -- ^ The actual node name
     -> Env                  -- ^ A "simulation" of the system ENV as a 'Map String String'
     -> IO ()
-startNode (NodeName nodeIdT, nodeType) env = do
+startNode (NodeName nodeIdT, _) env = do
     nArgs <- parseNodeArgs
     cArgs <- parseCommonNodeArgs
     aArgs <- parseApiArgs
     let lArgs = getLoggingArgs cArgs
-
-    case nodeType of
-        NodeEdge ->
-            withCompileInfo $ launchNode nArgs cArgs lArgs $ \genC walC txpC ntpC nodC sscC resC -> do
-                actionWithCoreNode
-                    (launchNodeServer
-                        aArgs
-                        ntpC
-                        resC
-                        updateConfiguration
-                        compileInfo)
-                    genC
-                    walC
-                    txpC
-                    ntpC
-                    nodC
-                    sscC
-                    resC
-        _ ->
-            withCompileInfo $ launchNode nArgs cArgs lArgs $
-                actionWithCoreNode (\_ -> pure ())
+    withCompileInfo $ launchNode nArgs cArgs lArgs $ \genC walC txpC ntpC nodC sscC resC -> do
+        actionWithCoreNode
+            (launchNodeServer aArgs ntpC resC updateConfiguration compileInfo)
+            genC walC txpC ntpC nodC sscC resC
   where
     parseApiArgs = do
         let aVars = varFromParser nodeApiArgsParser

@@ -47,7 +47,8 @@ import           Universum hiding (takeWhile)
 import           Control.Concurrent.Async (Async, async, race, wait)
 import           Control.Lens (at)
 import qualified Data.Aeson as Aeson
-import           Data.Attoparsec.ByteString.Char8 ( skipWhile, string, takeWhile, skipSpace, parseOnly)
+import           Data.Attoparsec.ByteString.Char8 (parseOnly, skipSpace,
+                     skipWhile, string, takeWhile)
 import qualified Data.Attoparsec.Internal.Types as Atto.Internal
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.Char as Char

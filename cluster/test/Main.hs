@@ -18,6 +18,9 @@ import           Cardano.Cluster.Environment.Spec
                      prop_generatedEnvironmentIsValid)
 
 
+import           System.IO (hSetEncoding, stderr, stdout, utf8)
+
+
 main :: IO ()
 main = evalResults
     [
@@ -45,6 +48,10 @@ main = evalResults
 -- fails if one or more them returned a failure.
 evalResults :: [IO (String, Result)] -> IO ()
 evalResults xs = do
+
+    hSetEncoding stdout utf8
+    hSetEncoding stderr utf8
+
     ys <- sequence xs
     case filter (not . isSuccess . snd) ys of
         [] -> pure ()

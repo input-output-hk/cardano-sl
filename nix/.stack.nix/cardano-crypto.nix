@@ -28,7 +28,7 @@
     };
     components = {
       "library" = {
-        depends  = [
+        depends = [
           (hsPkgs.base)
           (hsPkgs.memory)
           (hsPkgs.deepseq)
@@ -43,7 +43,7 @@
       };
       exes = {
         "golden-tests" = {
-          depends  = [
+          depends = [
             (hsPkgs.base)
             (hsPkgs.basement)
             (hsPkgs.foundation)
@@ -56,7 +56,7 @@
       };
       tests = {
         "cardano-crypto-test" = {
-          depends  = [
+          depends = [
             (hsPkgs.base)
             (hsPkgs.bytestring)
             (hsPkgs.memory)
@@ -67,7 +67,7 @@
           ];
         };
         "cardano-crypto-golden-tests" = {
-          depends  = [
+          depends = [
             (hsPkgs.base)
             (hsPkgs.basement)
             (hsPkgs.foundation)
@@ -80,7 +80,7 @@
       };
       benchmarks = {
         "cardano-crypto-bench" = {
-          depends  = [
+          depends = [
             (hsPkgs.base)
             (hsPkgs.bytestring)
             (hsPkgs.memory)
@@ -93,8 +93,8 @@
     };
   } // {
     src = pkgs.fetchgit {
-      url = "https://github.com/angerman/cardano-crypto";
-      rev = "1e436fe8b69e7c8b399937db394d99229fcd775c";
-      sha256 = "02kisrjavvi4hr2kyq7znd7y3y5c4pbl6w8gr5a58fl03m69sngr";
+      url = "https://github.com/input-output-hk/cardano-crypto";
+      rev = "3c707936ba0a665375acf5bd240dc4b6eaa6c0bc";
+      sha256 = "0g8ln8k8wx4csdv92bz09pr7v9dp4lcyv1334b09c9rgwdwhqg1b";
     };
   }

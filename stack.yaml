@@ -50,11 +50,9 @@ packages:
     commit: 93f2246c54436e7f98cc363b4e0f8f1cb5e78717
   extra-dep: true
 
-# Once https://github.com/input-output-hk/cardano-crypto/pull/46
-# is merged we can go back to input-output-hk/cardano-crypto
 - location:
-    git: https://github.com/angerman/cardano-crypto
-    commit: 1e436fe8b69e7c8b399937db394d99229fcd775c
+    git: https://github.com/input-output-hk/cardano-crypto
+    commit: 3c707936ba0a665375acf5bd240dc4b6eaa6c0bc
   extra-dep: true
 # to be removed when haskell-ip is in the current stackage version
 - location:
@@ -190,7 +188,7 @@ packages:
 # Inspector, as used in cardano-crypto
 - location:
     git: https://github.com/primetype/inspector.git
-    commit: 964558881210bf1f9387b51ab05057b1290d1d71
+    commit: c975f4329365f0379c04358138e616fb96fb0b79
   extra-dep: true
 
 nix:

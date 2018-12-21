@@ -2,10 +2,10 @@ diff --git a/utils/hsc2hs/ATTParser.hs b/utils/hsc2hs/ATTParser.hs
 index 93d332e..24949e2 100644
 --- a/utils/hsc2hs/ATTParser.hs
 +++ b/utils/hsc2hs/ATTParser.hs
-@@ -28,4 +28,17 @@ data Inst = Ident String
+@@ -28,6 +28,19 @@ data Inst = Ident String
            | Ascii String
            deriving Show
-
+ 
 +mkLong :: Word32 -> Inst
 +mkLong = Long
 +mkQuad :: Word64 -> Inst
@@ -20,7 +20,7 @@ index 93d332e..24949e2 100644
 +mkAscii = Ascii
 +
  type ASM = [(String, Inst)]
-
+ 
  isIdent :: Inst -> Bool
 @@ -54,21 +67,44 @@ preprocess :: String -> [Inst]
  preprocess [] = []

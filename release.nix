@@ -150,12 +150,15 @@ let
   };
   mapped-nix-tools       = mapTestOn                                    (lib.recursiveUpdate nix-tools-toolchain { nix-tools.tests = broken-tests; });
   mapped-nix-tools-cross = mapTestOnCross lib.systems.examples.mingwW64 (lib.recursiveUpdate nix-tools-toolchain { nix-tools.tests = broken-tests-cross; });
+  mapped-nix-tools-musl  = mapTestOnCross lib.systems.examples.musl64   (lib.recursiveUpdate nix-tools-toolchain { nix-tools.tests = broken-tests-cross; });
 
   mapped-nix-tools'
-    = lib.recursiveUpdate
-        (mapped-nix-tools)
-        (lib.mapAttrs (_: (lib.mapAttrs (_: (lib.mapAttrs' (n: v: lib.nameValuePair (lib.systems.examples.mingwW64.config + "-" + n) v)))))
-          mapped-nix-tools-cross);
+    = builtins.foldl' lib.recursiveUpdate
+        mapped-nix-tools
+        [ (lib.mapAttrs (_: (lib.mapAttrs (_: (lib.mapAttrs' (n: v: lib.nameValuePair (lib.systems.examples.mingwW64.config + "-" + n) v)))))
+            mapped-nix-tools-cross)
+          (lib.mapAttrs (_: (lib.mapAttrs (_: (lib.mapAttrs' (n: v: lib.nameValuePair (lib.systems.examples.musl64.config + "-" + n) v)))))
+            mapped-nix-tools-musl) ];
 
   mapped' = mapTestOn platforms';
   makeConnectScripts = cluster: let

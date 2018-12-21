@@ -30,6 +30,7 @@
           (hsPkgs.QuickCheck)
           (hsPkgs.aeson)
           (hsPkgs.bytestring)
+          (hsPkgs.cardano-sl-client)
           (hsPkgs.cardano-sl-core)
           (hsPkgs.cardano-sl-crypto)
           (hsPkgs.cardano-sl-util)

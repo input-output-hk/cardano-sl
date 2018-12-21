@@ -66,12 +66,14 @@ NOTE: the various other Cardano components can be obtained through other attribu
 -  `cardano-sl-tools`:
    - `cardano-analyzer`, `cardano-dht-keygen`, `cardano-genupdate`, `cardano-keygen`, `cardano-launcher`, `cardano-addr-convert`, `cardano-cli-docs`, `cardano-block-gen`, `cardano-post-mortem`
 -  `cardano-wallet-static`:
-   - `cardano-node`, `cardano-swagger`
+   - `cardano-node`, `cardano-generate-swagger-file`
 
 In general, for any given cabal `PACKAGE` provided by Cardano, there is a
-corresponding Nix attribute for it -- `PACKAGE`, and sometimes, in case of
-packages providing executables, the `PACKAGE-static` also provides a
-statically-linked variation.
+corresponding Nix attribute for it -- `PACKAGE`.
+In the case of packages with executables, the `PACKAGE-static`
+attribute provides a variation with only the executables, with Haskell
+dependencies statically linked (system dependencies dynamically
+linked).
 
 ## Stack with Nix for system libraries (mixed mode)
 

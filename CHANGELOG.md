@@ -1,7 +1,7 @@
 # CHANGELOG
 
+## Cardano SL 2.0.0
 
-## Cardano SL vNext [1.4.0]
 
 ### Features
 
@@ -17,27 +17,75 @@
   have added configurable throttling to the API service to prevent this
   problem. To configure this, setting, view the changes in the
   `configuration.yaml` file under the `wallet` section. The API will now return
-  a 429 error containing the microseconds to wait until retry.
+  a 429 error containing the microseconds to wait until retry. ([CBR-179](https://iohk.myjetbrains.com/youtrack/issue/CBR-179), [#3431](https://github.com/input-output-hk/cardano-sl/pull/3431))
 
-- We can force an NTP-check when getting node-info via the API (`?force_ntp_check` query flag) (CO-325)
+- We can force an NTP-check when getting node-info via the API (`?force_ntp_check` query flag)
+    - [CO-325](https://iohk.myjetbrains.com/youtrack/issue/CO-325), [#3372](https://github.com/input-output-hk/cardano-sl/pull/3372), [#3461](https://github.com/input-output-hk/cardano-sl/pull/3461), [#3607](https://github.com/input-output-hk/cardano-sl/pull/3607)
+    - [CBR-427](https://iohk.myjetbrains.com/youtrack/issue/CBR-427) [#3586](https://github.com/input-output-hk/cardano-sl/pull/3586)
 
-- The API provides an endpoint to retrieve basic statistics on the UTxO distribution of a wallet
-  (`/api/v1/wallets/{walletId}/statistics`). (CO-325)
+- The API provides an endpoint to retrieve basic statistics on the UTxO distribution of a wallet (`/api/v1/wallets/{walletId}/statistics`) ([CO-347](https://iohk.myjetbrains.com/youtrack/issue/CO-347), [#3402](https://github.com/input-output-hk/cardano-sl/pull/3402))
 
-- cardano-sl exposes a new package `x509` with tooling for defining a PKI infrastructure from
-  pure Haskell. This is basically an export of the internals of the tool `cardano-sl-x509-generate` (CO-387)
+    - [CO-388](https://iohk.myjetbrains.com/youtrack/issue/CO-388), [#3610](https://github.com/input-output-hk/cardano-sl/pull/3610)
+    - [CO-389](https://iohk.myjetbrains.com/youtrack/issue/CO-389), [#3620](https://github.com/input-output-hk/cardano-sl/pull/3620), [#3658](https://github.com/input-output-hk/cardano-sl/pull/3658)
 
+- cardano-sl exposes a new package `x509` with tooling for defining a PKI infrastructure from pure Haskell. This is basically an export of the internals of the tool `cardano-sl-x509-generate`
+    - [DEVOPS-992](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-992), [#3367](https://github.com/input-output-hk/cardano-sl/pull/3367)
+    - [CO-388](https://iohk.myjetbrains.com/youtrack/issue/CO-388), [#3610](https://github.com/input-output-hk/cardano-sl/pull/3610)
+    - [CO-389](https://iohk.myjetbrains.com/youtrack/issue/CO-389), [#3620](https://github.com/input-output-hk/cardano-sl/pull/3620), [#3658](https://github.com/input-output-hk/cardano-sl/pull/3658)
+
+- Structured logging ([CBR-97](https://iohk.myjetbrains.com/youtrack/issue/CBR-97) [#3483](https://github.com/input-output-hk/cardano-sl/pull/3483) [#3645](https://github.com/input-output-hk/cardano-sl/pull/3645), [CBR-207](https://iohk.myjetbrains.com/youtrack/issue/CBR-207), [#3476](https://github.com/input-output-hk/cardano-sl/pull/3476) [#3477](https://github.com/input-output-hk/cardano-sl/pull/3477), [CBR-211](https://iohk.myjetbrains.com/youtrack/issue/CBR-211) [#3507](https://github.com/input-output-hk/cardano-sl/pull/3507), [CBR-213](https://iohk.myjetbrains.com/youtrack/issue/CBR-213), [#3481](https://github.com/input-output-hk/cardano-sl/pull/3481), [DEVOPS-1097](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1097), [#3764](https://github.com/input-output-hk/cardano-sl/pull/3764), [#3395](https://github.com/input-output-hk/cardano-sl/pull/3395), [#3443](https://github.com/input-output-hk/cardano-sl/pull/3443), [DEVOPS-1109](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1109), [#3785](https://github.com/input-output-hk/cardano-sl/pull/3785), [CBR-275](https://iohk.myjetbrains.com/youtrack/issue/CBR-275) [#3533](https://github.com/input-output-hk/cardano-sl/pull/3533) [#3534](https://github.com/input-output-hk/cardano-sl/pull/3534) [#3655](https://github.com/input-output-hk/cardano-sl/pull/3655), [CBR-345](https://iohk.myjetbrains.com/youtrack/issue/CBR-345) [#3526](https://github.com/input-output-hk/cardano-sl/pull/3526) [#3613](https://github.com/input-output-hk/cardano-sl/pull/3613) [#3632](https://github.com/input-output-hk/cardano-sl/pull/3632) [#3633](https://github.com/input-output-hk/cardano-sl/pull/3633) [#3709](https://github.com/input-output-hk/cardano-sl/pull/3709), [CBR-348](https://iohk.myjetbrains.com/youtrack/issue/CBR-348) [#3523](https://github.com/input-output-hk/cardano-sl/pull/3523), [CBR-430](https://iohk.myjetbrains.com/youtrack/issue/CBR-430) [#3603](https://github.com/input-output-hk/cardano-sl/pull/3603), [CBR-423](https://iohk.myjetbrains.com/youtrack/issue/CBR-423) [#3609](https://github.com/input-output-hk/cardano-sl/pull/3609), [RCD-42](https://iohk.myjetbrains.com/youtrack/issue/RCD-42) [#3816](https://github.com/input-output-hk/cardano-sl/pull/3816))
+
+- New data layer for wallet ([CBR-150](https://iohk.myjetbrains.com/youtrack/issue/CBR-150), [#3245](https://github.com/input-output-hk/cardano-sl/pull/3245),
+[CBR-227](https://iohk.myjetbrains.com/youtrack/issue/CBR-227),
+[#3393](https://github.com/input-output-hk/cardano-sl/pull/3393)
+)
+
+
+- Enable new data layer in Docker images for exchanges ([DEVOPS-1037](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1037), [#3545](https://github.com/input-output-hk/cardano-sl/pull/3545), [DEVOPS-1046](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1046), [#3594](https://github.com/input-output-hk/cardano-sl/pull/3594)).
+
+- #### Address Discrimination
+    - Set up supporting tests ([CDEC-500](https://iohk.myjetbrains.com/youtrack/issue/CDEC-500): [#3403](https://github.com/input-output-hk/cardano-sl/pull/3403), [#3405](https://github.com/input-output-hk/cardano-sl/pull/3405))
+    - Fix JSON golden test helpers ([CDEC-506](https://iohk.myjetbrains.com/youtrack/issue/CDEC-506): [#3415](https://github.com/input-output-hk/cardano-sl/pull/3415))
+    - Adjust the address format to distinguish testnet and mainnet addresses ([CO-410](https://iohk.myjetbrains.com/youtrack/issue/CO-410): [#3715](https://github.com/input-output-hk/cardano-sl/pull/3715), [#3733](https://github.com/input-output-hk/cardano-sl/pull/3733), [#3756](https://github.com/input-output-hk/cardano-sl/pull/3756), [#3775](https://github.com/input-output-hk/cardano-sl/pull/3775))
+
+- New `cluster` package with utility and CLI to start a full-fledged cluster of nodes
+    - [CO-423](https://iohk.myjetbrains.com/youtrack/issue/CO-423), [#3732](https://github.com/input-output-hk/cardano-sl/pull/3732)
+    - [CO-371](https://iohk.myjetbrains.com/youtrack/issue/CO-371), [#3605](https://github.com/input-output-hk/cardano-sl/pull/3605)
+    - [CO-385](https://iohk.myjetbrains.com/youtrack/issue/CO-385), [#3608](https://github.com/input-output-hk/cardano-sl/pull/3608)
+    - [CO-390](https://iohk.myjetbrains.com/youtrack/issue/CO-390), [#3629](https://github.com/input-output-hk/cardano-sl/pull/3629)
+
+- Support query against some fields of the Account resource (balance, addresses) enabling client to fetch only the data they need ([CO-324](https://iohk.myjetbrains.com/youtrack/issue/CO-324), [#3210](https://github.com/input-output-hk/cardano-sl/pull/3210))
+
+- Integration with the new data-layer
+    - [CBR-437](https://iohk.myjetbrains.com/youtrack/issue/CBR-437), [#3621](https://github.com/input-output-hk/cardano-sl/pull/3621)
+    - [CBR-446](https://iohk.myjetbrains.com/youtrack/issue/CBR-446), [#3650](https://github.com/input-output-hk/cardano-sl/pull/3650)
+    - [CBR-462](https://iohk.myjetbrains.com/youtrack/issue/CBR-462) [#3704](https://github.com/input-output-hk/cardano-sl/pull/3704)
+    - [CBR-464](https://iohk.myjetbrains.com/youtrack/issue/CBR-464) [#3710](https://github.com/input-output-hk/cardano-sl/pull/3710)
+    - [CBR-471](https://iohk.myjetbrains.com/youtrack/issue/CBR-471) [#3786](https://github.com/input-output-hk/cardano-sl/pull/3786)
+    - [CO-367](https://iohk.myjetbrains.com/youtrack/issue/CO-367) [#3661](https://github.com/input-output-hk/cardano-sl/pull/3661)
+    - [CBR-366](https://iohk.myjetbrains.com/youtrack/issue/CBR-366) [#3469](https://github.com/input-output-hk/cardano-sl/pull/3469)
+    - [RCD-44](https://iohk.myjetbrains.com/youtrack/issue/RCD-44) [#3875](https://github.com/input-output-hk/cardano-sl/pull/3875)
+    - [RCD-45](https://iohk.myjetbrains.com/youtrack/issue/RCD-45) [#3875](https://github.com/input-output-hk/cardano-sl/pull/3875)
+    - [RCD-46](https://iohk.myjetbrains.com/youtrack/issue/RCD-46) [#3875](https://github.com/input-output-hk/cardano-sl/pull/3875)
+    - [RCD-47](https://iohk.myjetbrains.com/youtrack/issue/RCD-47) [#3876](https://github.com/input-output-hk/cardano-sl/pull/3876)
+    - [CBR-495](https://iohk.myjetbrains.com/youtrack/issue/CBR-495) [#3943](https://github.com/input-output-hk/cardano-sl/pull/3943)
+    - [CBR-496](https://iohk.myjetbrains.com/youtrack/issue/CBR-496) [#3947](https://github.com/input-output-hk/cardano-sl/pull/3947)
+
+- Finalize port of API V0 to V1
+    - [CO-334](https://iohk.myjetbrains.com/youtrack/issue/CO-334) [#3197](https://github.com/input-output-hk/cardano-sl/pull/3197)
+
+- Expose ntp client api for makeing forceful ntp checks and a review of the ntp client code base [CDEC-355](https://iohk.myjetbrains.com/youtrack/issue/CDEC-355)
+    - [#3323](https://github.com/input-output-hk/cardano-sl/pull/3323)
+    - [#3264](https://github.com/input-output-hk/cardano-sl/pull/3264)
 
 ### Fixes
 
 - #### Make productionReporter more robust
   Add exception handling code in reporting exception handler, to prevent IOExceptions from killing
   the main thread. This was noticed when the network connection was interrupted, and the reporter
-  died when it tried to report over the down network. (CDEC-470 / [PR 3365])
+  died when it tried to report over the down network. ([CDEC-470](https://iohk.myjetbrains.com/youtrack/issue/CDEC-470), [#3365](https://github.com/input-output-hk/cardano-sl/pull/3365))
 
-[PR 3365]: https://github.com/input-output-hk/cardano-sl/pull/3365
-
-- Improve type safety (and as a consequence, API documentation) of account indexes (CBR-306)
+- Improve type safety (and as a consequence, API documentation) of account indexes ([CBR-306](https://iohk.myjetbrains.com/youtrack/issue/CBR-306), [#3086](https://github.com/input-output-hk/cardano-sl/pull/3086))
 
 - The Swagger specification had names with illegal characters. These names
   where changed to be URL friendly. [PR #3595](https://github.com/input-output-hk/cardano-sl/pull/3595)
@@ -45,41 +93,179 @@
 - The creation of mnemonic doesn't throw anymore when provided words outside of the BIP39 English dictionnary.
   Instead, it returns an error value gracefully (CO-325)
 
-- Response from `JSONValidationError` are now also encoded inline (instead of a pretty-encoding with newlines) (DDW-318)
+- Response from `JSONValidationError` are now also encoded inline (instead of a pretty-encoding with newlines) ([DDW-318](https://iohk.myjetbrains.com/youtrack/issue/DDW-318), [#3619](https://github.com/input-output-hk/cardano-sl/pull/3619))
 
 - **[API BREAKING CHANGE]** The behavior of `/api/v1/addresses/{address}` has been adjusted to reflect more accurately
   the meaning of ownership regarding addresses.
   The previous version of this endpoint failed with an HTTP error when the given address was unknown to the wallet.
   This was misleading since an address that is unknown to the wallet may still belong to the wallet. To reflect this,
   the V1 endpoint does not fail anymore as it used to when an address is not recognised and returns instead a new field
-  'is-ours' which indicates either that an address is ours, or that it is 'not-recognised'. (CBR-401)
-  
+  'is-ours' which indicates either that an address is ours, or that it is 'not-recognised'. ([CBR-401](https://iohk.myjetbrains.com/youtrack/issue/CBR-401), [#3646](https://github.com/input-output-hk/cardano-sl/pull/3646))
+
  - **[API BREAKING CHANGE]** A DELETE request to `/api/v1/wallets/{wallet}` now correctly fails with 404 if the wallet doesn't exist. Previously it incorrectly responded with 204.
+
+- Fix `commitAndReleaseBuffer: invalid argument (invalid character)` error in Docker image ([DEVOPS-877](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-877), [#3173](https://github.com/input-output-hk/cardano-sl/pull/3173))
+
+- Fix deadlock triggered by update/shutdown ([CBR-424](https://iohk.myjetbrains.com/youtrack/issue/CBR-424) [#3731](https://github.com/input-output-hk/cardano-sl/pull/3731))
+
+- Fix space leak during network syncing ([CBR-454](https://iohk.myjetbrains.com/youtrack/issue/CBR-454) [#3679](https://github.com/input-output-hk/cardano-sl/pull/3679))
+
+- Fix benchmark on OSX ([CSL-2517](https://iohk.myjetbrains.com/youtrack/issue/CSL-2517) [#3348](https://github.com/input-output-hk/cardano-sl/pull/3348))
+
+- Fix logger implementation, enabling pure logger to be used without side-effects ([CO-409](https://iohk.myjetbrains.com/youtrack/issue/CO-409), [#3697](https://github.com/input-output-hk/cardano-sl/pull/3697))
+
+- Crash host node when the underlying wallet dies ([CBR-263](https://iohk.myjetbrains.com/youtrack/issue/CBR-263), [#3584](https://github.com/input-output-hk/cardano-sl/pull/3584))
+
+- Ensure correct file permissions are set when generate x509 certificates ([CBR-470](https://iohk.myjetbrains.com/youtrack/issue/CBR-470), [#3773](https://github.com/input-output-hk/cardano-sl/pull/3773))
+
+- Fix checksum verification in BIP-39 implementation ([CO-298](https://iohk.myjetbrains.com/youtrack/issue/CO-298), [#3013](https://github.com/input-output-hk/cardano-sl/pull/3013))
+
+- Fix wallet starting bug introduced by [CDEC-509](https://iohk.myjetbrains.com/youtrack/issue/CDEC-509) ([CBR-400](https://iohk.myjetbrains.com/youtrack/issue/CBR-400): [#3486](https://github.com/input-output-hk/cardano-sl/pull/3486))
+
+- Fix Haddock errors ([CDEC-585](https://iohk.myjetbrains.com/youtrack/issue/CDEC-585): [#3614](https://github.com/input-output-hk/cardano-sl/pull/3614))
+
+- Fix restoration ignoring new accounts in legacy data layer ([DEVOPS-1153](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1153): [#3911](https://github.com/input-output-hk/cardano-sl/pull/3911))
+
+- Tweaks to [Cardano Explorer](https://cardanoexplorer.com/) for [Testnet](https://testnet.iohkdev.io/cardano/) ([DEVOPS-1094](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1094), [#3817](https://github.com/input-output-hk/cardano-sl/pull/3817), [DEVOPS-1121](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1121), [#3831](https://github.com/input-output-hk/cardano-sl/pull/3831), [RCD-48](https://iohk.myjetbrains.com/youtrack/issue/RCD-48), [#3883](https://github.com/input-output-hk/cardano-sl/pull/3883))
+
+- Fix bug in Windows launcher where upgrading to 2.0.0 would terminate any other Daedalus wallets that were running ([RCD-52](https://iohk.myjetbrains.com/youtrack/issue/RCD-52), [#3926](https://github.com/input-output-hk/cardano-sl/pull/3926))
 
 ### Improvements
 
-- Friendly error mistakes from deserializing invalid addresses instead of brutal 500 (CBR-283)
+- Friendly error mistakes from deserializing invalid addresses instead of brutal 500 ([CBR-283](https://iohk.myjetbrains.com/youtrack/issue/CBR-283))
 
-- **[API BREAKING CHANGE]** Add `walletId` to `WalletAlreadyExists` WalletLayerError (CBR-254)
+- **[API BREAKING CHANGE]** Add `walletId` to `WalletAlreadyExists` WalletLayerError ([CBR-254](https://iohk.myjetbrains.com/youtrack/issue/CBR-254))
 
-- Small refactor of wallet Errors implementation to be more maintainable (CBR-26)
+- Small refactor of wallet Errors implementation to be more maintainable ([CBR-26](https://iohk.myjetbrains.com/youtrack/issue/CBR-26), [#3429](https://github.com/input-output-hk/cardano-sl/pull/3429))
 
-- Content-Type parser is now more lenient and accepts `application/json`, `application/json;charset=utf-8` and
-  no Content-Type at all (defaulting to `application/json`).
+- Content-Type parser is now more lenient and accepts `application/json`, `application/json;charset=utf-8` and no Content-Type at all (defaulting to `application/json`) ([CO-369](https://iohk.myjetbrains.com/youtrack/issue/CO-369), [#3596](https://github.com/input-output-hk/cardano-sl/pull/3596))
 
 - The codebase now relies on the package `cryptonite` (instead of `ed25519`) for Ed25519 implementation (CO-325)
 
-- **[API BREAKING CHANGE]** Improve diagnostic for `NotEnoughMoney` error (CBR-461)
+- **[API BREAKING CHANGE]** Improve diagnostic for `NotEnoughMoney` error ([CBR-461](https://iohk.myjetbrains.com/youtrack/issue/CBR-461), [#3702](https://github.com/input-output-hk/cardano-sl/pull/3702))
 
-- When Content-Type's main MIME-type cannot fall back to 'application/json' then UnsupportedMimeTypeError is returned
+- When Content-Type's main MIME-type cannot fall back to 'application/json' then UnsupportedMimeTypeError is returned ([CO-416](https://iohk.myjetbrains.com/youtrack/issue/CO-416), [#3727](https://github.com/input-output-hk/cardano-sl/pull/3727))
 
-### Specifications
+- Add `cardano-node --no-tls` option to wallet ([DEVOPS-879](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-879), [#3074](https://github.com/input-output-hk/cardano-sl/pull/3074))
+
+- Improve error reporting when a worker thread in cardano dies ([DEVOPS-1063](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1063), [#3664](https://github.com/input-output-hk/cardano-sl/pull/3664))
+
+- Add failure injection options to wallet for Daedalus testing ([DEVOPS-1086](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1086), [#3787](https://github.com/input-output-hk/cardano-sl/pull/3787))
+
+- Benchmarking support ([PB-20](https://iohk.myjetbrains.com/youtrack/issue/PB-20) [PB-95](https://iohk.myjetbrains.com/youtrack/issue/PB-95) [#3670](https://github.com/input-output-hk/cardano-sl/pull/3670))
+
+- #### Reorganize and clean up `core` packages
+    - Move code from `infra` to `sinbin` so that `infra` can be moved "up" in the dependency graph ([CDEC-416](https://iohk.myjetbrains.com/youtrack/issue/CDEC-416): [#3185](https://github.com/input-output-hk/cardano-sl/pull/3185), [#3202](https://github.com/input-output-hk/cardano-sl/pull/3202), [#3209](https://github.com/input-output-hk/cardano-sl/pull/3209))
+    - Move code from `networking` to `core`, so that `networking` can be moved "up" ([CDEC-432](https://iohk.myjetbrains.com/youtrack/issue/CDEC-432): [#3238](https://github.com/input-output-hk/cardano-sl/pull/3238), [#3261](https://github.com/input-output-hk/cardano-sl/pull/3261), [#3266](https://github.com/input-output-hk/cardano-sl/pull/3266))
+    - Remove unnecessary `Mockable` typeclass ([CDEC-451](https://iohk.myjetbrains.com/youtrack/issue/CDEC-451): [#3285](https://github.com/input-output-hk/cardano-sl/pull/3285))
+    - Switch uses of `pipes` to `conduit`, for consistency ([CDEC-464](https://iohk.myjetbrains.com/youtrack/issue/CDEC-464): [#3305](https://github.com/input-output-hk/cardano-sl/pull/3305))
+    - Remove partial-function record accessors using `deriveIndexedBi` TH function ([CDEC-385](https://iohk.myjetbrains.com/youtrack/issue/CDEC-385): [#3153](https://github.com/input-output-hk/cardano-sl/pull/3153))
+    - Create a script to visualize the package dependency graph within `cardano-sl` ([CDEC-429](https://iohk.myjetbrains.com/youtrack/issue/CDEC-429): [#3227](https://github.com/input-output-hk/cardano-sl/pull/3227))
+    - Remove `Blockchain` class and clean up `Block` modules ([CDEC-333](https://iohk.myjetbrains.com/youtrack/issue/CDEC-333): [#3615](https://github.com/input-output-hk/cardano-sl/pull/3615))
+    - Remove `HasProtocolConstants` reflection constraint in favour of explicit parameters ([CDEC-369](https://iohk.myjetbrains.com/youtrack/issue/CDEC-369): [#3482](https://github.com/input-output-hk/cardano-sl/pull/3482))
+    - Remove remaining reflection constraints from `core` configuration ([CDEC-509](https://iohk.myjetbrains.com/youtrack/issue/CDEC-509): [#3437](https://github.com/input-output-hk/cardano-sl/pull/3437), [#3505](https://github.com/input-output-hk/cardano-sl/pull/3505), [#3522](https://github.com/input-output-hk/cardano-sl/pull/3522), [#3549](https://github.com/input-output-hk/cardano-sl/pull/3549), [#3550](https://github.com/input-output-hk/cardano-sl/pull/3550), [#3570](https://github.com/input-output-hk/cardano-sl/pull/3570))
+    - Add `stylish-haskell` enforcement in CI to keep code conformant ([CDEC-383](https://iohk.myjetbrains.com/youtrack/issue/CDEC-383): [#3142](https://github.com/input-output-hk/cardano-sl/pull/3142))
+    - Move `Block` datatypes from `core` to `chain` ([CDEC-485](https://iohk.myjetbrains.com/youtrack/issue/CDEC-485): [#3351](https://github.com/input-output-hk/cardano-sl/pull/3351))
+    - Move chain-related `core` types to `chain` package ([CDEC-505](https://iohk.myjetbrains.com/youtrack/issue/CDEC-505): [#3412](https://github.com/input-output-hk/cardano-sl/pull/3412), [#3593](https://github.com/input-output-hk/cardano-sl/pull/3593), [#3600](https://github.com/input-output-hk/cardano-sl/pull/3600), [#3601](https://github.com/input-output-hk/cardano-sl/pull/3601), [#3611](https://github.com/input-output-hk/cardano-sl/pull/3611))
+    - Add golden tests for `Undo` type ([CDEC-623](https://iohk.myjetbrains.com/youtrack/issue/CDEC-623): [#3735](https://github.com/input-output-hk/cardano-sl/pull/3735))
+    - Reunite orphan instances
+        - in `txp` ([CDEC-418](https://iohk.myjetbrains.com/youtrack/issue/CDEC-418): [#3179](https://github.com/input-output-hk/cardano-sl/pull/3179))
+        - in `delegation` ([CDEC-423](https://iohk.myjetbrains.com/youtrack/issue/CDEC-423): [#3200](https://github.com/input-output-hk/cardano-sl/pull/3200))
+        - in `chain` ([CDEC-484](https://iohk.myjetbrains.com/youtrack/issue/CDEC-484): [#3357](https://github.com/input-output-hk/cardano-sl/pull/3357))
+        - in `lib` - `SafeCopy` instances ([CDEC-377](https://iohk.myjetbrains.com/youtrack/issue/CDEC-377): [#3135](https://github.com/input-output-hk/cardano-sl/pull/3135))
+    - Remove `-fno-warn-orphans` from `ghc-options` in `update-test` ([CDEC-455](https://iohk.myjetbrains.com/youtrack/issue/CDEC-455): [#3296](https://github.com/input-output-hk/cardano-sl/pull/3296))
+    - Move `Arbitrary` instances from `wallet` to `wallet-test` ([CDEC-437](https://iohk.myjetbrains.com/youtrack/issue/CDEC-437): [#3259](https://github.com/input-output-hk/cardano-sl/pull/3259))
+    - Move `Pos.Core.Genesis.Canonical` to `Pos.Util.Json.Canonical` ([CDEC-513](https://iohk.myjetbrains.com/youtrack/issue/CDEC-513): [#3445](https://github.com/input-output-hk/cardano-sl/pull/3445))
+    - Weed out unused package dependencies ([CDEC-425](https://iohk.myjetbrains.com/youtrack/issue/CDEC-425): [#3240](https://github.com/input-output-hk/cardano-sl/pull/3240))
+
+- Improve readability and execution of various integration tests
+    - [CO-398](https://iohk.myjetbrains.com/youtrack/issue/CO-398), [#3678](https://github.com/input-output-hk/cardano-sl/pull/3678)
+    - [CO-400](https://iohk.myjetbrains.com/youtrack/issue/CO-400), [#3680](https://github.com/input-output-hk/cardano-sl/pull/3680)
+    - [CO-436](https://iohk.myjetbrains.com/youtrack/issue/CO-436), [#3791](https://github.com/input-output-hk/cardano-sl/pull/3791)
+    - [CBR-408](https://iohk.myjetbrains.com/youtrack/issue/CBR-408), [#3571](https://github.com/input-output-hk/cardano-sl/pull/3571)
+    - [CBR-417](https://iohk.myjetbrains.com/youtrack/issue/CBR-417), [#3568](https://github.com/input-output-hk/cardano-sl/pull/3568)
+    - [CO-357](https://iohk.myjetbrains.com/youtrack/issue/CO-357), [#3573](https://github.com/input-output-hk/cardano-sl/pull/3573), [#3639](https://github.com/input-output-hk/cardano-sl/pull/3639)
+
+- Add integration tests to test redemption of certificates ([CBR-398](https://iohk.myjetbrains.com/youtrack/issue/CBR-398), [#3525](https://github.com/input-output-hk/cardano-sl/pull/3525))
+
+- Review implementation of the BIP39 (Mnemonic Words) implementation
+    - [CBR-288](https://iohk.myjetbrains.com/youtrack/issue/CBR-288) [#3128](https://github.com/input-output-hk/cardano-sl/pull/3128)
+    - [CBR-289](https://iohk.myjetbrains.com/youtrack/issue/CBR-289) [#3043](https://github.com/input-output-hk/cardano-sl/pull/3043)
+
+- Add a test which checks if the configuration can be correctly parsed
+    - [CDEC-405](https://iohk.myjetbrains.com/youtrack/issue/CDEC-405) [#3175](https://github.com/input-output-hk/cardano-sl/pull/3175)
 
 ### Documentation
 
-- Make an inventory of existing wallet errors and exceptions (CBR-307)
+- Make an inventory of existing wallet errors and exceptions ([CBR-307](https://iohk.myjetbrains.com/youtrack/issue/CO-307))
 
-- wallet-new README has been improved (especially on sections about testing) and updated (CO-325)
+- Various API documentation / guides fixes
+    - [CO-327](https://iohk.myjetbrains.com/youtrack/issue/CO-327), [#3215](https://github.com/input-output-hk/cardano-sl/pull/3215)
+    - [CO-328](https://iohk.myjetbrains.com/youtrack/issue/CO-328), [#3212](https://github.com/input-output-hk/cardano-sl/pull/3212)
+    - [CO-351](https://iohk.myjetbrains.com/youtrack/issue/CO-351) [#3391](https://github.com/input-output-hk/cardano-sl/pull/3391)
+
+- Documentation updates for Nix 2.0 ([DEVOPS-976](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-976), [#3311](https://github.com/input-output-hk/cardano-sl/pull/3311), [#3343](https://github.com/input-output-hk/cardano-sl/pull/3343))
+
+### Continuous Integration (CI)
+
+- Add a nightly test which syncs mainnet from scratch ([DEVOPS-1016](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1016), [#3487](https://github.com/input-output-hk/cardano-sl/pull/3487), [DEVOPS-1052](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1052), [#3626](https://github.com/input-output-hk/cardano-sl/pull/3626))
+- CI speed improvements ([DEVOPS-1032](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1032), [#3544](https://github.com/input-output-hk/cardano-sl/pull/3544))
+- Fixes for regeneration of `pkgs/default.nix` ([DEVOPS-1045](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1045), [#3677](https://github.com/input-output-hk/cardano-sl/pull/3677))
+- Ensure the nix-shell environment is built and cached by Hydra ([DEVOPS-1059](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1059), [#3653](https://github.com/input-output-hk/cardano-sl/pull/3653))
+- Add support for building cardano-sl with `cabal new-build` ([DEVOPS-1061](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1061), [#3662](https://github.com/input-output-hk/cardano-sl/pull/3662), [#3729](https://github.com/input-output-hk/cardano-sl/pull/3729), [#3734](https://github.com/input-output-hk/cardano-sl/pull/3734), [DEVOPS-1060](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1060), [#3675](https://github.com/input-output-hk/cardano-sl/pull/3675))
+- Refactor nix files, add comments and documentation ([DEVOPS-1083](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1083), [#3728](https://github.com/input-output-hk/cardano-sl/pull/3728), [#3760](https://github.com/input-output-hk/cardano-sl/pull/3760), [#3761](https://github.com/input-output-hk/cardano-sl/pull/3761), [#3763](https://github.com/input-output-hk/cardano-sl/pull/3763), [DEVOPS-1004](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1004), [#3400](https://github.com/input-output-hk/cardano-sl/pull/3400), [DEVOPS-1067](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1067), [#3690](https://github.com/input-output-hk/cardano-sl/pull/3690))
+- Add stylish-haskell tests to the Hydra build ([DEVOPS-936](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-936), [#3166](https://github.com/input-output-hk/cardano-sl/pull/3166), [#3189](https://github.com/input-output-hk/cardano-sl/pull/3189), [#3222](https://github.com/input-output-hk/cardano-sl/pull/3222))
+- Improve nixpkgs pinning ([DEVOPS-779](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-779), [#3180](https://github.com/input-output-hk/cardano-sl/pull/3180))
+- Fix caching of nix builds ([DEVOPS-810](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-810), [#3174](https://github.com/input-output-hk/cardano-sl/pull/3174))
+- Ensure CI builds all targets (including benchmarks), and runs all tests ([DEVOPS-908](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-908), [#3130](https://github.com/input-output-hk/cardano-sl/pull/3130), [#3150](https://github.com/input-output-hk/cardano-sl/pull/3150))
+- Build fixes for cardano-sl-explorer-frontend ([DEVOPS-916](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-916), [#3137](https://github.com/input-output-hk/cardano-sl/pull/3137), [#3146](https://github.com/input-output-hk/cardano-sl/pull/3146), [DEVOPS-999](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-999), [#3472](https://github.com/input-output-hk/cardano-sl/pull/3472))
+- Fix `nix-build` when run from a `git` worktree ([DEVOPS-949](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-949), [#3691](https://github.com/input-output-hk/cardano-sl/pull/3691))
+- Windows build fixes ([DEVOPS-957](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-957), [#3272](https://github.com/input-output-hk/cardano-sl/pull/3272), [DEVOPS-1003](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1003), [#3398](https://github.com/input-output-hk/cardano-sl/pull/3398))
+- macOS build fixes (`clang: Argument list too long`) ([DEVOPS-1005](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1005), [#3432](https://github.com/input-output-hk/cardano-sl/pull/3432), [DEVOPS-1050](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1050), [#3606](https://github.com/input-output-hk/cardano-sl/pull/3606))
+- Improve wallet integration tests ([DEVOPS-980](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-980), [#3325](https://github.com/input-output-hk/cardano-sl/pull/3325), [#3380](https://github.com/input-output-hk/cardano-sl/pull/3380), [DEVOPS-988](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-988), [#3346](https://github.com/input-output-hk/cardano-sl/pull/3346))
+- Demo cluster and launch script fixes ([DEVOPS-985](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-985), [#3342](https://github.com/input-output-hk/cardano-sl/pull/3342), [DEVOPS-1062](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1062), [#3665](https://github.com/input-output-hk/cardano-sl/pull/3665), [DEVOPS-1101](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1101), [#3769](https://github.com/input-output-hk/cardano-sl/pull/3769))
+- Add timing information to nix builds ([DEVOPS-1013](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1013), [#3457](https://github.com/input-output-hk/cardano-sl/pull/3457), [DEVOPS-1027](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1027), [#3509](https://github.com/input-output-hk/cardano-sl/pull/3509), [DEVOPS-1048](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1048), [#3706](https://github.com/input-output-hk/cardano-sl/pull/3706))
+- Better code linting in CI ([DEVOPS-1031](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1031), [#3527](https://github.com/input-output-hk/cardano-sl/pull/3527), [DEVOPS-1057](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1057), [#3649](https://github.com/input-output-hk/cardano-sl/pull/3649), [DEVOPS-1100](https://iohk.myjetbrains.com/youtrack/issue/DEVOPS-1100), [#3762](https://github.com/input-output-hk/cardano-sl/pull/3762))
+
+
+## Cardano SL 1.3.2
+
+### Fixes
+
+- Upgrade block version to 0.2.0 to limit max block size to 32 KB.
+
+- Override max block size for epoch boundary blocks (also called
+  genesis blocks) to have a limit of 1.953 MB.
+
+
+## Cardano SL 1.3.1
+
+### Features
+
+- Add genesis data for the Cardano SL public Testnet. ([#3265](https://github.com/input-output-hk/cardano-sl/pull/3265), [#3349](https://github.com/input-output-hk/cardano-sl/pull/3349), [#3585](https://github.com/input-output-hk/cardano-sl/pull/3585), DEVOPS-398)
+
+- Add a "faucet" API to dispense Testnet Ada to users. ([#2939](https://github.com/input-output-hk/cardano-sl/pull/2939), DEVOPS-834)
+
+- Support additional fields for Daedalus bug reports in the report server. ([#3394](https://github.com/input-output-hk/cardano-sl/pull/3394), TSD-116)
+
+### Fixes
+
+- Fix a case where the error reporting system can cause the node to stop syncing. ([#3294](https://github.com/input-output-hk/cardano-sl/pull/3294), CDEC-469, CDEC-439)
+
+- Adjust the address format to distinguish testnet and mainnet addresses. ([#3540](https://github.com/input-output-hk/cardano-sl/pull/3540), [#3556](https://github.com/input-output-hk/cardano-sl/pull/3556), [#3558](https://github.com/input-output-hk/cardano-sl/pull/3558), [#3561](https://github.com/input-output-hk/cardano-sl/pull/3561), [#3578](https://github.com/input-output-hk/cardano-sl/pull/3578), [#3583](https://github.com/input-output-hk/cardano-sl/pull/3583), [#3618](https://github.com/input-output-hk/cardano-sl/pull/3618), [#3659](https://github.com/input-output-hk/cardano-sl/pull/3659), [#3685](https://github.com/input-output-hk/cardano-sl/pull/3685), CO-353, CO-354)
+
+- Add a workaround for the RocksDB issue which prevented Daedalus Windows users with non-ASCII usernames from starting the wallet. ([#3465](https://github.com/input-output-hk/cardano-sl/pull/3465), CBR-391)
+
+- Add support to cardano-sl-launcher for launching Daedalus in "safe mode". ([#3421](https://github.com/input-output-hk/cardano-sl/pull/3421), DDW-380)
+
+- Fix the x509 certificate generation tool to allow using IP addresses as subject alternate names. ([#3390](https://github.com/input-output-hk/cardano-sl/pull/3390), DEVOPS-992)
+
+- Fix display of the git version in Cardano Explorer. ([#3386](https://github.com/input-output-hk/cardano-sl/pull/3386), DEVOPS-999)
+
+- Update Windows build script to use a newer openssl version. ([#3397](https://github.com/input-output-hk/cardano-sl/pull/3397), DEVOPS-1003)
+
+- Fix a build system issue which caused slow builds. ([#3622](https://github.com/input-output-hk/cardano-sl/pull/3622), DEVOPS-916)
+
 
 ## Cardano SL 1.3.0
 

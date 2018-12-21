@@ -193,6 +193,14 @@
             (hsPkgs.canonical-json)
           ];
         };
+        "wallet-extractor" = {
+          depends = [
+            (hsPkgs.base)
+            (hsPkgs.universum)
+            (hsPkgs.text)
+            (hsPkgs.cardano-sl)
+          ];
+        };
       };
       tests = {
         "cardano-sl-tools-test" = {

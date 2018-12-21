@@ -13339,9 +13339,9 @@ pname = "cardano-crypto";
 version = "1.1.0";
 src = fetchgit {
 
-url = "https://github.com/angerman/cardano-crypto";
-sha256 = "02kisrjavvi4hr2kyq7znd7y3y5c4pbl6w8gr5a58fl03m69sngr";
-rev = "1e436fe8b69e7c8b399937db394d99229fcd775c";
+url = "https://github.com/input-output-hk/cardano-crypto";
+sha256 = "0g8ln8k8wx4csdv92bz09pr7v9dp4lcyv1334b09c9rgwdwhqg1b";
+rev = "3c707936ba0a665375acf5bd240dc4b6eaa6c0bc";
 fetchSubmodules = true;
 
 };
@@ -44689,8 +44689,8 @@ version = "0.2";
 src = fetchgit {
 
 url = "https://github.com/primetype/inspector.git";
-sha256 = "1ig1gb131z37jbg5ih2lv609f4jgw9wmm6lcxdclihjq5lm12b7n";
-rev = "964558881210bf1f9387b51ab05057b1290d1d71";
+sha256 = "12q1v7a8kcw7qi4lws4j3mvxwfkhni6zmp870kmnkgbgwvrax9gs";
+rev = "c975f4329365f0379c04358138e616fb96fb0b79";
 fetchSubmodules = true;
 
 };

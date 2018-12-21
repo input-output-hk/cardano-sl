@@ -49,8 +49,8 @@
   } // {
     src = pkgs.fetchgit {
       url = "https://github.com/primetype/inspector.git";
-      rev = "964558881210bf1f9387b51ab05057b1290d1d71";
-      sha256 = "1ig1gb131z37jbg5ih2lv609f4jgw9wmm6lcxdclihjq5lm12b7n";
+      rev = "c975f4329365f0379c04358138e616fb96fb0b79";
+      sha256 = "12q1v7a8kcw7qi4lws4j3mvxwfkhni6zmp870kmnkgbgwvrax9gs";
     };
   }) // {
     cabal-generator = "hpack";

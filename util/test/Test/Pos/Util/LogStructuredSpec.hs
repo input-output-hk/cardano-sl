@@ -8,7 +8,8 @@ import           Universum
 
 import           Data.Aeson (ToJSON (..))
 import qualified Data.HashMap.Strict as HM
-import           System.Directory (getCurrentDirectory, removeFile)
+import           System.Directory (doesFileExist, getCurrentDirectory,
+                     removeFile)
 import           Test.Hspec (Spec, describe, it)
 import           Test.Hspec.QuickCheck (modifyMaxSize, modifyMaxSuccess)
 import           Test.QuickCheck.Monadic (monadicIO)
@@ -99,5 +100,5 @@ spec = describe "Strucutured logging" $ do
                     contents <- readFile logFile
                     putStrLn contents
                     liftIO $ removeFile logFile
-                    liftIO $ removeFile "node.json"
+                    liftIO $ whenM (doesFileExist "node.json") (removeFile "node.json")
                 Nothing -> putStrLn ("JSON file NOT found:" :: Text)

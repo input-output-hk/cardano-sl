@@ -1,7 +1,23 @@
 # CHANGELOG
 
-## Cardano SL 2.0.0
+## Cardano SL vNext
 
+### Features
+
+### Fixes
+
+### Improvements
+
+- #### Docker images published to Docker Hub
+
+  Docker images are now available at
+  [hub.docker.com](https://hub.docker.com/r/inputoutput/cardano-sl/).
+
+  Users who build their own Docker images: please be aware that the
+  image tags now look like `cardano-sl:2.1.0-mainnet-wallet`.
+
+
+## Cardano SL 2.0.0
 
 ### Features
 

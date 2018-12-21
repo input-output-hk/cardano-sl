@@ -181,15 +181,16 @@ container and import the image run
 
     docker load < $(nix-build --no-out-link -A dockerImages.mainnet.wallet)
 
-This will create an image `cardano-container-mainnet:latest`
-(or `cardano-container-staging:latest` for testnet)
+This will create an image `cardano-sl:X.Y.Z-mainnet-wallet` (or
+`cardano-sl:X.Y.Z-testnet-wallet` for testnet), where `X.Y.Z` is the
+Cardano SL version.
 
 After this image is built, it can be used like any other docker image being pushed
 into a registry and pulled down using your preferred docker orchestration tool.
 
 The image can be ran using the following:
 
-    docker run --name cardano-mainnet-wallet --rm -it -p 127.0.0.1:8090:8090 -p 127.0.0.1:8000:8000 -v state-wallet-mainnet:/wallet cardano-container-mainnet:latest
+    docker run --name cardano-mainnet-wallet --rm -it -p 127.0.0.1:8090:8090 -p 127.0.0.1:8000:8000 -v state-wallet-mainnet:/wallet cardano-sl:X.Y.Z-mainnet-wallet
 
 The above command will create a docker volume named `state-wallet-mainnet` and will mount
 that to /wallet. Note: if no volume is mounted to `/wallet` the container startup

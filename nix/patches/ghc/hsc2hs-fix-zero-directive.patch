@@ -1,0 +1,81 @@
+diff --git a/utils/hsc2hs/ATTParser.hs b/utils/hsc2hs/ATTParser.hs
+index 93d332e..24949e2 100644
+--- a/utils/hsc2hs/ATTParser.hs
++++ b/utils/hsc2hs/ATTParser.hs
+@@ -28,4 +28,17 @@ data Inst = Ident String
+           | Ascii String
+           deriving Show
+
++mkLong :: Word32 -> Inst
++mkLong = Long
++mkQuad :: Word64 -> Inst
++mkQuad = Quad
++-- | turn @x@ and @(x)@ into @Ref x@.
++-- The (x) syntax can be found in mips assembly.
++mkRef :: String -> Inst
++mkRef ('(':r) | (')':r') <- reverse r = Ref $ reverse r'
++mkRef r = Ref r
++
++mkAscii :: String -> Inst
++mkAscii = Ascii
++
+ type ASM = [(String, Inst)]
+
+ isIdent :: Inst -> Bool
+@@ -54,21 +67,44 @@ preprocess :: String -> [Inst]
+ preprocess [] = []
+ preprocess ('\t':attr) = let (h, t) = break isSpace attr
+                          in case h:words' (=='\t') t of
+-                         (".quad":x:_) | isNumber (w x) -> [Quad $ read (w x)]
+-                                       | otherwise      -> [Ref  $ (w x)]
+-                         (".xword":x:_)| isNumber (w x) -> [Quad $ read (w x)]
+-                                       | otherwise      -> [Ref  $ (w x)]
+-                         (".long":x:_) | isNumber (w x) -> [Long $ read (w x)]
+-                                       | otherwise      -> [Ref  $ (w x)]
+-                         (".space":x:_)| (w x) == "4"   -> [Long 0]
+-                                       | (w x) == "8"   -> [Quad 0]
+-                         (".ascii":x:_)             -> [Ascii $ read x]
+-                         (".asciz":x:_)             -> [Ascii $ read x ++ "\0"]
++                         -- 8 byte values
++                         (".quad":x:_) | isNumber (w x) -> [mkQuad $ read (w x)]
++                                       | otherwise      -> [mkRef  $ (w x)]
++                         (".xword":x:_)| isNumber (w x) -> [mkQuad $ read (w x)]
++                                       | otherwise      -> [mkRef  $ (w x)]
++                         (".8byte":x:_)| isNumber (w x) -> [mkQuad $ read (w x)]
++                                       | otherwise      -> [mkRef  $ (w x)]
++                         ("data8":x:_) | isNumber (w x) -> [mkQuad $ read (w x)]
++                                       | otherwise      -> [mkRef  $ (w x)]
++
++                         -- 4 byte values
++                         (".long":x:_) | isNumber (w x) -> [mkLong $ read (w x)]
++                                       | otherwise      -> [mkRef  $ (w x)]
++                         (".word":x:_) | isNumber (w x) -> [mkLong $ read (w x)]
++                                       | otherwise      -> [mkRef  $ (w x)]
++                         (".4byte":x:_)| isNumber (w x) -> [mkLong $ read (w x)]
++                                       | otherwise      -> [mkRef  $ (w x)]
++
++                         (".space":x:_)| (w x) == "4"   -> [mkLong 0]
++                                       | (w x) == "8"   -> [mkQuad 0]
++                         (".skip":x:_) | (w x) == "4"   -> [mkLong 0]
++                                       | (w x) == "8"   -> [mkQuad 0]
++                         (".zero":x:_) | (w x) == "4"   -> [mkLong 0]
++                                       | (w x) == "8"   -> [mkQuad 0]
++
++                         (".ascii":x:_)             -> [mkAscii $ read x]
++                         (".asciz":x:_)             -> [mkAscii $ read x ++ "\0"]
++                         -- found on nios, sh4, alpha, mk68k; all without \0.
++                         (".string":x:_)            -> [mkAscii $ read x ++ "\0"]
++                         -- found on hppa
++                         (".stringz":x:_)           -> [mkAscii $ read x ++ "\0"]
++                         -- ia64
++                         ("stringz":x:_)            -> [mkAscii $ read x ++ "\0"]
+                          _                          -> []
+   where w = head . words
+ preprocess ('.':'z':'e':'r':'o':'f':'i':'l':'l':' ':x) = case words' (==',') x of
+-      (_seg:_sect:sym:size:_) | size == "4" -> [Ident sym, Long 0]
+-                              | size == "8" -> [Ident sym, Quad 0]
++      (_seg:_sect:sym:size:_) | size == "4" -> [Ident sym, mkLong 0]
++                              | size == "8" -> [Ident sym, mkQuad 0]
+       _ -> []
+ preprocess (c:cs) | not (isSpace c) = [Ident $ takeWhile (/= ':') (c:cs)]
+                   | otherwise       = []

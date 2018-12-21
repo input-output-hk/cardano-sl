@@ -61,6 +61,8 @@
           ./patches/ghc/ghc-8.4.3-Cabal2201-allow-test-wrapper.patch
           ./patches/ghc/ghc-8.4.3-Cabal2201-response-file-support.patch
 #          ./patches/ghc/ghc-8.4.4-darwin-rec-link.patch
+        ] ++ [
+           ./patches/ghc/hsc2hs-fix-zero-directive.patch
         ];
         postPatch = (drv.postPath or "") + ''
         autoreconf

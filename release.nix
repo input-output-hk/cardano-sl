@@ -172,6 +172,7 @@ let
       dockerImage = wrapDockerImage cluster;
     };
   };
+<<<<<<< HEAD
   # return an attribute set containing the result of running every test-suite in cardano, on the given system
   makeCardanoTestRuns = system:
   let
@@ -180,6 +181,9 @@ let
     f = name: value: value.testrun;
   in pkgs.lib.mapAttrs f (lib.filterAttrs pred cardanoPkgs);
 in pkgs.lib.fix (jobsets: mapped // mapped-nix-tools' // {
+=======
+in pkgs.lib.fix (jobsets: mapped // {
+>>>>>>> release/2.0.0
   inherit tests;
   inherit (pkgs) cabal2nix;
   nixpkgs = let
@@ -187,18 +191,27 @@ in pkgs.lib.fix (jobsets: mapped // mapped-nix-tools' // {
       ln -sv ${fixedNixpkgs} $out
     '';
   in if 0 <= builtins.compareVersions builtins.nixVersion "1.12" then wrapped else fixedNixpkgs;
+<<<<<<< HEAD
   # the result of running every cardano test-suite on 64bit linux
   all-cardano-tests.x86_64-linux = makeCardanoTestRuns "x86_64-linux";
   # hydra will create a special aggregate job, that relies on all of these sub-jobs passing
+=======
+>>>>>>> release/2.0.0
   required = pkgs.lib.hydraJob (pkgs.releaseTools.aggregate {
     name = "cardano-required-checks";
     constituents =
       let
+<<<<<<< HEAD
         allLinux = x: map (system: x.${system}) [ "x86_64-linux" ];
         all = x: map (system: x.${system}) supportedSystems;
       in
     [
       (builtins.concatLists (map lib.attrValues (allLinux jobsets.all-cardano-tests)))
+=======
+        all = x: map (system: x.${system}) supportedSystems;
+      in
+    [
+>>>>>>> release/2.0.0
       (all jobsets.all-cardano-sl)
       (all jobsets.daedalus-bridge)
       jobsets.mainnet.connectScripts.wallet.x86_64-linux
@@ -206,9 +219,15 @@ in pkgs.lib.fix (jobsets: mapped // mapped-nix-tools' // {
       jobsets.tests.shellcheck
       jobsets.tests.stylishHaskell
       jobsets.tests.swaggerSchemaValidation
+<<<<<<< HEAD
       (builtins.concatLists (lib.attrValues (lib.mapAttrs (_: allLinux) jobsets.nix-tools.libs)))
       (builtins.concatLists (lib.attrValues (lib.mapAttrs (_: allLinux) jobsets.nix-tools.exes)))
     ];
   });
 }
 // (builtins.listToAttrs (map makeRelease [ "mainnet" "staging" ])))
+=======
+    ];
+  });
+} // (builtins.listToAttrs (map makeRelease [ "mainnet" "staging" ])))
+>>>>>>> release/2.0.0

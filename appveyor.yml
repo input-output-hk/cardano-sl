@@ -3,6 +3,7 @@ image: Visual Studio 2015
 
 build: off
 
+<<<<<<< HEAD
 environment:
   global:
     # Avoid long paths on Windows
@@ -172,3 +173,7 @@ deploy:
   set_public: true
   folder: cardano-sl
   artifact: $(APPVEYOR_REPO_COMMIT).zip
+=======
+test_script:
+- ps: echo "No Longer Used, check buildkite windows job"
+>>>>>>> release/2.0.0

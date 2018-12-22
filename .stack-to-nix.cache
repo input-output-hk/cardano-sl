@@ -24,3 +24,4 @@ https://github.com/primetype/inspector.git 964558881210bf1f9387b51ab05057b1290d1
 https://github.com/input-output-hk/cardano-crypto 3c707936ba0a665375acf5bd240dc4b6eaa6c0bc . 0g8ln8k8wx4csdv92bz09pr7v9dp4lcyv1334b09c9rgwdwhqg1b cardano-crypto .stack.nix/cardano-crypto.nix
 https://github.com/angerman/inspector.git 9215d64b8a05d366d31135b89644823ecdc3efb8 . 12q1v7a8kcw7qi4lws4j3mvxwfkhni6zmp870kmnkgbgwvrax9gs inspector .stack.nix/inspector.nix
 https://github.com/primetype/inspector.git c975f4329365f0379c04358138e616fb96fb0b79 . 12q1v7a8kcw7qi4lws4j3mvxwfkhni6zmp870kmnkgbgwvrax9gs inspector .stack.nix/inspector.nix
+https://github.com/input-output-hk/cardano-crypto 59eb60b3a227c615736db9bb1609fd5c20109098 . 0afacdk9ibdzay43l79r1zvg957gkrnrfla5dzcd64jz6xnigg8j cardano-crypto .stack.nix/cardano-crypto.nix

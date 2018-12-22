@@ -52,7 +52,7 @@
         cardano-sl-tools = ./.stack.nix/cardano-sl-tools.nix;
         cardano-sl-tools-post-mortem = ./.stack.nix/cardano-sl-tools-post-mortem.nix;
         cardano-sl-utxo = ./.stack.nix/cardano-sl-utxo.nix;
-        cardano-wallet = ./.stack.nix/cardano-wallet.nix;
+        cardano-sl-wallet = ./.stack.nix/cardano-sl-wallet.nix;
         cardano-sl-node-ipc = ./.stack.nix/cardano-sl-node-ipc.nix;
         cardano-sl-faucet = ./.stack.nix/cardano-sl-faucet.nix;
         acid-state-exts = ./.stack.nix/acid-state-exts.nix;

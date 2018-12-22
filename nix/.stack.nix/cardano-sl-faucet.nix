@@ -35,7 +35,7 @@
           (hsPkgs.cardano-sl-crypto)
           (hsPkgs.cardano-sl-util)
           (hsPkgs.cardano-sl-mnemonic)
-          (hsPkgs.cardano-wallet)
+          (hsPkgs.cardano-sl-wallet)
           (hsPkgs.connection)
           (hsPkgs.cryptonite)
           (hsPkgs.data-default)

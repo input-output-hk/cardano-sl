@@ -16,9 +16,19 @@
        # in our nixpkgs to allow mingw with
        # libwinpthreads.
        rocksdb = with ps.stdenv;
-         if hostPlatform.isWindows
-         then pkgs.callPackage ./rocksdb-prebuilt.nix { inherit (buildPackages) fetchurl unzip; }
-         else ps.rocksdb;
+         let rocksdb =
+           if hostPlatform.isWindows
+           then pkgs.callPackage ./rocksdb-prebuilt.nix { inherit (buildPackages) fetchurl unzip; }
+           else ps.rocksdb;
+         in rocksdb.override { jemalloc = ps.jemalloc; };
+
+       # Backported packages from nixpkgs-upstream
+       static-openssl = (pkgs.callPackage ./backport/openssl { cryptodev = null; static = true; });
+       static-lz4 = (pkgs.callPackage ./backport/lz4 { enableStatic = true; });
+
+       # customized why ever it by default only build dynamic...
+       # well, what ever...
+       static-snappy = ps.snappy.overrideAttrs (_: { cmakeFlags = [ "-DBUILD_SHARED_LIBS=OFF" "-DCMAKE_SKIP_BUILD_RPATH=OFF" ]; }); #pkgs.callPackage ./snappy/snappy-static {};
 
        # on windows we have this habit of putting libraries
        # into `bin`, wheras on unix it's usually `lib`. For

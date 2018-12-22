@@ -108,6 +108,11 @@ let
         packages.file-embed-lzma.patches    = [ ./patches/file-embed-lzma-0.patch ];
 
         packages.cardano-sl.patches         = [ ./patches/cardano-sl.patch ];
+
+        # https://github.com/biegunka/terminal-size/pull/12
+        packages.terminal-size.patches      = [ ./patches/terminal-size-hsc-alignment.patch ];
+        packages.scrypt.patches             = [ ./patches/scrypt-scrypt-prefix.patch ];
+        packages.rocksdb-haskell-ng.patches = [ ./patches/rocksdb-add-libs.patch ];
       }
       # cross compilation logic
       ({ pkgs, buildModules, config, lib, ... }:
@@ -178,6 +183,43 @@ let
          packages.diagrams-svg        = withTH;
          packages.diagrams-postscript = withTH;
          packages.Chart-diagrams      = withTH;
+      })
+      ({ lib, ... }:
+       lib.optionalAttrs pkgs'.stdenv.hostPlatform.isMusl {
+         packages.cardano-wallet.configureFlags = [
+           # we really want static.
+           "--ghc-option=-optl=-static"
+           # and we want also static c++ (due to rocksdb)
+           "--ghc-option=-optl=-static-libstdc++"
+           "--ghc-option=-optl=-static-libgcc"
+           # now, ghc is not really smart and will keep using gcc
+           # however gcc is not smart either and will fail over
+           # linking c++ libraries, even if we say we want
+           # static-libc++. So let's tell ghc to force g++ as
+           # a linker. We'll need to fix the
+           "--ghc-option=-pgml=${pkgs'.stdenv.hostPlatform.config}-g++"
+
+           # make a bunch of libraries static and add them to the link.
+           "--extra-lib-dirs=${pkgs'.gmp6.override { withStatic = true; }}/lib"
+           "--extra-lib-dirs=${pkgs'.zlib.static}/lib"
+           "--extra-lib-dirs=${pkgs'.static-openssl.openssl_1_0_2.out}/lib"
+           "--extra-lib-dirs=${(pkgs'.lzma.overrideAttrs (old: { dontDisableStatic = true; })).out}/lib"
+           "--extra-lib-dirs=${pkgs'.rocksdb.static}/lib"
+         ];
+        # we also patch rocksdb, to pass snappy, lz4, bz2, and
+        # jemalloc as dependencies.  This is mostly due to ghc
+        # not giving us an -optl flag that appends libraries
+        # at the end.  Note: linkers are a bit annoying in that
+        # the order of -l flags actually matters.
+        #
+        # We maybe able to abuse --start-group, but that feels
+        # like an even bigger hack.
+        packages.rocksdb-haskell-ng.configureFlags = [
+           "--extra-lib-dirs=${pkgs'.static-snappy}/lib"
+           "--extra-lib-dirs=${pkgs'.static-lz4}/lib"
+           "--extra-lib-dirs=${(pkgs'.bzip2.override { linkStatic = true; }).out}/lib"
+           "--extra-lib-dirs=${pkgs'.jemalloc}/lib"
+           ];
       })
       # packages we wish to ignore version bounds of.
       # this is similar to jailbreakCabal, however it

@@ -1,0 +1,16 @@
+diff --git a/src/System/Console/Terminal/Posix.hsc b/src/System/Console/Terminal/Posix.hsc
+index 33f9585..8d4588d 100644
+--- a/src/System/Console/Terminal/Posix.hsc
++++ b/src/System/Console/Terminal/Posix.hsc
+@@ -20,9 +20,9 @@ import System.Posix.Types (Fd(Fd))
+ #include <sys/ioctl.h>
+ #include <unistd.h>
+ 
+-
++#if defined(__GLASGOW_HASKELL__) && (__GLASGOW_HASKELL__ < 800)
+ #let alignment t = "%lu", (unsigned long)offsetof(struct {char x__; t (y__); }, y__)
+-
++#endif
+ 
+ -- Interesting part of @struct winsize@
+ data CWin = CWin CUShort CUShort

@@ -21,7 +21,7 @@ library
                     , cardano-sl-crypto
                     , cardano-sl-util
                     , cardano-sl-mnemonic
-                    , cardano-wallet
+                    , cardano-sl-wallet
                     , connection
                     , cryptonite
                     , data-default

@@ -265,5 +265,5 @@ ghc-options:
   cardano-sl-x509:              -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-mnemonic:          -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-cluster:           -Wall -Werror -Wcompat -fwarn-redundant-constraints
-  cardano-wallet:               -Wall -Werror -Wcompat -fwarn-redundant-constraints
+  cardano-sl-wallet:            -Wall -Werror -Wcompat -fwarn-redundant-constraints
   cardano-sl-wallet-tool:       -Wall -Werror -Wcompat -fwarn-redundant-constraints

@@ -1,4 +1,4 @@
-name:                cardano-wallet
+name:                cardano-sl-wallet
 version:             2.0.0
 synopsis:            The Wallet Backend for a Cardano node.
 description:         Please see README.md
@@ -265,7 +265,7 @@ library
       Cardano.Wallet.WalletLayer.Kernel.Transactions
       Cardano.Wallet.WalletLayer.Kernel.Wallets
   other-modules:
-      Paths_cardano_wallet
+      Paths_cardano_sl_wallet
 
 
 
@@ -299,7 +299,7 @@ executable cardano-node
       base
     , cardano-sl
     , cardano-sl-util
-    , cardano-wallet
+    , cardano-sl-wallet
     , universum
 
   hs-source-dirs:
@@ -332,7 +332,7 @@ executable cardano-generate-swagger-file
     , bytestring
     , cardano-sl-chain
     , cardano-sl-util
-    , cardano-wallet
+    , cardano-sl-wallet
     , optparse-applicative
     , swagger2
     , universum >= 0.1.11
@@ -383,7 +383,7 @@ executable wal-integr-test
     , cardano-sl-mnemonic
     , cardano-sl-node
     , cardano-sl-util
-    , cardano-wallet
+    , cardano-sl-wallet
     , containers
     , exceptions
     , formatting
@@ -479,7 +479,7 @@ test-suite unit
     , cardano-sl-util
     , cardano-sl-util-test
     , cardano-sl-utxo
-    , cardano-wallet
+    , cardano-sl-wallet
     , cereal
     , conduit
     , containers
@@ -603,7 +603,7 @@ test-suite nightly
     , async
     , cardano-sl-chain
     , cardano-sl-core
-    , cardano-wallet
+    , cardano-sl-wallet
     , formatting
     , hspec
     , hspec-core

@@ -35,8 +35,8 @@ library
                      , cardano-sl-core
                      , cardano-sl-mnemonic
                      , cardano-sl-util
-                     , cardano-sl-wallet-new
                      , cardano-sl-x509
+                     , cardano-wallet
                      , connection
                      , containers
                      , criterion
@@ -193,8 +193,8 @@ test-suite wallet-tool-specs
                     , cardano-sl-chain
                     , cardano-sl-util
                     , cardano-sl-util-test
-                    , cardano-sl-wallet-new
                     , cardano-sl-wallet-tool
+                    , cardano-wallet
                     , data-default
                     , directory
                     , formatting

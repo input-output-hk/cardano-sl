@@ -25,18 +25,7 @@ module Cardano.Wallet.Client.Easy
   , module Cardano.Wallet.API.V1.Types
   ) where
 
-import           Cardano.Wallet.API.V1.Types (ForceNtpCheck (..), NodeInfo (..),
-                     SyncPercentage, SyncProgress (..), SyncThroughput (..),
-                     mkSyncPercentage)
 import           Universum
-
-import           Cardano.Wallet.Client (ClientError (..), NewWallet, Resp,
-                     ServantError (..), WalletClient (..), WalletId,
-                     WalletResponse (..))
-import           Cardano.Wallet.Client.Http (mkHttpClient, newManager)
-
-import           Cardano.Wallet.API.V1.Types (SyncState (..), Wallet (..))
-import           Cardano.Wallet.Client (getWallets)
 import qualified Data.ByteString.Char8 as B8
 import           Data.PEM (PEM (..), pemParseBS)
 import           Data.X509 (SignedCertificate, decodeSignedCertificate)
@@ -47,6 +36,19 @@ import           Pos.Node.API (BlockchainHeight (..), SyncPercentage (..))
 import           Pos.Util.UnitsOfMeasure (MeasuredIn (..))
 import           Servant.Client (BaseUrl (..), Scheme (Https))
 import           System.FilePath (FilePath, (</>))
+import           Network.HTTP.Client (newManager)
+
+import           Cardano.Wallet.API.V1.Types (ForceNtpCheck (..), NodeInfo (..),
+                     SyncPercentage, SyncProgress (..), SyncThroughput (..),
+                     mkSyncPercentage)
+
+import           Cardano.Wallet.Client (ClientError (..), NewWallet, Resp,
+                     ServantError (..), WalletClient (..), WalletId,
+                     APIResponse (..))
+import           Cardano.Wallet.Client.Http (mkHttpClient)
+
+import           Cardano.Wallet.API.V1.Types (SyncState (..), Wallet (..))
+import           Cardano.Wallet.Client (getWallets)
 
 import           Cardano.Wallet.Client.HttpsSettings
 import           Cardano.Wallet.Client.Wait

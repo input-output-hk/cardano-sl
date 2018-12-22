@@ -23,7 +23,8 @@ import           Formatting.Buildable (Buildable (..))
 import           Universum
 
 import           Cardano.Wallet.Client (ClientError (..), Resp,
-                     WalletClient (..), WalletResponse (..))
+                     WalletClient (..))
+import           Cardano.Wallet.API.Response (APIResponse (..))
 import           Cardano.Wallet.ProcessUtil
 
 

@@ -2,7 +2,7 @@ diff --git a/rocksdb-haskell-ng.cabal b/rocksdb-haskell-ng.cabal
 index 58a46b6..42fa63d 100644
 --- a/rocksdb-haskell-ng.cabal
 +++ b/rocksdb-haskell-ng.cabal
-@@ -10,6 +10,10 @@ library
+@@ -10,6 +10,11 @@ library
    ghc-options:         -Wall
    default-language:    Haskell2010
    extra-libraries:     rocksdb
@@ -10,6 +10,7 @@ index 58a46b6..42fa63d 100644
 +                     , lz4
 +                     , bz2
 +                     , jemalloc
++                     , stdc++
    exposed-modules:     Database.RocksDB
    build-depends:       base >= 4.7 && < 5
                       , bytestring

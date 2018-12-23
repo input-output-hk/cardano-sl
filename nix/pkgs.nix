@@ -112,8 +112,10 @@ let
         # https://github.com/biegunka/terminal-size/pull/12
         packages.terminal-size.patches      = [ ./patches/terminal-size-hsc-alignment.patch ];
         packages.scrypt.patches             = [ ./patches/scrypt-scrypt-prefix.patch ];
-        packages.rocksdb-haskell-ng.patches = [ ./patches/rocksdb-add-libs.patch ];
       }
+      ({ lib, ... }: lib.optionalAttrs pkgs'.stdenv.hostPlatform.isMusl {
+        packages.rocksdb-haskell-ng.patches = [ ./patches/rocksdb-add-libs.patch ];
+      })
       # cross compilation logic
       ({ pkgs, buildModules, config, lib, ... }:
       let

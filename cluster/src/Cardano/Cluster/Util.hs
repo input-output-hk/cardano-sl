@@ -47,8 +47,7 @@ import           Universum hiding (takeWhile)
 import           Control.Concurrent.Async (Async, async, race, wait)
 import           Control.Lens (at)
 import qualified Data.Aeson as Aeson
-import           Data.Attoparsec.ByteString.Char8 (IResult (..), parse,
-                     skipWhile, string, takeWhile)
+import           Data.Attoparsec.ByteString.Char8 ( skipWhile, string, takeWhile, skipSpace, parseOnly)
 import qualified Data.Attoparsec.Internal.Types as Atto.Internal
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.Char as Char
@@ -286,7 +285,7 @@ varFromParser
     :: Parser a             -- Target parser
     -> [(String, ArgType)]
 varFromParser parser =
-    foldParse [] (helpToByteString help)
+    foldParse (helpToByteString help)
   where
     -- Here is the little trick, we leverage the parserFailure which displays
     -- a usage with all possible arguments and flags and from this usage,
@@ -308,15 +307,27 @@ varFromParser parser =
         Nothing -> (kToS (drop 2 arg), Flag)
         Just i  -> (kToS (drop 2 (take i arg)), Arg)
 
-    foldParse :: [(String, ArgType)] -> ByteString -> [(String, ArgType)]
-    foldParse xs str = case parse (argToVar . B8.unpack <$> capture) str of
-        Fail{}      -> xs
-        Partial{}   -> xs
-        Done rest x -> foldParse (x : xs) rest
+    foldParse :: ByteString -> [(String, ArgType)]
+    foldParse =
+        rights
+            . fmap (fmap (argToVar . B8.unpack) . parseOnly capture)
+            . B8.lines
 
     capture :: Atto.Internal.Parser ByteString ByteString
     capture =
-        skipWhile (/= '[') *> string "[" *> takeWhile (/= ']') <* string "]"
+        (skipWhile (/= '[') *> string "[" *> takeWhile (/= ']') <* string "]")
+        <|>
+        (do
+            skipSpace
+            _ <- string "--"
+            str <- takeWhile (not . Char.isSpace)
+            marg <- fmap (fromMaybe "") . optional $ do
+                _ <- string " "
+                str2 <- takeWhile (not . Char.isSpace)
+                pure (" " <> str2)
+            pure ("--" <> str <> marg)
+        )
+
 
 
 -- | Run a parser from environment variables rather than command-line arguments

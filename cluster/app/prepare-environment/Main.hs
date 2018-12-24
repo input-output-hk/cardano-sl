@@ -64,10 +64,10 @@ main = do
 
             case nodeType of
                 NodeCore -> do
-                    void (init genesis >> init topology >> init logger)
+                    void (init genesis >> init topology >> init logger >> init tls)
 
                 NodeRelay -> do
-                    void (init topology >> init logger)
+                    void (init topology >> init logger >> init tls)
 
                 NodeEdge -> do
                     void (init topology >> init logger >> init tls)

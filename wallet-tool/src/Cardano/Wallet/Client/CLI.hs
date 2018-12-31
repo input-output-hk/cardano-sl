@@ -52,14 +52,19 @@ optionsParser :: Parser (ConnectConfig, Action IO)
 optionsParser = (,) <$> connectConfigP <*> actionP
 
 connectConfigP :: Parser ConnectConfig
-connectConfigP = ConnectConfig
-  <$> optional (clientAuthCertKeyP <|> clientAuthPemP)
-  <*> optional (strOption
-                (long "cacert"
-                 <> metavar "FILENAME"
-                 <> help "CA certificate chain for authenticating the server"))
-  <*> authenticateServerP
-  <*> baseUrlP
+connectConfigP = certConfigP <*> authenticateServerP <*> baseUrlP
+  where
+    certConfigP = stateDirP <|> certFilesP
+    stateDirP   = stateDirConnectConfig <$> strOption
+                  (long "state-dir"
+                   <> metavar "DIRECTORY"
+                   <> help "Wallet state directory containing \"tls\" subdirectory with certificates")
+    certFilesP  = ConnectConfig
+      <$> optional (clientAuthCertKeyP <|> clientAuthPemP)
+      <*> optional (strOption
+                    (long "cacert"
+                     <> metavar "FILENAME"
+                     <> help "CA certificate chain for authenticating the server"))
 
 clientAuthCertKeyP :: Parser ClientAuthConfig
 clientAuthCertKeyP = ClientAuthConfig

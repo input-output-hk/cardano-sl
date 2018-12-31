@@ -7,6 +7,7 @@ module Cardano.Wallet.Client.Easy
   , AuthenticateServer(..)
   , ClientAuthConfig(..)
   , normalConnectConfig
+  , stateDirConnectConfig
   , walletClientFromConfig
 
   -- * Higher level functions
@@ -53,11 +54,16 @@ import           Cardano.Wallet.Client (getWallets)
 import           Cardano.Wallet.Client.HttpsSettings
 import           Cardano.Wallet.Client.Wait
 
+-- | Parameters for connecting to a wallet API backend.
 data ConnectConfig = ConnectConfig
   { cfgClientAuth         :: Maybe ClientAuthConfig
+    -- ^ Optional client certificates
   , cfgCACertFile         :: Maybe FilePath
+    -- ^ Optional file containing CA certificate chain
   , cfgAuthenticateServer :: AuthenticateServer
+    -- ^ Whether to verify the server certificate
   , cfgBaseUrl            :: BaseUrl
+    -- ^ API hostname, port, and web root
   } deriving (Show)
 
 data ClientAuthConfig = ClientAuthConfig
@@ -75,13 +81,19 @@ instance Exception ConfigError
 normalConnectConfig :: FilePath -- ^ Wallet state path -- contains 'tls' directory
                     -> Int -- ^ API listen port
                     -> ConnectConfig
-normalConnectConfig stateDir port = ConnectConfig
-  { cfgClientAuth = Just (ClientAuthConfig (tlsClient </> "client.crt") (tlsClient </> "client.key"))
-  , cfgCACertFile = Just (tlsClient </> "ca.crt")
-  , cfgAuthenticateServer = AuthenticateServer
-  , cfgBaseUrl = BaseUrl Https "localhost" port ""
-  }
-  where tlsClient = stateDir </> "tls" </> "client"
+normalConnectConfig stateDir port = stateDirConnectConfig stateDir AuthenticateServer baseUrl
+  where baseUrl = BaseUrl Https "localhost" port ""
+
+-- | Construct a connect config based on a wallet state path.
+stateDirConnectConfig :: FilePath -- ^ Wallet state path -- contains 'tls' directory
+                      -> AuthenticateServer
+                      -> BaseUrl
+                      -> ConnectConfig
+stateDirConnectConfig stateDir = ConnectConfig (Just cl) (Just ca)
+  where
+    tlsClient = stateDir </> "tls" </> "client"
+    cl = ClientAuthConfig (tlsClient </> "client.crt") (tlsClient </> "client.key")
+    ca = tlsClient </> "ca.crt"
 
 walletClientFromConfig :: ConnectConfig -> IO (WalletClient IO)
 walletClientFromConfig cfg = do

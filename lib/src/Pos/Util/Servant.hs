@@ -971,7 +971,7 @@ data APIResponse a = APIResponse
 deriveJSON Aeson.defaultOptions ''APIResponse
 
 instance Arbitrary a => Arbitrary (APIResponse a) where
-    arbitrary = APIResponse <$> arbitrary <*> arbitrary <*> arbitrary
+    arbitrary = APIResponse <$> arbitrary <*> pure SuccessStatus <*> arbitrary
 
 instance ToJSON a => MimeRender OctetStream (APIResponse a) where
     mimeRender _ = encode

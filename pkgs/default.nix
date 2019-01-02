@@ -17210,6 +17210,7 @@ license = stdenv.lib.licenses.mit;
 , optparse-applicative
 , parsec
 , pem
+, process
 , QuickCheck
 , quickcheck-instances
 , retry
@@ -17220,11 +17221,13 @@ license = stdenv.lib.licenses.mit;
 , servant-client-core
 , stdenv
 , stm
+, system-filepath
 , text
 , time
 , time-units
 , tls
 , transformers
+, turtle
 , universum
 , unix
 , unordered-containers
@@ -17299,11 +17302,15 @@ x509-store
 ];
 executableHaskellDepends = [
 aeson
+async
 base
 Chart
 Chart-cairo
 optparse-applicative
+process
+system-filepath
 text
+turtle
 universum
 vector
 ];

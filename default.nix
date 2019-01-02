@@ -145,7 +145,7 @@ let
     daedalus-bridge = self.callPackage ./nix/daedalus-bridge.nix {
       cardano-sl-node = self.cardanoPackages.cardano-sl-node-static;
       cardano-sl-tools = self.cardanoPackages.cardano-sl-tools-static;
-      cardano-wallet = self.cardanoPackages.cardano-wallet-static;
+      cardano-sl-wallet = self.cardanoPackages.cardano-sl-wallet-static;
     };
 
 
@@ -173,7 +173,7 @@ let
       stylishHaskell = self.callPackage ./scripts/test/stylish.nix { inherit (self.haskellPackages) stylish-haskell; inherit src; };
       walletIntegration = self.callPackage ./scripts/test/wallet/integration/build-test.nix { };
       swaggerSchemaValidation = self.callPackage ./scripts/test/wallet/swaggerSchemaValidation.nix {
-        inherit (self.cardanoPackages) cardano-wallet;
+        inherit (self.cardanoPackages) cardano-sl-wallet;
       };
       yamlValidation = self.callPackage ./scripts/test/yamlValidation.nix {
         inherit (self) haskellPackages; inherit (localLib) runHaskell;
@@ -183,7 +183,7 @@ let
     walletIntegrationTests = self.callPackage ./scripts/test/wallet/integration {
       inherit (self.cardanoPackages)
         cardano-sl-tools
-        cardano-wallet;
+        cardano-sl-wallet;
       inherit useStackBinaries;
     };
 
@@ -215,7 +215,7 @@ let
       in
         args: self.callPackage ./scripts/launch/connect-to-cluster (args // {
           inherit (self.cardanoPackages)
-            cardano-wallet-static
+            cardano-sl-wallet-static
             cardano-sl-explorer-static
             cardano-sl-tools-static;
           inherit useStackBinaries;
@@ -232,7 +232,7 @@ let
     demoCluster = self.callPackage ./scripts/launch/demo-cluster {
       inherit useStackBinaries;
       inherit (self.cardanoPackages)
-        cardano-sl cardano-sl-cluster cardano-wallet;
+        cardano-sl cardano-sl-cluster cardano-sl-wallet;
     };
 
     ####################################################################
@@ -287,8 +287,8 @@ let
           cardano-sl-util
           cardano-sl-wallet-tool
           cardano-sl-x509
-          cardano-wallet
-          cardano-wallet-static;
+          cardano-sl-wallet
+          cardano-sl-wallet-static;
         inherit (self.haskellPackages)
           cardano-report-server; }
   # nix-tools setup

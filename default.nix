@@ -193,11 +193,19 @@ let
       acceptanceTest = args: self.callPackage ./scripts/test/acceptance ({
         inherit (self.cardanoPackages)
           cardano-sl-tools
-          cardano-wallet;
+          cardano-sl-wallet;
+      } // args);
+      acceptanceTestWindows = args: self.callPackage ./scripts/test/acceptance/windows.nix ({
+        inherit (self.nix-tools.exes)
+          cardano-sl-tools
+          cardano-sl-wallet
+          cardano-sl-wallet-tool;
+        inherit (self.cardanoPackages)
+          cardano-sl-config;
       } // args);
       mkTest = { environment, ...}: {
-        full  = acceptanceTest { inherit environment; resume = false; };
-        quick = acceptanceTest { inherit environment; resume = true; };
+        full  = acceptanceTest { inherit environment; };
+        windows = acceptanceTestWindows { inherit environment; };
       };
     in localLib.forEnvironments mkTest;
 

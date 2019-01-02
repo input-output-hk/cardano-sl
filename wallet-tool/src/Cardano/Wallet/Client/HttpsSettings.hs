@@ -6,14 +6,14 @@ module Cardano.Wallet.Client.HttpsSettings
   ) where
 
 import           Data.Default (def)
-import           Data.X509 (CertificateChain, SignedCertificate)
+import           Data.X509 (SignedCertificate)
 import           Data.X509.CertificateStore (makeCertificateStore)
 import           Data.X509.Extra (validateDefaultWithIP)
 import           Network.Connection (TLSSettings (..))
 import           Network.HTTP.Client (ManagerSettings, defaultManagerSettings)
 import           Network.HTTP.Client.TLS (mkManagerSettings)
 import           Network.TLS (ClientHooks (..), ClientParams (..),
-                     Credential, Credentials (..), HostName, PrivKey, Shared (..),
+                     Credential, Credentials (..), HostName, Shared (..),
                      Supported (..), noSessionManager)
 import           Network.TLS.Extra.Cipher (ciphersuite_default)
 import           Universum hiding (init)

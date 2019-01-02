@@ -128,6 +128,43 @@ executable cardano-sl-wallet-tool
                       MonadFailDesugaring
                       TupleSections
 
+executable cardano-sl-connect
+  hs-source-dirs:      exe
+  main-is:             connect-script.hs
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -O2
+
+  build-depends:       base
+                     , optparse-applicative
+                     , system-filepath
+                     , text
+                     , turtle
+
+  default-language:    Haskell2010
+  default-extensions: NoImplicitPrelude
+                      OverloadedStrings
+                      RecordWildCards
+
+executable cardano-sl-acceptance-tests
+  hs-source-dirs:      exe
+  main-is:             acceptance-tests.hs
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -O2
+
+  build-depends:       base
+                     , async
+                     , process
+                     , system-filepath
+                     , text
+                     , turtle
+
+  default-language:    Haskell2010
+  default-extensions: NoImplicitPrelude
+                      OverloadedStrings
+                      RecordWildCards
+
 executable sync-plot
   hs-source-dirs:      exe
   main-is:             sync-plot.hs

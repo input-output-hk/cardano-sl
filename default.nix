@@ -285,16 +285,9 @@ let
           cardano-sl-tools
           cardano-sl-tools-post-mortem
           cardano-sl-util
-<<<<<<< HEAD
           cardano-sl-x509
           cardano-wallet
           cardano-wallet-static;
-=======
-          cardano-sl-wallet
-          cardano-sl-wallet-new
-          cardano-sl-wallet-new-static
-          cardano-sl-x509;
->>>>>>> release/2.0.0
         inherit (self.haskellPackages)
           cardano-report-server; }
   # nix-tools setup

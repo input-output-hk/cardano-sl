@@ -4,12 +4,9 @@ status = [
 
   # Buildkite: stack2nix checks, etc.
   "buildkite/cardano-sl",
-<<<<<<< HEAD
 
   # Windows: builds are too unreliable to use at present
   # "continuous-integration/appveyor/branch",
-=======
->>>>>>> release/2.0.0
 ]
 timeout_sec = 7200
 required_approvals = 1

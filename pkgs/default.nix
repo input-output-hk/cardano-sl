@@ -13409,14 +13409,9 @@ version = "0.5.10";
 src = fetchgit {
 
 url = "https://github.com/input-output-hk/cardano-report-server.git";
-<<<<<<< HEAD
 sha256 = "04zsgrmnlyjymry6fsqnz692hdp89ykqb8jyxib8yklw101gdn3x";
 rev = "93f2246c54436e7f98cc363b4e0f8f1cb5e78717";
 fetchSubmodules = true;
-=======
-sha256 = "10hqaxc07rkqaj7br4kki4drg2hz45rp7wr1b8s9b6cfg3apriwp";
-rev = "62f04801ef9fce4c8e856607400a2bb05ab732e9";
->>>>>>> release/2.0.0
 
 };
 isLibrary = true;
@@ -15367,10 +15362,6 @@ license = stdenv.lib.licenses.mit;
 , aeson
 , base
 , bytestring
-<<<<<<< HEAD
-=======
-, cardano-sl-chain
->>>>>>> release/2.0.0
 , cardano-sl-client
 , cardano-sl-core
 , cardano-sl-crypto
@@ -15431,10 +15422,6 @@ libraryHaskellDepends = [
 aeson
 base
 bytestring
-<<<<<<< HEAD
-=======
-cardano-sl-chain
->>>>>>> release/2.0.0
 cardano-sl-client
 cardano-sl-core
 cardano-sl-crypto

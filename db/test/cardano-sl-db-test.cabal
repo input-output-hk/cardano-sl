@@ -1,5 +1,5 @@
 name:                cardano-sl-db-test
-version:             2.0.0
+version:             2.0.1
 synopsis:            Cardano SL - arbitrary instances for cardano-sl-db
 description:         Cardano SL - arbitrary instances for cardano-sl-db
 license:             MIT

@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## Cardano SL 2.0.1
+
+### Fixes
+
+- Relocate fee sanity check and make it relative to each transaction (rather than absolute) ([CO-446](https://iohk.myjetbrains.com/youtrack/issue/CO-446) [#3993](https://github.com/input-output-hk/cardano-sl/pull/3993)
+
+
 ## Cardano SL 2.0.0
 
 

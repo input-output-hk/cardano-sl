@@ -14,6 +14,7 @@ module Test.Spec.CoinSelection.Generators (
     , Pay(..)
     , genUniqueChangeAddress
     , genUtxoWithAtLeast
+    , genFragmentedUtxo
     , genRedeemPayee
     ) where
 
@@ -203,6 +204,21 @@ genUtxoWithAtLeast payment = do
                 , fiddlyAddresses       = False
                 , allowRedeemAddresses  = False
             }
+
+-- | Generate a very fragment Utxo with @at least@ the supplied amount of money.
+genFragmentedUtxo :: InitialBalance -> Gen Core.Utxo
+genFragmentedUtxo payment = do
+    let balance       = toLovelaces payment
+        twoPercentOf  = balance `div` 50
+    genUtxo $ StakeGenOptions {
+                  stakeMaxValue         = Just (Core.mkCoin twoPercentOf)
+                , stakeGenerationTarget = AtLeast
+                , stakeNeeded           = Core.mkCoin (toLovelaces payment)
+                , stakeMaxEntries       = Just 1000
+                , fiddlyAddresses       = False
+                , allowRedeemAddresses  = False
+            }
+
 
 {-------------------------------------------------------------------------------
   Dealing with grouping

@@ -11,7 +11,6 @@ module Cardano.Wallet.Kernel.Transactions (
     , EstimateFeesError(..)
     , RedeemAdaError(..)
     , cardanoFee
-    , cardanoFeeSanity
     , mkStdTx
     , prepareUnsignedTxWithSources
     , submitSignedTx
@@ -44,8 +43,7 @@ import           Cardano.Crypto.Wallet (DerivationIndex)
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (CoinSelFinalResult (..), CoinSelectionOptions (..),
-                     checkCardanoFeeSanity, estimateCardanoFee,
-                     estimateMaxTxInputs)
+                     estimateCardanoFee, estimateMaxTxInputs)
 import qualified Cardano.Wallet.Kernel.CoinSelection.FromGeneric as CoinSelection
 import           Cardano.Wallet.Kernel.CoinSelection.Generic
                      (CoinSelHardErr (..))
@@ -231,13 +229,8 @@ newUnsignedTransaction ActiveWallet{..} options accountId payees = runExceptT $ 
     -- that it may change in the future.
     let attributes = def :: TxAttributes
     let tx = UnsignedTx inputs outputs attributes coins
-
-    -- STEP 3: Sanity test. Here we check whether our fees are within a reasonable
-    -- range.
     let fees = computeFeesOfUnsignedTx tx
-    if csoFeesSanityCheck options fees
-    then return (snapshot, tx, fees, availableUtxo)
-    else error $ "fees out of bound " <> show fees
+    return (snapshot, tx, fees, availableUtxo)
   where
     -- Generate an initial seed for the random generator using the hash of
     -- the payees, which ensure that the coin selection (and the fee estimation)
@@ -636,12 +629,6 @@ cardanoFee (TxFeePolicyTxSizeLinear policy) inputs outputs =
       estimateCardanoFee policy inputs (toList $ fmap Core.getCoin outputs)
 cardanoFee TxFeePolicyUnknown{} _ _ =
     error "cardanoFee: unknown policy"
-
-cardanoFeeSanity :: TxFeePolicy -> Coin -> Bool
-cardanoFeeSanity (TxFeePolicyTxSizeLinear policy) fees =
-    checkCardanoFeeSanity policy fees
-cardanoFeeSanity TxFeePolicyUnknown{} _ =
-    error "cardanoFeeSanity: unknown policy"
 
 {-------------------------------------------------------------------------------
   Ada redemption

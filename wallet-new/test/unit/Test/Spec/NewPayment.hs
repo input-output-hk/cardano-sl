@@ -149,9 +149,6 @@ withFixture pm initialBalance toPay cc =
 constantFee :: Int -> NonEmpty Coin -> Coin
 constantFee _ _ = mkCoin 10
 
-constantFeeCheck :: Coin -> Bool
-constantFeeCheck c = c == mkCoin 10
-
 -- | Helper function to facilitate payments via the Layer or Servant.
 withPayment :: MonadIO n
             => ProtocolMagic
@@ -202,7 +199,7 @@ spec = describe "NewPayment" $ do
                 pm <- pick arbitrary
                 withFixture @IO pm (InitialADA 10000) (PayLovelace 10) $ \_ _ aw Fixture{..} -> do
                     policy <- Node.getFeePolicy (Kernel.walletPassive aw ^. Kernel.walletNode)
-                    let opts = (newOptions (Kernel.cardanoFee policy) (Kernel.cardanoFeeSanity policy)) {
+                    let opts = (newOptions (Kernel.cardanoFee policy)) {
                                csoExpenseRegulation = SenderPaysFee
                              , csoInputGrouping     = IgnoreGrouping
                              }
@@ -220,7 +217,7 @@ spec = describe "NewPayment" $ do
                 pm <- pick arbitrary
                 withFixture @IO pm (InitialADA 10000) (PayADA 1) $ \_ _ aw Fixture{..} -> do
                     policy <- Node.getFeePolicy (Kernel.walletPassive aw ^. Kernel.walletNode)
-                    let opts = (newOptions (Kernel.cardanoFee policy) (Kernel.cardanoFeeSanity policy)) {
+                    let opts = (newOptions (Kernel.cardanoFee policy)) {
                                csoExpenseRegulation = ReceiverPaysFee
                              , csoInputGrouping     = IgnoreGrouping
                              }
@@ -264,7 +261,7 @@ spec = describe "NewPayment" $ do
                 monadicIO $ do
                     pm <- pick arbitrary
                     withFixture @IO pm (InitialADA 10000) (PayADA 1) $ \_ _ aw Fixture{..} -> do
-                        let opts = (newOptions constantFee constantFeeCheck) {
+                        let opts = (newOptions constantFee) {
                                    csoExpenseRegulation = SenderPaysFee
                                  , csoInputGrouping     = IgnoreGrouping
                                  }
@@ -284,7 +281,7 @@ spec = describe "NewPayment" $ do
                 monadicIO $ do
                     pm <- pick arbitrary
                     withFixture @IO pm (InitialADA 10000) (PayADA 1) $ \_ _ aw Fixture{..} -> do
-                        let opts = (newOptions constantFee constantFeeCheck) {
+                        let opts = (newOptions constantFee) {
                                    csoExpenseRegulation = SenderPaysFee
                                  , csoInputGrouping     = IgnoreGrouping
                                  }
@@ -305,7 +302,7 @@ spec = describe "NewPayment" $ do
                     pm <- pick arbitrary
                     withFixture @IO pm (InitialADA 10000) (PayADA 1) $ \_ _ aw Fixture{..} -> do
                         policy <- Node.getFeePolicy (Kernel.walletPassive aw ^. Kernel.walletNode)
-                        let opts = (newOptions (Kernel.cardanoFee policy) (Kernel.cardanoFeeSanity policy)) {
+                        let opts = (newOptions (Kernel.cardanoFee policy)) {
                                    csoExpenseRegulation = SenderPaysFee
                                  , csoInputGrouping     = IgnoreGrouping
                                  }

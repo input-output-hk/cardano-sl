@@ -261,7 +261,6 @@ library
       Cardano.Wallet.WalletLayer.Kernel.Conv
       Cardano.Wallet.WalletLayer.Kernel.Info
       Cardano.Wallet.WalletLayer.Kernel.Internal
-      Cardano.Wallet.WalletLayer.Kernel.Settings
       Cardano.Wallet.WalletLayer.Kernel.Transactions
       Cardano.Wallet.WalletLayer.Kernel.Wallets
   other-modules:

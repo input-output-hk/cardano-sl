@@ -1,4 +1,5 @@
 --
+-- dummy change
 -- | Configuration for generating X509 certificates
 --
 -- Users are expected to provide configuration (from file or by hand) and use

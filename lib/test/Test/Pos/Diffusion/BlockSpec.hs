@@ -214,17 +214,17 @@ blockDownloadStream :: NodeId -> IORef Bool -> IORef [Block] -> (Int -> IO ()) -
 blockDownloadStream serverAddress resultIORef streamIORef setStreamIORef ~(blockHeader, checkpoints) client = do
     setStreamIORef 1
     recvIORef <- newIORef []
-    _ <- Diffusion.streamBlocks client serverAddress blockHeader checkpoints (streamBlocks recvIORef)
+    _ <- Diffusion.streamBlocks client serverAddress blockHeader checkpoints (streamBlocksK recvIORef)
 
     expectedBlocks <- readIORef streamIORef
     recvBlocks <- readIORef recvIORef
     writeIORef resultIORef $ expectedBlocks == reverse recvBlocks
     return ()
   where
-    streamBlocks recvBlocks = StreamBlocks
+    streamBlocksK recvBlocks = StreamBlocks
       { streamBlocksMore = \(!blocks) -> do
           modifyIORef' recvBlocks (\d -> (NE.toList blocks) <> d)
-          pure (streamBlocks recvBlocks)
+          pure (streamBlocksK recvBlocks)
       , streamBlocksDone = pure ()
       }
 

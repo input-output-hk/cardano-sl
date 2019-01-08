@@ -20,6 +20,7 @@ import           Universum
 import           Data.Aeson (FromJSON)
 import qualified Data.Aeson as Aeson
 import           Network.HTTP.Client (Manager)
+import           Network.HTTP.Types (status404)
 import           Servant ((:<|>) (..))
 import           Servant.Client (BaseUrl (..), ClientEnv (..), ClientM,
                      GenResponse (..), ServantError, client, runClientM)
@@ -78,16 +79,19 @@ data ClientError a
 instance Exception a => Exception (ClientError a)
 
 fromServantError :: FromJSON a => ServantError -> ClientError a
-fromServantError = \case
-    Servant.FailureResponse r@(Response _ _ _ body) ->
-        case Aeson.decode body of
-            Just (APIResponse a ErrorStatus _) ->
-                KnownError a
-            Just _ ->
-                ErrFromServant $ Servant.DecodeFailure "API failed with non-error response ?!?" r
-            Nothing ->
-                ErrFromServant $ Servant.DecodeFailure "Invalid / Non-JSEnd API Error Response" r
-    err ->
+fromServantError err = case err of
+    Servant.FailureResponse r@(Response s _ _ body)
+        | s == status404 ->
+            ErrFromServant err
+        | otherwise ->
+            case Aeson.decode body of
+                Just (APIResponse a ErrorStatus _) ->
+                    KnownError a
+                Just _ ->
+                    ErrFromServant $ Servant.DecodeFailure "API failed with non-error response ?!?" r
+                Nothing ->
+                    ErrFromServant $ Servant.DecodeFailure "Invalid / Non-JSEnd API Error Response" r
+    _ ->
         ErrFromServant err
 
 -- * HTTP Instance

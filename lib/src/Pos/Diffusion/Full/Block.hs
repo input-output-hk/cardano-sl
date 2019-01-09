@@ -341,8 +341,6 @@ streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoint
     -- The peer doesn't support streaming, we need to fall back to batching but
     -- the current conversation is unusable since there is no way for us to learn
     -- which blocks we shall fetch.
-    -- We will always have room to write a singel StreamEnd so there is no need to
-    -- differentiate between normal execution and when we get an expection.
     batchConversation
       :: ConversationActions MsgGetBlocks MsgBlock
       -> IO (Maybe t)
@@ -376,7 +374,7 @@ streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoint
     -- pulled in one-by-one.
     retrieveBlocks
         :: BlockVersionData
-        -> Conc.TBQueue StreamEntry 
+        -> Conc.TBQueue StreamEntry
         -> ConversationActions MsgStream MsgStreamBlock
         -> Word32
         -> IO ()

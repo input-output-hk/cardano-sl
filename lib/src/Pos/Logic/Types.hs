@@ -7,6 +7,7 @@ module Pos.Logic.Types
     , dummyLogic
     , KeyVal (..)
     , hoistKeyVal
+    , ignoreKeyVal
     , dummyKeyVal
     ) where
 
@@ -174,13 +175,18 @@ hoistKeyVal nat kv = kv
     , handleData = nat . handleData kv
     }
 
-dummyKeyVal :: Applicative m => KeyVal key val m
-dummyKeyVal = KeyVal
-    { toKey      = \_ -> error "dummy: can't make key"
+-- | A 'KeyVal' which declines every Inv, Req, and Data: I don't have it, I
+-- don't want it.
+ignoreKeyVal :: Applicative m => (val -> m key) -> KeyVal key val m
+ignoreKeyVal toKey' = KeyVal
+    { toKey      = toKey'
     , handleInv  = \_ -> pure False
     , handleReq  = \_ -> pure Nothing
     , handleData = \_ -> pure False
     }
+
+dummyKeyVal :: Applicative m => KeyVal key val m
+dummyKeyVal = ignoreKeyVal (const (error "dummy: can't make key"))
 
 -- | A diffusion layer that does nothing, and probably crashes the program.
 dummyLogic :: Monad m => Logic m

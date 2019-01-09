@@ -1,10 +1,10 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE KindSignatures      #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
-{-# LANGUAGE CPP                 #-}
 
 module Ntp.Util
     ( ntpPort
@@ -45,10 +45,9 @@ import           Data.These (These (..))
 import           Formatting (sformat, shown, (%))
 import           Network.Socket (AddrInfo,
                      AddrInfoFlag (AI_ADDRCONFIG, AI_PASSIVE),
-                     Family (AF_INET, AF_INET6), PortNumber,
-                     SockAddr (..), Socket, SocketOption (ReuseAddr),
-                     SocketType (Datagram), addrAddress, addrFamily,
-                     addrFlags, addrSocketType)
+                     Family (AF_INET, AF_INET6), PortNumber, SockAddr (..),
+                     Socket, SocketOption (ReuseAddr), SocketType (Datagram),
+                     addrAddress, addrFamily, addrFlags, addrSocketType)
 import qualified Network.Socket as Socket
 import qualified Network.Socket.ByteString as Socket.ByteString (sendTo)
 

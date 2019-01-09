@@ -55,7 +55,8 @@ import           Pos.Infra.Communication.Protocol (Conversation (..),
                      MkListeners (..), MsgType (..), NodeId, Origin (..),
                      OutSpecs, constantListeners, recvLimited,
                      waitForConversations, waitForDequeues)
-import           Pos.Infra.Diffusion.Types (DiffusionHealth (..), StreamBlocks (..))
+import           Pos.Infra.Diffusion.Types (DiffusionHealth (..),
+                     StreamBlocks (..))
 import           Pos.Infra.Network.Types (Bucket)
 import           Pos.Infra.Util.TimeWarp (nodeIdToAddress)
 import           Pos.Logic.Types (Logic)
@@ -448,7 +449,7 @@ streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoint
                          k' <- streamBlocksMore k (block :| blocks)
                          processBlocks n' [] blockChan k'
                      else
-                         processBlocks n' (block : blocks) blockChan k 
+                         processBlocks n' (block : blocks) blockChan k
 
 
 requestTip

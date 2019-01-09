@@ -69,7 +69,8 @@ import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates,
                      emptySubscriptionStates)
 import           Pos.Infra.Diffusion.Transport.TCP (bracketTransportTCP)
 import           Pos.Infra.Diffusion.Types (Diffusion (..),
-                     DiffusionHealth (..), DiffusionLayer (..), StreamBlocks (..))
+                     DiffusionHealth (..), DiffusionLayer (..),
+                     StreamBlocks (..))
 import           Pos.Infra.Network.Types (Bucket (..), NetworkConfig (..),
                      NodeType, SubscriptionWorker (..), initQueue,
                      topologyHealthStatus, topologyRunKademlia,

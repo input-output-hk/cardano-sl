@@ -40,7 +40,6 @@
           (hsPkgs.formatting)
           (hsPkgs.formatting)
           (hsPkgs.hashable)
-          (hsPkgs.kademlia)
           (hsPkgs.lens)
           (hsPkgs.mtl)
           (hsPkgs.mtl)
@@ -60,20 +59,6 @@
         ];
       };
       exes = {
-        "discovery" = {
-          depends = [
-            (hsPkgs.base)
-            (hsPkgs.binary)
-            (hsPkgs.bytestring)
-            (hsPkgs.cardano-sl-networking)
-            (hsPkgs.cardano-sl-util)
-            (hsPkgs.containers)
-            (hsPkgs.contravariant)
-            (hsPkgs.network-transport)
-            (hsPkgs.network-transport-tcp)
-            (hsPkgs.random)
-          ];
-        };
         "ping-pong" = {
           depends = [
             (hsPkgs.base)

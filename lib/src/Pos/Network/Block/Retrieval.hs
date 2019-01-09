@@ -31,7 +31,7 @@ import           Pos.DB.Block (ClassifyHeaderRes (..), classifyNewHeader,
                      getHeadersOlderExp)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.Infra.Communication.Protocol (NodeId)
-import           Pos.Infra.Diffusion.Types (Diffusion)
+import           Pos.Infra.Diffusion.Types (Diffusion, StreamBlocks (..))
 import qualified Pos.Infra.Diffusion.Types as Diffusion
 import           Pos.Infra.Recovery.Types (RecoveryHeaderTag)
 import           Pos.Infra.Reporting (reportOrLogE, reportOrLogW)
@@ -374,8 +374,11 @@ streamProcessBlocks genesisConfig txpConfig diffusion nodeId desired checkpoints
                     _ <- dropRecoveryHeaderAndRepeat genesisConfig diffusion nodeId
                     return ()
   where
-    writeCallback :: (TVar (Maybe Block)) -> [Block] -> m ()
-    writeCallback _ [] = return ()
-    writeCallback mostDifficultBlock (block:blocks) = do
-        _ <- atomically $ swapTVar mostDifficultBlock (Just block)
-        handleBlocks genesisConfig txpConfig (OldestFirst (NE.reverse $ block :| blocks)) diffusion
+    writeCallback :: TVar (Maybe Block) -> StreamBlocks Block m ()
+    writeCallback mostDifficultBlock = StreamBlocks
+      { streamBlocksMore = \blks -> do
+          _ <- atomically $ swapTVar mostDifficultBlock (Just (NE.head blks))
+          _ <- handleBlocks genesisConfig txpConfig (OldestFirst (NE.reverse $ blks)) diffusion
+          pure (writeCallback mostDifficultBlock)
+      , streamBlocksDone = pure ()
+      }

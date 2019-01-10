@@ -60,6 +60,7 @@
           ./patches/ghc/ghc-8.4.3-Cabal2201-no-hackage-tests.patch
           ./patches/ghc/ghc-8.4.3-Cabal2201-allow-test-wrapper.patch
           ./patches/ghc/ghc-8.4.3-Cabal2201-response-file-support.patch
+          ./patches/ghc/MR95--ghc-pkg-deadlock-fix.patch
 #          ./patches/ghc/ghc-8.4.4-darwin-rec-link.patch
         ];
         postPatch = (drv.postPath or "") + ''

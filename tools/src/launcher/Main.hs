@@ -12,7 +12,6 @@
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
-{-# OPTIONS_GHC -Wno-type-defaults #-}
 
 import qualified Prelude (show)
 import           Universum
@@ -58,8 +57,6 @@ import           Text.PrettyPrint.ANSI.Leijen (Doc)
 #ifndef mingw32_HOST_OS
 import           System.Posix.Signals (sigKILL, signalProcess)
 import qualified System.Process.Internals as Process
-#else
-import qualified System.Win32.Process as Process
 #endif
 
 -- Modules needed for system'
@@ -589,13 +586,8 @@ writeWindowsUpdaterRunner :: FilePath -> M ()
 writeWindowsUpdaterRunner runnerPath = liftIO $ do
     exePath <- getExecutablePath
     launcherArgs <- getArgs
-#ifdef mingw32_HOST_OS
-    selfPid <- Process.getCurrentProcessId
-#else
-    let selfPid = 0 -- This will never be run on non-Windows
-#endif
     writeFile (toString runnerPath) $ unlines
-        [ "TaskKill /PID "<>show selfPid<>" /F"
+        [ "TaskKill /IM cardano-launcher.exe /F"
         -- Run updater
         , "%*"
         -- Delete updater

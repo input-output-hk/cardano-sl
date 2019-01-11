@@ -21,7 +21,7 @@ module Ntp.Client
 import           Universum hiding (Last, catch)
 
 import           Control.Concurrent (threadDelay)
-import           Control.Concurrent.Async (async, concurrently_, race)
+import           Control.Concurrent.Async (async, concurrently_, race, race_)
 import           Control.Concurrent.STM (TVar, check, modifyTVar', retry)
 import           Control.Exception (Exception, IOException, catch, handle)
 import           Control.Monad (forever)
@@ -172,7 +172,7 @@ sendLoop cli addrs = do
     let poll        = ntpPollDelay (ncSettings cli)
 
     -- send packets and wait until end of poll delay
-    sock <- atomically $ readTVar $ ncSockets cli
+    sock <- readTVarIO $ ncSockets cli
     pack <- mkNtpPacket
     sendPacket sock pack addrs
 
@@ -210,7 +210,7 @@ sendLoop cli addrs = do
 -- Start listening for responses on the socket @'ncSockets'@
 startReceive :: NtpClient -> IO ()
 startReceive cli =
-    atomically (readTVar $ ncSockets cli) >>= \case
+    readTVarIO (ncSockets cli) >>= \case
         These (Last (WithIPv6 sock_ipv6)) (Last (WithIPv4 sock_ipv4)) ->
             loop IPv6 sock_ipv6
             `concurrently_`
@@ -280,8 +280,7 @@ spawnNtpClient settings ncStatus = do
     bracket (mkSockets settings) closeSockets $ \sock -> do
         cli <- mkNtpClient settings ncStatus sock
 
-        addrs <- catMaybes <$> traverse resolveNtpHost (ntpServers settings)
-        when (null addrs) $ throwM NoHostResolved
+        addrs <- resolve
         -- TODO
         -- we should start listening for requests when we send something, since
         -- we're not expecting anything to come unless we send something.  This
@@ -289,6 +288,7 @@ spawnNtpClient settings ncStatus = do
         startReceive cli
             `concurrently_` sendLoop cli addrs
             `concurrently_` logInfo "started"
+
     where
     closeSockets :: Sockets -> IO ()
     closeSockets sockets = do
@@ -297,6 +297,28 @@ spawnNtpClient settings ncStatus = do
 
     fn :: Last (WithAddrFamily t Socket.Socket) -> IO ()
     fn (Last sock) = Socket.close $ runWithAddrFamily sock
+
+    -- Try to resolve addresses, on failure wait 30s and start again.
+    resolve = do
+        logInfo "resolve DNS"
+        addrs <- catMaybes <$> traverse resolveNtpHost (ntpServers settings)
+        if null addrs
+          then do
+            atomically $ writeTVar ncStatus NtpSyncUnavailable
+            -- either wait 30s or wait for `NtpSyncPending` which might be set
+            -- by a client (e.g. wallet), in which case try to resolve the dns.
+            race_
+              (threadDelay 30000000)
+              (do
+                atomically $ do
+                  s <- readTVar ncStatus
+                  case s of
+                    NtpSyncPending -> return ()
+                    _              -> retry
+                logInfo "NtpSyncPending while waiting"
+              )
+            resolve
+          else return addrs
 
 -- |
 -- Run NTP client in a separate thread; it returns a mutable cell which holds

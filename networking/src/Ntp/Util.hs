@@ -151,7 +151,7 @@ resolveHost host = do
             }
     -- TBD why catch here? Why not let @'resolveHost'@ throw the exception?
     addrInfos <- Socket.getAddrInfo (Just hints) (Just host) Nothing
-                    `catch` (\(_ :: IOException) -> return [])
+                    `catch` (\(e :: IOException) -> logError (sformat ("getAddrInfo error: "%shown) e) >> return [])
 
     let maddr = getOption $ foldMap fn addrInfos
     case maddr of

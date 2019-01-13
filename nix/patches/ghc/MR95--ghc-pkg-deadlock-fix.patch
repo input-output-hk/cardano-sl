@@ -1,0 +1,61 @@
+diff --git a/rts/posix/itimer/Pthread.c b/rts/posix/itimer/Pthread.c
+index d8f2497e3f21bc23038c4fa871b1739104825d12..6f9cd8f4b3b94692ac9c4f7cb2462a242742408d 100644
+--- a/rts/posix/itimer/Pthread.c
++++ b/rts/posix/itimer/Pthread.c
+@@ -134,12 +134,12 @@ static void *itimer_thread_func(void *_handle_tick)
+ 
+         // first try a cheap test
+         if (stopped) {
+-            ACQUIRE_LOCK(&mutex);
++            OS_ACQUIRE_LOCK(&mutex);
+             // should we really stop?
+             if (stopped) {
+                 waitCondition(&start_cond, &mutex);
+             }
+-            RELEASE_LOCK(&mutex);
++            OS_RELEASE_LOCK(&mutex);
+         } else {
+             handle_tick(0);
+         }
+@@ -147,8 +147,6 @@ static void *itimer_thread_func(void *_handle_tick)
+ 
+     if (USE_TIMERFD_FOR_ITIMER)
+         close(timerfd);
+-    closeMutex(&mutex);
+-    closeCondition(&start_cond);
+     return NULL;
+ }
+ 
+@@ -178,19 +176,19 @@ initTicker (Time interval, TickProc handle_tick)
+ void
+ startTicker(void)
+ {
+-    ACQUIRE_LOCK(&mutex);
++    OS_ACQUIRE_LOCK(&mutex);
+     stopped = 0;
+     signalCondition(&start_cond);
+-    RELEASE_LOCK(&mutex);
++    OS_RELEASE_LOCK(&mutex);
+ }
+ 
+ /* There may be at most one additional tick fired after a call to this */
+ void
+ stopTicker(void)
+ {
+-    ACQUIRE_LOCK(&mutex);
++    OS_ACQUIRE_LOCK(&mutex);
+     stopped = 1;
+-    RELEASE_LOCK(&mutex);
++    OS_RELEASE_LOCK(&mutex);
+ }
+ 
+ /* There may be at most one additional tick fired after a call to this */
+@@ -207,6 +205,8 @@ exitTicker (bool wait)
+         if (pthread_join(thread, NULL)) {
+             sysErrorBelch("Itimer: Failed to join");
+         }
++        closeMutex(&mutex);
++        closeCondition(&start_cond);
+     } else {
+         pthread_detach(thread);
+     }

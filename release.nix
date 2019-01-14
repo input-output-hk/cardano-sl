@@ -170,7 +170,7 @@ let
 
         installPhase = ''
           mkdir -p $out/bin
-          cp ${mapped-nix-tools-cross.nix-tools.exes.cardano-wallet}/bin/cardano-node.exe $out/bin/
+          cp ${mapped-nix-tools-cross.nix-tools.exes.cardano-wallet.x86_64-linux}/bin/cardano-node.exe $out/bin/
         '';
         };
       };

@@ -157,10 +157,23 @@ let
   #  x86_64-pc-mingw32-$pkg
   #
   mapped-nix-tools'
-    = lib.recursiveUpdate
+    = (lib.recursiveUpdate
         (mapped-nix-tools)
         (lib.mapAttrs (_: (lib.mapAttrs (_: (lib.mapAttrs' (n: v: lib.nameValuePair (lib.systems.examples.mingwW64.config + "-" + n) v)))))
-          mapped-nix-tools-cross);
+          mapped-nix-tools-cross))
+      // {
+        daedalus-mingw32-pkg = pkgs.stdenv.mkDerivation {
+        name = "daedalus-mingw32-pkg";
+        version = "1.2.3.4";
+
+        phases = [ "installPhase" ];
+
+        installPhase = ''
+          mkdir -p $out/bin
+          cp ${mapped-nix-tools-cross.nix-tools.exes.cardano-wallet}/bin/cardano-node.exe $out/bin/
+        '';
+        };
+      };
 
   mapped' = mapTestOn platforms';
   makeConnectScripts = cluster: let

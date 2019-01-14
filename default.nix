@@ -305,6 +305,9 @@ let
       // { tests = mapAttrs (k: v: if length (attrValues v.components.tests) > 0
                                    then v.components.tests
                                    else null) nix-tools; }
+      // { benchmarks = mapAttrs (k: v: if length (attrValues v.components.benchmarks) > 0
+                                   then v.components.benchmarks
+                                   else null) nix-tools; }
       ;
   })
   );

@@ -44,7 +44,7 @@ import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
                      FullDiffusionInternals (..),
                      RunFullDiffusionInternals (..),
                      diffusionLayerFullExposeInternals)
-import           Pos.Infra.Diffusion.Types as Diffusion (Diffusion (..))
+import           Pos.Infra.Diffusion.Types as Diffusion (Diffusion (..), StreamBlocks (..))
 import qualified Pos.Infra.Network.Policy as Policy
 import           Pos.Infra.Network.Types (Bucket (..))
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
@@ -226,7 +226,10 @@ blockDownloadStream serverAddress setStreamIORef client ~(blockHeader, checkpoin
   where
     numBlocks = batches * 2200
 
-    writeCallback !_ = return ()
+    writeCallback = StreamBlocks
+      { streamBlocksMore = \(!_) -> pure writeCallback
+      , streamBlocksDone = pure ()
+      }
 
 blockDownloadBenchmarks :: NodeId -> (Int -> IO ()) -> Diffusion IO -> [Criterion.Benchmark]
 blockDownloadBenchmarks serverAddress setStreamIORef client =

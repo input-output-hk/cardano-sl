@@ -17120,7 +17120,6 @@ license = stdenv.lib.licenses.mit;
 , hashable
 , hspec
 , hspec-core
-, kademlia
 , lens
 , mtl
 , mwc-random
@@ -17171,7 +17170,6 @@ containers
 ekg-core
 formatting
 hashable
-kademlia
 lens
 mtl
 network
@@ -17194,7 +17192,6 @@ base
 binary
 bytestring
 cardano-sl-util
-containers
 contravariant
 network-transport
 network-transport-tcp

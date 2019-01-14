@@ -112,6 +112,13 @@ let
           (lib.filterAttrs (n: v: fixedLib.isCardanoSL n && v != null)
             iohkPkgs.nix-tools.tests))
         skipPackages;
+    # nix-tools toolchain: Benchmarks
+    nix-tools.benchmarks =
+      removeAttrs
+        (lib.mapAttrs (_: lib.mapAttrs (_: _: supportedSystems))
+          (lib.filterAttrs (n: v: fixedLib.isCardanoSL n && v != null)
+            iohkPkgs.nix-tools.benchmarks))
+        skipPackages;
   };
 
   # tests that are either broken or broken on some arch

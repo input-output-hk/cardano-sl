@@ -4,10 +4,7 @@
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE RankNTypes                 #-}
 
--- needed for SecurityParameter
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
-module Cardano.Wallet.Kernel.NodeStateAdaptor (
+module Cardano.Node.NodeStateAdaptor (
     WithNodeState     -- opaque
   , NodeStateAdaptor  -- opaque
   , withNodeState
@@ -17,9 +14,6 @@ module Cardano.Wallet.Kernel.NodeStateAdaptor (
   , SecurityParameter(..)
   , UnknownEpoch(..)
   , MissingBlock(..)
-    -- * Locking
-  , Lock
-  , LockContext(..)
     -- * Specific queries
   , getTipSlotId
   , getSecurityParameter
@@ -32,49 +26,22 @@ module Cardano.Wallet.Kernel.NodeStateAdaptor (
   , getNodeSyncProgress
   , curSoftwareVersion
   , compileInfo
-  , getNtpDrift
-  , getCreationTimestamp
-    -- * Non-mockable
-  , filterUtxo
-  , mostRecentMainBlock
-  , triggerShutdown
-  , waitForUpdate
-  , defaultGetSlotStart
-    -- * Support for tests
-  , NodeStateUnavailable(..)
-  , MockNodeStateParams(..)
-  , mockNodeState
-  , mockNodeStateDef
-  , defMockNodeStateParams
   ) where
 
 import           Universum
 
 import           Control.Lens (lens, to)
-import           Control.Monad.IO.Unlift (MonadUnliftIO, UnliftIO (UnliftIO),
-                     askUnliftIO, unliftIO, withUnliftIO)
-import           Control.Monad.STM (orElse, retry)
-import           Data.Conduit (mapOutputMaybe, runConduitRes, (.|))
-import qualified Data.Conduit.List as Conduit
-import           Data.SafeCopy (base, deriveSafeCopy)
-import           Data.Time.Units (Millisecond, fromMicroseconds, toMicroseconds)
-import           Formatting (bprint, build, sformat, shown, (%))
-import qualified Formatting.Buildable
-import           Ntp.Client (NtpStatus (..))
-import           Ntp.Packet (NtpOffset)
+import           Control.Monad.STM (orElse)
+import           Data.Time.Units (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 
-import qualified Cardano.Wallet.API.V1.Types as V1
-import           Cardano.Wallet.Kernel.Util.Core as Util
 import           Pos.Chain.Block (Block, HeaderHash, LastKnownHeader,
                      LastKnownHeaderTag, MainBlock, blockHeader, headerHash,
                      mainBlockSlot, prevBlockL)
 import           Pos.Chain.Genesis as Genesis (Config (..), GenesisHash (..),
-                     configBlockVersionData, configEpochSlots, configK)
-import           Pos.Chain.Txp (TxIn, TxOutAux)
-import           Pos.Chain.Update (ConfirmedProposalState,
-                     HasUpdateConfiguration, SoftwareVersion, bvdMaxTxSize,
-                     bvdTxFeePolicy)
+                     configEpochSlots, configK)
+import           Pos.Chain.Update (HasUpdateConfiguration, SoftwareVersion,
+                     bvdMaxTxSize, bvdTxFeePolicy)
 import qualified Pos.Chain.Update as Upd
 import           Pos.Context (NodeContext (..))
 import           Pos.Core (BlockCount, SlotCount, Timestamp (..), TxFeePolicy,
@@ -86,28 +53,23 @@ import           Pos.DB.BlockIndex (getTipHeader)
 import           Pos.DB.Class (MonadDBRead (..), getBlock)
 import           Pos.DB.GState.Lock (StateLock, withStateLockNoMetrics)
 import           Pos.DB.Rocks (NodeDBs, dbGetDefault, dbIterSourceDefault)
-import           Pos.DB.Txp.Utxo (utxoSource)
-import           Pos.DB.Update (UpdateContext, getAdoptedBVData,
-                     ucDownloadedUpdate)
+import           Pos.DB.Update (UpdateContext, getAdoptedBVData)
 import           Pos.Infra.Shutdown.Class (HasShutdownContext (..))
-import qualified Pos.Infra.Shutdown.Logic as Shutdown
 import qualified Pos.Infra.Slotting.Impl.Simple as S
 import qualified Pos.Infra.Slotting.Util as Slotting
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Node.API (SecurityParameter (..))
 import           Pos.Util (CompileTimeInfo, HasCompileInfo, HasLens (..),
-                     lensOf', withCompileInfo)
+                     lensOf')
 import qualified Pos.Util as Util
 import           Pos.Util.Concurrent.PriorityLock (Priority (..))
 import           Pos.Util.Wlog (CanLog (..), HasLoggerName (..))
-import           Test.Pos.Configuration (withDefConfiguration,
-                     withDefUpdateConfiguration)
 
 {-------------------------------------------------------------------------------
   Additional types
 -------------------------------------------------------------------------------}
 
-deriveSafeCopy 1 'base ''SecurityParameter
+
 
 -- | Returned by 'getSlotStart' when requesting info about an unknown epoch
 data UnknownEpoch = UnknownEpoch SlotId
@@ -286,13 +248,6 @@ data NodeStateAdaptor m = Adaptor {
       -- | Git revision
     , compileInfo :: m CompileTimeInfo
 
-      -- | Ask the NTP client for the status
-    , getNtpDrift :: V1.ForceNtpCheck -> m V1.TimeInfo
-
-      -- | Get the current timestamp
-      --
-      -- Tests can mock transaction creation time with this function.
-    , getCreationTimestamp :: m Timestamp
     }
 
 {-------------------------------------------------------------------------------
@@ -343,9 +298,6 @@ instance HasShutdownContext Res where
   will make sure that this is in scope.
 -------------------------------------------------------------------------------}
 
-instance MonadUnliftIO m => MonadUnliftIO (WithNodeState m) where
-  askUnliftIO = Wrap $ withUnliftIO $ \u ->
-                  pure $ UnliftIO (unliftIO u . unwrap)
 
 instance ( NodeConstraints
          , MonadThrow m
@@ -375,9 +327,8 @@ instance MonadIO m => MonadSlots Res (WithNodeState m) where
 newNodeStateAdaptor :: forall m ext. (NodeConstraints, MonadIO m, MonadMask m)
                     => Config
                     -> NodeResources ext
-                    -> TVar NtpStatus
                     -> NodeStateAdaptor m
-newNodeStateAdaptor genesisConfig nr ntpStatus = Adaptor
+newNodeStateAdaptor genesisConfig nr = Adaptor
     { withNodeState            =            run
     , getTipSlotId             =            run $ \_lock -> defaultGetTipSlotId genesisHash
     , getMaxTxSize             =            run $ \_lock -> defaultGetMaxTxSize
@@ -390,8 +341,6 @@ newNodeStateAdaptor genesisConfig nr ntpStatus = Adaptor
     , getCoreConfig            = return genesisConfig
     , curSoftwareVersion       = return $ Upd.curSoftwareVersion Upd.updateConfiguration
     , compileInfo              = return $ Util.compileInfo
-    , getNtpDrift              = defaultGetNtpDrift ntpStatus
-    , getCreationTimestamp     =             run $ \_lock -> defaultGetCreationTimestamp
     }
   where
     genesisHash = configGenesisHash genesisConfig
@@ -462,87 +411,6 @@ defaultSyncProgress lockContext lock = do
              )
     return (max localHeight <$> globalHeight, localHeight)
 
-defaultGetCreationTimestamp :: MonadIO m => WithNodeState m Timestamp
-defaultGetCreationTimestamp = liftIO $ Util.getCurrentTimestamp
-
-{-------------------------------------------------------------------------------
-  Non-mockable functions
--------------------------------------------------------------------------------}
-
-filterUtxo :: (NodeConstraints, MonadCatch m, MonadUnliftIO m)
-           => ((TxIn, TxOutAux) -> Maybe a) -> WithNodeState m [a]
-filterUtxo p = runConduitRes $ mapOutputMaybe p utxoSource
-                            .| Conduit.fold (flip (:)) []
-
-triggerShutdown :: MonadIO m => WithNodeState m ()
-triggerShutdown = Shutdown.triggerShutdown
-
--- | Wait for an update
---
--- NOTE: This is adopted from 'waitForUpdateWebWallet'. In particular, that
--- function too uses 'takeMVar'. I guess the assumption is that there is only
--- one listener on this 'MVar'?
-waitForUpdate :: forall m. MonadIO m => WithNodeState m ConfirmedProposalState
-waitForUpdate = liftIO . takeMVar =<< asks l
-  where
-    l :: Res -> MVar ConfirmedProposalState
-    l = ucDownloadedUpdate . view lensOf'
-
-
--- | Get the difference between NTP time and local system time, nothing if the
--- NTP server couldn't be reached in the last 30min.
---
--- Note that one can force a new query to the NTP server in which case, it may
--- take up to 30s to resolve.
-defaultGetNtpDrift
-    :: MonadIO m
-    => TVar NtpStatus
-    -> V1.ForceNtpCheck
-    -> m V1.TimeInfo
-defaultGetNtpDrift tvar ntpCheckBehavior = liftIO $ mkTimeInfo <$>
-    if (ntpCheckBehavior == V1.ForceNtpCheck) then
-        forceNtpCheck >> getNtpOffset blockingLookupNtpOffset
-    else
-        getNtpOffset nonBlockingLookupNtpOffset
-  where
-    forceNtpCheck :: MonadIO m => m ()
-    forceNtpCheck =
-        atomically $ writeTVar tvar NtpSyncPending
-
-    getNtpOffset :: MonadIO m => (NtpStatus -> STM (Maybe NtpOffset)) -> m (Maybe NtpOffset)
-    getNtpOffset lookupNtpOffset =
-        atomically $ (readTVar tvar >>= lookupNtpOffset)
-
-    mkTimeInfo :: Maybe NtpOffset -> V1.TimeInfo
-    mkTimeInfo =
-        V1.TimeInfo . fmap (V1.mkLocalTimeDifference . toMicroseconds)
-
-
--- Lookup NtpOffset from an NTPStatus in a non-blocking manner
---
--- i.e. Returns immediately with 'Nothing' if the NtpSync is pending.
-nonBlockingLookupNtpOffset
-    :: NtpStatus
-    -> STM (Maybe NtpOffset)
-nonBlockingLookupNtpOffset = \case
-    NtpSyncPending     -> pure Nothing
-    NtpDrift offset    -> pure (Just offset)
-    NtpSyncUnavailable -> pure Nothing
-
-
--- Lookup NtpOffset from an NTPStatus in a blocking manner, this usually
--- take ~100ms
---
--- i.e. Wait (at most 30s) for the NtpSync to resolve if pending
-blockingLookupNtpOffset
-    :: NtpStatus
-    -> STM (Maybe NtpOffset)
-blockingLookupNtpOffset = \case
-    NtpSyncPending     -> retry
-    NtpDrift offset    -> pure (Just offset)
-    NtpSyncUnavailable -> pure Nothing
-
-
 -- | Get the most recent main block starting at the specified header
 --
 -- Returns nothing if there are no (regular) blocks on the blockchain yet.
@@ -578,114 +446,3 @@ mostRecentMainBlock genesisHash = go
           Nothing    -> throwM $ MissingBlock callStack hdrHash
           Just block -> return block
 
-{-------------------------------------------------------------------------------
-  Support for tests
--------------------------------------------------------------------------------}
-
--- | Thrown when using the 'nodeStateUnavailable' adaptor.
-data NodeStateUnavailable = NodeStateUnavailable CallStack
-  deriving (Show)
-
-instance Exception NodeStateUnavailable
-
--- | Node state adaptor for use in tests
---
--- See 'NodeStateAdaptor' for an explanation about what is and what is not
--- mockable.
-mockNodeState :: (HasCallStack, MonadThrow m)
-              => MockNodeStateParams -> NodeStateAdaptor m
-mockNodeState MockNodeStateParams{..} =
-    withDefConfiguration $ \genesisConfig ->
-    withDefUpdateConfiguration $
-    let genesisBvd = configBlockVersionData genesisConfig
-    in Adaptor {
-          withNodeState            = \_ -> throwM $ NodeStateUnavailable callStack
-        , getTipSlotId             = return mockNodeStateTipSlotId
-        , getSecurityParameter     = return mockNodeStateSecurityParameter
-        , getNextEpochSlotDuration = return mockNodeStateNextEpochSlotDuration
-        , getNodeSyncProgress      = \_ -> return mockNodeStateSyncProgress
-        , getSlotStart             = return . mockNodeStateSlotStart
-        , getMaxTxSize             = return $ bvdMaxTxSize genesisBvd
-        , getFeePolicy             = return $ bvdTxFeePolicy genesisBvd
-        , getSlotCount             = return $ configEpochSlots genesisConfig
-        , getCoreConfig            = return genesisConfig
-        , curSoftwareVersion       = return $ Upd.curSoftwareVersion Upd.updateConfiguration
-        , compileInfo              = return $ Util.compileInfo
-        , getNtpDrift              = return . mockNodeStateNtpDrift
-        , getCreationTimestamp     = return $ mockNodeStateCreationTimestamp
-        }
-
--- | Variation on 'mockNodeState' that uses the default params
-mockNodeStateDef :: (HasCallStack, MonadThrow m) => NodeStateAdaptor m
-mockNodeStateDef = mockNodeState defMockNodeStateParams
-
--- | Parameters for 'mockNodeState'
---
--- NOTE: These values are intentionally not strict, so that we can provide
--- error values in 'defMockNodeStateParams'
-data MockNodeStateParams = NodeConstraints => MockNodeStateParams {
-        -- | Value for 'getTipSlotId'
-        mockNodeStateTipSlotId :: SlotId
-
-        -- | Value for 'getSlotSTart'
-      , mockNodeStateSlotStart :: SlotId -> Either UnknownEpoch Timestamp
-
-        -- | Value for 'getSecurityParameter'
-      , mockNodeStateSecurityParameter :: SecurityParameter
-
-        -- | Value for 'getNextEpochSlotDuration'
-      , mockNodeStateNextEpochSlotDuration :: Millisecond
-
-        -- | Value for 'getNodeSyncProgress'
-      , mockNodeStateSyncProgress :: (Maybe BlockCount, BlockCount)
-
-        -- | Value for 'getNtpDrift'
-      , mockNodeStateNtpDrift :: V1.ForceNtpCheck -> V1.TimeInfo
-
-        -- | Value for 'getCreationTimestamp'
-      , mockNodeStateCreationTimestamp :: Timestamp
-      }
-
--- | Default 'MockNodeStateParams'
---
--- NOTE:
---
--- * Most of the default parameters are error values
--- * The 'NodeConstraints' that come from the test configuration
--- * However, we set the security parameter to 2160 instead of taking that
---   from the test configuration, since in the test configuration @k@ is
---   assigned a really low value, which would cause us to throw away from
---   checkpoints during testing that we should not throw away.
-defMockNodeStateParams :: MockNodeStateParams
-defMockNodeStateParams =
-    withDefConfiguration $ \_pm ->
-    withDefUpdateConfiguration $
-    withCompileInfo $
-      MockNodeStateParams {
-          mockNodeStateTipSlotId             = notDefined "mockNodeStateTipSlotId"
-        , mockNodeStateSlotStart             = notDefined "mockNodeStateSlotStart"
-        , mockNodeStateNextEpochSlotDuration = notDefined "mockNodeStateNextEpochSlotDuration"
-        , mockNodeStateSyncProgress          = notDefined "mockNodeStateSyncProgress"
-        , mockNodeStateSecurityParameter     = SecurityParameter 2160
-        , mockNodeStateNtpDrift              = const (V1.TimeInfo Nothing)
-        , mockNodeStateCreationTimestamp     = getSomeTimestamp
-        }
-  where
-    getSomeTimestamp :: Timestamp
-    getSomeTimestamp = Timestamp $ fromMicroseconds 12340000
-
-    notDefined :: Text -> a
-    notDefined = error
-              . sformat ("defMockNodeStateParams: '" % build % "' not defined")
-
-{-------------------------------------------------------------------------------
-  Pretty-printing
--------------------------------------------------------------------------------}
-
-instance Buildable MissingBlock where
-  build (MissingBlock cs hash) =
-    bprint ("MissingBlock " % build % " at " % shown) hash (prettyCallStack cs)
-
-instance Buildable UnknownEpoch where
-  build (UnknownEpoch slotId) =
-    bprint ("UnknownEpoch " % build) slotId

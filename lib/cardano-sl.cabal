@@ -142,6 +142,7 @@ library
                         Pos.Communication.Server
 
   build-depends:        base
+                      , base64-bytestring
                       , aeson >= 0.11.2.1
                       , aeson-options
                       , ansi-terminal
@@ -153,6 +154,7 @@ library
                       , cardano-sl-binary-test
                       , cardano-sl-chain
                       , cardano-sl-core
+                      , cardano-sl-core-test
                       , cardano-sl-crypto
                       , cardano-sl-crypto-test
                       , cardano-sl-db

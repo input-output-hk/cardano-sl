@@ -176,8 +176,14 @@ let
         phases = [ "installPhase" ];
 
         installPhase = ''
-          mkdir -p $out/bin
-          cp ${mapped-nix-tools-cross.nix-tools.exes.cardano-wallet.x86_64-linux}/bin/cardano-node.exe $out/bin/
+          mkdir -p $out/daedalus
+          cp ${mapped-nix-tools-cross.nix-tools.exes.cardano-wallet.x86_64-linux}/bin/cardano-node.exe                $out/daedalus/
+          cp ${mapped-nix-tools-cross.nix-tools.exes.cardano-sl-tools.x86_64-linux}/bin/cardano-launcher.exe          $out/daedalus/
+          cp ${mapped-nix-tools-cross.nix-tools.exes.cardano-sl-tools.x86_64-linux}/bin/cardano-x509-certificates.exe $out/daedalus/
+          cp ${./log-configs/daedalus.yaml}                                                                           $out/daedalus/log-config-prod.yaml
+          cp ${./lib/configuration.yaml}                                                                              $out/daedalus/
+          cp ${./lib}/*genesis*.json                                                                                  $out/daedalus/
+          (cd $out && zip -9 CardanoSL.zip daedalus/)
         '';
         };
       };

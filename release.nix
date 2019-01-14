@@ -78,7 +78,7 @@ let
   } skipPackages;
   mapped = mapTestOn platforms;
 
-  nix-tools-toolchain = {
+  nix-tools-toolchain = supportedSystems: {
     nix-tools.libs = removeAttrs {
       # nix-tools toolchain: Libraries
       cardano-sl            = supportedSystems;
@@ -148,9 +148,14 @@ let
         cardano-wallet.unit = [ "x86_64-linux" ];
         cardano-report-server.cardano-report-server-test = [ "x86_64-linux" ];
   };
-  mapped-nix-tools       = mapTestOn                                    (lib.recursiveUpdate nix-tools-toolchain { nix-tools.tests = broken-tests; });
-  mapped-nix-tools-cross = mapTestOnCross lib.systems.examples.mingwW64 (lib.recursiveUpdate nix-tools-toolchain { nix-tools.tests = broken-tests-cross; });
+  mapped-nix-tools       = mapTestOn                                    (lib.recursiveUpdate (nix-tools-toolchain supportedSystems)   { nix-tools.tests = broken-tests; });
+  # do linux->windows only, not mac->windows.
+  mapped-nix-tools-cross = mapTestOnCross lib.systems.examples.mingwW64 (lib.recursiveUpdate (nix-tools-toolchain [ "x86_64-linux" ]) { nix-tools.tests = broken-tests-cross; });
 
+  # prefix the targets with their triple.
+  #
+  #  x86_64-pc-mingw32-$pkg
+  #
   mapped-nix-tools'
     = lib.recursiveUpdate
         (mapped-nix-tools)

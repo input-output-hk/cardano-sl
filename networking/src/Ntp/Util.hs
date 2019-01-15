@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE GADTs               #-}
@@ -44,10 +45,9 @@ import           Data.These (These (..))
 import           Formatting (sformat, shown, (%))
 import           Network.Socket (AddrInfo,
                      AddrInfoFlag (AI_ADDRCONFIG, AI_PASSIVE),
-                     Family (AF_INET, AF_INET6), PortNumber (..),
-                     SockAddr (..), Socket, SocketOption (ReuseAddr),
-                     SocketType (Datagram), aNY_PORT, addrAddress, addrFamily,
-                     addrFlags, addrSocketType)
+                     Family (AF_INET, AF_INET6), PortNumber, SockAddr (..),
+                     Socket, SocketOption (ReuseAddr), SocketType (Datagram),
+                     addrAddress, addrFamily, addrFlags, addrSocketType)
 import qualified Network.Socket as Socket
 import qualified Network.Socket.ByteString as Socket.ByteString (sendTo)
 
@@ -219,8 +219,13 @@ udpLocalAddresses = do
     let hints = Socket.defaultHints
             { addrFlags = [AI_PASSIVE]
             , addrSocketType = Datagram }
+#if MIN_VERSION_network(2,8,0)
+        port = Socket.defaultPort
+#else
+        port = Socket.aNY_PORT
+#endif
     --                 Hints        Host    Service
-    Socket.getAddrInfo (Just hints) Nothing (Just $ show aNY_PORT)
+    Socket.getAddrInfo (Just hints) Nothing (Just $ show port)
 
 data SendToException
     = NoMatchingSocket

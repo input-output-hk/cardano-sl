@@ -40,7 +40,8 @@ import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
                      FullDiffusionInternals (..),
                      RunFullDiffusionInternals (..),
                      diffusionLayerFullExposeInternals)
-import           Pos.Infra.Diffusion.Types as Diffusion (Diffusion (..))
+import           Pos.Infra.Diffusion.Types as Diffusion (Diffusion (..),
+                     StreamBlocks (..))
 import qualified Pos.Infra.Network.Policy as Policy
 import           Pos.Infra.Network.Types (Bucket (..))
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
@@ -213,15 +214,19 @@ blockDownloadStream :: NodeId -> IORef Bool -> IORef [Block] -> (Int -> IO ()) -
 blockDownloadStream serverAddress resultIORef streamIORef setStreamIORef ~(blockHeader, checkpoints) client = do
     setStreamIORef 1
     recvIORef <- newIORef []
-    _ <- Diffusion.streamBlocks client serverAddress blockHeader checkpoints (writeCallback recvIORef)
+    _ <- Diffusion.streamBlocks client serverAddress blockHeader checkpoints (streamBlocksK recvIORef)
 
     expectedBlocks <- readIORef streamIORef
     recvBlocks <- readIORef recvIORef
     writeIORef resultIORef $ expectedBlocks == reverse recvBlocks
     return ()
   where
-    writeCallback recvBlocks !blocks =
-        modifyIORef' recvBlocks (\d -> blocks <> d)
+    streamBlocksK recvBlocks = StreamBlocks
+      { streamBlocksMore = \(!blocks) -> do
+          modifyIORef' recvBlocks (\d -> (NE.toList blocks) <> d)
+          pure (streamBlocksK recvBlocks)
+      , streamBlocksDone = pure ()
+      }
 
 -- Generate a list of n+1 blocks
 generateBlocks :: ProtocolMagic -> Int -> NonEmpty Block

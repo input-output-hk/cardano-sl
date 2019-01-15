@@ -80,9 +80,15 @@ instance (Demote u, FromJSON a) => FromJSON (MeasuredIn u a) where
         verifyUnit =<< o .: "unit"
         MeasuredIn <$> o .: "quantity"
       where
+        unitS = toString $ T.toStrict $ B.toLazyText $ build $ demote $ Proxy @u
         verifyUnit = \case
-            u@(String _) | u == toJSON (demote $ Proxy @u) -> pure ()
-            _ -> mempty
+            u@(String _) | u == toJSON (demote $ Proxy @u) ->
+                pure ()
+            _ ->
+                fail
+                $  "failed to parse quantified value. Expected value in '"
+                <> unitS <> "' but got something else. e.g.: "
+                <> "{ \"unit\": \"" <> unitS <> "\", \"quantity\": ...}"
 
 instance (Demote u, ToSchema a) => ToSchema (MeasuredIn u a) where
     declareNamedSchema _ = do

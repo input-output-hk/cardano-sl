@@ -734,9 +734,14 @@ intEnqueue :: forall msg nid buck a.
            -> msg a
            -> Peers nid
            -> IO [Packet msg nid a]
-intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
-    forM (qEnqueuePolicy msgType) $ \case
-
+intEnqueue outQ@OutQ{..} msgType msg peers = case qEnqueuePolicy msgType of
+  -- The enqueue policy indicates that messages of this type should go to
+  -- nobody. Log a notice.
+  [] -> do
+    traceWith qTrace (Notice, noticeNoTargets)
+    pure []
+  targets -> fmap concat $
+    forM targets $ \case
       enq@(EnqueueAll enqNodeType enqMaxAhead enqPrecedence) -> do
         let fwdSets :: AllOf (Alts nid)
             fwdSets = removeOrigin (msgOrigin msgType) $
@@ -826,6 +831,16 @@ intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
       case origin of
         OriginSender    -> id
         OriginForward n -> filter (not . null) . map (filter (/= n))
+
+    -- Message to write when there's no enqueue directives for a message type.
+    noticeNoTargets :: Text
+    noticeNoTargets = sformat
+      ( "message "
+      % formatMsg
+      % " not enqueued to any peers because the enqueue policy"
+      % " for this message type is empty"
+      )
+      msg
 
     debugNotEnqueued :: NodeType -> Text
     debugNotEnqueued nodeType = sformat

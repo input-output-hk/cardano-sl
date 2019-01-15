@@ -51,7 +51,11 @@ dnsSubscriptionTarget logTrace timeoutError defaultPort addrs =
   where
 
     listTargets :: [NodeId] -> IO (Maybe (NodeId, SubscriptionTarget IO NodeId))
-    listTargets [] = getSubscriptionTarget (dnsSubscriptionTarget logTrace timeoutError defaultPort addrs)
+    listTargets [] = do
+      -- Wait 30s before another round; otherwise the node will exhaust
+      -- available opened file descriptors.
+      threadDelay 30000000
+      getSubscriptionTarget (dnsSubscriptionTarget logTrace timeoutError defaultPort addrs)
     listTargets (nodeId : nodeIds) = pure (Just (nodeId, SubscriptionTarget (listTargets nodeIds)))
 
     resolve :: IO [NodeId]

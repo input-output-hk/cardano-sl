@@ -165,6 +165,15 @@ instance BuildableSafeGen TimeInfo where
 
 deriveJSON Aeson.defaultOptions ''TimeInfo
 
+data Percent -- No concrete type needed, this is just for the Swagger schema
+
+instance ToSchema Percent where
+    declareNamedSchema _ = do
+        NamedSchema _ s <- declareNamedSchema $ Proxy @Word
+        pure $ NamedSchema (Just "Percent") $ s
+            & minimum_ ?~ 0
+            & maximum_ ?~ 100
+
 newtype SyncPercentage
     = SyncPercentage (MeasuredIn 'Percentage100 Word8)
     deriving stock (Show, Eq, Ord)
@@ -173,7 +182,7 @@ deriveSafeBuildable ''SyncPercentage
 
 instance ToSchema SyncPercentage where
     declareNamedSchema _ = do
-        NamedSchema _ s <- declareNamedSchema $ Proxy @(MeasuredIn 'Percentage100 Word8)
+        NamedSchema _ s <- declareNamedSchema $ Proxy @(MeasuredIn 'Percentage100 Percent)
         pure $ NamedSchema (Just "SyncPercentage") s
 
 instance Arbitrary SyncPercentage where

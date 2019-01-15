@@ -13,10 +13,10 @@ module Pos.Util.Wlog
         , NamedPureLogger (..)
         , launchNamedPureLog
         , runNamedPureLog
-          -- * Setup
+        --   -- * Setup
         , setupLogging
         , setupLogging'
-        , setupTestLogging
+        -- , setupTestLogging
           -- * Logging functions
         , logDebug
         , logError
@@ -29,11 +29,11 @@ module Pos.Util.Wlog
         , LoggerNameBox (..)
         , HasLoggerName (..)
         , usingLoggerName
-        , addLoggerName
-        , setLoggerName
+        -- , addLoggerName
+        -- , setLoggerName
           -- * LoggerConfig
-        , LoggerConfig (..)
-        , lcTree
+        , LoggerConfig
+        -- , lcTree
         , parseLoggerConfig
           -- * Builders for 'LoggerConfig'
         , productionB
@@ -41,24 +41,26 @@ module Pos.Util.Wlog
         , Severity (..)
           -- * Saving Changes
         , retrieveLogContent
-          -- * Logging messages with a condition
-        , logMCond
-          -- * Utility functions
+        --   -- * Logging messages with a condition
+        -- , logMCond
+        --   -- * Utility functions
         , removeAllHandlers
-        , centiUtcTimeF
+        -- , centiUtcTimeF
         , setLogPrefix
-        , getLinesLogged
+        -- , getLinesLogged
+        , defaultTestConfiguration
+        , defaultInteractiveConfiguration
+        , LoggingHandler (..)
         ) where
 
-import           Pos.Util.Log (LoggerName, Severity (..))
-import           Pos.Util.Log.LoggerConfig (LoggerConfig (..), lcTree,
-                     parseLoggerConfig, setLogPrefix)
-import           Pos.Util.Wlog.Compatibility (CanLog (..), HasLoggerName (..),
-                     LogEvent (..), LoggerNameBox (..), NamedPureLogger (..),
-                     WithLogger, addLoggerName, centiUtcTimeF, dispatchEvents,
-                     getLinesLogged, launchNamedPureLog, logDebug, logError,
-                     logInfo, logMCond, logMessage, logNotice, logWarning,
+import           Pos.Util.Klog.Compatibility (CanLog (..), HasLoggerName (..),
+                     LogEvent (..), LoggerConfig, LoggerNameBox (..),
+                     LoggingHandler (..), NamedPureLogger (..), Severity (..),
+                     WithLogger, defaultInteractiveConfiguration,
+                     defaultTestConfiguration, dispatchEvents,
+                     launchNamedPureLog, logDebug, logError, logInfo,
+                     logMessage, logNotice, logWarning, parseLoggerConfig,
                      productionB, removeAllHandlers, retrieveLogContent,
-                     runNamedPureLog, setLoggerName, setupLogging,
-                     setupLogging', setupTestLogging, usingLoggerName)
-
+                     runNamedPureLog, setLogPrefix, setupLogging,
+                     setupLogging', usingLoggerName)
+import           Pos.Util.Log (LoggerName)

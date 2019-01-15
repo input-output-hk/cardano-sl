@@ -6,7 +6,7 @@ module Pos.Infra.Reporting.Wlog
     , readWlogFile
     , compressLogs
     , withTempLogFile
-    , LoggerConfig (..)
+    , LoggerConfig
     ) where
 
 import           Universum
@@ -18,18 +18,15 @@ import qualified Data.ByteString.Lazy as BSL
 import           Data.Conduit (runConduitRes, yield, (.|))
 import           Data.Conduit.List (consume)
 import qualified Data.Conduit.Lzma as Lzma
-import           Data.List (isInfixOf)
 import qualified Data.Text.IO as TIO
 import           Data.Time.Clock (getCurrentTime)
 import           Data.Time.Format (defaultTimeLocale, formatTime)
 import           System.Directory (canonicalizePath, doesFileExist,
                      getTemporaryDirectory, removeFile)
-import           System.FilePath (takeFileName, (</>))
+import           System.FilePath (takeFileName)
 import           System.IO (IOMode (WriteMode), hClose, hFlush, withFile)
 
-import           Pos.Util.Wlog (LoggerConfig (..), retrieveLogContent)
-
-import           Pos.Util.Log.LoggerConfig (lcBasePath, retrieveLogFiles)
+import           Pos.Util.Wlog (LoggerConfig)
 
 
 -- FIXME we get PackingError from here, but it should defined locally, since
@@ -52,31 +49,7 @@ withWlogTempFile logConfig k = do
 
 -- | Use a 'LoggerConfig' to get logs.
 readWlogFile :: LoggerConfig -> IO (Maybe Text)
-readWlogFile logConfig = case mLogFile of
-    Nothing -> pure Nothing
-    Just logFile -> do
-        -- TBD will 'retrieveLogContent' fail if the file doesn't
-        -- exist?
-        logContent <-
-            takeGlobalSize charsConst <$>
-            retrieveLogContent logFile (Just 5000)
-        pure (Just (unlines (reverse logContent)))
-  where
-    -- Grab all public log files, using the 'LoggerConfig', and take the
-    -- first one.
-    basepath = fromMaybe "./" $ logConfig ^. lcBasePath
-    allFiles = map ((</> basepath) . snd) $ retrieveLogFiles logConfig
-    mLogFile = case filter (".json" `isInfixOf`) allFiles of
-                    []    -> Nothing
-                    (f:_) -> Just f
-    -- 2 megabytes, assuming we use chars which are ASCII mostly
-    charsConst :: Int
-    charsConst = 1024 * 1024 * 2
-    takeGlobalSize :: Int -> [Text] -> [Text]
-    takeGlobalSize _ [] = []
-    takeGlobalSize curLimit (t:xs) =
-        let delta = curLimit - length t
-        in bool [] (t : (takeGlobalSize delta xs)) (delta > 0)
+readWlogFile _logConfig = pure Nothing
 
 -- | Pass a list of absolute paths to log files. This function will
 -- archive and compress these files and put resulting file into log

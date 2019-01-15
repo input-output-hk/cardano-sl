@@ -65,7 +65,6 @@ import           Pos.Infra.Slotting (ActionTerminationPolicy (..),
                      defaultOnNewSlotParams, getSlotStartEmpatically,
                      onNewSlot)
 import           Pos.Infra.Util.JsonLog.Events (jlCreatedBlock)
-import           Pos.Infra.Util.LogSafe (logDebugS, logInfoS, logWarningS)
 import           Pos.Infra.Util.TimeLimit (logWarningSWaitLinear)
 import           Pos.Network.Block.Logic (triggerRecovery)
 import           Pos.Network.Block.Retrieval (retrievalWorker)
@@ -169,7 +168,7 @@ blockCreator genesisConfig txpConfig (slotId@SlotId {..}) diffusion = do
   where
     onNoLeader =
         logError "Couldn't find a leader for current slot among known ones"
-    logOnEpochFS = if siSlot == localSlotIndexMinBound then logInfoS else logDebugS
+    logOnEpochFS = if siSlot == localSlotIndexMinBound then logInfo else logDebug
     logOnEpochF = if siSlot == localSlotIndexMinBound then logInfo else logDebug
     onKnownLeader leaders leader = do
         ourPk <- getOurPublicKey
@@ -196,7 +195,7 @@ blockCreator genesisConfig txpConfig (slotId@SlotId {..}) diffusion = do
 
         let weAreLeader = leader == ourPkHash
         if | weAreLeader && heavyWeAreIssuer ->
-                 logInfoS $ sformat
+                 logInfo $ sformat
                  ("Not creating the block (though we're leader) because it's "%
                   "delegated by heavy psk: "%build)
                  ourHeavyPsk
@@ -222,29 +221,29 @@ onNewSlotWhenLeader genesisConfig txpConfig slotId pske diffusion = do
         logLeader = "because i'm a leader"
         logCert (psk,_) =
             sformat ("using heavyweight proxy signature key "%build%", will do it soon") psk
-    logInfoS $ logReason <> maybe logLeader logCert pske
+    logInfo $ logReason <> maybe logLeader logCert pske
     nextSlotStart <- getSlotStartEmpatically
         (slotIdSucc (configEpochSlots genesisConfig) slotId)
     currentTime <- currentTimeSlotting
     let timeToCreate =
             max currentTime (nextSlotStart - Timestamp networkDiameter)
         Timestamp timeToWait = timeToCreate - currentTime
-    logInfoS $
+    logInfo $
         sformat ("Waiting for "%shown%" before creating block") timeToWait
     delay timeToWait
     logWarningSWaitLinear 8 "onNewSlotWhenLeader" onNewSlotWhenLeaderDo
   where
     onNewSlotWhenLeaderDo = do
-        logInfoS "It's time to create a block for current slot"
+        logInfo "It's time to create a block for current slot"
         createdBlock <- createMainBlockAndApply genesisConfig txpConfig slotId pske
         either whenNotCreated whenCreated createdBlock
-        logInfoS "onNewSlotWhenLeader: done"
+        logInfo "onNewSlotWhenLeader: done"
     whenCreated createdBlk = do
-            logInfoS $
+            logInfo $
                 sformat ("Created a new block:\n" %build) createdBlk
             jsonLog $ jlCreatedBlock (configEpochSlots genesisConfig) (Right createdBlk)
             void $ Diffusion.announceBlockHeader diffusion $ createdBlk ^. gbHeader
-    whenNotCreated = logWarningS . (mappend "I couldn't create a new block: ")
+    whenNotCreated = logWarning . (mappend "I couldn't create a new block: ")
 
 ----------------------------------------------------------------------------
 -- Recovery trigger worker

@@ -48,7 +48,6 @@ import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.JsonLog.LogEvents (MemPoolModifyReason (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics, reportError)
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
-import           Pos.Core.Util.LogSafe (logInfoS)
 import           Pos.Crypto (SecretKey)
 import           Pos.DB.Block.Logic.Internal (MonadBlockApply,
                      applyBlocksUnsafe, normalizeMempool)
@@ -70,7 +69,7 @@ import           Pos.DB.Update (UpdateContext, clearUSMemPool, getMaxBlockSize,
                      usCanCreateBlock, usPreparePayload)
 import           Pos.Util (_neHead)
 import           Pos.Util.Util (HasLens (..), HasLens')
-import           Pos.Util.Wlog (WithLogger, logDebug)
+import           Pos.Util.Wlog (WithLogger, logDebug, logInfo)
 
 -- | A set of constraints necessary to create a block from mempool.
 type MonadCreateBlock ctx m
@@ -265,7 +264,7 @@ createMainBlockInternal ::
     -> m (Either Text MainBlock)
 createMainBlockInternal genesisConfig sId pske = do
     tipHeader <- DB.getTipHeader
-    logInfoS $ sformat msgFmt tipHeader
+    logInfo $ sformat msgFmt tipHeader
     canCreateBlock k sId tipHeader >>= \case
         Left reason -> pure (Left reason)
         Right () -> runExceptT (createMainBlockFinish tipHeader)
@@ -281,7 +280,7 @@ createMainBlockInternal genesisConfig sId pske = do
         -- than limit. So i guess it's fine in general.
         sizeLimit <- (\x -> bool 0 (x - 100) (x > 100)) <$> lift getMaxBlockSize
         block <- createMainBlockPure genesisConfig sizeLimit prevHeader pske sId sk rawPay
-        logInfoS $
+        logInfo $
             "Created main block of size: " <> sformat memory (biSize block)
         block <$ evaluateNF_ block
 

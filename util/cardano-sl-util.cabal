@@ -32,6 +32,7 @@ library
                        Pos.Util.Json.Canonical
                        Pos.Util.Json.Parse
                        Pos.Util.Justify
+                       Pos.Util.Klog.Compatibility
                        Pos.Util.Lens
                        Pos.Util.Log
                        Pos.Util.Log.Internal
@@ -79,6 +80,7 @@ library
                      , filepath
                      , formatting
                      , hashable
+                     , iohk-monitoring
                      , katip
                      , lens
                      , lrucache

@@ -66,11 +66,9 @@ import           Pos.Launcher.Mode (InitMode, InitModeContext (..), runInitMode)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..),
                      NodeParams (..))
 import           Pos.Util (bracketWithLogging, newInitFuture)
-import           Pos.Util.Log.Internal (LoggingHandler)
-import           Pos.Util.Log.LoggerConfig (defaultInteractiveConfiguration,
-                     isWritingToConsole, lcLoggerTree, ltHandlers)
-import           Pos.Util.Wlog (LoggerConfig (..), Severity (..), WithLogger,
-                     logDebug, logInfo, parseLoggerConfig, removeAllHandlers,
+import           Pos.Util.Wlog (LoggerConfig, LoggingHandler, Severity (..),
+                     WithLogger, defaultInteractiveConfiguration, logDebug,
+                     logInfo, parseLoggerConfig, removeAllHandlers,
                      setupLogging')
 
 #ifdef linux_HOST_OS
@@ -238,19 +236,7 @@ getRealLoggerConfig :: MonadIO m => LoggingParams -> m LoggerConfig
 getRealLoggerConfig LoggingParams{..} = do
     case lpConfigPath of
         Just configPath -> parseLoggerConfig configPath
-        Nothing         -> return (mempty :: LoggerConfig)
-    >>= \lc -> return $ (overridePrefixPath . overrideConsoleLog) lc
-  where
-    overridePrefixPath :: LoggerConfig -> LoggerConfig
-    overridePrefixPath = case lpHandlerPrefix of
-        Nothing -> identity
-        Just _  -> \lc -> lc { _lcBasePath = lpHandlerPrefix }
-    overrideConsoleLog :: LoggerConfig -> LoggerConfig
-    overrideConsoleLog = case lpConsoleLog of
-        Nothing    -> identity
-        Just True  -> (<> defaultInteractiveConfiguration Info)
-                      -- add output to the console with severity filter >= Info
-        Just False -> lcLoggerTree . ltHandlers %~ filter (not . isWritingToConsole)
+        Nothing         -> return $ defaultInteractiveConfiguration Debug
 
 setupLoggers :: MonadIO m => Text -> LoggingParams -> m LoggingHandler
 setupLoggers cfoKey params = setupLogging' cfoKey =<< getRealLoggerConfig params

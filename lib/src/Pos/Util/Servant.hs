@@ -131,12 +131,15 @@ import           Servant.Swagger.Internal
 import           Test.QuickCheck
 
 import           Pos.Infra.Util.LogSafe (BuildableSafe, SecuredText, buildSafe,
-                     logInfoSP, plainOrSecureF, secretOnlyF)
+                     plainOrSecureF, secretOnlyF)
 import           Pos.Util.Example (Example (..))
 import           Pos.Util.Jsend (HasDiagnostic (..), ResponseStatus (..),
                      jsendErrorGenericParseJSON, jsendErrorGenericToJSON)
+import           Pos.Util.KnownSymbols
+import           Pos.Util.Log.LoggerConfig (LogSecurityLevel (..))
 import           Pos.Util.Pagination
-import           Pos.Util.Wlog (LoggerName, LoggerNameBox, usingLoggerName)
+import           Pos.Util.Wlog (LoggerName, LoggerNameBox, logInfo,
+                     usingLoggerName)
 
 -------------------------------------------------------------------------
 -- Utility functions
@@ -674,21 +677,21 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
     reportRequest reqId =
         case eParamLogs of
             Left e ->
-                inLogCtx $ logInfoSP $ \sl ->
-                    sformat ("\n"%stext%secretOnlyF sl (" "%stext))
-                        (colorizeDull Red "Unexecuted request due to error") e
+                inLogCtx $ liftIO $ logInfo (
+                    sformat ("\n"%stext%secretOnlyF PublicLogLevel (" "%stext))
+                        (colorizeDull Red "Unexecuted request due to error") e)
             Right paramLogs -> do
-                inLogCtx $ logInfoSP $ \sl ->
+                inLogCtx $ liftIO $ logInfo $
                     sformat ("\n"%stext%" "%stext%"\n"%build)
                         cmethod
                         (colorizeDull White $ "Request " <> pretty reqId)
-                        (paramLogs sl)
+                        (paramLogs PublicLogLevel)
     responseTag reqId = "Response " <> pretty reqId
     reportResponse reqId timer resp = do
         durationText <- timer
-        inLogCtx $ logInfoSP $ \sl ->
+        inLogCtx $ liftIO $ logInfo $
             sformat ("\n    "%stext%" "%stext%" "%stext
-                    %plainOrSecureF sl (stext%stext) (fconst ""%fconst ""))
+                    %plainOrSecureF PublicLogLevel (stext%stext) (fconst ""%fconst ""))
                 (colorizeDull White $ responseTag reqId)
                 (colorizeDull Green "OK")
                 durationText
@@ -700,7 +703,7 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
     servantErrHandler reqId timer err = do
         durationText <- timer
         let errMsg = sformat (build%" "%string) (errHTTPCode err) (errReasonPhrase err)
-        inLogCtx $ logInfoSP $ \_sl ->
+        inLogCtx $ liftIO $ logInfo $
             sformat ("\n    "%stext%" "%stext%" "%stext)
                 (colorizeDull White $ responseTag reqId)
                 (colorizeDull Red errMsg)
@@ -708,7 +711,7 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
         throwError err
     exceptionsHandler reqId timer e = do
         durationText <- timer
-        inLogCtx $ logInfoSP $ \_sl ->
+        inLogCtx $ liftIO $ logInfo $
             sformat ("\n    "%stext%" "%shown%" "%stext)
                 (colorizeDull Red $ responseTag reqId)
                 e

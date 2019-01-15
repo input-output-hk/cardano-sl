@@ -25,7 +25,6 @@ import           Formatting (sformat, shown, stext, (%))
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Core.Conc (delay, withAsyncWithUnmask)
-import           Pos.Core.Util.LogSafe (logWarningS)
 import           Pos.Crypto.Random (randomNumber)
 import           Pos.Util.Wlog (WithLogger, logWarning)
 
@@ -49,7 +48,7 @@ logWarningLongAction
     :: forall m a.
        CanLogInParallel m
     => Bool -> WaitingDelta -> Text -> m a -> m a
-logWarningLongAction secure delta actionTag action =
+logWarningLongAction _secure delta actionTag action =
     -- Previous implementation was
     --
     --   bracket (fork $ waitAndWarn delta) killThread (const action)
@@ -67,7 +66,7 @@ logWarningLongAction secure delta actionTag action =
     withAsyncWithUnmask (\unmask -> unmask $ waitAndWarn delta) (const action)
   where
     logFunc :: Text -> m ()
-    logFunc = bool logWarning logWarningS secure
+    logFunc = logWarning
     printWarning t = logFunc $ sformat ("Action `"%stext%"` took more than "%shown)
                                        actionTag t
 

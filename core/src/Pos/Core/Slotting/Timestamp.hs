@@ -17,7 +17,7 @@ import qualified Prelude
 import           Universum
 
 import           Control.Lens (Iso', from, iso, makePrisms)
-import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
+import qualified Data.Aeson as Aeson (FromJSON (..))
 import           Data.Time (UTCTime, defaultTimeLocale, iso8601DateFormat,
                      parseTimeM)
 import           Data.Time.Clock.POSIX (POSIXTime, posixSecondsToUTCTime,
@@ -76,7 +76,7 @@ instance ReportSchemaErrors m => FromJSON m Timestamp where
         fromJSON @_ @Int54
 
 deriving instance Aeson.FromJSON Timestamp
-deriving instance Aeson.ToJSON Timestamp
+-- deriving instance Aeson.ToJSON Timestamp
 
 -- | Specialized formatter for 'Timestamp' data type.
 timestampF :: Format r (Timestamp -> r)

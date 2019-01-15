@@ -64,11 +64,10 @@ import           Pos.Infra.Recovery.Info (MonadRecoveryInfo, recoveryCommGuard)
 import           Pos.Infra.Shutdown (HasShutdownContext)
 import           Pos.Infra.Slotting (MonadSlots, defaultOnNewSlotParams,
                      getCurrentSlot, getSlotStartEmpatically, onNewSlot)
-import           Pos.Infra.Util.LogSafe (logDebugS, logErrorS, logInfoS,
-                     logWarningS)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Util (HasLens (..), getKeys, intords, leftToPanic)
-import           Pos.Util.Wlog (WithLogger)
+import           Pos.Util.Wlog (WithLogger, logDebug, logError, logInfo,
+                     logWarning)
 
 
 type SscMode ctx m
@@ -122,7 +121,7 @@ shouldParticipate genesisBvd epoch = do
     ourId <- getOurStakeholderId
     let enoughStake = ourId `HM.member` richmen
     when (participationEnabled && not enoughStake) $
-        logDebugS "Not enough stake to participate in MPC"
+        logDebug "Not enough stake to participate in MPC"
     return (participationEnabled && enoughStake)
 
 -- CHECK: @onNewSlotSsc
@@ -155,15 +154,15 @@ checkNSendOurCert genesisConfig sendCert = do
     ourId <- getOurStakeholderId
     let sendCertDo resend slot = do
             if resend then
-                logErrorS "Our VSS certificate is in global state, but it has already expired, \
+                logError "Our VSS certificate is in global state, but it has already expired, \
                          \apparently it's a bug, but we are announcing it just in case."
-                else logInfoS
+                else logInfo
                          "Our VssCertificate hasn't been announced yet or TTL has expired, \
                          \we will announce it now."
             ourVssCertificate <- getOurVssCertificate slot
             sscProcessOurMessage (sscProcessCertificate genesisConfig ourVssCertificate)
             _ <- sendCert ourVssCertificate
-            logDebugS "Announced our VssCertificate."
+            logDebug "Announced our VssCertificate."
 
     slMaybe <- getCurrentSlot $ configEpochSlots genesisConfig
     case slMaybe of
@@ -174,7 +173,7 @@ checkNSendOurCert genesisConfig sendCert = do
             case ourCertMB of
                 Just ourCert
                     | vcExpiryEpoch ourCert >= siEpoch sl ->
-                        logDebugS
+                        logDebug
                             "Our VssCertificate has been already announced."
                     | otherwise -> sendCertDo True sl
                 Nothing -> sendCertDo False sl
@@ -216,26 +215,26 @@ onNewSlotCommitment genesisConfig slotId@SlotId {..} sendCommitment
             [ not . hasCommitment ourId <$> sscGetGlobalState
             , memberVss ourId <$> getStableCerts genesisConfig siEpoch]
         if shouldSendCommitment then
-            logDebugS "We should send commitment"
+            logDebug "We should send commitment"
         else
-            logDebugS "We shouldn't send commitment"
+            logDebug "We shouldn't send commitment"
         when shouldSendCommitment $ do
             ourCommitment <- SS.getOurCommitment siEpoch
             let stillValidMsg = "We shouldn't generate secret, because we have already generated it"
             case ourCommitment of
-                Just comm -> logDebugS stillValidMsg >> sendOurCommitment comm
+                Just comm -> logDebug stillValidMsg >> sendOurCommitment comm
                 Nothing   -> onNewSlotCommDo
   where
     k = configBlkSecurityParam genesisConfig
 
     onNewSlotCommDo = do
         ourSk <- getOurSecretKey
-        logDebugS $ sformat ("Generating secret for "%intords%" epoch") siEpoch
+        logDebug $ sformat ("Generating secret for "%intords%" epoch") siEpoch
         generated <- generateAndSetNewSecret genesisConfig ourSk slotId
         case generated of
-            Nothing -> logWarningS "I failed to generate secret for SSC"
+            Nothing -> logWarning "I failed to generate secret for SSC"
             Just comm -> do
-              logInfoS (sformat ("Generated secret for "%intords%" epoch") siEpoch)
+              logInfo (sformat ("Generated secret for "%intords%" epoch") siEpoch)
               sendOurCommitment comm
 
     sendOurCommitment comm = do
@@ -269,9 +268,9 @@ onNewSlotOpening genesisConfig params SlotId {..} sendOpening
         globalData <- sscGetGlobalState
         unless (hasOpening ourId globalData) $
             case globalData ^. sgsCommitments . to getCommitmentsMap . at ourId of
-                Nothing -> logDebugS noCommMsg
+                Nothing -> logDebug noCommMsg
                 Just _  -> SS.getOurOpening siEpoch >>= \case
-                    Nothing   -> logWarningS noOpenMsg
+                    Nothing   -> logWarning noOpenMsg
                     Just open -> sendOpeningDo ourId open
   where
     k = configBlkSecurityParam genesisConfig
@@ -334,9 +333,9 @@ sscProcessOurMessage
 sscProcessOurMessage action =
     action >>= logResult
   where
-    logResult (Right _) = logDebugS "We have accepted our message"
+    logResult (Right _) = logDebug "We have accepted our message"
     logResult (Left er) =
-        logWarningS $
+        logWarning $
         sformat ("We have rejected our message, reason: "%build) er
 
 sendOurData
@@ -353,9 +352,9 @@ sendOurData k sendIt msgTag dt epoch slMultiplier = do
     -- in one invocation of onNewSlot we can't process more than one
     -- type of message.
     waitUntilSend k msgTag epoch slMultiplier
-    logInfoS $ sformat ("Announcing our "%build) msgTag
+    logInfo $ sformat ("Announcing our "%build) msgTag
     _ <- sendIt dt
-    logDebugS $ sformat ("Sent our " %build%" to neighbors") msgTag
+    logDebug $ sformat ("Sent our " %build%" to neighbors") msgTag
 
 -- Generate new commitment and opening and use them for the current
 -- epoch. It is also saved in persistent storage.
@@ -379,7 +378,7 @@ generateAndSetNewSecret genesisConfig sk SlotId {..} = do
         let participantIds =
                 HM.keys . getVssCertificatesMap $
                 computeParticipants (getKeys richmen) certs
-        logDebugS $
+        logDebug $
             sformat ("generating secret for: " %listJson) $ participantIds
     let participants = nonEmpty $
                        map (second vcVssKey) $
@@ -388,29 +387,29 @@ generateAndSetNewSecret genesisConfig sk SlotId {..} = do
     maybe (Nothing <$ warnNoPs) (generateAndSetNewSecretDo richmen) participants
   where
     here s = "generateAndSetNewSecret: " <> s
-    warnNoPs = logWarningS (here "can't generate, no participants")
+    warnNoPs = logWarning (here "can't generate, no participants")
     generateAndSetNewSecretDo :: RichmenStakes
                               -> NonEmpty (StakeholderId, AsBinary VssPublicKey)
                               -> m (Maybe SignedCommitment)
     generateAndSetNewSecretDo richmen ps = do
         let onLeft er =
                 Nothing <$
-                logWarningS
+                logWarning
                 (here $ sformat ("Couldn't compute shares distribution, reason: "%build) er)
         mpcThreshold <- bvdMpcThd <$> gsAdoptedBVData
         distrET <- runExceptT (computeSharesDistrPure richmen mpcThreshold)
         flip (either onLeft) distrET $ \distr -> do
-            logDebugS $ here $ sformat ("Computed shares distribution: "%listJson) (HM.toList distr)
+            logDebug $ here $ sformat ("Computed shares distribution: "%listJson) (HM.toList distr)
             let threshold = vssThreshold $ sum $ toList distr
             let multiPSmb = nonEmpty $
                             concatMap (\(c, x) -> replicate (fromIntegral c) x) $
                             NE.map (first $ flip (HM.lookupDefault 0) distr) ps
             case multiPSmb of
                 Nothing -> Nothing <$
-                    logWarningS (here "Couldn't compute participant's vss")
+                    logWarning (here "Couldn't compute participant's vss")
                 Just multiPS -> case mapM fromBinary multiPS of
                     Left err -> Nothing <$
-                        logErrorS (here ("Couldn't deserialize keys: " <> err))
+                        logError (here ("Couldn't deserialize keys: " <> err))
                     Right keys -> do
                         (comm, open) <- liftIO $ runSecureRandom $
                             randCommitmentAndOpening threshold keys
@@ -450,7 +449,7 @@ waitUntilSend k msgTag epoch slMultiplier = do
         timeToWait <- randomTimeInInterval delta
         let ttwMillisecond :: Millisecond
             ttwMillisecond = convertUnit timeToWait
-        logDebugS $
+        logDebug $
             sformat
                 ("Waiting for " %shown % " before sending " %build)
                 ttwMillisecond

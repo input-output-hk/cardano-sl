@@ -259,10 +259,11 @@ getNodeSettings compileInfo updateConfiguration timestamp slottingVar ns = do
 
     slotId            <- liftIO $ getTipSlotId ns
     maxTxSize         <- liftIO $ getMaxTxSize ns
-    feePolicy         <- liftIO $ getFeePolicy ns
     securityParameter <- liftIO $ getSecurityParameter ns
     slotCount         <- liftIO $ getSlotCount ns
-
+    feePolicy         <- liftIO $ getFeePolicy ns >>= \case
+        Core.TxFeePolicyTxSizeLinear a -> return a
+        _ -> fail "getNodeSettings: Unsupported / Unknown fee policy."
 
     pure $ single NodeSettings
         { setSlotDuration =
@@ -278,7 +279,7 @@ getNodeSettings compileInfo updateConfiguration timestamp slottingVar ns = do
         , setMaxTxSize =
             mkMaxTxSize $ fromIntegral $ maxTxSize
         , setFeePolicy =
-            V1 feePolicy
+            fromCorePolicy feePolicy
         , setSecurityParameter =
              securityParameter
         , setSlotCount =

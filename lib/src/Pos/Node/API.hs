@@ -1,8 +1,10 @@
-{-# LANGUAGE CPP             #-}
-{-# LANGUAGE DataKinds       #-}
-{-# LANGUAGE KindSignatures  #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TypeOperators   #-}
+{-# LANGUAGE CPP                        #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures             #-}
+{-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE TypeOperators              #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Pos.Node.API where
@@ -13,14 +15,13 @@ import           Control.Lens (At, Index, IxValue, at, ix, makePrisms, (?~))
 import           Data.Aeson
 import qualified Data.Aeson.Options as Aeson
 import           Data.Aeson.TH as A
-import           Data.Aeson.Types (Parser, Value (..), toJSONKeyText)
+import           Data.Aeson.Types (toJSONKeyText)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.Char as C
 import qualified Data.Map.Strict as Map
 import           Data.Swagger hiding (Example, example)
 import qualified Data.Swagger as S
 import           Data.Swagger.Declare (Declare, look)
-import qualified Data.Swagger.Internal
 import           Data.Swagger.Internal.Schema (GToSchema)
 import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape,
                      GenericShape)
@@ -47,7 +48,6 @@ import           Pos.Util.Example
 import           Pos.Util.Servant (APIResponse, CustomQueryFlag, Flaggable (..),
                      HasCustomQueryFlagDescription (..), Tags, ValidJSON)
 import           Pos.Util.UnitsOfMeasure
-import           Pos.Util.Util (aesonError)
 import           Serokell.Util.Text
 
 -- ToJSON/FromJSON instances for NodeId
@@ -100,50 +100,6 @@ genericSchemaDroppingPrefix prfx extraDoc proxy = do
 -- Helpers for writing instances for types with units
 --
 
--- Using a newtype wrapper might have been more elegant in some ways, but the
--- helpers need different amounts of information.
-
--- Convert to user-presentable text for the API
-unitToText :: UnitOfMeasure -> Text
-unitToText Bytes           = "bytes"
-unitToText LovelacePerByte = "Lovelace/byte"
-unitToText Lovelace        = "Lovelace"
-unitToText Seconds         = "seconds"
-unitToText Milliseconds    = "milliseconds"
-unitToText Microseconds    = "microseconds"
-unitToText Percentage100   = "percent"
-unitToText Blocks          = "blocks"
-unitToText BlocksPerSecond = "blocks/second"
-
-toJSONWithUnit :: ToJSON a => UnitOfMeasure -> a -> Value
-toJSONWithUnit u a =
-    object
-        [ "unit"     .= unitToText u
-        , "quantity" .= toJSON a
-        ]
-
--- This function ignores the unit, which might cause confusion.
-parseJSONQuantity :: FromJSON a => String -> Value -> Parser a
-parseJSONQuantity s = withObject s $ \o -> o .: "quantity"
-
--- assumes there is only one allowed unit
-toSchemaWithUnit :: (HasRequired b [a1], HasProperties b a2,
-                   Monoid b, Monoid a2, At a2, IsString a1, IsString (Index a2),
-                   ToSchema a3,
-                   HasType b (SwaggerType 'Data.Swagger.Internal.SwaggerKindSchema),
-                   IxValue a2 ~ Referenced Schema) =>
-                  UnitOfMeasure -> proxy a3 -> b
-toSchemaWithUnit unitOfMeasure a = (mempty
-            & type_ .~ SwaggerObject
-            & required .~ ["quantity"]
-            & properties .~ (mempty
-                & at "quantity" ?~ toSchemaRef a
-                & at "unit" ?~ (Inline $ mempty
-                    & type_ .~ SwaggerString
-                    & enum_ ?~ [String $ unitToText unitOfMeasure]
-                    )
-                ))
-
 data ForceNtpCheck
     = ForceNtpCheck
     | NoNtpCheck
@@ -166,8 +122,11 @@ forceNtpCheckDescription =
 
 
 -- | The different between the local time and the remote NTP server.
-newtype LocalTimeDifference = LocalTimeDifference (MeasuredIn 'Microseconds Integer)
-                            deriving (Show, Eq)
+newtype LocalTimeDifference =
+    LocalTimeDifference (MeasuredIn 'Microseconds Integer)
+    deriving stock (Show, Eq)
+    deriving newtype (ToJSON, FromJSON, BuildableSafeGen)
+deriveSafeBuildable ''LocalTimeDifference
 
 mkLocalTimeDifference :: Integer -> LocalTimeDifference
 mkLocalTimeDifference = LocalTimeDifference . MeasuredIn
@@ -175,34 +134,10 @@ mkLocalTimeDifference = LocalTimeDifference . MeasuredIn
 instance Arbitrary LocalTimeDifference where
     arbitrary = mkLocalTimeDifference <$> arbitrary
 
-instance ToJSON LocalTimeDifference where
-    toJSON (LocalTimeDifference (MeasuredIn w)) =
-        object [ "quantity" .= toJSON w
-               , "unit"     .= String "microseconds"
-               ]
-
-instance FromJSON LocalTimeDifference where
-    parseJSON = withObject "LocalTimeDifference" $ \sl -> mkLocalTimeDifference <$> sl .: "quantity"
-
 instance ToSchema LocalTimeDifference where
-    declareNamedSchema _ =
-        pure $ NamedSchema (Just "LocalTimeDifference") $ mempty
-            & type_ .~ SwaggerObject
-            & required .~ ["quantity"]
-            & properties .~ (mempty
-                & at "quantity" ?~ (Inline $ mempty
-                    & type_ .~ SwaggerNumber
-                    )
-                & at "unit" ?~ (Inline $ mempty
-                    & type_ .~ SwaggerString
-                    & enum_ ?~ ["microseconds"]
-                    )
-                )
-
-deriveSafeBuildable ''LocalTimeDifference
-instance BuildableSafeGen LocalTimeDifference where
-    buildSafeGen _ (LocalTimeDifference (MeasuredIn w)) =
-        bprint (build%"μs") w
+    declareNamedSchema _ = do
+        NamedSchema _ s <- declareNamedSchema $ Proxy @(MeasuredIn 'Microseconds Integer)
+        pure $ NamedSchema (Just "LocalTimeDifference") s
 
 newtype TimeInfo
     = TimeInfo
@@ -230,15 +165,25 @@ instance BuildableSafeGen TimeInfo where
 
 deriveJSON Aeson.defaultOptions ''TimeInfo
 
-newtype SyncPercentage = SyncPercentage (MeasuredIn 'Percentage100 Word8)
-                     deriving (Show, Eq)
+data Percent -- No concrete type needed, this is just for the Swagger schema
 
-mkSyncPercentage :: Word8 -> SyncPercentage
-mkSyncPercentage = SyncPercentage . MeasuredIn
+instance ToSchema Percent where
+    declareNamedSchema _ = do
+        NamedSchema _ s <- declareNamedSchema $ Proxy @Word
+        pure $ NamedSchema (Just "Percent") $ s
+            & minimum_ ?~ 0
+            & maximum_ ?~ 100
 
-instance Ord SyncPercentage where
-    compare (SyncPercentage (MeasuredIn p1))
-            (SyncPercentage (MeasuredIn p2)) = compare p1 p2
+newtype SyncPercentage
+    = SyncPercentage (MeasuredIn 'Percentage100 Word8)
+    deriving stock (Show, Eq, Ord)
+    deriving newtype (ToJSON, FromJSON, BuildableSafeGen)
+deriveSafeBuildable ''SyncPercentage
+
+instance ToSchema SyncPercentage where
+    declareNamedSchema _ = do
+        NamedSchema _ s <- declareNamedSchema $ Proxy @(MeasuredIn 'Percentage100 Percent)
+        pure $ NamedSchema (Just "SyncPercentage") s
 
 instance Arbitrary SyncPercentage where
     arbitrary = mkSyncPercentage <$> choose (0, 100)
@@ -246,45 +191,20 @@ instance Arbitrary SyncPercentage where
 instance Example SyncPercentage where
     example = pure (SyncPercentage (MeasuredIn 14))
 
-instance ToJSON SyncPercentage where
-    toJSON (SyncPercentage (MeasuredIn w)) =
-        object [ "quantity" .= toJSON w
-               , "unit"     .= String "percent"
-               ]
-
-instance FromJSON SyncPercentage where
-    parseJSON = withObject "SyncPercentage" $ \sl -> mkSyncPercentage <$> sl .: "quantity"
-
-instance ToSchema SyncPercentage where
-    declareNamedSchema _ =
-        pure $ NamedSchema (Just "SyncPercentage") $ mempty
-            & type_ .~ SwaggerObject
-            & required .~ ["quantity", "unit"]
-            & properties .~ (mempty
-                & at "quantity" ?~ (Inline $ mempty
-                    & type_ .~ SwaggerNumber
-                    & maximum_ .~ Just 100
-                    & minimum_ .~ Just 0
-                    )
-                & at "unit" ?~ (Inline $ mempty
-                    & type_ .~ SwaggerString
-                    & enum_ ?~ ["percent"]
-                    )
-                )
-
-deriveSafeBuildable ''SyncPercentage
-instance BuildableSafeGen SyncPercentage where
-    buildSafeGen _ (SyncPercentage (MeasuredIn w)) =
-        bprint (build%"%") w
+mkSyncPercentage :: Word8 -> SyncPercentage
+mkSyncPercentage = SyncPercentage . MeasuredIn
 
 
 -- | The absolute or relative height of the blockchain, measured in number
 -- of blocks.
-newtype BlockchainHeight = BlockchainHeight (MeasuredIn 'Blocks Core.BlockCount)
-                         deriving (Show, Eq)
+newtype BlockchainHeight =
+    BlockchainHeight (MeasuredIn 'Blocks Word64)
+    deriving stock (Show, Eq)
+    deriving newtype (ToJSON, FromJSON, BuildableSafeGen)
+deriveSafeBuildable ''BlockchainHeight
 
 mkBlockchainHeight :: Core.BlockCount -> BlockchainHeight
-mkBlockchainHeight = BlockchainHeight . MeasuredIn
+mkBlockchainHeight (Core.BlockCount n) = BlockchainHeight $ MeasuredIn n
 
 instance Arbitrary BlockchainHeight where
     arbitrary =
@@ -292,38 +212,11 @@ instance Arbitrary BlockchainHeight where
 
 instance Example BlockchainHeight
 
-instance ToJSON BlockchainHeight where
-    toJSON (BlockchainHeight (MeasuredIn w)) =
-        object
-            [ "quantity" .= toJSON (Core.getBlockCount w)
-            , "unit"     .= String "blocks"
-            ]
-
-instance FromJSON BlockchainHeight where
-    parseJSON = withObject "BlockchainHeight" $ \sl ->
-        mkBlockchainHeight . Core.BlockCount <$> sl .: "quantity"
-
 instance ToSchema BlockchainHeight where
-    declareNamedSchema _ =
-        pure $ NamedSchema (Just "BlockchainHeight") $ mempty
-            & type_ .~ SwaggerObject
-            & required .~ ["quantity"]
-            & properties .~ (mempty
-                & at "quantity" ?~ (Inline $ mempty
-                    & type_ .~ SwaggerNumber
-                    & maximum_ .~ Just (fromIntegral (maxBound :: Word64))
-                    & minimum_ .~ Just (fromIntegral (minBound :: Word64))
-                    )
-                & at "unit" ?~ (Inline $ mempty
-                    & type_ .~ SwaggerString
-                    & enum_ ?~ ["blocks"]
-                    )
-                )
+    declareNamedSchema _ = do
+        NamedSchema _ s <- declareNamedSchema $ Proxy @(MeasuredIn 'Blocks Word64)
+        pure $ NamedSchema (Just "BlockchainHeight") s
 
-deriveSafeBuildable ''BlockchainHeight
-instance BuildableSafeGen BlockchainHeight where
-    buildSafeGen _ (BlockchainHeight (MeasuredIn w)) =
-        bprint (build%" blocks") w
 
 
 -- | The @dynamic@ information for this node.
@@ -445,81 +338,37 @@ instance (Buildable a, Buildable b) => Buildable (a, b) where
 
 -- | How many milliseconds a slot lasts for.
 newtype SlotDuration = SlotDuration (MeasuredIn 'Milliseconds Word)
-    deriving (Show, Eq)
+    deriving stock (Show, Eq)
+    deriving newtype (ToJSON, FromJSON, BuildableSafeGen)
+deriveSafeBuildable ''SlotDuration
 
-mkSlotDuration :: Word -> SlotDuration
-mkSlotDuration = SlotDuration . MeasuredIn
+instance ToSchema SlotDuration where
+    declareNamedSchema _ = do
+        NamedSchema _ s <- declareNamedSchema $ Proxy @(MeasuredIn 'Milliseconds Word)
+        pure $ NamedSchema (Just "SlotDuration") s
 
 instance Arbitrary SlotDuration where
     arbitrary = mkSlotDuration <$> choose (0, 100)
 
-instance ToJSON SlotDuration where
-    toJSON (SlotDuration (MeasuredIn w)) = toJSONWithUnit Milliseconds w
+mkSlotDuration :: Word -> SlotDuration
+mkSlotDuration = SlotDuration . MeasuredIn
 
-instance FromJSON SlotDuration where
-    parseJSON v = mkSlotDuration <$> parseJSONQuantity "SlotDuration" v
-
-instance ToSchema SlotDuration where
-    declareNamedSchema _ =
-        pure $ NamedSchema (Just "SlotDuration") $ mempty
-            & type_ .~ SwaggerObject
-            & required .~ ["quantity"]
-            & properties .~ (mempty
-                & at "quantity" ?~ (Inline $ mempty
-                    & type_ .~ SwaggerNumber
-                    )
-                & at "unit" ?~ (Inline $ mempty
-                    & type_ .~ SwaggerString
-                    & enum_ ?~ ["milliseconds"]
-                    )
-                )
-
-deriveSafeBuildable ''SlotDuration
-instance BuildableSafeGen SlotDuration where
-    buildSafeGen _ (SlotDuration (MeasuredIn w)) =
-        bprint (build%"ms") w
 
 newtype MaxTxSize = MaxTxSize (MeasuredIn 'Bytes Word)
-    deriving (Show, Eq)
+    deriving stock (Show, Eq)
+    deriving newtype (ToJSON, FromJSON, BuildableSafeGen)
+deriveSafeBuildable ''MaxTxSize
 
-instance ToJSON MaxTxSize where
-    toJSON (MaxTxSize (MeasuredIn s)) =
-        object
-            [ "quantity" .= toJSON s
-            , "unit"     .= String "bytes"
-            ]
-
-instance FromJSON MaxTxSize where
-    parseJSON = withObject "MaxTxSize" $ \o ->
-        mkMaxTxSize <$> o .: "quantity"
-
-mkMaxTxSize :: Word -> MaxTxSize
-mkMaxTxSize = MaxTxSize . MeasuredIn
+instance ToSchema MaxTxSize where
+    declareNamedSchema _ = do
+        NamedSchema _ s <- declareNamedSchema $ Proxy @(MeasuredIn 'Bytes Word)
+        pure $ NamedSchema (Just "MaxTxSize") s
 
 instance Arbitrary MaxTxSize where
     arbitrary = mkMaxTxSize <$> arbitrary
 
-deriveSafeBuildable ''MaxTxSize
-instance BuildableSafeGen MaxTxSize where
-    buildSafeGen _ (MaxTxSize (MeasuredIn w)) =
-        bprint (build%"bytes") w
-
-instance ToSchema MaxTxSize where
-    declareNamedSchema _ = do
-        pure $ NamedSchema (Just "MaxTxSize") $ mempty
-            & type_ .~ SwaggerObject
-            & required .~ ["quantity"]
-            & properties .~ (mempty
-                & at "quantity" ?~ (Inline $ mempty
-                    & type_ .~ SwaggerNumber
-                    & minimum_ .~ (Just 0)
-                    )
-                & at "unit" ?~ (Inline $ mempty
-                    & type_ .~ SwaggerString
-                    & enum_ ?~ ["bytes"]
-                    )
-                )
-
+mkMaxTxSize :: Word -> MaxTxSize
+mkMaxTxSize = MaxTxSize . MeasuredIn
 
 
 -- | This deceptively-simple newtype is a wrapper to virtually @all@ the types exposed as
@@ -682,51 +531,52 @@ instance FromJSON (V1 Core.SlotId) where
 instance Arbitrary (V1 Core.SlotId) where
     arbitrary = fmap V1 arbitrary
 
+data TxFeePolicy = TxFeePolicy
+    { tfpA :: MeasuredIn 'LovelacePerByte Core.Coeff
+    , tfpB :: MeasuredIn 'Lovelace Core.Coeff
+    } deriving (Eq, Ord, Show, Generic)
 
+fromCorePolicy :: Core.TxSizeLinear -> TxFeePolicy
+fromCorePolicy (Core.TxSizeLinear a b) =
+    TxFeePolicy (MeasuredIn a) (MeasuredIn b)
 
-instance Arbitrary (V1 Core.TxFeePolicy) where
-    arbitrary = fmap V1 (arbitrary `suchThat` predicate)
+deriveJSON Aeson.defaultOptions ''TxFeePolicy
+
+instance Arbitrary TxFeePolicy where
+    arbitrary = fmap fromCorePolicy' (arbitrary `suchThat` predicate)
       where
-        -- Don't generate unknown feepolicies
+        fromCorePolicy' = \case
+            Core.TxFeePolicyTxSizeLinear a -> fromCorePolicy a
+            _ -> error "Arbitrary TxFeePolicy: Just generated a non-linear fee policy?"
         predicate (Core.TxFeePolicyTxSizeLinear  _) = True
         predicate (Core.TxFeePolicyUnknown _ _)     = False
 
-instance ToJSON (V1 Core.TxFeePolicy) where
-    toJSON (V1 p) =
-        object $ case p of
-            Core.TxFeePolicyTxSizeLinear (Core.TxSizeLinear a b) ->
-                [ "tag" .= ("linear" :: String)
-                , "a" .= toJSONWithUnit LovelacePerByte a
-                , "b" .= toJSONWithUnit Lovelace b
-                ]
-            Core.TxFeePolicyUnknown _ _ ->
-                [ "tag" .= ("unknown" :: String)
-                ]
+instance Example TxFeePolicy
 
-instance FromJSON (V1 Core.TxFeePolicy) where
-    parseJSON j = V1 <$> (withObject "TxFeePolicy" $ \o -> do
-        (tag :: String) <- o .: "tag"
-        case tag of
-            "linear" -> do
-                a <- (o .: "a") >>= parseJSONQuantity "Coeff"
-                b <- (o .: "b") >>= parseJSONQuantity "Coeff"
-                return $ Core.TxFeePolicyTxSizeLinear $ Core.TxSizeLinear a b
-            _ ->
-                aesonError "TxFeePolicy: unknown policy name") j
-
-instance ToSchema (V1 Core.TxFeePolicy) where
+instance ToSchema TxFeePolicy where
     declareNamedSchema _ = do
-        pure $ NamedSchema (Just "Core.TxFeePolicy") $ mempty
+        -- NOTE
+        -- Not using 'genericSchemaDroppingPrefix' here because there
+        -- seems to be a bug where the base shema of 'b' would override the base
+        -- schema of 'a'; So, having the right descriptions for the wrong unit
+        -- for 'a'. It's kinda weird and I don't have time to look further to
+        -- fix this ATM ¯\_(ツ)_/¯
+        NamedSchema _ a <- declareNamedSchema $ Proxy @(MeasuredIn 'LovelacePerByte Double)
+        NamedSchema _ b <- declareNamedSchema $ Proxy @(MeasuredIn 'Lovelace Double)
+        pure $ NamedSchema (Just "TxFeePolicy") $ mempty
             & type_ .~ SwaggerObject
-            & required .~ ["tag"]
+            & required .~ ["a", "b"]
             & properties .~ (mempty
-                & at "tag" ?~ (Inline $ mempty
-                    & type_ .~ SwaggerString
-                    & enum_ ?~ ["linear", "unknown"]
-                    )
-                & at "a" ?~ (Inline $ toSchemaWithUnit LovelacePerByte (Proxy @Double))
-                & at "b" ?~ (Inline $ toSchemaWithUnit Lovelace (Proxy @Double))
+                & at "a" ?~ Inline (a & description ?~ "Slope of the linear curve")
+                & at "b" ?~ Inline (b & description ?~ "Intercept of the linear curve")
                 )
+
+deriveSafeBuildable ''TxFeePolicy
+instance BuildableSafeGen TxFeePolicy where
+    buildSafeGen _ (TxFeePolicy a b) = bprint
+        ( "( a = " % build % ", b = " % build % " )")
+        a
+        b
 
 instance Arbitrary (V1 Core.SlotCount) where
     arbitrary = fmap V1 arbitrary
@@ -736,8 +586,6 @@ instance ToSchema (V1 Core.SlotCount) where
         pure $ NamedSchema (Just "V1Core.SlotCount") $ mempty
             & type_ .~ SwaggerNumber
             & minimum_ .~ Just 0
-
-
 
 instance ToJSON (V1 Core.SlotCount) where
     toJSON (V1 (Core.SlotCount c)) = toJSON c
@@ -758,7 +606,7 @@ data NodeSettings = NodeSettings
     , setProjectVersion    :: !(V1 Version)
     , setGitRevision       :: !Text
     , setMaxTxSize         :: !MaxTxSize
-    , setFeePolicy         :: !(V1 Core.TxFeePolicy)
+    , setFeePolicy         :: !TxFeePolicy
     , setSecurityParameter :: !SecurityParameter
     } deriving (Show, Eq, Generic)
 

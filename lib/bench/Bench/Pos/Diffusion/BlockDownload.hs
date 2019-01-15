@@ -44,7 +44,8 @@ import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
                      FullDiffusionInternals (..),
                      RunFullDiffusionInternals (..),
                      diffusionLayerFullExposeInternals)
-import           Pos.Infra.Diffusion.Types as Diffusion (Diffusion (..), StreamBlocks (..))
+import           Pos.Infra.Diffusion.Types as Diffusion (Diffusion (..),
+                     StreamBlocks (..))
 import qualified Pos.Infra.Network.Policy as Policy
 import           Pos.Infra.Network.Types (Bucket (..))
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))

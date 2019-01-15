@@ -34,7 +34,7 @@ import qualified Pos.Chain.Update as Core
 import qualified Pos.Core as Core
 import qualified Pos.Core.Attributes as Core
 import qualified Pos.Crypto as Core
-import           Pos.Node.API (SecurityParameter, SlotDuration)
+import qualified Pos.Node.API as Node
 
 import           Test.Pos.Chain.Block.Arbitrary ()
 import           Test.Pos.Core.Arbitrary ()
@@ -58,11 +58,12 @@ spec = describe "Marshalling & Unmarshalling" $ do
         aesonRoundtripProp @BackupPhrase Proxy
         aesonRoundtripProp @Redemption Proxy
         aesonRoundtripProp @(V1 Core.SoftwareVersion) Proxy
+        aesonRoundtripProp @(V1 Version) Proxy
         aesonRoundtripProp @(V1 Core.SlotId) Proxy
         aesonRoundtripProp @(V1 Core.SlotCount) Proxy
-        aesonRoundtripProp @SecurityParameter Proxy
-        aesonRoundtripProp @SlotDuration Proxy
-        aesonRoundtripProp @(V1 Core.TxFeePolicy) Proxy
+        aesonRoundtripProp @Node.SecurityParameter Proxy
+        aesonRoundtripProp @Node.SlotDuration Proxy
+        aesonRoundtripProp @Node.TxFeePolicy Proxy
         aesonRoundtripProp @Byte Proxy
         aesonRoundtripProp @NodeSettings Proxy
         aesonRoundtripProp @Payment Proxy

@@ -322,13 +322,18 @@ computeFee
     -> [Value dom]
     -> Fee dom
 computeFee inps outs chgs =
-    Fee $ collapse (map utxoEntryVal inps) (map outVal outs <> chgs)
+    Fee $ collapse (map utxoEntryVal inps) (filter (> valueZero) $ map outVal outs <> chgs)
   where
+    invariantViolation msg = error $ "invariant violation: " <> msg
+        <> "\n  inps: " <> show (pretty . utxoEntryOut <$> inps)
+        <> "\n  outs: " <> show (pretty <$> outs)
+        <> "\n  chgs: " <> show (pretty <$> chgs)
+
     -- Some remaining inputs together. At this point, we've removed
     -- all outputs and changes, so what's left are simply the actual fees.
     -- It's unrealistic to imagine them being bigger than the max coin value.
     collapse plus [] = case valueSum plus of
-        Nothing -> error "fees are bigger than max coin value"
+        Nothing -> invariantViolation "fees are bigger than max coin value"
         Just a  -> a
 
     -- In order to safely compute fees at this level, we need make sure we don't
@@ -343,9 +348,7 @@ computeFee inps outs chgs =
     -- are still some outputs left to remove from them. If means the total value
     -- of outputs (incl. change) was bigger than the total input value which is
     -- by definition, impossible; unless we messed up real hard.
-    collapse []  _   =
-        error "invariant violation: outputs are bigger than inputs"
-
+    collapse []  _ = invariantViolation "outputs are bigger than inputs"
 
 -- | divvy fee across outputs, discarding zero-output if any. Returns `Nothing`
 -- when there's no more outputs after filtering, in which case, we just can't

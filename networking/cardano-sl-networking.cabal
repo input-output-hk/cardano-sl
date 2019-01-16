@@ -106,8 +106,10 @@ executable bench-sender
   other-modules:       SenderOptions
   build-depends:       async
                      , base
+                     , cardano-sl-networking
                      , cardano-sl-util
                      , contravariant
+                     , iohk-monitoring
                      , lens
                      , MonadRandom
                      , mtl
@@ -143,6 +145,7 @@ executable bench-receiver
                      , safe-exceptions
                      , serokell-util
                      , text
+                     , cardano-sl-networking
   hs-source-dirs:      bench/Receiver
   if flag(benchmarks)
     buildable:         True
@@ -172,6 +175,7 @@ executable bench-log-reader
                      , text
                      , formatting
                      , unliftio-core
+                     , cardano-sl-networking
   hs-source-dirs:      bench/LogReader
   if flag(benchmarks)
     buildable:         True

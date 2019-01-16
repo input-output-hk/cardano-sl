@@ -51,16 +51,17 @@ module Pos.Util.Wlog
         , defaultTestConfiguration
         , defaultInteractiveConfiguration
         , LoggingHandler (..)
+        , LoggingHandlerInternal (..)
         ) where
 
 import           Pos.Util.Klog.Compatibility (CanLog (..), HasLoggerName (..),
                      LogEvent (..), LoggerConfig, LoggerNameBox (..),
-                     LoggingHandler (..), NamedPureLogger (..), Severity (..),
-                     WithLogger, defaultInteractiveConfiguration,
-                     defaultTestConfiguration, dispatchEvents,
-                     launchNamedPureLog, logDebug, logError, logInfo,
-                     logMessage, logNotice, logWarning, parseLoggerConfig,
-                     productionB, removeAllHandlers, retrieveLogContent,
-                     runNamedPureLog, setLogPrefix, setupLogging,
-                     setupLogging', usingLoggerName)
+                     LoggingHandler (..), LoggingHandlerInternal (..),
+                     NamedPureLogger (..), Severity (..), WithLogger,
+                     defaultInteractiveConfiguration, defaultTestConfiguration,
+                     dispatchEvents, launchNamedPureLog, logDebug, logError,
+                     logInfo, logMessage, logNotice, logWarning,
+                     parseLoggerConfig, productionB, removeAllHandlers,
+                     retrieveLogContent, runNamedPureLog, setLogPrefix,
+                     setupLogging, setupLogging', usingLoggerName)
 import           Pos.Util.Log (LoggerName)

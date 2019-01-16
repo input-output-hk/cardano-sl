@@ -12,6 +12,7 @@ module Cardano.Wallet.Kernel.CoinSelection.Generic (
   , Rounding(..)
   , Fee(..)
   , adjustFee
+  , valueSum
   , unsafeFeeSum
   , utxoEntryVal
   , sizeOfEntries
@@ -155,6 +156,9 @@ newtype Fee dom = Fee { getFee :: Value dom }
 
 adjustFee :: (Value dom -> Value dom) -> Fee dom -> Fee dom
 adjustFee f = Fee . f . getFee
+
+valueSum :: CoinSelDom dom => [Value dom] -> Maybe (Value dom)
+valueSum = foldM valueAdd valueZero
 
 unsafeFeeSum :: CoinSelDom dom => [Fee dom] -> Fee dom
 unsafeFeeSum = Fee . unsafeValueSum . map getFee

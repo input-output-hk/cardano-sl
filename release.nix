@@ -175,6 +175,7 @@ let
           cd daedalus
           cp ${mapped-nix-tools-cross.nix-tools.exes.cardano-wallet.x86_64-linux}/bin/cardano-node.exe .
           cp ${mapped-nix-tools-cross.nix-tools.exes.cardano-sl-tools.x86_64-linux}/bin/cardano-launcher.exe .
+          cp ${mapped-nix-tools-cross.nix-tools.exes.cardano-sl-tools.x86_64-linux}/bin/wallet-extractor.exe .
           cp ${mapped-nix-tools-cross.nix-tools.exes.cardano-sl-tools.x86_64-linux}/bin/cardano-x509-certificates.exe .
           cp ${./log-configs/daedalus.yaml} log-config-prod.yaml
           cp ${./lib/configuration.yaml} configuration.yaml

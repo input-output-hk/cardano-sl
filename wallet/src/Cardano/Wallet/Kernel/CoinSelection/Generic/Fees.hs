@@ -97,15 +97,33 @@ adjustForFees feeOptions pickUtxo css = do
           SenderPaysFee ->
             senderPaysFee pickUtxo feeOptions inps outs chgs
 
-    let neInps = case inps' of
-            []   -> error "adjustForFees: empty list of inputs"
-            i:is -> i :| is
+    let estimatedFee = getFee $ feeUpperBound feeOptions inps outs chgs
+    let actualFee = getFee $ computeFee inps' outs' chgs'
+    -- NOTE
+    -- We enforce the following invariant:
+    --
+    --   estimatedFee < actualFee < 2 * estimatedFee
+    --
+    -- This coefficient (2*...) is mostly taken out of nowhere, but if anything
+    -- go beyond that upper bound, we would know that our algorithm for fee
+    -- reconciliation below is messed up.
+    -- Similarly, the algorithm tries to take money from inputs until it reaches
+    -- the goal fixed by 'estimatedFee'. So, the actualFee just can't be lower
+    -- than the goal.
+    --
+    -- (PS: using `valueDiv` instead of `valueMul` to avoid overflow)
+    if (actualFee < estimatedFee || actualFee `valueDiv` 2 > estimatedFee) then
+        error $ "adjustForFees: fee out of bounds: " <> pretty actualFee <> " while expecting ~" <> pretty estimatedFee
+    else do
+        let neInps = case inps' of
+                []   -> error "adjustForFees: empty list of inputs"
+                i:is -> i :| is
 
-    let neOuts = case outs' of
-            []   -> error "adjustForFees: empty list of outputs"
-            o:os -> o :| os
+        let neOuts = case outs' of
+                []   -> error "adjustForFees: empty list of outputs"
+                o:os -> o :| os
 
-    return $ CoinSelFinalResult neInps neOuts chgs'
+        return $ CoinSelFinalResult neInps neOuts chgs'
 
 
 {-------------------------------------------------------------------------------
@@ -286,6 +304,47 @@ feeUpperBound FeeOptions{..} inps outs chgs =
   where
     numInputs = fromIntegral $ sizeToWord $ selectedSize $ foldl' (flip select) emptySelection inps
     outputs = map outVal outs <> chgs
+
+-- Computing actual fee is a bit tricky in the generic realm because we don't
+-- know what type representation is used by the underlying implementation. So,
+-- we can't just sum up all the input and substract the sub of all outputs
+-- (incl. change) because we'll risk an overflow with each sum. Instead, we
+-- reduce the input value iteratively, coin by coin using a safe distance
+-- between coins that are known to be within bounds.
+-- The algorithm converge because we know that by construction, there are less
+-- outputs than inputs. In essence, this computes:
+--
+--     fees = ∑ inputs - (∑ outputs + ∑ changes)
+computeFee
+    :: forall dom. (CoinSelDom dom)
+    => [UtxoEntry dom]
+    -> [Output dom]
+    -> [Value dom]
+    -> Fee dom
+computeFee inps outs chgs =
+    Fee $ collapse (map utxoEntryVal inps) (map outVal outs <> chgs)
+  where
+    -- Some remaining inputs together. At this point, we've removed
+    -- all outputs and changes, so what's left are simply the actual fees.
+    -- It's unrealistic to imagine them being bigger than the max coin value.
+    collapse plus [] = case valueSum plus of
+        Nothing -> error "fees are bigger than max coin value"
+        Just a  -> a
+
+    -- In order to safely compute fees at this level, we need make sure we don't
+    -- overflow. Therefore, we remove outputs to inputs until there's no outputs
+    -- left to remove.
+    collapse (p:ps) (m:ms)
+        | p > m     = let p' = valueDist p m in collapse (p':ps) ms
+        | p < m     = let m' = valueDist p m in collapse ps (m':ms)
+        | otherwise = collapse ps ms
+
+    -- This branch can only happens if we've depleted all our inputs and there
+    -- are still some outputs left to remove from them. If means the total value
+    -- of outputs (incl. change) was bigger than the total input value which is
+    -- by definition, impossible; unless we messed up real hard.
+    collapse []  _   =
+        error "invariant violation: outputs are bigger than inputs"
 
 
 -- | divvy fee across outputs, discarding zero-output if any. Returns `Nothing`

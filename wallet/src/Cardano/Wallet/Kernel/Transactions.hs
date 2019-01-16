@@ -11,7 +11,6 @@ module Cardano.Wallet.Kernel.Transactions (
     , EstimateFeesError(..)
     , RedeemAdaError(..)
     , cardanoFee
-    , cardanoFeeSanity
     , mkStdTx
     , prepareUnsignedTxWithSources
     , submitSignedTx
@@ -44,8 +43,7 @@ import           Cardano.Crypto.Wallet (DerivationIndex)
 import qualified Cardano.Wallet.Kernel.Addresses as Kernel
 import           Cardano.Wallet.Kernel.CoinSelection.FromGeneric
                      (CoinSelFinalResult (..), CoinSelectionOptions (..),
-                     checkCardanoFeeSanity, estimateCardanoFee,
-                     estimateMaxTxInputs)
+                     estimateCardanoFee, estimateMaxTxInputs)
 import qualified Cardano.Wallet.Kernel.CoinSelection.FromGeneric as CoinSelection
 import           Cardano.Wallet.Kernel.CoinSelection.Generic
                      (CoinSelHardErr (..))
@@ -635,12 +633,6 @@ cardanoFee (TxFeePolicyTxSizeLinear policy) inputs outputs =
       estimateCardanoFee policy inputs (toList $ fmap Core.getCoin outputs)
 cardanoFee TxFeePolicyUnknown{} _ _ =
     error "cardanoFee: unknown policy"
-
-cardanoFeeSanity :: TxFeePolicy -> Coin -> Bool
-cardanoFeeSanity (TxFeePolicyTxSizeLinear policy) fees =
-    checkCardanoFeeSanity policy fees
-cardanoFeeSanity TxFeePolicyUnknown{} _ =
-    error "cardanoFeeSanity: unknown policy"
 
 {-------------------------------------------------------------------------------
   Ada redemption

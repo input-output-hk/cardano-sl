@@ -18,7 +18,6 @@ module Cardano.Wallet.Kernel.CoinSelection.FromGeneric (
   , largestFirst
     -- * Estimating fees
   , estimateCardanoFee
-  , checkCardanoFeeSanity
   , boundAddrAttrSize
   , boundTxAttrSize
     -- * Estimating transaction limits
@@ -44,7 +43,6 @@ import           Pos.Chain.Txp as Core (TxIn, TxOutAux, Utxo, toaOut,
 import           Pos.Core as Core (AddrAttributes, Address, Coin (..),
                      TxSizeLinear, addCoin, calculateTxSizeLinear, checkCoin,
                      divCoin, isRedeemAddress, maxCoinVal, mkCoin, subCoin,
-                     sumCoins, txSizeLinearMinValue, unsafeMulCoin,
                      unsafeSubCoin)
 
 import           Pos.Core.Attributes (Attributes)
@@ -148,8 +146,6 @@ data InputGrouping =
 data CoinSelectionOptions = CoinSelectionOptions {
       csoEstimateFee       :: Int -> NonEmpty Core.Coin -> Core.Coin
     -- ^ A function to estimate the fees.
-    , csoFeesSanityCheck   :: Core.Coin -> Bool
-    -- ^ A function we can use to check if fees are not too big or too small.
     , csoInputGrouping     :: InputGrouping
     -- ^ A preference regarding input grouping.
     , csoExpenseRegulation :: ExpenseRegulation
@@ -163,10 +159,9 @@ data CoinSelectionOptions = CoinSelectionOptions {
 -- | Creates new 'CoinSelectionOptions' using 'NoGrouping' as default
 -- 'InputGrouping' and 'SenderPaysFee' as default 'ExpenseRegulation'.
 newOptions :: (Int -> NonEmpty Core.Coin -> Core.Coin)
-           -> (Core.Coin -> Bool) -> CoinSelectionOptions
-newOptions estimateFee check = CoinSelectionOptions {
+           -> CoinSelectionOptions
+newOptions estimateFee = CoinSelectionOptions {
       csoEstimateFee       = estimateFee
-    , csoFeesSanityCheck   = check
     , csoInputGrouping     = IgnoreGrouping
     , csoExpenseRegulation = SenderPaysFee
     , csoDustThreshold     = Core.mkCoin 0
@@ -237,21 +232,7 @@ runCoinSelT opts pickUtxo policy (NE.sortBy (flip (comparing outVal)) -> request
         -- We adjust for fees /after/ potentially dealing with grouping
         -- Since grouping only affects the inputs we select, this makes no
         -- difference.
-        csf <- adjustForFees (feeOptions opts) pickUtxo css
-        let fees = computeFees csf
-        if (csoFeesSanityCheck opts fees)
-        then return csf
-        else error $ "fee out of bound" <> show fees
-
-    computeFees :: CoinSelFinalResult Cardano -> Core.Coin
-    computeFees csf =
-        let
-            inputs  = Core.sumCoins $ fmap (Core.txOutValue . Core.toaOut . snd) $ NE.toList $ csrInputs csf
-            outputs = Core.sumCoins $ fmap (Core.txOutValue . Core.toaOut) $ NE.toList $ csrOutputs csf
-            change  = Core.sumCoins $ csrChange csf
-        in  -- NOTE: _Rather_ safe since we expect fee to be within reasonnable bounds
-            mkCoin $ fromIntegral (inputs - (outputs + change))
-
+        adjustForFees (feeOptions opts) pickUtxo css
 
     intInputGrouping :: InputGrouping
                      -> CoinSelT Core.Utxo CoinSelHardErr m [CoinSelResult Cardano]
@@ -410,15 +391,6 @@ estimateCardanoFee :: TxSizeLinear -> Int -> [Word64] -> Word64
 estimateCardanoFee linearFeePolicy ins outs
     = ceiling $ calculateTxSizeLinear linearFeePolicy
               $ hi $ estimateSize boundAddrAttrSize boundTxAttrSize ins outs
-
-checkCardanoFeeSanity :: TxSizeLinear -> Coin -> Bool
-checkCardanoFeeSanity linearFeePolicy fees =
-    let
-        maxCoeff :: Int = 2
-        minFees = Core.mkCoin $ floor $ txSizeLinearMinValue linearFeePolicy
-    in
-        (fees >= minFees) && (fees <= Core.unsafeMulCoin minFees maxCoeff)
-
 
 -- | Size to use for a value of type @Attributes AddrAttributes@ when estimating
 --   encoded transaction sizes. The minimum possible value is 2.

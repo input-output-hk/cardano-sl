@@ -18,14 +18,23 @@ module Pos.Client.CLI.Options
        , templateParser
 
        , nodeIdOption
+
+       , logConfig_L
+       , logPrefix_L
+       , logConsoleOff_L
+       , reportServers_L
+       , updateServers_L
+       , configurationOptions_L
        ) where
 
 import           Universum
 
+import           Control.Lens (makeLensesWith)
 import           Data.Default (def)
 import           Data.Time.Units (fromMicroseconds)
 import qualified Options.Applicative as Opt
 import           Options.Applicative.Builder.Internal (HasMetavar, HasName)
+import           Pos.Util (postfixLFields)
 import           Pos.Util.OptParse (fromParsec)
 
 import           Pos.Communication (NodeId)
@@ -43,6 +52,8 @@ data CommonArgs = CommonArgs
     , updateServers        :: ![Text]
     , configurationOptions :: !ConfigurationOptions
     } deriving Show
+
+makeLensesWith postfixLFields ''CommonArgs
 
 commonArgsParser :: Opt.Parser CommonArgs
 commonArgsParser = do

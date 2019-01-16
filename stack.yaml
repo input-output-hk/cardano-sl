@@ -30,6 +30,7 @@ packages:
 - generator
 - client
 - auxx
+- script-runner
 - explorer
 - node
 - tools

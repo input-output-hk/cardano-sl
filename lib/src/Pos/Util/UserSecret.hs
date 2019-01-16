@@ -225,6 +225,7 @@ getAccessMode path = do
 setMode600 :: (MonadIO m) => FilePath -> m ()
 setMode600 path = liftIO $ PSX.setFileMode path mode600
 
+{-# INLINE ensureModeIs600 #-}
 ensureModeIs600 :: MonadMaybeLog m => FilePath -> m ()
 ensureModeIs600 path = do
     accessMode <- getAccessMode path
@@ -253,6 +254,7 @@ initializeUserSecret secretPath = do
     createEmptyFile :: (MonadIO m) => FilePath -> m ()
     createEmptyFile = liftIO . flip writeFile mempty
 
+{-# INLINE readUserSecret #-}
 -- | Reads user secret from file, assuming that file exists,
 -- and has mode 600, throws exception in other case
 readUserSecret :: MonadMaybeLog m => FilePath -> m UserSecret

@@ -1,0 +1,24 @@
+rotation:
+    logLimit: 104857600 # 100MB
+    keepFiles: 100
+loggerTree:
+  severity: Info+
+  files:
+
+  handlers:
+    - { name: "console"
+      , logsafety: SecretLogLevel
+      , severity: Debug
+      , filepath: "stdout"
+      , backend: StdoutBE }
+    - { name: "JSON1"
+      , filepath: "pub/node.json"
+      , logsafety: PublicLogLevel
+      , severity: Debug
+      , backend: FileJsonBE }
+    - { name: "JSON2"
+      , filepath: "node.json"
+      , logsafety: SecretLogLevel
+      , severity: Debug
+      , backend: FileJsonBE }
+

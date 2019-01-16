@@ -64,6 +64,7 @@ type TxpProcessTransactionMode ctx m =
     , CanJsonLog m
     )
 
+{-# INLINE txProcessTransaction #-}
 -- | Process transaction. 'TxId' is expected to be the hash of
 -- transaction in 'TxAux'. Separation is supported for optimization
 -- only.
@@ -196,6 +197,7 @@ txProcessTransactionAbstract epochSlots genesisConfig buildEnv txAction itw@(txI
             (Left err@(ToilTipsMismatch {})) -> reportError (pretty err)
             _                                -> pass
 
+{-# INLINE txNormalize #-}
 -- | 1. Recompute UtxoView by current MemPool
 -- | 2. Remove invalid transactions from MemPool
 -- | 3. Set new tip to txp local data

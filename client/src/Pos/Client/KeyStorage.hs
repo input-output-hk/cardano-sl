@@ -71,6 +71,7 @@ getSecretKeys = AllUserSecrets <$> getSecretKeysPlain
 getSecretKeysPlain :: MonadKeysRead m => m [EncryptedSecretKey]
 getSecretKeysPlain = view usKeys <$> getSecret
 
+{-# INLINE addSecretKey #-}
 addSecretKey :: MonadKeys m => EncryptedSecretKey -> m ()
 addSecretKey sk = modifySecret $ \us ->
     if view usKeys us `containsKey` sk

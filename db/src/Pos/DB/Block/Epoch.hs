@@ -237,7 +237,7 @@ renderConsolidateError = \case
     CEBlockLookupFailed fn lsi h ->
         fn <> sformat (": block lookup failed on (" % build % ", " % build % ")") lsi h
     CEBBlockNotFound fn lsi hh ->
-        fn <> sformat (": block mssing : " % build % " " % build) lsi hh
+        fn <> sformat (": block missing : " % build % " " % build) lsi hh
 
 -- -----------------------------------------------------------------------------
 

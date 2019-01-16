@@ -16,6 +16,7 @@ module Pos.DB.Update.GState
        , getMaxBlockSize
        , getSlottingData
        , getEpochProposers
+       , getAllProposals
 
          -- * Operations
        , UpdateOp (..)
@@ -209,6 +210,10 @@ initGStateUS genesisConfig = do
 
 data PropIter
 
+-- proposals added by PutProposal, and removed by DeleteProposal
+-- upModifierToBatch takes a list of proposals to add&delete
+-- listed via getAllProposals, getOldProposals, getDeepProposals, getProposalsByApp
+-- does not contain confirmed proposals
 instance DBIteratorClass PropIter where
     type IterKey PropIter = UpId
     type IterValue PropIter = ProposalState
@@ -218,6 +223,10 @@ proposalSource ::
        (MonadDBRead m)
     => ConduitT () (IterType PropIter) (ResourceT m) ()
 proposalSource = dbIterSource GStateDB (Proxy @PropIter)
+
+getAllProposals :: (MonadDBRead m, MonadUnliftIO m) => m [(UpId, ProposalState)]
+getAllProposals = do
+  runConduitRes $ proposalSource .| CL.consume
 
 -- TODO: it can be optimized by storing some index sorted by
 -- 'SlotId's, but I don't think it may be crucial.

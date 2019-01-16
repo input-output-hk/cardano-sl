@@ -17,6 +17,7 @@ import           Pos.DB.Lrc (prepareLrcDB)
 import           Pos.DB.Update (getAdoptedBVData)
 import           Pos.GState.GState (prepareGStateDB)
 
+{-# INLINE initNodeDBs #-}
 -- | Initialize DBs if necessary.
 initNodeDBs
     :: forall m

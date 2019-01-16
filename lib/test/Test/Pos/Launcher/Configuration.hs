@@ -1,4 +1,4 @@
-module Test.Pos.Launcher.Configuration (tests, roundTripConfiguration) where
+module Test.Pos.Launcher.Configuration (tests) where
 
 import           Hedgehog (Property)
 import qualified Hedgehog as H

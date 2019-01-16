@@ -71,7 +71,7 @@ argsParser =
         (   short 'r'
          <> long "msg-rate"
          <> metavar "INTEGER"
-         <> value (-1)
+         <> value (2)
          <> help "Number of messages to send per second (default: ∞)")
     <*>
     option

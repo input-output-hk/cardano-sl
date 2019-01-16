@@ -28,8 +28,7 @@ import           Bench.Network.Commons (LogMessage (..), MeasureEvent (..),
                      logMessageParser, measureInfoParser)
 import           LogReaderOptions (Args (..), argsParser)
 import           Pos.Util.Trace (Severity (..), Trace, traceWith, wlogTrace)
-import           Pos.Util.Wlog (centiUtcTimeF, productionB, removeAllHandlers,
-                     setupLogging')
+import           Pos.Util.Wlog (productionB, removeAllHandlers, setupLogging')
 
 
 type Measures = M.Map MsgId (Payload, [(MeasureEvent, Timestamp)])
@@ -117,7 +116,7 @@ getOptions = (\(a, ()) -> a) <$> simpleOptions
 
 main :: IO ()
 main = do
-    lh <- setupLogging' (Just centiUtcTimeF) productionB
+    lh <- setupLogging' "bench" productionB
     let logTrace = wlogTrace mempty
     Args{..} <- liftIO getOptions
     measures <- foldrM (analyze logTrace) M.empty inputFiles

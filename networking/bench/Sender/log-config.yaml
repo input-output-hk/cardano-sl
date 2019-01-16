@@ -1,0 +1,44 @@
+# global filter; messages must have at least this severity to pass:
+minSeverity: Debug
+
+# global file rotation settings:
+rotation:
+  rpLogLimitBytes: 5000000
+  rpKeepFilesNum:  10
+  rpMaxAgeHours:   24
+
+# these backends are initialized:
+setupBackends:
+  - KatipBK
+
+# if not indicated otherwise, then messages are passed to these backends:
+defaultBackends:
+  - KatipBK
+  - AggregationBK
+
+# if wanted, the GUI is listening on this port:
+# hasGUI: 18321
+
+# if wanted, the EKG interface is listening on this port:
+# hasEKG: 12787
+
+# here we set up outputs of logging in 'katip':
+setupScribes:
+  - scKind: StdoutSK
+    scName: stdout
+    scRotation: null
+  - scKind: FileTextSK
+    scName: out.txt
+    scRotation: null
+
+# if not indicated otherwise, then log output is directed to this:
+defaultScribes:
+  - - StdoutSK
+    - stdout
+  - - FileTextSK
+    - out.txt
+
+# more options which can be passed as key-value pairs:
+options:
+  cfokey:
+    value: "Release-1.0.0"

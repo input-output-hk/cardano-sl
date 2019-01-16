@@ -5,68 +5,52 @@ module Pos.Util.Klog.Compatibility
         (  -- * CanLog
            CanLog (..)
          , WithLogger
-        --    -- * Pure logging
+           -- * Pure logging
          , dispatchEvents
          , LogEvent (..)
          , setupLogging
          , setupLogging'
-        --  , setupTestLogging
-        --    -- * Logging functions
+         , setupTestLogging
+           -- * Logging functions
          , logDebug
          , logError
          , logInfo
          , logNotice
          , logWarning
          , logMessage
-        --  , LoggerName
          , LoggerNameBox (..)
          , HasLoggerName (..)
          , usingLoggerName
          , addLoggerName
-        --  , setLoggerName
          , Severity (..)
-        --    * LoggerConfig
          , LoggerConfig
+           -- * LoggerConfig
          , productionB
          , retrieveLogContent
-        --    -- * Safe logging
-        --  , SelectionMode
-        --  , logMCond
-        --    -- * Named Pure logging
+           -- * Named Pure logging
          , NamedPureLogger (..)
          , launchNamedPureLog
-        --  , usingNamedPureLogger
          , runNamedPureLog
-        --    -- * reimplementations
          , removeAllHandlers
-        --  , centiUtcTimeF
-        --  , getLinesLogged
-        --    -- * Structured logging
-        --  , logMX
-        --  -- * Safe structured logging
-        --  , logXCond
          , LoggingHandler (..)
          , LoggingHandlerInternal (..)
+           -- * Logging configuration
          , defaultTestConfiguration
          , defaultInteractiveConfiguration
          , parseLoggerConfig
          , setLogPrefix
+         , injectTrace
          ) where
 
 import           Control.Concurrent (modifyMVar_)
 import           Control.Concurrent.MVar (withMVar)
--- import           Control.Lens (each)
 import           Control.Monad.Base (MonadBase)
 import           Control.Monad.Morph (MFunctor (..))
 import qualified Control.Monad.State.Lazy as StateLazy
 import           Control.Monad.Trans.Control (MonadBaseControl (..))
--- import           Data.Map.Strict (lookup)
 import           Data.Sequence ((|>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
--- import           Data.Time (UTCTime)
--- import           Data.Time.Format (defaultTimeLocale, formatTime)
--- import qualified Language.Haskell.TH as TH
 
 import           Cardano.BM.Configuration (Configuration)
 import qualified Cardano.BM.Configuration.Model as Configuration
@@ -76,22 +60,14 @@ import           Cardano.BM.Data.LogItem (LogSelection (Both))
 import           Cardano.BM.Data.Severity (Severity (..))
 import           Cardano.BM.Data.Trace (Trace)
 import           Cardano.BM.Setup (setupTrace)
-import           Cardano.BM.Trace (traceNamedItem)
+import           Cardano.BM.Trace (appendName, traceNamedItem)
 
 import qualified Pos.Util.Log as Log
--- import qualified Pos.Util.Log.Internal as Internal
--- import           Pos.Util.Log.LoggerConfig (BackendKind (FileJsonBE),
---                      LogHandler (..), LogSecurityLevel (..), LoggerConfig (..),
---                      defaultInteractiveConfiguration,
---                      lcLoggerTree, lhName, ltHandlers, ltMinSeverity)
 import           System.IO.Unsafe (unsafePerformIO)
 
 import           Universum
 
--- import qualified Katip as K
--- import qualified Katip.Core as KC
-
--- | set log prefix  *!*
+-- set log prefix. (Logs prefix is no more used)
 setLogPrefix :: Maybe FilePath -> LoggerConfig -> IO LoggerConfig
 setLogPrefix _ lc = return lc
 
@@ -116,6 +92,11 @@ newtype LoggingHandler = LoggingHandler
     { getLSI :: LoggingMVar
     }
 
+injectTrace :: Trace IO -> IO ()
+injectTrace tr = modifyMVar_ loggingHandler $ \lh ->
+                    (modifyMVar_ (getLSI lh) $ \_ ->
+                        return $ LoggingHandlerInternal tr) >> return lh
+
 getTrace :: LoggingHandler -> IO (Trace IO)
 getTrace lh = withMVar (getLSI lh) $ \lhi -> return $ lhiTrace lhi
 
@@ -138,10 +119,11 @@ instance CanLog m => CanLog (StateLazy.StateT s m)
 instance CanLog m => CanLog (ExceptT s m)
 
 instance CanLog IO where
-    dispatchMessage _name severity msg = do
+    dispatchMessage name severity msg = do
         lh <- readMVar loggingHandler
         tr <- getTrace lh
-        traceNamedItem tr Both severity msg
+        tr' <- appendName name tr
+        traceNamedItem tr' Both severity msg
 
 type WithLogger m = (CanLog m, HasLoggerName m)
 
@@ -285,9 +267,9 @@ loggingHandler :: MVar LoggingHandler
 loggingHandler = unsafePerformIO $ do
     newMVar $ error "LoggingHandler MVar is not initialized."
 
--- -- | setup logging used in tests
--- setupTestLogging :: IO ()
--- setupTestLogging = setupLogging "test" (defaultTestConfiguration Debug)
+-- | setup logging used in tests
+setupTestLogging :: IO ()
+setupTestLogging = setupLogging "test" (defaultTestConfiguration Debug)
 
 -- | setup logging according to configuration @LoggerConfig@
 --   the backends (scribes) will be registered with katip
@@ -303,12 +285,7 @@ setupLogging' cfoKey lc = liftIO $ do
     setupLogging cfoKey lc
     readMVar loggingHandler
 
--- getLinesLogged :: IO Integer
--- getLinesLogged = do
---     lh <- liftIO $ readMVar loggingHandler
---     Internal.getLinesLogged lh
-
--- -- | various reimplementations
+-- | various reimplementations
 
 productionB :: LoggerConfig
 productionB = defaultInteractiveConfiguration Debug
@@ -318,113 +295,6 @@ retrieveLogContent fp maylines = do
     let nlines = fromMaybe 9999 maylines
     ((take nlines) . reverse . lines) <$> TIO.readFile fp
 
--- centiUtcTimeF :: UTCTime -> Text
--- centiUtcTimeF utc =
---     T.pack $ formatTime defaultTimeLocale tsformat utc
---   where
---     tsformat :: String
---     tsformat = "%F %T%2Q %Z"
-
 -- do nothing, logs are closed by finalizers
 removeAllHandlers :: LoggingHandler -> IO ()
 removeAllHandlers _ = pure () --unrealize
-
--- -- Safe and structured logging.
-
--- -- | Whether to log to given log handler.
--- type SelectionMode = LogSecurityLevel -> Bool
--- type LogHandlerExclusion = [LogHandler] -> [LogHandler]
-
--- logMCond :: MonadIO m => LoggerName -> Severity -> Text -> SelectionMode -> m ()
--- logMCond name severity msg cond = do
---     let ns = K.Namespace (T.split (=='.') name)
---     lh <- liftIO $ readMVar loggingHandler
---     logItemCond lh
---                 ()
---                 ns
---                 Nothing
---                 (Internal.sev2klog severity)
---                 (filterWithSafety cond)
---                 (Just msg)
-
--- -- | Keeps only 'Scribes' which match the 'SelectionMode'.
--- filterWithSafety :: SelectionMode -> LogHandlerExclusion
--- filterWithSafety condition = filter (\lh -> case _lhSecurityLevel lh of
---     Nothing -> False
---     Just s  -> condition s)
-
--- -- | Logs an item only into JSON 'Scribes'.
--- --   Also, ToJSON a => KC.LogItem (see Pos.Util.Log).
--- logMX :: (MonadIO m, Log.ToObject a) => LoggerName -> Severity -> a -> m ()
--- logMX name severity a = do
---     let ns = K.Namespace (T.split (=='.') name)
---     lh <- liftIO $ readMVar loggingHandler
---     logItemCond lh
---                 a
---                 ns
---                 Nothing
---                 (Internal.sev2klog severity)
---                 filterJsonScribes
---                 Nothing
-
--- -- | Filters out 'Scribes' that are not JSON 'Scribes'.
--- filterJsonScribes :: LogHandlerExclusion
--- filterJsonScribes = filter (\lh -> _lhBackend lh == FileJsonBE)
-
--- -- | Logs an item only into JSON 'Scribes' which match the 'SelectionMode'.
--- logXCond :: (MonadIO m, Log.ToObject a) => LoggerName -> Severity -> a -> SelectionMode -> m ()
--- logXCond name severity a cond = do
---     let ns = K.Namespace (T.split (=='.') name)
---     lh <- liftIO $ readMVar loggingHandler
---     logItemCond lh
---                 a
---                 ns
---                 Nothing
---                 (Internal.sev2klog severity)
---                 ((filterWithSafety cond) . filterJsonScribes)
---                 Nothing
-
--- --  | Writes only to 'Scribes's filtered with 'LogHandlerExclusion' function.
--- logItemCond
---     :: (Log.ToObject a, MonadIO m)
---     => LoggingHandler
---     -> a
---     -> K.Namespace
---     -> Maybe TH.Loc
---     -> K.Severity
---     -> LogHandlerExclusion
---     -> Maybe Text
---     -> m ()
--- logItemCond lhandler a ns loc sev strainer mayMsg = do
---     mayle <- liftIO $ Internal.getLogEnv lhandler
---     case mayle of
---         Nothing -> error "logging not yet initialized. Abort."
---         Just le -> do
---             maycfg <- liftIO $ Internal.getConfig lhandler
---             let cfg = case maycfg of
---                     Nothing -> error "No Configuration for logging found. Abort."
---                     Just c  -> c
---             let sevmin = Internal.sev2klog $ cfg ^. lcLoggerTree ^. ltMinSeverity
---             when (sev >= sevmin)
---               $ liftIO $ do
---                 threadId <- myThreadId
---                 time <- K._logEnvTimer le
---                 let item = K.Item {
---                       K._itemApp       = K._logEnvApp le
---                     , K._itemEnv       = K._logEnvEnv le
---                     , K._itemSeverity  = sev
---                     , K._itemThread    = KC.mkThreadIdText threadId
---                     , K._itemHost      = K._logEnvHost le
---                     , K._itemProcess   = K._logEnvPid le
---                     , K._itemPayload   = a
---                     , K._itemMessage   = maybe mempty K.logStr mayMsg
---                     , K._itemTime      = time
---                     , K._itemNamespace = (K._logEnvApp le) <> ns
---                     , K._itemLoc       = loc
---                     }
---                 let lhs = cfg ^. lcLoggerTree ^. ltHandlers ^.. each
---                 forM_ (strainer lhs) (\ lh -> do
---                     case lookup (lh ^. lhName) (K._logEnvScribes le) of
---                         Nothing -> error ("Not found Scribe with name: " <> lh ^. lhName)
---                         Just scribeH -> atomically
---                             (KC.tryWriteTBQueue (KC.shChan scribeH) (KC.NewItem item)))

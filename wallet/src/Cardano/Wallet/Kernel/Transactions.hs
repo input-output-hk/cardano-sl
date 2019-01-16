@@ -231,13 +231,8 @@ newUnsignedTransaction ActiveWallet{..} options accountId payees = runExceptT $ 
     -- that it may change in the future.
     let attributes = def :: TxAttributes
     let tx = UnsignedTx inputs outputs attributes coins
-
-    -- STEP 3: Sanity test. Here we check whether our fees are within a reasonable
-    -- range.
     let fees = computeFeesOfUnsignedTx tx
-    if csoFeesSanityCheck options fees
-    then return (snapshot, tx, fees, availableUtxo)
-    else error $ "fees out of bound " <> show fees
+    return (snapshot, tx, fees, availableUtxo)
   where
     -- Generate an initial seed for the random generator using the hash of
     -- the payees, which ensure that the coin selection (and the fee estimation)

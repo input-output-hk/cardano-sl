@@ -49,9 +49,10 @@ import           Cardano.Wallet.Kernel.Util.Core (paymentAmount, utxoBalance,
 import           Pos.Crypto.Signing.Safe (fakeSigner)
 import           Test.Pos.Configuration (withProvidedMagicConfig)
 import           Test.Spec.CoinSelection.Generators (InitialBalance (..),
-                     Pay (..), genFiddlyPayees, genFiddlyUtxo, genGroupedUtxo,
-                     genPayee, genPayees, genRedeemPayee,
-                     genUniqueChangeAddress, genUtxoWithAtLeast)
+                     Pay (..), genFiddlyPayees, genFiddlyUtxo,
+                     genFragmentedUtxo, genGroupedUtxo, genPayee, genPayees,
+                     genRedeemPayee, genUniqueChangeAddress,
+                     genUtxoWithAtLeast)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
@@ -663,7 +664,7 @@ spec =
                 ) $ \(utxo, payee, res) ->
                   paymentSucceededWith utxo payee res [feeWasPayed SenderPaysFee]
             prop "multiple payees, SenderPaysFee, fee = cardano" $ \pm -> forAll (
-                payBatch pm cardanoFee cardanoFeeCheck identity (InitialADA 1000) (PayADA 100) random
+                pay pm genFragmentedUtxo genPayees cardanoFee cardanoFeeCheck identity (InitialADA 1000) (PayADA 100) random
                 ) $ \(utxo, payee, res) ->
                   paymentSucceededWith utxo payee res [feeWasPayed SenderPaysFee]
             prop "one payee, ReceiverPaysFee, fee = cardano" $ \pm -> forAll (

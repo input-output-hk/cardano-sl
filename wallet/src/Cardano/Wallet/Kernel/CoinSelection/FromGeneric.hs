@@ -44,7 +44,8 @@ import           Pos.Chain.Txp as Core (TxIn, TxOutAux, Utxo, toaOut,
 import           Pos.Core as Core (AddrAttributes, Address, Coin (..),
                      TxSizeLinear, addCoin, calculateTxSizeLinear, checkCoin,
                      divCoin, isRedeemAddress, maxCoinVal, mkCoin, subCoin,
-                     txSizeLinearMinValue, unsafeMulCoin, unsafeSubCoin)
+                     sumCoins, txSizeLinearMinValue, unsafeMulCoin,
+                     unsafeSubCoin)
 
 import           Pos.Core.Attributes (Attributes)
 import           Pos.Crypto (Signature)
@@ -236,7 +237,21 @@ runCoinSelT opts pickUtxo policy (NE.sortBy (flip (comparing outVal)) -> request
         -- We adjust for fees /after/ potentially dealing with grouping
         -- Since grouping only affects the inputs we select, this makes no
         -- difference.
-        adjustForFees (feeOptions opts) pickUtxo css
+        csf <- adjustForFees (feeOptions opts) pickUtxo css
+        let fees = computeFees csf
+        if (csoFeesSanityCheck opts fees)
+        then return csf
+        else error $ "fee out of bound" <> show fees
+
+    computeFees :: CoinSelFinalResult Cardano -> Core.Coin
+    computeFees csf =
+        let
+            inputs  = Core.sumCoins $ fmap (Core.txOutValue . Core.toaOut . snd) $ NE.toList $ csrInputs csf
+            outputs = Core.sumCoins $ fmap (Core.txOutValue . Core.toaOut) $ NE.toList $ csrOutputs csf
+            change  = Core.sumCoins $ csrChange csf
+        in  -- NOTE: _Rather_ safe since we expect fee to be within reasonnable bounds
+            mkCoin $ fromIntegral (inputs - (outputs + change))
+
 
     intInputGrouping :: InputGrouping
                      -> CoinSelT Core.Utxo CoinSelHardErr m [CoinSelResult Cardano]

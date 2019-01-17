@@ -63,10 +63,13 @@ main = do
             argsParser
             empty
 
-    lh <- loadLogConfig logsPrefix $ Just "networking/bench/Sender/log-config.yaml" --logConfig
+    -- creates a Trace from a config file and stores it in the logginghandler
+    lh <- loadLogConfig logsPrefix $ Just "networking/bench/Sender/log-config.yaml"
     setLocaleEncoding utf8
 
+    -- extract the trace from the logging handler
     tr <- lhiTrace <$> readMVar (getLSI lh)
+    -- use iohk-monitoring-framework functions
     logDebug   tr "this is a debug message"
     logInfo    tr "this is an information."
     logNotice  tr "this is a notice!"

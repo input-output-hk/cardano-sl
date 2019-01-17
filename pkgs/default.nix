@@ -16192,6 +16192,7 @@ cardano-sl-infra
 cardano-sl-networking
 cardano-sl-node-ipc
 cardano-sl-util
+cardano-sl-utxo
 cardano-sl-x509
 connection
 data-default

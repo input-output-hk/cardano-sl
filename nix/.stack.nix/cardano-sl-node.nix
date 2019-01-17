@@ -39,6 +39,7 @@
           (hsPkgs.cardano-sl-networking)
           (hsPkgs.cardano-sl-node-ipc)
           (hsPkgs.cardano-sl-util)
+          (hsPkgs.cardano-sl-utxo)
           (hsPkgs.cardano-sl-x509)
           (hsPkgs.connection)
           (hsPkgs.data-default)

@@ -19,9 +19,9 @@ import           Network.Wai.Handler.Warp (defaultSettings,
 import qualified Paths_cardano_sl_node as Paths
 import           Servant
 
-import           Cardano.Node.NodeStateAdaptor (NodeStateAdaptor, getFeePolicy,
-                     getMaxTxSize, getSecurityParameter, getSlotCount,
-                     getTipSlotId, newNodeStateAdaptor)
+import           Cardano.Node.NodeStateAdaptor (NodeStateAdaptor, getCoreConfig,
+                     getFeePolicy, getMaxTxSize, getSecurityParameter,
+                     getSlotCount, getTipSlotId, newNodeStateAdaptor)
 import           Cardano.NodeIPC (startNodeJsIPC)
 import           Ntp.Client (NtpConfiguration, NtpStatus (..),
                      ntpClientSettings, withNtpClient)
@@ -60,6 +60,7 @@ import           Pos.Util.Servant (APIResponse (..), JsendException (..),
                      UnknownError (..), applicationJson, single)
 import           Pos.Web (serveImpl)
 import qualified Pos.Web as Legacy
+import           UTxO.Context (ccUtxo, initCardanoContext)
 
 import           Cardano.Node.API.Swagger (forkDocServer)
 
@@ -261,6 +262,7 @@ getNodeSettings compileInfo updateConfiguration timestamp slottingVar ns = do
     maxTxSize         <- liftIO $ getMaxTxSize ns
     securityParameter <- liftIO $ getSecurityParameter ns
     slotCount         <- liftIO $ getSlotCount ns
+    initialUtxo       <- liftIO $ ccUtxo . initCardanoContext <$> getCoreConfig ns
     feePolicy         <- liftIO $ getFeePolicy ns >>= \case
         Core.TxFeePolicyTxSizeLinear a -> return a
         _ -> fail "getNodeSettings: Unsupported / Unknown fee policy."
@@ -284,6 +286,7 @@ getNodeSettings compileInfo updateConfiguration timestamp slottingVar ns = do
              securityParameter
         , setSlotCount =
             V1 slotCount
+        , setInitialUtxo = Utxo initialUtxo
         }
 
 data SettingsCtx = SettingsCtx

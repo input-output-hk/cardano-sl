@@ -38,6 +38,7 @@ import           Servant
 import           Test.QuickCheck
 import           Text.ParserCombinators.ReadP (readP_to_S)
 
+import qualified Pos.Chain.Txp as Core
 import qualified Pos.Chain.Update as Core
 import qualified Pos.Core as Core
 import           Pos.Infra.Diffusion.Subscription.Status
@@ -594,6 +595,19 @@ instance FromJSON (V1 Core.SlotCount) where
     parseJSON v = V1 . Core.SlotCount <$> parseJSON v
 
 
+newtype Utxo = Utxo Core.Utxo
+    deriving stock (Generic, Show, Eq)
+    deriving newtype (ToJSON, FromJSON)
+
+instance Arbitrary Utxo where
+    arbitrary = return $ Utxo Map.empty
+
+instance ToSchema Utxo where
+    declareNamedSchema _ = do
+        NamedSchema _ s <- declareNamedSchema $ Proxy @Int
+        pure $ NamedSchema (Just "Meh") s
+
+
 
 -- | The @static@ settings for this wallet node. In particular, we could group
 -- here protocol-related settings like the slot duration, the transaction max size,
@@ -608,6 +622,7 @@ data NodeSettings = NodeSettings
     , setMaxTxSize         :: !MaxTxSize
     , setFeePolicy         :: !TxFeePolicy
     , setSecurityParameter :: !SecurityParameter
+    , setInitialUtxo       :: !Utxo
     } deriving (Show, Eq, Generic)
 
 deriveJSON Aeson.defaultOptions ''NodeSettings
@@ -624,6 +639,7 @@ instance ToSchema NodeSettings where
       & ("maxTxSize"          --^ "The largest allowed transaction size")
       & ("feePolicy"          --^ "The fee policy.")
       & ("securityParameter"  --^ "The security parameter.")
+      & ("initialUtxo"  --^ "The first utxo.")
     )
 
 instance Arbitrary NodeSettings where
@@ -633,6 +649,7 @@ instance Arbitrary NodeSettings where
                              <*> arbitrary
                              <*> arbitrary
                              <*> pure "0e1c9322a"
+                             <*> arbitrary
                              <*> arbitrary
                              <*> arbitrary
                              <*> arbitrary

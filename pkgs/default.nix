@@ -13340,8 +13340,8 @@ version = "1.1.0";
 src = fetchgit {
 
 url = "https://github.com/input-output-hk/cardano-crypto";
-sha256 = "0afacdk9ibdzay43l79r1zvg957gkrnrfla5dzcd64jz6xnigg8j";
-rev = "59eb60b3a227c615736db9bb1609fd5c20109098";
+sha256 = "1jyzai4sn9hi3p6r97h54f9a7an7vk38lwrbl4mds9zmdsw5f5ad";
+rev = "45e1a0eafac774c109704be44ca06fd8cae193ba";
 fetchSubmodules = true;
 
 };

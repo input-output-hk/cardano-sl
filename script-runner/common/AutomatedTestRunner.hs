@@ -34,7 +34,7 @@ import           Prelude (read)
 import           System.Exit (ExitCode)
 import           System.IO (BufferMode (LineBuffering), hPrint, hSetBuffering)
 import qualified Turtle as T
-import           Universum hiding (on, state, when)
+import           Universum hiding (on)
 
 import           Ntp.Client (NtpConfiguration)
 import           Paths_cardano_sl (version)
@@ -130,8 +130,8 @@ getScriptRunnerOptions = execParser programInfo
 loggerName :: LoggerName
 loggerName = "script-runner"
 
-thing :: HasCompileInfo => ScriptRunnerOptions -> InputParams -> IO ()
-thing opts inputParams = do
+executeAction :: HasCompileInfo => ScriptRunnerOptions -> InputParams -> IO ()
+executeAction opts inputParams = do
   let
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)
     cArgs@CLI.CommonNodeArgs{CLI.cnaDumpGenesisDataPath,CLI.cnaDumpConfiguration} = opts ^. srCommonNodeArgs
@@ -162,15 +162,15 @@ runWithConfig opts inputParams genesisConfig _walletConfig txpConfig _ntpConfig 
     nodeParams = maybeAddPeers (opts ^. srPeers) $ nodeParams'
     vssSK = fromMaybe (error "no user secret given") (npUserSecret nodeParams ^. usVss)
     sscParams = CLI.gtSscParams (opts ^. srCommonNodeArgs) vssSK (npBehaviorConfig nodeParams)
-    thing1 = txpGlobalSettings genesisConfig txpConfig
-    thing2 :: ReaderT InitModeContext IO ()
-    thing2 = initNodeDBs genesisConfig
+    txpGS = txpGlobalSettings genesisConfig txpConfig
+    initNDBs :: ReaderT InitModeContext IO ()
+    initNDBs = initNodeDBs genesisConfig
   let
     inputParams' = InputParams2 (ipEventChan inputParams) (ipReplyChan inputParams) (ipScriptParams inputParams) (ipStatePath inputParams)
-  bracketNodeResources genesisConfig nodeParams sscParams thing1 thing2 (thing3 opts genesisConfig txpConfig inputParams')
+  bracketNodeResources genesisConfig nodeParams sscParams txpGS initNDBs (nodeResourceAction opts genesisConfig txpConfig inputParams')
 
-thing3 :: (HasCompileInfo, HasConfigurations) => ScriptRunnerOptions -> Config -> TxpConfiguration -> InputParams2 -> NodeResources () -> IO ()
-thing3 opts genesisConfig txpConfig inputParams nr = do
+nodeResourceAction :: (HasCompileInfo, HasConfigurations) => ScriptRunnerOptions -> Config -> TxpConfiguration -> InputParams2 -> NodeResources () -> IO ()
+nodeResourceAction opts genesisConfig txpConfig inputParams nr = do
   handles <- newTVarIO mempty
   let
     -- cores run from 0-3, relays run from 0-0
@@ -187,20 +187,20 @@ thing3 opts genesisConfig txpConfig inputParams nr = do
         , _acTopology = topo
         , _acStatePath = ip2StatePath inputParams
         }
-    thing2 :: Diffusion (RealMode ()) -> RealMode EmptyMempoolExt ()
-    thing2 diffusion = toRealMode (thing5 (hoistDiffusion realModeToAuxx toRealMode diffusion))
-    thing5 :: Diffusion PocMode -> PocMode ()
-    thing5 diffusion = do
+    mkPlugins :: CompiledScript -> [ (Text, Diffusion PocMode -> PocMode ()) ]
+    mkPlugins script = workers script genesisConfig inputParams
+    mkPocMode :: Diffusion PocMode -> PocMode ()
+    mkPocMode diffusion = do
       if spStartCoreAndRelay $ ip2ScriptParams inputParams
         then createNodes (spTodo $ ip2ScriptParams inputParams) opts
         else pure ()
       let epochSlots = configEpochSlots genesisConfig
       let finalscript = (exampleToScript epochSlots genesisConfig . spScript . ip2ScriptParams) inputParams
-      runNode genesisConfig txpConfig nr (thing4 finalscript) diffusion
+      runNode genesisConfig txpConfig nr (mkPlugins finalscript) diffusion
       cleanupNodes
-    thing4 :: CompiledScript -> [ (Text, Diffusion PocMode -> PocMode ()) ]
-    thing4 script = workers script genesisConfig inputParams
-  runRealMode updateConfiguration genesisConfig txpConfig nr thing2
+    action :: Diffusion (RealMode ()) -> RealMode EmptyMempoolExt ()
+    action diffusion = toRealMode (mkPocMode (hoistDiffusion realModeToAuxx toRealMode diffusion))
+  runRealMode updateConfiguration genesisConfig txpConfig nr action
 
 workers :: HasConfigurations => CompiledScript -> Genesis.Config -> InputParams2 -> [ (Text, Diffusion PocMode -> PocMode ()) ]
 workers script genesisConfig InputParams2{ip2EventChan,ip2ReplyChan} =
@@ -276,7 +276,7 @@ runScript sp = T.with (T.mktempdir "/tmp" "script-runner") $ \stateDir -> withCo
   loggerBracket "script-runner" loggingParams . logException "script-runner" $ do
     let
       inputParams = InputParams eventChan replyChan sp (T.pack $ T.encodeString stateDir)
-    thing opts inputParams
+    executeAction opts inputParams
     pure ()
   liftIO $ writeBChan eventChan QuitEvent
   _finalState <- wait asyncUi

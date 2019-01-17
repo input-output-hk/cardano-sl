@@ -30,9 +30,10 @@ import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Genesis as Genesis (Config (..), configEpochSlots)
 import           Pos.Chain.Txp (ExtendedLocalToilM, LocalToilState (..),
                      MemPool, ToilVerFailure (..), TxAux (..), TxId, TxUndo,
-                     TxValidationRules (..), TxpConfiguration (..), UndoMap, Utxo,
-                     UtxoLookup, UtxoModifier, extendLocalToilM, mpLocalTxs,
-                     normalizeToil, processTx, topsortTxs, utxoToLookup)
+                     TxValidationRules (..), TxpConfiguration (..), UndoMap,
+                     Utxo, UtxoLookup, UtxoModifier, extendLocalToilM,
+                     mpLocalTxs, normalizeToil, processTx, topsortTxs,
+                     utxoToLookup)
 import           Pos.Chain.Update (BlockVersionData)
 import           Pos.Core (EpochIndex, SlotCount, siEpoch)
 import           Pos.Core.JsonLog (CanJsonLog (..))

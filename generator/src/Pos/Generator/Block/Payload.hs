@@ -26,8 +26,9 @@ import           Pos.AllSecrets (asSecretKeys, asSpendingData,
                      unInvAddrSpendingData, unInvSecretsMap)
 import           Pos.Chain.Genesis as Genesis (Config (..))
 import           Pos.Chain.Txp (Tx (..), TxAux (..), TxIn (..), TxOut (..),
-                     TxOutAux (..), TxpConfiguration,
-                     Utxo, execUtxoM, utxoToLookup)
+                     TxOutAux (..), TxpConfiguration, Utxo, execUtxoM,
+                     utxoToLookup)
+
 import qualified Pos.Chain.Txp as Utxo
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), TxError (..),
                      createGenericTx, makeMPubKeyTxAddrs)

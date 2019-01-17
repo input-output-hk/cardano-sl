@@ -52,6 +52,7 @@ module Pos.Util.Wlog
         , defaultInteractiveConfiguration
         , LoggingHandler (..)
         , LoggingHandlerInternal (..)
+        , injectTrace
         ) where
 
 import           Pos.Util.Klog.Compatibility (CanLog (..), HasLoggerName (..),
@@ -59,8 +60,8 @@ import           Pos.Util.Klog.Compatibility (CanLog (..), HasLoggerName (..),
                      LoggingHandler (..), LoggingHandlerInternal (..),
                      NamedPureLogger (..), Severity (..), WithLogger,
                      defaultInteractiveConfiguration, defaultTestConfiguration,
-                     dispatchEvents, launchNamedPureLog, logDebug, logError,
-                     logInfo, logMessage, logNotice, logWarning,
+                     dispatchEvents, injectTrace, launchNamedPureLog, logDebug,
+                     logError, logInfo, logMessage, logNotice, logWarning,
                      parseLoggerConfig, productionB, removeAllHandlers,
                      retrieveLogContent, runNamedPureLog, setLogPrefix,
                      setupLogging, setupLogging', usingLoggerName)

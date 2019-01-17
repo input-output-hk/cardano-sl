@@ -92,10 +92,12 @@ newtype LoggingHandler = LoggingHandler
     { getLSI :: LoggingMVar
     }
 
+-- | inject an external Trace into logging handler in order to enable
+-- logging
 injectTrace :: Trace IO -> IO ()
-injectTrace tr = modifyMVar_ loggingHandler $ \lh ->
-                    (modifyMVar_ (getLSI lh) $ \_ ->
-                        return $ LoggingHandlerInternal tr) >> return lh
+injectTrace tr = do
+    lhiMVar <- newMVar $ LoggingHandlerInternal tr
+    modifyMVar_ loggingHandler $ const $ return $ LoggingHandler lhiMVar
 
 getTrace :: LoggingHandler -> IO (Trace IO)
 getTrace lh = withMVar (getLSI lh) $ \lhi -> return $ lhiTrace lhi

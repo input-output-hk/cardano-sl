@@ -604,8 +604,26 @@ instance Arbitrary Utxo where
 
 instance ToSchema Utxo where
     declareNamedSchema _ = do
-        NamedSchema _ s <- declareNamedSchema $ Proxy @Int
-        pure $ NamedSchema (Just "Meh") s
+        NamedSchema _ s <- declareNamedSchema $ Proxy @(Map String Core.TxOut)
+        pure $ NamedSchema (Just "LocalTimeDifference") s
+
+
+instance ToSchema Core.TxOutAux
+
+instance Example Core.TxOut
+instance Arbitrary Core.TxOut where
+    arbitrary = error "TODO"
+
+instance ToSchema Core.TxOut where
+    declareNamedSchema _ = do
+        let string = toSchema $ Proxy @String
+        let int = toSchema $ Proxy @Int
+        pure $ NamedSchema (Just "TxOut") $ mempty
+            & type_ .~ SwaggerObject
+            & properties .~ (mempty
+                & at "coin" ?~ (Inline  int)
+                & at "address" ?~ (Inline $ string)
+            )
 
 
 
